@@ -83,6 +83,9 @@ export function SettingsView({
             style={{ borderRadius: TOKENS.pillRadius, border: `1px solid ${TOKENS.glassBorder}`, padding: "9px 12px", background: "rgba(255,255,255,0.6)", fontSize: 13, outline: "none", transition: TOKENS.transition }}
           />
         </label>
+        <p style={{ fontSize: 11, color: TOKENS.softInk ?? "#94a3b8", margin: "4px 0 0 0", lineHeight: 1.4 }}>
+          Your API keys are stored locally in this browser only and are never sent to any server.
+        </p>
         <PrimaryButton onClick={onSaveSettings}>
           Save settings
         </PrimaryButton>

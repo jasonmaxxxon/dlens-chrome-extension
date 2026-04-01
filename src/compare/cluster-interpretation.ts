@@ -1,5 +1,5 @@
 import type { AnalysisClusterSnapshot, AnalysisEvidenceCommentSnapshot } from "../contracts/ingest.ts";
-import { validateClusterOneLinerPayload } from "../analysis/experimental/cip.ts";
+import { validateClusterOneLinerPayload } from "../analysis/cluster-validation.ts";
 
 export interface CompareClusterSummaryRequestItem {
   captureId: string;

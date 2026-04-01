@@ -51,11 +51,11 @@ export function buildClusterSummaries(
 export function buildClusterCompareRows(
   left: AnalysisSnapshot | null,
   right: AnalysisSnapshot | null,
-  rowLimit = 5,
+  clusterLimit = 5,
 ): ClusterCompareRow[] {
-  const leftSummaries = buildClusterSummaries(left, rowLimit, 5);
-  const rightSummaries = buildClusterSummaries(right, rowLimit, 5);
-  const total = Math.max(rowLimit, leftSummaries.length, rightSummaries.length);
+  const leftSummaries = buildClusterSummaries(left, clusterLimit, 5);
+  const rightSummaries = buildClusterSummaries(right, clusterLimit, 5);
+  const total = Math.max(clusterLimit, leftSummaries.length, rightSummaries.length);
 
   return Array.from({ length: total }, (_, index) => ({
     rank: index + 1,
