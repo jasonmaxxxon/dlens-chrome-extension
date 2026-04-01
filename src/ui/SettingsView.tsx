@@ -84,7 +84,7 @@ export function SettingsView({
           />
         </label>
         <p style={{ fontSize: 11, color: TOKENS.softInk ?? "#94a3b8", margin: "4px 0 0 0", lineHeight: 1.4 }}>
-          Your API keys are stored locally in this browser only and are never sent to any server.
+          Your API keys are stored locally in this browser and are never sent to our servers. When AI summaries are enabled, your key is sent directly to the respective provider (Google, OpenAI, or Anthropic).
         </p>
         <PrimaryButton onClick={onSaveSettings}>
           Save settings
