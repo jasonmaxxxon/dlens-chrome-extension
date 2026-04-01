@@ -1,0 +1,218 @@
+import { buildCompareOneLinerPrompt, type CompareOneLinerRequest } from "./one-liner.ts";
+import {
+  buildCompareClusterSummaryPrompt,
+  parseCompareClusterSummaryResponse,
+  type ClusterInterpretation,
+  type CompareClusterSummaryRequest
+} from "./cluster-interpretation.ts";
+
+export const COMPARE_ONE_LINER_PROMPT_VERSION = "v2";
+export const COMPARE_CLUSTER_SUMMARY_PROMPT_VERSION = "v1";
+export const OPENAI_COMPARE_MODEL = "gpt-4.1-mini";
+export const CLAUDE_COMPARE_MODEL = "claude-3-5-haiku-latest";
+export const GOOGLE_COMPARE_MODEL = "gemini-2.0-flash";
+
+function readOpenAiContent(json: any): string {
+  const content = json?.choices?.[0]?.message?.content;
+  if (typeof content === "string") {
+    return content.trim();
+  }
+  if (Array.isArray(content)) {
+    const text = content
+      .map((part) => (typeof part?.text === "string" ? part.text : ""))
+      .join(" ")
+      .trim();
+    return text;
+  }
+  return "";
+}
+
+function readClaudeContent(json: any): string {
+  const content = json?.content;
+  if (!Array.isArray(content)) {
+    return "";
+  }
+  return content
+    .map((part) => (typeof part?.text === "string" ? part.text : ""))
+    .join(" ")
+    .trim();
+}
+
+function readGoogleContent(json: any): string {
+  const candidates = json?.candidates;
+  if (!Array.isArray(candidates) || candidates.length === 0) {
+    return "";
+  }
+  const parts = candidates[0]?.content?.parts;
+  if (!Array.isArray(parts)) {
+    return "";
+  }
+  return parts
+    .map((part: any) => (typeof part?.text === "string" ? part.text : ""))
+    .join(" ")
+    .trim();
+}
+
+export async function generateCompareClusterSummaries(
+  provider: "openai" | "claude" | "google",
+  apiKey: string,
+  request: CompareClusterSummaryRequest
+): Promise<ClusterInterpretation[]> {
+  const prompt = buildCompareClusterSummaryPrompt(request);
+  const system = "你是社群分析助手。只回傳 JSON，不要加任何解釋。";
+
+  let raw = "";
+
+  if (provider === "google") {
+    const response = await fetch(
+      `https://generativelanguage.googleapis.com/v1beta/models/${GOOGLE_COMPARE_MODEL}:generateContent?key=${apiKey}`,
+      {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          systemInstruction: {
+            parts: [{ text: system }]
+          },
+          contents: [{ role: "user", parts: [{ text: prompt }] }],
+          generationConfig: { temperature: 0.2, maxOutputTokens: 1200, responseMimeType: "application/json" }
+        })
+      }
+    );
+    if (!response.ok) {
+      throw new Error(`Google ${response.status}: ${await response.text()}`);
+    }
+    raw = readGoogleContent(await response.json());
+  } else if (provider === "openai") {
+    const response = await fetch("https://api.openai.com/v1/chat/completions", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${apiKey}`
+      },
+      body: JSON.stringify({
+        model: OPENAI_COMPARE_MODEL,
+        temperature: 0.2,
+        response_format: { type: "json_object" },
+        messages: [
+          { role: "system", content: system },
+          { role: "user", content: prompt }
+        ]
+      })
+    });
+    if (!response.ok) {
+      throw new Error(`OpenAI ${response.status}: ${await response.text()}`);
+    }
+    raw = readOpenAiContent(await response.json());
+  } else {
+    const response = await fetch("https://api.anthropic.com/v1/messages", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "x-api-key": apiKey,
+        "anthropic-version": "2023-06-01"
+      },
+      body: JSON.stringify({
+        model: CLAUDE_COMPARE_MODEL,
+        max_tokens: 1200,
+        temperature: 0.2,
+        system,
+        messages: [{ role: "user", content: prompt }]
+      })
+    });
+    if (!response.ok) {
+      throw new Error(`Claude ${response.status}: ${await response.text()}`);
+    }
+    raw = readClaudeContent(await response.json());
+  }
+
+  const parsed = parseCompareClusterSummaryResponse(raw, request);
+  if (!parsed.length && request.clusters.length) {
+    throw new Error("Invalid cluster summary payload");
+  }
+  return parsed;
+}
+
+export async function generateCompareOneLiner(
+  provider: "openai" | "claude" | "google",
+  apiKey: string,
+  request: CompareOneLinerRequest
+): Promise<string> {
+  const prompt = buildCompareOneLinerPrompt(request);
+
+  if (provider === "google") {
+    const response = await fetch(
+      `https://generativelanguage.googleapis.com/v1beta/models/${GOOGLE_COMPARE_MODEL}:generateContent?key=${apiKey}`,
+      {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          systemInstruction: {
+            parts: [{ text: "你是社群分析助手。只回傳一句繁體中文比較句，不要解釋。" }]
+          },
+          contents: [{ role: "user", parts: [{ text: prompt }] }],
+          generationConfig: { temperature: 0.3, maxOutputTokens: 120 }
+        })
+      }
+    );
+    if (!response.ok) {
+      throw new Error(`Google ${response.status}: ${await response.text()}`);
+    }
+    const json = await response.json();
+    return readGoogleContent(json);
+  }
+
+  if (provider === "openai") {
+    const response = await fetch("https://api.openai.com/v1/chat/completions", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${apiKey}`
+      },
+      body: JSON.stringify({
+        model: OPENAI_COMPARE_MODEL,
+        temperature: 0.3,
+        messages: [
+          {
+            role: "system",
+            content: "你是社群分析助手。只回傳一句繁體中文比較句，不要解釋。"
+          },
+          {
+            role: "user",
+            content: prompt
+          }
+        ]
+      })
+    });
+    if (!response.ok) {
+      throw new Error(`OpenAI ${response.status}: ${await response.text()}`);
+    }
+    const json = await response.json();
+    return readOpenAiContent(json);
+  }
+
+  const response = await fetch("https://api.anthropic.com/v1/messages", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      "x-api-key": apiKey,
+      "anthropic-version": "2023-06-01"
+    },
+    body: JSON.stringify({
+      model: CLAUDE_COMPARE_MODEL,
+      max_tokens: 120,
+      temperature: 0.3,
+      system: "你是社群分析助手。只回傳一句繁體中文比較句，不要解釋。",
+      messages: [
+        {
+          role: "user",
+          content: prompt
+        }
+      ]
+    })
+  });
+  if (!response.ok) {
+    throw new Error(`Claude ${response.status}: ${await response.text()}`);
+  }
+  const json = await response.json();
+  return readClaudeContent(json);
+}

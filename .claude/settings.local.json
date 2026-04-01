@@ -1,0 +1,32 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(chmod +x ~/.claude/statusline-ratelimit.sh)",
+      "Bash(~/.claude/statusline-ratelimit.sh)",
+      "Bash(jq --version)",
+      "Bash(/Users/tung/.claude/statusline-ratelimit.sh)",
+      "Read(//usr/local/bin/**)",
+      "Read(//opt/homebrew/bin/**)",
+      "Read(//Users/tung/Desktop/dlens-chrome-extension-v0/$HOME/.claude/bin/**)",
+      "Bash(mdfind -name claude -onlyin /Applications)",
+      "mcp__Claude_Preview__preview_start",
+      "Bash(npm run:*)",
+      "Bash(export PATH=\"/opt/homebrew/bin:/usr/local/bin:$PATH\")",
+      "Bash(npx tsc:*)",
+      "Bash(npx tsx:*)",
+      "Bash(gh repo:*)",
+      "WebFetch(domain:github.com)",
+      "WebFetch(domain:raw.githubusercontent.com)",
+      "Bash(git clone:*)",
+      "Read(//Users/tung/.claude/skills/gstack/**)",
+      "Bash(./setup)",
+      "Bash(curl -fsSL https://bun.sh/install)",
+      "Bash(bash)",
+      "Bash(export PATH=\"$HOME/.bun/bin:$PATH\")",
+      "Skill(review)",
+      "Skill(review:*)",
+      "Skill(investigate)",
+      "Skill(investigate:*)"
+    ]
+  }
+}
