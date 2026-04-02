@@ -1,13 +1,17 @@
 import { useEffect, useMemo, useState } from "react";
 import type {
-  AnalysisEvidenceSnapshot,
   AnalysisSnapshot,
   CrawlResultSnapshot
 } from "../contracts/ingest";
 import type { ExtensionSettings, SessionItem, SessionRecord } from "../state/types";
 import { getItemReadinessStatus, pickCompareSelection, type ItemReadinessStatus } from "../state/processing-state";
 import { sendExtensionMessage } from "./controller";
-import { buildCompareOneLinerPrompt, type CompareOneLinerRequest } from "../compare/one-liner";
+import {
+  buildDeterministicCompareBrief,
+  type CompareBrief,
+  type CompareBriefRequest
+} from "../compare/brief.ts";
+import { TOKENS, tokens } from "./tokens";
 import {
   buildDeterministicClusterInterpretation,
   type CompareClusterSummaryRequest,
@@ -16,28 +20,28 @@ import {
   type ClusterInterpretation
 } from "../compare/cluster-interpretation.ts";
 import { buildClusterCompareRows, buildClusterSummaries, getDominanceLabel } from "../analysis/cluster-summary.ts";
-import { buildEvidenceLookup, pickEvidenceComments } from "../analysis/evidence.ts";
 import type { ClusterCompareRow as ClusterCompareRowData, ClusterSummaryCard } from "../analysis/types.ts";
-
+const ACCENT_BORDER = "rgba(99,102,241,0.18)";
+const QUEUED_BORDER = "rgba(217,119,6,0.18)";
 const T = {
-  ink: "#0f172a",
-  sub: "#475569",
-  soft: "#94a3b8",
-  line: "#e2e8f0",
-  bg: "#f8fafc",
-  accent: "#6366f1",
-  accentSoft: "rgba(99,102,241,0.08)",
-  accentBorder: "rgba(99,102,241,0.18)",
-  success: "#059669",
-  successSoft: "#ecfdf5",
-  warn: "#d97706",
-  warnSoft: "#fff7ed",
-  warnBorder: "rgba(217,119,6,0.18)",
-  fail: "#dc2626",
-  failSoft: "#fef2f2",
-  running: "#2563eb",
-  runningSoft: "#eff6ff"
-};
+  ink: TOKENS.ink,
+  sub: TOKENS.subInk,
+  soft: TOKENS.softInk,
+  line: TOKENS.line,
+  bg: tokens.color.neutralSurface,
+  accent: TOKENS.accent,
+  accentSoft: TOKENS.accentSoft,
+  accentBorder: ACCENT_BORDER,
+  success: TOKENS.success,
+  successSoft: TOKENS.successSoft,
+  warn: TOKENS.queued,
+  warnSoft: TOKENS.queuedSoft,
+  warnBorder: QUEUED_BORDER,
+  fail: TOKENS.failed,
+  failSoft: TOKENS.failedSoft,
+  running: TOKENS.running,
+  runningSoft: TOKENS.runningSoft
+} as const;
 
 const METRIC_KEYS = ["likes", "comments", "reposts", "forwards", "views"] as const;
 type MetricKey = (typeof METRIC_KEYS)[number];
@@ -275,6 +279,14 @@ function buildCommentLookup(comments: CommentData[]): Map<string, CommentData> {
   );
 }
 
+function hasConfiguredProviderKey(settings: ExtensionSettings): boolean {
+  const provider = settings.oneLinerProvider;
+  if (provider === "google") return Boolean(settings.googleApiKey?.trim());
+  if (provider === "openai") return Boolean(settings.openaiApiKey.trim());
+  if (provider === "claude") return Boolean(settings.claudeApiKey.trim());
+  return false;
+}
+
 function mergeEvidenceDetails(
   evidence: ClusterSummaryCard["evidence"][number],
   commentLookup: Map<string, CommentData>
@@ -300,45 +312,75 @@ function analysisMetrics(analysis: AnalysisSnapshot | null) {
   };
 }
 
-function buildOneLinerRequest(left: SessionItem, right: SessionItem): CompareOneLinerRequest | null {
+function buildCompareBriefRequest(left: SessionItem, right: SessionItem): CompareBriefRequest | null {
   const leftAnalysis = getAnalysis(left);
   const rightAnalysis = getAnalysis(right);
   if (!left.captureId || !right.captureId || !leftAnalysis || !rightAnalysis) return null;
   const leftPost = getPost(left);
   const rightPost = getPost(right);
-  const leftSummaries = buildClusterSummaries(leftAnalysis, 5, 3);
-  const rightSummaries = buildClusterSummaries(rightAnalysis, 5, 3);
-  const leftEvidenceLookup = buildEvidenceLookup(leftAnalysis.evidence || []);
-  const rightEvidenceLookup = buildEvidenceLookup(rightAnalysis.evidence || []);
-
-  const toEvidenceGroups = (
-    summaries: ClusterSummaryCard[],
-    analysis: AnalysisSnapshot,
-    evidenceLookup: Map<number, NonNullable<AnalysisEvidenceSnapshot["comments"]>>
-  ): AnalysisEvidenceSnapshot[] =>
-    summaries.map(({ cluster }) => ({
-      cluster_key: cluster.cluster_key,
-      comments: pickEvidenceComments(analysis.evidence, cluster.cluster_key, Math.min(3, evidenceLookup.get(cluster.cluster_key)?.length ?? 3))
-    }));
+  const leftSummaries = buildClusterSummaries(leftAnalysis, 3, 5, left.captureId);
+  const rightSummaries = buildClusterSummaries(rightAnalysis, 3, 5, right.captureId);
+  const leftAge = getPostAge(leftPost);
+  const rightAge = getPostAge(rightPost);
 
   return {
     left: {
       captureId: left.captureId,
-      analysisUpdatedAt: leftAnalysis.updated_at,
+      analysisUpdatedAt: leftAnalysis.updated_at || "",
       author: leftPost.author || "unknown",
       text: leftPost.text || "",
-      engagement: left.descriptor.engagement as unknown as Record<string, unknown>,
-      clusters: leftSummaries.map(({ cluster }) => cluster),
-      evidence: toEvidenceGroups(leftSummaries, leftAnalysis, leftEvidenceLookup)
+      ageLabel: leftAge.label,
+      metricsCoverageLabel: getMetricsCoverageLabel(leftPost),
+      sourceCommentCount: leftAnalysis.source_comment_count ?? 0,
+      engagement: {
+        likes: metricValue(leftPost, "likes"),
+        comments: metricValue(leftPost, "comments"),
+        reposts: metricValue(leftPost, "reposts"),
+        forwards: metricValue(leftPost, "forwards"),
+        views: metricValue(leftPost, "views")
+      },
+      velocity: {
+        likesPerHour: getVelocityMetricDisplay(leftPost, "likes").numeric,
+        commentsPerHour: getVelocityMetricDisplay(leftPost, "comments").numeric,
+        repostsPerHour: getVelocityMetricDisplay(leftPost, "reposts").numeric,
+        forwardsPerHour: getVelocityMetricDisplay(leftPost, "forwards").numeric
+      },
+      clusters: leftSummaries.map((summary) => ({
+        clusterKey: summary.cluster.cluster_key,
+        keywords: summary.cluster.keywords,
+        sizeShare: summary.cluster.size_share,
+        likeShare: summary.cluster.like_share,
+        evidenceCandidates: summary.evidence.slice(0, 5)
+      }))
     },
     right: {
       captureId: right.captureId,
-      analysisUpdatedAt: rightAnalysis.updated_at,
+      analysisUpdatedAt: rightAnalysis.updated_at || "",
       author: rightPost.author || "unknown",
       text: rightPost.text || "",
-      engagement: right.descriptor.engagement as unknown as Record<string, unknown>,
-      clusters: rightSummaries.map(({ cluster }) => cluster),
-      evidence: toEvidenceGroups(rightSummaries, rightAnalysis, rightEvidenceLookup)
+      ageLabel: rightAge.label,
+      metricsCoverageLabel: getMetricsCoverageLabel(rightPost),
+      sourceCommentCount: rightAnalysis.source_comment_count ?? 0,
+      engagement: {
+        likes: metricValue(rightPost, "likes"),
+        comments: metricValue(rightPost, "comments"),
+        reposts: metricValue(rightPost, "reposts"),
+        forwards: metricValue(rightPost, "forwards"),
+        views: metricValue(rightPost, "views")
+      },
+      velocity: {
+        likesPerHour: getVelocityMetricDisplay(rightPost, "likes").numeric,
+        commentsPerHour: getVelocityMetricDisplay(rightPost, "comments").numeric,
+        repostsPerHour: getVelocityMetricDisplay(rightPost, "reposts").numeric,
+        forwardsPerHour: getVelocityMetricDisplay(rightPost, "forwards").numeric
+      },
+      clusters: rightSummaries.map((summary) => ({
+        clusterKey: summary.cluster.cluster_key,
+        keywords: summary.cluster.keywords,
+        sizeShare: summary.cluster.size_share,
+        likeShare: summary.cluster.like_share,
+        evidenceCandidates: summary.evidence.slice(0, 5)
+      }))
     }
   };
 }
@@ -371,6 +413,28 @@ function buildClusterSummaryRequest(left: SessionItem, right: SessionItem): Comp
       evidenceCandidates: summary.evidence.slice(0, 5)
     }))
   };
+}
+
+function buildCompareBriefEvidenceMap(request: CompareBriefRequest | null) {
+  const evidenceMap = new Map<string, { side: "left" | "right"; text: string; reasonBase: string }>();
+  if (!request) {
+    return evidenceMap;
+  }
+
+  for (const [side, sideRequest] of [["left", request.left], ["right", request.right]] as const) {
+    for (const cluster of sideRequest.clusters) {
+      const label = cluster.keywords.filter(Boolean).slice(0, 3).join(" / ") || "主題未定";
+      for (const evidence of cluster.evidenceCandidates) {
+        evidenceMap.set(`${sideRequest.captureId}:${cluster.clusterKey}:${evidence.comment_id}`, {
+          side,
+          text: evidence.text,
+          reasonBase: label
+        });
+      }
+    }
+  }
+
+  return evidenceMap;
 }
 
 /* ── readiness helpers ── */
@@ -719,8 +783,8 @@ export function CompareView({ session, settings }: CompareViewProps) {
   const initialSelection = useMemo(() => pickCompareSelection(session.items, "", ""), [session.items]);
   const [selectedA, setSelectedA] = useState(initialSelection.selectedA);
   const [selectedB, setSelectedB] = useState(initialSelection.selectedB);
-  const [oneLiner, setOneLiner] = useState("");
-  const [oneLinerState, setOneLinerState] = useState<"idle" | "loading" | "ready" | "error">("idle");
+  const [compareBrief, setCompareBrief] = useState<CompareBrief | null>(null);
+  const [compareBriefState, setCompareBriefState] = useState<"idle" | "loading" | "ready" | "fallback">("idle");
   const [clusterInterpretations, setClusterInterpretations] = useState<Map<string, ClusterInterpretation>>(new Map());
   const [clusterSummaryState, setClusterSummaryState] = useState<"idle" | "loading" | "ready" | "error">("idle");
 
@@ -741,60 +805,53 @@ export function CompareView({ session, settings }: CompareViewProps) {
   const analysisB = itemB ? getAnalysis(itemB) : null;
   const commentLookupA = useMemo(() => buildCommentLookup(commentsA), [commentsA]);
   const commentLookupB = useMemo(() => buildCommentLookup(commentsB), [commentsB]);
+  const aiProviderConfigured = hasConfiguredProviderKey(settings);
+  const compareBriefRequest = useMemo(
+    () => (itemA && itemB ? buildCompareBriefRequest(itemA, itemB) : null),
+    [itemA, itemB, analysisA?.updated_at, analysisB?.updated_at]
+  );
+  const fallbackCompareBrief = useMemo(
+    () => (compareBriefRequest ? buildDeterministicCompareBrief(compareBriefRequest) : null),
+    [compareBriefRequest]
+  );
+  const compareBriefEvidenceMap = useMemo(
+    () => buildCompareBriefEvidenceMap(compareBriefRequest),
+    [compareBriefRequest]
+  );
 
-  /* one-liner effect */
   useEffect(() => {
-    const request = itemA && itemB ? buildOneLinerRequest(itemA, itemB) : null;
-    const provider = settings.oneLinerProvider;
-    const hasKey =
-      provider === "google"
-        ? Boolean(settings.googleApiKey?.trim())
-        : provider === "openai"
-          ? Boolean(settings.openaiApiKey.trim())
-          : provider === "claude"
-            ? Boolean(settings.claudeApiKey.trim())
-            : false;
-    if (!request || !provider || !hasKey || analysisA?.status !== "succeeded" || analysisB?.status !== "succeeded") {
-      setOneLiner("");
-      setOneLinerState("idle");
+    if (!compareBriefRequest || !settings.oneLinerProvider || !aiProviderConfigured || analysisA?.status !== "succeeded" || analysisB?.status !== "succeeded") {
+      setCompareBrief(null);
+      setCompareBriefState("idle");
       return;
     }
     let cancelled = false;
-    setOneLinerState("loading");
-    void sendExtensionMessage<{ ok: true; oneLiner?: string | null } | { ok: false; error: string }>({
-      type: "compare/get-one-liner",
-      request
+    setCompareBriefState("loading");
+    void sendExtensionMessage<{ ok: true; compareBrief?: CompareBrief | null } | { ok: false; error: string }>({
+      type: "compare/get-brief",
+      request: compareBriefRequest
     })
       .then((response) => {
         if (cancelled) return;
-        if (response.ok && response.oneLiner) {
-          setOneLiner(response.oneLiner);
-          setOneLinerState("ready");
+        if (response.ok && response.compareBrief) {
+          setCompareBrief(response.compareBrief);
+          setCompareBriefState(response.compareBrief.source === "ai" ? "ready" : "fallback");
           return;
         }
-        setOneLiner("");
-        setOneLinerState("idle");
+        setCompareBrief(null);
+        setCompareBriefState("fallback");
       })
       .catch(() => {
         if (cancelled) return;
-        setOneLiner("");
-        setOneLinerState("error");
+        setCompareBrief(null);
+        setCompareBriefState("fallback");
       });
     return () => { cancelled = true; };
-  }, [itemA?.id, itemB?.id, analysisA?.updated_at, analysisB?.updated_at, settings.oneLinerProvider, settings.openaiApiKey, settings.claudeApiKey, settings.googleApiKey]);
+  }, [compareBriefRequest, analysisA?.status, analysisB?.status, settings.oneLinerProvider, settings.openaiApiKey, settings.claudeApiKey, settings.googleApiKey, aiProviderConfigured]);
 
   useEffect(() => {
     const request = itemA && itemB ? buildClusterSummaryRequest(itemA, itemB) : null;
-    const provider = settings.oneLinerProvider;
-    const hasKey =
-      provider === "google"
-        ? Boolean(settings.googleApiKey?.trim())
-        : provider === "openai"
-          ? Boolean(settings.openaiApiKey.trim())
-          : provider === "claude"
-            ? Boolean(settings.claudeApiKey.trim())
-            : false;
-    if (!request || !provider || !hasKey || analysisA?.status !== "succeeded" || analysisB?.status !== "succeeded") {
+    if (!request || !settings.oneLinerProvider || !aiProviderConfigured || analysisA?.status !== "succeeded" || analysisB?.status !== "succeeded") {
       setClusterInterpretations(new Map());
       setClusterSummaryState("idle");
       return;
@@ -836,10 +893,11 @@ export function CompareView({ session, settings }: CompareViewProps) {
     return <ReadinessBoard session={session} />;
   }
 
-  const requestPreview = itemA && itemB ? buildOneLinerRequest(itemA, itemB) : null;
   const clusterRows = buildClusterCompareRows(analysisA, analysisB, 5);
   const ageA = postA ? getPostAge(postA) : null;
   const ageB = postB ? getPostAge(postB) : null;
+  const showAiSummaryCard = aiProviderConfigured;
+  const visibleCompareBrief = compareBrief ?? fallbackCompareBrief;
 
   return (
     <div style={{ display: "grid", gap: 14 }}>
@@ -879,25 +937,78 @@ export function CompareView({ session, settings }: CompareViewProps) {
         </div>
       ) : null}
 
-      {/* ③ AI One-liner */}
-      <div style={{ padding: "12px 14px", borderRadius: 14, background: "#fff", border: `1px solid ${T.line}` }}>
-        <SectionLabel>AI Summary</SectionLabel>
-        <div style={{ marginTop: 6 }}>
-          {oneLinerState === "ready" ? (
-            <div style={{ fontSize: 14, fontWeight: 700, color: T.ink, lineHeight: 1.6 }}>{oneLiner}</div>
-          ) : oneLinerState === "loading" ? (
-            <div style={{ fontSize: 12, color: T.sub }}>Generating AI summary...</div>
-          ) : oneLinerState === "error" ? (
-            <div style={{ fontSize: 12, color: T.fail }}>AI summary failed. Deterministic compare below.</div>
-          ) : !settings.oneLinerProvider || !(settings.openaiApiKey || settings.claudeApiKey || settings.googleApiKey) ? (
-            <div style={{ fontSize: 12, color: T.sub }}>Add a Google, OpenAI, or Claude key in Settings to enable AI summaries.</div>
-          ) : requestPreview ? (
-            <div style={{ fontSize: 12, color: T.sub }}>Waiting for analysis to complete...</div>
+      {!aiProviderConfigured && settings.oneLinerProvider ? (
+        <div style={{ fontSize: 11, color: T.sub, background: tokens.color.neutralSurfaceSoft, border: `1px solid ${T.line}`, borderRadius: TOKENS.pillRadius, padding: "8px 10px" }}>
+          AI summaries are off. Add a Google, OpenAI, or Claude key in Settings to enable them.
+        </div>
+      ) : null}
+
+      {/* ③ Compare brief */}
+      {showAiSummaryCard ? (
+        <div style={{ padding: "12px 14px", borderRadius: 14, background: "#fff", border: `1px solid ${T.line}` }}>
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 8 }}>
+            <SectionLabel>Compare Brief</SectionLabel>
+            {compareBriefState === "loading" ? (
+              <div style={{ fontSize: 11, color: T.running, fontWeight: 700 }}>Updating with AI...</div>
+            ) : compareBriefState === "fallback" ? (
+              <div style={{ fontSize: 11, color: T.warn, fontWeight: 700 }}>Deterministic fallback</div>
+            ) : compareBriefState === "ready" ? (
+              <div style={{ fontSize: 11, color: T.success, fontWeight: 700 }}>AI brief ready</div>
+            ) : null}
+          </div>
+          {visibleCompareBrief ? (
+            <div style={{ marginTop: 8, display: "grid", gap: 10 }}>
+              <div style={{ fontSize: 14, fontWeight: 800, color: T.ink, lineHeight: 1.6 }}>{visibleCompareBrief.headline}</div>
+              <div style={{ display: "grid", gap: 8 }}>
+                <div>
+                  <SectionLabel color={T.ink}>Claim contrast</SectionLabel>
+                  <div style={{ marginTop: 4, fontSize: 12, color: T.sub, lineHeight: 1.55 }}>{visibleCompareBrief.claimContrast}</div>
+                </div>
+                <div>
+                  <SectionLabel color={T.ink}>Emotion contrast</SectionLabel>
+                  <div style={{ marginTop: 4, fontSize: 12, color: T.sub, lineHeight: 1.55 }}>{visibleCompareBrief.emotionContrast}</div>
+                </div>
+                <div>
+                  <SectionLabel color={T.ink}>Risk signals</SectionLabel>
+                  <div style={{ marginTop: 6, display: "grid", gap: 6 }}>
+                    {visibleCompareBrief.riskSignals.map((signal, index) => (
+                      <div key={`${signal.label}-${index}`} style={{ borderRadius: 10, border: `1px solid ${T.line}`, background: T.bg, padding: "8px 10px" }}>
+                        <div style={{ fontSize: 11, fontWeight: 800, color: T.ink }}>{signal.label}</div>
+                        <div style={{ marginTop: 3, fontSize: 11, color: T.sub, lineHeight: 1.5 }}>{signal.reason}</div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+                <div>
+                  <SectionLabel color={T.ink}>Representative evidence</SectionLabel>
+                  <div style={{ marginTop: 6, display: "grid", gap: 6 }}>
+                    {visibleCompareBrief.representativeEvidence.map((item) => {
+                      const detail = compareBriefEvidenceMap.get(`${item.captureId}:${item.clusterKey}:${item.commentId}`);
+                      return (
+                        <div key={`${item.captureId}:${item.clusterKey}:${item.commentId}`} style={{ borderRadius: 10, border: `1px solid ${T.line}`, padding: "8px 10px", background: item.side === "left" ? T.accentSoft : T.warnSoft }}>
+                          <div style={{ display: "flex", justifyContent: "space-between", gap: 8, alignItems: "baseline" }}>
+                            <div style={{ fontSize: 11, fontWeight: 800, color: T.ink }}>{item.side === "left" ? "Post A" : "Post B"}</div>
+                            <div style={{ fontSize: 10, color: T.soft }}>Cluster {item.clusterKey}</div>
+                          </div>
+                          <div style={{ marginTop: 4, fontSize: 11, color: T.sub, lineHeight: 1.5 }}>{item.reason}</div>
+                          <div style={{ marginTop: 6, fontSize: 11, color: T.ink, lineHeight: 1.5 }}>
+                            “{detail?.text || item.commentId}”
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              </div>
+              <div style={{ fontSize: 11, color: T.soft, lineHeight: 1.5 }}>
+                {visibleCompareBrief.notes} Confidence: {visibleCompareBrief.confidence}.
+              </div>
+            </div>
           ) : (
-            <div style={{ fontSize: 12, color: T.sub }}>AI summary unlocks after both posts finish analysis.</div>
+            <div style={{ marginTop: 6, fontSize: 12, color: T.sub }}>Waiting for analysis to complete...</div>
           )}
         </div>
-      </div>
+      ) : null}
 
       {/* ④ Cluster comparison (CORE section) */}
       {(analysisA || analysisB) ? (

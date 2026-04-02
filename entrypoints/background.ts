@@ -9,6 +9,12 @@ import {
 } from "../src/ingest/client";
 import type { CaptureSnapshot, CaptureTargetResponse, JobSnapshot } from "../src/contracts/ingest";
 import type { ExtensionMessage, ExtensionResponse, StartProcessingResponse, WorkerStatusMessageResponse } from "../src/state/messages";
+import {
+  buildCompareBriefCacheKey,
+  buildDeterministicCompareBrief,
+  type CompareBrief,
+  type CompareBriefRequest
+} from "../src/compare/brief";
 import { buildCompareOneLinerCacheKey, type CompareOneLinerRequest } from "../src/compare/one-liner";
 import {
   buildCompareClusterSummaryCacheKey,
@@ -17,7 +23,9 @@ import {
 } from "../src/compare/cluster-interpretation";
 import {
   COMPARE_CLUSTER_SUMMARY_PROMPT_VERSION,
+  COMPARE_BRIEF_PROMPT_VERSION,
   COMPARE_ONE_LINER_PROMPT_VERSION,
+  generateCompareBrief,
   generateCompareClusterSummaries,
   generateCompareOneLiner
 } from "../src/compare/provider";
@@ -48,6 +56,7 @@ import { applyHoveredPreview, createInlineToast, setCollectModeState } from "../
 
 const GLOBAL_STORAGE_KEY = "dlens:v0:global-state";
 const TAB_STORAGE_KEY_PREFIX = "dlens:v0:tab-ui:";
+const COMPARE_BRIEF_CACHE_KEY = "dlens:v1:compare-brief-cache";
 const COMPARE_ONE_LINER_CACHE_KEY = "dlens:v1:compare-one-liner-cache";
 const COMPARE_CLUSTER_SUMMARY_CACHE_KEY = "dlens:v1:compare-cluster-summary-cache";
 
@@ -64,11 +73,17 @@ interface OneLinerCacheValue {
   generatedAt: string;
 }
 
+interface CompareBriefCacheValue {
+  brief: CompareBrief;
+  generatedAt: string;
+}
+
 interface ClusterSummaryCacheValue {
   items: ClusterInterpretation[];
   generatedAt: string;
 }
 
+type CompareBriefCache = Record<string, CompareBriefCacheValue>;
 type OneLinerCache = Record<string, OneLinerCacheValue>;
 type ClusterSummaryCache = Record<string, ClusterSummaryCacheValue>;
 
@@ -132,6 +147,15 @@ async function loadOneLinerCache(): Promise<OneLinerCache> {
   return (raw[COMPARE_ONE_LINER_CACHE_KEY] || {}) as OneLinerCache;
 }
 
+async function loadCompareBriefCache(): Promise<CompareBriefCache> {
+  const raw = await chrome.storage.local.get(COMPARE_BRIEF_CACHE_KEY);
+  return (raw[COMPARE_BRIEF_CACHE_KEY] || {}) as CompareBriefCache;
+}
+
+async function saveCompareBriefCache(cache: CompareBriefCache): Promise<void> {
+  await chrome.storage.local.set({ [COMPARE_BRIEF_CACHE_KEY]: cache });
+}
+
 async function saveOneLinerCache(cache: OneLinerCache): Promise<void> {
   await chrome.storage.local.set({ [COMPARE_ONE_LINER_CACHE_KEY]: cache });
 }
@@ -179,6 +203,38 @@ async function getOrGenerateOneLiner(global: ExtensionGlobalState, request: Comp
   };
   await saveOneLinerCache(cache);
   return text;
+}
+
+async function getOrGenerateCompareBrief(
+  global: ExtensionGlobalState,
+  request: CompareBriefRequest
+): Promise<CompareBrief | null> {
+  const providerConfig = providerKeyForRequest(global);
+  const fallback = buildDeterministicCompareBrief(
+    request,
+    providerConfig ? "AI compare brief unavailable." : "AI compare brief disabled."
+  );
+  if (!providerConfig) {
+    return fallback;
+  }
+
+  const cacheKey = buildCompareBriefCacheKey(request, providerConfig.provider, COMPARE_BRIEF_PROMPT_VERSION);
+  const cache = await loadCompareBriefCache();
+  if (cache[cacheKey]?.brief) {
+    return cache[cacheKey].brief;
+  }
+
+  try {
+    const brief = await generateCompareBrief(providerConfig.provider, providerConfig.apiKey, request);
+    cache[cacheKey] = {
+      brief,
+      generatedAt: new Date().toISOString()
+    };
+    await saveCompareBriefCache(cache);
+    return brief;
+  } catch {
+    return fallback;
+  }
 }
 
 async function getOrGenerateClusterSummaries(
@@ -1048,6 +1104,17 @@ export default defineBackground(() => {
               ok: true,
               tabId,
               oneLiner
+            } satisfies ExtensionResponse);
+            return;
+          }
+          case "compare/get-brief": {
+            const tabId = await resolveTabId(sender);
+            const snapshot = await loadSnapshot(tabId);
+            const compareBrief = await getOrGenerateCompareBrief(snapshot.global, message.request);
+            sendResponse({
+              ok: true,
+              tabId,
+              compareBrief
             } satisfies ExtensionResponse);
             return;
           }

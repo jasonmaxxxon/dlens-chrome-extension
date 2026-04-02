@@ -2,7 +2,7 @@
 
 MV3 Chrome extension for capturing Threads posts and comments. Provides hover-to-preview targeting, folder-based collection, and optional backend queue integration.
 
-> **Last updated:** 2026-04-01
+> **Last updated:** 2026-04-02
 
 ## Current Status
 
@@ -21,16 +21,18 @@ MV3 Chrome extension for capturing Threads posts and comments. Provides hover-to
 - Job status polling (queued -> running -> succeeded -> dead)
 - Comment preview after successful crawl
 - Late analysis polling after crawl success until `capture.analysis` arrives
-- 2-post Compare View: redesigned for intelligence-first comparison — AI summary at top, audience cluster side-by-side comparison as core section, compact post headers with post age, raw engagement totals plus age-adjusted velocity, and expandable top comments
+- 2-post Compare View: redesigned for intelligence-first comparison — compare brief at top, audience cluster side-by-side comparison as core section, compact post headers with post age, raw engagement totals plus age-adjusted velocity, and expandable top comments
 - Compare tab auto-expands popup to 504px with smooth transition; auto-selects first valid distinct pair; prevents self-compare
 - **Readiness board** in Compare tab shows per-item status when < 2 items are ready
 - **Audience Clusters** section: clusters ranked by size, A vs B side-by-side per row with AI-enhanced one-line summaries, deterministic fallback copy, 2 example evidence comments per side, and expandable evidence details (`likes`, `comments`, `reposts`, `forwards`)
+- Compare keeps cluster analysis visible even without API keys; missing-key AI state is now a small inline notice instead of a full empty summary card
 - MV3 service worker wake recovery (globalStateCache, warmGlobalCache, resumeRunningPolls, backgroundRefreshInFlightItems)
 - Queue/poll recovery: sendExtensionMessage retries once on connection loss to wake worker; polling does immediate refresh on mount
 - Keyboard shortcuts in collect mode (S = save, Esc = exit)
 - Toast notifications for save/queue feedback
-- Settings tab supports local Google (Gemini 2.0 Flash), OpenAI, or Claude keys for compare one-liners; Google is the default provider
+- Settings tab supports local Google (Gemini 2.0 Flash), OpenAI, or Claude keys for compare summaries; Google is the default provider
 - The same local provider/key also powers per-cluster AI summaries in Compare; when the model call fails, Compare falls back to deterministic cluster copy instead of leaving the cards blank
+- Compare brief now uses a stable contract with headline, claim contrast, emotion contrast, risk signals, representative evidence references, and deterministic fallback before AI enrichment
 - Manifest host permissions now include Google Generative Language API so Gemini compare requests can run from the extension background worker
 - Standalone analysis toolkit under `src/analysis/` for future compare/backend adapters:
   - stable deterministic helpers for evidence lookup, cluster ranking, and compare-row shaping
@@ -58,13 +60,14 @@ MV3 Chrome extension for capturing Threads posts and comments. Provides hover-to
 | P3 | Compare cluster matching is misleading | Current cluster pairing is by rank, not by semantic/keyword overlap |
 | P3 | Backend context is incomplete | Folder/collection name still not sent to backend |
 
-**Architecture decision (2026-03-26):**
+**Architecture decision (2026-03-26, clarified 2026-04-02):**
 - Extension will NOT connect directly to Supabase
-- Pipeline: Extension -> POST /capture-target -> dlens-ingest-core API -> Supabase -> Worker -> crawl_results -> capture_analyses
-- `dlens-ingest-core` repo exists at `/Users/tung/Desktop/dlens-ingest-core`; full pipeline verified end-to-end on 2026-03-26 (POST /capture-target -> captures written -> worker claim -> running -> succeeded with 76 comments -> crawl_results persisted in Supabase). Root cause of earlier stuck transition: `normalize.py` images field expected `list[str]` but received `list[dict]` — fixed.
+- Pipeline: Extension -> POST /capture-target -> optional ingest backend API -> Supabase -> Worker -> crawl_results -> capture_analyses
+- Runtime only depends on `ingestBaseUrl`; a local backend checkout is optional and is only needed for full pipeline dev
+- For local discovery, this repo prefers `DLENS_INGEST_CORE_DIR`; otherwise `npm run backend:locate` will look for `../dlens-ingest-core`
 - Post-crawl deterministic analysis is now persisted in ingest-core and returned from `GET /captures/{id}`
 - Popup processing is explicit: `Queue` only enqueues; `Start processing` calls `POST /worker/drain`; popup reads `GET /worker/status`
-- Compare one-liner is generated client-side with the user's Google, OpenAI, or Claude key; backend never stores that key; default provider is Google (Gemini 2.0 Flash)
+- Compare summaries are generated client-side with the user's Google, OpenAI, or Claude key; backend never stores that key; default provider is Google (Gemini 2.0 Flash)
 
 ## Architecture
 
@@ -86,12 +89,12 @@ MV3 Chrome extension for capturing Threads posts and comments. Provides hover-to
 │  - Processing control → POST /worker/drain           │
 │  - Worker status → GET /worker/status                │
 │  - Job/result polling → GET /jobs/{id}, GET /captures/{id} │
-│  - Client-side compare one-liner using user API key  │
+│  - Client-side compare summaries using user API key  │
 │  - Broadcasts state updates to content script        │
 └──────────────┬──────────────────────────────────────┘
                │ fetch()
 ┌──────────────▼──────────────────────────────────────┐
-│  Backend (dlens-ingest-core, optional)               │
+│  Backend (optional ingest service)                   │
 │  - Default: http://127.0.0.1:8000                    │
 │  - POST /capture-target → returns capture_id, job_id │
 │  - POST /worker/drain → bounded queue drain          │
@@ -101,7 +104,7 @@ MV3 Chrome extension for capturing Threads posts and comments. Provides hover-to
 └─────────────────────────────────────────────────────┘
 
 Target pipeline (VERIFIED 2026-03-27):
-Extension → POST /capture-target → dlens-ingest-core → Supabase → Worker → crawl_results → capture_analyses
+Extension → POST /capture-target → ingest backend → Supabase → Worker → crawl_results → capture_analyses
 ```
 
 ## Storage Model
@@ -135,7 +138,8 @@ dlens-chrome-extension-v0/
         metrics.ts       ← Python-parity keyword + like-share metric ports
         cip.ts           ← Python-parity cluster interpretation seed/evidence helpers
     compare/
-      one-liner.ts       ← compare one-liner payload + prompt builder
+      brief.ts           ← compare brief contract, prompt builder, parser, deterministic fallback
+      one-liner.ts       ← legacy compare one-liner payload + prompt builder
       cluster-interpretation.ts ← cluster AI summary prompt, parsing, deterministic fallback, cache key helpers
     ingest/
       client.ts          ← HTTP client for backend API + worker control
@@ -170,8 +174,19 @@ npm install
 npm run dev          # WXT dev mode with hot reload
 npm run build        # Production build → .output/chrome-mv3/
 npm run typecheck    # tsc --noEmit
+npm run backend:locate  # Optional: locate a local ingest backend checkout
 npx tsx --test tests/*.test.ts tests/*.test.tsx   # Run tests
 ```
+
+## Standalone Dev Modes
+
+- `extension-only dev`
+  - Works with `npm run typecheck`, tests, `npm run build`, Compare UI work, and summary prompt/validation work.
+  - No backend checkout is required.
+- `full pipeline dev`
+  - Requires a separately running ingest backend reachable from `ingestBaseUrl`.
+  - `npm run backend:locate` helps find a local checkout using `DLENS_INGEST_CORE_DIR` first, then `../dlens-ingest-core`.
+  - Backend auth files and crawler credentials remain backend setup concerns, not extension runtime concerns.
 
 ## Loading in Chrome
 
@@ -191,8 +206,8 @@ npx tsx --test tests/*.test.ts tests/*.test.tsx   # Run tests
 | MV3 worker death loses state (P1-A) | No cache or recovery after service worker restart | Added globalStateCache, warmGlobalCache(), resumeRunningPolls(), backgroundRefreshInFlightItems(); keepalive port cleanup | `entrypoints/background.ts` |
 | Queue/poll fails after worker restart (P1-B) | sendExtensionMessage errors on dead worker; no immediate refresh on mount | sendExtensionMessage retries once on "Could not establish connection"; polling useEffect does immediate refresh | `src/ui/controller.tsx` |
 | Analysis never appeared after crawl success | UI stopped polling once crawl status flipped to succeeded, even if analysis was still pending | Added `needsCaptureRefresh()` check for late analysis arrival in background/controller/store helpers | `src/state/store-helpers.ts`, `src/ui/controller.tsx`, `entrypoints/background.ts` |
-| Start processing had no durable status | Popup only knew immediate button result, not current worker state | Added `GET /worker/status`, popup polling, and explicit `idle` / `draining` status text | `src/ui/InPageCollectorApp.tsx`, `src/ingest/client.ts`, `entrypoints/background.ts`, `dlens-ingest-core` |
-| normalize.py images field type mismatch | images was `list[dict]` from crawler but contract expected `list[str]` | Extract `img["src"]` from dict entries | `dlens-ingest-core: normalize.py` |
+| Start processing had no durable status | Popup only knew immediate button result, not current worker state | Added `GET /worker/status`, popup polling, and explicit `idle` / `draining` status text | `src/ui/InPageCollectorApp.tsx`, `src/ingest/client.ts`, `entrypoints/background.ts`, optional ingest backend |
+| normalize.py images field type mismatch | images was `list[dict]` from crawler but contract expected `list[str]` | Extract `img["src"]` from dict entries | ingest backend `normalize.py` |
 
 ## Bug Fix Log (2026-03-28)
 
@@ -203,7 +218,7 @@ npx tsx --test tests/*.test.ts tests/*.test.tsx   # Run tests
 | Worker status optimistic update race condition | `setWorkerStatus("draining")` called before async `worker/start-processing` — if request failed, UI stuck on "Processing..." | Removed premature set; only set "draining" after `response.ok` | `src/ui/InPageCollectorApp.tsx:950-956` |
 | ProcessingStrip invisible in idle state | Idle background `rgba(241,245,249,0.85)` + border `rgba(148,163,184,0.2)` blended into popup background | Darkened to `rgba(226,232,240,0.9)` + border `rgba(100,116,139,0.3)` | `src/ui/InPageCollectorApp.tsx:279-283` |
 | "Queue this" not disabled during worker drain | Button lacked `disabled` check for `workerStatus === "draining"` | Added `disabled={workerStatus === "draining"}` | `src/ui/InPageCollectorApp.tsx:1464` |
-| runner.py success path unreachable after exception | `return` at line 368 in `except` block made lines 371-390 (success logging + analysis enqueue) unreachable | Restructured with `crawl_succeeded` flag; heartbeat.stop() in finally; success path runs after try/except/finally | `dlens-ingest-core: src/dlens_ingest_core/workers/runner.py:331-390` |
+| runner.py success path unreachable after exception | `return` at line 368 in `except` block made lines 371-390 (success logging + analysis enqueue) unreachable | Restructured with `crawl_succeeded` flag; heartbeat.stop() in finally; success path runs after try/except/finally | ingest backend `src/dlens_ingest_core/workers/runner.py:331-390` |
 
 ## Bug Fix Log (2026-04-01)
 
@@ -220,13 +235,15 @@ npx tsx --test tests/*.test.ts tests/*.test.tsx   # Run tests
 | Shared popup atoms still hid their own design constants | `components.tsx` carried local colors/radii/shadows, blocking reuse and future visual cleanup | Added `src/ui/tokens.ts` and moved shared atom styling to read from that token source while preserving the existing visual output | `src/ui/tokens.ts`, `src/ui/components.tsx` |
 | Cluster cards lacked per-cluster introductions and example evidence | Compare only showed keywords plus raw evidence ordering; there was no short summary for what each cluster represented | Added cached per-cluster AI summaries in the background, deterministic fallback copy in the UI, validated evidence-id selection, and fixed cluster cards to show 2 example comments per side | `src/compare/cluster-interpretation.ts`, `src/compare/provider.ts`, `src/state/messages.ts`, `entrypoints/background.ts`, `src/ui/CompareView.tsx`, `tests/compare-cluster-interpretation.test.ts`, `tests/compare-view.test.tsx` |
 | Engagement compare overstated raw deltas and hid missing metric detail | The old table compared totals directly, framed them as deltas, and used `—` for missing capture data, which made newer posts look artificially weak | Split Compare into raw totals vs age-adjusted velocity, surfaced `Approx. ... old` labels from time tokens when exact post time is missing, replaced bare `—` with explicit capture-state copy, and added expandable cluster evidence metric details | `src/ui/CompareView.tsx`, `tests/compare-view.test.tsx` |
+| Compare lost too much vertical space when no AI key was configured | The empty AI Summary card still rendered as a full section, pushing the cluster analysis down even though the user could still use deterministic compare | Replaced the empty card with a small inline notice and kept the audience cluster section immediately visible; CompareView now also sources its local palette from the shared token layer | `src/ui/CompareView.tsx`, `tests/compare-view.test.tsx` |
+| Compare top summary was too thin to be useful | A single one-liner did not surface the actual claim contrast, emotional tone, risks, or evidence references users need when deciding whether a comparison matters | Added a stable compare brief contract, deterministic fallback, AI enrichment, representative evidence references, and a richer Compare top card | `src/compare/brief.ts`, `src/compare/provider.ts`, `src/state/messages.ts`, `entrypoints/background.ts`, `src/ui/CompareView.tsx`, `tests/compare-brief.test.ts`, `tests/compare-view.test.tsx` |
 
 ## Relation to Other Repos
 
 | Repo | Role |
 |------|------|
 | `/Users/tung/Desktop/dlens_chrome_extension_branch` | Original prototype (page-side targeting, local review, replay export) |
-| `/Users/tung/Desktop/dlens-ingest-core` | Backend: crawler, job queue, bounded worker control, capture storage, post-crawl deterministic analysis |
+| Optional ingest backend checkout | Crawler, job queue, bounded worker control, capture storage, post-crawl deterministic analysis |
 | This repo (`dlens-chrome-extension-v0`) | Production MV3 extension shell |
 
 **Codex audit note (2026-03-26):** The prototype at `dlens_chrome_extension_branch` has a `div[data-pressable-container="true"]` DOM fix that this repo already includes in `threads.ts` scoring. The prototype uses `window.localStorage`; this repo uses `chrome.storage.local`. The prototype sends `collection_name` in `client_context`; this repo does NOT send folder name to backend yet.
@@ -252,5 +269,19 @@ The most recent aligned view is:
 - API key settings should maximize trust:
   - clear saved-state feedback
   - clear statement that keys remain local to the extension/browser
+- Compare should optimize for fast discussion understanding, not just model output:
+  - clarify total comments captured vs surfaced evidence
+  - stop shipping generic cluster names like `general` as if they were analytical labels
+  - improve cluster summaries so they explain argument, posture, and evidence quality
+  - expose evidence metrics inline
+  - add low-n cluster guardrails and a single-dominant-cluster fallback
+  - investigate why raw engagement can still disappear in Compare
+  - treat current velocity math as developing until Threads-specific propagation is modeled better
+  - add a future rare-insight / alert rail for branch emergence, temporal narrative shifts, and high-engagement outlier clusters
+- crawl/analyze waiting states should feel alive:
+  - add animated per-post loading bars or shimmer states while crawl / analysis is running
+  - fake progress is acceptable if backend ETA is unknown
+  - avoid precise fake time promises unless the backend later exposes reliable duration hints
 - preferred future navigation direction is an in-page slide-in drawer, not Chrome Side Panel first
+- compare methodology is documented in `docs/product/2026-04-02-compare-methodology.md`
 - visual direction can explore a lighter glass-bubble / HUD feel, but only after component split + token cleanup make that affordable

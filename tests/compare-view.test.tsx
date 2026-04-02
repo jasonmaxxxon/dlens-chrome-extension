@@ -337,6 +337,35 @@ test("CompareView renders expandable evidence details with captured metrics", ()
   assert.match(html, /Forwards 0/);
 });
 
+test("CompareView shows a small inline AI notice instead of an empty summary card when no key is configured", () => {
+  const html = renderToStaticMarkup(
+    React.createElement(CompareView, {
+      session: buildSession(),
+      settings: createDefaultSettings()
+    })
+  );
+
+  assert.match(html, /AI summaries are off\. Add a Google, OpenAI, or Claude key in Settings to enable them\./);
+  assert.doesNotMatch(html, /AI Summary/);
+});
+
+test("CompareView renders deterministic compare brief content when AI summary falls back", () => {
+  const settings = createDefaultSettings();
+  settings.googleApiKey = "AIza-test";
+
+  const html = renderToStaticMarkup(
+    React.createElement(CompareView, {
+      session: buildSession(),
+      settings
+    })
+  );
+
+  assert.match(html, /Compare Brief/);
+  assert.match(html, /Claim contrast/i);
+  assert.match(html, /Emotion contrast/i);
+  assert.match(html, /Representative evidence/i);
+});
+
 test("CompareView auto-selects a distinct ready pair", () => {
   const html = renderToStaticMarkup(
     React.createElement(CompareView, {

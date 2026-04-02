@@ -4,7 +4,7 @@
 
 DLens now has two active subsystems and one frozen prototype repo:
 
-1. `dlens-ingest-core`
+1. optional ingest backend
    - supports `POST /capture-target`, `GET /jobs/{job_id}`, `GET /captures/{capture_id}`
    - supports `POST /worker/drain` and `GET /worker/status`
    - persists `captures`, `crawl_jobs`, `crawl_results`, and `capture_analyses`
@@ -15,8 +15,8 @@ DLens now has two active subsystems and one frozen prototype repo:
    - production MV3 shell for Threads capture and queueing
    - local folders in `chrome.storage.local`
    - explicit `Start processing` action instead of assuming a permanent worker
-   - compare tab now reads backend analysis snapshots and can auto-generate a compare one-liner from a user-supplied OpenAI or Claude key
-   - now also contains a standalone `src/analysis/` toolkit for future reuse, but it is not wired into the popup/background flow yet
+   - compare tab now reads backend analysis snapshots and can auto-generate a compare brief from a user-supplied Google, OpenAI, or Claude key
+   - now also contains a standalone `src/analysis/` toolkit plus stable compare-summary contracts for future reuse
 
 3. `dlens_chrome_extension_branch`
    - frozen page-side targeting prototype
@@ -33,20 +33,21 @@ Latest known-good live checks in this branch history:
 - crawl results persisted successfully after the normalized image payload fix
 - `capture_analyses` rows now succeed after fixing the analyzer call signature in ingest-core worker control
 - extension keeps polling after crawl success until late-arriving analysis snapshot appears
+- extension-only dev now treats the backend as optional; missing backend should surface as a clear availability error, not as a repo-path assumption
 
 ## What This Repo Now Does
 
 This repo is no longer only a queue shell. It now covers:
 
 - precise Threads selection and local folder organization
-- enqueue and refresh against ingest-core
+- enqueue and refresh against the ingest HTTP contract
 - explicit processing control from the popup
 - compare view for two succeeded captures
 - deterministic backend analysis rendering:
   - top clusters
   - evidence comments
   - metrics
-- optional client-side compare one-liner using the user's own API key
+- optional client-side compare brief using the user's own API key
 - standalone local analysis helpers for future integration:
   - stable deterministic evidence/cluster shaping
   - experimental Python-parity ports from `DLens_26`
@@ -56,6 +57,7 @@ This repo is no longer only a queue shell. It now covers:
 - extension does not connect directly to Supabase
 - backend owns crawl and deterministic analysis
 - extension owns user API keys and LLM one-liners
+- runtime boundary is `ingestBaseUrl`; local backend checkout discovery is documentation/tooling only
 - `src/analysis/experimental/*` is allowed to hold future-facing ports, but it must stay disconnected from production UI/background until explicitly integrated
 - processing is bounded and explicit, not a permanent daemon
 - compare remains limited to two posts for v1.x

@@ -5,7 +5,7 @@
 This repo now has:
 
 - scope-locking docs
-- explicit contracts with `dlens-ingest-core`
+- explicit contracts with the optional ingest backend
 - a WXT + React + TypeScript shell
 - background, content-script, and sidepanel entrypoints
 - shared extension contracts and state types
@@ -42,4 +42,4 @@ This repo now has:
 - browser-side prototype:
   - `/Users/tung/Desktop/dlens_chrome_extension_branch`
 - ingestion heart:
-  - `/Users/tung/Desktop/dlens-ingest-core`
+  - set `DLENS_INGEST_CORE_DIR` or place the checkout at `../dlens-ingest-core` if full pipeline dev is needed

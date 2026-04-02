@@ -35,7 +35,7 @@ That broader intelligence ambition is **not dead**. It is just **not in scope fo
 Current architectural thinking is:
 
 - capture in the extension
-- ingestion in `dlens-ingest-core`
+- ingestion in the optional backend behind `ingestBaseUrl`
 - future analysis through an adapter layer that can reuse `dlens_26`
 
 ## 3. Target Users / Customers
@@ -81,9 +81,9 @@ Rules:
 - it is locked to Playwright prototype work
 - do not build extension packaging, API, DB, or side panel work there
 
-### `/Users/tung/Desktop/dlens-ingest-core`
+### Optional ingest backend checkout
 
-This repo is the ingestion heart.
+This is the ingestion heart when full pipeline dev is in scope.
 
 It owns:
 
@@ -110,7 +110,7 @@ Still in scope:
 - Threads feed + post-detail capture
 - local folder organization
 - save selected post targets
-- queue to ingest-core
+- queue to the ingest HTTP contract
 - status refresh
 - show raw deterministic comment previews only after crawl success
 

@@ -1,4 +1,5 @@
 import type { CaptureSnapshot, CaptureTargetResponse, JobSnapshot } from "../contracts/ingest";
+import type { CompareBrief, CompareBriefRequest } from "../compare/brief";
 import type { CompareOneLinerRequest } from "../compare/one-liner";
 import type { ClusterInterpretation, CompareClusterSummaryRequest } from "../compare/cluster-interpretation";
 import type { TargetDescriptor } from "../contracts/target-descriptor";
@@ -34,6 +35,7 @@ export type ExtensionMessage =
   | { type: "session/refresh-all"; sessionId?: string }
   | { type: "worker/start-processing" }
   | { type: "worker/get-status" }
+  | { type: "compare/get-brief"; request: CompareBriefRequest }
   | { type: "compare/get-one-liner"; request: CompareOneLinerRequest }
   | { type: "compare/get-cluster-summaries"; request: CompareClusterSummaryRequest }
   | { type: "state/updated"; tabId: number; snapshot: ExtensionSnapshot };
@@ -45,6 +47,7 @@ export type ExtensionSuccessResponse = {
   submit?: CaptureTargetResponse;
   job?: JobSnapshot;
   capture?: CaptureSnapshot;
+  compareBrief?: CompareBrief | null;
   oneLiner?: string | null;
   clusterInterpretations?: ClusterInterpretation[];
 };

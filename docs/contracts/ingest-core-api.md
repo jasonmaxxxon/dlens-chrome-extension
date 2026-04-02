@@ -1,6 +1,6 @@
 # ingest-core API Contract
 
-This repo consumes the existing HTTP contract from `/Users/tung/Desktop/dlens-ingest-core`.
+This repo consumes an optional ingest backend over HTTP. The extension runtime only depends on `ingestBaseUrl`; a local backend checkout is a dev convenience, not a runtime requirement.
 
 ## Base URL
 
@@ -11,6 +11,12 @@ http://127.0.0.1:8000
 ```
 
 The extension stores the base URL in local extension state.
+
+For local full-pipeline dev:
+
+- prefer `DLENS_INGEST_CORE_DIR`
+- otherwise `npm run backend:locate` will check `../dlens-ingest-core`
+- if no backend checkout is found, extension-only dev still works
 
 ## Submit Endpoint
 

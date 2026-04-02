@@ -8,7 +8,7 @@ Accepted
 
 DLens now has:
 
-- a stable ingestion heart in `/Users/tung/Desktop/dlens-ingest-core`
+- a stable ingestion heart exposed through an HTTP backend contract
 - a stable page-side targeting prototype in `/Users/tung/Desktop/dlens_chrome_extension_branch`
 
 The missing piece is a real extension shell that lets a user select and submit Threads targets without manual API calls.
@@ -37,6 +37,6 @@ It will not:
 ## Consequences
 
 - the repo stays small and focused
-- backend iteration remains in `dlens-ingest-core`
+- backend iteration remains outside this repo behind the HTTP contract
 - browser-side heuristic iteration remains anchored to the prototype and fetcher family
 - extension UX can evolve without contaminating backend scope
