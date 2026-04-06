@@ -89,6 +89,19 @@ Approved shell rule:
 
 ### 4.2 Smart entry behavior
 
+For this spec, `near-ready` has a strict meaning tied to the current state model in `src/state/processing-state.ts`.
+
+`near-ready` means:
+
+- an item whose readiness is `analyzing`
+
+`near-ready` does not mean:
+
+- `saved`
+- `queued`
+- `crawling`
+- a speculative pair candidate inferred only from folder or topic context
+
 When the popup opens:
 
 - if at least 2 items are ready, enter `Compare`
@@ -176,6 +189,12 @@ Main action:
 
 - stable primary action is `Go to Library`
 
+Visibility rule:
+
+- this bridge is a Compare-mode state, not a replacement for smart-entry landing
+- in the default flow, smart entry should still send the user to `Library` when no compare-ready pair exists
+- the bridge is primarily for users who manually switch into `Compare` before a pair is ready
+
 The bridge must not become:
 
 - a system dashboard
@@ -207,6 +226,13 @@ Rule:
 
 - folders may remain as organizing aids
 - folders must not outrank the preparation logic of `ready / near-ready / in-progress`
+
+State mapping for Library:
+
+- `ready` = compare-ready material
+- `near-ready` = `analyzing`
+- `in-progress` = `queued` or `crawling`
+- `saved` remains pending inventory, not preparation priority
 
 Preparation cards must show compare affordance, not just item inventory.
 
@@ -405,6 +431,15 @@ Verb: configure
 - light visual treatment
 - should feel temporary and dismissible
 
+### 8.10 Technique / Casebook reading strip
+
+Verb: deepen
+
+- supports slower reading after fast compare
+- holds saved interpretation notes, technique cards, and representative evidence
+- uses notebook-strip rhythm rather than dashboard-card rhythm
+- must not compete with the selected cluster dock for first-screen authority
+
 ## 9. Token And Component Implementation Targets
 
 The redesign should primarily touch:
@@ -427,7 +462,8 @@ Expected implementation sequence:
 4. redesign Compare first screen and selected dock
 5. redesign Library as preparation desk
 6. simplify Collect into single-card capture
-7. restyle Settings to drawer logic
+7. restyle Settings to drawer logic without changing page-backed container mechanics in this pass
+8. align Technique / Casebook with slower-reading notebook-strip behavior
 
 ## 10. Acceptance Checklist
 
@@ -442,9 +478,11 @@ Before implementation is considered correct, verify:
 - Compare hero directs without proving
 - selected cluster dock remains the true reading center
 - Compare unavailable uses bridge language, not dashboard empty state
+- Compare unavailable bridge appears as a Compare-mode state, not as the default landing substitute for Library
 - Library favors preparation logic over folder-first IA
 - Collect is visibly simpler and faster than Compare
 - Settings feels drawer-like even if page-backed
+- Technique / Casebook has a distinct slower-reading role and does not compete with Compare first-screen hierarchy
 - elevated surfaces are rare and responsibility-based
 - semantic color stays attached to meaning, not decoration
 
