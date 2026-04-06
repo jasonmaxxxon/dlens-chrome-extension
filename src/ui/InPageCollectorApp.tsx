@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState, type CSSProperties } from "react";
+import { useEffect, useLayoutEffect, useMemo, useRef, useState, type CSSProperties } from "react";
 import type { TargetDescriptor } from "../contracts/target-descriptor";
 import type { PopupPage } from "../state/types";
 import { isDescriptorSavedInFolder } from "../state/ui-state";
@@ -124,24 +124,40 @@ export function InPageCollectorApp() {
     popupOpen ? resolveInitialPopupMode(summarizeSessionProcessing(activeFolder?.items || [])) : "collect"
   );
   const popupModeLockedRef = useRef(false);
+  const wasPopupOpenRef = useRef(popupOpen);
   const page = localPage;
   const processingSummary = useMemo(
     () => summarizeSessionProcessing(activeFolder?.items || []),
     [activeFolder?.items]
   );
-  useEffect(() => {
+  useLayoutEffect(() => {
+    const wasPopupOpen = wasPopupOpenRef.current;
     if (!popupOpen) {
       popupModeLockedRef.current = false;
+      wasPopupOpenRef.current = false;
       return;
     }
-    setLocalPage((currentMode) =>
-      preservePopupWorkspaceMode(processingSummary, {
-        popupOpen,
-        entryLocked: popupModeLockedRef.current,
-        currentMode
-      })
-    );
-    popupModeLockedRef.current = true;
+
+    if (!wasPopupOpen) {
+      popupModeLockedRef.current = false;
+      setLocalPage(resolveInitialPopupMode(processingSummary));
+      popupModeLockedRef.current = true;
+      wasPopupOpenRef.current = true;
+      return;
+    }
+
+    if (!popupModeLockedRef.current) {
+      setLocalPage((currentMode) =>
+        preservePopupWorkspaceMode(processingSummary, {
+          popupOpen,
+          entryLocked: popupModeLockedRef.current,
+          currentMode
+        })
+      );
+      popupModeLockedRef.current = true;
+    }
+
+    wasPopupOpenRef.current = true;
   }, [popupOpen, processingSummary]);
   const flashPreview = snapshot?.tab.flashPreview;
   const preview = flashPreview || snapshot?.tab.currentPreview;

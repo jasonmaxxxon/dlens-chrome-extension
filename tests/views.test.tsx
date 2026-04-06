@@ -104,7 +104,7 @@ test("CollectView keeps the preview card and collect toggle visible", () => {
   assert.match(html, /Hover to preview\. Press S to save\. Press Esc to exit\./);
 });
 
-test("popup workspace mode preserves user choice until the popup closes", () => {
+test("popup workspace reopen path recomputes smart entry instead of stale mode", () => {
   const summary: SessionProcessingSummary = {
     total: 1,
     ready: 0,
@@ -120,7 +120,7 @@ test("popup workspace mode preserves user choice until the popup closes", () => 
     preservePopupWorkspaceMode(summary, {
       popupOpen: true,
       entryLocked: false,
-      currentMode: "collect"
+      currentMode: "compare"
     }),
     "library"
   );
