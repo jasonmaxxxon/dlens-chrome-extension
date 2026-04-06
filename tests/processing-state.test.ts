@@ -102,18 +102,19 @@ test("summarizeSessionProcessing counts ready, crawling, analyzing, and pending 
   const queued = buildItem("queued");
   const running = buildItem("running");
   const analyzing = buildItem("succeeded", "running");
+  const failedAnalysis = buildItem("succeeded", "failed");
   const ready = buildItem("succeeded", "succeeded");
-  session.items.push(saved, queued, running, analyzing, ready);
+  session.items.push(saved, queued, running, analyzing, failedAnalysis, ready);
 
   const summary = summarizeSessionProcessing(session);
 
   assert.deepEqual(summary, {
-    total: 5,
+    total: 6,
     ready: 1,
     crawling: 2,
     analyzing: 1,
     pending: 1,
-    failed: 0,
+    failed: 1,
     hasReadyPair: false,
     hasInflight: true
   });
@@ -122,6 +123,7 @@ test("summarizeSessionProcessing counts ready, crawling, analyzing, and pending 
 test("getItemReadinessStatus distinguishes ready from analyzing", () => {
   assert.equal(getItemReadinessStatus(buildItem("succeeded", "succeeded")), "ready");
   assert.equal(getItemReadinessStatus(buildItem("succeeded", "running")), "analyzing");
+  assert.equal(getItemReadinessStatus(buildItem("succeeded", "failed")), "failed");
   assert.equal(getItemReadinessStatus(buildItem("queued")), "crawling");
   assert.equal(getItemReadinessStatus(buildItem("saved")), "saved");
 });

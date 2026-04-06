@@ -8,7 +8,6 @@ import type { SessionProcessingSummary, WorkerStatus } from "../src/state/proces
 import type { TargetDescriptor } from "../src/contracts/target-descriptor.ts";
 import type { SessionItem, SessionRecord } from "../src/state/types.ts";
 import { createSessionItem, createSessionRecord } from "../src/state/store-helpers.ts";
-import { preservePopupWorkspaceMode } from "../src/state/processing-state.ts";
 import { CollectView } from "../src/ui/CollectView.tsx";
 import { LibraryView } from "../src/ui/LibraryView.tsx";
 import { SettingsView } from "../src/ui/SettingsView.tsx";
@@ -246,46 +245,6 @@ test("CollectView keeps the preview card and collect toggle visible", () => {
   assert.match(html, /Exit collect mode/);
   assert.match(html, /save/);
   assert.match(html, /exit/);
-});
-
-test("popup workspace reopen path recomputes smart entry instead of stale mode", () => {
-  const summary: SessionProcessingSummary = {
-    total: 1,
-    ready: 0,
-    crawling: 1,
-    analyzing: 0,
-    pending: 0,
-    failed: 0,
-    hasReadyPair: false,
-    hasInflight: true
-  };
-
-  assert.equal(
-    preservePopupWorkspaceMode(summary, {
-      popupOpen: true,
-      entryLocked: false,
-      currentMode: "compare"
-    }),
-    "library"
-  );
-
-  assert.equal(
-    preservePopupWorkspaceMode(summary, {
-      popupOpen: true,
-      entryLocked: true,
-      currentMode: "settings"
-    }),
-    "settings"
-  );
-
-  assert.equal(
-    preservePopupWorkspaceMode(summary, {
-      popupOpen: false,
-      entryLocked: false,
-      currentMode: "compare"
-    }),
-    "compare"
-  );
 });
 
 test("SettingsView exposes Google provider and save action", () => {

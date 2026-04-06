@@ -65,6 +65,9 @@ export function getItemReadinessStatus(item: SessionItem): ItemReadinessStatus {
     if (analysisStatus === "succeeded") {
       return "ready";
     }
+    if (analysisStatus === "failed") {
+      return "failed";
+    }
     return "analyzing";
   }
   return "saved";
@@ -121,20 +124,6 @@ export function resolveInitialPopupMode(summary: SessionProcessingSummary): Work
     return "library";
   }
   return "collect";
-}
-
-export function preservePopupWorkspaceMode(
-  summary: SessionProcessingSummary,
-  input: {
-    popupOpen: boolean;
-    entryLocked: boolean;
-    currentMode: PopupPage;
-  }
-): PopupPage {
-  if (!input.popupOpen || input.entryLocked) {
-    return input.currentMode;
-  }
-  return resolveInitialPopupMode(summary);
 }
 
 export function advancePopupWorkspaceState(
