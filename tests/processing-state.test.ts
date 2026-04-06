@@ -3,6 +3,7 @@ import test from "node:test";
 
 import type { AnalysisSnapshot, CaptureSnapshot, JobSnapshot } from "../src/contracts/ingest.ts";
 import {
+  advancePopupWorkspaceState,
   DEFAULT_POPUP_WIDTH,
   EXPANDED_COMPARE_POPUP_WIDTH,
   hasNearReadyItems,
@@ -107,12 +108,12 @@ test("summarizeSessionProcessing counts ready, crawling, analyzing, and pending 
   const summary = summarizeSessionProcessing(session);
 
   assert.deepEqual(summary, {
-    total: 6,
+    total: 5,
     ready: 1,
     crawling: 2,
     analyzing: 1,
-    pending: 2,
-    failed: 1,
+    pending: 1,
+    failed: 0,
     hasReadyPair: false,
     hasInflight: true
   });
@@ -147,6 +148,50 @@ test("hasNearReadyItems only treats analyzing as near-ready", () => {
   const crawlingSession = createSessionRecord("Signals", "2026-03-28T08:00:00.000Z");
   crawlingSession.items.push(buildItem("queued"));
   assert.equal(hasNearReadyItems(summarizeSessionProcessing(crawlingSession)), false);
+});
+
+test("advancePopupWorkspaceState recomputes smart entry after close and reopen", () => {
+  const readySession = createSessionRecord("Ready", "2026-03-28T08:00:00.000Z");
+  readySession.items.push(buildItem("succeeded", "succeeded"), buildItem("succeeded", "succeeded"));
+  const readySummary = summarizeSessionProcessing(readySession);
+
+  const staleClosedState = {
+    currentMode: "collect" as const,
+    popupOpen: false,
+    modeLocked: false
+  };
+
+  const reopenedState = advancePopupWorkspaceState(readySummary, staleClosedState, true);
+  assert.deepEqual(reopenedState, {
+    currentMode: "compare",
+    popupOpen: true,
+    modeLocked: true
+  });
+
+  const activeState = advancePopupWorkspaceState(readySummary, reopenedState, false);
+  assert.deepEqual(activeState, {
+    currentMode: "compare",
+    popupOpen: false,
+    modeLocked: false
+  });
+
+  const reopenedAgain = advancePopupWorkspaceState(readySummary, activeState, true);
+  assert.deepEqual(reopenedAgain, {
+    currentMode: "compare",
+    popupOpen: true,
+    modeLocked: true
+  });
+});
+
+test("getLibraryItemUiState derives user-facing crawl labels from backend queued/running states", async () => {
+  const { getLibraryItemUiState } = await import("../src/state/processing-state.ts");
+
+  const queuedUi = getLibraryItemUiState(buildItem("queued"));
+  const failedUi = getLibraryItemUiState(buildItem("failed"));
+
+  assert.equal(queuedUi.statusLabel, "crawling");
+  assert.equal(queuedUi.statusTone, "running");
+  assert.equal(failedUi.statusLabel, "failed");
 });
 
 test("pickCompareSelection auto-fills the first legal pair and repairs invalid selections", () => {

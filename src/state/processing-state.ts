@@ -6,6 +6,8 @@ export const NETWORK_BATCH_SIZE = 3;
 
 export type WorkerStatus = "idle" | "draining";
 export type ItemReadinessStatus = "saved" | "queued" | "crawling" | "analyzing" | "ready" | "failed";
+export type ProgressMode = "idle" | "queued" | "crawling" | "analyzing" | "ready";
+export type ProgressVariant = "neutral" | "queued" | "running" | "success" | "failed";
 export type WorkspaceMode = Exclude<PopupPage, "settings">;
 
 export interface SessionProcessingSummary {
@@ -25,32 +27,24 @@ export interface PollingDelayInput {
   failureCount: number;
 }
 
-export function hasNearReadyItems(summary: SessionProcessingSummary): boolean {
-  return summary.analyzing > 0;
+export interface ProcessingStripUiState {
+  phaseLabel: string;
+  progressMode: ProgressMode;
+  progressHint: string;
 }
 
-export function resolveInitialPopupMode(summary: SessionProcessingSummary): WorkspaceMode {
-  if (summary.ready >= 2) {
-    return "compare";
-  }
-  if (summary.crawling > 0 || hasNearReadyItems(summary)) {
-    return "library";
-  }
-  return "collect";
+export interface LibraryItemUiState {
+  itemPhase: ProgressMode | "failed";
+  showProgressRail: boolean;
+  progressVariant: ProgressVariant;
+  statusTone: "saved" | "queued" | "running" | "succeeded" | "failed";
+  statusLabel: string;
 }
 
-export function preservePopupWorkspaceMode(
-  summary: SessionProcessingSummary,
-  input: {
-    popupOpen: boolean;
-    entryLocked: boolean;
-    currentMode: PopupPage;
-  }
-): PopupPage {
-  if (!input.popupOpen || input.entryLocked) {
-    return input.currentMode;
-  }
-  return resolveInitialPopupMode(summary);
+export interface PopupWorkspaceState {
+  currentMode: PopupPage;
+  popupOpen: boolean;
+  modeLocked: boolean;
 }
 
 export function getItemReadinessStatus(item: SessionItem): ItemReadinessStatus {
@@ -106,7 +100,6 @@ export function summarizeSessionProcessing(sessionOrItems: SessionRecord | Sessi
         break;
       case "failed":
         summary.failed += 1;
-        summary.pending += 1;
         break;
     }
   }
@@ -114,6 +107,62 @@ export function summarizeSessionProcessing(sessionOrItems: SessionRecord | Sessi
   summary.hasReadyPair = summary.ready >= 2;
   summary.hasInflight = summary.crawling > 0 || summary.analyzing > 0;
   return summary;
+}
+
+export function hasNearReadyItems(summary: SessionProcessingSummary): boolean {
+  return summary.analyzing > 0;
+}
+
+export function resolveInitialPopupMode(summary: SessionProcessingSummary): WorkspaceMode {
+  if (summary.ready >= 2) {
+    return "compare";
+  }
+  if (summary.crawling > 0 || hasNearReadyItems(summary)) {
+    return "library";
+  }
+  return "collect";
+}
+
+export function preservePopupWorkspaceMode(
+  summary: SessionProcessingSummary,
+  input: {
+    popupOpen: boolean;
+    entryLocked: boolean;
+    currentMode: PopupPage;
+  }
+): PopupPage {
+  if (!input.popupOpen || input.entryLocked) {
+    return input.currentMode;
+  }
+  return resolveInitialPopupMode(summary);
+}
+
+export function advancePopupWorkspaceState(
+  summary: SessionProcessingSummary,
+  state: PopupWorkspaceState,
+  nextPopupOpen: boolean
+): PopupWorkspaceState {
+  if (!nextPopupOpen) {
+    return {
+      currentMode: state.currentMode,
+      popupOpen: false,
+      modeLocked: false
+    };
+  }
+
+  if (!state.popupOpen || !state.modeLocked) {
+    return {
+      currentMode: resolveInitialPopupMode(summary),
+      popupOpen: true,
+      modeLocked: true
+    };
+  }
+
+  return {
+    ...state,
+    popupOpen: true,
+    modeLocked: true
+  };
 }
 
 function nextDistinctReadyItem(items: SessionItem[], excludedId: string): string {
@@ -154,4 +203,67 @@ export function getPollingDelayMs(input: PollingDelayInput): number | null {
   const base = input.workerStatus === "draining" ? 4000 : 8000;
   const multiplier = input.failureCount <= 0 ? 1 : Math.min(2 ** input.failureCount, 4);
   return Math.min(base * multiplier, 15000);
+}
+
+export function getProcessingStripUiState(
+  workerStatus: WorkerStatus | null,
+  summary: SessionProcessingSummary,
+): ProcessingStripUiState {
+  if (summary.total > 0 && summary.ready >= 2 && summary.ready === summary.total) {
+    return {
+      phaseLabel: "Ready to compare",
+      progressMode: "ready",
+      progressHint: "Two or more posts are ready, so Compare can become the primary surface."
+    };
+  }
+  if (summary.crawling > 0 || workerStatus === "draining") {
+    return {
+      phaseLabel: "Processing in progress",
+      progressMode: "crawling",
+      progressHint: "Comments are still being captured before the final analysis settles."
+    };
+  }
+  if (summary.analyzing > 0) {
+    return {
+      phaseLabel: "Waiting for analysis",
+      progressMode: "analyzing",
+      progressHint: "The crawl is done, but clusters and compare-ready analysis are still updating."
+    };
+  }
+  if (summary.pending > 0) {
+    return {
+      phaseLabel: "Idle — pending items not started",
+      progressMode: "queued",
+      progressHint: "Saved items are waiting for Process All."
+    };
+  }
+  return {
+    phaseLabel: "Checking processing state",
+    progressMode: "idle",
+    progressHint: "The worker is idle and there are no active updates."
+  };
+}
+
+export function getLibraryItemUiState(
+  item: SessionItem,
+  optimisticQueued = false,
+): LibraryItemUiState {
+  if (optimisticQueued) {
+    return { itemPhase: "queued", showProgressRail: true, progressVariant: "queued", statusTone: "queued", statusLabel: "queued" };
+  }
+
+  const readiness = getItemReadinessStatus(item);
+  switch (readiness) {
+    case "queued":
+    case "crawling":
+      return { itemPhase: "crawling", showProgressRail: true, progressVariant: "running", statusTone: "running", statusLabel: "crawling" };
+    case "analyzing":
+      return { itemPhase: "analyzing", showProgressRail: true, progressVariant: "running", statusTone: "running", statusLabel: "analyzing" };
+    case "ready":
+      return { itemPhase: "ready", showProgressRail: false, progressVariant: "success", statusTone: "succeeded", statusLabel: "ready" };
+    case "failed":
+      return { itemPhase: "failed", showProgressRail: false, progressVariant: "failed", statusTone: "failed", statusLabel: "failed" };
+    default:
+      return { itemPhase: "idle", showProgressRail: false, progressVariant: "neutral", statusTone: "saved", statusLabel: "saved" };
+  }
 }

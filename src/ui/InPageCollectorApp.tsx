@@ -1,15 +1,16 @@
 import { useEffect, useLayoutEffect, useMemo, useRef, useState, type CSSProperties } from "react";
 import type { TargetDescriptor } from "../contracts/target-descriptor";
-import type { PopupPage } from "../state/types";
+import type { PopupPage, TechniqueReadingSnapshot } from "../state/types";
 import { isDescriptorSavedInFolder } from "../state/ui-state";
 import type { StartProcessingResponse, WorkerStatusMessageResponse } from "../state/messages";
 import {
+  advancePopupWorkspaceState,
   DEFAULT_POPUP_WIDTH,
   EXPANDED_COMPARE_POPUP_WIDTH,
   getPollingDelayMs,
-  preservePopupWorkspaceMode,
   resolveInitialPopupMode,
   summarizeSessionProcessing,
+  type PopupWorkspaceState,
   type WorkerStatus
 } from "../state/processing-state";
 import { getActiveItem, getActiveSession, sendExtensionMessage, useExtensionSnapshot } from "./controller";
@@ -30,6 +31,7 @@ import {
   statusTheme,
   surfaceCardStyle
 } from "./components";
+import { tokens } from "./tokens";
 import { LibraryView } from "./LibraryView";
 import { ProcessingStrip } from "./ProcessingStrip";
 import { SettingsView } from "./SettingsView";
@@ -115,49 +117,50 @@ export function InPageCollectorApp() {
   const [optimisticQueuedIds, setOptimisticQueuedIds] = useState<string[]>([]);
   const [isStartingProcessing, setIsStartingProcessing] = useState(false);
   const [workerStatus, setWorkerStatus] = useState<WorkerStatus | null>(null);
+  const [techniqueReadings, setTechniqueReadings] = useState<TechniqueReadingSnapshot[]>([]);
   const processingFailureCountRef = useRef(0);
+
+  useEffect(() => {
+    if (document.getElementById("__dlens_popup_keyframes__")) {
+      return;
+    }
+    const style = document.createElement("style");
+    style.id = "__dlens_popup_keyframes__";
+    style.textContent = `
+      @keyframes dlens-popup-pulse {
+        0%, 100% { opacity: 0.55; transform: scale(0.92); }
+        50% { opacity: 1; transform: scale(1); }
+      }
+      @keyframes dlens-popup-shimmer {
+        0% { background-position: 200% 50%; }
+        100% { background-position: -200% 50%; }
+      }
+      @keyframes dlens-popup-indeterminate {
+        0% { transform: translateX(-115%); }
+        100% { transform: translateX(240%); }
+      }
+    `;
+    document.head.appendChild(style);
+    return () => {
+      style.remove();
+    };
+  }, []);
 
   const activeFolder = useMemo(() => getActiveSession(snapshot), [snapshot]);
   const activeItem = useMemo(() => getActiveItem(snapshot), [snapshot]);
   const popupOpen = Boolean(snapshot?.tab.popupOpen);
-  const [localPage, setLocalPage] = useState<PopupPage>(
-    popupOpen ? resolveInitialPopupMode(summarizeSessionProcessing(activeFolder?.items || [])) : "collect"
-  );
-  const popupModeLockedRef = useRef(false);
-  const wasPopupOpenRef = useRef(popupOpen);
-  const page = localPage;
+  const [workspaceState, setWorkspaceState] = useState<PopupWorkspaceState>(() => ({
+    currentMode: popupOpen ? resolveInitialPopupMode(summarizeSessionProcessing(activeFolder?.items || [])) : "collect",
+    popupOpen,
+    modeLocked: popupOpen
+  }));
+  const page = workspaceState.currentMode;
   const processingSummary = useMemo(
     () => summarizeSessionProcessing(activeFolder?.items || []),
     [activeFolder?.items]
   );
   useLayoutEffect(() => {
-    const wasPopupOpen = wasPopupOpenRef.current;
-    if (!popupOpen) {
-      popupModeLockedRef.current = false;
-      wasPopupOpenRef.current = false;
-      return;
-    }
-
-    if (!wasPopupOpen) {
-      popupModeLockedRef.current = false;
-      setLocalPage(resolveInitialPopupMode(processingSummary));
-      popupModeLockedRef.current = true;
-      wasPopupOpenRef.current = true;
-      return;
-    }
-
-    if (!popupModeLockedRef.current) {
-      setLocalPage((currentMode) =>
-        preservePopupWorkspaceMode(processingSummary, {
-          popupOpen,
-          entryLocked: popupModeLockedRef.current,
-          currentMode
-        })
-      );
-      popupModeLockedRef.current = true;
-    }
-
-    wasPopupOpenRef.current = true;
+    setWorkspaceState((currentState) => advancePopupWorkspaceState(processingSummary, currentState, popupOpen));
   }, [popupOpen, processingSummary]);
   const flashPreview = snapshot?.tab.flashPreview;
   const preview = flashPreview || snapshot?.tab.currentPreview;
@@ -250,6 +253,34 @@ export function InPageCollectorApp() {
       }
     };
   }, [snapshot?.tab.popupOpen, activeFolder?.id, processingSummary.hasInflight]);
+
+  useEffect(() => {
+    if (page !== "library") {
+      return;
+    }
+    let cancelled = false;
+    void sendExtensionMessage<{ ok: true; techniqueReadings?: TechniqueReadingSnapshot[] } | { ok: false; error: string }>({
+      type: "compare/get-technique-readings"
+    })
+      .then((response) => {
+        if (cancelled) {
+          return;
+        }
+        if (response.ok) {
+          setTechniqueReadings(response.techniqueReadings ?? []);
+          return;
+        }
+        setTechniqueReadings([]);
+      })
+      .catch(() => {
+        if (!cancelled) {
+          setTechniqueReadings([]);
+        }
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [page]);
 
   // Clear optimistic saved state when folder changes
   useEffect(() => {
@@ -381,7 +412,12 @@ export function InPageCollectorApp() {
   }, [snapshot?.tab.selectionMode, snapshot?.tab.currentPreview?.post_url]);
 
   async function onNavigate(pageValue: PopupPage) {
-    setLocalPage(pageValue);
+    setWorkspaceState((currentState) => ({
+      ...currentState,
+      currentMode: pageValue,
+      popupOpen: true,
+      modeLocked: true
+    }));
     await sendAndSync({ type: "popup/navigate-active-tab", page: pageValue });
   }
 
@@ -583,13 +619,13 @@ export function InPageCollectorApp() {
           borderRadius: 16,
           border: `1px solid ${TOKENS.glassBorder}`,
           background: snapshot?.tab.popupOpen
-            ? `linear-gradient(135deg, ${TOKENS.accent}, #818cf8)`
+            ? `linear-gradient(135deg, ${TOKENS.accent}, ${TOKENS.accentMid})`
             : TOKENS.glassBg,
           backdropFilter: TOKENS.glassBlur,
           WebkitBackdropFilter: TOKENS.glassBlur,
           boxShadow: snapshot?.tab.popupOpen
             ? `0 8px 24px ${TOKENS.accentGlow}`
-            : "0 8px 32px rgba(15,23,42,0.14)",
+            : "0 4px 16px rgba(0,0,0,0.12)",
           color: snapshot?.tab.popupOpen ? "#fff" : TOKENS.accent,
           fontSize: 22,
           fontWeight: 700,
@@ -635,7 +671,7 @@ export function InPageCollectorApp() {
             gap: 8
           }}
         >
-          <span style={{ width: 6, height: 6, borderRadius: 999, background: "#818cf8", display: "inline-block", animation: "dlens-pulse 2s ease-in-out infinite" }} />
+          <span style={{ width: 6, height: 6, borderRadius: 999, background: TOKENS.accentMid, display: "inline-block", animation: "dlens-pulse 2s ease-in-out infinite" }} />
           Hover to preview
           <span style={{ opacity: 0.4 }}>|</span>
           <kbd style={{ padding: "1px 6px", borderRadius: 4, background: "rgba(255,255,255,0.15)", fontSize: 11 }}>S</kbd> save
@@ -684,7 +720,7 @@ export function InPageCollectorApp() {
                   width: 34,
                   height: 34,
                   borderRadius: 12,
-                  background: `linear-gradient(135deg, ${TOKENS.accent}, #818cf8)`,
+                  background: `linear-gradient(135deg, ${TOKENS.accent}, ${TOKENS.accentMid})`,
                   color: "#fff",
                   display: "grid",
                   placeItems: "center",
@@ -764,49 +800,50 @@ export function InPageCollectorApp() {
             right: 24,
             top: 82,
             width: page === "compare" ? EXPANDED_COMPARE_POPUP_WIDTH : DEFAULT_POPUP_WIDTH,
-            maxHeight: "min(76vh, 780px)",
+            maxHeight: "min(80vh, 820px)",
             overflow: "auto",
-            borderRadius: 24,
-            border: `1px solid ${TOKENS.glassBorder}`,
-            background: "rgba(255,255,255,0.78)",
-            backdropFilter: "blur(24px) saturate(180%)",
-            WebkitBackdropFilter: "blur(24px) saturate(180%)",
-            boxShadow: "0 24px 80px rgba(15,23,42,0.16), 0 0 0 1px rgba(255,255,255,0.3) inset",
-            padding: 16,
+            borderRadius: 20,
+            border: `1px solid ${tokens.color.glassBorder}`,
+            background: "rgba(255,255,255,0.995)",
+            backdropFilter: "blur(14px) saturate(112%)",
+            WebkitBackdropFilter: "blur(14px) saturate(112%)",
+            boxShadow: `${tokens.shadow.popup}, inset 0 1px 0 rgba(255,255,255,0.96)`,
+            padding: `${tokens.spacing.lg}px`,
             zIndex: 2147483640,
-            color: TOKENS.ink,
+            color: tokens.color.ink,
             fontFamily: "Inter, system-ui, -apple-system, sans-serif",
-            animation: "dlens-slide-in 250ms cubic-bezier(0.4, 0, 0.2, 1)",
+            animation: "dlens-slide-in 280ms cubic-bezier(0.16, 1, 0.3, 1)",
             transition: "width 200ms cubic-bezier(0.4, 0, 0.2, 1)"
           }}
           onClick={(event) => event.stopPropagation()}
           onMouseDown={(event) => event.stopPropagation()}
         >
-          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12, marginBottom: 14 }}>
+          {/* ── Header ── */}
+          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12, marginBottom: tokens.spacing.lg }}>
             <div>
-              <div style={{ fontSize: 10, textTransform: "uppercase", letterSpacing: "0.1em", color: TOKENS.softInk, fontWeight: 600, marginBottom: 2 }}>DLens Collector</div>
-              <div style={{ fontSize: 17, fontWeight: 800, display: "flex", alignItems: "center", gap: 8 }}>
+              <div style={{ fontSize: 9, textTransform: "uppercase", letterSpacing: "0.14em", color: tokens.color.softInk, fontWeight: 600, marginBottom: 3 }}>DLens</div>
+              <div style={{ fontSize: 15, fontWeight: 700, display: "flex", alignItems: "center", gap: 8, color: tokens.color.ink }}>
                 {activeFolder?.name || "Choose a Folder"}
                 {activeFolder ? (
                   <span style={{
-                    fontSize: 11,
-                    fontWeight: 700,
-                    color: TOKENS.accent,
-                    background: TOKENS.accentSoft,
-                    padding: "2px 8px",
-                    borderRadius: 999
+                    fontSize: 10,
+                    fontWeight: 600,
+                    color: tokens.color.cyan,
+                    padding: "1px 6px",
+                    borderRadius: 999,
+                    border: `1px solid ${tokens.color.cyanSoft}`
                   }}>
                     {activeFolder.items.length}
                   </span>
                 ) : null}
               </div>
             </div>
-            <PrimaryButton onClick={() => setShowFolderPrompt((current) => !current)} style={{ padding: "7px 12px", fontSize: 12 }}>
+            <SecondaryButton onClick={() => setShowFolderPrompt((current) => !current)} style={{ padding: "5px 10px", fontSize: 10 }}>
               + New
-            </PrimaryButton>
+            </SecondaryButton>
           </div>
 
-          <div style={{ display: "flex", gap: 8, marginBottom: 12 }}>
+          <div style={{ display: "flex", gap: 6, marginBottom: tokens.spacing.section }}>
             <select
               value={snapshot?.global.activeSessionId || ""}
               onChange={(event) => {
@@ -821,14 +858,14 @@ export function InPageCollectorApp() {
               }}
               style={{
                 flex: 1,
-                borderRadius: TOKENS.pillRadius,
-                border: `1px solid ${TOKENS.glassBorder}`,
-                padding: "9px 12px",
-                background: "rgba(255,255,255,0.6)",
-                fontSize: 13,
-                color: TOKENS.ink,
+                borderRadius: tokens.radius.sm,
+                border: `1px solid ${tokens.color.glassBorder}`,
+                padding: "7px 10px",
+                background: tokens.color.elevated,
+                fontSize: 12,
+                color: tokens.color.ink,
                 outline: "none",
-                transition: TOKENS.transition
+                transition: tokens.motion.transitionFast
               }}
             >
               <option value="" disabled>
@@ -865,12 +902,12 @@ export function InPageCollectorApp() {
           </div>
 
           {isRenamingFolder && activeFolder ? (
-            <div style={{ ...surfaceCardStyle({ marginBottom: 12, display: "grid", gap: 8, background: "#f8fafc" }) }}>
+            <div style={{ ...surfaceCardStyle({ marginBottom: 12, display: "grid", gap: 8, background: tokens.color.elevated }) }}>
               <input
                 value={editingFolderName}
                 onChange={(event) => setEditingFolderName(event.target.value)}
                 placeholder="Rename this folder"
-                style={{ borderRadius: TOKENS.pillRadius, border: `1px solid ${TOKENS.glassBorder}`, padding: "9px 12px", background: "rgba(255,255,255,0.6)", fontSize: 13, outline: "none", transition: TOKENS.transition }}
+                style={{ borderRadius: TOKENS.pillRadius, border: `1px solid ${TOKENS.glassBorder}`, padding: "9px 12px", background: tokens.color.elevated, color: tokens.color.ink, fontSize: 13, outline: "none", transition: TOKENS.transition }}
               />
               <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8 }}>
                 <PrimaryButton onClick={() => void onRenameFolder()} disabled={!editingFolderName.trim()}>
@@ -882,12 +919,12 @@ export function InPageCollectorApp() {
           ) : null}
 
           {showFolderPrompt ? (
-            <div style={{ ...surfaceCardStyle({ marginBottom: 12, display: "grid", gap: 8, background: "#f8fafc" }) }}>
+            <div style={{ ...surfaceCardStyle({ marginBottom: 12, display: "grid", gap: 8, background: tokens.color.elevated }) }}>
               <input
                 value={folderName}
                 onChange={(event) => setFolderName(event.target.value)}
                 placeholder="Name this folder"
-                style={{ borderRadius: TOKENS.pillRadius, border: `1px solid ${TOKENS.glassBorder}`, padding: "9px 12px", background: "rgba(255,255,255,0.6)", fontSize: 13, outline: "none", transition: TOKENS.transition }}
+                style={{ borderRadius: TOKENS.pillRadius, border: `1px solid ${TOKENS.glassBorder}`, padding: "9px 12px", background: tokens.color.elevated, color: tokens.color.ink, fontSize: 13, outline: "none", transition: TOKENS.transition }}
               />
               <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8 }}>
                 <PrimaryButton onClick={() => void onCreateFolder(false)}>Create folder</PrimaryButton>
@@ -909,7 +946,7 @@ export function InPageCollectorApp() {
             />
           ) : null}
 
-          <div style={{ display: "flex", gap: 8, marginBottom: 16 }}>
+          <div style={{ display: "flex", gap: 0, marginBottom: tokens.spacing.lg, borderBottom: `1px solid ${tokens.color.line}` }}>
             <PageButton active={page === "collect"} onClick={() => void onNavigate("collect")}>
               Collect
             </PageButton>
@@ -958,6 +995,7 @@ export function InPageCollectorApp() {
               onMoveSelection={(direction) => void moveSelection(direction)}
               onQueueItem={() => void onQueueItem()}
               renderMetrics={flashPreviewMetrics}
+              techniqueReadings={techniqueReadings}
             />
           ) : null}
 
