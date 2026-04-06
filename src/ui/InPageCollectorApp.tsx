@@ -7,6 +7,8 @@ import {
   DEFAULT_POPUP_WIDTH,
   EXPANDED_COMPARE_POPUP_WIDTH,
   getPollingDelayMs,
+  preservePopupWorkspaceMode,
+  resolveInitialPopupMode,
   summarizeSessionProcessing,
   type WorkerStatus
 } from "../state/processing-state";
@@ -117,15 +119,30 @@ export function InPageCollectorApp() {
 
   const activeFolder = useMemo(() => getActiveSession(snapshot), [snapshot]);
   const activeItem = useMemo(() => getActiveItem(snapshot), [snapshot]);
-  const snapshotPage = snapshot?.tab.popupPage || "collect";
-  const [localPage, setLocalPage] = useState<PopupPage>(snapshotPage);
-  // Sync local page when snapshot catches up (e.g. on mount or external navigation)
-  useEffect(() => { setLocalPage(snapshotPage); }, [snapshotPage]);
+  const popupOpen = Boolean(snapshot?.tab.popupOpen);
+  const [localPage, setLocalPage] = useState<PopupPage>(
+    popupOpen ? resolveInitialPopupMode(summarizeSessionProcessing(activeFolder?.items || [])) : "collect"
+  );
+  const popupModeLockedRef = useRef(false);
   const page = localPage;
   const processingSummary = useMemo(
     () => summarizeSessionProcessing(activeFolder?.items || []),
     [activeFolder?.items]
   );
+  useEffect(() => {
+    if (!popupOpen) {
+      popupModeLockedRef.current = false;
+      return;
+    }
+    setLocalPage((currentMode) =>
+      preservePopupWorkspaceMode(processingSummary, {
+        popupOpen,
+        entryLocked: popupModeLockedRef.current,
+        currentMode
+      })
+    );
+    popupModeLockedRef.current = true;
+  }, [popupOpen, processingSummary]);
   const flashPreview = snapshot?.tab.flashPreview;
   const preview = flashPreview || snapshot?.tab.currentPreview;
   const hoverNormalized = normalizePostUrl(flashPreview?.post_url || "");

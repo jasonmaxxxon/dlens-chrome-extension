@@ -1,4 +1,4 @@
-import type { SessionItem, SessionRecord } from "./types.ts";
+import type { PopupPage, SessionItem, SessionRecord } from "./types.ts";
 
 export const DEFAULT_POPUP_WIDTH = 348;
 export const EXPANDED_COMPARE_POPUP_WIDTH = 504;
@@ -6,6 +6,7 @@ export const NETWORK_BATCH_SIZE = 3;
 
 export type WorkerStatus = "idle" | "draining";
 export type ItemReadinessStatus = "saved" | "queued" | "crawling" | "analyzing" | "ready" | "failed";
+export type WorkspaceMode = Exclude<PopupPage, "settings">;
 
 export interface SessionProcessingSummary {
   total: number;
@@ -22,6 +23,34 @@ export interface PollingDelayInput {
   workerStatus: WorkerStatus;
   hasInflight: boolean;
   failureCount: number;
+}
+
+export function hasNearReadyItems(summary: SessionProcessingSummary): boolean {
+  return summary.analyzing > 0;
+}
+
+export function resolveInitialPopupMode(summary: SessionProcessingSummary): WorkspaceMode {
+  if (summary.ready >= 2) {
+    return "compare";
+  }
+  if (summary.crawling > 0 || hasNearReadyItems(summary)) {
+    return "library";
+  }
+  return "collect";
+}
+
+export function preservePopupWorkspaceMode(
+  summary: SessionProcessingSummary,
+  input: {
+    popupOpen: boolean;
+    entryLocked: boolean;
+    currentMode: PopupPage;
+  }
+): PopupPage {
+  if (!input.popupOpen || input.entryLocked) {
+    return input.currentMode;
+  }
+  return resolveInitialPopupMode(summary);
 }
 
 export function getItemReadinessStatus(item: SessionItem): ItemReadinessStatus {

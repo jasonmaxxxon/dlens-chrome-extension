@@ -5,9 +5,11 @@ import type { AnalysisSnapshot, CaptureSnapshot, JobSnapshot } from "../src/cont
 import {
   DEFAULT_POPUP_WIDTH,
   EXPANDED_COMPARE_POPUP_WIDTH,
+  hasNearReadyItems,
   getItemReadinessStatus,
   getPollingDelayMs,
   pickCompareSelection,
+  resolveInitialPopupMode,
   summarizeSessionProcessing
 } from "../src/state/processing-state.ts";
 import { createSessionItem, createSessionRecord } from "../src/state/store-helpers.ts";
@@ -100,8 +102,7 @@ test("summarizeSessionProcessing counts ready, crawling, analyzing, and pending 
   const running = buildItem("running");
   const analyzing = buildItem("succeeded", "running");
   const ready = buildItem("succeeded", "succeeded");
-  const failed = buildItem("failed");
-  session.items.push(saved, queued, running, analyzing, ready, failed);
+  session.items.push(saved, queued, running, analyzing, ready);
 
   const summary = summarizeSessionProcessing(session);
 
@@ -122,6 +123,30 @@ test("getItemReadinessStatus distinguishes ready from analyzing", () => {
   assert.equal(getItemReadinessStatus(buildItem("succeeded", "running")), "analyzing");
   assert.equal(getItemReadinessStatus(buildItem("queued")), "crawling");
   assert.equal(getItemReadinessStatus(buildItem("saved")), "saved");
+});
+
+test("resolveInitialPopupMode prefers compare, then library, then collect", () => {
+  const compareSession = createSessionRecord("Compare", "2026-03-28T08:00:00.000Z");
+  compareSession.items.push(buildItem("succeeded", "succeeded"), buildItem("succeeded", "succeeded"));
+  assert.equal(resolveInitialPopupMode(summarizeSessionProcessing(compareSession)), "compare");
+
+  const librarySession = createSessionRecord("Library", "2026-03-28T08:00:00.000Z");
+  librarySession.items.push(buildItem("queued"), buildItem("succeeded", "running"));
+  assert.equal(resolveInitialPopupMode(summarizeSessionProcessing(librarySession)), "library");
+
+  const collectSession = createSessionRecord("Collect", "2026-03-28T08:00:00.000Z");
+  collectSession.items.push(buildItem("saved"), buildItem("failed"));
+  assert.equal(resolveInitialPopupMode(summarizeSessionProcessing(collectSession)), "collect");
+});
+
+test("hasNearReadyItems only treats analyzing as near-ready", () => {
+  const analyzingSession = createSessionRecord("Signals", "2026-03-28T08:00:00.000Z");
+  analyzingSession.items.push(buildItem("succeeded", "running"));
+  assert.equal(hasNearReadyItems(summarizeSessionProcessing(analyzingSession)), true);
+
+  const crawlingSession = createSessionRecord("Signals", "2026-03-28T08:00:00.000Z");
+  crawlingSession.items.push(buildItem("queued"));
+  assert.equal(hasNearReadyItems(summarizeSessionProcessing(crawlingSession)), false);
 });
 
 test("pickCompareSelection auto-fills the first legal pair and repairs invalid selections", () => {
