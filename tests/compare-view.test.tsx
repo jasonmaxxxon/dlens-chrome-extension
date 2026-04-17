@@ -700,7 +700,8 @@ test("CompareView promotes why-matters copy over support metric pills on the fir
   );
 
   assert.match(html, /為什麼重要/);
-  assert.match(html, /剖析/);
+  // DictionaryCard compact mode: 剖析 block absent when no AI annotations present
+  assert.doesNotMatch(html, /剖析/);
   assert.doesNotMatch(html, />Captured</);
   assert.doesNotMatch(html, />Replies</);
 });
@@ -714,7 +715,8 @@ test("CompareView frames primary evidence as receipts before interpretation", ()
   );
 
   assert.match(html, /代表性原文/);
-  assert.match(html, /剖析/);
+  // DictionaryCard compact mode: 剖析 block absent when no AI annotations present
+  assert.doesNotMatch(html, /剖析/);
   assert.match(html, /為什麼重要/);
   assert.ok(html.indexOf("代表性原文") < html.indexOf("為什麼重要"));
   assert.doesNotMatch(html, /text-transform:uppercase/);
@@ -758,10 +760,11 @@ test("CompareView keeps evidence cards collapsed by default", () => {
   );
 
   assert.match(html, /top evidence stays visible inside the selected dock/);
-  // With null-fallback annotation policy, per-quote analysis shows an explicit
-  // empty state and the "為什麼有效" expand button is hidden when no AI
-  // annotation is present — no fabricated cluster-level prose allowed.
-  assert.match(html, /（尚未個別分析此留言）/);
+  // DictionaryCard compact mode: 剖析 block and empty-state copy are not
+  // rendered when annotation is absent. SelectedClusterDetailPanel only renders
+  // EvidenceReasonRow after user selects a cluster, so it does not appear here.
+  assert.doesNotMatch(html, /尚未個別分析此留言/);
+  assert.doesNotMatch(html, /剖析/);
   assert.doesNotMatch(html, /像這則留言強化了/);
 });
 
@@ -773,9 +776,30 @@ test("CompareView selected cluster detail does not fabricate per-quote evidence 
     })
   );
 
-  assert.match(html, /（尚未個別分析此留言）/);
+  // EvidenceReasonRow (SelectedClusterDetailPanel) only renders after user
+  // selects a cluster — not in the default static render. DictionaryCard
+  // compact mode removes the italic fallback entirely, so this string is absent.
+  assert.doesNotMatch(html, /尚未個別分析此留言/);
   assert.doesNotMatch(html, /支撐這個群組/);
   assert.doesNotMatch(html, /講得像同一路線的延伸/);
+});
+
+test("DictionaryCard renders full card when analysis and effectiveness are both present", () => {
+  const html = renderToStaticMarkup(
+    React.createElement(compareViewTestables.DictionaryCard, {
+      rank: 1,
+      handle: "testuser",
+      quote: "representative evidence text",
+      side: "A" as const,
+      marks: [],
+      analysis: "this is the writer meaning analysis",
+      effectiveness: "this explains why it is effective"
+    })
+  );
+  assert.match(html, /representative evidence text/);
+  assert.match(html, /剖析/);
+  assert.match(html, /this is the writer meaning analysis/);
+  assert.match(html, /為什麼有效/);
 });
 
 test("CompareView uses visibly different bubble sizes for multi-cluster navigators", () => {

@@ -2466,17 +2466,15 @@ function DictionaryCard({ rank, handle, quote, likes, replies, side, marks, anal
           />
         </div>
       </div>
-      <div style={{ padding: "12px 15px 0" }}>
+      <div style={{ padding: hasAnalysis ? "12px 15px 0" : "12px 15px 12px" }}>
         <AnnotatedQuote text={quote} marks={marks} side={side} />
       </div>
-      <div style={{ margin: "0 15px 12px", borderLeft: `2.5px solid ${border}`, paddingLeft: 10 }}>
-        <div style={{ fontSize: 9.5, fontWeight: 700, color: "rgba(0,0,0,0.3)", letterSpacing: 0.4, marginBottom: 4 }}>剖析</div>
-        {hasAnalysis ? (
+      {hasAnalysis && (
+        <div style={{ margin: "0 15px 12px", borderLeft: `2.5px solid ${border}`, paddingLeft: 10 }}>
+          <div style={{ fontSize: 9.5, fontWeight: 700, color: "rgba(0,0,0,0.3)", letterSpacing: 0.4, marginBottom: 4 }}>剖析</div>
           <p style={{ fontSize: 12, lineHeight: 1.55, letterSpacing: -0.16, color: AR.softInk, margin: 0 }}>{analysis}</p>
-        ) : (
-          <p style={{ fontSize: 12, lineHeight: 1.55, letterSpacing: -0.16, color: AR.muteInk, fontStyle: "italic", margin: 0 }}>（尚未個別分析此留言）</p>
-        )}
-      </div>
+        </div>
+      )}
       {hasEffectiveness && (
         <>
           <button onClick={() => setExp(e => !e)} style={{ width: "100%", background: "rgba(0,0,0,0.02)", border: "none", borderTop: `0.5px solid rgba(0,0,0,0.05)`, cursor: "pointer", padding: "8px 15px", display: "flex", alignItems: "center", justifyContent: "space-between" }}>
@@ -2990,7 +2988,8 @@ export const compareViewTestables = {
   ResultTrustStrip,
   SectionLabel,
   PostHeader,
-  ClusterBubbleMap
+  ClusterBubbleMap,
+  DictionaryCard
 };
 
 export function CompareView({ session, settings, onGoToLibrary, forcedSelection = null, hideSelector = false }: CompareViewProps) {
