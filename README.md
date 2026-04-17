@@ -22,7 +22,7 @@ Settings is a separate utility drawer, not a primary tab.
 
 ### What actually renders right now
 
-- Hover-to-preview on Threads feeds + post-detail pages (collect mode)
+- Hover-to-preview on Threads feeds + post-detail pages (collect mode), with stale overlay reset on SPA route changes
 - Save posts into folders; rename / switch / delete folders
 - Queue single or all pending items to the ingest backend; `Process All` drains the worker
 - Job + analysis polling with late-analysis recovery after crawl success
@@ -40,7 +40,6 @@ Settings is a separate utility drawer, not a primary tab.
 | Priority | Gap | Note |
 |----------|-----|------|
 | P2 | `InPageCollectorApp.tsx` is ~1442 lines | Process rule caps this at 400 lines; see AGENTS.md. Still owns too much popup orchestration. |
-| P2 | Hover debounce (~360ms) feels laggy; SPA transitions leave stale overlay | |
 | P2 | Compare cluster pairing is rank-based, not semantic | |
 | P3 | No skeleton loading during crawl / analyze pending | Existing `ProcessingStrip` progress ring covers status, not content placeholders. |
 | P3 | Folder / collection name is not yet forwarded to the backend | |

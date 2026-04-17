@@ -50,7 +50,7 @@ npx tsx --test tests/*.test.ts tests/*.test.tsx
 
 ## Current Working Features
 
-- hover-to-preview on Threads feed and post-detail pages
+- hover-to-preview on Threads feed and post-detail pages, with stale overlay reset on SPA route changes
 - engagement extraction for likes, comments, reposts, forwards, views
 - repost-aware author extraction
 - folder CRUD and save accumulation

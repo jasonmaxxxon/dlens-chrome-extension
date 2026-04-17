@@ -2,6 +2,7 @@ import React from "react";
 import ReactDOM from "react-dom/client";
 import { defineContentScript } from "wxt/utils/define-content-script";
 import { buildTargetDescriptor, findCardCandidate, type CandidateStrength } from "../src/targeting/threads";
+import { createLocationChangeChecker, HOVER_INTENT_DELAY_MS } from "../src/targeting/navigation-reset";
 import type { ExtensionMessage, ExtensionResponse } from "../src/state/messages";
 import { buildSelectionModeMessage, type SelectionModeExitReason } from "../src/state/selection-mode-messages";
 import { InPageCollectorApp } from "../src/ui/InPageCollectorApp";
@@ -20,6 +21,7 @@ let hoverDescriptor: ReturnType<typeof buildTargetDescriptor> | null = null;
 let hoverIntentHandle: number | null = null;
 let previousBodyCursor = "";
 let previousDocumentCursor = "";
+let removeSpaNavigationReset: (() => void) | null = null;
 
 function isControlSurface(node: EventTarget | Node | null): boolean {
   const element = node instanceof Element ? node : node instanceof Node ? node.parentElement : null;
@@ -173,7 +175,55 @@ function setHoverCard(card: HTMLElement | null, strength: CandidateStrength | nu
     const descriptor = buildTargetDescriptor(card, window.location.href);
     hoverDescriptor = descriptor;
     publishHoveredDescriptor(descriptor);
-  }, 120);
+  }, HOVER_INTENT_DELAY_MS);
+}
+
+function clearHoverStateForNavigation() {
+  lastCardFingerprint = "";
+  setHoverCard(null, null);
+}
+
+function installSpaNavigationReset() {
+  const checkLocationChange = createLocationChangeChecker(window.location.href);
+  const handlePotentialNavigation = () => {
+    checkLocationChange(window.location.href, () => {
+      clearHoverStateForNavigation();
+    });
+  };
+
+  const originalPushState = history.pushState.bind(history);
+  const originalReplaceState = history.replaceState.bind(history);
+
+  history.pushState = function pushState(...args) {
+    const result = originalPushState(...args);
+    handlePotentialNavigation();
+    return result;
+  };
+
+  history.replaceState = function replaceState(...args) {
+    const result = originalReplaceState(...args);
+    handlePotentialNavigation();
+    return result;
+  };
+
+  window.addEventListener("popstate", handlePotentialNavigation, true);
+  window.addEventListener("hashchange", handlePotentialNavigation, true);
+
+  const observer = new MutationObserver(() => {
+    handlePotentialNavigation();
+  });
+  observer.observe(document.documentElement, {
+    childList: true,
+    subtree: true
+  });
+
+  return () => {
+    history.pushState = originalPushState;
+    history.replaceState = originalReplaceState;
+    window.removeEventListener("popstate", handlePotentialNavigation, true);
+    window.removeEventListener("hashchange", handlePotentialNavigation, true);
+    observer.disconnect();
+  };
 }
 
 function stopSelectionMode(reason: SelectionModeExitReason = "manual-cancel") {
@@ -283,6 +333,8 @@ export default defineContentScript({
   matches: ["*://*.threads.net/*", "*://*.threads.com/*"],
   main() {
     ensureOverlay();
+    removeSpaNavigationReset?.();
+    removeSpaNavigationReset = installSpaNavigationReset();
 
     const root = ensureRoot();
     const extensionOrigin = chrome.runtime.getURL("");
