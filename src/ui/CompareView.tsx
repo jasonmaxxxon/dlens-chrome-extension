@@ -755,27 +755,6 @@ function compactHeroCue(value: string): string {
   return matched.length > 28 ? `${matched.slice(0, 27).trim()}…` : matched;
 }
 
-function evidenceWhySelected(detail: SelectedClusterDetail, evidence: SelectedClusterDetail["audienceEvidence"][number]): string {
-  const supportLead = detail.supportMetrics.find((metric) => metric.kind === "captured")?.value || detail.supportLabel;
-  const excerpt = evidencePreview(evidence.text).replace(/["“”「」]/g, "");
-  return `像「${excerpt}」這種說法，直接把「${detail.clusterTitle}」推到前景；它不只是出現在群組裡，還落在 ${supportLead} 的主要互動區。`;
-}
-
-function evidenceRelationToThesis(
-  detail: SelectedClusterDetail,
-  evidence: SelectedClusterDetail["audienceEvidence"][number]
-): string {
-  const excerpt = evidencePreview(evidence.text).replace(/["“”「」]/g, "");
-  switch (detail.alignment) {
-    case "Align":
-      return `這條留言把「${excerpt}」講得像同一路線的延伸，支撐這個群組是在順著原文放大而不是改題。`;
-    case "Oppose":
-      return `這條留言把注意力轉到「${excerpt}」這種另一個焦點，支撐這個群組正在偏離原文主軸。`;
-    default:
-      return `這條留言既接住「${detail.clusterTitle}」，又沒有完全統一讀法，支撐這個群組仍在分岐中的判斷。`;
-  }
-}
-
 function divergenceDirection(detail: SelectedClusterDetail, sideLabel: "A" | "B"): string {
   return `Post ${sideLabel} 較靠近「${detail.clusterTitle}」：${detail.alignmentSummary}`;
 }
@@ -1281,12 +1260,17 @@ function CompareSelectorStrip({
 function EvidenceReasonRow({
   sideLabel,
   detail,
-  evidence
+  evidence,
+  annotationMap
 }: {
   sideLabel: "A" | "B";
   detail: SelectedClusterDetail;
   evidence: SelectedClusterDetail["audienceEvidence"][number];
+  annotationMap: Map<string, EvidenceAnnotation>;
 }) {
+  const annotation = evidence.commentId ? annotationMap.get(evidence.commentId) : undefined;
+  const emptyState = "（尚未個別分析此留言）";
+
   return (
     <div
       data-primary-evidence={`post-${sideLabel.toLowerCase()}`}
@@ -1343,12 +1327,12 @@ function EvidenceReasonRow({
           </EvidenceFieldRow>
           <EvidenceFieldRow label="Why matters">
             <span style={{ fontSize: 12, color: T.sub, lineHeight: 1.55, ...WRAP_ANYWHERE }}>
-              {evidenceWhySelected(detail, evidence)}
+              {annotation?.writerMeaning || emptyState}
             </span>
           </EvidenceFieldRow>
           <EvidenceFieldRow label="Relation">
             <span style={{ fontSize: 12, color: T.sub, lineHeight: 1.55, ...WRAP_ANYWHERE }}>
-              {evidenceRelationToThesis(detail, evidence)}
+              {annotation?.whyEffective || emptyState}
             </span>
           </EvidenceFieldRow>
         </div>
@@ -1378,6 +1362,7 @@ function CompareJudgmentSheet({
   compareBriefState,
   aiProviderConfigured,
   showAlertRail,
+  annotationMap,
   onOpenTechnique
 }: {
   heroSummary: CompareHeroSummary | null;
@@ -1389,6 +1374,7 @@ function CompareJudgmentSheet({
   compareBriefState: CompareBriefSurfaceState["compareBriefState"];
   aiProviderConfigured: boolean;
   showAlertRail: boolean;
+  annotationMap: Map<string, EvidenceAnnotation>;
   onOpenTechnique: (side: "A" | "B") => void;
 }) {
   const [briefExpanded, setBriefExpanded] = useState(false);
@@ -1571,8 +1557,8 @@ function CompareJudgmentSheet({
             gap: 0
           }}
         >
-          {detailA && evidenceA && evidenceFilter !== "B" ? <EvidenceReasonRow sideLabel="A" detail={detailA} evidence={evidenceA} /> : null}
-          {detailB && evidenceB && evidenceFilter !== "A" ? <EvidenceReasonRow sideLabel="B" detail={detailB} evidence={evidenceB} /> : null}
+          {detailA && evidenceA && evidenceFilter !== "B" ? <EvidenceReasonRow sideLabel="A" detail={detailA} evidence={evidenceA} annotationMap={annotationMap} /> : null}
+          {detailB && evidenceB && evidenceFilter !== "A" ? <EvidenceReasonRow sideLabel="B" detail={detailB} evidence={evidenceB} annotationMap={annotationMap} /> : null}
         </div>
       </div>
 

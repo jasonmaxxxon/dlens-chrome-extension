@@ -762,6 +762,19 @@ test("CompareView keeps evidence cards collapsed by default", () => {
   assert.doesNotMatch(html, /像這則留言強化了/);
 });
 
+test("CompareView selected cluster detail does not fabricate per-quote evidence prose", () => {
+  const html = renderToStaticMarkup(
+    React.createElement(CompareView, {
+      session: buildSession(),
+      settings: createDefaultSettings()
+    })
+  );
+
+  assert.match(html, /（尚未個別分析此留言）/);
+  assert.doesNotMatch(html, /支撐這個群組/);
+  assert.doesNotMatch(html, /講得像同一路線的延伸/);
+});
+
 test("CompareView uses visibly different bubble sizes for multi-cluster navigators", () => {
   const session = buildSession();
   session.items[1]!.latestCapture = buildCapture("cap-b", "ownership", "ownership matters", {
