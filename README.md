@@ -32,6 +32,7 @@ Settings is a separate utility drawer, not a primary tab.
 - **No fabricated per-quote copy.** When AI annotation is unavailable the UI renders an explicit `（尚未個別分析此留言）` empty state. Cluster-level prose is never copy-pasted into individual `DictionaryCard`s or selected-cluster evidence detail rows.
 - **Compare labels stay sentence-case.** `SectionLabel` and `PostHeader` use `12px / 600 / 0.02em` label styling instead of all-caps chrome.
 - **Bubble navigator labels are semantic.** Hover previews now show `${clusterTitle} · ${percentage}%`, while the bubble itself keeps the numeric `%` badge.
+- **Backend capture requests include the active folder name.** The extension now forwards `client_context.folder_name` so the ingest backend receives the collection context.
 - MV3 service-worker wake recovery (global state cache, warm cache, resume running polls)
 - User-supplied Google / OpenAI / Claude key (Google default); keys stay local, 30s timeout + 2 retries for provider calls, bounded LRU caches for briefs / one-liners / cluster summaries
 
@@ -42,7 +43,6 @@ Settings is a separate utility drawer, not a primary tab.
 | P2 | `InPageCollectorApp.tsx` is ~1442 lines | Process rule caps this at 400 lines; see AGENTS.md. Still owns too much popup orchestration. |
 | P2 | Compare cluster pairing is rank-based, not semantic | |
 | P3 | No skeleton loading during crawl / analyze pending | Existing `ProcessingStrip` progress ring covers status, not content placeholders. |
-| P3 | Folder / collection name is not yet forwarded to the backend | |
 | P3 | Several `tests/compare-view.test.tsx` cases track intended support-data UI that is not fully wired (e.g. `群組 A` swipe detail label) | Test acts as spec; tracked as pre-existing before current work. |
 
 For earlier change history, see `git log`. Historical change bullets and per-PR tables have been removed from this file to keep it a state description, not a diary.

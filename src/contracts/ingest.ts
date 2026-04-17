@@ -16,6 +16,7 @@ export interface CaptureTargetRequest {
     selection_source: "chrome_extension_v0";
     target_type: TargetDescriptor["target_type"];
     surface: "feed" | "post_detail";
+    folder_name?: string;
   };
 }
 

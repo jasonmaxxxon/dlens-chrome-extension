@@ -626,7 +626,7 @@ async function queueSessionItem(
     }
 
     const baseUrl = normalizeBaseUrl(current.global.settings.ingestBaseUrl);
-    const submit = await submitCaptureTarget(baseUrl, item.descriptor);
+    const submit = await submitCaptureTarget(baseUrl, item.descriptor, session.name);
     const initialJob = await fetchJob(baseUrl, submit.job_id).catch(() => null);
 
     let globalState = updateSessionItem(current.global, sessionId, itemId, (existing) =>

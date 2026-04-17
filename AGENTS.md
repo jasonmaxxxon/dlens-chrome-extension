@@ -56,7 +56,7 @@ npx tsx --test tests/*.test.ts tests/*.test.tsx
 - folder CRUD and save accumulation
 - three-page popup workspace shell with a primary mode rail (`Library / Compare / Result`), a compact folder strip, and a separate Settings utility action
 - Collect remains in the extension, but now lives as a Library utility mode instead of a primary tab
-- queue single post or all pending posts to ingest-core
+- queue single post or all pending posts to ingest-core, forwarding the active folder name in `client_context.folder_name`
 - **Process All** button (combined queue + drain) always visible in Library, no item selection required
 - **Processing error surfacing**: worker-drain failures no longer collapse to a generic `Processing failed` toast; popup now surfaces the backend/drain message and mirrors it into `tab.error`
 - **Processing strip** now sits outside the mode rail as a compact context strip: action-forward state, ready/total counts, and no dashboard-style breakdown

@@ -14,7 +14,7 @@ export function normalizeBaseUrl(baseUrl: string): string {
   return String(baseUrl || "").trim().replace(/\/+$/, "") || "http://127.0.0.1:8000";
 }
 
-export function buildCaptureTargetRequest(descriptor: TargetDescriptor): CaptureTargetRequest {
+export function buildCaptureTargetRequest(descriptor: TargetDescriptor, folderName?: string): CaptureTargetRequest {
   const surface = inferSurfaceFromUrl(descriptor.page_url);
   const pageUrl = descriptor.page_url;
   const postUrl = descriptor.post_url || pageUrl;
@@ -38,7 +38,8 @@ export function buildCaptureTargetRequest(descriptor: TargetDescriptor): Capture
       route_type: inferRouteType(pageUrl),
       selection_source: "chrome_extension_v0",
       target_type: descriptor.target_type,
-      surface
+      surface,
+      folder_name: folderName?.trim() || undefined
     }
   };
 }
@@ -66,8 +67,12 @@ async function fetchJson<T>(input: string, init?: RequestInit): Promise<T> {
   return response.json() as Promise<T>;
 }
 
-export async function submitCaptureTarget(baseUrl: string, descriptor: TargetDescriptor): Promise<CaptureTargetResponse> {
-  const requestBody = buildCaptureTargetRequest(descriptor);
+export async function submitCaptureTarget(
+  baseUrl: string,
+  descriptor: TargetDescriptor,
+  folderName?: string
+): Promise<CaptureTargetResponse> {
+  const requestBody = buildCaptureTargetRequest(descriptor, folderName);
   return fetchJson<CaptureTargetResponse>(`${normalizeBaseUrl(baseUrl)}/capture-target`, {
     method: "POST",
     body: JSON.stringify(requestBody)
