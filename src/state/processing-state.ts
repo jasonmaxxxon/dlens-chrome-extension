@@ -1,7 +1,7 @@
 import type { PopupPage, SessionItem, SessionRecord } from "./types.ts";
 
 export const DEFAULT_POPUP_WIDTH = 348;
-export const EXPANDED_COMPARE_POPUP_WIDTH = 504;
+export const EXPANDED_COMPARE_POPUP_WIDTH = 560;
 export const NETWORK_BATCH_SIZE = 3;
 
 export type WorkerStatus = "idle" | "draining";
@@ -120,10 +120,7 @@ export function resolveInitialPopupMode(summary: SessionProcessingSummary): Work
   if (summary.ready >= 2) {
     return "compare";
   }
-  if (summary.crawling > 0 || hasNearReadyItems(summary)) {
-    return "library";
-  }
-  return "collect";
+  return "library";
 }
 
 export function advancePopupWorkspaceState(
@@ -198,38 +195,38 @@ export function getProcessingStripUiState(
   workerStatus: WorkerStatus | null,
   summary: SessionProcessingSummary,
 ): ProcessingStripUiState {
-  if (summary.total > 0 && summary.ready >= 2 && summary.ready === summary.total) {
+  if (summary.ready >= 2) {
     return {
       phaseLabel: "Ready to compare",
       progressMode: "ready",
-      progressHint: "Two or more posts are ready, so Compare can become the primary surface."
+      progressHint: "Compare can take over now."
     };
   }
   if (summary.crawling > 0 || workerStatus === "draining") {
     return {
       phaseLabel: "Processing in progress",
       progressMode: "crawling",
-      progressHint: "Comments are still being captured before the final analysis settles."
+      progressHint: "Library is the best place to track progress while capture finishes."
     };
   }
   if (summary.analyzing > 0) {
     return {
       phaseLabel: "Waiting for analysis",
       progressMode: "analyzing",
-      progressHint: "The crawl is done, but clusters and compare-ready analysis are still updating."
+      progressHint: "Library has the next best action while compare-ready analysis finishes."
     };
   }
   if (summary.pending > 0) {
     return {
-      phaseLabel: "Idle — pending items not started",
+      phaseLabel: "Waiting to start",
       progressMode: "queued",
-      progressHint: "Saved items are waiting for Process All."
+      progressHint: "Library can start the queue when you are ready."
     };
   }
   return {
-    phaseLabel: "Checking processing state",
+    phaseLabel: "Go to Collect or Library",
     progressMode: "idle",
-    progressHint: "The worker is idle and there are no active updates."
+    progressHint: "Collect or switch to Library to move work forward."
   };
 }
 

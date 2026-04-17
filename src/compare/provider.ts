@@ -11,13 +11,64 @@ import {
   type ClusterInterpretation,
   type CompareClusterSummaryRequest
 } from "./cluster-interpretation.ts";
+import {
+  buildEvidenceAnnotationPrompt,
+  parseEvidenceAnnotationResponse,
+  type EvidenceAnnotation,
+  type EvidenceAnnotationRequest
+} from "./evidence-annotation.ts";
 
-export const COMPARE_BRIEF_PROMPT_VERSION = "v1";
+export const COMPARE_BRIEF_PROMPT_VERSION = "v6";
 export const COMPARE_ONE_LINER_PROMPT_VERSION = "v2";
-export const COMPARE_CLUSTER_SUMMARY_PROMPT_VERSION = "v1";
+export const COMPARE_CLUSTER_SUMMARY_PROMPT_VERSION = "v3";
+export const COMPARE_EVIDENCE_ANNOTATION_PROMPT_VERSION = "v1";
 export const OPENAI_COMPARE_MODEL = "gpt-4.1-mini";
-export const CLAUDE_COMPARE_MODEL = "claude-3-5-haiku-latest";
-export const GOOGLE_COMPARE_MODEL = "gemini-2.0-flash";
+export const CLAUDE_COMPARE_MODEL = "claude-3-5-sonnet-latest"; // haiku → sonnet: better reasoning for reaction-type analysis
+export const GOOGLE_COMPARE_MODEL = "gemini-3.1-flash-lite-preview";
+const PROVIDER_TIMEOUT_MS = 30_000;
+const PROVIDER_MAX_RETRIES = 2;
+const PROVIDER_RETRY_DELAYS_MS = [250, 500];
+
+function sleep(ms: number): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+function isRetryableStatus(status: number): boolean {
+  return status === 408 || status === 429 || status >= 500;
+}
+
+async function fetchWithRetry(label: string, input: string, init: RequestInit): Promise<Response> {
+  let lastError: Error | null = null;
+
+  for (let attempt = 0; attempt <= PROVIDER_MAX_RETRIES; attempt += 1) {
+    const controller = new AbortController();
+    const timeoutHandle = setTimeout(() => controller.abort(), PROVIDER_TIMEOUT_MS);
+    try {
+      const response = await fetch(input, {
+        ...init,
+        signal: controller.signal
+      });
+      clearTimeout(timeoutHandle);
+      if (response.ok || !isRetryableStatus(response.status) || attempt === PROVIDER_MAX_RETRIES) {
+        return response;
+      }
+      lastError = new Error(`${label} ${response.status}: transient upstream failure`);
+    } catch (error) {
+      clearTimeout(timeoutHandle);
+      if ((error as Error)?.name === "AbortError") {
+        lastError = new Error(`${label} request timed out after ${PROVIDER_TIMEOUT_MS}ms`);
+      } else {
+        lastError = error instanceof Error ? error : new Error(String(error));
+      }
+    }
+
+    if (attempt < PROVIDER_MAX_RETRIES) {
+      await sleep(PROVIDER_RETRY_DELAYS_MS[attempt] || PROVIDER_RETRY_DELAYS_MS[PROVIDER_RETRY_DELAYS_MS.length - 1] || 500);
+    }
+  }
+
+  throw lastError || new Error(`${label} request failed`);
+}
 
 function readOpenAiContent(json: any): string {
   const content = json?.choices?.[0]?.message?.content;
@@ -71,7 +122,8 @@ export async function generateCompareBrief(
   let raw = "";
 
   if (provider === "google") {
-    const response = await fetch(
+    const response = await fetchWithRetry(
+      "Google",
       `https://generativelanguage.googleapis.com/v1beta/models/${GOOGLE_COMPARE_MODEL}:generateContent?key=${apiKey}`,
       {
         method: "POST",
@@ -90,7 +142,7 @@ export async function generateCompareBrief(
     }
     raw = readGoogleContent(await response.json());
   } else if (provider === "openai") {
-    const response = await fetch("https://api.openai.com/v1/chat/completions", {
+    const response = await fetchWithRetry("OpenAI", "https://api.openai.com/v1/chat/completions", {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
@@ -111,7 +163,7 @@ export async function generateCompareBrief(
     }
     raw = readOpenAiContent(await response.json());
   } else {
-    const response = await fetch("https://api.anthropic.com/v1/messages", {
+    const response = await fetchWithRetry("Claude", "https://api.anthropic.com/v1/messages", {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
@@ -150,7 +202,8 @@ export async function generateCompareClusterSummaries(
   let raw = "";
 
   if (provider === "google") {
-    const response = await fetch(
+    const response = await fetchWithRetry(
+      "Google",
       `https://generativelanguage.googleapis.com/v1beta/models/${GOOGLE_COMPARE_MODEL}:generateContent?key=${apiKey}`,
       {
         method: "POST",
@@ -169,7 +222,7 @@ export async function generateCompareClusterSummaries(
     }
     raw = readGoogleContent(await response.json());
   } else if (provider === "openai") {
-    const response = await fetch("https://api.openai.com/v1/chat/completions", {
+    const response = await fetchWithRetry("OpenAI", "https://api.openai.com/v1/chat/completions", {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
@@ -190,7 +243,7 @@ export async function generateCompareClusterSummaries(
     }
     raw = readOpenAiContent(await response.json());
   } else {
-    const response = await fetch("https://api.anthropic.com/v1/messages", {
+    const response = await fetchWithRetry("Claude", "https://api.anthropic.com/v1/messages", {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
@@ -226,7 +279,8 @@ export async function generateCompareOneLiner(
   const prompt = buildCompareOneLinerPrompt(request);
 
   if (provider === "google") {
-    const response = await fetch(
+    const response = await fetchWithRetry(
+      "Google",
       `https://generativelanguage.googleapis.com/v1beta/models/${GOOGLE_COMPARE_MODEL}:generateContent?key=${apiKey}`,
       {
         method: "POST",
@@ -248,7 +302,7 @@ export async function generateCompareOneLiner(
   }
 
   if (provider === "openai") {
-    const response = await fetch("https://api.openai.com/v1/chat/completions", {
+    const response = await fetchWithRetry("OpenAI", "https://api.openai.com/v1/chat/completions", {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
@@ -276,7 +330,7 @@ export async function generateCompareOneLiner(
     return readOpenAiContent(json);
   }
 
-  const response = await fetch("https://api.anthropic.com/v1/messages", {
+  const response = await fetchWithRetry("Claude", "https://api.anthropic.com/v1/messages", {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
@@ -302,3 +356,82 @@ export async function generateCompareOneLiner(
   const json = await response.json();
   return readClaudeContent(json);
 }
+
+export async function generateEvidenceAnnotations(
+  provider: "openai" | "claude" | "google",
+  apiKey: string,
+  request: EvidenceAnnotationRequest
+): Promise<EvidenceAnnotation[]> {
+  const prompt = buildEvidenceAnnotationPrompt(request);
+  const system = "你是社群分析助手。只回傳 JSON，不要加任何解釋。";
+
+  let raw = "";
+
+  if (provider === "google") {
+    const response = await fetchWithRetry(
+      "Google",
+      `https://generativelanguage.googleapis.com/v1beta/models/${GOOGLE_COMPARE_MODEL}:generateContent?key=${apiKey}`,
+      {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          systemInstruction: { parts: [{ text: system }] },
+          contents: [{ role: "user", parts: [{ text: prompt }] }],
+          generationConfig: { temperature: 0.2, maxOutputTokens: 1200, responseMimeType: "application/json" }
+        })
+      }
+    );
+    if (!response.ok) {
+      throw new Error(`Google ${response.status}: ${await response.text()}`);
+    }
+    raw = readGoogleContent(await response.json());
+  } else if (provider === "openai") {
+    const response = await fetchWithRetry("OpenAI", "https://api.openai.com/v1/chat/completions", {
+      method: "POST",
+      headers: { "Content-Type": "application/json", Authorization: `Bearer ${apiKey}` },
+      body: JSON.stringify({
+        model: OPENAI_COMPARE_MODEL,
+        temperature: 0.2,
+        response_format: { type: "json_object" },
+        messages: [
+          { role: "system", content: system },
+          { role: "user", content: prompt }
+        ]
+      })
+    });
+    if (!response.ok) {
+      throw new Error(`OpenAI ${response.status}: ${await response.text()}`);
+    }
+    raw = readOpenAiContent(await response.json());
+  } else {
+    const response = await fetchWithRetry("Claude", "https://api.anthropic.com/v1/messages", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "x-api-key": apiKey,
+        "anthropic-version": "2023-06-01"
+      },
+      body: JSON.stringify({
+        model: CLAUDE_COMPARE_MODEL,
+        max_tokens: 1200,
+        temperature: 0.2,
+        system,
+        messages: [{ role: "user", content: prompt }]
+      })
+    });
+    if (!response.ok) {
+      throw new Error(`Claude ${response.status}: ${await response.text()}`);
+    }
+    raw = readClaudeContent(await response.json());
+  }
+
+  const parsed = parseEvidenceAnnotationResponse(raw, request);
+  if (!parsed.length && request.quotes.length) {
+    throw new Error("Invalid evidence annotation payload");
+  }
+  return parsed;
+}
+
+export const providerTestables = {
+  fetchWithRetry
+};

@@ -1,0 +1,1146 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>DLens v3 — Research-Informed Card Redesign</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap');
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  :root {
+    /*
+     * Design decisions sourced from:
+     * - Material Design 3: tonal elevation over shadow, 12dp card radius, state layers
+     * - Atlassian: flat default + raised only for focal card, 8px grid
+     * - Ant Design: Card.Grid for KPI cells, inner card nesting
+     * - Apple HIG: progressive disclosure, SF-style type scale
+     * - Designspiration analytics trend: teal accents, generous whitespace, restrained shadows
+     */
+
+    /* ── Canvas: cool neutral, NOT pure white ── */
+    --canvas: #f0f1f3;
+    --canvas-subtle: #e8e9ec;
+
+    /* ── Surfaces: 3 clear tiers (Atlassian-inspired) ── */
+    --surface-sunken: #e4e5e8;          /* sunken: behind-content */
+    --surface-default: #ffffff;          /* default: most cards */
+    --surface-raised: #ffffff;           /* raised: focal/selected */
+    --surface-overlay: #ffffff;          /* overlay: tooltip/popup */
+
+    /* ── Text: 4-step hierarchy (Apple-inspired) ── */
+    --text-primary: #1a1a2e;
+    --text-secondary: #555770;
+    --text-tertiary: #8b8da3;
+    --text-disabled: #b4b6c4;
+
+    /* ── Accents: analysis-tool teal + indigo (Designspiration trend) ── */
+    --accent-a: #4338ca;               /* Post A: deep indigo */
+    --accent-a-mid: #6366f1;
+    --accent-a-surface: #eef2ff;        /* opaque, not transparent */
+    --accent-a-border: #c7d2fe;
+
+    --accent-b: #c2410c;               /* Post B: burnt orange (more editorial than yellow) */
+    --accent-b-mid: #ea580c;
+    --accent-b-surface: #fff7ed;
+    --accent-b-border: #fed7aa;
+
+    --teal: #0d9488;                    /* analysis accent */
+    --teal-surface: #f0fdfa;
+    --teal-border: #99f6e4;
+
+    /* ── Semantic ── */
+    --positive: #059669;
+    --positive-surface: #ecfdf5;
+    --negative: #dc2626;
+    --negative-surface: #fef2f2;
+    --warning: #d97706;
+    --warning-surface: #fffbeb;
+
+    /* technique palette */
+    --tech-rose: #e11d48;
+    --tech-amber: #d97706;
+    --tech-teal: #0f766e;
+    --tech-blue: #2563eb;
+    --tech-violet: #7c3aed;
+
+    /* ── Elevation: Atlassian model ── */
+    --shadow-none: none;
+    --shadow-raised: 0 1px 1px rgba(23,23,37,0.08), 0 0 1px rgba(23,23,37,0.16);
+    --shadow-overlay: 0 4px 8px -2px rgba(23,23,37,0.10), 0 16px 24px -4px rgba(23,23,37,0.10), 0 0 1px rgba(23,23,37,0.18);
+
+    /* ── M3-inspired radii ── */
+    --radius-sm: 8px;
+    --radius-md: 12px;
+    --radius-lg: 16px;
+    --radius-full: 999px;
+
+    /* ── 8px grid (Atlassian) ── */
+    --space-1: 4px;
+    --space-2: 8px;
+    --space-3: 12px;
+    --space-4: 16px;
+    --space-5: 20px;
+    --space-6: 24px;
+    --space-8: 32px;
+
+    --ease: cubic-bezier(0.2, 0, 0, 1);
+    --duration: 200ms;
+  }
+
+  html {
+    font-family: 'Inter', -apple-system, BlinkMacSystemFont, system-ui, sans-serif;
+    font-size: 14px;
+    line-height: 1.5;
+    color: var(--text-primary);
+    background: var(--canvas);
+    -webkit-font-smoothing: antialiased;
+  }
+
+  .page {
+    max-width: 460px;
+    margin: 32px auto;
+    padding: 0 var(--space-4) 60px;
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-6);
+  }
+
+  /* ═══════════════════════════════════════════
+     BASE CARD — flat default, border-defined
+     (Atlassian: flat cards + border, not shadow)
+     ═══════════════════════════════════════════ */
+  .card {
+    background: var(--surface-default);
+    border: 1px solid var(--canvas-subtle);
+    border-radius: var(--radius-md);
+    box-shadow: var(--shadow-none);
+    padding: var(--space-4);
+    transition: box-shadow var(--duration) var(--ease), border-color var(--duration) var(--ease);
+  }
+
+  /* Raised variant — only for the focal/selected card */
+  .card.raised {
+    box-shadow: var(--shadow-raised);
+    border-color: transparent;
+  }
+
+  /* M3 state layer: 8% tint overlay on hover */
+  .card.interactive {
+    cursor: pointer;
+    position: relative;
+  }
+  .card.interactive::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    border-radius: inherit;
+    background: var(--text-primary);
+    opacity: 0;
+    transition: opacity var(--duration) var(--ease);
+    pointer-events: none;
+  }
+  .card.interactive:hover::after { opacity: 0.04; }
+  .card.interactive:hover { box-shadow: var(--shadow-raised); border-color: transparent; }
+
+  /* ═══════════════════════════════════════════
+     SEGMENTED CONTROL (M3 segmented button style)
+     ═══════════════════════════════════════════ */
+  .segmented {
+    display: flex;
+    border: 1px solid var(--canvas-subtle);
+    border-radius: var(--radius-sm);
+    overflow: hidden;
+    background: var(--surface-default);
+  }
+  .segmented button {
+    flex: 1;
+    border: none;
+    background: transparent;
+    font-family: inherit;
+    font-size: 12px;
+    font-weight: 500;
+    color: var(--text-secondary);
+    padding: 8px 12px;
+    cursor: pointer;
+    transition: all var(--duration) var(--ease);
+    position: relative;
+  }
+  .segmented button:not(:last-child)::after {
+    content: '';
+    position: absolute;
+    right: 0;
+    top: 20%;
+    height: 60%;
+    width: 1px;
+    background: var(--canvas-subtle);
+  }
+  .segmented button.active {
+    background: var(--accent-a);
+    color: #fff;
+    font-weight: 600;
+  }
+  .segmented button.active::after { display: none; }
+
+  /* ═══════════════════════════════════════════
+     SECTION RAIL — tonal surface, not floating glass
+     ═══════════════════════════════════════════ */
+  .section-rail {
+    display: flex;
+    gap: var(--space-2);
+    flex-wrap: wrap;
+    padding: var(--space-2) var(--space-3);
+    border-radius: var(--radius-sm);
+    background: var(--surface-sunken);
+  }
+  .section-rail button {
+    border: 1px solid transparent;
+    border-radius: var(--radius-sm);
+    background: var(--surface-default);
+    padding: 4px 10px;
+    font-size: 12px;
+    font-weight: 600;
+    color: var(--text-secondary);
+    cursor: pointer;
+    font-family: inherit;
+    transition: all var(--duration) var(--ease);
+    box-shadow: var(--shadow-raised);
+  }
+  .section-rail button:hover {
+    color: var(--accent-a);
+  }
+
+  /* ═══════════════════════════════════════════
+     LABEL — restrained, not screaming
+     ═══════════════════════════════════════════ */
+  .label {
+    font-size: 11px;
+    font-weight: 600;
+    color: var(--text-tertiary);
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+  }
+  .label.accent-a { color: var(--accent-a); }
+  .label.accent-b { color: var(--accent-b); }
+  .label.teal { color: var(--teal); }
+
+  /* ═══════════════════════════════════════════
+     POST HEADER — opaque tinted surface (not transparent)
+     ═══════════════════════════════════════════ */
+  .post-header {
+    padding: var(--space-3) var(--space-4);
+    border-radius: var(--radius-md);
+    display: grid;
+    gap: var(--space-1);
+  }
+  .post-header.side-a {
+    background: var(--accent-a-surface);
+    border: 1px solid var(--accent-a-border);
+  }
+  .post-header.side-b {
+    background: var(--accent-b-surface);
+    border: 1px solid var(--accent-b-border);
+  }
+  .post-header .ph-top {
+    display: flex;
+    justify-content: space-between;
+    align-items: baseline;
+    gap: var(--space-2);
+  }
+  .post-header .ph-author {
+    font-size: 15px;
+    font-weight: 700;
+    color: var(--text-primary);
+  }
+  .post-header .ph-age {
+    font-size: 11px;
+    color: var(--text-tertiary);
+    white-space: nowrap;
+  }
+  .post-header .ph-text {
+    font-size: 13px;
+    color: var(--text-secondary);
+    line-height: 1.5;
+    display: -webkit-box;
+    -webkit-box-orient: vertical;
+    -webkit-line-clamp: 2;
+    overflow: hidden;
+  }
+  .post-header .ph-meta {
+    font-size: 11px;
+    color: var(--text-tertiary);
+    margin-top: var(--space-1);
+  }
+
+  /* ═══════════════════════════════════════════
+     BRIEF HERO — the one raised card (focal point)
+     ═══════════════════════════════════════════ */
+  .brief-hero {
+    background: var(--surface-default);
+    border-radius: var(--radius-lg);
+    border: 1px solid transparent;
+    box-shadow: var(--shadow-raised);
+    padding: var(--space-5);
+    display: grid;
+    gap: var(--space-3);
+  }
+  .brief-hero .bh-headline {
+    font-size: 18px;
+    font-weight: 800;
+    color: var(--text-primary);
+    letter-spacing: -0.02em;
+    line-height: 1.3;
+  }
+  .brief-hero .bh-body {
+    font-size: 14px;
+    color: var(--text-secondary);
+    line-height: 1.65;
+  }
+
+  /* ── Stance row: Ant Design inner card pattern ── */
+  .stance-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: var(--space-2);
+  }
+  .stance-cell {
+    padding: var(--space-3);
+    border-radius: var(--radius-sm);
+    font-size: 12px;
+    color: var(--text-secondary);
+    line-height: 1.5;
+  }
+  .stance-cell.a { background: var(--accent-a-surface); border-left: 3px solid var(--accent-a); }
+  .stance-cell.b { background: var(--accent-b-surface); border-left: 3px solid var(--accent-b); }
+  .stance-cell .sc-label {
+    font-size: 10px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    margin-bottom: var(--space-1);
+  }
+  .stance-cell.a .sc-label { color: var(--accent-a); }
+  .stance-cell.b .sc-label { color: var(--accent-b); }
+
+  /* Risk pills */
+  .risk-row { display: flex; flex-wrap: wrap; gap: var(--space-2); }
+  .risk-pill {
+    display: inline-flex;
+    align-items: center;
+    gap: var(--space-1);
+    padding: 3px 10px;
+    border-radius: var(--radius-full);
+    font-size: 11px;
+    font-weight: 600;
+    background: var(--negative-surface);
+    color: var(--negative);
+  }
+
+  /* ═══════════════════════════════════════════
+     CLUSTER MAP — KEEP full visual force
+     background = sunken surface (Atlassian pattern)
+     ═══════════════════════════════════════════ */
+  .cluster-map {
+    position: relative;
+    min-height: 220px;
+    border-radius: var(--radius-md);
+    background: var(--surface-sunken);
+    border: 1px solid var(--canvas-subtle);
+    overflow: hidden;
+  }
+  .cluster-map .cm-header {
+    padding: var(--space-3) var(--space-4) var(--space-2);
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+  }
+  .cluster-map .cm-field {
+    position: relative;
+    height: 174px;
+    margin: 0 var(--space-3) var(--space-3);
+    border-radius: var(--radius-sm);
+    background: linear-gradient(180deg, rgba(255,255,255,0.6), rgba(255,255,255,0.25));
+  }
+
+  /* Bubbles — full glow, keep analysis personality */
+  .bubble {
+    position: absolute;
+    border-radius: 50%;
+    display: grid;
+    place-items: center;
+    cursor: pointer;
+    font-size: 11px;
+    font-weight: 800;
+    transition: transform var(--duration) var(--ease), box-shadow var(--duration) var(--ease);
+  }
+  .bubble:hover { transform: scale(1.08); }
+
+  .bubble.pa-primary {
+    background: rgba(67,56,202,0.12);
+    border: 2px solid rgba(67,56,202,0.55);
+    color: var(--accent-a);
+    box-shadow: 0 6px 16px rgba(67,56,202,0.12);
+  }
+  .bubble.pa-primary.selected {
+    border-width: 2.5px;
+    box-shadow: 0 0 0 4px var(--accent-a-surface), 0 6px 16px rgba(67,56,202,0.18);
+  }
+  .bubble.pa-secondary {
+    background: rgba(99,102,241,0.08);
+    border: 1.5px solid rgba(99,102,241,0.35);
+    color: var(--accent-a-mid);
+  }
+  .bubble.pb-primary {
+    background: rgba(194,65,12,0.10);
+    border: 2px solid rgba(194,65,12,0.50);
+    color: var(--accent-b);
+    box-shadow: 0 6px 16px rgba(194,65,12,0.10);
+  }
+  .bubble.pb-secondary {
+    background: rgba(234,88,12,0.07);
+    border: 1.5px solid rgba(234,88,12,0.32);
+    color: var(--accent-b-mid);
+  }
+  .bubble.minor {
+    background: rgba(0,0,0,0.03);
+    border: 1.5px dashed var(--canvas-subtle);
+    color: var(--text-disabled);
+  }
+
+  /* Cluster preview tooltip (overlay-level shadow) */
+  .cluster-tooltip {
+    position: absolute;
+    min-width: 144px;
+    max-width: 176px;
+    padding: var(--space-2) var(--space-3);
+    border-radius: var(--radius-sm);
+    background: var(--surface-overlay);
+    box-shadow: var(--shadow-overlay);
+    z-index: 2;
+    pointer-events: none;
+  }
+
+  /* ═══════════════════════════════════════════
+     AUDIENCE DETAIL — selected = raised (only focal card)
+     ═══════════════════════════════════════════ */
+  .audience-panel {
+    background: var(--surface-default);
+    border: 1px solid var(--canvas-subtle);
+    border-radius: var(--radius-md);
+    padding: var(--space-4);
+    display: grid;
+    gap: var(--space-3);
+  }
+  .audience-panel.focal {
+    box-shadow: var(--shadow-raised);
+    border-color: transparent;
+  }
+  .audience-panel.focal.side-a {
+    border-left: 3px solid var(--accent-a);
+  }
+  .audience-panel.focal.side-b {
+    border-left: 3px solid var(--accent-b);
+  }
+
+  .audience-panel .ap-title {
+    font-size: 17px;
+    font-weight: 800;
+    color: var(--text-primary);
+    line-height: 1.3;
+  }
+  .audience-panel .ap-thesis {
+    font-size: 13px;
+    color: var(--text-secondary);
+    line-height: 1.6;
+  }
+
+  /* ── Support metrics: Ant Design Card.Grid pattern ── */
+  .metric-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    border: 1px solid var(--canvas-subtle);
+    border-radius: var(--radius-sm);
+    overflow: hidden;
+  }
+  .metric-grid .mg-cell {
+    padding: var(--space-2) var(--space-3);
+    text-align: center;
+    background: var(--surface-default);
+    transition: background var(--duration) var(--ease);
+  }
+  .metric-grid .mg-cell:hover { background: #fafbfc; }
+  .metric-grid .mg-cell:not(:last-child) { border-right: 1px solid var(--canvas-subtle); }
+  .metric-grid .mg-value {
+    font-size: 16px;
+    font-weight: 800;
+    color: var(--text-primary);
+    display: block;
+  }
+  .metric-grid .mg-label {
+    font-size: 10px;
+    font-weight: 600;
+    color: var(--text-tertiary);
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    margin-top: 2px;
+    display: block;
+  }
+
+  /* ── Deeper reading button ── */
+  .btn-action {
+    display: inline-flex;
+    align-items: center;
+    gap: var(--space-2);
+    padding: 6px 12px;
+    border-radius: var(--radius-sm);
+    font-family: inherit;
+    font-size: 12px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all var(--duration) var(--ease);
+  }
+  .btn-action.primary {
+    border: none;
+    background: var(--accent-a);
+    color: #fff;
+  }
+  .btn-action.primary:hover { background: var(--accent-a-mid); }
+  .btn-action.secondary {
+    border: 1px solid var(--canvas-subtle);
+    background: var(--surface-default);
+    color: var(--text-secondary);
+  }
+  .btn-action.secondary:hover { background: #f8f9fa; }
+  .btn-action.ghost {
+    border: none;
+    background: transparent;
+    color: var(--accent-a);
+    padding: 6px 4px;
+  }
+
+  /* ═══════════════════════════════════════════
+     EVIDENCE CARD — M3 outlined card variant
+     ═══════════════════════════════════════════ */
+  .evidence-card {
+    border: 1px solid var(--canvas-subtle);
+    border-radius: var(--radius-sm);
+    padding: var(--space-3);
+    display: grid;
+    gap: var(--space-2);
+    background: var(--surface-default);
+    cursor: pointer;
+    position: relative;
+    transition: all var(--duration) var(--ease);
+  }
+  /* M3 state layer hover */
+  .evidence-card::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    border-radius: inherit;
+    background: var(--text-primary);
+    opacity: 0;
+    transition: opacity var(--duration) var(--ease);
+    pointer-events: none;
+  }
+  .evidence-card:hover::after { opacity: 0.03; }
+  .evidence-card:hover { border-color: var(--accent-a-border); }
+
+  .evidence-card .ec-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: var(--space-2);
+  }
+  .evidence-card .ec-author {
+    font-size: 12px;
+    font-weight: 700;
+    color: var(--text-secondary);
+  }
+  .evidence-card .ec-id {
+    font-size: 10px;
+    color: var(--text-disabled);
+    font-family: 'SF Mono', 'Fira Code', monospace;
+  }
+  .evidence-card .ec-text {
+    font-size: 13px;
+    color: var(--text-primary);
+    line-height: 1.6;
+  }
+  .evidence-card .ec-toggle {
+    font-size: 11px;
+    font-weight: 700;
+    color: var(--accent-a);
+  }
+
+  /* Evidence metrics — minimal inline */
+  .ev-inline {
+    display: flex;
+    gap: var(--space-3);
+    font-size: 11px;
+    color: var(--text-tertiary);
+  }
+  .ev-inline span { display: inline-flex; align-items: center; gap: 3px; }
+  .ev-inline .num { font-weight: 700; color: var(--text-secondary); font-variant-numeric: tabular-nums; }
+
+  /* ── Meta strip: Atlassian flat card + inner separator ── */
+  .meta-strip {
+    border: 1px solid var(--canvas-subtle);
+    border-radius: var(--radius-sm);
+    overflow: hidden;
+    background: var(--surface-default);
+  }
+  .meta-strip .ms-row {
+    padding: var(--space-2) var(--space-3);
+    display: flex;
+    align-items: flex-start;
+    gap: var(--space-2);
+    flex-wrap: wrap;
+  }
+  .meta-strip .ms-row + .ms-row { border-top: 1px solid var(--canvas-subtle); }
+  .meta-strip .ms-badge {
+    flex-shrink: 0;
+    padding: 2px 8px;
+    border-radius: var(--radius-full);
+    font-size: 11px;
+    font-weight: 700;
+  }
+  .ms-badge.align { background: var(--positive-surface); color: var(--positive); }
+  .ms-badge.oppose { background: var(--negative-surface); color: var(--negative); }
+  .ms-badge.mixed { background: var(--warning-surface); color: var(--warning); }
+
+  /* ═══════════════════════════════════════════
+     ENGAGEMENT TABLE — Ant Design Card.Grid
+     ═══════════════════════════════════════════ */
+  .engagement-grid {
+    background: var(--surface-default);
+    border: 1px solid var(--canvas-subtle);
+    border-radius: var(--radius-md);
+    overflow: hidden;
+  }
+  .eg-row {
+    display: grid;
+    grid-template-columns: 80px 1fr 1fr;
+    border-bottom: 1px solid var(--canvas-subtle);
+  }
+  .eg-row:last-child { border-bottom: none; }
+  .eg-row .eg-cell {
+    padding: var(--space-2) var(--space-3);
+    font-size: 13px;
+  }
+  .eg-row .eg-cell:not(:last-child) { border-right: 1px solid var(--canvas-subtle); }
+  .eg-header .eg-cell {
+    font-size: 11px;
+    font-weight: 700;
+    color: var(--text-tertiary);
+    background: #fafbfc;
+  }
+  .eg-row .eg-label {
+    font-weight: 600;
+    color: var(--text-secondary);
+  }
+  .eg-row .eg-value {
+    text-align: right;
+    font-weight: 700;
+    font-variant-numeric: tabular-nums;
+    color: var(--text-primary);
+  }
+  .eg-value.win { color: var(--positive); }
+  .eg-value.lose { color: var(--negative); font-weight: 600; }
+  .eg-value.na { color: var(--text-disabled); font-weight: 500; }
+
+  /* ═══════════════════════════════════════════
+     TECHNIQUE CAROUSEL — casebook cards, left accent
+     ═══════════════════════════════════════════ */
+  .technique-scroll {
+    display: flex;
+    gap: var(--space-3);
+    overflow-x: auto;
+    scroll-snap-type: x mandatory;
+    scrollbar-width: thin;
+    padding: 2px 0 var(--space-2);
+  }
+  .technique-scroll::-webkit-scrollbar { height: 3px; }
+  .technique-scroll::-webkit-scrollbar-thumb { background: rgba(0,0,0,0.15); border-radius: 2px; }
+
+  .technique-card {
+    min-width: 260px;
+    flex: 0 0 auto;
+    scroll-snap-align: start;
+    padding: var(--space-3) var(--space-4);
+    background: var(--surface-default);
+    border: 1px solid var(--canvas-subtle);
+    border-radius: var(--radius-sm);
+    border-left: 3px solid;
+    display: grid;
+    gap: var(--space-2);
+    transition: all var(--duration) var(--ease);
+    position: relative;
+  }
+  .technique-card::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    border-radius: inherit;
+    background: var(--text-primary);
+    opacity: 0;
+    transition: opacity var(--duration) var(--ease);
+    pointer-events: none;
+  }
+  .technique-card:hover::after { opacity: 0.02; }
+  .technique-card:hover { box-shadow: var(--shadow-raised); border-color: transparent; border-left-width: 3px; }
+
+  .technique-card.tc-rose { border-left-color: var(--tech-rose); }
+  .technique-card.tc-amber { border-left-color: var(--tech-amber); }
+  .technique-card.tc-teal { border-left-color: var(--tech-teal); }
+  .technique-card.tc-blue { border-left-color: var(--tech-blue); }
+  .technique-card.tc-violet { border-left-color: var(--tech-violet); }
+
+  .technique-card .tc-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: var(--space-2);
+  }
+  .technique-card .tc-name { font-size: 13px; font-weight: 800; color: var(--text-primary); }
+  .technique-card .tc-alias { font-size: 10px; font-weight: 600; color: var(--text-tertiary); }
+  .technique-card .tc-desc {
+    font-size: 12px; color: var(--text-secondary); line-height: 1.55;
+    display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; overflow: hidden;
+  }
+  .technique-card .tc-why-label {
+    font-size: 10px; font-weight: 700; color: var(--text-tertiary);
+    text-transform: uppercase; letter-spacing: 0.04em;
+  }
+  .technique-card .tc-why {
+    font-size: 11px; color: var(--text-tertiary); line-height: 1.5;
+  }
+
+  /* ── Comment card ── */
+  .comment-card {
+    padding: var(--space-2) var(--space-3);
+    border-radius: var(--radius-sm);
+    font-size: 12px;
+    line-height: 1.5;
+    border: 1px solid;
+  }
+  .comment-card.side-a { background: var(--accent-a-surface); border-color: var(--accent-a-border); }
+  .comment-card.side-b { background: var(--accent-b-surface); border-color: var(--accent-b-border); }
+  .comment-card .cc-header { display: flex; justify-content: space-between; gap: var(--space-2); margin-bottom: 2px; }
+  .comment-card .cc-author { font-weight: 700; color: var(--text-primary); }
+  .comment-card .cc-likes { color: var(--text-tertiary); font-variant-numeric: tabular-nums; }
+  .comment-card .cc-text {
+    color: var(--text-secondary);
+    display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; overflow: hidden;
+  }
+
+  /* ── Helpers ── */
+  .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: var(--space-2); }
+  .stack { display: grid; gap: var(--space-3); }
+  .stack-tight { display: grid; gap: var(--space-2); }
+
+  /* ── Demo chrome ── */
+  .demo-badge {
+    display: inline-block;
+    padding: 3px 10px;
+    border-radius: var(--radius-full);
+    font-size: 10px;
+    font-weight: 700;
+    letter-spacing: 0.05em;
+    text-transform: uppercase;
+  }
+  .demo-badge.indigo { background: var(--accent-a); color: #fff; }
+  .demo-badge.teal { background: var(--teal); color: #fff; }
+  .demo-section {
+    font-size: 11px;
+    font-weight: 600;
+    color: var(--text-tertiary);
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    padding-top: var(--space-2);
+    border-top: 1px solid var(--canvas-subtle);
+    margin-bottom: calc(var(--space-2) * -1);
+  }
+  .demo-note {
+    font-size: 11px;
+    color: var(--text-tertiary);
+    line-height: 1.4;
+    margin-top: calc(var(--space-2) * -1);
+    font-style: italic;
+  }
+</style>
+</head>
+<body>
+
+<div class="page">
+
+  <!-- ═══════ Title ═══════ -->
+  <div>
+    <span class="demo-badge indigo">v3</span>
+    <div style="font-size:22px;font-weight:800;letter-spacing:-0.03em;margin-top:6px;color:var(--text-primary)">DLens Compare + Technique</div>
+    <div style="font-size:13px;color:var(--text-secondary);margin-top:2px">Research-informed redesign: M3 + Atlassian + Ant Design patterns</div>
+  </div>
+
+  <!-- ═══════ 1. Segmented Control (M3 segmented button) ═══════ -->
+  <div class="demo-section">M3 segmented button — filled active state, not capsule</div>
+  <div class="segmented">
+    <button>Collect</button>
+    <button class="active">Compare</button>
+    <button>Library</button>
+    <button>Settings</button>
+  </div>
+
+  <!-- ═══════ 2. Section Rail ═══════ -->
+  <div class="demo-section">Atlassian sunken surface rail — sits below content</div>
+  <div class="section-rail">
+    <button>Clusters</button>
+    <button>Engagement</button>
+    <button>Comments</button>
+  </div>
+
+  <!-- ═══════ 3. Post Headers ═══════ -->
+  <div class="demo-section">Opaque tinted surfaces — not transparent rgba</div>
+  <div class="demo-note">Post A = deep indigo, Post B = burnt orange (editorial, not yellow)</div>
+  <div class="grid-2">
+    <div class="post-header side-a">
+      <div class="label accent-a">Post A</div>
+      <div class="ph-top">
+        <span class="ph-author">@zuck</span>
+        <span class="ph-age">18h</span>
+      </div>
+      <div class="ph-text">Threads 新 AI 推薦功能讓你的動態更加個性化，我們正在持續改進內容發現體驗</div>
+      <div class="ph-meta">42 comments captured</div>
+    </div>
+    <div class="post-header side-b">
+      <div class="label accent-b">Post B</div>
+      <div class="ph-top">
+        <span class="ph-author">@elonmusk</span>
+        <span class="ph-age">3h</span>
+      </div>
+      <div class="ph-text">X 平台推出全新社群功能，增強用戶互動體驗與內容分發策略</div>
+      <div class="ph-meta">28 comments captured</div>
+    </div>
+  </div>
+
+  <!-- ═══════ 4. Brief Hero (the ONE raised card) ═══════ -->
+  <div class="demo-section">Atlassian: only the focal card gets shadow</div>
+  <div class="brief-hero">
+    <div class="bh-headline">Post A 在社群信任度上具有結構性優勢</div>
+    <div class="bh-body">
+      Post A 採用「產品透明化」的修辭策略，透過直接展示功能變更來建立信任。Post B 則依賴「願景敘事」框架，強調未來承諾而非具體成果。受眾反應數據顯示前者在留言深度與轉發意願上均佔優。
+    </div>
+    <div class="stance-grid">
+      <div class="stance-cell a">
+        <div class="sc-label">Post A</div>
+        主要圍繞「功能透明化」展開，作者原文聚焦於直接開放功能給所有人…
+      </div>
+      <div class="stance-cell b">
+        <div class="sc-label">Post B</div>
+        主要圍繞「願景敘事」展開，強調 X 的未來會讓每個人驚喜…
+      </div>
+    </div>
+    <div class="risk-row">
+      <span class="risk-pill">⚠ 年齡差異 &gt;12h</span>
+      <span class="risk-pill">⚠ Post B 留言量偏低</span>
+    </div>
+  </div>
+
+  <!-- ═══════ 5. Cluster Maps (sunken background) ═══════ -->
+  <div class="demo-section">Atlassian sunken surface — bubbles pop against recessed bg</div>
+  <div class="grid-2">
+    <div class="cluster-map">
+      <div class="cm-header">
+        <span class="label accent-a">Post A</span>
+        <span style="font-size:11px;color:var(--text-tertiary)">3 clusters</span>
+      </div>
+      <div class="cm-field">
+        <div class="bubble pa-primary selected" style="width:56px;height:56px;top:36px;left:16px">38%</div>
+        <div class="bubble pa-secondary" style="width:40px;height:40px;top:62px;left:108px">22%</div>
+        <div class="bubble minor" style="width:26px;height:26px;top:28px;left:124px">8%</div>
+        <div class="cluster-tooltip" style="left:62px;top:10px">
+          <div style="font-size:12px;font-weight:800;color:var(--text-primary)">功能透明化擁護者</div>
+          <div style="margin-top:2px;font-size:11px;color:var(--text-secondary)">38% replies · 18 comments</div>
+        </div>
+      </div>
+    </div>
+    <div class="cluster-map">
+      <div class="cm-header">
+        <span class="label accent-b">Post B</span>
+        <span style="font-size:11px;color:var(--text-tertiary)">2 clusters</span>
+      </div>
+      <div class="cm-field">
+        <div class="bubble pb-primary" style="width:52px;height:52px;top:40px;left:18px">35%</div>
+        <div class="bubble pb-secondary" style="width:44px;height:44px;top:38px;left:98px">28%</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ═══════ 6. Audience Panel (selected = focal + left accent) ═══════ -->
+  <div class="demo-section">Atlassian: only selected cluster gets raised + left accent bar</div>
+  <div class="audience-panel focal side-a">
+    <div>
+      <span class="label accent-a">Selected Cluster · Post A</span>
+      <div class="ap-title">功能透明化擁護者</div>
+      <div class="ap-thesis">以「開放給所有人」為核心主張，認為 Threads 的功能更新策略正在建立社群信任，與過度商業化路線形成對比。</div>
+    </div>
+
+    <button class="btn-action primary">Deeper reading →</button>
+
+    <!-- Ant Design Card.Grid: KPI cells -->
+    <div class="metric-grid">
+      <div class="mg-cell">
+        <span class="mg-value">18/42</span>
+        <span class="mg-label">Captured</span>
+      </div>
+      <div class="mg-cell">
+        <span class="mg-value">38%</span>
+        <span class="mg-label">Replies</span>
+      </div>
+      <div class="mg-cell">
+        <span class="mg-value">52%</span>
+        <span class="mg-label">Likes</span>
+      </div>
+    </div>
+
+    <!-- Evidence cards (M3 outlined) -->
+    <div>
+      <span class="label">Audience evidence</span>
+      <div class="stack-tight" style="margin-top:var(--space-2)">
+        <div class="evidence-card">
+          <div class="ec-header">
+            <span class="ec-author">@sarah_tech</span>
+            <span style="display:inline-flex;gap:var(--space-3);align-items:center">
+              <span class="ec-id">c_0x3a1b</span>
+              <span class="ec-toggle">Show ↓</span>
+            </span>
+          </div>
+          <div class="ec-text">"我們從第一天就決定開放這個功能給所有人" — 這句話直接建立了品牌的「去商業化」信任形象</div>
+          <div class="ev-inline">
+            <span>♥ <em class="num">342</em></span>
+            <span>💬 <em class="num">12</em></span>
+            <span>↺ <em class="num">28</em></span>
+          </div>
+        </div>
+        <div class="evidence-card">
+          <div class="ec-header">
+            <span class="ec-author">@dev_lin</span>
+            <span class="ec-toggle">Show ↓</span>
+          </div>
+          <div class="ec-text">"上個月活躍用戶已經突破 2 億" — 具體數字強化成長敘事，但缺乏第三方驗證</div>
+          <div class="ev-inline">
+            <span>♥ <em class="num">89</em></span>
+            <span>💬 <em class="num">3</em></span>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Meta strip -->
+    <div class="meta-strip">
+      <div class="ms-row">
+        <span class="ms-badge align">Align</span>
+        <span style="font-size:12px;color:var(--text-secondary);line-height:1.5">Post A 主要圍繞「功能透明化」展開，回應順著原文延伸放大</span>
+      </div>
+      <div class="ms-row">
+        <span style="font-size:10px;font-weight:700;color:var(--text-tertiary);text-transform:uppercase;letter-spacing:0.05em">Post B</span>
+        <span style="font-size:12px;font-weight:700;color:var(--text-primary)">願景敘事追隨者</span>
+        <span style="font-size:11px;color:var(--text-tertiary)">· 28% replies · 35% likes</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- ═══════ 7. Engagement (Ant Design Card.Grid) ═══════ -->
+  <div class="demo-section">Ant Design Card.Grid — proper table with cell borders</div>
+  <div class="engagement-grid">
+    <div class="eg-row eg-header">
+      <div class="eg-cell"></div>
+      <div class="eg-cell" style="text-align:right;color:var(--accent-a)">Post A</div>
+      <div class="eg-cell" style="text-align:right;color:var(--accent-b)">Post B</div>
+    </div>
+    <div class="eg-row">
+      <div class="eg-cell eg-label">Likes</div>
+      <div class="eg-cell eg-value win">2,400</div>
+      <div class="eg-cell eg-value lose">1,820</div>
+    </div>
+    <div class="eg-row">
+      <div class="eg-cell eg-label">Comments</div>
+      <div class="eg-cell eg-value win">189</div>
+      <div class="eg-cell eg-value">95</div>
+    </div>
+    <div class="eg-row">
+      <div class="eg-cell eg-label">Reposts</div>
+      <div class="eg-cell eg-value">320</div>
+      <div class="eg-cell eg-value win">410</div>
+    </div>
+    <div class="eg-row">
+      <div class="eg-cell eg-label">Velocity</div>
+      <div class="eg-cell eg-value">133/h</div>
+      <div class="eg-cell eg-value win">607/h</div>
+    </div>
+  </div>
+
+  <!-- ═══════ 8. Comments ═══════ -->
+  <div class="demo-section">Comment cards with opaque tinted background + visible border</div>
+  <div class="stack-tight">
+    <div style="display:flex;justify-content:space-between;align-items:center">
+      <span class="label accent-a">Post A comments (42)</span>
+      <button class="btn-action ghost">+40 more</button>
+    </div>
+    <div class="comment-card side-a">
+      <div class="cc-header">
+        <span class="cc-author">@sarah_tech</span>
+        <span class="cc-likes">342 ♥</span>
+      </div>
+      <div class="cc-text">終於有人願意直接開放功能而不是先收費再說了，這才是正確的策略</div>
+    </div>
+    <div class="comment-card side-a">
+      <div class="cc-header">
+        <span class="cc-author">@marc_tw</span>
+        <span class="cc-likes">128 ♥</span>
+      </div>
+      <div class="cc-text">Threads 的 AI 推薦比 X 的好很多，至少不會一直推政治文</div>
+    </div>
+  </div>
+
+  <!-- ═══════ TECHNIQUE VIEW ═══════ -->
+  <div style="margin-top:var(--space-4)">
+    <span class="demo-badge teal">Technique</span>
+    <div style="font-size:18px;font-weight:800;letter-spacing:-0.02em;margin-top:6px">Deeper Reading</div>
+  </div>
+
+  <div style="display:flex;justify-content:space-between;align-items:center;gap:var(--space-2)">
+    <button class="btn-action secondary">← Back</button>
+    <span class="label accent-a">Post A deeper reading</span>
+  </div>
+
+  <!-- ═══════ 9. Technique Panel ═══════ -->
+  <div class="card raised" style="display:grid;gap:var(--space-3)">
+    <div style="display:flex;justify-content:space-between;gap:var(--space-3);align-items:flex-start;flex-wrap:wrap">
+      <div style="display:grid;gap:var(--space-1);flex:1;min-width:0">
+        <span class="label">Technique / Evidence</span>
+        <div style="font-size:18px;font-weight:800;color:var(--text-primary);line-height:1.3">功能透明化擁護者</div>
+        <div style="font-size:13px;color:var(--text-secondary);line-height:1.6">以「開放給所有人」為核心主張，認為 Threads 的功能更新策略正在建立社群信任。</div>
+      </div>
+      <button class="btn-action secondary" style="background:var(--positive-surface);border-color:var(--positive);color:var(--positive)">✓ Saved</button>
+    </div>
+
+    <div class="technique-scroll">
+      <div class="technique-card tc-rose">
+        <div class="tc-header">
+          <span style="display:inline-flex;align-items:center;gap:var(--space-2)">
+            <span class="tc-name">情感訴求</span>
+            <span class="tc-alias">Pathos</span>
+          </span>
+        </div>
+        <div class="tc-desc">透過個人故事和情感連結來引發受眾共鳴，建立品牌親和力</div>
+        <div>
+          <div class="tc-why-label">為什麼值得注意</div>
+          <div class="tc-why">高情感密度的留言往往帶動轉發，形成二次擴散</div>
+        </div>
+      </div>
+      <div class="technique-card tc-blue">
+        <div class="tc-header">
+          <span style="display:inline-flex;align-items:center;gap:var(--space-2)">
+            <span class="tc-name">權威背書</span>
+            <span class="tc-alias">Ethos</span>
+          </span>
+        </div>
+        <div class="tc-desc">引用專家觀點、數據報告來強化論述的可信度</div>
+        <div>
+          <div class="tc-why-label">為什麼值得注意</div>
+          <div class="tc-why">當留言援引第三方數據時，原始貼文可信度會被提升</div>
+        </div>
+      </div>
+      <div class="technique-card tc-teal">
+        <div class="tc-header">
+          <span style="display:inline-flex;align-items:center;gap:var(--space-2)">
+            <span class="tc-name">社會認同</span>
+            <span class="tc-alias">Social Proof</span>
+          </span>
+        </div>
+        <div class="tc-desc">展示用戶數量、正面評價來降低新受眾的採用門檻</div>
+      </div>
+      <div class="technique-card tc-violet">
+        <div class="tc-header">
+          <span style="display:inline-flex;align-items:center;gap:var(--space-2)">
+            <span class="tc-name">稀缺框架</span>
+            <span class="tc-alias">Scarcity</span>
+          </span>
+        </div>
+        <div class="tc-desc">營造限時或限量的緊迫感，推動立即行動</div>
+      </div>
+    </div>
+
+    <div style="display:flex;justify-content:space-between;align-items:center">
+      <span style="font-size:10px;color:var(--text-disabled)">→ 滑動查看更多</span>
+      <div style="display:flex;gap:5px">
+        <span style="width:6px;height:6px;border-radius:50%;background:var(--tech-rose);opacity:0.5"></span>
+        <span style="width:6px;height:6px;border-radius:50%;background:var(--tech-blue);opacity:0.5"></span>
+        <span style="width:6px;height:6px;border-radius:50%;background:var(--tech-teal);opacity:0.5"></span>
+        <span style="width:6px;height:6px;border-radius:50%;background:var(--tech-violet);opacity:0.5"></span>
+      </div>
+    </div>
+  </div>
+
+  <!-- ═══════ 10. Evidence Section ═══════ -->
+  <div class="card" style="display:grid;gap:var(--space-3)">
+    <div style="display:flex;justify-content:space-between;align-items:center">
+      <span class="label">Evidence</span>
+      <button class="btn-action secondary" style="font-size:11px;padding:4px 10px">← back to cluster</button>
+    </div>
+    <div class="stack-tight">
+      <div class="evidence-card" style="cursor:default">
+        <div class="ec-header">
+          <span class="ec-author">@sarah_tech</span>
+          <span class="ec-id">c_0x3a1b</span>
+        </div>
+        <div class="ec-text">"我們從第一天就決定開放這個功能給所有人，不做付費牆" — 這句話直接建立了品牌的「去商業化」信任形象。留言區反應普遍正面。</div>
+        <div class="ev-inline">
+          <span>♥ <em class="num">342</em></span>
+          <span>💬 <em class="num">12</em></span>
+          <span>↺ <em class="num">28</em></span>
+          <span>→ <em class="num">5</em></span>
+        </div>
+      </div>
+      <div class="evidence-card" style="cursor:default">
+        <div class="ec-header">
+          <span class="ec-author">@dev_lin</span>
+          <span class="ec-id">c_0x4b2c</span>
+        </div>
+        <div class="ec-text">"上個月活躍用戶已經突破 2 億" — 具體數字強化了平台成長的敘事，但缺乏第三方驗證來源</div>
+        <div class="ev-inline">
+          <span>♥ <em class="num">89</em></span>
+          <span>💬 <em class="num">3</em></span>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ═══════ Design Delta ═══════ -->
+  <div class="card raised" style="display:grid;gap:var(--space-3)">
+    <div style="font-size:15px;font-weight:800;color:var(--text-primary)">What actually changed vs current</div>
+    <div style="font-size:12px;color:var(--text-secondary);line-height:1.7;display:grid;gap:var(--space-2)">
+      <div><strong style="color:var(--accent-a)">Canvas:</strong> #ffffff → #f0f1f3 (cool neutral). Cards now contrast against background instead of floating in white void.</div>
+      <div><strong style="color:var(--accent-a)">Card elevation strategy:</strong> Flat+border default. Only brief hero and selected cluster get raised shadow. Everything else = outlined card (M3 pattern). Removes visual noise from too-many-glass-cards.</div>
+      <div><strong style="color:var(--accent-a)">Post B color:</strong> Amber #d97706 → Burnt orange #c2410c. More editorial gravitas, less "warning yellow".</div>
+      <div><strong style="color:var(--accent-a)">Surfaces:</strong> Opaque tints (--accent-a-surface: #eef2ff) instead of transparent rgba. Cleaner on any background.</div>
+      <div><strong style="color:var(--accent-a)">Bubble map bg:</strong> Sunken surface (Atlassian) instead of gradient white. Bubbles pop more against recessed grey.</div>
+      <div><strong style="color:var(--accent-a)">Support metrics:</strong> Ant Design Card.Grid (3 equal cells with borders) instead of scattered pills. Data reads like a dashboard KPI strip.</div>
+      <div><strong style="color:var(--accent-a)">Engagement table:</strong> Proper grid with cell borders (Ant Design) instead of bottom-border-only rows. Column alignment with tabular-nums.</div>
+      <div><strong style="color:var(--accent-a)">Evidence hover:</strong> M3 state layer (4% opacity overlay) instead of background color swap. Subtler, more consistent.</div>
+      <div><strong style="color:var(--accent-a)">Segmented control:</strong> M3 segmented button (filled active) instead of macOS capsule. More tool-like, less system-preferences.</div>
+      <div><strong style="color:var(--accent-a)">Section rail:</strong> Sunken tray (Atlassian) instead of floating glass pill. Anchored, not hovering.</div>
+      <div><strong style="color:var(--accent-a)">Selected panel:</strong> Left accent bar (3px) instead of full-border glow. Focal point is clear without visual noise.</div>
+      <div><strong style="color:var(--tech-rose)">KEPT from current:</strong> Bubble visual force, evidence-first structure, technique casebook carousel, dual-color identity, reading-weight headlines (17-18px/800).</div>
+    </div>
+  </div>
+
+  <div style="text-align:center;padding:var(--space-5) 0;color:var(--text-disabled);font-size:11px">
+    DLens v3 Research-Informed Redesign — April 2026
+  </div>
+
+</div>
+
+</body>
+</html>

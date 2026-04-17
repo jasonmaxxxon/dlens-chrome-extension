@@ -1,5 +1,4 @@
 export type CompareBriefSide = "left" | "right";
-export type CompareBriefRiskSide = CompareBriefSide | "both" | "unclear";
 export type CompareBriefConfidence = "low" | "medium" | "high";
 
 export interface CompareBriefEvidenceCandidate {
@@ -39,57 +38,81 @@ export interface CompareBriefRequest {
   right: CompareBriefSideRequest;
 }
 
-export interface CompareBriefRiskSignal {
-  label: string;
-  reason: string;
-  side: CompareBriefRiskSide;
-}
-
-export interface CompareBriefEvidenceReference {
-  captureId: string;
-  clusterKey: number;
-  commentId: string;
-  side: CompareBriefSide;
-  reason: string;
+export interface SupportingObservation {
+  text: string;
+  scope: "left" | "right" | "cross";
+  evidenceIds: string[];
 }
 
 export interface CompareBrief {
   source: "ai" | "fallback";
   headline: string;
-  claimContrast: string;
-  emotionContrast: string;
-  riskSignals: CompareBriefRiskSignal[];
-  representativeEvidence: CompareBriefEvidenceReference[];
-  notes: string;
+  supportingObservations: SupportingObservation[];
+  aReading: string;
+  bReading: string;
+  whyItMatters: string;
+  creatorCue: string;
+  keywords: string[];
+  audienceAlignmentLeft: "Align" | "Mixed" | "Oppose";
+  audienceAlignmentRight: "Align" | "Mixed" | "Oppose";
   confidence: CompareBriefConfidence;
+}
+
+/* ── internal helpers ── */
+
+function readTrimmedString(value: unknown): string {
+  return typeof value === "string" ? value.trim() : "";
+}
+
+function readAlignment(value: unknown, fallback: CompareBrief["audienceAlignmentLeft"]): CompareBrief["audienceAlignmentLeft"] {
+  return value === "Align" || value === "Mixed" || value === "Oppose" ? value : fallback;
+}
+
+function readConfidence(value: unknown, fallback: CompareBriefConfidence): CompareBriefConfidence {
+  return value === "low" || value === "medium" || value === "high" ? value : fallback;
 }
 
 interface CompareBriefResponsePayload {
   headline?: string;
-  claim_contrast?: string;
-  emotion_contrast?: string;
-  risk_signals?: Array<{
-    label?: string;
-    reason?: string;
-    side?: string;
-  }>;
-  representative_evidence?: Array<{
-    capture_id?: string;
-    cluster_id?: number;
-    comment_id?: string;
-    side?: string;
-    reason?: string;
-  }>;
-  notes?: string;
+  supporting_observations?: unknown;
+  a_reading?: string;
+  b_reading?: string;
+  why_it_matters?: string;
+  creator_cue?: string;
+  keywords?: unknown;
+  audience_alignment_left?: string;
+  audience_alignment_right?: string;
   confidence?: string;
 }
 
 function stripCodeFence(value: string): string {
-  const trimmed = value.trim();
+  const trimmed = readTrimmedString(value);
   if (!trimmed.startsWith("```")) {
     return trimmed;
   }
   return trimmed.replace(/^```(?:json)?/i, "").replace(/```$/i, "").trim();
+}
+
+function normalizeKeyword(value: unknown): string {
+  return typeof value === "string" ? value.replace(/\s+/g, " ").trim() : "";
+}
+
+function readKeywords(value: unknown, fallback: string[] = []): string[] {
+  if (!Array.isArray(value)) {
+    return fallback;
+  }
+  const seen = new Set<string>();
+  const keywords = value
+    .map(normalizeKeyword)
+    .filter((item) => {
+      if (!item || seen.has(item)) {
+        return false;
+      }
+      seen.add(item);
+      return true;
+    })
+    .slice(0, 5);
+  return keywords.length >= 3 ? keywords : fallback;
 }
 
 function joinKeywords(keywords: readonly string[]): string {
@@ -101,13 +124,6 @@ function roundPct(value: number): number {
   return Math.round(Math.max(0, value) * 100);
 }
 
-function formatPerHour(value: number | null): string {
-  if (value === null || !Number.isFinite(value)) return "未知";
-  if (value >= 100) return `${value.toFixed(0)}/h`;
-  if (value >= 10) return `${value.toFixed(1)}/h`;
-  return `${value.toFixed(2)}/h`;
-}
-
 function strongestCluster(side: CompareBriefSideRequest): CompareBriefClusterRequestItem | null {
   return side.clusters[0] || null;
 }
@@ -117,20 +133,119 @@ function bestEvidence(cluster: CompareBriefClusterRequestItem | null): CompareBr
   return [...cluster.evidenceCandidates].sort((left, right) => (right.like_count ?? 0) - (left.like_count ?? 0))[0] || null;
 }
 
-function compareVelocity(left: number | null, right: number | null): CompareBriefSide | null {
-  if (left === null || right === null) return null;
-  const max = Math.max(left, right, 0.01);
-  const min = Math.max(Math.min(left, right), 0.01);
-  if (max / min < 2) return null;
-  return left > right ? "left" : "right";
-}
-
 function confidenceForRequest(request: CompareBriefRequest): CompareBriefConfidence {
   const labels = [request.left.metricsCoverageLabel, request.right.metricsCoverageLabel];
   if (labels.some((label) => label === "Not captured")) return "low";
   if (labels.some((label) => label === "Partial metrics only")) return "medium";
   return "medium";
 }
+
+function inferAlignment(cluster: CompareBriefClusterRequestItem | null): "Align" | "Mixed" | "Oppose" {
+  if (!cluster) return "Mixed";
+  if (cluster.sizeShare >= 0.5 && cluster.likeShare >= 0.5) return "Align";
+  if (cluster.sizeShare < 0.2 || cluster.likeShare < 0.2) return "Oppose";
+  return "Mixed";
+}
+
+/**
+ * Infer a reaction type label from cluster engagement ratios — usable even without AI.
+ * The goal is to describe *how* the audience is responding, not just what they're saying.
+ * - 共鳴放大型: likes significantly outpace comment share → high resonance, few people driving most likes
+ * - 集中回聲型: dominant cluster (≥50%) → majority echoing same direction
+ * - 分歧探索型: likes significantly below comment share → many comments, but low approval signal
+ * - 分散反應型: fallback for mid-range patterns
+ */
+function inferReactionType(sizeShare: number, likeShare: number): string {
+  if (likeShare > sizeShare + 0.15) return "共鳴放大型";
+  if (sizeShare >= 0.5) return "集中回聲型";
+  if (likeShare < sizeShare - 0.15) return "分歧探索型";
+  return "分散反應型";
+}
+
+function sanitizeFallbackReason(value: string): string {
+  return value
+    .replace(/ai\s*compare\s*brief\s*unavailable\.?/gi, "")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+function compactSingleLine(value: string, maxLength: number): string {
+  const normalized = value.replace(/\s+/g, " ").trim();
+  if (!normalized) return "";
+  if (normalized.length <= maxLength) return normalized;
+  const firstClause = normalized.split(/[；;。！？!?,，]/).map((part) => part.trim()).find(Boolean) || normalized;
+  if (firstClause.length <= maxLength) {
+    return firstClause.replace(/[，,：:]$/, "").trim();
+  }
+  return `${firstClause.slice(0, Math.max(0, maxLength - 1)).trim()}…`;
+}
+
+function deriveCompareKeywords(
+  request: CompareBriefRequest,
+  leftReactionType: string,
+  rightReactionType: string
+): string[] {
+  const leftTop = strongestCluster(request.left);
+  const rightTop = strongestCluster(request.right);
+  const leftLead = normalizeKeyword(leftTop?.keywords?.[0] || "");
+  const rightLead = normalizeKeyword(rightTop?.keywords?.[0] || "");
+  return readKeywords([
+    leftReactionType,
+    rightReactionType,
+    leftLead && rightLead && leftLead !== rightLead ? `${leftLead} vs ${rightLead}` : leftLead || rightLead,
+    leftTop && rightTop
+      ? Math.abs(leftTop.sizeShare - rightTop.sizeShare) >= 0.12
+        ? leftTop.sizeShare > rightTop.sizeShare
+          ? "A 較集中"
+          : "B 較集中"
+        : "互動結構分流"
+      : "反應方向差異",
+    request.left.metricsCoverageLabel === request.right.metricsCoverageLabel ? "創作啟示" : "資料覆蓋差異"
+  ], ["反應差異", "互動結構", "創作啟示"]);
+}
+
+/* ── evidence catalog ── */
+
+interface EvidenceCatalogEntry {
+  alias: string;
+  commentId: string;
+  side: "A" | "B";
+  clusterKey: number;
+  likeCount: number;
+  text: string;
+}
+
+function buildEvidenceCatalog(request: CompareBriefRequest): EvidenceCatalogEntry[] {
+  const entries: EvidenceCatalogEntry[] = [];
+  let n = 1;
+  for (const cluster of request.left.clusters) {
+    for (const ev of cluster.evidenceCandidates.slice(0, 5)) {
+      entries.push({
+        alias: `e${n++}`,
+        commentId: ev.comment_id,
+        side: "A",
+        clusterKey: cluster.clusterKey,
+        likeCount: ev.like_count ?? 0,
+        text: ev.text
+      });
+    }
+  }
+  for (const cluster of request.right.clusters) {
+    for (const ev of cluster.evidenceCandidates.slice(0, 5)) {
+      entries.push({
+        alias: `e${n++}`,
+        commentId: ev.comment_id,
+        side: "B",
+        clusterKey: cluster.clusterKey,
+        likeCount: ev.like_count ?? 0,
+        text: ev.text
+      });
+    }
+  }
+  return entries;
+}
+
+/* ── public API ── */
 
 export function buildCompareBriefCacheKey(
   request: CompareBriefRequest,
@@ -149,45 +264,104 @@ export function buildCompareBriefCacheKey(
 }
 
 export function buildCompareBriefPrompt(request: CompareBriefRequest): string {
-  const toPromptSide = (side: CompareBriefSide, value: CompareBriefSideRequest) => ({
-    side,
-    capture_id: value.captureId,
-    author: value.author,
-    post_text: value.text,
-    age_label: value.ageLabel,
-    metrics_coverage_label: value.metricsCoverageLabel,
-    source_comment_count: value.sourceCommentCount,
-    raw_engagement: value.engagement,
-    velocity: {
-      likes_per_hour: value.velocity.likesPerHour,
-      comments_per_hour: value.velocity.commentsPerHour,
-      reposts_per_hour: value.velocity.repostsPerHour,
-      forwards_per_hour: value.velocity.forwardsPerHour
-    },
-    clusters: value.clusters.map((cluster) => ({
-      cluster_key: cluster.clusterKey,
-      keywords: cluster.keywords,
-      size_share: cluster.sizeShare,
-      like_share: cluster.likeShare,
-      allowed_evidence: cluster.evidenceCandidates.slice(0, 5)
-    }))
-  });
+  const catalog = buildEvidenceCatalog(request);
+  const leftTop = strongestCluster(request.left);
+  const rightTop = strongestCluster(request.right);
+
+  const leftClusterLines = request.left.clusters.map((c) =>
+    `- side=A cluster=${c.clusterKey} keywords=[${c.keywords.slice(0, 3).join(", ")}] size_share=${roundPct(c.sizeShare)}% like_share=${roundPct(c.likeShare)}%`
+  ).join("\n");
+  const rightClusterLines = request.right.clusters.map((c) =>
+    `- side=B cluster=${c.clusterKey} keywords=[${c.keywords.slice(0, 3).join(", ")}] size_share=${roundPct(c.sizeShare)}% like_share=${roundPct(c.likeShare)}%`
+  ).join("\n");
+
+  const leftMetrics = leftTop
+    ? [
+        `left_top_cluster_size_share=${roundPct(leftTop.sizeShare)}%`,
+        `left_top_cluster_like_share=${roundPct(leftTop.likeShare)}%`,
+        `left_visible_clusters=${request.left.clusters.length}`,
+        `left_likes_per_hour=${request.left.velocity.likesPerHour ?? "n/a"}`,
+        `left_comments_per_hour=${request.left.velocity.commentsPerHour ?? "n/a"}`
+      ]
+    : ["left_top_cluster=none"];
+  const rightMetrics = rightTop
+    ? [
+        `right_top_cluster_size_share=${roundPct(rightTop.sizeShare)}%`,
+        `right_top_cluster_like_share=${roundPct(rightTop.likeShare)}%`,
+        `right_visible_clusters=${request.right.clusters.length}`,
+        `right_likes_per_hour=${request.right.velocity.likesPerHour ?? "n/a"}`,
+        `right_comments_per_hour=${request.right.velocity.commentsPerHour ?? "n/a"}`
+      ]
+    : ["right_top_cluster=none"];
+
+  const catalogLines = catalog
+    .map((e) => `[${e.alias}] side=${e.side} cluster=${e.clusterKey} likes=${e.likeCount} text="${e.text}"`)
+    .join("\n");
+
+  const schema = JSON.stringify({
+    headline: "string — 28字以內，格式「A 偏[型態]，B 偏[型態]」",
+    supporting_observations: [
+      { text: "string", scope: "left|right|cross", evidence_ids: ["e1", "e2"] }
+    ],
+    a_reading: "string — A端具體讀法，引用evidence alias",
+    b_reading: "string — B端具體讀法，引用evidence alias",
+    why_it_matters: "string — 分析性洞察，不是客套話",
+    creator_cue: "string — 24字以內，格式「要共鳴看 A」",
+    keywords: ["string x3-5"],
+    audience_alignment_left: "Align|Mixed|Oppose",
+    audience_alignment_right: "Align|Mixed|Oppose",
+    confidence: "low|medium|high"
+  }, null, 2);
 
   return [
     "你是社群分析助手。",
-    "請根據兩篇 Threads 貼文的留言分群、互動指標與代表性留言，輸出一份繁體中文 compare brief。",
+    "請根據以下資料輸出一份繁體中文 compare insight。",
     "只回傳 JSON，不要加解釋。",
-    "必填欄位：headline、claim_contrast、emotion_contrast、risk_signals、representative_evidence、notes、confidence。",
-    "risk_signals 陣列內每筆都要有 label、reason、side；side 只能是 left、right、both、unclear。",
-    "representative_evidence 陣列內每筆都要有 capture_id、cluster_id、comment_id、side、reason。",
-    "comment_id 只能從對應 cluster 的 allowed_evidence 中挑選。",
-    "confidence 只能是 low、medium、high。",
     "",
-    JSON.stringify({
-      left: toPromptSide("left", request.left),
-      right: toPromptSide("right", request.right)
-    }, null, 2)
+    "[POST A]",
+    `author=${request.left.author}`,
+    `post_text=${request.left.text}`,
+    `age=${request.left.ageLabel}`,
+    `metrics_coverage=${request.left.metricsCoverageLabel}`,
+    `source_comment_count=${request.left.sourceCommentCount}`,
+    "",
+    "[POST B]",
+    `author=${request.right.author}`,
+    `post_text=${request.right.text}`,
+    `age=${request.right.ageLabel}`,
+    `metrics_coverage=${request.right.metricsCoverageLabel}`,
+    `source_comment_count=${request.right.sourceCommentCount}`,
+    "",
+    "[CLUSTER SNAPSHOT]",
+    leftClusterLines,
+    rightClusterLines,
+    "",
+    "[MIN HARD METRICS]",
+    ...leftMetrics,
+    ...rightMetrics,
+    "",
+    "[EVIDENCE CATALOG]",
+    catalogLines,
+    "",
+    "輸出規格：",
+    "  headline: 必須同時說明 A 和 B 的反應型態（共鳴放大型 / 集中回聲型 / 分歧探索型 / 分散反應型），控制在 28 個中文字以內。",
+    "  supporting_observations: 先輸出觀察再給解讀；每條觀察必須包含 evidence_ids，只能引用 EVIDENCE CATALOG 中的 alias；無法引用 evidence 的觀察直接省略。",
+    "  a_reading / b_reading: 各端具體讀法，必須引用至少一條 evidence alias。",
+    "  why_it_matters: 這兩邊差異對讀者意味著什麼，一個分析性洞察，不要說廢話。",
+    "  creator_cue: 給創作者的短促行動提示，控制在 24 個中文字以內。",
+    "  keywords: 3 到 5 個短語，可快速掃描的判斷錨點。",
+    "  audience_alignment_left / right: 只能是 Align、Mixed、Oppose。",
+    "  confidence: 只能是 low、medium、high。",
+    "",
+    "Output schema:",
+    schema
   ].join("\n");
+}
+
+function readingContainsCitation(text: string, validAliases: Set<string>): boolean {
+  const tokens = text.match(/\be\d+\b/g);
+  if (!tokens) return false;
+  return tokens.some((t) => validAliases.has(t));
 }
 
 export function parseCompareBriefResponse(raw: string, request: CompareBriefRequest): CompareBrief | null {
@@ -198,77 +372,119 @@ export function parseCompareBriefResponse(raw: string, request: CompareBriefRequ
     return null;
   }
 
+  const catalog = buildEvidenceCatalog(request);
+  const validAliases = new Set(catalog.map((e) => e.alias));
+
   const headline = String(parsed.headline || "").trim();
-  const claimContrast = String(parsed.claim_contrast || "").trim();
-  const emotionContrast = String(parsed.emotion_contrast || "").trim();
-  const notes = String(parsed.notes || "").trim();
-  const confidence = String(parsed.confidence || "").trim() as CompareBriefConfidence;
+  const aReading = String(parsed.a_reading || "").trim();
+  const bReading = String(parsed.b_reading || "").trim();
+  const whyItMatters = String(parsed.why_it_matters || "").trim();
+  const creatorCue = String(parsed.creator_cue || "").trim();
+  const keywords = readKeywords(parsed.keywords);
+  const audienceAlignmentLeft = readAlignment(String(parsed.audience_alignment_left || "").trim(), "Mixed");
+  const audienceAlignmentRight = readAlignment(String(parsed.audience_alignment_right || "").trim(), "Mixed");
+  const confidence = readConfidence(String(parsed.confidence || "").trim(), "medium");
 
-  if (!headline || !claimContrast || !emotionContrast || !notes) {
+  const rawObservations = Array.isArray(parsed.supporting_observations) ? parsed.supporting_observations : [];
+  const supportingObservations: SupportingObservation[] = rawObservations
+    .map((obs: unknown): SupportingObservation | null => {
+      if (!obs || typeof obs !== "object") return null;
+      const o = obs as Record<string, unknown>;
+      const text = String(o.text || "").trim();
+      const scope = o.scope === "left" || o.scope === "right" || o.scope === "cross" ? o.scope : null;
+      if (!text || !scope) return null;
+      const ids = Array.isArray(o.evidence_ids)
+        ? (o.evidence_ids as unknown[]).map((id) => String(id).trim()).filter((id) => validAliases.has(id))
+        : [];
+      if (ids.length === 0) return null;
+      return { text, scope, evidenceIds: ids };
+    })
+    .filter((obs): obs is SupportingObservation => obs !== null);
+
+  if (
+    !headline
+    || supportingObservations.length === 0
+    || !aReading
+    || !bReading
+    || !whyItMatters
+    || !creatorCue
+    || keywords.length < 3
+  ) {
     return null;
   }
-  if (!["low", "medium", "high"].includes(confidence)) {
+  // Reject side readings that contain no evidence alias reference — they are uncited prose
+  if (!readingContainsCitation(aReading, validAliases) || !readingContainsCitation(bReading, validAliases)) {
     return null;
   }
-
-  const allowedEvidence = new Map<string, { captureId: string; clusterKey: number; side: CompareBriefSide }>();
-  for (const [side, sideRequest] of [["left", request.left], ["right", request.right]] as const) {
-    for (const cluster of sideRequest.clusters) {
-      for (const evidence of cluster.evidenceCandidates) {
-        allowedEvidence.set(`${sideRequest.captureId}:${cluster.clusterKey}:${evidence.comment_id}`, {
-          captureId: sideRequest.captureId,
-          clusterKey: cluster.clusterKey,
-          side
-        });
-      }
-    }
-  }
-
-  const riskSignals = Array.isArray(parsed.risk_signals)
-    ? parsed.risk_signals
-        .map((item) => ({
-          label: String(item?.label || "").trim(),
-          reason: String(item?.reason || "").trim(),
-          side: String(item?.side || "").trim() as CompareBriefRiskSide
-        }))
-        .filter((item) => item.label && item.reason && ["left", "right", "both", "unclear"].includes(item.side))
-        .slice(0, 3)
-    : [];
-
-  const representativeEvidence = Array.isArray(parsed.representative_evidence)
-    ? parsed.representative_evidence
-        .map((item) => {
-          const captureId = String(item?.capture_id || "").trim();
-          const clusterKey = Number(item?.cluster_id);
-          const commentId = String(item?.comment_id || "").trim();
-          const side = String(item?.side || "").trim() as CompareBriefSide;
-          const reason = String(item?.reason || "").trim();
-          const allowed = allowedEvidence.get(`${captureId}:${clusterKey}:${commentId}`);
-          if (!captureId || !Number.isFinite(clusterKey) || !commentId || !reason || !allowed) {
-            return null;
-          }
-          if (!["left", "right"].includes(side) || allowed.side !== side) {
-            return null;
-          }
-          return { captureId, clusterKey, commentId, side, reason };
-        })
-        .filter((item): item is CompareBriefEvidenceReference => Boolean(item))
-        .slice(0, 4)
-    : [];
-
-  if (!riskSignals.length || !representativeEvidence.length) {
+  if (!["low", "medium", "high"].includes(confidence)) return null;
+  if (
+    !["Align", "Mixed", "Oppose"].includes(audienceAlignmentLeft)
+    || !["Align", "Mixed", "Oppose"].includes(audienceAlignmentRight)
+  ) {
     return null;
   }
 
   return {
     source: "ai",
     headline,
-    claimContrast,
-    emotionContrast,
-    riskSignals,
-    representativeEvidence,
-    notes,
+    supportingObservations,
+    aReading,
+    bReading,
+    whyItMatters,
+    creatorCue,
+    keywords,
+    audienceAlignmentLeft,
+    audienceAlignmentRight,
     confidence
+  };
+}
+
+export function normalizeCompareBrief(value: unknown, fallback: CompareBrief): CompareBrief {
+  if (!value || typeof value !== "object") {
+    return fallback;
+  }
+
+  const payload = value as Record<string, unknown>;
+
+  const rawObservations = Array.isArray(payload.supportingObservations) ? payload.supportingObservations : [];
+  const supportingObservations: SupportingObservation[] = rawObservations.filter(
+    (obs): obs is SupportingObservation => {
+      if (!obs || typeof obs !== "object") return false;
+      const o = obs as Record<string, unknown>;
+      return Boolean(o.text && o.scope && Array.isArray(o.evidenceIds));
+    }
+  );
+
+  const whyItMatters =
+    readTrimmedString(payload.whyItMatters)
+    || readTrimmedString(payload.why_it_matters)
+    || fallback.whyItMatters;
+  const creatorCue =
+    readTrimmedString(payload.creatorCue)
+    || readTrimmedString(payload.creator_cue)
+    || fallback.creatorCue;
+  const aReading =
+    readTrimmedString(payload.aReading)
+    || readTrimmedString(payload.a_reading)
+    || fallback.aReading;
+  const bReading =
+    readTrimmedString(payload.bReading)
+    || readTrimmedString(payload.b_reading)
+    || fallback.bReading;
+  const keywords = readKeywords(payload.keywords, fallback.keywords);
+
+  return {
+    source: payload.source === "ai" ? "ai" : fallback.source,
+    headline: readTrimmedString(payload.headline) || fallback.headline,
+    supportingObservations: supportingObservations.length > 0 ? supportingObservations : fallback.supportingObservations,
+    aReading,
+    bReading,
+    whyItMatters,
+    creatorCue,
+    keywords,
+    audienceAlignmentLeft: readAlignment(payload.audienceAlignmentLeft ?? payload.audience_alignment_left, fallback.audienceAlignmentLeft),
+    audienceAlignmentRight: readAlignment(payload.audienceAlignmentRight ?? payload.audience_alignment_right, fallback.audienceAlignmentRight),
+    confidence: readConfidence(payload.confidence, fallback.confidence)
   };
 }
 
@@ -282,66 +498,83 @@ export function buildDeterministicCompareBrief(
   const rightLabel = joinKeywords(rightTop?.keywords || []);
   const leftEvidence = bestEvidence(leftTop);
   const rightEvidence = bestEvidence(rightTop);
+  const audienceAlignmentLeft = inferAlignment(leftTop);
+  const audienceAlignmentRight = inferAlignment(rightTop);
 
-  const riskSignals: CompareBriefRiskSignal[] = [];
-  if (leftTop && leftTop.sizeShare >= 0.55 && rightTop && rightTop.sizeShare >= 0.55) {
-    riskSignals.push({
-      label: "單一敘事集中",
-      reason: `兩側 top cluster 都拿走超過一半留言（A ${roundPct(leftTop.sizeShare)}%，B ${roundPct(rightTop.sizeShare)}%），少數高互動聲音可能放大單一路線。`,
-      side: "both"
-    });
-  }
-  if ([request.left.metricsCoverageLabel, request.right.metricsCoverageLabel].some((label) => label !== "All core metrics captured")) {
-    riskSignals.push({
-      label: "互動資料不完整",
-      reason: `目前 capture coverage 為 A「${request.left.metricsCoverageLabel}」、B「${request.right.metricsCoverageLabel}」，解讀 views / forwards 時要保守。`,
-      side: "both"
-    });
-  }
-  const fasterSide = compareVelocity(request.left.velocity.likesPerHour, request.right.velocity.likesPerHour);
-  if (fasterSide) {
-    riskSignals.push({
-      label: "短時動能不對稱",
-      reason: `${fasterSide === "left" ? "A" : "B"} 的 likes/hour 明顯較高（A ${formatPerHour(request.left.velocity.likesPerHour)}，B ${formatPerHour(request.right.velocity.likesPerHour)}），老帖與新帖不能只看 raw total。`,
-      side: fasterSide
-    });
-  }
-  if (!riskSignals.length) {
-    riskSignals.push({
-      label: "議題切割清楚",
-      reason: `A 主要集中在「${leftLabel}」，B 主要集中在「${rightLabel}」，代表雙方留言重心已經分流。`,
-      side: "both"
-    });
-  }
+  const leftReactionType = leftTop
+    ? inferReactionType(leftTop.sizeShare, leftTop.likeShare)
+    : "反應型態不明";
+  const rightReactionType = rightTop
+    ? inferReactionType(rightTop.sizeShare, rightTop.likeShare)
+    : "反應型態不明";
 
-  const representativeEvidence: CompareBriefEvidenceReference[] = [];
-  if (leftTop && leftEvidence) {
-    representativeEvidence.push({
-      captureId: request.left.captureId,
-      clusterKey: leftTop.clusterKey,
-      commentId: leftEvidence.comment_id,
-      side: "left",
-      reason: `左側最能代表「${leftLabel}」的高互動留言樣本。`
-    });
-  }
-  if (rightTop && rightEvidence) {
-    representativeEvidence.push({
-      captureId: request.right.captureId,
-      clusterKey: rightTop.clusterKey,
-      commentId: rightEvidence.comment_id,
-      side: "right",
-      reason: `右側最能代表「${rightLabel}」的高互動留言樣本。`
-    });
-  }
+  const leftStructureText = leftTop
+    ? `A 的主導群組（${roundPct(leftTop.sizeShare)}% 留言、${roundPct(leftTop.likeShare)}% 按讚）呈現${leftReactionType}，圍繞「${leftLabel}」`
+    : "A 端目前沒有穩定的主導群組";
+  const rightStructureText = rightTop
+    ? `B 的主導群組（${roundPct(rightTop.sizeShare)}% 留言、${roundPct(rightTop.likeShare)}% 按讚）呈現${rightReactionType}，圍繞「${rightLabel}」`
+    : "B 端目前沒有穩定的主導群組";
 
+  const sameReactionType = leftReactionType === rightReactionType;
+  const headline = sameReactionType
+    ? compactSingleLine(`A 與 B 都偏${leftReactionType}，但聚焦不同。`, 28)
+    : compactSingleLine(`A 偏${leftReactionType}，B 偏${rightReactionType}。`, 28);
+
+  const creatorCueBase = sameReactionType
+    ? "同型回應下，先看聚焦差異。"
+    : leftReactionType.includes("共鳴") && rightReactionType.includes("分歧")
+      ? "要共鳴看 A，要分歧看 B。"
+      : "先選你要的回應型態。";
+
+  const aReading = leftEvidence
+    ? `A 的受眾以${leftReactionType}回應，高互動留言多半延伸同一方向，像「${leftEvidence.text}」這類樣本反映了這種聚集。`
+    : `A 的受眾以${leftReactionType}為主，但代表性留言仍偏少，判斷暫時保守。`;
+  const bReading = rightEvidence
+    ? `B 的受眾以${rightReactionType}回應，高互動留言更像把討論帶去另一個方向，像「${rightEvidence.text}」這類樣本顯示了這種分歧。`
+    : `B 的受眾以${rightReactionType}為主，但代表性留言仍偏少，判斷暫時保守。`;
+
+  const whyItMatters = `差異的核心不在於貼文主題，而在於留言如何聚集與放大。${leftStructureText}；${rightStructureText}。`;
+
+  // Build alias map from the same evidence catalog grammar used by the AI path
+  const catalog = buildEvidenceCatalog(request);
+  const aliasMap = new Map(catalog.map((e) => [e.commentId, e.alias]));
+
+  const supportingObservations: SupportingObservation[] = [];
+  if (leftEvidence) {
+    const alias = aliasMap.get(leftEvidence.comment_id);
+    if (alias) {
+      supportingObservations.push({
+        text: leftStructureText,
+        scope: "left",
+        evidenceIds: [alias]
+      });
+    }
+  }
+  if (rightEvidence) {
+    const alias = aliasMap.get(rightEvidence.comment_id);
+    if (alias) {
+      supportingObservations.push({
+        text: rightStructureText,
+        scope: "right",
+        evidenceIds: [alias]
+      });
+    }
+  }
+  // If no aliased evidence is available, leave supportingObservations empty —
+  // do not push a cross observation with evidenceIds: [], which breaks the alias grammar.
+
+  const cleanedFallbackReason = sanitizeFallbackReason(fallbackReason);
   return {
     source: "fallback",
-    headline: `A 的高互動重點偏向「${leftLabel}」，B 則更集中在「${rightLabel}」。`,
-    claimContrast: `就主張重心來看，A 的 top cluster 約佔 ${roundPct(leftTop?.sizeShare || 0)}% 留言、拿走 ${roundPct(leftTop?.likeShare || 0)}% 按讚；B 的核心留言則圍繞「${rightLabel}」，約佔 ${roundPct(rightTop?.sizeShare || 0)}% 留言、拿走 ${roundPct(rightTop?.likeShare || 0)}% 按讚。`,
-    emotionContrast: `在沒有額外 AI 判讀時，情緒對比先以互動結構近似：A 的注意力更集中在「${leftLabel}」，B 則更集中在「${rightLabel}」。實際語氣與情緒落點應回看代表性證據。`,
-    riskSignals,
-    representativeEvidence,
-    notes: `${fallbackReason} This deterministic brief uses cluster concentration, engagement coverage, and top evidence only.`,
+    headline,
+    supportingObservations,
+    aReading,
+    bReading,
+    whyItMatters,
+    creatorCue: compactSingleLine(`${cleanedFallbackReason ? `${cleanedFallbackReason} ` : ""}${creatorCueBase}`, 28),
+    keywords: deriveCompareKeywords(request, leftReactionType, rightReactionType),
+    audienceAlignmentLeft,
+    audienceAlignmentRight,
     confidence: confidenceForRequest(request)
   };
 }

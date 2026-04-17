@@ -1,5 +1,6 @@
 import type { ExtensionSettings } from "../state/types";
-import { PrimaryButton, TOKENS, surfaceCardStyle } from "./components";
+import { PrimaryButton, TOKENS, WorkspaceSurface, hudLabel, viewRootStyle } from "./components";
+import { tokens } from "./tokens";
 
 interface SettingsViewProps {
   draftBaseUrl: string;
@@ -15,6 +16,20 @@ interface SettingsViewProps {
   onSaveSettings: () => void;
 }
 
+const inputStyle = {
+  borderRadius: tokens.radius.sm,
+  border: `1px solid ${tokens.color.glassBorder}`,
+  padding: "7px 10px",
+  background: tokens.color.elevated,
+  color: tokens.color.ink,
+  fontSize: 12,
+  outline: "none",
+  transition: tokens.motion.interactiveTransitionFast,
+  width: "100%",
+  boxSizing: "border-box",
+  minWidth: 0
+} as const;
+
 export function SettingsView({
   draftBaseUrl,
   draftProvider,
@@ -29,67 +44,83 @@ export function SettingsView({
   onSaveSettings
 }: SettingsViewProps) {
   return (
-    <div style={{ display: "grid", gap: 12 }}>
-      <div style={{ ...surfaceCardStyle({ display: "grid", gap: 10 }) }}>
-        <strong style={{ fontSize: 14 }}>Collector settings</strong>
-        <label style={{ display: "grid", gap: 6, fontSize: 12, color: TOKENS.subInk }}>
-          Ingest base URL
-          <input
-            value={draftBaseUrl}
-            onChange={(event) => onDraftBaseUrlChange(event.target.value)}
-            style={{ borderRadius: TOKENS.pillRadius, border: `1px solid ${TOKENS.glassBorder}`, padding: "9px 12px", background: "rgba(255,255,255,0.6)", fontSize: 13, outline: "none", transition: TOKENS.transition }}
-          />
-        </label>
-        <label style={{ display: "grid", gap: 6, fontSize: 12, color: TOKENS.subInk }}>
-          One-liner provider
-          <select
-            value={draftProvider}
-            onChange={(event) => onDraftProviderChange(event.target.value as NonNullable<ExtensionSettings["oneLinerProvider"]> | "")}
-            style={{ borderRadius: TOKENS.pillRadius, border: `1px solid ${TOKENS.glassBorder}`, padding: "9px 12px", background: "rgba(255,255,255,0.6)", fontSize: 13, outline: "none", transition: TOKENS.transition }}
+    <div style={viewRootStyle()}>
+      <WorkspaceSurface
+        tone="utility"
+        style={{ display: "grid", gap: tokens.spacing.md, maxWidth: 420 }}
+      >
+        <div
+          data-settings-surface="drawer"
+          style={{ display: "grid", gap: tokens.spacing.md }}
+        >
+          <div style={{ display: "grid", gap: 4 }}>
+            <div style={hudLabel()}>Settings</div>
+            <p style={{ margin: 0, fontSize: 12, lineHeight: 1.5, color: tokens.color.subInk }}>
+              Adjust runtime behavior without leaving the workspace.
+            </p>
+          </div>
+
+          <div
+            data-settings-group="connection"
+            style={{
+              display: "grid",
+              gap: 14,
+              paddingTop: 2,
+              borderTop: `1px solid ${tokens.color.line}`
+            }}
           >
-            <option value="">Disabled</option>
-            <option value="google">Google (Gemini 2.0 Flash)</option>
-            <option value="openai">OpenAI</option>
-            <option value="claude">Claude</option>
-          </select>
-        </label>
-        <label style={{ display: "grid", gap: 6, fontSize: 12, color: TOKENS.subInk }}>
-          OpenAI API key
-          <input
-            value={draftOpenAiKey}
-            onChange={(event) => onDraftOpenAiKeyChange(event.target.value)}
-            type="password"
-            placeholder="sk-..."
-            style={{ borderRadius: TOKENS.pillRadius, border: `1px solid ${TOKENS.glassBorder}`, padding: "9px 12px", background: "rgba(255,255,255,0.6)", fontSize: 13, outline: "none", transition: TOKENS.transition }}
-          />
-        </label>
-        <label style={{ display: "grid", gap: 6, fontSize: 12, color: TOKENS.subInk }}>
-          Claude API key
-          <input
-            value={draftClaudeKey}
-            onChange={(event) => onDraftClaudeKeyChange(event.target.value)}
-            type="password"
-            placeholder="sk-ant-..."
-            style={{ borderRadius: TOKENS.pillRadius, border: `1px solid ${TOKENS.glassBorder}`, padding: "9px 12px", background: "rgba(255,255,255,0.6)", fontSize: 13, outline: "none", transition: TOKENS.transition }}
-          />
-        </label>
-        <label style={{ display: "grid", gap: 6, fontSize: 12, color: TOKENS.subInk }}>
-          Google API key
-          <input
-            value={draftGoogleKey}
-            onChange={(event) => onDraftGoogleKeyChange(event.target.value)}
-            type="password"
-            placeholder="AIza..."
-            style={{ borderRadius: TOKENS.pillRadius, border: `1px solid ${TOKENS.glassBorder}`, padding: "9px 12px", background: "rgba(255,255,255,0.6)", fontSize: 13, outline: "none", transition: TOKENS.transition }}
-          />
-        </label>
-        <p style={{ fontSize: 11, color: TOKENS.softInk ?? "#94a3b8", margin: "4px 0 0 0", lineHeight: 1.4 }}>
-          Your API keys are stored locally in this browser and are never sent to our servers. When AI summaries are enabled, your key is sent directly to the respective provider (Google, OpenAI, or Anthropic).
-        </p>
-        <PrimaryButton onClick={onSaveSettings}>
-          Save settings
-        </PrimaryButton>
-      </div>
+            <div style={{ ...hudLabel() }}>Connection</div>
+            <label style={{ display: "grid", gap: 4, fontSize: 11, color: tokens.color.subInk }}>
+              Ingest base URL
+              <input value={draftBaseUrl} onChange={(event) => onDraftBaseUrlChange(event.target.value)} style={inputStyle} />
+            </label>
+            <label style={{ display: "grid", gap: 4, fontSize: 11, color: tokens.color.subInk }}>
+              AI provider
+              <select
+                value={draftProvider}
+                onChange={(event) => onDraftProviderChange(event.target.value as NonNullable<ExtensionSettings["oneLinerProvider"]> | "")}
+                style={inputStyle}
+              >
+                <option value="">Disabled</option>
+                <option value="google">Google (Gemini 3.1 Flash Lite)</option>
+                <option value="openai">OpenAI</option>
+                <option value="claude">Claude</option>
+              </select>
+            </label>
+          </div>
+
+          <div
+            data-settings-group="keys"
+            style={{
+              display: "grid",
+              gap: 14,
+              paddingTop: 2,
+              borderTop: `1px solid ${tokens.color.line}`
+            }}
+          >
+            <div style={{ ...hudLabel() }}>API Keys</div>
+            <label style={{ display: "grid", gap: 4, fontSize: 11, color: tokens.color.subInk }}>
+              OpenAI
+              <input value={draftOpenAiKey} onChange={(event) => onDraftOpenAiKeyChange(event.target.value)} type="password" placeholder="sk-..." style={inputStyle} />
+            </label>
+            <label style={{ display: "grid", gap: 4, fontSize: 11, color: tokens.color.subInk }}>
+              Claude
+              <input value={draftClaudeKey} onChange={(event) => onDraftClaudeKeyChange(event.target.value)} type="password" placeholder="sk-ant-..." style={inputStyle} />
+            </label>
+            <label style={{ display: "grid", gap: 4, fontSize: 11, color: tokens.color.subInk }}>
+              Google
+              <input value={draftGoogleKey} onChange={(event) => onDraftGoogleKeyChange(event.target.value)} type="password" placeholder="AIza..." style={inputStyle} />
+            </label>
+            <p style={{ fontSize: 10, color: tokens.color.softInk, margin: 0, lineHeight: 1.5 }}>
+              Keys are stored locally and never sent to our servers. When AI summaries are enabled, your key goes directly to the provider.
+            </p>
+          </div>
+
+          <PrimaryButton onClick={onSaveSettings} style={{ width: "100%" }}>
+            Save settings
+          </PrimaryButton>
+        </div>
+      </WorkspaceSurface>
     </div>
   );
 }

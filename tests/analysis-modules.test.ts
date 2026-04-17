@@ -95,6 +95,37 @@ test("buildClusterSummaries ranks clusters and attaches top evidence", () => {
   assert.equal(summaries[1]?.cluster.cluster_key, 1);
 });
 
+test("buildClusterSummaries suppresses low-signal micro-clusters and preserves the dominant discussion", () => {
+  const summaries = buildClusterSummaries(
+    buildAnalysis({
+      source_comment_count: 6,
+      clusters: [
+        { cluster_key: 0, size_share: 0.67, like_share: 0.84, keywords: ["support", "policy"] },
+        { cluster_key: 1, size_share: 0.17, like_share: 0.1, keywords: ["general"] },
+        { cluster_key: 2, size_share: 0.16, like_share: 0.06, keywords: ["noise"] },
+      ],
+      evidence: [
+        {
+          cluster_key: 0,
+          comments: [{ comment_id: "c1", text: "dominant evidence", like_count: 9, author: "alpha" }],
+        },
+        {
+          cluster_key: 1,
+          comments: [{ comment_id: "c2", text: "one-off reply", like_count: 1, author: "beta" }],
+        },
+        {
+          cluster_key: 2,
+          comments: [{ comment_id: "c3", text: "tiny reply", like_count: 1, author: "gamma" }],
+        },
+      ],
+    }),
+    5,
+  );
+
+  assert.equal(summaries.length, 1);
+  assert.equal(summaries[0]?.cluster.cluster_key, 0);
+});
+
 test("getDominanceLabel maps dominance ratio into Chinese buckets", () => {
   assert.equal(getDominanceLabel(0.72), "高度集中");
   assert.equal(getDominanceLabel(0.55), "中度分散");
@@ -119,10 +150,10 @@ test("buildClusterCompareRows pairs ranked cluster summaries by row", () => {
 
   const rows = buildClusterCompareRows(left, right, 3);
 
-  assert.equal(rows.length, 3);
+  assert.equal(rows.length, 2);
   assert.equal(rows[0]?.left?.cluster.cluster_key, 0);
   assert.equal(rows[0]?.right?.cluster.cluster_key, 9);
-  assert.equal(rows[2]?.right, null);
+  assert.equal(rows[1]?.right?.cluster.cluster_key, 8);
 });
 
 test("extractTopKeywords keeps English tokens and CJK bigrams", () => {

@@ -19,9 +19,28 @@ test("ProcessingStrip renders worker headline and counts", () => {
   );
 
   assert.match(html, /Processing in progress/);
-  assert.match(html, /draining/);
-  assert.match(html, /1 \/ 4 ready/);
-  assert.match(html, /2 crawling/);
-  assert.match(html, /1 analyzing/);
-  assert.match(html, /1 pending/);
+  assert.match(html, /data-processing-strip="context"/);
+  assert.match(html, /data-processing-ring="visible"/);
+  assert.match(html, /data-processing-skeleton="visible"/);
+  assert.match(html, /1\/4 ready/);
+  assert.match(html, /Mapping comments into clusters|Capturing comments|Preparing Compare/);
+  assert.doesNotMatch(html, /crawling|analyzing|pending/);
+});
+
+test("ProcessingStrip stays compare-forward when a ready pair exists alongside inflight work", () => {
+  const html = renderToStaticMarkup(
+    React.createElement(ProcessingStrip, {
+      workerStatus: "draining",
+      ready: 2,
+      total: 4,
+      crawling: 1,
+      analyzing: 1,
+      pending: 0
+    })
+  );
+
+  assert.match(html, /Ready to compare/);
+  assert.match(html, /2\/4 ready/);
+  assert.match(html, /data-processing-ring="visible"/);
+  assert.doesNotMatch(html, /Processing in progress/);
 });

@@ -5,6 +5,28 @@ import type {
 import type { ClusterCompareRow, ClusterSummaryCard } from "./types.ts";
 import { pickEvidenceComments } from "./evidence.ts";
 
+const MIN_CLUSTER_SUPPORT_COUNT = 2;
+const MIN_CLUSTER_SIZE_SHARE = 0.2;
+
+function estimateSupportCount(cluster: AnalysisClusterSnapshot, sourceCommentCount: number): number {
+  const rawSupport = cluster.size_share * Math.max(sourceCommentCount, 0);
+  if (!Number.isFinite(rawSupport) || rawSupport <= 0) return 0;
+  return Math.max(1, Math.round(rawSupport));
+}
+
+function keepVisibleClusters(
+  clusters: readonly AnalysisClusterSnapshot[],
+  sourceCommentCount: number,
+): AnalysisClusterSnapshot[] {
+  const ranked = sortClusters(clusters);
+  const visible = ranked.filter((cluster) => {
+    const supportCount = estimateSupportCount(cluster, sourceCommentCount);
+    return supportCount >= MIN_CLUSTER_SUPPORT_COUNT || cluster.size_share >= MIN_CLUSTER_SIZE_SHARE;
+  });
+
+  return visible.length ? visible : ranked.slice(0, 1);
+}
+
 function sortClusters(
   clusters: readonly AnalysisClusterSnapshot[],
 ): AnalysisClusterSnapshot[] {
@@ -37,12 +59,15 @@ export function buildClusterSummaries(
   captureId = analysis?.capture_id ?? "",
 ): ClusterSummaryCard[] {
   if (!analysis) return [];
+  const sourceCommentCount = analysis.source_comment_count ?? 0;
 
-  return sortClusters(analysis.clusters)
+  return keepVisibleClusters(analysis.clusters, sourceCommentCount)
     .slice(0, Math.max(0, clusterLimit))
     .map((cluster, index) => ({
       captureId,
       rank: index + 1,
+      sourceCommentCount,
+      supportCount: estimateSupportCount(cluster, sourceCommentCount),
       cluster,
       evidence: pickEvidenceComments(analysis.evidence, cluster.cluster_key, evidenceLimit),
     }));
@@ -55,7 +80,7 @@ export function buildClusterCompareRows(
 ): ClusterCompareRow[] {
   const leftSummaries = buildClusterSummaries(left, clusterLimit, 5);
   const rightSummaries = buildClusterSummaries(right, clusterLimit, 5);
-  const total = Math.max(clusterLimit, leftSummaries.length, rightSummaries.length);
+  const total = Math.max(leftSummaries.length, rightSummaries.length, 1);
 
   return Array.from({ length: total }, (_, index) => ({
     rank: index + 1,

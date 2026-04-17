@@ -9,6 +9,7 @@ import {
   hasNearReadyItems,
   getItemReadinessStatus,
   getPollingDelayMs,
+  getProcessingStripUiState,
   pickCompareSelection,
   resolveInitialPopupMode,
   summarizeSessionProcessing
@@ -128,7 +129,7 @@ test("getItemReadinessStatus distinguishes ready from analyzing", () => {
   assert.equal(getItemReadinessStatus(buildItem("saved")), "saved");
 });
 
-test("resolveInitialPopupMode prefers compare, then library, then collect", () => {
+test("resolveInitialPopupMode prefers compare, then library", () => {
   const compareSession = createSessionRecord("Compare", "2026-03-28T08:00:00.000Z");
   compareSession.items.push(buildItem("succeeded", "succeeded"), buildItem("succeeded", "succeeded"));
   assert.equal(resolveInitialPopupMode(summarizeSessionProcessing(compareSession)), "compare");
@@ -137,9 +138,87 @@ test("resolveInitialPopupMode prefers compare, then library, then collect", () =
   librarySession.items.push(buildItem("queued"), buildItem("succeeded", "running"));
   assert.equal(resolveInitialPopupMode(summarizeSessionProcessing(librarySession)), "library");
 
-  const collectSession = createSessionRecord("Collect", "2026-03-28T08:00:00.000Z");
-  collectSession.items.push(buildItem("saved"), buildItem("failed"));
-  assert.equal(resolveInitialPopupMode(summarizeSessionProcessing(collectSession)), "collect");
+  const idleSession = createSessionRecord("Idle", "2026-03-28T08:00:00.000Z");
+  idleSession.items.push(buildItem("saved"), buildItem("failed"));
+  assert.equal(resolveInitialPopupMode(summarizeSessionProcessing(idleSession)), "library");
+});
+
+test("expanded compare/result popup width gives the reading page more room than the compact shell", () => {
+  assert.equal(DEFAULT_POPUP_WIDTH, 348);
+  assert.equal(EXPANDED_COMPARE_POPUP_WIDTH, 560);
+});
+
+test("getProcessingStripUiState uses compact compare-forward copy", () => {
+  const compareReady = summarizeSessionProcessing([
+    buildItem("succeeded", "succeeded"),
+    buildItem("succeeded", "succeeded")
+  ]);
+  const compareState = getProcessingStripUiState("draining", compareReady);
+  assert.equal(compareState.phaseLabel, "Ready to compare");
+  assert.equal(compareState.progressMode, "ready");
+  assert.match(compareState.progressHint, /Compare/);
+
+  const analyzingState = getProcessingStripUiState("idle", {
+    total: 2,
+    ready: 1,
+    crawling: 0,
+    analyzing: 1,
+    pending: 0,
+    failed: 0,
+    hasReadyPair: false,
+    hasInflight: true
+  });
+  assert.equal(analyzingState.phaseLabel, "Waiting for analysis");
+  assert.equal(analyzingState.progressMode, "analyzing");
+  assert.match(analyzingState.progressHint, /Library/i);
+  assert.doesNotMatch(analyzingState.progressHint, /clusters|comments|pending/i);
+
+  const idleState = getProcessingStripUiState("idle", {
+    total: 1,
+    ready: 0,
+    crawling: 0,
+    analyzing: 0,
+    pending: 1,
+    failed: 0,
+    hasReadyPair: false,
+    hasInflight: false
+  });
+  assert.equal(idleState.phaseLabel, "Waiting to start");
+  assert.equal(idleState.progressMode, "queued");
+  assert.match(idleState.progressHint, /Library/i);
+});
+
+test("getProcessingStripUiState stays compare-forward when a ready pair exists alongside inflight work", () => {
+  const compareReadyWithInflight = getProcessingStripUiState("draining", {
+    total: 4,
+    ready: 2,
+    crawling: 1,
+    analyzing: 1,
+    pending: 0,
+    failed: 0,
+    hasReadyPair: true,
+    hasInflight: true
+  });
+
+  assert.equal(compareReadyWithInflight.phaseLabel, "Ready to compare");
+  assert.equal(compareReadyWithInflight.progressMode, "ready");
+});
+
+test("getProcessingStripUiState keeps the idle state action-forward", () => {
+  const idleState = getProcessingStripUiState("idle", {
+    total: 0,
+    ready: 0,
+    crawling: 0,
+    analyzing: 0,
+    pending: 0,
+    failed: 0,
+    hasReadyPair: false,
+    hasInflight: false
+  });
+
+  assert.equal(idleState.phaseLabel, "Go to Collect or Library");
+  assert.equal(idleState.progressMode, "idle");
+  assert.match(idleState.progressHint, /Collect|Library/);
 });
 
 test("hasNearReadyItems only treats analyzing as near-ready", () => {
@@ -158,7 +237,7 @@ test("advancePopupWorkspaceState recomputes smart entry after close and reopen",
   const readySummary = summarizeSessionProcessing(readySession);
 
   const staleClosedState = {
-    currentMode: "collect" as const,
+    currentMode: "library" as const,
     popupOpen: false,
     modeLocked: false
   };
@@ -227,5 +306,5 @@ test("getPollingDelayMs follows the shared coordinator rules and backoff", () =>
 
 test("popup width constants keep compare expanded while other pages stay compact", () => {
   assert.equal(DEFAULT_POPUP_WIDTH, 348);
-  assert.equal(EXPANDED_COMPARE_POPUP_WIDTH, 504);
+  assert.equal(EXPANDED_COMPARE_POPUP_WIDTH, 560);
 });

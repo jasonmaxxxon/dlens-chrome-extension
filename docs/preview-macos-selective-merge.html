@@ -1,0 +1,1142 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>DLens — macOS Selective Merge: Compare + Technique</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  :root {
+    /* ── Selective merge: macOS surface rhythm + analysis tool depth ── */
+
+    /* canvas — from macOS: cool grey instead of pure white */
+    --canvas: #f5f5f7;
+
+    /* surfaces — keep current glass depth, refine opacity */
+    --surface: rgba(255,255,255,0.94);
+    --elevated: rgba(255,255,255,0.985);
+
+    /* text — unchanged, dark-on-light hierarchy works */
+    --ink: #111827;
+    --sub: #4b5563;
+    --soft: #9ca3af;
+
+    /* borders — FROM macOS: thinner, lighter separator */
+    --line: rgba(0,0,0,0.07);
+    --separator: rgba(0,0,0,0.05);
+
+    /* accent — keep indigo core (Post A identity) */
+    --accent: #4f46e5;
+    --accent-mid: #6366f1;
+    --accent-soft: rgba(79,70,229,0.07);
+    --accent-glow: rgba(79,70,229,0.18);
+    --accent-border: rgba(99,102,241,0.18);
+
+    /* warm accent — keep amber (Post B identity) */
+    --warn: #d97706;
+    --warn-soft: rgba(217,119,6,0.08);
+    --warn-border: rgba(217,119,6,0.18);
+
+    /* status — unchanged */
+    --success: #059669;
+    --success-soft: rgba(5,150,105,0.08);
+    --fail: #dc2626;
+    --fail-soft: rgba(220,38,38,0.07);
+    --running: #2563eb;
+    --running-soft: rgba(37,99,235,0.08);
+
+    /* technique accents — keep full range */
+    --tech-rose: #e11d48;
+    --tech-amber: #d97706;
+    --tech-teal: #0f766e;
+    --tech-blue: #2563eb;
+    --tech-violet: #7c3aed;
+
+    /* neutral surface — for grouped rows and meta strips */
+    --neutral: rgba(248,250,252,0.96);
+    --neutral-soft: rgba(248,250,252,0.78);
+
+    /* ── FROM macOS: 3-tier shadow (was: single glass shadow) ── */
+    --shadow-inset: none;
+    --shadow-raised: 0 0.5px 1px rgba(0,0,0,0.04), 0 1px 4px rgba(0,0,0,0.04);
+    --shadow-glass: 0 1px 2px rgba(0,0,0,0.04), 0 8px 24px rgba(0,0,0,0.06);
+    --shadow-floating: 0 8px 30px rgba(0,0,0,0.12), 0 0 0 0.5px rgba(0,0,0,0.04);
+
+    /* ── FROM macOS: radii refinement ── */
+    --radius-card: 14px;       /* was 16→18, now consistent 14 */
+    --radius-group: 10px;      /* NEW: grouped section */
+    --radius-pill: 8px;        /* was 10, tighter */
+    --radius-bubble: 50%;      /* keep */
+    --radius-button: 6px;      /* FROM macOS */
+
+    /* blur — keep, it's already right */
+    --blur: blur(18px) saturate(120%);
+
+    /* ── FROM macOS: motion ── */
+    --ease: cubic-bezier(0.25, 0.1, 0.25, 1);
+    --duration: 180ms;
+  }
+
+  html {
+    /* FROM macOS: system font stack, but not forced SF-only */
+    font-family: -apple-system, BlinkMacSystemFont, "Inter", "SF Pro Text", system-ui, sans-serif;
+    font-size: 13px;
+    line-height: 1.45;
+    color: var(--ink);
+    background: var(--canvas);
+    -webkit-font-smoothing: antialiased;
+  }
+
+  .page {
+    max-width: 440px;
+    margin: 32px auto;
+    padding: 0 16px 60px;
+    display: flex;
+    flex-direction: column;
+    gap: 24px;
+  }
+
+  /* ── FROM macOS: segmented control (replaces underline tabs) ── */
+  .segmented-control {
+    display: flex;
+    background: rgba(0,0,0,0.04);
+    border-radius: var(--radius-pill);
+    padding: 2px;
+  }
+  .segmented-control button {
+    flex: 1;
+    border: none;
+    background: transparent;
+    font-family: inherit;
+    font-size: 12px;
+    font-weight: 500;
+    color: var(--soft);
+    padding: 5px 12px;
+    border-radius: calc(var(--radius-pill) - 2px);
+    cursor: pointer;
+    transition: all var(--duration) var(--ease);
+  }
+  .segmented-control button.active {
+    background: #fff;
+    color: var(--ink);
+    font-weight: 600;
+    box-shadow: 0 0.5px 1px rgba(0,0,0,0.06), 0 1px 3px rgba(0,0,0,0.06);
+  }
+
+  /* ── Section rail (sticky nav) — FROM macOS: pill weight, KEEP: analysis position ── */
+  .section-rail {
+    position: sticky;
+    top: 8px;
+    z-index: 3;
+    display: flex;
+    gap: 6px;
+    flex-wrap: wrap;
+    padding: 6px 10px;
+    border-radius: 999px;
+    border: 0.5px solid var(--line);
+    background: rgba(255,255,255,0.92);
+    box-shadow: var(--shadow-raised);
+    backdrop-filter: blur(8px);
+  }
+  .section-rail button {
+    border: 0.5px solid var(--line);
+    border-radius: 999px;
+    background: var(--neutral-soft);
+    padding: 4px 9px;
+    font-size: 11px;
+    font-weight: 600;
+    color: var(--sub);
+    cursor: pointer;
+    font-family: inherit;
+    transition: all var(--duration) var(--ease);
+  }
+  .section-rail button:hover {
+    background: #fff;
+    border-color: var(--accent-border);
+    color: var(--accent);
+  }
+
+  /* ── Section label — FROM macOS: lighter weight, no all-caps scream ── */
+  .section-label {
+    font-size: 11px;
+    font-weight: 700;
+    color: var(--soft);
+    text-transform: uppercase;
+    letter-spacing: 0.04em;  /* was 0.06em, tighter */
+  }
+  .section-label.accent { color: var(--accent); }
+  .section-label.warn { color: var(--warn); }
+  .section-label.md {
+    font-size: 13px;
+    letter-spacing: 0.03em;
+  }
+
+  /* ── Post Header — FROM macOS: restrained, KEEP: dual-color identity ── */
+  .post-header {
+    padding: 10px 12px;
+    border-radius: var(--radius-group);
+    min-width: 0;
+    display: grid;
+    gap: 4px;
+  }
+  .post-header.post-a {
+    background: var(--accent-soft);
+    border: 1px solid var(--accent-border);
+  }
+  .post-header.post-b {
+    background: var(--warn-soft);
+    border: 1px solid var(--warn-border);
+  }
+  .post-header .ph-label {
+    font-size: 10px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+  }
+  .post-header.post-a .ph-label { color: var(--accent); }
+  .post-header.post-b .ph-label { color: var(--warn); }
+  .post-header .ph-author {
+    font-size: 14px;
+    font-weight: 800;
+    color: var(--ink);
+  }
+  .post-header .ph-snippet {
+    font-size: 12px;
+    color: var(--sub);
+    line-height: 1.5;
+    display: -webkit-box;
+    -webkit-box-orient: vertical;
+    -webkit-line-clamp: 2;
+    overflow: hidden;
+  }
+  .post-header .ph-meta {
+    font-size: 11px;
+    color: var(--soft);
+    margin-top: 2px;
+  }
+
+  /* ── Brief Hero — FROM macOS: white card + tighter shadow, KEEP: reading-weight headline ── */
+  .brief-hero {
+    padding: 16px;
+    border-radius: var(--radius-card);
+    background: linear-gradient(180deg, rgba(255,255,255,0.99), rgba(255,255,255,0.94));
+    border: 0.5px solid var(--line);
+    box-shadow: var(--shadow-glass);
+    display: grid;
+    gap: 10px;
+  }
+  .brief-hero .bh-headline {
+    font-size: 16px;
+    font-weight: 800;
+    color: var(--ink);
+    letter-spacing: -0.01em;
+    line-height: 1.35;
+  }
+  .brief-hero .bh-body {
+    font-size: 13px;
+    color: var(--sub);
+    line-height: 1.6;
+  }
+
+  /* ── Author stance row — keep dual-color structure ── */
+  .stance-row {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 8px;
+  }
+  .stance-cell {
+    padding: 8px 10px;
+    border-radius: var(--radius-group);
+    font-size: 12px;
+    color: var(--sub);
+    line-height: 1.5;
+  }
+  .stance-cell.a { background: var(--accent-soft); }
+  .stance-cell.b { background: var(--warn-soft); }
+  .stance-cell .sc-label {
+    font-size: 10px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    margin-bottom: 3px;
+  }
+  .stance-cell.a .sc-label { color: var(--accent); }
+  .stance-cell.b .sc-label { color: var(--warn); }
+
+  /* ── Risk signals — FROM macOS: lighter pill ── */
+  .risk-pill {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    padding: 3px 8px;
+    border-radius: 999px;
+    font-size: 11px;
+    font-weight: 600;
+    border: 0.5px solid rgba(220,38,38,0.10);
+    background: var(--fail-soft);
+    color: var(--fail);
+  }
+
+  /* ═══════════════════════════════════════════════
+     CLUSTER BUBBLE MAP — KEEP: full visual force
+     Only borrowed from macOS: border weight + shadow tier
+     ═══════════════════════════════════════════════ */
+  .cluster-map {
+    position: relative;
+    min-height: 222px;
+    border-radius: var(--radius-card);
+    border: 0.5px solid var(--line);  /* was 1px */
+    background: linear-gradient(180deg, rgba(255,255,255,0.98), rgba(255,255,255,0.92));
+    box-shadow: var(--shadow-glass);  /* keep glass-level, not raised */
+    overflow: hidden;
+  }
+  .cluster-map .cm-header {
+    padding: 12px 14px 8px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+  }
+  .cluster-map .cm-field {
+    position: relative;
+    height: 176px;
+    margin: 0 10px 10px;
+    border-radius: var(--radius-group);
+    background: linear-gradient(180deg, rgba(255,255,255,0.88), rgba(248,250,252,0.72));
+  }
+
+  /* ── Bubble — KEEP: full glow + dynamic sizing ── */
+  .bubble {
+    position: absolute;
+    border-radius: 50%;
+    display: grid;
+    place-items: center;
+    cursor: pointer;
+    transition: all var(--duration) var(--ease), box-shadow var(--duration) var(--ease);
+    font-size: 11px;
+    font-weight: 800;
+  }
+  .bubble:hover { transform: scale(1.06); }
+
+  /* Primary tone — full depth */
+  .bubble.primary-a {
+    background: rgba(79,70,229,0.14);
+    border: 1.5px solid rgba(79,70,229,0.50);
+    color: #4f46e5;
+    box-shadow: 0 8px 20px rgba(79,70,229,0.10);
+  }
+  .bubble.primary-a.selected {
+    box-shadow: 0 0 0 3px var(--accent-soft), 0 8px 20px rgba(79,70,229,0.16);
+  }
+
+  .bubble.supportive-a {
+    background: rgba(99,102,241,0.09);
+    border: 1px solid rgba(99,102,241,0.34);
+    color: #6366f1;
+  }
+  .bubble.minor {
+    background: rgba(15,23,42,0.04);
+    border: 1px dashed var(--line);
+    color: var(--soft);
+  }
+
+  .bubble.primary-b {
+    background: rgba(217,119,6,0.13);
+    border: 1.5px solid rgba(217,119,6,0.48);
+    color: #d97706;
+    box-shadow: 0 8px 20px rgba(217,119,6,0.10);
+  }
+  .bubble.supportive-b {
+    background: rgba(245,158,11,0.09);
+    border: 1px solid rgba(245,158,11,0.34);
+    color: #b45309;
+  }
+
+  /* ── Cluster preview tooltip — KEEP analysis hover ── */
+  .cluster-preview {
+    position: absolute;
+    min-width: 144px;
+    max-width: 176px;
+    border-radius: var(--radius-group);
+    background: rgba(255,255,255,0.96);
+    border: 0.5px solid var(--line);
+    box-shadow: var(--shadow-floating);
+    padding: 8px 10px;
+    z-index: 2;
+    pointer-events: none;
+  }
+
+  /* ═══════════════════════════════════════════════
+     AUDIENCE DETAIL PANEL — KEEP: analysis reading structure
+     Borrowed from macOS: border weight, shadow, meta strip grouped-row
+     ═══════════════════════════════════════════════ */
+  .audience-panel {
+    padding: 14px 14px 12px;
+    border-radius: var(--radius-card);
+    border: 0.5px solid var(--line);
+    background: var(--elevated);
+    box-shadow: var(--shadow-glass);
+    display: grid;
+    gap: 12px;
+    transition: all var(--duration) var(--ease);
+  }
+  .audience-panel.highlighted-a {
+    border: 1.5px solid var(--accent-border);
+    box-shadow: 0 0 0 3px var(--accent-soft), var(--shadow-glass);
+  }
+  .audience-panel.highlighted-b {
+    border: 1.5px solid var(--warn-border);
+    box-shadow: 0 0 0 3px var(--warn-soft), var(--shadow-glass);
+  }
+
+  .audience-panel .ap-title {
+    font-size: 17px;
+    font-weight: 800;
+    color: var(--ink);
+    line-height: 1.3;
+    margin-top: 4px;
+  }
+  .audience-panel .ap-thesis {
+    font-size: 13px;
+    color: var(--sub);
+    line-height: 1.6;
+    margin-top: 4px;
+  }
+
+  /* ── Support metrics — FROM macOS: pill border weight ── */
+  .support-pill {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    padding: 4px 9px;
+    border-radius: 999px;
+    background: var(--neutral-soft);
+    border: 0.5px solid var(--line);
+    font-size: 11px;
+    color: var(--sub);
+  }
+  .support-pill .sp-icon { font-weight: 800; }
+  .support-pill .sp-value { font-weight: 700; color: var(--ink); }
+
+  /* ── Deeper reading button — FROM macOS: button radius ── */
+  .btn-deeper {
+    border-radius: var(--radius-button);
+    border: 0.5px solid var(--line);
+    background: var(--neutral-soft);
+    padding: 6px 10px;
+    font-size: 11px;
+    font-weight: 700;
+    color: var(--accent);
+    cursor: pointer;
+    font-family: inherit;
+    transition: all var(--duration) var(--ease);
+  }
+  .btn-deeper:hover {
+    background: var(--accent-soft);
+    border-color: var(--accent-border);
+  }
+
+  /* ── Evidence card — KEEP: analysis-first card structure ── */
+  .evidence-card {
+    border-radius: var(--radius-group);
+    background: var(--neutral);
+    border: 0.5px solid var(--line);
+    padding: 10px 12px;
+    display: grid;
+    gap: 6px;
+    cursor: pointer;
+    transition: background var(--duration) var(--ease);
+    text-align: left;
+  }
+  .evidence-card:hover {
+    background: rgba(248,250,252,1);
+  }
+  .evidence-card .ec-author {
+    font-size: 11px;
+    font-weight: 700;
+    color: var(--sub);
+  }
+  .evidence-card .ec-text {
+    font-size: 12px;
+    color: var(--ink);
+    line-height: 1.55;
+  }
+  .evidence-card .ec-toggle {
+    font-size: 10px;
+    font-weight: 700;
+    color: var(--accent);
+  }
+
+  /* ── Metric row (compact) ── */
+  .ev-metrics {
+    display: inline-flex;
+    gap: 6px;
+    font-size: 10px;
+    font-weight: 700;
+    color: var(--soft);
+  }
+  .ev-metrics .em-item {
+    display: inline-flex;
+    align-items: center;
+    gap: 3px;
+  }
+  .ev-metrics .em-icon {
+    width: 16px;
+    height: 16px;
+    border-radius: 999px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 9px;
+  }
+
+  /* ── Meta strip (grouped rows) — FROM macOS: grouped-row border treatment ── */
+  .meta-strip {
+    border-radius: var(--radius-group);
+    border: 0.5px solid var(--line);
+    background: var(--neutral);
+    overflow: hidden;
+  }
+  .meta-strip .ms-row {
+    display: flex;
+    align-items: flex-start;
+    gap: 8px;
+    padding: 7px 12px;
+    flex-wrap: wrap;
+  }
+  .meta-strip .ms-row:not(:last-child) {
+    border-bottom: 0.5px solid var(--separator);
+  }
+  .meta-strip .ms-badge {
+    flex-shrink: 0;
+    display: inline-flex;
+    padding: 2px 7px;
+    border-radius: 999px;
+    font-size: 10px;
+    font-weight: 800;
+  }
+  .meta-strip .ms-badge.align { background: var(--success-soft); color: var(--success); }
+  .meta-strip .ms-badge.oppose { background: var(--fail-soft); color: var(--fail); }
+  .meta-strip .ms-badge.mixed { background: var(--warn-soft); color: var(--warn); }
+  .meta-strip .ms-text {
+    font-size: 11px;
+    color: var(--sub);
+    line-height: 1.5;
+  }
+  .meta-strip .ms-label {
+    font-size: 10px;
+    font-weight: 800;
+    color: var(--soft);
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    flex-shrink: 0;
+  }
+
+  /* ── Engagement Table — FROM macOS: grouped-section container ── */
+  .engagement-table {
+    background: #fff;
+    border-radius: var(--radius-group);
+    box-shadow: var(--shadow-raised);
+    overflow: hidden;
+  }
+  .engagement-table .et-row {
+    display: grid;
+    grid-template-columns: 80px 1fr 1fr;
+    gap: 4px;
+    padding: 6px 12px;
+  }
+  .engagement-table .et-row:not(:last-child) {
+    border-bottom: 0.5px solid var(--separator);
+  }
+  .engagement-table .et-header {
+    font-size: 11px;
+    font-weight: 700;
+    color: var(--soft);
+    text-align: right;
+  }
+  .engagement-table .et-label {
+    font-size: 11px;
+    font-weight: 700;
+    color: var(--sub);
+    text-transform: capitalize;
+  }
+  .engagement-table .et-value {
+    font-size: 12px;
+    font-weight: 800;
+    text-align: right;
+    color: var(--ink);
+  }
+  .engagement-table .et-value.winner { color: var(--success); }
+  .engagement-table .et-value.loser { color: var(--fail); }
+  .engagement-table .et-value.na { color: var(--soft); font-weight: 600; }
+
+  /* ── Comment card — FROM macOS: grouped-row bg, KEEP: reading density ── */
+  .comment-card {
+    padding: 7px 10px;
+    border-radius: var(--radius-group);
+    font-size: 11px;
+    line-height: 1.45;
+  }
+  .comment-card.side-a { background: var(--accent-soft); }
+  .comment-card.side-b { background: var(--warn-soft); }
+  .comment-card .cc-header {
+    display: flex;
+    justify-content: space-between;
+    gap: 6px;
+    margin-bottom: 2px;
+  }
+  .comment-card .cc-author { font-weight: 700; color: var(--ink); }
+  .comment-card .cc-likes { color: var(--soft); }
+  .comment-card .cc-text {
+    color: var(--sub);
+    display: -webkit-box;
+    -webkit-box-orient: vertical;
+    -webkit-line-clamp: 2;
+    overflow: hidden;
+  }
+
+  /* ═══════════════════════════════════════════════
+     TECHNIQUE VIEW — KEEP: casebook/notebook feel
+     Borrowed from macOS: button styling, border weight, meta strip
+     ═══════════════════════════════════════════════ */
+  .technique-panel {
+    padding: 14px 14px 12px;
+    border-radius: var(--radius-card);
+    background: var(--elevated);
+    border: 0.5px solid var(--line);
+    box-shadow: var(--shadow-glass);
+    display: grid;
+    gap: 12px;
+  }
+  .technique-panel .tp-title {
+    font-size: 18px;
+    font-weight: 800;
+    color: var(--ink);
+    line-height: 1.3;
+  }
+  .technique-panel .tp-thesis {
+    font-size: 13px;
+    color: var(--sub);
+    line-height: 1.6;
+  }
+
+  /* ── Technique carousel — KEEP: casebook cards with left accent ── */
+  .technique-scroll {
+    display: flex;
+    gap: 10px;
+    overflow-x: auto;
+    scroll-snap-type: x mandatory;
+    scrollbar-width: thin;
+    padding: 2px 0 4px;
+  }
+  .technique-scroll::-webkit-scrollbar { height: 4px; }
+  .technique-scroll::-webkit-scrollbar-thumb { background: rgba(0,0,0,0.12); border-radius: 2px; }
+
+  .technique-card {
+    min-width: 248px;
+    flex: 0 0 auto;
+    scroll-snap-align: start;
+    padding: 12px 14px;
+    border-radius: var(--radius-group);
+    background: var(--neutral);
+    border: 0.5px solid var(--line);
+    border-left: 3px solid;
+    display: grid;
+    gap: 6px;
+    transition: box-shadow var(--duration) var(--ease);
+  }
+  .technique-card:hover { box-shadow: var(--shadow-raised); }
+
+  .technique-card.tc-rose { border-left-color: var(--tech-rose); }
+  .technique-card.tc-amber { border-left-color: var(--tech-amber); }
+  .technique-card.tc-teal { border-left-color: var(--tech-teal); }
+  .technique-card.tc-blue { border-left-color: var(--tech-blue); }
+  .technique-card.tc-violet { border-left-color: var(--tech-violet); }
+
+  .technique-card .tc-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 8px;
+  }
+  .technique-card .tc-name {
+    font-size: 13px;
+    font-weight: 800;
+    color: var(--ink);
+  }
+  .technique-card .tc-alias {
+    font-size: 9px;
+    font-weight: 700;
+    color: var(--soft);
+  }
+  .technique-card .tc-hint {
+    font-size: 10px;
+    color: var(--soft);
+  }
+  .technique-card .tc-desc {
+    font-size: 12px;
+    color: var(--sub);
+    line-height: 1.55;
+    display: -webkit-box;
+    -webkit-box-orient: vertical;
+    -webkit-line-clamp: 2;
+    overflow: hidden;
+  }
+  .technique-card .tc-why-label {
+    font-size: 10px;
+    font-weight: 800;
+    color: var(--soft);
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+  }
+  .technique-card .tc-why {
+    font-size: 11px;
+    color: var(--soft);
+    line-height: 1.5;
+  }
+
+  /* ── Carousel dots ── */
+  .carousel-footer {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+  }
+  .carousel-dots {
+    display: flex;
+    gap: 5px;
+  }
+  .carousel-dots span {
+    width: 6px;
+    height: 6px;
+    border-radius: 999px;
+    opacity: 0.45;
+  }
+
+  /* ── Back / Save buttons — FROM macOS: button radius, border weight ── */
+  .btn-back {
+    border-radius: var(--radius-button);
+    border: 0.5px solid var(--line);
+    background: var(--neutral-soft);
+    padding: 5px 10px;
+    font-size: 11px;
+    font-weight: 700;
+    color: var(--sub);
+    cursor: pointer;
+    font-family: inherit;
+  }
+  .btn-save {
+    border-radius: var(--radius-button);
+    border: 0.5px solid var(--line);
+    background: var(--neutral-soft);
+    padding: 5px 12px;
+    font-size: 11px;
+    font-weight: 800;
+    color: var(--ink);
+    cursor: pointer;
+    font-family: inherit;
+    transition: all var(--duration) var(--ease);
+  }
+  .btn-save.saved {
+    border-color: var(--success);
+    background: var(--success-soft);
+    color: var(--success);
+  }
+
+  /* ── Analysis summary strip ── */
+  .analysis-strip {
+    font-size: 11px;
+    color: var(--sub);
+    line-height: 1.5;
+    padding: 0 2px;
+  }
+  .analysis-strip strong { font-weight: 800; }
+
+  /* ── Helpers ── */
+  .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+  .flex-wrap { display: flex; flex-wrap: wrap; gap: 8px; }
+  .demo-title {
+    font-size: 15px;
+    font-weight: 700;
+    letter-spacing: -0.01em;
+    color: var(--ink);
+    margin-bottom: 8px;
+    padding-top: 4px;
+    border-top: 0.5px solid var(--separator);
+  }
+  .demo-badge {
+    display: inline-block;
+    padding: 3px 10px;
+    border-radius: 999px;
+    background: linear-gradient(135deg, var(--accent), var(--accent-mid));
+    color: #fff;
+    font-size: 10px;
+    font-weight: 700;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    margin-bottom: 4px;
+  }
+</style>
+</head>
+<body>
+
+<div class="page">
+
+  <!-- ═══════ Title ═══════ -->
+  <div>
+    <span class="demo-badge">Selective Merge</span>
+    <div style="font-size:22px;font-weight:700;letter-spacing:-0.02em;margin-top:4px">DLens Compare + Technique</div>
+    <div style="font-size:13px;color:var(--sub);margin-top:2px">macOS surface rhythm + analysis tool depth</div>
+  </div>
+
+  <!-- ═══════ 1. Segmented Control ═══════ -->
+  <div class="demo-title">Navigation (FROM macOS)</div>
+  <div class="segmented-control">
+    <button>Collect</button>
+    <button class="active">Compare</button>
+    <button>Library</button>
+    <button>Settings</button>
+  </div>
+
+  <!-- ═══════ 2. Section Rail ═══════ -->
+  <div class="section-rail" style="position:relative;top:0">
+    <button>Clusters</button>
+    <button>Engagement</button>
+    <button>Comments</button>
+  </div>
+
+  <!-- ═══════ 3. Post Headers ═══════ -->
+  <div class="demo-title">Post Headers (FROM macOS: restrained weight)</div>
+  <div class="grid-2">
+    <div class="post-header post-a">
+      <div class="ph-label">Post A</div>
+      <div class="ph-author">@zuck</div>
+      <div class="ph-snippet">Threads 新 AI 推薦功能讓你的動態更加個性化，我們正在持續改進</div>
+      <div class="ph-meta">18h old · 42 comments captured</div>
+    </div>
+    <div class="post-header post-b">
+      <div class="ph-label">Post B</div>
+      <div class="ph-author">@elonmusk</div>
+      <div class="ph-snippet">X 平台推出全新社群功能，增強用戶互動體驗與內容分發</div>
+      <div class="ph-meta">3h old · 28 comments captured</div>
+    </div>
+  </div>
+
+  <!-- ═══════ 4. Brief Hero ═══════ -->
+  <div class="demo-title">Compare Brief (FROM macOS: shadow + whitespace / KEEP: reading weight)</div>
+  <div class="brief-hero">
+    <div class="bh-headline">Post A 在社群信任度上具有結構性優勢</div>
+    <div class="bh-body">
+      Post A 採用「產品透明化」的修辭策略，透過直接展示功能變更來建立信任。Post B 則依賴「願景敘事」框架，強調未來承諾而非具體成果。受眾反應數據顯示前者在留言深度與轉發意願上均佔優。
+    </div>
+    <div class="stance-row">
+      <div class="stance-cell a">
+        <div class="sc-label">Post A stance</div>
+        Post A 主要圍繞「功能透明化」展開，作者原文聚焦於：我們從第一天就決定開放…
+      </div>
+      <div class="stance-cell b">
+        <div class="sc-label">Post B stance</div>
+        Post B 主要圍繞「願景敘事」展開，作者原文聚焦於：X 的未來會讓每個人驚喜…
+      </div>
+    </div>
+    <div class="flex-wrap" style="gap:6px">
+      <span class="risk-pill">⚠ 年齡差異 &gt;12h — 速率比較需注意</span>
+      <span class="risk-pill">⚠ Post B 留言量偏低</span>
+    </div>
+  </div>
+
+  <!-- ═══════ 5. Cluster Bubble Maps (KEEP: full visual force) ═══════ -->
+  <div class="demo-title">Cluster Maps (KEEP visual depth, borrow border weight)</div>
+  <div class="grid-2">
+    <div class="cluster-map">
+      <div class="cm-header">
+        <span class="section-label accent">Post A</span>
+        <span style="font-size:11px;color:var(--soft)">3 clusters</span>
+      </div>
+      <div class="cm-field">
+        <div class="bubble primary-a selected" style="width:54px;height:54px;top:40px;left:22px">38%</div>
+        <div class="bubble supportive-a" style="width:38px;height:38px;top:65px;left:110px">22%</div>
+        <div class="bubble minor" style="width:26px;height:26px;top:32px;left:125px">8%</div>
+        <div class="cluster-preview" style="left:70px;top:14px">
+          <div style="font-size:11px;font-weight:800;color:var(--ink)">功能透明化擁護者</div>
+          <div style="margin-top:3px;font-size:10px;color:var(--sub)">38% replies · 18 comments</div>
+        </div>
+      </div>
+    </div>
+    <div class="cluster-map">
+      <div class="cm-header">
+        <span class="section-label warn">Post B</span>
+        <span style="font-size:11px;color:var(--soft)">2 clusters</span>
+      </div>
+      <div class="cm-field">
+        <div class="bubble primary-b" style="width:50px;height:50px;top:45px;left:20px">35%</div>
+        <div class="bubble supportive-b" style="width:42px;height:42px;top:40px;left:100px">28%</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Analysis summary strips -->
+  <div style="display:grid;gap:4px">
+    <div class="analysis-strip"><strong style="color:var(--accent)">Post A</strong> Showing 3 most significant clusters · Moderate dominance(38%) · 42 comments captured · 6 evidence surfaced</div>
+    <div class="analysis-strip"><strong style="color:var(--warn)">Post B</strong> Showing 2 most significant clusters · Moderate dominance(35%) · 28 comments captured · 4 evidence surfaced</div>
+  </div>
+
+  <!-- ═══════ 6. Audience Detail Panel (KEEP: analysis structure) ═══════ -->
+  <div class="demo-title">Selected Cluster Detail (KEEP evidence-first / borrow border weight)</div>
+  <div class="audience-panel highlighted-a">
+    <div>
+      <span class="section-label accent">Selected Cluster · Post A</span>
+      <div class="ap-title">功能透明化擁護者</div>
+      <div class="ap-thesis">以「開放給所有人」為核心主張，認為 Threads 的功能更新策略正在建立社群信任，與過度商業化路線形成對比。</div>
+    </div>
+
+    <button class="btn-deeper">Deeper reading →</button>
+
+    <div class="flex-wrap" style="gap:6px">
+      <span class="support-pill"><span class="sp-icon" style="color:var(--soft)">◫</span> <span class="sp-value">18/42</span> Captured</span>
+      <span class="support-pill"><span class="sp-icon" style="color:var(--accent)">↺</span> <span class="sp-value">38%</span> Replies</span>
+      <span class="support-pill"><span class="sp-icon" style="color:var(--fail)">♥</span> <span class="sp-value">52%</span> Likes</span>
+    </div>
+
+    <!-- Evidence cards -->
+    <div>
+      <span class="section-label">Audience evidence</span>
+      <div style="margin-top:8px;display:grid;gap:6px">
+        <div class="evidence-card">
+          <div style="display:flex;justify-content:space-between;gap:8px;align-items:center">
+            <span class="ec-author">@sarah_tech</span>
+            <span style="display:inline-flex;gap:8px">
+              <span style="font-size:10px;color:var(--soft)">c_0x3a1b</span>
+              <span class="ec-toggle">Show evidence</span>
+            </span>
+          </div>
+          <div class="ec-text">"我們從第一天就決定開放這個功能給所有人" — 這句話直接建立了品牌的「去商業化」信任形象</div>
+          <div class="ev-metrics">
+            <span class="em-item"><span class="em-icon" style="background:var(--fail-soft);color:var(--fail)">♥</span> <span style="color:var(--ink)">342</span></span>
+            <span class="em-item"><span class="em-icon" style="background:var(--accent-soft);color:var(--accent)">💬</span> <span style="color:var(--ink)">12</span></span>
+            <span class="em-item"><span class="em-icon" style="background:var(--neutral);color:var(--sub)">↺</span> <span style="color:var(--ink)">28</span></span>
+          </div>
+        </div>
+
+        <div class="evidence-card">
+          <div style="display:flex;justify-content:space-between;gap:8px;align-items:center">
+            <span class="ec-author">@dev_lin</span>
+            <span class="ec-toggle">Show evidence</span>
+          </div>
+          <div class="ec-text">"上個月活躍用戶已經突破 2 億" — 具體數字強化成長敘事，但缺乏第三方驗證</div>
+          <div class="ev-metrics">
+            <span class="em-item"><span class="em-icon" style="background:var(--fail-soft);color:var(--fail)">♥</span> <span style="color:var(--ink)">89</span></span>
+            <span class="em-item"><span class="em-icon" style="background:var(--accent-soft);color:var(--accent)">💬</span> <span style="color:var(--ink)">3</span></span>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Meta strip (FROM macOS: grouped-row treatment) -->
+    <div class="meta-strip">
+      <div class="ms-row">
+        <span class="ms-badge align">Align</span>
+        <span class="ms-text">Post A 主要圍繞「功能透明化」展開，作者原文聚焦於：我們從第一天就決定開放這個功能…</span>
+      </div>
+      <div class="ms-row">
+        <span class="ms-label">Post B</span>
+        <span style="font-size:11px;font-weight:700;color:var(--ink)">願景敘事追隨者</span>
+        <span style="font-size:10px;color:var(--soft)">· 28% of replies · 35% of likes</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- ═══════ 7. Engagement Table (FROM macOS: grouped section) ═══════ -->
+  <div class="demo-title">Engagement Metrics (FROM macOS: grouped-section)</div>
+  <div class="engagement-table">
+    <div class="et-row" style="padding-top:8px">
+      <span class="et-header" style="text-align:left"></span>
+      <span class="et-header" style="color:var(--accent)">Post A</span>
+      <span class="et-header" style="color:var(--warn)">Post B</span>
+    </div>
+    <div class="et-row">
+      <span class="et-label">Likes</span>
+      <span class="et-value winner">2,400</span>
+      <span class="et-value loser">1,820</span>
+    </div>
+    <div class="et-row">
+      <span class="et-label">Comments</span>
+      <span class="et-value winner">189</span>
+      <span class="et-value">95</span>
+    </div>
+    <div class="et-row">
+      <span class="et-label">Reposts</span>
+      <span class="et-value">320</span>
+      <span class="et-value winner">410</span>
+    </div>
+    <div class="et-row" style="border:none">
+      <span class="et-label">Velocity</span>
+      <span class="et-value">133/h</span>
+      <span class="et-value winner">607/h</span>
+    </div>
+  </div>
+
+  <!-- ═══════ 8. Comments Section ═══════ -->
+  <div class="demo-title">Top Comments (KEEP reading density)</div>
+  <div style="display:grid;gap:12px">
+    <div style="display:grid;gap:6px">
+      <div style="display:flex;justify-content:space-between;align-items:center">
+        <span class="section-label accent">Post A comments (42)</span>
+        <button style="background:none;border:none;font-size:11px;font-weight:700;color:var(--accent);cursor:pointer">+40 more</button>
+      </div>
+      <div class="comment-card side-a">
+        <div class="cc-header">
+          <span class="cc-author">@sarah_tech</span>
+          <span class="cc-likes">342 ♥</span>
+        </div>
+        <div class="cc-text">終於有人願意直接開放功能而不是先收費再說了，這才是正確的策略</div>
+      </div>
+      <div class="comment-card side-a">
+        <div class="cc-header">
+          <span class="cc-author">@marc_tw</span>
+          <span class="cc-likes">128 ♥</span>
+        </div>
+        <div class="cc-text">Threads 的 AI 推薦比 X 的好很多，至少不會一直推政治文</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ═══════════════════════════════════════
+       TECHNIQUE VIEW — KEEP casebook feel
+       ═══════════════════════════════════════ -->
+  <div style="margin-top:16px">
+    <span class="demo-badge" style="background:linear-gradient(135deg, var(--tech-rose), var(--tech-violet))">Technique View</span>
+    <div style="font-size:18px;font-weight:700;letter-spacing:-0.02em;margin-top:4px">Deeper Reading (casebook preserved)</div>
+  </div>
+
+  <!-- Back + label -->
+  <div style="display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap">
+    <button class="btn-back">← Back to Compare</button>
+    <span style="font-size:10px;font-weight:800;color:var(--accent);letter-spacing:0.04em;text-transform:uppercase">Post A deeper reading</span>
+  </div>
+
+  <!-- ═══════ 9. Technique Panel + Carousel ═══════ -->
+  <div class="technique-panel">
+    <div style="display:flex;justify-content:space-between;gap:12px;align-items:flex-start;flex-wrap:wrap">
+      <div style="display:grid;gap:5px;flex:1;min-width:0">
+        <span class="section-label">Technique / Evidence</span>
+        <div class="tp-title">功能透明化擁護者</div>
+        <div class="tp-thesis">以「開放給所有人」為核心主張，認為 Threads 的功能更新策略正在建立社群信任。</div>
+      </div>
+      <button class="btn-save saved">Saved</button>
+    </div>
+
+    <div class="technique-scroll">
+      <div class="technique-card tc-rose">
+        <div class="tc-header">
+          <span style="display:inline-flex;align-items:center;gap:8px">
+            <span class="tc-name">情感訴求</span>
+            <span class="tc-alias">Pathos</span>
+          </span>
+          <span class="tc-hint">可能的閱讀角度</span>
+        </div>
+        <div class="tc-desc">透過個人故事和情感連結來引發受眾共鳴，建立品牌親和力</div>
+        <div>
+          <div class="tc-why-label">為什麼值得注意</div>
+          <div class="tc-why">高情感密度的留言往往帶動轉發，形成二次擴散</div>
+        </div>
+      </div>
+      <div class="technique-card tc-blue">
+        <div class="tc-header">
+          <span style="display:inline-flex;align-items:center;gap:8px">
+            <span class="tc-name">權威背書</span>
+            <span class="tc-alias">Ethos</span>
+          </span>
+          <span class="tc-hint">可能的閱讀角度</span>
+        </div>
+        <div class="tc-desc">引用專家觀點、數據報告來強化論述的可信度</div>
+        <div>
+          <div class="tc-why-label">為什麼值得注意</div>
+          <div class="tc-why">當留言援引第三方數據時，原始貼文可信度會被提升</div>
+        </div>
+      </div>
+      <div class="technique-card tc-teal">
+        <div class="tc-header">
+          <span style="display:inline-flex;align-items:center;gap:8px">
+            <span class="tc-name">社會認同</span>
+            <span class="tc-alias">Social Proof</span>
+          </span>
+          <span class="tc-hint">可能的閱讀角度</span>
+        </div>
+        <div class="tc-desc">展示用戶數量、正面評價來降低新受眾的採用門檻</div>
+      </div>
+      <div class="technique-card tc-violet">
+        <div class="tc-header">
+          <span style="display:inline-flex;align-items:center;gap:8px">
+            <span class="tc-name">稀缺框架</span>
+            <span class="tc-alias">Scarcity</span>
+          </span>
+          <span class="tc-hint">可能的閱讀角度</span>
+        </div>
+        <div class="tc-desc">營造限時或限量的緊迫感，推動立即行動</div>
+      </div>
+    </div>
+
+    <div class="carousel-footer">
+      <span style="font-size:10px;color:var(--soft)">向右滑動查看更多 technique cards</span>
+      <div class="carousel-dots">
+        <span style="background:var(--tech-rose)"></span>
+        <span style="background:var(--tech-blue)"></span>
+        <span style="background:var(--tech-teal)"></span>
+        <span style="background:var(--tech-violet)"></span>
+      </div>
+    </div>
+  </div>
+
+  <!-- ═══════ 10. Evidence Section (Technique View) ═══════ -->
+  <div class="technique-panel">
+    <div style="display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap">
+      <span class="section-label">Evidence</span>
+      <button class="btn-back">← back to cluster</button>
+    </div>
+    <div style="display:grid;gap:6px">
+      <div class="evidence-card" style="cursor:default">
+        <div style="display:flex;justify-content:space-between;gap:8px;align-items:center">
+          <span class="ec-author">@sarah_tech</span>
+          <span style="font-size:10px;color:var(--soft)">c_0x3a1b</span>
+        </div>
+        <div class="ec-text" style="font-size:12px;line-height:1.6">"我們從第一天就決定開放這個功能給所有人，不做付費牆" — 這句話直接建立了品牌的「去商業化」信任形象。留言區反應普遍正面，多人引用此句作為支持 Threads 的主要理由。</div>
+        <div class="ev-metrics">
+          <span class="em-item"><span class="em-icon" style="background:var(--fail-soft);color:var(--fail)">♥</span> <span style="color:var(--ink)">342</span></span>
+          <span class="em-item"><span class="em-icon" style="background:var(--accent-soft);color:var(--accent)">💬</span> <span style="color:var(--ink)">12</span></span>
+          <span class="em-item"><span class="em-icon" style="background:var(--neutral);color:var(--sub)">↺</span> <span style="color:var(--ink)">28</span></span>
+          <span class="em-item"><span class="em-icon" style="background:var(--warn-soft);color:var(--warn)">→</span> <span style="color:var(--ink)">5</span></span>
+        </div>
+      </div>
+      <div class="evidence-card" style="cursor:default">
+        <div style="display:flex;justify-content:space-between;gap:8px;align-items:center">
+          <span class="ec-author">@dev_lin</span>
+          <span style="font-size:10px;color:var(--soft)">c_0x4b2c</span>
+        </div>
+        <div class="ec-text" style="font-size:12px;line-height:1.6">"上個月活躍用戶已經突破 2 億" — 具體數字強化了平台成長的敘事，但缺乏第三方驗證來源</div>
+        <div class="ev-metrics">
+          <span class="em-item"><span class="em-icon" style="background:var(--fail-soft);color:var(--fail)">♥</span> <span style="color:var(--ink)">89</span></span>
+          <span class="em-item"><span class="em-icon" style="background:var(--accent-soft);color:var(--accent)">💬</span> <span style="color:var(--ink)">3</span></span>
+        </div>
+      </div>
+      <div style="font-size:12px;color:var(--soft);padding:4px 0">Low-signal cluster. Not enough audience evidence yet.</div>
+    </div>
+  </div>
+
+  <!-- ═══════ Design delta annotation ═══════ -->
+  <div style="margin-top:16px;padding:16px;border-radius:var(--radius-card);background:#fff;box-shadow:var(--shadow-raised)">
+    <div style="font-size:14px;font-weight:700;color:var(--ink);margin-bottom:8px">Design Delta — what changed</div>
+    <div style="font-size:12px;color:var(--sub);line-height:1.65;display:grid;gap:6px">
+      <div><strong style="color:var(--accent)">FROM macOS:</strong> Segmented control, 3-tier shadows, 0.5px borders, grouped-row meta strip, button radius (6px), cool grey canvas (#f5f5f7), tighter letter-spacing</div>
+      <div><strong style="color:var(--tech-rose)">KEPT:</strong> Bubble map full visual force (glow, tone steps, hover scale), evidence-first panel structure, technique carousel casebook feel (left accent bar, scroll-snap), reading-weight headlines (18px/800), dual-color Post A/B identity system</div>
+      <div><strong style="color:var(--warn)">NOT changed:</strong> Bubble hierarchy & sizing, evidence card expand/collapse structure, technique card internal layout, cluster preview tooltip, alignment badges, section label uppercase for analysis context</div>
+    </div>
+  </div>
+
+  <div style="text-align:center;padding:20px 0;color:var(--soft);font-size:11px">
+    DLens Selective Merge Mockup — April 2026
+  </div>
+
+</div>
+
+</body>
+</html>

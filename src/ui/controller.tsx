@@ -4,16 +4,22 @@ import type { ExtensionSnapshot, SessionItem, SessionRecord } from "../state/typ
 import { needsCaptureRefresh } from "../state/store-helpers";
 
 export async function sendExtensionMessage<T extends ExtensionResponse>(message: ExtensionMessage): Promise<T> {
-  try {
-    return await (chrome.runtime.sendMessage(message) as Promise<T>);
-  } catch (error) {
-    // Service worker may have died; retry once to wake it
-    if (String(error).includes("Could not establish connection")) {
-      await new Promise((resolve) => setTimeout(resolve, 200));
-      return chrome.runtime.sendMessage(message) as Promise<T>;
+  const wakeRetryDelays = [0, 200, 600];
+
+  for (const [attempt, delayMs] of wakeRetryDelays.entries()) {
+    try {
+      if (delayMs > 0) {
+        await new Promise((resolve) => setTimeout(resolve, delayMs));
+      }
+      return await (chrome.runtime.sendMessage(message) as Promise<T>);
+    } catch (error) {
+      const isWorkerWakeError = String(error).includes("Could not establish connection");
+      if (!isWorkerWakeError || attempt === wakeRetryDelays.length - 1) {
+        throw error;
+      }
     }
-    throw error;
   }
+  throw new Error("unreachable sendExtensionMessage state");
 }
 
 export function getActiveSession(snapshot: ExtensionSnapshot | null): SessionRecord | null {

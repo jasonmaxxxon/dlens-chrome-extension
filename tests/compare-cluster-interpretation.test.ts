@@ -31,7 +31,7 @@ function buildRequest(): CompareClusterSummaryRequest {
   };
 }
 
-test("buildDeterministicClusterInterpretation turns keywords and shares into fallback copy", () => {
+test("buildDeterministicClusterInterpretation produces observation, reading, and oneLiner", () => {
   const interpretation = buildDeterministicClusterInterpretation({
     cluster_key: 3,
     size_share: 0.6,
@@ -40,14 +40,33 @@ test("buildDeterministicClusterInterpretation turns keywords and shares into fal
   });
 
   assert.equal(interpretation.label, "support / policy / budget");
+  assert.ok(interpretation.observation.length > 0);
+  assert.ok(interpretation.reading.length > 0);
+  // oneLiner is observation + reading combined
+  assert.ok(interpretation.oneLiner.includes(interpretation.observation));
   assert.match(interpretation.oneLiner, /60%/);
   assert.match(interpretation.oneLiner, /70%/);
   assert.match(interpretation.oneLiner, /support \/ policy \/ budget/);
 });
 
-test("buildCompareClusterSummaryPrompt includes cluster metrics and allowed evidence ids", () => {
+test("buildDeterministicClusterInterpretation avoids weak generic labels", () => {
+  const interpretation = buildDeterministicClusterInterpretation({
+    cluster_key: 4,
+    size_share: 0.17,
+    like_share: 0.1,
+    keywords: ["general"]
+  });
+
+  assert.doesNotMatch(interpretation.label, /^general$/i);
+  assert.doesNotMatch(interpretation.oneLiner, /圍繞「general」/i);
+});
+
+test("buildCompareClusterSummaryPrompt includes observation and reading in output spec", () => {
   const prompt = buildCompareClusterSummaryPrompt(buildRequest());
 
+  assert.match(prompt, /observation/);
+  assert.match(prompt, /reading/);
+  assert.match(prompt, /one_liner/);
   assert.match(prompt, /cluster_key/);
   assert.match(prompt, /a-1/);
   assert.match(prompt, /a-2/);
@@ -55,7 +74,7 @@ test("buildCompareClusterSummaryPrompt includes cluster metrics and allowed evid
   assert.match(prompt, /Alpha post text/);
 });
 
-test("parseCompareClusterSummaryResponse keeps only validated cluster summaries", () => {
+test("parseCompareClusterSummaryResponse keeps only validated cluster summaries with observation and reading", () => {
   const parsed = parseCompareClusterSummaryResponse(
     JSON.stringify({
       clusters: [
@@ -63,7 +82,9 @@ test("parseCompareClusterSummaryResponse keeps only validated cluster summaries"
           capture_id: "cap-a",
           cluster_id: 3,
           label: "支持政策預算",
-          one_liner: "這群回應主要支持政策與預算方向，互動也相對集中。",
+          observation: "這群留言以集中回聲型方式回應原文，聚焦在「支持政策預算」；佔 60% 留言、70% 按讚。",
+          reading: "它更像情緒支持的集中入口，而不是問題拆解。",
+          one_liner: "這群留言以集中回聲型方式回應原文，支持政策聲音高度一致。",
           label_style: "descriptive",
           evidence_ids: ["a-1", "a-2"]
         },
@@ -71,6 +92,8 @@ test("parseCompareClusterSummaryResponse keeps only validated cluster summaries"
           capture_id: "cap-a",
           cluster_id: 4,
           label: "無效輸出",
+          observation: "不存在的 cluster。",
+          reading: "無意義。",
           one_liner: "這筆 cluster 不存在。",
           label_style: "descriptive",
           evidence_ids: ["a-x", "a-y"]
@@ -81,11 +104,56 @@ test("parseCompareClusterSummaryResponse keeps only validated cluster summaries"
   );
 
   assert.equal(parsed.length, 1);
-  assert.deepEqual(parsed[0], {
-    captureId: "cap-a",
-    clusterKey: 3,
-    label: "支持政策預算",
-    oneLiner: "這群回應主要支持政策與預算方向，互動也相對集中。",
-    evidenceIds: ["a-1", "a-2"]
-  });
+  assert.equal(parsed[0]?.captureId, "cap-a");
+  assert.equal(parsed[0]?.clusterKey, 3);
+  assert.equal(parsed[0]?.label, "支持政策預算");
+  assert.ok(parsed[0]?.observation.length > 0);
+  assert.ok(parsed[0]?.reading.length > 0);
+  assert.equal(parsed[0]?.oneLiner, "這群留言以集中回聲型方式回應原文，支持政策聲音高度一致。");
+  assert.deepEqual(parsed[0]?.evidenceIds, ["a-1", "a-2"]);
+});
+
+test("parseCompareClusterSummaryResponse synthesizes oneLiner from observation+reading when one_liner missing", () => {
+  const parsed = parseCompareClusterSummaryResponse(
+    JSON.stringify({
+      clusters: [
+        {
+          capture_id: "cap-a",
+          cluster_id: 3,
+          label: "支持政策預算",
+          observation: "這群留言以集中回聲型方式回應原文。",
+          reading: "它是情緒支持的入口。",
+          one_liner: "",
+          label_style: "descriptive",
+          evidence_ids: ["a-1", "a-2"]
+        }
+      ]
+    }),
+    buildRequest()
+  );
+
+  assert.equal(parsed.length, 1);
+  assert.equal(parsed[0]?.oneLiner, "這群留言以集中回聲型方式回應原文。它是情緒支持的入口。");
+});
+
+test("parseCompareClusterSummaryResponse rejects weak generic AI labels", () => {
+  const parsed = parseCompareClusterSummaryResponse(
+    JSON.stringify({
+      clusters: [
+        {
+          capture_id: "cap-a",
+          cluster_id: 3,
+          label: "一般回應",
+          observation: "這群留言只是一般回應。",
+          reading: "普通。",
+          one_liner: "這群留言只是一般回應。",
+          label_style: "descriptive",
+          evidence_ids: ["a-1", "a-2"]
+        }
+      ]
+    }),
+    buildRequest()
+  );
+
+  assert.equal(parsed.length, 0);
 });

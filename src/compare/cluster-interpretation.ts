@@ -1,5 +1,5 @@
 import type { AnalysisClusterSnapshot, AnalysisEvidenceCommentSnapshot } from "../contracts/ingest.ts";
-import { validateClusterOneLinerPayload } from "../analysis/cluster-validation.ts";
+import { isWeakClusterLabel, validateClusterOneLinerPayload } from "../analysis/cluster-validation.ts";
 
 export interface CompareClusterSummaryRequestItem {
   captureId: string;
@@ -22,6 +22,8 @@ export interface ClusterInterpretation {
   captureId: string;
   clusterKey: number;
   label: string;
+  observation: string;
+  reading: string;
   oneLiner: string;
   evidenceIds: string[];
 }
@@ -41,6 +43,8 @@ interface ClusterInterpretationPayload {
   capture_id?: string;
   cluster_id?: number;
   label?: string;
+  observation?: string;
+  reading?: string;
   one_liner?: string;
   label_style?: string;
   evidence_ids?: string[];
@@ -58,24 +62,62 @@ function stripCodeFence(value: string): string {
 }
 
 function keywordsLabel(keywords: readonly string[]): string {
-  const label = keywords.filter(Boolean).slice(0, 3).join(" / ").trim();
-  return label || "主題未定";
+  const label = keywords
+    .map((keyword) => String(keyword || "").trim())
+    .filter(Boolean)
+    .filter((keyword) => !isWeakClusterLabel(keyword))
+    .slice(0, 3)
+    .join(" / ")
+    .trim();
+  return label || "回應主題待釐清";
 }
 
 export function clusterInterpretationKey(captureId: string, clusterKey: number): string {
   return `${captureId}:${clusterKey}`;
 }
 
+/**
+ * Infer how an audience cluster is *responding* to content, based on engagement ratios.
+ * Returns a label describing the reaction type, not just the topic.
+ */
+function inferClusterReactionType(sizeShare: number, likeShare: number): string {
+  if (likeShare > sizeShare + 0.15) return "共鳴放大型";  // likes far exceed comment share
+  if (sizeShare >= 0.5) return "集中回聲型";              // majority echoing same direction
+  if (likeShare < sizeShare - 0.15) return "分歧探索型"; // many comments, low approval
+  return "分散反應型";                                     // mid-range
+}
+
+function inferClusterStructure(sizeShare: number, likeShare: number): string {
+  const concentration = sizeShare >= 0.55 ? "高度集中"
+    : sizeShare >= 0.35 ? "中度集中"
+    : "較分散";
+  const engagement = likeShare > sizeShare + 0.12 ? "互動集中於少數高讚"
+    : likeShare < sizeShare - 0.12 ? "互動偏均勻分散"
+    : "互動與規模相符";
+  return `${concentration}、${engagement}`;
+}
+
 export function buildDeterministicClusterInterpretation(cluster: AnalysisClusterSnapshot): ClusterInterpretation {
   const label = keywordsLabel(cluster.keywords || []);
   const sizePct = Math.round(cluster.size_share * 100);
   const likePct = Math.round(cluster.like_share * 100);
+  const lowSignal = isWeakClusterLabel(label) || label === "回應主題待釐清";
+  const reactionType = inferClusterReactionType(cluster.size_share, cluster.like_share);
+  const structureLabel = inferClusterStructure(cluster.size_share, cluster.like_share);
+
+  const observation = lowSignal
+    ? `這群留言以${reactionType}方式回應，但關鍵詞偏泛、主題仍待釐清；佔 ${sizePct}% 留言、${likePct}% 按讚。`
+    : `這群留言以${reactionType}方式回應原文，聚焦在「${label}」；佔 ${sizePct}% 留言、${likePct}% 按讚。`;
+  const reading = `結構偏${structureLabel}。`;
+  const oneLiner = `${observation}${reading}`;
 
   return {
     captureId: "",
     clusterKey: cluster.cluster_key,
     label,
-    oneLiner: `這群回應主要圍繞「${label}」，約佔 ${sizePct}% 留言、拿走 ${likePct}% 按讚。`,
+    observation,
+    reading,
+    oneLiner,
     evidenceIds: []
   };
 }
@@ -114,10 +156,19 @@ export function buildCompareClusterSummaryPrompt(request: CompareClusterSummaryR
   return [
     "你是社群分析助手。",
     "請針對每個 cluster 回傳繁體中文 JSON。",
-    "每個 cluster 都要提供：capture_id、cluster_id、label、one_liner、label_style、evidence_ids。",
+    "每個 cluster 都要提供：capture_id、cluster_id、label、observation、reading、one_liner、label_style、evidence_ids。",
     "label_style 必須是 descriptive。",
     "evidence_ids 必須從 allowed_evidence 中精選 2 個最能代表該 cluster 的 comment_id。",
-    "one_liner 要用一句話說明這群留言在講什麼，以及它的互動特徵。",
+    "observation 的規格：",
+    "  - 說明這群留言在「怎麼回應」原文，必須包含反應型態（共鳴放大型 / 集中回聲型 / 分歧探索型 / 分散反應型）。",
+    "  - 必須是可被 evidence 支撐的具體陳述，不能只重述 label 或 keywords。",
+    "  - 禁止泛化：不能說「這群留言以一般方式回應」。",
+    "reading 的規格：",
+    "  - 基於 observation，給出一句輕量解讀：這個反應模式意味著什麼。",
+    "  - 控制在一句話，不要長篇大論。",
+    "one_liner 的規格：",
+    "  - observation + reading 合成的單行摘要，格式參考：「這群留言以[反應型態]方式回應原文，[核心發現]；[結構特徵]，[輕量解讀]。」",
+    "  - 禁止只重述 label 或 keywords。",
     "只回傳 JSON，格式：{\"clusters\":[...]}。",
     "",
     ...clusterLines
@@ -163,12 +214,18 @@ export function parseCompareClusterSummaryResponse(
       continue;
     }
 
+    const observation = String(payload.observation || "").trim();
+    const reading = String(payload.reading || "").trim();
+    const rawOneLiner = String(payload.one_liner || "").trim();
+    // Synthesize one_liner from observation + reading if model omitted it — must happen before validation
+    const oneLiner = rawOneLiner || (observation && reading ? `${observation}${reading}` : observation || reading);
+
     const allowedIds = requestItem.evidenceCandidates.map((comment) => comment.comment_id).filter(Boolean) as string[];
     const validation = validateClusterOneLinerPayload(
       {
         cluster_id: clusterKey,
         label: payload.label,
-        one_liner: payload.one_liner,
+        one_liner: oneLiner,
         label_style: payload.label_style,
         evidence_ids: Array.isArray(payload.evidence_ids) ? payload.evidence_ids.slice(0, 2) : []
       },
@@ -183,7 +240,9 @@ export function parseCompareClusterSummaryResponse(
       captureId,
       clusterKey,
       label: String(payload.label).trim(),
-      oneLiner: String(payload.one_liner).trim(),
+      observation,
+      reading,
+      oneLiner,
       evidenceIds: (payload.evidence_ids || []).slice(0, 2)
     });
   }

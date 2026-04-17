@@ -1,7 +1,14 @@
 import type { CaptureSnapshot, CaptureTargetResponse, JobSnapshot } from "../contracts/ingest";
 import type { CompareBrief, CompareBriefRequest } from "../compare/brief";
 import type { CompareOneLinerRequest } from "../compare/one-liner";
+import type {
+  ActiveAnalysisResult,
+  ActiveCompareDraft,
+  SavedAnalysisSnapshot,
+  TechniqueReadingSnapshot
+} from "./types";
 import type { ClusterInterpretation, CompareClusterSummaryRequest } from "../compare/cluster-interpretation";
+import type { EvidenceAnnotation, EvidenceAnnotationRequest } from "../compare/evidence-annotation";
 import type { TargetDescriptor } from "../contracts/target-descriptor";
 import type { ExtensionSnapshot, HoverCandidateStrength, PopupPage } from "./types";
 import type { WorkerStatus } from "./processing-state";
@@ -38,6 +45,13 @@ export type ExtensionMessage =
   | { type: "compare/get-brief"; request: CompareBriefRequest }
   | { type: "compare/get-one-liner"; request: CompareOneLinerRequest }
   | { type: "compare/get-cluster-summaries"; request: CompareClusterSummaryRequest }
+  | { type: "compare/get-evidence-annotations"; request: EvidenceAnnotationRequest }
+  | { type: "compare/get-technique-readings" }
+  | { type: "compare/save-technique-reading"; snapshot: TechniqueReadingSnapshot }
+  | { type: "compare/get-saved-analyses" }
+  | { type: "compare/save-analysis"; snapshot: SavedAnalysisSnapshot }
+  | { type: "compare/set-active-draft"; draft: ActiveCompareDraft | null }
+  | { type: "compare/set-active-result"; result: ActiveAnalysisResult | null }
   | { type: "state/updated"; tabId: number; snapshot: ExtensionSnapshot };
 
 export type ExtensionSuccessResponse = {
@@ -50,6 +64,9 @@ export type ExtensionSuccessResponse = {
   compareBrief?: CompareBrief | null;
   oneLiner?: string | null;
   clusterInterpretations?: ClusterInterpretation[];
+  evidenceAnnotations?: EvidenceAnnotation[];
+  techniqueReadings?: TechniqueReadingSnapshot[];
+  savedAnalyses?: SavedAnalysisSnapshot[];
 };
 
 export type StartProcessingResponse =

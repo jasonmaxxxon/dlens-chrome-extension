@@ -8,7 +8,9 @@ import {
   createSessionRecord,
   createSessionItem,
   deleteSession,
+  expireStaleInFlightItems,
   markSessionItemQueued,
+  mergeRefreshResults,
   needsCaptureRefresh,
   reconcileSessionItem,
   saveDescriptorToSession,
@@ -174,6 +176,55 @@ test("reconcileSessionItem hides comments for non-succeeded states", () => {
   assert.deepEqual(running.commentsPreview, []);
 });
 
+test("reconcileSessionItem prefers live job progress when capture is temporarily stale or failed", () => {
+  const item = createSessionItem(buildDescriptor(), "2026-03-24T07:22:21.000Z");
+  const queued = markSessionItemQueued(
+    item,
+    {
+      capture_id: "cap-1",
+      job_id: "job-1",
+      status: "queued",
+      job_type: "threads_post_comments_crawl",
+      canonical_target_url: "https://www.threads.net/@alpha/post/abc"
+    },
+    buildJob({ status: "pending" })
+  );
+
+  const reconciled = reconcileSessionItem(
+    queued,
+    buildJob({ status: "running" }),
+    buildCapture({ ingestion_status: "failed" })
+  );
+
+  assert.equal(reconciled.status, "running");
+  assert.equal(reconciled.lastError, null);
+});
+
+test("mergeRefreshResults keeps whichever side succeeded during a partial refresh failure", () => {
+  const item = createSessionItem(buildDescriptor(), "2026-03-24T07:22:21.000Z");
+  const partial = mergeRefreshResults(
+    item,
+    { status: "fulfilled", value: buildJob({ status: "running" }) },
+    { status: "rejected", reason: new Error("capture 500") }
+  );
+
+  assert.equal(partial.job?.status, "running");
+  assert.equal(partial.capture, null);
+});
+
+test("mergeRefreshResults throws when both refresh requests fail", () => {
+  const item = createSessionItem(buildDescriptor(), "2026-03-24T07:22:21.000Z");
+
+  assert.throws(
+    () => mergeRefreshResults(
+      item,
+      { status: "rejected", reason: new Error("job failed") },
+      { status: "rejected", reason: new Error("capture failed") }
+    ),
+    /job failed/
+  );
+});
+
 test("needsCaptureRefresh stays true after crawl success until analysis snapshot settles", () => {
   const item = createSessionItem(buildDescriptor(), "2026-03-24T07:22:21.000Z");
   const queued = markSessionItemQueued(
@@ -240,6 +291,38 @@ test("needsCaptureRefresh stays true after crawl success until analysis snapshot
     })
   );
   assert.equal(needsCaptureRefresh(analysisSucceeded), false);
+});
+
+test("expireStaleInFlightItems marks stale queued work as failed while leaving fresh work alone", () => {
+  const session = createSessionRecord("Topic A", "2026-03-24T07:00:00.000Z");
+  const stale = createSessionItem(buildDescriptor({ post_url: "https://www.threads.net/@alpha/post/stale" }), "2026-03-24T07:22:21.000Z");
+  stale.status = "queued";
+  stale.captureId = "cap-stale";
+  stale.jobId = "job-stale";
+  stale.queuedAt = "2026-03-24T07:22:21.000Z";
+  stale.lastStatusAt = "2026-03-24T07:22:21.000Z";
+
+  const fresh = createSessionItem(buildDescriptor({ post_url: "https://www.threads.net/@alpha/post/fresh" }), "2026-03-24T07:22:21.000Z");
+  fresh.status = "running";
+  fresh.captureId = "cap-fresh";
+  fresh.jobId = "job-fresh";
+  fresh.queuedAt = "2026-03-24T07:22:21.000Z";
+  fresh.lastStatusAt = "2026-03-24T07:26:30.000Z";
+
+  const globalState = {
+    ...createEmptyGlobalState(),
+    sessions: [{ ...session, items: [stale, fresh] }],
+    activeSessionId: session.id
+  };
+
+  const next = expireStaleInFlightItems(globalState, "2026-03-24T07:28:00.000Z");
+  const nextStale = next.sessions[0].items[0];
+  const nextFresh = next.sessions[0].items[1];
+
+  assert.equal(nextStale?.status, "failed");
+  assert.equal(nextStale?.lastErrorKind, "stale_timeout");
+  assert.match(nextStale?.lastError || "", /No backend status update/i);
+  assert.equal(nextFresh?.status, "running");
 });
 
 test("updateSessionItem updates only the targeted item", () => {

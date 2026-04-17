@@ -5,7 +5,12 @@ import React from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 
 import type { TargetDescriptor } from "../src/contracts/target-descriptor.ts";
-import { PreviewCard } from "../src/ui/components.tsx";
+import {
+  ModeRail,
+  PreviewCard,
+  WorkspaceSurface,
+  UtilityEdge
+} from "../src/ui/components.tsx";
 
 function makeDescriptor(overrides: Partial<TargetDescriptor> = {}): TargetDescriptor {
   return {
@@ -54,4 +59,55 @@ test("PreviewCard renders author, folder, saved badge, and metric chips", () => 
   assert.match(html, />3</);
   assert.match(html, />2</);
   assert.match(html, />1</);
+});
+
+test("ModeRail renders library compare and result in workspace order", () => {
+  const html = renderToStaticMarkup(
+    React.createElement(ModeRail, {
+      activeMode: "library",
+      onSelect: () => undefined
+    })
+  );
+
+  assert.match(html, /data-mode-rail="primary"/);
+  assert.match(html, /data-mode="result"/);
+  assert.match(html, /data-mode="compare"/);
+  assert.match(html, /data-mode="library"/);
+  assert.doesNotMatch(html, /data-mode="collect"/);
+  assert.doesNotMatch(html, /Settings/);
+
+  const libraryIndex = html.indexOf('data-mode="library"');
+  const compareIndex = html.indexOf('data-mode="compare"');
+  const resultIndex = html.indexOf('data-mode="result"');
+
+  assert.ok(libraryIndex >= 0);
+  assert.ok(libraryIndex < compareIndex);
+  assert.ok(compareIndex < resultIndex);
+});
+
+test("UtilityEdge keeps settings outside the primary mode rail", () => {
+  const html = renderToStaticMarkup(
+    React.createElement(UtilityEdge, {
+      active: true,
+      onSelect: () => undefined
+    })
+  );
+
+  assert.match(html, /data-utility-edge="workspace"/);
+  assert.match(html, /data-utility-action="settings"/);
+  assert.match(html, /Settings/);
+  assert.doesNotMatch(html, /data-mode-rail="primary"/);
+});
+
+test("WorkspaceSurface clips inner content so rounded cards stay rounded", () => {
+  const html = renderToStaticMarkup(
+    React.createElement(
+      WorkspaceSurface,
+      null,
+      React.createElement("div", null, "Inner content")
+    )
+  );
+
+  assert.match(html, /data-workspace-surface="content"/);
+  assert.match(html, /overflow:hidden/);
 });

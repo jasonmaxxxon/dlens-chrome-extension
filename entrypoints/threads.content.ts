@@ -5,6 +5,7 @@ import { buildTargetDescriptor, findCardCandidate, type CandidateStrength } from
 import type { ExtensionMessage, ExtensionResponse } from "../src/state/messages";
 import { buildSelectionModeMessage, type SelectionModeExitReason } from "../src/state/selection-mode-messages";
 import { InPageCollectorApp } from "../src/ui/InPageCollectorApp";
+import { buildWorkspaceCrashMarkup, getWorkspaceCrashMessage, isExtensionRuntimeError } from "../src/ui/runtime-guard";
 
 const OVERLAY_ID = "__dlens_extension_v0_overlay__";
 const ROOT_ID = "__dlens_extension_v0_root__";
@@ -63,12 +64,25 @@ function ensureRoot(): HTMLDivElement {
       }
       @keyframes dlens-pulse {
         0%, 100% { opacity: 1; }
-        50% { opacity: 0.4; }
+        50% { opacity: 0.35; }
+      }
+      @keyframes dlens-glow-border {
+        0%, 100% { border-color: rgba(99,102,241,0.18); }
+        50% { border-color: rgba(99,102,241,0.35); }
+      }
+      @keyframes dlens-scan {
+        0% { background-position: 0% 0%; }
+        100% { background-position: 0% 100%; }
       }
     `;
     document.head.appendChild(style);
   }
   return root;
+}
+
+function renderWorkspaceCrashFallback(root: HTMLDivElement, error: unknown) {
+  const message = getWorkspaceCrashMessage(error);
+  root.innerHTML = buildWorkspaceCrashMarkup(message);
 }
 
 function emitHoverRect(card: HTMLElement | null) {
@@ -271,7 +285,29 @@ export default defineContentScript({
     ensureOverlay();
 
     const root = ensureRoot();
-    ReactDOM.createRoot(root).render(React.createElement(InPageCollectorApp));
+    const extensionOrigin = chrome.runtime.getURL("");
+    const reactRoot = ReactDOM.createRoot(root);
+
+    const onWindowError = (event: ErrorEvent) => {
+      const candidate = event.error || event.message || event.filename;
+      if (!isExtensionRuntimeError(candidate, extensionOrigin)) {
+        return;
+      }
+      console.error("DLens runtime error", candidate);
+      renderWorkspaceCrashFallback(root, candidate);
+    };
+    const onUnhandledRejection = (event: PromiseRejectionEvent) => {
+      if (!isExtensionRuntimeError(event.reason, extensionOrigin)) {
+        return;
+      }
+      console.error("DLens unhandled rejection", event.reason);
+      renderWorkspaceCrashFallback(root, event.reason);
+    };
+
+    window.addEventListener("error", onWindowError);
+    window.addEventListener("unhandledrejection", onUnhandledRejection);
+
+    reactRoot.render(React.createElement(InPageCollectorApp));
 
     chrome.runtime.onMessage.addListener((message: ExtensionMessage, _sender, sendResponse) => {
       void (async () => {
@@ -290,5 +326,10 @@ export default defineContentScript({
       })();
       return true;
     });
+
+    window.addEventListener("pagehide", () => {
+      window.removeEventListener("error", onWindowError);
+      window.removeEventListener("unhandledrejection", onUnhandledRejection);
+    }, { once: true });
   }
 });

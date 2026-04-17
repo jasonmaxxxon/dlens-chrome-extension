@@ -25,6 +25,22 @@ test("triggerWorkerDrain posts to /worker/drain", async () => {
   }
 });
 
+test("triggerWorkerDrain surfaces a clear backend-unavailable error when fetch throws", async () => {
+  const originalFetch = globalThis.fetch;
+  globalThis.fetch = (async () => {
+    throw new TypeError("fetch failed");
+  }) as typeof fetch;
+
+  try {
+    await assert.rejects(
+      () => triggerWorkerDrain("http://127.0.0.1:8000"),
+      /Optional ingest backend unavailable/i
+    );
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
+});
+
 test("fetchWorkerStatus surfaces a clear backend-unavailable error when fetch throws", async () => {
   const originalFetch = globalThis.fetch;
   globalThis.fetch = (async () => {

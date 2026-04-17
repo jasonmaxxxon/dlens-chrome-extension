@@ -1,0 +1,1054 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>DLens — macOS Card Design Mockup</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  :root {
+    /* ── macOS Sonoma palette ── */
+    --canvas: #f5f5f7;
+    --surface: rgba(255,255,255,0.72);
+    --elevated: rgba(255,255,255,0.88);
+    --solid-white: #ffffff;
+
+    --ink: #1d1d1f;
+    --secondary-label: #86868b;
+    --tertiary-label: #aeaeb2;
+    --separator: rgba(0,0,0,0.06);
+    --opaque-separator: #c6c6c8;
+
+    --accent: #007aff;
+    --accent-soft: rgba(0,122,255,0.08);
+    --accent-glow: rgba(0,122,255,0.18);
+
+    --teal: #30b0c7;
+    --teal-soft: rgba(48,176,199,0.10);
+
+    --orange: #ff9500;
+    --orange-soft: rgba(255,149,0,0.08);
+
+    --red: #ff3b30;
+    --red-soft: rgba(255,59,48,0.06);
+
+    --green: #34c759;
+    --green-soft: rgba(52,199,89,0.08);
+
+    --indigo: #5856d6;
+    --indigo-soft: rgba(88,86,214,0.08);
+
+    /* ── shadows (3 tiers) ── */
+    --shadow-inset: none;
+    --shadow-raised: 0 0.5px 1px rgba(0,0,0,0.04), 0 1px 4px rgba(0,0,0,0.04);
+    --shadow-floating: 0 8px 30px rgba(0,0,0,0.12), 0 0 0 0.5px rgba(0,0,0,0.04);
+
+    /* ── radii ── */
+    --radius-group: 10px;
+    --radius-card: 12px;
+    --radius-pill: 8px;
+    --radius-button: 6px;
+
+    /* ── blur ── */
+    --vibrancy: blur(20px) saturate(180%);
+
+    /* ── motion ── */
+    --ease: cubic-bezier(0.25, 0.1, 0.25, 1);
+    --duration: 200ms;
+  }
+
+  html {
+    font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", "SF Pro Display", system-ui, sans-serif;
+    font-size: 13px;
+    line-height: 1.45;
+    color: var(--ink);
+    background: var(--canvas);
+    -webkit-font-smoothing: antialiased;
+  }
+
+  /* ── Page layout ── */
+  .page {
+    max-width: 420px;
+    margin: 40px auto;
+    padding: 0 16px 60px;
+    display: flex;
+    flex-direction: column;
+    gap: 28px;
+  }
+
+  .page-title {
+    font-size: 22px;
+    font-weight: 700;
+    letter-spacing: -0.02em;
+    color: var(--ink);
+  }
+
+  .page-subtitle {
+    font-size: 13px;
+    color: var(--secondary-label);
+    margin-top: 2px;
+  }
+
+  /* ── Segmented Control ── */
+  .segmented-control {
+    display: flex;
+    background: rgba(0,0,0,0.04);
+    border-radius: var(--radius-pill);
+    padding: 2px;
+    gap: 1px;
+  }
+
+  .segmented-control button {
+    flex: 1;
+    border: none;
+    background: transparent;
+    font-family: inherit;
+    font-size: 12px;
+    font-weight: 500;
+    color: var(--secondary-label);
+    padding: 5px 12px;
+    border-radius: calc(var(--radius-pill) - 2px);
+    cursor: pointer;
+    transition: all var(--duration) var(--ease);
+    position: relative;
+  }
+
+  .segmented-control button.active {
+    background: var(--solid-white);
+    color: var(--ink);
+    font-weight: 600;
+    box-shadow: 0 0.5px 1px rgba(0,0,0,0.06), 0 1px 3px rgba(0,0,0,0.06);
+  }
+
+  /* ── Grouped Section ── */
+  .grouped-section {
+    background: var(--solid-white);
+    border-radius: var(--radius-group);
+    box-shadow: var(--shadow-raised);
+    overflow: hidden;
+  }
+
+  .grouped-row {
+    padding: 11px 16px;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    min-height: 44px;
+    transition: background var(--duration) var(--ease);
+  }
+
+  .grouped-row:not(:last-child) {
+    border-bottom: 0.5px solid var(--separator);
+  }
+
+  .grouped-row:hover {
+    background: rgba(0,0,0,0.02);
+  }
+
+  .grouped-row .row-icon {
+    width: 30px;
+    height: 30px;
+    border-radius: 7px;
+    display: grid;
+    place-items: center;
+    font-size: 14px;
+    font-weight: 700;
+    color: #fff;
+    flex-shrink: 0;
+  }
+
+  .grouped-row .row-content {
+    flex: 1;
+    min-width: 0;
+  }
+
+  .grouped-row .row-title {
+    font-size: 13px;
+    font-weight: 400;
+    color: var(--ink);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  .grouped-row .row-subtitle {
+    font-size: 11px;
+    color: var(--secondary-label);
+    margin-top: 1px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  .grouped-row .row-accessory {
+    flex-shrink: 0;
+    color: var(--tertiary-label);
+    font-size: 12px;
+  }
+
+  .row-chevron {
+    color: var(--tertiary-label);
+    font-size: 11px;
+    flex-shrink: 0;
+  }
+
+  /* ── Section Header (floating label) ── */
+  .section-header {
+    font-size: 11px;
+    font-weight: 500;
+    color: var(--secondary-label);
+    text-transform: uppercase;
+    letter-spacing: 0.02em;
+    padding: 0 16px 6px;
+  }
+
+  /* ── Vibrancy Card (glass panel) ── */
+  .vibrancy-card {
+    background: var(--surface);
+    backdrop-filter: var(--vibrancy);
+    -webkit-backdrop-filter: var(--vibrancy);
+    border-radius: var(--radius-card);
+    border: 0.5px solid rgba(0,0,0,0.06);
+    box-shadow: var(--shadow-raised);
+    padding: 14px 16px;
+    transition: box-shadow var(--duration) var(--ease);
+  }
+
+  .vibrancy-card:hover {
+    box-shadow: var(--shadow-floating);
+  }
+
+  /* ── Preview Card (macOS style) ── */
+  .preview-card {
+    display: grid;
+    gap: 12px;
+  }
+
+  .preview-card .author-row {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+
+  .preview-card .avatar {
+    width: 34px;
+    height: 34px;
+    border-radius: 8px;
+    background: linear-gradient(135deg, var(--accent), #5ac8fa);
+    color: #fff;
+    display: grid;
+    place-items: center;
+    font-weight: 700;
+    font-size: 15px;
+    flex-shrink: 0;
+  }
+
+  .preview-card .author-name {
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--ink);
+  }
+
+  .preview-card .author-badge {
+    font-size: 11px;
+    color: var(--secondary-label);
+    font-weight: 400;
+  }
+
+  .preview-card .snippet {
+    font-size: 13px;
+    color: var(--secondary-label);
+    line-height: 1.5;
+    display: -webkit-box;
+    -webkit-box-orient: vertical;
+    -webkit-line-clamp: 2;
+    overflow: hidden;
+  }
+
+  /* ── Metric Pills ── */
+  .metrics-row {
+    display: flex;
+    gap: 6px;
+    flex-wrap: wrap;
+  }
+
+  .metric-pill {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    padding: 3px 8px;
+    border-radius: 999px;
+    font-size: 11px;
+    font-weight: 600;
+    background: var(--accent-soft);
+    color: var(--accent);
+    border: none;
+  }
+
+  .metric-pill.teal { background: var(--teal-soft); color: var(--teal); }
+  .metric-pill.orange { background: var(--orange-soft); color: var(--orange); }
+  .metric-pill.red { background: var(--red-soft); color: var(--red); }
+  .metric-pill.indigo { background: var(--indigo-soft); color: var(--indigo); }
+
+  .metric-pill svg {
+    width: 12px;
+    height: 12px;
+    stroke: currentColor;
+    fill: none;
+    stroke-width: 1.8;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+  }
+
+  /* ── Buttons ── */
+  .button-row {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 8px;
+  }
+
+  .btn-primary {
+    border: none;
+    border-radius: var(--radius-button);
+    padding: 7px 14px;
+    background: var(--accent);
+    color: #fff;
+    font-family: inherit;
+    font-size: 13px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all var(--duration) var(--ease);
+  }
+
+  .btn-primary:hover { filter: brightness(1.08); }
+
+  .btn-secondary {
+    border: 0.5px solid var(--opaque-separator);
+    border-radius: var(--radius-button);
+    padding: 7px 14px;
+    background: var(--solid-white);
+    color: var(--ink);
+    font-family: inherit;
+    font-size: 13px;
+    font-weight: 500;
+    cursor: pointer;
+    transition: all var(--duration) var(--ease);
+  }
+
+  .btn-secondary:hover { background: #f9f9f9; }
+
+  /* ── Processing Strip ── */
+  .processing-strip {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 8px 14px;
+    background: var(--green-soft);
+    border: 0.5px solid rgba(52,199,89,0.15);
+    border-radius: var(--radius-pill);
+    position: relative;
+    overflow: hidden;
+  }
+
+  .processing-strip .dot {
+    width: 7px;
+    height: 7px;
+    border-radius: 999px;
+    background: var(--green);
+    flex-shrink: 0;
+    animation: pulse-dot 2s ease-in-out infinite;
+  }
+
+  .processing-strip .strip-label {
+    font-size: 11px;
+    font-weight: 500;
+    color: var(--green);
+    flex: 1;
+  }
+
+  .processing-strip .strip-stat {
+    font-size: 11px;
+    font-weight: 600;
+    color: var(--green);
+    flex-shrink: 0;
+  }
+
+  @keyframes pulse-dot {
+    0%, 100% { opacity: 1; box-shadow: 0 0 0 0 rgba(52,199,89,0.4); }
+    50% { opacity: 0.7; box-shadow: 0 0 6px rgba(52,199,89,0.3); }
+  }
+
+  /* ── Status Badges ── */
+  .status-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    padding: 2px 8px;
+    border-radius: 999px;
+    font-size: 11px;
+    font-weight: 600;
+  }
+
+  .status-badge.succeeded { background: var(--green-soft); color: var(--green); }
+  .status-badge.running { background: rgba(0,122,255,0.08); color: var(--accent); }
+  .status-badge.queued { background: var(--orange-soft); color: var(--orange); }
+  .status-badge.failed { background: var(--red-soft); color: var(--red); }
+
+  .status-dot {
+    width: 6px;
+    height: 6px;
+    border-radius: 999px;
+    background: currentColor;
+  }
+
+  /* ── Compare: Post Headers ── */
+  .compare-pair {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 8px;
+  }
+
+  .post-header {
+    padding: 10px 12px;
+    border-radius: var(--radius-group);
+    display: grid;
+    gap: 6px;
+  }
+
+  .post-header.post-a {
+    background: var(--accent-soft);
+    border: 1px solid rgba(0,122,255,0.12);
+  }
+
+  .post-header.post-b {
+    background: var(--orange-soft);
+    border: 1px solid rgba(255,149,0,0.12);
+  }
+
+  .post-header .post-label {
+    font-size: 10px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+  }
+
+  .post-header.post-a .post-label { color: var(--accent); }
+  .post-header.post-b .post-label { color: var(--orange); }
+
+  .post-header .post-author {
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--ink);
+  }
+
+  .post-header .post-snippet {
+    font-size: 12px;
+    color: var(--secondary-label);
+    display: -webkit-box;
+    -webkit-box-orient: vertical;
+    -webkit-line-clamp: 2;
+    overflow: hidden;
+    line-height: 1.4;
+  }
+
+  /* ── Compare: Brief Hero ── */
+  .brief-hero {
+    background: var(--solid-white);
+    border-radius: var(--radius-card);
+    box-shadow: var(--shadow-raised);
+    padding: 16px;
+    display: grid;
+    gap: 10px;
+  }
+
+  .brief-hero .brief-title {
+    font-size: 15px;
+    font-weight: 700;
+    color: var(--ink);
+    letter-spacing: -0.01em;
+  }
+
+  .brief-hero .brief-body {
+    font-size: 13px;
+    color: var(--secondary-label);
+    line-height: 1.55;
+  }
+
+  /* ── Compare: Cluster Bubble Map ── */
+  .cluster-map {
+    background: linear-gradient(180deg, rgba(255,255,255,0.98), rgba(245,245,247,0.95));
+    border-radius: var(--radius-card);
+    box-shadow: var(--shadow-raised);
+    border: 0.5px solid var(--separator);
+    position: relative;
+    height: 180px;
+    overflow: hidden;
+  }
+
+  .cluster-map .map-label {
+    position: absolute;
+    top: 10px;
+    left: 12px;
+    font-size: 10px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+  }
+
+  .cluster-map.map-a .map-label { color: var(--accent); }
+  .cluster-map.map-b .map-label { color: var(--orange); }
+
+  .bubble {
+    position: absolute;
+    border-radius: 50%;
+    display: grid;
+    place-items: center;
+    font-size: 9px;
+    font-weight: 700;
+    cursor: pointer;
+    transition: all var(--duration) var(--ease);
+    border: 1.5px solid;
+  }
+
+  .bubble:hover {
+    transform: scale(1.08);
+  }
+
+  .bubble.b-accent {
+    background: var(--accent-soft);
+    border-color: rgba(0,122,255,0.25);
+    color: var(--accent);
+  }
+
+  .bubble.b-teal {
+    background: var(--teal-soft);
+    border-color: rgba(48,176,199,0.25);
+    color: var(--teal);
+  }
+
+  .bubble.b-indigo {
+    background: var(--indigo-soft);
+    border-color: rgba(88,86,214,0.25);
+    color: var(--indigo);
+  }
+
+  .bubble.b-orange {
+    background: var(--orange-soft);
+    border-color: rgba(255,149,0,0.25);
+    color: var(--orange);
+  }
+
+  .bubble.selected {
+    box-shadow: 0 0 0 3px var(--accent-soft), 0 2px 8px rgba(0,122,255,0.15);
+    border-color: var(--accent);
+  }
+
+  /* ── Technique Carousel ── */
+  .technique-scroll {
+    display: flex;
+    gap: 10px;
+    overflow-x: auto;
+    scroll-snap-type: x mandatory;
+    scrollbar-width: none;
+    padding: 2px 0;
+  }
+
+  .technique-scroll::-webkit-scrollbar { display: none; }
+
+  .technique-card {
+    min-width: 240px;
+    flex: 0 0 auto;
+    scroll-snap-align: start;
+    padding: 12px 14px;
+    background: var(--solid-white);
+    border-radius: var(--radius-group);
+    box-shadow: var(--shadow-raised);
+    border-left: 3px solid;
+    display: grid;
+    gap: 6px;
+    transition: box-shadow var(--duration) var(--ease);
+  }
+
+  .technique-card:hover {
+    box-shadow: var(--shadow-floating);
+  }
+
+  .technique-card.tc-rose { border-left-color: #ff2d55; }
+  .technique-card.tc-amber { border-left-color: var(--orange); }
+  .technique-card.tc-teal { border-left-color: var(--teal); }
+  .technique-card.tc-blue { border-left-color: var(--accent); }
+  .technique-card.tc-violet { border-left-color: var(--indigo); }
+
+  .technique-card .tc-name {
+    font-size: 12px;
+    font-weight: 600;
+    color: var(--ink);
+  }
+
+  .technique-card .tc-desc {
+    font-size: 11px;
+    color: var(--secondary-label);
+    line-height: 1.4;
+    display: -webkit-box;
+    -webkit-box-orient: vertical;
+    -webkit-line-clamp: 2;
+    overflow: hidden;
+  }
+
+  .technique-card .tc-evidence {
+    font-size: 10px;
+    font-weight: 500;
+    color: var(--tertiary-label);
+    margin-top: 2px;
+  }
+
+  /* ── Settings form ── */
+  .form-label {
+    font-size: 11px;
+    font-weight: 500;
+    color: var(--secondary-label);
+    margin-bottom: 4px;
+    display: block;
+  }
+
+  .form-input {
+    width: 100%;
+    padding: 7px 10px;
+    border-radius: var(--radius-button);
+    border: 0.5px solid var(--opaque-separator);
+    background: var(--solid-white);
+    font-family: inherit;
+    font-size: 13px;
+    color: var(--ink);
+    outline: none;
+    transition: border-color var(--duration) var(--ease), box-shadow var(--duration) var(--ease);
+  }
+
+  .form-input:focus {
+    border-color: var(--accent);
+    box-shadow: 0 0 0 3px var(--accent-soft);
+  }
+
+  /* ── Evidence Card ── */
+  .evidence-card {
+    padding: 10px 12px;
+    border-radius: var(--radius-group);
+    background: #fafafa;
+    border: 0.5px solid var(--separator);
+    display: grid;
+    gap: 5px;
+  }
+
+  .evidence-card .ev-text {
+    font-size: 12px;
+    color: var(--ink);
+    line-height: 1.45;
+  }
+
+  .evidence-card .ev-meta {
+    font-size: 10px;
+    color: var(--tertiary-label);
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }
+
+  /* ── Library Item Row ── */
+  .lib-item-detail {
+    background: var(--solid-white);
+    border-radius: var(--radius-card);
+    box-shadow: var(--shadow-raised);
+    padding: 14px 16px;
+    display: grid;
+    gap: 10px;
+  }
+
+  /* ── Floating popup container ── */
+  .popup-container {
+    background: var(--surface);
+    backdrop-filter: var(--vibrancy);
+    -webkit-backdrop-filter: var(--vibrancy);
+    border-radius: 14px;
+    box-shadow: var(--shadow-floating);
+    border: 0.5px solid rgba(0,0,0,0.08);
+    overflow: hidden;
+    padding: 0;
+  }
+
+  .popup-header {
+    padding: 10px 16px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    border-bottom: 0.5px solid var(--separator);
+  }
+
+  .popup-header .popup-title {
+    font-size: 13px;
+    font-weight: 600;
+    flex: 1;
+  }
+
+  .popup-header .popup-close {
+    width: 20px;
+    height: 20px;
+    border-radius: 999px;
+    background: rgba(0,0,0,0.06);
+    border: none;
+    color: var(--secondary-label);
+    font-size: 12px;
+    cursor: pointer;
+    display: grid;
+    place-items: center;
+  }
+
+  .popup-body {
+    padding: 12px 16px 16px;
+  }
+
+  /* ── Demo header ── */
+  .demo-badge {
+    display: inline-block;
+    padding: 3px 10px;
+    border-radius: 999px;
+    background: linear-gradient(135deg, var(--accent), #5ac8fa);
+    color: #fff;
+    font-size: 10px;
+    font-weight: 700;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    margin-bottom: 4px;
+  }
+
+  .demo-section-title {
+    font-size: 17px;
+    font-weight: 700;
+    letter-spacing: -0.02em;
+    color: var(--ink);
+    margin-bottom: 12px;
+    padding-top: 8px;
+  }
+
+  hr.demo-divider {
+    border: none;
+    border-top: 0.5px solid var(--separator);
+    margin: 8px 0;
+  }
+
+  /* ── Comparison table ── */
+  .compare-table {
+    display: grid;
+    grid-template-columns: 80px 1fr 1fr;
+    gap: 0;
+    font-size: 12px;
+  }
+
+  .compare-table .ct-cell {
+    padding: 6px 8px;
+    border-bottom: 0.5px solid var(--separator);
+  }
+
+  .compare-table .ct-header {
+    font-weight: 600;
+    color: var(--secondary-label);
+    font-size: 11px;
+  }
+
+  .compare-table .ct-label {
+    color: var(--secondary-label);
+    font-size: 11px;
+  }
+
+  .compare-table .ct-value {
+    font-weight: 600;
+    color: var(--ink);
+    text-align: right;
+  }
+
+  .compare-table .ct-value.winner {
+    color: var(--accent);
+  }
+</style>
+</head>
+<body>
+
+<div class="page">
+
+  <!-- ═══════════ Title ═══════════ -->
+  <div>
+    <span class="demo-badge">macOS Design</span>
+    <div class="page-title">DLens</div>
+    <div class="page-subtitle">Threads competitive analysis — card design mockup</div>
+  </div>
+
+  <!-- ═══════════ 1. Segmented Control ═══════════ -->
+  <div class="demo-section-title">Segmented Control</div>
+  <div class="segmented-control">
+    <button class="active">Collect</button>
+    <button>Compare</button>
+    <button>Library</button>
+    <button>Settings</button>
+  </div>
+
+  <!-- ═══════════ 2. Processing Strip ═══════════ -->
+  <div class="demo-section-title">Processing Strip</div>
+  <div class="processing-strip">
+    <span class="dot"></span>
+    <span class="strip-label">Analysis complete</span>
+    <span class="strip-stat">2 / 2 ready</span>
+  </div>
+
+  <!-- ═══════════ 3. Preview Card (Collect) ═══════════ -->
+  <div class="demo-section-title">Preview Card (Collect)</div>
+  <div class="vibrancy-card preview-card">
+    <div class="author-row">
+      <div class="avatar">Z</div>
+      <div style="flex:1; min-width:0">
+        <div class="author-name">@zuck</div>
+        <div class="author-badge">Preview</div>
+      </div>
+      <span style="width:8px;height:8px;border-radius:999px;background:var(--green);box-shadow:0 0 6px var(--green)"></span>
+    </div>
+    <div class="snippet">Threads 今天推出了新的 AI 推薦功能，讓你的動態更加個性化。我們正在持續改進內容發現的體驗...</div>
+    <div class="metrics-row">
+      <span class="metric-pill red">
+        <svg viewBox="0 0 24 24"><path d="M12 20.5s-6.5-4.35-8.5-7.05C1.1 10.17 2.18 6.5 5.82 6.5c1.92 0 3.1.95 4.02 2.2C10.76 7.45 11.94 6.5 13.86 6.5 17.5 6.5 18.58 10.17 20.5 13.45 18.5 16.15 12 20.5 12 20.5Z"/></svg>
+        2.4k
+      </span>
+      <span class="metric-pill">
+        <svg viewBox="0 0 24 24"><path d="M7 17.5h6l4 3v-3h.5A2.5 2.5 0 0020 15V7a2.5 2.5 0 00-2.5-2.5h-11A2.5 2.5 0 004 7v8A2.5 2.5 0 006.5 17.5H7Z"/></svg>
+        189
+      </span>
+      <span class="metric-pill indigo">
+        <svg viewBox="0 0 24 24"><path d="M7 7h10l-2.5-2.5"/><path d="M17 17H7l2.5 2.5"/><path d="M17 7v4"/><path d="M7 17v-4"/></svg>
+        320
+      </span>
+      <span class="metric-pill orange">
+        <svg viewBox="0 0 24 24"><path d="M21 4L10 15"/><path d="m21 4-7 16-4-5-5-4 16-7Z"/></svg>
+        56
+      </span>
+    </div>
+    <div style="font-size:11px;font-weight:500;color:var(--secondary-label)">
+      Folder: <span style="color:var(--ink)">Q1 Competitor Watch</span>
+    </div>
+    <div class="button-row">
+      <button class="btn-primary">Save</button>
+      <button class="btn-secondary">Open</button>
+    </div>
+  </div>
+
+  <!-- ═══════════ 4. Library (Grouped Section) ═══════════ -->
+  <div class="demo-section-title">Library — Grouped Rows</div>
+  <div class="section-header">Saved Posts</div>
+  <div class="grouped-section">
+    <div class="grouped-row">
+      <div class="row-icon" style="background:linear-gradient(135deg, var(--accent), #5ac8fa)">Z</div>
+      <div class="row-content">
+        <div class="row-title">@zuck — Threads 新 AI 推薦功能</div>
+        <div class="row-subtitle">2.4k likes · 189 comments · 12m ago</div>
+      </div>
+      <span class="status-badge succeeded"><span class="status-dot"></span> Ready</span>
+      <span class="row-chevron">›</span>
+    </div>
+    <div class="grouped-row">
+      <div class="row-icon" style="background:linear-gradient(135deg, var(--orange), #ffcc00)">E</div>
+      <div class="row-content">
+        <div class="row-title">@elonmusk — X 平台今日更新公告</div>
+        <div class="row-subtitle">5.1k likes · 420 comments · 3h ago</div>
+      </div>
+      <span class="status-badge running"><span class="status-dot"></span> Running</span>
+      <span class="row-chevron">›</span>
+    </div>
+    <div class="grouped-row">
+      <div class="row-icon" style="background:linear-gradient(135deg, var(--indigo), #af52de)">S</div>
+      <div class="row-content">
+        <div class="row-title">@sundarpichai — Google AI Studio 更新</div>
+        <div class="row-subtitle">1.8k likes · 95 comments · 1d ago</div>
+      </div>
+      <span class="status-badge queued"><span class="status-dot"></span> Queued</span>
+      <span class="row-chevron">›</span>
+    </div>
+  </div>
+
+  <!-- ═══════════ 5. Compare: Post Headers ═══════════ -->
+  <div class="demo-section-title">Compare — Post Pair</div>
+  <div class="compare-pair">
+    <div class="post-header post-a">
+      <div class="post-label">Post A</div>
+      <div class="post-author">@zuck</div>
+      <div class="post-snippet">Threads 新 AI 推薦功能讓你的動態更加個性化</div>
+    </div>
+    <div class="post-header post-b">
+      <div class="post-label">Post B</div>
+      <div class="post-author">@elonmusk</div>
+      <div class="post-snippet">X 平台推出全新社群功能，增強用戶互動體驗</div>
+    </div>
+  </div>
+
+  <!-- ═══════════ 6. Compare Brief Hero ═══════════ -->
+  <div class="brief-hero">
+    <div class="brief-title">Post A 在社群信任度上具有結構性優勢</div>
+    <div class="brief-body">
+      Post A 採用「產品透明化」的修辭策略，透過直接展示功能變更來建立信任。Post B 則依賴「願景敘事」框架，強調未來承諾而非具體成果。受眾反應數據顯示前者在留言深度與轉發意願上均佔優。
+    </div>
+    <div class="metrics-row" style="margin-top:2px">
+      <span class="metric-pill" style="background:var(--green-soft);color:var(--green)">信任度 +23%</span>
+      <span class="metric-pill red">風險信號 2</span>
+    </div>
+  </div>
+
+  <!-- ═══════════ 7. Cluster Bubble Maps ═══════════ -->
+  <div class="demo-section-title">Cluster Maps</div>
+  <div class="compare-pair">
+    <div class="cluster-map map-a">
+      <span class="map-label">Post A</span>
+      <div class="bubble b-accent selected" style="width:52px;height:52px;top:55px;left:30px">38%</div>
+      <div class="bubble b-teal" style="width:36px;height:36px;top:75px;left:110px">22%</div>
+      <div class="bubble b-indigo" style="width:28px;height:28px;top:40px;left:130px">15%</div>
+    </div>
+    <div class="cluster-map map-b">
+      <span class="map-label">Post B</span>
+      <div class="bubble b-orange" style="width:48px;height:48px;top:60px;left:25px">35%</div>
+      <div class="bubble b-teal" style="width:40px;height:40px;top:50px;left:100px">28%</div>
+      <div class="bubble b-indigo" style="width:24px;height:24px;top:90px;left:120px">12%</div>
+    </div>
+  </div>
+
+  <!-- ═══════════ 8. Engagement Comparison Table ═══════════ -->
+  <div class="demo-section-title">Engagement Metrics</div>
+  <div class="grouped-section" style="padding:2px 0">
+    <div class="compare-table">
+      <div class="ct-cell ct-header"></div>
+      <div class="ct-cell ct-header" style="text-align:right;color:var(--accent)">Post A</div>
+      <div class="ct-cell ct-header" style="text-align:right;color:var(--orange)">Post B</div>
+
+      <div class="ct-cell ct-label">Likes</div>
+      <div class="ct-cell ct-value winner">2,400</div>
+      <div class="ct-cell ct-value">1,820</div>
+
+      <div class="ct-cell ct-label">Comments</div>
+      <div class="ct-cell ct-value winner">189</div>
+      <div class="ct-cell ct-value">95</div>
+
+      <div class="ct-cell ct-label">Reposts</div>
+      <div class="ct-cell ct-value">320</div>
+      <div class="ct-cell ct-value winner">410</div>
+
+      <div class="ct-cell ct-label" style="border:none">Forwards</div>
+      <div class="ct-cell ct-value" style="border:none">56</div>
+      <div class="ct-cell ct-value winner" style="border:none">78</div>
+    </div>
+  </div>
+
+  <!-- ═══════════ 9. Technique Carousel ═══════════ -->
+  <div class="demo-section-title">Technique Cards</div>
+  <div class="technique-scroll">
+    <div class="technique-card tc-rose">
+      <div class="tc-name">情感訴求 (Pathos)</div>
+      <div class="tc-desc">透過個人故事和情感連結來引發受眾共鳴，建立品牌親和力</div>
+      <div class="tc-evidence">3 evidence items</div>
+    </div>
+    <div class="technique-card tc-blue">
+      <div class="tc-name">權威背書 (Ethos)</div>
+      <div class="tc-desc">引用專家觀點、數據報告來強化論述的可信度</div>
+      <div class="tc-evidence">5 evidence items</div>
+    </div>
+    <div class="technique-card tc-teal">
+      <div class="tc-name">社會認同 (Social Proof)</div>
+      <div class="tc-desc">展示用戶數量、正面評價來降低新受眾的採用門檻</div>
+      <div class="tc-evidence">2 evidence items</div>
+    </div>
+    <div class="technique-card tc-violet">
+      <div class="tc-name">稀缺框架 (Scarcity)</div>
+      <div class="tc-desc">營造限時或限量的緊迫感，推動立即行動</div>
+      <div class="tc-evidence">1 evidence item</div>
+    </div>
+  </div>
+
+  <!-- ═══════════ 10. Evidence Cards ═══════════ -->
+  <div class="demo-section-title">Evidence Detail</div>
+  <div style="display:grid;gap:8px">
+    <div class="evidence-card">
+      <div class="ev-text">"我們從第一天就決定開放這個功能給所有人，不做付費牆" — 這句話直接建立了品牌的「去商業化」信任形象</div>
+      <div class="ev-meta">
+        <span class="metric-pill red" style="font-size:10px;padding:2px 6px">
+          <svg viewBox="0 0 24 24" style="width:10px;height:10px"><path d="M12 20.5s-6.5-4.35-8.5-7.05C1.1 10.17 2.18 6.5 5.82 6.5c1.92 0 3.1.95 4.02 2.2C10.76 7.45 11.94 6.5 13.86 6.5 17.5 6.5 18.58 10.17 20.5 13.45 18.5 16.15 12 20.5 12 20.5Z"/></svg>
+          342
+        </span>
+        <span>留言區高度共鳴</span>
+      </div>
+    </div>
+    <div class="evidence-card">
+      <div class="ev-text">"上個月活躍用戶已經突破 2 億" — 具體數字強化了平台成長的敘事，但缺乏第三方驗證</div>
+      <div class="ev-meta">
+        <span class="status-badge running" style="font-size:10px;padding:1px 6px"><span class="status-dot" style="width:5px;height:5px"></span> 待驗證</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- ═══════════ 11. Settings (Grouped Form) ═══════════ -->
+  <div class="demo-section-title">Settings</div>
+  <div class="section-header">Connection</div>
+  <div class="grouped-section" style="padding:12px 16px;display:grid;gap:10px">
+    <div>
+      <label class="form-label">Ingest URL</label>
+      <input class="form-input" value="http://127.0.0.1:8000" />
+    </div>
+  </div>
+
+  <div style="height:8px"></div>
+  <div class="section-header">API Keys</div>
+  <div class="grouped-section" style="padding:12px 16px;display:grid;gap:10px">
+    <div>
+      <label class="form-label">OpenAI Key</label>
+      <input class="form-input" type="password" value="sk-••••••••••••" />
+    </div>
+    <div>
+      <label class="form-label">Anthropic Key</label>
+      <input class="form-input" type="password" value="sk-ant-••••••••" />
+    </div>
+    <button class="btn-primary" style="margin-top:4px;width:100%">Save Settings</button>
+  </div>
+
+  <!-- ═══════════ 12. Floating Popup ═══════════ -->
+  <div class="demo-section-title">In-Page Popup (Floating)</div>
+  <div class="popup-container" style="max-width:320px">
+    <div class="popup-header">
+      <span style="font-size:15px">🔍</span>
+      <span class="popup-title">DLens</span>
+      <span style="font-size:11px;color:var(--secondary-label);flex:1;text-align:right">Q1 Watch</span>
+      <button class="popup-close">×</button>
+    </div>
+    <div class="popup-body">
+      <div class="segmented-control" style="margin-bottom:12px">
+        <button class="active">Collect</button>
+        <button>Compare</button>
+        <button>Library</button>
+      </div>
+      <div class="vibrancy-card preview-card" style="padding:10px 12px">
+        <div class="author-row">
+          <div class="avatar" style="width:28px;height:28px;border-radius:6px;font-size:12px">Z</div>
+          <div style="flex:1;min-width:0">
+            <div class="author-name" style="font-size:12px">@zuck</div>
+            <div class="author-badge" style="font-size:10px">Preview</div>
+          </div>
+        </div>
+        <div class="snippet" style="font-size:12px">Threads 新 AI 推薦功能...</div>
+        <div class="button-row">
+          <button class="btn-primary" style="font-size:12px;padding:6px 12px">Save</button>
+          <button class="btn-secondary" style="font-size:12px;padding:6px 12px">Open</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Footer -->
+  <div style="text-align:center;padding:20px 0;color:var(--tertiary-label);font-size:11px">
+    DLens macOS Card Design Mockup — April 2026
+  </div>
+
+</div>
+
+</body>
+</html>

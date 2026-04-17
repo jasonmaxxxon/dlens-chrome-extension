@@ -223,6 +223,68 @@ export function needsCaptureRefresh(item: SessionItem): boolean {
   return analysisStatus == null || analysisStatus === "pending" || analysisStatus === "running";
 }
 
+export const STALE_IN_FLIGHT_TIMEOUT_MS = 5 * 60 * 1000;
+
+function staleInFlightError(item: SessionItem): string {
+  const label = item.status === "succeeded" ? "analysis" : "backend";
+  return `No backend status update for over 5 minutes while waiting on ${label}. Retry from Library.`;
+}
+
+function isStaleInFlightItem(item: SessionItem, nowMs: number, timeoutMs: number): boolean {
+  if (!needsCaptureRefresh(item)) {
+    return false;
+  }
+  const lastStatusMs = item.lastStatusAt ? Date.parse(item.lastStatusAt) : NaN;
+  if (!Number.isFinite(lastStatusMs)) {
+    return false;
+  }
+  return nowMs - lastStatusMs >= timeoutMs;
+}
+
+export function expireStaleInFlightItems(
+  globalState: ExtensionGlobalState,
+  now = new Date().toISOString(),
+  timeoutMs = STALE_IN_FLIGHT_TIMEOUT_MS
+): ExtensionGlobalState {
+  const nowMs = Date.parse(now);
+  let changed = false;
+  const sessions = globalState.sessions.map((session) => {
+    let sessionChanged = false;
+    const items = session.items.map((item) => {
+      if (!isStaleInFlightItem(item, nowMs, timeoutMs)) {
+        return item;
+      }
+      sessionChanged = true;
+      changed = true;
+      return {
+        ...item,
+        status: "failed" as const,
+        completedAt: now,
+        lastStatusAt: now,
+        lastErrorKind: "stale_timeout",
+        lastError: staleInFlightError(item)
+      };
+    });
+    if (!sessionChanged) {
+      return session;
+    }
+    return {
+      ...session,
+      updatedAt: now,
+      items
+    };
+  });
+
+  if (!changed) {
+    return globalState;
+  }
+  return {
+    ...globalState,
+    sessions,
+    updatedAt: now
+  };
+}
+
 export function markSessionItemQueued(
   item: SessionItem,
   submit: CaptureTargetResponse,
@@ -261,6 +323,24 @@ export function reconcileSessionItem(item: SessionItem, job: JobSnapshot | null,
     lastStatusAt: now,
     lastErrorKind: job?.last_error_kind ?? null,
     lastError: job?.last_error ?? null
+  };
+}
+
+export function mergeRefreshResults(
+  item: SessionItem,
+  jobResult: PromiseSettledResult<JobSnapshot>,
+  captureResult: PromiseSettledResult<CaptureSnapshot>
+): { job: JobSnapshot | null; capture: CaptureSnapshot | null } {
+  const job = jobResult.status === "fulfilled" ? jobResult.value : item.latestJob;
+  const capture = captureResult.status === "fulfilled" ? captureResult.value : item.latestCapture;
+
+  if (jobResult.status === "rejected" && captureResult.status === "rejected") {
+    throw jobResult.reason instanceof Error ? jobResult.reason : new Error(String(jobResult.reason));
+  }
+
+  return {
+    job,
+    capture
   };
 }
 

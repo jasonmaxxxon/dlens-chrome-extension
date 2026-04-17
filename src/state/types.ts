@@ -1,10 +1,12 @@
 import type { CaptureSnapshot, JobSnapshot } from "../contracts/ingest";
 import type { TargetDescriptor } from "../contracts/target-descriptor";
 
-export type PopupPage = "collect" | "library" | "compare" | "settings";
+export type MainPage = "library" | "collect" | "compare" | "result";
+export type PopupPage = MainPage | "settings";
 export type SessionItemStatus = "saved" | "queued" | "running" | "succeeded" | "failed";
 export type InlineToastKind = "saved" | "queued";
 export type HoverCandidateStrength = "soft" | "hard";
+export type CompareTeaserState = "idle" | "loading" | "ready";
 
 export interface InlineToast {
   id: string;
@@ -26,6 +28,76 @@ export interface CommentPreview {
   author: string;
   text: string;
   likeCount: number | null;
+}
+
+export interface TechniqueDefinition {
+  key: string;
+  title: string;
+  summary: string;
+  whyItMatters?: string;
+  alias?: string;
+  clusterFit?: string;
+  triggerStrength?: number;
+  specificity?: number;
+  displayScore?: number;
+}
+
+export interface TechniqueEvidenceSnapshot {
+  commentId?: string;
+  author?: string;
+  text?: string;
+  likes?: number | null;
+  comments?: number | null;
+  reposts?: number | null;
+  forwards?: number | null;
+}
+
+export interface TechniqueReadingSnapshot {
+  id: string;
+  sessionId: string;
+  itemId: string;
+  side: "A" | "B";
+  clusterKey: string;
+  clusterTitle: string;
+  thesis: string;
+  techniques: TechniqueDefinition[];
+  evidence: TechniqueEvidenceSnapshot[];
+  savedAt: string;
+}
+
+export interface ActiveCompareDraft {
+  itemAId: string;
+  itemBId: string;
+  teaserState: CompareTeaserState;
+  teaserId: string | null;
+}
+
+export interface ActiveAnalysisResult {
+  resultId: string;
+  compareKey: string;
+  itemAId: string;
+  itemBId: string;
+  saved: boolean;
+  viewedAt: string;
+}
+
+export interface SavedAnalysisSnapshot {
+  resultId: string;
+  compareKey: string;
+  itemAId: string;
+  itemBId: string;
+  sourceLabelA: string;
+  sourceLabelB: string;
+  headline: string;
+  deck: string;
+  primaryTensionSummary: string;
+  groupSummary: string;
+  totalComments: number;
+  dateRangeLabel: string;
+  savedAt: string;
+  analysisVersion: string;
+  briefVersion: string;
+  briefSource: "ai" | "fallback";
 }
 
 export interface SessionItem {
@@ -67,11 +139,15 @@ export interface TabUiState {
   collectModeBannerVisible: boolean;
   popupOpen: boolean;
   popupPage: PopupPage;
+  currentMainPage: MainPage;
   currentPreview: TargetDescriptor | null;
   hoveredTarget: TargetDescriptor | null;
   hoveredTargetStrength: HoverCandidateStrength | null;
   flashPreview: TargetDescriptor | null;
   activeItemId: string | null;
+  activeCompareDraft: ActiveCompareDraft | null;
+  activeAnalysisResult: ActiveAnalysisResult | null;
+  lastViewedResultId: string | null;
   lastSavedToast: InlineToast | null;
   error: string | null;
   updatedAt: string | null;
@@ -106,12 +182,16 @@ export function createEmptyTabState(): TabUiState {
     selectionMode: false,
     collectModeBannerVisible: false,
     popupOpen: false,
-    popupPage: "collect",
+    popupPage: "library",
+    currentMainPage: "library",
     currentPreview: null,
     hoveredTarget: null,
     hoveredTargetStrength: null,
     flashPreview: null,
     activeItemId: null,
+    activeCompareDraft: null,
+    activeAnalysisResult: null,
+    lastViewedResultId: null,
     lastSavedToast: null,
     error: null,
     updatedAt: null
