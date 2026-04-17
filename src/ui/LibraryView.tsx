@@ -2,7 +2,7 @@ import { useState, type ReactNode } from "react";
 import type { TargetDescriptor } from "../contracts/target-descriptor";
 import { getLibraryItemUiState, type SessionProcessingSummary, type WorkerStatus } from "../state/processing-state";
 import type { SavedAnalysisSnapshot, SessionItem, SessionRecord, TechniqueReadingSnapshot } from "../state/types";
-import { PrimaryButton, SecondaryButton, TOKENS, lineClamp, viewRootStyle } from "./components";
+import { PrimaryButton, SecondaryButton, TOKENS, lineClamp, skeletonBlockStyle, viewRootStyle } from "./components";
 import { tokens } from "./tokens";
 
 // AR design tokens (matching Result page)
@@ -113,6 +113,8 @@ function PostCard({
   const accentColor = statusAccentColor(uiState.itemPhase);
   const labelColor = statusLabelColor(uiState.itemPhase);
   const bg = statusBg(uiState.itemPhase);
+  const showPendingSkeleton =
+    uiState.itemPhase === "queued" || uiState.itemPhase === "crawling" || uiState.itemPhase === "analyzing";
 
   return (
     <button
@@ -166,8 +168,20 @@ function PostCard({
           </span>
         </div>
 
-        {/* Keyword headword */}
-        {keywords.length > 0 ? (
+        {showPendingSkeleton ? (
+          <div data-library-card-skeleton="visible" style={{ display: "grid", gap: 10, padding: "0 13px 10px" }}>
+            <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
+              {["30%", "22%", "28%"].map((width, index) => (
+                <span key={index} style={skeletonBlockStyle(width, 16, { borderRadius: 999 })} />
+              ))}
+            </div>
+            <div style={{ display: "grid", gap: 6 }}>
+              <span style={skeletonBlockStyle("92%", 10)} />
+              <span style={skeletonBlockStyle("84%", 10)} />
+              <span style={skeletonBlockStyle("58%", 10)} />
+            </div>
+          </div>
+        ) : keywords.length > 0 ? (
           <div style={{ padding: "0 13px 5px", display: "flex", flexWrap: "wrap", gap: 4 }}>
             {keywords.map((kw, i) => (
               <span key={i} style={{
@@ -182,24 +196,30 @@ function PostCard({
         ) : null}
 
         {/* Text snippet */}
-        <div style={{
-          fontSize: 12, lineHeight: 1.52, color: AR.softInk,
-          padding: `${keywords.length ? "2px" : "0"} 13px 10px`,
-          ...lineClamp(2),
-        }}>
-          {item.descriptor.text_snippet || "—"}
-        </div>
+        {!showPendingSkeleton ? (
+          <div style={{
+            fontSize: 12, lineHeight: 1.52, color: AR.softInk,
+            padding: `${keywords.length ? "2px" : "0"} 13px 10px`,
+            ...lineClamp(2),
+          }}>
+            {item.descriptor.text_snippet || "—"}
+          </div>
+        ) : null}
 
         {/* Footer */}
         <div style={{
           display: "flex", alignItems: "center", justifyContent: "space-between",
           padding: "7px 13px 10px", borderTop: `0.5px solid ${AR.line}`,
         }}>
-          <span style={{ fontSize: 10, color: AR.dimInk }}>
-            {item.latestCapture?.analysis?.source_comment_count
-              ? `${item.latestCapture.analysis.source_comment_count} 則留言`
-              : item.descriptor.time_token_hint || "已儲存"}
-          </span>
+          {showPendingSkeleton ? (
+            <span style={skeletonBlockStyle("42%", 10)} />
+          ) : (
+            <span style={{ fontSize: 10, color: AR.dimInk }}>
+              {item.latestCapture?.analysis?.source_comment_count
+                ? `${item.latestCapture.analysis.source_comment_count} 則留言`
+                : item.descriptor.time_token_hint || "已儲存"}
+            </span>
+          )}
           {uiState.itemPhase === "ready" ? (
             <span style={{ fontSize: 10, fontWeight: 700, color: AR.blue }}>
               可比較 →

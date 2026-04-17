@@ -61,6 +61,7 @@ npx tsx --test tests/*.test.ts tests/*.test.tsx
 - **Processing error surfacing**: worker-drain failures no longer collapse to a generic `Processing failed` toast; popup now surfaces the backend/drain message and mirrors it into `tab.error`
 - **Processing strip** now sits outside the mode rail as a compact context strip: action-forward state, ready/total counts, and no dashboard-style breakdown
 - **Processing strip refinement (2026-04-08)**: the strip now uses a compact progress ring, explicit phase copy (`Capturing comments...` / `Mapping comments into clusters...` / `Preparing Compare...`), and skeleton placeholders instead of a dot-only waiting state
+- **Pending-state skeletons (2026-04-17)**: `LibraryView` pending rows and the Compare unavailable hero now render shimmer placeholders while posts are queued/crawling/analyzing; keep this visual-only, do not invent fake progress percentages, and keep new skeleton colors on shared token values.
 - **Rounded surface clip fix (2026-04-09)**: the popup shell now separates the rounded outer frame from the inner scroll viewport, and shared surface cards clip inner divider/list content by default so long comment/readiness surfaces no longer visually square off at the corners
 - **Compact compare verdict pass (2026-04-09)**: Compare hero now compresses the AI brief into a shorter verdict headline plus a localized `創作提示`, while the longer implication remains inside the expandable brief body; keyword pills are clickable and expand/focus the brief state, and compare-brief prompt guidance now asks for one-line verdicts and short actionable cues instead of mini-report paragraphs
 - **Compare section-anchor pass (2026-04-09, updated 2026-04-10)**: `Receipts`, `Discussion move`, and `A/B divergence` now use lighter 11px/600 anchors with spacing-first separation; compare field labels and post-header labels share the same lighter grammar, and section identity depends less on outer divider chrome
@@ -269,7 +270,7 @@ The full cluster pipeline runs in `dlens-ingest-core`, not in this repo:
 
 ### P3
 
-- no skeleton loading during crawl / analysis wait states
+- skeleton coverage is still partial outside Library pending rows and the Compare unavailable hero
 - compare cluster matching is still by rank, not by semantic/keyword overlap
 - folder/collection name is still not sent to backend
 - save/bookmark for interesting compare results is still unresolved and should stay lightweight until there is a real downstream destination

@@ -26,6 +26,7 @@ Settings is a separate utility drawer, not a primary tab.
 - Save posts into folders; rename / switch / delete folders
 - Queue single or all pending items to the ingest backend; `Process All` drains the worker
 - Job + analysis polling with late-analysis recovery after crawl success
+- Pending Library rows and the Compare unavailable hero now render shimmer placeholders during crawl / analyze waits instead of dropping straight to sparse copy
 - **Compare brief** (observation-first contract, prompt v6): `headline / supportingObservations[] / aReading / bReading / whyItMatters / creatorCue / keywords / audienceAlignment{Left,Right} / confidence`. Observations and side readings must cite evidence aliases (`e1..eN`) or they are rejected at parse time.
 - **Cluster interpretation** (prompt v3): each cluster carries separate `observation` + `reading` fields alongside its `oneLiner`.
 - **Evidence annotation layer** (prompt v1): per-quote `writerMeaning / discussionFunction / whyEffective / relationToCluster / phraseMarks`. Top 2 quotes per side (max 4 per compare).
@@ -42,7 +43,7 @@ Settings is a separate utility drawer, not a primary tab.
 |----------|-----|------|
 | P2 | `InPageCollectorApp.tsx` is ~1442 lines | Process rule caps this at 400 lines; see AGENTS.md. Still owns too much popup orchestration. |
 | P2 | Compare cluster pairing is rank-based, not semantic | |
-| P3 | No skeleton loading during crawl / analyze pending | Existing `ProcessingStrip` progress ring covers status, not content placeholders. |
+| P3 | Skeleton coverage is still partial outside Library pending rows and the Compare unavailable hero | Pending support-data sections still switch more abruptly than the new row/hero placeholders. |
 | P3 | Several `tests/compare-view.test.tsx` cases track intended support-data UI that is not fully wired (e.g. `群組 A` swipe detail label) | Test acts as spec; tracked as pre-existing before current work. |
 
 For earlier change history, see `git log`. Historical change bullets and per-PR tables have been removed from this file to keep it a state description, not a diary.

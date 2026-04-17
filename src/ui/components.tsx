@@ -229,6 +229,23 @@ export function lineClamp(lines: number): CSSProperties {
   };
 }
 
+export function skeletonBlockStyle(
+  width: string,
+  height: number,
+  extra?: CSSProperties
+): CSSProperties {
+  return {
+    width,
+    height,
+    display: "block",
+    borderRadius: tokens.radius.sm,
+    background: `linear-gradient(90deg, ${tokens.color.neutralSurfaceSoft} 0%, ${tokens.color.contextSurface} 50%, ${tokens.color.neutralSurfaceSoft} 100%)`,
+    backgroundSize: "180% 100%",
+    animation: "dlens-popup-shimmer 1.6s linear infinite",
+    ...extra
+  };
+}
+
 export function viewRootStyle(extra?: CSSProperties): CSSProperties {
   return {
     display: "grid",

@@ -29,7 +29,7 @@ import type {
   SelectedClusterDetail,
   SelectedClusterSupportMetric
 } from "../analysis/types.ts";
-import { EvidenceMetricRow, PrimaryButton } from "./components.tsx";
+import { EvidenceMetricRow, PrimaryButton, skeletonBlockStyle } from "./components.tsx";
 import { TechniqueView } from "./TechniqueView.tsx";
 import type { EvidenceAnnotation, EvidenceAnnotationRequest } from "../compare/evidence-annotation.ts";
 const ACCENT_BORDER = "rgba(99,102,241,0.18)";
@@ -2044,6 +2044,14 @@ function CompareUnavailableBridge({
     return readiness === "queued" || readiness === "crawling";
   }).length;
   const failedCount = session.items.filter((item) => getItemReadinessStatus(item) === "failed").length;
+  const pendingItem =
+    session.items.find((item) => getItemReadinessStatus(item) === "analyzing")
+    || session.items.find((item) => {
+      const readiness = getItemReadinessStatus(item);
+      return readiness === "queued" || readiness === "crawling";
+    })
+    || null;
+  const pendingStatus = pendingItem ? getItemReadinessStatus(pendingItem) : null;
 
   const explanation =
     analyzingCount > 0
@@ -2075,6 +2083,43 @@ function CompareUnavailableBridge({
         <div style={{ fontSize: 13, color: T.sub, lineHeight: 1.6, ...WRAP_ANYWHERE }}>{explanation}</div>
       </div>
 
+      <div
+        data-result-hero-skeleton="visible"
+        data-result-hero-pending-status={pendingStatus || "idle"}
+        style={{
+          display: "grid",
+          gap: 12,
+          padding: "15px 15px 14px",
+          borderRadius: 12,
+          background: AR.card,
+          boxShadow: "0 2px 16px rgba(0,0,0,0.065)"
+        }}
+      >
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8 }}>
+          <div style={{ display: "inline-flex", alignItems: "center", gap: 5, background: tokens.color.neutralSurfaceSoft, borderRadius: 999, padding: "4px 9px" }}>
+            <span style={{ width: 6, height: 6, borderRadius: "50%", background: analyzingCount > 0 ? T.running : T.warn, flexShrink: 0 }} />
+            <span style={{ fontSize: 10.5, fontWeight: 700, color: T.sub }}>Result pending</span>
+          </div>
+          {pendingItem ? (
+            <div style={{ fontSize: 10, color: T.soft, minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+              @{pendingItem.descriptor.author_hint || "pending"}
+            </div>
+          ) : null}
+        </div>
+
+        <div style={{ display: "grid", gap: 8 }}>
+          <span style={skeletonBlockStyle("72%", 16)} />
+          <span style={skeletonBlockStyle("94%", 10)} />
+          <span style={skeletonBlockStyle("86%", 10)} />
+        </div>
+
+        <div data-compare-bridge-skeleton="visible" style={{ display: "flex", gap: 8 }}>
+          {["46%", "30%"].map((width, index) => (
+            <span key={index} style={skeletonBlockStyle(width, 26, { borderRadius: 999 })} />
+          ))}
+        </div>
+      </div>
+
       <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
         <span
           aria-hidden="true"
@@ -2088,19 +2133,11 @@ function CompareUnavailableBridge({
             flexShrink: 0
           }}
         />
-        <div data-compare-bridge-skeleton="visible" style={{ display: "grid", gap: 6, flex: 1 }}>
+        <div style={{ display: "grid", gap: 6, flex: 1 }}>
           {["64%", "52%"].map((width, index) => (
             <span
               key={index}
-              style={{
-                width,
-                height: 6,
-                borderRadius: tokens.radius.sm,
-                background: "linear-gradient(90deg, rgba(148,163,184,0.10) 0%, rgba(148,163,184,0.22) 50%, rgba(148,163,184,0.10) 100%)",
-                backgroundSize: "180% 100%",
-                animation: "dlens-popup-shimmer 1.6s linear infinite",
-                display: "block"
-              }}
+              style={skeletonBlockStyle(width, 6)}
             />
           ))}
         </div>
