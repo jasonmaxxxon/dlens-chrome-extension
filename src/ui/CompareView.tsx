@@ -878,10 +878,10 @@ function itemLabel(item: SessionItem, index: number): string {
 function SectionLabel({ children, color }: { children: React.ReactNode; color?: string }) {
   return (
     <div style={{
-      fontSize: 11,
+      fontSize: 12,
       fontWeight: 600,
       color: color || T.soft,
-      letterSpacing: "0.06em",
+      letterSpacing: "0.02em",
       lineHeight: 1.4
     }}>
       {children}
@@ -902,7 +902,7 @@ function PostHeader({ post, label, color, borderColor, commentCount }: {
     <div style={{ padding: "12px 14px", borderRadius: 12, background: color, border: `1.5px solid ${borderColor}`, minWidth: 0 }}>
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", marginBottom: 4, gap: 6, minWidth: 0 }}>
         <div style={{ minWidth: 0 }}>
-          <span style={{ fontSize: 11, fontWeight: 600, color: T.soft, letterSpacing: "0.06em", lineHeight: 1.4 }}>{label}</span>
+          <span style={{ fontSize: 12, fontWeight: 600, color: T.soft, letterSpacing: "0.02em", lineHeight: 1.4 }}>{label}</span>
           <span style={{ fontSize: 14, fontWeight: 800, color: T.ink, marginLeft: 8, ...WRAP_ANYWHERE }}>@{post.author || "unknown"}</span>
         </div>
         <span style={{ fontSize: 11, color: T.soft, whiteSpace: "nowrap" as const }}>{getPostAge(post).label}</span>
@@ -2960,7 +2960,9 @@ export const compareViewTestables = {
   resolveClusterSurface,
   selectedClusterDetailFromSurface,
   resolveEvidenceKeywordFilter,
-  ResultTrustStrip
+  ResultTrustStrip,
+  SectionLabel,
+  PostHeader
 };
 
 export function CompareView({ session, settings, onGoToLibrary, forcedSelection = null, hideSelector = false }: CompareViewProps) {

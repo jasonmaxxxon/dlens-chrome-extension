@@ -880,6 +880,35 @@ test("CompareView uses lighter section anchors instead of uppercase chrome", () 
   assert.doesNotMatch(html, /text-transform:uppercase/);
 });
 
+test("CompareView uses 12px/600 label typography for section anchors", () => {
+  const sectionHtml = renderToStaticMarkup(
+    React.createElement(compareViewTestables.SectionLabel, { color: "#172033" }, "Receipts")
+  );
+  const headerHtml = renderToStaticMarkup(
+    React.createElement(compareViewTestables.PostHeader, {
+      post: {
+        author: "alpha",
+        text: "post cap-a",
+        metrics: { comments: 5 },
+        metricPresent: { likes: true, comments: true, reposts: true, forwards: true, views: true },
+        postedAt: "2026-03-24T07:22:21.000Z",
+        timeTokenHint: "1h"
+      },
+      label: "Post A",
+      color: "rgba(79,70,229,0.07)",
+      borderColor: "rgba(99,102,241,0.18)",
+      commentCount: 5
+    })
+  );
+
+  assert.match(sectionHtml, /font-size:12px;font-weight:600[^>]*letter-spacing:0\.02em[^>]*>Receipts</);
+  assert.match(headerHtml, /font-size:12px;font-weight:600[^>]*letter-spacing:0\.02em[^>]*>Post A</);
+  assert.doesNotMatch(sectionHtml, /text-transform:uppercase/);
+  assert.doesNotMatch(headerHtml, /text-transform:uppercase/);
+  assert.doesNotMatch(sectionHtml, /letter-spacing:0\.06em/);
+  assert.doesNotMatch(headerHtml, /letter-spacing:0\.06em/);
+});
+
 test("CompareView auto-selects a distinct ready pair", () => {
   const html = renderToStaticMarkup(
     React.createElement(CompareView, {

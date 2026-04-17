@@ -30,6 +30,7 @@ Settings is a separate utility drawer, not a primary tab.
 - **Cluster interpretation** (prompt v3): each cluster carries separate `observation` + `reading` fields alongside its `oneLiner`.
 - **Evidence annotation layer** (prompt v1): per-quote `writerMeaning / discussionFunction / whyEffective / relationToCluster / phraseMarks`. Top 2 quotes per side (max 4 per compare).
 - **No fabricated per-quote copy.** When AI annotation is unavailable the UI renders an explicit `（尚未個別分析此留言）` empty state. Cluster-level prose is never copy-pasted into individual `DictionaryCard`s.
+- **Compare labels stay sentence-case.** `SectionLabel` and `PostHeader` use `12px / 600 / 0.02em` label styling instead of all-caps chrome.
 - MV3 service-worker wake recovery (global state cache, warm cache, resume running polls)
 - User-supplied Google / OpenAI / Claude key (Google default); keys stay local, 30s timeout + 2 retries for provider calls, bounded LRU caches for briefs / one-liners / cluster summaries
 
