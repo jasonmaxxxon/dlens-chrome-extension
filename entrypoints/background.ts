@@ -12,6 +12,7 @@ import type { ExtensionMessage, ExtensionResponse, StartProcessingResponse, Work
 import {
   buildCompareBriefCacheKey,
   buildDeterministicCompareBrief,
+  normalizeCompareBrief,
   type CompareBrief,
   type CompareBriefRequest
 } from "../src/compare/brief";
@@ -22,12 +23,21 @@ import {
   type CompareClusterSummaryRequest
 } from "../src/compare/cluster-interpretation";
 import {
+  buildEvidenceAnnotationCacheKey,
+  type EvidenceAnnotation,
+  type EvidenceAnnotationRequest
+} from "../src/compare/evidence-annotation";
+import { loadSavedAnalyses, saveSavedAnalysis } from "../src/compare/saved-analysis-storage";
+import { loadTechniqueReadings, saveTechniqueReading } from "../src/compare/technique-reading-storage";
+import {
   COMPARE_CLUSTER_SUMMARY_PROMPT_VERSION,
   COMPARE_BRIEF_PROMPT_VERSION,
   COMPARE_ONE_LINER_PROMPT_VERSION,
+  COMPARE_EVIDENCE_ANNOTATION_PROMPT_VERSION,
   generateCompareBrief,
   generateCompareClusterSummaries,
-  generateCompareOneLiner
+  generateCompareOneLiner,
+  generateEvidenceAnnotations
 } from "../src/compare/provider";
 import {
   createDefaultSettings,
@@ -42,8 +52,10 @@ import {
 import {
   createSessionRecord,
   deleteSession,
+  expireStaleInFlightItems,
   getActiveSession,
   markSessionItemQueued,
+  mergeRefreshResults,
   needsCaptureRefresh,
   reconcileSessionItem,
   renameSession,
@@ -51,14 +63,18 @@ import {
   setActiveSession,
   updateSessionItem
 } from "../src/state/store-helpers";
+import { buildRefreshFailureMessage } from "../src/state/refresh-errors";
 import { createAsyncLock } from "../src/state/snapshot-lock";
 import { applyHoveredPreview, createInlineToast, setCollectModeState } from "../src/state/ui-state";
+import { touchRecordCacheEntry, upsertRecordCacheEntry } from "../src/state/cache-helpers";
 
 const GLOBAL_STORAGE_KEY = "dlens:v0:global-state";
 const TAB_STORAGE_KEY_PREFIX = "dlens:v0:tab-ui:";
 const COMPARE_BRIEF_CACHE_KEY = "dlens:v1:compare-brief-cache";
 const COMPARE_ONE_LINER_CACHE_KEY = "dlens:v1:compare-one-liner-cache";
 const COMPARE_CLUSTER_SUMMARY_CACHE_KEY = "dlens:v1:compare-cluster-summary-cache";
+const COMPARE_EVIDENCE_ANNOTATION_CACHE_KEY = "dlens:v1:compare-evidence-annotation-cache";
+const COMPARE_CACHE_MAX_ENTRIES = 50;
 
 // In-memory hover state per tab — never persisted to storage
 const tabHoverCache = new Map<number, Pick<TabUiState, "hoveredTarget" | "hoveredTargetStrength" | "flashPreview" | "currentPreview">>();
@@ -83,9 +99,15 @@ interface ClusterSummaryCacheValue {
   generatedAt: string;
 }
 
+interface EvidenceAnnotationCacheValue {
+  items: EvidenceAnnotation[];
+  generatedAt: string;
+}
+
 type CompareBriefCache = Record<string, CompareBriefCacheValue>;
 type OneLinerCache = Record<string, OneLinerCacheValue>;
 type ClusterSummaryCache = Record<string, ClusterSummaryCacheValue>;
+type EvidenceAnnotationCache = Record<string, EvidenceAnnotationCacheValue>;
 
 function tabStorageKey(tabId: number): string {
   return `${TAB_STORAGE_KEY_PREFIX}${tabId}`;
@@ -119,12 +141,17 @@ async function resolveTabId(sender: chrome.runtime.MessageSender, explicitTabId?
 
 async function loadGlobalState(): Promise<ExtensionGlobalState> {
   const raw = await chrome.storage.local.get(GLOBAL_STORAGE_KEY);
-  return normalizeGlobalState(raw[GLOBAL_STORAGE_KEY] || createEmptyGlobalState());
+  const normalized = normalizeGlobalState(raw[GLOBAL_STORAGE_KEY] || createEmptyGlobalState());
+  const expired = expireStaleInFlightItems(normalized);
+  if (expired !== normalized) {
+    await chrome.storage.local.set({ [GLOBAL_STORAGE_KEY]: expired });
+  }
+  return expired;
 }
 
 async function loadTabState(tabId: number): Promise<TabUiState> {
   const raw = await chrome.storage.local.get(tabStorageKey(tabId));
-  return raw[tabStorageKey(tabId)] || createEmptyTabState();
+  return normalizeTabState(raw[tabStorageKey(tabId)] || createEmptyTabState());
 }
 
 async function loadSnapshot(tabId: number): Promise<ExtensionSnapshot> {
@@ -139,6 +166,20 @@ function normalizeGlobalState(state: ExtensionGlobalState): ExtensionGlobalState
       ...createDefaultSettings(),
       ...(state?.settings || {})
     }
+  };
+}
+
+function normalizeTabState(state: Partial<TabUiState> & { popupPage?: string | null }): TabUiState {
+  const base = createEmptyTabState();
+  const rawPopupPage: string = typeof state?.popupPage === "string" ? state.popupPage : "";
+  const currentMainPage = state?.currentMainPage || (rawPopupPage === "settings" ? base.currentMainPage : (rawPopupPage as TabUiState["currentMainPage"] | undefined)) || base.currentMainPage;
+  const popupPage = (rawPopupPage as TabUiState["popupPage"] | "") || currentMainPage;
+
+  return {
+    ...base,
+    ...(state || {}),
+    popupPage,
+    currentMainPage
   };
 }
 
@@ -169,6 +210,15 @@ async function saveClusterSummaryCache(cache: ClusterSummaryCache): Promise<void
   await chrome.storage.local.set({ [COMPARE_CLUSTER_SUMMARY_CACHE_KEY]: cache });
 }
 
+async function loadEvidenceAnnotationCache(): Promise<EvidenceAnnotationCache> {
+  const raw = await chrome.storage.local.get(COMPARE_EVIDENCE_ANNOTATION_CACHE_KEY);
+  return (raw[COMPARE_EVIDENCE_ANNOTATION_CACHE_KEY] || {}) as EvidenceAnnotationCache;
+}
+
+async function saveEvidenceAnnotationCache(cache: EvidenceAnnotationCache): Promise<void> {
+  await chrome.storage.local.set({ [COMPARE_EVIDENCE_ANNOTATION_CACHE_KEY]: cache });
+}
+
 function providerKeyForRequest(global: ExtensionGlobalState): { provider: "openai" | "claude" | "google"; apiKey: string } | null {
   const settings = normalizeGlobalState(global).settings;
   if (settings.oneLinerProvider === "google" && settings.googleApiKey?.trim()) {
@@ -191,17 +241,18 @@ async function getOrGenerateOneLiner(global: ExtensionGlobalState, request: Comp
   const cacheKey = buildCompareOneLinerCacheKey(request, providerConfig.provider, COMPARE_ONE_LINER_PROMPT_VERSION);
   const cache = await loadOneLinerCache();
   if (cache[cacheKey]?.text) {
+    await saveOneLinerCache(touchRecordCacheEntry(cache, cacheKey));
     return cache[cacheKey].text;
   }
   const text = (await generateCompareOneLiner(providerConfig.provider, providerConfig.apiKey, request)).trim();
   if (!text) {
     return null;
   }
-  cache[cacheKey] = {
+  const nextCache = upsertRecordCacheEntry(cache, cacheKey, {
     text,
     generatedAt: new Date().toISOString()
-  };
-  await saveOneLinerCache(cache);
+  }, COMPARE_CACHE_MAX_ENTRIES);
+  await saveOneLinerCache(nextCache);
   return text;
 }
 
@@ -220,19 +271,24 @@ async function getOrGenerateCompareBrief(
 
   const cacheKey = buildCompareBriefCacheKey(request, providerConfig.provider, COMPARE_BRIEF_PROMPT_VERSION);
   const cache = await loadCompareBriefCache();
-  if (cache[cacheKey]?.brief) {
-    return cache[cacheKey].brief;
+  const cached = cache[cacheKey]?.brief;
+  // Only use cache for AI-sourced results — don't serve a cached fallback when AI is now available
+  if (cached?.source === "ai") {
+    await saveCompareBriefCache(touchRecordCacheEntry(cache, cacheKey));
+    return normalizeCompareBrief(cached, fallback);
   }
 
   try {
     const brief = await generateCompareBrief(providerConfig.provider, providerConfig.apiKey, request);
-    cache[cacheKey] = {
-      brief,
+    const normalizedBrief = normalizeCompareBrief(brief, fallback);
+    const nextCache = upsertRecordCacheEntry(cache, cacheKey, {
+      brief: normalizedBrief,
       generatedAt: new Date().toISOString()
-    };
-    await saveCompareBriefCache(cache);
-    return brief;
-  } catch {
+    }, COMPARE_CACHE_MAX_ENTRIES);
+    await saveCompareBriefCache(nextCache);
+    return normalizedBrief;
+  } catch (err) {
+    console.error("[dlens] compare brief AI call failed:", err instanceof Error ? err.message : err);
     return fallback;
   }
 }
@@ -253,6 +309,7 @@ async function getOrGenerateClusterSummaries(
   );
   const cache = await loadClusterSummaryCache();
   if (cache[cacheKey]?.items?.length) {
+    await saveClusterSummaryCache(touchRecordCacheEntry(cache, cacheKey));
     return cache[cacheKey].items;
   }
 
@@ -260,18 +317,55 @@ async function getOrGenerateClusterSummaries(
   if (!items.length) {
     return [];
   }
-  cache[cacheKey] = {
+  const nextCache = upsertRecordCacheEntry(cache, cacheKey, {
     items,
     generatedAt: new Date().toISOString()
-  };
-  await saveClusterSummaryCache(cache);
+  }, COMPARE_CACHE_MAX_ENTRIES);
+  await saveClusterSummaryCache(nextCache);
   return items;
+}
+
+async function getOrGenerateEvidenceAnnotations(
+  global: ExtensionGlobalState,
+  request: EvidenceAnnotationRequest
+): Promise<EvidenceAnnotation[]> {
+  if (!request.quotes.length) {
+    return [];
+  }
+
+  const providerConfig = providerKeyForRequest(global);
+  if (!providerConfig) {
+    return [];
+  }
+
+  const cacheKey = buildEvidenceAnnotationCacheKey(request, providerConfig.provider, COMPARE_EVIDENCE_ANNOTATION_PROMPT_VERSION);
+  const cache = await loadEvidenceAnnotationCache();
+  if (cache[cacheKey]?.items?.length) {
+    await saveEvidenceAnnotationCache(touchRecordCacheEntry(cache, cacheKey));
+    return cache[cacheKey].items;
+  }
+
+  try {
+    const items = await generateEvidenceAnnotations(providerConfig.provider, providerConfig.apiKey, request);
+    if (!items.length) {
+      return [];
+    }
+    const nextCache = upsertRecordCacheEntry(cache, cacheKey, {
+      items,
+      generatedAt: new Date().toISOString()
+    }, COMPARE_CACHE_MAX_ENTRIES);
+    await saveEvidenceAnnotationCache(nextCache);
+    return items;
+  } catch (err) {
+    console.error("[dlens] evidence annotation AI call failed:", err instanceof Error ? err.message : err);
+    return [];
+  }
 }
 
 async function saveSnapshot(tabId: number, snapshot: ExtensionSnapshot): Promise<ExtensionSnapshot> {
   const nextSnapshot = {
     global: withTimestamp(snapshot.global),
-    tab: withTimestamp(snapshot.tab)
+    tab: withTimestamp(normalizeTabState(snapshot.tab))
   };
   // Invalidate global cache so next loadGlobalState() reads fresh data
   globalStateCache = nextSnapshot.global;
@@ -381,7 +475,8 @@ async function saveCurrentPreviewToSession(tabId: number): Promise<ExtensionSnap
       tab: {
         ...current.tab,
         popupOpen: true,
-        popupPage: "collect",
+        popupPage: "library",
+        currentMainPage: "library",
         error: null
       }
     });
@@ -422,6 +517,7 @@ async function createSession(tabId: number, name: string, saveCurrentPreview = f
 
   let activeItemId = current.tab.activeItemId;
   let popupPage = current.tab.popupPage;
+  let currentMainPage = current.tab.currentMainPage;
   let lastSavedToast = current.tab.lastSavedToast;
   if (saveCurrentPreview) {
     if (!current.tab.currentPreview) {
@@ -430,7 +526,8 @@ async function createSession(tabId: number, name: string, saveCurrentPreview = f
     const saved = saveDescriptorToSession(globalState, session.id, current.tab.currentPreview);
     globalState = saved.globalState;
     activeItemId = saved.item.id;
-    popupPage = "collect";
+    popupPage = "library";
+    currentMainPage = "library";
     lastSavedToast = createInlineToast("saved", session.name);
   }
 
@@ -440,6 +537,7 @@ async function createSession(tabId: number, name: string, saveCurrentPreview = f
       ...current.tab,
       activeItemId,
       popupPage,
+      currentMainPage,
       lastSavedToast,
       error: null
     }
@@ -470,7 +568,8 @@ async function deleteExistingSession(tabId: number, sessionId: string): Promise<
       ...current.tab,
       activeItemId: nextItemId,
       currentPreview: nextItem?.descriptor || current.tab.hoveredTarget,
-      popupPage: nextSession ? "library" : "collect",
+      popupPage: "library",
+      currentMainPage: "library",
       error: null
     }
   });
@@ -489,6 +588,7 @@ async function setActiveSessionById(tabId: number, sessionId: string): Promise<E
       activeItemId,
       currentPreview: activeItem?.descriptor || current.tab.hoveredTarget,
       popupPage: "library",
+      currentMainPage: "library",
       error: null
     }
   });
@@ -506,6 +606,7 @@ async function setActiveItem(tabId: number, sessionId: string, itemId: string): 
       activeItemId: itemId,
       currentPreview: item?.descriptor || current.tab.currentPreview,
       popupPage: "library",
+      currentMainPage: "library",
       error: null
     }
   });
@@ -545,6 +646,7 @@ async function queueSessionItem(
         ...current.tab,
         activeItemId: itemId,
         popupPage: "library",
+        currentMainPage: "library",
         lastSavedToast: createInlineToast("queued", session.name),
         error: null
       }
@@ -612,10 +714,11 @@ async function refreshItem(
     }
 
     const baseUrl = normalizeBaseUrl(current.global.settings.ingestBaseUrl);
-    const [job, capture] = await Promise.all([
+    const [jobResult, captureResult] = await Promise.allSettled([
       fetchJob(baseUrl, item.jobId),
       fetchCapture(baseUrl, item.captureId)
     ]);
+    const { job, capture } = mergeRefreshResults(item, jobResult, captureResult);
 
     const globalState = updateSessionItem(current.global, sessionId, itemId, (existing) =>
       reconcileSessionItem(existing, job, capture)
@@ -654,6 +757,7 @@ async function refreshAllItems(tabId: number, sessionId?: string): Promise<Exten
   }
 
   const refreshable = session.items.filter((item) => needsCaptureRefresh(item));
+  let firstFailureMessage: string | null = null;
 
   // Keep refresh sequential so later saves cannot overwrite earlier item updates.
   for (const item of refreshable) {
@@ -662,10 +766,21 @@ async function refreshAllItems(tabId: number, sessionId?: string): Promise<Exten
       snapshot = result.snapshot;
     } catch (error) {
       console.error("failed to refresh session item", error);
+      if (!firstFailureMessage) {
+        const itemIndex = session.items.findIndex((candidate) => candidate.id === item.id);
+        const itemLabel = `#${itemIndex + 1} ${item.descriptor.author_hint || "Unknown"}`;
+        firstFailureMessage = buildRefreshFailureMessage(itemLabel, error);
+      }
     }
   }
 
-  return snapshot;
+  return saveSnapshot(tabId, {
+    global: snapshot.global,
+    tab: {
+      ...snapshot.tab,
+      error: firstFailureMessage
+    }
+  });
 }
 
 export default defineBackground(() => {
@@ -730,10 +845,11 @@ export default defineBackground(() => {
 
       const results = await Promise.allSettled(
         inFlight.map(async (item) => {
-          const [job, capture] = await Promise.all([
+          const [jobResult, captureResult] = await Promise.allSettled([
             fetchJob(baseUrl, item.jobId!),
             fetchCapture(baseUrl, item.captureId!)
           ]);
+          const { job, capture } = mergeRefreshResults(item, jobResult, captureResult);
           return { itemId: item.id, sessionId: session.id, job, capture };
         })
       );
@@ -835,12 +951,14 @@ export default defineBackground(() => {
           }
           case "popup/navigate-active-tab": {
             const tabId = await resolveTabId(sender);
+            const current = await loadSnapshot(tabId);
             sendResponse({
               ok: true,
               tabId,
               snapshot: await patchSnapshot(tabId, {
                 tab: {
                   popupPage: message.page,
+                  currentMainPage: message.page === "settings" ? current.tab.currentMainPage : message.page,
                   popupOpen: true,
                   error: null
                 }
@@ -920,7 +1038,8 @@ export default defineBackground(() => {
                 tab: {
                   ...applyHoveredPreview(setCollectModeState(current.tab, false), message.descriptor),
                   popupOpen: true,
-                  popupPage: "collect",
+                  popupPage: "library",
+                  currentMainPage: "library",
                   error: null
                 }
               })
@@ -1063,16 +1182,31 @@ export default defineBackground(() => {
             const current = await loadSnapshot(tabId);
             try {
               const processing = await triggerWorkerDrain(normalizeBaseUrl(current.global.settings.ingestBaseUrl));
+              const snapshot = await saveSnapshot(tabId, {
+                global: current.global,
+                tab: {
+                  ...current.tab,
+                  error: null
+                }
+              });
               sendResponse({
                 ok: true,
                 tabId,
-                snapshot: current,
+                snapshot,
                 processingStatus: processing.status
               } satisfies StartProcessingResponse);
             } catch (error) {
+              const message = error instanceof Error ? error.message : String(error);
+              await saveSnapshot(tabId, {
+                global: current.global,
+                tab: {
+                  ...current.tab,
+                  error: message
+                }
+              }).catch(() => undefined);
               sendResponse({
                 ok: false,
-                error: error instanceof Error ? error.message : String(error)
+                error: message
               } satisfies StartProcessingResponse);
             }
             return;
@@ -1127,6 +1261,107 @@ export default defineBackground(() => {
               tabId,
               clusterInterpretations
             } satisfies ExtensionResponse);
+            return;
+          }
+          case "compare/get-evidence-annotations": {
+            const tabId = await resolveTabId(sender);
+            const snapshot = await loadSnapshot(tabId);
+            const evidenceAnnotations = await getOrGenerateEvidenceAnnotations(snapshot.global, message.request);
+            sendResponse({
+              ok: true,
+              tabId,
+              evidenceAnnotations
+            } satisfies ExtensionResponse);
+            return;
+          }
+          case "compare/get-technique-readings": {
+            const tabId = await resolveTabId(sender);
+            const techniqueReadings = await loadTechniqueReadings(chrome.storage.local);
+            sendResponse({
+              ok: true,
+              tabId,
+              techniqueReadings
+            } satisfies ExtensionResponse);
+            return;
+          }
+          case "compare/save-technique-reading": {
+            const tabId = await resolveTabId(sender);
+            await saveTechniqueReading(chrome.storage.local, message.snapshot);
+            sendResponse({
+              ok: true,
+              tabId
+            } satisfies ExtensionResponse);
+            return;
+          }
+          case "compare/get-saved-analyses": {
+            const tabId = await resolveTabId(sender);
+            const savedAnalyses = await loadSavedAnalyses(chrome.storage.local);
+            sendResponse({
+              ok: true,
+              tabId,
+              savedAnalyses
+            } satisfies ExtensionResponse);
+            return;
+          }
+          case "compare/save-analysis": {
+            const tabId = await resolveTabId(sender);
+            const savedAnalyses = await saveSavedAnalysis(chrome.storage.local, message.snapshot);
+            const current = await loadSnapshot(tabId);
+            const snapshot = await saveSnapshot(tabId, {
+              global: current.global,
+              tab: {
+                ...current.tab,
+                lastViewedResultId: message.snapshot.resultId,
+                activeAnalysisResult: {
+                  resultId: message.snapshot.resultId,
+                  compareKey: message.snapshot.compareKey,
+                  itemAId: message.snapshot.itemAId,
+                  itemBId: message.snapshot.itemBId,
+                  saved: true,
+                  viewedAt: message.snapshot.savedAt
+                },
+                popupPage: "result",
+                currentMainPage: "result",
+                error: null
+              }
+            });
+            sendResponse({
+              ok: true,
+              tabId,
+              snapshot,
+              savedAnalyses
+            } satisfies ExtensionResponse);
+            return;
+          }
+          case "compare/set-active-draft": {
+            const tabId = await resolveTabId(sender);
+            const current = await loadSnapshot(tabId);
+            const snapshot = await saveSnapshot(tabId, {
+              global: current.global,
+              tab: {
+                ...current.tab,
+                activeCompareDraft: message.draft,
+                error: null
+              }
+            });
+            sendResponse({ ok: true, tabId, snapshot } satisfies ExtensionResponse);
+            return;
+          }
+          case "compare/set-active-result": {
+            const tabId = await resolveTabId(sender);
+            const current = await loadSnapshot(tabId);
+            const snapshot = await saveSnapshot(tabId, {
+              global: current.global,
+              tab: {
+                ...current.tab,
+                activeAnalysisResult: message.result,
+                lastViewedResultId: message.result?.resultId || current.tab.lastViewedResultId,
+                popupPage: message.result ? "result" : current.tab.popupPage,
+                currentMainPage: message.result ? "result" : current.tab.currentMainPage,
+                error: null
+              }
+            });
+            sendResponse({ ok: true, tabId, snapshot } satisfies ExtensionResponse);
             return;
           }
           default: {

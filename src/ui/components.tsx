@@ -1,10 +1,12 @@
 import type { CSSProperties, ReactNode } from "react";
 
 import type { TargetDescriptor } from "../contracts/target-descriptor.ts";
-import type { WorkerStatus } from "../state/processing-state.ts";
+import type { WorkerStatus, WorkspaceMode } from "../state/processing-state.ts";
 import { TOKENS, tokens } from "./tokens";
 
 export { TOKENS } from "./tokens";
+
+/* ─── HUD Icon Button (thin ghost circle) ─── */
 
 export function IconButton({
   children,
@@ -23,25 +25,28 @@ export function IconButton({
       onClick={onClick}
       disabled={disabled}
       style={{
-        width: 36,
-        height: 36,
-        borderRadius: tokens.radius.pill,
+        width: 32,
+        height: 32,
+        borderRadius: tokens.radius.sm,
         border: `1px solid ${tokens.color.glassBorder}`,
-        background: tokens.color.glassBg,
+        background: tokens.color.surface,
         backdropFilter: tokens.effect.glassBlur,
         WebkitBackdropFilter: tokens.effect.glassBlur,
-        color: tokens.color.ink,
+        boxShadow: tokens.shadow.glass,
+        color: disabled ? tokens.color.softInk : tokens.color.subInk,
         display: "grid",
         placeItems: "center",
         cursor: disabled ? "not-allowed" : "pointer",
-        opacity: disabled ? 0.4 : 1,
-        transition: tokens.motion.transition
+        opacity: disabled ? 0.35 : 1,
+        transition: tokens.motion.interactiveTransitionFast
       }}
     >
       {children}
     </button>
   );
 }
+
+/* ─── Status Theme ─── */
 
 export function statusTheme(status: string) {
   switch (status) {
@@ -60,49 +65,39 @@ export function statusTheme(status: string) {
   }
 }
 
-export function MetricIcon({ kind }: { kind: "likes" | "comments" | "reposts" | "forwards" }) {
+/* ─── Metric Icons (SVG) ─── */
+
+export function MetricIcon({
+  kind,
+  size = 13
+}: {
+  kind: "likes" | "comments" | "reposts" | "forwards";
+  size?: number;
+}) {
   const common = {
-    width: 14,
-    height: 14,
+    width: size,
+    height: size,
     viewBox: "0 0 24 24",
     fill: "none",
     stroke: "currentColor",
-    strokeWidth: 1.8,
+    strokeWidth: 1.6,
     strokeLinecap: "round" as const,
     strokeLinejoin: "round" as const
   };
 
   switch (kind) {
     case "likes":
-      return (
-        <svg {...common}>
-          <path d="M12 20.5s-6.5-4.35-8.5-7.05C1.1 10.17 2.18 6.5 5.82 6.5c1.92 0 3.1.95 4.02 2.2C10.76 7.45 11.94 6.5 13.86 6.5 17.5 6.5 18.58 10.17 20.5 13.45 18.5 16.15 12 20.5 12 20.5Z" />
-        </svg>
-      );
+      return <svg {...common}><path d="M12 20.5s-6.5-4.35-8.5-7.05C1.1 10.17 2.18 6.5 5.82 6.5c1.92 0 3.1.95 4.02 2.2C10.76 7.45 11.94 6.5 13.86 6.5 17.5 6.5 18.58 10.17 20.5 13.45 18.5 16.15 12 20.5 12 20.5Z" /></svg>;
     case "comments":
-      return (
-        <svg {...common}>
-          <path d="M7 17.5h6l4 3v-3h.5A2.5 2.5 0 0 0 20 15V7a2.5 2.5 0 0 0-2.5-2.5h-11A2.5 2.5 0 0 0 4 7v8A2.5 2.5 0 0 0 6.5 17.5H7Z" />
-        </svg>
-      );
+      return <svg {...common}><path d="M7 17.5h6l4 3v-3h.5A2.5 2.5 0 0 0 20 15V7a2.5 2.5 0 0 0-2.5-2.5h-11A2.5 2.5 0 0 0 4 7v8A2.5 2.5 0 0 0 6.5 17.5H7Z" /></svg>;
     case "reposts":
-      return (
-        <svg {...common}>
-          <path d="M7 7h10l-2.5-2.5" />
-          <path d="M17 17H7l2.5 2.5" />
-          <path d="M17 7v4" />
-          <path d="M7 17v-4" />
-        </svg>
-      );
+      return <svg {...common}><path d="M7 7h10l-2.5-2.5" /><path d="M17 17H7l2.5 2.5" /><path d="M17 7v4" /><path d="M7 17v-4" /></svg>;
     case "forwards":
-      return (
-        <svg {...common}>
-          <path d="M21 4 10 15" />
-          <path d="m21 4-7 16-4-5-5-4 16-7Z" />
-        </svg>
-      );
+      return <svg {...common}><path d="M21 4 10 15" /><path d="m21 4-7 16-4-5-5-4 16-7Z" /></svg>;
   }
 }
+
+/* ─── Metric Chip (compact, airy) ─── */
 
 export function MetricChip({
   kind,
@@ -116,17 +111,18 @@ export function MetricChip({
   return (
     <span
       style={{
-        padding: "4px 10px",
+        padding: "3px 8px",
         borderRadius: 999,
-        background: present ? tokens.color.accentSoft : tokens.color.neutralSurface,
-        color: present ? tokens.color.accent : tokens.color.softInk,
-        fontSize: 11,
+        background: present ? "rgba(79,70,229,0.09)" : tokens.color.neutralSurfaceSoft,
+        border: present ? "1px solid rgba(99,102,241,0.10)" : `1px solid ${tokens.color.glassBorder}`,
+        color: present ? tokens.color.cyan : tokens.color.softInk,
+        fontSize: 10,
         fontWeight: 600,
         display: "inline-flex",
         alignItems: "center",
-        gap: 5,
-        letterSpacing: "0.01em",
-        transition: tokens.motion.transition
+        gap: 4,
+        letterSpacing: "0.02em",
+        transition: tokens.motion.interactiveTransitionFast
       }}
     >
       <MetricIcon kind={kind} />
@@ -135,30 +131,85 @@ export function MetricChip({
   );
 }
 
+function formatCompactMetricValue(value: number | null | undefined): string {
+  if (value == null || !Number.isFinite(value)) return "—";
+  if (value >= 1000) return `${Math.floor(value / 1000)}k+`;
+  if (value <= -1000) return `-${Math.floor(Math.abs(value) / 1000)}k+`;
+  return String(value);
+}
+
+export function EvidenceMetricRow({
+  metrics
+}: {
+  metrics: {
+    likes?: number | null;
+    comments?: number | null;
+    reposts?: number | null;
+    forwards?: number | null;
+  };
+}) {
+  const items = [
+    { kind: "likes" as const, value: metrics.likes ?? null, tone: tokens.color.failed, bg: tokens.color.failedSoft },
+    { kind: "comments" as const, value: metrics.comments ?? null, tone: tokens.color.accent, bg: tokens.color.accentSoft },
+    { kind: "reposts" as const, value: metrics.reposts ?? null, tone: tokens.color.subInk, bg: tokens.color.neutralSurfaceSoft },
+    { kind: "forwards" as const, value: metrics.forwards ?? null, tone: tokens.color.queued, bg: tokens.color.queuedSoft }
+  ];
+
+  return (
+    <span
+      data-evidence-metrics-row="single-line"
+      style={{ display: "inline-flex", flexWrap: "nowrap", gap: 6, minWidth: 0, maxWidth: "100%", overflowX: "auto", scrollbarWidth: "none" }}
+    >
+      {items.map((item) => (
+        <span
+          key={item.kind}
+          data-evidence-metric={item.kind}
+          aria-label={`${item.kind} ${item.value}`}
+          style={{
+            padding: 0,
+            borderRadius: 999,
+            background: "transparent",
+            border: "none",
+            color: item.tone,
+            fontSize: 10,
+            fontWeight: 700,
+            display: "inline-flex",
+            alignItems: "center",
+            gap: 4,
+            minWidth: 0,
+            whiteSpace: "nowrap",
+            flex: "0 0 auto"
+          }}
+        >
+          <span
+            style={{
+              width: 18,
+              height: 18,
+              borderRadius: 999,
+              background: item.bg,
+              color: item.tone,
+              display: "inline-flex",
+              alignItems: "center",
+              justifyContent: "center",
+              flexShrink: 0
+            }}
+          >
+            <MetricIcon kind={item.kind} size={12} />
+          </span>
+          <span style={{ color: tokens.color.ink }}>{formatCompactMetricValue(item.value)}</span>
+        </span>
+      ))}
+    </span>
+  );
+}
+
 function previewMetrics(descriptor: TargetDescriptor | null | undefined) {
-  if (!descriptor) {
-    return [];
-  }
+  if (!descriptor) return [];
   return [
     <MetricChip key="likes" kind="likes" value={descriptor.engagement.likes} present={descriptor.engagement_present.likes} />,
-    <MetricChip
-      key="comments"
-      kind="comments"
-      value={descriptor.engagement.comments}
-      present={descriptor.engagement_present.comments}
-    />,
-    <MetricChip
-      key="reposts"
-      kind="reposts"
-      value={descriptor.engagement.reposts}
-      present={descriptor.engagement_present.reposts}
-    />,
-    <MetricChip
-      key="forwards"
-      kind="forwards"
-      value={descriptor.engagement.forwards}
-      present={descriptor.engagement_present.forwards}
-    />
+    <MetricChip key="comments" kind="comments" value={descriptor.engagement.comments} present={descriptor.engagement_present.comments} />,
+    <MetricChip key="reposts" kind="reposts" value={descriptor.engagement.reposts} present={descriptor.engagement_present.reposts} />,
+    <MetricChip key="forwards" kind="forwards" value={descriptor.engagement.forwards} present={descriptor.engagement_present.forwards} />
   ];
 }
 
@@ -166,6 +217,8 @@ function avatarFromAuthor(author: string | null | undefined) {
   const cleaned = (author || "").trim();
   return cleaned ? cleaned.slice(0, 1).toUpperCase() : "D";
 }
+
+/* ─── Utility helpers ─── */
 
 export function lineClamp(lines: number): CSSProperties {
   return {
@@ -176,55 +229,293 @@ export function lineClamp(lines: number): CSSProperties {
   };
 }
 
-export function surfaceCardStyle(extra?: CSSProperties): CSSProperties {
+export function viewRootStyle(extra?: CSSProperties): CSSProperties {
   return {
-    padding: 16,
-    borderRadius: tokens.radius.card,
-    background: tokens.color.glassBg,
-    backdropFilter: tokens.effect.glassBlur,
-    WebkitBackdropFilter: tokens.effect.glassBlur,
-    border: `1px solid ${tokens.color.glassBorder}`,
-    boxShadow: tokens.shadow.glass,
-    transition: tokens.motion.transition,
+    display: "grid",
+    gap: tokens.spacing.lg,
+    minWidth: 0,
+    overflowX: "hidden",
     ...extra
   };
 }
 
+/** Thin glass panel — the base building block */
+export function surfaceCardStyle(extra?: CSSProperties): CSSProperties {
+  return {
+    padding: tokens.spacing.section,
+    borderRadius: tokens.radius.card,
+    overflow: "hidden",
+    background: `linear-gradient(180deg, ${tokens.color.focusedSurface}, ${tokens.color.contentSurface})`,
+    backdropFilter: tokens.effect.glassBlur,
+    WebkitBackdropFilter: tokens.effect.glassBlur,
+    border: `1px solid ${tokens.color.line}`,
+    boxShadow: tokens.shadow.shell,
+    transition: tokens.motion.interactiveTransition,
+    ...extra
+  };
+}
+
+const PRIMARY_WORKSPACE_MODES: ReadonlyArray<{ key: WorkspaceMode; label: string }> = [
+  { key: "library", label: "資料庫" },
+  { key: "compare", label: "比較" },
+  { key: "result", label: "結果" }
+];
+
+export function WorkspaceShell({
+  mode,
+  header,
+  contextStrip,
+  children
+}: {
+  mode: WorkspaceMode | "settings";
+  header: ReactNode;
+  contextStrip?: ReactNode;
+  children: ReactNode;
+}) {
+  return (
+    <div
+      data-workspace-shell="compare-first"
+      style={{
+        display: "grid",
+        gap: tokens.spacing.section,
+        minWidth: 0
+      }}
+    >
+      <header
+        data-shell-header="workspace"
+        style={{
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "space-between",
+          gap: 10
+        }}
+      >
+        {header}
+      </header>
+
+      {contextStrip ? (
+        <div data-shell-context-strip="processing">
+          {contextStrip}
+        </div>
+      ) : null}
+
+      <main data-workspace-mode={mode}>
+        {children}
+      </main>
+    </div>
+  );
+}
+
+export function ModeRail({
+  activeMode,
+  onSelect
+}: {
+  activeMode: WorkspaceMode | null;
+  onSelect: (mode: WorkspaceMode) => void;
+}) {
+  return (
+    <nav
+      aria-label="Workspace modes"
+      data-mode-rail="primary"
+      style={{
+        display: "grid",
+        gridTemplateColumns: "repeat(4, minmax(0, 1fr))",
+        gap: 3,
+        flex: 1,
+        minWidth: 0,
+        padding: 3,
+        borderRadius: 12,
+        background: tokens.color.shellSurface,
+        border: `1px solid ${tokens.color.line}`,
+      }}
+    >
+      {PRIMARY_WORKSPACE_MODES.map((mode) => (
+        <ModeRailButton
+          key={mode.key}
+          mode={mode.key}
+          label={mode.label}
+          active={activeMode === mode.key}
+          onSelect={onSelect}
+        />
+      ))}
+    </nav>
+  );
+}
+
+export function ModeRailButton({
+  mode,
+  label,
+  active,
+  onSelect
+}: {
+  mode: WorkspaceMode;
+  label: string;
+  active: boolean;
+  onSelect: (mode: WorkspaceMode) => void;
+}) {
+  return (
+    <button
+      data-mode={mode}
+      data-mode-active={active ? "true" : "false"}
+      data-mode-style="pill"
+      onClick={() => onSelect(mode)}
+      style={{
+        border: "none",
+        borderRadius: 9,
+        minHeight: 30,
+        padding: "6px 4px",
+        background: active ? tokens.color.elevated : "transparent",
+        color: active ? tokens.color.ink : tokens.color.subInk,
+        fontSize: 11,
+        fontWeight: active ? 700 : 500,
+        letterSpacing: active ? "-0.01em" : "0",
+        textTransform: "none",
+        cursor: "pointer",
+        boxShadow: active ? "0 1px 3px rgba(0,0,0,0.10)" : "none",
+        transition: tokens.motion.interactiveTransition,
+        whiteSpace: "nowrap",
+        overflow: "hidden",
+        textOverflow: "ellipsis"
+      }}
+    >
+      {label}
+    </button>
+  );
+}
+
+export function UtilityEdge({
+  active,
+  onSelect
+}: {
+  active: boolean;
+  onSelect: () => void;
+}) {
+  return (
+    <div
+      data-utility-edge="workspace"
+      style={{
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "flex-end",
+        flexShrink: 0
+      }}
+    >
+      <button
+        data-utility-action="settings"
+        aria-pressed={active}
+        onClick={onSelect}
+        style={{
+          border: `1px solid ${active ? tokens.color.lineStrong : tokens.color.line}`,
+          borderRadius: 12,
+          minHeight: 42,
+          padding: "0 12px",
+          background: active ? tokens.color.elevated : tokens.color.utilitySurface,
+          color: active ? tokens.color.ink : tokens.color.subInk,
+          fontSize: 11,
+          fontWeight: 700,
+          letterSpacing: "0.04em",
+          display: "inline-flex",
+          alignItems: "center",
+          gap: 8,
+          cursor: "pointer",
+          boxShadow: active ? tokens.shadow.activeTab : "none",
+          transition: tokens.motion.interactiveTransition
+        }}
+      >
+        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+          <circle cx="12" cy="12" r="3" />
+          <path d="M19.4 15a1.7 1.7 0 0 0 .34 1.87l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.7 1.7 0 0 0-1.87-.34 1.7 1.7 0 0 0-1.04 1.55V21a2 2 0 1 1-4 0v-.09a1.7 1.7 0 0 0-1.04-1.55 1.7 1.7 0 0 0-1.87.34l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06A1.7 1.7 0 0 0 4.6 15a1.7 1.7 0 0 0-1.55-1.04H3a2 2 0 1 1 0-4h.09A1.7 1.7 0 0 0 4.6 8.4a1.7 1.7 0 0 0-.34-1.87L4.2 6.47a2 2 0 1 1 2.83-2.83l.06.06A1.7 1.7 0 0 0 8.96 4.04 1.7 1.7 0 0 0 10 2.5V2a2 2 0 1 1 4 0v.09a1.7 1.7 0 0 0 1.04 1.55 1.7 1.7 0 0 0 1.87-.34l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06A1.7 1.7 0 0 0 19.4 8.4c.68.28 1.12.94 1.12 1.67 0 .73-.44 1.39-1.12 1.67" />
+        </svg>
+        Settings
+      </button>
+    </div>
+  );
+}
+
+export function WorkspaceSurface({
+  tone = "content",
+  children,
+  style
+}: {
+  tone?: "content" | "focused" | "utility";
+  children: ReactNode;
+  style?: CSSProperties;
+}) {
+  let background: string | undefined;
+  let boxShadow: CSSProperties["boxShadow"] = tokens.shadow.shell;
+
+  if (tone === "utility") {
+    background = `linear-gradient(180deg, ${tokens.color.utilitySurface}, ${tokens.color.contentSurface})`;
+  }
+
+  if (tone === "focused") {
+    background = `linear-gradient(180deg, ${tokens.color.focusedSurface}, ${tokens.color.elevated})`;
+    boxShadow = tokens.shadow.focusedSurface;
+  }
+
+  return (
+    <section
+      data-workspace-surface={tone}
+      style={surfaceCardStyle({
+        padding: tokens.spacing.section,
+        background,
+        boxShadow,
+        minWidth: 0,
+        ...style
+      })}
+    >
+      {children}
+    </section>
+  );
+}
+
+/** HUD section label — uppercase, tracked, faint */
+export function hudLabel(): CSSProperties {
+  return {
+    fontSize: 9,
+    fontWeight: 600,
+    textTransform: "uppercase" as const,
+    letterSpacing: "0.12em",
+    color: tokens.color.softInk
+  };
+}
+
 export function formatElapsed(isoTime: string | null | undefined): string {
-  if (!isoTime) {
-    return "just now";
-  }
+  if (!isoTime) return "just now";
   const diffMs = Date.now() - new Date(isoTime).getTime();
-  if (!Number.isFinite(diffMs) || diffMs < 0) {
-    return "just now";
-  }
+  if (!Number.isFinite(diffMs) || diffMs < 0) return "just now";
   const totalSeconds = Math.max(0, Math.floor(diffMs / 1000));
   const minutes = Math.floor(totalSeconds / 60);
   const seconds = totalSeconds % 60;
   if (minutes >= 60) {
     const hours = Math.floor(minutes / 60);
-    const remMinutes = minutes % 60;
-    return `${hours}h ${remMinutes}m`;
+    return `${hours}h ${minutes % 60}m`;
   }
-  if (minutes > 0) {
-    return `${minutes}m ${seconds}s`;
-  }
-  return `${seconds}s`;
+  return minutes > 0 ? `${minutes}m ${seconds}s` : `${seconds}s`;
 }
 
-export function processingTone(workerStatus: WorkerStatus | null, ready: number, total: number) {
+/* ─── Processing Tone ─── */
+
+export function processingTone(workerStatus: WorkerStatus | null, ready: number, total: number, pending = 0) {
   if (total > 0 && ready >= 2 && ready === total) {
     return {
       background: tokens.color.successSoft,
-      border: "rgba(5,150,105,0.2)",
+      border: "rgba(52,211,153,0.18)",
       text: tokens.color.success
     };
   }
   if (workerStatus === "draining") {
     return {
       background: tokens.color.runningSoft,
-      border: "rgba(37,99,235,0.2)",
+      border: "rgba(96,165,250,0.18)",
       text: tokens.color.running
+    };
+  }
+  if (pending > 0) {
+    return {
+      background: "rgba(255,149,0,0.07)",
+      border: "rgba(255,149,0,0.18)",
+      text: "#b06200"
     };
   }
   return {
@@ -233,6 +524,8 @@ export function processingTone(workerStatus: WorkerStatus | null, ready: number,
     text: tokens.color.softInk
   };
 }
+
+/* ─── Primary Button (slim, glowing) ─── */
 
 export function PrimaryButton({
   children,
@@ -252,15 +545,17 @@ export function PrimaryButton({
       style={{
         border: "none",
         borderRadius: tokens.radius.pill,
-        padding: "10px 16px",
-        background: disabled ? tokens.color.disabledPrimary : `linear-gradient(135deg, ${tokens.color.accent}, #818cf8)`,
+        padding: "8px 14px",
+        background: disabled
+          ? tokens.color.disabledPrimary
+          : `linear-gradient(135deg, rgba(79,70,229,0.94), rgba(99,102,241,0.92))`,
         color: "#fff",
-        fontWeight: 700,
-        fontSize: 13,
-        letterSpacing: "0.01em",
+        fontWeight: 600,
+        fontSize: 12,
+        letterSpacing: "0.02em",
         cursor: disabled ? "not-allowed" : "pointer",
-        boxShadow: disabled ? "none" : tokens.shadow.accentButton,
-        transition: tokens.motion.transition,
+        boxShadow: disabled ? "none" : "0 8px 18px rgba(79,70,229,0.20)",
+        transition: tokens.motion.interactiveTransition,
         ...style
       }}
     >
@@ -268,6 +563,8 @@ export function PrimaryButton({
     </button>
   );
 }
+
+/* ─── Secondary Button (ghost outline) ─── */
 
 export function SecondaryButton({
   children,
@@ -287,15 +584,16 @@ export function SecondaryButton({
       style={{
         border: `1px solid ${tokens.color.glassBorder}`,
         borderRadius: tokens.radius.pill,
-        padding: "10px 16px",
-        background: disabled ? tokens.color.disabledSecondary : tokens.color.glassBg,
+        padding: "7px 14px",
+        background: tokens.color.surface,
         backdropFilter: tokens.effect.glassBlur,
         WebkitBackdropFilter: tokens.effect.glassBlur,
-        color: tokens.color.ink,
-        fontWeight: 600,
-        fontSize: 13,
+        color: disabled ? tokens.color.softInk : tokens.color.subInk,
+        fontWeight: 500,
+        fontSize: 12,
         cursor: disabled ? "not-allowed" : "pointer",
-        transition: tokens.motion.transition,
+        opacity: disabled ? 0.5 : 1,
+        transition: tokens.motion.interactiveTransition,
         ...style
       }}
     >
@@ -303,6 +601,8 @@ export function SecondaryButton({
     </button>
   );
 }
+
+/* ─── Tab Button (thin underline, not fat pill) ─── */
 
 export function PageButton({
   active,
@@ -319,21 +619,27 @@ export function PageButton({
       style={{
         flex: 1,
         border: "none",
-        borderRadius: tokens.radius.pill,
-        padding: "9px 10px",
-        background: active ? `linear-gradient(135deg, ${tokens.color.accent}, #818cf8)` : tokens.color.neutralSurfaceSoft,
-        color: active ? "#fff" : tokens.color.subInk,
-        fontSize: 12,
-        fontWeight: 700,
+        borderRadius: 0,
+        padding: "8px 4px 10px",
+        background: active ? tokens.color.elevated : "transparent",
+        color: active ? tokens.color.ink : tokens.color.softInk,
+        fontSize: 11,
+        fontWeight: active ? 700 : 500,
+        letterSpacing: "0.04em",
         cursor: "pointer",
-        boxShadow: active ? tokens.shadow.activeTab : "none",
-        transition: tokens.motion.transition
+        transition: tokens.motion.interactiveTransition,
+        borderBottom: active
+          ? `2px solid ${tokens.color.accent}`
+          : "2px solid transparent",
+        textTransform: "uppercase" as const
       }}
     >
       {children}
     </button>
   );
 }
+
+/* ─── Preview Card (airy layout) ─── */
 
 export function PreviewCard({
   descriptor,
