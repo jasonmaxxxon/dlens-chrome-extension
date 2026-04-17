@@ -34,6 +34,7 @@ Settings is a separate utility drawer, not a primary tab.
 - **Compare labels stay sentence-case.** `SectionLabel` and `PostHeader` use `12px / 600 / 0.02em` label styling instead of all-caps chrome.
 - **Bubble navigator labels are semantic.** Hover previews now show `${clusterTitle} · ${percentage}%`, while the bubble itself keeps the numeric `%` badge.
 - **Backend capture requests include the active folder name.** The extension now forwards `client_context.folder_name` so the ingest backend receives the collection context.
+- **In-page popup shell split is complete.** `InPageCollectorApp.tsx` is now a thin shell under the 400-line cap, with popup state/effects moved into `useInPageCollectorAppState.ts` and layout sections split into focused UI modules.
 - MV3 service-worker wake recovery (global state cache, warm cache, resume running polls)
 - User-supplied Google / OpenAI / Claude key (Google default); keys stay local, 30s timeout + 2 retries for provider calls, bounded LRU caches for briefs / one-liners / cluster summaries
 
@@ -41,7 +42,7 @@ Settings is a separate utility drawer, not a primary tab.
 
 | Priority | Gap | Note |
 |----------|-----|------|
-| P2 | `InPageCollectorApp.tsx` is ~1442 lines | Process rule caps this at 400 lines; see AGENTS.md. Still owns too much popup orchestration. |
+| P2 | `useInPageCollectorAppState.ts` is still the main popup orchestration hub | T9 moved the shell under the 400-line cap, but most popup effects/handlers still live in one hook and are the next refactor target. |
 | P2 | Compare cluster pairing is rank-based, not semantic | |
 | P3 | Skeleton coverage is still partial outside Library pending rows and the Compare unavailable hero | Pending support-data sections still switch more abruptly than the new row/hero placeholders. |
 | P3 | Several `tests/compare-view.test.tsx` cases track intended support-data UI that is not fully wired (e.g. `群組 A` swipe detail label) | Test acts as spec; tracked as pre-existing before current work. |
@@ -124,7 +125,12 @@ dlens-chrome-extension-v0/
     state/               ← Snapshot types, messages, processing state, store helpers
     targeting/threads.ts ← Card scoring, engagement + author extraction
     ui/
-      InPageCollectorApp.tsx    ← Popup shell + orchestration (over-sized; cap: 400)
+      InPageCollectorApp.tsx    ← Thin popup shell + module wiring (kept under 400)
+      useInPageCollectorAppState.ts ← Popup state/effects/handlers orchestration
+      InPageCollectorPopup.tsx  ← Main popup layout and page routing
+      InPageCollectorOverlays.tsx ← Launcher + hover/flash overlays
+      InPageCollectorFolderControls.tsx ← Folder strip / prompt UI
+      inpage-helpers.tsx        ← Shared popup helpers and tiny display atoms
       components.tsx            ← Shared atoms, PreviewCard, style helpers
       tokens.ts                 ← Shared design tokens (sole design spec)
       LibraryView.tsx           ← Library home + saved posts / analyses / casebook

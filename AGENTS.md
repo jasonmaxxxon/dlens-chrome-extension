@@ -9,7 +9,7 @@ These rules exist because 70+ small "pass" changes between 2026-03-28 and 2026-0
 - `brief.whyItMatters` renders twice on the Result page (ResultHeroCard + ResultWhyCard)
 - `compareTeaser.deck` renders on Compare setup AND again on Result `分析就緒` card
 - three design specs coexist (`tokens.ts`, `DESIGN.md`, 0413 mockup spec) with no single source of truth
-- `InPageCollectorApp.tsx` is 1442 lines despite earlier "view extraction" passes (README claim of ~980 is stale)
+- `InPageCollectorApp.tsx` had reached 1442 lines before the 2026-04-17 shell split
 - all quotes in the same cluster receive identical `剖析` copy because the fallback has no per-quote variance
 - `docs/product/` contains 10+ overlapping plans; the Recently Changed log is a feature diary rather than a state description
 
@@ -18,7 +18,7 @@ The rules:
 1. **One-in-one-out** — every PR that adds content, UI surface, copy, or dependency must remove something of comparable weight. Note both sides in the commit message. Additive-only PRs are rejected.
 2. **No "pass" / "refinement round" / "honesty pass" / "cleanup pass" changes** — every change is exactly one of: bug fix, feature, removal, refactor. These four words are the only allowed commit prefixes (or their short forms). Words like "pass" / "polish" / "round" / "tune" are banned from commit messages and doc headings.
 3. **`tokens.ts` is the sole design spec** — do not write design specs in markdown. `DESIGN.md`, `docs/product/*-design-system.md`, and any mockup repo spec are reference material only. If a new visual direction is chosen, update `tokens.ts` first and delete/archive prior markdown specs in the same PR.
-4. **`InPageCollectorApp.tsx` hard cap: 400 lines** — baseline 2026-04-17: 1442 lines. Any PR touching this file must reduce its line count unless explicitly labeled `refactor:shell-migration`. Growth requires deleting a matching number of lines elsewhere in `src/ui/`.
+4. **`InPageCollectorApp.tsx` hard cap: 400 lines** — locked because the shell had ballooned to 1442 lines on 2026-04-17 before T9. It is now a thin wrapper again; any PR touching this file must keep it at or below 400 lines unless explicitly labeled `refactor:shell-migration`. Growth requires deleting a matching number of lines elsewhere in `src/ui/`.
 5. **One UI slot per contract field** — no `CompareBrief` / `CompareHeroSummary` / `EvidenceAnnotation` field may render twice in the same user-visible page. When adding a new surface, first grep the field name across `src/ui/` and either remove the prior render or do not add the new one.
 
 Violations block merge. When in conflict with an older doc, these rules win.
@@ -97,10 +97,10 @@ npx tsx --test tests/*.test.ts tests/*.test.tsx
   - stable deterministic helpers for evidence lookup, cluster ranking, and compare-side shaping
   - experimental Python-parity ports for keyword extraction, like-share metrics, and cluster interpretation seed building
   - CompareView now consumes the stable deterministic layer; experimental ports remain out of production
-- popup UI split has started
-  - shared atoms now live in `src/ui/components.tsx`
-  - `ProcessingStrip`, `CollectView`, `LibraryView`, and `SettingsView` are separate modules
-  - `InPageCollectorApp.tsx` is down to ~980 lines instead of ~1600
+- popup shell split is now in place
+  - shared atoms live in `src/ui/components.tsx`
+  - `InPageCollectorApp.tsx` is a thin wrapper that delegates to `useInPageCollectorAppState.ts`
+  - popup layout is split across `InPageCollectorPopup.tsx`, `InPageCollectorOverlays.tsx`, and `InPageCollectorFolderControls.tsx`
 - background queue/refresh writes now serialize through a shared async lock, so bulk queue/refresh sweeps do not overwrite sibling item updates
 - shared popup design tokens now live in `src/ui/tokens.ts`; common atoms read from that source
 - **soft white glass visual design (2026-04-02, tuned 2026-04-08)**: tokens.ts fully rewritten — now using a calm zinc canvas (`#f4f4f5`), near-white frosted-glass cards, soft drop shadows, and dark-on-light text; popup container updated; Compare now uses a compact hero summary, dual audience bubble maps, audience-evidence-first detail panel, and a lighter engagement support section
@@ -221,7 +221,12 @@ The full cluster pipeline runs in `dlens-ingest-core`, not in this repo:
 | `/Users/tung/Desktop/dlens-chrome-extension-v0/entrypoints/background.ts` | service worker; state owner; queue, polling, worker control, compare-summary bridge |
 | `/Users/tung/Desktop/dlens-chrome-extension-v0/entrypoints/threads.content.ts` | content script; targeting, overlay, React mount |
 | `/Users/tung/Desktop/dlens-chrome-extension-v0/src/targeting/threads.ts` | Threads heuristics, engagement extraction, author extraction |
-| `/Users/tung/Desktop/dlens-chrome-extension-v0/src/ui/InPageCollectorApp.tsx` | popup shell + state orchestration (~980 lines after view extraction) |
+| `/Users/tung/Desktop/dlens-chrome-extension-v0/src/ui/InPageCollectorApp.tsx` | thin popup shell that wires the hook and split UI modules |
+| `/Users/tung/Desktop/dlens-chrome-extension-v0/src/ui/useInPageCollectorAppState.ts` | popup state, effects, polling handlers, selection actions, and shell-level orchestration |
+| `/Users/tung/Desktop/dlens-chrome-extension-v0/src/ui/InPageCollectorPopup.tsx` | main popup layout and page routing |
+| `/Users/tung/Desktop/dlens-chrome-extension-v0/src/ui/InPageCollectorOverlays.tsx` | launcher button plus hover/flash overlays |
+| `/Users/tung/Desktop/dlens-chrome-extension-v0/src/ui/InPageCollectorFolderControls.tsx` | folder strip, rename flow, and prompt controls |
+| `/Users/tung/Desktop/dlens-chrome-extension-v0/src/ui/inpage-helpers.tsx` | popup helper functions and compact display atoms |
 | `/Users/tung/Desktop/dlens-chrome-extension-v0/src/ui/components.tsx` | shared popup atoms, PreviewCard, and styling helpers |
 | `/Users/tung/Desktop/dlens-chrome-extension-v0/src/ui/ProcessingStrip.tsx` | processing summary strip component |
 | `/Users/tung/Desktop/dlens-chrome-extension-v0/src/ui/CollectView.tsx` | collect utility surface rendered inside Library |
@@ -263,16 +268,16 @@ The full cluster pipeline runs in `dlens-ingest-core`, not in this repo:
 
 ### P2
 
-- `InPageCollectorApp.tsx` is smaller after the page split, but the popup shell still owns too much orchestration/effect logic
+- `useInPageCollectorAppState.ts` is still a large orchestration hub after the shell split and is the next place to keep carving down
 - inline styles are widespread but `tokens.ts` now provides the full design token layer; remaining inline refs can migrate incrementally
 - hover debounce still feels slow (360ms)
-- SPA route changes can leave stale overlay state
+- the full `tests/*.test.ts{,x}` suite still has 13 known baseline failures on current main/T9 base; do not treat them as introduced by the shell split without re-checking the baseline command
 
 ### P3
 
 - skeleton coverage is still partial outside Library pending rows and the Compare unavailable hero
 - compare cluster matching is still by rank, not by semantic/keyword overlap
-- folder/collection name is still not sent to backend
+- skeleton loading is still missing for crawl / analysis pending states outside the compact `ProcessingStrip`
 - save/bookmark for interesting compare results is still unresolved and should stay lightweight until there is a real downstream destination
 - UI polish and onboarding are still minimal
 - no auth / multi-user support
