@@ -2437,16 +2437,28 @@ function BlankUserAvatar({ size = 22, dataAttr }: { size?: number; dataAttr?: st
   );
 }
 
+function CompoundLine({ label, text }: { label: string; text: string }) {
+  return (
+    <div>
+      <div style={{ fontSize: 9, fontWeight: 700, color: "rgba(0,0,0,0.32)", letterSpacing: 0.3, marginBottom: 2 }}>{label}</div>
+      <p style={{ fontSize: 12, lineHeight: 1.55, letterSpacing: -0.16, color: "rgba(0,0,0,0.56)", margin: 0 }}>{text}</p>
+    </div>
+  );
+}
+
 function DictionaryCard({ rank, handle, quote, likes, replies, side, marks, analysis, effectiveness }: {
   rank: number; handle: string; quote: string; likes?: number | null; replies?: number | null;
-  side: "A" | "B"; marks: { phrase: string; label: string }[]; analysis: string | null; effectiveness: string | null;
+  side: "A" | "B"; marks: { phrase: string; label: string }[];
+  analysis: string | null;
+  effectiveness: { discussionFunction: string; relationToCluster: string; whyEffective: string } | null;
 }) {
   const [exp, setExp] = useState(false);
   const cc = side === "A" ? AR.blue : "#c47300";
   const cb = side === "A" ? "rgba(0,113,227,0.09)" : "rgba(255,149,0,0.1)";
   const border = side === "A" ? AR.blue : AR.orange;
   const hasAnalysis = Boolean(analysis);
-  const hasEffectiveness = Boolean(effectiveness);
+  const hasEffectiveness = effectiveness !== null
+    && (effectiveness.discussionFunction.length > 0 || effectiveness.whyEffective.length > 0);
   return (
     <div style={{ background: AR.card, borderRadius: 12, overflow: "hidden", boxShadow: "0 1px 10px rgba(0,0,0,0.055)" }}>
       <div style={{ padding: "12px 15px 10px", display: "flex", alignItems: "center", gap: 8, borderBottom: `0.5px solid ${AR.line}` }}>
@@ -2480,13 +2492,17 @@ function DictionaryCard({ rank, handle, quote, likes, replies, side, marks, anal
           <button onClick={() => setExp(e => !e)} style={{ width: "100%", background: "rgba(0,0,0,0.02)", border: "none", borderTop: `0.5px solid rgba(0,0,0,0.05)`, cursor: "pointer", padding: "8px 15px", display: "flex", alignItems: "center", justifyContent: "space-between" }}>
             <div style={{ display: "flex", alignItems: "center", gap: 5 }}>
               <ARSparkle color={cc} size={9} />
-              <span style={{ fontSize: 10.5, fontWeight: 700, color: cc }}>為什麼有效</span>
+              <span style={{ fontSize: 10.5, fontWeight: 700, color: cc }}>為什麼被挑出來</span>
             </div>
             <ARChevron open={exp} />
           </button>
-          {exp && (
-            <div style={{ padding: "9px 15px 13px", background: "rgba(0,0,0,0.018)" }}>
-              <p style={{ fontSize: 12, lineHeight: 1.55, letterSpacing: -0.16, color: "rgba(0,0,0,0.56)", margin: 0 }}>{effectiveness}</p>
+          {exp && effectiveness && (
+            <div style={{ padding: "9px 15px 13px", background: "rgba(0,0,0,0.018)", display: "grid", gap: 8 }}>
+              <CompoundLine label="在討論中" text={effectiveness.discussionFunction} />
+              {effectiveness.relationToCluster && (
+                <CompoundLine label="跟主群組" text={effectiveness.relationToCluster} />
+              )}
+              <CompoundLine label="修辭效果" text={effectiveness.whyEffective} />
             </div>
           )}
         </>
@@ -2717,8 +2733,14 @@ function ResultEvidenceSection({
       <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
         {(tab === "A" ? evidencesA : evidencesB).map((e, i) => {
           const annotation = e.comment_id ? annotationMap.get(e.comment_id) : undefined;
-          const analysisText = annotation?.writerMeaning || annotation?.discussionFunction || null;
-          const effectivenessText = annotation?.whyEffective || null;
+          const analysisText = annotation?.writerMeaning || null;
+          const effectivenessData = annotation
+            ? {
+                discussionFunction: annotation.discussionFunction,
+                relationToCluster: annotation.relationToCluster,
+                whyEffective: annotation.whyEffective,
+              }
+            : null;
           return (
             <DictionaryCard
               key={i}
@@ -2730,7 +2752,7 @@ function ResultEvidenceSection({
               side={tab}
               marks={annotation?.phraseMarks ?? []}
               analysis={analysisText}
-              effectiveness={effectivenessText}
+              effectiveness={effectivenessData}
             />
           );
         })}

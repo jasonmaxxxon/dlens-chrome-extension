@@ -793,13 +793,38 @@ test("DictionaryCard renders full card when analysis and effectiveness are both 
       side: "A" as const,
       marks: [],
       analysis: "this is the writer meaning analysis",
-      effectiveness: "this explains why it is effective"
+      effectiveness: {
+        discussionFunction: "discussion function text",
+        relationToCluster: "relation to cluster text",
+        whyEffective: "why effective text"
+      }
     })
   );
   assert.match(html, /representative evidence text/);
   assert.match(html, /剖析/);
   assert.match(html, /this is the writer meaning analysis/);
-  assert.match(html, /為什麼有效/);
+  assert.match(html, /為什麼被挑出來/);
+});
+
+test("DictionaryCard compound effectiveness shows 為什麼被挑出來 label when effectiveness present", () => {
+  const html = renderToStaticMarkup(
+    React.createElement(compareViewTestables.DictionaryCard, {
+      rank: 1,
+      handle: "user",
+      quote: "quote",
+      side: "B" as const,
+      marks: [],
+      analysis: "writer meaning",
+      effectiveness: {
+        discussionFunction: "plays anchor role in thread",
+        relationToCluster: "extends main cluster thesis",
+        whyEffective: "rhetorical contrast amplifies point"
+      }
+    })
+  );
+  // Expander button always renders in initial (collapsed) state
+  assert.match(html, /為什麼被挑出來/);
+  assert.doesNotMatch(html, /為什麼有效/);
 });
 
 test("CompareView uses visibly different bubble sizes for multi-cluster navigators", () => {
