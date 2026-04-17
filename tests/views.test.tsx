@@ -6,7 +6,7 @@ import { renderToStaticMarkup } from "react-dom/server";
 
 import type { SessionProcessingSummary, WorkerStatus } from "../src/state/processing-state.ts";
 import type { TargetDescriptor } from "../src/contracts/target-descriptor.ts";
-import type { SavedAnalysisSnapshot, SessionItem, SessionRecord } from "../src/state/types.ts";
+import type { SavedAnalysisSnapshot, SessionItem, SessionRecord, TechniqueReadingSnapshot } from "../src/state/types.ts";
 import { createSessionItem, createSessionRecord } from "../src/state/store-helpers.ts";
 import { CollectView } from "../src/ui/CollectView.tsx";
 import { LibraryView } from "../src/ui/LibraryView.tsx";
@@ -86,6 +86,27 @@ function buildSavedAnalysis(): SavedAnalysisSnapshot {
   };
 }
 
+function buildTechniqueReading(): TechniqueReadingSnapshot {
+  return {
+    id: "reading-1",
+    sessionId: "session-1",
+    itemId: "item-a",
+    side: "A",
+    clusterKey: "cap-a:0",
+    clusterTitle: "Ownership",
+    thesis: "Readers keep circling back to ownership and accountability.",
+    techniques: [
+      {
+        key: "contrast",
+        title: "Contrast framing",
+        summary: "Frames the issue through explicit before/after contrast."
+      }
+    ],
+    evidence: [],
+    savedAt: "2026-04-13T13:00:00.000Z"
+  };
+}
+
 test("surfaceCardStyle uses stronger white glass defaults", () => {
   const style = surfaceCardStyle();
 
@@ -132,7 +153,8 @@ test("WorkspaceShell keeps the processing strip outside the primary mode rail", 
   assert.ok(settingsIndex > modeRailIndex);
 });
 
-test("LibraryView keeps Process All visible without a selected item", () => {
+// Library now uses a compact readiness bar instead of the older readiness-table support copy.
+test("LibraryView keeps Process All visible inside the compact readiness bar", () => {
   const session = buildSession();
   const summary: SessionProcessingSummary = {
     total: 1,
@@ -167,13 +189,12 @@ test("LibraryView keeps Process All visible without a selected item", () => {
   );
 
   assert.match(html, /Process All/);
-  assert.match(html, /Saved items waiting for Process All\./);
-  assert.match(html, /Readiness table/);
-  assert.match(html, /data-library-row-avatar="placeholder"/);
-  assert.match(html, /data-library-support-copy="readiness"/);
+  assert.match(html, /1 篇等待處理/);
+  assert.match(html, /Signals/);
+  assert.match(html, /data-library-row="card"/);
 });
 
-test("LibraryView exposes item phase and progress rail outlets for active work", () => {
+test("LibraryView exposes item phase and pending skeleton outlets for active work", () => {
   const session = buildSession();
   session.items[0]!.status = "queued";
   const summary: SessionProcessingSummary = {
@@ -209,13 +230,13 @@ test("LibraryView exposes item phase and progress rail outlets for active work",
   );
 
   assert.match(html, /data-item-phase="crawling"/);
-  assert.match(html, /data-progress-rail="running"/);
-  assert.match(html, /data-selected-progress-mode="crawling"/);
-  assert.match(html, /data-library-row="item"/);
-  assert.match(html, /data-library-row-avatar="placeholder"/);
+  assert.match(html, /data-library-row="card"/);
+  assert.match(html, /data-library-card-skeleton="visible"/);
+  assert.match(html, /crawling/);
 });
 
-test("LibraryView caps raw comments at 10 and labels truncated totals", () => {
+// The Library home surface no longer renders raw comment preview tables after the three-page workspace split.
+test("LibraryView no longer renders raw comments preview tables on the home surface", () => {
   const session = buildSession();
   const activeItem = session.items[0]!;
   activeItem.status = "succeeded";
@@ -251,13 +272,12 @@ test("LibraryView caps raw comments at 10 and labels truncated totals", () => {
     })
   );
 
-  assert.match(html, /Comments \(10\/12\)/);
-  assert.equal((html.match(/comment-\d{2}/g) ?? []).length, 10);
-  assert.ok(!html.includes("comment-11"));
-  assert.ok(!html.includes("comment-12"));
+  assert.doesNotMatch(html, /Comments \(/);
+  assert.doesNotMatch(html, /comment-01/);
+  assert.doesNotMatch(html, /comment-11/);
 });
 
-test("LibraryView renders internal Posts / Casebook navigation", () => {
+test("LibraryView renders Casebook as a collapsible section when readings exist", () => {
   const session = buildSession();
   const html = renderToStaticMarkup(
     React.createElement(LibraryView, {
@@ -284,14 +304,14 @@ test("LibraryView renders internal Posts / Casebook navigation", () => {
       onMoveSelection: () => undefined,
       onQueueItem: () => undefined,
       renderMetrics: () => null,
-      techniqueReadings: [],
+      techniqueReadings: [buildTechniqueReading()],
       initialSection: "posts"
     })
   );
 
-  assert.match(html, /data-library-subpage="posts"/);
-  assert.match(html, /data-library-subpage-button="posts"/);
-  assert.match(html, /data-library-subpage-button="casebook"/);
+  assert.match(html, /Casebook · 1 條筆記/);
+  assert.doesNotMatch(html, /data-library-subpage=/);
+  assert.doesNotMatch(html, /data-library-subpage-button=/);
 });
 
 test("LibraryView renders a saved analyses section on the home surface", () => {
@@ -327,13 +347,13 @@ test("LibraryView renders a saved analyses section on the home surface", () => {
     })
   );
 
-  assert.match(html, /已保存分析|Saved analyses/);
+  assert.match(html, /已儲存分析/);
   assert.match(html, /焦慮是主調，但理性聲音正在集結/);
   assert.match(html, /@openai_tw/);
   assert.match(html, /@tec_journalist/);
 });
 
-test("CollectView keeps the preview card and collect toggle visible", () => {
+test("CollectView keeps the preview card and collect toggle visible with current Chinese copy", () => {
   const html = renderToStaticMarkup(
     React.createElement(CollectView, {
       preview: buildDescriptor(),
@@ -346,11 +366,11 @@ test("CollectView keeps the preview card and collect toggle visible", () => {
     })
   );
 
-  assert.match(html, /data-collect-surface="capture-card"/);
   assert.match(html, /Signals/);
-  assert.match(html, /Exit collect mode/);
-  assert.match(html, /save/);
-  assert.match(html, /exit/);
+  assert.match(html, /預覽中/);
+  assert.match(html, /儲存到資料夾/);
+  assert.match(html, /收集模式：開啟/);
+  assert.match(html, /關閉/);
 });
 
 test("SettingsView exposes Google provider and save action", () => {

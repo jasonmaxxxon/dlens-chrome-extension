@@ -196,7 +196,8 @@ test("CompareView keeps support data collapsed while preserving navigation affor
   assert.ok(html.indexOf("代表性原文") < html.indexOf("驗證數據"));
 });
 
-test("CompareView renders side-specific swipe detail pages inside support data", () => {
+// The support-data dock now uses semantic cluster titles instead of the older 群組 A/B copy.
+test("CompareView renders side-specific support-data tabs with semantic cluster labels", () => {
   const html = renderToStaticMarkup(
     React.createElement(CompareView, {
       session: buildSession(),
@@ -205,8 +206,8 @@ test("CompareView renders side-specific swipe detail pages inside support data",
   );
 
   assert.match(html, /代表性原文/);
-  assert.match(html, /群組 A/);
-  assert.match(html, /群組 B/);
+  assert.match(html, /support/);
+  assert.match(html, /harmful/);
 });
 
 test("CompareView uses placeholder avatars and engagement metrics in representative evidence cards", () => {
@@ -670,7 +671,8 @@ test("CompareView derives hidden cluster copy from the cluster array, not stale 
   assert.notEqual(hiddenLabel, "44 additional low-signal clusters hidden");
 });
 
-test("CompareView shows related-cluster hints in the selected detail panels", () => {
+// The selected detail panel now stays on semantic cluster titles and no longer surfaces the legacy 群組 A/B related-cluster copy.
+test("CompareView keeps selected detail copy on semantic cluster labels", () => {
   const session = buildSession();
   session.items[0]!.latestCapture = buildCapture("cap-a", "ownership", "ownership matters");
   session.items[1]!.latestCapture = buildCapture("cap-b", "ownership", "ownership feels missing");
@@ -682,8 +684,9 @@ test("CompareView shows related-cluster hints in the selected detail panels", ()
     })
   );
 
-  assert.match(html, /群組 A/);
-  assert.match(html, /群組 B/);
+  assert.match(html, /ownership/);
+  assert.doesNotMatch(html, /群組 A/);
+  assert.doesNotMatch(html, /群組 B/);
   assert.doesNotMatch(html, /Related cluster on Post B/);
   assert.doesNotMatch(html, /not a hard stance classifier/i);
 });

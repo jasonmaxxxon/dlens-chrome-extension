@@ -158,7 +158,8 @@ function buildPreparationSession(): SessionRecord {
   return session;
 }
 
-test("LibraryView renders a casebook section with saved technique reading cards", () => {
+// Library now exposes Casebook as a collapsible header instead of the older always-open casebook card list.
+test("LibraryView renders a collapsible casebook section when saved readings exist", () => {
   const session = buildSession();
   const summary: SessionProcessingSummary = {
     total: 1,
@@ -216,17 +217,14 @@ test("LibraryView renders a casebook section with saved technique reading cards"
   );
 
   assert.match(html, /Casebook/);
-  assert.match(html, /data-casebook-section="visible"/);
-  assert.match(html, /data-technique-card="reading-1"/);
-  assert.match(html, /Support cluster/);
-  assert.match(html, /Audience keeps reframing the thread as practical rather than controversial\./);
-  assert.match(html, /焦點轉移/);
-  assert.match(html, /恐懼框架/);
-  assert.match(html, /2 evidence items/);
+  assert.match(html, /Casebook · 1 條筆記/);
+  assert.doesNotMatch(html, /data-casebook-section=/);
+  assert.doesNotMatch(html, /data-technique-card=/);
   assert.doesNotMatch(html, /Saved posts \(1\)/);
 });
 
-test("LibraryView prioritizes preparation zones above pending inventory", () => {
+// The old preparation-zone tables were replaced by a single compact readiness bar plus row-level phase chips.
+test("LibraryView summarizes mixed readiness work in the compact readiness bar", () => {
   const session = buildPreparationSession();
   const html = renderToStaticMarkup(
     React.createElement(LibraryView, {
@@ -258,23 +256,15 @@ test("LibraryView prioritizes preparation zones above pending inventory", () => 
     })
   );
 
-  assert.match(html, /data-library-zone="ready"/);
-  assert.match(html, /data-library-zone="near-ready"/);
-  assert.match(html, /data-library-zone="in-progress"/);
-  assert.match(html, /data-library-zone="inventory"/);
-  assert.match(html, /data-library-table="ready"/);
-  assert.match(html, /data-library-table="near-ready"/);
-  assert.match(html, /data-library-table="in-progress"/);
-  assert.match(html, /data-library-table="inventory"/);
-  assert.match(html, /Ready now/);
-  assert.match(html, /Almost ready/);
-  assert.match(html, /Moving/);
-  assert.match(html, /Later/);
-  assert.doesNotMatch(html, /Ready to compare/);
-  assert.doesNotMatch(html, /Analyzing now/);
+  assert.match(html, /Signals/);
+  assert.match(html, /1 篇可以比較/);
+  assert.match(html, /data-item-phase="ready"/);
+  assert.match(html, /data-item-phase="analyzing"/);
+  assert.match(html, /data-item-phase="crawling"/);
+  assert.match(html, /data-item-phase="idle"/);
 });
 
-test("LibraryView hides empty preparation zones instead of rendering empty panels", () => {
+test("LibraryView omits legacy preparation zone chrome when only ready items exist", () => {
   const session = createSessionRecord("Signals", "2026-03-24T07:00:00.000Z");
   const ready = createSessionItem(
     {
@@ -360,17 +350,13 @@ test("LibraryView hides empty preparation zones instead of rendering empty panel
     })
   );
 
-  assert.match(html, /data-library-zone="ready"/);
-  assert.match(html, /data-library-table="ready"/);
-  assert.doesNotMatch(html, /data-library-zone="near-ready"/);
-  assert.doesNotMatch(html, /data-library-zone="in-progress"/);
-  assert.doesNotMatch(html, /data-library-zone="inventory"/);
-  assert.doesNotMatch(html, /Analyzing now/);
-  assert.doesNotMatch(html, /Still moving/);
-  assert.doesNotMatch(html, /Saved inventory/);
+  assert.match(html, /1 篇可以比較/);
+  assert.match(html, /data-item-phase="ready"/);
+  assert.doesNotMatch(html, /data-library-zone=/);
+  assert.doesNotMatch(html, /data-library-table=/);
 });
 
-test("LibraryView exposes compare affordance and keeps folder context secondary", () => {
+test("LibraryView exposes compare affordance in the top bar and keeps legacy folder chrome out", () => {
   const session = buildPreparationSession();
   const html = renderToStaticMarkup(
     React.createElement(LibraryView, {
@@ -382,7 +368,7 @@ test("LibraryView exposes compare affordance and keeps folder context secondary"
       processAllLabel: "Process All",
       processingSummary: {
         total: 4,
-        ready: 1,
+        ready: 2,
         crawling: 1,
         analyzing: 1,
         pending: 1,
@@ -398,11 +384,13 @@ test("LibraryView exposes compare affordance and keeps folder context secondary"
       onQueueItem: () => undefined,
       renderMetrics: () => null,
       techniqueReadings: [],
-      initialSection: "posts"
+      initialSection: "posts",
+      onGoToCompare: () => undefined
     })
   );
 
-  assert.match(html, /data-library-folder-context="secondary"/);
-  assert.match(html, /Use in Compare|Open in Compare/);
-  assert.match(html, /data-library-row-action="compare"/);
+  assert.match(html, /Compare →/);
+  assert.match(html, /Signals/);
+  assert.doesNotMatch(html, /data-library-folder-context=/);
+  assert.doesNotMatch(html, /data-library-row-action="compare"/);
 });

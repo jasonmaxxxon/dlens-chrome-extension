@@ -48,7 +48,8 @@ function buildReadyItems(): SessionItem[] {
   return session.items;
 }
 
-test("CompareSetupView renders a teaser card and keeps the CTA disabled while loading", () => {
+// The Compare setup header now uses the compact Chinese compare grammar instead of the older 建立比較 copy.
+test("CompareSetupView renders the teaser card and keeps the CTA disabled while loading", () => {
   const readyItems = buildReadyItems();
   const html = renderToStaticMarkup(
     React.createElement(CompareSetupView, {
@@ -64,7 +65,8 @@ test("CompareSetupView renders a teaser card and keeps the CTA disabled while lo
     })
   );
 
-  assert.match(html, /建立比較|Compare/);
+  assert.match(html, /比較/);
+  assert.match(html, /選擇兩篇貼文/);
   assert.match(html, /data-compare-teaser-state="loading"/);
   assert.match(html, /查看完整分析/);
   assert.match(html, /disabled/);
