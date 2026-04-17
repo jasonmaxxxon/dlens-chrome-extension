@@ -809,6 +809,42 @@ test("CompareView uses visibly different bubble sizes for multi-cluster navigato
   assert.ok(new Set(widths).size >= 2);
 });
 
+test("CompareView shows semantic cluster labels inside bubble hover previews", () => {
+  const html = renderToStaticMarkup(
+    React.createElement(compareViewTestables.ClusterBubbleMap, {
+      side: "right",
+      label: "Post B clusters",
+      nodes: [
+        {
+          captureId: "cap-b",
+          clusterKey: 1,
+          title: "ownership",
+          sizeShare: 0.48,
+          supportCount: 5,
+          likeShare: 0.52,
+          x: 34,
+          y: 48,
+          r: 42,
+          toneVariant: "primary",
+          isMinorBucket: false
+        }
+      ],
+      countLabel: "Showing 1 dominant cluster",
+      hiddenLabel: null,
+      selectedKey: null,
+      hoveredKey: "cap-b:1",
+      onHover: () => {},
+      onLeave: () => {},
+      onSelect: () => {}
+    })
+  );
+
+  assert.match(html, /ownership · 48%/);
+  assert.match(html, />48%<\/span>/);
+  assert.match(html, /5 comments/);
+  assert.doesNotMatch(html, /48% replies · 5 comments/);
+});
+
 test("CompareView keeps bubble maps behind support data instead of the hero", () => {
   const html = renderToStaticMarkup(
     React.createElement(CompareView, {

@@ -1026,6 +1026,10 @@ function bubbleTone(node: ClusterMapNode, side: CompareSide) {
   };
 }
 
+function clusterNavigatorLabel(node: ClusterMapNode): string {
+  return `${node.title} · ${Math.round(node.sizeShare * 100)}%`;
+}
+
 function ClusterBubbleMap({
   side,
   label,
@@ -1091,7 +1095,7 @@ function ClusterBubbleMap({
               onMouseEnter={() => onHover(key)}
               onMouseLeave={onLeave}
               onClick={() => onSelect(key)}
-              title={`${node.title} · ${Math.round(node.sizeShare * 100)}% replies · ${node.supportCount} comments`}
+              title={`${clusterNavigatorLabel(node)} · ${node.supportCount} comments`}
               style={{
                 position: "absolute",
                 left: `calc(${node.x}% - ${node.r / 2}px)`,
@@ -1130,9 +1134,9 @@ function ClusterBubbleMap({
               zIndex: 2
             }}
           >
-            <div style={{ fontSize: 11, fontWeight: 800, color: T.ink, ...WRAP_ANYWHERE }}>{previewNode.title}</div>
+            <div style={{ fontSize: 11, fontWeight: 800, color: T.ink, ...WRAP_ANYWHERE }}>{clusterNavigatorLabel(previewNode)}</div>
             <div style={{ marginTop: 4, fontSize: 10, color: T.sub, ...WRAP_ANYWHERE }}>
-              {Math.round(previewNode.sizeShare * 100)}% replies · {previewNode.supportCount} comments
+              {previewNode.supportCount} comments
             </div>
           </div>
         ) : (
@@ -2948,7 +2952,8 @@ export const compareViewTestables = {
   resolveEvidenceKeywordFilter,
   ResultTrustStrip,
   SectionLabel,
-  PostHeader
+  PostHeader,
+  ClusterBubbleMap
 };
 
 export function CompareView({ session, settings, onGoToLibrary, forcedSelection = null, hideSelector = false }: CompareViewProps) {
