@@ -2730,7 +2730,7 @@ function ResultEvidenceSection({
           </button>
         ))}
       </div>
-      <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+      <div style={{ display: "flex", flexDirection: "column", gap: tokens.spacing.resultCardGap }}>
         {(tab === "A" ? evidencesA : evidencesB).map((e, i) => {
           const annotation = e.comment_id ? annotationMap.get(e.comment_id) : undefined;
           const analysisText = annotation?.writerMeaning || null;
@@ -2950,7 +2950,7 @@ function ResultReadingBody({
   void onOpenTechnique; // available for future technique entry point
   const [activeResultTab, setActiveResultTab] = useState<"A" | "B">("A");
   return (
-    <div style={{ display: "flex", flexDirection: "column" }}>
+    <div style={{ display: "flex", flexDirection: "column", gap: tokens.spacing.resultSectionGap }}>
       <ResultHeroCard
         heroSummary={heroSummary}
         brief={brief}
@@ -2958,7 +2958,6 @@ function ResultReadingBody({
         postB={postB}
         compareBriefState={compareBriefState}
       />
-      <div style={{ height: 20 }} />
       <ResultBalanceCard
         leftSummaries={leftSummaries}
         rightSummaries={rightSummaries}
@@ -2969,7 +2968,6 @@ function ResultReadingBody({
         activeTab={activeResultTab}
         onTabChange={setActiveResultTab}
       />
-      <div style={{ height: 18 }} />
       <ResultEvidenceSection
         leftSurfaces={leftSurfaces}
         rightSurfaces={rightSurfaces}
@@ -2977,12 +2975,9 @@ function ResultReadingBody({
         tab={activeResultTab}
         onTabChange={setActiveResultTab}
       />
-      {/* Chapter break before Why It Matters */}
-      <div style={{ height: 24 }} />
       <ResultWhyCard
         brief={brief}
       />
-      <div style={{ height: 14 }} />
       <ResultTrustStrip
         analysisA={analysisA}
         analysisB={analysisB}

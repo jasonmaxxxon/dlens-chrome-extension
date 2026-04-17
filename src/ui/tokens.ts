@@ -116,7 +116,9 @@ export const tokens = {
     md: 12,
     lg: 20,
     xl: 28,
-    section: 16
+    section: 16,
+    resultSectionGap: 32,
+    resultCardGap: 16
   },
 
   font: {
