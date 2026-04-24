@@ -16,6 +16,7 @@ import {
   type CompareBrief,
   type CompareBriefRequest
 } from "../src/compare/brief";
+import { buildCompareBriefRequest } from "../src/compare/brief-request";
 import { buildCompareOneLinerCacheKey, type CompareOneLinerRequest } from "../src/compare/one-liner";
 import {
   buildCompareClusterSummaryCacheKey,
@@ -27,8 +28,18 @@ import {
   type EvidenceAnnotation,
   type EvidenceAnnotationRequest
 } from "../src/compare/evidence-annotation";
-import { loadSavedAnalyses, saveSavedAnalysis } from "../src/compare/saved-analysis-storage";
+import {
+  buildDeterministicJudgment,
+  buildJudgmentCacheKey,
+  COMPARE_JUDGMENT_PROMPT_VERSION
+} from "../src/compare/judgment";
+import {
+  loadSavedAnalyses,
+  saveSavedAnalysis,
+  saveSavedAnalysisJudgment
+} from "../src/compare/saved-analysis-storage";
 import { loadTechniqueReadings, saveTechniqueReading } from "../src/compare/technique-reading-storage";
+import { generateProductProfileSuggestion } from "../src/compare/product-profile-init";
 import {
   COMPARE_CLUSTER_SUMMARY_PROMPT_VERSION,
   COMPARE_BRIEF_PROMPT_VERSION,
@@ -37,8 +48,10 @@ import {
   generateCompareBrief,
   generateCompareClusterSummaries,
   generateCompareOneLiner,
-  generateEvidenceAnnotations
+  generateEvidenceAnnotations,
+  generateJudgment
 } from "../src/compare/provider";
+import { createLlmCallWrapper } from "../src/compare/llm-call-wrapper";
 import {
   createDefaultSettings,
   createEmptyGlobalState,
@@ -55,18 +68,22 @@ import {
   expireStaleInFlightItems,
   getActiveSession,
   markSessionItemQueued,
+  mergeItemRefreshResultsIntoGlobal,
   mergeRefreshResults,
   needsCaptureRefresh,
+  normalizeSessionRecord,
   reconcileSessionItem,
   renameSession,
   saveDescriptorToSession,
   setActiveSession,
-  updateSessionItem
+  updateSessionItem,
+  type ItemRefreshResult
 } from "../src/state/store-helpers";
+import { ensureSignalForSavedItem, handleTopicMessage } from "../src/state/topic-handlers";
+import { mergeOneLinerSettings } from "../src/state/settings-storage";
 import { buildRefreshFailureMessage } from "../src/state/refresh-errors";
 import { createAsyncLock } from "../src/state/snapshot-lock";
 import { applyHoveredPreview, createInlineToast, setCollectModeState } from "../src/state/ui-state";
-import { touchRecordCacheEntry, upsertRecordCacheEntry } from "../src/state/cache-helpers";
 
 const GLOBAL_STORAGE_KEY = "dlens:v0:global-state";
 const TAB_STORAGE_KEY_PREFIX = "dlens:v0:tab-ui:";
@@ -74,6 +91,7 @@ const COMPARE_BRIEF_CACHE_KEY = "dlens:v1:compare-brief-cache";
 const COMPARE_ONE_LINER_CACHE_KEY = "dlens:v1:compare-one-liner-cache";
 const COMPARE_CLUSTER_SUMMARY_CACHE_KEY = "dlens:v1:compare-cluster-summary-cache";
 const COMPARE_EVIDENCE_ANNOTATION_CACHE_KEY = "dlens:v1:compare-evidence-annotation-cache";
+const COMPARE_JUDGMENT_CACHE_KEY = "dlens:v1:compare-judgment-cache";
 const COMPARE_CACHE_MAX_ENTRIES = 50;
 
 // In-memory hover state per tab — never persisted to storage
@@ -104,10 +122,16 @@ interface EvidenceAnnotationCacheValue {
   generatedAt: string;
 }
 
+interface JudgmentCacheValue {
+  judgmentResult: NonNullable<Awaited<ReturnType<typeof loadSavedAnalyses>>[number]["judgmentResult"]>;
+  generatedAt: string;
+}
+
 type CompareBriefCache = Record<string, CompareBriefCacheValue>;
 type OneLinerCache = Record<string, OneLinerCacheValue>;
 type ClusterSummaryCache = Record<string, ClusterSummaryCacheValue>;
 type EvidenceAnnotationCache = Record<string, EvidenceAnnotationCacheValue>;
+type JudgmentCache = Record<string, JudgmentCacheValue>;
 
 function tabStorageKey(tabId: number): string {
   return `${TAB_STORAGE_KEY_PREFIX}${tabId}`;
@@ -162,6 +186,7 @@ async function loadSnapshot(tabId: number): Promise<ExtensionSnapshot> {
 function normalizeGlobalState(state: ExtensionGlobalState): ExtensionGlobalState {
   return {
     ...state,
+    sessions: Array.isArray(state?.sessions) ? state.sessions.map((session) => normalizeSessionRecord(session)) : [],
     settings: {
       ...createDefaultSettings(),
       ...(state?.settings || {})
@@ -197,6 +222,25 @@ async function saveCompareBriefCache(cache: CompareBriefCache): Promise<void> {
   await chrome.storage.local.set({ [COMPARE_BRIEF_CACHE_KEY]: cache });
 }
 
+async function getCachedCompareBrief(request: CompareBriefRequest): Promise<{ brief: CompareBrief; cacheKey: string } | null> {
+  const cache = await loadCompareBriefCache();
+  const fallback = buildDeterministicCompareBrief(request, "AI compare brief unavailable.");
+
+  for (const provider of ["google", "openai", "claude"] as const) {
+    const cacheKey = buildCompareBriefCacheKey(request, provider, COMPARE_BRIEF_PROMPT_VERSION);
+    const cachedBrief = cache[cacheKey]?.brief;
+    if (!cachedBrief) {
+      continue;
+    }
+    return {
+      brief: normalizeCompareBrief(cachedBrief, fallback),
+      cacheKey
+    };
+  }
+
+  return null;
+}
+
 async function saveOneLinerCache(cache: OneLinerCache): Promise<void> {
   await chrome.storage.local.set({ [COMPARE_ONE_LINER_CACHE_KEY]: cache });
 }
@@ -219,6 +263,34 @@ async function saveEvidenceAnnotationCache(cache: EvidenceAnnotationCache): Prom
   await chrome.storage.local.set({ [COMPARE_EVIDENCE_ANNOTATION_CACHE_KEY]: cache });
 }
 
+async function loadJudgmentCache(): Promise<JudgmentCache> {
+  const raw = await chrome.storage.local.get(COMPARE_JUDGMENT_CACHE_KEY);
+  return (raw[COMPARE_JUDGMENT_CACHE_KEY] || {}) as JudgmentCache;
+}
+
+async function saveJudgmentCache(cache: JudgmentCache): Promise<void> {
+  await chrome.storage.local.set({ [COMPARE_JUDGMENT_CACHE_KEY]: cache });
+}
+
+function findSessionItems(
+  sessions: SessionRecord[],
+  itemAId: string,
+  itemBId: string
+): { itemA: SessionItem; itemB: SessionItem } | null {
+  const itemLookup = new Map<string, SessionItem>();
+  for (const session of sessions) {
+    for (const item of session.items) {
+      itemLookup.set(item.id, item);
+    }
+  }
+  const itemA = itemLookup.get(itemAId) || null;
+  const itemB = itemLookup.get(itemBId) || null;
+  if (!itemA || !itemB) {
+    return null;
+  }
+  return { itemA, itemB };
+}
+
 function providerKeyForRequest(global: ExtensionGlobalState): { provider: "openai" | "claude" | "google"; apiKey: string } | null {
   const settings = normalizeGlobalState(global).settings;
   if (settings.oneLinerProvider === "google" && settings.googleApiKey?.trim()) {
@@ -233,134 +305,253 @@ function providerKeyForRequest(global: ExtensionGlobalState): { provider: "opena
   return null;
 }
 
-async function getOrGenerateOneLiner(global: ExtensionGlobalState, request: CompareOneLinerRequest): Promise<string | null> {
-  const providerConfig = providerKeyForRequest(global);
-  if (!providerConfig) {
-    return null;
+const getOrGenerateOneLiner = createLlmCallWrapper<
+  ExtensionGlobalState,
+  CompareOneLinerRequest,
+  string | null,
+  OneLinerCacheValue,
+  {}
+>({
+  maxEntries: COMPARE_CACHE_MAX_ENTRIES,
+  resolveRequest: async (global) => {
+    const providerConfig = providerKeyForRequest(global);
+    if (!providerConfig) {
+      return { kind: "return", value: null };
+    }
+    return { kind: "continue", providerConfig, context: {} };
+  },
+  buildCacheKey: (request, provider) => buildCompareOneLinerCacheKey(request, provider, COMPARE_ONE_LINER_PROMPT_VERSION),
+  loadCache: loadOneLinerCache,
+  saveCache: saveOneLinerCache,
+  readCachedValue: (entry) => entry?.text || undefined,
+  generate: async (providerConfig, request) => {
+    const text = (await generateCompareOneLiner(providerConfig.provider, providerConfig.apiKey, request)).trim();
+    return text || null;
+  },
+  buildCacheEntry: (result) => {
+    if (!result) {
+      return null;
+    }
+    return {
+      text: result,
+      generatedAt: new Date().toISOString()
+    };
   }
-  const cacheKey = buildCompareOneLinerCacheKey(request, providerConfig.provider, COMPARE_ONE_LINER_PROMPT_VERSION);
-  const cache = await loadOneLinerCache();
-  if (cache[cacheKey]?.text) {
-    await saveOneLinerCache(touchRecordCacheEntry(cache, cacheKey));
-    return cache[cacheKey].text;
-  }
-  const text = (await generateCompareOneLiner(providerConfig.provider, providerConfig.apiKey, request)).trim();
-  if (!text) {
-    return null;
-  }
-  const nextCache = upsertRecordCacheEntry(cache, cacheKey, {
-    text,
-    generatedAt: new Date().toISOString()
-  }, COMPARE_CACHE_MAX_ENTRIES);
-  await saveOneLinerCache(nextCache);
-  return text;
-}
+});
 
-async function getOrGenerateCompareBrief(
+const getOrGenerateCompareBrief = createLlmCallWrapper<
+  ExtensionGlobalState,
+  CompareBriefRequest,
+  CompareBrief,
+  CompareBriefCacheValue,
+  { fallback: CompareBrief }
+>({
+  maxEntries: COMPARE_CACHE_MAX_ENTRIES,
+  resolveRequest: async (global, request) => {
+    const providerConfig = providerKeyForRequest(global);
+    const fallback = buildDeterministicCompareBrief(
+      request,
+      providerConfig ? "AI compare brief unavailable." : "AI compare brief disabled."
+    );
+    if (!providerConfig) {
+      return { kind: "return", value: fallback };
+    }
+    return {
+      kind: "continue",
+      providerConfig,
+      context: { fallback }
+    };
+  },
+  buildCacheKey: (request, provider) => buildCompareBriefCacheKey(request, provider, COMPARE_BRIEF_PROMPT_VERSION),
+  loadCache: loadCompareBriefCache,
+  saveCache: saveCompareBriefCache,
+  readCachedValue: (entry, context) => {
+    const cached = entry?.brief;
+    if (cached?.source === "ai") {
+      return normalizeCompareBrief(cached, context.context.fallback);
+    }
+    return undefined;
+  },
+  generate: async (providerConfig, request, context) => {
+    const brief = await generateCompareBrief(providerConfig.provider, providerConfig.apiKey, request);
+    return normalizeCompareBrief(brief, context.context.fallback);
+  },
+  buildCacheEntry: (result) => ({
+    brief: result,
+    generatedAt: new Date().toISOString()
+  }),
+  onError: async (error, context) => {
+    console.error("[dlens] compare brief AI call failed:", error instanceof Error ? error.message : error);
+    return context.context.fallback;
+  }
+});
+
+async function getCompareBriefForJudgment(
   global: ExtensionGlobalState,
   request: CompareBriefRequest
-): Promise<CompareBrief | null> {
-  const providerConfig = providerKeyForRequest(global);
-  const fallback = buildDeterministicCompareBrief(
-    request,
-    providerConfig ? "AI compare brief unavailable." : "AI compare brief disabled."
-  );
-  if (!providerConfig) {
-    return fallback;
+): Promise<{ brief: CompareBrief; cacheKey: string }> {
+  const cached = await getCachedCompareBrief(request);
+  if (cached) {
+    return cached;
   }
 
-  const cacheKey = buildCompareBriefCacheKey(request, providerConfig.provider, COMPARE_BRIEF_PROMPT_VERSION);
-  const cache = await loadCompareBriefCache();
-  const cached = cache[cacheKey]?.brief;
-  // Only use cache for AI-sourced results — don't serve a cached fallback when AI is now available
-  if (cached?.source === "ai") {
-    await saveCompareBriefCache(touchRecordCacheEntry(cache, cacheKey));
-    return normalizeCompareBrief(cached, fallback);
-  }
-
-  try {
-    const brief = await generateCompareBrief(providerConfig.provider, providerConfig.apiKey, request);
-    const normalizedBrief = normalizeCompareBrief(brief, fallback);
-    const nextCache = upsertRecordCacheEntry(cache, cacheKey, {
-      brief: normalizedBrief,
-      generatedAt: new Date().toISOString()
-    }, COMPARE_CACHE_MAX_ENTRIES);
-    await saveCompareBriefCache(nextCache);
-    return normalizedBrief;
-  } catch (err) {
-    console.error("[dlens] compare brief AI call failed:", err instanceof Error ? err.message : err);
-    return fallback;
-  }
+  const brief = await getOrGenerateCompareBrief(global, request);
+  const provider = providerKeyForRequest(global)?.provider || normalizeGlobalState(global).settings.oneLinerProvider || "google";
+  return {
+    brief,
+    cacheKey: buildCompareBriefCacheKey(request, provider, COMPARE_BRIEF_PROMPT_VERSION)
+  };
 }
 
-async function getOrGenerateClusterSummaries(
-  global: ExtensionGlobalState,
-  request: CompareClusterSummaryRequest
-): Promise<ClusterInterpretation[]> {
-  const providerConfig = providerKeyForRequest(global);
-  if (!providerConfig || !request.clusters.length) {
-    return [];
-  }
-
-  const cacheKey = buildCompareClusterSummaryCacheKey(
-    request,
-    providerConfig.provider,
-    COMPARE_CLUSTER_SUMMARY_PROMPT_VERSION
-  );
-  const cache = await loadClusterSummaryCache();
-  if (cache[cacheKey]?.items?.length) {
-    await saveClusterSummaryCache(touchRecordCacheEntry(cache, cacheKey));
-    return cache[cacheKey].items;
-  }
-
-  const items = await generateCompareClusterSummaries(providerConfig.provider, providerConfig.apiKey, request);
-  if (!items.length) {
-    return [];
-  }
-  const nextCache = upsertRecordCacheEntry(cache, cacheKey, {
-    items,
-    generatedAt: new Date().toISOString()
-  }, COMPARE_CACHE_MAX_ENTRIES);
-  await saveClusterSummaryCache(nextCache);
-  return items;
-}
-
-async function getOrGenerateEvidenceAnnotations(
-  global: ExtensionGlobalState,
-  request: EvidenceAnnotationRequest
-): Promise<EvidenceAnnotation[]> {
-  if (!request.quotes.length) {
-    return [];
-  }
-
-  const providerConfig = providerKeyForRequest(global);
-  if (!providerConfig) {
-    return [];
-  }
-
-  const cacheKey = buildEvidenceAnnotationCacheKey(request, providerConfig.provider, COMPARE_EVIDENCE_ANNOTATION_PROMPT_VERSION);
-  const cache = await loadEvidenceAnnotationCache();
-  if (cache[cacheKey]?.items?.length) {
-    await saveEvidenceAnnotationCache(touchRecordCacheEntry(cache, cacheKey));
-    return cache[cacheKey].items;
-  }
-
-  try {
-    const items = await generateEvidenceAnnotations(providerConfig.provider, providerConfig.apiKey, request);
-    if (!items.length) {
-      return [];
+const getOrGenerateClusterSummaries = createLlmCallWrapper<
+  ExtensionGlobalState,
+  CompareClusterSummaryRequest,
+  ClusterInterpretation[],
+  ClusterSummaryCacheValue,
+  {}
+>({
+  maxEntries: COMPARE_CACHE_MAX_ENTRIES,
+  resolveRequest: async (global, request) => {
+    const providerConfig = providerKeyForRequest(global);
+    if (!providerConfig || !request.clusters.length) {
+      return { kind: "return", value: [] };
     }
-    const nextCache = upsertRecordCacheEntry(cache, cacheKey, {
-      items,
+    return { kind: "continue", providerConfig, context: {} };
+  },
+  buildCacheKey: (request, provider) =>
+    buildCompareClusterSummaryCacheKey(request, provider, COMPARE_CLUSTER_SUMMARY_PROMPT_VERSION),
+  loadCache: loadClusterSummaryCache,
+  saveCache: saveClusterSummaryCache,
+  readCachedValue: (entry) => (entry?.items?.length ? entry.items : undefined),
+  generate: async (providerConfig, request) =>
+    generateCompareClusterSummaries(providerConfig.provider, providerConfig.apiKey, request),
+  buildCacheEntry: (result) => {
+    if (!result.length) {
+      return null;
+    }
+    return {
+      items: result,
       generatedAt: new Date().toISOString()
-    }, COMPARE_CACHE_MAX_ENTRIES);
-    await saveEvidenceAnnotationCache(nextCache);
-    return items;
-  } catch (err) {
-    console.error("[dlens] evidence annotation AI call failed:", err instanceof Error ? err.message : err);
+    };
+  }
+});
+
+const getOrGenerateEvidenceAnnotations = createLlmCallWrapper<
+  ExtensionGlobalState,
+  EvidenceAnnotationRequest,
+  EvidenceAnnotation[],
+  EvidenceAnnotationCacheValue,
+  {}
+>({
+  maxEntries: COMPARE_CACHE_MAX_ENTRIES,
+  resolveRequest: async (global, request) => {
+    if (!request.quotes.length) {
+      return { kind: "return", value: [] };
+    }
+    const providerConfig = providerKeyForRequest(global);
+    if (!providerConfig) {
+      return { kind: "return", value: [] };
+    }
+    return { kind: "continue", providerConfig, context: {} };
+  },
+  buildCacheKey: (request, provider) =>
+    buildEvidenceAnnotationCacheKey(request, provider, COMPARE_EVIDENCE_ANNOTATION_PROMPT_VERSION),
+  loadCache: loadEvidenceAnnotationCache,
+  saveCache: saveEvidenceAnnotationCache,
+  readCachedValue: (entry) => (entry?.items?.length ? entry.items : undefined),
+  generate: async (providerConfig, request) =>
+    generateEvidenceAnnotations(providerConfig.provider, providerConfig.apiKey, request),
+  buildCacheEntry: (result) => {
+    if (!result.length) {
+      return null;
+    }
+    return {
+      items: result,
+      generatedAt: new Date().toISOString()
+    };
+  },
+  onError: async (error) => {
+    console.error("[dlens] evidence annotation AI call failed:", error instanceof Error ? error.message : error);
     return [];
   }
-}
+});
+
+type JudgmentRequest = {
+  brief: CompareBrief;
+  productProfile: NonNullable<ExtensionGlobalState["settings"]["productProfile"]>;
+  briefHash: string;
+  profileHash: string;
+};
+
+type JudgmentOutcome = {
+  judgmentResult: NonNullable<JudgmentCacheValue["judgmentResult"]>;
+  judgmentSource: "ai" | "fallback";
+};
+
+const getOrGenerateJudgment = createLlmCallWrapper<
+  ExtensionGlobalState,
+  JudgmentRequest,
+  JudgmentOutcome,
+  JudgmentCacheValue,
+  { fallback: JudgmentOutcome }
+>({
+  maxEntries: COMPARE_CACHE_MAX_ENTRIES,
+  resolveRequest: async (global, request) => {
+    const providerConfig = providerKeyForRequest(global);
+    const fallback: JudgmentOutcome = {
+      judgmentResult: buildDeterministicJudgment(
+        request.brief,
+        request.productProfile,
+        providerConfig ? "AI judgment unavailable." : "AI judgment disabled."
+      ),
+      judgmentSource: "fallback"
+    };
+    if (!providerConfig) {
+      return { kind: "return", value: fallback };
+    }
+    return {
+      kind: "continue",
+      providerConfig,
+      context: { fallback }
+    };
+  },
+  buildCacheKey: (request) => buildJudgmentCacheKey(
+    request.briefHash,
+    request.profileHash,
+    COMPARE_JUDGMENT_PROMPT_VERSION
+  ),
+  loadCache: loadJudgmentCache,
+  saveCache: saveJudgmentCache,
+  readCachedValue: (entry) =>
+    entry
+      ? {
+        judgmentResult: entry.judgmentResult,
+        judgmentSource: "ai"
+      }
+      : undefined,
+  generate: async (providerConfig, request) => ({
+    judgmentResult: await generateJudgment(
+      providerConfig.provider,
+      providerConfig.apiKey,
+      request.brief,
+      request.productProfile
+    ),
+    judgmentSource: "ai"
+  }),
+  buildCacheEntry: (result) => {
+    if (result.judgmentSource !== "ai") {
+      return null;
+    }
+    return {
+      judgmentResult: result.judgmentResult,
+      generatedAt: new Date().toISOString()
+    };
+  },
+  onError: async (error, context) => {
+    console.error("[dlens] judgment AI call failed:", error instanceof Error ? error.message : error);
+    return context.context.fallback;
+  }
+});
 
 async function saveSnapshot(tabId: number, snapshot: ExtensionSnapshot): Promise<ExtensionSnapshot> {
   const nextSnapshot = {
@@ -414,6 +605,16 @@ async function patchSnapshot(
       ...(patch.tab || {})
     }
   });
+}
+
+async function broadcastToAllTabs(message: ExtensionMessage): Promise<void> {
+  const tabs = await chrome.tabs.query({});
+  await Promise.all(
+    tabs
+      .map((tab) => tab.id)
+      .filter((tabId): tabId is number => typeof tabId === "number")
+      .map((tabId) => chrome.tabs.sendMessage(tabId, message).catch(() => undefined))
+  );
 }
 
 function activeSessionWithFallback(globalState: ExtensionGlobalState): SessionRecord {
@@ -483,6 +684,7 @@ async function saveCurrentPreviewToSession(tabId: number): Promise<ExtensionSnap
   }
 
   const saved = saveDescriptorToSession(current.global, session.id, current.tab.currentPreview);
+  await ensureSignalForSavedItem(chrome.storage.local, session, saved.item);
   return saveSnapshot(tabId, {
     global: saved.globalState,
     tab: {
@@ -525,6 +727,7 @@ async function createSession(tabId: number, name: string, saveCurrentPreview = f
     }
     const saved = saveDescriptorToSession(globalState, session.id, current.tab.currentPreview);
     globalState = saved.globalState;
+    await ensureSignalForSavedItem(chrome.storage.local, session, saved.item);
     activeItemId = saved.item.id;
     popupPage = "library";
     currentMainPage = "library";
@@ -605,8 +808,6 @@ async function setActiveItem(tabId: number, sessionId: string, itemId: string): 
       ...current.tab,
       activeItemId: itemId,
       currentPreview: item?.descriptor || current.tab.currentPreview,
-      popupPage: "library",
-      currentMainPage: "library",
       error: null
     }
   });
@@ -645,8 +846,6 @@ async function queueSessionItem(
       tab: {
         ...current.tab,
         activeItemId: itemId,
-        popupPage: "library",
-        currentMainPage: "library",
         lastSavedToast: createInlineToast("queued", session.name),
         error: null
       }
@@ -836,10 +1035,9 @@ export default defineBackground(() => {
 
   async function backgroundRefreshInFlightItems(global: ExtensionGlobalState): Promise<void> {
     const baseUrl = normalizeBaseUrl(global.settings.ingestBaseUrl);
-    let updated = false;
-    let nextGlobal = global;
+    const refreshResults: ItemRefreshResult[] = [];
 
-    for (const session of nextGlobal.sessions) {
+    for (const session of global.sessions) {
       const inFlight = session.items.filter((item) => needsCaptureRefresh(item));
       if (!inFlight.length) continue;
 
@@ -856,17 +1054,17 @@ export default defineBackground(() => {
 
       for (const result of results) {
         if (result.status !== "fulfilled") continue;
-        const { itemId, sessionId, job, capture } = result.value;
-        nextGlobal = updateSessionItem(nextGlobal, sessionId, itemId, (existing) =>
-          reconcileSessionItem(existing, job, capture)
-        );
-        updated = true;
+        refreshResults.push(result.value);
       }
     }
 
-    if (updated) {
-      globalStateCache = withTimestamp(nextGlobal);
-      await chrome.storage.local.set({ [GLOBAL_STORAGE_KEY]: globalStateCache });
+    if (refreshResults.length) {
+      await withSnapshotLock(async () => {
+        const latest = await loadGlobalState();
+        const merged = mergeItemRefreshResultsIntoGlobal(latest, refreshResults);
+        globalStateCache = withTimestamp(merged);
+        await chrome.storage.local.set({ [GLOBAL_STORAGE_KEY]: globalStateCache });
+      });
     }
   }
 
@@ -914,7 +1112,7 @@ export default defineBackground(() => {
             sendResponse({ ok: true, tabId, snapshot } satisfies ExtensionResponse);
             return;
           }
-          case "settings/set-one-liner-config": {
+          case "settings/set-product-profile": {
             const tabId = await resolveTabId(sender);
             const current = await loadSnapshot(tabId);
             const snapshot = await saveSnapshot(tabId, {
@@ -922,11 +1120,50 @@ export default defineBackground(() => {
                 ...current.global,
                 settings: {
                   ...current.global.settings,
-                  oneLinerProvider: message.provider,
-                  openaiApiKey: message.openaiApiKey.trim(),
-                  claudeApiKey: message.claudeApiKey.trim(),
-                  googleApiKey: message.googleApiKey.trim()
+                  productProfile: message.productProfile
                 }
+              },
+              tab: {
+                ...current.tab,
+                error: null
+              }
+            });
+            sendResponse({ ok: true, tabId, snapshot } satisfies ExtensionResponse);
+            return;
+          }
+          case "settings/init-product-profile": {
+            const tabId = await resolveTabId(sender);
+            const current = await loadSnapshot(tabId);
+            const providerConfig = providerKeyForRequest(current.global);
+            if (!providerConfig) {
+              sendResponse({ ok: false, error: "Configure a Google, OpenAI, or Claude key first." } satisfies ExtensionResponse);
+              return;
+            }
+            const productProfile = await generateProductProfileSuggestion(
+              providerConfig.provider,
+              providerConfig.apiKey,
+              message.description
+            );
+            sendResponse({
+              ok: true,
+              tabId,
+              productProfile
+            } satisfies ExtensionResponse);
+            return;
+          }
+          case "settings/set-one-liner-config": {
+            const tabId = await resolveTabId(sender);
+            const current = await loadSnapshot(tabId);
+            const settings = mergeOneLinerSettings(current.global.settings, {
+              provider: message.provider,
+              openaiApiKey: message.openaiApiKey,
+              claudeApiKey: message.claudeApiKey,
+              googleApiKey: message.googleApiKey
+            });
+            const snapshot = await saveSnapshot(tabId, {
+              global: {
+                ...current.global,
+                settings
               },
               tab: {
                 ...current.tab,
@@ -1092,6 +1329,51 @@ export default defineBackground(() => {
               ok: true,
               tabId,
               snapshot: await setActiveSessionById(tabId, message.sessionId)
+            } satisfies ExtensionResponse);
+            return;
+          }
+          case "session/set-mode": {
+            const tabId = await resolveTabId(sender);
+            const current = await loadSnapshot(tabId);
+            const global = {
+              ...current.global,
+              sessions: current.global.sessions.map((session) =>
+                session.id === message.sessionId
+                  ? {
+                      ...session,
+                      mode: message.mode,
+                      updatedAt: new Date().toISOString()
+                    }
+                  : session
+              )
+            };
+            sendResponse({
+              ok: true,
+              tabId,
+              snapshot: await saveSnapshot(tabId, {
+                global,
+                tab: {
+                  ...current.tab,
+                  error: null
+                }
+              })
+            } satisfies ExtensionResponse);
+            return;
+          }
+          case "topic/list":
+          case "topic/create":
+          case "topic/update":
+          case "topic/delete":
+          case "topic/add-pair":
+          case "topic/remove-pair":
+          case "signal/list":
+          case "signal/triage": {
+            const tabId = await resolveTabId(sender);
+            const topicResponse = await handleTopicMessage(chrome.storage.local, message);
+            sendResponse({
+              ok: true,
+              tabId,
+              ...topicResponse
             } satisfies ExtensionResponse);
             return;
           }
@@ -1362,6 +1644,92 @@ export default defineBackground(() => {
               }
             });
             sendResponse({ ok: true, tabId, snapshot } satisfies ExtensionResponse);
+            return;
+          }
+          case "judgment/start": {
+            const tabId = await resolveTabId(sender);
+            const current = await loadSnapshot(tabId);
+            const productProfile = current.global.settings.productProfile;
+            if (!productProfile) {
+              sendResponse({ ok: true, tabId } satisfies ExtensionResponse);
+              return;
+            }
+
+            const savedAnalyses = await loadSavedAnalyses(chrome.storage.local);
+            const savedAnalysis = savedAnalyses.find((entry) => entry.resultId === message.resultId) || null;
+            if (!savedAnalysis) {
+              throw new Error("Saved analysis snapshot not found.");
+            }
+
+            const compareItems = findSessionItems(current.global.sessions, savedAnalysis.itemAId, savedAnalysis.itemBId);
+            if (!compareItems) {
+              throw new Error("Source posts for this saved analysis are no longer available in local storage.");
+            }
+
+            const briefRequest = buildCompareBriefRequest(compareItems.itemA, compareItems.itemB);
+            if (!briefRequest) {
+              throw new Error("This saved analysis no longer has enough data to rebuild the compare brief request.");
+            }
+
+            const compareBrief = await getCompareBriefForJudgment(current.global, briefRequest);
+
+            const profileHash = [productProfile.name, productProfile.category, productProfile.audience].join("|");
+            const judgment = await getOrGenerateJudgment(current.global, {
+              brief: compareBrief.brief,
+              productProfile,
+              briefHash: compareBrief.cacheKey,
+              profileHash
+            });
+            const nextSavedAnalyses = await saveSavedAnalysisJudgment(chrome.storage.local, {
+              resultId: message.resultId,
+              judgmentResult: judgment.judgmentResult,
+              judgmentVersion: COMPARE_JUDGMENT_PROMPT_VERSION,
+              judgmentSource: judgment.judgmentSource
+            });
+            const snapshot = await saveSnapshot(tabId, {
+              global: current.global,
+              tab: {
+                ...current.tab,
+                error: null
+              }
+            });
+            await broadcastToAllTabs({
+              type: "judgment/result",
+              resultId: message.resultId,
+              judgmentResult: judgment.judgmentResult,
+              judgmentVersion: COMPARE_JUDGMENT_PROMPT_VERSION,
+              judgmentSource: judgment.judgmentSource
+            });
+            sendResponse({
+              ok: true,
+              tabId,
+              snapshot,
+              savedAnalyses: nextSavedAnalyses
+            } satisfies ExtensionResponse);
+            return;
+          }
+          case "judgment/result": {
+            const tabId = await resolveTabId(sender);
+            const current = await loadSnapshot(tabId);
+            const savedAnalyses = await saveSavedAnalysisJudgment(chrome.storage.local, {
+              resultId: message.resultId,
+              judgmentResult: message.judgmentResult,
+              judgmentVersion: message.judgmentVersion,
+              judgmentSource: message.judgmentSource
+            });
+            const snapshot = await saveSnapshot(tabId, {
+              global: current.global,
+              tab: {
+                ...current.tab,
+                error: null
+              }
+            });
+            sendResponse({
+              ok: true,
+              tabId,
+              snapshot,
+              savedAnalyses
+            } satisfies ExtensionResponse);
             return;
           }
           default: {

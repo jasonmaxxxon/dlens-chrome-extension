@@ -47,6 +47,7 @@ export interface SupportingObservation {
 export interface CompareBrief {
   source: "ai" | "fallback";
   headline: string;
+  relation: string;
   supportingObservations: SupportingObservation[];
   aReading: string;
   bReading: string;
@@ -74,6 +75,7 @@ function readConfidence(value: unknown, fallback: CompareBriefConfidence): Compa
 
 interface CompareBriefResponsePayload {
   headline?: string;
+  relation?: string;
   supporting_observations?: unknown;
   a_reading?: string;
   b_reading?: string;
@@ -160,6 +162,20 @@ function inferReactionType(sizeShare: number, likeShare: number): string {
   if (sizeShare >= 0.5) return "集中回聲型";
   if (likeShare < sizeShare - 0.15) return "分歧探索型";
   return "分散反應型";
+}
+
+function concentrationPhrase(cluster: CompareBriefClusterRequestItem | null): string {
+  if (!cluster) return "主線仍不穩定";
+  if (cluster.sizeShare >= 0.55) return "留言快速收斂到少數主線";
+  if (cluster.sizeShare >= 0.35) return "留言先聚成幾條可辨識支線";
+  return "留言重點仍偏分散";
+}
+
+function engagementPhrase(cluster: CompareBriefClusterRequestItem | null): string {
+  if (!cluster) return "互動訊號仍偏弱";
+  if (cluster.likeShare > cluster.sizeShare + 0.12) return "高讚集中在少數代表說法";
+  if (cluster.likeShare < cluster.sizeShare - 0.12) return "參與很多，但認同沒有同步集中";
+  return "留言規模與認同度大致同步";
 }
 
 function sanitizeFallbackReason(value: string): string {
@@ -300,6 +316,7 @@ export function buildCompareBriefPrompt(request: CompareBriefRequest): string {
 
   const schema = JSON.stringify({
     headline: "string — 28字以內，格式「A 偏[型態]，B 偏[型態]」",
+    relation: "string — 40字以內，說明兩邊留言如何把同一主題讀成不同方向",
     supporting_observations: [
       { text: "string", scope: "left|right|cross", evidence_ids: ["e1", "e2"] }
     ],
@@ -345,6 +362,7 @@ export function buildCompareBriefPrompt(request: CompareBriefRequest): string {
     "",
     "輸出規格：",
     "  headline: 必須同時說明 A 和 B 的反應型態（共鳴放大型 / 集中回聲型 / 分歧探索型 / 分散反應型），控制在 28 個中文字以內。",
+    "  relation: 用一句話說明同一主題在兩邊留言區被讀成什麼差異方向，控制在 40 個中文字以內。",
     "  supporting_observations: 先輸出觀察再給解讀；每條觀察必須包含 evidence_ids，只能引用 EVIDENCE CATALOG 中的 alias；無法引用 evidence 的觀察直接省略。",
     "  a_reading / b_reading: 各端具體讀法，必須引用至少一條 evidence alias。",
     "  why_it_matters: 這兩邊差異對讀者意味著什麼，一個分析性洞察，不要說廢話。",
@@ -376,6 +394,7 @@ export function parseCompareBriefResponse(raw: string, request: CompareBriefRequ
   const validAliases = new Set(catalog.map((e) => e.alias));
 
   const headline = String(parsed.headline || "").trim();
+  const relation = String(parsed.relation || "").trim();
   const aReading = String(parsed.a_reading || "").trim();
   const bReading = String(parsed.b_reading || "").trim();
   const whyItMatters = String(parsed.why_it_matters || "").trim();
@@ -403,6 +422,7 @@ export function parseCompareBriefResponse(raw: string, request: CompareBriefRequ
 
   if (
     !headline
+    || !relation
     || supportingObservations.length === 0
     || !aReading
     || !bReading
@@ -427,6 +447,7 @@ export function parseCompareBriefResponse(raw: string, request: CompareBriefRequ
   return {
     source: "ai",
     headline,
+    relation,
     supportingObservations,
     aReading,
     bReading,
@@ -459,6 +480,9 @@ export function normalizeCompareBrief(value: unknown, fallback: CompareBrief): C
     readTrimmedString(payload.whyItMatters)
     || readTrimmedString(payload.why_it_matters)
     || fallback.whyItMatters;
+  const relation =
+    readTrimmedString(payload.relation)
+    || fallback.relation;
   const creatorCue =
     readTrimmedString(payload.creatorCue)
     || readTrimmedString(payload.creator_cue)
@@ -476,6 +500,7 @@ export function normalizeCompareBrief(value: unknown, fallback: CompareBrief): C
   return {
     source: payload.source === "ai" ? "ai" : fallback.source,
     headline: readTrimmedString(payload.headline) || fallback.headline,
+    relation,
     supportingObservations: supportingObservations.length > 0 ? supportingObservations : fallback.supportingObservations,
     aReading,
     bReading,
@@ -527,13 +552,18 @@ export function buildDeterministicCompareBrief(
       : "先選你要的回應型態。";
 
   const aReading = leftEvidence
-    ? `A 的受眾以${leftReactionType}回應，高互動留言多半延伸同一方向，像「${leftEvidence.text}」這類樣本反映了這種聚集。`
+    ? `A 端主要是${leftReactionType}：討論先往「${leftLabel}」收斂，再由像「${leftEvidence.text}」這種代表說法把氣氛定調。`
     : `A 的受眾以${leftReactionType}為主，但代表性留言仍偏少，判斷暫時保守。`;
   const bReading = rightEvidence
-    ? `B 的受眾以${rightReactionType}回應，高互動留言更像把討論帶去另一個方向，像「${rightEvidence.text}」這類樣本顯示了這種分歧。`
+    ? `B 端主要是${rightReactionType}：討論被帶往「${rightLabel}」，而像「${rightEvidence.text}」這種留言負責把那個方向講得更明白。`
     : `B 的受眾以${rightReactionType}為主，但代表性留言仍偏少，判斷暫時保守。`;
 
-  const whyItMatters = `差異的核心不在於貼文主題，而在於留言如何聚集與放大。${leftStructureText}；${rightStructureText}。`;
+  const whyItMatters = sameReactionType
+    ? `兩邊都觸發了${leftReactionType}，但受眾抓住的判讀重點不同。A 這邊${concentrationPhrase(leftTop)}，而且${engagementPhrase(leftTop)}；B 這邊則${concentrationPhrase(rightTop)}，而且${engagementPhrase(rightTop)}。這代表相同主題被帶進了不同的討論入口。`
+    : `兩邊不是在放大同一種回應。A 比較像${leftReactionType}，而且${engagementPhrase(leftTop)}；B 比較像${rightReactionType}，而且${engagementPhrase(rightTop)}。這說明兩篇貼文把同一議題推進了不同的互動機制。`;
+  const relation = sameReactionType
+    ? `同一議題都能聚攏反應，但 A 收向${leftLabel}，B 則帶往${rightLabel}。`
+    : `同一議題在兩邊被啟動成不同互動：A 偏${leftLabel}，B 偏${rightLabel}。`;
 
   // Build alias map from the same evidence catalog grammar used by the AI path
   const catalog = buildEvidenceCatalog(request);
@@ -567,6 +597,7 @@ export function buildDeterministicCompareBrief(
   return {
     source: "fallback",
     headline,
+    relation: compactSingleLine(relation, 40),
     supportingObservations,
     aReading,
     bReading,

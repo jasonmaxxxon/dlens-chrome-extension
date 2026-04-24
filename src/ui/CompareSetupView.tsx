@@ -1,21 +1,23 @@
 import type { SessionItem } from "../state/types.ts";
+import { tokens } from "./tokens.ts";
 
 const AR = {
-  blue:    "#0071e3",
-  orange:  "#ff9500",
-  ink:     "#1d1d1f",
-  canvas:  "#f2f2f7",
-  card:    "#ffffff",
-  softInk: "rgba(0,0,0,0.5)",
-  muteInk: "rgba(0,0,0,0.35)",
-  line:    "rgba(0,0,0,0.07)",
-  green:   "#34c759",
+  blue: tokens.color.accent,
+  orange: tokens.color.queued,
+  ink: tokens.color.ink,
+  canvas: tokens.color.contentSurface,
+  card: tokens.color.elevated,
+  softInk: tokens.color.subInk,
+  muteInk: tokens.color.softInk,
+  line: tokens.color.line,
+  green: tokens.color.success,
 } as const;
 
 export interface CompareSetupTeaser {
   headline: string;
   deck: string;
   metadataLabel: string;
+  briefSource: "ai" | "fallback";
 }
 
 interface CompareSetupViewProps {
@@ -50,7 +52,7 @@ function PostMiniCard({ item, side }: { item: SessionItem | null | undefined; si
     <div
       style={{
         background: AR.canvas,
-        borderRadius: 8,
+        borderRadius: tokens.radius.card,
         padding: "9px 11px",
         borderLeft: `3px solid ${accentColor}`,
         display: "flex",
@@ -64,9 +66,9 @@ function PostMiniCard({ item, side }: { item: SessionItem | null | undefined; si
           style={{
             width: 26,
             height: 26,
-            borderRadius: 8,
-            background: `linear-gradient(135deg, ${accentColor}, ${side === "A" ? "#818cf8" : "#f97316"})`,
-            color: "#fff",
+            borderRadius: tokens.radius.card,
+            background: accentColor,
+            color: tokens.color.elevated,
             display: "grid",
             placeItems: "center",
             fontWeight: 700,
@@ -92,7 +94,7 @@ function PostMiniCard({ item, side }: { item: SessionItem | null | undefined; si
             fontWeight: 700,
             color: accentColor,
             background: `${accentColor}14`,
-            borderRadius: 6,
+            borderRadius: tokens.radius.sm,
             padding: "2px 7px",
             flexShrink: 0,
           }}
@@ -130,7 +132,7 @@ function PostMiniCard({ item, side }: { item: SessionItem | null | undefined; si
                 color: AR.ink,
                 background: AR.card,
                 border: `1px solid ${AR.line}`,
-                borderRadius: 6,
+                borderRadius: tokens.radius.sm,
                 padding: "1px 6px",
               }}
             >
@@ -169,7 +171,7 @@ function SelectorBlock({
             fontWeight: 700,
             color: accentColor,
             background: `${accentColor}14`,
-            borderRadius: 6,
+            borderRadius: tokens.radius.sm,
             padding: "2px 8px",
           }}
         >
@@ -182,7 +184,7 @@ function SelectorBlock({
         onChange={(event) => onChange(event.target.value)}
         style={{
           width: "100%",
-          borderRadius: 8,
+          borderRadius: tokens.radius.card,
           border: `1.5px solid ${value ? accentColor : AR.line}`,
           background: AR.card,
           color: AR.ink,
@@ -228,25 +230,25 @@ export function CompareSetupView({
         flexDirection: "column",
         gap: 14,
         background: AR.canvas,
-        borderRadius: 18,
+        borderRadius: tokens.radius.lg,
         border: `1px solid ${AR.line}`,
-        boxShadow: "inset 0 1px 0 rgba(255,255,255,0.7)",
+        boxShadow: tokens.shadow.glass,
       }}
     >
 
       {/* Header */}
       <div
         style={{
-          background: "rgba(255,255,255,0.72)",
-          borderRadius: 14,
+          background: AR.card,
+          borderRadius: tokens.radius.card,
           padding: "12px 14px",
           border: `1px solid ${AR.line}`,
         }}
       >
-        <div style={{ fontSize: 11, fontWeight: 600, color: AR.muteInk, letterSpacing: 0.2, marginBottom: 2 }}>
+        <div style={{ fontSize: 11, fontWeight: 600, color: AR.muteInk, letterSpacing: 0, marginBottom: 2 }}>
           比較
         </div>
-        <div style={{ fontSize: 17, fontWeight: 700, color: AR.ink, letterSpacing: -0.3 }}>
+        <div style={{ fontSize: 17, fontWeight: 700, color: AR.ink, letterSpacing: 0 }}>
           選擇兩篇貼文
         </div>
         <div style={{ fontSize: 12, color: AR.softInk, marginTop: 3 }}>
@@ -258,7 +260,7 @@ export function CompareSetupView({
       <div
         style={{
           background: AR.card,
-          borderRadius: 14,
+          borderRadius: tokens.radius.card,
           padding: "14px 14px",
           border: `1px solid ${AR.line}`,
           boxShadow: "0 8px 24px rgba(15,23,42,0.04)",
@@ -293,7 +295,7 @@ export function CompareSetupView({
           data-compare-teaser-state={teaserState}
           style={{
             background: AR.card,
-            borderRadius: 14,
+            borderRadius: tokens.radius.card,
             padding: "13px 14px",
             border: `1px solid ${AR.line}`,
             boxShadow: "0 8px 24px rgba(15,23,42,0.04)",
@@ -310,7 +312,7 @@ export function CompareSetupView({
                 fontWeight: 700,
                 color: teaserState === "ready" ? AR.blue : teaserState === "loading" ? AR.muteInk : AR.muteInk,
                 background: teaserState === "ready" ? "rgba(0,113,227,0.08)" : AR.canvas,
-                borderRadius: 6,
+                borderRadius: tokens.radius.sm,
                 padding: "2px 8px",
               }}
             >
@@ -320,19 +322,19 @@ export function CompareSetupView({
 
           {teaserState === "loading" ? (
             <div style={{ display: "flex", flexDirection: "column", gap: 7 }}>
-              <div style={{ width: "70%", height: 22, borderRadius: 6, background: AR.canvas }} />
-              <div style={{ width: "100%", height: 12, borderRadius: 6, background: AR.canvas }} />
-              <div style={{ width: "80%", height: 12, borderRadius: 6, background: AR.canvas }} />
+              <div style={{ width: "70%", height: 22, borderRadius: tokens.radius.sm, background: AR.canvas }} />
+              <div style={{ width: "100%", height: 12, borderRadius: tokens.radius.sm, background: AR.canvas }} />
+              <div style={{ width: "80%", height: 12, borderRadius: tokens.radius.sm, background: AR.canvas }} />
             </div>
           ) : teaser ? (
             <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
               <div
                 style={{
-                  fontFamily: "-apple-system,'SF Pro Display',sans-serif",
+                  fontFamily: tokens.font.sans,
                   fontSize: 20,
                   fontWeight: 700,
                   lineHeight: 1.2,
-                  letterSpacing: -0.4,
+                  letterSpacing: 0,
                   color: AR.ink,
                 }}
               >
@@ -369,14 +371,14 @@ export function CompareSetupView({
           style={{
             width: "100%",
             padding: "11px 0",
-            borderRadius: 8,
+            borderRadius: tokens.radius.card,
             border: "none",
             background: openDisabled ? AR.canvas : AR.blue,
-            color: openDisabled ? AR.muteInk : "#fff",
+            color: openDisabled ? AR.muteInk : tokens.color.elevated,
             fontSize: 14,
             fontWeight: 600,
             cursor: openDisabled ? "default" : "pointer",
-            letterSpacing: -0.1,
+            letterSpacing: 0,
           }}
         >
           查看完整分析
@@ -386,14 +388,14 @@ export function CompareSetupView({
           style={{
             width: "100%",
             padding: "9px 0",
-            borderRadius: 8,
+            borderRadius: tokens.radius.card,
             border: `1px solid ${AR.line}`,
             background: AR.card,
             color: AR.ink,
             fontSize: 13,
             fontWeight: 600,
             cursor: "pointer",
-            letterSpacing: -0.1,
+            letterSpacing: 0,
           }}
         >
           重新選擇

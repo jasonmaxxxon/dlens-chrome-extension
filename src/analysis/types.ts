@@ -87,6 +87,7 @@ export interface SelectedClusterDetail {
 
 export interface CompareHeroSummary {
   headline: string;
+  relation: string;
   whyItMatters: string;
   creatorCue: string;
   cue: string;

@@ -13,6 +13,16 @@ function pickNewestSavedAnalysis(savedAnalyses: SavedAnalysisSnapshot[]): SavedA
   return [...savedAnalyses].sort((left, right) => Date.parse(right.savedAt) - Date.parse(left.savedAt))[0] ?? null;
 }
 
+export function findSavedAnalysisByResultId(
+  savedAnalyses: SavedAnalysisSnapshot[],
+  resultId: string | null | undefined
+): SavedAnalysisSnapshot | null {
+  if (!resultId) {
+    return null;
+  }
+  return savedAnalyses.find((entry) => entry.resultId === resultId) ?? null;
+}
+
 export function resolveAnalysisResultSurface({
   activeResult,
   savedAnalyses

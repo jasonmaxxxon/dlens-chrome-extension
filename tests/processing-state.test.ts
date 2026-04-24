@@ -144,7 +144,7 @@ test("resolveInitialPopupMode prefers compare, then library", () => {
 });
 
 test("expanded compare/result popup width gives the reading page more room than the compact shell", () => {
-  assert.equal(DEFAULT_POPUP_WIDTH, 348);
+  assert.equal(DEFAULT_POPUP_WIDTH, 440);
   assert.equal(EXPANDED_COMPARE_POPUP_WIDTH, 560);
 });
 
@@ -305,6 +305,6 @@ test("getPollingDelayMs follows the shared coordinator rules and backoff", () =>
 });
 
 test("popup width constants keep compare expanded while other pages stay compact", () => {
-  assert.equal(DEFAULT_POPUP_WIDTH, 348);
+  assert.equal(DEFAULT_POPUP_WIDTH, 440);
   assert.equal(EXPANDED_COMPARE_POPUP_WIDTH, 560);
 });

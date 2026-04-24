@@ -93,6 +93,7 @@ export function buildCompareSetupTeaser(
   return {
     headline: brief.headline,
     deck: brief.whyItMatters || brief.creatorCue,
-    metadataLabel: `${totalComments} 則留言 · ${dateRangeLabel} · ${groupCount} 群組${brief.source === "fallback" ? " · fallback" : ""}`
+    metadataLabel: `${totalComments} 則留言 · ${dateRangeLabel} · ${groupCount} 群組${brief.source === "fallback" ? " · fallback" : ""}`,
+    briefSource: brief.source
   };
 }

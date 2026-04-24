@@ -6,6 +6,7 @@ import { renderToStaticMarkup } from "react-dom/server";
 
 import { createSessionItem, createSessionRecord } from "../src/state/store-helpers.ts";
 import { CompareSetupView } from "../src/ui/CompareSetupView.tsx";
+import { tokens } from "../src/ui/tokens.ts";
 import type { SessionItem } from "../src/state/types.ts";
 
 function buildReadyItems(): SessionItem[] {
@@ -83,7 +84,8 @@ test("CompareSetupView enables the CTA once the teaser is ready, including fallb
       teaser: {
         headline: "焦慮是主調，但理性聲音正在集結",
         deck: "兩篇貼文的留言區呈現截然不同的反應結構。",
-        metadataLabel: "847 則留言 · 3 群組 · fallback"
+        metadataLabel: "847 則留言 · 3 群組 · fallback",
+        briefSource: "fallback"
       },
       onChangeA: () => undefined,
       onChangeB: () => undefined,
@@ -96,4 +98,32 @@ test("CompareSetupView enables the CTA once the teaser is ready, including fallb
   assert.match(html, /焦慮是主調，但理性聲音正在集結/);
   assert.match(html, /847 則留言 · 3 群組 · fallback/);
   assert.doesNotMatch(html, /查看完整分析[^<]*disabled/);
+});
+
+test("CompareSetupView uses editorial token surfaces instead of pure white Apple cards", () => {
+  const readyItems = buildReadyItems();
+  const html = renderToStaticMarkup(
+    React.createElement(CompareSetupView, {
+      readyItems,
+      selectedA: readyItems[0]!.id,
+      selectedB: readyItems[1]!.id,
+      teaserState: "ready",
+      teaser: {
+        headline: "焦慮是主調，但理性聲音正在集結",
+        deck: "兩篇貼文的留言區呈現截然不同的反應結構。",
+        metadataLabel: "847 則留言 · 3 群組 · fallback",
+        briefSource: "fallback"
+      },
+      onChangeA: () => undefined,
+      onChangeB: () => undefined,
+      onOpenResult: () => undefined,
+      onReset: () => undefined
+    })
+  );
+
+  assert.match(html, new RegExp(tokens.color.elevated.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")));
+  assert.match(html, new RegExp(String(tokens.radius.card)));
+  assert.doesNotMatch(html, /#ffffff/i);
+  assert.doesNotMatch(html, /SF Pro Display|-apple-system/);
+  assert.doesNotMatch(html, /letter-spacing:-/);
 });

@@ -10,6 +10,7 @@ import type { ExtensionSettings, SessionRecord } from "../src/state/types.ts";
 import { createDefaultSettings } from "../src/state/types.ts";
 import { createSessionItem, createSessionRecord } from "../src/state/store-helpers.ts";
 import { buildTechniqueReadingSnapshot, STATIC_TECHNIQUE_DEFINITIONS } from "../src/compare/technique-reading.ts";
+import type { Topic } from "../src/state/types.ts";
 
 function buildCapture(
   id: string,
@@ -224,6 +225,46 @@ test("CompareView uses placeholder avatars and engagement metrics in representat
   assert.match(html, /data-evidence-metric="comments"/);
 });
 
+test("CompareView can render topic breadcrumb and attach-to-topic controls without altering the main sheet", () => {
+  const session = buildSession();
+  const topic: Topic = {
+    id: "topic-1",
+    sessionId: "session-1",
+    name: "航班爭議",
+    description: "",
+    status: "watching",
+    tags: [],
+    signalIds: [],
+    pairIds: [],
+    createdAt: "2026-04-20T10:00:00.000Z",
+    updatedAt: "2026-04-23T10:00:00.000Z"
+  };
+
+  const html = renderToStaticMarkup(
+    React.createElement(CompareView, {
+      session,
+      settings: createDefaultSettings(),
+      forcedSelection: {
+        itemAId: session.items[0]!.id,
+        itemBId: session.items[1]!.id
+      },
+      hideSelector: true,
+      fromTopicId: "topic-1",
+      fromTopicName: "航班爭議",
+      topics: [topic],
+      activeResultId: "result-1",
+      attachedTopicIds: [],
+      onReturnToTopic: () => undefined,
+      onAttachToTopic: () => undefined
+    })
+  );
+
+  assert.match(html, /案例本/);
+  assert.match(html, /航班爭議/);
+  assert.match(html, /成對檢視/);
+  assert.match(html, /附加至案例/);
+});
+
 test("ResultTrustStrip keeps only the new cluster distribution graph when the validation drawer is open", () => {
   const session = buildSession();
   const analysisA = session.items[0]!.latestCapture!.analysis!;
@@ -329,6 +370,7 @@ test("createDefaultSettings includes empty one-liner settings by default", () =>
   assert.equal(settings.openaiApiKey, "");
   assert.equal(settings.claudeApiKey, "");
   assert.equal(settings.googleApiKey, "");
+  assert.equal(settings.productProfile, null);
 });
 
 test("CompareView renders a Compare-language bridge when fewer than two items are ready", () => {
@@ -706,6 +748,62 @@ test("CompareView promotes why-matters copy over support metric pills on the fir
   assert.doesNotMatch(html, />Replies</);
 });
 
+test("ResultWhyCard renders both side readings when brief includes A and B readings", () => {
+  const html = renderToStaticMarkup(
+    React.createElement(compareViewTestables.ResultWhyCard, {
+      brief: {
+        source: "ai",
+        relation: "A 跟 B 在責任歸因上分叉。",
+        headline: "兩邊留言走向不同",
+        supportingObservations: [],
+        aReading: "A 端把事件讀成服務失誤。",
+        bReading: "B 端把事件讀成品牌信任問題。",
+        whyItMatters: "同一事件會導向不同回應策略。",
+        creatorCue: "先分清楚要回應操作問題還是信任問題。",
+        confidence: "medium",
+        keywords: []
+      }
+    })
+  );
+
+  assert.match(html, /A 端把事件讀成服務失誤/);
+  assert.match(html, /B 端把事件讀成品牌信任問題/);
+});
+
+test("annotation request key helper resets when request disappears", () => {
+  const request = {
+    quotes: [
+      {
+        commentId: "c2",
+        side: "B" as const,
+        postAuthor: "beta",
+        postText: "post b",
+        clusterLabel: "harmful",
+        clusterObservation: "B observation",
+        quoteText: "quote b",
+        likeCount: 2
+      },
+      {
+        commentId: "c1",
+        side: "A" as const,
+        postAuthor: "alpha",
+        postText: "post a",
+        clusterLabel: "support",
+        clusterObservation: "A observation",
+        quoteText: "quote a",
+        likeCount: 1
+      }
+    ]
+  };
+
+  assert.equal(compareViewTestables.resolveAnnotationRequestKey(null, request).shouldRequest, true);
+  assert.equal(compareViewTestables.resolveAnnotationRequestKey("c1|c2", request).shouldRequest, false);
+  assert.deepEqual(compareViewTestables.resolveAnnotationRequestKey("c1|c2", null), {
+    requestKey: null,
+    shouldRequest: false
+  });
+});
+
 test("CompareView frames primary evidence as receipts before interpretation", () => {
   const html = renderToStaticMarkup(
     React.createElement(CompareView, {
@@ -965,6 +1063,31 @@ test("CompareView renders a compact judgment hero without risk chips", () => {
   assert.doesNotMatch(html, /Representative evidence/i);
   assert.doesNotMatch(html, /Compare brief/i);
   assert.doesNotMatch(html, /data-risk-signals="subtle"/);
+});
+
+test("CompareView renders an editorial relation line and confidence stamp in the hero", () => {
+  const html = renderToStaticMarkup(
+    React.createElement(CompareView, {
+      session: buildSession(),
+      settings: createDefaultSettings()
+    })
+  );
+
+  assert.match(html, /同一議題都能聚攏反應/);
+  assert.match(html, /A 收向support，B 則帶往harmful/);
+  assert.match(html, /AI Brief|CONF|confidence|medium/i);
+});
+
+test("CompareView keeps result prose blocks wrap-safe inside the popup measure", () => {
+  const html = renderToStaticMarkup(
+    React.createElement(CompareView, {
+      session: buildSession(),
+      settings: createDefaultSettings()
+    })
+  );
+
+  assert.match(html, /overflow-wrap:anywhere/);
+  assert.match(html, /word-break:break-word/);
 });
 
 test("CompareView uses lighter section anchors instead of uppercase chrome", () => {

@@ -1,6 +1,6 @@
 import type { PopupPage, SessionItem, SessionRecord } from "./types.ts";
 
-export const DEFAULT_POPUP_WIDTH = 348;
+export const DEFAULT_POPUP_WIDTH = 440;
 export const EXPANDED_COMPARE_POPUP_WIDTH = 560;
 export const NETWORK_BATCH_SIZE = 3;
 

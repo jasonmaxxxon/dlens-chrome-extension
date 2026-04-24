@@ -83,6 +83,7 @@ test("buildCompareBriefPrompt uses structured format with evidence catalog and n
   const prompt = buildCompareBriefPrompt(buildRequest());
 
   // New output schema field names
+  assert.match(prompt, /relation/);
   assert.match(prompt, /why_it_matters/);
   assert.match(prompt, /a_reading/);
   assert.match(prompt, /b_reading/);
@@ -112,6 +113,7 @@ test("parseCompareBriefResponse accepts the new observation-first contract", () 
   const parsed = parseCompareBriefResponse(
     JSON.stringify({
       headline: "A 偏集中回聲型，B 偏分歧探索型",
+      relation: "A 被讀成政策支持聚合，B 被讀成風險質疑聚合。",
       supporting_observations: [
         { text: "A 的高互動留言集中在支持政策的聲音", scope: "left", evidence_ids: ["e1"] },
         { text: "B 的留言更常把焦點轉向時機與風險", scope: "right", evidence_ids: ["e3"] }
@@ -130,6 +132,7 @@ test("parseCompareBriefResponse accepts the new observation-first contract", () 
 
   assert.ok(parsed);
   assert.equal(parsed?.headline, "A 偏集中回聲型，B 偏分歧探索型");
+  assert.equal(parsed?.relation, "A 被讀成政策支持聚合，B 被讀成風險質疑聚合。");
   assert.equal(parsed?.supportingObservations.length, 2);
   assert.equal(parsed?.supportingObservations[0]?.scope, "left");
   assert.deepEqual(parsed?.supportingObservations[0]?.evidenceIds, ["e1"]);
@@ -147,6 +150,7 @@ test("parseCompareBriefResponse accepts code-fenced JSON", () => {
       "```json",
       JSON.stringify({
         headline: "A 偏集中回聲型，B 偏分歧探索型",
+        relation: "A 被讀成支持聚合，B 被讀成風險質疑。",
         supporting_observations: [
           { text: "A 的留言聚焦在支持聲音", scope: "left", evidence_ids: ["e1"] }
         ],
@@ -174,6 +178,7 @@ test("parseCompareBriefResponse rejects observations with no valid evidence alia
   const parsed = parseCompareBriefResponse(
     JSON.stringify({
       headline: "A 偏集中回聲型，B 偏分歧探索型",
+      relation: "A / B 關係句。",
       supporting_observations: [
         { text: "Some claim", scope: "left", evidence_ids: ["x99", "z00"] }
       ],
@@ -198,6 +203,7 @@ test("parseCompareBriefResponse rejects side readings with no evidence alias cit
   const parsed = parseCompareBriefResponse(
     JSON.stringify({
       headline: "A 偏集中回聲型，B 偏分歧探索型",
+      relation: "A / B 關係句。",
       supporting_observations: [
         { text: "A 的留言聚焦在支持聲音", scope: "left", evidence_ids: ["e1"] }
       ],
@@ -233,6 +239,7 @@ test("buildDeterministicCompareBrief produces a valid fallback brief with catalo
   const brief = buildDeterministicCompareBrief(buildRequest(), "AI summary unavailable.");
 
   assert.equal(brief.source, "fallback");
+  assert.ok(brief.relation.length > 0);
   assert.ok(Array.isArray(brief.keywords));
   assert.ok(brief.keywords.length >= 3);
   assert.ok(brief.keywords.length <= 5);
@@ -245,6 +252,10 @@ test("buildDeterministicCompareBrief produces a valid fallback brief with catalo
   assert.match(brief.bReading, /B/);
   assert.ok(brief.creatorCue.length <= 28);
   assert.equal(brief.audienceAlignmentLeft, "Align");
+  assert.doesNotMatch(brief.whyItMatters, /^差異的核心不在於/);
+  assert.doesNotMatch(brief.aReading, /^A 的受眾以.+像「.+」這類樣本/);
+  assert.doesNotMatch(brief.bReading, /^B 的受眾以.+像「.+」這類樣本/);
+  assert.ok(brief.relation.length <= 40);
 
   // evidenceIds must use catalog alias grammar (e1, e2, ...), not raw comment_ids
   for (const obs of brief.supportingObservations) {
@@ -259,6 +270,34 @@ test("buildDeterministicCompareBrief produces a valid fallback brief with catalo
   }
 });
 
+test("buildDeterministicCompareBrief fallback prose varies with request shape", () => {
+  const base = buildRequest();
+  const alternate = buildDeterministicCompareBrief(
+    {
+      ...base,
+      right: {
+        ...base.right,
+        clusters: [
+          {
+            clusterKey: 4,
+            keywords: ["risk", "timing", "harm"],
+            sizeShare: 0.34,
+            likeShare: 0.12,
+            evidenceCandidates: base.right.clusters[0]!.evidenceCandidates
+          }
+        ]
+      }
+    },
+    "AI compare brief unavailable."
+  );
+
+  const original = buildDeterministicCompareBrief(base, "AI compare brief unavailable.");
+
+  assert.notEqual(original.whyItMatters, alternate.whyItMatters);
+  assert.notEqual(original.bReading, alternate.bReading);
+  assert.notEqual(original.relation, alternate.relation);
+});
+
 test("normalizeCompareBrief remaps new schema fields from stored payload", () => {
   const fallback = buildDeterministicCompareBrief(buildRequest(), "AI compare brief unavailable.");
 
@@ -266,6 +305,7 @@ test("normalizeCompareBrief remaps new schema fields from stored payload", () =>
     {
       source: "ai",
       headline: "測試標題",
+      relation: "測試關係句",
       keywords: ["A", "B", "C"],
       supportingObservations: [
         { text: "觀察一", scope: "left", evidenceIds: ["e1"] }
@@ -283,6 +323,7 @@ test("normalizeCompareBrief remaps new schema fields from stored payload", () =>
 
   assert.equal(normalized.source, "ai");
   assert.equal(normalized.headline, "測試標題");
+  assert.equal(normalized.relation, "測試關係句");
   assert.deepEqual(normalized.keywords, ["A", "B", "C"]);
   assert.equal(normalized.supportingObservations.length, 1);
   assert.equal(normalized.whyItMatters, "這個差異很重要");

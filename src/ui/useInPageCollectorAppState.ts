@@ -1,35 +1,21 @@
-import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
-import { buildDeterministicCompareBrief, type CompareBrief } from "../compare/brief";
 import type { TargetDescriptor } from "../contracts/target-descriptor";
 import { normalizePostUrl } from "../state/store-helpers";
 import type {
-  ActiveAnalysisResult,
   ExtensionSnapshot,
-  PopupPage,
+  FolderMode,
   SavedAnalysisSnapshot,
-  TechniqueReadingSnapshot
+  TechniqueReadingSnapshot,
 } from "../state/types";
 import { isDescriptorSavedInFolder } from "../state/ui-state";
-import type { ExtensionMessage, ExtensionResponse, StartProcessingResponse, WorkerStatusMessageResponse } from "../state/messages";
+import type { ExtensionMessage, ExtensionResponse, StartProcessingResponse } from "../state/messages";
 import { getProcessingFailureMessage } from "../state/processing-errors";
-import { resolveAnalysisResultSurface } from "../state/analysis-result-state";
 import {
-  advancePopupWorkspaceState,
-  getPollingDelayMs,
-  resolveInitialPopupMode,
-  summarizeSessionProcessing,
-  type PopupWorkspaceState,
-  type WorkerStatus
+  summarizeSessionProcessing
 } from "../state/processing-state";
 import { getActiveItem, getActiveSession, sendExtensionMessage } from "./controller";
-import type { CompareSetupTeaser } from "./CompareSetupView";
-import { buildCompareBriefRequest } from "./CompareView";
 import {
-  buildCompareSetupTeaser,
-  buildDateRangeLabel,
-  buildResultId,
-  comparePairKey,
   computeFlashPreviewStyle,
   flashPreviewMetrics,
   HOVER_RECT_EVENT,
@@ -37,6 +23,16 @@ import {
   OPTIMISTIC_SAVE_FAILED_EVENT,
   type HoverRect
 } from "./inpage-helpers";
+import {
+  buildSettingsSaveMessages,
+  createEmptyProductProfile
+} from "./settings-save-messages";
+import { useCompareDraftState } from "./useCompareDraftState";
+import { usePopupKeyframes } from "./usePopupKeyframes";
+import { usePopupWorkspaceState } from "./usePopupWorkspaceState";
+import { useProcessingCoordinator } from "./useProcessingCoordinator";
+import { useResultSurfaceState } from "./useResultSurfaceState";
+import { useTopicState } from "./useTopicState";
 
 type SendAndSync = <T extends ExtensionResponse = ExtensionResponse>(message: ExtensionMessage) => Promise<T>;
 
@@ -49,7 +45,7 @@ type UseInPageCollectorAppStateArgs = {
 export function useInPageCollectorAppState({ snapshot, tabId, sendAndSync }: UseInPageCollectorAppStateArgs) {
   const popupRef = useRef<HTMLDivElement | null>(null);
   const hadReadyPairRef = useRef(false);
-  const processingFailureCountRef = useRef(0);
+  usePopupKeyframes();
 
   const [showFolderPrompt, setShowFolderPrompt] = useState(false);
   const [folderName, setFolderName] = useState("");
@@ -60,32 +56,43 @@ export function useInPageCollectorAppState({ snapshot, tabId, sendAndSync }: Use
   const [draftOpenAiKey, setDraftOpenAiKey] = useState("");
   const [draftClaudeKey, setDraftClaudeKey] = useState("");
   const [draftGoogleKey, setDraftGoogleKey] = useState("");
+  const [draftProductProfile, setDraftProductProfile] = useState(createEmptyProductProfile);
+  const [productProfileSeedText, setProductProfileSeedText] = useState("");
+  const [isInitializingProductProfile, setIsInitializingProductProfile] = useState(false);
   const [hoverRect, setHoverRect] = useState<HoverRect | null>(null);
   const [displayToast, setDisplayToast] = useState<{ id: string; kind: "saved" | "queued"; message: string } | null>(null);
   const [optimisticSavedUrl, setOptimisticSavedUrl] = useState<string | null>(null);
   const [optimisticQueuedIds, setOptimisticQueuedIds] = useState<string[]>([]);
   const [isStartingProcessing, setIsStartingProcessing] = useState(false);
-  const [workerStatus, setWorkerStatus] = useState<WorkerStatus | null>(null);
   const [techniqueReadings, setTechniqueReadings] = useState<TechniqueReadingSnapshot[]>([]);
   const [savedAnalyses, setSavedAnalyses] = useState<SavedAnalysisSnapshot[]>([]);
-  const [selectedCompareA, setSelectedCompareA] = useState("");
-  const [selectedCompareB, setSelectedCompareB] = useState("");
-  const [compareTeaserState, setCompareTeaserState] = useState<"idle" | "loading" | "ready">("idle");
-  const [compareTeaser, setCompareTeaser] = useState<CompareSetupTeaser | null>(null);
 
   const activeFolder = useMemo(() => getActiveSession(snapshot), [snapshot]);
   const activeItem = useMemo(() => getActiveItem(snapshot), [snapshot]);
+  const activeFolderMode: FolderMode = activeFolder?.mode ?? "archive";
   const popupOpen = Boolean(snapshot?.tab.popupOpen);
-  const [workspaceState, setWorkspaceState] = useState<PopupWorkspaceState>(() => ({
-    currentMode: popupOpen ? resolveInitialPopupMode(summarizeSessionProcessing(activeFolder?.items || [])) : "library",
-    popupOpen,
-    modeLocked: popupOpen
-  }));
-  const page = workspaceState.currentMode;
   const processingSummary = useMemo(
     () => summarizeSessionProcessing(activeFolder?.items || []),
     [activeFolder?.items]
   );
+  const { workerStatus, setWorkerStatus } = useProcessingCoordinator({
+    popupOpen,
+    activeFolderId: activeFolder?.id,
+    hasInflight: processingSummary.hasInflight,
+    sendAndSync
+  });
+  const {
+    workspaceState,
+    setWorkspaceState,
+    page,
+    primaryMode,
+    onNavigate
+  } = usePopupWorkspaceState({
+    popupOpen,
+    popupPage: snapshot?.tab.popupPage,
+    processingSummary,
+    sendAndSync
+  });
   const flashPreview = snapshot?.tab.flashPreview;
   const preview = flashPreview || snapshot?.tab.currentPreview;
   const hoverNormalized = normalizePostUrl(flashPreview?.post_url || "");
@@ -96,64 +103,63 @@ export function useInPageCollectorAppState({ snapshot, tabId, sendAndSync }: Use
     () => (activeFolder?.items || []).filter((item) => item.status === "succeeded" && item.latestCapture?.analysis?.status === "succeeded"),
     [activeFolder?.items]
   );
-
-  useEffect(() => {
-    if (document.getElementById("__dlens_popup_keyframes__")) {
-      return;
-    }
-    const style = document.createElement("style");
-    style.id = "__dlens_popup_keyframes__";
-    style.textContent = `
-      @keyframes dlens-popup-pulse {
-        0%, 100% { opacity: 0.55; transform: scale(0.92); }
-        50% { opacity: 1; transform: scale(1); }
-      }
-      @keyframes dlens-popup-shimmer {
-        0% { background-position: 200% 50%; }
-        100% { background-position: -200% 50%; }
-      }
-      @keyframes dlens-popup-indeterminate {
-        0% { transform: translateX(-115%); }
-        100% { transform: translateX(240%); }
-      }
-    `;
-    document.head.appendChild(style);
-    return () => {
-      style.remove();
-    };
-  }, []);
-
-  useLayoutEffect(() => {
-    setWorkspaceState((currentState) => advancePopupWorkspaceState(processingSummary, currentState, popupOpen));
-  }, [popupOpen, processingSummary]);
-
-  useEffect(() => {
-    if (!snapshot?.tab.popupPage) {
-      return;
-    }
-    setWorkspaceState((currentState) =>
-      currentState.currentMode === snapshot.tab.popupPage && currentState.popupOpen === popupOpen
-        ? currentState
-        : {
-            currentMode: snapshot.tab.popupPage,
-            popupOpen,
-            modeLocked: popupOpen
-          }
-    );
-  }, [snapshot?.tab.popupPage, popupOpen]);
-
-  useEffect(() => {
-    const draft = snapshot?.tab.activeCompareDraft;
-    if (draft?.itemAId && draft?.itemBId) {
-      setSelectedCompareA(draft.itemAId);
-      setSelectedCompareB(draft.itemBId);
-      return;
-    }
-    const first = readyCompareItems[0]?.id || "";
-    const second = readyCompareItems.find((item) => item.id !== first)?.id || "";
-    setSelectedCompareA(first);
-    setSelectedCompareB(second);
-  }, [snapshot?.tab.activeCompareDraft?.itemAId, snapshot?.tab.activeCompareDraft?.itemBId, readyCompareItems]);
+  const {
+    selectedCompareA,
+    setSelectedCompareA,
+    selectedCompareB,
+    setSelectedCompareB,
+    compareItemA,
+    compareItemB,
+    compareTeaserState,
+    compareTeaser,
+    onResetCompareSelection
+  } = useCompareDraftState({
+    page,
+    draft: snapshot?.tab.activeCompareDraft,
+    readyCompareItems,
+    settings: snapshot?.global.settings
+  });
+  const {
+    resultSurface,
+    resultSelection,
+    resultItemA,
+    resultItemB,
+    activeSavedAnalysis,
+    canStartJudgment,
+    isGeneratingJudgment,
+    onOpenCompareResult: openCompareResultBase,
+    onOpenSavedAnalysis: openSavedAnalysisBase,
+    onSaveCurrentAnalysis,
+    onStartJudgment
+  } = useResultSurfaceState({
+    activeResult: snapshot?.tab.activeAnalysisResult,
+    activeFolder,
+    compareItemA,
+    compareItemB,
+    compareTeaser,
+    compareTeaserState,
+    productProfile: snapshot?.global.settings.productProfile,
+    savedAnalyses,
+    sendAndSync,
+    setSavedAnalyses,
+    setWorkspaceState
+  });
+  const topicState = useTopicState({
+    popupOpen,
+    activeFolder,
+    activeFolderMode,
+    savedAnalyses,
+    activeSavedAnalysis,
+    stateUpdatedAt: snapshot?.global.updatedAt,
+    sendAndSync,
+    onNavigate,
+    onOpenSavedAnalysis: openSavedAnalysisBase
+  });
+  const savedToastMessage = useCallback((folderName: string): string => {
+    return activeFolderMode === "topic" || activeFolderMode === "product"
+      ? "已加入收件匣"
+      : `Saved to ${folderName}`;
+  }, [activeFolderMode]);
 
   useEffect(() => {
     if (snapshot?.global.settings.ingestBaseUrl) {
@@ -163,82 +169,15 @@ export function useInPageCollectorAppState({ snapshot, tabId, sendAndSync }: Use
     setDraftOpenAiKey(snapshot?.global.settings.openaiApiKey || "");
     setDraftClaudeKey(snapshot?.global.settings.claudeApiKey || "");
     setDraftGoogleKey(snapshot?.global.settings.googleApiKey || "");
+    setDraftProductProfile(snapshot?.global.settings.productProfile ?? createEmptyProductProfile());
   }, [
     snapshot?.global.settings.ingestBaseUrl,
     snapshot?.global.settings.oneLinerProvider,
     snapshot?.global.settings.openaiApiKey,
     snapshot?.global.settings.claudeApiKey,
-    snapshot?.global.settings.googleApiKey
+    snapshot?.global.settings.googleApiKey,
+    snapshot?.global.settings.productProfile
   ]);
-
-  useEffect(() => {
-    if (!snapshot?.tab.popupOpen) {
-      setWorkerStatus(null);
-      processingFailureCountRef.current = 0;
-      return;
-    }
-
-    let cancelled = false;
-    let timeoutHandle: number | null = null;
-    let lastKnownWorkerStatus: WorkerStatus = workerStatus ?? "idle";
-
-    async function runCoordinator() {
-      try {
-        const workerResponse = await sendExtensionMessage<WorkerStatusMessageResponse>({ type: "worker/get-status" });
-        if (!workerResponse.ok) {
-          throw new Error(workerResponse.error);
-        }
-        if (cancelled) {
-          return;
-        }
-        const nextWorkerStatus = workerResponse.workerStatus;
-        lastKnownWorkerStatus = nextWorkerStatus;
-        setWorkerStatus(nextWorkerStatus);
-        if (processingSummary.hasInflight) {
-          await sendAndSync({ type: "session/refresh-all", sessionId: activeFolder?.id });
-        }
-        if (cancelled) {
-          return;
-        }
-        processingFailureCountRef.current = 0;
-        const nextDelay = getPollingDelayMs({
-          workerStatus: nextWorkerStatus,
-          hasInflight: processingSummary.hasInflight,
-          failureCount: 0
-        });
-        if (nextDelay != null) {
-          timeoutHandle = window.setTimeout(() => {
-            void runCoordinator();
-          }, nextDelay);
-        }
-      } catch (error) {
-        console.error("failed to coordinate processing state", error);
-        if (cancelled) {
-          return;
-        }
-        setWorkerStatus((current) => current);
-        processingFailureCountRef.current += 1;
-        const nextDelay = getPollingDelayMs({
-          workerStatus: lastKnownWorkerStatus,
-          hasInflight: processingSummary.hasInflight,
-          failureCount: processingFailureCountRef.current
-        });
-        if (nextDelay != null) {
-          timeoutHandle = window.setTimeout(() => {
-            void runCoordinator();
-          }, nextDelay);
-        }
-      }
-    }
-
-    void runCoordinator();
-    return () => {
-      cancelled = true;
-      if (timeoutHandle != null) {
-        window.clearTimeout(timeoutHandle);
-      }
-    };
-  }, [snapshot?.tab.popupOpen, activeFolder?.id, processingSummary.hasInflight, sendAndSync, workerStatus]);
 
   useEffect(() => {
     if (page !== "library") {
@@ -292,90 +231,28 @@ export function useInPageCollectorAppState({ snapshot, tabId, sendAndSync }: Use
     };
   }, [snapshot?.tab.popupOpen, page]);
 
-  const compareItemA = readyCompareItems.find((item) => item.id === selectedCompareA) || null;
-  const compareItemB = readyCompareItems.find((item) => item.id === selectedCompareB && item.id !== selectedCompareA) || null;
-
   useEffect(() => {
-    if (page !== "compare") {
+    if (!popupOpen || typeof chrome === "undefined") {
       return;
     }
-    if (!compareItemA || !compareItemB) {
-      setCompareTeaser(null);
-      setCompareTeaserState("idle");
-      void sendExtensionMessage<ExtensionResponse>({
-        type: "compare/set-active-draft",
-        draft: null
-      }).catch(() => undefined);
-      return;
-    }
-
-    const request = buildCompareBriefRequest(compareItemA, compareItemB);
-    if (!request) {
-      setCompareTeaser(null);
-      setCompareTeaserState("idle");
-      return;
-    }
-
-    const teaserId = comparePairKey(compareItemA.id, compareItemB.id);
-    const totalComments = request.left.sourceCommentCount + request.right.sourceCommentCount;
-    const groupCount = request.left.clusters.length + request.right.clusters.length;
-    const dateRangeLabel = buildDateRangeLabel(compareItemA.descriptor.time_token_hint, compareItemB.descriptor.time_token_hint);
-
-    setCompareTeaserState("loading");
-    void sendExtensionMessage<ExtensionResponse>({
-      type: "compare/set-active-draft",
-      draft: {
-        itemAId: compareItemA.id,
-        itemBId: compareItemB.id,
-        teaserState: "loading",
-        teaserId
+    const listener = (message: unknown) => {
+      const typed = message as { type?: string };
+      if (typed.type !== "judgment/result") {
+        return;
       }
-    }).catch(() => undefined);
-
-    let cancelled = false;
-    void sendExtensionMessage<{ ok: true; compareBrief?: CompareBrief | null } | { ok: false; error: string }>({
-      type: "compare/get-brief",
-      request
-    })
-      .then((response) => {
-        if (cancelled) {
-          return;
-        }
-        const fallbackBrief = buildDeterministicCompareBrief(request);
-        const brief = response.ok && response.compareBrief ? response.compareBrief : fallbackBrief;
-        setCompareTeaser(buildCompareSetupTeaser(brief, totalComments, groupCount, dateRangeLabel));
-        setCompareTeaserState("ready");
-        void sendExtensionMessage<ExtensionResponse>({
-          type: "compare/set-active-draft",
-          draft: {
-            itemAId: compareItemA.id,
-            itemBId: compareItemB.id,
-            teaserState: "ready",
-            teaserId
-          }
-        }).catch(() => undefined);
+      void sendExtensionMessage<{ ok: true; savedAnalyses?: SavedAnalysisSnapshot[] } | { ok: false; error: string }>({
+        type: "compare/get-saved-analyses"
       })
-      .catch(() => {
-        if (cancelled) {
-          return;
-        }
-        const fallbackBrief = buildDeterministicCompareBrief(request);
-        setCompareTeaser(buildCompareSetupTeaser(fallbackBrief, totalComments, groupCount, dateRangeLabel));
-        setCompareTeaserState("ready");
-      });
-
-    return () => {
-      cancelled = true;
+        .then((response) => {
+          if (response.ok) {
+            setSavedAnalyses(response.savedAnalyses ?? []);
+          }
+        })
+        .catch(() => undefined);
     };
-  }, [
-    page,
-    compareItemA?.id,
-    compareItemB?.id,
-    snapshot?.global.settings.oneLinerProvider,
-    snapshot?.global.settings.openaiApiKey,
-    snapshot?.global.settings.claudeApiKey,
-    snapshot?.global.settings.googleApiKey
-  ]);
+    chrome.runtime.onMessage.addListener(listener);
+    return () => chrome.runtime.onMessage.removeListener(listener);
+  }, [popupOpen]);
 
   useEffect(() => {
     setOptimisticSavedUrl(null);
@@ -423,8 +300,12 @@ export function useInPageCollectorAppState({ snapshot, tabId, sendAndSync }: Use
     if (!toast) {
       return;
     }
-    setDisplayToast({ id: toast.id, kind: toast.kind, message: toast.message });
-  }, [snapshot?.tab.lastSavedToast]);
+    setDisplayToast({
+      id: toast.id,
+      kind: toast.kind,
+      message: toast.kind === "saved" && activeFolder?.name ? savedToastMessage(activeFolder.name) : toast.message
+    });
+  }, [activeFolder?.name, savedToastMessage, snapshot?.tab.lastSavedToast]);
 
   useEffect(() => {
     if (!displayToast) {
@@ -464,7 +345,7 @@ export function useInPageCollectorAppState({ snapshot, tabId, sendAndSync }: Use
         setDisplayToast({
           id: `saved-${Date.now()}`,
           kind: "saved",
-          message: `Saved to ${activeFolder.name}`
+          message: savedToastMessage(activeFolder.name)
         });
       }
     };
@@ -478,7 +359,7 @@ export function useInPageCollectorAppState({ snapshot, tabId, sendAndSync }: Use
       window.removeEventListener(OPTIMISTIC_SAVE_EVENT, onOptimisticSave as EventListener);
       window.removeEventListener(OPTIMISTIC_SAVE_FAILED_EVENT, onOptimisticFailure as EventListener);
     };
-  }, [activeFolder?.name]);
+  }, [activeFolder?.name, savedToastMessage]);
 
   useEffect(() => {
     const onKeyDown = (event: KeyboardEvent) => {
@@ -511,31 +392,6 @@ export function useInPageCollectorAppState({ snapshot, tabId, sendAndSync }: Use
       activeItem &&
       activeFolder.items.findIndex((item) => item.id === activeItem.id) < activeFolder.items.length - 1
   );
-  const resultSurface = useMemo(
-    () => resolveAnalysisResultSurface({
-      activeResult: snapshot?.tab.activeAnalysisResult ?? null,
-      savedAnalyses
-    }),
-    [snapshot?.tab.activeAnalysisResult, savedAnalyses]
-  );
-  const resultSelection = resultSurface.mode === "active"
-    ? resultSurface.activeResult
-    : resultSurface.savedAnalysis
-      ? {
-          resultId: resultSurface.savedAnalysis.resultId,
-          compareKey: resultSurface.savedAnalysis.compareKey,
-          itemAId: resultSurface.savedAnalysis.itemAId,
-          itemBId: resultSurface.savedAnalysis.itemBId,
-          saved: true,
-          viewedAt: resultSurface.savedAnalysis.savedAt
-        }
-      : null;
-  const resultItemA = resultSelection && activeFolder
-    ? activeFolder.items.find((item) => item.id === resultSelection.itemAId) || null
-    : null;
-  const resultItemB = resultSelection && activeFolder
-    ? activeFolder.items.find((item) => item.id === resultSelection.itemBId) || null
-    : null;
   const flashStyle = computeFlashPreviewStyle(hoverRect);
   const processAllLabel =
     workerStatus === "draining"
@@ -543,49 +399,6 @@ export function useInPageCollectorAppState({ snapshot, tabId, sendAndSync }: Use
       : isStartingProcessing
         ? "Starting..."
         : "Process All";
-  const primaryMode = page === "settings" ? null : page;
-
-  async function onNavigate(pageValue: PopupPage) {
-    setWorkspaceState((currentState) => ({
-      ...currentState,
-      currentMode: pageValue,
-      popupOpen: true,
-      modeLocked: true
-    }));
-    await sendAndSync({ type: "popup/navigate-active-tab", page: pageValue });
-  }
-
-  async function onOpenCompareResult() {
-    if (!compareItemA || !compareItemB || compareTeaserState !== "ready") {
-      return;
-    }
-    const result: ActiveAnalysisResult = {
-      resultId: buildResultId(compareItemA.id, compareItemB.id),
-      compareKey: comparePairKey(compareItemA.id, compareItemB.id),
-      itemAId: compareItemA.id,
-      itemBId: compareItemB.id,
-      saved: false,
-      viewedAt: new Date().toISOString()
-    };
-    setWorkspaceState((currentState) => ({
-      ...currentState,
-      currentMode: "result",
-      popupOpen: true,
-      modeLocked: true
-    }));
-    await sendAndSync({
-      type: "compare/set-active-result",
-      result
-    });
-  }
-
-  function onResetCompareSelection() {
-    const first = readyCompareItems[0]?.id || "";
-    const second = readyCompareItems.find((item) => item.id !== first)?.id || "";
-    setSelectedCompareA(first);
-    setSelectedCompareB(second);
-  }
-
   async function onSavePreview() {
     const normalized = normalizePostUrl(preview?.post_url || "");
     if (normalized) {
@@ -594,7 +407,7 @@ export function useInPageCollectorAppState({ snapshot, tabId, sendAndSync }: Use
         setDisplayToast({
           id: `saved-${Date.now()}`,
           kind: "saved",
-          message: `Saved to ${activeFolder.name}`
+          message: savedToastMessage(activeFolder.name)
         });
       }
     }
@@ -666,37 +479,6 @@ export function useInPageCollectorAppState({ snapshot, tabId, sendAndSync }: Use
       return;
     }
     window.open(preview.post_url, "_blank", "noopener,noreferrer");
-  }
-
-  async function onSaveCurrentAnalysis() {
-    if (!resultSelection || !compareTeaser || !activeFolder) {
-      return;
-    }
-    const snapshotToSave: SavedAnalysisSnapshot = {
-      resultId: resultSelection.resultId,
-      compareKey: resultSelection.compareKey,
-      itemAId: resultSelection.itemAId,
-      itemBId: resultSelection.itemBId,
-      sourceLabelA: resultItemA?.descriptor.author_hint ? `@${resultItemA.descriptor.author_hint}` : "@unknown",
-      sourceLabelB: resultItemB?.descriptor.author_hint ? `@${resultItemB.descriptor.author_hint}` : "@unknown",
-      headline: compareTeaser.headline,
-      deck: compareTeaser.deck,
-      primaryTensionSummary: compareTeaser.deck,
-      groupSummary: compareTeaser.metadataLabel,
-      totalComments: (resultItemA?.latestCapture?.analysis?.source_comment_count ?? 0) + (resultItemB?.latestCapture?.analysis?.source_comment_count ?? 0),
-      dateRangeLabel: buildDateRangeLabel(resultItemA?.descriptor.time_token_hint, resultItemB?.descriptor.time_token_hint),
-      savedAt: new Date().toISOString(),
-      analysisVersion: "v1",
-      briefVersion: "v5",
-      briefSource: compareTeaser.metadataLabel.includes("fallback") ? "fallback" : "ai"
-    };
-    const response = await sendAndSync({
-      type: "compare/save-analysis",
-      snapshot: snapshotToSave
-    });
-    if (response.ok) {
-      setSavedAnalyses(response.savedAnalyses ?? savedAnalyses);
-    }
   }
 
   async function moveSelection(direction: -1 | 1) {
@@ -791,7 +573,8 @@ export function useInPageCollectorAppState({ snapshot, tabId, sendAndSync }: Use
     oneLinerProvider: "google" as const,
     openaiApiKey: "",
     claudeApiKey: "",
-    googleApiKey: ""
+    googleApiKey: "",
+    productProfile: null
   };
 
   async function onSetActiveSession(sessionId: string) {
@@ -809,18 +592,77 @@ export function useInPageCollectorAppState({ snapshot, tabId, sendAndSync }: Use
     });
   }
 
+  async function onOpenCompareResult() {
+    topicState.clearResultTopicContext();
+    await openCompareResultBase();
+  }
+
+  async function onOpenSavedAnalysis(resultId: string) {
+    topicState.clearResultTopicContext();
+    await openSavedAnalysisBase(resultId);
+  }
+
+  async function onSaveJudgmentOverride(
+    resultId: string,
+    patch: { relevance: 1 | 2 | 3 | 4 | 5; recommendedState: "park" | "watch" | "act" }
+  ) {
+    const pair = savedAnalyses.find((entry) => entry.resultId === resultId);
+    if (!pair) {
+      return;
+    }
+    const response = await sendAndSync({
+      type: "judgment/result",
+      resultId,
+      judgmentResult: {
+        relevance: patch.relevance,
+        recommendedState: patch.recommendedState,
+        whyThisMatters: pair.judgmentResult?.whyThisMatters || "人工調整 judgment。",
+        actionCue: pair.judgmentResult?.actionCue || "人工覆核"
+      },
+      judgmentVersion: pair.judgmentVersion ?? "v1",
+      judgmentSource: pair.judgmentSource ?? "fallback"
+    });
+    if (response.ok) {
+      setSavedAnalyses(response.savedAnalyses ?? savedAnalyses);
+    }
+  }
+
   async function onSaveSettings() {
-    await sendAndSync({
-      type: "settings/set-ingest-base-url",
-      value: draftBaseUrl
-    });
-    await sendAndSync({
-      type: "settings/set-one-liner-config",
-      provider: draftProvider || null,
-      openaiApiKey: draftOpenAiKey,
-      claudeApiKey: draftClaudeKey,
-      googleApiKey: draftGoogleKey
-    });
+    for (const message of buildSettingsSaveMessages({
+      draftBaseUrl,
+      draftProvider,
+      draftOpenAiKey,
+      draftClaudeKey,
+      draftGoogleKey,
+      draftProductProfile
+    })) {
+      await sendAndSync(message);
+    }
+  }
+
+  function onDraftProductProfileChange(patch: Partial<typeof draftProductProfile>) {
+    setDraftProductProfile((current) => ({
+      ...current,
+      ...patch
+    }));
+  }
+
+  async function onInitProductProfile() {
+    if (!productProfileSeedText.trim() || isInitializingProductProfile) {
+      return;
+    }
+    setIsInitializingProductProfile(true);
+    try {
+      const response = await sendExtensionMessage<{ ok: true; productProfile?: typeof draftProductProfile | null } | { ok: false; error: string }>({
+        type: "settings/init-product-profile",
+        description: productProfileSeedText.trim()
+      });
+      if (response.ok && response.productProfile) {
+        setDraftProductProfile(response.productProfile);
+      }
+    } finally {
+      setIsInitializingProductProfile(false);
+    }
   }
 
   return {
@@ -828,6 +670,7 @@ export function useInPageCollectorAppState({ snapshot, tabId, sendAndSync }: Use
     snapshot,
     tabId,
     activeFolder,
+    activeFolderMode,
     activeItem,
     popupOpen,
     page,
@@ -851,6 +694,9 @@ export function useInPageCollectorAppState({ snapshot, tabId, sendAndSync }: Use
     draftOpenAiKey,
     draftClaudeKey,
     draftGoogleKey,
+    draftProductProfile,
+    productProfileSeedText,
+    isInitializingProductProfile,
     hoverRect,
     displayToast,
     optimisticQueuedIds,
@@ -858,6 +704,15 @@ export function useInPageCollectorAppState({ snapshot, tabId, sendAndSync }: Use
     workerStatus,
     techniqueReadings,
     savedAnalyses,
+    topics: topicState.topics,
+    signals: topicState.signals,
+    selectedTopicId: topicState.selectedTopicId,
+    activeTopic: topicState.activeTopic,
+    activeTopicSignals: topicState.activeTopicSignals,
+    activeTopicPairs: topicState.activeTopicPairs,
+    signalPreviewById: topicState.signalPreviewById,
+    topicJudgmentById: topicState.topicJudgmentById,
+    resultTopicContext: topicState.resultTopicContext,
     selectedCompareA,
     selectedCompareB,
     canPrev,
@@ -866,6 +721,9 @@ export function useInPageCollectorAppState({ snapshot, tabId, sendAndSync }: Use
     resultSelection,
     resultItemA,
     resultItemB,
+    activeSavedAnalysis,
+    canStartJudgment,
+    isGeneratingJudgment,
     flashStyle,
     processAllLabel,
     primaryMode,
@@ -880,12 +738,26 @@ export function useInPageCollectorAppState({ snapshot, tabId, sendAndSync }: Use
     setDraftOpenAiKey,
     setDraftClaudeKey,
     setDraftGoogleKey,
+    setProductProfileSeedText,
+    onDraftProductProfileChange,
     setSelectedCompareA,
     setSelectedCompareB,
     onNavigate,
+    onSessionModeChange: topicState.onSessionModeChange,
     onOpenCompareResult,
+    onOpenSavedAnalysis,
+    onOpenTopicPair: topicState.onOpenTopicPair,
+    onReturnToTopic: topicState.onReturnToTopic,
+    onAttachActiveResultToTopic: topicState.onAttachActiveResultToTopic,
     onResetCompareSelection,
     onSavePreview,
+    onCreateTopic: topicState.onCreateTopic,
+    onNavigateToTopic: topicState.onNavigateToTopic,
+    onBackFromTopicDetail: topicState.onBackFromTopicDetail,
+    onUpdateTopic: topicState.onUpdateTopic,
+    onSignalTriaged: topicState.onSignalTriaged,
+    onSaveJudgmentOverride,
+    onInitProductProfile,
     onCreateFolder,
     onRenameFolder,
     onDeleteFolder,
@@ -894,6 +766,7 @@ export function useInPageCollectorAppState({ snapshot, tabId, sendAndSync }: Use
     onToggleCollectMode,
     openPreview,
     onSaveCurrentAnalysis,
+    onStartJudgment,
     moveSelection,
     onQueueItem,
     onProcessAll,
