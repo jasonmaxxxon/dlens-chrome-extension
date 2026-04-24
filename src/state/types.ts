@@ -1,7 +1,17 @@
 import type { CaptureSnapshot, JobSnapshot } from "../contracts/ingest";
 import type { TargetDescriptor } from "../contracts/target-descriptor";
 
-export type MainPage = "library" | "collect" | "compare" | "result";
+export type FolderMode = "archive" | "topic" | "product";
+export type TopicStatus = "pending" | "watching" | "learning" | "testing" | "archived";
+export type SignalSource = "threads" | "manual";
+export type SignalInboxStatus = "unprocessed" | "assigned" | "archived" | "rejected";
+export type TriageAction =
+  | { kind: "assign"; topicId: string }
+  | { kind: "create-topic"; name: string; description?: string }
+  | { kind: "archive" }
+  | { kind: "reject" };
+
+export type MainPage = "library" | "collect" | "compare" | "result" | "casebook" | "inbox";
 export type PopupPage = MainPage | "settings";
 export type SessionItemStatus = "saved" | "queued" | "running" | "succeeded" | "failed";
 export type InlineToastKind = "saved" | "queued";
@@ -21,6 +31,22 @@ export interface ExtensionSettings {
   openaiApiKey: string;
   claudeApiKey: string;
   googleApiKey: string;
+  productProfile?: ProductProfile | null;
+}
+
+export interface ProductProfile {
+  name: string;
+  category: string;
+  audience: string;
+}
+
+export type JudgmentRecommendedState = "park" | "watch" | "act";
+
+export interface JudgmentResult {
+  relevance: 1 | 2 | 3 | 4 | 5;
+  recommendedState: JudgmentRecommendedState;
+  whyThisMatters: string;
+  actionCue: string;
 }
 
 export interface CommentPreview {
@@ -97,7 +123,10 @@ export interface SavedAnalysisSnapshot {
   savedAt: string;
   analysisVersion: string;
   briefVersion: string;
-  briefSource: "ai" | "fallback";
+  briefSource: "ai" | "fallback" | "unknown";
+  judgmentResult?: JudgmentResult | null;
+  judgmentVersion?: string | null;
+  judgmentSource?: "ai" | "fallback" | "unknown" | null;
 }
 
 export interface SessionItem {
@@ -122,9 +151,35 @@ export interface SessionItem {
 export interface SessionRecord {
   id: string;
   name: string;
+  mode: FolderMode;
   createdAt: string;
   updatedAt: string;
   items: SessionItem[];
+}
+
+export interface Topic {
+  id: string;
+  sessionId: string;
+  name: string;
+  description?: string;
+  status: TopicStatus;
+  tags: string[];
+  signalIds: string[];
+  pairIds: string[];
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface Signal {
+  id: string;
+  sessionId: string;
+  itemId?: string;
+  source: SignalSource;
+  inboxStatus: SignalInboxStatus;
+  topicId?: string;
+  suggestedTopicIds?: string[];
+  capturedAt: string;
+  triagedAt?: string;
 }
 
 export interface ExtensionGlobalState {
@@ -164,7 +219,8 @@ export function createDefaultSettings(): ExtensionSettings {
     oneLinerProvider: "google",
     openaiApiKey: "",
     claudeApiKey: "",
-    googleApiKey: ""
+    googleApiKey: "",
+    productProfile: null
   };
 }
 

@@ -61,28 +61,29 @@ test("PreviewCard renders author, folder, saved badge, and metric chips", () => 
   assert.match(html, />1</);
 });
 
-test("ModeRail renders library compare and result in workspace order", () => {
+test("ModeRail renders only the allowed archive-mode items when a custom rail is supplied", () => {
   const html = renderToStaticMarkup(
     React.createElement(ModeRail, {
       activeMode: "library",
+      modes: ["library", "collect"],
       onSelect: () => undefined
     })
   );
 
   assert.match(html, /data-mode-rail="primary"/);
-  assert.match(html, /data-mode="result"/);
-  assert.match(html, /data-mode="compare"/);
   assert.match(html, /data-mode="library"/);
-  assert.doesNotMatch(html, /data-mode="collect"/);
+  assert.match(html, /data-mode="collect"/);
+  assert.doesNotMatch(html, /data-mode="compare"/);
+  assert.doesNotMatch(html, /data-mode="casebook"/);
+  assert.doesNotMatch(html, /data-mode="inbox"/);
+  assert.doesNotMatch(html, /data-mode="result"/);
   assert.doesNotMatch(html, /Settings/);
 
   const libraryIndex = html.indexOf('data-mode="library"');
-  const compareIndex = html.indexOf('data-mode="compare"');
-  const resultIndex = html.indexOf('data-mode="result"');
+  const collectIndex = html.indexOf('data-mode="collect"');
 
   assert.ok(libraryIndex >= 0);
-  assert.ok(libraryIndex < compareIndex);
-  assert.ok(compareIndex < resultIndex);
+  assert.ok(libraryIndex < collectIndex);
 });
 
 test("UtilityEdge keeps settings outside the primary mode rail", () => {
@@ -95,7 +96,7 @@ test("UtilityEdge keeps settings outside the primary mode rail", () => {
 
   assert.match(html, /data-utility-edge="workspace"/);
   assert.match(html, /data-utility-action="settings"/);
-  assert.match(html, /Settings/);
+  assert.match(html, /設定/);
   assert.doesNotMatch(html, /data-mode-rail="primary"/);
 });
 

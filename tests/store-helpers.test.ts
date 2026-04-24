@@ -10,6 +10,7 @@ import {
   deleteSession,
   expireStaleInFlightItems,
   markSessionItemQueued,
+  mergeItemRefreshResultsIntoGlobal,
   mergeRefreshResults,
   needsCaptureRefresh,
   reconcileSessionItem,
@@ -210,6 +211,34 @@ test("mergeRefreshResults keeps whichever side succeeded during a partial refres
 
   assert.equal(partial.job?.status, "running");
   assert.equal(partial.capture, null);
+});
+
+test("mergeItemRefreshResultsIntoGlobal applies refreshes to the latest global snapshot", () => {
+  const session = createSessionRecord("Topic A", "2026-03-24T07:00:00.000Z");
+  const queued = createSessionItem(buildDescriptor({ post_url: "https://www.threads.net/@alpha/post/queued" }), "2026-03-24T07:22:21.000Z");
+  queued.status = "running";
+  queued.captureId = "cap-1";
+  queued.jobId = "job-1";
+  const newlySaved = createSessionItem(buildDescriptor({ post_url: "https://www.threads.net/@alpha/post/new" }), "2026-03-24T07:23:21.000Z");
+  const latest = {
+    ...createEmptyGlobalState(),
+    sessions: [{ ...session, items: [queued, newlySaved] }],
+    activeSessionId: session.id
+  };
+
+  const merged = mergeItemRefreshResultsIntoGlobal(latest, [
+    {
+      sessionId: session.id,
+      itemId: queued.id,
+      job: buildJob({ status: "succeeded" }),
+      capture: buildCapture()
+    }
+  ]);
+
+  assert.equal(merged.sessions[0]?.items.length, 2);
+  assert.equal(merged.sessions[0]?.items[0]?.status, "succeeded");
+  assert.equal(merged.sessions[0]?.items[1]?.id, newlySaved.id);
+  assert.equal(merged.sessions[0]?.items[1]?.status, "saved");
 });
 
 test("mergeRefreshResults throws when both refresh requests fail", () => {

@@ -72,6 +72,14 @@ function keywordsLabel(keywords: readonly string[]): string {
   return label || "回應主題待釐清";
 }
 
+function primaryKeyword(keywords: readonly string[]): string | null {
+  const cleaned = keywords
+    .map((keyword) => String(keyword || "").trim())
+    .filter(Boolean)
+    .filter((keyword) => !isWeakClusterLabel(keyword));
+  return cleaned[0] || null;
+}
+
 export function clusterInterpretationKey(captureId: string, clusterKey: number): string {
   return `${captureId}:${clusterKey}`;
 }
@@ -98,16 +106,18 @@ function inferClusterStructure(sizeShare: number, likeShare: number): string {
 }
 
 export function buildDeterministicClusterInterpretation(cluster: AnalysisClusterSnapshot): ClusterInterpretation {
-  const label = keywordsLabel(cluster.keywords || []);
+  const topicLabel = keywordsLabel(cluster.keywords || []);
   const sizePct = Math.round(cluster.size_share * 100);
   const likePct = Math.round(cluster.like_share * 100);
-  const lowSignal = isWeakClusterLabel(label) || label === "回應主題待釐清";
   const reactionType = inferClusterReactionType(cluster.size_share, cluster.like_share);
+  const primaryTopic = primaryKeyword(cluster.keywords || []);
+  const label = primaryTopic ? `${reactionType} · ${primaryTopic}` : reactionType;
+  const lowSignal = !primaryTopic || topicLabel === "回應主題待釐清";
   const structureLabel = inferClusterStructure(cluster.size_share, cluster.like_share);
 
   const observation = lowSignal
     ? `這群留言以${reactionType}方式回應，但關鍵詞偏泛、主題仍待釐清；佔 ${sizePct}% 留言、${likePct}% 按讚。`
-    : `這群留言以${reactionType}方式回應原文，聚焦在「${label}」；佔 ${sizePct}% 留言、${likePct}% 按讚。`;
+    : `這群留言以${reactionType}方式回應原文，聚焦在「${topicLabel}」；佔 ${sizePct}% 留言、${likePct}% 按讚。`;
   const reading = `結構偏${structureLabel}。`;
   const oneLiner = `${observation}${reading}`;
 
@@ -127,13 +137,19 @@ export function pickClusterExampleEvidence(
   preferredEvidenceIds?: readonly string[] | null,
   limit = 2
 ): AnalysisEvidenceCommentSnapshot[] {
+  const safeLimit = Math.max(0, limit);
   const preferred = new Set((preferredEvidenceIds || []).filter(Boolean));
   if (!preferred.size) {
-    return evidence.slice(0, Math.max(0, limit));
+    return evidence.slice(0, safeLimit);
   }
 
-  const selected = evidence.filter((comment) => preferred.has(comment.comment_id)).slice(0, Math.max(0, limit));
-  return selected.length ? selected : evidence.slice(0, Math.max(0, limit));
+  const prioritized = evidence.filter((comment) => preferred.has(comment.comment_id));
+  if (!prioritized.length) {
+    return evidence.slice(0, safeLimit);
+  }
+
+  const remaining = evidence.filter((comment) => !preferred.has(comment.comment_id));
+  return [...prioritized, ...remaining].slice(0, safeLimit);
 }
 
 export function buildCompareClusterSummaryPrompt(request: CompareClusterSummaryRequest): string {
@@ -158,6 +174,10 @@ export function buildCompareClusterSummaryPrompt(request: CompareClusterSummaryR
     "請針對每個 cluster 回傳繁體中文 JSON。",
     "每個 cluster 都要提供：capture_id、cluster_id、label、observation、reading、one_liner、label_style、evidence_ids。",
     "label_style 必須是 descriptive。",
+    "label 的規格：",
+    "  - 優先命名這群留言的討論姿態、立場方向或情緒語氣，不要只摘 topic keywords。",
+    "  - 允許格式參考：「共鳴型：覺得很划算」、「焦慮擴散型：擔心合併後更難生活」。",
+    "  - 禁止只回「賞錢」、「房市」、「教育」這種 topic noun。",
     "evidence_ids 必須從 allowed_evidence 中精選 2 個最能代表該 cluster 的 comment_id。",
     "observation 的規格：",
     "  - 說明這群留言在「怎麼回應」原文，必須包含反應型態（共鳴放大型 / 集中回聲型 / 分歧探索型 / 分散反應型）。",

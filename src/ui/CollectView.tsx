@@ -1,15 +1,15 @@
 import type { TargetDescriptor } from "../contracts/target-descriptor";
-
-const AR = {
-  blue:    "#0071e3",
-  ink:     "#1d1d1f",
-  canvas:  "#f2f2f7",
-  card:    "#ffffff",
-  softInk: "rgba(0,0,0,0.5)",
-  muteInk: "rgba(0,0,0,0.35)",
-  line:    "rgba(0,0,0,0.07)",
-  green:   "#34c759",
-} as const;
+import {
+  Kicker,
+  ModeHeader,
+  PrimaryButton,
+  SecondaryButton,
+  SideMark,
+  Stamp,
+  lineClamp,
+  viewRootStyle
+} from "./components";
+import { tokens } from "./tokens";
 
 function avatarInitial(author: string | undefined): string {
   if (!author) return "?";
@@ -39,220 +39,120 @@ export function CollectView({
   const hasPreview = Boolean(preview);
 
   return (
-    <div style={{ padding: "12px 12px 20px", display: "flex", flexDirection: "column", gap: 10 }}>
+    <div style={viewRootStyle({ gap: tokens.spacing.md })}>
+      <ModeHeader
+        mode="collect"
+        kicker={selectionMode ? "Collect mode live" : "Collect"}
+        title="快速判斷，存入資料夾"
+        deck="指向 Threads 貼文即可預覽，按下存入資料夾。"
+        stamp={<Stamp tone={selectionMode ? "accent" : "neutral"}>{selectionMode ? "Active" : "Idle"}</Stamp>}
+      />
 
-      {/* Header */}
-      <div style={{ paddingBottom: 4 }}>
-        <div style={{ fontSize: 11, fontWeight: 600, color: AR.muteInk, letterSpacing: 0.2, marginBottom: 2 }}>
-          {selectionMode ? "收集模式啟動中" : "收集"}
-        </div>
-        <div style={{ fontSize: 17, fontWeight: 700, color: AR.ink, letterSpacing: -0.3 }}>
-          快速判斷，存入資料夾
-        </div>
-        <div style={{ fontSize: 12, color: AR.softInk, marginTop: 3, lineHeight: 1.5 }}>
-          滑過貼文即可預覽，按 S 儲存
-        </div>
-      </div>
-
-      {/* Preview Card */}
-      <div
+      <section
+        data-paper-grain="true"
         style={{
-          background: AR.card,
-          borderRadius: 12,
-          padding: "12px 14px",
-          boxShadow: "0 1px 6px rgba(0,0,0,0.08)",
-          border: `1px solid ${AR.line}`,
-          display: "flex",
-          flexDirection: "column",
-          gap: 10,
-        }}
-      >
-        <div style={{ display: "flex", alignItems: "flex-start", gap: 10 }}>
-          {/* Avatar */}
-          <div
-            style={{
-              width: 36,
-              height: 36,
-              borderRadius: 12,
-              background: hasPreview
-                ? `linear-gradient(135deg, ${AR.blue}, #818cf8)`
-                : AR.canvas,
-              color: hasPreview ? "#fff" : AR.muteInk,
-              display: "grid",
-              placeItems: "center",
-              fontWeight: 700,
-              fontSize: 14,
-              flexShrink: 0,
-            }}
-          >
-            {hasPreview ? avatarInitial(preview?.author_hint) : "·"}
-          </div>
-
-          {/* Content */}
-          <div style={{ minWidth: 0, flex: 1 }}>
-            <div style={{ display: "flex", alignItems: "center", gap: 7, marginBottom: 3 }}>
-              <div style={{ fontSize: 13, fontWeight: 700, color: AR.ink, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-                {preview?.author_hint || "尚無預覽"}
-              </div>
-              {hasPreview && (
-                <span
-                  style={{
-                    fontSize: 10,
-                    fontWeight: 700,
-                    color: isSaved ? AR.green : AR.blue,
-                    background: isSaved ? "rgba(52,199,89,0.1)" : "rgba(0,113,227,0.08)",
-                    borderRadius: 6,
-                    padding: "2px 7px",
-                  }}
-                >
-                  {isSaved ? "已儲存" : "預覽中"}
-                </span>
-              )}
-            </div>
-            <div
-              style={{
-                fontSize: 12,
-                color: AR.softInk,
-                lineHeight: 1.55,
-                display: "-webkit-box",
-                WebkitLineClamp: 2,
-                WebkitBoxOrient: "vertical",
-                overflow: "hidden",
-              }}
-            >
-              {preview?.text_snippet || "將游標移到 Threads 貼文上，這裡會顯示快速預覽。"}
-            </div>
-          </div>
-        </div>
-
-        {/* Folder row */}
-        <div
-          style={{
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "space-between",
-            paddingTop: 8,
-            borderTop: `1px solid ${AR.line}`,
-          }}
-        >
-          <div style={{ fontSize: 11, color: AR.muteInk }}>
-            資料夾：<span style={{ fontWeight: 600, color: AR.ink }}>{folderName}</span>
-          </div>
-          {hasPreview && (
-            <button
-              onClick={onOpenPreview}
-              disabled={!preview?.post_url}
-              style={{
-                fontSize: 11,
-                fontWeight: 600,
-                color: AR.blue,
-                background: "none",
-                border: "none",
-                padding: 0,
-                cursor: preview?.post_url ? "pointer" : "default",
-                opacity: preview?.post_url ? 1 : 0.4,
-              }}
-            >
-              在 Threads 開啟 →
-            </button>
-          )}
-        </div>
-
-        {/* Save button */}
-        <button
-          onClick={onSavePreview}
-          disabled={!hasPreview || isSaved}
-          style={{
-            width: "100%",
-            padding: "10px 0",
-            borderRadius: 8,
-            border: "none",
-            background: !hasPreview || isSaved ? AR.canvas : AR.blue,
-            color: !hasPreview || isSaved ? AR.muteInk : "#fff",
-            fontSize: 14,
-            fontWeight: 600,
-            cursor: !hasPreview || isSaved ? "default" : "pointer",
-            letterSpacing: -0.1,
-          }}
-        >
-          {isSaved ? "已儲存到資料夾" : "儲存到資料夾"}
-        </button>
-      </div>
-
-      {/* Collect mode toggle */}
-      <div
-        style={{
-          background: AR.card,
-          borderRadius: 12,
-          padding: "10px 14px",
-          border: `1px solid ${AR.line}`,
-          display: "flex",
-          alignItems: "center",
-          justifyContent: "space-between",
-          gap: 10,
-        }}
-      >
-        <div>
-          <div style={{ fontSize: 12, fontWeight: 600, color: AR.ink, marginBottom: 1 }}>
-            {selectionMode ? "收集模式：開啟" : "收集模式：關閉"}
-          </div>
-          <div style={{ fontSize: 11, color: AR.muteInk }}>
-            {selectionMode
-              ? "移動游標選取貼文"
-              : "開啟後滑過貼文即可快速預覽"}
-          </div>
-        </div>
-        <button
-          onClick={onToggleCollectMode}
-          style={{
-            padding: "7px 14px",
-            borderRadius: 8,
-            border: "none",
-            background: selectionMode ? AR.canvas : AR.blue,
-            color: selectionMode ? AR.ink : "#fff",
-            fontSize: 12,
-            fontWeight: 600,
-            cursor: "pointer",
-            flexShrink: 0,
-            letterSpacing: -0.1,
-          }}
-        >
-          {selectionMode ? "關閉" : "開啟"}
-        </button>
-      </div>
-
-      {/* Keyboard hints */}
-      <div
-        style={{
-          display: "flex",
+          position: "relative",
+          overflow: "hidden",
+          display: "grid",
           gap: 12,
-          padding: "6px 2px",
+          padding: "14px 16px",
+          borderRadius: tokens.radius.card,
+          border: `1px solid ${tokens.color.line}`,
+          background: `linear-gradient(180deg, ${tokens.color.elevated}, ${tokens.color.surface})`,
+          boxShadow: tokens.shadow.shell
         }}
       >
-        {([
-          { key: "S", label: "儲存" },
-          { key: "Esc", label: "離開" },
-        ] as { key: string; label: string }[]).map(({ key, label }) => (
-          <div key={key} style={{ display: "flex", alignItems: "center", gap: 5 }}>
-            <kbd
-              style={{
-                padding: "2px 6px",
-                borderRadius: 6,
-                background: AR.card,
-                border: `1px solid ${AR.line}`,
-                boxShadow: "0 1px 2px rgba(0,0,0,0.06)",
-                fontSize: 11,
-                fontWeight: 600,
-                color: AR.ink,
-                fontFamily: "-apple-system, monospace",
-              }}
-            >
-              {key}
-            </kbd>
-            <span style={{ fontSize: 11, color: AR.muteInk }}>{label}</span>
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10 }}>
+          <Kicker tone="accent">{selectionMode ? "Live capture" : "Hover preview"}</Kicker>
+          {hasPreview ? <Stamp tone={isSaved ? "success" : "accent"}>{isSaved ? "已儲存" : "預覽中"}</Stamp> : null}
+        </div>
+
+        <div style={{ display: "grid", gridTemplateColumns: "3px minmax(0, 1fr)", gap: 12 }}>
+          <SideMark tone={hasPreview ? "accent" : "muted"} />
+          <div style={{ display: "grid", gap: 10, minWidth: 0 }}>
+            <div style={{ display: "flex", alignItems: "flex-start", gap: 10 }}>
+              <div
+                style={{
+                  width: 40,
+                  height: 40,
+                  borderRadius: tokens.radius.card,
+                  background: hasPreview
+                    ? `linear-gradient(135deg, ${tokens.color.accent}, ${tokens.color.accentMid})`
+                    : tokens.color.neutralSurface,
+                  color: hasPreview ? tokens.color.elevated : tokens.color.softInk,
+                  display: "grid",
+                  placeItems: "center",
+                  fontFamily: tokens.font.sans,
+                  fontSize: 13,
+                  fontWeight: 700,
+                  flexShrink: 0,
+                  boxShadow: tokens.shadow.previewAvatar
+                }}
+              >
+                {hasPreview ? avatarInitial(preview?.author_hint) : "·"}
+              </div>
+
+              <div style={{ display: "grid", gap: 4, minWidth: 0, flex: 1 }}>
+                <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8 }}>
+                  <div style={{ minWidth: 0 }}>
+                    <div style={{ fontSize: 13, fontWeight: 700, color: tokens.color.ink, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                      {preview?.author_hint || "尚無預覽"}
+                    </div>
+                    <div style={{ fontSize: 10, color: tokens.color.softInk }}>
+                      資料夾 · <span style={{ color: tokens.color.subInk }}>{folderName}</span>
+                    </div>
+                  </div>
+                  {hasPreview ? (
+                    <SecondaryButton onClick={onOpenPreview} disabled={!preview?.post_url} style={{ padding: "6px 10px", fontSize: 11 }}>
+                      在 Threads 開啟
+                    </SecondaryButton>
+                  ) : null}
+                </div>
+
+                <div style={{ fontSize: 12, lineHeight: 1.65, color: tokens.color.subInk, ...lineClamp(3) }}>
+                  {preview?.text_snippet || "將游標移到 Threads 貼文上，這裡會顯示快速預覽。"}
+                </div>
+              </div>
+            </div>
+
+            <PrimaryButton onClick={onSavePreview} disabled={!hasPreview || isSaved} style={{ width: "100%" }}>
+              {isSaved ? "已儲存到資料夾" : "儲存到資料夾"}
+            </PrimaryButton>
           </div>
-        ))}
-      </div>
+        </div>
+      </section>
+
+      <section
+        style={{
+          display: "grid",
+          gap: 12,
+          padding: "14px 16px",
+          borderRadius: tokens.radius.card,
+          border: `1px solid ${tokens.color.line}`,
+          background: tokens.color.surface,
+          boxShadow: tokens.shadow.glass
+        }}
+      >
+        <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: 12 }}>
+          <div style={{ display: "grid", gap: 4 }}>
+            <Kicker>{selectionMode ? "Selection active" : "Selection idle"}</Kicker>
+            <div style={{ fontSize: 15, fontWeight: 700, color: tokens.color.ink }}>
+              收集模式：{selectionMode ? "開啟" : "關閉"}
+            </div>
+            <div style={{ fontSize: 12, lineHeight: 1.6, color: tokens.color.subInk }}>
+              {selectionMode ? "移動游標選取貼文。" : "開啟後滑過貼文即可快速預覽。"}
+            </div>
+          </div>
+          <SecondaryButton onClick={onToggleCollectMode} style={{ padding: "8px 12px", fontSize: 11 }}>
+            {selectionMode ? "關閉" : "開啟"}
+          </SecondaryButton>
+        </div>
+
+        <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+          <Stamp tone="neutral">S · 儲存</Stamp>
+          <Stamp tone="neutral">Esc · 離開</Stamp>
+        </div>
+      </section>
     </div>
   );
 }

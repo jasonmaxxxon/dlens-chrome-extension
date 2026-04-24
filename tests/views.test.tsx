@@ -21,23 +21,61 @@ import { tokens } from "../src/ui/tokens.ts";
 
 function buildSession(): SessionRecord {
   const session = createSessionRecord("Signals", "2026-03-24T07:00:00.000Z");
-  session.items.push(
-    createSessionItem(
-      {
-        target_type: "post",
-        page_url: "https://www.threads.net/@alpha/post/a",
-        post_url: "https://www.threads.net/@alpha/post/a",
-        author_hint: "alpha",
-        text_snippet: "A",
-        time_token_hint: "1h",
-        dom_anchor: "card-a",
-        engagement: { likes: 10, comments: 5, reposts: 1, forwards: 0, views: 100 },
-        engagement_present: { likes: true, comments: true, reposts: true, forwards: true, views: true },
-        captured_at: "2026-03-24T07:22:21.000Z"
-      },
-      "2026-03-24T07:22:21.000Z"
-    )
+  const item = createSessionItem(
+    {
+      target_type: "post",
+      page_url: "https://www.threads.net/@alpha/post/a",
+      post_url: "https://www.threads.net/@alpha/post/a",
+      author_hint: "alpha",
+      text_snippet: "A",
+      time_token_hint: "1h",
+      dom_anchor: "card-a",
+      engagement: { likes: 10, comments: 5, reposts: 1, forwards: 0, views: 100 },
+      engagement_present: { likes: true, comments: true, reposts: true, forwards: true, views: true },
+      captured_at: "2026-03-24T07:22:21.000Z"
+    },
+    "2026-03-24T07:22:21.000Z"
   );
+  item.status = "succeeded";
+  item.latestCapture = {
+    id: "cap-a",
+    source_type: "threads",
+    capture_type: "post",
+    source_page_url: "https://www.threads.net/@alpha/post/a",
+    source_post_url: "https://www.threads.net/@alpha/post/a",
+    canonical_target_url: "https://www.threads.net/@alpha/post/a",
+    author_hint: "alpha",
+    text_snippet: "A",
+    time_token_hint: "1h",
+    dom_anchor: "card-a",
+    engagement: {},
+    client_context: {},
+    raw_payload: {},
+    ingestion_status: "succeeded",
+    captured_at: "2026-03-24T07:22:21.000Z",
+    created_at: "2026-03-24T07:22:21.000Z",
+    updated_at: "2026-03-24T07:22:30.000Z",
+    job: null,
+    result: null,
+    analysis: {
+      id: "analysis-a",
+      capture_id: "cap-a",
+      status: "succeeded",
+      stage: "final",
+      analysis_version: "v1",
+      source_comment_count: 10,
+      clusters: [
+        { cluster_key: 0, size_share: 0.6, like_share: 0.7, keywords: ["support", "policy", "budget"] }
+      ],
+      evidence: [],
+      metrics: {},
+      generated_at: "2026-03-24T07:22:30.000Z",
+      last_error: null,
+      created_at: "2026-03-24T07:22:30.000Z",
+      updated_at: "2026-03-24T07:22:30.000Z"
+    }
+  };
+  session.items.push(item);
   return session;
 }
 
@@ -107,7 +145,7 @@ function buildTechniqueReading(): TechniqueReadingSnapshot {
   };
 }
 
-test("surfaceCardStyle uses stronger white glass defaults", () => {
+test("surfaceCardStyle uses the editorial paper defaults", () => {
   const style = surfaceCardStyle();
 
   assert.equal(
@@ -116,7 +154,17 @@ test("surfaceCardStyle uses stronger white glass defaults", () => {
   );
   assert.equal(style.borderRadius, tokens.radius.card);
   assert.equal(style.border, `1px solid ${tokens.color.line}`);
-  assert.match(String(style.boxShadow), /0 12px 36px rgba\(15,23,42,0\.10\)/);
+  assert.equal(style.boxShadow, tokens.shadow.shell);
+});
+
+test("tokens keep the lighter Ming-style editorial direction", () => {
+  assert.match(tokens.font.sans, /Noto Serif TC|Songti TC/);
+  assert.match(tokens.font.serifCjk, /Noto Serif TC|Songti TC/);
+  assert.equal(tokens.color.canvas, "#f7f4ec");
+  assert.equal(tokens.color.surface, "#fbf8f1");
+  assert.equal(tokens.color.elevated, "#fdfbf6");
+  assert.equal(tokens.radius.card, 8);
+  assert.equal(tokens.radius.lg, 12);
 });
 
 test("WorkspaceShell keeps the processing strip outside the primary mode rail", () => {
@@ -142,9 +190,10 @@ test("WorkspaceShell keeps the processing strip outside the primary mode rail", 
 
   const modeRailIndex = html.indexOf('data-mode-rail="primary"');
   const processingStripIndex = html.indexOf('data-shell-context-strip="processing"');
-  const settingsIndex = html.indexOf("Settings");
+  const settingsIndex = html.indexOf("設定");
 
   assert.match(html, /data-workspace-shell="compare-first"/);
+  assert.match(html, /data-shell-masthead="editorial"/);
   assert.match(html, /data-shell-header="workspace"/);
   assert.match(html, /data-shell-context-strip="processing"/);
   assert.match(html, /data-workspace-mode="library"/);
@@ -192,6 +241,45 @@ test("LibraryView keeps Process All visible inside the compact readiness bar", (
   assert.match(html, /1 篇等待處理/);
   assert.match(html, /Signals/);
   assert.match(html, /data-library-row="card"/);
+});
+
+test("LibraryView renders top-cluster keyword chips and removes the old fingerprint block", () => {
+  const session = buildSession();
+  const html = renderToStaticMarkup(
+    React.createElement(LibraryView, {
+      activeFolder: session,
+      activeItem: session.items[0]!,
+      optimisticQueuedIds: [],
+      workerStatus: "idle" as WorkerStatus | null,
+      isStartingProcessing: false,
+      processAllLabel: "Process All",
+      processingSummary: {
+        total: 1,
+        ready: 1,
+        crawling: 0,
+        analyzing: 0,
+        pending: 0,
+        failed: 0,
+        hasReadyPair: false,
+        hasInflight: false
+      },
+      canPrev: false,
+      canNext: false,
+      onSelectItem: () => undefined,
+      onProcessAll: () => undefined,
+      onMoveSelection: () => undefined,
+      onQueueItem: () => undefined,
+      renderMetrics: () => null,
+      techniqueReadings: [],
+      initialSection: "posts"
+    })
+  );
+
+  assert.match(html, /support/);
+  assert.match(html, /policy/);
+  assert.match(html, /budget/);
+  assert.match(html, /可比較/);
+  assert.doesNotMatch(html, /data-library-fingerprint="bar"/);
 });
 
 test("LibraryView exposes item phase and pending skeleton outlets for active work", () => {
@@ -347,10 +435,14 @@ test("LibraryView renders a saved analyses section on the home surface", () => {
     })
   );
 
-  assert.match(html, /已儲存分析/);
+  assert.match(html, /Casebook · Snapshot/);
   assert.match(html, /焦慮是主調，但理性聲音正在集結/);
   assert.match(html, /@openai_tw/);
   assert.match(html, /@tec_journalist/);
+  assert.match(html, /主要張力/);
+  assert.match(html, /A 群量大，B 群互動更高/);
+  assert.match(html, /OPEN · 進入比對 →/);
+  assert.doesNotMatch(html, />3 群組</);
 });
 
 test("CollectView keeps the preview card and collect toggle visible with current Chinese copy", () => {
@@ -366,6 +458,9 @@ test("CollectView keeps the preview card and collect toggle visible with current
     })
   );
 
+  assert.match(html, /data-mode-header="collect"/);
+  assert.match(html, /指向 Threads 貼文即可預覽，按下存入資料夾。/);
+  assert.doesNotMatch(html, /decision surface/);
   assert.match(html, /Signals/);
   assert.match(html, /預覽中/);
   assert.match(html, /儲存到資料夾/);
@@ -376,25 +471,52 @@ test("CollectView keeps the preview card and collect toggle visible with current
 test("SettingsView exposes Google provider and save action", () => {
   const html = renderToStaticMarkup(
     React.createElement(SettingsView, {
+      sessionMode: "product",
+      canEditSessionMode: true,
       draftBaseUrl: "http://127.0.0.1:8000",
       draftProvider: "google",
       draftOpenAiKey: "",
       draftClaudeKey: "",
       draftGoogleKey: "AIza-test",
+      draftProductProfile: {
+        name: "DLens",
+        category: "Creator analysis",
+        audience: "Threads creators"
+      },
       onDraftBaseUrlChange: () => undefined,
       onDraftProviderChange: () => undefined,
       onDraftOpenAiKeyChange: () => undefined,
       onDraftClaudeKeyChange: () => undefined,
       onDraftGoogleKeyChange: () => undefined,
+      onDraftProductProfileChange: () => undefined,
+      onProductProfileSeedTextChange: () => undefined,
+      onInitProductProfile: () => undefined,
+      onSessionModeChange: () => undefined,
       onSaveSettings: () => undefined
     })
   );
 
+  assert.match(html, /data-mode-header="settings"/);
+  assert.match(html, /連線設定與 API 金鑰存於本機，不會上傳。/);
+  assert.doesNotMatch(html, /field drawer/);
   assert.match(html, /data-settings-surface="drawer"/);
+  assert.match(html, /data-settings-group="folder"/);
   assert.match(html, /data-settings-group="connection"/);
   assert.match(html, /data-settings-group="keys"/);
+  assert.match(html, /data-settings-group="product"/);
+  assert.match(html, /資料夾類型/);
+  assert.match(html, /產品觀察（Product）/);
   assert.match(html, /Connection/);
   assert.match(html, /AI provider/);
+  assert.match(html, /產品脈絡/);
+  assert.match(html, /產品名稱/);
+  assert.match(html, /類別/);
+  assert.match(html, /目標受眾/);
+  assert.match(html, /DLens/);
+  assert.match(html, /Creator analysis/);
+  assert.match(html, /Threads creators/);
+  assert.match(html, /一鍵初始化/);
+  assert.match(html, /取得建議/);
   assert.match(html, /Save settings/);
   assert.doesNotMatch(html, /Welcome|Get started/);
 });

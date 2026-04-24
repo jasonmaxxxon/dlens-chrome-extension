@@ -4,6 +4,7 @@ import test from "node:test";
 import {
   buildCompareClusterSummaryPrompt,
   buildDeterministicClusterInterpretation,
+  pickClusterExampleEvidence,
   parseCompareClusterSummaryResponse,
   type CompareClusterSummaryRequest
 } from "../src/compare/cluster-interpretation.ts";
@@ -39,7 +40,7 @@ test("buildDeterministicClusterInterpretation produces observation, reading, and
     keywords: ["support", "policy", "budget"]
   });
 
-  assert.equal(interpretation.label, "support / policy / budget");
+  assert.equal(interpretation.label, "集中回聲型 · support");
   assert.ok(interpretation.observation.length > 0);
   assert.ok(interpretation.reading.length > 0);
   // oneLiner is observation + reading combined
@@ -47,6 +48,7 @@ test("buildDeterministicClusterInterpretation produces observation, reading, and
   assert.match(interpretation.oneLiner, /60%/);
   assert.match(interpretation.oneLiner, /70%/);
   assert.match(interpretation.oneLiner, /support \/ policy \/ budget/);
+  assert.match(interpretation.observation, /集中回聲型/);
 });
 
 test("buildDeterministicClusterInterpretation avoids weak generic labels", () => {
@@ -72,6 +74,7 @@ test("buildCompareClusterSummaryPrompt includes observation and reading in outpu
   assert.match(prompt, /a-2/);
   assert.match(prompt, /support/);
   assert.match(prompt, /Alpha post text/);
+  assert.match(prompt, /討論姿態|情緒語氣|stance|register/i);
 });
 
 test("parseCompareClusterSummaryResponse keeps only validated cluster summaries with observation and reading", () => {
@@ -156,4 +159,32 @@ test("parseCompareClusterSummaryResponse rejects weak generic AI labels", () => 
   );
 
   assert.equal(parsed.length, 0);
+});
+
+test("pickClusterExampleEvidence backfills non-preferred evidence up to the limit", () => {
+  const evidence = buildRequest().clusters[0]!.evidenceCandidates;
+  const selected = pickClusterExampleEvidence(evidence, ["a-2"], 3);
+
+  assert.equal(selected.length, 3);
+  assert.equal(selected[0]?.comment_id, "a-2");
+  assert.equal(selected[1]?.comment_id, "a-1");
+  assert.equal(selected[2]?.comment_id, "a-3");
+});
+
+test("pickClusterExampleEvidence falls back to the first N evidence when preferred ids do not match", () => {
+  const evidence = buildRequest().clusters[0]!.evidenceCandidates;
+  const selected = pickClusterExampleEvidence(evidence, ["missing"], 2);
+
+  assert.equal(selected.length, 2);
+  assert.equal(selected[0]?.comment_id, "a-1");
+  assert.equal(selected[1]?.comment_id, "a-2");
+});
+
+test("pickClusterExampleEvidence truncates safely when preferred ids exceed the limit", () => {
+  const evidence = buildRequest().clusters[0]!.evidenceCandidates;
+  const selected = pickClusterExampleEvidence(evidence, ["a-1", "a-2", "a-3"], 2);
+
+  assert.equal(selected.length, 2);
+  assert.equal(selected[0]?.comment_id, "a-1");
+  assert.equal(selected[1]?.comment_id, "a-2");
 });

@@ -3,14 +3,14 @@ import type {
   AnalysisSnapshot,
   CrawlResultSnapshot
 } from "../contracts/ingest";
-import type { ExtensionSettings, SessionItem, SessionRecord } from "../state/types";
+import type { ExtensionSettings, SessionItem, SessionRecord, Topic } from "../state/types";
 import { getItemReadinessStatus, pickCompareSelection, type ItemReadinessStatus } from "../state/processing-state";
 import { sendExtensionMessage } from "./controller";
 import {
   buildDeterministicCompareBrief,
-  type CompareBrief,
-  type CompareBriefRequest
+  type CompareBrief
 } from "../compare/brief.ts";
+import { buildCompareBriefRequest } from "../compare/brief-request.ts";
 import { TOKENS, tokens } from "./tokens";
 import {
   buildDeterministicClusterInterpretation,
@@ -95,6 +95,13 @@ interface CompareViewProps {
   onGoToLibrary?: () => void;
   forcedSelection?: { itemAId: string; itemBId: string } | null;
   hideSelector?: boolean;
+  fromTopicId?: string;
+  fromTopicName?: string;
+  onReturnToTopic?: () => void;
+  topics?: Topic[];
+  activeResultId?: string | null;
+  attachedTopicIds?: string[];
+  onAttachToTopic?: (topicId: string) => void;
 }
 
 const WRAP_ANYWHERE = {
@@ -387,79 +394,6 @@ function analysisMetrics(analysis: AnalysisSnapshot | null) {
   };
 }
 
-export function buildCompareBriefRequest(left: SessionItem, right: SessionItem): CompareBriefRequest | null {
-  const leftAnalysis = getAnalysis(left);
-  const rightAnalysis = getAnalysis(right);
-  if (!left.captureId || !right.captureId || !leftAnalysis || !rightAnalysis) return null;
-  const leftPost = getPost(left);
-  const rightPost = getPost(right);
-  const leftSummaries = buildClusterSummaries(leftAnalysis, 3, 5, left.captureId);
-  const rightSummaries = buildClusterSummaries(rightAnalysis, 3, 5, right.captureId);
-  const leftAge = getPostAge(leftPost);
-  const rightAge = getPostAge(rightPost);
-
-  return {
-    left: {
-      captureId: left.captureId,
-      analysisUpdatedAt: leftAnalysis.updated_at || "",
-      author: leftPost.author || "unknown",
-      text: leftPost.text || "",
-      ageLabel: leftAge.label,
-      metricsCoverageLabel: getMetricsCoverageLabel(leftPost),
-      sourceCommentCount: leftAnalysis.source_comment_count ?? 0,
-      engagement: {
-        likes: metricValue(leftPost, "likes"),
-        comments: metricValue(leftPost, "comments"),
-        reposts: metricValue(leftPost, "reposts"),
-        forwards: metricValue(leftPost, "forwards"),
-        views: metricValue(leftPost, "views")
-      },
-      velocity: {
-        likesPerHour: getVelocityMetricDisplay(leftPost, "likes").numeric,
-        commentsPerHour: getVelocityMetricDisplay(leftPost, "comments").numeric,
-        repostsPerHour: getVelocityMetricDisplay(leftPost, "reposts").numeric,
-        forwardsPerHour: getVelocityMetricDisplay(leftPost, "forwards").numeric
-      },
-      clusters: leftSummaries.map((summary) => ({
-        clusterKey: summary.cluster.cluster_key,
-        keywords: summary.cluster.keywords,
-        sizeShare: summary.cluster.size_share,
-        likeShare: summary.cluster.like_share,
-        evidenceCandidates: summary.evidence.slice(0, 5)
-      }))
-    },
-    right: {
-      captureId: right.captureId,
-      analysisUpdatedAt: rightAnalysis.updated_at || "",
-      author: rightPost.author || "unknown",
-      text: rightPost.text || "",
-      ageLabel: rightAge.label,
-      metricsCoverageLabel: getMetricsCoverageLabel(rightPost),
-      sourceCommentCount: rightAnalysis.source_comment_count ?? 0,
-      engagement: {
-        likes: metricValue(rightPost, "likes"),
-        comments: metricValue(rightPost, "comments"),
-        reposts: metricValue(rightPost, "reposts"),
-        forwards: metricValue(rightPost, "forwards"),
-        views: metricValue(rightPost, "views")
-      },
-      velocity: {
-        likesPerHour: getVelocityMetricDisplay(rightPost, "likes").numeric,
-        commentsPerHour: getVelocityMetricDisplay(rightPost, "comments").numeric,
-        repostsPerHour: getVelocityMetricDisplay(rightPost, "reposts").numeric,
-        forwardsPerHour: getVelocityMetricDisplay(rightPost, "forwards").numeric
-      },
-      clusters: rightSummaries.map((summary) => ({
-        clusterKey: summary.cluster.cluster_key,
-        keywords: summary.cluster.keywords,
-        sizeShare: summary.cluster.size_share,
-        likeShare: summary.cluster.like_share,
-        evidenceCandidates: summary.evidence.slice(0, 5)
-      }))
-    }
-  };
-}
-
 function buildClusterSummaryRequest(left: SessionItem, right: SessionItem): CompareClusterSummaryRequest | null {
   const leftAnalysis = getAnalysis(left);
   const rightAnalysis = getAnalysis(right);
@@ -714,6 +648,7 @@ function buildHeroSummary(
     || `A 較靠近「${leftTop?.title || "主題未定"}」，B 較靠近「${rightTop?.title || "主題未定"}」。`;
   return {
     headline: compactHeadline,
+    relation: String(brief.relation || "").trim(),
     whyItMatters: String(brief.whyItMatters || "").trim(),
     creatorCue,
     cue: compactHeroCue(creatorCue),
@@ -1126,8 +1061,8 @@ function ClusterBubbleMap({
               top: `max(8px, calc(${previewTop}% - 12px))`,
               minWidth: 144,
               maxWidth: 176,
-              borderRadius: 12,
-              background: "rgba(255,255,255,0.96)",
+              borderRadius: tokens.radius.card,
+              background: tokens.color.elevated,
               border: `1px solid ${T.line}`,
               boxShadow: tokens.shadow.glass,
               padding: "8px 10px",
@@ -1879,7 +1814,7 @@ function CompareSectionRail({
         padding: "10px 12px",
         borderRadius: 999,
         border: `1px solid ${T.line}`,
-        background: "rgba(255,255,255,0.92)",
+        background: tokens.color.elevated,
         boxShadow: tokens.shadow.glass,
         backdropFilter: "blur(8px)"
       }}
@@ -2157,17 +2092,17 @@ function CompareUnavailableBridge({
    ══════════════════════════════════════════════════════ */
 
 const AR = {
-  blue:    "#0071e3",
-  orange:  "#ff9500",
-  green:   "#34c759",
-  ink:     "#1d1d1f",
-  canvas:  "#f2f2f7",
-  card:    "#ffffff",
-  softInk: "rgba(0,0,0,0.5)",
-  muteInk: "rgba(0,0,0,0.35)",
-  dimInk:  "rgba(0,0,0,0.28)",
-  line:    "rgba(0,0,0,0.07)",
-  lineStrong: "rgba(0,0,0,0.1)",
+  blue: tokens.color.accent,
+  orange: tokens.color.queued,
+  green: tokens.color.success,
+  ink: tokens.color.ink,
+  canvas: tokens.color.contentSurface,
+  card: tokens.color.elevated,
+  softInk: tokens.color.subInk,
+  muteInk: tokens.color.softInk,
+  dimInk: tokens.color.softInk,
+  line: tokens.color.line,
+  lineStrong: tokens.color.lineStrong,
 } as const;
 
 function ARSparkle({ color = AR.blue, size = 10 }: { color?: string; size?: number }) {
@@ -2356,7 +2291,7 @@ function FlowingClusterViz() {
           <text x="11" y="7.1" textAnchor="middle" fontSize="6.8" fill="rgba(36,144,64,0.88)" fontWeight="700">其他</text>
         </g>
       </svg>
-      <p style={{ fontSize: 9.5, color: AR.dimInk, textAlign: "center", margin: "2px 0 0", letterSpacing: -0.05 }}>
+      <p style={{ fontSize: 9.5, color: AR.dimInk, textAlign: "center", margin: "2px 0 0", letterSpacing: 0 }}>
         每個點代表一則留言 · 平時慢速漂移，靠近時出現局部場域偏移
       </p>
     </div>
@@ -2387,7 +2322,7 @@ function AnnotatedQuote({ text, marks, side }: {
   void remaining_ref;
   return (
     <div>
-      <p style={{ fontSize: 13.5, lineHeight: 1.58, letterSpacing: -0.2, color: AR.ink, marginBottom: marks.length ? 9 : 0 }}>
+      <p style={{ fontSize: 13.5, lineHeight: 1.58, letterSpacing: 0, color: AR.ink, marginBottom: marks.length ? 9 : 0 }}>
         「{parts.map((p, i) => p.highlight
           ? <mark key={i} style={{ background: hlColor, borderRadius: 3, padding: "1px 2px", color: AR.ink, fontWeight: 600 }}>{p.text}</mark>
           : <span key={i}>{p.text}</span>
@@ -2440,8 +2375,8 @@ function BlankUserAvatar({ size = 22, dataAttr }: { size?: number; dataAttr?: st
 function CompoundLine({ label, text }: { label: string; text: string }) {
   return (
     <div>
-      <div style={{ fontSize: 9, fontWeight: 700, color: "rgba(0,0,0,0.32)", letterSpacing: 0.3, marginBottom: 2 }}>{label}</div>
-      <p style={{ fontSize: 12, lineHeight: 1.55, letterSpacing: -0.16, color: "rgba(0,0,0,0.56)", margin: 0 }}>{text}</p>
+      <div style={{ fontSize: 9, fontWeight: 700, color: AR.muteInk, letterSpacing: 0, marginBottom: 2 }}>{label}</div>
+      <p style={{ fontSize: 12, lineHeight: 1.55, letterSpacing: 0, color: AR.softInk, margin: 0 }}>{text}</p>
     </div>
   );
 }
@@ -2460,7 +2395,7 @@ function DictionaryCard({ rank, handle, quote, likes, replies, side, marks, anal
   const hasEffectiveness = effectiveness !== null
     && (effectiveness.discussionFunction.length > 0 || effectiveness.whyEffective.length > 0);
   return (
-    <div style={{ background: AR.card, borderRadius: 12, overflow: "hidden", boxShadow: "0 1px 10px rgba(0,0,0,0.055)" }}>
+    <div style={{ background: AR.card, borderRadius: tokens.radius.card, overflow: "hidden", boxShadow: tokens.shadow.glass }}>
       <div style={{ padding: "12px 15px 10px", display: "flex", alignItems: "center", gap: 8, borderBottom: `0.5px solid ${AR.line}` }}>
         <div style={{ width: 21, height: 21, borderRadius: "50%", background: cb, display: "flex", alignItems: "center", justifyContent: "center" }}>
           <span style={{ fontSize: 9, fontWeight: 800, color: cc }}>#{rank}</span>
@@ -2483,8 +2418,8 @@ function DictionaryCard({ rank, handle, quote, likes, replies, side, marks, anal
       </div>
       {hasAnalysis && (
         <div style={{ margin: "0 15px 12px", borderLeft: `2.5px solid ${border}`, paddingLeft: 10 }}>
-          <div style={{ fontSize: 9.5, fontWeight: 700, color: "rgba(0,0,0,0.3)", letterSpacing: 0.4, marginBottom: 4 }}>剖析</div>
-          <p style={{ fontSize: 12, lineHeight: 1.55, letterSpacing: -0.16, color: AR.softInk, margin: 0 }}>{analysis}</p>
+          <div style={{ fontSize: 9.5, fontWeight: 700, color: AR.muteInk, letterSpacing: 0, marginBottom: 4 }}>剖析</div>
+          <p style={{ fontSize: 12, lineHeight: 1.55, letterSpacing: 0, color: AR.softInk, margin: 0 }}>{analysis}</p>
         </div>
       )}
       {hasEffectiveness && (
@@ -2528,9 +2463,11 @@ function ResultHeroCard({
 }) {
   if (!heroSummary) return null;
   const briefBadgeColor = compareBriefState === "ready" ? AR.blue : compareBriefState === "loading" ? "#636366" : "#8e8e93";
+  const confidenceLabel = brief?.confidence ? `CONF · ${String(brief.confidence).toUpperCase()}` : "CONF · MEDIUM";
+  const briefLabel = compareBriefState === "loading" ? "生成中…" : `AI Brief · ${confidenceLabel}`;
   return (
-    <div style={{ background: AR.card, borderRadius: 12, padding: "17px 17px 15px", boxShadow: "0 2px 16px rgba(0,0,0,0.065)" }}>
-      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 11 }}>
+    <div style={{ background: AR.card, borderRadius: 12, padding: "17px 17px 15px", boxShadow: "0 2px 16px rgba(0,0,0,0.065)", minWidth: 0 }}>
+      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 11, gap: 10, flexWrap: "wrap" as const, minWidth: 0 }}>
         <div style={{ display: "inline-flex", alignItems: "center", gap: 5, background: "rgba(255,149,0,0.1)", borderRadius: 6, padding: "3px 9px" }}>
           <div style={{ width: 5, height: 5, borderRadius: "50%", background: AR.orange }} />
           <span style={{ fontSize: 10.5, fontWeight: 700, color: "#b06200" }}>
@@ -2539,25 +2476,25 @@ function ResultHeroCard({
               : "張力並存型"}
           </span>
         </div>
-        <div style={{ display: "flex", alignItems: "center", gap: 3 }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 3, minWidth: 0 }}>
           <ARSparkle color={briefBadgeColor} />
           <span style={{ fontSize: 10.5, color: briefBadgeColor, fontWeight: 600 }}>
-            {compareBriefState === "ready" ? "AI Brief" : compareBriefState === "loading" ? "生成中…" : "AI Brief"}
+            {briefLabel}
           </span>
         </div>
       </div>
       {(postA || postB) && (
-        <div style={{ display: "flex", gap: 6, marginBottom: 13 }}>
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(2, minmax(0, 1fr))", gap: 6, marginBottom: 13, minWidth: 0 }}>
           {[
             { label: "A", post: postA, colors: [AR.blue, "#34aadc"] },
             { label: "B", post: postB, colors: [AR.orange, "#ffcc00"] },
           ].map(({ label, post, colors }) => (
-            <div key={label} style={{ flex: 1, display: "flex", alignItems: "center", gap: 7, background: AR.canvas, borderRadius: 8, padding: "7px 10px" }}>
+            <div key={label} style={{ display: "flex", alignItems: "center", gap: 7, background: AR.canvas, borderRadius: 8, padding: "7px 10px", minWidth: 0, overflow: "hidden" }}>
               <div style={{ width: 26, height: 26, borderRadius: 8, background: `linear-gradient(135deg,${colors[0]},${colors[1]})`, flexShrink: 0, display: "flex", alignItems: "center", justifyContent: "center" }}>
-                <span style={{ fontSize: 9, color: "#fff", fontWeight: 800 }}>貼{label}</span>
+                <span style={{ fontSize: 9, color: tokens.color.elevated, fontWeight: 800 }}>貼{label}</span>
               </div>
-              <div style={{ minWidth: 0 }}>
-                <div style={{ fontSize: 10, fontWeight: 700, color: AR.ink }}>@{post?.author || "—"}</div>
+              <div style={{ minWidth: 0, overflow: "hidden" }}>
+                <div style={{ fontSize: 10, fontWeight: 700, color: AR.ink, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>@{post?.author || "—"}</div>
                 <div style={{ fontSize: 9.5, color: AR.muteInk, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
                   {post?.text ? `「${post.text.slice(0, 18)}…」` : "—"}
                 </div>
@@ -2566,12 +2503,33 @@ function ResultHeroCard({
           ))}
         </div>
       )}
-      <h1 style={{ fontFamily: "-apple-system,'SF Pro Display',sans-serif", fontSize: 23, fontWeight: 700, lineHeight: 1.15, letterSpacing: -0.48, color: AR.ink, marginBottom: 12 }}>
+      <h1 style={{ fontFamily: tokens.font.sans, fontSize: 23, fontWeight: 700, lineHeight: 1.15, letterSpacing: 0, color: AR.ink, marginBottom: 12, ...WRAP_ANYWHERE }}>
         {heroSummary.headline}
       </h1>
-      <div style={{ display: "flex", gap: 7, paddingTop: 11, borderTop: `0.5px solid ${AR.line}` }}>
-        <span style={{ fontSize: 9.5, fontWeight: 700, color: AR.muteInk, paddingTop: 2, whiteSpace: "nowrap", letterSpacing: 0.3 }}>為何成立</span>
-        <p style={{ fontSize: 12, lineHeight: 1.47, letterSpacing: -0.16, color: AR.softInk, margin: 0 }}>
+      {heroSummary.relation ? (
+        <div
+          style={{
+            display: "grid",
+            gap: 4,
+            padding: "10px 11px",
+            borderRadius: 10,
+            background: "rgba(26,46,79,0.035)",
+            border: `1px solid ${AR.line}`,
+            marginBottom: 12,
+            minWidth: 0,
+          }}
+        >
+          <span style={{ fontSize: 9, fontWeight: 700, color: AR.muteInk, letterSpacing: 0 }}>
+            判讀關係
+          </span>
+          <p style={{ fontSize: 12.5, lineHeight: 1.58, letterSpacing: 0, color: AR.softInk, margin: 0, ...WRAP_ANYWHERE }}>
+            {heroSummary.relation}
+          </p>
+        </div>
+      ) : null}
+      <div style={{ display: "flex", gap: 7, paddingTop: 11, borderTop: `0.5px solid ${AR.line}`, minWidth: 0 }}>
+        <span style={{ fontSize: 9.5, fontWeight: 700, color: AR.muteInk, paddingTop: 2, whiteSpace: "nowrap", letterSpacing: 0 }}>為何成立</span>
+        <p style={{ fontSize: 12, lineHeight: 1.47, letterSpacing: 0, color: AR.softInk, margin: 0, ...WRAP_ANYWHERE }}>
           {heroSummary.creatorCue}
         </p>
       </div>
@@ -2661,10 +2619,10 @@ function ResultBalanceCard({
           const cc = clusterColors[i] ?? AR.blue;
           return (
             <div key={i} style={{ flex: 1, padding: "8px 10px 12px", borderRight: i < activeSummaries.length - 1 ? `0.5px solid ${AR.line}` : "none", minWidth: 0 }}>
-              <div style={{ fontSize: 9, fontWeight: 700, color: cc, letterSpacing: 0.5, marginBottom: 4 }}>
+              <div style={{ fontSize: 9, fontWeight: 700, color: cc, letterSpacing: 0, marginBottom: 4 }}>
                 群 {i + 1}
               </div>
-              <div style={{ fontFamily: "-apple-system,'SF Pro Display',sans-serif", fontSize: 26, fontWeight: 700, color: AR.ink, lineHeight: 1, letterSpacing: -0.7 }}>
+              <div style={{ fontFamily: tokens.font.sans, fontSize: 26, fontWeight: 700, color: AR.ink, lineHeight: 1, letterSpacing: 0 }}>
                 {bars[i]?.pct ?? 0}<span style={{ fontSize: 13, fontWeight: 500 }}>%</span>
               </div>
               <div style={{ fontSize: 10, fontWeight: 600, color: AR.ink, marginTop: 3, marginBottom: 2, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
@@ -2686,9 +2644,9 @@ function ResultBalanceCard({
       </div>
 
       {/* Tension note */}
-      <div style={{ padding: "9px 17px 12px" }}>
-        <p style={{ fontSize: 11, color: AR.softInk, lineHeight: 1.45, letterSpacing: -0.14, margin: 0 }}>
-          <span style={{ fontWeight: 700, color: "rgba(0,0,0,0.6)" }}>主要張力：</span>
+      <div style={{ padding: "9px 17px 12px", minWidth: 0 }}>
+        <p style={{ fontSize: 11, color: AR.softInk, lineHeight: 1.45, letterSpacing: 0, margin: 0, ...WRAP_ANYWHERE }}>
+          <span style={{ fontWeight: 700, color: AR.ink }}>主要張力：</span>
           {tensionText}
         </p>
       </div>
@@ -2721,11 +2679,11 @@ function ResultEvidenceSection({
   return (
     <div>
       <div style={{ display: "flex", alignItems: "baseline", gap: 6, marginBottom: 12, padding: "0 2px" }}>
-        <span style={{ fontFamily: "-apple-system,'SF Pro Display',sans-serif", fontSize: 18, fontWeight: 700, color: AR.ink, letterSpacing: -0.4 }}>代表性原文</span>
+        <span style={{ fontFamily: tokens.font.sans, fontSize: 18, fontWeight: 700, color: AR.ink, letterSpacing: 0 }}>代表性原文</span>
       </div>
       <div style={{ display: "flex", background: "rgba(0,0,0,0.06)", borderRadius: 8, padding: 3, marginBottom: 12 }}>
         {(["A", "B"] as const).map(t => (
-          <button key={t} onClick={() => onTabChange(t)} style={{ flex: 1, padding: "6px 0", borderRadius: 6, border: "none", background: tab === t ? AR.card : "transparent", boxShadow: tab === t ? "0 1px 5px rgba(0,0,0,0.12)" : "none", fontSize: 12, fontWeight: 600, color: tab === t ? (t === "A" ? AR.blue : "#b06200") : "rgba(0,0,0,0.36)", cursor: "pointer", letterSpacing: -0.1 }}>
+          <button key={t} onClick={() => onTabChange(t)} style={{ flex: 1, padding: "6px 0", borderRadius: tokens.radius.sm, border: "none", background: tab === t ? AR.card : "transparent", boxShadow: tab === t ? tokens.shadow.glass : "none", fontSize: 12, fontWeight: 600, color: tab === t ? (t === "A" ? AR.blue : AR.orange) : AR.muteInk, cursor: "pointer", letterSpacing: 0 }}>
             {t === "A" ? `${topA?.title || "貼 A 主群組"}` : `${topB?.title || "貼 B 主群組"}`}
           </button>
         ))}
@@ -2766,18 +2724,20 @@ function ResultEvidenceSection({
 function ResultWhyCard({ brief }: { brief: CompareBrief | null }) {
   const text = brief?.whyItMatters;
   if (!text) return null;
+  const readingStyle = { fontSize: 12, lineHeight: 1.52, letterSpacing: 0, color: AR.softInk, margin: 0, ...WRAP_ANYWHERE };
   return (
-    <div style={{ background: AR.card, borderRadius: 12, padding: "16px 17px 15px", boxShadow: "0 2px 16px rgba(0,0,0,0.065)" }}>
-      <span style={{ fontSize: 9.5, fontWeight: 700, color: AR.muteInk, letterSpacing: 0.4, display: "block", marginBottom: 10 }}>為什麼重要</span>
-      <div style={{ borderLeft: `2.5px solid ${AR.blue}`, paddingLeft: 12, marginBottom: 12 }}>
-        <p style={{ fontFamily: "-apple-system,'SF Pro Display',sans-serif", fontSize: 16, fontWeight: 600, fontStyle: "italic", lineHeight: 1.5, letterSpacing: -0.28, color: AR.ink, margin: 0 }}>
+    <div style={{ background: AR.card, borderRadius: tokens.radius.card, padding: "16px 17px 15px", boxShadow: tokens.shadow.glass, minWidth: 0 }}>
+      <span style={{ fontSize: 9.5, fontWeight: 700, color: AR.muteInk, letterSpacing: 0, display: "block", marginBottom: 10 }}>為什麼重要</span>
+      <div style={{ borderLeft: `2.5px solid ${AR.blue}`, paddingLeft: 12, marginBottom: 12, minWidth: 0 }}>
+        <p style={{ fontFamily: tokens.font.sans, fontSize: 16, fontWeight: 600, fontStyle: "italic", lineHeight: 1.5, letterSpacing: 0, color: AR.ink, margin: 0, ...WRAP_ANYWHERE }}>
           {text}
         </p>
       </div>
       {brief?.aReading && brief?.bReading && (
-        <p style={{ fontSize: 12, lineHeight: 1.52, letterSpacing: -0.18, color: AR.softInk, paddingTop: 10, borderTop: `0.5px solid ${AR.line}`, margin: 0 }}>
-          {brief.aReading}
-        </p>
+        <div style={{ paddingTop: 10, borderTop: `0.5px solid ${AR.line}`, display: "grid", gap: tokens.spacing.xs }}>
+          <p style={readingStyle}><strong>A.</strong> {brief.aReading}</p>
+          <p style={readingStyle}><strong>B.</strong> {brief.bReading}</p>
+        </div>
       )}
     </div>
   );
@@ -2877,29 +2837,29 @@ function ResultTrustStrip({
           <FlowingClusterViz />
           <div style={{ display: "grid", gap: 8, margin: "12px 0" }}>
             <div style={{ display: "grid", gap: 6 }}>
-              <div style={{ fontSize: 10, fontWeight: 700, color: AR.muteInk, letterSpacing: 0.18 }}>資料覆蓋</div>
+              <div style={{ fontSize: 10, fontWeight: 700, color: AR.muteInk, letterSpacing: 0 }}>資料覆蓋</div>
               <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 6 }}>
                 {coverageMetrics.map((metric) => (
                   <div key={metric.label} style={{ ...metricCardStyle(metric.tint), borderRadius: 9, padding: "7px 9px 8px" }}>
                     <div style={{ fontSize: 9, color: AR.muteInk, marginBottom: 4 }}>{metric.label}</div>
-                    <div style={{ fontSize: 16, fontWeight: 700, color: AR.ink, letterSpacing: -0.42 }}>{metric.value}</div>
+                    <div style={{ fontSize: 16, fontWeight: 700, color: AR.ink, letterSpacing: 0 }}>{metric.value}</div>
                   </div>
                 ))}
               </div>
             </div>
             <div style={{ display: "grid", gap: 6 }}>
-              <div style={{ fontSize: 10, fontWeight: 700, color: AR.muteInk, letterSpacing: 0.18 }}>結構特徵</div>
+              <div style={{ fontSize: 10, fontWeight: 700, color: AR.muteInk, letterSpacing: 0 }}>結構特徵</div>
               <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 6 }}>
                 {structureMetrics.map((metric) => (
                   <div key={metric.label} style={{ ...metricCardStyle(metric.tint), borderRadius: 9, padding: "7px 9px 8px" }}>
                     <div style={{ fontSize: 9, color: AR.muteInk, marginBottom: 4 }}>{metric.label}</div>
-                    <div style={{ fontSize: 16, fontWeight: 700, color: AR.ink, letterSpacing: -0.42 }}>{metric.value}</div>
+                    <div style={{ fontSize: 16, fontWeight: 700, color: AR.ink, letterSpacing: 0 }}>{metric.value}</div>
                   </div>
                 ))}
               </div>
             </div>
           </div>
-          <div style={{ fontSize: 10.5, color: AR.softInk, lineHeight: 1.52, background: AR.canvas, borderRadius: 8, padding: "9px 12px" }}>
+          <div style={{ fontSize: 10.5, color: AR.softInk, lineHeight: 1.52, background: AR.canvas, borderRadius: 8, padding: "9px 12px", ...WRAP_ANYWHERE }}>
             <span style={{ fontWeight: 700 }}>方法論：</span>k-means 叢集分析（k={kA}/{kB}），基於留言情緒向量、用詞模式、互動行為分組。
           </div>
         </div>
@@ -2990,6 +2950,20 @@ function ResultReadingBody({
   );
 }
 
+function resolveAnnotationRequestKey(
+  lastRequestKey: string | null,
+  request: EvidenceAnnotationRequest | null
+): { requestKey: string | null; shouldRequest: boolean } {
+  if (!request) {
+    return { requestKey: null, shouldRequest: false };
+  }
+  const requestKey = request.quotes.map((q) => q.commentId).sort().join("|");
+  return {
+    requestKey,
+    shouldRequest: lastRequestKey !== requestKey
+  };
+}
+
 /* ── Main CompareView ── */
 
 export const compareViewTestables = {
@@ -3006,10 +2980,25 @@ export const compareViewTestables = {
   SectionLabel,
   PostHeader,
   ClusterBubbleMap,
-  DictionaryCard
+  DictionaryCard,
+  ResultWhyCard,
+  resolveAnnotationRequestKey
 };
 
-export function CompareView({ session, settings, onGoToLibrary, forcedSelection = null, hideSelector = false }: CompareViewProps) {
+export function CompareView({
+  session,
+  settings,
+  onGoToLibrary,
+  forcedSelection = null,
+  hideSelector = false,
+  fromTopicId,
+  fromTopicName,
+  onReturnToTopic,
+  topics = [],
+  activeResultId = null,
+  attachedTopicIds = [],
+  onAttachToTopic
+}: CompareViewProps) {
   const readyItems = useMemo(
     () => session.items.filter((item) => getItemReadinessStatus(item) === "ready"),
     [session.items]
@@ -3038,6 +3027,7 @@ export function CompareView({ session, settings, onGoToLibrary, forcedSelection 
   const [techniqueSide, setTechniqueSide] = useState<"A" | "B">("A");
   const [selectedDetailSide, setSelectedDetailSide] = useState<"A" | "B">("A");
   const [techniqueSaveState, setTechniqueSaveState] = useState<"idle" | "saving" | "saved" | "error">("idle");
+  const [attachTopicId, setAttachTopicId] = useState(topics[0]?.id || "");
   const clustersSectionRef = useRef<HTMLDivElement | null>(null);
   const engagementSectionRef = useRef<HTMLDivElement | null>(null);
   const commentsSectionRef = useRef<HTMLDivElement | null>(null);
@@ -3058,6 +3048,18 @@ export function CompareView({ session, settings, onGoToLibrary, forcedSelection 
     if (nextSelection.selectedA !== selectedA) setSelectedA(nextSelection.selectedA);
     if (nextSelection.selectedB !== selectedB) setSelectedB(nextSelection.selectedB);
   }, [session.items, selectedA, selectedB, forcedSelection?.itemAId, forcedSelection?.itemBId]);
+
+  useEffect(() => {
+    if (!topics.length) {
+      if (attachTopicId) {
+        setAttachTopicId("");
+      }
+      return;
+    }
+    if (!attachTopicId || !topics.some((topic) => topic.id === attachTopicId)) {
+      setAttachTopicId(topics[0]!.id);
+    }
+  }, [attachTopicId, topics]);
 
   const itemA = readyItems.find((item) => item.id === selectedA) || null;
   const itemB = readyItems.find((item) => item.id === selectedB && item.id !== selectedA) || null;
@@ -3196,13 +3198,14 @@ export function CompareView({ session, settings, onGoToLibrary, forcedSelection 
   ]);
 
   useEffect(() => {
+    const resolvedRequest = resolveAnnotationRequestKey(lastAnnotationRequestKey.current, evidenceAnnotationRequest);
     if (!evidenceAnnotationRequest) {
       setAnnotationMap(new Map());
+      lastAnnotationRequestKey.current = resolvedRequest.requestKey;
       return;
     }
-    const requestKey = evidenceAnnotationRequest.quotes.map((q) => q.commentId).sort().join("|");
-    if (lastAnnotationRequestKey.current === requestKey) return;
-    lastAnnotationRequestKey.current = requestKey;
+    if (!resolvedRequest.shouldRequest) return;
+    lastAnnotationRequestKey.current = resolvedRequest.requestKey;
 
     let cancelled = false;
     void sendExtensionMessage<{ ok: true; evidenceAnnotations?: EvidenceAnnotation[] } | { ok: false; error: string }>({
@@ -3213,9 +3216,15 @@ export function CompareView({ session, settings, onGoToLibrary, forcedSelection 
         if (cancelled) return;
         if (response.ok && response.evidenceAnnotations?.length) {
           setAnnotationMap(new Map(response.evidenceAnnotations.map((a) => [a.commentId, a])));
+        } else {
+          lastAnnotationRequestKey.current = null;
         }
       })
-      .catch(() => undefined);
+      .catch(() => {
+        if (!cancelled) {
+          lastAnnotationRequestKey.current = null;
+        }
+      });
 
     return () => { cancelled = true; };
   }, [evidenceAnnotationRequest]);
@@ -3392,6 +3401,31 @@ export function CompareView({ session, settings, onGoToLibrary, forcedSelection 
 
   return (
     <div style={{ display: "grid", gap: 12, minWidth: 0, overflowX: "hidden" }}>
+      {fromTopicId && fromTopicName ? (
+        <button
+          type="button"
+          onClick={() => onReturnToTopic?.()}
+          style={{
+            border: "none",
+            background: "none",
+            padding: 0,
+            cursor: "pointer",
+            display: "inline-flex",
+            alignItems: "center",
+            gap: 8,
+            color: T.sub,
+            fontSize: 11,
+            fontWeight: 700
+          }}
+        >
+          <span>案例本</span>
+          <span style={{ color: T.soft }}>›</span>
+          <span>{fromTopicName}</span>
+          <span style={{ color: T.soft }}>›</span>
+          <span>成對檢視</span>
+        </button>
+      ) : null}
+
       {!hideSelector ? (
         <CompareSelectorStrip
           readyItems={readyItems}
@@ -3428,6 +3462,47 @@ export function CompareView({ session, settings, onGoToLibrary, forcedSelection 
         onOpenTechnique={openTechniqueView}
         annotationMap={annotationMap}
       />
+
+      {activeResultId && topics.length ? (
+        <div
+          style={{
+            display: "grid",
+            gap: 10,
+            padding: "12px 14px",
+            borderRadius: tokens.radius.card,
+            border: `1px solid ${T.line}`,
+            background: tokens.color.surface
+          }}
+        >
+          <div style={{ fontSize: 12, fontWeight: 700, color: T.ink }}>附加至案例</div>
+          <div style={{ display: "flex", gap: 8, flexWrap: "wrap", alignItems: "center" }}>
+            <select
+              value={attachTopicId}
+              onChange={(event) => setAttachTopicId(event.target.value)}
+              style={{
+                minWidth: 160,
+                borderRadius: 10,
+                border: `1px solid ${T.line}`,
+                padding: "8px 10px",
+                background: tokens.color.elevated,
+                color: T.ink
+              }}
+            >
+              {topics.map((topic) => (
+                <option key={topic.id} value={topic.id}>
+                  {topic.name}
+                </option>
+              ))}
+            </select>
+            <PrimaryButton
+              onClick={() => attachTopicId && onAttachToTopic?.(attachTopicId)}
+              disabled={!attachTopicId || attachedTopicIds.includes(attachTopicId)}
+            >
+              {attachTopicId && attachedTopicIds.includes(attachTopicId) ? "✓ 已附加" : "附加至案例"}
+            </PrimaryButton>
+          </div>
+        </div>
+      ) : null}
     </div>
   );
 }

@@ -1,6 +1,6 @@
 # AGENTS.md — DLens Chrome Extension v0.1
 
-> **Last updated:** 2026-04-17 (process rules locked; Phase 1 consolidation pending)
+> **Last updated:** 2026-04-23 (Slice A–B complete — 241/241 tests; mode-aware topic intelligence layer live)
 > **For:** any agent continuing work in this repo
 
 ## Process Rules (locked 2026-04-17)
@@ -54,8 +54,8 @@ npx tsx --test tests/*.test.ts tests/*.test.tsx
 - engagement extraction for likes, comments, reposts, forwards, views
 - repost-aware author extraction
 - folder CRUD and save accumulation
-- three-page popup workspace shell with a primary mode rail (`Library / Compare / Result`), a compact folder strip, and a separate Settings utility action
-- Collect remains in the extension, but now lives as a Library utility mode instead of a primary tab
+- popup workspace shell now uses an editorial masthead + left rail with primary mode navigation for `Library / Compare / Collect`, plus a separate Settings utility action
+- Result remains a contextual reading route rather than a primary rail destination
 - queue single post or all pending posts to ingest-core, forwarding the active folder name in `client_context.folder_name`
 - **Process All** button (combined queue + drain) always visible in Library, no item selection required
 - **Processing error surfacing**: worker-drain failures no longer collapse to a generic `Processing failed` toast; popup now surfaces the backend/drain message and mirrors it into `tab.error`
@@ -103,16 +103,16 @@ npx tsx --test tests/*.test.ts tests/*.test.tsx
   - popup layout is split across `InPageCollectorPopup.tsx`, `InPageCollectorOverlays.tsx`, and `InPageCollectorFolderControls.tsx`
 - background queue/refresh writes now serialize through a shared async lock, so bulk queue/refresh sweeps do not overwrite sibling item updates
 - shared popup design tokens now live in `src/ui/tokens.ts`; common atoms read from that source
-- **soft white glass visual design (2026-04-02, tuned 2026-04-08)**: tokens.ts fully rewritten — now using a calm zinc canvas (`#f4f4f5`), near-white frosted-glass cards, soft drop shadows, and dark-on-light text; popup container updated; Compare now uses a compact hero summary, dual audience bubble maps, audience-evidence-first detail panel, and a lighter engagement support section
+- **editorial warm-paper visual design (2026-04-20)**: `tokens.ts` now defines the active field-guide direction — warm paper canvas, deep ink text, matte paper shadows, and navy/oxide accents. Treat the earlier soft-white-glass notes as superseded reference material, not the current spec.
 - **Compare display correction pass (2026-04-02)**: Compare keeps independent selected clusters for Post A and Post B, hides raw backend cluster counts behind `1 dominant cluster` / `+N low-signal clusters hidden` display copy, upgrades support metrics into icon-first pills, collapses audience evidence until clicked, and only shows cross-post cluster hints inside the selected detail panel
 - popup shell separation on pure white pages was strengthened with a clearer border and deeper shadow so opening the launcher remains visually obvious on Threads' own white background
 - compare planning is now documented in `docs/product/2026-04-03-compare-working-plan.md`, explicitly split into immediate extension work, backend-dependent work, new feature proposals, and deferred architecture path; the immediate sequence is evidence-first, and any future compare gate is framed as a soft reaction rather than a hard issue-classification control
 - the next Compare presentation pass is constrained by `docs/product/2026-04-03-compare-frontend-brief.md`: presentation-only, fewer cards, stronger bubble hierarchy, and a single selected-cluster dock; it must not redefine backend semantics or cluster logic
 - the current product-shape recovery note is `docs/product/2026-04-04-two-page-product-plan.md`: `Compare` is the fast decision-entry page, `Technique / Evidence` is the deeper reading page for tactic-like interpretation, and `Library` should evolve toward a casebook of saved evidence / techniques rather than a post tray
 - the 2026-04-06 acceptance notes are now folded into `docs/product/2026-04-04-two-page-product-plan.md`: if clusters like `航班調整影響` and `香港快運航班調整` split apart, treat that as backend merge/pairing quality, not a Compare-only bug; audience-evidence metrics now use a shared four-icon row; `Technique / Evidence` now uses Chinese-first cards rather than English placeholder rows
-- **Observation-first compare contract (2026-04-14)**: `CompareBrief` schema rebuilt with `supportingObservations[]` (each observation cites `evidenceIds` aliases), `aReading`/`bReading` (each must cite an alias), `whyItMatters`, `creatorCue`; evidence catalog embedded in prompt as `e1..eN` flat aliases; uncited observations/readings rejected at parse; brief prompt `v6`, cluster prompt `v3`; `ClusterInterpretation` now has `observation` + `reading` split from `oneLiner`; `InPageCollectorApp` teaser and fallback paths corrected
+- **Observation-first compare contract (2026-04-20)**: `CompareBrief` now includes `relation` alongside `headline`, `supportingObservations[]`, `aReading`/`bReading`, `whyItMatters`, `creatorCue`, and `confidence`; evidence catalog remains `e1..eN` alias-based; uncited observations/readings are still rejected at parse; brief prompt version is `v7`; `relation` is extension-owned presentation synthesis, not backend cluster truth.
 - **Evidence annotation layer (2026-04-14)**: third analysis tier targeting individual quotes (not clusters); `src/compare/evidence-annotation.ts` defines `EvidenceAnnotation` (`writerMeaning` / `discussionFunction` / `whyEffective` / `relationToCluster` / `phraseMarks`); max 4 quotes per compare call; background handles `compare/get-evidence-annotations` with cache + per-quote deterministic fallback; `CompareView` loads annotation map after cluster summaries resolve and threads it to `DictionaryCard` plus selected-cluster evidence detail rows, which now show `（尚未個別分析此留言）` instead of fabricated prose when no annotation exists; prompt version `v1`
-- **Three-page extension migration pass (2026-04-13)**: popup IA now splits into `資料庫 / 比較 / 分析結果`; `Collect` is a Library utility surface, `Compare` is pairing + teaser only, and `Result` is the dedicated reading page with hybrid landing (`active result -> newest saved analysis -> empty state`)
+- **Editorial shell pass (2026-04-20)**: popup IA now uses a masthead + left rail shell; `Collect` is back as a primary mode, `Settings` keeps utility-drawer behavior, and `Result` stays the dedicated contextual reading route with hybrid landing (`active result -> newest saved analysis -> empty state`)
 - saved analyses now persist in `chrome.storage.local` under `dlens:v1:saved-analyses`; tab UI state now tracks `currentMainPage`, `activeCompareDraft`, `activeAnalysisResult`, and `lastViewedResultId`
 - **Compare setup contrast fix (2026-04-14)**: `CompareSetupView` now renders on a soft gray work surface again instead of collapsing into a single white slab; the header, selector block, and teaser block keep distinct card elevation so setup reads like a staged pairing flow
 - **Result surface cleanup pass (2026-04-14)**: Result now renders without an extra clipping surface wrapper, so inner cards keep their edges and rounded corners; representative evidence cards use a blank grey placeholder avatar plus inline engagement metrics; and the validation drawer keeps only the new cluster distribution graph + methodology, with the old dual bubble-map navigator removed from that flow
@@ -144,6 +144,63 @@ npx tsx --test tests/*.test.ts tests/*.test.tsx
 - low-signal micro-clusters are suppressed in the stable analysis layer, so Compare can collapse to a single dominant discussion when needed
 - ProcessingStrip, LibraryView, and Compare now expose stable phase/state `data-*` outlets for a later SAO/glass frontend pass without changing data logic
 
+## DictionaryCard Behavior Contract (2026-04-17)
+
+**DictionaryCard is the primary evidence display component in `src/ui/CompareView.tsx`.** The rules below govern its rendering behavior. Do not regress them.
+
+### Rendering modes
+
+| `analysis` | `effectiveness` | UI mode |
+|---|---|---|
+| non-null string | non-null object | **Full card**: header + quote + 剖析 block + "為什麼被挑出來" expander |
+| non-null string | `null` | **Full card without expander**: header + quote + 剖析 block only |
+| `null` | any | **Compact mode**: header + quote only. No 剖析 block. No expander. No fallback copy. |
+
+### `effectiveness` prop shape
+
+```ts
+effectiveness: {
+  discussionFunction: string;  // 在討論中扮演什麼角色
+  relationToCluster: string;   // 跟 cluster 主線的關係 (may be empty)
+  whyEffective: string;        // 修辭為什麼有效
+} | null
+```
+
+- `hasEffectiveness` guard: `effectiveness !== null && (effectiveness.discussionFunction.length > 0 || effectiveness.whyEffective.length > 0)`
+- If both core fields are empty, expander is hidden (same compact posture)
+- `relationToCluster` is optional within the object — render conditionally
+
+### Call-site mapping
+
+```ts
+// CompareView.tsx — inside the evidence-rendering loop
+const analysisText = annotation?.writerMeaning || null;
+const effectivenessData = annotation ? {
+  discussionFunction: annotation.discussionFunction,
+  relationToCluster: annotation.relationToCluster,
+  whyEffective: annotation.whyEffective,
+} : null;
+```
+
+`discussionFunction` is NOT a fallback for `writerMeaning`. It has its own slot in `effectivenessData`.
+
+### Testing pattern
+
+`renderToStaticMarkup` only captures initial state — expanded panel content is NOT visible in static HTML. To test `DictionaryCard` directly, use `compareViewTestables.DictionaryCard` (exported from `CompareView.tsx`), not the full `CompareView`.
+
+---
+
+## Result Surface Spacing Contract (2026-04-17)
+
+Result page vertical rhythm is owned by two tokens in `src/ui/tokens.ts`:
+
+- `tokens.spacing.resultSectionGap` (`32px`) — gap between top-level Result sections
+- `tokens.spacing.resultCardGap` (`16px`) — gap between cards within a section
+
+The Result container uses `display: flex; flex-direction: column; gap` against these tokens. Do NOT reintroduce per-section `marginTop` / `marginBottom` overrides or height-spacer `<div>`s. If a new Result section is added, it inherits the gap automatically — do not hand-tune its spacing.
+
+---
+
 ## Standalone Workspace Modes
 
 - `extension-only dev`
@@ -153,6 +210,71 @@ npx tsx --test tests/*.test.ts tests/*.test.tsx
   - local backend discovery is a dev convenience only: prefer `DLENS_INGEST_CORE_DIR`, otherwise `npm run backend:locate` checks `../dlens-ingest-core`
   - auth files and crawler credentials are backend startup concerns, not extension runtime concerns
 
+## Slice A–B: Mode-Aware Topic Intelligence Layer (2026-04-23)
+
+This was a major product-direction change. Summary for any agent picking up here:
+
+### What changed
+
+**Product direction**: dlens is no longer just "capture two posts → compare brief". It is now a **mode-aware Threads intelligence extension**. Each folder carries a `mode` (`archive | topic | product`) that determines which surfaces mount and which AI passes run.
+
+**New core objects**: `Topic` (named discussion container with status + signalIds + pairIds) and `Signal` (inbox item linking a captured post to a topic after triage).
+
+**New navigation rule**: `ALLOWED_PAGES` in `InPageCollectorPopup.tsx` determines which nav icons mount. `archive` = Library + Collect only. `topic`/`product` = Casebook + Inbox + Collect + Compare. Pages not in the allowed set are *unmounted*, not disabled.
+
+**Save routing**: `ensureSignalForSavedItem()` in `background.ts:607` is called after every successful save in `topic`/`product` mode. Creates a `Signal { inboxStatus: 'unprocessed' }` in the Inbox. Idempotent (deduped by `itemId`).
+
+**Judgment Pass 2**: `getOrGenerateJudgment` at `background.ts:478` is the 5th `createLlmCallWrapper` — same pattern as brief/cluster/annotation. Uses `buildJudgmentPrompt(brief, profile)` + `parseJudgmentResponse` from `src/compare/judgment.ts` (fully implemented). Cache at `dlens:v1:compare-judgment-cache`. Fallback via `buildDeterministicJudgment`.
+
+### New files
+
+| File | Purpose |
+|------|---------|
+| `src/state/topic-storage.ts` (250 lines) | Topic + Signal CRUD, normalizeTopic, normalizeSignal, triageSignal |
+| `src/ui/CasebookView.tsx` (266 lines) | Topic triage console with status filter tabs |
+| `src/ui/InboxView.tsx` (276 lines) | Signal inbox with assign/create-topic/archive triage |
+| `src/ui/TopicDetailView.tsx` (373 lines) | Single topic: overview, signals, pairs, judgment panel (product mode) |
+| `tests/topic-storage.test.ts` | Topic/Signal CRUD + triage edge cases |
+| `tests/casebook-view.test.tsx` | CasebookView rendering + filter |
+| `tests/inbox-view.test.tsx` | InboxView triage flow |
+| `tests/topic-detail-view.test.tsx` | TopicDetailView three tabs |
+| `tests/judgment-eval.test.ts` | Judgment prompt/parser/fallback determinism (no real LLM calls) |
+| `tests/judgment-fixtures.ts` | 18 golden fixture pairs for eval |
+
+### Modified files (significant)
+
+| File | Change |
+|------|--------|
+| `src/state/types.ts` | Added `FolderMode`, `Topic`, `Signal`, `TopicStatus`, `SignalSource`, `SignalInboxStatus`; added `mode` to `SessionRecord`; expanded `MainPage` to include `'casebook' | 'inbox'` |
+| `src/state/messages.ts` | Added `topic/*`, `signal/*`, `session/set-mode`, `TriageAction` |
+| `src/state/store-helpers.ts` | `normalizeSessionRecord` defaults `mode` to `'topic'` for legacy sessions |
+| `entrypoints/background.ts` | 1394 → 1929 lines; added topic/signal/judgment handlers; `ensureSignalForSavedItem` on save path |
+| `src/ui/InPageCollectorPopup.tsx` | Mode guard (`ALLOWED_PAGES` + `guardPage`); casebook + inbox + topic detail routing |
+| `src/ui/useInPageCollectorAppState.ts` | 712 → 1028 lines; topics/signals/mode state + triage/topic CRUD callbacks |
+| `src/ui/CompareView.tsx` | Breadcrumb + "附加至案例" button for topic context |
+| `src/ui/CollectView.tsx` | Save toast changes to "已加入收件匣" in topic/product mode |
+| `src/ui/SettingsView.tsx` | Folder mode selector + ProductProfile form (product mode only) |
+
+### Files NOT changed
+
+`src/compare/judgment.ts`, `src/compare/saved-analysis-storage.ts`, `src/compare/brief.ts`, `src/compare/provider.ts`, `src/compare/evidence-annotation.ts`, `src/compare/cluster-interpretation.ts`, `src/ui/LibraryView.tsx`.
+
+### Test gate
+
+```bash
+npm run typecheck && npx tsx --test tests/*.test.ts tests/*.test.tsx
+# Expected: 241 pass, 0 fail
+```
+
+### Watch items for next agent
+
+1. `useInPageCollectorAppState.ts` is at 1028 lines / 51 hooks — next refactor target before adding Phase 2 features: extract `useTopicState` mini-hook.
+2. `background.ts` is at 1929 lines — consider splitting topic handlers to `src/state/topic-handlers.ts` before Phase 2.
+3. `suggestedTopicIds` is always `[]` in Slice A — Phase 2 fills this from AI inbox clustering.
+4. Product mode is live (not disabled) — ProductProfile form in Settings is the entry point.
+
+---
+
 ## What Is Intentionally Not In This Repo
 
 - direct Supabase access
@@ -160,6 +282,10 @@ npx tsx --test tests/*.test.ts tests/*.test.tsx
 - full analyst workspace
 - topic expansion
 - claims runner / deep LLM pipeline
+- multi-source inbox (Dcard / Instagram / PTT / YouTube) — Phase 2
+- Deep Reading / Evidence Route — Phase 2
+- Weekly Intelligence Brief — Phase 2
+- Topic auto-suggestion from signal clustering — Phase 2
 
 ## Current Pipeline
 
@@ -229,7 +355,7 @@ The full cluster pipeline runs in `dlens-ingest-core`, not in this repo:
 | `/Users/tung/Desktop/dlens-chrome-extension-v0/src/ui/inpage-helpers.tsx` | popup helper functions and compact display atoms |
 | `/Users/tung/Desktop/dlens-chrome-extension-v0/src/ui/components.tsx` | shared popup atoms, PreviewCard, and styling helpers |
 | `/Users/tung/Desktop/dlens-chrome-extension-v0/src/ui/ProcessingStrip.tsx` | processing summary strip component |
-| `/Users/tung/Desktop/dlens-chrome-extension-v0/src/ui/CollectView.tsx` | collect utility surface rendered inside Library |
+| `/Users/tung/Desktop/dlens-chrome-extension-v0/src/ui/CollectView.tsx` | collect rail page wired to the existing preview/save/toggle contract |
 | `/Users/tung/Desktop/dlens-chrome-extension-v0/src/ui/LibraryView.tsx` | library home: saved posts, saved analyses, casebook |
 | `/Users/tung/Desktop/dlens-chrome-extension-v0/src/ui/CompareSetupView.tsx` | compare setup page: pair selection, teaser, result CTA |
 | `/Users/tung/Desktop/dlens-chrome-extension-v0/src/ui/SettingsView.tsx` | settings tab view |
@@ -271,7 +397,7 @@ The full cluster pipeline runs in `dlens-ingest-core`, not in this repo:
 - `useInPageCollectorAppState.ts` is still a large orchestration hub after the shell split and is the next place to keep carving down
 - inline styles are widespread but `tokens.ts` now provides the full design token layer; remaining inline refs can migrate incrementally
 - hover debounce still feels slow (360ms)
-- the full `tests/*.test.ts{,x}` suite still has 13 known baseline failures on current main/T9 base; do not treat them as introduced by the shell split without re-checking the baseline command
+- the full `tests/*.test.ts{,x}` suite passes **178/178** as of Phase 2 (commit `6453f73`); `manifest-config.test.ts` has a known pre-existing rolldown native binding issue on Darwin arm64 that is environment-specific and not a code failure
 
 ### P3
 
@@ -449,7 +575,7 @@ Before claiming success:
 ```bash
 cd /Users/tung/Desktop/dlens-chrome-extension-v0
 npm run typecheck
-npx tsx --test tests/*.test.ts tests/*.test.tsx
+npx tsx --test tests/*.test.ts tests/*.test.tsx  # expect 178/178
 npm run build
 ```
 

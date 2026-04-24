@@ -2,7 +2,14 @@ import type { CaptureTargetResponse } from "../contracts/ingest.ts";
 import type { TargetDescriptor } from "../contracts/target-descriptor.ts";
 import type { CaptureSnapshot, JobSnapshot } from "../contracts/ingest.ts";
 import { extractCommentsPreview } from "./comment-preview.ts";
-import type { ExtensionGlobalState, SessionItem, SessionItemStatus, SessionRecord, TabUiState } from "./types.ts";
+import type {
+  ExtensionGlobalState,
+  FolderMode,
+  SessionItem,
+  SessionItemStatus,
+  SessionRecord,
+  TabUiState
+} from "./types.ts";
 
 function generateId(prefix: string): string {
   return `${prefix}_${Math.random().toString(36).slice(2, 10)}_${Date.now().toString(36)}`;
@@ -49,9 +56,17 @@ export function createSessionRecord(name: string, now = new Date().toISOString()
   return {
     id: generateId("session"),
     name: name.trim(),
+    mode: "topic",
     createdAt: now,
     updatedAt: now,
     items: []
+  };
+}
+
+export function normalizeSessionRecord(raw: SessionRecord): SessionRecord {
+  return {
+    ...raw,
+    mode: (raw.mode as FolderMode) ?? "topic"
   };
 }
 
@@ -342,6 +357,26 @@ export function mergeRefreshResults(
     job,
     capture
   };
+}
+
+export interface ItemRefreshResult {
+  sessionId: string;
+  itemId: string;
+  job: JobSnapshot | null;
+  capture: CaptureSnapshot | null;
+}
+
+export function mergeItemRefreshResultsIntoGlobal(
+  globalState: ExtensionGlobalState,
+  refreshResults: ItemRefreshResult[]
+): ExtensionGlobalState {
+  return refreshResults.reduce(
+    (nextGlobal, result) =>
+      updateSessionItem(nextGlobal, result.sessionId, result.itemId, (existing) =>
+        reconcileSessionItem(existing, result.job, result.capture)
+      ),
+    globalState
+  );
 }
 
 export function updateSessionItem(

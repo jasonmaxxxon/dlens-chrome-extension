@@ -1,106 +1,102 @@
-/* ─── DLens Soft White Glass Theme ───
+/* ─── DLens Editorial Field Guide Theme ───
  *
- * Design direction: Editorial analysis product — calm zinc canvas, subtle glass cards.
- * Key principles:
- *   1. Calm neutral canvas — no warm fog tint
- *   2. Glass cards — near-white surfaces with very light separation
- *   3. Soft drop shadows — no heavy glow
- *   4. Color as accent only — A = indigo tint, B = amber tint, never full-card tint
- *   5. Dark text hierarchy — ink on light, clear reading weight
+ * Design direction: warm paper workspace, deep editorial ink, specimen-style accents.
+ * `tokens.ts` remains the sole design spec even while some callers still use legacy
+ * alias names such as glass*.
  */
 
 export const tokens = {
   color: {
     /* text hierarchy — calm editorial workspace */
-    ink: "#172033",
-    subInk: "#4b5563",
-    softInk: "#7c8798",
+    ink: "#1b1a17",
+    subInk: "#3d3b35",
+    softInk: "#6c695e",
 
     /* borders & dividers */
-    line: "rgba(15,23,42,0.09)",
-    lineStrong: "rgba(15,23,42,0.14)",
+    line: "rgba(27,26,23,0.10)",
+    lineStrong: "rgba(27,26,23,0.18)",
 
     /* shared workspace surfaces */
-    canvas: "#f4f4f5",
-    surface: "#fcfcfd",
-    elevated: "#ffffff",
-    shellSurface: "rgba(248,250,252,0.92)",
-    contentSurface: "#fcfcfd",
-    focusedSurface: "#ffffff",
-    railSurface: "rgba(248,250,252,0.92)",
-    contextSurface: "rgba(248,250,252,0.88)",
-    utilitySurface: "rgba(255,255,255,0.92)",
+    canvas: "#f7f4ec",
+    surface: "#fbf8f1",
+    elevated: "#fdfbf6",
+    shellSurface: "rgba(253,251,246,0.96)",
+    contentSurface: "#fbf8f1",
+    focusedSurface: "#fdfbf6",
+    railSurface: "rgba(247,244,236,0.94)",
+    contextSurface: "rgba(242,238,226,0.72)",
+    utilitySurface: "rgba(253,251,246,0.96)",
 
     /* legacy alias */
-    dark: "#172033",
+    dark: "#1b1a17",
 
     /* accent — indigo core (Post A) */
-    accent: "#4f46e5",
-    accentMid: "#6366f1",
-    accentSoft: "rgba(79,70,229,0.07)",
-    accentGlow: "rgba(79,70,229,0.18)",
+    accent: "#1a2e4f",
+    accentMid: "#2b4a80",
+    accentSoft: "rgba(26,46,79,0.09)",
+    accentGlow: "rgba(26,46,79,0.18)",
 
     /* secondary accent — teal */
-    cyan: "#0891b2",
-    cyanSoft: "rgba(8,145,178,0.10)",
-    cyanGlow: "rgba(8,145,178,0.15)",
+    cyan: "#3f5a3b",
+    cyanSoft: "rgba(63,90,59,0.10)",
+    cyanGlow: "rgba(63,90,59,0.16)",
 
     /* technique accents */
-    techniqueRose: "#e11d48",
-    techniqueAmber: "#d97706",
-    techniqueTeal: "#0f766e",
-    techniqueBlue: "#2563eb",
-    techniqueViolet: "#7c3aed",
+    techniqueRose: "#7a2030",
+    techniqueAmber: "#a16a17",
+    techniqueTeal: "#3f5a3b",
+    techniqueBlue: "#1a2e4f",
+    techniqueViolet: "#5e4b73",
 
     /* status */
-    success: "#059669",
-    successSoft: "rgba(5,150,105,0.08)",
-    queued: "#d97706",
-    queuedSoft: "rgba(217,119,6,0.08)",
-    failed: "#dc2626",
-    failedSoft: "rgba(220,38,38,0.07)",
-    running: "#2563eb",
-    runningSoft: "rgba(37,99,235,0.08)",
+    success: "#3f5a3b",
+    successSoft: "rgba(63,90,59,0.10)",
+    queued: "#a16a17",
+    queuedSoft: "rgba(161,106,23,0.11)",
+    failed: "#7a2030",
+    failedSoft: "rgba(122,32,48,0.10)",
+    running: "#1a2e4f",
+    runningSoft: "rgba(26,46,79,0.08)",
 
     /* shell aliases kept for existing callers */
-    glassBg: "#fcfcfd",
-    glassBorder: "rgba(15,23,42,0.09)",
+    glassBg: "#fbf8f1",
+    glassBorder: "rgba(27,26,23,0.10)",
 
     /* idle / neutral */
-    idleBg: "rgba(248,250,252,0.92)",
-    idleBorder: "rgba(15,23,42,0.08)",
+    idleBg: "rgba(247,244,236,0.84)",
+    idleBorder: "rgba(27,26,23,0.08)",
 
     /* neutral surface — chips, inactive tabs */
-    neutralSurface: "#f8fafc",
-    neutralSurfaceSoft: "rgba(248,250,252,0.82)",
-    neutralText: "#6b7280",
+    neutralSurface: "#f1ece0",
+    neutralSurfaceSoft: "rgba(241,236,224,0.78)",
+    neutralText: "#6c695e",
 
     /* disabled */
-    disabledPrimary: "rgba(156,163,175,0.50)",
-    disabledSecondary: "rgba(243,244,246,0.50)"
+    disabledPrimary: "rgba(149,145,127,0.55)",
+    disabledSecondary: "rgba(227,220,204,0.60)"
   },
 
   radius: {
-    lg: 18,
-    card: 14,
-    pill: 10,
-    sm: 6
+    lg: 12,
+    card: 8,
+    pill: 8,
+    sm: 4
   },
 
   shadow: {
-    shell: "0 12px 36px rgba(15,23,42,0.10)",
-    glass: "0 12px 36px rgba(15,23,42,0.10)",
-    focus: "0 10px 24px rgba(15,23,42,0.08)",
-    focusedSurface: "0 10px 24px rgba(15,23,42,0.08)",
-    accentButton: "0 8px 18px rgba(79,70,229,0.20)",
-    activeTab: "0 8px 18px rgba(15,23,42,0.08)",
-    previewAvatar: "0 4px 12px rgba(79,70,229,0.16)",
-    hudGlow: "0 1px 3px rgba(255,255,255,0.7), 0 10px 24px rgba(15,23,42,0.04)",
-    popup: "0 18px 52px rgba(15,23,42,0.14), 0 0 0 1px rgba(255,255,255,0.92)"
+    shell: "0 14px 34px rgba(27,26,23,0.10), 0 1px 2px rgba(27,26,23,0.06)",
+    glass: "0 1px 0 rgba(27,26,23,0.035), 0 8px 18px -10px rgba(27,26,23,0.12), 0 1px 2px rgba(27,26,23,0.05)",
+    focus: "0 1px 0 rgba(27,26,23,0.035), 0 8px 18px -10px rgba(27,26,23,0.12), 0 1px 2px rgba(27,26,23,0.05)",
+    focusedSurface: "0 1px 0 rgba(27,26,23,0.035), 0 8px 18px -10px rgba(27,26,23,0.12), 0 1px 2px rgba(27,26,23,0.05)",
+    accentButton: "0 8px 18px rgba(26,46,79,0.16)",
+    activeTab: "0 6px 16px rgba(27,26,23,0.08)",
+    previewAvatar: "0 4px 12px rgba(26,46,79,0.12)",
+    hudGlow: "0 1px 0 rgba(27,26,23,0.04), 0 8px 16px rgba(27,26,23,0.06)",
+    popup: "0 20px 56px rgba(27,26,23,0.16), 0 2px 8px rgba(27,26,23,0.08), 0 0 0 1px rgba(27,26,23,0.08)"
   },
 
   effect: {
-    glassBlur: "blur(18px) saturate(120%)"
+    glassBlur: "none"
   },
 
   motion: {
@@ -122,7 +118,10 @@ export const tokens = {
   },
 
   font: {
-    mono: "'SF Mono', 'Fira Code', 'Cascadia Code', monospace"
+    sans: "'Noto Serif TC', 'Songti TC', 'Source Han Serif TC', 'PingFang TC', serif",
+    serif: "'Instrument Serif', 'Iowan Old Style', 'Times New Roman', serif",
+    serifCjk: "'Noto Serif TC', 'Songti TC', 'Source Han Serif TC', serif",
+    mono: "'JetBrains Mono', 'SF Mono', 'Fira Code', 'Cascadia Code', monospace"
   }
 } as const;
 

@@ -4,7 +4,14 @@ import type { CompareOneLinerRequest } from "../compare/one-liner";
 import type {
   ActiveAnalysisResult,
   ActiveCompareDraft,
+  JudgmentResult,
+  ProductProfile,
   SavedAnalysisSnapshot,
+  FolderMode,
+  Signal,
+  SignalInboxStatus,
+  Topic,
+  TriageAction,
   TechniqueReadingSnapshot
 } from "./types";
 import type { ClusterInterpretation, CompareClusterSummaryRequest } from "../compare/cluster-interpretation";
@@ -17,6 +24,8 @@ export type ExtensionMessage =
   | { type: "state/get-active-tab" }
   | { type: "state/get-tab"; tabId: number }
   | { type: "settings/set-ingest-base-url"; value: string }
+  | { type: "settings/set-product-profile"; productProfile: ProductProfile | null }
+  | { type: "settings/init-product-profile"; description: string }
   | { type: "settings/set-one-liner-config"; provider: "openai" | "claude" | "google" | null; openaiApiKey: string; claudeApiKey: string; googleApiKey: string }
   | { type: "popup/open-active-tab" }
   | { type: "popup/close-tab"; tabId: number }
@@ -32,6 +41,7 @@ export type ExtensionMessage =
   | { type: "session/rename"; sessionId: string; name: string }
   | { type: "session/delete"; sessionId: string }
   | { type: "session/set-active"; sessionId: string }
+  | { type: "session/set-mode"; sessionId: string; mode: FolderMode }
   | { type: "session/save-current-preview" }
   | { type: "session/select-item"; sessionId: string; itemId: string }
   | { type: "session/queue-item"; sessionId: string; itemId: string }
@@ -50,8 +60,24 @@ export type ExtensionMessage =
   | { type: "compare/save-technique-reading"; snapshot: TechniqueReadingSnapshot }
   | { type: "compare/get-saved-analyses" }
   | { type: "compare/save-analysis"; snapshot: SavedAnalysisSnapshot }
+  | { type: "topic/list"; sessionId: string }
+  | { type: "topic/create"; sessionId: string; name: string; description?: string }
+  | { type: "topic/update"; id: string; patch: Partial<Pick<Topic, "name" | "status" | "tags" | "description">> }
+  | { type: "topic/delete"; id: string }
+  | { type: "topic/add-pair"; topicId: string; resultId: string }
+  | { type: "topic/remove-pair"; topicId: string; resultId: string }
+  | { type: "signal/list"; sessionId: string; status?: SignalInboxStatus }
+  | { type: "signal/triage"; signalId: string; action: TriageAction }
   | { type: "compare/set-active-draft"; draft: ActiveCompareDraft | null }
   | { type: "compare/set-active-result"; result: ActiveAnalysisResult | null }
+  | { type: "judgment/start"; resultId: string }
+  | {
+    type: "judgment/result";
+    resultId: string;
+    judgmentResult: JudgmentResult | null;
+    judgmentVersion: string | null;
+    judgmentSource: SavedAnalysisSnapshot["judgmentSource"];
+  }
   | { type: "state/updated"; tabId: number; snapshot: ExtensionSnapshot };
 
 export type ExtensionSuccessResponse = {
@@ -67,6 +93,9 @@ export type ExtensionSuccessResponse = {
   evidenceAnnotations?: EvidenceAnnotation[];
   techniqueReadings?: TechniqueReadingSnapshot[];
   savedAnalyses?: SavedAnalysisSnapshot[];
+  topics?: Topic[];
+  signals?: Signal[];
+  productProfile?: ProductProfile | null;
 };
 
 export type StartProcessingResponse =

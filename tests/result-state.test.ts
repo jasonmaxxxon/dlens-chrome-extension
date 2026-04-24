@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 
 import type { ActiveAnalysisResult, SavedAnalysisSnapshot } from "../src/state/types.ts";
-import { resolveAnalysisResultSurface } from "../src/state/analysis-result-state.ts";
+import { findSavedAnalysisByResultId, resolveAnalysisResultSurface } from "../src/state/analysis-result-state.ts";
 
 function buildSavedAnalysis(overrides: Partial<SavedAnalysisSnapshot> = {}): SavedAnalysisSnapshot {
   return {
@@ -71,4 +71,16 @@ test("resolveAnalysisResultSurface returns empty when there is no active or save
   assert.equal(resolution.mode, "empty");
   assert.equal(resolution.activeResult, null);
   assert.equal(resolution.savedAnalysis, null);
+});
+
+test("findSavedAnalysisByResultId returns the matching saved snapshot for an active saved result", () => {
+  const savedAnalyses = [
+    buildSavedAnalysis({ resultId: "saved_result_1" }),
+    buildSavedAnalysis({ resultId: "saved_result_2", headline: "另一份分析" })
+  ];
+
+  const saved = findSavedAnalysisByResultId(savedAnalyses, "saved_result_2");
+
+  assert.equal(saved?.resultId, "saved_result_2");
+  assert.equal(saved?.headline, "另一份分析");
 });

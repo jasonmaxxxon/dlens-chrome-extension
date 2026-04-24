@@ -5,7 +5,8 @@
   "type": "module",
   "scripts": {
     "dev": "wxt",
-    "build": "wxt build",
+    "build": "node scripts/build-extension.mjs",
+    "build:wxt": "wxt build",
     "zip": "wxt zip",
     "typecheck": "tsc --noEmit",
     "backend:locate": "node scripts/locate-ingest-core.mjs"
@@ -18,8 +19,12 @@
     "@types/chrome": "^0.0.330",
     "@types/react": "^19.1.2",
     "@types/react-dom": "^19.1.2",
-    "@wxt-dev/module-react": "^1.1.1",
+    "@wxt-dev/module-react": "1.1.1",
+    "rollup": "npm:@rollup/wasm-node@4.60.2",
     "typescript": "^5.8.3",
-    "wxt": "^0.20.7"
+    "wxt": "0.20.7"
+  },
+  "overrides": {
+    "vite": "5.4.19"
   }
 }

@@ -121,7 +121,7 @@ export function MetricChip({
         display: "inline-flex",
         alignItems: "center",
         gap: 4,
-        letterSpacing: "0.02em",
+        letterSpacing: 0,
         transition: tokens.motion.interactiveTransitionFast
       }}
     >
@@ -272,11 +272,42 @@ export function surfaceCardStyle(extra?: CSSProperties): CSSProperties {
   };
 }
 
-const PRIMARY_WORKSPACE_MODES: ReadonlyArray<{ key: WorkspaceMode; label: string }> = [
+type PrimaryWorkspaceMode = Exclude<WorkspaceMode, "result">;
+
+const PRIMARY_WORKSPACE_MODES: ReadonlyArray<{ key: PrimaryWorkspaceMode; label: string }> = [
+  { key: "casebook", label: "案例本" },
+  { key: "inbox", label: "收件匣" },
   { key: "library", label: "資料庫" },
   { key: "compare", label: "比較" },
-  { key: "result", label: "結果" }
+  { key: "collect", label: "採集" }
 ];
+
+function railIcon(mode: PrimaryWorkspaceMode) {
+  const common = {
+    width: 16,
+    height: 16,
+    viewBox: "0 0 24 24",
+    fill: "none",
+    stroke: "currentColor",
+    strokeWidth: 1.7,
+    strokeLinecap: "round" as const,
+    strokeLinejoin: "round" as const,
+    "aria-hidden": true
+  };
+
+  switch (mode) {
+    case "casebook":
+      return <svg {...common}><path d="M6 5.5A2.5 2.5 0 0 1 8.5 3H18v17.5H8.5A2.5 2.5 0 0 0 6 23" /><path d="M6 5.5V23" /><path d="M10 8h5" /><path d="M10 12h5" /></svg>;
+    case "inbox":
+      return <svg {...common}><path d="M4.5 7.5h15v9h-4l-2 3h-3l-2-3h-4z" /><path d="M8 11h8" /></svg>;
+    case "library":
+      return <svg {...common}><path d="M5.5 4.5h9a2 2 0 0 1 2 2v13h-9a2 2 0 0 0-2 2Z" /><path d="M7.5 4.5h9a2 2 0 0 1 2 2v13h-9a2 2 0 0 0-2 2" /></svg>;
+    case "compare":
+      return <svg {...common}><path d="M7 5h3v14H7z" /><path d="M14 5h3v14h-3z" /><path d="M10 9h4" /><path d="M10 15h4" /></svg>;
+    case "collect":
+      return <svg {...common}><path d="M12 3v18" /><path d="M3 12h18" /><circle cx="12" cy="12" r="7.5" /></svg>;
+  }
+}
 
 export function WorkspaceShell({
   mode,
@@ -294,41 +325,108 @@ export function WorkspaceShell({
       data-workspace-shell="compare-first"
       style={{
         display: "grid",
-        gap: tokens.spacing.section,
+        gap: tokens.spacing.md,
         minWidth: 0
       }}
     >
-      <header
-        data-shell-header="workspace"
+      <div
+        data-shell-masthead="editorial"
         style={{
           display: "flex",
           alignItems: "center",
           justifyContent: "space-between",
-          gap: 10
+          gap: 12,
+          padding: "10px 14px 8px",
+          borderRadius: tokens.radius.card,
+          border: `1px solid ${tokens.color.line}`,
+          background: `linear-gradient(180deg, ${tokens.color.elevated}, ${tokens.color.surface})`,
+          boxShadow: "0 1px 0 rgba(253,251,246,0.72), inset 0 1px 0 rgba(253,251,246,0.54)",
+          color: tokens.color.subInk
         }}
       >
-        {header}
-      </header>
-
-      {contextStrip ? (
-        <div data-shell-context-strip="processing">
-          {contextStrip}
+        <div style={{ display: "flex", alignItems: "baseline", gap: 8, minWidth: 0 }}>
+          <span style={{ fontFamily: tokens.font.serif, fontSize: 20, lineHeight: 1, color: tokens.color.ink }}>dlens</span>
+          <span style={{ fontSize: 10, fontWeight: 700, letterSpacing: 0, color: tokens.color.softInk }}>
+            Annotated Field Guide
+          </span>
         </div>
-      ) : null}
+        <div style={{ display: "flex", alignItems: "center", gap: 10, fontFamily: tokens.font.sans, fontSize: 10, color: tokens.color.softInk, whiteSpace: "nowrap" }}>
+          <span>VOL.1</span>
+          <span>NO.{mode === "result" ? "04" : mode === "compare" ? "03" : mode === "collect" ? "02" : mode === "settings" ? "05" : "01"}</span>
+          <span>{new Intl.DateTimeFormat("en-US", { month: "short", day: "numeric" }).format(new Date())}</span>
+        </div>
+      </div>
 
-      <main data-workspace-mode={mode}>
-        {children}
-      </main>
+      <div
+        data-shell-frame="editorial"
+        style={{
+          display: "grid",
+          gridTemplateColumns: "72px minmax(0, 1fr)",
+          gap: tokens.spacing.md,
+          minWidth: 0,
+          alignItems: "start"
+        }}
+      >
+        <header
+          data-shell-header="workspace"
+          style={{
+            display: "grid",
+            gap: 10,
+            alignContent: "start",
+            padding: "10px 8px 12px",
+            borderRadius: tokens.radius.card,
+            border: `1px solid ${tokens.color.line}`,
+            background: `linear-gradient(180deg, ${tokens.color.surface}, ${tokens.color.contextSurface})`,
+            boxShadow: tokens.shadow.glass
+          }}
+        >
+          <div style={{ display: "grid", placeItems: "center", minHeight: 40 }}>
+            <div
+              aria-hidden="true"
+              style={{
+                width: 34,
+                height: 34,
+                borderRadius: 999,
+                background: tokens.color.ink,
+                color: tokens.color.elevated,
+                display: "grid",
+                placeItems: "center",
+                fontFamily: tokens.font.serif,
+                fontSize: 21,
+                lineHeight: 1,
+                boxShadow: tokens.shadow.previewAvatar
+              }}
+            >
+              d
+            </div>
+          </div>
+          {header}
+        </header>
+
+        <div data-shell-main="workspace" style={{ display: "grid", gap: tokens.spacing.md, minWidth: 0 }}>
+          {contextStrip ? (
+            <div data-shell-context-strip="processing">
+              {contextStrip}
+            </div>
+          ) : null}
+
+          <main data-workspace-mode={mode}>
+            {children}
+          </main>
+        </div>
+      </div>
     </div>
   );
 }
 
 export function ModeRail({
   activeMode,
+  modes = PRIMARY_WORKSPACE_MODES.map((entry) => entry.key),
   onSelect
 }: {
-  activeMode: WorkspaceMode | null;
-  onSelect: (mode: WorkspaceMode) => void;
+  activeMode: PrimaryWorkspaceMode | null;
+  modes?: PrimaryWorkspaceMode[];
+  onSelect: (mode: PrimaryWorkspaceMode) => void;
 }) {
   return (
     <nav
@@ -336,17 +434,11 @@ export function ModeRail({
       data-mode-rail="primary"
       style={{
         display: "grid",
-        gridTemplateColumns: "repeat(4, minmax(0, 1fr))",
-        gap: 3,
-        flex: 1,
-        minWidth: 0,
-        padding: 3,
-        borderRadius: 12,
-        background: tokens.color.shellSurface,
-        border: `1px solid ${tokens.color.line}`,
+        gap: 8,
+        justifyItems: "center"
       }}
     >
-      {PRIMARY_WORKSPACE_MODES.map((mode) => (
+      {PRIMARY_WORKSPACE_MODES.filter((mode) => modes.includes(mode.key)).map((mode) => (
         <ModeRailButton
           key={mode.key}
           mode={mode.key}
@@ -365,37 +457,40 @@ export function ModeRailButton({
   active,
   onSelect
 }: {
-  mode: WorkspaceMode;
+  mode: PrimaryWorkspaceMode;
   label: string;
   active: boolean;
-  onSelect: (mode: WorkspaceMode) => void;
+  onSelect: (mode: PrimaryWorkspaceMode) => void;
 }) {
   return (
     <button
       data-mode={mode}
       data-mode-active={active ? "true" : "false"}
-      data-mode-style="pill"
+      data-mode-style="rail"
       onClick={() => onSelect(mode)}
       style={{
-        border: "none",
-        borderRadius: 9,
-        minHeight: 30,
-        padding: "6px 4px",
+        width: "100%",
+        border: `1px solid ${active ? tokens.color.lineStrong : "transparent"}`,
+        borderRadius: tokens.radius.card,
+        minHeight: 58,
+        padding: "8px 6px",
         background: active ? tokens.color.elevated : "transparent",
         color: active ? tokens.color.ink : tokens.color.subInk,
-        fontSize: 11,
-        fontWeight: active ? 700 : 500,
-        letterSpacing: active ? "-0.01em" : "0",
-        textTransform: "none",
+        fontSize: 9,
+        fontWeight: 700,
+        letterSpacing: 0,
         cursor: "pointer",
-        boxShadow: active ? "0 1px 3px rgba(0,0,0,0.10)" : "none",
+        boxShadow: active ? tokens.shadow.activeTab : "none",
         transition: tokens.motion.interactiveTransition,
-        whiteSpace: "nowrap",
-        overflow: "hidden",
-        textOverflow: "ellipsis"
+        display: "grid",
+        placeItems: "center",
+        gap: 5
       }}
     >
-      {label}
+      <span style={{ display: "inline-flex", color: active ? tokens.color.accent : tokens.color.softInk }}>
+        {railIcon(mode)}
+      </span>
+      <span>{label}</span>
     </button>
   );
 }
@@ -411,10 +506,9 @@ export function UtilityEdge({
     <div
       data-utility-edge="workspace"
       style={{
-        display: "flex",
-        alignItems: "center",
-        justifyContent: "flex-end",
-        flexShrink: 0
+        display: "grid",
+        alignItems: "end",
+        paddingTop: 4
       }}
     >
       <button
@@ -423,17 +517,18 @@ export function UtilityEdge({
         onClick={onSelect}
         style={{
           border: `1px solid ${active ? tokens.color.lineStrong : tokens.color.line}`,
-          borderRadius: 12,
-          minHeight: 42,
-          padding: "0 12px",
+          borderRadius: tokens.radius.card,
+          minHeight: 58,
+          width: "100%",
+          padding: "8px 6px",
           background: active ? tokens.color.elevated : tokens.color.utilitySurface,
           color: active ? tokens.color.ink : tokens.color.subInk,
-          fontSize: 11,
+          fontSize: 9,
           fontWeight: 700,
-          letterSpacing: "0.04em",
-          display: "inline-flex",
-          alignItems: "center",
-          gap: 8,
+          letterSpacing: 0,
+          display: "grid",
+          placeItems: "center",
+          gap: 5,
           cursor: "pointer",
           boxShadow: active ? tokens.shadow.activeTab : "none",
           transition: tokens.motion.interactiveTransition
@@ -443,7 +538,7 @@ export function UtilityEdge({
           <circle cx="12" cy="12" r="3" />
           <path d="M19.4 15a1.7 1.7 0 0 0 .34 1.87l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.7 1.7 0 0 0-1.87-.34 1.7 1.7 0 0 0-1.04 1.55V21a2 2 0 1 1-4 0v-.09a1.7 1.7 0 0 0-1.04-1.55 1.7 1.7 0 0 0-1.87.34l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06A1.7 1.7 0 0 0 4.6 15a1.7 1.7 0 0 0-1.55-1.04H3a2 2 0 1 1 0-4h.09A1.7 1.7 0 0 0 4.6 8.4a1.7 1.7 0 0 0-.34-1.87L4.2 6.47a2 2 0 1 1 2.83-2.83l.06.06A1.7 1.7 0 0 0 8.96 4.04 1.7 1.7 0 0 0 10 2.5V2a2 2 0 1 1 4 0v.09a1.7 1.7 0 0 0 1.04 1.55 1.7 1.7 0 0 0 1.87-.34l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06A1.7 1.7 0 0 0 19.4 8.4c.68.28 1.12.94 1.12 1.67 0 .73-.44 1.39-1.12 1.67" />
         </svg>
-        Settings
+        <span>設定</span>
       </button>
     </div>
   );
@@ -489,12 +584,124 @@ export function WorkspaceSurface({
 /** HUD section label — uppercase, tracked, faint */
 export function hudLabel(): CSSProperties {
   return {
-    fontSize: 9,
-    fontWeight: 600,
-    textTransform: "uppercase" as const,
-    letterSpacing: "0.12em",
+    fontSize: 10,
+    fontWeight: 700,
+    letterSpacing: 0,
     color: tokens.color.softInk
   };
+}
+
+export function Kicker({
+  children,
+  tone = "default"
+}: {
+  children: ReactNode;
+  tone?: "default" | "accent";
+}) {
+  return (
+    <span
+      style={{
+        display: "inline-flex",
+        alignItems: "center",
+        gap: 6,
+        fontSize: 10,
+        fontWeight: 700,
+        letterSpacing: 0,
+        color: tone === "accent" ? tokens.color.accent : tokens.color.softInk
+      }}
+    >
+      {children}
+    </span>
+  );
+}
+
+export function Stamp({
+  children,
+  tone = "neutral"
+}: {
+  children: ReactNode;
+  tone?: "neutral" | "accent" | "success" | "warning";
+}) {
+  const toneMap = {
+    neutral: { background: tokens.color.neutralSurface, color: tokens.color.subInk },
+    accent: { background: tokens.color.accentSoft, color: tokens.color.accent },
+    success: { background: tokens.color.successSoft, color: tokens.color.success },
+    warning: { background: tokens.color.queuedSoft, color: tokens.color.queued }
+  } as const;
+  const theme = toneMap[tone];
+
+  return (
+    <span
+      style={{
+        display: "inline-flex",
+        alignItems: "center",
+        minHeight: 22,
+        padding: "0 8px",
+        borderRadius: 999,
+        background: theme.background,
+        color: theme.color,
+        fontSize: 10,
+        fontWeight: 700,
+        letterSpacing: 0
+      }}
+    >
+      {children}
+    </span>
+  );
+}
+
+export function SideMark({ tone = "accent" }: { tone?: "accent" | "muted" }) {
+  return (
+    <span
+      aria-hidden="true"
+      style={{
+        width: 3,
+        alignSelf: "stretch",
+        borderRadius: 999,
+        background: tone === "accent" ? tokens.color.accent : tokens.color.lineStrong
+      }}
+    />
+  );
+}
+
+export function ModeHeader({
+  mode,
+  kicker,
+  title,
+  deck,
+  stamp
+}: {
+  mode: string;
+  kicker: string;
+  title: string;
+  deck: string;
+  stamp?: ReactNode;
+}) {
+  return (
+    <div
+      data-mode-header={mode}
+      style={{
+        display: "grid",
+        gap: 8,
+        padding: "14px 16px",
+        borderRadius: tokens.radius.card,
+        border: `1px solid ${tokens.color.line}`,
+        background: `linear-gradient(180deg, ${tokens.color.elevated}, ${tokens.color.surface})`,
+        boxShadow: tokens.shadow.glass
+      }}
+    >
+      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10 }}>
+        <Kicker>{kicker}</Kicker>
+        {stamp ?? null}
+      </div>
+      <div style={{ fontFamily: `${tokens.font.serifCjk}, ${tokens.font.serif}`, fontSize: 24, lineHeight: 1, color: tokens.color.ink }}>
+        {title}
+      </div>
+      <p style={{ margin: 0, fontSize: 12, lineHeight: 1.65, color: tokens.color.subInk }}>
+        {deck}
+      </p>
+    </div>
+  );
 }
 
 export function formatElapsed(isoTime: string | null | undefined): string {
@@ -565,13 +772,13 @@ export function PrimaryButton({
         padding: "8px 14px",
         background: disabled
           ? tokens.color.disabledPrimary
-          : `linear-gradient(135deg, rgba(79,70,229,0.94), rgba(99,102,241,0.92))`,
-        color: "#fff",
+          : `linear-gradient(135deg, ${tokens.color.accent}, ${tokens.color.accentMid})`,
+        color: tokens.color.elevated,
         fontWeight: 600,
         fontSize: 12,
-        letterSpacing: "0.02em",
+        letterSpacing: 0,
         cursor: disabled ? "not-allowed" : "pointer",
-        boxShadow: disabled ? "none" : "0 8px 18px rgba(79,70,229,0.20)",
+        boxShadow: disabled ? "none" : tokens.shadow.accentButton,
         transition: tokens.motion.interactiveTransition,
         ...style
       }}
@@ -642,13 +849,13 @@ export function PageButton({
         color: active ? tokens.color.ink : tokens.color.softInk,
         fontSize: 11,
         fontWeight: active ? 700 : 500,
-        letterSpacing: "0.04em",
+        letterSpacing: 0,
         cursor: "pointer",
         transition: tokens.motion.interactiveTransition,
         borderBottom: active
           ? `2px solid ${tokens.color.accent}`
           : "2px solid transparent",
-        textTransform: "uppercase" as const
+        textTransform: "none" as const
       }}
     >
       {children}
@@ -680,9 +887,9 @@ export function PreviewCard({
           style={{
             width: 38,
             height: 38,
-            borderRadius: 14,
+            borderRadius: tokens.radius.card,
             background: `linear-gradient(135deg, ${tokens.color.accent}, #818cf8)`,
-            color: "#fff",
+            color: tokens.color.elevated,
             display: "grid",
             placeItems: "center",
             fontWeight: 700,
@@ -706,7 +913,7 @@ export function PreviewCard({
                   borderRadius: 999,
                   fontSize: 10,
                   fontWeight: 700,
-                  letterSpacing: "0.02em",
+                  letterSpacing: 0,
                   border: isSaved ? "1px solid rgba(5,150,105,0.2)" : "1px solid transparent"
                 }}
               >
