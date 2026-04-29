@@ -11,7 +11,15 @@ export type TriageAction =
   | { kind: "archive" }
   | { kind: "reject" };
 
-export type MainPage = "library" | "collect" | "compare" | "result" | "casebook" | "inbox";
+export type MainPage =
+  | "library"
+  | "collect"
+  | "compare"
+  | "result"
+  | "casebook"
+  | "inbox"
+  | "classification"
+  | "actionable-filter";
 export type PopupPage = MainPage | "settings";
 export type SessionItemStatus = "saved" | "queued" | "running" | "succeeded" | "failed";
 export type InlineToastKind = "saved" | "queued";
@@ -34,10 +42,107 @@ export interface ExtensionSettings {
   productProfile?: ProductProfile | null;
 }
 
+export interface ProductProfileContextFile {
+  id: string;
+  name: string;
+  kind: "readme" | "agents" | "ai-agents" | "other";
+  importedAt: string;
+  charCount: number;
+}
+
 export interface ProductProfile {
   name: string;
   category: string;
   audience: string;
+  contextText?: string;
+  contextFiles?: ProductProfileContextFile[];
+}
+
+export interface ProductContext {
+  productPromise: string;
+  targetAudience: string;
+  agentRoles: string[];
+  coreWorkflows: string[];
+  currentCapabilities: string[];
+  explicitConstraints: string[];
+  nonGoals: string[];
+  preferredTechDirection: string;
+  evaluationCriteria: string[];
+  unknowns: string[];
+  compiledAt: string;
+  sourceFileIds: string[];
+  promptVersion: string;
+}
+
+export type ProductContextField =
+  | "productPromise"
+  | "targetAudience"
+  | "agentRoles"
+  | "coreWorkflows"
+  | "currentCapabilities"
+  | "explicitConstraints"
+  | "nonGoals"
+  | "preferredTechDirection"
+  | "evaluationCriteria"
+  | "unknowns";
+export type ProductSignalType = "learning" | "competitor" | "demand" | "technical" | "noise";
+export type ProductSignalContentType = "content" | "discussion_starter" | "mixed";
+export type ProductSignalVerdict = "try" | "watch" | "park" | "insufficient_data";
+export type ProductSignalAnalysisStatus = "pending" | "analyzing" | "complete" | "error";
+export type ProductAgentTaskTarget = "codex" | "claude" | "generic";
+
+export interface ProductAgentTaskSpec {
+  targetAgent: ProductAgentTaskTarget;
+  taskPrompt: string;
+  requiredContext: string[];
+  taskTitle?: string;
+}
+
+export type ProductAgentTaskFeedbackValue = "adopted" | "needs_rewrite" | "irrelevant" | "ignored";
+
+export interface ProductAgentTaskFeedback {
+  signalId: string;
+  taskPromptHash: string;
+  feedback: ProductAgentTaskFeedbackValue;
+  note?: string;
+  createdAt: string;
+}
+
+export interface ProductSignalEvidenceNote {
+  ref: string;
+  quoteSummary: string;
+  whyItMatters: string;
+  reusablePattern?: string;
+  whyItWorks?: string;
+  copyableTemplate?: string;
+  workflowStack?: string[];
+  copyRecipeMarkdown?: string;
+  tradeoff?: string;
+}
+
+export interface ProductSignalAnalysis {
+  signalId: string;
+  signalType: ProductSignalType;
+  signalSubtype: string;
+  contentType: ProductSignalContentType;
+  contentSummary: string;
+  relevance: 1 | 2 | 3 | 4 | 5;
+  relevantTo: ProductContextField[];
+  whyRelevant: string;
+  verdict: ProductSignalVerdict;
+  reason: string;
+  experimentHint?: string;
+  whyNow?: string;
+  validationMetric?: string;
+  blockers?: string[];
+  agentTaskSpec?: ProductAgentTaskSpec;
+  evidenceRefs: string[];
+  evidenceNotes?: ProductSignalEvidenceNote[];
+  productContextHash: string;
+  promptVersion: string;
+  analyzedAt: string;
+  status: ProductSignalAnalysisStatus;
+  error?: string;
 }
 
 export type JudgmentRecommendedState = "park" | "watch" | "act";

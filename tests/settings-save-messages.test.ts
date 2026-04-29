@@ -13,7 +13,17 @@ test("buildSettingsSaveMessages persists product profile after runtime settings"
     draftProductProfile: {
       name: " DLens ",
       category: " Creator analysis ",
-      audience: " Threads creators "
+      audience: " Threads creators ",
+      contextText: "  README context  ",
+      contextFiles: [
+        {
+          id: "file_readme",
+          name: "README.md",
+          kind: "readme",
+          importedAt: "2026-04-27T00:00:00.000Z",
+          charCount: 16
+        }
+      ]
     }
   });
 
@@ -31,10 +41,46 @@ test("buildSettingsSaveMessages persists product profile after runtime settings"
       productProfile: {
         name: "DLens",
         category: "Creator analysis",
-        audience: "Threads creators"
+        audience: "Threads creators",
+        contextText: "README context",
+        contextFiles: [
+          {
+            id: "file_readme",
+            name: "README.md",
+            kind: "readme",
+            importedAt: "2026-04-27T00:00:00.000Z",
+            charCount: 16
+          }
+        ]
       }
     }
   ]);
+});
+
+test("buildSettingsSaveMessages upgrades old three-field product profiles with empty context fields", () => {
+  const messages = buildSettingsSaveMessages({
+    draftBaseUrl: "http://127.0.0.1:8000",
+    draftProvider: "",
+    draftOpenAiKey: "",
+    draftClaudeKey: "",
+    draftGoogleKey: "",
+    draftProductProfile: {
+      name: "DLens",
+      category: "Creator analysis",
+      audience: "Threads creators"
+    }
+  });
+
+  assert.deepEqual(messages[2], {
+    type: "settings/set-product-profile",
+    productProfile: {
+      name: "DLens",
+      category: "Creator analysis",
+      audience: "Threads creators",
+      contextText: "",
+      contextFiles: []
+    }
+  });
 });
 
 test("buildSettingsSaveMessages collapses an empty product profile to null", () => {
@@ -47,7 +93,9 @@ test("buildSettingsSaveMessages collapses an empty product profile to null", () 
     draftProductProfile: {
       name: " ",
       category: "",
-      audience: "   "
+      audience: "   ",
+      contextText: "docs only",
+      contextFiles: []
     }
   });
 

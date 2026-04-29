@@ -11,6 +11,14 @@ import type {
   TriageAction
 } from "../state/types";
 import { sendExtensionMessage } from "./controller";
+import {
+  buildProductSignalEvidenceCatalogFromCapture,
+  type ProductSignalEvidenceEntry
+} from "../compare/product-signal-analysis";
+import {
+  buildProductSignalReadinessById,
+  type ProductSignalReadiness
+} from "./product-signal-readiness";
 
 type SendAndSync = <T extends ExtensionResponse = ExtensionResponse>(message: ExtensionMessage) => Promise<T>;
 
@@ -34,6 +42,19 @@ export function buildSignalPreviewById(activeFolder: SessionRecord | null, signa
       signal.id,
       signal.itemId ? (lookup.get(signal.itemId)?.descriptor.text_snippet || "") : ""
     ])
+  );
+}
+
+export function buildProductSignalEvidenceById(
+  activeFolder: SessionRecord | null,
+  signals: Signal[]
+): Record<string, ProductSignalEvidenceEntry[]> {
+  const lookup = new Map(activeFolder?.items.map((item) => [item.id, item]) ?? []);
+  return Object.fromEntries(
+    signals.map((signal) => {
+      const item = signal.itemId ? lookup.get(signal.itemId) : null;
+      return [signal.id, buildProductSignalEvidenceCatalogFromCapture(item?.latestCapture)] as const;
+    })
   );
 }
 
@@ -86,6 +107,14 @@ export function useTopicState({
   );
   const signalPreviewById = useMemo(
     () => buildSignalPreviewById(activeFolder, signals),
+    [activeFolder, signals]
+  );
+  const productSignalEvidenceById = useMemo(
+    () => buildProductSignalEvidenceById(activeFolder, signals),
+    [activeFolder, signals]
+  );
+  const productSignalReadinessById = useMemo(
+    () => buildProductSignalReadinessById(activeFolder, signals),
     [activeFolder, signals]
   );
   const activeTopicSignals = useMemo(
@@ -262,6 +291,8 @@ export function useTopicState({
     activeTopicSignals,
     activeTopicPairs,
     signalPreviewById,
+    productSignalEvidenceById,
+    productSignalReadinessById,
     topicJudgmentById,
     resultTopicContext,
     clearResultTopicContext,
@@ -276,3 +307,5 @@ export function useTopicState({
     onAttachActiveResultToTopic
   };
 }
+
+export type { ProductSignalReadiness };

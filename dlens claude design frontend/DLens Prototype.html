@@ -1,0 +1,131 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=800" />
+  <title>DLens v2 Prototype</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;500;600;700&family=Noto+Serif+TC:wght@500;700;900&display=swap" rel="stylesheet">
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      width: 800px; height: 600px; margin: 0 auto;
+      font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Noto Sans TC", system-ui, sans-serif;
+      background: #e8e6df; display: flex; align-items: center; justify-content: center;
+      overflow: hidden; color: #1a2332;
+    }
+    #root { width: 800px; height: 600px; }
+    ::-webkit-scrollbar { width: 6px; }
+    ::-webkit-scrollbar-track { background: transparent; }
+    ::-webkit-scrollbar-thumb { background: #d4d2cb; border-radius: 6px; }
+    ::-webkit-scrollbar-thumb:hover { background: #b8b6ae; }
+    button { transition: all 0.15s ease; }
+    button:hover { opacity: 0.88; transform: translateY(-0.5px); }
+    button:active { transform: translateY(0); }
+    input, textarea, select { font-family: inherit; }
+    h1, h2, h3 { font-family: "Noto Serif TC", "PingFang TC", "Songti TC", serif; letter-spacing: -0.01em; }
+  </style>
+  <script src="https://unpkg.com/react@18.3.1/umd/react.development.js" integrity="sha384-hD6/rw4ppMLGNu3tX5cjIb+uRZ7UkRJ6BPkLpg4hAu/6onKUg4lLsHAs9EBPT82L" crossorigin="anonymous"></script>
+  <script src="https://unpkg.com/react-dom@18.3.1/umd/react-dom.development.js" integrity="sha384-u6aeetuaXnQ38mYT8rp6sbXaQe3NL9t+IBXmnYxwkUI2Hw4bsp2Wvmx4yRQF1uAm" crossorigin="anonymous"></script>
+  <script src="https://unpkg.com/@babel/standalone@7.29.0/babel.min.js" integrity="sha384-m08KidiNqLdpJqLq95G/LEi8Qvjl/xUYll3QILypMoQ65QorJ9Lvtp2RXYGBFj1y" crossorigin="anonymous"></script>
+</head>
+<body>
+  <div id="root"></div>
+
+  <script type="text/babel" src="fixtures.jsx"></script>
+  <script type="text/babel" src="shell.jsx"></script>
+  <script type="text/babel" src="views-shared.jsx"></script>
+  <script type="text/babel" src="views-topic.jsx"></script>
+  <script type="text/babel" src="views-product.jsx"></script>
+  <script type="text/babel" src="tweaks-panel.jsx"></script>
+  <script type="text/babel" src="theme-layer.jsx"></script>
+
+  <script type="text/babel">
+    const TWEAK_DEFAULTS = /*EDITMODE-BEGIN*/{
+      "palette": "warm",
+      "density": "comfortable",
+      "voice": "technical"
+    }/*EDITMODE-END*/;
+
+    const PALETTE_OPTIONS = [
+      { value: 'warm',      label: 'Warm Archive' },
+      { value: 'cool',      label: 'Cool Clinical' },
+      { value: 'editorial', label: 'Editorial Paper' },
+      { value: 'midnight',  label: 'Midnight' },
+    ];
+    const DENSITY_OPTIONS = [
+      { value: 'spacious',    label: 'Spacious' },
+      { value: 'comfortable', label: 'Comfortable' },
+      { value: 'compact',     label: 'Compact' },
+    ];
+    const VOICE_OPTIONS = [
+      { value: 'editorial', label: 'Editorial' },
+      { value: 'humanist',  label: 'Humanist' },
+      { value: 'technical', label: 'Technical' },
+    ];
+
+    function App() {
+      const [t, setTweak] = useTweaks(TWEAK_DEFAULTS);
+      const [mode, setMode] = React.useState('topic');
+      const [view, setView] = React.useState('collect');
+
+      const handleModeChange = (newMode) => {
+        setMode(newMode);
+        setView('collect');
+      };
+
+      const onNav = (v) => setView(v);
+
+      const renderView = () => {
+        switch (view) {
+          case 'collect': return <CollectView mode={mode} onNav={onNav} />;
+          case 'settings': return <SettingsView mode={mode} onModeChange={handleModeChange} />;
+          case 'library': return <LibraryView onNav={onNav} />;
+          case 'inbox': return <InboxView onNav={onNav} />;
+          case 'topic-detail': return <TopicDetailView onNav={onNav} />;
+          case 'compare-setup': return <CompareSetupView onNav={onNav} />;
+          case 'analysis-result': return <AnalysisResultView onNav={onNav} />;
+          case 'evidence-detail': return <EvidenceDetailView onNav={onNav} />;
+          case 'classification': return <ClassificationView onNav={onNav} />;
+          case 'actionable-filter': return <ActionableFilterView onNav={onNav} />;
+          case 'improvement-suggestions': return <ImprovementSuggestionsView onNav={onNav} />;
+          default: return <CollectView mode={mode} onNav={onNav} />;
+        }
+      };
+
+      return (
+        <React.Fragment>
+          <ThemeLayer palette={t.palette} density={t.density} voice={t.voice} />
+          <Shell mode={mode} currentView={view} onNav={onNav}>
+            {renderView()}
+          </Shell>
+          <TweaksPanel title="Tweaks">
+            <TweakSection label="Palette" />
+            <TweakRadio
+              label="Mood"
+              value={t.palette}
+              options={PALETTE_OPTIONS}
+              onChange={v => setTweak('palette', v)} />
+            <TweakSection label="Density" />
+            <TweakRadio
+              label="Pace"
+              value={t.density}
+              options={DENSITY_OPTIONS}
+              onChange={v => setTweak('density', v)} />
+            <TweakSection label="Voice" />
+            <TweakRadio
+              label="Type"
+              value={t.voice}
+              options={VOICE_OPTIONS}
+              onChange={v => setTweak('voice', v)} />
+          </TweaksPanel>
+        </React.Fragment>
+      );
+    }
+
+    const root = ReactDOM.createRoot(document.getElementById('root'));
+    root.render(<App />);
+  </script>
+</body>
+</html>

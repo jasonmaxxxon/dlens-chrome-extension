@@ -1,13 +1,14 @@
-import type { FolderMode, MainPage } from "../state/types";
+import type { MainPage } from "../state/types";
 import { CasebookView } from "./CasebookView";
 import { CompareSetupView } from "./CompareSetupView";
 import { CompareView } from "./CompareView";
 import { CollectView } from "./CollectView";
 import { InboxView } from "./InboxView";
 import { WorkspaceShell, WorkspaceSurface, ModeRail, UtilityEdge, PrimaryButton, SecondaryButton, surfaceCardStyle } from "./components";
-import { DEFAULT_POPUP_WIDTH, EXPANDED_COMPARE_POPUP_WIDTH } from "../state/processing-state";
+import { ALLOWED_PAGES, getPopupWidth, guardPage } from "../state/processing-state";
 import { LibraryView } from "./LibraryView";
 import { ProcessingStrip } from "./ProcessingStrip";
+import { ProductSignalView } from "./ProductSignalViews";
 import { SettingsView } from "./SettingsView";
 import { TopicDetailView } from "./TopicDetailView";
 import { tokens } from "./tokens";
@@ -15,17 +16,6 @@ import { getProcessingFailureMessage } from "../state/processing-errors";
 import { buildDateRangeLabel } from "./inpage-helpers";
 import { InPageCollectorFolderControls } from "./InPageCollectorFolderControls";
 import type { InPageCollectorAppModel } from "./useInPageCollectorAppState";
-
-const ALLOWED_PAGES: Record<FolderMode, MainPage[]> = {
-  archive: ["library", "collect"],
-  topic: ["casebook", "inbox", "collect", "compare"],
-  product: ["casebook", "inbox", "collect", "compare"]
-};
-
-function guardPage(page: MainPage, mode: FolderMode): MainPage {
-  const allowed = ALLOWED_PAGES[mode];
-  return allowed.includes(page) ? page : allowed[0]!;
-}
 
 export function InPageCollectorPopup({ app }: { app: InPageCollectorAppModel }) {
   const { snapshot, page, popupOpen, activeFolder, resultSurface, resultItemA, resultItemB, resultSelection, compareTeaser } = app;
@@ -52,8 +42,9 @@ export function InPageCollectorPopup({ app }: { app: InPageCollectorAppModel }) 
         position: "fixed",
         right: 24,
         top: 82,
-        width: guardedPage === "compare" || guardedPage === "result" ? EXPANDED_COMPARE_POPUP_WIDTH : DEFAULT_POPUP_WIDTH,
-        maxHeight: "min(80vh, 820px)",
+        width: getPopupWidth(guardedPage),
+        height: "min(86vh, 860px)",
+        maxHeight: "min(86vh, 860px)",
         overflow: "hidden",
         borderRadius: tokens.radius.lg + 2,
         border: `1px solid ${tokens.color.glassBorder}`,
@@ -81,7 +72,8 @@ export function InPageCollectorPopup({ app }: { app: InPageCollectorAppModel }) 
         style={{
           position: "relative",
           zIndex: 1,
-          maxHeight: "min(80vh, 820px)",
+          height: "100%",
+          maxHeight: "min(86vh, 860px)",
           overflowY: "auto",
           overflowX: "hidden",
           borderRadius: tokens.radius.lg + 2,
@@ -89,6 +81,8 @@ export function InPageCollectorPopup({ app }: { app: InPageCollectorAppModel }) 
           paddingBottom: tokens.spacing.section + 8,
           display: "grid",
           gap: tokens.spacing.md,
+          alignContent: "start",
+          gridAutoRows: "max-content",
           scrollbarGutter: "stable both-edges"
         }}
       >
@@ -185,6 +179,7 @@ export function InPageCollectorPopup({ app }: { app: InPageCollectorAppModel }) 
               <CollectView
                 preview={app.preview ?? null}
                 folderName={activeFolder?.name || "No folder yet"}
+                mode={activeFolderMode}
                 isSaved={app.previewSaved}
                 selectionMode={Boolean(snapshot?.tab.selectionMode)}
                 onSavePreview={() => void app.onSavePreview()}
@@ -213,6 +208,28 @@ export function InPageCollectorPopup({ app }: { app: InPageCollectorAppModel }) 
                   Create a folder and queue posts before comparing.
                 </div>
               )}
+            </WorkspaceSurface>
+          ) : null}
+
+          {guardedPage === "classification" || guardedPage === "actionable-filter" ? (
+            <WorkspaceSurface style={{ padding: 0, background: "transparent", boxShadow: "none", border: "none", overflow: "visible" }}>
+              <ProductSignalView
+                kind={guardedPage}
+                signals={app.signals}
+                analyses={app.productSignalAnalyses}
+                historicalAnalyses={app.historicalProductSignalAnalyses}
+                agentTaskFeedback={app.productAgentTaskFeedback}
+                productProfile={snapshot?.global.settings.productProfile ?? null}
+                signalPreviewById={app.signalPreviewById}
+                evidenceBySignalId={app.productSignalEvidenceById}
+                signalReadinessById={app.productSignalReadinessById}
+                aiProviderReady={app.productAiProviderReady}
+                analysisError={app.productSignalAnalysisError}
+                analysisNotice={app.productSignalAnalysisNotice}
+                isAnalyzing={app.isAnalyzingProductSignals}
+                onAgentTaskFeedbackSaved={app.onProductAgentTaskFeedbackSaved}
+                onAnalyze={() => void app.onAnalyzeProductSignals()}
+              />
             </WorkspaceSurface>
           ) : null}
 
@@ -339,13 +356,16 @@ export function InPageCollectorPopup({ app }: { app: InPageCollectorAppModel }) 
             <WorkspaceSurface tone="utility">
               <SettingsView
                 sessionMode={activeFolder?.mode ?? "topic"}
-                canEditSessionMode={Boolean(activeFolder)}
+                canEditSessionMode
                 draftBaseUrl={app.draftBaseUrl}
                 draftProvider={app.draftProvider}
                 draftOpenAiKey={app.draftOpenAiKey}
                 draftClaudeKey={app.draftClaudeKey}
                 draftGoogleKey={app.draftGoogleKey}
                 draftProductProfile={app.draftProductProfile}
+                compiledProductContext={app.compiledProductContext}
+                settingsSaveStatus={app.settingsSaveStatus}
+                isSavingSettings={app.isSavingSettings}
                 productProfileSeedText={app.productProfileSeedText}
                 isInitializingProductProfile={app.isInitializingProductProfile}
                 onDraftBaseUrlChange={app.setDraftBaseUrl}

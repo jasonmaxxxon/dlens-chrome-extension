@@ -85,3 +85,18 @@ test("fetchWithRetry aborts stalled requests and surfaces a timeout error", asyn
     globalThis.clearTimeout = originalClearTimeout;
   }
 });
+
+test("provider payloads use structured schema for ProductSignalAnalyzer", () => {
+  const openAiBody = providerTestables.buildProductSignalAnalysisBody("openai", "system", "prompt");
+  assert.equal(openAiBody.response_format.type, "json_schema");
+  assert.equal(openAiBody.response_format.json_schema.strict, true);
+  assert.equal(openAiBody.response_format.json_schema.name, "product_signal_analysis");
+
+  const googleBody = providerTestables.buildProductSignalAnalysisBody("google", "system", "prompt");
+  assert.equal(googleBody.generationConfig.responseMimeType, "application/json");
+  assert.equal(googleBody.generationConfig.responseJsonSchema.type, "object");
+
+  const claudeBody = providerTestables.buildProductSignalAnalysisBody("claude", "system", "prompt");
+  assert.equal(claudeBody.tool_choice.name, "record_product_signal_analysis");
+  assert.equal(claudeBody.tools[0].input_schema.type, "object");
+});

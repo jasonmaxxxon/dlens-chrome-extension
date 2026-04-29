@@ -3,6 +3,29 @@ import type { ExtensionMessage, ExtensionResponse } from "../state/messages";
 import type { ExtensionSnapshot, SessionItem, SessionRecord } from "../state/types";
 import { needsCaptureRefresh } from "../state/store-helpers";
 
+type RuntimeMessageListener = Parameters<typeof chrome.runtime.onMessage.addListener>[0];
+
+function getRuntimeErrorMessage(error: unknown): string {
+  if (error instanceof Error && error.message.trim()) {
+    return error.message.trim();
+  }
+  if (typeof error === "string" && error.trim()) {
+    return error.trim();
+  }
+  return String(error || "Extension runtime unavailable");
+}
+
+export function isExtensionContextInvalidatedError(error: unknown): boolean {
+  return getRuntimeErrorMessage(error).includes("Extension context invalidated");
+}
+
+function buildRuntimeUnavailableResponse(error: unknown): ExtensionResponse {
+  return {
+    ok: false,
+    error: getRuntimeErrorMessage(error)
+  };
+}
+
 export async function sendExtensionMessage<T extends ExtensionResponse>(message: ExtensionMessage): Promise<T> {
   const wakeRetryDelays = [0, 200, 600];
 
@@ -11,8 +34,14 @@ export async function sendExtensionMessage<T extends ExtensionResponse>(message:
       if (delayMs > 0) {
         await new Promise((resolve) => setTimeout(resolve, delayMs));
       }
+      if (typeof chrome === "undefined" || !chrome.runtime?.sendMessage) {
+        return buildRuntimeUnavailableResponse("Extension context invalidated.") as T;
+      }
       return await (chrome.runtime.sendMessage(message) as Promise<T>);
     } catch (error) {
+      if (isExtensionContextInvalidatedError(error)) {
+        return buildRuntimeUnavailableResponse(error) as T;
+      }
       const isWorkerWakeError = String(error).includes("Could not establish connection");
       if (!isWorkerWakeError || attempt === wakeRetryDelays.length - 1) {
         throw error;
@@ -20,6 +49,31 @@ export async function sendExtensionMessage<T extends ExtensionResponse>(message:
     }
   }
   throw new Error("unreachable sendExtensionMessage state");
+}
+
+export function addRuntimeMessageListener(listener: RuntimeMessageListener): () => void {
+  if (typeof chrome === "undefined" || !chrome.runtime?.onMessage) {
+    return () => undefined;
+  }
+
+  try {
+    chrome.runtime.onMessage.addListener(listener);
+  } catch (error) {
+    if (isExtensionContextInvalidatedError(error)) {
+      return () => undefined;
+    }
+    throw error;
+  }
+
+  return () => {
+    try {
+      chrome.runtime.onMessage.removeListener(listener);
+    } catch (error) {
+      if (!isExtensionContextInvalidatedError(error)) {
+        throw error;
+      }
+    }
+  };
 }
 
 export function getActiveSession(snapshot: ExtensionSnapshot | null): SessionRecord | null {
@@ -62,8 +116,7 @@ export function useExtensionSnapshot(polling = true) {
         setTabId(typed.tabId ?? null);
       }
     };
-    chrome.runtime.onMessage.addListener(listener);
-    return () => chrome.runtime.onMessage.removeListener(listener);
+    return addRuntimeMessageListener(listener);
   }, []);
 
   const runningItemIds = useMemo(() => {

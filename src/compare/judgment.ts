@@ -83,6 +83,7 @@ export function buildJudgmentPrompt(
     `name=${readTrimmedString(productProfile.name)}`,
     `category=${readTrimmedString(productProfile.category)}`,
     `audience=${readTrimmedString(productProfile.audience)}`,
+    `context=${readTrimmedString(productProfile.contextText ?? "").slice(0, 2000) || "none"}`,
     "",
     "[COMPARE_BRIEF]",
     `headline=${readTrimmedString(brief.headline)}`,

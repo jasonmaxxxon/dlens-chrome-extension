@@ -4,7 +4,26 @@ A mode-aware MV3 Chrome extension for capturing Threads discussions and turning 
 
 **Boundary:** this repo is a display / read-model consumer. The optional ingest backend is the canonical source for crawl output, clustering, and deterministic analysis. This repo renders backend snapshots and layers client-side compare briefs, evidence annotations, and product-context judgment on top.
 
-> **Last updated:** 2026-04-24
+> **Last updated:** 2026-04-27
+
+---
+
+## Local workspace layout
+
+This Desktop has been consolidated around these paths:
+
+| Purpose | Path |
+|---------|------|
+| Active product extension worktree | `/Users/tung/Desktop/dlens-product-latest` |
+| Load unpacked extension after build | `/Users/tung/Desktop/dlens-product-latest/output/chrome-mv3` |
+| Ingest backend stable entry | `/Users/tung/Desktop/dlens-ingest-core` |
+| Ingest backend physical checkout | `/Users/tung/Desktop/dlens-backend/dlens-ingest-core` |
+| Older extension worktrees and archives | `/Users/tung/Desktop/dlens-old` |
+| Git metadata root for extension worktrees | `/Users/tung/Desktop/dlens-old/git-root-dlens-chrome-extension-v0` |
+
+`dlens-product-latest` is a Git linked worktree on branch `codex/product-phase-b-p0`.
+Use it for current product-mode extension work. Do not use the old Desktop
+folders unless intentionally comparing historical versions.
 
 ---
 
@@ -16,7 +35,7 @@ A mode-aware MV3 Chrome extension for capturing Threads discussions and turning 
 |------|-----------|--------------|----------|
 | `archive` | Library · Collect · Settings | `SavedPost` | None |
 | `topic` | Casebook · Inbox · Collect · Compare · Settings | `Topic` + `Signal` | Compare brief v7, evidence annotation v1 |
-| `product` | Casebook · Inbox · Collect · Compare · Settings | `Topic` + `Signal` + `JudgmentResult` | + Judgment Pass 2 (relevance / recommendedState / whyThisMatters / actionCue) |
+| `product` | Inbox · Collect · Product insight pages · Settings | `Signal` + `ProductContext` + `ProductSignalAnalysis` | ProductContextCompiler + ProductSignalAnalyzer + evidence + agent task output |
 
 Navigation mounts/unmounts based on `folder.mode` — unavailable pages are not disabled, they do not exist in the render tree.
 
@@ -30,7 +49,8 @@ Navigation mounts/unmounts based on `folder.mode` — unavailable pages are not 
 | **Library** | archive | Simple saved-post list. No topic objects, no inbox, no AI. | Working |
 | **Compare** | topic / product | Pairing surface. Pick post A + B, preview teaser, open Result. Breadcrumb shows topic context if entered from Topic Detail. "附加至案例" attaches the pair to a topic. | Working |
 | **Collect** | all | Hover-preview capture. In topic/product mode, save creates a Signal in the Inbox instead of a direct Library item. | Working |
-| **Settings** | all | Backend URL, AI provider keys. Product mode adds ProductProfile form (name / category / audience) with one-tap bootstrapper (paste 150-char description → AI extracts fields). | Working |
+| **Settings** | all | Backend URL, AI provider keys. Product mode imports product context files and compiles them into a structured ProductContext. | Working |
+| **Product insights** | product | Real stored product-signal analyses. Shows classification, usefulness verdict, cited evidence, experiment hint, and paste-ready agent task prompt when available. No fake numbers and no cluster UI. | Working |
 | **Result** | topic / product | Contextual reading route: full analysis sheet → cluster balance → representative quotes (DictionaryCard) → trust strip. | Working |
 
 ### What actually works right now
@@ -44,6 +64,11 @@ Navigation mounts/unmounts based on `folder.mode` — unavailable pages are not 
 - **Pair Inspection within topic context (2026-04-23)**: breadcrumb `案例本 > [topicName] > 成對檢視`; "附加至案例" button appends `resultId` to `topic.pairIds`.
 - **Product Judgment Pass 2 (2026-04-24)**: `judgment/start` handler is live. Background pulls compare brief from cache or rebuilds it from the saved pair, calls LLM via `createLlmCallWrapper` (5th wrapper, same pattern as brief/cluster/annotation), writes `JudgmentResult` back to `SavedAnalysisSnapshot`, broadcasts `judgment/result`. Graceful fallback via `buildDeterministicJudgment` when provider is missing.
 - **Judgment cache** at `dlens:v1:compare-judgment-cache`, keyed by `briefHash|profileHash|promptVersion`.
+- **ProductContextCompiler (2026-04-27)**: product-mode Settings compiles imported README / AGENTS / product notes into `ProductContext` using schema-first OpenAI, Gemini, or Claude output. Stored at `dlens:v1:product-context`, with migration from legacy `dlens_product_context`.
+- **ProductSignalAnalyzer (2026-04-27)**: saved product signals are analyzed from the backend `ThreadReadModel` plus compiled ProductContext. Output includes `signalType`, precise `signalSubtype`, `contentType`, relevance, `relevantTo`, verdict, reason, `experimentHint`, cited `evidenceRefs`, and optional `agentTaskSpec` for `try`.
+- **Product insight UI (2026-04-27)**: product pages now render real stored analyses from `dlens:v1:product-signal-analyses`; cards show insight-first copy, cited discussion replies, and paste-ready Codex / Claude / generic agent task prompts. Product mode deliberately does not expose backend clusters to end users.
+- **Product analysis guard (2026-04-27)**: background keeps a per-session in-flight map so automatic analysis and manual analysis do not double-spend LLM calls for the same product session.
+- **Live product crawl smoke (2026-04-27)**: real Threads post crawl succeeded through local backend; read model returned `assembledContent`, 5 OP continuation candidates, and 48 discussion replies. This validated that discussion replies are product intelligence, but also exposed that backend OP continuation splitting needs refinement.
 - **Eval harness (2026-04-23)**: `tests/judgment-eval.test.ts` covers prompt builder + parser + fallback determinism. `tests/judgment-fixtures.ts` has golden fixtures (no real LLM calls).
 - **Compare brief** (observation-first contract, prompt v7): `headline / relation / supportingObservations[] / aReading / bReading / whyItMatters / creatorCue / keywords / audienceAlignment{Left,Right} / confidence`. Observations and side readings must cite evidence aliases (`e1..eN`) or they are rejected at parse time.
 - **Cluster interpretation** (prompt v3): each cluster carries separate `observation` + `reading` fields alongside its `oneLiner`.
@@ -55,14 +80,14 @@ Navigation mounts/unmounts based on `folder.mode` — unavailable pages are not 
 
 | Priority | Gap | Note |
 |----------|-----|------|
-| P1 | Visual QA in Chrome: walk all five paths (archive save, topic inbox triage, casebook, pair inspection with topic context, product judgment) | Build + reload required |
-| P2 | `useInPageCollectorAppState.ts` at 779 lines | Still the main popup orchestration hub; keep future topic/product additions in smaller hooks. |
-| P2 | `background.ts` at 1766 lines | Topic/signal/judgment handlers added; consider further splitting before Phase 2 grows background behavior. |
-| P2 | Compare cluster pairing is rank-based, not semantic | |
-| P3 | AI-suggested topic names in Inbox (suggestedTopicIds is always `[]` in Slice A) | Phase 2: cluster inbox signals and suggest topic names. |
-| P3 | Multi-source Inbox (Dcard / Instagram / PTT / YouTube) | Phase 2; current scope is Threads-only. |
-| P3 | Deep Reading / Evidence Route (Screen 6) | Phase 2. |
-| P3 | Weekly Intelligence Brief | Phase 2; requires 2+ weeks of topic data. |
+| P0 | Backend ThreadReadModel refinement | Remove root duplication from OP continuation candidates; split true content continuation from OP moderation/reply chatter. Product judgment quality depends on this. |
+| P1 | Real Chrome QA for v3 product flow | Load `output/chrome-mv3/`, check Settings mode switch, product Collect, product analysis pages, topic green theme, and popup spacing. |
+| P1 | Product analysis detail path | Keep evidence drill-down visible and add a dedicated signal detail route only if the card becomes too dense. |
+| P2 | `background.ts` at 1986 lines | Product AI handlers added; split product/topic handlers before adding digest/watch-mode work. |
+| P2 | `useInPageCollectorAppState.ts` at 905 lines | Some topic logic already moved to `useTopicState`; continue extracting before new product pages grow. |
+| P2 | Signal digest / weekly synthesis | Cross-signal synthesis is not implemented. Current ProductSignalAnalyzer analyzes one signal at a time. |
+| P3 | Watch mode / recurring crawl | Not implemented. Current flow is manual save first, then analysis. |
+| P3 | Multi-source Inbox (Dcard / Instagram / PTT / YouTube) | Current scope is Threads-only. |
 
 For earlier change history, see `git log`. Historical change bullets and per-PR tables have been removed from this file to keep it a state description, not a diary.
 
@@ -90,6 +115,8 @@ For earlier change history, see `git log`. Historical change bullets and per-PR 
 │  - Job/result polling                             │
 │  - Client-side compare brief + cluster interp +   │
 │    evidence annotation (user API key)             │
+│  - ProductContextCompiler + ProductSignalAnalyzer │
+│    (user API key, local storage output)           │
 └──────────────┬──────────────────────────────────────┘
                │ fetch()
 ┌──────────────▼──────────────────────────────────────┐
@@ -119,6 +146,8 @@ For earlier change history, see `git log`. Historical change bullets and per-PR 
 | `dlens:v1:saved-analyses` | Lightweight compare-reading snapshots; each entry now carries `judgmentResult / judgmentVersion / judgmentSource` |
 | `dlens:v1:topics` | `Topic[]` — named discussion topics with status, tags, signalIds, pairIds |
 | `dlens:v1:signals` | `Signal[]` — inbox items linking a captured post to a topic after triage |
+| `dlens:v1:product-context` | Compiled `ProductContext` derived from imported product docs; legacy key `dlens_product_context` is migrated forward |
+| `dlens:v1:product-signal-analyses` | `ProductSignalAnalysis[]` — per-signal product judgment, evidence refs, experiment hints, and optional agent task specs |
 | `dlens:v1:compare-evidence-annotation-cache` | Per-quote annotation cache |
 | `dlens:v1:compare-judgment-cache` | Per-pair product judgment cache (keyed by briefHash + profileHash + promptVersion) |
 | In-memory `Map<tabId, TabUiState>` | `hoveredTarget`, `flashPreview` — NOT persisted |
@@ -132,7 +161,7 @@ dlens-chrome-extension-v0/
   AGENTS.md              ← Agent handoff + process rules (read first)
   README.md              ← This file
   entrypoints/
-    background.ts        ← Service worker: state, queue, topic/signal/judgment handlers, client AI calls (1766 lines)
+    background.ts        ← Service worker: state, queue, topic/signal/judgment/product handlers, client AI calls (1986 lines)
     threads.content.ts   ← Content script: DOM targeting, overlay, React mount
   src/
     contracts/ingest.ts  ← API request/response types
@@ -142,6 +171,9 @@ dlens-chrome-extension-v0/
       cluster-interpretation.ts ← Cluster summary (prompt v3)
       evidence-annotation.ts    ← Per-quote annotation (prompt v1, null fallback)
       judgment.ts               ← Product judgment (prompt v1): buildJudgmentPrompt, parseJudgmentResponse, buildDeterministicJudgment
+      product-context.ts        ← ProductContextCompiler contract, parser, schema, storage key migration helpers
+      product-signal-analysis.ts ← ProductSignalAnalyzer input builder, prompt, parser, evidence catalog, auto-analysis guards
+      product-signal-storage.ts ← ProductSignalAnalysis storage normalization and sorting
       provider.ts               ← Google / OpenAI / Claude runtime
       saved-analysis-storage.ts ← SavedAnalysisSnapshot CRUD + normalization + judgment write-back
     state/
@@ -163,6 +195,7 @@ dlens-chrome-extension-v0/
       CasebookView.tsx             ← Topic triage console: list with status filter tabs, AI-suggested topics section
       InboxView.tsx                ← Signal inbox: unprocessed signals, assign/create-topic/archive triage actions
       TopicDetailView.tsx          ← Single topic: overview, signals, pairs; Judgment panel in product mode
+      ProductSignalViews.tsx       ← Product insight pages: classification, usefulness, evidence, agent task prompt output
       LibraryView.tsx              ← archive mode home: saved posts + analyses
       CollectView.tsx              ← Capture surface; toast changes to "已加入收件匣" in topic/product mode
       CompareView.tsx              ← Compare + Result; breadcrumb + "附加至案例" when opened from Topic Detail
@@ -171,7 +204,7 @@ dlens-chrome-extension-v0/
       SidepanelApp.tsx             ← Debug sidepanel
       ProcessingStrip.tsx          ← Worker/processing context strip
       controller.tsx               ← useExtensionSnapshot hook
-  tests/                 ← 256 node:test cases (was 53 before Slice A–B)
+  tests/                 ← 281 node:test cases in the Phase B worktree
   docs/
     product/             ← Active product / contract plans
     archive/             ← Historical design specs kept for reference

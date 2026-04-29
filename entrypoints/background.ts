@@ -41,6 +41,26 @@ import {
 import { loadTechniqueReadings, saveTechniqueReading } from "../src/compare/technique-reading-storage";
 import { generateProductProfileSuggestion } from "../src/compare/product-profile-init";
 import {
+  generateProductContext,
+  isProductContextSourceReady,
+  LEGACY_PRODUCT_CONTEXT_STORAGE_KEY,
+  PRODUCT_CONTEXT_STORAGE_KEY
+} from "../src/compare/product-context";
+import {
+  buildProductContextHash,
+  buildProductSignalAnalyzerInputFromCapture,
+  collectQueueableProductSignalItemIds,
+  PRODUCT_SIGNAL_ANALYSIS_PROMPT_VERSION,
+  shouldAutoAnalyzeProductSignal
+} from "../src/compare/product-signal-analysis";
+import {
+  getProductSignalAnalysis,
+  listProductSignalAnalyses,
+  saveProductSignalAnalysis
+} from "../src/compare/product-signal-storage";
+import { listProductAgentTaskFeedback, saveProductAgentTaskFeedback } from "../src/compare/product-agent-task-feedback";
+import { buildProductSignalPreferenceExamples } from "../src/compare/product-signal-history";
+import {
   COMPARE_CLUSTER_SUMMARY_PROMPT_VERSION,
   COMPARE_BRIEF_PROMPT_VERSION,
   COMPARE_ONE_LINER_PROMPT_VERSION,
@@ -49,7 +69,8 @@ import {
   generateCompareClusterSummaries,
   generateCompareOneLiner,
   generateEvidenceAnnotations,
-  generateJudgment
+  generateJudgment,
+  generateProductSignalAnalysis
 } from "../src/compare/provider";
 import { createLlmCallWrapper } from "../src/compare/llm-call-wrapper";
 import {
@@ -58,6 +79,9 @@ import {
   createEmptyTabState,
   type ExtensionGlobalState,
   type ExtensionSnapshot,
+  type FolderMode,
+  type ProductContext,
+  type ProductSignalAnalysis,
   type SessionItem,
   type SessionRecord,
   type TabUiState
@@ -80,6 +104,7 @@ import {
   type ItemRefreshResult
 } from "../src/state/store-helpers";
 import { ensureSignalForSavedItem, handleTopicMessage } from "../src/state/topic-handlers";
+import { loadSignals } from "../src/state/topic-storage";
 import { mergeOneLinerSettings } from "../src/state/settings-storage";
 import { buildRefreshFailureMessage } from "../src/state/refresh-errors";
 import { createAsyncLock } from "../src/state/snapshot-lock";
@@ -93,6 +118,7 @@ const COMPARE_CLUSTER_SUMMARY_CACHE_KEY = "dlens:v1:compare-cluster-summary-cach
 const COMPARE_EVIDENCE_ANNOTATION_CACHE_KEY = "dlens:v1:compare-evidence-annotation-cache";
 const COMPARE_JUDGMENT_CACHE_KEY = "dlens:v1:compare-judgment-cache";
 const COMPARE_CACHE_MAX_ENTRIES = 50;
+const productSignalAnalysisInFlight = new Map<string, Promise<ProductSignalAnalysis[]>>();
 
 // In-memory hover state per tab — never persisted to storage
 const tabHoverCache = new Map<number, Pick<TabUiState, "hoveredTarget" | "hoveredTargetStrength" | "flashPreview" | "currentPreview">>();
@@ -270,6 +296,247 @@ async function loadJudgmentCache(): Promise<JudgmentCache> {
 
 async function saveJudgmentCache(cache: JudgmentCache): Promise<void> {
   await chrome.storage.local.set({ [COMPARE_JUDGMENT_CACHE_KEY]: cache });
+}
+
+async function saveProductContext(productContext: ProductContext | null): Promise<void> {
+  await chrome.storage.local.set({ [PRODUCT_CONTEXT_STORAGE_KEY]: productContext });
+  await chrome.storage.local.remove(LEGACY_PRODUCT_CONTEXT_STORAGE_KEY);
+}
+
+async function loadProductContext(): Promise<ProductContext | null> {
+  const raw = await chrome.storage.local.get([
+    PRODUCT_CONTEXT_STORAGE_KEY,
+    LEGACY_PRODUCT_CONTEXT_STORAGE_KEY
+  ]);
+  const value = raw[PRODUCT_CONTEXT_STORAGE_KEY] ?? raw[LEGACY_PRODUCT_CONTEXT_STORAGE_KEY];
+  if (value && typeof value === "object" && !raw[PRODUCT_CONTEXT_STORAGE_KEY]) {
+    await chrome.storage.local.set({ [PRODUCT_CONTEXT_STORAGE_KEY]: value });
+    await chrome.storage.local.remove(LEGACY_PRODUCT_CONTEXT_STORAGE_KEY);
+  }
+  return value && typeof value === "object" ? value as ProductContext : null;
+}
+
+function compactProviderError(error: unknown, apiKey?: string): string {
+  const raw = error instanceof Error ? error.message : String(error);
+  const redacted = apiKey ? raw.split(apiKey).join("[redacted]") : raw;
+  return redacted.replace(/\s+/g, " ").trim().slice(0, 360) || "Unknown provider error";
+}
+
+function buildProductSignalErrorAnalysis({
+  signalId,
+  productContextHash,
+  error,
+  apiKey
+}: {
+  signalId: string;
+  productContextHash: string;
+  error: unknown;
+  apiKey?: string;
+}): ProductSignalAnalysis {
+  const message = compactProviderError(error, apiKey);
+  return {
+    signalId,
+    signalType: "noise",
+    signalSubtype: "analysis_error",
+    contentType: "mixed",
+    contentSummary: "產品訊號分析失敗。",
+    relevance: 1,
+    relevantTo: [],
+    whyRelevant: "這次分析沒有產生可信結果。",
+    verdict: "insufficient_data",
+    reason: message,
+    evidenceRefs: [],
+    productContextHash,
+    promptVersion: PRODUCT_SIGNAL_ANALYSIS_PROMPT_VERSION,
+    analyzedAt: new Date().toISOString(),
+    status: "error",
+    error: message
+  };
+}
+
+async function compileProductContextIfReady(global: ExtensionGlobalState): Promise<{ productContext: ProductContext | null; error: string | null }> {
+  const productProfile = global.settings.productProfile;
+  if (!productProfile || !isProductContextSourceReady(productProfile)) {
+    await saveProductContext(null);
+    return { productContext: null, error: null };
+  }
+
+  const providerConfig = providerKeyForRequest(global);
+  if (!providerConfig) {
+    await saveProductContext(null);
+    return { productContext: null, error: "尚未設定目前 AI provider 的 API key。" };
+  }
+
+  try {
+    const productContext = await generateProductContext(
+      providerConfig.provider,
+      providerConfig.apiKey,
+      productProfile
+    );
+    await saveProductContext(productContext);
+    return { productContext, error: null };
+  } catch (error) {
+    console.error("[dlens] product context compile failed:", error instanceof Error ? error.message : error);
+    await saveProductContext(null);
+    return { productContext: null, error: compactProviderError(error, providerConfig.apiKey) };
+  }
+}
+
+async function analyzeProductSignalsForSession(
+  global: ExtensionGlobalState,
+  sessionId: string,
+  options: { allowMissingPrerequisites?: boolean } = {}
+): Promise<ProductSignalAnalysis[]> {
+  const inFlight = productSignalAnalysisInFlight.get(sessionId);
+  if (inFlight) {
+    return inFlight;
+  }
+  const run = analyzeProductSignalsForSessionUnlocked(global, sessionId, options);
+  productSignalAnalysisInFlight.set(sessionId, run);
+  try {
+    return await run;
+  } finally {
+    productSignalAnalysisInFlight.delete(sessionId);
+  }
+}
+
+async function analyzeProductSignalsForSessionUnlocked(
+  global: ExtensionGlobalState,
+  sessionId: string,
+  options: { allowMissingPrerequisites?: boolean } = {}
+): Promise<ProductSignalAnalysis[]> {
+  const session = normalizeGlobalState(global).sessions.find((entry) => entry.id === sessionId) || null;
+  if (!session || session.mode !== "product") {
+    return [];
+  }
+
+  const productContext = await loadProductContext();
+  if (!productContext) {
+    if (!options.allowMissingPrerequisites) {
+      throw new Error("ProductContext 尚未編譯。請先在 Settings 匯入並儲存產品文件。");
+    }
+    return listProductSignalAnalyses(chrome.storage.local);
+  }
+
+  const providerConfig = providerKeyForRequest(global);
+  if (!providerConfig) {
+    if (!options.allowMissingPrerequisites) {
+      throw new Error("尚未設定 AI key。請先在 Settings 設定 Google / OpenAI / Claude key。");
+    }
+    return listProductSignalAnalyses(chrome.storage.local);
+  }
+
+  const productContextHash = buildProductContextHash(productContext);
+  const signals = await loadSignals(chrome.storage.local, sessionId);
+  const itemsById = new Map(session.items.map((item) => [item.id, item]));
+  const [agentTaskFeedback, historicalAnalyses] = await Promise.all([
+    listProductAgentTaskFeedback(chrome.storage.local),
+    listProductSignalAnalyses(chrome.storage.local)
+  ]);
+  const feedbackExamples = buildProductSignalPreferenceExamples(agentTaskFeedback, historicalAnalyses);
+  const touchedSignalIds: string[] = [];
+  let skippedReadyWithoutContent = 0;
+
+  for (const signal of signals) {
+    if (!signal.itemId || signal.inboxStatus === "archived" || signal.inboxStatus === "rejected") {
+      continue;
+    }
+    touchedSignalIds.push(signal.id);
+    const existing = await getProductSignalAnalysis(chrome.storage.local, signal.id);
+
+    const item = itemsById.get(signal.itemId) || null;
+    if (!item) {
+      continue;
+    }
+    if (!shouldAutoAnalyzeProductSignal({
+      sessionMode: session.mode,
+      itemStatus: item.status,
+      capture: item.latestCapture,
+      existingAnalysis: existing,
+      productContextHash
+    })) {
+      if (item.status === "succeeded" && !existing) {
+        skippedReadyWithoutContent += 1;
+      }
+      continue;
+    }
+
+    const input = buildProductSignalAnalyzerInputFromCapture({
+      signalId: signal.id,
+      source: signal.source,
+      capture: item?.latestCapture,
+      productContext,
+      productContextHash,
+      feedbackExamples
+    });
+    if (!input) {
+      skippedReadyWithoutContent += 1;
+      continue;
+    }
+
+    try {
+      const analysis = await generateProductSignalAnalysis(
+        providerConfig.provider,
+        providerConfig.apiKey,
+        input
+      );
+      await saveProductSignalAnalysis(chrome.storage.local, analysis);
+    } catch (error) {
+      console.error("[dlens] product signal analysis failed:", signal.id, error instanceof Error ? error.message : error);
+      await saveProductSignalAnalysis(
+        chrome.storage.local,
+        buildProductSignalErrorAnalysis({
+          signalId: signal.id,
+          productContextHash,
+          error,
+          apiKey: providerConfig.apiKey
+        })
+      );
+    }
+  }
+
+  if (skippedReadyWithoutContent > 0 && !options.allowMissingPrerequisites) {
+    throw new Error("crawl 已完成，但沒有 assembled content 可分析。請重新處理該貼文。");
+  }
+
+  return listProductSignalAnalyses(chrome.storage.local, touchedSignalIds);
+}
+
+async function queueSavedProductSignalItemsForAnalysis(
+  tabId: number,
+  sessionId: string
+): Promise<{ snapshot: ExtensionSnapshot; queued: number }> {
+  let snapshot = await loadSnapshot(tabId);
+  const session = snapshot.global.sessions.find((entry) => entry.id === sessionId) || null;
+  if (!session || session.mode !== "product") {
+    return { snapshot, queued: 0 };
+  }
+
+  const signals = await loadSignals(chrome.storage.local, sessionId);
+  const queueableItemIds = collectQueueableProductSignalItemIds(session, signals);
+  let queued = 0;
+
+  for (const itemId of queueableItemIds) {
+    const latest = await loadSnapshot(tabId);
+    const latestSession = latest.global.sessions.find((entry) => entry.id === sessionId) || null;
+    const latestItem = latestSession?.items.find((item) => item.id === itemId) || null;
+    if (latestItem?.status !== "saved") {
+      snapshot = latest;
+      continue;
+    }
+    const result = await queueSessionItem(tabId, sessionId, itemId);
+    snapshot = result.snapshot;
+    queued += 1;
+  }
+
+  return { snapshot, queued };
+}
+
+function queueProductSignalAutoAnalysis(global: ExtensionGlobalState, sessionId: string): void {
+  void analyzeProductSignalsForSession(global, sessionId, { allowMissingPrerequisites: true })
+    .catch((error) => {
+      console.error("[dlens] product signal auto analysis failed:", error instanceof Error ? error.message : error);
+    });
 }
 
 function findSessionItems(
@@ -696,7 +963,7 @@ async function saveCurrentPreviewToSession(tabId: number): Promise<ExtensionSnap
   });
 }
 
-async function createSession(tabId: number, name: string, saveCurrentPreview = false): Promise<ExtensionSnapshot> {
+async function createSession(tabId: number, name: string, saveCurrentPreview = false, mode: FolderMode = "topic"): Promise<ExtensionSnapshot> {
   const current = await loadSnapshot(tabId);
   const trimmed = name.trim();
   if (!trimmed) {
@@ -704,7 +971,10 @@ async function createSession(tabId: number, name: string, saveCurrentPreview = f
   }
 
   let globalState = current.global;
-  const session = createSessionRecord(trimmed);
+  const session = {
+    ...createSessionRecord(trimmed),
+    mode
+  };
   globalState = {
     ...globalState,
     sessions: [...globalState.sessions, session],
@@ -850,6 +1120,9 @@ async function queueSessionItem(
         error: null
       }
     });
+    if (session.mode === "product") {
+      queueProductSignalAutoAnalysis(nextSnapshot.global, sessionId);
+    }
 
     return {
       snapshot: nextSnapshot,
@@ -929,6 +1202,9 @@ async function refreshItem(
         error: null
       }
     });
+    if (session.mode === "product") {
+      queueProductSignalAutoAnalysis(snapshot.global, sessionId);
+    }
 
     return { snapshot, job, capture };
   });
@@ -1064,6 +1340,11 @@ export default defineBackground(() => {
         const merged = mergeItemRefreshResultsIntoGlobal(latest, refreshResults);
         globalStateCache = withTimestamp(merged);
         await chrome.storage.local.set({ [GLOBAL_STORAGE_KEY]: globalStateCache });
+        for (const session of globalStateCache.sessions) {
+          if (session.mode === "product") {
+            queueProductSignalAutoAnalysis(globalStateCache, session.id);
+          }
+        }
       });
     }
   }
@@ -1115,20 +1396,28 @@ export default defineBackground(() => {
           case "settings/set-product-profile": {
             const tabId = await resolveTabId(sender);
             const current = await loadSnapshot(tabId);
+            const nextGlobal = {
+              ...current.global,
+              settings: {
+                ...current.global.settings,
+                productProfile: message.productProfile
+              }
+            };
             const snapshot = await saveSnapshot(tabId, {
-              global: {
-                ...current.global,
-                settings: {
-                  ...current.global.settings,
-                  productProfile: message.productProfile
-                }
-              },
+              global: nextGlobal,
               tab: {
                 ...current.tab,
                 error: null
               }
             });
-            sendResponse({ ok: true, tabId, snapshot } satisfies ExtensionResponse);
+            const compileResult = await compileProductContextIfReady(nextGlobal);
+            sendResponse({
+              ok: true,
+              tabId,
+              snapshot,
+              productContext: compileResult.productContext,
+              productContextError: compileResult.error
+            } satisfies ExtensionResponse);
             return;
           }
           case "settings/init-product-profile": {
@@ -1205,8 +1494,9 @@ export default defineBackground(() => {
           }
           case "selection/start-active-tab": {
             const tabId = await getActiveTabId();
-            await chrome.tabs.sendMessage(tabId, { type: "selection/start-tab", tabId } satisfies ExtensionMessage);
             const current = await loadSnapshot(tabId);
+            const activeMode = getActiveSession(current.global)?.mode ?? "archive";
+            await chrome.tabs.sendMessage(tabId, { type: "selection/start-tab", tabId, mode: activeMode } satisfies ExtensionMessage);
             sendResponse({
               ok: true,
               tabId,
@@ -1301,7 +1591,7 @@ export default defineBackground(() => {
             sendResponse({
               ok: true,
               tabId,
-              snapshot: await createSession(tabId, message.name, message.saveCurrentPreview)
+              snapshot: await createSession(tabId, message.name, message.saveCurrentPreview, message.mode)
             } satisfies ExtensionResponse);
             return;
           }
@@ -1374,6 +1664,66 @@ export default defineBackground(() => {
               ok: true,
               tabId,
               ...topicResponse
+            } satisfies ExtensionResponse);
+            return;
+          }
+          case "product/list-signal-analyses": {
+            const tabId = await resolveTabId(sender);
+            const productSignalAnalyses = await listProductSignalAnalyses(chrome.storage.local, message.signalIds);
+            sendResponse({
+              ok: true,
+              tabId,
+              productSignalAnalyses
+            } satisfies ExtensionResponse);
+            return;
+          }
+          case "product/analyze-signals": {
+            const tabId = await resolveTabId(sender);
+            const queued = await queueSavedProductSignalItemsForAnalysis(tabId, message.sessionId);
+            const current = queued.snapshot;
+            const productSignalAnalyses = await analyzeProductSignalsForSession(current.global, message.sessionId);
+            sendResponse({
+              ok: true,
+              tabId,
+              snapshot: current,
+              productSignalAnalyses,
+              productSignalAnalysisSummary: {
+                queued: queued.queued,
+                analyzed: productSignalAnalyses.filter((analysis) => analysis.status === "complete").length,
+                failed: productSignalAnalyses.filter((analysis) => analysis.status === "error").length
+              }
+            } satisfies ExtensionResponse);
+            return;
+          }
+          case "product/list-agent-task-feedback": {
+            const tabId = await resolveTabId(sender);
+            const productAgentTaskFeedback = await listProductAgentTaskFeedback(chrome.storage.local);
+            sendResponse({
+              ok: true,
+              tabId,
+              productAgentTaskFeedback
+            } satisfies ExtensionResponse);
+            return;
+          }
+          case "product/save-agent-task-feedback": {
+            const tabId = await resolveTabId(sender);
+            const saved = await saveProductAgentTaskFeedback(chrome.storage.local, message.feedback);
+            if (!saved) {
+              sendResponse({ ok: false, error: "Invalid product agent task feedback" } satisfies ExtensionResponse);
+              return;
+            }
+            sendResponse({
+              ok: true,
+              tabId
+            } satisfies ExtensionResponse);
+            return;
+          }
+          case "product/get-context": {
+            const tabId = await resolveTabId(sender);
+            sendResponse({
+              ok: true,
+              tabId,
+              productContext: await loadProductContext()
             } satisfies ExtensionResponse);
             return;
           }

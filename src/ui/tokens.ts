@@ -125,6 +125,71 @@ export const tokens = {
   }
 } as const;
 
+export const modeThemes = {
+  archive: {
+    accent: tokens.color.accent,
+    accentMid: tokens.color.accentMid,
+    accentSoft: tokens.color.accentSoft,
+    accentGlow: tokens.color.accentGlow,
+    accentButtonShadow: tokens.shadow.accentButton,
+    hoverBorderStrong: "rgba(26,46,79,0.55)",
+    hoverBorderSoft: "rgba(26,46,79,0.26)",
+    hoverSurfaceStrong: "rgba(26,46,79,0.04)",
+    hoverSurfaceSoft: "rgba(26,46,79,0.02)",
+    hoverShadowStrong: "rgba(26,46,79,0.13)",
+    hoverShadowSoft: "rgba(26,46,79,0.07)"
+  },
+  topic: {
+    accent: tokens.color.cyan,
+    accentMid: "#527648",
+    accentSoft: tokens.color.cyanSoft,
+    accentGlow: tokens.color.cyanGlow,
+    accentButtonShadow: "0 8px 18px rgba(63,90,59,0.18)",
+    hoverBorderStrong: "rgba(63,90,59,0.58)",
+    hoverBorderSoft: "rgba(63,90,59,0.28)",
+    hoverSurfaceStrong: "rgba(63,90,59,0.05)",
+    hoverSurfaceSoft: "rgba(63,90,59,0.025)",
+    hoverShadowStrong: "rgba(63,90,59,0.15)",
+    hoverShadowSoft: "rgba(63,90,59,0.08)"
+  },
+  product: {
+    accent: "#234f7a",
+    accentMid: "#2f6a96",
+    accentSoft: "rgba(35,79,122,0.10)",
+    accentGlow: "rgba(35,79,122,0.18)",
+    accentButtonShadow: "0 8px 18px rgba(35,79,122,0.16)",
+    hoverBorderStrong: "rgba(35,79,122,0.58)",
+    hoverBorderSoft: "rgba(35,79,122,0.28)",
+    hoverSurfaceStrong: "rgba(35,79,122,0.045)",
+    hoverSurfaceSoft: "rgba(35,79,122,0.025)",
+    hoverShadowStrong: "rgba(35,79,122,0.14)",
+    hoverShadowSoft: "rgba(35,79,122,0.07)"
+  }
+} as const;
+
+export type ModeThemeName = keyof typeof modeThemes;
+
+export function getModeTheme(mode: string | null | undefined) {
+  return mode === "topic" || mode === "product" ? modeThemes[mode] : modeThemes.archive;
+}
+
+export function modeThemeStyle(mode: string | null | undefined) {
+  const theme = getModeTheme(mode);
+  return {
+    "--dlens-mode-accent": theme.accent,
+    "--dlens-mode-accent-mid": theme.accentMid,
+    "--dlens-mode-accent-soft": theme.accentSoft,
+    "--dlens-mode-accent-glow": theme.accentGlow,
+    "--dlens-mode-accent-button-shadow": theme.accentButtonShadow,
+    "--dlens-mode-hover-border-strong": theme.hoverBorderStrong,
+    "--dlens-mode-hover-border-soft": theme.hoverBorderSoft,
+    "--dlens-mode-hover-surface-strong": theme.hoverSurfaceStrong,
+    "--dlens-mode-hover-surface-soft": theme.hoverSurfaceSoft,
+    "--dlens-mode-hover-shadow-strong": theme.hoverShadowStrong,
+    "--dlens-mode-hover-shadow-soft": theme.hoverShadowSoft
+  } as const;
+}
+
 /* ─── flat alias export ─── */
 export const TOKENS = {
   ink: tokens.color.ink,

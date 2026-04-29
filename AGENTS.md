@@ -1,6 +1,6 @@
 # AGENTS.md — DLens Chrome Extension v0.1
 
-> **Last updated:** 2026-04-23 (Slice A–B complete — 241/241 tests; mode-aware topic intelligence layer live)
+> **Last updated:** 2026-04-27 (Product Phase B active — 281/281 tests in worktree; ProductSignalAnalyzer + agent task output live)
 > **For:** any agent continuing work in this repo
 
 ## Process Rules (locked 2026-04-17)
@@ -38,12 +38,13 @@ The extension is now **extension-first**, not SaaS-first:
 
 ## Quick Start
 
-1. Read `/Users/tung/Desktop/dlens-chrome-extension-v0/README.md`
-2. Read `/Users/tung/Desktop/dlens-chrome-extension-v0/docs/memory/current-state.md`
-3. Run:
+1. Read `/Users/tung/Desktop/dlens-product-phase-b-p0/README.md` when working in the Phase B worktree.
+2. Read `/Users/tung/Desktop/dlens-product-phase-b-p0/docs/memory/current-state.md`.
+3. If you are in the main checkout, confirm whether the task belongs there or in `/Users/tung/Desktop/dlens-product-phase-b-p0` before editing.
+4. Run:
 
 ```bash
-cd /Users/tung/Desktop/dlens-chrome-extension-v0
+cd /Users/tung/Desktop/dlens-product-phase-b-p0
 npm run typecheck
 npx tsx --test tests/*.test.ts tests/*.test.tsx
 ```
@@ -210,6 +211,47 @@ The Result container uses `display: flex; flex-direction: column; gap` against t
   - local backend discovery is a dev convenience only: prefer `DLENS_INGEST_CORE_DIR`, otherwise `npm run backend:locate` checks `../dlens-ingest-core`
   - auth files and crawler credentials are backend startup concerns, not extension runtime concerns
 
+## Product Phase B State (2026-04-27)
+
+Product mode is no longer an honest stub in the Phase B worktree:
+
+- extension name is `DLens v3` in `wxt.config.ts` and the built manifest
+- `ProductContextCompiler` lives in `src/compare/product-context.ts`
+- compiled ProductContext is stored at `dlens:v1:product-context`; legacy `dlens_product_context` is migrated forward
+- `ProductSignalAnalyzer` lives in `src/compare/product-signal-analysis.ts`
+- product analysis storage lives at `dlens:v1:product-signal-analyses`
+- background messages are wired: `product/get-context`, `product/list-signal-analyses`, `product/analyze-signals`
+- background has a session-level in-flight guard for product analysis to avoid duplicate LLM calls
+- UI lives in `src/ui/ProductSignalViews.tsx` and is mounted through `InPageCollectorPopup.tsx`
+- evidence mapping is built in `useTopicState.ts` and passed as `evidenceBySignalId`
+
+The ProductSignalAnalyzer output contract is:
+
+- `signalType`: `learning | competitor | demand | technical | noise`
+- `signalSubtype`: precise behavior or technical pattern, for example `mcp_integration`, `browser_automation`, `recurring_data_crawl`, `pm_document_generation`
+- `contentType`: `content | discussion_starter | mixed`
+- `relevance`: `1..5`
+- `relevantTo`: valid `ProductContext` field names only
+- `verdict`: `try | watch | park | insufficient_data`
+- `evidenceRefs`: valid `e1..eN` discussion reply refs only
+- `experimentHint`: optional
+- `agentTaskSpec`: optional and only for `verdict = "try"`; `taskPrompt` must be directly pasteable into Codex / Claude / a generic agent
+
+Important product boundary:
+
+- Product mode should show useful insights, cited evidence, verdicts, experiment hints, and agent task prompts.
+- Product mode should not expose backend clusters as the main user output.
+- Topic mode may keep Casebook / folder-like topic concepts; Product mode should avoid leaking the old folder concept into the user-facing workflow.
+- The prompt must not use or reintroduce `contentTypeHint`; content type is a ProductSignalAnalyzer output over the assembled thread.
+
+Live crawl lesson from the Kathy Threads test:
+
+- discussion replies are first-class product intelligence, especially around recurring crawl, MCP/tool calling, browser automation, and PM document generation
+- backend `ThreadReadModel` is the quality gate for product analysis
+- next backend fix is OP continuation refinement: remove root duplication and split true content continuation from OP reply chatter
+
+Do not start signal digest, watch mode, mobile share extension, or MCP execution until the ThreadReadModel and ProductSignalAnalyzer output are stable in Chrome.
+
 ## Slice A–B: Mode-Aware Topic Intelligence Layer (2026-04-23)
 
 This was a major product-direction change. Summary for any agent picking up here:
@@ -248,9 +290,9 @@ This was a major product-direction change. Summary for any agent picking up here
 | `src/state/types.ts` | Added `FolderMode`, `Topic`, `Signal`, `TopicStatus`, `SignalSource`, `SignalInboxStatus`; added `mode` to `SessionRecord`; expanded `MainPage` to include `'casebook' | 'inbox'` |
 | `src/state/messages.ts` | Added `topic/*`, `signal/*`, `session/set-mode`, `TriageAction` |
 | `src/state/store-helpers.ts` | `normalizeSessionRecord` defaults `mode` to `'topic'` for legacy sessions |
-| `entrypoints/background.ts` | 1394 → 1929 lines; added topic/signal/judgment handlers; `ensureSignalForSavedItem` on save path |
+| `entrypoints/background.ts` | 1394 → 1986 lines; added topic/signal/judgment/product handlers; `ensureSignalForSavedItem` on save path |
 | `src/ui/InPageCollectorPopup.tsx` | Mode guard (`ALLOWED_PAGES` + `guardPage`); casebook + inbox + topic detail routing |
-| `src/ui/useInPageCollectorAppState.ts` | 712 → 1028 lines; topics/signals/mode state + triage/topic CRUD callbacks |
+| `src/ui/useInPageCollectorAppState.ts` | 712 → 905 lines after `useTopicState` extraction; still owns popup/product orchestration |
 | `src/ui/CompareView.tsx` | Breadcrumb + "附加至案例" button for topic context |
 | `src/ui/CollectView.tsx` | Save toast changes to "已加入收件匣" in topic/product mode |
 | `src/ui/SettingsView.tsx` | Folder mode selector + ProductProfile form (product mode only) |
@@ -263,15 +305,16 @@ This was a major product-direction change. Summary for any agent picking up here
 
 ```bash
 npm run typecheck && npx tsx --test tests/*.test.ts tests/*.test.tsx
-# Expected: 241 pass, 0 fail
+# Expected in Phase B worktree: 281 pass, 0 fail
 ```
 
 ### Watch items for next agent
 
-1. `useInPageCollectorAppState.ts` is at 1028 lines / 51 hooks — next refactor target before adding Phase 2 features: extract `useTopicState` mini-hook.
-2. `background.ts` is at 1929 lines — consider splitting topic handlers to `src/state/topic-handlers.ts` before Phase 2.
-3. `suggestedTopicIds` is always `[]` in Slice A — Phase 2 fills this from AI inbox clustering.
-4. Product mode is live (not disabled) — ProductProfile form in Settings is the entry point.
+1. `background.ts` is at 1986 lines — split product/topic handlers before adding signal digest or watch mode.
+2. `useInPageCollectorAppState.ts` is at 905 lines — continue extraction before adding more product routes.
+3. Backend ThreadReadModel OP continuation quality is the Product mode P0 dependency.
+4. Product mode is live; Settings + imported product context are the entry point.
+5. Product UI should stay insight-first and evidence-first, not cluster-first.
 
 ---
 

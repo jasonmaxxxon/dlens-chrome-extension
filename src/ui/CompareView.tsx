@@ -1087,7 +1087,7 @@ function supportMetricIcon(kind: SelectedClusterSupportMetric["kind"]): string {
     case "captured": return "◫";
     case "comments": return "◌";
     case "replies": return "↺";
-    case "likes": return "♥";
+    case "likes": return "like";
   }
 }
 
@@ -1951,7 +1951,7 @@ function TopComments({ comments, label, bgColor }: { comments: CommentData[]; la
         }}>
           <div style={{ display: "flex", justifyContent: "space-between", gap: 6, marginBottom: 2, flexWrap: "wrap" }}>
             <span style={{ fontWeight: 700, color: T.ink, ...WRAP_ANYWHERE }}>@{comment.author || "anon"}</span>
-            {comment.like_count != null ? <span style={{ color: T.soft }}>{comment.like_count} ♥</span> : null}
+            {comment.like_count != null ? <span style={{ color: T.soft }}>{comment.like_count} likes</span> : null}
           </div>
           <div style={{
             color: T.sub,
@@ -3498,7 +3498,7 @@ export function CompareView({
               onClick={() => attachTopicId && onAttachToTopic?.(attachTopicId)}
               disabled={!attachTopicId || attachedTopicIds.includes(attachTopicId)}
             >
-              {attachTopicId && attachedTopicIds.includes(attachTopicId) ? "✓ 已附加" : "附加至案例"}
+              {attachTopicId && attachedTopicIds.includes(attachTopicId) ? "已附加" : "附加至案例"}
             </PrimaryButton>
           </div>
         </div>

@@ -4,6 +4,63 @@ import type { InPageCollectorAppModel } from "./useInPageCollectorAppState";
 
 export function InPageCollectorFolderControls({ app }: { app: InPageCollectorAppModel }) {
   const { snapshot, activeFolder, showFolderPrompt, isRenamingFolder, editingFolderName, folderName } = app;
+  const activeMode = app.activeFolderMode ?? activeFolder?.mode ?? "archive";
+
+  if (activeMode === "product") {
+    const signalCount = app.signals.length;
+    const analysisCount = app.productSignalAnalyses.length;
+
+    return (
+      <div
+        data-workspace-product-strip="compact"
+        style={surfaceCardStyle({
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "space-between",
+          gap: 10,
+          padding: "10px 12px",
+          background: tokens.color.utilitySurface
+        })}
+      >
+        <div style={{ display: "grid", gap: 2, minWidth: 0 }}>
+          <div style={{ fontSize: 12, fontWeight: 800, color: tokens.color.ink }}>
+            Product workspace
+          </div>
+          <div style={{ fontSize: 10.5, lineHeight: 1.45, color: tokens.color.softInk }}>
+            Threads 內容會進入產品訊號收件匣，不以資料夾分類。
+          </div>
+        </div>
+        <div style={{ display: "flex", alignItems: "center", gap: 6, flexWrap: "wrap", justifyContent: "flex-end" }}>
+          <span
+            style={{
+              fontSize: 10,
+              fontWeight: 700,
+              color: tokens.color.cyan,
+              padding: "3px 8px",
+              borderRadius: 999,
+              background: tokens.color.cyanSoft,
+              whiteSpace: "nowrap"
+            }}
+          >
+            {signalCount} signals
+          </span>
+          <span
+            style={{
+              fontSize: 10,
+              fontWeight: 700,
+              color: analysisCount ? tokens.color.success : tokens.color.softInk,
+              padding: "3px 8px",
+              borderRadius: 999,
+              background: analysisCount ? tokens.color.successSoft : tokens.color.neutralSurfaceSoft,
+              whiteSpace: "nowrap"
+            }}
+          >
+            {analysisCount} analyses
+          </span>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <>

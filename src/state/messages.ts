@@ -5,6 +5,9 @@ import type {
   ActiveAnalysisResult,
   ActiveCompareDraft,
   JudgmentResult,
+  ProductAgentTaskFeedback,
+  ProductSignalAnalysis,
+  ProductContext,
   ProductProfile,
   SavedAnalysisSnapshot,
   FolderMode,
@@ -32,12 +35,12 @@ export type ExtensionMessage =
   | { type: "popup/navigate-active-tab"; page: PopupPage }
   | { type: "selection/start-active-tab" }
   | { type: "selection/cancel-active-tab" }
-  | { type: "selection/start-tab"; tabId: number }
+  | { type: "selection/start-tab"; tabId: number; mode?: FolderMode }
   | { type: "selection/cancel-tab"; tabId: number }
   | { type: "selection/hovered"; descriptor: TargetDescriptor | null; strength?: HoverCandidateStrength | null }
   | { type: "selection/selected"; descriptor: TargetDescriptor }
   | { type: "selection/mode-changed"; enabled: boolean }
-  | { type: "session/create"; name: string; saveCurrentPreview?: boolean }
+  | { type: "session/create"; name: string; saveCurrentPreview?: boolean; mode?: FolderMode }
   | { type: "session/rename"; sessionId: string; name: string }
   | { type: "session/delete"; sessionId: string }
   | { type: "session/set-active"; sessionId: string }
@@ -71,6 +74,11 @@ export type ExtensionMessage =
   | { type: "compare/set-active-draft"; draft: ActiveCompareDraft | null }
   | { type: "compare/set-active-result"; result: ActiveAnalysisResult | null }
   | { type: "judgment/start"; resultId: string }
+  | { type: "product/list-signal-analyses"; signalIds?: string[] }
+  | { type: "product/analyze-signals"; sessionId: string }
+  | { type: "product/list-agent-task-feedback" }
+  | { type: "product/save-agent-task-feedback"; feedback: ProductAgentTaskFeedback }
+  | { type: "product/get-context" }
   | {
     type: "judgment/result";
     resultId: string;
@@ -96,6 +104,15 @@ export type ExtensionSuccessResponse = {
   topics?: Topic[];
   signals?: Signal[];
   productProfile?: ProductProfile | null;
+  productContext?: ProductContext | null;
+  productContextError?: string | null;
+  productSignalAnalyses?: ProductSignalAnalysis[];
+  productAgentTaskFeedback?: ProductAgentTaskFeedback[];
+  productSignalAnalysisSummary?: {
+    queued: number;
+    analyzed: number;
+    failed: number;
+  };
 };
 
 export type StartProcessingResponse =

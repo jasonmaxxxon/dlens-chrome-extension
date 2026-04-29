@@ -46,7 +46,9 @@ function parseProductProfileInitResponse(raw: string): ProductProfile | null {
     return {
       name,
       category,
-      audience
+      audience,
+      contextText: "",
+      contextFiles: []
     };
   } catch {
     return null;

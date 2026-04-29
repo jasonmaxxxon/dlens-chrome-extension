@@ -2,6 +2,12 @@ import { PrimaryButton, SecondaryButton, TOKENS, lineClamp, surfaceCardStyle } f
 import { flashPreviewAvatar, flashPreviewMetrics } from "./inpage-helpers";
 import type { InPageCollectorAppModel } from "./useInPageCollectorAppState";
 
+const MODE_ACCENT = "var(--dlens-mode-accent, #1a2e4f)";
+const MODE_ACCENT_MID = "var(--dlens-mode-accent-mid, #2b4a80)";
+const MODE_ACCENT_SOFT = "var(--dlens-mode-accent-soft, rgba(26,46,79,0.09))";
+const MODE_ACCENT_GLOW = "var(--dlens-mode-accent-glow, rgba(26,46,79,0.18))";
+const MODE_HOVER_BORDER_SOFT = "var(--dlens-mode-hover-border-soft, rgba(26,46,79,0.26))";
+
 export function InPageCollectorOverlays({ app }: { app: InPageCollectorAppModel }) {
   const { snapshot, tabId, hoverRect, hoverSaved, flashPreview, flashStyle, displayToast, preview, popupOpen } = app;
 
@@ -21,14 +27,14 @@ export function InPageCollectorOverlays({ app }: { app: InPageCollectorAppModel 
           borderRadius: 16,
           border: `1px solid ${TOKENS.glassBorder}`,
           background: popupOpen
-            ? `linear-gradient(135deg, ${TOKENS.accent}, ${TOKENS.accentMid})`
+            ? `linear-gradient(135deg, ${MODE_ACCENT}, ${MODE_ACCENT_MID})`
             : TOKENS.glassBg,
           backdropFilter: TOKENS.glassBlur,
           WebkitBackdropFilter: TOKENS.glassBlur,
           boxShadow: popupOpen
-            ? `0 8px 24px ${TOKENS.accentGlow}`
+            ? `0 8px 24px ${MODE_ACCENT_GLOW}`
             : "0 4px 16px rgba(0,0,0,0.12)",
-          color: popupOpen ? "#fff" : TOKENS.accent,
+          color: popupOpen ? "#fff" : MODE_ACCENT,
           fontSize: 22,
           fontWeight: 700,
           zIndex: 2147483640,
@@ -62,20 +68,20 @@ export function InPageCollectorOverlays({ app }: { app: InPageCollectorAppModel 
             zIndex: 2147483646,
             padding: "10px 20px",
             borderRadius: 999,
-            background: "rgba(15,23,42,0.88)",
+            background: `linear-gradient(135deg, ${MODE_ACCENT}, ${MODE_ACCENT_MID})`,
             backdropFilter: "blur(16px)",
             WebkitBackdropFilter: "blur(16px)",
             color: "#fff",
             fontSize: 12,
             fontWeight: 600,
             letterSpacing: "0.02em",
-            boxShadow: "0 12px 40px rgba(15,23,42,0.28)",
+            boxShadow: `0 12px 40px ${MODE_ACCENT_GLOW}`,
             display: "flex",
             alignItems: "center",
             gap: 8
           }}
         >
-          <span style={{ width: 6, height: 6, borderRadius: 999, background: TOKENS.accentMid, display: "inline-block", animation: "dlens-pulse 2s ease-in-out infinite" }} />
+          <span style={{ width: 6, height: 6, borderRadius: 999, background: MODE_ACCENT_MID, display: "inline-block", animation: "dlens-pulse 2s ease-in-out infinite" }} />
           Hover to preview
           <span style={{ opacity: 0.4 }}>|</span>
           <kbd style={{ padding: "1px 6px", borderRadius: 4, background: "rgba(255,255,255,0.15)", fontSize: 11 }}>S</kbd> save
@@ -94,11 +100,11 @@ export function InPageCollectorOverlays({ app }: { app: InPageCollectorAppModel 
             zIndex: 2147483646,
             padding: "4px 10px",
             borderRadius: 999,
-            background: hoverSaved ? "rgba(5,150,105,0.12)" : "rgba(99,102,241,0.12)",
+            background: hoverSaved ? "rgba(63,90,59,0.12)" : MODE_ACCENT_SOFT,
             backdropFilter: "blur(12px)",
             WebkitBackdropFilter: "blur(12px)",
-            border: `1px solid ${hoverSaved ? "rgba(5,150,105,0.25)" : "rgba(99,102,241,0.25)"}`,
-            color: hoverSaved ? TOKENS.success : TOKENS.accent,
+            border: `1px solid ${hoverSaved ? "rgba(63,90,59,0.25)" : MODE_HOVER_BORDER_SOFT}`,
+            color: hoverSaved ? TOKENS.success : MODE_ACCENT,
             fontSize: 11,
             fontWeight: 700,
             boxShadow: "0 4px 16px rgba(15,23,42,0.08)",
@@ -126,7 +132,7 @@ export function InPageCollectorOverlays({ app }: { app: InPageCollectorAppModel 
                   width: 34,
                   height: 34,
                   borderRadius: 12,
-                  background: `linear-gradient(135deg, ${TOKENS.accent}, ${TOKENS.accentMid})`,
+                  background: `linear-gradient(135deg, ${MODE_ACCENT}, ${MODE_ACCENT_MID})`,
                   color: "#fff",
                   display: "grid",
                   placeItems: "center",

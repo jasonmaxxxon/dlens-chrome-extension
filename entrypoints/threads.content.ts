@@ -4,9 +4,11 @@ import { defineContentScript } from "wxt/utils/define-content-script";
 import { buildTargetDescriptor, findCardCandidate, type CandidateStrength } from "../src/targeting/threads";
 import { createLocationChangeChecker, HOVER_INTENT_DELAY_MS } from "../src/targeting/navigation-reset";
 import type { ExtensionMessage, ExtensionResponse } from "../src/state/messages";
+import type { FolderMode } from "../src/state/types";
 import { buildSelectionModeMessage, type SelectionModeExitReason } from "../src/state/selection-mode-messages";
 import { InPageCollectorApp } from "../src/ui/InPageCollectorApp";
 import { buildWorkspaceCrashMarkup, getWorkspaceCrashMessage, isExtensionRuntimeError } from "../src/ui/runtime-guard";
+import { PRODUCT_SIGNAL_MOTION_CSS } from "../src/ui/ProductSignalViews";
 
 const OVERLAY_ID = "__dlens_extension_v0_overlay__";
 const ROOT_ID = "__dlens_extension_v0_root__";
@@ -22,6 +24,53 @@ let hoverIntentHandle: number | null = null;
 let previousBodyCursor = "";
 let previousDocumentCursor = "";
 let removeSpaNavigationReset: (() => void) | null = null;
+let activeSelectionMode: FolderMode = "archive";
+
+const SELECTION_MODE_THEMES: Record<FolderMode, {
+  accent: string;
+  accentMid: string;
+  borderStrong: string;
+  borderSoft: string;
+  surfaceStrong: string;
+  surfaceSoft: string;
+  shadowStrong: string;
+  shadowSoft: string;
+}> = {
+  archive: {
+    accent: "#1a2e4f",
+    accentMid: "#2b4a80",
+    borderStrong: "rgba(26,46,79,0.55)",
+    borderSoft: "rgba(26,46,79,0.26)",
+    surfaceStrong: "rgba(26,46,79,0.04)",
+    surfaceSoft: "rgba(26,46,79,0.02)",
+    shadowStrong: "rgba(26,46,79,0.13)",
+    shadowSoft: "rgba(26,46,79,0.07)"
+  },
+  topic: {
+    accent: "#3f5a3b",
+    accentMid: "#527648",
+    borderStrong: "rgba(63,90,59,0.58)",
+    borderSoft: "rgba(63,90,59,0.28)",
+    surfaceStrong: "rgba(63,90,59,0.05)",
+    surfaceSoft: "rgba(63,90,59,0.025)",
+    shadowStrong: "rgba(63,90,59,0.15)",
+    shadowSoft: "rgba(63,90,59,0.08)"
+  },
+  product: {
+    accent: "#234f7a",
+    accentMid: "#2f6a96",
+    borderStrong: "rgba(35,79,122,0.58)",
+    borderSoft: "rgba(35,79,122,0.28)",
+    surfaceStrong: "rgba(35,79,122,0.045)",
+    surfaceSoft: "rgba(35,79,122,0.025)",
+    shadowStrong: "rgba(35,79,122,0.14)",
+    shadowSoft: "rgba(35,79,122,0.07)"
+  }
+};
+
+function selectionTheme() {
+  return SELECTION_MODE_THEMES[activeSelectionMode] ?? SELECTION_MODE_THEMES.archive;
+}
 
 function isControlSurface(node: EventTarget | Node | null): boolean {
   const element = node instanceof Element ? node : node instanceof Node ? node.parentElement : null;
@@ -31,14 +80,15 @@ function isControlSurface(node: EventTarget | Node | null): boolean {
 function ensureOverlay(): HTMLDivElement {
   let overlay = document.getElementById(OVERLAY_ID) as HTMLDivElement | null;
   if (!overlay) {
+    const theme = selectionTheme();
     overlay = document.createElement("div");
     overlay.id = OVERLAY_ID;
     overlay.style.position = "fixed";
     overlay.style.pointerEvents = "none";
-    overlay.style.border = "1.5px solid rgba(99, 102, 241, 0.5)";
+    overlay.style.border = `1.5px solid ${theme.borderStrong}`;
     overlay.style.borderRadius = "16px";
-    overlay.style.background = "rgba(99, 102, 241, 0.03)";
-    overlay.style.boxShadow = "0 0 0 1px rgba(255,255,255,0.5), 0 8px 24px rgba(99,102,241,0.1)";
+    overlay.style.background = theme.surfaceStrong;
+    overlay.style.boxShadow = `0 0 0 1px rgba(255,255,255,0.5), 0 8px 24px ${theme.shadowStrong}`;
     overlay.style.transition = "transform 120ms ease-out, top 120ms ease-out, left 120ms ease-out, width 120ms ease-out, height 120ms ease-out, opacity 120ms ease-out, border-color 120ms ease-out, background-color 120ms ease-out, box-shadow 120ms ease-out";
     overlay.style.zIndex = "2147483645";
     overlay.style.display = "none";
@@ -55,6 +105,13 @@ function ensureRoot(): HTMLDivElement {
     root.setAttribute("data-dlens-control", "true");
     document.documentElement.appendChild(root);
   }
+  // Inject product-signal motion CSS once (must go via document.head to survive Threads CSP)
+  if (!document.getElementById("__dlens_product_motion__")) {
+    const motionStyle = document.createElement("style");
+    motionStyle.id = "__dlens_product_motion__";
+    motionStyle.textContent = PRODUCT_SIGNAL_MOTION_CSS;
+    document.head.appendChild(motionStyle);
+  }
   // Inject animation keyframes once
   if (!document.getElementById("__dlens_keyframes__")) {
     const style = document.createElement("style");
@@ -69,8 +126,8 @@ function ensureRoot(): HTMLDivElement {
         50% { opacity: 0.35; }
       }
       @keyframes dlens-glow-border {
-        0%, 100% { border-color: rgba(99,102,241,0.18); }
-        50% { border-color: rgba(99,102,241,0.35); }
+        0%, 100% { border-color: rgba(63,90,59,0.18); }
+        50% { border-color: rgba(63,90,59,0.35); }
       }
       @keyframes dlens-scan {
         0% { background-position: 0% 0%; }
@@ -101,17 +158,18 @@ function renderOverlay(card: HTMLElement | null, strength: CandidateStrength | n
   }
 
   const rect = card.getBoundingClientRect();
+  const theme = selectionTheme();
   overlay.style.display = "block";
   overlay.style.top = `${rect.top - 3}px`;
   overlay.style.left = `${rect.left - 3}px`;
   overlay.style.width = `${rect.width + 6}px`;
   overlay.style.height = `${rect.height + 6}px`;
-  overlay.style.borderColor = strength === "soft" ? "rgba(99, 102, 241, 0.25)" : "rgba(99, 102, 241, 0.55)";
-  overlay.style.background = strength === "soft" ? "rgba(99, 102, 241, 0.02)" : "rgba(99, 102, 241, 0.04)";
+  overlay.style.borderColor = strength === "soft" ? theme.borderSoft : theme.borderStrong;
+  overlay.style.background = strength === "soft" ? theme.surfaceSoft : theme.surfaceStrong;
   overlay.style.boxShadow =
     strength === "soft"
-      ? "0 0 0 1px rgba(255,255,255,0.35), 0 6px 16px rgba(99,102,241,0.06)"
-      : "0 0 0 1px rgba(255,255,255,0.5), 0 10px 24px rgba(99,102,241,0.12)";
+      ? `0 0 0 1px rgba(255,255,255,0.35), 0 6px 16px ${theme.shadowSoft}`
+      : `0 0 0 1px rgba(255,255,255,0.5), 0 10px 24px ${theme.shadowStrong}`;
   emitHoverRect(card);
 }
 
@@ -239,7 +297,8 @@ function stopSelectionMode(reason: SelectionModeExitReason = "manual-cancel") {
   chrome.runtime.sendMessage(message satisfies ExtensionMessage).catch(() => undefined);
 }
 
-function startSelectionMode() {
+function startSelectionMode(mode: FolderMode = "archive") {
+  activeSelectionMode = mode;
   selectionMode = true;
   setCollectCursor(true);
   ensureKeepAlive();
@@ -365,7 +424,7 @@ export default defineContentScript({
       void (async () => {
         switch (message.type) {
           case "selection/start-tab":
-            startSelectionMode();
+            startSelectionMode(message.mode ?? "archive");
             sendResponse({ ok: true } satisfies ExtensionResponse);
             return;
           case "selection/cancel-tab":

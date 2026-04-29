@@ -18,7 +18,13 @@ import {
   type EvidenceAnnotation,
   type EvidenceAnnotationRequest
 } from "./evidence-annotation.ts";
-import type { JudgmentResult, ProductProfile } from "../state/types.ts";
+import {
+  buildProductSignalAnalyzerPrompt,
+  PRODUCT_SIGNAL_ANALYSIS_JSON_SCHEMA,
+  parseProductSignalAnalysisResponse,
+  type ProductSignalAnalyzerInput
+} from "./product-signal-analysis.ts";
+import type { JudgmentResult, ProductProfile, ProductSignalAnalysis } from "../state/types.ts";
 
 export const COMPARE_BRIEF_PROMPT_VERSION = "v7";
 export const COMPARE_ONE_LINER_PROMPT_VERSION = "v2";
@@ -39,7 +45,7 @@ function isRetryableStatus(status: number): boolean {
   return status === 408 || status === 429 || status >= 500;
 }
 
-async function fetchWithRetry(label: string, input: string, init: RequestInit): Promise<Response> {
+export async function fetchWithRetry(label: string, input: string, init: RequestInit): Promise<Response> {
   let lastError: Error | null = null;
 
   for (let attempt = 0; attempt <= PROVIDER_MAX_RETRIES; attempt += 1) {
@@ -98,6 +104,15 @@ function readClaudeContent(json: any): string {
     .trim();
 }
 
+function readClaudeToolInput(json: any, toolName: string): string {
+  const content = json?.content;
+  if (!Array.isArray(content)) {
+    return "";
+  }
+  const toolUse = content.find((part) => part?.type === "tool_use" && part?.name === toolName);
+  return toolUse?.input && typeof toolUse.input === "object" ? JSON.stringify(toolUse.input) : "";
+}
+
 function readGoogleContent(json: any): string {
   const candidates = json?.candidates;
   if (!Array.isArray(candidates) || candidates.length === 0) {
@@ -111,6 +126,58 @@ function readGoogleContent(json: any): string {
     .map((part: any) => (typeof part?.text === "string" ? part.text : ""))
     .join(" ")
     .trim();
+}
+
+function buildProductSignalAnalysisBody(
+  provider: "openai" | "claude" | "google",
+  system: string,
+  prompt: string
+): any {
+  if (provider === "google") {
+    return {
+      systemInstruction: { parts: [{ text: system }] },
+      contents: [{ role: "user", parts: [{ text: prompt }] }],
+      generationConfig: {
+        temperature: 0.2,
+        maxOutputTokens: 1800,
+        responseMimeType: "application/json",
+        responseJsonSchema: PRODUCT_SIGNAL_ANALYSIS_JSON_SCHEMA
+      }
+    };
+  }
+  if (provider === "openai") {
+    return {
+      model: OPENAI_COMPARE_MODEL,
+      temperature: 0.2,
+      response_format: {
+        type: "json_schema",
+        json_schema: {
+          name: "product_signal_analysis",
+          strict: true,
+          schema: PRODUCT_SIGNAL_ANALYSIS_JSON_SCHEMA
+        }
+      },
+      messages: [
+        { role: "system", content: system },
+        { role: "user", content: prompt }
+      ]
+    };
+  }
+  return {
+    model: CLAUDE_COMPARE_MODEL,
+    max_tokens: 1800,
+    temperature: 0.2,
+    system,
+    messages: [{ role: "user", content: prompt }],
+    tools: [
+      {
+        name: "record_product_signal_analysis",
+        description: "Record the structured ProductSignalAnalyzer result for one saved Threads signal.",
+        input_schema: PRODUCT_SIGNAL_ANALYSIS_JSON_SCHEMA
+      }
+    ],
+    tool_choice: { type: "tool", name: "record_product_signal_analysis" }
+  };
 }
 
 export async function generateCompareBrief(
@@ -513,6 +580,66 @@ export async function generateJudgment(
   return parsed;
 }
 
+export async function generateProductSignalAnalysis(
+  provider: "openai" | "claude" | "google",
+  apiKey: string,
+  request: ProductSignalAnalyzerInput
+): Promise<ProductSignalAnalysis> {
+  const prompt = buildProductSignalAnalyzerPrompt(request);
+  const system = "你是產品訊號分析助手。只回傳 JSON，不要加任何解釋。";
+  let raw = "";
+
+  if (provider === "google") {
+    const response = await fetchWithRetry(
+      "Google",
+      `https://generativelanguage.googleapis.com/v1beta/models/${GOOGLE_COMPARE_MODEL}:generateContent?key=${apiKey}`,
+      {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(buildProductSignalAnalysisBody("google", system, prompt))
+      }
+    );
+    if (!response.ok) {
+      throw new Error(`Google ${response.status}: ${await response.text()}`);
+    }
+    raw = readGoogleContent(await response.json());
+  } else if (provider === "openai") {
+    const response = await fetchWithRetry("OpenAI", "https://api.openai.com/v1/chat/completions", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${apiKey}`
+      },
+      body: JSON.stringify(buildProductSignalAnalysisBody("openai", system, prompt))
+    });
+    if (!response.ok) {
+      throw new Error(`OpenAI ${response.status}: ${await response.text()}`);
+    }
+    raw = readOpenAiContent(await response.json());
+  } else {
+    const response = await fetchWithRetry("Claude", "https://api.anthropic.com/v1/messages", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "x-api-key": apiKey,
+        "anthropic-version": "2023-06-01"
+      },
+      body: JSON.stringify(buildProductSignalAnalysisBody("claude", system, prompt))
+    });
+    if (!response.ok) {
+      throw new Error(`Claude ${response.status}: ${await response.text()}`);
+    }
+    raw = readClaudeToolInput(await response.json(), "record_product_signal_analysis");
+  }
+
+  const parsed = parseProductSignalAnalysisResponse(raw, request);
+  if (!parsed) {
+    throw new Error("Invalid product signal analysis payload");
+  }
+  return parsed;
+}
+
 export const providerTestables = {
-  fetchWithRetry
+  fetchWithRetry,
+  buildProductSignalAnalysisBody
 };

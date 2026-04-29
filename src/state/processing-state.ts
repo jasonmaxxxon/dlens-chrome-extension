@@ -1,8 +1,39 @@
-import type { PopupPage, SessionItem, SessionRecord } from "./types.ts";
+import type { FolderMode, MainPage, PopupPage, SessionItem, SessionRecord } from "./types.ts";
 
 export const DEFAULT_POPUP_WIDTH = 440;
 export const EXPANDED_COMPARE_POPUP_WIDTH = 560;
+export const PRODUCT_POPUP_WIDTH = 720;
 export const NETWORK_BATCH_SIZE = 3;
+
+export const PRODUCT_SIGNAL_PAGES: ReadonlyArray<MainPage> = [
+  "classification",
+  "actionable-filter"
+];
+
+export const ALLOWED_PAGES: Record<FolderMode, MainPage[]> = {
+  archive: ["library", "collect"],
+  topic: ["casebook", "inbox", "collect", "compare", "library"],
+  product: ["collect", "classification", "actionable-filter"]
+};
+
+export function isProductSignalPage(page: PopupPage): boolean {
+  return (PRODUCT_SIGNAL_PAGES as ReadonlyArray<PopupPage>).includes(page);
+}
+
+export function guardPage(page: MainPage, mode: FolderMode): MainPage {
+  const allowed = ALLOWED_PAGES[mode];
+  return allowed.includes(page) ? page : allowed[0]!;
+}
+
+export function getPopupWidth(page: PopupPage): number {
+  if (isProductSignalPage(page)) {
+    return PRODUCT_POPUP_WIDTH;
+  }
+  if (page === "compare" || page === "result") {
+    return EXPANDED_COMPARE_POPUP_WIDTH;
+  }
+  return DEFAULT_POPUP_WIDTH;
+}
 
 export type WorkerStatus = "idle" | "draining";
 export type ItemReadinessStatus = "saved" | "queued" | "crawling" | "analyzing" | "ready" | "failed";

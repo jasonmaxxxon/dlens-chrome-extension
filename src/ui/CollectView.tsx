@@ -1,4 +1,5 @@
 import type { TargetDescriptor } from "../contracts/target-descriptor";
+import type { FolderMode } from "../state/types";
 import {
   Kicker,
   ModeHeader,
@@ -11,6 +12,10 @@ import {
 } from "./components";
 import { tokens } from "./tokens";
 
+const MODE_ACCENT = `var(--dlens-mode-accent, ${tokens.color.accent})`;
+const MODE_ACCENT_MID = `var(--dlens-mode-accent-mid, ${tokens.color.accentMid})`;
+const MODE_ACCENT_BUTTON_SHADOW = `var(--dlens-mode-accent-button-shadow, ${tokens.shadow.previewAvatar})`;
+
 function avatarInitial(author: string | undefined): string {
   if (!author) return "?";
   const clean = author.replace(/^@/, "");
@@ -20,6 +25,7 @@ function avatarInitial(author: string | undefined): string {
 interface CollectViewProps {
   preview: TargetDescriptor | null;
   folderName: string;
+  mode?: FolderMode;
   isSaved: boolean;
   selectionMode: boolean;
   onSavePreview: () => void;
@@ -30,6 +36,7 @@ interface CollectViewProps {
 export function CollectView({
   preview,
   folderName,
+  mode = "archive",
   isSaved,
   selectionMode,
   onSavePreview,
@@ -37,14 +44,25 @@ export function CollectView({
   onToggleCollectMode
 }: CollectViewProps) {
   const hasPreview = Boolean(preview);
+  const isProductMode = mode === "product";
+  const isTopicMode = mode === "topic";
+  const targetLabel = isProductMode ? "產品訊號收件匣" : isTopicMode ? "Signal Inbox" : "資料庫";
+  const title = isProductMode ? "快速判斷，加入產品訊號" : isTopicMode ? "快速判斷，存入 Signal Inbox" : "快速判斷，存入資料庫";
+  const deck = isProductMode
+    ? "指向 Threads 貼文即可預覽，按下加入產品訊號收件匣。"
+    : isTopicMode
+      ? "指向 Threads 貼文即可預覽，按下加入 Signal Inbox。"
+      : "指向 Threads 貼文即可預覽，按下存入資料庫。";
+  const savedCopy = isProductMode ? "已加入產品訊號" : isTopicMode ? "已加入 Signal Inbox" : "已儲存到資料庫";
+  const saveCopy = isProductMode ? "加入產品訊號" : isTopicMode ? "加入 Signal Inbox" : "儲存到資料庫";
 
   return (
     <div style={viewRootStyle({ gap: tokens.spacing.md })}>
       <ModeHeader
         mode="collect"
         kicker={selectionMode ? "Collect mode live" : "Collect"}
-        title="快速判斷，存入資料夾"
-        deck="指向 Threads 貼文即可預覽，按下存入資料夾。"
+        title={title}
+        deck={deck}
         stamp={<Stamp tone={selectionMode ? "accent" : "neutral"}>{selectionMode ? "Active" : "Idle"}</Stamp>}
       />
 
@@ -77,7 +95,7 @@ export function CollectView({
                   height: 40,
                   borderRadius: tokens.radius.card,
                   background: hasPreview
-                    ? `linear-gradient(135deg, ${tokens.color.accent}, ${tokens.color.accentMid})`
+                    ? `linear-gradient(135deg, ${MODE_ACCENT}, ${MODE_ACCENT_MID})`
                     : tokens.color.neutralSurface,
                   color: hasPreview ? tokens.color.elevated : tokens.color.softInk,
                   display: "grid",
@@ -86,7 +104,7 @@ export function CollectView({
                   fontSize: 13,
                   fontWeight: 700,
                   flexShrink: 0,
-                  boxShadow: tokens.shadow.previewAvatar
+                  boxShadow: hasPreview ? MODE_ACCENT_BUTTON_SHADOW : tokens.shadow.previewAvatar
                 }}
               >
                 {hasPreview ? avatarInitial(preview?.author_hint) : "·"}
@@ -99,7 +117,7 @@ export function CollectView({
                       {preview?.author_hint || "尚無預覽"}
                     </div>
                     <div style={{ fontSize: 10, color: tokens.color.softInk }}>
-                      資料夾 · <span style={{ color: tokens.color.subInk }}>{folderName}</span>
+                      {targetLabel} · <span style={{ color: tokens.color.subInk }}>{isProductMode ? "Product mode" : folderName}</span>
                     </div>
                   </div>
                   {hasPreview ? (
@@ -116,7 +134,7 @@ export function CollectView({
             </div>
 
             <PrimaryButton onClick={onSavePreview} disabled={!hasPreview || isSaved} style={{ width: "100%" }}>
-              {isSaved ? "已儲存到資料夾" : "儲存到資料夾"}
+              {isSaved ? savedCopy : saveCopy}
             </PrimaryButton>
           </div>
         </div>

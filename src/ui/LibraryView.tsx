@@ -488,7 +488,26 @@ export function LibraryView({
           boxShadow: "0 1px 6px rgba(0,0,0,0.065)",
           textAlign: "center" as const,
         }}>
-          <div style={{ fontSize: 32, marginBottom: 8 }}>📭</div>
+          <div
+            aria-hidden="true"
+            style={{
+              width: 34,
+              height: 34,
+              margin: "0 auto 10px",
+              borderRadius: tokens.radius.card,
+              border: `1px solid ${tokens.color.line}`,
+              color: tokens.color.accent,
+              background: tokens.color.contextSurface,
+              display: "grid",
+              placeItems: "center"
+            }}
+          >
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M5.5 4.5h9a2 2 0 0 1 2 2v13h-9a2 2 0 0 0-2 2Z" />
+              <path d="M9 8h4" />
+              <path d="M9 12h4" />
+            </svg>
+          </div>
           <div style={{ fontSize: 13, fontWeight: 600, color: AR.ink, marginBottom: 5 }}>尚無儲存的貼文</div>
           <p style={{ fontSize: 12, color: AR.softInk, lineHeight: 1.5, margin: "0 0 12px" }}>
             前往 Collect 頁面，在 Threads 上捕捉貼文。

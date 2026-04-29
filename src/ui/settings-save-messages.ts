@@ -1,5 +1,5 @@
 import type { ExtensionMessage } from "../state/messages.ts";
-import type { ExtensionSettings, ProductProfile } from "../state/types.ts";
+import type { ExtensionSettings, ProductProfile, ProductProfileContextFile } from "../state/types.ts";
 
 export interface SettingsDraftValues {
   draftBaseUrl: string;
@@ -14,8 +14,24 @@ export function createEmptyProductProfile(): ProductProfile {
   return {
     name: "",
     category: "",
-    audience: ""
+    audience: "",
+    contextText: "",
+    contextFiles: []
   };
+}
+
+function normalizeContextFile(file: ProductProfileContextFile): ProductProfileContextFile | null {
+  const id = String(file.id || "").trim();
+  const name = String(file.name || "").trim();
+  const importedAt = String(file.importedAt || "").trim();
+  const charCount = Number.isFinite(file.charCount) ? Math.max(0, Math.floor(file.charCount)) : 0;
+  const kind = file.kind === "readme" || file.kind === "agents" || file.kind === "ai-agents" || file.kind === "other"
+    ? file.kind
+    : "other";
+  if (!id || !name || !importedAt) {
+    return null;
+  }
+  return { id, name, kind, importedAt, charCount };
 }
 
 export function normalizeProductProfileDraft(productProfile: ProductProfile | null | undefined): ProductProfile | null {
@@ -26,7 +42,11 @@ export function normalizeProductProfileDraft(productProfile: ProductProfile | nu
   const normalized = {
     name: productProfile.name.trim(),
     category: productProfile.category.trim(),
-    audience: productProfile.audience.trim()
+    audience: productProfile.audience.trim(),
+    contextText: (productProfile.contextText ?? "").trim(),
+    contextFiles: (productProfile.contextFiles ?? [])
+      .map(normalizeContextFile)
+      .filter((file): file is ProductProfileContextFile => Boolean(file))
   };
 
   return normalized.name || normalized.category || normalized.audience

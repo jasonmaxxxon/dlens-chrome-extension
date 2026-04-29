@@ -68,10 +68,34 @@ export interface CrawlResultSnapshot {
   canonical_target_url: string;
   canonical_post: Record<string, unknown>;
   comments: Array<Record<string, unknown>>;
+  thread_read_model?: ThreadReadModelSnapshot | null;
+  threadReadModel?: ThreadReadModelSnapshot | null;
   crawl_meta: Record<string, unknown>;
   raw_payload: Record<string, unknown>;
   fetched_at: string;
   created_at: string;
+}
+
+export interface ThreadReadModelPostSnapshot {
+  post_id?: string;
+  postId?: string;
+  comment_id?: string;
+  commentId?: string;
+  author?: string;
+  text?: string;
+  like_count?: number | null;
+  likeCount?: number | null;
+}
+
+export interface ThreadReadModelSnapshot {
+  root_post?: ThreadReadModelPostSnapshot | null;
+  rootPost?: ThreadReadModelPostSnapshot | null;
+  op_continuations?: ThreadReadModelPostSnapshot[];
+  opContinuations?: ThreadReadModelPostSnapshot[];
+  discussion_replies?: ThreadReadModelPostSnapshot[];
+  discussionReplies?: ThreadReadModelPostSnapshot[];
+  assembled_content?: string;
+  assembledContent?: string;
 }
 
 export interface AnalysisClusterSnapshot {

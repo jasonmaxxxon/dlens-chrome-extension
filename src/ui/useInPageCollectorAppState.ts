@@ -5,6 +5,9 @@ import { normalizePostUrl } from "../state/store-helpers";
 import type {
   ExtensionSnapshot,
   FolderMode,
+  ProductContext,
+  ProductAgentTaskFeedback,
+  ProductSignalAnalysis,
   SavedAnalysisSnapshot,
   TechniqueReadingSnapshot,
 } from "../state/types";
@@ -14,7 +17,7 @@ import { getProcessingFailureMessage } from "../state/processing-errors";
 import {
   summarizeSessionProcessing
 } from "../state/processing-state";
-import { getActiveItem, getActiveSession, sendExtensionMessage } from "./controller";
+import { addRuntimeMessageListener, getActiveItem, getActiveSession, sendExtensionMessage } from "./controller";
 import {
   computeFlashPreviewStyle,
   flashPreviewMetrics,
@@ -42,6 +45,17 @@ type UseInPageCollectorAppStateArgs = {
   sendAndSync: SendAndSync;
 };
 
+function mergeAnalysesBySignalId(
+  previous: ProductSignalAnalysis[],
+  next: ProductSignalAnalysis[]
+): ProductSignalAnalysis[] {
+  const bySignalId = new Map(previous.map((analysis) => [analysis.signalId, analysis]));
+  for (const analysis of next) {
+    bySignalId.set(analysis.signalId, analysis);
+  }
+  return [...bySignalId.values()].sort((left, right) => right.analyzedAt.localeCompare(left.analyzedAt));
+}
+
 export function useInPageCollectorAppState({ snapshot, tabId, sendAndSync }: UseInPageCollectorAppStateArgs) {
   const popupRef = useRef<HTMLDivElement | null>(null);
   const hadReadyPairRef = useRef(false);
@@ -66,6 +80,15 @@ export function useInPageCollectorAppState({ snapshot, tabId, sendAndSync }: Use
   const [isStartingProcessing, setIsStartingProcessing] = useState(false);
   const [techniqueReadings, setTechniqueReadings] = useState<TechniqueReadingSnapshot[]>([]);
   const [savedAnalyses, setSavedAnalyses] = useState<SavedAnalysisSnapshot[]>([]);
+  const [productSignalAnalyses, setProductSignalAnalyses] = useState<ProductSignalAnalysis[]>([]);
+  const [historicalProductSignalAnalyses, setHistoricalProductSignalAnalyses] = useState<ProductSignalAnalysis[]>([]);
+  const [productAgentTaskFeedback, setProductAgentTaskFeedback] = useState<ProductAgentTaskFeedback[]>([]);
+  const [isAnalyzingProductSignals, setIsAnalyzingProductSignals] = useState(false);
+  const [productSignalAnalysisError, setProductSignalAnalysisError] = useState<string | null>(null);
+  const [productSignalAnalysisNotice, setProductSignalAnalysisNotice] = useState<string | null>(null);
+  const [compiledProductContext, setCompiledProductContext] = useState<ProductContext | null>(null);
+  const [settingsSaveStatus, setSettingsSaveStatus] = useState<{ kind: "success" | "error"; message: string } | null>(null);
+  const [isSavingSettings, setIsSavingSettings] = useState(false);
 
   const activeFolder = useMemo(() => getActiveSession(snapshot), [snapshot]);
   const activeItem = useMemo(() => getActiveItem(snapshot), [snapshot]);
@@ -103,6 +126,22 @@ export function useInPageCollectorAppState({ snapshot, tabId, sendAndSync }: Use
     () => (activeFolder?.items || []).filter((item) => item.status === "succeeded" && item.latestCapture?.analysis?.status === "succeeded"),
     [activeFolder?.items]
   );
+  const productAiProviderReady = useMemo(() => {
+    const settings = snapshot?.global.settings;
+    if (!settings) {
+      return false;
+    }
+    return Boolean(
+      (settings.oneLinerProvider === "google" && settings.googleApiKey.trim())
+      || (settings.oneLinerProvider === "openai" && settings.openaiApiKey.trim())
+      || (settings.oneLinerProvider === "claude" && settings.claudeApiKey.trim())
+    );
+  }, [
+    snapshot?.global.settings.oneLinerProvider,
+    snapshot?.global.settings.googleApiKey,
+    snapshot?.global.settings.openaiApiKey,
+    snapshot?.global.settings.claudeApiKey
+  ]);
   const {
     selectedCompareA,
     setSelectedCompareA,
@@ -208,6 +247,76 @@ export function useInPageCollectorAppState({ snapshot, tabId, sendAndSync }: Use
   }, [page]);
 
   useEffect(() => {
+    if (!popupOpen || page !== "settings" || activeFolderMode !== "product") {
+      return;
+    }
+    let cancelled = false;
+    void sendExtensionMessage<{ ok: true; productContext?: ProductContext | null } | { ok: false; error: string }>({
+      type: "product/get-context"
+    })
+      .then((response) => {
+        if (cancelled) {
+          return;
+        }
+        setCompiledProductContext(response.ok ? (response.productContext ?? null) : null);
+      })
+      .catch(() => {
+        if (!cancelled) {
+          setCompiledProductContext(null);
+        }
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [activeFolderMode, page, popupOpen, snapshot?.global.updatedAt]);
+
+  const isProductSignalPage = page === "classification" || page === "actionable-filter";
+
+  useEffect(() => {
+    if (!popupOpen || !activeFolder?.id || activeFolderMode !== "product" || !isProductSignalPage) {
+      return;
+    }
+    let cancelled = false;
+    const signalIds = topicState.signals.map((signal) => signal.id);
+    void Promise.all([
+      sendExtensionMessage<{ ok: true; productSignalAnalyses?: ProductSignalAnalysis[] } | { ok: false; error: string }>({
+        type: "product/list-signal-analyses",
+        signalIds
+      }),
+      sendExtensionMessage<{ ok: true; productSignalAnalyses?: ProductSignalAnalysis[] } | { ok: false; error: string }>({
+        type: "product/list-signal-analyses"
+      }),
+      sendExtensionMessage<{ ok: true; productAgentTaskFeedback?: ProductAgentTaskFeedback[] } | { ok: false; error: string }>({
+        type: "product/list-agent-task-feedback"
+      })
+    ])
+      .then(([currentResponse, historicalResponse, feedbackResponse]) => {
+        if (cancelled) {
+          return;
+        }
+        if (currentResponse.ok) {
+          setProductSignalAnalyses(currentResponse.productSignalAnalyses ?? []);
+        }
+        if (historicalResponse.ok) {
+          setHistoricalProductSignalAnalyses(historicalResponse.productSignalAnalyses ?? []);
+        }
+        if (feedbackResponse.ok) {
+          setProductAgentTaskFeedback(feedbackResponse.productAgentTaskFeedback ?? []);
+        }
+      })
+      .catch(() => {
+        if (!cancelled) {
+          setProductSignalAnalyses([]);
+          setHistoricalProductSignalAnalyses([]);
+          setProductAgentTaskFeedback([]);
+        }
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [activeFolder?.id, activeFolderMode, isProductSignalPage, popupOpen, topicState.signals.map((signal) => signal.id).join("|")]);
+
+  useEffect(() => {
     if (!snapshot?.tab.popupOpen) {
       return;
     }
@@ -250,8 +359,7 @@ export function useInPageCollectorAppState({ snapshot, tabId, sendAndSync }: Use
         })
         .catch(() => undefined);
     };
-    chrome.runtime.onMessage.addListener(listener);
-    return () => chrome.runtime.onMessage.removeListener(listener);
+    return addRuntimeMessageListener(listener);
   }, [popupOpen]);
 
   useEffect(() => {
@@ -428,6 +536,26 @@ export function useInPageCollectorAppState({ snapshot, tabId, sendAndSync }: Use
     });
     setFolderName("");
     setShowFolderPrompt(false);
+  }
+
+  async function onSessionModeChange(mode: FolderMode) {
+    if (activeFolder) {
+      await topicState.onSessionModeChange(mode);
+      return;
+    }
+
+    const defaultNameByMode: Record<FolderMode, string> = {
+      archive: "Archive",
+      topic: "Signals",
+      product: "Product workspace"
+    };
+    await sendAndSync({
+      type: "session/create",
+      name: defaultNameByMode[mode],
+      mode
+    });
+    setShowFolderPrompt(false);
+    setFolderName("");
   }
 
   async function onRenameFolder() {
@@ -628,15 +756,52 @@ export function useInPageCollectorAppState({ snapshot, tabId, sendAndSync }: Use
   }
 
   async function onSaveSettings() {
-    for (const message of buildSettingsSaveMessages({
-      draftBaseUrl,
-      draftProvider,
-      draftOpenAiKey,
-      draftClaudeKey,
-      draftGoogleKey,
-      draftProductProfile
-    })) {
-      await sendAndSync(message);
+    if (isSavingSettings) {
+      return;
+    }
+    setIsSavingSettings(true);
+    setSettingsSaveStatus(null);
+    try {
+      let latestProductContext: ProductContext | null | undefined;
+      let productContextError: string | null | undefined;
+      for (const message of buildSettingsSaveMessages({
+        draftBaseUrl,
+        draftProvider,
+        draftOpenAiKey,
+        draftClaudeKey,
+        draftGoogleKey,
+        draftProductProfile
+      })) {
+        const response = await sendAndSync(message);
+        if (!response.ok) {
+          setSettingsSaveStatus({ kind: "error", message: response.error });
+          return;
+        }
+        if ("productContext" in response) {
+          latestProductContext = response.productContext ?? null;
+        }
+        if ("productContextError" in response) {
+          productContextError = response.productContextError ?? null;
+        }
+      }
+      if (latestProductContext !== undefined) {
+        setCompiledProductContext(latestProductContext);
+      }
+      if (productContextError) {
+        setSettingsSaveStatus({
+          kind: "error",
+          message: `Settings 已儲存；ProductContext 編譯失敗：${productContextError}`
+        });
+        return;
+      }
+      setSettingsSaveStatus({
+        kind: "success",
+        message: latestProductContext ? "Settings 已儲存，ProductContext 已編譯。" : "Settings 已儲存。"
+      });
+    } catch (error) {
+      setSettingsSaveStatus({ kind: "error", message: error instanceof Error ? error.message : String(error) });
+    } finally {
+      setIsSavingSettings(false);
     }
   }
 
@@ -663,6 +828,47 @@ export function useInPageCollectorAppState({ snapshot, tabId, sendAndSync }: Use
     } finally {
       setIsInitializingProductProfile(false);
     }
+  }
+
+  async function onAnalyzeProductSignals() {
+    if (!activeFolder?.id || isAnalyzingProductSignals) {
+      return;
+    }
+    setIsAnalyzingProductSignals(true);
+    setProductSignalAnalysisError(null);
+    setProductSignalAnalysisNotice(null);
+    try {
+      const response = await sendAndSync<{ ok: true; productSignalAnalyses?: ProductSignalAnalysis[]; productSignalAnalysisSummary?: { queued: number; analyzed: number; failed: number } } | { ok: false; error: string }>({
+        type: "product/analyze-signals",
+        sessionId: activeFolder.id
+      });
+      if (response.ok) {
+        setProductSignalAnalyses(response.productSignalAnalyses ?? []);
+        setHistoricalProductSignalAnalyses((previous) => mergeAnalysesBySignalId(previous, response.productSignalAnalyses ?? []));
+        const queued = response.productSignalAnalysisSummary?.queued ?? 0;
+        const analyzed = response.productSignalAnalysisSummary?.analyzed ?? 0;
+        const failed = response.productSignalAnalysisSummary?.failed ?? 0;
+        if (queued > 0) {
+          setProductSignalAnalysisNotice(`已送出 ${queued} 條抓取，完成後請再按分析。`);
+        } else if (failed > 0) {
+          setProductSignalAnalysisError(`有 ${failed} 條產品訊號分析失敗；其他 ready signals 已繼續處理。`);
+        } else if (analyzed > 0) {
+          setProductSignalAnalysisNotice(`已完成 ${analyzed} 條產品訊號分析。`);
+        } else {
+          setProductSignalAnalysisNotice("沒有新的 ready signal 可分析。");
+        }
+        return;
+      }
+      setProductSignalAnalysisError(response.error);
+    } catch (error) {
+      setProductSignalAnalysisError(error instanceof Error ? error.message : String(error));
+    } finally {
+      setIsAnalyzingProductSignals(false);
+    }
+  }
+
+  function onProductAgentTaskFeedbackSaved(feedback: ProductAgentTaskFeedback) {
+    setProductAgentTaskFeedback((previous) => [...previous, feedback].slice(-250));
   }
 
   return {
@@ -695,6 +901,9 @@ export function useInPageCollectorAppState({ snapshot, tabId, sendAndSync }: Use
     draftClaudeKey,
     draftGoogleKey,
     draftProductProfile,
+    compiledProductContext,
+    settingsSaveStatus,
+    isSavingSettings,
     productProfileSeedText,
     isInitializingProductProfile,
     hoverRect,
@@ -704,6 +913,13 @@ export function useInPageCollectorAppState({ snapshot, tabId, sendAndSync }: Use
     workerStatus,
     techniqueReadings,
     savedAnalyses,
+    productSignalAnalyses,
+    historicalProductSignalAnalyses,
+    productAgentTaskFeedback,
+    isAnalyzingProductSignals,
+    productSignalAnalysisError,
+    productSignalAnalysisNotice,
+    productAiProviderReady,
     topics: topicState.topics,
     signals: topicState.signals,
     selectedTopicId: topicState.selectedTopicId,
@@ -711,6 +927,8 @@ export function useInPageCollectorAppState({ snapshot, tabId, sendAndSync }: Use
     activeTopicSignals: topicState.activeTopicSignals,
     activeTopicPairs: topicState.activeTopicPairs,
     signalPreviewById: topicState.signalPreviewById,
+    productSignalEvidenceById: topicState.productSignalEvidenceById,
+    productSignalReadinessById: topicState.productSignalReadinessById,
     topicJudgmentById: topicState.topicJudgmentById,
     resultTopicContext: topicState.resultTopicContext,
     selectedCompareA,
@@ -743,7 +961,7 @@ export function useInPageCollectorAppState({ snapshot, tabId, sendAndSync }: Use
     setSelectedCompareA,
     setSelectedCompareB,
     onNavigate,
-    onSessionModeChange: topicState.onSessionModeChange,
+    onSessionModeChange,
     onOpenCompareResult,
     onOpenSavedAnalysis,
     onOpenTopicPair: topicState.onOpenTopicPair,
@@ -758,6 +976,8 @@ export function useInPageCollectorAppState({ snapshot, tabId, sendAndSync }: Use
     onSignalTriaged: topicState.onSignalTriaged,
     onSaveJudgmentOverride,
     onInitProductProfile,
+    onAnalyzeProductSignals,
+    onProductAgentTaskFeedbackSaved,
     onCreateFolder,
     onRenameFolder,
     onDeleteFolder,

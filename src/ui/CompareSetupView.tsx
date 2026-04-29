@@ -316,7 +316,7 @@ export function CompareSetupView({
                 padding: "2px 8px",
               }}
             >
-              {teaserState === "ready" ? "✦ AI Brief" : teaserState === "loading" ? "生成中…" : "等待中"}
+              {teaserState === "ready" ? "AI Brief" : teaserState === "loading" ? "生成中…" : "等待中"}
             </span>
           </div>
 

@@ -6,6 +6,11 @@ import { TOKENS, tokens } from "./tokens";
 
 export { TOKENS } from "./tokens";
 
+const MODE_ACCENT = `var(--dlens-mode-accent, ${tokens.color.accent})`;
+const MODE_ACCENT_MID = `var(--dlens-mode-accent-mid, ${tokens.color.accentMid})`;
+const MODE_ACCENT_SOFT = `var(--dlens-mode-accent-soft, ${tokens.color.accentSoft})`;
+const MODE_ACCENT_BUTTON_SHADOW = `var(--dlens-mode-accent-button-shadow, ${tokens.shadow.accentButton})`;
+
 /* ─── HUD Icon Button (thin ghost circle) ─── */
 
 export function IconButton({
@@ -113,9 +118,9 @@ export function MetricChip({
       style={{
         padding: "3px 8px",
         borderRadius: 999,
-        background: present ? "rgba(79,70,229,0.09)" : tokens.color.neutralSurfaceSoft,
-        border: present ? "1px solid rgba(99,102,241,0.10)" : `1px solid ${tokens.color.glassBorder}`,
-        color: present ? tokens.color.cyan : tokens.color.softInk,
+        background: present ? MODE_ACCENT_SOFT : tokens.color.neutralSurfaceSoft,
+        border: present ? `1px solid ${MODE_ACCENT_SOFT}` : `1px solid ${tokens.color.glassBorder}`,
+        color: present ? MODE_ACCENT : tokens.color.softInk,
         fontSize: 10,
         fontWeight: 600,
         display: "inline-flex",
@@ -150,7 +155,7 @@ export function EvidenceMetricRow({
 }) {
   const items = [
     { kind: "likes" as const, value: metrics.likes ?? null, tone: tokens.color.failed, bg: tokens.color.failedSoft },
-    { kind: "comments" as const, value: metrics.comments ?? null, tone: tokens.color.accent, bg: tokens.color.accentSoft },
+    { kind: "comments" as const, value: metrics.comments ?? null, tone: MODE_ACCENT, bg: MODE_ACCENT_SOFT },
     { kind: "reposts" as const, value: metrics.reposts ?? null, tone: tokens.color.subInk, bg: tokens.color.neutralSurfaceSoft },
     { kind: "forwards" as const, value: metrics.forwards ?? null, tone: tokens.color.queued, bg: tokens.color.queuedSoft }
   ];
@@ -279,7 +284,9 @@ const PRIMARY_WORKSPACE_MODES: ReadonlyArray<{ key: PrimaryWorkspaceMode; label:
   { key: "inbox", label: "收件匣" },
   { key: "library", label: "資料庫" },
   { key: "compare", label: "比較" },
-  { key: "collect", label: "採集" }
+  { key: "collect", label: "採集" },
+  { key: "classification", label: "分類" },
+  { key: "actionable-filter", label: "行動" }
 ];
 
 function railIcon(mode: PrimaryWorkspaceMode) {
@@ -306,6 +313,10 @@ function railIcon(mode: PrimaryWorkspaceMode) {
       return <svg {...common}><path d="M7 5h3v14H7z" /><path d="M14 5h3v14h-3z" /><path d="M10 9h4" /><path d="M10 15h4" /></svg>;
     case "collect":
       return <svg {...common}><path d="M12 3v18" /><path d="M3 12h18" /><circle cx="12" cy="12" r="7.5" /></svg>;
+    case "classification":
+      return <svg {...common}><path d="M4 6h16" /><path d="M4 12h10" /><path d="M4 18h7" /><path d="M17 11l3 3-3 3" /></svg>;
+    case "actionable-filter":
+      return <svg {...common}><path d="M4 5h16l-6 7v5l-4 2v-7z" /><path d="M15 5v3" /></svg>;
   }
 }
 
@@ -487,7 +498,7 @@ export function ModeRailButton({
         gap: 5
       }}
     >
-      <span style={{ display: "inline-flex", color: active ? tokens.color.accent : tokens.color.softInk }}>
+      <span style={{ display: "inline-flex", color: active ? MODE_ACCENT : tokens.color.softInk }}>
         {railIcon(mode)}
       </span>
       <span>{label}</span>
@@ -607,7 +618,7 @@ export function Kicker({
         fontSize: 10,
         fontWeight: 700,
         letterSpacing: 0,
-        color: tone === "accent" ? tokens.color.accent : tokens.color.softInk
+        color: tone === "accent" ? MODE_ACCENT : tokens.color.softInk
       }}
     >
       {children}
@@ -624,7 +635,7 @@ export function Stamp({
 }) {
   const toneMap = {
     neutral: { background: tokens.color.neutralSurface, color: tokens.color.subInk },
-    accent: { background: tokens.color.accentSoft, color: tokens.color.accent },
+    accent: { background: MODE_ACCENT_SOFT, color: MODE_ACCENT },
     success: { background: tokens.color.successSoft, color: tokens.color.success },
     warning: { background: tokens.color.queuedSoft, color: tokens.color.queued }
   } as const;
@@ -658,7 +669,7 @@ export function SideMark({ tone = "accent" }: { tone?: "accent" | "muted" }) {
         width: 3,
         alignSelf: "stretch",
         borderRadius: 999,
-        background: tone === "accent" ? tokens.color.accent : tokens.color.lineStrong
+        background: tone === "accent" ? MODE_ACCENT : tokens.color.lineStrong
       }}
     />
   );
@@ -772,13 +783,13 @@ export function PrimaryButton({
         padding: "8px 14px",
         background: disabled
           ? tokens.color.disabledPrimary
-          : `linear-gradient(135deg, ${tokens.color.accent}, ${tokens.color.accentMid})`,
+          : `linear-gradient(135deg, ${MODE_ACCENT}, ${MODE_ACCENT_MID})`,
         color: tokens.color.elevated,
         fontWeight: 600,
         fontSize: 12,
         letterSpacing: 0,
         cursor: disabled ? "not-allowed" : "pointer",
-        boxShadow: disabled ? "none" : tokens.shadow.accentButton,
+        boxShadow: disabled ? "none" : MODE_ACCENT_BUTTON_SHADOW,
         transition: tokens.motion.interactiveTransition,
         ...style
       }}
@@ -853,7 +864,7 @@ export function PageButton({
         cursor: "pointer",
         transition: tokens.motion.interactiveTransition,
         borderBottom: active
-          ? `2px solid ${tokens.color.accent}`
+          ? `2px solid ${MODE_ACCENT}`
           : "2px solid transparent",
         textTransform: "none" as const
       }}
@@ -888,7 +899,7 @@ export function PreviewCard({
             width: 38,
             height: 38,
             borderRadius: tokens.radius.card,
-            background: `linear-gradient(135deg, ${tokens.color.accent}, #818cf8)`,
+            background: `linear-gradient(135deg, ${MODE_ACCENT}, ${MODE_ACCENT_MID})`,
             color: tokens.color.elevated,
             display: "grid",
             placeItems: "center",

@@ -5,7 +5,7 @@ export default defineConfig({
   srcDir: ".",
   entrypointsDir: "entrypoints",
   manifest: {
-    name: "DLens Chrome Extension v0.1",
+    name: "DLens v3",
     description: "Thin Threads capture client for DLens ingest-core.",
     permissions: ["storage", "tabs", "activeTab", "sidePanel"],
     host_permissions: [
