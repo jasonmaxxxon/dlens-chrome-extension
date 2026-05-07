@@ -10,6 +10,7 @@ import type {
   ProductSignalAnalysis,
   ProductSignalContentType,
   ProductSignalEvidenceNote,
+  ProductSignalEvidenceGrounding,
   ProductSignalType,
   ProductSignalVerdict,
   FolderMode,
@@ -20,7 +21,7 @@ import type {
 } from "../state/types.ts";
 import type { ProductSignalPreferenceExample } from "./product-signal-history.ts";
 
-export const PRODUCT_SIGNAL_ANALYSIS_PROMPT_VERSION = "v8";
+export const PRODUCT_SIGNAL_ANALYSIS_PROMPT_VERSION = "v11";
 export const PRODUCT_SIGNAL_ANALYSIS_CACHE_VERSION = PRODUCT_SIGNAL_ANALYSIS_PROMPT_VERSION;
 
 export const PRODUCT_SIGNAL_ANALYSIS_JSON_SCHEMA = {
@@ -42,7 +43,7 @@ export const PRODUCT_SIGNAL_ANALYSIS_JSON_SCHEMA = {
     "evidence_notes"
   ],
   properties: {
-    signal_type: { type: "string", enum: ["learning", "competitor", "demand", "technical", "noise"] },
+    signal_type: { type: "string", enum: ["learning", "competitor", "demand", "technical", "marketing", "noise"] },
     signal_subtype: { type: "string" },
     content_type: { type: "string", enum: ["content", "discussion_starter", "mixed"] },
     content_summary: { type: "string" },
@@ -90,6 +91,7 @@ export const PRODUCT_SIGNAL_ANALYSIS_JSON_SCHEMA = {
           "ref",
           "quote_summary",
           "why_it_matters",
+          "grounding",
           "reusable_pattern",
           "why_it_works",
           "copyable_template",
@@ -101,6 +103,7 @@ export const PRODUCT_SIGNAL_ANALYSIS_JSON_SCHEMA = {
           ref: { type: "string" },
           quote_summary: { type: "string" },
           why_it_matters: { type: "string" },
+          grounding: { type: "string", enum: ["text_grounded", "model_inferred", "insufficient_detail"] },
           reusable_pattern: { type: "string" },
           why_it_works: { type: "string" },
           copyable_template: { type: "string" },
@@ -274,6 +277,24 @@ export function collectQueueableProductSignalItemIds(session: SessionRecord, sig
   return [...itemIds];
 }
 
+export function hasDrainableProductSignalItems(session: SessionRecord, signals: Signal[]): boolean {
+  if (session.mode !== "product") {
+    return false;
+  }
+  const itemsById = new Map(session.items.map((item) => [item.id, item]));
+  return signals.some((signal) => {
+    if (!signal.itemId || signal.inboxStatus === "archived" || signal.inboxStatus === "rejected") {
+      return false;
+    }
+    const item = itemsById.get(signal.itemId);
+    return item?.status === "queued" || item?.status === "running";
+  });
+}
+
+export function shouldDrainWorkerAfterProductSignalQueue(queuedCount: number, hasDrainableWork: boolean): boolean {
+  return queuedCount > 0 || hasDrainableWork;
+}
+
 const PRODUCT_CONTEXT_FIELDS: ProductContextField[] = [
   "productPromise",
   "targetAudience",
@@ -315,7 +336,7 @@ function readStringArray(value: unknown): string[] {
 }
 
 function readSignalType(value: unknown): ProductSignalType | null {
-  return value === "learning" || value === "competitor" || value === "demand" || value === "technical" || value === "noise"
+  return value === "learning" || value === "competitor" || value === "demand" || value === "technical" || value === "marketing" || value === "noise"
     ? value
     : null;
 }
@@ -336,6 +357,10 @@ function readTargetAgent(value: unknown): ProductAgentTaskSpec["targetAgent"] | 
   return value === "codex" || value === "claude" || value === "generic" ? value : null;
 }
 
+function readEvidenceGrounding(value: unknown): ProductSignalEvidenceGrounding | null {
+  return value === "text_grounded" || value === "model_inferred" || value === "insufficient_detail" ? value : null;
+}
+
 function readAgentTaskSpec(value: unknown): ProductAgentTaskSpec | null {
   if (!value || typeof value !== "object" || Array.isArray(value)) {
     return null;
@@ -344,7 +369,7 @@ function readAgentTaskSpec(value: unknown): ProductAgentTaskSpec | null {
   const targetAgent = readTargetAgent(raw.targetAgent ?? raw.target_agent);
   const taskPrompt = readPromptString(raw.taskPrompt ?? raw.task_prompt);
   const requiredContext = readStringArray(raw.requiredContext ?? raw.required_context).slice(0, 8);
-  const taskTitle = readTrimmedString(raw.taskTitle ?? raw.task_title).slice(0, 24);
+  const taskTitle = readTrimmedString(raw.taskTitle ?? raw.task_title).slice(0, 12);
   if (!targetAgent || !taskPrompt) {
     return null;
   }
@@ -369,11 +394,12 @@ function readEvidenceNotes(value: unknown, allowedRefs: Set<string>): ProductSig
       const ref = readTrimmedString(raw.ref);
       const quoteSummary = readTrimmedString(raw.quoteSummary ?? raw.quote_summary);
       const whyItMatters = readTrimmedString(raw.whyItMatters ?? raw.why_it_matters);
+      const grounding = readEvidenceGrounding(raw.grounding);
       const reusablePattern = readTrimmedString(raw.reusablePattern ?? raw.reusable_pattern).slice(0, 80);
-      const whyItWorks = readTrimmedString(raw.whyItWorks ?? raw.why_it_works).slice(0, 120);
+      const whyItWorks = readTrimmedString(raw.whyItWorks ?? raw.why_it_works).slice(0, 150);
       const copyableTemplate = readTrimmedString(raw.copyableTemplate ?? raw.copyable_template).slice(0, 140);
       const workflowStack = readStringArray(raw.workflowStack ?? raw.workflow_stack).slice(0, 6);
-      const copyRecipeMarkdown = readMarkdownString(raw.copyRecipeMarkdown ?? raw.copy_recipe_markdown).slice(0, 420);
+      const copyRecipeMarkdown = readMarkdownString(raw.copyRecipeMarkdown ?? raw.copy_recipe_markdown).slice(0, 700);
       const tradeoff = readTrimmedString(raw.tradeoff).slice(0, 120);
       if (!ref || !allowedRefs.has(ref) || !quoteSummary || !whyItMatters) {
         return null;
@@ -382,6 +408,7 @@ function readEvidenceNotes(value: unknown, allowedRefs: Set<string>): ProductSig
         ref,
         quoteSummary,
         whyItMatters,
+        ...(grounding ? { grounding } : {}),
         ...(reusablePattern ? { reusablePattern } : {}),
         ...(whyItWorks ? { whyItWorks } : {}),
         ...(copyableTemplate ? { copyableTemplate } : {}),
@@ -477,36 +504,45 @@ export function buildProductSignalAnalyzerPrompt(input: ProductSignalAnalyzerInp
     "- 機器欄位保留英文 enum：signal_type、signal_subtype（snake_case 標籤）、content_type、verdict、relevant_to、target_agent、evidence_refs、ref。",
     "- agent_task_spec.task_prompt 是貼給 Codex/Claude 的指令，可以英文或中文；其他欄位都要繁中。",
     "",
-    "長度規則（重要）：寫短句、不寫段落。",
+    "長度規則（重要）：優先寫清楚底層機制；短句，但允許必要的短段落。",
     "- content_summary：單句摘要，<= 50 字；必須點出具體 workflow / use case，不要寫「PM 熱烈討論」「市場熱度高」這類空話",
-    "- why_relevant：單句，<= 60 字；指出哪個具體做法對應 ProductContext，不要只說「驗證核心價值」",
+    "- why_relevant：單句，<= 60 字；指出哪個具體做法對應 ProductContext，不要只說「驗證核心價值」。如果 evidence 推薦的 workflow 已存在於 ProductContext.currentCapabilities，必須明確指出「產品已有此功能」而非當作新建議。",
     "- reason：單句，<= 60 字",
     "- experiment_hint：單句，<= 50 字；寫成可執行的小實驗，不要寫抽象研究任務",
     "- evidence_notes[*].quote_summary：單句中文摘錄，<= 40 字（不是貼原文）",
     "- evidence_notes[*].why_it_matters：單句，<= 50 字，說明這條為什麼是該判斷的證據",
+    "- evidence_notes[*].grounding：text_grounded | model_inferred | insufficient_detail。text_grounded = 原文明確提供工具、步驟與輸出；model_inferred = 技術概念可合理解釋但 recipe 仍依賴 AI 推斷，UI 會顯示「AI 推斷，請交叉驗證原文」；insufficient_detail = 原文不足以推導做法",
     "- evidence_notes[*].reusable_pattern：單句，<= 28 字，抽出可借用 workflow；不是分類名",
-    "- evidence_notes[*].why_it_works：單句，<= 45 字，說明為什麼這個做法可以成立",
-    "- evidence_notes[*].copyable_template：<= 70 字，寫成「輸入來源 -> Agent 處理 -> 交付物」的如何照抄模板",
+    "- evidence_notes[*].why_it_works：1-2 句，<= 150 字；用跨領域讀者能懂的語言解釋底層機制，說明為什麼這個做法在技術上成立，不要只寫省時、提升效率或比較方便",
+    "- evidence_notes[*].copyable_template：<= 70 字，寫成「輸入來源 -> Agent 處理 -> 交付物」的如何照抄模板；不能只是抽象描述，必須用 evidence 原文中出現的具體工具和步驟",
     "- evidence_notes[*].workflow_stack：0-6 個明確出現在該 evidence 原文的工具、資料來源或輸出位置；不要補不存在的工具",
-    "- evidence_notes[*].copy_recipe_markdown：<= 260 字的 markdown recipe；必須包含輸入、處理、輸出；quote 太短或缺任一環節就用空字串",
+    "- evidence_notes[*].copy_recipe_markdown：<= 700 字的 numbered-step markdown recipe，格式 '1. 打開 X\\n2. 做 Y\\n3. 輸出 Z'；必須包含具體工具名、操作動詞、每步預期結果（不能只寫 Input/Process/Output 抽象標題）；只有 grounding=text_grounded 且 evidence 原文明確提供輸入、處理、輸出時才填；不能用一般知識補 API、webhook、參數或安裝步驟；quote 太短或缺任一環節就用空字串",
     "- evidence_notes[*].tradeoff：單句，<= 50 字；寫明權限、資料品質、整合成本或不應過度推導的限制",
     "- agent_task_spec.task_title：<= 12 字，用於 UI 卡片 header；不是 task_prompt 的第一行",
     "",
     "判斷規則：",
-    "- signal_type: learning | competitor | demand | technical | noise",
+    "- signal_type: learning | competitor | demand | technical | marketing | noise",
     "- signal_subtype 要精確到具體技術、行為或產品模式；避免 agent_workflow 這類泛稱。好例子：mcp_integration、browser_automation、recurring_data_crawl、pm_document_generation、competitor_release_monitoring",
     "- content_type: content = 主要是完整內容分享；discussion_starter = 主要引出他人回應；mixed = 內容與回應都重要",
     "- relevance: 1-5，只能用整數；不要產生百分比、指數或假分數",
     "- verdict: try = 值得小實驗；watch = 先觀察；park = 不適合目前產品；insufficient_data = 資料不足",
     "- 所有 schema keys 都必須出現；不適用時用 null、空字串或空陣列，不要省略 key。",
     "- experiment_hint 必須是 string；只有 verdict=try 時填具體實驗，其餘情況用空字串",
-    "- agent_task_spec: 只有 verdict=try 時填 object；其餘回 null。target_agent 按性質選 codex/claude/generic；task_title <=12 字；task_prompt 必須可直接貼入 Codex / Claude，不是描述。",
+    "- agent_task_spec: 只有 verdict=try 時填 object；其餘回 null。target_agent 按性質選 codex/claude/generic；task_title <=12 字。",
+    "- agent_task_spec.task_prompt 必須是可直接貼入 Codex / Claude 的完整指令，不是描述。格式必須是 numbered steps：'1. 做什麼\\n2. 用什麼工具\\n3. 輸出什麼格式'。必須引用 evidence 原文的具體工具/平台/步驟，不能寫通用模板。",
     "- evidence_refs 只能引用下方 evidence catalog 的 e1/e2/...；沒有證據就回空陣列",
     "- evidence_notes：對 evidence_refs 列出的每個 ref 都要補一條對應 note；ref 必須來自 evidence_refs；沒有 evidence_refs 就回空陣列",
     "- evidence_notes 不只是引用理由；要把高技術含量留言拆成可學習的 workflow pattern，讓用戶知道可以 copy/改造哪個做法。",
     "- evidence_notes 必須是 evidence-specific，不要把 thread-level content_summary 複製到每條 evidence。",
-    "- quote 太短時，不要硬擠 how-to；workflow_stack 用空陣列、copy_recipe_markdown 用空字串，tradeoff 寫「原文不足以推導完整做法」。",
+    "- quote 太短時，不要硬擠 how-to；grounding 用 insufficient_detail，workflow_stack 用空陣列、copy_recipe_markdown 用空字串，tradeoff 寫「原文不足以推導完整做法」。",
+    "- 工具或組合方式不確定時，不要假裝知道作者的實作。why_it_works 只可寫一般機制並標 grounding=model_inferred；copy_recipe_markdown 用空字串，tradeoff 寫「AI 推斷，請交叉驗證原文」。",
     "- 輸出面向產品洞察，不要提 cluster、分群演算法或後端分析細節。",
+    "- 產品功能比對：仔細讀 [PRODUCT_CONTEXT].currentCapabilities 和 coreWorkflows。如果 evidence 建議的做法已經是產品現有功能，experiment_hint 要改成「強化既有 X 功能」而非「新增 Y」，verdict 傾向 watch 而非 try。不要推薦產品已有的功能當作新實驗。",
+    "",
+    "技術理解示範（只學風格，不要照抄）：",
+    "- why_it_works 不好的例子：讓工具之間能互動，節省開發時間。",
+    "- why_it_works 好的例子：MCP 透過 stdio JSON-RPC 讓 host 動態發現 server 能力，不需要硬編碼每個 API；新工具加入時，host 只要讀取工具描述與參數 schema，就能把資料來源、處理步驟和輸出格式串起來。",
+    "- copy_recipe_markdown 好的例子：1. 在 MCP server 宣告可讀取的資料來源、工具名稱與參數 schema，預期 host 啟動時能 discovery。\\n2. 讓 agent 先列出可用工具，再選擇與任務相符的資料來源，預期降低猜 API 的風險。\\n3. 將工具結果輸出成 markdown brief，預期交付物同時包含來源、限制和下一步。",
     "",
     "[PRODUCT_CONTEXT]",
     JSON.stringify(input.productContext, null, 2),
@@ -525,7 +561,7 @@ export function buildProductSignalAnalyzerPrompt(input: ProductSignalAnalyzerInp
     "",
     "JSON schema:",
     JSON.stringify({
-      signal_type: "learning|competitor|demand|technical|noise",
+      signal_type: "learning|competitor|demand|technical|marketing|noise",
       signal_subtype: "string (snake_case 英文)",
       content_type: "content|discussion_starter|mixed",
       content_summary: "繁中單句 <=50 字，具體 workflow/use case",
@@ -546,11 +582,12 @@ export function buildProductSignalAnalyzerPrompt(input: ProductSignalAnalyzerInp
         ref: "e1",
         quote_summary: "繁中單句 <=40 字",
         why_it_matters: "繁中單句 <=50 字",
+        grounding: "text_grounded|model_inferred|insufficient_detail",
         reusable_pattern: "可借用 workflow <=28 字",
-        why_it_works: "為什麼可以這樣做 <=45 字",
+        why_it_works: "底層機制，<=150 字",
         copyable_template: "輸入來源 -> Agent 處理 -> 可交付輸出",
         workflow_stack: ["明確工具或資料來源"],
-        copy_recipe_markdown: "- Input: ...\n- Process: ...\n- Output: ...",
+        copy_recipe_markdown: "1. 具體工具/資料來源\n2. agent 處理方式\n3. 預期交付物",
         tradeoff: "權限、整合或資料限制"
       }]
     }, null, 2)

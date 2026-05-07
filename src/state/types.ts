@@ -1,7 +1,7 @@
 import type { CaptureSnapshot, JobSnapshot } from "../contracts/ingest";
 import type { TargetDescriptor } from "../contracts/target-descriptor";
 
-export type FolderMode = "archive" | "topic" | "product";
+export type FolderMode = "archive" | "topic" | "product" | "pr-evidence";
 export type TopicStatus = "pending" | "watching" | "learning" | "testing" | "archived";
 export type SignalSource = "threads" | "manual";
 export type SignalInboxStatus = "unprocessed" | "assigned" | "archived" | "rejected";
@@ -18,8 +18,10 @@ export type MainPage =
   | "result"
   | "casebook"
   | "inbox"
+  | "saved-signals"
   | "classification"
-  | "actionable-filter";
+  | "actionable-filter"
+  | "pr-evidence";
 export type PopupPage = MainPage | "settings";
 export type SessionItemStatus = "saved" | "queued" | "running" | "succeeded" | "failed";
 export type InlineToastKind = "saved" | "queued";
@@ -85,11 +87,12 @@ export type ProductContextField =
   | "preferredTechDirection"
   | "evaluationCriteria"
   | "unknowns";
-export type ProductSignalType = "learning" | "competitor" | "demand" | "technical" | "noise";
+export type ProductSignalType = "learning" | "competitor" | "demand" | "technical" | "marketing" | "noise";
 export type ProductSignalContentType = "content" | "discussion_starter" | "mixed";
 export type ProductSignalVerdict = "try" | "watch" | "park" | "insufficient_data";
 export type ProductSignalAnalysisStatus = "pending" | "analyzing" | "complete" | "error";
 export type ProductAgentTaskTarget = "codex" | "claude" | "generic";
+export type ProductSignalEvidenceGrounding = "text_grounded" | "model_inferred" | "insufficient_detail";
 
 export interface ProductAgentTaskSpec {
   targetAgent: ProductAgentTaskTarget;
@@ -112,6 +115,7 @@ export interface ProductSignalEvidenceNote {
   ref: string;
   quoteSummary: string;
   whyItMatters: string;
+  grounding?: ProductSignalEvidenceGrounding;
   reusablePattern?: string;
   whyItWorks?: string;
   copyableTemplate?: string;

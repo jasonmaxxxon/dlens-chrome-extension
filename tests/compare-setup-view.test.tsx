@@ -124,6 +124,6 @@ test("CompareSetupView uses editorial token surfaces instead of pure white Apple
   assert.match(html, new RegExp(tokens.color.elevated.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")));
   assert.match(html, new RegExp(String(tokens.radius.card)));
   assert.doesNotMatch(html, /#ffffff/i);
-  assert.doesNotMatch(html, /SF Pro Display|-apple-system/);
+  assert.doesNotMatch(html, /SF Pro Display/);
   assert.doesNotMatch(html, /letter-spacing:-/);
 });

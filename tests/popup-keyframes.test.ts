@@ -10,4 +10,5 @@ test("buildPopupKeyframeCss keeps the warm-paper variables and popup animation t
   assert.match(css, /@keyframes dlens-popup-pulse/);
   assert.match(css, /@keyframes dlens-popup-shimmer/);
   assert.match(css, /@keyframes dlens-popup-indeterminate/);
+  assert.match(css, /@keyframes dlens-spin/);
 });

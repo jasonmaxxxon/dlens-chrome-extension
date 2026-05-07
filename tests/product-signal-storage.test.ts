@@ -53,6 +53,20 @@ test("saveProductSignalAnalysis upserts by signal id", async () => {
   });
 });
 
+test("saveProductSignalAnalysis preserves marketing signal type", async () => {
+  const storage = makeStorage();
+  const analysis = makeAnalysis("signal-marketing", {
+    signalType: "marketing",
+    signalSubtype: "case_study_angle",
+    contentSummary: "A concrete positioning angle for launch copy."
+  });
+
+  await saveProductSignalAnalysis(storage, analysis);
+  const analyses = await listProductSignalAnalyses(storage, ["signal-marketing"]);
+
+  assert.deepEqual(analyses, [analysis]);
+});
+
 test("listProductSignalAnalyses normalizes legacy records and filters by signal ids", async () => {
   const storage = makeStorage({
     [PRODUCT_SIGNAL_ANALYSES_STORAGE_KEY]: {
@@ -120,6 +134,7 @@ test("saveProductSignalAnalysis preserves legacy optional fields (whyNow, valida
         whyItMatters: "直接驗證 PM document workflow。",
         reusablePattern: "多來源工作流轉文件",
         whyItWorks: "把資料來源、處理邏輯和交付物分清楚。",
+        grounding: "text_grounded",
         copyableTemplate: "Slack/Jira -> Claude Skill -> Release note",
         workflowStack: ["Claude Skill", "Slack", "Jira"],
         copyRecipeMarkdown: "- 讀取 Slack thread 與 Jira tickets\n- 交給 Claude Skill 摘要\n- 輸出 Release Note",
@@ -131,6 +146,7 @@ test("saveProductSignalAnalysis preserves legacy optional fields (whyNow, valida
         whyItMatters: "支撐自動化分析需求。",
         reusablePattern: "資料庫查詢轉產品洞察",
         whyItWorks: "讓 agent 直接處理已存在的營運資料。",
+        grounding: "model_inferred",
         copyableTemplate: "Metabase/SQL -> Claude -> 分析摘要",
         workflowStack: ["Metabase", "SQL", "Claude"],
         copyRecipeMarkdown: "- 查詢 Metabase/SQL\n- 交給 Claude 解讀\n- 輸出產品分析摘要",
@@ -139,7 +155,7 @@ test("saveProductSignalAnalysis preserves legacy optional fields (whyNow, valida
     ],
     agentTaskSpec: {
       targetAgent: "codex",
-      taskTitle: "競品 Release 監控",
+      taskTitle: "競品 Release 監",
       taskPrompt: "You are helping monitor competitor releases.",
       requiredContext: ["RSS feed", "Notion target"]
     }
@@ -233,9 +249,10 @@ test("normalize accepts snake_case optional fields from legacy storage", async (
             ref: "e1",
             quote_summary: "PM 提到自動化需求。",
             why_it_matters: "直接證據。",
-            reusable_pattern: "討論轉週報",
-            why_it_works: "降低 PM 整理成本。",
-            copyable_template: "Threads replies -> Claude -> weekly digest",
+          reusable_pattern: "討論轉週報",
+          why_it_works: "降低 PM 整理成本。",
+          grounding: "insufficient_detail",
+          copyable_template: "Threads replies -> Claude -> weekly digest",
             workflow_stack: ["Threads", "Claude"],
             copy_recipe_markdown: "- 收集 Threads replies\n- 交給 Claude 摘要\n- 產出 weekly digest",
             tradeoff: "需要人工確認引用。"
@@ -262,6 +279,7 @@ test("normalize accepts snake_case optional fields from legacy storage", async (
       whyItMatters: "直接證據。",
       reusablePattern: "討論轉週報",
       whyItWorks: "降低 PM 整理成本。",
+      grounding: "insufficient_detail",
       copyableTemplate: "Threads replies -> Claude -> weekly digest",
       workflowStack: ["Threads", "Claude"],
       copyRecipeMarkdown: "- 收集 Threads replies\n- 交給 Claude 摘要\n- 產出 weekly digest",

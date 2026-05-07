@@ -247,6 +247,11 @@ export function SettingsView({
                     mode: "product" as const,
                     title: "產品觀察（Product）",
                     deck: "啟用 Topic 流程並加上 Judgment"
+                  },
+                  {
+                    mode: "pr-evidence" as const,
+                    title: "PR Evidence",
+                    deck: "整理已找到的 Threads posts，輸出 criteria CSV"
                   }
                 ].map((option) => {
                   const active = sessionMode === option.mode;

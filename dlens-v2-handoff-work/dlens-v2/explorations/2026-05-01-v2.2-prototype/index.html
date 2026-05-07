@@ -1,0 +1,284 @@
+<!doctype html>
+<html lang="zh-Hant">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>DLens V2.2 · Mode-Aware Workbench (side-by-side)</title>
+<style>
+  :root {
+    --paper: #f7f2e8;
+    --ink: #1b1a17;
+    --sub-ink: #48443b;
+    --soft-ink: #716c5f;
+    --line: rgba(27, 26, 23, 0.12);
+    --product: #234f7a;
+    --topic:   #3f5a3b;
+    --archive: #48443b;
+    --serif: "Noto Serif TC", "Songti TC", "Source Han Serif TC", Georgia, serif;
+    --sans:  "Noto Sans TC", -apple-system, BlinkMacSystemFont, system-ui, sans-serif;
+    --mono:  "SF Mono", "JetBrains Mono", ui-monospace, monospace;
+  }
+  * { box-sizing: border-box; }
+  html { -webkit-font-smoothing: antialiased; }
+  body {
+    margin: 0;
+    font-family: var(--sans);
+    color: var(--ink);
+    background:
+      radial-gradient(circle at 24px 24px, rgba(27, 26, 23, 0.035) 1px, transparent 1px) 0 0 / 24px 24px,
+      #e8dfcf;
+    min-height: 100vh;
+  }
+  header.shell-head {
+    position: sticky;
+    top: 0;
+    z-index: 20;
+    padding: 16px 28px 14px;
+    background: rgba(247, 242, 232, 0.94);
+    backdrop-filter: blur(8px);
+    border-bottom: 1px solid var(--line);
+    display: flex;
+    gap: 24px;
+    align-items: baseline;
+    flex-wrap: wrap;
+  }
+  header.shell-head h1 {
+    margin: 0;
+    font-family: var(--serif);
+    font-size: 22px;
+    font-weight: 700;
+    letter-spacing: -0.005em;
+    line-height: 1.2;
+  }
+  header.shell-head h1 small {
+    display: block;
+    font-family: var(--mono);
+    font-size: 10px;
+    color: var(--soft-ink);
+    text-transform: uppercase;
+    letter-spacing: 0.16em;
+    font-weight: 400;
+    margin-bottom: 4px;
+  }
+  header.shell-head .legend {
+    font-size: 12px;
+    line-height: 1.55;
+    color: var(--sub-ink);
+    max-width: 56ch;
+  }
+  header.shell-head .legend b {
+    color: var(--ink);
+    font-weight: 700;
+  }
+  header.shell-head .controls {
+    margin-left: auto;
+    display: flex;
+    gap: 8px;
+    align-items: center;
+  }
+  .toggle {
+    border: 1px solid var(--line);
+    background: rgba(255, 253, 248, 0.7);
+    padding: 7px 11px;
+    font-size: 12px;
+    font-weight: 600;
+    color: var(--sub-ink);
+    cursor: pointer;
+    font-family: inherit;
+    transition: background 120ms ease;
+  }
+  .toggle:hover { background: rgba(255, 253, 248, 1); }
+  .toggle.active {
+    background: var(--ink);
+    color: #fffdf8;
+    border-color: var(--ink);
+    cursor: default;
+  }
+  .toggle .swatch {
+    display: inline-block;
+    width: 7px; height: 7px;
+    margin-right: 5px;
+    vertical-align: 1px;
+    background: var(--swatch);
+  }
+  .toggle.product { --swatch: var(--product); }
+  .toggle.topic   { --swatch: var(--topic); }
+  .toggle.archive { --swatch: var(--archive); }
+  .toggle.static  { --swatch: var(--soft-ink); }
+
+  .lanes {
+    display: flex;
+    gap: 28px;
+    padding: 24px 28px 80px;
+    overflow-x: auto;
+    align-items: flex-start;
+  }
+  .lanes.single { padding-bottom: 24px; }
+  .lane {
+    flex: 0 0 auto;
+    width: 760px;
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+  }
+  .lane.full { width: calc(100vw - 56px); max-width: 1180px; }
+  .lane-cap {
+    display: flex;
+    gap: 12px;
+    align-items: baseline;
+    padding: 0 4px;
+    font-family: var(--mono);
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: 0.12em;
+    color: var(--soft-ink);
+  }
+  .lane-cap b { color: var(--ink); font-weight: 700; letter-spacing: 0.08em; }
+  .lane-cap .accent {
+    display: inline-block;
+    width: 10px; height: 10px;
+    background: var(--mode);
+  }
+  .lane-cap em {
+    font-style: normal;
+    margin-left: auto;
+    font-family: var(--sans);
+    text-transform: none;
+    letter-spacing: 0;
+    font-size: 11px;
+    color: var(--soft-ink);
+  }
+  .lane-cap a {
+    color: var(--soft-ink);
+    text-decoration: underline dotted rgba(27,26,23,0.2);
+    text-underline-offset: 2px;
+    margin-left: 12px;
+    font-family: var(--sans);
+    text-transform: none;
+    letter-spacing: 0;
+    font-size: 11px;
+  }
+  .lane-cap a:hover { color: var(--ink); }
+  .lane.product .lane-cap { --mode: var(--product); }
+  .lane.topic   .lane-cap { --mode: var(--topic); }
+  .lane.archive .lane-cap { --mode: var(--archive); }
+
+  iframe {
+    width: 100%;
+    height: 820px;
+    border: 1px solid rgba(27, 26, 23, 0.18);
+    box-shadow: 0 18px 45px rgba(27, 26, 23, 0.15), 0 1px 2px rgba(27, 26, 23, 0.08);
+    background: var(--paper);
+    display: block;
+  }
+
+  .footer-strip {
+    padding: 14px 28px;
+    border-top: 1px solid var(--line);
+    background: rgba(251, 248, 241, 0.86);
+    font-size: 11px;
+    color: var(--soft-ink);
+    line-height: 1.55;
+  }
+  .footer-strip code {
+    font-family: var(--mono);
+    background: rgba(27, 26, 23, 0.06);
+    padding: 1px 5px;
+  }
+</style>
+</head>
+<body>
+
+<header class="shell-head">
+  <h1>
+    <small>DLens · V2.2 · Mode-Aware Workbench</small>
+    Side-by-side · 一個 shell，三個模式
+  </h1>
+  <p class="legend">
+    每條 lane 是真正可互動的 React app（filter / select / Pair Lens slot 都能點）。
+    Shell 位置在三個模式完全相同 — 變的只有 nav label 和 <b>--mode</b> accent 顏色。
+    若同一窗開太擠，可改用 <code style="font-family:var(--mono);font-size:10px">View</code> 切到單窗。
+  </p>
+  <div class="controls" id="controls"></div>
+</header>
+
+<div class="lanes" id="lanes"></div>
+
+<div class="footer-strip">
+  <code>index.html</code> = side-by-side iframes ·
+  <code>product.html</code> / <code>topic.html</code> / <code>archive.html</code> = 各模式單獨 React app ·
+  <code>styles.css</code> = 共用設計 token ·
+  <code>static-overview.html</code> = 第一輪 20-screen 靜態 overview · 仍可用作 print review。
+</div>
+
+<script>
+  const VIEW_KEY = 'dlens-v2-2-view';
+  const VIEWS = [
+    { id: 'all',      label: 'All 3 (compare)',  cls: 'static',  panes: ['product', 'topic', 'archive'] },
+    { id: 'product',  label: 'Product · solo',   cls: 'product', panes: ['product'] },
+    { id: 'topic',    label: 'Topic · solo',     cls: 'topic',   panes: ['topic'] },
+    { id: 'archive',  label: 'Archive · solo',   cls: 'archive', panes: ['archive'] },
+    { id: 'pt',       label: 'Product + Topic',  cls: 'static',  panes: ['product', 'topic'] },
+    { id: 'static',   label: '20-screen overview', cls: 'static', panes: ['static'] },
+  ];
+  const META = {
+    product: { src: 'product.html',          name: 'Product mode',  hint: '8 screens · oxford blue · click headlines / filters / checkboxes' },
+    topic:   { src: 'topic.html',            name: 'Topic mode',    hint: '8 screens · forest teal · click clusters, build a Pair Lens, save Insight to Casebook' },
+    archive: { src: 'archive.html',          name: 'Archive mode',  hint: '3 screens · deep ink · paste a URL → save without AI' },
+    static:  { src: 'static-overview.html',  name: 'Static overview · 20 screens', hint: 'first-pass HTML (no React) · all screens scroll together' },
+  };
+
+  function load() {
+    return new URLSearchParams(location.search).get('view') ||
+           localStorage.getItem(VIEW_KEY) || 'all';
+  }
+  function save(v) {
+    localStorage.setItem(VIEW_KEY, v);
+    const url = new URL(location.href);
+    url.searchParams.set('view', v);
+    history.replaceState(null, '', url);
+  }
+
+  function render() {
+    const v = load();
+    const view = VIEWS.find(x => x.id === v) || VIEWS[0];
+
+    // controls
+    const controls = document.getElementById('controls');
+    controls.innerHTML = '';
+    VIEWS.forEach(opt => {
+      const b = document.createElement('button');
+      b.className = 'toggle ' + opt.cls + (opt.id === view.id ? ' active' : '');
+      b.innerHTML = (['product','topic','archive'].includes(opt.cls) ? '<span class="swatch"></span>' : '') + opt.label;
+      b.onclick = () => { save(opt.id); render(); };
+      controls.appendChild(b);
+    });
+
+    // lanes
+    const lanes = document.getElementById('lanes');
+    lanes.innerHTML = '';
+    lanes.className = 'lanes' + (view.panes.length === 1 ? ' single' : '');
+    view.panes.forEach(p => {
+      const meta = META[p];
+      const lane = document.createElement('div');
+      lane.className = 'lane ' + (p === 'static' ? 'full' : p);
+      lane.innerHTML = `
+        <div class="lane-cap">
+          <span class="accent"></span>
+          <b>${meta.name}</b>
+          <em>${meta.hint}</em>
+          <a href="${meta.src}" target="_blank" rel="noopener">open in new tab ↗</a>
+        </div>
+        <iframe src="${meta.src}" loading="lazy" title="${meta.name}"></iframe>
+      `;
+      lanes.appendChild(lane);
+    });
+  }
+
+  render();
+  // re-render on back/forward
+  window.addEventListener('popstate', render);
+</script>
+
+</body>
+</html>

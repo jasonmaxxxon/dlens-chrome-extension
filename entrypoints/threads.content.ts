@@ -65,6 +65,16 @@ const SELECTION_MODE_THEMES: Record<FolderMode, {
     surfaceSoft: "rgba(35,79,122,0.025)",
     shadowStrong: "rgba(35,79,122,0.14)",
     shadowSoft: "rgba(35,79,122,0.07)"
+  },
+  "pr-evidence": {
+    accent: "#7a2030",
+    accentMid: "#9b3a49",
+    borderStrong: "rgba(122,32,48,0.56)",
+    borderSoft: "rgba(122,32,48,0.26)",
+    surfaceStrong: "rgba(122,32,48,0.045)",
+    surfaceSoft: "rgba(122,32,48,0.025)",
+    shadowStrong: "rgba(122,32,48,0.13)",
+    shadowSoft: "rgba(122,32,48,0.07)"
   }
 };
 

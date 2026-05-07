@@ -1,6 +1,6 @@
 # AGENTS.md — DLens Chrome Extension v0.1
 
-> **Last updated:** 2026-04-27 (Product Phase B active — 281/281 tests in worktree; ProductSignalAnalyzer + agent task output live)
+> **Last updated:** 2026-05-07 (Product Phase B + PR Evidence V1 hardened — 361/361 tests in worktree)
 > **For:** any agent continuing work in this repo
 
 ## Process Rules (locked 2026-04-17)
@@ -25,26 +25,26 @@ Violations block merge. When in conflict with an older doc, these rules win.
 
 ## What This Repo Is
 
-Production MV3 Chrome extension for capturing Threads posts, organizing them into local folders, queueing them to an optional ingest backend over HTTP, and comparing two crawled posts by rendering backend read models plus extension-side brief summaries.
+Production MV3 Chrome extension for capturing Threads posts, organizing them into local folders, queueing them to an optional ingest backend over HTTP, comparing two crawled posts by rendering backend read models plus extension-side brief summaries, and turning already-found Threads posts into PR evidence CSVs.
 
 The extension is now **extension-first**, not SaaS-first:
 
 - local folders and UI state live in `chrome.storage.local`
 - backend owns crawl jobs and the canonical clustering / deterministic analysis read model
-- extension owns user API keys and compare one-liners
+- extension owns user API keys, compare one-liners, Product signal judgments, and PR criteria matching
 - runtime does not depend on any hard-coded local backend checkout path
 - `src/analysis/*` is the stable display/read-model layer: evidence lookup, cluster ranking, visible suppression, compare-row shaping, and experimental ports stay detached from the canonical backend output
 - `src/compare/*` is the extension-side brief layer: prompt building, parsing, deterministic fallback, and cache-key helpers around backend analysis snapshots
 
 ## Quick Start
 
-1. Read `/Users/tung/Desktop/dlens-product-phase-b-p0/README.md` when working in the Phase B worktree.
-2. Read `/Users/tung/Desktop/dlens-product-phase-b-p0/docs/memory/current-state.md`.
-3. If you are in the main checkout, confirm whether the task belongs there or in `/Users/tung/Desktop/dlens-product-phase-b-p0` before editing.
+1. Read `/Users/tung/Desktop/dlens-product-latest/README.md` when working in the active product/PR worktree.
+2. Read `/Users/tung/Desktop/dlens-product-latest/docs/memory/current-state.md`.
+3. If you are in another checkout, confirm whether the task belongs there or in `/Users/tung/Desktop/dlens-product-latest` before editing.
 4. Run:
 
 ```bash
-cd /Users/tung/Desktop/dlens-product-phase-b-p0
+cd /Users/tung/Desktop/dlens-product-latest
 npm run typecheck
 npx tsx --test tests/*.test.ts tests/*.test.tsx
 ```
@@ -56,6 +56,7 @@ npx tsx --test tests/*.test.ts tests/*.test.tsx
 - repost-aware author extraction
 - folder CRUD and save accumulation
 - popup workspace shell now uses an editorial masthead + left rail with primary mode navigation for `Library / Compare / Collect`, plus a separate Settings utility action
+- `pr-evidence` workspace mode is live with `PR Evidence / Collect / Settings` navigation, one active campaign per PR session, PDF/txt/md brief upload, six editable criteria, compact evidence ledger, explicit batch matching with deterministic backstop, CSV preview/export, and Markdown/DOCX PR audit summary export
 - Result remains a contextual reading route rather than a primary rail destination
 - queue single post or all pending posts to ingest-core, forwarding the active folder name in `client_context.folder_name`
 - **Process All** button (combined queue + drain) always visible in Library, no item selection required
@@ -252,17 +253,53 @@ Live crawl lesson from the Kathy Threads test:
 
 Do not start signal digest, watch mode, mobile share extension, or MCP execution until the ThreadReadModel and ProductSignalAnalyzer output are stable in Chrome.
 
+## PR Evidence Mode V1 State (2026-05-07)
+
+PR Evidence mode is implemented as a separate workspace type for agency / PR operators.
+
+- `FolderMode` includes `pr-evidence`.
+- Main route is `pr-evidence`; allowed pages are PR Evidence + Collect + Settings.
+- Popup width for the PR workspace is `720px`.
+- Data lives in `src/state/pr-evidence-storage.ts`.
+- PR contracts live in `src/compare/pr-evidence.ts`.
+- UI lives in `src/ui/PrEvidenceViews.tsx`.
+- Background messages include `pr/list-campaigns`, `pr/save-campaign`, `pr/list-evidence-rows`, `pr/save-evidence-row`, `pr/generate-criteria`, `pr/match-criteria`, and `pr/generate-summary`.
+- Storage keys are `dlens:v1:pr-campaigns` and `dlens:v1:pr-evidence-rows`.
+
+Contract rules:
+
+- V1 has one active campaign per PR Evidence session. Do not add campaign switching unless explicitly requested.
+- Criteria ids are fixed at `c1..c6`; labels are editable, count is not.
+- Criteria generation accepts common AI JSON shapes and must fall back to campaign-specific deterministic labels rather than leaving `criterion_1..6`.
+- Collect creates `PrEvidenceRow`, not Topic `Signal` or Product analysis.
+- Collect must not run AI. AI only runs on explicit criteria generation, explicit batch matching, or explicit summary generation.
+- Criteria match output is `✓ / blank` only. Deterministic visible-keyword matching may backstop AI results, but do not add confidence, explanations, `?`, duplicate groups, reach, EAV, or follower scraping to V1 rows.
+- CSV is the primary evidence output and includes UTF-8 BOM. CSV preview is read-only, capped to header + first 20 rows, and should not render blank-looking cells without placeholders.
+- Topline PR audit summary is facts-first and client-ready Markdown. It uses `Executive Read`, `Message Pull-Through`, `Interpretation`, `Evidence Highlights`, and `Data Limits`; AI may rewrite tone but must not invent reach, EAV, or all-channel claims.
+- Summary export supports `.md` and true `.docx` through `src/ui/pr-summary-export.ts`.
+- Views may be extracted from DOM metrics or inferred from visible text like `132 views`; if Threads does not expose views, leave them unavailable rather than estimating reach.
+
+V1 non-goals:
+
+- no social listening
+- no duplicate policy
+- no true reach
+- no EAV
+- no XLSX
+- no detail inspector
+- no in-app spreadsheet editing
+
 ## Slice A–B: Mode-Aware Topic Intelligence Layer (2026-04-23)
 
 This was a major product-direction change. Summary for any agent picking up here:
 
 ### What changed
 
-**Product direction**: dlens is no longer just "capture two posts → compare brief". It is now a **mode-aware Threads intelligence extension**. Each folder carries a `mode` (`archive | topic | product`) that determines which surfaces mount and which AI passes run.
+**Product direction**: dlens is no longer just "capture two posts → compare brief". It is now a **mode-aware Threads intelligence extension**. Each folder carries a `mode` (`archive | topic | product | pr-evidence`) that determines which surfaces mount and which AI passes run.
 
 **New core objects**: `Topic` (named discussion container with status + signalIds + pairIds) and `Signal` (inbox item linking a captured post to a topic after triage).
 
-**New navigation rule**: `ALLOWED_PAGES` in `InPageCollectorPopup.tsx` determines which nav icons mount. `archive` = Library + Collect only. `topic`/`product` = Casebook + Inbox + Collect + Compare. Pages not in the allowed set are *unmounted*, not disabled.
+**New navigation rule**: `ALLOWED_PAGES` in `InPageCollectorPopup.tsx` determines which nav icons mount. `archive` = Library + Collect only. `topic`/`product` = Casebook + Inbox + Collect + Compare. `pr-evidence` = PR Evidence + Collect. Pages not in the allowed set are *unmounted*, not disabled.
 
 **Save routing**: `ensureSignalForSavedItem()` in `background.ts:607` is called after every successful save in `topic`/`product` mode. Creates a `Signal { inboxStatus: 'unprocessed' }` in the Inbox. Idempotent (deduped by `itemId`).
 
@@ -290,9 +327,9 @@ This was a major product-direction change. Summary for any agent picking up here
 | `src/state/types.ts` | Added `FolderMode`, `Topic`, `Signal`, `TopicStatus`, `SignalSource`, `SignalInboxStatus`; added `mode` to `SessionRecord`; expanded `MainPage` to include `'casebook' | 'inbox'` |
 | `src/state/messages.ts` | Added `topic/*`, `signal/*`, `session/set-mode`, `TriageAction` |
 | `src/state/store-helpers.ts` | `normalizeSessionRecord` defaults `mode` to `'topic'` for legacy sessions |
-| `entrypoints/background.ts` | 1394 → 1986 lines; added topic/signal/judgment/product handlers; `ensureSignalForSavedItem` on save path |
-| `src/ui/InPageCollectorPopup.tsx` | Mode guard (`ALLOWED_PAGES` + `guardPage`); casebook + inbox + topic detail routing |
-| `src/ui/useInPageCollectorAppState.ts` | 712 → 905 lines after `useTopicState` extraction; still owns popup/product orchestration |
+| `entrypoints/background.ts` | 1394 → 1986 lines in Slice A-B; now 2341 lines after Product + PR handlers; split before more growth |
+| `src/ui/InPageCollectorPopup.tsx` | Mode guard (`ALLOWED_PAGES` + `guardPage`); casebook + inbox + topic detail + PR routing |
+| `src/ui/useInPageCollectorAppState.ts` | 712 → 905 lines after `useTopicState` extraction; now 1041 lines after Product + PR orchestration |
 | `src/ui/CompareView.tsx` | Breadcrumb + "附加至案例" button for topic context |
 | `src/ui/CollectView.tsx` | Save toast changes to "已加入收件匣" in topic/product mode |
 | `src/ui/SettingsView.tsx` | Folder mode selector + ProductProfile form (product mode only) |
@@ -305,13 +342,13 @@ This was a major product-direction change. Summary for any agent picking up here
 
 ```bash
 npm run typecheck && npx tsx --test tests/*.test.ts tests/*.test.tsx
-# Expected in Phase B worktree: 281 pass, 0 fail
+# Expected in active worktree: 347 pass, 0 fail
 ```
 
 ### Watch items for next agent
 
-1. `background.ts` is at 1986 lines — split product/topic handlers before adding signal digest or watch mode.
-2. `useInPageCollectorAppState.ts` is at 905 lines — continue extraction before adding more product routes.
+1. `background.ts` is at 2341 lines — split product/topic/PR handlers before adding signal digest or watch mode.
+2. `useInPageCollectorAppState.ts` is at 1041 lines — continue extraction before adding more product or PR routes.
 3. Backend ThreadReadModel OP continuation quality is the Product mode P0 dependency.
 4. Product mode is live; Settings + imported product context are the entry point.
 5. Product UI should stay insight-first and evidence-first, not cluster-first.

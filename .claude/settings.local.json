@@ -26,7 +26,10 @@
       "Skill(review)",
       "Skill(review:*)",
       "Skill(investigate)",
-      "Skill(investigate:*)"
+      "Skill(investigate:*)",
+      "Bash(cat)",
+      "Bash(mkdir -p /Users/tung/Desktop/dlens-product-latest/.claude)",
+      "Read(//Users/tung/.claude/**)"
     ]
   }
 }

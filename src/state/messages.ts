@@ -9,8 +9,8 @@ import type {
   ProductSignalAnalysis,
   ProductContext,
   ProductProfile,
-  SavedAnalysisSnapshot,
   FolderMode,
+  SavedAnalysisSnapshot,
   Signal,
   SignalInboxStatus,
   Topic,
@@ -22,6 +22,7 @@ import type { EvidenceAnnotation, EvidenceAnnotationRequest } from "../compare/e
 import type { TargetDescriptor } from "../contracts/target-descriptor";
 import type { ExtensionSnapshot, HoverCandidateStrength, PopupPage } from "./types";
 import type { WorkerStatus } from "./processing-state";
+import type { PrCampaign, PrCriterion, PrEvidenceRow } from "./pr-evidence-storage";
 
 export type ExtensionMessage =
   | { type: "state/get-active-tab" }
@@ -79,6 +80,13 @@ export type ExtensionMessage =
   | { type: "product/list-agent-task-feedback" }
   | { type: "product/save-agent-task-feedback"; feedback: ProductAgentTaskFeedback }
   | { type: "product/get-context" }
+  | { type: "pr/list-campaigns"; sessionId: string }
+  | { type: "pr/save-campaign"; campaign: PrCampaign }
+  | { type: "pr/list-evidence-rows"; campaignId: string }
+  | { type: "pr/save-evidence-row"; row: PrEvidenceRow }
+  | { type: "pr/generate-criteria"; campaignName: string; briefText: string }
+  | { type: "pr/match-criteria"; campaignId: string }
+  | { type: "pr/generate-summary"; campaignId: string }
   | {
     type: "judgment/result";
     resultId: string;
@@ -113,6 +121,10 @@ export type ExtensionSuccessResponse = {
     analyzed: number;
     failed: number;
   };
+  prCampaigns?: PrCampaign[];
+  prEvidenceRows?: PrEvidenceRow[];
+  prCriteria?: PrCriterion[];
+  prSummary?: string;
 };
 
 export type StartProcessingResponse =

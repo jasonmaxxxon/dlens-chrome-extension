@@ -91,6 +91,19 @@ function parseCount(label: string | null | undefined): number | null {
   return Math.round(value);
 }
 
+export function inferThreadViewsFromText(text: string): number | null {
+  const source = String(text || "").replace(/\s+/g, " ");
+  const english = source.match(/(\d+(?:\.\d+)?\s*(?:[kKmM]|萬|万|千)?)\s*(?:views|view)\b/i);
+  if (english) {
+    return parseCount(english[1]);
+  }
+  const chinese = source.match(/(\d+(?:\.\d+)?\s*(?:[kKmM]|萬|万|千)?)\s*(?:次)?(?:瀏覽|浏览|觀看|观看|查看)/);
+  if (chinese) {
+    return parseCount(chinese[1]);
+  }
+  return null;
+}
+
 function cleanBodyText(rawText: string): string {
   const lines = String(rawText || "")
     .split(/\n/)
@@ -383,7 +396,7 @@ export function classifyMetric(label: string): keyof EngagementMetrics | null {
   if (/\b(reply|replies|comment|comments)\b/.test(lower) || /回覆|回复|留言/.test(label)) return "comments";
   if (/\b(repost|reposts|reshare|re-share)\b/.test(lower) || /轉發|转发|轉貼|转贴/.test(label)) return "reposts";
   if (/\b(share|shares|send|forward)\b/.test(lower) || /分享|傳送|传送|轉寄|转寄/.test(label)) return "forwards";
-  if (/\b(view|views)\b/.test(lower) || /瀏覽|浏览|次查看/.test(label)) return "views";
+  if (/\b(view|views)\b/.test(lower) || /瀏覽|浏览|觀看|观看|次查看/.test(label)) return "views";
   return null;
 }
 
@@ -433,12 +446,21 @@ function resolveEngagement(card: HTMLElement, targetType: TargetType): { engagem
     }
   }
 
+  if (!present.views) {
+    const cardText = card.innerText || card.textContent || "";
+    const views = inferThreadViewsFromText(cardText);
+    if (views !== null) {
+      present.views = true;
+      metrics.views = views;
+    }
+  }
+
   if (targetType === "post" && !present.views) {
     const bodyText = document.body?.innerText || document.body?.textContent || "";
-    const match = bodyText.match(/(\d+(?:\.\d+)?\s*[kKmM]?)[ ]*views\b/i);
-    if (match) {
+    const views = inferThreadViewsFromText(bodyText);
+    if (views !== null) {
       present.views = true;
-      metrics.views = parseCount(match[1]);
+      metrics.views = views;
     }
   }
 

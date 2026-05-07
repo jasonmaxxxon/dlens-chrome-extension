@@ -1,0 +1,221 @@
+<!doctype html>
+<html lang="zh-Hant">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>DLens Plugin UI C - Folio Workflow</title>
+  <style>
+    :root {
+      --ink: #171615;
+      --muted: #706b62;
+      --faint: #a79f92;
+      --paper: #f6efe2;
+      --panel: #fffaf1;
+      --line: #ded3c3;
+      --line-dark: #b9aa97;
+      --coral: #e8553f;
+      --blue: #244f7a;
+      --olive: #596d45;
+      --gold: #b48626;
+      --rose: #b64c64;
+      --shadow: 0 18px 54px rgba(45, 36, 25, .14);
+      --mono: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+      --sans: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      --serif: "Iowan Old Style", "Noto Serif TC", Georgia, serif;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      background: radial-gradient(circle at 20% 0%, #fff8eb 0, #f6efe2 34%, #efe5d6 100%);
+      color: var(--ink);
+      font-family: var(--sans);
+      -webkit-font-smoothing: antialiased;
+    }
+    button, input, textarea { font: inherit; }
+    button {
+      border: 1px solid var(--line-dark);
+      background: #fffaf4;
+      color: var(--ink);
+      min-height: 34px;
+      padding: 7px 11px;
+      border-radius: 999px;
+      cursor: pointer;
+    }
+    button.primary { background: var(--ink); color: #fffaf1; border-color: var(--ink); }
+    button.ghost { background: transparent; }
+    button.mode-active { border-color: var(--ink); background: var(--ink); color: var(--panel); }
+    .mono { font-family: var(--mono); }
+    .serif { font-family: var(--serif); }
+    .muted { color: var(--muted); }
+    .tiny { font: 11px/1.2 var(--mono); letter-spacing: .03em; text-transform: uppercase; color: var(--muted); }
+    .tag { display: inline-flex; align-items: center; min-height: 24px; padding: 3px 8px; border: 1px solid var(--line); border-radius: 999px; color: var(--muted); background: rgba(255,255,255,.48); font-size: 12px; }
+    .tag.blue { color: var(--blue); border-color: color-mix(in srgb, var(--blue), white 60%); }
+    .tag.olive { color: var(--olive); border-color: color-mix(in srgb, var(--olive), white 60%); }
+    .tag.gold { color: #7a520e; border-color: color-mix(in srgb, var(--gold), white 50%); }
+    .dot { width: 8px; height: 8px; border-radius: 999px; background: var(--coral); display: inline-block; }
+    .metric { font-variant-numeric: tabular-nums; font-family: var(--mono); }
+    .hidden { display: none !important; }
+    .output {
+      white-space: pre-wrap;
+      background: #181614;
+      color: #f9f0df;
+      padding: 14px;
+      border-radius: 16px;
+      font: 12px/1.55 var(--mono);
+      max-height: 260px;
+      overflow: auto;
+    }
+    .modal {
+      position: fixed;
+      inset: 0;
+      background: rgba(21, 18, 13, .34);
+      display: none;
+      align-items: center;
+      justify-content: center;
+      padding: 24px;
+      z-index: 99;
+    }
+    .modal.open { display: flex; }
+    .modal-card {
+      width: min(760px, 100%);
+      max-height: 88vh;
+      overflow: auto;
+      background: var(--panel);
+      border: 1px solid var(--line-dark);
+      border-radius: 24px;
+      box-shadow: var(--shadow);
+      padding: 22px;
+    }
+
+    .folio { width:min(820px, calc(100vw - 26px)); margin: 24px auto 48px; }
+    .chrome { display:flex; justify-content:space-between; align-items:center; gap:14px; padding:12px 14px; border:1px solid var(--line-dark); border-radius:24px; background:rgba(255,250,241,.92); box-shadow:0 8px 28px rgba(45,36,25,.10); }
+    .sheet { margin-top:14px; background:#fffaf1; border:1px solid var(--line-dark); border-radius:30px; padding:24px; box-shadow:0 10px 30px rgba(45,36,25,.08); }
+    .sheet.subtle { background:#f9f1e5; box-shadow:none; }
+    .sheet h1 { font:44px/1.02 var(--serif); margin:6px 0 10px; }
+    .sheet h2 { font:30px/1.08 var(--serif); margin:0 0 10px; }
+    .steps { display:grid; grid-template-columns: repeat(5, 1fr); gap:8px; margin-top:18px; }
+    .step { border-top:4px solid var(--line-dark); padding-top:8px; min-height:58px; }
+    .step.done { border-color:var(--olive); }
+    .step.live { border-color:var(--coral); }
+    .objects { display:grid; gap:10px; }
+    .object-row { display:grid; grid-template-columns:auto 1fr auto; gap:12px; align-items:start; padding:12px 0; border-top:1px solid var(--line); }
+    .badge { width:34px;height:34px;border:1px solid var(--line-dark);border-radius:50%;display:grid;place-items:center;font-family:var(--mono);font-size:12px;background:#fff; }
+    .evidence { border-left:4px solid var(--blue); padding:10px 0 10px 14px; background:rgba(36,79,122,.045); }
+    .pair-grid { display:grid; grid-template-columns:1fr 1fr; gap:12px; }
+    .mini-card { border:1px solid var(--line); border-radius:20px; padding:14px; background:rgba(255,255,255,.48); }
+    .actions { display:flex;gap:8px;flex-wrap:wrap;margin-top:16px; }
+    @media (max-width:760px) { .steps, .pair-grid { grid-template-columns:1fr; } .chrome { position:static; flex-direction:column; align-items:stretch; } }
+
+  </style>
+</head>
+<body data-variant="folio-workflow">
+
+    <main class="folio">
+      <nav class="chrome">
+        <div><strong class="serif" style="font-size:26px">DLens Folio Workflow</strong><div class="tiny">Plugin UI C · progressive sheets</div></div>
+        <div class="tabs"><button class="mode-active" data-mode="product">Product</button><button class="" data-mode="topic">Topic</button><button class="" data-mode="pr-evidence">PR Evidence</button></div>
+      </nav>
+
+    <section class="sheet" data-sheet="product">
+      <div class="tiny">Product mode · Signal → decision → agent brief</div>
+      <h1>先問：這條 signal 值不值得理<span class="dot"></span></h1>
+      <p class="muted">Product mode 的主角是 ProductSignalAnalysis，不是 Topic cluster。重成本只在明確要求 Agent Brief 或 batch export 時發生。</p>
+      <div class="steps">
+        <div class="step done"><strong>Settings</strong><br><span class="muted">ProductContext</span></div>
+        <div class="step done"><strong>Collect</strong><br><span class="muted">save as Signal</span></div>
+        <div class="step live"><strong>Filter</strong><br><span class="muted">verdict/relevance</span></div>
+        <div class="step"><strong>Evidence</strong><br><span class="muted">refs e1..eN</span></div>
+        <div class="step"><strong>Agent</strong><br><span class="muted">optional prompt</span></div>
+      </div>
+    </section>
+    <section class="sheet subtle">
+      <h2>把 recurring crawl 包成每日監測 agent</h2>
+      <div class="evidence">“如果可以每天自動抓一次，再只告訴我今天多了什麼，其實就夠用了。” <span class="mono">e1 · e3</span></div>
+      <p>這不是 crawler 本身，而是固定時間收集、比對前一天差異、輸出少量可讀 brief 的 workflow。</p>
+      <div class="actions"><button data-action="agent-brief" class="primary">Generate single-card Agent Brief</button><button data-action="collect-route">Show save routing</button></div>
+    </section>
+
+    <section class="sheet" data-sheet="topic">
+      <div class="tiny">Topic mode · Topic first, Cluster second</div>
+      <h2>Topic Detail 是 reading workspace，不是 KPI dashboard</h2>
+      <div class="objects">
+        <div class="object-row"><span class="badge">C1</span><div><strong>活動體驗派</strong> <span class="tag olive">打卡/福利視角</span><p class="muted">現場動線和贈品比品牌理念更容易被轉貼。</p></div><span class="metric">42%</span></div><div class="object-row"><span class="badge">C2</span><div><strong>健康焦慮派</strong> <span class="tag olive">自我管理視角</span><p class="muted">大家反覆講壓力、睡眠、補充品，品牌不是唯一主角。</p></div><span class="metric">31%</span></div><div class="object-row"><span class="badge">C3</span><div><strong>花生友</strong> <span class="tag olive">旁觀玩笑視角</span><p class="muted">最有傳播力的是吐槽文案和排隊照片。</p></div><span class="metric">17%</span></div>
+      </div>
+      <div class="pair-grid">
+        <div class="mini-card"><div class="tiny">Pair slot A</div><strong>活動體驗派</strong><p class="muted">現場可感知 evidence。</p></div>
+        <div class="mini-card"><div class="tiny">Pair slot B</div><strong>健康焦慮派</strong><p class="muted">自我管理 narrative。</p></div>
+      </div>
+      <div class="actions"><button data-action="pair-lens" class="primary">Run Pair Lens</button><button>Save to Pair Insights</button></div>
+    </section>
+
+    <section class="sheet" data-sheet="pr">
+      <div class="tiny">PR Evidence mode · Campaign rows</div>
+      <h2>像 PR audit summary，但底層先是 CSV</h2>
+      <p class="muted">V1 不估算 EAV，不承諾 coverage，不在 collect 偷跑 AI。用戶手動按 Batch match，再看 CSV preview 和 facts-first summary。</p>
+      <div class="objects">
+        <div class="object-row"><span class="badge">3/6</span><div><strong>@wellness.daily</strong><p class="muted">今次 carnival 最多人講的是體驗動線和試飲區，品牌 message 反而藏在細節。</p></div><span class="metric">22100</span></div><div class="object-row"><span class="badge">3/6</span><div><strong>@healthbeat.hk</strong><p class="muted">BoostUP 把 inside-out wellness 講成日常習慣，比單次活動更容易被 media quote。</p></div><span class="metric">14700</span></div><div class="object-row"><span class="badge">3/6</span><div><strong>@citykol</strong><p class="muted">排隊人龍比產品介紹更搶眼，這種 KOL post 適合算 reported coverage。</p></div><span class="metric">53000</span></div><div class="object-row"><span class="badge">3/6</span><div><strong>@reporter.alice</strong><p class="muted">活動現場設計清楚，但真正可引用的是 brand angle 和參與人數。</p></div><span class="metric">6800</span></div>
+      </div>
+      <div class="actions"><button data-action="match-criteria">Batch match</button><button data-action="csv-preview">Preview CSV</button><button class="primary" data-action="summary">Generate Summary</button><span class="tag gold" data-match-state>not matched</span></div>
+    </section>
+    </main>
+<div class="modal" id="modal" role="dialog" aria-modal="true" aria-labelledby="modal-title">
+  <div class="modal-card">
+    <div style="display:flex;justify-content:space-between;gap:16px;align-items:start;margin-bottom:12px">
+      <div>
+        <div class="tiny">Generated output</div>
+        <h2 class="serif" id="modal-title" style="margin:4px 0 0;font-size:28px;line-height:1.05">Output</h2>
+      </div>
+      <button class="ghost" data-close>Close</button>
+    </div>
+    <div class="output" data-output>Mannings BoostUP Wellness Carnival - Topline PR Performance Audit Summary
+
+1. Overall Campaign Evidence
+• Observed Social Coverage: DLens collected 4 opened Threads posts for this campaign batch, with visible engagement fields preserved per row.
+• Strongest Pull-Through: Inside-out wellness and Event experience appear most frequently across the collected posts.
+• Operator Note: Reach, EAV, and duplicate policy are intentionally not estimated in V1 unless the PR team supplies a rubric.
+
+2. Brand Message Pull-Through
+• Inside-out wellness: appears in 3 of 4 collected examples.
+• Event experience: appears in 2 of 4 collected examples.
+• KOL amplification: visible in high-engagement KOL-style posts, but remains an observed field rather than a guaranteed reach claim.</div>
+  </div>
+</div>
+<script>
+
+    const outputs = {
+      agent: "Build a daily monitor brief for collected Threads posts. Keep original URLs, visible metrics, and quote refs. Output only new or changed signals.",
+      pair: "Pair Insight｜成對洞察\\nA「活動體驗派」把證據放在現場可感知的動線與福利；B「健康焦慮派」把同一活動讀成日常自我管理焦慮。這個差異應短版保存到 Topic Note，完整 compare 留在 detail。",
+      csv: "post_url,author_handle,post_caption,likes,comments,reposts,views,expected_engagement,Inside-out wellness,Event experience,Brand message,KOL amplification,Media quote ready,Logistics detail,manual_notes,collected_at\nthreads.com/@kathy/post/1,@wellness.daily,\"今次 carnival 最多人講的是體驗動線和試飲區，品牌 message 反而藏在細節。\",1280,91,64,22100,,✓,✓,,✓,,,,2026-05-06\nthreads.com/@healthbeat/post/2,@healthbeat.hk,\"BoostUP 把 inside-out wellness 講成日常習慣，比單次活動更容易被 media quote。\",884,44,38,14700,,✓,,✓,,✓,,,2026-05-06\nthreads.com/@citykol/post/3,@citykol,\"排隊人龍比產品介紹更搶眼，這種 KOL post 適合算 reported coverage。\",2400,203,112,53000,,,✓,,✓,✓,,,2026-05-06\nthreads.com/@reporter/post/4,@reporter.alice,\"活動現場設計清楚，但真正可引用的是 brand angle 和參與人數。\",421,12,17,6800,,✓,,✓,,,✓,,2026-05-06",
+      summary: "Mannings BoostUP Wellness Carnival - Topline PR Performance Audit Summary\n\n1. Overall Campaign Evidence\n• Observed Social Coverage: DLens collected 4 opened Threads posts for this campaign batch, with visible engagement fields preserved per row.\n• Strongest Pull-Through: Inside-out wellness and Event experience appear most frequently across the collected posts.\n• Operator Note: Reach, EAV, and duplicate policy are intentionally not estimated in V1 unless the PR team supplies a rubric.\n\n2. Brand Message Pull-Through\n• Inside-out wellness: appears in 3 of 4 collected examples.\n• Event experience: appears in 2 of 4 collected examples.\n• KOL amplification: visible in high-engagement KOL-style posts, but remains an observed field rather than a guaranteed reach claim.",
+      collect: "Collect route result\\n同一篇 Threads post 已保存。\\nProduct: creates Signal for product analysis.\\nTopic: creates Signal in Inbox for triage.\\nPR Evidence: creates EvidenceRow with visible metrics only; no AI runs on collect."
+    };
+    function showOutput(kind, title) {
+      document.querySelector("[data-output]").textContent = outputs[kind] || "";
+      document.querySelector("#modal-title").textContent = title || "Output";
+      document.querySelector("#modal").classList.add("open");
+    }
+    document.addEventListener("click", (event) => {
+      const close = event.target.closest("[data-close]");
+      if (close) document.querySelector("#modal").classList.remove("open");
+      const action = event.target.closest("[data-action]");
+      if (!action) return;
+      const kind = action.dataset.action;
+      if (kind === "agent-brief") showOutput("agent", "Agent Brief");
+      if (kind === "pair-lens") showOutput("pair", "Pair Lens Result");
+      if (kind === "csv-preview") showOutput("csv", "CSV Preview");
+      if (kind === "summary") showOutput("summary", "Client Summary");
+      if (kind === "collect-route") showOutput("collect", "Save routing");
+      if (kind === "match-criteria") {
+        document.body.classList.add("matched");
+        const badge = document.querySelector("[data-match-state]");
+        if (badge) badge.textContent = "matched · 4 rows · explicit batch action";
+      }
+    });
+    document.addEventListener("keydown", (event) => {
+      if (event.key === "Escape") document.querySelector("#modal").classList.remove("open");
+    });
+
+
+</script>
+</body>
+</html>

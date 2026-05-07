@@ -2,7 +2,7 @@ import { useEffect } from "react";
 
 export function buildPopupKeyframeCss(): string {
   return `
-      @import url("https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=JetBrains+Mono:wght@400;600;700&family=Noto+Serif+TC:wght@400;600;700&display=swap");
+      @import url("https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=JetBrains+Mono:wght@400;500;700&family=Noto+Sans+TC:wght@400;500;600;700;900&family=Noto+Serif+TC:wght@400;500;700;900&display=swap");
 
       :root {
         --dlens-canvas-deep: #f7f4ec;
@@ -38,6 +38,10 @@ export function buildPopupKeyframeCss(): string {
       @keyframes dlens-popup-indeterminate {
         0% { transform: translateX(-115%); }
         100% { transform: translateX(240%); }
+      }
+      @keyframes dlens-spin {
+        0% { transform: rotate(0deg); }
+        100% { transform: rotate(360deg); }
       }
     `;
 }

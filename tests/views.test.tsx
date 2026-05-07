@@ -12,7 +12,8 @@ import { createSessionItem, createSessionRecord } from "../src/state/store-helpe
 import { CollectView } from "../src/ui/CollectView.tsx";
 import { InPageCollectorFolderControls } from "../src/ui/InPageCollectorFolderControls.tsx";
 import { LibraryView } from "../src/ui/LibraryView.tsx";
-import { ProductSignalView, PRODUCT_SIGNAL_MOTION_CSS } from "../src/ui/ProductSignalViews.tsx";
+import { PrEvidenceView } from "../src/ui/PrEvidenceViews.tsx";
+import { ProductSignalView, PRODUCT_SIGNAL_MOTION_CSS, productSignalViewTestables } from "../src/ui/ProductSignalViews.tsx";
 import { SettingsView } from "../src/ui/SettingsView.tsx";
 import {
   ModeRail,
@@ -160,8 +161,9 @@ test("surfaceCardStyle uses the editorial paper defaults", () => {
   assert.equal(style.boxShadow, tokens.shadow.shell);
 });
 
-test("tokens keep the lighter Ming-style editorial direction", () => {
-  assert.match(tokens.font.sans, /Noto Serif TC|Songti TC/);
+test("tokens keep the design-system UI and editorial type split", () => {
+  assert.match(tokens.font.sans, /Noto Sans TC/);
+  assert.doesNotMatch(tokens.font.sans, /Noto Serif TC|Songti TC/);
   assert.match(tokens.font.serifCjk, /Noto Serif TC|Songti TC/);
   assert.equal(tokens.color.canvas, "#f7f4ec");
   assert.equal(tokens.color.surface, "#fbf8f1");
@@ -173,11 +175,13 @@ test("tokens keep the lighter Ming-style editorial direction", () => {
 test("mode themes keep topic and product visually separate", () => {
   const topicStyle = modeThemeStyle("topic");
   const productStyle = modeThemeStyle("product");
+  const prStyle = modeThemeStyle("pr-evidence");
 
   assert.equal(topicStyle["--dlens-mode-accent"], tokens.color.cyan);
   assert.notEqual(productStyle["--dlens-mode-accent"], topicStyle["--dlens-mode-accent"]);
   assert.match(topicStyle["--dlens-mode-hover-border-strong"], /63,90,59/);
   assert.match(productStyle["--dlens-mode-hover-border-strong"], /35,79,122/);
+  assert.match(prStyle["--dlens-mode-hover-border-strong"], /122,32,48/);
 });
 
 test("WorkspaceShell keeps the processing strip outside the primary mode rail", () => {
@@ -253,7 +257,9 @@ test("LibraryView keeps Process All visible inside the compact readiness bar", (
   assert.match(html, /Process All/);
   assert.match(html, /1 篇等待處理/);
   assert.match(html, /Signals/);
-  assert.match(html, /data-library-row="card"/);
+  assert.match(html, /data-library-row="scan"/);
+  assert.match(html, /data-scan-list="library"/);
+  assert.match(html, /data-scan-row="true"/);
 });
 
 test("LibraryView renders top-cluster keyword chips and removes the old fingerprint block", () => {
@@ -331,9 +337,48 @@ test("LibraryView exposes item phase and pending skeleton outlets for active wor
   );
 
   assert.match(html, /data-item-phase="crawling"/);
-  assert.match(html, /data-library-row="card"/);
+  assert.match(html, /data-library-row="scan"/);
+  assert.match(html, /data-scan-row="true"/);
   assert.match(html, /data-library-card-skeleton="visible"/);
   assert.match(html, /crawling/);
+});
+
+test("LibraryView explains archive empty state without implying AI work", () => {
+  const session = buildSession();
+  session.mode = "archive";
+  session.items = [];
+
+  const html = renderToStaticMarkup(
+    React.createElement(LibraryView, {
+      activeFolder: session,
+      activeItem: null as SessionItem | null,
+      optimisticQueuedIds: [],
+      workerStatus: "idle" as WorkerStatus | null,
+      isStartingProcessing: false,
+      processAllLabel: "Process All",
+      processingSummary: {
+        total: 0,
+        ready: 0,
+        crawling: 0,
+        analyzing: 0,
+        pending: 0,
+        failed: 0,
+        hasReadyPair: false,
+        hasInflight: false
+      },
+      canPrev: false,
+      canNext: false,
+      onSelectItem: () => undefined,
+      onProcessAll: () => undefined,
+      onMoveSelection: () => undefined,
+      onQueueItem: () => undefined,
+      renderMetrics: () => null,
+      techniqueReadings: [],
+      initialSection: "posts"
+    })
+  );
+
+  assert.match(html, /Archive 模式只保留原文，不自動分析。/);
 });
 
 // The Library home surface no longer renders raw comment preview tables after the three-page workspace split.
@@ -478,6 +523,8 @@ test("CollectView keeps the preview card and collect toggle visible with current
   assert.match(html, /Signals/);
   assert.match(html, /預覽中/);
   assert.match(html, /儲存到資料庫/);
+  assert.match(html, /data-archive-no-ai-notice="collect"/);
+  assert.match(html, /儲存為原文記錄，不跑 AI 分析/);
   assert.match(html, /收集模式：開啟/);
   assert.match(html, /關閉/);
 });
@@ -502,24 +549,63 @@ test("CollectView uses product inbox language in product mode", () => {
   assert.doesNotMatch(html, /資料夾/);
 });
 
-test("Product mode workspace strip hides folder controls", () => {
+test("CollectView blocks PR Evidence saves until a campaign exists", () => {
   const html = renderToStaticMarkup(
-    React.createElement(InPageCollectorFolderControls, {
-      app: {
-        activeFolderMode: "product",
-        activeFolder: { items: [] },
-        signals: [],
-        productSignalAnalyses: []
-      } as any
+    React.createElement(CollectView, {
+      preview: buildDescriptor(),
+      folderName: "PR workspace",
+      mode: "pr-evidence",
+      isSaved: false,
+      canSavePreview: false,
+      disabledReason: "先在 PR 頁建立 campaign，Collect 才能加入 evidence row。",
+      selectionMode: false,
+      onSavePreview: () => undefined,
+      onOpenPreview: () => undefined,
+      onToggleCollectMode: () => undefined
     })
   );
 
-  assert.match(html, /data-workspace-product-strip="compact"/);
-  assert.match(html, /Product workspace/);
-  assert.match(html, /不以資料夾分類/);
-  assert.doesNotMatch(html, /Select a folder/);
-  assert.doesNotMatch(html, /Rename folder/);
-  assert.doesNotMatch(html, /Create folder/);
+  assert.match(html, /加入 PR evidence/);
+  assert.match(html, /data-collect-disabled-reason="true"/);
+  assert.match(html, /先在 PR 頁建立 campaign/);
+  assert.match(html, /disabled=""/);
+});
+
+test("PrEvidenceView renders campaign setup and compact evidence ledger", () => {
+  const html = renderToStaticMarkup(
+    React.createElement(PrEvidenceView, {
+      sessionId: "session-pr"
+    })
+  );
+
+  assert.match(html, /data-pr-evidence-view="true"/);
+  assert.match(html, /data-pr-campaign-setup="true"/);
+  assert.match(html, /data-pr-actions="true"/);
+  assert.match(html, /data-pr-evidence-ledger="compact"/);
+  assert.match(html, /Match criteria/);
+  assert.match(html, /Export CSV/);
+  assert.match(html, /Generate summary/);
+});
+
+test("Product and PR Evidence modes render no folder strip", () => {
+  for (const activeFolderMode of ["product", "pr-evidence"] as const) {
+    const html = renderToStaticMarkup(
+      React.createElement(InPageCollectorFolderControls, {
+        app: {
+          activeFolderMode,
+          activeFolder: { items: [] },
+          signals: [],
+          productSignalAnalyses: []
+        } as any
+      })
+    );
+
+    assert.equal(html, "", `${activeFolderMode} mode should render nothing`);
+    assert.doesNotMatch(html, /Product workspace/);
+    assert.doesNotMatch(html, /Select a folder/);
+    assert.doesNotMatch(html, /Rename folder/);
+    assert.doesNotMatch(html, /Create folder/);
+  }
 });
 
 test("SettingsView exposes Google provider and save action", () => {
@@ -627,7 +713,7 @@ test("SettingsView exposes Google provider and save action", () => {
 test("ProductSignalView shows real readiness state without fake AI results", () => {
   const html = renderToStaticMarkup(
     React.createElement(ProductSignalView as any, {
-      kind: "classification",
+      kind: "saved-signals",
       signals: [
         {
           id: "signal_a",
@@ -665,16 +751,134 @@ test("ProductSignalView shows real readiness state without fake AI results", () 
     })
   );
 
-  assert.match(html, /data-product-signal-view="classification"/);
-  assert.match(html, /分類整理/);
+  assert.match(html, /data-product-signal-view="saved-signals"/);
+  assert.match(html, /Saved Signals/);
   assert.match(html, /1 signals/);
   assert.match(html, /0 analyses/);
   assert.match(html, /ProductProfile/);
   assert.match(html, /ProductContext/);
+  assert.match(html, /data-saved-signals-route="true"/);
+  assert.match(html, /data-saved-signal-row="compact"/);
+  assert.doesNotMatch(html, /data-saved-signals-batch-export="true"/);
   assert.match(html, /尚未抓取/);
   assert.match(html, /按分析會先送出抓取請求/);
-  assert.match(html, /尚未有 AI 分析結果/);
   assert.doesNotMatch(html, /航班觀察|fixture|score/i);
+});
+
+test("ProductSignalView renders batch export only on the actionable page", () => {
+  const baseProps = {
+    signals: [
+      {
+        id: "signal_a",
+        sessionId: "session_a",
+        itemId: "item_a",
+        source: "threads" as const,
+        inboxStatus: "unprocessed" as const,
+        capturedAt: "2026-04-27T00:00:00.000Z"
+      }
+    ],
+    analyses: [
+      {
+        signalId: "signal_a",
+        signalType: "demand" as const,
+        signalSubtype: "mobile_share_extension",
+        contentType: "mixed" as const,
+        contentSummary: "Users want a one-tap mobile save flow.",
+        relevance: 5 as const,
+        relevantTo: ["coreWorkflows" as const],
+        whyRelevant: "It maps directly to DLens collect flow.",
+        verdict: "try" as const,
+        reason: "The workflow is concrete enough for a small test.",
+        experimentHint: "Prototype a share URL intake.",
+        evidenceRefs: ["e1"],
+        productContextHash: "ctx_1",
+        promptVersion: "v1",
+        analyzedAt: "2026-04-27T01:00:00.000Z",
+        status: "complete" as const
+      }
+    ],
+    productProfile: {
+      name: "DLens",
+      category: "Creator analysis",
+      audience: "Threads creators",
+      contextText: "README context",
+      contextFiles: [
+        {
+          id: "file_readme",
+          name: "README.md",
+          kind: "readme" as const,
+          importedAt: "2026-04-27T00:00:00.000Z",
+          charCount: 14
+        }
+      ]
+    },
+    signalPreviewById: { signal_a: "Threads post preview" },
+    onAnalyze: () => undefined
+  };
+
+  const savedHtml = renderToStaticMarkup(
+    React.createElement(ProductSignalView, { ...baseProps, kind: "saved-signals" })
+  );
+  const actionableHtml = renderToStaticMarkup(
+    React.createElement(ProductSignalView, { ...baseProps, kind: "actionable-filter" })
+  );
+
+  assert.doesNotMatch(savedHtml, /data-saved-signals-batch-export="true"/);
+  assert.match(actionableHtml, /data-actionable-insights-board="true"/);
+  assert.match(actionableHtml, /data-saved-signals-batch-export="true"/);
+  assert.ok(
+    actionableHtml.indexOf('data-actionable-insights-board="true"') < actionableHtml.indexOf('data-saved-signals-batch-export="true"'),
+    "Batch export should render after the actionable analysis board"
+  );
+  assert.match(actionableHtml, /原文優先/);
+  assert.match(actionableHtml, /精簡決策/);
+  assert.match(actionableHtml, /複製 Agent Brief/);
+  assert.doesNotMatch(actionableHtml, /# Agent Brief/);
+});
+
+test("ProductSignalView shows a spinner for crawling pending signals", () => {
+  const html = renderToStaticMarkup(
+    React.createElement(ProductSignalView, {
+      kind: "saved-signals",
+      signals: [
+        {
+          id: "signal_fetching",
+          sessionId: "session_a",
+          itemId: "item_fetching",
+          source: "threads",
+          inboxStatus: "unprocessed",
+          capturedAt: "2026-04-27T00:00:00.000Z"
+        }
+      ],
+      analyses: [],
+      productProfile: {
+        name: "DLens",
+        category: "Creator analysis",
+        audience: "Threads creators",
+        contextText: "README context",
+        contextFiles: [
+          {
+            id: "file_readme",
+            name: "README.md",
+            kind: "readme",
+            importedAt: "2026-04-27T00:00:00.000Z",
+            charCount: 14
+          }
+        ]
+      },
+      signalReadinessById: {
+        signal_fetching: {
+          status: "crawling",
+          itemStatus: "running"
+        }
+      },
+      onAnalyze: () => undefined
+    })
+  );
+
+  assert.match(html, /抓取中/);
+  assert.match(html, /data-pending-signal-spinner="true"/);
+  assert.match(html, /animation:dlens-spin 0\.8s linear infinite/);
 });
 
 test("ProductSignalView gives each product page a distinct information shape", () => {
@@ -760,7 +964,10 @@ test("ProductSignalView gives each product page a distinct information shape", (
   assert.match(classificationHtml, /分類構成/);
   assert.match(classificationHtml, /系統挑出的內容/);
   assert.match(classificationHtml, /討論串內容/);
-  assert.match(classificationHtml, /AI 摘要/);
+  assert.match(classificationHtml, /data-scan-list="product-classification"/);
+  assert.match(classificationHtml, /data-scan-row="true"/);
+  assert.match(classificationHtml, /Users want a one-tap mobile save flow/);
+  assert.match(classificationHtml, /relevance 5 of 5/);
   assert.match(classificationHtml, /AI 建議分類/);
   assert.doesNotMatch(classificationHtml, /Agent 任務卡|實驗假設草稿/);
   assert.match(classificationHtml, /值得嘗試/);
@@ -772,15 +979,9 @@ test("ProductSignalView gives each product page a distinct information shape", (
   assert.doesNotMatch(actionableHtml, /儲存至行動清單|>\+<\/span> 儲存/);
   assert.match(actionableHtml, /AI 實驗建議（輔助）/);
   assert.match(actionableHtml, /AI 判斷依據/);
-  assert.match(actionableHtml, /Agent 任務（可複製）/);
+  assert.doesNotMatch(actionableHtml, /Agent 任務（可複製）/);
   assert.doesNotMatch(actionableHtml, /Agent 任務卡 ·/);
-  assert.match(actionableHtml, /這個任務建議/);
-  assert.match(actionableHtml, /已採用/);
-  assert.match(actionableHtml, /需要改寫/);
-  assert.match(actionableHtml, /不相關/);
-  assert.match(actionableHtml, /先忽略/);
-  assert.match(actionableHtml, /current README/);
-  assert.match(actionableHtml, /Prototype a share URL intake/);
+  assert.doesNotMatch(actionableHtml, /這個任務建議/);
   assert.doesNotMatch(actionableHtml, /\d+\s+likes/);
   assert.doesNotMatch(actionableHtml, /R5/);
   // experiment panel visual identity
@@ -788,24 +989,18 @@ test("ProductSignalView gives each product page a distinct information shape", (
   assert.match(actionableHtml, /data-product-panel-badge="experiment"/);
   assert.match(actionableHtml, /試驗/);
   assert.match(actionableHtml, /border-left:2px solid/);
-  // agent task card visual identity
-  assert.match(actionableHtml, /data-agent-task-card="true"/);
-  assert.match(actionableHtml, /data-agent-task-badge="true"/);
-  assert.match(actionableHtml, /CODEX/);
+  // Agent task prompt cards are no longer part of the primary action card flow.
+  assert.doesNotMatch(actionableHtml, /data-agent-task-card="true"/);
+  assert.doesNotMatch(actionableHtml, /data-agent-task-badge="true"/);
   // source quotes intentionally keeps no badge
   assert.doesNotMatch(actionableHtml, /data-product-panel-badge="source-quotes"/);
-  // Feedback row exposes pressable buttons via the dedicated data attribute
-  assert.match(actionableHtml, /data-agent-task-feedback-row="true"/);
+  assert.doesNotMatch(actionableHtml, /data-agent-task-feedback-row="true"/);
   // Motion: CSS injected via document.head in content script, NOT as React-rendered <style>.
   // Only className / data hooks need to exist in the HTML.
   assert.doesNotMatch(actionableHtml, /data-dlens-product-motion/);
   assert.match(actionableHtml, /class="dlens-card-lift"/);
-  assert.match(actionableHtml, /class="dlens-feedback-btn"/);
-  assert.match(actionableHtml, /class="dlens-copy-btn"/);
   assert.match(actionableHtml, /class="dlens-details-smooth"/);
   assert.match(actionableHtml, /data-dlens-motion-card="true"/);
-  assert.match(actionableHtml, /data-dlens-motion-button="feedback"/);
-  assert.match(actionableHtml, /data-dlens-motion-button="copy"/);
   assert.match(actionableHtml, /data-dlens-smooth-details="true"/);
   // The exported CSS constant must include reduced-motion and grid-template-rows animation
   assert.ok(PRODUCT_SIGNAL_MOTION_CSS.includes("prefers-reduced-motion"), "CSS must guard reduced-motion");
@@ -855,6 +1050,7 @@ test("ProductSignalView surfaces legacy optional fields when present", () => {
             whyItMatters: "直接驗證 PM document workflow。",
             reusablePattern: "多來源工作流轉文件",
             whyItWorks: "把資料來源、處理邏輯和交付物分清楚。",
+            grounding: "model_inferred" as const,
             copyableTemplate: "Slack/Jira -> Claude Skill -> Release note",
             workflowStack: ["Claude Skill", "Slack", "Jira", "Metabase", "Confluence"],
             copyRecipeMarkdown: "- 讀取 Slack thread 與 Jira tickets\n- 交給 Claude Skill 摘要\n- 輸出 Release Note / Confluence 文件",
@@ -908,7 +1104,13 @@ test("ProductSignalView surfaces legacy optional fields when present", () => {
   assert.match(actionableHtml, /data-actionable-title="workflow"[^>]*>多來源工作流轉文件/);
   assert.doesNotMatch(actionableHtml, /data-actionable-title="workflow"[^>]*>用 Claude Skill 讀 Slack/);
   assert.match(actionableHtml, /如何照抄/);
+  assert.match(actionableHtml, /data-workflow-grounding="model_inferred"/);
+  assert.match(actionableHtml, /AI 推斷，請交叉驗證原文/);
   assert.match(actionableHtml, /為什麼可以這樣做/);
+  assert.match(actionableHtml, /data-workflow-field-label="copy"[^>]*style="[^"]*font-weight:500[^"]*"/);
+  assert.match(actionableHtml, /data-workflow-field-label="why"[^>]*style="[^"]*font-weight:500[^"]*"/);
+  assert.match(actionableHtml, /data-workflow-field-label="tradeoff"[^>]*style="[^"]*font-weight:500[^"]*"/);
+  assert.doesNotMatch(actionableHtml, /data-workflow-field-label="(?:copy|why|tradeoff)"[^>]*style="[^"]*font-weight:8/);
   assert.match(actionableHtml, /多來源工作流轉文件/);
   assert.match(actionableHtml, /引用理由：直接驗證 PM document workflow/);
   assert.doesNotMatch(actionableHtml, /AI 摘要：PM 想把 Threads 討論轉成可交付文件/);
@@ -926,11 +1128,11 @@ test("ProductSignalView surfaces legacy optional fields when present", () => {
   assert.match(actionableHtml, /text-transform:uppercase/);
   assert.doesNotMatch(actionableHtml, /可用做法（留言原文）/);
   assert.match(actionableHtml, /AI 判斷依據/);
+  assert.match(actionableHtml, /data-ai-experiment-summary-label="true"[^>]*style="[^"]*font-weight:600[^"]*"/);
   assert.match(actionableHtml, /競品上週剛 ship/);
   assert.match(actionableHtml, /兩週內看是否有 3 位 PM 重複使用模板/);
   assert.match(actionableHtml, /阻礙/);
   assert.match(actionableHtml, /缺 Confluence webhook/);
-  assert.match(actionableHtml, /競品 Release 監控/);
   // 產品比對 降級為 footnote — 用 ↳ glyph + "對應" 短句，不再用獨立 section header
   assert.match(actionableHtml, /↳/);
   assert.match(actionableHtml, /對應 核心流程/);
@@ -1190,8 +1392,53 @@ test("ProductSignalView tolerates legacy analysis records with missing optional 
 
   assert.match(html, /舊資料仍應可顯示/);
   assert.match(html, /這則訊號暫時沒有可顯示的原文證據/);
-  assert.match(html, /Agent 任務（可複製）/);
-  assert.match(html, /舊任務/);
+  assert.doesNotMatch(html, /Agent 任務（可複製）/);
+  assert.doesNotMatch(html, /舊任務/);
+});
+
+test("ProductSignalView batch export copies action context with original signal text and task prompt", () => {
+  const analysis = {
+    signalId: "signal_a",
+    signalType: "learning",
+    signalSubtype: "mobile_share_intake",
+    contentType: "content",
+    contentSummary: "手機分享入口實驗",
+    relevance: 5,
+    relevantTo: ["coreWorkflows"],
+    whyRelevant: "使用者明確描述手機上快速保存 Threads 的需求。",
+    verdict: "try",
+    reason: "可以直接測試 share URL intake。",
+    experimentHint: "做一個 share URL intake prototype。",
+    evidenceRefs: ["e1"],
+    productContextHash: "hash",
+    promptVersion: "v11",
+    analyzedAt: "2026-04-27T00:00:00.000Z",
+    status: "complete",
+    agentTaskSpec: {
+      targetAgent: "codex",
+      taskTitle: "Share intake prototype",
+      requiredContext: ["current README"],
+      taskPrompt: "Prototype a share URL intake for mobile Threads posts."
+    }
+  } as const;
+
+  const brief = productSignalViewTestables.buildAgentBrief({
+    mode: "decision",
+    selectedSignals: [
+      { id: "signal_a", sessionId: "session_a", itemId: "item_a", source: "threads", inboxStatus: "unprocessed", capturedAt: "2026-04-27T00:00:00.000Z" }
+    ],
+    analysesBySignal: new Map([["signal_a", analysis as any]]),
+    signalPreviewById: {
+      signal_a: "Original Threads text: I want to save posts from mobile share sheet."
+    }
+  });
+
+  assert.match(brief, /# Product Action Brief/);
+  assert.match(brief, /Original Threads text/);
+  assert.match(brief, /手機分享入口實驗/);
+  assert.match(brief, /Prototype a share URL intake/);
+  assert.doesNotMatch(brief, /## 1\. signal_a/);
+  assert.doesNotMatch(brief, /AI summary/);
 });
 
 test("ClassificationBoard selected post aside collapses long text behind 展開全文", () => {

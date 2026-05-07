@@ -1,0 +1,2545 @@
+<!doctype html>
+<html lang="zh-Hant">
+<head>
+<meta charset="utf-8" />
+<title>DLens · V2.2 · Mode-Aware Design System · 28 Frames</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@300;400;500;600&family=Noto+Serif+TC:wght@400;500;600;700&display=swap" rel="stylesheet" />
+<style>
+:root {
+  --paper-0:#fbfaf3; --paper-1:#f4efe0; --paper-2:#ebe5cf; --paper-3:#ddd4b8;
+  --paper-card:#fefdf6; --paper-card-2:#f9f6e9;
+  --ink:#1a1714; --ink-2:#2a2520; --ink-3:#3c352c;
+  --mute:#6e6457; --mute-2:#8c8270; --mute-3:#aba18b;
+  --hairline:rgba(26,23,20,0.08); --hairline-strong:rgba(26,23,20,0.14); --hairline-soft:rgba(26,23,20,0.04);
+  --shadow-frame:0 1px 2px rgba(26,23,20,0.04),0 18px 48px rgba(26,23,20,0.10);
+  --shadow-card:0 1px 1px rgba(26,23,20,0.03),0 2px 8px rgba(26,23,20,0.05);
+  --shadow-hero:0 1px 1px rgba(26,23,20,0.04),0 8px 24px rgba(26,23,20,0.08);
+  --shadow-drawer:0 -2px 8px rgba(26,23,20,0.05),0 -16px 48px rgba(26,23,20,0.12);
+  --gold:#a8843c; --gold-soft:rgba(168,132,60,0.12);
+  --serif:"Noto Serif TC","Songti TC","Source Han Serif TC",Georgia,serif;
+  --sans:"Noto Sans TC",-apple-system,"PingFang TC",system-ui,sans-serif;
+  --mono:ui-monospace,"SF Mono",Menlo,"JetBrains Mono",monospace;
+
+  /* Default = Product accent (deep teal, signal intelligence) */
+  --accent:#2c5f5d; --accent-soft:rgba(44,95,93,0.10); --accent-softer:rgba(44,95,93,0.05);
+  --accent-deep:#1d4543; --accent-on:#f6f4ec;
+}
+/* Topic mode = warm sienna casebook accent */
+.frame.topic-mode {
+  --accent:#7a3823; --accent-soft:rgba(122,56,35,0.10); --accent-softer:rgba(122,56,35,0.05);
+  --accent-deep:#5a2818; --accent-on:#fbf6ed;
+}
+
+*{box-sizing:border-box}
+html,body{margin:0;padding:0;background:radial-gradient(ellipse at 50% -120px,#ece5d0 0%,#ddd2b3 55%,#c8bd99 100%);font-family:var(--sans);color:var(--ink);-webkit-font-smoothing:antialiased;-moz-osx-font-smoothing:grayscale;font-feature-settings:"palt" 1,"kern" 1}
+
+.cover{max-width:2440px;margin:0 auto;padding:64px 72px 24px}
+.cover .eyebrow{font-family:var(--mono);font-size:11px;letter-spacing:0.22em;color:var(--mute);text-transform:uppercase;margin-bottom:16px}
+.cover h1{font-family:var(--serif);font-size:38px;line-height:1.18;font-weight:500;margin:0 0 10px;letter-spacing:0.005em;color:var(--ink);max-width:920px}
+.cover h1 em{font-style:italic;color:#1d4543;font-weight:500}
+.cover h1 strong{font-style:italic;color:#5a2818;font-weight:500}
+.cover .lede{font-family:var(--serif);font-style:italic;font-size:19px;color:var(--mute);max-width:880px;line-height:1.6;margin:0 0 28px}
+.cover .meta{display:flex;gap:36px;flex-wrap:wrap;font-size:12px;color:var(--mute-2);font-family:var(--mono);letter-spacing:0.06em}
+.cover .meta b{color:var(--ink-2);font-weight:500;font-family:var(--sans);letter-spacing:0.02em}
+
+.row-header{max-width:2440px;margin:56px auto 18px;padding:0 72px;display:flex;align-items:baseline;gap:18px}
+.row-header .num{font-family:var(--serif);font-size:36px;font-weight:500;color:var(--mute-3);font-style:italic}
+.row-header .name{font-family:var(--serif);font-size:22px;font-weight:500;color:var(--ink)}
+.row-header .name .mode-tag{font-family:var(--mono);font-size:10px;letter-spacing:0.18em;text-transform:uppercase;color:#1d4543;margin-left:10px;padding:2px 8px;border-radius:3px;background:rgba(44,95,93,0.10)}
+.row-header .name .mode-tag.topic{color:#5a2818;background:rgba(122,56,35,0.10)}
+.row-header .desc{font-family:var(--sans);font-size:13px;color:var(--mute);margin-left:auto;max-width:620px;line-height:1.55;text-align:right}
+
+.gallery-row{display:grid;grid-template-columns:repeat(3,720px);gap:56px;width:max-content;margin:0 auto 24px;padding-bottom:24px;border-bottom:1px dashed rgba(26,23,20,0.10)}
+.gallery-row.two{grid-template-columns:repeat(2,720px)}
+.gallery-row:last-of-type{border-bottom:none}
+
+.frame-wrap{display:flex;flex-direction:column}
+.frame-label{font-size:11px;letter-spacing:0.18em;font-family:var(--mono);margin-bottom:14px;display:flex;justify-content:space-between;align-items:baseline;padding:0 4px;color:rgba(26,23,20,0.45);text-transform:uppercase}
+.frame-label .label-state{color:var(--accent-deep);font-weight:500;letter-spacing:0.12em;text-transform:none;font-family:var(--sans);font-size:11.5px}
+.frame-label .label-page{color:var(--ink-2);font-weight:500;letter-spacing:0.14em}
+.frame-wrap.topic .frame-label .label-state{color:#5a2818}
+
+.frame{width:720px;height:860px;background:var(--paper-0);border-radius:14px;box-shadow:var(--shadow-frame);overflow:hidden;position:relative;display:flex;font-size:13px;line-height:1.55}
+
+.rail{width:64px;background:linear-gradient(180deg,var(--paper-1) 0%,var(--paper-2) 100%);border-right:1px solid var(--hairline);display:flex;flex-direction:column;align-items:center;padding:18px 0;gap:4px;flex-shrink:0}
+.rail-mark{width:36px;height:36px;border-radius:9px;background:var(--paper-card);box-shadow:0 1px 1px rgba(26,23,20,0.04);display:flex;align-items:center;justify-content:center;font-family:var(--serif);font-weight:600;font-size:17px;color:var(--ink);margin-bottom:16px;letter-spacing:-0.02em}
+.rail-item{width:46px;height:46px;display:flex;align-items:center;justify-content:center;font-size:10px;color:var(--mute-2);border-radius:9px;letter-spacing:0.02em;text-align:center;line-height:1.2;position:relative;font-weight:400;padding:0 2px}
+.rail-item.active{background:var(--paper-0);color:var(--ink);font-weight:500;box-shadow:0 1px 1px rgba(26,23,20,0.04)}
+.rail-item.active::before{content:"";position:absolute;left:-10px;top:14px;bottom:14px;width:2px;background:var(--accent);border-radius:1px}
+.rail-foot{margin-top:auto;display:flex;flex-direction:column;align-items:center;gap:4px}
+.rail-dot{width:5px;height:5px;border-radius:50%;background:var(--mute-3);margin:12px 0 6px}
+
+.main{flex:1;display:flex;flex-direction:column;overflow:hidden;min-width:0;position:relative}
+.header{height:56px;border-bottom:1px solid var(--hairline);display:flex;align-items:center;padding:0 24px;background:var(--paper-0);flex-shrink:0;gap:14px}
+.crumb{font-size:12.5px;color:var(--mute);letter-spacing:0.02em;display:flex;align-items:center;gap:8px}
+.crumb .dot{width:8px;height:8px;border-radius:50%;background:var(--accent);box-shadow:0 0 0 3px var(--accent-soft);display:inline-block}
+.crumb b{color:var(--ink-2);font-weight:500}
+.crumb .sep{color:var(--mute-3);margin:0 1px}
+.crumb .back{display:inline-flex;align-items:center;gap:5px;margin-right:6px;font-size:13px;color:var(--accent-deep)}
+.spacer{flex:1}
+.quiet-time{font-family:var(--mono);font-size:11px;color:var(--mute-2);letter-spacing:0.04em}
+
+.content{flex:1;overflow:hidden;padding:26px 28px 32px;position:relative;background:var(--paper-0)}
+
+.page-eyebrow{font-family:var(--serif);font-style:italic;font-size:14px;color:var(--accent-deep);margin-bottom:4px}
+.page-title{margin:0 0 6px;color:var(--ink);font-family:var(--serif);font-size:22px;line-height:1.3;font-weight:500;letter-spacing:0.005em}
+.page-sub{font-size:13px;color:var(--mute);margin:0 0 22px;max-width:580px;line-height:1.55;font-family:var(--serif);font-style:italic}
+
+.filters{display:flex;gap:6px;flex-wrap:wrap;margin:8px 0 22px;font-size:12px}
+.filters .f{padding:5px 12px;border-radius:999px;font-size:11.5px;color:var(--mute);background:transparent;border:1px solid var(--hairline);display:inline-flex;align-items:baseline;gap:5px;letter-spacing:0.02em;white-space:nowrap}
+.filters .f.active{background:var(--accent);color:var(--accent-on);border-color:var(--accent);box-shadow:0 1px 2px rgba(44,95,93,0.18)}
+.frame.topic-mode .filters .f.active{box-shadow:0 1px 2px rgba(122,56,35,0.18)}
+.filters .f-count{font-family:var(--mono);font-size:10px;opacity:0.75;letter-spacing:0.04em}
+
+/* Signal Card */
+.signal-card{position:relative;margin-bottom:14px;padding:18px 20px 16px;border-radius:11px;background:var(--paper-card);box-shadow:var(--shadow-card)}
+.sc-meta{display:flex;align-items:center;gap:10px;font-size:10.5px;color:var(--mute);margin-bottom:8px;font-family:var(--mono);letter-spacing:0.1em;text-transform:uppercase}
+.sc-verdict{display:inline-block;padding:1.5px 8px;border-radius:4px;background:var(--accent-soft);color:var(--accent-deep);font-weight:500;font-family:var(--sans);font-size:10.5px;letter-spacing:0.05em;text-transform:none}
+.sc-verdict.gold{background:var(--gold-soft);color:var(--gold)}
+.sc-id{color:var(--mute-2)}
+.sc-headline{margin:0 0 8px;color:var(--ink);font-family:var(--serif);font-size:17px;line-height:1.36;font-weight:500;letter-spacing:0.005em}
+.sc-tags{display:flex;gap:5px;flex-wrap:wrap;margin:6px 0 10px;font-size:10.5px}
+.sc-tags .tag{padding:2px 7px;background:var(--paper-1);border-radius:3px;color:var(--mute);font-family:var(--mono);letter-spacing:0.04em}
+.sc-insight{font-size:12.5px;color:var(--ink-2);line-height:1.6;margin:8px 0 10px;max-width:580px}
+.sc-why{font-size:12px;color:var(--mute);line-height:1.55;padding-left:12px;border-left:2px solid var(--accent-soft);margin:8px 0 10px;max-width:580px;font-family:var(--serif);font-style:italic}
+.sc-quote{margin:12px 0 10px;padding:11px 14px 11px 16px;background:var(--paper-card-2);border-radius:7px;border-left:2px solid var(--accent);font-family:var(--serif);font-style:italic;font-size:13.5px;color:var(--ink-3);line-height:1.55;max-width:580px;position:relative}
+.sc-quote-cite{display:block;margin-top:6px;font-style:normal;font-size:10.5px;color:var(--mute-2);font-family:var(--mono);letter-spacing:0.05em}
+.sc-actions{display:flex;gap:14px;align-items:center;margin-top:12px;padding-top:10px;border-top:1px solid var(--hairline);font-size:11.5px;color:var(--mute)}
+.sc-actions .ghost{color:var(--mute)}
+.sc-actions .primary{background:var(--accent);color:var(--accent-on);padding:5px 12px;border-radius:5px;font-weight:500;letter-spacing:0.02em;font-size:11.5px}
+.sc-actions .secondary{border:1px solid var(--hairline-strong);padding:4px 11px;border-radius:5px;color:var(--ink-2);font-size:11.5px}
+.sc-actions .source-count{font-family:var(--mono);font-size:10.5px;color:var(--mute);letter-spacing:0.06em}
+.signal-card.hero{background:linear-gradient(180deg,var(--paper-card-2) 0%,var(--paper-card) 100%);padding:22px 24px 20px;margin-bottom:18px;box-shadow:var(--shadow-hero)}
+.signal-card.hero::before{content:"";position:absolute;top:0;left:24px;right:24px;height:2px;background:linear-gradient(to right,var(--accent),transparent);border-radius:2px}
+.signal-card.hero .sc-headline{font-size:22px;line-height:1.3;margin-bottom:10px}
+.signal-card.hero .sc-insight{font-size:13.5px;line-height:1.65}
+.signal-card.hero .sc-quote{font-size:14.5px;padding:14px 16px 14px 18px}
+.hero-flag{position:absolute;top:16px;right:18px;font-family:var(--mono);font-size:9.5px;color:var(--gold);letter-spacing:0.18em;display:flex;align-items:center;gap:5px}
+.hero-flag .star{width:6px;height:6px;background:var(--gold);border-radius:50%}
+
+/* Detail */
+.detail-pane{padding-bottom:8px}
+.detail-eyebrow{font-family:var(--mono);font-size:10.5px;letter-spacing:0.16em;color:var(--mute-2);margin-bottom:8px;display:flex;align-items:center;gap:12px}
+.detail-headline{font-family:var(--serif);font-size:26px;line-height:1.25;font-weight:500;letter-spacing:0.005em;color:var(--ink);margin:0 0 12px;max-width:580px}
+.detail-meta-row{display:flex;gap:16px;align-items:center;font-size:11.5px;color:var(--mute);font-family:var(--mono);letter-spacing:0.06em;margin-bottom:16px;flex-wrap:wrap}
+.detail-section-label{font-family:var(--serif);font-style:italic;font-size:14px;color:var(--accent-deep);margin:22px 0 8px}
+.detail-prose{font-family:var(--serif);font-size:14.5px;line-height:1.7;color:var(--ink-2);max-width:580px;margin:0 0 12px}
+.detail-prose b{font-weight:600;color:var(--ink)}
+.detail-quote-hero{margin:18px 0;padding:18px 22px 18px 26px;background:var(--paper-card-2);border-left:3px solid var(--accent);border-radius:8px;font-family:var(--serif);font-style:italic;font-size:16.5px;line-height:1.55;color:var(--ink-2);position:relative;max-width:600px}
+.detail-quote-hero::before{content:"\201C";position:absolute;top:4px;left:8px;font-family:var(--serif);font-size:36px;color:var(--accent-soft);font-style:normal;line-height:1}
+.detail-quote-cite{display:block;margin-top:10px;font-style:normal;font-size:11px;color:var(--mute);font-family:var(--mono);letter-spacing:0.06em}
+.detail-actions{display:flex;gap:10px;margin-top:22px;padding-top:16px;border-top:1px solid var(--hairline)}
+.detail-actions .primary{background:var(--accent);color:var(--accent-on);padding:8px 16px;border-radius:7px;font-weight:500;font-size:12.5px}
+.detail-actions .secondary{border:1px solid var(--hairline-strong);padding:7px 14px;border-radius:7px;color:var(--ink-2);font-size:12.5px;background:var(--paper-card)}
+.detail-actions .ghost{padding:7px 6px;color:var(--mute);font-size:12.5px}
+
+/* Drawer */
+.drawer-backdrop{position:absolute;inset:0;background:rgba(26,23,20,0.32);z-index:4}
+.drawer{position:absolute;left:0;right:0;bottom:0;background:var(--paper-0);border-top-left-radius:18px;border-top-right-radius:18px;box-shadow:var(--shadow-drawer);z-index:5;overflow:hidden;display:flex;flex-direction:column}
+.drawer-handle{width:40px;height:4px;border-radius:2px;background:var(--mute-3);margin:10px auto 4px;flex-shrink:0}
+.drawer-head{display:flex;align-items:baseline;gap:14px;padding:8px 26px 14px;border-bottom:1px solid var(--hairline);flex-shrink:0}
+.drawer-head h3{font-family:var(--serif);font-size:17px;font-weight:500;margin:0;color:var(--ink)}
+.drawer-head .count{font-family:var(--mono);font-size:11px;color:var(--mute);letter-spacing:0.06em}
+.drawer-head .sort{margin-left:auto;font-size:11.5px;color:var(--mute);display:flex;gap:14px}
+.drawer-head .sort .on{color:var(--accent-deep);font-weight:500}
+.drawer-body{flex:1;overflow-y:auto;padding:14px 26px 28px}
+.evidence-item{padding:14px 0;border-bottom:1px solid var(--hairline-soft)}
+.evidence-item:last-child{border-bottom:none}
+.evidence-quote-text{font-family:var(--serif);font-size:14px;line-height:1.6;color:var(--ink-2);margin:0 0 6px}
+.evidence-meta-row{display:flex;gap:14px;align-items:center;font-size:10.5px;color:var(--mute-2);font-family:var(--mono);letter-spacing:0.06em;margin-top:4px}
+.evidence-meta-row .src{color:var(--ink-2)}
+.evidence-meta-row .actions{margin-left:auto;font-family:var(--sans);letter-spacing:0.02em;color:var(--accent-deep);font-size:11px}
+
+/* Saved */
+.saved-row{display:grid;grid-template-columns:22px 1fr auto;gap:14px;padding:14px 4px 14px 0;align-items:start;border-bottom:1px solid var(--hairline)}
+.saved-row.selected{background:var(--paper-card-2);border-radius:8px;padding:14px;margin:0 -14px;border-bottom:1px solid var(--hairline-soft);position:relative}
+.saved-row.selected::before{content:"";position:absolute;left:0;top:12px;bottom:12px;width:2px;background:var(--accent);border-radius:2px}
+.checkbox{width:17px;height:17px;border-radius:4px;border:1.5px solid var(--mute-3);display:flex;align-items:center;justify-content:center;margin-top:4px;background:transparent;font-size:10px;color:transparent}
+.checkbox.on{border-color:var(--accent);background:var(--accent);color:var(--accent-on)}
+.saved-body{min-width:0}
+.saved-headline{margin:0 0 6px;color:var(--ink);font-family:var(--serif);font-size:15px;line-height:1.4;font-weight:500}
+.saved-line{font-size:12.5px;color:var(--mute);margin:4px 0 6px;line-height:1.5;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
+.saved-quote{font-family:var(--serif);font-style:italic;font-size:12.5px;color:var(--mute);margin:6px 0 0;display:-webkit-box;-webkit-line-clamp:1;-webkit-box-orient:vertical;overflow:hidden}
+.saved-meta{font-family:var(--mono);font-size:10px;color:var(--mute-3);letter-spacing:0.06em;text-align:right;white-space:nowrap;padding-top:4px}
+.saved-meta-cat{display:inline-block;padding:1.5px 7px;border-radius:3px;background:var(--accent-soft);color:var(--accent-deep);font-family:var(--sans);font-size:10px;letter-spacing:0.04em;margin-bottom:5px;font-weight:500}
+
+.action-bar{position:absolute;left:24px;right:24px;bottom:24px;padding:12px 18px;background:var(--paper-card);border-radius:12px;display:flex;align-items:center;gap:14px;box-shadow:0 1px 2px rgba(26,23,20,0.05),0 12px 32px rgba(26,23,20,0.10);border:1px solid var(--hairline);z-index:3}
+.action-bar .count-block{display:flex;flex-direction:column;gap:2px}
+.action-bar .count-num{font-family:var(--serif);font-size:18px;font-weight:500;color:var(--ink)}
+.action-bar .count-num em{font-style:italic;color:var(--accent-deep);font-weight:500}
+.action-bar .count-sub{font-family:var(--mono);font-size:10px;color:var(--mute-2);letter-spacing:0.08em}
+.action-bar .action-spacer{flex:1}
+.action-bar .clear{font-size:11.5px;color:var(--mute);margin-right:4px}
+.action-btn{padding:8px 14px;border-radius:7px;font-size:12px;font-family:var(--sans);font-weight:500;background:transparent;color:var(--ink-2);border:1px solid var(--hairline-strong);white-space:nowrap}
+.action-btn.primary{background:var(--accent);color:var(--accent-on);border-color:var(--accent)}
+.action-btn.primary.gold{background:var(--gold);color:var(--accent-on);border-color:var(--gold)}
+
+/* Export modes */
+.export-modes{display:grid;grid-template-columns:1fr 1fr;gap:14px;margin:4px 0 14px}
+.export-mode{background:var(--paper-card);border-radius:11px;padding:16px 18px;box-shadow:var(--shadow-card);border:1.5px solid transparent;display:flex;flex-direction:column;gap:8px}
+.export-mode.recommended{border-color:var(--accent);background:linear-gradient(180deg,var(--paper-card-2),var(--paper-card))}
+.export-mode-head{display:flex;align-items:baseline;gap:10px}
+.export-mode-name{font-family:var(--serif);font-size:16px;font-weight:500;color:var(--ink)}
+.export-mode-flag{font-family:var(--mono);font-size:9.5px;color:var(--accent-deep);background:var(--accent-soft);padding:2px 7px;border-radius:3px;letter-spacing:0.16em;text-transform:uppercase}
+.export-mode-desc{font-family:var(--serif);font-style:italic;font-size:12.5px;color:var(--mute);line-height:1.55}
+.export-mode-meta{font-family:var(--mono);font-size:10px;color:var(--mute-2);letter-spacing:0.06em;display:flex;gap:12px;padding-top:8px;border-top:1px solid var(--hairline-soft)}
+.export-mode-cta{margin-top:4px;padding:8px 12px;border-radius:7px;font-size:12px;font-weight:500;text-align:center;background:transparent;border:1px solid var(--hairline-strong);color:var(--ink-2)}
+.export-mode.recommended .export-mode-cta{background:var(--accent);color:var(--accent-on);border-color:var(--accent)}
+
+/* Brief preview */
+.brief-doc{background:var(--paper-card);border-radius:10px;padding:22px 26px;box-shadow:var(--shadow-card);font-family:var(--serif);max-width:600px}
+.brief-doc h4{font-family:var(--serif);font-size:18px;font-weight:500;margin:0 0 8px;color:var(--ink)}
+.brief-doc .doc-meta{font-family:var(--mono);font-size:10px;letter-spacing:0.1em;color:var(--mute-2);text-transform:uppercase;margin-bottom:14px;display:flex;gap:12px}
+.brief-doc h5{font-family:var(--serif);font-size:14px;font-weight:500;color:var(--accent-deep);margin:14px 0 6px;font-style:italic}
+.brief-doc p{font-size:13px;line-height:1.65;color:var(--ink-2);margin:0 0 8px;font-family:var(--serif)}
+.brief-doc blockquote{margin:6px 0 8px;padding:6px 12px;border-left:2px solid var(--accent-soft);font-style:italic;font-size:12.5px;color:var(--mute);font-family:var(--serif)}
+.brief-doc .doc-divider{border:none;border-top:1px solid var(--hairline);margin:14px 0}
+.brief-doc ul{margin:4px 0 8px;padding-left:18px;font-family:var(--serif);font-size:12.5px;color:var(--ink-2);line-height:1.7}
+
+/* Casebook */
+.tab-row{display:flex;gap:24px;margin:0 0 22px;font-size:13px;color:var(--mute);border-bottom:1px solid var(--hairline);padding-bottom:12px;font-family:var(--serif)}
+.tab{padding-bottom:6px;position:relative;font-size:14.5px}
+.tab.active{color:var(--ink);font-weight:500}
+.tab.active::after{content:"";position:absolute;left:0;right:0;bottom:-12px;height:2px;background:var(--accent)}
+.tab-count{font-family:var(--mono);font-size:10.5px;color:var(--mute-2);letter-spacing:0.06em;margin-left:4px;font-style:normal}
+
+.topic-lead{padding:4px 0 22px;border-bottom:1px solid var(--hairline);margin-bottom:18px}
+.topic-lead .dateline{font-family:var(--serif);font-style:italic;font-size:12.5px;color:var(--mute);margin-bottom:6px;display:flex;align-items:center;gap:10px}
+.topic-lead .dateline .pulse{width:6px;height:6px;border-radius:50%;background:var(--accent);box-shadow:0 0 0 3px var(--accent-soft);display:inline-block}
+.topic-lead .lead-title{font-family:var(--serif);font-size:24px;font-weight:500;color:var(--ink);margin:0 0 10px;line-height:1.25}
+.topic-lead .lead-reading{font-family:var(--serif);font-size:14.5px;line-height:1.65;color:var(--ink-2);margin:0 0 12px;max-width:560px}
+.topic-lead .lead-marker{font-family:var(--serif);font-style:italic;font-size:14px;color:var(--accent-deep);margin-top:8px;padding-left:14px;border-left:2px solid var(--accent)}
+.topic-lead .lead-bubbles{display:flex;align-items:flex-end;gap:16px;padding:14px 0 4px}
+.topic-lead .lead-foot{margin-top:12px;display:flex;gap:18px;font-family:var(--mono);font-size:10.5px;color:var(--mute-2);letter-spacing:0.06em}
+
+.topic-card{display:grid;grid-template-columns:1fr 130px;gap:18px;padding:16px 0;border-bottom:1px solid var(--hairline-soft);align-items:start}
+.topic-card:last-child{border-bottom:none}
+.topic-card .topic-eyebrow{font-family:var(--serif);font-style:italic;font-size:11.5px;color:var(--mute);margin-bottom:4px}
+.topic-card .topic-title{font-family:var(--serif);font-size:17px;font-weight:500;color:var(--ink);margin:0 0 6px;line-height:1.3}
+.topic-card .topic-reading{font-size:12.5px;color:var(--mute);line-height:1.5;margin:0 0 8px;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
+.topic-card .topic-marker{font-family:var(--serif);font-style:italic;font-size:12.5px;color:var(--ink-3);padding-left:10px;border-left:1.5px solid var(--accent);margin-top:4px}
+
+.bubble-preview{display:flex;align-items:center;justify-content:center;gap:5px;height:64px;padding:4px 0}
+.bubble{border-radius:50%;display:flex;align-items:center;justify-content:center;font-family:var(--mono);font-size:9.5px;font-weight:500;letter-spacing:0.04em;flex-shrink:0}
+.bubble.b1{width:50px;height:50px;background:var(--accent);color:var(--accent-on)}
+.bubble.b2{width:38px;height:38px;background:var(--accent-soft);border:1px solid var(--accent);color:var(--accent-deep)}
+.bubble.b3{width:28px;height:28px;background:transparent;border:1px solid var(--accent);color:var(--accent-deep)}
+.bubble.b4{width:18px;height:18px;background:var(--paper-2);border:1px solid var(--mute-3);color:var(--mute-2)}
+.bubble-caption{font-family:var(--mono);font-size:9.5px;color:var(--mute-2);letter-spacing:0.04em;text-align:center;margin-top:6px}
+
+.detail-title{font-family:var(--serif);font-size:24px;line-height:1.25;font-weight:500;margin:0 0 12px;color:var(--ink)}
+.detail-reading{font-family:var(--serif);font-size:15px;line-height:1.7;color:var(--ink-2);max-width:600px;margin:0 0 18px}
+.detail-reading em{color:var(--accent-deep);font-style:italic}
+
+.cluster-token{display:inline-flex;align-items:baseline;padding:1.5px 8px 1.5px 9px;border-radius:4px;background:var(--accent-soft);color:var(--accent-deep);font-family:var(--sans);font-weight:500;font-style:normal;font-size:0.92em;letter-spacing:0.015em;white-space:nowrap;border-bottom:1.5px solid var(--accent)}
+.cluster-token .ck-id{font-family:var(--mono);font-size:0.78em;margin-left:5px;opacity:0.75;letter-spacing:0.05em}
+.cluster-token .ck-arrow{font-size:0.8em;margin-left:3px;opacity:0.6;transform:translateY(-1px)}
+
+.cluster-bubbles{display:flex;align-items:flex-end;gap:24px;padding:8px 0 22px;margin-bottom:18px;border-bottom:1px solid var(--hairline)}
+.cb-item{display:flex;flex-direction:column;align-items:center;gap:5px}
+.cb-circle{border-radius:50%;background:var(--accent-soft);border:1px solid var(--accent);color:var(--accent-deep);display:flex;align-items:center;justify-content:center;font-family:var(--mono);font-weight:500;letter-spacing:0.06em}
+.cb-item.lead .cb-circle{background:var(--accent);color:var(--accent-on);border-color:var(--accent);box-shadow:0 4px 12px rgba(44,95,93,0.20)}
+.frame.topic-mode .cb-item.lead .cb-circle{box-shadow:0 4px 12px rgba(122,56,35,0.20)}
+.cb-label{font-family:var(--serif);font-size:13px;color:var(--ink);font-weight:500}
+.cb-pct{font-family:var(--mono);font-size:10px;color:var(--mute-2);letter-spacing:0.06em}
+
+.cluster-section{padding:14px 0;border-top:1px solid var(--hairline-soft)}
+.cluster-section:first-of-type{border-top:none;padding-top:4px}
+.cluster-section.dimmed{opacity:0.45}
+.cluster-section.focused{background:var(--accent-softer);border-radius:10px;padding:18px;margin:6px -8px;border-top-color:transparent;box-shadow:0 0 0 1px var(--accent-soft)}
+.cluster-head{display:flex;align-items:baseline;gap:12px;margin-bottom:10px}
+.cluster-nick{font-family:var(--serif);font-size:16.5px;font-weight:500;color:var(--ink)}
+.cluster-formal{font-size:11px;color:var(--mute);font-family:var(--mono);letter-spacing:0.06em}
+.cluster-section.focused .cluster-formal{color:var(--accent-deep)}
+.cluster-spacer{flex:1}
+.cluster-collapse{font-size:11px;color:var(--mute-2);font-family:var(--mono);letter-spacing:0.06em}
+
+.evidence-row{display:grid;grid-template-columns:1fr auto;gap:12px;padding:12px 14px;background:var(--paper-card);border-radius:8px;margin-bottom:7px;align-items:start;position:relative}
+.evidence-row.selected{background:var(--paper-card-2);box-shadow:0 0 0 1.5px var(--accent),0 1px 2px rgba(122,56,35,0.06)}
+.evidence-row .eq-text{font-family:var(--serif);font-size:13.5px;font-style:italic;color:var(--ink-3);line-height:1.55;margin:0 0 4px}
+.evidence-row .ec{font-family:var(--mono);font-size:10px;color:var(--mute-2);letter-spacing:0.05em}
+.evidence-add{font-size:11.5px;color:var(--accent-deep);font-family:var(--sans);font-weight:500;white-space:nowrap;padding-top:2px;letter-spacing:0.02em}
+.evidence-add.selected{background:var(--accent);color:var(--accent-on);padding:4px 10px;border-radius:5px;font-size:11px}
+
+.pair-tray{position:absolute;left:50%;bottom:20px;transform:translateX(-50%);background:var(--paper-card);border-radius:999px;padding:8px 8px 8px 16px;display:flex;align-items:center;gap:10px;box-shadow:0 1px 2px rgba(26,23,20,0.06),0 12px 28px rgba(26,23,20,0.16);border:1px solid var(--hairline);z-index:3;font-size:12px;white-space:nowrap;max-width:90%}
+.pair-tray.raised{bottom:auto;top:20px;left:auto;right:20px;transform:none;border-radius:14px;background:linear-gradient(180deg,var(--paper-card-2),var(--paper-card));padding:14px 16px;flex-direction:column;align-items:flex-start;gap:8px;max-width:280px;white-space:normal}
+.pair-tray .tray-label{font-family:var(--mono);font-size:10.5px;color:var(--mute);letter-spacing:0.14em;text-transform:uppercase;margin-right:2px}
+.pair-tray .pair-chip{background:var(--accent-soft);color:var(--accent-deep);font-family:var(--mono);font-size:10.5px;padding:4px 9px;border-radius:999px;letter-spacing:0.04em}
+.pair-tray .pair-prompt{font-family:var(--serif);font-style:italic;color:var(--mute);font-size:12px;padding:0 6px}
+.pair-tray .compare-btn{background:var(--accent);color:var(--accent-on);padding:6px 14px;border-radius:999px;font-size:11.5px;font-weight:500;margin-left:4px}
+.pair-tray .compare-btn.disabled{background:var(--paper-2);color:var(--mute-2)}
+.pair-tray .dismiss{width:22px;height:22px;border-radius:50%;background:var(--paper-1);display:inline-flex;align-items:center;justify-content:center;font-size:12px;color:var(--mute);margin-left:2px}
+
+.section-label{font-family:var(--serif);font-style:italic;font-size:15px;color:var(--accent-deep);margin:24px 0 10px;display:flex;align-items:center;gap:12px}
+.section-label::before{content:"";flex:0 0 22px;height:1.5px;background:var(--accent)}
+.section-label .label-zh{font-family:var(--serif);font-style:normal;font-weight:500;font-size:15px}
+.section-label .label-en{font-family:var(--mono);font-style:normal;font-size:10px;letter-spacing:0.18em;color:var(--mute-2);text-transform:uppercase;margin-left:auto}
+.section-label .add{font-family:var(--sans);font-style:normal;font-size:11.5px;color:var(--accent-deep)}
+
+.pair-insight-card{background:linear-gradient(180deg,var(--paper-card-2),var(--paper-card));border-radius:11px;padding:16px 18px 14px;box-shadow:var(--shadow-card);margin-bottom:12px;position:relative}
+.pair-insight-card.hero{padding:22px 24px 18px;box-shadow:var(--shadow-hero);border-top:2px solid var(--accent)}
+.pair-insight-card .pi-conclusion{font-family:var(--serif);font-size:15.5px;line-height:1.45;font-weight:500;color:var(--ink);margin:0 0 10px;max-width:580px}
+.pair-insight-card.hero .pi-conclusion{font-size:18px;line-height:1.4}
+.pair-insight-card .pi-pair{display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-top:8px}
+.pair-insight-card .pi-half{font-family:var(--serif);font-size:13px;line-height:1.55;color:var(--ink-2)}
+.pair-insight-card .pi-half-label{font-family:var(--mono);font-size:9.5px;color:var(--mute-2);letter-spacing:0.16em;margin-bottom:4px}
+.pair-insight-card .pi-amplify{font-family:var(--sans);font-size:11.5px;color:var(--mute);margin-top:12px;padding-top:10px;border-top:1px solid var(--hairline-soft);display:flex;gap:16px;flex-wrap:wrap;align-items:center}
+.pair-insight-card .pi-foot{margin-top:10px;display:flex;align-items:center;font-family:var(--mono);font-size:10px;color:var(--mute-2);letter-spacing:0.06em}
+.pair-insight-card .pi-foot .saved-flag{background:var(--accent-soft);color:var(--accent-deep);padding:2px 8px;border-radius:3px;font-family:var(--sans);font-size:10px;font-weight:500;letter-spacing:0.04em;margin-right:10px}
+.pair-insight-card .pi-foot .actions{margin-left:auto;display:flex;gap:14px;font-family:var(--sans);color:var(--accent-deep);font-size:11px}
+
+/* Inbox / signals raw list */
+.inbox-row{display:grid;grid-template-columns:auto 1fr auto;gap:14px;align-items:start;padding:12px 0;border-bottom:1px solid var(--hairline-soft)}
+.inbox-row .inbox-num{font-family:var(--mono);font-size:10px;color:var(--mute-3);letter-spacing:0.08em;padding-top:4px}
+.inbox-row .inbox-body h5{font-family:var(--serif);font-size:14.5px;font-weight:500;margin:0 0 4px;color:var(--ink);line-height:1.4}
+.inbox-row .inbox-body .ib-quote{font-family:var(--serif);font-style:italic;font-size:12.5px;color:var(--mute);margin:2px 0 4px;line-height:1.5;display:-webkit-box;-webkit-line-clamp:1;-webkit-box-orient:vertical;overflow:hidden}
+.inbox-row .inbox-body .ib-meta{font-family:var(--mono);font-size:10px;color:var(--mute-2);letter-spacing:0.06em}
+.inbox-row .inbox-side{font-family:var(--mono);font-size:10px;color:var(--accent-deep);letter-spacing:0.06em;text-align:right;padding-top:4px}
+
+/* Suggested topic card */
+.suggest-card{padding:18px 20px;border-radius:11px;background:linear-gradient(180deg,var(--paper-card-2),var(--paper-card));box-shadow:var(--shadow-card);margin-bottom:14px;position:relative;border-top:2px solid var(--accent)}
+.suggest-card .sg-eyebrow{font-family:var(--mono);font-size:9.5px;letter-spacing:0.18em;color:var(--accent-deep);text-transform:uppercase;margin-bottom:6px}
+.suggest-card h4{font-family:var(--serif);font-size:18px;font-weight:500;margin:0 0 8px;color:var(--ink);line-height:1.3}
+.suggest-card .sg-reading{font-family:var(--serif);font-size:13px;line-height:1.6;color:var(--ink-2);margin:0 0 10px;max-width:560px}
+.suggest-card .sg-thumbs{display:flex;gap:6px;margin:8px 0 12px;flex-wrap:wrap}
+.suggest-card .sg-thumb{font-family:var(--mono);font-size:9.5px;padding:3px 8px;background:var(--paper-1);border-radius:3px;color:var(--mute);letter-spacing:0.04em}
+.suggest-card .sg-actions{display:flex;gap:10px;margin-top:8px;padding-top:10px;border-top:1px solid var(--hairline-soft)}
+.suggest-card .sg-actions .primary{background:var(--accent);color:var(--accent-on);padding:6px 12px;border-radius:6px;font-size:11.5px;font-weight:500}
+.suggest-card .sg-actions .secondary{border:1px solid var(--hairline-strong);padding:5px 11px;border-radius:6px;color:var(--ink-2);font-size:11.5px}
+.suggest-card .sg-actions .ghost{padding:5px 4px;color:var(--mute);font-size:11.5px}
+
+/* Source list */
+.source-list-row{display:grid;grid-template-columns:auto 1fr auto;gap:14px;padding:14px 0;border-bottom:1px solid var(--hairline-soft);align-items:start}
+.source-list-row .src-thumb{width:34px;height:34px;border-radius:8px;background:var(--paper-1);display:flex;align-items:center;justify-content:center;font-family:var(--mono);font-size:10.5px;color:var(--accent-deep);font-weight:500}
+.source-list-row .src-body h5{font-family:var(--serif);font-size:14px;font-weight:500;margin:0 0 4px;color:var(--ink);line-height:1.4}
+.source-list-row .src-body .src-quote{font-family:var(--serif);font-style:italic;font-size:12.5px;color:var(--mute);margin:0 0 4px;line-height:1.5;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
+.source-list-row .src-body .src-meta{font-family:var(--mono);font-size:10px;color:var(--mute-2);letter-spacing:0.06em}
+.source-list-row .src-side{font-family:var(--mono);font-size:10px;color:var(--mute);letter-spacing:0.06em;text-align:right;white-space:nowrap;padding-top:8px}
+.source-list-row .src-side .pill{display:inline-block;padding:1.5px 7px;border-radius:3px;background:var(--accent-soft);color:var(--accent-deep);font-family:var(--sans);font-size:9.5px;letter-spacing:0.04em;margin-bottom:4px}
+
+/* Empty / overview state */
+.overview-grid{display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-top:18px}
+.overview-card{background:var(--paper-card);border-radius:10px;padding:16px 18px;box-shadow:var(--shadow-card);display:flex;flex-direction:column;gap:6px}
+.overview-card .ov-eyebrow{font-family:var(--mono);font-size:9.5px;letter-spacing:0.16em;color:var(--mute-2);text-transform:uppercase}
+.overview-card .ov-num{font-family:var(--serif);font-size:32px;font-weight:500;color:var(--ink);line-height:1}
+.overview-card .ov-num em{color:var(--accent-deep);font-style:italic}
+.overview-card .ov-sub{font-family:var(--serif);font-style:italic;font-size:12.5px;color:var(--mute);line-height:1.5}
+.overview-card .ov-link{font-family:var(--sans);font-size:11.5px;color:var(--accent-deep);font-weight:500;margin-top:auto;padding-top:8px;border-top:1px solid var(--hairline-soft)}
+
+/* Saved confirmation toast */
+.toast{position:absolute;left:50%;top:80px;transform:translateX(-50%);background:var(--ink);color:var(--paper-0);padding:10px 18px 10px 14px;border-radius:8px;display:flex;align-items:center;gap:10px;font-size:12.5px;box-shadow:0 8px 24px rgba(26,23,20,0.20);z-index:6}
+.toast .check{width:18px;height:18px;border-radius:50%;background:var(--accent);color:var(--accent-on);display:inline-flex;align-items:center;justify-content:center;font-size:11px}
+.toast .undo{margin-left:6px;color:var(--accent-on);opacity:0.7;font-family:var(--sans);font-size:11px;text-decoration:underline}
+
+/* Single-card prompt request */
+.prompt-request{background:linear-gradient(180deg,var(--paper-card-2),var(--paper-card));border-radius:12px;padding:18px 20px;box-shadow:var(--shadow-card);margin:6px 0 18px;border-left:3px solid var(--accent)}
+.prompt-request .pr-eyebrow{font-family:var(--mono);font-size:9.5px;letter-spacing:0.18em;color:var(--accent-deep);text-transform:uppercase;margin-bottom:6px}
+.prompt-request h4{font-family:var(--serif);font-size:16px;font-weight:500;margin:0 0 8px;color:var(--ink)}
+.prompt-request .pr-input{background:var(--paper-0);border:1px solid var(--hairline-strong);border-radius:8px;padding:10px 12px;font-family:var(--serif);font-style:italic;font-size:13px;color:var(--ink-2);min-height:54px;line-height:1.6}
+.prompt-request .pr-actions{display:flex;gap:10px;margin-top:10px}
+.prompt-request .pr-actions .primary{background:var(--accent);color:var(--accent-on);padding:6px 14px;border-radius:6px;font-size:11.5px;font-weight:500}
+.prompt-request .pr-actions .secondary{border:1px solid var(--hairline-strong);padding:5px 12px;border-radius:6px;color:var(--ink-2);font-size:11.5px}
+
+/* Collect (preview pane) */
+.collect-canvas{display:grid;grid-template-columns:1fr 240px;gap:18px}
+.collect-target{background:var(--paper-card);border-radius:10px;padding:14px 16px;box-shadow:var(--shadow-card);margin-bottom:12px}
+.collect-target .ct-eyebrow{font-family:var(--mono);font-size:9.5px;letter-spacing:0.18em;color:var(--mute-2);text-transform:uppercase;margin-bottom:6px}
+.collect-target h5{font-family:var(--serif);font-size:14.5px;font-weight:500;margin:0 0 6px;color:var(--ink);line-height:1.4}
+.collect-target .ct-quote{font-family:var(--serif);font-style:italic;font-size:12.5px;color:var(--mute);line-height:1.55;margin:6px 0;padding-left:10px;border-left:2px solid var(--accent-soft)}
+.collect-target .ct-meta{font-family:var(--mono);font-size:10px;color:var(--mute-2);letter-spacing:0.06em;margin-top:6px;display:flex;gap:10px}
+.collect-side{display:flex;flex-direction:column;gap:10px}
+.collect-side .side-card{background:var(--paper-card);border-radius:10px;padding:12px 14px;box-shadow:var(--shadow-card)}
+.collect-side .side-card h6{font-family:var(--serif);font-style:italic;font-size:12.5px;color:var(--accent-deep);margin:0 0 6px;font-weight:500}
+.collect-side .side-card .opt{display:flex;align-items:center;gap:7px;padding:5px 0;font-size:12px;color:var(--ink-2)}
+.collect-side .side-card .opt .radio{width:14px;height:14px;border-radius:50%;border:1.5px solid var(--mute-3);display:inline-block;flex-shrink:0;position:relative}
+.collect-side .side-card .opt.on .radio{border-color:var(--accent);background:var(--accent)}
+.collect-side .side-card .opt.on .radio::after{content:"";position:absolute;left:3px;top:3px;width:6px;height:6px;background:var(--paper-card);border-radius:50%}
+
+.collect-cta{margin-top:14px;display:flex;gap:10px;align-items:center}
+.collect-cta .primary{background:var(--accent);color:var(--accent-on);padding:8px 16px;border-radius:7px;font-weight:500;font-size:12.5px}
+.collect-cta .secondary{border:1px solid var(--hairline-strong);padding:7px 14px;border-radius:7px;color:var(--ink-2);font-size:12.5px;background:var(--paper-card)}
+.collect-cta .quiet{font-size:11.5px;color:var(--mute);margin-left:auto;font-family:var(--mono);letter-spacing:0.04em}
+
+/* Settings */
+.settings-group{background:var(--paper-card);border-radius:11px;padding:18px 20px;box-shadow:var(--shadow-card);margin-bottom:14px}
+.settings-group h4{font-family:var(--serif);font-size:15px;font-weight:500;margin:0 0 4px;color:var(--ink)}
+.settings-group .sg-desc{font-family:var(--serif);font-style:italic;font-size:12.5px;color:var(--mute);margin:0 0 12px;line-height:1.55}
+.settings-group .sg-row{display:grid;grid-template-columns:1fr auto;gap:10px;padding:10px 0;border-top:1px solid var(--hairline-soft);align-items:center}
+.settings-group .sg-row:first-of-type{border-top:none;padding-top:4px}
+.settings-group .sg-row .label{font-size:12.5px;color:var(--ink-2)}
+.settings-group .sg-row .label .hint{display:block;font-size:11px;color:var(--mute);margin-top:2px;font-family:var(--serif);font-style:italic}
+.settings-group .sg-row .value{font-family:var(--mono);font-size:11px;color:var(--accent-deep);letter-spacing:0.04em}
+.settings-group .sg-row .toggle{width:32px;height:18px;border-radius:999px;background:var(--accent);position:relative}
+.settings-group .sg-row .toggle.off{background:var(--mute-3)}
+.settings-group .sg-row .toggle::after{content:"";position:absolute;top:2px;left:16px;width:14px;height:14px;background:var(--paper-card);border-radius:50%;box-shadow:0 1px 1px rgba(26,23,20,0.10)}
+.settings-group .sg-row .toggle.off::after{left:2px}
+.settings-group .file-tile{display:grid;grid-template-columns:32px 1fr auto;gap:10px;align-items:center;padding:8px 0;border-top:1px solid var(--hairline-soft)}
+.settings-group .file-tile:first-of-type{border-top:none}
+.settings-group .file-tile .ic{width:32px;height:32px;border-radius:6px;background:var(--paper-1);display:flex;align-items:center;justify-content:center;font-family:var(--mono);font-size:9.5px;color:var(--accent-deep);font-weight:500}
+.settings-group .file-tile .fn{font-family:var(--serif);font-size:13px;color:var(--ink-2)}
+.settings-group .file-tile .fn .fm{display:block;font-family:var(--mono);font-size:10px;color:var(--mute-2);letter-spacing:0.04em;margin-top:2px}
+.settings-group .file-tile .fa{font-size:11px;color:var(--accent-deep);font-family:var(--sans)}
+.context-text{background:var(--paper-0);border:1px solid var(--hairline-strong);border-radius:8px;padding:12px 14px;font-family:var(--serif);font-size:13px;color:var(--ink-2);line-height:1.65;font-style:italic;margin-top:6px}
+.context-text .placeholder{color:var(--mute-2)}
+
+.workspace-card{display:grid;grid-template-columns:1fr;gap:8px;padding:14px 16px;border-radius:10px;border:1.5px solid var(--hairline-strong);margin-bottom:10px;cursor:default;background:var(--paper-card-2)}
+.workspace-card.on{border-color:var(--accent);background:linear-gradient(180deg,var(--paper-card-2),var(--paper-card));box-shadow:0 0 0 4px var(--accent-softer)}
+.workspace-card .wc-name{font-family:var(--serif);font-size:15px;font-weight:500;color:var(--ink);display:flex;align-items:center;gap:10px}
+.workspace-card .wc-name .badge{font-family:var(--mono);font-size:9px;letter-spacing:0.16em;background:var(--accent-soft);color:var(--accent-deep);padding:2px 6px;border-radius:3px;text-transform:uppercase}
+.workspace-card .wc-desc{font-family:var(--serif);font-style:italic;font-size:12.5px;color:var(--mute);line-height:1.55}
+.workspace-card .wc-meta{font-family:var(--mono);font-size:10px;color:var(--mute-2);letter-spacing:0.06em;display:flex;gap:14px;padding-top:6px;border-top:1px solid var(--hairline-soft);margin-top:4px}
+
+/* Notes */
+.notes{max-width:2440px;margin:80px auto 64px;padding:48px 72px 64px;background:rgba(251,250,243,0.65);backdrop-filter:blur(8px);border-radius:18px;box-shadow:var(--shadow-card)}
+.notes h2{font-family:var(--serif);font-size:28px;font-weight:500;margin:0 0 8px;color:var(--ink)}
+.notes .lede{font-family:var(--serif);font-style:italic;font-size:15px;color:var(--mute);margin:0 0 32px;line-height:1.6;max-width:720px}
+.notes .grid{display:grid;grid-template-columns:repeat(2,1fr);gap:32px 56px}
+.note-block h3{font-family:var(--serif);font-size:18px;font-weight:500;color:var(--ink);margin:0 0 12px;display:flex;align-items:baseline;gap:10px;padding-bottom:8px;border-bottom:1px solid var(--hairline)}
+.note-block h3 .num{font-family:var(--mono);font-size:11px;color:var(--accent-deep);letter-spacing:0.18em}
+.note-block dl{margin:0}
+.note-block dt{font-family:var(--mono);font-size:10.5px;color:var(--mute);letter-spacing:0.14em;margin-top:14px;text-transform:uppercase}
+.note-block dd{margin:4px 0 0;font-size:13px;line-height:1.6;color:var(--ink-2)}
+.note-block dd code{font-family:var(--mono);font-size:11.5px;background:var(--paper-1);padding:1px 5px;border-radius:3px;color:var(--accent-deep)}
+.note-block dd em{font-family:var(--serif);font-style:italic;color:var(--mute)}
+
+/* mode-pair note for collect/settings */
+.mode-pair{display:flex;gap:10px;margin-top:6px;font-family:var(--mono);font-size:10px;letter-spacing:0.06em}
+.mode-pair span{padding:2px 8px;border-radius:3px}
+.mode-pair .mp-product{background:rgba(44,95,93,0.10);color:#1d4543}
+.mode-pair .mp-topic{background:rgba(122,56,35,0.10);color:#5a2818}
+</style>
+</head>
+<body>
+
+<header class="cover">
+  <div class="eyebrow">DLens · V2.2 · Mode-Aware Design System · 2026-04-30</div>
+  <h1>One system, two rhythms — <em>Product</em> as signal intelligence, <strong>Topic</strong> as social casebook</h1>
+  <p class="lede">V2.2 把 V2.1 鎖定的視覺方向擴展成完整的 mode-aware 設計系統。Shell、rail、card、drawer、token 結構在兩個 mode 共用；accent 與工作節奏分開：產品端是深青 #2c5f5d 的 Signal Intelligence，議題端是暖砂 #7a3823 的社會觀察 Casebook。28 frames 涵蓋 Topic / Product / Collect / Settings 四個區。</p>
+  <div class="meta">
+    <span><b>Canvas</b> 720 × 860 popup</span>
+    <span><b>Product accent</b> #2c5f5d</span>
+    <span><b>Topic accent</b> #7a3823</span>
+    <span><b>Frames</b> 28（Topic 12 · Product 12 · Collect 2 · Settings 2）</span>
+    <span><b>Display</b> Noto Serif TC</span>
+  </div>
+</header>
+
+
+<!-- =================================================== -->
+<!-- TOPIC MODE · 12 FRAMES                              -->
+<!-- =================================================== -->
+
+<!-- Row T1 · 初步整理 (Inbox) -->
+<div class="row-header">
+  <div class="num">T1</div>
+  <div class="name">議題 · 初步整理 <span class="mode-tag topic">Topic mode</span></div>
+  <div class="desc">原文進站後的工作台。先看新收集到的 raw signals，然後 AI 提出可能的歸類議題，最後決定建立或加入。</div>
+</div>
+
+<div class="gallery-row">
+
+  <!-- T01 · Inbox raw list -->
+  <div class="frame-wrap topic">
+    <div class="frame-label"><span class="label-page">T1 · 初步整理</span><span class="label-state">A · 新收集列表</span></div>
+    <div class="frame topic-mode">
+      <aside class="rail">
+        <div class="rail-mark">D</div>
+        <div class="rail-item">收集</div>
+        <div class="rail-item active">初步<br/>整理</div>
+        <div class="rail-item">Case<br/>book</div>
+        <div class="rail-foot"><div class="rail-dot"></div><div class="rail-item">設定</div></div>
+      </aside>
+      <div class="main">
+        <div class="header"><div class="crumb"><span class="dot"></span>DLens<span class="sep">·</span>議題觀察<span class="sep">·</span><b>初步整理</b></div><div class="spacer"></div><div class="quiet-time">14 則待整理 · 同步 09:42</div></div>
+        <div class="content">
+          <div class="page-eyebrow">本週新收集</div>
+          <h2 class="page-title">先掃過所有原文，再決定哪段值得歸案</h2>
+          <p class="page-sub">這些是 collector 抓回來但尚未進議題的素材。下方會出現 AI 建議的歸類議題。</p>
+
+          <div class="filters">
+            <span class="f active">全部 <span class="f-count">14</span></span>
+            <span class="f">未歸 <span class="f-count">9</span></span>
+            <span class="f">建議歸案 <span class="f-count">5</span></span>
+            <span class="f">Threads <span class="f-count">8</span></span>
+            <span class="f">X <span class="f-count">3</span></span>
+            <span class="f">Reddit <span class="f-count">3</span></span>
+          </div>
+
+          <div class="inbox-row">
+            <div class="inbox-num">01</div>
+            <div class="inbox-body">
+              <h5>港鐵延誤補償門檻又調整</h5>
+              <p class="ib-quote">「又係搞文字遊戲，30 分鐘變 35 分鐘。」</p>
+              <div class="ib-meta">@kc_chow · Threads · 2026-04-29 · 142♥ · 28💬</div>
+            </div>
+            <div class="inbox-side">未歸</div>
+          </div>
+          <div class="inbox-row">
+            <div class="inbox-num">02</div>
+            <div class="inbox-body">
+              <h5>保險公司 hotline 再轉駁</h5>
+              <p class="ib-quote">「賠咗未呀？而家係第幾日？」</p>
+              <div class="ib-meta">@aileen_w · Threads · 2026-04-29 · 142♥</div>
+            </div>
+            <div class="inbox-side">建議歸案</div>
+          </div>
+          <div class="inbox-row">
+            <div class="inbox-num">03</div>
+            <div class="inbox-body">
+              <h5>OKR 寫成 task list 的反諷</h5>
+              <p class="ib-quote">「我們 KR：『完成需求文件』。我：⋯⋯」</p>
+              <div class="ib-meta">@bryan_pm · Threads · 2026-04-29 · 89♥</div>
+            </div>
+            <div class="inbox-side">未歸</div>
+          </div>
+          <div class="inbox-row">
+            <div class="inbox-num">04</div>
+            <div class="inbox-body">
+              <h5>香港啲保險公司本來就咁啦</h5>
+              <p class="ib-quote">「咁多年都唔變，唔好幻想。」</p>
+              <div class="ib-meta">@uncle_ng · Threads · 2026-04-28 · 67♥</div>
+            </div>
+            <div class="inbox-side">建議歸案</div>
+          </div>
+          <div class="inbox-row">
+            <div class="inbox-num">05</div>
+            <div class="inbox-body">
+              <h5>AI 工具進入 PM 工作流</h5>
+              <p class="ib-quote">「我老闆唔肯，但我自己用緊。」</p>
+              <div class="ib-meta">@em_analyst · X · 2026-04-28 · 89♥ · 12💬</div>
+            </div>
+            <div class="inbox-side">未歸</div>
+          </div>
+          <div class="inbox-row">
+            <div class="inbox-num">06</div>
+            <div class="inbox-body">
+              <h5>港鐵公告語言被嘲諷</h5>
+              <p class="ib-quote">「『預計恢復正常』係咩意思？」</p>
+              <div class="ib-meta">@daniel_pr · Threads · 2026-04-28 · 34♥</div>
+            </div>
+            <div class="inbox-side">建議歸案</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- T02 · AI suggested topic -->
+  <div class="frame-wrap topic">
+    <div class="frame-label"><span class="label-page">T1 · 初步整理</span><span class="label-state">B · AI 建議議題</span></div>
+    <div class="frame topic-mode">
+      <aside class="rail">
+        <div class="rail-mark">D</div>
+        <div class="rail-item">收集</div>
+        <div class="rail-item active">初步<br/>整理</div>
+        <div class="rail-item">Case<br/>book</div>
+        <div class="rail-foot"><div class="rail-dot"></div><div class="rail-item">設定</div></div>
+      </aside>
+      <div class="main">
+        <div class="header"><div class="crumb"><span class="dot"></span>議題觀察<span class="sep">·</span><b>初步整理</b><span class="sep">·</span>建議</div><div class="spacer"></div><div class="quiet-time">5 則建議歸案</div></div>
+        <div class="content">
+          <div class="page-eyebrow">AI 建議議題</div>
+          <h2 class="page-title">這 5 則似乎在講同一件事</h2>
+          <p class="page-sub">DLens 偵測到這幾段引用語在語意與情緒上高度相近——你想合成一個議題嗎？</p>
+
+          <div class="suggest-card">
+            <div class="sg-eyebrow">建議議題 · 5 段引用 · 信心 0.78</div>
+            <h4>圍觀群眾在追問補償透明度</h4>
+            <p class="sg-reading">這 5 則都圍繞「申訴流程被當擋箭牌」。語言上反覆出現「邊個 desk」「第幾日」「唔肯講」——明顯是「資訊不對稱訴求」這條軸線。建議題名：<em>保險拖賠賠償透明度爭議</em>。</p>
+            <div class="sg-thumbs">
+              <span class="sg-thumb">@aileen_w</span>
+              <span class="sg-thumb">@uncle_ng</span>
+              <span class="sg-thumb">@kc_chow</span>
+              <span class="sg-thumb">@maggie_ho</span>
+              <span class="sg-thumb">@joey_y</span>
+            </div>
+            <div class="sg-actions">
+              <span class="primary">建立議題</span>
+              <span class="secondary">加入既有議題</span>
+              <span class="ghost">先放著</span>
+            </div>
+          </div>
+
+          <div class="suggest-card">
+            <div class="sg-eyebrow">建議議題 · 3 段引用 · 信心 0.62</div>
+            <h4>港鐵公告語言信任流失</h4>
+            <p class="sg-reading">三段不同事件下都出現對「預計恢復正常」「研究中」這類官方語言的嘲諷。可能是<em>港鐵公告語言信任流失</em>議題的一支線。</p>
+            <div class="sg-thumbs">
+              <span class="sg-thumb">@daniel_pr</span>
+              <span class="sg-thumb">@kc_chow</span>
+              <span class="sg-thumb">@joey_y</span>
+            </div>
+            <div class="sg-actions">
+              <span class="primary">建立議題</span>
+              <span class="secondary">加入既有議題</span>
+              <span class="ghost">先放著</span>
+            </div>
+          </div>
+
+          <p style="font-family:var(--mono);font-size:10.5px;letter-spacing:0.08em;color:var(--mute-2);margin:18px 0 0">餘下 9 則尚未達建議門檻——可手動歸案。</p>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- T03 · 建立 / 加入 Topic drawer -->
+  <div class="frame-wrap topic">
+    <div class="frame-label"><span class="label-page">T1 · 初步整理</span><span class="label-state">C · 建立 / 加入議題</span></div>
+    <div class="frame topic-mode">
+      <aside class="rail">
+        <div class="rail-mark">D</div>
+        <div class="rail-item">收集</div>
+        <div class="rail-item active">初步<br/>整理</div>
+        <div class="rail-item">Case<br/>book</div>
+        <div class="rail-foot"><div class="rail-dot"></div><div class="rail-item">設定</div></div>
+      </aside>
+      <div class="main">
+        <div class="header"><div class="crumb"><span class="dot"></span>議題觀察<span class="sep">·</span><b>初步整理</b></div><div class="spacer"></div><div class="quiet-time">建立議題</div></div>
+        <div class="content" style="opacity:0.45">
+          <div class="page-eyebrow">AI 建議議題</div>
+          <h2 class="page-title">這 5 則似乎在講同一件事</h2>
+          <div class="suggest-card">
+            <div class="sg-eyebrow">建議議題 · 5 段引用 · 信心 0.78</div>
+            <h4>圍觀群眾在追問補償透明度</h4>
+            <p class="sg-reading">這 5 則都圍繞「申訴流程被當擋箭牌」⋯⋯</p>
+          </div>
+        </div>
+
+        <div class="drawer-backdrop"></div>
+        <div class="drawer" style="height:560px">
+          <div class="drawer-handle"></div>
+          <div class="drawer-head">
+            <h3>建立議題</h3>
+            <span class="count">5 段引用 · 來自 5 個帳號</span>
+            <div class="sort"><span style="color:var(--mute-2)">取消</span></div>
+          </div>
+          <div class="drawer-body">
+            <p style="font-family:var(--serif);font-style:italic;font-size:13px;color:var(--mute);margin:0 0 14px;max-width:520px;">議題是觀察的容器；同一件事可被不同切角的議題收進去。先確認題名與容器，再進 Topic Detail 做派系分群。</p>
+
+            <div style="font-family:var(--mono);font-size:10px;color:var(--mute-2);letter-spacing:0.16em;text-transform:uppercase;margin-bottom:6px">建議題名</div>
+            <div style="background:var(--paper-card);border:1.5px solid var(--accent);border-radius:8px;padding:12px 14px;font-family:var(--serif);font-size:16px;color:var(--ink);font-weight:500;margin-bottom:14px">保險拖賠賠償透明度爭議</div>
+
+            <div style="font-family:var(--mono);font-size:10px;color:var(--mute-2);letter-spacing:0.16em;text-transform:uppercase;margin-bottom:6px">或加入既有議題</div>
+            <div class="topic-card" style="border:1px solid var(--hairline);border-radius:8px;padding:12px 14px;margin-bottom:8px">
+              <div>
+                <div class="topic-eyebrow">交通 · 89 則來源</div>
+                <h3 class="topic-title" style="font-size:15px;margin-bottom:2px">港鐵延誤補償門檻爭議</h3>
+                <p class="topic-reading" style="font-size:11.5px;-webkit-line-clamp:1">補償門檻調整被解讀為偷取乘客權益。</p>
+              </div>
+              <div style="font-family:var(--mono);font-size:10px;color:var(--mute-2);letter-spacing:0.06em;text-align:right;align-self:center">語意相近<br/>0.41</div>
+            </div>
+            <div class="topic-card" style="border:1px solid var(--hairline);border-radius:8px;padding:12px 14px;margin-bottom:14px">
+              <div>
+                <div class="topic-eyebrow">金融 · 62 則來源</div>
+                <h3 class="topic-title" style="font-size:15px;margin-bottom:2px">銀行客服流程信任流失</h3>
+                <p class="topic-reading" style="font-size:11.5px;-webkit-line-clamp:1">轉駁迴圈與「會跟進」標準回覆。</p>
+              </div>
+              <div style="font-family:var(--mono);font-size:10px;color:var(--mute-2);letter-spacing:0.06em;text-align:right;align-self:center">語意相近<br/>0.34</div>
+            </div>
+
+            <div style="display:flex;gap:10px;margin-top:6px">
+              <span class="action-btn primary">建立新議題</span>
+              <span class="action-btn">加入第一個</span>
+              <span style="margin-left:auto;font-size:11.5px;color:var(--mute);align-self:center">取消</span>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+</div>
+
+
+<!-- Row T2 · Casebook -->
+<div class="row-header">
+  <div class="num">T2</div>
+  <div class="name">議題 · Casebook 雜誌前頁 <span class="mode-tag topic">Topic mode</span></div>
+  <div class="desc">Casebook 像社會觀察雜誌的前頁。Topics tab 是議題流；Clusters tab 是跨議題的派系語料庫。</div>
+</div>
+
+<div class="gallery-row two">
+
+  <!-- T04 · Topics front page -->
+  <div class="frame-wrap topic">
+    <div class="frame-label"><span class="label-page">T2 · Casebook</span><span class="label-state">A · Topics front page</span></div>
+    <div class="frame topic-mode">
+      <aside class="rail">
+        <div class="rail-mark">D</div>
+        <div class="rail-item">收集</div>
+        <div class="rail-item">初步<br/>整理</div>
+        <div class="rail-item active">Case<br/>book</div>
+        <div class="rail-foot"><div class="rail-dot"></div><div class="rail-item">設定</div></div>
+      </aside>
+      <div class="main">
+        <div class="header"><div class="crumb"><span class="dot"></span>DLens<span class="sep">·</span><b>議題觀察</b></div><div class="spacer"></div><div class="quiet-time">12 議題 · 4 群集庫</div></div>
+        <div class="content">
+          <div class="tab-row">
+            <div class="tab active">議題<span class="tab-count">12</span></div>
+            <div class="tab">群集<span class="tab-count">4</span></div>
+          </div>
+
+          <div class="topic-lead">
+            <div class="dateline"><span class="pulse"></span>保險 · 47 則來源 · 更新於 2 小時前</div>
+            <h3 class="lead-title">保險拖賠賠償透明度爭議</h3>
+            <p class="lead-reading">核心不是事件本身，而是<em>申訴流程被當作擋箭牌</em>。圍觀群眾分成三派——追數派緊咬補償透明度、又係咁派把它收進制度宿命論、花生友用旁觀式嘲諷消費這場爭議。三派加起來能解釋 91% 的話語。</p>
+            <p class="lead-marker">「賠咗未呀？」</p>
+            <div class="lead-bubbles">
+              <div class="cb-item lead"><div class="cb-circle" style="width:54px;height:54px;font-size:12px">C1</div><div class="cb-label">追數派</div><div class="cb-pct">42%</div></div>
+              <div class="cb-item"><div class="cb-circle" style="width:44px;height:44px;font-size:11px">C2</div><div class="cb-label">又係咁派</div><div class="cb-pct">31%</div></div>
+              <div class="cb-item"><div class="cb-circle" style="width:34px;height:34px;font-size:10.5px">C3</div><div class="cb-label">花生友</div><div class="cb-pct">18%</div></div>
+            </div>
+          </div>
+
+          <div class="topic-card">
+            <div>
+              <div class="topic-eyebrow">交通 · 89 則來源 · 6 小時前</div>
+              <h3 class="topic-title">港鐵延誤補償門檻爭議</h3>
+              <p class="topic-reading">延誤門檻調整被解讀為偷取乘客權益，補償透明度成最大焦點。</p>
+              <p class="topic-marker">「又係搞文字遊戲。」</p>
+            </div>
+            <div>
+              <div class="bubble-preview"><div class="bubble b1">38</div><div class="bubble b2">26</div><div class="bubble b3">22</div><div class="bubble b4"></div></div>
+              <div class="bubble-caption">4 派系</div>
+            </div>
+          </div>
+
+          <div class="topic-card">
+            <div>
+              <div class="topic-eyebrow">產品 · 31 則來源 · 昨天</div>
+              <h3 class="topic-title">AI 工具進入 PM 工作流的接受度</h3>
+              <p class="topic-reading">行業自覺比想像晚，但小團隊接受度遠高於大公司——分裂明顯。</p>
+              <p class="topic-marker">「我老闆唔肯，但我自己用緊。」</p>
+            </div>
+            <div>
+              <div class="bubble-preview"><div class="bubble b1">51</div><div class="bubble b2">28</div><div class="bubble b3">15</div></div>
+              <div class="bubble-caption">3 派系</div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- T05 · Clusters tab -->
+  <div class="frame-wrap topic">
+    <div class="frame-label"><span class="label-page">T2 · Casebook</span><span class="label-state">B · Clusters tab</span></div>
+    <div class="frame topic-mode">
+      <aside class="rail">
+        <div class="rail-mark">D</div>
+        <div class="rail-item">收集</div>
+        <div class="rail-item">初步<br/>整理</div>
+        <div class="rail-item active">Case<br/>book</div>
+        <div class="rail-foot"><div class="rail-dot"></div><div class="rail-item">設定</div></div>
+      </aside>
+      <div class="main">
+        <div class="header"><div class="crumb"><span class="dot"></span>DLens<span class="sep">·</span><b>議題觀察</b><span class="sep">·</span>群集</div><div class="spacer"></div><div class="quiet-time">4 群集 · 跨 12 議題</div></div>
+        <div class="content">
+          <div class="tab-row">
+            <div class="tab">議題<span class="tab-count">12</span></div>
+            <div class="tab active">群集<span class="tab-count">4</span></div>
+          </div>
+
+          <p class="page-sub" style="margin-top:0">同一種發言模式會在不同議題裡反覆出現。群集是跨議題的「派系語料庫」。</p>
+
+          <div class="topic-card">
+            <div>
+              <div class="topic-eyebrow">在 7 個議題出現 · 共 184 引用</div>
+              <h3 class="topic-title">追數派 <span style="font-family:var(--mono);font-size:11px;color:var(--mute-2);font-weight:400;letter-spacing:0.06em">· C1</span></h3>
+              <p class="topic-reading">語言裡是「邊個 desk」「第幾日」「status 在哪」——資訊不對稱訴求，不是服務速度訴求。</p>
+              <p class="topic-marker">「我要嘅唔係加快，係解釋每一日嘅 status 喺邊個 desk。」</p>
+            </div>
+            <div>
+              <div class="bubble-preview"><div class="bubble b1" style="width:60px;height:60px;font-size:11px">184</div></div>
+              <div class="bubble-caption">7 議題</div>
+            </div>
+          </div>
+
+          <div class="topic-card">
+            <div>
+              <div class="topic-eyebrow">在 11 個議題出現 · 共 312 引用</div>
+              <h3 class="topic-title">又係咁派 <span style="font-family:var(--mono);font-size:11px;color:var(--mute-2);font-weight:400;letter-spacing:0.06em">· C2</span></h3>
+              <p class="topic-reading">把當下的事件收進制度宿命論——「香港啲咩咩本來就咁啦」。是觀察香港語境的高頻骨架。</p>
+              <p class="topic-marker">「咁多年都唔變，唔好幻想。」</p>
+            </div>
+            <div>
+              <div class="bubble-preview"><div class="bubble b1" style="width:64px;height:64px;font-size:12px">312</div></div>
+              <div class="bubble-caption">11 議題</div>
+            </div>
+          </div>
+
+          <div class="topic-card">
+            <div>
+              <div class="topic-eyebrow">在 5 個議題出現 · 共 96 引用</div>
+              <h3 class="topic-title">花生友 <span style="font-family:var(--mono);font-size:11px;color:var(--mute-2);font-weight:400;letter-spacing:0.06em">· C3</span></h3>
+              <p class="topic-reading">用旁觀式嘲諷消費議題，不真正參與訴求——是「圍觀經濟學」本身。</p>
+              <p class="topic-marker">「食花生。」</p>
+            </div>
+            <div>
+              <div class="bubble-preview"><div class="bubble b2" style="width:46px;height:46px;font-size:11px">96</div></div>
+              <div class="bubble-caption">5 議題</div>
+            </div>
+          </div>
+
+          <div class="topic-card">
+            <div>
+              <div class="topic-eyebrow">在 3 個議題出現 · 共 41 引用</div>
+              <h3 class="topic-title">翻譯派 <span style="font-family:var(--mono);font-size:11px;color:var(--mute-2);font-weight:400;letter-spacing:0.06em">· C4</span></h3>
+              <p class="topic-reading">把官方語言「翻譯」回日常用語——常以「即係話⋯⋯」開頭。是民間白話的解構動作。</p>
+              <p class="topic-marker">「『預計恢復正常』即係話：我哋唔知。」</p>
+            </div>
+            <div>
+              <div class="bubble-preview"><div class="bubble b3" style="width:36px;height:36px;font-size:10.5px">41</div></div>
+              <div class="bubble-caption">3 議題</div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+</div>
+
+
+<!-- Row T3 · Topic Detail -->
+<div class="row-header">
+  <div class="num">T3</div>
+  <div class="name">議題 · Topic Detail <span class="mode-tag topic">Topic mode</span></div>
+  <div class="desc">議題詳情是 cluster-first 結構。預設掃讀全圖、聚焦看單派、抽屜看完整證據、列表看原文。</div>
+</div>
+
+<div class="gallery-row">
+
+  <!-- T06 · Topic Detail default -->
+  <div class="frame-wrap topic">
+    <div class="frame-label"><span class="label-page">T3 · Topic Detail</span><span class="label-state">A · 預設 cluster overview</span></div>
+    <div class="frame topic-mode">
+      <aside class="rail">
+        <div class="rail-mark">D</div>
+        <div class="rail-item">收集</div>
+        <div class="rail-item">初步<br/>整理</div>
+        <div class="rail-item active">Case<br/>book</div>
+        <div class="rail-foot"><div class="rail-dot"></div><div class="rail-item">設定</div></div>
+      </aside>
+      <div class="main">
+        <div class="header"><div class="crumb"><span class="back">←</span><span class="dot"></span>議題<span class="sep">·</span><b>保險拖賠</b></div><div class="spacer"></div><div class="quiet-time">TPC-091 · 47 / 3</div></div>
+        <div class="content">
+          <div class="page-eyebrow">議題詳情</div>
+          <h2 class="detail-title">保險拖賠賠償透明度爭議</h2>
+          <p class="detail-reading">這個議題的爆發點不是事件本身，而是<em>申訴流程被當作擋箭牌</em>。圍觀群眾分成三派——
+            <span class="cluster-token">追數派<span class="ck-id">C1</span><span class="ck-arrow">↗</span></span> 緊咬補償透明度、
+            <span class="cluster-token">又係咁派<span class="ck-id">C2</span><span class="ck-arrow">↗</span></span> 把它收進制度宿命論、
+            <span class="cluster-token">花生友<span class="ck-id">C3</span><span class="ck-arrow">↗</span></span> 用旁觀式嘲諷消費這場爭議。三派加起來能解釋 91% 的話語。</p>
+
+          <div class="cluster-bubbles">
+            <div class="cb-item lead"><div class="cb-circle" style="width:60px;height:60px;font-size:13px">C1</div><div class="cb-label">追數派</div><div class="cb-pct">42%</div></div>
+            <div class="cb-item"><div class="cb-circle" style="width:48px;height:48px;font-size:12px">C2</div><div class="cb-label">又係咁派</div><div class="cb-pct">31%</div></div>
+            <div class="cb-item"><div class="cb-circle" style="width:38px;height:38px;font-size:11px">C3</div><div class="cb-label">花生友</div><div class="cb-pct">18%</div></div>
+          </div>
+
+          <div class="cluster-section">
+            <div class="cluster-head">
+              <div class="cluster-nick">追數派</div>
+              <div class="cluster-formal">補償透明度追問 · C1 · 42%</div>
+              <div class="cluster-spacer"></div>
+              <div class="cluster-collapse">收起 ⌃</div>
+            </div>
+            <div class="evidence-row">
+              <div>
+                <p class="eq-text">「賠咗未呀？而家係第幾日？打去 hotline 只會 transfer。」</p>
+                <div class="ec">@aileen_w · Threads · 2026-04-29 · 142♥</div>
+              </div>
+              <div class="evidence-add">＋ 加入對比</div>
+            </div>
+            <div class="evidence-row">
+              <div>
+                <p class="eq-text">「我要嘅唔係加快，係解釋每一日嘅 status 喺邊個 desk。」</p>
+                <div class="ec">@kc_chow · Threads · 2026-04-28 · 89♥</div>
+              </div>
+              <div class="evidence-add">＋ 加入對比</div>
+            </div>
+          </div>
+
+          <div class="cluster-section">
+            <div class="cluster-head">
+              <div class="cluster-nick">又係咁派</div>
+              <div class="cluster-formal">制度不信任延伸 · C2 · 31%</div>
+            </div>
+            <div class="evidence-row">
+              <div>
+                <p class="eq-text">「香港啲保險公司本來就咁啦，咁多年都唔變，唔好幻想。」</p>
+                <div class="ec">@uncle_ng · 2026-04-28 · 67♥</div>
+              </div>
+              <div class="evidence-add">＋ 加入對比</div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- T07 · Topic Detail cluster focused -->
+  <div class="frame-wrap topic">
+    <div class="frame-label"><span class="label-page">T3 · Topic Detail</span><span class="label-state">B · cluster focused</span></div>
+    <div class="frame topic-mode">
+      <aside class="rail">
+        <div class="rail-mark">D</div>
+        <div class="rail-item">收集</div>
+        <div class="rail-item">初步<br/>整理</div>
+        <div class="rail-item active">Case<br/>book</div>
+        <div class="rail-foot"><div class="rail-dot"></div><div class="rail-item">設定</div></div>
+      </aside>
+      <div class="main">
+        <div class="header"><div class="crumb"><span class="back">←</span><span class="dot"></span>議題<span class="sep">·</span><b>保險拖賠</b><span class="sep">·</span>追數派</div><div class="spacer"></div><div class="quiet-time">聚焦 C1</div></div>
+        <div class="content">
+          <p class="detail-reading" style="font-size:13.5px;line-height:1.6">點選 <span class="cluster-token">追數派<span class="ck-id">C1</span></span> 後，畫面聚焦這個 cluster 的所有證據；其餘 cluster 暫時淡化。</p>
+
+          <div class="cluster-bubbles" style="padding:4px 0 16px">
+            <div class="cb-item lead"><div class="cb-circle" style="width:64px;height:64px;font-size:14px">C1</div><div class="cb-label">追數派</div><div class="cb-pct">42%</div></div>
+            <div class="cb-item" style="opacity:0.4"><div class="cb-circle" style="width:42px;height:42px;font-size:11px">C2</div><div class="cb-label">又係咁派</div><div class="cb-pct">31%</div></div>
+            <div class="cb-item" style="opacity:0.4"><div class="cb-circle" style="width:32px;height:32px;font-size:10.5px">C3</div><div class="cb-label">花生友</div><div class="cb-pct">18%</div></div>
+          </div>
+
+          <div class="cluster-section focused">
+            <div class="cluster-head">
+              <div class="cluster-nick">追數派</div>
+              <div class="cluster-formal">補償透明度追問 · C1 · 42%</div>
+              <div class="cluster-spacer"></div>
+              <div class="cluster-collapse">退出聚焦 ✕</div>
+            </div>
+            <p class="detail-prose" style="font-size:13.5px;line-height:1.65;max-width:560px;margin-bottom:14px">這派的核心動作是<b>追問狀態</b>，而不是要求結果加速。語言裡反覆出現「邊個 desk」「第幾日」「status 在哪」——這是「資訊不對稱」的訴求，不是「服務速度」的訴求。</p>
+            <div class="evidence-row">
+              <div>
+                <p class="eq-text">「賠咗未呀？而家係第幾日？打去 hotline 只會 transfer。」</p>
+                <div class="ec">@aileen_w · Threads · 2026-04-29 · 142♥</div>
+              </div>
+              <div class="evidence-add">＋ 加入對比</div>
+            </div>
+            <div class="evidence-row">
+              <div>
+                <p class="eq-text">「我要嘅唔係加快，係解釋每一日嘅 status 喺邊個 desk。」</p>
+                <div class="ec">@kc_chow · 2026-04-28 · 89♥</div>
+              </div>
+              <div class="evidence-add">＋ 加入對比</div>
+            </div>
+            <div class="evidence-row">
+              <div>
+                <p class="eq-text">「Public response 係要『加快處理』，但我問嘅係 desk 喺邊。」</p>
+                <div class="ec">@maggie_ho · 2026-04-29 · 56♥</div>
+              </div>
+              <div class="evidence-add">＋ 加入對比</div>
+            </div>
+            <div class="evidence-row">
+              <div>
+                <p class="eq-text">「我已經 follow up 七次，每次答案都唔同。」</p>
+                <div class="ec">@joey_y · 2026-04-27 · 134♥</div>
+              </div>
+              <div class="evidence-add">＋ 加入對比</div>
+            </div>
+          </div>
+
+          <div class="cluster-section dimmed">
+            <div class="cluster-head">
+              <div class="cluster-nick">又係咁派</div>
+              <div class="cluster-formal">制度不信任延伸 · C2 · 31%</div>
+            </div>
+          </div>
+          <div class="cluster-section dimmed">
+            <div class="cluster-head">
+              <div class="cluster-nick">花生友</div>
+              <div class="cluster-formal">旁觀式嘲諷 · C3 · 18%</div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- T08 · evidence drawer -->
+  <div class="frame-wrap topic">
+    <div class="frame-label"><span class="label-page">T3 · Topic Detail</span><span class="label-state">C · evidence drawer</span></div>
+    <div class="frame topic-mode">
+      <aside class="rail">
+        <div class="rail-mark">D</div>
+        <div class="rail-item">收集</div>
+        <div class="rail-item">初步<br/>整理</div>
+        <div class="rail-item active">Case<br/>book</div>
+        <div class="rail-foot"><div class="rail-dot"></div><div class="rail-item">設定</div></div>
+      </aside>
+      <div class="main">
+        <div class="header"><div class="crumb"><span class="back">←</span><span class="dot"></span>議題<span class="sep">·</span><b>保險拖賠</b></div><div class="spacer"></div><div class="quiet-time">追數派 · 完整證據</div></div>
+        <div class="content" style="opacity:0.55">
+          <h2 class="detail-title">保險拖賠賠償透明度爭議</h2>
+          <p class="detail-reading">三派構成 91% 話語⋯⋯</p>
+          <div class="cluster-bubbles">
+            <div class="cb-item lead"><div class="cb-circle" style="width:54px;height:54px;font-size:12px">C1</div><div class="cb-label">追數派</div></div>
+            <div class="cb-item"><div class="cb-circle" style="width:42px;height:42px;font-size:11px">C2</div><div class="cb-label">又係咁派</div></div>
+          </div>
+        </div>
+
+        <div class="drawer-backdrop"></div>
+        <div class="drawer" style="height:560px">
+          <div class="drawer-handle"></div>
+          <div class="drawer-head">
+            <h3>追數派 · 完整證據</h3>
+            <span class="count">12 段 · 9 個來源</span>
+            <div class="sort">
+              <span class="on">相關度</span>
+              <span>時間</span>
+              <span>互動數</span>
+            </div>
+          </div>
+          <div class="drawer-body">
+            <div class="evidence-item">
+              <p class="evidence-quote-text">「賠咗未呀？而家係第幾日？打去 hotline 只會 transfer。」</p>
+              <div class="evidence-meta-row"><span class="src">@aileen_w</span><span>Threads</span><span>2026-04-29</span><span>142♥ · 28💬</span><span class="actions">加入對比 · 查看原文</span></div>
+            </div>
+            <div class="evidence-item">
+              <p class="evidence-quote-text">「我要嘅唔係加快，係解釋每一日嘅 status 喺邊個 desk。」</p>
+              <div class="evidence-meta-row"><span class="src">@kc_chow</span><span>Threads</span><span>2026-04-28</span><span>89♥</span><span class="actions">加入對比 · 查看原文</span></div>
+            </div>
+            <div class="evidence-item">
+              <p class="evidence-quote-text">「Public response 係要『加快處理』，但我問嘅係 desk 喺邊。」</p>
+              <div class="evidence-meta-row"><span class="src">@maggie_ho</span><span>Threads</span><span>2026-04-29</span><span>56♥</span><span class="actions">加入對比 · 查看原文</span></div>
+            </div>
+            <div class="evidence-item">
+              <p class="evidence-quote-text">「我已經 follow up 七次，每次答案都唔同。」</p>
+              <div class="evidence-meta-row"><span class="src">@joey_y</span><span>Threads</span><span>2026-04-27</span><span>134♥</span><span class="actions">加入對比 · 查看原文</span></div>
+            </div>
+            <div class="evidence-item">
+              <p class="evidence-quote-text">「全公司無人答到我件 case 喺邊個部門。」</p>
+              <div class="evidence-meta-row"><span class="src">@vivian_t</span><span>Threads</span><span>2026-04-26</span><span>72♥</span><span class="actions">加入對比 · 查看原文</span></div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+</div>
+
+
+<!-- Row T4 · Topic Detail source list + Pair -->
+<div class="row-header">
+  <div class="num">T4</div>
+  <div class="name">議題 · 原文列表 + Pair Lens <span class="mode-tag topic">Topic mode</span></div>
+  <div class="desc">Source list 是議題的原文清單視角。Pair tray 在當前議題內輕量飄浮，從選 1 到選 2 浮起 brief hero。</div>
+</div>
+
+<div class="gallery-row">
+
+  <!-- T09 · source list -->
+  <div class="frame-wrap topic">
+    <div class="frame-label"><span class="label-page">T3 · Topic Detail</span><span class="label-state">D · source list</span></div>
+    <div class="frame topic-mode">
+      <aside class="rail">
+        <div class="rail-mark">D</div>
+        <div class="rail-item">收集</div>
+        <div class="rail-item">初步<br/>整理</div>
+        <div class="rail-item active">Case<br/>book</div>
+        <div class="rail-foot"><div class="rail-dot"></div><div class="rail-item">設定</div></div>
+      </aside>
+      <div class="main">
+        <div class="header"><div class="crumb"><span class="back">←</span><span class="dot"></span>議題<span class="sep">·</span><b>保險拖賠</b><span class="sep">·</span>來源</div><div class="spacer"></div><div class="quiet-time">47 來源</div></div>
+        <div class="content">
+          <h2 class="detail-title" style="font-size:20px">保險拖賠賠償透明度爭議</h2>
+          <div class="tab-row" style="margin-bottom:16px">
+            <div class="tab">派系</div>
+            <div class="tab active">原文<span class="tab-count">47</span></div>
+            <div class="tab">成對洞察</div>
+          </div>
+
+          <div class="filters">
+            <span class="f active">全部 <span class="f-count">47</span></span>
+            <span class="f">追數派 <span class="f-count">19</span></span>
+            <span class="f">又係咁派 <span class="f-count">14</span></span>
+            <span class="f">花生友 <span class="f-count">8</span></span>
+            <span class="f">未歸 <span class="f-count">6</span></span>
+          </div>
+
+          <div class="source-list-row">
+            <div class="src-thumb">Th</div>
+            <div class="src-body">
+              <h5>賠咗未呀？而家係第幾日？</h5>
+              <p class="src-quote">「打去 hotline 只會 transfer，全公司無人答到我件 case 喺邊個部門。」</p>
+              <div class="src-meta">@aileen_w · Threads · 2026-04-29 · 142♥ · 28💬</div>
+            </div>
+            <div class="src-side"><div class="pill">追數派</div>引用×3</div>
+          </div>
+          <div class="source-list-row">
+            <div class="src-thumb">Th</div>
+            <div class="src-body">
+              <h5>我要嘅唔係加快，係解釋每一日嘅 status 喺邊個 desk</h5>
+              <p class="src-quote">「他們以為我們要的是 SLA，其實我們要的是 visibility。」</p>
+              <div class="src-meta">@kc_chow · Threads · 2026-04-28 · 89♥</div>
+            </div>
+            <div class="src-side"><div class="pill">追數派</div>引用×2</div>
+          </div>
+          <div class="source-list-row">
+            <div class="src-thumb">Th</div>
+            <div class="src-body">
+              <h5>香港啲保險公司本來就咁啦</h5>
+              <p class="src-quote">「咁多年都唔變，唔好幻想。」</p>
+              <div class="src-meta">@uncle_ng · Threads · 2026-04-28 · 67♥</div>
+            </div>
+            <div class="src-side"><div class="pill">又係咁派</div>引用×1</div>
+          </div>
+          <div class="source-list-row">
+            <div class="src-thumb">X</div>
+            <div class="src-body">
+              <h5>食花生 incoming</h5>
+              <p class="src-quote">「賠唔賠唔關我事，但 thread 一定要 follow。」</p>
+              <div class="src-meta">@p_eanut · X · 2026-04-29 · 41♥</div>
+            </div>
+            <div class="src-side"><div class="pill">花生友</div>引用×1</div>
+          </div>
+          <div class="source-list-row">
+            <div class="src-thumb">Re</div>
+            <div class="src-body">
+              <h5>保險公司其實已經放棄回應</h5>
+              <p class="src-quote">「他們的 PR 模板已經不再回答 status 問題，只回答 timeline。」</p>
+              <div class="src-meta">u/finhk · Reddit · 2026-04-27 · 38↑</div>
+            </div>
+            <div class="src-side"><div class="pill">追數派</div>引用×2</div>
+          </div>
+          <div class="source-list-row">
+            <div class="src-thumb">Th</div>
+            <div class="src-body">
+              <h5>我已經 follow up 七次</h5>
+              <p class="src-quote">「每次答案都唔同。第二日打去再問，又話我搞錯。」</p>
+              <div class="src-meta">@joey_y · Threads · 2026-04-27 · 134♥</div>
+            </div>
+            <div class="src-side"><div class="pill">追數派</div>引用×2</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- T10 · Pair · 1 selected -->
+  <div class="frame-wrap topic">
+    <div class="frame-label"><span class="label-page">T3 · Pair Lens</span><span class="label-state">A · 選 1 篇</span></div>
+    <div class="frame topic-mode">
+      <aside class="rail">
+        <div class="rail-mark">D</div>
+        <div class="rail-item">收集</div>
+        <div class="rail-item">初步<br/>整理</div>
+        <div class="rail-item active">Case<br/>book</div>
+        <div class="rail-foot"><div class="rail-dot"></div><div class="rail-item">設定</div></div>
+      </aside>
+      <div class="main">
+        <div class="header"><div class="crumb"><span class="back">←</span><span class="dot"></span>議題<span class="sep">·</span><b>保險拖賠</b></div><div class="spacer"></div><div class="quiet-time">TPC-091</div></div>
+        <div class="content" style="padding-bottom:80px">
+          <h2 class="detail-title" style="font-size:20px">保險拖賠賠償透明度爭議</h2>
+          <p class="detail-reading" style="font-size:13.5px;line-height:1.6">三派構成 91% 話語：<span class="cluster-token">追數派<span class="ck-id">C1</span></span>、<span class="cluster-token">又係咁派<span class="ck-id">C2</span></span>、<span class="cluster-token">花生友<span class="ck-id">C3</span></span>。</p>
+
+          <div class="cluster-section">
+            <div class="cluster-head">
+              <div class="cluster-nick">追數派</div>
+              <div class="cluster-formal">補償透明度追問 · C1 · 42%</div>
+            </div>
+            <div class="evidence-row selected">
+              <div>
+                <p class="eq-text">「賠咗未呀？而家係第幾日？打去 hotline 只會 transfer。」</p>
+                <div class="ec">@aileen_w · 2026-04-29 · 142♥</div>
+              </div>
+              <div class="evidence-add selected">已選 A</div>
+            </div>
+            <div class="evidence-row">
+              <div>
+                <p class="eq-text">「我要嘅唔係加快，係解釋每一日嘅 status 喺邊個 desk。」</p>
+                <div class="ec">@kc_chow · 2026-04-28 · 89♥</div>
+              </div>
+              <div class="evidence-add">＋ 加入對比</div>
+            </div>
+          </div>
+          <div class="cluster-section">
+            <div class="cluster-head">
+              <div class="cluster-nick">又係咁派</div>
+              <div class="cluster-formal">制度不信任延伸 · C2 · 31%</div>
+            </div>
+            <div class="evidence-row">
+              <div>
+                <p class="eq-text">「香港啲保險公司本來就咁啦，咁多年都唔變，唔好幻想。」</p>
+                <div class="ec">@uncle_ng · 2026-04-28 · 67♥</div>
+              </div>
+              <div class="evidence-add">＋ 加入對比</div>
+            </div>
+          </div>
+        </div>
+
+        <div class="pair-tray">
+          <span class="tray-label">對比</span>
+          <span class="pair-chip">A · @aileen_w</span>
+          <span class="pair-prompt">再選一篇⋯⋯</span>
+          <span class="compare-btn disabled">對比</span>
+          <span class="dismiss">✕</span>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- T11 · Pair · 2 selected raised brief hero -->
+  <div class="frame-wrap topic">
+    <div class="frame-label"><span class="label-page">T3 · Pair Lens</span><span class="label-state">B · 選 2 篇 · raised brief hero</span></div>
+    <div class="frame topic-mode">
+      <aside class="rail">
+        <div class="rail-mark">D</div>
+        <div class="rail-item">收集</div>
+        <div class="rail-item">初步<br/>整理</div>
+        <div class="rail-item active">Case<br/>book</div>
+        <div class="rail-foot"><div class="rail-dot"></div><div class="rail-item">設定</div></div>
+      </aside>
+      <div class="main">
+        <div class="header"><div class="crumb"><span class="back">←</span><span class="dot"></span>議題<span class="sep">·</span><b>保險拖賠</b><span class="sep">·</span>對比</div><div class="spacer"></div><div class="quiet-time">A × B · 即將生成</div></div>
+        <div class="content">
+          <h2 class="detail-title" style="font-size:20px">保險拖賠賠償透明度爭議</h2>
+
+          <div class="pair-insight-card hero" style="margin-top:8px">
+            <div class="sg-eyebrow" style="font-family:var(--mono);font-size:9.5px;letter-spacing:0.18em;color:var(--accent-deep);text-transform:uppercase;margin-bottom:6px">即將生成 · 預覽</div>
+            <p class="pi-conclusion">同一事件，A 在追問流程透明度，B 直接收進制度宿命論——是「資訊不對稱訴求」對「結構性無解認命」。</p>
+            <div class="pi-pair">
+              <div class="pi-half"><div class="pi-half-label">A · @AILEEN_W · 追數派</div>「賠咗未呀？而家係第幾日？打去 hotline 只會 transfer。」</div>
+              <div class="pi-half"><div class="pi-half-label">B · @UNCLE_NG · 又係咁派</div>「香港啲保險公司本來就咁啦，咁多年都唔變。」</div>
+            </div>
+            <div class="pi-foot">
+              <span class="actions" style="margin-left:0;color:var(--mute-2)">點下方對比，把這張洞察存進議題</span>
+            </div>
+          </div>
+
+          <div class="cluster-section dimmed">
+            <div class="cluster-head"><div class="cluster-nick">追數派</div><div class="cluster-formal">C1 · 42%</div></div>
+            <div class="evidence-row selected">
+              <div><p class="eq-text">「賠咗未呀？而家係第幾日？」</p><div class="ec">@aileen_w · 142♥</div></div>
+              <div class="evidence-add selected">已選 A</div>
+            </div>
+          </div>
+          <div class="cluster-section dimmed">
+            <div class="cluster-head"><div class="cluster-nick">又係咁派</div><div class="cluster-formal">C2 · 31%</div></div>
+            <div class="evidence-row selected">
+              <div><p class="eq-text">「香港啲保險公司本來就咁啦。」</p><div class="ec">@uncle_ng · 67♥</div></div>
+              <div class="evidence-add selected">已選 B</div>
+            </div>
+          </div>
+        </div>
+
+        <div class="pair-tray">
+          <span class="tray-label">對比</span>
+          <span class="pair-chip">A · @aileen_w</span>
+          <span class="pair-chip">B · @uncle_ng</span>
+          <span class="compare-btn">生成洞察 →</span>
+          <span class="dismiss">✕</span>
+        </div>
+      </div>
+    </div>
+  </div>
+
+</div>
+
+
+<!-- Row T5 · Topic Note saved -->
+<div class="row-header">
+  <div class="num">T5</div>
+  <div class="name">議題 · Topic Note · Pair Insights 已存 <span class="mode-tag topic">Topic mode</span></div>
+  <div class="desc">對比生成的洞察以短卡片留在議題內，不留下完整 compare report。可累積多張，回頭做 case note。</div>
+</div>
+
+<div class="gallery-row two">
+
+  <!-- T12 · Pair Insight saved (single page) -->
+  <div class="frame-wrap topic">
+    <div class="frame-label"><span class="label-page">T3 · Topic Note</span><span class="label-state">A · Pair Insights / Case Note saved</span></div>
+    <div class="frame topic-mode">
+      <aside class="rail">
+        <div class="rail-mark">D</div>
+        <div class="rail-item">收集</div>
+        <div class="rail-item">初步<br/>整理</div>
+        <div class="rail-item active">Case<br/>book</div>
+        <div class="rail-foot"><div class="rail-dot"></div><div class="rail-item">設定</div></div>
+      </aside>
+      <div class="main">
+        <div class="header"><div class="crumb"><span class="back">←</span><span class="dot"></span>議題<span class="sep">·</span><b>保險拖賠</b><span class="sep">·</span>洞察</div><div class="spacer"></div><div class="quiet-time">3 條洞察 · 已存</div></div>
+        <div class="content">
+          <h2 class="detail-title" style="font-size:20px">保險拖賠賠償透明度爭議</h2>
+          <div class="tab-row" style="margin-bottom:16px">
+            <div class="tab">派系</div>
+            <div class="tab">原文<span class="tab-count">47</span></div>
+            <div class="tab active">成對洞察<span class="tab-count">3</span></div>
+          </div>
+
+          <div class="section-label">
+            <span class="label-zh">本議題的成對洞察</span>
+            <span class="label-en">Pair Insights · 3</span>
+          </div>
+
+          <div class="pair-insight-card">
+            <p class="pi-conclusion">同一事件，aileen_w 在追問流程透明度，uncle_ng 直接收進制度宿命論——是「資訊不對稱訴求」對「結構性無解認命」。</p>
+            <div class="pi-pair">
+              <div class="pi-half"><div class="pi-half-label">A · @AILEEN_W</div>把問題框成資訊不對稱——核心訴求是 status 可見化。</div>
+              <div class="pi-half"><div class="pi-half-label">B · @UNCLE_NG</div>把問題框成結構性無解——核心訴求是別期待。</div>
+            </div>
+            <div class="pi-amplify">
+              <span>A 放大了 <span class="cluster-token">追數派<span class="ck-id">C1</span></span></span>
+              <span>B 放大了 <span class="cluster-token">又係咁派<span class="ck-id">C2</span></span></span>
+            </div>
+            <div class="pi-foot">
+              <span class="saved-flag">已存</span>
+              <span>2026-04-29 21:08</span>
+              <span class="actions"><span>編輯</span><span>展開完整對比</span></span>
+            </div>
+          </div>
+
+          <div class="pair-insight-card">
+            <p class="pi-conclusion">花生友 vs 追數派：嘲諷是消費議題，追問是參與議題——同一場圍觀的兩種出口。</p>
+            <div class="pi-pair">
+              <div class="pi-half"><div class="pi-half-label">A · @P_EANUT</div>用 thread 當娛樂消費，無實際訴求。</div>
+              <div class="pi-half"><div class="pi-half-label">B · @AILEEN_W</div>把 thread 當申訴管道，有具體請求。</div>
+            </div>
+            <div class="pi-amplify">
+              <span>A 放大了 <span class="cluster-token">花生友<span class="ck-id">C3</span></span></span>
+              <span>B 放大了 <span class="cluster-token">追數派<span class="ck-id">C1</span></span></span>
+            </div>
+            <div class="pi-foot">
+              <span class="saved-flag">已存</span>
+              <span>2026-04-29 22:41</span>
+              <span class="actions"><span>編輯</span><span>展開完整對比</span></span>
+            </div>
+          </div>
+
+          <div class="pair-insight-card">
+            <p class="pi-conclusion">追數派內部分歧：要 SLA 加速 vs 要 status 可見——兩種看似相似訴求其實要不同產品設計。</p>
+            <div class="pi-pair">
+              <div class="pi-half"><div class="pi-half-label">A · @MAGGIE_HO</div>請求是「desk 喺邊」，是定位需求。</div>
+              <div class="pi-half"><div class="pi-half-label">B · @JOEY_Y</div>請求是「答案唔同」，是一致性需求。</div>
+            </div>
+            <div class="pi-amplify">
+              <span>都屬 <span class="cluster-token">追數派<span class="ck-id">C1</span></span></span>
+              <span style="color:var(--mute)">同派內細分</span>
+            </div>
+            <div class="pi-foot">
+              <span class="saved-flag">已存</span>
+              <span>2026-04-30 09:14</span>
+              <span class="actions"><span>編輯</span></span>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- T12-companion: kept as Pair Lens C / hero (already chose to put hero in T11). For symmetry, reuse v2.1 4C-style "Pair Insight saved with builder" -->
+  <div class="frame-wrap topic">
+    <div class="frame-label"><span class="label-page">T3 · Topic Note</span><span class="label-state">B · 從現有對比建立新洞察</span></div>
+    <div class="frame topic-mode">
+      <aside class="rail">
+        <div class="rail-mark">D</div>
+        <div class="rail-item">收集</div>
+        <div class="rail-item">初步<br/>整理</div>
+        <div class="rail-item active">Case<br/>book</div>
+        <div class="rail-foot"><div class="rail-dot"></div><div class="rail-item">設定</div></div>
+      </aside>
+      <div class="main">
+        <div class="header"><div class="crumb"><span class="back">←</span><span class="dot"></span>議題<span class="sep">·</span><b>保險拖賠</b><span class="sep">·</span>洞察</div><div class="spacer"></div><div class="quiet-time">建立新洞察</div></div>
+        <div class="content">
+          <h2 class="detail-title" style="font-size:20px">保險拖賠賠償透明度爭議</h2>
+
+          <div class="section-label">
+            <span class="label-zh">已存洞察</span>
+            <span class="label-en">Pair Insights · 3</span>
+          </div>
+          <div class="pair-insight-card" style="opacity:0.55">
+            <p class="pi-conclusion">同一事件，aileen_w 追問透明度，uncle_ng 收進宿命論。</p>
+            <div class="pi-foot"><span class="saved-flag">已存</span><span>2026-04-29 21:08</span></div>
+          </div>
+
+          <div class="section-label" style="border-top:1px dashed var(--hairline);padding-top:18px;margin-top:18px">
+            <span class="label-zh">＋ 從現有對比建立</span>
+          </div>
+
+          <div class="pair-insight-card hero">
+            <div class="sg-eyebrow" style="font-family:var(--mono);font-size:9.5px;letter-spacing:0.18em;color:var(--accent-deep);text-transform:uppercase;margin-bottom:6px">草稿 · 編輯中</div>
+            <div class="pi-pair">
+              <div class="pi-half"><div class="pi-half-label">A · @MAGGIE_HO · 追數派</div>「Public response 係要『加快處理』，但我問嘅係 desk 喺邊。」</div>
+              <div class="pi-half"><div class="pi-half-label">B · @JOEY_Y · 追數派</div>「我已經 follow up 七次，每次答案都唔同。」</div>
+            </div>
+            <div style="margin-top:14px">
+              <div style="font-family:var(--mono);font-size:10px;letter-spacing:0.16em;color:var(--mute-2);text-transform:uppercase;margin-bottom:6px">你的洞察</div>
+              <div class="context-text" style="margin-top:0">同派內細分：A 是「定位需求」，B 是「一致性需求」。同一個 cluster 內出現兩條獨立的產品需求軸。</div>
+            </div>
+            <div style="display:flex;gap:10px;margin-top:14px;padding-top:12px;border-top:1px solid var(--hairline-soft)">
+              <span class="action-btn primary">儲存洞察</span>
+              <span class="action-btn">換一對</span>
+              <span style="margin-left:auto;font-size:11.5px;color:var(--mute);align-self:center">取消</span>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+</div>
+
+
+<!-- =================================================== -->
+<!-- PRODUCT MODE · 12 FRAMES                            -->
+<!-- =================================================== -->
+
+<!-- Row P1 · overview + 分類整理 list -->
+<div class="row-header">
+  <div class="num">P1</div>
+  <div class="name">產品 · Overview + 分類整理 <span class="mode-tag">Product mode</span></div>
+  <div class="desc">產品端開頁是 ready-state overview。分類整理是每張 Signal 的工作面，hero 是本週主推，filter 收斂視野。</div>
+</div>
+
+<div class="gallery-row">
+
+  <!-- P01 · Overview ready -->
+  <div class="frame-wrap">
+    <div class="frame-label"><span class="label-page">P0 · Overview</span><span class="label-state">A · empty-ready</span></div>
+    <div class="frame product-mode">
+      <aside class="rail">
+        <div class="rail-mark">D</div>
+        <div class="rail-item active">分類<br/>整理</div>
+        <div class="rail-item">收集</div>
+        <div class="rail-item">已存</div>
+        <div class="rail-foot"><div class="rail-dot"></div><div class="rail-item">設定</div></div>
+      </aside>
+      <div class="main">
+        <div class="header"><div class="crumb"><span class="dot"></span>DLens<span class="sep">·</span><b>產品觀察</b></div><div class="spacer"></div><div class="quiet-time">同步於 09:42</div></div>
+        <div class="content">
+          <div class="page-eyebrow">本週狀態</div>
+          <h2 class="page-title">已就緒 — 24 則訊號等你過目</h2>
+          <p class="page-sub">collector 半小時前剛跑過。先掃 hero，再看本週分類流。</p>
+
+          <div class="overview-grid">
+            <div class="overview-card">
+              <div class="ov-eyebrow">本週新訊號</div>
+              <div class="ov-num"><em>24</em></div>
+              <div class="ov-sub">已分類 24 / 24，等待你過目。</div>
+              <div class="ov-link">→ 進入分類整理</div>
+            </div>
+            <div class="overview-card">
+              <div class="ov-eyebrow">已存訊號</div>
+              <div class="ov-num"><em>18</em></div>
+              <div class="ov-sub">本週新增 6 張，可挑出輸出 brief。</div>
+              <div class="ov-link">→ 查看已存</div>
+            </div>
+            <div class="overview-card">
+              <div class="ov-eyebrow">本週主推</div>
+              <div class="ov-num" style="font-size:18px;line-height:1.3;font-style:italic;color:var(--ink)">把 recurring crawl 包成每日監測 agent</div>
+              <div class="ov-sub">SIG-2429 · 4 段證據 · 3 來源</div>
+              <div class="ov-link">→ 查看 hero</div>
+            </div>
+            <div class="overview-card">
+              <div class="ov-eyebrow">產品脈絡</div>
+              <div class="ov-num" style="font-size:14px;line-height:1.5;color:var(--ink-2);font-family:var(--serif);font-style:italic">DLens · 給內容分析者用的訊號工具，月活 1.2k，B2C 早期。</div>
+              <div class="ov-sub">最近一次更新於 4 月 22 日</div>
+              <div class="ov-link">→ 編輯產品脈絡</div>
+            </div>
+          </div>
+
+          <div class="section-label">
+            <span class="label-zh">最近 hero 摘要</span>
+            <span class="label-en">recent heroes</span>
+          </div>
+          <div class="topic-card">
+            <div>
+              <div class="topic-eyebrow">第 28 週 · 2026-04-29</div>
+              <h3 class="topic-title">把 recurring crawl 包成每日監測 agent</h3>
+              <p class="topic-marker">「四十分鐘爬五個社團，根本是上班前的儀式。」</p>
+            </div>
+            <div style="font-family:var(--mono);font-size:10px;color:var(--mute-2);letter-spacing:0.06em;text-align:right;align-self:start;padding-top:4px">SIG-2429<br/>可試</div>
+          </div>
+          <div class="topic-card">
+            <div>
+              <div class="topic-eyebrow">第 27 週 · 2026-04-22</div>
+              <h3 class="topic-title">PM 文件生成切入非技術團隊</h3>
+              <p class="topic-marker">「我都係 copy 會議紀錄入去。」</p>
+            </div>
+            <div style="font-family:var(--mono);font-size:10px;color:var(--mute-2);letter-spacing:0.06em;text-align:right;align-self:start;padding-top:4px">SIG-2412<br/>可試</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- P02 · 分類整理 base + hero -->
+  <div class="frame-wrap">
+    <div class="frame-label"><span class="label-page">P1 · 分類整理</span><span class="label-state">A · 列表 + Hero Card</span></div>
+    <div class="frame product-mode">
+      <aside class="rail">
+        <div class="rail-mark">D</div>
+        <div class="rail-item">收集</div>
+        <div class="rail-item active">分類<br/>整理</div>
+        <div class="rail-item">已存</div>
+        <div class="rail-foot"><div class="rail-dot"></div><div class="rail-item">設定</div></div>
+      </aside>
+      <div class="main">
+        <div class="header"><div class="crumb"><span class="dot"></span>DLens<span class="sep">·</span><b>產品觀察</b></div><div class="spacer"></div><div class="quiet-time">本週 24 則 · 09:42</div></div>
+        <div class="content">
+          <div class="page-eyebrow">本週訊號</div>
+          <h2 class="page-title">把每天爬到的訊號<br/>看成可挑揀的素材</h2>
+          <p class="page-sub">每張卡片代表一段討論被你抓出來的可重用 pattern。先讀 hero，再從分類掃過剩下的。</p>
+
+          <div class="filters">
+            <span class="f active">全部 <span class="f-count">24</span></span>
+            <span class="f">可試 <span class="f-count">7</span></span>
+            <span class="f">需求 <span class="f-count">5</span></span>
+            <span class="f">技術／workflow <span class="f-count">4</span></span>
+            <span class="f">Marketing 參考 <span class="f-count">3</span></span>
+            <span class="f">競品 <span class="f-count">2</span></span>
+            <span class="f">學習 <span class="f-count">2</span></span>
+            <span class="f">噪音 <span class="f-count">1</span></span>
+          </div>
+
+          <article class="signal-card hero">
+            <div class="hero-flag"><span class="star"></span>本週主推</div>
+            <div class="sc-meta"><span class="sc-verdict gold">可試</span><span class="sc-id">SIG-2429</span><span>· 4 段證據 · 3 來源</span></div>
+            <h3 class="sc-headline">把 recurring crawl 包成每日監測 agent</h3>
+            <div class="sc-tags"><span class="tag">技術／workflow</span><span class="tag">agent handoff</span><span class="tag">recurring</span></div>
+            <p class="sc-insight">Kathy 描述每天五個社群 + 四個 Reddit 板手動爬的儀式，整段流程已是固定 pipeline。DLens 既有 collector 接 cron，可直接吐每日 digest，省掉早上 40 分鐘。</p>
+            <p class="sc-why">對 PR 與 analyst 是高頻痛點。市面上沒有人做日報級的社群監測——大家都還停在「即時搜」。</p>
+            <blockquote class="sc-quote">「我每天花四十分鐘爬五個社團，根本是上班前的儀式。」<span class="sc-quote-cite">@kathy · Threads · 2026-04-29</span></blockquote>
+            <div class="sc-actions"><span class="source-count">4 段證據</span><span class="spacer" style="flex:1"></span><span class="secondary">查看詳情</span><span class="primary">保存卡片</span></div>
+          </article>
+
+          <article class="signal-card">
+            <div class="sc-meta"><span class="sc-verdict">需求</span><span class="sc-id">SIG-2428</span><span>· 7 段 · 5 來源</span></div>
+            <h3 class="sc-headline">把社群回覆變成產品需求雷達</h3>
+            <div class="sc-tags"><span class="tag">UGC</span><span class="tag">leading indicator</span><span class="tag">churn</span></div>
+            <p class="sc-insight">Threads 回覆比 GA 早 2–3 週反映轉化問題；分類 agent 可自動標「需求／抱怨／噪音」。</p>
+            <blockquote class="sc-quote">「個 onboarding 唔順，但我已經習慣咗。」<span class="sc-quote-cite">@userid_4421 · 2026-04-29</span></blockquote>
+            <div class="sc-actions"><span class="source-count">7 段證據</span><span style="flex:1"></span><span class="secondary">查看詳情</span><span class="primary">保存卡片</span></div>
+          </article>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- P03 · filter selected -->
+  <div class="frame-wrap">
+    <div class="frame-label"><span class="label-page">P1 · 分類整理</span><span class="label-state">B · filter selected「可試」</span></div>
+    <div class="frame product-mode">
+      <aside class="rail">
+        <div class="rail-mark">D</div>
+        <div class="rail-item">收集</div>
+        <div class="rail-item active">分類<br/>整理</div>
+        <div class="rail-item">已存</div>
+        <div class="rail-foot"><div class="rail-dot"></div><div class="rail-item">設定</div></div>
+      </aside>
+      <div class="main">
+        <div class="header"><div class="crumb"><span class="dot"></span>產品觀察<span class="sep">·</span><b>分類整理</b><span class="sep">·</span>可試</div><div class="spacer"></div><div class="quiet-time">7 / 24 則</div></div>
+        <div class="content">
+          <div class="page-eyebrow">「可試」分類</div>
+          <h2 class="page-title">7 條跟你產品最相關的可試訊號</h2>
+          <p class="page-sub">filter 收進 verdict＝可試 的卡片。這層通常是下週 sprint 的素材源。</p>
+
+          <div class="filters">
+            <span class="f">全部 <span class="f-count">24</span></span>
+            <span class="f active">可試 <span class="f-count">7</span></span>
+            <span class="f">需求 <span class="f-count">5</span></span>
+            <span class="f">技術／workflow <span class="f-count">4</span></span>
+            <span class="f">競品 <span class="f-count">2</span></span>
+          </div>
+
+          <article class="signal-card">
+            <div class="sc-meta"><span class="sc-verdict gold">可試</span><span class="sc-id">SIG-2429</span><span>· 4 段 · 3 來源</span></div>
+            <h3 class="sc-headline">把 recurring crawl 包成每日監測 agent</h3>
+            <p class="sc-insight">Kathy 的 40 分鐘儀式是固定 pipeline，cron + collector 可直接落地。</p>
+            <blockquote class="sc-quote">「四十分鐘爬五個社團，根本是上班前的儀式。」<span class="sc-quote-cite">@kathy · 2026-04-29</span></blockquote>
+            <div class="sc-actions"><span class="source-count">4 段證據</span><span style="flex:1"></span><span class="secondary">查看詳情</span><span class="primary">保存卡片</span></div>
+          </article>
+
+          <article class="signal-card">
+            <div class="sc-meta"><span class="sc-verdict gold">可試</span><span class="sc-id">SIG-2427</span><span>· 5 段 · 4 來源</span></div>
+            <h3 class="sc-headline">用 PM 文件生成流程切入非技術團隊</h3>
+            <p class="sc-insight">市場、業務、HR 不寫 prompt 但都會寫會議紀錄。轉換層做為 onboarding 切入點。</p>
+            <blockquote class="sc-quote">「我都係 copy 會議紀錄入去，AI 自己理解。」<span class="sc-quote-cite">@vy_pm · 2026-04-26</span></blockquote>
+            <div class="sc-actions"><span class="source-count">5 段證據</span><span style="flex:1"></span><span class="secondary">查看詳情</span><span class="primary">保存卡片</span></div>
+          </article>
+
+          <article class="signal-card">
+            <div class="sc-meta"><span class="sc-verdict gold">可試</span><span class="sc-id">SIG-2421</span><span>· 3 段 · 2 來源</span></div>
+            <h3 class="sc-headline">把「失敗的 agent run」當回放教材</h3>
+            <p class="sc-insight">用戶反覆問「為什麼這次出錯」——失敗 trace 比成功 trace 更教學。</p>
+            <blockquote class="sc-quote">「我想睇返佢點解咁諗，唔係要 retry。」<span class="sc-quote-cite">@dev_louis · 2026-04-22</span></blockquote>
+            <div class="sc-actions"><span class="source-count">3 段證據</span><span style="flex:1"></span><span class="secondary">查看詳情</span><span class="primary">保存卡片</span></div>
+          </article>
+        </div>
+      </div>
+    </div>
+  </div>
+
+</div>
+
+
+<!-- Row P2 · Signal Detail + Evidence + Saved -->
+<div class="row-header">
+  <div class="num">P2</div>
+  <div class="name">產品 · Signal Detail · Evidence · Save <span class="mode-tag">Product mode</span></div>
+  <div class="desc">Signal Intelligence Card 展開、抽屜看完整證據、保存後給 toast 確認——三個動作節奏連著走。</div>
+</div>
+
+<div class="gallery-row">
+
+  <!-- P04 · Signal detail -->
+  <div class="frame-wrap">
+    <div class="frame-label"><span class="label-page">P1 · Signal Detail</span><span class="label-state">A · 完整卡片</span></div>
+    <div class="frame product-mode">
+      <aside class="rail">
+        <div class="rail-mark">D</div>
+        <div class="rail-item">收集</div>
+        <div class="rail-item active">分類<br/>整理</div>
+        <div class="rail-item">已存</div>
+        <div class="rail-foot"><div class="rail-dot"></div><div class="rail-item">設定</div></div>
+      </aside>
+      <div class="main">
+        <div class="header"><div class="crumb"><span class="back">← 返回</span><span class="dot"></span>分類整理<span class="sep">·</span><b>訊號詳情</b></div><div class="spacer"></div><div class="quiet-time">SIG-2429</div></div>
+        <div class="content detail-pane">
+          <div class="detail-eyebrow">
+            <span class="sc-verdict gold">可試</span>
+            <span>2026-04-29 · 第 28 週</span>
+            <span>· 4 段證據 · 3 來源</span>
+          </div>
+          <h2 class="detail-headline">把 recurring crawl 包成每日監測 agent</h2>
+          <div class="detail-meta-row">
+            <span>SIG-2429</span><span>·</span>
+            <span>tags：workflow · agent handoff · recurring</span>
+          </div>
+
+          <div class="detail-section-label">對產品的可能用處</div>
+          <p class="detail-prose">Kathy 描述每天五個社群 + 四個 Reddit 板手動爬的儀式——這段流程在認知上已是<b>固定 pipeline</b>。把它接 cron + 既有 collector，再讓 LLM 做日報級摘要，就能成為一個「每日監測 agent」交付物，省掉用戶 40 分鐘的早上儀式。</p>
+
+          <div class="detail-section-label">為什麼值得留意</div>
+          <p class="detail-prose">對 PR 與 analyst 是高頻痛點。市面工具停在即時搜（Brand24、Mention 那一類），<b>沒有人做日報級的社群監測 agent</b>，這條路線是 DLens 自身 collector 已具備的能力，落地成本低。</p>
+
+          <div class="detail-quote-hero">我每天花四十分鐘爬五個社團，根本是上班前的儀式。睇完先沖到杯咖啡。
+            <span class="detail-quote-cite">@kathy · Threads · 2026-04-29 · 142♥</span>
+          </div>
+
+          <div class="detail-actions">
+            <span class="primary">保存卡片</span>
+            <span class="secondary">加入對比</span>
+            <span class="ghost">查看完整證據（4）</span>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- P05 · Evidence drawer -->
+  <div class="frame-wrap">
+    <div class="frame-label"><span class="label-page">P1 · Signal Detail</span><span class="label-state">B · evidence drawer</span></div>
+    <div class="frame product-mode">
+      <aside class="rail">
+        <div class="rail-mark">D</div>
+        <div class="rail-item">收集</div>
+        <div class="rail-item active">分類<br/>整理</div>
+        <div class="rail-item">已存</div>
+        <div class="rail-foot"><div class="rail-dot"></div><div class="rail-item">設定</div></div>
+      </aside>
+      <div class="main">
+        <div class="header"><div class="crumb"><span class="back">←</span><span class="dot"></span>分類整理<span class="sep">·</span><b>訊號詳情</b></div><div class="spacer"></div><div class="quiet-time">SIG-2429</div></div>
+        <div class="content detail-pane" style="opacity:0.55">
+          <div class="detail-eyebrow"><span class="sc-verdict gold">可試</span><span>2026-04-29</span></div>
+          <h2 class="detail-headline">把 recurring crawl 包成每日監測 agent</h2>
+          <div class="detail-section-label">對產品的可能用處</div>
+          <p class="detail-prose">Kathy 描述每天五個社群 + 四個 Reddit 板手動爬的儀式⋯⋯</p>
+        </div>
+
+        <div class="drawer-backdrop"></div>
+        <div class="drawer" style="height:540px">
+          <div class="drawer-handle"></div>
+          <div class="drawer-head">
+            <h3>完整證據</h3>
+            <span class="count">4 段 · 3 個來源</span>
+            <div class="sort"><span class="on">相關度</span><span>時間</span><span>互動數</span></div>
+          </div>
+          <div class="drawer-body">
+            <div class="evidence-item">
+              <p class="evidence-quote-text">「我每天花四十分鐘爬五個社團，根本是上班前的儀式。睇完先沖到杯咖啡。」</p>
+              <div class="evidence-meta-row"><span class="src">@kathy</span><span>Threads</span><span>2026-04-29</span><span>142♥ · 28💬</span><span class="actions">加入對比 · 查看原文</span></div>
+            </div>
+            <div class="evidence-item">
+              <p class="evidence-quote-text">「自己手動 google search、open 五個 tab、再 copy 進 doc，完全是 cron 該做的事。」</p>
+              <div class="evidence-meta-row"><span class="src">@kathy</span><span>Threads · 同串</span><span>2026-04-29</span><span>67♥</span><span class="actions">加入對比 · 查看原文</span></div>
+            </div>
+            <div class="evidence-item">
+              <p class="evidence-quote-text">「我們 team 也一樣，每天早上有人專門爬 Reddit + Twitter 寫 daily summary，三年了還在做。」</p>
+              <div class="evidence-meta-row"><span class="src">@daniel_pr</span><span>Threads · 引用</span><span>2026-04-29</span><span>34♥</span><span class="actions">加入對比 · 查看原文</span></div>
+            </div>
+            <div class="evidence-item">
+              <p class="evidence-quote-text">「Brand24 給的是噪音，我要的是有人幫我把『重要』篩出來。」</p>
+              <div class="evidence-meta-row"><span class="src">@em_analyst</span><span>X</span><span>2026-04-28</span><span>89♥ · 12💬</span><span class="actions">加入對比 · 查看原文</span></div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- P06 · Save card confirmation toast -->
+  <div class="frame-wrap">
+    <div class="frame-label"><span class="label-page">P1 · Signal Card</span><span class="label-state">C · saved confirmation</span></div>
+    <div class="frame product-mode">
+      <aside class="rail">
+        <div class="rail-mark">D</div>
+        <div class="rail-item">收集</div>
+        <div class="rail-item active">分類<br/>整理</div>
+        <div class="rail-item">已存</div>
+        <div class="rail-foot"><div class="rail-dot"></div><div class="rail-item">設定</div></div>
+      </aside>
+      <div class="main">
+        <div class="header"><div class="crumb"><span class="dot"></span>產品觀察<span class="sep">·</span><b>分類整理</b></div><div class="spacer"></div><div class="quiet-time">已存 19 / 24</div></div>
+
+        <div class="toast">
+          <span class="check">✓</span>
+          <span>已存進「已存訊號」</span>
+          <span style="font-family:var(--mono);font-size:10.5px;letter-spacing:0.06em;color:rgba(246,244,236,0.65)">SIG-2429</span>
+          <span class="undo">復原</span>
+        </div>
+
+        <div class="content">
+          <div class="page-eyebrow">本週訊號</div>
+          <h2 class="page-title">把每天爬到的訊號<br/>看成可挑揀的素材</h2>
+          <p class="page-sub">已保存的卡片在這裡會以淡化標記顯示，列表不會跳動。</p>
+
+          <article class="signal-card hero" style="opacity:0.7">
+            <div class="hero-flag"><span class="star"></span>已存</div>
+            <div class="sc-meta"><span class="sc-verdict gold">可試</span><span class="sc-id">SIG-2429</span><span>· 已存 · 4 段 · 3 來源</span></div>
+            <h3 class="sc-headline">把 recurring crawl 包成每日監測 agent</h3>
+            <p class="sc-insight">Kathy 的 40 分鐘儀式可變每日監測 agent。</p>
+            <div class="sc-actions"><span class="source-count">4 段證據</span><span style="flex:1"></span><span class="secondary">查看詳情</span><span class="ghost" style="color:var(--accent-deep)">已在已存中 ✓</span></div>
+          </article>
+
+          <article class="signal-card">
+            <div class="sc-meta"><span class="sc-verdict">需求</span><span class="sc-id">SIG-2428</span><span>· 7 段 · 5 來源</span></div>
+            <h3 class="sc-headline">把社群回覆變成產品需求雷達</h3>
+            <p class="sc-insight">Threads 回覆比 GA 早 2–3 週反映轉化問題。</p>
+            <blockquote class="sc-quote">「個 onboarding 唔順，但我已經習慣咗。」<span class="sc-quote-cite">@userid_4421 · 2026-04-29</span></blockquote>
+            <div class="sc-actions"><span class="source-count">7 段證據</span><span style="flex:1"></span><span class="secondary">查看詳情</span><span class="primary">保存卡片</span></div>
+          </article>
+        </div>
+      </div>
+    </div>
+  </div>
+
+</div>
+
+
+<!-- Row P3 · Saved Signals -->
+<div class="row-header">
+  <div class="num">P3</div>
+  <div class="name">產品 · 已存訊號 + Export <span class="mode-tag">Product mode</span></div>
+  <div class="desc">勾選 → 計數浮起 → export drawer 給兩種 brief 模式。是把 signal 推到下游 agent 的轉場區。</div>
+</div>
+
+<div class="gallery-row">
+
+  <!-- P07 · Saved unselected -->
+  <div class="frame-wrap">
+    <div class="frame-label"><span class="label-page">P2 · 已存訊號</span><span class="label-state">A · 未選</span></div>
+    <div class="frame product-mode">
+      <aside class="rail">
+        <div class="rail-mark">D</div>
+        <div class="rail-item">收集</div>
+        <div class="rail-item">分類<br/>整理</div>
+        <div class="rail-item active">已存</div>
+        <div class="rail-foot"><div class="rail-dot"></div><div class="rail-item">設定</div></div>
+      </aside>
+      <div class="main">
+        <div class="header"><div class="crumb"><span class="dot"></span>產品觀察<span class="sep">·</span><b>已存訊號</b></div><div class="spacer"></div><div class="quiet-time">共 18 則</div></div>
+        <div class="content">
+          <div class="page-eyebrow">已存訊號</div>
+          <h2 class="page-title">挑出值得帶去問你 agent 的</h2>
+          <p class="page-sub">勾選之後選一種 brief 模式輸出。</p>
+
+          <div class="saved-row">
+            <div class="checkbox"></div>
+            <div class="saved-body">
+              <h4 class="saved-headline">把 recurring crawl 包成每日監測 agent</h4>
+              <p class="saved-line">Kathy 描述的每天五社群手動爬流程是固定 pipeline，可接 cron + collector 變 daily digest。</p>
+              <p class="saved-quote">「每天四十分鐘爬五個社團，根本是上班前的儀式。」</p>
+            </div>
+            <div class="saved-meta"><div class="saved-meta-cat">可試</div>SIG-2429<br/>2026-04-29</div>
+          </div>
+          <div class="saved-row">
+            <div class="checkbox"></div>
+            <div class="saved-body">
+              <h4 class="saved-headline">把社群回覆變成產品需求雷達</h4>
+              <p class="saved-line">Threads 回覆比 GA 早 2–3 週反映轉化問題；agent 可自動標需求／抱怨／噪音。</p>
+              <p class="saved-quote">「個 onboarding 唔順，但我已經習慣咗。」</p>
+            </div>
+            <div class="saved-meta"><div class="saved-meta-cat">需求</div>SIG-2428<br/>2026-04-29</div>
+          </div>
+          <div class="saved-row">
+            <div class="checkbox"></div>
+            <div class="saved-body">
+              <h4 class="saved-headline">用 PM 文件生成流程切入非技術團隊</h4>
+              <p class="saved-line">市場、業務、HR 不寫 prompt，但都會寫會議紀錄。這層轉換是非技術用戶的入口。</p>
+              <p class="saved-quote">「我都係 copy 會議紀錄入去，AI 自己理解。」</p>
+            </div>
+            <div class="saved-meta"><div class="saved-meta-cat">可試</div>SIG-2427<br/>2026-04-26</div>
+          </div>
+          <div class="saved-row">
+            <div class="checkbox"></div>
+            <div class="saved-body">
+              <h4 class="saved-headline">Granola 用 stickiness 換成長，不靠 acquisition</h4>
+              <p class="saved-line">老用戶高頻使用，acquisition 投入極低。值得看 onboarding 與會前提醒設計。</p>
+              <p class="saved-quote">「I open it before every meeting, even when I don't need to.」</p>
+            </div>
+            <div class="saved-meta"><div class="saved-meta-cat">競品</div>SIG-2425<br/>2026-04-25</div>
+          </div>
+          <div class="saved-row">
+            <div class="checkbox"></div>
+            <div class="saved-body">
+              <h4 class="saved-headline">把 LinkedIn DM 模板 commodity 化</h4>
+              <p class="saved-line">業界 DM 模板已過於相近，個人化反而是新差異。給 marketing 用戶一個落差感。</p>
+              <p class="saved-quote">「上週連續收到三個 hi {name}」</p>
+            </div>
+            <div class="saved-meta"><div class="saved-meta-cat">Marketing</div>SIG-2424<br/>2026-04-24</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- P08 · Saved selected -->
+  <div class="frame-wrap">
+    <div class="frame-label"><span class="label-page">P2 · 已存訊號</span><span class="label-state">B · 已選 4 篇</span></div>
+    <div class="frame product-mode">
+      <aside class="rail">
+        <div class="rail-mark">D</div>
+        <div class="rail-item">收集</div>
+        <div class="rail-item">分類<br/>整理</div>
+        <div class="rail-item active">已存</div>
+        <div class="rail-foot"><div class="rail-dot"></div><div class="rail-item">設定</div></div>
+      </aside>
+      <div class="main">
+        <div class="header"><div class="crumb"><span class="dot"></span>產品觀察<span class="sep">·</span><b>已存訊號</b></div><div class="spacer"></div><div class="quiet-time">已選 4 / 共 18</div></div>
+        <div class="content" style="padding-bottom:100px">
+          <div class="page-eyebrow">已存訊號</div>
+          <h2 class="page-title">挑出值得帶去問你 agent 的</h2>
+          <p class="page-sub">勾選之後選一種 brief 模式輸出。</p>
+
+          <div class="saved-row selected">
+            <div class="checkbox on">✓</div>
+            <div class="saved-body">
+              <h4 class="saved-headline">把 recurring crawl 包成每日監測 agent</h4>
+              <p class="saved-line">每日五社群手動爬流程是固定 pipeline，可接 cron + collector 變 daily digest。</p>
+              <p class="saved-quote">「每天四十分鐘爬五個社團，根本是上班前的儀式。」</p>
+            </div>
+            <div class="saved-meta"><div class="saved-meta-cat">可試</div>SIG-2429</div>
+          </div>
+          <div class="saved-row selected">
+            <div class="checkbox on">✓</div>
+            <div class="saved-body">
+              <h4 class="saved-headline">把社群回覆變成產品需求雷達</h4>
+              <p class="saved-line">Threads 回覆比 GA 早 2–3 週；agent 可自動標需求／抱怨／噪音。</p>
+              <p class="saved-quote">「個 onboarding 唔順，但我已經習慣咗。」</p>
+            </div>
+            <div class="saved-meta"><div class="saved-meta-cat">需求</div>SIG-2428</div>
+          </div>
+          <div class="saved-row selected">
+            <div class="checkbox on">✓</div>
+            <div class="saved-body">
+              <h4 class="saved-headline">用 PM 文件生成流程切入非技術團隊</h4>
+              <p class="saved-line">會議紀錄、PRD 是非技術用戶的入口。轉換層做為 onboarding 切入點。</p>
+              <p class="saved-quote">「我都係 copy 會議紀錄入去。」</p>
+            </div>
+            <div class="saved-meta"><div class="saved-meta-cat">可試</div>SIG-2427</div>
+          </div>
+          <div class="saved-row selected">
+            <div class="checkbox on">✓</div>
+            <div class="saved-body">
+              <h4 class="saved-headline">Granola 用 stickiness 換成長</h4>
+              <p class="saved-line">老用戶高頻使用，acquisition 投入極低。值得看 onboarding 設計。</p>
+              <p class="saved-quote">「I open it before every meeting, even when I don't need to.」</p>
+            </div>
+            <div class="saved-meta"><div class="saved-meta-cat">競品</div>SIG-2425</div>
+          </div>
+          <div class="saved-row">
+            <div class="checkbox"></div>
+            <div class="saved-body">
+              <h4 class="saved-headline">把 LinkedIn DM 模板 commodity 化</h4>
+              <p class="saved-line">業界 DM 模板已過於相近，個人化反而是新差異。</p>
+            </div>
+            <div class="saved-meta"><div class="saved-meta-cat">Marketing</div>SIG-2424</div>
+          </div>
+        </div>
+
+        <div class="action-bar">
+          <div class="count-block">
+            <div class="count-num">已選 <em>4</em> 篇</div>
+            <div class="count-sub">預估 BRIEF ≈ 1.8K TOKENS</div>
+          </div>
+          <div class="action-spacer"></div>
+          <span class="clear">清除</span>
+          <span class="action-btn primary">匯出 Brief →</span>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- P09 · Export drawer -->
+  <div class="frame-wrap">
+    <div class="frame-label"><span class="label-page">P2 · 已存訊號</span><span class="label-state">C · 匯出抽屜</span></div>
+    <div class="frame product-mode">
+      <aside class="rail">
+        <div class="rail-mark">D</div>
+        <div class="rail-item">收集</div>
+        <div class="rail-item">分類<br/>整理</div>
+        <div class="rail-item active">已存</div>
+        <div class="rail-foot"><div class="rail-dot"></div><div class="rail-item">設定</div></div>
+      </aside>
+      <div class="main">
+        <div class="header"><div class="crumb"><span class="dot"></span>產品觀察<span class="sep">·</span><b>已存訊號</b></div><div class="spacer"></div><div class="quiet-time">已選 4 / 共 18</div></div>
+        <div class="content" style="opacity:0.45">
+          <div class="page-eyebrow">已存訊號</div>
+          <h2 class="page-title">挑出值得帶去問你 agent 的</h2>
+          <div class="saved-row selected"><div class="checkbox on">✓</div><div class="saved-body"><h4 class="saved-headline">把 recurring crawl 包成每日監測 agent</h4></div><div class="saved-meta">SIG-2429</div></div>
+          <div class="saved-row selected"><div class="checkbox on">✓</div><div class="saved-body"><h4 class="saved-headline">把社群回覆變成產品需求雷達</h4></div><div class="saved-meta">SIG-2428</div></div>
+        </div>
+
+        <div class="drawer-backdrop"></div>
+        <div class="drawer" style="height:480px">
+          <div class="drawer-handle"></div>
+          <div class="drawer-head">
+            <h3>匯出 Brief</h3>
+            <span class="count">已選 4 篇 · 預估 1.8k tokens</span>
+            <div class="sort"><span style="color:var(--mute-2)">取消</span></div>
+          </div>
+          <div class="drawer-body">
+            <p style="font-family:var(--serif);font-style:italic;font-size:13px;color:var(--mute);margin:4px 0 16px;max-width:480px">兩種 brief 模式給不同的下游使用情境——選你 agent 接下來要做的事。</p>
+
+            <div class="export-modes">
+              <div class="export-mode">
+                <div class="export-mode-head"><div class="export-mode-name">原文優先 Brief</div></div>
+                <p class="export-mode-desc">給用戶自己的 agent 重新審視。原文摘錄權重高，DLens 初步判讀權重低，agent 自己做判斷。</p>
+                <div class="export-mode-meta"><span>≈ 1.8k tokens</span><span>· 含 12 段 quote</span><span>· markdown</span></div>
+                <div class="export-mode-cta">匯出原文優先</div>
+              </div>
+              <div class="export-mode recommended">
+                <div class="export-mode-head"><div class="export-mode-name">精簡決策 Brief</div><div class="export-mode-flag">建議</div></div>
+                <p class="export-mode-desc">給 agent 直接提下一步。headline + category + insight 為主，quote 留 1–2 句代表，agent 不需自己縮減。</p>
+                <div class="export-mode-meta"><span>≈ 0.7k tokens</span><span>· 含 4 段 quote</span><span>· markdown</span></div>
+                <div class="export-mode-cta">匯出精簡決策</div>
+              </div>
+            </div>
+
+            <p style="font-family:var(--mono);font-size:10.5px;color:var(--mute-2);letter-spacing:0.06em;margin:8px 0 0">匯出後可貼進 ChatGPT / Claude / Gemini，或直接複製到 Notion。</p>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+</div>
+
+
+<!-- Row P4 · Brief preview + single-card prompt -->
+<div class="row-header">
+  <div class="num">P4</div>
+  <div class="name">產品 · Brief 預覽 + 單卡 prompt <span class="mode-tag">Product mode</span></div>
+  <div class="desc">兩種 brief 渲染後的 preview 是把交付物示出來——給用戶決定 agent 要不要直接吃。Single-card prompt 是針對單張 signal 提一個 explicit 問題。</div>
+</div>
+
+<div class="gallery-row">
+
+  <!-- P10 · 原文優先 brief preview -->
+  <div class="frame-wrap">
+    <div class="frame-label"><span class="label-page">P2 · Brief Preview</span><span class="label-state">A · 原文優先</span></div>
+    <div class="frame product-mode">
+      <aside class="rail">
+        <div class="rail-mark">D</div>
+        <div class="rail-item">收集</div>
+        <div class="rail-item">分類<br/>整理</div>
+        <div class="rail-item active">已存</div>
+        <div class="rail-foot"><div class="rail-dot"></div><div class="rail-item">設定</div></div>
+      </aside>
+      <div class="main">
+        <div class="header"><div class="crumb"><span class="back">←</span><span class="dot"></span>已存訊號<span class="sep">·</span><b>原文優先 Brief</b></div><div class="spacer"></div><div class="quiet-time">≈ 1.8k tokens</div></div>
+        <div class="content">
+          <div class="page-eyebrow">Brief 預覽 · 原文優先</div>
+          <h2 class="page-title" style="font-size:18px">給你的 agent 重新審視</h2>
+
+          <div class="brief-doc">
+            <h4>DLens Weekly Signal Brief · 第 28 週</h4>
+            <div class="doc-meta"><span>2026-04-30</span><span>·</span><span>4 訊號 · 12 quote</span><span>·</span><span>原文優先</span></div>
+
+            <h5>SIG-2429 · 把 recurring crawl 包成每日監測 agent</h5>
+            <p>Kathy 描述每天五個社群 + 四個 Reddit 板手動爬的儀式。市面工具停在即時搜，沒有人做日報級的社群監測 agent。</p>
+            <blockquote>「我每天花四十分鐘爬五個社團，根本是上班前的儀式。」— @kathy · 2026-04-29</blockquote>
+            <blockquote>「我們 team 也一樣，每天早上有人專門爬 Reddit + Twitter 寫 daily summary。」— @daniel_pr · 2026-04-29</blockquote>
+            <blockquote>「Brand24 給的是噪音，我要的是有人幫我把『重要』篩出來。」— @em_analyst · 2026-04-28</blockquote>
+
+            <hr class="doc-divider"/>
+            <h5>SIG-2428 · 把社群回覆變成產品需求雷達</h5>
+            <p>Threads 回覆比 GA 早 2–3 週反映轉化問題；分類 agent 可自動標「需求／抱怨／噪音」。</p>
+            <blockquote>「個 onboarding 唔順，但我已經習慣咗。」— @userid_4421 · 2026-04-29</blockquote>
+
+            <hr class="doc-divider"/>
+            <h5>SIG-2427 · 用 PM 文件生成切入非技術團隊</h5>
+            <blockquote>「我都係 copy 會議紀錄入去，AI 自己理解。」— @vy_pm · 2026-04-26</blockquote>
+          </div>
+
+          <div style="display:flex;gap:10px;margin-top:14px">
+            <span class="action-btn primary">複製到剪貼簿</span>
+            <span class="action-btn">下載 .md</span>
+            <span style="margin-left:auto;font-size:11.5px;color:var(--mute);align-self:center">改用精簡決策模式</span>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- P11 · 精簡決策 brief preview -->
+  <div class="frame-wrap">
+    <div class="frame-label"><span class="label-page">P2 · Brief Preview</span><span class="label-state">B · 精簡決策</span></div>
+    <div class="frame product-mode">
+      <aside class="rail">
+        <div class="rail-mark">D</div>
+        <div class="rail-item">收集</div>
+        <div class="rail-item">分類<br/>整理</div>
+        <div class="rail-item active">已存</div>
+        <div class="rail-foot"><div class="rail-dot"></div><div class="rail-item">設定</div></div>
+      </aside>
+      <div class="main">
+        <div class="header"><div class="crumb"><span class="back">←</span><span class="dot"></span>已存訊號<span class="sep">·</span><b>精簡決策 Brief</b></div><div class="spacer"></div><div class="quiet-time">≈ 0.7k tokens · 建議</div></div>
+        <div class="content">
+          <div class="page-eyebrow">Brief 預覽 · 精簡決策</div>
+          <h2 class="page-title" style="font-size:18px">給 agent 直接提下一步</h2>
+
+          <div class="brief-doc">
+            <h4>DLens Weekly Signal Brief · 第 28 週</h4>
+            <div class="doc-meta"><span>2026-04-30</span><span>·</span><span>4 訊號 · 4 quote 代表</span><span>·</span><span>精簡決策</span></div>
+
+            <h5>本週主推</h5>
+            <p><b>SIG-2429 · 可試 ·</b> 把 recurring crawl 包成每日監測 agent。Kathy 的 40 分鐘儀式是固定 pipeline，DLens collector 可接 cron 落地。</p>
+            <blockquote>「四十分鐘爬五個社團，根本是上班前的儀式。」— @kathy</blockquote>
+
+            <hr class="doc-divider"/>
+            <h5>本週其他</h5>
+            <ul>
+              <li><b>SIG-2428 · 需求 ·</b> 社群回覆比 GA 早 2–3 週反映轉化問題。<br/><em>「個 onboarding 唔順，但我已經習慣咗。」</em></li>
+              <li><b>SIG-2427 · 可試 ·</b> 用 PM 文件生成切入非技術團隊（會議紀錄、PRD）。<br/><em>「我都係 copy 會議紀錄入去。」</em></li>
+              <li><b>SIG-2425 · 競品 ·</b> Granola 用 stickiness 換成長，不靠 acquisition。<br/><em>「I open it before every meeting, even when I don't need to.」</em></li>
+            </ul>
+
+            <hr class="doc-divider"/>
+            <h5>建議下一步</h5>
+            <ul>
+              <li>SIG-2429：原型 daily digest agent，2 週內出可發版的內測。</li>
+              <li>SIG-2428：在現有 collector 加分類 agent，實驗 churn signal。</li>
+              <li>SIG-2425：研究 Granola onboarding flow，作為下季 acquisition 替代路線。</li>
+            </ul>
+          </div>
+
+          <div style="display:flex;gap:10px;margin-top:14px">
+            <span class="action-btn primary">複製到剪貼簿</span>
+            <span class="action-btn">下載 .md</span>
+            <span style="margin-left:auto;font-size:11.5px;color:var(--mute);align-self:center">改用原文優先模式</span>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- P12 · Single-card prompt request -->
+  <div class="frame-wrap">
+    <div class="frame-label"><span class="label-page">P1 · Signal Detail</span><span class="label-state">D · single-card prompt</span></div>
+    <div class="frame product-mode">
+      <aside class="rail">
+        <div class="rail-mark">D</div>
+        <div class="rail-item">收集</div>
+        <div class="rail-item active">分類<br/>整理</div>
+        <div class="rail-item">已存</div>
+        <div class="rail-foot"><div class="rail-dot"></div><div class="rail-item">設定</div></div>
+      </aside>
+      <div class="main">
+        <div class="header"><div class="crumb"><span class="back">←</span><span class="dot"></span>分類整理<span class="sep">·</span><b>訊號詳情</b><span class="sep">·</span>提問</div><div class="spacer"></div><div class="quiet-time">SIG-2429</div></div>
+        <div class="content detail-pane">
+          <div class="detail-eyebrow">
+            <span class="sc-verdict gold">可試</span>
+            <span>SIG-2429 · 4 段證據 · 3 來源</span>
+          </div>
+          <h2 class="detail-headline" style="font-size:22px">把 recurring crawl 包成每日監測 agent</h2>
+          <p class="detail-prose" style="font-size:13.5px;line-height:1.6">Kathy 的 40 分鐘儀式是固定 pipeline，可直接接 cron + 既有 collector 變每日 digest。</p>
+
+          <div class="prompt-request">
+            <div class="pr-eyebrow">針對這張 signal 額外問你 agent</div>
+            <h4>Optional：把這張 signal 帶到你 agent 時，多問一句</h4>
+            <div class="pr-input">
+              如果這個訊號變成下一個 sprint 的功能，初期應該先服務 PR 還是 analyst 用戶？哪一邊的痛點更尖銳、可量化的差異是什麼？
+            </div>
+            <div class="pr-actions">
+              <span class="primary">隨 brief 一起匯出</span>
+              <span class="secondary">改成另一個問題</span>
+              <span style="margin-left:auto;font-size:11.5px;color:var(--mute);align-self:center">略過</span>
+            </div>
+          </div>
+
+          <p style="font-family:var(--mono);font-size:10.5px;letter-spacing:0.08em;color:var(--mute-2);margin:12px 0 0">這段 prompt 是 optional——不寫的話 brief 維持預設結構。</p>
+
+          <div class="detail-actions">
+            <span class="primary">保存卡片</span>
+            <span class="secondary">查看完整證據（4）</span>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+</div>
+
+
+<!-- =================================================== -->
+<!-- COLLECT · 2 FRAMES (mode-aware accent)              -->
+<!-- =================================================== -->
+<div class="row-header">
+  <div class="num">C</div>
+  <div class="name">收集 · 兩個 mode 的 accent 變體</div>
+  <div class="desc">同一個 collect 結構，accent 隨當前 mode 切換。Product 端歸類成 verdict / category；Topic 端歸類成「議題候選」。<span class="mode-pair"><span class="mp-product">Product · #2c5f5d</span><span class="mp-topic">Topic · #7a3823</span></span></div>
+</div>
+
+<div class="gallery-row two">
+
+  <!-- C01 · Collect Product accent -->
+  <div class="frame-wrap">
+    <div class="frame-label"><span class="label-page">Collect</span><span class="label-state">A · Product accent</span></div>
+    <div class="frame product-mode">
+      <aside class="rail">
+        <div class="rail-mark">D</div>
+        <div class="rail-item active">收集</div>
+        <div class="rail-item">分類<br/>整理</div>
+        <div class="rail-item">已存</div>
+        <div class="rail-foot"><div class="rail-dot"></div><div class="rail-item">設定</div></div>
+      </aside>
+      <div class="main">
+        <div class="header"><div class="crumb"><span class="dot"></span>DLens<span class="sep">·</span>產品觀察<span class="sep">·</span><b>收集</b></div><div class="spacer"></div><div class="quiet-time">threads.net/@kathy</div></div>
+        <div class="content">
+          <div class="page-eyebrow">收集中</div>
+          <h2 class="page-title" style="font-size:20px">把這段討論留下來給分類整理</h2>
+          <p class="page-sub">DLens 已抓到頁面上的引用語與作者；只剩你決定它的 verdict 與分類。</p>
+
+          <div class="collect-canvas">
+            <div>
+              <div class="collect-target">
+                <div class="ct-eyebrow">主要引用</div>
+                <h5>把每天爬到的訊號當成上班儀式</h5>
+                <p class="ct-quote">「我每天花四十分鐘爬五個社團，根本是上班前的儀式。睇完先沖到杯咖啡。」</p>
+                <div class="ct-meta"><span>@kathy</span><span>· Threads</span><span>· 2026-04-29</span><span>· 142♥ · 28💬</span></div>
+              </div>
+              <div class="collect-target">
+                <div class="ct-eyebrow">同串延伸 · 自動加進</div>
+                <p class="ct-quote">「自己手動 google search、open 五個 tab、再 copy 進 doc，完全是 cron 該做的事。」</p>
+                <div class="ct-meta"><span>@kathy</span><span>· Threads · 同串</span><span>· 67♥</span></div>
+              </div>
+            </div>
+
+            <div class="collect-side">
+              <div class="side-card">
+                <h6>Verdict</h6>
+                <div class="opt on"><span class="radio"></span>可試</div>
+                <div class="opt"><span class="radio"></span>需求</div>
+                <div class="opt"><span class="radio"></span>競品</div>
+                <div class="opt"><span class="radio"></span>學習</div>
+                <div class="opt"><span class="radio"></span>噪音</div>
+              </div>
+              <div class="side-card">
+                <h6>分類</h6>
+                <div class="opt on"><span class="radio"></span>技術／workflow</div>
+                <div class="opt"><span class="radio"></span>UGC</div>
+                <div class="opt"><span class="radio"></span>onboarding</div>
+              </div>
+              <div class="side-card">
+                <h6>同串自動納入</h6>
+                <div style="font-family:var(--mono);font-size:10px;color:var(--mute-2);letter-spacing:0.06em">已抓 2 段 / 上限 5</div>
+              </div>
+            </div>
+          </div>
+
+          <div class="collect-cta">
+            <span class="primary">收進分類整理</span>
+            <span class="secondary">編輯引用語</span>
+            <span class="quiet">SIG-2429 · 預留</span>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- C02 · Collect Topic accent -->
+  <div class="frame-wrap topic">
+    <div class="frame-label"><span class="label-page">Collect</span><span class="label-state">B · Topic accent</span></div>
+    <div class="frame topic-mode">
+      <aside class="rail">
+        <div class="rail-mark">D</div>
+        <div class="rail-item active">收集</div>
+        <div class="rail-item">初步<br/>整理</div>
+        <div class="rail-item">Case<br/>book</div>
+        <div class="rail-foot"><div class="rail-dot"></div><div class="rail-item">設定</div></div>
+      </aside>
+      <div class="main">
+        <div class="header"><div class="crumb"><span class="dot"></span>DLens<span class="sep">·</span>議題觀察<span class="sep">·</span><b>收集</b></div><div class="spacer"></div><div class="quiet-time">threads.net/@aileen_w</div></div>
+        <div class="content">
+          <div class="page-eyebrow">收集中</div>
+          <h2 class="page-title" style="font-size:20px">把這段話留下來給議題觀察</h2>
+          <p class="page-sub">DLens 已標出可能歸入的議題候選；如果都不是，就先進「未歸」等下一輪 AI 建議。</p>
+
+          <div class="collect-canvas">
+            <div>
+              <div class="collect-target">
+                <div class="ct-eyebrow">主要引用</div>
+                <h5>追問 desk 在哪</h5>
+                <p class="ct-quote">「賠咗未呀？而家係第幾日？打去 hotline 只會 transfer，全公司無人答到我件 case 喺邊個部門。」</p>
+                <div class="ct-meta"><span>@aileen_w</span><span>· Threads</span><span>· 2026-04-29</span><span>· 142♥ · 28💬</span></div>
+              </div>
+              <div class="collect-target">
+                <div class="ct-eyebrow">同串延伸 · 自動加進</div>
+                <p class="ct-quote">「我已經 follow up 七次，每次答案都唔同。」</p>
+                <div class="ct-meta"><span>@aileen_w</span><span>· Threads · 同串</span></div>
+              </div>
+            </div>
+
+            <div class="collect-side">
+              <div class="side-card">
+                <h6>議題候選</h6>
+                <div class="opt on"><span class="radio"></span>保險拖賠賠償透明度爭議</div>
+                <div class="opt"><span class="radio"></span>銀行客服流程信任流失</div>
+                <div class="opt"><span class="radio"></span>港鐵公告語言信任流失</div>
+                <div class="opt"><span class="radio"></span>未歸 · 等 AI 建議</div>
+              </div>
+              <div class="side-card">
+                <h6>派系候選</h6>
+                <div class="opt on"><span class="radio"></span>追數派 C1</div>
+                <div class="opt"><span class="radio"></span>又係咁派 C2</div>
+                <div class="opt"><span class="radio"></span>留空</div>
+              </div>
+              <div class="side-card">
+                <h6>同串自動納入</h6>
+                <div style="font-family:var(--mono);font-size:10px;color:var(--mute-2);letter-spacing:0.06em">已抓 2 段 / 上限 5</div>
+              </div>
+            </div>
+          </div>
+
+          <div class="collect-cta">
+            <span class="primary">收進議題</span>
+            <span class="secondary">編輯引用語</span>
+            <span class="quiet">TPC-091 · 47 → 48</span>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+</div>
+
+
+<!-- =================================================== -->
+<!-- SETTINGS · 2 FRAMES (mode-aware)                    -->
+<!-- =================================================== -->
+<div class="row-header">
+  <div class="num">S</div>
+  <div class="name">設定 · 兩個 mode 的功能變體</div>
+  <div class="desc">產品端設定多了「產品脈絡」（context text + 上傳檔案），給 LLM 在分類時 ground 用。議題端設定是 workspace 切換 + 觀察焦點。</div>
+</div>
+
+<div class="gallery-row two">
+
+  <!-- S01 · Product settings -->
+  <div class="frame-wrap">
+    <div class="frame-label"><span class="label-page">Settings</span><span class="label-state">A · Product context / import</span></div>
+    <div class="frame product-mode">
+      <aside class="rail">
+        <div class="rail-mark">D</div>
+        <div class="rail-item">收集</div>
+        <div class="rail-item">分類<br/>整理</div>
+        <div class="rail-item">已存</div>
+        <div class="rail-foot"><div class="rail-dot"></div><div class="rail-item active">設定</div></div>
+      </aside>
+      <div class="main">
+        <div class="header"><div class="crumb"><span class="dot"></span>產品觀察<span class="sep">·</span><b>設定</b></div><div class="spacer"></div><div class="quiet-time">產品脈絡 · 4 檔案</div></div>
+        <div class="content">
+          <div class="page-eyebrow">設定 · 產品端</div>
+          <h2 class="page-title" style="font-size:20px">告訴 DLens 你的產品是什麼</h2>
+          <p class="page-sub">這層 context 會送到分類 LLM 做 verdict 與 hero 排序——寫得越具體，「可試」歸類越準。</p>
+
+          <div class="settings-group">
+            <h4>產品脈絡</h4>
+            <p class="sg-desc">用 2–3 段話說清楚產品定位、用戶與當前焦點。</p>
+            <div class="context-text">
+              <p style="margin:0 0 8px">DLens 是一個訊號工具，給內容分析者用——PR、social analyst、PM。<br/>月活 1.2k，B2C 早期，主要用於 Threads / X / Reddit 的社群觀察。</p>
+              <p style="margin:0 0 8px">本季焦點：把分散的社群監測動作合成成 daily digest agent；長線目標是讓非技術用戶也能定義自己的觀察視角。</p>
+              <p style="margin:0;color:var(--mute)" class="placeholder">⋯⋯ 點此繼續編輯</p>
+            </div>
+          </div>
+
+          <div class="settings-group">
+            <h4>產品檔案</h4>
+            <p class="sg-desc">PRD、roadmap、定位 deck——LLM 在做分類時會引用。</p>
+            <div class="file-tile">
+              <div class="ic">PRD</div>
+              <div class="fn">DLens v2 PRD.md<span class="fm">12 KB · 2026-04-22</span></div>
+              <div class="fa">移除</div>
+            </div>
+            <div class="file-tile">
+              <div class="ic">DOC</div>
+              <div class="fn">positioning-deck-q2.pdf<span class="fm">2.4 MB · 2026-04-15</span></div>
+              <div class="fa">移除</div>
+            </div>
+            <div class="file-tile">
+              <div class="ic">CSV</div>
+              <div class="fn">user-personas.csv<span class="fm">8 KB · 2026-04-10</span></div>
+              <div class="fa">移除</div>
+            </div>
+            <div class="file-tile">
+              <div class="ic">＋</div>
+              <div class="fn" style="color:var(--accent-deep)">上傳新檔案<span class="fm">.md / .pdf / .csv / .txt · 上限 4 MB</span></div>
+              <div class="fa"></div>
+            </div>
+          </div>
+
+          <div class="settings-group">
+            <h4>分類偏好</h4>
+            <p class="sg-desc">影響 verdict 排序與 hero 推薦。</p>
+            <div class="sg-row"><div class="label">Hero 偏好<span class="hint">每週主推依據</span></div><div class="value">可試 ＞ 需求</div></div>
+            <div class="sg-row"><div class="label">同串自動納入<span class="hint">收集時連帶抓同串延伸</span></div><div class="toggle"></div></div>
+            <div class="sg-row"><div class="label">噪音自動隱藏</div><div class="toggle off"></div></div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- S02 · Topic settings -->
+  <div class="frame-wrap topic">
+    <div class="frame-label"><span class="label-page">Settings</span><span class="label-state">B · Topic workspace</span></div>
+    <div class="frame topic-mode">
+      <aside class="rail">
+        <div class="rail-mark">D</div>
+        <div class="rail-item">收集</div>
+        <div class="rail-item">初步<br/>整理</div>
+        <div class="rail-item">Case<br/>book</div>
+        <div class="rail-foot"><div class="rail-dot"></div><div class="rail-item active">設定</div></div>
+      </aside>
+      <div class="main">
+        <div class="header"><div class="crumb"><span class="dot"></span>議題觀察<span class="sep">·</span><b>設定</b></div><div class="spacer"></div><div class="quiet-time">workspace · 香港社會觀察</div></div>
+        <div class="content">
+          <div class="page-eyebrow">設定 · 議題端</div>
+          <h2 class="page-title" style="font-size:20px">這個 workspace 是什麼類型的觀察？</h2>
+          <p class="page-sub">workspace type 決定 cluster nick 的語氣、議題建議模式、來源權重。可同時開多個 workspace。</p>
+
+          <div class="settings-group">
+            <h4>當前 workspace</h4>
+            <p class="sg-desc">同一個 DLens 帳號可以有多個觀察空間，互不干擾。</p>
+
+            <div class="workspace-card on">
+              <div class="wc-name">香港社會觀察 <span class="badge">當前</span></div>
+              <div class="wc-desc">追蹤香港在地公共議題與民間語言。cluster nick 偏粵語、口語化。</div>
+              <div class="wc-meta"><span>12 議題</span><span>· 4 群集</span><span>· 47 來源</span><span>· 自 2026-02-08</span></div>
+            </div>
+
+            <div class="workspace-card">
+              <div class="wc-name">PM 圈動向</div>
+              <div class="wc-desc">追蹤 PM 工具、流程、職場語言。cluster nick 偏中英混用。</div>
+              <div class="wc-meta"><span>5 議題</span><span>· 2 群集</span><span>· 18 來源</span></div>
+            </div>
+
+            <div class="workspace-card">
+              <div class="wc-name" style="color:var(--mute)">＋ 建立新 workspace</div>
+              <div class="wc-desc" style="color:var(--mute-2)">選一個觀察主題，DLens 會以它的語境調整 cluster 命名與議題建議。</div>
+            </div>
+          </div>
+
+          <div class="settings-group">
+            <h4>觀察類型</h4>
+            <p class="sg-desc">影響 cluster 命名語氣與議題建議閾值。</p>
+            <div class="sg-row"><div class="label">Workspace 類型<span class="hint">當前：在地語言 + 公共議題</span></div><div class="value">在地公共議題</div></div>
+            <div class="sg-row"><div class="label">Cluster 命名語氣<span class="hint">影響「追數派」「又係咁派」這類 nick 的生成</span></div><div class="value">口語 · 粵</div></div>
+            <div class="sg-row"><div class="label">建議議題信心閾值</div><div class="value">0.65</div></div>
+          </div>
+
+          <div class="settings-group">
+            <h4>來源</h4>
+            <div class="sg-row"><div class="label">Threads</div><div class="toggle"></div></div>
+            <div class="sg-row"><div class="label">X</div><div class="toggle"></div></div>
+            <div class="sg-row"><div class="label">Reddit</div><div class="toggle off"></div></div>
+            <div class="sg-row"><div class="label">同串自動納入</div><div class="toggle"></div></div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+</div>
+
+
+<!-- =================================================== -->
+<!-- COMPONENT INVENTORY                                 -->
+<!-- =================================================== -->
+<section class="notes">
+  <h2>Component inventory · V2.2</h2>
+  <p class="lede">28 frames 用到的元件——這份清單是給之後寫 React 元件的對照表，不是 UI 內標示。Mode-aware 是用 CSS variable 切 accent，shell 結構與 atom 不變。</p>
+
+  <div class="grid">
+
+    <div class="note-block">
+      <h3><span class="num">01</span>Shell</h3>
+      <dl>
+        <dt>Frame</dt>
+        <dd>720 × 860 popup canvas，圓角 14、shadow-frame。<code>.product-mode</code> / <code>.topic-mode</code> 在這層套 accent 變數。</dd>
+        <dt>Rail</dt>
+        <dd>64px 寬，紙感 paper-1 → paper-2 漸層，4 個 stage item，active 用左 2px accent rule。Product：收集 / 分類整理 / 已存 / 設定。Topic：收集 / 初步整理 / Casebook / 設定。</dd>
+        <dt>Main</dt>
+        <dd>Header 56px + Content 區。Header 含 mode dot（accent + glow）、breadcrumb、右側 quiet-time（mono）。</dd>
+      </dl>
+    </div>
+
+    <div class="note-block">
+      <h3><span class="num">02</span>Mode header / Page header</h3>
+      <dl>
+        <dt>page-eyebrow</dt>
+        <dd>Serif italic 14、accent-deep。每頁第一行的小 lede。</dd>
+        <dt>page-title</dt>
+        <dd>Serif 22、weight 500，可斷行。Detail 頁改用 detail-title / detail-headline 26。</dd>
+        <dt>page-sub</dt>
+        <dd>Serif italic 13、mute。一句話定調，不講功能 spec。</dd>
+        <dt>tab-row</dt>
+        <dd>Casebook / Topic Detail 用 serif tabs，accent 底線標 active，count 用 mono。</dd>
+      </dl>
+    </div>
+
+    <div class="note-block">
+      <h3><span class="num">03</span>Filters</h3>
+      <dl>
+        <dt>filter pill</dt>
+        <dd>圓角 999 chips，hairline 邊；active = accent 底 + accent-on 字。F-count 用 mono。</dd>
+        <dt>用法</dt>
+        <dd>產品端：verdict / 分類；議題端：派系 / 來源 / 歸案狀態。同一個 atom，內容隨 mode 換。</dd>
+      </dl>
+    </div>
+
+    <div class="note-block">
+      <h3><span class="num">04</span>Signal Intelligence Card</h3>
+      <dl>
+        <dt>SignalCard.regular</dt>
+        <dd>paper-card 底、verdict chip / source ID / 標題 / tags / insight / why（accent-soft 左線）/ 引語（accent 左線、paper-card-2 底）/ action row。</dd>
+        <dt>SignalCard.hero</dt>
+        <dd>本週主推。paper-card-2 漸層、accent 頂線 2px、右上 hero-flag（mono · gold）、22px 標題、shadow-hero。</dd>
+        <dt>SignalDetail (full takeover)</dt>
+        <dd>取代列表的整頁。detail-headline 26 + 對產品的可能用處 / 為什麼值得留意兩段 prose + quote-hero（❝ 飾）+ 三鈕 row。</dd>
+        <dt>PromptRequest (single-card)</dt>
+        <dd>linear gradient 底 + 3px accent 左線 + serif italic input。Optional 給 brief 帶問題。</dd>
+      </dl>
+    </div>
+
+    <div class="note-block">
+      <h3><span class="num">05</span>Saved row + ActionBar</h3>
+      <dl>
+        <dt>SavedRow.idle / .selected</dt>
+        <dd>idle 是 hairline 分隔的列。selected 加 paper-card-2 底、左 2px accent rule、圓角 8。Checkbox 17×17、accent 填色為 on。</dd>
+        <dt>ActionBar (floating)</dt>
+        <dd>有 selection 時從底部 24px 內縮升起。「已選 N 篇」serif 大字 + accent italic、token 估算 mono、清除 ghost、匯出 primary。</dd>
+        <dt>Toast (saved confirmation)</dt>
+        <dd>頂端短暫 8s 留存，ink 底 + accent check + undo link。不阻塞列表。</dd>
+      </dl>
+    </div>
+
+    <div class="note-block">
+      <h3><span class="num">06</span>Export drawer + Brief preview</h3>
+      <dl>
+        <dt>ExportDrawer</dt>
+        <dd>Bottom sheet。兩張 export-mode 卡並排：原文優先（含 12 quote）/ 精簡決策（recommended，accent 邊 + accent-on CTA）。</dd>
+        <dt>BriefDoc</dt>
+        <dd>Render preview。Serif body、quote 是 italic small、ul 列點為「下一步建議」。複製／下載 .md 兩個 CTA。</dd>
+      </dl>
+    </div>
+
+    <div class="note-block">
+      <h3><span class="num">07</span>Topic card · Casebook</h3>
+      <dl>
+        <dt>TopicLead</dt>
+        <dd>Casebook 第一篇大版：dateline pulse 點 + 標題 + lead-reading（serif italic emphasis）+ marker quote + lead-bubbles。</dd>
+        <dt>TopicCard.condensed</dt>
+        <dd>後續議題：grid 1fr / 130，左側 dateline-italic + serif 標題 + reading 2-line clamp + marker，右側 bubble-preview（4 種尺寸 + caption）。</dd>
+        <dt>SuggestCard (T2)</dt>
+        <dd>初步整理用：linear gradient 底 + 2px accent top、sg-eyebrow（信心數字）、sg-thumbs（候選來源 chips）、sg-actions 三鈕（建立 / 加入 / 先放著）。</dd>
+        <dt>InboxRow</dt>
+        <dd>raw signals 列表：mono 編號 / serif headline / italic quote / mono meta / 右側狀態（未歸 / 建議歸案）。</dd>
+      </dl>
+    </div>
+
+    <div class="note-block">
+      <h3><span class="num">08</span>Cluster card · Topic Detail</h3>
+      <dl>
+        <dt>ClusterToken</dt>
+        <dd>main reading 內可點 token：accent-soft 底 + 1.5px accent 底線 + mono C# + ↗ 飾。Hover 翻轉 accent / accent-on。</dd>
+        <dt>ClusterBubblesRow</dt>
+        <dd>Detail 頁的水平 bubble row。lead 大圈 accent 填、其餘小圈 accent-soft + 1px accent border。</dd>
+        <dt>ClusterSection.idle / .focused / .dimmed</dt>
+        <dd>idle 是 hairline 分隔；focused = paper-card 底 + accent-softer tint + soft accent ring；dimmed = opacity 0.45。</dd>
+        <dt>EvidenceRow.idle / .selected</dt>
+        <dd>paper-card 底、圓角 8。selected 加 1.5px accent ring。＋ 加入對比 → 已選 A（accent 填色 chip）。</dd>
+      </dl>
+    </div>
+
+    <div class="note-block">
+      <h3><span class="num">09</span>Evidence drawer</h3>
+      <dl>
+        <dt>Drawer (bottom sheet)</dt>
+        <dd>圓角 18 頂部、handle bar、drawer-head（標題 + 計數 + 排序 chip group）、drawer-body 列表。Backdrop dim 32%、底層 opacity 0.55。</dd>
+        <dt>EvidenceItem</dt>
+        <dd>serif italic quote + mono meta + actions（加入對比 / 查看原文）。</dd>
+        <dt>SourceListRow</dt>
+        <dd>原文清單視角：左 thumb（平台縮寫）、中標題 + 引用 2-line clamp + meta、右 cluster pill + 引用次數。</dd>
+      </dl>
+    </div>
+
+    <div class="note-block">
+      <h3><span class="num">10</span>Pair tray + Pair Insight</h3>
+      <dl>
+        <dt>PairTray (floating pill)</dt>
+        <dd>底部 20px 浮起圓角膠囊。狀態：選 1 → prompt「再選一篇⋯⋯」+ disabled 對比鈕；選 2 → 兩 chip + active 對比鈕。dismiss ✕。</dd>
+        <dt>PairInsightCard</dt>
+        <dd>短保存態：conclusion 15.5、A/B 半邊框架（mono label + serif body）、amplify-to-cluster row（cluster-token 連結）、saved-flag + 時間 + 編輯／展開完整對比。</dd>
+        <dt>PairInsightCard.hero</dt>
+        <dd>選 2 時 raised 預覽 / 草稿編輯態。padding 22 + shadow-hero + 2px accent top。conclusion 18。</dd>
+      </dl>
+    </div>
+
+    <div class="note-block">
+      <h3><span class="num">11</span>Settings group</h3>
+      <dl>
+        <dt>SettingsGroup</dt>
+        <dd>paper-card 底、serif h4 + sg-desc italic、sg-row（label + value/toggle）。</dd>
+        <dt>ContextText (Product)</dt>
+        <dd>paper-0 內框 + hairline 邊 + serif italic body + placeholder mute。Markdown 風格的 PRD slot。</dd>
+        <dt>FileTile (Product)</dt>
+        <dd>32 icon 縮寫 + 檔名 / 大小 mono / 移除 link。最後一格是上傳 placeholder。</dd>
+        <dt>WorkspaceCard (Topic)</dt>
+        <dd>1.5px hairline / accent 邊框，當前 workspace 加 accent ring。serif name + badge（當前）+ italic desc + mono meta。</dd>
+      </dl>
+    </div>
+
+    <div class="note-block">
+      <h3><span class="num">12</span>Collect preview</h3>
+      <dl>
+        <dt>CollectCanvas</dt>
+        <dd>grid 1fr / 240。左側是 collect-target 卡（主要引用 + 同串延伸），右側 collect-side 三張 side-card。</dd>
+        <dt>CollectTarget</dt>
+        <dd>paper-card 底、ct-eyebrow mono、serif headline、italic quote（accent-soft 左線）、mono meta row。</dd>
+        <dt>SideCard</dt>
+        <dd>radio list 模式。Product mode：Verdict / 分類 / 同串設定。Topic mode：議題候選 / 派系候選 / 同串設定。</dd>
+        <dt>CollectCTA</dt>
+        <dd>primary（收進⋯⋯）+ secondary（編輯引用語）+ 右側 quiet 預留 ID。</dd>
+      </dl>
+    </div>
+
+  </div>
+</section>
+
+</body>
+</html>

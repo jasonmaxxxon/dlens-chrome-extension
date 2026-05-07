@@ -10,8 +10,10 @@ import {
 } from "../src/ui/useResultSurfaceState.ts";
 import {
   buildInitialPopupWorkspaceState,
+  resolvePendingNavigationAfterSnapshot,
   syncPopupWorkspaceStateFromSnapshot
 } from "../src/ui/usePopupWorkspaceState.ts";
+import { resolveEffectivePopupPage } from "../src/ui/useInPageCollectorAppState.ts";
 
 function buildReadyItem(id: string, author: string) {
   const item = createSessionItem({
@@ -160,4 +162,38 @@ test("syncPopupWorkspaceStateFromSnapshot lets persisted popup page override loc
     popupOpen: true,
     modeLocked: true
   });
+});
+
+test("syncPopupWorkspaceStateFromSnapshot ignores stale snapshots during pending navigation", () => {
+  const currentState = {
+    currentMode: "actionable-filter" as const,
+    popupOpen: true,
+    modeLocked: true
+  };
+
+  assert.deepEqual(
+    syncPopupWorkspaceStateFromSnapshot(currentState, "saved-signals", true, "actionable-filter"),
+    currentState
+  );
+  assert.deepEqual(
+    syncPopupWorkspaceStateFromSnapshot(currentState, "actionable-filter", true, "actionable-filter"),
+    currentState
+  );
+});
+
+test("pending popup navigation survives stale snapshots until the destination is confirmed", () => {
+  assert.equal(
+    resolvePendingNavigationAfterSnapshot("actionable-filter", "saved-signals"),
+    "actionable-filter"
+  );
+  assert.equal(
+    resolvePendingNavigationAfterSnapshot("actionable-filter", "actionable-filter"),
+    null
+  );
+});
+
+test("resolveEffectivePopupPage keeps product data effects on the rendered guarded page", () => {
+  assert.equal(resolveEffectivePopupPage("library", "product"), "saved-signals");
+  assert.equal(resolveEffectivePopupPage("settings", "product"), "settings");
+  assert.equal(resolveEffectivePopupPage("actionable-filter", "product"), "actionable-filter");
 });

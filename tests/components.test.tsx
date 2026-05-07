@@ -8,8 +8,11 @@ import type { TargetDescriptor } from "../src/contracts/target-descriptor.ts";
 import {
   ModeRail,
   PreviewCard,
+  SCAN_ROW_HOVER_CSS,
   WorkspaceSurface,
-  UtilityEdge
+  WorkspaceShell,
+  UtilityEdge,
+  scanRowStyle
 } from "../src/ui/components.tsx";
 
 function makeDescriptor(overrides: Partial<TargetDescriptor> = {}): TargetDescriptor {
@@ -86,6 +89,27 @@ test("ModeRail renders only the allowed archive-mode items when a custom rail is
   assert.ok(libraryIndex < collectIndex);
 });
 
+test("ModeRail uses the design-system rail icon language", () => {
+  const html = renderToStaticMarkup(
+    React.createElement(ModeRail, {
+      activeMode: "collect",
+      modes: ["inbox", "compare", "collect", "saved-signals", "classification", "actionable-filter"],
+      onSelect: () => undefined
+    })
+  );
+
+  assert.match(html, /m3 7 9 6 9-6/);
+  assert.match(html, /M12 3v18/);
+  assert.match(html, /M3 12h18/);
+  assert.match(html, /M7 7l-4 5 4 5/);
+  assert.match(html, /M17 7l4 5-4 5/);
+  assert.match(html, /cx="12" cy="12" r="1.5"/);
+  assert.match(html, /M8 9h8/);
+  assert.match(html, /x="4" y="4" width="7" height="7"/);
+  assert.match(html, /M3 4h18l-7 8v5l-4 2v-7z/);
+  assert.doesNotMatch(html, /M7 5h3v14/);
+});
+
 test("UtilityEdge keeps settings outside the primary mode rail", () => {
   const html = renderToStaticMarkup(
     React.createElement(UtilityEdge, {
@@ -111,4 +135,31 @@ test("WorkspaceSurface clips inner content so rounded cards stay rounded", () =>
 
   assert.match(html, /data-workspace-surface="content"/);
   assert.match(html, /overflow:hidden/);
+});
+
+test("scan row primitive stays flat and line-separated", () => {
+  const style = scanRowStyle({ padding: "12px 4px" });
+
+  assert.equal(style.background, "transparent");
+  assert.equal(style.borderBottom, "1px solid rgba(27,26,23,0.10)");
+  assert.equal(style.boxShadow, undefined);
+  assert.equal(style.borderRadius, undefined);
+  assert.equal(style.padding, "12px 4px");
+  assert.match(SCAN_ROW_HOVER_CSS, /\[data-scan-list\] \[data-scan-row\]:hover/);
+});
+
+test("WorkspaceShell masthead exposes the extension build version", () => {
+  const html = renderToStaticMarkup(
+    React.createElement(
+      WorkspaceShell,
+      {
+        mode: "library",
+        header: React.createElement("div", null, "Header")
+      },
+      React.createElement("div", null, "Body")
+    )
+  );
+
+  assert.match(html, /v0\.1\.0/);
+  assert.match(html, /Folder: dlens-product-latest/);
 });

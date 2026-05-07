@@ -1,14 +1,15 @@
-import type { MainPage } from "../state/types";
+import type { MainPage, PopupPage } from "../state/types";
 import { CasebookView } from "./CasebookView";
 import { CompareSetupView } from "./CompareSetupView";
 import { CompareView } from "./CompareView";
 import { CollectView } from "./CollectView";
 import { InboxView } from "./InboxView";
 import { WorkspaceShell, WorkspaceSurface, ModeRail, UtilityEdge, PrimaryButton, SecondaryButton, surfaceCardStyle } from "./components";
-import { ALLOWED_PAGES, getPopupWidth, guardPage } from "../state/processing-state";
+import { ALLOWED_PAGES, getPopupWidth } from "../state/processing-state";
 import { LibraryView } from "./LibraryView";
 import { ProcessingStrip } from "./ProcessingStrip";
 import { ProductSignalView } from "./ProductSignalViews";
+import { PrEvidenceView } from "./PrEvidenceViews";
 import { SettingsView } from "./SettingsView";
 import { TopicDetailView } from "./TopicDetailView";
 import { tokens } from "./tokens";
@@ -20,9 +21,10 @@ import type { InPageCollectorAppModel } from "./useInPageCollectorAppState";
 export function InPageCollectorPopup({ app }: { app: InPageCollectorAppModel }) {
   const { snapshot, page, popupOpen, activeFolder, resultSurface, resultItemA, resultItemB, resultSelection, compareTeaser } = app;
   const activeFolderMode = activeFolder?.mode ?? "archive";
-  const guardedPage = page === "settings" ? "settings" : guardPage(page, activeFolderMode);
-  const guardedPrimaryMode = guardedPage === "settings" || guardedPage === "result" ? null : guardedPage;
-  const allowedRailModes = ALLOWED_PAGES[activeFolderMode].filter((entry): entry is Exclude<MainPage, "result"> => entry !== "result");
+  type RailMode = Exclude<MainPage, "result">;
+  const guardedPage = page as PopupPage;
+  const guardedPrimaryMode: RailMode | null = guardedPage === "settings" || guardedPage === "result" ? null : guardedPage as RailMode;
+  const allowedRailModes = ALLOWED_PAGES[activeFolderMode].filter((entry): entry is RailMode => entry !== "result");
   const homePage = ALLOWED_PAGES[activeFolderMode][0];
   const attachedTopicIds = app.activeSavedAnalysis
     ? app.topics.filter((topic) => topic.pairIds.includes(app.activeSavedAnalysis!.resultId)).map((topic) => topic.id)
@@ -181,6 +183,8 @@ export function InPageCollectorPopup({ app }: { app: InPageCollectorAppModel }) 
                 folderName={activeFolder?.name || "No folder yet"}
                 mode={activeFolderMode}
                 isSaved={app.previewSaved}
+                canSavePreview={activeFolderMode !== "pr-evidence" || Boolean(app.activePrCampaign)}
+                disabledReason={activeFolderMode === "pr-evidence" && !app.activePrCampaign ? "先在 PR 頁建立 campaign，Collect 才能加入 evidence row。" : ""}
                 selectionMode={Boolean(snapshot?.tab.selectionMode)}
                 onSavePreview={() => void app.onSavePreview()}
                 onOpenPreview={app.openPreview}
@@ -211,7 +215,7 @@ export function InPageCollectorPopup({ app }: { app: InPageCollectorAppModel }) 
             </WorkspaceSurface>
           ) : null}
 
-          {guardedPage === "classification" || guardedPage === "actionable-filter" ? (
+          {guardedPage === "saved-signals" || guardedPage === "classification" || guardedPage === "actionable-filter" ? (
             <WorkspaceSurface style={{ padding: 0, background: "transparent", boxShadow: "none", border: "none", overflow: "visible" }}>
               <ProductSignalView
                 kind={guardedPage}
@@ -227,9 +231,14 @@ export function InPageCollectorPopup({ app }: { app: InPageCollectorAppModel }) 
                 analysisError={app.productSignalAnalysisError}
                 analysisNotice={app.productSignalAnalysisNotice}
                 isAnalyzing={app.isAnalyzingProductSignals}
-                onAgentTaskFeedbackSaved={app.onProductAgentTaskFeedbackSaved}
                 onAnalyze={() => void app.onAnalyzeProductSignals()}
               />
+            </WorkspaceSurface>
+          ) : null}
+
+          {guardedPage === "pr-evidence" ? (
+            <WorkspaceSurface style={{ padding: 0, background: "transparent", boxShadow: "none", border: "none", overflow: "visible" }}>
+              <PrEvidenceView sessionId={activeFolder?.id || ""} />
             </WorkspaceSurface>
           ) : null}
 

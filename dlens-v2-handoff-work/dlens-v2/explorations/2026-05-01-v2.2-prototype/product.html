@@ -1,0 +1,687 @@
+<!doctype html>
+<html lang="zh-Hant">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>DLens V2.2 · Product mode</title>
+<link rel="stylesheet" href="styles.css" />
+<style>
+  /* product.html–specific tweaks */
+  body { padding: 24px 0; }
+  .app-frame { width: 720px; }
+</style>
+<script src="https://unpkg.com/react@18.3.1/umd/react.development.js" crossorigin></script>
+<script src="https://unpkg.com/react-dom@18.3.1/umd/react-dom.development.js" crossorigin></script>
+<script src="https://unpkg.com/@babel/standalone@7.24.7/babel.min.js" crossorigin></script>
+</head>
+<body>
+<div id="root"></div>
+
+<script type="text/babel" data-presets="react">
+const { useState, useMemo, useCallback, useEffect } = React;
+
+/* ════════════ DATA ════════════ */
+const INBOX = [
+  {
+    id: 'sig-cursor-parallel',
+    cat: 'tech',
+    headline: '用 background agent 同時跑 5 條分支，把 PR review 的等待時間壓到聊天節奏',
+    discussTags: ['parallel-agent', 'cursor', 'developer-workflow'],
+    actionTags: ['可借用'],
+    conf: 0.84,
+    refLayer: <>具體做法 · 同一個 task 開 <span className="num">5</span> 個 worktree，每個 agent 跑不同 prompt 變體；用 GitHub status check 當 ranking signal，先 merge 通過率最高那個。Token cost 約 <span className="num">3.2×</span>，但 wall-clock 從 <span className="num">18 min</span> → <span className="num">4 min</span>。</>,
+    relevance: '你之前在 PR explorer 卡在「等 review」這段，這個 pattern 把等待轉成挑選 — 跟 DLens 的 Saved Signals 批次匯出邏輯是同一形狀（並行收集，最後挑選）。',
+    quote: 'We don\'t pick the "best agent." We let five run, accept whichever passes CI first, and discard the rest. The cost is laughable compared to what one engineer waiting costs.',
+    quoteSrc: '— @swyx · news.ycombinator.com/item?id=42091',
+    tokenCost: 720,
+    savedDate: '2026-04-27',
+    source: { domain: 'news.ycombinator.com', url: 'item?id=42091', meta: '312 comments · 18h ago' },
+  },
+  {
+    id: 'sig-retention-boss',
+    cat: 'demand',
+    headline: '付費用戶在乎的不是「更多功能」，而是「我是否能說服老闆續訂」',
+    discussTags: ['retention', 'b2b'],
+    actionTags: ['寫進 onboarding'],
+    conf: 0.71,
+    refLayer: <>觀察的證據結構 · 三個獨立 thread 裡，續訂被否的理由都不是產品問題，而是「沒留下可給老闆看的數字」。其中一位明說：「I just need a dashboard slide I can paste into a deck.」</>,
+    relevance: 'DLens 自己也是 B2B-ish 工具。在 Saved Signals 裡顯示「本月匯出了 N 條 brief 進你的 agent」這類使用面數字，可能比 feature 增加更直接決定續訂。',
+    quote: '我自己用得很順，但我老闆只看訂閱表。一個月後他問我「這個東西讓你做了什麼？」我答不出具體 — 然後就被砍了。',
+    quoteSrc: '— Reddit r/SaaS · 28 upvotes',
+    tokenCost: 640,
+    savedDate: '2026-04-25',
+    source: { domain: 'reddit.com', url: 'r/SaaS', meta: '28 upvotes' },
+  },
+  {
+    id: 'sig-linear-cycle',
+    cat: 'compete',
+    headline: 'Linear 的 "shape up" 改寫：cycle 縮短到 2 週、但取消所有 estimate',
+    discussTags: ['process', 'linear'],
+    actionTags: [],
+    conf: 0.66,
+    refLayer: <>取消 estimate 後 PM 反而更敢拒絕 scope creep — 因為沒有「假精度」可以妥協。Cycle 從 6 週改 2 週後，未完成 task 的 carry-over 從 38% 降到 17%。</>,
+    relevance: '對 DLens 的開發節奏有參考性 — 目前 v2 migration 也卡在 estimate 的 phantom precision。',
+    quote: 'Estimates were a crutch. Once we removed them, PMs had to argue scope on merits. Surprise — they got better at it.',
+    quoteSrc: '— @karri · linear.app/blog',
+    tokenCost: 470,
+    savedDate: '2026-04-20',
+    source: { domain: 'linear.app', url: '/blog', meta: 'long-form' },
+  },
+  {
+    id: 'sig-settings-maturity',
+    cat: 'try',
+    headline: '用 "show me your settings page" 作為產品成熟度的代理指標',
+    discussTags: ['ux', 'meta'],
+    actionTags: ['可借用', '寫進產品論述'],
+    conf: 0.78,
+    refLayer: <>Senior eng / PM 評估一個工具是否成熟，會直接看 settings page 的密度與分組。「Settings page 雜亂 = 產品還沒想清楚自己是什麼」。</>,
+    relevance: 'DLens 的 Settings 在這次 V2.2 改版裡刻意短而清楚 — 這條剛好支持那個方向，可以寫進 README 的設計理由。',
+    quote: 'I judge a product by its settings page. If it\'s a mess, the product hasn\'t decided what it is.',
+    quoteSrc: '— @rauchg · twitter.com',
+    tokenCost: 580,
+    savedDate: '2026-04-22',
+    source: { domain: 'twitter.com', url: '@rauchg', meta: '2.4k like' },
+  },
+  {
+    id: 'sig-landing-quote',
+    cat: 'mkt',
+    headline: 'B2B 落地頁第一屏只放一句客戶引言，比放功能 grid 提升 demo 預約 41%',
+    discussTags: ['landing-page', 'copywriting'],
+    actionTags: [],
+    conf: 0.69,
+    refLayer: <>A/B 測試 2 個月，sample size 4,200。客戶引言版本 demo conversion 1.8% → 2.5%。前提：引言必須是真的、可驗證的客戶名（佔比效應的核心）。</>,
+    relevance: 'DLens 的官網第一屏目前是 feature grid。可以做 A/B 試試 — 但要先有 1-2 個 willing-to-name 的早期用戶引言。',
+    quote: 'We replaced our hero feature grid with one customer quote. Demo bookings jumped 41%. Turns out trust scales better than spec sheets.',
+    quoteSrc: '— @nikitabier · twitter.com',
+    tokenCost: 520,
+    savedDate: '2026-04-18',
+    source: { domain: 'twitter.com', url: '@nikitabier', meta: '3.1k like' },
+  },
+  {
+    id: 'sig-notion-qa',
+    cat: 'mkt',
+    headline: 'Notion AI 的 "Q&A" 入口被搬到頁尾後使用率提升 3 倍',
+    discussTags: ['ux', 'notion'],
+    actionTags: ['可借用'],
+    conf: 0.62,
+    refLayer: <>原本 Q&A 在頂部 nav，使用率約 8%。搬到頁尾「help」區後升到 24%。團隊推測：用戶不在「探索」狀態時找 AI，而在「卡住」狀態。</>,
+    relevance: 'DLens 的 AI 入口位置目前在 nav。可以考慮把它分成兩個入口 — 主動探索（鎖在 nav）+ 救援入口（footer/help）。',
+    quote: '',
+    quoteSrc: '',
+    tokenCost: 410,
+    savedDate: '2026-04-15',
+    source: { domain: 'notion.so', url: '/blog/ai-rollout-2026', meta: '' },
+  },
+];
+
+const CAT_LABELS = {
+  all:     '全部',
+  try:     '可試',
+  demand:  '需求',
+  tech:    '技術 / workflow',
+  mkt:     'Marketing 參考',
+  compete: '競品',
+  learn:   '學習',
+  noise:   '噪音',
+  weak:    '資料不足',
+};
+const CAT_FULL = {
+  try: '可試',
+  demand: '需求',
+  tech: '技術 / workflow',
+  mkt: 'Marketing 參考',
+  compete: '競品',
+  learn: '學習',
+  noise: '噪音',
+  weak: '資料不足',
+};
+
+/* ════════════ APP ════════════ */
+
+function App() {
+  const [page, setPage] = useState('classify');         // collect|classify|signalDetail|saved|savedDetail|export|brief|settings
+  const [filter, setFilter] = useState('all');
+  const [activeId, setActiveId] = useState(null);       // currently opened signal
+  const [savedIds, setSavedIds] = useState(new Set(['sig-cursor-parallel', 'sig-retention-boss', 'sig-linear-cycle', 'sig-settings-maturity', 'sig-landing-quote', 'sig-notion-qa']));
+  const [exportSel, setExportSel] = useState(new Set(['sig-cursor-parallel', 'sig-retention-boss', 'sig-settings-maturity']));
+  const [exportFormat, setExportFormat] = useState('long');
+  const [collectUrl, setCollectUrl] = useState('https://news.ycombinator.com/item?id=42091');
+  const [showCollectPreview, setShowCollectPreview] = useState(true);
+  const [toast, setToast] = useState(null);
+  const [activeWs, setActiveWs] = useState('product');
+
+  useEffect(() => {
+    if (!toast) return;
+    const t = setTimeout(() => setToast(null), 1800);
+    return () => clearTimeout(t);
+  }, [toast]);
+
+  const showToast = useCallback((msg) => setToast(msg), []);
+
+  const filteredInbox = useMemo(() => {
+    if (filter === 'all') return INBOX;
+    return INBOX.filter(s => s.cat === filter);
+  }, [filter]);
+
+  const counts = useMemo(() => {
+    const c = { all: INBOX.length };
+    for (const k of Object.keys(CAT_FULL)) c[k] = 0;
+    for (const s of INBOX) c[s.cat] = (c[s.cat] || 0) + 1;
+    return c;
+  }, []);
+
+  const savedList = useMemo(() => INBOX.filter(s => savedIds.has(s.id)), [savedIds]);
+  const activeSignal = useMemo(() => INBOX.find(s => s.id === activeId), [activeId]);
+
+  const toggleSave = useCallback((id) => {
+    setSavedIds(prev => {
+      const next = new Set(prev);
+      if (next.has(id)) { next.delete(id); showToast('已從 Saved Signals 移除'); }
+      else { next.add(id); showToast('已收進 Saved Signals'); }
+      return next;
+    });
+  }, [showToast]);
+
+  const toggleExport = useCallback((id) => {
+    setExportSel(prev => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  }, []);
+
+  const exportTokens = useMemo(() => {
+    let t = 0;
+    for (const id of exportSel) {
+      const s = INBOX.find(x => x.id === id);
+      if (s) t += exportFormat === 'long' ? s.tokenCost : Math.round(s.tokenCost * 0.45);
+    }
+    return t;
+  }, [exportSel, exportFormat]);
+
+  /* ── reusable bits ── */
+  const Rail = ({ active }) => (
+    <aside className="rail">
+      <div>
+        <div className="brand">DLens<span className="dot"/></div>
+        <div className="ws-label"><span className="mode-tag">Product</span><br/>workspace</div>
+      </div>
+      <nav className="nav">
+        <button className={'nav-item' + (active === 'collect' ? ' active' : '')} onClick={() => setPage('collect')}>Collect</button>
+        <button className={'nav-item' + (['classify','signalDetail'].includes(active) ? ' active' : '')} onClick={() => setPage('classify')}>分類整理</button>
+        <button className={'nav-item' + (['saved','savedDetail','export','brief'].includes(active) ? ' active' : '')} onClick={() => setPage('saved')}>Saved Signals</button>
+        <button className={'nav-item' + (active === 'settings' ? ' active' : '')} onClick={() => setPage('settings')}>Settings</button>
+      </nav>
+      <div className="rail-foot">
+        <div className="key">pool</div>
+        <div>{savedIds.size} saved · {exportSel.size} selected<br/><span style={{opacity:0.7}}>filter: {CAT_LABELS[filter]}</span></div>
+      </div>
+    </aside>
+  );
+
+  /* ── pages ── */
+  const Collect = () => (
+    <section className="content">
+      <header className="page-head">
+        <div className="breadcrumb">DLens · <b>Collect</b></div>
+        <div className="page-title-row">
+          <h2 className="page-title">收一則</h2>
+          <div className="meta">本週 24 則<br/>已分析 22 / 24</div>
+        </div>
+        <p className="page-subtitle">貼網址或拖進來。DLens 會做一次輕量預分析（粗分類 + 證據可得性），不是完整 AI 工作。完整 Signal Card 在分類整理打開。</p>
+      </header>
+
+      <div className="collect-drop">
+        <p className="big">把連結拖進來，或貼上網址</p>
+        <p className="sub">支援 X / Threads / Reddit / HN / blog post / GitHub issue</p>
+        <div className="or">— or —</div>
+        <div className="url-input-row">
+          <input type="text" value={collectUrl} onChange={e => { setCollectUrl(e.target.value); setShowCollectPreview(true); }} placeholder="https://…" />
+          <button className="action primary" onClick={() => { setShowCollectPreview(true); showToast('開始預分析…'); }}>分析</button>
+        </div>
+      </div>
+
+      {showCollectPreview && (
+        <div className="collect-preview">
+          <p className="ttl">Cursor's background agent now runs on 5× more parallel branches</p>
+          <div className="src">news.ycombinator.com · 312 comments · 18 hours ago</div>
+          <div className="pre-row"><span className="lbl">猜測分類</span><span className="val">技術 / workflow<span className="guess">conf 0.78</span></span></div>
+          <div className="pre-row"><span className="lbl">證據可得性</span><span className="val">高 — 留言含具體數字、配置與比較<span className="guess">22 quotables</span></span></div>
+          <div className="pre-row"><span className="lbl">次要 tag</span><span className="val">
+            <span className="tag discuss">parallel-agent</span>{' '}
+            <span className="tag discuss">developer-workflow</span>{' '}
+            <span className="tag action">可借用</span>
+          </span></div>
+          <div className="actions" style={{marginTop: 12}}>
+            <button className="action primary" onClick={() => { showToast('已收下，到「分類整理」看完整 Signal Card'); setPage('classify'); }}>收下這則</button>
+            <button className="action ghost">改分類</button>
+            <button className="action ghost" onClick={() => setShowCollectPreview(false)}>忽略</button>
+          </div>
+        </div>
+      )}
+
+      <div className="footer-note">
+        <b>輕量預分析 · 不是 Signal Card 本體。</b>真正的 Signal Intelligence Card 在「分類整理」打開時才生成 — 含技術參考層、產品相關性層、代表 quote 等完整結構。
+      </div>
+    </section>
+  );
+
+  const Classify = () => (
+    <section className="content">
+      <header className="page-head">
+        <div className="breadcrumb">DLens · <b>分類整理</b></div>
+        <div className="page-title-row">
+          <h2 className="page-title">挑出可用的訊號</h2>
+          <div className="meta">{INBOX.length} cards<br/>{savedIds.size} 已存</div>
+        </div>
+        <p className="page-subtitle">每張卡片由 AI 先給主分類與次要 tag。標題是可重用的洞察名稱、不是 post 摘要。原文 quote 可能比 AI 摘要更技術，這是刻意保留。</p>
+      </header>
+
+      <div className="filters">
+        {Object.entries(CAT_LABELS).map(([k, label]) => (
+          <span key={k}
+                className={'filter' + (filter === k ? ' active' : '')}
+                onClick={() => setFilter(k)}>
+            {filter === k && <b>·</b>}{label}<span className="count">{counts[k] || 0}</span>
+          </span>
+        ))}
+      </div>
+
+      <div className="stack">
+        {filteredInbox.length === 0 && (
+          <div className="footer-note">這個分類下還沒有 signal。換一個 filter 試試。</div>
+        )}
+        {filteredInbox.map(s => (
+          <article key={s.id} className="card signal-card">
+            <div className="card-head">
+              <h3 className="headline" onClick={() => { setActiveId(s.id); setPage('signalDetail'); }}>{s.headline}</h3>
+              <div className={'ai-confidence' + (s.conf < 0.7 ? ' low' : '')}>conf {s.conf.toFixed(2)}</div>
+            </div>
+            <div className="meta-row">
+              <span className="tag cat"><span className="dot"/>{CAT_FULL[s.cat]}</span>
+              {s.discussTags.map(t => <span key={t} className="tag discuss">{t}</span>)}
+              {s.actionTags.map(t => <span key={t} className="tag action">{t}</span>)}
+            </div>
+            <p className="ref-layer"><b>具體做法 ·</b> {s.refLayer}</p>
+            {s.relevance && (
+              <p className="relevance">
+                <span className="lbl">為什麼對你的產品有用</span>
+                {s.relevance}
+              </p>
+            )}
+            {s.quote && (
+              <blockquote className="quote">{s.quote}<span className="src">{s.quoteSrc}</span></blockquote>
+            )}
+            <div className="actions">
+              <button className={'action ' + (savedIds.has(s.id) ? 'ghost' : 'primary')}
+                      onClick={() => toggleSave(s.id)}>
+                {savedIds.has(s.id) ? '取消保存' : '收進 Saved Signals'}
+              </button>
+              <button className="action ghost" onClick={() => { setActiveId(s.id); setPage('signalDetail'); }}>看完整 Card</button>
+            </div>
+          </article>
+        ))}
+      </div>
+    </section>
+  );
+
+  const SignalDetail = () => {
+    if (!activeSignal) { setPage('classify'); return null; }
+    const s = activeSignal;
+    return (
+      <section className="content">
+        <header className="page-head">
+          <div className="breadcrumb">
+            <button className="crumb-link" onClick={() => setPage('classify')}>分類整理</button> · {CAT_FULL[s.cat]} · <b>{s.discussTags[0]}</b>
+          </div>
+          <div className="page-title-row">
+            <h2 className="page-title" style={{fontSize: 24}}>{s.headline}</h2>
+          </div>
+        </header>
+
+        <div className="meta-row" style={{marginBottom: 14}}>
+          <span className="tag cat"><span className="dot"/>{CAT_FULL[s.cat]}</span>
+          {s.discussTags.map(t => <span key={t} className="tag discuss">{t}</span>)}
+          {s.actionTags.map(t => <span key={t} className="tag action">{t}</span>)}
+          <span className="ai-confidence" style={{marginLeft: 'auto'}}>conf {s.conf.toFixed(2)} · evidence high</span>
+        </div>
+
+        <article className="raised-card signal-card">
+          <p className="ref-layer"><b>1 · 技術參考層 · 具體做法。</b> {s.refLayer}</p>
+          {s.relevance && (
+            <p className="relevance">
+              <span className="lbl">2 · 為什麼對你的產品有用</span>
+              {s.relevance}
+            </p>
+          )}
+          {s.quote && (
+            <blockquote className="quote" style={{marginTop: 4}}>
+              <b style={{color:'var(--soft-ink)', fontFamily:'var(--mono)', fontSize:10, letterSpacing:'0.12em', textTransform:'uppercase', display:'block', marginBottom:6}}>3 · 代表 Quote</b>
+              {s.quote}<span className="src">{s.quoteSrc}</span>
+            </blockquote>
+          )}
+          <div className="footer-note" style={{marginTop: 0}}>
+            <b>4 · 詳細證據 · 點開展開。</b> 22 條相關 quote、3 條 dissent、完整原 thread metadata。
+          </div>
+        </article>
+
+        <div className="actions" style={{marginTop: 14}}>
+          <button className={'action ' + (savedIds.has(s.id) ? 'ghost' : 'primary')} onClick={() => toggleSave(s.id)}>
+            {savedIds.has(s.id) ? '已存 · 取消保存' : '收進 Saved Signals'}
+          </button>
+          <button className="action ghost" onClick={() => setPage('classify')}>← 回列表</button>
+          <button className="action future">為這張單獨生 prompt<span className="ph-badge">future</span></button>
+        </div>
+      </section>
+    );
+  };
+
+  const Saved = () => (
+    <section className="content">
+      <header className="page-head">
+        <div className="breadcrumb">DLens · <b>Saved Signals</b></div>
+        <div className="page-title-row">
+          <h2 className="page-title">已存 {savedIds.size} 則</h2>
+          <div className="meta">last export<br/>2026-04-27</div>
+        </div>
+        <p className="page-subtitle">給 agent handoff 的訊號池。短列表為主；完整 Signal Card 點開才看。批次匯出必須手動勾選。</p>
+      </header>
+
+      <div className="filters">
+        {Object.entries(CAT_LABELS).filter(([k]) => k === 'all' || savedList.some(s => s.cat === k)).map(([k, label]) => (
+          <span key={k}
+                className={'filter' + (filter === k ? ' active' : '')}
+                onClick={() => setFilter(k)}>
+            {filter === k && <b>·</b>}{label}<span className="count">{k === 'all' ? savedList.length : savedList.filter(s => s.cat === k).length}</span>
+          </span>
+        ))}
+      </div>
+
+      <div className="tight-stack">
+        {(filter === 'all' ? savedList : savedList.filter(s => s.cat === filter)).map(s => (
+          <div key={s.id}
+               className={'short-list-card' + (exportSel.has(s.id) ? ' selected' : '')}
+               onClick={() => { setActiveId(s.id); setPage('savedDetail'); }}>
+            <div className={'checkbox' + (exportSel.has(s.id) ? ' checked' : '')}
+                 onClick={(e) => { e.stopPropagation(); toggleExport(s.id); }} />
+            <div className="body">
+              <div className="ttl">{s.headline}</div>
+              <div className="meta"><b>{CAT_FULL[s.cat]}</b> · {s.discussTags.join(' · ')}{s.actionTags.length ? ' · ' + s.actionTags.join(' · ') : ''} · saved {s.savedDate}</div>
+            </div>
+            <div className="right">conf<br/>{s.conf.toFixed(2)}</div>
+          </div>
+        ))}
+      </div>
+
+      {savedList.length > 0 && (
+        <div className="actions" style={{marginTop: 18, paddingTop: 14, borderTop: '1px solid var(--line)'}}>
+          <button className="action primary" disabled={exportSel.size === 0} onClick={() => setPage('export')}>
+            批次匯出 Agent Brief（{exportSel.size} selected）
+          </button>
+          <button className="action ghost" onClick={() => {
+            if (exportSel.size === savedList.length) setExportSel(new Set());
+            else setExportSel(new Set(savedList.map(s => s.id)));
+          }}>
+            {exportSel.size === savedList.length ? '全不選' : '全選'}
+          </button>
+          <button className="action ghost" style={{marginLeft: 'auto'}}>archive 已用過</button>
+        </div>
+      )}
+    </section>
+  );
+
+  const SavedDetail = () => {
+    if (!activeSignal) { setPage('saved'); return null; }
+    const s = activeSignal;
+    return (
+      <section className="content">
+        <header className="page-head">
+          <div className="breadcrumb">
+            <button className="crumb-link" onClick={() => setPage('saved')}>Saved Signals</button> · <b>{s.discussTags[0]}</b>
+          </div>
+          <div className="page-title-row">
+            <h2 className="page-title" style={{fontSize: 22}}>{s.headline}</h2>
+            <div className="actions">
+              <button className="action ghost" onClick={() => { toggleSave(s.id); setPage('saved'); }}>取消保存</button>
+              <button className="action primary"
+                      onClick={() => { if (!exportSel.has(s.id)) toggleExport(s.id); showToast('已加入下次匯出'); }}>
+                {exportSel.has(s.id) ? '已在匯出名單' : '加入下次匯出'}
+              </button>
+            </div>
+          </div>
+        </header>
+
+        <div className="meta-row" style={{marginBottom: 12}}>
+          <span className="tag cat"><span className="dot"/>{CAT_FULL[s.cat]}</span>
+          {s.actionTags.map(t => <span key={t} className="tag action">{t}</span>)}
+          <span className="ai-confidence" style={{marginLeft: 'auto'}}>saved {s.savedDate}</span>
+        </div>
+
+        <div className="settings-block" style={{background: 'var(--paper-3)', borderColor: 'var(--line-strong)'}}>
+          <div className="h" style={{fontSize: 12, fontFamily: 'var(--mono)', textTransform: 'uppercase', letterSpacing: '0.12em', color: 'var(--soft-ink)', marginBottom: 8}}>Signal Intelligence Card</div>
+          <p className="ref-layer"><b>技術參考 ·</b> {s.refLayer}</p>
+          {s.relevance && <p className="relevance"><span className="lbl">產品相關性</span>{s.relevance}</p>}
+          {s.quote && <blockquote className="quote" style={{marginTop: 12}}>{s.quote}<span className="src">{s.quoteSrc}</span></blockquote>}
+        </div>
+
+        <div className="settings-block" style={{marginTop: 14}}>
+          <div className="h" style={{fontSize: 12, fontFamily: 'var(--mono)', textTransform: 'uppercase', letterSpacing: '0.12em', color: 'var(--soft-ink)', marginBottom: 8}}>Original post · 完整保留</div>
+          <div style={{fontFamily: 'var(--mono)', fontSize: 10, color: 'var(--soft-ink)', marginBottom: 8, letterSpacing: '0.04em'}}>
+            {s.source.domain}/{s.source.url} · captured {s.savedDate}
+          </div>
+          <p style={{margin: 0, fontSize: 13, lineHeight: 1.7, color: 'var(--sub-ink)'}}>
+            <b style={{color: 'var(--ink)'}}>{s.source.meta}</b><br/>
+            原文片段保留至完整 thread。展開可看全部 evidence quote。
+          </p>
+          <div style={{marginTop: 8}}>
+            <button className="action ghost">展開全文</button>
+            <button className="action ghost">看更多 quote</button>
+          </div>
+        </div>
+
+        <div className="footer-note">
+          <b>儲存 = 卡片 + 原文。</b>把 card 留下來是 1.5KB；把原文留下來是 18KB；DLens 預設兩個都存。
+        </div>
+      </section>
+    );
+  };
+
+  const Export = () => {
+    const selectedSignals = savedList.filter(s => exportSel.has(s.id));
+    return (
+      <section className="content">
+        <header className="page-head">
+          <div className="breadcrumb">
+            <button className="crumb-link" onClick={() => setPage('saved')}>Saved Signals</button> · <b>批次匯出</b>
+          </div>
+          <div className="page-title-row">
+            <h2 className="page-title">挑哪幾則送給 agent</h2>
+            <div className="meta">{savedList.length} saved<br/>{exportSel.size} selected</div>
+          </div>
+          <p className="page-subtitle">假設你的 agent 已經知道你的產品 context — Brief 不會再附「這是 DLens、它是個…」這種開場白。先選格式，再勾單張。</p>
+        </header>
+
+        <div className="export-options">
+          <div className={'export-option' + (exportFormat === 'long' ? ' active' : '')} onClick={() => setExportFormat('long')}>
+            <div className="o-title">原文優先 Brief <span className="badge">用於再讀</span></div>
+            <p className="o-copy">較長、保留更多 quote 與原文段落。給你自己的 agent 過一遍時用 — 它能看到你看到的東西。</p>
+          </div>
+          <div className={'export-option' + (exportFormat === 'short' ? ' active' : '')} onClick={() => setExportFormat('short')}>
+            <div className="o-title">精簡決策 Brief <span className="badge">用於下手</span></div>
+            <p className="o-copy">較短、保留洞察結論與少量證據。直接讓 agent 提建議或下個動作 — 仍然有 evidence 連結。</p>
+          </div>
+        </div>
+
+        <div className="selection-bar">
+          <div className="count">{exportSel.size}</div>
+          <div className="label">
+            已選的 signal 將進入 <b>{exportFormat === 'long' ? '原文優先' : '精簡決策'} Brief</b>
+            <br/>預估 token：~{exportTokens.toLocaleString()} {exportFormat === 'long' ? '/ 含原文片段' : '/ 結論為主'}
+          </div>
+          <div className="actions">
+            <button className="action primary" disabled={exportSel.size === 0} onClick={() => setPage('brief')}>產生 Brief</button>
+            <button className="action ghost" onClick={() => setExportSel(new Set())}>清空</button>
+          </div>
+        </div>
+
+        <div className="tight-stack">
+          {savedList.map(s => (
+            <div key={s.id} className={'short-list-card' + (exportSel.has(s.id) ? ' selected' : '')} onClick={() => toggleExport(s.id)}>
+              <div className={'checkbox' + (exportSel.has(s.id) ? ' checked' : '')} />
+              <div className="body">
+                <div className="ttl">{s.headline}</div>
+                <div className="meta"><b>{CAT_FULL[s.cat]}</b> · {s.discussTags.join(' · ')}</div>
+              </div>
+              <div className="right">~{(exportFormat === 'long' ? s.tokenCost : Math.round(s.tokenCost * 0.45)).toLocaleString()} tok</div>
+            </div>
+          ))}
+        </div>
+      </section>
+    );
+  };
+
+  const Brief = () => {
+    const sigs = savedList.filter(s => exportSel.has(s.id));
+    const date = '2026-05-01';
+    return (
+      <section className="content">
+        <header className="page-head">
+          <div className="breadcrumb">
+            <button className="crumb-link" onClick={() => setPage('saved')}>Saved Signals</button> · <button className="crumb-link" onClick={() => setPage('export')}>批次匯出</button> · <b>{exportFormat === 'long' ? '原文優先' : '精簡決策'} Brief</b>
+          </div>
+          <div className="page-title-row">
+            <h2 className="page-title" style={{fontSize: 24}}>Brief 已生成</h2>
+            <div className="meta">~{exportTokens.toLocaleString()} tokens<br/>{sigs.length} signals · {exportFormat === 'long' ? '原文優先' : '精簡決策'}</div>
+          </div>
+        </header>
+
+        <div className="actions" style={{marginBottom: 12}}>
+          <button className="action primary" onClick={() => showToast('已複製到剪貼簿（mock）')}>複製到剪貼簿</button>
+          <button className="action ghost">下載 .md</button>
+          <button className="action ghost">送到 Claude Project</button>
+          <button className="action ghost" style={{marginLeft: 'auto'}} onClick={() => setExportFormat(exportFormat === 'long' ? 'short' : 'long')}>
+            換成{exportFormat === 'long' ? '精簡' : '原文優先'}版
+          </button>
+        </div>
+
+        <div className="brief-output">
+          <span className="h"># DLens Signal Brief · {date} · {exportFormat === 'long' ? '原文優先' : '精簡決策'}</span>{'\n\n'}
+          {sigs.map((s, i) => (
+            <React.Fragment key={s.id}>
+              <span className="lbl">## {i + 1}. {s.discussTags[0]}</span>{'\n'}
+              <span className="src">[{CAT_FULL[s.cat]}] {s.actionTags.length ? '[' + s.actionTags.join('] [') + '] ' : ''}[conf {s.conf.toFixed(2)}]</span>{'\n\n'}
+              <span className="h">Pattern.</span> {s.headline}{'\n\n'}
+              {exportFormat === 'long' && s.quote && (
+                <>
+                  <span className="h">Quote.</span>{'\n'}
+                  <span className="src">{'> '}{s.quote.split('\n').join('\n> ')}{'\n> '}{s.quoteSrc}</span>{'\n\n'}
+                </>
+              )}
+              {exportFormat === 'short' && s.relevance && (
+                <><span className="h">Relevance.</span> {s.relevance}{'\n\n'}</>
+              )}
+            </React.Fragment>
+          ))}
+        </div>
+
+        <div className="footer-note">
+          <b>不會自作多情。</b>Brief 不會附 "review the product info"、"this is DLens" 之類開場白 — 假設你的 agent 已經 load 好 README / AGENTS / Product Profile。
+        </div>
+      </section>
+    );
+  };
+
+  const Settings = () => (
+    <section className="content">
+      <header className="page-head">
+        <div className="breadcrumb">DLens · <b>Settings</b></div>
+        <div className="page-title-row">
+          <h2 className="page-title" style={{fontSize: 26}}>設定</h2>
+          <div className="meta">v0.6.2 · build 234<br/>last sync 2 min</div>
+        </div>
+        <p className="page-subtitle">Settings 是工具面，不是第四種模式。視覺對齊新系統，但不搶主畫面焦點。</p>
+      </header>
+
+      <div className="settings-block">
+        <h3 className="h">Workspace type</h3>
+        <p>切換工作空間不會搬資料、也不會刪資料 — 只影響未來的工作流與可見入口。</p>
+        <div className="ws-switch">
+          {[
+            {k:'product', n:'Product intelligence', d:'把收進來的 post 整理成 Signal Intelligence Cards，批次匯出 Agent Brief。'},
+            {k:'topic',   n:'Topic intelligence',   d:'把收進來的 discussion 整理成 Topic Notes、Cluster Cards、Case Notes。'},
+            {k:'archive', n:'Archive',              d:'安靜地把 source 留下來，不強迫分析、不催促分類。'},
+          ].map(o => (
+            <div key={o.k}
+                 className={'ws-option' + (activeWs === o.k ? ' active' : '')}
+                 onClick={() => {
+                   setActiveWs(o.k);
+                   if (o.k === 'topic') showToast('切到 Topic mode → 用 topic.html 開新窗');
+                   else if (o.k === 'archive') showToast('切到 Archive mode → 用 archive.html 開新窗');
+                   else showToast('已是 Product mode');
+                 }}>
+              <div className="radio"/>
+              <div>
+                <div className={'name ' + o.k}><span className="accent"/>{o.n}</div>
+                <p className="desc">{o.d}</p>
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>
+
+      <div className="settings-block">
+        <h3 className="h">AI provider</h3>
+        <div className="field"><label>Backend base URL</label><div className="input-mock">https://dlens-api.fly.dev</div></div>
+        <div className="field"><label>Model</label><div className="input-mock">claude-sonnet-4-6 (Anthropic)</div></div>
+        <div className="field"><label>API key</label><div className="input-mock" style={{color: 'var(--soft-ink)', fontFamily: 'var(--mono)'}}>sk-ant-···set</div></div>
+      </div>
+
+      <div className="settings-block">
+        <h3 className="h">Product context · Profile</h3>
+        <p>讓 AI 知道你做的是什麼產品 — Signal Card 的「為什麼對你的產品有用」這層才能寫得具體。</p>
+        <div className="actions">
+          <button className="action ghost">匯入 README.md</button>
+          <button className="action ghost">匯入 AGENTS.md</button>
+          <button className="action">編輯 Product Profile</button>
+        </div>
+        <div className="footer-note" style={{marginTop: 10}}>
+          <b>已載入 ·</b> README.md (8.2 KB) · AGENTS.md (3.1 KB) · custom-context.md (1.4 KB)
+        </div>
+      </div>
+    </section>
+  );
+
+  /* ── render ── */
+  let body;
+  switch (page) {
+    case 'collect':      body = <Collect />; break;
+    case 'classify':     body = <Classify />; break;
+    case 'signalDetail': body = <SignalDetail />; break;
+    case 'saved':        body = <Saved />; break;
+    case 'savedDetail':  body = <SavedDetail />; break;
+    case 'export':       body = <Export />; break;
+    case 'brief':        body = <Brief />; break;
+    case 'settings':     body = <Settings />; break;
+    default:             body = <Classify />;
+  }
+
+  return (
+    <div className="app-frame">
+      <div className="frame-cap">
+        <b>Product mode</b> · {page}
+        <em>oxford blue · #234f7a · 8 screens reachable from rail + headline links</em>
+      </div>
+      <div className="popup product">
+        <Rail active={page} />
+        {body}
+      </div>
+      {toast && <div className="toast">{toast}</div>}
+    </div>
+  );
+}
+
+ReactDOM.createRoot(document.getElementById('root')).render(<App />);
+</script>
+</body>
+</html>

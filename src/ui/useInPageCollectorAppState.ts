@@ -13,8 +13,11 @@ import type {
 } from "../state/types";
 import { isDescriptorSavedInFolder } from "../state/ui-state";
 import type { ExtensionMessage, ExtensionResponse, StartProcessingResponse } from "../state/messages";
+import type { PrCampaign } from "../state/pr-evidence-storage";
 import { getProcessingFailureMessage } from "../state/processing-errors";
 import {
+  guardPage,
+  isProductSignalPage as isProductSignalWorkspacePage,
   summarizeSessionProcessing
 } from "../state/processing-state";
 import { addRuntimeMessageListener, getActiveItem, getActiveSession, sendExtensionMessage } from "./controller";
@@ -44,6 +47,10 @@ type UseInPageCollectorAppStateArgs = {
   tabId: number | null;
   sendAndSync: SendAndSync;
 };
+
+export function resolveEffectivePopupPage(page: ExtensionSnapshot["tab"]["popupPage"], activeFolderMode: FolderMode) {
+  return page === "settings" ? "settings" : guardPage(page, activeFolderMode);
+}
 
 function mergeAnalysesBySignalId(
   previous: ProductSignalAnalysis[],
@@ -83,6 +90,7 @@ export function useInPageCollectorAppState({ snapshot, tabId, sendAndSync }: Use
   const [productSignalAnalyses, setProductSignalAnalyses] = useState<ProductSignalAnalysis[]>([]);
   const [historicalProductSignalAnalyses, setHistoricalProductSignalAnalyses] = useState<ProductSignalAnalysis[]>([]);
   const [productAgentTaskFeedback, setProductAgentTaskFeedback] = useState<ProductAgentTaskFeedback[]>([]);
+  const [activePrCampaign, setActivePrCampaign] = useState<PrCampaign | null>(null);
   const [isAnalyzingProductSignals, setIsAnalyzingProductSignals] = useState(false);
   const [productSignalAnalysisError, setProductSignalAnalysisError] = useState<string | null>(null);
   const [productSignalAnalysisNotice, setProductSignalAnalysisNotice] = useState<string | null>(null);
@@ -107,8 +115,7 @@ export function useInPageCollectorAppState({ snapshot, tabId, sendAndSync }: Use
   const {
     workspaceState,
     setWorkspaceState,
-    page,
-    primaryMode,
+    page: rawPage,
     onNavigate
   } = usePopupWorkspaceState({
     popupOpen,
@@ -116,6 +123,8 @@ export function useInPageCollectorAppState({ snapshot, tabId, sendAndSync }: Use
     processingSummary,
     sendAndSync
   });
+  const page = resolveEffectivePopupPage(rawPage, activeFolderMode);
+  const primaryMode = page === "settings" || page === "result" ? null : page;
   const flashPreview = snapshot?.tab.flashPreview;
   const preview = flashPreview || snapshot?.tab.currentPreview;
   const hoverNormalized = normalizePostUrl(flashPreview?.post_url || "");
@@ -195,10 +204,38 @@ export function useInPageCollectorAppState({ snapshot, tabId, sendAndSync }: Use
     onOpenSavedAnalysis: openSavedAnalysisBase
   });
   const savedToastMessage = useCallback((folderName: string): string => {
+    if (activeFolderMode === "pr-evidence") {
+      return "已加入 PR evidence";
+    }
     return activeFolderMode === "topic" || activeFolderMode === "product"
       ? "已加入收件匣"
       : `Saved to ${folderName}`;
   }, [activeFolderMode]);
+
+  useEffect(() => {
+    let cancelled = false;
+    if (!popupOpen || !activeFolder?.id || activeFolderMode !== "pr-evidence") {
+      setActivePrCampaign(null);
+      return;
+    }
+    void sendExtensionMessage<{ ok: true; prCampaigns?: PrCampaign[] } | { ok: false; error: string }>({
+      type: "pr/list-campaigns",
+      sessionId: activeFolder.id
+    })
+      .then((response) => {
+        if (!cancelled) {
+          setActivePrCampaign(response.ok ? response.prCampaigns?.[0] ?? null : null);
+        }
+      })
+      .catch(() => {
+        if (!cancelled) {
+          setActivePrCampaign(null);
+        }
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [activeFolder?.id, activeFolderMode, popupOpen, snapshot?.global.updatedAt]);
 
   useEffect(() => {
     if (snapshot?.global.settings.ingestBaseUrl) {
@@ -270,7 +307,7 @@ export function useInPageCollectorAppState({ snapshot, tabId, sendAndSync }: Use
     };
   }, [activeFolderMode, page, popupOpen, snapshot?.global.updatedAt]);
 
-  const isProductSignalPage = page === "classification" || page === "actionable-filter";
+  const isProductSignalPage = isProductSignalWorkspacePage(page);
 
   useEffect(() => {
     if (!popupOpen || !activeFolder?.id || activeFolderMode !== "product" || !isProductSignalPage) {
@@ -314,7 +351,15 @@ export function useInPageCollectorAppState({ snapshot, tabId, sendAndSync }: Use
     return () => {
       cancelled = true;
     };
-  }, [activeFolder?.id, activeFolderMode, isProductSignalPage, popupOpen, topicState.signals.map((signal) => signal.id).join("|")]);
+  }, [
+    activeFolder?.id,
+    activeFolderMode,
+    isProductSignalPage,
+    popupOpen,
+    snapshot?.global.updatedAt,
+    snapshot?.tab.updatedAt,
+    topicState.signals.map((signal) => signal.id).join("|")
+  ]);
 
   useEffect(() => {
     if (!snapshot?.tab.popupOpen) {
@@ -547,7 +592,8 @@ export function useInPageCollectorAppState({ snapshot, tabId, sendAndSync }: Use
     const defaultNameByMode: Record<FolderMode, string> = {
       archive: "Archive",
       topic: "Signals",
-      product: "Product workspace"
+      product: "Product workspace",
+      "pr-evidence": "PR Evidence workspace"
     };
     await sendAndSync({
       type: "session/create",
@@ -867,10 +913,6 @@ export function useInPageCollectorAppState({ snapshot, tabId, sendAndSync }: Use
     }
   }
 
-  function onProductAgentTaskFeedbackSaved(feedback: ProductAgentTaskFeedback) {
-    setProductAgentTaskFeedback((previous) => [...previous, feedback].slice(-250));
-  }
-
   return {
     popupRef,
     snapshot,
@@ -920,6 +962,7 @@ export function useInPageCollectorAppState({ snapshot, tabId, sendAndSync }: Use
     productSignalAnalysisError,
     productSignalAnalysisNotice,
     productAiProviderReady,
+    activePrCampaign,
     topics: topicState.topics,
     signals: topicState.signals,
     selectedTopicId: topicState.selectedTopicId,
@@ -977,7 +1020,6 @@ export function useInPageCollectorAppState({ snapshot, tabId, sendAndSync }: Use
     onSaveJudgmentOverride,
     onInitProductProfile,
     onAnalyzeProductSignals,
-    onProductAgentTaskFeedbackSaved,
     onCreateFolder,
     onRenameFolder,
     onDeleteFolder,

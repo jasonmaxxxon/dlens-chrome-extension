@@ -3,14 +3,15 @@ import test from "node:test";
 
 import { ALLOWED_PAGES, guardPage } from "../src/state/processing-state.ts";
 
-test("product mode replaces topic routes with product intelligence stubs", () => {
+test("product mode opens Saved Signals before action filtering", () => {
   assert.deepEqual(ALLOWED_PAGES.product, [
-    "collect",
-    "classification",
-    "actionable-filter"
+    "saved-signals",
+    "actionable-filter",
+    "collect"
   ]);
-  assert.equal(guardPage("casebook", "product"), "collect");
-  assert.equal(guardPage("classification", "product"), "classification");
+  assert.equal(guardPage("casebook", "product"), "saved-signals");
+  assert.equal(guardPage("saved-signals", "product"), "saved-signals");
+  assert.equal(guardPage("classification", "product"), "saved-signals");
 });
 
 test("topic mode keeps Library available without mounting product-only routes", () => {
@@ -22,4 +23,14 @@ test("topic mode keeps Library available without mounting product-only routes", 
     "library"
   ]);
   assert.equal(guardPage("classification", "topic"), "casebook");
+});
+
+test("PR Evidence mode mounts only the campaign evidence workspace and Collect", () => {
+  assert.deepEqual(ALLOWED_PAGES["pr-evidence"], [
+    "pr-evidence",
+    "collect"
+  ]);
+  assert.equal(guardPage("library", "pr-evidence"), "pr-evidence");
+  assert.equal(guardPage("saved-signals", "pr-evidence"), "pr-evidence");
+  assert.equal(guardPage("pr-evidence", "pr-evidence"), "pr-evidence");
 });

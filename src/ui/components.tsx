@@ -3,6 +3,7 @@ import type { CSSProperties, ReactNode } from "react";
 import type { TargetDescriptor } from "../contracts/target-descriptor.ts";
 import type { WorkerStatus, WorkspaceMode } from "../state/processing-state.ts";
 import { TOKENS, tokens } from "./tokens";
+import { BUILD_VERSION } from "./version";
 
 export { TOKENS } from "./tokens";
 
@@ -277,6 +278,31 @@ export function surfaceCardStyle(extra?: CSSProperties): CSSProperties {
   };
 }
 
+/** Row grammar — for scan-page list items (Inbox, Library, Casebook, Product list) */
+export function scanRowStyle(extra?: CSSProperties): CSSProperties {
+  return {
+    display: "flex",
+    alignItems: "baseline",
+    gap: tokens.spacing.sm,
+    padding: "10px 4px",
+    borderBottom: `1px solid ${tokens.color.line}`,
+    background: "transparent",
+    transition: "background 140ms ease",
+    cursor: "default",
+    ...extra
+  };
+}
+
+/** Hover state for interactive scan rows */
+export const SCAN_ROW_HOVER_CSS = `
+[data-scan-list] [data-scan-row]:hover {
+  background: rgba(27, 26, 23, 0.028);
+}
+[data-scan-list] [data-scan-row]:last-child {
+  border-bottom: 0;
+}
+`;
+
 type PrimaryWorkspaceMode = Exclude<WorkspaceMode, "result">;
 
 const PRIMARY_WORKSPACE_MODES: ReadonlyArray<{ key: PrimaryWorkspaceMode; label: string }> = [
@@ -285,8 +311,10 @@ const PRIMARY_WORKSPACE_MODES: ReadonlyArray<{ key: PrimaryWorkspaceMode; label:
   { key: "library", label: "資料庫" },
   { key: "compare", label: "比較" },
   { key: "collect", label: "採集" },
+  { key: "saved-signals", label: "訊號" },
   { key: "classification", label: "分類" },
-  { key: "actionable-filter", label: "行動" }
+  { key: "actionable-filter", label: "行動" },
+  { key: "pr-evidence", label: "PR" }
 ];
 
 function railIcon(mode: PrimaryWorkspaceMode) {
@@ -306,17 +334,21 @@ function railIcon(mode: PrimaryWorkspaceMode) {
     case "casebook":
       return <svg {...common}><path d="M6 5.5A2.5 2.5 0 0 1 8.5 3H18v17.5H8.5A2.5 2.5 0 0 0 6 23" /><path d="M6 5.5V23" /><path d="M10 8h5" /><path d="M10 12h5" /></svg>;
     case "inbox":
-      return <svg {...common}><path d="M4.5 7.5h15v9h-4l-2 3h-3l-2-3h-4z" /><path d="M8 11h8" /></svg>;
+      return <svg {...common}><path d="M3 7a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2v10a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z" /><path d="m3 7 9 6 9-6" /></svg>;
     case "library":
       return <svg {...common}><path d="M5.5 4.5h9a2 2 0 0 1 2 2v13h-9a2 2 0 0 0-2 2Z" /><path d="M7.5 4.5h9a2 2 0 0 1 2 2v13h-9a2 2 0 0 0-2 2" /></svg>;
     case "compare":
-      return <svg {...common}><path d="M7 5h3v14H7z" /><path d="M14 5h3v14h-3z" /><path d="M10 9h4" /><path d="M10 15h4" /></svg>;
+      return <svg {...common}><path d="M12 3v18" /><path d="M3 12h18" /><path d="M7 7l-4 5 4 5" /><path d="M17 7l4 5-4 5" /></svg>;
     case "collect":
-      return <svg {...common}><path d="M12 3v18" /><path d="M3 12h18" /><circle cx="12" cy="12" r="7.5" /></svg>;
+      return <svg {...common}><circle cx="12" cy="12" r="9" /><circle cx="12" cy="12" r="1.5" /></svg>;
+    case "saved-signals":
+      return <svg {...common}><path d="M5 5h14v14H5z" /><path d="M8 9h8" /><path d="M8 13h5" /><path d="M8 17h3" /></svg>;
     case "classification":
-      return <svg {...common}><path d="M4 6h16" /><path d="M4 12h10" /><path d="M4 18h7" /><path d="M17 11l3 3-3 3" /></svg>;
+      return <svg {...common}><rect x="4" y="4" width="7" height="7" rx="1" /><rect x="13" y="4" width="7" height="7" rx="1" /><rect x="4" y="13" width="7" height="7" rx="1" /><rect x="13" y="13" width="7" height="7" rx="1" /></svg>;
     case "actionable-filter":
-      return <svg {...common}><path d="M4 5h16l-6 7v5l-4 2v-7z" /><path d="M15 5v3" /></svg>;
+      return <svg {...common}><path d="M3 4h18l-7 8v5l-4 2v-7z" /></svg>;
+    case "pr-evidence":
+      return <svg {...common}><path d="M5 4h14v16H5z" /><path d="M8 8h8" /><path d="M8 12h8" /><path d="M8 16h4" /></svg>;
   }
 }
 
@@ -356,7 +388,7 @@ export function WorkspaceShell({
         }}
       >
         <div style={{ display: "flex", alignItems: "baseline", gap: 8, minWidth: 0 }}>
-          <span style={{ fontFamily: tokens.font.serif, fontSize: 20, lineHeight: 1, color: tokens.color.ink }}>dlens</span>
+          <span data-dlens-wordmark="masthead" style={{ fontFamily: tokens.font.serif, fontSize: 20, lineHeight: 1, color: MODE_ACCENT, transition: tokens.motion.interactiveTransition }}>dlens</span>
           <span style={{ fontSize: 10, fontWeight: 700, letterSpacing: 0, color: tokens.color.softInk }}>
             Annotated Field Guide
           </span>
@@ -365,6 +397,8 @@ export function WorkspaceShell({
           <span>VOL.1</span>
           <span>NO.{mode === "result" ? "04" : mode === "compare" ? "03" : mode === "collect" ? "02" : mode === "settings" ? "05" : "01"}</span>
           <span>{new Intl.DateTimeFormat("en-US", { month: "short", day: "numeric" }).format(new Date())}</span>
+          <span style={{ opacity: 0.5 }}>·</span>
+          <span title="Folder: dlens-product-latest">v{BUILD_VERSION}</span>
         </div>
       </div>
 
@@ -394,18 +428,20 @@ export function WorkspaceShell({
           <div style={{ display: "grid", placeItems: "center", minHeight: 40 }}>
             <div
               aria-hidden="true"
+              data-dlens-avatar="masthead"
               style={{
                 width: 34,
                 height: 34,
                 borderRadius: 999,
-                background: tokens.color.ink,
+                background: MODE_ACCENT,
                 color: tokens.color.elevated,
                 display: "grid",
                 placeItems: "center",
                 fontFamily: tokens.font.serif,
                 fontSize: 21,
                 lineHeight: 1,
-                boxShadow: tokens.shadow.previewAvatar
+                boxShadow: MODE_ACCENT_BUTTON_SHADOW,
+                transition: tokens.motion.interactiveTransition
               }}
             >
               d

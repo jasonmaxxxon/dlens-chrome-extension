@@ -1,10 +1,10 @@
 # dlens-chrome-extension-v0
 
-A mode-aware MV3 Chrome extension for capturing Threads discussions and turning them into a personal intelligence asset. Folders now carry a `mode` (`archive | topic | product`) that determines which surfaces are available and how deep the AI analysis goes.
+A mode-aware MV3 Chrome extension for capturing Threads discussions and turning them into research, product-signal, and PR evidence workflows. Folders now carry a `mode` (`archive | topic | product | pr-evidence`) that determines which surfaces are available and how deep the AI analysis goes.
 
-**Boundary:** this repo is a display / read-model consumer. The optional ingest backend is the canonical source for crawl output, clustering, and deterministic analysis. This repo renders backend snapshots and layers client-side compare briefs, evidence annotations, and product-context judgment on top.
+**Boundary:** this repo is a display / read-model consumer. The optional ingest backend is the canonical source for crawl output, clustering, and deterministic analysis. This repo renders backend snapshots and layers client-side compare briefs, evidence annotations, product-context judgment, and PR evidence matching on top.
 
-> **Last updated:** 2026-04-27
+> **Last updated:** 2026-05-07
 
 ---
 
@@ -36,6 +36,7 @@ folders unless intentionally comparing historical versions.
 | `archive` | Library · Collect · Settings | `SavedPost` | None |
 | `topic` | Casebook · Inbox · Collect · Compare · Settings | `Topic` + `Signal` | Compare brief v7, evidence annotation v1 |
 | `product` | Inbox · Collect · Product insight pages · Settings | `Signal` + `ProductContext` + `ProductSignalAnalysis` | ProductContextCompiler + ProductSignalAnalyzer + evidence + agent task output |
+| `pr-evidence` | PR Evidence · Collect · Settings | `PrCampaign` + `PrEvidenceRow` | Criteria suggestion, explicit batch match with deterministic backstop, client-ready Markdown summary |
 
 Navigation mounts/unmounts based on `folder.mode` — unavailable pages are not disabled, they do not exist in the render tree.
 
@@ -48,9 +49,10 @@ Navigation mounts/unmounts based on `folder.mode` — unavailable pages are not 
 | **Topic Detail** | topic / product | Single topic: overview, signals list, linked pairs. Judgment panel visible in product mode only. | Working |
 | **Library** | archive | Simple saved-post list. No topic objects, no inbox, no AI. | Working |
 | **Compare** | topic / product | Pairing surface. Pick post A + B, preview teaser, open Result. Breadcrumb shows topic context if entered from Topic Detail. "附加至案例" attaches the pair to a topic. | Working |
-| **Collect** | all | Hover-preview capture. In topic/product mode, save creates a Signal in the Inbox instead of a direct Library item. | Working |
+| **Collect** | all | Hover-preview capture. In topic/product mode, save creates a Signal in the Inbox; in PR Evidence mode, save creates a campaign evidence row and does not run AI. | Working |
 | **Settings** | all | Backend URL, AI provider keys. Product mode imports product context files and compiles them into a structured ProductContext. | Working |
 | **Product insights** | product | Real stored product-signal analyses. Shows classification, usefulness verdict, cited evidence, experiment hint, and paste-ready agent task prompt when available. No fake numbers and no cluster UI. | Working |
+| **PR Evidence** | pr-evidence | Campaign setup, PDF/txt/md brief upload, six editable criteria, compact evidence ledger, CSV preview/export, explicit criteria matching, and exportable Markdown/DOCX PR audit summary. | Working |
 | **Result** | topic / product | Contextual reading route: full analysis sheet → cluster balance → representative quotes (DictionaryCard) → trust strip. | Working |
 
 ### What actually works right now
@@ -69,6 +71,7 @@ Navigation mounts/unmounts based on `folder.mode` — unavailable pages are not 
 - **Product insight UI (2026-04-27)**: product pages now render real stored analyses from `dlens:v1:product-signal-analyses`; cards show insight-first copy, cited discussion replies, and paste-ready Codex / Claude / generic agent task prompts. Product mode deliberately does not expose backend clusters to end users.
 - **Product analysis guard (2026-04-27)**: background keeps a per-session in-flight map so automatic analysis and manual analysis do not double-spend LLM calls for the same product session.
 - **Live product crawl smoke (2026-04-27)**: real Threads post crawl succeeded through local backend; read model returned `assembledContent`, 5 OP continuation candidates, and 48 discussion replies. This validated that discussion replies are product intelligence, but also exposed that backend OP continuation splitting needs refinement.
+- **PR Evidence Mode V1 (2026-05-07)**: `pr-evidence` folders now expose a dedicated PR workspace plus the shared Collect shell. V1 keeps one active campaign per PR session, PDF/txt/md press-release upload, detected core PR messages, six fixed criteria labels that AI can suggest and the user can edit, compact evidence rows for already-found Threads posts, explicit `Match criteria` batching with deterministic keyword backstop, `✓ / blank` criteria output, CSV export with UTF-8 BOM, read-only CSV preview, and a client-ready Markdown PR audit summary with MD/DOCX export. Collect does not run AI and does not create Topic signals or Product analyses in this mode.
 - **Eval harness (2026-04-23)**: `tests/judgment-eval.test.ts` covers prompt builder + parser + fallback determinism. `tests/judgment-fixtures.ts` has golden fixtures (no real LLM calls).
 - **Compare brief** (observation-first contract, prompt v7): `headline / relation / supportingObservations[] / aReading / bReading / whyItMatters / creatorCue / keywords / audienceAlignment{Left,Right} / confidence`. Observations and side readings must cite evidence aliases (`e1..eN`) or they are rejected at parse time.
 - **Cluster interpretation** (prompt v3): each cluster carries separate `observation` + `reading` fields alongside its `oneLiner`.
@@ -81,10 +84,10 @@ Navigation mounts/unmounts based on `folder.mode` — unavailable pages are not 
 | Priority | Gap | Note |
 |----------|-----|------|
 | P0 | Backend ThreadReadModel refinement | Remove root duplication from OP continuation candidates; split true content continuation from OP moderation/reply chatter. Product judgment quality depends on this. |
-| P1 | Real Chrome QA for v3 product flow | Load `output/chrome-mv3/`, check Settings mode switch, product Collect, product analysis pages, topic green theme, and popup spacing. |
+| P1 | Real Chrome QA for v3 product + PR Evidence flow | Load `output/chrome-mv3/`, check Settings mode switch, product Collect, product analysis pages, PR campaign setup, PDF upload, PR Collect save routing, criteria generation, match/export, summary MD/DOCX export, topic green theme, and popup spacing. |
 | P1 | Product analysis detail path | Keep evidence drill-down visible and add a dedicated signal detail route only if the card becomes too dense. |
-| P2 | `background.ts` at 1986 lines | Product AI handlers added; split product/topic handlers before adding digest/watch-mode work. |
-| P2 | `useInPageCollectorAppState.ts` at 905 lines | Some topic logic already moved to `useTopicState`; continue extracting before new product pages grow. |
+| P2 | `background.ts` at 2341 lines | Product and PR AI handlers are live; split feature-specific handlers before adding digest/watch-mode work. |
+| P2 | `useInPageCollectorAppState.ts` at 1041 lines | Topic/Product/PR orchestration is concentrated here; continue extracting before adding more workspace routes. |
 | P2 | Signal digest / weekly synthesis | Cross-signal synthesis is not implemented. Current ProductSignalAnalyzer analyzes one signal at a time. |
 | P3 | Watch mode / recurring crawl | Not implemented. Current flow is manual save first, then analysis. |
 | P3 | Multi-source Inbox (Dcard / Instagram / PTT / YouTube) | Current scope is Threads-only. |
@@ -117,6 +120,8 @@ For earlier change history, see `git log`. Historical change bullets and per-PR 
 │    evidence annotation (user API key)             │
 │  - ProductContextCompiler + ProductSignalAnalyzer │
 │    (user API key, local storage output)           │
+│  - PR criteria suggestion, matching, and summary  │
+│    (user API key, local storage output)           │
 └──────────────┬──────────────────────────────────────┘
                │ fetch()
 ┌──────────────▼──────────────────────────────────────┐
@@ -148,6 +153,8 @@ For earlier change history, see `git log`. Historical change bullets and per-PR 
 | `dlens:v1:signals` | `Signal[]` — inbox items linking a captured post to a topic after triage |
 | `dlens:v1:product-context` | Compiled `ProductContext` derived from imported product docs; legacy key `dlens_product_context` is migrated forward |
 | `dlens:v1:product-signal-analyses` | `ProductSignalAnalysis[]` — per-signal product judgment, evidence refs, experiment hints, and optional agent task specs |
+| `dlens:v1:pr-campaigns` | `PrCampaign[]` — one active PR campaign per PR Evidence session, with fixed `c1..c6` criteria labels |
+| `dlens:v1:pr-evidence-rows` | `PrEvidenceRow[]` — collected Threads evidence rows scoped by campaign, criteria matches, and CSV fields |
 | `dlens:v1:compare-evidence-annotation-cache` | Per-quote annotation cache |
 | `dlens:v1:compare-judgment-cache` | Per-pair product judgment cache (keyed by briefHash + profileHash + promptVersion) |
 | In-memory `Map<tabId, TabUiState>` | `hoveredTarget`, `flashPreview` — NOT persisted |
@@ -161,7 +168,7 @@ dlens-chrome-extension-v0/
   AGENTS.md              ← Agent handoff + process rules (read first)
   README.md              ← This file
   entrypoints/
-    background.ts        ← Service worker: state, queue, topic/signal/judgment/product handlers, client AI calls (1986 lines)
+    background.ts        ← Service worker: state, queue, topic/signal/judgment/product/PR handlers, client AI calls (2341 lines)
     threads.content.ts   ← Content script: DOM targeting, overlay, React mount
   src/
     contracts/ingest.ts  ← API request/response types
@@ -174,19 +181,21 @@ dlens-chrome-extension-v0/
       product-context.ts        ← ProductContextCompiler contract, parser, schema, storage key migration helpers
       product-signal-analysis.ts ← ProductSignalAnalyzer input builder, prompt, parser, evidence catalog, auto-analysis guards
       product-signal-storage.ts ← ProductSignalAnalysis storage normalization and sorting
+      pr-evidence.ts            ← PR criteria suggestion, match parser/backstop, CSV export, client-ready summary validator
       provider.ts               ← Google / OpenAI / Claude runtime
       saved-analysis-storage.ts ← SavedAnalysisSnapshot CRUD + normalization + judgment write-back
     state/
       types.ts           ← All types: FolderMode, Topic, Signal, SessionRecord, JudgmentResult, etc.
-      messages.ts        ← ExtensionMessage union incl. topic/*, signal/*, judgment/*, session/set-mode
+      messages.ts        ← ExtensionMessage union incl. topic/*, signal/*, judgment/*, product/*, pr/*, session/set-mode
+      pr-evidence-storage.ts ← PrCampaign + PrEvidenceRow CRUD, normalization, one-active-campaign session rule
       topic-storage.ts   ← Topic + Signal CRUD, normalizeTopic, normalizeSignal, triageSignal
       store-helpers.ts   ← Session CRUD; normalizeSessionRecord defaults mode to 'topic' for legacy data
       processing-state.ts ← Job status, polling delay, popup width constants
     targeting/threads.ts ← Card scoring, engagement + author extraction
     ui/
       InPageCollectorApp.tsx       ← Thin popup shell + module wiring (≤400 lines)
-      useInPageCollectorAppState.ts ← Popup state/effects/handlers (779 lines; topic/signal/mode state added)
-      InPageCollectorPopup.tsx     ← Mode-aware routing: ALLOWED_PAGES guard, casebook + inbox + topic detail pages
+      useInPageCollectorAppState.ts ← Popup state/effects/handlers (1041 lines; topic/product/PR state added)
+      InPageCollectorPopup.tsx     ← Mode-aware routing: ALLOWED_PAGES guard, casebook + inbox + topic + PR pages
       InPageCollectorOverlays.tsx  ← Launcher + hover/flash overlays
       InPageCollectorFolderControls.tsx ← Folder strip / prompt UI
       inpage-helpers.tsx           ← Shared popup helpers and tiny display atoms
@@ -196,15 +205,18 @@ dlens-chrome-extension-v0/
       InboxView.tsx                ← Signal inbox: unprocessed signals, assign/create-topic/archive triage actions
       TopicDetailView.tsx          ← Single topic: overview, signals, pairs; Judgment panel in product mode
       ProductSignalViews.tsx       ← Product insight pages: classification, usefulness, evidence, agent task prompt output
+      PrEvidenceViews.tsx          ← PR campaign setup, compact evidence ledger, CSV preview/export, summary export
+      pr-brief-upload.ts           ← PR PDF/txt/md brief upload + text extraction
+      pr-summary-export.ts         ← PR summary Markdown + DOCX export
       LibraryView.tsx              ← archive mode home: saved posts + analyses
-      CollectView.tsx              ← Capture surface; toast changes to "已加入收件匣" in topic/product mode
+      CollectView.tsx              ← Capture surface; signal routing in topic/product, evidence-row routing in PR mode
       CompareView.tsx              ← Compare + Result; breadcrumb + "附加至案例" when opened from Topic Detail
       CompareSetupView.tsx         ← Pairing + teaser page
       SettingsView.tsx             ← Settings: backend URL, AI keys, folder mode selector, ProductProfile form (product mode)
       SidepanelApp.tsx             ← Debug sidepanel
       ProcessingStrip.tsx          ← Worker/processing context strip
       controller.tsx               ← useExtensionSnapshot hook
-  tests/                 ← 281 node:test cases in the Phase B worktree
+  tests/                 ← 347 node:test cases in the active worktree
   docs/
     product/             ← Active product / contract plans
     archive/             ← Historical design specs kept for reference

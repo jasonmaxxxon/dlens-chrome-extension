@@ -1,0 +1,2558 @@
+<!doctype html>
+<html lang="zh-Hant">
+<head>
+<meta charset="utf-8" />
+<title>DLens · V2.1 Locked Direction · Intelligence Tool + Editorial Reading</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@300;400;500;600&family=Noto+Serif+TC:wght@400;500;600;700&display=swap" rel="stylesheet" />
+<style>
+:root {
+  --paper-0: #fbfaf3;
+  --paper-1: #f4efe0;
+  --paper-2: #ebe5cf;
+  --paper-3: #ddd4b8;
+  --paper-card: #fefdf6;
+  --paper-card-2: #f9f6e9;
+
+  --ink:   #1a1714;
+  --ink-2: #2a2520;
+  --ink-3: #3c352c;
+  --mute:  #6e6457;
+  --mute-2:#8c8270;
+  --mute-3:#aba18b;
+
+  --hairline: rgba(26,23,20,0.08);
+  --hairline-strong: rgba(26,23,20,0.14);
+  --hairline-soft: rgba(26,23,20,0.04);
+
+  --shadow-frame: 0 1px 2px rgba(26,23,20,0.04), 0 18px 48px rgba(26,23,20,0.10);
+  --shadow-card:  0 1px 1px rgba(26,23,20,0.03), 0 2px 8px rgba(26,23,20,0.05);
+  --shadow-hero:  0 1px 1px rgba(26,23,20,0.04), 0 8px 24px rgba(26,23,20,0.08);
+  --shadow-drawer:0 -2px 8px rgba(26,23,20,0.05), 0 -16px 48px rgba(26,23,20,0.12);
+
+  --accent: #2c5f5d;
+  --accent-soft: rgba(44,95,93,0.10);
+  --accent-softer: rgba(44,95,93,0.05);
+  --accent-deep: #1d4543;
+  --accent-on:   #f6f4ec;
+  --gold: #a8843c;
+  --gold-soft: rgba(168,132,60,0.12);
+
+  --serif: "Noto Serif TC", "Songti TC", "Source Han Serif TC", Georgia, serif;
+  --sans:  "Noto Sans TC", -apple-system, "PingFang TC", system-ui, sans-serif;
+  --mono:  ui-monospace, "SF Mono", Menlo, "JetBrains Mono", monospace;
+}
+
+* { box-sizing: border-box; }
+
+html, body {
+  margin: 0; padding: 0;
+  background:
+    radial-gradient(ellipse at 50% -120px, #ece5d0 0%, #ddd2b3 55%, #c8bd99 100%);
+  font-family: var(--sans);
+  color: var(--ink);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  font-feature-settings: "palt" 1, "kern" 1;
+}
+
+.cover {
+  max-width: 2440px;
+  margin: 0 auto;
+  padding: 64px 72px 24px;
+}
+.cover .eyebrow {
+  font-family: var(--mono);
+  font-size: 11px;
+  letter-spacing: 0.22em;
+  color: var(--mute);
+  text-transform: uppercase;
+  margin-bottom: 16px;
+}
+.cover h1 {
+  font-family: var(--serif);
+  font-size: 38px;
+  line-height: 1.18;
+  font-weight: 500;
+  margin: 0 0 10px;
+  letter-spacing: 0.005em;
+  color: var(--ink);
+  max-width: 920px;
+}
+.cover h1 em { font-style: italic; color: var(--accent-deep); font-weight: 500; }
+.cover .lede {
+  font-family: var(--serif);
+  font-style: italic;
+  font-size: 19px;
+  color: var(--mute);
+  max-width: 820px;
+  line-height: 1.6;
+  margin: 0 0 28px;
+}
+.cover .meta {
+  display: flex; gap: 36px; flex-wrap: wrap;
+  font-size: 12px; color: var(--mute-2);
+  font-family: var(--mono);
+  letter-spacing: 0.06em;
+}
+.cover .meta b {
+  color: var(--ink-2); font-weight: 500;
+  font-family: var(--sans); letter-spacing: 0.02em;
+}
+
+.row-header {
+  max-width: 2440px;
+  margin: 56px auto 18px;
+  padding: 0 72px;
+  display: flex; align-items: baseline; gap: 18px;
+}
+.row-header .num {
+  font-family: var(--serif);
+  font-size: 36px;
+  font-weight: 500;
+  color: var(--mute-3);
+  font-style: italic;
+  letter-spacing: -0.01em;
+}
+.row-header .name {
+  font-family: var(--serif);
+  font-size: 22px;
+  font-weight: 500;
+  color: var(--ink);
+  letter-spacing: 0.005em;
+}
+.row-header .desc {
+  font-family: var(--sans);
+  font-size: 13px;
+  color: var(--mute);
+  margin-left: auto;
+  max-width: 560px;
+  line-height: 1.55;
+  text-align: right;
+}
+
+.gallery-row {
+  display: grid;
+  grid-template-columns: repeat(3, 720px);
+  gap: 56px;
+  width: max-content;
+  margin: 0 auto 24px;
+  padding-bottom: 24px;
+  border-bottom: 1px dashed rgba(26,23,20,0.10);
+}
+.gallery-row:last-of-type { border-bottom: none; }
+
+.frame-wrap { display: flex; flex-direction: column; }
+
+.frame-label {
+  font-size: 11px;
+  letter-spacing: 0.18em;
+  font-family: var(--mono);
+  margin-bottom: 14px;
+  display: flex; justify-content: space-between; align-items: baseline;
+  padding: 0 4px;
+  color: rgba(26,23,20,0.45);
+  text-transform: uppercase;
+}
+.frame-label .label-state {
+  color: var(--accent-deep);
+  font-weight: 500;
+  letter-spacing: 0.12em;
+  text-transform: none;
+  font-family: var(--sans);
+  font-size: 11.5px;
+}
+.frame-label .label-page { color: var(--ink-2); font-weight: 500; letter-spacing: 0.14em; }
+
+/* ------------- FRAME ------------- */
+.frame {
+  width: 720px;
+  height: 860px;
+  background: var(--paper-0);
+  border-radius: 14px;
+  box-shadow: var(--shadow-frame);
+  overflow: hidden;
+  position: relative;
+  display: flex;
+  font-size: 13px;
+  line-height: 1.55;
+}
+.frame::after {
+  content: "";
+  position: absolute;
+  left: 64px; right: 0; bottom: 0; height: 36px;
+  background: linear-gradient(to bottom, transparent, var(--paper-0) 92%);
+  pointer-events: none;
+  opacity: 0;
+}
+.frame.scrolls::after { opacity: 1; }
+
+/* rail */
+.rail {
+  width: 64px;
+  background:
+    linear-gradient(180deg, var(--paper-1) 0%, var(--paper-2) 100%);
+  border-right: 1px solid var(--hairline);
+  display: flex; flex-direction: column; align-items: center;
+  padding: 18px 0;
+  gap: 4px;
+  flex-shrink: 0;
+}
+.rail-mark {
+  width: 36px; height: 36px;
+  border-radius: 9px;
+  background: var(--paper-card);
+  box-shadow: 0 1px 1px rgba(26,23,20,0.04);
+  display: flex; align-items: center; justify-content: center;
+  font-family: var(--serif);
+  font-weight: 600;
+  font-size: 17px;
+  color: var(--ink);
+  margin-bottom: 16px;
+  letter-spacing: -0.02em;
+}
+.rail-item {
+  width: 46px; height: 46px;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 10px;
+  color: var(--mute-2);
+  border-radius: 9px;
+  letter-spacing: 0.02em;
+  text-align: center;
+  line-height: 1.2;
+  position: relative;
+  font-weight: 400;
+  padding: 0 2px;
+}
+.rail-item.active {
+  background: var(--paper-0);
+  color: var(--ink);
+  font-weight: 500;
+  box-shadow: 0 1px 1px rgba(26,23,20,0.04);
+}
+.rail-item.active::before {
+  content: "";
+  position: absolute;
+  left: -10px; top: 14px; bottom: 14px; width: 2px;
+  background: var(--accent);
+  border-radius: 1px;
+}
+.rail-foot {
+  margin-top: auto;
+  display: flex; flex-direction: column; align-items: center;
+  gap: 4px;
+}
+.rail-dot {
+  width: 5px; height: 5px; border-radius: 50%;
+  background: var(--mute-3);
+  margin: 12px 0 6px;
+}
+
+/* main */
+.main {
+  flex: 1;
+  display: flex; flex-direction: column;
+  overflow: hidden;
+  min-width: 0;
+  position: relative;
+}
+.header {
+  height: 56px;
+  border-bottom: 1px solid var(--hairline);
+  display: flex; align-items: center;
+  padding: 0 24px;
+  background: var(--paper-0);
+  flex-shrink: 0;
+  gap: 14px;
+}
+.crumb {
+  font-size: 12.5px;
+  color: var(--mute);
+  letter-spacing: 0.02em;
+  display: flex; align-items: center; gap: 8px;
+}
+.crumb .dot {
+  width: 8px; height: 8px;
+  border-radius: 50%;
+  background: var(--accent);
+  box-shadow: 0 0 0 3px var(--accent-soft);
+  display: inline-block;
+}
+.crumb b { color: var(--ink-2); font-weight: 500; }
+.crumb .sep { color: var(--mute-3); margin: 0 1px; }
+.crumb .back {
+  display: inline-flex; align-items: center; gap: 5px;
+  margin-right: 6px;
+  font-size: 13px;
+  color: var(--accent-deep);
+}
+.spacer { flex: 1; }
+.quiet-time {
+  font-family: var(--mono);
+  font-size: 11px;
+  color: var(--mute-2);
+  letter-spacing: 0.04em;
+}
+
+.content {
+  flex: 1;
+  overflow: hidden;
+  padding: 26px 28px 32px;
+  position: relative;
+  background: var(--paper-0);
+}
+
+/* Page eyebrow + title */
+.page-eyebrow {
+  font-family: var(--serif);
+  font-style: italic;
+  font-size: 14px;
+  color: var(--accent-deep);
+  letter-spacing: 0.005em;
+  margin-bottom: 4px;
+}
+.page-title {
+  margin: 0 0 6px;
+  color: var(--ink);
+  font-family: var(--serif);
+  font-size: 22px;
+  line-height: 1.3;
+  font-weight: 500;
+  letter-spacing: 0.005em;
+}
+.page-sub {
+  font-size: 13px;
+  color: var(--mute);
+  margin: 0 0 22px;
+  max-width: 580px;
+  line-height: 1.55;
+  font-family: var(--serif);
+  font-style: italic;
+}
+
+/* filter pills */
+.filters {
+  display: flex; gap: 6px;
+  flex-wrap: wrap;
+  margin: 8px 0 22px;
+  font-size: 12px;
+}
+.filters .f {
+  padding: 5px 12px;
+  border-radius: 999px;
+  font-size: 11.5px;
+  color: var(--mute);
+  background: transparent;
+  border: 1px solid var(--hairline);
+  display: inline-flex; align-items: baseline; gap: 5px;
+  letter-spacing: 0.02em;
+  white-space: nowrap;
+}
+.filters .f.active {
+  background: var(--accent);
+  color: var(--accent-on);
+  border-color: var(--accent);
+  box-shadow: 0 1px 2px rgba(44,95,93,0.18);
+}
+.filters .f-count {
+  font-family: var(--mono);
+  font-size: 10px;
+  opacity: 0.75;
+  letter-spacing: 0.04em;
+}
+.filters .f.active .f-count { opacity: 0.85; }
+
+/* ============ Signal Card (regular) ============ */
+.signal-card {
+  position: relative;
+  margin-bottom: 14px;
+  padding: 18px 20px 16px;
+  border-radius: 11px;
+  background: var(--paper-card);
+  box-shadow: var(--shadow-card);
+}
+
+.sc-meta {
+  display: flex; align-items: center; gap: 10px;
+  font-size: 10.5px; color: var(--mute);
+  margin-bottom: 8px;
+  font-family: var(--mono);
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+}
+.sc-verdict {
+  display: inline-block;
+  padding: 1.5px 8px;
+  border-radius: 4px;
+  background: var(--accent-soft);
+  color: var(--accent-deep);
+  font-weight: 500;
+  font-family: var(--sans);
+  font-size: 10.5px;
+  letter-spacing: 0.05em;
+  text-transform: none;
+}
+.sc-verdict.gold { background: var(--gold-soft); color: var(--gold); }
+.sc-id { color: var(--mute-2); }
+.sc-headline {
+  margin: 0 0 8px;
+  color: var(--ink);
+  font-family: var(--serif);
+  font-size: 17px;
+  line-height: 1.36;
+  font-weight: 500;
+  letter-spacing: 0.005em;
+}
+.sc-tags {
+  display: flex; gap: 5px; flex-wrap: wrap;
+  margin: 6px 0 10px;
+  font-size: 10.5px;
+}
+.sc-tags .tag {
+  padding: 2px 7px;
+  background: var(--paper-1);
+  border-radius: 3px;
+  color: var(--mute);
+  font-family: var(--mono);
+  letter-spacing: 0.04em;
+}
+.sc-insight {
+  font-size: 12.5px;
+  color: var(--ink-2);
+  line-height: 1.6;
+  margin: 8px 0 10px;
+  max-width: 580px;
+}
+.sc-why {
+  font-size: 12px;
+  color: var(--mute);
+  line-height: 1.55;
+  padding-left: 12px;
+  border-left: 2px solid var(--accent-soft);
+  margin: 8px 0 10px;
+  max-width: 580px;
+  font-family: var(--serif);
+  font-style: italic;
+}
+.sc-quote {
+  margin: 12px 0 10px;
+  padding: 11px 14px 11px 16px;
+  background: var(--paper-card-2);
+  border-radius: 7px;
+  border-left: 2px solid var(--accent);
+  font-family: var(--serif);
+  font-style: italic;
+  font-size: 13.5px;
+  color: var(--ink-3);
+  line-height: 1.55;
+  max-width: 580px;
+  position: relative;
+}
+.sc-quote-cite {
+  display: block;
+  margin-top: 6px;
+  font-style: normal;
+  font-size: 10.5px;
+  color: var(--mute-2);
+  font-family: var(--mono);
+  letter-spacing: 0.05em;
+}
+.sc-actions {
+  display: flex; gap: 14px; align-items: center;
+  margin-top: 12px;
+  padding-top: 10px;
+  border-top: 1px solid var(--hairline);
+  font-size: 11.5px;
+  color: var(--mute);
+}
+.sc-actions .ghost { color: var(--mute); cursor: default; }
+.sc-actions .primary {
+  background: var(--accent);
+  color: var(--accent-on);
+  padding: 5px 12px;
+  border-radius: 5px;
+  font-weight: 500;
+  letter-spacing: 0.02em;
+  font-size: 11.5px;
+}
+.sc-actions .secondary {
+  border: 1px solid var(--hairline-strong);
+  padding: 4px 11px;
+  border-radius: 5px;
+  color: var(--ink-2);
+  font-size: 11.5px;
+}
+.sc-actions .source-count {
+  font-family: var(--mono);
+  font-size: 10.5px;
+  color: var(--mute);
+  letter-spacing: 0.06em;
+}
+
+/* ============ Hero Signal Card (featured) ============ */
+.signal-card.hero {
+  background: linear-gradient(180deg, var(--paper-card-2) 0%, var(--paper-card) 100%);
+  padding: 22px 24px 20px;
+  margin-bottom: 18px;
+  position: relative;
+  box-shadow: var(--shadow-hero);
+}
+.signal-card.hero::before {
+  content: ""; position: absolute;
+  top: 0; left: 24px; right: 24px; height: 2px;
+  background: linear-gradient(to right, var(--accent), transparent);
+  border-radius: 2px;
+}
+.signal-card.hero .sc-headline {
+  font-size: 22px;
+  line-height: 1.3;
+  font-weight: 500;
+  margin-bottom: 10px;
+}
+.signal-card.hero .sc-insight { font-size: 13.5px; line-height: 1.65; }
+.signal-card.hero .sc-quote { font-size: 14.5px; padding: 14px 16px 14px 18px; }
+.hero-flag {
+  position: absolute;
+  top: 16px; right: 18px;
+  font-family: var(--mono);
+  font-size: 9.5px;
+  color: var(--gold);
+  letter-spacing: 0.18em;
+  display: flex; align-items: center; gap: 5px;
+}
+.hero-flag .star {
+  width: 6px; height: 6px;
+  background: var(--gold);
+  border-radius: 50%;
+}
+
+/* ============ Signal Card (selected/active state) ============ */
+.signal-card.detail-target {
+  border: 1.5px solid var(--accent);
+  box-shadow: 0 0 0 4px var(--accent-soft), var(--shadow-hero);
+}
+
+/* ============ Signal Detail (full page state) ============ */
+.detail-pane { padding-bottom: 8px; }
+.detail-eyebrow {
+  font-family: var(--mono);
+  font-size: 10.5px;
+  letter-spacing: 0.16em;
+  color: var(--mute-2);
+  margin-bottom: 8px;
+  display: flex; align-items: center; gap: 12px;
+}
+.detail-headline {
+  font-family: var(--serif);
+  font-size: 26px;
+  line-height: 1.25;
+  font-weight: 500;
+  letter-spacing: 0.005em;
+  color: var(--ink);
+  margin: 0 0 12px;
+  max-width: 580px;
+}
+.detail-meta-row {
+  display: flex; gap: 16px; align-items: center;
+  font-size: 11.5px; color: var(--mute);
+  font-family: var(--mono);
+  letter-spacing: 0.06em;
+  margin-bottom: 16px;
+  flex-wrap: wrap;
+}
+.detail-section-label {
+  font-family: var(--serif);
+  font-style: italic;
+  font-size: 14px;
+  color: var(--accent-deep);
+  margin: 22px 0 8px;
+  letter-spacing: 0.005em;
+}
+.detail-prose {
+  font-family: var(--serif);
+  font-size: 14.5px;
+  line-height: 1.7;
+  color: var(--ink-2);
+  max-width: 580px;
+  margin: 0 0 12px;
+}
+.detail-prose b { font-weight: 600; color: var(--ink); }
+.detail-quote-hero {
+  margin: 18px 0;
+  padding: 18px 22px 18px 26px;
+  background: var(--paper-card-2);
+  border-left: 3px solid var(--accent);
+  border-radius: 8px;
+  font-family: var(--serif);
+  font-style: italic;
+  font-size: 16.5px;
+  line-height: 1.55;
+  color: var(--ink-2);
+  position: relative;
+  max-width: 600px;
+}
+.detail-quote-hero::before {
+  content: "\201C";
+  position: absolute;
+  top: 4px; left: 8px;
+  font-family: var(--serif);
+  font-size: 36px;
+  color: var(--accent-soft);
+  font-style: normal;
+  line-height: 1;
+}
+.detail-quote-cite {
+  display: block;
+  margin-top: 10px;
+  font-style: normal;
+  font-size: 11px;
+  color: var(--mute);
+  font-family: var(--mono);
+  letter-spacing: 0.06em;
+}
+.detail-actions {
+  display: flex; gap: 10px;
+  margin-top: 22px;
+  padding-top: 16px;
+  border-top: 1px solid var(--hairline);
+}
+.detail-actions .primary {
+  background: var(--accent);
+  color: var(--accent-on);
+  padding: 8px 16px;
+  border-radius: 7px;
+  font-weight: 500;
+  font-size: 12.5px;
+  letter-spacing: 0.02em;
+}
+.detail-actions .secondary {
+  border: 1px solid var(--hairline-strong);
+  padding: 7px 14px;
+  border-radius: 7px;
+  color: var(--ink-2);
+  font-size: 12.5px;
+  background: var(--paper-card);
+}
+.detail-actions .ghost {
+  padding: 7px 6px;
+  color: var(--mute);
+  font-size: 12.5px;
+}
+
+/* ============ Drawer (bottom sheet) ============ */
+.drawer-backdrop {
+  position: absolute; inset: 0;
+  background: rgba(26,23,20,0.32);
+  z-index: 4;
+}
+.drawer {
+  position: absolute;
+  left: 0; right: 0; bottom: 0;
+  background: var(--paper-0);
+  border-top-left-radius: 18px;
+  border-top-right-radius: 18px;
+  box-shadow: var(--shadow-drawer);
+  z-index: 5;
+  overflow: hidden;
+  display: flex; flex-direction: column;
+}
+.drawer-handle {
+  width: 40px; height: 4px;
+  border-radius: 2px;
+  background: var(--mute-3);
+  margin: 10px auto 4px;
+  flex-shrink: 0;
+}
+.drawer-head {
+  display: flex; align-items: baseline; gap: 14px;
+  padding: 8px 26px 14px;
+  border-bottom: 1px solid var(--hairline);
+  flex-shrink: 0;
+}
+.drawer-head h3 {
+  font-family: var(--serif);
+  font-size: 17px;
+  font-weight: 500;
+  margin: 0;
+  color: var(--ink);
+  letter-spacing: 0.005em;
+}
+.drawer-head .count {
+  font-family: var(--mono);
+  font-size: 11px;
+  color: var(--mute);
+  letter-spacing: 0.06em;
+}
+.drawer-head .sort {
+  margin-left: auto;
+  font-size: 11.5px;
+  color: var(--mute);
+  display: flex; gap: 14px;
+}
+.drawer-head .sort .on { color: var(--accent-deep); font-weight: 500; }
+.drawer-body {
+  flex: 1; overflow-y: auto;
+  padding: 14px 26px 28px;
+}
+
+/* evidence list inside drawer */
+.evidence-item {
+  padding: 14px 0;
+  border-bottom: 1px solid var(--hairline-soft);
+}
+.evidence-item:last-child { border-bottom: none; }
+.evidence-quote-text {
+  font-family: var(--serif);
+  font-size: 14px;
+  line-height: 1.6;
+  color: var(--ink-2);
+  margin: 0 0 6px;
+}
+.evidence-meta-row {
+  display: flex; gap: 14px; align-items: center;
+  font-size: 10.5px; color: var(--mute-2);
+  font-family: var(--mono);
+  letter-spacing: 0.06em;
+  margin-top: 4px;
+}
+.evidence-meta-row .src { color: var(--ink-2); }
+.evidence-meta-row .actions {
+  margin-left: auto;
+  font-family: var(--sans);
+  letter-spacing: 0.02em;
+  color: var(--accent-deep);
+  font-size: 11px;
+}
+
+/* ============ Saved-list rows ============ */
+.saved-row {
+  display: grid;
+  grid-template-columns: 22px 1fr auto;
+  gap: 14px;
+  padding: 14px 4px 14px 0;
+  align-items: start;
+  border-bottom: 1px solid var(--hairline);
+}
+.saved-row.selected {
+  background: var(--paper-card-2);
+  border-radius: 8px;
+  padding: 14px 14px;
+  margin: 0 -14px;
+  border-bottom: 1px solid var(--hairline-soft);
+  position: relative;
+}
+.saved-row.selected::before {
+  content: ""; position: absolute;
+  left: 0; top: 12px; bottom: 12px; width: 2px;
+  background: var(--accent);
+  border-radius: 2px;
+}
+.checkbox {
+  width: 17px; height: 17px;
+  border-radius: 4px;
+  border: 1.5px solid var(--mute-3);
+  display: flex; align-items: center; justify-content: center;
+  margin-top: 4px;
+  background: transparent;
+  font-size: 10px; color: transparent;
+}
+.checkbox.on {
+  border-color: var(--accent);
+  background: var(--accent);
+  color: var(--accent-on);
+}
+.saved-body { min-width: 0; }
+.saved-headline {
+  margin: 0 0 6px;
+  color: var(--ink);
+  font-family: var(--serif);
+  font-size: 15px;
+  line-height: 1.4;
+  font-weight: 500;
+  letter-spacing: 0.005em;
+}
+.saved-line {
+  font-size: 12.5px;
+  color: var(--mute);
+  margin: 4px 0 6px;
+  line-height: 1.5;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+.saved-quote {
+  font-family: var(--serif);
+  font-style: italic;
+  font-size: 12.5px;
+  color: var(--mute);
+  margin: 6px 0 0;
+  display: -webkit-box;
+  -webkit-line-clamp: 1;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+.saved-meta {
+  font-family: var(--mono);
+  font-size: 10px;
+  color: var(--mute-3);
+  letter-spacing: 0.06em;
+  text-align: right;
+  white-space: nowrap;
+  padding-top: 4px;
+}
+.saved-meta-cat {
+  display: inline-block;
+  padding: 1.5px 7px;
+  border-radius: 3px;
+  background: var(--accent-soft);
+  color: var(--accent-deep);
+  font-family: var(--sans);
+  font-size: 10px;
+  letter-spacing: 0.04em;
+  margin-bottom: 5px;
+  font-weight: 500;
+}
+
+/* ============ Action Bar ============ */
+.action-bar {
+  position: absolute;
+  left: 24px; right: 24px; bottom: 24px;
+  padding: 12px 18px;
+  background: var(--paper-card);
+  border-radius: 12px;
+  display: flex; align-items: center; gap: 14px;
+  box-shadow: 0 1px 2px rgba(26,23,20,0.05), 0 12px 32px rgba(26,23,20,0.10);
+  border: 1px solid var(--hairline);
+  z-index: 3;
+}
+.action-bar .count-block {
+  display: flex; flex-direction: column; gap: 2px;
+}
+.action-bar .count-num {
+  font-family: var(--serif);
+  font-size: 18px;
+  font-weight: 500;
+  color: var(--ink);
+}
+.action-bar .count-num em {
+  font-style: italic;
+  color: var(--accent-deep);
+  font-weight: 500;
+}
+.action-bar .count-sub {
+  font-family: var(--mono);
+  font-size: 10px;
+  color: var(--mute-2);
+  letter-spacing: 0.08em;
+}
+.action-bar .action-spacer { flex: 1; }
+.action-bar .clear {
+  font-size: 11.5px;
+  color: var(--mute);
+  margin-right: 4px;
+}
+
+.action-btn {
+  padding: 8px 14px;
+  border-radius: 7px;
+  font-size: 12px;
+  font-family: var(--sans);
+  font-weight: 500;
+  letter-spacing: 0.02em;
+  background: transparent;
+  color: var(--ink-2);
+  border: 1px solid var(--hairline-strong);
+  cursor: default;
+  white-space: nowrap;
+}
+.action-btn.primary {
+  background: var(--accent);
+  color: var(--accent-on);
+  border-color: var(--accent);
+}
+.action-btn.primary.gold {
+  background: var(--gold);
+  color: var(--accent-on);
+  border-color: var(--gold);
+}
+
+/* ============ Export drawer modes ============ */
+.export-modes {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 14px;
+  margin: 4px 0 14px;
+}
+.export-mode {
+  background: var(--paper-card);
+  border-radius: 11px;
+  padding: 16px 18px;
+  box-shadow: var(--shadow-card);
+  border: 1.5px solid transparent;
+  display: flex; flex-direction: column; gap: 8px;
+}
+.export-mode.recommended {
+  border-color: var(--accent);
+  background: linear-gradient(180deg, var(--paper-card-2), var(--paper-card));
+}
+.export-mode-head {
+  display: flex; align-items: baseline; gap: 10px;
+}
+.export-mode-name {
+  font-family: var(--serif);
+  font-size: 16px;
+  font-weight: 500;
+  color: var(--ink);
+  letter-spacing: 0.005em;
+}
+.export-mode-flag {
+  font-family: var(--mono);
+  font-size: 9.5px;
+  color: var(--accent-deep);
+  background: var(--accent-soft);
+  padding: 2px 7px;
+  border-radius: 3px;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+}
+.export-mode-desc {
+  font-family: var(--serif);
+  font-style: italic;
+  font-size: 12.5px;
+  color: var(--mute);
+  line-height: 1.55;
+}
+.export-mode-meta {
+  font-family: var(--mono);
+  font-size: 10px;
+  color: var(--mute-2);
+  letter-spacing: 0.06em;
+  display: flex; gap: 12px;
+  padding-top: 8px;
+  border-top: 1px solid var(--hairline-soft);
+}
+.export-mode-cta {
+  margin-top: 4px;
+  padding: 8px 12px;
+  border-radius: 7px;
+  font-size: 12px;
+  font-weight: 500;
+  letter-spacing: 0.02em;
+  text-align: center;
+  background: transparent;
+  border: 1px solid var(--hairline-strong);
+  color: var(--ink-2);
+}
+.export-mode.recommended .export-mode-cta {
+  background: var(--accent);
+  color: var(--accent-on);
+  border-color: var(--accent);
+}
+
+/* ============ Casebook Topics ============ */
+.tab-row {
+  display: flex; gap: 24px;
+  margin: 0 0 22px;
+  font-size: 13px;
+  color: var(--mute);
+  border-bottom: 1px solid var(--hairline);
+  padding-bottom: 12px;
+  font-family: var(--serif);
+}
+.tab { padding-bottom: 6px; cursor: default; position: relative; font-size: 14.5px; }
+.tab.active { color: var(--ink); font-weight: 500; }
+.tab.active::after {
+  content: "";
+  position: absolute; left: 0; right: 0; bottom: -12px; height: 2px;
+  background: var(--accent);
+}
+.tab-count {
+  font-family: var(--mono);
+  font-size: 10.5px;
+  color: var(--mute-2);
+  letter-spacing: 0.06em;
+  margin-left: 4px;
+  font-style: normal;
+}
+
+/* lead topic */
+.topic-lead {
+  padding: 4px 0 22px;
+  border-bottom: 1px solid var(--hairline);
+  margin-bottom: 18px;
+}
+.topic-lead .dateline {
+  font-family: var(--serif);
+  font-style: italic;
+  font-size: 12.5px;
+  color: var(--mute);
+  margin-bottom: 6px;
+  display: flex; align-items: center; gap: 10px;
+}
+.topic-lead .dateline .pulse {
+  width: 6px; height: 6px;
+  border-radius: 50%;
+  background: var(--accent);
+  box-shadow: 0 0 0 3px var(--accent-soft);
+  display: inline-block;
+}
+.topic-lead .lead-title {
+  font-family: var(--serif);
+  font-size: 24px;
+  font-weight: 500;
+  color: var(--ink);
+  margin: 0 0 10px;
+  line-height: 1.25;
+  letter-spacing: 0.005em;
+}
+.topic-lead .lead-reading {
+  font-family: var(--serif);
+  font-size: 14.5px;
+  line-height: 1.65;
+  color: var(--ink-2);
+  margin: 0 0 12px;
+  max-width: 560px;
+}
+.topic-lead .lead-marker {
+  font-family: var(--serif);
+  font-style: italic;
+  font-size: 14px;
+  color: var(--accent-deep);
+  margin-top: 8px;
+  padding-left: 14px;
+  border-left: 2px solid var(--accent);
+}
+.topic-lead .lead-bubbles {
+  display: flex; align-items: flex-end; gap: 16px;
+  padding: 14px 0 4px;
+}
+.topic-lead .lead-foot {
+  margin-top: 12px;
+  display: flex; gap: 18px;
+  font-family: var(--mono);
+  font-size: 10.5px;
+  color: var(--mute-2);
+  letter-spacing: 0.06em;
+}
+
+/* condensed topic cards */
+.topic-card {
+  display: grid;
+  grid-template-columns: 1fr 130px;
+  gap: 18px;
+  padding: 16px 0;
+  border-bottom: 1px solid var(--hairline-soft);
+  align-items: start;
+}
+.topic-card:last-child { border-bottom: none; }
+.topic-card .topic-eyebrow {
+  font-family: var(--serif);
+  font-style: italic;
+  font-size: 11.5px;
+  color: var(--mute);
+  margin-bottom: 4px;
+}
+.topic-card .topic-title {
+  font-family: var(--serif);
+  font-size: 17px;
+  font-weight: 500;
+  color: var(--ink);
+  margin: 0 0 6px;
+  line-height: 1.3;
+  letter-spacing: 0.005em;
+}
+.topic-card .topic-reading {
+  font-size: 12.5px;
+  color: var(--mute);
+  line-height: 1.5;
+  margin: 0 0 8px;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+.topic-card .topic-marker {
+  font-family: var(--serif);
+  font-style: italic;
+  font-size: 12.5px;
+  color: var(--ink-3);
+  padding-left: 10px;
+  border-left: 1.5px solid var(--accent);
+  margin-top: 4px;
+}
+
+/* bubble preview */
+.bubble-preview {
+  display: flex; align-items: center; justify-content: center;
+  gap: 5px;
+  height: 64px;
+  padding: 4px 0;
+}
+.bubble {
+  border-radius: 50%;
+  display: flex; align-items: center; justify-content: center;
+  font-family: var(--mono);
+  font-size: 9.5px;
+  font-weight: 500;
+  letter-spacing: 0.04em;
+  flex-shrink: 0;
+}
+.bubble.b1 {
+  width: 50px; height: 50px;
+  background: var(--accent);
+  color: var(--accent-on);
+}
+.bubble.b2 {
+  width: 38px; height: 38px;
+  background: var(--accent-soft);
+  border: 1px solid var(--accent);
+  color: var(--accent-deep);
+}
+.bubble.b3 {
+  width: 28px; height: 28px;
+  background: transparent;
+  border: 1px solid var(--accent);
+  color: var(--accent-deep);
+}
+.bubble.b4 {
+  width: 18px; height: 18px;
+  background: var(--paper-2);
+  border: 1px solid var(--mute-3);
+  color: var(--mute-2);
+}
+.bubble-caption {
+  font-family: var(--mono);
+  font-size: 9.5px;
+  color: var(--mute-2);
+  letter-spacing: 0.04em;
+  text-align: center;
+  margin-top: 6px;
+}
+
+/* ============ Topic Detail ============ */
+.detail-title {
+  font-family: var(--serif);
+  font-size: 24px;
+  line-height: 1.25;
+  font-weight: 500;
+  letter-spacing: 0.005em;
+  margin: 0 0 12px;
+  color: var(--ink);
+}
+.detail-reading {
+  font-family: var(--serif);
+  font-size: 15px;
+  line-height: 1.7;
+  color: var(--ink-2);
+  max-width: 600px;
+  margin: 0 0 18px;
+}
+.detail-reading em {
+  color: var(--accent-deep);
+  font-style: italic;
+}
+
+/* clickable cluster token */
+.cluster-token {
+  display: inline-flex;
+  align-items: baseline;
+  padding: 1.5px 8px 1.5px 9px;
+  border-radius: 4px;
+  background: var(--accent-soft);
+  color: var(--accent-deep);
+  font-family: var(--sans);
+  font-weight: 500;
+  font-style: normal;
+  font-size: 0.92em;
+  letter-spacing: 0.015em;
+  white-space: nowrap;
+  border-bottom: 1.5px solid var(--accent);
+  text-decoration: none;
+}
+.cluster-token:hover { background: var(--accent); color: var(--accent-on); }
+.cluster-token .ck-id {
+  font-family: var(--mono);
+  font-size: 0.78em;
+  margin-left: 5px;
+  opacity: 0.75;
+  letter-spacing: 0.05em;
+}
+.cluster-token .ck-arrow {
+  font-size: 0.8em;
+  margin-left: 3px;
+  opacity: 0.6;
+  transform: translateY(-1px);
+}
+
+/* bubble row above clusters in detail */
+.cluster-bubbles {
+  display: flex; align-items: flex-end; gap: 24px;
+  padding: 8px 0 22px;
+  margin-bottom: 18px;
+  border-bottom: 1px solid var(--hairline);
+}
+.cb-item { display: flex; flex-direction: column; align-items: center; gap: 5px; }
+.cb-circle {
+  border-radius: 50%;
+  background: var(--accent-soft);
+  border: 1px solid var(--accent);
+  color: var(--accent-deep);
+  display: flex; align-items: center; justify-content: center;
+  font-family: var(--mono);
+  font-weight: 500;
+  letter-spacing: 0.06em;
+}
+.cb-item.lead .cb-circle {
+  background: var(--accent);
+  color: var(--accent-on);
+  border-color: var(--accent);
+  box-shadow: 0 4px 12px rgba(44,95,93,0.20);
+}
+.cb-label {
+  font-family: var(--serif);
+  font-size: 13px;
+  color: var(--ink);
+  font-weight: 500;
+  letter-spacing: 0.005em;
+}
+.cb-pct {
+  font-family: var(--mono);
+  font-size: 10px;
+  color: var(--mute-2);
+  letter-spacing: 0.06em;
+}
+
+/* cluster section */
+.cluster-section {
+  padding: 14px 0;
+  border-top: 1px solid var(--hairline-soft);
+}
+.cluster-section:first-of-type { border-top: none; padding-top: 4px; }
+.cluster-section.dimmed { opacity: 0.45; }
+.cluster-section.focused {
+  background: var(--accent-softer);
+  border-radius: 10px;
+  padding: 18px 18px;
+  margin: 6px -8px;
+  border-top-color: transparent;
+  box-shadow: 0 0 0 1px var(--accent-soft);
+}
+.cluster-head {
+  display: flex; align-items: baseline; gap: 12px;
+  margin-bottom: 10px;
+}
+.cluster-nick {
+  font-family: var(--serif);
+  font-size: 16.5px;
+  font-weight: 500;
+  color: var(--ink);
+  letter-spacing: 0.005em;
+}
+.cluster-formal {
+  font-size: 11px;
+  color: var(--mute);
+  font-family: var(--mono);
+  letter-spacing: 0.06em;
+}
+.cluster-section.focused .cluster-formal {
+  color: var(--accent-deep);
+}
+.cluster-spacer { flex: 1; }
+.cluster-collapse {
+  font-size: 11px;
+  color: var(--mute-2);
+  font-family: var(--mono);
+  letter-spacing: 0.06em;
+}
+
+/* evidence row inside cluster */
+.evidence-row {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 12px;
+  padding: 12px 14px;
+  background: var(--paper-card);
+  border-radius: 8px;
+  margin-bottom: 7px;
+  align-items: start;
+  position: relative;
+}
+.evidence-row.selected {
+  background: var(--paper-card-2);
+  box-shadow: 0 0 0 1.5px var(--accent), 0 1px 2px rgba(44,95,93,0.06);
+}
+.evidence-row .eq-text {
+  font-family: var(--serif);
+  font-size: 13.5px;
+  font-style: italic;
+  color: var(--ink-3);
+  line-height: 1.55;
+  margin: 0 0 4px;
+}
+.evidence-row .ec {
+  font-family: var(--mono);
+  font-size: 10px;
+  color: var(--mute-2);
+  letter-spacing: 0.05em;
+}
+.evidence-add {
+  font-size: 11.5px;
+  color: var(--accent-deep);
+  font-family: var(--sans);
+  font-weight: 500;
+  white-space: nowrap;
+  padding-top: 2px;
+  letter-spacing: 0.02em;
+}
+.evidence-add.selected {
+  background: var(--accent);
+  color: var(--accent-on);
+  padding: 4px 10px;
+  border-radius: 5px;
+  font-size: 11px;
+}
+
+/* ============ Pair Tray (small floating, lightweight) ============ */
+.pair-tray {
+  position: absolute;
+  left: 50%; bottom: 20px;
+  transform: translateX(-50%);
+  background: var(--paper-card);
+  border-radius: 999px;
+  padding: 8px 8px 8px 16px;
+  display: flex; align-items: center; gap: 10px;
+  box-shadow: 0 1px 2px rgba(26,23,20,0.06), 0 12px 28px rgba(26,23,20,0.16);
+  border: 1px solid var(--hairline);
+  z-index: 3;
+  font-size: 12px;
+  white-space: nowrap;
+  max-width: 90%;
+}
+.pair-tray .tray-label {
+  font-family: var(--mono);
+  font-size: 10.5px;
+  color: var(--mute);
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  margin-right: 2px;
+}
+.pair-tray .pair-chip {
+  background: var(--accent-soft);
+  color: var(--accent-deep);
+  font-family: var(--mono);
+  font-size: 10.5px;
+  padding: 4px 9px;
+  border-radius: 999px;
+  letter-spacing: 0.04em;
+}
+.pair-tray .pair-prompt {
+  font-family: var(--serif);
+  font-style: italic;
+  color: var(--mute);
+  font-size: 12px;
+  padding: 0 6px;
+}
+.pair-tray .compare-btn {
+  background: var(--accent);
+  color: var(--accent-on);
+  padding: 6px 14px;
+  border-radius: 999px;
+  font-size: 11.5px;
+  font-weight: 500;
+  letter-spacing: 0.02em;
+  margin-left: 4px;
+}
+.pair-tray .compare-btn.disabled {
+  background: var(--paper-2);
+  color: var(--mute-2);
+}
+.pair-tray .dismiss {
+  width: 22px; height: 22px;
+  border-radius: 50%;
+  background: var(--paper-1);
+  display: inline-flex; align-items: center; justify-content: center;
+  font-size: 12px;
+  color: var(--mute);
+  margin-left: 2px;
+}
+
+/* ============ Pair Insights section ============ */
+.section-label {
+  font-family: var(--serif);
+  font-style: italic;
+  font-size: 15px;
+  letter-spacing: 0.005em;
+  color: var(--accent-deep);
+  margin: 24px 0 10px;
+  display: flex; align-items: center; gap: 12px;
+}
+.section-label::before {
+  content: "";
+  flex: 0 0 22px;
+  height: 1.5px;
+  background: var(--accent);
+}
+.section-label .label-zh {
+  font-family: var(--serif);
+  font-style: normal;
+  font-weight: 500;
+  font-size: 15px;
+}
+.section-label .label-en {
+  font-family: var(--mono);
+  font-style: normal;
+  font-size: 10px;
+  letter-spacing: 0.18em;
+  color: var(--mute-2);
+  text-transform: uppercase;
+  margin-left: auto;
+}
+.section-label .add {
+  font-family: var(--sans);
+  font-style: normal;
+  font-size: 11.5px;
+  color: var(--accent-deep);
+  letter-spacing: 0.02em;
+}
+
+.pair-insight-card {
+  background: linear-gradient(180deg, var(--paper-card-2), var(--paper-card));
+  border-radius: 11px;
+  padding: 16px 18px 14px;
+  box-shadow: var(--shadow-card);
+  margin-bottom: 12px;
+  position: relative;
+}
+.pair-insight-card .pi-conclusion {
+  font-family: var(--serif);
+  font-size: 15.5px;
+  line-height: 1.45;
+  font-weight: 500;
+  color: var(--ink);
+  margin: 0 0 10px;
+  letter-spacing: 0.005em;
+  max-width: 580px;
+}
+.pair-insight-card .pi-pair {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 14px;
+  margin-top: 8px;
+}
+.pair-insight-card .pi-half {
+  font-family: var(--serif);
+  font-size: 13px;
+  line-height: 1.55;
+  color: var(--ink-2);
+}
+.pair-insight-card .pi-half-label {
+  font-family: var(--mono);
+  font-size: 9.5px;
+  color: var(--mute-2);
+  letter-spacing: 0.16em;
+  margin-bottom: 4px;
+}
+.pair-insight-card .pi-amplify {
+  font-family: var(--sans);
+  font-size: 11.5px;
+  color: var(--mute);
+  margin-top: 12px;
+  padding-top: 10px;
+  border-top: 1px solid var(--hairline-soft);
+  display: flex; gap: 16px; flex-wrap: wrap; align-items: center;
+}
+.pair-insight-card .pi-foot {
+  margin-top: 10px;
+  display: flex; align-items: center;
+  font-family: var(--mono);
+  font-size: 10px;
+  color: var(--mute-2);
+  letter-spacing: 0.06em;
+}
+.pair-insight-card .pi-foot .saved-flag {
+  background: var(--accent-soft);
+  color: var(--accent-deep);
+  padding: 2px 8px;
+  border-radius: 3px;
+  font-family: var(--sans);
+  font-size: 10px;
+  font-weight: 500;
+  letter-spacing: 0.04em;
+  margin-right: 10px;
+}
+.pair-insight-card .pi-foot .actions {
+  margin-left: auto;
+  display: flex; gap: 14px;
+  font-family: var(--sans);
+  letter-spacing: 0.02em;
+  color: var(--accent-deep);
+  font-size: 11px;
+}
+
+/* ============ Component Hierarchy notes ============ */
+.notes {
+  max-width: 2440px;
+  margin: 80px auto 64px;
+  padding: 48px 72px 64px;
+  background: rgba(251,250,243,0.65);
+  backdrop-filter: blur(8px);
+  border-radius: 18px;
+  box-shadow: var(--shadow-card);
+}
+.notes h2 {
+  font-family: var(--serif);
+  font-size: 28px;
+  font-weight: 500;
+  margin: 0 0 8px;
+  letter-spacing: 0.005em;
+  color: var(--ink);
+}
+.notes .lede {
+  font-family: var(--serif);
+  font-style: italic;
+  font-size: 15px;
+  color: var(--mute);
+  margin: 0 0 32px;
+  line-height: 1.6;
+  max-width: 720px;
+}
+.notes .grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 32px 56px;
+}
+.note-block h3 {
+  font-family: var(--serif);
+  font-size: 18px;
+  font-weight: 500;
+  color: var(--ink);
+  margin: 0 0 12px;
+  letter-spacing: 0.005em;
+  display: flex; align-items: baseline; gap: 10px;
+  padding-bottom: 8px;
+  border-bottom: 1px solid var(--hairline);
+}
+.note-block h3 .num {
+  font-family: var(--mono);
+  font-size: 11px;
+  color: var(--accent-deep);
+  letter-spacing: 0.18em;
+}
+.note-block dl { margin: 0; }
+.note-block dt {
+  font-family: var(--mono);
+  font-size: 10.5px;
+  color: var(--mute);
+  letter-spacing: 0.14em;
+  margin-top: 14px;
+  text-transform: uppercase;
+}
+.note-block dd {
+  margin: 4px 0 0;
+  font-size: 13px;
+  line-height: 1.6;
+  color: var(--ink-2);
+}
+.note-block dd em {
+  font-family: var(--serif);
+  font-style: italic;
+  color: var(--mute);
+}
+.note-block dd code {
+  font-family: var(--mono);
+  font-size: 11.5px;
+  background: var(--paper-1);
+  padding: 1px 5px;
+  border-radius: 3px;
+  color: var(--accent-deep);
+  letter-spacing: 0.02em;
+}
+.note-block.tokens dd { font-family: var(--mono); font-size: 11px; letter-spacing: 0.02em; }
+
+</style>
+</head>
+<body>
+
+<header class="cover">
+  <div class="eyebrow">DLens · V2.1 · Locked Direction · 2026-04-30</div>
+  <h1>Intelligence tool with <em>editorial reading</em> quality</h1>
+  <p class="lede">V2 鎖死成單一視覺方向。720 寬 popup、暖紙感深青 accent、quiet pill、source ID 露出、操作性與閱讀感平衡。下面是四個頁面 × 互動狀態，總共 12 frames。</p>
+  <div class="meta">
+    <span><b>Canvas</b> 720 × 860 popup</span>
+    <span><b>Accent</b> 深青 #2c5f5d</span>
+    <span><b>Display</b> Noto Serif TC</span>
+    <span><b>Body</b> Noto Sans TC</span>
+    <span><b>States</b> 12 (4 pages × 3 interaction states)</span>
+  </div>
+</header>
+
+<!-- =============================== -->
+<!-- ROW 1 · Product · 分類整理       -->
+<!-- =============================== -->
+<div class="row-header">
+  <div class="num">01</div>
+  <div class="name">產品 · 分類整理</div>
+  <div class="desc">
+    收集到的 24 則經 DLens 變成 Signal Intelligence Card。Hero card 是本週主推，下方是其餘卡片。Detail 與 evidence drawer 兩個展開狀態都在這層發生。
+  </div>
+</div>
+
+<div class="gallery-row">
+
+  <!-- 1A · 分類整理 base + hero -->
+  <div class="frame-wrap">
+    <div class="frame-label"><span class="label-page">P1 · 分類整理</span><span class="label-state">A · 列表 + Hero Card</span></div>
+    <div class="frame scrolls">
+      <aside class="rail">
+        <div class="rail-mark">D</div>
+        <div class="rail-item">收集</div>
+        <div class="rail-item active">分類<br/>整理</div>
+        <div class="rail-item">已存</div>
+        <div class="rail-foot"><div class="rail-dot"></div><div class="rail-item">設定</div></div>
+      </aside>
+      <div class="main">
+        <div class="header"><div class="crumb"><span class="dot"></span>DLens<span class="sep">·</span><b>產品觀察</b></div><div class="spacer"></div><div class="quiet-time">本週 24 則 · 同步於 09:42</div></div>
+        <div class="content">
+          <div class="page-eyebrow">本週訊號</div>
+          <h2 class="page-title">把每天爬到的訊號<br/>看成可挑揀的素材</h2>
+          <p class="page-sub">每張卡片代表一段討論被你抓出來的可重用 pattern。先讀 hero，再從分類掃過剩下的。</p>
+
+          <div class="filters">
+            <span class="f active">全部 <span class="f-count">24</span></span>
+            <span class="f">可試 <span class="f-count">7</span></span>
+            <span class="f">需求 <span class="f-count">5</span></span>
+            <span class="f">技術／workflow <span class="f-count">4</span></span>
+            <span class="f">Marketing 參考 <span class="f-count">3</span></span>
+            <span class="f">競品 <span class="f-count">2</span></span>
+            <span class="f">學習 <span class="f-count">2</span></span>
+            <span class="f">噪音 <span class="f-count">1</span></span>
+          </div>
+
+          <article class="signal-card hero">
+            <div class="hero-flag"><span class="star"></span>本週主推</div>
+            <div class="sc-meta"><span class="sc-verdict gold">可試</span><span class="sc-id">SIG-2429</span><span>· 4 段證據 · 3 來源</span></div>
+            <h3 class="sc-headline">把 recurring crawl 包成每日監測 agent</h3>
+            <div class="sc-tags"><span class="tag">技術／workflow</span><span class="tag">agent handoff</span><span class="tag">recurring</span></div>
+            <p class="sc-insight">Kathy 描述每天五個社群 + 四個 Reddit 板手動爬的儀式，整段流程已是固定 pipeline。DLens 既有 collector 接 cron，可直接吐每日 digest，省掉早上 40 分鐘。</p>
+            <p class="sc-why">對 PR 與 analyst 是高頻痛點。市面上沒有人做日報級的社群監測——大家都還停在「即時搜」。</p>
+            <blockquote class="sc-quote">「我每天花四十分鐘爬五個社團，根本是上班前的儀式。」<span class="sc-quote-cite">@kathy · Threads · 2026-04-29</span></blockquote>
+            <div class="sc-actions"><span class="source-count">4 段證據</span><span class="spacer"></span><span class="secondary">查看詳情</span><span class="primary">保存卡片</span></div>
+          </article>
+
+          <article class="signal-card">
+            <div class="sc-meta"><span class="sc-verdict">需求</span><span class="sc-id">SIG-2428</span><span>· 7 段 · 5 來源</span></div>
+            <h3 class="sc-headline">把社群回覆變成產品需求雷達</h3>
+            <div class="sc-tags"><span class="tag">UGC</span><span class="tag">leading indicator</span><span class="tag">churn</span></div>
+            <p class="sc-insight">Threads 回覆比 GA 早 2–3 週反映轉化問題；分類 agent 可自動標「需求／抱怨／噪音」。</p>
+            <blockquote class="sc-quote">「個 onboarding 唔順，但我已經習慣咗。」<span class="sc-quote-cite">@userid_4421 · 2026-04-29</span></blockquote>
+            <div class="sc-actions"><span class="source-count">7 段證據</span><span class="spacer"></span><span class="secondary">查看詳情</span><span class="primary">保存卡片</span></div>
+          </article>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 1B · Signal card detail open (full takeover) -->
+  <div class="frame-wrap">
+    <div class="frame-label"><span class="label-page">P1 · 分類整理</span><span class="label-state">B · 訊號詳情展開</span></div>
+    <div class="frame scrolls">
+      <aside class="rail">
+        <div class="rail-mark">D</div>
+        <div class="rail-item">收集</div>
+        <div class="rail-item active">分類<br/>整理</div>
+        <div class="rail-item">已存</div>
+        <div class="rail-foot"><div class="rail-dot"></div><div class="rail-item">設定</div></div>
+      </aside>
+      <div class="main">
+        <div class="header">
+          <div class="crumb">
+            <span class="back">← 返回</span><span class="dot"></span>DLens<span class="sep">·</span>產品觀察<span class="sep">·</span><b>訊號詳情</b>
+          </div>
+          <div class="spacer"></div>
+          <div class="quiet-time">SIG-2429</div>
+        </div>
+        <div class="content detail-pane">
+          <div class="detail-eyebrow">
+            <span class="sc-verdict gold">可試</span>
+            <span>2026-04-29 · 第 28 週</span>
+            <span>· 4 段證據 · 3 來源</span>
+          </div>
+          <h2 class="detail-headline">把 recurring crawl 包成每日監測 agent</h2>
+          <div class="detail-meta-row">
+            <span>SIG-2429</span>
+            <span>·</span>
+            <span>tags：workflow · agent handoff · recurring</span>
+          </div>
+
+          <div class="detail-section-label">對產品的可能用處</div>
+          <p class="detail-prose">Kathy 描述每天五個社群 + 四個 Reddit 板手動爬的儀式——這段流程在認知上已是<b>固定 pipeline</b>。把它接 cron + 既有 collector，再讓 LLM 做日報級摘要，就能成為一個「每日監測 agent」交付物，省掉用戶 40 分鐘的早上儀式。</p>
+
+          <div class="detail-section-label">為什麼值得留意</div>
+          <p class="detail-prose">對 PR 與 analyst 是高頻痛點。市面工具停在即時搜（Brand24、Mention 那一類），<b>沒有人做日報級的社群監測 agent</b>，這條路線是 DLens 自身 collector 已具備的能力，落地成本低。</p>
+
+          <div class="detail-quote-hero">我每天花四十分鐘爬五個社團，根本是上班前的儀式。睇完先沖到杯咖啡。
+            <span class="detail-quote-cite">@kathy · Threads · 2026-04-29 · 142♥</span>
+          </div>
+
+          <div class="detail-actions">
+            <span class="primary">保存卡片</span>
+            <span class="secondary">加入對比</span>
+            <span class="ghost">查看完整證據（4）</span>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 1C · Evidence drawer open -->
+  <div class="frame-wrap">
+    <div class="frame-label"><span class="label-page">P1 · 分類整理</span><span class="label-state">C · 完整證據抽屜</span></div>
+    <div class="frame">
+      <aside class="rail">
+        <div class="rail-mark">D</div>
+        <div class="rail-item">收集</div>
+        <div class="rail-item active">分類<br/>整理</div>
+        <div class="rail-item">已存</div>
+        <div class="rail-foot"><div class="rail-dot"></div><div class="rail-item">設定</div></div>
+      </aside>
+      <div class="main">
+        <div class="header">
+          <div class="crumb"><span class="back">←</span><span class="dot"></span>產品觀察<span class="sep">·</span><b>訊號詳情</b></div>
+          <div class="spacer"></div>
+          <div class="quiet-time">SIG-2429</div>
+        </div>
+        <div class="content detail-pane" style="opacity:0.55">
+          <div class="detail-eyebrow">
+            <span class="sc-verdict gold">可試</span>
+            <span>2026-04-29 · 第 28 週</span>
+          </div>
+          <h2 class="detail-headline">把 recurring crawl 包成每日監測 agent</h2>
+          <div class="detail-section-label">對產品的可能用處</div>
+          <p class="detail-prose">Kathy 描述每天五個社群 + 四個 Reddit 板手動爬的儀式——已是固定 pipeline⋯⋯</p>
+          <div class="detail-section-label">為什麼值得留意</div>
+          <p class="detail-prose">對 PR 與 analyst 是高頻痛點⋯⋯</p>
+        </div>
+
+        <div class="drawer-backdrop"></div>
+        <div class="drawer" style="height: 540px;">
+          <div class="drawer-handle"></div>
+          <div class="drawer-head">
+            <h3>完整證據</h3>
+            <span class="count">4 段 · 3 個來源</span>
+            <div class="sort">
+              <span class="on">相關度</span>
+              <span>時間</span>
+              <span>互動數</span>
+            </div>
+          </div>
+          <div class="drawer-body">
+            <div class="evidence-item">
+              <p class="evidence-quote-text">「我每天花四十分鐘爬五個社團，根本是上班前的儀式。睇完先沖到杯咖啡。」</p>
+              <div class="evidence-meta-row">
+                <span class="src">@kathy</span><span>Threads</span><span>2026-04-29</span><span>142♥ · 28💬</span>
+                <span class="actions">加入對比 · 查看原文</span>
+              </div>
+            </div>
+            <div class="evidence-item">
+              <p class="evidence-quote-text">「自己手動 google search、open 五個 tab、再 copy 進 doc，完全是 cron 該做的事。」</p>
+              <div class="evidence-meta-row">
+                <span class="src">@kathy</span><span>Threads · 同串</span><span>2026-04-29</span><span>67♥</span>
+                <span class="actions">加入對比 · 查看原文</span>
+              </div>
+            </div>
+            <div class="evidence-item">
+              <p class="evidence-quote-text">「我們 team 也一樣，每天早上有人專門爬 Reddit + Twitter 寫 daily summary，三年了還在做。」</p>
+              <div class="evidence-meta-row">
+                <span class="src">@daniel_pr</span><span>Threads · 引用</span><span>2026-04-29</span><span>34♥</span>
+                <span class="actions">加入對比 · 查看原文</span>
+              </div>
+            </div>
+            <div class="evidence-item">
+              <p class="evidence-quote-text">「Brand24 給的是噪音，我要的是有人幫我把『重要』篩出來。」</p>
+              <div class="evidence-meta-row">
+                <span class="src">@em_analyst</span><span>X</span><span>2026-04-28</span><span>89♥ · 12💬</span>
+                <span class="actions">加入對比 · 查看原文</span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+</div>
+
+
+<!-- =============================== -->
+<!-- ROW 2 · Product · Saved          -->
+<!-- =============================== -->
+<div class="row-header">
+  <div class="num">02</div>
+  <div class="name">產品 · 已存訊號</div>
+  <div class="desc">
+    手動勾選後才出現匯出。原文優先 Brief 給用戶自己的 agent 重審；精簡決策 Brief 給 agent 提下一步。
+  </div>
+</div>
+
+<div class="gallery-row">
+
+  <!-- 2A · base unselected -->
+  <div class="frame-wrap">
+    <div class="frame-label"><span class="label-page">P2 · 已存訊號</span><span class="label-state">A · 未選</span></div>
+    <div class="frame scrolls">
+      <aside class="rail">
+        <div class="rail-mark">D</div>
+        <div class="rail-item">收集</div>
+        <div class="rail-item">分類<br/>整理</div>
+        <div class="rail-item active">已存</div>
+        <div class="rail-foot"><div class="rail-dot"></div><div class="rail-item">設定</div></div>
+      </aside>
+      <div class="main">
+        <div class="header"><div class="crumb"><span class="dot"></span>DLens<span class="sep">·</span>產品觀察<span class="sep">·</span><b>已存訊號</b></div><div class="spacer"></div><div class="quiet-time">共 18 則</div></div>
+        <div class="content">
+          <div class="page-eyebrow">已存訊號</div>
+          <h2 class="page-title">挑出值得帶去問你 agent 的</h2>
+          <p class="page-sub">勾選之後選一種 brief 模式輸出。</p>
+
+          <div class="saved-row">
+            <div class="checkbox"></div>
+            <div class="saved-body">
+              <h4 class="saved-headline">把 recurring crawl 包成每日監測 agent</h4>
+              <p class="saved-line">Kathy 描述的每天五社群手動爬流程是固定 pipeline，可接 cron + collector 變成 daily digest。</p>
+              <p class="saved-quote">「每天四十分鐘爬五個社團，根本是上班前的儀式。」</p>
+            </div>
+            <div class="saved-meta"><div class="saved-meta-cat">可試</div>SIG-2429<br/>2026-04-29</div>
+          </div>
+
+          <div class="saved-row">
+            <div class="checkbox"></div>
+            <div class="saved-body">
+              <h4 class="saved-headline">把社群回覆變成產品需求雷達</h4>
+              <p class="saved-line">Threads 回覆比 GA 早 2–3 週反映轉化問題；agent 可自動標「需求／抱怨／噪音」三類。</p>
+              <p class="saved-quote">「個 onboarding 唔順，但我已經習慣咗。」</p>
+            </div>
+            <div class="saved-meta"><div class="saved-meta-cat">需求</div>SIG-2428<br/>2026-04-29</div>
+          </div>
+
+          <div class="saved-row">
+            <div class="checkbox"></div>
+            <div class="saved-body">
+              <h4 class="saved-headline">用 PM 文件生成流程切入非技術團隊</h4>
+              <p class="saved-line">市場、業務、HR 不寫 prompt，但都會寫會議紀錄。這層轉換是非技術用戶的入口。</p>
+              <p class="saved-quote">「我都係 copy 會議紀錄入去，AI 自己理解。」</p>
+            </div>
+            <div class="saved-meta"><div class="saved-meta-cat">可試</div>SIG-2427<br/>2026-04-26</div>
+          </div>
+
+          <div class="saved-row">
+            <div class="checkbox"></div>
+            <div class="saved-body">
+              <h4 class="saved-headline">Granola 用 stickiness 換成長，不靠 acquisition</h4>
+              <p class="saved-line">老用戶高頻使用，acquisition 投入極低。值得看 onboarding 與會前提醒設計。</p>
+              <p class="saved-quote">「I open it before every meeting, even when I don't need to.」</p>
+            </div>
+            <div class="saved-meta"><div class="saved-meta-cat">競品</div>SIG-2425<br/>2026-04-25</div>
+          </div>
+
+          <div class="saved-row">
+            <div class="checkbox"></div>
+            <div class="saved-body">
+              <h4 class="saved-headline">把 LinkedIn DM 模板 commodity 化</h4>
+              <p class="saved-line">業界 DM 模板已過於相近，個人化反而是新差異。給 marketing 用戶一個落差感。</p>
+              <p class="saved-quote">「上週連續收到三個 hi {name}」</p>
+            </div>
+            <div class="saved-meta"><div class="saved-meta-cat">Marketing</div>SIG-2424<br/>2026-04-24</div>
+          </div>
+
+          <div class="saved-row">
+            <div class="checkbox"></div>
+            <div class="saved-body">
+              <h4 class="saved-headline">Threads 上 PM 圈最近在嘲諷 OKR</h4>
+              <p class="saved-line">不是反 OKR，是反「KR 寫成 task list」的偷懶 pattern。語言裡有產品啟示。</p>
+              <p class="saved-quote">「我們的 KR：『完成需求文件』。我：⋯⋯」</p>
+            </div>
+            <div class="saved-meta"><div class="saved-meta-cat">學習</div>SIG-2423<br/>2026-04-23</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 2B · selection active -->
+  <div class="frame-wrap">
+    <div class="frame-label"><span class="label-page">P2 · 已存訊號</span><span class="label-state">B · 已選 4 篇</span></div>
+    <div class="frame scrolls">
+      <aside class="rail">
+        <div class="rail-mark">D</div>
+        <div class="rail-item">收集</div>
+        <div class="rail-item">分類<br/>整理</div>
+        <div class="rail-item active">已存</div>
+        <div class="rail-foot"><div class="rail-dot"></div><div class="rail-item">設定</div></div>
+      </aside>
+      <div class="main">
+        <div class="header"><div class="crumb"><span class="dot"></span>產品觀察<span class="sep">·</span><b>已存訊號</b></div><div class="spacer"></div><div class="quiet-time">已選 4 / 共 18</div></div>
+        <div class="content" style="padding-bottom: 100px;">
+          <div class="page-eyebrow">已存訊號</div>
+          <h2 class="page-title">挑出值得帶去問你 agent 的</h2>
+          <p class="page-sub">勾選之後選一種 brief 模式輸出。</p>
+
+          <div class="saved-row selected">
+            <div class="checkbox on">✓</div>
+            <div class="saved-body">
+              <h4 class="saved-headline">把 recurring crawl 包成每日監測 agent</h4>
+              <p class="saved-line">每日五社群手動爬流程是固定 pipeline，可接 cron + collector 變 daily digest。</p>
+              <p class="saved-quote">「每天四十分鐘爬五個社團，根本是上班前的儀式。」</p>
+            </div>
+            <div class="saved-meta"><div class="saved-meta-cat">可試</div>SIG-2429<br/>2026-04-29</div>
+          </div>
+
+          <div class="saved-row selected">
+            <div class="checkbox on">✓</div>
+            <div class="saved-body">
+              <h4 class="saved-headline">把社群回覆變成產品需求雷達</h4>
+              <p class="saved-line">Threads 回覆比 GA 早 2–3 週反映轉化問題；agent 可自動標需求／抱怨／噪音。</p>
+              <p class="saved-quote">「個 onboarding 唔順，但我已經習慣咗。」</p>
+            </div>
+            <div class="saved-meta"><div class="saved-meta-cat">需求</div>SIG-2428<br/>2026-04-29</div>
+          </div>
+
+          <div class="saved-row selected">
+            <div class="checkbox on">✓</div>
+            <div class="saved-body">
+              <h4 class="saved-headline">用 PM 文件生成流程切入非技術團隊</h4>
+              <p class="saved-line">會議紀錄、PRD 是非技術用戶的入口。轉換層做為 onboarding 切入點。</p>
+              <p class="saved-quote">「我都係 copy 會議紀錄入去，AI 自己理解。」</p>
+            </div>
+            <div class="saved-meta"><div class="saved-meta-cat">可試</div>SIG-2427<br/>2026-04-26</div>
+          </div>
+
+          <div class="saved-row selected">
+            <div class="checkbox on">✓</div>
+            <div class="saved-body">
+              <h4 class="saved-headline">Granola 用 stickiness 換成長，不靠 acquisition</h4>
+              <p class="saved-line">老用戶高頻使用，acquisition 投入極低。值得看 onboarding 設計。</p>
+              <p class="saved-quote">「I open it before every meeting, even when I don't need to.」</p>
+            </div>
+            <div class="saved-meta"><div class="saved-meta-cat">競品</div>SIG-2425<br/>2026-04-25</div>
+          </div>
+
+          <div class="saved-row">
+            <div class="checkbox"></div>
+            <div class="saved-body">
+              <h4 class="saved-headline">把 LinkedIn DM 模板 commodity 化</h4>
+              <p class="saved-line">業界 DM 模板已過於相近，個人化反而是新差異。</p>
+              <p class="saved-quote">「上週連續收到三個 hi {name}」</p>
+            </div>
+            <div class="saved-meta"><div class="saved-meta-cat">Marketing</div>SIG-2424<br/>2026-04-24</div>
+          </div>
+        </div>
+
+        <div class="action-bar">
+          <div class="count-block">
+            <div class="count-num">已選 <em>4</em> 篇</div>
+            <div class="count-sub">預估 BRIEF ≈ 1.8K TOKENS</div>
+          </div>
+          <div class="action-spacer"></div>
+          <span class="clear">清除</span>
+          <span class="action-btn primary">匯出 Brief →</span>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 2C · export drawer open -->
+  <div class="frame-wrap">
+    <div class="frame-label"><span class="label-page">P2 · 已存訊號</span><span class="label-state">C · 匯出抽屜</span></div>
+    <div class="frame">
+      <aside class="rail">
+        <div class="rail-mark">D</div>
+        <div class="rail-item">收集</div>
+        <div class="rail-item">分類<br/>整理</div>
+        <div class="rail-item active">已存</div>
+        <div class="rail-foot"><div class="rail-dot"></div><div class="rail-item">設定</div></div>
+      </aside>
+      <div class="main">
+        <div class="header"><div class="crumb"><span class="dot"></span>產品觀察<span class="sep">·</span><b>已存訊號</b></div><div class="spacer"></div><div class="quiet-time">已選 4 / 共 18</div></div>
+        <div class="content" style="opacity:0.45;">
+          <div class="page-eyebrow">已存訊號</div>
+          <h2 class="page-title">挑出值得帶去問你 agent 的</h2>
+          <p class="page-sub">勾選之後選一種 brief 模式輸出。</p>
+          <div class="saved-row selected"><div class="checkbox on">✓</div><div class="saved-body"><h4 class="saved-headline">把 recurring crawl 包成每日監測 agent</h4><p class="saved-line">每日五社群手動爬流程是固定 pipeline⋯⋯</p></div><div class="saved-meta"><div class="saved-meta-cat">可試</div>SIG-2429</div></div>
+          <div class="saved-row selected"><div class="checkbox on">✓</div><div class="saved-body"><h4 class="saved-headline">把社群回覆變成產品需求雷達</h4><p class="saved-line">Threads 回覆比 GA 早 2–3 週⋯⋯</p></div><div class="saved-meta"><div class="saved-meta-cat">需求</div>SIG-2428</div></div>
+        </div>
+
+        <div class="drawer-backdrop"></div>
+        <div class="drawer" style="height: 480px;">
+          <div class="drawer-handle"></div>
+          <div class="drawer-head">
+            <h3>匯出 Brief</h3>
+            <span class="count">已選 4 篇 · 預估 1.8k tokens</span>
+            <div class="sort"><span style="color:var(--mute-2)">取消</span></div>
+          </div>
+          <div class="drawer-body">
+            <p style="font-family: var(--serif); font-style: italic; font-size: 13px; color: var(--mute); margin: 4px 0 16px; max-width: 480px;">兩種 brief 模式給不同的下游使用情境——選你 agent 接下來要做的事。</p>
+
+            <div class="export-modes">
+              <div class="export-mode">
+                <div class="export-mode-head">
+                  <div class="export-mode-name">原文優先 Brief</div>
+                </div>
+                <p class="export-mode-desc">給用戶自己的 agent 重新審視。原文摘錄權重高，DLens 初步判讀權重低，agent 自己做判斷。</p>
+                <div class="export-mode-meta">
+                  <span>≈ 1.8k tokens</span>
+                  <span>· 含 12 段 quote</span>
+                  <span>· markdown</span>
+                </div>
+                <div class="export-mode-cta">匯出原文優先</div>
+              </div>
+
+              <div class="export-mode recommended">
+                <div class="export-mode-head">
+                  <div class="export-mode-name">精簡決策 Brief</div>
+                  <div class="export-mode-flag">建議</div>
+                </div>
+                <p class="export-mode-desc">給 agent 直接提下一步。headline + category + insight 為主，quote 留 1–2 句代表，agent 不需自己縮減。</p>
+                <div class="export-mode-meta">
+                  <span>≈ 0.7k tokens</span>
+                  <span>· 含 4 段 quote</span>
+                  <span>· markdown</span>
+                </div>
+                <div class="export-mode-cta">匯出精簡決策</div>
+              </div>
+            </div>
+
+            <p style="font-family: var(--mono); font-size: 10.5px; color: var(--mute-2); letter-spacing: 0.06em; margin: 8px 0 0;">
+              匯出後可貼進 ChatGPT / Claude / Gemini，或直接複製到 Notion。
+            </p>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+</div>
+
+
+<!-- =============================== -->
+<!-- ROW 3 · Topic · Casebook         -->
+<!-- =============================== -->
+<div class="row-header">
+  <div class="num">03</div>
+  <div class="name">議題 · Casebook + Topic Detail</div>
+  <div class="desc">
+    Casebook 像社會觀察雜誌的前頁。Topic Detail 是 cluster-first，cluster 引用 token 是進入詳情的入口。
+  </div>
+</div>
+
+<div class="gallery-row">
+
+  <!-- 3A · Casebook front page -->
+  <div class="frame-wrap">
+    <div class="frame-label"><span class="label-page">P3 · Casebook</span><span class="label-state">A · 議題前頁</span></div>
+    <div class="frame scrolls">
+      <aside class="rail">
+        <div class="rail-mark">D</div>
+        <div class="rail-item">收集</div>
+        <div class="rail-item">初步<br/>整理</div>
+        <div class="rail-item active">Case<br/>book</div>
+        <div class="rail-foot"><div class="rail-dot"></div><div class="rail-item">設定</div></div>
+      </aside>
+      <div class="main">
+        <div class="header"><div class="crumb"><span class="dot"></span>DLens<span class="sep">·</span><b>議題觀察</b></div><div class="spacer"></div><div class="quiet-time">12 議題 · 4 群集庫</div></div>
+        <div class="content">
+          <div class="tab-row">
+            <div class="tab active">議題<span class="tab-count">12</span></div>
+            <div class="tab">群集<span class="tab-count">4</span></div>
+          </div>
+
+          <div class="topic-lead">
+            <div class="dateline"><span class="pulse"></span>保險 · 47 則來源 · 更新於 2 小時前</div>
+            <h3 class="lead-title">保險拖賠賠償透明度爭議</h3>
+            <p class="lead-reading">核心不是事件本身，而是<em>申訴流程被當作擋箭牌</em>。圍觀群眾分成三派——追數派緊咬補償透明度、又係咁派把它收進制度宿命論、花生友用旁觀式嘲諷消費這場爭議。三派加起來能解釋 91% 的話語。</p>
+            <p class="lead-marker">「賠咗未呀？」</p>
+            <div class="lead-bubbles">
+              <div class="cb-item lead"><div class="cb-circle" style="width:54px;height:54px;font-size:12px">C1</div><div class="cb-label">追數派</div><div class="cb-pct">42%</div></div>
+              <div class="cb-item"><div class="cb-circle" style="width:44px;height:44px;font-size:11px">C2</div><div class="cb-label">又係咁派</div><div class="cb-pct">31%</div></div>
+              <div class="cb-item"><div class="cb-circle" style="width:34px;height:34px;font-size:10.5px">C3</div><div class="cb-label">花生友</div><div class="cb-pct">18%</div></div>
+            </div>
+          </div>
+
+          <div class="topic-card">
+            <div>
+              <div class="topic-eyebrow">交通 · 89 則來源 · 6 小時前</div>
+              <h3 class="topic-title">港鐵延誤補償門檻爭議</h3>
+              <p class="topic-reading">延誤門檻調整被解讀為偷取乘客權益，補償透明度成最大焦點。</p>
+              <p class="topic-marker">「又係搞文字遊戲。」</p>
+            </div>
+            <div>
+              <div class="bubble-preview"><div class="bubble b1">38</div><div class="bubble b2">26</div><div class="bubble b3">22</div><div class="bubble b4"></div></div>
+              <div class="bubble-caption">4 派系</div>
+            </div>
+          </div>
+
+          <div class="topic-card">
+            <div>
+              <div class="topic-eyebrow">產品 · 31 則來源 · 昨天</div>
+              <h3 class="topic-title">AI 工具進入 PM 工作流的接受度</h3>
+              <p class="topic-reading">行業自覺比想像晚，但小團隊接受度遠高於大公司——分裂明顯。</p>
+              <p class="topic-marker">「我老闆唔肯，但我自己用緊。」</p>
+            </div>
+            <div>
+              <div class="bubble-preview"><div class="bubble b1">51</div><div class="bubble b2">28</div><div class="bubble b3">15</div></div>
+              <div class="bubble-caption">3 派系</div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 3B · Topic Detail base -->
+  <div class="frame-wrap">
+    <div class="frame-label"><span class="label-page">P4 · Topic Detail</span><span class="label-state">A · 預設</span></div>
+    <div class="frame scrolls">
+      <aside class="rail">
+        <div class="rail-mark">D</div>
+        <div class="rail-item">收集</div>
+        <div class="rail-item">初步<br/>整理</div>
+        <div class="rail-item active">Case<br/>book</div>
+        <div class="rail-foot"><div class="rail-dot"></div><div class="rail-item">設定</div></div>
+      </aside>
+      <div class="main">
+        <div class="header"><div class="crumb"><span class="back">←</span><span class="dot"></span>議題<span class="sep">·</span><b>保險拖賠</b></div><div class="spacer"></div><div class="quiet-time">TPC-091 · 47 / 3</div></div>
+        <div class="content">
+          <div class="page-eyebrow">議題詳情</div>
+          <h2 class="detail-title">保險拖賠賠償透明度爭議</h2>
+          <p class="detail-reading">這個議題的爆發點不是事件本身，而是<em>申訴流程被當作擋箭牌</em>。圍觀群眾分成三派——
+            <span class="cluster-token">追數派<span class="ck-id">C1</span><span class="ck-arrow">↗</span></span> 緊咬補償透明度、
+            <span class="cluster-token">又係咁派<span class="ck-id">C2</span><span class="ck-arrow">↗</span></span> 把它收進制度宿命論、
+            <span class="cluster-token">花生友<span class="ck-id">C3</span><span class="ck-arrow">↗</span></span> 用旁觀式嘲諷消費這場爭議。三派加起來能解釋 91% 的話語。</p>
+
+          <div class="cluster-bubbles">
+            <div class="cb-item lead"><div class="cb-circle" style="width:60px;height:60px;font-size:13px">C1</div><div class="cb-label">追數派</div><div class="cb-pct">42%</div></div>
+            <div class="cb-item"><div class="cb-circle" style="width:48px;height:48px;font-size:12px">C2</div><div class="cb-label">又係咁派</div><div class="cb-pct">31%</div></div>
+            <div class="cb-item"><div class="cb-circle" style="width:38px;height:38px;font-size:11px">C3</div><div class="cb-label">花生友</div><div class="cb-pct">18%</div></div>
+          </div>
+
+          <div class="cluster-section">
+            <div class="cluster-head">
+              <div class="cluster-nick">追數派</div>
+              <div class="cluster-formal">補償透明度追問 · C1 · 42%</div>
+              <div class="cluster-spacer"></div>
+              <div class="cluster-collapse">收起 ⌃</div>
+            </div>
+            <div class="evidence-row">
+              <div>
+                <p class="eq-text">「賠咗未呀？而家係第幾日？打去 hotline 只會 transfer。」</p>
+                <div class="ec">@aileen_w · Threads · 2026-04-29 · 142♥</div>
+              </div>
+              <div class="evidence-add">＋ 加入對比</div>
+            </div>
+            <div class="evidence-row">
+              <div>
+                <p class="eq-text">「我要嘅唔係加快，係解釋每一日嘅 status 喺邊個 desk。」</p>
+                <div class="ec">@kc_chow · Threads · 2026-04-28 · 89♥</div>
+              </div>
+              <div class="evidence-add">＋ 加入對比</div>
+            </div>
+          </div>
+
+          <div class="cluster-section">
+            <div class="cluster-head">
+              <div class="cluster-nick">又係咁派</div>
+              <div class="cluster-formal">制度不信任延伸 · C2 · 31%</div>
+            </div>
+            <div class="evidence-row">
+              <div>
+                <p class="eq-text">「香港啲保險公司本來就咁啦，咁多年都唔變，唔好幻想。」</p>
+                <div class="ec">@uncle_ng · 2026-04-28 · 67♥</div>
+              </div>
+              <div class="evidence-add">＋ 加入對比</div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 3C · Topic Detail cluster focused -->
+  <div class="frame-wrap">
+    <div class="frame-label"><span class="label-page">P4 · Topic Detail</span><span class="label-state">B · Cluster 聚焦</span></div>
+    <div class="frame scrolls">
+      <aside class="rail">
+        <div class="rail-mark">D</div>
+        <div class="rail-item">收集</div>
+        <div class="rail-item">初步<br/>整理</div>
+        <div class="rail-item active">Case<br/>book</div>
+        <div class="rail-foot"><div class="rail-dot"></div><div class="rail-item">設定</div></div>
+      </aside>
+      <div class="main">
+        <div class="header"><div class="crumb"><span class="back">←</span><span class="dot"></span>議題<span class="sep">·</span><b>保險拖賠</b><span class="sep">·</span>追數派</div><div class="spacer"></div><div class="quiet-time">聚焦 C1</div></div>
+        <div class="content">
+          <p class="detail-reading" style="font-size:13.5px; line-height:1.6;">點選 <span class="cluster-token">追數派<span class="ck-id">C1</span></span> 後，畫面聚焦這個 cluster 的所有證據；其餘 cluster 暫時淡化。</p>
+
+          <div class="cluster-bubbles" style="padding:4px 0 16px;">
+            <div class="cb-item lead"><div class="cb-circle" style="width:64px;height:64px;font-size:14px;box-shadow:0 0 0 6px var(--accent-soft);">C1</div><div class="cb-label">追數派</div><div class="cb-pct">42%</div></div>
+            <div class="cb-item" style="opacity:0.4;"><div class="cb-circle" style="width:42px;height:42px;font-size:11px">C2</div><div class="cb-label">又係咁派</div><div class="cb-pct">31%</div></div>
+            <div class="cb-item" style="opacity:0.4;"><div class="cb-circle" style="width:32px;height:32px;font-size:10.5px">C3</div><div class="cb-label">花生友</div><div class="cb-pct">18%</div></div>
+          </div>
+
+          <div class="cluster-section focused">
+            <div class="cluster-head">
+              <div class="cluster-nick">追數派</div>
+              <div class="cluster-formal">補償透明度追問 · C1 · 42%</div>
+              <div class="cluster-spacer"></div>
+              <div class="cluster-collapse">退出聚焦 ✕</div>
+            </div>
+            <p class="detail-prose" style="font-size:13.5px; line-height:1.65; max-width:560px; margin-bottom:14px;">這派的核心動作是<b>追問狀態</b>，而不是要求結果加速。語言裡反覆出現「邊個 desk」「第幾日」「status 在哪」——這是「資訊不對稱」的訴求，不是「服務速度」的訴求。</p>
+            <div class="evidence-row">
+              <div>
+                <p class="eq-text">「賠咗未呀？而家係第幾日？打去 hotline 只會 transfer。」</p>
+                <div class="ec">@aileen_w · Threads · 2026-04-29 · 142♥</div>
+              </div>
+              <div class="evidence-add">＋ 加入對比</div>
+            </div>
+            <div class="evidence-row">
+              <div>
+                <p class="eq-text">「我要嘅唔係加快，係解釋每一日嘅 status 喺邊個 desk。」</p>
+                <div class="ec">@kc_chow · Threads · 2026-04-28 · 89♥</div>
+              </div>
+              <div class="evidence-add">＋ 加入對比</div>
+            </div>
+            <div class="evidence-row">
+              <div>
+                <p class="eq-text">「Public response 係要『加快處理』，但我問嘅係 desk 喺邊。」</p>
+                <div class="ec">@maggie_ho · Threads · 2026-04-29 · 56♥</div>
+              </div>
+              <div class="evidence-add">＋ 加入對比</div>
+            </div>
+            <div class="evidence-row">
+              <div>
+                <p class="eq-text">「我已經 follow up 七次，每次答案都唔同。」</p>
+                <div class="ec">@joey_y · Threads · 2026-04-27 · 134♥</div>
+              </div>
+              <div class="evidence-add">＋ 加入對比</div>
+            </div>
+          </div>
+
+          <div class="cluster-section dimmed">
+            <div class="cluster-head">
+              <div class="cluster-nick">又係咁派</div>
+              <div class="cluster-formal">制度不信任延伸 · C2 · 31%</div>
+            </div>
+          </div>
+          <div class="cluster-section dimmed">
+            <div class="cluster-head">
+              <div class="cluster-nick">花生友</div>
+              <div class="cluster-formal">旁觀式嘲諷 · C3 · 18%</div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+</div>
+
+
+<!-- =============================== -->
+<!-- ROW 4 · Topic · Pair states      -->
+<!-- =============================== -->
+<div class="row-header">
+  <div class="num">04</div>
+  <div class="name">議題 · 成對比較三態</div>
+  <div class="desc">
+    Pair tray 是輕量、漂浮、只活在當前 Topic 內。Pair Insight 保存後留下短洞察卡，不留下完整 compare report。
+  </div>
+</div>
+
+<div class="gallery-row">
+
+  <!-- 4A · pair tray 1 selected -->
+  <div class="frame-wrap">
+    <div class="frame-label"><span class="label-page">P4 · Topic Detail</span><span class="label-state">C · 對比選 1</span></div>
+    <div class="frame scrolls">
+      <aside class="rail">
+        <div class="rail-mark">D</div>
+        <div class="rail-item">收集</div>
+        <div class="rail-item">初步<br/>整理</div>
+        <div class="rail-item active">Case<br/>book</div>
+        <div class="rail-foot"><div class="rail-dot"></div><div class="rail-item">設定</div></div>
+      </aside>
+      <div class="main">
+        <div class="header"><div class="crumb"><span class="back">←</span><span class="dot"></span>議題<span class="sep">·</span><b>保險拖賠</b></div><div class="spacer"></div><div class="quiet-time">TPC-091</div></div>
+        <div class="content" style="padding-bottom: 80px;">
+          <h2 class="detail-title" style="font-size:20px;">保險拖賠賠償透明度爭議</h2>
+          <p class="detail-reading" style="font-size:13.5px; line-height:1.6;">三派構成 91% 話語：<span class="cluster-token">追數派<span class="ck-id">C1</span></span>、<span class="cluster-token">又係咁派<span class="ck-id">C2</span></span>、<span class="cluster-token">花生友<span class="ck-id">C3</span></span>。</p>
+
+          <div class="cluster-section">
+            <div class="cluster-head">
+              <div class="cluster-nick">追數派</div>
+              <div class="cluster-formal">補償透明度追問 · C1 · 42%</div>
+            </div>
+            <div class="evidence-row selected">
+              <div>
+                <p class="eq-text">「賠咗未呀？而家係第幾日？打去 hotline 只會 transfer。」</p>
+                <div class="ec">@aileen_w · 2026-04-29 · 142♥</div>
+              </div>
+              <div class="evidence-add selected">已選 A</div>
+            </div>
+            <div class="evidence-row">
+              <div>
+                <p class="eq-text">「我要嘅唔係加快，係解釋每一日嘅 status 喺邊個 desk。」</p>
+                <div class="ec">@kc_chow · 2026-04-28 · 89♥</div>
+              </div>
+              <div class="evidence-add">＋ 加入對比</div>
+            </div>
+          </div>
+          <div class="cluster-section">
+            <div class="cluster-head">
+              <div class="cluster-nick">又係咁派</div>
+              <div class="cluster-formal">制度不信任延伸 · C2 · 31%</div>
+            </div>
+            <div class="evidence-row">
+              <div>
+                <p class="eq-text">「香港啲保險公司本來就咁啦，咁多年都唔變，唔好幻想。」</p>
+                <div class="ec">@uncle_ng · 2026-04-28 · 67♥</div>
+              </div>
+              <div class="evidence-add">＋ 加入對比</div>
+            </div>
+          </div>
+        </div>
+
+        <div class="pair-tray">
+          <span class="tray-label">對比</span>
+          <span class="pair-chip">A · @aileen_w</span>
+          <span class="pair-prompt">再選一篇⋯⋯</span>
+          <span class="compare-btn disabled">對比</span>
+          <span class="dismiss">✕</span>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 4B · pair tray 2 selected -->
+  <div class="frame-wrap">
+    <div class="frame-label"><span class="label-page">P4 · Topic Detail</span><span class="label-state">D · 對比選 2</span></div>
+    <div class="frame scrolls">
+      <aside class="rail">
+        <div class="rail-mark">D</div>
+        <div class="rail-item">收集</div>
+        <div class="rail-item">初步<br/>整理</div>
+        <div class="rail-item active">Case<br/>book</div>
+        <div class="rail-foot"><div class="rail-dot"></div><div class="rail-item">設定</div></div>
+      </aside>
+      <div class="main">
+        <div class="header"><div class="crumb"><span class="back">←</span><span class="dot"></span>議題<span class="sep">·</span><b>保險拖賠</b></div><div class="spacer"></div><div class="quiet-time">TPC-091</div></div>
+        <div class="content" style="padding-bottom: 80px;">
+          <h2 class="detail-title" style="font-size:20px;">保險拖賠賠償透明度爭議</h2>
+          <p class="detail-reading" style="font-size:13.5px; line-height:1.6;">三派構成 91% 話語：<span class="cluster-token">追數派<span class="ck-id">C1</span></span>、<span class="cluster-token">又係咁派<span class="ck-id">C2</span></span>、<span class="cluster-token">花生友<span class="ck-id">C3</span></span>。</p>
+
+          <div class="cluster-section">
+            <div class="cluster-head">
+              <div class="cluster-nick">追數派</div>
+              <div class="cluster-formal">補償透明度追問 · C1 · 42%</div>
+            </div>
+            <div class="evidence-row selected">
+              <div>
+                <p class="eq-text">「賠咗未呀？而家係第幾日？打去 hotline 只會 transfer。」</p>
+                <div class="ec">@aileen_w · 2026-04-29 · 142♥</div>
+              </div>
+              <div class="evidence-add selected">已選 A</div>
+            </div>
+            <div class="evidence-row">
+              <div>
+                <p class="eq-text">「我要嘅唔係加快，係解釋每一日嘅 status 喺邊個 desk。」</p>
+                <div class="ec">@kc_chow · 2026-04-28 · 89♥</div>
+              </div>
+              <div class="evidence-add">＋ 加入對比</div>
+            </div>
+          </div>
+          <div class="cluster-section">
+            <div class="cluster-head">
+              <div class="cluster-nick">又係咁派</div>
+              <div class="cluster-formal">制度不信任延伸 · C2 · 31%</div>
+            </div>
+            <div class="evidence-row selected">
+              <div>
+                <p class="eq-text">「香港啲保險公司本來就咁啦，咁多年都唔變，唔好幻想。」</p>
+                <div class="ec">@uncle_ng · 2026-04-28 · 67♥</div>
+              </div>
+              <div class="evidence-add selected">已選 B</div>
+            </div>
+          </div>
+        </div>
+
+        <div class="pair-tray">
+          <span class="tray-label">對比</span>
+          <span class="pair-chip">A · @aileen_w</span>
+          <span class="pair-chip">B · @uncle_ng</span>
+          <span class="compare-btn">對比這兩篇 →</span>
+          <span class="dismiss">✕</span>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 4C · Pair Insight saved -->
+  <div class="frame-wrap">
+    <div class="frame-label"><span class="label-page">P4 · Topic Detail</span><span class="label-state">E · Pair Insight 已存</span></div>
+    <div class="frame scrolls">
+      <aside class="rail">
+        <div class="rail-mark">D</div>
+        <div class="rail-item">收集</div>
+        <div class="rail-item">初步<br/>整理</div>
+        <div class="rail-item active">Case<br/>book</div>
+        <div class="rail-foot"><div class="rail-dot"></div><div class="rail-item">設定</div></div>
+      </aside>
+      <div class="main">
+        <div class="header"><div class="crumb"><span class="back">←</span><span class="dot"></span>議題<span class="sep">·</span><b>保險拖賠</b></div><div class="spacer"></div><div class="quiet-time">TPC-091 · 1 洞察</div></div>
+        <div class="content">
+          <h2 class="detail-title" style="font-size:20px;">保險拖賠賠償透明度爭議</h2>
+          <p class="detail-reading" style="font-size:13.5px; line-height:1.6;">三派構成 91% 話語：<span class="cluster-token">追數派<span class="ck-id">C1</span></span>、<span class="cluster-token">又係咁派<span class="ck-id">C2</span></span>、<span class="cluster-token">花生友<span class="ck-id">C3</span></span>。</p>
+
+          <div class="section-label">
+            <span class="label-zh">成對洞察</span>
+            <span class="label-en">Pair Insights · 1</span>
+          </div>
+
+          <div class="pair-insight-card">
+            <p class="pi-conclusion">同一事件，aileen_w 在追問流程透明度，uncle_ng 直接收進制度宿命論——是「資訊不對稱訴求」對「結構性無解認命」。</p>
+            <div class="pi-pair">
+              <div class="pi-half"><div class="pi-half-label">A · @AILEEN_W</div>把問題框成資訊不對稱——核心訴求是 status 可見化。</div>
+              <div class="pi-half"><div class="pi-half-label">B · @UNCLE_NG</div>把問題框成結構性無解——核心訴求是別期待。</div>
+            </div>
+            <div class="pi-amplify">
+              <span>A 放大了 <span class="cluster-token">追數派<span class="ck-id">C1</span></span></span>
+              <span>B 放大了 <span class="cluster-token">又係咁派<span class="ck-id">C2</span></span></span>
+            </div>
+            <div class="pi-foot">
+              <span class="saved-flag">已存</span>
+              <span>儲存於 2026-04-29 21:08</span>
+              <span class="actions">
+                <span>編輯</span>
+                <span>展開完整對比</span>
+              </span>
+            </div>
+          </div>
+
+          <div class="section-label" style="border-top:1px dashed var(--hairline); padding-top:18px; margin-top:18px;">
+            <span class="add">＋ 從現有對比建立新洞察</span>
+          </div>
+
+          <div class="cluster-section" style="margin-top:8px;">
+            <div class="cluster-head">
+              <div class="cluster-nick">追數派</div>
+              <div class="cluster-formal">補償透明度追問 · C1 · 42%</div>
+              <div class="cluster-spacer"></div>
+              <div class="cluster-collapse">展開 ⌄</div>
+            </div>
+          </div>
+          <div class="cluster-section">
+            <div class="cluster-head">
+              <div class="cluster-nick">又係咁派</div>
+              <div class="cluster-formal">制度不信任延伸 · C2 · 31%</div>
+              <div class="cluster-spacer"></div>
+              <div class="cluster-collapse">展開 ⌄</div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+</div>
+
+
+<!-- =============================== -->
+<!-- Component Hierarchy notes        -->
+<!-- =============================== -->
+<section class="notes">
+  <h2>Component hierarchy</h2>
+  <p class="lede">這次只有一個視覺方向。底下是把 12 frames 用到的元件分組記下來——是給之後寫 React 元件時的對照表，不是 UI 內的標示。</p>
+
+  <div class="grid">
+    <div class="note-block">
+      <h3><span class="num">A</span>Shell</h3>
+      <dl>
+        <dt>Rail</dt>
+        <dd>64×860，紙感 paper-1 → paper-2 漸層，stage-based 4 個項目，active 項用左 2px accent rule + 紙感 paper-0 板。文案隨 mode 切換（產品：收集／分類整理／已存／設定）。</dd>
+        <dt>Header</dt>
+        <dd>56px，含 mode dot（accent + glow）、breadcrumb、右側 quiet-time（mono）。Detail 頁加 <code>← 返回</code> 前綴。</dd>
+        <dt>Mode 上下文</dt>
+        <dd>不在 popup 內做 mode 切換，只在 settings。Header 用 quiet 文字「DLens · 產品觀察 / 議題觀察」承載 mode context。</dd>
+      </dl>
+    </div>
+
+    <div class="note-block">
+      <h3><span class="num">B</span>Signal Card 系列</h3>
+      <dl>
+        <dt>SignalCard.regular</dt>
+        <dd>paper-card 底 + soft shadow，含 verdict chip / source ID / 標題 / tags / insight / why（accent-soft 左線）/ 引語（accent 左線、paper-card-2 底）/ action row。</dd>
+        <dt>SignalCard.hero</dt>
+        <dd>本週主推，加上 paper-card-2 漸層、accent 頂線、右上 hero-flag（mono · gold）、22px 標題。</dd>
+        <dt>SignalDetail（full takeover）</dt>
+        <dd>取代列表的整頁狀態，含 detail-headline 26px、對產品的可能用處 / 為什麼值得留意兩段 prose、quote-hero 帶 ❝ 飾、底部 detail-actions 三鈕（保存／加入對比／查看完整證據）。</dd>
+        <dt>EvidenceDrawer</dt>
+        <dd>底部 sheet（圓角 18px、handle bar、drawer-head 標題 + 計數 + 排序、drawer-body evidence-item 列表）。背景 backdrop dim 32%，主畫面 opacity 0.55。</dd>
+      </dl>
+    </div>
+
+    <div class="note-block">
+      <h3><span class="num">C</span>Saved + Export</h3>
+      <dl>
+        <dt>SavedRow.idle / .selected</dt>
+        <dd>idle 是純 hairline 分隔的列。selected 加 paper-card-2 底、左 2px accent rule、圓角 8px。同一頁混搭 5–6 列。</dd>
+        <dt>ActionBar (floating)</dt>
+        <dd>當有 selection 時從底部 24px 內縮升起。含「已選 N 篇」（serif 數字 + accent italic）、token 估算（mono）、清除（ghost）、匯出 Brief（primary）。</dd>
+        <dt>ExportDrawer</dt>
+        <dd>Bottom sheet，內含兩張 export-mode 卡並排。右側「精簡決策 Brief」帶 recommended（accent 邊 + accent-on CTA）。</dd>
+        <dt>ExportMode</dt>
+        <dd>標題 (serif 16) + 描述 (serif italic 12.5) + meta（tokens 估算 / quote 數 / 格式）+ CTA。</dd>
+      </dl>
+    </div>
+
+    <div class="note-block">
+      <h3><span class="num">D</span>Casebook 議題前頁</h3>
+      <dl>
+        <dt>TopicTabs</dt>
+        <dd>「議題 / 群集」serif tabs，accent 底線標 active，count 用 mono。</dd>
+        <dt>TopicLead</dt>
+        <dd>第一篇用大尺寸：dateline pulse 點 + 領讀標題 + lead-reading（serif 14.5、italic emphasis）+ marker quote（accent 左線）+ lead-bubbles 大版 cluster 縮圖。</dd>
+        <dt>TopicCard.condensed</dt>
+        <dd>後續議題用 grid 1fr/130，左側 dateline-italic + serif 標題 + reading 2-line clamp + marker，右側 bubble-preview（4 種尺寸 b1/b2/b3/b4 + caption）。</dd>
+      </dl>
+    </div>
+
+    <div class="note-block">
+      <h3><span class="num">E</span>Topic Detail · Cluster</h3>
+      <dl>
+        <dt>ClusterToken</dt>
+        <dd>main reading 內可點 token：accent-soft 底 + 1.5px accent 底線 + mono C# + ↗ 箭頭飾。Hover 時翻成 accent 底 / accent-on 字。</dd>
+        <dt>ClusterBubblesRow</dt>
+        <dd>Detail 頁的水平 bubble 區，led cluster 大圈 + accent 填色 + 投影；其餘較小、accent-soft + 1px accent 邊框。</dd>
+        <dt>ClusterSection.idle / .focused / .dimmed</dt>
+        <dd>idle 用 hairline 分隔。focused 加 paper-card 底、accent-softer 微 tint、shadow soft accent ring；dimmed 是 opacity 0.45 收起態。Head 含 nick (serif 16.5) + formal (mono 11) + 收/退控件。</dd>
+        <dt>EvidenceRow.idle / .selected</dt>
+        <dd>paper-card 底 + 圓角 8px。selected 加 1.5px accent 圈邊。右側 <code>＋ 加入對比</code>（idle）→ <code>已選 A</code>（accent 填色）。</dd>
+      </dl>
+    </div>
+
+    <div class="note-block">
+      <h3><span class="num">F</span>Pair · Tray + Insight</h3>
+      <dl>
+        <dt>PairTray (floating pill)</dt>
+        <dd>底部 20px 浮起的圓角膠囊，僅活在當前 Topic Detail 內。狀態：選 1 顯示 prompt「再選一篇⋯⋯」+ disabled 對比鈕；選 2 顯示兩個 chip + active 對比鈕。dismiss ✕ 在右側。</dd>
+        <dt>SectionLabel.serif</dt>
+        <dd>「成對洞察」section 標題：serif italic + accent-deep + 22px 短 accent rule，右側 mono 輔助標 (Pair Insights · N)。</dd>
+        <dt>PairInsightCard</dt>
+        <dd>短保存態，不放完整 compare report。conclusion (serif 15.5)、A/B 半邊框架 (mono label + serif body)、amplify-to-cluster (cluster-token 連結)、底部 saved-flag + 時間 + 編輯／展開完整對比。</dd>
+      </dl>
+    </div>
+  </div>
+</section>
+
+</body>
+</html>

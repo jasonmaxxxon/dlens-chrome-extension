@@ -65,6 +65,38 @@ export function isProductContextSourceReady(productProfile: ProductProfile | nul
   return Boolean(productProfile?.contextText?.trim() && (productProfile.contextFiles?.length ?? 0) > 0);
 }
 
+export async function resolveProductContextForAnalysis({
+  cachedContext,
+  productProfile,
+  allowMissingPrerequisites = false,
+  compileProductContext
+}: {
+  cachedContext: ProductContext | null;
+  productProfile: ProductProfile | null | undefined;
+  allowMissingPrerequisites?: boolean;
+  compileProductContext: () => Promise<{ productContext: ProductContext | null; error: string | null }>;
+}): Promise<ProductContext | null> {
+  if (cachedContext) {
+    return cachedContext;
+  }
+
+  if (isProductContextSourceReady(productProfile)) {
+    const compiled = await compileProductContext();
+    if (compiled.productContext) {
+      return compiled.productContext;
+    }
+    if (allowMissingPrerequisites) {
+      return null;
+    }
+    throw new Error(compiled.error ? `ProductContext 編譯失敗：${compiled.error}` : "ProductContext 尚未編譯。請先在 Settings 匯入並儲存產品文件。");
+  }
+
+  if (allowMissingPrerequisites) {
+    return null;
+  }
+  throw new Error("ProductContext 尚未編譯。請先在 Settings 匯入並儲存產品文件。");
+}
+
 function readOpenAiContent(json: any): string {
   const content = json?.choices?.[0]?.message?.content;
   if (typeof content === "string") {

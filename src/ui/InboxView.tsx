@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 
 import type { Signal, Topic, TriageAction } from "../state/types.ts";
-import { Kicker, ModeHeader, SecondaryButton, Stamp, WorkspaceSurface, viewRootStyle } from "./components.tsx";
+import { Kicker, ModeHeader, SCAN_ROW_HOVER_CSS, SecondaryButton, Stamp, WorkspaceSurface, lineClamp, scanRowStyle, viewRootStyle } from "./components.tsx";
 import { tokens } from "./tokens.ts";
 
 type InboxFilter = "all" | "unprocessed" | "marked" | "archived";
@@ -59,6 +59,10 @@ function formatCapturedAt(value: string): string {
   return new Intl.DateTimeFormat("zh-HK", { month: "numeric", day: "numeric", hour: "numeric", minute: "2-digit" }).format(new Date(value));
 }
 
+function sourceLabel(source: Signal["source"]): string {
+  return source === "threads" ? "Threads" : source;
+}
+
 function SignalRowView({
   signal,
   preview,
@@ -79,34 +83,44 @@ function SignalRowView({
   onArchive: () => void;
 }) {
   const [selectedTopicId, setSelectedTopicId] = useState(topics[0]?.id || "");
+  const metaLine = `${sourceLabel(signal.source)} · ${formatCapturedAt(signal.capturedAt)}`;
 
   return (
     <div
       data-inbox-signal-id={signal.id}
-      style={{
+      data-scan-row="true"
+      style={scanRowStyle({
         display: "grid",
+        gridTemplateColumns: "4px minmax(0, 1fr) auto",
+        alignItems: "start",
         gap: 10,
-        padding: "14px 16px",
-        borderRadius: tokens.radius.card,
-        border: `1px solid ${tokens.color.line}`,
-        background: tokens.color.elevated
-      }}
+        padding: "11px 4px",
+        cursor: "default"
+      })}
     >
-      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10, flexWrap: "wrap" }}>
-        <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
-          <Stamp tone="accent">Threads</Stamp>
-          <span style={{ fontSize: 11, color: tokens.color.softInk }}>{formatCapturedAt(signal.capturedAt)}</span>
+      <span
+        aria-hidden="true"
+        style={{
+          width: 4,
+          height: 28,
+          borderRadius: 999,
+          background: "var(--dlens-mode-accent)",
+          marginTop: 2
+        }}
+      />
+      <div style={{ display: "grid", gap: 8, minWidth: 0 }}>
+        <div style={{ display: "grid", gap: 3, minWidth: 0 }}>
+          <div style={{ fontSize: 14, lineHeight: 1.35, fontWeight: 600, color: tokens.color.ink, ...lineClamp(1) }}>
+            {preview}
+          </div>
+          <div style={{ fontSize: 12, color: tokens.color.softInk, ...lineClamp(1) }}>{metaLine}</div>
           {showJudgmentBadges && judgment ? (
-            <Stamp tone="warning">{`相關 ${judgment.relevance} ${judgment.recommendedState.toUpperCase()}`}</Stamp>
+            <div>
+              <Stamp tone="warning">{`相關 ${judgment.relevance} ${judgment.recommendedState.toUpperCase()}`}</Stamp>
+            </div>
           ) : null}
         </div>
-        <span style={{ fontSize: 11, color: tokens.color.subInk }}>{signal.inboxStatus}</span>
-      </div>
-
-      <div style={{ fontSize: 13, lineHeight: 1.65, color: tokens.color.ink }}>{preview}</div>
-
-      <div style={{ display: "grid", gap: 8 }}>
-        <label style={{ display: "grid", gap: 6, fontSize: 11, color: tokens.color.subInk }}>
+        <label style={{ display: "grid", gap: 6, maxWidth: 260, fontSize: 11, color: tokens.color.subInk }}>
           併入主題
           <select
             value={selectedTopicId}
@@ -135,6 +149,12 @@ function SignalRowView({
           <SecondaryButton onClick={() => onCreateTopic("新主題")}>建立主題</SecondaryButton>
           <SecondaryButton onClick={onArchive}>略過</SecondaryButton>
         </div>
+      </div>
+      <div style={{ display: "grid", gap: 4, justifyItems: "end", minWidth: 74 }}>
+        <Stamp tone={signal.inboxStatus === "unprocessed" ? "warning" : signal.inboxStatus === "assigned" ? "success" : "neutral"}>
+          {signal.inboxStatus}
+        </Stamp>
+        <span style={{ fontSize: 11, color: tokens.color.softInk, textAlign: "right" }}>{formatCapturedAt(signal.capturedAt)}</span>
       </div>
     </div>
   );
@@ -194,6 +214,7 @@ export function InboxView({
       />
 
       <WorkspaceSurface tone="utility" style={{ display: "grid", gap: tokens.spacing.md }}>
+        <style>{SCAN_ROW_HOVER_CSS}</style>
         <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
           {FILTERS.map((entry) => {
             const active = entry.key === filter;
@@ -220,7 +241,7 @@ export function InboxView({
         </div>
 
         {visibleSignals.length ? (
-          <div style={{ display: "grid", gap: 10 }}>
+          <div data-scan-list="inbox" style={{ display: "grid" }}>
             {visibleSignals.map((signal) => (
               <SignalRowView
                 key={signal.id}

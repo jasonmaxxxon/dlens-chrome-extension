@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 
 import type { Topic, TopicStatus } from "../state/types.ts";
-import { Kicker, ModeHeader, PrimaryButton, Stamp, WorkspaceSurface, viewRootStyle } from "./components.tsx";
+import { Kicker, ModeHeader, PrimaryButton, SCAN_ROW_HOVER_CSS, Stamp, WorkspaceSurface, lineClamp, scanRowStyle, viewRootStyle } from "./components.tsx";
 import { tokens } from "./tokens.ts";
 
 type CasebookFilter = "all" | TopicStatus;
@@ -112,48 +112,44 @@ export function TopicRow({
     <button
       type="button"
       data-casebook-topic-id={topic.id}
+      data-scan-row="true"
       onClick={() => onSelect(topic.id)}
-      style={{
+      style={scanRowStyle({
         width: "100%",
-        border: `1px solid ${tokens.color.line}`,
-        borderRadius: tokens.radius.card,
-        background: tokens.color.elevated,
-        padding: "14px 16px",
+        border: "none",
         display: "grid",
+        gridTemplateColumns: "8px minmax(0, 1fr) auto auto",
+        alignItems: "center",
         gap: 10,
+        padding: "10px 4px",
         cursor: "pointer",
         textAlign: "left"
-      }}
+      })}
     >
-      <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: 10 }}>
-        <div style={{ display: "grid", gap: 4, minWidth: 0 }}>
-          <div style={{ fontSize: 15, fontWeight: 700, color: tokens.color.ink }}>{topic.name}</div>
-          <div style={{ fontSize: 11, color: tokens.color.softInk }}>最近更新 {formatUpdatedAt(topic.updatedAt)}</div>
+      <span
+        aria-hidden="true"
+        style={{
+          width: 8,
+          height: 8,
+          borderRadius: 2,
+          background: "var(--dlens-mode-accent)"
+        }}
+      />
+      <div style={{ display: "grid", gap: 3, minWidth: 0 }}>
+        <div style={{ fontSize: 14, fontWeight: 600, color: tokens.color.ink, ...lineClamp(1) }}>{topic.name}</div>
+        <div style={{ display: "flex", gap: 6, flexWrap: "wrap", fontSize: 11, color: tokens.color.subInk }}>
+          {topic.tags.slice(0, 3).map((tag) => (
+            <span key={tag}>{tag}</span>
+          ))}
         </div>
+      </div>
+      <div style={{ display: "flex", gap: 6, flexWrap: "wrap", justifyContent: "flex-end" }}>
         <Stamp tone={statusTone(topic.status)}>{topic.status}</Stamp>
+        <Stamp tone="neutral">{topic.signalIds.length} 則訊號</Stamp>
       </div>
-
-      <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
-        {topic.tags.slice(0, 3).map((tag) => (
-          <span
-            key={tag}
-            style={{
-              borderRadius: 999,
-              background: tokens.color.neutralSurface,
-              color: tokens.color.subInk,
-              padding: "4px 8px",
-              fontSize: 10.5,
-              fontWeight: 700
-            }}
-          >
-            {tag}
-          </span>
-        ))}
-      </div>
-
-      <div style={{ display: "flex", gap: 12, flexWrap: "wrap", fontSize: 11, color: tokens.color.subInk }}>
-        <span>{topic.signalIds.length} 則訊號</span>
-        <span>{topic.pairIds.length} 則成對分析</span>
+      <div style={{ display: "grid", gap: 2, justifyItems: "end", minWidth: 72, fontSize: 11, color: tokens.color.softInk }}>
+        <span>最近更新 {formatUpdatedAt(topic.updatedAt)}</span>
+        <span>{topic.pairIds.length} pair</span>
       </div>
     </button>
   );
@@ -211,6 +207,7 @@ export function CasebookView({
       />
 
       <WorkspaceSurface tone="utility" style={{ display: "grid", gap: tokens.spacing.md }}>
+        <style>{SCAN_ROW_HOVER_CSS}</style>
         <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12, flexWrap: "wrap" }}>
           <FilterTabs topics={topics} activeFilter={filter} onSelect={setFilter} />
           <PrimaryButton onClick={onCreateTopic}>新建主題</PrimaryButton>
@@ -235,7 +232,7 @@ export function CasebookView({
         ) : null}
 
         {visibleTopics.length ? (
-          <div style={{ display: "grid", gap: 10 }}>
+          <div data-scan-list="casebook" style={{ display: "grid" }}>
             {visibleTopics.map((topic) => (
               <TopicRow key={topic.id} topic={topic} onSelect={onNavigateToTopic} />
             ))}

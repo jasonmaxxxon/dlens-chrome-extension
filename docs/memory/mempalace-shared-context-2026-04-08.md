@@ -6,17 +6,17 @@ type: project
 
 # DLens Extension Shared Context
 
-Last updated: 2026-04-08
+Last updated: 2026-05-07
 
 This note is the high-signal shared memory for Codex and Claude when working on `dlens-chrome-extension-v0`.
 
 ## Product Identity
 
-- This repo is the production MV3 Chrome extension for capturing Threads posts, organizing them locally, queueing them to an optional ingest backend, and comparing two ready posts with backend analysis plus extension-side brief summaries.
+- This repo is the production MV3 Chrome extension for capturing Threads posts, organizing them locally, queueing them to an optional ingest backend, comparing two ready posts with backend analysis plus extension-side brief summaries, and turning already-found Threads posts into PR evidence CSVs.
 - The extension is extension-first, not SaaS-first.
 - Local folders and UI state live in `chrome.storage.local`.
 - The backend owns crawl jobs and canonical deterministic clustering / analysis.
-- The extension owns user API keys and extension-side compare briefs.
+- The extension owns user API keys, extension-side compare briefs, Product signal judgments, and PR criteria matching.
 
 ## Hard Boundary
 
@@ -33,10 +33,29 @@ This note is the high-signal shared memory for Codex and Claude when working on 
 - `Library` is evolving toward a casebook, not a folder-first tray.
 - `Collect` is a low-friction capture surface, not an analysis page.
 - `Settings` should behave like a narrow runtime utility drawer even while still page-backed.
+- `Product` mode is an insight-first workflow backed by `ProductContextCompiler` and `ProductSignalAnalyzer`.
+- `PR Evidence` mode is a compact campaign evidence workflow for agency / PR operators, backed by `PrCampaign` and `PrEvidenceRow`.
+
+## PR Evidence Mode As Of 2026-05-07
+
+- Folder mode: `pr-evidence`.
+- Navigation: `PR Evidence / Collect / Settings`.
+- V1 active campaign rule: one active campaign per PR Evidence session.
+- Criteria: exactly six fixed ids `c1..c6`; labels can be AI-suggested and user-edited.
+- Brief input: PDF/txt/md upload fills the campaign brief, extracts text-based PDFs, and surfaces detected core PR messages before criteria generation.
+- Collect: creates `PrEvidenceRow`, never Topic `Signal`, never Product analysis, and never runs AI.
+- Match: explicit batch action only; output is `✓ / blank`; parser accepts common AI response shapes and deterministic visible-keyword matching acts as a backstop.
+- Export: CSV is primary and uses UTF-8 BOM; preview is read-only, capped to header + first 20 rows, and shows weak placeholder dashes for empty cells.
+- Summary: client-ready Markdown PR audit memo with `Executive Read`, `Message Pull-Through`, `Interpretation`, `Evidence Highlights`, and `Data Limits`; AI may rewrite tone but must not invent reach, EAV, all-channel, or unsupported numeric claims.
+- Summary export: UI supports `.md` and true `.docx` export through `src/ui/pr-summary-export.ts`.
+- Views: extract from DOM metrics where available, infer from visible text such as `132 views`, and otherwise leave unavailable rather than estimating reach.
+- Storage keys: `dlens:v1:pr-campaigns`, `dlens:v1:pr-evidence-rows`.
+- Non-goals: no social listening, duplicate grouping, true reach, EAV, XLSX, detail inspector, or in-app spreadsheet editing.
 
 ## Current UI Direction As Of 2026-04-08
 
-- Compare-first popup shell with mode rail: `Compare / Library / Collect`, plus separate Settings utility action.
+- Editorial popup shell with mode-aware rail; unavailable pages are unmounted, not disabled.
+- Active modes are `archive`, `topic`, `product`, and `pr-evidence`.
 - Library preparation-desk pass is active: prioritize `ready`, `near-ready`, and `in-progress` preparation zones above pending inventory.
 - Collect capture-card pass is active: preview, keyboard hints, and collect entry/exit live in one surface.
 - Settings drawer grammar is active: runtime-focused connection + key groups, lighter than a full app page.
@@ -55,15 +74,17 @@ This note is the high-signal shared memory for Codex and Claude when working on 
 
 ## Current Known Priorities
 
-- Reduce popup-shell orchestration still concentrated in `src/ui/InPageCollectorApp.tsx`.
+- Split growing popup/background orchestration before adding digest/watch-mode work. `background.ts` is now 2341 lines and `useInPageCollectorAppState.ts` is now 1041 lines.
 - Improve hover debounce and clear stale overlay state on SPA route changes.
 - Add better honest loading states for crawl / analysis / compare waits.
 - Keep compare cluster matching skepticism high because pairing is still rank-driven.
 - Keep save/bookmark features lightweight until there is a real downstream destination.
+- Chrome QA still needs to walk Product and PR Evidence flows from `/Users/tung/Desktop/dlens-product-latest/output/chrome-mv3`, including PR PDF upload, criteria generation, matching, CSV export, and summary MD/DOCX export.
 
 ## Working Rules For Future Product Updates
 
 - Start from `README.md`, `AGENTS.md`, and `docs/memory/current-state.md`.
+- Treat `docs/handoff/2026-05-06-pr-evidence-mode-v1-brief.md` as the PR Evidence product-engineering record, with its 2026-05-07 implementation status as the current resolution.
 - Treat `docs/product/2026-04-03-compare-working-plan.md` as the execution split between extension-only work and backend-dependent work.
 - Treat `docs/product/2026-04-03-compare-frontend-brief.md` as presentation-only guidance.
 - Treat `docs/product/2026-04-04-two-page-product-plan.md` as the restored product-shape source of truth.

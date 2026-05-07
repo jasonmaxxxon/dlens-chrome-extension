@@ -36,10 +36,22 @@ export const tokens = {
     accentSoft: "rgba(26,46,79,0.09)",
     accentGlow: "rgba(26,46,79,0.18)",
 
-    /* secondary accent — teal */
+    /* secondary accent — teal (topic mode) */
     cyan: "#3f5a3b",
     cyanSoft: "rgba(63,90,59,0.10)",
     cyanGlow: "rgba(63,90,59,0.16)",
+
+    /* teal — named alias for design system alignment */
+    teal: "#3f5a3b",
+    tealMid: "#527648",
+    tealSoft: "rgba(63,90,59,0.10)",
+    tealGlow: "rgba(63,90,59,0.16)",
+
+    /* product accent — steel blue */
+    product: "#234f7a",
+    productMid: "#2f6a96",
+    productSoft: "rgba(35,79,122,0.10)",
+    productGlow: "rgba(35,79,122,0.18)",
 
     /* technique accents */
     techniqueRose: "#7a2030",
@@ -79,7 +91,8 @@ export const tokens = {
   radius: {
     lg: 12,
     card: 8,
-    pill: 8,
+    pill: 8,   /* badge/button pill — not the round 999 used for status dots */
+    round: 999,
     sm: 4
   },
 
@@ -118,10 +131,10 @@ export const tokens = {
   },
 
   font: {
-    sans: "'Noto Serif TC', 'Songti TC', 'Source Han Serif TC', 'PingFang TC', serif",
-    serif: "'Instrument Serif', 'Iowan Old Style', 'Times New Roman', serif",
+    sans: "'Noto Sans TC', -apple-system, BlinkMacSystemFont, 'SF Pro Text', system-ui, sans-serif",
+    serif: "'Instrument Serif', 'Iowan Old Style', 'Times New Roman', Georgia, serif",
     serifCjk: "'Noto Serif TC', 'Songti TC', 'Source Han Serif TC', serif",
-    mono: "'JetBrains Mono', 'SF Mono', 'Fira Code', 'Cascadia Code', monospace"
+    mono: "'JetBrains Mono', 'SF Mono', 'Fira Code', 'Cascadia Code', ui-monospace, monospace"
   }
 } as const;
 
@@ -164,13 +177,26 @@ export const modeThemes = {
     hoverSurfaceSoft: "rgba(35,79,122,0.025)",
     hoverShadowStrong: "rgba(35,79,122,0.14)",
     hoverShadowSoft: "rgba(35,79,122,0.07)"
+  },
+  "pr-evidence": {
+    accent: tokens.color.techniqueRose,
+    accentMid: "#9b3a49",
+    accentSoft: "rgba(122,32,48,0.10)",
+    accentGlow: "rgba(122,32,48,0.16)",
+    accentButtonShadow: "0 8px 18px rgba(122,32,48,0.14)",
+    hoverBorderStrong: "rgba(122,32,48,0.56)",
+    hoverBorderSoft: "rgba(122,32,48,0.26)",
+    hoverSurfaceStrong: "rgba(122,32,48,0.045)",
+    hoverSurfaceSoft: "rgba(122,32,48,0.025)",
+    hoverShadowStrong: "rgba(122,32,48,0.13)",
+    hoverShadowSoft: "rgba(122,32,48,0.07)"
   }
 } as const;
 
 export type ModeThemeName = keyof typeof modeThemes;
 
 export function getModeTheme(mode: string | null | undefined) {
-  return mode === "topic" || mode === "product" ? modeThemes[mode] : modeThemes.archive;
+  return mode === "topic" || mode === "product" || mode === "pr-evidence" ? modeThemes[mode] : modeThemes.archive;
 }
 
 export function modeThemeStyle(mode: string | null | undefined) {
@@ -190,6 +216,41 @@ export function modeThemeStyle(mode: string | null | undefined) {
   } as const;
 }
 
+/* ─── Semantic text styles ───
+ *
+ * Weight-driven hierarchy (design system principle):
+ *   400 = body  ·  500 = field labels  ·  600 = caption/emphasis
+ *   700 = card title / section header  ·  800+ = hero / display
+ *
+ * Use these instead of ad-hoc { fontSize, fontWeight } in views.
+ */
+export const textStyles = {
+  /** Serif headline — compare hero, mode header title */
+  h2: { fontFamily: `${tokens.font.serifCjk}, ${tokens.font.serif}`, fontWeight: 700, fontSize: 24, lineHeight: 1.25, letterSpacing: "-0.01em" } as const,
+  /** Serif sub-headline — section titles inside views */
+  h3: { fontFamily: `${tokens.font.serifCjk}, ${tokens.font.serif}`, fontWeight: 700, fontSize: 18, lineHeight: 1.3, letterSpacing: "-0.005em" } as const,
+  /** Bold sans — card titles, workflow pattern names */
+  cardTitle: { fontFamily: tokens.font.sans, fontWeight: 700, fontSize: 15, lineHeight: 1.35 } as const,
+  /** Regular sans — primary reading text */
+  body: { fontFamily: tokens.font.sans, fontWeight: 400, fontSize: 14, lineHeight: 1.7 } as const,
+  /** Tight body — dense lists, evidence content */
+  bodyTight: { fontFamily: tokens.font.sans, fontWeight: 400, fontSize: 13, lineHeight: 1.55 } as const,
+  /** Medium sans — metadata, timestamps, counts */
+  meta: { fontFamily: tokens.font.sans, fontWeight: 500, fontSize: 12, lineHeight: 1.5 } as const,
+  /** Uppercase structural label — section headers, "POST A", kickers */
+  label: { fontFamily: tokens.font.sans, fontWeight: 700, fontSize: 10, lineHeight: 1.4, letterSpacing: "0.06em", textTransform: "uppercase" as const } as const,
+  /** Semi-bold caption — secondary labels, chip text */
+  caption: { fontFamily: tokens.font.sans, fontWeight: 600, fontSize: 11, lineHeight: 1.4 } as const,
+  /** Medium field label — "如何照抄", "為什麼可以這樣做" (not bold, not faint) */
+  fieldLabel: { fontFamily: tokens.font.sans, fontWeight: 500, fontSize: 11, lineHeight: 1.4, color: tokens.color.softInk } as const,
+  /** Monospace — evidence IDs, scores, code snippets */
+  mono: { fontFamily: tokens.font.mono, fontVariantNumeric: "tabular-nums" as const } as const,
+  /** Serif CJK italic pull quote — inside evidence cards */
+  quote: { fontFamily: `${tokens.font.serifCjk}, ${tokens.font.serif}`, fontStyle: "italic" as const, fontWeight: 500, fontSize: 15, lineHeight: 1.65 } as const,
+} as const;
+
+export type TextStyleKey = keyof typeof textStyles;
+
 /* ─── flat alias export ─── */
 export const TOKENS = {
   ink: tokens.color.ink,
@@ -207,6 +268,14 @@ export const TOKENS = {
   cyan: tokens.color.cyan,
   cyanSoft: tokens.color.cyanSoft,
   cyanGlow: tokens.color.cyanGlow,
+  teal: tokens.color.teal,
+  tealMid: tokens.color.tealMid,
+  tealSoft: tokens.color.tealSoft,
+  tealGlow: tokens.color.tealGlow,
+  product: tokens.color.product,
+  productMid: tokens.color.productMid,
+  productSoft: tokens.color.productSoft,
+  productGlow: tokens.color.productGlow,
   success: tokens.color.success,
   successSoft: tokens.color.successSoft,
   queued: tokens.color.queued,

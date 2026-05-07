@@ -1,0 +1,921 @@
+<!doctype html>
+<html lang="zh-Hant">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>DLens · Open Design Extension Prototype</title>
+  <style>
+    :root {
+      --paper: #efe7d2;
+      --paper-2: #f7f1de;
+      --paper-3: #e7dcc0;
+      --ink: #15140f;
+      --ink-2: #39342b;
+      --muted: #807968;
+      --faint: #aaa28d;
+      --line: rgba(21, 20, 15, .14);
+      --line-2: rgba(21, 20, 15, .08);
+      --coral: #ed6f5c;
+      --mustard: #e9b94a;
+      --olive: #6e7448;
+      --blue: #365b7a;
+      --shadow: 0 36px 90px -52px rgba(21, 20, 15, .55);
+      --sans: Inter, "Inter Tight", -apple-system, BlinkMacSystemFont, "Noto Sans TC", system-ui, sans-serif;
+      --serif: "Playfair Display", "Iowan Old Style", Georgia, "Noto Serif TC", serif;
+      --mono: "JetBrains Mono", "SF Mono", Menlo, monospace;
+    }
+
+    * { box-sizing: border-box; }
+    html, body { height: 100%; }
+    body {
+      margin: 0;
+      background:
+        radial-gradient(circle at 8% 12%, rgba(237,111,92,.16), transparent 28%),
+        radial-gradient(circle at 92% 88%, rgba(110,116,72,.12), transparent 32%),
+        var(--paper);
+      color: var(--ink);
+      font-family: var(--sans);
+      -webkit-font-smoothing: antialiased;
+      overflow: hidden;
+    }
+    body:before {
+      content: "";
+      position: fixed;
+      inset: 0;
+      pointer-events: none;
+      background-image:
+        url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='220' height='220'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.78' numOctaves='2' stitchTiles='stitch'/%3E%3CfeColorMatrix values='0 0 0 0 .16 0 0 0 0 .14 0 0 0 0 .1 0 0 0 .055 0'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+      mix-blend-mode: multiply;
+      opacity: .9;
+    }
+    button, input, textarea { font: inherit; }
+    button { cursor: pointer; }
+
+    .stage {
+      height: 100%;
+      display: grid;
+      place-items: center;
+      padding: 24px;
+    }
+    .extension {
+      width: min(1120px, calc(100vw - 40px));
+      height: min(780px, calc(100vh - 40px));
+      display: grid;
+      grid-template-columns: 178px minmax(0, 1fr);
+      border: 1px solid var(--line);
+      border-radius: 26px;
+      overflow: hidden;
+      background: rgba(247, 241, 222, .72);
+      box-shadow: var(--shadow);
+      position: relative;
+    }
+    .extension:after {
+      content: "CHROME EXTENSION MOCK";
+      position: absolute;
+      right: 22px;
+      bottom: 12px;
+      font-family: var(--mono);
+      font-size: 9px;
+      letter-spacing: .2em;
+      color: var(--faint);
+      pointer-events: none;
+    }
+
+    .rail {
+      border-right: 1px solid var(--line);
+      background: rgba(239, 231, 210, .78);
+      padding: 22px 16px;
+      display: grid;
+      grid-template-rows: auto auto 1fr auto;
+      gap: 22px;
+    }
+    .brand {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+    .mark {
+      width: 30px;
+      height: 30px;
+      border-radius: 50%;
+      border: 1px solid var(--ink);
+      display: grid;
+      place-items: center;
+      font-family: var(--serif);
+      font-style: italic;
+      font-weight: 700;
+      background: rgba(247,241,222,.9);
+    }
+    .brand b { display: block; font-size: 15px; letter-spacing: .02em; }
+    .brand span {
+      display: block;
+      margin-top: 2px;
+      font-family: var(--mono);
+      font-size: 8.5px;
+      letter-spacing: .16em;
+      color: var(--muted);
+      text-transform: uppercase;
+    }
+    .workspace-label {
+      border-top: 1px solid var(--line);
+      border-bottom: 1px solid var(--line);
+      padding: 12px 0;
+      font-family: var(--mono);
+      font-size: 9px;
+      letter-spacing: .16em;
+      line-height: 1.6;
+      color: var(--muted);
+      text-transform: uppercase;
+    }
+    .nav {
+      display: grid;
+      align-content: start;
+      gap: 8px;
+    }
+    .nav button {
+      width: 100%;
+      border: 0;
+      background: transparent;
+      color: var(--ink-2);
+      border-radius: 14px;
+      padding: 10px 10px;
+      display: grid;
+      grid-template-columns: 22px 1fr;
+      align-items: center;
+      gap: 9px;
+      text-align: left;
+      transition: background .18s ease, color .18s ease;
+    }
+    .nav button.active {
+      background: rgba(237,111,92,.14);
+      color: var(--ink);
+    }
+    .nav i {
+      width: 18px;
+      height: 18px;
+      border: 1px solid currentColor;
+      border-radius: 6px;
+      display: block;
+      position: relative;
+    }
+    .nav button:nth-child(2) i { border-radius: 50%; }
+    .nav button:nth-child(3) i { transform: rotate(-7deg); border-radius: 3px; }
+    .nav small {
+      display: block;
+      margin-top: 2px;
+      color: var(--muted);
+      font-size: 10px;
+      line-height: 1.25;
+    }
+    .rail-foot {
+      font-family: var(--mono);
+      font-size: 9px;
+      letter-spacing: .14em;
+      color: var(--faint);
+      line-height: 1.6;
+      text-transform: uppercase;
+    }
+
+    .main {
+      min-width: 0;
+      display: grid;
+      grid-template-rows: auto 1fr;
+      background:
+        linear-gradient(90deg, rgba(21,20,15,.045) 1px, transparent 1px) 0 0 / 42px 42px,
+        rgba(247, 241, 222, .64);
+    }
+    .topbar {
+      height: 76px;
+      border-bottom: 1px solid var(--line);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 0 28px;
+      gap: 18px;
+      background: rgba(247,241,222,.62);
+    }
+    .kicker {
+      font-family: var(--mono);
+      color: var(--coral);
+      letter-spacing: .2em;
+      font-size: 10px;
+      text-transform: uppercase;
+      margin-bottom: 4px;
+    }
+    h1 {
+      font-size: 25px;
+      line-height: 1;
+      margin: 0;
+      letter-spacing: -.035em;
+      font-weight: 800;
+    }
+    h1 em, h2 em {
+      font-family: var(--serif);
+      font-style: italic;
+      font-weight: 500;
+    }
+    .top-actions { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; justify-content: flex-end; }
+    .btn {
+      border: 1px solid var(--line);
+      background: rgba(247,241,222,.72);
+      color: var(--ink);
+      border-radius: 999px;
+      min-height: 34px;
+      padding: 8px 12px;
+      font-size: 12px;
+      font-weight: 700;
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .btn.primary {
+      border-color: var(--coral);
+      background: var(--coral);
+      color: #fff9ef;
+    }
+    .btn.ghost { background: transparent; }
+    .btn:disabled { opacity: .45; cursor: not-allowed; }
+
+    .view {
+      min-height: 0;
+      overflow: hidden;
+      display: none;
+    }
+    .view.active { display: grid; }
+    .workbench {
+      min-height: 0;
+      display: grid;
+      grid-template-columns: minmax(360px, 1fr) 320px;
+      gap: 0;
+    }
+    .left-pane {
+      min-width: 0;
+      overflow: auto;
+      padding: 22px 24px 54px;
+    }
+    .right-pane {
+      min-width: 0;
+      overflow: auto;
+      border-left: 1px solid var(--line);
+      background: rgba(239,231,210,.45);
+      padding: 22px 18px 54px;
+    }
+    .section-title {
+      display: flex;
+      justify-content: space-between;
+      align-items: baseline;
+      gap: 12px;
+      margin-bottom: 12px;
+    }
+    .section-title h2 {
+      margin: 0;
+      font-size: 17px;
+      letter-spacing: -.02em;
+    }
+    .section-title span {
+      font-family: var(--mono);
+      font-size: 10px;
+      letter-spacing: .1em;
+      color: var(--muted);
+      text-transform: uppercase;
+    }
+    .chips { display: flex; gap: 7px; flex-wrap: wrap; margin-bottom: 14px; }
+    .chip {
+      border: 1px solid var(--line);
+      border-radius: 999px;
+      padding: 6px 9px;
+      background: rgba(247,241,222,.7);
+      font-size: 11px;
+      color: var(--ink-2);
+      font-weight: 650;
+    }
+    .chip.on { background: rgba(237,111,92,.15); border-color: rgba(237,111,92,.55); color: var(--ink); }
+
+    .ledger {
+      border-top: 1px solid var(--line);
+    }
+    .row {
+      width: 100%;
+      border: 0;
+      border-bottom: 1px solid var(--line);
+      background: transparent;
+      padding: 13px 4px;
+      display: grid;
+      grid-template-columns: 12px minmax(0, 1fr) auto;
+      gap: 12px;
+      align-items: start;
+      text-align: left;
+      color: var(--ink);
+    }
+    .row:hover, .row.selected { background: rgba(21,20,15,.035); }
+    .dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      background: var(--coral);
+      margin-top: 6px;
+    }
+    .dot.blue { background: var(--blue); }
+    .dot.olive { background: var(--olive); }
+    .row h3 {
+      margin: 0;
+      font-size: 14px;
+      line-height: 1.35;
+      letter-spacing: -.01em;
+    }
+    .meta {
+      margin-top: 4px;
+      color: var(--muted);
+      font-size: 11.5px;
+      line-height: 1.45;
+    }
+    .row-side {
+      display: grid;
+      justify-items: end;
+      gap: 5px;
+      min-width: 86px;
+    }
+    .pill {
+      display: inline-flex;
+      align-items: center;
+      min-height: 22px;
+      padding: 0 8px;
+      border-radius: 999px;
+      border: 1px solid var(--line);
+      font-size: 10px;
+      font-weight: 800;
+      white-space: nowrap;
+      background: rgba(247,241,222,.8);
+    }
+    .pill.coral { border-color: rgba(237,111,92,.45); color: #a84839; background: rgba(237,111,92,.12); }
+    .pill.blue { border-color: rgba(54,91,122,.38); color: var(--blue); background: rgba(54,91,122,.11); }
+    .pill.olive { border-color: rgba(110,116,72,.4); color: var(--olive); background: rgba(110,116,72,.12); }
+
+    .panel {
+      border: 1px solid var(--line);
+      border-radius: 18px;
+      background: rgba(247,241,222,.74);
+      padding: 15px;
+      margin-bottom: 14px;
+      box-shadow: 0 18px 45px -38px rgba(21,20,15,.45);
+    }
+    .panel.flat {
+      box-shadow: none;
+      background: rgba(239,231,210,.58);
+    }
+    .panel h3 {
+      margin: 0 0 8px;
+      font-size: 15px;
+      letter-spacing: -.01em;
+    }
+    .panel p {
+      margin: 0;
+      color: var(--ink-2);
+      font-size: 13px;
+      line-height: 1.55;
+    }
+    .quote {
+      margin-top: 12px;
+      padding: 12px 13px;
+      border-left: 2px solid var(--coral);
+      background: rgba(255,255,255,.26);
+      color: var(--ink-2);
+      font-family: var(--serif);
+      font-style: italic;
+      line-height: 1.45;
+    }
+    .mini-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
+    .metric {
+      border-top: 1px solid var(--line);
+      padding-top: 9px;
+    }
+    .metric b { display:block; font-size: 20px; letter-spacing: -.03em; }
+    .metric span { color: var(--muted); font-size: 10px; font-family: var(--mono); text-transform: uppercase; letter-spacing: .08em; }
+
+    .canvas {
+      height: 170px;
+      border: 1px solid var(--line);
+      border-radius: 18px;
+      position: relative;
+      overflow: hidden;
+      background:
+        radial-gradient(circle at 24% 44%, rgba(237,111,92,.32), transparent 18%),
+        radial-gradient(circle at 68% 35%, rgba(54,91,122,.28), transparent 20%),
+        radial-gradient(circle at 58% 74%, rgba(110,116,72,.25), transparent 18%),
+        rgba(247,241,222,.58);
+      margin-bottom: 12px;
+    }
+    .bubble {
+      position: absolute;
+      border-radius: 999px;
+      border: 1px solid rgba(21,20,15,.14);
+      background: rgba(247,241,222,.66);
+      padding: 8px 10px;
+      font-size: 11px;
+      font-weight: 800;
+      box-shadow: 0 16px 40px -30px rgba(21,20,15,.55);
+    }
+    .b1 { left: 20px; top: 42px; }
+    .b2 { right: 34px; top: 28px; }
+    .b3 { left: 122px; bottom: 24px; }
+
+    .setup {
+      display: grid;
+      gap: 12px;
+      margin-bottom: 14px;
+    }
+    .field {
+      display: grid;
+      gap: 6px;
+    }
+    .field label {
+      font-family: var(--mono);
+      color: var(--muted);
+      letter-spacing: .12em;
+      text-transform: uppercase;
+      font-size: 10px;
+    }
+    input, textarea {
+      border: 1px solid var(--line);
+      border-radius: 12px;
+      padding: 10px 12px;
+      background: rgba(247,241,222,.82);
+      color: var(--ink);
+      outline: none;
+    }
+    textarea { resize: none; min-height: 84px; line-height: 1.45; }
+    .criteria {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 8px;
+    }
+    .criteria input { font-size: 12px; padding: 9px 10px; }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 11px;
+      background: rgba(247,241,222,.78);
+    }
+    th, td {
+      border-bottom: 1px solid var(--line);
+      padding: 8px 9px;
+      text-align: left;
+      white-space: nowrap;
+    }
+    th {
+      position: sticky;
+      top: 0;
+      background: var(--paper-2);
+      font-family: var(--mono);
+      color: var(--muted);
+      letter-spacing: .08em;
+      text-transform: uppercase;
+      font-size: 9px;
+    }
+    .modal {
+      position: absolute;
+      inset: 0;
+      display: none;
+      place-items: center;
+      background: rgba(21,20,15,.22);
+      backdrop-filter: blur(8px);
+      z-index: 20;
+      padding: 26px;
+    }
+    .modal.open { display: grid; }
+    .modal-card {
+      width: min(840px, 100%);
+      max-height: 90%;
+      overflow: auto;
+      border: 1px solid var(--line);
+      border-radius: 22px;
+      background: var(--paper);
+      box-shadow: var(--shadow);
+      padding: 20px;
+    }
+    .modal-head {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 12px;
+      margin-bottom: 14px;
+    }
+
+    .toast {
+      position: absolute;
+      left: 50%;
+      bottom: 28px;
+      transform: translateX(-50%) translateY(20px);
+      opacity: 0;
+      transition: opacity .2s ease, transform .2s ease;
+      background: var(--ink);
+      color: var(--paper-2);
+      border-radius: 999px;
+      padding: 10px 14px;
+      font-size: 12px;
+      z-index: 30;
+      pointer-events: none;
+    }
+    .toast.on { opacity: 1; transform: translateX(-50%) translateY(0); }
+
+    @media (max-width: 920px) {
+      body { overflow: auto; }
+      .stage { height: auto; min-height: 100%; padding: 12px; }
+      .extension { height: auto; min-height: 820px; grid-template-columns: 1fr; }
+      .rail { grid-template-rows: auto auto auto; }
+      .workbench { grid-template-columns: 1fr; }
+      .right-pane { border-left: 0; border-top: 1px solid var(--line); }
+      .topbar { height: auto; min-height: 76px; align-items: flex-start; flex-direction: column; padding: 18px; }
+      .criteria { grid-template-columns: 1fr; }
+    }
+  </style>
+</head>
+<body>
+  <div class="stage">
+    <div class="extension" id="app">
+      <aside class="rail">
+        <div class="brand">
+          <div class="mark">D</div>
+          <div><b>DLens</b><span>Open Design mock</span></div>
+        </div>
+        <div class="workspace-label">
+          Google / Chrome plugin<br />
+          simulated user journey
+        </div>
+        <nav class="nav" aria-label="Workspace modes">
+          <button class="active" data-mode="product"><i></i><span>Product<small>signal to agent brief</small></span></button>
+          <button data-mode="topic"><i></i><span>Topic<small>casebook and clusters</small></span></button>
+          <button data-mode="pr"><i></i><span>PR Evidence<small>campaign CSV autofill</small></span></button>
+        </nav>
+        <div class="rail-foot">
+          Archive is no-AI storage.<br />
+          Not shown as primary mode.
+        </div>
+      </aside>
+
+      <main class="main">
+        <header class="topbar">
+          <div>
+            <div class="kicker" id="modeKicker">Product intelligence · collected discussions</div>
+            <h1 id="modeTitle">Turn posts into <em>reusable product signals</em>.</h1>
+          </div>
+          <div class="top-actions" id="topActions"></div>
+        </header>
+
+        <section class="view active" id="productView">
+          <div class="workbench">
+            <div class="left-pane">
+              <div class="section-title"><h2>Classification ledger</h2><span id="productCount">3 signals</span></div>
+              <div class="chips">
+                <span class="chip on">All</span><span class="chip">Try</span><span class="chip">Demand</span><span class="chip">Workflow</span><span class="chip">Noise</span>
+              </div>
+              <div class="ledger" id="productRows"></div>
+            </div>
+            <aside class="right-pane" id="productInspector"></aside>
+          </div>
+        </section>
+
+        <section class="view" id="topicView">
+          <div class="workbench">
+            <div class="left-pane">
+              <div class="section-title"><h2>Topics first</h2><span>news-like entry</span></div>
+              <div class="ledger" id="topicRows"></div>
+            </div>
+            <aside class="right-pane" id="topicInspector"></aside>
+          </div>
+        </section>
+
+        <section class="view" id="prView">
+          <div class="workbench">
+            <div class="left-pane">
+              <div class="section-title"><h2>Campaign setup</h2><span>6 criteria fixed</span></div>
+              <div class="setup">
+                <div class="field">
+                  <label>Campaign</label>
+                  <input value="Mannings BoostUP Wellness Carnival" id="campaignName" />
+                </div>
+                <div class="field">
+                  <label>Brief / PR guideline</label>
+                  <textarea id="campaignBrief">Promote wellness carnival, inside-out health, 40+ experiences, venue details, member benefits, and community participation.</textarea>
+                </div>
+                <div class="criteria" id="criteriaInputs"></div>
+              </div>
+              <div class="section-title"><h2>Collected evidence ledger</h2><span id="prMeta">4 rows · unmatched</span></div>
+              <div class="ledger" id="prRows"></div>
+            </div>
+            <aside class="right-pane" id="prInspector"></aside>
+          </div>
+        </section>
+      </main>
+
+      <div class="modal" id="modal">
+        <div class="modal-card">
+          <div class="modal-head">
+            <div>
+              <div class="kicker" id="modalKicker">Preview</div>
+              <h2 id="modalTitle" style="margin:0">Output</h2>
+            </div>
+            <button class="btn ghost" id="closeModal">Close</button>
+          </div>
+          <div id="modalBody"></div>
+        </div>
+      </div>
+      <div class="toast" id="toast">Saved</div>
+    </div>
+  </div>
+
+  <script>
+    const state = {
+      mode: "product",
+      selectedProduct: "p1",
+      selectedTopic: "t1",
+      selectedPr: "r1",
+      savedSignals: new Set(["p1"]),
+      pairSlots: [],
+      prMatched: false,
+      criteria: [
+        "Wellness theme",
+        "Event details",
+        "40+ experiences",
+        "Member benefits",
+        "Community participation",
+        "Brand visibility"
+      ]
+    };
+
+    const productSignals = [
+      {
+        id: "p1",
+        type: "Workflow",
+        verdict: "Try",
+        title: "Wrap recurring crawl into a daily monitoring agent",
+        meta: "technical workflow · 5/5 relevance",
+        why: "This can become DLens' first low-cost batch export workflow before building heavy dashboards.",
+        quote: "If it can automatically grab once a day and tell me what changed, that is already enough."
+      },
+      {
+        id: "p2",
+        type: "Demand",
+        verdict: "Watch",
+        title: "PMs want threads turned into editable docs, not dashboards",
+        meta: "demand · 4/5 relevance",
+        why: "The real deliverable is a PRD, memo, or agent brief that can be revised by non-technical teams.",
+        quote: "整理成一頁決策文件，比 prompt 編輯更重要。"
+      },
+      {
+        id: "p3",
+        type: "Marketing",
+        verdict: "Park",
+        title: "Use customer language as landing-page proof, not as strategy",
+        meta: "marketing reference · 3/5 relevance",
+        why: "Useful as copy evidence, but not enough to trigger product work without more supporting posts.",
+        quote: "This sounds good in a report, but it does not tell us what to build."
+      }
+    ];
+
+    const topics = [
+      {
+        id: "t1",
+        title: "Wellness carnival reaction splits into utility vs skepticism",
+        meta: "Topic Note · 42 sources · 3 clusters",
+        clusters: [
+          ["C1 · Practical planners", "Venue, transport, schedule, benefits"],
+          ["C2 · Skeptical observers", "Questions PR claims and crowd value"],
+          ["C3 · Event sharers", "Repeats official campaign wording"]
+        ],
+        quote: "如果有實際體驗和會員優惠，我會去；如果只是打卡就算了。"
+      },
+      {
+        id: "t2",
+        title: "AI agent workflows are judged by handoff quality",
+        meta: "Topic Note · 27 sources · 4 clusters",
+        clusters: [
+          ["C1 · Builder pragmatists", "Ask for recurring automation"],
+          ["C2 · Document operators", "Need editable briefs"],
+          ["C3 · Tool skeptics", "Avoid abstract dashboards"]
+        ],
+        quote: "不用幫我想所有東西，只要把資料整理好給下一個 agent。"
+      }
+    ];
+
+    const prRows = [
+      { id: "r1", author: "@mediahk", caption: "Mannings BoostUP Wellness Carnival brings 40+ inside-out wellness experiences to West Kowloon.", likes: 1280, comments: 44, views: 32100, matches: [true,true,true,false,false,true] },
+      { id: "r2", author: "@kol_mavis", caption: "Went for the member benefits and mini health checks. Easy weekend wellness stop.", likes: 842, comments: 38, views: 18400, matches: [true,false,false,true,true,true] },
+      { id: "r3", author: "@hkfamilylife", caption: "The venue is convenient, but I want clearer schedule details before bringing kids.", likes: 231, comments: 19, views: 6200, matches: [false,true,false,false,true,false] },
+      { id: "r4", author: "@eventwatcher", caption: "A lot of posts repeat the same wellness line; good visibility, less organic discussion.", likes: 188, comments: 12, views: 5100, matches: [true,false,false,false,false,true] }
+    ];
+
+    const $ = (sel) => document.querySelector(sel);
+    const $$ = (sel) => Array.from(document.querySelectorAll(sel));
+
+    function toast(text) {
+      const el = $("#toast");
+      el.textContent = text;
+      el.classList.add("on");
+      setTimeout(() => el.classList.remove("on"), 1400);
+    }
+
+    function setMode(mode) {
+      state.mode = mode;
+      $$(".nav button").forEach(btn => btn.classList.toggle("active", btn.dataset.mode === mode));
+      $$(".view").forEach(view => view.classList.remove("active"));
+      $(`#${mode === "pr" ? "pr" : mode}View`).classList.add("active");
+      const copy = {
+        product: ["Product intelligence · collected discussions", "Turn posts into <em>reusable product signals</em>."],
+        topic: ["Topic intelligence · casebook", "Read collected posts as <em>social evidence</em>."],
+        pr: ["PR Evidence · agency workflow", "Autofill campaign <em>evidence rows</em>."]
+      };
+      $("#modeKicker").textContent = copy[mode][0];
+      $("#modeTitle").innerHTML = copy[mode][1];
+      renderActions();
+      render();
+    }
+
+    function renderActions() {
+      const a = $("#topActions");
+      if (state.mode === "product") {
+        a.innerHTML = `
+          <button class="btn" id="saveSignal">Save signal</button>
+          <button class="btn primary" id="agentBrief">Copy Agent Brief</button>
+        `;
+        $("#saveSignal").onclick = () => {
+          state.savedSignals.add(state.selectedProduct);
+          toast("Signal saved");
+          renderProduct();
+        };
+        $("#agentBrief").onclick = () => openModal("Agent Brief", "Batch output", agentBriefHtml());
+      } else if (state.mode === "topic") {
+        a.innerHTML = `
+          <button class="btn" id="addPair">Add to compare</button>
+          <button class="btn primary" id="pairLens">Run Pair Lens</button>
+        `;
+        $("#addPair").onclick = addPair;
+        $("#pairLens").onclick = () => openModal("Pair Insight", "Topic detail output", pairHtml());
+      } else {
+        a.innerHTML = `
+          <button class="btn" id="matchCriteria">Match criteria</button>
+          <button class="btn" id="previewCsv">Preview CSV</button>
+          <button class="btn primary" id="summary">Generate Summary</button>
+        `;
+        $("#matchCriteria").onclick = () => {
+          state.prMatched = true;
+          toast("Criteria matched in 1 batch");
+          renderPr();
+        };
+        $("#previewCsv").onclick = () => openModal("CSV Preview", "Header + first 20 rows", csvPreviewHtml());
+        $("#summary").onclick = () => openModal("Topline PR Audit Summary", "Facts-first draft", summaryHtml());
+      }
+    }
+
+    function renderProduct() {
+      $("#productCount").textContent = `${productSignals.length} signals · ${state.savedSignals.size} saved`;
+      $("#productRows").innerHTML = productSignals.map(s => `
+        <button class="row ${state.selectedProduct === s.id ? "selected" : ""}" data-id="${s.id}">
+          <span class="dot ${s.verdict === "Watch" ? "blue" : s.verdict === "Park" ? "olive" : ""}"></span>
+          <span><h3>${s.title}</h3><div class="meta">${s.meta}</div></span>
+          <span class="row-side"><span class="pill coral">${s.verdict}</span><span class="meta">${state.savedSignals.has(s.id) ? "saved" : "unsaved"}</span></span>
+        </button>
+      `).join("");
+      $$("#productRows .row").forEach(row => row.onclick = () => { state.selectedProduct = row.dataset.id; renderProduct(); });
+      const s = productSignals.find(x => x.id === state.selectedProduct);
+      $("#productInspector").innerHTML = `
+        <div class="panel">
+          <div class="kicker">Signal Intelligence Card</div>
+          <h3>${s.title}</h3>
+          <p>${s.why}</p>
+          <div class="quote">${s.quote}</div>
+        </div>
+        <div class="panel flat">
+          <h3>Output posture</h3>
+          <p>Default action is batch Agent Brief. Single-card prompt is explicit and optional.</p>
+        </div>
+        <div class="mini-grid">
+          <div class="metric"><b>5/5</b><span>relevance</span></div>
+          <div class="metric"><b>${s.type}</b><span>category</span></div>
+          <div class="metric"><b>${s.verdict}</b><span>verdict</span></div>
+        </div>
+      `;
+    }
+
+    function renderTopic() {
+      $("#topicRows").innerHTML = topics.map(t => `
+        <button class="row ${state.selectedTopic === t.id ? "selected" : ""}" data-id="${t.id}">
+          <span class="dot blue"></span>
+          <span><h3>${t.title}</h3><div class="meta">${t.meta}</div></span>
+          <span class="row-side"><span class="pill blue">open</span><span class="meta">${state.pairSlots.includes(t.id) ? "in pair" : "source"}</span></span>
+        </button>
+      `).join("");
+      $$("#topicRows .row").forEach(row => row.onclick = () => { state.selectedTopic = row.dataset.id; renderTopic(); });
+      const t = topics.find(x => x.id === state.selectedTopic);
+      $("#topicInspector").innerHTML = `
+        <div class="canvas"><span class="bubble b1">${t.clusters[0][0]}</span><span class="bubble b2">${t.clusters[1][0]}</span><span class="bubble b3">${t.clusters[2][0]}</span></div>
+        ${t.clusters.map(c => `<div class="panel flat"><h3>${c[0]}</h3><p>${c[1]}</p></div>`).join("")}
+        <div class="quote">${t.quote}</div>
+        <div class="panel"><h3>Pair tray</h3><p>${state.pairSlots.length ? state.pairSlots.map(id => topics.find(t => t.id === id).title).join("<br>") : "Add two sources inside Topic Detail to run Pair Lens."}</p></div>
+      `;
+    }
+
+    function addPair() {
+      state.pairSlots = state.pairSlots.filter(id => id !== state.selectedTopic);
+      state.pairSlots.push(state.selectedTopic);
+      if (state.pairSlots.length > 2) state.pairSlots.shift();
+      toast(`${state.pairSlots.length}/2 in Pair Lens`);
+      renderTopic();
+    }
+
+    function renderPr() {
+      $("#criteriaInputs").innerHTML = state.criteria.map((c, i) => `<input value="${c}" data-i="${i}" />`).join("");
+      $$("#criteriaInputs input").forEach(input => input.oninput = () => { state.criteria[Number(input.dataset.i)] = input.value; renderPr(); });
+      $("#prMeta").textContent = `${prRows.length} rows · ${state.prMatched ? "matched" : "unmatched"}`;
+      $("#prRows").innerHTML = prRows.map(r => {
+        const count = state.prMatched ? r.matches.filter(Boolean).length : 0;
+        return `
+          <button class="row ${state.selectedPr === r.id ? "selected" : ""}" data-id="${r.id}">
+            <span class="dot olive"></span>
+            <span><h3>${r.author} · ${r.caption}</h3><div class="meta">${r.likes.toLocaleString()} likes · ${r.comments} comments · ${r.views.toLocaleString()} views</div></span>
+            <span class="row-side"><span class="pill olive">${count}/6</span><span class="meta">${state.prMatched ? "matched" : "blank"}</span></span>
+          </button>
+        `;
+      }).join("");
+      $$("#prRows .row").forEach(row => row.onclick = () => { state.selectedPr = row.dataset.id; renderPr(); });
+      const r = prRows.find(x => x.id === state.selectedPr);
+      $("#prInspector").innerHTML = `
+        <div class="panel">
+          <div class="kicker">Evidence Row</div>
+          <h3>${r.author}</h3>
+          <p>${r.caption}</p>
+        </div>
+        <div class="panel flat"><h3>CSV posture</h3><p>UI shows ledger only. Export contains full columns: caption, metrics, expected engagement, six criteria, notes, collected time.</p></div>
+        <div class="mini-grid">
+          <div class="metric"><b>${r.likes.toLocaleString()}</b><span>likes</span></div>
+          <div class="metric"><b>${r.comments}</b><span>comments</span></div>
+          <div class="metric"><b>${state.prMatched ? r.matches.filter(Boolean).length + "/6" : "0/6"}</b><span>criteria</span></div>
+        </div>
+      `;
+    }
+
+    function agentBriefHtml() {
+      const saved = productSignals.filter(s => state.savedSignals.has(s.id));
+      return `<pre style="white-space:pre-wrap;line-height:1.55;background:rgba(247,241,222,.7);padding:14px;border:1px solid var(--line);border-radius:14px"># Product Agent Brief
+
+Use original source text first. Treat DLens analysis as early filtering.
+
+${saved.map((s, i) => `${i + 1}. ${s.title}
+- Category: ${s.type}
+- Verdict: ${s.verdict}
+- Why it matters: ${s.why}
+- Source quote: "${s.quote}"`).join("\n\n")}</pre>`;
+    }
+
+    function pairHtml() {
+      if (state.pairSlots.length < 2) return `<p>Add two topic sources first. V1 Pair Lens only works inside the same Topic Detail.</p>`;
+      const a = topics.find(t => t.id === state.pairSlots[0]);
+      const b = topics.find(t => t.id === state.pairSlots[1]);
+      return `<div class="panel"><h3>Short Pair Insight</h3><p><b>${a.clusters[0][0]}</b> reads the event as practical utility. <b>${b.clusters[1][0]}</b> frames similar evidence as proof that campaign wording is not enough. Save short insight to Topic Note; full compare stays in detail.</p></div>`;
+    }
+
+    function csvPreviewHtml() {
+      const headers = ["post_url","author_handle","post_caption","likes","comments","reposts","views","expected_engagement",...state.criteria,"manual_notes","collected_at"];
+      const rows = prRows.map(r => ["/threads/post/" + r.id, r.author, r.caption, r.likes, r.comments, 0, r.views, "", ...r.matches.map(m => state.prMatched && m ? "✓" : ""), "", "2026-05-06"]);
+      return `<div style="overflow:auto;max-height:520px"><table><thead><tr>${headers.map(h => `<th>${h}</th>`).join("")}</tr></thead><tbody>${rows.map(row => `<tr>${row.map(c => `<td>${c}</td>`).join("")}</tr>`).join("")}</tbody></table></div>`;
+    }
+
+    function summaryHtml() {
+      const totalLikes = prRows.reduce((sum, r) => sum + r.likes, 0);
+      const totalComments = prRows.reduce((sum, r) => sum + r.comments, 0);
+      const counts = state.criteria.map((c, i) => ({ c, n: state.prMatched ? prRows.filter(r => r.matches[i]).length : 0 }));
+      return `<div style="font-size:15px;line-height:1.65">
+        <h3>${$("#campaignName").value} - Topline PR Performance Audit Summary</h3>
+        <p><b>1. Overall Collected Evidence Performance</b></p>
+        <p><b>Collected Social Evidence:</b> The campaign currently has ${prRows.length} collected Threads evidence posts, with observed engagement of ${totalLikes.toLocaleString()} likes and ${totalComments.toLocaleString()} comments across rows where metrics were visible.</p>
+        <p><b>2. Brand Message Pull-Through Analysis</b></p>
+        <ul>${counts.map(x => `<li><b>${x.c}:</b> ${x.n} / ${prRows.length} collected posts matched this criterion.</li>`).join("")}</ul>
+        <p><b>3. Notable Evidence / Posts for Client Review</b></p>
+        <p><b>${prRows[0].author}:</b> ${prRows[0].caption}</p>
+        <p style="color:var(--muted)">No reach or EAV is generated here. Summary uses observed table facts only.</p>
+      </div>`;
+    }
+
+    function openModal(title, kicker, body) {
+      $("#modalTitle").textContent = title;
+      $("#modalKicker").textContent = kicker;
+      $("#modalBody").innerHTML = body;
+      $("#modal").classList.add("open");
+    }
+
+    $("#closeModal").onclick = () => $("#modal").classList.remove("open");
+    $("#modal").onclick = (e) => { if (e.target.id === "modal") $("#modal").classList.remove("open"); };
+    $$(".nav button").forEach(btn => btn.onclick = () => setMode(btn.dataset.mode));
+
+    function render() {
+      renderProduct();
+      renderTopic();
+      renderPr();
+    }
+
+    renderActions();
+    render();
+  </script>
+</body>
+</html>

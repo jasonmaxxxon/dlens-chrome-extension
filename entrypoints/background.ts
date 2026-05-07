@@ -44,13 +44,16 @@ import {
   generateProductContext,
   isProductContextSourceReady,
   LEGACY_PRODUCT_CONTEXT_STORAGE_KEY,
-  PRODUCT_CONTEXT_STORAGE_KEY
+  PRODUCT_CONTEXT_STORAGE_KEY,
+  resolveProductContextForAnalysis
 } from "../src/compare/product-context";
 import {
   buildProductContextHash,
   buildProductSignalAnalyzerInputFromCapture,
   collectQueueableProductSignalItemIds,
+  hasDrainableProductSignalItems,
   PRODUCT_SIGNAL_ANALYSIS_PROMPT_VERSION,
+  shouldDrainWorkerAfterProductSignalQueue,
   shouldAutoAnalyzeProductSignal
 } from "../src/compare/product-signal-analysis";
 import {
@@ -70,8 +73,17 @@ import {
   generateCompareOneLiner,
   generateEvidenceAnnotations,
   generateJudgment,
+  generatePrCriteriaMatches,
+  generatePrCriteriaSuggestions,
+  generatePrSummaryDraft,
   generateProductSignalAnalysis
 } from "../src/compare/provider";
+import {
+  buildDeterministicPrCriteria,
+  buildDeterministicPrCriteriaMatches,
+  buildDeterministicPrSummary,
+  buildPrSummaryFacts
+} from "../src/compare/pr-evidence";
 import { createLlmCallWrapper } from "../src/compare/llm-call-wrapper";
 import {
   createDefaultSettings,
@@ -105,6 +117,16 @@ import {
 } from "../src/state/store-helpers";
 import { ensureSignalForSavedItem, handleTopicMessage } from "../src/state/topic-handlers";
 import { loadSignals } from "../src/state/topic-storage";
+import {
+  loadActivePrCampaign,
+  loadPrCampaigns,
+  loadPrEvidenceRows,
+  savePrCampaign,
+  savePrEvidenceRow,
+  toPrEvidenceRowFromSessionItem,
+  type PrCampaign,
+  type PrEvidenceRow
+} from "../src/state/pr-evidence-storage";
 import { mergeOneLinerSettings } from "../src/state/settings-storage";
 import { buildRefreshFailureMessage } from "../src/state/refresh-errors";
 import { createAsyncLock } from "../src/state/snapshot-lock";
@@ -119,6 +141,7 @@ const COMPARE_EVIDENCE_ANNOTATION_CACHE_KEY = "dlens:v1:compare-evidence-annotat
 const COMPARE_JUDGMENT_CACHE_KEY = "dlens:v1:compare-judgment-cache";
 const COMPARE_CACHE_MAX_ENTRIES = 50;
 const productSignalAnalysisInFlight = new Map<string, Promise<ProductSignalAnalysis[]>>();
+const prCriteriaMatchInFlight = new Map<string, Promise<PrEvidenceRow[]>>();
 
 // In-memory hover state per tab — never persisted to storage
 const tabHoverCache = new Map<number, Pick<TabUiState, "hoveredTarget" | "hoveredTargetStrength" | "flashPreview" | "currentPreview">>();
@@ -410,11 +433,13 @@ async function analyzeProductSignalsForSessionUnlocked(
     return [];
   }
 
-  const productContext = await loadProductContext();
+  const productContext = await resolveProductContextForAnalysis({
+    cachedContext: await loadProductContext(),
+    productProfile: global.settings.productProfile,
+    allowMissingPrerequisites: options.allowMissingPrerequisites,
+    compileProductContext: () => compileProductContextIfReady(global)
+  });
   if (!productContext) {
-    if (!options.allowMissingPrerequisites) {
-      throw new Error("ProductContext 尚未編譯。請先在 Settings 匯入並儲存產品文件。");
-    }
     return listProductSignalAnalyses(chrome.storage.local);
   }
 
@@ -532,8 +557,15 @@ async function queueSavedProductSignalItemsForAnalysis(
   return { snapshot, queued };
 }
 
-function queueProductSignalAutoAnalysis(global: ExtensionGlobalState, sessionId: string): void {
+function queueProductSignalAutoAnalysis(tabId: number | null, global: ExtensionGlobalState, sessionId: string): void {
   void analyzeProductSignalsForSession(global, sessionId, { allowMissingPrerequisites: true })
+    .then(async () => {
+      if (tabId == null) {
+        return;
+      }
+      const snapshot = await loadSnapshot(tabId);
+      await saveSnapshot(tabId, snapshot);
+    })
     .catch((error) => {
       console.error("[dlens] product signal auto analysis failed:", error instanceof Error ? error.message : error);
     });
@@ -570,6 +602,102 @@ function providerKeyForRequest(global: ExtensionGlobalState): { provider: "opena
     return { provider: "claude", apiKey: settings.claudeApiKey.trim() };
   }
   return null;
+}
+
+function chunkArray<T>(items: T[], size: number): T[][] {
+  const chunks: T[][] = [];
+  for (let index = 0; index < items.length; index += size) {
+    chunks.push(items.slice(index, index + size));
+  }
+  return chunks;
+}
+
+async function generatePrCriteriaForGlobal(
+  global: ExtensionGlobalState,
+  campaignName: string,
+  briefText: string
+): Promise<PrCampaign["criteria"]> {
+  const providerConfig = providerKeyForRequest(global);
+  if (!providerConfig) {
+    return buildDeterministicPrCriteria(campaignName, briefText);
+  }
+  return generatePrCriteriaSuggestions(providerConfig.provider, providerConfig.apiKey, campaignName, briefText);
+}
+
+async function matchPrCriteriaForCampaign(global: ExtensionGlobalState, campaignId: string): Promise<PrEvidenceRow[]> {
+  const existing = prCriteriaMatchInFlight.get(campaignId);
+  if (existing) {
+    return existing;
+  }
+
+  const promise = (async () => {
+    const campaigns = await loadPrCampaigns(chrome.storage.local, "");
+    const campaign = campaigns.find((entry) => entry.id === campaignId)
+      || (await Promise.all(global.sessions.map((session) => loadPrCampaigns(chrome.storage.local, session.id))))
+        .flat()
+        .find((entry) => entry.id === campaignId)
+      || null;
+    if (!campaign) {
+      throw new Error("PR campaign not found.");
+    }
+    const rows = await loadPrEvidenceRows(chrome.storage.local, campaignId);
+    if (!rows.length) {
+      return rows;
+    }
+    const providerConfig = providerKeyForRequest(global);
+    const now = new Date().toISOString();
+    const nextRows: PrEvidenceRow[] = [];
+    for (const batch of chunkArray(rows, 25)) {
+      const matchesByRowId = providerConfig
+        ? await generatePrCriteriaMatches(providerConfig.provider, providerConfig.apiKey, campaign, batch)
+        : buildDeterministicPrCriteriaMatches(campaign, batch);
+      for (const row of batch) {
+        const nextRow = {
+          ...row,
+          criteriaMatches: matchesByRowId[row.id] || row.criteriaMatches,
+          matchedAt: now
+        };
+        await savePrEvidenceRow(chrome.storage.local, nextRow);
+        nextRows.push(nextRow);
+      }
+    }
+    await savePrCampaign(chrome.storage.local, {
+      ...campaign,
+      lastMatchedAt: now,
+      updatedAt: now
+    });
+    return loadPrEvidenceRows(chrome.storage.local, campaignId);
+  })();
+
+  prCriteriaMatchInFlight.set(campaignId, promise);
+  try {
+    return await promise;
+  } finally {
+    prCriteriaMatchInFlight.delete(campaignId);
+  }
+}
+
+async function generatePrSummaryForCampaign(global: ExtensionGlobalState, campaignId: string): Promise<string> {
+  const campaign = (await Promise.all(global.sessions.map((session) => loadPrCampaigns(chrome.storage.local, session.id))))
+    .flat()
+    .find((entry) => entry.id === campaignId)
+    || null;
+  if (!campaign) {
+    throw new Error("PR campaign not found.");
+  }
+  const rows = await loadPrEvidenceRows(chrome.storage.local, campaignId);
+  const facts = buildPrSummaryFacts(campaign, rows);
+  const fallback = buildDeterministicPrSummary(facts);
+  const providerConfig = providerKeyForRequest(global);
+  if (!providerConfig) {
+    return fallback;
+  }
+  try {
+    return await generatePrSummaryDraft(providerConfig.provider, providerConfig.apiKey, facts);
+  } catch (error) {
+    console.error("[dlens] PR summary AI call failed:", error instanceof Error ? error.message : error);
+    return fallback;
+  }
 }
 
 const getOrGenerateOneLiner = createLlmCallWrapper<
@@ -951,7 +1079,15 @@ async function saveCurrentPreviewToSession(tabId: number): Promise<ExtensionSnap
   }
 
   const saved = saveDescriptorToSession(current.global, session.id, current.tab.currentPreview);
-  await ensureSignalForSavedItem(chrome.storage.local, session, saved.item);
+  if (session.mode === "pr-evidence") {
+    const campaign = await loadActivePrCampaign(chrome.storage.local, session.id);
+    if (!campaign) {
+      throw new Error("Create a PR campaign before collecting evidence.");
+    }
+    await savePrEvidenceRow(chrome.storage.local, toPrEvidenceRowFromSessionItem(campaign.id, saved.item));
+  } else {
+    await ensureSignalForSavedItem(chrome.storage.local, session, saved.item);
+  }
   return saveSnapshot(tabId, {
     global: saved.globalState,
     tab: {
@@ -997,7 +1133,15 @@ async function createSession(tabId: number, name: string, saveCurrentPreview = f
     }
     const saved = saveDescriptorToSession(globalState, session.id, current.tab.currentPreview);
     globalState = saved.globalState;
-    await ensureSignalForSavedItem(chrome.storage.local, session, saved.item);
+    if (session.mode === "pr-evidence") {
+      const campaign = await loadActivePrCampaign(chrome.storage.local, session.id);
+      if (!campaign) {
+        throw new Error("Create a PR campaign before collecting evidence.");
+      }
+      await savePrEvidenceRow(chrome.storage.local, toPrEvidenceRowFromSessionItem(campaign.id, saved.item));
+    } else {
+      await ensureSignalForSavedItem(chrome.storage.local, session, saved.item);
+    }
     activeItemId = saved.item.id;
     popupPage = "library";
     currentMainPage = "library";
@@ -1121,7 +1265,7 @@ async function queueSessionItem(
       }
     });
     if (session.mode === "product") {
-      queueProductSignalAutoAnalysis(nextSnapshot.global, sessionId);
+      queueProductSignalAutoAnalysis(tabId, nextSnapshot.global, sessionId);
     }
 
     return {
@@ -1203,7 +1347,7 @@ async function refreshItem(
       }
     });
     if (session.mode === "product") {
-      queueProductSignalAutoAnalysis(snapshot.global, sessionId);
+      queueProductSignalAutoAnalysis(tabId, snapshot.global, sessionId);
     }
 
     return { snapshot, job, capture };
@@ -1342,7 +1486,7 @@ export default defineBackground(() => {
         await chrome.storage.local.set({ [GLOBAL_STORAGE_KEY]: globalStateCache });
         for (const session of globalStateCache.sessions) {
           if (session.mode === "product") {
-            queueProductSignalAutoAnalysis(globalStateCache, session.id);
+            queueProductSignalAutoAnalysis(null, globalStateCache, session.id);
           }
         }
       });
@@ -1667,6 +1811,74 @@ export default defineBackground(() => {
             } satisfies ExtensionResponse);
             return;
           }
+          case "pr/list-campaigns": {
+            const tabId = await resolveTabId(sender);
+            sendResponse({
+              ok: true,
+              tabId,
+              prCampaigns: await loadPrCampaigns(chrome.storage.local, message.sessionId)
+            } satisfies ExtensionResponse);
+            return;
+          }
+          case "pr/save-campaign": {
+            const tabId = await resolveTabId(sender);
+            const prCampaigns = await savePrCampaign(chrome.storage.local, message.campaign);
+            sendResponse({
+              ok: true,
+              tabId,
+              prCampaigns: prCampaigns.filter((campaign) => campaign.sessionId === message.campaign.sessionId)
+            } satisfies ExtensionResponse);
+            return;
+          }
+          case "pr/list-evidence-rows": {
+            const tabId = await resolveTabId(sender);
+            sendResponse({
+              ok: true,
+              tabId,
+              prEvidenceRows: await loadPrEvidenceRows(chrome.storage.local, message.campaignId)
+            } satisfies ExtensionResponse);
+            return;
+          }
+          case "pr/save-evidence-row": {
+            const tabId = await resolveTabId(sender);
+            await savePrEvidenceRow(chrome.storage.local, message.row);
+            sendResponse({
+              ok: true,
+              tabId,
+              prEvidenceRows: await loadPrEvidenceRows(chrome.storage.local, message.row.campaignId)
+            } satisfies ExtensionResponse);
+            return;
+          }
+          case "pr/generate-criteria": {
+            const tabId = await resolveTabId(sender);
+            const current = await loadSnapshot(tabId);
+            sendResponse({
+              ok: true,
+              tabId,
+              prCriteria: await generatePrCriteriaForGlobal(current.global, message.campaignName, message.briefText)
+            } satisfies ExtensionResponse);
+            return;
+          }
+          case "pr/match-criteria": {
+            const tabId = await resolveTabId(sender);
+            const current = await loadSnapshot(tabId);
+            sendResponse({
+              ok: true,
+              tabId,
+              prEvidenceRows: await matchPrCriteriaForCampaign(current.global, message.campaignId)
+            } satisfies ExtensionResponse);
+            return;
+          }
+          case "pr/generate-summary": {
+            const tabId = await resolveTabId(sender);
+            const current = await loadSnapshot(tabId);
+            sendResponse({
+              ok: true,
+              tabId,
+              prSummary: await generatePrSummaryForCampaign(current.global, message.campaignId)
+            } satisfies ExtensionResponse);
+            return;
+          }
           case "product/list-signal-analyses": {
             const tabId = await resolveTabId(sender);
             const productSignalAnalyses = await listProductSignalAnalyses(chrome.storage.local, message.signalIds);
@@ -1681,6 +1893,12 @@ export default defineBackground(() => {
             const tabId = await resolveTabId(sender);
             const queued = await queueSavedProductSignalItemsForAnalysis(tabId, message.sessionId);
             const current = queued.snapshot;
+            const session = current.global.sessions.find((entry) => entry.id === message.sessionId) || null;
+            const signals = await loadSignals(chrome.storage.local, message.sessionId);
+            const hasDrainableWork = session ? hasDrainableProductSignalItems(session, signals) : false;
+            if (shouldDrainWorkerAfterProductSignalQueue(queued.queued, hasDrainableWork)) {
+              await triggerWorkerDrain(normalizeBaseUrl(current.global.settings.ingestBaseUrl));
+            }
             const productSignalAnalyses = await analyzeProductSignalsForSession(current.global, message.sessionId);
             sendResponse({
               ok: true,

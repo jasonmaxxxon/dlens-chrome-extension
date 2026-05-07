@@ -9,7 +9,8 @@ import {
   PRODUCT_CONTEXT_PROMPT_VERSION,
   PRODUCT_CONTEXT_STORAGE_KEY,
   LEGACY_PRODUCT_CONTEXT_STORAGE_KEY,
-  isProductContextSourceReady
+  isProductContextSourceReady,
+  resolveProductContextForAnalysis
 } from "../src/compare/product-context.ts";
 import type { ProductProfile } from "../src/state/types.ts";
 
@@ -53,6 +54,39 @@ test("isProductContextSourceReady requires both merged text and source file meta
   assert.equal(isProductContextSourceReady(productProfile), true);
   assert.equal(isProductContextSourceReady({ ...productProfile, contextText: "" }), false);
   assert.equal(isProductContextSourceReady({ ...productProfile, contextFiles: [] }), false);
+});
+
+test("resolveProductContextForAnalysis lazily recompiles when cached context was cleared", async () => {
+  let compileCalls = 0;
+  const compiled = parseProductContextCompilerResponse(
+    `{
+      "product_promise": "DLens helps creators turn Threads discussions into product decisions.",
+      "target_audience": "Threads creators",
+      "agent_roles": ["collector", "analyst"],
+      "core_workflows": ["capture", "compare"],
+      "current_capabilities": ["Chrome extension"],
+      "explicit_constraints": ["local-first"],
+      "non_goals": ["native app"],
+      "preferred_tech_direction": "Chrome extension first",
+      "evaluation_criteria": ["small experiment"],
+      "unknowns": ["mobile demand"]
+    }`,
+    productProfile,
+    "2026-04-27T08:00:00.000Z"
+  );
+
+  const resolved = await resolveProductContextForAnalysis({
+    cachedContext: null,
+    productProfile,
+    allowMissingPrerequisites: false,
+    compileProductContext: async () => {
+      compileCalls += 1;
+      return { productContext: compiled, error: null };
+    }
+  });
+
+  assert.equal(compileCalls, 1);
+  assert.equal(resolved?.productPromise, "DLens helps creators turn Threads discussions into product decisions.");
 });
 
 test("ProductContext compiler exposes a strict JSON schema contract", () => {

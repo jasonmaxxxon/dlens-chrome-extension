@@ -1,8 +1,8 @@
 # Current State
 
-## System State As Of 2026-04-27
+## System State As Of 2026-05-07
 
-DLens is now best described as a **desktop-first Threads research and product-signal triage extension**.
+DLens is now best described as a **desktop-first Threads research, product-signal, and PR evidence extension**.
 
 The current product split is:
 
@@ -27,6 +27,15 @@ The current product split is:
 3. Archive / Library mode
    - still works as local saved-post organization plus backend queue/crawl/readiness display
 
+4. PR Evidence mode
+   - new `FolderMode` value: `pr-evidence`
+   - buyer: agency / PR operator
+   - V1 handles already-found / currently-opened Threads posts only
+   - workspace navigation is `PR Evidence · Collect · Settings`
+   - Collect reuses the shared capture shell, creates `PrEvidenceRow`, and does not run AI
+   - the main surface is a compact evidence ledger, not a full spreadsheet
+   - CSV is the primary evidence export; summary is a secondary client-ready Markdown/DOCX audit memo
+
 The verified build in the active Phase B implementation worktree is:
 
 - worktree: `/Users/tung/Desktop/dlens-product-latest`
@@ -35,9 +44,58 @@ The verified build in the active Phase B implementation worktree is:
 - backend physical checkout: `/Users/tung/Desktop/dlens-backend/dlens-ingest-core`
 - old versions and historical worktrees: `/Users/tung/Desktop/dlens-old`
 - verification: `npm run typecheck`, `npx tsx --test tests/*.test.ts tests/*.test.tsx`, and `npm run build`
-- latest full test count in this worktree after ProductSignalAnalyzer + agent task output: `284 pass, 0 fail`
-- live backend smoke: `GET http://127.0.0.1:8000/worker/status` returned `{"status":"idle"}`
+- latest full test count in this worktree after PR Evidence V1 hardening: `361 pass, 0 fail`
+- latest build output was mirrored to `/Users/tung/Desktop/dlens-product-latest/output/chrome-mv3`
+- live backend smoke from the prior product run: `GET http://127.0.0.1:8000/worker/status` returned `{"status":"idle"}`
 - extension manifest name in this worktree is `DLens v3`
+
+## PR Evidence V1 Contract State
+
+PR Evidence mode is implemented as a separate workspace type, not a Product export option.
+
+Core objects:
+
+- `PrCampaign`
+  - storage key: `dlens:v1:pr-campaigns`
+  - scoped by `sessionId`
+  - V1 resolves "active campaign" as one active campaign per PR Evidence session; saving a campaign for the same session updates/replaces that active campaign posture instead of introducing campaign switching UI
+  - exactly six criteria, fixed ids `c1..c6`
+  - labels can be AI-suggested and user-edited, but users cannot add/remove criteria in V1
+  - PDF/txt/md press-release upload fills `briefText`, detects core PR messages, and can auto-generate six criteria
+
+- `PrEvidenceRow`
+  - storage key: `dlens:v1:pr-evidence-rows`
+  - scoped by `campaignId`
+  - created from Collect using the visible post fields DLens already captures
+  - `criteriaMatches` is normalized to six booleans and renders as `✓ / blank`
+  - `expectedEngagement` stays intentionally blank/manual; DLens does not compute true reach or EAV
+
+AI boundaries:
+
+- `pr/generate-criteria` can suggest six criteria labels from the campaign brief; parser accepts common AI response shapes and falls back to deterministic campaign-specific labels instead of `criterion_1..6`.
+- `pr/match-criteria` runs only when the user clicks `Match criteria`; Collect never triggers this.
+- Criteria matching accepts row ids plus `c1..c6` booleans, array match ids, and keyed row maps; AI output is OR'd with deterministic visible-keyword matching.
+- `pr/generate-summary` receives deterministic facts and may rewrite tone, but summary validation rejects invented reach, EAV, all-channel, or unsupported numeric claims.
+- Deterministic fallback exists for criteria labels, criteria matches, and client-ready Markdown summary.
+
+Output boundaries:
+
+- CSV export is V1's primary evidence output.
+- CSV includes UTF-8 BOM and stable columns: campaign metadata, post fields, metrics, expected engagement, and six criteria labels.
+- CSV preview is read-only, capped to header + first 20 rows, and uses placeholder dashes for empty cells so it does not appear as a blank sheet.
+- Summary output is Markdown with `Executive Read`, `Message Pull-Through`, `Interpretation`, `Evidence Highlights`, and `Data Limits`, and can be exported as `.md` or `.docx`.
+- Views are captured from DOM metrics when available and can be inferred from visible text such as `132 views`; if Threads does not expose views, V1 leaves them unavailable rather than estimating reach.
+- The top-level UI is a compact evidence ledger, not an in-app spreadsheet editor.
+
+Explicit V1 non-goals:
+
+- no social listening discovery
+- no duplicate grouping
+- no true reach
+- no EAV
+- no XLSX
+- no detail inspector
+- no in-app editing workflow beyond campaign/criteria labels
 
 ## Product AI Contract State
 
@@ -103,9 +161,9 @@ RAG remains intentionally out of V1. The accepted V1 design is:
 ## Immediate Next Work
 
 1. Backend P0: refine `ThreadReadModel` OP continuation splitting and remove root duplication.
-2. Chrome QA: reload `/Users/tung/Desktop/dlens-product-latest/output/chrome-mv3` and walk product Settings -> Collect -> crawl -> Product insights.
-3. UI cleanup: verify topic mode green theme everywhere, product mode does not show folder concept, and popup top spacing/mode switching stay fixed.
-4. Background split: move product/topic handlers out of `entrypoints/background.ts` before adding digest/watch-mode work.
+2. Chrome QA: reload `/Users/tung/Desktop/dlens-product-latest/output/chrome-mv3` and walk Product Settings -> Collect -> crawl -> Product insights, then PR Evidence campaign setup -> PDF upload -> Generate criteria -> Collect -> Match criteria -> CSV export -> summary MD/DOCX export.
+3. UI cleanup: verify topic mode green theme everywhere, product mode does not show folder concept, PR Evidence keeps the compact ledger grammar, and popup spacing/mode switching stay fixed.
+4. Background split: move product/topic/PR handlers out of `entrypoints/background.ts` before adding digest/watch-mode work.
 5. Phase C later: signal digest / watch mode / recurring intelligence. Do not start there before backend read-model quality is fixed.
 
 ## Previous System State As Of 2026-04-24
@@ -216,13 +274,13 @@ The extension may present backend output more clearly, but it should not fabrica
 ## Open Gaps
 
 - backend ThreadReadModel OP continuation quality is now Product mode P0
-- Chrome QA still needs to walk the v3 Product mode flow in `/Users/tung/Desktop/dlens-product-phase-b-p0/output/chrome-mv3`
+- Chrome QA still needs to walk the v3 Product and PR Evidence flows in `/Users/tung/Desktop/dlens-product-latest/output/chrome-mv3`
 - topic mode theme still needs verification that hover overlays and action buttons are fully green
 - Product mode should not leak folder concept into user-facing workflow
 - compare cluster pairing is still rank-based, not semantic
 - no canonical semantic axis / constellation data exists yet in the backend contract
-- `useInPageCollectorAppState.ts` is still a large popup orchestration hub at 905 lines
-- `background.ts` is still large at 1986 lines and should be split before signal digest / watch mode grows background behavior
+- `useInPageCollectorAppState.ts` is still a large popup orchestration hub at 1041 lines
+- `background.ts` is still large at 2341 lines and should be split before signal digest / watch mode grows background behavior
 - full build/test verification in some local environments may still hit the existing `rolldown` native binding issue in `tests/manifest-config.test.ts`; this is an environment/runtime problem, not product behavior
 
 ## What Not To Revisit

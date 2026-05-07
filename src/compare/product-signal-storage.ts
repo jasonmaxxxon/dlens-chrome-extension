@@ -1,4 +1,9 @@
-import type { ProductAgentTaskSpec, ProductSignalAnalysis, ProductSignalEvidenceNote } from "../state/types.ts";
+import type {
+  ProductAgentTaskSpec,
+  ProductSignalAnalysis,
+  ProductSignalEvidenceGrounding,
+  ProductSignalEvidenceNote
+} from "../state/types.ts";
 
 export const PRODUCT_SIGNAL_ANALYSES_STORAGE_KEY = "dlens:v1:product-signal-analyses";
 
@@ -30,6 +35,10 @@ function readTargetAgent(value: unknown): ProductAgentTaskSpec["targetAgent"] | 
   return value === "codex" || value === "claude" || value === "generic" ? value : null;
 }
 
+function readEvidenceGrounding(value: unknown): ProductSignalEvidenceGrounding | null {
+  return value === "text_grounded" || value === "model_inferred" || value === "insufficient_detail" ? value : null;
+}
+
 function normalizeAgentTaskSpec(value: unknown): ProductAgentTaskSpec | null {
   if (!value || typeof value !== "object" || Array.isArray(value)) {
     return null;
@@ -45,7 +54,7 @@ function normalizeAgentTaskSpec(value: unknown): ProductAgentTaskSpec | null {
   if (!targetAgent || !taskPrompt) {
     return null;
   }
-  const taskTitle = readTrimmedString(raw.taskTitle ?? raw.task_title).slice(0, 24);
+  const taskTitle = readTrimmedString(raw.taskTitle ?? raw.task_title).slice(0, 12);
   return {
     targetAgent,
     taskPrompt,
@@ -67,11 +76,12 @@ function normalizeEvidenceNotes(value: unknown, allowedRefs: Set<string>): Produ
       const ref = readTrimmedString(raw.ref);
       const quoteSummary = readTrimmedString(raw.quoteSummary ?? raw.quote_summary);
       const whyItMatters = readTrimmedString(raw.whyItMatters ?? raw.why_it_matters);
+      const grounding = readEvidenceGrounding(raw.grounding);
       const reusablePattern = readTrimmedString(raw.reusablePattern ?? raw.reusable_pattern).slice(0, 80);
-      const whyItWorks = readTrimmedString(raw.whyItWorks ?? raw.why_it_works).slice(0, 120);
+      const whyItWorks = readTrimmedString(raw.whyItWorks ?? raw.why_it_works).slice(0, 150);
       const copyableTemplate = readTrimmedString(raw.copyableTemplate ?? raw.copyable_template).slice(0, 140);
       const workflowStack = readStringArray(raw.workflowStack ?? raw.workflow_stack).slice(0, 6);
-      const copyRecipeMarkdown = readMarkdownString(raw.copyRecipeMarkdown ?? raw.copy_recipe_markdown).slice(0, 420);
+      const copyRecipeMarkdown = readMarkdownString(raw.copyRecipeMarkdown ?? raw.copy_recipe_markdown).slice(0, 700);
       const tradeoff = readTrimmedString(raw.tradeoff).slice(0, 120);
       if (!ref || !allowedRefs.has(ref) || !quoteSummary || !whyItMatters) {
         return null;
@@ -80,6 +90,7 @@ function normalizeEvidenceNotes(value: unknown, allowedRefs: Set<string>): Produ
         ref,
         quoteSummary,
         whyItMatters,
+        ...(grounding ? { grounding } : {}),
         ...(reusablePattern ? { reusablePattern } : {}),
         ...(whyItWorks ? { whyItWorks } : {}),
         ...(copyableTemplate ? { copyableTemplate } : {}),
@@ -109,7 +120,7 @@ function normalizeProductSignalAnalysis(value: unknown): ProductSignalAnalysis |
   if (!signalId || !signalSubtype || !contentSummary || !whyRelevant || !reason || !productContextHash || !promptVersion || !analyzedAt) {
     return null;
   }
-  if (raw.signalType !== "learning" && raw.signalType !== "competitor" && raw.signalType !== "demand" && raw.signalType !== "technical" && raw.signalType !== "noise") {
+  if (raw.signalType !== "learning" && raw.signalType !== "competitor" && raw.signalType !== "demand" && raw.signalType !== "technical" && raw.signalType !== "marketing" && raw.signalType !== "noise") {
     return null;
   }
   if (raw.contentType !== "content" && raw.contentType !== "discussion_starter" && raw.contentType !== "mixed") {

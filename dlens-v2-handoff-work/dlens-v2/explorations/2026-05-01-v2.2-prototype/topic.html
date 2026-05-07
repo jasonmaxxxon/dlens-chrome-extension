@@ -1,0 +1,670 @@
+<!doctype html>
+<html lang="zh-Hant">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>DLens V2.2 · Topic mode</title>
+<link rel="stylesheet" href="styles.css" />
+<style> body { padding: 24px 0; } </style>
+<script src="https://unpkg.com/react@18.3.1/umd/react.development.js" crossorigin></script>
+<script src="https://unpkg.com/react-dom@18.3.1/umd/react-dom.development.js" crossorigin></script>
+<script src="https://unpkg.com/@babel/standalone@7.24.7/babel.min.js" crossorigin></script>
+</head>
+<body>
+<div id="root"></div>
+
+<script type="text/babel" data-presets="react">
+const { useState, useMemo, useCallback, useEffect } = React;
+
+/* ════════════ DATA ════════════ */
+
+const TOPICS = [
+  {
+    id: 'disney-jp',
+    headline: 'Disney+ JP 補償爭議：被怒火帶走的不是停權的 3 天，是「沒人解釋」',
+    thesis: '主貼提的 7 天 Premium 補償只是觸媒；真正引發 9.6k 轉推的是「公告長度跟道歉誠意成反比」這個讀法。三個 cluster 各說各話，但爭執點落在透明度而非金額。',
+    sources: 24, clusterCount: 3, sentiment: '87% negative', age: 'peaked 6h ago',
+    bubbles: [
+      {label: 'C1 41%', x: 12, y: 26, w: 46, h: 46, alpha: 1},
+      {label: 'C2 28%', x: 56, y: 12, w: 32, h: 32, alpha: 0.92},
+      {label: 'C3',    x: 80, y: 56, w: 24, h: 24, alpha: 0.78},
+      {label: '',      x: 18, y: 6,  w: 16, h: 16, alpha: 0.6},
+    ],
+    fullThesis: <>
+      主貼提的 7 天 Premium 補償只是觸媒；真正引發 9.6k 轉推的是
+      <span className="ct" data-cluster="thesis">「公告長度跟道歉誠意成反比」</span>
+      這個讀法。三個 cluster 各說各話 —
+      <span className="ct" data-cluster="c1">追數派</span> 追問補償透明度、
+      <span className="ct" data-cluster="c2">設計派</span> 在嘲諷公告版式、
+      <span className="ct" data-cluster="c3">節制派</span> 提醒大家別小題大作 —
+      但爭執點落在透明度而非金額。
+    </>,
+    clusters: [
+      {
+        id: 'c1', code: 'C1', pct: '41%',
+        nickname: '追數派', formal: '補償透明度追問',
+        x: 36, y: 46, size: 64,
+        sourcesN: 10,
+        stance: '這群人的不是反 Disney+，是反「不算清楚」。語氣偏理性、會引用其他 streaming 服務的補償標準作對照。常見句式是「至少給個試算」。',
+        keyTerms: [{term:'算清楚', n:7}, {term:'至少', n:5}, {term:'看不起', n:4}],
+        evidence: [
+          { id: 'e1', author: '@sumasho_jp', cluster: '追數派', quote: '7 天 Premium 等於多少錢？330 日圓還是 660？沒寫清楚就是看不起客人 — 不是 7 天 Premium 太少。', meta: '312 RT · 1.4k like' },
+          { id: 'e2', author: '@reviewer_kanto', cluster: '追數派', quote: '其他 streaming 服務出包至少給 1 個月免費。這個 7 天像是抽一張刮刮樂。', meta: '87 RT' },
+          { id: 'e3', author: '@yumi_films', cluster: '追數派', quote: '我不是要錢，我要他們算給我看 — 為什麼是 7 天，不是 14 天，不是 30 天。', meta: '156 RT' },
+        ],
+      },
+      {
+        id: 'c2', code: 'C2', pct: '28%',
+        nickname: '設計派', formal: '公告版式嘲諷',
+        x: 100, y: 102, size: 48,
+        sourcesN: 7,
+        stance: '在嘲諷公告本身的字體 / 排版 / 文長。這群人通常是 designer 或廣告業，重點不是補償，是「這份公告看起來像實習生 24h 趕出來」。',
+        keyTerms: [{term:'公告', n:6}, {term:'實習生', n:3}, {term:'品牌', n:5}],
+        evidence: [
+          { id: 'e4', author: '@uxhitomi', cluster: '設計派', quote: '公告版式像實習生 24h 趕出來。Disney 連自己美學都顧不好。', meta: '178 RT · 890 like' },
+          { id: 'e5', author: '@type_fan', cluster: '設計派', quote: '1842 字的道歉公告 — 比《獅子王》結局字幕還長。', meta: '92 RT' },
+        ],
+      },
+      {
+        id: 'c3', code: 'C3', pct: '19%',
+        nickname: '節制派', formal: '小題大作勸告',
+        x: 46, y: 142, size: 38,
+        sourcesN: 5,
+        stance: '少數派，提醒大家「這只是 streaming，不是醫療」。常被攻擊但語氣相對冷靜。',
+        keyTerms: [{term:'冷靜', n:4}, {term:'只是', n:3}],
+        evidence: [
+          { id: 'e6', author: '@calm_takeshi', cluster: '節制派', quote: '這只是 streaming，不是醫療。冷靜一點。', meta: '24 RT' },
+        ],
+      },
+    ],
+  },
+  {
+    id: 'mac-mini-remote',
+    headline: '蘋果春季發表會的「Mac mini 變遙控器」笑話從哪來',
+    thesis: '早期玩笑來自 r/apple 的單一 thread，但 24 小時後已變成記者引用的 trope。本 topic 追蹤這條 trope 從 8 條原貼蔓延到 132 個轉用節點的軌跡。',
+    sources: 18, clusterCount: 4, sentiment: '56% playful', age: 'still spreading',
+    bubbles: [
+      {label: 'C1 35%', x: 14, y: 28, w: 44, h: 44, alpha: 1},
+      {label: 'C2 24%', x: 58, y: 14, w: 30, h: 30, alpha: 0.92},
+      {label: 'C3',    x: 82, y: 58, w: 24, h: 24, alpha: 0.78},
+      {label: '',      x: 22, y: 8,  w: 14, h: 14, alpha: 0.6},
+    ],
+  },
+  {
+    id: 'notion-pricing',
+    headline: 'Notion AI 月費漲價：「我付的是 AI 還是付給 Notion 不要殺掉舊功能」',
+    thesis: '兩個 cluster 互相指責，但都同意一件事 — 漲價公告寫得像 PM 寫，不像 founder 寫。這個 meta-觀察比漲價本身更有 PR 價值。',
+    sources: 31, clusterCount: 2, sentiment: '72% critical', age: 'peaked 2d ago',
+    bubbles: [
+      {label: 'C1 52%', x: 10, y: 24, w: 50, h: 50, alpha: 1},
+      {label: 'C2 36%', x: 60, y: 14, w: 36, h: 36, alpha: 0.92},
+    ],
+  },
+];
+
+const PAIR_INSIGHTS = [
+  {
+    id: 'pi-1',
+    title: '兩個 cluster 在罵的不是同一件事 — 一個客服，一個 BX',
+    metaLine: '追數派 (@sumasho_jp) · 設計派 (@uxhitomi) · conf 0.81',
+    body: '追數派要的是試算與透明度；設計派罵的是公告版式毀品牌。對 Disney 是兩個問題、兩個 owner。',
+  },
+  {
+    id: 'pi-2',
+    title: '節制派的勸告反而強化了追數派的論點',
+    metaLine: '節制派 (@calm_takeshi) · 追數派 (@yumi_films) · conf 0.74',
+    body: '「冷靜一點，這只是 streaming」收到 4 倍反向引用，每次都被引用人加上「重點不是錢」反駁。Lurker 看到的是「節制派也說不過去」 — 觀感變糟。',
+  },
+];
+
+/* ════════════ APP ════════════ */
+
+function App() {
+  const [page, setPage] = useState('topics');     // collect|topics|topicDetail|cluster|sources|pairResult|casebook|settings
+  const [activeTopic, setActiveTopic] = useState('disney-jp');
+  const [activeClusterId, setActiveClusterId] = useState('c1');
+  const [pairSlots, setPairSlots] = useState([null, null]);   // evidence ids
+  const [savedPairInsights, setSavedPairInsights] = useState([...PAIR_INSIGHTS]);
+  const [collectUrl, setCollectUrl] = useState('https://twitter.com/i/status/1842018');
+  const [collectShown, setCollectShown] = useState(true);
+  const [activeWs, setActiveWs] = useState('topic');
+  const [toast, setToast] = useState(null);
+
+  useEffect(() => {
+    if (!toast) return;
+    const t = setTimeout(() => setToast(null), 1800);
+    return () => clearTimeout(t);
+  }, [toast]);
+  const showToast = (m) => setToast(m);
+
+  const topic = useMemo(() => TOPICS.find(t => t.id === activeTopic) || TOPICS[0], [activeTopic]);
+  const cluster = useMemo(() => (topic.clusters || []).find(c => c.id === activeClusterId), [topic, activeClusterId]);
+
+  const allEvidence = useMemo(() => {
+    const out = [];
+    (topic.clusters || []).forEach(c => c.evidence.forEach(e => out.push({...e, clusterId: c.id, clusterCode: c.code})));
+    return out;
+  }, [topic]);
+
+  const slotEvidence = (id) => allEvidence.find(e => e.id === id);
+
+  const addToPair = useCallback((eid) => {
+    setPairSlots(prev => {
+      if (prev.includes(eid)) return prev;
+      if (!prev[0]) return [eid, prev[1]];
+      if (!prev[1]) return [prev[0], eid];
+      return [prev[1], eid]; // shift
+    });
+    showToast('加入 Pair Lens slot');
+  }, []);
+  const clearSlot = (idx) => setPairSlots(prev => prev.map((v, i) => i === idx ? null : v));
+
+  const Rail = ({ active }) => (
+    <aside className="rail">
+      <div>
+        <div className="brand">DLens<span className="dot"/></div>
+        <div className="ws-label"><span className="mode-tag">Topic</span><br/>workspace</div>
+      </div>
+      <nav className="nav">
+        <button className={'nav-item' + (active === 'collect' ? ' active' : '')} onClick={() => setPage('collect')}>Collect</button>
+        <button className={'nav-item' + (['topics','topicDetail','cluster','sources','pairResult'].includes(active) ? ' active' : '')} onClick={() => setPage('topics')}>初步整理</button>
+        <button className={'nav-item' + (active === 'casebook' ? ' active' : '')} onClick={() => setPage('casebook')}>Casebook</button>
+        <button className={'nav-item' + (active === 'settings' ? ' active' : '')} onClick={() => setPage('settings')}>Settings</button>
+      </nav>
+      <div className="rail-foot">
+        <div className="key">topics</div>
+        <div>{TOPICS.length} active<br/><span style={{opacity:0.7}}>2 still updating</span></div>
+      </div>
+    </aside>
+  );
+
+  const Collect = () => (
+    <section className="content">
+      <header className="page-head">
+        <div className="breadcrumb">DLens · <b>Collect</b></div>
+        <div className="page-title-row">
+          <h2 className="page-title">收一場討論</h2>
+          <div className="meta">本週 38 則<br/>分屬 6 個 topic</div>
+        </div>
+        <p className="page-subtitle">在這裡你不是收「post」，你在收「群體反應的某個切片」。預分析會嘗試把它指認到一個既有 topic，或建議開一個新 topic。</p>
+      </header>
+
+      <div className="collect-drop">
+        <p className="big">把這場討論收下來</p>
+        <p className="sub">支援 X / Threads / 巴哈 / Dcard / PTT / Reddit / 新聞留言</p>
+        <div className="or">— or —</div>
+        <div className="url-input-row">
+          <input type="text" value={collectUrl} onChange={e => { setCollectUrl(e.target.value); setCollectShown(true); }} />
+          <button className="action primary" onClick={() => { setCollectShown(true); showToast('開始預分析…'); }}>分析</button>
+        </div>
+      </div>
+
+      {collectShown && (
+        <div className="collect-preview">
+          <p className="ttl">「補償只給 7 天 Premium，那是看不起客人。」</p>
+          <div className="src">twitter.com · 1.2k replies · 18h ago · @disney_plus_jp 主貼</div>
+          <div className="pre-row"><span className="lbl">建議歸入 topic</span><span className="val">Disney+ JP 補償爭議<span className="guess">已存在 · 24 sources</span></span></div>
+          <div className="pre-row"><span className="lbl">主要反應 cluster</span><span className="val">追數派<span className="guess">→ C1 · 補償透明度追問 · 41%</span></span></div>
+          <div className="pre-row"><span className="lbl">證據可得性</span><span className="val">高 — 主貼下有 7 條 quoted tweet 各帶論點<span className="guess">22 quotables</span></span></div>
+          <div className="actions" style={{marginTop: 12}}>
+            <button className="action primary" onClick={() => { showToast('已收進 Disney+ 補償爭議'); setActiveTopic('disney-jp'); setPage('topicDetail'); }}>收進 Disney+ 補償爭議</button>
+            <button className="action ghost">開一個新 topic</button>
+            <button className="action ghost" onClick={() => setCollectShown(false)}>忽略</button>
+          </div>
+        </div>
+      )}
+    </section>
+  );
+
+  const Topics = () => (
+    <section className="content">
+      <header className="page-head">
+        <div className="breadcrumb">DLens · <b>初步整理</b></div>
+        <div className="page-title-row">
+          <h2 className="page-title">本週 {TOPICS.length} 個討論</h2>
+          <div className="meta">週四 · 2026-04-30</div>
+        </div>
+        <p className="page-subtitle">每一則像一條 case 開頭。讀像翻雜誌 — 先有標題與一行 thesis，再決定要不要點開看 cluster。</p>
+      </header>
+
+      <div className="stack">
+        {TOPICS.map(t => (
+          <article key={t.id} className="card topic-card" onClick={() => { setActiveTopic(t.id); setPage('topicDetail'); }}>
+            <div>
+              <h3 className="topic-headline">{t.headline}</h3>
+              <p className="topic-thesis">{t.thesis}</p>
+              <div className="topic-meta">
+                <span><b>{t.sources}</b> sources</span>
+                <span><b>{t.clusterCount}</b> clusters</span>
+                <span><b>{t.sentiment}</b></span>
+                <span>{t.age}</span>
+              </div>
+            </div>
+            <div className="bubble-preview">
+              {t.bubbles.map((b, i) => (
+                <div key={i} className="bubble" style={{
+                  left: b.x, top: b.y, width: b.w, height: b.h, opacity: b.alpha,
+                  background: i === 0 ? 'color-mix(in oklab, var(--mode), white 70%)' : undefined,
+                }}>{b.label}</div>
+              ))}
+            </div>
+          </article>
+        ))}
+      </div>
+    </section>
+  );
+
+  const TopicDetail = () => (
+    <section className="content">
+      <header className="page-head">
+        <div className="breadcrumb">
+          <button className="crumb-link" onClick={() => setPage('topics')}>初步整理</button> · <b>{topic.headline.split('：')[0]}</b>
+        </div>
+        <div className="page-title-row">
+          <h2 className="page-title" style={{fontSize: 24}}>{topic.headline.split('：')[1] || topic.headline}</h2>
+          <div className="meta">{topic.sources} sources<br/>{topic.clusterCount} clusters</div>
+        </div>
+      </header>
+
+      {topic.fullThesis && (
+        <div className="topic-thesis-card">
+          <p className="lede" onClick={(e) => {
+            const c = e.target.dataset?.cluster;
+            if (c && c !== 'thesis') { setActiveClusterId(c); setPage('cluster'); }
+          }}>{topic.fullThesis}</p>
+        </div>
+      )}
+
+      {topic.clusters ? (
+        <div className="detail-grid">
+          <div className="cluster-map">
+            {topic.clusters.map(c => (
+              <div key={c.id}
+                   className={'cluster-point' + (c.id === activeClusterId ? ' active' : '')}
+                   style={{left: c.x, top: c.y, width: c.size, height: c.size}}
+                   onClick={() => { setActiveClusterId(c.id); setPage('cluster'); }}>
+                {c.code}
+              </div>
+            ))}
+          </div>
+
+          <div className="cluster-list">
+            {topic.clusters.map(c => (
+              <article key={c.id}
+                       className={'cluster-card' + (c.id === activeClusterId ? ' active' : '')}
+                       onClick={() => { setActiveClusterId(c.id); setPage('cluster'); }}>
+                <div className="cluster-label">
+                  <div>
+                    <h4 className="cluster-name">{c.nickname}</h4>
+                    <div className="cluster-formal">{c.formal} · <span className="code">{c.code}</span> · <span className="pct">{c.pct}</span></div>
+                  </div>
+                  <span className="tag" style={{borderColor: 'rgba(63,90,59,0.4)', color: 'var(--topic)'}}>{c.sourcesN} sources</span>
+                </div>
+                <p className="stance">{c.stance}</p>
+                {c.evidence[0] && (
+                  <blockquote className="quote">{c.evidence[0].quote}<span className="src">— {c.evidence[0].author}</span></blockquote>
+                )}
+              </article>
+            ))}
+          </div>
+        </div>
+      ) : (
+        <div className="footer-note">這個 topic 的 cluster 結構還在計算中。再等等。</div>
+      )}
+
+      <div className="actions" style={{marginTop: 14}}>
+        <button className="action ghost" onClick={() => setPage('sources')}>來源列表（挑 Pair Lens）</button>
+      </div>
+
+      <div className="pair-tray">
+        <div className="slots">
+          <PairSlot idx={0} />
+          <span className="vs">vs.</span>
+          <PairSlot idx={1} />
+        </div>
+        <div className="actions">
+          <button className={'action ' + (pairSlots[0] && pairSlots[1] ? 'primary' : 'future')}
+                  disabled={!(pairSlots[0] && pairSlots[1])}
+                  onClick={() => setPage('pairResult')}>
+            Pair Lens →{!(pairSlots[0] && pairSlots[1]) && <span className="ph-badge">need 2</span>}
+          </button>
+        </div>
+      </div>
+    </section>
+  );
+
+  const PairSlot = ({ idx }) => {
+    const eid = pairSlots[idx];
+    const e = eid ? slotEvidence(eid) : null;
+    if (!e) return <div className="pair-slot empty">+ 加入第{idx === 0 ? '一' : '二'}篇</div>;
+    return (
+      <div className="pair-slot">
+        <span className="h">{e.author} · {e.cluster}</span>
+        「{e.quote.length > 28 ? e.quote.slice(0, 28) + '…' : e.quote}」
+        <button className="clear" onClick={() => clearSlot(idx)} aria-label="clear">×</button>
+      </div>
+    );
+  };
+
+  const Cluster = () => {
+    if (!cluster) return null;
+    return (
+      <section className="content">
+        <header className="page-head">
+          <div className="breadcrumb">
+            <button className="crumb-link" onClick={() => setPage('topics')}>初步整理</button> · <button className="crumb-link" onClick={() => setPage('topicDetail')}>{topic.headline.split('：')[0]}</button> · <b>{cluster.nickname} · {cluster.code}</b>
+          </div>
+          <div className="page-title-row">
+            <h2 className="page-title" style={{fontSize: 24}}>{cluster.nickname} — {cluster.formal}</h2>
+            <div className="meta">{cluster.sourcesN} sources · {cluster.pct}<br/>peaked 6h ago</div>
+          </div>
+          <p className="page-subtitle">{cluster.stance}</p>
+        </header>
+
+        <div className="settings-block" style={{background: 'rgba(63,90,59,0.06)', borderColor: 'rgba(63,90,59,0.25)'}}>
+          <div className="h" style={{fontSize: 13}}>這個 cluster 在反應什麼</div>
+          <p style={{margin: 0, fontSize: 13, lineHeight: 1.7, color: 'var(--sub-ink)'}}>
+            最頻繁出現語素 · {cluster.keyTerms.map((t, i) => (
+              <React.Fragment key={t.term}>
+                {i > 0 && ' · '}
+                <b style={{color: 'var(--ink)'}}>「{t.term}」</b>
+                <span style={{fontFamily: 'var(--mono)', fontSize: 10, color: 'var(--soft-ink)'}}>（{t.n}次）</span>
+              </React.Fragment>
+            ))}
+          </p>
+        </div>
+
+        <h4 style={{fontFamily: 'var(--mono)', fontSize: 11, color: 'var(--soft-ink)', textTransform: 'uppercase', letterSpacing: '0.12em', margin: '18px 0 10px'}}>代表 evidence · {cluster.evidence.length} 條</h4>
+
+        <div className="tight-stack">
+          {cluster.evidence.map(e => (
+            <div key={e.id} className="card" style={{padding: '12px 14px'}}>
+              <blockquote className="quote" style={{margin: 0, padding: '8px 12px', fontSize: 13}}>
+                {e.quote}
+                <span className="src">— {e.author} · {e.meta}</span>
+              </blockquote>
+              <div className="actions" style={{marginTop: 8}}>
+                <button className="action ghost">看原 thread</button>
+                <button className={'action ' + (pairSlots.includes(e.id) ? 'ghost' : 'primary')}
+                        disabled={pairSlots.includes(e.id)}
+                        onClick={() => addToPair(e.id)}>
+                  {pairSlots.includes(e.id) ? '已加入對比' : '加入對比'}
+                </button>
+              </div>
+            </div>
+          ))}
+        </div>
+
+        <div className="pair-tray">
+          <div className="slots">
+            <PairSlot idx={0} />
+            <span className="vs">vs.</span>
+            <PairSlot idx={1} />
+          </div>
+          <div className="actions">
+            <button className={'action ' + (pairSlots[0] && pairSlots[1] ? 'primary' : 'future')}
+                    disabled={!(pairSlots[0] && pairSlots[1])}
+                    onClick={() => setPage('pairResult')}>
+              Pair Lens →
+            </button>
+          </div>
+        </div>
+
+        <div className="footer-note">
+          <b>避免過度切碎。</b>當 cluster 內 thread 散到 N&gt;30 條，DLens 不再做進一步 wording 切分 — 因為訊號會被攤平到沒意義。這個 cluster 內 {cluster.sourcesN} 條，留在語素層級剛好。
+        </div>
+      </section>
+    );
+  };
+
+  const Sources = () => (
+    <section className="content">
+      <header className="page-head">
+        <div className="breadcrumb">
+          <button className="crumb-link" onClick={() => setPage('topicDetail')}>{topic.headline.split('：')[0]}</button> · <b>來源列表</b>
+        </div>
+        <div className="page-title-row">
+          <h2 className="page-title" style={{fontSize: 24}}>挑兩篇成對讀</h2>
+          <div className="meta">{topic.sources} sources<br/>{pairSlots.filter(Boolean).length} selected for Pair Lens</div>
+        </div>
+        <p className="page-subtitle">Pair Lens 只在同一個 Topic 內成對。挑兩篇你想對讀的 — 不要再要求你跳出去翻另一個頁面。</p>
+      </header>
+
+      <div className="tight-stack">
+        {allEvidence.map(e => {
+          const sel = pairSlots.includes(e.id);
+          const slotIdx = pairSlots.findIndex(s => s === e.id);
+          return (
+            <div key={e.id}
+                 className={'short-list-card' + (sel ? ' selected' : '')}
+                 style={sel ? {} : {}}
+                 onClick={() => {
+                   if (sel) {
+                     setPairSlots(prev => prev.map(s => s === e.id ? null : s));
+                   } else {
+                     addToPair(e.id);
+                   }
+                 }}>
+              <div className={'checkbox' + (sel ? ' checked' : '')} />
+              <div className="body">
+                <div className="ttl">{e.author} · 「{e.quote}」</div>
+                <div className="meta"><b>{e.cluster}</b> · {e.clusterCode} · {e.meta}</div>
+              </div>
+              <div className="right">{sel ? `slot ${slotIdx + 1}` : 'add'}</div>
+            </div>
+          );
+        })}
+      </div>
+
+      <div className="pair-tray">
+        <div className="slots">
+          <PairSlot idx={0} />
+          <span className="vs">vs.</span>
+          <PairSlot idx={1} />
+        </div>
+        <div className="actions">
+          <button className="action primary"
+                  disabled={!(pairSlots[0] && pairSlots[1])}
+                  onClick={() => setPage('pairResult')}>
+            Pair Lens →
+          </button>
+        </div>
+      </div>
+    </section>
+  );
+
+  const PairResult = () => {
+    const a = pairSlots[0] ? slotEvidence(pairSlots[0]) : null;
+    const b = pairSlots[1] ? slotEvidence(pairSlots[1]) : null;
+    if (!a || !b) {
+      return (
+        <section className="content">
+          <div className="footer-note">需要 2 篇來源才能跑 Pair Lens。回去挑一下：
+            <div style={{marginTop: 8}}>
+              <button className="action primary" onClick={() => setPage('sources')}>挑來源</button>
+              <button className="action ghost" onClick={() => setPage('topicDetail')}>回 Topic Detail</button>
+            </div>
+          </div>
+        </section>
+      );
+    }
+    return (
+      <section className="content">
+        <header className="page-head">
+          <div className="breadcrumb">
+            <button className="crumb-link" onClick={() => setPage('topicDetail')}>{topic.headline.split('：')[0]}</button> · <b>Pair Lens</b>
+          </div>
+          <div className="page-title-row">
+            <h2 className="page-title" style={{fontSize: 24}}>兩個 cluster 在罵的不是同一件事</h2>
+            <div className="meta">conf 0.81<br/>4s ago</div>
+          </div>
+        </header>
+
+        <div className="pair-result">
+          <p className="verdict">
+            {a.cluster}的怒氣指向 <em>「我沒被當成成年人」</em>；
+            {b.cluster}的怒氣指向 <em>「品牌沒被當成品牌」</em>。
+            兩條看起來都在罵公告，但邏輯不同 — 對 Disney 來說一個是客服問題，一個是 BX 問題。
+          </p>
+
+          <div className="pair-cols">
+            <div className="pair-col">
+              <div className="h">{a.cluster} · {a.author}</div>
+              <p className="body">論點是 <b>透明度與算清楚</b>。要的是「給我看試算」 — 即使是不接受的補償，他也想看到算法。隱含主張：消費者有資格被解釋。</p>
+              <div className="src">{a.meta}</div>
+            </div>
+            <div className="pair-col">
+              <div className="h">{b.cluster} · {b.author}</div>
+              <p className="body">論點是 <b>品牌一致性</b>。把 Disney 自己的設計水準當對照組 — 嘲諷公告版式跟 Disney 平常的標準差太多。隱含主張：品牌有義務把不好的事情也包好。</p>
+              <div className="src">{b.meta}</div>
+            </div>
+          </div>
+
+          <div className="settings-block" style={{margin: 0, background: 'var(--paper-2)', borderColor: 'var(--line)'}}>
+            <div className="h" style={{fontSize: 12, fontFamily: 'var(--mono)', textTransform: 'uppercase', letterSpacing: '0.12em', color: 'var(--soft-ink)', marginBottom: 6}}>為什麼選出來對讀</div>
+            <p style={{margin: 0, fontSize: 13, lineHeight: 1.65, color: 'var(--sub-ink)'}}>兩篇都是 cluster 的代表性聲音、互轉率高、語氣強度近似 — 對 PR 來說，這是最值得拿給 stakeholder 看的成對證據。</p>
+          </div>
+
+          <div className="actions" style={{marginTop: 14}}>
+            <button className="action primary" onClick={() => {
+              setSavedPairInsights(prev => [
+                {
+                  id: 'pi-' + Date.now(),
+                  title: `${a.cluster} vs ${b.cluster} — 兩個邏輯不同的反應`,
+                  metaLine: `${a.cluster} (${a.author}) · ${b.cluster} (${b.author}) · conf 0.81`,
+                  body: '兩條看起來都在罵公告，但邏輯不同 — 一個客服問題，一個 BX 問題。',
+                },
+                ...prev,
+              ]);
+              showToast('已存進 Casebook · Pair Insights');
+              setPairSlots([null, null]);
+              setPage('casebook');
+            }}>存成 Pair Insight</button>
+            <button className="action ghost">展開完整 compare</button>
+            <button className="action ghost" style={{marginLeft: 'auto'}} onClick={() => { setPairSlots([null, null]); setPage('sources'); }}>換另一對</button>
+          </div>
+        </div>
+
+        <div className="footer-note">
+          <b>儲存的是 Pair Insight，不是完整 compare。</b>Topic Note 只收這一段短結論；想看完整對讀詳情留在 detail/drawer 裡。
+        </div>
+      </section>
+    );
+  };
+
+  const Casebook = () => (
+    <section className="content">
+      <header className="page-head">
+        <div className="breadcrumb">Casebook · <b>{topic.headline.split('：')[0]}</b> · Case Note</div>
+        <div className="page-title-row">
+          <h2 className="page-title" style={{fontSize: 24}}>{topic.headline.split('：')[0]} · 案例筆記</h2>
+          <div className="meta">started 2026-04-30<br/>{savedPairInsights.length} Pair Insights</div>
+        </div>
+        <p className="page-subtitle">Case Note 不是長文 — 是 thesis + clusters + Pair Insights 的組合，方便週會時直接打開講。</p>
+      </header>
+
+      <div className="topic-thesis-card">
+        <p className="lede" style={{fontSize: 14}}>
+          <b style={{color: 'var(--ink)', fontFamily: 'var(--sans)', fontWeight: 700}}>Thesis ·</b> 真正在發酵的不是「補償夠不夠」，是「我們有沒有被當成成年人解釋」。對 Disney 來說 — 一個是客服問題，一個是品牌一致性問題。處理時兩個 owner 不同。
+        </p>
+      </div>
+
+      <h4 style={{fontFamily: 'var(--mono)', fontSize: 11, color: 'var(--soft-ink)', textTransform: 'uppercase', letterSpacing: '0.12em', margin: '16px 0 10px'}}>Pair Insights / 成對洞察 · {savedPairInsights.length} 條</h4>
+
+      <div className="stack">
+        {savedPairInsights.map(p => (
+          <article key={p.id} className="card" style={{padding: '14px 16px'}}>
+            <h5 style={{margin: '0 0 6px', fontFamily: 'var(--serif)', fontSize: 16, lineHeight: 1.3, fontWeight: 700}}>{p.title}</h5>
+            <div style={{fontFamily: 'var(--mono)', fontSize: 10, color: 'var(--soft-ink)', letterSpacing: '0.04em', marginBottom: 8}}>{p.metaLine}</div>
+            <p style={{margin: 0, fontSize: 13, lineHeight: 1.6, color: 'var(--sub-ink)'}}>{p.body}</p>
+          </article>
+        ))}
+      </div>
+
+      <div className="actions" style={{marginTop: 18}}>
+        <button className="action primary" onClick={() => showToast('已複製到剪貼簿（mock）')}>匯出 Case Note (.md)</button>
+        <button className="action ghost" onClick={() => setPage('topicDetail')}>繼續加 Pair Insight</button>
+        <button className="action ghost">複製 thesis</button>
+      </div>
+    </section>
+  );
+
+  const Settings = () => (
+    <section className="content">
+      <header className="page-head">
+        <div className="breadcrumb">DLens · <b>Settings</b></div>
+        <div className="page-title-row">
+          <h2 className="page-title" style={{fontSize: 26}}>設定</h2>
+          <div className="meta">v0.6.2 · build 234</div>
+        </div>
+      </header>
+
+      <div className="settings-block">
+        <h3 className="h">Workspace type</h3>
+        <p>切換 workspace 不會搬資料。</p>
+        <div className="ws-switch">
+          {[
+            {k:'product', n:'Product intelligence', d:'把收進來的 post 整理成 Signal Intelligence Cards，批次匯出 Agent Brief。'},
+            {k:'topic',   n:'Topic intelligence',   d:'把收進來的 discussion 整理成 Topic Notes、Cluster Cards、Case Notes。'},
+            {k:'archive', n:'Archive',              d:'安靜地把 source 留下來，不強迫分析、不催促分類。'},
+          ].map(o => (
+            <div key={o.k}
+                 className={'ws-option' + (activeWs === o.k ? ' active' : '')}
+                 onClick={() => { setActiveWs(o.k); showToast(o.k === 'topic' ? '已是 Topic mode' : '切到 ' + o.n + ' → 用對應 .html 開新窗'); }}>
+              <div className="radio"/>
+              <div>
+                <div className={'name ' + o.k}><span className="accent"/>{o.n}</div>
+                <p className="desc">{o.d}</p>
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>
+
+      <div className="settings-block">
+        <h3 className="h">Topic clustering</h3>
+        <p>當一個 topic 內 thread 數量超過 30，DLens 不會繼續做語素切分 — 訊號會攤平到沒意義。可以微調這個 threshold。</p>
+        <div className="field"><label>Cluster fragmentation threshold</label><div className="input-mock">30 sources / topic</div></div>
+        <div className="field"><label>Persona reading <span className="ph-badge">future</span></label><div className="input-mock" style={{opacity: 0.6}}>關閉 — V1 不啟用 persona-card 防止 feature bloat</div></div>
+      </div>
+
+      <div className="settings-block">
+        <h3 className="h">AI provider</h3>
+        <div className="field"><label>Model</label><div className="input-mock">claude-sonnet-4-6 (Anthropic)</div></div>
+        <div className="field"><label>Backend base URL</label><div className="input-mock">https://dlens-api.fly.dev</div></div>
+      </div>
+    </section>
+  );
+
+  let body;
+  switch (page) {
+    case 'collect':     body = <Collect />; break;
+    case 'topics':      body = <Topics />; break;
+    case 'topicDetail': body = <TopicDetail />; break;
+    case 'cluster':     body = <Cluster />; break;
+    case 'sources':     body = <Sources />; break;
+    case 'pairResult':  body = <PairResult />; break;
+    case 'casebook':    body = <Casebook />; break;
+    case 'settings':    body = <Settings />; break;
+    default:            body = <Topics />;
+  }
+
+  return (
+    <div className="app-frame">
+      <div className="frame-cap">
+        <b>Topic mode</b> · {page}
+        <em>forest teal · #3f5a3b · clusters clickable, Pair Lens scoped to one topic</em>
+      </div>
+      <div className="popup topic">
+        <Rail active={page} />
+        {body}
+      </div>
+      {toast && <div className="toast">{toast}</div>}
+    </div>
+  );
+}
+
+ReactDOM.createRoot(document.getElementById('root')).render(<App />);
+</script>
+</body>
+</html>

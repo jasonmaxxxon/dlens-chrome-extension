@@ -24,6 +24,20 @@ import {
   parseProductSignalAnalysisResponse,
   type ProductSignalAnalyzerInput
 } from "./product-signal-analysis.ts";
+import {
+  buildPrCriteriaMatchPrompt,
+  buildDeterministicPrCriteriaMatches,
+  buildPrCriteriaSuggestionPrompt,
+  buildDeterministicPrCriteria,
+  buildPrSummaryPrompt,
+  isDefaultPrCriteria,
+  mergePrCriteriaMatches,
+  normalizePrCriteriaSuggestionResponse,
+  parsePrCriteriaMatchResponse,
+  validatePrSummaryDraft,
+  type PrSummaryFacts
+} from "./pr-evidence.ts";
+import type { PrCampaign, PrCriteriaMatches, PrEvidenceRow } from "../state/pr-evidence-storage.ts";
 import type { JudgmentResult, ProductProfile, ProductSignalAnalysis } from "../state/types.ts";
 
 export const COMPARE_BRIEF_PROMPT_VERSION = "v7";
@@ -379,6 +393,7 @@ export async function generateCompareOneLiner(
       },
       body: JSON.stringify({
         model: OPENAI_COMPARE_MODEL,
+        max_tokens: 120,
         temperature: 0.3,
         messages: [
           {
@@ -637,6 +652,140 @@ export async function generateProductSignalAnalysis(
     throw new Error("Invalid product signal analysis payload");
   }
   return parsed;
+}
+
+async function generateJsonText(
+  provider: "openai" | "claude" | "google",
+  apiKey: string,
+  prompt: string,
+  system: string,
+  maxOutputTokens: number
+): Promise<string> {
+  if (provider === "google") {
+    const response = await fetchWithRetry(
+      "Google",
+      `https://generativelanguage.googleapis.com/v1beta/models/${GOOGLE_COMPARE_MODEL}:generateContent?key=${apiKey}`,
+      {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          systemInstruction: { parts: [{ text: system }] },
+          contents: [{ role: "user", parts: [{ text: prompt }] }],
+          generationConfig: { temperature: 0.2, maxOutputTokens, responseMimeType: "application/json" }
+        })
+      }
+    );
+    if (!response.ok) {
+      throw new Error(`Google ${response.status}: ${await response.text()}`);
+    }
+    return readGoogleContent(await response.json());
+  }
+
+  if (provider === "openai") {
+    const response = await fetchWithRetry("OpenAI", "https://api.openai.com/v1/chat/completions", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${apiKey}`
+      },
+      body: JSON.stringify({
+        model: OPENAI_COMPARE_MODEL,
+        temperature: 0.2,
+        response_format: { type: "json_object" },
+        messages: [
+          { role: "system", content: system },
+          { role: "user", content: prompt }
+        ]
+      })
+    });
+    if (!response.ok) {
+      throw new Error(`OpenAI ${response.status}: ${await response.text()}`);
+    }
+    return readOpenAiContent(await response.json());
+  }
+
+  const response = await fetchWithRetry("Claude", "https://api.anthropic.com/v1/messages", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      "x-api-key": apiKey,
+      "anthropic-version": "2023-06-01"
+    },
+    body: JSON.stringify({
+      model: CLAUDE_COMPARE_MODEL,
+      max_tokens: maxOutputTokens,
+      temperature: 0.2,
+      system,
+      messages: [{ role: "user", content: prompt }]
+    })
+  });
+  if (!response.ok) {
+    throw new Error(`Claude ${response.status}: ${await response.text()}`);
+  }
+  return readClaudeContent(await response.json());
+}
+
+export async function generatePrCriteriaSuggestions(
+  provider: "openai" | "claude" | "google",
+  apiKey: string,
+  campaignName: string,
+  briefText: string
+): Promise<PrCampaign["criteria"]> {
+  const raw = await generateJsonText(
+    provider,
+    apiKey,
+    buildPrCriteriaSuggestionPrompt(campaignName, briefText),
+    "You are a PR reporting assistant. Return JSON only.",
+    700
+  );
+  const criteria = normalizePrCriteriaSuggestionResponse(raw);
+  return isDefaultPrCriteria(criteria) ? buildDeterministicPrCriteria(campaignName, briefText) : criteria;
+}
+
+export async function generatePrCriteriaMatches(
+  provider: "openai" | "claude" | "google",
+  apiKey: string,
+  campaign: PrCampaign,
+  rows: PrEvidenceRow[]
+): Promise<Record<string, PrCriteriaMatches>> {
+  const raw = await generateJsonText(
+    provider,
+    apiKey,
+    buildPrCriteriaMatchPrompt(campaign, rows),
+    "You are a PR evidence matching assistant. Return JSON only.",
+    1600
+  );
+  const rowIds = rows.map((row) => row.id);
+  return mergePrCriteriaMatches(
+    parsePrCriteriaMatchResponse(raw, rowIds),
+    buildDeterministicPrCriteriaMatches(campaign, rows),
+    rowIds
+  );
+}
+
+export async function generatePrSummaryDraft(
+  provider: "openai" | "claude" | "google",
+  apiKey: string,
+  facts: PrSummaryFacts
+): Promise<string> {
+  const raw = await generateJsonText(
+    provider,
+    apiKey,
+    `${buildPrSummaryPrompt(facts)}\n\nReturn JSON: {"summary":"..."}`,
+    "You are a PR audit report writer. Return JSON only.",
+    1800
+  );
+  let summary = "";
+  try {
+    const parsed = JSON.parse(raw);
+    summary = typeof parsed?.summary === "string" ? parsed.summary.trim() : "";
+  } catch {
+    summary = raw.trim();
+  }
+  if (!summary || !validatePrSummaryDraft(summary, facts)) {
+    throw new Error("Invalid PR summary payload");
+  }
+  return summary;
 }
 
 export const providerTestables = {

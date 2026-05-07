@@ -1,0 +1,1177 @@
+<!doctype html>
+<html lang="zh-Hant">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>DLens Mockup | Intelligence Magazine Workbench</title>
+  <!--
+    Huashu Design junior pass notes
+    Assumptions:
+    - This is a hi-fi HTML mockup, not production UI.
+    - Existing DLens UI appearance is intentionally not reused.
+    - Product mode no longer routes collected posts through Inbox; it lands in classification.
+    - Pair Lens is scoped inside Topic Detail only.
+    - Agent prompt generation/export affordances are shown but marked placeholder/future.
+    Reasoning:
+    - The shared direction is "Intelligence Magazine Workbench": editorial reading rhythm plus compact evidence/action affordances.
+    - Three variants use the same information architecture and data, changing density and emphasis only.
+  -->
+  <style>
+    :root {
+      --paper: #f7f2e8;
+      --paper-2: #fbf8f1;
+      --paper-3: #fffdf8;
+      --ink: #1b1a17;
+      --sub-ink: #48443b;
+      --soft-ink: #716c5f;
+      --line: rgba(27, 26, 23, 0.12);
+      --line-strong: rgba(27, 26, 23, 0.2);
+      --product: #234f7a;
+      --topic: #3f5a3b;
+      --oxide: #9b5b28;
+      --rose: #7a2030;
+      --amber: #a16a17;
+      --shadow: 0 18px 45px rgba(27, 26, 23, 0.15), 0 1px 2px rgba(27, 26, 23, 0.08);
+      --card-shadow: 0 12px 28px -22px rgba(27, 26, 23, 0.45), 0 1px 0 rgba(27, 26, 23, 0.04);
+      --serif: "Noto Serif TC", "Songti TC", "Source Han Serif TC", Georgia, serif;
+      --sans: "Noto Sans TC", -apple-system, BlinkMacSystemFont, "SF Pro Text", system-ui, sans-serif;
+      --mono: "SF Mono", "JetBrains Mono", ui-monospace, monospace;
+    }
+
+    * { box-sizing: border-box; }
+
+    body {
+      margin: 0;
+      color: var(--ink);
+      background:
+        radial-gradient(circle at 24px 24px, rgba(27, 26, 23, 0.035) 1px, transparent 1px) 0 0 / 24px 24px,
+        #e8dfcf;
+      font-family: var(--sans);
+      letter-spacing: 0;
+    }
+
+    button {
+      font: inherit;
+      color: inherit;
+    }
+
+    .review-shell {
+      width: min(1180px, calc(100vw - 40px));
+      margin: 28px auto 48px;
+      display: grid;
+      grid-template-columns: 300px 720px;
+      gap: 24px;
+      align-items: start;
+    }
+
+    .review-panel {
+      position: sticky;
+      top: 24px;
+      padding: 18px;
+      border: 1px solid var(--line);
+      background: rgba(251, 248, 241, 0.84);
+      box-shadow: var(--card-shadow);
+    }
+
+    .review-kicker {
+      font-family: var(--mono);
+      font-size: 11px;
+      color: var(--soft-ink);
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+    }
+
+    .review-title {
+      margin: 8px 0 12px;
+      font-family: var(--serif);
+      font-size: 25px;
+      line-height: 1.18;
+      font-weight: 700;
+    }
+
+    .review-note {
+      margin: 0 0 18px;
+      font-size: 13px;
+      line-height: 1.65;
+      color: var(--sub-ink);
+    }
+
+    .control-group {
+      display: grid;
+      gap: 8px;
+      margin-top: 16px;
+    }
+
+    .control-label {
+      font-size: 12px;
+      color: var(--soft-ink);
+      font-weight: 700;
+    }
+
+    .control-button {
+      width: 100%;
+      text-align: left;
+      border: 1px solid var(--line);
+      background: rgba(255, 253, 248, 0.76);
+      padding: 10px 11px;
+      cursor: pointer;
+      transition: border-color 160ms ease, background 160ms ease, transform 160ms ease;
+    }
+
+    .control-button:hover { transform: translateY(-1px); }
+    .control-button[aria-pressed="true"] {
+      border-color: var(--ink);
+      background: var(--paper-3);
+    }
+
+    .status-legend {
+      display: flex;
+      gap: 6px;
+      flex-wrap: wrap;
+      margin-top: 18px;
+    }
+
+    .status-pill,
+    .mini-pill {
+      display: inline-flex;
+      align-items: center;
+      width: fit-content;
+      border: 1px solid var(--line);
+      padding: 4px 7px;
+      font-size: 11px;
+      line-height: 1;
+      background: rgba(255, 253, 248, 0.7);
+      color: var(--soft-ink);
+      white-space: nowrap;
+    }
+
+    .status-current { border-color: rgba(63, 90, 59, 0.35); color: var(--topic); }
+    .status-placeholder { border-color: rgba(161, 106, 23, 0.35); color: var(--amber); }
+    .status-future { border-color: rgba(122, 32, 48, 0.35); color: var(--rose); }
+
+    .popup {
+      width: 720px;
+      min-height: 820px;
+      max-height: 860px;
+      overflow: hidden;
+      background: var(--paper);
+      border: 1px solid rgba(27, 26, 23, 0.18);
+      box-shadow: var(--shadow);
+      display: grid;
+      grid-template-columns: 118px 1fr;
+    }
+
+    .rail {
+      border-right: 1px solid var(--line);
+      background: rgba(238, 229, 211, 0.66);
+      padding: 18px 14px;
+      display: flex;
+      flex-direction: column;
+      gap: 18px;
+    }
+
+    .brand-mark {
+      font-family: var(--serif);
+      font-size: 22px;
+      line-height: 1;
+      font-weight: 700;
+    }
+
+    .workspace-type {
+      margin-top: 5px;
+      font-size: 11px;
+      color: var(--soft-ink);
+      line-height: 1.4;
+    }
+
+    .nav {
+      display: grid;
+      gap: 5px;
+      margin-top: 10px;
+    }
+
+    .nav-item {
+      border: 0;
+      background: transparent;
+      padding: 8px 7px;
+      text-align: left;
+      font-size: 13px;
+      color: var(--soft-ink);
+      cursor: default;
+      border-left: 2px solid transparent;
+    }
+
+    .nav-item.active {
+      color: var(--ink);
+      border-left-color: var(--mode);
+      background: rgba(255, 253, 248, 0.52);
+      font-weight: 700;
+    }
+
+    .rail-foot {
+      margin-top: auto;
+      display: grid;
+      gap: 8px;
+      font-size: 11px;
+      color: var(--soft-ink);
+      line-height: 1.45;
+    }
+
+    .content {
+      overflow-y: auto;
+      max-height: 860px;
+      padding: 22px 24px 28px;
+      background:
+        linear-gradient(90deg, rgba(27, 26, 23, 0.018) 1px, transparent 1px) 0 0 / 44px 44px,
+        var(--paper);
+    }
+
+    .content::-webkit-scrollbar { width: 10px; }
+    .content::-webkit-scrollbar-track { background: rgba(27, 26, 23, 0.04); }
+    .content::-webkit-scrollbar-thumb { background: rgba(27, 26, 23, 0.18); }
+
+    .page-head {
+      display: grid;
+      gap: 9px;
+      margin-bottom: 17px;
+    }
+
+    .breadcrumb {
+      font-family: var(--mono);
+      color: var(--soft-ink);
+      font-size: 11px;
+      letter-spacing: 0.04em;
+    }
+
+    .page-title-row {
+      display: flex;
+      justify-content: space-between;
+      gap: 16px;
+      align-items: end;
+    }
+
+    .page-title {
+      margin: 0;
+      font-family: var(--serif);
+      font-size: 30px;
+      line-height: 1.13;
+      font-weight: 700;
+      max-width: 420px;
+    }
+
+    .page-subtitle {
+      margin: 0;
+      color: var(--sub-ink);
+      font-size: 13px;
+      line-height: 1.65;
+      max-width: 470px;
+    }
+
+    .filters {
+      display: flex;
+      gap: 7px;
+      flex-wrap: wrap;
+      margin: 14px 0 18px;
+    }
+
+    .filter {
+      border: 1px solid var(--line);
+      background: rgba(255, 253, 248, 0.58);
+      padding: 7px 9px;
+      font-size: 12px;
+      color: var(--sub-ink);
+    }
+
+    .filter.active {
+      color: var(--paper-3);
+      background: var(--mode);
+      border-color: var(--mode);
+    }
+
+    .stack { display: grid; gap: 13px; }
+    .tight-stack { display: grid; gap: 9px; }
+
+    .card {
+      background: var(--paper-2);
+      border: 1px solid var(--line);
+      box-shadow: var(--card-shadow);
+    }
+
+    .raised-card {
+      background: var(--paper-3);
+      border: 1px solid var(--line-strong);
+      box-shadow: 0 18px 42px -30px rgba(27, 26, 23, 0.65), 0 1px 0 rgba(27, 26, 23, 0.04);
+    }
+
+    .signal-card { padding: 16px; display: grid; gap: 12px; }
+
+    .card-head {
+      display: flex;
+      justify-content: space-between;
+      gap: 14px;
+      align-items: start;
+    }
+
+    .headline {
+      margin: 0;
+      font-size: 18px;
+      line-height: 1.35;
+      font-weight: 800;
+      text-wrap: pretty;
+    }
+
+    .topic-headline {
+      font-family: var(--serif);
+      font-size: 22px;
+      line-height: 1.22;
+    }
+
+    .meta-row {
+      display: flex;
+      gap: 7px;
+      flex-wrap: wrap;
+      align-items: center;
+    }
+
+    .tag {
+      display: inline-flex;
+      align-items: center;
+      border: 1px solid var(--line);
+      color: var(--soft-ink);
+      background: rgba(247, 242, 232, 0.66);
+      padding: 4px 7px;
+      font-size: 11px;
+      line-height: 1;
+    }
+
+    .tag.strong {
+      color: var(--mode);
+      border-color: color-mix(in oklab, var(--mode), transparent 64%);
+      background: color-mix(in oklab, var(--mode), transparent 91%);
+      font-weight: 700;
+    }
+
+    .insight {
+      color: var(--sub-ink);
+      font-size: 14px;
+      line-height: 1.72;
+      margin: 0;
+      text-wrap: pretty;
+    }
+
+    .quote {
+      position: relative;
+      margin: 0;
+      padding: 12px 13px 12px 17px;
+      background: rgba(238, 229, 211, 0.45);
+      border-left: 3px solid var(--mode);
+      color: var(--sub-ink);
+      font-family: var(--serif);
+      font-size: 14px;
+      line-height: 1.72;
+    }
+
+    .quote::before {
+      content: "";
+      position: absolute;
+      top: 0;
+      right: 0;
+      width: 48px;
+      height: 100%;
+      background: linear-gradient(90deg, transparent, rgba(251, 248, 241, 0.9));
+      pointer-events: none;
+    }
+
+    .actions {
+      display: flex;
+      gap: 8px;
+      flex-wrap: wrap;
+      align-items: center;
+    }
+
+    .action {
+      border: 1px solid var(--line-strong);
+      background: var(--paper-3);
+      padding: 8px 10px;
+      font-size: 12px;
+      font-weight: 700;
+    }
+
+    .action.primary {
+      background: var(--mode);
+      color: var(--paper-3);
+      border-color: var(--mode);
+    }
+
+    .short-list-card {
+      padding: 13px 14px;
+      display: grid;
+      grid-template-columns: 18px 1fr;
+      gap: 10px;
+      align-items: start;
+    }
+
+    .checkbox {
+      width: 16px;
+      height: 16px;
+      border: 1.5px solid var(--line-strong);
+      background: var(--paper-3);
+      margin-top: 3px;
+    }
+
+    .checkbox.checked {
+      background: var(--mode);
+      border-color: var(--mode);
+      box-shadow: inset 0 0 0 4px var(--paper-3);
+    }
+
+    .export-bar {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 10px;
+      padding: 12px;
+      margin-bottom: 14px;
+      background: rgba(35, 79, 122, 0.08);
+      border: 1px solid rgba(35, 79, 122, 0.18);
+    }
+
+    .export-option {
+      background: rgba(255, 253, 248, 0.75);
+      border: 1px solid rgba(27, 26, 23, 0.12);
+      padding: 10px;
+      min-height: 86px;
+    }
+
+    .option-title { font-weight: 800; font-size: 13px; margin-bottom: 5px; }
+    .option-copy { margin: 0; color: var(--sub-ink); font-size: 12px; line-height: 1.55; }
+
+    .tabs {
+      display: flex;
+      gap: 8px;
+      margin: 11px 0 17px;
+      border-bottom: 1px solid var(--line);
+    }
+
+    .tab {
+      border: 0;
+      background: transparent;
+      padding: 0 0 10px;
+      font-size: 13px;
+      color: var(--soft-ink);
+      border-bottom: 2px solid transparent;
+    }
+
+    .tab.active {
+      color: var(--ink);
+      border-bottom-color: var(--mode);
+      font-weight: 800;
+    }
+
+    .topic-card {
+      padding: 15px;
+      display: grid;
+      grid-template-columns: 1fr 112px;
+      gap: 14px;
+      align-items: start;
+    }
+
+    .bubble-preview {
+      position: relative;
+      height: 86px;
+      border: 1px solid rgba(27, 26, 23, 0.1);
+      background: rgba(238, 229, 211, 0.35);
+      overflow: hidden;
+    }
+
+    .bubble {
+      position: absolute;
+      border: 1px solid rgba(27, 26, 23, 0.14);
+      background: color-mix(in oklab, var(--mode), white 78%);
+      color: var(--ink);
+      display: grid;
+      place-items: center;
+      font-size: 10px;
+      font-family: var(--mono);
+      border-radius: 999px;
+    }
+
+    .bubble.b1 { width: 42px; height: 42px; left: 13px; top: 25px; }
+    .bubble.b2 { width: 31px; height: 31px; left: 61px; top: 13px; opacity: 0.86; }
+    .bubble.b3 { width: 24px; height: 24px; left: 74px; top: 53px; opacity: 0.72; }
+    .bubble.b4 { width: 18px; height: 18px; left: 24px; top: 9px; opacity: 0.6; }
+
+    .detail-grid {
+      display: grid;
+      grid-template-columns: 178px 1fr;
+      gap: 14px;
+      align-items: start;
+    }
+
+    .cluster-map {
+      height: 210px;
+      position: sticky;
+      top: 0;
+      border: 1px solid var(--line);
+      background:
+        radial-gradient(circle at 35% 35%, rgba(63, 90, 59, 0.16), transparent 36%),
+        radial-gradient(circle at 67% 62%, rgba(161, 106, 23, 0.14), transparent 34%),
+        rgba(251, 248, 241, 0.72);
+    }
+
+    .cluster-point {
+      position: absolute;
+      border-radius: 999px;
+      background: var(--paper-3);
+      border: 1px solid var(--line-strong);
+      box-shadow: 0 8px 24px -18px rgba(27, 26, 23, 0.8);
+      display: grid;
+      place-items: center;
+      color: var(--mode);
+      font-weight: 800;
+      font-size: 12px;
+    }
+
+    .cluster-point.c1 { width: 64px; height: 64px; left: 35px; top: 50px; border-color: var(--mode); }
+    .cluster-point.c2 { width: 48px; height: 48px; left: 97px; top: 103px; }
+    .cluster-point.c3 { width: 38px; height: 38px; left: 44px; top: 137px; }
+
+    .topic-thesis {
+      padding: 15px;
+      background: var(--paper-3);
+      border: 1px solid var(--line-strong);
+    }
+
+    .cluster-token {
+      color: var(--mode);
+      border-bottom: 1px solid color-mix(in oklab, var(--mode), transparent 55%);
+      font-weight: 800;
+      cursor: pointer;
+    }
+
+    .cluster-card {
+      padding: 13px;
+      display: grid;
+      gap: 9px;
+    }
+
+    .cluster-label {
+      display: flex;
+      justify-content: space-between;
+      gap: 12px;
+      align-items: start;
+    }
+
+    .cluster-nickname {
+      margin: 0;
+      font-family: var(--serif);
+      font-size: 22px;
+      line-height: 1.12;
+    }
+
+    .cluster-formal {
+      font-size: 12px;
+      color: var(--soft-ink);
+      margin-top: 3px;
+    }
+
+    .pair-tray {
+      position: sticky;
+      bottom: 0;
+      z-index: 5;
+      margin-top: 14px;
+      padding: 11px;
+      border: 1px solid rgba(27, 26, 23, 0.18);
+      background: rgba(255, 253, 248, 0.94);
+      box-shadow: 0 -12px 28px -24px rgba(27, 26, 23, 0.6);
+      display: flex;
+      gap: 10px;
+      align-items: center;
+      justify-content: space-between;
+    }
+
+    .pair-lens {
+      padding: 15px;
+      border: 1px solid rgba(27, 26, 23, 0.18);
+      background: linear-gradient(180deg, rgba(255, 253, 248, 0.96), rgba(247, 242, 232, 0.82));
+    }
+
+    .pair-columns {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 10px;
+      margin-top: 11px;
+    }
+
+    .hierarchy {
+      margin-top: 18px;
+      padding: 12px;
+      border: 1px dashed rgba(27, 26, 23, 0.2);
+      background: rgba(255, 253, 248, 0.48);
+    }
+
+    .hierarchy-title {
+      font-size: 12px;
+      font-weight: 800;
+      margin-bottom: 8px;
+    }
+
+    .hierarchy ol {
+      margin: 0;
+      padding-left: 19px;
+      color: var(--sub-ink);
+      font-size: 12px;
+      line-height: 1.7;
+    }
+
+    .variant-editorial .signal-card:first-child {
+      padding-top: 20px;
+      border-top: 5px solid var(--mode);
+    }
+
+    .variant-editorial .headline {
+      font-family: var(--serif);
+      font-size: 23px;
+      line-height: 1.2;
+      font-weight: 700;
+    }
+
+    .variant-editorial .quote {
+      font-size: 15px;
+      background: rgba(255, 253, 248, 0.72);
+    }
+
+    .variant-intelligence .content {
+      background:
+        linear-gradient(90deg, rgba(35, 79, 122, 0.05) 1px, transparent 1px) 0 0 / 36px 36px,
+        var(--paper);
+    }
+
+    .variant-intelligence .card,
+    .variant-intelligence .raised-card {
+      border-color: rgba(35, 79, 122, 0.2);
+    }
+
+    .variant-intelligence .headline {
+      font-size: 17px;
+      font-family: var(--sans);
+      font-weight: 850;
+    }
+
+    .variant-intelligence .signal-card {
+      grid-template-columns: 1fr;
+      border-left: 4px solid var(--mode);
+    }
+
+    .variant-intelligence .quote {
+      font-family: var(--sans);
+      font-size: 13px;
+    }
+
+    .variant-compact .popup {
+      grid-template-columns: 92px 1fr;
+    }
+
+    .variant-compact .rail { padding: 15px 10px; }
+    .variant-compact .content { padding: 18px 18px 24px; }
+    .variant-compact .page-title { font-size: 24px; }
+    .variant-compact .signal-card { padding: 12px; gap: 9px; }
+    .variant-compact .headline { font-size: 15px; }
+    .variant-compact .insight,
+    .variant-compact .quote { font-size: 12px; line-height: 1.58; }
+    .variant-compact .topic-card { grid-template-columns: 1fr 90px; padding: 12px; }
+    .variant-compact .detail-grid { grid-template-columns: 140px 1fr; }
+    .variant-compact .cluster-map { height: 178px; }
+    .variant-compact .export-bar { grid-template-columns: 1fr; }
+
+    @media (max-width: 1080px) {
+      .review-shell {
+        grid-template-columns: 1fr;
+        width: 720px;
+      }
+      .review-panel {
+        position: static;
+      }
+    }
+  </style>
+</head>
+<body>
+  <main class="review-shell" id="app">
+    <aside class="review-panel" aria-label="Mockup controls">
+      <div class="review-kicker">DLens design mockup</div>
+      <h1 class="review-title">Intelligence Magazine Workbench</h1>
+      <p class="review-note">
+        同一產品架構下的三個高保真變體。外層控制只供設計 review；右側固定為 720px in-page extension popup canvas。
+      </p>
+
+      <div class="control-group" id="variantControls">
+        <div class="control-label">變體</div>
+      </div>
+
+      <div class="control-group" id="pageControls">
+        <div class="control-label">頁面</div>
+      </div>
+
+      <div class="status-legend">
+        <span class="status-pill status-current">current</span>
+        <span class="status-pill status-placeholder">placeholder</span>
+        <span class="status-pill status-future">future</span>
+      </div>
+    </aside>
+
+    <section id="canvas"></section>
+  </main>
+
+  <script>
+    const variants = [
+      {
+        id: "editorial",
+        label: "Editorial-heavy",
+        note: "讀感最強；像情報雜誌的剪報台，headline 與 quote 優先。",
+        className: "variant-editorial"
+      },
+      {
+        id: "intelligence",
+        label: "Intelligence-heavy",
+        note: "操作層最明顯；source marker、token、batch tray 比較突出。",
+        className: "variant-intelligence"
+      },
+      {
+        id: "compact",
+        label: "Compact extension-native",
+        note: "最接近 popup 可承載密度；保留雜誌感但減少容器重量。",
+        className: "variant-compact"
+      }
+    ];
+
+    const pages = [
+      { id: "productSort", label: "Product｜分類整理", mode: "product", title: "分類整理", workspace: "DLens · 產品觀察" },
+      { id: "savedSignals", label: "Product｜Saved Signals", mode: "product", title: "Saved", workspace: "DLens · 產品觀察" },
+      { id: "casebookTopics", label: "Topic｜Casebook Topics", mode: "topic", title: "Casebook", workspace: "DLens · 議題追蹤" },
+      { id: "topicDetail", label: "Topic｜Topic Detail", mode: "topic", title: "Topic Detail", workspace: "DLens · 議題追蹤" }
+    ];
+
+    const productSignals = [
+      {
+        headline: "把 recurring crawl 包成每日監測 agent",
+        category: "技術/workflow",
+        verdict: "可試",
+        insight: "討論裡真正可借用的不是 crawler 本身，而是「固定時間收集、比對前一天差異、輸出少量可讀 brief」這條 workflow。",
+        why: "DLens 可以先做成手動 batch export，再觀察用戶是否真的把它貼給 agent 做下一步。",
+        tags: ["recurring crawl", "monitoring", "agent handoff"],
+        quote: "「如果可以每天自動抓一次，再只告訴我今天多了什麼，其實就夠用了。」",
+        status: "current"
+      },
+      {
+        headline: "用 PM 文件生成流程切入非技術團隊",
+        category: "學習",
+        verdict: "保留觀察",
+        insight: "這類需求不是要模型更聰明，而是要把 thread 轉成可修改的 PRD / memo / agent brief。",
+        why: "適合變成 Saved Signals 的 export mode，而不是每張卡預設吐完整 prompt。",
+        tags: ["pm document", "agent brief", "non-technical"],
+        quote: "「PM 其實不想調 prompt，只想把討論整理成一頁決策文件。」",
+        status: "placeholder"
+      },
+      {
+        headline: "Browser automation 仍然需要人工選材邊界",
+        category: "Marketing 參考",
+        verdict: "資料不足",
+        insight: "留言把 browser agent 說成萬能，但缺少明確資料源與錯誤處理，暫時只能作為 framing 參考。",
+        why: "這張卡應該被保存為觀察，不應自動升級成 experiment tracker。",
+        tags: ["browser automation", "boundary", "marketing claim"],
+        quote: "「它可以自己開網頁，但我還是不知道它怎樣判斷哪些內容值得留下。」",
+        status: "current"
+      }
+    ];
+
+    const savedSignals = [
+      {
+        headline: "把 recurring crawl 包成每日監測 agent",
+        meta: "技術/workflow · 可試",
+        ai: "可作為 DLens 的 Agent Brief export 範本，先用手動選取驗證。",
+        quote: "每天自動抓一次，只告訴我今天多了什麼。",
+        source: "Kathy thread · saved Apr 30",
+        checked: true
+      },
+      {
+        headline: "用 PM 文件生成流程切入非技術團隊",
+        meta: "學習 · 保留觀察",
+        ai: "需求指向文件交付物，不是 dashboard 或 task board。",
+        quote: "整理成一頁決策文件，比 prompt 編輯更重要。",
+        source: "AI workflow replies · saved Apr 29",
+        checked: true
+      },
+      {
+        headline: "把噪音 claim 留在原文優先 Brief 裡重判",
+        meta: "噪音 · 資料不足",
+        ai: "適合交給用戶自己的 agent 重新審視，不應升級為產品結論。",
+        quote: "我還是不知道它怎樣判斷哪些內容值得留下。",
+        source: "Browser agent debate · saved Apr 27",
+        checked: false
+      }
+    ];
+
+    const topics = [
+      {
+        title: "航空改期後的補償語言戰",
+        thesis: "討論焦點不是單一事故，而是用戶如何逼問制度、補償與客服責任。",
+        quote: "「不是延誤本身，是通知和補償都像叫你自己吞。」",
+        count: "6 sources · updated today"
+      },
+      {
+        title: "AI agent 被期待替代哪一段白領流程",
+        thesis: "群眾反應集中在 recurring crawl、PM 文件、瀏覽器代辦三種想像，但信任邊界仍然模糊。",
+        quote: "「我願意讓它整理，不代表我願意讓它替我決定。」",
+        count: "11 sources · updated Apr 29"
+      },
+      {
+        title: "香港服務業溝通方式的日常怒氣",
+        thesis: "留言不是純投訴，更多是用幽默重新整理『被迫配合制度』的共同經驗。",
+        quote: "「大家都知道流程，問題是流程永遠不把人當人。」",
+        count: "4 sources · updated Apr 26"
+      }
+    ];
+
+    const clusters = [
+      {
+        nick: "追數派",
+        formal: "補償透明度追問 · C1 · 42%",
+        body: "要求航空公司交代補償標準、通知時間與客服責任，語氣偏理性但壓力很強。",
+        quote: "「補償不是優惠，是你改了我的行程之後應該講清楚的東西。」",
+        tags: ["reaction type: accountability", "tone: controlled anger", "support: 42%"],
+        active: true
+      },
+      {
+        nick: "制度不信任派",
+        formal: "平台與條款不信任 · C2 · 27%",
+        body: "把單次事件連到更大的制度不信任，認為條款永遠偏向平台或公司。",
+        quote: "「每次都說按條款處理，但條款從來不是給乘客看的。」",
+        tags: ["reaction type: structural distrust", "tone: skeptical", "support: 27%"]
+      },
+      {
+        nick: "花生友",
+        formal: "旁觀式嘲諷 · C3 · 18%",
+        body: "用笑話和二次創作降低憤怒門檻，讓議題更易擴散但也稀釋了行動焦點。",
+        quote: "「香港人最準時的是被通知航班不準時。」",
+        tags: ["reaction type: spectator satire", "tone: playful", "support: 18%"]
+      }
+    ];
+
+    let activeVariant = "editorial";
+    let activePage = "productSort";
+
+    function statusLabel(status) {
+      return `<span class="status-pill status-${status}">${status}</span>`;
+    }
+
+    function tags(items, strongFirst = false) {
+      return `<div class="meta-row">${items.map((item, index) => `<span class="tag ${strongFirst && index === 0 ? "strong" : ""}">${item}</span>`).join("")}</div>`;
+    }
+
+    function initControls() {
+      const variantRoot = document.getElementById("variantControls");
+      const pageRoot = document.getElementById("pageControls");
+      variantRoot.innerHTML = `<div class="control-label">變體</div>` + variants.map((variant) => `
+        <button class="control-button" aria-pressed="${activeVariant === variant.id}" data-variant="${variant.id}">
+          <strong>${variant.label}</strong><br>
+          <span style="font-size:12px;color:var(--soft-ink);line-height:1.45">${variant.note}</span>
+        </button>
+      `).join("");
+      pageRoot.innerHTML = `<div class="control-label">頁面</div>` + pages.map((page) => `
+        <button class="control-button" aria-pressed="${activePage === page.id}" data-page="${page.id}">${page.label}</button>
+      `).join("");
+      variantRoot.querySelectorAll("[data-variant]").forEach((button) => {
+        button.addEventListener("click", () => {
+          activeVariant = button.dataset.variant;
+          renderCanvas();
+        });
+      });
+      pageRoot.querySelectorAll("[data-page]").forEach((button) => {
+        button.addEventListener("click", () => {
+          activePage = button.dataset.page;
+          renderCanvas();
+        });
+      });
+    }
+
+    function syncControls() {
+      document.querySelectorAll("[data-variant]").forEach((button) => {
+        button.setAttribute("aria-pressed", String(button.dataset.variant === activeVariant));
+      });
+      document.querySelectorAll("[data-page]").forEach((button) => {
+        button.setAttribute("aria-pressed", String(button.dataset.page === activePage));
+      });
+    }
+
+    function renderShell(page, body) {
+      const nav = page.mode === "product"
+        ? ["Collect", "分類整理", "Saved", "Settings"]
+        : ["Collect", "初步整理", "Casebook", "Settings"];
+      const activeNav = page.id === "productSort" ? "分類整理"
+        : page.id === "savedSignals" ? "Saved"
+        : page.id === "casebookTopics" || page.id === "topicDetail" ? "Casebook"
+        : "Collect";
+      const modeColor = page.mode === "product" ? "var(--product)" : "var(--topic)";
+      return `
+        <div class="popup" style="--mode:${modeColor}">
+          <aside class="rail">
+            <div>
+              <div class="brand-mark">DLens</div>
+              <div class="workspace-type">${page.workspace}</div>
+            </div>
+            <nav class="nav">
+              ${nav.map((item) => `<div class="nav-item ${item === activeNav ? "active" : ""}">${item}</div>`).join("")}
+            </nav>
+            <div class="rail-foot">
+              <div>${page.mode === "product" ? "Workspace type shown quietly. Mode switch lives in Settings." : "Pair Lens stays inside current topic."}</div>
+              ${statusLabel("current")}
+            </div>
+          </aside>
+          <section class="content">${body}</section>
+        </div>
+      `;
+    }
+
+    function renderProductSort() {
+      return `
+        <header class="page-head">
+          <div class="breadcrumb">Product intelligence · collected discussions</div>
+          <div class="page-title-row">
+            <h2 class="page-title">分類整理</h2>
+            ${statusLabel("current")}
+          </div>
+          <p class="page-subtitle">收集後的 post 直接轉成 Signal Intelligence Cards。這裡回答「有沒有可借用的工作流」，不是做任務狀態板。</p>
+        </header>
+        <div class="filters">
+          ${["全部", "可試", "需求", "技術/workflow", "Marketing 參考", "競品", "學習", "噪音", "資料不足"].map((filter, index) => `<button class="filter ${index === 0 ? "active" : ""}">${filter}</button>`).join("")}
+        </div>
+        <section class="stack">
+          ${productSignals.map((signal) => `
+            <article class="signal-card ${signal.status === "current" ? "raised-card" : "card"}">
+              <div class="card-head">
+                <div class="tight-stack">
+                  <h3 class="headline">${signal.headline}</h3>
+                  ${tags([signal.category, signal.verdict, ...signal.tags], true)}
+                </div>
+                ${statusLabel(signal.status)}
+              </div>
+              <p class="insight">${signal.insight}</p>
+              <p class="insight"><strong>Why this matters:</strong> ${signal.why}</p>
+              <blockquote class="quote">${signal.quote}</blockquote>
+              <div class="actions">
+                <button class="action primary">Save card</button>
+                <button class="action">View evidence</button>
+                ${statusLabel("current")}
+              </div>
+            </article>
+          `).join("")}
+        </section>
+        ${renderHierarchy([
+          "Filter rail: one dataset, multiple product filters",
+          "Signal Intelligence Card: action headline before raw quote",
+          "Visible evidence: exactly one representative quote",
+          "Disclosure/detail affordance: evidence and model reasoning",
+          "Save action: saved intelligence object"
+        ])}
+      `;
+    }
+
+    function renderSavedSignals() {
+      return `
+        <header class="page-head">
+          <div class="breadcrumb">Product intelligence · saved objects</div>
+          <div class="page-title-row">
+            <h2 class="page-title">Saved Signals</h2>
+            ${statusLabel("placeholder")}
+          </div>
+          <p class="page-subtitle">短版列表優先，完整 Signal Intelligence Card 只在 detail 打開。Batch export 必須由用戶手動勾選，不預設輸出整個 filter。</p>
+        </header>
+        <section class="export-bar">
+          <div class="export-option">
+            <div class="option-title">原文優先 Brief ${statusLabel("placeholder")}</div>
+            <p class="option-copy">給用戶自己的 agent 重新審視；原文摘錄權重高，DLens 判讀權重低。</p>
+          </div>
+          <div class="export-option">
+            <div class="option-title">精簡決策 Brief ${statusLabel("placeholder")}</div>
+            <p class="option-copy">給 agent 快速提出下一步；headline、category、insight 權重高。</p>
+          </div>
+        </section>
+        <section class="stack">
+          ${savedSignals.map((item) => `
+            <article class="short-list-card card">
+              <div class="checkbox ${item.checked ? "checked" : ""}"></div>
+              <div class="tight-stack">
+                <div class="card-head">
+                  <h3 class="headline" style="font-size:15px">${item.headline}</h3>
+                  ${statusLabel("current")}
+                </div>
+                ${tags([item.meta, "manual checkbox"], true)}
+                <p class="insight">${item.ai}</p>
+                <blockquote class="quote" style="padding-top:9px;padding-bottom:9px">${item.quote}</blockquote>
+                <div class="meta-row">
+                  <span class="tag">${item.source}</span>
+                  <button class="action">Open detail</button>
+                  <button class="action">Single-card prompt ${statusLabel("future")}</button>
+                </div>
+              </div>
+            </article>
+          `).join("")}
+        </section>
+        ${renderHierarchy([
+          "Saved-list card: short actionable headline",
+          "Manual checkbox: export is user-selected",
+          "Export mode selector: original-first vs decision-brief",
+          "Detail route: full Signal Intelligence Card",
+          "Single-card prompt: optional, not the main entry"
+        ])}
+      `;
+    }
+
+    function renderCasebookTopics() {
+      return `
+        <header class="page-head">
+          <div class="breadcrumb">Topic casebook · social signal notes</div>
+          <div class="page-title-row">
+            <h2 class="page-title">Casebook</h2>
+            ${statusLabel("current")}
+          </div>
+          <p class="page-subtitle">Topic mode 先顯示社會觀察條目。它不是產品 action board，而是幫 PR、marketing、記者和研究者讀群體反應。</p>
+        </header>
+        <div class="tabs">
+          <button class="tab active">Topics</button>
+          <button class="tab">Clusters</button>
+        </div>
+        <section class="stack">
+          ${topics.map((topic, index) => `
+            <article class="topic-card ${index === 0 ? "raised-card" : "card"}">
+              <div class="tight-stack">
+                <h3 class="headline topic-headline">${topic.title}</h3>
+                <p class="insight">${topic.thesis}</p>
+                <blockquote class="quote">${topic.quote}</blockquote>
+                <div class="meta-row">
+                  <span class="tag strong">${topic.count}</span>
+                  <button class="action">Open topic</button>
+                </div>
+              </div>
+              <div class="bubble-preview" aria-label="Small cluster bubble preview">
+                <div class="bubble b1">C1</div>
+                <div class="bubble b2">C2</div>
+                <div class="bubble b3">C3</div>
+                <div class="bubble b4">C4</div>
+              </div>
+            </article>
+          `).join("")}
+        </section>
+        ${renderHierarchy([
+          "Casebook tabs: Topics first, Clusters second",
+          "Topic Note card: title and one-line social reading",
+          "Bubble preview: compact distribution hint, not a semantic map",
+          "Representative quote: trust anchor",
+          "Source count / updated time: provenance, not KPI"
+        ])}
+      `;
+    }
+
+    function renderTopicDetail() {
+      return `
+        <header class="page-head">
+          <div class="breadcrumb">Casebook / 航空改期後的補償語言戰</div>
+          <div class="page-title-row">
+            <h2 class="page-title">Topic Detail</h2>
+            ${statusLabel("placeholder")}
+          </div>
+          <p class="page-subtitle">V1 使用列表 + bubble preview。避免完整星座圖，因為目前不應假裝有可靠 semantic distance。</p>
+        </header>
+        <section class="detail-grid">
+          <aside class="cluster-map">
+            <div class="cluster-point c1">C1</div>
+            <div class="cluster-point c2">C2</div>
+            <div class="cluster-point c3">C3</div>
+          </aside>
+          <div class="stack">
+            <article class="topic-thesis">
+              <p class="insight" style="margin:0">
+                這個 topic 主要由 <span class="cluster-token">追數派 C1</span>、<span class="cluster-token">制度不信任派 C2</span>、<span class="cluster-token">花生友 C3</span> 組成。核心不是延誤本身，而是用戶如何追問制度是否把乘客當作有時間成本的人。
+              </p>
+            </article>
+            ${clusters.map((cluster) => `
+              <article class="cluster-card ${cluster.active ? "raised-card" : "card"}">
+                <div class="cluster-label">
+                  <div>
+                    <h3 class="cluster-nickname">${cluster.nick}</h3>
+                    <div class="cluster-formal">${cluster.formal}</div>
+                  </div>
+                  <button class="action">加入對比</button>
+                </div>
+                <p class="insight">${cluster.body}</p>
+                <blockquote class="quote">${cluster.quote}</blockquote>
+                ${tags(cluster.tags, true)}
+              </article>
+            `).join("")}
+            <article class="pair-lens">
+              <div class="card-head">
+                <h3 class="headline" style="margin:0">Pair Lens：兩篇 source 如何塑造同一個 topic 的不同反應</h3>
+                ${statusLabel("future")}
+              </div>
+              <div class="pair-columns">
+                <div class="export-option">
+                  <div class="option-title">Post A framing</div>
+                  <p class="option-copy">放大 C1 追數派，讓補償和通知時間成為主線。</p>
+                </div>
+                <div class="export-option">
+                  <div class="option-title">Post B framing</div>
+                  <p class="option-copy">放大 C3 花生友，讓旁觀嘲諷更容易擴散。</p>
+                </div>
+              </div>
+              <div class="actions" style="margin-top:11px">
+                <button class="action primary">Save to Pair Insights</button>
+                <button class="action">Open full evidence body</button>
+              </div>
+            </article>
+          </div>
+        </section>
+        <div class="pair-tray">
+          <div>
+            <strong>Pair tray</strong>
+            <span style="color:var(--soft-ink);font-size:12px"> · 2 selected in this topic only</span>
+          </div>
+          <button class="action primary">Open Pair Lens</button>
+        </div>
+        ${renderHierarchy([
+          "Cluster bubble preview: distribution and focus only",
+          "Main reading: clickable cluster tokens",
+          "Cluster list: nickname plus formal reaction type",
+          "Representative evidence: quote, source posts, tone, support size",
+          "Pair Lens: topic-scoped compare, saved as short Pair Insight"
+        ])}
+      `;
+    }
+
+    function renderHierarchy(items) {
+      return `
+        <section class="hierarchy">
+          <div class="hierarchy-title">Component hierarchy</div>
+          <ol>${items.map((item) => `<li>${item}</li>`).join("")}</ol>
+        </section>
+      `;
+    }
+
+    function renderPage(pageId) {
+      if (pageId === "productSort") return renderProductSort();
+      if (pageId === "savedSignals") return renderSavedSignals();
+      if (pageId === "casebookTopics") return renderCasebookTopics();
+      return renderTopicDetail();
+    }
+
+    function renderCanvas() {
+      syncControls();
+      const variant = variants.find((item) => item.id === activeVariant);
+      const page = pages.find((item) => item.id === activePage);
+      document.body.className = variant.className;
+      document.getElementById("canvas").innerHTML = renderShell(page, renderPage(page.id));
+    }
+
+    initControls();
+    renderCanvas();
+  </script>
+</body>
+</html>

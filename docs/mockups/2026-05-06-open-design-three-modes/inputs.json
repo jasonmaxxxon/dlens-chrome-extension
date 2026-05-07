@@ -1,0 +1,282 @@
+{
+  "$schema": "/Users/tung/.agents/skills/open-design-landing-deck/schema.ts",
+  "brand": {
+    "name": "DLens",
+    "mark": "D",
+    "meta": {
+      "title": "Mode Architecture",
+      "subtitle": "Threads intelligence workbench"
+    },
+    "filed_under": "Product · Topic · PR Evidence",
+    "tagline": "Collected posts become the right kind of working object.",
+    "description": "A grill-me synthesis deck for the three DLens intelligence modes.",
+    "locale": "en",
+    "edition": "Vol. 02 / Mode System",
+    "version": "v0.1",
+    "license": "Internal review",
+    "primary_url": "#",
+    "primary_url_label": "Review artifact",
+    "contact_email": "#",
+    "location": "Hong Kong / Remote field desk",
+    "coordinates": "22.3193° N · 114.1694° E",
+    "year": "2026",
+    "year_roman": "MMXXVI",
+    "founded": "Est. MMXXVI",
+    "rails": {
+      "right": "",
+      "left": ""
+    },
+    "languages": ["EN", "ZH"],
+    "status": "Concept · grill-me synthesis"
+  },
+  "deck_title": "DLens · Three Intelligence Modes",
+  "slides": [
+    {
+      "kind": "cover",
+      "eyebrow": "DLens product architecture · Nº 01",
+      "title": [
+        { "text": "Three " },
+        { "text": "workbenches", "em": true },
+        { "text": " for collected " },
+        { "text": "evidence", "em": true },
+        { "text": ".", "dot": true }
+      ],
+      "subtitle": "Product decisions, topic case notes, and PR campaign evidence should not share the same card grammar.",
+      "lead": "The same Threads collection shell can feed three sharply different workflows. Each mode has a different buyer, primary object, cost timing, and export promise.",
+      "meta": "Grill-me synthesis · Product / Topic / PR Evidence · May 2026"
+    },
+    {
+      "kind": "section",
+      "roman": "I.",
+      "title": [
+        { "text": "One collector, " },
+        { "text": "three", "em": true },
+        { "text": " jobs" },
+        { "text": ".", "dot": true }
+      ],
+      "lead": "DLens should not pretend every saved post wants the same analysis. The mode decides what the post becomes."
+    },
+    {
+      "kind": "content",
+      "layout": "full",
+      "eyebrow": "Shared shell · locked principle",
+      "title": [
+        { "text": "Collect is shared; " },
+        { "text": "interpretation", "em": true },
+        { "text": " is not" },
+        { "text": ".", "dot": true }
+      ],
+      "body": "The extension should keep one reliable collection surface: hover, preview, save, visible metrics, source URL. After save, each workspace routes the post into a different object.",
+      "bullets": [
+        "Product mode saves a signal for product relevance and batch agent brief output.",
+        "Topic mode saves source material for topic notes, clusters, and pair lens evidence.",
+        "PR Evidence mode saves evidence rows for campaign criteria matching and CSV export.",
+        "Archive remains a quiet no-AI storage mode, not a fourth intelligence promise."
+      ]
+    },
+    {
+      "kind": "section",
+      "roman": "II.",
+      "title": [
+        { "text": "Product mode is a " },
+        { "text": "decision", "em": true },
+        { "text": " filter" },
+        { "text": ".", "dot": true }
+      ],
+      "lead": "It asks whether a collected discussion contains a reusable product pattern, workflow, demand, technical reference, competitor cue, or noise."
+    },
+    {
+      "kind": "content",
+      "layout": "full",
+      "eyebrow": "Product intelligence · work rhythm",
+      "title": [
+        { "text": "The main object is the " },
+        { "text": "Signal", "em": true },
+        { "text": " — not a task board" },
+        { "text": ".", "dot": true }
+      ],
+      "body": "Product mode opens directly into classification. AI pre-labels a primary category and supporting tags. The saved area is a signal pool, not a Kanban board.",
+      "bullets": [
+        "Primary categories: All / Try / Demand / Technical workflow / Marketing reference / Competitor / Learning / Noise / Insufficient data.",
+        "Card hierarchy: reusable insight headline, concrete technical reference, why it matters to the user's product, one representative quote, then evidence detail.",
+        "Cost boundary: heavy work happens on batch export or explicit single-card prompt generation, not by default on every save.",
+        "Main CTA: copy selected saved signals as an Agent Brief for the user's own downstream agent."
+      ]
+    },
+    {
+      "kind": "content",
+      "layout": "full",
+      "eyebrow": "Product mode · output contract",
+      "title": [
+        { "text": "A good headline should " },
+        { "text": "save a meeting", "em": true },
+        { "text": ", not summarize a post" },
+        { "text": ".", "dot": true }
+      ],
+      "body": "Product mode earns trust when the first line is reusable and actionable: a pattern the user can paste into notes, a brief, or an agent task.",
+      "bullets": [
+        "Not: This post discusses recurring crawlers.",
+        "Yes: Wrap recurring crawl into a daily monitoring agent before building a full dashboard.",
+        "Use original text first; keep output medium-length; preserve enough source material for the next agent.",
+        "Single-card prompt is optional and explicit. Batch Agent Brief is the default cost-conscious action."
+      ]
+    },
+    {
+      "kind": "section",
+      "roman": "III.",
+      "title": [
+        { "text": "Topic mode is a " },
+        { "text": "casebook", "em": true },
+        { "text": " for social signal" },
+        { "text": ".", "dot": true }
+      ],
+      "lead": "It treats collected discussions like research material: topic first, clusters second, pair lens only inside a topic detail."
+    },
+    {
+      "kind": "content",
+      "layout": "full",
+      "eyebrow": "Topic intelligence · work rhythm",
+      "title": [
+        { "text": "Start like news; " },
+        { "text": "drill", "em": true },
+        { "text": " like field notes" },
+        { "text": ".", "dot": true }
+      ],
+      "body": "Topic mode should surface topics first, not isolated posts. It is for PR, journalists, analysts, researchers, or founders tracking how groups react to a situation.",
+      "bullets": [
+        "Main output: Topic Brief / Case Note.",
+        "Primary object: Topic Note. Secondary object: Cluster Card.",
+        "Cluster labels use two layers: formal reaction type plus readable nickname.",
+        "Cluster UI can show list plus bubble preview; clicking a cluster returns the user to evidence.",
+        "Pair Lens is downgraded into Topic Detail: select two source posts via Add to compare, then save a short Pair Insight into Topic Note."
+      ]
+    },
+    {
+      "kind": "content",
+      "layout": "full",
+      "eyebrow": "Topic mode · scope discipline",
+      "title": [
+        { "text": "Do not let " },
+        { "text": "Product", "em": true },
+        { "text": " visuals swallow Topic" },
+        { "text": ".", "dot": true }
+      ],
+      "body": "Topic mode can feel more editorial and research-oriented, but it should not become a feature museum. It needs enough structure to compare social reactions without pretending every thread has deep linguistic signal.",
+      "bullets": [
+        "Useful sections: topic overview, cluster map, evidence list, source list, saved notes.",
+        "The wording / tone layer is optional when threads are too fragmented.",
+        "The core expansion should be cluster visualization and evidence drill-back.",
+        "Library should support Topic Note plus Cluster Card as saved knowledge objects."
+      ]
+    },
+    {
+      "kind": "section",
+      "roman": "IV.",
+      "title": [
+        { "text": "PR Evidence mode is " },
+        { "text": "Excel", "em": true },
+        { "text": " autofill for agencies" },
+        { "text": ".", "dot": true }
+      ],
+      "lead": "It does not sell social listening. It helps PR operators turn already-found posts into a defendable campaign evidence CSV and topline audit summary."
+    },
+    {
+      "kind": "content",
+      "layout": "full",
+      "eyebrow": "PR Evidence · work rhythm",
+      "title": [
+        { "text": "The main object is an " },
+        { "text": "evidence row", "em": true },
+        { "text": ", not an insight card" },
+        { "text": ".", "dot": true }
+      ],
+      "body": "V1 is for agency operators who already found the posts. DLens reduces copying, classification, and report preparation before the data lands in Excel or Google Sheets.",
+      "bullets": [
+        "Campaign setup: name, brief / guideline, AI-suggested six criteria, user-editable labels.",
+        "Collect: save opened Threads posts into current campaign rows with visible metrics.",
+        "Batch match: one explicit action fills six criteria columns with ✓ / blank.",
+        "UI: compact ledger shows author, caption snippet, key metrics, matched count, collected time.",
+        "Export: CSV is primary; topline PR audit summary is secondary and facts-first."
+      ]
+    },
+    {
+      "kind": "stats",
+      "eyebrow": "Mode separation · operating contracts",
+      "title": [
+        { "text": "Each mode has a different " },
+        { "text": "cost", "em": true },
+        { "text": " moment" },
+        { "text": ".", "dot": true }
+      ],
+      "stats": [
+        {
+          "value": "3",
+          "label": "Primary modes",
+          "sub": "Product, Topic, PR Evidence"
+        },
+        {
+          "value": "6",
+          "label": "PR criteria",
+          "sub": "Fixed columns, editable labels"
+        },
+        {
+          "value": "100-300",
+          "label": "PR rows",
+          "sub": "Batch matched, not one call per row"
+        },
+        {
+          "value": "1",
+          "label": "Collector",
+          "sub": "Shared capture shell, separate output contracts"
+        }
+      ],
+      "caption": "Archive remains no-AI storage. It is a utility posture, not a primary intelligence mode."
+    },
+    {
+      "kind": "quote",
+      "quote": [
+        { "text": "Eight-point-five is a beautiful product. " },
+        { "text": "Nine", "em": true },
+        { "text": " is when the user feels DLens saved a judgment they used to spend two hours defending." }
+      ],
+      "author": {
+        "initial": "D",
+        "name": "DLens grill-me conclusion",
+        "title": "Product principle · May 2026"
+      }
+    },
+    {
+      "kind": "cta",
+      "eyebrow": "Implementation path · next build",
+      "title": [
+        { "text": "Design the " },
+        { "text": "mode system", "em": true },
+        { "text": " before styling the cards" },
+        { "text": ".", "dot": true }
+      ],
+      "body": "Next: prototype this visual direction as a design artifact first. Then implement only the architecture that survives review: mode routing, PR campaign storage, Product batch export, Topic detail Pair Lens.",
+      "primary": {
+        "label": "Review the deck",
+        "href": "#"
+      },
+      "secondary": {
+        "label": "Open PR Evidence brief",
+        "href": "../../handoff/2026-05-06-pr-evidence-mode-v1-brief.md"
+      }
+    },
+    {
+      "kind": "end",
+      "mega": [
+        { "text": "DLens " },
+        { "text": "Modes", "em": true },
+        { "text": "." }
+      ],
+      "footer": "Product intelligence · Topic casebook · PR evidence · MMXXVI"
+    }
+  ],
+  "imagery": {
+    "strategy": "bring-your-own",
+    "assets_path": "./assets/",
+    "provider": "none"
+  }
+}

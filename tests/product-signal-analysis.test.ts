@@ -9,7 +9,9 @@ import {
   buildProductSignalAnalyzerInputFromCapture,
   buildProductSignalAnalyzerPrompt,
   collectQueueableProductSignalItemIds,
+  hasDrainableProductSignalItems,
   parseProductSignalAnalysisResponse,
+  shouldDrainWorkerAfterProductSignalQueue,
   shouldAutoAnalyzeProductSignal
 } from "../src/compare/product-signal-analysis.ts";
 import type { ProductContext, SessionRecord, Signal } from "../src/state/types.ts";
@@ -80,6 +82,7 @@ test("ProductSignalAnalyzer exposes a strict JSON schema contract", () => {
     "competitor",
     "demand",
     "technical",
+    "marketing",
     "noise"
   ]);
   assert.deepEqual(PRODUCT_SIGNAL_ANALYSIS_JSON_SCHEMA.properties.verdict.enum, [
@@ -142,6 +145,7 @@ test("strict schema keeps only the minimal current analyzer fields plus evidence
   assert.deepEqual([...evidenceNotes.items.required].sort(), [
     "copy_recipe_markdown",
     "copyable_template",
+    "grounding",
     "quote_summary",
     "ref",
     "reusable_pattern",
@@ -295,7 +299,7 @@ test("parseProductSignalAnalysisResponse preserves legacy optional fields when p
   assert.equal(parsed?.whyNow, "競品上週剛 ship，現在試最不會被搶先。");
   assert.equal(parsed?.validationMetric, "兩週內看是否有 3 位 PM 重複使用。");
   assert.deepEqual(parsed?.blockers, ["缺 Confluence webhook", "需要授權"]);
-  assert.equal(parsed?.agentTaskSpec?.taskTitle, "競品 Release 監控");
+  assert.equal(parsed?.agentTaskSpec?.taskTitle, "競品 Release 監");
   assert.deepEqual(parsed?.evidenceNotes, [
     {
       ref: "e1",
@@ -348,7 +352,7 @@ test("parseProductSignalAnalysisResponse drops whyNow/validationMetric for park 
   assert.equal(parsed?.blockers, undefined);
 });
 
-test("buildProductSignalAnalyzerPrompt v8 enforces evidence-specific workflow recipes", () => {
+test("buildProductSignalAnalyzerPrompt enforces evidence-specific workflow recipes and product-aware blocking", () => {
   const prompt = buildProductSignalAnalyzerPrompt(analyzerInput);
   assert.match(prompt, /必須用繁體中文書寫/);
   assert.match(prompt, /具體 workflow \/ use case/);
@@ -371,6 +375,78 @@ test("buildProductSignalAnalyzerPrompt v8 enforces evidence-specific workflow re
   assert.match(prompt, /quote 太短/);
   assert.match(prompt, /如何照抄/);
   assert.match(prompt, /task_title/);
+  // v9: agent prompt must be numbered steps
+  assert.match(prompt, /numbered steps/);
+  assert.match(prompt, /具體工具/);
+  // v9: product-aware duplicate blocking
+  assert.match(prompt, /currentCapabilities/);
+  assert.match(prompt, /產品已有此功能/);
+  assert.match(prompt, /不要推薦產品已有的功能/);
+  assert.match(prompt, /grounding/);
+  assert.match(prompt, /AI 推斷/);
+  assert.match(prompt, /交叉驗證原文/);
+  assert.match(prompt, /不能用一般知識補 API、webhook、參數或安裝步驟/);
+});
+
+test("buildProductSignalAnalyzerPrompt gives enough room and examples for technical understanding", () => {
+  const prompt = buildProductSignalAnalyzerPrompt(analyzerInput);
+
+  assert.match(prompt, /why_it_works：.*<= 150 字/);
+  assert.match(prompt, /copy_recipe_markdown：.*<= 700 字/);
+  assert.match(prompt, /不好的例子/);
+  assert.match(prompt, /好的例子/);
+  assert.match(prompt, /底層機制/);
+});
+
+test("parseProductSignalAnalysisResponse keeps longer evidence explanations but caps task title to UI length", () => {
+  const longWhy = "MCP 透過標準協議讓 host 動態發現 server 能力，不需要硬編碼每個 API；新工具加入時，agent 只需讀取工具描述與參數 schema，就能把資料來源、處理步驟和輸出格式串起來。它的關鍵不是省時間，而是把工具能力描述成可檢查的合約，讓模型每次都能根據目前可用工具重新規劃。額外文字會被截斷。";
+  const longRecipe = [
+    "1. 在 MCP server 宣告可讀取的資料來源、工具名稱與參數 schema，讓 host 能在啟動時動態 discovery。",
+    "2. 在 Codex 或 Claude 裡要求 agent 先列出可用工具，再選擇和任務相符的資料來源，避免直接猜 API。",
+    "3. 讓 agent 依工具回傳結果產出 markdown 摘要，並把來源連結、限制和待人工確認項目放在同一份交付物。",
+    "4. 如果資料來源需要權限，先用 read-only token 測試，確認最小權限足以完成輸入、處理、輸出三段流程。",
+    "5. 將這個流程記錄成 repo-local skill，下一次只替換資料來源和輸出格式，不重寫整段 prompt。"
+  ].join("\n");
+
+  const parsed = parseProductSignalAnalysisResponse(
+    JSON.stringify({
+      signal_type: "technical",
+      signal_subtype: "mcp_integration",
+      content_type: "mixed",
+      content_summary: "討論 MCP 如何串接 agent 工具。",
+      relevance: 5,
+      relevant_to: ["coreWorkflows"],
+      why_relevant: "對應產品把 Threads 訊號轉成 agent 工作流的方向。",
+      verdict: "try",
+      reason: "留言提供了可複製的工程做法。",
+      experiment_hint: "用 read-only MCP server 測一條資料流。",
+      agent_task_spec: {
+        target_agent: "codex",
+        task_title: "超過十二字的任務標題會被截斷",
+        task_prompt: "1. Inspect MCP config.\n2. Draft a read-only integration.\n3. Return risks.",
+        required_context: ["repo access"]
+      },
+      evidence_refs: ["e1"],
+      evidence_notes: [{
+        ref: "e1",
+        quote_summary: "用 MCP 串 agent 工具。",
+        why_it_matters: "提供具體工程路徑。",
+        grounding: "model_inferred",
+        reusable_pattern: "MCP 工具發現流程",
+        why_it_works: longWhy,
+        copyable_template: "MCP server -> agent tool discovery -> markdown brief",
+        workflow_stack: ["MCP", "Codex", "Claude"],
+        copy_recipe_markdown: longRecipe,
+        tradeoff: "需要控管 tool 權限。"
+      }]
+    }),
+    analyzerInput
+  );
+
+  assert.equal(parsed?.agentTaskSpec?.taskTitle.length, 12);
+  assert.equal(parsed?.evidenceNotes?.[0]?.grounding, "model_inferred");
+  assert.equal(parsed?.evidenceNotes?.[0]?.whyItWorks?.length, 150);
+  assert.equal(parsed?.evidenceNotes?.[0]?.copyRecipeMarkdown, longRecipe);
 });
 
 test("buildProductSignalAnalyzerPrompt includes local feedback examples only when provided", () => {
@@ -408,10 +484,10 @@ test("buildProductSignalAnalyzerPrompt includes local feedback examples only whe
   assert.doesNotMatch(promptWithoutExamples, /\[USER_FEEDBACK_EXAMPLES\]/);
 });
 
-test("PROMPT_VERSION + CACHE_VERSION are v8 (evidence recipe prompt)", async () => {
+test("PROMPT_VERSION + CACHE_VERSION are v11 (grounded technical explanations)", async () => {
   const { PRODUCT_SIGNAL_ANALYSIS_CACHE_VERSION } = await import("../src/compare/product-signal-analysis.ts");
-  assert.equal(PRODUCT_SIGNAL_ANALYSIS_PROMPT_VERSION, "v8");
-  assert.equal(PRODUCT_SIGNAL_ANALYSIS_CACHE_VERSION, "v8");
+  assert.equal(PRODUCT_SIGNAL_ANALYSIS_PROMPT_VERSION, "v11");
+  assert.equal(PRODUCT_SIGNAL_ANALYSIS_CACHE_VERSION, "v11");
 });
 
 test("parseProductSignalAnalysisResponse rejects incomplete or fake score payloads", () => {
@@ -622,4 +698,34 @@ test("collectQueueableProductSignalItemIds returns saved backing items only once
   ] satisfies Signal[];
 
   assert.deepEqual(collectQueueableProductSignalItemIds(session, signals), ["item-saved"]);
+});
+
+test("product signal analysis starts the backend worker after queueing saved signals", () => {
+  assert.equal(shouldDrainWorkerAfterProductSignalQueue(0, false), false);
+  assert.equal(shouldDrainWorkerAfterProductSignalQueue(0, true), true);
+  assert.equal(shouldDrainWorkerAfterProductSignalQueue(1, false), true);
+  assert.equal(shouldDrainWorkerAfterProductSignalQueue(3, false), true);
+});
+
+test("hasDrainableProductSignalItems detects already queued product signal work", () => {
+  const session = {
+    id: "session-product",
+    mode: "product",
+    items: [
+      { id: "item-saved", status: "saved" },
+      { id: "item-queued", status: "queued" }
+    ]
+  } as SessionRecord;
+  const signals = [
+    {
+      id: "signal-queued",
+      sessionId: "session-product",
+      itemId: "item-queued",
+      source: "threads",
+      inboxStatus: "unprocessed",
+      capturedAt: "2026-04-27T00:00:02.000Z"
+    }
+  ] satisfies Signal[];
+
+  assert.equal(hasDrainableProductSignalItems(session, signals), true);
 });

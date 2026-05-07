@@ -2,7 +2,7 @@ import { useState, type ReactNode } from "react";
 import type { TargetDescriptor } from "../contracts/target-descriptor";
 import { getLibraryItemUiState, type SessionProcessingSummary, type WorkerStatus } from "../state/processing-state";
 import type { SavedAnalysisSnapshot, SessionItem, SessionRecord, TechniqueReadingSnapshot } from "../state/types";
-import { PrimaryButton, SecondaryButton, SideMark, Stamp, TOKENS, lineClamp, skeletonBlockStyle, viewRootStyle } from "./components";
+import { PrimaryButton, SCAN_ROW_HOVER_CSS, SecondaryButton, SideMark, Stamp, TOKENS, lineClamp, scanRowStyle, skeletonBlockStyle, viewRootStyle } from "./components";
 import { tokens } from "./tokens";
 
 // AR design tokens (matching Result page)
@@ -41,11 +41,6 @@ interface LibraryViewProps {
   onGoToCollect?: () => void;
   onGoToCompare?: () => void;
   onOpenSavedAnalysis?: (resultId: string) => void;
-}
-
-function avatarInitial(author: string | null | undefined): string {
-  const cleaned = (author || "").trim();
-  return cleaned ? cleaned.slice(0, 1).toUpperCase() : "D";
 }
 
 function formatSavedAt(value: string): string {
@@ -88,6 +83,16 @@ function statusBg(phase: string): string {
   }
 }
 
+function statusDotColor(phase: string): string {
+  switch (phase) {
+    case "ready": return tokens.color.success;
+    case "analyzing": return tokens.color.queued;
+    case "crawling": return tokens.color.accent;
+    case "failed": return tokens.color.failed;
+    default: return tokens.color.softInk;
+  }
+}
+
 function topClusterKeywords(item: SessionItem): string[] {
   const clusters = item.latestCapture?.analysis?.clusters;
   if (!clusters?.length) return [];
@@ -107,13 +112,11 @@ function savedAnalysisStamp(briefSource: SavedAnalysisSnapshot["briefSource"]): 
 
 function PostCard({
   item,
-  index,
   isSelected,
   optimisticQueued,
   onSelect,
 }: {
   item: SessionItem;
-  index: number;
   isSelected: boolean;
   optimisticQueued: boolean;
   onSelect: () => void;
@@ -123,56 +126,52 @@ function PostCard({
   const accentColor = statusAccentColor(uiState.itemPhase);
   const labelColor = statusLabelColor(uiState.itemPhase);
   const bg = statusBg(uiState.itemPhase);
+  const snippet = item.descriptor.text_snippet || item.descriptor.post_url || item.descriptor.page_url || "—";
   const showPendingSkeleton =
     uiState.itemPhase === "queued" || uiState.itemPhase === "crawling" || uiState.itemPhase === "analyzing";
 
   return (
     <button
       data-item-phase={uiState.itemPhase}
-      data-library-row="card"
+      data-library-row="scan"
+      data-scan-row="true"
       onClick={onSelect}
-      style={{
+      style={scanRowStyle({
         textAlign: "left",
         display: "grid",
-        gridTemplateColumns: "3px 1fr",
-        background: AR.card,
-        borderRadius: tokens.radius.card,
-        overflow: "hidden",
-        boxShadow: isSelected
-          ? `0 0 0 2px ${AR.blue}, 0 2px 12px rgba(0,0,0,0.08)`
-          : "0 1px 6px rgba(0,0,0,0.065)",
+        gridTemplateColumns: "8px minmax(0, 1fr) auto",
+        alignItems: "start",
+        gap: 10,
+        background: isSelected ? tokens.color.contextSurface : "transparent",
         border: "none",
         cursor: "pointer",
-        transition: "box-shadow 150ms ease",
+        transition: "background 140ms ease",
         color: AR.ink,
-        padding: 0,
-      }}
+        padding: "10px 4px",
+      })}
     >
-      <div style={{ background: accentColor, borderRadius: "12px 0 0 12px" }} />
-      <div>
-        <div style={{ display: "flex", alignItems: "center", gap: 8, padding: "11px 13px 8px" }}>
-          <div style={{
-            width: 26, height: 26, borderRadius: "50%",
-            background: `linear-gradient(135deg, ${accentColor}22, ${accentColor}44)`,
-            border: `1px solid ${accentColor}33`,
-            display: "flex", alignItems: "center", justifyContent: "center",
-            fontSize: 10, fontWeight: 800, color: accentColor, flexShrink: 0,
-          }}>
-            {avatarInitial(item.descriptor.author_hint)}
+      <span
+        aria-hidden="true"
+        style={{
+          width: 8,
+          height: 8,
+          borderRadius: 999,
+          background: statusDotColor(uiState.itemPhase),
+          marginTop: 6
+        }}
+      />
+      <div style={{ display: "grid", gap: 6, minWidth: 0 }}>
+        <div style={{ display: "grid", gap: 3, minWidth: 0 }}>
+          <div style={{ fontSize: 13, fontWeight: 600, color: AR.ink, ...lineClamp(1) }}>
+            @{item.descriptor.author_hint || "Unknown"}
           </div>
-          <div style={{ flex: 1, minWidth: 0 }}>
-            <div style={{ fontSize: 12, fontWeight: 700, color: AR.ink, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-              @{item.descriptor.author_hint || "Unknown"}
-            </div>
-            <div style={{ fontSize: 10, color: AR.muteInk }}>#{index + 1}</div>
+          <div style={{ fontSize: 12, lineHeight: 1.45, color: AR.softInk, ...lineClamp(1) }}>
+            {snippet}
           </div>
-          <span style={{ fontSize: 9, fontWeight: 700, color: labelColor, background: bg, borderRadius: 6, padding: "2px 7px", whiteSpace: "nowrap" }}>
-            {uiState.statusLabel}
-          </span>
         </div>
 
         {showPendingSkeleton ? (
-          <div data-library-card-skeleton="visible" style={{ display: "grid", gap: 10, padding: "0 13px 10px" }}>
+          <div data-library-card-skeleton="visible" style={{ display: "grid", gap: 7 }}>
             <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
               {["30%", "22%", "28%"].map((width, skeletonIndex) => (
                 <span key={skeletonIndex} style={skeletonBlockStyle(width, 16, { borderRadius: 999 })} />
@@ -187,7 +186,7 @@ function PostCard({
         ) : null}
 
         {!showPendingSkeleton && keywords.length > 0 ? (
-          <div style={{ padding: "0 13px 5px", display: "flex", flexWrap: "wrap", gap: 4 }}>
+          <div style={{ display: "flex", flexWrap: "wrap", gap: 4 }}>
             {keywords.map((kw, kwIndex) => (
               <span
                 key={`${kw}-${kwIndex}`}
@@ -206,31 +205,23 @@ function PostCard({
             ))}
           </div>
         ) : null}
-
-        {!showPendingSkeleton ? (
-          <div style={{ fontSize: 12, lineHeight: 1.52, color: AR.softInk, padding: `${keywords.length ? "2px" : "0"} 13px 10px`, ...lineClamp(2) }}>
-            {item.descriptor.text_snippet || "—"}
-          </div>
+      </div>
+      <div style={{ display: "grid", gap: 4, justifyItems: "end", minWidth: 82 }}>
+        <span style={{ fontSize: 9, fontWeight: 700, color: labelColor, background: bg, borderRadius: 6, padding: "2px 7px", whiteSpace: "nowrap" }}>
+          {uiState.statusLabel}
+        </span>
+        <span style={{ fontSize: 11, color: AR.dimInk, textAlign: "right" }}>
+          {item.latestCapture?.analysis?.source_comment_count
+            ? `${item.latestCapture.analysis.source_comment_count} 則留言`
+            : item.descriptor.time_token_hint || formatSavedAt(item.savedAt)}
+        </span>
+        {uiState.itemPhase === "ready" ? (
+          <span style={{ fontSize: 10, fontWeight: 700, color: AR.blue }}>
+            可比較 →
+          </span>
+        ) : uiState.itemPhase === "analyzing" ? (
+          <span style={{ fontSize: 10, color: AR.orange }}>分析中…</span>
         ) : null}
-
-        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "7px 13px 10px", borderTop: `0.5px solid ${AR.line}` }}>
-          {showPendingSkeleton ? (
-            <span style={skeletonBlockStyle("42%", 10)} />
-          ) : (
-            <span style={{ fontSize: 10, color: AR.dimInk }}>
-              {item.latestCapture?.analysis?.source_comment_count
-                ? `${item.latestCapture.analysis.source_comment_count} 則留言`
-                : item.descriptor.time_token_hint || "已儲存"}
-            </span>
-          )}
-          {uiState.itemPhase === "ready" ? (
-            <span style={{ fontSize: 10, fontWeight: 700, color: AR.blue }}>
-              可比較 →
-            </span>
-          ) : uiState.itemPhase === "analyzing" ? (
-            <span style={{ fontSize: 10, color: AR.orange }}>分析中…</span>
-          ) : null}
-        </div>
       </div>
     </button>
   );
@@ -411,9 +402,8 @@ export function LibraryView({
     );
   }
 
-  const libraryEntries = activeFolder.items.map((item, index) => ({
+  const libraryEntries = activeFolder.items.map((item) => ({
     item,
-    index,
     uiState: getLibraryItemUiState(item, optimisticQueuedIds.includes(item.id)),
   }));
 
@@ -421,9 +411,11 @@ export function LibraryView({
   const pendingCount = processingSummary.pending;
   const hasPending = pendingCount > 0;
   const isProcessing = workerStatus === "draining";
+  const isArchiveMode = activeFolder.mode === "archive";
 
   return (
     <div style={viewRootStyle()}>
+      <style>{SCAN_ROW_HOVER_CSS}</style>
 
       {/* ── Readiness context bar ── */}
       <div style={{
@@ -510,19 +502,20 @@ export function LibraryView({
           </div>
           <div style={{ fontSize: 13, fontWeight: 600, color: AR.ink, marginBottom: 5 }}>尚無儲存的貼文</div>
           <p style={{ fontSize: 12, color: AR.softInk, lineHeight: 1.5, margin: "0 0 12px" }}>
-            前往 Collect 頁面，在 Threads 上捕捉貼文。
+            {isArchiveMode
+              ? "Archive 模式只保留原文，不自動分析。"
+              : "前往 Collect 頁面，在 Threads 上捕捉貼文。"}
           </p>
           {onGoToCollect ? (
             <SecondaryButton onClick={onGoToCollect}>前往 Collect</SecondaryButton>
           ) : null}
         </div>
       ) : (
-        <div style={{ display: "grid", gap: 8 }}>
-          {libraryEntries.map(({ item, index }) => (
+        <div data-scan-list="library" style={{ display: "grid" }}>
+          {libraryEntries.map(({ item }) => (
             <PostCard
               key={item.id}
               item={item}
-              index={index}
               isSelected={item.id === activeItem?.id}
               optimisticQueued={optimisticQueuedIds.includes(item.id)}
               onSelect={() => onSelectItem(item.id)}

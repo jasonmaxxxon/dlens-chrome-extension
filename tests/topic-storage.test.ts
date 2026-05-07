@@ -2,6 +2,9 @@ import assert from "node:assert/strict";
 import test from "node:test";
 
 import {
+  ensureSignalForSavedItem,
+} from "../src/state/topic-handlers.ts";
+import {
   deleteTopic,
   loadSignals,
   loadTopics,
@@ -14,6 +17,7 @@ import {
   triageSignal
 } from "../src/state/topic-storage.ts";
 import type { Signal, Topic } from "../src/state/types.ts";
+import { createSessionItem, createSessionRecord } from "../src/state/store-helpers.ts";
 
 function createStorageArea(bucket: Record<string, unknown> = {}) {
   return {
@@ -76,6 +80,28 @@ test("normalizeSignal returns null for incomplete records and fills defaults for
     capturedAt: "1970-01-01T00:00:00.000Z",
     triagedAt: undefined
   } satisfies Signal);
+});
+
+test("ensureSignalForSavedItem does not create topic signals for PR Evidence sessions", async () => {
+  const storage = createStorageArea({ [SIGNALS_STORAGE_KEY]: [] });
+  const session = createSessionRecord("PR", "2026-05-06T10:00:00.000Z");
+  session.mode = "pr-evidence";
+  const item = createSessionItem({
+    target_type: "post",
+    page_url: "https://www.threads.net/@alpha/post/a",
+    post_url: "https://www.threads.net/@alpha/post/a",
+    author_hint: "alpha",
+    text_snippet: "A",
+    time_token_hint: "1h",
+    dom_anchor: "card-a",
+    engagement: {},
+    engagement_present: {},
+    captured_at: "2026-05-06T10:00:00.000Z"
+  });
+
+  await ensureSignalForSavedItem(storage, session, item);
+
+  assert.deepEqual(await loadSignals(storage, session.id), []);
 });
 
 test("loadTopics filters by session id and saveTopic upserts by id", async () => {

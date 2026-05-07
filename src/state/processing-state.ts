@@ -6,18 +6,24 @@ export const PRODUCT_POPUP_WIDTH = 720;
 export const NETWORK_BATCH_SIZE = 3;
 
 export const PRODUCT_SIGNAL_PAGES: ReadonlyArray<MainPage> = [
-  "classification",
+  "saved-signals",
   "actionable-filter"
 ];
+export const PR_EVIDENCE_PAGES: ReadonlyArray<MainPage> = ["pr-evidence"];
 
 export const ALLOWED_PAGES: Record<FolderMode, MainPage[]> = {
   archive: ["library", "collect"],
   topic: ["casebook", "inbox", "collect", "compare", "library"],
-  product: ["collect", "classification", "actionable-filter"]
+  product: ["saved-signals", "actionable-filter", "collect"],
+  "pr-evidence": ["pr-evidence", "collect"]
 };
 
 export function isProductSignalPage(page: PopupPage): boolean {
   return (PRODUCT_SIGNAL_PAGES as ReadonlyArray<PopupPage>).includes(page);
+}
+
+export function isPrEvidencePage(page: PopupPage): boolean {
+  return (PR_EVIDENCE_PAGES as ReadonlyArray<PopupPage>).includes(page);
 }
 
 export function guardPage(page: MainPage, mode: FolderMode): MainPage {
@@ -26,7 +32,7 @@ export function guardPage(page: MainPage, mode: FolderMode): MainPage {
 }
 
 export function getPopupWidth(page: PopupPage): number {
-  if (isProductSignalPage(page)) {
+  if (isProductSignalPage(page) || isPrEvidencePage(page)) {
     return PRODUCT_POPUP_WIDTH;
   }
   if (page === "compare" || page === "result") {

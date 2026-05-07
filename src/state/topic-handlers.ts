@@ -71,7 +71,7 @@ export async function ensureSignalForSavedItem(
   session: SessionRecord,
   item: SessionItem
 ): Promise<void> {
-  if (session.mode === "archive") {
+  if (session.mode === "archive" || session.mode === "pr-evidence") {
     return;
   }
 

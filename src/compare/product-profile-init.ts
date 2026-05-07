@@ -1,9 +1,23 @@
 import type { ProductProfile } from "../state/types.ts";
 import {
   CLAUDE_COMPARE_MODEL,
+  fetchWithRetry,
   GOOGLE_COMPARE_MODEL,
   OPENAI_COMPARE_MODEL
 } from "./provider.ts";
+
+export const PRODUCT_PROFILE_INIT_PROMPT_VERSION = "v1";
+
+const PRODUCT_PROFILE_INIT_JSON_SCHEMA = {
+  type: "object",
+  additionalProperties: false,
+  required: ["name", "category", "audience"],
+  properties: {
+    name: { type: "string" },
+    category: { type: "string" },
+    audience: { type: "string" }
+  }
+} as const;
 
 function stripCodeFence(value: string): string {
   const trimmed = value.trim();
@@ -22,6 +36,7 @@ function buildProductProfileInitPrompt(description: string): string {
     "你是產品分析助手。",
     "請從以下產品自述抽取結構化產品資料。",
     "只回傳 JSON，不要加解釋。",
+    `prompt_version=${PRODUCT_PROFILE_INIT_PROMPT_VERSION}`,
     "",
     "[INPUT]",
     description.trim(),
@@ -106,7 +121,8 @@ export async function generateProductProfileSuggestion(
   let raw = "";
 
   if (provider === "google") {
-    const response = await fetch(
+    const response = await fetchWithRetry(
+      "Google",
       `https://generativelanguage.googleapis.com/v1beta/models/${GOOGLE_COMPARE_MODEL}:generateContent?key=${apiKey}`,
       {
         method: "POST",
@@ -116,7 +132,12 @@ export async function generateProductProfileSuggestion(
             parts: [{ text: system }]
           },
           contents: [{ role: "user", parts: [{ text: prompt }] }],
-          generationConfig: { temperature: 0.1, maxOutputTokens: 400, responseMimeType: "application/json" }
+          generationConfig: {
+            temperature: 0.1,
+            maxOutputTokens: 400,
+            responseMimeType: "application/json",
+            responseJsonSchema: PRODUCT_PROFILE_INIT_JSON_SCHEMA
+          }
         })
       }
     );
@@ -125,7 +146,7 @@ export async function generateProductProfileSuggestion(
     }
     raw = readGoogleContent(await response.json());
   } else if (provider === "openai") {
-    const response = await fetch("https://api.openai.com/v1/chat/completions", {
+    const response = await fetchWithRetry("OpenAI", "https://api.openai.com/v1/chat/completions", {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
@@ -134,7 +155,14 @@ export async function generateProductProfileSuggestion(
       body: JSON.stringify({
         model: OPENAI_COMPARE_MODEL,
         temperature: 0.1,
-        response_format: { type: "json_object" },
+        response_format: {
+          type: "json_schema",
+          json_schema: {
+            name: "product_profile_init",
+            strict: true,
+            schema: PRODUCT_PROFILE_INIT_JSON_SCHEMA
+          }
+        },
         messages: [
           { role: "system", content: system },
           { role: "user", content: prompt }
@@ -146,7 +174,7 @@ export async function generateProductProfileSuggestion(
     }
     raw = readOpenAiContent(await response.json());
   } else {
-    const response = await fetch("https://api.anthropic.com/v1/messages", {
+    const response = await fetchWithRetry("Claude", "https://api.anthropic.com/v1/messages", {
       method: "POST",
       headers: {
         "Content-Type": "application/json",

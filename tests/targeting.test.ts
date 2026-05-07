@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import { classifyCandidateStrength, classifyMetric, scoreCardCandidateSignals, type CardCandidateSignals } from "../src/targeting/threads.ts";
+import { classifyCandidateStrength, classifyMetric, inferThreadViewsFromText, scoreCardCandidateSignals, type CardCandidateSignals } from "../src/targeting/threads.ts";
 
 function makeSignals(overrides: Partial<CardCandidateSignals> = {}): CardCandidateSignals {
   return {
@@ -116,4 +116,12 @@ test("classifyMetric supports Chinese labels", () => {
   assert.equal(classifyMetric("轉發"), "reposts");
   assert.equal(classifyMetric("分享"), "forwards");
   assert.equal(classifyMetric("瀏覽"), "views");
+  assert.equal(classifyMetric("觀看"), "views");
+});
+
+test("inferThreadViewsFromText extracts visible Threads view counts without matching view controls", () => {
+  assert.equal(inferThreadViewsFromText("132 views seeor 今日嚟萬寧 BoostUP 好狀態嘉年華"), 132);
+  assert.equal(inferThreadViewsFromText("1.5K views · BoostUP"), 1500);
+  assert.equal(inferThreadViewsFromText("1.2萬瀏覽"), 12000);
+  assert.equal(inferThreadViewsFromText("View replies"), null);
 });

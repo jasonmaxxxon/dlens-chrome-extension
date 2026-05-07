@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 
 import { providerTestables } from "../src/compare/provider.ts";
+import { generateCompareOneLiner } from "../src/compare/provider.ts";
 
 test("fetchWithRetry retries transient fetch failures before succeeding", async () => {
   const originalFetch = globalThis.fetch;
@@ -99,4 +100,45 @@ test("provider payloads use structured schema for ProductSignalAnalyzer", () => 
   const claudeBody = providerTestables.buildProductSignalAnalysisBody("claude", "system", "prompt");
   assert.equal(claudeBody.tool_choice.name, "record_product_signal_analysis");
   assert.equal(claudeBody.tools[0].input_schema.type, "object");
+});
+
+test("OpenAI compare one-liner caps completion tokens", async () => {
+  const originalFetch = globalThis.fetch;
+  let requestBody: any = null;
+
+  globalThis.fetch = (async (_input: string | URL | Request, init?: RequestInit) => {
+    requestBody = JSON.parse(String(init?.body ?? "{}"));
+    return new Response(JSON.stringify({
+      choices: [{ message: { content: "A 比 B 更集中在行動線索。" } }]
+    }), {
+      status: 200,
+      headers: { "Content-Type": "application/json" }
+    });
+  }) as typeof fetch;
+
+  try {
+    await generateCompareOneLiner("openai", "test-key", {
+      left: {
+        captureId: "a",
+        analysisUpdatedAt: null,
+        author: "ann",
+        text: "Post A",
+        engagement: { likes: 1, replies: 2 },
+        clusters: [],
+        evidence: []
+      },
+      right: {
+        captureId: "b",
+        analysisUpdatedAt: null,
+        author: "ben",
+        text: "Post B",
+        engagement: { likes: 3, replies: 4 },
+        clusters: [],
+        evidence: []
+      }
+    });
+    assert.equal(requestBody.max_tokens, 120);
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
 });

@@ -1,0 +1,255 @@
+<!doctype html>
+<html lang="zh-Hant">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>DLens V2.2 · Archive mode</title>
+<link rel="stylesheet" href="styles.css" />
+<style> body { padding: 24px 0; } </style>
+<script src="https://unpkg.com/react@18.3.1/umd/react.development.js" crossorigin></script>
+<script src="https://unpkg.com/react-dom@18.3.1/umd/react-dom.development.js" crossorigin></script>
+<script src="https://unpkg.com/@babel/standalone@7.24.7/babel.min.js" crossorigin></script>
+</head>
+<body>
+<div id="root"></div>
+
+<script type="text/babel" data-presets="react">
+const { useState, useMemo, useEffect } = React;
+
+const SOURCES = [
+  { id: 's1',  ttl: "Cursor's background agent now runs on 5× more parallel branches", domain: 'news.ycombinator.com', meta: '312 comments', date: '2026-04-30' },
+  { id: 's2',  ttl: '「補償只給 7 天 Premium，那是看不起客人」', domain: 'twitter.com', meta: '@disney_plus_jp · 1.2k replies', date: '2026-04-30' },
+  { id: 's3',  ttl: '如何讓設計師團隊每週交付節奏一致 — 一個失敗的實驗', domain: 'blog.notion.so', meta: 'long-form', date: '2026-04-30' },
+  { id: 's4',  ttl: '付費用戶在乎的不是「更多功能」，而是「我是否能說服老闆續訂」', domain: 'reddit.com', meta: 'r/SaaS · 28 upvotes', date: '2026-04-29' },
+  { id: 's5',  ttl: 'Linear 把 cycle 從 6 週縮短到 2 週後做的 4 件事', domain: 'linear.app', meta: '/blog · long-form', date: '2026-04-29' },
+  { id: 's6',  ttl: '蘋果 Mac mini 變遙控器的笑話從哪來', domain: 'reddit.com', meta: 'r/apple', date: '2026-04-28' },
+  { id: 's7',  ttl: 'Notion AI 月費漲價 thread', domain: 'twitter.com', meta: '@notionhq · 31 quoted tweets', date: '2026-04-28' },
+  { id: 's8',  ttl: '為什麼 Stripe 的 dashboard 還是用 1.5 倍行高 — 一個 IC 在內部 wiki 寫的解釋', domain: 'twitter.com', meta: '@thread', date: '2026-04-27' },
+  { id: 's9',  ttl: 'Vercel 把 docs 重寫成 task-oriented 後 support ticket 降 18%', domain: 'vercel.com', meta: '/blog', date: '2026-04-27' },
+  { id: 's10', ttl: 'Why “show me your settings page” 是評估產品成熟度的代理指標', domain: 'twitter.com', meta: '@rauchg · 2.4k like', date: '2026-04-26' },
+  { id: 's11', ttl: '一位日本記者觀察 Disney+ JP 道歉公告字數 vs 誠意感的反比', domain: 'note.com', meta: 'long-form', date: '2026-04-26' },
+  { id: 's12', ttl: 'Linear 取消 estimate 後 PM 反而更敢拒絕 scope creep', domain: 'linear.app', meta: '/blog · @karri', date: '2026-04-25' },
+];
+
+const DOMAIN_COUNT = SOURCES.reduce((acc, s) => { acc[s.domain] = (acc[s.domain] || 0) + 1; return acc; }, {});
+
+function App() {
+  const [page, setPage] = useState('library');     // collect|library|settings
+  const [filter, setFilter] = useState('all');     // all|week|month|<domain>
+  const [collectUrl, setCollectUrl] = useState('');
+  const [recentSaved, setRecentSaved] = useState([
+    { id: 'r1', ttl: "Cursor's background agent now runs on 5× more parallel branches", domain: 'news.ycombinator.com', date: 'just now' },
+    { id: 'r2', ttl: '「補償只給 7 天 Premium，那是看不起客人」', domain: 'twitter.com', meta: '@disney_plus_jp', date: '2 min' },
+    { id: 'r3', ttl: '如何讓設計師團隊每週交付節奏一致 — 一個失敗的實驗', domain: 'blog.notion.so', date: '12 min' },
+  ]);
+  const [activeWs, setActiveWs] = useState('archive');
+  const [toast, setToast] = useState(null);
+
+  useEffect(() => { if (toast) { const t = setTimeout(() => setToast(null), 1800); return () => clearTimeout(t); } }, [toast]);
+  const showToast = (m) => setToast(m);
+
+  const filtered = useMemo(() => {
+    if (filter === 'all')   return SOURCES;
+    if (filter === 'week')  return SOURCES.filter(s => s.date >= '2026-04-26');
+    if (filter === 'month') return SOURCES.filter(s => s.date >= '2026-04-01');
+    return SOURCES.filter(s => s.domain === filter);
+  }, [filter]);
+
+  const Rail = ({ active }) => (
+    <aside className="rail">
+      <div>
+        <div className="brand">DLens<span className="dot"/></div>
+        <div className="ws-label"><span className="mode-tag">Archive</span><br/>workspace</div>
+      </div>
+      <nav className="nav">
+        <button className={'nav-item' + (active === 'collect' ? ' active' : '')} onClick={() => setPage('collect')}>Collect</button>
+        <button className={'nav-item' + (active === 'library' ? ' active' : '')} onClick={() => setPage('library')}>Library</button>
+        <button className={'nav-item' + (active === 'settings' ? ' active' : '')} onClick={() => setPage('settings')}>Settings</button>
+      </nav>
+      <div className="rail-foot">
+        <div className="key">archive</div>
+        <div>{1247} sources<br/><span style={{opacity:0.7}}>since 2025-08</span></div>
+      </div>
+    </aside>
+  );
+
+  const Collect = () => (
+    <section className="content">
+      <header className="page-head">
+        <div className="breadcrumb">DLens · <b>Collect</b></div>
+        <div className="page-title-row">
+          <h2 className="page-title">留下來</h2>
+          <div className="meta">本週收 24 則<br/>未分類 24 / 24</div>
+        </div>
+        <p className="page-subtitle">什麼都不用做 — 留著就是。沒有 cluster、沒有 signal card、沒有 thesis。要分析的時候再切到 Product 或 Topic。</p>
+      </header>
+
+      <div className="collect-drop">
+        <p className="big">把連結拖進來</p>
+        <p className="sub">只儲存原文與 metadata。不會跑 AI。</p>
+        <div className="or">— or —</div>
+        <div className="url-input-row">
+          <input type="text" value={collectUrl} onChange={e => setCollectUrl(e.target.value)} placeholder="https://…" />
+          <button className="action primary"
+                  disabled={!collectUrl.trim()}
+                  onClick={() => {
+                    const newOne = {
+                      id: 'r-' + Date.now(),
+                      ttl: collectUrl.length > 60 ? collectUrl.slice(0, 60) + '…' : collectUrl,
+                      domain: (collectUrl.match(/https?:\/\/([^/]+)/) || [, collectUrl])[1],
+                      date: 'just now',
+                    };
+                    setRecentSaved(prev => [newOne, ...prev]);
+                    setCollectUrl('');
+                    showToast('已留下，不跑 AI');
+                  }}>留下</button>
+        </div>
+      </div>
+
+      <div className="settings-block">
+        <h3 className="h" style={{fontSize: 13}}>最近收下的</h3>
+        {recentSaved.map((r, i) => (
+          <div key={r.id}
+               className="archive-row"
+               style={i === recentSaved.length - 1 ? {borderBottom: 0} : {}}>
+            <div>
+              <p className="ttl">{r.ttl}</p>
+              <div className="src"><b>{r.domain}</b>{r.meta ? ' · ' + r.meta : ''} · saved no analysis</div>
+            </div>
+            <div className="date">{r.date}</div>
+          </div>
+        ))}
+      </div>
+
+      <div className="footer-note">
+        <b>沒有 AI 在背後做事。</b>Archive 模式就是 archive — 想要分類、聚類、抽 quote、生 brief，請先切到 Product 或 Topic 模式。資料完全不會搬。
+      </div>
+    </section>
+  );
+
+  const Library = () => (
+    <section className="content">
+      <header className="page-head">
+        <div className="breadcrumb">DLens · <b>Library</b></div>
+        <div className="page-title-row">
+          <h2 className="page-title">{(1247).toLocaleString()} sources</h2>
+          <div className="meta">since 2025-08-04<br/>oldest 8 months ago</div>
+        </div>
+        <p className="page-subtitle">沒有自動分類，沒有 cluster，沒有 priority。如果想要這些，切到 Product 或 Topic — Archive 不會替你動手。</p>
+      </header>
+
+      <div className="filters">
+        {[
+          ['all', '全部', SOURCES.length],
+          ['week', '本週', SOURCES.filter(s => s.date >= '2026-04-26').length],
+          ['month', '本月', SOURCES.filter(s => s.date >= '2026-04-01').length],
+          ...Object.entries(DOMAIN_COUNT).slice(0, 5).map(([d, c]) => [d, d, c]),
+        ].map(([k, label, n]) => (
+          <span key={k}
+                className={'filter' + (filter === k ? ' active' : '')}
+                onClick={() => setFilter(k)}>
+            {filter === k && <b>·</b>}{label}<span className="count">{n}</span>
+          </span>
+        ))}
+      </div>
+
+      <div className="settings-block" style={{padding: 0, background: 'transparent', border: 0}}>
+        {filtered.length === 0 && <div className="footer-note">這個 filter 下沒有 source。</div>}
+        {filtered.map((s, i) => (
+          <div key={s.id}
+               className="archive-row"
+               style={i === filtered.length - 1 ? {borderBottom: 0} : {}}>
+            <div>
+              <p className="ttl">{s.ttl}</p>
+              <div className="src"><b>{s.domain}</b> · {s.meta}</div>
+            </div>
+            <div className="date">{s.date}</div>
+          </div>
+        ))}
+      </div>
+
+      <div className="actions" style={{marginTop: 18}}>
+        <button className="action ghost" onClick={() => showToast('匯出 csv（mock）')}>匯出全部 (csv)</button>
+        <button className="action ghost">查找原文</button>
+        <button className="action ghost" style={{marginLeft: 'auto'}} onClick={() => showToast('切到 Topic mode → 用 topic.html 開新窗')}>切到 Topic 模式分析這批</button>
+      </div>
+    </section>
+  );
+
+  const Settings = () => (
+    <section className="content">
+      <header className="page-head">
+        <div className="breadcrumb">DLens · <b>Settings</b></div>
+        <div className="page-title-row">
+          <h2 className="page-title" style={{fontSize: 26}}>設定</h2>
+          <div className="meta">v0.6.2 · build 234</div>
+        </div>
+        <p className="page-subtitle">Archive 模式設定刻意短。沒有 AI provider 區塊 — 因為 Archive 不跑 AI。</p>
+      </header>
+
+      <div className="settings-block">
+        <h3 className="h">Workspace type</h3>
+        <p>從 Archive 切到 Product / Topic 後，舊 source 會出現在新 mode 的 Library / Casebook 入口，但不會自動跑分析。</p>
+        <div className="ws-switch">
+          {[
+            {k:'product', n:'Product intelligence', d:'把收進來的 post 整理成 Signal Intelligence Cards，批次匯出 Agent Brief。'},
+            {k:'topic',   n:'Topic intelligence',   d:'把收進來的 discussion 整理成 Topic Notes、Cluster Cards、Case Notes。'},
+            {k:'archive', n:'Archive',              d:'安靜地把 source 留下來，不強迫分析、不催促分類。'},
+          ].map(o => (
+            <div key={o.k}
+                 className={'ws-option' + (activeWs === o.k ? ' active' : '')}
+                 onClick={() => { setActiveWs(o.k); showToast(o.k === 'archive' ? '已是 Archive mode' : '切到 ' + o.n + ' → 用對應 .html 開新窗'); }}>
+              <div className="radio"/>
+              <div>
+                <div className={'name ' + o.k}><span className="accent"/>{o.n}</div>
+                <p className="desc">{o.d}</p>
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>
+
+      <div className="settings-block">
+        <h3 className="h">Retention</h3>
+        <div className="field"><label>Original page snapshot</label><div className="input-mock">永久儲存（local SQLite + IndexedDB）</div></div>
+        <div className="field"><label>Cloud sync</label><div className="input-mock">關閉 — Archive 模式預設 local-only</div></div>
+      </div>
+
+      <div className="settings-block">
+        <h3 className="h">Export</h3>
+        <div className="actions">
+          <button className="action ghost" onClick={() => showToast('匯出 csv（mock）')}>匯出全部 (.csv)</button>
+          <button className="action ghost">匯出 markdown 索引</button>
+          <button className="action ghost">匯出原文 .zip</button>
+        </div>
+      </div>
+    </section>
+  );
+
+  let body;
+  switch (page) {
+    case 'collect':  body = <Collect />; break;
+    case 'library':  body = <Library />; break;
+    case 'settings': body = <Settings />; break;
+    default:         body = <Library />;
+  }
+
+  return (
+    <div className="app-frame">
+      <div className="frame-cap">
+        <b>Archive mode</b> · {page}
+        <em>deep ink · #48443b · chroma-absent on purpose — "this mode does not analyze"</em>
+      </div>
+      <div className="popup archive">
+        <Rail active={page} />
+        {body}
+      </div>
+      {toast && <div className="toast">{toast}</div>}
+    </div>
+  );
+}
+
+ReactDOM.createRoot(document.getElementById('root')).render(<App />);
+</script>
+</body>
+</html>
