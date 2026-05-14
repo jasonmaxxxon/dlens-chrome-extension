@@ -5,9 +5,10 @@ import React from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 
 import type { SessionProcessingSummary, WorkerStatus } from "../src/state/processing-state.ts";
-import type { SessionItem, SessionRecord, TechniqueReadingSnapshot } from "../src/state/types.ts";
+import type { FolderSynthesis, SessionItem, SessionRecord, TechniqueReadingSnapshot } from "../src/state/types.ts";
 import { createSessionItem, createSessionRecord } from "../src/state/store-helpers.ts";
 import { LibraryView } from "../src/ui/LibraryView.tsx";
+import { FOLDER_SYNTHESIS_VERSION } from "../src/compare/folder-synthesis.ts";
 
 function buildSession(): SessionRecord {
   const session = createSessionRecord("Signals", "2026-03-24T07:00:00.000Z");
@@ -256,7 +257,7 @@ test("LibraryView summarizes mixed readiness work in the compact readiness bar",
     })
   );
 
-  assert.match(html, /Signals/);
+  assert.match(html, /Topic workspace/);
   assert.match(html, /1 篇可以比較/);
   assert.match(html, /data-item-phase="ready"/);
   assert.match(html, /data-item-phase="analyzing"/);
@@ -390,7 +391,146 @@ test("LibraryView exposes compare affordance in the top bar and keeps legacy fol
   );
 
   assert.match(html, /Compare →/);
-  assert.match(html, /Signals/);
+  assert.match(html, /Topic workspace/);
   assert.doesNotMatch(html, /data-library-folder-context=/);
   assert.doesNotMatch(html, /data-library-row-action="compare"/);
+});
+
+test("LibraryView treats one-topic folder synthesis as locked network context", () => {
+  const session = createSessionRecord("work", "2026-03-24T07:00:00.000Z", "topic");
+  const staleSingleTopicSynthesis: FolderSynthesis = {
+    sessionId: session.id,
+    observations: [{ text: "single topic observation", evidenceSignalIds: ["sig-1"] }],
+    commonClusters: [{ keyword: "想辭職與逃離工作", signalCount: 3, topicCount: 1, topicIds: ["topic-1"] }],
+    memes: [],
+    verbalTechniques: [],
+    sentimentNarrative: "single topic narrative should not render on network page",
+    topicCoverage: [{ topicId: "topic-1", topicName: "work", analyzedCount: 3, totalCount: 3 }],
+    generatedFromCount: 3,
+    totalSignalCount: 3,
+    contributingTopicCount: 1,
+    generatedAt: "2026-05-11T00:00:00.000Z",
+    generator: "deterministic",
+    generatorVersion: FOLDER_SYNTHESIS_VERSION
+  };
+
+  const html = renderToStaticMarkup(
+    React.createElement(LibraryView, {
+      activeFolder: session,
+      activeItem: null,
+      optimisticQueuedIds: [],
+      workerStatus: "idle" as WorkerStatus | null,
+      isStartingProcessing: false,
+      processAllLabel: "Process All",
+      processingSummary: {
+        total: 0,
+        ready: 0,
+        crawling: 0,
+        analyzing: 0,
+        pending: 0,
+        failed: 0,
+        hasReadyPair: false,
+        hasInflight: false
+      },
+      canPrev: false,
+      canNext: false,
+      onSelectItem: () => undefined,
+      onProcessAll: () => undefined,
+      onMoveSelection: () => undefined,
+      onQueueItem: () => undefined,
+      renderMetrics: () => null,
+      techniqueReadings: [],
+      topicSignalItemIds: [],
+      folderSynthesis: staleSingleTopicSynthesis,
+      folderAnalyzedCount: 3,
+      folderContributingTopicCount: 1,
+      onGenerateFolderSynthesis: () => undefined
+    })
+  );
+
+  assert.match(html, /跨主題的 spread/);
+  assert.match(html, /2 個主題/);
+  assert.doesNotMatch(html, /single topic narrative should not render/);
+});
+
+test("LibraryView renders folder synthesis as a narrative briefing", () => {
+  const session = createSessionRecord("work", "2026-03-24T07:00:00.000Z", "topic");
+  const briefing: FolderSynthesis = {
+    sessionId: session.id,
+    observations: [
+      { text: "工作焦慮同時出現在入職、薪水與辭職主題。", evidenceSignalIds: ["sig-1", "sig-2"] },
+      { text: "討論者把等待回覆視為信任成本。", evidenceSignalIds: ["sig-3"] }
+    ],
+    commonClusters: [
+      { keyword: "工作焦慮與耗竭", signalCount: 5, topicCount: 3, topicIds: ["topic-1", "topic-2", "topic-3"] },
+      { keyword: "想辭職與逃離工作", signalCount: 3, topicCount: 2, topicIds: ["topic-1", "topic-2"] }
+    ],
+    memes: [
+      { phrase: "裸辭", occurrences: 4, topicIds: ["topic-1", "topic-2"] },
+      { phrase: "等通知", occurrences: 3, topicIds: ["topic-2", "topic-3"] }
+    ],
+    verbalTechniques: ["用日記式語氣降低抱怨感", "把等待時間轉成信任成本"],
+    sentimentNarrative: "跨主題討論集中在工作焦慮、回覆延遲與離職想像之間的連動。",
+    topicCoverage: [
+      { topicId: "topic-1", topicName: "入職焦慮", analyzedCount: 2, totalCount: 2 },
+      { topicId: "topic-2", topicName: "薪水壓力", analyzedCount: 2, totalCount: 3 },
+      { topicId: "topic-3", topicName: "裸辭討論", analyzedCount: 1, totalCount: 1 }
+    ],
+    generatedFromCount: 5,
+    totalSignalCount: 6,
+    contributingTopicCount: 3,
+    generatedAt: "2026-05-11T00:00:00.000Z",
+    generator: "deterministic",
+    generatorVersion: FOLDER_SYNTHESIS_VERSION
+  };
+
+  const html = renderToStaticMarkup(
+    React.createElement(LibraryView, {
+      activeFolder: session,
+      activeItem: null,
+      optimisticQueuedIds: [],
+      workerStatus: "idle" as WorkerStatus | null,
+      isStartingProcessing: false,
+      processAllLabel: "Process All",
+      processingSummary: {
+        total: 0,
+        ready: 0,
+        crawling: 0,
+        analyzing: 0,
+        pending: 0,
+        failed: 0,
+        hasReadyPair: false,
+        hasInflight: false
+      },
+      canPrev: false,
+      canNext: false,
+      onSelectItem: () => undefined,
+      onProcessAll: () => undefined,
+      onMoveSelection: () => undefined,
+      onQueueItem: () => undefined,
+      renderMetrics: () => null,
+      techniqueReadings: [],
+      topicSignalItemIds: [],
+      folderSynthesis: briefing,
+      folderAnalyzedCount: 5,
+      folderContributingTopicCount: 3,
+      onGenerateFolderSynthesis: () => undefined,
+      onClearFolderSynthesis: () => undefined
+    })
+  );
+
+  assert.match(html, /data-folder-synthesis="card"/);
+  assert.match(html, /data-folder-synthesis-layout="briefing"/);
+  assert.match(html, /data-testid="folder-briefing-narrative"/);
+  assert.match(html, /data-testid="folder-briefing-spread"/);
+  assert.match(html, /data-testid="folder-briefing-observations"/);
+  assert.match(html, /data-testid="folder-briefing-language"/);
+  assert.match(html, /data-testid="folder-briefing-coverage"/);
+  assert.match(html, /data-testid="folder-briefing-meta"/);
+  assert.match(html, /跨主題討論集中在工作焦慮/);
+  assert.match(html, /工作焦慮與耗竭/);
+  assert.match(html, /3 主題/);
+  assert.match(html, /裸辭 ×4/);
+  assert.match(html, /5\/6 訊號/);
+  assert.match(html, new RegExp(FOLDER_SYNTHESIS_VERSION));
 });

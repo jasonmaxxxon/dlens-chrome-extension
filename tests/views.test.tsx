@@ -10,7 +10,8 @@ import type { TargetDescriptor } from "../src/contracts/target-descriptor.ts";
 import type { SavedAnalysisSnapshot, SessionItem, SessionRecord, TechniqueReadingSnapshot } from "../src/state/types.ts";
 import { createSessionItem, createSessionRecord } from "../src/state/store-helpers.ts";
 import { CollectView } from "../src/ui/CollectView.tsx";
-import { InPageCollectorFolderControls } from "../src/ui/InPageCollectorFolderControls.tsx";
+import { InPageCollectorFolderControls, inPageCollectorFolderControlsTestables } from "../src/ui/InPageCollectorFolderControls.tsx";
+import { inPageCollectorPopupTestables } from "../src/ui/InPageCollectorPopup.tsx";
 import { LibraryView } from "../src/ui/LibraryView.tsx";
 import { PrEvidenceView } from "../src/ui/PrEvidenceViews.tsx";
 import { ProductSignalView, PRODUCT_SIGNAL_MOTION_CSS, productSignalViewTestables } from "../src/ui/ProductSignalViews.tsx";
@@ -219,6 +220,18 @@ test("WorkspaceShell keeps the processing strip outside the primary mode rail", 
   assert.ok(settingsIndex > modeRailIndex);
 });
 
+test("InPageCollectorPopup hides the global processing strip in Product and PR workspaces", () => {
+  const shouldShow = inPageCollectorPopupTestables.shouldShowProcessingContextStrip;
+
+  assert.equal(shouldShow("archive", "library"), true);
+  assert.equal(shouldShow("topic", "library"), false);
+  assert.equal(shouldShow("topic", "compare"), true);
+  assert.equal(shouldShow("topic", "inbox"), false);
+  assert.equal(shouldShow("topic", "casebook"), false);
+  assert.equal(shouldShow("product", "saved-signals"), false);
+  assert.equal(shouldShow("pr-evidence", "pr-evidence"), false);
+});
+
 // Library now uses a compact readiness bar instead of the older readiness-table support copy.
 test("LibraryView keeps Process All visible inside the compact readiness bar", () => {
   const session = buildSession();
@@ -256,10 +269,52 @@ test("LibraryView keeps Process All visible inside the compact readiness bar", (
 
   assert.match(html, /Process All/);
   assert.match(html, /1 篇等待處理/);
-  assert.match(html, /Signals/);
+  assert.match(html, /Topic workspace/);
   assert.match(html, /data-library-row="scan"/);
   assert.match(html, /data-scan-list="library"/);
   assert.match(html, /data-scan-row="true"/);
+});
+
+test("LibraryView scopes Topic library rows to Topic signals, not all backing saved items", () => {
+  const session = buildSession();
+  const leakedProductItem = createSessionItem({
+    ...buildDescriptor(),
+    post_url: "https://www.threads.net/@product/post/leaked",
+    page_url: "https://www.threads.net/@product/post/leaked",
+    author_hint: "product_author",
+    text_snippet: "Product-only saved row"
+  });
+  session.mode = "topic";
+  session.items.push(leakedProductItem);
+
+  const html = renderToStaticMarkup(
+    React.createElement(LibraryView, {
+      activeFolder: session,
+      activeItem: null as SessionItem | null,
+      optimisticQueuedIds: [],
+      workerStatus: "idle" as WorkerStatus | null,
+      isStartingProcessing: false,
+      processAllLabel: "Process All",
+      processingSummary: { total: 2, ready: 1, crawling: 0, analyzing: 0, pending: 1, failed: 0, hasReadyPair: false, hasInflight: false },
+      canPrev: false,
+      canNext: false,
+      onSelectItem: () => undefined,
+      onProcessAll: () => undefined,
+      onMoveSelection: () => undefined,
+      onQueueItem: () => undefined,
+      renderMetrics: () => null,
+      techniqueReadings: [],
+      topicSignalItemIds: [session.items[0]!.id],
+      topicInboxCount: 1,
+      topicCount: 1
+    })
+  );
+
+  assert.match(html, /1 未分流 · 1 主題/);
+  assert.match(html, /@alpha/);
+  assert.doesNotMatch(html, /Product-only saved row/);
+  assert.doesNotMatch(html, /Product workspace/);
+  assert.doesNotMatch(html, /篇可以比較/);
 });
 
 test("LibraryView renders top-cluster keyword chips and removes the old fingerprint block", () => {
@@ -608,6 +663,71 @@ test("Product and PR Evidence modes render no folder strip", () => {
   }
 });
 
+test("Topic folder strip does not leak generated Product workspace naming", () => {
+  const topicSession = {
+    ...buildSession(),
+    name: "Product workspace",
+    mode: "topic" as const
+  };
+  const html = renderToStaticMarkup(
+    React.createElement(InPageCollectorFolderControls, {
+      app: {
+        activeFolderMode: "topic",
+        activeFolder: topicSession,
+        snapshot: {
+          global: {
+            sessions: [topicSession],
+            activeSessionId: topicSession.id
+          }
+        },
+        topics: [{ id: "topic-work", sessionId: topicSession.id, name: "work", description: "", signalIds: [], pairIds: [], createdAt: "", updatedAt: "" }],
+        signals: [
+          { id: "signal-1", sessionId: topicSession.id, itemId: "item-1", source: "threads", inboxStatus: "unprocessed", capturedAt: "" },
+          { id: "signal-2", sessionId: topicSession.id, itemId: "item-2", source: "threads", inboxStatus: "assigned", capturedAt: "" }
+        ],
+        showFolderPrompt: false,
+        isRenamingFolder: false,
+        editingFolderName: "",
+        folderName: "",
+        setIsRenamingFolder: () => undefined,
+        setShowFolderPrompt: () => undefined,
+        setEditingFolderName: () => undefined,
+        setFolderName: () => undefined,
+        onSetActiveSession: () => undefined,
+        onCreateFolder: () => undefined,
+        onRenameFolder: () => undefined,
+        onDeleteFolder: () => undefined
+      } as any
+    })
+  );
+
+  assert.match(html, /Topic workspace/);
+  assert.match(html, /1 未分流/);
+  assert.match(html, /1 主題/);
+  assert.doesNotMatch(html, /Product workspace/);
+  assert.doesNotMatch(html, /Topic workspace \(42\)/);
+  assert.doesNotMatch(html, /42 saved/);
+});
+
+test("Topic folder strip counts inbox and topics instead of saved backing items", () => {
+  const topicSession = { ...buildSession(), mode: "topic" as const };
+  const archiveSession = { ...buildSession(), mode: "archive" as const, name: "Archive" };
+  const { formatWorkspaceOptionLabel, buildTopicStatusBadges } = inPageCollectorFolderControlsTestables;
+
+  assert.equal(formatWorkspaceOptionLabel(topicSession), "Topic workspace");
+  assert.equal(formatWorkspaceOptionLabel(archiveSession), "Archive (1)");
+  assert.deepEqual(
+    buildTopicStatusBadges({
+      topics: [{ id: "topic-work" }],
+      signals: [
+        { id: "signal-1", inboxStatus: "unprocessed" },
+        { id: "signal-2", inboxStatus: "assigned" }
+      ]
+    } as any),
+    ["1 未分流", "1 主題"]
+  );
+});
+
 test("SettingsView exposes Google provider and save action", () => {
   const html = renderToStaticMarkup(
     React.createElement(SettingsView, {
@@ -833,6 +953,9 @@ test("ProductSignalView renders batch export only on the actionable page", () =>
   assert.match(actionableHtml, /原文優先/);
   assert.match(actionableHtml, /精簡決策/);
   assert.match(actionableHtml, /複製 Agent Brief/);
+  assert.match(actionableHtml, /data-agent-brief-copy-status="idle"/);
+  assert.match(actionableHtml, /aria-live="polite"/);
+  assert.match(actionableHtml, /data-batch-export-selection-row="true"/);
   assert.doesNotMatch(actionableHtml, /# Agent Brief/);
 });
 
@@ -1008,6 +1131,160 @@ test("ProductSignalView gives each product page a distinct information shape", (
   assert.ok(!PRODUCT_SIGNAL_MOTION_CSS.includes("::details-content"), "CSS must not use ::details-content");
 });
 
+function buildActionableCardFixture() {
+  const analysis = {
+    signalId: "signal_verdict",
+    signalType: "demand" as const,
+    signalSubtype: "pm_document_generation",
+    contentType: "discussion_starter" as const,
+    contentSummary: "PM 想把外部討論轉成可交付文件。",
+    relevance: 5 as const,
+    relevantTo: ["coreWorkflows" as const],
+    referenceType: "workflow_pattern" as const,
+    referenceLabel: "把討論轉成文件工作流",
+    referenceTakeaway: "先用小型 agent task 驗證交付格式是否可重複。",
+    whyRelevant: "對應 Product mode 的核心承諾。",
+    verdict: "try" as const,
+    reason: "討論裡已經有明確的輸入、處理與輸出。",
+    experimentHint: "用一個 Threads 討論串產出 release-note 草稿。",
+    agentTaskSpec: {
+      targetAgent: "codex" as const,
+      taskTitle: "產出 release-note 草稿",
+      taskPrompt: "Inspect the discussion and draft a release-note workflow.",
+      requiredContext: ["README", "sample thread"]
+    },
+    evidenceRefs: ["e1"],
+    evidenceNotes: [
+      {
+        ref: "e1",
+        quoteSummary: "提到把 Slack/Jira 訊號變成 release notes。",
+        whyItMatters: "把資料來源、處理邏輯和交付物說清楚。",
+        reusablePattern: "多來源討論轉交付文件",
+        whyItWorks: "它把輸入與輸出格式固定下來。",
+        grounding: "text_grounded" as const,
+        workflowStack: ["Threads", "Codex", "Markdown"],
+        copyRecipeMarkdown: "- 收集討論串\n- 交給 agent 摘要\n- 輸出 Markdown 草稿",
+        tradeoff: "需要人手檢查語氣。"
+      }
+    ],
+    productContextHash: "ctx_verdict",
+    promptVersion: "v16",
+    analyzedAt: "2026-05-13T01:00:00.000Z",
+    status: "complete" as const
+  };
+  const evidenceBySignalId = {
+    signal_verdict: [
+      {
+        ref: "e1",
+        id: "reply_1",
+        author: "pm",
+        text: "可以把 Slack 和 Jira 討論交給 agent 寫 release notes。",
+        likeCount: 9
+      }
+    ]
+  };
+
+  return {
+    signal: {
+      id: "signal_verdict",
+      sessionId: "session_verdict",
+      itemId: "item_verdict",
+      source: "threads" as const,
+      inboxStatus: "unprocessed" as const,
+      capturedAt: "2026-05-13T00:00:00.000Z"
+    },
+    analysis,
+    productProfile: {
+      name: "DLens",
+      category: "Product intelligence",
+      audience: "PM",
+      contextText: "README context",
+      contextFiles: [{ id: "readme", name: "README.md", kind: "readme" as const, importedAt: "2026-05-13T00:00:00.000Z", charCount: 14 }]
+    },
+    evidenceBySignalId
+  };
+}
+
+function renderActionableCardFixture(layout?: "verdict" | "marginalia") {
+  const fixture = buildActionableCardFixture();
+  const testables = productSignalViewTestables as typeof productSignalViewTestables & {
+    ActionableItemCard: React.ComponentType<{
+      analysis: typeof fixture.analysis;
+      index: number;
+      evidenceBySignalId: typeof fixture.evidenceBySignalId;
+      historicalAnalyses: typeof fixture.analysis[];
+      agentTaskFeedback: [];
+      layout?: "verdict" | "marginalia";
+    }>;
+  };
+
+  return renderToStaticMarkup(
+    React.createElement(testables.ActionableItemCard, {
+      analysis: fixture.analysis,
+      index: 0,
+      evidenceBySignalId: fixture.evidenceBySignalId,
+      historicalAnalyses: [fixture.analysis],
+      agentTaskFeedback: [],
+      ...(layout ? { layout } : {})
+    })
+  );
+}
+
+test("ProductSignalView actionable cards expose marginalia layout slots", () => {
+  const fixture = buildActionableCardFixture();
+  const html = renderToStaticMarkup(
+    React.createElement(ProductSignalView, {
+      kind: "actionable-filter",
+      signals: [fixture.signal],
+      analyses: [fixture.analysis],
+      productProfile: fixture.productProfile,
+      evidenceBySignalId: fixture.evidenceBySignalId,
+      onAnalyze: () => undefined
+    })
+  );
+
+  assert.match(html, /data-marginalia-layout="true"/);
+  assert.match(html, /data-testid="marginalia-main"/);
+  assert.match(html, /data-testid="marginalia-rail"/);
+  assert.match(html, /data-testid="marginalia-headline"[^>]*>多來源討論轉交付文件/);
+  assert.match(html, /data-testid="marginalia-reason"/);
+  assert.match(html, /data-testid="marginalia-experiment"/);
+  assert.match(html, /data-testid="marginalia-footnotes"/);
+  assert.match(html, /可以把 Slack 和 Jira 討論交給 agent 寫 release notes/);
+});
+
+test("ActionableItemCard marginalia rail contains verdict, relevance, and task slots", () => {
+  const html = renderActionableCardFixture("marginalia");
+
+  assert.match(html, /data-testid="marginalia-rail"/);
+  assert.match(html, /data-testid="rail-verdict"[^>]*data-verdict-value="try"[^>]*>值得嘗試/);
+  assert.match(html, /data-testid="rail-relevance"/);
+  assert.match(html, /data-testid="rail-task"/);
+  assert.match(html, /TASK ›/);
+  assert.match(html, /用一個 Threads 討論串產出 release-note 草稿/);
+});
+
+test("ActionableItemCard defaults to verdict layout without layout prop", () => {
+  const html = renderActionableCardFixture();
+
+  assert.match(html, /data-verdict-layout="true"/);
+  assert.match(html, /data-testid="verdict-panel"/);
+  assert.match(html, /data-testid="verdict-label"[^>]*data-verdict-value="try"[^>]*>值得嘗試/);
+  assert.match(html, /data-testid="insight-headline"[^>]*>多來源討論轉交付文件/);
+  assert.match(html, /data-testid="evidence-list"/);
+  assert.match(html, /data-testid="task-slot"/);
+  assert.match(html, /data-testid="metadata-strip"/);
+  assert.match(html, /data-relevance-bars="true"/);
+  assert.match(html, /5\/5/);
+  assert.match(html, /把討論轉成文件工作流/);
+  assert.match(html, /討論裡已經有明確的輸入、處理與輸出/);
+  assert.match(html, /1 則原文證據/);
+  assert.match(html, /用一個 Threads 討論串產出 release-note 草稿/);
+  assert.match(html, /分類：需求/);
+  assert.match(html, /Subtype：pm document generation/);
+  assert.match(html, /Prompt：v16/);
+});
+
 test("ProductSignalView surfaces legacy optional fields when present", () => {
   const v3Props = {
     signals: [
@@ -1140,6 +1417,9 @@ test("ProductSignalView surfaces legacy optional fields when present", () => {
 
   // Raw quote is no longer the visible hero; it lives behind the disclosure.
   assert.match(actionableHtml, /查看原文與模型判讀\s*→/);
+  const sourceToggleStyle = actionableHtml.match(/data-evidence-source-toggle="true"[^>]*style="([^"]*)"/)?.[1] ?? "";
+  assert.ok(sourceToggleStyle.includes(`background:${tokens.color.productSoft}`));
+  assert.ok(sourceToggleStyle.includes(`color:${tokens.color.product}`));
   assert.doesNotMatch(actionableHtml, /顯示原文與引用理由/);
   assert.doesNotMatch(actionableHtml, /data-evidence-quote-body="true"/);
   assert.doesNotMatch(actionableHtml, /inset 0 1px 0 rgba\(255,255,255,0\.55\)/);
@@ -1157,6 +1437,64 @@ test("ProductSignalView surfaces legacy optional fields when present", () => {
   assert.match(actionableHtml, /data-dlens-number-badge="true"[^>]*style="[^"]*font-weight:500[^"]*"/);
   assert.match(actionableHtml, /data-dlens-number-badge="true"[^>]*style="[^"]*border:1px solid/);
   assert.doesNotMatch(actionableHtml, /data-dlens-number-badge="true"[^>]*style="[^"]*border:1\.5px/);
+});
+
+test("ProductSignalView keeps non-try verdicts behind clickable filters by default", () => {
+  const baseAnalysis = {
+    signalType: "learning" as const,
+    signalSubtype: "agent_workflow",
+    contentType: "content" as const,
+    relevance: 4 as const,
+    relevantTo: ["technicalLearning" as const],
+    referenceType: "technical_learning" as const,
+    referenceLabel: "學習 Agent 工作流",
+    referenceTakeaway: "先作為技術學習，不直接產品化。",
+    evidenceRefs: [],
+    productContextHash: "ctx",
+    promptVersion: "v12",
+    analyzedAt: "2026-05-07T00:00:00.000Z",
+    status: "complete" as const
+  };
+  const html = renderToStaticMarkup(
+    React.createElement(ProductSignalView, {
+      kind: "actionable-filter",
+      signals: [
+        { id: "signal_try", sessionId: "sess", itemId: "i1", source: "threads", inboxStatus: "unprocessed", capturedAt: "2026-05-07T00:00:00.000Z" },
+        { id: "signal_watch", sessionId: "sess", itemId: "i2", source: "threads", inboxStatus: "unprocessed", capturedAt: "2026-05-07T00:00:00.000Z" }
+      ] as any,
+      analyses: [
+        {
+          ...baseAnalysis,
+          signalId: "signal_try",
+          contentSummary: "可直接試的 Agent 工作流",
+          whyRelevant: "可直接測試。",
+          verdict: "try" as const,
+          reason: "有明確行動。"
+        },
+        {
+          ...baseAnalysis,
+          signalId: "signal_watch",
+          contentSummary: "只適合保留觀察的跨平台資料流",
+          whyRelevant: "先學習概念。",
+          verdict: "watch" as const,
+          reason: "暫時不直接改產品。"
+        }
+      ],
+      productProfile: {
+        name: "DLens",
+        category: "x",
+        audience: "y",
+        contextText: "z",
+        contextFiles: [{ id: "f", name: "README.md", kind: "readme", importedAt: "2026-05-07T00:00:00.000Z", charCount: 1 }]
+      } as any,
+      onAnalyze: () => undefined
+    })
+  );
+
+  assert.match(html, /data-action-verdict-filter="try"[^>]*aria-pressed="true"/);
+  assert.match(html, /data-action-verdict-filter="watch"[^>]*aria-pressed="false"/);
+  assert.match(html, /可直接試的 Agent 工作流/);
+  assert.doesNotMatch(html, /只適合保留觀察的跨平台資料流/);
 });
 
 test("ProductSignalView shows feedback-backed similar history without inflating current readiness", () => {
@@ -1404,7 +1742,10 @@ test("ProductSignalView batch export copies action context with original signal 
     contentType: "content",
     contentSummary: "手機分享入口實驗",
     relevance: 5,
-    relevantTo: ["coreWorkflows"],
+    relevantTo: ["coreWorkflows", "technicalLearning"],
+    referenceType: "technical_learning",
+    referenceLabel: "學習 mobile share intake 的入口設計",
+    referenceTakeaway: "可先學習分享入口如何交給 agent，再決定是否改造 DLens collect flow。",
     whyRelevant: "使用者明確描述手機上快速保存 Threads 的需求。",
     verdict: "try",
     reason: "可以直接測試 share URL intake。",
@@ -1434,8 +1775,13 @@ test("ProductSignalView batch export copies action context with original signal 
   });
 
   assert.match(brief, /# Product Action Brief/);
+  assert.match(brief, /## 使用方式/);
+  assert.match(brief, /先處理 `值得嘗試`/);
+  assert.match(brief, /`保留觀察` 只作產品學習/);
   assert.match(brief, /Original Threads text/);
   assert.match(brief, /手機分享入口實驗/);
+  assert.match(brief, /學習 mobile share intake 的入口設計/);
+  assert.match(brief, /可先學習分享入口如何交給 agent/);
   assert.match(brief, /Prototype a share URL intake/);
   assert.doesNotMatch(brief, /## 1\. signal_a/);
   assert.doesNotMatch(brief, /AI summary/);
