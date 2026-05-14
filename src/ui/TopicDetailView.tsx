@@ -11,6 +11,7 @@ import { tokens } from "./tokens.ts";
 import { pickPrimaryJudgmentPair } from "./useTopicState.ts";
 
 type TopicItemAnalysisState = ItemReadinessStatus | "queued";
+type TopicSynthesisLayout = "stack" | "console";
 
 interface TopicDetailViewProps {
   topic: Topic;
@@ -31,6 +32,7 @@ interface TopicDetailViewProps {
   onAddToCompare?: (itemId: string) => void;
   onSaveJudgmentOverride?: (resultId: string, patch: { relevance: 1 | 2 | 3 | 4 | 5; recommendedState: "park" | "watch" | "act" }) => void;
   onGenerateSynthesis?: (topicId: string) => Promise<{ ok: boolean; error?: string }>;
+  synthLayout?: TopicSynthesisLayout;
 }
 
 function formatTopicDate(value: string): string {
@@ -369,18 +371,223 @@ function SynthesisStackSection({
   );
 }
 
+function ConsoleBar({
+  value,
+  total,
+  testId
+}: {
+  value: number;
+  total: number;
+  testId?: string;
+}) {
+  const pct = total > 0 ? Math.max(0, Math.min(100, Math.round((value / total) * 100))) : 0;
+
+  return (
+    <div data-testid={testId} style={{ display: "flex", alignItems: "center", gap: 6, minWidth: 0 }}>
+      <div style={{ flex: 1, height: 3, background: tokens.color.lineStrong, borderRadius: 999, overflow: "hidden" }}>
+        <div
+          style={{
+            width: `${pct}%`,
+            height: "100%",
+            background: tokens.color.teal,
+            borderRadius: 999
+          }}
+        />
+      </div>
+      <span style={{ fontFamily: tokens.font.mono, fontSize: 10, color: tokens.color.softInk, minWidth: 28, textAlign: "right" }}>
+        {pct}%
+      </span>
+    </div>
+  );
+}
+
+function ConsoleSection({
+  testId,
+  title,
+  children
+}: {
+  testId: string;
+  title: string;
+  children: ReactNode;
+}) {
+  return (
+    <section data-testid={testId} style={{ display: "grid", gap: 8 }}>
+      <div style={{ fontFamily: tokens.font.mono, fontSize: 10.5, fontWeight: 700, color: tokens.color.softInk, letterSpacing: "0.04em" }}>
+        {title}
+      </div>
+      {children}
+    </section>
+  );
+}
+
+function ConsoleIndex({ index }: { index: number }) {
+  return (
+    <span style={{ fontFamily: tokens.font.mono, fontSize: 11, color: tokens.color.softInk, fontVariantNumeric: "tabular-nums" }}>
+      {String(index + 1).padStart(2, "0")}
+    </span>
+  );
+}
+
+function TopicSynthesisConsole({
+  synthesis,
+  lastGeneratedLabel
+}: {
+  synthesis: TopicSynthesis;
+  lastGeneratedLabel: string;
+}) {
+  const total = synthesis.generatedFromCount;
+
+  return (
+    <div data-testid="synthesis-console" style={{ display: "grid", gap: 14 }}>
+      <p
+        style={{
+          margin: 0,
+          padding: "10px 12px",
+          borderRadius: 8,
+          border: `1px solid ${tokens.color.line}`,
+          background: tokens.color.surface,
+          fontFamily: tokens.font.mono,
+          fontSize: 12,
+          lineHeight: 1.65,
+          color: tokens.color.ink
+        }}
+      >
+        {synthesis.sentimentNarrative || "這批貼文正在形成一條共同主線"}
+      </p>
+
+      <ConsoleSection testId="synthesis-cluster-bars" title="CLUSTERS">
+        {synthesis.commonClusters.length > 0 ? (
+          <div style={{ display: "grid", gap: 8 }}>
+            {synthesis.commonClusters.map((cluster, index) => (
+              <div
+                key={cluster.keyword}
+                style={{
+                  display: "grid",
+                  gridTemplateColumns: "minmax(0, 0.9fr) minmax(92px, 1fr)",
+                  gap: 10,
+                  alignItems: "center"
+                }}
+              >
+                <span style={{ fontFamily: tokens.font.mono, fontSize: 11.5, color: tokens.color.ink, ...lineClamp(1) }}>
+                  {cluster.keyword}
+                </span>
+                <ConsoleBar value={cluster.signalCount} total={total} testId={`cluster-bar-${index}`} />
+              </div>
+            ))}
+          </div>
+        ) : (
+          <div style={{ fontFamily: tokens.font.mono, fontSize: 11, color: tokens.color.softInk }}>no clusters</div>
+        )}
+      </ConsoleSection>
+
+      <ConsoleSection testId="synthesis-meme-bars" title="MEMES">
+        {synthesis.memes.length > 0 ? (
+          <div style={{ display: "grid", gap: 8 }}>
+            {synthesis.memes.map((meme, index) => (
+              <div
+                key={meme.phrase}
+                style={{
+                  display: "grid",
+                  gridTemplateColumns: "minmax(0, 0.9fr) minmax(92px, 1fr)",
+                  gap: 10,
+                  alignItems: "center"
+                }}
+              >
+                <span style={{ fontFamily: tokens.font.mono, fontSize: 11.5, color: tokens.color.ink, ...lineClamp(1) }}>
+                  {meme.phrase}
+                </span>
+                <ConsoleBar value={meme.occurrences} total={total} testId={`meme-bar-${index}`} />
+              </div>
+            ))}
+          </div>
+        ) : (
+          <div style={{ fontFamily: tokens.font.mono, fontSize: 11, color: tokens.color.softInk }}>no memes</div>
+        )}
+      </ConsoleSection>
+
+      <ConsoleSection testId="synthesis-techniques-rows" title="VERBAL TECHNIQUES">
+        {synthesis.verbalTechniques.length > 0 ? (
+          <ol style={{ margin: 0, padding: 0, listStyle: "none", display: "grid", gap: 7 }}>
+            {synthesis.verbalTechniques.map((technique, index) => (
+              <li key={technique} style={{ display: "grid", gridTemplateColumns: "24px minmax(0, 1fr)", gap: 8, alignItems: "baseline" }}>
+                <ConsoleIndex index={index} />
+                <span style={{ fontFamily: tokens.font.mono, fontSize: 11.5, lineHeight: 1.55, color: tokens.color.subInk }}>
+                  {technique}
+                </span>
+              </li>
+            ))}
+          </ol>
+        ) : (
+          <div style={{ fontFamily: tokens.font.mono, fontSize: 11, color: tokens.color.softInk }}>no techniques</div>
+        )}
+      </ConsoleSection>
+
+      <ConsoleSection testId="synthesis-observation-rows" title="OBSERVATIONS">
+        {synthesis.observations.length > 0 ? (
+          <ol style={{ margin: 0, padding: 0, listStyle: "none", display: "grid", gap: 7 }}>
+            {synthesis.observations.map((observation, index) => (
+              <li
+                key={`${observation.text}-${index}`}
+                style={{
+                  display: "grid",
+                  gridTemplateColumns: "24px minmax(0, 1fr) auto",
+                  gap: 8,
+                  alignItems: "baseline"
+                }}
+              >
+                <ConsoleIndex index={index} />
+                <span style={{ fontFamily: tokens.font.mono, fontSize: 11.5, lineHeight: 1.55, color: tokens.color.subInk }}>
+                  {observation.text}
+                </span>
+                <span style={{ fontFamily: tokens.font.mono, fontSize: 10, color: tokens.color.softInk, whiteSpace: "nowrap" }}>
+                  {observation.evidenceSignalIds.length} signals
+                </span>
+              </li>
+            ))}
+          </ol>
+        ) : (
+          <div style={{ fontFamily: tokens.font.mono, fontSize: 11, color: tokens.color.softInk }}>no observations</div>
+        )}
+      </ConsoleSection>
+
+      <ConsoleSection testId="synthesis-outlier-rows" title="OUTLIERS">
+        {synthesis.outliers.length > 0 ? (
+          <ol style={{ margin: 0, padding: 0, listStyle: "none", display: "grid", gap: 7 }}>
+            {synthesis.outliers.map((outlier, index) => (
+              <li key={`${outlier.signalId}-${index}`} style={{ display: "grid", gridTemplateColumns: "24px minmax(0, 1fr)", gap: 8 }}>
+                <ConsoleIndex index={index} />
+                <span style={{ fontFamily: tokens.font.mono, fontSize: 11.5, lineHeight: 1.55, color: tokens.color.subInk }}>
+                  {outlier.signalId} · {outlier.reason}
+                </span>
+              </li>
+            ))}
+          </ol>
+        ) : (
+          <div style={{ fontFamily: tokens.font.mono, fontSize: 11, color: tokens.color.softInk }}>no outliers</div>
+        )}
+      </ConsoleSection>
+
+      <div style={{ borderTop: `1px solid ${tokens.color.line}`, paddingTop: 10, fontFamily: tokens.font.mono, fontSize: 10.5, color: tokens.color.softInk }}>
+        {synthesis.generatedFromCount} signals · {synthesis.generatorVersion} · {lastGeneratedLabel}
+      </div>
+    </div>
+  );
+}
+
 function TopicSynthesisCard({
   topic,
   analyzedCount,
   isGenerating,
   errorMessage,
-  onGenerate
+  onGenerate,
+  layout = "stack"
 }: {
   topic: Topic;
   analyzedCount: number;
   isGenerating: boolean;
   errorMessage: string | null;
   onGenerate: () => void;
+  layout?: TopicSynthesisLayout;
 }) {
   const synthesis: TopicSynthesis | null = topic.synthesis ?? null;
   const staleness = topicSynthesisStaleReason(synthesis, analyzedCount);
@@ -479,143 +686,149 @@ function TopicSynthesisCard({
 
       {synthesis ? (
         <div style={{ display: "grid", gap: 14 }}>
-          <div style={{ display: "grid", gap: 8 }}>
-            {synthesis.sentimentNarrative ? (
-              <p style={{
-                margin: 0,
-                fontFamily: tokens.font.serifCjk,
-                fontSize: 20,
-                lineHeight: 1.6,
-                fontWeight: 500,
-                color: tokens.color.ink,
-                letterSpacing: "0.005em"
-              }}>
-                {synthesis.sentimentNarrative}
-              </p>
-            ) : (
-              <p style={{ margin: 0, fontSize: 14, lineHeight: 1.7, color: tokens.color.subInk }}>
-                這批貼文正在形成一條共同主線
-              </p>
-            )}
-          </div>
+          {layout === "console" ? (
+            <TopicSynthesisConsole synthesis={synthesis} lastGeneratedLabel={lastGeneratedLabel} />
+          ) : (
+            <>
+              <div style={{ display: "grid", gap: 8 }}>
+                {synthesis.sentimentNarrative ? (
+                  <p style={{
+                    margin: 0,
+                    fontFamily: tokens.font.serifCjk,
+                    fontSize: 20,
+                    lineHeight: 1.6,
+                    fontWeight: 500,
+                    color: tokens.color.ink,
+                    letterSpacing: "0.005em"
+                  }}>
+                    {synthesis.sentimentNarrative}
+                  </p>
+                ) : (
+                  <p style={{ margin: 0, fontSize: 14, lineHeight: 1.7, color: tokens.color.subInk }}>
+                    這批貼文正在形成一條共同主線
+                  </p>
+                )}
+              </div>
 
-          <div style={{ display: "grid", borderBottom: `1px solid ${tokens.color.line}` }}>
-            <SynthesisStackSection
-              testId="synthesis-observations"
-              title="觀察"
-              count={synthesis.observations.length}
-              open={openSections.observations}
-              onToggle={() => toggleSection("observations")}
-            >
-              {synthesis.observations.length > 0 ? (
-                <ol style={{ margin: 0, padding: 0, listStyle: "none", display: "grid", gap: 8 }}>
-                  {synthesis.observations.map((observation, index) => (
-                    <li key={`${observation.text}-${index}`} style={{ display: "grid", gridTemplateColumns: "18px minmax(0, 1fr)", gap: 8 }}>
-                      <span style={{ fontSize: 12, fontWeight: 700, color: tokens.color.success }}>{index + 1}.</span>
-                      <span style={{ fontSize: 13, lineHeight: 1.65, color: tokens.color.ink }}>{observation.text}</span>
-                    </li>
-                  ))}
-                </ol>
-              ) : (
-                <div style={{ fontSize: 12, color: tokens.color.softInk }}>暫無觀察。</div>
-              )}
-            </SynthesisStackSection>
+              <div style={{ display: "grid", borderBottom: `1px solid ${tokens.color.line}` }}>
+                <SynthesisStackSection
+                  testId="synthesis-observations"
+                  title="觀察"
+                  count={synthesis.observations.length}
+                  open={openSections.observations}
+                  onToggle={() => toggleSection("observations")}
+                >
+                  {synthesis.observations.length > 0 ? (
+                    <ol style={{ margin: 0, padding: 0, listStyle: "none", display: "grid", gap: 8 }}>
+                      {synthesis.observations.map((observation, index) => (
+                        <li key={`${observation.text}-${index}`} style={{ display: "grid", gridTemplateColumns: "18px minmax(0, 1fr)", gap: 8 }}>
+                          <span style={{ fontSize: 12, fontWeight: 700, color: tokens.color.success }}>{index + 1}.</span>
+                          <span style={{ fontSize: 13, lineHeight: 1.65, color: tokens.color.ink }}>{observation.text}</span>
+                        </li>
+                      ))}
+                    </ol>
+                  ) : (
+                    <div style={{ fontSize: 12, color: tokens.color.softInk }}>暫無觀察。</div>
+                  )}
+                </SynthesisStackSection>
 
-            <SynthesisStackSection
-              testId="synthesis-clusters"
-              title="模式群"
-              count={synthesis.commonClusters.length}
-              open={openSections.clusters}
-              onToggle={() => toggleSection("clusters")}
-            >
-              {synthesis.commonClusters.length > 0 ? (
-                <div style={{ display: "grid", gap: 7 }}>
-                  {synthesis.commonClusters.map((cluster) => (
-                    <div key={cluster.keyword} style={{ display: "grid", gridTemplateColumns: "minmax(0, 1fr) auto", gap: 10, alignItems: "baseline" }}>
-                      <span style={{ fontSize: 13, color: tokens.color.ink, fontWeight: 650, ...lineClamp(1) }}>{cluster.keyword}</span>
-                      <span style={{ fontSize: 11, color: tokens.color.softInk, whiteSpace: "nowrap" }}>{cluster.signalCount} 篇</span>
+                <SynthesisStackSection
+                  testId="synthesis-clusters"
+                  title="模式群"
+                  count={synthesis.commonClusters.length}
+                  open={openSections.clusters}
+                  onToggle={() => toggleSection("clusters")}
+                >
+                  {synthesis.commonClusters.length > 0 ? (
+                    <div style={{ display: "grid", gap: 7 }}>
+                      {synthesis.commonClusters.map((cluster) => (
+                        <div key={cluster.keyword} style={{ display: "grid", gridTemplateColumns: "minmax(0, 1fr) auto", gap: 10, alignItems: "baseline" }}>
+                          <span style={{ fontSize: 13, color: tokens.color.ink, fontWeight: 650, ...lineClamp(1) }}>{cluster.keyword}</span>
+                          <span style={{ fontSize: 11, color: tokens.color.softInk, whiteSpace: "nowrap" }}>{cluster.signalCount} 篇</span>
+                        </div>
+                      ))}
                     </div>
-                  ))}
-                </div>
-              ) : (
-                <div style={{ fontSize: 12, color: tokens.color.softInk }}>暫無模式群。</div>
-              )}
-            </SynthesisStackSection>
+                  ) : (
+                    <div style={{ fontSize: 12, color: tokens.color.softInk }}>暫無模式群。</div>
+                  )}
+                </SynthesisStackSection>
 
-            <SynthesisStackSection
-              testId="synthesis-techniques"
-              title="說法"
-              count={synthesis.verbalTechniques.length}
-              open={openSections.techniques}
-              onToggle={() => toggleSection("techniques")}
-            >
-              {synthesis.verbalTechniques.length > 0 ? (
-                <ul style={{ margin: 0, padding: 0, listStyle: "none", display: "grid", gap: 7 }}>
-                  {synthesis.verbalTechniques.map((technique) => (
-                    <li key={technique} style={{ fontSize: 13, lineHeight: 1.6, color: tokens.color.subInk }}>
-                      {technique}
-                    </li>
-                  ))}
-                </ul>
-              ) : (
-                <div style={{ fontSize: 12, color: tokens.color.softInk }}>暫無說法。</div>
-              )}
-            </SynthesisStackSection>
+                <SynthesisStackSection
+                  testId="synthesis-techniques"
+                  title="說法"
+                  count={synthesis.verbalTechniques.length}
+                  open={openSections.techniques}
+                  onToggle={() => toggleSection("techniques")}
+                >
+                  {synthesis.verbalTechniques.length > 0 ? (
+                    <ul style={{ margin: 0, padding: 0, listStyle: "none", display: "grid", gap: 7 }}>
+                      {synthesis.verbalTechniques.map((technique) => (
+                        <li key={technique} style={{ fontSize: 13, lineHeight: 1.6, color: tokens.color.subInk }}>
+                          {technique}
+                        </li>
+                      ))}
+                    </ul>
+                  ) : (
+                    <div style={{ fontSize: 12, color: tokens.color.softInk }}>暫無說法。</div>
+                  )}
+                </SynthesisStackSection>
 
-            <SynthesisStackSection
-              testId="synthesis-memes"
-              title="梗"
-              count={synthesis.memes.length}
-              open={openSections.memes}
-              onToggle={() => toggleSection("memes")}
-            >
-              {synthesis.memes.length > 0 ? (
-                <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
-                  {synthesis.memes.map((meme) => (
-                    <span
-                      key={meme.phrase}
-                      style={{
-                        fontSize: 11.5,
-                        padding: "4px 8px",
-                        borderRadius: 999,
-                        background: tokens.color.cyanSoft,
-                        color: tokens.color.cyan,
-                        fontWeight: 650
-                      }}
-                    >
-                      {meme.phrase} ×{meme.occurrences}
-                    </span>
-                  ))}
-                </div>
-              ) : (
-                <div style={{ fontSize: 12, color: tokens.color.softInk }}>暫無重複語彙。</div>
-              )}
-            </SynthesisStackSection>
-
-            <SynthesisStackSection
-              testId="synthesis-outliers"
-              title="異常"
-              count={synthesis.outliers.length}
-              open={openSections.outliers}
-              onToggle={() => toggleSection("outliers")}
-            >
-              {synthesis.outliers.length > 0 ? (
-                <div style={{ display: "grid", gap: 7 }}>
-                  {synthesis.outliers.map((outlier) => (
-                    <div key={outlier.signalId} style={{ fontSize: 12.5, lineHeight: 1.6, color: tokens.color.subInk }}>
-                      {outlier.reason}
+                <SynthesisStackSection
+                  testId="synthesis-memes"
+                  title="梗"
+                  count={synthesis.memes.length}
+                  open={openSections.memes}
+                  onToggle={() => toggleSection("memes")}
+                >
+                  {synthesis.memes.length > 0 ? (
+                    <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
+                      {synthesis.memes.map((meme) => (
+                        <span
+                          key={meme.phrase}
+                          style={{
+                            fontSize: 11.5,
+                            padding: "4px 8px",
+                            borderRadius: 999,
+                            background: tokens.color.cyanSoft,
+                            color: tokens.color.cyan,
+                            fontWeight: 650
+                          }}
+                        >
+                          {meme.phrase} ×{meme.occurrences}
+                        </span>
+                      ))}
                     </div>
-                  ))}
-                </div>
-              ) : (
-                <div style={{ fontSize: 12, color: tokens.color.softInk }}>暫無異常材料。</div>
-              )}
-            </SynthesisStackSection>
-          </div>
+                  ) : (
+                    <div style={{ fontSize: 12, color: tokens.color.softInk }}>暫無重複語彙。</div>
+                  )}
+                </SynthesisStackSection>
 
-          <div style={{ fontSize: 10.5, fontWeight: 650, color: tokens.color.softInk, letterSpacing: "0.02em" }}>
-            {synthesis.generatedFromCount} 訊號 · 更新於 {lastGeneratedLabel} · {synthesis.generatorVersion}
-          </div>
+                <SynthesisStackSection
+                  testId="synthesis-outliers"
+                  title="異常"
+                  count={synthesis.outliers.length}
+                  open={openSections.outliers}
+                  onToggle={() => toggleSection("outliers")}
+                >
+                  {synthesis.outliers.length > 0 ? (
+                    <div style={{ display: "grid", gap: 7 }}>
+                      {synthesis.outliers.map((outlier) => (
+                        <div key={outlier.signalId} style={{ fontSize: 12.5, lineHeight: 1.6, color: tokens.color.subInk }}>
+                          {outlier.reason}
+                        </div>
+                      ))}
+                    </div>
+                  ) : (
+                    <div style={{ fontSize: 12, color: tokens.color.softInk }}>暫無異常材料。</div>
+                  )}
+                </SynthesisStackSection>
+              </div>
+
+              <div style={{ fontSize: 10.5, fontWeight: 650, color: tokens.color.softInk, letterSpacing: "0.02em" }}>
+                {synthesis.generatedFromCount} 訊號 · 更新於 {lastGeneratedLabel} · {synthesis.generatorVersion}
+              </div>
+            </>
+          )}
 
           <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap", paddingTop: 4 }}>
             <SecondaryButton
@@ -659,7 +872,8 @@ export function TopicDetailView({
   onOpenAnalysis,
   onAddToCompare,
   onSaveJudgmentOverride,
-  onGenerateSynthesis
+  onGenerateSynthesis,
+  synthLayout = "console"
 }: TopicDetailViewProps) {
   const [draftDescription, setDraftDescription] = useState(topic.description || "");
   const [isGeneratingSynthesis, setIsGeneratingSynthesis] = useState(false);
@@ -835,6 +1049,7 @@ export function TopicDetailView({
               isGenerating={isGeneratingSynthesis}
               errorMessage={synthesisError}
               onGenerate={handleGenerateSynthesis}
+              layout={synthLayout}
             />
 
             {unanalyzedItemIds.length > 0 ? (

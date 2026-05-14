@@ -75,8 +75,8 @@ const synthesis: TopicSynthesis = {
   outliers: [
     { signalId: "signal-1", reason: "有一條材料更接近價格抱怨，暫時不進主線。" }
   ],
-  generatedFromCount: 2,
-  totalSignalCount: 3,
+  generatedFromCount: 5,
+  totalSignalCount: 6,
   generatedAt: "2026-04-23T10:30:00.000Z",
   generator: "deterministic",
   generatorVersion: "v2.work-signal-lens"
@@ -135,6 +135,7 @@ test("TopicSynthesisCard Stack layout renders five collapsed section triggers", 
   const html = renderToStaticMarkup(
     React.createElement(TopicDetailView, {
       topic: topicWithSynthesis,
+      synthLayout: "stack",
       signals,
       pairs,
       onBack: () => undefined,
@@ -151,9 +152,52 @@ test("TopicSynthesisCard Stack layout renders five collapsed section triggers", 
   assert.match(html, /data-testid="synthesis-memes"/);
   assert.match(html, /data-testid="synthesis-outliers"/);
   assert.match(html, /aria-expanded="false"/);
-  assert.match(html, /2 訊號 ·/);
+  assert.match(html, /5 訊號 ·/);
   assert.match(html, /v2\.work-signal-lens/);
   assert.doesNotMatch(html, /data-testid="synthesis-observations-body"/);
+});
+
+test("TopicSynthesisCard Console layout renders console wrapper and bar sections", () => {
+  const html = renderToStaticMarkup(
+    React.createElement(TopicDetailView, {
+      topic: topicWithSynthesis,
+      synthLayout: "console",
+      signals,
+      pairs,
+      onBack: () => undefined,
+      onOpenPair: () => undefined,
+      onUpdateTopic: () => undefined
+    })
+  );
+
+  assert.match(html, /data-topic-synthesis="card"/);
+  assert.match(html, /data-testid="synthesis-console"/);
+  assert.match(html, /data-testid="synthesis-cluster-bars"/);
+  assert.match(html, /data-testid="synthesis-meme-bars"/);
+  assert.match(html, /data-testid="synthesis-techniques-rows"/);
+  assert.match(html, /data-testid="synthesis-observation-rows"/);
+  assert.match(html, /data-testid="synthesis-outlier-rows"/);
+});
+
+test("TopicSynthesisCard Console layout renders one bar per cluster and meme", () => {
+  const html = renderToStaticMarkup(
+    React.createElement(TopicDetailView, {
+      topic: topicWithSynthesis,
+      synthLayout: "console",
+      signals,
+      pairs,
+      onBack: () => undefined,
+      onOpenPair: () => undefined,
+      onUpdateTopic: () => undefined
+    })
+  );
+  const clusterBars = html.match(/data-testid="cluster-bar-\d+"/g) ?? [];
+  const memeBars = html.match(/data-testid="meme-bar-\d+"/g) ?? [];
+
+  assert.equal(clusterBars.length, synthesis.commonClusters.length);
+  assert.equal(memeBars.length, synthesis.memes.length);
+  assert.match(html, /60%/);
+  assert.match(html, /80%/);
 });
 
 test("TopicSynthesisCard Stack layout observation section expands when open", () => {
