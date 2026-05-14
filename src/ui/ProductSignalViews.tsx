@@ -377,6 +377,15 @@ function referenceTakeaway(analysis: ProductSignalAnalysis | undefined): string 
   return analysis.referenceTakeaway?.trim() || analysis.whyRelevant || analysis.reason;
 }
 
+function optionalInsightHeadline(analysis: ProductSignalAnalysis | undefined): string {
+  const value = (analysis as (ProductSignalAnalysis & { insightHeadline?: unknown }) | undefined)?.insightHeadline;
+  return typeof value === "string" ? value.trim() : "";
+}
+
+function batchExportHeadline(analysis: ProductSignalAnalysis | undefined): string {
+  return optionalInsightHeadline(analysis) || analysis?.contentSummary?.trim() || referenceLabel(analysis);
+}
+
 interface EvidenceCitation {
   ref: string;
   entry?: ProductSignalEvidenceEntry;
@@ -620,10 +629,21 @@ function StackTagRow({ tools, maxVisible = 4 }: { tools: string[]; maxVisible?: 
   );
 }
 
-function WorkflowEvidenceCard({ citation, flatten = false }: { citation: EvidenceCitation; flatten?: boolean }) {
+function WorkflowEvidenceCard({
+  citation,
+  flatten = false,
+  hideTitleIfMatches
+}: {
+  citation: EvidenceCitation;
+  flatten?: boolean;
+  hideTitleIfMatches?: string;
+}) {
   const workflow = inferWorkflowPattern(citation);
   const grounding = workflow.grounding || "model_inferred";
   const groundingLabel = GROUNDING_LABELS[grounding];
+  const normalizedTitle = workflow.pattern?.trim() ?? "";
+  const normalizedMatch = hideTitleIfMatches?.trim() ?? "";
+  const shouldHideTitle = normalizedTitle.length > 0 && normalizedMatch.length > 0 && normalizedTitle === normalizedMatch;
   const stackedLabelStyle: CSSProperties = {
     ...textStyles.label,
     fontSize: 9.5,
@@ -661,33 +681,35 @@ function WorkflowEvidenceCard({ citation, flatten = false }: { citation: Evidenc
         background: flatten ? "transparent" : tokens.color.elevated
       }}
     >
-      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10, flexWrap: "wrap" }}>
-        <div style={{ display: "grid", gap: 2 }}>
-          <div style={{ ...textStyles.cardTitle, color: tokens.color.ink }}>
-            {workflow.pattern}
+      {!shouldHideTitle ? (
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10, flexWrap: "wrap" }}>
+          <div style={{ display: "grid", gap: 2 }}>
+            <div style={{ ...textStyles.cardTitle, color: tokens.color.ink }}>
+              {workflow.pattern}
+            </div>
           </div>
+          <span
+            data-workflow-grounding={grounding}
+            style={{
+              display: "inline-flex",
+              alignItems: "center",
+              minHeight: 20,
+              padding: "0 7px",
+              borderRadius: 999,
+              border: `1px solid ${tokens.color.line}`,
+              background: grounding === "text_grounded" ? tokens.color.successSoft : tokens.color.neutralSurfaceSoft,
+              color: grounding === "text_grounded" ? tokens.color.success : tokens.color.softInk,
+              fontSize: 10.5,
+              fontWeight: 600
+            }}
+          >
+            {groundingLabel}
+          </span>
+          {workflow.tools.length ? (
+            <StackTagRow tools={workflow.tools} maxVisible={4} />
+          ) : null}
         </div>
-        <span
-          data-workflow-grounding={grounding}
-          style={{
-            display: "inline-flex",
-            alignItems: "center",
-            minHeight: 20,
-            padding: "0 7px",
-            borderRadius: 999,
-            border: `1px solid ${tokens.color.line}`,
-            background: grounding === "text_grounded" ? tokens.color.successSoft : tokens.color.neutralSurfaceSoft,
-            color: grounding === "text_grounded" ? tokens.color.success : tokens.color.softInk,
-            fontSize: 10.5,
-            fontWeight: 600
-          }}
-        >
-          {groundingLabel}
-        </span>
-        {workflow.tools.length ? (
-          <StackTagRow tools={workflow.tools} maxVisible={4} />
-        ) : null}
-      </div>
+      ) : null}
       <div style={{ display: "grid", gap: flatten ? 0 : 7 }}>
         <div data-workflow-row-layout={flatten ? "stacked" : "aside"} style={rowStyle(false)}>
           <span data-workflow-field-label="copy" style={fieldLabelStyle}>如何照抄</span>
@@ -1614,6 +1636,7 @@ function SavedSignalsBatchExport({
           const analysis = analysesBySignal.get(signal.id);
           const checked = selectedIds.includes(signal.id);
           const typeMeta = analysis ? SIGNAL_TYPE_META[analysis.signalType] : null;
+          const rowHeadline = batchExportHeadline(analysis);
           return (
             <label
               key={signal.id}
@@ -1633,14 +1656,14 @@ function SavedSignalsBatchExport({
                 type="checkbox"
                 checked={checked}
                 onChange={() => onToggleSignal(signal.id)}
-                aria-label={`選取 ${referenceLabel(analysis)}`}
+                aria-label={`選取 ${rowHeadline}`}
               />
               <span style={{ minWidth: 0, display: "grid", gap: 3 }}>
                 <span style={{ ...textStyles.bodyTight, color: tokens.color.ink, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-                  {referenceLabel(analysis)}
+                  {rowHeadline}
                 </span>
                 <span style={{ ...textStyles.meta, color: tokens.color.softInk, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-                  {referenceTypeLabel(analysis?.referenceType)} · {referenceTakeaway(analysis)}
+                  {referenceTakeaway(analysis)}
                 </span>
               </span>
               {typeMeta ? (
@@ -1913,7 +1936,7 @@ function ActionableItemCard({
   const verdictPanelColor = analysis.signalType === "noise" ? tokens.color.neutralText : verdictMeta.color;
   const citations = citationsForAnalysis(analysis, evidenceBySignalId);
   const citationCount = citations.length;
-  const title = primaryWorkflowTitle(citations, analysis.contentSummary);
+  const title = optionalInsightHeadline(analysis) || primaryWorkflowTitle(citations, analysis.contentSummary);
   const primaryEvidenceReason = excerpt(citations[0]?.note?.whyItMatters ?? "", 130);
   const similarHistory = findSimilarHistoricalSignals(analysis, agentTaskFeedback, historicalAnalyses);
   const taskSlotCopy = analysis.experimentHint?.trim()
@@ -2032,11 +2055,6 @@ function ActionableItemCard({
                     </span>
                   ))}
                 </div>
-                {primaryEvidenceReason ? (
-                  <div style={{ fontSize: 12.5, lineHeight: 1.55, color: tokens.color.softInk }}>
-                    引用理由：{primaryEvidenceReason}
-                  </div>
-                ) : null}
               </div>
             ) : null}
 
@@ -2069,8 +2087,19 @@ function ActionableItemCard({
                       <div style={{ display: "grid", gridTemplateColumns: "28px minmax(0, 1fr)", gap: 8, alignItems: "start" }}>
                         <span style={{ fontFamily: tokens.font.mono, fontSize: 11, color: tokens.color.softInk }}>{citation.ref}.</span>
                         <div style={{ display: "grid", gap: 3 }}>
-                          <div style={{ fontSize: 12.5, lineHeight: 1.6, color: tokens.color.subInk }}>
-                            {citationText(citation, 220)}
+                          <div
+                            data-citation-clamp="2"
+                            style={{
+                              fontSize: 12.5,
+                              lineHeight: 1.6,
+                              color: tokens.color.subInk,
+                              display: "-webkit-box",
+                              WebkitLineClamp: 2,
+                              WebkitBoxOrient: "vertical",
+                              overflow: "hidden"
+                            }}
+                          >
+                            {citationText(citation, 140)}
                           </div>
                           <div
                             data-evidence-quote-author="true"
@@ -2086,7 +2115,7 @@ function ActionableItemCard({
                           </div>
                         </div>
                       </div>
-                      <WorkflowEvidenceCard citation={citation} flatten />
+                      <WorkflowEvidenceCard citation={citation} flatten hideTitleIfMatches={title} />
                       {citation.entry?.text || citation.note?.whyItMatters ? (
                         <SmoothDetails
                           summary={

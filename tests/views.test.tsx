@@ -1011,6 +1011,47 @@ test("ProductSignalView renders batch export only on the actionable page", () =>
   assert.doesNotMatch(actionableHtml, /# Agent Brief/);
 });
 
+test("ProductSignalView batch export row uses insight headline and clean takeaway", () => {
+  const fixture = buildActionableCardFixture();
+  const analysis = {
+    ...fixture.analysis,
+    signalId: "signal_export",
+    signalType: "learning" as const,
+    referenceType: "technical_learning" as const,
+    referenceLabel: undefined,
+    contentSummary: "手機分享入口實驗",
+    referenceTakeaway: "可先學習分享入口如何交給 agent，再決定是否改造 DLens collect flow。",
+    insightHeadline: "把手機分享入口變成 agent intake"
+  };
+  const html = renderToStaticMarkup(
+    React.createElement(ProductSignalView, {
+      kind: "actionable-filter",
+      signals: [
+        {
+          id: "signal_export",
+          sessionId: "session_export",
+          itemId: "item_export",
+          source: "threads" as const,
+          inboxStatus: "unprocessed" as const,
+          capturedAt: "2026-05-14T07:00:00.000Z"
+        }
+      ],
+      analyses: [analysis as any],
+      productProfile: fixture.productProfile,
+      signalPreviewById: { signal_export: "Threads post preview" },
+      onAnalyze: () => undefined
+    })
+  );
+  const rowHtml = extractFirstBatchExportRow(html);
+
+  assert.match(rowHtml, /把手機分享入口變成 agent intake/);
+  assert.doesNotMatch(rowHtml, /可學習：手機分享入口實驗/);
+  assert.doesNotMatch(rowHtml, /可學習 ·/);
+  assert.doesNotMatch(rowHtml, /對產品參考 ·/);
+  assert.match(rowHtml, /可先學習分享入口如何交給 agent/);
+  assert.match(rowHtml, /值得嘗試/);
+});
+
 test("ProductSignalView shows a spinner for crawling pending signals", () => {
   const html = renderToStaticMarkup(
     React.createElement(ProductSignalView, {
@@ -1324,6 +1365,12 @@ function extractTestIdSection(html: string, testId: string, closeTag: string) {
   return html.slice(tagStart, closeIndex + closeTag.length);
 }
 
+function extractFirstBatchExportRow(html: string) {
+  const match = html.match(/<label[^>]*data-batch-export-selection-row="true"[\s\S]*?<\/label>/);
+  assert.ok(match, "batch export selection row must exist");
+  return match[0];
+}
+
 test("ProductSignalView actionable cards expose marginalia layout slots", () => {
   const fixture = buildActionableCardFixture();
   const html = renderToStaticMarkup(
@@ -1387,6 +1434,37 @@ test("ActionableItemCard marginalia removes repeated support chrome", () => {
   assert.doesNotMatch(html, /AI 判斷依據（輔助）/);
   assert.match(html, /data-workflow-card-layout="flat"/);
   assert.match(html, /data-workflow-row-layout="stacked"/);
+});
+
+test("ActionableItemCard marginalia hides repeated workflow title row", () => {
+  const html = renderActionableCardFixture("marginalia");
+
+  assert.equal((html.match(/多來源討論轉交付文件/g) ?? []).length, 1);
+  assert.doesNotMatch(html, /data-workflow-grounding=/);
+});
+
+test("ActionableItemCard verdict keeps workflow title row even when it repeats headline", () => {
+  const html = renderActionableCardFixture("verdict");
+
+  assert.ok((html.match(/多來源討論轉交付文件/g) ?? []).length >= 2);
+  assert.match(html, /data-workflow-grounding="text_grounded"/);
+});
+
+test("ActionableItemCard marginalia clamps citation text without changing verdict citations", () => {
+  const marginaliaHtml = renderActionableCardFixture("marginalia");
+  const verdictHtml = renderActionableCardFixture("verdict");
+
+  assert.match(marginaliaHtml, /data-citation-clamp="2"/);
+  assert.doesNotMatch(verdictHtml, /data-citation-clamp="2"/);
+});
+
+test("ActionableItemCard marginalia removes duplicate citation reason while verdict keeps it", () => {
+  const marginaliaHtml = renderActionableCardFixture("marginalia");
+  const verdictHtml = renderActionableCardFixture("verdict");
+
+  assert.doesNotMatch(marginaliaHtml, /引用理由：/);
+  assert.match(marginaliaHtml, /討論裡已經有明確的輸入、處理與輸出/);
+  assert.match(verdictHtml, /引用理由：把資料來源、處理邏輯和交付物說清楚/);
 });
 
 test("ActionableItemCard defaults to verdict layout without layout prop", () => {
@@ -1621,10 +1699,15 @@ test("ProductSignalView keeps non-try verdicts behind clickable filters by defau
     })
   );
 
+  const exportIndex = html.indexOf('data-saved-signals-batch-export="true"');
+  assert.ok(exportIndex >= 0, "batch export panel should still render after the actionable board");
+  const actionableBoardHtml = html.slice(0, exportIndex);
+
   assert.match(html, /data-action-verdict-filter="try"[^>]*aria-pressed="true"/);
   assert.match(html, /data-action-verdict-filter="watch"[^>]*aria-pressed="false"/);
-  assert.match(html, /可直接試的 Agent 工作流/);
-  assert.doesNotMatch(html, /只適合保留觀察的跨平台資料流/);
+  assert.match(actionableBoardHtml, /可直接試的 Agent 工作流/);
+  assert.doesNotMatch(actionableBoardHtml, /只適合保留觀察的跨平台資料流/);
+  assert.match(html.slice(exportIndex), /只適合保留觀察的跨平台資料流/);
 });
 
 test("ProductSignalView shows feedback-backed similar history without inflating current readiness", () => {
