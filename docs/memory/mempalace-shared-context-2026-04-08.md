@@ -48,15 +48,17 @@ This note is the high-signal shared memory for Codex and Claude when working on 
   - Compare result layout: `reading | parallel | chapters`, default `parallel`
 - `SettingsView` exposes all three controls; `InPageCollectorPopup` threads them into `ProductSignalViews`, `TopicDetailView`, and `CompareView`.
 - Product signal card variants are Verdict and Marginalia; Marginalia is default, keeps `experimentHint` in the main TRY block, and keeps the right-rail TASK slot to the short `agentTaskSpec.taskTitle`.
+- Marginalia visual hierarchy is intentionally simplified: eyebrow has no verdict, FOOTNOTES header is hidden, bottom AI experiment/judgment detail blocks are not rendered, and workflow evidence rows are flat label-stacked sections with dotted dividers.
+- Product classification list rows no longer render relevance dots; `最新在前` only appears when the selected type group has at least two signals.
 - Topic synthesis uses deterministic `v2.work-signal-lens`; Stack is collapsible, Console is dense and always visible.
 - Folder synthesis uses the same deterministic work-signal lens and renders as the Library Briefing card. Storage key: `dlens:v1:folder-synthesis`.
 - Compare result variants are Reading, Parallel, and Chapters; Parallel is default and uses sticky A/B columns.
-- Clean-main verification: `392/392` tests, typecheck, build, and diff check passed from `/Users/tung/Desktop/dlens-main-verify-20260514-152531`.
+- Current verification: `398/398` tests, typecheck, build, and diff check passed from `/Users/tung/Desktop/dlens-marginalia-simplify`.
 - Verified build artifact was copied to `/Users/tung/Desktop/dlens-product-latest/output/chrome-mv3`; the source checkout there may still be dirty.
 
 ## Version Rule As Of 2026-05-14
 
-- Current extension version: `0.1.6`.
+- Current extension version: `0.1.7`.
 - Keep version synchronized across `package.json`, `package-lock.json`, `wxt.config.ts` `manifest.version`, and `src/ui/version.ts` `BUILD_VERSION`.
 - Chrome's extension page shows the built manifest version; the popup masthead shows `BUILD_VERSION`.
 - Every user-visible update pushed to `main` should bump the version unless the user explicitly says not to.

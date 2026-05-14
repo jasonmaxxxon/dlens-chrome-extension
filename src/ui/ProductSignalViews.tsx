@@ -620,20 +620,45 @@ function StackTagRow({ tools, maxVisible = 4 }: { tools: string[]; maxVisible?: 
   );
 }
 
-function WorkflowEvidenceCard({ citation }: { citation: EvidenceCitation }) {
+function WorkflowEvidenceCard({ citation, flatten = false }: { citation: EvidenceCitation; flatten?: boolean }) {
   const workflow = inferWorkflowPattern(citation);
   const grounding = workflow.grounding || "model_inferred";
   const groundingLabel = GROUNDING_LABELS[grounding];
+  const stackedLabelStyle: CSSProperties = {
+    ...textStyles.label,
+    fontSize: 9.5,
+    letterSpacing: "0.16em",
+    textTransform: "uppercase",
+    color: tokens.color.softInk
+  };
+  const rowStyle = (isLast = false): CSSProperties => flatten
+    ? {
+      display: "grid",
+      gap: 4,
+      paddingBlock: 6,
+      borderBottom: isLast ? undefined : `0.5px dotted ${tokens.color.lineStrong}`
+    }
+    : {
+      display: "grid",
+      gridTemplateColumns: "76px minmax(0, 1fr)",
+      gap: 9,
+      alignItems: "start"
+    };
+  const fieldLabelStyle = flatten ? stackedLabelStyle : textStyles.fieldLabel;
+  const hasTradeoff = Boolean(workflow.tradeoff);
+
   return (
     <div
       data-evidence-workflow-card="true"
+      data-workflow-card-layout={flatten ? "flat" : "boxed"}
       style={{
         display: "grid",
-        gap: 9,
-        padding: "11px 12px",
-        borderRadius: tokens.radius.card,
-        border: `1px solid ${tokens.color.line}`,
-        background: tokens.color.elevated
+        gap: flatten ? 8 : 9,
+        padding: flatten ? "8px 0 0" : "11px 12px",
+        borderRadius: flatten ? 0 : tokens.radius.card,
+        border: flatten ? undefined : `1px solid ${tokens.color.line}`,
+        borderTop: flatten ? `0.5px solid ${tokens.color.lineStrong}` : undefined,
+        background: flatten ? "transparent" : tokens.color.elevated
       }}
     >
       <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10, flexWrap: "wrap" }}>
@@ -663,22 +688,22 @@ function WorkflowEvidenceCard({ citation }: { citation: EvidenceCitation }) {
           <StackTagRow tools={workflow.tools} maxVisible={4} />
         ) : null}
       </div>
-      <div style={{ display: "grid", gap: 7 }}>
-        <div style={{ display: "grid", gridTemplateColumns: "76px minmax(0, 1fr)", gap: 9, alignItems: "start" }}>
-          <span data-workflow-field-label="copy" style={textStyles.fieldLabel}>如何照抄</span>
-          <pre style={{ margin: 0, fontSize: 12.5, lineHeight: 1.55, color: tokens.color.ink, fontFamily: tokens.font.mono, whiteSpace: "pre-wrap", wordBreak: "break-word" }}>
+      <div style={{ display: "grid", gap: flatten ? 0 : 7 }}>
+        <div data-workflow-row-layout={flatten ? "stacked" : "aside"} style={rowStyle(false)}>
+          <span data-workflow-field-label="copy" style={fieldLabelStyle}>如何照抄</span>
+          <pre style={{ margin: 0, fontSize: flatten ? 12 : 12.5, lineHeight: 1.55, color: tokens.color.ink, fontFamily: tokens.font.mono, whiteSpace: "pre-wrap", wordBreak: "break-word" }}>
             {workflow.recipeMarkdown || workflow.copyableTemplate || "原文不足以推導完整做法。"}
           </pre>
         </div>
-        <div style={{ display: "grid", gridTemplateColumns: "76px minmax(0, 1fr)", gap: 9, alignItems: "start" }}>
-          <span data-workflow-field-label="why" style={textStyles.fieldLabel}>為什麼可以這樣做</span>
+        <div data-workflow-row-layout={flatten ? "stacked" : "aside"} style={rowStyle(!hasTradeoff)}>
+          <span data-workflow-field-label="why" style={fieldLabelStyle}>為什麼可以這樣做</span>
           <span style={{ fontSize: 12.5, lineHeight: 1.55, color: tokens.color.subInk }}>
             {workflow.whyItWorks}
           </span>
         </div>
         {workflow.tradeoff ? (
-          <div style={{ display: "grid", gridTemplateColumns: "76px minmax(0, 1fr)", gap: 9, alignItems: "start" }}>
-            <span data-workflow-field-label="tradeoff" style={textStyles.fieldLabel}>限制</span>
+          <div data-workflow-row-layout={flatten ? "stacked" : "aside"} style={rowStyle(true)}>
+            <span data-workflow-field-label="tradeoff" style={fieldLabelStyle}>限制</span>
             <span style={{ fontSize: 12.5, lineHeight: 1.55, color: tokens.color.subInk }}>
               {workflow.tradeoff}
             </span>
@@ -1110,26 +1135,6 @@ function formatAnalyzedAt(value: string): string {
   return date.toLocaleDateString("zh-TW", { month: "numeric", day: "numeric" });
 }
 
-function RelevanceDots({ score }: { score: ProductSignalAnalysis["relevance"] }) {
-  return (
-    <span aria-label={`relevance ${score} of 5`} style={{ display: "inline-flex", gap: 3 }}>
-      {Array.from({ length: 5 }, (_, index) => (
-        <span
-          key={index}
-          aria-hidden="true"
-          style={{
-            width: 5,
-            height: 5,
-            borderRadius: 999,
-            background: index < score ? "var(--dlens-mode-accent)" : tokens.color.lineStrong,
-            opacity: index < score ? 1 : 0.45
-          }}
-        />
-      ))}
-    </span>
-  );
-}
-
 function PendingSignalCard({
   signal,
   preview,
@@ -1323,7 +1328,7 @@ function ClassificationSignalRow({
       style={scanRowStyle({
         width: "100%",
         display: "grid",
-        gridTemplateColumns: "10px auto minmax(0, 1fr) auto",
+        gridTemplateColumns: "10px auto minmax(0, 1fr)",
         alignItems: "center",
         gap: 9,
         padding: "10px 4px",
@@ -1354,7 +1359,6 @@ function ClassificationSignalRow({
           {formatSubtype(analysis.signalSubtype)} · {VERDICT_LABELS[analysis.verdict]}
         </div>
       </div>
-      <RelevanceDots score={analysis.relevance} />
     </button>
   );
 }
@@ -1774,7 +1778,9 @@ function ClassificationBoard({
         <section data-scan-list="product-classification" style={{ display: "grid" }}>
           <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8 }}>
             <Kicker>{SIGNAL_TYPE_LABELS[selectedType]} · {selectedItems.length} 則</Kicker>
-            <span style={{ fontSize: 10.5, color: tokens.color.softInk }}>最新在前</span>
+            {selectedItems.length >= 2 ? (
+              <span style={{ fontSize: 10.5, color: tokens.color.softInk }}>最新在前</span>
+            ) : null}
           </div>
           {selectedItems.map((analysis) => (
             <ClassificationSignalRow
@@ -1965,8 +1971,6 @@ function ActionableItemCard({
               >
                 {index + 1}
               </span>
-              <span>{VERDICT_LABELS[analysis.verdict]}</span>
-              <span>·</span>
               <span>{SIGNAL_TYPE_LABELS[analysis.signalType]}</span>
               <span>·</span>
               <span>{formatAnalyzedAt(analysis.analyzedAt)}</span>
@@ -2058,12 +2062,6 @@ function ActionableItemCard({
             </div>
 
             <div data-testid="marginalia-footnotes" style={{ display: "grid", gap: 10 }}>
-              <div style={{ display: "flex", justifyContent: "space-between", gap: 8, alignItems: "baseline", borderBottom: `1px solid ${tokens.color.line}`, paddingBottom: 8 }}>
-                <span data-evidence-section-label="true" style={{ ...textStyles.label, color: tokens.color.softInk }}>
-                  FOOTNOTES · {citationCount} 則原文證據
-                </span>
-                <span style={{ fontSize: 10.5, color: tokens.color.softInk }}>可借用 workflow</span>
-              </div>
               {citations.length ? (
                 <div style={{ display: "grid", gap: 12 }}>
                   {citations.slice(0, 3).map((citation, footnoteIndex) => (
@@ -2088,7 +2086,7 @@ function ActionableItemCard({
                           </div>
                         </div>
                       </div>
-                      <WorkflowEvidenceCard citation={citation} />
+                      <WorkflowEvidenceCard citation={citation} flatten />
                       {citation.entry?.text || citation.note?.whyItMatters ? (
                         <SmoothDetails
                           summary={
@@ -2231,11 +2229,11 @@ function ActionableItemCard({
             </div>
           </aside>
         </div>
-        <div style={{ display: "grid", gap: 10, padding: "0 24px 20px" }}>
-          <AiExperimentDetails analysis={analysis} hidePrimarySuggestion />
-          <SimilarHistoryBlock items={similarHistory} />
-          <AiJudgmentDetails analysis={analysis} />
-        </div>
+        {similarHistory.length ? (
+          <div style={{ display: "grid", gap: 10, padding: "0 24px 20px" }}>
+            <SimilarHistoryBlock items={similarHistory} />
+          </div>
+        ) : null}
       </article>
     );
   }

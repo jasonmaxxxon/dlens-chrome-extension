@@ -23,7 +23,7 @@ This Desktop has been consolidated around these paths:
 
 `dlens-product-latest` is the user's active load-unpacked path, and
 `/Users/tung/Desktop/dlens-product-latest/output/chrome-mv3` currently mirrors
-the verified `main` build. Current extension version is `0.1.6`. The source checkout may contain local
+the verified `main` build. Current extension version is `0.1.7`. The source checkout may contain local
 dirty work; verify branch/status before editing or rebuilding there. Do not use
 the old Desktop folders unless intentionally comparing historical versions.
 
@@ -81,7 +81,9 @@ Navigation mounts/unmounts based on `folder.mode` — unavailable pages are not 
 - **Compare result variants (2026-05-14)**: Result supports `reading`, `parallel`, and `chapters`. Parallel is the default persisted layout and renders sticky A/B columns; Chapters renders a linear five-section reading path.
 - **Product classification route fix (2026-05-14)**: Product mode now treats `classification` as a first-class product signal page, so the 分类 view keeps product data effects, 720px product width, and no longer guards back to Saved Signals after navigation settles.
 - **Marginalia rail dedupe (2026-05-14)**: Product signal Marginalia cards keep the right rail short: `對到` shows a category only, and TASK no longer repeats the TRY experiment sentence.
-- **Version lock (2026-05-14)**: extension version is `0.1.6` across `package.json`, `package-lock.json`, `wxt.config.ts` manifest version, and `src/ui/version.ts`. Chrome's extension page reads the built manifest version; the popup masthead reads `BUILD_VERSION`.
+- **Marginalia visual simplification (2026-05-14)**: Product signal Marginalia cards drop the verdict from the eyebrow, hide the old FOOTNOTES header, keep bottom AI experiment/judgment detail blocks out of the marginalia path, and flatten workflow evidence rows into label-stacked dotted sections. Verdict layout keeps its existing boxed evidence/detail treatment.
+- **Classification row simplification (2026-05-14)**: Product classification list rows no longer render relevance dots; `最新在前` only appears when the selected type group has at least two signals.
+- **Version lock (2026-05-14)**: extension version is `0.1.7` across `package.json`, `package-lock.json`, `wxt.config.ts` manifest version, and `src/ui/version.ts`. Chrome's extension page reads the built manifest version; the popup masthead reads `BUILD_VERSION`.
 - **Eval harness (2026-04-23)**: `tests/judgment-eval.test.ts` covers prompt builder + parser + fallback determinism. `tests/judgment-fixtures.ts` has golden fixtures (no real LLM calls).
 - **Compare brief** (observation-first contract, prompt v7): `headline / relation / supportingObservations[] / aReading / bReading / whyItMatters / creatorCue / keywords / audienceAlignment{Left,Right} / confidence`. Observations and side readings must cite evidence aliases (`e1..eN`) or they are rejected at parse time.
 - **Cluster interpretation** (prompt v3): each cluster carries separate `observation` + `reading` fields alongside its `oneLiner`.

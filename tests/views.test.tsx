@@ -1142,7 +1142,8 @@ test("ProductSignalView gives each product page a distinct information shape", (
   assert.match(classificationHtml, /data-scan-list="product-classification"/);
   assert.match(classificationHtml, /data-scan-row="true"/);
   assert.match(classificationHtml, /Users want a one-tap mobile save flow/);
-  assert.match(classificationHtml, /relevance 5 of 5/);
+  assert.doesNotMatch(classificationHtml, /relevance 5 of 5/);
+  assert.doesNotMatch(classificationHtml, /最新在前/);
   assert.match(classificationHtml, /AI 建議分類/);
   assert.doesNotMatch(classificationHtml, /Agent 任務卡|實驗假設草稿/);
   assert.match(classificationHtml, /值得嘗試/);
@@ -1152,18 +1153,16 @@ test("ProductSignalView gives each product page a distinct information shape", (
   assert.match(actionableHtml, /可直接試的做法/);
   assert.match(actionableHtml, /A one-tap mobile save flow would fit my day/);
   assert.doesNotMatch(actionableHtml, /儲存至行動清單|>\+<\/span> 儲存/);
-  assert.match(actionableHtml, /AI 實驗建議（輔助）/);
-  assert.match(actionableHtml, /AI 判斷依據/);
+  assert.doesNotMatch(actionableHtml, /AI 實驗建議（輔助）/);
+  assert.doesNotMatch(actionableHtml, /AI 判斷依據/);
   assert.doesNotMatch(actionableHtml, /Agent 任務（可複製）/);
   assert.doesNotMatch(actionableHtml, /Agent 任務卡 ·/);
   assert.doesNotMatch(actionableHtml, /這個任務建議/);
   assert.doesNotMatch(actionableHtml, /\d+\s+likes/);
   assert.doesNotMatch(actionableHtml, /R5/);
-  // experiment panel visual identity
-  assert.match(actionableHtml, /data-product-panel="experiment"/);
-  assert.match(actionableHtml, /data-product-panel-badge="experiment"/);
-  assert.match(actionableHtml, /試驗/);
-  assert.match(actionableHtml, /border-left:2px solid/);
+  // Marginalia owns the experiment and judgment slots in its main column / rail.
+  assert.doesNotMatch(actionableHtml, /data-product-panel="experiment"/);
+  assert.doesNotMatch(actionableHtml, /data-product-panel-badge="experiment"/);
   // Agent task prompt cards are no longer part of the primary action card flow.
   assert.doesNotMatch(actionableHtml, /data-agent-task-card="true"/);
   assert.doesNotMatch(actionableHtml, /data-agent-task-badge="true"/);
@@ -1181,6 +1180,35 @@ test("ProductSignalView gives each product page a distinct information shape", (
   assert.ok(PRODUCT_SIGNAL_MOTION_CSS.includes("prefers-reduced-motion"), "CSS must guard reduced-motion");
   assert.ok(PRODUCT_SIGNAL_MOTION_CSS.includes("grid-template-rows"), "CSS must animate details panel");
   assert.ok(!PRODUCT_SIGNAL_MOTION_CSS.includes("::details-content"), "CSS must not use ::details-content");
+
+  const secondSignal = {
+    id: "signal_b",
+    sessionId: "session_a",
+    itemId: "item_b",
+    source: "threads" as const,
+    inboxStatus: "unprocessed" as const,
+    capturedAt: "2026-04-27T00:01:00.000Z"
+  };
+  const secondAnalysis = {
+    ...baseProps.analyses[0],
+    signalId: "signal_b",
+    signalSubtype: "mobile_save_followup",
+    contentSummary: "Users also want the save flow to keep source context.",
+    analyzedAt: "2026-04-27T02:00:00.000Z"
+  };
+  const classificationTwoHtml = renderToStaticMarkup(
+    React.createElement(ProductSignalView, {
+      ...baseProps,
+      kind: "classification",
+      signals: [...baseProps.signals, secondSignal],
+      analyses: [...baseProps.analyses, secondAnalysis],
+      signalPreviewById: {
+        ...baseProps.signalPreviewById,
+        signal_b: "Second Threads post preview"
+      }
+    })
+  );
+  assert.match(classificationTwoHtml, /最新在前/);
 });
 
 function buildActionableCardFixture() {
@@ -1316,6 +1344,7 @@ test("ProductSignalView actionable cards expose marginalia layout slots", () => 
   assert.match(html, /data-testid="marginalia-reason"/);
   assert.match(html, /data-testid="marginalia-experiment"/);
   assert.match(html, /data-testid="marginalia-footnotes"/);
+  assert.doesNotMatch(html, /FOOTNOTES/);
   assert.match(html, /可以把 Slack 和 Jira 討論交給 agent 寫 release notes/);
 });
 
@@ -1347,6 +1376,19 @@ test("ActionableItemCard marginalia rail does not duplicate main-column prose", 
   assert.ok(taskHtml.includes(fixture.analysis.agentTaskSpec.taskTitle), "rail TASK must use taskTitle when available");
 });
 
+test("ActionableItemCard marginalia removes repeated support chrome", () => {
+  const html = renderActionableCardFixture("marginalia");
+  const mainHtml = extractTestIdSection(html, "marginalia-main", "</main>");
+
+  assert.doesNotMatch(mainHtml, /值得嘗試/);
+  assert.match(mainHtml, /需求/);
+  assert.doesNotMatch(html, /FOOTNOTES/);
+  assert.doesNotMatch(html, /data-product-panel="experiment"/);
+  assert.doesNotMatch(html, /AI 判斷依據（輔助）/);
+  assert.match(html, /data-workflow-card-layout="flat"/);
+  assert.match(html, /data-workflow-row-layout="stacked"/);
+});
+
 test("ActionableItemCard defaults to verdict layout without layout prop", () => {
   const html = renderActionableCardFixture();
 
@@ -1358,6 +1400,10 @@ test("ActionableItemCard defaults to verdict layout without layout prop", () => 
   assert.match(html, /data-testid="task-slot"/);
   assert.match(html, /data-testid="metadata-strip"/);
   assert.match(html, /data-relevance-bars="true"/);
+  assert.match(html, /data-product-panel="experiment"/);
+  assert.match(html, /AI 判斷依據（輔助）/);
+  assert.match(html, /data-workflow-card-layout="boxed"/);
+  assert.match(html, /可借用 workflow/);
   assert.match(html, /5\/5/);
   assert.match(html, /把討論轉成文件工作流/);
   assert.match(html, /討論裡已經有明確的輸入、處理與輸出/);
@@ -1455,7 +1501,8 @@ test("ProductSignalView surfaces legacy optional fields when present", () => {
   const actionableHtml = renderToStaticMarkup(
     React.createElement(ProductSignalView, {
       ...v3Props,
-      kind: "actionable-filter"
+      kind: "actionable-filter",
+      cardLayout: "verdict"
     })
   );
 
@@ -1706,7 +1753,7 @@ test("merged candidate-action board keeps AI commentary collapsed on action rout
   };
 
   const html = renderToStaticMarkup(
-    React.createElement(ProductSignalView, { ...v3Props, kind: "actionable-filter" })
+    React.createElement(ProductSignalView, { ...v3Props, kind: "actionable-filter", cardLayout: "verdict" })
   );
 
   const openDetails = html.match(/<details open=""[^]*?<\/details>/g) ?? [];
@@ -1754,7 +1801,7 @@ test("citationsForAnalysis filters out refs missing both entry and note", () => 
   };
 
   const html = renderToStaticMarkup(
-    React.createElement(ProductSignalView, { ...v3Props, kind: "actionable-filter" })
+    React.createElement(ProductSignalView, { ...v3Props, kind: "actionable-filter", cardLayout: "verdict" })
   );
 
   // e1 has note only, e2 has entry only → both render. e_dangling has neither → must be skipped.
