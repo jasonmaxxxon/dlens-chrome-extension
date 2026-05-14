@@ -5,13 +5,12 @@ import {
   topicSynthesisStaleReason
 } from "../compare/topic-synthesis.ts";
 import { getItemReadinessStatus, type ItemReadinessStatus } from "../state/processing-state.ts";
-import type { FolderMode, SavedAnalysisSnapshot, SessionItem, Signal, Topic, TopicSynthesis } from "../state/types.ts";
+import type { FolderMode, SavedAnalysisSnapshot, SessionItem, Signal, Topic, TopicSynthesis, TopicSynthesisLayout } from "../state/types.ts";
 import { Kicker, PrimaryButton, SCAN_ROW_HOVER_CSS, SecondaryButton, Stamp, WorkspaceSurface, lineClamp, scanRowStyle, viewRootStyle } from "./components.tsx";
 import { tokens } from "./tokens.ts";
 import { pickPrimaryJudgmentPair } from "./useTopicState.ts";
 
 type TopicItemAnalysisState = ItemReadinessStatus | "queued";
-type TopicSynthesisLayout = "stack" | "console";
 
 interface TopicDetailViewProps {
   topic: Topic;

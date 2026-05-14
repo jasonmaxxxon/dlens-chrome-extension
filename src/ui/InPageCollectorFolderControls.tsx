@@ -1,6 +1,22 @@
 import { IconButton, PrimaryButton, SecondaryButton, surfaceCardStyle, TOKENS } from "./components";
+import { getSessionDisplayName } from "../state/store-helpers";
 import { tokens } from "./tokens";
 import type { InPageCollectorAppModel } from "./useInPageCollectorAppState";
+import type { SessionRecord } from "../state/types";
+
+function formatWorkspaceOptionLabel(folder: Pick<SessionRecord, "name" | "mode" | "items">): string {
+  const name = getSessionDisplayName(folder);
+  if (folder.mode === "topic") {
+    return name;
+  }
+  return `${name} (${folder.items.length})`;
+}
+
+function buildTopicStatusBadges(app: InPageCollectorAppModel): string[] {
+  const inboxCount = app.signals.filter((signal) => signal.inboxStatus === "unprocessed").length;
+  const topicCount = app.topics.length;
+  return [`${inboxCount} 未分流`, `${topicCount} 主題`];
+}
 
 export function InPageCollectorFolderControls({ app }: { app: InPageCollectorAppModel }) {
   const { snapshot, activeFolder, showFolderPrompt, isRenamingFolder, editingFolderName, folderName } = app;
@@ -50,11 +66,30 @@ export function InPageCollectorFolderControls({ app }: { app: InPageCollectorApp
           </option>
           {snapshot?.global.sessions.map((folder) => (
             <option key={folder.id} value={folder.id}>
-              {folder.name} ({folder.items.length})
+              {formatWorkspaceOptionLabel(folder)}
             </option>
           ))}
         </select>
-        {activeFolder ? (
+        {activeFolder && activeMode === "topic" ? (
+          <div style={{ display: "flex", gap: 6, alignItems: "center", flexWrap: "wrap", justifyContent: "flex-end" }}>
+            {buildTopicStatusBadges(app).map((label) => (
+              <span
+                key={label}
+                style={{
+                  fontSize: 10,
+                  fontWeight: 700,
+                  color: tokens.color.cyan,
+                  padding: "3px 8px",
+                  borderRadius: 999,
+                  background: tokens.color.cyanSoft,
+                  whiteSpace: "nowrap"
+                }}
+              >
+                {label}
+              </span>
+            ))}
+          </div>
+        ) : activeFolder ? (
           <span
             style={{
               fontSize: 10,
@@ -150,3 +185,8 @@ export function InPageCollectorFolderControls({ app }: { app: InPageCollectorApp
     </>
   );
 }
+
+export const inPageCollectorFolderControlsTestables = {
+  formatWorkspaceOptionLabel,
+  buildTopicStatusBadges
+};

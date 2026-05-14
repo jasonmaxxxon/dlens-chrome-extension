@@ -11,6 +11,18 @@ import type {
   TabUiState
 } from "./types.ts";
 
+export const DEFAULT_SESSION_NAME_BY_MODE: Record<FolderMode, string> = {
+  archive: "Archive",
+  topic: "Topic workspace",
+  product: "Product workspace",
+  "pr-evidence": "PR Evidence workspace"
+};
+
+const DEFAULT_SESSION_NAMES = new Set<string>([
+  ...Object.values(DEFAULT_SESSION_NAME_BY_MODE),
+  "Signals"
+]);
+
 function generateId(prefix: string): string {
   return `${prefix}_${Math.random().toString(36).slice(2, 10)}_${Date.now().toString(36)}`;
 }
@@ -52,11 +64,11 @@ export function getActiveItem(globalState: ExtensionGlobalState, tabState: TabUi
   return session.items.find((item) => item.id === tabState.activeItemId) || null;
 }
 
-export function createSessionRecord(name: string, now = new Date().toISOString()): SessionRecord {
+export function createSessionRecord(name: string, now = new Date().toISOString(), mode: FolderMode = "topic"): SessionRecord {
   return {
     id: generateId("session"),
     name: name.trim(),
-    mode: "topic",
+    mode,
     createdAt: now,
     updatedAt: now,
     items: []
@@ -67,6 +79,48 @@ export function normalizeSessionRecord(raw: SessionRecord): SessionRecord {
   return {
     ...raw,
     mode: (raw.mode as FolderMode) ?? "topic"
+  };
+}
+
+export function getSessionDisplayName(session: Pick<SessionRecord, "name" | "mode">): string {
+  const trimmed = session.name.trim();
+  const defaultName = DEFAULT_SESSION_NAME_BY_MODE[session.mode];
+  if (!trimmed || (DEFAULT_SESSION_NAMES.has(trimmed) && trimmed !== defaultName)) {
+    return defaultName;
+  }
+  return trimmed;
+}
+
+export function sessionNameForModeChange(session: Pick<SessionRecord, "name" | "mode">, nextMode: FolderMode): string {
+  const trimmed = session.name.trim();
+  if (!trimmed || DEFAULT_SESSION_NAMES.has(trimmed)) {
+    return DEFAULT_SESSION_NAME_BY_MODE[nextMode];
+  }
+  return trimmed;
+}
+
+export function activateSessionForMode(globalState: ExtensionGlobalState, mode: FolderMode): ExtensionGlobalState {
+  const now = new Date().toISOString();
+  const activeSession = getActiveSession(globalState);
+  if (activeSession?.mode === mode) {
+    return globalState;
+  }
+
+  const existing = globalState.sessions.find((session) => session.mode === mode);
+  if (existing) {
+    return {
+      ...globalState,
+      activeSessionId: existing.id,
+      updatedAt: now
+    };
+  }
+
+  const session = createSessionRecord(DEFAULT_SESSION_NAME_BY_MODE[mode], now, mode);
+  return {
+    ...globalState,
+    sessions: [...globalState.sessions, session],
+    activeSessionId: session.id,
+    updatedAt: now
   };
 }
 
@@ -227,6 +281,9 @@ function mapLifecycleStatus(job: JobSnapshot | null, capture: CaptureSnapshot | 
 export function needsCaptureRefresh(item: SessionItem): boolean {
   if (!item.jobId || !item.captureId) {
     return false;
+  }
+  if (item.status === "failed" && item.lastErrorKind === "stale_timeout") {
+    return true;
   }
   if (item.status === "queued" || item.status === "running") {
     return true;

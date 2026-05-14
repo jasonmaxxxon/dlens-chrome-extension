@@ -7,6 +7,7 @@ import type {
   ProductProfile,
   ProductSignalAnalysis,
   ProductSignalEvidenceNote,
+  ProductSignalCardLayout,
   ProductSignalReferenceTarget,
   ProductSignalReferenceType,
   ProductSignalType,
@@ -1873,8 +1874,6 @@ function SimilarHistoryBlock({ items }: { items: SimilarHistoricalSignal[] }) {
   );
 }
 
-type ActionableItemCardLayout = "verdict" | "marginalia";
-
 function ActionableItemCard({
   analysis,
   index,
@@ -1890,7 +1889,7 @@ function ActionableItemCard({
   historicalAnalyses: ProductSignalAnalysis[];
   agentTaskFeedback: ProductAgentTaskFeedback[];
   onRemove?: () => void;
-  layout?: ActionableItemCardLayout;
+  layout?: ProductSignalCardLayout;
 }) {
   const [cardHovered, setCardHovered] = useState(false);
   const subtypeMeta = SIGNAL_TYPE_META[analysis.signalType];
@@ -2489,6 +2488,7 @@ function ActionableInsightsBoard({
   evidenceBySignalId,
   historicalAnalyses,
   agentTaskFeedback,
+  cardLayout,
   onRemoveSignal
 }: {
   analyses: ProductSignalAnalysis[];
@@ -2496,6 +2496,7 @@ function ActionableInsightsBoard({
   evidenceBySignalId: Record<string, ProductSignalEvidenceEntry[]>;
   historicalAnalyses: ProductSignalAnalysis[];
   agentTaskFeedback: ProductAgentTaskFeedback[];
+  cardLayout: ProductSignalCardLayout;
   onRemoveSignal?: (signalId: string) => void;
 }) {
   const [selectedFilter, setSelectedFilter] = useState<ActionVerdictFilter>("try");
@@ -2560,7 +2561,7 @@ function ActionableInsightsBoard({
             evidenceBySignalId={evidenceBySignalId}
             historicalAnalyses={historicalAnalyses}
             agentTaskFeedback={agentTaskFeedback}
-            layout="marginalia"
+            layout={cardLayout}
             onRemove={onRemoveSignal ? () => onRemoveSignal(analysis.signalId) : undefined}
           />
         )) : (
@@ -2587,6 +2588,7 @@ export function ProductSignalView({
   evidenceBySignalId = {},
   signalReadinessById = {},
   aiProviderReady = true,
+  cardLayout = "marginalia",
   analysisError = null,
   analysisNotice = null,
   isAnalyzing = false,
@@ -2604,6 +2606,7 @@ export function ProductSignalView({
   evidenceBySignalId?: Record<string, ProductSignalEvidenceEntry[]>;
   signalReadinessById?: Record<string, ProductSignalReadiness>;
   aiProviderReady?: boolean;
+  cardLayout?: ProductSignalCardLayout;
   analysisError?: string | null;
   analysisNotice?: string | null;
   isAnalyzing?: boolean;
@@ -2716,6 +2719,7 @@ export function ProductSignalView({
                 evidenceBySignalId={evidenceBySignalId}
                 historicalAnalyses={safeHistoricalAnalyses}
                 agentTaskFeedback={safeAgentTaskFeedback}
+                cardLayout={cardLayout}
                 onRemoveSignal={handleRemoveSignal}
               />
               <SavedSignalsBatchExport

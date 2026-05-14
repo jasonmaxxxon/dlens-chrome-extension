@@ -1,6 +1,6 @@
 import { useRef, useState, type ReactNode } from "react";
 
-import type { ExtensionSettings, FolderMode, ProductContext, ProductProfile, ProductProfileContextFile } from "../state/types";
+import type { ExtensionSettings, FolderMode, LayoutPreferences, ProductContext, ProductProfile, ProductProfileContextFile } from "../state/types";
 import {
   Kicker,
   ModeHeader,
@@ -20,6 +20,7 @@ interface SettingsViewProps {
   draftOpenAiKey: string;
   draftClaudeKey: string;
   draftGoogleKey: string;
+  draftLayoutPreferences: LayoutPreferences;
   draftProductProfile: ProductProfile;
   compiledProductContext?: ProductContext | null;
   settingsSaveStatus?: { kind: "success" | "error"; message: string } | null;
@@ -32,6 +33,7 @@ interface SettingsViewProps {
   onDraftOpenAiKeyChange: (value: string) => void;
   onDraftClaudeKeyChange: (value: string) => void;
   onDraftGoogleKeyChange: (value: string) => void;
+  onDraftLayoutPreferencesChange: (patch: Partial<LayoutPreferences>) => void;
   onDraftProductProfileChange: (patch: Partial<ProductProfile>) => void;
   onProductProfileSeedTextChange?: (value: string) => void;
   onInitProductProfile?: () => void;
@@ -73,12 +75,13 @@ function SettingsGroup({
   kicker,
   children
 }: {
-  name: "folder" | "connection" | "keys" | "product";
+  name: "folder" | "layout" | "connection" | "keys" | "product";
   kicker: string;
   children: ReactNode;
 }) {
   const stampByGroup = {
     folder: { tone: "accent" as const, label: "Folder" },
+    layout: { tone: "neutral" as const, label: "Layout" },
     connection: { tone: "accent" as const, label: "Live" },
     keys: { tone: "neutral" as const, label: "Local only" },
     product: { tone: "neutral" as const, label: "Product" }
@@ -160,6 +163,7 @@ export function SettingsView({
   draftOpenAiKey,
   draftClaudeKey,
   draftGoogleKey,
+  draftLayoutPreferences,
   draftProductProfile,
   compiledProductContext = null,
   settingsSaveStatus = null,
@@ -172,6 +176,7 @@ export function SettingsView({
   onDraftOpenAiKeyChange,
   onDraftClaudeKeyChange,
   onDraftGoogleKeyChange,
+  onDraftLayoutPreferencesChange,
   onDraftProductProfileChange,
   onProductProfileSeedTextChange,
   onInitProductProfile,
@@ -287,6 +292,45 @@ export function SettingsView({
                 })}
               </div>
             </div>
+          </SettingsGroup>
+
+          <SettingsGroup name="layout" kicker="版面偏好">
+            <label style={{ display: "grid", gap: 6, fontSize: 11, color: tokens.color.subInk }}>
+              Product signal card
+              <select
+                value={draftLayoutPreferences.productSignalCardLayout}
+                onChange={(event) => onDraftLayoutPreferencesChange({ productSignalCardLayout: event.target.value as LayoutPreferences["productSignalCardLayout"] })}
+                style={inputStyle}
+              >
+                <option value="marginalia">Marginalia</option>
+                <option value="verdict">Verdict</option>
+              </select>
+            </label>
+
+            <label style={{ display: "grid", gap: 6, fontSize: 11, color: tokens.color.subInk }}>
+              Topic synthesis
+              <select
+                value={draftLayoutPreferences.topicSynthesisLayout}
+                onChange={(event) => onDraftLayoutPreferencesChange({ topicSynthesisLayout: event.target.value as LayoutPreferences["topicSynthesisLayout"] })}
+                style={inputStyle}
+              >
+                <option value="console">Console</option>
+                <option value="stack">Stack</option>
+              </select>
+            </label>
+
+            <label style={{ display: "grid", gap: 6, fontSize: 11, color: tokens.color.subInk }}>
+              Compare result
+              <select
+                value={draftLayoutPreferences.compareResultLayout}
+                onChange={(event) => onDraftLayoutPreferencesChange({ compareResultLayout: event.target.value as LayoutPreferences["compareResultLayout"] })}
+                style={inputStyle}
+              >
+                <option value="parallel">Parallel</option>
+                <option value="chapters">Chapters</option>
+                <option value="reading">Reading</option>
+              </select>
+            </label>
           </SettingsGroup>
 
           <SettingsGroup name="connection" kicker="Connection">

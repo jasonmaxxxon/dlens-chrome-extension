@@ -10,6 +10,11 @@ test("buildSettingsSaveMessages persists product profile after runtime settings"
     draftOpenAiKey: "",
     draftClaudeKey: "",
     draftGoogleKey: "AIza-test",
+    draftLayoutPreferences: {
+      productSignalCardLayout: "marginalia",
+      topicSynthesisLayout: "console",
+      compareResultLayout: "chapters"
+    },
     draftProductProfile: {
       name: " DLens ",
       category: " Creator analysis ",
@@ -35,6 +40,14 @@ test("buildSettingsSaveMessages persists product profile after runtime settings"
       openaiApiKey: "",
       claudeApiKey: "",
       googleApiKey: "AIza-test"
+    },
+    {
+      type: "settings/set-layout-preferences",
+      layoutPreferences: {
+        productSignalCardLayout: "marginalia",
+        topicSynthesisLayout: "console",
+        compareResultLayout: "chapters"
+      }
     },
     {
       type: "settings/set-product-profile",
@@ -64,6 +77,11 @@ test("buildSettingsSaveMessages upgrades old three-field product profiles with e
     draftOpenAiKey: "",
     draftClaudeKey: "",
     draftGoogleKey: "",
+    draftLayoutPreferences: {
+      productSignalCardLayout: "marginalia",
+      topicSynthesisLayout: "console",
+      compareResultLayout: "parallel"
+    },
     draftProductProfile: {
       name: "DLens",
       category: "Creator analysis",
@@ -71,7 +89,7 @@ test("buildSettingsSaveMessages upgrades old three-field product profiles with e
     }
   });
 
-  assert.deepEqual(messages[2], {
+  assert.deepEqual(messages[3], {
     type: "settings/set-product-profile",
     productProfile: {
       name: "DLens",
@@ -90,6 +108,11 @@ test("buildSettingsSaveMessages collapses an empty product profile to null", () 
     draftOpenAiKey: "",
     draftClaudeKey: "",
     draftGoogleKey: "",
+    draftLayoutPreferences: {
+      productSignalCardLayout: "marginalia",
+      topicSynthesisLayout: "console",
+      compareResultLayout: "parallel"
+    },
     draftProductProfile: {
       name: " ",
       category: "",
@@ -99,8 +122,39 @@ test("buildSettingsSaveMessages collapses an empty product profile to null", () 
     }
   });
 
-  assert.deepEqual(messages[2], {
+  assert.deepEqual(messages[3], {
     type: "settings/set-product-profile",
     productProfile: null
+  });
+});
+
+test("buildSettingsSaveMessages persists layout preferences separately from provider settings", () => {
+  const messages = buildSettingsSaveMessages({
+    draftBaseUrl: "http://127.0.0.1:8000",
+    draftProvider: "google",
+    draftOpenAiKey: "",
+    draftClaudeKey: "",
+    draftGoogleKey: "",
+    draftLayoutPreferences: {
+      productSignalCardLayout: "verdict",
+      topicSynthesisLayout: "stack",
+      compareResultLayout: "chapters"
+    },
+    draftProductProfile: {
+      name: "",
+      category: "",
+      audience: "",
+      contextText: "",
+      contextFiles: []
+    }
+  });
+
+  assert.deepEqual(messages[2], {
+    type: "settings/set-layout-preferences",
+    layoutPreferences: {
+      productSignalCardLayout: "verdict",
+      topicSynthesisLayout: "stack",
+      compareResultLayout: "chapters"
+    }
   });
 });
