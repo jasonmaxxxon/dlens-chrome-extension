@@ -1,8 +1,14 @@
 import { useState, type ReactNode } from "react";
 import type { TargetDescriptor } from "../contracts/target-descriptor";
+import {
+  FOLDER_SYNTHESIS_MIN_ANALYZED,
+  FOLDER_SYNTHESIS_MIN_TOPICS,
+  folderSynthesisStaleReason
+} from "../compare/folder-synthesis";
 import { getLibraryItemUiState, type SessionProcessingSummary, type WorkerStatus } from "../state/processing-state";
-import type { SavedAnalysisSnapshot, SessionItem, SessionRecord, TechniqueReadingSnapshot } from "../state/types";
-import { PrimaryButton, SCAN_ROW_HOVER_CSS, SecondaryButton, SideMark, Stamp, TOKENS, lineClamp, scanRowStyle, skeletonBlockStyle, viewRootStyle } from "./components";
+import type { FolderSynthesis, SavedAnalysisSnapshot, SessionItem, SessionRecord, TechniqueReadingSnapshot } from "../state/types";
+import { getSessionDisplayName } from "../state/store-helpers";
+import { Kicker, PrimaryButton, SCAN_ROW_HOVER_CSS, SecondaryButton, SideMark, Stamp, TOKENS, lineClamp, scanRowStyle, skeletonBlockStyle, viewRootStyle } from "./components";
 import { tokens } from "./tokens";
 
 // AR design tokens (matching Result page)
@@ -37,10 +43,22 @@ interface LibraryViewProps {
   renderMetrics: (descriptor: TargetDescriptor | null | undefined) => ReactNode;
   techniqueReadings: TechniqueReadingSnapshot[];
   savedAnalyses?: SavedAnalysisSnapshot[];
+  topicSignalItemIds?: string[];
+  topicInboxCount?: number;
+  topicCount?: number;
   initialSection?: "posts" | "casebook";
   onGoToCollect?: () => void;
   onGoToCompare?: () => void;
   onOpenSavedAnalysis?: (resultId: string) => void;
+  folderSynthesis?: FolderSynthesis | null;
+  isGeneratingFolderSynthesis?: boolean;
+  folderSynthesisError?: string | null;
+  onGenerateFolderSynthesis?: () => Promise<void> | void;
+  onClearFolderSynthesis?: () => Promise<void> | void;
+  /** Folder-wide analyzed signal count (cross-topic). Drives the eligibility + stale banner. */
+  folderAnalyzedCount?: number;
+  /** Distinct topics that contributed at least one analyzed signal. */
+  folderContributingTopicCount?: number;
 }
 
 function formatSavedAt(value: string): string {
@@ -100,6 +118,22 @@ function topClusterKeywords(item: SessionItem): string[] {
   return (sorted[0]?.keywords || []).slice(0, 3);
 }
 
+const KEYWORD_PILL_PALETTE = [
+  tokens.color.accent,
+  tokens.color.cyan,
+  tokens.color.teal,
+  tokens.color.product,
+  tokens.color.queued,
+] as const;
+
+function keywordPillColor(keyword: string): string {
+  let hash = 0;
+  for (let i = 0; i < keyword.length; i += 1) {
+    hash = (hash * 31 + keyword.charCodeAt(i)) >>> 0;
+  }
+  return KEYWORD_PILL_PALETTE[hash % KEYWORD_PILL_PALETTE.length];
+}
+
 function savedAnalysisStamp(briefSource: SavedAnalysisSnapshot["briefSource"]): { tone: "success" | "warning" | "neutral"; label: string } {
   if (briefSource === "ai") {
     return { tone: "success", label: "Ready" };
@@ -114,11 +148,13 @@ function PostCard({
   item,
   isSelected,
   optimisticQueued,
+  ordinal,
   onSelect,
 }: {
   item: SessionItem;
   isSelected: boolean;
   optimisticQueued: boolean;
+  ordinal?: number;
   onSelect: () => void;
 }) {
   const uiState = getLibraryItemUiState(item, optimisticQueued);
@@ -187,26 +223,43 @@ function PostCard({
 
         {!showPendingSkeleton && keywords.length > 0 ? (
           <div style={{ display: "flex", flexWrap: "wrap", gap: 4 }}>
-            {keywords.map((kw, kwIndex) => (
-              <span
-                key={`${kw}-${kwIndex}`}
-                style={{
-                  fontSize: 9.5,
-                  fontWeight: 700,
-                  color: accentColor,
-                  background: `${accentColor}12`,
-                  borderRadius: 6,
-                  padding: "2px 6px",
-                  letterSpacing: 0.2,
-                }}
-              >
-                {kw}
-              </span>
-            ))}
+            {keywords.map((kw, kwIndex) => {
+              const pillColor = uiState.itemPhase === "ready" ? keywordPillColor(kw) : accentColor;
+              return (
+                <span
+                  key={`${kw}-${kwIndex}`}
+                  style={{
+                    fontSize: 9.5,
+                    fontWeight: 700,
+                    color: pillColor,
+                    background: `${pillColor}12`,
+                    borderRadius: 6,
+                    padding: "2px 6px",
+                    letterSpacing: 0.2,
+                  }}
+                >
+                  {kw}
+                </span>
+              );
+            })}
           </div>
         ) : null}
       </div>
       <div style={{ display: "grid", gap: 4, justifyItems: "end", minWidth: 82 }}>
+        {typeof ordinal === "number" ? (
+          <span
+            aria-hidden="true"
+            style={{
+              fontSize: 9,
+              fontWeight: 700,
+              color: AR.muteInk,
+              letterSpacing: 0.6,
+              fontFamily: tokens.font.mono,
+            }}
+          >
+            NO.{String(ordinal).padStart(3, "0")}
+          </span>
+        ) : null}
         <span style={{ fontSize: 9, fontWeight: 700, color: labelColor, background: bg, borderRadius: 6, padding: "2px 7px", whiteSpace: "nowrap" }}>
           {uiState.statusLabel}
         </span>
@@ -358,6 +411,292 @@ function SavedAnalysisCard({
   );
 }
 
+function FolderSynthesisCard({
+  synthesis,
+  analyzedCount,
+  contributingTopicCount,
+  isGenerating,
+  errorMessage,
+  onGenerate,
+  onClear
+}: {
+  synthesis: FolderSynthesis | null;
+  analyzedCount: number;
+  contributingTopicCount: number;
+  isGenerating: boolean;
+  errorMessage: string | null;
+  onGenerate: () => void;
+  onClear?: () => void;
+}) {
+  const effectiveSynthesis = synthesis && synthesis.contributingTopicCount >= FOLDER_SYNTHESIS_MIN_TOPICS ? synthesis : null;
+  const staleness = folderSynthesisStaleReason(effectiveSynthesis, analyzedCount);
+  const meetsAnalyzed = analyzedCount >= FOLDER_SYNTHESIS_MIN_ANALYZED;
+  const meetsTopics = contributingTopicCount >= FOLDER_SYNTHESIS_MIN_TOPICS;
+  const canGenerate = meetsAnalyzed && meetsTopics;
+  const showLocked = !effectiveSynthesis && !canGenerate;
+  const showEmptyCta = !effectiveSynthesis && canGenerate;
+  const lastGeneratedLabel = effectiveSynthesis
+    ? new Intl.DateTimeFormat("zh-HK", { month: "numeric", day: "numeric", hour: "2-digit", minute: "2-digit" }).format(new Date(effectiveSynthesis.generatedAt))
+    : "";
+
+  return (
+    <section
+      data-folder-synthesis="card"
+      data-folder-synthesis-layout="briefing"
+      style={{
+        display: "grid",
+        gap: 14,
+        padding: "16px 18px",
+        borderRadius: tokens.radius.card,
+        border: `1px solid ${tokens.color.line}`,
+        background: tokens.color.elevated,
+        boxShadow: tokens.shadow.glass
+      }}
+    >
+      <div style={{ display: "flex", alignItems: "start", justifyContent: "space-between", gap: 10, flexWrap: "wrap" }}>
+        <div style={{ display: "grid", gap: 2, minWidth: 0 }}>
+          <Kicker>Workspace briefing</Kicker>
+          <div style={{ fontFamily: tokens.font.serifCjk, fontSize: 23, lineHeight: 1.15, color: tokens.color.ink, ...lineClamp(1) }}>
+            脈絡簡報
+          </div>
+          <div style={{ fontSize: 11.5, color: tokens.color.softInk }}>
+            跨主題主線、反覆語彙與覆蓋範圍
+          </div>
+        </div>
+        <div style={{ display: "flex", gap: 6, alignItems: "center" }}>
+          {effectiveSynthesis ? (
+            <Stamp tone={staleness === "stale" ? "warning" : "success"}>
+              {staleness === "stale" ? "可更新" : "最新"}
+            </Stamp>
+          ) : null}
+          <Stamp tone="neutral">{analyzedCount} 已分析</Stamp>
+          <Stamp tone={contributingTopicCount > 0 ? "accent" : "neutral"}>{contributingTopicCount} 主題</Stamp>
+        </div>
+      </div>
+
+      {showLocked ? (
+        <div style={{ fontSize: 12, color: tokens.color.softInk, lineHeight: 1.6 }}>
+          脈絡頁只處理跨主題的 spread。需要至少 {FOLDER_SYNTHESIS_MIN_ANALYZED} 篇已分析、{FOLDER_SYNTHESIS_MIN_TOPICS} 個主題；目前 {analyzedCount} 篇 / {contributingTopicCount} 主題。
+        </div>
+      ) : null}
+
+      {showEmptyCta ? (
+        <div style={{ display: "grid", gap: 8 }}>
+          <div style={{ fontSize: 12, color: tokens.color.subInk, lineHeight: 1.6 }}>
+            生成 workspace 脈絡，可看到這批貼文共同在談什麼、哪些語彙反覆出現、情緒如何分佈。
+          </div>
+          <PrimaryButton
+            onClick={() => void onGenerate()}
+            disabled={isGenerating}
+            style={{ justifySelf: "start", padding: "8px 14px", fontSize: 12 }}
+          >
+            {isGenerating ? "正在合成…" : `生成脈絡（${analyzedCount} 篇 · ${contributingTopicCount} 主題）`}
+          </PrimaryButton>
+        </div>
+      ) : null}
+
+      {effectiveSynthesis ? (
+        <div style={{ display: "grid", gap: 14 }}>
+          <div
+            data-testid="folder-briefing-meta"
+            style={{
+              display: "flex",
+              gap: 8,
+              alignItems: "center",
+              flexWrap: "wrap",
+              fontSize: 10.5,
+              fontWeight: 650,
+              color: tokens.color.softInk,
+              letterSpacing: "0.02em"
+            }}
+          >
+            <span>{effectiveSynthesis.generatedFromCount}/{effectiveSynthesis.totalSignalCount} 訊號</span>
+            <span>·</span>
+            <span>{effectiveSynthesis.contributingTopicCount} 主題</span>
+            <span>·</span>
+            <span>更新於 {lastGeneratedLabel}</span>
+            <span>·</span>
+            <span>{effectiveSynthesis.generatorVersion}</span>
+          </div>
+
+          {effectiveSynthesis.sentimentNarrative ? (
+            <p
+              data-testid="folder-briefing-narrative"
+              style={{
+                margin: 0,
+                fontFamily: tokens.font.serifCjk,
+                fontSize: 19,
+                lineHeight: 1.58,
+                fontWeight: 500,
+                color: tokens.color.ink,
+                paddingLeft: 12,
+                borderLeft: `3px solid ${tokens.color.accent}`
+              }}
+            >
+              {effectiveSynthesis.sentimentNarrative}
+            </p>
+          ) : null}
+
+          <div
+            data-testid="folder-briefing-spread"
+            style={{
+              display: "grid",
+              gap: 8,
+              paddingTop: 2,
+              borderTop: `1px solid ${tokens.color.line}`
+            }}
+          >
+            <div style={{ fontSize: 11, fontWeight: 700, color: tokens.color.softInk, letterSpacing: "0.04em", textTransform: "uppercase" }}>
+              跨主題主線
+            </div>
+            {effectiveSynthesis.commonClusters.length > 0 ? (
+              <div style={{ display: "grid", gap: 7 }}>
+                {effectiveSynthesis.commonClusters.map((cluster) => (
+                  <div
+                    key={cluster.keyword}
+                    style={{
+                      display: "grid",
+                      gridTemplateColumns: "minmax(0, 1fr) auto",
+                      gap: 10,
+                      alignItems: "baseline",
+                      fontSize: 12.5,
+                      color: tokens.color.subInk
+                    }}
+                  >
+                    <span style={{ color: tokens.color.ink, fontWeight: 650, ...lineClamp(1) }}>{cluster.keyword}</span>
+                    <span style={{ whiteSpace: "nowrap", color: tokens.color.softInk, fontWeight: 600 }}>
+                      ×{cluster.signalCount} · {cluster.topicCount} 主題
+                    </span>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <div style={{ fontSize: 12, color: tokens.color.softInk }}>暫無橫跨多主題的共同主線。</div>
+            )}
+          </div>
+
+          <div
+            data-testid="folder-briefing-observations"
+            style={{ display: "grid", gap: 8, borderTop: `1px solid ${tokens.color.line}`, paddingTop: 12 }}
+          >
+            <div style={{ fontSize: 11, fontWeight: 700, color: tokens.color.softInk, letterSpacing: "0.04em", textTransform: "uppercase" }}>
+              編輯台觀察
+            </div>
+            {effectiveSynthesis.observations.length > 0 ? (
+              <ol style={{ margin: 0, padding: 0, listStyle: "none", display: "grid", gap: 7 }}>
+                {effectiveSynthesis.observations.slice(0, 4).map((observation, index) => (
+                  <li key={`${observation.text}-${index}`} style={{ display: "grid", gridTemplateColumns: "18px minmax(0, 1fr)", gap: 8 }}>
+                    <span style={{ fontSize: 12, fontWeight: 700, color: tokens.color.success }}>{index + 1}.</span>
+                    <span style={{ fontSize: 12.5, lineHeight: 1.62, color: tokens.color.subInk }}>{observation.text}</span>
+                  </li>
+                ))}
+              </ol>
+            ) : (
+              <div style={{ fontSize: 12, color: tokens.color.softInk }}>暫無觀察。</div>
+            )}
+          </div>
+
+          <div
+            data-testid="folder-briefing-language"
+            style={{ display: "grid", gap: 8, borderTop: `1px solid ${tokens.color.line}`, paddingTop: 12 }}
+          >
+            <div style={{ fontSize: 11, fontWeight: 700, color: tokens.color.softInk, letterSpacing: "0.04em", textTransform: "uppercase" }}>
+              語彙與說法
+            </div>
+            {effectiveSynthesis.memes.length > 0 ? (
+              <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
+                {effectiveSynthesis.memes.map((meme) => (
+                  <span
+                    key={meme.phrase}
+                    style={{
+                      fontSize: 11.5,
+                      padding: "4px 9px",
+                      borderRadius: 999,
+                      background: tokens.color.cyanSoft,
+                      color: tokens.color.cyan,
+                      fontWeight: 650
+                    }}
+                  >
+                    {meme.phrase} ×{meme.occurrences}
+                  </span>
+                ))}
+              </div>
+            ) : null}
+            {effectiveSynthesis.verbalTechniques.length > 0 ? (
+              <ul style={{ margin: 0, padding: 0, listStyle: "none", display: "grid", gap: 4 }}>
+                {effectiveSynthesis.verbalTechniques.map((technique) => (
+                  <li key={technique} style={{ fontSize: 12, lineHeight: 1.55, color: tokens.color.subInk }}>
+                    {technique}
+                  </li>
+                ))}
+              </ul>
+            ) : null}
+          </div>
+
+          <div
+            data-testid="folder-briefing-coverage"
+            style={{ display: "grid", gap: 8, borderTop: `1px solid ${tokens.color.line}`, paddingTop: 12 }}
+          >
+            <div style={{ fontSize: 11, fontWeight: 700, color: tokens.color.softInk, letterSpacing: "0.04em", textTransform: "uppercase" }}>
+              主題涵蓋
+            </div>
+            {effectiveSynthesis.topicCoverage.length > 0 ? (
+              <div style={{ display: "grid", gap: 4 }}>
+                {effectiveSynthesis.topicCoverage.map((coverage) => (
+                  <div
+                    key={coverage.topicId}
+                    style={{
+                      display: "grid",
+                      gridTemplateColumns: "minmax(0, 1fr) auto",
+                      gap: 8,
+                      fontSize: 12,
+                      color: tokens.color.subInk
+                    }}
+                  >
+                    <span style={{ ...lineClamp(1), minWidth: 0 }}>{coverage.topicName || coverage.topicId}</span>
+                    <span style={{ color: coverage.analyzedCount > 0 ? tokens.color.ink : tokens.color.softInk, fontWeight: 600, whiteSpace: "nowrap" }}>
+                      {coverage.analyzedCount}/{coverage.totalCount}
+                    </span>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <div style={{ fontSize: 12, color: tokens.color.softInk }}>暫無涵蓋資料。</div>
+            )}
+          </div>
+
+          <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
+            <SecondaryButton
+              onClick={() => void onGenerate()}
+              disabled={isGenerating}
+              style={{ padding: "6px 10px", fontSize: 11 }}
+            >
+              {isGenerating ? "重新合成中…" : "重新合成"}
+            </SecondaryButton>
+            {onClear ? (
+              <SecondaryButton
+                onClick={() => void onClear()}
+                style={{ padding: "6px 10px", fontSize: 11 }}
+              >
+                清除
+              </SecondaryButton>
+            ) : null}
+            {staleness === "stale" ? (
+              <span style={{ fontSize: 11, color: tokens.color.softInk }}>
+                目前已分析數與上次合成相差 {Math.abs(analyzedCount - effectiveSynthesis.generatedFromCount)} 篇。
+              </span>
+            ) : null}
+          </div>
+        </div>
+      ) : null}
+
+      {errorMessage ? (
+        <div style={{ fontSize: 11, color: tokens.color.failed }}>{errorMessage}</div>
+      ) : null}
+    </section>
+  );
+}
+
 export function LibraryView({
   activeFolder,
   optimisticQueuedIds,
@@ -369,10 +708,20 @@ export function LibraryView({
   onProcessAll,
   techniqueReadings,
   savedAnalyses = [],
+  topicSignalItemIds,
+  topicInboxCount = 0,
+  topicCount = 0,
   onGoToCollect,
   onGoToCompare,
   onOpenSavedAnalysis,
   activeItem,
+  folderSynthesis = null,
+  isGeneratingFolderSynthesis = false,
+  folderSynthesisError = null,
+  onGenerateFolderSynthesis,
+  onClearFolderSynthesis,
+  folderAnalyzedCount = 0,
+  folderContributingTopicCount = 0,
 }: LibraryViewProps) {
   const [showCasebook, setShowCasebook] = useState(false);
 
@@ -402,7 +751,12 @@ export function LibraryView({
     );
   }
 
-  const libraryEntries = activeFolder.items.map((item) => ({
+  const isTopicScopedLibrary = activeFolder.mode === "topic" && Array.isArray(topicSignalItemIds);
+  const topicSignalItemIdSet = new Set(topicSignalItemIds ?? []);
+  const visibleItems = isTopicScopedLibrary
+    ? activeFolder.items.filter((item) => topicSignalItemIdSet.has(item.id))
+    : activeFolder.items;
+  const libraryEntries = visibleItems.map((item) => ({
     item,
     uiState: getLibraryItemUiState(item, optimisticQueuedIds.includes(item.id)),
   }));
@@ -413,11 +767,52 @@ export function LibraryView({
   const isProcessing = workerStatus === "draining";
   const isArchiveMode = activeFolder.mode === "archive";
 
+  const isTopicMode = activeFolder.mode === "topic";
+
   return (
     <div style={viewRootStyle()}>
       <style>{SCAN_ROW_HOVER_CSS}</style>
 
+      {isTopicMode && onGenerateFolderSynthesis ? (
+        <FolderSynthesisCard
+          synthesis={folderSynthesis}
+          analyzedCount={folderAnalyzedCount}
+          contributingTopicCount={folderContributingTopicCount}
+          isGenerating={isGeneratingFolderSynthesis}
+          errorMessage={folderSynthesisError}
+          onGenerate={onGenerateFolderSynthesis}
+          onClear={onClearFolderSynthesis}
+        />
+      ) : null}
+
       {/* ── Readiness context bar ── */}
+      {isTopicScopedLibrary ? (
+        <div style={{
+          background: AR.card,
+          border: `1px solid ${tokens.color.line}`,
+          borderRadius: 12,
+          padding: "11px 14px",
+          boxShadow: "0 1px 6px rgba(0,0,0,0.065)",
+          display: "flex",
+          alignItems: "center",
+          gap: 10,
+          flexWrap: "wrap" as const,
+        }}>
+          <div style={{ flex: 1, minWidth: 0 }}>
+            <div style={{ fontSize: 10, fontWeight: 700, color: AR.muteInk, letterSpacing: 0.3, marginBottom: 2 }}>
+              {getSessionDisplayName(activeFolder)}
+            </div>
+            <div style={{ fontSize: 12, fontWeight: 600, color: AR.ink }}>
+              {topicInboxCount} 未分流 · {topicCount} 主題
+            </div>
+          </div>
+          {onGoToCollect ? (
+            <SecondaryButton onClick={onGoToCollect} style={{ padding: "7px 10px", fontSize: 11 }}>
+              + 採集
+            </SecondaryButton>
+          ) : null}
+        </div>
+      ) : (
       <div style={{
         background: isProcessing
           ? "rgba(0,113,227,0.05)"
@@ -439,7 +834,7 @@ export function LibraryView({
       }}>
         <div style={{ flex: 1, minWidth: 0 }}>
           <div style={{ fontSize: 10, fontWeight: 700, color: AR.muteInk, letterSpacing: 0.3, marginBottom: 2 }}>
-            {activeFolder.name}
+            {getSessionDisplayName(activeFolder)}
           </div>
           <div style={{ fontSize: 12, fontWeight: 600, color: hasPending && !isProcessing ? "#b06200" : AR.ink }}>
             {isProcessing
@@ -472,9 +867,10 @@ export function LibraryView({
           ) : null}
         </div>
       </div>
+      )}
 
       {/* ── Post cards ── */}
-      {activeFolder.items.length === 0 ? (
+      {visibleItems.length === 0 ? (
         <div style={{
           background: AR.card, borderRadius: 12, padding: "20px 16px",
           boxShadow: "0 1px 6px rgba(0,0,0,0.065)",
@@ -510,14 +906,56 @@ export function LibraryView({
             <SecondaryButton onClick={onGoToCollect}>前往 Collect</SecondaryButton>
           ) : null}
         </div>
+      ) : isTopicMode ? (
+        <details
+          data-library-posts="folded"
+          style={{
+            border: `1px solid ${tokens.color.line}`,
+            borderRadius: tokens.radius.card,
+            background: tokens.color.surface,
+            padding: "10px 12px"
+          }}
+        >
+          <summary
+            style={{
+              cursor: "pointer",
+              listStyle: "none",
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "space-between",
+              gap: 10,
+              fontSize: 12,
+              fontWeight: 700,
+              color: tokens.color.subInk
+            }}
+          >
+            <span>訊號詳情</span>
+            <span style={{ fontSize: 11, color: tokens.color.softInk, fontWeight: 500 }}>
+              {visibleItems.length} 篇 · 點開展開
+            </span>
+          </summary>
+          <div data-scan-list="library" style={{ display: "grid", marginTop: 8 }}>
+            {libraryEntries.map(({ item }, index) => (
+              <PostCard
+                key={item.id}
+                item={item}
+                isSelected={item.id === activeItem?.id}
+                optimisticQueued={optimisticQueuedIds.includes(item.id)}
+                ordinal={index + 1}
+                onSelect={() => onSelectItem(item.id)}
+              />
+            ))}
+          </div>
+        </details>
       ) : (
         <div data-scan-list="library" style={{ display: "grid" }}>
-          {libraryEntries.map(({ item }) => (
+          {libraryEntries.map(({ item }, index) => (
             <PostCard
               key={item.id}
               item={item}
               isSelected={item.id === activeItem?.id}
               optimisticQueued={optimisticQueuedIds.includes(item.id)}
+              ordinal={index + 1}
               onSelect={() => onSelectItem(item.id)}
             />
           ))}
