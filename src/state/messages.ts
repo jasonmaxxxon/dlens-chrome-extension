@@ -74,6 +74,7 @@ export type ExtensionMessage =
   | { type: "topic/remove-pair"; topicId: string; resultId: string }
   | { type: "signal/list"; sessionId: string; status?: SignalInboxStatus }
   | { type: "signal/triage"; signalId: string; action: TriageAction }
+  | { type: "signal/delete"; signalId: string }
   | { type: "compare/set-active-draft"; draft: ActiveCompareDraft | null }
   | { type: "compare/set-active-result"; result: ActiveAnalysisResult | null }
   | { type: "judgment/start"; resultId: string }

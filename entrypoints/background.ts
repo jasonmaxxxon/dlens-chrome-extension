@@ -57,10 +57,12 @@ import {
   shouldAutoAnalyzeProductSignal
 } from "../src/compare/product-signal-analysis";
 import {
+  deleteProductSignalAnalysis,
   getProductSignalAnalysis,
   listProductSignalAnalyses,
   saveProductSignalAnalysis
 } from "../src/compare/product-signal-storage";
+import { clearFolderSynthesis } from "../src/compare/folder-synthesis-storage";
 import { listProductAgentTaskFeedback, saveProductAgentTaskFeedback } from "../src/compare/product-agent-task-feedback";
 import { buildProductSignalPreferenceExamples } from "../src/compare/product-signal-history";
 import {
@@ -115,7 +117,7 @@ import {
   type ItemRefreshResult
 } from "../src/state/store-helpers";
 import { ensureSignalForSavedItem, handleTopicMessage } from "../src/state/topic-handlers";
-import { loadSignals } from "../src/state/topic-storage";
+import { deleteSignal, loadSignals } from "../src/state/topic-storage";
 import {
   loadActivePrCampaign,
   loadPrCampaigns,
@@ -1821,6 +1823,24 @@ export default defineBackground(() => {
               ok: true,
               tabId,
               ...topicResponse
+            } satisfies ExtensionResponse);
+            return;
+          }
+          case "signal/delete": {
+            const tabId = await resolveTabId(sender);
+            const result = await deleteSignal(chrome.storage.local, message.signalId);
+            await deleteProductSignalAnalysis(chrome.storage.local, message.signalId);
+            await clearFolderSynthesis(chrome.storage.local, result.deleted.sessionId);
+            const productSignalAnalyses = await listProductSignalAnalyses(
+              chrome.storage.local,
+              result.signals.map((signal) => signal.id)
+            );
+            sendResponse({
+              ok: true,
+              tabId,
+              signals: result.signals,
+              topics: result.topics,
+              productSignalAnalyses
             } satisfies ExtensionResponse);
             return;
           }

@@ -3,6 +3,7 @@ import test from "node:test";
 
 import {
   PRODUCT_SIGNAL_ANALYSES_STORAGE_KEY,
+  deleteProductSignalAnalysis,
   listProductSignalAnalyses,
   saveProductSignalAnalysis
 } from "../src/compare/product-signal-storage.ts";
@@ -51,6 +52,21 @@ test("saveProductSignalAnalysis upserts by signal id", async () => {
   assert.deepEqual(storage.data[PRODUCT_SIGNAL_ANALYSES_STORAGE_KEY], {
     "signal-1": makeAnalysis("signal-1", { verdict: "try", reason: "Now concrete." })
   });
+});
+
+test("deleteProductSignalAnalysis removes only the target signal analysis", async () => {
+  const storage = makeStorage({
+    [PRODUCT_SIGNAL_ANALYSES_STORAGE_KEY]: {
+      "signal-1": makeAnalysis("signal-1"),
+      "signal-2": makeAnalysis("signal-2")
+    }
+  });
+
+  await deleteProductSignalAnalysis(storage, "signal-1");
+
+  assert.deepEqual(await listProductSignalAnalyses(storage), [
+    makeAnalysis("signal-2")
+  ]);
 });
 
 test("saveProductSignalAnalysis preserves marketing signal type", async () => {

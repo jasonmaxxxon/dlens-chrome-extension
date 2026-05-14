@@ -244,6 +244,7 @@ export function InPageCollectorPopup({ app }: { app: InPageCollectorAppModel }) 
                 analysisNotice={app.productSignalAnalysisNotice}
                 isAnalyzing={app.isAnalyzingProductSignals}
                 onAnalyze={() => void app.onAnalyzeProductSignals()}
+                onRemoveSignal={(signalId) => void app.onRemoveProductSignal(signalId)}
               />
             </WorkspaceSurface>
           ) : null}

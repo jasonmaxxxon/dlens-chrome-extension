@@ -2635,9 +2635,10 @@ export function ProductSignalView({
   }
 
   function handleRemoveSignal(signalId: string) {
+    if (!onRemoveSignal) return;
     if (!window.confirm("確認刪除此 signal？此操作無法復原。")) return;
     setSelectedSignalIds((current) => current.filter((id) => id !== signalId));
-    onRemoveSignal?.(signalId);
+    onRemoveSignal(signalId);
   }
 
   return (
@@ -2672,7 +2673,7 @@ export function ProductSignalView({
                 preview={signalPreviewById[signal.id]}
                 readiness={readSignalReadiness(signal, signalReadinessById)}
                 analysis={bySignal.get(signal.id)}
-                onRemove={() => handleRemoveSignal(signal.id)}
+                onRemove={onRemoveSignal ? () => handleRemoveSignal(signal.id) : undefined}
               />
             ))}
           </section>
@@ -2706,7 +2707,7 @@ export function ProductSignalView({
             signalReadinessById={signalReadinessById}
             selectedIds={selectedSignalIds}
             onToggleSignal={toggleSelectedSignal}
-            onRemoveSignal={handleRemoveSignal}
+            onRemoveSignal={onRemoveSignal ? handleRemoveSignal : undefined}
           />
         ) : scopedAnalyses.length ? (
           kind === "classification" ? (
@@ -2720,7 +2721,7 @@ export function ProductSignalView({
                 historicalAnalyses={safeHistoricalAnalyses}
                 agentTaskFeedback={safeAgentTaskFeedback}
                 cardLayout={cardLayout}
-                onRemoveSignal={handleRemoveSignal}
+                onRemoveSignal={onRemoveSignal ? handleRemoveSignal : undefined}
               />
               <SavedSignalsBatchExport
                 signals={safeSignals}

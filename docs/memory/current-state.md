@@ -58,10 +58,10 @@ The verified build in the active Phase B implementation worktree is:
 - backend physical checkout: `/Users/tung/Desktop/dlens-backend/dlens-ingest-core`
 - old versions and historical worktrees: `/Users/tung/Desktop/dlens-old`
 - verification: `npm run typecheck`, `npx tsx --test tests/*.test.ts tests/*.test.tsx`, and `npm run build`
-- latest full test count on clean `origin/main` after layout preferences: `392 pass, 0 fail`
+- latest full test count on clean `origin/main` after product signal delete fix: `396 pass, 0 fail`
 - latest build output was mirrored to `/Users/tung/Desktop/dlens-product-latest/output/chrome-mv3`
 - live backend smoke from the prior product run: `GET http://127.0.0.1:8000/worker/status` returned `{"status":"idle"}`
-- extension manifest name is `DLens v3`; current extension version is `0.1.3`
+- extension manifest name is `DLens v3`; current extension version is `0.1.4`
 - version is locked across `package.json`, `package-lock.json`, `wxt.config.ts` `manifest.version`, and `src/ui/version.ts` `BUILD_VERSION`
 
 ## PR Evidence V1 Contract State
@@ -137,6 +137,7 @@ Product mode now has two schema-first AI contracts:
    - includes evidence refs and an `experimentHint` string for `try`
    - includes optional `agentTaskSpec` only for `verdict = "try"`
    - `agentTaskSpec.taskPrompt` is a prompt the user can paste directly into Codex / Claude / a generic agent, not merely a suggestion summary
+   - product signal removal is persisted through `signal/delete`: delete the signal, clear topic membership and affected topic synthesis, remove the matching product analysis row, clear session folder synthesis, then refresh Product pages
 
 The ProductSignalAnalyzer prompt deliberately asks for precise `signalSubtype` values such as `mcp_integration`, `browser_automation`, `recurring_data_crawl`, `pm_document_generation`, and `competitor_release_monitoring`. It also explicitly avoids `contentTypeHint`; content type is an AI output over the assembled thread, not a rule-based hint.
 
@@ -159,7 +160,7 @@ Topic synthesis and Folder synthesis are deterministic extension-side display la
 
 ## Version State
 
-- Current extension version: `0.1.3`.
+- Current extension version: `0.1.4`.
 - Chrome extension page version comes from `wxt.config.ts` `manifest.version` in the built manifest.
 - Popup masthead version comes from `src/ui/version.ts` `BUILD_VERSION`.
 - `package.json`, `package-lock.json`, `wxt.config.ts`, and `src/ui/version.ts` must stay in sync for every main-facing update unless explicitly skipped.

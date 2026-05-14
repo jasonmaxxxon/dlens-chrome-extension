@@ -4,6 +4,7 @@ import type { ExtensionMessage, ExtensionResponse } from "../state/messages";
 import type {
   FolderMode,
   PopupPage,
+  ProductSignalAnalysis,
   SavedAnalysisSnapshot,
   SessionRecord,
   Signal,
@@ -243,6 +244,27 @@ export function useTopicState({
     }
   }
 
+  async function onRemoveSignal(signalId: string) {
+    const response = await sendExtensionMessage<{
+      ok: true;
+      signals?: Signal[];
+      topics?: Topic[];
+      productSignalAnalyses?: ProductSignalAnalysis[];
+    } | { ok: false; error: string }>({
+      type: "signal/delete",
+      signalId
+    });
+    if (response.ok) {
+      setSignals(response.signals ?? signals.filter((signal) => signal.id !== signalId));
+      setTopics(response.topics ?? topics.map((topic) => ({
+        ...topic,
+        signalIds: topic.signalIds.filter((id) => id !== signalId),
+        ...(topic.signalIds.includes(signalId) ? { synthesis: null } : {})
+      })));
+    }
+    return response;
+  }
+
   async function onOpenTopicPair(resultId: string, topicId: string) {
     const topic = topics.find((entry) => entry.id === topicId);
     if (!topic) {
@@ -302,6 +324,7 @@ export function useTopicState({
     onBackFromTopicDetail,
     onUpdateTopic,
     onSignalTriaged,
+    onRemoveSignal,
     onOpenTopicPair,
     onReturnToTopic,
     onAttachActiveResultToTopic

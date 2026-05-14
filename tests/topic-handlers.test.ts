@@ -182,3 +182,44 @@ test("handleTopicMessage unassigns every signal when deleting a topic", async ()
     ]
   );
 });
+
+test("handleTopicMessage deletes a signal and returns refreshed signal/topic lists", async () => {
+  const storage = createStorageArea({
+    [TOPICS_STORAGE_KEY]: [
+      {
+        id: "topic-1",
+        sessionId: "session-1",
+        name: "Topic",
+        status: "pending",
+        signalIds: ["signal-1", "signal-2"],
+        pairIds: []
+      }
+    ],
+    [SIGNALS_STORAGE_KEY]: [
+      {
+        id: "signal-1",
+        sessionId: "session-1",
+        source: "threads",
+        inboxStatus: "assigned",
+        topicId: "topic-1",
+        capturedAt: "2026-05-14T07:00:00.000Z"
+      },
+      {
+        id: "signal-2",
+        sessionId: "session-1",
+        source: "threads",
+        inboxStatus: "assigned",
+        topicId: "topic-1",
+        capturedAt: "2026-05-14T07:05:00.000Z"
+      }
+    ]
+  });
+
+  const response = await handleTopicMessage(storage, {
+    type: "signal/delete",
+    signalId: "signal-1"
+  });
+
+  assert.deepEqual(response.signals?.map((signal) => signal.id), ["signal-2"]);
+  assert.deepEqual(response.topics?.[0]?.signalIds, ["signal-2"]);
+});

@@ -920,6 +920,19 @@ export function useInPageCollectorAppState({ snapshot, tabId, sendAndSync }: Use
     }
   }
 
+  async function onRemoveProductSignal(signalId: string) {
+    setProductSignalAnalysisError(null);
+    const response = await topicState.onRemoveSignal(signalId);
+    if (response.ok) {
+      setProductSignalAnalyses(response.productSignalAnalyses ?? productSignalAnalyses.filter((analysis) => analysis.signalId !== signalId));
+      setHistoricalProductSignalAnalyses((previous) => previous.filter((analysis) => analysis.signalId !== signalId));
+      setProductAgentTaskFeedback((previous) => previous.filter((feedback) => feedback.signalId !== signalId));
+      setProductSignalAnalysisNotice("已移除 signal。");
+      return;
+    }
+    setProductSignalAnalysisError(response.error);
+  }
+
   return {
     popupRef,
     snapshot,
@@ -1029,6 +1042,7 @@ export function useInPageCollectorAppState({ snapshot, tabId, sendAndSync }: Use
     onSaveJudgmentOverride,
     onInitProductProfile,
     onAnalyzeProductSignals,
+    onRemoveProductSignal,
     onCreateFolder,
     onRenameFolder,
     onDeleteFolder,

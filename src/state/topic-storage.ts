@@ -3,6 +3,7 @@ import type {
   SignalInboxStatus,
   SignalSource,
   Topic,
+  TopicSynthesis,
   TopicStatus,
   TriageAction
 } from "./types.ts";
@@ -39,6 +40,16 @@ function readStringArray(value: unknown): string[] {
     });
 }
 
+function readTopicSynthesis(value: unknown): TopicSynthesis | null | undefined {
+  if (value === null) {
+    return null;
+  }
+  if (!value || typeof value !== "object" || Array.isArray(value)) {
+    return undefined;
+  }
+  return value as TopicSynthesis;
+}
+
 function readTopicStatus(value: unknown): TopicStatus {
   return value === "pending" || value === "watching" || value === "learning" || value === "testing" || value === "archived"
     ? value
@@ -68,6 +79,8 @@ export function normalizeTopic(value: unknown): Topic | null {
     return null;
   }
 
+  const synthesis = readTopicSynthesis(raw.synthesis);
+
   return {
     id,
     sessionId,
@@ -78,7 +91,8 @@ export function normalizeTopic(value: unknown): Topic | null {
     signalIds: readStringArray(raw.signalIds),
     pairIds: readStringArray(raw.pairIds),
     createdAt: readString(raw.createdAt, "1970-01-01T00:00:00.000Z").trim() || "1970-01-01T00:00:00.000Z",
-    updatedAt: readString(raw.updatedAt, "1970-01-01T00:00:00.000Z").trim() || "1970-01-01T00:00:00.000Z"
+    updatedAt: readString(raw.updatedAt, "1970-01-01T00:00:00.000Z").trim() || "1970-01-01T00:00:00.000Z",
+    ...(synthesis !== undefined ? { synthesis } : {})
   };
 }
 
@@ -191,6 +205,43 @@ export async function saveSignals(storageArea: StorageAreaLike, signals: Signal[
   const ids = new Set(normalizedSignals.map((signal) => signal.id));
   const next = [...normalizedSignals, ...existing.filter((entry) => !ids.has(entry.id))];
   return writeSignals(storageArea, next);
+}
+
+export async function deleteSignal(
+  storageArea: StorageAreaLike,
+  signalId: string
+): Promise<{ deleted: Signal; signals: Signal[]; topics: Topic[] }> {
+  const normalizedSignalId = signalId.trim();
+  const signals = await readSignals(storageArea);
+  const deleted = signals.find((entry) => entry.id === normalizedSignalId);
+  if (!deleted) {
+    throw new Error("Signal not found");
+  }
+
+  const nextSignals = signals.filter((entry) => entry.id !== normalizedSignalId);
+  await writeSignals(storageArea, nextSignals);
+
+  const now = new Date().toISOString();
+  const topics = await readTopics(storageArea);
+  const nextTopics = topics.map((topic) => {
+    const referencesSignal = topic.signalIds.includes(normalizedSignalId) || topic.id === deleted.topicId;
+    if (!referencesSignal) {
+      return topic;
+    }
+    return {
+      ...topic,
+      signalIds: topic.signalIds.filter((id) => id !== normalizedSignalId),
+      synthesis: null,
+      updatedAt: now
+    };
+  });
+  await writeTopics(storageArea, nextTopics);
+
+  return {
+    deleted,
+    signals: nextSignals.filter((signal) => signal.sessionId === deleted.sessionId),
+    topics: nextTopics.filter((topic) => topic.sessionId === deleted.sessionId)
+  };
 }
 
 export async function triageSignal(

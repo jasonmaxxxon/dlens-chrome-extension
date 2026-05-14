@@ -896,6 +896,47 @@ test("ProductSignalView shows real readiness state without fake AI results", () 
   assert.doesNotMatch(html, /航班觀察|fixture|score/i);
 });
 
+test("ProductSignalView only shows remove controls when delete is wired", () => {
+  const baseProps = {
+    kind: "saved-signals" as const,
+    signals: [
+      {
+        id: "signal_a",
+        sessionId: "session_a",
+        itemId: "item_a",
+        source: "threads" as const,
+        inboxStatus: "unprocessed" as const,
+        capturedAt: "2026-05-14T07:00:00.000Z"
+      }
+    ],
+    productProfile: null,
+    analyses: [],
+    signalPreviewById: {
+      signal_a: "User asks whether agents can turn research into usable output."
+    },
+    signalReadinessById: {
+      signal_a: {
+        status: "saved" as const,
+        itemStatus: "saved" as const
+      }
+    },
+    onAnalyze: () => undefined
+  };
+
+  const unwiredHtml = renderToStaticMarkup(
+    React.createElement(ProductSignalView, baseProps)
+  );
+  const wiredHtml = renderToStaticMarkup(
+    React.createElement(ProductSignalView, {
+      ...baseProps,
+      onRemoveSignal: () => undefined
+    })
+  );
+
+  assert.doesNotMatch(unwiredHtml, /aria-label="移除此訊號"/);
+  assert.match(wiredHtml, /aria-label="移除此訊號"/);
+});
+
 test("ProductSignalView renders batch export only on the actionable page", () => {
   const baseProps = {
     signals: [

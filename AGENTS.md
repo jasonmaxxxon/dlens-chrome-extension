@@ -1,6 +1,6 @@
 # AGENTS.md — DLens Chrome Extension v0.1
 
-> **Last updated:** 2026-05-14 (Layout preferences + version 0.1.3 on main — 392/392 tests, typecheck, build)
+> **Last updated:** 2026-05-14 (Product signal delete + version 0.1.4 on main — 396/396 tests, typecheck, build)
 > **For:** any agent continuing work in this repo
 
 ## Process Rules (locked 2026-04-17)

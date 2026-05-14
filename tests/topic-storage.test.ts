@@ -6,6 +6,7 @@ import {
 } from "../src/state/topic-handlers.ts";
 import {
   deleteTopic,
+  deleteSignal,
   loadSignals,
   loadTopics,
   normalizeSignal,
@@ -261,6 +262,58 @@ test("triageSignal clears topic membership when archiving an assigned signal", a
   assert.equal(result.signal.inboxStatus, "archived");
   assert.equal(result.signal.topicId, undefined);
   assert.deepEqual(topics[0]?.signalIds, []);
+});
+
+test("deleteSignal removes the signal and clears topic membership", async () => {
+  const storage = createStorageArea({
+    [TOPICS_STORAGE_KEY]: [
+      {
+        id: "topic-1",
+        sessionId: "session-1",
+        name: "Signals",
+        status: "watching",
+        signalIds: ["signal-1", "signal-2"],
+        pairIds: [],
+        synthesis: {
+          sentimentNarrative: "舊合成不可在刪除後保留。",
+          observations: [],
+          commonClusters: [],
+          verbalTechniques: [],
+          memes: [],
+          outliers: [],
+          generatedFromCount: 2,
+          totalSignalCount: 2,
+          generatedAt: "2026-05-14T07:00:00.000Z",
+          generator: "deterministic",
+          generatorVersion: "v2.work-signal-lens"
+        }
+      }
+    ],
+    [SIGNALS_STORAGE_KEY]: [
+      {
+        id: "signal-1",
+        sessionId: "session-1",
+        source: "threads",
+        inboxStatus: "unprocessed",
+        capturedAt: "2026-05-14T07:00:00.000Z"
+      },
+      {
+        id: "signal-2",
+        sessionId: "session-1",
+        source: "threads",
+        inboxStatus: "unprocessed",
+        capturedAt: "2026-05-14T07:05:00.000Z"
+      }
+    ]
+  });
+
+  const result = await deleteSignal(storage, "signal-1");
+
+  assert.equal(result.deleted.id, "signal-1");
+  assert.deepEqual((await loadSignals(storage, "session-1")).map((signal) => signal.id), ["signal-2"]);
+  const topics = await loadTopics(storage, "session-1");
+  assert.deepEqual(topics[0]?.signalIds, ["signal-2"]);
+  assert.equal(topics[0]?.synthesis, null);
 });
 
 test("triageSignal can create a topic while assigning the signal", async () => {

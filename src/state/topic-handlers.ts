@@ -1,6 +1,7 @@
 import type { ExtensionMessage, ExtensionSuccessResponse } from "./messages";
 import type { SessionItem, SessionRecord, Signal, Topic } from "./types";
 import {
+  deleteSignal,
   deleteTopic,
   loadSignals,
   loadTopics,
@@ -25,6 +26,7 @@ type TopicHandlerMessage = Extract<
   | { type: "topic/remove-pair" }
   | { type: "signal/list" }
   | { type: "signal/triage" }
+  | { type: "signal/delete" }
 >;
 
 type TopicHandlerResult = Pick<ExtensionSuccessResponse, "topics" | "signals">;
@@ -201,6 +203,13 @@ export async function handleTopicMessage(
       return {
         signals: await loadSignals(storageArea, signal.sessionId),
         topics: await loadTopics(storageArea, signal.sessionId)
+      };
+    }
+    case "signal/delete": {
+      const result = await deleteSignal(storageArea, message.signalId);
+      return {
+        signals: result.signals,
+        topics: result.topics
       };
     }
   }
