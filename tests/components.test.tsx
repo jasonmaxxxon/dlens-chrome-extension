@@ -14,6 +14,7 @@ import {
   UtilityEdge,
   scanRowStyle
 } from "../src/ui/components.tsx";
+import { BUILD_VERSION } from "../src/ui/version.ts";
 
 function makeDescriptor(overrides: Partial<TargetDescriptor> = {}): TargetDescriptor {
   return {
@@ -160,6 +161,6 @@ test("WorkspaceShell masthead exposes the extension build version", () => {
     )
   );
 
-  assert.match(html, /v0\.1\.7/);
+  assert.match(html, new RegExp(`v${BUILD_VERSION.replaceAll(".", "\\.")}`));
   assert.match(html, /Folder: dlens-product-latest/);
 });

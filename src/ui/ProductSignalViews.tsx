@@ -362,16 +362,6 @@ function referenceLabel(analysis: ProductSignalAnalysis | undefined): string {
     : `對產品參考：${analysis.contentSummary}`;
 }
 
-function marginaliaReferenceCategory(analysis: ProductSignalAnalysis | undefined): string {
-  if (!analysis) return "—";
-  const raw = analysis.referenceLabel?.trim();
-  if (raw) {
-    const idx = raw.indexOf("：");
-    return idx > 0 ? raw.slice(0, idx) : raw;
-  }
-  return analysis.signalType === "learning" ? "可學習" : "對產品參考";
-}
-
 function referenceTakeaway(analysis: ProductSignalAnalysis | undefined): string {
   if (!analysis) return "先完成分析後再輸出 agent brief。";
   return analysis.referenceTakeaway?.trim() || analysis.whyRelevant || analysis.reason;
@@ -1944,6 +1934,10 @@ function ActionableItemCard({
     || "尚未有可派發任務；先保留為觀察。";
   const marginaliaRailTaskCopy = analysis.agentTaskSpec?.taskTitle?.trim()
     || "尚未有可派發任務；先保留為觀察。";
+  const explicitReferenceLabel = analysis.referenceLabel?.trim() ?? "";
+  const marginaliaReferenceLabel = explicitReferenceLabel
+    ? explicitReferenceLabel.slice(0, explicitReferenceLabel.indexOf("：") > 0 ? explicitReferenceLabel.indexOf("：") : explicitReferenceLabel.length)
+    : "";
 
   if (layout === "marginalia") {
     return (
@@ -2006,31 +2000,6 @@ function ActionableItemCard({
             >
               {title}
             </h3>
-
-            <div
-              style={{
-                fontSize: 13.5,
-                lineHeight: 1.72,
-                color: tokens.color.subInk,
-                display: "block"
-              }}
-            >
-              <span
-                aria-hidden="true"
-                style={{
-                  float: "left",
-                  fontFamily: tokens.font.serifCjk,
-                  fontSize: 46,
-                  lineHeight: 0.86,
-                  paddingRight: 7,
-                  color: verdictPanelColor,
-                  fontWeight: 700
-                }}
-              >
-                {analysis.contentSummary.trim().charAt(0) || "訊"}
-              </span>
-              {analysis.contentSummary.trim().slice(1) || analysis.contentSummary}
-            </div>
 
             {analysis.reason || primaryEvidenceReason ? (
               <div data-testid="marginalia-reason" style={{ display: "grid", gap: 7 }}>
@@ -2226,10 +2195,12 @@ function ActionableItemCard({
                 <span style={{ color: tokens.color.softInk }}>子型</span>
                 <span style={{ color: tokens.color.ink, fontWeight: 650 }}>{formatSubtype(analysis.signalSubtype)}</span>
               </div>
-              <div style={{ display: "grid", gap: 2 }}>
-                <span style={{ color: tokens.color.softInk }}>對到</span>
-                <span style={{ color: tokens.color.ink, fontWeight: 650 }}>{marginaliaReferenceCategory(analysis)}</span>
-              </div>
+              {marginaliaReferenceLabel ? (
+                <div style={{ display: "grid", gap: 2 }}>
+                  <span style={{ color: tokens.color.softInk }}>對到</span>
+                  <span style={{ color: tokens.color.ink, fontWeight: 650 }}>{marginaliaReferenceLabel}</span>
+                </div>
+              ) : null}
               <div style={{ display: "grid", gap: 2 }}>
                 <span style={{ color: tokens.color.softInk }}>證據</span>
                 <span style={{ color: tokens.color.ink, fontWeight: 650 }}>{citationCount} 則</span>

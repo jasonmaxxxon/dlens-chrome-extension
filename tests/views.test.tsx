@@ -1467,6 +1467,39 @@ test("ActionableItemCard marginalia removes duplicate citation reason while verd
   assert.match(verdictHtml, /引用理由：把資料來源、處理邏輯和交付物說清楚/);
 });
 
+test("ActionableItemCard marginalia drops contentSummary drop-cap while keeping reason", () => {
+  const fixture = buildActionableCardFixture();
+  const html = renderActionableCardFixture("marginalia");
+  const mainHtml = extractTestIdSection(html, "marginalia-main", "</main>");
+  const contentSummaryTail = fixture.analysis.contentSummary.trim().slice(1);
+
+  assert.doesNotMatch(mainHtml, /font-size:46px/);
+  assert.ok(!mainHtml.includes(contentSummaryTail), "marginalia main column must not restate contentSummary as drop-cap prose");
+  assert.match(mainHtml, /討論裡已經有明確的輸入、處理與輸出/);
+});
+
+test("ActionableItemCard marginalia rail hides derived 對到 row without explicit referenceLabel", () => {
+  const html = renderActionableCardFixture("marginalia", { referenceLabel: "" });
+  const railHtml = extractTestIdSection(html, "marginalia-rail", "</aside>");
+
+  assert.doesNotMatch(railHtml, /對到/);
+  assert.doesNotMatch(railHtml, /可學習/);
+  assert.doesNotMatch(railHtml, /對產品參考/);
+});
+
+test("ActionableItemCard marginalia rail shows explicit 對到 label only", () => {
+  const explicitHtml = renderActionableCardFixture("marginalia", { referenceLabel: "Agent 啟動流程" });
+  const explicitRailHtml = extractTestIdSection(explicitHtml, "marginalia-rail", "</aside>");
+  const colonHtml = renderActionableCardFixture("marginalia", { referenceLabel: "可學習：很長很長的句子" });
+  const colonRailHtml = extractTestIdSection(colonHtml, "marginalia-rail", "</aside>");
+
+  assert.match(explicitRailHtml, /對到/);
+  assert.match(explicitRailHtml, /Agent 啟動流程/);
+  assert.match(colonRailHtml, /對到/);
+  assert.match(colonRailHtml, /可學習/);
+  assert.doesNotMatch(colonRailHtml, /很長很長的句子/);
+});
+
 test("ActionableItemCard defaults to verdict layout without layout prop", () => {
   const html = renderActionableCardFixture();
 
