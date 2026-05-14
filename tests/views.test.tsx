@@ -1131,83 +1131,141 @@ test("ProductSignalView gives each product page a distinct information shape", (
   assert.ok(!PRODUCT_SIGNAL_MOTION_CSS.includes("::details-content"), "CSS must not use ::details-content");
 });
 
-test("ProductSignalView actionable cards expose verdict layout slots", () => {
+function buildActionableCardFixture() {
+  const analysis = {
+    signalId: "signal_verdict",
+    signalType: "demand" as const,
+    signalSubtype: "pm_document_generation",
+    contentType: "discussion_starter" as const,
+    contentSummary: "PM 想把外部討論轉成可交付文件。",
+    relevance: 5 as const,
+    relevantTo: ["coreWorkflows" as const],
+    referenceType: "workflow_pattern" as const,
+    referenceLabel: "把討論轉成文件工作流",
+    referenceTakeaway: "先用小型 agent task 驗證交付格式是否可重複。",
+    whyRelevant: "對應 Product mode 的核心承諾。",
+    verdict: "try" as const,
+    reason: "討論裡已經有明確的輸入、處理與輸出。",
+    experimentHint: "用一個 Threads 討論串產出 release-note 草稿。",
+    agentTaskSpec: {
+      targetAgent: "codex" as const,
+      taskTitle: "產出 release-note 草稿",
+      taskPrompt: "Inspect the discussion and draft a release-note workflow.",
+      requiredContext: ["README", "sample thread"]
+    },
+    evidenceRefs: ["e1"],
+    evidenceNotes: [
+      {
+        ref: "e1",
+        quoteSummary: "提到把 Slack/Jira 訊號變成 release notes。",
+        whyItMatters: "把資料來源、處理邏輯和交付物說清楚。",
+        reusablePattern: "多來源討論轉交付文件",
+        whyItWorks: "它把輸入與輸出格式固定下來。",
+        grounding: "text_grounded" as const,
+        workflowStack: ["Threads", "Codex", "Markdown"],
+        copyRecipeMarkdown: "- 收集討論串\n- 交給 agent 摘要\n- 輸出 Markdown 草稿",
+        tradeoff: "需要人手檢查語氣。"
+      }
+    ],
+    productContextHash: "ctx_verdict",
+    promptVersion: "v16",
+    analyzedAt: "2026-05-13T01:00:00.000Z",
+    status: "complete" as const
+  };
+  const evidenceBySignalId = {
+    signal_verdict: [
+      {
+        ref: "e1",
+        id: "reply_1",
+        author: "pm",
+        text: "可以把 Slack 和 Jira 討論交給 agent 寫 release notes。",
+        likeCount: 9
+      }
+    ]
+  };
+
+  return {
+    signal: {
+      id: "signal_verdict",
+      sessionId: "session_verdict",
+      itemId: "item_verdict",
+      source: "threads" as const,
+      inboxStatus: "unprocessed" as const,
+      capturedAt: "2026-05-13T00:00:00.000Z"
+    },
+    analysis,
+    productProfile: {
+      name: "DLens",
+      category: "Product intelligence",
+      audience: "PM",
+      contextText: "README context",
+      contextFiles: [{ id: "readme", name: "README.md", kind: "readme" as const, importedAt: "2026-05-13T00:00:00.000Z", charCount: 14 }]
+    },
+    evidenceBySignalId
+  };
+}
+
+function renderActionableCardFixture(layout?: "verdict" | "marginalia") {
+  const fixture = buildActionableCardFixture();
+  const testables = productSignalViewTestables as typeof productSignalViewTestables & {
+    ActionableItemCard: React.ComponentType<{
+      analysis: typeof fixture.analysis;
+      index: number;
+      evidenceBySignalId: typeof fixture.evidenceBySignalId;
+      historicalAnalyses: typeof fixture.analysis[];
+      agentTaskFeedback: [];
+      layout?: "verdict" | "marginalia";
+    }>;
+  };
+
+  return renderToStaticMarkup(
+    React.createElement(testables.ActionableItemCard, {
+      analysis: fixture.analysis,
+      index: 0,
+      evidenceBySignalId: fixture.evidenceBySignalId,
+      historicalAnalyses: [fixture.analysis],
+      agentTaskFeedback: [],
+      ...(layout ? { layout } : {})
+    })
+  );
+}
+
+test("ProductSignalView actionable cards expose marginalia layout slots", () => {
+  const fixture = buildActionableCardFixture();
   const html = renderToStaticMarkup(
     React.createElement(ProductSignalView, {
       kind: "actionable-filter",
-      signals: [
-        {
-          id: "signal_verdict",
-          sessionId: "session_verdict",
-          itemId: "item_verdict",
-          source: "threads",
-          inboxStatus: "unprocessed",
-          capturedAt: "2026-05-13T00:00:00.000Z"
-        }
-      ],
-      analyses: [
-        {
-          signalId: "signal_verdict",
-          signalType: "demand",
-          signalSubtype: "pm_document_generation",
-          contentType: "discussion_starter",
-          contentSummary: "PM 想把外部討論轉成可交付文件。",
-          relevance: 5,
-          relevantTo: ["coreWorkflows"],
-          referenceType: "workflow_pattern",
-          referenceLabel: "把討論轉成文件工作流",
-          referenceTakeaway: "先用小型 agent task 驗證交付格式是否可重複。",
-          whyRelevant: "對應 Product mode 的核心承諾。",
-          verdict: "try",
-          reason: "討論裡已經有明確的輸入、處理與輸出。",
-          experimentHint: "用一個 Threads 討論串產出 release-note 草稿。",
-          agentTaskSpec: {
-            targetAgent: "codex",
-            taskTitle: "產出 release-note 草稿",
-            taskPrompt: "Inspect the discussion and draft a release-note workflow.",
-            requiredContext: ["README", "sample thread"]
-          },
-          evidenceRefs: ["e1"],
-          evidenceNotes: [
-            {
-              ref: "e1",
-              quoteSummary: "提到把 Slack/Jira 訊號變成 release notes。",
-              whyItMatters: "把資料來源、處理邏輯和交付物說清楚。",
-              reusablePattern: "多來源討論轉交付文件",
-              whyItWorks: "它把輸入與輸出格式固定下來。",
-              grounding: "text_grounded",
-              workflowStack: ["Threads", "Codex", "Markdown"],
-              copyRecipeMarkdown: "- 收集討論串\n- 交給 agent 摘要\n- 輸出 Markdown 草稿",
-              tradeoff: "需要人手檢查語氣。"
-            }
-          ],
-          productContextHash: "ctx_verdict",
-          promptVersion: "v16",
-          analyzedAt: "2026-05-13T01:00:00.000Z",
-          status: "complete"
-        }
-      ],
-      productProfile: {
-        name: "DLens",
-        category: "Product intelligence",
-        audience: "PM",
-        contextText: "README context",
-        contextFiles: [{ id: "readme", name: "README.md", kind: "readme", importedAt: "2026-05-13T00:00:00.000Z", charCount: 14 }]
-      },
-      evidenceBySignalId: {
-        signal_verdict: [
-          {
-            ref: "e1",
-            id: "reply_1",
-            author: "pm",
-            text: "可以把 Slack 和 Jira 討論交給 agent 寫 release notes。",
-            likeCount: 9
-          }
-        ]
-      },
+      signals: [fixture.signal],
+      analyses: [fixture.analysis],
+      productProfile: fixture.productProfile,
+      evidenceBySignalId: fixture.evidenceBySignalId,
       onAnalyze: () => undefined
     })
   );
+
+  assert.match(html, /data-marginalia-layout="true"/);
+  assert.match(html, /data-testid="marginalia-main"/);
+  assert.match(html, /data-testid="marginalia-rail"/);
+  assert.match(html, /data-testid="marginalia-headline"[^>]*>多來源討論轉交付文件/);
+  assert.match(html, /data-testid="marginalia-reason"/);
+  assert.match(html, /data-testid="marginalia-experiment"/);
+  assert.match(html, /data-testid="marginalia-footnotes"/);
+  assert.match(html, /可以把 Slack 和 Jira 討論交給 agent 寫 release notes/);
+});
+
+test("ActionableItemCard marginalia rail contains verdict, relevance, and task slots", () => {
+  const html = renderActionableCardFixture("marginalia");
+
+  assert.match(html, /data-testid="marginalia-rail"/);
+  assert.match(html, /data-testid="rail-verdict"[^>]*data-verdict-value="try"[^>]*>值得嘗試/);
+  assert.match(html, /data-testid="rail-relevance"/);
+  assert.match(html, /data-testid="rail-task"/);
+  assert.match(html, /TASK ›/);
+  assert.match(html, /用一個 Threads 討論串產出 release-note 草稿/);
+});
+
+test("ActionableItemCard defaults to verdict layout without layout prop", () => {
+  const html = renderActionableCardFixture();
 
   assert.match(html, /data-verdict-layout="true"/);
   assert.match(html, /data-testid="verdict-panel"/);
