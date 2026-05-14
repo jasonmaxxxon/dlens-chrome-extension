@@ -18,6 +18,16 @@ import { buildDateRangeLabel } from "./inpage-helpers";
 import { InPageCollectorFolderControls } from "./InPageCollectorFolderControls";
 import type { InPageCollectorAppModel } from "./useInPageCollectorAppState";
 
+function shouldShowProcessingContextStrip(folderMode: string, page: PopupPage): boolean {
+  if (folderMode === "product" || folderMode === "pr-evidence") {
+    return false;
+  }
+  if (folderMode === "topic") {
+    return page === "compare" || page === "result";
+  }
+  return page === "library" || page === "compare" || page === "result";
+}
+
 export function InPageCollectorPopup({ app }: { app: InPageCollectorAppModel }) {
   const { snapshot, page, popupOpen, activeFolder, resultSurface, resultItemA, resultItemB, resultSelection, compareTeaser } = app;
   const activeFolderMode = activeFolder?.mode ?? "archive";
@@ -99,7 +109,7 @@ export function InPageCollectorPopup({ app }: { app: InPageCollectorAppModel }) 
             </div>
           )}
           contextStrip={
-            activeFolder ? (
+            activeFolder && shouldShowProcessingContextStrip(activeFolderMode, guardedPage) ? (
               <ProcessingStrip
                 workerStatus={app.workerStatus}
                 ready={app.processingSummary.ready}
@@ -149,6 +159,7 @@ export function InPageCollectorPopup({ app }: { app: InPageCollectorAppModel }) 
                   onOpenPair={(resultId) => void app.onOpenTopicPair(resultId, app.activeTopic!.id)}
                   onUpdateTopic={(patch) => void app.onUpdateTopic(patch)}
                   onSaveJudgmentOverride={(resultId, patch) => void app.onSaveJudgmentOverride(resultId, patch)}
+                  synthLayout={snapshot?.global.settings.layoutPreferences.topicSynthesisLayout}
                 />
               ) : (
                 <CasebookView
@@ -228,6 +239,7 @@ export function InPageCollectorPopup({ app }: { app: InPageCollectorAppModel }) 
                 evidenceBySignalId={app.productSignalEvidenceById}
                 signalReadinessById={app.productSignalReadinessById}
                 aiProviderReady={app.productAiProviderReady}
+                cardLayout={snapshot?.global.settings.layoutPreferences.productSignalCardLayout}
                 analysisError={app.productSignalAnalysisError}
                 analysisNotice={app.productSignalAnalysisNotice}
                 isAnalyzing={app.isAnalyzingProductSignals}
@@ -346,6 +358,7 @@ export function InPageCollectorPopup({ app }: { app: InPageCollectorAppModel }) 
                     activeResultId={app.activeSavedAnalysis?.resultId ?? null}
                     attachedTopicIds={attachedTopicIds}
                     onAttachToTopic={(topicId) => void app.onAttachActiveResultToTopic(topicId)}
+                    compareLayout={snapshot?.global.settings.layoutPreferences.compareResultLayout}
                     hideSelector
                   />
                 </div>
@@ -371,6 +384,7 @@ export function InPageCollectorPopup({ app }: { app: InPageCollectorAppModel }) 
                 draftOpenAiKey={app.draftOpenAiKey}
                 draftClaudeKey={app.draftClaudeKey}
                 draftGoogleKey={app.draftGoogleKey}
+                draftLayoutPreferences={app.draftLayoutPreferences}
                 draftProductProfile={app.draftProductProfile}
                 compiledProductContext={app.compiledProductContext}
                 settingsSaveStatus={app.settingsSaveStatus}
@@ -382,6 +396,7 @@ export function InPageCollectorPopup({ app }: { app: InPageCollectorAppModel }) 
                 onDraftOpenAiKeyChange={app.setDraftOpenAiKey}
                 onDraftClaudeKeyChange={app.setDraftClaudeKey}
                 onDraftGoogleKeyChange={app.setDraftGoogleKey}
+                onDraftLayoutPreferencesChange={app.onDraftLayoutPreferencesChange}
                 onDraftProductProfileChange={app.onDraftProductProfileChange}
                 onProductProfileSeedTextChange={app.setProductProfileSeedText}
                 onInitProductProfile={() => void app.onInitProductProfile()}
@@ -401,3 +416,7 @@ export function InPageCollectorPopup({ app }: { app: InPageCollectorAppModel }) 
     </div>
   );
 }
+
+export const inPageCollectorPopupTestables = {
+  shouldShowProcessingContextStrip
+};

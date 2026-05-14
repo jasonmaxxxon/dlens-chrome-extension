@@ -1,10 +1,54 @@
-import type { ExtensionSettings } from "./types";
+import {
+  createDefaultLayoutPreferences,
+  createDefaultSettings,
+  type ExtensionSettings,
+  type LayoutPreferences
+} from "./types";
 
 export interface OneLinerSettingsPatch {
   provider: ExtensionSettings["oneLinerProvider"];
   openaiApiKey: string;
   claudeApiKey: string;
   googleApiKey: string;
+}
+
+export type LayoutPreferencesPatch = Partial<LayoutPreferences>;
+
+function validProductSignalCardLayout(value: unknown): value is LayoutPreferences["productSignalCardLayout"] {
+  return value === "verdict" || value === "marginalia";
+}
+
+function validTopicSynthesisLayout(value: unknown): value is LayoutPreferences["topicSynthesisLayout"] {
+  return value === "stack" || value === "console";
+}
+
+function validCompareResultLayout(value: unknown): value is LayoutPreferences["compareResultLayout"] {
+  return value === "reading" || value === "parallel" || value === "chapters";
+}
+
+export function normalizeLayoutPreferences(raw: LayoutPreferencesPatch | null | undefined): LayoutPreferences {
+  const defaults = createDefaultLayoutPreferences();
+  return {
+    productSignalCardLayout: validProductSignalCardLayout(raw?.productSignalCardLayout)
+      ? raw.productSignalCardLayout
+      : defaults.productSignalCardLayout,
+    topicSynthesisLayout: validTopicSynthesisLayout(raw?.topicSynthesisLayout)
+      ? raw.topicSynthesisLayout
+      : defaults.topicSynthesisLayout,
+    compareResultLayout: validCompareResultLayout(raw?.compareResultLayout)
+      ? raw.compareResultLayout
+      : defaults.compareResultLayout
+  };
+}
+
+export function normalizeExtensionSettings(
+  raw: (Partial<Omit<ExtensionSettings, "layoutPreferences">> & { layoutPreferences?: LayoutPreferencesPatch | null }) | null | undefined
+): ExtensionSettings {
+  return {
+    ...createDefaultSettings(),
+    ...(raw || {}),
+    layoutPreferences: normalizeLayoutPreferences(raw?.layoutPreferences)
+  };
 }
 
 function mergeApiKey(currentValue: string, draftValue: string): string {
@@ -22,5 +66,18 @@ export function mergeOneLinerSettings(
     openaiApiKey: mergeApiKey(current.openaiApiKey, patch.openaiApiKey),
     claudeApiKey: mergeApiKey(current.claudeApiKey, patch.claudeApiKey),
     googleApiKey: mergeApiKey(current.googleApiKey, patch.googleApiKey)
+  };
+}
+
+export function mergeLayoutPreferences(
+  current: ExtensionSettings,
+  patch: LayoutPreferencesPatch
+): ExtensionSettings {
+  return {
+    ...current,
+    layoutPreferences: normalizeLayoutPreferences({
+      ...current.layoutPreferences,
+      ...patch
+    })
   };
 }

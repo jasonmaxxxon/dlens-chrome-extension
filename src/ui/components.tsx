@@ -811,6 +811,7 @@ export function PrimaryButton({
 }) {
   return (
     <button
+      data-dlens-button="primary"
       onClick={onClick}
       disabled={disabled}
       style={{
@@ -850,6 +851,7 @@ export function SecondaryButton({
 }) {
   return (
     <button
+      data-dlens-button="secondary"
       onClick={onClick}
       disabled={disabled}
       style={{

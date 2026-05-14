@@ -27,6 +27,15 @@ export type SessionItemStatus = "saved" | "queued" | "running" | "succeeded" | "
 export type InlineToastKind = "saved" | "queued";
 export type HoverCandidateStrength = "soft" | "hard";
 export type CompareTeaserState = "idle" | "loading" | "ready";
+export type ProductSignalCardLayout = "verdict" | "marginalia";
+export type TopicSynthesisLayout = "stack" | "console";
+export type CompareResultLayout = "reading" | "parallel" | "chapters";
+
+export interface LayoutPreferences {
+  productSignalCardLayout: ProductSignalCardLayout;
+  topicSynthesisLayout: TopicSynthesisLayout;
+  compareResultLayout: CompareResultLayout;
+}
 
 export interface InlineToast {
   id: string;
@@ -42,6 +51,7 @@ export interface ExtensionSettings {
   claudeApiKey: string;
   googleApiKey: string;
   productProfile?: ProductProfile | null;
+  layoutPreferences: LayoutPreferences;
 }
 
 export interface ProductProfileContextFile {
@@ -93,6 +103,21 @@ export type ProductSignalVerdict = "try" | "watch" | "park" | "insufficient_data
 export type ProductSignalAnalysisStatus = "pending" | "analyzing" | "complete" | "error";
 export type ProductAgentTaskTarget = "codex" | "claude" | "generic";
 export type ProductSignalEvidenceGrounding = "text_grounded" | "model_inferred" | "insufficient_detail";
+export type ProductSignalReferenceType =
+  | "product_reference"
+  | "technical_learning"
+  | "workflow_pattern"
+  | "market_language"
+  | "general_learning"
+  | "no_direct_fit";
+export type ProductSignalReferenceTarget =
+  | ProductContextField
+  | "technicalLearning"
+  | "workflowPattern"
+  | "marketLanguage"
+  | "productAnalogy"
+  | "generalLearning"
+  | "noDirectFit";
 
 export interface ProductAgentTaskSpec {
   targetAgent: ProductAgentTaskTarget;
@@ -131,7 +156,10 @@ export interface ProductSignalAnalysis {
   contentType: ProductSignalContentType;
   contentSummary: string;
   relevance: 1 | 2 | 3 | 4 | 5;
-  relevantTo: ProductContextField[];
+  relevantTo: ProductSignalReferenceTarget[];
+  referenceType?: ProductSignalReferenceType;
+  referenceLabel?: string;
+  referenceTakeaway?: string;
   whyRelevant: string;
   verdict: ProductSignalVerdict;
   reason: string;
@@ -266,6 +294,77 @@ export interface SessionRecord {
   items: SessionItem[];
 }
 
+export interface TopicSynthesisObservation {
+  text: string;
+  evidenceSignalIds: string[];
+}
+
+export interface TopicSynthesisCluster {
+  keyword: string;
+  signalCount: number;
+  exampleSignalIds: string[];
+}
+
+export interface TopicSynthesisMeme {
+  phrase: string;
+  occurrences: number;
+}
+
+export interface TopicSynthesisOutlier {
+  signalId: string;
+  reason: string;
+}
+
+export interface TopicSynthesis {
+  observations: TopicSynthesisObservation[];
+  commonClusters: TopicSynthesisCluster[];
+  verbalTechniques: string[];
+  memes: TopicSynthesisMeme[];
+  sentimentNarrative: string;
+  outliers: TopicSynthesisOutlier[];
+  generatedFromCount: number;
+  totalSignalCount: number;
+  generatedAt: string;
+  generator: "deterministic";
+  generatorVersion: string;
+}
+
+export interface FolderSynthesisCluster {
+  keyword: string;
+  signalCount: number;
+  topicCount: number;
+  topicIds: string[];
+}
+
+export interface FolderSynthesisMeme {
+  phrase: string;
+  occurrences: number;
+  topicIds: string[];
+}
+
+export interface FolderSynthesisTopicCoverage {
+  topicId: string;
+  topicName: string;
+  analyzedCount: number;
+  totalCount: number;
+}
+
+export interface FolderSynthesis {
+  sessionId: string;
+  observations: TopicSynthesisObservation[];
+  commonClusters: FolderSynthesisCluster[];
+  memes: FolderSynthesisMeme[];
+  verbalTechniques: string[];
+  sentimentNarrative: string;
+  topicCoverage: FolderSynthesisTopicCoverage[];
+  generatedFromCount: number;
+  totalSignalCount: number;
+  contributingTopicCount: number;
+  generatedAt: string;
+  generator: "deterministic";
+  generatorVersion: string;
+}
+
 export interface Topic {
   id: string;
   sessionId: string;
@@ -277,6 +376,7 @@ export interface Topic {
   pairIds: string[];
   createdAt: string;
   updatedAt: string;
+  synthesis?: TopicSynthesis | null;
 }
 
 export interface Signal {
@@ -329,7 +429,16 @@ export function createDefaultSettings(): ExtensionSettings {
     openaiApiKey: "",
     claudeApiKey: "",
     googleApiKey: "",
-    productProfile: null
+    productProfile: null,
+    layoutPreferences: createDefaultLayoutPreferences()
+  };
+}
+
+export function createDefaultLayoutPreferences(): LayoutPreferences {
+  return {
+    productSignalCardLayout: "marginalia",
+    topicSynthesisLayout: "console",
+    compareResultLayout: "parallel"
   };
 }
 

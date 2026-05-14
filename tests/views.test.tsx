@@ -738,6 +738,11 @@ test("SettingsView exposes Google provider and save action", () => {
       draftOpenAiKey: "",
       draftClaudeKey: "",
       draftGoogleKey: "AIza-test",
+      draftLayoutPreferences: {
+        productSignalCardLayout: "marginalia",
+        topicSynthesisLayout: "console",
+        compareResultLayout: "chapters"
+      },
       draftProductProfile: {
         name: "DLens",
         category: "Creator analysis",
@@ -777,6 +782,7 @@ test("SettingsView exposes Google provider and save action", () => {
       onDraftOpenAiKeyChange: () => undefined,
       onDraftClaudeKeyChange: () => undefined,
       onDraftGoogleKeyChange: () => undefined,
+      onDraftLayoutPreferencesChange: () => undefined,
       onDraftProductProfileChange: () => undefined,
       onProductProfileSeedTextChange: () => undefined,
       onInitProductProfile: () => undefined,
@@ -790,11 +796,16 @@ test("SettingsView exposes Google provider and save action", () => {
   assert.doesNotMatch(html, /field drawer/);
   assert.match(html, /data-settings-surface="drawer"/);
   assert.match(html, /data-settings-group="folder"/);
+  assert.match(html, /data-settings-group="layout"/);
   assert.match(html, /data-settings-group="connection"/);
   assert.match(html, /data-settings-group="keys"/);
   assert.match(html, /data-settings-group="product"/);
   assert.match(html, /資料夾類型/);
   assert.match(html, /產品觀察（Product）/);
+  assert.match(html, /版面偏好/);
+  assert.match(html, /Product signal card/);
+  assert.match(html, /Topic synthesis/);
+  assert.match(html, /Compare result/);
   assert.match(html, /Connection/);
   assert.match(html, /AI provider/);
   assert.match(html, /產品脈絡/);

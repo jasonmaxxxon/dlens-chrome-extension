@@ -3,7 +3,7 @@ import type {
   AnalysisSnapshot,
   CrawlResultSnapshot
 } from "../contracts/ingest";
-import type { ExtensionSettings, SessionItem, SessionRecord, Topic } from "../state/types";
+import type { CompareResultLayout, ExtensionSettings, SessionItem, SessionRecord, Topic } from "../state/types";
 import { getItemReadinessStatus, pickCompareSelection, type ItemReadinessStatus } from "../state/processing-state";
 import { sendExtensionMessage } from "./controller";
 import {
@@ -88,8 +88,6 @@ interface CompareBriefSurfaceState {
   showAlertRail: boolean;
   alerts: CompareAlert[];
 }
-
-type CompareResultLayout = "reading" | "parallel" | "chapters";
 
 interface CompareViewProps {
   session: SessionRecord;

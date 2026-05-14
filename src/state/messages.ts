@@ -5,6 +5,7 @@ import type {
   ActiveAnalysisResult,
   ActiveCompareDraft,
   JudgmentResult,
+  LayoutPreferences,
   ProductAgentTaskFeedback,
   ProductSignalAnalysis,
   ProductContext,
@@ -31,6 +32,7 @@ export type ExtensionMessage =
   | { type: "settings/set-product-profile"; productProfile: ProductProfile | null }
   | { type: "settings/init-product-profile"; description: string }
   | { type: "settings/set-one-liner-config"; provider: "openai" | "claude" | "google" | null; openaiApiKey: string; claudeApiKey: string; googleApiKey: string }
+  | { type: "settings/set-layout-preferences"; layoutPreferences: Partial<LayoutPreferences> }
   | { type: "popup/open-active-tab" }
   | { type: "popup/close-tab"; tabId: number }
   | { type: "popup/navigate-active-tab"; page: PopupPage }

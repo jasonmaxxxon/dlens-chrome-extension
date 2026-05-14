@@ -1,8 +1,8 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import { mergeOneLinerSettings } from "../src/state/settings-storage.ts";
-import type { ExtensionSettings } from "../src/state/types.ts";
+import { mergeOneLinerSettings, normalizeExtensionSettings } from "../src/state/settings-storage.ts";
+import { createDefaultSettings, type ExtensionSettings } from "../src/state/types.ts";
 
 function buildSettings(): ExtensionSettings {
   return {
@@ -11,9 +11,30 @@ function buildSettings(): ExtensionSettings {
     openaiApiKey: "sk-existing",
     claudeApiKey: "sk-ant-existing",
     googleApiKey: "AIza-existing",
-    productProfile: null
+    productProfile: null,
+    layoutPreferences: createDefaultSettings().layoutPreferences
   };
 }
+
+test("createDefaultSettings has layoutPreferences defaults", () => {
+  const settings = createDefaultSettings();
+
+  assert.equal(settings.layoutPreferences.productSignalCardLayout, "marginalia");
+  assert.equal(settings.layoutPreferences.topicSynthesisLayout, "console");
+  assert.equal(settings.layoutPreferences.compareResultLayout, "parallel");
+});
+
+test("normalizeExtensionSettings preserves partial layoutPreferences and fills defaults", () => {
+  const settings = normalizeExtensionSettings({
+    layoutPreferences: {
+      compareResultLayout: "chapters"
+    }
+  });
+
+  assert.equal(settings.layoutPreferences.compareResultLayout, "chapters");
+  assert.equal(settings.layoutPreferences.productSignalCardLayout, "marginalia");
+  assert.equal(settings.layoutPreferences.topicSynthesisLayout, "console");
+});
 
 test("mergeOneLinerSettings preserves existing API keys when incoming drafts are blank", () => {
   const next = mergeOneLinerSettings(buildSettings(), {

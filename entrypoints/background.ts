@@ -86,7 +86,6 @@ import {
 } from "../src/compare/pr-evidence";
 import { createLlmCallWrapper } from "../src/compare/llm-call-wrapper";
 import {
-  createDefaultSettings,
   createEmptyGlobalState,
   createEmptyTabState,
   type ExtensionGlobalState,
@@ -127,7 +126,7 @@ import {
   type PrCampaign,
   type PrEvidenceRow
 } from "../src/state/pr-evidence-storage";
-import { mergeOneLinerSettings } from "../src/state/settings-storage";
+import { mergeLayoutPreferences, mergeOneLinerSettings, normalizeExtensionSettings } from "../src/state/settings-storage";
 import { buildRefreshFailureMessage } from "../src/state/refresh-errors";
 import { createAsyncLock } from "../src/state/snapshot-lock";
 import { applyHoveredPreview, createInlineToast, setCollectModeState } from "../src/state/ui-state";
@@ -236,10 +235,7 @@ function normalizeGlobalState(state: ExtensionGlobalState): ExtensionGlobalState
   return {
     ...state,
     sessions: Array.isArray(state?.sessions) ? state.sessions.map((session) => normalizeSessionRecord(session)) : [],
-    settings: {
-      ...createDefaultSettings(),
-      ...(state?.settings || {})
-    }
+    settings: normalizeExtensionSettings(state?.settings)
   };
 }
 
@@ -1593,6 +1589,23 @@ export default defineBackground(() => {
               claudeApiKey: message.claudeApiKey,
               googleApiKey: message.googleApiKey
             });
+            const snapshot = await saveSnapshot(tabId, {
+              global: {
+                ...current.global,
+                settings
+              },
+              tab: {
+                ...current.tab,
+                error: null
+              }
+            });
+            sendResponse({ ok: true, tabId, snapshot } satisfies ExtensionResponse);
+            return;
+          }
+          case "settings/set-layout-preferences": {
+            const tabId = await resolveTabId(sender);
+            const current = await loadSnapshot(tabId);
+            const settings = mergeLayoutPreferences(current.global.settings, message.layoutPreferences);
             const snapshot = await saveSnapshot(tabId, {
               global: {
                 ...current.global,
