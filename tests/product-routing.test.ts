@@ -6,12 +6,14 @@ import { ALLOWED_PAGES, guardPage } from "../src/state/processing-state.ts";
 test("product mode opens Saved Signals before action filtering", () => {
   assert.deepEqual(ALLOWED_PAGES.product, [
     "saved-signals",
+    "classification",
     "actionable-filter",
     "collect"
   ]);
   assert.equal(guardPage("casebook", "product"), "saved-signals");
   assert.equal(guardPage("saved-signals", "product"), "saved-signals");
-  assert.equal(guardPage("classification", "product"), "saved-signals");
+  assert.equal(guardPage("classification", "product"), "classification");
+  assert.equal(guardPage("actionable-filter", "product"), "actionable-filter");
 });
 
 test("topic mode keeps Library available without mounting product-only routes", () => {

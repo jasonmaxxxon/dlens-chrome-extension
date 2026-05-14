@@ -23,7 +23,7 @@ This Desktop has been consolidated around these paths:
 
 `dlens-product-latest` is the user's active load-unpacked path, and
 `/Users/tung/Desktop/dlens-product-latest/output/chrome-mv3` currently mirrors
-the verified `main` build. Current extension version is `0.1.4`. The source checkout may contain local
+the verified `main` build. Current extension version is `0.1.5`. The source checkout may contain local
 dirty work; verify branch/status before editing or rebuilding there. Do not use
 the old Desktop folders unless intentionally comparing historical versions.
 
@@ -79,7 +79,8 @@ Navigation mounts/unmounts based on `folder.mode` — unavailable pages are not 
 - **Product signal card variants (2026-05-14)**: `ActionableItemCard` supports `verdict` and `marginalia`. Marginalia is the default product signal card layout and keeps `reusable_pattern` as the headline, cited evidence visible, and `agentTaskSpec`/`experimentHint` in the task slot.
 - **Topic and folder synthesis (2026-05-14)**: Topic synthesis uses deterministic `v2.work-signal-lens` output and can render as Stack or Console. Folder synthesis uses the same work-signal lens to produce the Briefing card across multiple topics; folder synthesis is stored at `dlens:v1:folder-synthesis`.
 - **Compare result variants (2026-05-14)**: Result supports `reading`, `parallel`, and `chapters`. Parallel is the default persisted layout and renders sticky A/B columns; Chapters renders a linear five-section reading path.
-- **Version lock (2026-05-14)**: extension version is `0.1.4` across `package.json`, `package-lock.json`, `wxt.config.ts` manifest version, and `src/ui/version.ts`. Chrome's extension page reads the built manifest version; the popup masthead reads `BUILD_VERSION`.
+- **Product classification route fix (2026-05-14)**: Product mode now treats `classification` as a first-class product signal page, so the 分类 view keeps product data effects, 720px product width, and no longer guards back to Saved Signals after navigation settles.
+- **Version lock (2026-05-14)**: extension version is `0.1.5` across `package.json`, `package-lock.json`, `wxt.config.ts` manifest version, and `src/ui/version.ts`. Chrome's extension page reads the built manifest version; the popup masthead reads `BUILD_VERSION`.
 - **Eval harness (2026-04-23)**: `tests/judgment-eval.test.ts` covers prompt builder + parser + fallback determinism. `tests/judgment-fixtures.ts` has golden fixtures (no real LLM calls).
 - **Compare brief** (observation-first contract, prompt v7): `headline / relation / supportingObservations[] / aReading / bReading / whyItMatters / creatorCue / keywords / audienceAlignment{Left,Right} / confidence`. Observations and side readings must cite evidence aliases (`e1..eN`) or they are rejected at parse time.
 - **Cluster interpretation** (prompt v3): each cluster carries separate `observation` + `reading` fields alongside its `oneLiner`.
