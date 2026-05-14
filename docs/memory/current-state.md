@@ -1,6 +1,6 @@
 # Current State
 
-## System State As Of 2026-05-07
+## System State As Of 2026-05-14
 
 DLens is now best described as a **desktop-first Threads research, product-signal, and PR evidence extension**.
 
@@ -22,10 +22,12 @@ The current product split is:
    - `ProductSignalAnalyzer` is wired as the product AI path for saved signals
    - product pages read real stored analysis state and show readiness/error/empty states instead of fabricated analytics
    - product cards show useful insight, cited discussion replies, `experimentHint`, and optional paste-ready `agentTaskSpec`
+   - product signal cards now support persisted layout variants: `marginalia` and `verdict`; default is `marginalia`
    - product pages must not show backend clusters as the product output; clusters are internal backend support, not the user-facing product abstraction
 
 3. Archive / Library mode
    - still works as local saved-post organization plus backend queue/crawl/readiness display
+   - topic-mode Library can show a deterministic cross-topic Folder Briefing generated from analyzed signals across multiple topics
 
 4. PR Evidence mode
    - new `FolderMode` value: `pr-evidence`
@@ -36,15 +38,27 @@ The current product split is:
    - the main surface is a compact evidence ledger, not a full spreadsheet
    - CSV is the primary evidence export; summary is a secondary client-ready Markdown/DOCX audit memo
 
+5. Layout preference surface
+   - landed on `main` as `2738d2f feature: Persist layout preferences (#4)`
+   - depends on `16ae177 feature: Product signal and synthesis layout variants (#2)` and `f52f73b feature: Compare result parallel and chapters layouts (#3)`
+   - `ExtensionSettings.layoutPreferences` persists:
+     - `productSignalCardLayout: "verdict" | "marginalia"`; default `marginalia`
+     - `topicSynthesisLayout: "stack" | "console"`; default `console`
+     - `compareResultLayout: "reading" | "parallel" | "chapters"`; default `parallel`
+   - Settings exposes the three controls; `InPageCollectorPopup` threads them to Product signal, Topic synthesis, and Compare result views
+   - verified clean-main build output was copied to `/Users/tung/Desktop/dlens-product-latest/output/chrome-mv3` for Chrome load-unpacked use
+
 The verified build in the active Phase B implementation worktree is:
 
-- worktree: `/Users/tung/Desktop/dlens-product-latest`
+- clean verification worktree: `/Users/tung/Desktop/dlens-main-verify-20260514-152531`
+- active load-unpacked folder: `/Users/tung/Desktop/dlens-product-latest/output/chrome-mv3`
+- note: `/Users/tung/Desktop/dlens-product-latest` source checkout may be dirty; do not infer clean source state from the copied build artifact
 - unpacked extension: `/Users/tung/Desktop/dlens-product-latest/output/chrome-mv3`
 - backend stable entry: `/Users/tung/Desktop/dlens-ingest-core`
 - backend physical checkout: `/Users/tung/Desktop/dlens-backend/dlens-ingest-core`
 - old versions and historical worktrees: `/Users/tung/Desktop/dlens-old`
 - verification: `npm run typecheck`, `npx tsx --test tests/*.test.ts tests/*.test.tsx`, and `npm run build`
-- latest full test count in this worktree after PR Evidence V1 hardening: `361 pass, 0 fail`
+- latest full test count on clean `origin/main` after layout preferences: `391 pass, 0 fail`
 - latest build output was mirrored to `/Users/tung/Desktop/dlens-product-latest/output/chrome-mv3`
 - live backend smoke from the prior product run: `GET http://127.0.0.1:8000/worker/status` returned `{"status":"idle"}`
 - extension manifest name in this worktree is `DLens v3`
@@ -111,12 +125,13 @@ Product mode now has two schema-first AI contracts:
 
 2. `ProductSignalAnalyzer`
    - files: `src/compare/product-signal-analysis.ts`, `src/compare/provider.ts`
-   - prompt/cache version: `PRODUCT_SIGNAL_ANALYSIS_PROMPT_VERSION = "v1"`
+   - prompt/cache version: `PRODUCT_SIGNAL_ANALYSIS_PROMPT_VERSION = "v12"`
    - output schema: `PRODUCT_SIGNAL_ANALYSIS_JSON_SCHEMA`
-   - classifies saved signals into `learning | competitor | demand | technical | noise`
+   - classifies saved signals into `learning | competitor | demand | technical | marketing | noise`
    - classifies content shape into `content | discussion_starter | mixed`
    - scores relevance `1..5`
-   - maps relevance to `ProductContext` fields via `relevantTo`
+   - maps relevance to widened `relevantTo` targets: ProductContext fields plus `technicalLearning`, `workflowPattern`, `marketLanguage`, `productAnalogy`, `generalLearning`, `noDirectFit`
+   - adds `referenceType`, `referenceLabel`, and `referenceTakeaway` so Product mode can show "對產品可參考 / 可學習" without forcing direct product fit
    - judges `try | watch | park | insufficient_data`
    - includes evidence refs and an `experimentHint` string for `try`
    - includes optional `agentTaskSpec` only for `verdict = "try"`
@@ -125,6 +140,21 @@ Product mode now has two schema-first AI contracts:
 The ProductSignalAnalyzer prompt deliberately asks for precise `signalSubtype` values such as `mcp_integration`, `browser_automation`, `recurring_data_crawl`, `pm_document_generation`, and `competitor_release_monitoring`. It also explicitly avoids `contentTypeHint`; content type is an AI output over the assembled thread, not a rule-based hint.
 
 Important boundary: these upgrades only apply to the product AI paths. Evidence annotation and compare judgment still keep their existing contracts and were not migrated to the product schemas.
+
+## Synthesis And Layout State
+
+Topic synthesis and Folder synthesis are deterministic extension-side display layers over already analyzed signals. They do not replace backend clustering.
+
+- `src/compare/work-signal-lens.ts` is the shared deterministic lens for work/anxiety/language patterns.
+- `src/compare/topic-synthesis.ts` produces `TopicSynthesis` with generator version `v2.work-signal-lens`, minimum 2 analyzed signals, and stale delta 3.
+- `TopicSynthesisCard` supports two layouts:
+  - `stack`: `sentimentNarrative` always visible; observations / clusters / verbal techniques / memes / outliers collapsed by default
+  - `console`: dense always-visible mono view with cluster and meme percentage bars
+- `src/compare/folder-synthesis.ts` produces `FolderSynthesis` with generator version `v2.work-signal-lens`, minimum 3 analyzed signals across at least 2 topics, and stale delta 3.
+- Folder synthesis persists at `dlens:v1:folder-synthesis` through `src/compare/folder-synthesis-storage.ts`.
+- `FolderSynthesisCard` renders the Briefing layout in topic-mode Library.
+- `ActionableItemCard` supports `verdict` and `marginalia`; `marginalia` is the default persisted Product signal card layout.
+- `CompareView` supports `reading`, `parallel`, and `chapters`; `parallel` is the default persisted Result layout.
 
 ## Current Backend Dependency
 
@@ -161,8 +191,8 @@ RAG remains intentionally out of V1. The accepted V1 design is:
 ## Immediate Next Work
 
 1. Backend P0: refine `ThreadReadModel` OP continuation splitting and remove root duplication.
-2. Chrome QA: reload `/Users/tung/Desktop/dlens-product-latest/output/chrome-mv3` and walk Product Settings -> Collect -> crawl -> Product insights, then PR Evidence campaign setup -> PDF upload -> Generate criteria -> Collect -> Match criteria -> CSV export -> summary MD/DOCX export.
-3. UI cleanup: verify topic mode green theme everywhere, product mode does not show folder concept, PR Evidence keeps the compact ledger grammar, and popup spacing/mode switching stay fixed.
+2. Chrome QA: reload `/Users/tung/Desktop/dlens-product-latest/output/chrome-mv3` and walk Product Settings -> Collect -> crawl -> Product insights, layout preference switching, Compare Parallel/Chapters, Topic Console/Stack, then PR Evidence campaign setup -> PDF upload -> Generate criteria -> Collect -> Match criteria -> CSV export -> summary MD/DOCX export.
+3. UI cleanup: verify topic mode green theme everywhere, product mode does not show folder concept, PR Evidence keeps the compact ledger grammar, and popup spacing/mode/layout switching stay fixed.
 4. Background split: move product/topic/PR handlers out of `entrypoints/background.ts` before adding digest/watch-mode work.
 5. Phase C later: signal digest / watch mode / recurring intelligence. Do not start there before backend read-model quality is fixed.
 
@@ -265,6 +295,9 @@ The extension may present backend output more clearly, but it should not fabrica
 - `Result` is the contextual reading route, not a primary rail destination
 - Product mode has its own insight pages backed by `dlens:v1:product-signal-analyses`; these pages should not render backend clusters as the primary product output
 - Product mode cards should lead with useful insight, cited evidence, verdict, experiment hint, and optional `agentTaskSpec`
+- Product mode cards now default to Marginalia; Verdict remains available through layout preferences
+- Topic synthesis defaults to Console; Stack remains available through layout preferences
+- Compare Result defaults to Parallel; Reading and Chapters remain available through layout preferences
 - the popup shell now uses an editorial masthead + left vertical rail instead of the older horizontal pill strip
 - Result hero now follows an editorial grammar: compact headline, explicit relation line, compact `AI Brief · CONF` label
 - Library ready cards now use left-accent case cards with real keyword chips from current analysis snapshots
@@ -274,7 +307,7 @@ The extension may present backend output more clearly, but it should not fabrica
 ## Open Gaps
 
 - backend ThreadReadModel OP continuation quality is now Product mode P0
-- Chrome QA still needs to walk the v3 Product and PR Evidence flows in `/Users/tung/Desktop/dlens-product-latest/output/chrome-mv3`
+- Chrome QA still needs to walk the v3 Product, PR Evidence, and layout preference flows in `/Users/tung/Desktop/dlens-product-latest/output/chrome-mv3`
 - topic mode theme still needs verification that hover overlays and action buttons are fully green
 - Product mode should not leak folder concept into user-facing workflow
 - compare cluster pairing is still rank-based, not semantic
