@@ -58,10 +58,11 @@ The verified build in the active Phase B implementation worktree is:
 - backend physical checkout: `/Users/tung/Desktop/dlens-backend/dlens-ingest-core`
 - old versions and historical worktrees: `/Users/tung/Desktop/dlens-old`
 - verification: `npm run typecheck`, `npx tsx --test tests/*.test.ts tests/*.test.tsx`, and `npm run build`
-- latest full test count on clean `origin/main` after layout preferences: `391 pass, 0 fail`
+- latest full test count on clean `origin/main` after layout preferences: `392 pass, 0 fail`
 - latest build output was mirrored to `/Users/tung/Desktop/dlens-product-latest/output/chrome-mv3`
 - live backend smoke from the prior product run: `GET http://127.0.0.1:8000/worker/status` returned `{"status":"idle"}`
-- extension manifest name in this worktree is `DLens v3`
+- extension manifest name is `DLens v3`; current extension version is `0.1.3`
+- version is locked across `package.json`, `package-lock.json`, `wxt.config.ts` `manifest.version`, and `src/ui/version.ts` `BUILD_VERSION`
 
 ## PR Evidence V1 Contract State
 
@@ -155,6 +156,14 @@ Topic synthesis and Folder synthesis are deterministic extension-side display la
 - `FolderSynthesisCard` renders the Briefing layout in topic-mode Library.
 - `ActionableItemCard` supports `verdict` and `marginalia`; `marginalia` is the default persisted Product signal card layout.
 - `CompareView` supports `reading`, `parallel`, and `chapters`; `parallel` is the default persisted Result layout.
+
+## Version State
+
+- Current extension version: `0.1.3`.
+- Chrome extension page version comes from `wxt.config.ts` `manifest.version` in the built manifest.
+- Popup masthead version comes from `src/ui/version.ts` `BUILD_VERSION`.
+- `package.json`, `package-lock.json`, `wxt.config.ts`, and `src/ui/version.ts` must stay in sync for every main-facing update unless explicitly skipped.
+- `tests/manifest-config.test.ts` verifies package / manifest / UI version consistency.
 
 ## Current Backend Dependency
 

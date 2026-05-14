@@ -51,8 +51,16 @@ This note is the high-signal shared memory for Codex and Claude when working on 
 - Topic synthesis uses deterministic `v2.work-signal-lens`; Stack is collapsible, Console is dense and always visible.
 - Folder synthesis uses the same deterministic work-signal lens and renders as the Library Briefing card. Storage key: `dlens:v1:folder-synthesis`.
 - Compare result variants are Reading, Parallel, and Chapters; Parallel is default and uses sticky A/B columns.
-- Clean-main verification: `391/391` tests, typecheck, build, and diff check passed from `/Users/tung/Desktop/dlens-main-verify-20260514-152531`.
+- Clean-main verification: `392/392` tests, typecheck, build, and diff check passed from `/Users/tung/Desktop/dlens-main-verify-20260514-152531`.
 - Verified build artifact was copied to `/Users/tung/Desktop/dlens-product-latest/output/chrome-mv3`; the source checkout there may still be dirty.
+
+## Version Rule As Of 2026-05-14
+
+- Current extension version: `0.1.3`.
+- Keep version synchronized across `package.json`, `package-lock.json`, `wxt.config.ts` `manifest.version`, and `src/ui/version.ts` `BUILD_VERSION`.
+- Chrome's extension page shows the built manifest version; the popup masthead shows `BUILD_VERSION`.
+- Every user-visible update pushed to `main` should bump the version unless the user explicitly says not to.
+- `tests/manifest-config.test.ts` locks package / manifest / UI version consistency.
 
 ## PR Evidence Mode As Of 2026-05-07
 

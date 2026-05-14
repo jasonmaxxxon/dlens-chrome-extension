@@ -160,6 +160,6 @@ test("WorkspaceShell masthead exposes the extension build version", () => {
     )
   );
 
-  assert.match(html, /v0\.1\.0/);
+  assert.match(html, /v0\.1\.3/);
   assert.match(html, /Folder: dlens-product-latest/);
 });

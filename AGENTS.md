@@ -1,6 +1,6 @@
 # AGENTS.md — DLens Chrome Extension v0.1
 
-> **Last updated:** 2026-05-14 (Layout preferences landed on main — 391/391 tests, typecheck, build)
+> **Last updated:** 2026-05-14 (Layout preferences + version 0.1.3 on main — 392/392 tests, typecheck, build)
 > **For:** any agent continuing work in this repo
 
 ## Process Rules (locked 2026-04-17)
@@ -278,9 +278,20 @@ Important implementation points:
 - `SettingsView.tsx` owns the three user-facing layout controls.
 - `InPageCollectorPopup.tsx` threads persisted layout settings into Product signal cards, Topic synthesis, and Compare Result.
 - `TopicSynthesis` and `FolderSynthesis` are deterministic display layers over analyzed signals. They use `src/compare/work-signal-lens.ts`; they do not replace backend clustering.
-- Clean-main verification was run from `/Users/tung/Desktop/dlens-main-verify-20260514-152531`: `391/391` tests, `npm run typecheck`, `npm run build`, and `git diff --check` passed.
+- Clean-main verification was run from `/Users/tung/Desktop/dlens-main-verify-20260514-152531`: `392/392` tests, `npm run typecheck`, `npm run build`, and `git diff --check` passed.
 - The verified unpacked build was copied to `/Users/tung/Desktop/dlens-product-latest/output/chrome-mv3` for Chrome load-unpacked use.
 - `/Users/tung/Desktop/dlens-product-latest` source checkout may be dirty; do not infer clean source state from the copied build artifact.
+
+## Version Rule (locked 2026-05-14)
+
+Every user-visible update that is pushed to `main` should bump the extension version unless the user explicitly says not to. Keep these four locations in sync:
+
+- `package.json`
+- `package-lock.json`
+- `wxt.config.ts` `manifest.version`
+- `src/ui/version.ts` `BUILD_VERSION`
+
+The Chrome extension page shows `manifest.version`; the popup masthead shows `BUILD_VERSION`. `tests/manifest-config.test.ts` locks package / manifest / UI version consistency. After a version bump, run typecheck, tests, build, and copy the verified build to `/Users/tung/Desktop/dlens-product-latest/output/chrome-mv3` if that is the active load-unpacked folder.
 
 ## PR Evidence Mode V1 State (2026-05-07)
 
@@ -371,7 +382,7 @@ This was a major product-direction change. Summary for any agent picking up here
 
 ```bash
 npm run typecheck && npx tsx --test tests/*.test.ts tests/*.test.tsx
-# Expected on current main: 391 pass, 0 fail
+# Expected on current main: 392 pass, 0 fail
 ```
 
 ### Watch items for next agent
