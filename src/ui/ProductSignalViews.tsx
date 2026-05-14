@@ -362,6 +362,16 @@ function referenceLabel(analysis: ProductSignalAnalysis | undefined): string {
     : `對產品參考：${analysis.contentSummary}`;
 }
 
+function marginaliaReferenceCategory(analysis: ProductSignalAnalysis | undefined): string {
+  if (!analysis) return "—";
+  const raw = analysis.referenceLabel?.trim();
+  if (raw) {
+    const idx = raw.indexOf("：");
+    return idx > 0 ? raw.slice(0, idx) : raw;
+  }
+  return analysis.signalType === "learning" ? "可學習" : "對產品參考";
+}
+
 function referenceTakeaway(analysis: ProductSignalAnalysis | undefined): string {
   if (!analysis) return "先完成分析後再輸出 agent brief。";
   return analysis.referenceTakeaway?.trim() || analysis.whyRelevant || analysis.reason;
@@ -1903,6 +1913,8 @@ function ActionableItemCard({
   const taskSlotCopy = analysis.experimentHint?.trim()
     || analysis.agentTaskSpec?.taskTitle?.trim()
     || "尚未有可派發任務；先保留為觀察。";
+  const marginaliaRailTaskCopy = analysis.agentTaskSpec?.taskTitle?.trim()
+    || "尚未有可派發任務；先保留為觀察。";
 
   if (layout === "marginalia") {
     return (
@@ -2189,7 +2201,7 @@ function ActionableItemCard({
               </div>
               <div style={{ display: "grid", gap: 2 }}>
                 <span style={{ color: tokens.color.softInk }}>對到</span>
-                <span style={{ color: tokens.color.ink, fontWeight: 650 }}>{referenceLabel(analysis)}</span>
+                <span style={{ color: tokens.color.ink, fontWeight: 650 }}>{marginaliaReferenceCategory(analysis)}</span>
               </div>
               <div style={{ display: "grid", gap: 2 }}>
                 <span style={{ color: tokens.color.softInk }}>證據</span>
@@ -2215,7 +2227,7 @@ function ActionableItemCard({
               }}
             >
               <span style={{ fontSize: 10, fontWeight: 850, letterSpacing: "0.06em" }}>TASK ›</span>
-              <span style={{ fontSize: 12, lineHeight: 1.45, fontWeight: 650 }}>{taskSlotCopy}</span>
+              <span style={{ fontSize: 12, lineHeight: 1.45, fontWeight: 650 }}>{marginaliaRailTaskCopy}</span>
             </div>
           </aside>
         </div>

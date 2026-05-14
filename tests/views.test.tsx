@@ -1257,14 +1257,18 @@ function buildActionableCardFixture() {
   };
 }
 
-function renderActionableCardFixture(layout?: "verdict" | "marginalia") {
+function renderActionableCardFixture(
+  layout?: "verdict" | "marginalia",
+  analysisOverride: Partial<ReturnType<typeof buildActionableCardFixture>["analysis"]> = {}
+) {
   const fixture = buildActionableCardFixture();
+  const analysis = { ...fixture.analysis, ...analysisOverride };
   const testables = productSignalViewTestables as typeof productSignalViewTestables & {
     ActionableItemCard: React.ComponentType<{
-      analysis: typeof fixture.analysis;
+      analysis: typeof analysis;
       index: number;
       evidenceBySignalId: typeof fixture.evidenceBySignalId;
-      historicalAnalyses: typeof fixture.analysis[];
+      historicalAnalyses: typeof analysis[];
       agentTaskFeedback: [];
       layout?: "verdict" | "marginalia";
     }>;
@@ -1272,14 +1276,24 @@ function renderActionableCardFixture(layout?: "verdict" | "marginalia") {
 
   return renderToStaticMarkup(
     React.createElement(testables.ActionableItemCard, {
-      analysis: fixture.analysis,
+      analysis,
       index: 0,
       evidenceBySignalId: fixture.evidenceBySignalId,
-      historicalAnalyses: [fixture.analysis],
+      historicalAnalyses: [analysis],
       agentTaskFeedback: [],
       ...(layout ? { layout } : {})
     })
   );
+}
+
+function extractTestIdSection(html: string, testId: string, closeTag: string) {
+  const marker = `data-testid="${testId}"`;
+  const markerIndex = html.indexOf(marker);
+  assert.ok(markerIndex >= 0, `${testId} must exist`);
+  const tagStart = html.lastIndexOf("<", markerIndex);
+  const closeIndex = html.indexOf(closeTag, markerIndex);
+  assert.ok(tagStart >= 0 && closeIndex >= 0, `${testId} section must close with ${closeTag}`);
+  return html.slice(tagStart, closeIndex + closeTag.length);
 }
 
 test("ProductSignalView actionable cards expose marginalia layout slots", () => {
@@ -1313,7 +1327,24 @@ test("ActionableItemCard marginalia rail contains verdict, relevance, and task s
   assert.match(html, /data-testid="rail-relevance"/);
   assert.match(html, /data-testid="rail-task"/);
   assert.match(html, /TASK ›/);
-  assert.match(html, /用一個 Threads 討論串產出 release-note 草稿/);
+  assert.match(html, /產出 release-note 草稿/);
+});
+
+test("ActionableItemCard marginalia rail does not duplicate main-column prose", () => {
+  const fixture = buildActionableCardFixture();
+  const html = renderActionableCardFixture("marginalia", { referenceLabel: "" });
+  const railHtml = extractTestIdSection(html, "marginalia-rail", "</aside>");
+  const taskHtml = extractTestIdSection(html, "rail-task", "</div>");
+
+  assert.ok(
+    !railHtml.includes(fixture.analysis.contentSummary),
+    "rail must not duplicate main-column drop-cap contentSummary"
+  );
+  assert.ok(
+    !railHtml.includes(fixture.analysis.experimentHint),
+    "rail TASK must not duplicate main-column TRY block"
+  );
+  assert.ok(taskHtml.includes(fixture.analysis.agentTaskSpec.taskTitle), "rail TASK must use taskTitle when available");
 });
 
 test("ActionableItemCard defaults to verdict layout without layout prop", () => {
@@ -1783,7 +1814,9 @@ test("ProductSignalView tolerates legacy analysis records with missing optional 
   assert.match(html, /舊資料仍應可顯示/);
   assert.match(html, /這則訊號暫時沒有可顯示的原文證據/);
   assert.doesNotMatch(html, /Agent 任務（可複製）/);
-  assert.doesNotMatch(html, /舊任務/);
+  assert.match(html, /data-testid="rail-task"/);
+  assert.match(html, /舊任務/);
+  assert.doesNotMatch(html, /You are helping with a legacy task/);
 });
 
 test("ProductSignalView batch export copies action context with original signal text and task prompt", () => {

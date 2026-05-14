@@ -1,6 +1,6 @@
 # AGENTS.md — DLens Chrome Extension v0.1
 
-> **Last updated:** 2026-05-14 (Product classification route fix + version 0.1.5 on main — 396/396 tests, typecheck, build)
+> **Last updated:** 2026-05-14 (Marginalia rail dedupe + version 0.1.6 on main — 397/397 tests, typecheck, build)
 > **For:** any agent continuing work in this repo
 
 ## Process Rules (locked 2026-04-17)

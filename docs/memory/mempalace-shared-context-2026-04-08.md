@@ -47,7 +47,7 @@ This note is the high-signal shared memory for Codex and Claude when working on 
   - Topic synthesis layout: `stack | console`, default `console`
   - Compare result layout: `reading | parallel | chapters`, default `parallel`
 - `SettingsView` exposes all three controls; `InPageCollectorPopup` threads them into `ProductSignalViews`, `TopicDetailView`, and `CompareView`.
-- Product signal card variants are Verdict and Marginalia; Marginalia is default and keeps the task/experiment slot visible.
+- Product signal card variants are Verdict and Marginalia; Marginalia is default, keeps `experimentHint` in the main TRY block, and keeps the right-rail TASK slot to the short `agentTaskSpec.taskTitle`.
 - Topic synthesis uses deterministic `v2.work-signal-lens`; Stack is collapsible, Console is dense and always visible.
 - Folder synthesis uses the same deterministic work-signal lens and renders as the Library Briefing card. Storage key: `dlens:v1:folder-synthesis`.
 - Compare result variants are Reading, Parallel, and Chapters; Parallel is default and uses sticky A/B columns.
@@ -56,13 +56,14 @@ This note is the high-signal shared memory for Codex and Claude when working on 
 
 ## Version Rule As Of 2026-05-14
 
-- Current extension version: `0.1.5`.
+- Current extension version: `0.1.6`.
 - Keep version synchronized across `package.json`, `package-lock.json`, `wxt.config.ts` `manifest.version`, and `src/ui/version.ts` `BUILD_VERSION`.
 - Chrome's extension page shows the built manifest version; the popup masthead shows `BUILD_VERSION`.
 - Every user-visible update pushed to `main` should bump the version unless the user explicitly says not to.
 - `tests/manifest-config.test.ts` locks package / manifest / UI version consistency.
 - Product signal removal uses `signal/delete` and must persist to storage: remove from `dlens:v1:signals`, clear topic membership and affected topic synthesis, delete the matching product analysis, clear session folder synthesis, and refresh product state.
 - Product mode `classification` is a valid product signal page. Keep it in `ALLOWED_PAGES.product`, `PRODUCT_SIGNAL_PAGES`, product width handling, and product data-effect routing so it does not fall back to `saved-signals`.
+- Marginalia right rail should not duplicate main prose: `對到` shows only a short reference category, TASK shows `agentTaskSpec.taskTitle`, and `contentSummary` / `experimentHint` remain in the main column.
 
 ## PR Evidence Mode As Of 2026-05-07
 

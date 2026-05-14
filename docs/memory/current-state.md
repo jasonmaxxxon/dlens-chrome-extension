@@ -58,10 +58,10 @@ The verified build in the active Phase B implementation worktree is:
 - backend physical checkout: `/Users/tung/Desktop/dlens-backend/dlens-ingest-core`
 - old versions and historical worktrees: `/Users/tung/Desktop/dlens-old`
 - verification: `npm run typecheck`, `npx tsx --test tests/*.test.ts tests/*.test.tsx`, and `npm run build`
-- latest full test count on clean `origin/main` after product classification route fix: `396 pass, 0 fail`
+- latest full test count on clean `origin/main` after marginalia rail dedupe: `397 pass, 0 fail`
 - latest build output was mirrored to `/Users/tung/Desktop/dlens-product-latest/output/chrome-mv3`
 - live backend smoke from the prior product run: `GET http://127.0.0.1:8000/worker/status` returned `{"status":"idle"}`
-- extension manifest name is `DLens v3`; current extension version is `0.1.5`
+- extension manifest name is `DLens v3`; current extension version is `0.1.6`
 - version is locked across `package.json`, `package-lock.json`, `wxt.config.ts` `manifest.version`, and `src/ui/version.ts` `BUILD_VERSION`
 
 ## PR Evidence V1 Contract State
@@ -156,12 +156,13 @@ Topic synthesis and Folder synthesis are deterministic extension-side display la
 - Folder synthesis persists at `dlens:v1:folder-synthesis` through `src/compare/folder-synthesis-storage.ts`.
 - `FolderSynthesisCard` renders the Briefing layout in topic-mode Library.
 - `ActionableItemCard` supports `verdict` and `marginalia`; `marginalia` is the default persisted Product signal card layout.
+- Marginalia rail keeps duplicated long prose out of the narrow right column: `對到` shows a category only, while TASK shows `agentTaskSpec.taskTitle` and leaves `experimentHint` in the main TRY block.
 - Product `classification` is a first-class product signal page in route guards and width/data-effect helpers; do not let it fall back to `saved-signals`.
 - `CompareView` supports `reading`, `parallel`, and `chapters`; `parallel` is the default persisted Result layout.
 
 ## Version State
 
-- Current extension version: `0.1.5`.
+- Current extension version: `0.1.6`.
 - Chrome extension page version comes from `wxt.config.ts` `manifest.version` in the built manifest.
 - Popup masthead version comes from `src/ui/version.ts` `BUILD_VERSION`.
 - `package.json`, `package-lock.json`, `wxt.config.ts`, and `src/ui/version.ts` must stay in sync for every main-facing update unless explicitly skipped.
