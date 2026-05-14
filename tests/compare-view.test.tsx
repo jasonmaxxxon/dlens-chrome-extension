@@ -183,6 +183,48 @@ test("CompareView renders an analysis sheet before support data", () => {
   assert.doesNotMatch(html, /Cluster #1/);
 });
 
+test("CompareView renders the parallel result layout by default", () => {
+  const html = renderToStaticMarkup(
+    React.createElement(CompareView, {
+      session: buildSession(),
+      settings: createDefaultSettings()
+    })
+  );
+
+  assert.match(html, /data-compare-layout="parallel"/);
+  assert.match(html, /data-parallel-header="sticky"/);
+  assert.match(html, /data-parallel-column="A"/);
+  assert.match(html, /data-parallel-column="B"/);
+});
+
+test("CompareView keeps A and B labels in the parallel sticky header", () => {
+  const html = renderToStaticMarkup(
+    React.createElement(CompareView, {
+      session: buildSession(),
+      settings: createDefaultSettings()
+    })
+  );
+
+  assert.match(html, /data-parallel-header="sticky"/);
+  assert.match(html, /Post A/);
+  assert.match(html, /Post B/);
+});
+
+test("CompareView can still render the reading layout seam", () => {
+  const html = renderToStaticMarkup(
+    React.createElement(CompareView, {
+      session: buildSession(),
+      settings: createDefaultSettings(),
+      compareLayout: "reading"
+    })
+  );
+
+  assert.match(html, /data-compare-layout="reading"/);
+  assert.match(html, /留言區聲量結構/);
+  assert.match(html, /代表性原文/);
+  assert.match(html, /驗證數據/);
+});
+
 test("CompareView keeps support data collapsed while preserving navigation affordances", () => {
   const html = renderToStaticMarkup(
     React.createElement(CompareView, {
