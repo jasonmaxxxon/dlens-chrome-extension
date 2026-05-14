@@ -225,6 +225,33 @@ test("CompareView can still render the reading layout seam", () => {
   assert.match(html, /驗證數據/);
 });
 
+test("CompareView chapters layout renders five section markers", () => {
+  const html = renderToStaticMarkup(
+    React.createElement(CompareView, {
+      session: buildSession(),
+      settings: createDefaultSettings(),
+      compareLayout: "chapters"
+    })
+  );
+
+  assert.match(html, /data-compare-layout="chapters"/);
+  ["I", "II", "III", "IV", "V"].forEach((chapter) => {
+    assert.match(html, new RegExp(`data-chapter="${chapter}"`));
+  });
+});
+
+test("CompareView chapters layout has no parallel column hooks", () => {
+  const html = renderToStaticMarkup(
+    React.createElement(CompareView, {
+      session: buildSession(),
+      settings: createDefaultSettings(),
+      compareLayout: "chapters"
+    })
+  );
+
+  assert.doesNotMatch(html, /data-parallel-column/);
+});
+
 test("CompareView keeps support data collapsed while preserving navigation affordances", () => {
   const html = renderToStaticMarkup(
     React.createElement(CompareView, {

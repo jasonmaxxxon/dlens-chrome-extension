@@ -89,7 +89,7 @@ interface CompareBriefSurfaceState {
   alerts: CompareAlert[];
 }
 
-type CompareResultLayout = "reading" | "parallel";
+type CompareResultLayout = "reading" | "parallel" | "chapters";
 
 interface CompareViewProps {
   session: SessionRecord;
@@ -3000,6 +3000,261 @@ function ResultParallelColumn({
   );
 }
 
+function ResultChapterFrame({
+  chapter,
+  title,
+  accent = AR.ink,
+  children
+}: {
+  chapter: "I" | "II" | "III" | "IV" | "V";
+  title: string;
+  accent?: string;
+  children: React.ReactNode;
+}) {
+  return (
+    <section
+      data-chapter={chapter}
+      style={{
+        display: "flex",
+        flexDirection: "column",
+        gap: tokens.spacing.resultCardGap,
+        paddingTop: chapter === "I" ? 0 : 4,
+        minWidth: 0
+      }}
+    >
+      <div style={{ display: "flex", alignItems: "baseline", gap: 10, minWidth: 0 }}>
+        <span style={{ fontFamily: tokens.font.mono, fontSize: 11, fontWeight: 800, color: accent, whiteSpace: "nowrap" }}>
+          § {chapter}
+        </span>
+        <span style={{ fontSize: 12, fontWeight: 600, color: AR.muteInk, letterSpacing: "0.02em" }}>
+          {title}
+        </span>
+      </div>
+      {children}
+    </section>
+  );
+}
+
+function ResultChapterPostSection({
+  side,
+  post,
+  captured,
+  surface,
+  summary,
+  reading
+}: {
+  side: "A" | "B";
+  post: PostData | null;
+  captured: number;
+  surface: ClusterSurface | null;
+  summary: ClusterSummaryCard | null;
+  reading: string | null;
+}) {
+  const isA = side === "A";
+  const accent = isA ? AR.blue : AR.orange;
+  const softBg = isA ? "rgba(0,113,227,0.045)" : "rgba(255,149,0,0.055)";
+  const border = isA ? "rgba(0,113,227,0.12)" : "rgba(255,149,0,0.16)";
+  const clusterPct = summary ? Math.round(summary.cluster.size_share * 100) : null;
+
+  return (
+    <div style={{ display: "flex", flexDirection: "column", gap: tokens.spacing.resultCardGap, minWidth: 0 }}>
+      {post ? (
+        <PostHeader
+          post={post}
+          label={`Post ${side}`}
+          color={softBg}
+          borderColor={border}
+          commentCount={captured}
+        />
+      ) : null}
+
+      {reading ? (
+        <div
+          style={{
+            background: AR.card,
+            borderRadius: tokens.radius.card,
+            borderLeft: `3px solid ${accent}`,
+            boxShadow: tokens.shadow.glass,
+            padding: "12px 14px",
+            minWidth: 0
+          }}
+        >
+          <SectionLabel color={accent}>{`${side} reading`}</SectionLabel>
+          <p style={{ margin: "8px 0 0", fontSize: 12.5, lineHeight: 1.58, color: AR.softInk, ...WRAP_ANYWHERE }}>
+            {reading}
+          </p>
+        </div>
+      ) : null}
+
+      <div
+        style={{
+          background: AR.card,
+          borderRadius: tokens.radius.card,
+          border: `1px solid ${AR.line}`,
+          boxShadow: tokens.shadow.glass,
+          padding: "13px 14px",
+          display: "grid",
+          gap: 10,
+          minWidth: 0
+        }}
+      >
+        <SectionLabel color={accent}>Top cluster</SectionLabel>
+        <div style={{ display: "flex", alignItems: "baseline", justifyContent: "space-between", gap: 12, minWidth: 0 }}>
+          <div style={{ minWidth: 0 }}>
+            <div style={{ fontSize: 15, fontWeight: 700, color: AR.ink, lineHeight: 1.35, ...WRAP_ANYWHERE }}>
+              {surface?.title || "主群組未定"}
+            </div>
+            <div style={{ marginTop: 4, fontSize: 11, color: AR.muteInk, ...WRAP_ANYWHERE }}>
+              {surface?.thesis || (summary ? clusterSupportLabel(summary) : "No cluster summary")}
+            </div>
+          </div>
+          {clusterPct != null ? (
+            <div style={{ fontSize: 28, fontWeight: 700, color: accent, lineHeight: 1 }}>
+              {clusterPct}<span style={{ fontSize: 13, fontWeight: 500 }}>%</span>
+            </div>
+          ) : null}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function ResultChaptersBody({
+  heroSummary,
+  brief,
+  postA,
+  postB,
+  leftSummaries,
+  rightSummaries,
+  leftSurfaces,
+  rightSurfaces,
+  analysisA,
+  analysisB,
+  capturedA,
+  capturedB,
+  leftClusterNodes,
+  rightClusterNodes,
+  annotationMap,
+}: {
+  heroSummary: CompareHeroSummary | null;
+  brief: CompareBrief | null;
+  postA: PostData | null;
+  postB: PostData | null;
+  leftSummaries: ClusterSummaryCard[];
+  rightSummaries: ClusterSummaryCard[];
+  leftSurfaces: ClusterSurface[];
+  rightSurfaces: ClusterSurface[];
+  analysisA: AnalysisSnapshot | null;
+  analysisB: AnalysisSnapshot | null;
+  capturedA: number;
+  capturedB: number;
+  leftClusterNodes: ClusterMapNode[];
+  rightClusterNodes: ClusterMapNode[];
+  annotationMap: Map<string, EvidenceAnnotation>;
+}) {
+  const relation = heroSummary?.relation || brief?.relation || heroSummary?.headline || "A/B relation pending.";
+  const initial = relation.trim().slice(0, 1);
+  const rest = relation.trim().slice(1);
+  const evidenceItems = [
+    ...(leftSurfaces[0]?.audienceEvidence.slice(0, 2).map((evidence) => ({ evidence, side: "A" as const })) ?? []),
+    ...(rightSurfaces[0]?.audienceEvidence.slice(0, 2).map((evidence) => ({ evidence, side: "B" as const })) ?? [])
+  ];
+
+  return (
+    <div data-compare-layout="chapters" style={{ display: "flex", flexDirection: "column", gap: tokens.spacing.resultSectionGap, minWidth: 0 }}>
+      <ResultChapterFrame chapter="I" title="Relation" accent={AR.green}>
+        <div
+          style={{
+            background: AR.card,
+            borderRadius: 14,
+            border: `1px solid ${AR.line}`,
+            boxShadow: tokens.shadow.glass,
+            padding: "22px 18px",
+            textAlign: "center",
+            minWidth: 0
+          }}
+        >
+          <div style={{ fontFamily: `${tokens.font.serifCjk}, ${tokens.font.serif}`, fontSize: 27, lineHeight: 1.25, color: AR.ink, ...WRAP_ANYWHERE }}>
+            <span style={{ fontSize: 56, lineHeight: 0.9, color: AR.green, verticalAlign: "baseline" }}>{initial}</span>{rest}
+          </div>
+          {heroSummary?.headline ? (
+            <div style={{ marginTop: 12, fontSize: 12, fontWeight: 700, color: AR.muteInk, ...WRAP_ANYWHERE }}>
+              {heroSummary.headline}
+            </div>
+          ) : null}
+        </div>
+      </ResultChapterFrame>
+
+      <ResultChapterFrame chapter="II" title="Post A context, reading, top cluster" accent={AR.blue}>
+        <ResultChapterPostSection
+          side="A"
+          post={postA}
+          captured={capturedA}
+          surface={leftSurfaces[0] || null}
+          summary={leftSummaries[0] || null}
+          reading={brief?.aReading || null}
+        />
+      </ResultChapterFrame>
+
+      <ResultChapterFrame chapter="III" title="Post B context, reading, top cluster" accent={AR.orange}>
+        <ResultChapterPostSection
+          side="B"
+          post={postB}
+          captured={capturedB}
+          surface={rightSurfaces[0] || null}
+          summary={rightSummaries[0] || null}
+          reading={brief?.bReading || null}
+        />
+      </ResultChapterFrame>
+
+      <ResultChapterFrame chapter="IV" title="原文證據" accent={AR.ink}>
+        <div style={{ display: "flex", flexDirection: "column", gap: tokens.spacing.resultCardGap, minWidth: 0 }}>
+          {evidenceItems.length ? evidenceItems.map(({ evidence, side }, index) => {
+            const annotation = evidence.comment_id ? annotationMap.get(evidence.comment_id) : undefined;
+            const effectivenessData = annotation
+              ? {
+                  discussionFunction: annotation.discussionFunction,
+                  relationToCluster: annotation.relationToCluster,
+                  whyEffective: annotation.whyEffective,
+                }
+              : null;
+            return (
+              <DictionaryCard
+                key={`${side}-${evidence.comment_id || index}`}
+                rank={index + 1}
+                handle={evidence.author || "anon"}
+                quote={evidence.text || "—"}
+                likes={evidence.like_count ?? null}
+                replies={evidence.reply_count ?? null}
+                side={side}
+                marks={annotation?.phraseMarks ?? []}
+                analysis={annotation?.writerMeaning || null}
+                effectiveness={effectivenessData}
+              />
+            );
+          }) : (
+            <div style={{ fontSize: 12, color: AR.muteInk, background: AR.card, borderRadius: tokens.radius.card, border: `1px solid ${AR.line}`, padding: "12px 14px" }}>
+              No audience evidence captured yet.
+            </div>
+          )}
+        </div>
+      </ResultChapterFrame>
+
+      <ResultChapterFrame chapter="V" title="Why it matters + trust" accent={AR.green}>
+        <ResultWhyCard brief={brief} />
+        <ResultTrustStrip
+          analysisA={analysisA}
+          analysisB={analysisB}
+          capturedA={capturedA}
+          capturedB={capturedB}
+          leftClusterNodes={leftClusterNodes}
+          rightClusterNodes={rightClusterNodes}
+        />
+      </ResultChapterFrame>
+    </div>
+  );
+}
+
 function ResultParallelBody({
   heroSummary,
   brief,
@@ -3176,6 +3431,28 @@ function ResultReadingBody({
         leftClusterNodes={leftClusterNodes}
         rightClusterNodes={rightClusterNodes}
         compareBriefState={compareBriefState}
+        annotationMap={annotationMap}
+      />
+    );
+  }
+
+  if (layout === "chapters") {
+    return (
+      <ResultChaptersBody
+        heroSummary={heroSummary}
+        brief={brief}
+        postA={postA}
+        postB={postB}
+        leftSummaries={leftSummaries}
+        rightSummaries={rightSummaries}
+        leftSurfaces={leftSurfaces}
+        rightSurfaces={rightSurfaces}
+        analysisA={analysisA}
+        analysisB={analysisB}
+        capturedA={capturedA}
+        capturedB={capturedB}
+        leftClusterNodes={leftClusterNodes}
+        rightClusterNodes={rightClusterNodes}
         annotationMap={annotationMap}
       />
     );
