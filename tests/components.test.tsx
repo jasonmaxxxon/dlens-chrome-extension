@@ -68,8 +68,8 @@ test("PreviewCard renders author, folder, saved badge, and metric chips", () => 
 test("ModeRail renders only the allowed archive-mode items when a custom rail is supplied", () => {
   const html = renderToStaticMarkup(
     React.createElement(ModeRail, {
-      activeMode: "library",
-      modes: ["library", "collect"],
+      activeMode: "collect",
+      modes: ["collect", "library"],
       onSelect: () => undefined
     })
   );
@@ -88,7 +88,7 @@ test("ModeRail renders only the allowed archive-mode items when a custom rail is
 
   assert.ok(libraryIndex >= 0);
   assert.ok(collectIndex >= 0);
-  assert.ok(libraryIndex < collectIndex);
+  assert.ok(collectIndex < libraryIndex);
 });
 
 test("ModeRail keeps collect as the first topic-mode action", () => {
@@ -109,24 +109,24 @@ test("ModeRail keeps collect as the first topic-mode action", () => {
   assert.ok(inboxIndex > casebookIndex);
 });
 
-test("ModeRail preserves Product mode order so action stays before collect", () => {
+test("ModeRail keeps collect first in Product mode while preserving the action entry", () => {
   const html = renderToStaticMarkup(
     React.createElement(ModeRail, {
-      activeMode: "actionable-filter",
-      modes: ["saved-signals", "classification", "actionable-filter", "collect"],
+      activeMode: "collect",
+      modes: ["collect", "saved-signals", "classification", "actionable-filter"],
       onSelect: () => undefined
     })
   );
 
+  const collectIndex = html.indexOf('data-mode="collect"');
   const savedIndex = html.indexOf('data-mode="saved-signals"');
   const classificationIndex = html.indexOf('data-mode="classification"');
   const actionIndex = html.indexOf('data-mode="actionable-filter"');
-  const collectIndex = html.indexOf('data-mode="collect"');
 
-  assert.ok(savedIndex >= 0);
+  assert.ok(collectIndex >= 0);
+  assert.ok(savedIndex > collectIndex);
   assert.ok(classificationIndex > savedIndex);
   assert.ok(actionIndex > classificationIndex);
-  assert.ok(collectIndex > actionIndex);
 });
 
 test("ModeRail uses the design-system rail icon language", () => {

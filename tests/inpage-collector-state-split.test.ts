@@ -193,7 +193,7 @@ test("pending popup navigation survives stale snapshots until the destination is
 });
 
 test("resolveEffectivePopupPage keeps product data effects on the rendered guarded page", () => {
-  assert.equal(resolveEffectivePopupPage("library", "product"), "saved-signals");
+  assert.equal(resolveEffectivePopupPage("library", "product"), "collect");
   assert.equal(resolveEffectivePopupPage("settings", "product"), "settings");
   assert.equal(resolveEffectivePopupPage("classification", "product"), "classification");
   assert.equal(resolveEffectivePopupPage("actionable-filter", "product"), "actionable-filter");

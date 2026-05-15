@@ -14,10 +14,10 @@ export const PRODUCT_SIGNAL_PAGES: ReadonlyArray<MainPage> = [
 export const PR_EVIDENCE_PAGES: ReadonlyArray<MainPage> = ["pr-evidence"];
 
 export const ALLOWED_PAGES: Record<FolderMode, MainPage[]> = {
-  archive: ["library", "collect"],
+  archive: ["collect", "library"],
   topic: ["collect", "casebook", "inbox", "compare", "library"],
-  product: ["saved-signals", "classification", "actionable-filter", "collect"],
-  "pr-evidence": ["pr-evidence", "collect"]
+  product: ["collect", "saved-signals", "classification", "actionable-filter"],
+  "pr-evidence": ["collect", "pr-evidence"]
 };
 
 export function isProductSignalPage(page: PopupPage): boolean {
