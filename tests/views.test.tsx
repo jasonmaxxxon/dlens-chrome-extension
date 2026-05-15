@@ -1436,6 +1436,17 @@ test("ActionableItemCard marginalia removes repeated support chrome", () => {
   assert.match(html, /data-workflow-row-layout="stacked"/);
 });
 
+test("ActionableItemCard marginalia workflow rows use distinct semantic panels", () => {
+  const html = renderActionableCardFixture("marginalia");
+
+  assert.match(html, /data-workflow-section-tone="copy"[^>]*style="[^"]*border-left:4px solid #3f5a3b[^"]*"/);
+  assert.match(html, /data-workflow-section-tone="why"[^>]*style="[^"]*border-left:4px solid #1a2e4f[^"]*"/);
+  assert.match(html, /data-workflow-section-tone="tradeoff"[^>]*style="[^"]*border-left:4px solid #a16a17[^"]*"/);
+  assert.match(html, /data-workflow-field-label="copy"[^>]*style="[^"]*font-weight:700[^"]*"/);
+  assert.match(html, /data-workflow-field-label="why"[^>]*style="[^"]*font-weight:700[^"]*"/);
+  assert.match(html, /data-workflow-field-label="tradeoff"[^>]*style="[^"]*font-weight:700[^"]*"/);
+});
+
 test("ActionableItemCard marginalia hides repeated workflow title row", () => {
   const html = renderActionableCardFixture("marginalia");
 

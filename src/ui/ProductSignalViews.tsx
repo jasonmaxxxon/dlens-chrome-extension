@@ -598,6 +598,57 @@ const STACK_PILL_STYLE = {
   fontWeight: 600
 } as const;
 
+type WorkflowSectionTone = "copy" | "why" | "tradeoff";
+
+const WORKFLOW_SECTION_TONES: Record<WorkflowSectionTone, { accent: string; soft: string; border: string }> = {
+  copy: {
+    accent: tokens.color.success,
+    soft: "rgba(63,90,59,0.095)",
+    border: "rgba(63,90,59,0.28)"
+  },
+  why: {
+    accent: tokens.color.accent,
+    soft: "rgba(26,46,79,0.085)",
+    border: "rgba(26,46,79,0.25)"
+  },
+  tradeoff: {
+    accent: tokens.color.queued,
+    soft: "rgba(161,106,23,0.105)",
+    border: "rgba(161,106,23,0.30)"
+  }
+};
+
+function workflowSectionPanelStyle(tone: WorkflowSectionTone): CSSProperties {
+  const color = WORKFLOW_SECTION_TONES[tone];
+  return {
+    display: "grid",
+    gap: 6,
+    padding: "8px 10px 9px",
+    borderRadius: 6,
+    border: `1px solid ${color.border}`,
+    borderLeft: `4px solid ${color.accent}`,
+    background: `linear-gradient(90deg, ${color.soft}, ${tokens.color.elevated} 74%)`
+  };
+}
+
+function workflowSectionLabelStyle(tone: WorkflowSectionTone): CSSProperties {
+  const color = WORKFLOW_SECTION_TONES[tone];
+  return {
+    ...textStyles.fieldLabel,
+    justifySelf: "start",
+    display: "inline-flex",
+    alignItems: "center",
+    minHeight: 18,
+    padding: "1px 6px",
+    borderRadius: tokens.radius.round,
+    border: `1px solid ${color.border}`,
+    background: color.soft,
+    color: color.accent,
+    fontWeight: 700,
+    letterSpacing: 0
+  };
+}
+
 function StackTagRow({ tools, maxVisible = 4 }: { tools: string[]; maxVisible?: number }) {
   const visible = tools.slice(0, maxVisible);
   const overflow = tools.length - maxVisible;
@@ -634,28 +685,17 @@ function WorkflowEvidenceCard({
   const normalizedTitle = workflow.pattern?.trim() ?? "";
   const normalizedMatch = hideTitleIfMatches?.trim() ?? "";
   const shouldHideTitle = normalizedTitle.length > 0 && normalizedMatch.length > 0 && normalizedTitle === normalizedMatch;
-  const stackedLabelStyle: CSSProperties = {
-    ...textStyles.label,
-    fontSize: 9.5,
-    letterSpacing: "0.16em",
-    textTransform: "uppercase",
-    color: tokens.color.softInk
-  };
-  const rowStyle = (isLast = false): CSSProperties => flatten
-    ? {
-      display: "grid",
-      gap: 4,
-      paddingBlock: 6,
-      borderBottom: isLast ? undefined : `0.5px dotted ${tokens.color.lineStrong}`
-    }
+  const rowStyle = (tone: WorkflowSectionTone): CSSProperties => flatten
+    ? workflowSectionPanelStyle(tone)
     : {
       display: "grid",
       gridTemplateColumns: "76px minmax(0, 1fr)",
       gap: 9,
       alignItems: "start"
     };
-  const fieldLabelStyle = flatten ? stackedLabelStyle : textStyles.fieldLabel;
-  const hasTradeoff = Boolean(workflow.tradeoff);
+  const fieldLabelStyle = (tone: WorkflowSectionTone): CSSProperties => flatten
+    ? workflowSectionLabelStyle(tone)
+    : textStyles.fieldLabel;
 
   return (
     <div
@@ -700,22 +740,22 @@ function WorkflowEvidenceCard({
           ) : null}
         </div>
       ) : null}
-      <div style={{ display: "grid", gap: flatten ? 0 : 7 }}>
-        <div data-workflow-row-layout={flatten ? "stacked" : "aside"} style={rowStyle(false)}>
-          <span data-workflow-field-label="copy" style={fieldLabelStyle}>如何照抄</span>
+      <div style={{ display: "grid", gap: 7 }}>
+        <div data-workflow-row-layout={flatten ? "stacked" : "aside"} data-workflow-section-tone={flatten ? "copy" : undefined} style={rowStyle("copy")}>
+          <span data-workflow-field-label="copy" style={fieldLabelStyle("copy")}>如何照抄</span>
           <pre style={{ margin: 0, fontSize: flatten ? 12 : 12.5, lineHeight: 1.55, color: tokens.color.ink, fontFamily: tokens.font.mono, whiteSpace: "pre-wrap", wordBreak: "break-word" }}>
             {workflow.recipeMarkdown || workflow.copyableTemplate || "原文不足以推導完整做法。"}
           </pre>
         </div>
-        <div data-workflow-row-layout={flatten ? "stacked" : "aside"} style={rowStyle(!hasTradeoff)}>
-          <span data-workflow-field-label="why" style={fieldLabelStyle}>為什麼可以這樣做</span>
+        <div data-workflow-row-layout={flatten ? "stacked" : "aside"} data-workflow-section-tone={flatten ? "why" : undefined} style={rowStyle("why")}>
+          <span data-workflow-field-label="why" style={fieldLabelStyle("why")}>為什麼可以這樣做</span>
           <span style={{ fontSize: 12.5, lineHeight: 1.55, color: tokens.color.subInk }}>
             {workflow.whyItWorks}
           </span>
         </div>
         {workflow.tradeoff ? (
-          <div data-workflow-row-layout={flatten ? "stacked" : "aside"} style={rowStyle(true)}>
-            <span data-workflow-field-label="tradeoff" style={fieldLabelStyle}>限制</span>
+          <div data-workflow-row-layout={flatten ? "stacked" : "aside"} data-workflow-section-tone={flatten ? "tradeoff" : undefined} style={rowStyle("tradeoff")}>
+            <span data-workflow-field-label="tradeoff" style={fieldLabelStyle("tradeoff")}>限制</span>
             <span style={{ fontSize: 12.5, lineHeight: 1.55, color: tokens.color.subInk }}>
               {workflow.tradeoff}
             </span>
