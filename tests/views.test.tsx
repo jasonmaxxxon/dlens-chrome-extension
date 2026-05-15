@@ -1401,9 +1401,20 @@ test("ActionableItemCard marginalia rail contains verdict, relevance, and task s
   assert.match(html, /data-testid="marginalia-rail"/);
   assert.match(html, /data-testid="rail-verdict"[^>]*data-verdict-value="try"[^>]*>值得嘗試/);
   assert.match(html, /data-testid="rail-relevance"/);
+  assert.match(html, /data-relevance-score="5"[^>]*data-relevance-tone="high"/);
   assert.match(html, /data-testid="rail-task"/);
   assert.match(html, /TASK ›/);
   assert.match(html, /產出 release-note 草稿/);
+});
+
+test("ActionableItemCard marginalia relevance bars use caution colors below high scores", () => {
+  const mediumHtml = renderActionableCardFixture("marginalia", { relevance: 3 as const });
+  const lowHtml = renderActionableCardFixture("marginalia", { relevance: 2 as const });
+
+  assert.match(mediumHtml, /data-relevance-score="3"[^>]*data-relevance-tone="medium"/);
+  assert.match(mediumHtml, new RegExp(tokens.color.queued.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")));
+  assert.match(lowHtml, /data-relevance-score="2"[^>]*data-relevance-tone="low"/);
+  assert.match(lowHtml, new RegExp(tokens.color.failed.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")));
 });
 
 test("ActionableItemCard marginalia rail does not duplicate main-column prose", () => {

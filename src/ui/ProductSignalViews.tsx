@@ -1154,13 +1154,29 @@ function ScorePill({ children, color, soft }: { children: string; color: string;
   );
 }
 
+type RelevanceVisualTone = "high" | "medium" | "low";
+
+function relevanceVisualTone(score: ProductSignalAnalysis["relevance"]): RelevanceVisualTone {
+  if (score >= 4) return "high";
+  if (score === 3) return "medium";
+  return "low";
+}
+
+const RELEVANCE_VISUALS: Record<RelevanceVisualTone, { color: string; soft: string }> = {
+  high: { color: tokens.color.success, soft: tokens.color.successSoft },
+  medium: { color: tokens.color.queued, soft: tokens.color.queuedSoft },
+  low: { color: tokens.color.failed, soft: tokens.color.failedSoft }
+};
+
 function RelevanceBars({ score, tone = "light" }: { score: ProductSignalAnalysis["relevance"]; tone?: "light" | "dark" }) {
-  const active = tone === "light" ? "rgba(255,255,255,0.92)" : tokens.color.teal;
+  const relevanceTone = relevanceVisualTone(score);
+  const relevanceMeta = RELEVANCE_VISUALS[relevanceTone];
+  const active = tone === "light" ? "rgba(255,255,255,0.92)" : relevanceMeta.color;
   const inactive = tone === "light" ? "rgba(255,255,255,0.24)" : tokens.color.lineStrong;
-  const labelColor = tone === "light" ? "rgba(255,255,255,0.92)" : tokens.color.softInk;
+  const labelColor = tone === "light" ? "rgba(255,255,255,0.92)" : relevanceMeta.color;
 
   return (
-    <div data-relevance-bars="true" style={{ display: "grid", gap: 6 }}>
+    <div data-relevance-bars="true" data-relevance-score={score} data-relevance-tone={relevanceTone} style={{ display: "grid", gap: 6 }}>
       <div style={{ fontSize: 11, lineHeight: 1.2, fontWeight: 800, color: labelColor }}>
         relevance {score}/5
       </div>
