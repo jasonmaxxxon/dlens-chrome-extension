@@ -21,7 +21,7 @@ import type {
 } from "../state/types.ts";
 import type { ProductSignalPreferenceExample } from "./product-signal-history.ts";
 
-export const PRODUCT_SIGNAL_ANALYSIS_PROMPT_VERSION = "v13";
+export const PRODUCT_SIGNAL_ANALYSIS_PROMPT_VERSION = "v14";
 export const PRODUCT_SIGNAL_ANALYSIS_CACHE_VERSION = PRODUCT_SIGNAL_ANALYSIS_PROMPT_VERSION;
 
 export const PRODUCT_SIGNAL_ANALYSIS_JSON_SCHEMA = {
@@ -536,6 +536,7 @@ export function buildProductSignalAnalyzerPrompt(input: ProductSignalAnalyzerInp
     "- evidence_notes 必須是 evidence-specific，不要把 thread-level content_summary 複製到每條 evidence。",
     "- quote 太短時，不要硬擠 how-to；grounding 用 insufficient_detail，workflow_stack 用空陣列、copy_recipe_markdown 用空字串，tradeoff 寫「原文不足以推導完整做法」。",
     "- 工具或組合方式不確定時，不要假裝知道作者的實作。why_it_works 仍必須先指出原文可見觀察，再用保守語氣推測機制並標 grounding=model_inferred；copy_recipe_markdown 用空字串，tradeoff 寫「AI 推斷，請交叉驗證原文」。",
+    "- 反面案例規則：如果主文在分享 app、產品、campaign 或定位語氣，但 replies 明顯出現嘲諷、反感、不買帳、信任下降或使用門檻抗拒，不要硬判成 try。content_type 用 mixed 或 discussion_starter；verdict 優先 watch 或 park；relevance 視 ProductContext 相關性給 2-3；reason 必須寫成「可作為反面語氣/定位案例」並引用負面 audience evidence。不要只因主文有粗口就判負面，必須看 replies 的反應。",
     "- 輸出面向產品洞察，不要提 cluster、分群演算法或後端分析細節。",
     "- 產品功能比對：仔細讀 [PRODUCT_CONTEXT].currentCapabilities 和 coreWorkflows。如果 evidence 建議的做法已經是產品現有功能，experiment_hint 要改成「強化既有 X 功能」而非「新增 Y」，verdict 傾向 watch 而非 try。不要推薦產品已有的功能當作新實驗。",
     "",

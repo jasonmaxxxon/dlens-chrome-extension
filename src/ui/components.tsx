@@ -485,15 +485,18 @@ export function ModeRail({
         justifyItems: "center"
       }}
     >
-      {PRIMARY_WORKSPACE_MODES.filter((mode) => modes.includes(mode.key)).map((mode) => (
-        <ModeRailButton
-          key={mode.key}
-          mode={mode.key}
-          label={mode.label}
-          active={activeMode === mode.key}
-          onSelect={onSelect}
-        />
-      ))}
+      {modes
+        .map((modeKey) => PRIMARY_WORKSPACE_MODES.find((entry) => entry.key === modeKey))
+        .filter((mode): mode is { key: PrimaryWorkspaceMode; label: string } => Boolean(mode))
+        .map((mode) => (
+          <ModeRailButton
+            key={mode.key}
+            mode={mode.key}
+            label={mode.label}
+            active={activeMode === mode.key}
+            onSelect={onSelect}
+          />
+        ))}
     </nav>
   );
 }
