@@ -10,6 +10,7 @@ interface CasebookViewProps {
   sessionId: string;
   onNavigateToTopic: (topicId: string) => void;
   onCreateTopic: () => void;
+  onGoToCollect?: () => void;
   initialTopics?: Topic[];
   pendingSignalCount?: number;
 }
@@ -159,6 +160,7 @@ export function CasebookView({
   sessionId,
   onNavigateToTopic,
   onCreateTopic,
+  onGoToCollect,
   initialTopics = [],
   pendingSignalCount = 0
 }: CasebookViewProps) {
@@ -195,22 +197,23 @@ export function CasebookView({
   }, [initialTopics.length, sessionId]);
 
   const visibleTopics = useMemo(() => filterTopics(topics, filter), [filter, topics]);
+  const hasOrganizableContent = topics.length > 0 || pendingSignalCount > 0;
 
   return (
     <div style={viewRootStyle()}>
       <ModeHeader
         mode="casebook"
         kicker="Casebook"
-        title="把訊號整理成持續追蹤的主題"
-        deck="先收進案例本，再決定哪些主題值得往下讀。"
-        stamp={<Stamp tone="accent">Topic</Stamp>}
+        title="整理這個 folder 裡的訊號"
+        deck="先收進案例本，再把值得追蹤的線索分組。"
+        stamp={<Stamp tone="accent">Signals</Stamp>}
       />
 
       <WorkspaceSurface tone="utility" style={{ display: "grid", gap: tokens.spacing.md }}>
         <style>{SCAN_ROW_HOVER_CSS}</style>
         <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12, flexWrap: "wrap" }}>
           <FilterTabs topics={topics} activeFilter={filter} onSelect={setFilter} />
-          <PrimaryButton onClick={onCreateTopic}>新建主題</PrimaryButton>
+          {hasOrganizableContent ? <PrimaryButton onClick={onCreateTopic}>新增線索</PrimaryButton> : null}
         </div>
 
         {pendingSignalCount > 0 ? (
@@ -224,9 +227,9 @@ export function CasebookView({
               background: tokens.color.surface
             }}
           >
-            <Kicker>AI 建議主題</Kicker>
+            <Kicker>未分流訊號</Kicker>
             <div style={{ fontSize: 12, color: tokens.color.subInk, lineHeight: 1.6 }}>
-              目前有 {pendingSignalCount} 則未分流訊號。Slice B 會在這裡補 AI 主題建議。
+              目前有 {pendingSignalCount} 則未分流訊號。建立追蹤線索後可以開始歸類。
             </div>
           </section>
         ) : null}
@@ -249,7 +252,12 @@ export function CasebookView({
               lineHeight: 1.6
             }}
           >
-            尚無主題，新增一個開始追蹤
+            <div>{pendingSignalCount > 0 ? "未分流訊號等待整理，新增一條線索開始追蹤。" : "這個 folder 尚無可整理的訊號。先到採集收進貼文。"}</div>
+            {!hasOrganizableContent && onGoToCollect ? (
+              <div style={{ marginTop: 12 }}>
+                <PrimaryButton onClick={onGoToCollect}>前往採集</PrimaryButton>
+              </div>
+            ) : null}
           </div>
         )}
       </WorkspaceSurface>

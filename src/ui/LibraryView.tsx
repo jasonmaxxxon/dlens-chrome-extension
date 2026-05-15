@@ -803,7 +803,7 @@ export function LibraryView({
               {getSessionDisplayName(activeFolder)}
             </div>
             <div style={{ fontSize: 12, fontWeight: 600, color: AR.ink }}>
-              {topicInboxCount} 未分流 · {topicCount} 主題
+              {topicInboxCount} 未分流 · {topicCount} 線索
             </div>
           </div>
           {onGoToCollect ? (

@@ -15,7 +15,7 @@ function formatWorkspaceOptionLabel(folder: Pick<SessionRecord, "name" | "mode" 
 function buildTopicStatusBadges(app: InPageCollectorAppModel): string[] {
   const inboxCount = app.signals.filter((signal) => signal.inboxStatus === "unprocessed").length;
   const topicCount = app.topics.length;
-  return [`${inboxCount} 未分流`, `${topicCount} 主題`];
+  return [`${inboxCount} 未分流`, `${topicCount} 線索`];
 }
 
 export function InPageCollectorFolderControls({ app }: { app: InPageCollectorAppModel }) {

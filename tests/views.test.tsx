@@ -310,7 +310,7 @@ test("LibraryView scopes Topic library rows to Topic signals, not all backing sa
     })
   );
 
-  assert.match(html, /1 未分流 · 1 主題/);
+  assert.match(html, /1 未分流 · 1 線索/);
   assert.match(html, /@alpha/);
   assert.doesNotMatch(html, /Product-only saved row/);
   assert.doesNotMatch(html, /Product workspace/);
@@ -703,7 +703,8 @@ test("Topic folder strip does not leak generated Product workspace naming", () =
 
   assert.match(html, /Topic workspace/);
   assert.match(html, /1 未分流/);
-  assert.match(html, /1 主題/);
+  assert.match(html, /1 線索/);
+  assert.doesNotMatch(html, /1 主題/);
   assert.doesNotMatch(html, /Product workspace/);
   assert.doesNotMatch(html, /Topic workspace \(42\)/);
   assert.doesNotMatch(html, /42 saved/);
@@ -724,7 +725,7 @@ test("Topic folder strip counts inbox and topics instead of saved backing items"
         { id: "signal-2", inboxStatus: "assigned" }
       ]
     } as any),
-    ["1 未分流", "1 主題"]
+    ["1 未分流", "1 線索"]
   );
 });
 

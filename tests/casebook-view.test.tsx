@@ -51,22 +51,46 @@ test("CasebookView renders the topic list and signal metadata", () => {
   assert.match(html, /航班爭議/);
   assert.match(html, /客服/);
   assert.match(html, /2 則訊號/);
-  assert.match(html, /新建主題/);
-  assert.match(html, /AI 建議主題/);
+  assert.match(html, /新增線索/);
+  assert.match(html, /未分流訊號/);
+  assert.doesNotMatch(html, /新建主題/);
+  assert.doesNotMatch(html, /AI 建議主題/);
 });
 
-test("CasebookView renders an empty state when there are no topics", () => {
+test("CasebookView renders a folder-first empty state when there are no signals to organize", () => {
   const html = renderToStaticMarkup(
     React.createElement(CasebookView, {
       sessionId: "session-1",
       initialTopics: [],
       pendingSignalCount: 0,
       onNavigateToTopic: () => undefined,
+      onCreateTopic: () => undefined,
+      onGoToCollect: () => undefined
+    })
+  );
+
+  assert.match(html, /整理這個 folder 裡的訊號/);
+  assert.match(html, /這個 folder 尚無可整理的訊號。先到採集收進貼文。/);
+  assert.match(html, /前往採集/);
+  assert.doesNotMatch(html, /尚無主題，新增一個開始追蹤/);
+  assert.doesNotMatch(html, /新建主題/);
+});
+
+test("CasebookView lets pending signals start a tracking lane without folder wording collision", () => {
+  const html = renderToStaticMarkup(
+    React.createElement(CasebookView, {
+      sessionId: "session-1",
+      initialTopics: [],
+      pendingSignalCount: 2,
+      onNavigateToTopic: () => undefined,
       onCreateTopic: () => undefined
     })
   );
 
-  assert.match(html, /尚無主題，新增一個開始追蹤/);
+  assert.match(html, /新增線索/);
+  assert.match(html, /目前有 2 則未分流訊號。建立追蹤線索後可以開始歸類。/);
+  assert.match(html, /未分流訊號等待整理，新增一條線索開始追蹤。/);
+  assert.doesNotMatch(html, /新建主題/);
 });
 
 test("casebookViewTestables filters topics by status tab", () => {

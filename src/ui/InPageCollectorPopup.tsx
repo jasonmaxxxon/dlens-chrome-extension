@@ -170,6 +170,7 @@ export function InPageCollectorPopup({ app }: { app: InPageCollectorAppModel }) 
                   pendingSignalCount={app.signals.filter((signal) => signal.inboxStatus === "unprocessed").length}
                   onNavigateToTopic={(topicId) => void app.onNavigateToTopic(topicId)}
                   onCreateTopic={() => void app.onCreateTopic()}
+                  onGoToCollect={() => void app.onNavigate("collect")}
                 />
               )}
             </WorkspaceSurface>
