@@ -385,7 +385,12 @@ test("buildProductSignalAnalyzerPrompt enforces evidence-specific workflow recip
   assert.match(prompt, /grounding/);
   assert.match(prompt, /AI 推斷/);
   assert.match(prompt, /交叉驗證原文/);
-  assert.match(prompt, /不能用一般知識補 API、webhook、參數或安裝步驟/);
+  assert.match(prompt, /原文觀察 → 機制推論/);
+  assert.match(prompt, /禁止脫離 ref 寫 AI、產品、工程通用原理/);
+  assert.match(prompt, /不得加入 ref 沒提到的 API、工具、角色/);
+  assert.match(prompt, /禁止只寫「資料品質、權限、整合成本、需人工檢查」這類套語/);
+  assert.match(prompt, /原文可見觀察/);
+  assert.doesNotMatch(prompt, /權限、整合或資料限制/);
 });
 
 test("buildProductSignalAnalyzerPrompt gives enough room and examples for technical understanding", () => {
@@ -396,6 +401,9 @@ test("buildProductSignalAnalyzerPrompt gives enough room and examples for techni
   assert.match(prompt, /不好的例子/);
   assert.match(prompt, /好的例子/);
   assert.match(prompt, /底層機制/);
+  assert.match(prompt, /通用課本解釋，跟 evidence 完全斷開/);
+  assert.match(prompt, /queenfian 說/);
+  assert.match(prompt, /不得寫通用 AI 原理/);
 });
 
 test("parseProductSignalAnalysisResponse keeps longer evidence explanations but caps task title to UI length", () => {
@@ -484,10 +492,10 @@ test("buildProductSignalAnalyzerPrompt includes local feedback examples only whe
   assert.doesNotMatch(promptWithoutExamples, /\[USER_FEEDBACK_EXAMPLES\]/);
 });
 
-test("PROMPT_VERSION + CACHE_VERSION are v11 (grounded technical explanations)", async () => {
+test("PROMPT_VERSION + CACHE_VERSION are v12 (evidence-grounded workflow notes)", async () => {
   const { PRODUCT_SIGNAL_ANALYSIS_CACHE_VERSION } = await import("../src/compare/product-signal-analysis.ts");
-  assert.equal(PRODUCT_SIGNAL_ANALYSIS_PROMPT_VERSION, "v11");
-  assert.equal(PRODUCT_SIGNAL_ANALYSIS_CACHE_VERSION, "v11");
+  assert.equal(PRODUCT_SIGNAL_ANALYSIS_PROMPT_VERSION, "v12");
+  assert.equal(PRODUCT_SIGNAL_ANALYSIS_CACHE_VERSION, "v12");
 });
 
 test("parseProductSignalAnalysisResponse rejects incomplete or fake score payloads", () => {

@@ -21,7 +21,7 @@ import type {
 } from "../state/types.ts";
 import type { ProductSignalPreferenceExample } from "./product-signal-history.ts";
 
-export const PRODUCT_SIGNAL_ANALYSIS_PROMPT_VERSION = "v11";
+export const PRODUCT_SIGNAL_ANALYSIS_PROMPT_VERSION = "v12";
 export const PRODUCT_SIGNAL_ANALYSIS_CACHE_VERSION = PRODUCT_SIGNAL_ANALYSIS_PROMPT_VERSION;
 
 export const PRODUCT_SIGNAL_ANALYSIS_JSON_SCHEMA = {
@@ -513,11 +513,11 @@ export function buildProductSignalAnalyzerPrompt(input: ProductSignalAnalyzerInp
     "- evidence_notes[*].why_it_matters：單句，<= 50 字，說明這條為什麼是該判斷的證據",
     "- evidence_notes[*].grounding：text_grounded | model_inferred | insufficient_detail。text_grounded = 原文明確提供工具、步驟與輸出；model_inferred = 技術概念可合理解釋但 recipe 仍依賴 AI 推斷，UI 會顯示「AI 推斷，請交叉驗證原文」；insufficient_detail = 原文不足以推導做法",
     "- evidence_notes[*].reusable_pattern：單句，<= 28 字，抽出可借用 workflow；不是分類名",
-    "- evidence_notes[*].why_it_works：1-2 句，<= 150 字；用跨領域讀者能懂的語言解釋底層機制，說明為什麼這個做法在技術上成立，不要只寫省時、提升效率或比較方便",
+    "- evidence_notes[*].why_it_works：<= 150 字；格式必須是「原文觀察 → 機制推論」。第一句指出該 evidence ref 的具體字眼、行為或結果。第二句只從這個觀察推導可複製機制。禁止脫離 ref 寫 AI、產品、工程通用原理。",
     "- evidence_notes[*].copyable_template：<= 70 字，寫成「輸入來源 -> Agent 處理 -> 交付物」的如何照抄模板；不能只是抽象描述，必須用 evidence 原文中出現的具體工具和步驟",
     "- evidence_notes[*].workflow_stack：0-6 個明確出現在該 evidence 原文的工具、資料來源或輸出位置；不要補不存在的工具",
-    "- evidence_notes[*].copy_recipe_markdown：<= 700 字的 numbered-step markdown recipe，格式 '1. 打開 X\\n2. 做 Y\\n3. 輸出 Z'；必須包含具體工具名、操作動詞、每步預期結果（不能只寫 Input/Process/Output 抽象標題）；只有 grounding=text_grounded 且 evidence 原文明確提供輸入、處理、輸出時才填；不能用一般知識補 API、webhook、參數或安裝步驟；quote 太短或缺任一環節就用空字串",
-    "- evidence_notes[*].tradeoff：單句，<= 50 字；寫明權限、資料品質、整合成本或不應過度推導的限制",
+    "- evidence_notes[*].copy_recipe_markdown：<= 700 字 numbered-step recipe；每步都要能對回 evidence 原文：用「原文動作 → 你要照做的動作 → 預期結果」寫；若 evidence 原文提到成效或意外收穫，必須寫進對應步驟的預期結果，不得發明原文沒有的 outcome；不得加入 ref 沒提到的 API、工具、角色；只有 grounding=text_grounded 才填；若 evidence 只說效果、沒有操作流程，填空字串",
+    "- evidence_notes[*].tradeoff：單句，<= 50 字；寫 evidence 的適用前提或缺口；格式偏向「原文只證明 X；缺少 Y 時效果未知」；禁止只寫「資料品質、權限、整合成本、需人工檢查」這類套語",
     "- agent_task_spec.task_title：<= 12 字，用於 UI 卡片 header；不是 task_prompt 的第一行",
     "",
     "判斷規則：",
@@ -535,14 +535,17 @@ export function buildProductSignalAnalyzerPrompt(input: ProductSignalAnalyzerInp
     "- evidence_notes 不只是引用理由；要把高技術含量留言拆成可學習的 workflow pattern，讓用戶知道可以 copy/改造哪個做法。",
     "- evidence_notes 必須是 evidence-specific，不要把 thread-level content_summary 複製到每條 evidence。",
     "- quote 太短時，不要硬擠 how-to；grounding 用 insufficient_detail，workflow_stack 用空陣列、copy_recipe_markdown 用空字串，tradeoff 寫「原文不足以推導完整做法」。",
-    "- 工具或組合方式不確定時，不要假裝知道作者的實作。why_it_works 只可寫一般機制並標 grounding=model_inferred；copy_recipe_markdown 用空字串，tradeoff 寫「AI 推斷，請交叉驗證原文」。",
+    "- 工具或組合方式不確定時，不要假裝知道作者的實作。why_it_works 仍必須先指出原文可見觀察，再用保守語氣推測機制並標 grounding=model_inferred；copy_recipe_markdown 用空字串，tradeoff 寫「AI 推斷，請交叉驗證原文」。",
     "- 輸出面向產品洞察，不要提 cluster、分群演算法或後端分析細節。",
     "- 產品功能比對：仔細讀 [PRODUCT_CONTEXT].currentCapabilities 和 coreWorkflows。如果 evidence 建議的做法已經是產品現有功能，experiment_hint 要改成「強化既有 X 功能」而非「新增 Y」，verdict 傾向 watch 而非 try。不要推薦產品已有的功能當作新實驗。",
     "",
     "技術理解示範（只學風格，不要照抄）：",
-    "- why_it_works 不好的例子：讓工具之間能互動，節省開發時間。",
-    "- why_it_works 好的例子：MCP 透過 stdio JSON-RPC 讓 host 動態發現 server 能力，不需要硬編碼每個 API；新工具加入時，host 只要讀取工具描述與參數 schema，就能把資料來源、處理步驟和輸出格式串起來。",
-    "- copy_recipe_markdown 好的例子：1. 在 MCP server 宣告可讀取的資料來源、工具名稱與參數 schema，預期 host 啟動時能 discovery。\\n2. 讓 agent 先列出可用工具，再選擇與任務相符的資料來源，預期降低猜 API 的風險。\\n3. 將工具結果輸出成 markdown brief，預期交付物同時包含來源、限制和下一步。",
+    "- why_it_works 不好的例子（禁止這樣寫）：AI 模型透過注意力機制處理輸入，當指令包含明確邊界條件與結構化指引時，能有效減少幻覺。（原因：這是通用課本解釋，跟 evidence 完全斷開）",
+    "- why_it_works 好的例子：queenfian 說「仔細描述同埋指引 outcome 正常同達標機率好多」— 這說明 prompt 精確度直接決定模型搜尋空間的寬度：描述越具體，模型能排除的錯誤路徑越多，命中率自然提高。",
+    "- copy_recipe_markdown 不好的例子（禁止這樣寫）：1. 輸入模糊業務場景。2. 使用 Agent 反問。3. 輸出結構化 Prompt。（原因：步驟看不出從哪條 evidence 來，等於通用教程）",
+    "- copy_recipe_markdown 好的例子：1. 根據作者的做法，把你的業務苦況寫成一段描述（參考 e4 的格式：場景 + 想要的 outcome）；預期 Agent 能立刻抓到你的目標而不是反問澄清。\\n2. 讓 Agent 反問補齊 1-2 個缺少的條件（e4 原文：梳理 1,2,3,4 點）；預期你在這步確認支持條件。\\n3. 輸出執行指令；預期格式包含明確角色、限制和一個可直接用的 Prompt。",
+    "- tradeoff 不好的例子（禁止這樣寫）：資料品質不足時效果有限，需人工審核。（原因：套語，跟 evidence 無關）",
+    "- tradeoff 好的例子：原文只證明高技術用戶（e4 queenfian）在有業務場景的前提下有效；缺乏業務描述習慣的用戶效果未知。",
     "",
     "[PRODUCT_CONTEXT]",
     JSON.stringify(input.productContext, null, 2),
@@ -584,11 +587,11 @@ export function buildProductSignalAnalyzerPrompt(input: ProductSignalAnalyzerInp
         why_it_matters: "繁中單句 <=50 字",
         grounding: "text_grounded|model_inferred|insufficient_detail",
         reusable_pattern: "可借用 workflow <=28 字",
-        why_it_works: "底層機制，<=150 字",
+        why_it_works: "原文觀察（作者說了 X）→ 機制推論（這說明 Y）；<=150 字；不得寫通用 AI 原理",
         copyable_template: "輸入來源 -> Agent 處理 -> 可交付輸出",
         workflow_stack: ["明確工具或資料來源"],
-        copy_recipe_markdown: "1. 具體工具/資料來源\n2. agent 處理方式\n3. 預期交付物",
-        tradeoff: "權限、整合或資料限制"
+        copy_recipe_markdown: "1. 對應原文動作 → 照做的動作 → 預期結果\n2. ...\n3. ...",
+        tradeoff: "原文只證明 X；缺少 Y 時效果未知（不得只寫套語）"
       }]
     }, null, 2)
   ].join("\n");
