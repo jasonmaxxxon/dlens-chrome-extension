@@ -87,7 +87,26 @@ test("ModeRail renders only the allowed archive-mode items when a custom rail is
   const collectIndex = html.indexOf('data-mode="collect"');
 
   assert.ok(libraryIndex >= 0);
-  assert.ok(libraryIndex < collectIndex);
+  assert.ok(collectIndex >= 0);
+  assert.ok(collectIndex < libraryIndex);
+});
+
+test("ModeRail keeps collect as the first topic-mode action", () => {
+  const html = renderToStaticMarkup(
+    React.createElement(ModeRail, {
+      activeMode: "collect",
+      modes: ["collect", "casebook", "inbox", "compare", "library"],
+      onSelect: () => undefined
+    })
+  );
+
+  const collectIndex = html.indexOf('data-mode="collect"');
+  const casebookIndex = html.indexOf('data-mode="casebook"');
+  const inboxIndex = html.indexOf('data-mode="inbox"');
+
+  assert.ok(collectIndex >= 0);
+  assert.ok(casebookIndex > collectIndex);
+  assert.ok(inboxIndex > casebookIndex);
 });
 
 test("ModeRail uses the design-system rail icon language", () => {

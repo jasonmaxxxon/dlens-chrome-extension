@@ -306,11 +306,11 @@ export const SCAN_ROW_HOVER_CSS = `
 type PrimaryWorkspaceMode = Exclude<WorkspaceMode, "result">;
 
 const PRIMARY_WORKSPACE_MODES: ReadonlyArray<{ key: PrimaryWorkspaceMode; label: string }> = [
+  { key: "collect", label: "採集" },
   { key: "casebook", label: "案例本" },
   { key: "inbox", label: "收件匣" },
   { key: "library", label: "資料庫" },
   { key: "compare", label: "比較" },
-  { key: "collect", label: "採集" },
   { key: "saved-signals", label: "訊號" },
   { key: "classification", label: "分類" },
   { key: "actionable-filter", label: "行動" },
@@ -395,7 +395,7 @@ export function WorkspaceShell({
         </div>
         <div style={{ display: "flex", alignItems: "center", gap: 10, fontFamily: tokens.font.sans, fontSize: 10, color: tokens.color.softInk, whiteSpace: "nowrap" }}>
           <span>VOL.1</span>
-          <span>NO.{mode === "result" ? "04" : mode === "compare" ? "03" : mode === "collect" ? "02" : mode === "settings" ? "05" : "01"}</span>
+          <span>NO.{mode === "collect" ? "01" : mode === "result" ? "04" : mode === "compare" ? "03" : mode === "settings" ? "05" : "02"}</span>
           <span>{new Intl.DateTimeFormat("en-US", { month: "short", day: "numeric" }).format(new Date())}</span>
           <span style={{ opacity: 0.5 }}>·</span>
           <span title="Folder: dlens-product-latest">v{BUILD_VERSION}</span>

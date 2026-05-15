@@ -15,7 +15,7 @@ export const PR_EVIDENCE_PAGES: ReadonlyArray<MainPage> = ["pr-evidence"];
 
 export const ALLOWED_PAGES: Record<FolderMode, MainPage[]> = {
   archive: ["library", "collect"],
-  topic: ["casebook", "inbox", "collect", "compare", "library"],
+  topic: ["collect", "casebook", "inbox", "compare", "library"],
   product: ["saved-signals", "classification", "actionable-filter", "collect"],
   "pr-evidence": ["pr-evidence", "collect"]
 };
