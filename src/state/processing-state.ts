@@ -3,6 +3,7 @@ import type { FolderMode, MainPage, PopupPage, SessionItem, SessionRecord } from
 export const DEFAULT_POPUP_WIDTH = 440;
 export const EXPANDED_COMPARE_POPUP_WIDTH = 560;
 export const PRODUCT_POPUP_WIDTH = 720;
+export const FIXED_POPUP_WIDTH = PRODUCT_POPUP_WIDTH;
 export const NETWORK_BATCH_SIZE = 3;
 
 export const PRODUCT_SIGNAL_PAGES: ReadonlyArray<MainPage> = [
@@ -32,14 +33,8 @@ export function guardPage(page: MainPage, mode: FolderMode): MainPage {
   return allowed.includes(page) ? page : allowed[0]!;
 }
 
-export function getPopupWidth(page: PopupPage): number {
-  if (isProductSignalPage(page) || isPrEvidencePage(page)) {
-    return PRODUCT_POPUP_WIDTH;
-  }
-  if (page === "compare" || page === "result") {
-    return EXPANDED_COMPARE_POPUP_WIDTH;
-  }
-  return DEFAULT_POPUP_WIDTH;
+export function getPopupWidth(_page: PopupPage): number {
+  return FIXED_POPUP_WIDTH;
 }
 
 export type WorkerStatus = "idle" | "draining";

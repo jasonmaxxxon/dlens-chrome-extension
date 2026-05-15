@@ -6,6 +6,7 @@ import {
   advancePopupWorkspaceState,
   DEFAULT_POPUP_WIDTH,
   EXPANDED_COMPARE_POPUP_WIDTH,
+  FIXED_POPUP_WIDTH,
   PRODUCT_POPUP_WIDTH,
   getPopupWidth,
   hasNearReadyItems,
@@ -147,15 +148,17 @@ test("resolveInitialPopupMode prefers compare, then library", () => {
   assert.equal(resolveInitialPopupMode(summarizeSessionProcessing(idleSession)), "library");
 });
 
-test("expanded compare/result popup width gives the reading page more room than the compact shell", () => {
+test("popup width constants now resolve to the fixed maximum workspace width", () => {
   assert.equal(DEFAULT_POPUP_WIDTH, 440);
   assert.equal(EXPANDED_COMPARE_POPUP_WIDTH, 560);
+  assert.equal(PRODUCT_POPUP_WIDTH, 720);
+  assert.equal(FIXED_POPUP_WIDTH, PRODUCT_POPUP_WIDTH);
 });
 
 test("PR Evidence pages use the wider product-grade workspace width", () => {
   assert.equal(PRODUCT_POPUP_WIDTH, 720);
   assert.equal(isPrEvidencePage("pr-evidence"), true);
-  assert.equal(getPopupWidth("pr-evidence"), PRODUCT_POPUP_WIDTH);
+  assert.equal(getPopupWidth("pr-evidence"), FIXED_POPUP_WIDTH);
 });
 
 test("getProcessingStripUiState uses compact compare-forward copy", () => {
@@ -314,21 +317,22 @@ test("getPollingDelayMs follows the shared coordinator rules and backoff", () =>
   assert.equal(getPollingDelayMs({ workerStatus: "idle", hasInflight: false, failureCount: 0 }), null);
 });
 
-test("popup width constants keep compare expanded while other pages stay compact", () => {
+test("popup width constants preserve the legacy width values for reference", () => {
   assert.equal(DEFAULT_POPUP_WIDTH, 440);
   assert.equal(EXPANDED_COMPARE_POPUP_WIDTH, 560);
   assert.equal(PRODUCT_POPUP_WIDTH, 720);
 });
 
-test("getPopupWidth widens product signal pages without affecting other modes", () => {
-  assert.equal(getPopupWidth("library"), DEFAULT_POPUP_WIDTH);
-  assert.equal(getPopupWidth("collect"), DEFAULT_POPUP_WIDTH);
-  assert.equal(getPopupWidth("settings"), DEFAULT_POPUP_WIDTH);
-  assert.equal(getPopupWidth("compare"), EXPANDED_COMPARE_POPUP_WIDTH);
-  assert.equal(getPopupWidth("result"), EXPANDED_COMPARE_POPUP_WIDTH);
-  assert.equal(getPopupWidth("saved-signals"), PRODUCT_POPUP_WIDTH);
-  assert.equal(getPopupWidth("classification"), PRODUCT_POPUP_WIDTH);
-  assert.equal(getPopupWidth("actionable-filter"), PRODUCT_POPUP_WIDTH);
+test("getPopupWidth uses the maximum width for every popup page", () => {
+  assert.equal(getPopupWidth("library"), FIXED_POPUP_WIDTH);
+  assert.equal(getPopupWidth("collect"), FIXED_POPUP_WIDTH);
+  assert.equal(getPopupWidth("settings"), FIXED_POPUP_WIDTH);
+  assert.equal(getPopupWidth("compare"), FIXED_POPUP_WIDTH);
+  assert.equal(getPopupWidth("result"), FIXED_POPUP_WIDTH);
+  assert.equal(getPopupWidth("saved-signals"), FIXED_POPUP_WIDTH);
+  assert.equal(getPopupWidth("classification"), FIXED_POPUP_WIDTH);
+  assert.equal(getPopupWidth("actionable-filter"), FIXED_POPUP_WIDTH);
+  assert.equal(getPopupWidth("pr-evidence"), FIXED_POPUP_WIDTH);
 });
 
 test("isProductSignalPage matches product mode signal pages only", () => {

@@ -387,10 +387,13 @@ test("buildProductSignalAnalyzerPrompt enforces evidence-specific workflow recip
   assert.match(prompt, /交叉驗證原文/);
   assert.match(prompt, /原文觀察 → 機制推論/);
   assert.match(prompt, /禁止脫離 ref 寫 AI、產品、工程通用原理/);
+  assert.match(prompt, /每步寫一句自然的操作指令/);
+  assert.match(prompt, /不得憑空加步驟/);
   assert.match(prompt, /不得加入 ref 沒提到的 API、工具、角色/);
   assert.match(prompt, /禁止只寫「資料品質、權限、整合成本、需人工檢查」這類套語/);
   assert.match(prompt, /原文可見觀察/);
   assert.doesNotMatch(prompt, /權限、整合或資料限制/);
+  assert.doesNotMatch(prompt, /對應原文動作 → 照做的動作 → 預期結果/);
 });
 
 test("buildProductSignalAnalyzerPrompt gives enough room and examples for technical understanding", () => {
@@ -492,10 +495,10 @@ test("buildProductSignalAnalyzerPrompt includes local feedback examples only whe
   assert.doesNotMatch(promptWithoutExamples, /\[USER_FEEDBACK_EXAMPLES\]/);
 });
 
-test("PROMPT_VERSION + CACHE_VERSION are v12 (evidence-grounded workflow notes)", async () => {
+test("PROMPT_VERSION + CACHE_VERSION are v13 (natural evidence-grounded recipes)", async () => {
   const { PRODUCT_SIGNAL_ANALYSIS_CACHE_VERSION } = await import("../src/compare/product-signal-analysis.ts");
-  assert.equal(PRODUCT_SIGNAL_ANALYSIS_PROMPT_VERSION, "v12");
-  assert.equal(PRODUCT_SIGNAL_ANALYSIS_CACHE_VERSION, "v12");
+  assert.equal(PRODUCT_SIGNAL_ANALYSIS_PROMPT_VERSION, "v13");
+  assert.equal(PRODUCT_SIGNAL_ANALYSIS_CACHE_VERSION, "v13");
 });
 
 test("parseProductSignalAnalysisResponse rejects incomplete or fake score payloads", () => {

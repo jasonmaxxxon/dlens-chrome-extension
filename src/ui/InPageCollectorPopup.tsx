@@ -1,4 +1,4 @@
-import type { MainPage, PopupPage } from "../state/types";
+import { createDefaultLayoutPreferences, type MainPage, type PopupPage } from "../state/types";
 import { CasebookView } from "./CasebookView";
 import { CompareSetupView } from "./CompareSetupView";
 import { CompareView } from "./CompareView";
@@ -17,6 +17,8 @@ import { getProcessingFailureMessage } from "../state/processing-errors";
 import { buildDateRangeLabel } from "./inpage-helpers";
 import { InPageCollectorFolderControls } from "./InPageCollectorFolderControls";
 import type { InPageCollectorAppModel } from "./useInPageCollectorAppState";
+
+const FIXED_LAYOUT_PREFERENCES = createDefaultLayoutPreferences();
 
 function shouldShowProcessingContextStrip(folderMode: string, page: PopupPage): boolean {
   if (folderMode === "product" || folderMode === "pr-evidence") {
@@ -159,7 +161,7 @@ export function InPageCollectorPopup({ app }: { app: InPageCollectorAppModel }) 
                   onOpenPair={(resultId) => void app.onOpenTopicPair(resultId, app.activeTopic!.id)}
                   onUpdateTopic={(patch) => void app.onUpdateTopic(patch)}
                   onSaveJudgmentOverride={(resultId, patch) => void app.onSaveJudgmentOverride(resultId, patch)}
-                  synthLayout={snapshot?.global.settings.layoutPreferences.topicSynthesisLayout}
+                  synthLayout={FIXED_LAYOUT_PREFERENCES.topicSynthesisLayout}
                 />
               ) : (
                 <CasebookView
@@ -239,7 +241,7 @@ export function InPageCollectorPopup({ app }: { app: InPageCollectorAppModel }) 
                 evidenceBySignalId={app.productSignalEvidenceById}
                 signalReadinessById={app.productSignalReadinessById}
                 aiProviderReady={app.productAiProviderReady}
-                cardLayout={snapshot?.global.settings.layoutPreferences.productSignalCardLayout}
+                cardLayout={FIXED_LAYOUT_PREFERENCES.productSignalCardLayout}
                 analysisError={app.productSignalAnalysisError}
                 analysisNotice={app.productSignalAnalysisNotice}
                 isAnalyzing={app.isAnalyzingProductSignals}
@@ -359,7 +361,7 @@ export function InPageCollectorPopup({ app }: { app: InPageCollectorAppModel }) 
                     activeResultId={app.activeSavedAnalysis?.resultId ?? null}
                     attachedTopicIds={attachedTopicIds}
                     onAttachToTopic={(topicId) => void app.onAttachActiveResultToTopic(topicId)}
-                    compareLayout={snapshot?.global.settings.layoutPreferences.compareResultLayout}
+                    compareLayout={FIXED_LAYOUT_PREFERENCES.compareResultLayout}
                     hideSelector
                   />
                 </div>
@@ -385,7 +387,6 @@ export function InPageCollectorPopup({ app }: { app: InPageCollectorAppModel }) 
                 draftOpenAiKey={app.draftOpenAiKey}
                 draftClaudeKey={app.draftClaudeKey}
                 draftGoogleKey={app.draftGoogleKey}
-                draftLayoutPreferences={app.draftLayoutPreferences}
                 draftProductProfile={app.draftProductProfile}
                 compiledProductContext={app.compiledProductContext}
                 settingsSaveStatus={app.settingsSaveStatus}
@@ -397,7 +398,6 @@ export function InPageCollectorPopup({ app }: { app: InPageCollectorAppModel }) 
                 onDraftOpenAiKeyChange={app.setDraftOpenAiKey}
                 onDraftClaudeKeyChange={app.setDraftClaudeKey}
                 onDraftGoogleKeyChange={app.setDraftGoogleKey}
-                onDraftLayoutPreferencesChange={app.onDraftLayoutPreferencesChange}
                 onDraftProductProfileChange={app.onDraftProductProfileChange}
                 onProductProfileSeedTextChange={app.setProductProfileSeedText}
                 onInitProductProfile={() => void app.onInitProductProfile()}

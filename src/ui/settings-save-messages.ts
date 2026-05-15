@@ -1,5 +1,5 @@
 import type { ExtensionMessage } from "../state/messages.ts";
-import type { ExtensionSettings, LayoutPreferences, ProductProfile, ProductProfileContextFile } from "../state/types.ts";
+import type { ExtensionSettings, ProductProfile, ProductProfileContextFile } from "../state/types.ts";
 
 export interface SettingsDraftValues {
   draftBaseUrl: string;
@@ -7,7 +7,6 @@ export interface SettingsDraftValues {
   draftOpenAiKey: string;
   draftClaudeKey: string;
   draftGoogleKey: string;
-  draftLayoutPreferences: LayoutPreferences;
   draftProductProfile: ProductProfile;
 }
 
@@ -61,7 +60,6 @@ export function buildSettingsSaveMessages({
   draftOpenAiKey,
   draftClaudeKey,
   draftGoogleKey,
-  draftLayoutPreferences,
   draftProductProfile
 }: SettingsDraftValues): ExtensionMessage[] {
   return [
@@ -75,10 +73,6 @@ export function buildSettingsSaveMessages({
       openaiApiKey: draftOpenAiKey,
       claudeApiKey: draftClaudeKey,
       googleApiKey: draftGoogleKey
-    },
-    {
-      type: "settings/set-layout-preferences",
-      layoutPreferences: draftLayoutPreferences
     },
     {
       type: "settings/set-product-profile",

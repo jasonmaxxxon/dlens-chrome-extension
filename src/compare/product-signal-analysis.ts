@@ -21,7 +21,7 @@ import type {
 } from "../state/types.ts";
 import type { ProductSignalPreferenceExample } from "./product-signal-history.ts";
 
-export const PRODUCT_SIGNAL_ANALYSIS_PROMPT_VERSION = "v12";
+export const PRODUCT_SIGNAL_ANALYSIS_PROMPT_VERSION = "v13";
 export const PRODUCT_SIGNAL_ANALYSIS_CACHE_VERSION = PRODUCT_SIGNAL_ANALYSIS_PROMPT_VERSION;
 
 export const PRODUCT_SIGNAL_ANALYSIS_JSON_SCHEMA = {
@@ -516,7 +516,7 @@ export function buildProductSignalAnalyzerPrompt(input: ProductSignalAnalyzerInp
     "- evidence_notes[*].why_it_works：<= 150 字；格式必須是「原文觀察 → 機制推論」。第一句指出該 evidence ref 的具體字眼、行為或結果。第二句只從這個觀察推導可複製機制。禁止脫離 ref 寫 AI、產品、工程通用原理。",
     "- evidence_notes[*].copyable_template：<= 70 字，寫成「輸入來源 -> Agent 處理 -> 交付物」的如何照抄模板；不能只是抽象描述，必須用 evidence 原文中出現的具體工具和步驟",
     "- evidence_notes[*].workflow_stack：0-6 個明確出現在該 evidence 原文的工具、資料來源或輸出位置；不要補不存在的工具",
-    "- evidence_notes[*].copy_recipe_markdown：<= 700 字 numbered-step recipe；每步都要能對回 evidence 原文：用「原文動作 → 你要照做的動作 → 預期結果」寫；若 evidence 原文提到成效或意外收穫，必須寫進對應步驟的預期結果，不得發明原文沒有的 outcome；不得加入 ref 沒提到的 API、工具、角色；只有 grounding=text_grounded 才填；若 evidence 只說效果、沒有操作流程，填空字串",
+    "- evidence_notes[*].copy_recipe_markdown：<= 700 字 numbered-step recipe；每步寫一句自然的操作指令，主動動詞開頭，說清楚做什麼、用什麼工具，句尾用分號補「預期你看到 X」；每步必須能在 evidence 原文找到對應的動作或描述，不得憑空加步驟；若 evidence 原文提到成效或意外收穫，寫進對應步驟的預期；不得加入 ref 沒提到的 API、工具、角色；只有 grounding=text_grounded 才填；若 evidence 只說效果、沒有操作流程，填空字串",
     "- evidence_notes[*].tradeoff：單句，<= 50 字；寫 evidence 的適用前提或缺口；格式偏向「原文只證明 X；缺少 Y 時效果未知」；禁止只寫「資料品質、權限、整合成本、需人工檢查」這類套語",
     "- agent_task_spec.task_title：<= 12 字，用於 UI 卡片 header；不是 task_prompt 的第一行",
     "",
@@ -590,7 +590,7 @@ export function buildProductSignalAnalyzerPrompt(input: ProductSignalAnalyzerInp
         why_it_works: "原文觀察（作者說了 X）→ 機制推論（這說明 Y）；<=150 字；不得寫通用 AI 原理",
         copyable_template: "輸入來源 -> Agent 處理 -> 可交付輸出",
         workflow_stack: ["明確工具或資料來源"],
-        copy_recipe_markdown: "1. 對應原文動作 → 照做的動作 → 預期結果\n2. ...\n3. ...",
+        copy_recipe_markdown: "1. 把你的業務場景寫成一段描述（參考作者的格式）；預期 Agent 能直接抓到目標。\n2. ...",
         tradeoff: "原文只證明 X；缺少 Y 時效果未知（不得只寫套語）"
       }]
     }, null, 2)
