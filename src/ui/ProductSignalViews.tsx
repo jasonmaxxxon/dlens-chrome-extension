@@ -1424,13 +1424,12 @@ function renderEmphasizedText(text: string): ReactNode[] {
 
 function SignalReadingProvenanceRow({
   sourceUrl,
-  sourceRefs,
   reading
 }: {
   sourceUrl: string;
-  sourceRefs: string[];
   reading?: SignalReading;
 }) {
+  const model = reading?.model || "";
   return (
     <div
       data-signal-reading-provenance="true"
@@ -1465,31 +1464,85 @@ function SignalReadingProvenanceRow({
         )}
       </span>
       <span
-        title={sourceRefs.length ? sourceRefs.join(" · ") : "none"}
-        style={{
-          minWidth: 0,
-          maxWidth: 220,
-          overflow: "hidden",
-          textOverflow: "ellipsis",
-          whiteSpace: "nowrap"
-        }}
+        data-signal-reading-model-hover="true"
+        title={model ? `模型：${model}` : "模型：unknown"}
+        style={{ color: tokens.color.softInk, cursor: model ? "help" : "default" }}
       >
-        Refs {sourceRefs.length ? sourceRefs.join(" · ") : "none"}
-      </span>
-      <span>Reading {reading ? reading.promptVersion : "尚未生成"}</span>
-      <span
-        title={reading?.model || "unknown"}
-        style={{
-          minWidth: 0,
-          maxWidth: 220,
-          overflow: "hidden",
-          textOverflow: "ellipsis",
-          whiteSpace: "nowrap"
-        }}
-      >
-        Model {reading?.model || "unknown"}
+        模型
       </span>
     </div>
+  );
+}
+
+function SignalReadingEvidenceDetails({ citations }: { citations: EvidenceCitation[] }) {
+  if (!citations.length) {
+    return null;
+  }
+
+  return (
+    <SmoothDetails
+      dataAttributes={{ "data-signal-reading-evidence": "true" }}
+      summary={
+        <span
+          style={{
+            display: "inline-flex",
+            alignItems: "center",
+            gap: 6,
+            color: tokens.color.product,
+            fontSize: 12,
+            fontWeight: 800
+          }}
+        >
+          查看原文留言 · {citations.length} 則
+        </span>
+      }
+      summaryStyle={{ padding: "2px 0", cursor: "pointer", letterSpacing: 0 }}
+    >
+      <div style={{ display: "grid", gap: 10, marginTop: 8 }}>
+        {citations.map((citation, index) => {
+          const text = citation.entry?.text?.trim() || citation.note?.quoteSummary || "";
+          return (
+            <div
+              key={citation.ref}
+              data-signal-reading-evidence-row="true"
+              style={{
+                display: "grid",
+                gap: 6,
+                paddingTop: index ? 10 : 0,
+                borderTop: index ? `1px solid ${tokens.color.line}` : undefined
+              }}
+            >
+              <div style={{ display: "flex", justifyContent: "space-between", gap: 10, flexWrap: "wrap", alignItems: "baseline" }}>
+                <span style={{ fontSize: 11.5, fontWeight: 800, color: tokens.color.softInk }}>
+                  {citation.ref} · {citation.entry?.author || "unknown"}
+                </span>
+                {citation.entry?.likeCount ? (
+                  <span style={{ fontSize: 11, color: tokens.color.softInk }}>{citation.entry.likeCount} likes</span>
+                ) : null}
+              </div>
+              <blockquote
+                style={{
+                  margin: 0,
+                  padding: "0 0 0 10px",
+                  borderLeft: `3px solid ${tokens.color.line}`,
+                  fontSize: 12.5,
+                  lineHeight: 1.65,
+                  color: tokens.color.subInk,
+                  overflowWrap: "anywhere"
+                }}
+              >
+                {text || "這條 evidence 只有 ref，沒有可顯示的原文。"}
+              </blockquote>
+              {citation.note?.whyItMatters ? (
+                <div style={{ fontSize: 11.5, lineHeight: 1.55, color: tokens.color.softInk }}>
+                  模型判讀：{citation.note.whyItMatters}
+                </div>
+              ) : null}
+            </div>
+          );
+        })}
+      </div>
+    </SmoothDetails>
   );
 }
 
@@ -1543,82 +1596,42 @@ function BriefFormatButton({
 }
 
 function SignalReadingMarginaliaPanel({
-  analysis,
-  reading,
-  sourceUrl
+  analysis
 }: {
   analysis: ProductSignalAnalysis;
-  reading?: SignalReading;
-  sourceUrl: string;
 }) {
   const verdictMeta = VERDICT_META[analysis.verdict];
   const typeMeta = SIGNAL_TYPE_META[analysis.signalType];
-  const refs = reading?.sourceRefs?.length ? reading.sourceRefs.join(" · ") : `${analysis.evidenceRefs.length} 則`;
 
   return (
     <div
       data-signal-reading-marginalia="true"
       style={{
         display: "grid",
-        gridTemplateColumns: "minmax(0, 1fr) 142px",
-        gap: 0,
-        overflow: "hidden",
-        border: `1px solid ${verdictMeta.color}`,
-        borderLeft: `5px solid ${verdictMeta.color}`,
-        borderRadius: tokens.radius.card,
-        background: `linear-gradient(90deg, ${verdictMeta.soft}, ${tokens.color.elevated} 68%)`
+        gap: 8,
+        padding: "2px 0 4px"
       }}
     >
-      <div style={{ display: "grid", gap: 10, padding: "13px 14px", minWidth: 0 }}>
-        <div style={{ display: "flex", gap: 7, flexWrap: "wrap", alignItems: "center" }}>
-          <ScorePill color={verdictMeta.color} soft={tokens.color.elevated}>{VERDICT_LABELS[analysis.verdict]}</ScorePill>
-          <ScorePill color={typeMeta.color} soft={tokens.color.elevated}>{typeMeta.label}</ScorePill>
-          <span style={{ ...textStyles.meta, color: tokens.color.subInk }}>{referenceTypeLabel(analysis.referenceType)}</span>
-        </div>
-        <div style={{ display: "grid", gap: 4 }}>
-          <div
-            data-signal-reading-reference-copy="full"
-            style={{
-              fontSize: 13.5,
-              lineHeight: 1.5,
-              color: tokens.color.ink,
-              fontWeight: 850,
-              overflowWrap: "anywhere"
-            }}
-          >
-            {referenceLabel(analysis)}
-          </div>
-          <div style={{ fontSize: 12.5, lineHeight: 1.55, color: tokens.color.subInk, ...lineClamp(2) }}>
-            {referenceTakeaway(analysis)}
-          </div>
-        </div>
+      <div style={{ display: "flex", gap: 7, flexWrap: "wrap", alignItems: "center" }}>
+        <ScorePill color={verdictMeta.color} soft={verdictMeta.soft}>{VERDICT_LABELS[analysis.verdict]}</ScorePill>
+        <ScorePill color={typeMeta.color} soft={typeMeta.soft}>{typeMeta.label}</ScorePill>
+        <span style={{ ...textStyles.meta, color: tokens.color.subInk }}>{referenceTypeLabel(analysis.referenceType)}</span>
       </div>
-      <aside
-        data-signal-reading-marginalia-rail="true"
+      <div
+        data-signal-reading-reference-copy="full"
         style={{
-          display: "grid",
-          alignContent: "start",
-          gap: 9,
-          padding: "13px 12px",
-          borderLeft: `1px solid ${tokens.color.line}`,
-          background: "rgba(255,255,255,0.22)"
+          fontSize: 14,
+          lineHeight: 1.5,
+          color: tokens.color.ink,
+          fontWeight: 850,
+          overflowWrap: "anywhere"
         }}
       >
-        <div style={{ display: "grid", gap: 2 }}>
-          <span style={{ fontSize: 10, color: tokens.color.softInk, fontWeight: 850, letterSpacing: "0.04em" }}>判斷</span>
-          <span style={{ fontSize: 19, lineHeight: 1.1, color: verdictMeta.color, fontWeight: 900, fontFamily: tokens.font.serifCjk }}>
-            {VERDICT_LABELS[analysis.verdict]}
-          </span>
-        </div>
-        <RelevanceBars score={analysis.relevance} tone="dark" />
-        <div style={{ display: "grid", gap: 4, fontSize: 11, lineHeight: 1.35, color: tokens.color.subInk }}>
-          <span><b style={{ color: tokens.color.ink }}>子型</b> {formatSubtype(analysis.signalSubtype)}</span>
-          <span><b style={{ color: tokens.color.ink }}>refs</b> {refs}</span>
-          <span title={sourceUrl} style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-            <b style={{ color: tokens.color.ink }}>source</b> {sourceUrl ? "link" : "local"}
-          </span>
-        </div>
-      </aside>
+        {referenceLabel(analysis)}
+      </div>
+      <div style={{ fontSize: 12.5, lineHeight: 1.6, color: tokens.color.subInk }}>
+        {referenceTakeaway(analysis)}
+      </div>
     </div>
   );
 }
@@ -1888,6 +1901,7 @@ function SignalReadingReviewWorkspace({
   signalReadings,
   signalPreviewById,
   signalUrlById,
+  evidenceBySignalId,
   briefMode,
   onBriefModeChange,
   onSynthesizeSignalReading,
@@ -1898,6 +1912,7 @@ function SignalReadingReviewWorkspace({
   signalReadings: SignalReading[];
   signalPreviewById: Record<string, string>;
   signalUrlById: Record<string, string>;
+  evidenceBySignalId: Record<string, ProductSignalEvidenceEntry[]>;
   briefMode: AgentBriefMode;
   onBriefModeChange: (mode: AgentBriefMode) => void;
   onSynthesizeSignalReading?: SynthesizeSignalReading;
@@ -1915,6 +1930,7 @@ function SignalReadingReviewWorkspace({
   const [composeOpen, setComposeOpen] = useState(false);
   const [reviewOverrides, setReviewOverrides] = useState<Record<string, SignalReadingReviewState>>({});
   const [reviewError, setReviewError] = useState<string | null>(null);
+  const [reviewNotice, setReviewNotice] = useState<string | null>(null);
   const [regeneratingSignalId, setRegeneratingSignalId] = useState<string | null>(null);
   const [copyStatus, setCopyStatus] = useState<AgentBriefCopyStatus>("idle");
   const readingsWithReview = signalReadings.map((reading) => {
@@ -1943,16 +1959,31 @@ function SignalReadingReviewWorkspace({
     signalPreviewById,
     signalUrlById
   });
+  const reviewNoticeForDecision = (decision: SignalReadingReviewDecision) => {
+    if (decision === "filed") {
+      return "已收錄到本機判讀庫，並加入下方 Brief Compose。";
+    }
+    if (decision === "deferred") {
+      return "已標記待看；這則判讀暫時不會進 Brief。";
+    }
+    return "已退回；這則判讀不會進 Brief。";
+  };
 
   const handleReview = (reading: SignalReading, decision: SignalReadingReviewDecision) => {
     setReviewError(null);
+    setReviewNotice(null);
     if (!onReviewSignalReading) {
       setReviewOverrides((current) => ({ ...current, [reading.cacheKey]: decision }));
+      setReviewNotice(reviewNoticeForDecision(decision));
       return;
     }
     void onReviewSignalReading(reading.cacheKey, decision).then((result) => {
       if (result.ok) {
-        setReviewOverrides((current) => ({ ...current, [reading.cacheKey]: signalReadingReviewState(result.signalReading) }));
+        const nextState = signalReadingReviewState(result.signalReading);
+        setReviewOverrides((current) => ({ ...current, [reading.cacheKey]: nextState }));
+        if (nextState !== "pending") {
+          setReviewNotice(reviewNoticeForDecision(nextState));
+        }
       } else {
         setReviewError(result.error);
       }
@@ -2036,6 +2067,16 @@ function SignalReadingReviewWorkspace({
         {reviewError ? (
           <div role="alert" style={mutedPanelStyle({ borderColor: tokens.color.queued, color: tokens.color.queued, fontSize: 12 })}>{reviewError}</div>
         ) : null}
+        {reviewNotice ? (
+          <div
+            data-signal-reading-review-notice="true"
+            role="status"
+            aria-live="polite"
+            style={mutedPanelStyle({ borderColor: tokens.color.success, color: tokens.color.success, fontSize: 12 })}
+          >
+            {reviewNotice}
+          </div>
+        ) : null}
         <div data-signal-reading-review-list-filter={selectedReviewFilter} style={{ display: "grid", gap: 10 }}>
           {visibleReviewSignals.length ? visibleReviewSignals.map((signal, index) => {
             const analysis = analysesBySignal.get(signal.id);
@@ -2049,7 +2090,7 @@ function SignalReadingReviewWorkspace({
             const typeMeta = analysis ? SIGNAL_TYPE_META[analysis.signalType] : null;
             const activeAccentColor = verdictMeta?.color || tokens.color.product;
             const sourceUrl = signalUrlById[signal.id] || reading?.sourcePacket?.postUrl || "";
-            const sourceRefs = reading?.sourceRefs?.length ? reading.sourceRefs : analysis?.evidenceRefs ?? [];
+            const evidenceCitations = analysis ? citationsForAnalysis(analysis, evidenceBySignalId) : [];
             const staleness = reading
               ? signalReadingStaleness(reading, SIGNAL_READING_PROMPT_VERSION)
               : { stale: false, reasons: [] };
@@ -2099,14 +2140,13 @@ function SignalReadingReviewWorkspace({
                 </button>
                 {isActive ? (
                   <div style={{ borderTop: `1px solid ${tokens.color.line}`, display: "grid", gap: 12, padding: "12px 14px 14px" }}>
-                    <SignalReadingProvenanceRow sourceUrl={sourceUrl} sourceRefs={sourceRefs} reading={reading} />
+                    <SignalReadingProvenanceRow sourceUrl={sourceUrl} reading={reading} />
                     {analysis ? (
                       <SignalReadingMarginaliaPanel
                         analysis={analysis}
-                        reading={reading}
-                        sourceUrl={sourceUrl}
                       />
                     ) : null}
+                    <SignalReadingEvidenceDetails citations={evidenceCitations} />
                     {staleness.stale ? (
                       <div style={{ ...mutedPanelStyle({ borderColor: tokens.color.queued, color: tokens.color.queued, fontSize: 12 }), display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10 }}>
                         <span>判讀建議重新生成：{signalReadingStalenessCopy(staleness)}。</span>
@@ -2126,8 +2166,12 @@ function SignalReadingReviewWorkspace({
                     </div>
                     {reading ? (
                       <div style={{ display: "flex", gap: 8, flexWrap: "wrap", alignItems: "center" }}>
-                        <PrimaryButton onClick={() => handleReview(reading, "filed")} style={{ padding: "7px 13px" }}>
-                          ✓ 收錄此判讀
+                        <PrimaryButton
+                          disabled={reviewState === "filed"}
+                          onClick={() => handleReview(reading, "filed")}
+                          style={{ padding: "7px 13px" }}
+                        >
+                          ✓ {reviewState === "filed" ? "已收錄" : "收錄此判讀"}
                         </PrimaryButton>
                         <SecondaryButton onClick={() => handleReview(reading, "deferred")} style={{ padding: "7px 13px" }}>
                           待看
@@ -2170,9 +2214,32 @@ function SignalReadingReviewWorkspace({
                 {filedReadings.map((reading) => analysesBySignal.get(reading.signalId)?.contentSummary || reading.signalId).join("、")}
               </span>
             </div>
-            <SecondaryButton onClick={() => setComposeOpen(true)} style={{ whiteSpace: "nowrap" }}>
-              預覽 Brief
-            </SecondaryButton>
+            <div data-signal-reading-brief-copy-bar="inline" style={{ display: "flex", alignItems: "center", gap: 8, flexShrink: 0 }}>
+              <span
+                data-signal-reading-brief-copy-status={copyStatus}
+                aria-live="polite"
+                role="status"
+                style={{
+                  minWidth: 48,
+                  fontSize: 11,
+                  fontWeight: 750,
+                  color: copyStatus === "copied" ? tokens.color.success : copyStatus === "error" ? tokens.color.queued : tokens.color.softInk,
+                  opacity: copyStatus === "idle" ? 0 : 1
+                }}
+              >
+                {copyStatusText}
+              </span>
+              <SecondaryButton onClick={() => setComposeOpen(true)} style={{ whiteSpace: "nowrap" }}>
+                預覽 Brief
+              </SecondaryButton>
+              <PrimaryButton
+                disabled={!filedReadings.length}
+                onClick={copyBrief}
+                style={{ padding: "7px 13px", whiteSpace: "nowrap" }}
+              >
+                複製 Brief
+              </PrimaryButton>
+            </div>
           </div>
         ) : (
           <>
@@ -2228,64 +2295,33 @@ function SignalReadingReviewWorkspace({
               >
                 {agentBrief}
               </pre>
+              <div data-signal-reading-brief-copy-bar="inline" style={{ display: "flex", alignItems: "center", justifyContent: "flex-end", gap: 8 }}>
+                <span
+                  data-signal-reading-brief-copy-status={copyStatus}
+                  aria-live="polite"
+                  role="status"
+                  style={{
+                    minWidth: 48,
+                    fontSize: 11,
+                    fontWeight: 750,
+                    color: copyStatus === "copied" ? tokens.color.success : copyStatus === "error" ? tokens.color.queued : tokens.color.softInk,
+                    opacity: copyStatus === "idle" ? 0 : 1
+                  }}
+                >
+                  {copyStatusText}
+                </span>
+                <PrimaryButton
+                  disabled={!filedReadings.length}
+                  onClick={copyBrief}
+                  style={{ padding: "7px 13px", whiteSpace: "nowrap" }}
+                >
+                  複製 Brief
+                </PrimaryButton>
+              </div>
             </div>
           </>
         )}
       </section>
-      <div
-        data-signal-reading-brief-copy-bar="inline"
-        style={{ paddingTop: 2 }}
-      >
-        <div style={{
-          display: "flex",
-          alignItems: "center",
-          justifyContent: "space-between",
-          gap: 10,
-          padding: "8px 10px",
-          border: `1px solid ${tokens.color.line}`,
-          borderRadius: tokens.radius.card,
-          background: tokens.color.elevated,
-          boxShadow: tokens.shadow.glass
-        }}>
-          <span
-            title={`${filedReadings.length} 則判讀已收錄，可複製給 coding agent`}
-            style={{
-              minWidth: 0,
-              flex: 1,
-              fontSize: 12,
-              color: tokens.color.subInk,
-              overflow: "hidden",
-              textOverflow: "ellipsis",
-              whiteSpace: "nowrap"
-            }}
-          >
-            {filedReadings.length} 已收錄，可複製給 agent
-          </span>
-          <div style={{ display: "flex", alignItems: "center", gap: 8, flexShrink: 0 }}>
-            <span
-              data-signal-reading-brief-copy-status={copyStatus}
-              aria-live="polite"
-              role="status"
-              style={{
-                minWidth: 48,
-                fontSize: 11,
-                fontWeight: 750,
-                color: copyStatus === "copied" ? tokens.color.success : copyStatus === "error" ? tokens.color.queued : tokens.color.softInk,
-                opacity: copyStatus === "idle" ? 0 : 1
-              }}
-            >
-              {copyStatusText}
-            </span>
-            <PrimaryButton
-              disabled={!filedReadings.length}
-              onClick={copyBrief}
-              style={{ padding: "7px 13px" }}
-            >
-              複製 Brief
-            </PrimaryButton>
-          </div>
-        </div>
-      </div>
     </div>
   );
 }
@@ -3481,6 +3517,7 @@ export function ProductSignalView({
                   signalReadings={safeSignalReadings}
                   signalPreviewById={signalPreviewById}
                   signalUrlById={signalUrlById}
+                  evidenceBySignalId={evidenceBySignalId}
                   briefMode={briefMode}
                   onBriefModeChange={setBriefMode}
                   onSynthesizeSignalReading={onSynthesizeSignalReading}
