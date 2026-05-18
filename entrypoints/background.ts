@@ -9,6 +9,7 @@ import {
 } from "../src/ingest/client";
 import type { CaptureSnapshot, CaptureTargetResponse, JobSnapshot } from "../src/contracts/ingest";
 import type { ExtensionMessage, ExtensionResponse, StartProcessingResponse, WorkerStatusMessageResponse } from "../src/state/messages";
+import { queueItemsSequential } from "../src/state/queue-items";
 import {
   buildCompareBriefCacheKey,
   buildDeterministicCompareBrief,
@@ -57,6 +58,7 @@ import {
   shouldAutoAnalyzeProductSignal
 } from "../src/compare/product-signal-analysis";
 import {
+  deleteProductSignalAnalysis,
   getProductSignalAnalysis,
   listProductSignalAnalyses,
   saveProductSignalAnalysis
@@ -76,8 +78,23 @@ import {
   generatePrCriteriaMatches,
   generatePrCriteriaSuggestions,
   generatePrSummaryDraft,
-  generateProductSignalAnalysis
+  generateProductSignalAnalysis,
+  generateSignalReading
 } from "../src/compare/provider";
+import {
+  buildExistingAnalysisSummary,
+  buildSourcePacketHash,
+  buildStoredSourcePacket,
+  SIGNAL_READING_PROMPT_VERSION,
+  type SignalReadingInput
+} from "../src/compare/signal-reading";
+import {
+  appendSignalReadingReview,
+  buildSignalReadingCacheKey,
+  getSignalReading,
+  listSignalReadings,
+  saveSignalReading
+} from "../src/compare/signal-reading-storage";
 import {
   buildDeterministicPrCriteria,
   buildDeterministicPrCriteriaMatches,
@@ -99,10 +116,12 @@ import {
   type TabUiState
 } from "../src/state/types";
 import {
+  activateSessionForMode,
   createSessionRecord,
   deleteSession,
   expireStaleInFlightItems,
   getActiveSession,
+  getSessionById,
   markSessionItemQueued,
   mergeItemRefreshResultsIntoGlobal,
   mergeRefreshResults,
@@ -115,8 +134,15 @@ import {
   updateSessionItem,
   type ItemRefreshResult
 } from "../src/state/store-helpers";
-import { ensureSignalForSavedItem, handleTopicMessage } from "../src/state/topic-handlers";
-import { loadSignals } from "../src/state/topic-storage";
+import { ensureSignalForSavedItem, ensureWorkspaceTopicForSession, handleTopicMessage } from "../src/state/topic-handlers";
+import { loadSignals, loadTopicById, loadTopics, saveTopic } from "../src/state/topic-storage";
+import { generateTopicSynthesis } from "../src/compare/topic-synthesis";
+import { generateFolderSynthesis } from "../src/compare/folder-synthesis";
+import {
+  clearFolderSynthesis,
+  loadFolderSynthesis,
+  saveFolderSynthesis
+} from "../src/compare/folder-synthesis-storage";
 import {
   loadActivePrCampaign,
   loadPrCampaigns,
@@ -1107,10 +1133,7 @@ async function createSession(tabId: number, name: string, saveCurrentPreview = f
   }
 
   let globalState = current.global;
-  const session = {
-    ...createSessionRecord(trimmed),
-    mode
-  };
+  const session = createSessionRecord(trimmed, new Date().toISOString(), mode);
   globalState = {
     ...globalState,
     sessions: [...globalState.sessions, session],
@@ -1307,6 +1330,22 @@ async function queueAllPending(tabId: number, sessionId?: string): Promise<Exten
   }
 
   return snapshot;
+}
+
+async function queueSessionItems(
+  tabId: number,
+  sessionId: string,
+  itemIds: string[]
+): Promise<{ snapshot: ExtensionSnapshot; queuedItemIds: string[]; failedItemIds: string[] }> {
+  const snapshot = await loadSnapshot(tabId);
+  return queueItemsSequential({
+    initialSnapshot: snapshot,
+    itemIds,
+    queueOne: async (itemId) => {
+      const result = await queueSessionItem(tabId, sessionId, itemId);
+      return result.snapshot;
+    }
+  });
 }
 
 async function refreshItem(
@@ -1769,18 +1808,7 @@ export default defineBackground(() => {
           case "session/set-mode": {
             const tabId = await resolveTabId(sender);
             const current = await loadSnapshot(tabId);
-            const global = {
-              ...current.global,
-              sessions: current.global.sessions.map((session) =>
-                session.id === message.sessionId
-                  ? {
-                      ...session,
-                      mode: message.mode,
-                      updatedAt: new Date().toISOString()
-                    }
-                  : session
-              )
-            };
+            const global = activateSessionForMode(current.global, message.mode);
             sendResponse({
               ok: true,
               tabId,
@@ -1801,13 +1829,133 @@ export default defineBackground(() => {
           case "topic/add-pair":
           case "topic/remove-pair":
           case "signal/list":
-          case "signal/triage": {
+          case "signal/triage":
+          case "signal/delete": {
             const tabId = await resolveTabId(sender);
             const topicResponse = await handleTopicMessage(chrome.storage.local, message);
+            if (message.type === "signal/delete") {
+              await deleteProductSignalAnalysis(chrome.storage.local, message.signalId);
+            }
             sendResponse({
               ok: true,
               tabId,
               ...topicResponse
+            } satisfies ExtensionResponse);
+            return;
+          }
+          case "topic/synthesis/generate": {
+            const tabId = await resolveTabId(sender);
+            const current = await loadSnapshot(tabId);
+            const topic = await loadTopicById(chrome.storage.local, message.topicId);
+            if (!topic) {
+              sendResponse({ ok: false, error: "Topic not found" } satisfies ExtensionResponse);
+              return;
+            }
+            const session = current.global.sessions.find((entry) => entry.id === topic.sessionId) ?? null;
+            const signals = await loadSignals(chrome.storage.local, topic.sessionId);
+            const topicSignals = signals.filter((signal) => topic.signalIds.includes(signal.id));
+            const itemsById = new Map((session?.items ?? []).map((item) => [item.id, item]));
+            const synthesis = generateTopicSynthesis({
+              totalSignalCount: topic.signalIds.length,
+              signals: topicSignals.map((signal) => ({
+                signal,
+                item: signal.itemId ? itemsById.get(signal.itemId) : undefined
+              })),
+              generatedAt: new Date().toISOString()
+            });
+            if (!synthesis) {
+              sendResponse({
+                ok: false,
+                error: "Need at least 2 analyzed signals to synthesize."
+              } satisfies ExtensionResponse);
+              return;
+            }
+            await saveTopic(chrome.storage.local, {
+              ...topic,
+              synthesis,
+              updatedAt: new Date().toISOString()
+            });
+            sendResponse({
+              ok: true,
+              tabId,
+              topics: await loadTopics(chrome.storage.local, topic.sessionId)
+            } satisfies ExtensionResponse);
+            return;
+          }
+          case "topic/synthesis/clear": {
+            const tabId = await resolveTabId(sender);
+            const topic = await loadTopicById(chrome.storage.local, message.topicId);
+            if (!topic) {
+              sendResponse({ ok: false, error: "Topic not found" } satisfies ExtensionResponse);
+              return;
+            }
+            await saveTopic(chrome.storage.local, {
+              ...topic,
+              synthesis: null,
+              updatedAt: new Date().toISOString()
+            });
+            sendResponse({
+              ok: true,
+              tabId,
+              topics: await loadTopics(chrome.storage.local, topic.sessionId)
+            } satisfies ExtensionResponse);
+            return;
+          }
+          case "folder/synthesis/get": {
+            const tabId = await resolveTabId(sender);
+            sendResponse({
+              ok: true,
+              tabId,
+              folderSynthesis: await loadFolderSynthesis(chrome.storage.local, message.sessionId)
+            } satisfies ExtensionResponse);
+            return;
+          }
+          case "folder/synthesis/generate": {
+            const tabId = await resolveTabId(sender);
+            const current = await loadSnapshot(tabId);
+            const session = current.global.sessions.find((entry) => entry.id === message.sessionId) ?? null;
+            if (!session) {
+              sendResponse({ ok: false, error: "Folder not found" } satisfies ExtensionResponse);
+              return;
+            }
+            const topics = await loadTopics(chrome.storage.local, message.sessionId);
+            const signals = await loadSignals(chrome.storage.local, message.sessionId);
+            const signalsByTopic = new Map<string, typeof signals>();
+            for (const topic of topics) {
+              signalsByTopic.set(topic.id, signals.filter((signal) => topic.signalIds.includes(signal.id)));
+            }
+            const itemsById = new Map(session.items.map((item) => [item.id, item]));
+            const synthesis = generateFolderSynthesis({
+              sessionId: message.sessionId,
+              topics: topics.map((topic) => ({
+                topic,
+                signals: signalsByTopic.get(topic.id) ?? []
+              })),
+              itemsById,
+              generatedAt: new Date().toISOString()
+            });
+            if (!synthesis) {
+              sendResponse({
+                ok: false,
+                error: "Need at least 3 analyzed signals spread across 2 topics."
+              } satisfies ExtensionResponse);
+              return;
+            }
+            await saveFolderSynthesis(chrome.storage.local, synthesis);
+            sendResponse({
+              ok: true,
+              tabId,
+              folderSynthesis: synthesis
+            } satisfies ExtensionResponse);
+            return;
+          }
+          case "folder/synthesis/clear": {
+            const tabId = await resolveTabId(sender);
+            await clearFolderSynthesis(chrome.storage.local, message.sessionId);
+            sendResponse({
+              ok: true,
+              tabId,
+              folderSynthesis: null
             } satisfies ExtensionResponse);
             return;
           }
@@ -1945,6 +2093,130 @@ export default defineBackground(() => {
             } satisfies ExtensionResponse);
             return;
           }
+          case "product/synthesize-signal-reading": {
+            const tabId = await resolveTabId(sender);
+            const global = await loadGlobalState();
+            const session = normalizeGlobalState(global).sessions.find((entry) => entry.id === message.sessionId) || null;
+            const signals = await loadSignals(chrome.storage.local, message.sessionId);
+            const signal = signals.find((entry) => entry.id === message.signalId) || null;
+            const item = session && signal?.itemId
+              ? session.items.find((entry) => entry.id === signal.itemId) || null
+              : null;
+            if (!session || !signal || !item) {
+              sendResponse({ ok: false, error: "找不到該 signal 或對應的貼文。" } satisfies ExtensionResponse);
+              return;
+            }
+            const productContext = await resolveProductContextForAnalysis({
+              cachedContext: await loadProductContext(),
+              productProfile: global.settings.productProfile,
+              allowMissingPrerequisites: true,
+              compileProductContext: () => compileProductContextIfReady(global)
+            });
+            if (!productContext) {
+              sendResponse({ ok: false, error: "尚未設定 ProductContext。請先在 Settings 完成產品設定。" } satisfies ExtensionResponse);
+              return;
+            }
+            const productContextHash = buildProductContextHash(productContext);
+            const analyzerInput = buildProductSignalAnalyzerInputFromCapture({
+              signalId: signal.id,
+              source: signal.source,
+              capture: item.latestCapture,
+              productContext,
+              productContextHash
+            });
+            if (!analyzerInput) {
+              sendResponse({ ok: false, error: "這則貼文還沒有可分析的內容。請先完成抓取。" } satisfies ExtensionResponse);
+              return;
+            }
+            const analysis = await getProductSignalAnalysis(chrome.storage.local, signal.id);
+            const replies = analyzerInput.discussionReplies;
+            const repRefs = analysis?.evidenceRefs?.length
+              ? analysis.evidenceRefs
+              : replies.slice(0, 5).map((_, index) => `e${index + 1}`);
+            const representativeComments = repRefs
+              .map((ref) => {
+                const index = Number(ref.replace(/^e/, "")) - 1;
+                const reply = replies[index];
+                return reply ? { ref, author: reply.author, text: reply.text } : null;
+              })
+              .filter((comment): comment is { ref: string; author: string; text: string } => comment !== null);
+            const readingInput: SignalReadingInput = {
+              signalId: signal.id,
+              assembledContent: analyzerInput.assembledContent,
+              postUrl: item.descriptor.post_url || item.descriptor.page_url || "",
+              representativeComments,
+              productContext,
+              productContextHash,
+              analysisPromptVersion: analysis?.promptVersion || "",
+              existingAnalysisSummary: analysis ? buildExistingAnalysisSummary(analysis) : ""
+            };
+            const sourcePacketHash = buildSourcePacketHash(readingInput);
+            const cacheKey = buildSignalReadingCacheKey({
+              signalId: signal.id,
+              productContextHash,
+              sourcePacketHash,
+              promptVersion: SIGNAL_READING_PROMPT_VERSION
+            });
+            const cached = await getSignalReading(chrome.storage.local, cacheKey);
+            if (cached && !message.force) {
+              sendResponse({ ok: true, tabId, signalReading: cached } satisfies ExtensionResponse);
+              return;
+            }
+            const providerConfig = providerKeyForRequest(global);
+            if (!providerConfig) {
+              sendResponse({ ok: false, error: "尚未設定 AI key。請先在 Settings 設定 Google / OpenAI / Claude key。" } satisfies ExtensionResponse);
+              return;
+            }
+            try {
+              const { reading, model } = await generateSignalReading(
+                providerConfig.provider,
+                providerConfig.apiKey,
+                readingInput
+              );
+              const saved = await saveSignalReading(chrome.storage.local, {
+                signalId: signal.id,
+                cacheKey,
+                productContextHash,
+                sourcePacketHash,
+                promptVersion: SIGNAL_READING_PROMPT_VERSION,
+                reading,
+                generatedAt: new Date().toISOString(),
+                model,
+                sourceRefs: readingInput.representativeComments.map((comment) => comment.ref),
+                sourcePacket: buildStoredSourcePacket(readingInput),
+                reviewState: "pending",
+                feedbackEvents: []
+              });
+              sendResponse({ ok: true, tabId, signalReading: saved } satisfies ExtensionResponse);
+            } catch (error) {
+              sendResponse({
+                ok: false,
+                error: error instanceof Error ? error.message : String(error)
+              } satisfies ExtensionResponse);
+            }
+            return;
+          }
+          case "product/list-signal-readings": {
+            const tabId = await resolveTabId(sender);
+            const signalReadings = await listSignalReadings(chrome.storage.local);
+            sendResponse({ ok: true, tabId, signalReadings } satisfies ExtensionResponse);
+            return;
+          }
+          case "product/review-signal-reading": {
+            const tabId = await resolveTabId(sender);
+            const updated = await appendSignalReadingReview(
+              chrome.storage.local,
+              message.cacheKey,
+              message.decision,
+              message.note
+            );
+            if (!updated) {
+              sendResponse({ ok: false, error: "找不到該判讀記錄。" } satisfies ExtensionResponse);
+              return;
+            }
+            sendResponse({ ok: true, tabId, signalReading: updated } satisfies ExtensionResponse);
+            return;
+          }
           case "session/save-current-preview": {
             const tabId = await resolveTabId(sender);
             sendResponse({
@@ -1991,6 +2263,18 @@ export default defineBackground(() => {
               ok: true,
               tabId,
               snapshot: await queueAllPending(tabId, message.sessionId)
+            } satisfies ExtensionResponse);
+            return;
+          }
+          case "session/queue-items": {
+            const tabId = await resolveTabId(sender);
+            const result = await queueSessionItems(tabId, message.sessionId, message.itemIds);
+            sendResponse({
+              ok: true,
+              tabId,
+              snapshot: result.snapshot,
+              queuedItemIds: result.queuedItemIds,
+              failedItemIds: result.failedItemIds
             } satisfies ExtensionResponse);
             return;
           }

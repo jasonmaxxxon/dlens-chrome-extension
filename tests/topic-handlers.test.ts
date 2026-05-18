@@ -2,8 +2,11 @@ import assert from "node:assert/strict";
 import test from "node:test";
 
 import { createSessionItem, createSessionRecord } from "../src/state/store-helpers.ts";
-import { ensureSignalForSavedItem, handleTopicMessage } from "../src/state/topic-handlers.ts";
+import { ensureSignalForSavedItem, ensureWorkspaceTopicForSession, handleTopicMessage } from "../src/state/topic-handlers.ts";
 import { loadSignals, loadTopics, SIGNALS_STORAGE_KEY, TOPICS_STORAGE_KEY } from "../src/state/topic-storage.ts";
+import { FOLDER_SYNTHESIS_STORAGE_KEY, loadFolderSynthesis, saveFolderSynthesis } from "../src/compare/folder-synthesis-storage.ts";
+import { FOLDER_SYNTHESIS_VERSION } from "../src/compare/folder-synthesis.ts";
+import type { FolderSynthesis } from "../src/state/types.ts";
 
 function createStorageArea(bucket: Record<string, unknown> = {}) {
   return {
@@ -49,6 +52,56 @@ test("ensureSignalForSavedItem creates one inbox signal for topic/product folder
   assert.equal(signals.length, 1);
   assert.equal(signals[0]?.itemId, item.id);
   assert.equal(signals[0]?.inboxStatus, "unprocessed");
+});
+
+test("ensureSignalForSavedItem assigns custom topic workspace saves to the same-named topic", async () => {
+  const storage = createStorageArea();
+  const session = createSessionRecord("work", "2026-04-23T08:00:00.000Z", "topic");
+  const item = createSessionItem(buildDescriptor("work-post-1"), "2026-04-23T08:00:00.000Z");
+
+  await ensureSignalForSavedItem(storage, session, item);
+
+  const topics = await loadTopics(storage, session.id);
+  const signals = await loadSignals(storage, session.id);
+  assert.equal(topics.length, 1);
+  assert.equal(topics[0]?.name, "work");
+  assert.deepEqual(topics[0]?.signalIds, [signals[0]?.id]);
+  assert.equal(signals[0]?.inboxStatus, "assigned");
+  assert.equal(signals[0]?.topicId, topics[0]?.id);
+});
+
+test("ensureWorkspaceTopicForSession repairs existing unprocessed signals into the workspace topic", async () => {
+  const session = createSessionRecord("work", "2026-04-23T08:00:00.000Z", "topic");
+  const storage = createStorageArea({
+    [SIGNALS_STORAGE_KEY]: [
+      {
+        id: "signal-1",
+        sessionId: session.id,
+        itemId: "item-1",
+        source: "threads",
+        inboxStatus: "unprocessed",
+        capturedAt: "2026-04-23T08:00:00.000Z"
+      },
+      {
+        id: "signal-2",
+        sessionId: session.id,
+        itemId: "item-2",
+        source: "threads",
+        inboxStatus: "unprocessed",
+        capturedAt: "2026-04-23T08:00:00.000Z"
+      }
+    ]
+  });
+
+  const topic = await ensureWorkspaceTopicForSession(storage, session);
+  const topics = await loadTopics(storage, session.id);
+  const signals = await loadSignals(storage, session.id);
+
+  assert.equal(topic?.name, "work");
+  assert.equal(topics.length, 1);
+  assert.deepEqual(topics[0]?.signalIds.sort(), ["signal-1", "signal-2"]);
+  assert.deepEqual(signals.map((signal) => signal.inboxStatus), ["assigned", "assigned"]);
+  assert.deepEqual(signals.map((signal) => signal.topicId), [topics[0]?.id, topics[0]?.id]);
 });
 
 test("ensureSignalForSavedItem skips archive folders", async () => {
@@ -181,4 +234,46 @@ test("handleTopicMessage unassigns every signal when deleting a topic", async ()
       ["signal-2", "unprocessed", undefined]
     ]
   );
+});
+
+test("signal/delete handler removes the signal, clears topic synthesis, and clears folder synthesis", async () => {
+  const fakeSynthesis: FolderSynthesis = {
+    sessionId: "session-1",
+    observations: [],
+    commonClusters: [],
+    memes: [],
+    verbalTechniques: [],
+    sentimentNarrative: "x",
+    topicCoverage: [],
+    generatedFromCount: 2,
+    totalSignalCount: 2,
+    contributingTopicCount: 2,
+    generatedAt: "2026-05-12T00:00:00.000Z",
+    generator: "deterministic",
+    generatorVersion: FOLDER_SYNTHESIS_VERSION
+  };
+
+  const storage = createStorageArea({
+    [TOPICS_STORAGE_KEY]: [
+      { id: "topic-1", sessionId: "session-1", name: "A", signalIds: ["signal-1", "signal-2"], pairIds: [] }
+    ],
+    [SIGNALS_STORAGE_KEY]: [
+      { id: "signal-1", sessionId: "session-1", source: "threads", inboxStatus: "assigned", topicId: "topic-1", capturedAt: "2026-05-12T00:00:00.000Z", suggestedTopicIds: [] },
+      { id: "signal-2", sessionId: "session-1", source: "threads", inboxStatus: "assigned", topicId: "topic-1", capturedAt: "2026-05-12T00:01:00.000Z", suggestedTopicIds: [] }
+    ],
+    [FOLDER_SYNTHESIS_STORAGE_KEY]: [fakeSynthesis]
+  });
+
+  await handleTopicMessage(storage, { type: "signal/delete", signalId: "signal-1" });
+
+  const signals = await loadSignals(storage, "session-1");
+  assert.equal(signals.length, 1);
+  assert.equal(signals[0]?.id, "signal-2");
+
+  const topics = await loadTopics(storage, "session-1");
+  assert.ok(topics[0]?.signalIds.every((id) => id !== "signal-1"), "signal-1 removed from topic");
+  assert.equal(topics[0]?.synthesis, null, "topic synthesis cleared");
+
+  const folderSynthesis = await loadFolderSynthesis(storage, "session-1");
+  assert.equal(folderSynthesis, null, "folder synthesis cleared after delete");
 });

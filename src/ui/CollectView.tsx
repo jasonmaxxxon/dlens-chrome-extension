@@ -52,17 +52,17 @@ export function CollectView({
   const isTopicMode = mode === "topic";
   const isPrEvidenceMode = mode === "pr-evidence";
   const isArchiveMode = mode === "archive";
-  const targetLabel = isPrEvidenceMode ? "PR evidence ledger" : isProductMode ? "產品訊號收件匣" : isTopicMode ? "Signal Inbox" : "資料庫";
-  const title = isPrEvidenceMode ? "快速收集，加入 PR evidence" : isProductMode ? "快速判斷，加入產品訊號" : isTopicMode ? "快速判斷，存入 Signal Inbox" : "快速判斷，存入資料庫";
+  const targetLabel = isPrEvidenceMode ? "PR evidence ledger" : isProductMode ? "產品訊號收件匣" : isTopicMode ? "主題" : "資料庫";
+  const title = isPrEvidenceMode ? "快速收集，加入 PR evidence" : isProductMode ? "快速判斷，加入產品訊號" : isTopicMode ? "快速採集，存入主題" : "快速判斷，存入資料庫";
   const deck = isProductMode
     ? "指向 Threads 貼文即可預覽，按下加入產品訊號收件匣。"
     : isPrEvidenceMode
       ? "指向已找到的 Threads 貼文即可預覽；儲存只建立 evidence row，不跑 AI。"
       : isTopicMode
-      ? "指向 Threads 貼文即可預覽，按下加入 Signal Inbox。"
+      ? "指向 Threads 貼文即可預覽，儲存後可在主題頁分配或追蹤。"
       : "指向 Threads 貼文即可預覽，按下存入資料庫。";
-  const savedCopy = isPrEvidenceMode ? "已加入 PR evidence" : isProductMode ? "已加入產品訊號" : isTopicMode ? "已加入 Signal Inbox" : "已儲存到資料庫";
-  const saveCopy = isPrEvidenceMode ? "加入 evidence row" : isProductMode ? "加入產品訊號" : isTopicMode ? "加入 Signal Inbox" : "儲存到資料庫";
+  const savedCopy = isPrEvidenceMode ? "已加入 PR evidence" : isProductMode ? "已加入產品訊號" : isTopicMode ? "已加入主題" : "已儲存到資料庫";
+  const saveCopy = isPrEvidenceMode ? "加入 evidence row" : isProductMode ? "加入產品訊號" : isTopicMode ? "加入主題" : "儲存到資料庫";
 
   return (
     <div style={viewRootStyle({ gap: tokens.spacing.md })}>
@@ -202,7 +202,7 @@ export function CollectView({
             </div>
           </div>
           <SecondaryButton onClick={onToggleCollectMode} style={{ padding: "8px 12px", fontSize: 11 }}>
-            {selectionMode ? "關閉" : "開啟"}
+            {selectionMode ? "關閉收集模式" : "開啟收集模式"}
           </SecondaryButton>
         </div>
 

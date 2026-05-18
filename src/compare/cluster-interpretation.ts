@@ -132,6 +132,21 @@ export function buildDeterministicClusterInterpretation(cluster: AnalysisCluster
   };
 }
 
+export function buildDeterministicClusterInterpretations(
+  request: CompareClusterSummaryRequest
+): ClusterInterpretation[] {
+  return request.clusters.map((cluster) => ({
+    ...buildDeterministicClusterInterpretation({
+      cluster_key: cluster.clusterKey,
+      size_share: cluster.sizeShare,
+      like_share: cluster.likeShare,
+      keywords: cluster.keywords
+    }),
+    captureId: cluster.captureId,
+    clusterKey: cluster.clusterKey
+  }));
+}
+
 export function pickClusterExampleEvidence(
   evidence: AnalysisEvidenceCommentSnapshot[],
   preferredEvidenceIds?: readonly string[] | null,

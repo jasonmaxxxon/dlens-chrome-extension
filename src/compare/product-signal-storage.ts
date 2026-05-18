@@ -2,7 +2,8 @@ import type {
   ProductAgentTaskSpec,
   ProductSignalAnalysis,
   ProductSignalEvidenceGrounding,
-  ProductSignalEvidenceNote
+  ProductSignalEvidenceNote,
+  ProductSignalReferenceType
 } from "../state/types.ts";
 
 export const PRODUCT_SIGNAL_ANALYSES_STORAGE_KEY = "dlens:v1:product-signal-analyses";
@@ -37,6 +38,17 @@ function readTargetAgent(value: unknown): ProductAgentTaskSpec["targetAgent"] | 
 
 function readEvidenceGrounding(value: unknown): ProductSignalEvidenceGrounding | null {
   return value === "text_grounded" || value === "model_inferred" || value === "insufficient_detail" ? value : null;
+}
+
+function readReferenceType(value: unknown): ProductSignalReferenceType | null {
+  return value === "product_reference"
+    || value === "technical_learning"
+    || value === "workflow_pattern"
+    || value === "market_language"
+    || value === "general_learning"
+    || value === "no_direct_fit"
+    ? value
+    : null;
 }
 
 function normalizeAgentTaskSpec(value: unknown): ProductAgentTaskSpec | null {
@@ -142,9 +154,17 @@ function normalizeProductSignalAnalysis(value: unknown): ProductSignalAnalysis |
     evidence_notes?: unknown;
     evidence_refs?: unknown;
     agent_task_spec?: unknown;
+    reference_type?: unknown;
+    reference_label?: unknown;
+    reference_takeaway?: unknown;
+    audience_gap?: unknown;
   };
   const agentTaskSpec = raw.verdict === "try" ? normalizeAgentTaskSpec(raw.agentTaskSpec ?? rawWithExtras.agent_task_spec) : null;
   const experimentHint = readTrimmedString(raw.experimentHint);
+  const referenceType = readReferenceType(raw.referenceType ?? rawWithExtras.reference_type);
+  const referenceLabel = readTrimmedString(raw.referenceLabel ?? rawWithExtras.reference_label).slice(0, 90);
+  const referenceTakeaway = readTrimmedString(raw.referenceTakeaway ?? rawWithExtras.reference_takeaway).slice(0, 180);
+  const audienceGap = readTrimmedString(raw.audienceGap ?? rawWithExtras.audience_gap).slice(0, 80);
   const whyNowRaw = readTrimmedString(raw.whyNow ?? rawWithExtras.why_now);
   const whyNow = (raw.verdict === "try" || raw.verdict === "watch") && whyNowRaw ? whyNowRaw : "";
   const validationMetricRaw = readTrimmedString(raw.validationMetric ?? rawWithExtras.validation_metric);
@@ -163,9 +183,13 @@ function normalizeProductSignalAnalysis(value: unknown): ProductSignalAnalysis |
     contentSummary,
     relevance: raw.relevance,
     relevantTo: readStringArray(raw.relevantTo) as ProductSignalAnalysis["relevantTo"],
+    ...(referenceType ? { referenceType } : {}),
+    ...(referenceLabel ? { referenceLabel } : {}),
+    ...(referenceTakeaway ? { referenceTakeaway } : {}),
     whyRelevant,
     verdict: raw.verdict,
     reason,
+    ...(audienceGap ? { audienceGap } : {}),
     ...(experimentHint ? { experimentHint } : {}),
     ...(whyNow ? { whyNow } : {}),
     ...(validationMetric ? { validationMetric } : {}),
@@ -228,6 +252,16 @@ export async function saveProductSignalAnalysis(
   };
   await storageArea.set({ [PRODUCT_SIGNAL_ANALYSES_STORAGE_KEY]: next });
   return next;
+}
+
+export async function deleteProductSignalAnalysis(
+  storageArea: StorageAreaLike,
+  signalId: string
+): Promise<void> {
+  const map = await readAnalysisMap(storageArea);
+  if (!(signalId in map)) return;
+  const { [signalId]: _removed, ...next } = map;
+  await storageArea.set({ [PRODUCT_SIGNAL_ANALYSES_STORAGE_KEY]: next });
 }
 
 export const productSignalStorageTestables = {

@@ -4,6 +4,7 @@ import type { CompareOneLinerRequest } from "../compare/one-liner";
 import type {
   ActiveAnalysisResult,
   ActiveCompareDraft,
+  FolderSynthesis,
   JudgmentResult,
   ProductAgentTaskFeedback,
   ProductSignalAnalysis,
@@ -17,6 +18,7 @@ import type {
   TriageAction,
   TechniqueReadingSnapshot
 } from "./types";
+import type { SignalReading } from "../compare/signal-reading-storage";
 import type { ClusterInterpretation, CompareClusterSummaryRequest } from "../compare/cluster-interpretation";
 import type { EvidenceAnnotation, EvidenceAnnotationRequest } from "../compare/evidence-annotation";
 import type { TargetDescriptor } from "../contracts/target-descriptor";
@@ -49,6 +51,7 @@ export type ExtensionMessage =
   | { type: "session/save-current-preview" }
   | { type: "session/select-item"; sessionId: string; itemId: string }
   | { type: "session/queue-item"; sessionId: string; itemId: string }
+  | { type: "session/queue-items"; sessionId: string; itemIds: string[] }
   | { type: "session/queue-selected" }
   | { type: "session/queue-all-pending"; sessionId?: string }
   | { type: "session/refresh-item"; sessionId: string; itemId: string }
@@ -70,8 +73,14 @@ export type ExtensionMessage =
   | { type: "topic/delete"; id: string }
   | { type: "topic/add-pair"; topicId: string; resultId: string }
   | { type: "topic/remove-pair"; topicId: string; resultId: string }
+  | { type: "topic/synthesis/generate"; topicId: string }
+  | { type: "topic/synthesis/clear"; topicId: string }
+  | { type: "folder/synthesis/get"; sessionId: string }
+  | { type: "folder/synthesis/generate"; sessionId: string }
+  | { type: "folder/synthesis/clear"; sessionId: string }
   | { type: "signal/list"; sessionId: string; status?: SignalInboxStatus }
   | { type: "signal/triage"; signalId: string; action: TriageAction }
+  | { type: "signal/delete"; signalId: string }
   | { type: "compare/set-active-draft"; draft: ActiveCompareDraft | null }
   | { type: "compare/set-active-result"; result: ActiveAnalysisResult | null }
   | { type: "judgment/start"; resultId: string }
@@ -80,6 +89,9 @@ export type ExtensionMessage =
   | { type: "product/list-agent-task-feedback" }
   | { type: "product/save-agent-task-feedback"; feedback: ProductAgentTaskFeedback }
   | { type: "product/get-context" }
+  | { type: "product/synthesize-signal-reading"; signalId: string; sessionId: string; force?: boolean }
+  | { type: "product/list-signal-readings" }
+  | { type: "product/review-signal-reading"; cacheKey: string; decision: "filed" | "deferred" | "rejected"; note?: string }
   | { type: "pr/list-campaigns"; sessionId: string }
   | { type: "pr/save-campaign"; campaign: PrCampaign }
   | { type: "pr/list-evidence-rows"; campaignId: string }
@@ -101,6 +113,8 @@ export type ExtensionSuccessResponse = {
   tabId?: number;
   snapshot?: ExtensionSnapshot;
   submit?: CaptureTargetResponse;
+  queuedItemIds?: string[];
+  failedItemIds?: string[];
   job?: JobSnapshot;
   capture?: CaptureSnapshot;
   compareBrief?: CompareBrief | null;
@@ -116,6 +130,8 @@ export type ExtensionSuccessResponse = {
   productContextError?: string | null;
   productSignalAnalyses?: ProductSignalAnalysis[];
   productAgentTaskFeedback?: ProductAgentTaskFeedback[];
+  signalReading?: SignalReading | null;
+  signalReadings?: SignalReading[];
   productSignalAnalysisSummary?: {
     queued: number;
     analyzed: number;
@@ -125,6 +141,7 @@ export type ExtensionSuccessResponse = {
   prEvidenceRows?: PrEvidenceRow[];
   prCriteria?: PrCriterion[];
   prSummary?: string;
+  folderSynthesis?: FolderSynthesis | null;
 };
 
 export type StartProcessingResponse =

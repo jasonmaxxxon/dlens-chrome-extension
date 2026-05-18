@@ -38,7 +38,15 @@ function avatarInitial(author: string | null | undefined): string {
   return clean.charAt(0).toUpperCase();
 }
 
-function PostMiniCard({ item, side }: { item: SessionItem | null | undefined; side: "A" | "B" }) {
+function PostMiniCard({
+  item,
+  side,
+  compact = false
+}: {
+  item: SessionItem | null | undefined;
+  side: "A" | "B";
+  compact?: boolean;
+}) {
   if (!item) return null;
 
   const accentColor = side === "A" ? AR.blue : AR.orange;
@@ -50,22 +58,24 @@ function PostMiniCard({ item, side }: { item: SessionItem | null | undefined; si
 
   return (
     <div
+      data-post-mini-density={compact ? "compact" : "standard"}
       style={{
         background: AR.canvas,
         borderRadius: tokens.radius.card,
-        padding: "9px 11px",
+        padding: compact ? "8px 10px" : "9px 11px",
         borderLeft: `3px solid ${accentColor}`,
         display: "flex",
         flexDirection: "column",
-        gap: 6,
+        gap: compact ? 5 : 6,
+        transition: "background 180ms ease, border-color 180ms ease, box-shadow 180ms ease",
       }}
     >
       {/* Author row */}
-      <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+      <div style={{ display: "flex", alignItems: "center", gap: compact ? 7 : 8 }}>
         <div
           style={{
-            width: 26,
-            height: 26,
+            width: compact ? 24 : 26,
+            height: compact ? 24 : 26,
             borderRadius: tokens.radius.card,
             background: accentColor,
             color: tokens.color.elevated,
@@ -79,7 +89,7 @@ function PostMiniCard({ item, side }: { item: SessionItem | null | undefined; si
           {avatarInitial(author)}
         </div>
         <div style={{ minWidth: 0, flex: 1 }}>
-          <div style={{ fontSize: 12, fontWeight: 700, color: AR.ink, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+          <div style={{ fontSize: compact ? 11.5 : 12, fontWeight: 700, color: AR.ink, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", letterSpacing: 0 }}>
             @{author}
           </div>
           {commentCount > 0 && (
@@ -107,11 +117,11 @@ function PostMiniCard({ item, side }: { item: SessionItem | null | undefined; si
       {snippet ? (
         <div
           style={{
-            fontSize: 11,
+            fontSize: compact ? 10.5 : 11,
             color: AR.softInk,
-            lineHeight: 1.5,
+            lineHeight: compact ? 1.45 : 1.5,
             display: "-webkit-box",
-            WebkitLineClamp: 2,
+            WebkitLineClamp: compact ? 1 : 2,
             WebkitBoxOrient: "vertical",
             overflow: "hidden",
           }}
@@ -152,6 +162,7 @@ function SelectorBlock({
   items,
   onChange,
   accentColor,
+  compact,
 }: {
   side: "A" | "B";
   label: string;
@@ -159,11 +170,12 @@ function SelectorBlock({
   items: SessionItem[];
   onChange: (itemId: string) => void;
   accentColor: string;
+  compact: boolean;
 }) {
   const selectedItem = value ? items.find((i) => i.id === value) : null;
 
   return (
-    <div style={{ display: "flex", flexDirection: "column", gap: 7 }}>
+    <div style={{ display: "flex", flexDirection: "column", gap: compact ? 6 : 7 }}>
       <div style={{ display: "flex", alignItems: "center", gap: 7 }}>
         <div
           style={{
@@ -188,11 +200,12 @@ function SelectorBlock({
           border: `1.5px solid ${value ? accentColor : AR.line}`,
           background: AR.card,
           color: AR.ink,
-          padding: "10px 12px",
+          padding: compact ? "9px 11px" : "10px 12px",
           fontSize: 13,
           fontWeight: 600,
           outline: "none",
           appearance: "auto",
+          transition: "border-color 180ms ease, background 180ms ease",
         }}
       >
         <option value="" disabled>選擇貼文…</option>
@@ -203,7 +216,7 @@ function SelectorBlock({
         ))}
       </select>
 
-      <PostMiniCard item={selectedItem} side={side} />
+      <PostMiniCard item={selectedItem} side={side} compact={compact} />
     </div>
   );
 }
@@ -219,11 +232,14 @@ export function CompareSetupView({
   onOpenResult,
   onReset
 }: CompareSetupViewProps) {
-  const openDisabled = teaserState !== "ready" || !teaser;
   const bothSelected = Boolean(selectedA && selectedB);
+  // Allow opening compare as soon as both A+B are selected — don't block on teaser readiness.
+  // The teaser is supplementary (brief preview). The result page loads the full analysis regardless.
+  const openDisabled = !bothSelected || teaserState === "loading";
 
   return (
     <div
+      data-compare-setup-stage="action-first"
       style={{
         padding: "14px 14px 24px",
         display: "flex",
@@ -245,14 +261,14 @@ export function CompareSetupView({
           border: `1px solid ${AR.line}`,
         }}
       >
-        <div style={{ fontSize: 11, fontWeight: 600, color: AR.muteInk, letterSpacing: 0, marginBottom: 2 }}>
+        <div style={{ fontSize: 10.5, fontWeight: 700, color: AR.muteInk, letterSpacing: 0, marginBottom: 2 }}>
           比較
         </div>
-        <div style={{ fontSize: 17, fontWeight: 700, color: AR.ink, letterSpacing: 0 }}>
+        <div style={{ fontSize: 18, fontWeight: 700, color: AR.ink, letterSpacing: 0, lineHeight: 1.25 }}>
           選擇兩篇貼文
         </div>
-        <div style={{ fontSize: 12, color: AR.softInk, marginTop: 3 }}>
-          選好後系統會自動預覽分析 teaser
+        <div style={{ fontSize: 12, color: AR.softInk, marginTop: 3, lineHeight: 1.55 }}>
+          先確認 A/B，再進完整分析；下方預覽只作輔助判斷。
         </div>
       </div>
 
@@ -266,7 +282,8 @@ export function CompareSetupView({
           boxShadow: "0 8px 24px rgba(15,23,42,0.04)",
           display: "flex",
           flexDirection: "column",
-          gap: 14,
+          gap: bothSelected ? 12 : 14,
+          transition: "gap 180ms ease, box-shadow 180ms ease",
         }}
       >
         <SelectorBlock
@@ -276,6 +293,7 @@ export function CompareSetupView({
           items={readyItems}
           onChange={onChangeA}
           accentColor={AR.blue}
+          compact={bothSelected}
         />
         {/* Divider */}
         <div style={{ height: 1, background: AR.line, margin: "0 -2px" }} />
@@ -286,13 +304,61 @@ export function CompareSetupView({
           items={readyItems}
           onChange={onChangeB}
           accentColor={AR.orange}
+          compact={bothSelected}
         />
       </div>
 
-      {/* Teaser card */}
-      {bothSelected ? (
+      {/* CTAs — always above fold */}
+      <div data-compare-cta-row="above-teaser" style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+        <button
+          type="button"
+          data-compare-primary-cta="true"
+          onClick={onOpenResult}
+          disabled={openDisabled}
+          style={{
+            width: "100%",
+            padding: "11px 0",
+            borderRadius: tokens.radius.card,
+            border: "none",
+            background: openDisabled ? AR.canvas : AR.blue,
+            color: openDisabled ? AR.muteInk : tokens.color.elevated,
+            fontSize: 14,
+            fontWeight: 600,
+            cursor: openDisabled ? "default" : "pointer",
+            letterSpacing: 0,
+            transition: "background 180ms ease, color 180ms ease, transform 180ms ease",
+          }}
+        >
+          {bothSelected && teaserState === "loading" ? "AI brief 生成中…" : "查看完整分析"}
+        </button>
+        {bothSelected ? (
+          <button
+            type="button"
+            onClick={onReset}
+            style={{
+              width: "100%",
+              padding: "9px 0",
+              borderRadius: tokens.radius.card,
+              border: `1px solid ${AR.line}`,
+              background: AR.card,
+              color: AR.ink,
+              fontSize: 13,
+              fontWeight: 600,
+              cursor: "pointer",
+              letterSpacing: 0,
+              transition: "border-color 180ms ease, background 180ms ease, color 180ms ease",
+            }}
+          >
+            重新選擇
+          </button>
+        ) : null}
+      </div>
+
+      {/* Teaser card — supplementary, scrollable */}
+      {bothSelected && (teaserState === "loading" || teaser) ? (
         <div
           data-compare-teaser-state={teaserState}
+          aria-busy={teaserState === "loading" ? "true" : undefined}
           style={{
             background: AR.card,
             borderRadius: tokens.radius.card,
@@ -302,6 +368,7 @@ export function CompareSetupView({
             display: "flex",
             flexDirection: "column",
             gap: 10,
+            transition: "opacity 220ms ease, transform 220ms ease",
           }}
         >
           <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
@@ -310,13 +377,13 @@ export function CompareSetupView({
               style={{
                 fontSize: 10,
                 fontWeight: 700,
-                color: teaserState === "ready" ? AR.blue : teaserState === "loading" ? AR.muteInk : AR.muteInk,
+                color: teaserState === "ready" ? AR.blue : AR.muteInk,
                 background: teaserState === "ready" ? "rgba(0,113,227,0.08)" : AR.canvas,
                 borderRadius: tokens.radius.sm,
                 padding: "2px 8px",
               }}
             >
-              {teaserState === "ready" ? "AI Brief" : teaserState === "loading" ? "生成中…" : "等待中"}
+              {teaserState === "ready" ? "AI Brief" : "生成中…"}
             </span>
           </div>
 
@@ -355,52 +422,9 @@ export function CompareSetupView({
               </div>
               <div style={{ fontSize: 10.5, color: AR.muteInk }}>{teaser.metadataLabel}</div>
             </div>
-          ) : (
-            <div style={{ fontSize: 12, color: AR.muteInk, lineHeight: 1.6 }}>
-              選好兩篇貼文後，teaser 會自動生成。
-            </div>
-          )}
+          ) : null}
         </div>
       ) : null}
-
-      {/* CTAs */}
-      <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-        <button
-          onClick={onOpenResult}
-          disabled={openDisabled}
-          style={{
-            width: "100%",
-            padding: "11px 0",
-            borderRadius: tokens.radius.card,
-            border: "none",
-            background: openDisabled ? AR.canvas : AR.blue,
-            color: openDisabled ? AR.muteInk : tokens.color.elevated,
-            fontSize: 14,
-            fontWeight: 600,
-            cursor: openDisabled ? "default" : "pointer",
-            letterSpacing: 0,
-          }}
-        >
-          查看完整分析
-        </button>
-        <button
-          onClick={onReset}
-          style={{
-            width: "100%",
-            padding: "9px 0",
-            borderRadius: tokens.radius.card,
-            border: `1px solid ${AR.line}`,
-            background: AR.card,
-            color: AR.ink,
-            fontSize: 13,
-            fontWeight: 600,
-            cursor: "pointer",
-            letterSpacing: 0,
-          }}
-        >
-          重新選擇
-        </button>
-      </div>
     </div>
   );
 }

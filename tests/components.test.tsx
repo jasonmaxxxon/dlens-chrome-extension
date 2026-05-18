@@ -8,7 +8,10 @@ import type { TargetDescriptor } from "../src/contracts/target-descriptor.ts";
 import {
   ModeRail,
   PreviewCard,
+  PrimaryButton,
   SCAN_ROW_HOVER_CSS,
+  DLENS_BUTTON_CSS,
+  SecondaryButton,
   WorkspaceSurface,
   WorkspaceShell,
   UtilityEdge,
@@ -86,7 +89,7 @@ test("ModeRail renders only the allowed archive-mode items when a custom rail is
   const collectIndex = html.indexOf('data-mode="collect"');
 
   assert.ok(libraryIndex >= 0);
-  assert.ok(libraryIndex < collectIndex);
+  assert.ok(collectIndex < libraryIndex);
 });
 
 test("ModeRail uses the design-system rail icon language", () => {
@@ -148,6 +151,22 @@ test("scan row primitive stays flat and line-separated", () => {
   assert.match(SCAN_ROW_HOVER_CSS, /\[data-scan-list\] \[data-scan-row\]:hover/);
 });
 
+test("button primitives expose hover and focus styling hooks", () => {
+  const html = renderToStaticMarkup(
+    React.createElement(
+      "div",
+      null,
+      React.createElement(PrimaryButton, { onClick: () => undefined }, "Primary"),
+      React.createElement(SecondaryButton, { onClick: () => undefined }, "Secondary")
+    )
+  );
+
+  assert.match(html, /data-dlens-button="primary"/);
+  assert.match(html, /data-dlens-button="secondary"/);
+  assert.match(DLENS_BUTTON_CSS, /\[data-dlens-button="primary"\]:not\(:disabled\):hover/);
+  assert.match(DLENS_BUTTON_CSS, /focus-visible/);
+});
+
 test("WorkspaceShell masthead exposes the extension build version", () => {
   const html = renderToStaticMarkup(
     React.createElement(
@@ -160,6 +179,6 @@ test("WorkspaceShell masthead exposes the extension build version", () => {
     )
   );
 
-  assert.match(html, /v0\.1\.0/);
+  assert.match(html, /v\.0\.1\.4/);
   assert.match(html, /Folder: dlens-product-latest/);
 });

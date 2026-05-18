@@ -4,6 +4,7 @@ import test from "node:test";
 import {
   buildCompareClusterSummaryPrompt,
   buildDeterministicClusterInterpretation,
+  buildDeterministicClusterInterpretations,
   pickClusterExampleEvidence,
   parseCompareClusterSummaryResponse,
   type CompareClusterSummaryRequest
@@ -61,6 +62,15 @@ test("buildDeterministicClusterInterpretation avoids weak generic labels", () =>
 
   assert.doesNotMatch(interpretation.label, /^general$/i);
   assert.doesNotMatch(interpretation.oneLiner, /圍繞「general」/i);
+});
+
+test("buildDeterministicClusterInterpretations keeps request capture ids and cluster keys", () => {
+  const interpretations = buildDeterministicClusterInterpretations(buildRequest());
+
+  assert.equal(interpretations.length, 1);
+  assert.equal(interpretations[0]?.captureId, "cap-a");
+  assert.equal(interpretations[0]?.clusterKey, 3);
+  assert.ok(interpretations[0]?.label.length > 0);
 });
 
 test("buildCompareClusterSummaryPrompt includes observation and reading in output spec", () => {

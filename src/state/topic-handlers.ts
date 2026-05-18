@@ -1,6 +1,8 @@
 import type { ExtensionMessage, ExtensionSuccessResponse } from "./messages";
 import type { SessionItem, SessionRecord, Signal, Topic } from "./types";
+import { DEFAULT_SESSION_NAME_BY_MODE, getSessionDisplayName } from "./store-helpers";
 import {
+  deleteSignal,
   deleteTopic,
   loadSignals,
   loadTopics,
@@ -14,6 +16,7 @@ import {
   TOPICS_STORAGE_KEY,
   triageSignal
 } from "./topic-storage";
+import { clearFolderSynthesis } from "../compare/folder-synthesis-storage";
 
 type TopicHandlerMessage = Extract<
   ExtensionMessage,
@@ -25,12 +28,17 @@ type TopicHandlerMessage = Extract<
   | { type: "topic/remove-pair" }
   | { type: "signal/list" }
   | { type: "signal/triage" }
+  | { type: "signal/delete" }
 >;
 
 type TopicHandlerResult = Pick<ExtensionSuccessResponse, "topics" | "signals">;
 
 function createId(prefix: string): string {
   return `${prefix}_${Math.random().toString(36).slice(2, 10)}_${Date.now().toString(36)}`;
+}
+
+function isWorkspaceNamedTopic(session: SessionRecord): boolean {
+  return session.mode === "topic" && getSessionDisplayName(session) !== DEFAULT_SESSION_NAME_BY_MODE.topic;
 }
 
 async function readAllTopics(storageArea: StorageAreaLike): Promise<Topic[]> {
@@ -89,6 +97,63 @@ export async function ensureSignalForSavedItem(
     suggestedTopicIds: [],
     capturedAt: new Date().toISOString()
   });
+  await ensureWorkspaceTopicForSession(storageArea, session);
+}
+
+export async function ensureWorkspaceTopicForSession(
+  storageArea: StorageAreaLike,
+  session: SessionRecord
+): Promise<Topic | null> {
+  if (!isWorkspaceNamedTopic(session)) {
+    return null;
+  }
+
+  const now = new Date().toISOString();
+  const topicName = getSessionDisplayName(session);
+  const topics = await loadTopics(storageArea, session.id);
+  const existingTopic = topics.find((topic) => topic.name.trim().toLowerCase() === topicName.trim().toLowerCase()) ?? null;
+  const signals = await loadSignals(storageArea, session.id);
+  const assignableSignals = signals.filter((signal) => signal.inboxStatus === "unprocessed" || signal.topicId === existingTopic?.id);
+  const topic = existingTopic ?? {
+    id: createId("topic"),
+    sessionId: session.id,
+    name: topicName,
+    description: "由同名 Topic workspace 自動建立。",
+    status: "watching" as const,
+    tags: [],
+    signalIds: [],
+    pairIds: [],
+    createdAt: now,
+    updatedAt: now
+  };
+  const nextSignalIds = Array.from(new Set([
+    ...topic.signalIds,
+    ...assignableSignals.map((signal) => signal.id)
+  ]));
+
+  await saveTopic(storageArea, {
+    ...topic,
+    signalIds: nextSignalIds,
+    updatedAt: now
+  });
+
+  const reassignedSignals = assignableSignals
+    .filter((signal) => signal.topicId !== topic.id || signal.inboxStatus !== "assigned")
+    .map((signal) => ({
+      ...signal,
+      inboxStatus: "assigned" as const,
+      topicId: topic.id,
+      triagedAt: now
+    }));
+  if (reassignedSignals.length) {
+    await saveSignals(storageArea, reassignedSignals);
+  }
+
+  return {
+    ...topic,
+    signalIds: nextSignalIds,
+    updatedAt: now
+  };
 }
 
 export async function handleTopicMessage(
@@ -198,6 +263,19 @@ export async function handleTopicMessage(
         throw new Error("Signal not found");
       }
       await triageSignal(storageArea, storageArea, message.signalId, message.action, signal.sessionId);
+      return {
+        signals: await loadSignals(storageArea, signal.sessionId),
+        topics: await loadTopics(storageArea, signal.sessionId)
+      };
+    }
+    case "signal/delete": {
+      const signals = await readAllSignals(storageArea);
+      const signal = signals.find((entry) => entry.id === message.signalId);
+      if (!signal) {
+        throw new Error("Signal not found");
+      }
+      await deleteSignal(storageArea, storageArea, message.signalId);
+      await clearFolderSynthesis(storageArea, signal.sessionId);
       return {
         signals: await loadSignals(storageArea, signal.sessionId),
         topics: await loadTopics(storageArea, signal.sessionId)

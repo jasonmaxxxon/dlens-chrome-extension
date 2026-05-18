@@ -5,16 +5,19 @@ import type { CaptureSnapshot, JobSnapshot } from "../src/contracts/ingest.ts";
 import type { TargetDescriptor } from "../src/contracts/target-descriptor.ts";
 import { createEmptyGlobalState } from "../src/state/types.ts";
 import {
+  activateSessionForMode,
   createSessionRecord,
   createSessionItem,
   deleteSession,
   expireStaleInFlightItems,
+  getSessionDisplayName,
   markSessionItemQueued,
   mergeItemRefreshResultsIntoGlobal,
   mergeRefreshResults,
   needsCaptureRefresh,
   reconcileSessionItem,
   saveDescriptorToSession,
+  sessionNameForModeChange,
   setActiveSession,
   updateSessionItem
 } from "../src/state/store-helpers.ts";
@@ -46,6 +49,54 @@ function buildDescriptor(overrides: Partial<TargetDescriptor> = {}): TargetDescr
     ...overrides
   };
 }
+
+test("session display name follows mode when an old default workspace name leaked across modes", () => {
+  assert.equal(
+    getSessionDisplayName({ name: "Product workspace", mode: "topic" }),
+    "Topic workspace"
+  );
+  assert.equal(
+    getSessionDisplayName({ name: "PR Evidence workspace", mode: "topic" }),
+    "Topic workspace"
+  );
+  assert.equal(
+    getSessionDisplayName({ name: "Client launch", mode: "topic" }),
+    "Client launch"
+  );
+});
+
+test("sessionNameForModeChange only replaces generated default workspace names", () => {
+  assert.equal(
+    sessionNameForModeChange({ name: "Product workspace", mode: "product" }, "topic"),
+    "Topic workspace"
+  );
+  assert.equal(
+    sessionNameForModeChange({ name: "Client launch", mode: "product" }, "topic"),
+    "Client launch"
+  );
+});
+
+test("activateSessionForMode switches to a separate mode session instead of mutating the active session", () => {
+  const productSession = createSessionRecord("Product workspace", "2026-05-08T04:00:00.000Z", "product");
+  productSession.items.push(createSessionItem(buildDescriptor({ post_url: "https://threads.net/@a/post/product" })));
+  const globalState = {
+    ...createEmptyGlobalState(),
+    sessions: [productSession],
+    activeSessionId: productSession.id
+  };
+
+  const topicState = activateSessionForMode(globalState, "topic");
+  const createdTopic = topicState.sessions.find((session) => session.mode === "topic");
+
+  assert.ok(createdTopic);
+  assert.equal(topicState.activeSessionId, createdTopic.id);
+  assert.equal(createdTopic.items.length, 0);
+  assert.equal(topicState.sessions.find((session) => session.id === productSession.id)?.mode, "product");
+  assert.equal(topicState.sessions.find((session) => session.id === productSession.id)?.items.length, 1);
+
+  const backToProduct = activateSessionForMode(topicState, "product");
+  assert.equal(backToProduct.activeSessionId, productSession.id);
+});
 
 function buildJob(overrides: Partial<JobSnapshot> = {}): JobSnapshot {
   return {
@@ -320,6 +371,17 @@ test("needsCaptureRefresh stays true after crawl success until analysis snapshot
     })
   );
   assert.equal(needsCaptureRefresh(analysisSucceeded), false);
+});
+
+test("needsCaptureRefresh keeps stale-timeout failures recoverable", () => {
+  const item = createSessionItem(buildDescriptor(), "2026-03-24T07:22:21.000Z");
+  item.status = "failed";
+  item.captureId = "cap-stale";
+  item.jobId = "job-stale";
+  item.lastErrorKind = "stale_timeout";
+  item.lastError = "No backend status update for over 5 minutes while waiting on backend. Retry from Library.";
+
+  assert.equal(needsCaptureRefresh(item), true);
 });
 
 test("expireStaleInFlightItems marks stale queued work as failed while leaving fresh work alone", () => {

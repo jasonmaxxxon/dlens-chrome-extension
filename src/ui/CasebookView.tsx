@@ -1,105 +1,131 @@
 import { useEffect, useMemo, useState } from "react";
 
-import type { Topic, TopicStatus } from "../state/types.ts";
-import { Kicker, ModeHeader, PrimaryButton, SCAN_ROW_HOVER_CSS, Stamp, WorkspaceSurface, lineClamp, scanRowStyle, viewRootStyle } from "./components.tsx";
+import { getItemReadinessStatus, type ItemReadinessStatus } from "../state/processing-state.ts";
+import type { SavedAnalysisSnapshot, SessionItem, Signal, Topic, TopicStatus, TriageAction } from "../state/types.ts";
+import { Kicker, SCAN_ROW_HOVER_CSS, SecondaryButton, Stamp, WorkspaceSurface, lineClamp, scanRowStyle, viewRootStyle } from "./components.tsx";
 import { tokens } from "./tokens.ts";
 
 type CasebookFilter = "all" | TopicStatus;
+type TopicItemAnalysisState = ItemReadinessStatus | "queued";
 
 interface CasebookViewProps {
   sessionId: string;
   onNavigateToTopic: (topicId: string) => void;
   onCreateTopic: () => void;
   initialTopics?: Topic[];
+  signals?: Signal[];
+  initialUnassignedOpen?: boolean;
+  signalPreviewById?: Record<string, string>;
+  sessionItems?: SessionItem[];
+  savedAnalyses?: SavedAnalysisSnapshot[];
   pendingSignalCount?: number;
+  onSignalTriaged?: (signalId: string, action: TriageAction) => void;
+  onQueueItemById?: (itemId: string) => void;
+  optimisticQueuedItemIds?: ReadonlyArray<string>;
+  onOpenAnalysis?: (resultId: string) => void;
+  onAddToCompare?: (itemId: string) => void;
 }
 
-const FILTERS: Array<{ key: CasebookFilter; label: string }> = [
-  { key: "all", label: "全部" },
-  { key: "pending", label: "待核" },
-  { key: "watching", label: "觀察" },
-  { key: "learning", label: "學習" },
-  { key: "testing", label: "測試" },
-  { key: "archived", label: "已歸檔" }
-];
-
 function readTopicsFromResponse(response: unknown): Topic[] {
-  if (!response || typeof response !== "object") {
-    return [];
-  }
+  if (!response || typeof response !== "object") return [];
   const raw = (response as { topics?: unknown[] }).topics;
   return Array.isArray(raw) ? (raw as Topic[]) : [];
 }
 
+function readSignalsFromResponse(response: unknown): Signal[] {
+  if (!response || typeof response !== "object") return [];
+  const raw = (response as { signals?: unknown[] }).signals;
+  return Array.isArray(raw) ? (raw as Signal[]) : [];
+}
+
 function statusTone(status: TopicStatus): "neutral" | "accent" | "success" | "warning" {
   switch (status) {
-    case "watching":
-      return "accent";
-    case "learning":
-      return "success";
-    case "testing":
-      return "warning";
+    case "watching": return "accent";
+    case "learning": return "success";
+    case "testing": return "warning";
+    case "archived": return "neutral";
+    default: return "warning";
+  }
+}
+
+function signalStatusLabel(signal: Signal): string {
+  switch (signal.inboxStatus) {
+    case "assigned": return "已分配";
+    case "archived": return "已歸檔";
+    case "rejected": return "已略過";
+    default: return "未分配";
+  }
+}
+
+function signalStatusTone(signal: Signal): "neutral" | "accent" | "success" | "warning" {
+  switch (signal.inboxStatus) {
+    case "assigned": return "success";
     case "archived":
-      return "neutral";
-    default:
-      return "warning";
+    case "rejected": return "neutral";
+    default: return "warning";
+  }
+}
+
+function getTopicItemAnalysisState(
+  item: SessionItem | undefined,
+  optimisticQueuedSet?: Set<string>
+): TopicItemAnalysisState | undefined {
+  if (!item) return undefined;
+  if (optimisticQueuedSet?.has(item.id)) return "queued";
+  if (item.status === "queued") return "queued";
+  return getItemReadinessStatus(item);
+}
+
+function analysisStateLabel(status: TopicItemAnalysisState | undefined): string {
+  switch (status) {
+    case "ready": return "已分析";
+    case "analyzing": return "分析中";
+    case "crawling": return "捕捉中";
+    case "queued": return "排隊中";
+    case "failed": return "分析失敗";
+    default: return "未分析";
+  }
+}
+
+function analysisStateTone(status: TopicItemAnalysisState | undefined): "neutral" | "accent" | "success" | "warning" {
+  switch (status) {
+    case "ready": return "success";
+    case "analyzing":
+    case "crawling":
+    case "queued": return "accent";
+    case "failed": return "warning";
+    default: return "neutral";
   }
 }
 
 function formatUpdatedAt(value: string): string {
-  if (!value || value.startsWith("1970-01-01")) {
-    return "剛建立";
-  }
-  return new Intl.DateTimeFormat("zh-HK", { month: "numeric", day: "numeric" }).format(new Date(value));
+  if (!value || value.startsWith("1970-01-01")) return "剛建立";
+  return new Intl.DateTimeFormat("zh-HK", { month: "long", day: "numeric" }).format(new Date(value));
+}
+
+function formatCapturedAt(value: string): string {
+  if (!value || value.startsWith("1970-01-01")) return "剛加入";
+  return new Intl.DateTimeFormat("zh-HK", { month: "numeric", day: "numeric", hour: "numeric", minute: "2-digit" }).format(new Date(value));
+}
+
+function sourceLabel(source: Signal["source"]): string {
+  return source === "threads" ? "Threads" : source;
+}
+
+function previewText(signalId: string, previews: Record<string, string>): string {
+  return previews[signalId] || "尚無預覽文字";
 }
 
 export function filterTopics(topics: Topic[], filter: CasebookFilter): Topic[] {
-  if (filter === "all") {
-    return topics;
-  }
+  if (filter === "all") return topics;
   return topics.filter((topic) => topic.status === filter);
 }
 
-function topicCount(topics: Topic[], filter: CasebookFilter): number {
-  return filterTopics(topics, filter).length;
+function topicOwnsSignal(topic: Topic, signal: Signal): boolean {
+  return signal.topicId === topic.id || topic.signalIds.includes(signal.id);
 }
 
-function FilterTabs({
-  topics,
-  activeFilter,
-  onSelect
-}: {
-  topics: Topic[];
-  activeFilter: CasebookFilter;
-  onSelect: (filter: CasebookFilter) => void;
-}) {
-  return (
-    <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
-      {FILTERS.map((filter) => {
-        const active = filter.key === activeFilter;
-        return (
-          <button
-            key={filter.key}
-            type="button"
-            onClick={() => onSelect(filter.key)}
-            style={{
-              borderRadius: 999,
-              border: `1px solid ${active ? tokens.color.lineStrong : tokens.color.line}`,
-              padding: "7px 10px",
-              background: active ? tokens.color.elevated : tokens.color.surface,
-              color: active ? tokens.color.ink : tokens.color.subInk,
-              fontSize: 11,
-              fontWeight: 700,
-              cursor: "pointer"
-            }}
-          >
-            {filter.label} {topicCount(topics, filter.key)}
-          </button>
-        );
-      })}
-    </div>
-  );
-}
+// ─── Topic card ─────────────────────────────────────────────────────────────
 
 export function TopicRow({
   topic,
@@ -112,108 +138,497 @@ export function TopicRow({
     <button
       type="button"
       data-casebook-topic-id={topic.id}
-      data-scan-row="true"
       onClick={() => onSelect(topic.id)}
-      style={scanRowStyle({
+      style={{
         width: "100%",
         border: "none",
-        display: "grid",
-        gridTemplateColumns: "8px minmax(0, 1fr) auto auto",
-        alignItems: "center",
-        gap: 10,
-        padding: "10px 4px",
+        background: "none",
+        padding: 0,
         cursor: "pointer",
         textAlign: "left"
+      }}
+    >
+      <TopicCard topic={topic} onSelect={onSelect} />
+    </button>
+  );
+}
+
+function TopicCard({
+  topic,
+  analyzedCount,
+  totalCount,
+  onSelect
+}: {
+  topic: Topic;
+  analyzedCount?: number;
+  totalCount?: number;
+  onSelect: (topicId: string) => void;
+}) {
+  const total = totalCount ?? topic.signalIds.length;
+  const analyzed = analyzedCount ?? 0;
+
+  return (
+    <button
+      type="button"
+      data-casebook-topic-id={topic.id}
+      data-scan-row="true"
+      onClick={() => onSelect(topic.id)}
+      style={{
+        width: "100%",
+        border: `1px solid ${tokens.color.line}`,
+        borderLeft: `3px solid var(--dlens-mode-accent, ${tokens.color.accent})`,
+        borderRadius: tokens.radius.card,
+        background: tokens.color.elevated,
+        padding: "13px 14px",
+        display: "grid",
+        gap: 8,
+        textAlign: "left",
+        cursor: "pointer"
+      }}
+    >
+      <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: 10 }}>
+        <div style={{ display: "grid", gap: 4, minWidth: 0, flex: 1 }}>
+          <div style={{ fontSize: 14, fontWeight: 700, color: tokens.color.ink, ...lineClamp(1) }}>
+            {topic.name}
+          </div>
+          <div style={{ display: "flex", gap: 5, flexWrap: "wrap", alignItems: "center" }}>
+            <Stamp tone={statusTone(topic.status)}>{topic.status}</Stamp>
+            <span style={{ fontSize: 11, color: tokens.color.softInk }}>{total} 則訊號</span>
+            {total > 0 && (
+              <span style={{ fontSize: 11, color: analyzed > 0 ? tokens.color.success : tokens.color.softInk }}>
+                · {analyzed} 已分析
+              </span>
+            )}
+            {topic.tags.slice(0, 3).map((tag) => (
+              <span key={tag} style={{ fontSize: 10.5, color: tokens.color.softInk }}>· {tag}</span>
+            ))}
+          </div>
+        </div>
+        <div style={{ fontSize: 10, color: tokens.color.softInk, whiteSpace: "nowrap", flexShrink: 0 }}>
+          {formatUpdatedAt(topic.updatedAt)}
+        </div>
+      </div>
+    </button>
+  );
+}
+
+// ─── Unassigned card ─────────────────────────────────────────────────────────
+
+function UnassignedCard({
+  count,
+  onClick
+}: {
+  count: number;
+  onClick: () => void;
+}) {
+  return (
+    <button
+      type="button"
+      data-topic-filter="unassigned"
+      onClick={onClick}
+      style={{
+        width: "100%",
+        border: `1px solid ${tokens.color.line}`,
+        borderLeft: `3px solid ${tokens.color.queued}`,
+        borderRadius: tokens.radius.card,
+        background: tokens.color.elevated,
+        padding: "12px 14px",
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "space-between",
+        gap: 10,
+        cursor: "pointer",
+        textAlign: "left"
+      }}
+    >
+      <div style={{ display: "grid", gap: 3 }}>
+        <div style={{ fontSize: 13, fontWeight: 700, color: tokens.color.ink }}>未分配貼文</div>
+        <div style={{ fontSize: 11, color: tokens.color.softInk }}>等待分配到主題</div>
+      </div>
+      <Stamp tone="warning">{count} 則</Stamp>
+    </button>
+  );
+}
+
+// ─── Signal row (used in unassigned sub-view) ────────────────────────────────
+
+function TopicSignalRow({
+  signal,
+  preview,
+  topic,
+  topics,
+  item,
+  resultId,
+  optimisticQueuedSet,
+  onAssign,
+  onCreateTopic,
+  onArchive,
+  onQueueItem,
+  onOpenAnalysis,
+  onAddToCompare
+}: {
+  signal: Signal;
+  preview: string;
+  topic?: Topic;
+  topics: Topic[];
+  item?: SessionItem;
+  resultId?: string;
+  optimisticQueuedSet?: Set<string>;
+  onAssign?: (topicId: string) => void;
+  onCreateTopic?: (name: string) => void;
+  onArchive?: () => void;
+  onQueueItem?: () => void;
+  onOpenAnalysis?: () => void;
+  onAddToCompare?: () => void;
+}) {
+  const [selectedTopicId, setSelectedTopicId] = useState(topic?.id || topics[0]?.id || "");
+  const canAssign = Boolean(onAssign && selectedTopicId);
+  const showAssignmentControls = signal.inboxStatus === "unprocessed";
+  const metaLine = `${sourceLabel(signal.source)} · 收集於 ${formatCapturedAt(signal.capturedAt)}`;
+  const analysisStatus = getTopicItemAnalysisState(item, optimisticQueuedSet);
+  const isReady = analysisStatus === "ready";
+  const isProcessing = analysisStatus === "queued" || analysisStatus === "crawling" || analysisStatus === "analyzing";
+
+  return (
+    <div
+      data-topic-signal-id={signal.id}
+      data-scan-row="true"
+      style={scanRowStyle({
+        display: "grid",
+        gridTemplateColumns: "5px minmax(0, 1fr) auto",
+        alignItems: "start",
+        gap: 10,
+        padding: "10px 4px",
+        cursor: "default"
       })}
     >
       <span
         aria-hidden="true"
         style={{
-          width: 8,
-          height: 8,
-          borderRadius: 2,
-          background: "var(--dlens-mode-accent)"
+          width: 5,
+          height: 28,
+          borderRadius: 999,
+          background: topic ? "var(--dlens-mode-accent)" : tokens.color.queued,
+          marginTop: 2
         }}
       />
-      <div style={{ display: "grid", gap: 3, minWidth: 0 }}>
-        <div style={{ fontSize: 14, fontWeight: 600, color: tokens.color.ink, ...lineClamp(1) }}>{topic.name}</div>
-        <div style={{ display: "flex", gap: 6, flexWrap: "wrap", fontSize: 11, color: tokens.color.subInk }}>
-          {topic.tags.slice(0, 3).map((tag) => (
-            <span key={tag}>{tag}</span>
-          ))}
+      <div style={{ display: "grid", gap: 7, minWidth: 0 }}>
+        <div style={{ display: "grid", gap: 3, minWidth: 0 }}>
+          <div style={{ fontSize: 14, lineHeight: 1.35, fontWeight: 650, color: tokens.color.ink, ...lineClamp(1) }}>
+            {preview}
+          </div>
+          <div style={{ fontSize: 11.5, color: tokens.color.softInk, ...lineClamp(1) }}>{metaLine}</div>
         </div>
+
+        <div style={{ display: "flex", gap: 6, flexWrap: "wrap", alignItems: "center" }}>
+          <Stamp tone={signalStatusTone(signal)}>{signalStatusLabel(signal)}</Stamp>
+          <Stamp tone={topic ? "accent" : "neutral"}>{topic?.name || "未分配主題"}</Stamp>
+          {item ? (
+            <Stamp tone={analysisStateTone(analysisStatus)}>{analysisStateLabel(analysisStatus)}</Stamp>
+          ) : null}
+        </div>
+
+        {showAssignmentControls ? (
+          <div style={{ display: "flex", gap: 8, flexWrap: "wrap", alignItems: "center" }}>
+            <select
+              aria-label="選擇主題"
+              value={selectedTopicId}
+              onChange={(event) => setSelectedTopicId(event.target.value)}
+              style={{
+                minWidth: 154,
+                maxWidth: "100%",
+                borderRadius: 10,
+                border: `1px solid ${tokens.color.line}`,
+                background: tokens.color.surface,
+                color: tokens.color.ink,
+                padding: "7px 9px",
+                fontSize: 12
+              }}
+            >
+              {topics.map((entry) => (
+                <option key={entry.id} value={entry.id}>{entry.name}</option>
+              ))}
+            </select>
+            <SecondaryButton onClick={() => selectedTopicId && onAssign?.(selectedTopicId)} disabled={!canAssign} style={{ padding: "6px 9px", fontSize: 10.5 }}>
+              併入主題
+            </SecondaryButton>
+            <SecondaryButton onClick={() => onCreateTopic?.("新主題")} disabled={!onCreateTopic} style={{ padding: "6px 9px", fontSize: 10.5 }}>
+              建立主題
+            </SecondaryButton>
+            <SecondaryButton onClick={() => onArchive?.()} disabled={!onArchive} style={{ padding: "6px 9px", fontSize: 10.5 }}>
+              略過
+            </SecondaryButton>
+          </div>
+        ) : item && !isProcessing ? (
+          <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
+            {isReady ? (
+              <>
+                {resultId && onOpenAnalysis ? (
+                  <SecondaryButton onClick={onOpenAnalysis} style={{ padding: "6px 9px", fontSize: 10.5 }}>
+                    查看分析
+                  </SecondaryButton>
+                ) : null}
+                {onAddToCompare ? (
+                  <SecondaryButton onClick={onAddToCompare} style={{ padding: "6px 9px", fontSize: 10.5 }}>
+                    加入比較
+                  </SecondaryButton>
+                ) : null}
+              </>
+            ) : onQueueItem ? (
+              <SecondaryButton onClick={onQueueItem} style={{ padding: "6px 9px", fontSize: 10.5 }}>
+                排隊分析
+              </SecondaryButton>
+            ) : null}
+          </div>
+        ) : null}
       </div>
-      <div style={{ display: "flex", gap: 6, flexWrap: "wrap", justifyContent: "flex-end" }}>
-        <Stamp tone={statusTone(topic.status)}>{topic.status}</Stamp>
-        <Stamp tone="neutral">{topic.signalIds.length} 則訊號</Stamp>
+      <div style={{ display: "grid", gap: 3, justifyItems: "end", minWidth: 54, fontSize: 10.5, color: tokens.color.softInk, lineHeight: 1.35 }}>
+        <span>{formatCapturedAt(signal.capturedAt)}</span>
       </div>
-      <div style={{ display: "grid", gap: 2, justifyItems: "end", minWidth: 72, fontSize: 11, color: tokens.color.softInk }}>
-        <span>最近更新 {formatUpdatedAt(topic.updatedAt)}</span>
-        <span>{topic.pairIds.length} pair</span>
-      </div>
-    </button>
+    </div>
   );
 }
+
+// ─── Main view ───────────────────────────────────────────────────────────────
 
 export function CasebookView({
   sessionId,
   onNavigateToTopic,
   onCreateTopic,
   initialTopics = [],
-  pendingSignalCount = 0
+  signals,
+  initialUnassignedOpen = false,
+  signalPreviewById = {},
+  sessionItems = [],
+  savedAnalyses = [],
+  pendingSignalCount = 0,
+  onSignalTriaged,
+  onQueueItemById,
+  optimisticQueuedItemIds = [],
+  onOpenAnalysis,
+  onAddToCompare
 }: CasebookViewProps) {
   const [topics, setTopics] = useState<Topic[]>(initialTopics);
-  const [filter, setFilter] = useState<CasebookFilter>("all");
+  const [loadedSignals, setLoadedSignals] = useState<Signal[]>(signals ?? []);
+  const [unassignedOpen, setUnassignedOpen] = useState(initialUnassignedOpen);
+
+  useEffect(() => { setTopics(initialTopics); }, [initialTopics]);
 
   useEffect(() => {
-    setTopics(initialTopics);
-  }, [initialTopics]);
+    if (signals !== undefined) setLoadedSignals(signals);
+  }, [signals]);
 
   useEffect(() => {
     let cancelled = false;
-    if (initialTopics.length) {
-      return;
-    }
-    if (typeof chrome === "undefined" || !chrome.runtime?.sendMessage) {
-      return;
-    }
-    void chrome.runtime
-      .sendMessage({ type: "topic/list", sessionId })
-      .then((response) => {
-        if (!cancelled) {
-          setTopics(readTopicsFromResponse(response));
-        }
-      })
-      .catch(() => {
-        if (!cancelled) {
-          setTopics([]);
-        }
-      });
-    return () => {
-      cancelled = true;
-    };
+    if (initialTopics.length) return;
+    if (typeof chrome === "undefined" || !chrome.runtime?.sendMessage) return;
+    void chrome.runtime.sendMessage({ type: "topic/list", sessionId })
+      .then((response) => { if (!cancelled) setTopics(readTopicsFromResponse(response)); })
+      .catch(() => { if (!cancelled) setTopics([]); });
+    return () => { cancelled = true; };
   }, [initialTopics.length, sessionId]);
 
-  const visibleTopics = useMemo(() => filterTopics(topics, filter), [filter, topics]);
+  useEffect(() => {
+    let cancelled = false;
+    if (signals !== undefined) return;
+    if (typeof chrome === "undefined" || !chrome.runtime?.sendMessage) return;
+    void chrome.runtime.sendMessage({ type: "signal/list", sessionId })
+      .then((response) => { if (!cancelled) setLoadedSignals(readSignalsFromResponse(response)); })
+      .catch(() => { if (!cancelled) setLoadedSignals([]); });
+    return () => { cancelled = true; };
+  }, [sessionId, signals]);
 
+  const itemByItemId = useMemo(() => {
+    const map = new Map<string, SessionItem>();
+    for (const item of sessionItems) map.set(item.id, item);
+    return map;
+  }, [sessionItems]);
+  const optimisticQueuedSet = useMemo(
+    () => new Set(optimisticQueuedItemIds),
+    [optimisticQueuedItemIds]
+  );
+
+  const resultIdByItemId = useMemo(() => {
+    const map = new Map<string, string>();
+    for (const analysis of savedAnalyses) {
+      if (!map.has(analysis.itemAId)) map.set(analysis.itemAId, analysis.resultId);
+      if (!map.has(analysis.itemBId)) map.set(analysis.itemBId, analysis.resultId);
+    }
+    return map;
+  }, [savedAnalyses]);
+
+  const topicBySignalId = useMemo(() => {
+    const map = new Map<string, Topic>();
+    for (const topic of topics) {
+      for (const signalId of topic.signalIds) map.set(signalId, topic);
+    }
+    for (const signal of loadedSignals) {
+      if (signal.topicId) {
+        const topic = topics.find((t) => t.id === signal.topicId);
+        if (topic) map.set(signal.id, topic);
+      }
+    }
+    return map;
+  }, [loadedSignals, topics]);
+
+  // Per-topic analysis progress (only meaningful when sessionItems are passed)
+  const analysisCounts = useMemo(() => {
+    const map = new Map<string, { total: number; analyzed: number }>();
+    for (const topic of topics) {
+      const topicSignals = loadedSignals.filter((s) =>
+        topic.signalIds.includes(s.id) || s.topicId === topic.id
+      );
+      const total = topicSignals.length || topic.signalIds.length;
+      const analyzed = topicSignals.filter((s) => {
+        const item = s.itemId ? itemByItemId.get(s.itemId) : undefined;
+        return getTopicItemAnalysisState(item, optimisticQueuedSet) === "ready";
+      }).length;
+      map.set(topic.id, { total, analyzed });
+    }
+    return map;
+  }, [topics, loadedSignals, itemByItemId, optimisticQueuedSet]);
+
+  const unassignedSignals = useMemo(
+    () => loadedSignals.filter((s) => s.inboxStatus === "unprocessed"),
+    [loadedSignals]
+  );
+
+  const hasSignals = signals !== undefined;
+
+  // ── Level 2: unassigned sub-view ──────────────────────────────────────────
+  if (unassignedOpen && hasSignals) {
+    return (
+      <div style={viewRootStyle({ gap: 10 })}>
+        <section
+          data-mode-header="casebook"
+          style={{
+            display: "flex",
+            alignItems: "center",
+            gap: 10,
+            padding: "10px 12px",
+            borderRadius: tokens.radius.card,
+            border: `1px solid ${tokens.color.line}`,
+            background: `linear-gradient(180deg, ${tokens.color.elevated}, ${tokens.color.surface})`,
+            boxShadow: tokens.shadow.glass
+          }}
+        >
+          <button
+            type="button"
+            onClick={() => setUnassignedOpen(false)}
+            style={{ border: "none", background: "none", padding: 0, cursor: "pointer", fontSize: 11, fontWeight: 700, color: tokens.color.subInk }}
+          >
+            ← 主題
+          </button>
+          <div style={{ fontSize: 13, fontWeight: 700, color: tokens.color.ink }}>未分配貼文</div>
+          <Stamp tone="warning">{unassignedSignals.length} 則</Stamp>
+        </section>
+
+        <WorkspaceSurface tone="utility" style={{ display: "grid", gap: 0, padding: "4px 12px" }}>
+          <style>{SCAN_ROW_HOVER_CSS}</style>
+          {unassignedSignals.length ? (
+            unassignedSignals.map((signal) => {
+              const linkedItem = signal.itemId ? itemByItemId.get(signal.itemId) : undefined;
+              const linkedResultId = linkedItem ? resultIdByItemId.get(linkedItem.id) : undefined;
+              return (
+                <TopicSignalRow
+                  key={signal.id}
+                  signal={signal}
+                  preview={previewText(signal.id, signalPreviewById)}
+                  topic={topicBySignalId.get(signal.id)}
+                  topics={topics}
+                  item={linkedItem}
+                  resultId={linkedResultId}
+                  optimisticQueuedSet={optimisticQueuedSet}
+                  onAssign={(topicId) => onSignalTriaged?.(signal.id, { kind: "assign", topicId })}
+                  onCreateTopic={(name) => onSignalTriaged?.(signal.id, { kind: "create-topic", name })}
+                  onArchive={() => onSignalTriaged?.(signal.id, { kind: "archive" })}
+                  onQueueItem={linkedItem && onQueueItemById ? () => onQueueItemById(linkedItem.id) : undefined}
+                  onOpenAnalysis={linkedResultId && onOpenAnalysis ? () => onOpenAnalysis(linkedResultId) : undefined}
+                  onAddToCompare={linkedItem && onAddToCompare ? () => onAddToCompare(linkedItem.id) : undefined}
+                />
+              );
+            })
+          ) : (
+            <div style={{ padding: "18px 4px", fontSize: 12, color: tokens.color.subInk }}>
+              沒有未分配貼文
+            </div>
+          )}
+        </WorkspaceSurface>
+      </div>
+    );
+  }
+
+  // ── Level 1: topic cards ───────────────────────────────────────────────────
   return (
-    <div style={viewRootStyle()}>
-      <ModeHeader
-        mode="casebook"
-        kicker="Casebook"
-        title="把訊號整理成持續追蹤的主題"
-        deck="先收進案例本，再決定哪些主題值得往下讀。"
-        stamp={<Stamp tone="accent">Topic</Stamp>}
-      />
-
-      <WorkspaceSurface tone="utility" style={{ display: "grid", gap: tokens.spacing.md }}>
-        <style>{SCAN_ROW_HOVER_CSS}</style>
-        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12, flexWrap: "wrap" }}>
-          <FilterTabs topics={topics} activeFilter={filter} onSelect={setFilter} />
-          <PrimaryButton onClick={onCreateTopic}>新建主題</PrimaryButton>
+    <div style={viewRootStyle({ gap: 10 })}>
+      <section
+        data-mode-header="casebook"
+        style={{
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "space-between",
+          gap: 10,
+          padding: "10px 12px",
+          borderRadius: tokens.radius.card,
+          border: `1px solid ${tokens.color.line}`,
+          background: `linear-gradient(180deg, ${tokens.color.elevated}, ${tokens.color.surface})`,
+          boxShadow: tokens.shadow.glass
+        }}
+      >
+        <div style={{ display: "grid", gap: 2, minWidth: 0 }}>
+          <Kicker>Topics</Kicker>
+          <div style={{ fontSize: 15, lineHeight: 1.25, fontWeight: 700, color: tokens.color.ink, ...lineClamp(1) }}>
+            {hasSignals ? "主題與貼文" : "持續追蹤的主題"}
+          </div>
         </div>
+        <div style={{ display: "flex", gap: 6, alignItems: "center" }}>
+          {hasSignals && pendingSignalCount > 0 ? (
+            <Stamp tone="warning">{pendingSignalCount} 未分配</Stamp>
+          ) : null}
+          <Stamp tone="accent">{topics.length} 主題</Stamp>
+        </div>
+      </section>
 
-        {pendingSignalCount > 0 ? (
+      <WorkspaceSurface tone="utility" style={{ display: "grid", gap: 8, padding: 12 }}>
+        {/* Unassigned entry card */}
+        {hasSignals && pendingSignalCount > 0 ? (
+          <UnassignedCard count={pendingSignalCount} onClick={() => setUnassignedOpen(true)} />
+        ) : null}
+
+        {/* Topic cards */}
+        {topics.length ? (
+          <div style={{ display: "grid", gap: 8 }}>
+            {topics.map((topic) => {
+              const counts = analysisCounts.get(topic.id);
+              return (
+                <TopicCard
+                  key={topic.id}
+                  topic={topic}
+                  analyzedCount={counts?.analyzed}
+                  totalCount={counts?.total}
+                  onSelect={onNavigateToTopic}
+                />
+              );
+            })}
+          </div>
+        ) : (
+          <div
+            style={{
+              padding: "18px 16px",
+              borderRadius: tokens.radius.card,
+              border: `1px solid ${tokens.color.line}`,
+              background: tokens.color.surface,
+              fontSize: 12,
+              color: tokens.color.subInk,
+              lineHeight: 1.6
+            }}
+          >
+            尚無主題，新增一個開始追蹤
+          </div>
+        )}
+
+        {/* AI suggestion hint (old casebook path, no signals) */}
+        {!hasSignals && pendingSignalCount > 0 ? (
           <section
             style={{
               display: "grid",
@@ -231,27 +646,12 @@ export function CasebookView({
           </section>
         ) : null}
 
-        {visibleTopics.length ? (
-          <div data-scan-list="casebook" style={{ display: "grid" }}>
-            {visibleTopics.map((topic) => (
-              <TopicRow key={topic.id} topic={topic} onSelect={onNavigateToTopic} />
-            ))}
-          </div>
-        ) : (
-          <div
-            style={{
-              padding: "18px 16px",
-              borderRadius: tokens.radius.card,
-              border: `1px solid ${tokens.color.line}`,
-              background: tokens.color.surface,
-              fontSize: 12,
-              color: tokens.color.subInk,
-              lineHeight: 1.6
-            }}
-          >
-            尚無主題，新增一個開始追蹤
-          </div>
-        )}
+        {/* New topic button */}
+        <div style={{ display: "flex", justifyContent: "flex-end" }}>
+          <SecondaryButton onClick={onCreateTopic} style={{ padding: "6px 9px", fontSize: 10.5 }}>
+            新建主題
+          </SecondaryButton>
+        </div>
       </WorkspaceSurface>
     </div>
   );

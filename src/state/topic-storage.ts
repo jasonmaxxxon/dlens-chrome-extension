@@ -4,8 +4,14 @@ import type {
   SignalSource,
   Topic,
   TopicStatus,
+  TopicSynthesis,
+  TopicSynthesisCluster,
+  TopicSynthesisMeme,
+  TopicSynthesisObservation,
+  TopicSynthesisOutlier,
   TriageAction
 } from "./types.ts";
+import { TOPIC_SYNTHESIS_VERSION } from "../compare/topic-synthesis.ts";
 
 export const TOPICS_STORAGE_KEY = "dlens:v1:topics";
 export const SIGNALS_STORAGE_KEY = "dlens:v1:signals";
@@ -55,6 +61,89 @@ function readSignalInboxStatus(value: unknown): SignalInboxStatus {
     : "unprocessed";
 }
 
+function readNumber(value: unknown, fallback = 0): number {
+  return typeof value === "number" && Number.isFinite(value) ? value : fallback;
+}
+
+function normalizeSynthesisObservations(value: unknown): TopicSynthesisObservation[] {
+  if (!Array.isArray(value)) return [];
+  return value
+    .map((entry) => {
+      if (!entry || typeof entry !== "object") return null;
+      const raw = entry as Record<string, unknown>;
+      const text = readString(raw.text).trim();
+      if (!text) return null;
+      return { text, evidenceSignalIds: readStringArray(raw.evidenceSignalIds) };
+    })
+    .filter((entry): entry is TopicSynthesisObservation => entry !== null);
+}
+
+function normalizeSynthesisClusters(value: unknown): TopicSynthesisCluster[] {
+  if (!Array.isArray(value)) return [];
+  return value
+    .map((entry) => {
+      if (!entry || typeof entry !== "object") return null;
+      const raw = entry as Record<string, unknown>;
+      const keyword = readString(raw.keyword).trim();
+      if (!keyword) return null;
+      return {
+        keyword,
+        signalCount: readNumber(raw.signalCount),
+        exampleSignalIds: readStringArray(raw.exampleSignalIds)
+      };
+    })
+    .filter((entry): entry is TopicSynthesisCluster => entry !== null);
+}
+
+function normalizeSynthesisMemes(value: unknown): TopicSynthesisMeme[] {
+  if (!Array.isArray(value)) return [];
+  return value
+    .map((entry) => {
+      if (!entry || typeof entry !== "object") return null;
+      const raw = entry as Record<string, unknown>;
+      const phrase = readString(raw.phrase).trim();
+      if (!phrase) return null;
+      return { phrase, occurrences: readNumber(raw.occurrences) };
+    })
+    .filter((entry): entry is TopicSynthesisMeme => entry !== null);
+}
+
+function normalizeSynthesisOutliers(value: unknown): TopicSynthesisOutlier[] {
+  if (!Array.isArray(value)) return [];
+  return value
+    .map((entry) => {
+      if (!entry || typeof entry !== "object") return null;
+      const raw = entry as Record<string, unknown>;
+      const signalId = readString(raw.signalId).trim();
+      const reason = readString(raw.reason).trim();
+      if (!signalId || !reason) return null;
+      return { signalId, reason };
+    })
+    .filter((entry): entry is TopicSynthesisOutlier => entry !== null);
+}
+
+export function normalizeTopicSynthesis(value: unknown): TopicSynthesis | null {
+  if (!value || typeof value !== "object") return null;
+  const raw = value as Record<string, unknown>;
+  const generatedAt = readString(raw.generatedAt).trim();
+  const generatorVersion = readString(raw.generatorVersion).trim();
+  if (!generatedAt) return null;
+  if (generatorVersion !== TOPIC_SYNTHESIS_VERSION) return null;
+  return {
+    observations: normalizeSynthesisObservations(raw.observations),
+    commonClusters: normalizeSynthesisClusters(raw.commonClusters),
+    verbalTechniques: readStringArray(raw.verbalTechniques),
+    memes: normalizeSynthesisMemes(raw.memes),
+    sentimentNarrative: readString(raw.sentimentNarrative).trim(),
+    outliers: normalizeSynthesisOutliers(raw.outliers),
+    generatedFromCount: readNumber(raw.generatedFromCount),
+    totalSignalCount: readNumber(raw.totalSignalCount),
+    generatedAt,
+    generator: "deterministic",
+    generatorVersion: TOPIC_SYNTHESIS_VERSION
+  };
+}
+
 export function normalizeTopic(value: unknown): Topic | null {
   if (!value || typeof value !== "object") {
     return null;
@@ -78,7 +167,8 @@ export function normalizeTopic(value: unknown): Topic | null {
     signalIds: readStringArray(raw.signalIds),
     pairIds: readStringArray(raw.pairIds),
     createdAt: readString(raw.createdAt, "1970-01-01T00:00:00.000Z").trim() || "1970-01-01T00:00:00.000Z",
-    updatedAt: readString(raw.updatedAt, "1970-01-01T00:00:00.000Z").trim() || "1970-01-01T00:00:00.000Z"
+    updatedAt: readString(raw.updatedAt, "1970-01-01T00:00:00.000Z").trim() || "1970-01-01T00:00:00.000Z",
+    synthesis: normalizeTopicSynthesis(raw.synthesis)
   };
 }
 
@@ -141,6 +231,11 @@ async function writeSignals(storageArea: StorageAreaLike, signals: Signal[]): Pr
 export async function loadTopics(storageArea: StorageAreaLike, sessionId: string): Promise<Topic[]> {
   const topics = await readTopics(storageArea);
   return topics.filter((topic) => topic.sessionId === sessionId);
+}
+
+export async function loadTopicById(storageArea: StorageAreaLike, topicId: string): Promise<Topic | null> {
+  const topics = await readTopics(storageArea);
+  return topics.find((topic) => topic.id === topicId) ?? null;
 }
 
 export async function saveTopic(storageArea: StorageAreaLike, topic: Topic): Promise<Topic[]> {
@@ -288,4 +383,27 @@ export async function triageSignal(
 
   await saveSignal(storageArea, updatedSignal);
   return { signal: updatedSignal, topic: nextTopic };
+}
+
+export async function deleteSignal(
+  storageArea: StorageAreaLike,
+  topicStorageArea: StorageAreaLike,
+  signalId: string
+): Promise<void> {
+  const signals = await readSignals(storageArea);
+  const signal = signals.find((entry) => entry.id === signalId);
+  if (!signal) return;
+
+  const topics = await readTopics(topicStorageArea);
+  const now = new Date().toISOString();
+  const hasOrphans = topics.some((topic) => topic.signalIds.includes(signalId));
+  if (hasOrphans) {
+    await writeTopics(topicStorageArea, topics.map((topic) =>
+      topic.signalIds.includes(signalId)
+        ? { ...topic, signalIds: topic.signalIds.filter((id) => id !== signalId), synthesis: null, updatedAt: now }
+        : topic
+    ));
+  }
+
+  await writeSignals(storageArea, signals.filter((s) => s.id !== signalId));
 }

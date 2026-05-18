@@ -68,6 +68,9 @@ test("ProductSignalAnalyzer exposes a strict JSON schema contract", () => {
     "content_summary",
     "relevance",
     "relevant_to",
+    "reference_type",
+    "reference_label",
+    "reference_takeaway",
     "why_relevant",
     "verdict",
     "reason",
@@ -77,6 +80,16 @@ test("ProductSignalAnalyzer exposes a strict JSON schema contract", () => {
     "evidence_notes"
   ]);
   assert.ok("agent_task_spec" in PRODUCT_SIGNAL_ANALYSIS_JSON_SCHEMA.properties);
+  assert.deepEqual(PRODUCT_SIGNAL_ANALYSIS_JSON_SCHEMA.properties.reference_type.enum, [
+    "product_reference",
+    "technical_learning",
+    "workflow_pattern",
+    "market_language",
+    "general_learning",
+    "no_direct_fit"
+  ]);
+  assert.ok(PRODUCT_SIGNAL_ANALYSIS_JSON_SCHEMA.properties.relevant_to.items.enum.includes("technicalLearning"));
+  assert.ok(PRODUCT_SIGNAL_ANALYSIS_JSON_SCHEMA.properties.relevant_to.items.enum.includes("generalLearning"));
   assert.deepEqual(PRODUCT_SIGNAL_ANALYSIS_JSON_SCHEMA.properties.signal_type.enum, [
     "learning",
     "competitor",
@@ -135,6 +148,9 @@ test("strict schema keeps only the minimal current analyzer fields plus evidence
   const props = PRODUCT_SIGNAL_ANALYSIS_JSON_SCHEMA.properties;
   const experiment = props.experiment_hint as { type: unknown };
   assert.ok(Array.isArray(experiment.type) && experiment.type.includes("null"), "experiment_hint must be nullable");
+  assert.equal(props.audience_gap, undefined, "audience_gap is parsed from older/local records but omitted from strict schema");
+  const required = PRODUCT_SIGNAL_ANALYSIS_JSON_SCHEMA.required as readonly string[];
+  assert.equal(required.includes("audience_gap"), false, "audience_gap is optional and must not force a gap-shaped answer");
   for (const key of ["why_now", "validation_metric", "blockers"] as const) {
     assert.equal(props[key], undefined, `${key} is a legacy parser field, not part of the current strict schema`);
   }
@@ -192,7 +208,10 @@ test("parseProductSignalAnalysisResponse normalizes strict JSON and owns metadat
       content_type: "mixed",
       content_summary: "A feature share that becomes a competitor comparison in replies.",
       relevance: 4,
-      relevant_to: ["coreWorkflows", "evaluationCriteria", "not_a_field"],
+      relevant_to: ["coreWorkflows", "evaluationCriteria", "technicalLearning", "not_a_field"],
+      reference_type: "technical_learning",
+      reference_label: "學習競品比較如何轉成分類隊列",
+      reference_takeaway: "這不一定要變成新功能，但可學習如何把比較討論轉成 product decision queue。",
       why_relevant: "It touches how DLens should turn saved posts into product decisions.",
       verdict: "try",
       reason: "The comment thread exposes a concrete positioning gap.",
@@ -215,7 +234,10 @@ test("parseProductSignalAnalysisResponse normalizes strict JSON and owns metadat
     contentType: "mixed",
     contentSummary: "A feature share that becomes a competitor comparison in replies.",
     relevance: 4,
-    relevantTo: ["coreWorkflows", "evaluationCriteria"],
+    relevantTo: ["coreWorkflows", "evaluationCriteria", "technicalLearning"],
+    referenceType: "technical_learning",
+    referenceLabel: "學習競品比較如何轉成分類隊列",
+    referenceTakeaway: "這不一定要變成新功能，但可學習如何把比較討論轉成 product decision queue。",
     whyRelevant: "It touches how DLens should turn saved posts into product decisions.",
     verdict: "try",
     reason: "The comment thread exposes a concrete positioning gap.",
@@ -245,6 +267,7 @@ test("parseProductSignalAnalysisResponse preserves legacy optional fields when p
       why_relevant: "對應 product mode 的核心承諾。",
       verdict: "try",
       reason: "高互動 reply 都在問可交付格式。",
+      audience_gap: "作者預期討論文件生成；觀眾實際追問怎樣接進既有 PM 流程。",
       experiment_hint: "做一個 release note 模板。",
       why_now: "競品上週剛 ship，現在試最不會被搶先。",
       validation_metric: "兩週內看是否有 3 位 PM 重複使用。",
@@ -299,6 +322,7 @@ test("parseProductSignalAnalysisResponse preserves legacy optional fields when p
   assert.equal(parsed?.whyNow, "競品上週剛 ship，現在試最不會被搶先。");
   assert.equal(parsed?.validationMetric, "兩週內看是否有 3 位 PM 重複使用。");
   assert.deepEqual(parsed?.blockers, ["缺 Confluence webhook", "需要授權"]);
+  assert.equal(parsed?.audienceGap, "作者預期討論文件生成；觀眾實際追問怎樣接進既有 PM 流程。");
   assert.equal(parsed?.agentTaskSpec?.taskTitle, "競品 Release 監");
   assert.deepEqual(parsed?.evidenceNotes, [
     {
@@ -357,6 +381,9 @@ test("buildProductSignalAnalyzerPrompt enforces evidence-specific workflow recip
   assert.match(prompt, /必須用繁體中文書寫/);
   assert.match(prompt, /具體 workflow \/ use case/);
   assert.match(prompt, /不要寫「PM 熱烈討論」「市場熱度高」/);
+  assert.match(prompt, /不必強行對應 ProductContext/);
+  assert.match(prompt, /reference_type/);
+  assert.match(prompt, /reference_takeaway/);
   assert.match(prompt, /所有 schema keys 都必須出現/);
   assert.match(prompt, /agent_task_spec: 只有 verdict=try 時填 object/);
   assert.doesNotMatch(prompt, /why_now/);
@@ -484,10 +511,10 @@ test("buildProductSignalAnalyzerPrompt includes local feedback examples only whe
   assert.doesNotMatch(promptWithoutExamples, /\[USER_FEEDBACK_EXAMPLES\]/);
 });
 
-test("PROMPT_VERSION + CACHE_VERSION are v11 (grounded technical explanations)", async () => {
+test("PROMPT_VERSION + CACHE_VERSION are v16 (audience reaction and source-link brief)", async () => {
   const { PRODUCT_SIGNAL_ANALYSIS_CACHE_VERSION } = await import("../src/compare/product-signal-analysis.ts");
-  assert.equal(PRODUCT_SIGNAL_ANALYSIS_PROMPT_VERSION, "v11");
-  assert.equal(PRODUCT_SIGNAL_ANALYSIS_CACHE_VERSION, "v11");
+  assert.equal(PRODUCT_SIGNAL_ANALYSIS_PROMPT_VERSION, "v16");
+  assert.equal(PRODUCT_SIGNAL_ANALYSIS_CACHE_VERSION, "v16");
 });
 
 test("parseProductSignalAnalysisResponse rejects incomplete or fake score payloads", () => {

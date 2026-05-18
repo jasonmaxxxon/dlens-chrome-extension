@@ -8,6 +8,7 @@ import {
 import { buildJudgmentPrompt, parseJudgmentResponse } from "./judgment.ts";
 import {
   buildCompareClusterSummaryPrompt,
+  buildDeterministicClusterInterpretations,
   parseCompareClusterSummaryResponse,
   type ClusterInterpretation,
   type CompareClusterSummaryRequest
@@ -37,6 +38,11 @@ import {
   validatePrSummaryDraft,
   type PrSummaryFacts
 } from "./pr-evidence.ts";
+import {
+  buildSignalReadingPrompt,
+  SIGNAL_READING_SYSTEM_PROMPT,
+  type SignalReadingInput
+} from "./signal-reading.ts";
 import type { PrCampaign, PrCriteriaMatches, PrEvidenceRow } from "../state/pr-evidence-storage.ts";
 import type { JudgmentResult, ProductProfile, ProductSignalAnalysis } from "../state/types.ts";
 
@@ -348,10 +354,22 @@ export async function generateCompareClusterSummaries(
   }
 
   const parsed = parseCompareClusterSummaryResponse(raw, request);
-  if (!parsed.length && request.clusters.length) {
-    throw new Error("Invalid cluster summary payload");
+  if (!request.clusters.length) {
+    return parsed;
   }
-  return parsed;
+  if (parsed.length === request.clusters.length) {
+    return parsed;
+  }
+
+  const parsedByKey = new Map<string, ClusterInterpretation>(
+    parsed.map((item) => [`${item.captureId}:${item.clusterKey}`, item])
+  );
+  const fallback = buildDeterministicClusterInterpretations(request);
+  const merged = request.clusters.map((cluster) => {
+    const key = `${cluster.captureId}:${cluster.clusterKey}`;
+    return parsedByKey.get(key) || fallback.find((item) => item.captureId === cluster.captureId && item.clusterKey === cluster.clusterKey)!;
+  });
+  return merged;
 }
 
 export async function generateCompareOneLiner(
@@ -652,6 +670,82 @@ export async function generateProductSignalAnalysis(
     throw new Error("Invalid product signal analysis payload");
   }
   return parsed;
+}
+
+export async function generateSignalReading(
+  provider: "openai" | "claude" | "google",
+  apiKey: string,
+  input: SignalReadingInput
+): Promise<{ reading: string; model: string }> {
+  if (!apiKey) {
+    throw new Error("尚未設定 AI key。請先在 Settings 設定 Google / OpenAI / Claude key。");
+  }
+  const prompt = buildSignalReadingPrompt(input);
+  const system = SIGNAL_READING_SYSTEM_PROMPT;
+  const maxOutputTokens = 1400;
+
+  if (provider === "google") {
+    const response = await fetchWithRetry(
+      "Google",
+      `https://generativelanguage.googleapis.com/v1beta/models/${GOOGLE_COMPARE_MODEL}:generateContent?key=${apiKey}`,
+      {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          systemInstruction: { parts: [{ text: system }] },
+          contents: [{ role: "user", parts: [{ text: prompt }] }],
+          generationConfig: { temperature: 0.4, maxOutputTokens }
+        })
+      }
+    );
+    if (!response.ok) {
+      throw new Error(`Google ${response.status}: ${await response.text()}`);
+    }
+    return { reading: readGoogleContent(await response.json()), model: `google:${GOOGLE_COMPARE_MODEL}` };
+  }
+
+  if (provider === "openai") {
+    const response = await fetchWithRetry("OpenAI", "https://api.openai.com/v1/chat/completions", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${apiKey}`
+      },
+      body: JSON.stringify({
+        model: OPENAI_COMPARE_MODEL,
+        max_tokens: maxOutputTokens,
+        temperature: 0.4,
+        messages: [
+          { role: "system", content: system },
+          { role: "user", content: prompt }
+        ]
+      })
+    });
+    if (!response.ok) {
+      throw new Error(`OpenAI ${response.status}: ${await response.text()}`);
+    }
+    return { reading: readOpenAiContent(await response.json()), model: `openai:${OPENAI_COMPARE_MODEL}` };
+  }
+
+  const response = await fetchWithRetry("Claude", "https://api.anthropic.com/v1/messages", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      "x-api-key": apiKey,
+      "anthropic-version": "2023-06-01"
+    },
+    body: JSON.stringify({
+      model: CLAUDE_COMPARE_MODEL,
+      max_tokens: maxOutputTokens,
+      temperature: 0.4,
+      system,
+      messages: [{ role: "user", content: prompt }]
+    })
+  });
+  if (!response.ok) {
+    throw new Error(`Claude ${response.status}: ${await response.text()}`);
+  }
+  return { reading: readClaudeContent(await response.json()), model: `claude:${CLAUDE_COMPARE_MODEL}` };
 }
 
 async function generateJsonText(

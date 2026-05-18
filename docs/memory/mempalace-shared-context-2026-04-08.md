@@ -6,7 +6,7 @@ type: project
 
 # DLens Extension Shared Context
 
-Last updated: 2026-05-07
+Last updated: 2026-05-14
 
 This note is the high-signal shared memory for Codex and Claude when working on `dlens-chrome-extension-v0`.
 
@@ -35,6 +35,32 @@ This note is the high-signal shared memory for Codex and Claude when working on 
 - `Settings` should behave like a narrow runtime utility drawer even while still page-backed.
 - `Product` mode is an insight-first workflow backed by `ProductContextCompiler` and `ProductSignalAnalyzer`.
 - `PR Evidence` mode is a compact campaign evidence workflow for agency / PR operators, backed by `PrCampaign` and `PrEvidenceRow`.
+
+## Layout Preference State As Of 2026-05-14
+
+- Main contains the full layout sprint line:
+  - `16ae177 feature: Product signal and synthesis layout variants (#2)`
+  - `f52f73b feature: Compare result parallel and chapters layouts (#3)`
+  - `2738d2f feature: Persist layout preferences (#4)`
+- `ExtensionSettings.layoutPreferences` persists:
+  - Product signal card layout: `verdict | marginalia`, default `marginalia`
+  - Topic synthesis layout: `stack | console`, default `console`
+  - Compare result layout: `reading | parallel | chapters`, default `parallel`
+- `SettingsView` exposes all three controls; `InPageCollectorPopup` threads them into `ProductSignalViews`, `TopicDetailView`, and `CompareView`.
+- Product signal card variants are Verdict and Marginalia; Marginalia is default and keeps the task/experiment slot visible.
+- Topic synthesis uses deterministic `v2.work-signal-lens`; Stack is collapsible, Console is dense and always visible.
+- Folder synthesis uses the same deterministic work-signal lens and renders as the Library Briefing card. Storage key: `dlens:v1:folder-synthesis`.
+- Compare result variants are Reading, Parallel, and Chapters; Parallel is default and uses sticky A/B columns.
+- Clean-main verification: `392/392` tests, typecheck, build, and diff check passed from `/Users/tung/Desktop/dlens-main-verify-20260514-152531`.
+- Verified build artifact was copied to `/Users/tung/Desktop/dlens-product-latest/output/chrome-mv3`; the source checkout there may still be dirty.
+
+## Version Rule As Of 2026-05-14
+
+- Current extension version: `0.1.3`.
+- Keep version synchronized across `package.json`, `package-lock.json`, `wxt.config.ts` `manifest.version`, and `src/ui/version.ts` `BUILD_VERSION`.
+- Chrome's extension page shows the built manifest version; the popup masthead shows `BUILD_VERSION`.
+- Every user-visible update pushed to `main` should bump the version unless the user explicitly says not to.
+- `tests/manifest-config.test.ts` locks package / manifest / UI version consistency.
 
 ## PR Evidence Mode As Of 2026-05-07
 
@@ -79,7 +105,7 @@ This note is the high-signal shared memory for Codex and Claude when working on 
 - Add better honest loading states for crawl / analysis / compare waits.
 - Keep compare cluster matching skepticism high because pairing is still rank-driven.
 - Keep save/bookmark features lightweight until there is a real downstream destination.
-- Chrome QA still needs to walk Product and PR Evidence flows from `/Users/tung/Desktop/dlens-product-latest/output/chrome-mv3`, including PR PDF upload, criteria generation, matching, CSV export, and summary MD/DOCX export.
+- Chrome QA still needs to walk Product, PR Evidence, and layout preference flows from `/Users/tung/Desktop/dlens-product-latest/output/chrome-mv3`, including Product Marginalia/Verdict, Topic Console/Stack, Compare Parallel/Chapters, PR PDF upload, criteria generation, matching, CSV export, and summary MD/DOCX export.
 
 ## Working Rules For Future Product Updates
 

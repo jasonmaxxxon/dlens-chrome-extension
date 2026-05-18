@@ -197,3 +197,12 @@ test("resolveEffectivePopupPage keeps product data effects on the rendered guard
   assert.equal(resolveEffectivePopupPage("settings", "product"), "settings");
   assert.equal(resolveEffectivePopupPage("actionable-filter", "product"), "actionable-filter");
 });
+
+test("resolveEffectivePopupPage lets the result surface through so 查看完整分析 does not fall back to collect", () => {
+  // Regression: ALLOWED_PAGES does not include "result", so guardPage clobbered it back to allowed[0].
+  // 查看完整分析 routed users back to the hover/collect preview instead of the result page.
+  assert.equal(resolveEffectivePopupPage("result", "topic"), "result");
+  assert.equal(resolveEffectivePopupPage("result", "archive"), "result");
+  assert.equal(resolveEffectivePopupPage("result", "product"), "result");
+  assert.equal(resolveEffectivePopupPage("result", "pr-evidence"), "result");
+});

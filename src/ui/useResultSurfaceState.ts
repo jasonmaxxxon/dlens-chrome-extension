@@ -94,20 +94,22 @@ export function useResultSurfaceState({
   );
 
   async function onOpenCompareResult() {
-    if (!compareItemA || !compareItemB || compareTeaserState !== "ready") {
+    if (!compareItemA || !compareItemB) {
       return;
     }
     const result = buildActiveResultFromCompareItems(compareItemA.id, compareItemB.id, new Date().toISOString());
-    setWorkspaceState((currentState) => ({
-      ...currentState,
-      currentMode: "result",
-      popupOpen: true,
-      modeLocked: true
-    }));
-    await sendAndSync({
+    const response = await sendAndSync({
       type: "compare/set-active-result",
       result
     });
+    if (response.ok) {
+      setWorkspaceState((currentState) => ({
+        ...currentState,
+        currentMode: "result",
+        popupOpen: true,
+        modeLocked: true
+      }));
+    }
   }
 
   async function onOpenSavedAnalysis(resultId: string) {
@@ -116,16 +118,18 @@ export function useResultSurfaceState({
       return;
     }
     const result = buildActiveResultFromSavedAnalysis(saved, new Date().toISOString());
-    setWorkspaceState((currentState) => ({
-      ...currentState,
-      currentMode: "result",
-      popupOpen: true,
-      modeLocked: true
-    }));
-    await sendAndSync({
+    const response = await sendAndSync({
       type: "compare/set-active-result",
       result
     });
+    if (response.ok) {
+      setWorkspaceState((currentState) => ({
+        ...currentState,
+        currentMode: "result",
+        popupOpen: true,
+        modeLocked: true
+      }));
+    }
   }
 
   async function onSaveCurrentAnalysis() {

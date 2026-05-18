@@ -2,7 +2,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 
 import { buildPrEvidenceCsv, buildPrEvidenceCsvRows, extractPrCoreMessages, inferPrViewsFromText } from "../compare/pr-evidence.ts";
 import type { ExtensionResponse } from "../state/messages.ts";
-import type { PrCampaign, PrCriterion, PrEvidenceRow } from "../state/pr-evidence-storage.ts";
+import type { PrCampaign, PrCriterion, PrCriterionId, PrEvidenceRow } from "../state/pr-evidence-storage.ts";
 import { normalizePrCriteria, PR_CRITERION_IDS } from "../state/pr-evidence-storage.ts";
 import { sendExtensionMessage } from "./controller.tsx";
 import {
@@ -37,8 +37,18 @@ const inputStyle = {
   padding: "9px 10px",
   fontSize: 12,
   fontFamily: tokens.font.sans,
-  outline: "none"
+  outline: "none",
+  transition: tokens.motion.interactiveTransitionFast
 } as const;
+
+const CRITERION_PLACEHOLDERS: Record<PrCriterionId, string> = {
+  c1: "Campaign name or identity",
+  c2: "#Hashtag or handle",
+  c3: "Core message or tagline",
+  c4: "Venue / location",
+  c5: "Experience theme",
+  c6: "CTA / ticket / action"
+};
 
 function createId(prefix: string): string {
   return `${prefix}_${Math.random().toString(36).slice(2, 10)}_${Date.now().toString(36)}`;
@@ -92,11 +102,63 @@ function csvPreviewRows(campaign: PrCampaign, rows: PrEvidenceRow[]): string[][]
   return buildPrEvidenceCsvRows(campaign, rows, 20);
 }
 
+/* ── Match badge: 4-tier colour system ─────────────────────────────── */
+
+function MatchBadge({ count, total = 6 }: { count: number; total?: number }) {
+  let bg: string;
+  let color: string;
+
+  if (count === 0) {
+    bg = tokens.color.neutralSurface;
+    color = tokens.color.softInk;
+  } else if (count >= total - 1) {
+    /* 5–6/6 → green */
+    bg = tokens.color.successSoft;
+    color = tokens.color.success;
+  } else if (count >= Math.ceil(total / 2)) {
+    /* 3–4/6 → amber */
+    bg = tokens.color.queuedSoft;
+    color = tokens.color.queued;
+  } else {
+    /* 1–2/6 → muted rose */
+    bg = tokens.color.failedSoft;
+    color = tokens.color.failed;
+  }
+
+  return (
+    <span
+      style={{
+        display: "inline-flex",
+        alignItems: "center",
+        minHeight: 22,
+        padding: "0 8px",
+        borderRadius: 999,
+        background: bg,
+        color,
+        fontSize: 10,
+        fontWeight: 700,
+        letterSpacing: 0,
+        transition: tokens.motion.interactiveTransitionFast
+      }}
+    >
+      {count}/{total} matched
+    </span>
+  );
+}
+
+/* ── Button style overrides ─────────────────────────────────────────── */
+
 const accentButtonStyle = {
   borderColor: "var(--dlens-mode-accent)",
   background: "var(--dlens-mode-accent-soft)",
   color: "var(--dlens-mode-accent)",
   fontWeight: 700
+} as const;
+
+/* Export CSV is the primary output action — solid green */
+const primaryExportStyle = {
+  background: `linear-gradient(135deg, ${tokens.color.success}, ${tokens.color.tealMid})`,
+  boxShadow: `0 8px 18px rgba(63,90,59,0.18)`
 } as const;
 
 const exportButtonStyle = {
@@ -105,6 +167,48 @@ const exportButtonStyle = {
   color: tokens.color.success,
   fontWeight: 700
 } as const;
+
+/* ── Notice bar: success/error tones ────────────────────────────────── */
+
+function NoticeBar({ notice }: { notice: string }) {
+  if (!notice) return null;
+  const isError = /error|fail|invalid|cannot|save a campaign/i.test(notice);
+  return (
+    <div
+      style={{
+        fontSize: 12,
+        lineHeight: 1.55,
+        padding: "8px 10px",
+        borderRadius: tokens.radius.card,
+        background: isError ? tokens.color.failedSoft : tokens.color.successSoft,
+        color: isError ? tokens.color.failed : tokens.color.success,
+        transition: tokens.motion.interactiveTransition
+      }}
+    >
+      {notice}
+    </div>
+  );
+}
+
+const CAMPAIGN_EDITOR_CSS = `
+[data-pr-field]:focus {
+  border-color: var(--dlens-mode-accent) !important;
+  box-shadow: 0 0 0 2.5px var(--dlens-mode-accent-soft) !important;
+  outline: none !important;
+}
+[data-pr-section] + [data-pr-section] {
+  border-top: 1px solid var(--dlens-line, rgba(27,26,23,0.10));
+  padding-top: 14px;
+}
+`;
+
+function parseCoreMessage(raw: string): { label: string | null; value: string } {
+  const idx = raw.indexOf(": ");
+  if (idx > 0 && idx < 40) {
+    return { label: raw.slice(0, idx), value: raw.slice(idx + 2) };
+  }
+  return { label: null, value: raw };
+}
 
 function CampaignEditor({
   campaign,
@@ -116,7 +220,9 @@ function CampaignEditor({
   isReadingBrief,
   isGenerating,
   uploadError,
-  coreMessages
+  coreMessages,
+  collapsed,
+  onExpand
 }: {
   campaign: PrCampaign;
   onChange: (campaign: PrCampaign) => void;
@@ -128,8 +234,29 @@ function CampaignEditor({
   isGenerating: boolean;
   uploadError: string;
   coreMessages: string[];
+  collapsed?: boolean;
+  onExpand?: () => void;
 }) {
   const fileInputRef = useRef<HTMLInputElement | null>(null);
+  const [briefExpanded, setBriefExpanded] = useState(true);
+  const hasAutoCollapsed = useRef(false);
+  const prevIsReadingBrief = useRef(isReadingBrief);
+
+  /* Collapse once on initial load when brief already has content */
+  useEffect(() => {
+    if (!hasAutoCollapsed.current && campaign.briefText.trim()) {
+      hasAutoCollapsed.current = true;
+      setBriefExpanded(false);
+    }
+  }, [campaign.briefText]);
+
+  /* Auto-collapse after PDF upload finishes */
+  useEffect(() => {
+    if (prevIsReadingBrief.current && !isReadingBrief && campaign.briefText.trim()) {
+      setBriefExpanded(false);
+    }
+    prevIsReadingBrief.current = isReadingBrief;
+  }, [isReadingBrief, campaign.briefText]);
 
   function updateCriterion(index: number, label: string) {
     const criteria = campaign.criteria.map((criterion, currentIndex) =>
@@ -138,109 +265,341 @@ function CampaignEditor({
     onChange({ ...campaign, criteria, updatedAt: new Date().toISOString() });
   }
 
+  const parsedMessages = coreMessages.slice(0, 5).map(parseCoreMessage);
+  const briefPreview = campaign.briefText.split("\n").find((l) => l.trim()) ?? "";
+
+  /* ── Collapsed summary row ───────────────────────────────────────── */
+  if (collapsed) {
+    return (
+      <div
+        data-pr-campaign-setup="true"
+        style={surfaceCardStyle({
+          display: "flex",
+          alignItems: "center",
+          gap: 10,
+          padding: "11px 16px",
+          flexWrap: "wrap"
+        })}
+      >
+        <Kicker>Campaign setup</Kicker>
+        <span style={{ fontSize: 10, color: tokens.color.lineStrong }}>·</span>
+        <span style={{ fontSize: 13, fontWeight: 700, color: tokens.color.ink, flex: 1, minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+          {campaign.name || "Unnamed campaign"}
+        </span>
+        <Stamp tone="success">Ready</Stamp>
+        <SecondaryButton onClick={() => onExpand?.()} style={{ padding: "5px 10px", fontSize: 11 }}>
+          Edit
+        </SecondaryButton>
+      </div>
+    );
+  }
+
   return (
-    <section data-pr-campaign-setup="true" style={surfaceCardStyle({ display: "grid", gap: 12, padding: "14px 16px" })}>
-      <div style={{ display: "flex", justifyContent: "space-between", gap: 12, alignItems: "start", flexWrap: "wrap" }}>
-        <div style={{ display: "grid", gap: 4 }}>
+    <section
+      data-pr-campaign-setup="true"
+      style={{
+        ...surfaceCardStyle({ padding: 0, overflow: "hidden" }),
+        display: "flex",
+        flexDirection: "column"
+      }}
+    >
+      <style>{CAMPAIGN_EDITOR_CSS}</style>
+
+      {/* ── Card header ─────────────────────────────────────────────── */}
+      <div
+        style={{
+          display: "flex",
+          justifyContent: "space-between",
+          alignItems: "center",
+          gap: 12,
+          padding: "12px 16px",
+          borderBottom: `1px solid ${tokens.color.line}`,
+          background: `linear-gradient(180deg, ${tokens.color.elevated}, ${tokens.color.surface})`
+        }}
+      >
+        <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
           <Kicker>Campaign setup</Kicker>
-          <div style={{ fontSize: 15, fontWeight: 700, color: tokens.color.ink }}>PR Evidence campaign</div>
+          <span style={{ fontSize: 10, color: tokens.color.lineStrong }}>·</span>
+          <span style={{ fontSize: 13, fontWeight: 700, color: tokens.color.ink }}>PR Evidence campaign</span>
         </div>
         <Stamp tone={campaign.name.trim() ? "success" : "warning"}>{campaign.name.trim() ? "Ready" : "Draft"}</Stamp>
       </div>
 
-      <label style={{ display: "grid", gap: 6, fontSize: 11, color: tokens.color.subInk }}>
-        Campaign name
-        <input
-          value={campaign.name}
-          onChange={(event) => onChange({ ...campaign, name: event.target.value, updatedAt: new Date().toISOString() })}
-          placeholder="Mannings BoostUP Wellness Carnival"
-          style={inputStyle}
-        />
-      </label>
+      <div style={{ display: "grid", gap: 0, padding: "0 16px 16px" }}>
 
-      <div style={{ display: "grid", gap: 6 }}>
-        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
-          <label htmlFor="pr-brief-text" style={{ fontSize: 11, color: tokens.color.subInk }}>
-            Brief / PR guideline
+        {/* ── Campaign name ─────────────────────────────────────────── */}
+        <div data-pr-section="name" style={{ paddingTop: 14 }}>
+          <label style={{ display: "grid", gap: 7 }}>
+            <span style={{ fontSize: 11, fontWeight: 600, color: tokens.color.subInk, letterSpacing: "0.01em" }}>
+              Campaign name
+            </span>
+            <input
+              data-pr-field="name"
+              value={campaign.name}
+              onChange={(event) => onChange({ ...campaign, name: event.target.value, updatedAt: new Date().toISOString() })}
+              placeholder="Mannings BoostUP Wellness Carnival"
+              style={{ ...inputStyle, fontSize: 13, padding: "10px 11px" }}
+            />
           </label>
-          <SecondaryButton
-            onClick={() => fileInputRef.current?.click()}
-            disabled={isReadingBrief || isGenerating}
-            style={{ ...accentButtonStyle, padding: "6px 10px", fontSize: 11, whiteSpace: "nowrap" }}
-          >
-            {isReadingBrief ? "Reading PDF..." : "Upload press release"}
-          </SecondaryButton>
-          <input
-            ref={fileInputRef}
-            type="file"
-            accept=".pdf,.txt,.md,.markdown,.text,application/pdf,text/plain,text/markdown"
-            style={{ display: "none" }}
-            onChange={(event) => {
-              const file = event.target.files?.[0];
-              if (file) {
-                onUploadBrief(file);
-              }
-              event.target.value = "";
-            }}
-          />
         </div>
-        <textarea
-          id="pr-brief-text"
-          value={campaign.briefText}
-          onChange={(event) => onChange({ ...campaign, briefText: event.target.value, updatedAt: new Date().toISOString() })}
-          placeholder="Paste the press release, message house, or report guideline — or upload a PDF / .txt / .md file."
-          rows={4}
-          style={{ ...inputStyle, resize: "vertical", lineHeight: 1.55 }}
-        />
-        {uploadError ? (
-          <div data-pr-upload-error="true" style={{ fontSize: 10.5, color: tokens.color.failed }}>
-            {uploadError}
-          </div>
-        ) : null}
-        {coreMessages.length ? (
-          <div data-pr-core-messages="true" style={{ display: "grid", gap: 6, padding: "8px 10px", borderRadius: tokens.radius.card, border: `1px solid ${tokens.color.line}`, background: tokens.color.contextSurface }}>
-            <Kicker>Detected core PR messages</Kicker>
-            <div style={{ display: "grid", gap: 4 }}>
-              {coreMessages.slice(0, 5).map((message) => (
-                <div key={message} style={{ fontSize: 10.5, lineHeight: 1.45, color: tokens.color.subInk }}>
-                  {message}
-                </div>
-              ))}
+
+        {/* ── PR brief (collapsible) ────────────────────────────────── */}
+        <div data-pr-section="brief" style={{ display: "grid", gap: 8 }}>
+
+          {/* Header row — always visible */}
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 8 }}>
+            <span style={{ fontSize: 11, fontWeight: 600, color: tokens.color.subInk, letterSpacing: "0.01em" }}>
+              PR brief
+            </span>
+            <div style={{ display: "flex", gap: 6, alignItems: "center" }}>
+              {/* Upload — always available */}
+              <SecondaryButton
+                onClick={() => {
+                  setBriefExpanded(true);
+                  fileInputRef.current?.click();
+                }}
+                disabled={isReadingBrief || isGenerating}
+                style={{ ...accentButtonStyle, padding: "5px 10px", fontSize: 11, whiteSpace: "nowrap" }}
+              >
+                {isReadingBrief ? "Reading..." : "Upload PDF"}
+              </SecondaryButton>
+              {/* Edit / Done toggle — only when brief has content */}
+              {campaign.briefText.trim() ? (
+                <SecondaryButton
+                  onClick={() => setBriefExpanded((v) => !v)}
+                  style={{ padding: "5px 10px", fontSize: 11, whiteSpace: "nowrap" }}
+                >
+                  {briefExpanded ? "Done" : "Edit"}
+                </SecondaryButton>
+              ) : null}
             </div>
+            <input
+              ref={fileInputRef}
+              type="file"
+              accept=".pdf,.txt,.md,.markdown,.text,application/pdf,text/plain,text/markdown"
+              style={{ display: "none" }}
+              onChange={(event) => {
+                const file = event.target.files?.[0];
+                if (file) onUploadBrief(file);
+                event.target.value = "";
+              }}
+            />
           </div>
-        ) : null}
-      </div>
 
-      <div style={{ display: "grid", gap: 8 }}>
-        <div style={{ display: "flex", justifyContent: "space-between", gap: 10, alignItems: "center", flexWrap: "wrap" }}>
-          <Kicker>Six fixed criteria</Kicker>
-          <SecondaryButton onClick={onGenerateCriteria} disabled={isReadingBrief || isGenerating} style={accentButtonStyle}>
-            {isGenerating ? "Generating..." : "Generate criteria"}
-          </SecondaryButton>
-        </div>
-        <div style={{ display: "grid", gridTemplateColumns: "repeat(2, minmax(0, 1fr))", gap: 8 }}>
-          {campaign.criteria.map((criterion, index) => (
-            <label key={criterion.id} style={{ display: "grid", gap: 5, fontSize: 10.5, color: tokens.color.softInk }}>
-              {criterion.id}
-              <input value={criterion.label} onChange={(event) => updateCriterion(index, event.target.value)} style={inputStyle} />
-            </label>
-          ))}
-        </div>
-      </div>
+          {/* Collapsed: one-line preview + char count */}
+          {!briefExpanded && campaign.briefText.trim() ? (
+            <div
+              style={{
+                display: "flex",
+                alignItems: "center",
+                gap: 8,
+                padding: "8px 10px",
+                borderRadius: tokens.radius.card,
+                border: `1px solid ${tokens.color.line}`,
+                background: tokens.color.surface,
+                cursor: "default"
+              }}
+            >
+              <div
+                style={{
+                  flex: 1,
+                  fontSize: 12,
+                  color: tokens.color.softInk,
+                  overflow: "hidden",
+                  whiteSpace: "nowrap",
+                  textOverflow: "ellipsis"
+                }}
+              >
+                {briefPreview}
+              </div>
+              <span
+                style={{
+                  flexShrink: 0,
+                  fontSize: 10,
+                  fontWeight: 700,
+                  color: tokens.color.softInk,
+                  background: tokens.color.neutralSurface,
+                  padding: "2px 7px",
+                  borderRadius: 999
+                }}
+              >
+                {campaign.briefText.length} chars
+              </span>
+            </div>
+          ) : null}
 
-      <PrimaryButton onClick={onSave} disabled={isSaving || !campaign.name.trim()}>
-        {isSaving ? "Saving..." : "Save campaign"}
-      </PrimaryButton>
+          {/* Expanded: full textarea */}
+          {briefExpanded ? (
+            <>
+              <textarea
+                id="pr-brief-text"
+                data-pr-field="brief"
+                value={campaign.briefText}
+                onChange={(event) => onChange({ ...campaign, briefText: event.target.value, updatedAt: new Date().toISOString() })}
+                placeholder="Paste the press release, message house, or PR guideline — or upload a PDF."
+                rows={4}
+                style={{ ...inputStyle, resize: "vertical", lineHeight: 1.6, fontSize: 12 }}
+              />
+              {uploadError ? (
+                <div data-pr-upload-error="true" style={{ fontSize: 11, color: tokens.color.failed }}>
+                  {uploadError}
+                </div>
+              ) : null}
+            </>
+          ) : null}
+
+          {/* Parsed PR messages — always visible when available */}
+          {parsedMessages.length ? (
+            <div
+              data-pr-core-messages="true"
+              style={{
+                borderRadius: tokens.radius.card,
+                border: `1px solid ${tokens.color.line}`,
+                background: tokens.color.contextSurface,
+                overflow: "hidden"
+              }}
+            >
+              <div
+                style={{
+                  display: "flex",
+                  alignItems: "center",
+                  gap: 6,
+                  padding: "7px 10px",
+                  borderBottom: `1px solid ${tokens.color.line}`,
+                  background: "rgba(122,32,48,0.04)"
+                }}
+              >
+                <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="var(--dlens-mode-accent)" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                  <circle cx="12" cy="12" r="9" /><path d="M12 8v4" /><path d="M12 16h.01" />
+                </svg>
+                <Kicker tone="accent">Detected core PR messages</Kicker>
+              </div>
+              <div style={{ display: "grid" }}>
+                {parsedMessages.map(({ label, value }, i) => (
+                  <div
+                    key={i}
+                    style={{
+                      display: "grid",
+                      gridTemplateColumns: label ? "minmax(0, 130px) minmax(0, 1fr)" : "1fr",
+                      gap: 8,
+                      alignItems: "start",
+                      padding: "7px 10px",
+                      borderBottom: i < parsedMessages.length - 1 ? `1px solid ${tokens.color.line}` : "none"
+                    }}
+                  >
+                    {label ? (
+                      <span
+                        style={{
+                          fontSize: 10,
+                          fontWeight: 700,
+                          color: "var(--dlens-mode-accent)",
+                          background: "var(--dlens-mode-accent-soft)",
+                          padding: "2px 7px",
+                          borderRadius: 999,
+                          display: "inline-flex",
+                          alignItems: "center",
+                          whiteSpace: "nowrap",
+                          overflow: "hidden",
+                          textOverflow: "ellipsis",
+                          maxWidth: "100%",
+                          letterSpacing: 0
+                        }}
+                      >
+                        {label}
+                      </span>
+                    ) : null}
+                    <span
+                      style={{
+                        fontSize: 11,
+                        lineHeight: 1.55,
+                        color: tokens.color.subInk,
+                        display: "-webkit-box",
+                        WebkitBoxOrient: "vertical",
+                        WebkitLineClamp: 2,
+                        overflow: "hidden"
+                      }}
+                    >
+                      {value}
+                    </span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          ) : null}
+        </div>
+
+        {/* ── PR matching criteria ──────────────────────────────────── */}
+        <div data-pr-section="criteria" style={{ display: "grid", gap: 9 }}>
+          <div style={{ display: "flex", justifyContent: "space-between", gap: 10, alignItems: "center" }}>
+            <span style={{ fontSize: 11, fontWeight: 600, color: tokens.color.subInk, letterSpacing: "0.01em" }}>
+              PR matching criteria
+            </span>
+            <SecondaryButton onClick={onGenerateCriteria} disabled={isReadingBrief || isGenerating} style={accentButtonStyle}>
+              {isGenerating ? "Generating..." : "Generate criteria"}
+            </SecondaryButton>
+          </div>
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(2, minmax(0, 1fr))", gap: 7 }}>
+            {campaign.criteria.map((criterion, index) => (
+              <div key={criterion.id} style={{ display: "grid", gap: 5 }}>
+                <span style={{ display: "flex", alignItems: "center", gap: 5 }}>
+                  <span
+                    style={{
+                      display: "inline-flex",
+                      alignItems: "center",
+                      justifyContent: "center",
+                      width: 15,
+                      height: 15,
+                      borderRadius: 999,
+                      background: tokens.color.neutralSurface,
+                      fontSize: 8,
+                      fontWeight: 700,
+                      color: tokens.color.softInk,
+                      flexShrink: 0
+                    }}
+                  >
+                    {index + 1}
+                  </span>
+                  <span style={{ fontSize: 10, fontWeight: 600, color: tokens.color.softInk, letterSpacing: "0.01em" }}>
+                    Criterion
+                  </span>
+                </span>
+                <input
+                  data-pr-field={`criterion-${index}`}
+                  value={criterion.label}
+                  onChange={(event) => updateCriterion(index, event.target.value)}
+                  placeholder={CRITERION_PLACEHOLDERS[criterion.id]}
+                  style={inputStyle}
+                />
+              </div>
+            ))}
+          </div>
+        </div>
+
+        {/* ── Save ─────────────────────────────────────────────────── */}
+        <div data-pr-section="save" style={{ paddingTop: 14 }}>
+          <PrimaryButton onClick={onSave} disabled={isSaving || !campaign.name.trim()}>
+            {isSaving ? "Saving..." : "Save campaign"}
+          </PrimaryButton>
+        </div>
+
+      </div>
     </section>
   );
 }
 
-function EvidenceLedger({ rows }: { rows: PrEvidenceRow[] }) {
+function EvidenceLedger({ rows, lastMatchedAt }: { rows: PrEvidenceRow[]; lastMatchedAt?: string }) {
   return (
     <section data-pr-evidence-ledger="compact" style={surfaceCardStyle({ display: "grid", gap: 10, padding: "14px 16px" })}>
       <style>{SCAN_ROW_HOVER_CSS}</style>
-      <div style={{ display: "flex", justifyContent: "space-between", gap: 10, alignItems: "center" }}>
-        <Kicker>Evidence ledger</Kicker>
+      <div style={{ display: "flex", justifyContent: "space-between", gap: 10, alignItems: "center", flexWrap: "wrap" }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+          <Kicker>Evidence ledger</Kicker>
+          {lastMatchedAt ? (
+            <span style={{ fontSize: 10, color: tokens.color.softInk }}>
+              matched {formatTime(lastMatchedAt)}
+            </span>
+          ) : null}
+        </div>
         <Stamp tone="neutral">{rows.length} rows</Stamp>
       </div>
       {rows.length ? (
@@ -262,7 +621,7 @@ function EvidenceLedger({ rows }: { rows: PrEvidenceRow[] }) {
               <div style={{ fontSize: 12, fontWeight: 700, color: tokens.color.ink, ...lineClamp(1) }}>{row.authorHandle || "-"}</div>
               <div style={{ fontSize: 12, color: tokens.color.subInk, ...lineClamp(1) }}>{row.caption || "-"}</div>
               <div style={{ fontSize: 11, color: tokens.color.softInk, ...lineClamp(1) }}>{metricLine(row)}</div>
-              <Stamp tone={matchedCount(row) ? "accent" : "neutral"}>{matchedCount(row)}/6 matched</Stamp>
+              <MatchBadge count={matchedCount(row)} />
               <div style={{ fontSize: 11, color: tokens.color.softInk, textAlign: "right", minWidth: 64 }}>{formatTime(row.collectedAt)}</div>
             </div>
           ))}
@@ -360,6 +719,7 @@ export function PrEvidenceView({ sessionId }: { sessionId: string }) {
   const [notice, setNotice] = useState("");
   const [uploadError, setUploadError] = useState("");
   const [showPreview, setShowPreview] = useState(false);
+  const [setupCollapsed, setSetupCollapsed] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const [isReadingBrief, setIsReadingBrief] = useState(false);
   const [isGeneratingCriteria, setIsGeneratingCriteria] = useState(false);
@@ -391,6 +751,7 @@ export function PrEvidenceView({ sessionId }: { sessionId: string }) {
           return;
         }
         setCampaign(active);
+        setSetupCollapsed(true);
         const rowResponse = await sendExtensionMessage<PrResponse>({ type: "pr/list-evidence-rows", campaignId: active.id });
         if (!cancelled && rowResponse.ok) {
           setRows(rowResponse.prEvidenceRows ?? []);
@@ -421,6 +782,7 @@ export function PrEvidenceView({ sessionId }: { sessionId: string }) {
     if (response.ok) {
       const active = response.prCampaigns?.[0] || next;
       setCampaign(active);
+      setSetupCollapsed(true);
       setNotice("Campaign saved. Collect can now add evidence rows.");
     } else {
       setNotice(response.error);
@@ -539,7 +901,7 @@ export function PrEvidenceView({ sessionId }: { sessionId: string }) {
         mode="pr-evidence"
         kicker="PR Evidence"
         title="把已找到的 Threads 貼文整理成 PR evidence CSV"
-        deck="V1 只處理已打開或已找到的 posts；Collect 不跑 AI，Match criteria 才批次判斷。"
+        deck="Collect 儲存貼文 → Match 批次判斷 → Export CSV 交付。V1 不在 Collect 跑 AI。"
         stamp={<Stamp tone="accent">CSV first</Stamp>}
       />
 
@@ -555,6 +917,8 @@ export function PrEvidenceView({ sessionId }: { sessionId: string }) {
           isGenerating={isGeneratingCriteria}
           uploadError={uploadError}
           coreMessages={coreMessages}
+          collapsed={setupCollapsed}
+          onExpand={() => setSetupCollapsed(false)}
         />
 
         <section data-pr-actions="true" style={surfaceCardStyle({ display: "grid", gap: 10, padding: "12px 14px" })}>
@@ -562,28 +926,36 @@ export function PrEvidenceView({ sessionId }: { sessionId: string }) {
             <div style={{ display: "grid", gap: 3 }}>
               <Kicker>Batch actions</Kicker>
               <div style={{ fontSize: 12, color: tokens.color.subInk }}>
-                {rows.length} rows · 6 criteria · estimated AI batches: {batchEstimate}
+                {rows.length} posts · 6 criteria · ~{batchEstimate} AI calls
               </div>
             </div>
-            <div style={{ display: "flex", gap: 8, flexWrap: "wrap", justifyContent: "flex-end" }}>
-              <PrimaryButton onClick={matchCriteria} disabled={!rows.length || isMatching || !savedCampaignReady} style={{ padding: "7px 14px" }}>
+            <div style={{ display: "flex", gap: 6, flexWrap: "wrap", justifyContent: "flex-end", alignItems: "center" }}>
+              <SecondaryButton
+                onClick={matchCriteria}
+                disabled={!rows.length || isMatching || !savedCampaignReady}
+                style={accentButtonStyle}
+              >
                 {isMatching ? "Matching..." : "Match criteria"}
-              </PrimaryButton>
+              </SecondaryButton>
               <SecondaryButton onClick={() => setShowPreview((current) => !current)} disabled={!savedCampaignReady}>
                 Preview CSV
               </SecondaryButton>
-              <SecondaryButton onClick={exportCsv} disabled={!savedCampaignReady} style={exportButtonStyle}>
+              <PrimaryButton onClick={exportCsv} disabled={!savedCampaignReady} style={primaryExportStyle}>
                 Export CSV
-              </SecondaryButton>
-              <PrimaryButton onClick={generateSummary} disabled={!savedCampaignReady || isGeneratingSummary}>
-                {isGeneratingSummary ? "Generating..." : "Generate summary"}
               </PrimaryButton>
+              <SecondaryButton
+                onClick={() => void generateSummary()}
+                disabled={!savedCampaignReady || isGeneratingSummary}
+                style={accentButtonStyle}
+              >
+                {isGeneratingSummary ? "Generating..." : "Generate summary"}
+              </SecondaryButton>
             </div>
           </div>
-          {notice ? <div style={{ fontSize: 12, color: tokens.color.subInk, lineHeight: 1.55 }}>{notice}</div> : null}
+          <NoticeBar notice={notice} />
         </section>
 
-        <EvidenceLedger rows={rows} />
+        <EvidenceLedger rows={rows} lastMatchedAt={campaign.lastMatchedAt} />
         {preview ? <CsvPreview campaign={campaign} rows={rows} /> : null}
 
         {summary ? <SummaryPanel campaign={campaign} summary={summary} /> : null}

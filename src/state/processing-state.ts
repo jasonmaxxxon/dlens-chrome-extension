@@ -1,7 +1,7 @@
 import type { FolderMode, MainPage, PopupPage, SessionItem, SessionRecord } from "./types.ts";
 
-export const DEFAULT_POPUP_WIDTH = 440;
-export const EXPANDED_COMPARE_POPUP_WIDTH = 560;
+export const DEFAULT_POPUP_WIDTH = 720;
+export const EXPANDED_COMPARE_POPUP_WIDTH = 720;
 export const PRODUCT_POPUP_WIDTH = 720;
 export const NETWORK_BATCH_SIZE = 3;
 
@@ -13,7 +13,7 @@ export const PR_EVIDENCE_PAGES: ReadonlyArray<MainPage> = ["pr-evidence"];
 
 export const ALLOWED_PAGES: Record<FolderMode, MainPage[]> = {
   archive: ["library", "collect"],
-  topic: ["casebook", "inbox", "collect", "compare", "library"],
+  topic: ["collect", "library", "casebook", "compare"],
   product: ["saved-signals", "actionable-filter", "collect"],
   "pr-evidence": ["pr-evidence", "collect"]
 };

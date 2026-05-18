@@ -1,6 +1,6 @@
 # AGENTS.md — DLens Chrome Extension v0.1
 
-> **Last updated:** 2026-05-07 (Product Phase B + PR Evidence V1 hardened — 361/361 tests in worktree)
+> **Last updated:** 2026-05-18 (Signal Reading Review + version 0.1.4 on main — 440/440 tests, typecheck, build)
 > **For:** any agent continuing work in this repo
 
 ## Process Rules (locked 2026-04-17)
@@ -57,6 +57,13 @@ npx tsx --test tests/*.test.ts tests/*.test.tsx
 - folder CRUD and save accumulation
 - popup workspace shell now uses an editorial masthead + left rail with primary mode navigation for `Library / Compare / Collect`, plus a separate Settings utility action
 - `pr-evidence` workspace mode is live with `PR Evidence / Collect / Settings` navigation, one active campaign per PR session, PDF/txt/md brief upload, six editable criteria, compact evidence ledger, explicit batch matching with deterministic backstop, CSV preview/export, and Markdown/DOCX PR audit summary export
+- Layout preferences are live in Settings and persisted under `ExtensionSettings.layoutPreferences`: Product signal card (`verdict` / `marginalia`, default `marginalia`), Topic synthesis (`stack` / `console`, default `console`), and Compare result (`reading` / `parallel` / `chapters`, default `parallel`)
+- Product signal cards support both Verdict and Marginalia layouts in `ActionableItemCard`; keep `reusable_pattern` as the card headline, cited evidence visible, and `experimentHint` / `agentTaskSpec` in the task slot
+- Product Agent Brief uses `SignalReading` records as a local corpus: generate free-text readings on demand, review them, file useful readings, and compose filed-only Markdown for coding agents
+- Signal Reading review cards keep a compact Marginalia signal strip (`verdict`, `referenceType`, `relevance`) inside the active card so the reading workflow does not lose product-signal density
+- Topic synthesis uses deterministic `v2.work-signal-lens` output and renders through `TopicSynthesisCard` as Stack or Console
+- Folder synthesis uses the same work-signal lens for the `FolderSynthesisCard` Briefing layout and stores records at `dlens:v1:folder-synthesis`
+- Compare Result supports Parallel and Chapters layouts alongside the older Reading path; Parallel is the current default and uses sticky A/B columns
 - Result remains a contextual reading route rather than a primary rail destination
 - queue single post or all pending posts to ingest-core, forwarding the active folder name in `client_context.folder_name`
 - **Process All** button (combined queue + drain) always visible in Library, no item selection required
@@ -228,11 +235,13 @@ Product mode is no longer an honest stub in the Phase B worktree:
 
 The ProductSignalAnalyzer output contract is:
 
-- `signalType`: `learning | competitor | demand | technical | noise`
+- `signalType`: `learning | competitor | demand | technical | marketing | noise`
 - `signalSubtype`: precise behavior or technical pattern, for example `mcp_integration`, `browser_automation`, `recurring_data_crawl`, `pm_document_generation`
 - `contentType`: `content | discussion_starter | mixed`
 - `relevance`: `1..5`
-- `relevantTo`: valid `ProductContext` field names only
+- `relevantTo`: `ProductContext` field names plus learning/reference targets (`technicalLearning`, `workflowPattern`, `marketLanguage`, `productAnalogy`, `generalLearning`, `noDirectFit`)
+- `referenceType`: `product_reference | technical_learning | workflow_pattern | market_language | general_learning | no_direct_fit`
+- `referenceLabel` / `referenceTakeaway`: user-facing "對產品可參考 / 可學習" layer; do not force every useful signal into direct product relevance
 - `verdict`: `try | watch | park | insufficient_data`
 - `evidenceRefs`: valid `e1..eN` discussion reply refs only
 - `experimentHint`: optional
@@ -252,6 +261,51 @@ Live crawl lesson from the Kathy Threads test:
 - next backend fix is OP continuation refinement: remove root duplication and split true content continuation from OP reply chatter
 
 Do not start signal digest, watch mode, mobile share extension, or MCP execution until the ThreadReadModel and ProductSignalAnalyzer output are stable in Chrome.
+
+## Layout Preference State (2026-05-14)
+
+The layout sprint line is on `main`:
+
+```text
+2738d2f feature: Persist layout preferences (#4)
+f52f73b feature: Compare result parallel and chapters layouts (#3)
+16ae177 feature: Product signal and synthesis layout variants (#2)
+```
+
+Important implementation points:
+
+- `LayoutPreferences` lives in `src/state/types.ts`.
+- `createDefaultLayoutPreferences()` returns `marginalia`, `console`, and `parallel`.
+- `settings/set-layout-preferences` merges partial layout updates through the background storage path.
+- `SettingsView.tsx` owns the three user-facing layout controls.
+- `InPageCollectorPopup.tsx` threads persisted layout settings into Product signal cards, Topic synthesis, and Compare Result.
+- `TopicSynthesis` and `FolderSynthesis` are deterministic display layers over analyzed signals. They use `src/compare/work-signal-lens.ts`; they do not replace backend clustering.
+- Clean-main verification was run from `/Users/tung/Desktop/dlens-main-verify-20260514-152531`: `392/392` tests, `npm run typecheck`, `npm run build`, and `git diff --check` passed.
+- The verified unpacked build was copied to `/Users/tung/Desktop/dlens-product-latest/output/chrome-mv3` for Chrome load-unpacked use.
+- `/Users/tung/Desktop/dlens-product-latest` source checkout may be dirty; do not infer clean source state from the copied build artifact.
+
+## Version Rule (locked 2026-05-14)
+
+Every user-visible update that is pushed to `main` should bump the extension version unless the user explicitly says not to. Keep these four locations in sync:
+
+- `package.json`
+- `package-lock.json`
+- `wxt.config.ts` `manifest.version`
+- `src/ui/version.ts` `BUILD_VERSION`
+
+The Chrome extension page shows `manifest.version`; the popup masthead shows `BUILD_VERSION`. `tests/manifest-config.test.ts` locks package / manifest / UI version consistency. After a version bump, run typecheck, tests, build, and copy the verified build to `/Users/tung/Desktop/dlens-product-latest/output/chrome-mv3` if that is the active load-unpacked folder.
+
+## Signal Reading Review State (2026-05-18)
+
+Product Agent Brief now has a local reading-corpus layer:
+
+- `src/compare/signal-reading.ts` builds free-text SignalReading prompts and source packet hashes; prompt version is `v1`.
+- `src/compare/signal-reading-storage.ts` stores `SignalReading[]` at `dlens:v1:signal-readings`, with `model`, `sourceRefs`, trimmed `sourcePacket`, `reviewState`, and append-only `feedbackEvents`.
+- `product/synthesize-signal-reading` supports `force: true` to regenerate stale or legacy readings instead of returning the cache hit.
+- `product/list-signal-readings` returns readings for the UI to match against current saved signals by `signalId`; review actions target `cacheKey`.
+- `product/review-signal-reading` appends a review event and sets `reviewState` atomically.
+- `src/compare/signal-reading-brief.ts` owns the filed-only gate. Brief output must only use readings where `reviewState === "filed"`; stale filed readings are allowed but marked.
+- `ProductSignalViews.tsx` owns the Review → Compose UI and must not duplicate the filed-only filter outside the shared pure module.
 
 ## PR Evidence Mode V1 State (2026-05-07)
 
@@ -342,7 +396,7 @@ This was a major product-direction change. Summary for any agent picking up here
 
 ```bash
 npm run typecheck && npx tsx --test tests/*.test.ts tests/*.test.tsx
-# Expected in active worktree: 347 pass, 0 fail
+# Expected on current main: 440 pass, 0 fail
 ```
 
 ### Watch items for next agent

@@ -215,6 +215,9 @@ test("WorkspaceShell keeps the processing strip outside the primary mode rail", 
   assert.match(html, /data-shell-header="workspace"/);
   assert.match(html, /data-shell-context-strip="processing"/);
   assert.match(html, /data-workspace-mode="library"/);
+  assert.match(html, /grid-template-rows:auto minmax\(0, 1fr\)/);
+  assert.match(html, /min-height:100%/);
+  assert.match(html, /align-items:stretch/);
   assert.ok(modeRailIndex >= 0);
   assert.ok(processingStripIndex > modeRailIndex);
   assert.ok(settingsIndex > modeRailIndex);
@@ -1100,18 +1103,15 @@ test("ProductSignalView gives each product page a distinct information shape", (
   assert.match(actionableHtml, /可直接試的做法/);
   assert.match(actionableHtml, /A one-tap mobile save flow would fit my day/);
   assert.doesNotMatch(actionableHtml, /儲存至行動清單|>\+<\/span> 儲存/);
-  assert.match(actionableHtml, /AI 實驗建議（輔助）/);
-  assert.match(actionableHtml, /AI 判斷依據/);
+  assert.doesNotMatch(actionableHtml, /AI 實驗建議（輔助）/);
+  assert.doesNotMatch(actionableHtml, /AI 判斷依據/);
   assert.doesNotMatch(actionableHtml, /Agent 任務（可複製）/);
   assert.doesNotMatch(actionableHtml, /Agent 任務卡 ·/);
   assert.doesNotMatch(actionableHtml, /這個任務建議/);
   assert.doesNotMatch(actionableHtml, /\d+\s+likes/);
   assert.doesNotMatch(actionableHtml, /R5/);
-  // experiment panel visual identity
-  assert.match(actionableHtml, /data-product-panel="experiment"/);
-  assert.match(actionableHtml, /data-product-panel-badge="experiment"/);
-  assert.match(actionableHtml, /試驗/);
-  assert.match(actionableHtml, /border-left:2px solid/);
+  assert.doesNotMatch(actionableHtml, /data-product-panel="experiment"/);
+  assert.doesNotMatch(actionableHtml, /data-product-panel-badge="experiment"/);
   // Agent task prompt cards are no longer part of the primary action card flow.
   assert.doesNotMatch(actionableHtml, /data-agent-task-card="true"/);
   assert.doesNotMatch(actionableHtml, /data-agent-task-badge="true"/);
@@ -1384,9 +1384,12 @@ test("ProductSignalView surfaces legacy optional fields when present", () => {
   assert.match(actionableHtml, /data-workflow-grounding="model_inferred"/);
   assert.match(actionableHtml, /AI 推斷，請交叉驗證原文/);
   assert.match(actionableHtml, /為什麼可以這樣做/);
-  assert.match(actionableHtml, /data-workflow-field-label="copy"[^>]*style="[^"]*font-weight:500[^"]*"/);
-  assert.match(actionableHtml, /data-workflow-field-label="why"[^>]*style="[^"]*font-weight:500[^"]*"/);
-  assert.match(actionableHtml, /data-workflow-field-label="tradeoff"[^>]*style="[^"]*font-weight:500[^"]*"/);
+  assert.match(actionableHtml, /data-workflow-section-tone="copy"[^>]*style="[^"]*border-left:4px solid #3f5a3b[^"]*"/);
+  assert.match(actionableHtml, /data-workflow-section-tone="why"[^>]*style="[^"]*border-left:4px solid #1a2e4f[^"]*"/);
+  assert.match(actionableHtml, /data-workflow-section-tone="tradeoff"[^>]*style="[^"]*border-left:4px solid #a16a17[^"]*"/);
+  assert.match(actionableHtml, /data-workflow-field-label="copy"[^>]*style="[^"]*font-weight:700[^"]*"/);
+  assert.match(actionableHtml, /data-workflow-field-label="why"[^>]*style="[^"]*font-weight:700[^"]*"/);
+  assert.match(actionableHtml, /data-workflow-field-label="tradeoff"[^>]*style="[^"]*font-weight:700[^"]*"/);
   assert.doesNotMatch(actionableHtml, /data-workflow-field-label="(?:copy|why|tradeoff)"[^>]*style="[^"]*font-weight:8/);
   assert.match(actionableHtml, /多來源工作流轉文件/);
   assert.match(actionableHtml, /引用理由：直接驗證 PM document workflow/);
@@ -1404,15 +1407,14 @@ test("ProductSignalView surfaces legacy optional fields when present", () => {
   assert.match(actionableHtml, /Claude Skill/);
   assert.match(actionableHtml, /text-transform:uppercase/);
   assert.doesNotMatch(actionableHtml, /可用做法（留言原文）/);
-  assert.match(actionableHtml, /AI 判斷依據/);
-  assert.match(actionableHtml, /data-ai-experiment-summary-label="true"[^>]*style="[^"]*font-weight:600[^"]*"/);
-  assert.match(actionableHtml, /競品上週剛 ship/);
-  assert.match(actionableHtml, /兩週內看是否有 3 位 PM 重複使用模板/);
-  assert.match(actionableHtml, /阻礙/);
-  assert.match(actionableHtml, /缺 Confluence webhook/);
-  // 產品比對 降級為 footnote — 用 ↳ glyph + "對應" 短句，不再用獨立 section header
-  assert.match(actionableHtml, /↳/);
-  assert.match(actionableHtml, /對應 核心流程/);
+  assert.doesNotMatch(actionableHtml, /AI 判斷依據/);
+  assert.doesNotMatch(actionableHtml, /data-ai-experiment-summary-label="true"/);
+  assert.doesNotMatch(actionableHtml, /競品上週剛 ship/);
+  assert.doesNotMatch(actionableHtml, /兩週內看是否有 3 位 PM 重複使用模板/);
+  assert.doesNotMatch(actionableHtml, /阻礙/);
+  assert.doesNotMatch(actionableHtml, /缺 Confluence webhook/);
+  assert.doesNotMatch(actionableHtml, /↳/);
+  assert.doesNotMatch(actionableHtml, /對應 核心流程/);
   assert.doesNotMatch(actionableHtml, /<strong>產品比對<\/strong>/);
 
   // Raw quote is no longer the visible hero; it lives behind the disclosure.
@@ -1629,7 +1631,7 @@ test("merged candidate-action board keeps AI commentary collapsed on action rout
   const openDetails = html.match(/<details open=""[^]*?<\/details>/g) ?? [];
 
   assert.equal(openDetails.length, 0);
-  assert.match(html, /候選行動/);
+  assert.match(html, /Agent Brief/);
   assert.doesNotMatch(html, /儲存至行動清單|>\+<\/span> 儲存/);
   assert.match(html, /s1 摘錄。/);
   assert.match(html, /s2 摘錄。/);
@@ -1749,8 +1751,16 @@ test("ProductSignalView batch export copies action context with original signal 
     whyRelevant: "使用者明確描述手機上快速保存 Threads 的需求。",
     verdict: "try",
     reason: "可以直接測試 share URL intake。",
+    audienceGap: "作者預期大家關心分享入口；觀眾實際追問 agent 如何保存上下文。",
     experimentHint: "做一個 share URL intake prototype。",
     evidenceRefs: ["e1"],
+    evidenceNotes: [
+      {
+        ref: "e1",
+        quoteSummary: "觀眾問 agent 是否能保存上下文。",
+        whyItMatters: "說明使用者關心的是連續工作流，而不只是入口。"
+      }
+    ],
     productContextHash: "hash",
     promptVersion: "v11",
     analyzedAt: "2026-04-27T00:00:00.000Z",
@@ -1771,6 +1781,9 @@ test("ProductSignalView batch export copies action context with original signal 
     analysesBySignal: new Map([["signal_a", analysis as any]]),
     signalPreviewById: {
       signal_a: "Original Threads text: I want to save posts from mobile share sheet."
+    },
+    signalUrlById: {
+      signal_a: "https://www.threads.net/@dlens/post/abc"
     }
   });
 
@@ -1779,12 +1792,222 @@ test("ProductSignalView batch export copies action context with original signal 
   assert.match(brief, /先處理 `值得嘗試`/);
   assert.match(brief, /`保留觀察` 只作產品學習/);
   assert.match(brief, /Original Threads text/);
+  assert.match(brief, /原文連結: https:\/\/www\.threads\.net\/@dlens\/post\/abc/);
   assert.match(brief, /手機分享入口實驗/);
   assert.match(brief, /學習 mobile share intake 的入口設計/);
   assert.match(brief, /可先學習分享入口如何交給 agent/);
   assert.match(brief, /Prototype a share URL intake/);
   assert.doesNotMatch(brief, /## 1\. signal_a/);
   assert.doesNotMatch(brief, /AI summary/);
+});
+
+test("ProductSignalView original batch export includes audience reactions and audience gap", () => {
+  const analysis = {
+    signalId: "signal_b",
+    signalType: "marketing",
+    signalSubtype: "positioning_backlash",
+    contentType: "mixed",
+    contentSummary: "毒舌記帳 App 引發定位討論",
+    relevance: 3,
+    relevantTo: ["productPromise"],
+    referenceType: "market_language",
+    referenceLabel: "對產品可參考：語氣反面案例",
+    referenceTakeaway: "觀眾反應提醒產品人格化不能只靠噱頭。",
+    whyRelevant: "這可用來審視 DLens 的語氣是否過度人格化。",
+    verdict: "watch",
+    reason: "可作為反面語氣案例。",
+    audienceGap: "作者預期毒舌語氣成為差異化；觀眾實際反應是記帳 App 過剩疲勞。",
+    evidenceRefs: ["e1", "e2"],
+    evidenceNotes: [
+      { ref: "e1", quoteSummary: "觀眾說記帳 App 太多。", whyItMatters: "顯示疲勞點不在毒舌，而是品類過剩。" },
+      { ref: "e2", quoteSummary: "有人覺得毒舌不適合理財。", whyItMatters: "顯示人格化語氣可能降低信任。" }
+    ],
+    productContextHash: "hash",
+    promptVersion: "v16",
+    analyzedAt: "2026-05-17T00:00:00.000Z",
+    status: "complete"
+  } as const;
+
+  const brief = productSignalViewTestables.buildAgentBrief({
+    mode: "original",
+    selectedSignals: [
+      { id: "signal_b", sessionId: "session_a", itemId: "item_b", source: "threads", inboxStatus: "unprocessed", capturedAt: "2026-05-17T00:00:00.000Z" }
+    ],
+    analysesBySignal: new Map([["signal_b", analysis as any]]),
+    signalPreviewById: {
+      signal_b: "Budget AI uses a savage personality to nudge spending habits."
+    },
+    signalUrlById: {
+      signal_b: "https://www.threads.net/@budgetai/post/xyz"
+    },
+    evidenceBySignalId: {
+      signal_b: [
+        {
+          ref: "e1",
+          text: "又係記帳app，市面上已經一堆記帳app冇心再試新嘢",
+          author: "rick_no_rich",
+          likes: 9,
+          position: 1
+        },
+        {
+          ref: "e2",
+          text: "用APP都會比佢串 不了 仲嫌日常生活唔夠大壓力咩",
+          author: "azusa2789",
+          likes: 2,
+          position: 2
+        }
+      ]
+    }
+  });
+
+  assert.match(brief, /原文連結: https:\/\/www\.threads\.net\/@budgetai\/post\/xyz/);
+  assert.match(brief, /觀眾反應 \(2 則\)/);
+  assert.match(brief, /\[e1\] rick_no_rich：又係記帳app，市面上已經一堆記帳app冇心再試新嘢/);
+  assert.match(brief, /\[e2\] azusa2789：用APP都會比佢串 不了 仲嫌日常生活唔夠大壓力咩/);
+  assert.doesNotMatch(brief, /\[e1\] 觀眾說記帳 App 太多。/);
+  assert.match(brief, /預期落差: 作者預期毒舌語氣成為差異化/);
+});
+
+test("ProductSignalView reviews signal readings before composing filed-only brief", () => {
+  const signals = [
+    { id: "signal_pending", sessionId: "sess", itemId: "i1", source: "threads" as const, inboxStatus: "unprocessed" as const, capturedAt: "2026-05-18T00:00:00.000Z" },
+    { id: "signal_filed", sessionId: "sess", itemId: "i2", source: "threads" as const, inboxStatus: "unprocessed" as const, capturedAt: "2026-05-18T00:00:00.000Z" }
+  ];
+  const analyses = signals.map((signal, index) => ({
+    signalId: signal.id,
+    signalType: "marketing" as const,
+    signalSubtype: "positioning_signal",
+    contentType: "mixed" as const,
+    contentSummary: index === 0 ? "待審訊號" : "已收錄訊號",
+    relevance: index === 0 ? 3 as const : 4 as const,
+    relevantTo: ["productPromise" as const],
+    referenceType: "product_reference" as const,
+    referenceLabel: "對產品參考",
+    referenceTakeaway: "用來判斷產品語氣。",
+    whyRelevant: "對產品語氣有參考價值。",
+    verdict: index === 0 ? "watch" as const : "try" as const,
+    reason: "理由。",
+    evidenceRefs: ["e1"],
+    productContextHash: "ctx",
+    promptVersion: "v16",
+    analyzedAt: "2026-05-18T00:00:00.000Z",
+    status: "complete" as const
+  }));
+  const signalReadings = [
+    {
+      signalId: "signal_pending",
+      cacheKey: "pending-key",
+      productContextHash: "ctx",
+      sourcePacketHash: "pkt-pending",
+      promptVersion: "v5.1",
+      reading: "待審判讀內容，不應進入 brief preview。",
+      generatedAt: "2026-05-18T01:00:00.000Z",
+      model: "google:test",
+      sourceRefs: ["e1"],
+      sourcePacket: { assembledContent: "pending source", postUrl: "", representativeComments: [], analysisPromptVersion: "v16" },
+      feedbackEvents: [],
+      reviewState: "pending"
+    },
+    {
+      signalId: "signal_filed",
+      cacheKey: "filed-key",
+      productContextHash: "ctx",
+      sourcePacketHash: "pkt-filed",
+      promptVersion: "v5.1",
+      reading: "已收錄的判讀內容，應成為 Agent Brief 主體。",
+      generatedAt: "2026-05-18T02:00:00.000Z",
+      model: "google:test",
+      sourceRefs: ["e4"],
+      sourcePacket: { assembledContent: "filed source", postUrl: "https://www.threads.net/@dlens/post/filed", representativeComments: [], analysisPromptVersion: "v16" },
+      feedbackEvents: [{ type: "filed", at: "2026-05-18T02:05:00.000Z" }],
+      reviewState: "filed"
+    }
+  ];
+
+  const html = renderToStaticMarkup(
+    React.createElement(ProductSignalView as any, {
+      kind: "actionable-filter",
+      signals,
+      analyses,
+      productProfile: {
+        name: "DLens", category: "x", audience: "y", contextText: "z",
+        contextFiles: [{ id: "f", name: "README.md", kind: "readme", importedAt: "2026-05-18T00:00:00.000Z", charCount: 1 }]
+      },
+      signalReadings,
+      onAnalyze: () => undefined
+    })
+  );
+
+  assert.match(html, /Agent Brief/);
+  assert.match(html, /READING REVIEW/);
+  assert.match(html, /BRIEF COMPOSE/);
+  assert.match(html, /收錄後會進入本地判讀庫/);
+  assert.match(html, /收錄此判讀/);
+  assert.match(html, /已收錄/);
+  assert.match(html, /data-signal-reading-marginalia="true"/);
+  assert.match(html, /relevance 3\/5/);
+  assert.match(html, /保留觀察/);
+  assert.match(html, /1 approved → brief|1 收錄/);
+  assert.match(html, /data-signal-reading-brief-copy-status="idle"/);
+  assert.match(html, /複製 Brief/);
+  assert.match(html, /待審判讀內容，不應進入 brief preview/);
+  const brief = productSignalViewTestables.buildSignalReadingAgentBrief({
+    readings: signalReadings as any,
+    analysesBySignal: new Map(analyses.map((analysis) => [analysis.signalId, analysis as any])),
+    signalPreviewById: {
+      signal_pending: "pending preview",
+      signal_filed: "filed preview"
+    },
+    signalUrlById: {}
+  });
+  assert.match(brief, /已收錄的判讀內容，應成為 Agent Brief 主體/);
+  assert.doesNotMatch(brief, /待審判讀內容，不應進入 brief preview/);
+});
+
+test("ProductSignalView opens the reading review workflow before any readings exist", () => {
+  const html = renderToStaticMarkup(
+    React.createElement(ProductSignalView as any, {
+      kind: "actionable-filter",
+      signals: [
+        { id: "signal_empty", sessionId: "sess", itemId: "i1", source: "threads", inboxStatus: "unprocessed", capturedAt: "2026-05-18T00:00:00.000Z" }
+      ],
+      analyses: [
+        {
+          signalId: "signal_empty",
+          signalType: "marketing",
+          signalSubtype: "positioning_signal",
+          contentType: "mixed",
+          contentSummary: "尚未生成判讀的訊號",
+          relevance: 3,
+          relevantTo: ["productPromise"],
+          referenceType: "product_reference",
+          referenceLabel: "對產品參考",
+          referenceTakeaway: "用來判斷產品語氣。",
+          whyRelevant: "對產品語氣有參考價值。",
+          verdict: "watch",
+          reason: "理由。",
+          evidenceRefs: ["e1"],
+          productContextHash: "ctx",
+          promptVersion: "v16",
+          analyzedAt: "2026-05-18T00:00:00.000Z",
+          status: "complete"
+        }
+      ],
+      productProfile: {
+        name: "DLens", category: "x", audience: "y", contextText: "z",
+        contextFiles: [{ id: "f", name: "README.md", kind: "readme", importedAt: "2026-05-18T00:00:00.000Z", charCount: 1 }]
+      },
+      signalReadings: [],
+      onAnalyze: () => undefined,
+      onSynthesizeSignalReading: async () => ({ ok: true, reading: "new reading" }),
+      onReviewSignalReading: async () => ({ ok: false, error: "missing" })
+    })
+  );
+
+  assert.match(html, /Agent Brief/);
+  assert.match(html, /尚未生成深度判讀/);
+  assert.match(html, /深度判讀/);
+  assert.doesNotMatch(html, /可直接試的做法/);
 });
 
 test("ClassificationBoard selected post aside collapses long text behind 展開全文", () => {

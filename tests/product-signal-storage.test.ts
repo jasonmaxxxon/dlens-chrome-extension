@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 
 import {
+  deleteProductSignalAnalysis,
   PRODUCT_SIGNAL_ANALYSES_STORAGE_KEY,
   listProductSignalAnalyses,
   saveProductSignalAnalysis
@@ -67,6 +68,21 @@ test("saveProductSignalAnalysis preserves marketing signal type", async () => {
   assert.deepEqual(analyses, [analysis]);
 });
 
+test("saveProductSignalAnalysis preserves product reference fields and learning targets", async () => {
+  const storage = makeStorage();
+  const analysis = makeAnalysis("signal-learning-reference", {
+    relevantTo: ["technicalLearning", "generalLearning"],
+    referenceType: "technical_learning",
+    referenceLabel: "學習 browser automation 的工具邊界",
+    referenceTakeaway: "這條 signal 先作為技術知識，不必立即改成 DLens 功能。"
+  });
+
+  await saveProductSignalAnalysis(storage, analysis);
+  const analyses = await listProductSignalAnalyses(storage, ["signal-learning-reference"]);
+
+  assert.deepEqual(analyses, [analysis]);
+});
+
 test("listProductSignalAnalyses normalizes legacy records and filters by signal ids", async () => {
   const storage = makeStorage({
     [PRODUCT_SIGNAL_ANALYSES_STORAGE_KEY]: {
@@ -123,6 +139,7 @@ test("saveProductSignalAnalysis preserves legacy optional fields (whyNow, valida
   const storage = makeStorage();
   const analysis = makeAnalysis("signal-v3", {
     verdict: "try",
+    audienceGap: "作者預期展示 agent workflow；觀眾實際追問資料接入和權限。",
     whyNow: "競品上週剛 ship，現在試最不會被搶先。",
     validationMetric: "兩週內看是否有 3 位 PM 重複使用模板。",
     blockers: ["缺 GitHub API 權限", "需要 Confluence webhook"],
@@ -311,4 +328,26 @@ test("listProductSignalAnalyses normalizes legacy snake case agent task specs", 
     taskPrompt: "You are helping compare research notes.\n\nTask: summarize the source set.",
     requiredContext: ["source links", "summary destination"]
   });
+});
+
+test("deleteProductSignalAnalysis removes only the targeted analysis", async () => {
+  const storage = makeStorage();
+  await saveProductSignalAnalysis(storage, makeAnalysis("signal-1"));
+  await saveProductSignalAnalysis(storage, makeAnalysis("signal-2"));
+
+  await deleteProductSignalAnalysis(storage, "signal-1");
+
+  const remaining = await listProductSignalAnalyses(storage);
+  assert.equal(remaining.length, 1);
+  assert.equal(remaining[0]?.signalId, "signal-2");
+});
+
+test("deleteProductSignalAnalysis is a no-op for unknown signalId", async () => {
+  const storage = makeStorage();
+  await saveProductSignalAnalysis(storage, makeAnalysis("signal-1"));
+
+  await deleteProductSignalAnalysis(storage, "does-not-exist");
+
+  const remaining = await listProductSignalAnalyses(storage);
+  assert.equal(remaining.length, 1);
 });

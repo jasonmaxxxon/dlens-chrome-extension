@@ -5,11 +5,13 @@ import {
   ensureSignalForSavedItem,
 } from "../src/state/topic-handlers.ts";
 import {
+  deleteSignal,
   deleteTopic,
   loadSignals,
   loadTopics,
   normalizeSignal,
   normalizeTopic,
+  normalizeTopicSynthesis,
   saveSignal,
   saveTopic,
   SIGNALS_STORAGE_KEY,
@@ -18,6 +20,7 @@ import {
 } from "../src/state/topic-storage.ts";
 import type { Signal, Topic } from "../src/state/types.ts";
 import { createSessionItem, createSessionRecord } from "../src/state/store-helpers.ts";
+import { TOPIC_SYNTHESIS_VERSION } from "../src/compare/topic-synthesis.ts";
 
 function createStorageArea(bucket: Record<string, unknown> = {}) {
   return {
@@ -54,8 +57,51 @@ test("normalizeTopic returns null for incomplete records and fills defaults for 
     signalIds: [],
     pairIds: [],
     createdAt: "1970-01-01T00:00:00.000Z",
-    updatedAt: "1970-01-01T00:00:00.000Z"
+    updatedAt: "1970-01-01T00:00:00.000Z",
+    synthesis: null
   } satisfies Topic);
+});
+
+test("normalizeTopicSynthesis rejects records from older generator versions", () => {
+  assert.equal(normalizeTopicSynthesis({
+    observations: [],
+    commonClusters: [],
+    verbalTechniques: [],
+    memes: [],
+    sentimentNarrative: "",
+    outliers: [],
+    generatedFromCount: 2,
+    totalSignalCount: 2,
+    generatedAt: "2026-05-11T00:00:00.000Z",
+    generator: "deterministic",
+    generatorVersion: "v1.deterministic"
+  }), null);
+
+  assert.deepEqual(normalizeTopicSynthesis({
+    observations: [],
+    commonClusters: [],
+    verbalTechniques: [],
+    memes: [],
+    sentimentNarrative: "",
+    outliers: [],
+    generatedFromCount: 2,
+    totalSignalCount: 2,
+    generatedAt: "2026-05-11T00:00:00.000Z",
+    generator: "deterministic",
+    generatorVersion: TOPIC_SYNTHESIS_VERSION
+  }), {
+    observations: [],
+    commonClusters: [],
+    verbalTechniques: [],
+    memes: [],
+    sentimentNarrative: "",
+    outliers: [],
+    generatedFromCount: 2,
+    totalSignalCount: 2,
+    generatedAt: "2026-05-11T00:00:00.000Z",
+    generator: "deterministic",
+    generatorVersion: TOPIC_SYNTHESIS_VERSION
+  });
 });
 
 test("normalizeSignal returns null for incomplete records and fills defaults for partial data", () => {
@@ -402,4 +448,62 @@ test("saveSignal upserts by id and deleteTopic removes only the targeted topic",
   const topics = await deleteTopic(topicStorage, "topic-1");
   assert.equal(topics.length, 1);
   assert.equal(topics[0]?.id, "topic-2");
+});
+
+test("deleteSignal removes the signal and scrubs it from all topics + clears synthesis", async () => {
+  const fakeSynthesis = {
+    observations: [],
+    commonClusters: [],
+    memes: [],
+    verbalTechniques: [],
+    sentimentNarrative: "x",
+    outliers: [],
+    generatedFromCount: 2,
+    totalSignalCount: 2,
+    generatedAt: "2026-05-12T00:00:00.000Z",
+    generator: "deterministic",
+    generatorVersion: TOPIC_SYNTHESIS_VERSION
+  };
+  const storage = createStorageArea({
+    [TOPICS_STORAGE_KEY]: [
+      { id: "topic-1", sessionId: "session-1", name: "A", signalIds: ["signal-1", "signal-2"], pairIds: [], synthesis: fakeSynthesis },
+      // orphan: signal-1 also appears in topic-2 (e.g. from stale data)
+      { id: "topic-2", sessionId: "session-1", name: "B", signalIds: ["signal-1", "signal-3"], pairIds: [] }
+    ],
+    [SIGNALS_STORAGE_KEY]: [
+      { id: "signal-1", sessionId: "session-1", source: "threads", inboxStatus: "assigned", topicId: "topic-1", capturedAt: "2026-05-12T00:00:00.000Z", suggestedTopicIds: [] },
+      { id: "signal-2", sessionId: "session-1", source: "threads", inboxStatus: "assigned", topicId: "topic-1", capturedAt: "2026-05-12T00:01:00.000Z", suggestedTopicIds: [] },
+      { id: "signal-3", sessionId: "session-1", source: "threads", inboxStatus: "assigned", topicId: "topic-2", capturedAt: "2026-05-12T00:02:00.000Z", suggestedTopicIds: [] }
+    ]
+  });
+
+  await deleteSignal(storage, storage, "signal-1");
+
+  const signals = await loadSignals(storage, "session-1");
+  assert.equal(signals.length, 2);
+  assert.ok(signals.every((s) => s.id !== "signal-1"), "signal-1 must be removed");
+
+  const topics = await loadTopics(storage, "session-1");
+  const topic1 = topics.find((t) => t.id === "topic-1");
+  const topic2 = topics.find((t) => t.id === "topic-2");
+
+  // removed from topic-1 signalIds
+  assert.ok(topic1?.signalIds.every((id) => id !== "signal-1"), "topic-1 must not reference signal-1");
+  // synthesis cleared on affected topic
+  assert.equal(topic1?.synthesis, null, "topic-1 synthesis must be cleared");
+  // orphan in topic-2 also scrubbed
+  assert.ok(topic2?.signalIds.every((id) => id !== "signal-1"), "topic-2 orphan must be scrubbed");
+  assert.equal(topic2?.synthesis, null, "topic-2 synthesis must be cleared");
+  // unrelated signal untouched
+  assert.ok(topic2?.signalIds.includes("signal-3"), "signal-3 must remain in topic-2");
+});
+
+test("deleteSignal is a no-op for unknown signalId", async () => {
+  const storage = createStorageArea({
+    [TOPICS_STORAGE_KEY]: [{ id: "topic-1", sessionId: "session-1", name: "A", signalIds: [], pairIds: [] }],
+    [SIGNALS_STORAGE_KEY]: []
+  });
+  await deleteSignal(storage, storage, "does-not-exist");
+  const signals = await loadSignals(storage, "session-1");
+  assert.equal(signals.length, 0);
 });

@@ -1,10 +1,11 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 import type { TargetDescriptor } from "../contracts/target-descriptor";
-import { normalizePostUrl } from "../state/store-helpers";
+import { DEFAULT_SESSION_NAME_BY_MODE, normalizePostUrl } from "../state/store-helpers";
 import type {
   ExtensionSnapshot,
   FolderMode,
+  FolderSynthesis,
   ProductContext,
   ProductAgentTaskFeedback,
   ProductSignalAnalysis,
@@ -13,12 +14,15 @@ import type {
 } from "../state/types";
 import { isDescriptorSavedInFolder } from "../state/ui-state";
 import type { ExtensionMessage, ExtensionResponse, StartProcessingResponse } from "../state/messages";
+import type { SignalReading } from "../compare/signal-reading-storage";
 import type { PrCampaign } from "../state/pr-evidence-storage";
 import { getProcessingFailureMessage } from "../state/processing-errors";
 import {
+  getItemReadinessStatus,
   guardPage,
   isProductSignalPage as isProductSignalWorkspacePage,
-  summarizeSessionProcessing
+  summarizeSessionProcessing,
+  type WorkerStatus
 } from "../state/processing-state";
 import { addRuntimeMessageListener, getActiveItem, getActiveSession, sendExtensionMessage } from "./controller";
 import {
@@ -49,7 +53,10 @@ type UseInPageCollectorAppStateArgs = {
 };
 
 export function resolveEffectivePopupPage(page: ExtensionSnapshot["tab"]["popupPage"], activeFolderMode: FolderMode) {
-  return page === "settings" ? "settings" : guardPage(page, activeFolderMode);
+  if (page === "settings" || page === "result") {
+    return page;
+  }
+  return guardPage(page, activeFolderMode);
 }
 
 function mergeAnalysesBySignalId(
@@ -63,9 +70,78 @@ function mergeAnalysesBySignalId(
   return [...bySignalId.values()].sort((left, right) => right.analyzedAt.localeCompare(left.analyzedAt));
 }
 
+function upsertSignalReading(previous: SignalReading[], next: SignalReading): SignalReading[] {
+  const byCacheKey = new Map(previous.map((reading) => [reading.cacheKey, reading]));
+  byCacheKey.set(next.cacheKey, next);
+  return [...byCacheKey.values()].sort((left, right) => right.generatedAt.localeCompare(left.generatedAt));
+}
+
+type DisplayToastState = { id: string; kind: "saved" | "queued"; message: string };
+
+export async function runAnalyzeItemsPipeline({
+  folderId,
+  itemIds,
+  sendAndSync,
+  setWorkerStatus,
+  setDisplayToast
+}: {
+  folderId: string;
+  itemIds: string[];
+  sendAndSync: SendAndSync;
+  setWorkerStatus: (status: WorkerStatus) => void;
+  setDisplayToast: (toast: DisplayToastState) => void;
+}): Promise<{ ok: boolean; failedCount: number }> {
+  const queueResp = await sendAndSync({
+    type: "session/queue-items",
+    sessionId: folderId,
+    itemIds
+  });
+  if (!queueResp.ok) {
+    setDisplayToast({
+      id: `bulk-queue-failed-${Date.now()}`,
+      kind: "queued",
+      message: "加入隊列失敗"
+    });
+    return { ok: false, failedCount: itemIds.length };
+  }
+
+  const failedCount = queueResp.failedItemIds?.length ?? 0;
+  const queuedCount = queueResp.queuedItemIds?.length ?? Math.max(itemIds.length - failedCount, 0);
+  if (queuedCount <= 0) {
+    setDisplayToast({
+      id: `bulk-queue-empty-${Date.now()}`,
+      kind: "queued",
+      message: "沒有成功加入隊列的貼文"
+    });
+    return { ok: false, failedCount };
+  }
+
+  const startResp = await sendAndSync<StartProcessingResponse>({ type: "worker/start-processing" });
+  if (startResp.ok) {
+    setWorkerStatus("draining");
+    setDisplayToast({
+      id: `bulk-analyze-${Date.now()}`,
+      kind: "queued",
+      message: failedCount
+        ? `開始分析 ${queuedCount} 篇（${failedCount} 篇失敗）`
+        : `開始分析 ${queuedCount} 篇`
+    });
+    await sendAndSync({ type: "session/refresh-all", sessionId: folderId });
+    return { ok: true, failedCount };
+  }
+
+  setDisplayToast({
+    id: `bulk-analyze-failed-${Date.now()}`,
+    kind: "queued",
+    message: getProcessingFailureMessage(startResp.error)
+  });
+  return { ok: false, failedCount };
+}
+
 export function useInPageCollectorAppState({ snapshot, tabId, sendAndSync }: UseInPageCollectorAppStateArgs) {
   const popupRef = useRef<HTMLDivElement | null>(null);
   const hadReadyPairRef = useRef(false);
+  const refreshedOnOpenFolderRef = useRef<string | null>(null);
   usePopupKeyframes();
 
   const [showFolderPrompt, setShowFolderPrompt] = useState(false);
@@ -84,13 +160,18 @@ export function useInPageCollectorAppState({ snapshot, tabId, sendAndSync }: Use
   const [displayToast, setDisplayToast] = useState<{ id: string; kind: "saved" | "queued"; message: string } | null>(null);
   const [optimisticSavedUrl, setOptimisticSavedUrl] = useState<string | null>(null);
   const [optimisticQueuedIds, setOptimisticQueuedIds] = useState<string[]>([]);
+  const [bulkAnalyzingFolderId, setBulkAnalyzingFolderId] = useState<string | null>(null);
   const [isStartingProcessing, setIsStartingProcessing] = useState(false);
   const [techniqueReadings, setTechniqueReadings] = useState<TechniqueReadingSnapshot[]>([]);
   const [savedAnalyses, setSavedAnalyses] = useState<SavedAnalysisSnapshot[]>([]);
   const [productSignalAnalyses, setProductSignalAnalyses] = useState<ProductSignalAnalysis[]>([]);
   const [historicalProductSignalAnalyses, setHistoricalProductSignalAnalyses] = useState<ProductSignalAnalysis[]>([]);
   const [productAgentTaskFeedback, setProductAgentTaskFeedback] = useState<ProductAgentTaskFeedback[]>([]);
+  const [signalReadings, setSignalReadings] = useState<SignalReading[]>([]);
   const [activePrCampaign, setActivePrCampaign] = useState<PrCampaign | null>(null);
+  const [folderSynthesis, setFolderSynthesis] = useState<FolderSynthesis | null>(null);
+  const [isGeneratingFolderSynthesis, setIsGeneratingFolderSynthesis] = useState(false);
+  const [folderSynthesisError, setFolderSynthesisError] = useState<string | null>(null);
   const [isAnalyzingProductSignals, setIsAnalyzingProductSignals] = useState(false);
   const [productSignalAnalysisError, setProductSignalAnalysisError] = useState<string | null>(null);
   const [productSignalAnalysisNotice, setProductSignalAnalysisNotice] = useState<string | null>(null);
@@ -151,6 +232,21 @@ export function useInPageCollectorAppState({ snapshot, tabId, sendAndSync }: Use
     snapshot?.global.settings.openaiApiKey,
     snapshot?.global.settings.claudeApiKey
   ]);
+
+  useEffect(() => {
+    if (!popupOpen) {
+      refreshedOnOpenFolderRef.current = null;
+      return;
+    }
+    const folderId = activeFolder?.id;
+    if (!folderId || refreshedOnOpenFolderRef.current === folderId) {
+      return;
+    }
+    refreshedOnOpenFolderRef.current = folderId;
+    void sendAndSync({ type: "session/refresh-all", sessionId: folderId }).catch((error: unknown) => {
+      console.error("failed to refresh active folder on popup open", error);
+    });
+  }, [popupOpen, activeFolder?.id, sendAndSync]);
   const {
     selectedCompareA,
     setSelectedCompareA,
@@ -207,10 +303,32 @@ export function useInPageCollectorAppState({ snapshot, tabId, sendAndSync }: Use
     if (activeFolderMode === "pr-evidence") {
       return "已加入 PR evidence";
     }
-    return activeFolderMode === "topic" || activeFolderMode === "product"
-      ? "已加入收件匣"
-      : `Saved to ${folderName}`;
+    if (activeFolderMode === "topic") {
+      return "已加入主題";
+    }
+    return activeFolderMode === "product" ? "已加入產品訊號" : `Saved to ${folderName}`;
   }, [activeFolderMode]);
+
+  const folderSynthesisCoverage = useMemo(() => {
+    if (activeFolderMode !== "topic" || !activeFolder) {
+      return { analyzedCount: 0, contributingTopicCount: 0 };
+    }
+    const itemsById = new Map(activeFolder.items.map((item) => [item.id, item]));
+    const analyzedTopicIds = new Set<string>();
+    let analyzedCount = 0;
+    for (const topic of topicState.topics) {
+      const signalIds = new Set(topic.signalIds);
+      for (const signal of topicState.signals) {
+        if (!signalIds.has(signal.id) || !signal.itemId) continue;
+        const item = itemsById.get(signal.itemId);
+        if (item && getItemReadinessStatus(item) === "ready") {
+          analyzedCount += 1;
+          analyzedTopicIds.add(topic.id);
+        }
+      }
+    }
+    return { analyzedCount, contributingTopicCount: analyzedTopicIds.size };
+  }, [activeFolder, activeFolderMode, topicState.topics, topicState.signals]);
 
   useEffect(() => {
     let cancelled = false;
@@ -254,6 +372,27 @@ export function useInPageCollectorAppState({ snapshot, tabId, sendAndSync }: Use
     snapshot?.global.settings.googleApiKey,
     snapshot?.global.settings.productProfile
   ]);
+
+  useEffect(() => {
+    if (!popupOpen || page !== "library" || activeFolderMode !== "topic" || !activeFolder?.id) {
+      return;
+    }
+    let cancelled = false;
+    void sendExtensionMessage<{ ok: true; folderSynthesis?: FolderSynthesis | null } | { ok: false; error: string }>({
+      type: "folder/synthesis/get",
+      sessionId: activeFolder.id
+    })
+      .then((response) => {
+        if (cancelled) return;
+        setFolderSynthesis(response.ok ? (response.folderSynthesis ?? null) : null);
+      })
+      .catch(() => {
+        if (!cancelled) setFolderSynthesis(null);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [activeFolder?.id, activeFolderMode, page, popupOpen, snapshot?.global.updatedAt]);
 
   useEffect(() => {
     if (page !== "library") {
@@ -325,9 +464,12 @@ export function useInPageCollectorAppState({ snapshot, tabId, sendAndSync }: Use
       }),
       sendExtensionMessage<{ ok: true; productAgentTaskFeedback?: ProductAgentTaskFeedback[] } | { ok: false; error: string }>({
         type: "product/list-agent-task-feedback"
+      }),
+      sendExtensionMessage<{ ok: true; signalReadings?: SignalReading[] } | { ok: false; error: string }>({
+        type: "product/list-signal-readings"
       })
     ])
-      .then(([currentResponse, historicalResponse, feedbackResponse]) => {
+      .then(([currentResponse, historicalResponse, feedbackResponse, readingsResponse]) => {
         if (cancelled) {
           return;
         }
@@ -340,12 +482,17 @@ export function useInPageCollectorAppState({ snapshot, tabId, sendAndSync }: Use
         if (feedbackResponse.ok) {
           setProductAgentTaskFeedback(feedbackResponse.productAgentTaskFeedback ?? []);
         }
+        if (readingsResponse.ok) {
+          const scopedSignalIds = new Set(signalIds);
+          setSignalReadings((readingsResponse.signalReadings ?? []).filter((reading) => scopedSignalIds.has(reading.signalId)));
+        }
       })
       .catch(() => {
         if (!cancelled) {
           setProductSignalAnalyses([]);
           setHistoricalProductSignalAnalyses([]);
           setProductAgentTaskFeedback([]);
+          setSignalReadings([]);
         }
       });
     return () => {
@@ -589,15 +736,9 @@ export function useInPageCollectorAppState({ snapshot, tabId, sendAndSync }: Use
       return;
     }
 
-    const defaultNameByMode: Record<FolderMode, string> = {
-      archive: "Archive",
-      topic: "Signals",
-      product: "Product workspace",
-      "pr-evidence": "PR Evidence workspace"
-    };
     await sendAndSync({
       type: "session/create",
-      name: defaultNameByMode[mode],
+      name: DEFAULT_SESSION_NAME_BY_MODE[mode],
       mode
     });
     setShowFolderPrompt(false);
@@ -675,7 +816,14 @@ export function useInPageCollectorAppState({ snapshot, tabId, sendAndSync }: Use
     if (!activeFolder || !activeItem) {
       return;
     }
-    setOptimisticQueuedIds((current) => Array.from(new Set([...current, activeItem.id])));
+    await onQueueItemById(activeItem.id);
+  }
+
+  async function onQueueItemById(itemId: string) {
+    if (!activeFolder) {
+      return;
+    }
+    setOptimisticQueuedIds((current) => Array.from(new Set([...current, itemId])));
     setDisplayToast({
       id: `queued-${Date.now()}`,
       kind: "queued",
@@ -684,9 +832,9 @@ export function useInPageCollectorAppState({ snapshot, tabId, sendAndSync }: Use
     const response = await sendAndSync({
       type: "session/queue-item",
       sessionId: activeFolder.id,
-      itemId: activeItem.id
+      itemId
     });
-    setOptimisticQueuedIds((current) => current.filter((id) => id !== activeItem.id));
+    setOptimisticQueuedIds((current) => current.filter((id) => id !== itemId));
     if (!response.ok) {
       setDisplayToast({
         id: `queue-failed-${Date.now()}`,
@@ -694,6 +842,17 @@ export function useInPageCollectorAppState({ snapshot, tabId, sendAndSync }: Use
         message: "Queue failed"
       });
     }
+  }
+
+  function onAddToCompare(itemId: string) {
+    if (!selectedCompareA || selectedCompareA === itemId) {
+      setSelectedCompareA(itemId);
+    } else if (!selectedCompareB || selectedCompareB === itemId) {
+      setSelectedCompareB(itemId);
+    } else {
+      setSelectedCompareA(itemId);
+    }
+    void onNavigate("compare");
   }
 
   async function onProcessAll() {
@@ -742,6 +901,30 @@ export function useInPageCollectorAppState({ snapshot, tabId, sendAndSync }: Use
     }
   }
 
+  async function onAnalyzeItems(itemIds: string[]): Promise<{ ok: boolean; failedCount: number }> {
+    if (!activeFolder || itemIds.length === 0) {
+      return { ok: false, failedCount: 0 };
+    }
+
+    const folderId = activeFolder.id;
+    const uniqueItemIds = Array.from(new Set(itemIds));
+    setBulkAnalyzingFolderId(folderId);
+    setOptimisticQueuedIds((current) => Array.from(new Set([...current, ...uniqueItemIds])));
+
+    try {
+      return await runAnalyzeItemsPipeline({
+        folderId,
+        itemIds: uniqueItemIds,
+        sendAndSync,
+        setWorkerStatus,
+        setDisplayToast
+      });
+    } finally {
+      setOptimisticQueuedIds((current) => current.filter((id) => !uniqueItemIds.includes(id)));
+      setBulkAnalyzingFolderId(null);
+    }
+  }
+
   const compareViewSettings = snapshot?.global.settings || {
     ingestBaseUrl: draftBaseUrl,
     oneLinerProvider: "google" as const,
@@ -774,6 +957,45 @@ export function useInPageCollectorAppState({ snapshot, tabId, sendAndSync }: Use
   async function onOpenSavedAnalysis(resultId: string) {
     topicState.clearResultTopicContext();
     await openSavedAnalysisBase(resultId);
+  }
+
+  async function onGenerateFolderSynthesis() {
+    if (!activeFolder?.id || isGeneratingFolderSynthesis) {
+      return;
+    }
+    setIsGeneratingFolderSynthesis(true);
+    setFolderSynthesisError(null);
+    try {
+      const response = await sendAndSync({
+        type: "folder/synthesis/generate",
+        sessionId: activeFolder.id
+      });
+      if (response.ok) {
+        setFolderSynthesis(response.folderSynthesis ?? null);
+      } else {
+        setFolderSynthesisError(response.error || "合成失敗");
+      }
+    } catch (error) {
+      setFolderSynthesisError(error instanceof Error ? error.message : "合成失敗");
+    } finally {
+      setIsGeneratingFolderSynthesis(false);
+    }
+  }
+
+  async function onClearFolderSynthesis() {
+    if (!activeFolder?.id) return;
+    setFolderSynthesisError(null);
+    try {
+      const response = await sendAndSync({
+        type: "folder/synthesis/clear",
+        sessionId: activeFolder.id
+      });
+      if (response.ok) {
+        setFolderSynthesis(null);
+      }
+    } catch (error) {
+      setFolderSynthesisError(error instanceof Error ? error.message : "清除失敗");
+    }
   }
 
   async function onSaveJudgmentOverride(
@@ -913,6 +1135,56 @@ export function useInPageCollectorAppState({ snapshot, tabId, sendAndSync }: Use
     }
   }
 
+  async function onSynthesizeSignalReading(
+    signalId: string,
+    sessionId: string,
+    force?: boolean
+  ): Promise<{ ok: true; reading: string } | { ok: false; error: string }> {
+    try {
+      const response = await sendAndSync({
+        type: "product/synthesize-signal-reading",
+        signalId,
+        sessionId,
+        force
+      });
+      if (response.ok) {
+        if (response.signalReading) {
+          setSignalReadings((previous) => upsertSignalReading(previous, response.signalReading!));
+          return { ok: true, reading: response.signalReading.reading };
+        }
+        return { ok: false, error: "沒有產生判讀。" };
+      }
+      return { ok: false, error: response.error };
+    } catch (error) {
+      return { ok: false, error: error instanceof Error ? error.message : String(error) };
+    }
+  }
+
+  async function onReviewSignalReading(
+    cacheKey: string,
+    decision: "filed" | "deferred" | "rejected",
+    note?: string
+  ): Promise<{ ok: true; signalReading: SignalReading } | { ok: false; error: string }> {
+    try {
+      const response = await sendAndSync({
+        type: "product/review-signal-reading",
+        cacheKey,
+        decision,
+        ...(note ? { note } : {})
+      });
+      if (response.ok) {
+        if (response.signalReading) {
+          setSignalReadings((previous) => upsertSignalReading(previous, response.signalReading!));
+          return { ok: true, signalReading: response.signalReading };
+        }
+        return { ok: false, error: "找不到這筆判讀。" };
+      }
+      return { ok: false, error: response.error };
+    } catch (error) {
+      return { ok: false, error: error instanceof Error ? error.message : String(error) };
+    }
+  }
+
   return {
     popupRef,
     snapshot,
@@ -951,6 +1223,7 @@ export function useInPageCollectorAppState({ snapshot, tabId, sendAndSync }: Use
     hoverRect,
     displayToast,
     optimisticQueuedIds,
+    bulkAnalyzingFolderId,
     isStartingProcessing,
     workerStatus,
     techniqueReadings,
@@ -958,6 +1231,7 @@ export function useInPageCollectorAppState({ snapshot, tabId, sendAndSync }: Use
     productSignalAnalyses,
     historicalProductSignalAnalyses,
     productAgentTaskFeedback,
+    signalReadings,
     isAnalyzingProductSignals,
     productSignalAnalysisError,
     productSignalAnalysisNotice,
@@ -970,6 +1244,7 @@ export function useInPageCollectorAppState({ snapshot, tabId, sendAndSync }: Use
     activeTopicSignals: topicState.activeTopicSignals,
     activeTopicPairs: topicState.activeTopicPairs,
     signalPreviewById: topicState.signalPreviewById,
+    signalUrlById: topicState.signalUrlById,
     productSignalEvidenceById: topicState.productSignalEvidenceById,
     productSignalReadinessById: topicState.productSignalReadinessById,
     topicJudgmentById: topicState.topicJudgmentById,
@@ -1016,10 +1291,21 @@ export function useInPageCollectorAppState({ snapshot, tabId, sendAndSync }: Use
     onNavigateToTopic: topicState.onNavigateToTopic,
     onBackFromTopicDetail: topicState.onBackFromTopicDetail,
     onUpdateTopic: topicState.onUpdateTopic,
+    onGenerateTopicSynthesis: topicState.onGenerateTopicSynthesis,
+    folderSynthesis,
+    isGeneratingFolderSynthesis,
+    folderSynthesisError,
+    folderAnalyzedCount: folderSynthesisCoverage.analyzedCount,
+    folderContributingTopicCount: folderSynthesisCoverage.contributingTopicCount,
+    onGenerateFolderSynthesis,
+    onClearFolderSynthesis,
     onSignalTriaged: topicState.onSignalTriaged,
+    onSignalDeleted: topicState.onSignalDeleted,
     onSaveJudgmentOverride,
     onInitProductProfile,
     onAnalyzeProductSignals,
+    onSynthesizeSignalReading,
+    onReviewSignalReading,
     onCreateFolder,
     onRenameFolder,
     onDeleteFolder,
@@ -1031,6 +1317,9 @@ export function useInPageCollectorAppState({ snapshot, tabId, sendAndSync }: Use
     onStartJudgment,
     moveSelection,
     onQueueItem,
+    onQueueItemById,
+    onAnalyzeItems,
+    onAddToCompare,
     onProcessAll,
     onSetActiveSession,
     onSelectItem,

@@ -21,6 +21,27 @@ import {
 } from "./product-signal-readiness";
 
 type SendAndSync = <T extends ExtensionResponse = ExtensionResponse>(message: ExtensionMessage) => Promise<T>;
+type TopicListResponse = { ok: true; topics?: Topic[] } | { ok: false; error: string };
+type SignalListResponse = { ok: true; signals?: Signal[] } | { ok: false; error: string };
+
+export function applyTopicListResponses({
+  topicsResponse,
+  signalsResponse,
+  setTopics,
+  setSignals
+}: {
+  topicsResponse: TopicListResponse;
+  signalsResponse: SignalListResponse;
+  setTopics: (topics: Topic[]) => void;
+  setSignals: (signals: Signal[]) => void;
+}) {
+  if (topicsResponse.ok) {
+    setTopics(topicsResponse.topics ?? []);
+  }
+  if (signalsResponse.ok) {
+    setSignals(signalsResponse.signals ?? []);
+  }
+}
 
 export function pickPrimaryJudgmentPair(pairs: SavedAnalysisSnapshot[]): SavedAnalysisSnapshot | null {
   if (!pairs.length) {
@@ -42,6 +63,16 @@ export function buildSignalPreviewById(activeFolder: SessionRecord | null, signa
       signal.id,
       signal.itemId ? (lookup.get(signal.itemId)?.descriptor.text_snippet || "") : ""
     ])
+  );
+}
+
+export function buildSignalUrlById(activeFolder: SessionRecord | null, signals: Signal[]): Record<string, string> {
+  const lookup = new Map(activeFolder?.items.map((item) => [item.id, item]) ?? []);
+  return Object.fromEntries(
+    signals.map((signal) => {
+      const descriptor = signal.itemId ? lookup.get(signal.itemId)?.descriptor : null;
+      return [signal.id, descriptor?.post_url || descriptor?.page_url || ""] as const;
+    })
   );
 }
 
@@ -109,6 +140,10 @@ export function useTopicState({
     () => buildSignalPreviewById(activeFolder, signals),
     [activeFolder, signals]
   );
+  const signalUrlById = useMemo(
+    () => buildSignalUrlById(activeFolder, signals),
+    [activeFolder, signals]
+  );
   const productSignalEvidenceById = useMemo(
     () => buildProductSignalEvidenceById(activeFolder, signals),
     [activeFolder, signals]
@@ -140,11 +175,11 @@ export function useTopicState({
 
     let cancelled = false;
     void Promise.all([
-      sendExtensionMessage<{ ok: true; topics?: Topic[] } | { ok: false; error: string }>({
+      sendExtensionMessage<TopicListResponse>({
         type: "topic/list",
         sessionId: activeFolder.id
       }),
-      sendExtensionMessage<{ ok: true; signals?: Signal[] } | { ok: false; error: string }>({
+      sendExtensionMessage<SignalListResponse>({
         type: "signal/list",
         sessionId: activeFolder.id
       })
@@ -153,14 +188,10 @@ export function useTopicState({
         if (cancelled) {
           return;
         }
-        setTopics(topicsResponse.ok ? (topicsResponse.topics ?? []) : []);
-        setSignals(signalsResponse.ok ? (signalsResponse.signals ?? []) : []);
+        applyTopicListResponses({ topicsResponse, signalsResponse, setTopics, setSignals });
       })
       .catch(() => {
-        if (!cancelled) {
-          setTopics([]);
-          setSignals([]);
-        }
+        // Keep the current topic detail mounted through transient storage/runtime errors.
       });
 
     return () => {
@@ -243,6 +274,19 @@ export function useTopicState({
     }
   }
 
+  async function onSignalDeleted(signalId: string): Promise<void> {
+    const response = await sendExtensionMessage<{ ok: true; signals?: Signal[]; topics?: Topic[] } | { ok: false; error: string }>({
+      type: "signal/delete",
+      signalId
+    });
+    if (response.ok) {
+      setSignals(response.signals ?? signals.filter((s) => s.id !== signalId));
+      setTopics(response.topics ?? topics);
+    } else {
+      throw new Error(response.error ?? "刪除失敗");
+    }
+  }
+
   async function onOpenTopicPair(resultId: string, topicId: string) {
     const topic = topics.find((entry) => entry.id === topicId);
     if (!topic) {
@@ -275,6 +319,18 @@ export function useTopicState({
     }
   }
 
+  async function onGenerateTopicSynthesis(topicId: string): Promise<{ ok: boolean; error?: string }> {
+    const response = await sendExtensionMessage<{ ok: true; topics?: Topic[] } | { ok: false; error: string }>({
+      type: "topic/synthesis/generate",
+      topicId
+    });
+    if (response.ok) {
+      setTopics(response.topics ?? topics);
+      return { ok: true };
+    }
+    return { ok: false, error: response.error };
+  }
+
   function onBackFromTopicDetail() {
     setSelectedTopicId(null);
   }
@@ -291,6 +347,7 @@ export function useTopicState({
     activeTopicSignals,
     activeTopicPairs,
     signalPreviewById,
+    signalUrlById,
     productSignalEvidenceById,
     productSignalReadinessById,
     topicJudgmentById,
@@ -302,9 +359,11 @@ export function useTopicState({
     onBackFromTopicDetail,
     onUpdateTopic,
     onSignalTriaged,
+    onSignalDeleted,
     onOpenTopicPair,
     onReturnToTopic,
-    onAttachActiveResultToTopic
+    onAttachActiveResultToTopic,
+    onGenerateTopicSynthesis
   };
 }
 

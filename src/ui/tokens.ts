@@ -113,10 +113,37 @@ export const tokens = {
   },
 
   motion: {
+    /* Primitive durations — pair with easings to build named transitions. */
+    duration: {
+      instant: "80ms",
+      fast: "140ms",
+      base: "180ms",
+      slow: "280ms",
+      slower: "420ms"
+    },
+    /* Primitive easings — `standard` is Material's canonical curve. */
+    easing: {
+      standard: "cubic-bezier(0.4, 0, 0.2, 1)",
+      entrance: "cubic-bezier(0.16, 1, 0.3, 1)",
+      exit: "cubic-bezier(0.4, 0, 1, 1)"
+    },
     transition: "all 180ms cubic-bezier(0.4, 0, 0.2, 1)",
     transitionFast: "all 100ms cubic-bezier(0.4, 0, 0.2, 1)",
     interactiveTransition: "background-color 180ms cubic-bezier(0.4, 0, 0.2, 1), border-color 180ms cubic-bezier(0.4, 0, 0.2, 1), color 180ms cubic-bezier(0.4, 0, 0.2, 1), box-shadow 180ms cubic-bezier(0.4, 0, 0.2, 1), opacity 180ms cubic-bezier(0.4, 0, 0.2, 1), transform 180ms cubic-bezier(0.4, 0, 0.2, 1)",
-    interactiveTransitionFast: "background-color 140ms cubic-bezier(0.4, 0, 0.2, 1), border-color 140ms cubic-bezier(0.4, 0, 0.2, 1), color 140ms cubic-bezier(0.4, 0, 0.2, 1), box-shadow 140ms cubic-bezier(0.4, 0, 0.2, 1), opacity 140ms cubic-bezier(0.4, 0, 0.2, 1), transform 140ms cubic-bezier(0.4, 0, 0.2, 1)"
+    interactiveTransitionFast: "background-color 140ms cubic-bezier(0.4, 0, 0.2, 1), border-color 140ms cubic-bezier(0.4, 0, 0.2, 1), color 140ms cubic-bezier(0.4, 0, 0.2, 1), box-shadow 140ms cubic-bezier(0.4, 0, 0.2, 1), opacity 140ms cubic-bezier(0.4, 0, 0.2, 1), transform 140ms cubic-bezier(0.4, 0, 0.2, 1)",
+    /* Semantic presets — use these for new components. */
+    preset: {
+      buttonPress: "transform 80ms cubic-bezier(0.4, 0, 0.2, 1), background-color 140ms cubic-bezier(0.4, 0, 0.2, 1), box-shadow 140ms cubic-bezier(0.4, 0, 0.2, 1)",
+      cardLift: "transform 180ms cubic-bezier(0.16, 1, 0.3, 1), box-shadow 180ms cubic-bezier(0.16, 1, 0.3, 1), border-color 180ms cubic-bezier(0.4, 0, 0.2, 1)",
+      surfaceFade: "opacity 280ms cubic-bezier(0.16, 1, 0.3, 1), transform 280ms cubic-bezier(0.16, 1, 0.3, 1)"
+    },
+    /* Loading: shorthand for the keyframes injected by usePopupKeyframes. */
+    keyframes: {
+      shimmer: "dlens-popup-shimmer 1400ms linear infinite",
+      pulse: "dlens-popup-pulse 1600ms cubic-bezier(0.4, 0, 0.6, 1) infinite",
+      indeterminate: "dlens-popup-indeterminate 1100ms cubic-bezier(0.4, 0, 0.2, 1) infinite",
+      spin: "dlens-spin 900ms linear infinite"
+    }
   },
 
   spacing: {

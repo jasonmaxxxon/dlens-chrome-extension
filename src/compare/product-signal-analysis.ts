@@ -5,12 +5,13 @@ import type {
 } from "../contracts/ingest.ts";
 import type {
   ProductContext,
-  ProductContextField,
   ProductAgentTaskSpec,
   ProductSignalAnalysis,
   ProductSignalContentType,
   ProductSignalEvidenceNote,
   ProductSignalEvidenceGrounding,
+  ProductSignalReferenceTarget,
+  ProductSignalReferenceType,
   ProductSignalType,
   ProductSignalVerdict,
   FolderMode,
@@ -21,8 +22,36 @@ import type {
 } from "../state/types.ts";
 import type { ProductSignalPreferenceExample } from "./product-signal-history.ts";
 
-export const PRODUCT_SIGNAL_ANALYSIS_PROMPT_VERSION = "v11";
+export const PRODUCT_SIGNAL_ANALYSIS_PROMPT_VERSION = "v16";
 export const PRODUCT_SIGNAL_ANALYSIS_CACHE_VERSION = PRODUCT_SIGNAL_ANALYSIS_PROMPT_VERSION;
+
+const PRODUCT_SIGNAL_REFERENCE_TYPES: ProductSignalReferenceType[] = [
+  "product_reference",
+  "technical_learning",
+  "workflow_pattern",
+  "market_language",
+  "general_learning",
+  "no_direct_fit"
+];
+
+const PRODUCT_SIGNAL_REFERENCE_TARGETS: ProductSignalReferenceTarget[] = [
+  "productPromise",
+  "targetAudience",
+  "agentRoles",
+  "coreWorkflows",
+  "currentCapabilities",
+  "explicitConstraints",
+  "nonGoals",
+  "preferredTechDirection",
+  "evaluationCriteria",
+  "unknowns",
+  "technicalLearning",
+  "workflowPattern",
+  "marketLanguage",
+  "productAnalogy",
+  "generalLearning",
+  "noDirectFit"
+];
 
 export const PRODUCT_SIGNAL_ANALYSIS_JSON_SCHEMA = {
   type: "object",
@@ -34,6 +63,9 @@ export const PRODUCT_SIGNAL_ANALYSIS_JSON_SCHEMA = {
     "content_summary",
     "relevance",
     "relevant_to",
+    "reference_type",
+    "reference_label",
+    "reference_takeaway",
     "why_relevant",
     "verdict",
     "reason",
@@ -52,20 +84,12 @@ export const PRODUCT_SIGNAL_ANALYSIS_JSON_SCHEMA = {
       type: "array",
       items: {
         type: "string",
-        enum: [
-          "productPromise",
-          "targetAudience",
-          "agentRoles",
-          "coreWorkflows",
-          "currentCapabilities",
-          "explicitConstraints",
-          "nonGoals",
-          "preferredTechDirection",
-          "evaluationCriteria",
-          "unknowns"
-        ]
+        enum: PRODUCT_SIGNAL_REFERENCE_TARGETS
       }
     },
+    reference_type: { type: "string", enum: PRODUCT_SIGNAL_REFERENCE_TYPES },
+    reference_label: { type: "string" },
+    reference_takeaway: { type: "string" },
     why_relevant: { type: "string" },
     verdict: { type: "string", enum: ["try", "watch", "park", "insufficient_data"] },
     reason: { type: "string" },
@@ -295,19 +319,6 @@ export function shouldDrainWorkerAfterProductSignalQueue(queuedCount: number, ha
   return queuedCount > 0 || hasDrainableWork;
 }
 
-const PRODUCT_CONTEXT_FIELDS: ProductContextField[] = [
-  "productPromise",
-  "targetAudience",
-  "agentRoles",
-  "coreWorkflows",
-  "currentCapabilities",
-  "explicitConstraints",
-  "nonGoals",
-  "preferredTechDirection",
-  "evaluationCriteria",
-  "unknowns"
-];
-
 function stripCodeFence(value: string): string {
   const trimmed = value.trim();
   if (!trimmed.startsWith("```")) {
@@ -343,6 +354,12 @@ function readSignalType(value: unknown): ProductSignalType | null {
 
 function readContentType(value: unknown): ProductSignalContentType | null {
   return value === "content" || value === "discussion_starter" || value === "mixed" ? value : null;
+}
+
+function readReferenceType(value: unknown): ProductSignalReferenceType | null {
+  return PRODUCT_SIGNAL_REFERENCE_TYPES.includes(value as ProductSignalReferenceType)
+    ? value as ProductSignalReferenceType
+    : null;
 }
 
 function readVerdict(value: unknown): ProductSignalVerdict | null {
@@ -499,25 +516,27 @@ export function buildProductSignalAnalyzerPrompt(input: ProductSignalAnalyzerInp
     "只回傳 JSON，不要加入 markdown 或解釋。不要使用 rule-based hint；content_type 必須由 assembled_content 和 discussion replies 判斷。",
     "",
     "語言規則（重要）：",
-    "- 所有面向用戶的文字欄位必須用繁體中文書寫：content_summary、why_relevant、reason、experiment_hint、evidence_notes 的 quote_summary、why_it_matters、reusable_pattern、why_it_works、copyable_template、workflow_stack、copy_recipe_markdown、tradeoff、agent_task_spec.task_title。",
+    "- 所有面向用戶的文字欄位必須用繁體中文書寫：content_summary、reference_label、reference_takeaway、why_relevant、reason、experiment_hint、evidence_notes 的 quote_summary、why_it_matters、reusable_pattern、why_it_works、copyable_template、workflow_stack、copy_recipe_markdown、tradeoff、agent_task_spec.task_title。",
     "- 原文若是英文，要用中文「翻譯 + 摘要」，不要直接引用整段英文。",
-    "- 機器欄位保留英文 enum：signal_type、signal_subtype（snake_case 標籤）、content_type、verdict、relevant_to、target_agent、evidence_refs、ref。",
+    "- 機器欄位保留英文 enum：signal_type、signal_subtype（snake_case 標籤）、content_type、verdict、relevant_to、reference_type、target_agent、evidence_refs、ref。",
     "- agent_task_spec.task_prompt 是貼給 Codex/Claude 的指令，可以英文或中文；其他欄位都要繁中。",
     "",
     "長度規則（重要）：優先寫清楚底層機制；短句，但允許必要的短段落。",
     "- content_summary：單句摘要，<= 50 字；必須點出具體 workflow / use case，不要寫「PM 熱烈討論」「市場熱度高」這類空話",
-    "- why_relevant：單句，<= 60 字；指出哪個具體做法對應 ProductContext，不要只說「驗證核心價值」。如果 evidence 推薦的 workflow 已存在於 ProductContext.currentCapabilities，必須明確指出「產品已有此功能」而非當作新建議。",
+    "- why_relevant：單句，<= 60 字；說明這條 signal 的判斷理由。不必強行對應 ProductContext；若只是值得學習新知識，請明確說「先作為技術學習」而不是硬說產品已有需求。",
+    "- reference_label：<= 28 字；用「對產品可參考」或「可學習」的語言命名，不要只寫分類名。",
+    "- reference_takeaway：<= 90 字；指出用戶應該拿走什麼：可改造進產品、可借用命名、可學技術機制，或暫無直接產品用途。",
     "- reason：單句，<= 60 字",
     "- experiment_hint：單句，<= 50 字；寫成可執行的小實驗，不要寫抽象研究任務",
     "- evidence_notes[*].quote_summary：單句中文摘錄，<= 40 字（不是貼原文）",
     "- evidence_notes[*].why_it_matters：單句，<= 50 字，說明這條為什麼是該判斷的證據",
     "- evidence_notes[*].grounding：text_grounded | model_inferred | insufficient_detail。text_grounded = 原文明確提供工具、步驟與輸出；model_inferred = 技術概念可合理解釋但 recipe 仍依賴 AI 推斷，UI 會顯示「AI 推斷，請交叉驗證原文」；insufficient_detail = 原文不足以推導做法",
     "- evidence_notes[*].reusable_pattern：單句，<= 28 字，抽出可借用 workflow；不是分類名",
-    "- evidence_notes[*].why_it_works：1-2 句，<= 150 字；用跨領域讀者能懂的語言解釋底層機制，說明為什麼這個做法在技術上成立，不要只寫省時、提升效率或比較方便",
+    "- evidence_notes[*].why_it_works：1-2 句，<= 150 字；必須先指出這條 evidence 原文的具體觀察（作者說了什麼、看到了什麼），再用一句話推導底層機制（「這說明...」）；禁止直接寫通用 AI 理論或課本解釋；讀完後應該讓人覺得「是這條留言讓我懂了這件事」，而不是「這段可以從任何教材複製」",
     "- evidence_notes[*].copyable_template：<= 70 字，寫成「輸入來源 -> Agent 處理 -> 交付物」的如何照抄模板；不能只是抽象描述，必須用 evidence 原文中出現的具體工具和步驟",
     "- evidence_notes[*].workflow_stack：0-6 個明確出現在該 evidence 原文的工具、資料來源或輸出位置；不要補不存在的工具",
-    "- evidence_notes[*].copy_recipe_markdown：<= 700 字的 numbered-step markdown recipe，格式 '1. 打開 X\\n2. 做 Y\\n3. 輸出 Z'；必須包含具體工具名、操作動詞、每步預期結果（不能只寫 Input/Process/Output 抽象標題）；只有 grounding=text_grounded 且 evidence 原文明確提供輸入、處理、輸出時才填；不能用一般知識補 API、webhook、參數或安裝步驟；quote 太短或缺任一環節就用空字串",
-    "- evidence_notes[*].tradeoff：單句，<= 50 字；寫明權限、資料品質、整合成本或不應過度推導的限制",
+    "- evidence_notes[*].copy_recipe_markdown：<= 700 字的 numbered-step markdown recipe，格式 '1. 打開 X\\n2. 做 Y\\n3. 輸出 Z'；每個步驟必須對應 evidence 原文的具體動作或描述（作者說了什麼、做了什麼），讓讀者看出這是從 evidence 提取出來的操作而不是通用教程；必須包含具體工具名、操作動詞、每步預期結果；如果 evidence 原文提到成效或意外收穫，必須寫進對應步驟的預期結果，不要發明原文沒有的 outcome；只有 grounding=text_grounded 且 evidence 原文明確提供輸入、處理、輸出時才填；不能用一般知識補 API、webhook、參數或安裝步驟；quote 太短或缺任一環節就用空字串",
+    "- evidence_notes[*].tradeoff：單句，<= 50 字；從這條 evidence 的脈絡推導這個做法的邊界條件：作者在什麼前提下說它有效？什麼類型的用戶或情境不適用？複製這個做法最可能卡在哪裡？禁止套用「資料品質」「整合成本」「權限」等通用套語；要說的是「如果你不符合 X 條件，這個做法的效果未知」",
     "- agent_task_spec.task_title：<= 12 字，用於 UI 卡片 header；不是 task_prompt 的第一行",
     "",
     "判斷規則：",
@@ -525,6 +544,8 @@ export function buildProductSignalAnalyzerPrompt(input: ProductSignalAnalyzerInp
     "- signal_subtype 要精確到具體技術、行為或產品模式；避免 agent_workflow 這類泛稱。好例子：mcp_integration、browser_automation、recurring_data_crawl、pm_document_generation、competitor_release_monitoring",
     "- content_type: content = 主要是完整內容分享；discussion_starter = 主要引出他人回應；mixed = 內容與回應都重要",
     "- relevance: 1-5，只能用整數；不要產生百分比、指數或假分數",
+    "- relevant_to 可使用 ProductContext 欄位，也可使用 technicalLearning、workflowPattern、marketLanguage、productAnalogy、generalLearning、noDirectFit；不要為了填欄位而硬塞產品關聯。",
+    "- reference_type: product_reference = 可直接改造進產品；technical_learning = 值得學技術但未必改產品；workflow_pattern = 可借用流程；market_language = 可借用命名/市場語言；general_learning = 一般知識；no_direct_fit = 暫無直接用途。",
     "- verdict: try = 值得小實驗；watch = 先觀察；park = 不適合目前產品；insufficient_data = 資料不足",
     "- 所有 schema keys 都必須出現；不適用時用 null、空字串或空陣列，不要省略 key。",
     "- experiment_hint 必須是 string；只有 verdict=try 時填具體實驗，其餘情況用空字串",
@@ -536,12 +557,15 @@ export function buildProductSignalAnalyzerPrompt(input: ProductSignalAnalyzerInp
     "- evidence_notes 必須是 evidence-specific，不要把 thread-level content_summary 複製到每條 evidence。",
     "- quote 太短時，不要硬擠 how-to；grounding 用 insufficient_detail，workflow_stack 用空陣列、copy_recipe_markdown 用空字串，tradeoff 寫「原文不足以推導完整做法」。",
     "- 工具或組合方式不確定時，不要假裝知道作者的實作。why_it_works 只可寫一般機制並標 grounding=model_inferred；copy_recipe_markdown 用空字串，tradeoff 寫「AI 推斷，請交叉驗證原文」。",
+    "- 反面案例規則：如果主文在分享 app、產品、campaign 或定位語氣，但 replies 明顯出現嘲諷、反感、不買帳、信任下降或使用門檻抗拒，不要硬判成 try。content_type 用 mixed 或 discussion_starter；verdict 優先 watch 或 park；relevance 視 ProductContext 相關性給 2-3；reason 必須寫成「可作為反面語氣/定位案例」並引用負面 audience evidence。不要只因主文有粗口就判負面，必須看 replies 的反應。",
     "- 輸出面向產品洞察，不要提 cluster、分群演算法或後端分析細節。",
-    "- 產品功能比對：仔細讀 [PRODUCT_CONTEXT].currentCapabilities 和 coreWorkflows。如果 evidence 建議的做法已經是產品現有功能，experiment_hint 要改成「強化既有 X 功能」而非「新增 Y」，verdict 傾向 watch 而非 try。不要推薦產品已有的功能當作新實驗。",
+    "- 產品功能比對：仔細讀 [PRODUCT_CONTEXT].currentCapabilities 和 coreWorkflows。如果 evidence 建議的做法已經是產品現有功能，why_relevant 要明確寫「產品已有此功能」，experiment_hint 要改成「強化既有 X 功能」而非「新增 Y」，verdict 傾向 watch 而非 try。不要推薦產品已有的功能當作新實驗。",
+    "- 如果 signal 有學習價值但不適合產品化，保留它：reference_type 用 technical_learning/general_learning，verdict 用 watch 或 park，agent_task_spec 回 null。",
     "",
     "技術理解示範（只學風格，不要照抄）：",
-    "- why_it_works 不好的例子：讓工具之間能互動，節省開發時間。",
-    "- why_it_works 好的例子：MCP 透過 stdio JSON-RPC 讓 host 動態發現 server 能力，不需要硬編碼每個 API；新工具加入時，host 只要讀取工具描述與參數 schema，就能把資料來源、處理步驟和輸出格式串起來。",
+    "- why_it_works 不好的例子：AI 模型透過注意力機制處理輸入，當指令包含明確邊界條件與結構化指引時，能有效減少幻覺並聚焦於用戶設定的邏輯框架內。（這是通用課本解釋，跟 evidence 完全斷開）",
+    "- why_it_works 好的例子（evidence-grounded）：queenfian 說「仔細描述同埋指引 outcome 正常同達標機率好多」— 這說明 prompt 精確度直接決定模型搜尋空間的寬度：描述越具體，模型能排除的錯誤路徑越多，命中率自然提高。",
+    "- why_it_works 好的例子（MCP 類）：作者說 host 啟動時會自動 discovery server 能力 — 這說明 MCP 透過動態 schema 讀取取代硬編碼 API，新工具加入時不需要改 host 端邏輯。",
     "- copy_recipe_markdown 好的例子：1. 在 MCP server 宣告可讀取的資料來源、工具名稱與參數 schema，預期 host 啟動時能 discovery。\\n2. 讓 agent 先列出可用工具，再選擇與任務相符的資料來源，預期降低猜 API 的風險。\\n3. 將工具結果輸出成 markdown brief，預期交付物同時包含來源、限制和下一步。",
     "",
     "[PRODUCT_CONTEXT]",
@@ -566,8 +590,11 @@ export function buildProductSignalAnalyzerPrompt(input: ProductSignalAnalyzerInp
       content_type: "content|discussion_starter|mixed",
       content_summary: "繁中單句 <=50 字，具體 workflow/use case",
       relevance: "1|2|3|4|5",
-      relevant_to: PRODUCT_CONTEXT_FIELDS,
-      why_relevant: "繁中單句 <=60 字，具體對應 ProductContext",
+      relevant_to: PRODUCT_SIGNAL_REFERENCE_TARGETS,
+      reference_type: "product_reference|technical_learning|workflow_pattern|market_language|general_learning|no_direct_fit",
+      reference_label: "繁中 <=28 字，對產品可參考/可學習的命名",
+      reference_takeaway: "繁中 <=90 字，說明可改造、可借用、可學習或暫無直接用途",
+      why_relevant: "繁中單句 <=60 字，判斷理由；不必強行對應 ProductContext",
       verdict: "try|watch|park|insufficient_data",
       reason: "繁中單句 <=60 字",
       experiment_hint: "繁中單句 <=50 字 (verdict=try 才填)",
@@ -606,10 +633,18 @@ interface ProductSignalAnalysisPayload {
   relevance?: unknown;
   relevant_to?: unknown;
   relevantTo?: unknown;
+  reference_type?: unknown;
+  referenceType?: unknown;
+  reference_label?: unknown;
+  referenceLabel?: unknown;
+  reference_takeaway?: unknown;
+  referenceTakeaway?: unknown;
   why_relevant?: unknown;
   whyRelevant?: unknown;
   verdict?: unknown;
   reason?: unknown;
+  audience_gap?: unknown;
+  audienceGap?: unknown;
   experiment_hint?: unknown;
   experimentHint?: unknown;
   why_now?: unknown;
@@ -651,7 +686,10 @@ export function parseProductSignalAnalysisResponse(
 
   const allowedRefs = new Set(input.discussionReplies.map((_, index) => `e${index + 1}`));
   const relevantTo = readStringArray(parsed.relevantTo ?? parsed.relevant_to)
-    .filter((field): field is ProductContextField => PRODUCT_CONTEXT_FIELDS.includes(field as ProductContextField));
+    .filter((field): field is ProductSignalReferenceTarget => PRODUCT_SIGNAL_REFERENCE_TARGETS.includes(field as ProductSignalReferenceTarget));
+  const referenceType = readReferenceType(parsed.referenceType ?? parsed.reference_type);
+  const referenceLabel = readTrimmedString(parsed.referenceLabel ?? parsed.reference_label).slice(0, 90);
+  const referenceTakeaway = readTrimmedString(parsed.referenceTakeaway ?? parsed.reference_takeaway).slice(0, 180);
   const evidenceRefs = readStringArray(parsed.evidenceRefs ?? parsed.evidence_refs)
     .filter((ref) => allowedRefs.has(ref));
   const evidenceRefSet = new Set(evidenceRefs);
@@ -664,6 +702,7 @@ export function parseProductSignalAnalysisResponse(
   const validationMetricRaw = readTrimmedString(parsed.validationMetric ?? parsed.validation_metric);
   const validationMetric = verdict === "try" && validationMetricRaw ? validationMetricRaw : "";
   const blockers = readStringArray(parsed.blockers).slice(0, 3);
+  const audienceGap = readTrimmedString(parsed.audienceGap ?? parsed.audience_gap).slice(0, 80);
   const evidenceNotes = readEvidenceNotes(parsed.evidenceNotes ?? parsed.evidence_notes, evidenceRefSet);
 
   return {
@@ -674,9 +713,13 @@ export function parseProductSignalAnalysisResponse(
     contentSummary,
     relevance,
     relevantTo,
+    ...(referenceType ? { referenceType } : {}),
+    ...(referenceLabel ? { referenceLabel } : {}),
+    ...(referenceTakeaway ? { referenceTakeaway } : {}),
     whyRelevant,
     verdict,
     reason,
+    ...(audienceGap ? { audienceGap } : {}),
     ...(experimentHint ? { experimentHint } : {}),
     ...(whyNow ? { whyNow } : {}),
     ...(validationMetric ? { validationMetric } : {}),

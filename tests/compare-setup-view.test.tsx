@@ -69,8 +69,12 @@ test("CompareSetupView renders the teaser card and keeps the CTA disabled while 
   assert.match(html, /比較/);
   assert.match(html, /選擇兩篇貼文/);
   assert.match(html, /data-compare-teaser-state="loading"/);
-  assert.match(html, /查看完整分析/);
+  assert.match(html, /AI brief 生成中…/);
   assert.match(html, /disabled/);
+  assert.ok(
+    html.indexOf('data-compare-cta-row="above-teaser"') < html.indexOf('data-compare-teaser-state="loading"'),
+    "primary CTA must render before the supplementary teaser card"
+  );
 });
 
 test("CompareSetupView enables the CTA once the teaser is ready, including fallback copy", () => {
@@ -95,9 +99,49 @@ test("CompareSetupView enables the CTA once the teaser is ready, including fallb
   );
 
   assert.match(html, /data-compare-teaser-state="ready"/);
+  assert.match(html, /data-compare-cta-row="above-teaser"/);
+  assert.match(html, /data-compare-primary-cta="true"/);
   assert.match(html, /焦慮是主調，但理性聲音正在集結/);
   assert.match(html, /847 則留言 · 3 群組 · fallback/);
   assert.doesNotMatch(html, /查看完整分析[^<]*disabled/);
+});
+
+test("CompareSetupView compresses selected post previews and hides reset before both posts are selected", () => {
+  const readyItems = buildReadyItems();
+  const partialHtml = renderToStaticMarkup(
+    React.createElement(CompareSetupView, {
+      readyItems,
+      selectedA: readyItems[0]!.id,
+      selectedB: "",
+      teaserState: "idle",
+      teaser: null,
+      onChangeA: () => undefined,
+      onChangeB: () => undefined,
+      onOpenResult: () => undefined,
+      onReset: () => undefined
+    })
+  );
+
+  assert.doesNotMatch(partialHtml, /重新選擇/);
+  assert.doesNotMatch(partialHtml, /data-post-mini-density="compact"/);
+
+  const fullHtml = renderToStaticMarkup(
+    React.createElement(CompareSetupView, {
+      readyItems,
+      selectedA: readyItems[0]!.id,
+      selectedB: readyItems[1]!.id,
+      teaserState: "loading",
+      teaser: null,
+      onChangeA: () => undefined,
+      onChangeB: () => undefined,
+      onOpenResult: () => undefined,
+      onReset: () => undefined
+    })
+  );
+
+  assert.match(fullHtml, /重新選擇/);
+  assert.match(fullHtml, /data-post-mini-density="compact"/);
+  assert.match(fullHtml, /-webkit-line-clamp:1/);
 });
 
 test("CompareSetupView uses editorial token surfaces instead of pure white Apple cards", () => {

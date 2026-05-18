@@ -14,15 +14,15 @@ test("product mode opens Saved Signals before action filtering", () => {
   assert.equal(guardPage("classification", "product"), "saved-signals");
 });
 
-test("topic mode keeps Library available without mounting product-only routes", () => {
+test("topic mode starts at Collect and merges Inbox into Topics", () => {
   assert.deepEqual(ALLOWED_PAGES.topic, [
-    "casebook",
-    "inbox",
     "collect",
-    "compare",
-    "library"
+    "library",
+    "casebook",
+    "compare"
   ]);
-  assert.equal(guardPage("classification", "topic"), "casebook");
+  assert.equal(guardPage("classification", "topic"), "collect");
+  assert.equal(guardPage("inbox", "topic"), "collect");
 });
 
 test("PR Evidence mode mounts only the campaign evidence workspace and Collect", () => {

@@ -303,14 +303,40 @@ export const SCAN_ROW_HOVER_CSS = `
 }
 `;
 
+export const DLENS_BUTTON_CSS = `
+[data-dlens-button] {
+  transition: transform 120ms ease, box-shadow 160ms ease, background 160ms ease, border-color 160ms ease, filter 160ms ease;
+}
+[data-dlens-button]:not(:disabled):hover {
+  transform: translateY(-1px);
+}
+[data-dlens-button]:not(:disabled):active {
+  transform: translateY(0);
+}
+[data-dlens-button]:focus-visible {
+  outline: 2px solid var(--dlens-mode-accent, #6b7a5a);
+  outline-offset: 2px;
+}
+[data-dlens-button="primary"]:not(:disabled):hover {
+  box-shadow: 0 6px 18px rgba(0, 0, 0, 0.16);
+  filter: brightness(1.05);
+}
+[data-dlens-button="secondary"]:not(:disabled):hover {
+  background: rgba(107, 122, 90, 0.08);
+  border-color: rgba(107, 122, 90, 0.45);
+}
+`;
+
 type PrimaryWorkspaceMode = Exclude<WorkspaceMode, "result">;
 
-const PRIMARY_WORKSPACE_MODES: ReadonlyArray<{ key: PrimaryWorkspaceMode; label: string }> = [
-  { key: "casebook", label: "案例本" },
-  { key: "inbox", label: "收件匣" },
-  { key: "library", label: "資料庫" },
-  { key: "compare", label: "比較" },
+type RailTier = "primary" | "tool";
+
+const PRIMARY_WORKSPACE_MODES: ReadonlyArray<{ key: PrimaryWorkspaceMode; label: string; tier?: RailTier }> = [
   { key: "collect", label: "採集" },
+  { key: "casebook", label: "主題" },
+  { key: "inbox", label: "收件匣" },
+  { key: "library", label: "脈絡" },
+  { key: "compare", label: "比較", tier: "tool" },
   { key: "saved-signals", label: "訊號" },
   { key: "classification", label: "分類" },
   { key: "actionable-filter", label: "行動" },
@@ -336,7 +362,7 @@ function railIcon(mode: PrimaryWorkspaceMode) {
     case "inbox":
       return <svg {...common}><path d="M3 7a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2v10a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z" /><path d="m3 7 9 6 9-6" /></svg>;
     case "library":
-      return <svg {...common}><path d="M5.5 4.5h9a2 2 0 0 1 2 2v13h-9a2 2 0 0 0-2 2Z" /><path d="M7.5 4.5h9a2 2 0 0 1 2 2v13h-9a2 2 0 0 0-2 2" /></svg>;
+      return <svg {...common}><circle cx="6" cy="6" r="2" /><circle cx="18" cy="6" r="2" /><circle cx="12" cy="18" r="2" /><circle cx="6" cy="13" r="1.5" /><path d="M8 6h8" /><path d="M7 13l4 4" /><path d="M17 8l-4 9" /></svg>;
     case "compare":
       return <svg {...common}><path d="M12 3v18" /><path d="M3 12h18" /><path d="M7 7l-4 5 4 5" /><path d="M17 7l4 5-4 5" /></svg>;
     case "collect":
@@ -354,22 +380,36 @@ function railIcon(mode: PrimaryWorkspaceMode) {
 
 export function WorkspaceShell({
   mode,
+  folderMode,
   header,
   contextStrip,
   children
 }: {
   mode: WorkspaceMode | "settings";
+  folderMode?: "topic" | "product" | "archive" | "pr-evidence";
   header: ReactNode;
   contextStrip?: ReactNode;
   children: ReactNode;
 }) {
+  const modeBadge = folderMode === "topic"
+    ? { label: "TOPIC", tint: tokens.color.accent }
+    : folderMode === "product"
+    ? { label: "PRODUCT", tint: tokens.color.product }
+    : folderMode === "pr-evidence"
+    ? { label: "PR", tint: tokens.color.teal }
+    : folderMode === "archive"
+    ? { label: "ARCHIVE", tint: tokens.color.softInk }
+    : null;
   return (
     <div
       data-workspace-shell="compare-first"
       style={{
         display: "grid",
+        gridTemplateRows: "auto minmax(0, 1fr)",
         gap: tokens.spacing.md,
-        minWidth: 0
+        minWidth: 0,
+        minHeight: "100%",
+        flex: "1 1 auto"
       }}
     >
       <div
@@ -389,6 +429,26 @@ export function WorkspaceShell({
       >
         <div style={{ display: "flex", alignItems: "baseline", gap: 8, minWidth: 0 }}>
           <span data-dlens-wordmark="masthead" style={{ fontFamily: tokens.font.serif, fontSize: 20, lineHeight: 1, color: MODE_ACCENT, transition: tokens.motion.interactiveTransition }}>dlens</span>
+          {modeBadge ? (
+            <span
+              data-mode-badge={modeBadge.label.toLowerCase()}
+              style={{
+                fontFamily: tokens.font.sans,
+                fontSize: 9,
+                fontWeight: 700,
+                letterSpacing: 0.6,
+                color: modeBadge.tint,
+                background: `${modeBadge.tint}14`,
+                border: `1px solid ${modeBadge.tint}40`,
+                borderRadius: 4,
+                padding: "2px 6px",
+                whiteSpace: "nowrap",
+                lineHeight: 1.1
+              }}
+            >
+              {modeBadge.label} MODE
+            </span>
+          ) : null}
           <span style={{ fontSize: 10, fontWeight: 700, letterSpacing: 0, color: tokens.color.softInk }}>
             Annotated Field Guide
           </span>
@@ -398,7 +458,7 @@ export function WorkspaceShell({
           <span>NO.{mode === "result" ? "04" : mode === "compare" ? "03" : mode === "collect" ? "02" : mode === "settings" ? "05" : "01"}</span>
           <span>{new Intl.DateTimeFormat("en-US", { month: "short", day: "numeric" }).format(new Date())}</span>
           <span style={{ opacity: 0.5 }}>·</span>
-          <span title="Folder: dlens-product-latest">v{BUILD_VERSION}</span>
+          <span title="Folder: dlens-product-latest">v.{BUILD_VERSION}</span>
         </div>
       </div>
 
@@ -409,7 +469,8 @@ export function WorkspaceShell({
           gridTemplateColumns: "72px minmax(0, 1fr)",
           gap: tokens.spacing.md,
           minWidth: 0,
-          alignItems: "start"
+          minHeight: 0,
+          alignItems: "stretch"
         }}
       >
         <header
@@ -450,14 +511,14 @@ export function WorkspaceShell({
           {header}
         </header>
 
-        <div data-shell-main="workspace" style={{ display: "grid", gap: tokens.spacing.md, minWidth: 0 }}>
+        <div data-shell-main="workspace" style={{ display: "grid", gap: tokens.spacing.md, minWidth: 0, minHeight: 0, alignContent: "start" }}>
           {contextStrip ? (
             <div data-shell-context-strip="processing">
               {contextStrip}
             </div>
           ) : null}
 
-          <main data-workspace-mode={mode}>
+          <main data-workspace-mode={mode} style={{ display: "grid", minWidth: 0, minHeight: 0, alignContent: "start" }}>
             {children}
           </main>
         </div>
@@ -469,12 +530,17 @@ export function WorkspaceShell({
 export function ModeRail({
   activeMode,
   modes = PRIMARY_WORKSPACE_MODES.map((entry) => entry.key),
+  badgeCounts,
   onSelect
 }: {
   activeMode: PrimaryWorkspaceMode | null;
   modes?: PrimaryWorkspaceMode[];
+  badgeCounts?: Partial<Record<PrimaryWorkspaceMode, number>>;
   onSelect: (mode: PrimaryWorkspaceMode) => void;
 }) {
+  const visibleModes = PRIMARY_WORKSPACE_MODES.filter((mode) => modes.includes(mode.key));
+  const firstToolIndex = visibleModes.findIndex((mode) => mode.tier === "tool");
+
   return (
     <nav
       aria-label="Workspace modes"
@@ -485,14 +551,29 @@ export function ModeRail({
         justifyItems: "center"
       }}
     >
-      {PRIMARY_WORKSPACE_MODES.filter((mode) => modes.includes(mode.key)).map((mode) => (
-        <ModeRailButton
-          key={mode.key}
-          mode={mode.key}
-          label={mode.label}
-          active={activeMode === mode.key}
-          onSelect={onSelect}
-        />
+      {visibleModes.map((mode, index) => (
+        <span key={mode.key} style={{ display: "contents" }}>
+          {firstToolIndex > 0 && index === firstToolIndex ? (
+            <span
+              aria-hidden="true"
+              data-rail-divider="tool"
+              style={{
+                width: 28,
+                height: 1,
+                background: tokens.color.line,
+                margin: "2px 0"
+              }}
+            />
+          ) : null}
+          <ModeRailButton
+            mode={mode.key}
+            label={mode.label}
+            active={activeMode === mode.key}
+            tier={mode.tier ?? "primary"}
+            badgeCount={badgeCounts?.[mode.key]}
+            onSelect={onSelect}
+          />
+        </span>
       ))}
     </nav>
   );
@@ -502,27 +583,36 @@ export function ModeRailButton({
   mode,
   label,
   active,
+  tier = "primary",
+  badgeCount,
   onSelect
 }: {
   mode: PrimaryWorkspaceMode;
   label: string;
   active: boolean;
+  tier?: "primary" | "tool";
+  badgeCount?: number;
   onSelect: (mode: PrimaryWorkspaceMode) => void;
 }) {
+  const isTool = tier === "tool";
+  const inactiveColor = isTool ? tokens.color.softInk : tokens.color.subInk;
+  const showBadge = typeof badgeCount === "number" && badgeCount > 0;
   return (
     <button
       data-mode={mode}
       data-mode-active={active ? "true" : "false"}
+      data-mode-tier={tier}
       data-mode-style="rail"
       onClick={() => onSelect(mode)}
       style={{
+        position: "relative",
         width: "100%",
         border: `1px solid ${active ? tokens.color.lineStrong : "transparent"}`,
         borderRadius: tokens.radius.card,
-        minHeight: 58,
-        padding: "8px 6px",
+        minHeight: isTool ? 52 : 58,
+        padding: isTool ? "6px 6px" : "8px 6px",
         background: active ? tokens.color.elevated : "transparent",
-        color: active ? tokens.color.ink : tokens.color.subInk,
+        color: active ? tokens.color.ink : inactiveColor,
         fontSize: 9,
         fontWeight: 700,
         letterSpacing: 0,
@@ -531,13 +621,41 @@ export function ModeRailButton({
         transition: tokens.motion.interactiveTransition,
         display: "grid",
         placeItems: "center",
-        gap: 5
+        gap: 5,
+        opacity: !active && isTool ? 0.72 : 1
       }}
     >
-      <span style={{ display: "inline-flex", color: active ? MODE_ACCENT : tokens.color.softInk }}>
+      <span style={{ display: "inline-flex", color: active ? MODE_ACCENT : inactiveColor }}>
         {railIcon(mode)}
       </span>
       <span>{label}</span>
+      {showBadge ? (
+        <span
+          data-rail-badge="count"
+          aria-label={`${badgeCount} items`}
+          style={{
+            position: "absolute",
+            top: 4,
+            right: 4,
+            minWidth: 14,
+            height: 14,
+            padding: "0 4px",
+            borderRadius: 999,
+            background: tokens.color.accent,
+            color: tokens.color.elevated,
+            fontSize: 8,
+            fontWeight: 700,
+            letterSpacing: 0,
+            display: "inline-flex",
+            alignItems: "center",
+            justifyContent: "center",
+            lineHeight: 1,
+            boxShadow: "0 0 0 1.5px " + tokens.color.canvas
+          }}
+        >
+          {(badgeCount ?? 0) > 99 ? "99+" : badgeCount}
+        </span>
+      ) : null}
     </button>
   );
 }
@@ -811,6 +929,7 @@ export function PrimaryButton({
 }) {
   return (
     <button
+      data-dlens-button="primary"
       onClick={onClick}
       disabled={disabled}
       style={{
@@ -850,6 +969,7 @@ export function SecondaryButton({
 }) {
   return (
     <button
+      data-dlens-button="secondary"
       onClick={onClick}
       disabled={disabled}
       style={{

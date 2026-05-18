@@ -147,9 +147,9 @@ test("resolveInitialPopupMode prefers compare, then library", () => {
   assert.equal(resolveInitialPopupMode(summarizeSessionProcessing(idleSession)), "library");
 });
 
-test("expanded compare/result popup width gives the reading page more room than the compact shell", () => {
-  assert.equal(DEFAULT_POPUP_WIDTH, 440);
-  assert.equal(EXPANDED_COMPARE_POPUP_WIDTH, 560);
+test("all popup width constants are unified at 720px to eliminate jarring resize on mode/page switch", () => {
+  assert.equal(DEFAULT_POPUP_WIDTH, 720);
+  assert.equal(EXPANDED_COMPARE_POPUP_WIDTH, 720);
 });
 
 test("PR Evidence pages use the wider product-grade workspace width", () => {
@@ -314,9 +314,9 @@ test("getPollingDelayMs follows the shared coordinator rules and backoff", () =>
   assert.equal(getPollingDelayMs({ workerStatus: "idle", hasInflight: false, failureCount: 0 }), null);
 });
 
-test("popup width constants keep compare expanded while other pages stay compact", () => {
-  assert.equal(DEFAULT_POPUP_WIDTH, 440);
-  assert.equal(EXPANDED_COMPARE_POPUP_WIDTH, 560);
+test("popup width constants are all unified at 720px — no per-page resizing", () => {
+  assert.equal(DEFAULT_POPUP_WIDTH, 720);
+  assert.equal(EXPANDED_COMPARE_POPUP_WIDTH, 720);
   assert.equal(PRODUCT_POPUP_WIDTH, 720);
 });
 
