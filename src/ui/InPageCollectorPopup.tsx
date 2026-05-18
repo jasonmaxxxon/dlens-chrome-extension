@@ -193,6 +193,7 @@ export function InPageCollectorPopup({ app }: { app: InPageCollectorAppModel }) 
                   onAddToCompare={(itemId) => app.onAddToCompare(itemId)}
                   onSaveJudgmentOverride={(resultId, patch) => void app.onSaveJudgmentOverride(resultId, patch)}
                   onGenerateSynthesis={(topicId) => app.onGenerateTopicSynthesis(topicId)}
+                  synthLayout={snapshot?.global.settings.layoutPreferences.topicSynthesisLayout}
                 />
               ) : (
                 <CasebookView
@@ -269,6 +270,7 @@ export function InPageCollectorPopup({ app }: { app: InPageCollectorAppModel }) 
                 evidenceBySignalId={app.productSignalEvidenceById}
                 signalReadinessById={app.productSignalReadinessById}
                 aiProviderReady={app.productAiProviderReady}
+                cardLayout={snapshot?.global.settings.layoutPreferences.productSignalCardLayout}
                 analysisError={app.productSignalAnalysisError}
                 analysisNotice={app.productSignalAnalysisNotice}
                 isAnalyzing={app.isAnalyzingProductSignals}
@@ -276,7 +278,7 @@ export function InPageCollectorPopup({ app }: { app: InPageCollectorAppModel }) 
                 onSynthesizeSignalReading={app.onSynthesizeSignalReading}
                 onReviewSignalReading={app.onReviewSignalReading}
                 onGoToActionable={() => void app.onNavigate("actionable-filter")}
-                onRemoveSignal={(signalId) => void app.onSignalDeleted(signalId).catch(() => window.alert("刪除失敗，請稍後再試"))}
+                onRemoveSignal={(signalId) => void app.onRemoveProductSignal(signalId)}
               />
             </WorkspaceSurface>
           ) : null}
@@ -308,6 +310,7 @@ export function InPageCollectorPopup({ app }: { app: InPageCollectorAppModel }) 
                 draftOpenAiKey={app.draftOpenAiKey}
                 draftClaudeKey={app.draftClaudeKey}
                 draftGoogleKey={app.draftGoogleKey}
+                draftLayoutPreferences={app.draftLayoutPreferences}
                 draftProductProfile={app.draftProductProfile}
                 compiledProductContext={app.compiledProductContext}
                 settingsSaveStatus={app.settingsSaveStatus}
@@ -319,6 +322,7 @@ export function InPageCollectorPopup({ app }: { app: InPageCollectorAppModel }) 
                 onDraftOpenAiKeyChange={app.setDraftOpenAiKey}
                 onDraftClaudeKeyChange={app.setDraftClaudeKey}
                 onDraftGoogleKeyChange={app.setDraftGoogleKey}
+                onDraftLayoutPreferencesChange={app.onDraftLayoutPreferencesChange}
                 onDraftProductProfileChange={app.onDraftProductProfileChange}
                 onProductProfileSeedTextChange={app.setProductProfileSeedText}
                 onInitProductProfile={() => void app.onInitProductProfile()}

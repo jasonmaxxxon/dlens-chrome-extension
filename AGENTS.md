@@ -1,6 +1,6 @@
 # AGENTS.md — DLens Chrome Extension v0.1
 
-> **Last updated:** 2026-05-18 (Signal Reading Review + version 0.1.4 on main — 440/440 tests, typecheck, build)
+> **Last updated:** 2026-05-18 (Signal Reading Review + version 0.1.8 on main — 452/452 tests, typecheck, build)
 > **For:** any agent continuing work in this repo
 
 ## Process Rules (locked 2026-04-17)
@@ -61,6 +61,8 @@ npx tsx --test tests/*.test.ts tests/*.test.tsx
 - Product signal cards support both Verdict and Marginalia layouts in `ActionableItemCard`; keep `reusable_pattern` as the card headline, cited evidence visible, and `experimentHint` / `agentTaskSpec` in the task slot
 - Product Agent Brief uses `SignalReading` records as a local corpus: generate free-text readings on demand, review them, file useful readings, and compose filed-only Markdown for coding agents
 - Signal Reading review cards keep a compact Marginalia signal strip (`verdict`, `referenceType`, `relevance`) inside the active card so the reading workflow does not lose product-signal density
+- Marginalia is the simplified default Product signal card: no verdict in the eyebrow, no FOOTNOTES header, no repeated bottom AI experiment/judgment detail panels, and flat label-stacked workflow evidence rows. Verdict keeps the boxed evidence/detail treatment.
+- Product classification list rows stay scan-first: no relevance dots, and `最新在前` only appears when the selected type group has at least two signals.
 - Topic synthesis uses deterministic `v2.work-signal-lens` output and renders through `TopicSynthesisCard` as Stack or Console
 - Folder synthesis uses the same work-signal lens for the `FolderSynthesisCard` Briefing layout and stores records at `dlens:v1:folder-synthesis`
 - Compare Result supports Parallel and Chapters layouts alongside the older Reading path; Parallel is the current default and uses sticky A/B columns
@@ -280,7 +282,7 @@ Important implementation points:
 - `SettingsView.tsx` owns the three user-facing layout controls.
 - `InPageCollectorPopup.tsx` threads persisted layout settings into Product signal cards, Topic synthesis, and Compare Result.
 - `TopicSynthesis` and `FolderSynthesis` are deterministic display layers over analyzed signals. They use `src/compare/work-signal-lens.ts`; they do not replace backend clustering.
-- Clean-main verification was run from `/Users/tung/Desktop/dlens-main-verify-20260514-152531`: `392/392` tests, `npm run typecheck`, `npm run build`, and `git diff --check` passed.
+- Current verification was run from `/Users/tung/Desktop/dlens-product-latest`: `452/452` tests, `npm run typecheck`, `npm run build`, and `git diff --check` passed.
 - The verified unpacked build was copied to `/Users/tung/Desktop/dlens-product-latest/output/chrome-mv3` for Chrome load-unpacked use.
 - `/Users/tung/Desktop/dlens-product-latest` source checkout may be dirty; do not infer clean source state from the copied build artifact.
 

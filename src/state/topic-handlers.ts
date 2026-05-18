@@ -269,16 +269,11 @@ export async function handleTopicMessage(
       };
     }
     case "signal/delete": {
-      const signals = await readAllSignals(storageArea);
-      const signal = signals.find((entry) => entry.id === message.signalId);
-      if (!signal) {
-        throw new Error("Signal not found");
-      }
-      await deleteSignal(storageArea, storageArea, message.signalId);
-      await clearFolderSynthesis(storageArea, signal.sessionId);
+      const result = await deleteSignal(storageArea, message.signalId);
+      await clearFolderSynthesis(storageArea, result.deleted.sessionId);
       return {
-        signals: await loadSignals(storageArea, signal.sessionId),
-        topics: await loadTopics(storageArea, signal.sessionId)
+        signals: result.signals,
+        topics: result.topics
       };
     }
   }

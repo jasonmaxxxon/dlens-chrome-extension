@@ -264,15 +264,17 @@ test("signal/delete handler removes the signal, clears topic synthesis, and clea
     [FOLDER_SYNTHESIS_STORAGE_KEY]: [fakeSynthesis]
   });
 
-  await handleTopicMessage(storage, { type: "signal/delete", signalId: "signal-1" });
+  const response = await handleTopicMessage(storage, { type: "signal/delete", signalId: "signal-1" });
 
   const signals = await loadSignals(storage, "session-1");
   assert.equal(signals.length, 1);
   assert.equal(signals[0]?.id, "signal-2");
+  assert.deepEqual(response.signals?.map((signal) => signal.id), ["signal-2"]);
 
   const topics = await loadTopics(storage, "session-1");
   assert.ok(topics[0]?.signalIds.every((id) => id !== "signal-1"), "signal-1 removed from topic");
   assert.equal(topics[0]?.synthesis, null, "topic synthesis cleared");
+  assert.deepEqual(response.topics?.[0]?.signalIds, ["signal-2"]);
 
   const folderSynthesis = await loadFolderSynthesis(storage, "session-1");
   assert.equal(folderSynthesis, null, "folder synthesis cleared after delete");

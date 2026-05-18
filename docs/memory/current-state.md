@@ -59,7 +59,7 @@ The current product split is:
 
 The verified build in the active Phase B implementation worktree is:
 
-- clean verification worktree: `/Users/tung/Desktop/dlens-main-verify-20260514-152531`
+- verification worktree: `/Users/tung/Desktop/dlens-product-latest`
 - active load-unpacked folder: `/Users/tung/Desktop/dlens-product-latest/output/chrome-mv3`
 - note: `/Users/tung/Desktop/dlens-product-latest` source checkout may be dirty; do not infer clean source state from the copied build artifact
 - unpacked extension: `/Users/tung/Desktop/dlens-product-latest/output/chrome-mv3`
@@ -70,7 +70,7 @@ The verified build in the active Phase B implementation worktree is:
 - latest full test count after Signal Reading Review: `440 pass, 0 fail`
 - latest build output was mirrored to `/Users/tung/Desktop/dlens-product-latest/output/chrome-mv3`
 - live backend smoke from the prior product run: `GET http://127.0.0.1:8000/worker/status` returned `{"status":"idle"}`
-- extension manifest name is `DLens v3`; current extension version is `0.1.4`
+- extension manifest name is `DLens v3`; current extension version is `0.1.8`
 - version is locked across `package.json`, `package-lock.json`, `wxt.config.ts` `manifest.version`, and `src/ui/version.ts` `BUILD_VERSION`
 
 ## PR Evidence V1 Contract State
@@ -164,12 +164,16 @@ Topic synthesis and Folder synthesis are deterministic extension-side display la
 - Folder synthesis persists at `dlens:v1:folder-synthesis` through `src/compare/folder-synthesis-storage.ts`.
 - `FolderSynthesisCard` renders the Briefing layout in topic-mode Library.
 - `ActionableItemCard` supports `verdict` and `marginalia`; `marginalia` is the default persisted Product signal card layout.
+- Marginalia rail keeps duplicated long prose out of the narrow right column: `對到` shows a category only, while TASK shows `agentTaskSpec.taskTitle` and leaves `experimentHint` in the main TRY block.
+- Marginalia visual hierarchy is intentionally reduced: the eyebrow omits verdict, the old FOOTNOTES header is hidden, bottom AI experiment/judgment detail blocks do not render in marginalia, and workflow evidence rows use flat stacked labels with dotted dividers.
+- Product classification list rows no longer show relevance dots; the `最新在前` sort hint only renders for type groups with at least two signals.
+- Product `classification` is a first-class product signal page in route guards and width/data-effect helpers; do not let it fall back to `saved-signals`.
 - `CompareView` supports `reading`, `parallel`, and `chapters`; `parallel` is the default persisted Result layout.
 - Agent Brief review cards reuse the Marginalia signal grammar as a compact strip inside the active reading card.
 
 ## Version State
 
-- Current extension version: `0.1.4`.
+- Current extension version: `0.1.8`.
 - Chrome extension page version comes from `wxt.config.ts` `manifest.version` in the built manifest.
 - Popup masthead version comes from `src/ui/version.ts` `BUILD_VERSION`.
 - `package.json`, `package-lock.json`, `wxt.config.ts`, and `src/ui/version.ts` must stay in sync for every main-facing update unless explicitly skipped.
@@ -315,6 +319,7 @@ The extension may present backend output more clearly, but it should not fabrica
 - Product mode has its own insight pages backed by `dlens:v1:product-signal-analyses`; these pages should not render backend clusters as the primary product output
 - Product mode cards should lead with useful insight, cited evidence, verdict, experiment hint, and optional `agentTaskSpec`
 - Product mode cards now default to Marginalia; Verdict remains available through layout preferences
+- Marginalia should avoid duplicate support chrome: the rail owns verdict/relevance/task summary, the main column owns TRY/drop-cap/footnotes, and repeated bottom AI detail panels stay hidden for this layout
 - Topic synthesis defaults to Console; Stack remains available through layout preferences
 - Compare Result defaults to Parallel; Reading and Chapters remain available through layout preferences
 - the popup shell now uses an editorial masthead + left vertical rail instead of the older horizontal pill strip

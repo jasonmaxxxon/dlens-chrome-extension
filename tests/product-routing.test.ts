@@ -6,23 +6,26 @@ import { ALLOWED_PAGES, guardPage } from "../src/state/processing-state.ts";
 test("product mode opens Saved Signals before action filtering", () => {
   assert.deepEqual(ALLOWED_PAGES.product, [
     "saved-signals",
+    "classification",
     "actionable-filter",
     "collect"
   ]);
   assert.equal(guardPage("casebook", "product"), "saved-signals");
   assert.equal(guardPage("saved-signals", "product"), "saved-signals");
-  assert.equal(guardPage("classification", "product"), "saved-signals");
+  assert.equal(guardPage("classification", "product"), "classification");
+  assert.equal(guardPage("actionable-filter", "product"), "actionable-filter");
 });
 
-test("topic mode starts at Collect and merges Inbox into Topics", () => {
+test("topic mode keeps Casebook and Inbox as first-class pages", () => {
   assert.deepEqual(ALLOWED_PAGES.topic, [
-    "collect",
-    "library",
     "casebook",
-    "compare"
+    "inbox",
+    "collect",
+    "compare",
+    "library"
   ]);
-  assert.equal(guardPage("classification", "topic"), "collect");
-  assert.equal(guardPage("inbox", "topic"), "collect");
+  assert.equal(guardPage("classification", "topic"), "casebook");
+  assert.equal(guardPage("inbox", "topic"), "inbox");
 });
 
 test("PR Evidence mode mounts only the campaign evidence workspace and Collect", () => {

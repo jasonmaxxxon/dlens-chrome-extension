@@ -109,6 +109,7 @@ export function InPageCollectorResultWorkspace({
             activeResultId={app.activeSavedAnalysis?.resultId ?? null}
             attachedTopicIds={attachedTopicIds}
             onAttachToTopic={(topicId) => void app.onAttachActiveResultToTopic(topicId)}
+            compareLayout={app.snapshot?.global.settings.layoutPreferences.compareResultLayout}
             hideSelector
           />
         </div>

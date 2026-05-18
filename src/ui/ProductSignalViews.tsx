@@ -6,6 +6,7 @@ import type {
   ProductAgentTaskFeedbackValue,
   ProductProfile,
   ProductSignalAnalysis,
+  ProductSignalCardLayout,
   ProductSignalEvidenceNote,
   ProductSignalReferenceTarget,
   ProductSignalReferenceType,
@@ -669,20 +670,45 @@ function StackTagRow({ tools, maxVisible = 4 }: { tools: string[]; maxVisible?: 
   );
 }
 
-function WorkflowEvidenceCard({ citation }: { citation: EvidenceCitation }) {
+function WorkflowEvidenceCard({
+  citation,
+  layout = "boxed"
+}: {
+  citation: EvidenceCitation;
+  layout?: "boxed" | "flat";
+}) {
   const workflow = inferWorkflowPattern(citation);
   const grounding = workflow.grounding || "model_inferred";
   const groundingLabel = GROUNDING_LABELS[grounding];
+  const flatten = layout === "flat";
+  const fieldLabelStyle: CSSProperties = flatten
+    ? {
+        ...textStyles.fieldLabel,
+        color: tokens.color.softInk,
+        letterSpacing: 0,
+        textTransform: "none",
+        fontWeight: 700
+      }
+    : workflowSectionLabelStyle("copy");
+  const rowStyle = (isLast: boolean): CSSProperties => flatten
+    ? {
+        display: "grid",
+        gap: 5,
+        padding: "8px 0",
+        borderBottom: isLast ? "none" : `1px dotted ${tokens.color.lineStrong}`
+      }
+    : {};
   return (
     <div
       data-evidence-workflow-card="true"
+      data-workflow-card-layout={layout}
       style={{
         display: "grid",
-        gap: 9,
-        padding: "11px 12px",
+        gap: flatten ? 7 : 9,
+        padding: flatten ? "0" : "11px 12px",
         borderRadius: tokens.radius.card,
-        border: `1px solid ${tokens.color.line}`,
-        background: tokens.color.elevated
+        border: flatten ? "none" : `1px solid ${tokens.color.line}`,
+        background: flatten ? "transparent" : tokens.color.elevated
       }}
     >
       <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10, flexWrap: "wrap" }}>
@@ -712,22 +738,22 @@ function WorkflowEvidenceCard({ citation }: { citation: EvidenceCitation }) {
           <StackTagRow tools={workflow.tools} maxVisible={4} />
         ) : null}
       </div>
-      <div style={{ display: "grid", gap: 6 }}>
-        <div data-workflow-section-tone="copy" style={workflowSectionPanelStyle("copy")}>
-          <span data-workflow-field-label="copy" style={workflowSectionLabelStyle("copy")}>如何照抄</span>
-          <pre style={{ margin: 0, fontSize: 12.5, lineHeight: 1.55, color: tokens.color.ink, fontFamily: tokens.font.mono, whiteSpace: "pre-wrap", wordBreak: "break-word" }}>
+      <div style={{ display: "grid", gap: flatten ? 0 : 6 }}>
+        <div data-workflow-section-tone="copy" data-workflow-row-layout={flatten ? "stacked" : "boxed"} style={flatten ? rowStyle(false) : workflowSectionPanelStyle("copy")}>
+          <span data-workflow-field-label="copy" style={flatten ? fieldLabelStyle : workflowSectionLabelStyle("copy")}>如何照抄</span>
+          <pre style={{ margin: 0, fontSize: flatten ? 12 : 12.5, lineHeight: 1.55, color: tokens.color.ink, fontFamily: tokens.font.mono, whiteSpace: "pre-wrap", wordBreak: "break-word" }}>
             {workflow.recipeMarkdown || workflow.copyableTemplate || "原文不足以推導完整做法。"}
           </pre>
         </div>
-        <div data-workflow-section-tone="why" style={workflowSectionPanelStyle("why")}>
-          <span data-workflow-field-label="why" style={workflowSectionLabelStyle("why")}>為什麼可以這樣做</span>
+        <div data-workflow-section-tone="why" data-workflow-row-layout={flatten ? "stacked" : "boxed"} style={flatten ? rowStyle(!workflow.tradeoff) : workflowSectionPanelStyle("why")}>
+          <span data-workflow-field-label="why" style={flatten ? fieldLabelStyle : workflowSectionLabelStyle("why")}>為什麼可以這樣做</span>
           <span style={{ fontSize: 12.5, lineHeight: 1.55, color: tokens.color.subInk }}>
             {workflow.whyItWorks}
           </span>
         </div>
         {workflow.tradeoff ? (
-          <div data-workflow-section-tone="tradeoff" style={workflowSectionPanelStyle("tradeoff")}>
-            <span data-workflow-field-label="tradeoff" style={workflowSectionLabelStyle("tradeoff")}>限制</span>
+          <div data-workflow-section-tone="tradeoff" data-workflow-row-layout={flatten ? "stacked" : "boxed"} style={flatten ? rowStyle(true) : workflowSectionPanelStyle("tradeoff")}>
+            <span data-workflow-field-label="tradeoff" style={flatten ? fieldLabelStyle : workflowSectionLabelStyle("tradeoff")}>限制</span>
             <span style={{ fontSize: 12.5, lineHeight: 1.55, color: tokens.color.subInk }}>
               {workflow.tradeoff}
             </span>
@@ -1054,26 +1080,6 @@ function formatAnalyzedAt(value: string): string {
   return date.toLocaleDateString("zh-TW", { month: "numeric", day: "numeric" });
 }
 
-function RelevanceDots({ score }: { score: ProductSignalAnalysis["relevance"] }) {
-  return (
-    <span aria-label={`relevance ${score} of 5`} style={{ display: "inline-flex", gap: 3 }}>
-      {Array.from({ length: 5 }, (_, index) => (
-        <span
-          key={index}
-          aria-hidden="true"
-          style={{
-            width: 5,
-            height: 5,
-            borderRadius: 999,
-            background: index < score ? "var(--dlens-mode-accent)" : tokens.color.lineStrong,
-            opacity: index < score ? 1 : 0.45
-          }}
-        />
-      ))}
-    </span>
-  );
-}
-
 function PendingSignalCard({
   signal,
   preview,
@@ -1298,7 +1304,6 @@ function ClassificationSignalRow({
           {formatSubtype(analysis.signalSubtype)} · {VERDICT_LABELS[analysis.verdict]}
         </div>
       </div>
-      <RelevanceDots score={analysis.relevance} />
     </button>
   );
 }
@@ -2281,7 +2286,9 @@ function ClassificationBoard({
         <section data-scan-list="product-classification" style={{ display: "grid" }}>
           <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8 }}>
             <Kicker>{SIGNAL_TYPE_LABELS[selectedType]} · {selectedItems.length} 則</Kicker>
-            <span style={{ fontSize: 10.5, color: tokens.color.softInk }}>最新在前</span>
+            {selectedItems.length > 1 ? (
+              <span style={{ fontSize: 10.5, color: tokens.color.softInk }}>最新在前</span>
+            ) : null}
           </div>
           {selectedItems.map((analysis) => (
             <ClassificationSignalRow
@@ -2419,9 +2426,10 @@ function ActionableItemCard({
   const title = primaryWorkflowTitle(citations, analysis.contentSummary);
   const primaryEvidenceReason = excerpt(citations[0]?.note?.whyItMatters ?? "", 130);
   const similarHistory = findSimilarHistoricalSignals(analysis, agentTaskFeedback, historicalAnalyses);
-  const taskSlotCopy = analysis.experimentHint?.trim()
-    || analysis.agentTaskSpec?.taskTitle?.trim()
+  const taskSlotCopy = analysis.agentTaskSpec?.taskTitle?.trim()
+    || analysis.experimentHint?.trim()
     || "尚未有可派發任務；先保留為觀察。";
+  const railReferenceCopy = analysis.referenceLabel?.trim() || referenceTypeLabel(analysis.referenceType);
 
   if (layout === "marginalia") {
     return (
@@ -2472,8 +2480,6 @@ function ActionableItemCard({
               >
                 {index + 1}
               </span>
-              <span>{VERDICT_LABELS[analysis.verdict]}</span>
-              <span>·</span>
               <span>{SIGNAL_TYPE_LABELS[analysis.signalType]}</span>
               <span>·</span>
               <span>{formatAnalyzedAt(analysis.analyzedAt)}</span>
@@ -2567,7 +2573,7 @@ function ActionableItemCard({
             <div data-testid="marginalia-footnotes" style={{ display: "grid", gap: 10 }}>
               <div style={{ display: "flex", justifyContent: "space-between", gap: 8, alignItems: "baseline", borderBottom: `1px solid ${tokens.color.line}`, paddingBottom: 8 }}>
                 <span data-evidence-section-label="true" style={{ ...textStyles.label, color: tokens.color.softInk }}>
-                  FOOTNOTES · {citationCount} 則原文證據
+                  原文證據 · {citationCount} 則
                 </span>
                 <span style={{ fontSize: 10.5, color: tokens.color.softInk }}>可借用 workflow</span>
               </div>
@@ -2595,7 +2601,7 @@ function ActionableItemCard({
                           </div>
                         </div>
                       </div>
-                      <WorkflowEvidenceCard citation={citation} />
+                      <WorkflowEvidenceCard citation={citation} layout="flat" />
                       {citation.entry?.text || citation.note?.whyItMatters ? (
                         <SmoothDetails
                           summary={
@@ -2708,7 +2714,7 @@ function ActionableItemCard({
               </div>
               <div style={{ display: "grid", gap: 2 }}>
                 <span style={{ color: tokens.color.softInk }}>對到</span>
-                <span style={{ color: tokens.color.ink, fontWeight: 650 }}>{referenceLabel(analysis)}</span>
+                <span style={{ color: tokens.color.ink, fontWeight: 650 }}>{railReferenceCopy}</span>
               </div>
               <div style={{ display: "grid", gap: 2 }}>
                 <span style={{ color: tokens.color.softInk }}>證據</span>
@@ -3003,6 +3009,7 @@ function ActionableInsightsBoard({
   evidenceBySignalId,
   historicalAnalyses,
   agentTaskFeedback,
+  cardLayout,
   onRemoveSignal
 }: {
   analyses: ProductSignalAnalysis[];
@@ -3010,6 +3017,7 @@ function ActionableInsightsBoard({
   evidenceBySignalId: Record<string, ProductSignalEvidenceEntry[]>;
   historicalAnalyses: ProductSignalAnalysis[];
   agentTaskFeedback: ProductAgentTaskFeedback[];
+  cardLayout: ProductSignalCardLayout;
   onRemoveSignal?: (signalId: string) => void;
 }) {
   const [selectedFilter, setSelectedFilter] = useState<ActionVerdictFilter>("try");
@@ -3074,7 +3082,7 @@ function ActionableInsightsBoard({
             evidenceBySignalId={evidenceBySignalId}
             historicalAnalyses={historicalAnalyses}
             agentTaskFeedback={agentTaskFeedback}
-            layout="marginalia"
+            layout={cardLayout}
             onRemove={onRemoveSignal ? () => onRemoveSignal(analysis.signalId) : undefined}
           />
         )) : (
@@ -3104,6 +3112,7 @@ export function ProductSignalView({
   signalReadinessById = {},
   signalReadings = [],
   aiProviderReady = true,
+  cardLayout = "marginalia",
   analysisError = null,
   analysisNotice = null,
   isAnalyzing = false,
@@ -3125,6 +3134,7 @@ export function ProductSignalView({
   signalReadinessById?: Record<string, ProductSignalReadiness>;
   signalReadings?: SignalReading[];
   aiProviderReady?: boolean;
+  cardLayout?: ProductSignalCardLayout;
   analysisError?: string | null;
   analysisNotice?: string | null;
   isAnalyzing?: boolean;
@@ -3194,7 +3204,7 @@ export function ProductSignalView({
                 preview={signalPreviewById[signal.id]}
                 readiness={readSignalReadiness(signal, signalReadinessById)}
                 analysis={bySignal.get(signal.id)}
-                onRemove={() => handleRemoveSignal(signal.id)}
+                onRemove={onRemoveSignal ? () => handleRemoveSignal(signal.id) : undefined}
               />
             ))}
           </section>
@@ -3228,7 +3238,7 @@ export function ProductSignalView({
             signalReadinessById={signalReadinessById}
             selectedIds={selectedSignalIds}
             onToggleSignal={toggleSelectedSignal}
-            onRemoveSignal={handleRemoveSignal}
+            onRemoveSignal={onRemoveSignal ? handleRemoveSignal : undefined}
           />
         ) : scopedAnalyses.length ? (
           kind === "classification" ? (
@@ -3255,6 +3265,7 @@ export function ProductSignalView({
                     evidenceBySignalId={evidenceBySignalId}
                     historicalAnalyses={safeHistoricalAnalyses}
                     agentTaskFeedback={safeAgentTaskFeedback}
+                    cardLayout={cardLayout}
                     onRemoveSignal={handleRemoveSignal}
                   />
                   <SavedSignalsBatchExport

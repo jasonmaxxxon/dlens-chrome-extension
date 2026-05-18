@@ -4,6 +4,7 @@ import type { ExtensionMessage, ExtensionResponse } from "../state/messages";
 import type {
   FolderMode,
   PopupPage,
+  ProductSignalAnalysis,
   SavedAnalysisSnapshot,
   SessionRecord,
   Signal,
@@ -274,15 +275,30 @@ export function useTopicState({
     }
   }
 
-  async function onSignalDeleted(signalId: string): Promise<void> {
-    const response = await sendExtensionMessage<{ ok: true; signals?: Signal[]; topics?: Topic[] } | { ok: false; error: string }>({
+  async function onRemoveSignal(signalId: string) {
+    const response = await sendExtensionMessage<{
+      ok: true;
+      signals?: Signal[];
+      topics?: Topic[];
+      productSignalAnalyses?: ProductSignalAnalysis[];
+    } | { ok: false; error: string }>({
       type: "signal/delete",
       signalId
     });
     if (response.ok) {
-      setSignals(response.signals ?? signals.filter((s) => s.id !== signalId));
-      setTopics(response.topics ?? topics);
-    } else {
+      setSignals(response.signals ?? signals.filter((signal) => signal.id !== signalId));
+      setTopics(response.topics ?? topics.map((topic) => ({
+        ...topic,
+        signalIds: topic.signalIds.filter((id) => id !== signalId),
+        ...(topic.signalIds.includes(signalId) ? { synthesis: null } : {})
+      })));
+    }
+    return response;
+  }
+
+  async function onSignalDeleted(signalId: string): Promise<void> {
+    const response = await onRemoveSignal(signalId);
+    if (!response.ok) {
       throw new Error(response.error ?? "刪除失敗");
     }
   }
@@ -360,6 +376,7 @@ export function useTopicState({
     onUpdateTopic,
     onSignalTriaged,
     onSignalDeleted,
+    onRemoveSignal,
     onOpenTopicPair,
     onReturnToTopic,
     onAttachActiveResultToTopic,

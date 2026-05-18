@@ -257,11 +257,12 @@ export async function saveProductSignalAnalysis(
 export async function deleteProductSignalAnalysis(
   storageArea: StorageAreaLike,
   signalId: string
-): Promise<void> {
+): Promise<Record<string, ProductSignalAnalysis>> {
   const map = await readAnalysisMap(storageArea);
-  if (!(signalId in map)) return;
-  const { [signalId]: _removed, ...next } = map;
+  const next = { ...map };
+  delete next[signalId];
   await storageArea.set({ [PRODUCT_SIGNAL_ANALYSES_STORAGE_KEY]: next });
+  return next;
 }
 
 export const productSignalStorageTestables = {

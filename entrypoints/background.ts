@@ -103,7 +103,6 @@ import {
 } from "../src/compare/pr-evidence";
 import { createLlmCallWrapper } from "../src/compare/llm-call-wrapper";
 import {
-  createDefaultSettings,
   createEmptyGlobalState,
   createEmptyTabState,
   type ExtensionGlobalState,
@@ -135,7 +134,7 @@ import {
   type ItemRefreshResult
 } from "../src/state/store-helpers";
 import { ensureSignalForSavedItem, ensureWorkspaceTopicForSession, handleTopicMessage } from "../src/state/topic-handlers";
-import { loadSignals, loadTopicById, loadTopics, saveTopic } from "../src/state/topic-storage";
+import { deleteSignal, loadSignals, loadTopicById, loadTopics, saveTopic } from "../src/state/topic-storage";
 import { generateTopicSynthesis } from "../src/compare/topic-synthesis";
 import { generateFolderSynthesis } from "../src/compare/folder-synthesis";
 import {
@@ -153,7 +152,7 @@ import {
   type PrCampaign,
   type PrEvidenceRow
 } from "../src/state/pr-evidence-storage";
-import { mergeOneLinerSettings } from "../src/state/settings-storage";
+import { mergeLayoutPreferences, mergeOneLinerSettings, normalizeExtensionSettings } from "../src/state/settings-storage";
 import { buildRefreshFailureMessage } from "../src/state/refresh-errors";
 import { createAsyncLock } from "../src/state/snapshot-lock";
 import { applyHoveredPreview, createInlineToast, setCollectModeState } from "../src/state/ui-state";
@@ -262,10 +261,7 @@ function normalizeGlobalState(state: ExtensionGlobalState): ExtensionGlobalState
   return {
     ...state,
     sessions: Array.isArray(state?.sessions) ? state.sessions.map((session) => normalizeSessionRecord(session)) : [],
-    settings: {
-      ...createDefaultSettings(),
-      ...(state?.settings || {})
-    }
+    settings: normalizeExtensionSettings(state?.settings)
   };
 }
 
@@ -1645,6 +1641,23 @@ export default defineBackground(() => {
             sendResponse({ ok: true, tabId, snapshot } satisfies ExtensionResponse);
             return;
           }
+          case "settings/set-layout-preferences": {
+            const tabId = await resolveTabId(sender);
+            const current = await loadSnapshot(tabId);
+            const settings = mergeLayoutPreferences(current.global.settings, message.layoutPreferences);
+            const snapshot = await saveSnapshot(tabId, {
+              global: {
+                ...current.global,
+                settings
+              },
+              tab: {
+                ...current.tab,
+                error: null
+              }
+            });
+            sendResponse({ ok: true, tabId, snapshot } satisfies ExtensionResponse);
+            return;
+          }
           case "popup/open-active-tab": {
             const tabId = await resolveTabId(sender);
             sendResponse({ ok: true, tabId, snapshot: await openPopup(tabId) } satisfies ExtensionResponse);
@@ -1829,17 +1842,31 @@ export default defineBackground(() => {
           case "topic/add-pair":
           case "topic/remove-pair":
           case "signal/list":
-          case "signal/triage":
-          case "signal/delete": {
+          case "signal/triage": {
             const tabId = await resolveTabId(sender);
             const topicResponse = await handleTopicMessage(chrome.storage.local, message);
-            if (message.type === "signal/delete") {
-              await deleteProductSignalAnalysis(chrome.storage.local, message.signalId);
-            }
             sendResponse({
               ok: true,
               tabId,
               ...topicResponse
+            } satisfies ExtensionResponse);
+            return;
+          }
+          case "signal/delete": {
+            const tabId = await resolveTabId(sender);
+            const result = await deleteSignal(chrome.storage.local, message.signalId);
+            await deleteProductSignalAnalysis(chrome.storage.local, message.signalId);
+            await clearFolderSynthesis(chrome.storage.local, result.deleted.sessionId);
+            const productSignalAnalyses = await listProductSignalAnalyses(
+              chrome.storage.local,
+              result.signals.map((signal) => signal.id)
+            );
+            sendResponse({
+              ok: true,
+              tabId,
+              signals: result.signals,
+              topics: result.topics,
+              productSignalAnalyses
             } satisfies ExtensionResponse);
             return;
           }

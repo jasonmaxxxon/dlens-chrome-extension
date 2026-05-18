@@ -47,20 +47,26 @@ This note is the high-signal shared memory for Codex and Claude when working on 
   - Topic synthesis layout: `stack | console`, default `console`
   - Compare result layout: `reading | parallel | chapters`, default `parallel`
 - `SettingsView` exposes all three controls; `InPageCollectorPopup` threads them into `ProductSignalViews`, `TopicDetailView`, and `CompareView`.
-- Product signal card variants are Verdict and Marginalia; Marginalia is default and keeps the task/experiment slot visible.
+- Product signal card variants are Verdict and Marginalia; Marginalia is default, keeps `experimentHint` in the main TRY block, and keeps the right-rail TASK slot to the short `agentTaskSpec.taskTitle`.
+- Marginalia visual hierarchy is intentionally simplified: eyebrow has no verdict, FOOTNOTES header is hidden, bottom AI experiment/judgment detail blocks are not rendered, and workflow evidence rows are flat label-stacked sections with dotted dividers.
+- Product classification list rows no longer render relevance dots; `最新在前` only appears when the selected type group has at least two signals.
+- Product Agent Brief uses reviewable `SignalReading` records; active review cards keep a compact Marginalia signal strip with verdict, reference category, and relevance bars.
 - Topic synthesis uses deterministic `v2.work-signal-lens`; Stack is collapsible, Console is dense and always visible.
 - Folder synthesis uses the same deterministic work-signal lens and renders as the Library Briefing card. Storage key: `dlens:v1:folder-synthesis`.
 - Compare result variants are Reading, Parallel, and Chapters; Parallel is default and uses sticky A/B columns.
-- Clean-main verification: `392/392` tests, typecheck, build, and diff check passed from `/Users/tung/Desktop/dlens-main-verify-20260514-152531`.
+- Current verification: `452/452` tests, typecheck, build, and diff check passed from `/Users/tung/Desktop/dlens-product-latest`.
 - Verified build artifact was copied to `/Users/tung/Desktop/dlens-product-latest/output/chrome-mv3`; the source checkout there may still be dirty.
 
 ## Version Rule As Of 2026-05-14
 
-- Current extension version: `0.1.3`.
+- Current extension version: `0.1.8`.
 - Keep version synchronized across `package.json`, `package-lock.json`, `wxt.config.ts` `manifest.version`, and `src/ui/version.ts` `BUILD_VERSION`.
 - Chrome's extension page shows the built manifest version; the popup masthead shows `BUILD_VERSION`.
 - Every user-visible update pushed to `main` should bump the version unless the user explicitly says not to.
 - `tests/manifest-config.test.ts` locks package / manifest / UI version consistency.
+- Product signal removal uses `signal/delete` and must persist to storage: remove from `dlens:v1:signals`, clear topic membership and affected topic synthesis, delete the matching product analysis, clear session folder synthesis, and refresh product state.
+- Product mode `classification` is a valid product signal page. Keep it in `ALLOWED_PAGES.product`, `PRODUCT_SIGNAL_PAGES`, product width handling, and product data-effect routing so it does not fall back to `saved-signals`.
+- Marginalia right rail should not duplicate main prose: `對到` shows only a short reference category, TASK shows `agentTaskSpec.taskTitle`, and `contentSummary` / `experimentHint` remain in the main column.
 
 ## PR Evidence Mode As Of 2026-05-07
 

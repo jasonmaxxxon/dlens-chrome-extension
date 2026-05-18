@@ -7,14 +7,15 @@ export const NETWORK_BATCH_SIZE = 3;
 
 export const PRODUCT_SIGNAL_PAGES: ReadonlyArray<MainPage> = [
   "saved-signals",
+  "classification",
   "actionable-filter"
 ];
 export const PR_EVIDENCE_PAGES: ReadonlyArray<MainPage> = ["pr-evidence"];
 
 export const ALLOWED_PAGES: Record<FolderMode, MainPage[]> = {
   archive: ["library", "collect"],
-  topic: ["collect", "library", "casebook", "compare"],
-  product: ["saved-signals", "actionable-filter", "collect"],
+  topic: ["casebook", "inbox", "collect", "compare", "library"],
+  product: ["saved-signals", "classification", "actionable-filter", "collect"],
   "pr-evidence": ["pr-evidence", "collect"]
 };
 

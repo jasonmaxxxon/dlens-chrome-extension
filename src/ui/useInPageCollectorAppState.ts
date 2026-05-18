@@ -2,15 +2,18 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 import type { TargetDescriptor } from "../contracts/target-descriptor";
 import { DEFAULT_SESSION_NAME_BY_MODE, normalizePostUrl } from "../state/store-helpers";
-import type {
-  ExtensionSnapshot,
-  FolderMode,
-  FolderSynthesis,
-  ProductContext,
-  ProductAgentTaskFeedback,
-  ProductSignalAnalysis,
-  SavedAnalysisSnapshot,
-  TechniqueReadingSnapshot,
+import {
+  createDefaultLayoutPreferences,
+  createDefaultSettings,
+  type ExtensionSnapshot,
+  type FolderMode,
+  type FolderSynthesis,
+  type LayoutPreferences,
+  type ProductContext,
+  type ProductAgentTaskFeedback,
+  type ProductSignalAnalysis,
+  type SavedAnalysisSnapshot,
+  type TechniqueReadingSnapshot,
 } from "../state/types";
 import { isDescriptorSavedInFolder } from "../state/ui-state";
 import type { ExtensionMessage, ExtensionResponse, StartProcessingResponse } from "../state/messages";
@@ -153,6 +156,7 @@ export function useInPageCollectorAppState({ snapshot, tabId, sendAndSync }: Use
   const [draftOpenAiKey, setDraftOpenAiKey] = useState("");
   const [draftClaudeKey, setDraftClaudeKey] = useState("");
   const [draftGoogleKey, setDraftGoogleKey] = useState("");
+  const [draftLayoutPreferences, setDraftLayoutPreferences] = useState(createDefaultLayoutPreferences);
   const [draftProductProfile, setDraftProductProfile] = useState(createEmptyProductProfile);
   const [productProfileSeedText, setProductProfileSeedText] = useState("");
   const [isInitializingProductProfile, setIsInitializingProductProfile] = useState(false);
@@ -363,6 +367,7 @@ export function useInPageCollectorAppState({ snapshot, tabId, sendAndSync }: Use
     setDraftOpenAiKey(snapshot?.global.settings.openaiApiKey || "");
     setDraftClaudeKey(snapshot?.global.settings.claudeApiKey || "");
     setDraftGoogleKey(snapshot?.global.settings.googleApiKey || "");
+    setDraftLayoutPreferences(snapshot?.global.settings.layoutPreferences ?? createDefaultLayoutPreferences());
     setDraftProductProfile(snapshot?.global.settings.productProfile ?? createEmptyProductProfile());
   }, [
     snapshot?.global.settings.ingestBaseUrl,
@@ -370,6 +375,7 @@ export function useInPageCollectorAppState({ snapshot, tabId, sendAndSync }: Use
     snapshot?.global.settings.openaiApiKey,
     snapshot?.global.settings.claudeApiKey,
     snapshot?.global.settings.googleApiKey,
+    snapshot?.global.settings.layoutPreferences,
     snapshot?.global.settings.productProfile
   ]);
 
@@ -925,14 +931,7 @@ export function useInPageCollectorAppState({ snapshot, tabId, sendAndSync }: Use
     }
   }
 
-  const compareViewSettings = snapshot?.global.settings || {
-    ingestBaseUrl: draftBaseUrl,
-    oneLinerProvider: "google" as const,
-    openaiApiKey: "",
-    claudeApiKey: "",
-    googleApiKey: "",
-    productProfile: null
-  };
+  const compareViewSettings = snapshot?.global.settings || createDefaultSettings();
 
   async function onSetActiveSession(sessionId: string) {
     await sendAndSync({
@@ -1038,6 +1037,7 @@ export function useInPageCollectorAppState({ snapshot, tabId, sendAndSync }: Use
         draftOpenAiKey,
         draftClaudeKey,
         draftGoogleKey,
+        draftLayoutPreferences,
         draftProductProfile
       })) {
         const response = await sendAndSync(message);
@@ -1075,6 +1075,13 @@ export function useInPageCollectorAppState({ snapshot, tabId, sendAndSync }: Use
 
   function onDraftProductProfileChange(patch: Partial<typeof draftProductProfile>) {
     setDraftProductProfile((current) => ({
+      ...current,
+      ...patch
+    }));
+  }
+
+  function onDraftLayoutPreferencesChange(patch: Partial<LayoutPreferences>) {
+    setDraftLayoutPreferences((current) => ({
       ...current,
       ...patch
     }));
@@ -1185,6 +1192,19 @@ export function useInPageCollectorAppState({ snapshot, tabId, sendAndSync }: Use
     }
   }
 
+  async function onRemoveProductSignal(signalId: string) {
+    setProductSignalAnalysisError(null);
+    const response = await topicState.onRemoveSignal(signalId);
+    if (response.ok) {
+      setProductSignalAnalyses(response.productSignalAnalyses ?? productSignalAnalyses.filter((analysis) => analysis.signalId !== signalId));
+      setHistoricalProductSignalAnalyses((previous) => previous.filter((analysis) => analysis.signalId !== signalId));
+      setProductAgentTaskFeedback((previous) => previous.filter((feedback) => feedback.signalId !== signalId));
+      setProductSignalAnalysisNotice("已移除 signal。");
+      return;
+    }
+    setProductSignalAnalysisError(response.error);
+  }
+
   return {
     popupRef,
     snapshot,
@@ -1214,6 +1234,7 @@ export function useInPageCollectorAppState({ snapshot, tabId, sendAndSync }: Use
     draftOpenAiKey,
     draftClaudeKey,
     draftGoogleKey,
+    draftLayoutPreferences,
     draftProductProfile,
     compiledProductContext,
     settingsSaveStatus,
@@ -1274,6 +1295,7 @@ export function useInPageCollectorAppState({ snapshot, tabId, sendAndSync }: Use
     setDraftOpenAiKey,
     setDraftClaudeKey,
     setDraftGoogleKey,
+    onDraftLayoutPreferencesChange,
     setProductProfileSeedText,
     onDraftProductProfileChange,
     setSelectedCompareA,
@@ -1306,6 +1328,7 @@ export function useInPageCollectorAppState({ snapshot, tabId, sendAndSync }: Use
     onAnalyzeProductSignals,
     onSynthesizeSignalReading,
     onReviewSignalReading,
+    onRemoveProductSignal,
     onCreateFolder,
     onRenameFolder,
     onDeleteFolder,
