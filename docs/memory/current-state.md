@@ -70,7 +70,7 @@ The verified build in the active Phase B implementation worktree is:
 - latest full test count after Signal Reading Review: `440 pass, 0 fail`
 - latest build output was mirrored to `/Users/tung/Desktop/dlens-product-latest/output/chrome-mv3`
 - live backend smoke from the prior product run: `GET http://127.0.0.1:8000/worker/status` returned `{"status":"idle"}`
-- extension manifest name is `DLens v3`; current extension version is `0.1.12`
+- extension manifest name is `DLens v3`; current extension version is `0.1.13`
 - version is locked across `package.json`, `package-lock.json`, `wxt.config.ts` `manifest.version`, and `src/ui/version.ts` `BUILD_VERSION`
 
 ## PR Evidence V1 Contract State
@@ -173,7 +173,7 @@ Topic synthesis and Folder synthesis are deterministic extension-side display la
 
 ## Version State
 
-- Current extension version: `0.1.12`.
+- Current extension version: `0.1.13`.
 - Chrome extension page version comes from `wxt.config.ts` `manifest.version` in the built manifest.
 - Popup masthead version comes from `src/ui/version.ts` `BUILD_VERSION`.
 - `package.json`, `package-lock.json`, `wxt.config.ts`, and `src/ui/version.ts` must stay in sync for every main-facing update unless explicitly skipped.

@@ -2094,6 +2094,7 @@ test("ProductSignalView reviews signal readings before composing filed-only brie
   assert.match(html, /data-action-verdict-filter="watch"/);
   assert.match(html, /data-signal-reading-review-list-filter="watch"/);
   assert.match(html, /data-signal-reading-marginalia="true"/);
+  assert.match(html, /data-signal-reading-relevance-summary="true"/);
   assert.doesNotMatch(html, /data-signal-reading-marginalia-rail="true"/);
   assert.match(html, /data-signal-reading-provenance="true"/);
   assert.match(html, /data-signal-reading-provenance-layout="inline"/);
@@ -2103,6 +2104,8 @@ test("ProductSignalView reviews signal readings before composing filed-only brie
   assert.match(html, /變蠢可能係真嘅/);
   assert.match(html, /對產品參考：這是一段完整顯示的長判斷，不能被截斷。/);
   assert.match(html, /relevance 3\/5/);
+  assert.doesNotMatch(html, /子型/);
+  assert.doesNotMatch(html, /source link/);
   assert.match(html, /值得嘗試/);
   assert.match(html, /保留觀察/);
   assert.match(html, /1 approved → brief|1 收錄/);

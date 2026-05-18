@@ -1608,30 +1608,55 @@ function SignalReadingMarginaliaPanel({
       data-signal-reading-marginalia="true"
       style={{
         display: "grid",
-        gap: 8,
-        padding: "2px 0 4px"
+        gridTemplateColumns: "minmax(0, 1fr) 138px",
+        gap: 0,
+        overflow: "hidden",
+        border: `1px solid ${verdictMeta.color}`,
+        borderRadius: tokens.radius.card,
+        background: `linear-gradient(90deg, ${verdictMeta.soft}, ${tokens.color.elevated} 68%)`
       }}
     >
-      <div style={{ display: "flex", gap: 7, flexWrap: "wrap", alignItems: "center" }}>
-        <ScorePill color={verdictMeta.color} soft={verdictMeta.soft}>{VERDICT_LABELS[analysis.verdict]}</ScorePill>
-        <ScorePill color={typeMeta.color} soft={typeMeta.soft}>{typeMeta.label}</ScorePill>
-        <span style={{ ...textStyles.meta, color: tokens.color.subInk }}>{referenceTypeLabel(analysis.referenceType)}</span>
+      <div style={{ display: "grid", gap: 10, padding: "13px 14px", minWidth: 0 }}>
+        <div style={{ display: "flex", gap: 7, flexWrap: "wrap", alignItems: "center" }}>
+          <ScorePill color={verdictMeta.color} soft={tokens.color.elevated}>{VERDICT_LABELS[analysis.verdict]}</ScorePill>
+          <ScorePill color={typeMeta.color} soft={tokens.color.elevated}>{typeMeta.label}</ScorePill>
+          <span style={{ ...textStyles.meta, color: tokens.color.subInk }}>{referenceTypeLabel(analysis.referenceType)}</span>
+        </div>
+        <div
+          data-signal-reading-reference-copy="full"
+          style={{
+            fontSize: 14,
+            lineHeight: 1.5,
+            color: tokens.color.ink,
+            fontWeight: 850,
+            overflowWrap: "anywhere"
+          }}
+        >
+          {referenceLabel(analysis)}
+        </div>
+        <div style={{ fontSize: 12.5, lineHeight: 1.6, color: tokens.color.subInk }}>
+          {referenceTakeaway(analysis)}
+        </div>
       </div>
-      <div
-        data-signal-reading-reference-copy="full"
+      <aside
+        data-signal-reading-relevance-summary="true"
         style={{
-          fontSize: 14,
-          lineHeight: 1.5,
-          color: tokens.color.ink,
-          fontWeight: 850,
-          overflowWrap: "anywhere"
+          display: "grid",
+          alignContent: "start",
+          gap: 9,
+          padding: "13px 12px",
+          borderLeft: `1px solid ${tokens.color.line}`,
+          background: "rgba(255,255,255,0.20)"
         }}
       >
-        {referenceLabel(analysis)}
-      </div>
-      <div style={{ fontSize: 12.5, lineHeight: 1.6, color: tokens.color.subInk }}>
-        {referenceTakeaway(analysis)}
-      </div>
+        <div style={{ display: "grid", gap: 2 }}>
+          <span style={{ fontSize: 10, color: tokens.color.softInk, fontWeight: 850 }}>判斷</span>
+          <span style={{ fontSize: 18, lineHeight: 1.1, color: verdictMeta.color, fontWeight: 900, fontFamily: tokens.font.serifCjk }}>
+            {VERDICT_LABELS[analysis.verdict]}
+          </span>
+        </div>
+        <RelevanceBars score={analysis.relevance} tone="dark" />
+      </aside>
     </div>
   );
 }
@@ -2100,7 +2125,6 @@ function SignalReadingReviewWorkspace({
                 data-signal-reading-review-row="true"
                 style={{
                   border: `1px solid ${isActive ? activeAccentColor : tokens.color.line}`,
-                  borderLeft: isActive ? `4px solid ${activeAccentColor}` : `1px solid ${tokens.color.line}`,
                   borderRadius: tokens.radius.card,
                   background: isActive ? tokens.color.elevated : tokens.color.surface,
                   overflow: "hidden",
