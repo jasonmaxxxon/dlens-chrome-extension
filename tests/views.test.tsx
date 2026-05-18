@@ -2035,7 +2035,7 @@ test("ProductSignalView reviews signal readings before composing filed-only brie
       productContextHash: "ctx",
       sourcePacketHash: "pkt-pending",
       promptVersion: "v5.1",
-      reading: "待審判讀內容，不應進入 brief preview。",
+      reading: "待審**判讀內容**，不應進入 brief preview。",
       generatedAt: "2026-05-18T01:00:00.000Z",
       model: "google:test",
       sourceRefs: ["e1"],
@@ -2069,6 +2069,9 @@ test("ProductSignalView reviews signal readings before composing filed-only brie
         contextFiles: [{ id: "f", name: "README.md", kind: "readme", importedAt: "2026-05-18T00:00:00.000Z", charCount: 1 }]
       },
       signalReadings,
+      signalUrlById: {
+        signal_pending: "https://www.threads.net/@dlens/post/pending"
+      },
       onAnalyze: () => undefined
     })
   );
@@ -2079,15 +2082,25 @@ test("ProductSignalView reviews signal readings before composing filed-only brie
   assert.match(html, /收錄後會進入本地判讀庫/);
   assert.match(html, /收錄此判讀/);
   assert.match(html, /已收錄/);
+  assert.match(html, /data-signal-reading-verdict-summary="true"/);
+  assert.match(html, /data-action-verdict-filter="try"/);
+  assert.match(html, /data-action-verdict-filter="watch"/);
   assert.match(html, /data-signal-reading-marginalia="true"/);
   assert.match(html, /data-signal-reading-marginalia-rail="true"/);
+  assert.match(html, /data-signal-reading-provenance="true"/);
+  assert.match(html, /href="https:\/\/www\.threads\.net\/@dlens\/post\/pending"/);
   assert.match(html, /relevance 3\/5/);
   assert.match(html, /值得嘗試/);
   assert.match(html, /保留觀察/);
   assert.match(html, /1 approved → brief|1 收錄/);
   assert.match(html, /data-signal-reading-brief-copy-status="idle"/);
   assert.match(html, /複製 Brief/);
-  assert.match(html, /待審判讀內容，不應進入 brief preview/);
+  assert.match(html, /<strong[^>]*>判讀內容<\/strong>/);
+  assert.doesNotMatch(html, /\*\*判讀內容\*\*/);
+  assert.doesNotMatch(html, /SOURCE https/);
+  assert.doesNotMatch(html, /逐則審視判讀 → 決定值得進 corpus/);
+  assert.match(html, /1 已收錄，可複製給 agent/);
+  assert.doesNotMatch(html, /1 則判讀已收錄 → 可複製給 coding agent/);
   const brief = productSignalViewTestables.buildSignalReadingAgentBrief({
     readings: signalReadings as any,
     analysesBySignal: new Map(analyses.map((analysis) => [analysis.signalId, analysis as any])),

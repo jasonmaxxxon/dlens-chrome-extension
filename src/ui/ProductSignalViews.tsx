@@ -174,6 +174,12 @@ const VERDICT_META: Record<ProductSignalVerdict, { label: string; color: string;
 type ActionVerdictFilter = "try" | "park" | "insufficient" | "watch";
 type AgentBriefCopyStatus = "idle" | "copied" | "error";
 
+function verdictFilterKeyForAnalysis(analysis: ProductSignalAnalysis): ActionVerdictFilter {
+  if (analysis.verdict === "park" || analysis.signalType === "noise") return "park";
+  if (analysis.verdict === "insufficient_data") return "insufficient";
+  return analysis.verdict;
+}
+
 const CONTEXT_FIELD_LABELS: Record<ProductSignalReferenceTarget, string> = {
   productPromise: "產品承諾",
   targetAudience: "目標受眾",
@@ -1394,6 +1400,120 @@ function signalReadingStalenessCopy(staleness: SignalReadingStaleness): string {
   return staleness.reasons.map((reason) => labels[reason]).join("、");
 }
 
+function renderEmphasizedText(text: string): ReactNode[] {
+  const nodes: ReactNode[] = [];
+  const pattern = /\*\*([^*]+)\*\*/g;
+  let lastIndex = 0;
+  let match: RegExpExecArray | null;
+  while ((match = pattern.exec(text)) !== null) {
+    if (match.index > lastIndex) {
+      nodes.push(text.slice(lastIndex, match.index));
+    }
+    nodes.push(
+      <strong key={`em-${match.index}`} style={{ color: tokens.color.ink, fontWeight: 850 }}>
+        {match[1]}
+      </strong>
+    );
+    lastIndex = match.index + match[0].length;
+  }
+  if (lastIndex < text.length) {
+    nodes.push(text.slice(lastIndex));
+  }
+  return nodes.length ? nodes : [text];
+}
+
+function SignalReadingProvenanceRow({
+  sourceUrl,
+  sourceRefs,
+  reading
+}: {
+  sourceUrl: string;
+  sourceRefs: string[];
+  reading?: SignalReading;
+}) {
+  const cells = [
+    {
+      label: "Source",
+      value: sourceUrl ? "原文連結" : "local",
+      href: sourceUrl || undefined
+    },
+    {
+      label: "Refs",
+      value: sourceRefs.length ? sourceRefs.join(" · ") : "none"
+    },
+    {
+      label: "Reading",
+      value: reading ? reading.promptVersion : "尚未生成"
+    },
+    {
+      label: "Model",
+      value: reading?.model || "unknown"
+    }
+  ];
+
+  return (
+    <div
+      data-signal-reading-provenance="true"
+      style={{
+        display: "grid",
+        gridTemplateColumns: "repeat(4, minmax(0, 1fr))",
+        border: `1px solid ${tokens.color.line}`,
+        borderRadius: tokens.radius.card,
+        overflow: "hidden",
+        background: tokens.color.contextSurface
+      }}
+    >
+      {cells.map((cell, index) => (
+        <div
+          key={cell.label}
+          style={{
+            display: "grid",
+            gap: 3,
+            minWidth: 0,
+            padding: "8px 10px",
+            borderLeft: index === 0 ? "none" : `1px solid ${tokens.color.line}`
+          }}
+        >
+          <span style={{ ...textStyles.meta, color: tokens.color.softInk }}>{cell.label}</span>
+          {cell.href ? (
+            <a
+              href={cell.href}
+              target="_blank"
+              rel="noreferrer"
+              title={cell.href}
+              style={{
+                color: tokens.color.product,
+                fontSize: 12,
+                fontWeight: 800,
+                textDecoration: "none",
+                overflow: "hidden",
+                textOverflow: "ellipsis",
+                whiteSpace: "nowrap"
+              }}
+            >
+              {cell.value} ↗
+            </a>
+          ) : (
+            <span
+              title={cell.value}
+              style={{
+                color: tokens.color.subInk,
+                fontSize: 12,
+                fontWeight: 750,
+                overflow: "hidden",
+                textOverflow: "ellipsis",
+                whiteSpace: "nowrap"
+              }}
+            >
+              {cell.value}
+            </span>
+          )}
+        </div>
+      ))}
+    </div>
+  );
+}
+
 function SignalReadingMarginaliaPanel({
   analysis,
   reading,
@@ -1763,6 +1883,17 @@ function SignalReadingReviewWorkspace({
   });
   const filedReadings = readingsWithReview.filter((reading) => signalReadingReviewState(reading) === "filed");
   const pendingCount = signals.filter((signal) => signalReadingReviewState(readingsBySignal.get(signal.id)) === "pending").length;
+  const analysesForSignals = signals
+    .map((signal) => analysesBySignal.get(signal.id))
+    .filter((analysis): analysis is ProductSignalAnalysis => Boolean(analysis));
+  const activeAnalysis = activeSignalId ? analysesBySignal.get(activeSignalId) : undefined;
+  const activeVerdictFilter = activeAnalysis ? verdictFilterKeyForAnalysis(activeAnalysis) : null;
+  const reviewStats: Array<{ key: ActionVerdictFilter; label: string; color: string; soft: string; count: number }> = [
+    { key: "try", ...VERDICT_META.try, count: analysesForSignals.filter((analysis) => verdictFilterKeyForAnalysis(analysis) === "try").length },
+    { key: "park", ...VERDICT_META.park, count: analysesForSignals.filter((analysis) => verdictFilterKeyForAnalysis(analysis) === "park").length },
+    { key: "insufficient", ...VERDICT_META.insufficient_data, count: analysesForSignals.filter((analysis) => verdictFilterKeyForAnalysis(analysis) === "insufficient").length },
+    { key: "watch", ...VERDICT_META.watch, count: analysesForSignals.filter((analysis) => verdictFilterKeyForAnalysis(analysis) === "watch").length }
+  ];
   const agentBrief = buildSignalReadingAgentBrief({
     readings: readingsWithReview,
     analysesBySignal,
@@ -1817,35 +1948,34 @@ function SignalReadingReviewWorkspace({
 
   return (
     <div data-signal-reading-review-workspace="true" style={{ display: "grid", gap: 18 }}>
-      <header style={{ display: "flex", alignItems: "flex-end", justifyContent: "space-between", gap: 12 }}>
-        <div style={{ minWidth: 0 }}>
-          <h1 style={{
-            margin: 0,
-            fontFamily: tokens.font.serifCjk,
-            fontSize: 22,
-            lineHeight: 1.2,
-            letterSpacing: 0,
-            color: tokens.color.ink
-          }}>
-            Agent Brief
-          </h1>
-          <p style={{ margin: "4px 0 0", fontFamily: tokens.font.serifCjk, fontStyle: "italic", fontSize: 12, lineHeight: 1.5, color: tokens.color.subInk }}>
-            逐則審視判讀 → 決定值得進 corpus 的 → 組成可貼給 coding agent 的文字
-          </p>
-        </div>
-        <div style={{ display: "flex", flexDirection: "column", gap: 4, alignItems: "flex-end", flexShrink: 0 }}>
+      <section data-signal-reading-verdict-summary="true" style={cardStyle({ gap: 12 })}>
+        <div style={{ display: "flex", alignItems: "baseline", justifyContent: "space-between", gap: 10 }}>
+          <div style={{ fontSize: 14, fontWeight: 850, color: tokens.color.ink }}>{analysesForSignals.length} 則訊號已評估</div>
           <span style={{ ...textStyles.meta, color: tokens.color.softInk }}>
-            <b style={{ color: tokens.color.product }}>{filedReadings.length}</b> 收錄 · <b style={{ color: tokens.color.ink }}>{signals.length - pendingCount}</b> / {signals.length} reviewed
+            {filedReadings.length} 收錄 · {signals.length - pendingCount}/{signals.length} reviewed
           </span>
-          <div style={{ display: "flex", gap: 3 }}>
-            {signals.map((signal) => {
-              const state = signalReadingReviewState(readingsBySignal.get(signal.id));
-              const color = state === "filed" ? tokens.color.product : state === "deferred" ? tokens.color.queued : state === "rejected" ? tokens.color.failed : tokens.color.line;
-              return <span key={signal.id} style={{ width: 22, height: 4, borderRadius: 999, background: color }} />;
-            })}
-          </div>
         </div>
-      </header>
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(4, minmax(0, 1fr))", gap: 8 }}>
+          {reviewStats.map((stat) => (
+            <ActionStatCard
+              key={stat.key}
+              filterKey={stat.key}
+              label={stat.label}
+              count={stat.count}
+              color={stat.color}
+              soft={stat.soft}
+              selected={activeVerdictFilter === stat.key}
+              onSelect={() => {
+                const target = signals.find((signal) => {
+                  const analysis = analysesBySignal.get(signal.id);
+                  return analysis ? verdictFilterKeyForAnalysis(analysis) === stat.key : false;
+                });
+                if (target) setActiveSignalId(target.id);
+              }}
+            />
+          ))}
+        </div>
+      </section>
       <section style={{ display: "grid", gap: 8 }}>
         <div style={{ display: "flex", alignItems: "baseline", justifyContent: "space-between", gap: 12 }}>
           <div style={{ display: "flex", alignItems: "baseline", gap: 10 }}>
@@ -1872,6 +2002,8 @@ function SignalReadingReviewWorkspace({
             const verdictMeta = analysis ? VERDICT_META[analysis.verdict] : null;
             const typeMeta = analysis ? SIGNAL_TYPE_META[analysis.signalType] : null;
             const activeAccentColor = verdictMeta?.color || tokens.color.product;
+            const sourceUrl = signalUrlById[signal.id] || reading?.sourcePacket?.postUrl || "";
+            const sourceRefs = reading?.sourceRefs?.length ? reading.sourceRefs : analysis?.evidenceRefs ?? [];
             const staleness = reading
               ? signalReadingStaleness(reading, SIGNAL_READING_PROMPT_VERSION)
               : { stale: false, reasons: [] };
@@ -1921,16 +2053,12 @@ function SignalReadingReviewWorkspace({
                 </button>
                 {isActive ? (
                   <div style={{ borderTop: `1px solid ${tokens.color.line}`, display: "grid", gap: 12, padding: "12px 14px 14px" }}>
-                    <div style={{ display: "flex", flexWrap: "wrap", gap: 10, alignItems: "center", ...textStyles.meta, color: tokens.color.softInk }}>
-                      <span>SOURCE {signalUrlById[signal.id] || reading?.sourcePacket?.postUrl || "local"}</span>
-                      <span>REFS {reading?.sourceRefs?.length ? reading.sourceRefs.join("·") : "none"}</span>
-                      <span>READING {reading ? `${reading.promptVersion} · ${reading.model || "unknown model"}` : "尚未生成"}</span>
-                    </div>
+                    <SignalReadingProvenanceRow sourceUrl={sourceUrl} sourceRefs={sourceRefs} reading={reading} />
                     {analysis ? (
                       <SignalReadingMarginaliaPanel
                         analysis={analysis}
                         reading={reading}
-                        sourceUrl={signalUrlById[signal.id] || reading?.sourcePacket?.postUrl || ""}
+                        sourceUrl={sourceUrl}
                       />
                     ) : null}
                     {staleness.stale ? (
@@ -1948,7 +2076,7 @@ function SignalReadingReviewWorkspace({
                       </div>
                     ) : null}
                     <div style={{ fontSize: 14, lineHeight: 1.85, color: tokens.color.subInk, whiteSpace: "pre-wrap" }}>
-                      {reading?.reading || "尚未生成深度判讀。生成後才能收錄進本地判讀庫。"}
+                      {reading?.reading ? renderEmphasizedText(reading.reading) : "尚未生成深度判讀。生成後才能收錄進本地判讀庫。"}
                     </div>
                     {reading ? (
                       <div style={{ display: "flex", gap: 8, flexWrap: "wrap", alignItems: "center" }}>
@@ -2085,16 +2213,27 @@ function SignalReadingReviewWorkspace({
           alignItems: "center",
           justifyContent: "space-between",
           gap: 10,
-          padding: "10px 12px",
+          padding: "8px 10px",
           border: `1px solid ${tokens.color.line}`,
           borderRadius: tokens.radius.card,
           background: tokens.color.elevated,
           boxShadow: tokens.shadow.glass
         }}>
-          <span style={{ fontSize: 12, color: tokens.color.subInk }}>
-            {filedReadings.length} 則判讀已收錄 → 可複製給 coding agent
+          <span
+            title={`${filedReadings.length} 則判讀已收錄，可複製給 coding agent`}
+            style={{
+              minWidth: 0,
+              flex: 1,
+              fontSize: 12,
+              color: tokens.color.subInk,
+              overflow: "hidden",
+              textOverflow: "ellipsis",
+              whiteSpace: "nowrap"
+            }}
+          >
+            {filedReadings.length} 已收錄，可複製給 agent
           </span>
-          <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 8, flexShrink: 0 }}>
             <span
               data-signal-reading-brief-copy-status={copyStatus}
               aria-live="polite"
@@ -3083,10 +3222,10 @@ function ActionableInsightsBoard({
   onRemoveSignal?: (signalId: string) => void;
 }) {
   const [selectedFilter, setSelectedFilter] = useState<ActionVerdictFilter>("try");
-  const tryItems = analyses.filter((analysis) => analysis.verdict === "try").sort((a, b) => b.relevance - a.relevance);
-  const parkItems = analyses.filter((analysis) => analysis.verdict === "park" || analysis.signalType === "noise");
-  const insufficientItems = analyses.filter((analysis) => analysis.verdict === "insufficient_data");
-  const watchItems = analyses.filter((analysis) => analysis.verdict === "watch");
+  const tryItems = analyses.filter((analysis) => verdictFilterKeyForAnalysis(analysis) === "try").sort((a, b) => b.relevance - a.relevance);
+  const parkItems = analyses.filter((analysis) => verdictFilterKeyForAnalysis(analysis) === "park");
+  const insufficientItems = analyses.filter((analysis) => verdictFilterKeyForAnalysis(analysis) === "insufficient");
+  const watchItems = analyses.filter((analysis) => verdictFilterKeyForAnalysis(analysis) === "watch");
   const stats: Array<{ key: ActionVerdictFilter; label: string; color: string; soft: string; count: number }> = [
     { key: "try", ...VERDICT_META.try, count: tryItems.length },
     { key: "park", ...VERDICT_META.park, count: parkItems.length },
