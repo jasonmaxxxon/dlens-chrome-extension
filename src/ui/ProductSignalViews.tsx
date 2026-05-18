@@ -1394,6 +1394,78 @@ function signalReadingStalenessCopy(staleness: SignalReadingStaleness): string {
   return staleness.reasons.map((reason) => labels[reason]).join("、");
 }
 
+function SignalReadingMarginaliaPanel({
+  analysis,
+  reading,
+  sourceUrl
+}: {
+  analysis: ProductSignalAnalysis;
+  reading?: SignalReading;
+  sourceUrl: string;
+}) {
+  const verdictMeta = VERDICT_META[analysis.verdict];
+  const typeMeta = SIGNAL_TYPE_META[analysis.signalType];
+  const refs = reading?.sourceRefs?.length ? reading.sourceRefs.join(" · ") : `${analysis.evidenceRefs.length} 則`;
+
+  return (
+    <div
+      data-signal-reading-marginalia="true"
+      style={{
+        display: "grid",
+        gridTemplateColumns: "minmax(0, 1fr) 158px",
+        gap: 0,
+        overflow: "hidden",
+        border: `1px solid ${verdictMeta.color}`,
+        borderLeft: `5px solid ${verdictMeta.color}`,
+        borderRadius: tokens.radius.card,
+        background: `linear-gradient(90deg, ${verdictMeta.soft}, ${tokens.color.elevated} 68%)`
+      }}
+    >
+      <div style={{ display: "grid", gap: 10, padding: "13px 14px", minWidth: 0 }}>
+        <div style={{ display: "flex", gap: 7, flexWrap: "wrap", alignItems: "center" }}>
+          <ScorePill color={verdictMeta.color} soft={tokens.color.elevated}>{VERDICT_LABELS[analysis.verdict]}</ScorePill>
+          <ScorePill color={typeMeta.color} soft={tokens.color.elevated}>{typeMeta.label}</ScorePill>
+          <span style={{ ...textStyles.meta, color: tokens.color.subInk }}>{referenceTypeLabel(analysis.referenceType)}</span>
+        </div>
+        <div style={{ display: "grid", gap: 4 }}>
+          <div style={{ fontSize: 14, lineHeight: 1.35, color: tokens.color.ink, fontWeight: 850, ...lineClamp(2) }}>
+            {referenceLabel(analysis)}
+          </div>
+          <div style={{ fontSize: 12.5, lineHeight: 1.55, color: tokens.color.subInk, ...lineClamp(2) }}>
+            {referenceTakeaway(analysis)}
+          </div>
+        </div>
+      </div>
+      <aside
+        data-signal-reading-marginalia-rail="true"
+        style={{
+          display: "grid",
+          alignContent: "start",
+          gap: 9,
+          padding: "13px 12px",
+          borderLeft: `1px solid ${tokens.color.line}`,
+          background: "rgba(255,255,255,0.22)"
+        }}
+      >
+        <div style={{ display: "grid", gap: 2 }}>
+          <span style={{ fontSize: 10, color: tokens.color.softInk, fontWeight: 850, letterSpacing: "0.04em" }}>判斷</span>
+          <span style={{ fontSize: 19, lineHeight: 1.1, color: verdictMeta.color, fontWeight: 900, fontFamily: tokens.font.serifCjk }}>
+            {VERDICT_LABELS[analysis.verdict]}
+          </span>
+        </div>
+        <RelevanceBars score={analysis.relevance} tone="dark" />
+        <div style={{ display: "grid", gap: 4, fontSize: 11, lineHeight: 1.35, color: tokens.color.subInk }}>
+          <span><b style={{ color: tokens.color.ink }}>子型</b> {formatSubtype(analysis.signalSubtype)}</span>
+          <span><b style={{ color: tokens.color.ink }}>refs</b> {refs}</span>
+          <span title={sourceUrl} style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+            <b style={{ color: tokens.color.ink }}>source</b> {sourceUrl ? "link" : "local"}
+          </span>
+        </div>
+      </aside>
+    </div>
+  );
+}
+
 function buildSignalReadingAgentBrief({
   readings,
   analysesBySignal,
@@ -1799,6 +1871,7 @@ function SignalReadingReviewWorkspace({
             const isActive = activeSignalId === signal.id;
             const verdictMeta = analysis ? VERDICT_META[analysis.verdict] : null;
             const typeMeta = analysis ? SIGNAL_TYPE_META[analysis.signalType] : null;
+            const activeAccentColor = verdictMeta?.color || tokens.color.product;
             const staleness = reading
               ? signalReadingStaleness(reading, SIGNAL_READING_PROMPT_VERSION)
               : { stale: false, reasons: [] };
@@ -1807,7 +1880,8 @@ function SignalReadingReviewWorkspace({
                 key={signal.id}
                 data-signal-reading-review-row="true"
                 style={{
-                  border: `1px solid ${isActive ? tokens.color.product : tokens.color.line}`,
+                  border: `1px solid ${isActive ? activeAccentColor : tokens.color.line}`,
+                  borderLeft: isActive ? `4px solid ${activeAccentColor}` : `1px solid ${tokens.color.line}`,
                   borderRadius: tokens.radius.card,
                   background: isActive ? tokens.color.elevated : tokens.color.surface,
                   overflow: "hidden",
@@ -1835,8 +1909,12 @@ function SignalReadingReviewWorkspace({
                   <span style={{ color: tokens.color.softInk, fontWeight: 800, fontSize: 12 }}>{String(index + 1).padStart(2, "0")}</span>
                   <span style={{ display: "grid", gap: 4, minWidth: 0 }}>
                     <span style={{ fontSize: 15, fontWeight: 850, lineHeight: 1.35, color: tokens.color.ink, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{title}</span>
-                    <span style={{ ...textStyles.meta, color: tokens.color.softInk }}>
-                      {analysis ? `${referenceTypeLabel(analysis.referenceType)} · relevance ${analysis.relevance}/5` : "尚未分析"} · {reading ? `判讀 ${reading.promptVersion}` : "未生成"}
+                    <span style={{ display: "flex", gap: 6, flexWrap: "wrap", alignItems: "center", ...textStyles.meta, color: tokens.color.softInk }}>
+                      {analysis && verdictMeta ? <ScorePill color={verdictMeta.color} soft={verdictMeta.soft}>{VERDICT_LABELS[analysis.verdict]}</ScorePill> : null}
+                      {analysis && typeMeta ? <ScorePill color={typeMeta.color} soft={typeMeta.soft}>{typeMeta.label}</ScorePill> : null}
+                      <span>{analysis ? `${referenceTypeLabel(analysis.referenceType)} · relevance ${analysis.relevance}/5` : "尚未分析"}</span>
+                      <span>·</span>
+                      <span>{reading ? `判讀 ${reading.promptVersion}` : "未生成"}</span>
                     </span>
                   </span>
                   <Stamp tone={stateTone}>{SIGNAL_READING_REVIEW_LABELS[reviewState]}</Stamp>
@@ -1849,27 +1927,11 @@ function SignalReadingReviewWorkspace({
                       <span>READING {reading ? `${reading.promptVersion} · ${reading.model || "unknown model"}` : "尚未生成"}</span>
                     </div>
                     {analysis ? (
-                      <div
-                        data-signal-reading-marginalia="true"
-                        style={{
-                          display: "grid",
-                          gridTemplateColumns: "minmax(0, 1fr) 118px",
-                          gap: 12,
-                          alignItems: "center",
-                          padding: "10px 12px",
-                          border: `1px solid ${verdictMeta?.color || tokens.color.line}`,
-                          borderLeft: `4px solid ${verdictMeta?.color || tokens.color.product}`,
-                          borderRadius: tokens.radius.card,
-                          background: verdictMeta?.soft || tokens.color.productSoft
-                        }}
-                      >
-                        <div style={{ display: "flex", gap: 7, flexWrap: "wrap", alignItems: "center", minWidth: 0 }}>
-                          {verdictMeta ? <ScorePill color={verdictMeta.color} soft={tokens.color.elevated}>{VERDICT_LABELS[analysis.verdict]}</ScorePill> : null}
-                          {typeMeta ? <ScorePill color={typeMeta.color} soft={tokens.color.elevated}>{typeMeta.label}</ScorePill> : null}
-                          <span style={{ ...textStyles.meta, color: tokens.color.subInk }}>{referenceTypeLabel(analysis.referenceType)}</span>
-                        </div>
-                        <RelevanceBars score={analysis.relevance} tone="dark" />
-                      </div>
+                      <SignalReadingMarginaliaPanel
+                        analysis={analysis}
+                        reading={reading}
+                        sourceUrl={signalUrlById[signal.id] || reading?.sourcePacket?.postUrl || ""}
+                      />
                     ) : null}
                     {staleness.stale ? (
                       <div style={{ ...mutedPanelStyle({ borderColor: tokens.color.queued, color: tokens.color.queued, fontSize: 12 }), display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10 }}>

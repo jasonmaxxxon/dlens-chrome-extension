@@ -1,6 +1,6 @@
 # AGENTS.md — DLens Chrome Extension v0.1
 
-> **Last updated:** 2026-05-18 (Signal Reading Review + version 0.1.8 on main — 452/452 tests, typecheck, build)
+> **Last updated:** 2026-05-18 (Signal Reading Review + version 0.1.9 on main — 452/452 tests, typecheck, build)
 > **For:** any agent continuing work in this repo
 
 ## Process Rules (locked 2026-04-17)

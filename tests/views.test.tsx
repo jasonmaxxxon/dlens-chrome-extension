@@ -2080,7 +2080,9 @@ test("ProductSignalView reviews signal readings before composing filed-only brie
   assert.match(html, /收錄此判讀/);
   assert.match(html, /已收錄/);
   assert.match(html, /data-signal-reading-marginalia="true"/);
+  assert.match(html, /data-signal-reading-marginalia-rail="true"/);
   assert.match(html, /relevance 3\/5/);
+  assert.match(html, /值得嘗試/);
   assert.match(html, /保留觀察/);
   assert.match(html, /1 approved → brief|1 收錄/);
   assert.match(html, /data-signal-reading-brief-copy-status="idle"/);
