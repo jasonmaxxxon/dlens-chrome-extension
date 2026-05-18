@@ -1431,86 +1431,114 @@ function SignalReadingProvenanceRow({
   sourceRefs: string[];
   reading?: SignalReading;
 }) {
-  const cells = [
-    {
-      label: "Source",
-      value: sourceUrl ? "原文連結" : "local",
-      href: sourceUrl || undefined
-    },
-    {
-      label: "Refs",
-      value: sourceRefs.length ? sourceRefs.join(" · ") : "none"
-    },
-    {
-      label: "Reading",
-      value: reading ? reading.promptVersion : "尚未生成"
-    },
-    {
-      label: "Model",
-      value: reading?.model || "unknown"
-    }
-  ];
-
   return (
     <div
       data-signal-reading-provenance="true"
+      data-signal-reading-provenance-layout="inline"
       style={{
-        display: "grid",
-        gridTemplateColumns: "repeat(4, minmax(0, 1fr))",
-        border: `1px solid ${tokens.color.line}`,
-        borderRadius: tokens.radius.card,
-        overflow: "hidden",
-        background: tokens.color.contextSurface
+        display: "flex",
+        flexWrap: "wrap",
+        alignItems: "center",
+        gap: "6px 12px",
+        minWidth: 0,
+        padding: "2px 0",
+        color: tokens.color.softInk,
+        fontSize: 11.5,
+        lineHeight: 1.45,
+        fontWeight: 700
       }}
     >
-      {cells.map((cell, index) => (
-        <div
-          key={cell.label}
-          style={{
-            display: "grid",
-            gap: 3,
-            minWidth: 0,
-            padding: "8px 10px",
-            borderLeft: index === 0 ? "none" : `1px solid ${tokens.color.line}`
-          }}
-        >
-          <span style={{ ...textStyles.meta, color: tokens.color.softInk }}>{cell.label}</span>
-          {cell.href ? (
-            <a
-              href={cell.href}
-              target="_blank"
-              rel="noreferrer"
-              title={cell.href}
-              style={{
-                color: tokens.color.product,
-                fontSize: 12,
-                fontWeight: 800,
-                textDecoration: "none",
-                overflow: "hidden",
-                textOverflow: "ellipsis",
-                whiteSpace: "nowrap"
-              }}
-            >
-              {cell.value} ↗
-            </a>
-          ) : (
-            <span
-              title={cell.value}
-              style={{
-                color: tokens.color.subInk,
-                fontSize: 12,
-                fontWeight: 750,
-                overflow: "hidden",
-                textOverflow: "ellipsis",
-                whiteSpace: "nowrap"
-              }}
-            >
-              {cell.value}
-            </span>
-          )}
-        </div>
-      ))}
+      <span style={{ display: "inline-flex", alignItems: "center", gap: 5, minWidth: 0 }}>
+        <span style={{ color: tokens.color.softInk }}>Source</span>
+        {sourceUrl ? (
+          <a
+            href={sourceUrl}
+            target="_blank"
+            rel="noreferrer"
+            title={sourceUrl}
+            style={{ color: tokens.color.product, textDecoration: "none", fontWeight: 850 }}
+          >
+            原文連結 ↗
+          </a>
+        ) : (
+          <span style={{ color: tokens.color.subInk }}>local</span>
+        )}
+      </span>
+      <span
+        title={sourceRefs.length ? sourceRefs.join(" · ") : "none"}
+        style={{
+          minWidth: 0,
+          maxWidth: 220,
+          overflow: "hidden",
+          textOverflow: "ellipsis",
+          whiteSpace: "nowrap"
+        }}
+      >
+        Refs {sourceRefs.length ? sourceRefs.join(" · ") : "none"}
+      </span>
+      <span>Reading {reading ? reading.promptVersion : "尚未生成"}</span>
+      <span
+        title={reading?.model || "unknown"}
+        style={{
+          minWidth: 0,
+          maxWidth: 220,
+          overflow: "hidden",
+          textOverflow: "ellipsis",
+          whiteSpace: "nowrap"
+        }}
+      >
+        Model {reading?.model || "unknown"}
+      </span>
     </div>
+  );
+}
+
+type BriefFormatOption = {
+  value: AgentBriefMode;
+  label: string;
+  deck: string;
+  color: string;
+  soft: string;
+};
+
+const BRIEF_FORMAT_OPTIONS: BriefFormatOption[] = [
+  { value: "original", label: "判讀優先", deck: "判讀為主、原文為附", color: tokens.color.product, soft: tokens.color.productSoft },
+  { value: "decision", label: "精簡決策", deck: "只給結論與行動建議", color: tokens.color.success, soft: tokens.color.successSoft }
+];
+
+function BriefFormatButton({
+  option,
+  selected,
+  onSelect
+}: {
+  option: BriefFormatOption;
+  selected: boolean;
+  onSelect: () => void;
+}) {
+  return (
+    <button
+      type="button"
+      data-brief-format-option={option.value}
+      data-brief-format-tone={option.value}
+      aria-pressed={selected}
+      onClick={onSelect}
+      style={{
+        border: `1px solid ${selected ? option.color : tokens.color.line}`,
+        borderRadius: tokens.radius.card,
+        background: selected ? option.soft : tokens.color.elevated,
+        color: tokens.color.ink,
+        padding: "10px 12px",
+        font: "inherit",
+        textAlign: "left",
+        cursor: "pointer",
+        display: "grid",
+        gap: 3,
+        boxShadow: selected ? `inset 4px 0 0 ${option.color}` : "none"
+      }}
+    >
+      <strong style={{ fontSize: 13, color: selected ? option.color : tokens.color.ink }}>{option.label}</strong>
+      <span style={{ fontSize: 11, color: tokens.color.subInk }}>{option.deck}</span>
+    </button>
   );
 }
 
@@ -1532,7 +1560,7 @@ function SignalReadingMarginaliaPanel({
       data-signal-reading-marginalia="true"
       style={{
         display: "grid",
-        gridTemplateColumns: "minmax(0, 1fr) 158px",
+        gridTemplateColumns: "minmax(0, 1fr) 142px",
         gap: 0,
         overflow: "hidden",
         border: `1px solid ${verdictMeta.color}`,
@@ -1548,7 +1576,16 @@ function SignalReadingMarginaliaPanel({
           <span style={{ ...textStyles.meta, color: tokens.color.subInk }}>{referenceTypeLabel(analysis.referenceType)}</span>
         </div>
         <div style={{ display: "grid", gap: 4 }}>
-          <div style={{ fontSize: 14, lineHeight: 1.35, color: tokens.color.ink, fontWeight: 850, ...lineClamp(2) }}>
+          <div
+            data-signal-reading-reference-copy="full"
+            style={{
+              fontSize: 13.5,
+              lineHeight: 1.5,
+              color: tokens.color.ink,
+              fontWeight: 850,
+              overflowWrap: "anywhere"
+            }}
+          >
             {referenceLabel(analysis)}
           </div>
           <div style={{ fontSize: 12.5, lineHeight: 1.55, color: tokens.color.subInk, ...lineClamp(2) }}>
@@ -1871,7 +1908,10 @@ function SignalReadingReviewWorkspace({
   const firstActiveSignalId = signals.find((signal) => signalReadingReviewState(readingsBySignal.get(signal.id)) === "pending")?.id
     ?? signals[0]?.id
     ?? null;
+  const firstActiveAnalysis = firstActiveSignalId ? analysesBySignal.get(firstActiveSignalId) : undefined;
+  const initialReviewFilter = firstActiveAnalysis ? verdictFilterKeyForAnalysis(firstActiveAnalysis) : "try";
   const [activeSignalId, setActiveSignalId] = useState<string | null>(firstActiveSignalId);
+  const [selectedReviewFilter, setSelectedReviewFilter] = useState<ActionVerdictFilter>(initialReviewFilter);
   const [composeOpen, setComposeOpen] = useState(false);
   const [reviewOverrides, setReviewOverrides] = useState<Record<string, SignalReadingReviewState>>({});
   const [reviewError, setReviewError] = useState<string | null>(null);
@@ -1886,14 +1926,17 @@ function SignalReadingReviewWorkspace({
   const analysesForSignals = signals
     .map((signal) => analysesBySignal.get(signal.id))
     .filter((analysis): analysis is ProductSignalAnalysis => Boolean(analysis));
-  const activeAnalysis = activeSignalId ? analysesBySignal.get(activeSignalId) : undefined;
-  const activeVerdictFilter = activeAnalysis ? verdictFilterKeyForAnalysis(activeAnalysis) : null;
   const reviewStats: Array<{ key: ActionVerdictFilter; label: string; color: string; soft: string; count: number }> = [
     { key: "try", ...VERDICT_META.try, count: analysesForSignals.filter((analysis) => verdictFilterKeyForAnalysis(analysis) === "try").length },
     { key: "park", ...VERDICT_META.park, count: analysesForSignals.filter((analysis) => verdictFilterKeyForAnalysis(analysis) === "park").length },
     { key: "insufficient", ...VERDICT_META.insufficient_data, count: analysesForSignals.filter((analysis) => verdictFilterKeyForAnalysis(analysis) === "insufficient").length },
     { key: "watch", ...VERDICT_META.watch, count: analysesForSignals.filter((analysis) => verdictFilterKeyForAnalysis(analysis) === "watch").length }
   ];
+  const selectedReviewStat = reviewStats.find((stat) => stat.key === selectedReviewFilter) ?? reviewStats[0];
+  const visibleReviewSignals = signals.filter((signal) => {
+    const analysis = analysesBySignal.get(signal.id);
+    return analysis ? verdictFilterKeyForAnalysis(analysis) === selectedReviewFilter : false;
+  });
   const agentBrief = buildSignalReadingAgentBrief({
     readings: readingsWithReview,
     analysesBySignal,
@@ -1964,8 +2007,9 @@ function SignalReadingReviewWorkspace({
               count={stat.count}
               color={stat.color}
               soft={stat.soft}
-              selected={activeVerdictFilter === stat.key}
+              selected={selectedReviewFilter === stat.key}
               onSelect={() => {
+                setSelectedReviewFilter(stat.key);
                 const target = signals.find((signal) => {
                   const analysis = analysesBySignal.get(signal.id);
                   return analysis ? verdictFilterKeyForAnalysis(analysis) === stat.key : false;
@@ -1982,7 +2026,9 @@ function SignalReadingReviewWorkspace({
             <span style={{ ...textStyles.meta, color: tokens.color.product, fontWeight: 850 }}>§ 1</span>
             <h2 style={{ margin: 0, fontSize: 17, lineHeight: 1.2, letterSpacing: 0, color: tokens.color.ink }}>READING REVIEW</h2>
           </div>
-          <span style={{ ...textStyles.meta, color: tokens.color.softInk }}>{filedReadings.length} 收錄 · {signals.length - pendingCount}/{signals.length} reviewed</span>
+          <span style={{ ...textStyles.meta, color: tokens.color.softInk }}>
+            顯示 {selectedReviewStat?.label ?? "訊號"} · {visibleReviewSignals.length} 則
+          </span>
         </div>
         <p style={{ margin: 0, fontSize: 12, lineHeight: 1.65, color: tokens.color.subInk }}>
           逐則審視判讀，決定哪些值得進 corpus；收錄後會進入本地判讀庫，可用於 Brief 與之後的相似案例回查。
@@ -1990,8 +2036,8 @@ function SignalReadingReviewWorkspace({
         {reviewError ? (
           <div role="alert" style={mutedPanelStyle({ borderColor: tokens.color.queued, color: tokens.color.queued, fontSize: 12 })}>{reviewError}</div>
         ) : null}
-        <div style={{ display: "grid", gap: 10 }}>
-          {signals.map((signal, index) => {
+        <div data-signal-reading-review-list-filter={selectedReviewFilter} style={{ display: "grid", gap: 10 }}>
+          {visibleReviewSignals.length ? visibleReviewSignals.map((signal, index) => {
             const analysis = analysesBySignal.get(signal.id);
             const reading = readingsBySignal.get(signal.id);
             const reviewedReading = reading ? readingsWithReview.find((entry) => entry.cacheKey === reading.cacheKey) ?? reading : undefined;
@@ -2040,7 +2086,7 @@ function SignalReadingReviewWorkspace({
                 >
                   <span style={{ color: tokens.color.softInk, fontWeight: 800, fontSize: 12 }}>{String(index + 1).padStart(2, "0")}</span>
                   <span style={{ display: "grid", gap: 4, minWidth: 0 }}>
-                    <span style={{ fontSize: 15, fontWeight: 850, lineHeight: 1.35, color: tokens.color.ink, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{title}</span>
+                    <span style={{ fontSize: 15, fontWeight: 850, lineHeight: 1.35, color: tokens.color.ink, ...lineClamp(2) }}>{title}</span>
                     <span style={{ display: "flex", gap: 6, flexWrap: "wrap", alignItems: "center", ...textStyles.meta, color: tokens.color.softInk }}>
                       {analysis && verdictMeta ? <ScorePill color={verdictMeta.color} soft={verdictMeta.soft}>{VERDICT_LABELS[analysis.verdict]}</ScorePill> : null}
                       {analysis && typeMeta ? <ScorePill color={typeMeta.color} soft={typeMeta.soft}>{typeMeta.label}</ScorePill> : null}
@@ -2097,7 +2143,11 @@ function SignalReadingReviewWorkspace({
                 ) : null}
               </article>
             );
-          })}
+          }) : (
+            <div style={mutedPanelStyle({ fontSize: 12.5, color: tokens.color.subInk })}>
+              這個分類暫時沒有訊號。切換上方四格可以審視其他類型。
+            </div>
+          )}
         </div>
       </section>
       <section style={{ display: "grid", gap: 10, paddingTop: 4, borderTop: `1px solid ${tokens.color.line}` }}>
@@ -2138,31 +2188,13 @@ function SignalReadingReviewWorkspace({
                 </button>
               </div>
               <div role="radiogroup" aria-label="Agent Brief 輸出格式" style={{ display: "grid", gridTemplateColumns: "repeat(2, minmax(0, 1fr))", gap: 8 }}>
-                {[
-                  ["original", "判讀優先", "判讀為主、原文為附"],
-                  ["decision", "精簡決策", "只給結論與行動建議"]
-                ].map(([value, label, deck]) => (
-                  <button
-                    key={value}
-                    type="button"
-                    aria-pressed={briefMode === value}
-                    onClick={() => onBriefModeChange(value as AgentBriefMode)}
-                    style={{
-                      border: `1px solid ${briefMode === value ? tokens.color.ink : tokens.color.line}`,
-                      borderRadius: tokens.radius.card,
-                      background: briefMode === value ? tokens.color.ink : tokens.color.elevated,
-                      color: briefMode === value ? tokens.color.elevated : tokens.color.ink,
-                      padding: "10px 12px",
-                      font: "inherit",
-                      textAlign: "left",
-                      cursor: "pointer",
-                      display: "grid",
-                      gap: 3
-                    }}
-                  >
-                    <strong style={{ fontSize: 13 }}>{label}</strong>
-                    <span style={{ fontSize: 11, color: briefMode === value ? "rgba(253,251,246,0.75)" : tokens.color.subInk }}>{deck}</span>
-                  </button>
+                {BRIEF_FORMAT_OPTIONS.map((option) => (
+                  <BriefFormatButton
+                    key={option.value}
+                    option={option}
+                    selected={briefMode === option.value}
+                    onSelect={() => onBriefModeChange(option.value)}
+                  />
                 ))}
               </div>
               <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
@@ -2200,14 +2232,10 @@ function SignalReadingReviewWorkspace({
           </>
         )}
       </section>
-      <div style={{
-        position: "sticky",
-        bottom: 0,
-        zIndex: 2,
-        marginTop: -4,
-        padding: "10px 0 0",
-        background: `linear-gradient(180deg, rgba(247,244,236,0), ${tokens.color.canvas} 34%)`
-      }}>
+      <div
+        data-signal-reading-brief-copy-bar="inline"
+        style={{ paddingTop: 2 }}
+      >
         <div style={{
           display: "flex",
           alignItems: "center",

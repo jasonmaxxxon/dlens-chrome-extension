@@ -2017,7 +2017,9 @@ test("ProductSignalView reviews signal readings before composing filed-only brie
     relevance: index === 0 ? 3 as const : 4 as const,
     relevantTo: ["productPromise" as const],
     referenceType: "product_reference" as const,
-    referenceLabel: "對產品參考",
+    referenceLabel: index === 0
+      ? "對產品參考：這是一段完整顯示的長判斷，不能被截斷。"
+      : "對產品參考",
     referenceTakeaway: "用來判斷產品語氣。",
     whyRelevant: "對產品語氣有參考價值。",
     verdict: index === 0 ? "watch" as const : "try" as const,
@@ -2085,14 +2087,18 @@ test("ProductSignalView reviews signal readings before composing filed-only brie
   assert.match(html, /data-signal-reading-verdict-summary="true"/);
   assert.match(html, /data-action-verdict-filter="try"/);
   assert.match(html, /data-action-verdict-filter="watch"/);
+  assert.match(html, /data-signal-reading-review-list-filter="watch"/);
   assert.match(html, /data-signal-reading-marginalia="true"/);
   assert.match(html, /data-signal-reading-marginalia-rail="true"/);
   assert.match(html, /data-signal-reading-provenance="true"/);
+  assert.match(html, /data-signal-reading-provenance-layout="inline"/);
   assert.match(html, /href="https:\/\/www\.threads\.net\/@dlens\/post\/pending"/);
+  assert.match(html, /對產品參考：這是一段完整顯示的長判斷，不能被截斷。/);
   assert.match(html, /relevance 3\/5/);
   assert.match(html, /值得嘗試/);
   assert.match(html, /保留觀察/);
   assert.match(html, /1 approved → brief|1 收錄/);
+  assert.match(html, /data-signal-reading-brief-copy-bar="inline"/);
   assert.match(html, /data-signal-reading-brief-copy-status="idle"/);
   assert.match(html, /複製 Brief/);
   assert.match(html, /<strong[^>]*>判讀內容<\/strong>/);

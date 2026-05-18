@@ -59,7 +59,7 @@ This note is the high-signal shared memory for Codex and Claude when working on 
 
 ## Version Rule As Of 2026-05-14
 
-- Current extension version: `0.1.10`.
+- Current extension version: `0.1.11`.
 - Keep version synchronized across `package.json`, `package-lock.json`, `wxt.config.ts` `manifest.version`, and `src/ui/version.ts` `BUILD_VERSION`.
 - Chrome's extension page shows the built manifest version; the popup masthead shows `BUILD_VERSION`.
 - Every user-visible update pushed to `main` should bump the version unless the user explicitly says not to.
