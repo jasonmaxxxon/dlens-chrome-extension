@@ -1236,6 +1236,7 @@ function ReadinessPanel({
   if (allGreen && !isAnalyzing && !analysisError) {
     return (
       <div
+        className="dlens-card-lift"
         style={mutedPanelStyle({
           display: "flex",
           alignItems: "center",
@@ -2151,7 +2152,7 @@ function SignalReadingReviewWorkspace({
 
   return (
     <div data-signal-reading-review-workspace="true" style={{ display: "grid", gap: 14, paddingBottom: 76 }}>
-      <section data-signal-reading-verdict-summary="true" style={cardStyle({ gap: 12 })}>
+      <section data-signal-reading-verdict-summary="true" className="dlens-card-lift" style={cardStyle({ gap: 12 })}>
         <div style={{ display: "flex", alignItems: "baseline", justifyContent: "space-between", gap: 10 }}>
           <div style={{ fontSize: 14, fontWeight: 850, color: tokens.color.ink }}>{analysesForSignals.length} 則訊號已評估</div>
           <span style={{ ...textStyles.meta, color: tokens.color.softInk }}>
