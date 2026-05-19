@@ -6,6 +6,7 @@ import { renderToStaticMarkup } from "react-dom/server";
 
 import type { TargetDescriptor } from "../src/contracts/target-descriptor.ts";
 import {
+  DLENS_BUTTON_CSS,
   ModeRail,
   PreviewCard,
   SCAN_ROW_HOVER_CSS,
@@ -145,7 +146,14 @@ test("scan row primitive stays flat and line-separated", () => {
   assert.equal(style.boxShadow, undefined);
   assert.equal(style.borderRadius, undefined);
   assert.equal(style.padding, "12px 4px");
-  assert.match(SCAN_ROW_HOVER_CSS, /\[data-scan-list\] \[data-scan-row\]:hover/);
+  assert.match(SCAN_ROW_HOVER_CSS, /\[data-dlens-control="true"\] \[data-scan-list\] \[data-scan-row\]:hover/);
+  assert.doesNotMatch(SCAN_ROW_HOVER_CSS, /^\[data-scan-list\]/m);
+});
+
+test("shared button motion CSS is scoped to the extension root", () => {
+  assert.match(DLENS_BUTTON_CSS, /\[data-dlens-control="true"\] \[data-dlens-button\]/);
+  assert.match(DLENS_BUTTON_CSS, /prefers-reduced-motion/);
+  assert.doesNotMatch(DLENS_BUTTON_CSS, /^\[data-dlens-button\]/m);
 });
 
 test("WorkspaceShell masthead exposes the extension build version", () => {
@@ -160,6 +168,8 @@ test("WorkspaceShell masthead exposes the extension build version", () => {
     )
   );
 
-  assert.match(html, /v\.0\.1\.13/);
+  assert.match(html, /v\.0\.1\.14/);
   assert.match(html, /Folder: dlens-product-latest/);
+  assert.match(html, /data-shell-frame="editorial"[^>]*align-items:start/);
+  assert.match(html, /data-shell-header="workspace"[^>]*align-self:start/);
 });

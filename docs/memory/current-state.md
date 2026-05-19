@@ -67,10 +67,10 @@ The verified build in the active Phase B implementation worktree is:
 - backend physical checkout: `/Users/tung/Desktop/dlens-backend/dlens-ingest-core`
 - old versions and historical worktrees: `/Users/tung/Desktop/dlens-old`
 - verification: `npm run typecheck`, `npx tsx --test tests/*.test.ts tests/*.test.tsx`, and `npm run build`
-- latest full test count after Signal Reading Review: `440 pass, 0 fail`
+- latest full test count after Motion Layer v1: `453 pass, 0 fail`
 - latest build output was mirrored to `/Users/tung/Desktop/dlens-product-latest/output/chrome-mv3`
 - live backend smoke from the prior product run: `GET http://127.0.0.1:8000/worker/status` returned `{"status":"idle"}`
-- extension manifest name is `DLens v3`; current extension version is `0.1.13`
+- extension manifest name is `DLens v3`; current extension version is `0.1.14`
 - version is locked across `package.json`, `package-lock.json`, `wxt.config.ts` `manifest.version`, and `src/ui/version.ts` `BUILD_VERSION`
 
 ## PR Evidence V1 Contract State
@@ -170,10 +170,11 @@ Topic synthesis and Folder synthesis are deterministic extension-side display la
 - Product `classification` is a first-class product signal page in route guards and width/data-effect helpers; do not let it fall back to `saved-signals`.
 - `CompareView` supports `reading`, `parallel`, and `chapters`; `parallel` is the default persisted Result layout.
 - Agent Brief review cards reuse the Marginalia signal grammar as a compact strip inside the active reading card.
+- Shared Motion Layer v1 is pure CSS/token-based: buttons, rail icons, card hover/lift, smooth disclosure, and Product reading-review feedback share the same scoped motion layer under `data-dlens-control="true"` and respect `prefers-reduced-motion`.
 
 ## Version State
 
-- Current extension version: `0.1.13`.
+- Current extension version: `0.1.14`.
 - Chrome extension page version comes from `wxt.config.ts` `manifest.version` in the built manifest.
 - Popup masthead version comes from `src/ui/version.ts` `BUILD_VERSION`.
 - `package.json`, `package-lock.json`, `wxt.config.ts`, and `src/ui/version.ts` must stay in sync for every main-facing update unless explicitly skipped.

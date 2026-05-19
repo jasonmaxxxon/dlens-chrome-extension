@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import type { CSSProperties, ReactNode } from "react";
 
 import type {
@@ -44,80 +44,106 @@ import { tokens, textStyles } from "./tokens";
 
 export type ProductSignalPageKind = "saved-signals" | "classification" | "actionable-filter";
 
-export const PRODUCT_SIGNAL_MOTION_CSS = `
-[data-product-signal-view] .dlens-card-lift {
-  transition: transform 160ms cubic-bezier(0.4, 0, 0.2, 1), box-shadow 160ms cubic-bezier(0.4, 0, 0.2, 1), border-color 160ms ease;
+/* Shared motion layer — injected globally by the threads content script.
+ * Applies across every workspace mode; classes are opt-in so unstyled
+ * elements are unaffected. `prefers-reduced-motion` neutralises all of it. */
+export const DLENS_MOTION_CSS = `
+[data-dlens-control="true"] .dlens-card-lift {
+  transition: ${tokens.motion.preset.cardLift};
   will-change: transform;
   transform: translateY(0);
 }
-[data-product-signal-view] .dlens-card-lift:hover,
-[data-product-signal-view] .dlens-card-lift:focus-within {
+[data-dlens-control="true"] .dlens-card-lift:hover,
+[data-dlens-control="true"] .dlens-card-lift:focus-within {
   transform: translateY(-2px);
   box-shadow: 0 14px 32px rgba(27, 26, 23, 0.10), 0 2px 6px rgba(27, 26, 23, 0.04) !important;
   border-color: rgba(27, 26, 23, 0.18) !important;
 }
-[data-product-signal-view] .dlens-quote-row {
-  transition: background 200ms ease;
+[data-dlens-control="true"] .dlens-card-lift:active {
+  transform: translateY(-1px) scale(0.997);
+  transition: transform 90ms ${tokens.motion.easing.standard};
+}
+[data-dlens-control="true"] .dlens-quote-row {
+  transition: background 200ms ${tokens.motion.easing.standard};
   border-radius: 6px;
 }
-[data-product-signal-view] .dlens-quote-row:hover {
+[data-dlens-control="true"] .dlens-quote-row:hover {
   background: rgba(27, 26, 23, 0.025);
 }
-[data-product-signal-view] .dlens-expand-trigger {
-  transition: background 120ms ease, border-color 120ms ease;
+[data-dlens-control="true"] .dlens-expand-trigger {
+  transition: background 120ms ${tokens.motion.easing.standard}, border-color 120ms ${tokens.motion.easing.standard};
 }
-[data-product-signal-view] .dlens-details-summary:hover .dlens-expand-trigger {
+[data-dlens-control="true"] .dlens-details-summary:hover .dlens-expand-trigger {
   background: rgba(27, 26, 23, 0.06);
   border-color: rgba(27, 26, 23, 0.18);
 }
-[data-product-signal-view] .dlens-details-summary:hover [data-evidence-source-toggle="true"] {
+[data-dlens-control="true"] .dlens-details-summary:hover [data-evidence-source-toggle="true"] {
   background: ${tokens.color.productSoft} !important;
   border-color: ${tokens.color.product} !important;
 }
-[data-product-signal-view] .dlens-details-smooth {
+[data-dlens-control="true"] .dlens-details-smooth {
   display: grid;
 }
-[data-product-signal-view] .dlens-details-summary {
-  transition: color 140ms ease;
+[data-dlens-control="true"] .dlens-details-summary {
+  transition: color 140ms ${tokens.motion.easing.standard};
 }
-[data-product-signal-view] .dlens-details-summary:hover {
+[data-dlens-control="true"] .dlens-details-summary:hover {
   color: rgba(27, 26, 23, 0.85);
 }
-[data-product-signal-view] .dlens-details-chevron {
+[data-dlens-control="true"] .dlens-details-chevron {
   display: inline-block;
-  transition: transform 160ms ease;
+  transition: transform 220ms ${tokens.motion.easing.spring};
 }
-[data-product-signal-view] [data-dlens-details-open="true"] > .dlens-details-summary .dlens-details-chevron {
+[data-dlens-control="true"] [data-dlens-details-open="true"] > .dlens-details-summary .dlens-details-chevron {
   transform: rotate(180deg);
 }
-[data-product-signal-view] .dlens-details-panel {
+[data-dlens-control="true"] .dlens-details-panel {
   display: grid;
   grid-template-rows: 0fr;
   opacity: 0;
   overflow: hidden;
-  transition: grid-template-rows 220ms ease, opacity 160ms ease;
+  transition: grid-template-rows 240ms ${tokens.motion.easing.entrance}, opacity 160ms ${tokens.motion.easing.standard};
 }
-[data-product-signal-view] [data-dlens-details-open="true"] > .dlens-details-panel {
+[data-dlens-control="true"] [data-dlens-details-open="true"] > .dlens-details-panel {
   grid-template-rows: 1fr;
   opacity: 1;
 }
-[data-product-signal-view] .dlens-details-panel-inner {
+[data-dlens-control="true"] .dlens-details-panel-inner {
   min-height: 0;
   overflow: hidden;
 }
+[data-dlens-control="true"] [data-rail-icon] {
+  transition: transform 220ms ${tokens.motion.easing.springSoft};
+  will-change: transform;
+}
+[data-dlens-control="true"] [data-mode-style="rail"]:hover [data-rail-icon] {
+  transform: translateY(-2px);
+}
+[data-dlens-control="true"] [data-mode-style="rail"]:active [data-rail-icon] {
+  transform: translateY(0) scale(0.86);
+  transition: transform 90ms ${tokens.motion.easing.standard};
+}
 @media (prefers-reduced-motion: reduce) {
-  [data-product-signal-view] .dlens-card-lift,
-  [data-product-signal-view] .dlens-quote-row,
-  [data-product-signal-view] .dlens-details-summary,
-  [data-product-signal-view] .dlens-details-chevron,
-  [data-product-signal-view] .dlens-details-panel,
-  [data-product-signal-view] .dlens-expand-trigger {
+  [data-dlens-control="true"] .dlens-card-lift,
+  [data-dlens-control="true"] .dlens-quote-row,
+  [data-dlens-control="true"] .dlens-details-summary,
+  [data-dlens-control="true"] .dlens-details-chevron,
+  [data-dlens-control="true"] .dlens-details-panel,
+  [data-dlens-control="true"] .dlens-expand-trigger,
+  [data-dlens-control="true"] [data-rail-icon] {
     transition: none !important;
   }
-  [data-product-signal-view] .dlens-card-lift:hover,
-  [data-product-signal-view] .dlens-card-lift:focus-within,
-  [data-product-signal-view] .dlens-details-summary:hover {
+  [data-dlens-control="true"] .dlens-card-lift:hover,
+  [data-dlens-control="true"] .dlens-card-lift:focus-within,
+  [data-dlens-control="true"] .dlens-card-lift:active,
+  [data-dlens-control="true"] .dlens-details-summary:hover,
+  [data-dlens-control="true"] [data-mode-style="rail"]:hover [data-rail-icon],
+  [data-dlens-control="true"] [data-mode-style="rail"]:active [data-rail-icon] {
     transform: none !important;
+  }
+  [data-dlens-control="true"] [data-bump-number="true"],
+  [data-dlens-control="true"] [data-signal-reading-filed-flash="true"] {
+    animation: none !important;
   }
 }
 `;
@@ -1279,7 +1305,7 @@ function ClassificationSignalRow({
       style={scanRowStyle({
         width: "100%",
         display: "grid",
-        gridTemplateColumns: "10px auto minmax(0, 1fr) auto",
+        gridTemplateColumns: "10px minmax(0, 1fr)",
         alignItems: "center",
         gap: 9,
         padding: "10px 4px",
@@ -1293,6 +1319,7 @@ function ClassificationSignalRow({
     >
       <span
         aria-hidden="true"
+        data-classification-row-indicator="true"
         title={VERDICT_LABELS[analysis.verdict]}
         style={{
           width: 8,
@@ -1301,7 +1328,6 @@ function ClassificationSignalRow({
           background: verdictColor
         }}
       />
-      <ScorePill color={typeMeta.color} soft={typeMeta.soft}>{typeMeta.label}</ScorePill>
       <div style={{ display: "grid", gap: 2, minWidth: 0 }}>
         <div style={{ fontSize: 14, lineHeight: 1.35, fontWeight: 600, color: tokens.color.ink, ...lineClamp(1) }}>
           {excerpt(analysis.contentSummary, 120)}
@@ -1474,6 +1500,28 @@ function SignalReadingProvenanceRow({
   );
 }
 
+/** A number that replays a spring "bump" each time it changes — not on first mount. */
+function BumpNumber({ value }: { value: number }) {
+  const mounted = useRef(false);
+  const [bumpKey, setBumpKey] = useState(0);
+  useEffect(() => {
+    if (mounted.current) {
+      setBumpKey((key) => key + 1);
+    } else {
+      mounted.current = true;
+    }
+  }, [value]);
+  return (
+    <span
+      key={bumpKey}
+      data-bump-number="true"
+      style={{ display: "inline-block", animation: bumpKey ? tokens.motion.keyframes.bump : undefined }}
+    >
+      {value}
+    </span>
+  );
+}
+
 function SignalReadingEvidenceDetails({ citations }: { citations: EvidenceCitation[] }) {
   if (!citations.length) {
     return null;
@@ -1483,23 +1531,14 @@ function SignalReadingEvidenceDetails({ citations }: { citations: EvidenceCitati
     <SmoothDetails
       dataAttributes={{ "data-signal-reading-evidence": "true" }}
       summary={
-        <span
-          style={{
-            display: "inline-flex",
-            alignItems: "center",
-            gap: 6,
-            color: tokens.color.product,
-            fontSize: 12,
-            fontWeight: 800
-          }}
-        >
-          查看原文留言 · {citations.length} 則
+        <span style={{ color: tokens.color.softInk, fontSize: 11.5, fontWeight: 600 }}>
+          原文留言 {citations.length} 則 ▾
         </span>
       }
       summaryStyle={{ padding: "2px 0", cursor: "pointer", letterSpacing: 0 }}
     >
-      <div style={{ display: "grid", gap: 10, marginTop: 8 }}>
-        {citations.map((citation, index) => {
+      <div style={{ display: "grid", gap: 0, marginTop: 6, borderTop: `1px solid ${tokens.color.line}` }}>
+        {citations.map((citation) => {
           const text = citation.entry?.text?.trim() || citation.note?.quoteSummary || "";
           return (
             <div
@@ -1507,36 +1546,27 @@ function SignalReadingEvidenceDetails({ citations }: { citations: EvidenceCitati
               data-signal-reading-evidence-row="true"
               style={{
                 display: "grid",
-                gap: 6,
-                paddingTop: index ? 10 : 0,
-                borderTop: index ? `1px solid ${tokens.color.line}` : undefined
+                gap: 3,
+                padding: "7px 0",
+                borderBottom: `1px solid ${tokens.color.line}`
               }}
             >
-              <div style={{ display: "flex", justifyContent: "space-between", gap: 10, flexWrap: "wrap", alignItems: "baseline" }}>
-                <span style={{ fontSize: 11.5, fontWeight: 800, color: tokens.color.softInk }}>
-                  {citation.ref} · {citation.entry?.author || "unknown"}
+              <div style={{ display: "flex", justifyContent: "space-between", gap: 8, alignItems: "baseline" }}>
+                <span style={{ fontSize: 11, fontWeight: 700, color: tokens.color.softInk }}>
+                  {citation.ref}
+                  {citation.entry?.author ? <span style={{ fontWeight: 400 }}> · {citation.entry.author}</span> : null}
                 </span>
                 {citation.entry?.likeCount ? (
-                  <span style={{ fontSize: 11, color: tokens.color.softInk }}>{citation.entry.likeCount} likes</span>
+                  <span style={{ fontSize: 10.5, color: tokens.color.softInk }}>{citation.entry.likeCount} ♥</span>
                 ) : null}
               </div>
-              <blockquote
-                style={{
-                  margin: 0,
-                  padding: "0 0 0 10px",
-                  borderLeft: `3px solid ${tokens.color.line}`,
-                  fontSize: 12.5,
-                  lineHeight: 1.65,
-                  color: tokens.color.subInk,
-                  overflowWrap: "anywhere"
-                }}
-              >
-                {text || "這條 evidence 只有 ref，沒有可顯示的原文。"}
-              </blockquote>
+              <p style={{ margin: 0, fontSize: 12, lineHeight: 1.6, color: tokens.color.subInk, overflowWrap: "anywhere" }}>
+                {text || "—"}
+              </p>
               {citation.note?.whyItMatters ? (
-                <div style={{ fontSize: 11.5, lineHeight: 1.55, color: tokens.color.softInk }}>
-                  模型判讀：{citation.note.whyItMatters}
-                </div>
+                <p style={{ margin: 0, fontSize: 11, lineHeight: 1.5, color: tokens.color.softInk }}>
+                  {citation.note.whyItMatters}
+                </p>
               ) : null}
             </div>
           );
@@ -1956,8 +1986,17 @@ function SignalReadingReviewWorkspace({
   const [reviewOverrides, setReviewOverrides] = useState<Record<string, SignalReadingReviewState>>({});
   const [reviewError, setReviewError] = useState<string | null>(null);
   const [reviewNotice, setReviewNotice] = useState<string | null>(null);
+  const [recentlyFiledSignalId, setRecentlyFiledSignalId] = useState<string | null>(null);
   const [regeneratingSignalId, setRegeneratingSignalId] = useState<string | null>(null);
   const [copyStatus, setCopyStatus] = useState<AgentBriefCopyStatus>("idle");
+  const filedFlashTimeoutRef = useRef<number | null>(null);
+  useEffect(() => {
+    return () => {
+      if (filedFlashTimeoutRef.current !== null && typeof window !== "undefined") {
+        window.clearTimeout(filedFlashTimeoutRef.current);
+      }
+    };
+  }, []);
   const readingsWithReview = signalReadings.map((reading) => {
     const override = reviewOverrides[reading.cacheKey];
     return override ? ({ ...reading, reviewState: override } as SignalReading) : reading;
@@ -1994,12 +2033,26 @@ function SignalReadingReviewWorkspace({
     return "已退回；這則判讀不會進 Brief。";
   };
 
+  const flashFiled = (signalId: string) => {
+    setRecentlyFiledSignalId(signalId);
+    if (typeof window !== "undefined") {
+      if (filedFlashTimeoutRef.current !== null) {
+        window.clearTimeout(filedFlashTimeoutRef.current);
+      }
+      filedFlashTimeoutRef.current = window.setTimeout(() => {
+        setRecentlyFiledSignalId((current) => (current === signalId ? null : current));
+        filedFlashTimeoutRef.current = null;
+      }, 700);
+    }
+  };
+
   const handleReview = (reading: SignalReading, decision: SignalReadingReviewDecision) => {
     setReviewError(null);
     setReviewNotice(null);
     if (!onReviewSignalReading) {
       setReviewOverrides((current) => ({ ...current, [reading.cacheKey]: decision }));
       setReviewNotice(reviewNoticeForDecision(decision));
+      if (decision === "filed") flashFiled(reading.signalId);
       return;
     }
     void onReviewSignalReading(reading.cacheKey, decision).then((result) => {
@@ -2009,6 +2062,7 @@ function SignalReadingReviewWorkspace({
         if (nextState !== "pending") {
           setReviewNotice(reviewNoticeForDecision(nextState));
         }
+        if (nextState === "filed") flashFiled(reading.signalId);
       } else {
         setReviewError(result.error);
       }
@@ -2046,7 +2100,7 @@ function SignalReadingReviewWorkspace({
   const copyStatusText = copyStatus === "copied" ? "已複製" : copyStatus === "error" ? "複製失敗" : " ";
 
   return (
-    <div data-signal-reading-review-workspace="true" style={{ display: "grid", gap: 18 }}>
+    <div data-signal-reading-review-workspace="true" style={{ display: "grid", gap: 14, paddingBottom: 76 }}>
       <section data-signal-reading-verdict-summary="true" style={cardStyle({ gap: 12 })}>
         <div style={{ display: "flex", alignItems: "baseline", justifyContent: "space-between", gap: 10 }}>
           <div style={{ fontSize: 14, fontWeight: 850, color: tokens.color.ink }}>{analysesForSignals.length} 則訊號已評估</div>
@@ -2086,9 +2140,6 @@ function SignalReadingReviewWorkspace({
             顯示 {selectedReviewStat?.label ?? "訊號"} · {visibleReviewSignals.length} 則
           </span>
         </div>
-        <p style={{ margin: 0, fontSize: 12, lineHeight: 1.65, color: tokens.color.subInk }}>
-          逐則審視判讀，決定哪些值得進 corpus；收錄後會進入本地判讀庫，可用於 Brief 與之後的相似案例回查。
-        </p>
         {reviewError ? (
           <div role="alert" style={mutedPanelStyle({ borderColor: tokens.color.queued, color: tokens.color.queued, fontSize: 12 })}>{reviewError}</div>
         ) : null}
@@ -2113,7 +2164,6 @@ function SignalReadingReviewWorkspace({
             const isActive = activeSignalId === signal.id;
             const verdictMeta = analysis ? VERDICT_META[analysis.verdict] : null;
             const typeMeta = analysis ? SIGNAL_TYPE_META[analysis.signalType] : null;
-            const activeAccentColor = verdictMeta?.color || tokens.color.product;
             const sourceUrl = signalUrlById[signal.id] || reading?.sourcePacket?.postUrl || "";
             const evidenceCitations = analysis ? citationsForAnalysis(analysis, evidenceBySignalId) : [];
             const staleness = reading
@@ -2123,12 +2173,13 @@ function SignalReadingReviewWorkspace({
               <article
                 key={signal.id}
                 data-signal-reading-review-row="true"
+                data-signal-reading-filed-flash={recentlyFiledSignalId === signal.id ? "true" : undefined}
                 style={{
-                  border: `1px solid ${isActive ? activeAccentColor : tokens.color.line}`,
+                  border: `1px solid ${isActive ? (verdictMeta?.color || tokens.color.product) : tokens.color.line}`,
                   borderRadius: tokens.radius.card,
                   background: isActive ? tokens.color.elevated : tokens.color.surface,
                   overflow: "hidden",
-                  boxShadow: isActive ? "0 12px 26px rgba(27,26,23,0.08)" : "none"
+                  animation: recentlyFiledSignalId === signal.id ? tokens.motion.keyframes.successPulse : undefined
                 }}
               >
                 <button
@@ -2163,7 +2214,7 @@ function SignalReadingReviewWorkspace({
                   <Stamp tone={stateTone}>{SIGNAL_READING_REVIEW_LABELS[reviewState]}</Stamp>
                 </button>
                 {isActive ? (
-                  <div style={{ borderTop: `1px solid ${tokens.color.line}`, display: "grid", gap: 12, padding: "12px 14px 14px" }}>
+                  <div style={{ borderTop: `1px solid ${tokens.color.line}`, display: "grid", gap: 10, padding: "10px 12px 12px" }}>
                     <SignalReadingProvenanceRow sourceUrl={sourceUrl} reading={reading} />
                     {analysis ? (
                       <SignalReadingMarginaliaPanel
@@ -2185,7 +2236,7 @@ function SignalReadingReviewWorkspace({
                         ) : null}
                       </div>
                     ) : null}
-                    <div style={{ fontSize: 14, lineHeight: 1.85, color: tokens.color.subInk, whiteSpace: "pre-wrap" }}>
+                    <div style={{ fontSize: 13.5, lineHeight: 1.75, color: tokens.color.subInk, whiteSpace: "pre-wrap" }}>
                       {reading?.reading ? renderEmphasizedText(reading.reading) : "尚未生成深度判讀。生成後才能收錄進本地判讀庫。"}
                     </div>
                     {reading ? (
@@ -2224,7 +2275,7 @@ function SignalReadingReviewWorkspace({
             <span style={{ ...textStyles.meta, color: tokens.color.product, fontWeight: 850 }}>§ 2</span>
             <h2 style={{ margin: 0, fontSize: 17, lineHeight: 1.2, letterSpacing: 0, color: tokens.color.ink }}>BRIEF COMPOSE</h2>
           </div>
-          <span style={{ ...textStyles.meta, color: tokens.color.softInk }}>{filedReadings.length} approved → brief</span>
+          <span style={{ ...textStyles.meta, color: tokens.color.softInk }}><BumpNumber value={filedReadings.length} /> approved → brief</span>
         </div>
         {!filedReadings.length ? (
           <div style={mutedPanelStyle({ fontSize: 12.5, color: tokens.color.subInk })}>
@@ -2233,7 +2284,7 @@ function SignalReadingReviewWorkspace({
         ) : !composeOpen ? (
           <div style={{ ...surfaceCardStyle(), padding: "12px 14px", display: "flex", alignItems: "center", gap: 12 }}>
             <div style={{ flex: 1, minWidth: 0, display: "grid", gap: 4 }}>
-              <strong style={{ fontSize: 14, color: tokens.color.ink }}>{filedReadings.length} approved → brief</strong>
+              <strong style={{ fontSize: 14, color: tokens.color.ink }}><BumpNumber value={filedReadings.length} /> approved → brief</strong>
               <span style={{ fontSize: 12, color: tokens.color.subInk, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
                 {filedReadings.map((reading) => analysesBySignal.get(reading.signalId)?.contentSummary || reading.signalId).join("、")}
               </span>
@@ -2530,7 +2581,7 @@ function ClassificationBoard({
   }
 
   return (
-    <div style={{ display: "grid", gap: 12 }}>
+    <div data-product-classification-board="true" style={{ display: "grid", gap: 12, paddingBottom: 76 }}>
       <section style={cardStyle({ gap: 10 })}>
         <div style={{ display: "flex", justifyContent: "space-between", gap: 10, alignItems: "baseline" }}>
           <Kicker>分類構成</Kicker>

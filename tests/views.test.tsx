@@ -14,7 +14,7 @@ import { InPageCollectorFolderControls, inPageCollectorFolderControlsTestables }
 import { inPageCollectorPopupTestables } from "../src/ui/InPageCollectorPopup.tsx";
 import { LibraryView } from "../src/ui/LibraryView.tsx";
 import { PrEvidenceView } from "../src/ui/PrEvidenceViews.tsx";
-import { ProductSignalView, PRODUCT_SIGNAL_MOTION_CSS, productSignalViewTestables } from "../src/ui/ProductSignalViews.tsx";
+import { ProductSignalView, DLENS_MOTION_CSS, productSignalViewTestables } from "../src/ui/ProductSignalViews.tsx";
 import { SettingsView } from "../src/ui/SettingsView.tsx";
 import {
   ModeRail,
@@ -217,7 +217,8 @@ test("WorkspaceShell keeps the processing strip outside the primary mode rail", 
   assert.match(html, /data-workspace-mode="library"/);
   assert.match(html, /grid-template-rows:auto minmax\(0, 1fr\)/);
   assert.match(html, /min-height:100%/);
-  assert.match(html, /align-items:stretch/);
+  assert.match(html, /data-shell-frame="editorial"[^>]*align-items:start/);
+  assert.match(html, /data-shell-header="workspace"[^>]*align-self:start/);
   assert.ok(modeRailIndex >= 0);
   assert.ok(processingStripIndex > modeRailIndex);
   assert.ok(settingsIndex > modeRailIndex);
@@ -1140,10 +1141,12 @@ test("ProductSignalView gives each product page a distinct information shape", (
   );
 
   assert.match(classificationHtml, /分類構成/);
+  assert.match(classificationHtml, /data-product-classification-board="true"[^>]*padding-bottom:76px/);
   assert.match(classificationHtml, /系統挑出的內容/);
   assert.match(classificationHtml, /討論串內容/);
   assert.match(classificationHtml, /data-scan-list="product-classification"/);
   assert.match(classificationHtml, /data-scan-row="true"/);
+  assert.match(classificationHtml, /data-classification-row-indicator="true"/);
   assert.match(classificationHtml, /Users want a one-tap mobile save flow/);
   assert.doesNotMatch(classificationHtml, /relevance 5 of 5/);
   assert.doesNotMatch(classificationHtml, /最新在前/);
@@ -1180,9 +1183,14 @@ test("ProductSignalView gives each product page a distinct information shape", (
   assert.match(actionableHtml, /data-dlens-motion-card="true"/);
   assert.match(actionableHtml, /data-dlens-smooth-details="true"/);
   // The exported CSS constant must include reduced-motion and grid-template-rows animation
-  assert.ok(PRODUCT_SIGNAL_MOTION_CSS.includes("prefers-reduced-motion"), "CSS must guard reduced-motion");
-  assert.ok(PRODUCT_SIGNAL_MOTION_CSS.includes("grid-template-rows"), "CSS must animate details panel");
-  assert.ok(!PRODUCT_SIGNAL_MOTION_CSS.includes("::details-content"), "CSS must not use ::details-content");
+  assert.ok(DLENS_MOTION_CSS.includes("prefers-reduced-motion"), "CSS must guard reduced-motion");
+  assert.ok(DLENS_MOTION_CSS.includes("grid-template-rows"), "CSS must animate details panel");
+  assert.ok(!DLENS_MOTION_CSS.includes("::details-content"), "CSS must not use ::details-content");
+  assert.match(DLENS_MOTION_CSS, /\[data-dlens-control="true"\] \.dlens-card-lift/);
+  assert.match(DLENS_MOTION_CSS, /\[data-dlens-control="true"\] \[data-rail-icon\]/);
+  assert.match(DLENS_MOTION_CSS, /\[data-dlens-control="true"\] \[data-bump-number="true"\]/);
+  assert.match(DLENS_MOTION_CSS, /\[data-dlens-control="true"\] \[data-signal-reading-filed-flash="true"\]/);
+  assert.doesNotMatch(DLENS_MOTION_CSS, /^\.dlens-card-lift/m);
 
   const secondSignal = {
     id: "signal_b",
@@ -2086,7 +2094,8 @@ test("ProductSignalView reviews signal readings before composing filed-only brie
   assert.match(html, /Agent Brief/);
   assert.match(html, /READING REVIEW/);
   assert.match(html, /BRIEF COMPOSE/);
-  assert.match(html, /收錄後會進入本地判讀庫/);
+  assert.match(html, /data-signal-reading-review-workspace="true"[^>]*padding-bottom:76px/);
+  assert.doesNotMatch(html, /收錄後會進入本地判讀庫/);
   assert.match(html, /收錄此判讀/);
   assert.match(html, /已收錄/);
   assert.match(html, /data-signal-reading-verdict-summary="true"/);
@@ -2100,12 +2109,13 @@ test("ProductSignalView reviews signal readings before composing filed-only brie
   assert.match(html, /data-signal-reading-provenance-layout="inline"/);
   assert.match(html, /href="https:\/\/www\.threads\.net\/@dlens\/post\/pending"/);
   assert.match(html, /data-signal-reading-evidence="true"/);
-  assert.match(html, /查看原文留言 · 1 則/);
+  assert.match(html, /原文留言 1 則/);
   assert.match(html, /變蠢可能係真嘅/);
   assert.match(html, /對產品參考：這是一段完整顯示的長判斷，不能被截斷。/);
   assert.match(html, /relevance 3\/5/);
   assert.doesNotMatch(html, /子型/);
   assert.doesNotMatch(html, /source link/);
+  assert.doesNotMatch(html, /border-left:3px/);
   assert.match(html, /值得嘗試/);
   assert.match(html, /保留觀察/);
   assert.match(html, /1 approved → brief|1 收錄/);

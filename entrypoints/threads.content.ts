@@ -8,7 +8,7 @@ import type { FolderMode } from "../src/state/types";
 import { buildSelectionModeMessage, type SelectionModeExitReason } from "../src/state/selection-mode-messages";
 import { InPageCollectorApp } from "../src/ui/InPageCollectorApp";
 import { buildWorkspaceCrashMarkup, getWorkspaceCrashMessage, isExtensionRuntimeError } from "../src/ui/runtime-guard";
-import { PRODUCT_SIGNAL_MOTION_CSS } from "../src/ui/ProductSignalViews";
+import { DLENS_MOTION_CSS } from "../src/ui/ProductSignalViews";
 
 const OVERLAY_ID = "__dlens_extension_v0_overlay__";
 const ROOT_ID = "__dlens_extension_v0_root__";
@@ -115,11 +115,11 @@ function ensureRoot(): HTMLDivElement {
     root.setAttribute("data-dlens-control", "true");
     document.documentElement.appendChild(root);
   }
-  // Inject product-signal motion CSS once (must go via document.head to survive Threads CSP)
+  // Inject the shared motion layer once (must go via document.head to survive Threads CSP)
   if (!document.getElementById("__dlens_product_motion__")) {
     const motionStyle = document.createElement("style");
     motionStyle.id = "__dlens_product_motion__";
-    motionStyle.textContent = PRODUCT_SIGNAL_MOTION_CSS;
+    motionStyle.textContent = DLENS_MOTION_CSS;
     document.head.appendChild(motionStyle);
   }
   // Inject animation keyframes once
@@ -142,6 +142,16 @@ function ensureRoot(): HTMLDivElement {
       @keyframes dlens-scan {
         0% { background-position: 0% 0%; }
         100% { background-position: 0% 100%; }
+      }
+      @keyframes dlens-bump {
+        0% { transform: scale(1); }
+        38% { transform: scale(1.18); }
+        100% { transform: scale(1); }
+      }
+      @keyframes dlens-success-pulse {
+        0% { box-shadow: 0 0 0 0 rgba(63,90,59,0); }
+        28% { box-shadow: 0 0 0 4px rgba(63,90,59,0.20); }
+        100% { box-shadow: 0 0 0 0 rgba(63,90,59,0); }
       }
     `;
     document.head.appendChild(style);

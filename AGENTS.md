@@ -1,6 +1,6 @@
 # AGENTS.md — DLens Chrome Extension v0.1
 
-> **Last updated:** 2026-05-18 (Signal Reading Review + version 0.1.13 on main — 452/452 tests, typecheck, build)
+> **Last updated:** 2026-05-19 (Motion Layer v1 + version 0.1.14 on main — 453/453 tests, typecheck, build)
 > **For:** any agent continuing work in this repo
 
 ## Process Rules (locked 2026-04-17)
@@ -282,7 +282,7 @@ Important implementation points:
 - `SettingsView.tsx` owns the three user-facing layout controls.
 - `InPageCollectorPopup.tsx` threads persisted layout settings into Product signal cards, Topic synthesis, and Compare Result.
 - `TopicSynthesis` and `FolderSynthesis` are deterministic display layers over analyzed signals. They use `src/compare/work-signal-lens.ts`; they do not replace backend clustering.
-- Current verification was run from `/Users/tung/Desktop/dlens-product-latest`: `452/452` tests, `npm run typecheck`, `npm run build`, and `git diff --check` passed.
+- Current verification was run from `/Users/tung/Desktop/dlens-product-latest`: `453/453` tests, `npm run typecheck`, `npm run build`, and `git diff --check` passed.
 - The verified unpacked build was copied to `/Users/tung/Desktop/dlens-product-latest/output/chrome-mv3` for Chrome load-unpacked use.
 - `/Users/tung/Desktop/dlens-product-latest` source checkout may be dirty; do not infer clean source state from the copied build artifact.
 
@@ -398,7 +398,7 @@ This was a major product-direction change. Summary for any agent picking up here
 
 ```bash
 npm run typecheck && npx tsx --test tests/*.test.ts tests/*.test.tsx
-# Expected on current main: 440 pass, 0 fail
+# Expected on current main: 453 pass, 0 fail
 ```
 
 ### Watch items for next agent

@@ -257,7 +257,7 @@ export function viewRootStyle(extra?: CSSProperties): CSSProperties {
     display: "grid",
     gap: tokens.spacing.lg,
     minWidth: 0,
-    overflowX: "hidden",
+    overflowX: "clip",
     ...extra
   };
 }
@@ -295,35 +295,46 @@ export function scanRowStyle(extra?: CSSProperties): CSSProperties {
 
 /** Hover state for interactive scan rows */
 export const SCAN_ROW_HOVER_CSS = `
-[data-scan-list] [data-scan-row]:hover {
+[data-dlens-control="true"] [data-scan-list] [data-scan-row]:hover {
   background: rgba(27, 26, 23, 0.028);
 }
-[data-scan-list] [data-scan-row]:last-child {
+[data-dlens-control="true"] [data-scan-list] [data-scan-row]:last-child {
   border-bottom: 0;
 }
 `;
 
 export const DLENS_BUTTON_CSS = `
-[data-dlens-button] {
-  transition: transform 120ms ease, box-shadow 160ms ease, background 160ms ease, border-color 160ms ease, filter 160ms ease;
+[data-dlens-control="true"] [data-dlens-button] {
+  transition: ${tokens.motion.preset.buttonPress};
 }
-[data-dlens-button]:not(:disabled):hover {
+[data-dlens-control="true"] [data-dlens-button]:not(:disabled):hover {
   transform: translateY(-1px);
 }
-[data-dlens-button]:not(:disabled):active {
-  transform: translateY(0);
+[data-dlens-control="true"] [data-dlens-button]:not(:disabled):active {
+  transform: translateY(0) scale(0.96);
+  transition: transform 90ms ${tokens.motion.easing.standard}, background-color 140ms ${tokens.motion.easing.standard};
 }
-[data-dlens-button]:focus-visible {
-  outline: 2px solid var(--dlens-mode-accent, #6b7a5a);
+[data-dlens-control="true"] [data-dlens-button]:focus-visible {
+  outline: 2px solid var(--dlens-mode-accent, ${tokens.color.accent});
   outline-offset: 2px;
 }
-[data-dlens-button="primary"]:not(:disabled):hover {
-  box-shadow: 0 6px 18px rgba(0, 0, 0, 0.16);
+[data-dlens-control="true"] [data-dlens-button="primary"]:not(:disabled):hover {
+  box-shadow: 0 8px 20px rgba(27, 26, 23, 0.18);
   filter: brightness(1.05);
 }
-[data-dlens-button="secondary"]:not(:disabled):hover {
-  background: rgba(107, 122, 90, 0.08);
-  border-color: rgba(107, 122, 90, 0.45);
+[data-dlens-control="true"] [data-dlens-button="secondary"]:not(:disabled):hover {
+  background: var(--dlens-mode-accent-soft, ${tokens.color.accentSoft});
+  border-color: var(--dlens-mode-hover-border-soft, ${tokens.color.lineStrong});
+}
+@media (prefers-reduced-motion: reduce) {
+  [data-dlens-control="true"] [data-dlens-button],
+  [data-dlens-control="true"] [data-dlens-button]:not(:disabled):active {
+    transition: background-color 140ms ${tokens.motion.easing.standard}, box-shadow 140ms ${tokens.motion.easing.standard}, border-color 140ms ${tokens.motion.easing.standard} !important;
+  }
+  [data-dlens-control="true"] [data-dlens-button]:not(:disabled):hover,
+  [data-dlens-control="true"] [data-dlens-button]:not(:disabled):active {
+    transform: none !important;
+  }
 }
 `;
 
@@ -470,7 +481,7 @@ export function WorkspaceShell({
           gap: tokens.spacing.md,
           minWidth: 0,
           minHeight: 0,
-          alignItems: "stretch"
+          alignItems: "start"
         }}
       >
         <header
@@ -483,7 +494,8 @@ export function WorkspaceShell({
             borderRadius: tokens.radius.card,
             border: `1px solid ${tokens.color.line}`,
             background: `linear-gradient(180deg, ${tokens.color.surface}, ${tokens.color.contextSurface})`,
-            boxShadow: tokens.shadow.glass
+            boxShadow: tokens.shadow.glass,
+            alignSelf: "start"
           }}
         >
           <div style={{ display: "grid", placeItems: "center", minHeight: 40 }}>
@@ -625,7 +637,7 @@ export function ModeRailButton({
         opacity: !active && isTool ? 0.72 : 1
       }}
     >
-      <span style={{ display: "inline-flex", color: active ? MODE_ACCENT : inactiveColor }}>
+      <span data-rail-icon="true" style={{ display: "inline-flex", color: active ? MODE_ACCENT : inactiveColor }}>
         {railIcon(mode)}
       </span>
       <span>{label}</span>
