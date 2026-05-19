@@ -2215,7 +2215,7 @@ function SignalReadingReviewWorkspace({
                 key={signal.id}
                 data-signal-reading-review-row="true"
                 data-signal-reading-filed-flash={recentlyFiledSignalId === signal.id ? "true" : undefined}
-                className={isActive ? undefined : "dlens-card-lift"}
+                className="dlens-card-lift"
                 style={{
                   border: `1px solid ${tokens.color.cardEdge}`,
                   borderRadius: tokens.radius.card,
@@ -2342,6 +2342,7 @@ function SignalReadingReviewWorkspace({
         ) : !composeOpen ? (
           <div
             data-signal-reading-compose-flash={recentlyFiledSignalId ? "true" : undefined}
+            className="dlens-card-lift"
             style={{
               ...surfaceCardStyle(),
               padding: "12px 14px",
