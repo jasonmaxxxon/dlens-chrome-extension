@@ -305,6 +305,7 @@ function SavedAnalysisCard({
   return (
     <div
       data-saved-analysis-card={analysis.resultId}
+      className="dlens-card-lift"
       style={{
         background: tokens.color.elevated,
         borderRadius: 12,

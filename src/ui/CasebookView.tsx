@@ -172,6 +172,7 @@ function TopicCard({
       type="button"
       data-casebook-topic-id={topic.id}
       data-scan-row="true"
+      className="dlens-card-lift"
       onClick={() => onSelect(topic.id)}
       style={{
         width: "100%",
@@ -225,6 +226,7 @@ function UnassignedCard({
     <button
       type="button"
       data-topic-filter="unassigned"
+      className="dlens-card-lift"
       onClick={onClick}
       style={{
         width: "100%",

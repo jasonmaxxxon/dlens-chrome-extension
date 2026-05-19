@@ -123,6 +123,7 @@ export function PairRow({
   return (
     <button
       type="button"
+      className="dlens-card-lift"
       onClick={() => onOpenPair(pair.resultId)}
       style={{
         width: "100%",
