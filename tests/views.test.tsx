@@ -158,7 +158,7 @@ test("surfaceCardStyle uses the editorial paper defaults", () => {
     `linear-gradient(180deg, ${tokens.color.elevated}, ${tokens.color.surface})`
   );
   assert.equal(style.borderRadius, tokens.radius.card);
-  assert.equal(style.border, `1px solid ${tokens.color.line}`);
+  assert.equal(style.border, `1px solid ${tokens.color.cardEdge}`);
   assert.equal(style.boxShadow, tokens.shadow.shell);
 });
 
@@ -169,7 +169,7 @@ test("tokens keep the design-system UI and editorial type split", () => {
   assert.equal(tokens.color.canvas, "#f7f4ec");
   assert.equal(tokens.color.surface, "#fbf8f1");
   assert.equal(tokens.color.elevated, "#fdfbf6");
-  assert.equal(tokens.radius.card, 8);
+  assert.equal(tokens.radius.card, 12);
   assert.equal(tokens.radius.lg, 12);
 });
 

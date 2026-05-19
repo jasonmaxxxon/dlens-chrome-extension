@@ -271,7 +271,7 @@ export function surfaceCardStyle(extra?: CSSProperties): CSSProperties {
     background: `linear-gradient(180deg, ${tokens.color.focusedSurface}, ${tokens.color.contentSurface})`,
     backdropFilter: tokens.effect.glassBlur,
     WebkitBackdropFilter: tokens.effect.glassBlur,
-    border: `1px solid ${tokens.color.line}`,
+    border: `1px solid ${tokens.color.cardEdge}`,
     boxShadow: tokens.shadow.shell,
     transition: tokens.motion.interactiveTransition,
     ...extra

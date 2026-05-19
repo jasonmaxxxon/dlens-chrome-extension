@@ -15,6 +15,8 @@ export const tokens = {
     /* borders & dividers */
     line: "rgba(27,26,23,0.10)",
     lineStrong: "rgba(27,26,23,0.18)",
+    /* near-invisible edge for elevated cards — definition comes from shadow */
+    cardEdge: "rgba(27,26,23,0.055)",
 
     /* shared workspace surfaces */
     canvas: "#f7f4ec",
@@ -90,17 +92,27 @@ export const tokens = {
 
   radius: {
     lg: 12,
-    card: 8,
+    card: 12,
     pill: 8,   /* badge/button pill — not the round 999 used for status dots */
     round: 999,
     sm: 4
   },
 
+  /* ─── Elevation ───
+   * Layered shadows give a tactile "floating" read instead of one flat blur.
+   * Each tier pairs a 1px lit-from-above inset highlight with a tight contact
+   * shadow and a wide low-opacity ambient shadow.
+   *   card  → tier 1, inner panels resting on a surface
+   *   shell → tier 2, workspace surfaces
+   *   raised → top tier, active / focused cards
+   */
   shadow: {
-    shell: "0 14px 34px rgba(27,26,23,0.10), 0 1px 2px rgba(27,26,23,0.06)",
+    card: "inset 0 1px 0 rgba(255,255,255,0.6), 0 1px 2px rgba(27,26,23,0.04), 0 4px 10px -4px rgba(27,26,23,0.06)",
+    shell: "inset 0 1px 0 rgba(255,255,255,0.7), 0 1px 2px rgba(27,26,23,0.045), 0 8px 16px -6px rgba(27,26,23,0.08), 0 20px 38px -16px rgba(27,26,23,0.11)",
+    raised: "inset 0 1px 0 rgba(255,255,255,0.8), 0 2px 4px rgba(27,26,23,0.05), 0 12px 24px -8px rgba(27,26,23,0.12), 0 30px 54px -20px rgba(27,26,23,0.15)",
     glass: "0 1px 0 rgba(27,26,23,0.035), 0 8px 18px -10px rgba(27,26,23,0.12), 0 1px 2px rgba(27,26,23,0.05)",
     focus: "0 1px 0 rgba(27,26,23,0.035), 0 8px 18px -10px rgba(27,26,23,0.12), 0 1px 2px rgba(27,26,23,0.05)",
-    focusedSurface: "0 1px 0 rgba(27,26,23,0.035), 0 8px 18px -10px rgba(27,26,23,0.12), 0 1px 2px rgba(27,26,23,0.05)",
+    focusedSurface: "inset 0 1px 0 rgba(255,255,255,0.8), 0 2px 4px rgba(27,26,23,0.05), 0 12px 24px -8px rgba(27,26,23,0.12), 0 30px 54px -20px rgba(27,26,23,0.15)",
     accentButton: "0 8px 18px rgba(26,46,79,0.16)",
     activeTab: "0 6px 16px rgba(27,26,23,0.08)",
     previewAvatar: "0 4px 12px rgba(26,46,79,0.12)",

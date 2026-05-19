@@ -466,7 +466,7 @@ function cardStyle(extra?: CSSProperties): CSSProperties {
     gap: 9,
     padding: "12px 13px",
     background: tokens.color.surface,
-    boxShadow: "none",
+    boxShadow: tokens.shadow.card,
     ...extra
   });
 }
@@ -2216,10 +2216,12 @@ function SignalReadingReviewWorkspace({
                 data-signal-reading-review-row="true"
                 data-signal-reading-filed-flash={recentlyFiledSignalId === signal.id ? "true" : undefined}
                 style={{
-                  border: `1px solid ${isActive ? (verdictMeta?.color || tokens.color.product) : tokens.color.line}`,
+                  border: `1px solid ${isActive ? (verdictMeta?.color || tokens.color.product) : tokens.color.cardEdge}`,
                   borderRadius: tokens.radius.card,
                   background: isActive ? tokens.color.elevated : tokens.color.surface,
+                  boxShadow: isActive ? tokens.shadow.raised : tokens.shadow.card,
                   overflow: "hidden",
+                  transition: tokens.motion.preset.cardLift,
                   animation: recentlyFiledSignalId === signal.id ? tokens.motion.keyframes.successPulse : undefined
                 }}
               >
