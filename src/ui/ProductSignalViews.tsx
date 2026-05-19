@@ -2217,7 +2217,7 @@ function SignalReadingReviewWorkspace({
                 data-signal-reading-filed-flash={recentlyFiledSignalId === signal.id ? "true" : undefined}
                 className={isActive ? undefined : "dlens-card-lift"}
                 style={{
-                  border: `1px solid ${isActive ? (verdictMeta?.color || tokens.color.product) : tokens.color.cardEdge}`,
+                  border: `1px solid ${tokens.color.cardEdge}`,
                   borderRadius: tokens.radius.card,
                   background: isActive ? tokens.color.elevated : tokens.color.surface,
                   boxShadow: isActive ? tokens.shadow.raised : tokens.shadow.card,
@@ -2343,7 +2343,7 @@ function SignalReadingReviewWorkspace({
             到上方 §1 為至少一則判讀按下「收錄此判讀」，這裡才會生出可貼的 Brief。
           </div>
         ) : !composeOpen ? (
-          <div style={{ ...surfaceCardStyle(), padding: "12px 14px", display: "flex", alignItems: "center", gap: 12 }}>
+          <div style={{ ...surfaceCardStyle(), padding: "12px 14px", display: "flex", alignItems: "center", gap: 12, overflow: "visible" }}>
             <div style={{ flex: 1, minWidth: 0, display: "grid", gap: 4 }}>
               <strong style={{ fontSize: 14, color: tokens.color.ink }}><BumpNumber value={filedReadings.length} /> approved → brief</strong>
               <span style={{ fontSize: 12, color: tokens.color.subInk, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
