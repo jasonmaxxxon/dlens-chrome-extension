@@ -319,8 +319,13 @@ export const DLENS_BUTTON_CSS = `
   outline-offset: 2px;
 }
 [data-dlens-control="true"] [data-dlens-button="primary"]:not(:disabled):hover {
-  box-shadow: 0 8px 20px rgba(27, 26, 23, 0.18);
+  transform: translateY(-3px);
+  box-shadow: 0 12px 26px rgba(27, 26, 23, 0.22);
   filter: brightness(1.05);
+}
+[data-dlens-control="true"] [data-dlens-button="primary"]:not(:disabled):active {
+  transform: translateY(0) scale(0.93);
+  transition: transform 90ms ${tokens.motion.easing.standard}, box-shadow 140ms ${tokens.motion.easing.standard};
 }
 [data-dlens-control="true"] [data-dlens-button="secondary"]:not(:disabled):hover {
   background: var(--dlens-mode-accent-soft, ${tokens.color.accentSoft});
@@ -334,6 +339,9 @@ export const DLENS_BUTTON_CSS = `
   [data-dlens-control="true"] [data-dlens-button]:not(:disabled):hover,
   [data-dlens-control="true"] [data-dlens-button]:not(:disabled):active {
     transform: none !important;
+  }
+  [data-dlens-control="true"] [data-dlens-button] {
+    animation: none !important;
   }
 }
 `;

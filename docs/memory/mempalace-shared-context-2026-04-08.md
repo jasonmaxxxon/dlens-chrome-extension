@@ -6,7 +6,7 @@ type: project
 
 # DLens Extension Shared Context
 
-Last updated: 2026-05-14
+Last updated: 2026-05-19
 
 This note is the high-signal shared memory for Codex and Claude when working on `dlens-chrome-extension-v0`.
 
@@ -57,11 +57,12 @@ This note is the high-signal shared memory for Codex and Claude when working on 
 - Current verification: `453/453` tests, typecheck, build, and diff check passed from `/Users/tung/Desktop/dlens-product-latest`.
 - Verified build artifact was copied to `/Users/tung/Desktop/dlens-product-latest/output/chrome-mv3`; the source checkout there may still be dirty.
 
-## Version Rule As Of 2026-05-14
+## Version Rule As Of 2026-05-19
 
-- Current extension version: `0.1.14`.
+- Current extension version: `0.1.15`.
 - Current verification: `453/453` tests, typecheck, build, and diff check passed from `/Users/tung/Desktop/dlens-product-latest`.
-- Motion Layer v1 is pure CSS/token-based and shared across modes; content-script CSS is scoped under `data-dlens-control="true"` and respects `prefers-reduced-motion`.
+- Motion Layer v2 is pure CSS/token-based and shared across modes; content-script CSS is scoped under `data-dlens-control="true"` and respects `prefers-reduced-motion`.
+- Motion Layer v2 adds Apple Music-style verdict filter sliding plates, stronger primary CTA/card deltas, loading shimmer, copy feedback, and filed-reading compose highlights without adding a motion dependency.
 - Keep version synchronized across `package.json`, `package-lock.json`, `wxt.config.ts` `manifest.version`, and `src/ui/version.ts` `BUILD_VERSION`.
 - Chrome's extension page shows the built manifest version; the popup masthead shows `BUILD_VERSION`.
 - Every user-visible update pushed to `main` should bump the version unless the user explicitly says not to.

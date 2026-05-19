@@ -145,12 +145,15 @@ function ensureRoot(): HTMLDivElement {
       }
       @keyframes dlens-bump {
         0% { transform: scale(1); }
-        38% { transform: scale(1.18); }
+        32% { transform: scale(1.34); }
+        62% { transform: scale(0.94); }
         100% { transform: scale(1); }
       }
       @keyframes dlens-success-pulse {
         0% { box-shadow: 0 0 0 0 rgba(63,90,59,0); }
-        28% { box-shadow: 0 0 0 4px rgba(63,90,59,0.20); }
+        16% { box-shadow: 0 0 0 6px rgba(63,90,59,0.26); }
+        40% { box-shadow: 0 0 0 0 rgba(63,90,59,0); }
+        58% { box-shadow: 0 0 0 5px rgba(63,90,59,0.18); }
         100% { box-shadow: 0 0 0 0 rgba(63,90,59,0); }
       }
     `;

@@ -1,6 +1,6 @@
 # AGENTS.md — DLens Chrome Extension v0.1
 
-> **Last updated:** 2026-05-19 (Motion Layer v1 + version 0.1.14 on main — 453/453 tests, typecheck, build)
+> **Last updated:** 2026-05-19 (Motion Layer v2 + version 0.1.15 on main — 453/453 tests, typecheck, build)
 > **For:** any agent continuing work in this repo
 
 ## Process Rules (locked 2026-04-17)
@@ -285,6 +285,16 @@ Important implementation points:
 - Current verification was run from `/Users/tung/Desktop/dlens-product-latest`: `453/453` tests, `npm run typecheck`, `npm run build`, and `git diff --check` passed.
 - The verified unpacked build was copied to `/Users/tung/Desktop/dlens-product-latest/output/chrome-mv3` for Chrome load-unpacked use.
 - `/Users/tung/Desktop/dlens-product-latest` source checkout may be dirty; do not infer clean source state from the copied build artifact.
+
+## Motion Layer State (2026-05-19)
+
+The shared motion layer is pure CSS/token-based and injected under `data-dlens-control="true"`:
+
+- `src/ui/tokens.ts` owns spring-like easing and keyframe shorthands.
+- `entrypoints/threads.content.ts` injects `DLENS_MOTION_CSS` plus one-shot `dlens-bump` / `dlens-success-pulse` keyframes.
+- `src/ui/components.tsx` applies the global button press/lift grammar through `data-dlens-button`.
+- `ProductSignalViews.tsx` uses the same layer for verdict filter sliding plates, card hover/lift, smooth disclosure, loading shimmer, copy feedback, and filed-reading compose highlights.
+- All motion must keep a `prefers-reduced-motion` guard.
 
 ## Version Rule (locked 2026-05-14)
 

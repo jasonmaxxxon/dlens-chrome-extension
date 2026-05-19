@@ -148,8 +148,8 @@ export const tokens = {
       pulse: "dlens-popup-pulse 1600ms cubic-bezier(0.4, 0, 0.6, 1) infinite",
       indeterminate: "dlens-popup-indeterminate 1100ms cubic-bezier(0.4, 0, 0.2, 1) infinite",
       spin: "dlens-spin 900ms linear infinite",
-      bump: "dlens-bump 360ms cubic-bezier(0.34, 1.56, 0.64, 1)",
-      successPulse: "dlens-success-pulse 620ms cubic-bezier(0.4, 0, 0.6, 1)"
+      bump: "dlens-bump 440ms cubic-bezier(0.34, 1.56, 0.64, 1)",
+      successPulse: "dlens-success-pulse 900ms cubic-bezier(0.4, 0, 0.6, 1)"
     }
   },
 

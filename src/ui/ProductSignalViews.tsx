@@ -55,12 +55,12 @@ export const DLENS_MOTION_CSS = `
 }
 [data-dlens-control="true"] .dlens-card-lift:hover,
 [data-dlens-control="true"] .dlens-card-lift:focus-within {
-  transform: translateY(-2px);
-  box-shadow: 0 14px 32px rgba(27, 26, 23, 0.10), 0 2px 6px rgba(27, 26, 23, 0.04) !important;
-  border-color: rgba(27, 26, 23, 0.18) !important;
+  transform: translateY(-4px);
+  box-shadow: 0 18px 40px rgba(27, 26, 23, 0.16), 0 3px 10px rgba(27, 26, 23, 0.07) !important;
+  border-color: rgba(27, 26, 23, 0.28) !important;
 }
 [data-dlens-control="true"] .dlens-card-lift:active {
-  transform: translateY(-1px) scale(0.997);
+  transform: translateY(-2px) scale(0.994);
   transition: transform 90ms ${tokens.motion.easing.standard};
 }
 [data-dlens-control="true"] .dlens-quote-row {
@@ -123,7 +123,30 @@ export const DLENS_MOTION_CSS = `
   transform: translateY(0) scale(0.86);
   transition: transform 90ms ${tokens.motion.easing.standard};
 }
+[data-dlens-control="true"] [data-verdict-filter-plate] {
+  transition: transform 280ms ${tokens.motion.easing.spring}, background-color 220ms ${tokens.motion.easing.standard}, border-color 220ms ${tokens.motion.easing.standard};
+}
+[data-dlens-control="true"] [data-verdict-tile-count],
+[data-dlens-control="true"] [data-verdict-tile-bar] {
+  transition: transform 200ms ${tokens.motion.easing.springSoft}, background-color 220ms ${tokens.motion.easing.standard} 40ms;
+}
+[data-dlens-control="true"] [data-verdict-tile]:hover [data-verdict-tile-count] {
+  transform: scale(1.1);
+}
+[data-dlens-control="true"] [data-verdict-tile]:active [data-verdict-tile-count] {
+  transform: scale(0.96);
+  transition: transform 90ms ${tokens.motion.easing.standard};
+}
 @media (prefers-reduced-motion: reduce) {
+  [data-dlens-control="true"] [data-verdict-filter-plate],
+  [data-dlens-control="true"] [data-verdict-tile-count],
+  [data-dlens-control="true"] [data-verdict-tile-bar] {
+    transition: none !important;
+  }
+  [data-dlens-control="true"] [data-verdict-tile]:hover [data-verdict-tile-count],
+  [data-dlens-control="true"] [data-verdict-tile]:active [data-verdict-tile-count] {
+    transform: none !important;
+  }
   [data-dlens-control="true"] .dlens-card-lift,
   [data-dlens-control="true"] .dlens-quote-row,
   [data-dlens-control="true"] .dlens-details-summary,
@@ -142,8 +165,13 @@ export const DLENS_MOTION_CSS = `
     transform: none !important;
   }
   [data-dlens-control="true"] [data-bump-number="true"],
-  [data-dlens-control="true"] [data-signal-reading-filed-flash="true"] {
+  [data-dlens-control="true"] [data-signal-reading-filed-flash="true"],
+  [data-dlens-control="true"] [data-signal-reading-compose-flash="true"] {
     animation: none !important;
+  }
+  [data-dlens-control="true"] [data-button-shimmer="true"] {
+    animation: none !important;
+    opacity: 0 !important;
   }
 }
 `;
@@ -1522,6 +1550,25 @@ function BumpNumber({ value }: { value: number }) {
   );
 }
 
+/** A shimmer sweep overlay for a button in a loading state. The host button
+ * must be position:relative + overflow:hidden. */
+function ButtonShimmer() {
+  return (
+    <span
+      aria-hidden="true"
+      data-button-shimmer="true"
+      style={{
+        position: "absolute",
+        inset: 0,
+        background: "linear-gradient(100deg, transparent 35%, rgba(255,255,255,0.5) 50%, transparent 65%)",
+        backgroundSize: "220% 100%",
+        animation: tokens.motion.keyframes.shimmer,
+        pointerEvents: "none"
+      }}
+    />
+  );
+}
+
 function SignalReadingEvidenceDetails({ citations }: { citations: EvidenceCitation[] }) {
   if (!citations.length) {
     return null;
@@ -1914,6 +1961,8 @@ function SignalReadingDisclosure({
         data-signal-reading-toggle="true"
         onClick={handleToggle}
         style={{
+          position: "relative",
+          overflow: "hidden",
           border: `1px solid ${tokens.color.product}`,
           background: tokens.color.productSoft,
           cursor: "pointer",
@@ -1926,6 +1975,7 @@ function SignalReadingDisclosure({
         }}
       >
         {open ? "▾ 深度判讀" : "▸ 深度判讀"}
+        {loading ? <ButtonShimmer /> : null}
       </button>
       {open ? (
         <div
@@ -2042,7 +2092,7 @@ function SignalReadingReviewWorkspace({
       filedFlashTimeoutRef.current = window.setTimeout(() => {
         setRecentlyFiledSignalId((current) => (current === signalId ? null : current));
         filedFlashTimeoutRef.current = null;
-      }, 700);
+      }, 1000);
     }
   };
 
@@ -2108,27 +2158,18 @@ function SignalReadingReviewWorkspace({
             {filedReadings.length} 收錄 · {signals.length - pendingCount}/{signals.length} reviewed
           </span>
         </div>
-        <div style={{ display: "grid", gridTemplateColumns: "repeat(4, minmax(0, 1fr))", gap: 8 }}>
-          {reviewStats.map((stat) => (
-            <ActionStatCard
-              key={stat.key}
-              filterKey={stat.key}
-              label={stat.label}
-              count={stat.count}
-              color={stat.color}
-              soft={stat.soft}
-              selected={selectedReviewFilter === stat.key}
-              onSelect={() => {
-                setSelectedReviewFilter(stat.key);
-                const target = signals.find((signal) => {
-                  const analysis = analysesBySignal.get(signal.id);
-                  return analysis ? verdictFilterKeyForAnalysis(analysis) === stat.key : false;
-                });
-                if (target) setActiveSignalId(target.id);
-              }}
-            />
-          ))}
-        </div>
+        <VerdictFilterTiles
+          stats={reviewStats}
+          selectedKey={selectedReviewFilter}
+          onSelect={(key) => {
+            setSelectedReviewFilter(key);
+            const target = signals.find((signal) => {
+              const analysis = analysesBySignal.get(signal.id);
+              return analysis ? verdictFilterKeyForAnalysis(analysis) === key : false;
+            });
+            if (target) setActiveSignalId(target.id);
+          }}
+        />
       </section>
       <section style={{ display: "grid", gap: 8 }}>
         <div style={{ display: "flex", alignItems: "baseline", justifyContent: "space-between", gap: 12 }}>
@@ -2229,9 +2270,16 @@ function SignalReadingReviewWorkspace({
                           <SecondaryButton
                             onClick={() => handleRegenerateReading(signal)}
                             disabled={regeneratingSignalId === signal.id}
-                            style={{ padding: "5px 9px", whiteSpace: "nowrap" }}
+                            style={{
+                              padding: "5px 9px",
+                              whiteSpace: "nowrap",
+                              position: "relative",
+                              overflow: "hidden"
+                            }}
                           >
-                            {regeneratingSignalId === signal.id ? "生成中…" : "重新生成判讀"}
+                            {regeneratingSignalId === signal.id ? (
+                              <>生成中…<ButtonShimmer /></>
+                            ) : "重新生成判讀"}
                           </SecondaryButton>
                         ) : null}
                       </div>
@@ -2269,7 +2317,17 @@ function SignalReadingReviewWorkspace({
           )}
         </div>
       </section>
-      <section style={{ display: "grid", gap: 10, paddingTop: 4, borderTop: `1px solid ${tokens.color.line}` }}>
+      <section
+        data-signal-reading-compose-flash={recentlyFiledSignalId ? "true" : undefined}
+        style={{
+          display: "grid",
+          gap: 10,
+          paddingTop: 4,
+          borderTop: `1px solid ${tokens.color.line}`,
+          borderRadius: tokens.radius.card,
+          animation: recentlyFiledSignalId ? tokens.motion.keyframes.successPulse : undefined
+        }}
+      >
         <div style={{ display: "flex", alignItems: "baseline", justifyContent: "space-between", gap: 12 }}>
           <div style={{ display: "flex", alignItems: "baseline", gap: 10 }}>
             <span style={{ ...textStyles.meta, color: tokens.color.product, fontWeight: 850 }}>§ 2</span>
@@ -2310,7 +2368,11 @@ function SignalReadingReviewWorkspace({
               <PrimaryButton
                 disabled={!filedReadings.length}
                 onClick={copyBrief}
-                style={{ padding: "7px 13px", whiteSpace: "nowrap" }}
+                style={{
+                  padding: "7px 13px",
+                  whiteSpace: "nowrap",
+                  animation: copyStatus === "copied" ? tokens.motion.keyframes.bump : undefined
+                }}
               >
                 複製 Brief
               </PrimaryButton>
@@ -2388,7 +2450,11 @@ function SignalReadingReviewWorkspace({
                 <PrimaryButton
                   disabled={!filedReadings.length}
                   onClick={copyBrief}
-                  style={{ padding: "7px 13px", whiteSpace: "nowrap" }}
+                  style={{
+                    padding: "7px 13px",
+                    whiteSpace: "nowrap",
+                    animation: copyStatus === "copied" ? tokens.motion.keyframes.bump : undefined
+                  }}
                 >
                   複製 Brief
                 </PrimaryButton>
@@ -2651,6 +2717,70 @@ function ClassificationBoard({
   );
 }
 
+type VerdictFilterStat = {
+  key: ActionVerdictFilter;
+  label: string;
+  count: number;
+  color: string;
+  soft: string;
+};
+
+/** Four verdict tiles over a shared selection plate that slides between them. */
+function VerdictFilterTiles({
+  stats,
+  selectedKey,
+  onSelect
+}: {
+  stats: VerdictFilterStat[];
+  selectedKey: ActionVerdictFilter;
+  onSelect: (key: ActionVerdictFilter) => void;
+}) {
+  const count = stats.length;
+  const selectedIndex = Math.max(0, stats.findIndex((stat) => stat.key === selectedKey));
+  const active = stats[selectedIndex];
+  return (
+    <div
+      data-verdict-filter-tiles="true"
+      style={{
+        position: "relative",
+        display: "grid",
+        gridTemplateColumns: `repeat(${count}, minmax(0, 1fr))`,
+        gap: 8
+      }}
+    >
+      <div
+        aria-hidden="true"
+        data-verdict-filter-plate="true"
+        style={{
+          position: "absolute",
+          top: 0,
+          bottom: 0,
+          left: 0,
+          width: `calc((100% - ${(count - 1) * 8}px) / ${count})`,
+          transform: `translateX(calc((100% + 8px) * ${selectedIndex}))`,
+          borderRadius: tokens.radius.card,
+          background: active?.soft ?? tokens.color.surface,
+          border: `1px solid ${active?.color ?? tokens.color.line}`,
+          boxShadow: "0 6px 16px rgba(27, 26, 23, 0.08)",
+          pointerEvents: "none"
+        }}
+      />
+      {stats.map((stat) => (
+        <ActionStatCard
+          key={stat.key}
+          filterKey={stat.key}
+          label={stat.label}
+          count={stat.count}
+          color={stat.color}
+          soft={stat.soft}
+          selected={selectedKey === stat.key}
+          onSelect={() => onSelect(stat.key)}
+        />
+      ))}
+    </div>
+  );
+}
+
 function ActionStatCard({
   filterKey,
   label,
@@ -2673,23 +2803,37 @@ function ActionStatCard({
     <button
       type="button"
       data-action-verdict-filter={filterKey}
+      data-verdict-tile="true"
       aria-pressed={selected}
       onClick={onSelect}
-      style={cardStyle({
-        padding: "10px 9px",
-        textAlign: "center",
+      style={{
+        position: "relative",
+        zIndex: 1,
+        display: "grid",
         gap: 3,
-        opacity: isZero && !selected ? 0.45 : 1,
-        borderColor: selected ? color : tokens.color.line,
-        background: selected ? soft : tokens.color.surface,
+        padding: "10px 9px",
+        placeItems: "center",
+        textAlign: "center",
+        borderRadius: tokens.radius.card,
+        border: "1px solid transparent",
+        background: "transparent",
+        opacity: isZero && !selected ? 0.5 : 1,
         cursor: "pointer",
         appearance: "none",
         font: "inherit"
-      })}
+      }}
     >
       <div style={{ fontSize: 11, fontWeight: isZero ? 600 : 800, color }}>{label}</div>
-      <div style={{ fontSize: 24, fontWeight: isZero ? 600 : 850, lineHeight: 1, color }}>{count}</div>
-      <div style={{ height: 3, borderRadius: 999, background: soft }} />
+      <div
+        data-verdict-tile-count="true"
+        style={{ display: "inline-block", fontSize: 24, fontWeight: isZero ? 600 : 850, lineHeight: 1, color }}
+      >
+        {count}
+      </div>
+      <div
+        data-verdict-tile-bar="true"
+        style={{ height: 3, width: "100%", borderRadius: 999, background: selected ? color : soft }}
+      />
     </button>
   );
 }
@@ -3396,20 +3540,7 @@ function ActionableInsightsBoard({
       </div>
       <section style={cardStyle({ gap: 12 })}>
         <div style={{ fontSize: 14, fontWeight: 850, color: tokens.color.ink }}>{analyses.length} 則訊號已評估</div>
-        <div style={{ display: "grid", gridTemplateColumns: "repeat(4, minmax(0, 1fr))", gap: 8 }}>
-          {stats.map((stat) => (
-            <ActionStatCard
-              key={stat.key}
-              filterKey={stat.key}
-              label={stat.label}
-              count={stat.count}
-              color={stat.color}
-              soft={stat.soft}
-              selected={selectedFilter === stat.key}
-              onSelect={() => setSelectedFilter(stat.key)}
-            />
-          ))}
-        </div>
+        <VerdictFilterTiles stats={stats} selectedKey={selectedFilter} onSelect={setSelectedFilter} />
       </section>
       <SavedExperimentsPanel feedback={agentTaskFeedback} analyses={analyses} />
       <section style={{ display: "grid", gap: 10 }}>

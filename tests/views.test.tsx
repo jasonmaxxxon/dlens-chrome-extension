@@ -1180,6 +1180,9 @@ test("ProductSignalView gives each product page a distinct information shape", (
   assert.doesNotMatch(actionableHtml, /data-dlens-product-motion/);
   assert.match(actionableHtml, /class="dlens-card-lift"/);
   assert.match(actionableHtml, /class="dlens-details-smooth"/);
+  assert.match(actionableHtml, /data-verdict-filter-tiles="true"/);
+  assert.match(actionableHtml, /data-verdict-filter-plate="true"/);
+  assert.match(actionableHtml, /data-verdict-tile-count="true"/);
   assert.match(actionableHtml, /data-dlens-motion-card="true"/);
   assert.match(actionableHtml, /data-dlens-smooth-details="true"/);
   // The exported CSS constant must include reduced-motion and grid-template-rows animation
@@ -1190,6 +1193,10 @@ test("ProductSignalView gives each product page a distinct information shape", (
   assert.match(DLENS_MOTION_CSS, /\[data-dlens-control="true"\] \[data-rail-icon\]/);
   assert.match(DLENS_MOTION_CSS, /\[data-dlens-control="true"\] \[data-bump-number="true"\]/);
   assert.match(DLENS_MOTION_CSS, /\[data-dlens-control="true"\] \[data-signal-reading-filed-flash="true"\]/);
+  assert.match(DLENS_MOTION_CSS, /\[data-dlens-control="true"\] \[data-verdict-filter-plate\]/);
+  assert.match(DLENS_MOTION_CSS, /\[data-dlens-control="true"\] \[data-verdict-tile-count\]/);
+  assert.match(DLENS_MOTION_CSS, /\[data-dlens-control="true"\] \[data-button-shimmer="true"\]/);
+  assert.match(DLENS_MOTION_CSS, /\[data-dlens-control="true"\] \[data-signal-reading-compose-flash="true"\]/);
   assert.doesNotMatch(DLENS_MOTION_CSS, /^\.dlens-card-lift/m);
 
   const secondSignal = {
@@ -2101,6 +2108,9 @@ test("ProductSignalView reviews signal readings before composing filed-only brie
   assert.match(html, /data-signal-reading-verdict-summary="true"/);
   assert.match(html, /data-action-verdict-filter="try"/);
   assert.match(html, /data-action-verdict-filter="watch"/);
+  assert.match(html, /data-verdict-filter-tiles="true"/);
+  assert.match(html, /data-verdict-filter-plate="true"/);
+  assert.match(html, /data-verdict-tile-count="true"/);
   assert.match(html, /data-signal-reading-review-list-filter="watch"/);
   assert.match(html, /data-signal-reading-marginalia="true"/);
   assert.match(html, /data-signal-reading-relevance-summary="true"/);

@@ -152,7 +152,10 @@ test("scan row primitive stays flat and line-separated", () => {
 
 test("shared button motion CSS is scoped to the extension root", () => {
   assert.match(DLENS_BUTTON_CSS, /\[data-dlens-control="true"\] \[data-dlens-button\]/);
+  assert.match(DLENS_BUTTON_CSS, /translateY\(-3px\)/);
+  assert.match(DLENS_BUTTON_CSS, /scale\(0\.93\)/);
   assert.match(DLENS_BUTTON_CSS, /prefers-reduced-motion/);
+  assert.match(DLENS_BUTTON_CSS, /animation: none !important/);
   assert.doesNotMatch(DLENS_BUTTON_CSS, /^\[data-dlens-button\]/m);
 });
 
@@ -168,7 +171,7 @@ test("WorkspaceShell masthead exposes the extension build version", () => {
     )
   );
 
-  assert.match(html, /v\.0\.1\.14/);
+  assert.match(html, /v\.0\.1\.15/);
   assert.match(html, /Folder: dlens-product-latest/);
   assert.match(html, /data-shell-frame="editorial"[^>]*align-items:start/);
   assert.match(html, /data-shell-header="workspace"[^>]*align-self:start/);
