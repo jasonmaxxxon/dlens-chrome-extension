@@ -2215,6 +2215,7 @@ function SignalReadingReviewWorkspace({
                 key={signal.id}
                 data-signal-reading-review-row="true"
                 data-signal-reading-filed-flash={recentlyFiledSignalId === signal.id ? "true" : undefined}
+                className={isActive ? undefined : "dlens-card-lift"}
                 style={{
                   border: `1px solid ${isActive ? (verdictMeta?.color || tokens.color.product) : tokens.color.cardEdge}`,
                   borderRadius: tokens.radius.card,
