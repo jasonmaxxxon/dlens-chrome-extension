@@ -2321,14 +2321,11 @@ function SignalReadingReviewWorkspace({
         </div>
       </section>
       <section
-        data-signal-reading-compose-flash={recentlyFiledSignalId ? "true" : undefined}
         style={{
           display: "grid",
           gap: 10,
           paddingTop: 4,
-          borderTop: `1px solid ${tokens.color.line}`,
-          borderRadius: tokens.radius.card,
-          animation: recentlyFiledSignalId ? tokens.motion.keyframes.successPulse : undefined
+          borderTop: `1px solid ${tokens.color.line}`
         }}
       >
         <div style={{ display: "flex", alignItems: "baseline", justifyContent: "space-between", gap: 12 }}>
@@ -2343,7 +2340,18 @@ function SignalReadingReviewWorkspace({
             到上方 §1 為至少一則判讀按下「收錄此判讀」，這裡才會生出可貼的 Brief。
           </div>
         ) : !composeOpen ? (
-          <div style={{ ...surfaceCardStyle(), padding: "12px 14px", display: "flex", alignItems: "center", gap: 12, overflow: "visible" }}>
+          <div
+            data-signal-reading-compose-flash={recentlyFiledSignalId ? "true" : undefined}
+            style={{
+              ...surfaceCardStyle(),
+              padding: "12px 14px",
+              display: "flex",
+              alignItems: "center",
+              gap: 12,
+              overflow: "visible",
+              animation: recentlyFiledSignalId ? tokens.motion.keyframes.successPulse : undefined
+            }}
+          >
             <div style={{ flex: 1, minWidth: 0, display: "grid", gap: 4 }}>
               <strong style={{ fontSize: 14, color: tokens.color.ink }}><BumpNumber value={filedReadings.length} /> approved → brief</strong>
               <span style={{ fontSize: 12, color: tokens.color.subInk, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
