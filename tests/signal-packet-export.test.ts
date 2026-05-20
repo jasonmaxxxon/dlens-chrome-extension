@@ -433,3 +433,218 @@ test("exportSignalPackets html renders safe inline markdown in visible reading t
   assert.doesNotMatch(result.content, /產品啟示是/);
   assert.doesNotMatch(result.content, /Decision trace/);
 });
+
+test("exportSignalPackets html renames cited evidence section and collapses beyond top 5", () => {
+  const base = makePacket();
+  const textEvidence = Array.from({ length: 7 }, (_, index) => ({
+    id: `comment-${index + 1}`,
+    ref: `e${index + 1}`,
+    author: `user${index + 1}`,
+    text: `留言 ${index + 1} 的文字內容。`,
+    likeCount: (7 - index) * 10
+  }));
+  const packet = makePacket({
+    evidence: { ...base.evidence, textEvidence },
+    judgment: {
+      ...base.judgment!,
+      evidenceRefs: textEvidence.map((entry) => entry.ref)
+    },
+    reading: {
+      latest: {
+        signalId: "signal-1",
+        cacheKey: "reading-collapse",
+        productContextHash: "ctx_1",
+        sourcePacketHash: "pkt_1",
+        promptVersion: "v9",
+        reading: "判讀文本。",
+        generatedAt: "2026-05-19T08:07:00.000Z",
+        model: "google:gemini-3.1-flash-lite-preview",
+        sourceRefs: textEvidence.map((entry) => entry.ref),
+        sourcePacket: {
+          assembledContent: "source",
+          postUrl: "",
+          representativeComments: [],
+          analysisPromptVersion: "v16"
+        },
+        reviewState: "filed",
+        feedbackEvents: []
+      },
+      filed: [],
+      all: []
+    }
+  });
+
+  const result = exportSignalPackets([packet], {
+    format: "html",
+    generatedAt: "2026-05-19T08:30:00.000Z"
+  });
+
+  // Renamed heading and aria-label
+  assert.match(result.content, /<h4>判讀輸入證據<\/h4>/);
+  assert.match(result.content, /aria-label="判讀輸入證據"/);
+  assert.doesNotMatch(result.content, /<h4>Cited evidence<\/h4>/);
+
+  // Collapse summary appears with the count of hidden refs (7 - 5 = 2)
+  assert.match(result.content, /data-evidence-collapse="cited"/);
+  assert.match(result.content, /展開其餘 2 則/);
+
+  // Top 5 (by likeCount desc) appear above the collapse summary,
+  // remaining 2 appear inside the collapsed body
+  const collapseStart = result.content.indexOf('data-evidence-collapse="cited"');
+  assert.ok(collapseStart > -1);
+  const headPortion = result.content.slice(0, collapseStart);
+  const tailPortion = result.content.slice(collapseStart);
+  // e1 has highest likeCount (70), e7 has lowest (10).
+  // Sorted desc: e1, e2, e3, e4, e5 are visible; e6, e7 are collapsed.
+  for (const ref of ["e1", "e2", "e3", "e4", "e5"]) {
+    assert.ok(headPortion.includes(`data-evidence-ref="${ref}"`), `${ref} should be in visible section`);
+  }
+  for (const ref of ["e6", "e7"]) {
+    assert.ok(tailPortion.includes(`data-evidence-ref="${ref}"`), `${ref} should be in collapsed section`);
+    assert.ok(!headPortion.includes(`data-evidence-ref="${ref}"`), `${ref} should not appear before collapse`);
+  }
+});
+
+test("exportSignalPackets html surfaces provenance strip with reading + analysis + model + counts", () => {
+  const base = makePacket();
+  const textEvidence = [
+    { id: "c1", ref: "e1", author: "alice", text: "first", likeCount: 12 },
+    { id: "c2", ref: "e2", author: "bob", text: "second", likeCount: 3 }
+  ];
+  const packet = makePacket({
+    evidence: { ...base.evidence, textEvidence },
+    judgment: { ...base.judgment!, evidenceRefs: ["e1", "e2"], promptVersion: "v16" },
+    source: { ...base.source, capturedAt: "2026-05-15T10:00:00.000Z" },
+    reading: {
+      latest: {
+        signalId: "signal-1",
+        cacheKey: "reading-prov",
+        productContextHash: "ctx_1",
+        sourcePacketHash: "pkt_1",
+        promptVersion: "v9",
+        reading: "判讀文本。",
+        generatedAt: "2026-05-19T08:07:00.000Z",
+        model: "google:gemini-3.1-flash-lite-preview",
+        sourceRefs: ["e1", "e2"],
+        sourcePacket: {
+          assembledContent: "source",
+          postUrl: "",
+          representativeComments: [],
+          analysisPromptVersion: "v16"
+        },
+        reviewState: "filed",
+        feedbackEvents: []
+      },
+      filed: [],
+      all: []
+    }
+  });
+
+  const result = exportSignalPackets([packet], {
+    format: "html",
+    generatedAt: "2026-05-19T08:30:00.000Z"
+  });
+
+  assert.match(result.content, /data-signal-provenance="true"/);
+  // Each provenance fragment present in order
+  assert.match(result.content, /判讀 v9 · 分析 v16 · Gemini Flash · 2 則留言 · max ♥12 · captured 2026-05-15/);
+});
+
+test("exportSignalPackets html catalog block also collapses beyond top 5", () => {
+  const base = makePacket();
+  const textEvidence = Array.from({ length: 8 }, (_, index) => ({
+    id: `c-${index + 1}`,
+    ref: `e${index + 1}`,
+    author: `u${index + 1}`,
+    text: `catalog item ${index + 1}`,
+    likeCount: (8 - index) * 2
+  }));
+  const packet = makePacket({
+    evidence: { ...base.evidence, textEvidence },
+    judgment: {
+      ...base.judgment!,
+      evidenceRefs: textEvidence.map((entry) => entry.ref)
+    },
+    reading: {
+      latest: {
+        signalId: "signal-1",
+        cacheKey: "reading-catalog",
+        productContextHash: "ctx_1",
+        sourcePacketHash: "pkt_1",
+        promptVersion: "v9",
+        reading: "判讀。",
+        generatedAt: "2026-05-19T08:07:00.000Z",
+        model: "google:gemini-3.1-flash-lite-preview",
+        sourceRefs: textEvidence.map((entry) => entry.ref),
+        sourcePacket: {
+          assembledContent: "source",
+          postUrl: "",
+          representativeComments: [],
+          analysisPromptVersion: "v16"
+        },
+        reviewState: "filed",
+        feedbackEvents: []
+      },
+      filed: [],
+      all: []
+    }
+  });
+
+  const result = exportSignalPackets([packet], {
+    format: "html",
+    generatedAt: "2026-05-19T08:30:00.000Z"
+  });
+
+  assert.match(result.content, /data-evidence-collapse="catalog"/);
+  // 8 entries, 5 visible, 3 collapsed
+  assert.match(result.content, /展開其餘 3 則/);
+});
+
+test("formatModelShortName fallback table covers Gemini/Claude/GPT and other providers", () => {
+  // Run via exportSignalPackets with different model identifiers to exercise the path
+  const base = makePacket();
+  const cases: Array<{ model: string; expected: string }> = [
+    { model: "google:gemini-3.1-flash-lite-preview", expected: "Gemini Flash" },
+    { model: "google:gemini-3.1-pro", expected: "Gemini Pro" },
+    { model: "anthropic:claude-sonnet-4.7", expected: "Claude Sonnet" },
+    { model: "anthropic:claude-opus-4", expected: "Claude Opus" },
+    { model: "openai:gpt-4o", expected: "GPT-4" },
+    { model: "mistral:mixtral-8x7b", expected: "Mixtral" }
+  ];
+  for (const { model, expected } of cases) {
+    const packet = makePacket({
+      reading: {
+        latest: {
+          signalId: "signal-1",
+          cacheKey: `reading-${model}`,
+          productContextHash: "ctx_1",
+          sourcePacketHash: "pkt_1",
+          promptVersion: "v9",
+          reading: "判讀。",
+          generatedAt: "2026-05-19T08:07:00.000Z",
+          model,
+          sourceRefs: ["e1"],
+          sourcePacket: {
+            assembledContent: "source",
+            postUrl: "",
+            representativeComments: [],
+            analysisPromptVersion: "v16"
+          },
+          reviewState: "filed",
+          feedbackEvents: []
+        },
+        filed: [],
+        all: []
+      },
+      judgment: { ...base.judgment!, evidenceRefs: ["e1"], promptVersion: "v16" }
+    });
+    const result = exportSignalPackets([packet], {
+      format: "html",
+      generatedAt: "2026-05-19T08:30:00.000Z"
+    });
+    assert.ok(
+      result.content.includes(expected),
+      `Expected ${expected} in provenance strip for model ${model}`
+    );
+  }
+});

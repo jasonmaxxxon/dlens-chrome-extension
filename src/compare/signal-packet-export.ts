@@ -607,6 +607,30 @@ function renderHtml(packets: DLensSignalPacket[], generatedAt: string): string {
       white-space: pre-wrap;
       overflow-wrap: anywhere;
     }
+    details.evidence-collapse {
+      margin-top: 6px;
+    }
+    details.evidence-collapse > summary {
+      cursor: pointer;
+      list-style: none;
+      font: 500 10px/1 var(--sans);
+      letter-spacing: 0.2em;
+      text-transform: uppercase;
+      color: var(--muted);
+      padding: 8px 0;
+      user-select: none;
+    }
+    details.evidence-collapse > summary::-webkit-details-marker { display: none; }
+    details.evidence-collapse > summary::before {
+      content: "▸ ";
+      display: inline-block;
+      margin-right: 4px;
+      transition: transform 120ms ease;
+    }
+    details.evidence-collapse[open] > summary::before { content: "▾ "; }
+    details.evidence-collapse > summary:hover { color: var(--accent); }
+    details.evidence-collapse[open] > summary { color: var(--ink-soft); }
+    details.evidence-collapse > .evidence-collapse-body { margin-top: 6px; }
     .source-link {
       display: inline-block;
       margin: 14px 0 0;
@@ -962,13 +986,60 @@ function renderHtmlInsightRow(packet: DLensSignalPacket): string {
       </aside>`;
 }
 
+const EVIDENCE_INLINE_VISIBLE_COUNT = 5;
+
+function sortEvidenceByLikes<T extends { likeCount?: number | null }>(entries: T[]): T[] {
+  return [...entries].sort((left, right) => {
+    const leftLikes = typeof left.likeCount === "number" && Number.isFinite(left.likeCount) ? left.likeCount : 0;
+    const rightLikes = typeof right.likeCount === "number" && Number.isFinite(right.likeCount) ? right.likeCount : 0;
+    return rightLikes - leftLikes;
+  });
+}
+
+function partitionForCollapse<T>(items: T[], visibleCount = EVIDENCE_INLINE_VISIBLE_COUNT): { visible: T[]; collapsed: T[] } {
+  if (items.length <= visibleCount) return { visible: items, collapsed: [] };
+  return { visible: items.slice(0, visibleCount), collapsed: items.slice(visibleCount) };
+}
+
+function maxLikeCount(entries: Array<{ likeCount?: number | null }>): number {
+  return entries.reduce((max, entry) => {
+    const likes = typeof entry.likeCount === "number" && Number.isFinite(entry.likeCount) ? entry.likeCount : 0;
+    return likes > max ? likes : max;
+  }, 0);
+}
+
+function formatModelShortName(model: string | null | undefined): string {
+  if (!model) return "";
+  const lower = model.toLowerCase();
+  if (lower.includes("gemini")) {
+    if (lower.includes("flash")) return "Gemini Flash";
+    if (lower.includes("pro")) return "Gemini Pro";
+    return "Gemini";
+  }
+  if (lower.includes("claude")) {
+    if (lower.includes("opus")) return "Claude Opus";
+    if (lower.includes("sonnet")) return "Claude Sonnet";
+    if (lower.includes("haiku")) return "Claude Haiku";
+    return "Claude";
+  }
+  if (lower.includes("gpt-4") || lower.includes("gpt4")) return "GPT-4";
+  if (lower.includes("gpt-3") || lower.includes("gpt3")) return "GPT-3";
+  if (lower.includes("gpt")) return "GPT";
+  const afterColon = model.includes(":") ? model.slice(model.indexOf(":") + 1) : model;
+  const firstSegment = afterColon.split(/[-\s/]/)[0] || "";
+  return firstSegment ? firstSegment.charAt(0).toUpperCase() + firstSegment.slice(1) : "";
+}
+
 function renderHtmlCitedEvidence(packet: DLensSignalPacket): string {
   const citedRefs = collectHtmlCitedEvidenceRefs(packet);
   if (!citedRefs.size) return "";
-  const evidenceEntries = packet.evidence.textEvidence.filter((entry) => citedRefs.has(entry.ref));
-  if (!evidenceEntries.length) return "";
+  const allEntries = packet.evidence.textEvidence.filter((entry) => citedRefs.has(entry.ref));
+  if (!allEntries.length) return "";
+  const sortedEntries = sortEvidenceByLikes(allEntries);
+  const { visible, collapsed } = partitionForCollapse(sortedEntries);
   const notesByRef = new Map((packet.judgment?.evidenceNotes ?? []).map((note) => [note.ref, note]));
-  const quotes = evidenceEntries.map((entry) => {
+
+  const renderQuote = (entry: typeof sortedEntries[number]): string => {
     const note = notesByRef.get(entry.ref);
     const likeFragment = entry.likeCount ? `<span>${entry.likeCount}♥</span>` : "";
     const authorFragment = entry.author ? `<span>@${escapeHtml(entry.author)}</span>` : "";
@@ -991,29 +1062,63 @@ function renderHtmlCitedEvidence(packet: DLensSignalPacket): string {
             <p class="quote-text">${escapeHtml(entry.text)}</p>
             ${noteHtml}
           </blockquote>`;
-  }).join("");
-  return `<section class="cited-evidence" aria-label="Cited evidence">
-          <h4>Cited evidence</h4>
-          ${quotes}
+  };
+
+  const visibleHtml = visible.map(renderQuote).join("");
+  const collapsedHtml = collapsed.length
+    ? `<details class="evidence-collapse" data-evidence-collapse="cited">
+            <summary>展開其餘 ${collapsed.length} 則</summary>
+            <div class="evidence-collapse-body">${collapsed.map(renderQuote).join("")}</div>
+          </details>`
+    : "";
+  return `<section class="cited-evidence" aria-label="判讀輸入證據">
+          <h4>判讀輸入證據</h4>
+          ${visibleHtml}
+          ${collapsedHtml}
         </section>`;
 }
 
 function renderHtmlSignalMeta(packet: DLensSignalPacket): string {
   const parts: string[] = [];
+  const readingVersion = packet.reading.latest?.promptVersion;
+  const analysisVersion = packet.judgment?.promptVersion;
+  const model = formatModelShortName(packet.reading.latest?.model ?? packet.judgment?.model ?? null);
+  const inputRefCount = packet.reading.latest?.sourceRefs?.length ?? 0;
+  const maxLikes = maxLikeCount(packet.evidence.textEvidence);
+
+  if (readingVersion) parts.push(`判讀 ${readingVersion}`);
+  if (analysisVersion) parts.push(`分析 ${analysisVersion}`);
+  if (model) parts.push(model);
+  if (inputRefCount) parts.push(`${inputRefCount} 則留言`);
+  if (maxLikes) parts.push(`max ♥${maxLikes}`);
   if (packet.source.capturedAt) parts.push(`captured ${packet.source.capturedAt.slice(0, 10)}`);
-  if (packet.reading.latest?.promptVersion) parts.push(`reading ${packet.reading.latest.promptVersion}`);
-  if (packet.judgment?.promptVersion) parts.push(`analysis ${packet.judgment.promptVersion}`);
+
   if (!parts.length) return "";
-  return `<p class="signal-meta">${escapeHtml(parts.join(" · "))}</p>`;
+  return `<p class="signal-meta" data-signal-provenance="true">${escapeHtml(parts.join(" · "))}</p>`;
 }
 
 function renderHtmlEvidence(packet: DLensSignalPacket): string {
   const citedRefs = collectHtmlCitedEvidenceRefs(packet);
-  const textEntries = packet.evidence.textEvidence.filter((entry) => citedRefs.has(entry.ref));
+  const textEntries = sortEvidenceByLikes(packet.evidence.textEvidence.filter((entry) => citedRefs.has(entry.ref)));
   const imageEntries = packet.evidence.imageEvidence.filter((entry) => citedRefs.has(entry.ref));
-  const textEvidence = textEntries.length
-    ? `<ul>${textEntries.map((entry) => `<li><strong>${escapeHtml(entry.ref)}</strong> ${escapeHtml(entry.author || "unknown")}: ${escapeHtml(entry.text)}</li>`).join("")}</ul>`
-    : `<p class="muted">No cited text evidence.</p>`;
+  const renderTextItem = (entry: typeof textEntries[number]): string =>
+    `<li><strong>${escapeHtml(entry.ref)}</strong> ${escapeHtml(entry.author || "unknown")}: ${escapeHtml(entry.text)}</li>`;
+
+  let textEvidence: string;
+  if (!textEntries.length) {
+    textEvidence = `<p class="muted">No cited text evidence.</p>`;
+  } else {
+    const { visible, collapsed } = partitionForCollapse(textEntries);
+    const visibleList = `<ul>${visible.map(renderTextItem).join("")}</ul>`;
+    const collapsedList = collapsed.length
+      ? `<details class="evidence-collapse" data-evidence-collapse="catalog">
+              <summary>展開其餘 ${collapsed.length} 則</summary>
+              <ul class="evidence-collapse-body">${collapsed.map(renderTextItem).join("")}</ul>
+            </details>`
+      : "";
+    textEvidence = `${visibleList}${collapsedList}`;
+  }
+
   const imageEvidence = imageEntries.length
     ? `<h4>Image evidence</h4><ul>${imageEntries.map((entry) => `<li><strong>${escapeHtml(entry.ref)}</strong> ${escapeHtml(entry.ocrText || entry.visualSummary || entry.sourceUrl || "No image text")}</li>`).join("")}</ul>`
     : "";
