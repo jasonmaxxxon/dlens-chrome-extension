@@ -6,7 +6,7 @@ type: project
 
 # DLens Extension Shared Context
 
-Last updated: 2026-05-19
+Last updated: 2026-05-20
 
 This note is the high-signal shared memory for Codex and Claude when working on `dlens-chrome-extension-v0`.
 
@@ -57,13 +57,16 @@ This note is the high-signal shared memory for Codex and Claude when working on 
 - Current verification: `469/469` tests, typecheck, build, and diff check passed from `/Users/tung/Desktop/dlens-product-latest`.
 - Verified build artifact was copied to `/Users/tung/Desktop/dlens-product-latest/output/chrome-mv3`; the source checkout there may still be dirty.
 
-## Version Rule As Of 2026-05-19
+## Version Rule As Of 2026-05-20
 
 - Current extension version: `0.1.17`.
 - Current verification: `469/469` tests, typecheck, build, and diff check passed from `/Users/tung/Desktop/dlens-product-latest`.
+- Release baseline main commit: `5548926 feature: signal packet export baseline v0.1.17`.
 - Motion Layer v2 is pure CSS/token-based and shared across modes; content-script CSS is scoped under `data-dlens-control="true"` and respects `prefers-reduced-motion`.
 - Motion Layer v2 adds Apple Music-style verdict filter sliding plates, stronger primary CTA/card deltas, loading shimmer, copy feedback, and filed-reading compose highlights without adding a motion dependency.
 - Signal Reading review text now uses a lighter lead-title + summary rhythm, and Product rail / candidate-action navigation can trigger on pointerdown to avoid live Chrome/Threads click swallowing.
+- SignalReading prompt version is now `v9`; representative comments cap at 15 and include analyzer refs plus top-liked replies.
+- Compare brief prompt version is now `v8`; `whyItMatters` should be one short consequence sentence, not a mini-essay.
 - Keep version synchronized across `package.json`, `package-lock.json`, `wxt.config.ts` `manifest.version`, and `src/ui/version.ts` `BUILD_VERSION`.
 - Chrome's extension page shows the built manifest version; the popup masthead shows `BUILD_VERSION`.
 - Every user-visible update pushed to `main` should bump the version unless the user explicitly says not to.
@@ -71,6 +74,15 @@ This note is the high-signal shared memory for Codex and Claude when working on 
 - Product signal removal uses `signal/delete` and must persist to storage: remove from `dlens:v1:signals`, clear topic membership and affected topic synthesis, delete the matching product analysis, clear session folder synthesis, and refresh product state.
 - Product mode `classification` is a valid product signal page. Keep it in `ALLOWED_PAGES.product`, `PRODUCT_SIGNAL_PAGES`, product width handling, and product data-effect routing so it does not fall back to `saved-signals`.
 - Marginalia right rail should not duplicate main prose: `對到` shows only a short reference category, TASK shows `agentTaskSpec.taskTitle`, and `contentSummary` / `experimentHint` remain in the main column.
+
+## Signal Packet Export As Of 2026-05-20
+
+- `src/compare/signal-packet.ts` builds `DLensSignalPacket` records from storage and read models.
+- `src/compare/signal-packet-export.ts` renders HTML, Markdown, and JSONL.
+- Background message seams: `signal-packet/get`, `signal-packet/index`, `signal-packet/export`.
+- Packet version is `v3`; prefer additive JSONL semantic clarifications over `packetVersion` bumps unless existing reader semantics break.
+- HTML is for human reading; JSONL is for agent handoff. Do not dump raw `decisionTrace` into HTML.
+- Known next fixes: rename/limit HTML cited evidence, add provenance strip, add `citedInReadingRefs`, clarify latest vs superseded readings, and investigate root `source.pageUrl` fallback before changing capture code.
 
 ## PR Evidence Mode As Of 2026-05-07
 
@@ -110,7 +122,7 @@ This note is the high-signal shared memory for Codex and Claude when working on 
 
 ## Current Known Priorities
 
-- Split growing popup/background orchestration before adding digest/watch-mode work. `background.ts` is now 2341 lines and `useInPageCollectorAppState.ts` is now 1041 lines.
+- Split growing popup/background orchestration before adding digest/watch-mode work. `background.ts` is now 2668 lines and `useInPageCollectorAppState.ts` is now 1380 lines.
 - Improve hover debounce and clear stale overlay state on SPA route changes.
 - Add better honest loading states for crawl / analysis / compare waits.
 - Keep compare cluster matching skepticism high because pairing is still rank-driven.

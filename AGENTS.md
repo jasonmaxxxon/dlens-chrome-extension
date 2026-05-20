@@ -1,6 +1,6 @@
 # AGENTS.md — DLens Chrome Extension v0.1
 
-> **Last updated:** 2026-05-19 (Signal Reading typography + route tap fix + version 0.1.17 — 469/469 tests, typecheck, build)
+> **Last updated:** 2026-05-20 (Signal packet export baseline + version 0.1.17 on main — 469/469 tests, typecheck, build)
 > **For:** any agent continuing work in this repo
 
 ## Process Rules (locked 2026-04-17)
@@ -60,6 +60,7 @@ npx tsx --test tests/*.test.ts tests/*.test.tsx
 - Layout preferences are live in Settings and persisted under `ExtensionSettings.layoutPreferences`: Product signal card (`verdict` / `marginalia`, default `marginalia`), Topic synthesis (`stack` / `console`, default `console`), and Compare result (`reading` / `parallel` / `chapters`, default `parallel`)
 - Product signal cards support both Verdict and Marginalia layouts in `ActionableItemCard`; keep `reusable_pattern` as the card headline, cited evidence visible, and `experimentHint` / `agentTaskSpec` in the task slot
 - Product Agent Brief uses `SignalReading` records as a local corpus: generate free-text readings on demand, review them, file useful readings, and compose filed-only Markdown for coding agents
+- Signal Packet export is live for Product sessions: background can build per-signal packets and export HTML/JSONL through `src/compare/signal-packet.ts` and `src/compare/signal-packet-export.ts`; packets include source, evidence, judgment, ProductContext, readings, feedback timeline, agent handoff, topic context, and `decisionTrace`.
 - Signal Reading review cards keep a compact Marginalia signal strip (`verdict`, `referenceType`, `relevance`) inside the active card so the reading workflow does not lose product-signal density
 - Marginalia is the simplified default Product signal card: no verdict in the eyebrow, no FOOTNOTES header, no repeated bottom AI experiment/judgment detail panels, and flat label-stacked workflow evidence rows. Verdict keeps the boxed evidence/detail treatment.
 - Product classification list rows stay scan-first: no relevance dots, and `最新在前` only appears when the selected type group has at least two signals.
@@ -121,7 +122,7 @@ npx tsx --test tests/*.test.ts tests/*.test.tsx
 - the next Compare presentation pass is constrained by `docs/product/2026-04-03-compare-frontend-brief.md`: presentation-only, fewer cards, stronger bubble hierarchy, and a single selected-cluster dock; it must not redefine backend semantics or cluster logic
 - the current product-shape recovery note is `docs/product/2026-04-04-two-page-product-plan.md`: `Compare` is the fast decision-entry page, `Technique / Evidence` is the deeper reading page for tactic-like interpretation, and `Library` should evolve toward a casebook of saved evidence / techniques rather than a post tray
 - the 2026-04-06 acceptance notes are now folded into `docs/product/2026-04-04-two-page-product-plan.md`: if clusters like `航班調整影響` and `香港快運航班調整` split apart, treat that as backend merge/pairing quality, not a Compare-only bug; audience-evidence metrics now use a shared four-icon row; `Technique / Evidence` now uses Chinese-first cards rather than English placeholder rows
-- **Observation-first compare contract (2026-04-20)**: `CompareBrief` now includes `relation` alongside `headline`, `supportingObservations[]`, `aReading`/`bReading`, `whyItMatters`, `creatorCue`, and `confidence`; evidence catalog remains `e1..eN` alias-based; uncited observations/readings are still rejected at parse; brief prompt version is `v7`; `relation` is extension-owned presentation synthesis, not backend cluster truth.
+- **Observation-first compare contract (2026-04-20, prompt v8 as of 2026-05-20)**: `CompareBrief` includes `relation` alongside `headline`, `supportingObservations[]`, `aReading`/`bReading`, `whyItMatters`, `creatorCue`, and `confidence`; evidence catalog remains `e1..eN` alias-based; uncited observations/readings are still rejected at parse; `whyItMatters` is constrained to one short consequence sentence; `relation` is extension-owned presentation synthesis, not backend cluster truth.
 - **Evidence annotation layer (2026-04-14)**: third analysis tier targeting individual quotes (not clusters); `src/compare/evidence-annotation.ts` defines `EvidenceAnnotation` (`writerMeaning` / `discussionFunction` / `whyEffective` / `relationToCluster` / `phraseMarks`); max 4 quotes per compare call; background handles `compare/get-evidence-annotations` with cache + per-quote deterministic fallback; `CompareView` loads annotation map after cluster summaries resolve and threads it to `DictionaryCard` plus selected-cluster evidence detail rows, which now show `（尚未個別分析此留言）` instead of fabricated prose when no annotation exists; prompt version `v1`
 - **Editorial shell pass (2026-04-20)**: popup IA now uses a masthead + left rail shell; `Collect` is back as a primary mode, `Settings` keeps utility-drawer behavior, and `Result` stays the dedicated contextual reading route with hybrid landing (`active result -> newest saved analysis -> empty state`)
 - saved analyses now persist in `chrome.storage.local` under `dlens:v1:saved-analyses`; tab UI state now tracks `currentMainPage`, `activeCompareDraft`, `activeAnalysisResult`, and `lastViewedResultId`
@@ -307,17 +308,27 @@ Every user-visible update that is pushed to `main` should bump the extension ver
 
 The Chrome extension page shows `manifest.version`; the popup masthead shows `BUILD_VERSION`. `tests/manifest-config.test.ts` locks package / manifest / UI version consistency. After a version bump, run typecheck, tests, build, and copy the verified build to `/Users/tung/Desktop/dlens-product-latest/output/chrome-mv3` if that is the active load-unpacked folder.
 
-## Signal Reading Review State (2026-05-18)
+## Signal Reading Review State (2026-05-20)
 
 Product Agent Brief now has a local reading-corpus layer:
 
-- `src/compare/signal-reading.ts` builds free-text SignalReading prompts and source packet hashes; prompt version is `v1`.
+- `src/compare/signal-reading.ts` builds free-text SignalReading prompts and source packet hashes; prompt version is `v9`.
+- `SIGNAL_READING_EVIDENCE_CAP` is 15; representative refs now union analyzer refs with top-liked replies, preserving like counts in the stored source packet and source-packet hash.
 - `src/compare/signal-reading-storage.ts` stores `SignalReading[]` at `dlens:v1:signal-readings`, with `model`, `sourceRefs`, trimmed `sourcePacket`, `reviewState`, and append-only `feedbackEvents`.
 - `product/synthesize-signal-reading` supports `force: true` to regenerate stale or legacy readings instead of returning the cache hit.
 - `product/list-signal-readings` returns readings for the UI to match against current saved signals by `signalId`; review actions target `cacheKey`.
 - `product/review-signal-reading` appends a review event and sets `reviewState` atomically.
 - `src/compare/signal-reading-brief.ts` owns the filed-only gate. Brief output must only use readings where `reviewState === "filed"`; stale filed readings are allowed but marked.
 - `ProductSignalViews.tsx` owns the Review → Compose UI and must not duplicate the filed-only filter outside the shared pure module.
+
+## Signal Packet Export State (2026-05-20)
+
+- `src/compare/signal-packet.ts` builds `DLensSignalPacket` records from storage without asking the backend to recompute anything.
+- `DLENS_SIGNAL_PACKET_VERSION` is `v3`; keep new JSONL fields additive unless a reader-breaking semantic change is unavoidable.
+- Background messages are wired: `signal-packet/get`, `signal-packet/index`, and `signal-packet/export`.
+- HTML export is a human reading surface; JSONL export is the agent handoff surface. HTML must not expose `decisionTrace` as raw reasoning text.
+- Packet output includes source provenance, top-level text evidence, latest/filed/all readings, feedback timeline, agent handoff, topic context, and `decisionTrace`.
+- Current known review items for the next HTML/JSONL sprint: rename/limit HTML cited evidence, add provenance strip, add true `citedInReadingRefs`, clarify superseded readings, and investigate root `source.pageUrl` fallback before changing capture paths.
 
 ## PR Evidence Mode V1 State (2026-05-07)
 
@@ -393,9 +404,9 @@ This was a major product-direction change. Summary for any agent picking up here
 | `src/state/types.ts` | Added `FolderMode`, `Topic`, `Signal`, `TopicStatus`, `SignalSource`, `SignalInboxStatus`; added `mode` to `SessionRecord`; expanded `MainPage` to include `'casebook' | 'inbox'` |
 | `src/state/messages.ts` | Added `topic/*`, `signal/*`, `session/set-mode`, `TriageAction` |
 | `src/state/store-helpers.ts` | `normalizeSessionRecord` defaults `mode` to `'topic'` for legacy sessions |
-| `entrypoints/background.ts` | 1394 → 1986 lines in Slice A-B; now 2341 lines after Product + PR handlers; split before more growth |
+| `entrypoints/background.ts` | 1394 → 1986 lines in Slice A-B; now 2668 lines after Product + PR + Signal Packet handlers; split before more growth |
 | `src/ui/InPageCollectorPopup.tsx` | Mode guard (`ALLOWED_PAGES` + `guardPage`); casebook + inbox + topic detail + PR routing |
-| `src/ui/useInPageCollectorAppState.ts` | 712 → 905 lines after `useTopicState` extraction; now 1041 lines after Product + PR orchestration |
+| `src/ui/useInPageCollectorAppState.ts` | 712 → 905 lines after `useTopicState` extraction; now 1380 lines after Product + PR + export orchestration |
 | `src/ui/CompareView.tsx` | Breadcrumb + "附加至案例" button for topic context |
 | `src/ui/CollectView.tsx` | Save toast changes to "已加入收件匣" in topic/product mode |
 | `src/ui/SettingsView.tsx` | Folder mode selector + ProductProfile form (product mode only) |
@@ -413,8 +424,8 @@ npm run typecheck && npx tsx --test tests/*.test.ts tests/*.test.tsx
 
 ### Watch items for next agent
 
-1. `background.ts` is at 2341 lines — split product/topic/PR handlers before adding signal digest or watch mode.
-2. `useInPageCollectorAppState.ts` is at 1041 lines — continue extraction before adding more product or PR routes.
+1. `background.ts` is at 2668 lines — split product/topic/PR/export handlers before adding signal digest or watch mode.
+2. `useInPageCollectorAppState.ts` is at 1380 lines — continue extraction before adding more product, PR, or export routes.
 3. Backend ThreadReadModel OP continuation quality is the Product mode P0 dependency.
 4. Product mode is live; Settings + imported product context are the entry point.
 5. Product UI should stay insight-first and evidence-first, not cluster-first.

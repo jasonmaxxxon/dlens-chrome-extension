@@ -1,6 +1,6 @@
 # Current State
 
-## System State As Of 2026-05-19
+## System State As Of 2026-05-20
 
 DLens is now best described as a **desktop-first Threads research, product-signal, and PR evidence extension**.
 
@@ -51,11 +51,19 @@ The current product split is:
    - verified clean-main build output was copied to `/Users/tung/Desktop/dlens-product-latest/output/chrome-mv3` for Chrome load-unpacked use
 
 6. Signal Reading Review surface
-   - `src/compare/signal-reading.ts` builds the free-text reading prompt and source packet identity; prompt version is `v1`
+   - `src/compare/signal-reading.ts` builds the free-text reading prompt and source packet identity; prompt version is `v9`
+   - representative comments use `SIGNAL_READING_EVIDENCE_CAP = 15`, union analyzer refs with top-liked replies, and preserve like counts in the stored source packet
    - `src/compare/signal-reading-storage.ts` stores `SignalReading` rows at `dlens:v1:signal-readings`
    - each row keeps provenance (`model`, `sourceRefs`, trimmed `sourcePacket`), `reviewState`, and append-only `feedbackEvents`
    - `product/review-signal-reading` updates `reviewState` atomically with a feedback event
    - `src/compare/signal-reading-brief.ts` is the single filed-only gate: only `reviewState === "filed"` readings enter the Agent Brief output
+
+7. Signal Packet export surface
+   - `src/compare/signal-packet.ts` builds `DLensSignalPacket` records from local storage, existing ProductSignalAnalysis rows, SignalReading rows, topics, and feedback
+   - `src/compare/signal-packet-export.ts` renders JSONL, Markdown, and HTML exports
+   - background messages are wired: `signal-packet/get`, `signal-packet/index`, and `signal-packet/export`
+   - JSONL is the agent handoff surface; HTML is the human reading surface and deliberately hides raw `decisionTrace`
+   - `DLENS_SIGNAL_PACKET_VERSION` is `v3`; keep upcoming JSONL semantic clarifications additive unless a breaking reader change is truly required
 
 The verified build in the active Phase B implementation worktree is:
 
@@ -67,8 +75,9 @@ The verified build in the active Phase B implementation worktree is:
 - backend physical checkout: `/Users/tung/Desktop/dlens-backend/dlens-ingest-core`
 - old versions and historical worktrees: `/Users/tung/Desktop/dlens-old`
 - verification: `npm run typecheck`, `npx tsx --test tests/*.test.ts tests/*.test.tsx`, and `npm run build`
-- latest full test count after Signal Reading typography + route tap fix: `469 pass, 0 fail`
+- latest full test count after Signal Packet export baseline: `469 pass, 0 fail`
 - latest build output was mirrored to `/Users/tung/Desktop/dlens-product-latest/output/chrome-mv3`
+- release baseline main commit: `5548926 feature: signal packet export baseline v0.1.17`
 - live backend smoke from the prior product run: `GET http://127.0.0.1:8000/worker/status` returned `{"status":"idle"}`
 - extension manifest name is `DLens v3`; current extension version is `0.1.17`
 - version is locked across `package.json`, `package-lock.json`, `wxt.config.ts` `manifest.version`, and `src/ui/version.ts` `BUILD_VERSION`
@@ -252,7 +261,7 @@ The verified runtime path remains:
 Latest branch-state confirmations:
 
 - backend capture requests still forward `client_context.folder_name`
-- compare brief prompt version is now `v7`
+- compare brief prompt version is now `v8`
 - extension-side compare brief now includes `relation`
 - Result hero now shows both the relation framing and a compact confidence label
 - Result why card now renders both A and B side readings when both are present
@@ -338,8 +347,8 @@ The extension may present backend output more clearly, but it should not fabrica
 - Product mode should not leak folder concept into user-facing workflow
 - compare cluster pairing is still rank-based, not semantic
 - no canonical semantic axis / constellation data exists yet in the backend contract
-- `useInPageCollectorAppState.ts` is still a large popup orchestration hub at 1041 lines
-- `background.ts` is still large at 2341 lines and should be split before signal digest / watch mode grows background behavior
+- `useInPageCollectorAppState.ts` is still a large popup orchestration hub at 1380 lines
+- `background.ts` is still large at 2668 lines and should be split before signal digest / watch mode grows background behavior
 - full build/test verification in some local environments may still hit the existing `rolldown` native binding issue in `tests/manifest-config.test.ts`; this is an environment/runtime problem, not product behavior
 
 ## What Not To Revisit
