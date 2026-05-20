@@ -26,6 +26,8 @@ import type { TargetDescriptor } from "../contracts/target-descriptor";
 import type { ExtensionSnapshot, HoverCandidateStrength, PopupPage } from "./types";
 import type { WorkerStatus } from "./processing-state";
 import type { PrCampaign, PrCriterion, PrEvidenceRow } from "./pr-evidence-storage";
+import type { DLensSignalPacket, SignalPacketIndexFilter } from "../compare/signal-packet";
+import type { SignalPacketExportFormat, SignalPacketExportResult } from "../compare/signal-packet-export";
 
 export type ExtensionMessage =
   | { type: "state/get-active-tab" }
@@ -94,6 +96,9 @@ export type ExtensionMessage =
   | { type: "product/synthesize-signal-reading"; signalId: string; sessionId: string; force?: boolean }
   | { type: "product/list-signal-readings" }
   | { type: "product/review-signal-reading"; cacheKey: string; decision: "filed" | "deferred" | "rejected"; note?: string }
+  | { type: "signal-packet/get"; signalId: string }
+  | { type: "signal-packet/index"; filter?: SignalPacketIndexFilter }
+  | { type: "signal-packet/export"; format: SignalPacketExportFormat; filter?: SignalPacketIndexFilter }
   | { type: "pr/list-campaigns"; sessionId: string }
   | { type: "pr/save-campaign"; campaign: PrCampaign }
   | { type: "pr/list-evidence-rows"; campaignId: string }
@@ -134,6 +139,9 @@ export type ExtensionSuccessResponse = {
   productAgentTaskFeedback?: ProductAgentTaskFeedback[];
   signalReading?: SignalReading | null;
   signalReadings?: SignalReading[];
+  signalPacket?: DLensSignalPacket | null;
+  signalPackets?: DLensSignalPacket[];
+  signalPacketExport?: SignalPacketExportResult;
   productSignalAnalysisSummary?: {
     queued: number;
     analyzed: number;

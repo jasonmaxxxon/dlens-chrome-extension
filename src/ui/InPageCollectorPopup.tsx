@@ -30,6 +30,13 @@ function shouldShowProcessingContextStrip(folderMode: string, page: PopupPage): 
 export function InPageCollectorPopup({ app }: { app: InPageCollectorAppModel }) {
   const { snapshot, page, popupOpen, activeFolder, resultItemA, resultItemB } = app;
   const activeFolderMode = activeFolder?.mode ?? "archive";
+  const productExportFolders = (snapshot?.global.sessions ?? [])
+    .filter((session) => session.mode === "product")
+    .map((session) => ({
+      id: session.id,
+      name: session.name,
+      itemCount: session.items.length
+    }));
   type RailMode = Exclude<MainPage, "result">;
   const guardedPage = page as PopupPage;
   const guardedPrimaryMode: RailMode | null = guardedPage === "settings" || guardedPage === "result" ? null : guardedPage as RailMode;
@@ -261,6 +268,8 @@ export function InPageCollectorPopup({ app }: { app: InPageCollectorAppModel }) 
                 kind={guardedPage}
                 signals={app.signals}
                 analyses={app.productSignalAnalyses}
+                activeFolderId={activeFolder?.id}
+                exportFolders={productExportFolders}
                 historicalAnalyses={app.historicalProductSignalAnalyses}
                 agentTaskFeedback={app.productAgentTaskFeedback}
                 signalReadings={app.signalReadings}
@@ -277,6 +286,7 @@ export function InPageCollectorPopup({ app }: { app: InPageCollectorAppModel }) 
                 onAnalyze={() => void app.onAnalyzeProductSignals()}
                 onSynthesizeSignalReading={app.onSynthesizeSignalReading}
                 onReviewSignalReading={app.onReviewSignalReading}
+                onExportSignalPackets={app.onExportSignalPackets}
                 onGoToActionable={() => void app.onNavigate("actionable-filter")}
                 onRemoveSignal={(signalId) => void app.onRemoveProductSignal(signalId)}
               />

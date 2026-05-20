@@ -106,6 +106,10 @@ test("buildCompareBriefPrompt uses structured format with evidence catalog and n
   // Length constraints
   assert.match(prompt, /28 個中文字以內/);
   assert.match(prompt, /24 個中文字以內/);
+  assert.match(prompt, /why_it_matters: <=60字/);
+  assert.match(prompt, /單句說兩邊差異對讀者的具體後果/);
+  assert.match(prompt, /禁用「值得注意」「意味著」「反映出」/);
+  assert.doesNotMatch(prompt, /why_it_matters: 這兩邊差異對讀者意味著什麼/);
 });
 
 test("parseCompareBriefResponse accepts the new observation-first contract", () => {

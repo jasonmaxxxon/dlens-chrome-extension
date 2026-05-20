@@ -62,7 +62,8 @@ function normalizeSourcePacket(value: unknown): SignalReadingSourcePacket {
         return {
           ref,
           author: typeof comment.author === "string" ? comment.author : "",
-          text: typeof comment.text === "string" ? comment.text : ""
+          text: typeof comment.text === "string" ? comment.text : "",
+          likeCount: typeof comment.likeCount === "number" && Number.isFinite(comment.likeCount) ? comment.likeCount : null
         };
       })
       .filter((comment): comment is SignalReadingComment => comment !== null),

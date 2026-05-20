@@ -1,4 +1,4 @@
-import type { CSSProperties, ReactNode } from "react";
+import type { CSSProperties, MouseEvent, PointerEvent, ReactNode } from "react";
 
 import type { TargetDescriptor } from "../contracts/target-descriptor.ts";
 import type { WorkerStatus, WorkspaceMode } from "../state/processing-state.ts";
@@ -617,13 +617,26 @@ export function ModeRailButton({
   const isTool = tier === "tool";
   const inactiveColor = isTool ? tokens.color.softInk : tokens.color.subInk;
   const showBadge = typeof badgeCount === "number" && badgeCount > 0;
+  const handleSelect = () => onSelect(mode);
+  const handlePointerDown = (event: PointerEvent<HTMLButtonElement>) => {
+    if (event.button !== 0) {
+      return;
+    }
+    handleSelect();
+  };
+  const handleClick = (event: MouseEvent<HTMLButtonElement>) => {
+    if (event.detail === 0) {
+      handleSelect();
+    }
+  };
   return (
     <button
       data-mode={mode}
       data-mode-active={active ? "true" : "false"}
       data-mode-tier={tier}
       data-mode-style="rail"
-      onClick={() => onSelect(mode)}
+      onPointerDown={handlePointerDown}
+      onClick={handleClick}
       style={{
         position: "relative",
         width: "100%",
@@ -940,17 +953,32 @@ export function PrimaryButton({
   children,
   onClick,
   disabled,
-  style
+  style,
+  activateOnPointerDown = false
 }: {
   children: ReactNode;
   onClick: () => void;
   disabled?: boolean;
   style?: CSSProperties;
+  activateOnPointerDown?: boolean;
 }) {
+  const handlePointerDown = (event: PointerEvent<HTMLButtonElement>) => {
+    if (!activateOnPointerDown || disabled || event.button !== 0) {
+      return;
+    }
+    onClick();
+  };
+  const handleClick = (event: MouseEvent<HTMLButtonElement>) => {
+    if (activateOnPointerDown && event.detail !== 0) {
+      return;
+    }
+    onClick();
+  };
   return (
     <button
       data-dlens-button="primary"
-      onClick={onClick}
+      onPointerDown={handlePointerDown}
+      onClick={handleClick}
       disabled={disabled}
       style={{
         border: "none",

@@ -64,6 +64,8 @@ import {
   saveProductSignalAnalysis
 } from "../src/compare/product-signal-storage";
 import { listProductAgentTaskFeedback, saveProductAgentTaskFeedback } from "../src/compare/product-agent-task-feedback";
+import { buildDLensSignalPacket, buildSignalPacketIndex } from "../src/compare/signal-packet";
+import { exportSignalPackets } from "../src/compare/signal-packet-export";
 import { buildProductSignalPreferenceExamples } from "../src/compare/product-signal-history";
 import {
   COMPARE_CLUSTER_SUMMARY_PROMPT_VERSION,
@@ -83,6 +85,7 @@ import {
 } from "../src/compare/provider";
 import {
   buildExistingAnalysisSummary,
+  selectSignalReadingRepresentativeRefs,
   buildSourcePacketHash,
   buildStoredSourcePacket,
   SIGNAL_READING_PROMPT_VERSION,
@@ -2157,16 +2160,14 @@ export default defineBackground(() => {
             }
             const analysis = await getProductSignalAnalysis(chrome.storage.local, signal.id);
             const replies = analyzerInput.discussionReplies;
-            const repRefs = analysis?.evidenceRefs?.length
-              ? analysis.evidenceRefs
-              : replies.slice(0, 5).map((_, index) => `e${index + 1}`);
+            const repRefs = selectSignalReadingRepresentativeRefs(replies, analysis?.evidenceRefs ?? []);
             const representativeComments = repRefs
               .map((ref) => {
                 const index = Number(ref.replace(/^e/, "")) - 1;
                 const reply = replies[index];
-                return reply ? { ref, author: reply.author, text: reply.text } : null;
+                return reply ? { ref, author: reply.author, text: reply.text, likeCount: reply.likeCount ?? null } : null;
               })
-              .filter((comment): comment is { ref: string; author: string; text: string } => comment !== null);
+              .filter((comment): comment is { ref: string; author: string; text: string; likeCount: number | null } => comment !== null);
             const readingInput: SignalReadingInput = {
               signalId: signal.id,
               assembledContent: analyzerInput.assembledContent,
@@ -2227,6 +2228,28 @@ export default defineBackground(() => {
             const tabId = await resolveTabId(sender);
             const signalReadings = await listSignalReadings(chrome.storage.local);
             sendResponse({ ok: true, tabId, signalReadings } satisfies ExtensionResponse);
+            return;
+          }
+          case "signal-packet/get": {
+            const tabId = await resolveTabId(sender);
+            const current = await loadSnapshot(tabId);
+            const signalPacket = await buildDLensSignalPacket(chrome.storage.local, current.global, message.signalId);
+            sendResponse({ ok: true, tabId, signalPacket } satisfies ExtensionResponse);
+            return;
+          }
+          case "signal-packet/index": {
+            const tabId = await resolveTabId(sender);
+            const current = await loadSnapshot(tabId);
+            const signalPackets = await buildSignalPacketIndex(chrome.storage.local, current.global, message.filter);
+            sendResponse({ ok: true, tabId, signalPackets } satisfies ExtensionResponse);
+            return;
+          }
+          case "signal-packet/export": {
+            const tabId = await resolveTabId(sender);
+            const current = await loadSnapshot(tabId);
+            const signalPackets = await buildSignalPacketIndex(chrome.storage.local, current.global, message.filter);
+            const signalPacketExport = exportSignalPackets(signalPackets, { format: message.format, filter: message.filter });
+            sendResponse({ ok: true, tabId, signalPacketExport } satisfies ExtensionResponse);
             return;
           }
           case "product/review-signal-reading": {

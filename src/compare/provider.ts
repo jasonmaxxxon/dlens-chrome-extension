@@ -46,7 +46,7 @@ import {
 import type { PrCampaign, PrCriteriaMatches, PrEvidenceRow } from "../state/pr-evidence-storage.ts";
 import type { JudgmentResult, ProductProfile, ProductSignalAnalysis } from "../state/types.ts";
 
-export const COMPARE_BRIEF_PROMPT_VERSION = "v7";
+export const COMPARE_BRIEF_PROMPT_VERSION = "v8";
 export const COMPARE_ONE_LINER_PROMPT_VERSION = "v2";
 export const COMPARE_CLUSTER_SUMMARY_PROMPT_VERSION = "v3";
 export const COMPARE_EVIDENCE_ANNOTATION_PROMPT_VERSION = "v1";
@@ -621,8 +621,10 @@ export async function generateProductSignalAnalysis(
   const prompt = buildProductSignalAnalyzerPrompt(request);
   const system = "你是產品訊號分析助手。只回傳 JSON，不要加任何解釋。";
   let raw = "";
+  let model = "";
 
   if (provider === "google") {
+    model = `google:${GOOGLE_COMPARE_MODEL}`;
     const response = await fetchWithRetry(
       "Google",
       `https://generativelanguage.googleapis.com/v1beta/models/${GOOGLE_COMPARE_MODEL}:generateContent?key=${apiKey}`,
@@ -637,6 +639,7 @@ export async function generateProductSignalAnalysis(
     }
     raw = readGoogleContent(await response.json());
   } else if (provider === "openai") {
+    model = `openai:${OPENAI_COMPARE_MODEL}`;
     const response = await fetchWithRetry("OpenAI", "https://api.openai.com/v1/chat/completions", {
       method: "POST",
       headers: {
@@ -650,6 +653,7 @@ export async function generateProductSignalAnalysis(
     }
     raw = readOpenAiContent(await response.json());
   } else {
+    model = `claude:${CLAUDE_COMPARE_MODEL}`;
     const response = await fetchWithRetry("Claude", "https://api.anthropic.com/v1/messages", {
       method: "POST",
       headers: {
@@ -669,7 +673,7 @@ export async function generateProductSignalAnalysis(
   if (!parsed) {
     throw new Error("Invalid product signal analysis payload");
   }
-  return parsed;
+  return { ...parsed, model };
 }
 
 export async function generateSignalReading(

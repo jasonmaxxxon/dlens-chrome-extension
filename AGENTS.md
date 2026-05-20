@@ -1,6 +1,6 @@
 # AGENTS.md — DLens Chrome Extension v0.1
 
-> **Last updated:** 2026-05-19 (Motion Layer v2 + version 0.1.15 on main — 453/453 tests, typecheck, build)
+> **Last updated:** 2026-05-19 (Signal Reading typography + route tap fix + version 0.1.17 — 469/469 tests, typecheck, build)
 > **For:** any agent continuing work in this repo
 
 ## Process Rules (locked 2026-04-17)
@@ -98,7 +98,7 @@ npx tsx --test tests/*.test.ts tests/*.test.tsx
 - compact post headers replace old verbose post cards
 - Library selected-post raw comments cap at 10 by default and label truncation as `Comments (10/N)`
 - top comments collapsed by default with expand toggle
-- client-side compare summaries using the user's Google (Gemini 2.0 Flash), OpenAI, or Claude key; Google is the default provider
+- client-side compare summaries using the user's Google (Gemini 3.1 Flash Lite), OpenAI, or Claude key; Google is the default provider
 - per-cluster AI summaries use the same local provider/key; invalid or failed model responses fall back to deterministic cluster copy
 - manifest host permission for Google Generative Language API is present so Gemini compare requests can execute from the background worker
 - MV3 wake recovery and retry-on-connection-loss behavior
@@ -282,7 +282,7 @@ Important implementation points:
 - `SettingsView.tsx` owns the three user-facing layout controls.
 - `InPageCollectorPopup.tsx` threads persisted layout settings into Product signal cards, Topic synthesis, and Compare Result.
 - `TopicSynthesis` and `FolderSynthesis` are deterministic display layers over analyzed signals. They use `src/compare/work-signal-lens.ts`; they do not replace backend clustering.
-- Current verification was run from `/Users/tung/Desktop/dlens-product-latest`: `453/453` tests, `npm run typecheck`, `npm run build`, and `git diff --check` passed.
+- Current verification was run from `/Users/tung/Desktop/dlens-product-latest`: `469/469` tests, `npm run typecheck`, `npm run build`, and `git diff --check` passed.
 - The verified unpacked build was copied to `/Users/tung/Desktop/dlens-product-latest/output/chrome-mv3` for Chrome load-unpacked use.
 - `/Users/tung/Desktop/dlens-product-latest` source checkout may be dirty; do not infer clean source state from the copied build artifact.
 
@@ -408,7 +408,7 @@ This was a major product-direction change. Summary for any agent picking up here
 
 ```bash
 npm run typecheck && npx tsx --test tests/*.test.ts tests/*.test.tsx
-# Expected on current main: 453 pass, 0 fail
+# Expected on current main: 469 pass, 0 fail
 ```
 
 ### Watch items for next agent
@@ -532,7 +532,7 @@ The full cluster pipeline runs in `dlens-ingest-core`, not in this repo:
 4. All post URL comparisons go through `normalizePostUrl()`.
 5. Polling must continue until both crawl and analysis reach stable states.
 6. Compare summaries must degrade cleanly when no key is configured or model call fails.
-7. Google (Gemini 2.0 Flash) is the default compare-summary provider; `ExtensionSettings.googleApiKey` must be handled alongside openai/claude keys in all settings paths.
+7. Google (Gemini 3.1 Flash Lite) is the default compare-summary provider; `ExtensionSettings.googleApiKey` must be handled alongside openai/claude keys in all settings paths.
 8. `src/analysis/*` and `src/compare/*` are display/read-model adapters, not the canonical backend clustering source of truth.
 9. After any code change, update this file and the README.
 
@@ -574,9 +574,9 @@ The active debt list for v0 is the one in this file, not the older prototype bun
   - Analysis summary strip shows cluster count, dominance label in plain Chinese, comment count
   - Evidence quotes increased from 2 to 3 per cluster
   - Top comments collapsed by default (show 2, expand for 10)
-- **Google/Gemini provider added**: `ExtensionSettings.googleApiKey`, `oneLinerProvider: "google"` option, `provider.ts` calls Gemini 2.0 Flash API
+- **Google/Gemini provider added**: `ExtensionSettings.googleApiKey`, `oneLinerProvider: "google"` option, `provider.ts` calls Gemini 3.1 Flash Lite API
 - **Default provider changed**: `oneLinerProvider` now defaults to `"google"` instead of `null`
-- **Settings UI updated**: Google API key field added, provider dropdown includes "Google (Gemini 2.0 Flash)"
+- **Settings UI updated**: Google API key field added, provider dropdown includes "Google (Gemini 3.1 Flash Lite)"
 - Files changed: `types.ts`, `messages.ts`, `provider.ts`, `one-liner.ts`, `background.ts`, `InPageCollectorApp.tsx`, `CompareView.tsx`, `compare-view.test.tsx`
 
 ## Recently Changed (2026-04-01)

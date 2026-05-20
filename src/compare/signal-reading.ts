@@ -1,6 +1,8 @@
 import type { ProductContext, ProductSignalAnalysis } from "../state/types.ts";
+import type { ProductSignalDiscussionReply } from "./product-signal-analysis.ts";
 
-export const SIGNAL_READING_PROMPT_VERSION = "v1";
+export const SIGNAL_READING_PROMPT_VERSION = "v9";
+export const SIGNAL_READING_EVIDENCE_CAP = 15;
 
 export const SIGNAL_READING_SYSTEM_PROMPT =
   "你是一個產品訊號的深度閱讀者。你的工作不是填表格，也不是替產品團隊下指令，而是把一則社群訊號讀懂，老實告訴一個產品開發者：這裡面有沒有真正值得注意的東西。";
@@ -9,6 +11,7 @@ export interface SignalReadingComment {
   ref: string;
   author: string;
   text: string;
+  likeCount?: number | null;
 }
 
 export interface SignalReadingInput {
@@ -45,7 +48,8 @@ export function buildStoredSourcePacket(input: SignalReadingInput): SignalReadin
     representativeComments: input.representativeComments.map((comment) => ({
       ref: comment.ref,
       author: comment.author,
-      text: comment.text.slice(0, STORED_SOURCE_PACKET_COMMENT_CAP)
+      text: comment.text.slice(0, STORED_SOURCE_PACKET_COMMENT_CAP),
+      likeCount: typeof comment.likeCount === "number" && Number.isFinite(comment.likeCount) ? comment.likeCount : null
     })),
     analysisPromptVersion: input.analysisPromptVersion
   };
@@ -71,7 +75,54 @@ function renderComments(comments: SignalReadingComment[]): string {
   if (!comments.length) {
     return "（沒有觀眾留言）";
   }
-  return comments.map((comment) => `${comment.ref}（${comment.author || "unknown"}）：${comment.text}`).join("\n");
+  return [...comments]
+    .sort((left, right) => {
+      const leftLikes = typeof left.likeCount === "number" && Number.isFinite(left.likeCount) ? left.likeCount : -1;
+      const rightLikes = typeof right.likeCount === "number" && Number.isFinite(right.likeCount) ? right.likeCount : -1;
+      return rightLikes - leftLikes;
+    })
+    .map((comment) => {
+      const likes = typeof comment.likeCount === "number" && Number.isFinite(comment.likeCount)
+        ? ` · ${comment.likeCount} 讚`
+        : "";
+      return `${comment.ref}（${comment.author || "unknown"}${likes}）：${comment.text}`;
+    })
+    .join("\n");
+}
+
+export function selectSignalReadingRepresentativeRefs(
+  replies: ProductSignalDiscussionReply[],
+  analyzerRefs: string[] = [],
+  cap = SIGNAL_READING_EVIDENCE_CAP
+): string[] {
+  const limit = Math.max(0, Math.floor(cap));
+  if (limit === 0 || replies.length === 0) {
+    return [];
+  }
+
+  const validRefs = new Set(replies.map((_, index) => `e${index + 1}`));
+  const topByLikes = replies
+    .map((reply, index) => ({
+      ref: `e${index + 1}`,
+      index,
+      likeCount: typeof reply.likeCount === "number" && Number.isFinite(reply.likeCount) ? reply.likeCount : 0
+    }))
+    .sort((left, right) => right.likeCount - left.likeCount || left.index - right.index)
+    .map((entry) => entry.ref);
+
+  const selected: string[] = [];
+  const seen = new Set<string>();
+  for (const ref of [...analyzerRefs, ...topByLikes]) {
+    if (!validRefs.has(ref) || seen.has(ref)) {
+      continue;
+    }
+    seen.add(ref);
+    selected.push(ref);
+    if (selected.length >= limit) {
+      break;
+    }
+  }
+  return selected;
 }
 
 export function buildSignalReadingPrompt(input: SignalReadingInput): string {
@@ -80,7 +131,7 @@ export function buildSignalReadingPrompt(input: SignalReadingInput): string {
     "讀下面這則訊號，包括原文、原文連結、代表性觀眾留言、產品脈絡，以及既有結構化分析。",
     "請寫一段自由判讀，給一個會再審視你判讀的產品開發者或 agent 看。",
     "",
-    "不要套固定結構，也不要先把這則訊號歸成某一類、再把內容填進那個類別。判讀的形狀由訊號本身長出來。如果讀完發現沒有值得行動或保留的東西，直接說。",
+    "不要套固定結構。不要強行找 audience gap、workflow recipe、技術機制、定位風險或市場情緒。訊號是什麼形狀，就用什麼形狀寫；如果沒有值得行動或保留的東西，直接說。",
     "",
     "[思考規則]",
     "1. 讓讀者看得出哪些是證據、哪些是推論、哪些是不確定。",
@@ -137,7 +188,7 @@ export function buildSourcePacketHash(input: SignalReadingInput): string {
   const parts = [
     input.postUrl,
     input.assembledContent,
-    ...input.representativeComments.map((comment) => `${comment.ref}:${comment.text}`),
+    ...input.representativeComments.map((comment) => `${comment.ref}:${comment.likeCount ?? ""}:${comment.text}`),
     input.analysisPromptVersion
   ];
   return hashString(parts.join(""));

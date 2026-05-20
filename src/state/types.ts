@@ -173,6 +173,7 @@ export interface ProductSignalAnalysis {
   evidenceNotes?: ProductSignalEvidenceNote[];
   productContextHash: string;
   promptVersion: string;
+  model?: string;
   analyzedAt: string;
   status: ProductSignalAnalysisStatus;
   error?: string;

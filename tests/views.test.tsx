@@ -5,6 +5,7 @@ import React from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 
 import { buildProductAgentTaskPromptHash } from "../src/compare/product-agent-task-feedback.ts";
+import { SIGNAL_READING_PROMPT_VERSION } from "../src/compare/signal-reading.ts";
 import type { SessionProcessingSummary, WorkerStatus } from "../src/state/processing-state.ts";
 import type { TargetDescriptor } from "../src/contracts/target-descriptor.ts";
 import type { SavedAnalysisSnapshot, SessionItem, SessionRecord, TechniqueReadingSnapshot } from "../src/state/types.ts";
@@ -996,7 +997,26 @@ test("ProductSignalView renders batch export only on the actionable page", () =>
     React.createElement(ProductSignalView, { ...baseProps, kind: "saved-signals" })
   );
   const actionableHtml = renderToStaticMarkup(
-    React.createElement(ProductSignalView, { ...baseProps, kind: "actionable-filter" })
+    React.createElement(ProductSignalView, {
+      ...baseProps,
+      kind: "actionable-filter",
+      activeFolderId: "session_a",
+      exportFolders: [
+        { id: "session_a", name: "DLens Signals", itemCount: 3 },
+        { id: "session_b", name: "AI Workflow Watchlist", itemCount: 2 }
+      ],
+      onExportSignalPackets: async () => ({
+        ok: true,
+        exportResult: {
+          format: "html",
+          content: "<!doctype html>",
+          filename: "dlens.html",
+          mimeType: "text/html;charset=utf-8",
+          packetCount: 1,
+          generatedAt: "2026-05-19T08:30:00.000Z"
+        }
+      })
+    })
   );
 
   assert.doesNotMatch(savedHtml, /data-saved-signals-batch-export="true"/);
@@ -1009,6 +1029,11 @@ test("ProductSignalView renders batch export only on the actionable page", () =>
   assert.match(actionableHtml, /原文優先/);
   assert.match(actionableHtml, /精簡決策/);
   assert.match(actionableHtml, /複製 Agent Brief/);
+  assert.match(actionableHtml, /data-signal-packet-html-export="true"/);
+  assert.match(actionableHtml, /data-signal-packet-format-option="html"/);
+  assert.match(actionableHtml, /data-signal-packet-format-option="jsonl"/);
+  assert.match(actionableHtml, /匯出 HTML Reading/);
+  assert.match(actionableHtml, /JSONL Packet/);
   assert.match(actionableHtml, /data-agent-brief-copy-status="idle"/);
   assert.match(actionableHtml, /aria-live="polite"/);
   assert.match(actionableHtml, /data-batch-export-selection-row="true"/);
@@ -2086,6 +2111,11 @@ test("ProductSignalView reviews signal readings before composing filed-only brie
         contextFiles: [{ id: "f", name: "README.md", kind: "readme", importedAt: "2026-05-18T00:00:00.000Z", charCount: 1 }]
       },
       signalReadings,
+      activeFolderId: "sess",
+      exportFolders: [
+        { id: "sess", name: "Current folder", itemCount: 2 },
+        { id: "archive", name: "Archive folder", itemCount: 5 }
+      ],
       signalUrlById: {
         signal_pending: "https://www.threads.net/@dlens/post/pending"
       },
@@ -2094,13 +2124,23 @@ test("ProductSignalView reviews signal readings before composing filed-only brie
           { ref: "e1", author: "investlahk", text: "變蠢可能係真嘅，但唔係必然，要看你點樣用 AI。", likeCount: 22 }
         ]
       },
+      onExportSignalPackets: async () => ({
+        ok: true,
+        exportResult: {
+          format: "html",
+          content: "<!doctype html>",
+          filename: "dlens-reading.html",
+          mimeType: "text/html;charset=utf-8",
+          packetCount: 2,
+          generatedAt: "2026-05-19T08:30:00.000Z"
+        }
+      }),
       onAnalyze: () => undefined
     })
   );
 
-  assert.match(html, /Agent Brief/);
   assert.match(html, /READING REVIEW/);
-  assert.match(html, /BRIEF COMPOSE/);
+  assert.match(html, /PACKET EXPORT/);
   assert.match(html, /data-signal-reading-review-workspace="true"[^>]*padding-bottom:76px/);
   assert.doesNotMatch(html, /收錄後會進入本地判讀庫/);
   assert.match(html, /收錄此判讀/);
@@ -2119,7 +2159,8 @@ test("ProductSignalView reviews signal readings before composing filed-only brie
   assert.match(html, /data-signal-reading-provenance-layout="inline"/);
   assert.match(html, /href="https:\/\/www\.threads\.net\/@dlens\/post\/pending"/);
   assert.match(html, /data-signal-reading-evidence="true"/);
-  assert.match(html, /原文留言 1 則/);
+  assert.match(html, /引用留言 1 則/);
+  assert.match(html, /data-signal-reading-evidence-chip="e1"/);
   assert.match(html, /變蠢可能係真嘅/);
   assert.match(html, /對產品參考：這是一段完整顯示的長判斷，不能被截斷。/);
   assert.match(html, /relevance 3\/5/);
@@ -2128,27 +2169,38 @@ test("ProductSignalView reviews signal readings before composing filed-only brie
   assert.doesNotMatch(html, /border-left:3px/);
   assert.match(html, /值得嘗試/);
   assert.match(html, /保留觀察/);
-  assert.match(html, /1 approved → brief|1 收錄/);
-  assert.match(html, /data-signal-reading-brief-copy-bar="inline"/);
-  assert.match(html, /data-signal-reading-brief-copy-status="idle"/);
-  assert.match(html, /複製 Brief/);
+  assert.match(html, /signals → packet/);
+  assert.doesNotMatch(html, /BRIEF COMPOSE/);
+  assert.doesNotMatch(html, /data-signal-reading-brief-copy-bar="inline"/);
+  assert.doesNotMatch(html, /data-signal-reading-brief-copy-status="idle"/);
+  assert.doesNotMatch(html, /data-signal-reading-brief-preview="true"/);
+  assert.doesNotMatch(html, /data-brief-format-option=/);
+  assert.doesNotMatch(html, /預覽 Brief/);
+  assert.doesNotMatch(html, /複製 Brief/);
+  assert.doesNotMatch(html, /what gets copied/);
+  assert.match(html, /data-signal-packet-html-export="true"/);
+  assert.match(html, /data-signal-packet-format-option="html"/);
+  assert.match(html, /data-signal-packet-format-option="jsonl"/);
+  assert.match(html, /匯出 HTML Reading/);
+  assert.match(html, /JSONL Packet/);
   assert.match(html, /<strong[^>]*>判讀內容<\/strong>/);
   assert.doesNotMatch(html, /\*\*判讀內容\*\*/);
   assert.doesNotMatch(html, /SOURCE https/);
   assert.doesNotMatch(html, /逐則審視判讀 → 決定值得進 corpus/);
   assert.doesNotMatch(html, /1 已收錄，可複製給 agent/);
   assert.doesNotMatch(html, /1 則判讀已收錄 → 可複製給 coding agent/);
-  const brief = productSignalViewTestables.buildSignalReadingAgentBrief({
-    readings: signalReadings as any,
-    analysesBySignal: new Map(analyses.map((analysis) => [analysis.signalId, analysis as any])),
-    signalPreviewById: {
-      signal_pending: "pending preview",
-      signal_filed: "filed preview"
-    },
-    signalUrlById: {}
-  });
-  assert.match(brief, /已收錄的判讀內容，應成為 Agent Brief 主體/);
-  assert.doesNotMatch(brief, /待審判讀內容，不應進入 brief preview/);
+  assert.equal("buildSignalReadingAgentBrief" in productSignalViewTestables, false);
+});
+
+test("ProductSignalView turns long reading openings into a lighter lead title and summary", () => {
+  const display = productSignalViewTestables.createSignalReadingDisplayCopy(
+    "這則訊號的核心價值不在於「記帳 App」，而在於**「AI 人格設定與用戶情緒負債之間的邊界」**。\n\n第二段保留完整判讀，讓用戶慢慢閱讀。"
+  );
+
+  assert.equal(display.title, "AI 人格設定與用戶情緒負債之間的邊界");
+  assert.match(display.summary, /核心價值不在於/);
+  assert.match(display.summary, /\*\*「AI 人格設定/);
+  assert.match(display.body, /第二段保留完整判讀/);
 });
 
 test("ProductSignalView opens the reading review workflow before any readings exist", () => {
@@ -2195,6 +2247,66 @@ test("ProductSignalView opens the reading review workflow before any readings ex
   assert.match(html, /尚未生成深度判讀/);
   assert.match(html, /深度判讀/);
   assert.doesNotMatch(html, /可直接試的做法/);
+});
+
+test("ProductSignalView exposes regenerate action for an existing fresh reading", () => {
+  const html = renderToStaticMarkup(
+    React.createElement(ProductSignalView as any, {
+      kind: "actionable-filter",
+      signals: [
+        { id: "signal_ready", sessionId: "sess", itemId: "i1", source: "threads", inboxStatus: "unprocessed", capturedAt: "2026-05-18T00:00:00.000Z" }
+      ],
+      analyses: [
+        {
+          signalId: "signal_ready",
+          signalType: "marketing",
+          signalSubtype: "positioning_signal",
+          contentType: "mixed",
+          contentSummary: "已有判讀的訊號",
+          relevance: 3,
+          relevantTo: ["productPromise"],
+          referenceType: "product_reference",
+          referenceLabel: "對產品參考",
+          referenceTakeaway: "用來判斷產品語氣。",
+          whyRelevant: "對產品語氣有參考價值。",
+          verdict: "watch",
+          reason: "理由。",
+          evidenceRefs: ["e1"],
+          productContextHash: "ctx",
+          promptVersion: "v16",
+          analyzedAt: "2026-05-18T00:00:00.000Z",
+          status: "complete"
+        }
+      ],
+      productProfile: {
+        name: "DLens", category: "x", audience: "y", contextText: "z",
+        contextFiles: [{ id: "f", name: "README.md", kind: "readme", importedAt: "2026-05-18T00:00:00.000Z", charCount: 1 }]
+      },
+      signalReadings: [
+        {
+          signalId: "signal_ready",
+          cacheKey: "ready-key",
+          productContextHash: "ctx",
+          sourcePacketHash: "pkt-ready",
+          promptVersion: SIGNAL_READING_PROMPT_VERSION,
+          reading: "現有判讀內容。",
+          generatedAt: "2026-05-18T01:00:00.000Z",
+          model: "google:test",
+          sourceRefs: ["e1"],
+          sourcePacket: { assembledContent: "source content", postUrl: "https://www.threads.net/@dlens/post/ready", representativeComments: [], analysisPromptVersion: "v16" },
+          feedbackEvents: [],
+          reviewState: "pending"
+        }
+      ],
+      onAnalyze: () => undefined,
+      onSynthesizeSignalReading: async () => ({ ok: true, reading: "new reading" }),
+      onReviewSignalReading: async () => ({ ok: false, error: "missing" })
+    })
+  );
+
+  assert.match(html, /現有判讀內容/);
+  assert.match(html, /重新生成判讀/);
+  assert.doesNotMatch(html, /判讀建議重新生成/);
 });
 
 test("ClassificationBoard selected post aside collapses long text behind 展開全文", () => {

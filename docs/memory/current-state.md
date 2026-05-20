@@ -67,10 +67,10 @@ The verified build in the active Phase B implementation worktree is:
 - backend physical checkout: `/Users/tung/Desktop/dlens-backend/dlens-ingest-core`
 - old versions and historical worktrees: `/Users/tung/Desktop/dlens-old`
 - verification: `npm run typecheck`, `npx tsx --test tests/*.test.ts tests/*.test.tsx`, and `npm run build`
-- latest full test count after Motion Layer v2: `453 pass, 0 fail`
+- latest full test count after Signal Reading typography + route tap fix: `469 pass, 0 fail`
 - latest build output was mirrored to `/Users/tung/Desktop/dlens-product-latest/output/chrome-mv3`
 - live backend smoke from the prior product run: `GET http://127.0.0.1:8000/worker/status` returned `{"status":"idle"}`
-- extension manifest name is `DLens v3`; current extension version is `0.1.15`
+- extension manifest name is `DLens v3`; current extension version is `0.1.17`
 - version is locked across `package.json`, `package-lock.json`, `wxt.config.ts` `manifest.version`, and `src/ui/version.ts` `BUILD_VERSION`
 
 ## PR Evidence V1 Contract State
@@ -171,10 +171,11 @@ Topic synthesis and Folder synthesis are deterministic extension-side display la
 - `CompareView` supports `reading`, `parallel`, and `chapters`; `parallel` is the default persisted Result layout.
 - Agent Brief review cards reuse the Marginalia signal grammar as a compact strip inside the active reading card.
 - Shared Motion Layer v2 is pure CSS/token-based: buttons, rail icons, stronger card hover/lift, smooth disclosure, Product reading-review feedback, Apple Music-style verdict filter sliding plates, loading shimmer, copy feedback, and filed-reading compose highlights share the same scoped motion layer under `data-dlens-control="true"` and respect `prefers-reduced-motion`.
+- Signal Reading review text uses a lighter lead-title + summary rhythm to reduce heavy long-heading fatigue; Product rail and candidate-action navigation can trigger on pointerdown to avoid Chrome/Threads swallowing the click.
 
 ## Version State
 
-- Current extension version: `0.1.15`.
+- Current extension version: `0.1.17`.
 - Chrome extension page version comes from `wxt.config.ts` `manifest.version` in the built manifest.
 - Popup masthead version comes from `src/ui/version.ts` `BUILD_VERSION`.
 - `package.json`, `package-lock.json`, `wxt.config.ts`, and `src/ui/version.ts` must stay in sync for every main-facing update unless explicitly skipped.

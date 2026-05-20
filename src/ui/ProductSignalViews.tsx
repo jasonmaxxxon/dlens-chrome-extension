@@ -17,7 +17,7 @@ import type {
 import { isProductContextSourceReady } from "../compare/product-context";
 import { findSimilarHistoricalSignals, type SimilarHistoricalSignal } from "../compare/product-signal-history";
 import type { ProductSignalEvidenceEntry } from "../compare/product-signal-analysis";
-import { composeReadingBrief } from "../compare/signal-reading-brief";
+import type { SignalPacketExportFormat, SignalPacketExportResult } from "../compare/signal-packet-export";
 import {
   latestReadingBySignalId,
   signalReadingStaleness,
@@ -1422,6 +1422,17 @@ function SelectedPostAside({
 }
 
 type AgentBriefMode = "original" | "decision";
+type SignalPacketExportFolderOption = {
+  id: string;
+  name: string;
+  itemCount: number;
+};
+type SignalPacketExportStatus = "idle" | "exporting" | "exported" | "error";
+type SignalPacketUiExportFormat = Extract<SignalPacketExportFormat, "html" | "jsonl">;
+type ExportSignalPackets = (options: {
+  sessionId: string;
+  format: SignalPacketUiExportFormat;
+}) => Promise<{ ok: true; exportResult: SignalPacketExportResult } | { ok: false; error: string }>;
 type SignalReadingReviewDecision = Exclude<SignalReadingReviewState, "pending">;
 type ReviewSignalReading = (
   cacheKey: string,
@@ -1443,6 +1454,26 @@ const SIGNAL_READING_REVIEW_TONES: Record<SignalReadingReviewState, "neutral" | 
   rejected: "neutral"
 };
 
+const SIGNAL_PACKET_EXPORT_FORMATS: Array<{
+  value: SignalPacketUiExportFormat;
+  label: string;
+  deck: string;
+  whatsInside: string;
+}> = [
+  {
+    value: "html",
+    label: "HTML Reading",
+    deck: "給人閱讀、分享",
+    whatsInside: "完整版面的判讀文檔，瀏覽器直接看"
+  },
+  {
+    value: "jsonl",
+    label: "JSONL Packet",
+    deck: "給 agent / 搜尋工具",
+    whatsInside: "每行一個 packet：原文 · 證據 · 判讀 · feedback · decisionTrace"
+  }
+];
+
 function signalReadingReviewState(reading: SignalReading | undefined): SignalReadingReviewState {
   return reading?.reviewState ?? "pending";
 }
@@ -1456,8 +1487,20 @@ function signalReadingStalenessCopy(staleness: SignalReadingStaleness): string {
 }
 
 function renderEmphasizedText(text: string): ReactNode[] {
-  const nodes: ReactNode[] = [];
   const pattern = /\*\*([^*]+)\*\*/g;
+  // Measure how much of the text the author bolded. When most of a passage
+  // is emphasized the marks carry no signal — they just make the block hard
+  // to read — so fall back to flat text in that case.
+  let emphasizedChars = 0;
+  let measure: RegExpExecArray | null;
+  while ((measure = pattern.exec(text)) !== null) {
+    emphasizedChars += measure[1].trim().length;
+  }
+  const plainLength = text.replace(/\*\*/g, "").trim().length;
+  const overEmphasized = plainLength > 0 && emphasizedChars / plainLength > 0.5;
+
+  pattern.lastIndex = 0;
+  const nodes: ReactNode[] = [];
   let lastIndex = 0;
   let match: RegExpExecArray | null;
   while ((match = pattern.exec(text)) !== null) {
@@ -1465,9 +1508,13 @@ function renderEmphasizedText(text: string): ReactNode[] {
       nodes.push(text.slice(lastIndex, match.index));
     }
     nodes.push(
-      <strong key={`em-${match.index}`} style={{ color: tokens.color.ink, fontWeight: 850 }}>
-        {match[1]}
-      </strong>
+      overEmphasized ? (
+        match[1]
+      ) : (
+        <strong key={`em-${match.index}`} style={{ color: tokens.color.ink, fontWeight: 600 }}>
+          {match[1]}
+        </strong>
+      )
     );
     lastIndex = match.index + match[0].length;
   }
@@ -1475,6 +1522,93 @@ function renderEmphasizedText(text: string): ReactNode[] {
     nodes.push(text.slice(lastIndex));
   }
   return nodes.length ? nodes : [text];
+}
+
+function stripMarkdownEmphasis(text: string): string {
+  return text.replace(/\*\*([^*]+)\*\*/g, "$1").replace(/\s+/g, " ").trim();
+}
+
+function splitReadingFirstSentence(text: string): { first: string; rest: string } {
+  const trimmed = text.trim();
+  const match = trimmed.match(/^([\s\S]*?[。！？!?])([\s\S]*)$/);
+  if (!match) {
+    return { first: trimmed, rest: "" };
+  }
+  return { first: match[1].trim(), rest: match[2].trim() };
+}
+
+function deriveReadingLeadTitle(sentence: string): string {
+  const plain = stripMarkdownEmphasis(sentence);
+  const quotedAfterContrast = plain.match(/而在於「([^」]{4,42})」/);
+  if (quotedAfterContrast) {
+    return quotedAfterContrast[1].trim();
+  }
+  const quotedAfterPivot = plain.match(/(?:在於|是|提醒了我們[:：]?)「([^」]{4,42})」/);
+  if (quotedAfterPivot) {
+    return quotedAfterPivot[1].trim();
+  }
+  const afterColon = plain.match(/[:：]\s*([^。！？!?]{6,42})/);
+  if (afterColon) {
+    return afterColon[1].trim();
+  }
+  return excerpt(plain, 34);
+}
+
+function createSignalReadingDisplayCopy(reading: string): { title: string; summary: string; body: string } {
+  const normalized = reading.trim();
+  if (!normalized) {
+    return { title: "", summary: "", body: "" };
+  }
+  const paragraphs = normalized.split(/\n{2,}/);
+  const { first, rest } = splitReadingFirstSentence(paragraphs[0] ?? normalized);
+  const title = deriveReadingLeadTitle(first);
+  const summary = first;
+  const bodyParts = [
+    rest,
+    ...paragraphs.slice(1)
+  ].map((part) => part.trim()).filter(Boolean);
+  return { title, summary, body: bodyParts.join("\n\n") };
+}
+
+function SignalReadingBody({ reading }: { reading: string }) {
+  const copy = createSignalReadingDisplayCopy(reading);
+  if (!copy.title) {
+    return null;
+  }
+  return (
+    <div data-signal-reading-display-copy="true" style={{ display: "grid", gap: 9 }}>
+      <div style={{ display: "grid", gap: 4 }}>
+        <div
+          data-signal-reading-lead-title="true"
+          style={{
+            fontSize: 15,
+            lineHeight: 1.38,
+            color: tokens.color.ink,
+            fontWeight: 700,
+            overflowWrap: "anywhere"
+          }}
+        >
+          {copy.title}
+        </div>
+        <div
+          data-signal-reading-lead-summary="true"
+          style={{
+            fontSize: 13,
+            lineHeight: 1.72,
+            color: tokens.color.subInk,
+            overflowWrap: "anywhere"
+          }}
+        >
+          {renderEmphasizedText(copy.summary)}
+        </div>
+      </div>
+      {copy.body ? (
+        <div style={{ fontSize: 13.5, lineHeight: 1.75, color: tokens.color.subInk, whiteSpace: "pre-wrap", overflowWrap: "anywhere" }}>
+          {renderEmphasizedText(copy.body)}
+        </div>
+      ) : null}
+    </div>
+  );
 }
 
 function SignalReadingProvenanceRow({
@@ -1579,8 +1713,48 @@ function SignalReadingEvidenceDetails({ citations }: { citations: EvidenceCitati
     <SmoothDetails
       dataAttributes={{ "data-signal-reading-evidence": "true" }}
       summary={
-        <span style={{ color: tokens.color.softInk, fontSize: 11.5, fontWeight: 600 }}>
-          原文留言 {citations.length} 則 ▾
+        <span
+          style={{
+            display: "inline-flex",
+            alignItems: "baseline",
+            flexWrap: "wrap",
+            gap: 6,
+            color: tokens.color.softInk,
+            fontSize: 11.5,
+            fontWeight: 600,
+            letterSpacing: 0
+          }}
+        >
+          <span>引用留言 {citations.length} 則</span>
+          <span style={{ display: "inline-flex", flexWrap: "wrap", gap: 4 }}>
+            {citations.map((citation) => {
+              const text = citation.entry?.text?.trim() || citation.note?.quoteSummary || "";
+              const author = citation.entry?.author || "unknown";
+              const likeFragment = citation.entry?.likeCount ? ` · ${citation.entry.likeCount}♥` : "";
+              const tooltip = `${author}${likeFragment}\n${text}`.slice(0, 280);
+              return (
+                <span
+                  key={citation.ref}
+                  data-signal-reading-evidence-chip={citation.ref}
+                  title={tooltip}
+                  style={{
+                    fontSize: 10.5,
+                    fontWeight: 700,
+                    padding: "1px 6px",
+                    borderRadius: 999,
+                    border: `1px solid ${tokens.color.line}`,
+                    background: tokens.color.surface,
+                    color: tokens.color.subInk,
+                    cursor: "help",
+                    letterSpacing: 0
+                  }}
+                >
+                  {citation.ref}
+                </span>
+              );
+            })}
+          </span>
+          <span aria-hidden="true">▾</span>
         </span>
       }
       summaryStyle={{ padding: "2px 0", cursor: "pointer", letterSpacing: 0 }}
@@ -1624,55 +1798,6 @@ function SignalReadingEvidenceDetails({ citations }: { citations: EvidenceCitati
   );
 }
 
-type BriefFormatOption = {
-  value: AgentBriefMode;
-  label: string;
-  deck: string;
-  color: string;
-  soft: string;
-};
-
-const BRIEF_FORMAT_OPTIONS: BriefFormatOption[] = [
-  { value: "original", label: "判讀優先", deck: "判讀為主、原文為附", color: tokens.color.product, soft: tokens.color.productSoft },
-  { value: "decision", label: "精簡決策", deck: "只給結論與行動建議", color: tokens.color.success, soft: tokens.color.successSoft }
-];
-
-function BriefFormatButton({
-  option,
-  selected,
-  onSelect
-}: {
-  option: BriefFormatOption;
-  selected: boolean;
-  onSelect: () => void;
-}) {
-  return (
-    <button
-      type="button"
-      data-brief-format-option={option.value}
-      data-brief-format-tone={option.value}
-      aria-pressed={selected}
-      onClick={onSelect}
-      style={{
-        border: `1px solid ${selected ? option.color : tokens.color.line}`,
-        borderRadius: tokens.radius.card,
-        background: selected ? option.soft : tokens.color.elevated,
-        color: tokens.color.ink,
-        padding: "10px 12px",
-        font: "inherit",
-        textAlign: "left",
-        cursor: "pointer",
-        display: "grid",
-        gap: 3,
-        boxShadow: selected ? `inset 4px 0 0 ${option.color}` : "none"
-      }}
-    >
-      <strong style={{ fontSize: 13, color: selected ? option.color : tokens.color.ink }}>{option.label}</strong>
-      <span style={{ fontSize: 11, color: tokens.color.subInk }}>{option.deck}</span>
-    </button>
-  );
-}
-
 function SignalReadingMarginaliaPanel({
   analysis
 }: {
@@ -1703,10 +1828,10 @@ function SignalReadingMarginaliaPanel({
         <div
           data-signal-reading-reference-copy="full"
           style={{
-            fontSize: 14,
+            fontSize: 13.5,
             lineHeight: 1.5,
             color: tokens.color.ink,
-            fontWeight: 850,
+            fontWeight: 700,
             overflowWrap: "anywhere"
           }}
         >
@@ -1737,20 +1862,6 @@ function SignalReadingMarginaliaPanel({
       </aside>
     </div>
   );
-}
-
-function buildSignalReadingAgentBrief({
-  readings,
-  analysesBySignal,
-  signalPreviewById: _signalPreviewById,
-  signalUrlById: _signalUrlById
-}: {
-  readings: SignalReading[];
-  analysesBySignal: Map<string, ProductSignalAnalysis>;
-  signalPreviewById: Record<string, string>;
-  signalUrlById: Record<string, string>;
-}): string {
-  return composeReadingBrief(readings, analysesBySignal, SIGNAL_READING_PROMPT_VERSION);
 }
 
 function buildAgentBrief({
@@ -1832,6 +1943,197 @@ function buildAgentBrief({
     ].join("\n");
   });
   return [header, usage, ...sections].join("\n\n");
+}
+
+function resolveDefaultSignalPacketExportFolderId(
+  folders: SignalPacketExportFolderOption[],
+  activeFolderId?: string
+): string {
+  if (activeFolderId && folders.some((folder) => folder.id === activeFolderId)) {
+    return activeFolderId;
+  }
+  return folders[0]?.id || "";
+}
+
+function downloadSignalPacketExport(result: SignalPacketExportResult): void {
+  if (typeof document === "undefined" || typeof URL === "undefined" || typeof Blob === "undefined") {
+    throw new Error("This browser context cannot download files.");
+  }
+  const blob = new Blob([result.content], { type: result.mimeType });
+  const url = URL.createObjectURL(blob);
+  const anchor = document.createElement("a");
+  anchor.href = url;
+  anchor.download = result.filename;
+  anchor.click();
+  URL.revokeObjectURL(url);
+}
+
+function SignalPacketHtmlExportSection({
+  activeFolderId,
+  exportFolders,
+  onExportSignalPackets,
+  embedded = false
+}: {
+  activeFolderId?: string;
+  exportFolders?: SignalPacketExportFolderOption[];
+  onExportSignalPackets?: ExportSignalPackets;
+  embedded?: boolean;
+}) {
+  const safeExportFolders = Array.isArray(exportFolders) ? exportFolders : [];
+  const exportFolderKey = safeExportFolders.map((folder) => folder.id).join("|");
+  const defaultExportFolderId = resolveDefaultSignalPacketExportFolderId(safeExportFolders, activeFolderId);
+  const [selectedExportFolderId, setSelectedExportFolderId] = useState(defaultExportFolderId);
+  const [selectedExportFormat, setSelectedExportFormat] = useState<SignalPacketUiExportFormat>("html");
+  const [exportStatus, setExportStatus] = useState<SignalPacketExportStatus>("idle");
+  const [exportMessage, setExportMessage] = useState(" ");
+
+  useEffect(() => {
+    setSelectedExportFolderId((current) => {
+      if (current && safeExportFolders.some((folder) => folder.id === current)) {
+        return current;
+      }
+      return defaultExportFolderId;
+    });
+  }, [defaultExportFolderId, exportFolderKey]);
+
+  const selectedExportFolder = safeExportFolders.find((folder) => folder.id === selectedExportFolderId) ?? null;
+  const canExportPacket = Boolean(onExportSignalPackets && selectedExportFolder);
+  const selectedFormatMeta = SIGNAL_PACKET_EXPORT_FORMATS.find((format) => format.value === selectedExportFormat) ?? SIGNAL_PACKET_EXPORT_FORMATS[0];
+  const exportStatusText = exportStatus === "exporting"
+    ? "匯出中"
+    : exportStatus === "exported"
+      ? exportMessage
+      : exportStatus === "error"
+        ? exportMessage
+        : " ";
+
+  const exportPacket = async () => {
+    if (!onExportSignalPackets || !selectedExportFolder) return;
+    setExportStatus("exporting");
+    setExportMessage(" ");
+    const response = await onExportSignalPackets({
+      sessionId: selectedExportFolder.id,
+      format: selectedExportFormat
+    });
+    if (!response.ok) {
+      setExportStatus("error");
+      setExportMessage(response.error);
+      return;
+    }
+    try {
+      downloadSignalPacketExport(response.exportResult);
+      setExportStatus("exported");
+      setExportMessage(`${response.exportResult.packetCount} packets · ${response.exportResult.filename}`);
+    } catch (error) {
+      setExportStatus("error");
+      setExportMessage(error instanceof Error ? error.message : String(error));
+    }
+  };
+
+  return (
+    <section
+      data-signal-packet-html-export="true"
+      style={embedded
+        ? {
+            display: "grid",
+            gap: 12,
+            paddingTop: 12,
+            borderTop: `1px solid ${tokens.color.line}`
+          }
+        : cardStyle({ gap: 12 })}
+    >
+      <p
+        data-signal-packet-export-dek="true"
+        style={{
+          margin: 0,
+          fontSize: 12.5,
+          lineHeight: 1.65,
+          color: tokens.color.subInk,
+          letterSpacing: 0
+        }}
+      >
+        把這個 folder 已完成的判讀打包成可重讀的 packet — 給未來的你，或 agent。
+      </p>
+      <div role="radiogroup" aria-label="Signal Packet 匯出格式" style={{ display: "grid", gridTemplateColumns: "repeat(2, minmax(0, 1fr))", gap: 10 }}>
+        {SIGNAL_PACKET_EXPORT_FORMATS.map((format) => {
+          const selected = selectedExportFormat === format.value;
+          return (
+            <button
+              key={format.value}
+              type="button"
+              data-signal-packet-format-option={format.value}
+              aria-pressed={selected}
+              onClick={() => {
+                setSelectedExportFormat(format.value);
+                setExportStatus("idle");
+                setExportMessage(" ");
+              }}
+              style={{
+                border: `1px solid ${selected ? tokens.color.product : tokens.color.line}`,
+                borderRadius: tokens.radius.sm,
+                background: selected ? tokens.color.productSoft : tokens.color.surface,
+                color: selected ? tokens.color.product : tokens.color.subInk,
+                padding: "11px 13px",
+                font: "inherit",
+                textAlign: "left",
+                cursor: "pointer",
+                display: "grid",
+                gap: 5
+              }}
+            >
+              <span style={{ fontSize: 13, fontWeight: 750 }}>{format.label}</span>
+              <span style={{ ...textStyles.meta, color: selected ? tokens.color.product : tokens.color.softInk }}>{format.deck}</span>
+              <span
+                style={{
+                  fontSize: 11,
+                  lineHeight: 1.55,
+                  color: selected ? tokens.color.product : tokens.color.softInk,
+                  opacity: selected ? 0.95 : 0.85,
+                  marginTop: 2,
+                  paddingTop: 5,
+                  borderTop: `1px dashed ${selected ? tokens.color.product : tokens.color.line}`
+                }}
+              >
+                {format.whatsInside}
+              </span>
+            </button>
+          );
+        })}
+      </div>
+      <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
+        <PrimaryButton
+          onClick={() => void exportPacket()}
+          disabled={!canExportPacket || exportStatus === "exporting"}
+        >
+          {exportStatus === "exporting"
+            ? "匯出中..."
+            : selectedExportFormat === "jsonl"
+              ? "匯出 JSONL Packet"
+              : "匯出 HTML Reading"}
+        </PrimaryButton>
+        <span
+          data-signal-packet-export-status={exportStatus}
+          aria-live="polite"
+          role="status"
+          style={{
+            minHeight: 20,
+            display: "inline-flex",
+            alignItems: "center",
+            padding: exportStatus === "idle" ? "0 8px" : "3px 9px",
+            borderRadius: 999,
+            background: exportStatus === "exported" ? tokens.color.successSoft : exportStatus === "error" ? tokens.color.queuedSoft : "transparent",
+            color: exportStatus === "exported" ? tokens.color.success : exportStatus === "error" ? tokens.color.queued : tokens.color.softInk,
+            border: exportStatus === "idle" ? "1px solid transparent" : `1px solid ${exportStatus === "exported" ? tokens.color.success : tokens.color.queued}`,
+            fontSize: 11.5,
+            fontWeight: 750,
+            opacity: exportStatus === "idle" ? 0 : 1
+          }}
+        >
+          {exportStatusText}
+        </span>
+      </div>
+    </section>
+  );
 }
 
 function SavedSignalsBoard({
@@ -2004,25 +2306,27 @@ function SignalReadingDisclosure({
 function SignalReadingReviewWorkspace({
   signals,
   analyses,
+  activeFolderId,
+  exportFolders,
   signalReadings,
   signalPreviewById,
   signalUrlById,
   evidenceBySignalId,
-  briefMode,
-  onBriefModeChange,
   onSynthesizeSignalReading,
-  onReviewSignalReading
+  onReviewSignalReading,
+  onExportSignalPackets
 }: {
   signals: Signal[];
   analyses: ProductSignalAnalysis[];
+  activeFolderId?: string;
+  exportFolders?: SignalPacketExportFolderOption[];
   signalReadings: SignalReading[];
   signalPreviewById: Record<string, string>;
   signalUrlById: Record<string, string>;
   evidenceBySignalId: Record<string, ProductSignalEvidenceEntry[]>;
-  briefMode: AgentBriefMode;
-  onBriefModeChange: (mode: AgentBriefMode) => void;
   onSynthesizeSignalReading?: SynthesizeSignalReading;
   onReviewSignalReading?: ReviewSignalReading;
+  onExportSignalPackets?: ExportSignalPackets;
 }) {
   const analysesBySignal = analysisBySignalId(analyses);
   const readingsBySignal = latestReadingBySignalId(signalReadings);
@@ -2033,13 +2337,11 @@ function SignalReadingReviewWorkspace({
   const initialReviewFilter = firstActiveAnalysis ? verdictFilterKeyForAnalysis(firstActiveAnalysis) : "try";
   const [activeSignalId, setActiveSignalId] = useState<string | null>(firstActiveSignalId);
   const [selectedReviewFilter, setSelectedReviewFilter] = useState<ActionVerdictFilter>(initialReviewFilter);
-  const [composeOpen, setComposeOpen] = useState(false);
   const [reviewOverrides, setReviewOverrides] = useState<Record<string, SignalReadingReviewState>>({});
   const [reviewError, setReviewError] = useState<string | null>(null);
   const [reviewNotice, setReviewNotice] = useState<string | null>(null);
   const [recentlyFiledSignalId, setRecentlyFiledSignalId] = useState<string | null>(null);
   const [regeneratingSignalId, setRegeneratingSignalId] = useState<string | null>(null);
-  const [copyStatus, setCopyStatus] = useState<AgentBriefCopyStatus>("idle");
   const filedFlashTimeoutRef = useRef<number | null>(null);
   useEffect(() => {
     return () => {
@@ -2068,20 +2370,14 @@ function SignalReadingReviewWorkspace({
     const analysis = analysesBySignal.get(signal.id);
     return analysis ? verdictFilterKeyForAnalysis(analysis) === selectedReviewFilter : false;
   });
-  const agentBrief = buildSignalReadingAgentBrief({
-    readings: readingsWithReview,
-    analysesBySignal,
-    signalPreviewById,
-    signalUrlById
-  });
   const reviewNoticeForDecision = (decision: SignalReadingReviewDecision) => {
     if (decision === "filed") {
-      return "已收錄到本機判讀庫，並加入下方 Brief Compose。";
+      return "已收錄到本機判讀庫，會保留在 Signal Packet。";
     }
     if (decision === "deferred") {
-      return "已標記待看；這則判讀暫時不會進 Brief。";
+      return "已標記待看；這則判讀仍保留在本機記錄。";
     }
-    return "已退回；這則判讀不會進 Brief。";
+    return "已退回；這則判讀會保留 feedback 記錄。";
   };
 
   const flashFiled = (signalId: string) => {
@@ -2132,24 +2428,6 @@ function SignalReadingReviewWorkspace({
       setRegeneratingSignalId(null);
     });
   };
-  const copyBrief = () => {
-    if (!agentBrief) return;
-    if (typeof navigator === "undefined" || !navigator.clipboard) {
-      setCopyStatus("error");
-      return;
-    }
-    void navigator.clipboard.writeText(agentBrief).then(
-      () => {
-        setCopyStatus("copied");
-        if (typeof window !== "undefined") {
-          window.setTimeout(() => setCopyStatus("idle"), 1800);
-        }
-      },
-      () => setCopyStatus("error")
-    );
-  };
-  const copyStatusText = copyStatus === "copied" ? "已複製" : copyStatus === "error" ? "複製失敗" : " ";
-
   return (
     <div data-signal-reading-review-workspace="true" style={{ display: "grid", gap: 14, paddingBottom: 76 }}>
       <section data-signal-reading-verdict-summary="true" style={cardStyle({ gap: 12 })}>
@@ -2247,7 +2525,7 @@ function SignalReadingReviewWorkspace({
                 >
                   <span style={{ color: tokens.color.softInk, fontWeight: 800, fontSize: 12 }}>{String(index + 1).padStart(2, "0")}</span>
                   <span style={{ display: "grid", gap: 4, minWidth: 0 }}>
-                    <span style={{ fontSize: 15, fontWeight: 850, lineHeight: 1.35, color: tokens.color.ink, ...lineClamp(2) }}>{title}</span>
+                    <span style={{ fontSize: 15, fontWeight: 700, lineHeight: 1.38, color: tokens.color.ink, ...lineClamp(2) }}>{title}</span>
                     <span style={{ display: "flex", gap: 6, flexWrap: "wrap", alignItems: "center", ...textStyles.meta, color: tokens.color.softInk }}>
                       {analysis && verdictMeta ? <ScorePill color={verdictMeta.color} soft={verdictMeta.soft}>{VERDICT_LABELS[analysis.verdict]}</ScorePill> : null}
                       {analysis && typeMeta ? <ScorePill color={typeMeta.color} soft={typeMeta.soft}>{typeMeta.label}</ScorePill> : null}
@@ -2268,14 +2546,25 @@ function SignalReadingReviewWorkspace({
                     ) : null}
                     <SignalReadingEvidenceDetails citations={evidenceCitations} />
                     {staleness.stale ? (
-                      <div style={{ ...mutedPanelStyle({ borderColor: tokens.color.queued, color: tokens.color.queued, fontSize: 12 }), display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10 }}>
-                        <span>判讀建議重新生成：{signalReadingStalenessCopy(staleness)}。</span>
+                      <div style={mutedPanelStyle({ borderColor: tokens.color.queued, color: tokens.color.queued, fontSize: 12 })}>
+                        判讀建議重新生成：{signalReadingStalenessCopy(staleness)}。
+                      </div>
+                    ) : null}
+                    {reading?.reading ? (
+                      <SignalReadingBody reading={reading.reading} />
+                    ) : (
+                      <div style={{ fontSize: 13.5, lineHeight: 1.75, color: tokens.color.subInk }}>
+                        尚未生成深度判讀。生成後才能收錄進本地判讀庫。
+                      </div>
+                    )}
+                    {reading ? (
+                      <div style={{ display: "flex", gap: 8, flexWrap: "wrap", alignItems: "center" }}>
                         {onSynthesizeSignalReading ? (
                           <SecondaryButton
                             onClick={() => handleRegenerateReading(signal)}
                             disabled={regeneratingSignalId === signal.id}
                             style={{
-                              padding: "5px 9px",
+                              padding: "7px 13px",
                               whiteSpace: "nowrap",
                               position: "relative",
                               overflow: "hidden"
@@ -2286,13 +2575,6 @@ function SignalReadingReviewWorkspace({
                             ) : "重新生成判讀"}
                           </SecondaryButton>
                         ) : null}
-                      </div>
-                    ) : null}
-                    <div style={{ fontSize: 13.5, lineHeight: 1.75, color: tokens.color.subInk, whiteSpace: "pre-wrap" }}>
-                      {reading?.reading ? renderEmphasizedText(reading.reading) : "尚未生成深度判讀。生成後才能收錄進本地判讀庫。"}
-                    </div>
-                    {reading ? (
-                      <div style={{ display: "flex", gap: 8, flexWrap: "wrap", alignItems: "center" }}>
                         <PrimaryButton
                           disabled={reviewState === "filed"}
                           onClick={() => handleReview(reading, "filed")}
@@ -2324,157 +2606,23 @@ function SignalReadingReviewWorkspace({
       <section
         style={{
           display: "grid",
-          gap: 10,
-          paddingTop: 4,
+          gap: 12,
+          paddingTop: 14,
           borderTop: `1px solid ${tokens.color.line}`
         }}
       >
         <div style={{ display: "flex", alignItems: "baseline", justifyContent: "space-between", gap: 12 }}>
           <div style={{ display: "flex", alignItems: "baseline", gap: 10 }}>
             <span style={{ ...textStyles.meta, color: tokens.color.product, fontWeight: 850 }}>§ 2</span>
-            <h2 style={{ margin: 0, fontSize: 17, lineHeight: 1.2, letterSpacing: 0, color: tokens.color.ink }}>BRIEF COMPOSE</h2>
+            <h2 style={{ margin: 0, fontSize: 17, lineHeight: 1.2, letterSpacing: 0, color: tokens.color.ink }}>PACKET EXPORT</h2>
           </div>
-          <span style={{ ...textStyles.meta, color: tokens.color.softInk }}><BumpNumber value={filedReadings.length} /> approved → brief</span>
+          <span style={{ ...textStyles.meta, color: tokens.color.softInk }}><BumpNumber value={signals.length} /> signals → packet</span>
         </div>
-        {!filedReadings.length ? (
-          <div style={mutedPanelStyle({ fontSize: 12.5, color: tokens.color.subInk })}>
-            到上方 §1 為至少一則判讀按下「收錄此判讀」，這裡才會生出可貼的 Brief。
-          </div>
-        ) : !composeOpen ? (
-          <div
-            data-signal-reading-compose-flash={recentlyFiledSignalId ? "true" : undefined}
-            className="dlens-card-lift"
-            style={{
-              ...surfaceCardStyle(),
-              padding: "12px 14px",
-              display: "flex",
-              alignItems: "center",
-              gap: 12,
-              overflow: "visible",
-              animation: recentlyFiledSignalId ? tokens.motion.keyframes.successPulse : undefined
-            }}
-          >
-            <div style={{ flex: 1, minWidth: 0, display: "grid", gap: 4 }}>
-              <strong style={{ fontSize: 14, color: tokens.color.ink }}><BumpNumber value={filedReadings.length} /> approved → brief</strong>
-              <span style={{ fontSize: 12, color: tokens.color.subInk, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-                {filedReadings.map((reading) => analysesBySignal.get(reading.signalId)?.contentSummary || reading.signalId).join("、")}
-              </span>
-            </div>
-            <div data-signal-reading-brief-copy-bar="inline" style={{ display: "flex", alignItems: "center", gap: 8, flexShrink: 0 }}>
-              <span
-                data-signal-reading-brief-copy-status={copyStatus}
-                aria-live="polite"
-                role="status"
-                style={{
-                  minWidth: 48,
-                  fontSize: 11,
-                  fontWeight: 750,
-                  color: copyStatus === "copied" ? tokens.color.success : copyStatus === "error" ? tokens.color.queued : tokens.color.softInk,
-                  opacity: copyStatus === "idle" ? 0 : 1
-                }}
-              >
-                {copyStatusText}
-              </span>
-              <SecondaryButton onClick={() => setComposeOpen(true)} style={{ whiteSpace: "nowrap" }}>
-                預覽 Brief
-              </SecondaryButton>
-              <PrimaryButton
-                disabled={!filedReadings.length}
-                onClick={copyBrief}
-                style={{
-                  padding: "7px 13px",
-                  whiteSpace: "nowrap",
-                  animation: copyStatus === "copied" ? tokens.motion.keyframes.bump : undefined
-                }}
-              >
-                複製 Brief
-              </PrimaryButton>
-            </div>
-          </div>
-        ) : (
-          <>
-            <div style={cardStyle({ gap: 12 })}>
-              <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8 }}>
-                <Kicker>輸出格式</Kicker>
-                <button
-                  type="button"
-                  onClick={() => setComposeOpen(false)}
-                  style={{ border: 0, background: "transparent", color: tokens.color.softInk, cursor: "pointer", font: "inherit", fontSize: 11, fontWeight: 650 }}
-                >
-                  收合 ▲
-                </button>
-              </div>
-              <div role="radiogroup" aria-label="Agent Brief 輸出格式" style={{ display: "grid", gridTemplateColumns: "repeat(2, minmax(0, 1fr))", gap: 8 }}>
-                {BRIEF_FORMAT_OPTIONS.map((option) => (
-                  <BriefFormatButton
-                    key={option.value}
-                    option={option}
-                    selected={briefMode === option.value}
-                    onSelect={() => onBriefModeChange(option.value)}
-                  />
-                ))}
-              </div>
-              <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
-                <Stamp tone="accent">判讀</Stamp>
-                <Stamp tone="accent">原文</Stamp>
-                <Stamp tone="accent">留言 refs</Stamp>
-              </div>
-            </div>
-            <div style={{ display: "grid", gap: 7 }}>
-              <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                <Kicker>預覽 · what gets copied</Kicker>
-                <div style={{ height: 1, flex: 1, background: tokens.color.line }} />
-                <span style={{ ...textStyles.meta, color: tokens.color.softInk }}>~{agentBrief.length} chars · md</span>
-              </div>
-              <pre
-                data-signal-reading-brief-preview="true"
-                style={{
-                  margin: 0,
-                  maxHeight: 320,
-                  overflow: "auto",
-                  whiteSpace: "pre-wrap",
-                  wordBreak: "break-word",
-                  border: `1px solid ${tokens.color.line}`,
-                  borderRadius: tokens.radius.card,
-                  background: tokens.color.elevated,
-                  padding: 14,
-                  fontSize: 12.5,
-                  lineHeight: 1.65,
-                  color: tokens.color.ink
-                }}
-              >
-                {agentBrief}
-              </pre>
-              <div data-signal-reading-brief-copy-bar="inline" style={{ display: "flex", alignItems: "center", justifyContent: "flex-end", gap: 8 }}>
-                <span
-                  data-signal-reading-brief-copy-status={copyStatus}
-                  aria-live="polite"
-                  role="status"
-                  style={{
-                    minWidth: 48,
-                    fontSize: 11,
-                    fontWeight: 750,
-                    color: copyStatus === "copied" ? tokens.color.success : copyStatus === "error" ? tokens.color.queued : tokens.color.softInk,
-                    opacity: copyStatus === "idle" ? 0 : 1
-                  }}
-                >
-                  {copyStatusText}
-                </span>
-                <PrimaryButton
-                  disabled={!filedReadings.length}
-                  onClick={copyBrief}
-                  style={{
-                    padding: "7px 13px",
-                    whiteSpace: "nowrap",
-                    animation: copyStatus === "copied" ? tokens.motion.keyframes.bump : undefined
-                  }}
-                >
-                  複製 Brief
-                </PrimaryButton>
-              </div>
-            </div>
-          </>
-        )}
+        <SignalPacketHtmlExportSection
+          activeFolderId={activeFolderId}
+          exportFolders={exportFolders}
+          onExportSignalPackets={onExportSignalPackets}
+        />
       </section>
     </div>
   );
@@ -2483,6 +2631,8 @@ function SignalReadingReviewWorkspace({
 function SavedSignalsBatchExport({
   signals,
   analyses,
+  activeFolderId,
+  exportFolders,
   signalPreviewById,
   signalUrlById,
   selectedIds,
@@ -2490,10 +2640,13 @@ function SavedSignalsBatchExport({
   onBriefModeChange,
   onToggleSignal,
   onSynthesizeSignalReading,
+  onExportSignalPackets,
   evidenceBySignalId
 }: {
   signals: Signal[];
   analyses: ProductSignalAnalysis[];
+  activeFolderId?: string;
+  exportFolders?: SignalPacketExportFolderOption[];
   signalPreviewById: Record<string, string>;
   signalUrlById: Record<string, string>;
   selectedIds: string[];
@@ -2501,6 +2654,7 @@ function SavedSignalsBatchExport({
   onBriefModeChange: (mode: AgentBriefMode) => void;
   onToggleSignal: (signalId: string) => void;
   onSynthesizeSignalReading?: SynthesizeSignalReading;
+  onExportSignalPackets?: ExportSignalPackets;
   evidenceBySignalId: Record<string, ProductSignalEvidenceEntry[]>;
 }) {
   const [copyStatus, setCopyStatus] = useState<AgentBriefCopyStatus>("idle");
@@ -2629,6 +2783,12 @@ function SavedSignalsBatchExport({
       >
         {copyStatusText}
       </div>
+      <SignalPacketHtmlExportSection
+        activeFolderId={activeFolderId}
+        exportFolders={exportFolders}
+        onExportSignalPackets={onExportSignalPackets}
+        embedded
+      />
     </div>
   );
 }
@@ -3579,8 +3739,8 @@ function ActionableInsightsBoard({
 
 export const productSignalViewTestables = {
   buildAgentBrief,
-  buildSignalReadingAgentBrief,
-  ActionableItemCard
+  ActionableItemCard,
+  createSignalReadingDisplayCopy
 };
 
 export function ProductSignalView({
@@ -3588,6 +3748,8 @@ export function ProductSignalView({
   signals,
   analyses,
   productProfile,
+  activeFolderId,
+  exportFolders = [],
   historicalAnalyses = analyses,
   agentTaskFeedback = [],
   signalPreviewById = {},
@@ -3604,12 +3766,15 @@ export function ProductSignalView({
   onGoToActionable,
   onRemoveSignal,
   onSynthesizeSignalReading,
-  onReviewSignalReading
+  onReviewSignalReading,
+  onExportSignalPackets
 }: {
   kind: ProductSignalPageKind;
   signals: Signal[];
   analyses: ProductSignalAnalysis[];
   productProfile: ProductProfile | null | undefined;
+  activeFolderId?: string;
+  exportFolders?: SignalPacketExportFolderOption[];
   historicalAnalyses?: ProductSignalAnalysis[];
   agentTaskFeedback?: ProductAgentTaskFeedback[];
   signalPreviewById?: Record<string, string>;
@@ -3627,6 +3792,7 @@ export function ProductSignalView({
   onRemoveSignal?: (signalId: string) => void;
   onSynthesizeSignalReading?: SynthesizeSignalReading;
   onReviewSignalReading?: ReviewSignalReading;
+  onExportSignalPackets?: ExportSignalPackets;
 }) {
   const copy = PAGE_COPY[kind];
   const safeSignals = Array.isArray(signals) ? signals : [];
@@ -3709,7 +3875,7 @@ export function ProductSignalView({
             <span style={{ fontSize: 12, color: tokens.color.subInk, lineHeight: 1.4 }}>
               分析完成，查看哪些 signal 值得行動
             </span>
-            <PrimaryButton onClick={onGoToActionable} style={{ padding: "6px 14px", whiteSpace: "nowrap" }}>
+            <PrimaryButton onClick={onGoToActionable} activateOnPointerDown style={{ padding: "6px 14px", whiteSpace: "nowrap" }}>
               查看候選行動 →
             </PrimaryButton>
           </div>
@@ -3733,14 +3899,15 @@ export function ProductSignalView({
                 <SignalReadingReviewWorkspace
                   signals={safeSignals}
                   analyses={safeAnalyses}
+                  activeFolderId={activeFolderId}
+                  exportFolders={exportFolders}
                   signalReadings={safeSignalReadings}
                   signalPreviewById={signalPreviewById}
                   signalUrlById={signalUrlById}
                   evidenceBySignalId={evidenceBySignalId}
-                  briefMode={briefMode}
-                  onBriefModeChange={setBriefMode}
                   onSynthesizeSignalReading={onSynthesizeSignalReading}
                   onReviewSignalReading={onReviewSignalReading}
+                  onExportSignalPackets={onExportSignalPackets}
                 />
               ) : (
                 <>
@@ -3756,6 +3923,8 @@ export function ProductSignalView({
                   <SavedSignalsBatchExport
                     signals={safeSignals}
                     analyses={safeAnalyses}
+                    activeFolderId={activeFolderId}
+                    exportFolders={exportFolders}
                     signalPreviewById={signalPreviewById}
                     signalUrlById={signalUrlById}
                     selectedIds={selectedSignalIds}
@@ -3763,6 +3932,7 @@ export function ProductSignalView({
                     onBriefModeChange={setBriefMode}
                     onToggleSignal={toggleSelectedSignal}
                     onSynthesizeSignalReading={onSynthesizeSignalReading}
+                    onExportSignalPackets={onExportSignalPackets}
                     evidenceBySignalId={evidenceBySignalId}
                   />
                 </>

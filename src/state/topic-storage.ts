@@ -254,6 +254,10 @@ export async function loadTopicById(storageArea: StorageAreaLike, topicId: strin
   return topics.find((topic) => topic.id === topicId) ?? null;
 }
 
+export async function loadAllTopics(storageArea: StorageAreaLike): Promise<Topic[]> {
+  return readTopics(storageArea);
+}
+
 export async function saveTopic(storageArea: StorageAreaLike, topic: Topic): Promise<Topic[]> {
   const normalized = normalizeTopic(topic);
   if (!normalized) {
@@ -278,6 +282,10 @@ export async function loadSignals(
 ): Promise<Signal[]> {
   const signals = await readSignals(storageArea);
   return signals.filter((signal) => signal.sessionId === sessionId && (!status || signal.inboxStatus === status));
+}
+
+export async function loadAllSignals(storageArea: StorageAreaLike): Promise<Signal[]> {
+  return readSignals(storageArea);
 }
 
 export async function saveSignal(storageArea: StorageAreaLike, signal: Signal): Promise<Signal[]> {

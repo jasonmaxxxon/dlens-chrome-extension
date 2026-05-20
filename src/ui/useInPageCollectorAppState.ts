@@ -17,6 +17,7 @@ import {
 } from "../state/types";
 import { isDescriptorSavedInFolder } from "../state/ui-state";
 import type { ExtensionMessage, ExtensionResponse, StartProcessingResponse } from "../state/messages";
+import type { SignalPacketExportFormat, SignalPacketExportResult } from "../compare/signal-packet-export";
 import type { SignalReading } from "../compare/signal-reading-storage";
 import type { PrCampaign } from "../state/pr-evidence-storage";
 import { getProcessingFailureMessage } from "../state/processing-errors";
@@ -1192,6 +1193,31 @@ export function useInPageCollectorAppState({ snapshot, tabId, sendAndSync }: Use
     }
   }
 
+  async function onExportSignalPackets({
+    sessionId,
+    format
+  }: {
+    sessionId: string;
+    format: SignalPacketExportFormat;
+  }): Promise<{ ok: true; exportResult: SignalPacketExportResult } | { ok: false; error: string }> {
+    try {
+      const response = await sendAndSync({
+        type: "signal-packet/export",
+        format,
+        filter: { sessionId }
+      });
+      if (response.ok) {
+        if (response.signalPacketExport) {
+          return { ok: true, exportResult: response.signalPacketExport };
+        }
+        return { ok: false, error: "沒有產生 Signal Packet 匯出內容。" };
+      }
+      return { ok: false, error: response.error };
+    } catch (error) {
+      return { ok: false, error: error instanceof Error ? error.message : String(error) };
+    }
+  }
+
   async function onRemoveProductSignal(signalId: string) {
     setProductSignalAnalysisError(null);
     const response = await topicState.onRemoveSignal(signalId);
@@ -1328,6 +1354,7 @@ export function useInPageCollectorAppState({ snapshot, tabId, sendAndSync }: Use
     onAnalyzeProductSignals,
     onSynthesizeSignalReading,
     onReviewSignalReading,
+    onExportSignalPackets,
     onRemoveProductSignal,
     onCreateFolder,
     onRenameFolder,

@@ -128,6 +128,7 @@ function normalizeProductSignalAnalysis(value: unknown): ProductSignalAnalysis |
   const reason = readTrimmedString(raw.reason);
   const productContextHash = readTrimmedString(raw.productContextHash);
   const promptVersion = readTrimmedString(raw.promptVersion);
+  const model = readTrimmedString(raw.model);
   const analyzedAt = readTrimmedString(raw.analyzedAt);
   if (!signalId || !signalSubtype || !contentSummary || !whyRelevant || !reason || !productContextHash || !promptVersion || !analyzedAt) {
     return null;
@@ -199,6 +200,7 @@ function normalizeProductSignalAnalysis(value: unknown): ProductSignalAnalysis |
     ...(evidenceNotes.length ? { evidenceNotes } : {}),
     productContextHash,
     promptVersion,
+    ...(model ? { model } : {}),
     analyzedAt,
     status: raw.status,
     ...(readTrimmedString(raw.error) ? { error: readTrimmedString(raw.error) } : {})
