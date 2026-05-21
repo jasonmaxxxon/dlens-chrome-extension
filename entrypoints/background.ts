@@ -82,6 +82,7 @@ import {
   generatePrSummaryDraft,
   generateProductSignalAnalysis,
   generateSignalReading,
+  generateSignalTags,
   generateTopicSignalReading
 } from "../src/compare/provider";
 import {
@@ -99,6 +100,8 @@ import {
   listSignalReadings,
   saveSignalReading
 } from "../src/compare/signal-reading-storage";
+import { buildSignalTagsInputFromCapture } from "../src/compare/signal-tags";
+import { listSignalTags, saveSignalTags } from "../src/compare/signal-tags-storage";
 import { buildTopicSignalReadingInputFromCapture } from "../src/compare/topic-signal-reading";
 import { listTopicSignalReadings, saveTopicSignalReading } from "../src/compare/topic-signal-reading-storage";
 import {
@@ -1942,11 +1945,7 @@ export default defineBackground(() => {
               sendResponse({ ok: false, error: "Topic not found" } satisfies ExtensionResponse);
               return;
             }
-            const researchQuestion = topic.context?.researchQuestion?.trim();
-            if (!researchQuestion) {
-              sendResponse({ ok: false, error: "Topic 尚未設定研究問題。" } satisfies ExtensionResponse);
-              return;
-            }
+            const researchQuestion = topic.context?.researchQuestion?.trim() || "";
             const signals = await loadSignals(chrome.storage.local, topic.sessionId);
             const signal = signals.find((entry) => entry.id === message.signalId) || null;
             if (!signal || !topic.signalIds.includes(signal.id)) {
@@ -1995,6 +1994,64 @@ export default defineBackground(() => {
           case "topic/list-signal-readings": {
             const readings = await listTopicSignalReadings(chrome.storage.local, message.topicId);
             sendResponse({ ok: true, topicSignalReadings: readings } satisfies ExtensionResponse);
+            return;
+          }
+          case "signal/list-tags": {
+            const signalTags = await listSignalTags(chrome.storage.local, message.itemIds);
+            sendResponse({ ok: true, signalTags } satisfies ExtensionResponse);
+            return;
+          }
+          case "topic/generate-missing-signal-tags": {
+            const tabId = await resolveTabId(sender);
+            const current = await loadSnapshot(tabId);
+            const topic = await loadTopicById(chrome.storage.local, message.topicId);
+            if (!topic) {
+              sendResponse({ ok: false, error: "Topic not found" } satisfies ExtensionResponse);
+              return;
+            }
+            const session = current.global.sessions.find((entry) => entry.id === topic.sessionId) || null;
+            if (!session) {
+              sendResponse({ ok: false, error: "Folder not found" } satisfies ExtensionResponse);
+              return;
+            }
+            const signals = await loadSignals(chrome.storage.local, topic.sessionId);
+            const topicSignals = signals.filter((signal) => topic.signalIds.includes(signal.id));
+            const itemIds = Array.from(new Set(topicSignals.map((signal) => signal.itemId).filter((itemId): itemId is string => Boolean(itemId))));
+            const existing = await listSignalTags(chrome.storage.local, itemIds);
+            const taggedItemIds = new Set(existing.map((record) => record.itemId));
+            const providerConfig = providerKeyForRequest(current.global);
+            if (!providerConfig) {
+              sendResponse({ ok: true, tabId, signalTags: existing } satisfies ExtensionResponse);
+              return;
+            }
+
+            const itemsById = new Map(session.items.map((item) => [item.id, item]));
+            for (const itemId of itemIds) {
+              if (taggedItemIds.has(itemId)) {
+                continue;
+              }
+              const item = itemsById.get(itemId);
+              const input = buildSignalTagsInputFromCapture({
+                itemId,
+                capture: item?.latestCapture
+              });
+              if (!input) {
+                continue;
+              }
+              try {
+                const tags = await generateSignalTags(providerConfig.provider, providerConfig.apiKey, input);
+                await saveSignalTags(chrome.storage.local, tags);
+                taggedItemIds.add(itemId);
+              } catch {
+                // Tagging is an auxiliary reading aid; keep Topic Detail usable if one item fails.
+              }
+            }
+
+            sendResponse({
+              ok: true,
+              tabId,
+              signalTags: await listSignalTags(chrome.storage.local, itemIds)
+            } satisfies ExtensionResponse);
             return;
           }
           case "folder/synthesis/get": {

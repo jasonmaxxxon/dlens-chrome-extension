@@ -357,6 +357,17 @@ export interface TopicSignalReading {
   errorMessage?: string;
 }
 
+export interface SignalTagsRecord {
+  itemId: string;
+  status: "complete" | "error";
+  signalTags: string[];
+  signalGist: string;
+  promptVersion: string;
+  model: string;
+  generatedAt: string;
+  errorMessage?: string;
+}
+
 export interface FolderSynthesisCluster {
   keyword: string;
   signalCount: number;

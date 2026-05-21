@@ -44,13 +44,19 @@ import {
   type SignalReadingInput
 } from "./signal-reading.ts";
 import {
+  buildSignalTagsPrompt,
+  parseSignalTagsResponse,
+  SIGNAL_TAGS_SYSTEM_PROMPT,
+  type SignalTagsInput
+} from "./signal-tags.ts";
+import {
   buildTopicSignalReadingPrompt,
   parseTopicSignalReadingResponse,
   TOPIC_SIGNAL_READING_SYSTEM_PROMPT,
   type TopicSignalReadingInput
 } from "./topic-signal-reading.ts";
 import type { PrCampaign, PrCriteriaMatches, PrEvidenceRow } from "../state/pr-evidence-storage.ts";
-import type { JudgmentResult, ProductProfile, ProductSignalAnalysis, TopicSignalReading } from "../state/types.ts";
+import type { JudgmentResult, ProductProfile, ProductSignalAnalysis, SignalTagsRecord, TopicSignalReading } from "../state/types.ts";
 
 export const COMPARE_BRIEF_PROMPT_VERSION = "v8";
 export const COMPARE_ONE_LINER_PROMPT_VERSION = "v2";
@@ -781,6 +787,33 @@ export async function generateTopicSignalReading(
   const parsed = parseTopicSignalReadingResponse(raw, input, model);
   if (!parsed) {
     throw new Error("Invalid topic signal reading payload");
+  }
+  return parsed;
+}
+
+export async function generateSignalTags(
+  provider: "openai" | "claude" | "google",
+  apiKey: string,
+  input: SignalTagsInput
+): Promise<SignalTagsRecord> {
+  if (!apiKey) {
+    throw new Error("尚未設定 AI key。請先在 Settings 設定 Google / OpenAI / Claude key。");
+  }
+  const model = provider === "google"
+    ? `google:${GOOGLE_COMPARE_MODEL}`
+    : provider === "openai"
+      ? `openai:${OPENAI_COMPARE_MODEL}`
+      : `claude:${CLAUDE_COMPARE_MODEL}`;
+  const raw = await generateJsonText(
+    provider,
+    apiKey,
+    buildSignalTagsPrompt(input),
+    SIGNAL_TAGS_SYSTEM_PROMPT,
+    450
+  );
+  const parsed = parseSignalTagsResponse(raw, input, model);
+  if (!parsed) {
+    throw new Error("Invalid signal tags payload");
   }
   return parsed;
 }
