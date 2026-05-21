@@ -120,12 +120,27 @@ function renderEvidenceCatalog(evidenceCatalog: ProductSignalEvidenceEntry[]): s
 }
 
 export function buildTopicSignalReadingPrompt(input: TopicSignalReadingInput): string {
+  const researchQuestion = readTrimmedString(input.researchQuestion);
+  const modeBlock = researchQuestion
+    ? [
+        "[研究問題]",
+        researchQuestion,
+        "",
+        "判斷規則：",
+        "- stance: central = 直接回應研究問題；adjacent = 相關但非核心；off-topic = 與研究問題無關"
+      ]
+    : [
+        "[探索模式]",
+        "這個 topic 尚未設定研究問題。請先回答：這篇在說什麼？觀眾反應揭示了什麼張力？跟產品開發或工作流可能有什麼關係？",
+        "",
+        "判斷規則：",
+        "- stance: central = 這篇本身就是 topic 的核心材料；adjacent = 只是相鄰材料；off-topic = 明顯不屬於這個 topic"
+      ];
   return [
     "你是輿情研究員。只回傳 JSON，不要加 markdown 或解釋。",
     "所有文字欄位用繁體中文。evidence_refs 和 stance 保留英文 enum。",
     "",
-    "[研究問題]",
-    input.researchQuestion,
+    ...modeBlock,
     "",
     "[帖子原文]",
     input.assembledContent,
@@ -141,8 +156,6 @@ export function buildTopicSignalReadingPrompt(input: TopicSignalReadingInput): s
       ? `[關鍵詞線索（server 分析，僅供參考，不要直接引用為分析結論）]\n${input.clusterKeywords.join("、")}`
       : "",
     "",
-    "判斷規則：",
-    "- stance: central = 直接回應研究問題；adjacent = 相關但非核心；off-topic = 與研究問題無關",
     "- reading：必須引用至少一個 e ref；禁止空話（不要說「這則帖子非常有趣」）",
     "- audience_signal：若留言稀少或雜亂，如實說「留言不足以判斷觀眾立場」，不要猜測",
     "- uncertainties：只寫讀者需要實際查證的具體疑點，不要寫通用警語",

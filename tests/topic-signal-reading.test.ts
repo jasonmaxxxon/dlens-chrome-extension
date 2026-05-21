@@ -102,6 +102,33 @@ test("buildTopicSignalReadingPrompt grounds the reading in research question and
   ]);
 });
 
+test("buildTopicSignalReadingPrompt supports exploratory readings without a research question", () => {
+  const input = buildTopicSignalReadingInputFromCapture({
+    signalId: "sig-1",
+    topicId: "topic-1",
+    researchQuestion: "",
+    capture: {
+      result: {
+        thread_read_model: {
+          assembled_content: "主文：有人整理跨平台 agent workflow，留言在問定期爬資料和瀏覽器自動化。",
+          discussion_replies: [
+            { comment_id: "c1", author: "builder", text: "這比較像 recurring crawl + browser automation。", like_count: 12 }
+          ]
+        }
+      }
+    } as any
+  });
+
+  assert.ok(input);
+  const prompt = buildTopicSignalReadingPrompt(input!);
+
+  assert.doesNotMatch(prompt, /\[研究問題\]/);
+  assert.match(prompt, /\[探索模式\]/);
+  assert.match(prompt, /這篇在說什麼/);
+  assert.match(prompt, /產品開發或工作流/);
+  assert.match(prompt, /stance: central = 這篇本身就是 topic 的核心材料/);
+});
+
 test("parseTopicSignalReadingResponse accepts grounded readings and filters invalid refs", () => {
   const input = buildTopicSignalReadingInputFromCapture({
     signalId: "sig-1",
