@@ -8,16 +8,8 @@ import type {
   Topic,
   TopicSynthesisObservation
 } from "../state/types.ts";
-import {
-  buildWorkNarrative,
-  buildWorkTechniqueLabels,
-  collectWorkSignalHits,
-  extractRepeatedWorkPhrases,
-  readItemSynthesisText,
-  type WorkSignalRow
-} from "./work-signal-lens.ts";
 
-export const FOLDER_SYNTHESIS_VERSION = "v2.work-signal-lens";
+export const FOLDER_SYNTHESIS_VERSION = "v3.generic-keyword-lens";
 export const FOLDER_SYNTHESIS_MIN_ANALYZED = 3;
 export const FOLDER_SYNTHESIS_MIN_TOPICS = 2;
 export const FOLDER_SYNTHESIS_STALE_DELTA = 3;
@@ -40,13 +32,17 @@ export interface FolderSynthesisInput {
 
 interface AnalyzedRow {
   topicId: string;
-  topicName: string;
   signalId: string;
   topKeyword: string;
   topSizeShare: number;
   keywords: string[];
-  author: string;
-  text: string;
+}
+
+interface KeywordGroup {
+  keyword: string;
+  signalIds: string[];
+  topicIds: string[];
+  totalSizeShare: number;
 }
 
 function collectRows(input: FolderSynthesisInput): AnalyzedRow[] {
@@ -69,70 +65,105 @@ function collectRows(input: FolderSynthesisInput): AnalyzedRow[] {
       const sorted = [...clusters].sort((left, right) => right.sizeShare - left.sizeShare);
       const top = sorted[0]!;
       const allKeywords = Array.from(new Set(sorted.flatMap((cluster) => cluster.keywords)));
-      const author = (item?.descriptor?.author_hint || "unknown").trim() || "unknown";
 
       rows.push({
         topicId: entry.topic.id,
-        topicName: entry.topic.name,
         signalId: signal.id,
         topKeyword: top.keywords[0] ?? "",
         topSizeShare: top.sizeShare,
-        keywords: allKeywords,
-        author,
-        text: readItemSynthesisText(item)
+        keywords: allKeywords
       });
     }
   }
   return rows;
 }
 
-function toWorkRows(rows: AnalyzedRow[]): WorkSignalRow[] {
-  return rows.map((row) => ({
-    signalId: row.signalId,
-    author: row.author,
-    text: row.text,
-    keywords: row.keywords
-  }));
+function normalizeKeyword(keyword: string): string {
+  return keyword.toLowerCase().replace(/\s+/g, " ").trim();
+}
+
+function buildKeywordGroups(rows: AnalyzedRow[]): KeywordGroup[] {
+  const groups = new Map<string, KeywordGroup>();
+  for (const row of rows) {
+    const normalized = normalizeKeyword(row.topKeyword);
+    if (!normalized) continue;
+    const existing = groups.get(normalized);
+    if (existing) {
+      existing.signalIds.push(row.signalId);
+      existing.totalSizeShare += row.topSizeShare;
+      if (!existing.topicIds.includes(row.topicId)) {
+        existing.topicIds.push(row.topicId);
+      }
+      continue;
+    }
+    groups.set(normalized, {
+      keyword: row.topKeyword,
+      signalIds: [row.signalId],
+      topicIds: [row.topicId],
+      totalSizeShare: row.topSizeShare
+    });
+  }
+  return [...groups.values()].sort((left, right) =>
+    right.topicIds.length - left.topicIds.length
+    || right.signalIds.length - left.signalIds.length
+    || right.totalSizeShare - left.totalSizeShare
+    || left.keyword.localeCompare(right.keyword));
 }
 
 function buildClusters(rows: AnalyzedRow[]): FolderSynthesisCluster[] {
-  const topicIdsBySignalId = new Map(rows.map((row) => [row.signalId, row.topicId]));
-  return collectWorkSignalHits(toWorkRows(rows))
-    .map((hit) => {
-      const topicIds = Array.from(new Set(hit.signalIds.map((signalId) => topicIdsBySignalId.get(signalId)).filter(Boolean))) as string[];
-      return {
-        keyword: hit.bucket.label,
-        signalCount: hit.signalIds.length,
-        topicCount: topicIds.length,
-        topicIds
-      };
-    })
-    .filter((cluster) => cluster.topicCount > 1)
-    .slice(0, MAX_CLUSTERS);
+  return buildKeywordGroups(rows)
+    .filter((group) => group.topicIds.length > 1)
+    .slice(0, MAX_CLUSTERS)
+    .map((group) => ({
+      keyword: group.keyword,
+      signalCount: group.signalIds.length,
+      topicCount: group.topicIds.length,
+      topicIds: group.topicIds
+    }));
 }
 
 function buildMemes(rows: AnalyzedRow[]): FolderSynthesisMeme[] {
-  const topicIdsBySignalId = new Map(rows.map((row) => [row.signalId, row.topicId]));
-  return extractRepeatedWorkPhrases(toWorkRows(rows), MAX_MEMES).map((phrase) => {
-    const lower = phrase.phrase.toLowerCase();
-    const topicIds = Array.from(new Set(rows
-      .filter((row) => row.text.toLowerCase().includes(lower))
-      .map((row) => topicIdsBySignalId.get(row.signalId))
-      .filter(Boolean))) as string[];
-    return { ...phrase, topicIds };
-  });
+  const counts = new Map<string, { phrase: string; signalIds: Set<string>; topicIds: Set<string> }>();
+  for (const row of rows) {
+    const seenInSignal = new Set<string>();
+    for (const keyword of row.keywords) {
+      const normalized = normalizeKeyword(keyword);
+      if (!normalized || seenInSignal.has(normalized)) continue;
+      seenInSignal.add(normalized);
+      const existing = counts.get(normalized);
+      if (existing) {
+        existing.signalIds.add(row.signalId);
+        existing.topicIds.add(row.topicId);
+      } else {
+        counts.set(normalized, {
+          phrase: keyword,
+          signalIds: new Set([row.signalId]),
+          topicIds: new Set([row.topicId])
+        });
+      }
+    }
+  }
+  return [...counts.values()]
+    .filter((entry) => entry.topicIds.size > 1)
+    .sort((left, right) =>
+      right.topicIds.size - left.topicIds.size
+      || right.signalIds.size - left.signalIds.size
+      || left.phrase.localeCompare(right.phrase))
+    .slice(0, MAX_MEMES)
+    .map((entry) => ({
+      phrase: entry.phrase,
+      occurrences: entry.signalIds.size,
+      topicIds: [...entry.topicIds]
+    }));
 }
 
-function buildObservations(rows: AnalyzedRow[], clusters: FolderSynthesisCluster[]): TopicSynthesisObservation[] {
-  if (rows.length === 0) return [];
-  const topicCountByLabel = new Map(clusters.map((cluster) => [cluster.keyword, cluster.topicCount]));
-  return collectWorkSignalHits(toWorkRows(rows))
+function buildObservations(rows: AnalyzedRow[]): TopicSynthesisObservation[] {
+  return buildKeywordGroups(rows)
+    .filter((group) => group.topicIds.length > 1)
     .slice(0, MAX_OBSERVATIONS)
-    .map((hit) => ({
-      text: topicCountByLabel.get(hit.bucket.label) && topicCountByLabel.get(hit.bucket.label)! > 1
-        ? `${hit.bucket.observation(hit.signalIds.length)} 橫跨 ${topicCountByLabel.get(hit.bucket.label)} 個主題。`
-        : hit.bucket.observation(hit.signalIds.length),
-      evidenceSignalIds: hit.signalIds.slice(0, 5)
+    .map((group) => ({
+      text: `「${group.keyword}」在 ${group.signalIds.length} 篇貼文中出現，橫跨 ${group.topicIds.length} 個主題。`,
+      evidenceSignalIds: group.signalIds.slice(0, 5)
     }));
 }
 
@@ -147,12 +178,6 @@ function buildCoverage(input: FolderSynthesisInput, rows: AnalyzedRow[]): Folder
     analyzedCount: analyzedByTopic.get(entry.topic.id) ?? 0,
     totalCount: entry.signals.length
   }));
-}
-
-function buildSentimentNarrative(rows: AnalyzedRow[], clusters: FolderSynthesisCluster[], contributingTopics: number): string {
-  if (rows.length === 0) return "";
-  const base = buildWorkNarrative(toWorkRows(rows), collectWorkSignalHits(toWorkRows(rows)));
-  return contributingTopics > 1 ? `${base} 目前橫跨 ${contributingTopics} 個主題。` : base;
 }
 
 export interface FolderSynthesisEligibility {
@@ -184,11 +209,11 @@ export function generateFolderSynthesis(input: FolderSynthesisInput): FolderSynt
 
   return {
     sessionId: input.sessionId,
-    observations: buildObservations(rows, clusters),
+    observations: buildObservations(rows),
     commonClusters: clusters,
     memes: buildMemes(rows),
-    verbalTechniques: buildWorkTechniqueLabels(collectWorkSignalHits(toWorkRows(rows))),
-    sentimentNarrative: buildSentimentNarrative(rows, clusters, contributingTopics.size),
+    verbalTechniques: [],
+    sentimentNarrative: "",
     topicCoverage: buildCoverage(input, rows),
     generatedFromCount: rows.length,
     totalSignalCount,

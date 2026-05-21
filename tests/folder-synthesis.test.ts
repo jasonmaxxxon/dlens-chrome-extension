@@ -100,16 +100,23 @@ function makeItem(
 
 function buildInput(): FolderSynthesisInput {
   const itemsById = new Map<string, SessionItem>();
-  itemsById.set("item-1", makeItem("item-1", "alpha", [{ keywords: ["裸辭", "壓力"], size_share: 0.6 }], "succeeded", "90後初入職場日記（1） 只係想裸辭下，工作壓力好大"));
-  itemsById.set("item-2", makeItem("item-2", "beta", [{ keywords: ["裸辭"], size_share: 0.5 }], "succeeded", "真係好想裸辭，搵工時勢真係好差"));
-  itemsById.set("item-3", makeItem("item-3", "gamma", [{ keywords: ["壓力", "薪水"], size_share: 0.7 }], "succeeded", "日頭做 PR 拆彈，工作壓力爆煲"));
-  itemsById.set("item-4", makeItem("item-4", "delta", [{ keywords: ["寵物"], size_share: 0.9 }]));
+  itemsById.set("item-1", makeItem("item-1", "alpha", [
+    { keywords: ["prompt caching", "token reuse"], size_share: 0.6 }
+  ], "succeeded", "Builders compare prompt caching across Claude Code and other AI tools."));
+  itemsById.set("item-2", makeItem("item-2", "beta", [
+    { keywords: ["context window", "long context"], size_share: 0.5 }
+  ], "succeeded", "Benchmark thread about context window limits in agent sessions."));
+  itemsById.set("item-3", makeItem("item-3", "gamma", [
+    { keywords: ["prompt caching", "cost control"], size_share: 0.7 }
+  ], "succeeded", "Claude Code adoption discussion turns on prompt caching and cost control."));
+  itemsById.set("item-4", makeItem("item-4", "delta", [
+    { keywords: ["tool use latency", "agent workflow"], size_share: 0.9 }
+  ], "succeeded", "Tool use latency makes agent workflows feel slower than expected."));
   return {
     sessionId: "session-1",
     topics: [
-      { topic: makeTopic("topic-1", "工作", ["sig-1", "sig-2"]), signals: [makeSignal("sig-1", "item-1"), makeSignal("sig-2", "item-2")] },
-      { topic: makeTopic("topic-2", "金錢", ["sig-3"]), signals: [makeSignal("sig-3", "item-3")] },
-      { topic: makeTopic("topic-3", "生活", ["sig-4"]), signals: [makeSignal("sig-4", "item-4")] }
+      { topic: makeTopic("topic-1", "AI tool benchmarking", ["sig-1", "sig-2"]), signals: [makeSignal("sig-1", "item-1"), makeSignal("sig-2", "item-2")] },
+      { topic: makeTopic("topic-2", "Claude Code adoption", ["sig-3", "sig-4"]), signals: [makeSignal("sig-3", "item-3"), makeSignal("sig-4", "item-4")] }
     ],
     itemsById,
     generatedAt: "2026-05-11T00:00:00.000Z"
@@ -137,25 +144,48 @@ test("generateFolderSynthesis filters clusters to only those spanning multiple t
   const synthesis = generateFolderSynthesis(input)!;
   assert.equal(synthesis.generatorVersion, FOLDER_SYNTHESIS_VERSION);
   assert.equal(synthesis.generatedFromCount, 4);
-  assert.equal(synthesis.contributingTopicCount, 3);
+  assert.equal(synthesis.contributingTopicCount, 2);
 
-  // 工作焦慮與耗竭 spans topic-1 (item-1) and topic-2 (item-3) → cross-topic, should appear
-  const pressureCluster = synthesis.commonClusters.find((cluster) => cluster.keyword === "工作焦慮與耗竭");
-  assert.ok(pressureCluster, "expected 工作焦慮與耗竭 cluster spanning 2 topics");
-  assert.equal(pressureCluster!.topicCount, 2);
-  assert.equal(pressureCluster!.signalCount, 3);
+  const cachingCluster = synthesis.commonClusters.find((cluster) => cluster.keyword === "prompt caching");
+  assert.ok(cachingCluster, "expected prompt caching cluster spanning 2 topics");
+  assert.equal(cachingCluster!.topicCount, 2);
+  assert.equal(cachingCluster!.signalCount, 2);
+  assert.deepEqual(cachingCluster!.topicIds, ["topic-1", "topic-2"]);
 
-  // 想辭職與逃離工作 only in topic-1 → filtered out
-  assert.equal(synthesis.commonClusters.some((cluster) => cluster.keyword === "想辭職與逃離工作"), false);
+  assert.ok(synthesis.observations.some((observation) =>
+    observation.text.includes("prompt caching") && observation.text.includes("橫跨 2 個主題")
+  ));
 
-  // 寵物 only in topic-3 → filtered out
-  assert.equal(synthesis.commonClusters.some((cluster) => cluster.keyword === "寵物"), false);
+  assert.deepEqual(synthesis.verbalTechniques, []);
+  assert.equal(synthesis.sentimentNarrative, "");
+  assert.equal(
+    /工作|辭職|薪水|焦慮|裸辭|職場/.test(JSON.stringify(synthesis)),
+    false
+  );
 
-  // topicCoverage covers all topics
-  assert.equal(synthesis.topicCoverage.length, 3);
+  assert.equal(synthesis.topicCoverage.length, 2);
   const t1 = synthesis.topicCoverage.find((coverage) => coverage.topicId === "topic-1")!;
   assert.equal(t1.analyzedCount, 2);
   assert.equal(t1.totalCount, 2);
+});
+
+test("generateFolderSynthesis filters out single-topic keywords", () => {
+  const synthesis = generateFolderSynthesis(buildInput())!;
+
+  assert.equal(synthesis.commonClusters.some((cluster) => cluster.keyword === "context window"), false);
+  assert.equal(synthesis.commonClusters.some((cluster) => cluster.keyword === "tool use latency"), false);
+});
+
+test("generateFolderSynthesis memes only include cross-topic keywords", () => {
+  const synthesis = generateFolderSynthesis(buildInput())!;
+
+  assert.ok(synthesis.memes.some((meme) =>
+    meme.phrase === "prompt caching"
+    && meme.occurrences === 2
+    && meme.topicIds.length === 2
+  ));
+  assert.equal(synthesis.memes.some((meme) => meme.phrase === "context window"), false);
+  assert.equal(synthesis.memes.some((meme) => meme.phrase === "tool use latency"), false);
 });
 
 test("folderSynthesisStaleReason marks synthesis stale once delta crosses the threshold", () => {
