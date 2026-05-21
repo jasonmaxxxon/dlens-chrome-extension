@@ -7,16 +7,9 @@ import type {
   TopicSynthesisObservation,
   TopicSynthesisOutlier
 } from "../state/types.ts";
-import {
-  buildWorkNarrative,
-  buildWorkTechniqueLabels,
-  collectWorkSignalHits,
-  extractRepeatedWorkPhrases,
-  readItemSynthesisText,
-  type WorkSignalRow
-} from "./work-signal-lens.ts";
+import { readItemSynthesisText } from "./synthesis-text.ts";
 
-export const TOPIC_SYNTHESIS_VERSION = "v2.work-signal-lens";
+export const TOPIC_SYNTHESIS_VERSION = "v3.generic-keyword-lens";
 
 /**
  * Minimum analyzed signals before a partial synthesis is allowed.
@@ -61,6 +54,13 @@ interface AnalyzedSignalRow {
   topLikeShare: number;
 }
 
+interface KeywordGroup {
+  keyword: string;
+  signalIds: string[];
+  totalSizeShare: number;
+  totalLikeShare: number;
+}
+
 function pickAnalyzed(input: TopicSynthesisInput): AnalyzedSignalRow[] {
   const rows: AnalyzedSignalRow[] = [];
   for (const entry of input.signals) {
@@ -96,54 +96,102 @@ function pickAnalyzed(input: TopicSynthesisInput): AnalyzedSignalRow[] {
   return rows;
 }
 
-function toWorkRows(rows: AnalyzedSignalRow[]): WorkSignalRow[] {
-  return rows.map((row) => ({
-    signalId: row.signalId,
-    author: row.author,
-    text: row.text,
-    keywords: Array.from(new Set(row.clusters.flatMap((cluster) => cluster.keywords)))
-  }));
+function normalizeKeyword(keyword: string): string {
+  return keyword.toLowerCase().replace(/\s+/g, " ").trim();
+}
+
+function sortedKeywordGroups(groups: Iterable<KeywordGroup>): KeywordGroup[] {
+  return [...groups].sort((left, right) =>
+    right.signalIds.length - left.signalIds.length
+    || right.totalSizeShare - left.totalSizeShare
+    || right.totalLikeShare - left.totalLikeShare
+    || left.keyword.localeCompare(right.keyword));
+}
+
+function buildTopKeywordGroups(rows: AnalyzedSignalRow[]): KeywordGroup[] {
+  const groups = new Map<string, KeywordGroup>();
+  for (const row of rows) {
+    const normalized = normalizeKeyword(row.topKeyword);
+    if (!normalized) continue;
+    const existing = groups.get(normalized);
+    if (existing) {
+      existing.signalIds.push(row.signalId);
+      existing.totalSizeShare += row.topSizeShare;
+      existing.totalLikeShare += row.topLikeShare;
+      continue;
+    }
+    groups.set(normalized, {
+      keyword: row.topKeyword,
+      signalIds: [row.signalId],
+      totalSizeShare: row.topSizeShare,
+      totalLikeShare: row.topLikeShare
+    });
+  }
+  return sortedKeywordGroups(groups.values());
 }
 
 function buildClusters(rows: AnalyzedSignalRow[]): TopicSynthesisCluster[] {
-  const workRows = toWorkRows(rows);
-  return collectWorkSignalHits(workRows)
+  return buildTopKeywordGroups(rows)
     .slice(0, MAX_CLUSTERS)
-    .map((hit) => ({
-      keyword: hit.bucket.label,
-      signalCount: hit.signalIds.length,
-      exampleSignalIds: hit.signalIds.slice(0, 4)
+    .map((group) => ({
+      keyword: group.keyword,
+      signalCount: group.signalIds.length,
+      exampleSignalIds: group.signalIds.slice(0, 4)
     }));
 }
 
 function buildObservations(rows: AnalyzedSignalRow[]): TopicSynthesisObservation[] {
-  return collectWorkSignalHits(toWorkRows(rows))
+  const groups = buildTopKeywordGroups(rows);
+  const repeated = groups.filter((group) => group.signalIds.length > 1);
+  const selected = repeated.length > 0 ? repeated : groups;
+  return selected
     .slice(0, MAX_OBSERVATIONS)
-    .map((hit) => ({
-      text: hit.bucket.observation(hit.signalIds.length),
-      evidenceSignalIds: hit.signalIds.slice(0, 5)
+    .map((group) => ({
+      text: group.signalIds.length > 1
+        ? `「${group.keyword}」在 ${group.signalIds.length} 篇貼文中反覆出現，是這批 topic 目前最穩定的討論錨點。`
+        : `「${group.keyword}」目前只出現在 1 篇貼文，先保留為相鄰訊號。`,
+      evidenceSignalIds: group.signalIds.slice(0, 5)
     }));
 }
 
 function buildMemes(rows: AnalyzedSignalRow[]): TopicSynthesisMeme[] {
-  return extractRepeatedWorkPhrases(toWorkRows(rows), MAX_MEMES)
+  const counts = new Map<string, { phrase: string; signalIds: Set<string> }>();
+  for (const row of rows) {
+    const seenInSignal = new Set<string>();
+    for (const keyword of row.clusters.flatMap((cluster) => cluster.keywords)) {
+      const normalized = normalizeKeyword(keyword);
+      if (!normalized || seenInSignal.has(normalized)) continue;
+      seenInSignal.add(normalized);
+      const existing = counts.get(normalized);
+      if (existing) {
+        existing.signalIds.add(row.signalId);
+      } else {
+        counts.set(normalized, { phrase: keyword, signalIds: new Set([row.signalId]) });
+      }
+    }
+  }
+  return [...counts.values()]
+    .filter((entry) => entry.signalIds.size > 1)
+    .sort((left, right) =>
+      right.signalIds.size - left.signalIds.size
+      || left.phrase.localeCompare(right.phrase))
     .slice(0, MAX_MEMES)
-    .map((phrase) => phrase);
+    .map((entry) => ({ phrase: entry.phrase, occurrences: entry.signalIds.size }));
 }
 
-function buildSentimentNarrative(rows: AnalyzedSignalRow[]): string {
-  return buildWorkNarrative(toWorkRows(rows), collectWorkSignalHits(toWorkRows(rows)));
-}
-
-function buildOutliers(rows: AnalyzedSignalRow[], clusters: TopicSynthesisCluster[]): TopicSynthesisOutlier[] {
+function buildOutliers(rows: AnalyzedSignalRow[]): TopicSynthesisOutlier[] {
   if (rows.length === 0) return [];
-  const classifiedIds = new Set(clusters.flatMap((cluster) => cluster.exampleSignalIds));
+  const repeatedSignalIds = new Set(
+    buildTopKeywordGroups(rows)
+      .filter((group) => group.signalIds.length > 1)
+      .flatMap((group) => group.signalIds)
+  );
   return rows
-    .filter((row) => !classifiedIds.has(row.signalId))
+    .filter((row) => !repeatedSignalIds.has(row.signalId))
     .slice(0, MAX_OUTLIERS)
     .map((row) => ({
       signalId: row.signalId,
-      reason: `@${row.author} 暫時未貼合工作/焦慮/辭職主線，較像相鄰材料。`
+      reason: `@${row.author} 的主要關鍵詞「${row.topKeyword || "未命名"}」暫時沒有和主要重複錨點合流，先保留為相鄰材料。`
     }));
 }
 
@@ -156,14 +204,13 @@ export function generateTopicSynthesis(input: TopicSynthesisInput): TopicSynthes
   if (rows.length < TOPIC_SYNTHESIS_MIN_ANALYZED) return null;
 
   const clusters = buildClusters(rows);
-  const hits = collectWorkSignalHits(toWorkRows(rows));
   return {
     observations: buildObservations(rows),
     commonClusters: clusters,
-    verbalTechniques: buildWorkTechniqueLabels(hits),
+    verbalTechniques: [],
     memes: buildMemes(rows),
-    sentimentNarrative: buildSentimentNarrative(rows),
-    outliers: buildOutliers(rows, clusters),
+    sentimentNarrative: "",
+    outliers: buildOutliers(rows),
     generatedFromCount: rows.length,
     totalSignalCount: input.totalSignalCount,
     generatedAt: input.generatedAt ?? new Date().toISOString(),

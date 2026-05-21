@@ -95,21 +95,23 @@ test("generateTopicSynthesis returns null when fewer than the minimum analyzed s
   assert.equal(generateTopicSynthesis(input), null);
 });
 
-test("generateTopicSynthesis aggregates clusters and produces sentiment narrative + memes + outliers", () => {
+test("generateTopicSynthesis groups non-work topics by repeated top keywords", () => {
   const signals = [
     { signal: makeSignal("sig-1", "item-1"), item: makeItem("item-1", "alpha", [
-        { keywords: ["裸辭", "工作"], size_share: 0.6, like_share: 0.5 },
-        { keywords: ["薪水"], size_share: 0.4 }
-      ], undefined, "90後初入職場日記（1） 你冇聽錯 我作為90尾 而家先開始入職場 ... 只係想裸辭下") },
+        { keywords: ["browser automation", "agent workflow"], size_share: 0.6, like_share: 0.5 },
+        { keywords: ["mcp integration"], size_share: 0.4 }
+      ], undefined, "Threads users compare browser automation and MCP tool calling for agent workflows.") },
     { signal: makeSignal("sig-2", "item-2"), item: makeItem("item-2", "beta", [
-        { keywords: ["裸辭"], size_share: 0.7 }
-      ], undefined, "屌，感覺而家搵工時勢真係好差 想返份工都難") },
+        { keywords: ["browser automation"], size_share: 0.7 },
+        { keywords: ["recurring crawl"], size_share: 0.2 }
+      ], undefined, "A builder wants browser automation to keep a recurring crawl alive.") },
     { signal: makeSignal("sig-3", "item-3"), item: makeItem("item-3", "gamma", [
-        { keywords: ["裸辭", "工作"], size_share: 0.55 }
-      ], undefined, "日頭做 PR 拆彈，工作壓力好大，表面望落好冷靜準備做嘢") },
+        { keywords: ["recurring crawl"], size_share: 0.55 },
+        { keywords: ["agent workflow"], size_share: 0.3 }
+      ], undefined, "The thread is about recurring crawl jobs and scheduler recovery.") },
     { signal: makeSignal("sig-4", "item-4"), item: makeItem("item-4", "delta", [
-        { keywords: ["寵物"], size_share: 0.8 }
-      ], undefined, "寵物") }
+        { keywords: ["prompt injection"], size_share: 0.8 }
+      ], undefined, "Prompt injection shows up as a separate security concern.") }
   ];
 
   const synthesis = generateTopicSynthesis({
@@ -121,22 +123,32 @@ test("generateTopicSynthesis aggregates clusters and produces sentiment narrativ
   assert.ok(synthesis, "expected synthesis to be produced");
   assert.equal(synthesis!.generatedFromCount, 4);
   assert.equal(synthesis!.totalSignalCount, 5);
+  assert.equal(synthesis!.generatorVersion, TOPIC_SYNTHESIS_VERSION);
 
-  const quitCluster = synthesis!.commonClusters.find((cluster) => cluster.keyword === "想辭職與逃離工作");
-  assert.ok(quitCluster, "expected 想辭職與逃離工作 cluster aggregated across signals");
-  assert.equal(quitCluster!.signalCount, 3);
+  assert.equal(synthesis!.commonClusters[0]?.keyword, "browser automation");
+  assert.equal(synthesis!.commonClusters[0]?.signalCount, 2);
+  assert.deepEqual(synthesis!.commonClusters[0]?.exampleSignalIds, ["sig-1", "sig-2"]);
 
-  // 寵物 appeared only once → not in memes (which require occurrences >= 2)
-  assert.equal(synthesis!.memes.some((meme) => meme.phrase === "寵物"), false);
-  // 只要重複出現就應該被拉進 meme / phrase 區
-  assert.ok(synthesis!.memes.some((meme) => meme.phrase === "裸辭"));
+  assert.ok(synthesis!.observations.some((observation) =>
+    observation.text.includes("browser automation") && observation.text.includes("2 篇")
+  ));
+  assert.ok(synthesis!.memes.some((meme) =>
+    meme.phrase === "browser automation" && meme.occurrences === 2
+  ));
+  assert.equal(synthesis!.memes.some((meme) => meme.phrase === "prompt injection"), false);
 
-  // Outliers: the 寵物 signal does not share clusters with the rest
+  // Outliers: singleton top-keyword groups remain adjacent material, not forced into a domain bucket.
   assert.ok(synthesis!.outliers.some((outlier) => outlier.signalId === "sig-4"));
+  assert.ok(synthesis!.outliers.some((outlier) =>
+    outlier.signalId === "sig-4" && outlier.reason.includes("prompt injection")
+  ));
 
-  // Sentiment narrative mentions count and dominant keyword
-  assert.match(synthesis!.sentimentNarrative, /工作如何令人想逃離/);
-  assert.match(synthesis!.sentimentNarrative, /4/);
+  assert.deepEqual(synthesis!.verbalTechniques, []);
+  assert.equal(synthesis!.sentimentNarrative, "");
+  assert.equal(
+    /辭職|上班|職場|薪水小偷|工作焦慮|想逃離/.test(JSON.stringify(synthesis)),
+    false
+  );
 });
 
 test("generateTopicSynthesis skips signals whose analysis is not succeeded", () => {

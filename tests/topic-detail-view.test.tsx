@@ -4,6 +4,7 @@ import test from "node:test";
 import React from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 
+import { TOPIC_SYNTHESIS_VERSION } from "../src/compare/topic-synthesis.ts";
 import { createSessionItem } from "../src/state/store-helpers.ts";
 import type { SavedAnalysisSnapshot, SessionItem, Signal, Topic, TopicSynthesis } from "../src/state/types.ts";
 import { TopicDetailView, topicDetailViewTestables } from "../src/ui/TopicDetailView.tsx";
@@ -79,7 +80,7 @@ const synthesis: TopicSynthesis = {
   totalSignalCount: 6,
   generatedAt: "2026-04-23T10:30:00.000Z",
   generator: "deterministic",
-  generatorVersion: "v2.work-signal-lens"
+  generatorVersion: TOPIC_SYNTHESIS_VERSION
 };
 
 const topicWithSynthesis: Topic = {
@@ -153,7 +154,7 @@ test("TopicSynthesisCard Stack layout renders five collapsed section triggers", 
   assert.match(html, /data-testid="synthesis-outliers"/);
   assert.match(html, /aria-expanded="false"/);
   assert.match(html, /5 訊號 ·/);
-  assert.match(html, /v2\.work-signal-lens/);
+  assert.match(html, /v3\.generic-keyword-lens/);
   assert.doesNotMatch(html, /data-testid="synthesis-observations-body"/);
 });
 
