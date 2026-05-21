@@ -75,11 +75,11 @@ The verified build in the active Phase B implementation worktree is:
 - backend physical checkout: `/Users/tung/Desktop/dlens-backend/dlens-ingest-core`
 - old versions and historical worktrees: `/Users/tung/Desktop/dlens-old`
 - verification: `npm run typecheck`, `npx tsx --test tests/*.test.ts tests/*.test.tsx`, and `npm run build`
-- latest full test count after Signal Packet export baseline: `469 pass, 0 fail`
+- latest full test count after TopicSignalReading release: `487 pass, 0 fail`
 - latest build output was mirrored to `/Users/tung/Desktop/dlens-product-latest/output/chrome-mv3`
-- release baseline main commit: `5548926 feature: signal packet export baseline v0.1.17`
+- release baseline main commit: `9f04139 feature(release): bump extension version to 0.1.18`
 - live backend smoke from the prior product run: `GET http://127.0.0.1:8000/worker/status` returned `{"status":"idle"}`
-- extension manifest name is `DLens v3`; current extension version is `0.1.17`
+- extension manifest name is `DLens v3`; current extension version is `0.1.18`
 - version is locked across `package.json`, `package-lock.json`, `wxt.config.ts` `manifest.version`, and `src/ui/version.ts` `BUILD_VERSION`
 
 ## PR Evidence V1 Contract State
@@ -164,14 +164,14 @@ Important boundary: these upgrades only apply to the product AI paths. Evidence 
 
 Topic synthesis and Folder synthesis are deterministic extension-side display layers over already analyzed signals. They do not replace backend clustering.
 
-- `src/compare/work-signal-lens.ts` is the shared deterministic lens for work/anxiety/language patterns.
-- `src/compare/topic-synthesis.ts` produces `TopicSynthesis` with generator version `v2.work-signal-lens`, minimum 2 analyzed signals, and stale delta 3.
+- `src/compare/topic-synthesis.ts` produces `TopicSynthesis` with generator version `v3.generic-keyword-lens`, minimum 2 analyzed signals, stale delta 3, generic top-keyword clusters/observations/memes, and empty narrative/techniques until a future L2 synthesis layer.
 - `TopicSynthesisCard` supports two layouts:
   - `stack`: `sentimentNarrative` always visible; observations / clusters / verbal techniques / memes / outliers collapsed by default
   - `console`: dense always-visible mono view with cluster and meme percentage bars
-- `src/compare/folder-synthesis.ts` produces `FolderSynthesis` with generator version `v2.work-signal-lens`, minimum 3 analyzed signals across at least 2 topics, and stale delta 3.
+- `src/compare/folder-synthesis.ts` produces `FolderSynthesis` with generator version `v3.generic-keyword-lens`, minimum 3 analyzed signals across at least 2 topics, stale delta 3, generic cross-topic keyword clusters/observations/memes, and empty narrative/techniques until a future L2 synthesis layer.
 - Folder synthesis persists at `dlens:v1:folder-synthesis` through `src/compare/folder-synthesis-storage.ts`.
 - `FolderSynthesisCard` renders the Briefing layout in topic-mode Library.
+- Topic Detail can generate per-signal `TopicSignalReading` records from `TopicContext.researchQuestion`, assembled post content, discussion reply evidence refs, and cluster keyword hints. These records persist at `dlens:v1:topic-signal-readings`.
 - `ActionableItemCard` supports `verdict` and `marginalia`; `marginalia` is the default persisted Product signal card layout.
 - Marginalia rail keeps duplicated long prose out of the narrow right column: `對到` shows a category only, while TASK shows `agentTaskSpec.taskTitle` and leaves `experimentHint` in the main TRY block.
 - Marginalia visual hierarchy is intentionally reduced: the eyebrow omits verdict, the old FOOTNOTES header is hidden, bottom AI experiment/judgment detail blocks do not render in marginalia, and workflow evidence rows use flat stacked labels with dotted dividers.
@@ -184,7 +184,7 @@ Topic synthesis and Folder synthesis are deterministic extension-side display la
 
 ## Version State
 
-- Current extension version: `0.1.17`.
+- Current extension version: `0.1.18`.
 - Chrome extension page version comes from `wxt.config.ts` `manifest.version` in the built manifest.
 - Popup masthead version comes from `src/ui/version.ts` `BUILD_VERSION`.
 - `package.json`, `package-lock.json`, `wxt.config.ts`, and `src/ui/version.ts` must stay in sync for every main-facing update unless explicitly skipped.
@@ -347,8 +347,8 @@ The extension may present backend output more clearly, but it should not fabrica
 - Product mode should not leak folder concept into user-facing workflow
 - compare cluster pairing is still rank-based, not semantic
 - no canonical semantic axis / constellation data exists yet in the backend contract
-- `useInPageCollectorAppState.ts` is still a large popup orchestration hub at 1380 lines
-- `background.ts` is still large at 2668 lines and should be split before signal digest / watch mode grows background behavior
+- `useInPageCollectorAppState.ts` is still a large popup orchestration hub at 1382 lines
+- `background.ts` is still large at 2734 lines and should be split before signal digest / watch mode grows background behavior
 - full build/test verification in some local environments may still hit the existing `rolldown` native binding issue in `tests/manifest-config.test.ts`; this is an environment/runtime problem, not product behavior
 
 ## What Not To Revisit

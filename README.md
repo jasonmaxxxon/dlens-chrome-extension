@@ -2,9 +2,9 @@
 
 DLens is a mode-aware MV3 Chrome extension for capturing Threads posts and turning them into research, product-signal, and PR evidence workflows.
 
-> Last updated: 2026-05-20
-> Current release: `0.1.17`
-> Release baseline commit: `5548926 feature: signal packet export baseline v0.1.17`
+> Last updated: 2026-05-21
+> Current release: `0.1.18`
+> Release baseline commit: `9f04139 feature(release): bump extension version to 0.1.18`
 > Verified build: `/Users/tung/Desktop/dlens-product-latest/output/chrome-mv3`
 
 ## What It Does
@@ -26,7 +26,7 @@ Current workspace modes:
 - Mode-aware save routing: archive saves to Library; topic/product saves become Inbox signals; PR Evidence saves become campaign rows.
 - Backend queue/drain/polling against `ingestBaseUrl`, defaulting to `http://127.0.0.1:8000`.
 - Compare setup and Result surfaces with backend read models plus extension-side compare brief v8, cluster summaries, evidence annotations, and saved analysis snapshots.
-- Topic workflow: Casebook, Inbox, Topic Detail, signal triage, attached compare pairs, Topic/Folder synthesis.
+- Topic workflow: Casebook, Inbox, Topic Detail, signal triage, per-signal TopicSignalReading, attached compare pairs, Topic/Folder keyword statistics.
 - Product workflow: ProductContextCompiler, ProductSignalAnalyzer, Marginalia/Verdict card layouts, SignalReading review/compose, local feedback history.
 - Signal Packet export baseline: Product sessions can export `DLensSignalPacket` records as HTML, Markdown, or JSONL through `signal-packet/export`.
 - PR Evidence workflow: one active campaign per session, brief upload, six editable criteria, evidence rows, criteria matching, CSV export, Markdown/DOCX audit summary.
@@ -52,12 +52,12 @@ npx tsx --test tests/*.test.ts tests/*.test.tsx
 npm run build
 ```
 
-Expected verified state for `0.1.17`:
+Expected verified state for `0.1.18`:
 
-- `469/469` tests pass
+- `487/487` tests pass
 - `npm run typecheck` passes
 - `npm run build` mirrors the unpacked MV3 build to `output/chrome-mv3`
-- `output/chrome-mv3/manifest.json` reports `version: "0.1.17"` and `name: "DLens v3"`
+- `output/chrome-mv3/manifest.json` reports `version: "0.1.18"` and `name: "DLens v3"`
 
 ## Active Paths
 
@@ -87,7 +87,7 @@ Read these before non-trivial work:
 
 Current open risks:
 
-- `entrypoints/background.ts` is 2668 lines; split feature-specific handlers before adding digest/watch mode.
-- `src/ui/useInPageCollectorAppState.ts` is 1380 lines; continue extraction before adding more product/PR/export routes.
+- `entrypoints/background.ts` is 2734 lines; split feature-specific handlers before adding digest/watch mode.
+- `src/ui/useInPageCollectorAppState.ts` is 1382 lines; continue extraction before adding more product/PR/export routes.
 - Backend ThreadReadModel OP-continuation refinement remains Product mode P0.
 - Signal Packet HTML/JSONL needs the next semantic cleanup: HTML evidence density/provenance, `citedInReadingRefs`, latest vs superseded readings, and root `source.pageUrl` investigation.
