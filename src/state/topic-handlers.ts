@@ -57,8 +57,8 @@ async function readAllSignals(storageArea: StorageAreaLike): Promise<Signal[]> {
     .filter((entry): entry is Signal => entry !== null);
 }
 
-function cleanTopicPatch(patch: TopicHandlerMessage & { type: "topic/update" }): Partial<Pick<Topic, "name" | "status" | "tags" | "description">> {
-  const next: Partial<Pick<Topic, "name" | "status" | "tags" | "description">> = {};
+function cleanTopicPatch(patch: TopicHandlerMessage & { type: "topic/update" }): Partial<Pick<Topic, "name" | "status" | "tags" | "description" | "context">> {
+  const next: Partial<Pick<Topic, "name" | "status" | "tags" | "description" | "context">> = {};
   if (typeof patch.patch.name === "string") {
     next.name = patch.patch.name;
   }
@@ -70,6 +70,9 @@ function cleanTopicPatch(patch: TopicHandlerMessage & { type: "topic/update" }):
   }
   if (Array.isArray(patch.patch.tags)) {
     next.tags = patch.patch.tags;
+  }
+  if (patch.patch.context !== undefined) {
+    next.context = patch.patch.context;
   }
   return next;
 }
@@ -172,6 +175,7 @@ export async function handleTopicMessage(
         sessionId: message.sessionId,
         name: message.name.trim(),
         description: message.description?.trim() || "",
+        context: message.context,
         status: "pending",
         tags: [],
         signalIds: [],

@@ -334,6 +334,12 @@ export interface TopicSynthesis {
   generatorVersion: string;
 }
 
+export interface TopicContext {
+  researchQuestion: string;
+  lens?: string;
+  nonGoals?: string;
+}
+
 export interface FolderSynthesisCluster {
   keyword: string;
   signalCount: number;
@@ -385,6 +391,7 @@ export interface Topic {
   pairIds: string[];
   createdAt: string;
   updatedAt: string;
+  context?: TopicContext | null;
   synthesis?: TopicSynthesis | null;
 }
 

@@ -229,10 +229,12 @@ export function useTopicState({
     if (!name?.trim()) {
       return;
     }
+    const researchQuestion = window.prompt("研究問題（可留空）")?.trim() || "";
     const response = await sendExtensionMessage<{ ok: true; topics?: Topic[] } | { ok: false; error: string }>({
       type: "topic/create",
       sessionId: activeFolder.id,
-      name: name.trim()
+      name: name.trim(),
+      context: researchQuestion ? { researchQuestion } : null
     });
     if (response.ok) {
       setTopics(response.topics ?? []);
@@ -255,7 +257,8 @@ export function useTopicState({
         name: patch.name,
         status: patch.status,
         tags: patch.tags,
-        description: patch.description
+        description: patch.description,
+        context: patch.context
       }
     });
     if (response.ok) {

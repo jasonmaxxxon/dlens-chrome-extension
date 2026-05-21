@@ -72,8 +72,8 @@ export type ExtensionMessage =
   | { type: "compare/get-saved-analyses" }
   | { type: "compare/save-analysis"; snapshot: SavedAnalysisSnapshot }
   | { type: "topic/list"; sessionId: string }
-  | { type: "topic/create"; sessionId: string; name: string; description?: string }
-  | { type: "topic/update"; id: string; patch: Partial<Pick<Topic, "name" | "status" | "tags" | "description">> }
+  | { type: "topic/create"; sessionId: string; name: string; description?: string; context?: Topic["context"] }
+  | { type: "topic/update"; id: string; patch: Partial<Pick<Topic, "name" | "status" | "tags" | "description" | "context">> }
   | { type: "topic/delete"; id: string }
   | { type: "topic/add-pair"; topicId: string; resultId: string }
   | { type: "topic/remove-pair"; topicId: string; resultId: string }

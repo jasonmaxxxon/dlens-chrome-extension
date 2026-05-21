@@ -132,6 +132,27 @@ test("TopicDetailView renders synthesis, header counts, and signals fold", () =>
   assert.doesNotMatch(html, /討論訊號/);
 });
 
+test("TopicDetailView renders topic research question editor", () => {
+  const html = renderToStaticMarkup(
+    React.createElement(TopicDetailView, {
+      topic: {
+        ...topic,
+        context: {
+          researchQuestion: "Claude Code 用戶對 Agent 模式的真實抱怨是什麼？"
+        }
+      },
+      signals,
+      pairs,
+      onBack: () => undefined,
+      onOpenPair: () => undefined,
+      onUpdateTopic: () => undefined
+    })
+  );
+
+  assert.match(html, /研究問題/);
+  assert.match(html, /Claude Code 用戶對 Agent 模式的真實抱怨是什麼？/);
+});
+
 test("TopicSynthesisCard Stack layout renders five collapsed section triggers", () => {
   const html = renderToStaticMarkup(
     React.createElement(TopicDetailView, {

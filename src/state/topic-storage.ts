@@ -3,6 +3,7 @@ import type {
   SignalInboxStatus,
   SignalSource,
   Topic,
+  TopicContext,
   TopicStatus,
   TopicSynthesis,
   TopicSynthesisCluster,
@@ -59,6 +60,28 @@ function readTopicStatus(value: unknown): TopicStatus {
   return value === "pending" || value === "watching" || value === "learning" || value === "testing" || value === "archived"
     ? value
     : "pending";
+}
+
+function normalizeTopicContext(value: unknown): TopicContext | null | undefined {
+  if (value === undefined) {
+    return undefined;
+  }
+  if (!value || typeof value !== "object" || Array.isArray(value)) {
+    return null;
+  }
+
+  const raw = value as Record<string, unknown>;
+  const researchQuestion = readString(raw.researchQuestion).trim();
+  if (!researchQuestion) {
+    return null;
+  }
+  const lens = readString(raw.lens).trim();
+  const nonGoals = readString(raw.nonGoals).trim();
+  return {
+    researchQuestion,
+    ...(lens ? { lens } : {}),
+    ...(nonGoals ? { nonGoals } : {})
+  };
 }
 
 function readSignalSource(value: unknown): SignalSource | null {
@@ -172,6 +195,7 @@ export function normalizeTopic(value: unknown): Topic | null {
     : raw.synthesis === null
       ? null
       : normalizeTopicSynthesis(raw.synthesis);
+  const context = normalizeTopicContext(raw.context);
 
   return {
     id,
@@ -184,6 +208,7 @@ export function normalizeTopic(value: unknown): Topic | null {
     pairIds: readStringArray(raw.pairIds),
     createdAt: readString(raw.createdAt, "1970-01-01T00:00:00.000Z").trim() || "1970-01-01T00:00:00.000Z",
     updatedAt: readString(raw.updatedAt, "1970-01-01T00:00:00.000Z").trim() || "1970-01-01T00:00:00.000Z",
+    ...(context !== undefined ? { context } : {}),
     ...(synthesis !== undefined ? { synthesis } : {})
   };
 }

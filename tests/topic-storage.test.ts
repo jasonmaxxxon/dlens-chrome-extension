@@ -61,6 +61,33 @@ test("normalizeTopic returns null for incomplete records and fills defaults for 
   } satisfies Topic);
 });
 
+test("normalizeTopic preserves non-empty topic context and drops empty context", () => {
+  assert.deepEqual(normalizeTopic({
+    id: "topic-1",
+    sessionId: "session-1",
+    name: "Signals",
+    context: {
+      researchQuestion: "  Claude Code 用戶對 Agent 模式的真實抱怨是什麼？  ",
+      lens: "  從產品開發者視角  ",
+      nonGoals: "  不做泛泛情緒總結  "
+    }
+  })?.context, {
+    researchQuestion: "Claude Code 用戶對 Agent 模式的真實抱怨是什麼？",
+    lens: "從產品開發者視角",
+    nonGoals: "不做泛泛情緒總結"
+  });
+
+  assert.equal(normalizeTopic({
+    id: "topic-2",
+    sessionId: "session-1",
+    name: "Empty context",
+    context: {
+      researchQuestion: "   ",
+      lens: "產品視角"
+    }
+  })?.context, null);
+});
+
 test("normalizeTopicSynthesis rejects records from older generator versions", () => {
   assert.equal(normalizeTopicSynthesis({
     observations: [],

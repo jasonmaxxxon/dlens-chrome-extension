@@ -154,6 +154,48 @@ test("handleTopicMessage updates partial topic fields without erasing existing r
   assert.equal(topics[0]?.description, "Updated description");
 });
 
+test("handleTopicMessage creates and updates topic context", async () => {
+  const storage = createStorageArea();
+
+  await handleTopicMessage(storage, {
+    type: "topic/create",
+    sessionId: "session-1",
+    name: "Claude Code adoption",
+    context: {
+      researchQuestion: "  Claude Code 用戶對 Agent 模式的真實抱怨是什麼？  "
+    }
+  });
+
+  let topics = await loadTopics(storage, "session-1");
+  assert.equal(topics[0]?.context?.researchQuestion, "Claude Code 用戶對 Agent 模式的真實抱怨是什麼？");
+
+  await handleTopicMessage(storage, {
+    type: "topic/update",
+    id: topics[0]!.id,
+    patch: {
+      context: {
+        researchQuestion: "台灣 builder 社群對 AI 工具的採用障礙在哪？",
+        lens: "從產品開發者視角"
+      }
+    }
+  });
+
+  topics = await loadTopics(storage, "session-1");
+  assert.equal(topics[0]?.context?.researchQuestion, "台灣 builder 社群對 AI 工具的採用障礙在哪？");
+  assert.equal(topics[0]?.context?.lens, "從產品開發者視角");
+
+  await handleTopicMessage(storage, {
+    type: "topic/update",
+    id: topics[0]!.id,
+    patch: {
+      context: { researchQuestion: "   " }
+    }
+  });
+
+  topics = await loadTopics(storage, "session-1");
+  assert.equal(topics[0]?.context, null);
+});
+
 test("handleTopicMessage triages a signal and returns refreshed signal/topic lists", async () => {
   const storage = createStorageArea({
     [TOPICS_STORAGE_KEY]: [

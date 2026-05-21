@@ -876,6 +876,7 @@ export function TopicDetailView({
   synthLayout = "console"
 }: TopicDetailViewProps) {
   const [draftDescription, setDraftDescription] = useState(topic.description || "");
+  const [draftResearchQuestion, setDraftResearchQuestion] = useState(topic.context?.researchQuestion || "");
   const [isGeneratingSynthesis, setIsGeneratingSynthesis] = useState(false);
   const [synthesisError, setSynthesisError] = useState<string | null>(null);
   const [manualJudgment, setManualJudgment] = useState<{
@@ -885,6 +886,11 @@ export function TopicDetailView({
   } | null>(null);
 
   const primaryJudgmentPair = useMemo(() => pickPrimaryJudgmentPair(pairs), [pairs]);
+
+  useEffect(() => {
+    setDraftDescription(topic.description || "");
+    setDraftResearchQuestion(topic.context?.researchQuestion || "");
+  }, [topic.context?.researchQuestion, topic.description, topic.id]);
 
   const itemByItemId = useMemo(() => {
     const map = new Map<string, SessionItem>();
@@ -954,6 +960,22 @@ export function TopicDetailView({
       .finally(() => {
         setIsGeneratingSynthesis(false);
       });
+  };
+
+  const handleResearchQuestionBlur = () => {
+    const current = topic.context?.researchQuestion || "";
+    if (draftResearchQuestion === current) {
+      return;
+    }
+    const researchQuestion = draftResearchQuestion.trim();
+    onUpdateTopic({
+      context: researchQuestion
+        ? {
+            ...(topic.context ?? {}),
+            researchQuestion
+          }
+        : null
+    });
   };
 
   const visibleJudgment = manualJudgment && primaryJudgmentPair?.resultId === manualJudgment.resultId
@@ -1027,6 +1049,53 @@ export function TopicDetailView({
             onChange={(event) => setDraftDescription(event.target.value)}
             onBlur={() => draftDescription !== (topic.description || "") && onUpdateTopic({ description: draftDescription })}
             rows={2}
+            style={{
+              resize: "vertical",
+              minHeight: 48,
+              borderRadius: 8,
+              border: `1px solid ${tokens.color.line}`,
+              background: tokens.color.surface,
+              color: tokens.color.ink,
+              padding: "8px 10px",
+              fontSize: 12,
+              lineHeight: 1.45,
+              fontFamily: tokens.font.sans
+            }}
+          />
+        </details>
+
+        <details
+          style={{
+            border: `1px solid ${tokens.color.line}`,
+            borderRadius: 8,
+            background: tokens.color.surface,
+            padding: "8px 10px",
+            color: tokens.color.subInk
+          }}
+        >
+          <summary
+            style={{
+              cursor: "pointer",
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "space-between",
+              gap: 10,
+              fontSize: 11,
+              fontWeight: 700,
+              listStyle: "none"
+            }}
+          >
+            <span>研究問題</span>
+            <span style={{ flex: "1 1 auto", minWidth: 0, textAlign: "right", fontWeight: 500, ...lineClamp(1) }}>
+              {draftResearchQuestion || "尚未設定"}
+            </span>
+          </summary>
+          <textarea
+            value={draftResearchQuestion}
+            onChange={(event) => setDraftResearchQuestion(event.target.value)}
+            onBlur={handleResearchQuestionBlur}
+            rows={2}
+            placeholder="這個 topic 是為了回答什麼問題？"
             style={{
               resize: "vertical",
               minHeight: 48,
