@@ -147,9 +147,7 @@ function buildObservations(rows: AnalyzedSignalRow[]): TopicSynthesisObservation
   return selected
     .slice(0, MAX_OBSERVATIONS)
     .map((group) => ({
-      text: group.signalIds.length > 1
-        ? `「${group.keyword}」在 ${group.signalIds.length} 篇貼文中反覆出現，是這批 topic 目前最穩定的討論錨點。`
-        : `「${group.keyword}」目前只出現在 1 篇貼文，先保留為相鄰訊號。`,
+      text: `「${group.keyword}」在 ${group.signalIds.length} 篇貼文中出現。`,
       evidenceSignalIds: group.signalIds.slice(0, 5)
     }));
 }
