@@ -5,7 +5,7 @@ import React from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 
 import { createSessionItem } from "../src/state/store-helpers.ts";
-import type { SessionItem, Signal, Topic } from "../src/state/types.ts";
+import type { SessionItem, Signal, SignalTagsRecord, Topic } from "../src/state/types.ts";
 import { CasebookView, casebookViewTestables } from "../src/ui/CasebookView.tsx";
 
 function buildTopics(): Topic[] {
@@ -80,6 +80,27 @@ function buildSessionItem(id = "item-2", status: SessionItem["status"] = "saved"
   return item;
 }
 
+const signalTagsByItemId: Record<string, SignalTagsRecord> = {
+  "item-1": {
+    itemId: "item-1",
+    status: "complete",
+    signalTags: ["求職", "外勞", "本地勞工"],
+    signalGist: "外勞招聘與本地求職者被壓價的衝突。",
+    promptVersion: "v1",
+    model: "google:test-model",
+    generatedAt: "2026-05-21T00:00:00.000Z"
+  },
+  "item-2": {
+    itemId: "item-2",
+    status: "complete",
+    signalTags: ["求職", "職位壓價", "外勞"],
+    signalGist: "另一則求職討論。",
+    promptVersion: "v1",
+    model: "google:test-model",
+    generatedAt: "2026-05-21T00:01:00.000Z"
+  }
+};
+
 test("CasebookView renders the topic list and signal metadata", () => {
   const html = renderToStaticMarkup(
     React.createElement(CasebookView, {
@@ -97,6 +118,23 @@ test("CasebookView renders the topic list and signal metadata", () => {
   assert.match(html, /2 則訊號/);
   assert.match(html, /新建主題/);
   assert.match(html, /AI 建議主題/);
+});
+
+test("CasebookView renders top semantic tags on topic cards", () => {
+  const html = renderToStaticMarkup(
+    React.createElement(CasebookView, {
+      sessionId: "session-1",
+      initialTopics: buildTopics(),
+      signals: buildSignals().map((signal) => ({ ...signal, inboxStatus: "assigned", topicId: "topic-1" })),
+      signalTagsByItemId,
+      onNavigateToTopic: () => undefined,
+      onCreateTopic: () => undefined
+    })
+  );
+
+  assert.match(html, /求職/);
+  assert.match(html, /外勞/);
+  assert.match(html, /本地勞工|職位壓價/);
 });
 
 test("CasebookView renders an empty state when there are no topics", () => {

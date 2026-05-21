@@ -11,6 +11,7 @@ import type {
   SavedAnalysisSnapshot,
   SessionItem,
   Signal,
+  SignalTagsRecord,
   Topic,
   TopicSignalReading,
   TopicSignalStance,
@@ -43,6 +44,7 @@ interface TopicDetailViewProps {
   onSaveJudgmentOverride?: (resultId: string, patch: { relevance: 1 | 2 | 3 | 4 | 5; recommendedState: "park" | "watch" | "act" }) => void;
   onGenerateSynthesis?: (topicId: string) => Promise<{ ok: boolean; error?: string }>;
   signalReadingsBySignalId?: Record<string, TopicSignalReading>;
+  signalTagsByItemId?: Record<string, SignalTagsRecord>;
   onGenerateSignalReading?: (signalId: string, topicId: string) => Promise<{ ok: boolean; error?: string }>;
   synthLayout?: TopicSynthesisLayout;
 }
@@ -888,6 +890,127 @@ function StanceBadge({ stance }: { stance: TopicSignalStance }) {
   );
 }
 
+interface SignalTagSummary {
+  tag: string;
+  count: number;
+}
+
+function buildSignalTagSummaries(
+  signals: Signal[],
+  signalTagsByItemId: Record<string, SignalTagsRecord>
+): SignalTagSummary[] {
+  const counts = new Map<string, { tag: string; count: number }>();
+  for (const signal of signals) {
+    if (!signal.itemId) continue;
+    const record = signalTagsByItemId[signal.itemId];
+    if (!record || record.status !== "complete") continue;
+    const seenInSignal = new Set<string>();
+    for (const tag of record.signalTags) {
+      const normalized = tag.trim().toLowerCase();
+      if (!normalized || seenInSignal.has(normalized)) continue;
+      seenInSignal.add(normalized);
+      const existing = counts.get(normalized);
+      if (existing) {
+        existing.count += 1;
+      } else {
+        counts.set(normalized, { tag, count: 1 });
+      }
+    }
+  }
+  return [...counts.values()].sort((left, right) =>
+    right.count - left.count
+    || left.tag.localeCompare(right.tag)
+  );
+}
+
+function TopicSignalTagCloud({
+  summaries,
+  taggedCount,
+  selectedTag,
+  onSelectTag,
+  onClearTag
+}: {
+  summaries: SignalTagSummary[];
+  taggedCount: number;
+  selectedTag: string | null;
+  onSelectTag: (tag: string) => void;
+  onClearTag: () => void;
+}) {
+  if (summaries.length === 0) {
+    return null;
+  }
+
+  return (
+    <section
+      data-topic-signal-tags="cloud"
+      style={{
+        display: "grid",
+        gap: 12,
+        padding: "14px 16px",
+        borderRadius: tokens.radius.card,
+        border: `1px solid ${tokens.color.line}`,
+        background: tokens.color.elevated
+      }}
+    >
+      <header style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", gap: 10, flexWrap: "wrap" }}>
+        <div style={{ display: "grid", gap: 2 }}>
+          <div style={{ fontSize: 10, fontWeight: 750, color: tokens.color.softInk, letterSpacing: "0.02em" }}>
+            AI 語意標籤
+          </div>
+          <div style={{ fontFamily: tokens.font.serifCjk, fontSize: 18, fontWeight: 600, color: tokens.color.ink }}>
+            標籤雲
+          </div>
+        </div>
+        <Stamp tone="neutral">{taggedCount} 已標記</Stamp>
+      </header>
+
+      <div style={{ display: "flex", gap: 7, flexWrap: "wrap" }}>
+        {summaries.map((summary) => {
+          const active = selectedTag === summary.tag;
+          const repeated = summary.count >= 2;
+          return (
+            <button
+              key={summary.tag}
+              type="button"
+              onClick={() => active ? onClearTag() : onSelectTag(summary.tag)}
+              aria-pressed={active}
+              style={{
+                border: `1px solid ${active ? tokens.color.accentGlow : repeated ? tokens.color.success : tokens.color.line}`,
+                borderRadius: 999,
+                background: active ? tokens.color.accentSoft : repeated ? "rgba(63,90,59,0.10)" : tokens.color.surface,
+                color: active ? tokens.color.accent : repeated ? tokens.color.success : tokens.color.subInk,
+                padding: "5px 9px",
+                fontSize: 11,
+                fontWeight: repeated ? 750 : 650,
+                cursor: "pointer"
+              }}
+            >
+              {summary.tag}
+              <span style={{ marginLeft: 5, color: tokens.color.softInk, fontWeight: 650 }}>
+                {summary.count}
+              </span>
+            </button>
+          );
+        })}
+      </div>
+
+      {selectedTag ? (
+        <div style={{ display: "flex", justifyContent: "space-between", gap: 10, alignItems: "center", fontSize: 11, color: tokens.color.subInk }}>
+          <span>只顯示「{selectedTag}」相關篇目</span>
+          <SecondaryButton onClick={onClearTag} style={{ padding: "4px 8px", fontSize: 10.5 }}>
+            清除
+          </SecondaryButton>
+        </div>
+      ) : null}
+    </section>
+  );
+}
+
+function hasSignalTag(record: SignalTagsRecord | undefined, tag: string | null): boolean {
+  if (!tag) return true;
+  return Boolean(record?.signalTags.some((entry) => entry === tag));
+}
+
 export function TopicDetailView({
   topic,
   signals,
@@ -908,15 +1031,15 @@ export function TopicDetailView({
   onSaveJudgmentOverride,
   onGenerateSynthesis,
   signalReadingsBySignalId = {},
+  signalTagsByItemId = {},
   onGenerateSignalReading,
   synthLayout = "console"
 }: TopicDetailViewProps) {
   const [draftDescription, setDraftDescription] = useState(topic.description || "");
   const [draftResearchQuestion, setDraftResearchQuestion] = useState(topic.context?.researchQuestion || "");
-  const [isGeneratingSynthesis, setIsGeneratingSynthesis] = useState(false);
-  const [synthesisError, setSynthesisError] = useState<string | null>(null);
   const [isGeneratingForSignalId, setIsGeneratingForSignalId] = useState<string | null>(null);
   const [generatingErrorBySignalId, setGeneratingErrorBySignalId] = useState<Record<string, string>>({});
+  const [selectedTag, setSelectedTag] = useState<string | null>(null);
   const [manualJudgment, setManualJudgment] = useState<{
     resultId: string;
     relevance: 1 | 2 | 3 | 4 | 5;
@@ -976,28 +1099,31 @@ export function TopicDetailView({
     return counts;
   }, [signals, itemByItemId, optimisticQueuedSet]);
 
+  const signalTagSummaries = useMemo(
+    () => buildSignalTagSummaries(signals, signalTagsByItemId),
+    [signalTagsByItemId, signals]
+  );
+  const taggedSignalCount = useMemo(
+    () => signals.filter((signal) => signal.itemId && signalTagsByItemId[signal.itemId]?.status === "complete").length,
+    [signalTagsByItemId, signals]
+  );
+  const visibleSignals = useMemo(
+    () => signals.filter((signal) =>
+      hasSignalTag(signal.itemId ? signalTagsByItemId[signal.itemId] : undefined, selectedTag)
+    ),
+    [selectedTag, signalTagsByItemId, signals]
+  );
+
+  useEffect(() => {
+    if (selectedTag && !signalTagSummaries.some((summary) => summary.tag === selectedTag)) {
+      setSelectedTag(null);
+    }
+  }, [selectedTag, signalTagSummaries]);
+
   const handleAnalyzeUnanalyzedItems = () => {
     if (onAnalyzeItems && !isBulkAnalyzing) {
       void onAnalyzeItems(unanalyzedItemIds);
     }
-  };
-
-  const handleGenerateSynthesis = () => {
-    if (!onGenerateSynthesis || isGeneratingSynthesis) return;
-    setSynthesisError(null);
-    setIsGeneratingSynthesis(true);
-    void onGenerateSynthesis(topic.id)
-      .then((result) => {
-        if (!result.ok && result.error) {
-          setSynthesisError(result.error);
-        }
-      })
-      .catch((error: unknown) => {
-        setSynthesisError(error instanceof Error ? error.message : "合成失敗");
-      })
-      .finally(() => {
-        setIsGeneratingSynthesis(false);
-      });
   };
 
   const handleResearchQuestionBlur = () => {
@@ -1142,7 +1268,7 @@ export function TopicDetailView({
               listStyle: "none"
             }}
           >
-            <span>研究問題</span>
+            <span>研究問題（可選）</span>
             <span style={{ flex: "1 1 auto", minWidth: 0, textAlign: "right", fontWeight: 500, ...lineClamp(1) }}>
               {draftResearchQuestion || "尚未設定"}
             </span>
@@ -1152,7 +1278,7 @@ export function TopicDetailView({
             onChange={(event) => setDraftResearchQuestion(event.target.value)}
             onBlur={handleResearchQuestionBlur}
             rows={2}
-            placeholder="這個 topic 是為了回答什麼問題？"
+            placeholder="如果已經有想驗證的方向，可以寫在這裡；沒有也可以直接生成判讀。"
             style={{
               resize: "vertical",
               minHeight: 48,
@@ -1169,13 +1295,12 @@ export function TopicDetailView({
         </details>
 
         <section style={{ display: "grid", gap: 12 }}>
-            <TopicSynthesisCard
-              topic={topic}
-              analyzedCount={topicAnalysisCounts.ready}
-              isGenerating={isGeneratingSynthesis}
-              errorMessage={synthesisError}
-              onGenerate={handleGenerateSynthesis}
-              layout={synthLayout}
+            <TopicSignalTagCloud
+              summaries={signalTagSummaries}
+              taggedCount={taggedSignalCount}
+              selectedTag={selectedTag}
+              onSelectTag={setSelectedTag}
+              onClearTag={() => setSelectedTag(null)}
             />
 
             {unanalyzedItemIds.length > 0 ? (
@@ -1331,18 +1456,19 @@ export function TopicDetailView({
                 >
                   <span>全部訊號篇目</span>
                   <span style={{ fontSize: 11, color: tokens.color.softInk, fontWeight: 500 }}>
-                    {signals.length} 篇 · 點開展開
+                    {selectedTag ? `${visibleSignals.length}/${signals.length} 篇` : `${signals.length} 篇`} · 點開展開
                   </span>
                 </summary>
                 <style>{SCAN_ROW_HOVER_CSS}</style>
                 <div style={{ display: "grid", marginTop: 8 }}>
-                  {signals.map((signal) => {
+                  {visibleSignals.map((signal) => {
                     const item = signal.itemId ? itemByItemId.get(signal.itemId) : undefined;
                     const resultId = item ? resultIdByItemId.get(item.id) : undefined;
                     const status = getTopicItemAnalysisState(item, optimisticQueuedSet);
                     const isReady = status === "ready";
                     const isProcessing = status === "queued" || status === "crawling" || status === "analyzing";
                     const preview = signalPreviewById[signal.id] || signal.source;
+                    const tagRecord = signal.itemId ? signalTagsByItemId[signal.itemId] : undefined;
 
                     return (
                       <div
@@ -1368,8 +1494,36 @@ export function TopicDetailView({
                         />
                         <div style={{ display: "grid", gap: 5, minWidth: 0 }}>
                           <div style={{ fontSize: 13, fontWeight: 600, color: tokens.color.ink, ...lineClamp(1) }}>
-                            {preview}
+                            {tagRecord?.signalGist || preview}
                           </div>
+                          {tagRecord?.signalGist && preview ? (
+                            <div style={{ fontSize: 11, lineHeight: 1.45, color: tokens.color.softInk, ...lineClamp(1) }}>
+                              {preview}
+                            </div>
+                          ) : null}
+                          {tagRecord?.signalTags.length ? (
+                            <div style={{ display: "flex", gap: 5, flexWrap: "wrap" }}>
+                              {tagRecord.signalTags.map((tag) => (
+                                <button
+                                  key={`${signal.id}-${tag}`}
+                                  type="button"
+                                  onClick={() => setSelectedTag(tag)}
+                                  style={{
+                                    border: `1px solid ${selectedTag === tag ? tokens.color.accentGlow : tokens.color.line}`,
+                                    borderRadius: 999,
+                                    background: selectedTag === tag ? tokens.color.accentSoft : tokens.color.neutralSurface,
+                                    color: selectedTag === tag ? tokens.color.accent : tokens.color.subInk,
+                                    padding: "3px 7px",
+                                    fontSize: 10.5,
+                                    fontWeight: 650,
+                                    cursor: "pointer"
+                                  }}
+                                >
+                                  {tag}
+                                </button>
+                              ))}
+                            </div>
+                          ) : null}
                           <div style={{ fontSize: 11, color: tokens.color.softInk }}>
                             加入 {formatTopicDate(signal.capturedAt)}
                           </div>
@@ -1441,8 +1595,6 @@ export function TopicDetailView({
                             </div>
                           {(() => {
                             const reading = signalReadingsBySignalId[signal.id];
-                            const hasResearchQuestion = Boolean(topic.context?.researchQuestion);
-                            if (!hasResearchQuestion) return null;
                             if (reading) {
                               return (
                                 <div

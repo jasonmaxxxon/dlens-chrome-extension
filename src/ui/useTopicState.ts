@@ -8,6 +8,7 @@ import type {
   SavedAnalysisSnapshot,
   SessionRecord,
   Signal,
+  SignalTagsRecord,
   Topic,
   TopicSignalReading,
   TriageAction
@@ -134,6 +135,7 @@ export function useTopicState({
   const [selectedTopicId, setSelectedTopicId] = useState<string | null>(null);
   const [resultTopicContext, setResultTopicContext] = useState<{ topicId: string; topicName: string } | null>(null);
   const [topicSignalReadingsBySignalId, setTopicSignalReadingsBySignalId] = useState<Record<string, TopicSignalReading>>({});
+  const [signalTagsByItemId, setSignalTagsByItemId] = useState<Record<string, SignalTagsRecord>>({});
 
   const activeTopic = useMemo(
     () => topics.find((topic) => topic.id === selectedTopicId) ?? null,
@@ -159,6 +161,14 @@ export function useTopicState({
     () => signals.filter((signal) => signal.topicId === activeTopic?.id),
     [activeTopic?.id, signals]
   );
+  const activeTopicItemIds = useMemo(
+    () => Array.from(new Set(activeTopicSignals.map((signal) => signal.itemId).filter((itemId): itemId is string => Boolean(itemId)))),
+    [activeTopicSignals]
+  );
+  const allSignalItemIds = useMemo(
+    () => Array.from(new Set(signals.map((signal) => signal.itemId).filter((itemId): itemId is string => Boolean(itemId)))),
+    [signals]
+  );
   const activeTopicPairs = useMemo(
     () => savedAnalyses.filter((pair) => activeTopic?.pairIds.includes(pair.resultId)),
     [activeTopic?.pairIds, savedAnalyses]
@@ -174,6 +184,7 @@ export function useTopicState({
       setSignals([]);
       setSelectedTopicId(null);
       setTopicSignalReadingsBySignalId({});
+      setSignalTagsByItemId({});
       return;
     }
 
@@ -232,6 +243,82 @@ export function useTopicState({
       cancelled = true;
     };
   }, [selectedTopicId]);
+
+  useEffect(() => {
+    if (allSignalItemIds.length === 0) {
+      setSignalTagsByItemId({});
+      return;
+    }
+    let cancelled = false;
+    const itemIds = allSignalItemIds;
+    void sendExtensionMessage<{ ok: true; signalTags?: SignalTagsRecord[] } | { ok: false; error: string }>({
+      type: "signal/list-tags",
+      itemIds
+    }).then((response) => {
+      if (cancelled || !response.ok) {
+        return;
+      }
+      const itemIdSet = new Set(itemIds);
+      const map: Record<string, SignalTagsRecord> = {};
+      for (const record of response.signalTags ?? []) {
+        if (itemIdSet.has(record.itemId)) {
+          map[record.itemId] = record;
+        }
+      }
+      setSignalTagsByItemId(map);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [allSignalItemIds.join("|")]);
+
+  useEffect(() => {
+    if (!selectedTopicId || activeTopicItemIds.length === 0) {
+      return;
+    }
+    let cancelled = false;
+    const itemIds = activeTopicItemIds;
+    const mergeRecords = (records: SignalTagsRecord[]) => {
+      if (cancelled) {
+        return;
+      }
+      setSignalTagsByItemId((previous) => {
+        const next = { ...previous };
+        for (const record of records) {
+          next[record.itemId] = record;
+        }
+        return next;
+      });
+    };
+
+    void sendExtensionMessage<{ ok: true; signalTags?: SignalTagsRecord[] } | { ok: false; error: string }>({
+      type: "signal/list-tags",
+      itemIds
+    }).then((response) => {
+      if (cancelled || !response.ok) {
+        return;
+      }
+      const records = response.signalTags ?? [];
+      mergeRecords(records);
+      const tagged = new Set(records.map((record) => record.itemId));
+      const hasMissing = itemIds.some((itemId) => !tagged.has(itemId));
+      if (!hasMissing) {
+        return;
+      }
+      void sendExtensionMessage<{ ok: true; signalTags?: SignalTagsRecord[] } | { ok: false; error: string }>({
+        type: "topic/generate-missing-signal-tags",
+        topicId: selectedTopicId
+      }).then((generateResponse) => {
+        if (!cancelled && generateResponse.ok) {
+          mergeRecords(generateResponse.signalTags ?? []);
+        }
+      });
+    });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [activeTopicItemIds.join("|"), selectedTopicId]);
 
   async function onSessionModeChange(mode: FolderMode) {
     if (!activeFolder) {
@@ -413,6 +500,7 @@ export function useTopicState({
     activeTopicPairs,
     signalPreviewById,
     signalUrlById,
+    signalTagsByItemId,
     productSignalEvidenceById,
     productSignalReadinessById,
     topicSignalReadingsBySignalId,

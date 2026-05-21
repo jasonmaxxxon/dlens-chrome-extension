@@ -201,6 +201,7 @@ export function InPageCollectorPopup({ app }: { app: InPageCollectorAppModel }) 
                   onSaveJudgmentOverride={(resultId, patch) => void app.onSaveJudgmentOverride(resultId, patch)}
                   onGenerateSynthesis={(topicId) => app.onGenerateTopicSynthesis(topicId)}
                   signalReadingsBySignalId={app.topicSignalReadingsBySignalId}
+                  signalTagsByItemId={app.signalTagsByItemId}
                   onGenerateSignalReading={(signalId, topicId) => app.onGenerateTopicSignalReading(signalId, topicId)}
                   synthLayout={snapshot?.global.settings.layoutPreferences.topicSynthesisLayout}
                 />
@@ -210,6 +211,7 @@ export function InPageCollectorPopup({ app }: { app: InPageCollectorAppModel }) 
                   initialTopics={app.topics}
                   signals={app.signals}
                   signalPreviewById={app.signalPreviewById}
+                  signalTagsByItemId={app.signalTagsByItemId}
                   sessionItems={activeFolder?.items ?? []}
                   savedAnalyses={app.savedAnalyses}
                   pendingSignalCount={app.signals.filter((signal) => signal.inboxStatus === "unprocessed").length}

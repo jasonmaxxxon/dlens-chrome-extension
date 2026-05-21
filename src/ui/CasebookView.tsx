@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 
 import { getItemReadinessStatus, type ItemReadinessStatus } from "../state/processing-state.ts";
-import type { SavedAnalysisSnapshot, SessionItem, Signal, Topic, TopicStatus, TriageAction } from "../state/types.ts";
+import type { SavedAnalysisSnapshot, SessionItem, Signal, SignalTagsRecord, Topic, TopicStatus, TriageAction } from "../state/types.ts";
 import { Kicker, SCAN_ROW_HOVER_CSS, SecondaryButton, Stamp, WorkspaceSurface, lineClamp, scanRowStyle, viewRootStyle } from "./components.tsx";
 import { tokens } from "./tokens.ts";
 
@@ -18,6 +18,7 @@ interface CasebookViewProps {
   signalPreviewById?: Record<string, string>;
   sessionItems?: SessionItem[];
   savedAnalyses?: SavedAnalysisSnapshot[];
+  signalTagsByItemId?: Record<string, SignalTagsRecord>;
   pendingSignalCount?: number;
   onSignalTriaged?: (signalId: string, action: TriageAction) => void;
   onQueueItemById?: (itemId: string) => void;
@@ -125,6 +126,35 @@ function topicOwnsSignal(topic: Topic, signal: Signal): boolean {
   return signal.topicId === topic.id || topic.signalIds.includes(signal.id);
 }
 
+function topSemanticTagsForTopic(
+  topic: Topic,
+  signals: Signal[],
+  signalTagsByItemId: Record<string, SignalTagsRecord>
+): string[] {
+  const counts = new Map<string, { tag: string; count: number }>();
+  for (const signal of signals) {
+    if (!topicOwnsSignal(topic, signal) || !signal.itemId) continue;
+    const record = signalTagsByItemId[signal.itemId];
+    if (!record || record.status !== "complete") continue;
+    const seenInSignal = new Set<string>();
+    for (const tag of record.signalTags) {
+      const normalized = tag.trim().toLowerCase();
+      if (!normalized || seenInSignal.has(normalized)) continue;
+      seenInSignal.add(normalized);
+      const existing = counts.get(normalized);
+      if (existing) {
+        existing.count += 1;
+      } else {
+        counts.set(normalized, { tag, count: 1 });
+      }
+    }
+  }
+  return [...counts.values()]
+    .sort((left, right) => right.count - left.count || left.tag.localeCompare(right.tag))
+    .slice(0, 3)
+    .map((entry) => entry.tag);
+}
+
 // ─── Topic card ─────────────────────────────────────────────────────────────
 
 export function TopicRow({
@@ -157,11 +187,13 @@ function TopicCard({
   topic,
   analyzedCount,
   totalCount,
+  semanticTags = [],
   onSelect
 }: {
   topic: Topic;
   analyzedCount?: number;
   totalCount?: number;
+  semanticTags?: string[];
   onSelect: (topicId: string) => void;
 }) {
   const total = totalCount ?? topic.signalIds.length;
@@ -204,6 +236,25 @@ function TopicCard({
               <span key={tag} style={{ fontSize: 10.5, color: tokens.color.softInk }}>· {tag}</span>
             ))}
           </div>
+          {semanticTags.length > 0 ? (
+            <div style={{ display: "flex", gap: 5, flexWrap: "wrap", alignItems: "center" }}>
+              {semanticTags.map((tag) => (
+                <span
+                  key={tag}
+                  style={{
+                    borderRadius: 999,
+                    background: tokens.color.neutralSurface,
+                    color: tokens.color.subInk,
+                    padding: "3px 7px",
+                    fontSize: 10.5,
+                    fontWeight: 650
+                  }}
+                >
+                  {tag}
+                </span>
+              ))}
+            </div>
+          ) : null}
         </div>
         <div style={{ fontSize: 10, color: tokens.color.softInk, whiteSpace: "nowrap", flexShrink: 0 }}>
           {formatUpdatedAt(topic.updatedAt)}
@@ -403,6 +454,7 @@ export function CasebookView({
   signalPreviewById = {},
   sessionItems = [],
   savedAnalyses = [],
+  signalTagsByItemId = {},
   pendingSignalCount = 0,
   onSignalTriaged,
   onQueueItemById,
@@ -608,6 +660,7 @@ export function CasebookView({
                   topic={topic}
                   analyzedCount={counts?.analyzed}
                   totalCount={counts?.total}
+                  semanticTags={topSemanticTagsForTopic(topic, loadedSignals, signalTagsByItemId)}
                   onSelect={onNavigateToTopic}
                 />
               );

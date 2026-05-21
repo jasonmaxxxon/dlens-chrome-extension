@@ -6,7 +6,7 @@ import { renderToStaticMarkup } from "react-dom/server";
 
 import { TOPIC_SYNTHESIS_VERSION } from "../src/compare/topic-synthesis.ts";
 import { createSessionItem } from "../src/state/store-helpers.ts";
-import type { SavedAnalysisSnapshot, SessionItem, Signal, Topic, TopicSignalReading, TopicSynthesis } from "../src/state/types.ts";
+import type { SavedAnalysisSnapshot, SessionItem, Signal, SignalTagsRecord, Topic, TopicSignalReading, TopicSynthesis } from "../src/state/types.ts";
 import { TopicDetailView, topicDetailViewTestables } from "../src/ui/TopicDetailView.tsx";
 import { pickPrimaryJudgmentPair } from "../src/ui/useTopicState.ts";
 
@@ -88,6 +88,18 @@ const topicWithSynthesis: Topic = {
   synthesis
 };
 
+const signalTagsByItemId: Record<string, SignalTagsRecord> = {
+  "item-1": {
+    itemId: "item-1",
+    status: "complete",
+    signalTags: ["求職", "外勞", "本地勞工"],
+    signalGist: "這篇是在討論外勞招聘與本地求職者被壓價的衝突。",
+    promptVersion: "v1",
+    model: "google:test-model",
+    generatedAt: "2026-05-21T00:00:00.000Z"
+  }
+};
+
 function buildSessionItem(id = "item-1", status: SessionItem["status"] = "saved"): SessionItem {
   const item = createSessionItem(
     {
@@ -109,12 +121,13 @@ function buildSessionItem(id = "item-1", status: SessionItem["status"] = "saved"
   return item;
 }
 
-test("TopicDetailView renders synthesis, header counts, and signals fold", () => {
+test("TopicDetailView renders semantic tag cloud, header counts, and signals fold", () => {
   const html = renderToStaticMarkup(
     React.createElement(TopicDetailView, {
       topic,
       signals,
       pairs,
+      signalTagsByItemId,
       onBack: () => undefined,
       onOpenPair: () => undefined,
       onUpdateTopic: () => undefined
@@ -123,7 +136,12 @@ test("TopicDetailView renders synthesis, header counts, and signals fold", () =>
 
   assert.match(html, /← 主題/);
   assert.match(html, /航班爭議/);
-  assert.match(html, /關鍵詞統計/);
+  assert.match(html, /標籤雲/);
+  assert.match(html, /AI 語意標籤/);
+  assert.match(html, /求職/);
+  assert.match(html, /外勞/);
+  assert.match(html, /這篇是在討論外勞招聘與本地求職者被壓價的衝突/);
+  assert.doesNotMatch(html, /關鍵詞統計/);
   assert.match(html, /比較結果/);
   assert.match(html, /0 已分析/);
   // Signals list demoted to folded details block
@@ -191,11 +209,7 @@ test("TopicDetailView signal row shows reading card when signalReadingsBySignalI
   assert.match(html, /待驗證：樣本不足，需驗證/);
 });
 
-test("TopicDetailView signal row shows generate button when researchQuestion set and signal has item with ready status", () => {
-  const topicWithContext: Topic = {
-    ...topic,
-    context: { researchQuestion: "用戶對 AI 工具的真實抱怨是什麼？" }
-  };
+test("TopicDetailView signal row shows generate button without requiring a research question", () => {
   const readyItem = buildSessionItem("item-1", "succeeded");
   readyItem.latestCapture = {
     analysis: {
@@ -217,7 +231,7 @@ test("TopicDetailView signal row shows generate button when researchQuestion set
 
   const html = renderToStaticMarkup(
     React.createElement(TopicDetailView, {
-      topic: topicWithContext,
+      topic,
       signals,
       pairs: [],
       onBack: () => undefined,
@@ -232,11 +246,11 @@ test("TopicDetailView signal row shows generate button when researchQuestion set
   assert.match(html, /生成判讀/);
 });
 
-test("TopicSynthesisCard Stack layout renders five collapsed section triggers", () => {
+test("TopicDetailView hides legacy keyword synthesis even when storage still has it", () => {
   const html = renderToStaticMarkup(
     React.createElement(TopicDetailView, {
       topic: topicWithSynthesis,
-      synthLayout: "stack",
+      signalTagsByItemId,
       signals,
       pairs,
       onBack: () => undefined,
@@ -245,60 +259,10 @@ test("TopicSynthesisCard Stack layout renders five collapsed section triggers", 
     })
   );
 
-  assert.match(html, /data-topic-synthesis="card"/);
-  assert.match(html, /討論主線集中在航班改動後的等待感/);
-  assert.match(html, /data-testid="synthesis-observations"/);
-  assert.match(html, /data-testid="synthesis-clusters"/);
-  assert.match(html, /data-testid="synthesis-techniques"/);
-  assert.match(html, /data-testid="synthesis-memes"/);
-  assert.match(html, /data-testid="synthesis-outliers"/);
-  assert.match(html, /aria-expanded="false"/);
-  assert.match(html, /5 訊號 ·/);
-  assert.match(html, /v3\.generic-keyword-lens/);
-  assert.doesNotMatch(html, /data-testid="synthesis-observations-body"/);
-});
-
-test("TopicSynthesisCard Console layout renders console wrapper and bar sections", () => {
-  const html = renderToStaticMarkup(
-    React.createElement(TopicDetailView, {
-      topic: topicWithSynthesis,
-      synthLayout: "console",
-      signals,
-      pairs,
-      onBack: () => undefined,
-      onOpenPair: () => undefined,
-      onUpdateTopic: () => undefined
-    })
-  );
-
-  assert.match(html, /data-topic-synthesis="card"/);
-  assert.match(html, /data-testid="synthesis-console"/);
-  assert.match(html, /data-testid="synthesis-cluster-bars"/);
-  assert.match(html, /data-testid="synthesis-meme-bars"/);
-  assert.match(html, /data-testid="synthesis-techniques-rows"/);
-  assert.match(html, /data-testid="synthesis-observation-rows"/);
-  assert.match(html, /data-testid="synthesis-outlier-rows"/);
-});
-
-test("TopicSynthesisCard Console layout renders one bar per cluster and meme", () => {
-  const html = renderToStaticMarkup(
-    React.createElement(TopicDetailView, {
-      topic: topicWithSynthesis,
-      synthLayout: "console",
-      signals,
-      pairs,
-      onBack: () => undefined,
-      onOpenPair: () => undefined,
-      onUpdateTopic: () => undefined
-    })
-  );
-  const clusterBars = html.match(/data-testid="cluster-bar-\d+"/g) ?? [];
-  const memeBars = html.match(/data-testid="meme-bar-\d+"/g) ?? [];
-
-  assert.equal(clusterBars.length, synthesis.commonClusters.length);
-  assert.equal(memeBars.length, synthesis.memes.length);
-  assert.match(html, /60%/);
-  assert.match(html, /80%/);
+  assert.doesNotMatch(html, /data-topic-synthesis="card"/);
+  assert.doesNotMatch(html, /v3\.generic-keyword-lens/);
+  assert.doesNotMatch(html, /航班改動焦慮/);
+  assert.match(html, /標籤雲/);
 });
 
 test("TopicSynthesisCard Stack layout observation section expands when open", () => {
