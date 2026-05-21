@@ -2,6 +2,7 @@ import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 
 import {
   TOPIC_SYNTHESIS_MIN_ANALYZED,
+  TOPIC_SYNTHESIS_STALE_DELTA,
   topicSynthesisStaleReason
 } from "../compare/topic-synthesis.ts";
 import { getItemReadinessStatus, type ItemReadinessStatus } from "../state/processing-state.ts";
@@ -452,7 +453,7 @@ function TopicSynthesisConsole({
           color: tokens.color.ink
         }}
       >
-        {synthesis.sentimentNarrative || "這批貼文正在形成一條共同主線"}
+        {synthesis.sentimentNarrative || "—"}
       </p>
 
       <ConsoleSection testId="synthesis-cluster-bars" title="CLUSTERS">
@@ -602,7 +603,7 @@ function TopicSynthesisCard({
     memes: false,
     outliers: false
   });
-  const lockedHint = `已分析 ${analyzedCount}/${TOPIC_SYNTHESIS_MIN_ANALYZED}。至少 ${TOPIC_SYNTHESIS_MIN_ANALYZED} 篇完成分析後即可生成整體訊號。`;
+  const lockedHint = `已分析 ${analyzedCount}/${TOPIC_SYNTHESIS_MIN_ANALYZED}。至少 ${TOPIC_SYNTHESIS_MIN_ANALYZED} 篇完成分析後即可統計關鍵詞。`;
   const lastGeneratedLabel = synthesis
     ? new Intl.DateTimeFormat("zh-HK", { month: "numeric", day: "numeric", hour: "2-digit", minute: "2-digit" }).format(new Date(synthesis.generatedAt))
     : "";
@@ -646,14 +647,25 @@ function TopicSynthesisCard({
       }}
     >
       <header style={{ display: "flex", alignItems: "baseline", justifyContent: "space-between", gap: 10, flexWrap: "wrap" }}>
-        <div style={{
-          fontFamily: tokens.font.serifCjk,
-          fontSize: 19,
-          fontWeight: 600,
-          color: tokens.color.ink,
-          letterSpacing: "0.01em"
-        }}>
-          整體訊號
+        <div style={{ display: "grid", gap: 3 }}>
+          <div style={{
+            fontFamily: tokens.font.mono,
+            fontSize: 10,
+            fontWeight: 700,
+            color: tokens.color.softInk,
+            letterSpacing: "0.05em"
+          }}>
+            關鍵詞出現頻率 · 非 AI 分析
+          </div>
+          <div style={{
+            fontFamily: tokens.font.serifCjk,
+            fontSize: 19,
+            fontWeight: 600,
+            color: tokens.color.ink,
+            letterSpacing: "0.01em"
+          }}>
+            關鍵詞統計
+          </div>
         </div>
         <div style={{ display: "flex", gap: 6, alignItems: "center" }}>
           {synthesis ? (
@@ -672,14 +684,14 @@ function TopicSynthesisCard({
       {showEmptyCta ? (
         <div style={{ display: "grid", gap: 10 }}>
           <div style={{ fontSize: 12.5, color: tokens.color.subInk, lineHeight: 1.65 }}>
-            目前 {analyzedCount} 篇已分析。生成整體訊號可以看到 cluster、memes、sentiment narrative，每多 3 篇可重新合成。
+            目前 {analyzedCount} 篇已分析。統計各帖子主要關鍵詞的出現頻率，每新增 {TOPIC_SYNTHESIS_STALE_DELTA} 篇可重新統計。
           </div>
           <PrimaryButton
             onClick={onGenerate}
             disabled={isGenerating}
             style={{ justifySelf: "start", padding: "8px 14px", fontSize: 12 }}
           >
-            {isGenerating ? "正在合成…" : `生成整體訊號（${analyzedCount} 篇）`}
+            {isGenerating ? "正在統計…" : `統計關鍵詞（${analyzedCount} 篇）`}
           </PrimaryButton>
         </div>
       ) : null}
@@ -703,11 +715,7 @@ function TopicSynthesisCard({
                   }}>
                     {synthesis.sentimentNarrative}
                   </p>
-                ) : (
-                  <p style={{ margin: 0, fontSize: 14, lineHeight: 1.7, color: tokens.color.subInk }}>
-                    這批貼文正在形成一條共同主線
-                  </p>
-                )}
+                ) : null}
               </div>
 
               <div style={{ display: "grid", borderBottom: `1px solid ${tokens.color.line}` }}>
@@ -836,7 +844,7 @@ function TopicSynthesisCard({
               disabled={isGenerating}
               style={{ padding: "6px 12px", fontSize: 11 }}
             >
-              {isGenerating ? "重新合成中…" : "重新合成"}
+              {isGenerating ? "重新統計中…" : "重新統計"}
             </SecondaryButton>
             {staleness === "stale" ? (
               <span style={{ fontSize: 11, color: tokens.color.softInk }}>

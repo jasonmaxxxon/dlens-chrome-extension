@@ -123,7 +123,7 @@ test("TopicDetailView renders synthesis, header counts, and signals fold", () =>
 
   assert.match(html, /← 主題/);
   assert.match(html, /航班爭議/);
-  assert.match(html, /整體訊號/);
+  assert.match(html, /關鍵詞統計/);
   assert.match(html, /比較結果/);
   assert.match(html, /0 已分析/);
   // Signals list demoted to folded details block
