@@ -200,6 +200,8 @@ export function InPageCollectorPopup({ app }: { app: InPageCollectorAppModel }) 
                   onAddToCompare={(itemId) => app.onAddToCompare(itemId)}
                   onSaveJudgmentOverride={(resultId, patch) => void app.onSaveJudgmentOverride(resultId, patch)}
                   onGenerateSynthesis={(topicId) => app.onGenerateTopicSynthesis(topicId)}
+                  signalReadingsBySignalId={app.topicSignalReadingsBySignalId}
+                  onGenerateSignalReading={(signalId, topicId) => app.onGenerateTopicSignalReading(signalId, topicId)}
                   synthLayout={snapshot?.global.settings.layoutPreferences.topicSynthesisLayout}
                 />
               ) : (

@@ -9,6 +9,7 @@ import type {
   SessionRecord,
   Signal,
   Topic,
+  TopicSignalReading,
   TriageAction
 } from "../state/types";
 import { sendExtensionMessage } from "./controller";
@@ -132,6 +133,7 @@ export function useTopicState({
   const [signals, setSignals] = useState<Signal[]>([]);
   const [selectedTopicId, setSelectedTopicId] = useState<string | null>(null);
   const [resultTopicContext, setResultTopicContext] = useState<{ topicId: string; topicName: string } | null>(null);
+  const [topicSignalReadingsBySignalId, setTopicSignalReadingsBySignalId] = useState<Record<string, TopicSignalReading>>({});
 
   const activeTopic = useMemo(
     () => topics.find((topic) => topic.id === selectedTopicId) ?? null,
@@ -171,6 +173,7 @@ export function useTopicState({
       setTopics([]);
       setSignals([]);
       setSelectedTopicId(null);
+      setTopicSignalReadingsBySignalId({});
       return;
     }
 
@@ -205,6 +208,30 @@ export function useTopicState({
       setSelectedTopicId(null);
     }
   }, [activeTopic, topics]);
+
+  useEffect(() => {
+    if (!selectedTopicId) {
+      setTopicSignalReadingsBySignalId({});
+      return;
+    }
+    let cancelled = false;
+    void sendExtensionMessage<{ ok: true; topicSignalReadings?: TopicSignalReading[] } | { ok: false; error: string }>({
+      type: "topic/list-signal-readings",
+      topicId: selectedTopicId
+    }).then((response) => {
+      if (cancelled || !response.ok || !response.topicSignalReadings) {
+        return;
+      }
+      const map: Record<string, TopicSignalReading> = {};
+      for (const reading of response.topicSignalReadings) {
+        map[reading.signalId] = reading;
+      }
+      setTopicSignalReadingsBySignalId(map);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [selectedTopicId]);
 
   async function onSessionModeChange(mode: FolderMode) {
     if (!activeFolder) {
@@ -350,6 +377,25 @@ export function useTopicState({
     return { ok: false, error: response.error };
   }
 
+  async function onGenerateTopicSignalReading(
+    signalId: string,
+    topicId: string
+  ): Promise<{ ok: boolean; error?: string }> {
+    const response = await sendExtensionMessage<{ ok: true; topicSignalReading?: TopicSignalReading } | { ok: false; error: string }>({
+      type: "topic/generate-signal-reading",
+      signalId,
+      topicId
+    });
+    if (response.ok && response.topicSignalReading) {
+      setTopicSignalReadingsBySignalId((previous) => ({
+        ...previous,
+        [signalId]: response.topicSignalReading!
+      }));
+      return { ok: true };
+    }
+    return { ok: false, error: response.ok ? "未收到判讀結果" : response.error };
+  }
+
   function onBackFromTopicDetail() {
     setSelectedTopicId(null);
   }
@@ -369,6 +415,7 @@ export function useTopicState({
     signalUrlById,
     productSignalEvidenceById,
     productSignalReadinessById,
+    topicSignalReadingsBySignalId,
     topicJudgmentById,
     resultTopicContext,
     clearResultTopicContext,
@@ -383,7 +430,8 @@ export function useTopicState({
     onOpenTopicPair,
     onReturnToTopic,
     onAttachActiveResultToTopic,
-    onGenerateTopicSynthesis
+    onGenerateTopicSynthesis,
+    onGenerateTopicSignalReading
   };
 }
 

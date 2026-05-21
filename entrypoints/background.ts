@@ -81,7 +81,8 @@ import {
   generatePrCriteriaSuggestions,
   generatePrSummaryDraft,
   generateProductSignalAnalysis,
-  generateSignalReading
+  generateSignalReading,
+  generateTopicSignalReading
 } from "../src/compare/provider";
 import {
   buildExistingAnalysisSummary,
@@ -98,6 +99,8 @@ import {
   listSignalReadings,
   saveSignalReading
 } from "../src/compare/signal-reading-storage";
+import { buildTopicSignalReadingInputFromCapture } from "../src/compare/topic-signal-reading";
+import { listTopicSignalReadings, saveTopicSignalReading } from "../src/compare/topic-signal-reading-storage";
 import {
   buildDeterministicPrCriteria,
   buildDeterministicPrCriteriaMatches,
@@ -1929,6 +1932,69 @@ export default defineBackground(() => {
               tabId,
               topics: await loadTopics(chrome.storage.local, topic.sessionId)
             } satisfies ExtensionResponse);
+            return;
+          }
+          case "topic/generate-signal-reading": {
+            const tabId = await resolveTabId(sender);
+            const current = await loadSnapshot(tabId);
+            const topic = await loadTopicById(chrome.storage.local, message.topicId);
+            if (!topic) {
+              sendResponse({ ok: false, error: "Topic not found" } satisfies ExtensionResponse);
+              return;
+            }
+            const researchQuestion = topic.context?.researchQuestion?.trim();
+            if (!researchQuestion) {
+              sendResponse({ ok: false, error: "Topic 尚未設定研究問題。" } satisfies ExtensionResponse);
+              return;
+            }
+            const signals = await loadSignals(chrome.storage.local, topic.sessionId);
+            const signal = signals.find((entry) => entry.id === message.signalId) || null;
+            if (!signal || !topic.signalIds.includes(signal.id)) {
+              sendResponse({ ok: false, error: "找不到該 topic 裡的 signal。" } satisfies ExtensionResponse);
+              return;
+            }
+            const session = current.global.sessions.find((entry) => entry.id === topic.sessionId) || null;
+            const item = signal.itemId && session
+              ? session.items.find((entry) => entry.id === signal.itemId) || null
+              : null;
+            if (!item) {
+              sendResponse({ ok: false, error: "找不到該 signal 對應的貼文。" } satisfies ExtensionResponse);
+              return;
+            }
+            const input = buildTopicSignalReadingInputFromCapture({
+              signalId: signal.id,
+              topicId: topic.id,
+              researchQuestion,
+              capture: item.latestCapture
+            });
+            if (!input) {
+              sendResponse({ ok: false, error: "Signal 尚未完成採集，無法生成判讀。" } satisfies ExtensionResponse);
+              return;
+            }
+            const providerConfig = providerKeyForRequest(current.global);
+            if (!providerConfig) {
+              sendResponse({ ok: false, error: "尚未設定 AI key。請先在 Settings 設定 Google / OpenAI / Claude key。" } satisfies ExtensionResponse);
+              return;
+            }
+            try {
+              const reading = await generateTopicSignalReading(
+                providerConfig.provider,
+                providerConfig.apiKey,
+                input
+              );
+              await saveTopicSignalReading(chrome.storage.local, reading);
+              sendResponse({ ok: true, tabId, topicSignalReading: reading } satisfies ExtensionResponse);
+            } catch (error) {
+              sendResponse({
+                ok: false,
+                error: error instanceof Error ? error.message : String(error)
+              } satisfies ExtensionResponse);
+            }
+            return;
+          }
+          case "topic/list-signal-readings": {
+            const readings = await listTopicSignalReadings(chrome.storage.local, message.topicId);
+            sendResponse({ ok: true, topicSignalReadings: readings } satisfies ExtensionResponse);
             return;
           }
           case "folder/synthesis/get": {

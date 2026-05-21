@@ -43,8 +43,14 @@ import {
   SIGNAL_READING_SYSTEM_PROMPT,
   type SignalReadingInput
 } from "./signal-reading.ts";
+import {
+  buildTopicSignalReadingPrompt,
+  parseTopicSignalReadingResponse,
+  TOPIC_SIGNAL_READING_SYSTEM_PROMPT,
+  type TopicSignalReadingInput
+} from "./topic-signal-reading.ts";
 import type { PrCampaign, PrCriteriaMatches, PrEvidenceRow } from "../state/pr-evidence-storage.ts";
-import type { JudgmentResult, ProductProfile, ProductSignalAnalysis } from "../state/types.ts";
+import type { JudgmentResult, ProductProfile, ProductSignalAnalysis, TopicSignalReading } from "../state/types.ts";
 
 export const COMPARE_BRIEF_PROMPT_VERSION = "v8";
 export const COMPARE_ONE_LINER_PROMPT_VERSION = "v2";
@@ -750,6 +756,33 @@ export async function generateSignalReading(
     throw new Error(`Claude ${response.status}: ${await response.text()}`);
   }
   return { reading: readClaudeContent(await response.json()), model: `claude:${CLAUDE_COMPARE_MODEL}` };
+}
+
+export async function generateTopicSignalReading(
+  provider: "openai" | "claude" | "google",
+  apiKey: string,
+  input: TopicSignalReadingInput
+): Promise<TopicSignalReading> {
+  if (!apiKey) {
+    throw new Error("尚未設定 AI key。請先在 Settings 設定 Google / OpenAI / Claude key。");
+  }
+  const model = provider === "google"
+    ? `google:${GOOGLE_COMPARE_MODEL}`
+    : provider === "openai"
+      ? `openai:${OPENAI_COMPARE_MODEL}`
+      : `claude:${CLAUDE_COMPARE_MODEL}`;
+  const raw = await generateJsonText(
+    provider,
+    apiKey,
+    buildTopicSignalReadingPrompt(input),
+    TOPIC_SIGNAL_READING_SYSTEM_PROMPT,
+    1200
+  );
+  const parsed = parseTopicSignalReadingResponse(raw, input, model);
+  if (!parsed) {
+    throw new Error("Invalid topic signal reading payload");
+  }
+  return parsed;
 }
 
 async function generateJsonText(

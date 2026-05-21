@@ -6,7 +6,17 @@ import {
   topicSynthesisStaleReason
 } from "../compare/topic-synthesis.ts";
 import { getItemReadinessStatus, type ItemReadinessStatus } from "../state/processing-state.ts";
-import type { FolderMode, SavedAnalysisSnapshot, SessionItem, Signal, Topic, TopicSynthesis, TopicSynthesisLayout } from "../state/types.ts";
+import type {
+  FolderMode,
+  SavedAnalysisSnapshot,
+  SessionItem,
+  Signal,
+  Topic,
+  TopicSignalReading,
+  TopicSignalStance,
+  TopicSynthesis,
+  TopicSynthesisLayout
+} from "../state/types.ts";
 import { Kicker, PrimaryButton, SCAN_ROW_HOVER_CSS, SecondaryButton, Stamp, WorkspaceSurface, lineClamp, scanRowStyle, viewRootStyle } from "./components.tsx";
 import { tokens } from "./tokens.ts";
 import { pickPrimaryJudgmentPair } from "./useTopicState.ts";
@@ -32,6 +42,8 @@ interface TopicDetailViewProps {
   onAddToCompare?: (itemId: string) => void;
   onSaveJudgmentOverride?: (resultId: string, patch: { relevance: 1 | 2 | 3 | 4 | 5; recommendedState: "park" | "watch" | "act" }) => void;
   onGenerateSynthesis?: (topicId: string) => Promise<{ ok: boolean; error?: string }>;
+  signalReadingsBySignalId?: Record<string, TopicSignalReading>;
+  onGenerateSignalReading?: (signalId: string, topicId: string) => Promise<{ ok: boolean; error?: string }>;
   synthLayout?: TopicSynthesisLayout;
 }
 
@@ -862,6 +874,20 @@ function TopicSynthesisCard({
   );
 }
 
+function StanceBadge({ stance }: { stance: TopicSignalStance }) {
+  const config: Record<TopicSignalStance, { label: string; bg: string; color: string }> = {
+    central: { label: "核心", bg: tokens.color.accentSoft, color: tokens.color.accent },
+    adjacent: { label: "相鄰", bg: tokens.color.neutralSurface, color: tokens.color.subInk },
+    "off-topic": { label: "偏離", bg: tokens.color.neutralSurface, color: tokens.color.softInk }
+  };
+  const { label, bg, color } = config[stance] ?? config.adjacent;
+  return (
+    <span style={{ fontSize: 10, fontWeight: 700, padding: "2px 7px", borderRadius: 999, background: bg, color }}>
+      {label}
+    </span>
+  );
+}
+
 export function TopicDetailView({
   topic,
   signals,
@@ -881,12 +907,16 @@ export function TopicDetailView({
   onAddToCompare,
   onSaveJudgmentOverride,
   onGenerateSynthesis,
+  signalReadingsBySignalId = {},
+  onGenerateSignalReading,
   synthLayout = "console"
 }: TopicDetailViewProps) {
   const [draftDescription, setDraftDescription] = useState(topic.description || "");
   const [draftResearchQuestion, setDraftResearchQuestion] = useState(topic.context?.researchQuestion || "");
   const [isGeneratingSynthesis, setIsGeneratingSynthesis] = useState(false);
   const [synthesisError, setSynthesisError] = useState<string | null>(null);
+  const [isGeneratingForSignalId, setIsGeneratingForSignalId] = useState<string | null>(null);
+  const [generatingErrorBySignalId, setGeneratingErrorBySignalId] = useState<Record<string, string>>({});
   const [manualJudgment, setManualJudgment] = useState<{
     resultId: string;
     relevance: 1 | 2 | 3 | 4 | 5;
@@ -984,6 +1014,25 @@ export function TopicDetailView({
           }
         : null
     });
+  };
+
+  const handleGenerateSignalReading = (signalId: string) => {
+    if (!onGenerateSignalReading || isGeneratingForSignalId) return;
+    setIsGeneratingForSignalId(signalId);
+    setGeneratingErrorBySignalId((previous) => {
+      const next = { ...previous };
+      delete next[signalId];
+      return next;
+    });
+    void onGenerateSignalReading(signalId, topic.id)
+      .then((result) => {
+        if (!result.ok && result.error) {
+          setGeneratingErrorBySignalId((previous) => ({ ...previous, [signalId]: result.error! }));
+        }
+      })
+      .finally(() => {
+        setIsGeneratingForSignalId(null);
+      });
   };
 
   const visibleJudgment = manualJudgment && primaryJudgmentPair?.resultId === manualJudgment.resultId
@@ -1390,6 +1439,61 @@ export function TopicDetailView({
                                 ) : null
                               ) : null}
                             </div>
+                          {(() => {
+                            const reading = signalReadingsBySignalId[signal.id];
+                            const hasResearchQuestion = Boolean(topic.context?.researchQuestion);
+                            if (!hasResearchQuestion) return null;
+                            if (reading) {
+                              return (
+                                <div
+                                  data-topic-signal-reading="card"
+                                  style={{
+                                    display: "grid",
+                                    gap: 6,
+                                    paddingTop: 8,
+                                    borderTop: `1px solid ${tokens.color.line}`
+                                  }}
+                                >
+                                  <div style={{ display: "flex", gap: 6, alignItems: "center" }}>
+                                    <StanceBadge stance={reading.stance} />
+                                    <span style={{ fontFamily: tokens.font.mono, fontSize: 10, color: tokens.color.softInk }}>
+                                      {new Intl.DateTimeFormat("zh-HK", { month: "numeric", day: "numeric" }).format(new Date(reading.generatedAt))}
+                                    </span>
+                                  </div>
+                                  <p style={{ margin: 0, fontSize: 12, lineHeight: 1.7, color: tokens.color.ink }}>
+                                    {reading.reading}
+                                  </p>
+                                  {reading.audienceSignal ? (
+                                    <p style={{ margin: 0, fontSize: 11.5, lineHeight: 1.6, color: tokens.color.subInk }}>
+                                      {reading.audienceSignal}
+                                    </p>
+                                  ) : null}
+                                  {reading.uncertainties.length > 0 ? (
+                                    <div style={{ fontSize: 11, color: tokens.color.softInk }}>
+                                      待驗證：{reading.uncertainties.join("、")}
+                                    </div>
+                                  ) : null}
+                                </div>
+                              );
+                            }
+                            if (!isReady) return null;
+                            return (
+                              <div style={{ display: "flex", gap: 6, alignItems: "center", paddingTop: 4 }}>
+                                <SecondaryButton
+                                  onClick={() => handleGenerateSignalReading(signal.id)}
+                                  disabled={isGeneratingForSignalId === signal.id || !onGenerateSignalReading}
+                                  style={{ padding: "4px 8px", fontSize: 10.5 }}
+                                >
+                                  {isGeneratingForSignalId === signal.id ? "生成中…" : "生成判讀"}
+                                </SecondaryButton>
+                                {generatingErrorBySignalId[signal.id] ? (
+                                  <span style={{ fontSize: 10.5, color: tokens.color.failed }}>
+                                    {generatingErrorBySignalId[signal.id]}
+                                  </span>
+                                ) : null}
+                              </div>
+                            );
+                          })()}
                         </div>
                         <div style={{ fontSize: 10, color: tokens.color.softInk, whiteSpace: "nowrap" }}>
                           {formatTopicDate(signal.capturedAt)}

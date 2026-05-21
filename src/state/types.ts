@@ -340,6 +340,23 @@ export interface TopicContext {
   nonGoals?: string;
 }
 
+export type TopicSignalStance = "central" | "adjacent" | "off-topic";
+
+export interface TopicSignalReading {
+  signalId: string;
+  topicId: string;
+  status: "complete" | "error";
+  stance: TopicSignalStance;
+  reading: string;
+  audienceSignal: string;
+  evidenceRefs: string[];
+  uncertainties: string[];
+  promptVersion: string;
+  model: string;
+  generatedAt: string;
+  errorMessage?: string;
+}
+
 export interface FolderSynthesisCluster {
   keyword: string;
   signalCount: number;

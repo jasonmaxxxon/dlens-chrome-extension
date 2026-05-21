@@ -9,6 +9,7 @@ import type {
   LayoutPreferences,
   ProductAgentTaskFeedback,
   ProductSignalAnalysis,
+  TopicSignalReading,
   ProductContext,
   ProductProfile,
   FolderMode,
@@ -79,6 +80,8 @@ export type ExtensionMessage =
   | { type: "topic/remove-pair"; topicId: string; resultId: string }
   | { type: "topic/synthesis/generate"; topicId: string }
   | { type: "topic/synthesis/clear"; topicId: string }
+  | { type: "topic/generate-signal-reading"; signalId: string; topicId: string }
+  | { type: "topic/list-signal-readings"; topicId: string }
   | { type: "folder/synthesis/get"; sessionId: string }
   | { type: "folder/synthesis/generate"; sessionId: string }
   | { type: "folder/synthesis/clear"; sessionId: string }
@@ -139,6 +142,8 @@ export type ExtensionSuccessResponse = {
   productAgentTaskFeedback?: ProductAgentTaskFeedback[];
   signalReading?: SignalReading | null;
   signalReadings?: SignalReading[];
+  topicSignalReading?: TopicSignalReading | null;
+  topicSignalReadings?: TopicSignalReading[];
   signalPacket?: DLensSignalPacket | null;
   signalPackets?: DLensSignalPacket[];
   signalPacketExport?: SignalPacketExportResult;

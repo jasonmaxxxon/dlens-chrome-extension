@@ -6,7 +6,7 @@ import { renderToStaticMarkup } from "react-dom/server";
 
 import { TOPIC_SYNTHESIS_VERSION } from "../src/compare/topic-synthesis.ts";
 import { createSessionItem } from "../src/state/store-helpers.ts";
-import type { SavedAnalysisSnapshot, SessionItem, Signal, Topic, TopicSynthesis } from "../src/state/types.ts";
+import type { SavedAnalysisSnapshot, SessionItem, Signal, Topic, TopicSignalReading, TopicSynthesis } from "../src/state/types.ts";
 import { TopicDetailView, topicDetailViewTestables } from "../src/ui/TopicDetailView.tsx";
 import { pickPrimaryJudgmentPair } from "../src/ui/useTopicState.ts";
 
@@ -151,6 +151,85 @@ test("TopicDetailView renders topic research question editor", () => {
 
   assert.match(html, /研究問題/);
   assert.match(html, /Claude Code 用戶對 Agent 模式的真實抱怨是什麼？/);
+});
+
+test("TopicDetailView signal row shows reading card when signalReadingsBySignalId provided", () => {
+  const topicWithContext: Topic = {
+    ...topic,
+    context: { researchQuestion: "用戶對 AI 工具的真實抱怨是什麼？" }
+  };
+  const reading: TopicSignalReading = {
+    signalId: "signal-1",
+    topicId: "topic-1",
+    status: "complete",
+    stance: "central",
+    reading: "這則帖子的核心是對自動化工具的信任問題。",
+    audienceSignal: "留言普遍表達了類似的擔憂。",
+    evidenceRefs: ["e1", "e2"],
+    uncertainties: ["樣本不足，需驗證"],
+    promptVersion: "v1",
+    model: "gemini-1.5-flash",
+    generatedAt: "2026-05-01T00:00:00.000Z"
+  };
+
+  const html = renderToStaticMarkup(
+    React.createElement(TopicDetailView, {
+      topic: topicWithContext,
+      signals,
+      pairs: [],
+      onBack: () => undefined,
+      onOpenPair: () => undefined,
+      onUpdateTopic: () => undefined,
+      signalReadingsBySignalId: { "signal-1": reading }
+    })
+  );
+
+  assert.match(html, /data-topic-signal-reading="card"/);
+  assert.match(html, /核心/);
+  assert.match(html, /這則帖子的核心是對自動化工具的信任問題/);
+  assert.match(html, /留言普遍表達了類似的擔憂/);
+  assert.match(html, /待驗證：樣本不足，需驗證/);
+});
+
+test("TopicDetailView signal row shows generate button when researchQuestion set and signal has item with ready status", () => {
+  const topicWithContext: Topic = {
+    ...topic,
+    context: { researchQuestion: "用戶對 AI 工具的真實抱怨是什麼？" }
+  };
+  const readyItem = buildSessionItem("item-1", "succeeded");
+  readyItem.latestCapture = {
+    analysis: {
+      id: "analysis-1",
+      capture_id: "capture-item-1",
+      status: "succeeded",
+      stage: "final",
+      analysis_version: "v1",
+      source_comment_count: 5,
+      clusters: [],
+      evidence: [],
+      metrics: {},
+      generated_at: "2026-05-01T00:00:00.000Z",
+      last_error: null,
+      created_at: "2026-05-01T00:00:00.000Z",
+      updated_at: "2026-05-01T00:00:00.000Z"
+    }
+  } as SessionItem["latestCapture"];
+
+  const html = renderToStaticMarkup(
+    React.createElement(TopicDetailView, {
+      topic: topicWithContext,
+      signals,
+      pairs: [],
+      onBack: () => undefined,
+      onOpenPair: () => undefined,
+      onUpdateTopic: () => undefined,
+      sessionItems: [readyItem],
+      signalReadingsBySignalId: {},
+      onGenerateSignalReading: () => Promise.resolve({ ok: true })
+    })
+  );
+
+  assert.match(html, /生成判讀/);
 });
 
 test("TopicSynthesisCard Stack layout renders five collapsed section triggers", () => {

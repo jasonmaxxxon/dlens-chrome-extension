@@ -1340,6 +1340,8 @@ export function useInPageCollectorAppState({ snapshot, tabId, sendAndSync }: Use
     onBackFromTopicDetail: topicState.onBackFromTopicDetail,
     onUpdateTopic: topicState.onUpdateTopic,
     onGenerateTopicSynthesis: topicState.onGenerateTopicSynthesis,
+    topicSignalReadingsBySignalId: topicState.topicSignalReadingsBySignalId,
+    onGenerateTopicSignalReading: topicState.onGenerateTopicSignalReading,
     folderSynthesis,
     isGeneratingFolderSynthesis,
     folderSynthesisError,
