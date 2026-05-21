@@ -75,7 +75,7 @@ The verified build in the active Phase B implementation worktree is:
 - backend physical checkout: `/Users/tung/Desktop/dlens-backend/dlens-ingest-core`
 - old versions and historical worktrees: `/Users/tung/Desktop/dlens-old`
 - verification: `npm run typecheck`, `npx tsx --test tests/*.test.ts tests/*.test.tsx`, and `npm run build`
-- latest full test count after TopicSignalReading release: `487 pass, 0 fail`
+- latest full test count after SignalTags + optional TopicSignalReading question: `495 pass, 0 fail`
 - latest build output was mirrored to `/Users/tung/Desktop/dlens-product-latest/output/chrome-mv3`
 - release baseline main commit: `9f04139 feature(release): bump extension version to 0.1.18`
 - live backend smoke from the prior product run: `GET http://127.0.0.1:8000/worker/status` returned `{"status":"idle"}`
@@ -162,16 +162,15 @@ Important boundary: these upgrades only apply to the product AI paths. Evidence 
 
 ## Synthesis And Layout State
 
-Topic synthesis and Folder synthesis are deterministic extension-side display layers over already analyzed signals. They do not replace backend clustering.
+Topic Detail now uses per-signal semantic tags as the primary scan layer. Topic synthesis and Folder synthesis remain deterministic extension-side layers over already analyzed signals; they do not replace backend clustering.
 
-- `src/compare/topic-synthesis.ts` produces `TopicSynthesis` with generator version `v3.generic-keyword-lens`, minimum 2 analyzed signals, stale delta 3, generic top-keyword clusters/observations/memes, and empty narrative/techniques until a future L2 synthesis layer.
-- `TopicSynthesisCard` supports two layouts:
-  - `stack`: `sentimentNarrative` always visible; observations / clusters / verbal techniques / memes / outliers collapsed by default
-  - `console`: dense always-visible mono view with cluster and meme percentage bars
+- `src/compare/signal-tags.ts` produces client-side LLM `SignalTagsRecord` output: `signalTags[]` semantic tags plus one-sentence `signalGist`, based on assembled post content and top reply evidence. Tags persist at `dlens:v1:signal-tags` keyed by `itemId`.
+- `TopicDetailView` renders the semantic tag cloud and per-row `signalGist`/tag chips. The old `TopicSynthesisCard` keyword-frequency UI is not rendered in Topic Detail.
+- `src/compare/topic-synthesis.ts` still produces `TopicSynthesis` with generator version `v3.generic-keyword-lens`, minimum 2 analyzed signals, stale delta 3, generic top-keyword clusters/observations/memes, and empty narrative/techniques until a future L2 synthesis layer.
 - `src/compare/folder-synthesis.ts` produces `FolderSynthesis` with generator version `v3.generic-keyword-lens`, minimum 3 analyzed signals across at least 2 topics, stale delta 3, generic cross-topic keyword clusters/observations/memes, and empty narrative/techniques until a future L2 synthesis layer.
 - Folder synthesis persists at `dlens:v1:folder-synthesis` through `src/compare/folder-synthesis-storage.ts`.
 - `FolderSynthesisCard` renders the Briefing layout in topic-mode Library.
-- Topic Detail can generate per-signal `TopicSignalReading` records from `TopicContext.researchQuestion`, assembled post content, discussion reply evidence refs, and cluster keyword hints. These records persist at `dlens:v1:topic-signal-readings`.
+- Topic Detail can generate per-signal `TopicSignalReading` records from assembled post content, discussion reply evidence refs, cluster keyword hints, and an optional `TopicContext.researchQuestion`. Empty research question now runs exploratory mode instead of blocking generation. These records persist at `dlens:v1:topic-signal-readings`.
 - `ActionableItemCard` supports `verdict` and `marginalia`; `marginalia` is the default persisted Product signal card layout.
 - Marginalia rail keeps duplicated long prose out of the narrow right column: `對到` shows a category only, while TASK shows `agentTaskSpec.taskTitle` and leaves `experimentHint` in the main TRY block.
 - Marginalia visual hierarchy is intentionally reduced: the eyebrow omits verdict, the old FOOTNOTES header is hidden, bottom AI experiment/judgment detail blocks do not render in marginalia, and workflow evidence rows use flat stacked labels with dotted dividers.

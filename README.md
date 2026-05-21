@@ -26,7 +26,7 @@ Current workspace modes:
 - Mode-aware save routing: archive saves to Library; topic/product saves become Inbox signals; PR Evidence saves become campaign rows.
 - Backend queue/drain/polling against `ingestBaseUrl`, defaulting to `http://127.0.0.1:8000`.
 - Compare setup and Result surfaces with backend read models plus extension-side compare brief v8, cluster summaries, evidence annotations, and saved analysis snapshots.
-- Topic workflow: Casebook, Inbox, Topic Detail, signal triage, per-signal TopicSignalReading, attached compare pairs, Topic/Folder keyword statistics.
+- Topic workflow: Casebook, Inbox, Topic Detail, signal triage, per-signal semantic tags/gists, optional-question TopicSignalReading, and attached compare pairs.
 - Product workflow: ProductContextCompiler, ProductSignalAnalyzer, Marginalia/Verdict card layouts, SignalReading review/compose, local feedback history.
 - Signal Packet export baseline: Product sessions can export `DLensSignalPacket` records as HTML, Markdown, or JSONL through `signal-packet/export`.
 - PR Evidence workflow: one active campaign per session, brief upload, six editable criteria, evidence rows, criteria matching, CSV export, Markdown/DOCX audit summary.
@@ -54,7 +54,7 @@ npm run build
 
 Expected verified state for `0.1.18`:
 
-- `487/487` tests pass
+- `495/495` tests pass
 - `npm run typecheck` passes
 - `npm run build` mirrors the unpacked MV3 build to `output/chrome-mv3`
 - `output/chrome-mv3/manifest.json` reports `version: "0.1.18"` and `name: "DLens v3"`

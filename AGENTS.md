@@ -1,6 +1,6 @@
 # AGENTS.md — DLens Chrome Extension v0.1
 
-> **Last updated:** 2026-05-21 (TopicSignalReading + version 0.1.18 on main — 487/487 tests, typecheck, build)
+> **Last updated:** 2026-05-21 (SignalTags + optional TopicSignalReading question + version 0.1.18 — 495/495 tests, typecheck, build)
 > **For:** any agent continuing work in this repo
 
 ## Process Rules (locked 2026-04-17)
@@ -64,8 +64,9 @@ npx tsx --test tests/*.test.ts tests/*.test.tsx
 - Signal Reading review cards keep a compact Marginalia signal strip (`verdict`, `referenceType`, `relevance`) inside the active card so the reading workflow does not lose product-signal density
 - Marginalia is the simplified default Product signal card: no verdict in the eyebrow, no FOOTNOTES header, no repeated bottom AI experiment/judgment detail panels, and flat label-stacked workflow evidence rows. Verdict keeps the boxed evidence/detail treatment.
 - Product classification list rows stay scan-first: no relevance dots, and `最新在前` only appears when the selected type group has at least two signals.
-- Topic synthesis uses deterministic `v3.generic-keyword-lens` output: generic top-keyword aggregation, empty narrative/techniques until a future L2 synthesis layer, and renders through `TopicSynthesisCard` as Stack or Console
-- Topic Detail can generate per-signal `TopicSignalReading` records from a topic research question plus real post/reply evidence; rows show stance, reading, audience signal, and uncertainties.
+- Topic Detail no longer renders the old deterministic keyword-frequency card. It lazy-loads client-side LLM `SignalTagsRecord` entries from `dlens:v1:signal-tags`, shows a semantic tag cloud, and displays each signal's `signalGist` plus 3-5 tag chips.
+- Topic Detail can generate per-signal `TopicSignalReading` records with or without a topic research question. With a question it runs anchored mode; without one it runs exploratory mode over the real post/reply evidence. Rows show stance, reading, audience signal, and uncertainties.
+- Topic synthesis still exists as deterministic `v3.generic-keyword-lens` storage/logic for legacy records and future L2 work, but it is not the primary Topic Detail display surface.
 - Folder synthesis uses deterministic `v3.generic-keyword-lens` output for cross-topic keyword aggregation and stores records at `dlens:v1:folder-synthesis`
 - Compare Result supports Parallel and Chapters layouts alongside the older Reading path; Parallel is the current default and uses sticky A/B columns
 - Result remains a contextual reading route rather than a primary rail destination
@@ -283,8 +284,8 @@ Important implementation points:
 - `settings/set-layout-preferences` merges partial layout updates through the background storage path.
 - `SettingsView.tsx` owns the three user-facing layout controls.
 - `InPageCollectorPopup.tsx` threads persisted layout settings into Product signal cards, Topic synthesis, and Compare Result.
-- `TopicSynthesis` and `FolderSynthesis` are deterministic display layers over analyzed signals. Both use generic keyword aggregation and do not replace backend clustering.
-- Current verification was run from `/Users/tung/Desktop/dlens-product-latest`: `487/487` tests, `npm run typecheck`, `npm run build`, and `git diff --check` passed.
+- Topic Detail's primary overview is now semantic `SignalTagsRecord` data from `dlens:v1:signal-tags`, not deterministic keyword frequency. `TopicSynthesis` and `FolderSynthesis` remain deterministic extension-side layers over analyzed signals for legacy/folder contexts and do not replace backend clustering.
+- Current verification was run from `/Users/tung/Desktop/dlens-product-latest`: `495/495` tests, `npm run typecheck`, and `npm run build` passed.
 - The verified unpacked build was copied to `/Users/tung/Desktop/dlens-product-latest/output/chrome-mv3` for Chrome load-unpacked use.
 - `/Users/tung/Desktop/dlens-product-latest` source checkout may be dirty; do not infer clean source state from the copied build artifact.
 
@@ -420,7 +421,7 @@ This was a major product-direction change. Summary for any agent picking up here
 
 ```bash
 npm run typecheck && npx tsx --test tests/*.test.ts tests/*.test.tsx
-# Expected on current main: 487 pass, 0 fail
+# Expected on current checkout: 495 pass, 0 fail
 ```
 
 ### Watch items for next agent
