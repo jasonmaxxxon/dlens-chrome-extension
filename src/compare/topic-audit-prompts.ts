@@ -52,7 +52,7 @@ function readStringArray(value: unknown): string[] {
 
 export function parseAuditPromptEnvelopeResponse(
   raw: string,
-  allowedRefs: ReadonlySet<string>
+  allowedRefs?: ReadonlySet<string>
 ): AuditPromptEnvelope | null {
   let parsed: Record<string, unknown>;
   try {
@@ -70,7 +70,7 @@ export function parseAuditPromptEnvelopeResponse(
     return null;
   }
   const evidenceRefs = readStringArray(parsed.evidenceRefs ?? parsed.evidence_refs)
-    .filter((ref) => allowedRefs.has(ref));
+    .filter((ref) => !allowedRefs || allowedRefs.has(ref));
   const caveats = readStringArray(parsed.caveats);
   const coverage = readTrimmedString(parsed.coverage);
   const rawDisplayHints = parsed.displayHints ?? parsed.display_hints;

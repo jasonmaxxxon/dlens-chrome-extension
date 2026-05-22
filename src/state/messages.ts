@@ -30,6 +30,9 @@ import type { WorkerStatus } from "./processing-state";
 import type { PrCampaign, PrCriterion, PrEvidenceRow } from "./pr-evidence-storage";
 import type { DLensSignalPacket, SignalPacketIndexFilter } from "../compare/signal-packet";
 import type { SignalPacketExportFormat, SignalPacketExportResult } from "../compare/signal-packet-export";
+import type { CrossTopicCalibration, EvidencePacket, TopicAuditReport, TopicAuditStageName } from "../compare/topic-audit";
+import type { TopicAuditValidationFlag } from "../compare/topic-audit-validator";
+import type { TopicAuditMemoBundle } from "./topic-audit-storage";
 
 export type ExtensionMessage =
   | { type: "state/get-active-tab" }
@@ -81,6 +84,12 @@ export type ExtensionMessage =
   | { type: "topic/remove-pair"; topicId: string; resultId: string }
   | { type: "topic/synthesis/generate"; topicId: string }
   | { type: "topic/synthesis/clear"; topicId: string }
+  | { type: "topic/audit/build-evidence"; sessionId: string; topicId: string }
+  | { type: "topic/audit/run"; sessionId: string; topicId: string; fromStage?: TopicAuditStageName }
+  | { type: "topic/audit/get"; topicId: string }
+  | { type: "topic/audit/validate"; topicId: string }
+  | { type: "topic/audit/clear"; topicId: string }
+  | { type: "cross-topic/calibrate"; topicIds: string[] }
   | { type: "topic/generate-signal-reading"; signalId: string; topicId: string }
   | { type: "topic/list-signal-readings"; topicId: string }
   | { type: "topic/generate-missing-signal-tags"; topicId: string }
@@ -161,6 +170,11 @@ export type ExtensionSuccessResponse = {
   prCriteria?: PrCriterion[];
   prSummary?: string;
   folderSynthesis?: FolderSynthesis | null;
+  auditEvidence?: EvidencePacket[];
+  auditReport?: TopicAuditReport | null;
+  auditMemos?: TopicAuditMemoBundle | null;
+  auditValidatorFlags?: TopicAuditValidationFlag[];
+  crossTopicCalibration?: CrossTopicCalibration | null;
 };
 
 export type StartProcessingResponse =

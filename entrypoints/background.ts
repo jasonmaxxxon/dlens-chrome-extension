@@ -83,6 +83,7 @@ import {
   generateProductSignalAnalysis,
   generateSignalReading,
   generateSignalTags,
+  generateTopicAuditEnvelope,
   generateTopicSignalReading
 } from "../src/compare/provider";
 import {
@@ -143,6 +144,7 @@ import {
   type ItemRefreshResult
 } from "../src/state/store-helpers";
 import { ensureSignalForSavedItem, ensureWorkspaceTopicForSession, handleTopicMessage } from "../src/state/topic-handlers";
+import { handleTopicAuditMessage } from "../src/state/topic-audit-handlers";
 import { deleteSignal, loadSignals, loadTopicById, loadTopics, saveTopic } from "../src/state/topic-storage";
 import { generateTopicSynthesis } from "../src/compare/topic-synthesis";
 import { generateFolderSynthesis } from "../src/compare/folder-synthesis";
@@ -1934,6 +1936,49 @@ export default defineBackground(() => {
               ok: true,
               tabId,
               topics: await loadTopics(chrome.storage.local, topic.sessionId)
+            } satisfies ExtensionResponse);
+            return;
+          }
+          case "topic/audit/build-evidence":
+          case "topic/audit/get":
+          case "topic/audit/validate":
+          case "topic/audit/clear": {
+            const tabId = await resolveTabId(sender);
+            const current = await loadSnapshot(tabId);
+            const result = await handleTopicAuditMessage(chrome.storage.local, {
+              message,
+              sessions: current.global.sessions
+            });
+            sendResponse({
+              ok: true,
+              tabId,
+              ...result
+            } satisfies ExtensionResponse);
+            return;
+          }
+          case "topic/audit/run":
+          case "cross-topic/calibrate": {
+            const tabId = await resolveTabId(sender);
+            const current = await loadSnapshot(tabId);
+            const providerConfig = providerKeyForRequest(current.global);
+            if (!providerConfig) {
+              sendResponse({ ok: false, error: "尚未設定 AI key。請先在 Settings 設定 Google / OpenAI / Claude key。" } satisfies ExtensionResponse);
+              return;
+            }
+            const result = await handleTopicAuditMessage(chrome.storage.local, {
+              message,
+              sessions: current.global.sessions,
+              generateEnvelope: async (_stageName, prompt) => generateTopicAuditEnvelope(
+                providerConfig.provider,
+                providerConfig.apiKey,
+                prompt
+              ),
+              model: providerConfig.provider
+            });
+            sendResponse({
+              ok: true,
+              tabId,
+              ...result
             } satisfies ExtensionResponse);
             return;
           }
