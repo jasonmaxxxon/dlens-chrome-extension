@@ -3,8 +3,9 @@ import type { MainPage, PopupPage } from "../state/types";
 import { CasebookView } from "./CasebookView";
 import { CompareSetupView } from "./CompareSetupView";
 import { CollectView } from "./CollectView";
-import { DLENS_BUTTON_CSS, WorkspaceShell, WorkspaceSurface, ModeRail, UtilityEdge } from "./components";
-import { ALLOWED_PAGES, getPopupWidth } from "../state/processing-state";
+import { DLENS_BUTTON_CSS, WorkspaceShell, WorkspaceSurface, ModeRail, UtilityEdge, type WorkspaceSwitcherMode } from "./components";
+import { ALLOWED_PAGES, getModeHomePage, getPopupWidth } from "../state/processing-state";
+import { IS_PR_ONLY_BUILD } from "../build-variant";
 import { LibraryView } from "./LibraryView";
 import { ProcessingStrip } from "./ProcessingStrip";
 import { ProductSignalView } from "./ProductSignalViews";
@@ -17,6 +18,10 @@ import { getProcessingFailureMessage } from "../state/processing-errors";
 import { InPageCollectorFolderControls } from "./InPageCollectorFolderControls";
 import { InPageCollectorResultWorkspace } from "./InPageCollectorResultWorkspace";
 import type { InPageCollectorAppModel } from "./useInPageCollectorAppState";
+
+const WORKSPACE_SWITCHER_MODES: ReadonlyArray<WorkspaceSwitcherMode> = IS_PR_ONLY_BUILD
+  ? ["pr-evidence"]
+  : ["topic", "product", "pr-evidence"];
 
 function shouldShowProcessingContextStrip(folderMode: string, page: PopupPage): boolean {
   if (folderMode === "product" || folderMode === "pr-evidence") {
@@ -46,7 +51,7 @@ export function InPageCollectorPopup({ app }: { app: InPageCollectorAppModel }) 
   const allowedRailModes = ALLOWED_PAGES[activeFolderMode].filter((entry): entry is RailMode =>
     entry !== "result" && entry !== "settings" && entry !== "topic-detail" && entry !== "audit-report"
   );
-  const homePage = (ALLOWED_PAGES[activeFolderMode].find((entry) => entry !== "settings" && entry !== "audit-report") ?? "library") as MainPage;
+  const homePage = getModeHomePage(activeFolderMode);
   const attachedTopicIds = app.activeSavedAnalysis
     ? app.topics.filter((topic) => topic.pairIds.includes(app.activeSavedAnalysis!.resultId)).map((topic) => topic.id)
     : [];
@@ -135,6 +140,8 @@ export function InPageCollectorPopup({ app }: { app: InPageCollectorAppModel }) 
         <WorkspaceShell
           mode={guardedPage === "audit-report" ? "topics" : guardedPage}
           folderMode={activeFolderMode}
+          onSwitchWorkspace={(mode) => void app.onSessionModeChange(mode)}
+          availableWorkspaceModes={WORKSPACE_SWITCHER_MODES}
           header={(
             <div style={{ display: "grid", gap: 10 }}>
               <ModeRail

@@ -177,3 +177,68 @@ test("WorkspaceShell masthead exposes the extension build version", () => {
   assert.match(html, /data-shell-frame="editorial"[^>]*align-items:start/);
   assert.match(html, /data-shell-header="workspace"[^>]*align-self:start/);
 });
+
+test("WorkspaceShell renders masthead WorkspaceSwitcher when onSwitchWorkspace is wired", () => {
+  const html = renderToStaticMarkup(
+    React.createElement(
+      WorkspaceShell,
+      {
+        mode: "saved-signals",
+        folderMode: "product",
+        onSwitchWorkspace: () => {},
+        availableWorkspaceModes: ["topic", "product", "pr-evidence"] as const,
+        header: React.createElement("div", null, "Header")
+      },
+      React.createElement("div", null, "Body")
+    )
+  );
+
+  assert.match(html, /data-workspace-switcher="segmented"/);
+  assert.match(html, /data-workspace-switcher-mode="topic"/);
+  assert.match(html, /data-workspace-switcher-mode="product"/);
+  assert.match(html, /data-workspace-switcher-mode="pr-evidence"/);
+  // Active button is marked aria-selected="true" — and it's the Product one
+  assert.match(html, /aria-selected="true"\s+data-workspace-switcher-mode="product"/);
+  // Static mode badge should not render alongside the switcher
+  assert.doesNotMatch(html, /data-mode-badge="product"/);
+});
+
+test("WorkspaceShell PR-only build renders WorkspaceSwitcher as a static PR badge", () => {
+  const html = renderToStaticMarkup(
+    React.createElement(
+      WorkspaceShell,
+      {
+        mode: "pr-evidence",
+        folderMode: "pr-evidence",
+        onSwitchWorkspace: () => {},
+        availableWorkspaceModes: ["pr-evidence"] as const,
+        header: React.createElement("div", null, "Header")
+      },
+      React.createElement("div", null, "Body")
+    )
+  );
+
+  assert.match(html, /data-workspace-switcher="static"/);
+  assert.match(html, /data-workspace-switcher-mode="pr-evidence"/);
+  assert.match(html, /PR MODE/);
+  assert.doesNotMatch(html, /data-workspace-switcher-mode="topic"/);
+  assert.doesNotMatch(html, /data-workspace-switcher-mode="product"/);
+});
+
+test("WorkspaceShell falls back to static mode badge when no switcher is wired", () => {
+  const html = renderToStaticMarkup(
+    React.createElement(
+      WorkspaceShell,
+      {
+        mode: "topics",
+        folderMode: "topic",
+        header: React.createElement("div", null, "Header")
+      },
+      React.createElement("div", null, "Body")
+    )
+  );
+
+  assert.match(html, /data-mode-badge="topic"/);
+  assert.match(html, /TOPIC MODE/);
+  assert.doesNotMatch(html, /data-workspace-switcher=/);
+});

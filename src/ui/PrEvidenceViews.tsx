@@ -13,9 +13,11 @@ import {
   PrimaryButton,
   SCAN_ROW_HOVER_CSS,
   SecondaryButton,
+  SegmentedTabs,
   Stamp,
   WorkspaceSurface,
-  viewRootStyle
+  viewRootStyle,
+  type SegmentedTabItem
 } from "./components.tsx";
 import { readPrBriefFile } from "./pr-brief-upload.ts";
 import { exportPrSummaryDocx, exportPrSummaryMarkdown } from "./pr-summary-export.ts";
@@ -336,7 +338,7 @@ function CampaignEditor({
                 disabled={isReadingBrief || isGenerating}
                 style={{ ...accentButtonStyle, ...compactButtonStyle, whiteSpace: "nowrap" }}
               >
-                {isReadingBrief ? "Reading..." : "Upload PDF ->"}
+                {isReadingBrief ? "Reading..." : "Upload PDF"}
               </SecondaryButton>
               {/* Edit / Done toggle — only when brief has content */}
               {campaign.briefText.trim() ? (
@@ -523,7 +525,7 @@ function CampaignEditor({
               PR matching criteria
             </span>
             <SecondaryButton onClick={onGenerateCriteria} disabled={isReadingBrief || isGenerating} style={{ ...accentButtonStyle, ...compactButtonStyle }}>
-              {isGenerating ? "Generating..." : "Generate criteria ->"}
+              {isGenerating ? "Generating..." : "Generate criteria"}
             </SecondaryButton>
           </div>
           <div style={{ display: "grid", gridTemplateColumns: "repeat(2, minmax(0, 1fr))", gap: `${tokens.spacing.sm}px ${tokens.spacing.md}px` }}>
@@ -560,7 +562,7 @@ function CampaignEditor({
   );
 }
 
-function EvidenceLedger({ rows }: { rows: PrEvidenceRow[] }) {
+function EvidenceLedger({ rows, criteria = [] }: { rows: PrEvidenceRow[]; criteria?: PrCriterion[] }) {
   return (
     <section data-pr-evidence-ledger="compact" style={{ display: "grid", minWidth: 0 }}>
       <style>{SCAN_ROW_HOVER_CSS}</style>
@@ -587,8 +589,8 @@ function EvidenceLedger({ rows }: { rows: PrEvidenceRow[] }) {
               <div style={{ fontFamily: tokens.font.mono, fontSize: 12, color: tokens.color.ink, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{row.authorHandle || "-"}</div>
               <div style={{ fontSize: 13, color: tokens.color.subInk, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{row.caption || "-"}</div>
               <div style={{ fontFamily: tokens.font.mono, fontSize: 11, color: tokens.color.softInk, textAlign: "right", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", fontVariantNumeric: "tabular-nums" }}>{metricLine(row)}</div>
-              <div style={{ fontFamily: tokens.font.mono, fontSize: 11, fontWeight: 700, color: matchedCount(row) >= 5 ? PR_MOSS : matchedCount(row) > 0 ? PR_ACCENT : tokens.color.softInk, textAlign: "right", fontVariantNumeric: "tabular-nums" }}>
-                {matchedCount(row)} / 6
+              <div style={{ display: "flex", justifyContent: "flex-end", overflow: "hidden" }}>
+                <CriterionChips row={row} criteria={criteria} variant="compact" />
               </div>
               <div style={{ fontFamily: tokens.font.mono, fontSize: 10.5, color: tokens.color.softInk, textAlign: "right", minWidth: 56 }}>{formatTime(row.collectedAt)}</div>
             </div>
@@ -641,6 +643,89 @@ function SourceLinkIcon({ row }: { row: PrEvidenceRow }) {
 
 type PrWorkPane = "ledger" | "match" | "metrics";
 
+function CriterionChips({
+  row,
+  criteria,
+  variant
+}: {
+  row: PrEvidenceRow;
+  criteria: PrCriterion[];
+  variant: "full" | "compact";
+}) {
+  const matchedTotal = matchedCount(row);
+
+  if (variant === "compact") {
+    if (matchedTotal === 0) {
+      return (
+        <span
+          aria-label="No criteria matched yet"
+          style={{
+            fontFamily: tokens.font.mono,
+            fontSize: 11,
+            color: tokens.color.softInk,
+            fontVariantNumeric: "tabular-nums"
+          }}
+        >
+          0 / 6
+        </span>
+      );
+    }
+    const matchedIds = PR_CRITERION_IDS
+      .map((id, index) => ({ id, index, matched: row.criteriaMatches[id] }))
+      .filter((entry) => entry.matched);
+    return (
+      <span
+        aria-label={`${matchedTotal} of 6 criteria matched`}
+        title={matchedIds.map(({ index }) => criteria[index]?.label || `C${index + 1}`).join(" · ")}
+        style={{
+          display: "inline-flex",
+          gap: 5,
+          flexWrap: "nowrap",
+          overflow: "hidden",
+          fontFamily: tokens.font.mono,
+          fontSize: 10.5,
+          fontWeight: 700,
+          color: matchedTotal >= 5 ? PR_MOSS : PR_ACCENT,
+          fontVariantNumeric: "tabular-nums",
+          justifyContent: "flex-end"
+        }}
+      >
+        {matchedIds.map(({ id, index }) => (
+          <span key={id}>C{index + 1}</span>
+        ))}
+      </span>
+    );
+  }
+
+  return (
+    <div style={{ display: "flex", flexWrap: "wrap", gap: 14, paddingLeft: 2 }}>
+      {PR_CRITERION_IDS.map((id, index) => {
+        const criterion = criteria[index];
+        const matched = row.criteriaMatches[id];
+        return (
+          <span
+            key={id}
+            title={criterion?.label || id}
+            style={{
+              display: "inline-flex",
+              alignItems: "baseline",
+              gap: 3,
+              color: matched ? PR_MOSS : tokens.color.softInk,
+              fontFamily: tokens.font.mono,
+              fontSize: 10.5,
+              fontWeight: matched ? 700 : 400,
+              opacity: matched ? 1 : 0.7
+            }}
+          >
+            C{index + 1}
+            <span aria-hidden>{matched ? "✓" : "·"}</span>
+          </span>
+        );
+      })}
+    </div>
+  );
+}
+
 function criterionTotals(campaign: PrCampaign, rows: PrEvidenceRow[]): number[] {
   return campaign.criteria.map((criterion) =>
     rows.reduce((total, row) => total + (row.criteriaMatches[criterion.id] ? 1 : 0), 0)
@@ -676,7 +761,7 @@ function PrWorkingArea({
   const matchedCells = rows.reduce((total, row) => total + matchedCount(row), 0);
   const totalCells = rows.length * 6;
   const hasFetchedMetrics = rows.some((row) => row.advancedMetricsFetchedAt);
-  const tabs: Array<{ id: PrWorkPane; label: string; count: string; tone: "neutral" | "accent" | "success" }> = [
+  const tabs: ReadonlyArray<SegmentedTabItem<PrWorkPane>> = [
     { id: "ledger", label: "Ledger", count: String(rows.length), tone: rows.length ? "accent" : "neutral" },
     { id: "match", label: "Match criteria", count: `${matchedCells}/${totalCells}`, tone: matchedCells ? "success" : "neutral" },
     { id: "metrics", label: "Fetch metrics", count: hasFetchedMetrics ? "done" : "—", tone: hasFetchedMetrics ? "success" : "neutral" }
@@ -697,58 +782,13 @@ function PrWorkingArea({
           flexWrap: "wrap"
         }}
       >
-        <div style={{ display: "flex", gap: 2, minWidth: 0, flexWrap: "wrap" }}>
-          {tabs.map((tab) => {
-            const active = activePane === tab.id;
-            return (
-              <button
-                key={tab.id}
-                type="button"
-                onClick={() => onPaneChange(tab.id)}
-                data-pr-work-tab={tab.id}
-                aria-pressed={active}
-                style={{
-                  border: "none",
-                  borderBottom: `2px solid ${active ? PR_ACCENT : "transparent"}`,
-                  marginBottom: -1,
-                  background: "transparent",
-                  color: active ? tokens.color.ink : tokens.color.softInk,
-                  padding: "10px 12px 12px",
-                  fontFamily: tokens.font.sans,
-                  fontSize: 12,
-                  fontWeight: active ? 700 : 500,
-                  letterSpacing: 0,
-                  cursor: "pointer",
-                  display: "inline-flex",
-                  alignItems: "center",
-                  gap: 7
-                }}
-              >
-                {tab.label}
-                <span
-                  style={{
-                    fontFamily: tokens.font.mono,
-                    fontSize: 10,
-                    fontWeight: 700,
-                    color: active && tab.tone !== "neutral"
-                      ? (tab.tone === "success" ? PR_MOSS : PR_ACCENT)
-                      : tokens.color.softInk,
-                    padding: "1px 7px",
-                    borderRadius: 999,
-                    background: active
-                      ? (tab.tone === "success" ? tokens.color.successSoft : tab.tone === "accent" ? "var(--dlens-mode-accent-soft)" : tokens.color.neutralSurface)
-                      : tokens.color.neutralSurface,
-                    minWidth: 22,
-                    textAlign: "center",
-                    letterSpacing: 0
-                  }}
-                >
-                  {tab.count}
-                </span>
-              </button>
-            );
-          })}
-        </div>
+        <SegmentedTabs
+          tabs={tabs}
+          activeId={activePane}
+          onChange={onPaneChange}
+          ariaLabel="PR working area panes"
+          dataAttr={(id) => ({ "data-pr-work-tab": id })}
+        />
         <span style={{ flex: 1 }} />
         <div style={{ display: "flex", alignItems: "center", paddingBottom: 6 }}>
           <PrimaryButton onClick={onExportCsv} disabled={!savedCampaignReady} style={compactButtonStyle}>
@@ -762,7 +802,7 @@ function PrWorkingArea({
           title="Saved posts"
           caption={`${rows.length} rows · click to inspect${lastMatchedAt ? ` · matched ${formatTime(lastMatchedAt)}` : ""}`}
         />
-        <EvidenceLedger rows={rows} />
+        <EvidenceLedger rows={rows} criteria={campaign.criteria} />
       </div>
 
       <div style={paneStyle("match")}>
@@ -801,31 +841,7 @@ function PrWorkingArea({
                   {matchedCount(row)} / 6
                 </span>
               </div>
-              <div style={{ display: "flex", flexWrap: "wrap", gap: 14, paddingLeft: 2 }}>
-                {PR_CRITERION_IDS.map((id, index) => {
-                  const criterion = campaign.criteria[index];
-                  const matched = row.criteriaMatches[id];
-                  return (
-                    <span
-                      key={id}
-                      title={criterion?.label || id}
-                      style={{
-                        display: "inline-flex",
-                        alignItems: "baseline",
-                        gap: 3,
-                        color: matched ? PR_MOSS : tokens.color.softInk,
-                        fontFamily: tokens.font.mono,
-                        fontSize: 10.5,
-                        fontWeight: matched ? 700 : 400,
-                        opacity: matched ? 1 : 0.7
-                      }}
-                    >
-                      C{index + 1}
-                      <span aria-hidden>{matched ? "✓" : "·"}</span>
-                    </span>
-                  );
-                })}
-              </div>
+              <CriterionChips row={row} criteria={campaign.criteria} variant="full" />
             </div>
           )) : (
             <div style={{ padding: "16px 8px", fontSize: 12, color: tokens.color.subInk }}>Collect posts before matching criteria.</div>
@@ -1387,7 +1403,7 @@ function SummaryGenerateCard({ onGenerate, loading, disabled = false }: { onGene
         </span>
       </div>
       <SecondaryButton onClick={onGenerate} disabled={disabled || loading} style={{ ...accentButtonStyle, ...compactButtonStyle, whiteSpace: "nowrap" }}>
-        {loading ? "Generating..." : "Generate summary →"}
+        {loading ? "Generating..." : "Generate summary"}
       </SecondaryButton>
     </section>
   );

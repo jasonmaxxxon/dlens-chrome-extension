@@ -20,10 +20,29 @@ const DEFAULT_ALLOWED_PAGES: Record<FolderMode, PopupPage[]> = {
   "pr-evidence": ["pr-evidence", "collect"]
 };
 
+const MODE_HOME_PAGE: Record<FolderMode, MainPage> = {
+  archive: "library",
+  topic: "topics",
+  product: "saved-signals",
+  "pr-evidence": "pr-evidence"
+};
+
 export const ALLOWED_PAGES: Record<FolderMode, PopupPage[]> = resolveAllowedPagesForBuildVariant(
   DLENS_BUILD_VARIANT,
   DEFAULT_ALLOWED_PAGES
 );
+
+function isMainPage(page: PopupPage): page is MainPage {
+  return page !== "settings" && page !== "audit-report";
+}
+
+export function getModeHomePage(mode: FolderMode): MainPage {
+  const preferred = MODE_HOME_PAGE[mode];
+  if ((ALLOWED_PAGES[mode] as ReadonlyArray<PopupPage>).includes(preferred)) {
+    return preferred;
+  }
+  return ALLOWED_PAGES[mode].find(isMainPage) ?? "library";
+}
 
 export function isProductSignalPage(page: PopupPage): boolean {
   return (PRODUCT_SIGNAL_PAGES as ReadonlyArray<PopupPage>).includes(page);

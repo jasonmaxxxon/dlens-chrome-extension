@@ -171,6 +171,7 @@ import { mergeLayoutPreferences, mergeOneLinerSettings, normalizeExtensionSettin
 import { buildRefreshFailureMessage } from "../src/state/refresh-errors";
 import { createAsyncLock } from "../src/state/snapshot-lock";
 import { applyHoveredPreview, createInlineToast, setCollectModeState } from "../src/state/ui-state";
+import { getModeHomePage } from "../src/state/processing-state";
 
 const GLOBAL_STORAGE_KEY = "dlens:v0:global-state";
 const TAB_STORAGE_KEY_PREFIX = "dlens:v0:tab-ui:";
@@ -2049,6 +2050,8 @@ export default defineBackground(() => {
             const tabId = await resolveTabId(sender);
             const current = await loadSnapshot(tabId);
             const global = activateSessionForMode(current.global, message.mode);
+            const activeSession = getActiveSession(global);
+            const modeHomePage = getModeHomePage(message.mode);
             sendResponse({
               ok: true,
               tabId,
@@ -2056,6 +2059,9 @@ export default defineBackground(() => {
                 global,
                 tab: {
                   ...current.tab,
+                  activeItemId: activeSession ? ensureActiveItemId(activeSession, current.tab.activeItemId) : null,
+                  popupPage: modeHomePage,
+                  currentMainPage: modeHomePage,
                   error: null
                 }
               })

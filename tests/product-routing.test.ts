@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import { ALLOWED_PAGES, guardPage } from "../src/state/processing-state.ts";
+import { ALLOWED_PAGES, getModeHomePage, guardPage } from "../src/state/processing-state.ts";
 
 test("product mode opens Saved Signals before action filtering", () => {
   assert.deepEqual(ALLOWED_PAGES.product, [
@@ -35,4 +35,11 @@ test("PR Evidence mode mounts only the campaign evidence workspace and Collect",
   assert.equal(guardPage("library", "pr-evidence"), "pr-evidence");
   assert.equal(guardPage("saved-signals", "pr-evidence"), "pr-evidence");
   assert.equal(guardPage("pr-evidence", "pr-evidence"), "pr-evidence");
+});
+
+test("mode switches land on the primary surface for each workspace", () => {
+  assert.equal(getModeHomePage("archive"), "library");
+  assert.equal(getModeHomePage("topic"), "topics");
+  assert.equal(getModeHomePage("product"), "saved-signals");
+  assert.equal(getModeHomePage("pr-evidence"), "pr-evidence");
 });

@@ -412,26 +412,137 @@ function railIcon(mode: PrimaryWorkspaceMode) {
   }
 }
 
+export type WorkspaceSwitcherMode = "topic" | "product" | "pr-evidence";
+
+const WORKSPACE_SWITCHER_OPTIONS: ReadonlyArray<{
+  key: WorkspaceSwitcherMode;
+  label: string;
+  tint: string;
+}> = [
+  { key: "topic", label: "Topic", tint: tokens.color.accent },
+  { key: "product", label: "Product", tint: tokens.color.product },
+  { key: "pr-evidence", label: "PR", tint: tokens.color.teal }
+];
+
+export function WorkspaceSwitcher({
+  activeMode,
+  modes,
+  onChange
+}: {
+  activeMode: WorkspaceSwitcherMode | "archive" | null | undefined;
+  modes?: ReadonlyArray<WorkspaceSwitcherMode>;
+  onChange: (mode: WorkspaceSwitcherMode) => void;
+}) {
+  const allowed = modes ?? WORKSPACE_SWITCHER_OPTIONS.map((option) => option.key);
+  const options = WORKSPACE_SWITCHER_OPTIONS.filter((option) => allowed.includes(option.key));
+  if (options.length === 0) {
+    return null;
+  }
+
+  if (options.length === 1) {
+    const only = options[0];
+    return (
+      <span
+        data-workspace-switcher="static"
+        data-workspace-switcher-mode={only.key}
+        style={{
+          fontFamily: tokens.font.sans,
+          fontSize: 9,
+          fontWeight: 700,
+          letterSpacing: 0.6,
+          color: only.tint,
+          background: `${only.tint}14`,
+          border: `1px solid ${only.tint}40`,
+          borderRadius: 4,
+          padding: "2px 6px",
+          whiteSpace: "nowrap",
+          lineHeight: 1.1
+        }}
+      >
+        {only.label.toUpperCase()} MODE
+      </span>
+    );
+  }
+
+  return (
+    <div
+      role="tablist"
+      aria-label="Workspace"
+      data-workspace-switcher="segmented"
+      style={{
+        display: "inline-flex",
+        gap: 2,
+        padding: 2,
+        borderRadius: 6,
+        background: tokens.color.neutralSurfaceSoft,
+        border: `1px solid ${tokens.color.line}`
+      }}
+    >
+      {options.map(({ key, label, tint }) => {
+        const active = activeMode === key;
+        return (
+          <button
+            key={key}
+            type="button"
+            role="tab"
+            aria-selected={active}
+            data-workspace-switcher-mode={key}
+            onClick={() => onChange(key)}
+            style={{
+              fontFamily: tokens.font.sans,
+              fontSize: 10,
+              fontWeight: 700,
+              letterSpacing: 0.3,
+              color: active ? tint : tokens.color.softInk,
+              background: active ? `${tint}14` : "transparent",
+              border: `1px solid ${active ? `${tint}40` : "transparent"}`,
+              borderRadius: 4,
+              padding: "3px 9px",
+              cursor: "pointer",
+              transition: tokens.motion.interactiveTransition,
+              whiteSpace: "nowrap",
+              lineHeight: 1.1
+            }}
+          >
+            {label}
+          </button>
+        );
+      })}
+    </div>
+  );
+}
+
 export function WorkspaceShell({
   mode,
   folderMode,
   header,
   contextStrip,
-  children
+  children,
+  onSwitchWorkspace,
+  availableWorkspaceModes
 }: {
   mode: WorkspaceMode | "settings";
   folderMode?: "topic" | "product" | "archive" | "pr-evidence";
   header: ReactNode;
   contextStrip?: ReactNode;
   children: ReactNode;
+  onSwitchWorkspace?: (mode: WorkspaceSwitcherMode) => void;
+  availableWorkspaceModes?: ReadonlyArray<WorkspaceSwitcherMode>;
 }) {
-  const modeBadge = folderMode === "topic"
+  const showSwitcher = typeof onSwitchWorkspace === "function";
+  const switcherActiveMode: WorkspaceSwitcherMode | "archive" | null = folderMode === "topic"
+    || folderMode === "product"
+    || folderMode === "pr-evidence"
+    || folderMode === "archive"
+    ? folderMode
+    : null;
+  const modeBadge = !showSwitcher && folderMode === "topic"
     ? { label: "TOPIC", tint: tokens.color.accent }
-    : folderMode === "product"
+    : !showSwitcher && folderMode === "product"
     ? { label: "PRODUCT", tint: tokens.color.product }
-    : folderMode === "pr-evidence"
+    : !showSwitcher && folderMode === "pr-evidence"
     ? { label: "PR", tint: tokens.color.teal }
-    : folderMode === "archive"
+    : !showSwitcher && folderMode === "archive"
     ? { label: "ARCHIVE", tint: tokens.color.softInk }
     : null;
   return (
@@ -461,9 +572,15 @@ export function WorkspaceShell({
           color: tokens.color.subInk
         }}
       >
-        <div style={{ display: "flex", alignItems: "baseline", gap: 8, minWidth: 0 }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 8, minWidth: 0 }}>
           <span data-dlens-wordmark="masthead" style={{ fontFamily: tokens.font.serif, fontSize: 20, lineHeight: 1, color: MODE_ACCENT, transition: tokens.motion.interactiveTransition }}>dlens</span>
-          {modeBadge ? (
+          {showSwitcher ? (
+            <WorkspaceSwitcher
+              activeMode={switcherActiveMode}
+              modes={availableWorkspaceModes}
+              onChange={onSwitchWorkspace!}
+            />
+          ) : modeBadge ? (
             <span
               data-mode-badge={modeBadge.label.toLowerCase()}
               style={{
@@ -1090,6 +1207,103 @@ export function PageButton({
     >
       {children}
     </button>
+  );
+}
+
+export type SegmentedTabTone = "neutral" | "accent" | "success";
+
+export interface SegmentedTabItem<T extends string = string> {
+  id: T;
+  label: string;
+  count?: string;
+  tone?: SegmentedTabTone;
+}
+
+export function SegmentedTabs<T extends string>({
+  tabs,
+  activeId,
+  onChange,
+  ariaLabel,
+  dataAttr
+}: {
+  tabs: ReadonlyArray<SegmentedTabItem<T>>;
+  activeId: T;
+  onChange: (id: T) => void;
+  ariaLabel?: string;
+  dataAttr?: (id: T) => Record<string, string>;
+}) {
+  return (
+    <div
+      role="tablist"
+      aria-label={ariaLabel}
+      style={{ display: "flex", gap: 2, minWidth: 0, flexWrap: "wrap" }}
+    >
+      {tabs.map((tab) => {
+        const active = activeId === tab.id;
+        const tone: SegmentedTabTone = tab.tone ?? "neutral";
+        const countBg = active
+          ? tone === "success"
+            ? tokens.color.successSoft
+            : tone === "accent"
+              ? MODE_ACCENT_SOFT
+              : tokens.color.neutralSurface
+          : tokens.color.neutralSurface;
+        const countInk = active && tone !== "neutral"
+          ? tone === "success"
+            ? tokens.color.success
+            : MODE_ACCENT
+          : tokens.color.softInk;
+        const extraData = dataAttr ? dataAttr(tab.id) : {};
+        return (
+          <button
+            key={tab.id}
+            type="button"
+            role="tab"
+            aria-selected={active}
+            onClick={() => onChange(tab.id)}
+            {...extraData}
+            style={{
+              border: "none",
+              borderBottom: `2px solid ${active ? MODE_ACCENT : "transparent"}`,
+              marginBottom: -1,
+              background: "transparent",
+              color: active ? tokens.color.ink : tokens.color.softInk,
+              padding: "10px 12px 12px",
+              fontFamily: tokens.font.sans,
+              fontSize: 12,
+              fontWeight: active ? 700 : 500,
+              letterSpacing: 0,
+              cursor: "pointer",
+              display: "inline-flex",
+              alignItems: "center",
+              gap: 7,
+              transition: tokens.motion.interactiveTransition
+            }}
+          >
+            {tab.label}
+            {tab.count !== undefined ? (
+              <span
+                aria-hidden
+                style={{
+                  fontFamily: tokens.font.mono,
+                  fontSize: 10,
+                  fontWeight: 700,
+                  color: countInk,
+                  padding: "1px 7px",
+                  borderRadius: 999,
+                  background: countBg,
+                  minWidth: 22,
+                  textAlign: "center",
+                  letterSpacing: 0
+                }}
+              >
+                {tab.count}
+              </span>
+            ) : null}
+          </button>
+        );
+      })}
+    </div>
   );
 }
 
