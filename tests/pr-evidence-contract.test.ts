@@ -1,4 +1,5 @@
 import assert from "node:assert/strict";
+import { readFile } from "node:fs/promises";
 import test from "node:test";
 
 import {
@@ -315,4 +316,10 @@ test("buildPrCriteriaSuggestionPrompt uses detected core messages to avoid gener
   assert.match(prompt, /Each label must be matchable/);
   assert.match(prompt, /Experience proof/);
   assert.match(prompt, /Scale proof/);
+});
+
+test("background routes PR advanced metrics through a dedicated action", async () => {
+  const source = await readFile(new URL("../entrypoints/background.ts", import.meta.url), "utf8");
+
+  assert.match(source, /case "pr\/fetch-advanced-metrics"/);
 });

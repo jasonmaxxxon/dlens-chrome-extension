@@ -1,13 +1,17 @@
 import { defineConfig } from "wxt";
 
+const isPrOnlyBuild = process.env.DLENS_EXTENSION_VARIANT === "pr-only";
+
 export default defineConfig({
   modules: ["@wxt-dev/module-react"],
   srcDir: ".",
   entrypointsDir: "entrypoints",
   manifest: {
-    name: "DLens v3",
+    name: isPrOnlyBuild ? "DLens PR Mode" : "DLens v3",
     version: "0.1.22",
-    description: "Thin Threads capture client for DLens ingest-core.",
+    description: isPrOnlyBuild
+      ? "PR Evidence-only Threads capture client for DLens ingest-core."
+      : "Thin Threads capture client for DLens ingest-core.",
     permissions: ["storage", "tabs", "activeTab", "sidePanel"],
     host_permissions: [
       "*://www.threads.net/*",
@@ -21,7 +25,7 @@ export default defineConfig({
       "https://api.anthropic.com/*"
     ],
     action: {
-      default_title: "DLens"
+      default_title: isPrOnlyBuild ? "DLens PR Mode" : "DLens"
     },
     side_panel: {
       default_path: "sidepanel/index.html"

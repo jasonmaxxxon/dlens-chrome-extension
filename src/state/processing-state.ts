@@ -1,4 +1,5 @@
 import type { FolderMode, MainPage, PopupPage, SessionItem, SessionRecord } from "./types.ts";
+import { DLENS_BUILD_VARIANT, resolveAllowedPagesForBuildVariant } from "../build-variant.ts";
 
 export const DEFAULT_POPUP_WIDTH = 720;
 export const EXPANDED_COMPARE_POPUP_WIDTH = 720;
@@ -12,12 +13,17 @@ export const PRODUCT_SIGNAL_PAGES: ReadonlyArray<MainPage> = [
 ];
 export const PR_EVIDENCE_PAGES: ReadonlyArray<MainPage> = ["pr-evidence"];
 
-export const ALLOWED_PAGES: Record<FolderMode, PopupPage[]> = {
+const DEFAULT_ALLOWED_PAGES: Record<FolderMode, PopupPage[]> = {
   archive: ["library", "collect"],
   topic: ["collect", "topics", "settings"],
   product: ["saved-signals", "classification", "actionable-filter", "collect"],
   "pr-evidence": ["pr-evidence", "collect"]
 };
+
+export const ALLOWED_PAGES: Record<FolderMode, PopupPage[]> = resolveAllowedPagesForBuildVariant(
+  DLENS_BUILD_VARIANT,
+  DEFAULT_ALLOWED_PAGES
+);
 
 export function isProductSignalPage(page: PopupPage): boolean {
   return (PRODUCT_SIGNAL_PAGES as ReadonlyArray<PopupPage>).includes(page);

@@ -42,6 +42,8 @@ export interface PrEvidenceRow {
   criteriaMatches: PrCriteriaMatches;
   collectedAt: string;
   matchedAt?: string;
+  advancedMetricsFetchedAt?: string;
+  advancedMetricsError?: string;
 }
 
 export const PR_CRITERION_IDS: PrCriterionId[] = ["c1", "c2", "c3", "c4", "c5", "c6"];
@@ -142,6 +144,8 @@ export function normalizePrEvidenceRow(value: unknown): PrEvidenceRow | null {
     followers: readNumber(rawMetrics.followers)
   };
   const matchedAt = readString(raw.matchedAt).trim();
+  const advancedMetricsFetchedAt = readString(raw.advancedMetricsFetchedAt).trim();
+  const advancedMetricsError = readString(raw.advancedMetricsError).trim();
   return {
     id,
     campaignId,
@@ -153,7 +157,9 @@ export function normalizePrEvidenceRow(value: unknown): PrEvidenceRow | null {
     expectedEngagement: readString(raw.expectedEngagement).trim(),
     criteriaMatches: normalizePrCriteriaMatches(raw.criteriaMatches),
     collectedAt: readString(raw.collectedAt, "1970-01-01T00:00:00.000Z").trim() || "1970-01-01T00:00:00.000Z",
-    ...(matchedAt ? { matchedAt } : {})
+    ...(matchedAt ? { matchedAt } : {}),
+    ...(advancedMetricsFetchedAt ? { advancedMetricsFetchedAt } : {}),
+    ...(advancedMetricsError ? { advancedMetricsError } : {})
   };
 }
 

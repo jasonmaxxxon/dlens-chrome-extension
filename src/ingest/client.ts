@@ -5,6 +5,7 @@ import type {
   JobSnapshot,
   QueuedCapture,
   SidebarJobStatus,
+  ThreadsAdvancedMetricsResponse,
   WorkerDrainResponse,
   WorkerStatusResponse
 } from "../contracts/ingest.ts";
@@ -95,6 +96,13 @@ export async function triggerWorkerDrain(baseUrl: string): Promise<WorkerDrainRe
 
 export async function fetchWorkerStatus(baseUrl: string): Promise<WorkerStatusResponse> {
   return fetchJson<WorkerStatusResponse>(`${normalizeBaseUrl(baseUrl)}/worker/status`);
+}
+
+export async function fetchThreadsAdvancedMetrics(baseUrl: string, postUrl: string): Promise<ThreadsAdvancedMetricsResponse> {
+  return fetchJson<ThreadsAdvancedMetricsResponse>(`${normalizeBaseUrl(baseUrl)}/threads/advanced-metrics`, {
+    method: "POST",
+    body: JSON.stringify({ post_url: postUrl })
+  });
 }
 
 export function toSidebarJobStatus(job: JobSnapshot): SidebarJobStatus {

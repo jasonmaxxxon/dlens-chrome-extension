@@ -1,0 +1,580 @@
+<!doctype html>
+<html lang="zh-Hant">
+<head>
+<meta charset="utf-8" />
+<title>PR mode — V3 Dossier</title>
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Special+Elite&family=Crimson+Pro:ital,wght@0,500;0,600;1,500&family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;500&family=IBM+Plex+Mono:wght@400;500;600&family=Noto+Sans+TC:wght@400;500;600&family=Noto+Serif+TC:wght@500;600&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --paper: #F2EAD3;
+    --paper-dark: #E8DEC0;
+    --paper-darker: #D9CBA5;
+    --ink-900: #1A1813;
+    --ink-700: #322A1F;
+    --ink-500: #5F5340;
+    --ink-400: #847655;
+    --ink-300: #A89978;
+    --stamp-red: #A8231F;
+    --stamp-red-soft: #C8423D;
+    --stamp-blue: #1E3A5F;
+    --stamp-green: #3F5A2E;
+    --rule: #C8B894;
+    --rule-soft: #DECFA8;
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; padding: 0; }
+  body {
+    background:
+      radial-gradient(ellipse at top, #DDD0AE 0%, #C8B891 100%);
+    font-family: 'Inter', 'Noto Sans TC', -apple-system, sans-serif;
+    color: var(--ink-900);
+    font-size: 13.5px;
+    line-height: 1.5;
+    padding: 40px 0 100px;
+    -webkit-font-smoothing: antialiased;
+    min-height: 100vh;
+  }
+  .frame {
+    width: 800px;
+    margin: 0 auto;
+    background:
+      /* paper grain */
+      repeating-linear-gradient(
+        91deg,
+        transparent 0,
+        transparent 3px,
+        rgba(120,100,60,0.012) 3px,
+        rgba(120,100,60,0.012) 4px
+      ),
+      repeating-linear-gradient(
+        2deg,
+        transparent 0,
+        transparent 7px,
+        rgba(120,100,60,0.018) 7px,
+        rgba(120,100,60,0.018) 8px
+      ),
+      var(--paper);
+    min-height: 600px;
+    box-shadow:
+      0 1px 2px rgba(0,0,0,0.1),
+      0 14px 50px rgba(31,26,20,0.28);
+    position: relative;
+  }
+
+  /* --- File tab on top --- */
+  .file-tab {
+    position: absolute;
+    top: -22px;
+    left: 36px;
+    background: var(--paper);
+    padding: 7px 16px 9px;
+    border: 1px solid var(--rule);
+    border-bottom: none;
+    border-radius: 4px 4px 0 0;
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 10px;
+    letter-spacing: 0.16em;
+    color: var(--ink-700);
+    box-shadow: 0 -2px 6px rgba(0,0,0,0.05);
+  }
+  .file-tab .dot { color: var(--stamp-red); margin: 0 4px; }
+
+  /* --- Header strip --- */
+  .header-strip {
+    border-bottom: 3px double var(--rule);
+    padding: 18px 36px 14px;
+    display: grid;
+    grid-template-columns: 1fr auto;
+    gap: 12px;
+    align-items: end;
+  }
+  .header-strip .left .brand {
+    font-family: 'Crimson Pro', serif;
+    font-style: italic;
+    font-size: 26px;
+    color: var(--ink-900);
+    line-height: 1;
+  }
+  .header-strip .left .brand .mark {
+    display: inline-block;
+    width: 24px; height: 24px;
+    background: var(--ink-900);
+    color: var(--paper);
+    text-align: center;
+    line-height: 24px;
+    font-size: 16px;
+    margin-right: 6px;
+    border-radius: 4px;
+    vertical-align: 2px;
+  }
+  .header-strip .left .sub {
+    margin-top: 8px;
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 10.5px;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    color: var(--ink-500);
+  }
+  .header-strip .left .sub .sep { color: var(--ink-300); margin: 0 6px; }
+  .header-strip .right {
+    text-align: right;
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 10px;
+    letter-spacing: 0.1em;
+    color: var(--ink-500);
+  }
+  .header-strip .right .row { margin-bottom: 3px; }
+  .header-strip .right .row .k { color: var(--ink-400); }
+  .header-strip .right .row .v { color: var(--ink-900); margin-left: 6px; font-weight: 500; }
+
+  /* --- Cover block --- */
+  .cover {
+    padding: 28px 36px 24px;
+    border-bottom: 1px solid var(--rule);
+    position: relative;
+  }
+  .cover .classif {
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 10px;
+    letter-spacing: 0.18em;
+    color: var(--stamp-red);
+    margin-bottom: 10px;
+  }
+  .cover .classif .bar {
+    display: inline-block;
+    width: 22px; height: 1px;
+    background: var(--stamp-red);
+    vertical-align: 3px;
+    margin-right: 8px;
+  }
+  .cover h1 {
+    font-family: 'Noto Serif TC', 'Crimson Pro', serif;
+    font-weight: 600;
+    font-size: 26px;
+    line-height: 1.25;
+    margin: 0 0 8px;
+    letter-spacing: -0.005em;
+    max-width: 540px;
+  }
+  .cover .deck {
+    color: var(--ink-500);
+    font-size: 13px;
+    max-width: 56ch;
+  }
+  /* Stamp */
+  .stamp {
+    position: absolute;
+    top: 28px; right: 36px;
+    border: 2.5px solid var(--stamp-red);
+    color: var(--stamp-red);
+    font-family: 'Special Elite', monospace;
+    font-size: 17px;
+    letter-spacing: 0.14em;
+    padding: 8px 18px 6px;
+    transform: rotate(-6deg);
+    opacity: 0.85;
+    text-align: center;
+    line-height: 1;
+  }
+  .stamp .small {
+    display: block;
+    font-size: 8.5px;
+    letter-spacing: 0.18em;
+    margin-top: 4px;
+    color: var(--stamp-red);
+  }
+  .stamp.green { color: var(--stamp-green); border-color: var(--stamp-green); }
+  .stamp.green .small { color: var(--stamp-green); }
+
+  /* --- Section --- */
+  .section { padding: 22px 36px; border-bottom: 1px solid var(--rule); }
+  .section.last { border-bottom: none; padding-bottom: 100px; }
+  .section h2 {
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 10.5px;
+    letter-spacing: 0.16em;
+    text-transform: uppercase;
+    color: var(--ink-500);
+    margin: 0 0 10px;
+    display: flex; align-items: center; gap: 10px;
+    font-weight: 600;
+  }
+  .section h2::before {
+    content: '§';
+    color: var(--stamp-red);
+    font-family: 'Crimson Pro', serif;
+    font-style: italic;
+    font-size: 16px;
+    letter-spacing: 0;
+  }
+  .section h2 .filed {
+    margin-left: auto;
+    color: var(--ink-400);
+    font-size: 10px;
+    letter-spacing: 0.1em;
+  }
+
+  /* --- Campaign as form-row --- */
+  .form-row {
+    display: grid;
+    grid-template-columns: 100px 1fr auto;
+    align-items: baseline;
+    gap: 14px;
+    padding: 8px 0;
+    border-bottom: 1px dotted var(--rule);
+  }
+  .form-row:last-child { border-bottom: none; }
+  .form-row .k {
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 10.5px;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: var(--ink-400);
+  }
+  .form-row .v {
+    font-family: 'Crimson Pro', 'Noto Serif TC', serif;
+    font-size: 17px;
+    font-weight: 500;
+    color: var(--ink-900);
+  }
+  .form-row .v.handfill {
+    font-family: 'Special Elite', cursive;
+    font-size: 16px;
+    color: var(--stamp-blue);
+  }
+  .form-row .v.meta {
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 11.5px;
+    color: var(--ink-700);
+    font-weight: 400;
+  }
+  .form-row .edit-link {
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 10.5px;
+    color: var(--stamp-red);
+    text-decoration: none;
+    letter-spacing: 0.08em;
+    border-bottom: 1px dotted var(--stamp-red);
+  }
+  .pill-ready {
+    display: inline-flex; align-items: center; gap: 4px;
+    border: 1.5px solid var(--stamp-green);
+    color: var(--stamp-green);
+    padding: 2px 8px;
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 9.5px;
+    letter-spacing: 0.16em;
+    border-radius: 2px;
+  }
+
+  /* --- Evidence grid (spreadsheet feel) --- */
+  .grid {
+    border: 1px solid var(--rule);
+    background:
+      repeating-linear-gradient(0deg, var(--paper) 0, var(--paper) 35px, var(--rule-soft) 35px, var(--rule-soft) 36px);
+  }
+  .grid .ghead, .grid .gr {
+    display: grid;
+    grid-template-columns: 36px 130px 1fr 70px 86px 56px;
+    align-items: center;
+    height: 36px;
+    padding: 0 12px;
+  }
+  .grid .ghead {
+    background: var(--paper-dark);
+    border-bottom: 1.5px solid var(--rule);
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 9.5px;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    color: var(--ink-500);
+    font-weight: 600;
+  }
+  .grid .gr {
+    border-bottom: 1px dotted var(--rule-soft);
+    cursor: pointer;
+  }
+  .grid .gr:last-child { border-bottom: none; }
+  .grid .gr:hover { background: rgba(255,255,255,0.4); }
+  .grid .gr .idx {
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 11px;
+    color: var(--ink-400);
+  }
+  .grid .gr .handle {
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 12px;
+    color: var(--stamp-blue);
+    overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+  }
+  .grid .gr .excerpt {
+    font-size: 12.5px;
+    color: var(--ink-700);
+    overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+  }
+  .grid .gr .metric {
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 11px;
+    color: var(--ink-500);
+    text-align: right;
+  }
+  .grid .gr .stamp-mini {
+    font-family: 'Special Elite', monospace;
+    font-size: 9.5px;
+    letter-spacing: 0.1em;
+    color: var(--stamp-red);
+    border: 1.2px solid var(--stamp-red);
+    padding: 1px 6px;
+    border-radius: 2px;
+    opacity: 0.75;
+    text-align: center;
+    transform: rotate(-1.5deg);
+    width: max-content;
+  }
+  .grid .gr .when {
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 10px;
+    color: var(--ink-400);
+    text-align: right;
+  }
+
+  /* --- Marginal note --- */
+  .marginalia {
+    margin-top: 10px;
+    padding: 8px 12px 8px 14px;
+    border-left: 3px solid var(--stamp-green);
+    background: rgba(63, 90, 46, 0.05);
+    font-family: 'Special Elite', monospace;
+    font-size: 12px;
+    color: var(--stamp-green);
+  }
+  .marginalia .when {
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 10px;
+    margin-left: 10px;
+    color: var(--ink-400);
+  }
+
+  /* --- Sticky form footer --- */
+  .form-footer {
+    position: sticky;
+    bottom: 0;
+    background:
+      linear-gradient(to bottom, rgba(242,234,211,0) 0%, var(--paper) 22%);
+    padding: 30px 36px 20px;
+    margin-top: -40px;
+  }
+  .form-footer .inner {
+    background: var(--paper);
+    border: 1.5px solid var(--rule);
+    border-radius: 3px;
+    padding: 12px 16px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    box-shadow: 0 -4px 14px rgba(0,0,0,0.05);
+  }
+  .form-footer .inner .label {
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 10px;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    color: var(--ink-400);
+    margin-right: 6px;
+  }
+  .btn {
+    appearance: none;
+    background: var(--paper);
+    border: 1.5px solid var(--ink-700);
+    color: var(--ink-700);
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 11.5px;
+    letter-spacing: 0.08em;
+    padding: 7px 13px;
+    border-radius: 0;
+    cursor: pointer;
+    text-transform: uppercase;
+  }
+  .btn:hover { background: var(--paper-dark); }
+  .btn-primary {
+    background: var(--stamp-red);
+    border-color: var(--stamp-red);
+    color: var(--paper);
+    font-weight: 500;
+  }
+  .btn-primary:hover { background: var(--stamp-red-soft); border-color: var(--stamp-red-soft); }
+  .form-footer .spacer { flex: 1; }
+  .form-footer .meta {
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 10.5px;
+    color: var(--ink-500);
+  }
+
+  /* --- Close --- */
+  .close {
+    position: fixed; top: 16px; right: 16px;
+    width: 36px; height: 36px;
+    border-radius: 50%;
+    background: var(--stamp-red);
+    color: var(--paper);
+    display: grid; place-items: center;
+    text-decoration: none;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.2);
+  }
+  .label-mockup {
+    position: fixed; top: 16px; left: 16px;
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 10.5px;
+    color: var(--ink-500);
+    background: var(--paper);
+    padding: 6px 10px;
+    border-radius: 2px;
+    border: 1px solid var(--rule);
+  }
+</style>
+</head>
+<body>
+
+<div class="label-mockup">V3 — Dossier · 800px</div>
+<a class="close" href="#">×</a>
+
+<div class="frame">
+
+  <div class="file-tab">FILE <span class="dot">●</span> PR-EVIDENCE <span class="dot">●</span> CAMPAIGN/testing</div>
+
+  <div class="header-strip">
+    <div class="left">
+      <div class="brand"><span class="mark">d</span>dlens</div>
+      <div class="sub">PR MODE <span class="sep">·</span> Annotated Field Guide <span class="sep">·</span> CSV first</div>
+    </div>
+    <div class="right">
+      <div class="row"><span class="k">VOL/</span><span class="v">01</span> <span class="k">NO/</span><span class="v">01</span></div>
+      <div class="row"><span class="k">FILED/</span><span class="v">26 MAY 2026</span></div>
+      <div class="row"><span class="k">REV/</span><span class="v">0.1.22</span></div>
+    </div>
+  </div>
+
+  <div class="cover">
+    <div class="classif"><span class="bar"></span>EVIDENCE BRIEF · INTERNAL</div>
+    <h1>把已找到的 Threads 貼文<br/>整理成 PR evidence CSV</h1>
+    <p class="deck">Collect 儲存貼文 → Match 批次判斷 → Export CSV 交付。V1 不在 Collect 跑 AI。</p>
+    <div class="stamp green">
+      READY
+      <span class="small">26 MAY · 14:33</span>
+    </div>
+  </div>
+
+  <section class="section">
+    <h2>Campaign <span class="filed">FILED 14:30</span></h2>
+    <div class="form-row">
+      <span class="k">Name</span>
+      <span class="v handfill">testing</span>
+      <a class="edit-link" href="#">EDIT ›</a>
+    </div>
+    <div class="form-row">
+      <span class="k">Status</span>
+      <span class="v"><span class="pill-ready">● READY</span></span>
+      <span></span>
+    </div>
+    <div class="form-row">
+      <span class="k">Criteria</span>
+      <span class="v meta">6 criteria filed · criterion_1 … criterion_6</span>
+      <a class="edit-link" href="#">VIEW ›</a>
+    </div>
+    <div class="form-row">
+      <span class="k">PR brief</span>
+      <span class="v meta" style="color: var(--ink-400); font-style: italic;">— not attached —</span>
+      <a class="edit-link" href="#">UPLOAD ›</a>
+    </div>
+  </section>
+
+  <section class="section">
+    <h2>Evidence ledger <span class="filed">5 ENTRIES · ~1 AI CALL</span></h2>
+    <div class="grid">
+      <div class="ghead">
+        <div>#</div>
+        <div>AUTHOR</div>
+        <div>EXCERPT</div>
+        <div style="text-align:right;">LIKES</div>
+        <div>MATCH</div>
+        <div style="text-align:right;">TIME</div>
+      </div>
+      <div class="gr">
+        <div class="idx">01</div>
+        <div class="handle">@gdragonfayetang</div>
+        <div class="excerpt">我諗今日 參加左萬寧 BoostUP 好狀態 體驗會…</div>
+        <div class="metric">27</div>
+        <div class="stamp-mini">UNMATCHED</div>
+        <div class="when">14:33</div>
+      </div>
+      <div class="gr">
+        <div class="idx">02</div>
+        <div class="handle">@kkkkkomi.c</div>
+        <div class="excerpt">護膚分享 05/05/2026 同樣是萬寧 BoostUP…</div>
+        <div class="metric">8</div>
+        <div class="stamp-mini">UNMATCHED</div>
+        <div class="when">14:33</div>
+      </div>
+      <div class="gr">
+        <div class="idx">03</div>
+        <div class="handle">@coco_06.29</div>
+        <div class="excerpt">萬寧 25/04/2026 今日喺萬寧買咗呢個…</div>
+        <div class="metric">46</div>
+        <div class="stamp-mini">UNMATCHED</div>
+        <div class="when">14:33</div>
+      </div>
+      <div class="gr">
+        <div class="idx">04</div>
+        <div class="handle">@tsangtszwa</div>
+        <div class="excerpt">身心又爆喇！⚡ 直擊萬寧 BoostUP 好狀態…</div>
+        <div class="metric">9</div>
+        <div class="stamp-mini">UNMATCHED</div>
+        <div class="when">14:33</div>
+      </div>
+      <div class="gr">
+        <div class="idx">05</div>
+        <div class="handle">@mmmman_c</div>
+        <div class="excerpt">去咗萬寧 BoostUP 好狀態 體驗會 真係好正…</div>
+        <div class="metric">0</div>
+        <div class="stamp-mini">UNMATCHED</div>
+        <div class="when">14:33</div>
+      </div>
+    </div>
+    <div class="marginalia">
+      ✓ Advanced metrics updated — 5 rows
+      <span class="when">just now · auto-dismiss in 6s</span>
+    </div>
+  </section>
+
+  <section class="section last">
+    <h2>Output</h2>
+    <div class="form-row">
+      <span class="k">CSV preview</span>
+      <span class="v meta">header + first 20 rows · 5 rows ready</span>
+      <a class="edit-link" href="#">EXPAND ›</a>
+    </div>
+    <div class="form-row">
+      <span class="k">Summary</span>
+      <span class="v meta" style="color: var(--ink-400); font-style: italic;">not generated yet</span>
+      <a class="edit-link" href="#">GENERATE ›</a>
+    </div>
+  </section>
+
+  <div class="form-footer">
+    <div class="inner">
+      <span class="label">Form actions</span>
+      <button class="btn btn-primary">▤ Export CSV</button>
+      <button class="btn">Match criteria</button>
+      <button class="btn">Fetch metrics</button>
+      <span class="spacer"></span>
+      <span class="meta">5 posts · 6 criteria</span>
+    </div>
+  </div>
+
+</div>
+
+</body>
+</html>

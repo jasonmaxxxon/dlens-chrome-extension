@@ -1,6 +1,7 @@
 node_modules/
 .output/
 output/chrome-mv3/
+output/chrome-mv3-pr-only/
 .wxt/
 dist/
 *.log

@@ -1,7 +1,9 @@
 import { defineBackground } from "wxt/utils/define-background";
+import { IS_PR_ONLY_BUILD } from "../src/build-variant";
 import {
   fetchCapture,
   fetchJob,
+  fetchThreadsAdvancedMetrics,
   fetchWorkerStatus,
   normalizeBaseUrl,
   submitCaptureTarget,
@@ -726,6 +728,99 @@ async function matchPrCriteriaForCampaign(global: ExtensionGlobalState, campaign
   }
 }
 
+function readMetricNumber(metrics: Record<string, unknown>, keys: string[]): number | undefined {
+  for (const key of keys) {
+    const value = metrics[key];
+    if (typeof value === "number" && Number.isFinite(value)) {
+      return value;
+    }
+  }
+  return undefined;
+}
+
+function mergeAdvancedMetrics(row: PrEvidenceRow, metrics: Record<string, unknown>, fetchedAt: string): PrEvidenceRow {
+  const nextMetrics = {
+    ...row.metrics
+  };
+  const likes = readMetricNumber(metrics, ["likes", "like_count", "likeCount"]);
+  const comments = readMetricNumber(metrics, ["comments", "replies", "reply_count", "replyCount", "comment_count", "commentCount"]);
+  const reposts = readMetricNumber(metrics, ["reposts", "repost_count", "repostCount"]);
+  const views = readMetricNumber(metrics, ["views", "view_count", "viewCount"]);
+  const followers = readMetricNumber(metrics, ["followers", "follower_count", "followerCount"]);
+  if (likes !== undefined) {
+    nextMetrics.likes = likes;
+  }
+  if (comments !== undefined) {
+    nextMetrics.comments = comments;
+  }
+  if (reposts !== undefined) {
+    nextMetrics.reposts = reposts;
+  }
+  if (views !== undefined) {
+    nextMetrics.views = views;
+  }
+  if (followers !== undefined) {
+    nextMetrics.followers = followers;
+  }
+  return {
+    ...row,
+    metrics: nextMetrics,
+    advancedMetricsFetchedAt: fetchedAt,
+    advancedMetricsError: undefined
+  };
+}
+
+async function fetchAdvancedMetricsForPrCampaign(
+  global: ExtensionGlobalState,
+  campaignId: string
+): Promise<{ rows: PrEvidenceRow[]; summary: { updated: number; failed: number } }> {
+  const campaigns = await loadPrCampaigns(chrome.storage.local, "");
+  const campaign = campaigns.find((entry) => entry.id === campaignId)
+    || (await Promise.all(global.sessions.map((session) => loadPrCampaigns(chrome.storage.local, session.id))))
+      .flat()
+      .find((entry) => entry.id === campaignId)
+    || null;
+  if (!campaign) {
+    throw new Error("PR campaign not found.");
+  }
+
+  const rows = await loadPrEvidenceRows(chrome.storage.local, campaignId);
+  if (!rows.length) {
+    return { rows, summary: { updated: 0, failed: 0 } };
+  }
+
+  const baseUrl = normalizeBaseUrl(global.settings.ingestBaseUrl);
+  let updated = 0;
+  let failed = 0;
+  for (const row of rows) {
+    if (!row.postUrl.trim()) {
+      failed += 1;
+      await savePrEvidenceRow(chrome.storage.local, {
+        ...row,
+        advancedMetricsError: "Missing post URL."
+      });
+      continue;
+    }
+    try {
+      const response = await fetchThreadsAdvancedMetrics(baseUrl, row.postUrl);
+      const nextRow = mergeAdvancedMetrics(row, response.metrics || {}, response.fetched_at || new Date().toISOString());
+      await savePrEvidenceRow(chrome.storage.local, nextRow);
+      updated += 1;
+    } catch (error) {
+      failed += 1;
+      await savePrEvidenceRow(chrome.storage.local, {
+        ...row,
+        advancedMetricsError: error instanceof Error ? error.message : String(error)
+      });
+    }
+  }
+
+  return {
+    rows: await loadPrEvidenceRows(chrome.storage.local, campaignId),
+    summary: { updated, failed }
+  };
+}
+
 async function generatePrSummaryForCampaign(global: ExtensionGlobalState, campaignId: string): Promise<string> {
   const campaign = (await Promise.all(global.sessions.map((session) => loadPrCampaigns(chrome.storage.local, session.id))))
     .flat()
@@ -1081,6 +1176,19 @@ function ensureActiveItemId(session: SessionRecord, currentItemId: string | null
 }
 
 async function openPopup(tabId: number): Promise<ExtensionSnapshot> {
+  if (IS_PR_ONLY_BUILD) {
+    const current = await loadSnapshot(tabId);
+    return saveSnapshot(tabId, {
+      global: activateSessionForMode(current.global, "pr-evidence"),
+      tab: {
+        ...current.tab,
+        popupOpen: true,
+        popupPage: "pr-evidence",
+        currentMainPage: "pr-evidence",
+        error: null
+      }
+    });
+  }
   return patchSnapshot(tabId, {
     tab: {
       popupOpen: true
@@ -2370,6 +2478,18 @@ export default defineBackground(() => {
               ok: true,
               tabId,
               prEvidenceRows: await matchPrCriteriaForCampaign(current.global, message.campaignId)
+            } satisfies ExtensionResponse);
+            return;
+          }
+          case "pr/fetch-advanced-metrics": {
+            const tabId = await resolveTabId(sender);
+            const current = await loadSnapshot(tabId);
+            const result = await fetchAdvancedMetricsForPrCampaign(current.global, message.campaignId);
+            sendResponse({
+              ok: true,
+              tabId,
+              prEvidenceRows: result.rows,
+              prAdvancedMetricsSummary: result.summary
             } satisfies ExtensionResponse);
             return;
           }

@@ -1,0 +1,1027 @@
+<!doctype html>
+<html lang="zh-Hant">
+<head>
+<meta charset="utf-8" />
+<title>PR mode — V1 Refined Editorial</title>
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,400;0,500;0,600;1,400&family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;500&family=Noto+Sans+TC:wght@400;500;600&family=Noto+Serif+TC:wght@500;600&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --cream-50: #FAF7F2;
+    --cream-100: #F4EEE3;
+    --cream-200: #E8DFCE;
+    --cream-300: #D7CBB4;
+    --ink-900: #1F1A14;
+    --ink-700: #3D352B;
+    --ink-500: #6A5F52;
+    --ink-400: #8B8074;
+    --ink-300: #B0A597;
+    --burgundy: #6B2E2A;
+    --burgundy-soft: #8A3E37;
+    --moss: #5C6B4A;
+    --rule: #DBCFB8;
+    --radius: 12px;
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; padding: 0; }
+  body {
+    background: #ECE5D5;
+    font-family: 'Inter', 'Noto Sans TC', -apple-system, sans-serif;
+    color: var(--ink-900);
+    font-size: 14px;
+    line-height: 1.5;
+    padding: 40px 0;
+    -webkit-font-smoothing: antialiased;
+  }
+  .frame {
+    width: 800px;
+    margin: 0 auto;
+    background: var(--cream-50);
+    min-height: 600px;
+    box-shadow: 0 10px 40px rgba(31,26,20,0.18);
+    border-radius: var(--radius);
+    overflow: hidden;
+  }
+
+  /* --- Masthead: slim, one line --- */
+  .masthead {
+    display: flex;
+    justify-content: space-between;
+    align-items: baseline;
+    padding: 14px 36px 12px;
+    border-bottom: 1px solid var(--rule);
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 11px;
+    letter-spacing: 0.04em;
+    color: var(--ink-500);
+  }
+  .masthead .brand { color: var(--ink-900); font-weight: 500; }
+  .masthead .brand .mode {
+    display: inline-block;
+    margin-left: 10px;
+    padding: 1px 7px;
+    border: 1px solid var(--burgundy);
+    color: var(--burgundy);
+    border-radius: var(--radius);
+    font-size: 9px;
+    letter-spacing: 0.12em;
+    vertical-align: 1px;
+  }
+
+  /* --- Left rail --- */
+  .layout { display: grid; grid-template-columns: 72px 1fr; min-height: 540px; }
+  .rail {
+    border-right: 1px solid var(--rule);
+    padding: 22px 0;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 18px;
+  }
+  .rail .logo {
+    width: 38px; height: 38px;
+    border-radius: 50%;
+    background: var(--burgundy);
+    color: var(--cream-50);
+    display: grid; place-items: center;
+    font-family: 'Cormorant Garamond', serif;
+    font-style: italic;
+    font-size: 22px;
+    margin-bottom: 6px;
+  }
+  .rail .nav {
+    display: flex; flex-direction: column; gap: 4px;
+    width: 100%;
+    align-items: center;
+  }
+  .rail .nav a {
+    width: 48px; padding: 10px 0;
+    text-align: center;
+    font-size: 10.5px;
+    color: var(--ink-400);
+    text-decoration: none;
+    border-radius: var(--radius);
+  }
+  .rail .nav a .ico { display: block; font-size: 13px; margin-bottom: 2px; opacity: 0.8; }
+  .rail .nav a.active { color: var(--burgundy); }
+  .rail .nav a.active .ico { opacity: 1; }
+  .rail .nav a.active::after {
+    content: ''; display: block;
+    width: 16px; height: 1px; background: var(--burgundy);
+    margin: 6px auto 0;
+  }
+
+  /* --- Body --- */
+  .body { padding: 32px 40px 48px; }
+
+  /* --- Title block: NO card --- */
+  .hero {
+    border-bottom: 1px solid var(--rule);
+    padding-bottom: 22px;
+    margin-bottom: 24px;
+  }
+  .eyebrow {
+    display: flex; align-items: center; gap: 10px;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 10.5px;
+    letter-spacing: 0.16em;
+    text-transform: uppercase;
+    color: var(--burgundy);
+    margin-bottom: 12px;
+  }
+  .eyebrow .dot { width: 4px; height: 4px; border-radius: 50%; background: var(--burgundy); }
+  .eyebrow .tag {
+    margin-left: auto;
+    padding: 2px 8px;
+    border: 1px solid var(--cream-300);
+    color: var(--ink-500);
+    font-size: 9.5px;
+    letter-spacing: 0.1em;
+    border-radius: var(--radius);
+  }
+  h1 {
+    font-family: 'Noto Serif TC', 'Cormorant Garamond', serif;
+    font-weight: 500;
+    font-size: 30px;
+    line-height: 1.2;
+    margin: 0 0 10px;
+    letter-spacing: -0.01em;
+  }
+  .deck {
+    color: var(--ink-500);
+    font-size: 13.5px;
+    max-width: 56ch;
+  }
+  .pipeline {
+    display: inline-flex; align-items: center; gap: 8px;
+    margin-top: 14px;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 11px;
+    color: var(--ink-500);
+  }
+  .pipeline .step.now { color: var(--ink-900); font-weight: 500; }
+  .pipeline .arrow { color: var(--ink-300); }
+
+  /* --- Marginalia campaign row --- */
+  .campaign {
+    display: flex;
+    align-items: baseline;
+    gap: 16px;
+    padding: 14px 0;
+    margin-bottom: 28px;
+    border-bottom: 1px dashed var(--rule);
+  }
+  .campaign .label {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 10.5px;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: var(--ink-400);
+    flex: 0 0 92px;
+  }
+  .campaign .name {
+    font-family: 'Cormorant Garamond', 'Noto Serif TC', serif;
+    font-size: 19px;
+    font-weight: 500;
+    color: var(--ink-900);
+  }
+  .campaign .status {
+    display: inline-flex; align-items: center; gap: 5px;
+    color: var(--moss);
+    font-size: 12px;
+    font-weight: 500;
+  }
+  .campaign .status::before {
+    content: ''; width: 6px; height: 6px; border-radius: 50%;
+    background: var(--moss);
+  }
+  .campaign .edit {
+    margin-left: auto;
+    color: var(--burgundy);
+    font-size: 12.5px;
+    text-decoration: none;
+    border-bottom: 1px solid transparent;
+  }
+  .campaign .edit:hover { border-color: var(--burgundy); }
+
+  /* --- Campaign edit (inline expand) --- */
+  .campaign-details {
+    margin-bottom: 28px;
+    border-bottom: 1px dashed var(--rule);
+  }
+  .campaign-details > summary { list-style: none; cursor: pointer; }
+  .campaign-details > summary::-webkit-details-marker { display: none; }
+  .campaign-details summary.campaign {
+    margin-bottom: 0;
+    border-bottom: none;
+  }
+  .campaign-details[open] summary.campaign .edit::after { content: ' ▾'; margin-left: 3px; }
+  .campaign-details:not([open]) summary.campaign .edit::after { content: ' ›'; margin-left: 3px; }
+
+  .campaign-form {
+    padding: 6px 0 24px;
+    display: grid;
+    gap: 24px;
+    border-top: 1px dotted var(--rule);
+    margin-top: 0;
+  }
+  .form-section .label-row {
+    display: flex; align-items: baseline; gap: 12px;
+    margin-bottom: 6px;
+  }
+  .form-section .label-row .label {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 10.5px;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: var(--ink-400);
+  }
+  .form-section .label-row .action {
+    margin-left: auto;
+    font-size: 11.5px;
+    color: var(--burgundy);
+    text-decoration: none;
+    border-bottom: 1px solid transparent;
+    cursor: pointer;
+  }
+  .form-section .label-row .action:hover { border-color: var(--burgundy); }
+
+  .input-line {
+    width: 100%;
+    font-family: 'Cormorant Garamond', 'Noto Serif TC', serif;
+    font-size: 19px;
+    font-weight: 500;
+    padding: 4px 0 8px;
+    background: transparent;
+    border: none;
+    border-bottom: 1px solid var(--rule);
+    color: var(--ink-900);
+    outline: none;
+    margin: 0;
+  }
+  .input-line:focus { border-bottom-color: var(--burgundy); }
+  .input-line::placeholder { color: var(--ink-300); font-style: italic; font-weight: 400; }
+
+  .textarea-box {
+    width: 100%;
+    font-family: inherit;
+    font-size: 13px;
+    line-height: 1.55;
+    padding: 12px 14px;
+    background: var(--cream-100);
+    border: 1px solid var(--rule);
+    color: var(--ink-700);
+    outline: none;
+    resize: vertical;
+    min-height: 88px;
+    border-radius: var(--radius);
+    box-sizing: border-box;
+  }
+  .textarea-box:focus { border-color: var(--burgundy); background: var(--cream-50); }
+  .textarea-box::placeholder { color: var(--ink-300); font-style: italic; }
+
+  .crit-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 14px 28px;
+  }
+  .crit-cell { display: flex; align-items: baseline; gap: 10px; }
+  .crit-cell .num {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 10px;
+    color: var(--ink-400);
+    flex: 0 0 18px;
+    letter-spacing: 0.04em;
+  }
+  .crit-cell .input-line {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 12.5px;
+    font-weight: 400;
+  }
+
+  .form-actions {
+    display: flex; gap: 8px;
+    align-items: center;
+    margin-top: 4px;
+  }
+  .form-actions .spacer { flex: 1; }
+  .form-actions .hint {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 10.5px;
+    color: var(--ink-400);
+  }
+
+  /* --- Section header --- */
+  .section { margin-bottom: 32px; }
+  .section > h2 {
+    font-family: 'Cormorant Garamond', 'Noto Serif TC', serif;
+    font-size: 16px;
+    font-weight: 600;
+    letter-spacing: 0.02em;
+    margin: 0 0 4px;
+    color: var(--ink-900);
+  }
+  .section > .caption {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 10.5px;
+    color: var(--ink-400);
+    letter-spacing: 0.04em;
+    margin-bottom: 14px;
+  }
+
+  /* --- Actions: one row, clear hierarchy --- */
+  .actions {
+    display: flex; gap: 8px;
+    align-items: center;
+  }
+  .btn {
+    appearance: none;
+    border: 1px solid transparent;
+    background: transparent;
+    font: inherit;
+    font-size: 13px;
+    padding: 9px 16px;
+    border-radius: var(--radius);
+    cursor: pointer;
+    font-family: inherit;
+    color: var(--ink-700);
+  }
+  .btn-primary {
+    background: var(--burgundy);
+    color: var(--cream-50);
+    border-color: var(--burgundy);
+    font-weight: 500;
+  }
+  .btn-primary:hover { background: var(--burgundy-soft); }
+  .btn-ghost {
+    color: var(--ink-700);
+    border-color: var(--cream-300);
+  }
+  .btn-ghost:hover { background: var(--cream-100); border-color: var(--ink-300); }
+  .btn-text {
+    color: var(--ink-500);
+    padding: 9px 8px;
+  }
+  .btn-text:hover { color: var(--burgundy); }
+  .actions .spacer { flex: 1; }
+  .actions .meta {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 10.5px;
+    color: var(--ink-400);
+  }
+
+  /* --- Inline status (marginalia, not banner) --- */
+  .status-line {
+    margin-top: 10px;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 11px;
+    color: var(--moss);
+    padding-left: 14px;
+    border-left: 2px solid var(--moss);
+  }
+  .status-line .when { color: var(--ink-400); margin-left: 8px; }
+
+  /* --- Evidence ledger: list, not cards --- */
+  .ledger { border-top: 1px solid var(--rule); }
+  .ledger .row {
+    display: grid;
+    grid-template-columns: 28px 124px 1fr 92px 78px 56px;
+    align-items: center;
+    gap: 14px;
+    padding: 14px 4px;
+    border-bottom: 1px solid var(--rule);
+    cursor: pointer;
+  }
+  .ledger .row:hover { background: var(--cream-100); }
+  .ledger .row .avatar {
+    width: 24px; height: 24px;
+    border-radius: 50%;
+    background: linear-gradient(135deg, var(--cream-200), var(--cream-300));
+    border: 1px solid var(--cream-300);
+  }
+  .ledger .row .handle {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 12px;
+    color: var(--ink-900);
+    overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+  }
+  .ledger .row .excerpt {
+    font-size: 13px;
+    color: var(--ink-700);
+    overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+  }
+  .ledger .row .metrics {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 11px;
+    color: var(--ink-500);
+    text-align: right;
+  }
+  .ledger .row .match {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 11px;
+    color: var(--ink-400);
+    text-align: right;
+  }
+  .ledger .row .match.partial { color: var(--burgundy); }
+  .ledger .row .match.full { color: var(--moss); }
+  .ledger .row .when {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 10.5px;
+    color: var(--ink-400);
+    text-align: right;
+  }
+
+  /* --- Working area: tabs + panes (V2 switching, V1 visual) --- */
+  .working-area { position: relative; padding: 0; margin-bottom: 32px; }
+  .working-area > input[type=radio] {
+    position: absolute; opacity: 0; pointer-events: none;
+    width: 0; height: 0;
+  }
+
+  .tabstrip {
+    display: flex;
+    align-items: stretch;
+    gap: 14px;
+    border-bottom: 1px solid var(--rule);
+    margin-bottom: 18px;
+  }
+  .tabstrip .tabs { display: flex; gap: 4px; }
+  .tabstrip label.tab {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 11px;
+    letter-spacing: 0.06em;
+    color: var(--ink-400);
+    padding: 12px 10px 14px;
+    border-bottom: 2px solid transparent;
+    margin-bottom: -1px;
+    cursor: pointer;
+    user-select: none;
+    background: transparent;
+    display: inline-flex;
+    align-items: baseline;
+    gap: 6px;
+  }
+  .tabstrip label.tab:hover { color: var(--ink-700); }
+  .tabstrip label.tab .count {
+    font-size: 10px;
+    color: var(--ink-300);
+    letter-spacing: 0.04em;
+  }
+  .tabstrip .spacer { flex: 1; }
+  .tabstrip .right {
+    display: flex; align-items: center; gap: 8px;
+    padding: 6px 0;
+  }
+
+  .working-area .pane { display: none; }
+  #tab-ledger:checked ~ .pane-ledger,
+  #tab-match:checked ~ .pane-match,
+  #tab-metrics:checked ~ .pane-metrics { display: block; }
+
+  #tab-ledger:checked ~ .tabstrip label[for="tab-ledger"],
+  #tab-match:checked ~ .tabstrip label[for="tab-match"],
+  #tab-metrics:checked ~ .tabstrip label[for="tab-metrics"] {
+    color: var(--ink-900);
+    border-bottom-color: var(--burgundy);
+  }
+  #tab-ledger:checked ~ .tabstrip label[for="tab-ledger"] .count,
+  #tab-match:checked ~ .tabstrip label[for="tab-match"] .count,
+  #tab-metrics:checked ~ .tabstrip label[for="tab-metrics"] .count {
+    color: var(--burgundy);
+  }
+
+  .pane-action {
+    display: flex;
+    align-items: baseline;
+    gap: 10px;
+    margin-bottom: 14px;
+  }
+  .pane-action .lead {
+    display: flex; align-items: baseline; gap: 10px;
+    flex-wrap: wrap;
+  }
+  .pane-action .lead .verb {
+    font-family: 'Cormorant Garamond', 'Noto Serif TC', serif;
+    font-size: 16px;
+    color: var(--ink-900);
+    font-weight: 600;
+  }
+  .pane-action .lead .desc {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 10.5px;
+    color: var(--ink-400);
+    letter-spacing: 0.04em;
+  }
+  .pane-action .spacer { flex: 1; }
+
+  /* Match matrix */
+  .matrix { border-top: 1px solid var(--rule); }
+  .matrix, .metrics-table, .csv .table-wrap {
+    border-radius: var(--radius);
+    overflow: hidden;
+  }
+  .matrix .mhead, .matrix .mrow, .matrix .mfoot {
+    display: grid;
+    grid-template-columns: 116px repeat(6, 1fr) 50px;
+    align-items: center;
+    border-bottom: 1px solid var(--rule);
+  }
+  .matrix .mhead {
+    background: var(--cream-100);
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 9.5px;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: var(--ink-500);
+  }
+  .matrix .mhead > div, .matrix .mrow > div, .matrix .mfoot > div {
+    padding: 9px 4px;
+    text-align: center;
+    border-right: 1px dotted var(--rule);
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 11px;
+  }
+  .matrix .mhead > div:first-child,
+  .matrix .mrow > div:first-child,
+  .matrix .mfoot > div:first-child {
+    text-align: left;
+    padding-left: 8px;
+  }
+  .matrix .mhead > div:last-child,
+  .matrix .mrow > div:last-child,
+  .matrix .mfoot > div:last-child {
+    border-right: none;
+    text-align: right;
+    padding-right: 8px;
+  }
+  .matrix .mrow { cursor: pointer; }
+  .matrix .mrow:hover { background: var(--cream-100); }
+  .matrix .mrow .handle {
+    font-size: 11px;
+    color: var(--ink-900);
+    overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+  }
+  .matrix .cell.pending { color: var(--ink-300); }
+  .matrix .cell.match { color: var(--moss); font-weight: 600; }
+  .matrix .cell.miss { color: var(--ink-300); }
+  .matrix .total { color: var(--ink-500); }
+  .matrix .mfoot {
+    background: var(--cream-100);
+    border-bottom: none;
+    color: var(--ink-500);
+    font-size: 10px;
+    border-top: 1px solid var(--rule);
+  }
+  .matrix .mfoot > div:first-child {
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+  }
+  .matrix .mfoot > div:last-child { color: var(--burgundy); font-weight: 500; }
+
+  /* Metrics table */
+  .metrics-table { border-top: 1px solid var(--rule); }
+  .metrics-table .mthead, .metrics-table .mtrow {
+    display: grid;
+    grid-template-columns: 22px 116px 1fr 48px 48px 56px 60px;
+    align-items: center;
+    gap: 10px;
+    padding: 10px 4px;
+    border-bottom: 1px solid var(--rule);
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 11.5px;
+  }
+  .metrics-table .mthead {
+    font-size: 9.5px;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: var(--ink-400);
+    padding-top: 11px;
+    padding-bottom: 9px;
+    background: var(--cream-100);
+  }
+  .metrics-table .mthead .num { text-align: right; }
+  .metrics-table .mthead .adv { color: var(--burgundy); }
+  .metrics-table .mtrow .avatar {
+    width: 22px; height: 22px;
+    border-radius: 50%;
+    background: linear-gradient(135deg, var(--cream-200), var(--cream-300));
+    border: 1px solid var(--cream-300);
+  }
+  .metrics-table .mtrow .handle { color: var(--ink-900); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .metrics-table .mtrow .excerpt {
+    font-family: 'Inter', sans-serif;
+    color: var(--ink-700);
+    font-size: 12.5px;
+    overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+  }
+  .metrics-table .mtrow .num { text-align: right; color: var(--ink-500); }
+  .metrics-table .mtrow .num.advanced { color: var(--burgundy); font-weight: 500; }
+
+  /* --- CSV preview: collapsible --- */
+  .csv {
+    margin-top: 32px;
+    border-top: 1px solid var(--rule);
+    padding-top: 18px;
+  }
+  .csv summary {
+    list-style: none;
+    cursor: pointer;
+    display: flex; align-items: baseline; gap: 8px;
+    font-family: 'Cormorant Garamond', 'Noto Serif TC', serif;
+    font-size: 16px;
+    font-weight: 600;
+  }
+  .csv summary::-webkit-details-marker { display: none; }
+  .csv summary .chev {
+    font-size: 11px;
+    color: var(--ink-400);
+    transition: transform 0.15s;
+  }
+  .csv[open] summary .chev { transform: rotate(90deg); }
+  .csv summary .meta {
+    margin-left: auto;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 10.5px;
+    color: var(--ink-400);
+    font-weight: normal;
+  }
+  .csv .table-wrap {
+    margin-top: 14px;
+    overflow-x: auto;
+    border: 1px solid var(--rule);
+    border-radius: var(--radius);
+  }
+  .csv table {
+    width: 100%;
+    border-collapse: collapse;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 11.5px;
+  }
+  .csv th, .csv td {
+    text-align: left;
+    padding: 8px 12px;
+    border-bottom: 1px solid var(--cream-200);
+    white-space: nowrap;
+  }
+  .csv th {
+    background: var(--cream-100);
+    font-weight: 500;
+    color: var(--ink-500);
+    letter-spacing: 0.04em;
+    border-bottom-color: var(--rule);
+  }
+  .csv td { color: var(--ink-700); }
+  .csv td.url { color: var(--burgundy); }
+  .csv .scroll-hint {
+    text-align: right;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 10px;
+    color: var(--ink-400);
+    margin-top: 6px;
+  }
+
+  /* --- Close pill --- */
+  .close {
+    position: fixed; top: 16px; right: 16px;
+    width: 36px; height: 36px;
+    border-radius: 50%;
+    background: var(--burgundy);
+    color: var(--cream-50);
+    display: grid; place-items: center;
+    text-decoration: none;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.2);
+  }
+
+  .label-mockup {
+    position: fixed; top: 16px; left: 16px;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 10.5px;
+    color: var(--ink-500);
+    background: var(--cream-50);
+    padding: 6px 10px;
+    border-radius: var(--radius);
+    border: 1px solid var(--cream-300);
+  }
+</style>
+</head>
+<body>
+
+<div class="label-mockup">V1 — Refined Editorial · 800px</div>
+<a class="close" href="#">×</a>
+
+<div class="frame">
+
+  <div class="masthead">
+    <div class="brand">dlens<span class="mode">PR MODE</span></div>
+    <div>May 26 · 2026 · v0.1.22</div>
+  </div>
+
+  <div class="layout">
+    <aside class="rail">
+      <div class="logo">d</div>
+      <nav class="nav">
+        <a href="#"><span class="ico">◎</span>採集</a>
+        <a href="#" class="active"><span class="ico">▤</span>PR</a>
+        <a href="#"><span class="ico">⚙</span>設定</a>
+      </nav>
+    </aside>
+
+    <main class="body">
+
+      <header class="hero">
+        <div class="eyebrow">
+          <span class="dot"></span>
+          PR Evidence
+          <span class="tag">CSV first · V1</span>
+        </div>
+        <h1>把已找到的 Threads 貼文<br/>整理成 PR evidence CSV</h1>
+        <p class="deck">Collect 儲存貼文 → Match 批次判斷 → Export CSV 交付。V1 不在 Collect 跑 AI。</p>
+        <div class="pipeline">
+          <span class="step">Collect</span>
+          <span class="arrow">→</span>
+          <span class="step now">Match</span>
+          <span class="arrow">→</span>
+          <span class="step">Export</span>
+        </div>
+      </header>
+
+      <details class="campaign-details" open>
+        <summary class="campaign">
+          <span class="label">Campaign</span>
+          <span class="name">testing</span>
+          <span class="status">Ready</span>
+          <span class="edit">Edit setup</span>
+        </summary>
+
+        <div class="campaign-form">
+          <div class="form-section">
+            <div class="label-row">
+              <span class="label">Campaign name</span>
+            </div>
+            <input class="input-line" type="text" value="testing" />
+          </div>
+
+          <div class="form-section">
+            <div class="label-row">
+              <span class="label">PR brief</span>
+              <a class="action" href="#">Upload PDF →</a>
+            </div>
+            <textarea class="textarea-box" placeholder="Paste the press release, message house, or PR guideline — or upload a PDF."></textarea>
+          </div>
+
+          <div class="form-section">
+            <div class="label-row">
+              <span class="label">PR matching criteria · 6</span>
+              <a class="action" href="#">Generate criteria →</a>
+            </div>
+            <div class="crit-grid">
+              <div class="crit-cell"><span class="num">01</span><input class="input-line" type="text" value="criterion_1" /></div>
+              <div class="crit-cell"><span class="num">02</span><input class="input-line" type="text" value="criterion_2" /></div>
+              <div class="crit-cell"><span class="num">03</span><input class="input-line" type="text" value="criterion_3" /></div>
+              <div class="crit-cell"><span class="num">04</span><input class="input-line" type="text" value="criterion_4" /></div>
+              <div class="crit-cell"><span class="num">05</span><input class="input-line" type="text" value="criterion_5" /></div>
+              <div class="crit-cell"><span class="num">06</span><input class="input-line" type="text" value="criterion_6" /></div>
+            </div>
+          </div>
+
+          <div class="form-actions">
+            <button class="btn btn-primary">Save campaign</button>
+            <button class="btn btn-text">Cancel</button>
+            <span class="spacer"></span>
+            <span class="hint">Auto-saves as you type</span>
+          </div>
+        </div>
+      </details>
+
+      <section class="section working-area">
+        <input type="radio" name="pr-tab" id="tab-ledger" checked />
+        <input type="radio" name="pr-tab" id="tab-match" />
+        <input type="radio" name="pr-tab" id="tab-metrics" />
+
+        <div class="tabstrip">
+          <div class="tabs">
+            <label for="tab-ledger" class="tab">Ledger <span class="count">5</span></label>
+            <label for="tab-match" class="tab">Match criteria <span class="count">0 / 30</span></label>
+            <label for="tab-metrics" class="tab">Fetch metrics <span class="count">✓</span></label>
+          </div>
+          <span class="spacer"></span>
+          <div class="right">
+            <button class="btn btn-primary">Export CSV</button>
+          </div>
+        </div>
+
+        <!-- Ledger pane -->
+        <div class="pane pane-ledger">
+          <div class="pane-action">
+            <div class="lead">
+              <span class="verb">Saved posts</span>
+              <span class="desc">5 rows · click to inspect</span>
+            </div>
+            <span class="spacer"></span>
+            <button class="btn btn-text">↻ Refresh</button>
+          </div>
+          <div class="ledger">
+            <div class="row">
+              <div class="avatar"></div>
+              <div class="handle">gdragonfayetang</div>
+              <div class="excerpt">我諗今日 參加左萬寧 BoostUP 好狀態 體驗會…</div>
+              <div class="metrics">27 ♥ · 4 💬</div>
+              <div class="match">0 / 6</div>
+              <div class="when">14:33</div>
+            </div>
+            <div class="row">
+              <div class="avatar"></div>
+              <div class="handle">kkkkkomi.c</div>
+              <div class="excerpt">護膚分享 05/05/2026 同樣是萬寧 BoostUP…</div>
+              <div class="metrics">8 ♥ · 8 💬</div>
+              <div class="match">0 / 6</div>
+              <div class="when">14:33</div>
+            </div>
+            <div class="row">
+              <div class="avatar"></div>
+              <div class="handle">coco_06.29</div>
+              <div class="excerpt">萬寧 25/04/2026 今日喺萬寧買咗呢個…</div>
+              <div class="metrics">46 ♥ · 14 💬</div>
+              <div class="match">0 / 6</div>
+              <div class="when">14:33</div>
+            </div>
+            <div class="row">
+              <div class="avatar"></div>
+              <div class="handle">tsangtszwa</div>
+              <div class="excerpt">身心又爆喇！⚡ 直擊萬寧 BoostUP 好狀態…</div>
+              <div class="metrics">9 ♥ · 1 💬</div>
+              <div class="match">0 / 6</div>
+              <div class="when">14:33</div>
+            </div>
+            <div class="row">
+              <div class="avatar"></div>
+              <div class="handle">mmmman_c</div>
+              <div class="excerpt">去咗萬寧 BoostUP 好狀態 體驗會 真係好正…</div>
+              <div class="metrics">0 ♥ · 10 💬</div>
+              <div class="match">0 / 6</div>
+              <div class="when">14:33</div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Match pane -->
+        <div class="pane pane-match">
+          <div class="pane-action">
+            <div class="lead">
+              <span class="verb">Score each post against 6 criteria</span>
+              <span class="desc">~1 AI call · 30 cells</span>
+            </div>
+            <span class="spacer"></span>
+            <button class="btn btn-primary">▶ Run matching</button>
+          </div>
+          <div class="matrix">
+            <div class="mhead">
+              <div>Post</div>
+              <div>C1</div><div>C2</div><div>C3</div><div>C4</div><div>C5</div><div>C6</div>
+              <div>Total</div>
+            </div>
+            <div class="mrow">
+              <div class="handle">gdragonfayetang</div>
+              <div class="cell pending">·</div><div class="cell pending">·</div><div class="cell pending">·</div>
+              <div class="cell pending">·</div><div class="cell pending">·</div><div class="cell pending">·</div>
+              <div class="total">0/6</div>
+            </div>
+            <div class="mrow">
+              <div class="handle">kkkkkomi.c</div>
+              <div class="cell pending">·</div><div class="cell pending">·</div><div class="cell pending">·</div>
+              <div class="cell pending">·</div><div class="cell pending">·</div><div class="cell pending">·</div>
+              <div class="total">0/6</div>
+            </div>
+            <div class="mrow">
+              <div class="handle">coco_06.29</div>
+              <div class="cell pending">·</div><div class="cell pending">·</div><div class="cell pending">·</div>
+              <div class="cell pending">·</div><div class="cell pending">·</div><div class="cell pending">·</div>
+              <div class="total">0/6</div>
+            </div>
+            <div class="mrow">
+              <div class="handle">tsangtszwa</div>
+              <div class="cell pending">·</div><div class="cell pending">·</div><div class="cell pending">·</div>
+              <div class="cell pending">·</div><div class="cell pending">·</div><div class="cell pending">·</div>
+              <div class="total">0/6</div>
+            </div>
+            <div class="mrow">
+              <div class="handle">mmmman_c</div>
+              <div class="cell pending">·</div><div class="cell pending">·</div><div class="cell pending">·</div>
+              <div class="cell pending">·</div><div class="cell pending">·</div><div class="cell pending">·</div>
+              <div class="total">0/6</div>
+            </div>
+            <div class="mfoot">
+              <div>Σ per criterion</div>
+              <div>0</div><div>0</div><div>0</div><div>0</div><div>0</div><div>0</div>
+              <div>0 / 30</div>
+            </div>
+          </div>
+          <div class="status-line" style="color: var(--ink-500); border-left-color: var(--ink-400);">
+            ◐ Pending — click "Run matching" to score all 30 cells
+            <span class="when">last run: never</span>
+          </div>
+        </div>
+
+        <!-- Metrics pane -->
+        <div class="pane pane-metrics">
+          <div class="pane-action">
+            <div class="lead">
+              <span class="verb">Advanced metrics</span>
+              <span class="desc">likes · replies · reposts · views — via Threads API</span>
+            </div>
+            <span class="spacer"></span>
+            <button class="btn btn-ghost">↻ Refresh</button>
+          </div>
+          <div class="metrics-table">
+            <div class="mthead">
+              <div></div>
+              <div>Handle</div>
+              <div>Excerpt</div>
+              <div class="num">♥ Likes</div>
+              <div class="num">💬 Reply</div>
+              <div class="num adv">↻ Reposts</div>
+              <div class="num adv">👁 Views</div>
+            </div>
+            <div class="mtrow">
+              <div class="avatar"></div>
+              <div class="handle">gdragonfayetang</div>
+              <div class="excerpt">我諗今日 參加左萬寧 BoostUP…</div>
+              <div class="num">27</div>
+              <div class="num">4</div>
+              <div class="num advanced">3</div>
+              <div class="num advanced">2.1k</div>
+            </div>
+            <div class="mtrow">
+              <div class="avatar"></div>
+              <div class="handle">kkkkkomi.c</div>
+              <div class="excerpt">護膚分享 05/05/2026 同樣是萬寧…</div>
+              <div class="num">8</div>
+              <div class="num">8</div>
+              <div class="num advanced">1</div>
+              <div class="num advanced">920</div>
+            </div>
+            <div class="mtrow">
+              <div class="avatar"></div>
+              <div class="handle">coco_06.29</div>
+              <div class="excerpt">萬寧 25/04/2026 今日喺萬寧買咗…</div>
+              <div class="num">46</div>
+              <div class="num">14</div>
+              <div class="num advanced">7</div>
+              <div class="num advanced">4.3k</div>
+            </div>
+            <div class="mtrow">
+              <div class="avatar"></div>
+              <div class="handle">tsangtszwa</div>
+              <div class="excerpt">身心又爆喇！⚡ 直擊萬寧 BoostUP…</div>
+              <div class="num">9</div>
+              <div class="num">1</div>
+              <div class="num advanced">0</div>
+              <div class="num advanced">410</div>
+            </div>
+            <div class="mtrow">
+              <div class="avatar"></div>
+              <div class="handle">mmmman_c</div>
+              <div class="excerpt">去咗萬寧 BoostUP 好狀態 體驗會…</div>
+              <div class="num">0</div>
+              <div class="num">10</div>
+              <div class="num advanced">0</div>
+              <div class="num advanced">188</div>
+            </div>
+          </div>
+          <div class="status-line">
+            ✓ Advanced metrics updated — 5 rows
+            <span class="when">just now</span>
+          </div>
+        </div>
+      </section>
+
+      <details class="csv">
+        <summary>
+          <span class="chev">▸</span>
+          CSV preview
+          <span class="meta">header + first 20 rows · 5 rows ready</span>
+        </summary>
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr><th>post_url</th><th>author_handle</th><th>post_excerpt</th><th>likes</th></tr>
+            </thead>
+            <tbody>
+              <tr><td class="url">threads.net/@gdragonfayetang/post/DXj1uI_k4w7</td><td>gdragonfayetang</td><td>我諗今日 參加左…</td><td>27</td></tr>
+              <tr><td class="url">threads.net/@kkkkkomi.c/post/DX9C61CknD7</td><td>kkkkkomi.c</td><td>護膚分享 05/05…</td><td>8</td></tr>
+              <tr><td class="url">threads.net/@coco_06.29/post/DXjfTftj5cZ</td><td>coco_06.29</td><td>萬寧 25/04…</td><td>46</td></tr>
+              <tr><td class="url">threads.net/@tsangtszwa/post/DXlrE1Bksch</td><td>tsangtszwa</td><td>身心又爆喇！…</td><td>9</td></tr>
+            </tbody>
+          </table>
+        </div>
+        <div class="scroll-hint">→ scroll for more columns</div>
+      </details>
+
+    </main>
+  </div>
+</div>
+
+</body>
+</html>

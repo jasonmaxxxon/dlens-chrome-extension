@@ -124,6 +124,7 @@ export type ExtensionMessage =
   | { type: "pr/save-evidence-row"; row: PrEvidenceRow }
   | { type: "pr/generate-criteria"; campaignName: string; briefText: string }
   | { type: "pr/match-criteria"; campaignId: string }
+  | { type: "pr/fetch-advanced-metrics"; campaignId: string }
   | { type: "pr/generate-summary"; campaignId: string }
   | {
     type: "judgment/result";
@@ -171,6 +172,10 @@ export type ExtensionSuccessResponse = {
   };
   prCampaigns?: PrCampaign[];
   prEvidenceRows?: PrEvidenceRow[];
+  prAdvancedMetricsSummary?: {
+    updated: number;
+    failed: number;
+  };
   prCriteria?: PrCriterion[];
   prSummary?: string;
   folderSynthesis?: FolderSynthesis | null;

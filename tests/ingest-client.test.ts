@@ -1,7 +1,13 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import { buildCaptureTargetRequest, fetchWorkerStatus, submitCaptureTarget, triggerWorkerDrain } from "../src/ingest/client.ts";
+import {
+  buildCaptureTargetRequest,
+  fetchThreadsAdvancedMetrics,
+  fetchWorkerStatus,
+  submitCaptureTarget,
+  triggerWorkerDrain
+} from "../src/ingest/client.ts";
 import type { TargetDescriptor } from "../src/contracts/target-descriptor.ts";
 
 function makeDescriptor(overrides: Partial<TargetDescriptor> = {}): TargetDescriptor {
@@ -138,6 +144,33 @@ test("fetchWorkerStatus reads /worker/status", async () => {
     assert.equal(calls.length, 1);
     assert.equal(calls[0]?.input, "http://127.0.0.1:8000/worker/status");
     assert.equal(calls[0]?.init?.method, undefined);
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
+});
+
+test("fetchThreadsAdvancedMetrics posts to the advanced metrics endpoint", async () => {
+  const calls: Array<{ input: string; init?: RequestInit }> = [];
+  const originalFetch = globalThis.fetch;
+  globalThis.fetch = (async (input: string | URL | Request, init?: RequestInit) => {
+    calls.push({ input: String(input), init });
+    return new Response(JSON.stringify({
+      post_url: "https://www.threads.net/@alpha/post/abc",
+      metrics: { views: 9000, followers: 756 },
+      fetched_at: "2026-05-26T03:00:00Z"
+    }), {
+      status: 200,
+      headers: { "Content-Type": "application/json" }
+    });
+  }) as typeof fetch;
+
+  try {
+    const response = await fetchThreadsAdvancedMetrics("http://127.0.0.1:8000", "https://www.threads.net/@alpha/post/abc");
+    assert.equal(calls.length, 1);
+    assert.equal(calls[0]?.input, "http://127.0.0.1:8000/threads/advanced-metrics");
+    assert.equal(calls[0]?.init?.method, "POST");
+    assert.match(String(calls[0]?.init?.body), /"post_url":"https:\/\/www\.threads\.net\/@alpha\/post\/abc"/);
+    assert.deepEqual(response.metrics, { views: 9000, followers: 756 });
   } finally {
     globalThis.fetch = originalFetch;
   }

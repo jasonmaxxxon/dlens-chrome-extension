@@ -1,4 +1,6 @@
+import type { ReactNode } from "react";
 import { useEffect, useMemo, useRef, useState } from "react";
+import { ExternalLink } from "lucide-react";
 
 import { buildPrEvidenceCsv, buildPrEvidenceCsvRows, extractPrCoreMessages, inferPrViewsFromText } from "../compare/pr-evidence.ts";
 import type { ExtensionResponse } from "../state/messages.ts";
@@ -13,9 +15,6 @@ import {
   SecondaryButton,
   Stamp,
   WorkspaceSurface,
-  lineClamp,
-  scanRowStyle,
-  surfaceCardStyle,
   viewRootStyle
 } from "./components.tsx";
 import { readPrBriefFile } from "./pr-brief-upload.ts";
@@ -25,21 +24,13 @@ import { tokens } from "./tokens.ts";
 type PrResponse = ExtensionResponse & {
   prCampaigns?: PrCampaign[];
   prEvidenceRows?: PrEvidenceRow[];
+  prAdvancedMetricsSummary?: {
+    updated: number;
+    failed: number;
+  };
   prCriteria?: PrCriterion[];
   prSummary?: string;
 };
-
-const inputStyle = {
-  borderRadius: tokens.radius.card,
-  border: `1px solid ${tokens.color.line}`,
-  background: tokens.color.surface,
-  color: tokens.color.ink,
-  padding: "9px 10px",
-  fontSize: 12,
-  fontFamily: tokens.font.sans,
-  outline: "none",
-  transition: tokens.motion.interactiveTransitionFast
-} as const;
 
 const CRITERION_PLACEHOLDERS: Record<PrCriterionId, string> = {
   c1: "Campaign name or identity",
@@ -92,6 +83,19 @@ function metricLine(row: PrEvidenceRow): string {
   ].filter(Boolean).join(" · ");
 }
 
+function summarizeAdvancedMetricsNotice(
+  summary: { updated: number; failed: number } | undefined,
+  rows: PrEvidenceRow[]
+): string {
+  const updated = summary?.updated ?? 0;
+  const failed = summary?.failed ?? 0;
+  const firstError = rows.find((row) => row.advancedMetricsError)?.advancedMetricsError?.trim();
+  const firstErrorText = firstError
+    ? ` First error: ${firstError.slice(0, 160)}`
+    : "";
+  return `Advanced metrics updated: ${updated} rows${failed ? `, ${failed} failed` : ""}.${firstErrorText}`;
+}
+
 function formatTime(value: string): string {
   if (!value || value.startsWith("1970-01-01")) {
     return "剛加入";
@@ -103,52 +107,6 @@ function csvPreviewRows(campaign: PrCampaign, rows: PrEvidenceRow[]): string[][]
   return buildPrEvidenceCsvRows(campaign, rows, 20);
 }
 
-/* ── Match badge: 4-tier colour system ─────────────────────────────── */
-
-function MatchBadge({ count, total = 6 }: { count: number; total?: number }) {
-  let bg: string;
-  let color: string;
-
-  if (count === 0) {
-    bg = tokens.color.neutralSurface;
-    color = tokens.color.softInk;
-  } else if (count >= total - 1) {
-    /* 5–6/6 → green */
-    bg = tokens.color.successSoft;
-    color = tokens.color.success;
-  } else if (count >= Math.ceil(total / 2)) {
-    /* 3–4/6 → amber */
-    bg = tokens.color.queuedSoft;
-    color = tokens.color.queued;
-  } else {
-    /* 1–2/6 → muted rose */
-    bg = tokens.color.failedSoft;
-    color = tokens.color.failed;
-  }
-
-  return (
-    <span
-      style={{
-        display: "inline-flex",
-        alignItems: "center",
-        minHeight: 22,
-        padding: "0 8px",
-        borderRadius: 999,
-        background: bg,
-        color,
-        fontSize: 10,
-        fontWeight: 700,
-        letterSpacing: 0,
-        transition: tokens.motion.interactiveTransitionFast
-      }}
-    >
-      {count}/{total} matched
-    </span>
-  );
-}
-
-/* ── Button style overrides ─────────────────────────────────────────── */
-
 const accentButtonStyle = {
   borderColor: "var(--dlens-mode-accent)",
   background: "var(--dlens-mode-accent-soft)",
@@ -156,10 +114,9 @@ const accentButtonStyle = {
   fontWeight: 700
 } as const;
 
-/* Export CSV is the primary output action — solid green */
-const primaryExportStyle = {
-  background: `linear-gradient(135deg, ${tokens.color.success}, ${tokens.color.tealMid})`,
-  boxShadow: `0 8px 18px rgba(63,90,59,0.18)`
+const compactButtonStyle = {
+  padding: "6px 10px",
+  fontSize: 11
 } as const;
 
 const exportButtonStyle = {
@@ -168,6 +125,11 @@ const exportButtonStyle = {
   color: tokens.color.success,
   fontWeight: 700
 } as const;
+
+const PR_RADIUS = tokens.radius.card;
+const PR_RULE = tokens.color.line;
+const PR_ACCENT = "var(--dlens-mode-accent)";
+const PR_MOSS = tokens.color.success;
 
 /* ── Notice bar: success/error tones ────────────────────────────────── */
 
@@ -180,7 +142,7 @@ function NoticeBar({ notice }: { notice: string }) {
         fontSize: 12,
         lineHeight: 1.55,
         padding: "8px 10px",
-        borderRadius: tokens.radius.card,
+        borderRadius: PR_RADIUS,
         background: isError ? tokens.color.failedSoft : tokens.color.successSoft,
         color: isError ? tokens.color.failed : tokens.color.success,
         transition: tokens.motion.interactiveTransition
@@ -223,7 +185,8 @@ function CampaignEditor({
   uploadError,
   coreMessages,
   collapsed,
-  onExpand
+  onExpand,
+  onCollapse
 }: {
   campaign: PrCampaign;
   onChange: (campaign: PrCampaign) => void;
@@ -237,6 +200,7 @@ function CampaignEditor({
   coreMessages: string[];
   collapsed?: boolean;
   onExpand?: () => void;
+  onCollapse?: () => void;
 }) {
   const fileInputRef = useRef<HTMLInputElement | null>(null);
   const [briefExpanded, setBriefExpanded] = useState(true);
@@ -268,28 +232,57 @@ function CampaignEditor({
 
   const parsedMessages = coreMessages.slice(0, 5).map(parseCoreMessage);
   const briefPreview = campaign.briefText.split("\n").find((l) => l.trim()) ?? "";
+  const fieldLabelStyle = {
+    fontFamily: tokens.font.sans,
+    fontSize: 11,
+    fontWeight: 600,
+    letterSpacing: 0,
+    color: tokens.color.subInk
+  } as const;
+  const inputLineStyle = {
+    width: "100%",
+    fontFamily: tokens.font.sans,
+    fontSize: 12,
+    fontWeight: 400,
+    padding: "9px 10px",
+    background: tokens.color.surface,
+    border: `1px solid ${PR_RULE}`,
+    borderRadius: tokens.radius.card,
+    color: tokens.color.ink,
+    outline: "none",
+    margin: 0,
+    transition: tokens.motion.interactiveTransitionFast
+  } as const;
+  const criteriaInputLineStyle = {
+    ...inputLineStyle,
+    fontSize: 12
+  } as const;
 
   /* ── Collapsed summary row ───────────────────────────────────────── */
   if (collapsed) {
     return (
       <div
         data-pr-campaign-setup="true"
-        style={surfaceCardStyle({
+        data-pr-campaign-summary="editorial"
+        style={{
           display: "flex",
           alignItems: "center",
-          gap: 10,
-          padding: "11px 16px",
-          flexWrap: "wrap"
-        })}
+          gap: tokens.spacing.md,
+          padding: `${tokens.spacing.sm}px 0`,
+          borderBottom: `1px dashed ${PR_RULE}`,
+          borderRadius: PR_RADIUS
+        }}
       >
-        <Kicker>Campaign setup</Kicker>
-        <span style={{ fontSize: 10, color: tokens.color.lineStrong }}>·</span>
+        <span style={{ ...fieldLabelStyle, flex: "0 0 96px" }}>Campaign</span>
         <span style={{ fontSize: 13, fontWeight: 700, color: tokens.color.ink, flex: 1, minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
           {campaign.name || "Unnamed campaign"}
         </span>
-        <Stamp tone="success">Ready</Stamp>
-        <SecondaryButton onClick={() => onExpand?.()} style={{ padding: "5px 10px", fontSize: 11 }}>
-          Edit
+        <span style={{ display: "inline-flex", alignItems: "center", gap: 6, color: PR_MOSS, fontSize: 12, fontWeight: 600 }}>
+          <span aria-hidden style={{ width: 6, height: 6, borderRadius: 999, background: PR_MOSS }} />
+          Ready
+        </span>
+        <SecondaryButton onClick={() => onExpand?.()} style={compactButtonStyle}>
+          Edit setup
         </SecondaryButton>
       </div>
     );
@@ -298,40 +291,21 @@ function CampaignEditor({
   return (
     <section
       data-pr-campaign-setup="true"
+      data-pr-campaign-form="editorial"
       style={{
-        ...surfaceCardStyle({ padding: 0, overflow: "hidden" }),
-        display: "flex",
-        flexDirection: "column"
+        display: "grid",
+        gap: tokens.spacing.md,
+        padding: `0 0 ${tokens.spacing.section}px`,
+        borderBottom: `1px dashed ${PR_RULE}`,
+        borderRadius: PR_RADIUS
       }}
     >
       <style>{CAMPAIGN_EDITOR_CSS}</style>
 
-      {/* ── Card header ─────────────────────────────────────────────── */}
-      <div
-        style={{
-          display: "flex",
-          justifyContent: "space-between",
-          alignItems: "center",
-          gap: 12,
-          padding: "12px 16px",
-          borderBottom: `1px solid ${tokens.color.line}`,
-          background: `linear-gradient(180deg, ${tokens.color.elevated}, ${tokens.color.surface})`
-        }}
-      >
-        <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-          <Kicker>Campaign setup</Kicker>
-          <span style={{ fontSize: 10, color: tokens.color.lineStrong }}>·</span>
-          <span style={{ fontSize: 13, fontWeight: 700, color: tokens.color.ink }}>PR Evidence campaign</span>
-        </div>
-        <Stamp tone={campaign.name.trim() ? "success" : "warning"}>{campaign.name.trim() ? "Ready" : "Draft"}</Stamp>
-      </div>
-
-      <div style={{ display: "grid", gap: 0, padding: "0 16px 16px" }}>
-
         {/* ── Campaign name ─────────────────────────────────────────── */}
-        <div data-pr-section="name" style={{ paddingTop: 14 }}>
-          <label style={{ display: "grid", gap: 7 }}>
-            <span style={{ fontSize: 11, fontWeight: 600, color: tokens.color.subInk, letterSpacing: "0.01em" }}>
+        <div data-pr-section="name">
+          <label style={{ display: "grid", gap: 6 }}>
+            <span style={fieldLabelStyle}>
               Campaign name
             </span>
             <input
@@ -339,7 +313,7 @@ function CampaignEditor({
               value={campaign.name}
               onChange={(event) => onChange({ ...campaign, name: event.target.value, updatedAt: new Date().toISOString() })}
               placeholder="Mannings BoostUP Wellness Carnival"
-              style={{ ...inputStyle, fontSize: 13, padding: "10px 11px" }}
+              style={inputLineStyle}
             />
           </label>
         </div>
@@ -349,7 +323,7 @@ function CampaignEditor({
 
           {/* Header row — always visible */}
           <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 8 }}>
-            <span style={{ fontSize: 11, fontWeight: 600, color: tokens.color.subInk, letterSpacing: "0.01em" }}>
+            <span style={fieldLabelStyle}>
               PR brief
             </span>
             <div style={{ display: "flex", gap: 6, alignItems: "center" }}>
@@ -360,15 +334,15 @@ function CampaignEditor({
                   fileInputRef.current?.click();
                 }}
                 disabled={isReadingBrief || isGenerating}
-                style={{ ...accentButtonStyle, padding: "5px 10px", fontSize: 11, whiteSpace: "nowrap" }}
+                style={{ ...accentButtonStyle, ...compactButtonStyle, whiteSpace: "nowrap" }}
               >
-                {isReadingBrief ? "Reading..." : "Upload PDF"}
+                {isReadingBrief ? "Reading..." : "Upload PDF ->"}
               </SecondaryButton>
               {/* Edit / Done toggle — only when brief has content */}
               {campaign.briefText.trim() ? (
                 <SecondaryButton
                   onClick={() => setBriefExpanded((v) => !v)}
-                  style={{ padding: "5px 10px", fontSize: 11, whiteSpace: "nowrap" }}
+                  style={compactButtonStyle}
                 >
                   {briefExpanded ? "Done" : "Edit"}
                 </SecondaryButton>
@@ -395,8 +369,8 @@ function CampaignEditor({
                 alignItems: "center",
                 gap: 8,
                 padding: "8px 10px",
-                borderRadius: tokens.radius.card,
-                border: `1px solid ${tokens.color.line}`,
+                borderRadius: PR_RADIUS,
+                border: `1px solid ${PR_RULE}`,
                 background: tokens.color.surface,
                 cursor: "default"
               }}
@@ -439,7 +413,20 @@ function CampaignEditor({
                 onChange={(event) => onChange({ ...campaign, briefText: event.target.value, updatedAt: new Date().toISOString() })}
                 placeholder="Paste the press release, message house, or PR guideline — or upload a PDF."
                 rows={4}
-                style={{ ...inputStyle, resize: "vertical", lineHeight: 1.6, fontSize: 12 }}
+                style={{
+                  width: "100%",
+                  fontFamily: tokens.font.sans,
+                  fontSize: 13,
+                  lineHeight: 1.55,
+                  padding: "12px 14px",
+                  background: tokens.color.neutralSurfaceSoft,
+                  border: `1px solid ${PR_RULE}`,
+                  color: tokens.color.subInk,
+                  outline: "none",
+                  resize: "vertical",
+                  minHeight: 88,
+                  borderRadius: PR_RADIUS
+                }}
               />
               {uploadError ? (
                 <div data-pr-upload-error="true" style={{ fontSize: 11, color: tokens.color.failed }}>
@@ -454,8 +441,8 @@ function CampaignEditor({
             <div
               data-pr-core-messages="true"
               style={{
-                borderRadius: tokens.radius.card,
-                border: `1px solid ${tokens.color.line}`,
+                borderRadius: PR_RADIUS,
+                border: `1px solid ${PR_RULE}`,
                 background: tokens.color.contextSurface,
                 overflow: "hidden"
               }}
@@ -532,44 +519,25 @@ function CampaignEditor({
         {/* ── PR matching criteria ──────────────────────────────────── */}
         <div data-pr-section="criteria" style={{ display: "grid", gap: 9 }}>
           <div style={{ display: "flex", justifyContent: "space-between", gap: 10, alignItems: "center" }}>
-            <span style={{ fontSize: 11, fontWeight: 600, color: tokens.color.subInk, letterSpacing: "0.01em" }}>
+            <span style={fieldLabelStyle}>
               PR matching criteria
             </span>
-            <SecondaryButton onClick={onGenerateCriteria} disabled={isReadingBrief || isGenerating} style={accentButtonStyle}>
-              {isGenerating ? "Generating..." : "Generate criteria"}
+            <SecondaryButton onClick={onGenerateCriteria} disabled={isReadingBrief || isGenerating} style={{ ...accentButtonStyle, ...compactButtonStyle }}>
+              {isGenerating ? "Generating..." : "Generate criteria ->"}
             </SecondaryButton>
           </div>
-          <div style={{ display: "grid", gridTemplateColumns: "repeat(2, minmax(0, 1fr))", gap: 7 }}>
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(2, minmax(0, 1fr))", gap: `${tokens.spacing.sm}px ${tokens.spacing.md}px` }}>
             {campaign.criteria.map((criterion, index) => (
-              <div key={criterion.id} style={{ display: "grid", gap: 5 }}>
-                <span style={{ display: "flex", alignItems: "center", gap: 5 }}>
-                  <span
-                    style={{
-                      display: "inline-flex",
-                      alignItems: "center",
-                      justifyContent: "center",
-                      width: 15,
-                      height: 15,
-                      borderRadius: 999,
-                      background: tokens.color.neutralSurface,
-                      fontSize: 8,
-                      fontWeight: 700,
-                      color: tokens.color.softInk,
-                      flexShrink: 0
-                    }}
-                  >
-                    {index + 1}
-                  </span>
-                  <span style={{ fontSize: 10, fontWeight: 600, color: tokens.color.softInk, letterSpacing: "0.01em" }}>
-                    Criterion
-                  </span>
+              <div key={criterion.id} style={{ display: "flex", alignItems: "baseline", gap: 10 }}>
+                <span style={{ fontFamily: tokens.font.mono, fontSize: 10, color: tokens.color.softInk, flex: "0 0 18px", letterSpacing: "0.04em" }}>
+                  {String(index + 1).padStart(2, "0")}
                 </span>
                 <input
                   data-pr-field={`criterion-${index}`}
                   value={criterion.label}
                   onChange={(event) => updateCriterion(index, event.target.value)}
                   placeholder={CRITERION_PLACEHOLDERS[criterion.id]}
-                  style={inputStyle}
+                  style={criteriaInputLineStyle}
                 />
               </div>
             ))}
@@ -577,59 +545,440 @@ function CampaignEditor({
         </div>
 
         {/* ── Save ─────────────────────────────────────────────────── */}
-        <div data-pr-section="save" style={{ paddingTop: 14 }}>
-          <PrimaryButton onClick={onSave} disabled={isSaving || !campaign.name.trim()}>
+        <div data-pr-section="save" style={{ paddingTop: 4, display: "flex", gap: 8, alignItems: "center" }}>
+          <PrimaryButton onClick={onSave} disabled={isSaving || !campaign.name.trim()} style={compactButtonStyle}>
             {isSaving ? "Saving..." : "Save campaign"}
           </PrimaryButton>
+          <SecondaryButton onClick={() => onCollapse?.()} style={compactButtonStyle}>
+            Cancel
+          </SecondaryButton>
+          <span style={{ marginLeft: "auto", fontFamily: tokens.font.mono, fontSize: 10.5, color: tokens.color.softInk }}>
+            Auto-saves after Save
+          </span>
         </div>
-
-      </div>
     </section>
   );
 }
 
-function EvidenceLedger({ rows, lastMatchedAt }: { rows: PrEvidenceRow[]; lastMatchedAt?: string }) {
+function EvidenceLedger({ rows }: { rows: PrEvidenceRow[] }) {
   return (
-    <section data-pr-evidence-ledger="compact" style={surfaceCardStyle({ display: "grid", gap: 10, padding: "14px 16px" })}>
+    <section data-pr-evidence-ledger="compact" style={{ display: "grid", minWidth: 0 }}>
       <style>{SCAN_ROW_HOVER_CSS}</style>
-      <div style={{ display: "flex", justifyContent: "space-between", gap: 10, alignItems: "center", flexWrap: "wrap" }}>
-        <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-          <Kicker>Evidence ledger</Kicker>
-          {lastMatchedAt ? (
-            <span style={{ fontSize: 10, color: tokens.color.softInk }}>
-              matched {formatTime(lastMatchedAt)}
-            </span>
-          ) : null}
-        </div>
-        <Stamp tone="neutral">{rows.length} rows</Stamp>
-      </div>
       {rows.length ? (
-        <div data-scan-list="pr-evidence" style={{ display: "grid" }}>
+        <div data-scan-list="pr-evidence" style={{ display: "grid", borderTop: `1px solid ${PR_RULE}` }}>
           {rows.map((row) => (
             <div
               key={row.id}
               data-pr-evidence-row="compact"
               data-scan-row="true"
-              style={scanRowStyle({
+              style={{
                 display: "grid",
-                gridTemplateColumns: "24px minmax(0, 0.8fr) minmax(0, 1.7fr) minmax(0, 1fr) auto auto",
+                gridTemplateColumns: "28px minmax(96px, 124px) minmax(0, 1fr) minmax(82px, 92px) minmax(62px, 78px) 56px",
                 alignItems: "center",
-                gap: 10,
-                padding: "10px 4px"
-              })}
+                gap: 14,
+                padding: "12px 4px",
+                borderBottom: `1px solid ${PR_RULE}`,
+                background: "transparent",
+                cursor: "default",
+                transition: tokens.motion.interactiveTransitionFast
+              }}
             >
-              <Stamp tone={row.matchedAt ? "success" : "neutral"}>{row.matchedAt ? "✓" : ""}</Stamp>
-              <div style={{ fontSize: 12, fontWeight: 700, color: tokens.color.ink, ...lineClamp(1) }}>{row.authorHandle || "-"}</div>
-              <div style={{ fontSize: 12, color: tokens.color.subInk, ...lineClamp(1) }}>{row.caption || "-"}</div>
-              <div style={{ fontSize: 11, color: tokens.color.softInk, ...lineClamp(1) }}>{metricLine(row)}</div>
-              <MatchBadge count={matchedCount(row)} />
-              <div style={{ fontSize: 11, color: tokens.color.softInk, textAlign: "right", minWidth: 64 }}>{formatTime(row.collectedAt)}</div>
+              <SourceLinkIcon row={row} />
+              <div style={{ fontFamily: tokens.font.mono, fontSize: 12, color: tokens.color.ink, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{row.authorHandle || "-"}</div>
+              <div style={{ fontSize: 13, color: tokens.color.subInk, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{row.caption || "-"}</div>
+              <div style={{ fontFamily: tokens.font.mono, fontSize: 11, color: tokens.color.softInk, textAlign: "right", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", fontVariantNumeric: "tabular-nums" }}>{metricLine(row)}</div>
+              <div style={{ fontFamily: tokens.font.mono, fontSize: 11, fontWeight: 700, color: matchedCount(row) >= 5 ? PR_MOSS : matchedCount(row) > 0 ? PR_ACCENT : tokens.color.softInk, textAlign: "right", fontVariantNumeric: "tabular-nums" }}>
+                {matchedCount(row)} / 6
+              </div>
+              <div style={{ fontFamily: tokens.font.mono, fontSize: 10.5, color: tokens.color.softInk, textAlign: "right", minWidth: 56 }}>{formatTime(row.collectedAt)}</div>
             </div>
           ))}
         </div>
       ) : (
-        <div style={{ padding: "16px 12px", borderRadius: tokens.radius.card, border: `1px solid ${tokens.color.line}`, background: tokens.color.surface, fontSize: 12, color: tokens.color.subInk }}>
+        <div style={{ padding: "16px 12px", borderRadius: PR_RADIUS, border: `1px solid ${PR_RULE}`, background: tokens.color.surface, fontSize: 12, color: tokens.color.subInk }}>
           尚未收集 evidence rows。先到 Collect 保存已打開的 Threads posts。
+        </div>
+      )}
+    </section>
+  );
+}
+
+function SourceLinkIcon({ row }: { row: PrEvidenceRow }) {
+  const href = row.postUrl.trim();
+  const baseStyle = {
+    width: 24,
+    height: 24,
+    borderRadius: 999,
+    background: `linear-gradient(135deg, ${tokens.color.neutralSurfaceSoft}, ${tokens.color.neutralSurface})`,
+    border: `1px solid ${PR_RULE}`,
+    color: href ? PR_ACCENT : tokens.color.softInk,
+    display: "inline-grid",
+    placeItems: "center",
+    textDecoration: "none",
+    opacity: href ? 1 : 0.42,
+    transition: tokens.motion.interactiveTransitionFast
+  } as const;
+
+  if (!href) {
+    return <span data-pr-evidence-source-link="missing" aria-hidden style={baseStyle} />;
+  }
+
+  return (
+    <a
+      data-pr-evidence-source-link="true"
+      href={href}
+      target="_blank"
+      rel="noreferrer"
+      aria-label={`Open original Threads post by ${row.authorHandle || "unknown author"}`}
+      title="Open original Threads post"
+      onClick={(event) => event.stopPropagation()}
+      style={baseStyle}
+    >
+      <ExternalLink size={13} strokeWidth={2} aria-hidden="true" />
+    </a>
+  );
+}
+
+type PrWorkPane = "ledger" | "match" | "metrics";
+
+function criterionTotals(campaign: PrCampaign, rows: PrEvidenceRow[]): number[] {
+  return campaign.criteria.map((criterion) =>
+    rows.reduce((total, row) => total + (row.criteriaMatches[criterion.id] ? 1 : 0), 0)
+  );
+}
+
+function PrWorkingArea({
+  campaign,
+  rows,
+  activePane,
+  onPaneChange,
+  onMatchCriteria,
+  onFetchAdvancedMetrics,
+  onExportCsv,
+  isMatching,
+  isFetchingAdvancedMetrics,
+  savedCampaignReady,
+  lastMatchedAt
+}: {
+  campaign: PrCampaign;
+  rows: PrEvidenceRow[];
+  activePane: PrWorkPane;
+  onPaneChange: (pane: PrWorkPane) => void;
+  onMatchCriteria: () => void;
+  onFetchAdvancedMetrics: () => void;
+  onExportCsv: () => void;
+  isMatching: boolean;
+  isFetchingAdvancedMetrics: boolean;
+  savedCampaignReady: boolean;
+  lastMatchedAt?: string;
+}) {
+  const totals = criterionTotals(campaign, rows);
+  const matchedCells = rows.reduce((total, row) => total + matchedCount(row), 0);
+  const totalCells = rows.length * 6;
+  const hasFetchedMetrics = rows.some((row) => row.advancedMetricsFetchedAt);
+  const tabs: Array<{ id: PrWorkPane; label: string; count: string; tone: "neutral" | "accent" | "success" }> = [
+    { id: "ledger", label: "Ledger", count: String(rows.length), tone: rows.length ? "accent" : "neutral" },
+    { id: "match", label: "Match criteria", count: `${matchedCells}/${totalCells}`, tone: matchedCells ? "success" : "neutral" },
+    { id: "metrics", label: "Fetch metrics", count: hasFetchedMetrics ? "done" : "—", tone: hasFetchedMetrics ? "success" : "neutral" }
+  ];
+
+  const paneStyle = (pane: PrWorkPane) => ({
+    display: activePane === pane ? "block" : "none"
+  });
+
+  return (
+    <section data-pr-working-area="true" data-pr-actions="true" style={{ display: "grid", gap: tokens.spacing.md, marginBottom: tokens.spacing.lg, minWidth: 0 }}>
+      <div
+        style={{
+          display: "flex",
+          alignItems: "stretch",
+          gap: tokens.spacing.sm,
+          borderBottom: `1px solid ${PR_RULE}`,
+          flexWrap: "wrap"
+        }}
+      >
+        <div style={{ display: "flex", gap: 2, minWidth: 0, flexWrap: "wrap" }}>
+          {tabs.map((tab) => {
+            const active = activePane === tab.id;
+            return (
+              <button
+                key={tab.id}
+                type="button"
+                onClick={() => onPaneChange(tab.id)}
+                data-pr-work-tab={tab.id}
+                aria-pressed={active}
+                style={{
+                  border: "none",
+                  borderBottom: `2px solid ${active ? PR_ACCENT : "transparent"}`,
+                  marginBottom: -1,
+                  background: "transparent",
+                  color: active ? tokens.color.ink : tokens.color.softInk,
+                  padding: "10px 12px 12px",
+                  fontFamily: tokens.font.sans,
+                  fontSize: 12,
+                  fontWeight: active ? 700 : 500,
+                  letterSpacing: 0,
+                  cursor: "pointer",
+                  display: "inline-flex",
+                  alignItems: "center",
+                  gap: 7
+                }}
+              >
+                {tab.label}
+                <span
+                  style={{
+                    fontFamily: tokens.font.mono,
+                    fontSize: 10,
+                    fontWeight: 700,
+                    color: active && tab.tone !== "neutral"
+                      ? (tab.tone === "success" ? PR_MOSS : PR_ACCENT)
+                      : tokens.color.softInk,
+                    padding: "1px 7px",
+                    borderRadius: 999,
+                    background: active
+                      ? (tab.tone === "success" ? tokens.color.successSoft : tab.tone === "accent" ? "var(--dlens-mode-accent-soft)" : tokens.color.neutralSurface)
+                      : tokens.color.neutralSurface,
+                    minWidth: 22,
+                    textAlign: "center",
+                    letterSpacing: 0
+                  }}
+                >
+                  {tab.count}
+                </span>
+              </button>
+            );
+          })}
+        </div>
+        <span style={{ flex: 1 }} />
+        <div style={{ display: "flex", alignItems: "center", paddingBottom: 6 }}>
+          <PrimaryButton onClick={onExportCsv} disabled={!savedCampaignReady} style={compactButtonStyle}>
+            Export CSV
+          </PrimaryButton>
+        </div>
+      </div>
+
+      <div style={paneStyle("ledger")}>
+        <PaneHeader
+          title="Saved posts"
+          caption={`${rows.length} rows · click to inspect${lastMatchedAt ? ` · matched ${formatTime(lastMatchedAt)}` : ""}`}
+        />
+        <EvidenceLedger rows={rows} />
+      </div>
+
+      <div style={paneStyle("match")}>
+        <PaneHeader
+          title="Score each post against 6 criteria"
+          caption={`~${Math.max(0, Math.ceil(rows.length / 25))} AI calls · ${totalCells} cells`}
+          action={
+            <PrimaryButton
+              onClick={onMatchCriteria}
+              disabled={!rows.length || isMatching || !savedCampaignReady}
+              style={compactButtonStyle}
+            >
+              {isMatching ? "Matching..." : "Match criteria"}
+            </PrimaryButton>
+          }
+        />
+        <div data-pr-match-list="wrap" style={{ display: "grid", borderTop: `1px solid ${PR_RULE}` }}>
+          {rows.length ? rows.map((row) => (
+            <div
+              key={row.id}
+              style={{
+                display: "grid",
+                gap: 6,
+                padding: "11px 4px",
+                borderBottom: `1px solid ${PR_RULE}`
+              }}
+            >
+              <div style={{ display: "flex", alignItems: "baseline", gap: 10, minWidth: 0 }}>
+                <span style={{ fontFamily: tokens.font.mono, fontSize: 11.5, color: tokens.color.ink, fontWeight: 500, flex: "0 0 auto", minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", maxWidth: 124 }}>
+                  {row.authorHandle || "-"}
+                </span>
+                <span style={{ flex: 1, minWidth: 0, fontSize: 12.5, color: tokens.color.subInk, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                  {row.caption || "-"}
+                </span>
+                <span style={{ fontFamily: tokens.font.mono, fontSize: 11, fontWeight: 700, color: matchedCount(row) >= 5 ? PR_MOSS : matchedCount(row) > 0 ? PR_ACCENT : tokens.color.softInk, flexShrink: 0, fontVariantNumeric: "tabular-nums" }}>
+                  {matchedCount(row)} / 6
+                </span>
+              </div>
+              <div style={{ display: "flex", flexWrap: "wrap", gap: 14, paddingLeft: 2 }}>
+                {PR_CRITERION_IDS.map((id, index) => {
+                  const criterion = campaign.criteria[index];
+                  const matched = row.criteriaMatches[id];
+                  return (
+                    <span
+                      key={id}
+                      title={criterion?.label || id}
+                      style={{
+                        display: "inline-flex",
+                        alignItems: "baseline",
+                        gap: 3,
+                        color: matched ? PR_MOSS : tokens.color.softInk,
+                        fontFamily: tokens.font.mono,
+                        fontSize: 10.5,
+                        fontWeight: matched ? 700 : 400,
+                        opacity: matched ? 1 : 0.7
+                      }}
+                    >
+                      C{index + 1}
+                      <span aria-hidden>{matched ? "✓" : "·"}</span>
+                    </span>
+                  );
+                })}
+              </div>
+            </div>
+          )) : (
+            <div style={{ padding: "16px 8px", fontSize: 12, color: tokens.color.subInk }}>Collect posts before matching criteria.</div>
+          )}
+          {rows.length ? (
+            <div style={{ display: "flex", flexWrap: "wrap", gap: 14, alignItems: "center", padding: "10px 4px", borderTop: `1px solid ${PR_RULE}` }}>
+              <span style={{ fontFamily: tokens.font.mono, fontSize: 9.5, color: tokens.color.softInk, textTransform: "uppercase", letterSpacing: "0.1em", fontWeight: 700 }}>
+                Σ per criterion
+              </span>
+              {totals.map((total, index) => (
+                <span
+                  key={index}
+                  style={{
+                    fontFamily: tokens.font.mono,
+                    fontSize: 10.5,
+                    color: total > 0 ? tokens.color.ink : tokens.color.softInk,
+                    fontWeight: total > 0 ? 700 : 400
+                  }}
+                >
+                  C{index + 1}:{total}
+                </span>
+              ))}
+              <span style={{ marginLeft: "auto", fontFamily: tokens.font.mono, fontSize: 11, fontWeight: 700, color: matchedCells ? PR_MOSS : tokens.color.softInk }}>
+                {matchedCells} / {totalCells}
+              </span>
+            </div>
+          ) : null}
+        </div>
+      </div>
+
+      <div style={paneStyle("metrics")}>
+        <PaneHeader
+          title="Advanced metrics"
+          caption="likes · replies · reposts · views · followers"
+          action={
+            <span data-pr-metrics-action="toolbar" title="Fetch advanced metrics" style={{ display: "inline-flex" }}>
+              <PrimaryButton
+                onClick={onFetchAdvancedMetrics}
+                disabled={!rows.length || isFetchingAdvancedMetrics || !savedCampaignReady}
+                style={compactButtonStyle}
+              >
+                {isFetchingAdvancedMetrics ? "Fetching..." : "Fetch advanced metrics"}
+              </PrimaryButton>
+            </span>
+          }
+        />
+        <AdvancedMetricsPanel rows={rows} />
+      </div>
+    </section>
+  );
+}
+
+function PaneHeader({ title, caption, action }: { title: string; caption?: string; action?: ReactNode }) {
+  return (
+    <div
+      style={{
+        display: "flex",
+        alignItems: "baseline",
+        gap: 10,
+        marginBottom: 12,
+        flexWrap: "wrap"
+      }}
+    >
+      <div style={{ display: "flex", alignItems: "baseline", gap: 10, flexWrap: "wrap", minWidth: 0 }}>
+        <span style={{ fontFamily: `${tokens.font.serifCjk}, ${tokens.font.serif}`, fontSize: 16, color: tokens.color.ink, fontWeight: 700, lineHeight: 1.3 }}>
+          {title}
+        </span>
+        {caption ? (
+          <span style={{ fontFamily: tokens.font.mono, fontSize: 10.5, color: tokens.color.softInk, letterSpacing: "0.04em" }}>
+            {caption}
+          </span>
+        ) : null}
+      </div>
+      {action ? (
+        <>
+          <span style={{ flex: 1 }} />
+          {action}
+        </>
+      ) : null}
+    </div>
+  );
+}
+
+function MetricCell({ label, value, advanced = false }: { label: string; value: string; advanced?: boolean }) {
+  const valuePresent = value !== "-";
+  return (
+    <span
+      style={{
+        display: "inline-flex",
+        alignItems: "baseline",
+        gap: 4,
+        fontFamily: tokens.font.mono,
+        fontSize: 11,
+        lineHeight: 1.4,
+        whiteSpace: "nowrap",
+        fontVariantNumeric: "tabular-nums"
+      }}
+    >
+      <span style={{ color: tokens.color.softInk, fontWeight: 500 }}>{label}</span>
+      <span style={{ color: !valuePresent ? tokens.color.softInk : advanced ? PR_ACCENT : tokens.color.ink, fontWeight: valuePresent ? 700 : 400 }}>
+        {value}
+      </span>
+    </span>
+  );
+}
+
+function AdvancedMetricsPanel({ rows }: { rows: PrEvidenceRow[] }) {
+  return (
+    <section data-pr-metrics-list="wrap" style={{ display: "grid", minWidth: 0 }}>
+      {rows.length ? (
+        <div data-scan-list="pr-metrics" style={{ display: "grid", borderTop: `1px solid ${PR_RULE}` }}>
+          <style>{SCAN_ROW_HOVER_CSS}</style>
+          {rows.map((row) => {
+            const views = row.metrics.views ?? inferPrViewsFromText(row.caption) ?? undefined;
+            return (
+              <div
+                key={row.id}
+                data-scan-row="true"
+                style={{
+                  display: "grid",
+                  gap: 6,
+                  padding: "12px 4px",
+                  borderBottom: `1px solid ${PR_RULE}`
+                }}
+              >
+                <div style={{ display: "flex", alignItems: "center", gap: 10, minWidth: 0 }}>
+                  <span aria-hidden style={{ width: 22, height: 22, borderRadius: 999, background: `linear-gradient(135deg, ${tokens.color.neutralSurfaceSoft}, ${tokens.color.neutralSurface})`, border: `1px solid ${PR_RULE}`, flexShrink: 0 }} />
+                  <div style={{ fontFamily: tokens.font.mono, fontSize: 11.5, color: tokens.color.ink, fontWeight: 500, flexShrink: 0, maxWidth: 124, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                    {row.authorHandle || "-"}
+                  </div>
+                  <div style={{ flex: 1, minWidth: 0, fontSize: 12.5, color: tokens.color.subInk, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                    {row.caption || "-"}
+                  </div>
+                </div>
+                <div style={{ display: "flex", flexWrap: "wrap", columnGap: 16, rowGap: 4, paddingLeft: 32 }}>
+                  <MetricCell label="likes" value={formatMetric(row.metrics.likes)} />
+                  <MetricCell label="replies" value={formatMetric(row.metrics.comments)} />
+                  <MetricCell label="reposts" value={formatMetric(row.metrics.reposts)} advanced />
+                  <MetricCell label="views" value={formatMetric(views)} advanced />
+                  <MetricCell label="followers" value={formatMetric(row.metrics.followers)} advanced />
+                </div>
+                {row.advancedMetricsError ? (
+                  <div style={{ fontSize: 11, lineHeight: 1.45, color: tokens.color.failed, paddingLeft: 32 }}>
+                    {row.advancedMetricsError}
+                  </div>
+                ) : null}
+              </div>
+            );
+          })}
+        </div>
+      ) : (
+        <div style={{ padding: "16px 12px", borderRadius: PR_RADIUS, border: `1px solid ${PR_RULE}`, background: tokens.color.surface, fontSize: 12, color: tokens.color.subInk }}>
+          Collect posts before fetching advanced metrics.
         </div>
       )}
     </section>
@@ -640,68 +989,95 @@ function CsvPreview({ campaign, rows }: { campaign: PrCampaign; rows: PrEvidence
   const preview = csvPreviewRows(campaign, rows);
   const [header, ...body] = preview;
   return (
-    <section data-pr-csv-preview="true" style={surfaceCardStyle({ display: "grid", gap: 10, padding: "14px 16px", overflow: "hidden" })}>
-      <div style={{ display: "flex", justifyContent: "space-between", gap: 10, alignItems: "center" }}>
-        <Kicker>CSV preview</Kicker>
-        <Stamp tone="neutral">Header + first 20</Stamp>
-      </div>
-      <div style={{ overflowX: "auto", border: `1px solid ${tokens.color.line}`, borderRadius: tokens.radius.card, background: tokens.color.surface }}>
-        <table style={{ borderCollapse: "collapse", minWidth: 1320, width: "100%", fontSize: 11, color: tokens.color.subInk }}>
-          <thead>
-            <tr>
-              {(header || []).map((cell, index) => (
-                <th
-                  key={`${cell}-${index}`}
-                  style={{
-                    textAlign: "left",
-                    padding: "8px 7px",
-                    borderBottom: `1px solid ${tokens.color.line}`,
-                    color: tokens.color.ink,
-                    fontWeight: 700,
-                    whiteSpace: "nowrap",
-                    minWidth: index <= 2 ? 150 : index >= 8 ? 118 : 74
-                  }}
-                >
-                  {cell}
-                </th>
+    <details data-pr-csv-preview="true" style={{ marginTop: 4, borderTop: `1px solid ${PR_RULE}`, paddingTop: 18, borderRadius: PR_RADIUS }}>
+      <summary style={{ listStyle: "none", cursor: "pointer", display: "flex", alignItems: "baseline", gap: 8, fontFamily: `${tokens.font.serifCjk}, ${tokens.font.serif}`, fontSize: 16, fontWeight: 600, color: tokens.color.ink }}>
+        <span style={{ fontSize: 11, color: tokens.color.softInk }}>▸</span>
+        CSV preview
+        <span style={{ marginLeft: "auto", fontFamily: tokens.font.mono, fontSize: 10.5, color: tokens.color.softInk, fontWeight: 400 }}>
+          header + first 20 rows · {rows.length} rows ready
+        </span>
+      </summary>
+      <div
+        data-pr-csv-preview-layout="wrap"
+        style={{
+          marginTop: 14,
+          display: "grid",
+          gap: 8,
+          border: `1px solid ${PR_RULE}`,
+          borderRadius: PR_RADIUS,
+          background: tokens.color.surface,
+          overflow: "hidden"
+        }}
+      >
+        {body.slice(0, 20).length ? body.slice(0, 20).map((line, rowIndex) => (
+          <article
+            key={rowIndex}
+            style={{
+              display: "grid",
+              gap: 8,
+              padding: "10px 12px",
+              borderBottom: rowIndex < Math.min(body.length, 20) - 1 ? `1px solid ${PR_RULE}` : "none"
+            }}
+          >
+            <div style={{ display: "flex", alignItems: "baseline", gap: 8, flexWrap: "wrap" }}>
+              <span style={{ fontFamily: tokens.font.mono, fontSize: 10, color: PR_ACCENT, fontWeight: 700 }}>
+                row {rowIndex + 1}
+              </span>
+              <span style={{ fontFamily: tokens.font.mono, fontSize: 10, color: tokens.color.softInk }}>
+                {(line[1] || line[0] || "-").slice(0, 72)}
+              </span>
+            </div>
+            <div
+              style={{
+                display: "grid",
+                gridTemplateColumns: "repeat(auto-fit, minmax(132px, 1fr))",
+                gap: 8,
+                minWidth: 0
+              }}
+            >
+              {(header || []).map((cell, cellIndex) => (
+                <div key={`${rowIndex}-${cell}-${cellIndex}`} style={{ display: "grid", gap: 3, minWidth: 0 }}>
+                  <span style={{ fontFamily: tokens.font.mono, fontSize: 9.5, letterSpacing: "0.04em", color: tokens.color.softInk, overflowWrap: "anywhere" }}>
+                    {cell}
+                  </span>
+                  <span style={{ fontSize: 11.5, lineHeight: 1.35, color: line[cellIndex] ? tokens.color.subInk : tokens.color.softInk, overflowWrap: "anywhere" }}>
+                    {line[cellIndex] || "-"}
+                  </span>
+                </div>
               ))}
-            </tr>
-          </thead>
-          <tbody>
-            {body.slice(0, 20).map((line, rowIndex) => (
-              <tr key={rowIndex}>
-                {line.map((cell, cellIndex) => (
-                  <td
-                    key={`${rowIndex}-${cellIndex}`}
-                    style={{
-                      padding: "7px",
-                      borderBottom: `1px solid ${tokens.color.line}`,
-                      whiteSpace: "nowrap",
-                      color: cell ? tokens.color.subInk : tokens.color.softInk
-                    }}
-                  >
-                    {cell || "-"}
-                  </td>
-                ))}
-              </tr>
-            ))}
-          </tbody>
-        </table>
+            </div>
+          </article>
+        )) : (
+          <div style={{ padding: "14px 12px", fontSize: 12, color: tokens.color.subInk }}>
+            No CSV rows yet.
+          </div>
+        )}
       </div>
-    </section>
+    </details>
   );
 }
 
 function SummaryPanel({ campaign, summary }: { campaign: PrCampaign; summary: string }) {
   return (
-    <section data-pr-summary="facts-first" style={surfaceCardStyle({ display: "grid", gap: 12, padding: "14px 16px" })}>
+    <section
+      data-pr-summary="facts-first"
+      style={{
+        display: "grid",
+        gap: 12,
+        padding: "14px 16px",
+        border: `1px solid ${PR_RULE}`,
+        borderRadius: PR_RADIUS,
+        background: tokens.color.surface,
+        overflow: "hidden"
+      }}
+    >
       <div style={{ display: "flex", justifyContent: "space-between", gap: 10, alignItems: "center", flexWrap: "wrap" }}>
         <Kicker>Topline PR audit summary</Kicker>
         <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
-          <SecondaryButton onClick={() => exportPrSummaryMarkdown(summary, campaign.name)} style={accentButtonStyle}>
+          <SecondaryButton onClick={() => exportPrSummaryMarkdown(summary, campaign.name)} style={{ ...accentButtonStyle, ...compactButtonStyle }}>
             Export MD
           </SecondaryButton>
-          <SecondaryButton onClick={() => exportPrSummaryDocx(summary, campaign.name)} style={exportButtonStyle}>
+          <SecondaryButton onClick={() => exportPrSummaryDocx(summary, campaign.name)} style={{ ...exportButtonStyle, ...compactButtonStyle }}>
             Export DOCX
           </SecondaryButton>
         </div>
@@ -719,16 +1095,16 @@ export function PrEvidenceView({ sessionId }: { sessionId: string }) {
   const [summary, setSummary] = useState("");
   const [notice, setNotice] = useState("");
   const [uploadError, setUploadError] = useState("");
-  const [showPreview, setShowPreview] = useState(false);
+  const [activePane, setActivePane] = useState<PrWorkPane>("ledger");
   const [setupCollapsed, setSetupCollapsed] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const [isReadingBrief, setIsReadingBrief] = useState(false);
   const [isGeneratingCriteria, setIsGeneratingCriteria] = useState(false);
   const [isMatching, setIsMatching] = useState(false);
+  const [isFetchingAdvancedMetrics, setIsFetchingAdvancedMetrics] = useState(false);
   const [isGeneratingSummary, setIsGeneratingSummary] = useState(false);
   const coreMessages = useMemo(() => extractPrCoreMessages(campaign.briefText), [campaign.briefText]);
 
-  const batchEstimate = Math.max(0, Math.ceil(rows.length / 25));
   const savedCampaignReady = Boolean(campaign.id && campaign.name.trim());
 
   useEffect(() => {
@@ -867,6 +1243,29 @@ export function PrEvidenceView({ sessionId }: { sessionId: string }) {
     setIsMatching(false);
   }
 
+  async function fetchAdvancedMetrics() {
+    if (!savedCampaignReady) {
+      setNotice("Save a campaign before fetching advanced metrics.");
+      return;
+    }
+    setIsFetchingAdvancedMetrics(true);
+    setNotice("");
+    try {
+      const response = await sendExtensionMessage<PrResponse>({ type: "pr/fetch-advanced-metrics", campaignId: campaign.id });
+      if (response.ok) {
+        const nextRows = response.prEvidenceRows ?? [];
+        setRows(nextRows);
+        setNotice(summarizeAdvancedMetricsNotice(response.prAdvancedMetricsSummary, nextRows));
+      } else {
+        setNotice(response.error);
+      }
+    } catch (error) {
+      setNotice(error instanceof Error ? error.message : String(error));
+    } finally {
+      setIsFetchingAdvancedMetrics(false);
+    }
+  }
+
   async function generateSummary() {
     if (!savedCampaignReady) {
       setNotice("Save a campaign before generating summary.");
@@ -894,10 +1293,18 @@ export function PrEvidenceView({ sessionId }: { sessionId: string }) {
     URL.revokeObjectURL(url);
   }
 
-  const preview = useMemo(() => showPreview && savedCampaignReady, [showPreview, savedCampaignReady]);
-
   return (
-    <div style={viewRootStyle({ gap: tokens.spacing.md })} data-pr-evidence-view="true">
+    <div
+      style={viewRootStyle({
+        gap: tokens.spacing.md,
+        boxSizing: "border-box",
+        maxWidth: "100%",
+        paddingRight: tokens.spacing.sm,
+        paddingBottom: tokens.spacing.xl
+      })}
+      data-pr-evidence-view="true"
+      data-pr-editorial-v1="true"
+    >
       <ModeHeader
         mode="pr-evidence"
         kicker="PR Evidence"
@@ -906,7 +1313,7 @@ export function PrEvidenceView({ sessionId }: { sessionId: string }) {
         stamp={<Stamp tone="accent">CSV first</Stamp>}
       />
 
-      <WorkspaceSurface tone="utility" style={{ display: "grid", gap: tokens.spacing.md }}>
+      <WorkspaceSurface tone="utility" style={{ display: "grid", gap: tokens.spacing.md, minWidth: 0, maxWidth: "100%", overflow: "hidden" }}>
         <CampaignEditor
           campaign={campaign}
           onChange={setCampaign}
@@ -920,53 +1327,77 @@ export function PrEvidenceView({ sessionId }: { sessionId: string }) {
           coreMessages={coreMessages}
           collapsed={setupCollapsed}
           onExpand={() => setSetupCollapsed(false)}
+          onCollapse={() => setSetupCollapsed(true)}
         />
 
-        <section data-pr-actions="true" style={surfaceCardStyle({ display: "grid", gap: 10, padding: "12px 14px" })}>
-          <div style={{ display: "flex", justifyContent: "space-between", gap: 10, alignItems: "center", flexWrap: "wrap" }}>
-            <div style={{ display: "grid", gap: 3 }}>
-              <Kicker>Batch actions</Kicker>
-              <div style={{ fontSize: 12, color: tokens.color.subInk }}>
-                {rows.length} posts · 6 criteria · ~{batchEstimate} AI calls
-              </div>
-            </div>
-            <div style={{ display: "flex", gap: 6, flexWrap: "wrap", justifyContent: "flex-end", alignItems: "center" }}>
-              <SecondaryButton
-                onClick={matchCriteria}
-                disabled={!rows.length || isMatching || !savedCampaignReady}
-                style={accentButtonStyle}
-              >
-                {isMatching ? "Matching..." : "Match criteria"}
-              </SecondaryButton>
-              <SecondaryButton onClick={() => setShowPreview((current) => !current)} disabled={!savedCampaignReady}>
-                Preview CSV
-              </SecondaryButton>
-              <PrimaryButton onClick={exportCsv} disabled={!savedCampaignReady} style={primaryExportStyle}>
-                Export CSV
-              </PrimaryButton>
-              <SecondaryButton
-                onClick={() => void generateSummary()}
-                disabled={!savedCampaignReady || isGeneratingSummary}
-                style={accentButtonStyle}
-              >
-                {isGeneratingSummary ? "Generating..." : "Generate summary"}
-              </SecondaryButton>
-            </div>
-          </div>
-          <NoticeBar notice={notice} />
-        </section>
+        <PrWorkingArea
+          campaign={campaign}
+          rows={rows}
+          activePane={activePane}
+          onPaneChange={setActivePane}
+          onMatchCriteria={() => void matchCriteria()}
+          onFetchAdvancedMetrics={() => void fetchAdvancedMetrics()}
+          onExportCsv={exportCsv}
+          isMatching={isMatching}
+          isFetchingAdvancedMetrics={isFetchingAdvancedMetrics}
+          savedCampaignReady={savedCampaignReady}
+          lastMatchedAt={campaign.lastMatchedAt}
+        />
 
-        <EvidenceLedger rows={rows} lastMatchedAt={campaign.lastMatchedAt} />
-        {preview ? <CsvPreview campaign={campaign} rows={rows} /> : null}
+        <NoticeBar notice={notice} />
 
-        {summary ? <SummaryPanel campaign={campaign} summary={summary} /> : null}
+        {rows.length ? <CsvPreview campaign={campaign} rows={rows} /> : null}
+
+        {summary ? (
+          <SummaryPanel campaign={campaign} summary={summary} />
+        ) : (
+          <SummaryGenerateCard
+            onGenerate={() => void generateSummary()}
+            loading={isGeneratingSummary}
+            disabled={!savedCampaignReady || rows.length === 0}
+          />
+        )}
       </WorkspaceSurface>
     </div>
+  );
+}
+
+function SummaryGenerateCard({ onGenerate, loading, disabled = false }: { onGenerate: () => void; loading: boolean; disabled?: boolean }) {
+  return (
+    <section
+      data-pr-summary-cta="empty"
+      style={{
+        display: "flex",
+        justifyContent: "space-between",
+        gap: tokens.spacing.md,
+        alignItems: "center",
+        flexWrap: "wrap",
+        padding: "12px 14px",
+        border: `1px solid ${PR_RULE}`,
+        borderRadius: PR_RADIUS,
+        background: tokens.color.surface
+      }}
+    >
+      <div style={{ display: "grid", gap: 3, minWidth: 0 }}>
+        <span style={{ fontFamily: `${tokens.font.serifCjk}, ${tokens.font.serif}`, fontSize: 14, fontWeight: 700, color: tokens.color.ink }}>
+          Topline narrative
+        </span>
+        <span style={{ fontSize: 11.5, color: tokens.color.softInk, lineHeight: 1.5 }}>
+          Generate summary: turn matched evidence into a paragraph you can paste into the PR brief.
+        </span>
+      </div>
+      <SecondaryButton onClick={onGenerate} disabled={disabled || loading} style={{ ...accentButtonStyle, ...compactButtonStyle, whiteSpace: "nowrap" }}>
+        {loading ? "Generating..." : "Generate summary →"}
+      </SecondaryButton>
+    </section>
   );
 }
 
 export const prEvidenceViewTestables = {
   matchedCount,
   csvPreviewRows,
-  metricLine
+  metricLine,
+  summarizeAdvancedMetricsNotice,
+  CsvPreview,
+  EvidenceLedger
 };

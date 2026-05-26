@@ -126,7 +126,9 @@ test("normalizePrEvidenceRow defaults all criteria matches to false", () => {
     authorHandle: "@kol",
     caption: "Campaign mention",
     criteriaMatches: { c1: true },
-    collectedAt: "2026-05-06T12:00:00.000Z"
+    collectedAt: "2026-05-06T12:00:00.000Z",
+    advancedMetricsFetchedAt: "2026-05-26T03:00:00.000Z",
+    advancedMetricsError: "temporary failure"
   });
 
   assert.deepEqual(normalized?.criteriaMatches, {
@@ -137,6 +139,8 @@ test("normalizePrEvidenceRow defaults all criteria matches to false", () => {
     c5: false,
     c6: false
   });
+  assert.equal(normalized?.advancedMetricsFetchedAt, "2026-05-26T03:00:00.000Z");
+  assert.equal(normalized?.advancedMetricsError, "temporary failure");
 });
 
 test("toPrEvidenceRowFromSessionItem maps visible collect fields without AI data", () => {

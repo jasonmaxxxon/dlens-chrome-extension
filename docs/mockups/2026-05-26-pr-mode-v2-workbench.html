@@ -1,0 +1,572 @@
+<!doctype html>
+<html lang="zh-Hant">
+<head>
+<meta charset="utf-8" />
+<title>PR mode — V2 Workbench</title>
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Lora:ital,wght@0,500;0,600;1,500&family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;500&family=Noto+Sans+TC:wght@400;500;600&family=Noto+Serif+TC:wght@500;600&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --cream-50: #FAF7F2;
+    --cream-100: #F4EEE3;
+    --cream-150: #EFE7D7;
+    --cream-200: #E8DFCE;
+    --cream-300: #D7CBB4;
+    --ink-900: #1F1A14;
+    --ink-700: #3D352B;
+    --ink-500: #6A5F52;
+    --ink-400: #8B8074;
+    --ink-300: #B0A597;
+    --burgundy: #6B2E2A;
+    --burgundy-soft: #8A3E37;
+    --burgundy-tint: #F1E0DC;
+    --moss: #5C6B4A;
+    --moss-tint: #E1E6D7;
+    --rule: #DBCFB8;
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; padding: 0; }
+  body {
+    background: #ECE5D5;
+    font-family: 'Inter', 'Noto Sans TC', -apple-system, sans-serif;
+    color: var(--ink-900);
+    font-size: 13.5px;
+    line-height: 1.5;
+    padding: 40px 0;
+    -webkit-font-smoothing: antialiased;
+  }
+  .frame {
+    width: 800px;
+    margin: 0 auto;
+    background: var(--cream-50);
+    min-height: 600px;
+    box-shadow: 0 10px 40px rgba(31,26,20,0.18);
+    overflow: hidden;
+  }
+
+  /* --- Masthead --- */
+  .masthead {
+    display: flex;
+    justify-content: space-between;
+    align-items: baseline;
+    padding: 12px 28px;
+    border-bottom: 1px solid var(--rule);
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 11px;
+    color: var(--ink-500);
+  }
+  .masthead .brand { color: var(--ink-900); font-weight: 500; }
+  .masthead .brand .mode {
+    display: inline-block;
+    margin-left: 10px;
+    padding: 1px 7px;
+    border: 1px solid var(--burgundy);
+    color: var(--burgundy);
+    border-radius: 2px;
+    font-size: 9px;
+    letter-spacing: 0.12em;
+    vertical-align: 1px;
+  }
+
+  /* --- Title row --- */
+  .title-row {
+    padding: 18px 28px 16px;
+    border-bottom: 1px solid var(--rule);
+    display: flex;
+    align-items: baseline;
+    gap: 16px;
+  }
+  .title-row h1 {
+    margin: 0;
+    font-family: 'Noto Serif TC', 'Lora', serif;
+    font-weight: 500;
+    font-size: 22px;
+    color: var(--ink-900);
+    letter-spacing: -0.005em;
+  }
+  .title-row .tagline {
+    color: var(--ink-500);
+    font-size: 12.5px;
+  }
+  .title-row .badge {
+    margin-left: auto;
+    padding: 3px 9px;
+    border: 1px solid var(--cream-300);
+    border-radius: 2px;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 10px;
+    color: var(--burgundy);
+    letter-spacing: 0.08em;
+  }
+
+  /* --- Layout: rail + dual pane --- */
+  .layout { display: grid; grid-template-columns: 64px 1fr; min-height: 540px; }
+  .rail {
+    border-right: 1px solid var(--rule);
+    padding: 18px 0;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 14px;
+    background: var(--cream-100);
+  }
+  .rail .logo {
+    width: 34px; height: 34px;
+    border-radius: 50%;
+    background: var(--burgundy);
+    color: var(--cream-50);
+    display: grid; place-items: center;
+    font-family: 'Lora', serif;
+    font-style: italic;
+    font-size: 19px;
+    margin-bottom: 6px;
+  }
+  .rail a {
+    width: 44px; padding: 8px 0;
+    text-align: center;
+    font-size: 10px;
+    color: var(--ink-400);
+    text-decoration: none;
+    border-radius: 4px;
+  }
+  .rail a .ico { display: block; font-size: 12px; margin-bottom: 2px; }
+  .rail a.active { color: var(--burgundy); }
+  .rail a.active::after {
+    content: ''; display: block;
+    width: 14px; height: 1px; background: var(--burgundy);
+    margin: 5px auto 0;
+  }
+
+  .panes {
+    display: grid;
+    grid-template-columns: 240px 1fr;
+    min-height: 0;
+  }
+
+  /* --- LEFT pane: collapsed campaign chip + collapsible setup --- */
+  .left {
+    border-right: 1px solid var(--rule);
+    padding: 20px 18px;
+    background: var(--cream-100);
+  }
+  .left .head {
+    display: flex; align-items: center; gap: 6px;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 10px;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: var(--ink-400);
+    margin-bottom: 12px;
+  }
+  .chip-campaign {
+    background: var(--cream-50);
+    border: 1px solid var(--rule);
+    border-radius: 6px;
+    padding: 14px 14px 12px;
+    margin-bottom: 14px;
+  }
+  .chip-campaign .name {
+    font-family: 'Lora', 'Noto Serif TC', serif;
+    font-weight: 600;
+    font-size: 17px;
+    color: var(--ink-900);
+    margin-bottom: 6px;
+  }
+  .chip-campaign .meta {
+    display: flex; gap: 6px; align-items: center;
+    flex-wrap: wrap;
+    margin-bottom: 12px;
+  }
+  .pill {
+    display: inline-flex; align-items: center; gap: 5px;
+    padding: 2px 8px;
+    border-radius: 99px;
+    font-size: 10.5px;
+    font-family: 'JetBrains Mono', monospace;
+    letter-spacing: 0.04em;
+  }
+  .pill.ready {
+    background: var(--moss-tint);
+    color: var(--moss);
+  }
+  .pill.ready::before {
+    content: ''; width: 5px; height: 5px; border-radius: 50%; background: var(--moss);
+  }
+  .pill.count {
+    background: var(--cream-150);
+    color: var(--ink-500);
+  }
+  .chip-campaign .edit {
+    display: inline-block;
+    width: 100%;
+    text-align: center;
+    padding: 6px;
+    background: transparent;
+    border: 1px solid var(--cream-300);
+    border-radius: 3px;
+    color: var(--ink-700);
+    font-size: 12px;
+    text-decoration: none;
+    cursor: pointer;
+  }
+  .chip-campaign .edit:hover { background: var(--cream-50); border-color: var(--ink-300); }
+
+  .mini-block {
+    margin-top: 16px;
+    padding-top: 12px;
+    border-top: 1px dashed var(--rule);
+  }
+  .mini-block h4 {
+    margin: 0 0 8px;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 9.5px;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    color: var(--ink-400);
+    font-weight: 500;
+  }
+  .crit-list { list-style: none; padding: 0; margin: 0; }
+  .crit-list li {
+    display: flex; gap: 8px;
+    padding: 5px 0;
+    font-size: 11.5px;
+    color: var(--ink-700);
+    border-bottom: 1px dotted var(--cream-200);
+  }
+  .crit-list li:last-child { border-bottom: none; }
+  .crit-list li .num {
+    font-family: 'JetBrains Mono', monospace;
+    color: var(--ink-400);
+    font-size: 10.5px;
+    flex: 0 0 14px;
+  }
+
+  /* --- RIGHT pane: toolbar (sticky) + ledger + preview --- */
+  .right {
+    background: var(--cream-50);
+    display: flex;
+    flex-direction: column;
+    min-width: 0;
+  }
+  .toolbar {
+    position: sticky; top: 0;
+    background: var(--cream-50);
+    border-bottom: 1px solid var(--rule);
+    padding: 14px 22px;
+    z-index: 2;
+  }
+  .toolbar .row1 {
+    display: flex; align-items: center; gap: 8px;
+  }
+  .toolbar .tabs {
+    display: flex; gap: 0;
+    border-bottom: 1px solid transparent;
+  }
+  .toolbar .tab {
+    padding: 4px 12px 8px;
+    border-bottom: 2px solid transparent;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 11px;
+    letter-spacing: 0.04em;
+    color: var(--ink-400);
+    cursor: pointer;
+    background: none; border-top: none; border-left: none; border-right: none;
+  }
+  .toolbar .tab.active {
+    color: var(--ink-900);
+    border-bottom-color: var(--burgundy);
+  }
+  .toolbar .row2 {
+    display: flex; gap: 6px;
+    margin-top: 10px;
+    align-items: center;
+  }
+  .btn {
+    appearance: none;
+    border: 1px solid var(--cream-300);
+    background: var(--cream-50);
+    font: inherit;
+    font-size: 12.5px;
+    padding: 7px 13px;
+    border-radius: 3px;
+    cursor: pointer;
+    font-family: inherit;
+    color: var(--ink-700);
+  }
+  .btn:hover { background: var(--cream-100); border-color: var(--ink-300); }
+  .btn-primary {
+    background: var(--burgundy);
+    color: var(--cream-50);
+    border-color: var(--burgundy);
+    font-weight: 500;
+  }
+  .btn-primary:hover { background: var(--burgundy-soft); border-color: var(--burgundy-soft); }
+  .btn-icon { padding: 7px 10px; }
+  .toolbar .spacer { flex: 1; }
+  .toolbar .meta {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 10.5px;
+    color: var(--ink-400);
+  }
+  .toolbar .toast {
+    margin-top: 8px;
+    background: var(--moss-tint);
+    color: var(--moss);
+    padding: 6px 10px;
+    border-radius: 3px;
+    font-size: 11.5px;
+    font-family: 'JetBrains Mono', monospace;
+    display: flex; align-items: center; gap: 6px;
+  }
+  .toolbar .toast .x {
+    margin-left: auto;
+    cursor: pointer;
+    opacity: 0.6;
+  }
+
+  /* --- Ledger as table --- */
+  .ledger { padding: 8px 22px 22px; }
+  .ledger table {
+    width: 100%;
+    border-collapse: collapse;
+  }
+  .ledger th, .ledger td {
+    text-align: left;
+    padding: 10px 6px;
+    border-bottom: 1px solid var(--cream-200);
+    vertical-align: middle;
+  }
+  .ledger thead th {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 10px;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: var(--ink-400);
+    font-weight: 500;
+    border-bottom-color: var(--rule);
+    padding-top: 12px;
+    padding-bottom: 8px;
+  }
+  .ledger tbody tr { cursor: pointer; }
+  .ledger tbody tr:hover { background: var(--cream-100); }
+  .ledger .av {
+    width: 22px; height: 22px;
+    border-radius: 50%;
+    background: linear-gradient(135deg, var(--cream-200), var(--cream-300));
+    border: 1px solid var(--cream-300);
+    display: inline-block;
+    vertical-align: middle;
+    margin-right: 8px;
+  }
+  .ledger .handle {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 11.5px;
+    color: var(--ink-900);
+  }
+  .ledger .excerpt {
+    color: var(--ink-700);
+    font-size: 12.5px;
+    max-width: 220px;
+    overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+  }
+  .ledger .metric {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 11px;
+    color: var(--ink-500);
+    text-align: right;
+  }
+  .ledger .progress {
+    width: 80px;
+  }
+  .ledger .progress .bar {
+    height: 4px;
+    background: var(--cream-200);
+    border-radius: 2px;
+    overflow: hidden;
+    margin-bottom: 3px;
+  }
+  .ledger .progress .bar > div {
+    height: 100%;
+    background: var(--burgundy);
+    border-radius: 2px;
+  }
+  .ledger .progress .num {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 10px;
+    color: var(--ink-400);
+  }
+  .ledger .when {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 10.5px;
+    color: var(--ink-400);
+    text-align: right;
+  }
+
+  /* --- Close --- */
+  .close {
+    position: fixed; top: 16px; right: 16px;
+    width: 36px; height: 36px;
+    border-radius: 50%;
+    background: var(--burgundy);
+    color: var(--cream-50);
+    display: grid; place-items: center;
+    text-decoration: none;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.2);
+  }
+  .label-mockup {
+    position: fixed; top: 16px; left: 16px;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 10.5px;
+    color: var(--ink-500);
+    background: var(--cream-50);
+    padding: 6px 10px;
+    border-radius: 2px;
+    border: 1px solid var(--cream-300);
+  }
+</style>
+</head>
+<body>
+
+<div class="label-mockup">V2 — Workbench (two-pane) · 800px</div>
+<a class="close" href="#">×</a>
+
+<div class="frame">
+
+  <div class="masthead">
+    <div class="brand">dlens<span class="mode">PR MODE</span></div>
+    <div>May 26 · v0.1.22</div>
+  </div>
+
+  <div class="title-row">
+    <h1>PR Evidence</h1>
+    <span class="tagline">把 Threads 貼文整理成 evidence CSV · Collect → Match → Export</span>
+    <span class="badge">CSV FIRST</span>
+  </div>
+
+  <div class="layout">
+    <aside class="rail">
+      <div class="logo">d</div>
+      <a href="#"><span class="ico">◎</span>採集</a>
+      <a href="#" class="active"><span class="ico">▤</span>PR</a>
+      <a href="#"><span class="ico">⚙</span>設定</a>
+    </aside>
+
+    <div class="panes">
+      <!-- LEFT: campaign summary -->
+      <section class="left">
+        <div class="head">◐ Campaign</div>
+
+        <div class="chip-campaign">
+          <div class="name">testing</div>
+          <div class="meta">
+            <span class="pill ready">Ready</span>
+            <span class="pill count">6 criteria</span>
+          </div>
+          <a class="edit" href="#">Edit setup</a>
+        </div>
+
+        <div class="mini-block">
+          <h4>PR brief</h4>
+          <div style="color: var(--ink-400); font-size: 12px; font-style: italic;">
+            尚未上載 — Upload PDF or paste the press release.
+          </div>
+        </div>
+
+        <div class="mini-block">
+          <h4>Criteria · 6</h4>
+          <ul class="crit-list">
+            <li><span class="num">01</span>criterion_1</li>
+            <li><span class="num">02</span>criterion_2</li>
+            <li><span class="num">03</span>criterion_3</li>
+            <li><span class="num">04</span>criterion_4</li>
+            <li><span class="num">05</span>criterion_5</li>
+            <li><span class="num">06</span>criterion_6</li>
+          </ul>
+        </div>
+      </section>
+
+      <!-- RIGHT: toolbar + ledger -->
+      <section class="right">
+        <div class="toolbar">
+          <div class="row1">
+            <div class="tabs">
+              <button class="tab active">Ledger · 5</button>
+              <button class="tab">CSV preview</button>
+              <button class="tab">Summary</button>
+            </div>
+            <span class="spacer"></span>
+            <span class="meta">~1 AI call</span>
+          </div>
+          <div class="row2">
+            <button class="btn btn-primary">Export CSV</button>
+            <button class="btn">Match criteria</button>
+            <button class="btn">Fetch metrics</button>
+            <span class="spacer"></span>
+            <button class="btn btn-icon" title="Refresh">↻</button>
+            <button class="btn btn-icon" title="Filter">▽</button>
+          </div>
+          <div class="toast">
+            ✓ Advanced metrics updated — 5 rows
+            <span class="x">×</span>
+          </div>
+        </div>
+
+        <div class="ledger">
+          <table>
+            <thead>
+              <tr>
+                <th>Author</th>
+                <th>Excerpt</th>
+                <th style="text-align:right;">Likes</th>
+                <th>Match</th>
+                <th style="text-align:right;">Saved</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td><span class="av"></span><span class="handle">gdragonfayetang</span></td>
+                <td class="excerpt">我諗今日 參加左萬寧 BoostUP 好狀態 體驗會…</td>
+                <td class="metric">27</td>
+                <td class="progress"><div class="bar"><div style="width:0%;"></div></div><span class="num">0 / 6</span></td>
+                <td class="when">14:33</td>
+              </tr>
+              <tr>
+                <td><span class="av"></span><span class="handle">kkkkkomi.c</span></td>
+                <td class="excerpt">護膚分享 05/05/2026 同樣是萬寧 BoostUP…</td>
+                <td class="metric">8</td>
+                <td class="progress"><div class="bar"><div style="width:0%;"></div></div><span class="num">0 / 6</span></td>
+                <td class="when">14:33</td>
+              </tr>
+              <tr>
+                <td><span class="av"></span><span class="handle">coco_06.29</span></td>
+                <td class="excerpt">萬寧 25/04/2026 今日喺萬寧買咗呢個…</td>
+                <td class="metric">46</td>
+                <td class="progress"><div class="bar"><div style="width:0%;"></div></div><span class="num">0 / 6</span></td>
+                <td class="when">14:33</td>
+              </tr>
+              <tr>
+                <td><span class="av"></span><span class="handle">tsangtszwa</span></td>
+                <td class="excerpt">身心又爆喇！⚡ 直擊萬寧 BoostUP 好狀態…</td>
+                <td class="metric">9</td>
+                <td class="progress"><div class="bar"><div style="width:0%;"></div></div><span class="num">0 / 6</span></td>
+                <td class="when">14:33</td>
+              </tr>
+              <tr>
+                <td><span class="av"></span><span class="handle">mmmman_c</span></td>
+                <td class="excerpt">去咗萬寧 BoostUP 好狀態 體驗會 真係好正…</td>
+                <td class="metric">0</td>
+                <td class="progress"><div class="bar"><div style="width:0%;"></div></div><span class="num">0 / 6</span></td>
+                <td class="when">14:33</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </section>
+    </div>
+  </div>
+</div>
+
+</body>
+</html>

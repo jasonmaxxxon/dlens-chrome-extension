@@ -6,6 +6,7 @@
   "scripts": {
     "dev": "wxt",
     "build": "node scripts/build-extension.mjs",
+    "build:pr": "node scripts/build-extension.mjs --variant pr-only",
     "build:wxt": "wxt build",
     "zip": "wxt zip",
     "typecheck": "tsc --noEmit",

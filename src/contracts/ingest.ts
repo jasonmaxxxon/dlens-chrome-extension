@@ -36,6 +36,12 @@ export interface WorkerStatusResponse {
   status: "idle" | "draining";
 }
 
+export interface ThreadsAdvancedMetricsResponse {
+  post_url: string;
+  metrics: Record<string, unknown>;
+  fetched_at: string;
+}
+
 export type BackendJobStatus = "pending" | "running" | "succeeded" | "dead";
 export type SidebarJobStatus = "queued" | "running" | "succeeded" | "dead";
 

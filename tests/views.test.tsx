@@ -8,13 +8,14 @@ import { buildProductAgentTaskPromptHash } from "../src/compare/product-agent-ta
 import { SIGNAL_READING_PROMPT_VERSION } from "../src/compare/signal-reading.ts";
 import type { SessionProcessingSummary, WorkerStatus } from "../src/state/processing-state.ts";
 import type { TargetDescriptor } from "../src/contracts/target-descriptor.ts";
+import type { PrCampaign, PrEvidenceRow } from "../src/state/pr-evidence-storage.ts";
 import type { SavedAnalysisSnapshot, SessionItem, SessionRecord, TechniqueReadingSnapshot } from "../src/state/types.ts";
 import { createSessionItem, createSessionRecord } from "../src/state/store-helpers.ts";
 import { CollectView } from "../src/ui/CollectView.tsx";
 import { InPageCollectorFolderControls, inPageCollectorFolderControlsTestables } from "../src/ui/InPageCollectorFolderControls.tsx";
 import { inPageCollectorPopupTestables } from "../src/ui/InPageCollectorPopup.tsx";
 import { LibraryView } from "../src/ui/LibraryView.tsx";
-import { PrEvidenceView } from "../src/ui/PrEvidenceViews.tsx";
+import { PrEvidenceView, prEvidenceViewTestables } from "../src/ui/PrEvidenceViews.tsx";
 import { ProductSignalView, DLENS_MOTION_CSS, productSignalViewTestables } from "../src/ui/ProductSignalViews.tsx";
 import { SettingsView } from "../src/ui/SettingsView.tsx";
 import {
@@ -664,8 +665,128 @@ test("PrEvidenceView renders campaign setup and compact evidence ledger", () => 
   assert.match(html, /data-pr-actions="true"/);
   assert.match(html, /data-pr-evidence-ledger="compact"/);
   assert.match(html, /Match criteria/);
+  assert.match(html, /Fetch advanced metrics/);
   assert.match(html, /Export CSV/);
   assert.match(html, /Generate summary/);
+});
+
+test("PrEvidenceView aligns the editorial PR structure to shared workspace tokens", () => {
+  const html = renderToStaticMarkup(
+    React.createElement(PrEvidenceView, {
+      sessionId: "session-pr"
+    })
+  );
+
+  assert.match(html, /data-pr-editorial-v1="true"/);
+  assert.match(html, /data-mode-header="pr-evidence"/);
+  assert.match(html, /data-workspace-surface="utility"/);
+  assert.match(html, /data-pr-working-area="true"/);
+  assert.match(html, /Ledger/);
+  assert.match(html, /Match criteria/);
+  assert.match(html, /Fetch metrics/);
+  assert.match(html, /border-radius:12px/);
+  assert.doesNotMatch(html, /border-radius:20px/);
+});
+
+test("PR Evidence ledger rows expose the original Threads post link", () => {
+  const row: PrEvidenceRow = {
+    id: "row-link",
+    campaignId: "campaign-1",
+    itemId: "item-1",
+    postUrl: "https://www.threads.net/@alpha/post/1",
+    authorHandle: "alpha",
+    caption: "Source post that should be auditable from the ledger.",
+    metrics: { likes: 12, comments: 3, reposts: 1 },
+    criteriaMatches: { c1: false, c2: false, c3: false, c4: false, c5: false, c6: false },
+    collectedAt: "2026-05-26T00:00:00.000Z"
+  };
+  const { EvidenceLedger } = prEvidenceViewTestables as unknown as {
+    EvidenceLedger: (props: { rows: PrEvidenceRow[] }) => React.ReactElement;
+  };
+  const html = renderToStaticMarkup(
+    React.createElement(EvidenceLedger, {
+      rows: [row]
+    })
+  );
+
+  assert.match(html, /data-pr-evidence-source-link="true"/);
+  assert.match(html, /href="https:\/\/www\.threads\.net\/@alpha\/post\/1"/);
+  assert.match(html, /target="_blank"/);
+  assert.match(html, /Open original Threads post by alpha/);
+});
+
+test("PrEvidenceView keeps metrics actions prominent and avoids horizontal inspection tables", () => {
+  const html = renderToStaticMarkup(
+    React.createElement(PrEvidenceView, {
+      sessionId: "session-pr"
+    })
+  );
+  const previewCampaign: PrCampaign = {
+    id: "campaign-1",
+    sessionId: "session-pr",
+    name: "Launch",
+    briefText: "Brief",
+    criteria: [
+      { id: "c1", label: "Campaign" },
+      { id: "c2", label: "Hashtag" },
+      { id: "c3", label: "Message" },
+      { id: "c4", label: "Venue" },
+      { id: "c5", label: "Experience" },
+      { id: "c6", label: "CTA" }
+    ],
+    createdAt: "2026-05-26T00:00:00.000Z",
+    updatedAt: "2026-05-26T00:00:00.000Z"
+  };
+  const previewRows: PrEvidenceRow[] = [{
+    id: "row-1",
+    campaignId: "campaign-1",
+    itemId: "item-1",
+    postUrl: "https://www.threads.net/@alpha/post/1",
+    authorHandle: "alpha",
+    caption: "Launch post with enough text to inspect all CSV fields.",
+    metrics: { likes: 12, comments: 3, reposts: 1, views: 4200, followers: 987 },
+    criteriaMatches: { c1: true, c2: false, c3: true, c4: false, c5: false, c6: true },
+    collectedAt: "2026-05-26T00:00:00.000Z"
+  }];
+  const previewHtml = renderToStaticMarkup(
+    React.createElement(prEvidenceViewTestables.CsvPreview, {
+      campaign: previewCampaign,
+      rows: previewRows
+    })
+  );
+
+  assert.match(html, /data-pr-metrics-action="toolbar"/);
+  assert.match(html, /Fetch advanced metrics/);
+  assert.match(html, /data-pr-work-tab="metrics"/);
+  assert.match(html, /data-pr-match-list="wrap"/);
+  assert.match(html, /data-pr-metrics-list="wrap"/);
+  assert.match(previewHtml, /data-pr-csv-preview-layout="wrap"/);
+  assert.doesNotMatch(previewHtml, /min-width:1320/);
+  assert.match(html, /padding-bottom:28px/);
+});
+
+test("PR Evidence advanced metrics notice includes the first failure reason", () => {
+  const notice = prEvidenceViewTestables.summarizeAdvancedMetricsNotice(
+    { updated: 0, failed: 5 },
+    [
+      {
+        id: "row-1",
+        campaignId: "campaign-1",
+        itemId: "item-1",
+        postUrl: "https://threads.net/@a/post/1",
+        authorHandle: "@a",
+        caption: "A",
+        metrics: {},
+        expectedEngagement: "",
+        criteriaMatches: { c1: false, c2: false, c3: false, c4: false, c5: false, c6: false },
+        collectedAt: "2026-05-26T06:00:00.000Z",
+        advancedMetricsError: "404 Not Found: {\"detail\":\"Not Found\"}"
+      }
+    ]
+  );
+
+  assert.match(notice, /0 rows, 5 failed/);
+  assert.match(notice, /First error: 404 Not Found/);
 });
 
 test("Product and PR Evidence modes render no folder strip", () => {
