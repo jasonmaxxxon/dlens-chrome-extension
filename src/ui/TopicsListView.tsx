@@ -1,0 +1,231 @@
+import type { CSSProperties } from "react";
+
+import { getItemReadinessStatus } from "../state/processing-state.ts";
+import type { SessionItem, Signal, Topic } from "../state/types.ts";
+import { tokens } from "./tokens";
+import {
+  TopicAuditStatusPill,
+  type TopicAuditSummary
+} from "./topic-audit-components.tsx";
+
+export interface TopicSourceSummary {
+  total: number;
+  ready: number;
+  processing: number;
+  pending: number;
+}
+
+function defaultSummary(topic: Topic): TopicAuditSummary {
+  return {
+    reportStatus: "none",
+    analyzedCount: 0,
+    queuedCount: topic.signalIds.length
+  };
+}
+
+function statStyle(muted = false): CSSProperties {
+  return {
+    display: "grid",
+    gap: 4,
+    minWidth: 54,
+    color: muted ? tokens.color.softInk : tokens.color.ink
+  };
+}
+
+function Stat({ value, label, muted }: { value: string | number; label: string; muted?: boolean }) {
+  return (
+    <span style={statStyle(muted)}>
+      <span style={{ fontSize: 17, fontWeight: 800, lineHeight: 1, fontVariantNumeric: "tabular-nums" }}>{value}</span>
+      <span style={{ fontSize: 10.5, color: tokens.color.softInk, fontWeight: 700 }}>{label}</span>
+    </span>
+  );
+}
+
+function Divider() {
+  return <span aria-hidden="true" style={{ width: 1, height: 24, background: tokens.color.line, margin: "0 12px" }} />;
+}
+
+export function TopicCard({
+  topic,
+  summary,
+  sourceSummary,
+  onOpenTopic
+}: {
+  topic: Topic;
+  summary: TopicAuditSummary;
+  sourceSummary?: TopicSourceSummary;
+  onOpenTopic: (topicId: string) => void;
+}) {
+  const signalCount = topic.signalIds.length;
+  const source = sourceSummary ?? {
+    total: signalCount,
+    ready: 0,
+    processing: 0,
+    pending: signalCount
+  };
+  return (
+    <button
+      data-topic-card={topic.id}
+      onClick={() => onOpenTopic(topic.id)}
+      style={{
+        textAlign: "left",
+        width: "100%",
+        border: "none",
+        borderRadius: tokens.radius.cardLg,
+        background: tokens.color.elevated,
+        boxShadow: tokens.shadow.topicCard,
+        padding: "16px 18px",
+        cursor: "pointer",
+        display: "grid",
+        gap: 12,
+        fontFamily: tokens.font.sans,
+        color: tokens.color.ink,
+        transition: tokens.motion.preset.cardLift
+      }}
+    >
+      <span style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: 12 }}>
+        <span style={{ display: "grid", gap: 5, minWidth: 0 }}>
+          <span style={{ fontFamily: `${tokens.font.serifCjk}, ${tokens.font.serif}`, fontSize: 18, fontWeight: 900, lineHeight: 1.2 }}>
+            {topic.name}
+          </span>
+          <span style={{ fontSize: 11.5, color: tokens.color.softInk, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
+            {topic.description || topic.tags.join(" · ") || "採集批次待整理"}
+          </span>
+        </span>
+        <TopicAuditStatusPill summary={summary} />
+      </span>
+      <span
+        style={{
+          display: "flex",
+          alignItems: "center",
+          gap: 0,
+          borderRadius: tokens.radius.button,
+          background: tokens.color.contextSurface,
+          padding: "10px 14px"
+        }}
+      >
+        <Stat value={signalCount} label="訊號" />
+        <Divider />
+        <Stat value={`${source.ready}/${source.total}`} label="已完成" />
+        <Divider />
+        <Stat value={source.processing} label="處理中" muted={source.processing === 0} />
+        <Divider />
+        <Stat value={source.pending} label="待處理" muted />
+        <span style={{ marginLeft: "auto", fontSize: 12, fontWeight: 800, color: tokens.topicAccent.primary }}>打開 ›</span>
+      </span>
+    </button>
+  );
+}
+
+export function NewTopicButton({ onCreateTopic }: { onCreateTopic: () => void }) {
+  return (
+    <button
+      data-new-topic-button="triage"
+      onClick={onCreateTopic}
+      style={{
+        width: "100%",
+        marginTop: 14,
+        border: `1.5px dashed ${tokens.color.lineStrong}`,
+        borderRadius: tokens.radius.card,
+        background: "transparent",
+        color: tokens.color.subInk,
+        fontFamily: tokens.font.sans,
+        fontSize: 12.5,
+        fontWeight: 700,
+        padding: "12px 16px",
+        cursor: "pointer",
+        textAlign: "left"
+      }}
+    >
+      + 建立新議題 · 從採集匣選 ≥3 訊號開始
+    </button>
+  );
+}
+
+export function TopicsListView({
+  topics,
+  signals = [],
+  sessionItems = [],
+  auditSummariesByTopicId = {},
+  onOpenTopic,
+  onCreateTopic
+}: {
+  topics: Topic[];
+  signals?: Signal[];
+  sessionItems?: SessionItem[];
+  auditSummariesByTopicId?: Record<string, TopicAuditSummary>;
+  onOpenTopic: (topicId: string) => void;
+  onCreateTopic: () => void;
+}) {
+  const sourceSummariesByTopicId = buildTopicSourceSummaries(topics, signals, sessionItems);
+  return (
+    <div data-topics-list="audit" style={{ display: "grid", gap: 14 }}>
+      <div style={{ display: "flex", alignItems: "end", justifyContent: "space-between", gap: 12 }}>
+        <div style={{ display: "grid", gap: 4 }}>
+          <h2 style={{ margin: 0, fontFamily: `${tokens.font.serifCjk}, ${tokens.font.serif}`, fontSize: 23, lineHeight: 1.15, color: tokens.color.ink }}>
+            議題
+          </h2>
+          <p style={{ margin: 0, fontSize: 12.5, lineHeight: 1.55, color: tokens.color.softInk }}>
+            每個議題收一批 Threads 訊號；點進去看詞群、敘事與源清單。
+          </p>
+        </div>
+        <span style={{ fontSize: 11, color: tokens.color.softInk, whiteSpace: "nowrap" }}>{topics.length} 個議題</span>
+      </div>
+      <div style={{ display: "grid", gap: 12 }}>
+        {topics.map((topic) => (
+          <TopicCard
+            key={topic.id}
+            topic={topic}
+            summary={auditSummariesByTopicId[topic.id] ?? defaultSummary(topic)}
+            sourceSummary={sourceSummariesByTopicId[topic.id]}
+            onOpenTopic={onOpenTopic}
+          />
+        ))}
+      </div>
+      <NewTopicButton onCreateTopic={onCreateTopic} />
+    </div>
+  );
+}
+
+export const topicsListViewTestables = {
+  TopicCard,
+  NewTopicButton,
+  buildTopicSourceSummaries
+};
+
+export function buildTopicSourceSummaries(
+  topics: Topic[],
+  signals: Signal[],
+  sessionItems: SessionItem[]
+): Record<string, TopicSourceSummary> {
+  const itemById = new Map(sessionItems.map((item) => [item.id, item]));
+  return Object.fromEntries(
+    topics.map((topic) => {
+      const signalIds = new Set(topic.signalIds);
+      const topicSignals = signals.filter((signal) => signalIds.has(signal.id) || signal.topicId === topic.id);
+      const total = topicSignals.length || topic.signalIds.length;
+      let ready = 0;
+      let processing = 0;
+      let pending = 0;
+      for (const signal of topicSignals) {
+        const item = signal.itemId ? itemById.get(signal.itemId) : null;
+        if (!item) {
+          pending += 1;
+          continue;
+        }
+        const status = getItemReadinessStatus(item);
+        if (status === "ready") {
+          ready += 1;
+        } else if (status === "crawling" || status === "analyzing") {
+          processing += 1;
+        } else {
+          pending += 1;
+        }
+      }
+      if (topicSignals.length === 0) {
+        pending = total;
+      }
+      return [topic.id, { total, ready, processing, pending }] as const;
+    })
+  );
+}

@@ -36,6 +36,7 @@ export interface PrEvidenceRow {
     comments?: number;
     reposts?: number;
     views?: number;
+    followers?: number;
   };
   expectedEngagement?: string;
   criteriaMatches: PrCriteriaMatches;
@@ -137,7 +138,8 @@ export function normalizePrEvidenceRow(value: unknown): PrEvidenceRow | null {
     likes: readNumber(rawMetrics.likes),
     comments: readNumber(rawMetrics.comments),
     reposts: readNumber(rawMetrics.reposts),
-    views: readNumber(rawMetrics.views)
+    views: readNumber(rawMetrics.views),
+    followers: readNumber(rawMetrics.followers)
   };
   const matchedAt = readString(raw.matchedAt).trim();
   return {
@@ -222,6 +224,29 @@ export async function savePrEvidenceRow(storageArea: StorageAreaLike, row: PrEvi
 export function toPrEvidenceRowFromSessionItem(campaignId: string, item: SessionItem, now = new Date().toISOString()): PrEvidenceRow {
   const descriptor = item.descriptor;
   const engagement = descriptor.engagement || {};
+  const canonicalPost = item.latestCapture?.result?.canonical_post as Record<string, unknown> | undefined;
+  const canonicalMetrics = canonicalPost?.metrics && typeof canonicalPost.metrics === "object"
+    ? canonicalPost.metrics as Record<string, unknown>
+    : {};
+  const firstNumber = (...values: unknown[]): number | undefined => {
+    for (const value of values) {
+      if (typeof value === "number" && Number.isFinite(value)) {
+        return value;
+      }
+      if (typeof value === "string" && value.trim()) {
+        const parsed = Number(value);
+        if (Number.isFinite(parsed)) {
+          return parsed;
+        }
+      }
+    }
+    return undefined;
+  };
+  const likes = firstNumber(canonicalMetrics.likes, engagement.likes);
+  const comments = firstNumber(canonicalMetrics.comments, canonicalMetrics.reply_count, canonicalMetrics.replies, engagement.comments);
+  const reposts = firstNumber(canonicalMetrics.reposts, canonicalMetrics.repost_count, engagement.reposts);
+  const views = firstNumber(canonicalMetrics.views, engagement.views);
+  const followers = firstNumber(canonicalMetrics.followers, canonicalMetrics.author_followers, engagement.followers);
   return {
     id: createId("prrow"),
     campaignId,
@@ -230,10 +255,11 @@ export function toPrEvidenceRowFromSessionItem(campaignId: string, item: Session
     authorHandle: descriptor.author_hint || "",
     caption: descriptor.text_snippet || "",
     metrics: {
-      ...(typeof engagement.likes === "number" ? { likes: engagement.likes } : {}),
-      ...(typeof engagement.comments === "number" ? { comments: engagement.comments } : {}),
-      ...(typeof engagement.reposts === "number" ? { reposts: engagement.reposts } : {}),
-      ...(typeof engagement.views === "number" ? { views: engagement.views } : {})
+      ...(typeof likes === "number" ? { likes } : {}),
+      ...(typeof comments === "number" ? { comments } : {}),
+      ...(typeof reposts === "number" ? { reposts } : {}),
+      ...(typeof views === "number" ? { views } : {}),
+      ...(typeof followers === "number" ? { followers } : {})
     },
     expectedEngagement: "",
     criteriaMatches: emptyPrCriteriaMatches(),

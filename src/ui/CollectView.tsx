@@ -1,5 +1,7 @@
+import { useState } from "react";
+
 import type { TargetDescriptor } from "../contracts/target-descriptor";
-import type { FolderMode } from "../state/types";
+import type { FolderMode, Signal, SignalTagsRecord } from "../state/types";
 import {
   Kicker,
   ModeHeader,
@@ -22,6 +24,24 @@ function avatarInitial(author: string | undefined): string {
   return clean.charAt(0).toUpperCase();
 }
 
+function formatMetricValue(value: number | null | undefined): string {
+  if (value === null || value === undefined) return "—";
+  if (Math.abs(value) >= 1000000) return `${(value / 1000000).toFixed(value >= 10000000 ? 0 : 1).replace(/\.0$/, "")}M`;
+  if (Math.abs(value) >= 1000) return `${(value / 1000).toFixed(value >= 10000 ? 0 : 1).replace(/\.0$/, "")}K`;
+  return String(value);
+}
+
+function collectMetrics(preview: TargetDescriptor | null) {
+  if (!preview) return [];
+  return [
+    { key: "likes", label: "Like", value: preview.engagement.likes, present: preview.engagement_present.likes },
+    { key: "comments", label: "Reply", value: preview.engagement.comments, present: preview.engagement_present.comments },
+    { key: "reposts", label: "Repost", value: preview.engagement.reposts, present: preview.engagement_present.reposts },
+    { key: "forwards", label: "Share", value: preview.engagement.forwards, present: preview.engagement_present.forwards },
+    { key: "views", label: "View", value: preview.engagement.views, present: preview.engagement_present.views }
+  ].filter((metric) => metric.present || metric.value !== null && metric.value !== undefined);
+}
+
 interface CollectViewProps {
   preview: TargetDescriptor | null;
   folderName: string;
@@ -33,6 +53,19 @@ interface CollectViewProps {
   onSavePreview: () => void;
   onOpenPreview: () => void;
   onToggleCollectMode: () => void;
+  untriagedSignals?: Signal[];
+  signalPreviewById?: Record<string, string>;
+  signalTagsByItemId?: Record<string, SignalTagsRecord>;
+  onCreateTopicFromSignals?: (signalIds: string[]) => void;
+}
+
+function canCreateTopicFromSelection(signalIds: string[]): boolean {
+  return signalIds.length >= 3;
+}
+
+function suggestTagsForSignal(signal: Signal, signalTagsByItemId: Record<string, SignalTagsRecord>): string[] {
+  const record = signal.itemId ? signalTagsByItemId[signal.itemId] : null;
+  return record?.status === "complete" ? record.signalTags.slice(0, 2) : [];
 }
 
 export function CollectView({
@@ -45,8 +78,13 @@ export function CollectView({
   selectionMode,
   onSavePreview,
   onOpenPreview,
-  onToggleCollectMode
+  onToggleCollectMode,
+  untriagedSignals = [],
+  signalPreviewById = {},
+  signalTagsByItemId = {},
+  onCreateTopicFromSignals
 }: CollectViewProps) {
+  const [selectedSignalIds, setSelectedSignalIds] = useState<string[]>([]);
   const hasPreview = Boolean(preview);
   const isProductMode = mode === "product";
   const isTopicMode = mode === "topic";
@@ -63,6 +101,17 @@ export function CollectView({
       : "指向 Threads 貼文即可預覽，按下存入資料庫。";
   const savedCopy = isPrEvidenceMode ? "已加入 PR evidence" : isProductMode ? "已加入產品訊號" : isTopicMode ? "已加入主題" : "已儲存到資料庫";
   const saveCopy = isPrEvidenceMode ? "加入 evidence row" : isProductMode ? "加入產品訊號" : isTopicMode ? "加入主題" : "儲存到資料庫";
+  const metrics = collectMetrics(preview);
+  const visibleUntriagedSignals = isTopicMode ? untriagedSignals.filter((signal) => signal.inboxStatus === "unprocessed") : [];
+  const canCreateTopic = canCreateTopicFromSelection(selectedSignalIds);
+  const toggleSignal = (signalId: string) => {
+    setSelectedSignalIds((current) =>
+      current.includes(signalId) ? current.filter((id) => id !== signalId) : [...current, signalId]
+    );
+  };
+  const selectAll = () => {
+    setSelectedSignalIds(visibleUntriagedSignals.map((signal) => signal.id));
+  };
 
   return (
     <div style={viewRootStyle({ gap: tokens.spacing.md })}>
@@ -138,6 +187,32 @@ export function CollectView({
                 <div style={{ fontSize: 12, lineHeight: 1.65, color: tokens.color.subInk, ...lineClamp(3) }}>
                   {preview?.text_snippet || "將游標移到 Threads 貼文上，這裡會顯示快速預覽。"}
                 </div>
+                {metrics.length ? (
+                  <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
+                    {metrics.map((metric) => (
+                      <span
+                        key={metric.key}
+                        data-collect-metric={metric.key}
+                        style={{
+                          display: "inline-flex",
+                          alignItems: "center",
+                          gap: 4,
+                          minHeight: 22,
+                          padding: "0 7px",
+                          borderRadius: 999,
+                          border: `1px solid ${tokens.color.line}`,
+                          background: tokens.color.neutralSurface,
+                          color: tokens.color.subInk,
+                          fontSize: 10.5,
+                          fontWeight: 700
+                        }}
+                      >
+                        <span style={{ color: tokens.color.softInk, fontWeight: 600 }}>{metric.label}</span>
+                        <span>{formatMetricValue(metric.value)}</span>
+                      </span>
+                    ))}
+                  </div>
+                ) : null}
               </div>
             </div>
 
@@ -211,6 +286,106 @@ export function CollectView({
           <Stamp tone="neutral">Esc · 離開</Stamp>
         </div>
       </section>
+
+      {isTopicMode && visibleUntriagedSignals.length ? (
+        <section
+          data-topic-triage="untriaged"
+          style={{
+            display: "grid",
+            gap: 10,
+            padding: "14px 16px",
+            borderRadius: tokens.radius.cardLg,
+            border: `1px solid ${tokens.color.line}`,
+            background: tokens.color.elevated,
+            boxShadow: tokens.shadow.topicCard
+          }}
+        >
+          <div style={{ display: "flex", alignItems: "end", justifyContent: "space-between", gap: 10 }}>
+            <div style={{ display: "grid", gap: 3 }}>
+              <Kicker tone="accent">Triage</Kicker>
+              <div style={{ fontSize: 15, fontWeight: 800, color: tokens.color.ink }}>未分流</div>
+            </div>
+            <span style={{ fontSize: 11, color: tokens.color.softInk }}>{visibleUntriagedSignals.length} 篇</span>
+          </div>
+
+          <div style={{ display: "grid", gap: 2 }}>
+            {visibleUntriagedSignals.map((signal) => {
+              const tags = suggestTagsForSignal(signal, signalTagsByItemId);
+              const checked = selectedSignalIds.includes(signal.id);
+              return (
+                <label
+                  key={signal.id}
+                  data-untriaged-row={signal.id}
+                  style={{
+                    display: "grid",
+                    gridTemplateColumns: "auto minmax(0, 1fr)",
+                    gap: 10,
+                    padding: "10px 0",
+                    borderBottom: `1px solid ${tokens.color.line}`,
+                    cursor: "pointer"
+                  }}
+                >
+                  <input
+                    type="checkbox"
+                    checked={checked}
+                    onChange={() => toggleSignal(signal.id)}
+                    style={{ width: 16, height: 16, accentColor: tokens.topicAccent.primary }}
+                  />
+                  <span style={{ display: "grid", gap: 5, minWidth: 0 }}>
+                    <span style={{ fontSize: 12.5, lineHeight: 1.55, color: tokens.color.subInk, ...lineClamp(2) }}>
+                      {signalPreviewById[signal.id] || "資料不完整的 Threads 訊號"}
+                    </span>
+                    <span style={{ display: "flex", gap: 5, flexWrap: "wrap" }}>
+                      {tags.length ? tags.map((tag) => (
+                        <span key={tag} style={{ fontSize: 10.5, color: tokens.topicAccent.primary, background: tokens.topicAccent.tintSage, borderRadius: tokens.radius.round, padding: "2px 6px" }}>
+                          {tag}
+                        </span>
+                      )) : (
+                        <span style={{ fontSize: 10.5, color: tokens.color.softInk }}>建議議題待標籤完成</span>
+                      )}
+                    </span>
+                  </span>
+                </label>
+              );
+            })}
+          </div>
+
+          <div
+            data-topic-triage-action-bar="true"
+            style={{
+              position: "sticky",
+              bottom: 0,
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "space-between",
+              gap: 10,
+              padding: "10px 12px",
+              borderRadius: tokens.radius.card,
+              background: tokens.color.surface,
+              border: `1px solid ${tokens.color.line}`
+            }}
+          >
+            <span style={{ fontSize: 11.5, color: tokens.color.softInk, fontWeight: 700 }}>
+              已選 {selectedSignalIds.length} 篇 · 建立議題需要 ≥ 3
+            </span>
+            <span style={{ display: "flex", gap: 8 }}>
+              <SecondaryButton onClick={selectAll} style={{ padding: "6px 10px", fontSize: 11 }}>全選</SecondaryButton>
+              <PrimaryButton
+                onClick={() => onCreateTopicFromSignals?.(selectedSignalIds)}
+                disabled={!canCreateTopic}
+                style={{ padding: "7px 11px", fontSize: 11 }}
+              >
+                建立議題
+              </PrimaryButton>
+            </span>
+          </div>
+        </section>
+      ) : null}
     </div>
   );
 }
+
+export const collectViewTestables = {
+  canCreateTopicFromSelection,
+  suggestTagsForSignal
+};

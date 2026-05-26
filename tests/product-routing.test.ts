@@ -16,16 +16,15 @@ test("product mode opens Saved Signals before action filtering", () => {
   assert.equal(guardPage("actionable-filter", "product"), "actionable-filter");
 });
 
-test("topic mode keeps Casebook and Inbox as first-class pages", () => {
+test("topic mode narrows the popup IA to collect, topics, and settings", () => {
   assert.deepEqual(ALLOWED_PAGES.topic, [
-    "casebook",
-    "inbox",
     "collect",
-    "compare",
-    "library"
+    "topics",
+    "settings"
   ]);
-  assert.equal(guardPage("classification", "topic"), "casebook");
-  assert.equal(guardPage("inbox", "topic"), "inbox");
+  assert.equal(guardPage("classification", "topic"), "collect");
+  assert.equal(guardPage("topics", "topic"), "topics");
+  assert.equal(guardPage("settings", "topic"), "settings");
 });
 
 test("PR Evidence mode mounts only the campaign evidence workspace and Collect", () => {

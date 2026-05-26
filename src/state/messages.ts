@@ -30,6 +30,9 @@ import type { WorkerStatus } from "./processing-state";
 import type { PrCampaign, PrCriterion, PrEvidenceRow } from "./pr-evidence-storage";
 import type { DLensSignalPacket, SignalPacketIndexFilter } from "../compare/signal-packet";
 import type { SignalPacketExportFormat, SignalPacketExportResult } from "../compare/signal-packet-export";
+import type { CrossTopicCalibration, EvidencePacket, TopicAuditReport, TopicAuditStageName } from "../compare/topic-audit";
+import type { TopicAuditValidationFlag } from "../compare/topic-audit-validator";
+import type { TopicAuditMemoBundle } from "./topic-audit-storage";
 
 export type ExtensionMessage =
   | { type: "state/get-active-tab" }
@@ -49,15 +52,16 @@ export type ExtensionMessage =
   | { type: "selection/hovered"; descriptor: TargetDescriptor | null; strength?: HoverCandidateStrength | null }
   | { type: "selection/selected"; descriptor: TargetDescriptor }
   | { type: "selection/mode-changed"; enabled: boolean }
-  | { type: "session/create"; name: string; saveCurrentPreview?: boolean; mode?: FolderMode }
+  | { type: "session/create"; name: string; saveCurrentPreview?: boolean; mode?: FolderMode; descriptor?: TargetDescriptor }
   | { type: "session/rename"; sessionId: string; name: string }
   | { type: "session/delete"; sessionId: string }
   | { type: "session/set-active"; sessionId: string }
   | { type: "session/set-mode"; sessionId: string; mode: FolderMode }
-  | { type: "session/save-current-preview" }
+  | { type: "session/save-current-preview"; sessionId?: string; topicId?: string; descriptor?: TargetDescriptor }
   | { type: "session/select-item"; sessionId: string; itemId: string }
   | { type: "session/queue-item"; sessionId: string; itemId: string }
   | { type: "session/queue-items"; sessionId: string; itemIds: string[] }
+  | { type: "session/queue-items-and-start-processing"; sessionId: string; itemIds: string[] }
   | { type: "session/queue-selected" }
   | { type: "session/queue-all-pending"; sessionId?: string }
   | { type: "session/refresh-item"; sessionId: string; itemId: string }
@@ -77,10 +81,19 @@ export type ExtensionMessage =
   | { type: "topic/create"; sessionId: string; name: string; description?: string; context?: Topic["context"] }
   | { type: "topic/update"; id: string; patch: Partial<Pick<Topic, "name" | "status" | "tags" | "description" | "context">> }
   | { type: "topic/delete"; id: string }
+  | { type: "topic/set-collection-target"; topicId: string | null }
   | { type: "topic/add-pair"; topicId: string; resultId: string }
   | { type: "topic/remove-pair"; topicId: string; resultId: string }
   | { type: "topic/synthesis/generate"; topicId: string }
   | { type: "topic/synthesis/clear"; topicId: string }
+  | { type: "topic/audit/build-evidence"; sessionId: string; topicId: string }
+  | { type: "topic/audit/run"; sessionId: string; topicId: string; fromStage?: TopicAuditStageName }
+  | { type: "topic/audit/p1-signal"; sessionId: string; topicId: string; signalId: string }
+  | { type: "extension/open-page"; path: string }
+  | { type: "topic/audit/get"; topicId: string }
+  | { type: "topic/audit/validate"; topicId: string }
+  | { type: "topic/audit/clear"; topicId: string }
+  | { type: "cross-topic/calibrate"; topicIds: string[] }
   | { type: "topic/generate-signal-reading"; signalId: string; topicId: string }
   | { type: "topic/list-signal-readings"; topicId: string }
   | { type: "topic/generate-missing-signal-tags"; topicId: string }
@@ -161,11 +174,25 @@ export type ExtensionSuccessResponse = {
   prCriteria?: PrCriterion[];
   prSummary?: string;
   folderSynthesis?: FolderSynthesis | null;
+  auditEvidence?: EvidencePacket[];
+  auditReport?: TopicAuditReport | null;
+  auditMemos?: TopicAuditMemoBundle | null;
+  auditValidatorFlags?: TopicAuditValidationFlag[];
+  crossTopicCalibration?: CrossTopicCalibration | null;
 };
 
 export type StartProcessingResponse =
   | (ExtensionSuccessResponse & { processingStatus: "started" | "already_running" })
   | { ok: false; error: string };
+
+export type QueueItemsAndStartProcessingResponse =
+  | (ExtensionSuccessResponse & {
+      processingStatus?: "started" | "already_running";
+      processingError?: string;
+      queuedItemIds: string[];
+      failedItemIds: string[];
+    })
+  | { ok: false; error: string; queuedItemIds?: string[]; failedItemIds?: string[] };
 
 export type WorkerStatusMessageResponse =
   | (ExtensionSuccessResponse & { workerStatus: WorkerStatus })

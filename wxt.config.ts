@@ -6,7 +6,7 @@ export default defineConfig({
   entrypointsDir: "entrypoints",
   manifest: {
     name: "DLens v3",
-    version: "0.1.18",
+    version: "0.1.22",
     description: "Thin Threads capture client for DLens ingest-core.",
     permissions: ["storage", "tabs", "activeTab", "sidePanel"],
     host_permissions: [

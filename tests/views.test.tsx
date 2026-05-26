@@ -589,6 +589,27 @@ test("CollectView keeps the preview card and collect toggle visible with current
   assert.match(html, /關閉/);
 });
 
+test("CollectView renders captured engagement metrics in the hover preview", () => {
+  const html = renderToStaticMarkup(
+    React.createElement(CollectView, {
+      preview: buildDescriptor(),
+      folderName: "work",
+      mode: "topic",
+      isSaved: false,
+      selectionMode: true,
+      onSavePreview: () => undefined,
+      onOpenPreview: () => undefined,
+      onToggleCollectMode: () => undefined
+    })
+  );
+
+  assert.match(html, /data-collect-metric="likes"/);
+  assert.match(html, /data-collect-metric="comments"/);
+  assert.match(html, /data-collect-metric="reposts"/);
+  assert.match(html, />10</);
+  assert.match(html, />5</);
+});
+
 test("CollectView uses product inbox language in product mode", () => {
   const html = renderToStaticMarkup(
     React.createElement(CollectView, {
@@ -668,10 +689,16 @@ test("Product and PR Evidence modes render no folder strip", () => {
   }
 });
 
-test("Topic folder strip does not leak generated Product workspace naming", () => {
+test("Topic strip uses real topics instead of generated workspace sessions", () => {
   const topicSession = {
     ...buildSession(),
-    name: "Product workspace",
+    name: "work",
+    mode: "topic" as const
+  };
+  const legacySession = {
+    ...buildSession(),
+    id: "legacy-session",
+    name: "AI discussion",
     mode: "topic" as const
   };
   const html = renderToStaticMarkup(
@@ -681,11 +708,15 @@ test("Topic folder strip does not leak generated Product workspace naming", () =
         activeFolder: topicSession,
         snapshot: {
           global: {
-            sessions: [topicSession],
+            sessions: [topicSession, legacySession],
             activeSessionId: topicSession.id
           }
         },
-        topics: [{ id: "topic-work", sessionId: topicSession.id, name: "work", description: "", signalIds: [], pairIds: [], createdAt: "", updatedAt: "" }],
+        topics: [
+          { id: "topic-work", sessionId: topicSession.id, name: "work", description: "", status: "watching", tags: [], signalIds: [], pairIds: [], createdAt: "", updatedAt: "" },
+          { id: "topic-love", sessionId: topicSession.id, name: "love", description: "", status: "pending", tags: [], signalIds: [], pairIds: [], createdAt: "", updatedAt: "" }
+        ],
+        selectedTopicId: "topic-love",
         signals: [
           { id: "signal-1", sessionId: topicSession.id, itemId: "item-1", source: "threads", inboxStatus: "unprocessed", capturedAt: "" },
           { id: "signal-2", sessionId: topicSession.id, itemId: "item-2", source: "threads", inboxStatus: "assigned", capturedAt: "" }
@@ -699,6 +730,8 @@ test("Topic folder strip does not leak generated Product workspace naming", () =
         setEditingFolderName: () => undefined,
         setFolderName: () => undefined,
         onSetActiveSession: () => undefined,
+        onSelectTopicTarget: () => undefined,
+        onCreateTopic: () => undefined,
         onCreateFolder: () => undefined,
         onRenameFolder: () => undefined,
         onDeleteFolder: () => undefined
@@ -706,20 +739,24 @@ test("Topic folder strip does not leak generated Product workspace naming", () =
     })
   );
 
-  assert.match(html, /Topic workspace/);
+  assert.match(html, /value="topic-work"/);
+  assert.match(html, /work/);
+  assert.match(html, /value="topic-love" selected="">love/);
   assert.match(html, /1 未分流/);
-  assert.match(html, /1 主題/);
+  assert.match(html, /2 主題/);
   assert.doesNotMatch(html, /Product workspace/);
-  assert.doesNotMatch(html, /Topic workspace \(42\)/);
+  assert.doesNotMatch(html, /AI discussion/);
+  assert.doesNotMatch(html, /Topic workspace/);
   assert.doesNotMatch(html, /42 saved/);
 });
 
 test("Topic folder strip counts inbox and topics instead of saved backing items", () => {
   const topicSession = { ...buildSession(), mode: "topic" as const };
   const archiveSession = { ...buildSession(), mode: "archive" as const, name: "Archive" };
-  const { formatWorkspaceOptionLabel, buildTopicStatusBadges } = inPageCollectorFolderControlsTestables;
+  const { formatWorkspaceOptionLabel, formatTopicOptionLabel, buildTopicStatusBadges } = inPageCollectorFolderControlsTestables;
 
   assert.equal(formatWorkspaceOptionLabel(topicSession), "Topic workspace");
+  assert.equal(formatTopicOptionLabel({ id: "topic-love", name: "love" } as any), "love");
   assert.equal(formatWorkspaceOptionLabel(archiveSession), "Archive (1)");
   assert.deepEqual(
     buildTopicStatusBadges({

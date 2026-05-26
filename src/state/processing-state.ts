@@ -12,9 +12,9 @@ export const PRODUCT_SIGNAL_PAGES: ReadonlyArray<MainPage> = [
 ];
 export const PR_EVIDENCE_PAGES: ReadonlyArray<MainPage> = ["pr-evidence"];
 
-export const ALLOWED_PAGES: Record<FolderMode, MainPage[]> = {
+export const ALLOWED_PAGES: Record<FolderMode, PopupPage[]> = {
   archive: ["library", "collect"],
-  topic: ["casebook", "inbox", "collect", "compare", "library"],
+  topic: ["collect", "topics", "settings"],
   product: ["saved-signals", "classification", "actionable-filter", "collect"],
   "pr-evidence": ["pr-evidence", "collect"]
 };
@@ -27,7 +27,7 @@ export function isPrEvidencePage(page: PopupPage): boolean {
   return (PR_EVIDENCE_PAGES as ReadonlyArray<PopupPage>).includes(page);
 }
 
-export function guardPage(page: MainPage, mode: FolderMode): MainPage {
+export function guardPage(page: PopupPage, mode: FolderMode): PopupPage {
   const allowed = ALLOWED_PAGES[mode];
   return allowed.includes(page) ? page : allowed[0]!;
 }
@@ -46,7 +46,7 @@ export type WorkerStatus = "idle" | "draining";
 export type ItemReadinessStatus = "saved" | "queued" | "crawling" | "analyzing" | "ready" | "failed";
 export type ProgressMode = "idle" | "queued" | "crawling" | "analyzing" | "ready";
 export type ProgressVariant = "neutral" | "queued" | "running" | "success" | "failed";
-export type WorkspaceMode = Exclude<PopupPage, "settings">;
+export type WorkspaceMode = Exclude<PopupPage, "settings" | "audit-report">;
 
 export interface SessionProcessingSummary {
   total: number;
@@ -63,6 +63,12 @@ export interface PollingDelayInput {
   workerStatus: WorkerStatus;
   hasInflight: boolean;
   failureCount: number;
+}
+
+export interface ProcessingRefreshInput {
+  workerStatus: WorkerStatus;
+  previousWorkerStatus: WorkerStatus;
+  hasInflight: boolean;
 }
 
 export interface ProcessingStripUiState {
@@ -227,6 +233,10 @@ export function getPollingDelayMs(input: PollingDelayInput): number | null {
   const base = input.workerStatus === "draining" ? 4000 : 8000;
   const multiplier = input.failureCount <= 0 ? 1 : Math.min(2 ** input.failureCount, 4);
   return Math.min(base * multiplier, 15000);
+}
+
+export function shouldRefreshProcessingFolder(input: ProcessingRefreshInput): boolean {
+  return input.hasInflight || input.workerStatus === "draining" || input.previousWorkerStatus === "draining";
 }
 
 export function getProcessingStripUiState(

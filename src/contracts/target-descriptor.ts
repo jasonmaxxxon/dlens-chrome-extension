@@ -7,6 +7,7 @@ export interface EngagementMetrics {
   reposts: number | null;
   forwards: number | null;
   views: number | null;
+  followers?: number | null;
 }
 
 export interface EngagementPresent {
@@ -15,6 +16,7 @@ export interface EngagementPresent {
   reposts: boolean;
   forwards: boolean;
   views: boolean;
+  followers?: boolean;
 }
 
 export interface TargetDescriptor {

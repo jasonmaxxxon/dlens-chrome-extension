@@ -40,7 +40,7 @@ export function createInlineToast(kind: InlineToastKind, folderName: string, now
   return {
     id: `${kind}-${now}`,
     kind,
-    message: kind === "queued" ? `Queued from ${folderName}` : `Saved to ${folderName}`,
+    message: kind === "queued" ? `已加入隊列：${folderName}` : `已儲存到：${folderName}`,
     createdAt: now
   };
 }

@@ -2,7 +2,7 @@ import { IconButton, PrimaryButton, SecondaryButton, surfaceCardStyle, TOKENS } 
 import { getSessionDisplayName } from "../state/store-helpers";
 import { tokens } from "./tokens";
 import type { InPageCollectorAppModel } from "./useInPageCollectorAppState";
-import type { SessionRecord } from "../state/types";
+import type { SessionRecord, Topic } from "../state/types";
 
 function formatWorkspaceOptionLabel(folder: Pick<SessionRecord, "name" | "mode" | "items">): string {
   const name = getSessionDisplayName(folder);
@@ -10,6 +10,10 @@ function formatWorkspaceOptionLabel(folder: Pick<SessionRecord, "name" | "mode" 
     return name;
   }
   return `${name} (${folder.items.length})`;
+}
+
+function formatTopicOptionLabel(topic: Pick<Topic, "name">): string {
+  return topic.name.trim() || "未命名主題";
 }
 
 function buildTopicStatusBadges(app: InPageCollectorAppModel): string[] {
@@ -24,6 +28,77 @@ export function InPageCollectorFolderControls({ app }: { app: InPageCollectorApp
 
   if (activeMode === "product" || activeMode === "pr-evidence") {
     return null;
+  }
+
+  if (activeMode === "topic") {
+    const selectedTopicId = app.selectedTopicId || app.snapshot?.tab.collectionTopicId || "";
+    return (
+      <div
+        data-workspace-folder-strip="compact"
+        data-topic-target-strip="true"
+        style={surfaceCardStyle({
+          display: "flex",
+          alignItems: "center",
+          gap: 8,
+          padding: 10,
+          background: tokens.color.utilitySurface
+        })}
+      >
+        <select
+          value={selectedTopicId}
+          onChange={(event) => {
+            if (!event.target.value) {
+              return;
+            }
+            app.setIsRenamingFolder(false);
+            app.onSelectTopicTarget(event.target.value);
+          }}
+          style={{
+            flex: 1,
+            minWidth: 0,
+            borderRadius: 999,
+            border: `1px solid ${tokens.color.line}`,
+            padding: "8px 12px",
+            background: tokens.color.elevated,
+            fontSize: 12,
+            fontWeight: 600,
+            color: tokens.color.ink,
+            outline: "none",
+            transition: tokens.motion.transitionFast
+          }}
+        >
+          <option value="" disabled>
+            {app.topics.length ? "選擇主題" : "尚無主題"}
+          </option>
+          {app.topics.map((topic) => (
+            <option key={topic.id} value={topic.id}>
+              {formatTopicOptionLabel(topic)}
+            </option>
+          ))}
+        </select>
+        <div style={{ display: "flex", gap: 6, alignItems: "center", flexWrap: "wrap", justifyContent: "flex-end" }}>
+          {buildTopicStatusBadges(app).map((label) => (
+            <span
+              key={label}
+              style={{
+                fontSize: 10,
+                fontWeight: 700,
+                color: tokens.color.cyan,
+                padding: "3px 8px",
+                borderRadius: 999,
+                background: tokens.color.cyanSoft,
+                whiteSpace: "nowrap"
+              }}
+            >
+              {label}
+            </span>
+          ))}
+        </div>
+        <SecondaryButton onClick={() => void app.onCreateTopic()} style={{ padding: "7px 10px", fontSize: 11, whiteSpace: "nowrap" }}>
+          新建主題
+        </SecondaryButton>
+      </div>
+    );
   }
 
   return (
@@ -70,26 +145,7 @@ export function InPageCollectorFolderControls({ app }: { app: InPageCollectorApp
             </option>
           ))}
         </select>
-        {activeFolder && activeMode === "topic" ? (
-          <div style={{ display: "flex", gap: 6, alignItems: "center", flexWrap: "wrap", justifyContent: "flex-end" }}>
-            {buildTopicStatusBadges(app).map((label) => (
-              <span
-                key={label}
-                style={{
-                  fontSize: 10,
-                  fontWeight: 700,
-                  color: tokens.color.cyan,
-                  padding: "3px 8px",
-                  borderRadius: 999,
-                  background: tokens.color.cyanSoft,
-                  whiteSpace: "nowrap"
-                }}
-              >
-                {label}
-              </span>
-            ))}
-          </div>
-        ) : activeFolder ? (
+        {activeFolder ? (
           <span
             style={{
               fontSize: 10,
@@ -188,5 +244,6 @@ export function InPageCollectorFolderControls({ app }: { app: InPageCollectorApp
 
 export const inPageCollectorFolderControlsTestables = {
   formatWorkspaceOptionLabel,
+  formatTopicOptionLabel,
   buildTopicStatusBadges
 };

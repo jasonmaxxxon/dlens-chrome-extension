@@ -210,6 +210,32 @@ test("CasebookView unassigned rows read optimistic queued ids", () => {
   assert.match(html, /排隊中/);
 });
 
+test("CasebookView lets real running status override optimistic queued rows", () => {
+  const topics = buildTopics().map((topic) => (
+    topic.id === "topic-1" ? { ...topic, signalIds: ["signal-1"] } : topic
+  ));
+  const html = renderToStaticMarkup(
+    React.createElement(CasebookView, {
+      sessionId: "session-1",
+      initialTopics: topics,
+      signals: buildSignals(),
+      initialUnassignedOpen: true,
+      sessionItems: [buildSessionItem("item-2", "running")],
+      optimisticQueuedItemIds: ["item-2"],
+      signalPreviewById: {
+        "signal-2": "還沒有主題的貼文"
+      },
+      pendingSignalCount: 1,
+      onNavigateToTopic: () => undefined,
+      onCreateTopic: () => undefined,
+      onSignalTriaged: () => undefined
+    })
+  );
+
+  assert.match(html, /還沒有主題的貼文/);
+  assert.match(html, /捕捉中/);
+});
+
 test("casebookViewTestables filters topics by status tab", () => {
   const topics = buildTopics();
 

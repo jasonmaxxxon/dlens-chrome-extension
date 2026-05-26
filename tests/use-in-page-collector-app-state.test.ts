@@ -3,7 +3,33 @@ import test from "node:test";
 
 import type { ExtensionMessage, ExtensionResponse } from "../src/state/messages.ts";
 import type { WorkerStatus } from "../src/state/processing-state.ts";
-import { runAnalyzeItemsPipeline } from "../src/ui/useInPageCollectorAppState.ts";
+import { buildPreviewSaveMessage, runAnalyzeItemsPipeline } from "../src/ui/useInPageCollectorAppState.ts";
+
+const descriptor = {
+  target_type: "post" as const,
+  page_url: "https://www.threads.net/search?q=test",
+  post_url: "https://www.threads.net/@alpha/post/abc",
+  author_hint: "alpha",
+  text_snippet: "alpha post",
+  time_token_hint: "1h",
+  dom_anchor: "card-1",
+  engagement: { likes: 10 },
+  engagement_present: { likes: true },
+  captured_at: "2026-05-22T00:00:00.000Z"
+};
+
+test("buildPreviewSaveMessage sends the visible preview descriptor with the topic target", () => {
+  const message = buildPreviewSaveMessage({
+    activeFolderMode: "topic",
+    selectedTopicId: "topic-love",
+    collectionTopicId: "topic-work",
+    preview: descriptor
+  });
+
+  assert.equal(message.type, "session/save-current-preview");
+  assert.equal(message.topicId, "topic-love");
+  assert.deepEqual(message.descriptor, descriptor);
+});
 
 test("runAnalyzeItemsPipeline queues selected items then starts worker and refreshes", async () => {
   const calls: ExtensionMessage[] = [];
@@ -11,11 +37,8 @@ test("runAnalyzeItemsPipeline queues selected items then starts worker and refre
   const toasts: string[] = [];
   const sendAndSync = async <T extends ExtensionResponse = ExtensionResponse>(message: ExtensionMessage): Promise<T> => {
     calls.push(message);
-    if (message.type === "session/queue-items") {
-      return { ok: true, queuedItemIds: message.itemIds, failedItemIds: [] } as T;
-    }
-    if (message.type === "worker/start-processing") {
-      return { ok: true, processingStatus: "started" } as T;
+    if (message.type === "session/queue-items-and-start-processing") {
+      return { ok: true, queuedItemIds: message.itemIds, failedItemIds: [], processingStatus: "started" } as T;
     }
     if (message.type === "session/refresh-all") {
       return { ok: true } as T;
@@ -32,12 +55,11 @@ test("runAnalyzeItemsPipeline queues selected items then starts worker and refre
   });
 
   assert.deepEqual(calls.map((call) => call.type), [
-    "session/queue-items",
-    "worker/start-processing",
+    "session/queue-items-and-start-processing",
     "session/refresh-all"
   ]);
-  assert.equal((calls[0] as Extract<ExtensionMessage, { type: "session/queue-items" }>).sessionId, "folder-1");
-  assert.deepEqual((calls[0] as Extract<ExtensionMessage, { type: "session/queue-items" }>).itemIds, ["a", "b"]);
+  assert.equal((calls[0] as Extract<ExtensionMessage, { type: "session/queue-items-and-start-processing" }>).sessionId, "folder-1");
+  assert.deepEqual((calls[0] as Extract<ExtensionMessage, { type: "session/queue-items-and-start-processing" }>).itemIds, ["a", "b"]);
   assert.deepEqual(statuses, ["draining"]);
   assert.deepEqual(result, { ok: true, failedCount: 0 });
   assert.match(toasts.at(-1) ?? "", /開始分析 2 篇/);
@@ -58,6 +80,6 @@ test("runAnalyzeItemsPipeline stops before worker start when queue fails", async
     setDisplayToast: () => undefined
   });
 
-  assert.deepEqual(calls.map((call) => call.type), ["session/queue-items"]);
+  assert.deepEqual(calls.map((call) => call.type), ["session/queue-items-and-start-processing"]);
   assert.deepEqual(result, { ok: false, failedCount: 2 });
 });

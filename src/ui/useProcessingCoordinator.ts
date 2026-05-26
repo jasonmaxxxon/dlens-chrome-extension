@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 
 import type { ExtensionMessage, ExtensionResponse, WorkerStatusMessageResponse } from "../state/messages";
-import { getPollingDelayMs, type WorkerStatus } from "../state/processing-state";
+import { getPollingDelayMs, shouldRefreshProcessingFolder, type WorkerStatus } from "../state/processing-state";
 import { sendExtensionMessage } from "./controller";
 
 type SendAndSync = <T extends ExtensionResponse = ExtensionResponse>(message: ExtensionMessage) => Promise<T>;
@@ -41,9 +41,14 @@ export function useProcessingCoordinator({
           return;
         }
         const nextWorkerStatus = workerResponse.workerStatus;
+        const previousWorkerStatus = lastKnownWorkerStatus;
         lastKnownWorkerStatus = nextWorkerStatus;
         setWorkerStatus(nextWorkerStatus);
-        if (hasInflight) {
+        if (activeFolderId && shouldRefreshProcessingFolder({
+          workerStatus: nextWorkerStatus,
+          previousWorkerStatus,
+          hasInflight
+        })) {
           await sendAndSync({ type: "session/refresh-all", sessionId: activeFolderId });
         }
         if (cancelled) {

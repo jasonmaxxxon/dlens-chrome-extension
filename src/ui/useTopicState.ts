@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 
 import type { ExtensionMessage, ExtensionResponse } from "../state/messages";
 import type {
@@ -62,11 +62,76 @@ export function pickPrimaryJudgmentPair(pairs: SavedAnalysisSnapshot[]): SavedAn
 export function buildSignalPreviewById(activeFolder: SessionRecord | null, signals: Signal[]): Record<string, string> {
   const lookup = new Map(activeFolder?.items.map((item) => [item.id, item]) ?? []);
   return Object.fromEntries(
-    signals.map((signal) => [
-      signal.id,
-      signal.itemId ? (lookup.get(signal.itemId)?.descriptor.text_snippet || "") : ""
-    ])
+    signals.map((signal) => {
+      const descriptor = signal.itemId ? lookup.get(signal.itemId)?.descriptor : null;
+      if (signal.itemId && !descriptor) {
+        return [signal.id, "資料不完整的 Threads 訊號"] as const;
+      }
+      const text = descriptor?.text_snippet?.trim();
+      if (text) return [signal.id, text] as const;
+      const author = descriptor?.author_hint?.trim();
+      const url = descriptor?.post_url || descriptor?.page_url || "";
+      if (author && url) return [signal.id, `@${author.replace(/^@/, "")} · ${url}`] as const;
+      if (url) return [signal.id, url] as const;
+      if (author) return [signal.id, `@${author.replace(/^@/, "")}`] as const;
+      return [signal.id, ""] as const;
+    })
   );
+}
+
+export function findSignalsMissingBackingItems(activeFolder: SessionRecord | null, signals: Signal[]): Signal[] {
+  const itemById = new Map(activeFolder?.items.map((item) => [item.id, item]) ?? []);
+  return signals.filter((signal) => {
+    if (!signal.itemId) {
+      return false;
+    }
+    const descriptor = itemById.get(signal.itemId)?.descriptor;
+    return !descriptor || !(
+      descriptor.text_snippet?.trim() ||
+      descriptor.post_url ||
+      descriptor.page_url ||
+      descriptor.author_hint?.trim()
+    );
+  });
+}
+
+export function filterSignalsWithBackingItems(activeFolder: SessionRecord | null, signals: Signal[]): Signal[] {
+  const orphanIds = new Set(findSignalsMissingBackingItems(activeFolder, signals).map((signal) => signal.id));
+  return signals.filter((signal) => !orphanIds.has(signal.id));
+}
+
+export function resolveTopicCollectionTargetId(
+  topics: Topic[],
+  selectedTopicId: string | null | undefined,
+  storedTopicId: string | null | undefined
+): string | null {
+  const hasTopic = (topicId: string | null | undefined) => Boolean(topicId && topics.some((topic) => topic.id === topicId));
+  if (hasTopic(selectedTopicId)) {
+    return selectedTopicId!;
+  }
+  if (hasTopic(storedTopicId)) {
+    return storedTopicId!;
+  }
+  if (!selectedTopicId && !storedTopicId && topics.length === 1) {
+    return topics[0]?.id ?? null;
+  }
+  return null;
+}
+
+export function navigateToTopicImmediately({
+  topicId,
+  setSelectedTopicId,
+  persistCollectionTarget,
+  onNavigate
+}: {
+  topicId: string;
+  setSelectedTopicId: (topicId: string) => void;
+  persistCollectionTarget: (topicId: string) => Promise<unknown>;
+  onNavigate: (page: PopupPage) => Promise<void>;
+}): Promise<void> {
+  setSelectedTopicId(topicId);
+  void persistCollectionTarget(topicId).catch(() => undefined);
+  return onNavigate("topic-detail");
 }
 
 export function buildSignalUrlById(activeFolder: SessionRecord | null, signals: Signal[]): Record<string, string> {
@@ -115,6 +180,7 @@ export function useTopicState({
   activeFolderMode,
   savedAnalyses,
   activeSavedAnalysis,
+  collectionTopicId,
   stateUpdatedAt,
   sendAndSync,
   onNavigate,
@@ -125,6 +191,7 @@ export function useTopicState({
   activeFolderMode: FolderMode;
   savedAnalyses: SavedAnalysisSnapshot[];
   activeSavedAnalysis: SavedAnalysisSnapshot | null;
+  collectionTopicId?: string | null;
   stateUpdatedAt: string | null | undefined;
   sendAndSync: SendAndSync;
   onNavigate: (page: PopupPage) => Promise<void>;
@@ -136,38 +203,47 @@ export function useTopicState({
   const [resultTopicContext, setResultTopicContext] = useState<{ topicId: string; topicName: string } | null>(null);
   const [topicSignalReadingsBySignalId, setTopicSignalReadingsBySignalId] = useState<Record<string, TopicSignalReading>>({});
   const [signalTagsByItemId, setSignalTagsByItemId] = useState<Record<string, SignalTagsRecord>>({});
+  const orphanCleanupAttemptedIdsRef = useRef<Set<string>>(new Set());
 
   const activeTopic = useMemo(
     () => topics.find((topic) => topic.id === selectedTopicId) ?? null,
     [selectedTopicId, topics]
   );
-  const signalPreviewById = useMemo(
-    () => buildSignalPreviewById(activeFolder, signals),
+  const displaySignals = useMemo(
+    () => filterSignalsWithBackingItems(activeFolder, signals),
     [activeFolder, signals]
+  );
+  const orphanSignals = useMemo(
+    () => findSignalsMissingBackingItems(activeFolder, signals),
+    [activeFolder, signals]
+  );
+  const signalPreviewById = useMemo(
+    () => buildSignalPreviewById(activeFolder, displaySignals),
+    [activeFolder, displaySignals]
   );
   const signalUrlById = useMemo(
-    () => buildSignalUrlById(activeFolder, signals),
-    [activeFolder, signals]
+    () => buildSignalUrlById(activeFolder, displaySignals),
+    [activeFolder, displaySignals]
   );
   const productSignalEvidenceById = useMemo(
-    () => buildProductSignalEvidenceById(activeFolder, signals),
-    [activeFolder, signals]
+    () => buildProductSignalEvidenceById(activeFolder, displaySignals),
+    [activeFolder, displaySignals]
   );
   const productSignalReadinessById = useMemo(
-    () => buildProductSignalReadinessById(activeFolder, signals),
-    [activeFolder, signals]
+    () => buildProductSignalReadinessById(activeFolder, displaySignals),
+    [activeFolder, displaySignals]
   );
   const activeTopicSignals = useMemo(
-    () => signals.filter((signal) => signal.topicId === activeTopic?.id),
-    [activeTopic?.id, signals]
+    () => displaySignals.filter((signal) => signal.topicId === activeTopic?.id),
+    [activeTopic?.id, displaySignals]
   );
   const activeTopicItemIds = useMemo(
     () => Array.from(new Set(activeTopicSignals.map((signal) => signal.itemId).filter((itemId): itemId is string => Boolean(itemId)))),
     [activeTopicSignals]
   );
   const allSignalItemIds = useMemo(
-    () => Array.from(new Set(signals.map((signal) => signal.itemId).filter((itemId): itemId is string => Boolean(itemId)))),
-    [signals]
+    () => Array.from(new Set(displaySignals.map((signal) => signal.itemId).filter((itemId): itemId is string => Boolean(itemId)))),
+    [displaySignals]
   );
   const activeTopicPairs = useMemo(
     () => savedAnalyses.filter((pair) => activeTopic?.pairIds.includes(pair.resultId)),
@@ -176,6 +252,10 @@ export function useTopicState({
   const topicJudgmentById = useMemo(
     () => buildTopicJudgmentById(topics, savedAnalyses),
     [savedAnalyses, topics]
+  );
+  const collectionTargetId = useMemo(
+    () => resolveTopicCollectionTargetId(topics, selectedTopicId, collectionTopicId),
+    [collectionTopicId, selectedTopicId, topics]
   );
 
   useEffect(() => {
@@ -219,6 +299,42 @@ export function useTopicState({
       setSelectedTopicId(null);
     }
   }, [activeTopic, topics]);
+
+  useEffect(() => {
+    if (!collectionTargetId) {
+      return;
+    }
+    if (selectedTopicId !== collectionTargetId) {
+      setSelectedTopicId(collectionTargetId);
+    }
+  }, [collectionTargetId, selectedTopicId]);
+
+  useEffect(() => {
+    orphanCleanupAttemptedIdsRef.current.clear();
+  }, [activeFolder?.id]);
+
+  useEffect(() => {
+    if (!popupOpen || !activeFolder?.id || activeFolderMode === "archive" || orphanSignals.length === 0) {
+      return;
+    }
+
+    for (const orphan of orphanSignals) {
+      if (orphanCleanupAttemptedIdsRef.current.has(orphan.id)) {
+        continue;
+      }
+      orphanCleanupAttemptedIdsRef.current.add(orphan.id);
+      void onRemoveSignal(orphan.id).catch(() => {
+        // Keep the corrupt row hidden locally even if storage cleanup is delayed.
+      });
+    }
+  }, [activeFolder?.id, activeFolderMode, orphanSignals, popupOpen]);
+
+  useEffect(() => {
+    if (!popupOpen || activeFolderMode !== "topic" || !collectionTargetId || collectionTopicId === collectionTargetId) {
+      return;
+    }
+    void sendAndSync({ type: "topic/set-collection-target", topicId: collectionTargetId });
+  }, [activeFolderMode, collectionTargetId, collectionTopicId, popupOpen, sendAndSync]);
 
   useEffect(() => {
     if (!selectedTopicId) {
@@ -351,13 +467,29 @@ export function useTopicState({
       context: researchQuestion ? { researchQuestion } : null
     });
     if (response.ok) {
-      setTopics(response.topics ?? []);
+      const nextTopics = response.topics ?? [];
+      setTopics(nextTopics);
+      const createdTopic = nextTopics.find((topic) => !topics.some((previous) => previous.id === topic.id)) ?? nextTopics[0];
+      const nextTopicId = createdTopic?.id ?? null;
+      setSelectedTopicId(nextTopicId);
+      if (nextTopicId) {
+        await sendAndSync({ type: "topic/set-collection-target", topicId: nextTopicId });
+      }
     }
   }
 
-  async function onNavigateToTopic(topicId: string) {
+  function onSelectTopicTarget(topicId: string) {
     setSelectedTopicId(topicId);
-    await onNavigate("casebook");
+    void sendAndSync({ type: "topic/set-collection-target", topicId });
+  }
+
+  async function onNavigateToTopic(topicId: string) {
+    await navigateToTopicImmediately({
+      topicId,
+      setSelectedTopicId,
+      persistCollectionTarget: (nextTopicId) => sendAndSync({ type: "topic/set-collection-target", topicId: nextTopicId }),
+      onNavigate
+    });
   }
 
   async function onUpdateTopic(patch: Partial<Topic>) {
@@ -392,8 +524,51 @@ export function useTopicState({
     }
   }
 
+  async function onCreateTopicFromSignals(signalIds: string[]) {
+    if (!activeFolder || signalIds.length < 3) {
+      return;
+    }
+    const name = window.prompt("新主題名稱");
+    if (!name?.trim()) {
+      return;
+    }
+    const [firstSignalId, ...restSignalIds] = signalIds;
+    const firstResponse = await sendExtensionMessage<{ ok: true; signals?: Signal[]; topics?: Topic[] } | { ok: false; error: string }>({
+      type: "signal/triage",
+      signalId: firstSignalId!,
+      action: { kind: "create-topic", name: name.trim() }
+    });
+    if (!firstResponse.ok) {
+      return;
+    }
+    const topicId = firstResponse.topics?.find((topic) => topic.signalIds.includes(firstSignalId!))?.id;
+    if (!topicId) {
+      setSignals(firstResponse.signals ?? signals);
+      setTopics(firstResponse.topics ?? topics);
+      return;
+    }
+    let latestSignals = firstResponse.signals ?? signals;
+    let latestTopics = firstResponse.topics ?? topics;
+    for (const signalId of restSignalIds) {
+      const response = await sendExtensionMessage<{ ok: true; signals?: Signal[]; topics?: Topic[] } | { ok: false; error: string }>({
+        type: "signal/triage",
+        signalId,
+        action: { kind: "assign", topicId }
+      });
+      if (response.ok) {
+        latestSignals = response.signals ?? latestSignals;
+        latestTopics = response.topics ?? latestTopics;
+      }
+    }
+    setSignals(latestSignals);
+    setTopics(latestTopics);
+    setSelectedTopicId(topicId);
+    await sendAndSync({ type: "topic/set-collection-target", topicId });
+    await onNavigate("topic-detail");
+  }
+
   async function onRemoveSignal(signalId: string) {
-    const response = await sendExtensionMessage<{
+    const response = await sendAndSync<{
       ok: true;
       signals?: Signal[];
       topics?: Topic[];
@@ -435,7 +610,7 @@ export function useTopicState({
       return;
     }
     setSelectedTopicId(resultTopicContext.topicId);
-    await onNavigate("casebook");
+    await onNavigate("topic-detail");
   }
 
   async function onAttachActiveResultToTopic(topicId: string) {
@@ -485,6 +660,7 @@ export function useTopicState({
 
   function onBackFromTopicDetail() {
     setSelectedTopicId(null);
+    void onNavigate("topics");
   }
 
   function clearResultTopicContext() {
@@ -493,7 +669,7 @@ export function useTopicState({
 
   return {
     topics,
-    signals,
+    signals: displaySignals,
     selectedTopicId,
     activeTopic,
     activeTopicSignals,
@@ -509,10 +685,12 @@ export function useTopicState({
     clearResultTopicContext,
     onSessionModeChange,
     onCreateTopic,
+    onSelectTopicTarget,
     onNavigateToTopic,
     onBackFromTopicDetail,
     onUpdateTopic,
     onSignalTriaged,
+    onCreateTopicFromSignals,
     onSignalDeleted,
     onRemoveSignal,
     onOpenTopicPair,

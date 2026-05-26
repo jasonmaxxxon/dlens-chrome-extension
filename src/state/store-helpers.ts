@@ -197,6 +197,40 @@ export function deleteSession(globalState: ExtensionGlobalState, sessionId: stri
   };
 }
 
+export function removeSessionItem(
+  globalState: ExtensionGlobalState,
+  sessionId: string,
+  itemId: string
+): ExtensionGlobalState {
+  const now = new Date().toISOString();
+  let changed = false;
+  const sessions = globalState.sessions.map((session) => {
+    if (session.id !== sessionId) {
+      return session;
+    }
+    const items = session.items.filter((item) => item.id !== itemId);
+    if (items.length === session.items.length) {
+      return session;
+    }
+    changed = true;
+    return {
+      ...session,
+      items,
+      updatedAt: now
+    };
+  });
+
+  if (!changed) {
+    return globalState;
+  }
+
+  return {
+    ...globalState,
+    sessions,
+    updatedAt: now
+  };
+}
+
 export function saveDescriptorToSession(
   globalState: ExtensionGlobalState,
   sessionId: string,
@@ -278,6 +312,11 @@ function mapLifecycleStatus(job: JobSnapshot | null, capture: CaptureSnapshot | 
   }
 }
 
+function analysisNeedsRefresh(capture: CaptureSnapshot | null): boolean {
+  const analysisStatus = capture?.analysis?.status;
+  return analysisStatus == null || analysisStatus === "pending" || analysisStatus === "running";
+}
+
 export function needsCaptureRefresh(item: SessionItem): boolean {
   if (!item.jobId || !item.captureId) {
     return false;
@@ -291,8 +330,7 @@ export function needsCaptureRefresh(item: SessionItem): boolean {
   if (item.status !== "succeeded") {
     return false;
   }
-  const analysisStatus = item.latestCapture?.analysis?.status;
-  return analysisStatus == null || analysisStatus === "pending" || analysisStatus === "running";
+  return analysisNeedsRefresh(item.latestCapture);
 }
 
 export const STALE_IN_FLIGHT_TIMEOUT_MS = 5 * 60 * 1000;
@@ -304,6 +342,9 @@ function staleInFlightError(item: SessionItem): string {
 
 function isStaleInFlightItem(item: SessionItem, nowMs: number, timeoutMs: number): boolean {
   if (!needsCaptureRefresh(item)) {
+    return false;
+  }
+  if (item.status === "queued") {
     return false;
   }
   const lastStatusMs = item.lastStatusAt ? Date.parse(item.lastStatusAt) : NaN;
@@ -379,9 +420,26 @@ export function markSessionItemQueued(
   };
 }
 
+function readBackendProgressTimestamp(
+  item: SessionItem,
+  status: SessionItemStatus,
+  job: JobSnapshot | null,
+  capture: CaptureSnapshot | null,
+  now: string
+): string {
+  if (status === "queued" || status === "running") {
+    return job?.updated_at || capture?.updated_at || item.lastStatusAt || now;
+  }
+  if (status === "succeeded" && analysisNeedsRefresh(capture)) {
+    return capture?.analysis?.updated_at || capture?.updated_at || job?.updated_at || item.lastStatusAt || now;
+  }
+  return now;
+}
+
 export function reconcileSessionItem(item: SessionItem, job: JobSnapshot | null, capture: CaptureSnapshot | null): SessionItem {
   const status = mapLifecycleStatus(job, capture, item.status);
   const now = new Date().toISOString();
+  const lastStatusAt = readBackendProgressTimestamp(item, status, job, capture, now);
   return {
     ...item,
     status,
@@ -392,7 +450,7 @@ export function reconcileSessionItem(item: SessionItem, job: JobSnapshot | null,
     latestCapture: capture || item.latestCapture,
     commentsPreview: status === "succeeded" ? extractCommentsPreview(capture) : [],
     completedAt: status === "succeeded" || status === "failed" ? now : item.completedAt,
-    lastStatusAt: now,
+    lastStatusAt,
     lastErrorKind: job?.last_error_kind ?? null,
     lastError: job?.last_error ?? null
   };

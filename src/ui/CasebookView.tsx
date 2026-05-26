@@ -72,7 +72,7 @@ function getTopicItemAnalysisState(
   optimisticQueuedSet?: Set<string>
 ): TopicItemAnalysisState | undefined {
   if (!item) return undefined;
-  if (optimisticQueuedSet?.has(item.id)) return "queued";
+  if (optimisticQueuedSet?.has(item.id) && (item.status === "saved" || item.status === "failed")) return "queued";
   if (item.status === "queued") return "queued";
   return getItemReadinessStatus(item);
 }

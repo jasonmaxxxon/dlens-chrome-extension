@@ -1,0 +1,4 @@
+interface:
+  display_name: "DLens Release Publish"
+  short_description: "DLens release version and publish checks"
+  default_prompt: "Run the DLens release-publish workflow for the current checkout: audit branch and dirty state, sync version files/docs/tests, run typecheck/full tests/build, verify output/chrome-mv3 manifest, then publish only to the requested branch."

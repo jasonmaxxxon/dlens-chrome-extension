@@ -346,12 +346,25 @@ export const DLENS_BUTTON_CSS = `
 }
 `;
 
-type PrimaryWorkspaceMode = Exclude<WorkspaceMode, "result">;
+type PrimaryWorkspaceMode = Extract<
+  WorkspaceMode,
+  | "collect"
+  | "topics"
+  | "casebook"
+  | "inbox"
+  | "library"
+  | "compare"
+  | "saved-signals"
+  | "classification"
+  | "actionable-filter"
+  | "pr-evidence"
+>;
 
 type RailTier = "primary" | "tool";
 
 const PRIMARY_WORKSPACE_MODES: ReadonlyArray<{ key: PrimaryWorkspaceMode; label: string; tier?: RailTier }> = [
   { key: "collect", label: "採集" },
+  { key: "topics", label: "議題" },
   { key: "casebook", label: "主題" },
   { key: "inbox", label: "收件匣" },
   { key: "library", label: "脈絡" },
@@ -376,6 +389,8 @@ function railIcon(mode: PrimaryWorkspaceMode) {
   };
 
   switch (mode) {
+    case "topics":
+      return <svg {...common}><path d="M6 5.5A2.5 2.5 0 0 1 8.5 3H18v17.5H8.5A2.5 2.5 0 0 0 6 23" /><path d="M6 5.5V23" /><path d="M10 8h5" /><path d="M10 12h5" /></svg>;
     case "casebook":
       return <svg {...common}><path d="M6 5.5A2.5 2.5 0 0 1 8.5 3H18v17.5H8.5A2.5 2.5 0 0 0 6 23" /><path d="M6 5.5V23" /><path d="M10 8h5" /><path d="M10 12h5" /></svg>;
     case "inbox":

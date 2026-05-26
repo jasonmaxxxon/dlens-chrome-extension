@@ -16,6 +16,7 @@ import {
   isPrEvidencePage,
   pickCompareSelection,
   resolveInitialPopupMode,
+  shouldRefreshProcessingFolder,
   summarizeSessionProcessing
 } from "../src/state/processing-state.ts";
 import { createSessionItem, createSessionRecord } from "../src/state/store-helpers.ts";
@@ -312,6 +313,24 @@ test("getPollingDelayMs follows the shared coordinator rules and backoff", () =>
   assert.equal(getPollingDelayMs({ workerStatus: "draining", hasInflight: true, failureCount: 3 }), 15000);
   assert.equal(getPollingDelayMs({ workerStatus: "idle", hasInflight: true, failureCount: 0 }), 8000);
   assert.equal(getPollingDelayMs({ workerStatus: "idle", hasInflight: false, failureCount: 0 }), null);
+});
+
+test("shouldRefreshProcessingFolder keeps refreshing during and just after worker drain", () => {
+  assert.equal(shouldRefreshProcessingFolder({
+    workerStatus: "draining",
+    previousWorkerStatus: "idle",
+    hasInflight: false
+  }), true);
+  assert.equal(shouldRefreshProcessingFolder({
+    workerStatus: "idle",
+    previousWorkerStatus: "draining",
+    hasInflight: false
+  }), true);
+  assert.equal(shouldRefreshProcessingFolder({
+    workerStatus: "idle",
+    previousWorkerStatus: "idle",
+    hasInflight: false
+  }), false);
 });
 
 test("popup width constants are all unified at 720px — no per-page resizing", () => {

@@ -80,19 +80,33 @@ function cleanTopicPatch(patch: TopicHandlerMessage & { type: "topic/update" }):
 export async function ensureSignalForSavedItem(
   storageArea: StorageAreaLike,
   session: SessionRecord,
-  item: SessionItem
+  item: SessionItem,
+  targetTopicId?: string
 ): Promise<void> {
   if (session.mode === "archive" || session.mode === "pr-evidence") {
     return;
   }
 
+  const normalizedTargetTopicId = targetTopicId?.trim() || "";
   const existing = await loadSignals(storageArea, session.id);
-  if (existing.some((signal) => signal.itemId === item.id)) {
+  const existingSignal = existing.find((signal) => signal.itemId === item.id);
+  if (existingSignal) {
+    if (normalizedTargetTopicId && existingSignal.topicId !== normalizedTargetTopicId) {
+      await triageSignal(storageArea, storageArea, existingSignal.id, { kind: "assign", topicId: normalizedTargetTopicId }, session.id);
+    }
     return;
   }
 
+  if (normalizedTargetTopicId) {
+    const topics = await loadTopics(storageArea, session.id);
+    if (!topics.some((topic) => topic.id === normalizedTargetTopicId)) {
+      throw new Error("Topic not found");
+    }
+  }
+
+  const signalId = createId("signal");
   await saveSignal(storageArea, {
-    id: createId("signal"),
+    id: signalId,
     sessionId: session.id,
     itemId: item.id,
     source: "threads",
@@ -100,7 +114,10 @@ export async function ensureSignalForSavedItem(
     suggestedTopicIds: [],
     capturedAt: new Date().toISOString()
   });
-  await ensureWorkspaceTopicForSession(storageArea, session);
+
+  if (normalizedTargetTopicId) {
+    await triageSignal(storageArea, storageArea, signalId, { kind: "assign", topicId: normalizedTargetTopicId }, session.id);
+  }
 }
 
 export async function ensureWorkspaceTopicForSession(

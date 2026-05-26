@@ -6,6 +6,8 @@ import { renderToStaticMarkup } from "react-dom/server";
 
 import { TOPIC_SYNTHESIS_VERSION } from "../src/compare/topic-synthesis.ts";
 import { createSessionItem } from "../src/state/store-helpers.ts";
+import type { EvidencePacket } from "../src/compare/topic-audit.ts";
+import type { TopicAuditMemoBundle } from "../src/state/topic-audit-storage.ts";
 import type { SavedAnalysisSnapshot, SessionItem, Signal, SignalTagsRecord, Topic, TopicSignalReading, TopicSynthesis } from "../src/state/types.ts";
 import { TopicDetailView, topicDetailViewTestables } from "../src/ui/TopicDetailView.tsx";
 import { pickPrimaryJudgmentPair } from "../src/ui/useTopicState.ts";
@@ -100,6 +102,60 @@ const signalTagsByItemId: Record<string, SignalTagsRecord> = {
   }
 };
 
+const auditPacket: EvidencePacket = {
+  auditRunId: "audit-1",
+  inputHash: "hash-1",
+  topicId: "topic-1",
+  signalId: "signal-1",
+  itemId: "item-1",
+  shortCode: "S1",
+  sourceUrl: "https://www.threads.net/@alpha/post/item-1",
+  capturedAt: "2026-05-23T00:00:00.000Z",
+  status: "succeeded",
+  opAuthor: "alpha",
+  opText: "航班改動後等不到客服",
+  opLikes: 12,
+  commentCount: 5,
+  replyFragments: [{ ref: "S1.R1", author: "reader", text: "我也遇到", likes: 2, role: "audience" }],
+  aiArtifacts: { tags: ["航班", "客服"], gist: "航班改動後的客服抱怨" },
+  gaps: [],
+  notes: []
+};
+
+const auditMemos: TopicAuditMemoBundle = {
+  auditRunId: "audit-1",
+  inputHash: "hash-1",
+  signalReadings: [{
+    auditRunId: "audit-1",
+    inputHash: "hash-1",
+    topicId: "topic-1",
+    signalId: "signal-1",
+    shortCode: "S1",
+    reading: "這篇聚焦客服補救。",
+    evidenceRefs: ["S1.OP"],
+    watchNotes: [],
+    promptVersion: "v1",
+    model: "mock",
+    generatedAt: "2026-05-23T00:00:00.000Z"
+  }],
+  lensMemos: [{
+    auditRunId: "audit-1",
+    inputHash: "hash-1",
+    topicId: "topic-1",
+    stageName: "narrative",
+    prose: "客服補救是一條主線。",
+    evidenceRefs: ["S1.OP"],
+    caveats: [],
+    displayHints: {
+      themeChips: ["航班", "客服"],
+      narrativeLanes: [{ id: "lane-1", label: "客服補救失速", signalRefs: ["S1.OP"], consensus: 0.7 }]
+    } as never,
+    promptVersion: "v1",
+    model: "mock",
+    generatedAt: "2026-05-23T00:00:00.000Z"
+  }]
+};
+
 function buildSessionItem(id = "item-1", status: SessionItem["status"] = "saved"): SessionItem {
   const item = createSessionItem(
     {
@@ -121,12 +177,13 @@ function buildSessionItem(id = "item-1", status: SessionItem["status"] = "saved"
   return item;
 }
 
-test("TopicDetailView renders semantic tag cloud, header counts, and signals fold", () => {
+test("TopicDetailView mirrors the audit popup surface in topic mode without legacy detail blocks", () => {
   const html = renderToStaticMarkup(
     React.createElement(TopicDetailView, {
       topic,
       signals,
       pairs,
+      sessionItems: [buildSessionItem("item-1", "saved")],
       signalTagsByItemId,
       onBack: () => undefined,
       onOpenPair: () => undefined,
@@ -136,21 +193,117 @@ test("TopicDetailView renders semantic tag cloud, header counts, and signals fol
 
   assert.match(html, /← 主題/);
   assert.match(html, /航班爭議/);
-  assert.match(html, /標籤雲/);
-  assert.match(html, /AI 語意標籤/);
-  assert.match(html, /求職/);
-  assert.match(html, /外勞/);
-  assert.match(html, /這篇是在討論外勞招聘與本地求職者被壓價的衝突/);
+  assert.match(html, /data-topic-audit-block="overview"/);
+  assert.match(html, /data-topic-audit-block="sources"/);
+  assert.match(html, /data-topic-source-row="signal-1"/);
+  assert.match(html, /signal text item-1/);
+  assert.doesNotMatch(html, /data-topic-signal-inventory="true"/);
+  assert.doesNotMatch(html, /已採集貼文/);
+  assert.match(html, /主題與敘事尚未產出/);
+  assert.doesNotMatch(html, /Topic detail/);
+  assert.doesNotMatch(html, /補充描述/);
+  assert.doesNotMatch(html, /研究問題/);
+  assert.doesNotMatch(html, /標籤雲/);
+  assert.doesNotMatch(html, /AI 語意標籤/);
+  assert.doesNotMatch(html, /全部訊號篇目/);
   assert.doesNotMatch(html, /關鍵詞統計/);
-  assert.match(html, /比較結果/);
-  assert.match(html, /0 已分析/);
-  // Signals list demoted to folded details block
-  assert.match(html, /data-topic-signals="folded"/);
+  assert.match(html, /0\/1 已分析/);
   // Tab switcher is gone
   assert.doesNotMatch(html, /討論訊號/);
 });
 
-test("TopicDetailView renders topic research question editor", () => {
+test("TopicDetailView exposes a remove action inside topic source rows", () => {
+  const html = renderToStaticMarkup(
+    React.createElement(TopicDetailView, {
+      topic,
+      signals,
+      pairs: [],
+      sessionMode: "topic",
+      sessionItems: [buildSessionItem("item-1", "saved")],
+      signalPreviewById: { "signal-1": "待處理貼文" },
+      onBack: () => undefined,
+      onOpenPair: () => undefined,
+      onUpdateTopic: () => undefined,
+      onAnalyzeItems: async () => ({ ok: true, failedCount: 0 }),
+      onSignalDeleted: async () => undefined
+    })
+  );
+
+  assert.match(html, /data-topic-audit-block="sources"/);
+  assert.match(html, /開始爬取 1 篇/);
+  assert.match(html, /待處理貼文/);
+  assert.match(html, /data-topic-signal-remove="true"/);
+  assert.match(html, /aria-label="移除此訊號"/);
+  assert.match(html, />刪除</);
+});
+
+test("TopicDetailView exposes a remove action inside product signal rows", () => {
+  const html = renderToStaticMarkup(
+    React.createElement(TopicDetailView, {
+      topic,
+      signals,
+      pairs: [],
+      sessionMode: "product",
+      onBack: () => undefined,
+      onOpenPair: () => undefined,
+      onUpdateTopic: () => undefined,
+      onSignalDeleted: async () => undefined
+    })
+  );
+
+  assert.match(html, /data-topic-signal-remove="true"/);
+  assert.match(html, /aria-label="移除此訊號"/);
+});
+
+test("TopicDetailView renders audit overview, themes, lanes, and source list from displayHints", () => {
+  const html = renderToStaticMarkup(
+    React.createElement(TopicDetailView, {
+      topic,
+      signals,
+      pairs: [],
+      auditEvidence: [auditPacket],
+      auditMemos,
+      auditSummary: { reportStatus: "ready", analyzedCount: 1, queuedCount: 0 },
+      auditValidatorFlags: [],
+      onBack: () => undefined,
+      onOpenPair: () => undefined,
+      onUpdateTopic: () => undefined
+    })
+  );
+
+  assert.match(html, /data-topic-audit-block="overview"/);
+  assert.match(html, /報告 已生成/);
+  assert.match(html, /data-topic-audit-block="themes"/);
+  assert.match(html, /航班/);
+  assert.match(html, /data-topic-audit-block="lanes"/);
+  assert.match(html, /客服補救失速/);
+  assert.match(html, /data-topic-audit-block="sources"/);
+  assert.match(html, /航班改動後等不到客服/);
+});
+
+test("TopicDetailView failed audit state shows resume copy and failed reason", () => {
+  const html = renderToStaticMarkup(
+    React.createElement(TopicDetailView, {
+      topic,
+      signals,
+      pairs: [],
+      auditEvidence: [],
+      auditMemos: null,
+      auditSummary: { reportStatus: "failed", analyzedCount: 1, queuedCount: 0, failedStage: 3, failedReason: "provider timeout" },
+      auditValidatorFlags: [],
+      onBack: () => undefined,
+      onOpenPair: () => undefined,
+      onUpdateTopic: () => undefined
+    })
+  );
+
+  assert.match(html, /報告 失敗/);
+  assert.match(html, /從 P3 續跑/);
+  assert.match(html, /provider timeout/);
+  assert.match(html, /主題與敘事尚未產出/);
+});
+
+test("TopicDetailView renders the legacy research question editor only in product detail mode", () => {
   const html = renderToStaticMarkup(
     React.createElement(TopicDetailView, {
       topic: {
@@ -161,6 +314,7 @@ test("TopicDetailView renders topic research question editor", () => {
       },
       signals,
       pairs,
+      sessionMode: "product",
       onBack: () => undefined,
       onOpenPair: () => undefined,
       onUpdateTopic: () => undefined
@@ -195,6 +349,7 @@ test("TopicDetailView signal row shows reading card when signalReadingsBySignalI
       topic: topicWithContext,
       signals,
       pairs: [],
+      sessionMode: "product",
       onBack: () => undefined,
       onOpenPair: () => undefined,
       onUpdateTopic: () => undefined,
@@ -234,6 +389,7 @@ test("TopicDetailView signal row shows generate button without requiring a resea
       topic,
       signals,
       pairs: [],
+      sessionMode: "product",
       onBack: () => undefined,
       onOpenPair: () => undefined,
       onUpdateTopic: () => undefined,
@@ -262,7 +418,7 @@ test("TopicDetailView hides legacy keyword synthesis even when storage still has
   assert.doesNotMatch(html, /data-topic-synthesis="card"/);
   assert.doesNotMatch(html, /v3\.generic-keyword-lens/);
   assert.doesNotMatch(html, /航班改動焦慮/);
-  assert.match(html, /標籤雲/);
+  assert.doesNotMatch(html, /標籤雲/);
 });
 
 test("TopicSynthesisCard Stack layout observation section expands when open", () => {
@@ -346,6 +502,7 @@ test("TopicDetailView pairs render as a folded tool when present", () => {
       topic,
       signals,
       pairs,
+      sessionMode: "product",
       onBack: () => undefined,
       onOpenPair: () => undefined,
       onUpdateTopic: () => undefined
@@ -417,6 +574,7 @@ test("TopicDetailView renders bulk analyze as the primary signal action", () => 
       topic,
       signals,
       pairs: [],
+      sessionMode: "product",
       sessionItems: [buildSessionItem("item-1", "saved")],
       signalPreviewById: { "signal-1": "待分析貼文" },
       onAnalyzeItems: async () => ({ ok: true, failedCount: 0 }),
@@ -432,12 +590,34 @@ test("TopicDetailView renders bulk analyze as the primary signal action", () => 
   assert.match(html, /data-dlens-button="primary"/);
 });
 
+test("TopicDetailView single-row analysis action starts processing when available", () => {
+  const html = renderToStaticMarkup(
+    React.createElement(TopicDetailView, {
+      topic,
+      signals,
+      pairs: [],
+      sessionMode: "product",
+      sessionItems: [buildSessionItem("item-1", "saved")],
+      signalPreviewById: { "signal-1": "待分析貼文" },
+      onQueueItemById: () => undefined,
+      onAnalyzeItems: async () => ({ ok: true, failedCount: 0 }),
+      onBack: () => undefined,
+      onOpenPair: () => undefined,
+      onUpdateTopic: () => undefined
+    })
+  );
+
+  assert.match(html, /開始分析/);
+  assert.doesNotMatch(html, /排隊分析/);
+});
+
 test("TopicDetailView surfaces bulk analyze in the single overview", () => {
   const html = renderToStaticMarkup(
     React.createElement(TopicDetailView, {
       topic,
       signals,
       pairs: [],
+      sessionMode: "product",
       sessionItems: [buildSessionItem("item-1", "saved")],
       onAnalyzeItems: async () => ({ ok: true, failedCount: 0 }),
       onBack: () => undefined,
@@ -457,6 +637,7 @@ test("TopicDetailView bulk analyze loading state disables the CTA", () => {
       topic,
       signals,
       pairs: [],
+      sessionMode: "product",
       sessionItems: [buildSessionItem("item-1", "saved")],
       isBulkAnalyzing: true,
       onAnalyzeItems: async () => ({ ok: true, failedCount: 0 }),
@@ -477,6 +658,7 @@ test("TopicDetailView optimistic queued ids immediately update row status", () =
       topic,
       signals,
       pairs: [],
+      sessionMode: "product",
       sessionItems: [buildSessionItem("item-1", "saved")],
       optimisticQueuedItemIds: ["item-1"],
       onAnalyzeItems: async () => ({ ok: true, failedCount: 0 }),
@@ -490,12 +672,34 @@ test("TopicDetailView optimistic queued ids immediately update row status", () =
   assert.doesNotMatch(html, /開始分析 1 篇/);
 });
 
+test("TopicDetailView lets real running status override optimistic queued rows", () => {
+  const html = renderToStaticMarkup(
+    React.createElement(TopicDetailView, {
+      topic,
+      signals,
+      pairs: [],
+      sessionMode: "product",
+      sessionItems: [buildSessionItem("item-1", "running")],
+      optimisticQueuedItemIds: ["item-1"],
+      onAnalyzeItems: async () => ({ ok: true, failedCount: 0 }),
+      onBack: () => undefined,
+      onOpenPair: () => undefined,
+      onUpdateTopic: () => undefined
+    })
+  );
+
+  assert.match(html, /捕捉中/);
+  assert.match(html, /正在捕捉 1 篇/);
+  assert.doesNotMatch(html, /已排隊 1 篇/);
+});
+
 test("TopicDetailView keeps a visible processing state after bulk queueing", () => {
   const html = renderToStaticMarkup(
     React.createElement(TopicDetailView, {
       topic,
       signals,
       pairs: [],
+      sessionMode: "product",
       sessionItems: [buildSessionItem("item-1", "queued")],
       onAnalyzeItems: async () => ({ ok: true, failedCount: 0 }),
       onBack: () => undefined,
@@ -505,9 +709,65 @@ test("TopicDetailView keeps a visible processing state after bulk queueing", () 
   );
 
   assert.match(html, /data-topic-bulk-analyze="processing"/);
-  assert.match(html, /正在分析 1 篇/);
+  assert.match(html, /已排隊 1 篇/);
   assert.match(html, /0\/1 已完成/);
   assert.doesNotMatch(html, /開始分析 1 篇/);
+});
+
+test("TopicDetailView shows processing status alongside remaining unanalyzed CTA", () => {
+  const mixedTopic = { ...topic, signalIds: ["signal-1", "signal-2"] };
+  const mixedSignals: Signal[] = [
+    signals[0],
+    {
+      id: "signal-2",
+      sessionId: "session-1",
+      itemId: "item-2",
+      source: "threads",
+      inboxStatus: "assigned",
+      topicId: "topic-1",
+      suggestedTopicIds: [],
+      capturedAt: "2026-04-23T08:05:00.000Z",
+      triagedAt: "2026-04-23T09:05:00.000Z"
+    }
+  ];
+  const html = renderToStaticMarkup(
+    React.createElement(TopicDetailView, {
+      topic: mixedTopic,
+      signals: mixedSignals,
+      pairs: [],
+      sessionMode: "product",
+      sessionItems: [buildSessionItem("item-1", "queued"), buildSessionItem("item-2", "saved")],
+      onAnalyzeItems: async () => ({ ok: true, failedCount: 0 }),
+      onBack: () => undefined,
+      onOpenPair: () => undefined,
+      onUpdateTopic: () => undefined
+    })
+  );
+
+  assert.match(html, /已排隊 1 篇/);
+  assert.match(html, /開始分析 1 篇/);
+});
+
+test("TopicDetailView can restart queued topic processing when worker is idle", () => {
+  const html = renderToStaticMarkup(
+    React.createElement(TopicDetailView, {
+      topic,
+      signals,
+      pairs: [],
+      sessionMode: "product",
+      sessionItems: [buildSessionItem("item-1", "queued")],
+      workerStatus: "idle",
+      onStartProcessing: () => undefined,
+      onAnalyzeItems: async () => ({ ok: true, failedCount: 0 }),
+      onBack: () => undefined,
+      onOpenPair: () => undefined,
+      onUpdateTopic: () => undefined
+    })
+  );
+
+  assert.match(html, /已排隊 1 篇/);
+  assert.match(html, /worker 目前未在跑/);
+  assert.match(html, /啟動處理/);
 });
 
 test("topicDetailViewTestables bulk analyze CTA calls the supplied action", () => {
@@ -525,6 +785,27 @@ test("topicDetailViewTestables bulk analyze CTA calls the supplied action", () =
 
   button.props.onClick();
   assert.equal(called, 1);
+});
+
+test("topicDetailViewTestables single item action prefers queue-and-start over queue-only", () => {
+  let analyzedIds: string[] = [];
+  let queuedId: string | null = null;
+
+  topicDetailViewTestables.runSingleAnalyzeAction({
+    itemId: "item-1",
+    onAnalyzeItems: async (itemIds) => {
+      analyzedIds = itemIds;
+      return { ok: true, failedCount: 0 };
+    },
+    onQueueItemById: (itemId) => {
+      queuedId = itemId;
+    }
+  });
+
+  assert.deepEqual(analyzedIds, ["item-1"]);
+  assert.equal(queuedId, null);
+  assert.equal(topicDetailViewTestables.singleAnalyzeActionLabel(true), "開始分析");
+  assert.equal(topicDetailViewTestables.singleAnalyzeActionLabel(false), "排隊分析");
 });
 
 test("pickPrimaryJudgmentPair picks the highest-relevance judgment pair and breaks ties by latest saved date", () => {

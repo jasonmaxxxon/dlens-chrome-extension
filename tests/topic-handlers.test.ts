@@ -54,7 +54,7 @@ test("ensureSignalForSavedItem creates one inbox signal for topic/product folder
   assert.equal(signals[0]?.inboxStatus, "unprocessed");
 });
 
-test("ensureSignalForSavedItem assigns custom topic workspace saves to the same-named topic", async () => {
+test("ensureSignalForSavedItem leaves topic saves unassigned without an explicit topic target", async () => {
   const storage = createStorageArea();
   const session = createSessionRecord("work", "2026-04-23T08:00:00.000Z", "topic");
   const item = createSessionItem(buildDescriptor("work-post-1"), "2026-04-23T08:00:00.000Z");
@@ -63,11 +63,53 @@ test("ensureSignalForSavedItem assigns custom topic workspace saves to the same-
 
   const topics = await loadTopics(storage, session.id);
   const signals = await loadSignals(storage, session.id);
-  assert.equal(topics.length, 1);
-  assert.equal(topics[0]?.name, "work");
-  assert.deepEqual(topics[0]?.signalIds, [signals[0]?.id]);
+  assert.equal(topics.length, 0);
+  assert.equal(signals.length, 1);
+  assert.equal(signals[0]?.inboxStatus, "unprocessed");
+  assert.equal(signals[0]?.topicId, undefined);
+});
+
+test("ensureSignalForSavedItem assigns saves to the explicit topic target", async () => {
+  const session = createSessionRecord("work", "2026-04-23T08:00:00.000Z", "topic");
+  const storage = createStorageArea({
+    [TOPICS_STORAGE_KEY]: [
+      {
+        id: "topic-work",
+        sessionId: session.id,
+        name: "work",
+        description: "",
+        status: "watching",
+        tags: [],
+        signalIds: [],
+        pairIds: [],
+        createdAt: "2026-04-23T08:00:00.000Z",
+        updatedAt: "2026-04-23T08:00:00.000Z"
+      },
+      {
+        id: "topic-love",
+        sessionId: session.id,
+        name: "love",
+        description: "",
+        status: "pending",
+        tags: [],
+        signalIds: [],
+        pairIds: [],
+        createdAt: "2026-04-23T08:00:00.000Z",
+        updatedAt: "2026-04-23T08:00:00.000Z"
+      }
+    ]
+  });
+  const item = createSessionItem(buildDescriptor("love-post-1"), "2026-04-23T08:00:00.000Z");
+
+  await ensureSignalForSavedItem(storage, session, item, "topic-love");
+
+  const topics = await loadTopics(storage, session.id);
+  const signals = await loadSignals(storage, session.id);
+  assert.equal(signals.length, 1);
+  assert.equal(signals[0]?.topicId, "topic-love");
   assert.equal(signals[0]?.inboxStatus, "assigned");
-  assert.equal(signals[0]?.topicId, topics[0]?.id);
+  assert.deepEqual(topics.find((topic) => topic.id === "topic-love")?.signalIds, [signals[0]?.id]);
+  assert.deepEqual(topics.find((topic) => topic.id === "topic-work")?.signalIds, []);
 });
 
 test("ensureWorkspaceTopicForSession repairs existing unprocessed signals into the workspace topic", async () => {

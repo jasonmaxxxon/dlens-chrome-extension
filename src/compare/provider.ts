@@ -55,6 +55,10 @@ import {
   TOPIC_SIGNAL_READING_SYSTEM_PROMPT,
   type TopicSignalReadingInput
 } from "./topic-signal-reading.ts";
+import {
+  parseAuditPromptEnvelopeResponse,
+  type AuditPromptEnvelope
+} from "./topic-audit-prompts.ts";
 import type { PrCampaign, PrCriteriaMatches, PrEvidenceRow } from "../state/pr-evidence-storage.ts";
 import type { JudgmentResult, ProductProfile, ProductSignalAnalysis, SignalTagsRecord, TopicSignalReading } from "../state/types.ts";
 
@@ -814,6 +818,28 @@ export async function generateSignalTags(
   const parsed = parseSignalTagsResponse(raw, input, model);
   if (!parsed) {
     throw new Error("Invalid signal tags payload");
+  }
+  return parsed;
+}
+
+export async function generateTopicAuditEnvelope(
+  provider: "openai" | "claude" | "google",
+  apiKey: string,
+  prompt: string
+): Promise<AuditPromptEnvelope> {
+  if (!apiKey) {
+    throw new Error("尚未設定 AI key。請先在 Settings 設定 Google / OpenAI / Claude key。");
+  }
+  const raw = await generateJsonText(
+    provider,
+    apiKey,
+    prompt,
+    "你是 DLens 的 topic audit pipeline worker。只回傳 JSON envelope；不要改寫或捏造 evidence。",
+    2200
+  );
+  const parsed = parseAuditPromptEnvelopeResponse(raw);
+  if (!parsed) {
+    throw new Error("Invalid topic audit envelope payload");
   }
   return parsed;
 }

@@ -16,7 +16,12 @@ import {
   type TechniqueReadingSnapshot,
 } from "../state/types";
 import { isDescriptorSavedInFolder } from "../state/ui-state";
-import type { ExtensionMessage, ExtensionResponse, StartProcessingResponse } from "../state/messages";
+import type {
+  ExtensionMessage,
+  ExtensionResponse,
+  QueueItemsAndStartProcessingResponse,
+  StartProcessingResponse
+} from "../state/messages";
 import type { SignalPacketExportFormat, SignalPacketExportResult } from "../compare/signal-packet-export";
 import type { SignalReading } from "../compare/signal-reading-storage";
 import type { PrCampaign } from "../state/pr-evidence-storage";
@@ -32,9 +37,12 @@ import { addRuntimeMessageListener, getActiveItem, getActiveSession, sendExtensi
 import {
   computeFlashPreviewStyle,
   flashPreviewMetrics,
+  getLiveHoverDescriptor,
   HOVER_RECT_EVENT,
+  OPTIMISTIC_SAVE_CONFIRMED_EVENT,
   OPTIMISTIC_SAVE_EVENT,
   OPTIMISTIC_SAVE_FAILED_EVENT,
+  setLiveCollectionTarget,
   type HoverRect
 } from "./inpage-helpers";
 import {
@@ -46,6 +54,7 @@ import { usePopupKeyframes } from "./usePopupKeyframes";
 import { usePopupWorkspaceState } from "./usePopupWorkspaceState";
 import { useProcessingCoordinator } from "./useProcessingCoordinator";
 import { useResultSurfaceState } from "./useResultSurfaceState";
+import { useTopicAudit } from "./useTopicAudit";
 import { useTopicState } from "./useTopicState";
 
 type SendAndSync = <T extends ExtensionResponse = ExtensionResponse>(message: ExtensionMessage) => Promise<T>;
@@ -57,10 +66,35 @@ type UseInPageCollectorAppStateArgs = {
 };
 
 export function resolveEffectivePopupPage(page: ExtensionSnapshot["tab"]["popupPage"], activeFolderMode: FolderMode) {
-  if (page === "settings" || page === "result") {
+  if (page === "settings" || page === "result" || page === "topic-detail") {
     return page;
   }
   return guardPage(page, activeFolderMode);
+}
+
+export function buildPreviewSaveMessage({
+  activeFolderMode,
+  sessionId,
+  selectedTopicId,
+  collectionTopicId,
+  preview
+}: {
+  activeFolderMode: FolderMode;
+  sessionId?: string | null;
+  selectedTopicId?: string | null;
+  collectionTopicId?: string | null;
+  preview?: TargetDescriptor | null;
+}): Extract<ExtensionMessage, { type: "session/save-current-preview" }> {
+  const targetTopicId = activeFolderMode === "topic" ? selectedTopicId || collectionTopicId || "" : "";
+  // Prefer the live hovered post (freshest) over the snapshot preview, which can lag
+  // a fast cursor by a render frame and cause a save against the previous post.
+  const descriptor = getLiveHoverDescriptor() ?? preview ?? null;
+  return {
+    type: "session/save-current-preview",
+    ...(sessionId ? { sessionId } : {}),
+    ...(targetTopicId ? { topicId: targetTopicId } : {}),
+    ...(descriptor ? { descriptor } : {})
+  };
 }
 
 function mergeAnalysesBySignalId(
@@ -95,8 +129,8 @@ export async function runAnalyzeItemsPipeline({
   setWorkerStatus: (status: WorkerStatus) => void;
   setDisplayToast: (toast: DisplayToastState) => void;
 }): Promise<{ ok: boolean; failedCount: number }> {
-  const queueResp = await sendAndSync({
-    type: "session/queue-items",
+  const queueResp = await sendAndSync<QueueItemsAndStartProcessingResponse>({
+    type: "session/queue-items-and-start-processing",
     sessionId: folderId,
     itemIds
   });
@@ -120,8 +154,7 @@ export async function runAnalyzeItemsPipeline({
     return { ok: false, failedCount };
   }
 
-  const startResp = await sendAndSync<StartProcessingResponse>({ type: "worker/start-processing" });
-  if (startResp.ok) {
+  if (queueResp.processingStatus) {
     setWorkerStatus("draining");
     setDisplayToast({
       id: `bulk-analyze-${Date.now()}`,
@@ -137,7 +170,7 @@ export async function runAnalyzeItemsPipeline({
   setDisplayToast({
     id: `bulk-analyze-failed-${Date.now()}`,
     kind: "queued",
-    message: getProcessingFailureMessage(startResp.error)
+    message: getProcessingFailureMessage(queueResp.processingError || "已加入隊列，但未能啟動處理")
   });
   return { ok: false, failedCount };
 }
@@ -299,10 +332,17 @@ export function useInPageCollectorAppState({ snapshot, tabId, sendAndSync }: Use
     activeFolderMode,
     savedAnalyses,
     activeSavedAnalysis,
+    collectionTopicId: snapshot?.tab.collectionTopicId,
     stateUpdatedAt: snapshot?.global.updatedAt,
     sendAndSync,
     onNavigate,
     onOpenSavedAnalysis: openSavedAnalysisBase
+  });
+  const topicAuditState = useTopicAudit({
+    popupOpen,
+    activeFolder,
+    topics: topicState.topics,
+    sendAndSync
   });
   const savedToastMessage = useCallback((folderName: string): string => {
     if (activeFolderMode === "pr-evidence") {
@@ -311,7 +351,7 @@ export function useInPageCollectorAppState({ snapshot, tabId, sendAndSync }: Use
     if (activeFolderMode === "topic") {
       return "已加入主題";
     }
-    return activeFolderMode === "product" ? "已加入產品訊號" : `Saved to ${folderName}`;
+    return activeFolderMode === "product" ? "已加入產品訊號" : `已儲存到：${folderName}`;
   }, [activeFolderMode]);
 
   const folderSynthesisCoverage = useMemo(() => {
@@ -648,25 +688,31 @@ export function useInPageCollectorAppState({ snapshot, tabId, sendAndSync }: Use
         return;
       }
       setOptimisticSavedUrl(normalized);
-      if (activeFolder?.name) {
+      const targetName = activeFolderMode === "topic" ? topicState.activeTopic?.name : activeFolder?.name;
+      if (targetName) {
         setDisplayToast({
           id: `saved-${Date.now()}`,
           kind: "saved",
-          message: savedToastMessage(activeFolder.name)
+          message: activeFolderMode === "topic" ? `已儲存到：${targetName}` : savedToastMessage(targetName)
         });
       }
+    };
+    const onOptimisticConfirmed = () => {
+      void sendAndSync({ type: "state/get-active-tab" });
     };
     const onOptimisticFailure = (event: Event) => {
       const failedUrl = normalizePostUrl(String((event as CustomEvent<string>).detail || ""));
       setOptimisticSavedUrl((current) => (current === failedUrl ? null : current));
     };
     window.addEventListener(OPTIMISTIC_SAVE_EVENT, onOptimisticSave as EventListener);
+    window.addEventListener(OPTIMISTIC_SAVE_CONFIRMED_EVENT, onOptimisticConfirmed as EventListener);
     window.addEventListener(OPTIMISTIC_SAVE_FAILED_EVENT, onOptimisticFailure as EventListener);
     return () => {
       window.removeEventListener(OPTIMISTIC_SAVE_EVENT, onOptimisticSave as EventListener);
+      window.removeEventListener(OPTIMISTIC_SAVE_CONFIRMED_EVENT, onOptimisticConfirmed as EventListener);
       window.removeEventListener(OPTIMISTIC_SAVE_FAILED_EVENT, onOptimisticFailure as EventListener);
     };
-  }, [activeFolder?.name, savedToastMessage]);
+  }, [activeFolder?.name, activeFolderMode, savedToastMessage, sendAndSync, topicState.activeTopic?.name]);
 
   useEffect(() => {
     const onKeyDown = (event: KeyboardEvent) => {
@@ -681,7 +727,13 @@ export function useInPageCollectorAppState({ snapshot, tabId, sendAndSync }: Use
 
       if (event.key.toLowerCase() === "s") {
         event.preventDefault();
-        void sendAndSync({ type: "session/save-current-preview" });
+        void sendAndSync(buildPreviewSaveMessage({
+          activeFolderMode,
+          sessionId: activeFolder?.id,
+          selectedTopicId: topicState.selectedTopicId,
+          collectionTopicId: snapshot?.tab.collectionTopicId,
+          preview: snapshot.tab.currentPreview
+        }));
       }
 
       if (event.key.toLowerCase() === "o" && snapshot.tab.currentPreview?.post_url) {
@@ -691,7 +743,19 @@ export function useInPageCollectorAppState({ snapshot, tabId, sendAndSync }: Use
     };
     document.addEventListener("keydown", onKeyDown, true);
     return () => document.removeEventListener("keydown", onKeyDown, true);
-  }, [sendAndSync, snapshot?.tab.selectionMode, snapshot?.tab.currentPreview?.post_url]);
+  }, [activeFolder?.id, activeFolderMode, sendAndSync, snapshot?.tab.collectionTopicId, snapshot?.tab.selectionMode, snapshot?.tab.currentPreview?.post_url, topicState.selectedTopicId]);
+
+  // Publish the folder/topic the popup is showing so the content-script click path
+  // and keyboard save always target it, instead of the background's activeSessionId.
+  useEffect(() => {
+    setLiveCollectionTarget({
+      sessionId: activeFolder?.id ?? null,
+      topicId:
+        activeFolderMode === "topic"
+          ? topicState.selectedTopicId ?? snapshot?.tab.collectionTopicId ?? null
+          : null
+    });
+  }, [activeFolder?.id, activeFolderMode, snapshot?.tab.collectionTopicId, topicState.selectedTopicId]);
 
   const canPrev = Boolean(activeFolder && activeItem && activeFolder.items.findIndex((item) => item.id === activeItem.id) > 0);
   const canNext = Boolean(
@@ -707,6 +771,15 @@ export function useInPageCollectorAppState({ snapshot, tabId, sendAndSync }: Use
         ? "Starting..."
         : "Process All";
   async function onSavePreview() {
+    const targetTopicId = activeFolderMode === "topic" ? topicState.selectedTopicId || snapshot?.tab.collectionTopicId || "" : "";
+    if (activeFolderMode === "topic" && !targetTopicId) {
+      setDisplayToast({
+        id: `topic-required-${Date.now()}`,
+        kind: "saved",
+        message: "先選擇主題"
+      });
+      return;
+    }
     const normalized = normalizePostUrl(preview?.post_url || "");
     if (normalized) {
       setOptimisticSavedUrl(normalized);
@@ -718,7 +791,13 @@ export function useInPageCollectorAppState({ snapshot, tabId, sendAndSync }: Use
         });
       }
     }
-    const response = await sendAndSync({ type: "session/save-current-preview" });
+    const response = await sendAndSync(buildPreviewSaveMessage({
+      activeFolderMode,
+      sessionId: activeFolder?.id,
+      selectedTopicId: topicState.selectedTopicId,
+      collectionTopicId: snapshot?.tab.collectionTopicId,
+      preview
+    }));
     if (!response.ok && normalized) {
       setOptimisticSavedUrl((current) => (current === normalized ? null : current));
     }
@@ -728,10 +807,12 @@ export function useInPageCollectorAppState({ snapshot, tabId, sendAndSync }: Use
     if (!folderName.trim()) {
       return;
     }
+    const descriptor = saveCurrentPreview ? getLiveHoverDescriptor() ?? snapshot?.tab.currentPreview ?? undefined : undefined;
     await sendAndSync({
       type: "session/create",
       name: folderName.trim(),
-      saveCurrentPreview
+      saveCurrentPreview,
+      ...(descriptor ? { descriptor } : {})
     });
     setFolderName("");
     setShowFolderPrompt(false);
@@ -834,7 +915,7 @@ export function useInPageCollectorAppState({ snapshot, tabId, sendAndSync }: Use
     setDisplayToast({
       id: `queued-${Date.now()}`,
       kind: "queued",
-      message: `Queued from ${activeFolder.name}`
+      message: `已加入隊列：${activeFolder.name}`
     });
     const response = await sendAndSync({
       type: "session/queue-item",
@@ -846,7 +927,7 @@ export function useInPageCollectorAppState({ snapshot, tabId, sendAndSync }: Use
       setDisplayToast({
         id: `queue-failed-${Date.now()}`,
         kind: "queued",
-        message: "Queue failed"
+        message: "加入隊列失敗"
       });
     }
   }
@@ -882,7 +963,7 @@ export function useInPageCollectorAppState({ snapshot, tabId, sendAndSync }: Use
           setDisplayToast({
             id: `queue-all-failed-${Date.now()}`,
             kind: "queued",
-            message: "Queue failed"
+            message: "加入隊列失敗"
           });
           return;
         }
@@ -902,6 +983,33 @@ export function useInPageCollectorAppState({ snapshot, tabId, sendAndSync }: Use
       });
       if (response.ok) {
         await sendAndSync({ type: "session/refresh-all", sessionId: activeFolder?.id });
+      }
+    } finally {
+      setIsStartingProcessing(false);
+    }
+  }
+
+  async function onStartProcessing() {
+    if (!activeFolder) {
+      return;
+    }
+    setIsStartingProcessing(true);
+    try {
+      const response = await sendAndSync<StartProcessingResponse>({ type: "worker/start-processing" });
+      if (response.ok) {
+        setWorkerStatus("draining");
+      }
+      setDisplayToast({
+        id: `processing-restart-${Date.now()}`,
+        kind: "queued",
+        message: response.ok
+          ? response.processingStatus === "already_running"
+            ? "Processing already running"
+            : "Processing started"
+          : getProcessingFailureMessage(response.error)
+      });
+      if (response.ok) {
+        await sendAndSync({ type: "session/refresh-all", sessionId: activeFolder.id });
       }
     } finally {
       setIsStartingProcessing(false);
@@ -1290,6 +1398,8 @@ export function useInPageCollectorAppState({ snapshot, tabId, sendAndSync }: Use
     activeTopic: topicState.activeTopic,
     activeTopicSignals: topicState.activeTopicSignals,
     activeTopicPairs: topicState.activeTopicPairs,
+    topicAuditByTopicId: topicAuditState.auditByTopicId,
+    activeTopicAudit: topicState.activeTopic ? topicAuditState.auditByTopicId[topicState.activeTopic.id] : undefined,
     signalPreviewById: topicState.signalPreviewById,
     signalUrlById: topicState.signalUrlById,
     productSignalEvidenceById: topicState.productSignalEvidenceById,
@@ -1336,6 +1446,7 @@ export function useInPageCollectorAppState({ snapshot, tabId, sendAndSync }: Use
     onResetCompareSelection,
     onSavePreview,
     onCreateTopic: topicState.onCreateTopic,
+    onSelectTopicTarget: topicState.onSelectTopicTarget,
     onNavigateToTopic: topicState.onNavigateToTopic,
     onBackFromTopicDetail: topicState.onBackFromTopicDetail,
     onUpdateTopic: topicState.onUpdateTopic,
@@ -1343,6 +1454,11 @@ export function useInPageCollectorAppState({ snapshot, tabId, sendAndSync }: Use
     topicSignalReadingsBySignalId: topicState.topicSignalReadingsBySignalId,
     signalTagsByItemId: topicState.signalTagsByItemId,
     onGenerateTopicSignalReading: topicState.onGenerateTopicSignalReading,
+    onRunTopicAudit: topicAuditState.runTopicAudit,
+    onRunTopicAuditP1: topicAuditState.runP1ForSignal,
+    topicAuditP1RunningBySignalId: topicAuditState.p1RunningBySignalId,
+    topicAuditP1ErrorBySignalId: topicAuditState.p1ErrorBySignalId,
+    onOpenAuditReport: topicAuditState.openAuditReport,
     folderSynthesis,
     isGeneratingFolderSynthesis,
     folderSynthesisError,
@@ -1351,6 +1467,7 @@ export function useInPageCollectorAppState({ snapshot, tabId, sendAndSync }: Use
     onGenerateFolderSynthesis,
     onClearFolderSynthesis,
     onSignalTriaged: topicState.onSignalTriaged,
+    onCreateTopicFromSignals: topicState.onCreateTopicFromSignals,
     onSignalDeleted: topicState.onSignalDeleted,
     onSaveJudgmentOverride,
     onInitProductProfile,
@@ -1372,6 +1489,7 @@ export function useInPageCollectorAppState({ snapshot, tabId, sendAndSync }: Use
     onQueueItem,
     onQueueItemById,
     onAnalyzeItems,
+    onStartProcessing,
     onAddToCompare,
     onProcessAll,
     onSetActiveSession,

@@ -87,7 +87,8 @@ function metricLine(row: PrEvidenceRow): string {
     `${formatMetric(row.metrics.likes)} likes`,
     `${formatMetric(row.metrics.comments)} replies`,
     `${formatMetric(row.metrics.reposts)} reposts`,
-    views != null ? `${formatMetric(views)} views` : ""
+    views != null ? `${formatMetric(views)} views` : "",
+    row.metrics.followers != null ? `${formatMetric(row.metrics.followers)} followers` : ""
   ].filter(Boolean).join(" · ");
 }
 

@@ -44,7 +44,7 @@ const rows: PrEvidenceRow[] = [
     postUrl: "https://threads.net/post/1",
     authorHandle: "@kol_a",
     caption: "BoostUP event with wellness offers",
-    metrics: { likes: 1200, comments: 38, reposts: 4, views: 9000 },
+    metrics: { likes: 1200, comments: 38, reposts: 4, views: 9000, followers: 756 },
     expectedEngagement: "",
     criteriaMatches: { c1: true, c2: true, c3: false, c4: true, c5: true, c6: false },
     collectedAt: "2026-05-06T12:00:00.000Z",
@@ -228,6 +228,8 @@ test("buildPrEvidenceCsv exports UTF-8 BOM, label headers, fallback headers, and
 
   assert.ok(csv.startsWith("\uFEFF"));
   const [header, firstRow] = csv.replace(/^\uFEFF/, "").split("\n");
+  assert.match(header!, /views,followers,expected_engagement/);
+  assert.match(firstRow!, /9000,756,/);
   assert.match(header!, /Brand named,Event mentioned,criterion_3,Offer details/);
   assert.match(firstRow!, /✓,✓,,✓,✓,/);
   assert.match(firstRow!, /BoostUP event with wellness offers/);

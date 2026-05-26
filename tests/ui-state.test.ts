@@ -71,8 +71,8 @@ test("applyHoveredPreview updates currentPreview and flashPreview without cleari
 });
 
 test("createInlineToast uses folder copy for saved and queued actions", () => {
-  assert.equal(createInlineToast("saved", "Signals", "2026-03-25T10:00:00Z").message, "Saved to Signals");
-  assert.equal(createInlineToast("queued", "Signals", "2026-03-25T10:00:01Z").message, "Queued from Signals");
+  assert.equal(createInlineToast("saved", "Signals", "2026-03-25T10:00:00Z").message, "已儲存到：Signals");
+  assert.equal(createInlineToast("queued", "Signals", "2026-03-25T10:00:01Z").message, "已加入隊列：Signals");
 });
 
 test("isDescriptorSavedInFolder normalizes post_url", () => {

@@ -1,7 +1,15 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import { classifyCandidateStrength, classifyMetric, inferThreadViewsFromText, scoreCardCandidateSignals, type CardCandidateSignals } from "../src/targeting/threads.ts";
+import {
+  classifyCandidateStrength,
+  classifyMetric,
+  inferThreadFollowersFromText,
+  inferThreadViewsFromText,
+  scoreCardCandidateSignals,
+  threadsTargetingTestables,
+  type CardCandidateSignals
+} from "../src/targeting/threads.ts";
 
 function makeSignals(overrides: Partial<CardCandidateSignals> = {}): CardCandidateSignals {
   return {
@@ -124,4 +132,18 @@ test("inferThreadViewsFromText extracts visible Threads view counts without matc
   assert.equal(inferThreadViewsFromText("1.5K views · BoostUP"), 1500);
   assert.equal(inferThreadViewsFromText("1.2萬瀏覽"), 12000);
   assert.equal(inferThreadViewsFromText("View replies"), null);
+});
+
+test("inferThreadFollowersFromText extracts visible profile-card follower counts", () => {
+  assert.equal(inferThreadFollowersFromText("Charlene\ncharlene89tian\n756 followers\nFollow"), 756);
+  assert.equal(inferThreadFollowersFromText("yrzhe\n12.4K followers\nFollow"), 12400);
+  assert.equal(inferThreadFollowersFromText("創作者\n1.2萬 followers\nFollow"), 12000);
+  assert.equal(inferThreadFollowersFromText("View followers"), null);
+});
+
+test("cleanBodyText keeps CJK post text even when it has no spaces", () => {
+  assert.equal(
+    threadsTargetingTestables.cleanBodyText("一張圖讓你知道現在的就業出路有多艱難\nLike\n7"),
+    "一張圖讓你知道現在的就業出路有多艱難"
+  );
 });

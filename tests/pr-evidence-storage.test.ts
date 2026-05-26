@@ -40,8 +40,8 @@ function buildItem(): SessionItem {
       text_snippet: "BoostUP event recap with wellness vouchers.",
       time_token_hint: "1h",
       dom_anchor: "card-1",
-      engagement: { likes: 1200, comments: 38, reposts: 4, forwards: 0, views: 9000 },
-      engagement_present: { likes: true, comments: true, reposts: true, forwards: true, views: true },
+      engagement: { likes: 1200, comments: 38, reposts: 4, forwards: 0, views: 9000, followers: 756 },
+      engagement_present: { likes: true, comments: true, reposts: true, forwards: true, views: true, followers: true },
       captured_at: "2026-05-06T12:00:00.000Z"
     },
     "2026-05-06T12:00:00.000Z"
@@ -145,7 +145,7 @@ test("toPrEvidenceRowFromSessionItem maps visible collect fields without AI data
   assert.equal(row.campaignId, "campaign-1");
   assert.equal(row.authorHandle, "@kol");
   assert.match(row.caption, /BoostUP/);
-  assert.deepEqual(row.metrics, { likes: 1200, comments: 38, reposts: 4, views: 9000 });
+  assert.deepEqual(row.metrics, { likes: 1200, comments: 38, reposts: 4, views: 9000, followers: 756 });
   assert.equal(row.expectedEngagement, "");
   assert.deepEqual(row.criteriaMatches, {
     c1: false,
@@ -155,6 +155,27 @@ test("toPrEvidenceRowFromSessionItem maps visible collect fields without AI data
     c5: false,
     c6: false
   });
+});
+
+test("toPrEvidenceRowFromSessionItem fills backend-visible metrics after crawl", () => {
+  const item = buildItem();
+  item.descriptor.engagement.views = null;
+  item.descriptor.engagement.followers = null;
+  item.latestCapture = {
+    result: {
+      canonical_post: {
+        metrics: {
+          views: 9100,
+          followers: 802
+        }
+      }
+    }
+  } as SessionItem["latestCapture"];
+
+  const row = toPrEvidenceRowFromSessionItem("campaign-1", item, "2026-05-06T12:05:00.000Z");
+
+  assert.equal(row.metrics.views, 9100);
+  assert.equal(row.metrics.followers, 802);
 });
 
 test("savePrEvidenceRow upserts by campaign and item id", async () => {

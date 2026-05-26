@@ -1,0 +1,426 @@
+<!doctype html>
+<html lang="zh-Hant">
+<head>
+<meta charset="utf-8">
+<title>DLens · Signal Drawer Redesign · 2026-05-25</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Noto+Serif+TC:wght@400;500;600;700&family=JetBrains+Mono:wght@400;600;700&display=swap" rel="stylesheet">
+<style>
+:root {
+  --cream:#faf7ee; --cream-deep:#f3eee0; --surface:#ffffff;
+  --ink:#1f2620; --sub-ink:#4a5249; --soft-ink:#8a9088;
+  --line:#e8e2d3; --line-strong:#d8d2c2;
+  --sage:#3f5a3b; --sage-deep:#2a3e26; --sage-soft:#e8efe2; --sage-tint:#f1f6ec;
+  --amber:#b6743e; --amber-soft:#f7ead6;
+  --fail:#b54a3a; --fail-soft:#f7dcd6;
+  --serif:'Noto Serif TC','Songti TC','Iowan Old Style',Georgia,serif;
+  --sans:-apple-system,BlinkMacSystemFont,'PingFang TC','Microsoft JhengHei',system-ui,sans-serif;
+  --mono:'JetBrains Mono',ui-monospace,'Menlo',monospace;
+}
+*{box-sizing:border-box}
+html,body{margin:0;padding:0;background:#2d3331;color:var(--ink);font-family:var(--sans);min-height:100vh}
+.stage{padding:56px 24px 100px;display:flex;justify-content:center;align-items:flex-start;gap:32px}
+.stage-label{color:rgba(250,247,238,.5);font-family:var(--mono);font-size:10px;text-transform:uppercase;letter-spacing:.08em;text-align:center;margin-bottom:14px}
+
+.popup{width:800px;height:600px;background:var(--cream);border-radius:16px;box-shadow:0 32px 80px rgba(0,0,0,.4);overflow:hidden;position:relative;display:flex;flex-direction:column}
+
+.masthead{padding:13px 22px;display:flex;justify-content:space-between;align-items:center;font-size:11px;color:var(--soft-ink);font-family:var(--mono);background:rgba(255,255,255,.4);border-bottom:1px solid var(--line)}
+.brand{font-family:var(--serif);font-size:18px;color:var(--ink);font-weight:500;letter-spacing:.01em}
+.scroll{overflow-y:auto;flex:1;scrollbar-width:thin;scrollbar-color:var(--line-strong) transparent}
+.scroll::-webkit-scrollbar{width:6px}
+.scroll::-webkit-scrollbar-thumb{background:var(--line-strong);border-radius:3px}
+
+/* Topic header */
+.topic-header{padding:20px 24px 22px;display:flex;justify-content:space-between;align-items:flex-start;gap:18px}
+.topic-kicker{font-size:11px;color:var(--soft-ink);font-weight:700;margin-bottom:4px}
+.topic-name{font-family:var(--serif);font-size:38px;line-height:1;margin:0;font-weight:500}
+.topic-meta{margin-top:10px;font-size:12px;color:var(--soft-ink);display:flex;gap:10px;align-items:center}
+.dot-success{width:7px;height:7px;border-radius:999px;background:var(--sage);display:inline-block;margin-right:5px}
+.cta-wrap{text-align:right}
+.cta-primary{background:var(--sage);color:var(--cream);border:none;border-radius:12px;padding:11px 18px;font-size:12px;font-weight:800;cursor:pointer;box-shadow:0 6px 18px rgba(63,90,59,.28);font-family:var(--sans);letter-spacing:.02em}
+.cta-hint{font-size:10.5px;color:var(--soft-ink);margin-top:6px;font-family:var(--mono)}
+
+/* Section */
+.section{padding:16px 24px}
+.section + .section{border-top:1px solid var(--line)}
+.section-head{display:flex;align-items:baseline;justify-content:space-between;gap:10px;margin-bottom:12px}
+.section-titlebox{display:flex;align-items:baseline;gap:10px;flex-wrap:wrap}
+.kicker{font-family:var(--mono);font-size:10px;color:var(--soft-ink);letter-spacing:.06em;text-transform:uppercase;font-weight:700}
+.section-title{font-family:var(--serif);font-size:18px;font-weight:600;margin:0;color:var(--ink)}
+.section-hint{font-size:11px;color:var(--soft-ink)}
+
+/* THEMES */
+.themes-row{display:flex;flex-wrap:wrap;gap:7px}
+.theme-chip{display:inline-flex;align-items:center;gap:6px;padding:6px 13px;border-radius:999px;font-size:12.5px;font-weight:650;border:1px solid var(--line);background:#fff;cursor:pointer;transition:transform 120ms,box-shadow 120ms}
+.theme-chip:hover{transform:translateY(-1px);box-shadow:0 4px 10px rgba(0,0,0,.04)}
+.theme-chip[data-cat="market"]{color:#7a4d27;background:#fdf3e6;border-color:#f0d4ad}
+.theme-chip[data-cat="emotion"]{color:#5e3a76;background:#f4ebfa;border-color:#dccaea}
+.theme-chip[data-cat="self"]{color:var(--sage-deep);background:var(--sage-tint);border-color:#c8d8be}
+.theme-chip[data-cat="power"]{color:#8a3d3d;background:#fae6e3;border-color:#ecc5c0}
+.theme-chip[data-cat="critique"]{color:#2c4d6b;background:#e6eef5;border-color:#c4d6e6}
+.theme-dot{width:7px;height:7px;border-radius:999px;background:currentColor;opacity:.7}
+
+/* NARRATIVE */
+.lane-card{display:grid;grid-template-columns:48px 1fr;gap:13px;padding:13px 14px;border-radius:12px;border:1px solid var(--line);background:#fff;margin-bottom:8px;cursor:pointer;align-items:start;transition:border-color 150ms,box-shadow 150ms}
+.lane-card:hover{border-color:#bccfb5;box-shadow:0 4px 14px rgba(63,90,59,.07)}
+.lane-icon{width:48px;height:48px;border-radius:11px;background:var(--sage-tint);display:flex;align-items:center;justify-content:center;color:var(--sage-deep)}
+.lane-title{font-family:var(--serif);font-size:15px;font-weight:600;line-height:1.35;color:var(--ink)}
+.lane-refs{display:flex;gap:5px;flex-wrap:wrap;margin-top:7px;align-items:center}
+.lane-count{font-size:10.5px;font-weight:700;color:var(--soft-ink);font-family:var(--mono);margin-right:3px}
+.ref-chip-mini{font-family:var(--mono);font-size:10px;color:var(--sage);background:#fff;border:1px solid var(--line);border-radius:999px;padding:1.5px 6px;font-weight:650}
+
+/* SOURCES */
+.source-row{display:grid;grid-template-columns:1fr auto;gap:12px;align-items:center;padding:10px 12px;border-radius:10px;cursor:pointer;transition:background 120ms}
+.source-row:hover{background:rgba(232,239,226,.6)}
+.source-row.active{background:var(--sage-tint)}
+.source-meta{font-family:var(--mono);font-size:11px;color:var(--sage);font-weight:700}
+.source-author{font-size:10.5px;color:var(--soft-ink);margin-left:8px;font-family:var(--mono)}
+.source-excerpt{font-size:12px;color:var(--sub-ink);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;margin-top:4px;line-height:1.45}
+.status-pill{display:inline-flex;align-items:center;gap:5px;padding:3px 9px;border-radius:999px;font-size:10.5px;font-weight:750;background:var(--sage-tint);color:var(--sage-deep);white-space:nowrap}
+.status-dot{width:6px;height:6px;border-radius:999px;background:var(--sage)}
+
+/* Drawer */
+.scrim{position:absolute;inset:0;background:rgba(20,25,22,.42);backdrop-filter:blur(2px);opacity:0;pointer-events:none;transition:opacity 220ms;z-index:10}
+.scrim.open{opacity:1;pointer-events:auto}
+
+.drawer{position:absolute;top:0;right:0;bottom:0;width:640px;background:var(--cream);box-shadow:-16px 0 40px rgba(0,0,0,.22);transform:translateX(100%);transition:transform 280ms cubic-bezier(.2,.8,.2,1);z-index:20;display:flex;flex-direction:column}
+.drawer.open{transform:translateX(0)}
+
+.drawer-header{padding:18px 22px 16px;border-bottom:1px solid var(--line);display:flex;justify-content:space-between;align-items:flex-start;gap:14px;background:rgba(255,255,255,.5)}
+.drawer-shortcode{font-family:var(--mono);font-size:11px;color:var(--sage);font-weight:700;letter-spacing:.04em}
+.drawer-title{font-family:var(--serif);font-size:22px;margin:5px 0 7px;font-weight:500;line-height:1.25}
+.drawer-meta{font-size:11px;color:var(--soft-ink);display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+.drawer-meta .pipe{color:var(--line-strong)}
+.drawer-author{color:var(--sub-ink);font-weight:650}
+.drawer-close{border:1px solid var(--line);background:#fff;width:30px;height:30px;border-radius:8px;cursor:pointer;font-size:16px;color:var(--soft-ink);display:flex;align-items:center;justify-content:center;line-height:1}
+.drawer-body{padding:22px 22px 28px;overflow-y:auto;flex:1;scrollbar-width:thin;scrollbar-color:var(--line-strong) transparent}
+.drawer-body::-webkit-scrollbar{width:6px}
+.drawer-body::-webkit-scrollbar-thumb{background:var(--line-strong);border-radius:3px}
+
+/* P1 hero */
+.p1-block{background:#fff;border:1px solid var(--line);border-radius:14px;padding:22px 24px;box-shadow:0 2px 10px rgba(0,0,0,.03)}
+.p1-label{font-family:var(--mono);font-size:10px;color:var(--sage);letter-spacing:.08em;font-weight:700;text-transform:uppercase;margin-bottom:14px;display:flex;align-items:center;gap:10px}
+.p1-label::before{content:"";width:18px;height:1.5px;background:var(--sage)}
+.p1-prose{font-family:var(--serif);font-size:15.5px;line-height:1.95;color:var(--ink);letter-spacing:.005em}
+.p1-prose b{font-weight:600;color:var(--sage-deep)}
+
+/* Inline citation chip */
+.cite{display:inline-flex;align-items:center;font-family:var(--mono);font-size:10.5px;font-weight:700;padding:1px 7px;margin:0 2px;border-radius:5px;background:var(--sage-tint);color:var(--sage-deep);border:1px solid #d3e0ca;cursor:pointer;vertical-align:1px;transition:background 120ms,color 120ms,border-color 120ms;position:relative;line-height:1.5}
+.cite:hover{background:var(--sage);color:#fff;border-color:var(--sage-deep)}
+.cite.pinned{background:var(--amber-soft);color:var(--amber);border-color:#e8c89b}
+.cite.pinned::after{content:"📌";font-size:8px;margin-left:3px}
+
+/* Popover */
+.popover{position:absolute;bottom:calc(100% + 9px);left:50%;transform:translateX(-50%) translateY(4px);width:300px;background:#1f2620;color:var(--cream);border-radius:10px;padding:11px 13px;font-family:var(--sans);font-size:11.5px;line-height:1.6;opacity:0;pointer-events:none;transition:opacity 150ms,transform 150ms;z-index:30;box-shadow:0 14px 28px rgba(0,0,0,.28);text-align:left;white-space:normal}
+.popover::after{content:"";position:absolute;top:100%;left:50%;transform:translateX(-50%);border:6px solid transparent;border-top-color:#1f2620}
+.cite:hover .popover,.cite.pinned .popover{opacity:1;transform:translateX(-50%) translateY(0);pointer-events:auto}
+.popover-header{display:flex;justify-content:space-between;font-family:var(--mono);font-size:10px;color:rgba(250,247,238,.6);margin-bottom:6px;font-weight:400}
+.popover-author{font-weight:700;color:var(--cream)}
+.popover-role{margin-top:6px;font-family:var(--mono);font-size:9.5px;color:rgba(250,247,238,.5);text-transform:uppercase;letter-spacing:.05em}
+
+/* Caveats */
+.caveats{margin-top:16px;padding:12px 14px;background:rgba(182,116,62,.06);border-left:3px solid var(--amber);border-radius:0 8px 8px 0;font-size:11.5px;line-height:1.65;color:var(--sub-ink)}
+.caveats-label{font-family:var(--mono);font-size:10px;color:var(--amber);font-weight:700;text-transform:uppercase;letter-spacing:.05em;margin-bottom:4px}
+
+/* Raw collapsible */
+.raw-section{margin-top:20px}
+.raw-toggle{width:100%;background:transparent;border:1px dashed var(--line-strong);border-radius:10px;padding:11px 14px;font-family:var(--mono);font-size:11px;color:var(--soft-ink);cursor:pointer;display:flex;justify-content:space-between;align-items:center;letter-spacing:.04em;transition:background 120ms,border-color 120ms}
+.raw-toggle:hover{background:rgba(255,255,255,.5);border-color:var(--soft-ink)}
+.raw-toggle::after{content:"▾";transition:transform 200ms;display:inline-block}
+.raw-toggle.open::after{transform:rotate(180deg)}
+.raw-body{display:none;margin-top:10px;padding:14px 16px;background:#fff;border-radius:10px;border:1px solid var(--line);gap:9px}
+.raw-body.open{display:grid}
+.raw-fragment{padding:10px 12px;border-radius:8px;border:1px solid var(--line);background:var(--cream);font-size:12px;line-height:1.6}
+.raw-fragment[data-role="op"]{background:var(--sage-tint);border-color:#c8d8be}
+.raw-fragment[data-role="op_continuation"]{background:var(--amber-soft);border-color:#e8c89b;font-style:italic}
+.raw-fragment-header{display:flex;justify-content:space-between;align-items:center;font-family:var(--mono);font-size:10.5px;margin-bottom:5px;color:var(--soft-ink)}
+.raw-fragment-ref{font-weight:700;color:var(--sage)}
+.raw-fragment.highlight{outline:2px solid var(--amber);outline-offset:2px;transition:outline-color 150ms}
+
+/* Floating nav */
+.nav{position:fixed;bottom:24px;left:50%;transform:translateX(-50%);background:rgba(0,0,0,.72);backdrop-filter:blur(10px);color:var(--cream);padding:11px 18px;border-radius:999px;font-family:var(--mono);font-size:11px;display:flex;gap:14px;align-items:center;box-shadow:0 8px 24px rgba(0,0,0,.3)}
+.nav button{background:transparent;border:1px solid rgba(250,247,238,.3);color:var(--cream);padding:5px 11px;border-radius:999px;font-family:var(--mono);font-size:11px;cursor:pointer;transition:background 120ms}
+.nav button:hover{background:rgba(250,247,238,.1)}
+.nav .sep{opacity:.4}
+
+/* Annotation card */
+.annotate{width:300px;background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.12);border-radius:14px;padding:18px 20px;color:rgba(250,247,238,.85);font-size:12.5px;line-height:1.65;font-family:var(--sans);align-self:flex-start;margin-top:24px}
+.annotate h3{font-family:var(--serif);font-size:16px;color:var(--cream);margin:0 0 10px}
+.annotate ul{padding-left:18px;margin:8px 0}
+.annotate li{margin-bottom:6px}
+.annotate code{font-family:var(--mono);font-size:11px;background:rgba(250,247,238,.1);padding:1px 6px;border-radius:4px;color:var(--cream)}
+.annotate .pill{display:inline-block;font-family:var(--mono);font-size:10px;background:rgba(63,90,59,.4);color:#bcd8b1;padding:2px 7px;border-radius:999px;margin-right:5px;font-weight:700}
+</style>
+</head>
+<body>
+
+<div class="stage">
+  <div>
+    <div class="stage-label">800 × 600 chrome extension popup</div>
+    <div class="popup" id="popup">
+
+      <div class="masthead">
+        <span class="brand">dlens</span>
+        <span>TOPIC MODE · Annotated Field Guide · v.0.1.21</span>
+      </div>
+
+      <div class="scroll">
+
+        <!-- Topic header -->
+        <div class="topic-header">
+          <div>
+            <div class="topic-kicker">議題</div>
+            <h1 class="topic-name">love</h1>
+            <div class="topic-meta">
+              <span>9 訊號</span>
+              <span class="pipe">·</span>
+              <span>9/9 已分析</span>
+              <span class="pipe">·</span>
+              <span><span class="dot-success"></span>報告 已生成</span>
+            </div>
+          </div>
+          <div class="cta-wrap">
+            <button class="cta-primary">生成審查報告（綜合 P2–P6）</button>
+            <div class="cta-hint">P1 9/9 全部就緒</div>
+          </div>
+        </div>
+
+        <!-- THEMES -->
+        <div class="section">
+          <div class="section-head">
+            <div class="section-titlebox">
+              <span class="kicker">主題</span>
+              <h2 class="section-title">主題類別</h2>
+              <span class="section-hint">5 個廣議題層　顏色標示分類</span>
+            </div>
+          </div>
+          <div class="themes-row">
+            <button class="theme-chip" data-cat="market"><span class="theme-dot"></span>交友市場動態</button>
+            <button class="theme-chip" data-cat="emotion"><span class="theme-dot"></span>數位親密關係焦慮</button>
+            <button class="theme-chip" data-cat="self"><span class="theme-dot"></span>自我優化</button>
+            <button class="theme-chip" data-cat="power"><span class="theme-dot"></span>性別權力博弈</button>
+            <button class="theme-chip" data-cat="critique"><span class="theme-dot"></span>對數位平台的懷疑</button>
+          </div>
+        </div>
+
+        <!-- NARRATIVE -->
+        <div class="section">
+          <div class="section-head">
+            <div class="section-titlebox">
+              <span class="kicker">敘事</span>
+              <h2 class="section-title">敘事線</h2>
+              <span class="section-hint">從訊號自然長出的故事線</span>
+            </div>
+          </div>
+
+          <div class="lane-card">
+            <div class="lane-icon">
+              <svg width="24" height="24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" viewBox="0 0 24 24"><path d="M19 14c1.49-1.46 3-3.21 3-5.5A5.5 5.5 0 0 0 16.5 3c-1.76 0-3 .5-4.5 2-1.5-1.5-2.74-2-4.5-2A5.5 5.5 0 0 0 2 8.5c0 2.29 1.51 4.04 3 5.5l7 7Z"/><path d="m12 13-1.5-2.5L13 8l-2-3"/></svg>
+            </div>
+            <div>
+              <div class="lane-title">市場化交友與自我定位</div>
+              <div class="lane-refs">
+                <span class="lane-count">4 訊號</span>
+                <span class="ref-chip-mini">S2</span>
+                <span class="ref-chip-mini">S4</span>
+                <span class="ref-chip-mini">S7</span>
+                <span class="ref-chip-mini">S9</span>
+              </div>
+            </div>
+          </div>
+
+          <div class="lane-card">
+            <div class="lane-icon">
+              <svg width="24" height="24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" viewBox="0 0 24 24"><path d="M9 10h.01M15 10h.01M12 2a8 8 0 0 0-8 8v12l3-3 2.5 2.5L12 19l2.5 2.5L17 19l3 3V10a8 8 0 0 0-8-8z"/></svg>
+            </div>
+            <div>
+              <div class="lane-title">數位親密關係的疲憊與解構</div>
+              <div class="lane-refs">
+                <span class="lane-count">5 訊號</span>
+                <span class="ref-chip-mini">S1</span>
+                <span class="ref-chip-mini">S3</span>
+                <span class="ref-chip-mini">S5</span>
+                <span class="ref-chip-mini">S8</span>
+                <span class="ref-chip-mini">S9</span>
+              </div>
+            </div>
+          </div>
+
+          <div class="lane-card">
+            <div class="lane-icon">
+              <svg width="24" height="24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" viewBox="0 0 24 24"><path d="M7.9 20A9 9 0 1 0 4 16.1L2 22Z"/></svg>
+            </div>
+            <div>
+              <div class="lane-title">傳統浪漫與情感連結的倖存者</div>
+              <div class="lane-refs">
+                <span class="lane-count">1 訊號</span>
+                <span class="ref-chip-mini">S6</span>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- SOURCES -->
+        <div class="section">
+          <div class="section-head">
+            <div class="section-titlebox">
+              <span class="kicker">源</span>
+              <h2 class="section-title">源清單</h2>
+              <span class="section-hint">一行一篇　點開看判讀與引用</span>
+            </div>
+          </div>
+          <div id="source-list"></div>
+        </div>
+
+      </div>
+
+      <!-- Scrim & Drawer -->
+      <div class="scrim" id="scrim" onclick="closeDrawer()"></div>
+      <div class="drawer" id="drawer">
+        <div class="drawer-header">
+          <div>
+            <div class="drawer-shortcode" id="drawer-shortcode">S1.OP</div>
+            <h2 class="drawer-title" id="drawer-title">交友軟體的沉默配對</h2>
+            <div class="drawer-meta">
+              <span class="drawer-author">@<span id="drawer-author">mandychow311</span></span>
+              <span class="pipe">·</span>
+              <span id="drawer-date">2026/05/06</span>
+              <span class="pipe">·</span>
+              <span>♥ <span id="drawer-likes">16</span></span>
+              <span class="pipe">·</span>
+              <span>議題 love</span>
+            </div>
+          </div>
+          <button class="drawer-close" onclick="closeDrawer()" aria-label="關閉">×</button>
+        </div>
+
+        <div class="drawer-body">
+
+          <div class="p1-block">
+            <div class="p1-label">P1 判讀 · cold-read</div>
+            <div class="p1-prose" id="p1-prose"></div>
+          </div>
+
+          <div class="caveats">
+            <div class="caveats-label">⚠ 待驗證</div>
+            僅能觀察到參與者的主觀感受，無法驗證實際配對對象的真實心態或行為動機。
+          </div>
+
+          <div class="raw-section">
+            <button class="raw-toggle" onclick="toggleRaw(this)" id="raw-toggle">原文 · OP + 留言（5 fragments）</button>
+            <div class="raw-body" id="raw-body"></div>
+          </div>
+        </div>
+      </div>
+
+    </div>
+  </div>
+
+  <aside class="annotate">
+    <h3>設計重點對照</h3>
+    <p><span class="pill">P1 主導</span>判讀 prose 字級 15.5 / 行高 1.95，視覺占滿 drawer body 上半。</p>
+    <p><span class="pill">引用 chip</span>prose 內 <code>[S1.OP]</code> 等 token 自動 wrap，hover 即時顯示 popover（作者 / likes / 原文），click 變琥珀色「釘」住可長時間看。</p>
+    <p><span class="pill">原文降權</span>OP + 留言收進虛線框 collapsible，「看原文」時才展開；不再一進來就視覺淹沒。</p>
+    <p><span class="pill">主題分類</span>5 色 chip 配 dot：經濟 / 情緒 / 自我 / 權力 / 批判，不再一片同色 pill。</p>
+    <p><span class="pill">敘事卡片</span>左側 48 × 48 icon block（heart-crack / ghost / message-circle），標題 + 訊號 chips，砍掉 gradient progress bar。</p>
+    <p><span class="pill">caveats</span>琥珀左邊條，安靜放底部，不和 prose 競爭。</p>
+    <h3 style="margin-top:18px">互動</h3>
+    <ul>
+      <li>點底部 nav 的「開啟 S1 drawer」</li>
+      <li>drawer 內把游標移到 <code>S1.R2</code> 之類 chip → popover</li>
+      <li>click chip → 釘住（變琥珀色 + 📌），再點解除</li>
+      <li>點「原文」展開原始 OP / 留言列表</li>
+    </ul>
+  </aside>
+</div>
+
+<div class="nav">
+  <span>demo：</span>
+  <button onclick="openDrawer()">開啟 S1 drawer</button>
+  <button onclick="closeDrawer()">關閉</button>
+  <span class="sep">|</span>
+  <span>citation chip：hover 顯示 / click pin</span>
+</div>
+
+<script>
+const fragments = [
+  {ref:"S1.OP",   role:"op",              author:"mandychow311", likes:16, text:"想知玩app swipe完match中又唔講野，人哋覆你又唔回應嘅人咩心態"},
+  {ref:"S1.OPC1", role:"op_continuation", author:"mandychow311", likes:0,  text:"App都玩已經冇辦法識friend😅"},
+  {ref:"S1.R1",   role:"reply",           author:"michaelli15",  likes:0,  text:"人夾人 5好玩交友app"},
+  {ref:"S1.R2",   role:"reply",           author:"cheong1983",   likes:1,  text:"已退apps"},
+  {ref:"S1.R3",   role:"reply",           author:"int515hk",     likes:0,  text:"忙緊"}
+];
+const fragMap = Object.fromEntries(fragments.map(f => [f.ref, f]));
+const roleLabel = {op:"OP 原文", op_continuation:"OP 接話", reply:"留言"};
+
+function citeChip(ref){
+  const f = fragMap[ref];
+  if(!f) return `[${ref}]`;
+  return `<span class="cite" data-ref="${ref}" onclick="pinCite(event,this)">${ref}<span class="popover"><span class="popover-header"><span class="popover-author">@${f.author}</span><span>♥ ${f.likes}</span></span>${f.text}<div class="popover-role">${roleLabel[f.role]}</div></span></span>`;
+}
+
+const p1prose = "OP 在 Threads 上對交友軟體使用者的行為模式表達困惑與挫折 [S1.OP]，特別針對配對後卻不進行對話或不回應訊息的現象尋求解釋。回覆者多數呈現出對交友軟體生態的疲憊感 [S1.R2]，傾向於將此現象歸因於個人特質差異或單純的忙碌 [S1.R3]，並有人直接建議放棄使用該類平台 [S1.R2]。";
+document.getElementById('p1-prose').innerHTML = p1prose.replace(/\[(S\d+\.(?:OP|OPC\d+|R\d+|P\d+))\]/g, (_, r) => citeChip(r));
+
+document.getElementById('raw-body').innerHTML = fragments.map(f => `
+  <div class="raw-fragment" data-role="${f.role}" data-ref="${f.ref}">
+    <div class="raw-fragment-header"><span class="raw-fragment-ref">${f.ref}</span><span>@${f.author} · ♥ ${f.likes} · ${roleLabel[f.role]}</span></div>
+    ${f.text}
+  </div>
+`).join('');
+
+const sources = [
+  {sc:"S1", author:"mandychow311",            op:"想知玩app swipe完match中又唔講野，人哋覆你又唔回應嘅人咩心態"},
+  {sc:"S2", author:"hfsn____rmnmn",           op:"溝仔 15/04/2026 作為一個溝仔無數嘅靚女姐姐 我想講一個極度具爭議性嘅溝仔觀點…"},
+  {sc:"S3", author:"uhc_nerakuhc",            op:"玩app玩到我懷疑人生🥲 點解啲人開chat第一句寫到好似見工咁…"},
+  {sc:"S4", author:"cest.le.bliss.hk_counselling", op:"其實女士明唔明，你地想搵既對象 知書識禮、有學識品味又好、事業有成又好…"},
+  {sc:"S5", author:"wontchangeidtililivemylife",   op:"奉勸女孩子們特別掛住ex/沉crush/恨拖拍嘅排 臨瞓前都係墊塊m巾吧…"},
+  {sc:"S6", author:"no_responsesss",          op:"男朋友 男朋友收工早過我，所以永遠都係佢接我 琴日公司早放！…"},
+  {sc:"S7", author:"ytteb0214",               op:"要認命 有個男朋友拍長拖 點知係草食男 長期獨守空房…"},
+  {sc:"S8", author:"tin.waiii",               op:"媽咪上個星期同我講叫我拍拖 點解？我話拍拖只可以玩一條JJ…"},
+  {sc:"S9", author:"ccccc12713",              op:"App識人 因為太悶走去用app識人，發現真係有幾個正常…"}
+];
+document.getElementById('source-list').innerHTML = sources.map(s => `
+  <div class="source-row" data-sc="${s.sc}" onclick="openDrawer('${s.sc}')">
+    <div>
+      <div><span class="source-meta">${s.sc}.OP</span><span class="source-author">@${s.author}</span></div>
+      <div class="source-excerpt">${s.op}</div>
+    </div>
+    <div class="status-pill"><span class="status-dot"></span>已分析</div>
+  </div>
+`).join('');
+
+function openDrawer(sc){
+  document.querySelectorAll('.source-row').forEach(r => r.classList.toggle('active', r.dataset.sc === sc));
+  document.getElementById('scrim').classList.add('open');
+  document.getElementById('drawer').classList.add('open');
+}
+function closeDrawer(){
+  document.getElementById('scrim').classList.remove('open');
+  document.getElementById('drawer').classList.remove('open');
+  document.querySelectorAll('.cite.pinned').forEach(c => c.classList.remove('pinned'));
+  document.querySelectorAll('.source-row.active').forEach(r => r.classList.remove('active'));
+}
+function pinCite(ev, el){
+  ev.stopPropagation();
+  const ref = el.dataset.ref;
+  document.querySelectorAll('.cite.pinned').forEach(o => { if(o !== el) o.classList.remove('pinned'); });
+  el.classList.toggle('pinned');
+  if(el.classList.contains('pinned')){
+    const rawBody = document.getElementById('raw-body');
+    if(!rawBody.classList.contains('open')){ document.getElementById('raw-toggle').classList.add('open'); rawBody.classList.add('open'); }
+    document.querySelectorAll('.raw-fragment.highlight').forEach(f => f.classList.remove('highlight'));
+    const target = document.querySelector(`.raw-fragment[data-ref="${ref}"]`);
+    if(target){ target.classList.add('highlight'); target.scrollIntoView({block:'center', behavior:'smooth'}); }
+  }
+}
+function toggleRaw(btn){
+  btn.classList.toggle('open');
+  btn.nextElementSibling.classList.toggle('open');
+}
+
+setTimeout(() => openDrawer('S1'), 350);
+</script>
+</body>
+</html>

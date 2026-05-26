@@ -1,20 +1,29 @@
 import React from "react";
 import ReactDOM from "react-dom/client";
 import { defineContentScript } from "wxt/utils/define-content-script";
-import { buildTargetDescriptor, findCardCandidate, type CandidateStrength } from "../src/targeting/threads";
+import { buildTargetDescriptor, canSubmitDescriptor, findCardCandidate, type CandidateStrength } from "../src/targeting/threads";
 import { createLocationChangeChecker, HOVER_INTENT_DELAY_MS } from "../src/targeting/navigation-reset";
 import type { ExtensionMessage, ExtensionResponse } from "../src/state/messages";
 import type { FolderMode } from "../src/state/types";
-import { buildSelectionModeMessage, type SelectionModeExitReason } from "../src/state/selection-mode-messages";
+import {
+  buildSelectionModeMessage,
+  resolveSelectionModeFromSnapshot,
+  type SelectionModeExitReason
+} from "../src/state/selection-mode-messages";
 import { InPageCollectorApp } from "../src/ui/InPageCollectorApp";
 import { buildWorkspaceCrashMarkup, getWorkspaceCrashMessage, isExtensionRuntimeError } from "../src/ui/runtime-guard";
 import { DLENS_MOTION_CSS } from "../src/ui/ProductSignalViews";
+import {
+  getLiveCollectionTarget,
+  HOVER_RECT_EVENT,
+  OPTIMISTIC_SAVE_CONFIRMED_EVENT,
+  OPTIMISTIC_SAVE_EVENT,
+  OPTIMISTIC_SAVE_FAILED_EVENT,
+  setLiveHoverDescriptor
+} from "../src/ui/inpage-helpers";
 
 const OVERLAY_ID = "__dlens_extension_v0_overlay__";
 const ROOT_ID = "__dlens_extension_v0_root__";
-const HOVER_RECT_EVENT = "dlens:hover-rect";
-const OPTIMISTIC_SAVE_EVENT = "dlens:optimistic-save";
-const OPTIMISTIC_SAVE_FAILED_EVENT = "dlens:optimistic-save-failed";
 
 let selectionMode = false;
 let hoverCard: HTMLElement | null = null;
@@ -217,9 +226,18 @@ function setCollectCursor(enabled: boolean) {
 }
 
 function publishHoveredDescriptor(descriptor: ReturnType<typeof buildTargetDescriptor> | null) {
+  setLiveHoverDescriptor(descriptor);
   chrome.runtime
     .sendMessage({ type: "selection/hovered", descriptor, strength: hoverStrength } satisfies ExtensionMessage)
     .catch(() => undefined);
+}
+
+function readSubmittableDescriptor(card: HTMLElement): ReturnType<typeof buildTargetDescriptor> | null {
+  const descriptor = buildTargetDescriptor(card, window.location.href);
+  if (!descriptor || !canSubmitDescriptor(descriptor)) {
+    return null;
+  }
+  return descriptor;
 }
 
 /** Fingerprint a card by its permalink to detect SPA-reused DOM nodes */
@@ -252,11 +270,12 @@ function setHoverCard(card: HTMLElement | null, strength: CandidateStrength | nu
     return;
   }
 
+  const delayMs = strength === "hard" ? 0 : HOVER_INTENT_DELAY_MS;
   hoverIntentHandle = window.setTimeout(() => {
-    const descriptor = buildTargetDescriptor(card, window.location.href);
+    const descriptor = readSubmittableDescriptor(card);
     hoverDescriptor = descriptor;
     publishHoveredDescriptor(descriptor);
-  }, HOVER_INTENT_DELAY_MS);
+  }, delayMs);
 }
 
 function clearHoverStateForNavigation() {
@@ -320,15 +339,37 @@ function stopSelectionMode(reason: SelectionModeExitReason = "manual-cancel") {
   chrome.runtime.sendMessage(message satisfies ExtensionMessage).catch(() => undefined);
 }
 
-function startSelectionMode(mode: FolderMode = "archive") {
+function startSelectionMode(mode: FolderMode = "archive", notify = true) {
   activeSelectionMode = mode;
   selectionMode = true;
   setCollectCursor(true);
   ensureKeepAlive();
+  if (!notify) {
+    return;
+  }
   const message = buildSelectionModeMessage(true);
   if (message) {
     chrome.runtime.sendMessage(message satisfies ExtensionMessage).catch(() => undefined);
   }
+}
+
+function syncSelectionModeFromSnapshot() {
+  chrome.runtime
+    .sendMessage({ type: "state/get-active-tab" } satisfies ExtensionMessage)
+    .then((response: ExtensionResponse) => {
+      if (!response.ok || !response.snapshot) {
+        return;
+      }
+      const mode = resolveSelectionModeFromSnapshot(response.snapshot);
+      if (mode) {
+        startSelectionMode(mode, false);
+        return;
+      }
+      if (selectionMode) {
+        stopSelectionMode("remote-sync");
+      }
+    })
+    .catch(() => undefined);
 }
 
 function onPointerMove(event: MouseEvent) {
@@ -352,18 +393,33 @@ function onClick(event: MouseEvent) {
     return;
   }
 
-  const descriptor = hoverCard === card && hoverDescriptor ? hoverDescriptor : buildTargetDescriptor(card, window.location.href);
+  const descriptor = hoverCard === card && hoverDescriptor ? hoverDescriptor : readSubmittableDescriptor(card);
   if (!descriptor) {
     return;
   }
 
   window.dispatchEvent(new CustomEvent(OPTIMISTIC_SAVE_EVENT, { detail: descriptor }));
 
+  // Read the folder/topic the popup is showing right now so the click saves to the
+  // intended target instead of whatever the background's activeSessionId happens to be.
+  const target = getLiveCollectionTarget();
+
   void (async () => {
     await chrome.runtime
       .sendMessage({ type: "selection/hovered", descriptor, strength: candidate.strength } satisfies ExtensionMessage)
       .catch(() => undefined);
-    const response = await chrome.runtime.sendMessage({ type: "session/save-current-preview" } satisfies ExtensionMessage).catch(() => null);
+    const response = await chrome.runtime
+      .sendMessage({
+        type: "session/save-current-preview",
+        descriptor,
+        ...(target.sessionId ? { sessionId: target.sessionId } : {}),
+        ...(target.topicId ? { topicId: target.topicId } : {})
+      } satisfies ExtensionMessage)
+      .catch(() => null);
+    if (response?.ok) {
+      window.dispatchEvent(new CustomEvent(OPTIMISTIC_SAVE_CONFIRMED_EVENT, { detail: response.snapshot ?? null }));
+      return;
+    }
     if (!response || !response.ok) {
       window.dispatchEvent(
         new CustomEvent(OPTIMISTIC_SAVE_FAILED_EVENT, {
@@ -442,16 +498,17 @@ export default defineContentScript({
     window.addEventListener("unhandledrejection", onUnhandledRejection);
 
     reactRoot.render(React.createElement(InPageCollectorApp));
+    syncSelectionModeFromSnapshot();
 
     chrome.runtime.onMessage.addListener((message: ExtensionMessage, _sender, sendResponse) => {
       void (async () => {
         switch (message.type) {
           case "selection/start-tab":
-            startSelectionMode(message.mode ?? "archive");
+            startSelectionMode(message.mode ?? "archive", false);
             sendResponse({ ok: true } satisfies ExtensionResponse);
             return;
           case "selection/cancel-tab":
-            stopSelectionMode();
+            stopSelectionMode("remote-sync");
             sendResponse({ ok: true } satisfies ExtensionResponse);
             return;
           default:

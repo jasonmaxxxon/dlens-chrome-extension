@@ -1,6 +1,6 @@
 {
   "name": "dlens-chrome-extension-v0",
-  "version": "0.1.18",
+  "version": "0.1.22",
   "private": true,
   "type": "module",
   "scripts": {
@@ -12,6 +12,7 @@
     "backend:locate": "node scripts/locate-ingest-core.mjs"
   },
   "dependencies": {
+    "lucide-react": "^0.469.0",
     "react": "^19.1.0",
     "react-dom": "^19.1.0"
   },

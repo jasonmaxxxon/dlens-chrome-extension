@@ -2,9 +2,9 @@
 
 DLens is a mode-aware MV3 Chrome extension for capturing Threads posts and turning them into research, product-signal, and PR evidence workflows.
 
-> Last updated: 2026-05-21
-> Current release: `0.1.18`
-> Release baseline commit: `9f04139 feature(release): bump extension version to 0.1.18`
+> Last updated: 2026-05-26
+> Current release: `0.1.22`
+> Release baseline commit: pending local `0.1.22` release commit
 > Verified build: `/Users/tung/Desktop/dlens-product-latest/output/chrome-mv3`
 
 ## What It Does
@@ -22,8 +22,8 @@ Current workspace modes:
 
 ## Current Features
 
-- Hover-to-preview and collect on Threads feeds/post pages.
-- Mode-aware save routing: archive saves to Library; topic/product saves become Inbox signals; PR Evidence saves become campaign rows.
+- Hover-to-preview and collect on Threads feeds/post pages. Hover uses a warm in-memory cache (no per-move storage read); saves carry the live hovered post and the popup's visible folder/topic so they always land where intended. Collect saves and refresh-all writes share the snapshot lock so Topic signals cannot be left without a usable backing saved item/descriptor; pre-existing orphan/corrupt signals are hidden from Topic counts/lists and queued for storage cleanup. Content scripts also rehydrate active collect mode after extension reload/page refresh (see AGENTS.md "Recently Fixed 2026-05-22").
+- Mode-aware save routing: archive saves to Library; topic/product saves become Inbox signals; PR Evidence saves become campaign rows. Save messages now pass an explicit `sessionId`/`topicId`, so a drifted active folder cannot reroute a save.
 - Backend queue/drain/polling against `ingestBaseUrl`, defaulting to `http://127.0.0.1:8000`.
 - Compare setup and Result surfaces with backend read models plus extension-side compare brief v8, cluster summaries, evidence annotations, and saved analysis snapshots.
 - Topic workflow: Casebook, Inbox, Topic Detail, signal triage, per-signal semantic tags/gists, optional-question TopicSignalReading, and attached compare pairs.
@@ -52,12 +52,12 @@ npx tsx --test tests/*.test.ts tests/*.test.tsx
 npm run build
 ```
 
-Expected verified state for `0.1.18`:
+Expected verified state for `0.1.22`:
 
-- `495/495` tests pass
+- `574/574` tests pass
 - `npm run typecheck` passes
 - `npm run build` mirrors the unpacked MV3 build to `output/chrome-mv3`
-- `output/chrome-mv3/manifest.json` reports `version: "0.1.18"` and `name: "DLens v3"`
+- `output/chrome-mv3/manifest.json` reports `version: "0.1.22"` and `name: "DLens v3"`
 
 ## Active Paths
 

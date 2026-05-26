@@ -104,6 +104,22 @@ export function inferThreadViewsFromText(text: string): number | null {
   return null;
 }
 
+export function inferThreadFollowersFromText(text: string): number | null {
+  const source = String(text || "").replace(/\s+/g, " ");
+  if (/\bview\s+followers\b/i.test(source)) {
+    return null;
+  }
+  const english = source.match(/(\d+(?:\.\d+)?\s*(?:[kKmM]|萬|万|千)?)\s*followers\b/i);
+  if (english) {
+    return parseCount(english[1]);
+  }
+  const chinese = source.match(/(\d+(?:\.\d+)?\s*(?:[kKmM]|萬|万|千)?)\s*(?:位|個|个)?(?:粉絲|粉丝|追蹤者|追踪者)/);
+  if (chinese) {
+    return parseCount(chinese[1]);
+  }
+  return null;
+}
+
 function cleanBodyText(rawText: string): string {
   const lines = String(rawText || "")
     .split(/\n/)
@@ -118,7 +134,8 @@ function cleanBodyText(rawText: string): string {
     if (/^\d+(?:\.\d+)?[km]?$/i.test(lower)) continue;
     if (/^\d+\s?[smhdw]$/i.test(lower)) continue;
     if (line === "/" || line === "·" || line === "•") continue;
-    if (i < 2 && !line.includes(" ") && !TIME_TOKEN_RE.test(line)) continue;
+    const hasCjk = /[\u3400-\u9fff]/.test(line);
+    if (i < 2 && !line.includes(" ") && !hasCjk && !TIME_TOKEN_RE.test(line)) continue;
     out.push(line);
   }
 
@@ -397,6 +414,7 @@ export function classifyMetric(label: string): keyof EngagementMetrics | null {
   if (/\b(repost|reposts|reshare|re-share)\b/.test(lower) || /轉發|转发|轉貼|转贴/.test(label)) return "reposts";
   if (/\b(share|shares|send|forward)\b/.test(lower) || /分享|傳送|传送|轉寄|转寄/.test(label)) return "forwards";
   if (/\b(view|views)\b/.test(lower) || /瀏覽|浏览|觀看|观看|次查看/.test(label)) return "views";
+  if (/\bfollowers\b/.test(lower) || /粉絲|粉丝|追蹤者|追踪者/.test(label)) return "followers";
   return null;
 }
 
@@ -406,14 +424,16 @@ function resolveEngagement(card: HTMLElement, targetType: TargetType): { engagem
     comments: null,
     reposts: null,
     forwards: null,
-    views: null
+    views: null,
+    followers: null
   };
   const present: EngagementPresent = {
     likes: false,
     comments: false,
     reposts: false,
     forwards: false,
-    views: false
+    views: false,
+    followers: false
   };
 
   // Threads DOM: <svg aria-label="Like"> + <span>582</span> as sibling
@@ -464,6 +484,24 @@ function resolveEngagement(card: HTMLElement, targetType: TargetType): { engagem
     }
   }
 
+  if (!present.followers) {
+    const cardText = card.innerText || card.textContent || "";
+    const followers = inferThreadFollowersFromText(cardText);
+    if (followers !== null) {
+      present.followers = true;
+      metrics.followers = followers;
+    }
+  }
+
+  if (targetType === "post" && !present.followers) {
+    const bodyText = document.body?.innerText || document.body?.textContent || "";
+    const followers = inferThreadFollowersFromText(bodyText);
+    if (followers !== null) {
+      present.followers = true;
+      metrics.followers = followers;
+    }
+  }
+
   return { engagement: metrics, engagement_present: present };
 }
 
@@ -495,3 +533,7 @@ export function canSubmitDescriptor(descriptor: TargetDescriptor): boolean {
   }
   return Boolean(descriptor.post_url);
 }
+
+export const threadsTargetingTestables = {
+  cleanBodyText
+};

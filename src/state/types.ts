@@ -17,12 +17,14 @@ export type MainPage =
   | "compare"
   | "result"
   | "casebook"
+  | "topics"
+  | "topic-detail"
   | "inbox"
   | "saved-signals"
   | "classification"
   | "actionable-filter"
   | "pr-evidence";
-export type PopupPage = MainPage | "settings";
+export type PopupPage = MainPage | "settings" | "audit-report";
 export type SessionItemStatus = "saved" | "queued" | "running" | "succeeded" | "failed";
 export type InlineToastKind = "saved" | "queued";
 export type HoverCandidateStrength = "soft" | "hard";
@@ -453,6 +455,7 @@ export interface TabUiState {
   hoveredTargetStrength: HoverCandidateStrength | null;
   flashPreview: TargetDescriptor | null;
   activeItemId: string | null;
+  collectionTopicId: string | null;
   activeCompareDraft: ActiveCompareDraft | null;
   activeAnalysisResult: ActiveAnalysisResult | null;
   lastViewedResultId: string | null;
@@ -507,6 +510,7 @@ export function createEmptyTabState(): TabUiState {
     hoveredTargetStrength: null,
     flashPreview: null,
     activeItemId: null,
+    collectionTopicId: null,
     activeCompareDraft: null,
     activeAnalysisResult: null,
     lastViewedResultId: null,

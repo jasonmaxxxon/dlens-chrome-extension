@@ -1,7 +1,27 @@
 # AGENTS.md — DLens Chrome Extension v0.1
 
-> **Last updated:** 2026-05-21 (SignalTags + optional TopicSignalReading question + version 0.1.18 — 495/495 tests, typecheck, build)
+> **Last updated:** 2026-05-26 (Signal drawer citation popovers, source-list ledger UI, and PR Evidence follower metrics fixed, version 0.1.22 mirrored into MV3 — 574/574 tests, typecheck, build)
 > **For:** any agent continuing work in this repo
+
+## Recently Fixed (2026-05-22) — Collect→save reliability
+
+Symptoms reported: hover preview arrived slowly, and saves landed in the wrong folder / showed up as a generic ungrouped item (e.g. "threads 22/5") instead of under the intended topic. Root causes and fixes:
+
+1. **Slow hover preview — storage read on every hover.** The `selection/hovered` handler in `background.ts` called `loadSnapshot()` (= `loadGlobalState()` + `loadTabState()`, two `chrome.storage` reads + full normalize) on every pointer move just to overlay hover fields. Fix: added an in-memory `tabStateCache` (mirrors `globalStateCache`) and a `loadSnapshotCached()` that serves the warm caches, only touching storage on a cold worker. Hover writes never persist tab state, and every global/tab write already refreshes the caches, so the cached view stays consistent. Caches are evicted in the same `onRemoved` / keepalive-disconnect cleanup as `tabHoverCache`.
+
+2. **Save against a stale post — popup read the lagging snapshot.** The popup's Save button and keyboard `S` saved `snapshot.tab.currentPreview`, which trails a fast cursor by a render frame (the left-click collect path was always correct because it reads the clicked DOM node directly). Fix: added a synchronous **live channel** on `window` (`setLiveHoverDescriptor` / `getLiveHoverDescriptor` in `inpage-helpers.tsx`), published by the content script in `publishHoveredDescriptor`. `buildPreviewSaveMessage` now prefers the live descriptor over the snapshot preview. The accessors are `window`-guarded so node tests don't break.
+
+3. **Wrong folder — save routed by `getActiveSession`, topic by stale `collectionTopicId`.** `saveCurrentPreviewToSession` saved into whatever `activeSessionId` happened to be, and the topic came from `collectionTopicId`, which is set by a fire-and-forget effect (race). Fix: the popup publishes its visible folder/topic via a second live channel (`setLiveCollectionTarget` / `getLiveCollectionTarget`). The content-script click path and the popup save paths now pass an explicit `sessionId` (+ `topicId`) on `session/save-current-preview`. `saveCurrentPreviewToSession` honors `sessionId`, realigning `activeSessionId` so a drifted active folder cannot reroute the save.
+
+4. **`createSession` ignored passed descriptor.** "Create folder and save current" always used the hover cache. `session/create` now carries an optional `descriptor`; `createSession` seeds `currentPreview`/hover cache from it, and the popup passes the live descriptor.
+
+5. **Collect UI active but content click handler idle after extension reload.** The persisted tab state could still say `selectionMode: true`, so the banner stayed visible after reload, while the content script's in-memory `selectionMode` reset to false. Clicks then opened Threads posts instead of saving. Fix: content script now rehydrates from `state/get-active-tab` on startup via `resolveSelectionModeFromSnapshot`, and remote start/cancel messages no longer echo `selection/mode-changed`.
+
+6. **Topic count increased but rows showed `資料不完整的 Threads 訊號`.** `signals` and `global.sessions[].items` are stored under separate keys. `session/save-current-preview` was not serialized through the shared snapshot lock, and `session/refresh-all` had a final tab-only `saveSnapshot` that could write an old `global` back after collect. That left signals whose `itemId` no longer had a usable backing item/descriptor. Fix: collect save now runs inside `withSnapshotLock`, refresh-all reloads the latest snapshot inside the lock before its final tab update, and Topic state now hides item-backed orphan/corrupt signals while attempting to delete them from signal storage.
+
+Files changed: `entrypoints/background.ts`, `entrypoints/threads.content.ts`, `src/ui/inpage-helpers.tsx`, `src/ui/useInPageCollectorAppState.ts`, `src/ui/useTopicState.ts`, `src/state/messages.ts`, `src/state/selection-mode-messages.ts`. Regression coverage includes `buildPreviewSaveMessage` descriptor routing, selection-mode rehydrate, collect save locking, refresh-all stale-global protection, and Topic orphan filtering; full suite is now 514/514. `getLiveHoverDescriptor` guard keeps `buildPreviewSaveMessage` working under node.
+
+Watch items: the three preview fields (`hoveredTarget` / `flashPreview` / `currentPreview`) still overlap in meaning and remain the next drift risk — worth collapsing to a single source of truth. The 120ms `HOVER_INTENT_DELAY_MS` (soft hover) is unchanged; reduce it only if preview still feels laggy after the storage-read fix.
 
 ## Process Rules (locked 2026-04-17)
 
@@ -285,7 +305,7 @@ Important implementation points:
 - `SettingsView.tsx` owns the three user-facing layout controls.
 - `InPageCollectorPopup.tsx` threads persisted layout settings into Product signal cards, Topic synthesis, and Compare Result.
 - Topic Detail's primary overview is now semantic `SignalTagsRecord` data from `dlens:v1:signal-tags`, not deterministic keyword frequency. `TopicSynthesis` and `FolderSynthesis` remain deterministic extension-side layers over analyzed signals for legacy/folder contexts and do not replace backend clustering.
-- Current verification was run from `/Users/tung/Desktop/dlens-product-latest`: `495/495` tests, `npm run typecheck`, and `npm run build` passed.
+- Current verification was run from `/Users/tung/Desktop/dlens-product-latest`: `574/574` tests, `npm run typecheck`, and `npm run build` passed.
 - The verified unpacked build was copied to `/Users/tung/Desktop/dlens-product-latest/output/chrome-mv3` for Chrome load-unpacked use.
 - `/Users/tung/Desktop/dlens-product-latest` source checkout may be dirty; do not infer clean source state from the copied build artifact.
 
@@ -421,7 +441,7 @@ This was a major product-direction change. Summary for any agent picking up here
 
 ```bash
 npm run typecheck && npx tsx --test tests/*.test.ts tests/*.test.tsx
-# Expected on current checkout: 495 pass, 0 fail
+# Expected on current checkout: 574 pass, 0 fail
 ```
 
 ### Watch items for next agent

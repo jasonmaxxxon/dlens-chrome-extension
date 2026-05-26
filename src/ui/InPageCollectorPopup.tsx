@@ -11,6 +11,7 @@ import { ProductSignalView } from "./ProductSignalViews";
 import { PrEvidenceView } from "./PrEvidenceViews";
 import { SettingsView } from "./SettingsView";
 import { TopicDetailView } from "./TopicDetailView";
+import { TopicsListView } from "./TopicsListView";
 import { tokens } from "./tokens";
 import { getProcessingFailureMessage } from "../state/processing-errors";
 import { InPageCollectorFolderControls } from "./InPageCollectorFolderControls";
@@ -37,14 +38,30 @@ export function InPageCollectorPopup({ app }: { app: InPageCollectorAppModel }) 
       name: session.name,
       itemCount: session.items.length
     }));
-  type RailMode = Exclude<MainPage, "result">;
+  type RailMode = Exclude<MainPage, "result" | "topic-detail">;
   const guardedPage = page as PopupPage;
-  const guardedPrimaryMode: RailMode | null = guardedPage === "settings" || guardedPage === "result" ? null : guardedPage as RailMode;
-  const allowedRailModes = ALLOWED_PAGES[activeFolderMode].filter((entry): entry is RailMode => entry !== "result");
-  const homePage = ALLOWED_PAGES[activeFolderMode][0];
+  const guardedPrimaryMode: RailMode | null = guardedPage === "settings" || guardedPage === "result" || guardedPage === "topic-detail" || guardedPage === "audit-report"
+    ? null
+    : guardedPage as RailMode;
+  const allowedRailModes = ALLOWED_PAGES[activeFolderMode].filter((entry): entry is RailMode =>
+    entry !== "result" && entry !== "settings" && entry !== "topic-detail" && entry !== "audit-report"
+  );
+  const homePage = (ALLOWED_PAGES[activeFolderMode].find((entry) => entry !== "settings" && entry !== "audit-report") ?? "library") as MainPage;
   const attachedTopicIds = app.activeSavedAnalysis
     ? app.topics.filter((topic) => topic.pairIds.includes(app.activeSavedAnalysis!.resultId)).map((topic) => topic.id)
     : [];
+  const collectTargetName = activeFolderMode === "topic"
+    ? app.activeTopic?.name || "未選主題"
+    : activeFolder?.name || "No folder yet";
+  const collectionTopicId = app.selectedTopicId || snapshot?.tab.collectionTopicId || "";
+  const collectCanSave = activeFolderMode === "topic"
+    ? Boolean(collectionTopicId)
+    : activeFolderMode !== "pr-evidence" || Boolean(app.activePrCampaign);
+  const collectDisabledReason = activeFolderMode === "topic" && !collectionTopicId
+    ? "先在上方選擇主題，Collect 才會寫入正確主題。"
+    : activeFolderMode === "pr-evidence" && !app.activePrCampaign
+      ? "先在 PR 頁建立 campaign，Collect 才能加入 evidence row。"
+      : "";
 
   const scrollRef = useRef<HTMLDivElement>(null);
 
@@ -116,7 +133,7 @@ export function InPageCollectorPopup({ app }: { app: InPageCollectorAppModel }) 
         <InPageCollectorFolderControls app={app} />
 
         <WorkspaceShell
-          mode={guardedPage}
+          mode={guardedPage === "audit-report" ? "topics" : guardedPage}
           folderMode={activeFolderMode}
           header={(
             <div style={{ display: "grid", gap: 10 }}>
@@ -178,7 +195,22 @@ export function InPageCollectorPopup({ app }: { app: InPageCollectorAppModel }) 
             </WorkspaceSurface>
           ) : null}
 
-          {guardedPage === "casebook" ? (
+          {guardedPage === "topics" ? (
+            <WorkspaceSurface style={{ padding: 0, background: "transparent", boxShadow: "none", border: "none", overflow: "visible" }}>
+              <TopicsListView
+                topics={app.topics}
+                signals={app.signals}
+                sessionItems={activeFolder?.items ?? []}
+                auditSummariesByTopicId={Object.fromEntries(
+                  Object.entries(app.topicAuditByTopicId).map(([topicId, audit]) => [topicId, audit.summary])
+                )}
+                onOpenTopic={(topicId) => void app.onNavigateToTopic(topicId)}
+                onCreateTopic={() => void app.onNavigate("collect")}
+              />
+            </WorkspaceSurface>
+          ) : null}
+
+          {guardedPage === "topic-detail" || guardedPage === "casebook" ? (
             <WorkspaceSurface tone="utility">
               {app.activeTopic ? (
                 <TopicDetailView
@@ -194,7 +226,10 @@ export function InPageCollectorPopup({ app }: { app: InPageCollectorAppModel }) 
                   onUpdateTopic={(patch) => void app.onUpdateTopic(patch)}
                   onQueueItemById={(itemId) => void app.onQueueItemById(itemId)}
                   onAnalyzeItems={(itemIds) => app.onAnalyzeItems(itemIds)}
+                  onStartProcessing={() => void app.onStartProcessing()}
                   isBulkAnalyzing={app.bulkAnalyzingFolderId === activeFolder?.id}
+                  isStartingProcessing={app.isStartingProcessing}
+                  workerStatus={app.workerStatus}
                   optimisticQueuedItemIds={app.optimisticQueuedIds}
                   onOpenAnalysis={(resultId) => void app.onOpenSavedAnalysis(resultId)}
                   onAddToCompare={(itemId) => app.onAddToCompare(itemId)}
@@ -203,7 +238,23 @@ export function InPageCollectorPopup({ app }: { app: InPageCollectorAppModel }) 
                   signalReadingsBySignalId={app.topicSignalReadingsBySignalId}
                   signalTagsByItemId={app.signalTagsByItemId}
                   onGenerateSignalReading={(signalId, topicId) => app.onGenerateTopicSignalReading(signalId, topicId)}
+                  onSignalDeleted={(signalId) => app.onSignalDeleted(signalId)}
                   synthLayout={snapshot?.global.settings.layoutPreferences.topicSynthesisLayout}
+                  auditEvidence={app.activeTopicAudit?.auditEvidence}
+                  auditMemos={app.activeTopicAudit?.auditMemos}
+                  auditSummary={app.activeTopicAudit?.summary}
+                  auditValidatorFlags={app.activeTopicAudit?.auditValidatorFlags}
+                  onRunAudit={app.onRunTopicAudit}
+                  onRunAuditP1={app.onRunTopicAuditP1}
+                  p1RunningSignalIds={
+                    app.activeTopic && app.topicAuditP1RunningBySignalId[app.activeTopic.id]
+                      ? Object.keys(app.topicAuditP1RunningBySignalId[app.activeTopic.id])
+                      : []
+                  }
+                  p1ErrorBySignalId={
+                    app.activeTopic ? app.topicAuditP1ErrorBySignalId[app.activeTopic.id] : undefined
+                  }
+                  onOpenAuditReport={app.onOpenAuditReport}
                 />
               ) : (
                 <CasebookView
@@ -231,12 +282,16 @@ export function InPageCollectorPopup({ app }: { app: InPageCollectorAppModel }) 
             <WorkspaceSurface style={{ padding: 0, background: "transparent", boxShadow: "none", border: "none", overflow: "visible" }}>
               <CollectView
                 preview={app.preview ?? null}
-                folderName={activeFolder?.name || "No folder yet"}
+                folderName={collectTargetName}
                 mode={activeFolderMode}
                 isSaved={app.previewSaved}
-                canSavePreview={activeFolderMode !== "pr-evidence" || Boolean(app.activePrCampaign)}
-                disabledReason={activeFolderMode === "pr-evidence" && !app.activePrCampaign ? "先在 PR 頁建立 campaign，Collect 才能加入 evidence row。" : ""}
+                canSavePreview={collectCanSave}
+                disabledReason={collectDisabledReason}
                 selectionMode={Boolean(snapshot?.tab.selectionMode)}
+                untriagedSignals={app.signals}
+                signalPreviewById={app.signalPreviewById}
+                signalTagsByItemId={app.signalTagsByItemId}
+                onCreateTopicFromSignals={(signalIds) => void app.onCreateTopicFromSignals(signalIds)}
                 onSavePreview={() => void app.onSavePreview()}
                 onOpenPreview={app.openPreview}
                 onToggleCollectMode={() => void app.onToggleCollectMode()}

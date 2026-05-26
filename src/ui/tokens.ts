@@ -6,6 +6,19 @@
  */
 
 export const tokens = {
+  topicAccent: {
+    primary: "#3f5a3b",
+    primaryDeep: "#324a30",
+    primaryGlow: "rgba(63,90,59,0.16)",
+    tintSage: "#e6ede2",
+    tintSageHi: "#dde7d6",
+    warm: "#a06a17",
+    tintAmber: "#fbe9c8",
+    burnt: "#b85a18",
+    fail: "#a8462e",
+    failBg: "#fbe2d4"
+  },
+
   color: {
     /* text hierarchy — calm editorial workspace */
     ink: "#1b1a17",
@@ -91,8 +104,13 @@ export const tokens = {
   },
 
   radius: {
+    xs: 8,
     lg: 12,
     card: 12,
+    cardLg: 20,
+    button: 12,
+    chip: 14,
+    xl: 24,
     pill: 8,   /* badge/button pill — not the round 999 used for status dots */
     round: 999,
     sm: 4
@@ -108,6 +126,10 @@ export const tokens = {
    */
   shadow: {
     card: "inset 0 1px 0 rgba(255,255,255,0.6), 0 1px 2px rgba(27,26,23,0.04), 0 4px 10px -4px rgba(27,26,23,0.06)",
+    topicCard: "0 1px 2px rgba(27,26,23,0.04), 0 4px 14px -4px rgba(27,26,23,0.07)",
+    topicCardHover: "0 1px 2px rgba(27,26,23,0.05), 0 8px 22px -6px rgba(27,26,23,0.10)",
+    topicDrawer: "0 12px 32px -8px rgba(27,26,23,0.14)",
+    topicCta: "0 1px 0 rgba(255,255,255,0.08) inset, 0 4px 12px rgba(63,90,59,0.24), 0 1px 2px rgba(63,90,59,0.16)",
     shell: "inset 0 1px 0 rgba(255,255,255,0.7), 0 1px 2px rgba(27,26,23,0.045), 0 8px 16px -6px rgba(27,26,23,0.08), 0 20px 38px -16px rgba(27,26,23,0.11)",
     raised: "inset 0 1px 0 rgba(255,255,255,0.8), 0 2px 4px rgba(27,26,23,0.05), 0 12px 24px -8px rgba(27,26,23,0.12), 0 30px 54px -20px rgba(27,26,23,0.15)",
     glass: "0 1px 0 rgba(27,26,23,0.035), 0 8px 18px -10px rgba(27,26,23,0.12), 0 1px 2px rgba(27,26,23,0.05)",

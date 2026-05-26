@@ -16,6 +16,7 @@ import {
   mergeRefreshResults,
   needsCaptureRefresh,
   reconcileSessionItem,
+  removeSessionItem,
   saveDescriptorToSession,
   sessionNameForModeChange,
   setActiveSession,
@@ -197,6 +198,27 @@ test("the same post can exist in different sessions", () => {
   assert.equal(globalState.sessions[1].items.length, 1);
 });
 
+test("removeSessionItem deletes only the backing item from its session", () => {
+  const sessionA = createSessionRecord("Topic A", "2026-03-24T07:00:00.000Z");
+  const sessionB = createSessionRecord("Topic B", "2026-03-24T07:00:00.000Z");
+  const itemA1 = createSessionItem(buildDescriptor({ post_url: "https://www.threads.net/@alpha/post/1" }));
+  const itemA2 = createSessionItem(buildDescriptor({ post_url: "https://www.threads.net/@alpha/post/2" }));
+  const itemB1 = createSessionItem(buildDescriptor({ post_url: "https://www.threads.net/@beta/post/1" }));
+  sessionA.items.push(itemA1, itemA2);
+  sessionB.items.push(itemB1);
+  const globalState = {
+    ...createEmptyGlobalState(),
+    sessions: [sessionA, sessionB],
+    activeSessionId: sessionA.id
+  };
+
+  const next = removeSessionItem(globalState, sessionA.id, itemA1.id);
+
+  assert.deepEqual(next.sessions[0]?.items.map((item) => item.id), [itemA2.id]);
+  assert.deepEqual(next.sessions[1]?.items.map((item) => item.id), [itemB1.id]);
+  assert.equal(next.activeSessionId, sessionA.id);
+});
+
 test("markSessionItemQueued and reconcileSessionItem map lifecycle and capture links", () => {
   const item = createSessionItem(buildDescriptor(), "2026-03-24T07:22:21.000Z");
   const queued = markSessionItemQueued(
@@ -373,6 +395,55 @@ test("needsCaptureRefresh stays true after crawl success until analysis snapshot
   assert.equal(needsCaptureRefresh(analysisSucceeded), false);
 });
 
+test("reconcileSessionItem keeps analysis-running timeout anchored to backend progress", () => {
+  const item = createSessionItem(buildDescriptor(), "2026-03-24T07:22:21.000Z");
+  const queued = markSessionItemQueued(
+    item,
+    {
+      capture_id: "cap-1",
+      job_id: "job-1",
+      status: "queued",
+      job_type: "threads_post_comments_crawl",
+      canonical_target_url: "https://www.threads.net/@alpha/post/abc"
+    },
+    buildJob({ status: "succeeded", updated_at: "2026-03-24T07:22:30.000Z" })
+  );
+
+  const analyzing = reconcileSessionItem(
+    queued,
+    buildJob({ status: "succeeded", updated_at: "2026-03-24T07:22:30.000Z" }),
+    buildCapture({
+      updated_at: "2026-03-24T07:22:31.000Z",
+      analysis: {
+        id: "analysis-1",
+        capture_id: "cap-1",
+        status: "running",
+        stage: "final",
+        analysis_version: "v1",
+        source_comment_count: 0,
+        clusters: [],
+        evidence: [],
+        metrics: {},
+        generated_at: null,
+        last_error: null,
+        created_at: "2026-03-24T07:22:31.000Z",
+        updated_at: "2026-03-24T07:22:31.000Z"
+      }
+    })
+  );
+
+  assert.equal(analyzing.status, "succeeded");
+  assert.equal(analyzing.lastStatusAt, "2026-03-24T07:22:31.000Z");
+
+  const globalState = {
+    ...createEmptyGlobalState(),
+    sessions: [{ ...createSessionRecord("Topic A", "2026-03-24T07:00:00.000Z"), items: [analyzing] }]
+  };
+  const expired = expireStaleInFlightItems(globalState, "2026-03-24T07:28:00.000Z");
+  assert.equal(expired.sessions[0]?.items[0]?.status, "failed");
+  assert.equal(expired.sessions[0]?.items[0]?.lastErrorKind, "stale_timeout");
+});
+
 test("needsCaptureRefresh keeps stale-timeout failures recoverable", () => {
   const item = createSessionItem(buildDescriptor(), "2026-03-24T07:22:21.000Z");
   item.status = "failed";
@@ -384,14 +455,21 @@ test("needsCaptureRefresh keeps stale-timeout failures recoverable", () => {
   assert.equal(needsCaptureRefresh(item), true);
 });
 
-test("expireStaleInFlightItems marks stale queued work as failed while leaving fresh work alone", () => {
+test("expireStaleInFlightItems leaves queued work recoverable and only fails truly stale active work", () => {
   const session = createSessionRecord("Topic A", "2026-03-24T07:00:00.000Z");
-  const stale = createSessionItem(buildDescriptor({ post_url: "https://www.threads.net/@alpha/post/stale" }), "2026-03-24T07:22:21.000Z");
-  stale.status = "queued";
-  stale.captureId = "cap-stale";
-  stale.jobId = "job-stale";
-  stale.queuedAt = "2026-03-24T07:22:21.000Z";
-  stale.lastStatusAt = "2026-03-24T07:22:21.000Z";
+  const staleQueued = createSessionItem(buildDescriptor({ post_url: "https://www.threads.net/@alpha/post/stale-queued" }), "2026-03-24T07:22:21.000Z");
+  staleQueued.status = "queued";
+  staleQueued.captureId = "cap-stale-queued";
+  staleQueued.jobId = "job-stale-queued";
+  staleQueued.queuedAt = "2026-03-24T07:22:21.000Z";
+  staleQueued.lastStatusAt = "2026-03-24T07:22:21.000Z";
+
+  const staleRunning = createSessionItem(buildDescriptor({ post_url: "https://www.threads.net/@alpha/post/stale-running" }), "2026-03-24T07:22:21.000Z");
+  staleRunning.status = "running";
+  staleRunning.captureId = "cap-stale-running";
+  staleRunning.jobId = "job-stale-running";
+  staleRunning.queuedAt = "2026-03-24T07:22:21.000Z";
+  staleRunning.lastStatusAt = "2026-03-24T07:22:21.000Z";
 
   const fresh = createSessionItem(buildDescriptor({ post_url: "https://www.threads.net/@alpha/post/fresh" }), "2026-03-24T07:22:21.000Z");
   fresh.status = "running";
@@ -402,17 +480,20 @@ test("expireStaleInFlightItems marks stale queued work as failed while leaving f
 
   const globalState = {
     ...createEmptyGlobalState(),
-    sessions: [{ ...session, items: [stale, fresh] }],
+    sessions: [{ ...session, items: [staleQueued, staleRunning, fresh] }],
     activeSessionId: session.id
   };
 
   const next = expireStaleInFlightItems(globalState, "2026-03-24T07:28:00.000Z");
-  const nextStale = next.sessions[0].items[0];
-  const nextFresh = next.sessions[0].items[1];
+  const nextQueued = next.sessions[0].items[0];
+  const nextRunning = next.sessions[0].items[1];
+  const nextFresh = next.sessions[0].items[2];
 
-  assert.equal(nextStale?.status, "failed");
-  assert.equal(nextStale?.lastErrorKind, "stale_timeout");
-  assert.match(nextStale?.lastError || "", /No backend status update/i);
+  assert.equal(nextQueued?.status, "queued");
+  assert.equal(nextQueued?.lastErrorKind, null);
+  assert.equal(nextRunning?.status, "failed");
+  assert.equal(nextRunning?.lastErrorKind, "stale_timeout");
+  assert.match(nextRunning?.lastError || "", /No backend status update/i);
   assert.equal(nextFresh?.status, "running");
 });
 

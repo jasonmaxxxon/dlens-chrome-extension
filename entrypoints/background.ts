@@ -8,6 +8,7 @@ import {
   triggerWorkerDrain
 } from "../src/ingest/client";
 import type { CaptureSnapshot, CaptureTargetResponse, JobSnapshot } from "../src/contracts/ingest";
+import type { TargetDescriptor } from "../src/contracts/target-descriptor";
 import type { ExtensionMessage, ExtensionResponse, StartProcessingResponse, WorkerStatusMessageResponse } from "../src/state/messages";
 import { queueItemsSequential } from "../src/state/queue-items";
 import {
@@ -83,6 +84,7 @@ import {
   generateProductSignalAnalysis,
   generateSignalReading,
   generateSignalTags,
+  generateTopicAuditEnvelope,
   generateTopicSignalReading
 } from "../src/compare/provider";
 import {
@@ -137,12 +139,14 @@ import {
   normalizeSessionRecord,
   reconcileSessionItem,
   renameSession,
+  removeSessionItem,
   saveDescriptorToSession,
   setActiveSession,
   updateSessionItem,
   type ItemRefreshResult
 } from "../src/state/store-helpers";
 import { ensureSignalForSavedItem, ensureWorkspaceTopicForSession, handleTopicMessage } from "../src/state/topic-handlers";
+import { handleTopicAuditMessage } from "../src/state/topic-audit-handlers";
 import { deleteSignal, loadSignals, loadTopicById, loadTopics, saveTopic } from "../src/state/topic-storage";
 import { generateTopicSynthesis } from "../src/compare/topic-synthesis";
 import { generateFolderSynthesis } from "../src/compare/folder-synthesis";
@@ -183,6 +187,8 @@ const tabHoverCache = new Map<number, Pick<TabUiState, "hoveredTarget" | "hovere
 // In-memory global state cache — survives within a single service worker lifetime.
 // When the worker restarts, this is null and gets lazily reloaded from storage.
 let globalStateCache: ExtensionGlobalState | null = null;
+// Per-tab UI state cache — lets the hover hot path skip a storage read on every move.
+const tabStateCache = new Map<number, TabUiState>();
 const withSnapshotLock = createAsyncLock();
 
 interface OneLinerCacheValue {
@@ -258,7 +264,19 @@ async function loadGlobalState(): Promise<ExtensionGlobalState> {
 
 async function loadTabState(tabId: number): Promise<TabUiState> {
   const raw = await chrome.storage.local.get(tabStorageKey(tabId));
-  return normalizeTabState(raw[tabStorageKey(tabId)] || createEmptyTabState());
+  const tab = normalizeTabState(raw[tabStorageKey(tabId)] || createEmptyTabState());
+  tabStateCache.set(tabId, tab);
+  return tab;
+}
+
+// Fast snapshot for the hover hot path: serves the warm in-memory caches and only
+// touches storage on a cold worker. Global writes always refresh globalStateCache,
+// and tab writes always refresh tabStateCache, so the cached view stays consistent.
+async function loadSnapshotCached(tabId: number): Promise<ExtensionSnapshot> {
+  const global = globalStateCache ?? (await loadGlobalState());
+  globalStateCache = global;
+  const tab = tabStateCache.get(tabId) ?? (await loadTabState(tabId));
+  return { global, tab };
 }
 
 async function loadSnapshot(tabId: number): Promise<ExtensionSnapshot> {
@@ -986,6 +1004,7 @@ async function saveSnapshot(tabId: number, snapshot: ExtensionSnapshot): Promise
   };
   // Invalidate global cache so next loadGlobalState() reads fresh data
   globalStateCache = nextSnapshot.global;
+  tabStateCache.set(tabId, nextSnapshot.tab);
   await chrome.storage.local.set({
     [GLOBAL_STORAGE_KEY]: nextSnapshot.global,
     [tabStorageKey(tabId)]: nextSnapshot.tab
@@ -1083,58 +1102,95 @@ async function closePopup(tabId: number): Promise<ExtensionSnapshot> {
   });
 }
 
-async function saveCurrentPreviewToSession(tabId: number): Promise<ExtensionSnapshot> {
-  const current = await loadSnapshot(tabId);
-  // In-memory hover cache always takes priority — storage may hold a stale preview
-  // from a previous save, while the cache reflects the latest hover target
-  const hover = tabHoverCache.get(tabId);
-  if (hover?.currentPreview) {
-    current.tab = { ...current.tab, currentPreview: hover.currentPreview };
-  }
-  if (!current.tab.currentPreview) {
-    throw new Error("No current post preview to save.");
-  }
+async function saveCurrentPreviewToSession(
+  tabId: number,
+  sessionId?: string,
+  topicId?: string,
+  descriptor?: TargetDescriptor
+): Promise<ExtensionSnapshot> {
+  return withSnapshotLock(async () => {
+    const current = await loadSnapshot(tabId);
+    // The popup tells us exactly which folder it is showing. Honor it (and realign the
+    // active session) so a drifted activeSessionId can't reroute the save to the wrong folder.
+    if (sessionId && sessionId !== current.global.activeSessionId && getSessionById(current.global, sessionId)) {
+      current.global = setActiveSession(current.global, sessionId);
+    }
+    if (descriptor) {
+      current.tab = { ...current.tab, currentPreview: descriptor };
+      tabHoverCache.set(tabId, {
+        hoveredTarget: descriptor,
+        hoveredTargetStrength: "hard",
+        flashPreview: descriptor,
+        currentPreview: descriptor
+      });
+    }
+    // In-memory hover cache always takes priority — storage may hold a stale preview
+    // from a previous save, while the cache reflects the latest hover target
+    const hover = tabHoverCache.get(tabId);
+    if (!descriptor && hover?.currentPreview) {
+      current.tab = { ...current.tab, currentPreview: hover.currentPreview };
+    }
+    if (!current.tab.currentPreview) {
+      throw new Error("No current post preview to save.");
+    }
 
-  const session = getActiveSession(current.global);
-  if (!session) {
+    const session = getActiveSession(current.global);
+    if (!session) {
+      return saveSnapshot(tabId, {
+        global: current.global,
+        tab: {
+          ...current.tab,
+          popupOpen: true,
+          popupPage: "library",
+          currentMainPage: "library",
+          error: null
+        }
+      });
+    }
+
+    const collectionTopicId = session.mode === "topic" ? topicId ?? current.tab.collectionTopicId ?? undefined : undefined;
+    const saved = saveDescriptorToSession(current.global, session.id, current.tab.currentPreview);
+    if (session.mode === "pr-evidence") {
+      const campaign = await loadActivePrCampaign(chrome.storage.local, session.id);
+      if (!campaign) {
+        throw new Error("Create a PR campaign before collecting evidence.");
+      }
+      await savePrEvidenceRow(chrome.storage.local, toPrEvidenceRowFromSessionItem(campaign.id, saved.item));
+    } else {
+      await ensureSignalForSavedItem(chrome.storage.local, session, saved.item, collectionTopicId);
+    }
     return saveSnapshot(tabId, {
-      global: current.global,
+      global: saved.globalState,
       tab: {
         ...current.tab,
-        popupOpen: true,
-        popupPage: "library",
-        currentMainPage: "library",
+        activeItemId: saved.item.id,
+        lastSavedToast: createInlineToast("saved", session.name),
         error: null
       }
     });
-  }
-
-  const saved = saveDescriptorToSession(current.global, session.id, current.tab.currentPreview);
-  if (session.mode === "pr-evidence") {
-    const campaign = await loadActivePrCampaign(chrome.storage.local, session.id);
-    if (!campaign) {
-      throw new Error("Create a PR campaign before collecting evidence.");
-    }
-    await savePrEvidenceRow(chrome.storage.local, toPrEvidenceRowFromSessionItem(campaign.id, saved.item));
-  } else {
-    await ensureSignalForSavedItem(chrome.storage.local, session, saved.item);
-  }
-  return saveSnapshot(tabId, {
-    global: saved.globalState,
-    tab: {
-      ...current.tab,
-      activeItemId: saved.item.id,
-      lastSavedToast: createInlineToast("saved", session.name),
-      error: null
-    }
   });
 }
 
-async function createSession(tabId: number, name: string, saveCurrentPreview = false, mode: FolderMode = "topic"): Promise<ExtensionSnapshot> {
+async function createSession(
+  tabId: number,
+  name: string,
+  saveCurrentPreview = false,
+  mode: FolderMode = "topic",
+  descriptor?: TargetDescriptor
+): Promise<ExtensionSnapshot> {
   const current = await loadSnapshot(tabId);
   const trimmed = name.trim();
   if (!trimmed) {
     throw new Error("Folder name is required.");
+  }
+  if (descriptor) {
+    current.tab = { ...current.tab, currentPreview: descriptor };
+    tabHoverCache.set(tabId, {
+      hoveredTarget: descriptor,
+      hoveredTargetStrength: "hard",
+      flashPreview: descriptor,
+      currentPreview: descriptor
+    });
   }
 
   let globalState = current.global;
@@ -1353,6 +1409,53 @@ async function queueSessionItems(
   });
 }
 
+async function queueSessionItemsAndStartProcessing(
+  tabId: number,
+  sessionId: string,
+  itemIds: string[]
+): Promise<{
+  snapshot: ExtensionSnapshot;
+  queuedItemIds: string[];
+  failedItemIds: string[];
+  processingStatus?: "started" | "already_running";
+  processingError?: string;
+}> {
+  const queued = await queueSessionItems(tabId, sessionId, itemIds);
+  if (queued.queuedItemIds.length <= 0) {
+    return queued;
+  }
+
+  try {
+    const processing = await triggerWorkerDrain(normalizeBaseUrl(queued.snapshot.global.settings.ingestBaseUrl));
+    const snapshot = await saveSnapshot(tabId, {
+      global: queued.snapshot.global,
+      tab: {
+        ...queued.snapshot.tab,
+        error: null
+      }
+    });
+    return {
+      ...queued,
+      snapshot,
+      processingStatus: processing.status
+    };
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
+    const snapshot = await saveSnapshot(tabId, {
+      global: queued.snapshot.global,
+      tab: {
+        ...queued.snapshot.tab,
+        error: message
+      }
+    }).catch(() => undefined);
+    return {
+      ...queued,
+      snapshot: snapshot || queued.snapshot,
+      processingError: message
+    };
+  }
+}
+
 async function refreshItem(
   tabId: number,
   sessionId: string,
@@ -1437,12 +1540,15 @@ async function refreshAllItems(tabId: number, sessionId?: string): Promise<Exten
     }
   }
 
-  return saveSnapshot(tabId, {
-    global: snapshot.global,
-    tab: {
-      ...snapshot.tab,
-      error: firstFailureMessage
-    }
+  return withSnapshotLock(async () => {
+    const latest = await loadSnapshot(tabId);
+    return saveSnapshot(tabId, {
+      global: latest.global,
+      tab: {
+        ...latest.tab,
+        error: firstFailureMessage
+      }
+    });
   });
 }
 
@@ -1476,6 +1582,7 @@ export default defineBackground(() => {
           // Check if tab still exists; if not, clean up
           chrome.tabs.get(tabId).catch(() => {
             tabHoverCache.delete(tabId);
+            tabStateCache.delete(tabId);
             void chrome.storage.local.remove(tabStorageKey(tabId)).catch(() => undefined);
           });
         }
@@ -1542,6 +1649,7 @@ export default defineBackground(() => {
 
   chrome.tabs.onRemoved.addListener((tabId) => {
     tabHoverCache.delete(tabId);
+    tabStateCache.delete(tabId);
     void chrome.storage.local.remove(tabStorageKey(tabId)).catch(() => undefined);
   });
 
@@ -1689,7 +1797,9 @@ export default defineBackground(() => {
               snapshot: await patchSnapshot(tabId, {
                 tab: {
                   popupPage: message.page,
-                  currentMainPage: message.page === "settings" ? current.tab.currentMainPage : message.page,
+                  currentMainPage: message.page === "settings" || message.page === "audit-report"
+                    ? current.tab.currentMainPage
+                    : message.page,
                   popupOpen: true,
                   error: null
                 }
@@ -1746,7 +1856,7 @@ export default defineBackground(() => {
               flashPreview: descriptor,
               currentPreview: descriptor
             });
-            const current = await loadSnapshot(tabId);
+            const current = await loadSnapshotCached(tabId);
             const merged = snapshotWithHover(tabId, current);
             sendResponse({
               ok: true,
@@ -1796,7 +1906,7 @@ export default defineBackground(() => {
             sendResponse({
               ok: true,
               tabId,
-              snapshot: await createSession(tabId, message.name, message.saveCurrentPreview, message.mode)
+              snapshot: await createSession(tabId, message.name, message.saveCurrentPreview, message.mode, message.descriptor)
             } satisfies ExtensionResponse);
             return;
           }
@@ -1848,11 +1958,28 @@ export default defineBackground(() => {
           case "topic/create":
           case "topic/update":
           case "topic/delete":
+          case "topic/set-collection-target":
           case "topic/add-pair":
           case "topic/remove-pair":
           case "signal/list":
           case "signal/triage": {
             const tabId = await resolveTabId(sender);
+            if (message.type === "topic/set-collection-target") {
+              const current = await loadSnapshot(tabId);
+              sendResponse({
+                ok: true,
+                tabId,
+                snapshot: await saveSnapshot(tabId, {
+                  global: current.global,
+                  tab: {
+                    ...current.tab,
+                    collectionTopicId: message.topicId,
+                    error: null
+                  }
+                })
+              } satisfies ExtensionResponse);
+              return;
+            }
             const topicResponse = await handleTopicMessage(chrome.storage.local, message);
             sendResponse({
               ok: true,
@@ -1863,9 +1990,32 @@ export default defineBackground(() => {
           }
           case "signal/delete": {
             const tabId = await resolveTabId(sender);
+            const current = await loadSnapshot(tabId);
             const result = await deleteSignal(chrome.storage.local, message.signalId);
             await deleteProductSignalAnalysis(chrome.storage.local, message.signalId);
             await clearFolderSynthesis(chrome.storage.local, result.deleted.sessionId);
+            const shouldRemoveBackingItem = Boolean(result.deleted.itemId)
+              && !result.signals.some((signal) => signal.itemId === result.deleted.itemId);
+            const global = shouldRemoveBackingItem && result.deleted.itemId
+              ? removeSessionItem(current.global, result.deleted.sessionId, result.deleted.itemId)
+              : current.global;
+            const deletedActiveItem = Boolean(result.deleted.itemId) && current.tab.activeItemId === result.deleted.itemId;
+            const deletedSession = global.sessions.find((session) => session.id === result.deleted.sessionId) ?? null;
+            const nextActiveItemId = deletedActiveItem && deletedSession
+              ? ensureActiveItemId(deletedSession, null)
+              : deletedActiveItem
+                ? null
+                : current.tab.activeItemId;
+            const nextActiveItem = deletedSession?.items.find((item) => item.id === nextActiveItemId) ?? null;
+            const snapshot = await saveSnapshot(tabId, {
+              global,
+              tab: {
+                ...current.tab,
+                activeItemId: nextActiveItemId,
+                currentPreview: deletedActiveItem ? nextActiveItem?.descriptor ?? current.tab.hoveredTarget : current.tab.currentPreview,
+                error: null
+              }
+            });
             const productSignalAnalyses = await listProductSignalAnalyses(
               chrome.storage.local,
               result.signals.map((signal) => signal.id)
@@ -1873,6 +2023,7 @@ export default defineBackground(() => {
             sendResponse({
               ok: true,
               tabId,
+              snapshot,
               signals: result.signals,
               topics: result.topics,
               productSignalAnalyses
@@ -1934,6 +2085,58 @@ export default defineBackground(() => {
               ok: true,
               tabId,
               topics: await loadTopics(chrome.storage.local, topic.sessionId)
+            } satisfies ExtensionResponse);
+            return;
+          }
+          case "extension/open-page": {
+            const tabId = await resolveTabId(sender);
+            const sanitized = message.path.replace(/^\/+/, "");
+            const url = chrome.runtime.getURL(sanitized);
+            await chrome.tabs.create({ url });
+            sendResponse({ ok: true, tabId } satisfies ExtensionResponse);
+            return;
+          }
+          case "topic/audit/build-evidence":
+          case "topic/audit/get":
+          case "topic/audit/validate":
+          case "topic/audit/clear": {
+            const tabId = await resolveTabId(sender);
+            const current = await loadSnapshot(tabId);
+            const result = await handleTopicAuditMessage(chrome.storage.local, {
+              message,
+              sessions: current.global.sessions
+            });
+            sendResponse({
+              ok: true,
+              tabId,
+              ...result
+            } satisfies ExtensionResponse);
+            return;
+          }
+          case "topic/audit/run":
+          case "topic/audit/p1-signal":
+          case "cross-topic/calibrate": {
+            const tabId = await resolveTabId(sender);
+            const current = await loadSnapshot(tabId);
+            const providerConfig = providerKeyForRequest(current.global);
+            if (!providerConfig) {
+              sendResponse({ ok: false, error: "尚未設定 AI key。請先在 Settings 設定 Google / OpenAI / Claude key。" } satisfies ExtensionResponse);
+              return;
+            }
+            const result = await handleTopicAuditMessage(chrome.storage.local, {
+              message,
+              sessions: current.global.sessions,
+              generateEnvelope: async (_stageName, prompt) => generateTopicAuditEnvelope(
+                providerConfig.provider,
+                providerConfig.apiKey,
+                prompt
+              ),
+              model: providerConfig.provider
+            });
+            sendResponse({
+              ok: true,
+              tabId,
+              ...result
             } satisfies ExtensionResponse);
             return;
           }
@@ -2395,7 +2598,7 @@ export default defineBackground(() => {
             sendResponse({
               ok: true,
               tabId,
-              snapshot: await saveCurrentPreviewToSession(tabId)
+              snapshot: await saveCurrentPreviewToSession(tabId, message.sessionId, message.topicId, message.descriptor)
             } satisfies ExtensionResponse);
             return;
           }
@@ -2449,6 +2652,28 @@ export default defineBackground(() => {
               queuedItemIds: result.queuedItemIds,
               failedItemIds: result.failedItemIds
             } satisfies ExtensionResponse);
+            return;
+          }
+          case "session/queue-items-and-start-processing": {
+            const tabId = await resolveTabId(sender);
+            try {
+              const result = await queueSessionItemsAndStartProcessing(tabId, message.sessionId, message.itemIds);
+              sendResponse({
+                ok: true,
+                tabId,
+                snapshot: result.snapshot,
+                queuedItemIds: result.queuedItemIds,
+                failedItemIds: result.failedItemIds,
+                processingStatus: result.processingStatus,
+                processingError: result.processingError
+              });
+            } catch (error) {
+              const message = error instanceof Error ? error.message : String(error);
+              sendResponse({
+                ok: false,
+                error: message
+              });
+            }
             return;
           }
           case "session/refresh-item": {

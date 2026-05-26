@@ -5,6 +5,7 @@ import React from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 
 import type { TargetDescriptor } from "../src/contracts/target-descriptor.ts";
+import { BUILD_VERSION } from "../src/ui/version.ts";
 import {
   DLENS_BUTTON_CSS,
   ModeRail,
@@ -171,7 +172,7 @@ test("WorkspaceShell masthead exposes the extension build version", () => {
     )
   );
 
-  assert.match(html, /v\.0\.1\.18/);
+  assert.match(html, new RegExp(`v\\.${BUILD_VERSION.replaceAll(".", "\\.")}`));
   assert.match(html, /Folder: dlens-product-latest/);
   assert.match(html, /data-shell-frame="editorial"[^>]*align-items:start/);
   assert.match(html, /data-shell-header="workspace"[^>]*align-self:start/);
