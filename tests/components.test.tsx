@@ -203,6 +203,28 @@ test("WorkspaceShell renders masthead WorkspaceSwitcher when onSwitchWorkspace i
   assert.doesNotMatch(html, /data-mode-badge="product"/);
 });
 
+test("WorkspaceShell marks a pending workspace switch immediately", () => {
+  const html = renderToStaticMarkup(
+    React.createElement(
+      WorkspaceShell,
+      {
+        mode: "saved-signals",
+        folderMode: "product",
+        onSwitchWorkspace: () => {},
+        availableWorkspaceModes: ["topic", "product", "pr-evidence"] as const,
+        switchingWorkspaceMode: "pr-evidence",
+        header: React.createElement("div", null, "Header")
+      },
+      React.createElement("div", null, "Body")
+    )
+  );
+
+  assert.match(html, /data-workspace-switcher-pending="pr-evidence"/);
+  assert.match(html, /aria-busy="true"/);
+  assert.match(html, /aria-selected="true"\s+data-workspace-switcher-mode="pr-evidence"\s+disabled=""/);
+  assert.match(html, /PR\.\.\./);
+});
+
 test("WorkspaceShell PR-only build renders WorkspaceSwitcher as a static PR badge", () => {
   const html = renderToStaticMarkup(
     React.createElement(

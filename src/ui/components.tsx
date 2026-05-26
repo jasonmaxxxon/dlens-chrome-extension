@@ -427,11 +427,13 @@ const WORKSPACE_SWITCHER_OPTIONS: ReadonlyArray<{
 export function WorkspaceSwitcher({
   activeMode,
   modes,
-  onChange
+  onChange,
+  pendingMode = null
 }: {
   activeMode: WorkspaceSwitcherMode | "archive" | null | undefined;
   modes?: ReadonlyArray<WorkspaceSwitcherMode>;
   onChange: (mode: WorkspaceSwitcherMode) => void;
+  pendingMode?: WorkspaceSwitcherMode | null;
 }) {
   const allowed = modes ?? WORKSPACE_SWITCHER_OPTIONS.map((option) => option.key);
   const options = WORKSPACE_SWITCHER_OPTIONS.filter((option) => allowed.includes(option.key));
@@ -464,11 +466,15 @@ export function WorkspaceSwitcher({
     );
   }
 
+  const isBusy = pendingMode !== null;
+
   return (
     <div
       role="tablist"
       aria-label="Workspace"
+      aria-busy={isBusy || undefined}
       data-workspace-switcher="segmented"
+      data-workspace-switcher-pending={pendingMode ?? undefined}
       style={{
         display: "inline-flex",
         gap: 2,
@@ -479,7 +485,8 @@ export function WorkspaceSwitcher({
       }}
     >
       {options.map(({ key, label, tint }) => {
-        const active = activeMode === key;
+        const pending = pendingMode === key;
+        const active = pendingMode ? pending : activeMode === key;
         return (
           <button
             key={key}
@@ -487,6 +494,7 @@ export function WorkspaceSwitcher({
             role="tab"
             aria-selected={active}
             data-workspace-switcher-mode={key}
+            disabled={isBusy}
             onClick={() => onChange(key)}
             style={{
               fontFamily: tokens.font.sans,
@@ -498,13 +506,14 @@ export function WorkspaceSwitcher({
               border: `1px solid ${active ? `${tint}40` : "transparent"}`,
               borderRadius: 4,
               padding: "3px 9px",
-              cursor: "pointer",
+              cursor: isBusy ? "progress" : "pointer",
+              opacity: isBusy && !pending ? 0.62 : 1,
               transition: tokens.motion.interactiveTransition,
               whiteSpace: "nowrap",
               lineHeight: 1.1
             }}
           >
-            {label}
+            {pending ? `${label}...` : label}
           </button>
         );
       })}
@@ -519,7 +528,8 @@ export function WorkspaceShell({
   contextStrip,
   children,
   onSwitchWorkspace,
-  availableWorkspaceModes
+  availableWorkspaceModes,
+  switchingWorkspaceMode
 }: {
   mode: WorkspaceMode | "settings";
   folderMode?: "topic" | "product" | "archive" | "pr-evidence";
@@ -528,6 +538,7 @@ export function WorkspaceShell({
   children: ReactNode;
   onSwitchWorkspace?: (mode: WorkspaceSwitcherMode) => void;
   availableWorkspaceModes?: ReadonlyArray<WorkspaceSwitcherMode>;
+  switchingWorkspaceMode?: WorkspaceSwitcherMode | null;
 }) {
   const showSwitcher = typeof onSwitchWorkspace === "function";
   const switcherActiveMode: WorkspaceSwitcherMode | "archive" | null = folderMode === "topic"
@@ -579,6 +590,7 @@ export function WorkspaceShell({
               activeMode={switcherActiveMode}
               modes={availableWorkspaceModes}
               onChange={onSwitchWorkspace!}
+              pendingMode={switchingWorkspaceMode}
             />
           ) : modeBadge ? (
             <span

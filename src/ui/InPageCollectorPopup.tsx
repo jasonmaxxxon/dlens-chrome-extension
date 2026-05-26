@@ -1,4 +1,4 @@
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 import type { MainPage, PopupPage } from "../state/types";
 import { CasebookView } from "./CasebookView";
 import { CompareSetupView } from "./CompareSetupView";
@@ -69,12 +69,39 @@ export function InPageCollectorPopup({ app }: { app: InPageCollectorAppModel }) 
       : "";
 
   const scrollRef = useRef<HTMLDivElement>(null);
+  const [switchingWorkspaceMode, setSwitchingWorkspaceMode] = useState<WorkspaceSwitcherMode | null>(null);
 
   useEffect(() => {
     if (scrollRef.current) {
       scrollRef.current.scrollTop = 0;
     }
   }, [guardedPage]);
+
+  useEffect(() => {
+    if (switchingWorkspaceMode === activeFolderMode) {
+      setSwitchingWorkspaceMode(null);
+    }
+  }, [activeFolderMode, switchingWorkspaceMode]);
+
+  async function handleSwitchWorkspace(mode: WorkspaceSwitcherMode) {
+    if (switchingWorkspaceMode || mode === activeFolderMode) {
+      return;
+    }
+    const startedAt = performance.now();
+    setSwitchingWorkspaceMode(mode);
+    try {
+      await app.onSessionModeChange(mode);
+      console.info("[DLens] workspace switch", {
+        from: activeFolderMode,
+        to: mode,
+        durationMs: Math.round(performance.now() - startedAt)
+      });
+    } catch (error) {
+      console.error("[DLens] workspace switch failed", error);
+    } finally {
+      setSwitchingWorkspaceMode(null);
+    }
+  }
 
   if (!popupOpen) {
     return null;
@@ -140,8 +167,9 @@ export function InPageCollectorPopup({ app }: { app: InPageCollectorAppModel }) 
         <WorkspaceShell
           mode={guardedPage === "audit-report" ? "topics" : guardedPage}
           folderMode={activeFolderMode}
-          onSwitchWorkspace={(mode) => void app.onSessionModeChange(mode)}
+          onSwitchWorkspace={(mode) => void handleSwitchWorkspace(mode)}
           availableWorkspaceModes={WORKSPACE_SWITCHER_MODES}
+          switchingWorkspaceMode={switchingWorkspaceMode}
           header={(
             <div style={{ display: "grid", gap: 10 }}>
               <ModeRail
