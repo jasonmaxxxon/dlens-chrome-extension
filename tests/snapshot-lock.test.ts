@@ -53,3 +53,46 @@ test("createAsyncLock keeps the queue alive after a rejection", async () => {
   assert.equal(second, 2);
   assert.deepEqual(order, ["first", "second"]);
 });
+
+test("locked read-modify-write mutations preserve updates across sessions", async () => {
+  const withLock = createAsyncLock();
+  let snapshot = {
+    sessions: [
+      { id: "topic", items: [] as string[] },
+      { id: "product", items: [] as string[] }
+    ]
+  };
+
+  async function loadSnapshot(): Promise<typeof snapshot> {
+    return structuredClone(snapshot);
+  }
+
+  async function saveSnapshot(nextSnapshot: typeof snapshot): Promise<typeof snapshot> {
+    snapshot = structuredClone(nextSnapshot);
+    return snapshot;
+  }
+
+  async function mutateSnapshot(
+    mutate: (current: typeof snapshot) => typeof snapshot | Promise<typeof snapshot>
+  ): Promise<typeof snapshot> {
+    return withLock(async () => saveSnapshot(await mutate(await loadSnapshot())));
+  }
+
+  await Promise.all([
+    mutateSnapshot((current) => ({
+      sessions: current.sessions.map((session) =>
+        session.id === "topic" ? { ...session, items: [...session.items, "topic-a"] } : session
+      )
+    })),
+    mutateSnapshot((current) => ({
+      sessions: current.sessions.map((session) =>
+        session.id === "product" ? { ...session, items: [...session.items, "product-a"] } : session
+      )
+    }))
+  ]);
+
+  assert.deepEqual(snapshot.sessions, [
+    { id: "topic", items: ["topic-a"] },
+    { id: "product", items: ["product-a"] }
+  ]);
+});

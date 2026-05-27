@@ -18,7 +18,7 @@ test("collect save runs inside the snapshot lock", () => {
 
   assert.match(
     saveFunction,
-    /return withSnapshotLock\(async \(\) => \{/,
+    /return (?:withSnapshotLock|mutateSnapshot)\(.*?async \([^)]*\) => \{/s,
     "session/save-current-preview must share the snapshot lock with refresh/queue writes"
   );
 });
@@ -47,6 +47,47 @@ test("refresh-all skips the final storage write when the tab error is unchanged"
     /if \(latest\.tab\.error === firstFailureMessage\) \{\s*return latest;\s*\}/,
     "session/refresh-all must not enqueue a no-op saveSnapshot that competes with mode switching"
   );
+});
+
+test("mutateSnapshot is the read-modify-write seam for snapshot handlers", () => {
+  const mutateFunction = extractSource(
+    /async function mutateSnapshot[\s\S]*?\n}\n\n\/\*\* Merge in-memory hover state/,
+    "mutateSnapshot"
+  );
+
+  assert.match(mutateFunction, /return withSnapshotLock\(async \(\) => \{/);
+  assert.match(mutateFunction, /const current = await loadSnapshot\(tabId\);/);
+  assert.match(mutateFunction, /return saveSnapshot\(tabId, nextSnapshot, saveOptions\);/);
+});
+
+test("settings and tab-only message handlers route RMW writes through mutateSnapshot", () => {
+  for (const messageType of [
+    "settings/set-ingest-base-url",
+    "settings/set-product-profile",
+    "settings/set-one-liner-config",
+    "settings/set-layout-preferences",
+    "popup/navigate-active-tab",
+    "selection/selected",
+    "selection/mode-changed",
+    "topic/set-collection-target",
+    "compare/set-active-draft",
+    "compare/set-active-result"
+  ]) {
+    const caseSource = extractSource(
+      new RegExp(`case "${messageType.replace("/", "\\/")}":[\\s\\S]*?\\n\\s*return;`),
+      messageType
+    );
+    assert.match(
+      caseSource,
+      /mutateSnapshot\(tabId,/,
+      `${messageType} must use mutateSnapshot for its RMW write`
+    );
+    assert.doesNotMatch(
+      caseSource,
+      /const current = await loadSnapshot\(tabId\);[\s\S]*?saveSnapshot\(tabId,/,
+      `${messageType} should not keep raw loadSnapshot -> saveSnapshot writes inline`
+    );
+  }
 });
 
 test("session/set-mode fast path writes only active-session and tab keys", () => {

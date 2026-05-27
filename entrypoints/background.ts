@@ -619,8 +619,7 @@ function queueProductSignalAutoAnalysis(tabId: number | null, global: ExtensionG
       if (tabId == null) {
         return;
       }
-      const snapshot = await loadSnapshot(tabId);
-      await saveSnapshot(tabId, snapshot);
+      await mutateSnapshot(tabId, (snapshot) => snapshot);
     })
     .catch((error) => {
       console.error("[dlens] product signal auto analysis failed:", error instanceof Error ? error.message : error);
@@ -1188,6 +1187,29 @@ async function saveActiveSessionSnapshot(tabId: number, snapshot: ExtensionSnaps
   );
 }
 
+type SnapshotMutationResult = ExtensionSnapshot | {
+  snapshot: ExtensionSnapshot;
+  saveOptions?: SnapshotSaveOptions;
+};
+
+function isSnapshotMutationPayload(result: SnapshotMutationResult): result is Exclude<SnapshotMutationResult, ExtensionSnapshot> {
+  return "snapshot" in result;
+}
+
+async function mutateSnapshot(
+  tabId: number,
+  mutate: (current: ExtensionSnapshot) => SnapshotMutationResult | Promise<SnapshotMutationResult>,
+  options: SnapshotSaveOptions = {}
+): Promise<ExtensionSnapshot> {
+  return withSnapshotLock(async () => {
+    const current = await loadSnapshot(tabId);
+    const result = await mutate(current);
+    const nextSnapshot = isSnapshotMutationPayload(result) ? result.snapshot : result;
+    const saveOptions = isSnapshotMutationPayload(result) ? result.saveOptions ?? options : options;
+    return saveSnapshot(tabId, nextSnapshot, saveOptions);
+  });
+}
+
 /** Merge in-memory hover state into a snapshot for the UI without writing to storage */
 function snapshotWithHover(tabId: number, snapshot: ExtensionSnapshot): ExtensionSnapshot {
   const hover = tabHoverCache.get(tabId);
@@ -1211,8 +1233,7 @@ async function patchSnapshot(
     tab?: Partial<TabUiState>;
   }
 ): Promise<ExtensionSnapshot> {
-  const current = await loadSnapshot(tabId);
-  return saveSnapshot(tabId, {
+  return mutateSnapshot(tabId, (current) => ({
     global: {
       ...current.global,
       ...(patch.global || {})
@@ -1221,7 +1242,7 @@ async function patchSnapshot(
       ...current.tab,
       ...(patch.tab || {})
     }
-  });
+  }));
 }
 
 async function broadcastToAllTabs(message: ExtensionMessage): Promise<void> {
@@ -1254,8 +1275,7 @@ function ensureActiveItemId(session: SessionRecord, currentItemId: string | null
 
 async function openPopup(tabId: number): Promise<ExtensionSnapshot> {
   if (IS_PR_ONLY_BUILD) {
-    const current = await loadSnapshot(tabId);
-    return saveSnapshot(tabId, {
+    return mutateSnapshot(tabId, (current) => ({
       global: activateSessionForMode(current.global, "pr-evidence"),
       tab: {
         ...current.tab,
@@ -1264,7 +1284,7 @@ async function openPopup(tabId: number): Promise<ExtensionSnapshot> {
         currentMainPage: "pr-evidence",
         error: null
       }
-    }, { persistActiveSessionId: true });
+    }), { persistActiveSessionId: true });
   }
   return patchSnapshot(tabId, {
     tab: {
@@ -1278,13 +1298,13 @@ async function closePopup(tabId: number): Promise<ExtensionSnapshot> {
   if (current.tab.selectionMode) {
     await chrome.tabs.sendMessage(tabId, { type: "selection/cancel-tab", tabId } satisfies ExtensionMessage).catch(() => undefined);
   }
-  return saveSnapshot(tabId, {
-    global: current.global,
+  return mutateSnapshot(tabId, (latest) => ({
+    global: latest.global,
     tab: {
-      ...setCollectModeState(current.tab, false),
+      ...setCollectModeState(latest.tab, false),
       popupOpen: false
     }
-  });
+  }));
 }
 
 async function saveCurrentPreviewToSession(
@@ -1293,8 +1313,7 @@ async function saveCurrentPreviewToSession(
   topicId?: string,
   descriptor?: TargetDescriptor
 ): Promise<ExtensionSnapshot> {
-  return withSnapshotLock(async () => {
-    const current = await loadSnapshot(tabId);
+  return mutateSnapshot(tabId, async (current) => {
     let activeSessionRealigned = false;
     // The popup tells us exactly which folder it is showing. Honor it (and realign the
     // active session) so a drifted activeSessionId can't reroute the save to the wrong folder.
@@ -1323,16 +1342,18 @@ async function saveCurrentPreviewToSession(
 
     const session = getActiveSession(current.global);
     if (!session) {
-      return saveSnapshot(tabId, {
-        global: current.global,
-        tab: {
-          ...current.tab,
-          popupOpen: true,
-          popupPage: "library",
-          currentMainPage: "library",
-          error: null
+      return {
+        snapshot: {
+          global: current.global,
+          tab: {
+            ...current.tab,
+            popupOpen: true,
+            popupPage: "library",
+            currentMainPage: "library",
+            error: null
+          }
         }
-      });
+      };
     }
 
     const collectionTopicId = session.mode === "topic" ? topicId ?? current.tab.collectionTopicId ?? undefined : undefined;
@@ -1346,15 +1367,18 @@ async function saveCurrentPreviewToSession(
     } else {
       await ensureSignalForSavedItem(chrome.storage.local, session, saved.item, collectionTopicId);
     }
-    return saveSnapshot(tabId, {
-      global: saved.globalState,
-      tab: {
-        ...current.tab,
-        activeItemId: saved.item.id,
-        lastSavedToast: createInlineToast("saved", session.name),
-        error: null
-      }
-    }, { persistActiveSessionId: activeSessionRealigned });
+    return {
+      snapshot: {
+        global: saved.globalState,
+        tab: {
+          ...current.tab,
+          activeItemId: saved.item.id,
+          lastSavedToast: createInlineToast("saved", session.name),
+          error: null
+        }
+      },
+      saveOptions: { persistActiveSessionId: activeSessionRealigned }
+    };
   });
 }
 
@@ -1365,137 +1389,152 @@ async function createSession(
   mode: FolderMode = "topic",
   descriptor?: TargetDescriptor
 ): Promise<ExtensionSnapshot> {
-  const current = await loadSnapshot(tabId);
   const trimmed = name.trim();
   if (!trimmed) {
     throw new Error("Folder name is required.");
   }
-  if (descriptor) {
-    current.tab = { ...current.tab, currentPreview: descriptor };
-    tabHoverCache.set(tabId, {
-      hoveredTarget: descriptor,
-      hoveredTargetStrength: "hard",
-      flashPreview: descriptor,
-      currentPreview: descriptor
-    });
-  }
-
-  let globalState = current.global;
-  const session = createSessionRecord(trimmed, new Date().toISOString(), mode);
-  globalState = {
-    ...globalState,
-    sessions: [...globalState.sessions, session],
-    activeSessionId: session.id
-  };
-
-  // In-memory hover cache takes priority over stale storage
-  const hover = tabHoverCache.get(tabId);
-  if (hover?.currentPreview) {
-    current.tab = { ...current.tab, currentPreview: hover.currentPreview };
-  }
-
-  let activeItemId = current.tab.activeItemId;
-  let popupPage = current.tab.popupPage;
-  let currentMainPage = current.tab.currentMainPage;
-  let lastSavedToast = current.tab.lastSavedToast;
-  if (saveCurrentPreview) {
-    if (!current.tab.currentPreview) {
-      throw new Error("No current post preview to save.");
+  return mutateSnapshot(tabId, async (current) => {
+    if (descriptor) {
+      current.tab = { ...current.tab, currentPreview: descriptor };
+      tabHoverCache.set(tabId, {
+        hoveredTarget: descriptor,
+        hoveredTargetStrength: "hard",
+        flashPreview: descriptor,
+        currentPreview: descriptor
+      });
     }
-    const saved = saveDescriptorToSession(globalState, session.id, current.tab.currentPreview);
-    globalState = saved.globalState;
-    if (session.mode === "pr-evidence") {
-      const campaign = await loadActivePrCampaign(chrome.storage.local, session.id);
-      if (!campaign) {
-        throw new Error("Create a PR campaign before collecting evidence.");
+
+    let globalState = current.global;
+    const session = createSessionRecord(trimmed, new Date().toISOString(), mode);
+    globalState = {
+      ...globalState,
+      sessions: [...globalState.sessions, session],
+      activeSessionId: session.id
+    };
+
+    // In-memory hover cache takes priority over stale storage
+    const hover = tabHoverCache.get(tabId);
+    if (hover?.currentPreview) {
+      current.tab = { ...current.tab, currentPreview: hover.currentPreview };
+    }
+
+    let activeItemId = current.tab.activeItemId;
+    let popupPage = current.tab.popupPage;
+    let currentMainPage = current.tab.currentMainPage;
+    let lastSavedToast = current.tab.lastSavedToast;
+    if (saveCurrentPreview) {
+      if (!current.tab.currentPreview) {
+        throw new Error("No current post preview to save.");
       }
-      await savePrEvidenceRow(chrome.storage.local, toPrEvidenceRowFromSessionItem(campaign.id, saved.item));
-    } else {
-      await ensureSignalForSavedItem(chrome.storage.local, session, saved.item);
+      const saved = saveDescriptorToSession(globalState, session.id, current.tab.currentPreview);
+      globalState = saved.globalState;
+      if (session.mode === "pr-evidence") {
+        const campaign = await loadActivePrCampaign(chrome.storage.local, session.id);
+        if (!campaign) {
+          throw new Error("Create a PR campaign before collecting evidence.");
+        }
+        await savePrEvidenceRow(chrome.storage.local, toPrEvidenceRowFromSessionItem(campaign.id, saved.item));
+      } else {
+        await ensureSignalForSavedItem(chrome.storage.local, session, saved.item);
+      }
+      activeItemId = saved.item.id;
+      popupPage = "library";
+      currentMainPage = "library";
+      lastSavedToast = createInlineToast("saved", session.name);
     }
-    activeItemId = saved.item.id;
-    popupPage = "library";
-    currentMainPage = "library";
-    lastSavedToast = createInlineToast("saved", session.name);
-  }
 
-  return saveSnapshot(tabId, {
-    global: globalState,
-    tab: {
-      ...current.tab,
-      activeItemId,
-      popupPage,
-      currentMainPage,
-      lastSavedToast,
-      error: null
-    }
-  }, { persistActiveSessionId: true });
+    return {
+      snapshot: {
+        global: globalState,
+        tab: {
+          ...current.tab,
+          activeItemId,
+          popupPage,
+          currentMainPage,
+          lastSavedToast,
+          error: null
+        }
+      },
+      saveOptions: { persistActiveSessionId: true }
+    };
+  });
 }
 
 async function renameExistingSession(tabId: number, sessionId: string, name: string): Promise<ExtensionSnapshot> {
-  const current = await loadSnapshot(tabId);
-  return saveSnapshot(tabId, {
+  return mutateSnapshot(tabId, (current) => ({
     global: renameSession(current.global, sessionId, name),
     tab: {
       ...current.tab,
       error: null
     }
-  });
+  }));
 }
 
 async function deleteExistingSession(tabId: number, sessionId: string): Promise<ExtensionSnapshot> {
-  const current = await loadSnapshot(tabId);
-  const globalState = deleteSession(current.global, sessionId);
-  const nextSession = getActiveSession(globalState);
-  const nextItemId = nextSession ? ensureActiveItemId(nextSession, current.tab.activeItemId) : null;
-  const nextItem = nextSession?.items.find((item) => item.id === nextItemId) || null;
+  return mutateSnapshot(tabId, (current) => {
+    const globalState = deleteSession(current.global, sessionId);
+    const nextSession = getActiveSession(globalState);
+    const nextItemId = nextSession ? ensureActiveItemId(nextSession, current.tab.activeItemId) : null;
+    const nextItem = nextSession?.items.find((item) => item.id === nextItemId) || null;
 
-  return saveSnapshot(tabId, {
-    global: globalState,
-    tab: {
-      ...current.tab,
-      activeItemId: nextItemId,
-      currentPreview: nextItem?.descriptor || current.tab.hoveredTarget,
-      popupPage: "library",
-      currentMainPage: "library",
-      error: null
-    }
-  }, { persistActiveSessionId: true });
+    return {
+      snapshot: {
+        global: globalState,
+        tab: {
+          ...current.tab,
+          activeItemId: nextItemId,
+          currentPreview: nextItem?.descriptor || current.tab.hoveredTarget,
+          popupPage: "library",
+          currentMainPage: "library",
+          error: null
+        }
+      },
+      saveOptions: { persistActiveSessionId: true }
+    };
+  });
 }
 
 async function setActiveSessionById(tabId: number, sessionId: string): Promise<ExtensionSnapshot> {
-  const current = await loadSnapshot(tabId);
-  const globalState = setActiveSession(current.global, sessionId);
-  const activeSession = activeSessionWithFallback(globalState);
-  const activeItemId = ensureActiveItemId(activeSession, current.tab.activeItemId);
-  const activeItem = activeSession.items.find((item) => item.id === activeItemId) || null;
-  return saveSnapshot(tabId, {
-    global: globalState,
-    tab: {
-      ...current.tab,
-      activeItemId,
-      currentPreview: activeItem?.descriptor || current.tab.hoveredTarget,
-      popupPage: "library",
-      currentMainPage: "library",
-      error: null
-    }
-  }, { persistActiveSessionId: true });
+  return mutateSnapshot(tabId, (current) => {
+    const globalState = setActiveSession(current.global, sessionId);
+    const activeSession = activeSessionWithFallback(globalState);
+    const activeItemId = ensureActiveItemId(activeSession, current.tab.activeItemId);
+    const activeItem = activeSession.items.find((item) => item.id === activeItemId) || null;
+    return {
+      snapshot: {
+        global: globalState,
+        tab: {
+          ...current.tab,
+          activeItemId,
+          currentPreview: activeItem?.descriptor || current.tab.hoveredTarget,
+          popupPage: "library",
+          currentMainPage: "library",
+          error: null
+        }
+      },
+      saveOptions: { persistActiveSessionId: true }
+    };
+  });
 }
 
 async function setActiveItem(tabId: number, sessionId: string, itemId: string): Promise<ExtensionSnapshot> {
-  const current = await loadSnapshot(tabId);
-  const globalState = current.global.activeSessionId === sessionId ? current.global : setActiveSession(current.global, sessionId);
-  const session = globalState.sessions.find((candidate) => candidate.id === sessionId);
-  const item = session?.items.find((candidate) => candidate.id === itemId) || null;
-  return saveSnapshot(tabId, {
-    global: globalState,
-    tab: {
-      ...current.tab,
-      activeItemId: itemId,
-      currentPreview: item?.descriptor || current.tab.currentPreview,
-      error: null
-    }
-  }, { persistActiveSessionId: globalState.activeSessionId !== current.global.activeSessionId });
+  return mutateSnapshot(tabId, (current) => {
+    const globalState = current.global.activeSessionId === sessionId ? current.global : setActiveSession(current.global, sessionId);
+    const session = globalState.sessions.find((candidate) => candidate.id === sessionId);
+    const item = session?.items.find((candidate) => candidate.id === itemId) || null;
+    return {
+      snapshot: {
+        global: globalState,
+        tab: {
+          ...current.tab,
+          activeItemId: itemId,
+          currentPreview: item?.descriptor || current.tab.currentPreview,
+          error: null
+        }
+      },
+      saveOptions: { persistActiveSessionId: globalState.activeSessionId !== current.global.activeSessionId }
+    };
+  });
 }
 
 async function queueSessionItem(
@@ -1614,13 +1653,13 @@ async function queueSessionItemsAndStartProcessing(
 
   try {
     const processing = await triggerWorkerDrain(normalizeBaseUrl(queued.snapshot.global.settings.ingestBaseUrl));
-    const snapshot = await saveSnapshot(tabId, {
-      global: queued.snapshot.global,
+    const snapshot = await mutateSnapshot(tabId, (current) => ({
+      global: current.global,
       tab: {
-        ...queued.snapshot.tab,
+        ...current.tab,
         error: null
       }
-    });
+    }));
     return {
       ...queued,
       snapshot,
@@ -1628,13 +1667,13 @@ async function queueSessionItemsAndStartProcessing(
     };
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
-    const snapshot = await saveSnapshot(tabId, {
-      global: queued.snapshot.global,
+    const snapshot = await mutateSnapshot(tabId, (current) => ({
+      global: current.global,
       tab: {
-        ...queued.snapshot.tab,
+        ...current.tab,
         error: message
       }
-    }).catch(() => undefined);
+    })).catch(() => undefined);
     return {
       ...queued,
       snapshot: snapshot || queued.snapshot,
@@ -1874,8 +1913,7 @@ export default defineBackground(() => {
           }
           case "settings/set-ingest-base-url": {
             const tabId = await resolveTabId(sender);
-            const current = await loadSnapshot(tabId);
-            const snapshot = await saveSnapshot(tabId, {
+            const snapshot = await mutateSnapshot(tabId, (current) => ({
               global: {
                 ...current.global,
                 settings: {
@@ -1887,28 +1925,29 @@ export default defineBackground(() => {
                 ...current.tab,
                 error: null
               }
-            });
+            }));
             sendResponse({ ok: true, tabId, snapshot } satisfies ExtensionResponse);
             return;
           }
           case "settings/set-product-profile": {
             const tabId = await resolveTabId(sender);
-            const current = await loadSnapshot(tabId);
-            const nextGlobal = {
-              ...current.global,
-              settings: {
-                ...current.global.settings,
-                productProfile: message.productProfile
-              }
-            };
-            const snapshot = await saveSnapshot(tabId, {
-              global: nextGlobal,
-              tab: {
-                ...current.tab,
-                error: null
-              }
+            const snapshot = await mutateSnapshot(tabId, (current) => {
+              const nextGlobal = {
+                ...current.global,
+                settings: {
+                  ...current.global.settings,
+                  productProfile: message.productProfile
+                }
+              };
+              return {
+                global: nextGlobal,
+                tab: {
+                  ...current.tab,
+                  error: null
+                }
+              };
             });
-            const compileResult = await compileProductContextIfReady(nextGlobal);
+            const compileResult = await compileProductContextIfReady(snapshot.global);
             sendResponse({
               ok: true,
               tabId,
@@ -1940,39 +1979,41 @@ export default defineBackground(() => {
           }
           case "settings/set-one-liner-config": {
             const tabId = await resolveTabId(sender);
-            const current = await loadSnapshot(tabId);
-            const settings = mergeOneLinerSettings(current.global.settings, {
-              provider: message.provider,
-              openaiApiKey: message.openaiApiKey,
-              claudeApiKey: message.claudeApiKey,
-              googleApiKey: message.googleApiKey
-            });
-            const snapshot = await saveSnapshot(tabId, {
-              global: {
-                ...current.global,
-                settings
-              },
-              tab: {
-                ...current.tab,
-                error: null
-              }
+            const snapshot = await mutateSnapshot(tabId, (current) => {
+              const settings = mergeOneLinerSettings(current.global.settings, {
+                provider: message.provider,
+                openaiApiKey: message.openaiApiKey,
+                claudeApiKey: message.claudeApiKey,
+                googleApiKey: message.googleApiKey
+              });
+              return {
+                global: {
+                  ...current.global,
+                  settings
+                },
+                tab: {
+                  ...current.tab,
+                  error: null
+                }
+              };
             });
             sendResponse({ ok: true, tabId, snapshot } satisfies ExtensionResponse);
             return;
           }
           case "settings/set-layout-preferences": {
             const tabId = await resolveTabId(sender);
-            const current = await loadSnapshot(tabId);
-            const settings = mergeLayoutPreferences(current.global.settings, message.layoutPreferences);
-            const snapshot = await saveSnapshot(tabId, {
-              global: {
-                ...current.global,
-                settings
-              },
-              tab: {
-                ...current.tab,
-                error: null
-              }
+            const snapshot = await mutateSnapshot(tabId, (current) => {
+              const settings = mergeLayoutPreferences(current.global.settings, message.layoutPreferences);
+              return {
+                global: {
+                  ...current.global,
+                  settings
+                },
+                tab: {
+                  ...current.tab,
+                  error: null
+                }
+              };
             });
             sendResponse({ ok: true, tabId, snapshot } satisfies ExtensionResponse);
             return;
@@ -1992,12 +2033,13 @@ export default defineBackground(() => {
           }
           case "popup/navigate-active-tab": {
             const tabId = await resolveTabId(sender);
-            const current = await loadSnapshot(tabId);
             sendResponse({
               ok: true,
               tabId,
-              snapshot: await patchSnapshot(tabId, {
+              snapshot: await mutateSnapshot(tabId, (current) => ({
+                global: current.global,
                 tab: {
+                  ...current.tab,
                   popupPage: message.page,
                   currentMainPage: message.page === "settings" || message.page === "audit-report"
                     ? current.tab.currentMainPage
@@ -2005,7 +2047,7 @@ export default defineBackground(() => {
                   popupOpen: true,
                   error: null
                 }
-              })
+              }))
             } satisfies ExtensionResponse);
             return;
           }
@@ -2017,33 +2059,32 @@ export default defineBackground(() => {
             sendResponse({
               ok: true,
               tabId,
-              snapshot: await saveSnapshot(tabId, {
-                global: current.global,
+              snapshot: await mutateSnapshot(tabId, (latest) => ({
+                global: latest.global,
                 tab: {
-                  ...setCollectModeState(current.tab, true),
+                  ...setCollectModeState(latest.tab, true),
                   hoveredTarget: null,
                   hoveredTargetStrength: null,
                   flashPreview: null,
                   error: null
                 }
-              })
+              }))
             } satisfies ExtensionResponse);
             return;
           }
           case "selection/cancel-active-tab": {
             const tabId = await getActiveTabId();
             await chrome.tabs.sendMessage(tabId, { type: "selection/cancel-tab", tabId } satisfies ExtensionMessage);
-            const current = await loadSnapshot(tabId);
             sendResponse({
               ok: true,
               tabId,
-              snapshot: await saveSnapshot(tabId, {
+              snapshot: await mutateSnapshot(tabId, (current) => ({
                 global: current.global,
                 tab: {
                   ...setCollectModeState(current.tab, false),
                   error: null
                 }
-              })
+              }))
             } satisfies ExtensionResponse);
             return;
           }
@@ -2073,11 +2114,10 @@ export default defineBackground(() => {
           }
           case "selection/selected": {
             const tabId = await resolveTabId(sender);
-            const current = await loadSnapshot(tabId);
             sendResponse({
               ok: true,
               tabId,
-              snapshot: await saveSnapshot(tabId, {
+              snapshot: await mutateSnapshot(tabId, (current) => ({
                 global: current.global,
                 tab: {
                   ...applyHoveredPreview(setCollectModeState(current.tab, false), message.descriptor),
@@ -2086,20 +2126,19 @@ export default defineBackground(() => {
                   currentMainPage: "library",
                   error: null
                 }
-              })
+              }))
             } satisfies ExtensionResponse);
             return;
           }
           case "selection/mode-changed": {
             const tabId = await resolveTabId(sender);
-            const current = await loadSnapshot(tabId);
             sendResponse({
               ok: true,
               tabId,
-              snapshot: await saveSnapshot(tabId, {
+              snapshot: await mutateSnapshot(tabId, (current) => ({
                 global: current.global,
                 tab: setCollectModeState(current.tab, message.enabled)
-              })
+              }))
             } satisfies ExtensionResponse);
             return;
           }
@@ -2196,18 +2235,17 @@ export default defineBackground(() => {
           case "signal/triage": {
             const tabId = await resolveTabId(sender);
             if (message.type === "topic/set-collection-target") {
-              const current = await loadSnapshot(tabId);
               sendResponse({
                 ok: true,
                 tabId,
-                snapshot: await saveSnapshot(tabId, {
+                snapshot: await mutateSnapshot(tabId, (current) => ({
                   global: current.global,
                   tab: {
                     ...current.tab,
                     collectionTopicId: message.topicId,
                     error: null
                   }
-                })
+                }))
               } satisfies ExtensionResponse);
               return;
             }
@@ -2221,31 +2259,32 @@ export default defineBackground(() => {
           }
           case "signal/delete": {
             const tabId = await resolveTabId(sender);
-            const current = await loadSnapshot(tabId);
             const result = await deleteSignal(chrome.storage.local, message.signalId);
             await deleteProductSignalAnalysis(chrome.storage.local, message.signalId);
             await clearFolderSynthesis(chrome.storage.local, result.deleted.sessionId);
-            const shouldRemoveBackingItem = Boolean(result.deleted.itemId)
-              && !result.signals.some((signal) => signal.itemId === result.deleted.itemId);
-            const global = shouldRemoveBackingItem && result.deleted.itemId
-              ? removeSessionItem(current.global, result.deleted.sessionId, result.deleted.itemId)
-              : current.global;
-            const deletedActiveItem = Boolean(result.deleted.itemId) && current.tab.activeItemId === result.deleted.itemId;
-            const deletedSession = global.sessions.find((session) => session.id === result.deleted.sessionId) ?? null;
-            const nextActiveItemId = deletedActiveItem && deletedSession
-              ? ensureActiveItemId(deletedSession, null)
-              : deletedActiveItem
-                ? null
-                : current.tab.activeItemId;
-            const nextActiveItem = deletedSession?.items.find((item) => item.id === nextActiveItemId) ?? null;
-            const snapshot = await saveSnapshot(tabId, {
-              global,
-              tab: {
-                ...current.tab,
-                activeItemId: nextActiveItemId,
-                currentPreview: deletedActiveItem ? nextActiveItem?.descriptor ?? current.tab.hoveredTarget : current.tab.currentPreview,
-                error: null
-              }
+            const snapshot = await mutateSnapshot(tabId, (current) => {
+              const shouldRemoveBackingItem = Boolean(result.deleted.itemId)
+                && !result.signals.some((signal) => signal.itemId === result.deleted.itemId);
+              const global = shouldRemoveBackingItem && result.deleted.itemId
+                ? removeSessionItem(current.global, result.deleted.sessionId, result.deleted.itemId)
+                : current.global;
+              const deletedActiveItem = Boolean(result.deleted.itemId) && current.tab.activeItemId === result.deleted.itemId;
+              const deletedSession = global.sessions.find((session) => session.id === result.deleted.sessionId) ?? null;
+              const nextActiveItemId = deletedActiveItem && deletedSession
+                ? ensureActiveItemId(deletedSession, null)
+                : deletedActiveItem
+                  ? null
+                  : current.tab.activeItemId;
+              const nextActiveItem = deletedSession?.items.find((item) => item.id === nextActiveItemId) ?? null;
+              return {
+                global,
+                tab: {
+                  ...current.tab,
+                  activeItemId: nextActiveItemId,
+                  currentPreview: deletedActiveItem ? nextActiveItem?.descriptor ?? current.tab.hoveredTarget : current.tab.currentPreview,
+                  error: null
+                }
+              };
             });
             const productSignalAnalyses = await listProductSignalAnalyses(
               chrome.storage.local,
@@ -2957,13 +2996,13 @@ export default defineBackground(() => {
             const current = await loadSnapshot(tabId);
             try {
               const processing = await triggerWorkerDrain(normalizeBaseUrl(current.global.settings.ingestBaseUrl));
-              const snapshot = await saveSnapshot(tabId, {
-                global: current.global,
+              const snapshot = await mutateSnapshot(tabId, (latest) => ({
+                global: latest.global,
                 tab: {
-                  ...current.tab,
+                  ...latest.tab,
                   error: null
                 }
-              });
+              }));
               sendResponse({
                 ok: true,
                 tabId,
@@ -2972,13 +3011,13 @@ export default defineBackground(() => {
               } satisfies StartProcessingResponse);
             } catch (error) {
               const message = error instanceof Error ? error.message : String(error);
-              await saveSnapshot(tabId, {
-                global: current.global,
+              await mutateSnapshot(tabId, (latest) => ({
+                global: latest.global,
                 tab: {
-                  ...current.tab,
+                  ...latest.tab,
                   error: message
                 }
-              }).catch(() => undefined);
+              })).catch(() => undefined);
               sendResponse({
                 ok: false,
                 error: message
@@ -3081,8 +3120,7 @@ export default defineBackground(() => {
           case "compare/save-analysis": {
             const tabId = await resolveTabId(sender);
             const savedAnalyses = await saveSavedAnalysis(chrome.storage.local, message.snapshot);
-            const current = await loadSnapshot(tabId);
-            const snapshot = await saveSnapshot(tabId, {
+            const snapshot = await mutateSnapshot(tabId, (current) => ({
               global: current.global,
               tab: {
                 ...current.tab,
@@ -3099,7 +3137,7 @@ export default defineBackground(() => {
                 currentMainPage: "result",
                 error: null
               }
-            });
+            }));
             sendResponse({
               ok: true,
               tabId,
@@ -3110,22 +3148,20 @@ export default defineBackground(() => {
           }
           case "compare/set-active-draft": {
             const tabId = await resolveTabId(sender);
-            const current = await loadSnapshot(tabId);
-            const snapshot = await saveSnapshot(tabId, {
+            const snapshot = await mutateSnapshot(tabId, (current) => ({
               global: current.global,
               tab: {
                 ...current.tab,
                 activeCompareDraft: message.draft,
                 error: null
               }
-            });
+            }));
             sendResponse({ ok: true, tabId, snapshot } satisfies ExtensionResponse);
             return;
           }
           case "compare/set-active-result": {
             const tabId = await resolveTabId(sender);
-            const current = await loadSnapshot(tabId);
-            const snapshot = await saveSnapshot(tabId, {
+            const snapshot = await mutateSnapshot(tabId, (current) => ({
               global: current.global,
               tab: {
                 ...current.tab,
@@ -3135,7 +3171,7 @@ export default defineBackground(() => {
                 currentMainPage: message.result ? "result" : current.tab.currentMainPage,
                 error: null
               }
-            });
+            }));
             sendResponse({ ok: true, tabId, snapshot } satisfies ExtensionResponse);
             return;
           }
@@ -3179,13 +3215,13 @@ export default defineBackground(() => {
               judgmentVersion: COMPARE_JUDGMENT_PROMPT_VERSION,
               judgmentSource: judgment.judgmentSource
             });
-            const snapshot = await saveSnapshot(tabId, {
-              global: current.global,
+            const snapshot = await mutateSnapshot(tabId, (latest) => ({
+              global: latest.global,
               tab: {
-                ...current.tab,
+                ...latest.tab,
                 error: null
               }
-            });
+            }));
             await broadcastToAllTabs({
               type: "judgment/result",
               resultId: message.resultId,
@@ -3203,20 +3239,19 @@ export default defineBackground(() => {
           }
           case "judgment/result": {
             const tabId = await resolveTabId(sender);
-            const current = await loadSnapshot(tabId);
             const savedAnalyses = await saveSavedAnalysisJudgment(chrome.storage.local, {
               resultId: message.resultId,
               judgmentResult: message.judgmentResult,
               judgmentVersion: message.judgmentVersion,
               judgmentSource: message.judgmentSource
             });
-            const snapshot = await saveSnapshot(tabId, {
+            const snapshot = await mutateSnapshot(tabId, (current) => ({
               global: current.global,
               tab: {
                 ...current.tab,
                 error: null
               }
-            });
+            }));
             sendResponse({
               ok: true,
               tabId,
@@ -3232,19 +3267,16 @@ export default defineBackground(() => {
       } catch (error) {
         const tabId = await resolveTabId(sender).catch(() => undefined);
         if (tabId) {
-          const current = await loadSnapshot(tabId).catch(() => null);
-          if (current) {
-            const snapshot = await saveSnapshot(tabId, {
-              global: current.global,
-              tab: {
-                ...current.tab,
-                error: error instanceof Error ? error.message : String(error)
-              }
-            }).catch(() => null);
-            if (snapshot) {
-              sendResponse({ ok: false, error: snapshot.tab.error || "Unknown error" } satisfies ExtensionResponse);
-              return;
+          const snapshot = await mutateSnapshot(tabId, (current) => ({
+            global: current.global,
+            tab: {
+              ...current.tab,
+              error: error instanceof Error ? error.message : String(error)
             }
+          })).catch(() => null);
+          if (snapshot) {
+            sendResponse({ ok: false, error: snapshot.tab.error || "Unknown error" } satisfies ExtensionResponse);
+            return;
           }
         }
         sendResponse({
