@@ -67,12 +67,13 @@ What's true in the working repo today. Numbers and facts only.
 
 ---
 
-## 2. Committed Next
+## 2. Completed Committed Next
 
-Items we intend to land. Each has a verifiable exit criterion. None imply
-order beyond what is written.
+Completed on `codex/pr-visible-metrics` on 2026-05-27. Kept here as the
+execution record for this roadmap slice; replace this section when new
+committed-next work is chosen.
 
-### N1 — React top-level ErrorBoundary
+### N1 — React top-level ErrorBoundary — done (`5239ac1`)
 
 Wrap the popup React tree in a top-level `<ErrorBoundary>`. This is **not** a
 replacement for the existing global runtime fallback at
@@ -84,7 +85,7 @@ popup shell instead of leaving the popup blank.
 
 **Estimate:** ~2 hours.
 
-### N2 — Storage usage surfacing via background message
+### N2 — Storage usage surfacing via background message — done (`bb77a96`)
 
 New background handler `storage/get-usage` calls
 `chrome.storage.local.getBytesInUse()` and returns `{ bytesInUse, quota }`.
@@ -98,7 +99,7 @@ from props, not from a side effect.
 
 **Estimate:** ~3 hours.
 
-### N3 — Mutation seam for read-modify-write handlers
+### N3 — Mutation seam for read-modify-write handlers — done (`1ae4cca`)
 
 Introduce `mutateSnapshot(tabId, fn)` in `entrypoints/background.ts` that
 wraps `withSnapshotLock`. Migrate every handler that does
@@ -113,7 +114,7 @@ group (session / topic / signal / product / pr) per commit.
 
 **Estimate:** 1–2 days.
 
-### N4 — Behavioral perf regression tests
+### N4 — Behavioral perf regression tests — done (`7a6d3ca`)
 
 Mocked-`chrome.storage` tests asserting structural properties, **not**
 millisecond budgets (those are flaky in Node CI; real p95 stays manual and
@@ -130,7 +131,7 @@ moves to Phase 3 telemetry):
 
 **Estimate:** ~1 day.
 
-### N5 — Code review checklist
+### N5 — Code review checklist — done (`da77e4d`)
 
 `docs/CODE_REVIEW.md` — short self-check list, linked from the PR template.
 Items at minimum: snapshot write path, lock seam usage, new storage key
