@@ -2143,23 +2143,28 @@ export default defineBackground(() => {
                 error: null
               }
             };
-            const snapshot =
-              global.sessions === current.global.sessions
-                ? await saveActiveSessionSnapshot(tabId, nextSnapshotInput)
-                : await saveSnapshot(tabId, nextSnapshotInput, { persistActiveSessionId: true });
+            const sessionsRefEqual = global.sessions === current.global.sessions;
+            const setModePath: "fast" | "slow" = sessionsRefEqual ? "fast" : "slow";
+            const snapshot = sessionsRefEqual
+              ? await saveActiveSessionSnapshot(tabId, nextSnapshotInput)
+              : await saveSnapshot(tabId, nextSnapshotInput, { persistActiveSessionId: true });
             const serverDurationMs = Math.round(performance.now() - startedAt);
             const storageSetMs = lastSaveSnapshotStorageMs;
             console.info("[DLens] session/set-mode", {
               mode: message.mode,
               sessionCount: global.sessions.length,
               durationMs: serverDurationMs,
-              storageSetMs
+              storageSetMs,
+              path: setModePath,
+              currentSessionsLen: current.global.sessions.length,
+              nextSessionsLen: global.sessions.length
             });
             sendResponse({
               ok: true,
               tabId,
               serverDurationMs,
               storageSetMs,
+              setModePath,
               snapshot
             } satisfies ExtensionResponse);
             return;

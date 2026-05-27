@@ -98,6 +98,9 @@ export function InPageCollectorPopup({ app }: { app: InPageCollectorAppModel }) 
       const storageSetMs = response && "storageSetMs" in response
         ? (response.storageSetMs ?? null)
         : null;
+      const setModePath = response && "setModePath" in response
+        ? (response.setModePath ?? null)
+        : null;
       const overheadMs = serverDurationMs != null
         ? popupDurationMs - serverDurationMs
         : null;
@@ -107,6 +110,7 @@ export function InPageCollectorPopup({ app }: { app: InPageCollectorAppModel }) 
         popupDurationMs,
         serverDurationMs,
         storageSetMs,
+        setModePath,
         overheadMs
       };
       // JSON.stringify so Chrome bridges that flatten object payloads

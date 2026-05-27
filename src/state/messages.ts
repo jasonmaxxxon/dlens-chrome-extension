@@ -190,6 +190,10 @@ export type ExtensionSuccessResponse = {
   /** Optional chrome.storage.local.set duration inside saveSnapshot (ms).
    *  When present, surfaces the dominant cost inside serverDurationMs. */
   storageSetMs?: number;
+  /** session/set-mode only. "fast" = active-id-only key write (~7ms);
+   *  "slow" = full saveSnapshot. Lets popup logger correlate slow switches
+   *  with sessions ref equality breaking. */
+  setModePath?: "fast" | "slow";
 };
 
 export type StartProcessingResponse =
