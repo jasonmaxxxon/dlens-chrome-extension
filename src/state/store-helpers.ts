@@ -52,6 +52,19 @@ export function getActiveSession(globalState: ExtensionGlobalState): SessionReco
   return globalState.sessions.find((session) => session.id === globalState.activeSessionId) || null;
 }
 
+export function applyStoredActiveSessionId(globalState: ExtensionGlobalState, activeSessionId: unknown): ExtensionGlobalState {
+  if (typeof activeSessionId !== "string" || activeSessionId === globalState.activeSessionId) {
+    return globalState;
+  }
+  if (!globalState.sessions.some((session) => session.id === activeSessionId)) {
+    return globalState;
+  }
+  return {
+    ...globalState,
+    activeSessionId
+  };
+}
+
 export function getSessionById(globalState: ExtensionGlobalState, sessionId: string): SessionRecord | null {
   return globalState.sessions.find((session) => session.id === sessionId) || null;
 }

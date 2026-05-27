@@ -129,6 +129,7 @@ import {
 } from "../src/state/types";
 import {
   activateSessionForMode,
+  applyStoredActiveSessionId,
   createSessionRecord,
   deleteSession,
   expireStaleInFlightItems,
@@ -174,6 +175,7 @@ import { applyHoveredPreview, createInlineToast, setCollectModeState } from "../
 import { getModeHomePage } from "../src/state/processing-state";
 
 const GLOBAL_STORAGE_KEY = "dlens:v0:global-state";
+const ACTIVE_SESSION_ID_STORAGE_KEY = "dlens:v1:active-session-id";
 const TAB_STORAGE_KEY_PREFIX = "dlens:v0:tab-ui:";
 const COMPARE_BRIEF_CACHE_KEY = "dlens:v1:compare-brief-cache";
 const COMPARE_ONE_LINER_CACHE_KEY = "dlens:v1:compare-one-liner-cache";
@@ -256,10 +258,11 @@ async function resolveTabId(sender: chrome.runtime.MessageSender, explicitTabId?
 }
 
 async function loadGlobalState(): Promise<ExtensionGlobalState> {
-  const raw = await chrome.storage.local.get(GLOBAL_STORAGE_KEY);
+  const raw = await chrome.storage.local.get([GLOBAL_STORAGE_KEY, ACTIVE_SESSION_ID_STORAGE_KEY]);
   const normalized = normalizeGlobalState(raw[GLOBAL_STORAGE_KEY] || createEmptyGlobalState());
-  const expired = expireStaleInFlightItems(normalized);
-  if (expired !== normalized) {
+  const activeOverlaid = applyStoredActiveSessionId(normalized, raw[ACTIVE_SESSION_ID_STORAGE_KEY]);
+  const expired = expireStaleInFlightItems(activeOverlaid);
+  if (expired !== activeOverlaid) {
     await chrome.storage.local.set({ [GLOBAL_STORAGE_KEY]: expired });
   }
   return expired;
@@ -1098,45 +1101,90 @@ const getOrGenerateJudgment = createLlmCallWrapper<
 // to surface the storage cost in their response payload (popup-visible).
 let lastSaveSnapshotStorageMs = 0;
 
-async function saveSnapshot(tabId: number, snapshot: ExtensionSnapshot): Promise<ExtensionSnapshot> {
+interface SnapshotSaveOptions {
+  persistActiveSessionId?: boolean;
+}
+
+function cacheSnapshot(tabId: number, snapshot: ExtensionSnapshot): void {
+  globalStateCache = snapshot.global;
+  tabStateCache.set(tabId, snapshot.tab);
+}
+
+function broadcastSnapshotUpdate(tabId: number, snapshot: ExtensionSnapshot): void {
+  // Fire-and-forget broadcast: popup callers already receive the new snapshot
+  // via the direct sendAndSync response; this broadcast is a safety net for
+  // any listener that didn't originate the write. Awaiting the ack added
+  // ~10-30ms per saveSnapshot for no correctness benefit on the caller side.
+  void chrome.tabs
+    .sendMessage(tabId, { type: "state/updated", tabId, snapshot } satisfies ExtensionMessage)
+    .catch(() => undefined);
+}
+
+function logSlowSnapshotSave(label: string, snapshot: ExtensionSnapshot, storageSetMs: number): void {
+  if (storageSetMs < 50) {
+    return;
+  }
+  const sessions = snapshot.global.sessions;
+  const itemTotal = sessions.reduce((sum, session) => sum + session.items.length, 0);
+  console.info(label, {
+    storageSetMs,
+    sessionCount: sessions.length,
+    itemTotal
+  });
+}
+
+async function persistSnapshot(
+  tabId: number,
+  snapshot: ExtensionSnapshot,
+  payload: Record<string, unknown>,
+  logLabel: string
+): Promise<ExtensionSnapshot> {
+  cacheSnapshot(tabId, snapshot);
+
+  const storageStart = performance.now();
+  await chrome.storage.local.set(payload);
+  const storageSetMs = Math.round(performance.now() - storageStart);
+  lastSaveSnapshotStorageMs = storageSetMs;
+
+  broadcastSnapshotUpdate(tabId, snapshot);
+  logSlowSnapshotSave(logLabel, snapshot, storageSetMs);
+
+  return snapshot;
+}
+
+async function saveSnapshot(tabId: number, snapshot: ExtensionSnapshot, options: SnapshotSaveOptions = {}): Promise<ExtensionSnapshot> {
+  const global = options.persistActiveSessionId
+    ? snapshot.global
+    : applyStoredActiveSessionId(snapshot.global, globalStateCache?.activeSessionId);
+  const nextSnapshot = {
+    global: withTimestamp(global),
+    tab: withTimestamp(normalizeTabState(snapshot.tab))
+  };
+  const payload: Record<string, unknown> = {
+    [GLOBAL_STORAGE_KEY]: nextSnapshot.global,
+    [tabStorageKey(tabId)]: nextSnapshot.tab
+  };
+  if (options.persistActiveSessionId) {
+    payload[ACTIVE_SESSION_ID_STORAGE_KEY] = nextSnapshot.global.activeSessionId;
+  }
+
+  return persistSnapshot(tabId, nextSnapshot, payload, "[DLens] saveSnapshot");
+}
+
+async function saveActiveSessionSnapshot(tabId: number, snapshot: ExtensionSnapshot): Promise<ExtensionSnapshot> {
   const nextSnapshot = {
     global: withTimestamp(snapshot.global),
     tab: withTimestamp(normalizeTabState(snapshot.tab))
   };
-  // Invalidate global cache so next loadGlobalState() reads fresh data
-  globalStateCache = nextSnapshot.global;
-  tabStateCache.set(tabId, nextSnapshot.tab);
-
-  const storageStart = performance.now();
-  await chrome.storage.local.set({
-    [GLOBAL_STORAGE_KEY]: nextSnapshot.global,
-    [tabStorageKey(tabId)]: nextSnapshot.tab
-  });
-  const storageSetMs = Math.round(performance.now() - storageStart);
-  lastSaveSnapshotStorageMs = storageSetMs;
-
-  // Fire-and-forget broadcast: popup callers already receive the new snapshot
-  // via the direct sendAndSync response; this broadcast is a safety net for
-  // any listener that didn't originate the write. Awaiting the ack added
-  // ~10–30ms per saveSnapshot for no correctness benefit on the caller side.
-  void chrome.tabs
-    .sendMessage(tabId, { type: "state/updated", tabId, snapshot: nextSnapshot } satisfies ExtensionMessage)
-    .catch(() => undefined);
-
-  // Diagnostic: log slow saves with cheap state-size proxies (no JSON.stringify).
-  // Threshold filters noise from trivial saves while surfacing hot paths like
-  // session/set-mode. >400ms here means snapshot segment writes are warranted.
-  if (storageSetMs >= 50) {
-    const sessions = nextSnapshot.global.sessions;
-    const itemTotal = sessions.reduce((sum, session) => sum + session.items.length, 0);
-    console.info("[DLens] saveSnapshot", {
-      storageSetMs,
-      sessionCount: sessions.length,
-      itemTotal
-    });
-  }
-
-  return nextSnapshot;
+  return persistSnapshot(
+    tabId,
+    nextSnapshot,
+    {
+      [ACTIVE_SESSION_ID_STORAGE_KEY]: nextSnapshot.global.activeSessionId,
+      [tabStorageKey(tabId)]: nextSnapshot.tab
+    },
+    "[DLens] saveActiveSessionSnapshot"
+  );
 }
 
 /** Merge in-memory hover state into a snapshot for the UI without writing to storage */
@@ -1215,7 +1263,7 @@ async function openPopup(tabId: number): Promise<ExtensionSnapshot> {
         currentMainPage: "pr-evidence",
         error: null
       }
-    });
+    }, { persistActiveSessionId: true });
   }
   return patchSnapshot(tabId, {
     tab: {
@@ -1246,10 +1294,12 @@ async function saveCurrentPreviewToSession(
 ): Promise<ExtensionSnapshot> {
   return withSnapshotLock(async () => {
     const current = await loadSnapshot(tabId);
+    let activeSessionRealigned = false;
     // The popup tells us exactly which folder it is showing. Honor it (and realign the
     // active session) so a drifted activeSessionId can't reroute the save to the wrong folder.
     if (sessionId && sessionId !== current.global.activeSessionId && getSessionById(current.global, sessionId)) {
       current.global = setActiveSession(current.global, sessionId);
+      activeSessionRealigned = true;
     }
     if (descriptor) {
       current.tab = { ...current.tab, currentPreview: descriptor };
@@ -1303,7 +1353,7 @@ async function saveCurrentPreviewToSession(
         lastSavedToast: createInlineToast("saved", session.name),
         error: null
       }
-    });
+    }, { persistActiveSessionId: activeSessionRealigned });
   });
 }
 
@@ -1378,7 +1428,7 @@ async function createSession(
       lastSavedToast,
       error: null
     }
-  });
+  }, { persistActiveSessionId: true });
 }
 
 async function renameExistingSession(tabId: number, sessionId: string, name: string): Promise<ExtensionSnapshot> {
@@ -1409,7 +1459,7 @@ async function deleteExistingSession(tabId: number, sessionId: string): Promise<
       currentMainPage: "library",
       error: null
     }
-  });
+  }, { persistActiveSessionId: true });
 }
 
 async function setActiveSessionById(tabId: number, sessionId: string): Promise<ExtensionSnapshot> {
@@ -1428,7 +1478,7 @@ async function setActiveSessionById(tabId: number, sessionId: string): Promise<E
       currentMainPage: "library",
       error: null
     }
-  });
+  }, { persistActiveSessionId: true });
 }
 
 async function setActiveItem(tabId: number, sessionId: string, itemId: string): Promise<ExtensionSnapshot> {
@@ -1444,7 +1494,7 @@ async function setActiveItem(tabId: number, sessionId: string, itemId: string): 
       currentPreview: item?.descriptor || current.tab.currentPreview,
       error: null
     }
-  });
+  }, { persistActiveSessionId: globalState.activeSessionId !== current.global.activeSessionId });
 }
 
 async function queueSessionItem(
@@ -2083,7 +2133,7 @@ export default defineBackground(() => {
             const global = activateSessionForMode(current.global, message.mode);
             const activeSession = getActiveSession(global);
             const modeHomePage = getModeHomePage(message.mode);
-            const snapshot = await saveSnapshot(tabId, {
+            const nextSnapshotInput = {
               global,
               tab: {
                 ...current.tab,
@@ -2092,7 +2142,11 @@ export default defineBackground(() => {
                 currentMainPage: modeHomePage,
                 error: null
               }
-            });
+            };
+            const snapshot =
+              global.sessions === current.global.sessions
+                ? await saveActiveSessionSnapshot(tabId, nextSnapshotInput)
+                : await saveSnapshot(tabId, nextSnapshotInput, { persistActiveSessionId: true });
             const serverDurationMs = Math.round(performance.now() - startedAt);
             const storageSetMs = lastSaveSnapshotStorageMs;
             console.info("[DLens] session/set-mode", {

@@ -6,6 +6,7 @@ import type { TargetDescriptor } from "../src/contracts/target-descriptor.ts";
 import { createEmptyGlobalState } from "../src/state/types.ts";
 import {
   activateSessionForMode,
+  applyStoredActiveSessionId,
   createSessionRecord,
   createSessionItem,
   deleteSession,
@@ -97,6 +98,22 @@ test("activateSessionForMode switches to a separate mode session instead of muta
 
   const backToProduct = activateSessionForMode(topicState, "product");
   assert.equal(backToProduct.activeSessionId, productSession.id);
+});
+
+test("applyStoredActiveSessionId overlays the segmented active session id only when it exists", () => {
+  const topicSession = createSessionRecord("Topic workspace", "2026-05-08T04:00:00.000Z", "topic");
+  const productSession = createSessionRecord("Product workspace", "2026-05-08T04:00:00.000Z", "product");
+  const globalState = {
+    ...createEmptyGlobalState(),
+    sessions: [topicSession, productSession],
+    activeSessionId: topicSession.id
+  };
+
+  const overlaid = applyStoredActiveSessionId(globalState, productSession.id);
+  assert.equal(overlaid.activeSessionId, productSession.id);
+
+  const unchanged = applyStoredActiveSessionId(globalState, "missing-session");
+  assert.equal(unchanged.activeSessionId, topicSession.id);
 });
 
 function buildJob(overrides: Partial<JobSnapshot> = {}): JobSnapshot {
