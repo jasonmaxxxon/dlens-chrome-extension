@@ -21,7 +21,7 @@ import {
 } from "./components.tsx";
 import { readPrBriefFile } from "./pr-brief-upload.ts";
 import { exportPrSummaryDocx, exportPrSummaryMarkdown } from "./pr-summary-export.ts";
-import { tokens } from "./tokens.ts";
+import { textStyles, tokens } from "./tokens.ts";
 
 type PrResponse = ExtensionResponse & {
   prCampaigns?: PrCampaign[];
@@ -118,7 +118,7 @@ const accentButtonStyle = {
 
 const compactButtonStyle = {
   padding: "6px 10px",
-  fontSize: 11
+  fontSize: textStyles.caption.fontSize
 } as const;
 
 const exportButtonStyle = {
@@ -132,6 +132,19 @@ const PR_RADIUS = tokens.radius.card;
 const PR_RULE = tokens.color.line;
 const PR_ACCENT = "var(--dlens-mode-accent)";
 const PR_MOSS = tokens.color.success;
+const PR_ROUND = tokens.radius.round;
+
+const prMonoMetaStyle = {
+  ...textStyles.mono,
+  fontSize: textStyles.caption.fontSize,
+  lineHeight: textStyles.caption.lineHeight,
+  fontWeight: 500
+} as const;
+
+const prRowTextStyle = {
+  ...textStyles.bodyTight,
+  lineHeight: 1.4
+} as const;
 
 /* ── Notice bar: success/error tones ────────────────────────────────── */
 
@@ -280,7 +293,7 @@ function CampaignEditor({
           {campaign.name || "Unnamed campaign"}
         </span>
         <span style={{ display: "inline-flex", alignItems: "center", gap: 6, color: PR_MOSS, fontSize: 12, fontWeight: 600 }}>
-          <span aria-hidden style={{ width: 6, height: 6, borderRadius: 999, background: PR_MOSS }} />
+          <span aria-hidden style={{ width: 6, height: 6, borderRadius: PR_ROUND, background: PR_MOSS }} />
           Ready
         </span>
         <SecondaryButton onClick={() => onExpand?.()} style={compactButtonStyle}>
@@ -397,7 +410,7 @@ function CampaignEditor({
                   color: tokens.color.softInk,
                   background: tokens.color.neutralSurface,
                   padding: "2px 7px",
-                  borderRadius: 999
+                  borderRadius: PR_ROUND
                 }}
               >
                 {campaign.briefText.length} chars
@@ -485,7 +498,7 @@ function CampaignEditor({
                           color: "var(--dlens-mode-accent)",
                           background: "var(--dlens-mode-accent-soft)",
                           padding: "2px 7px",
-                          borderRadius: 999,
+                          borderRadius: PR_ROUND,
                           display: "inline-flex",
                           alignItems: "center",
                           whiteSpace: "nowrap",
@@ -554,7 +567,7 @@ function CampaignEditor({
           <SecondaryButton onClick={() => onCollapse?.()} style={compactButtonStyle}>
             Cancel
           </SecondaryButton>
-          <span style={{ marginLeft: "auto", fontFamily: tokens.font.mono, fontSize: 10.5, color: tokens.color.softInk }}>
+          <span style={{ ...prMonoMetaStyle, marginLeft: "auto", color: tokens.color.softInk }}>
             Auto-saves after Save
           </span>
         </div>
@@ -586,13 +599,13 @@ function EvidenceLedger({ rows, criteria = [] }: { rows: PrEvidenceRow[]; criter
               }}
             >
               <SourceLinkIcon row={row} />
-              <div style={{ fontFamily: tokens.font.mono, fontSize: 12, color: tokens.color.ink, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{row.authorHandle || "-"}</div>
-              <div style={{ fontSize: 13, color: tokens.color.subInk, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{row.caption || "-"}</div>
-              <div style={{ fontFamily: tokens.font.mono, fontSize: 11, color: tokens.color.softInk, textAlign: "right", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", fontVariantNumeric: "tabular-nums" }}>{metricLine(row)}</div>
+              <div style={{ ...prMonoMetaStyle, color: tokens.color.ink, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{row.authorHandle || "-"}</div>
+              <div style={{ ...prRowTextStyle, color: tokens.color.subInk, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{row.caption || "-"}</div>
+              <div style={{ ...textStyles.metric, color: tokens.color.softInk, textAlign: "right", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{metricLine(row)}</div>
               <div style={{ display: "flex", justifyContent: "flex-end", overflow: "hidden" }}>
                 <CriterionChips row={row} criteria={criteria} variant="compact" />
               </div>
-              <div style={{ fontFamily: tokens.font.mono, fontSize: 10.5, color: tokens.color.softInk, textAlign: "right", minWidth: 56 }}>{formatTime(row.collectedAt)}</div>
+              <div style={{ ...prMonoMetaStyle, color: tokens.color.softInk, textAlign: "right", minWidth: 56 }}>{formatTime(row.collectedAt)}</div>
             </div>
           ))}
         </div>
@@ -610,7 +623,7 @@ function SourceLinkIcon({ row }: { row: PrEvidenceRow }) {
   const baseStyle = {
     width: 24,
     height: 24,
-    borderRadius: 999,
+    borderRadius: PR_ROUND,
     background: `linear-gradient(135deg, ${tokens.color.neutralSurfaceSoft}, ${tokens.color.neutralSurface})`,
     border: `1px solid ${PR_RULE}`,
     color: href ? PR_ACCENT : tokens.color.softInk,
@@ -660,10 +673,9 @@ function CriterionChips({
         <span
           aria-label="No criteria matched yet"
           style={{
-            fontFamily: tokens.font.mono,
-            fontSize: 11,
+            ...textStyles.metric,
             color: tokens.color.softInk,
-            fontVariantNumeric: "tabular-nums"
+            fontWeight: 700
           }}
         >
           0 / 6
@@ -682,11 +694,8 @@ function CriterionChips({
           gap: 5,
           flexWrap: "nowrap",
           overflow: "hidden",
-          fontFamily: tokens.font.mono,
-          fontSize: 10.5,
-          fontWeight: 700,
+          ...textStyles.metric,
           color: matchedTotal >= 5 ? PR_MOSS : PR_ACCENT,
-          fontVariantNumeric: "tabular-nums",
           justifyContent: "flex-end"
         }}
       >
@@ -711,8 +720,7 @@ function CriterionChips({
               alignItems: "baseline",
               gap: 3,
               color: matched ? PR_MOSS : tokens.color.softInk,
-              fontFamily: tokens.font.mono,
-              fontSize: 10.5,
+              ...prMonoMetaStyle,
               fontWeight: matched ? 700 : 400,
               opacity: matched ? 1 : 0.7
             }}
@@ -831,13 +839,13 @@ function PrWorkingArea({
               }}
             >
               <div style={{ display: "flex", alignItems: "baseline", gap: 10, minWidth: 0 }}>
-                <span style={{ fontFamily: tokens.font.mono, fontSize: 11.5, color: tokens.color.ink, fontWeight: 500, flex: "0 0 auto", minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", maxWidth: 124 }}>
+                <span style={{ ...prMonoMetaStyle, color: tokens.color.ink, flex: "0 0 auto", minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", maxWidth: 124 }}>
                   {row.authorHandle || "-"}
                 </span>
-                <span style={{ flex: 1, minWidth: 0, fontSize: 12.5, color: tokens.color.subInk, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                <span style={{ ...prRowTextStyle, flex: 1, minWidth: 0, color: tokens.color.subInk, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
                   {row.caption || "-"}
                 </span>
-                <span style={{ fontFamily: tokens.font.mono, fontSize: 11, fontWeight: 700, color: matchedCount(row) >= 5 ? PR_MOSS : matchedCount(row) > 0 ? PR_ACCENT : tokens.color.softInk, flexShrink: 0, fontVariantNumeric: "tabular-nums" }}>
+                <span style={{ ...textStyles.metric, color: matchedCount(row) >= 5 ? PR_MOSS : matchedCount(row) > 0 ? PR_ACCENT : tokens.color.softInk, flexShrink: 0 }}>
                   {matchedCount(row)} / 6
                 </span>
               </div>
@@ -848,15 +856,14 @@ function PrWorkingArea({
           )}
           {rows.length ? (
             <div style={{ display: "flex", flexWrap: "wrap", gap: 14, alignItems: "center", padding: "10px 4px", borderTop: `1px solid ${PR_RULE}` }}>
-              <span style={{ fontFamily: tokens.font.mono, fontSize: 9.5, color: tokens.color.softInk, textTransform: "uppercase", letterSpacing: "0.1em", fontWeight: 700 }}>
+              <span style={{ ...textStyles.label, fontFamily: tokens.font.mono, color: tokens.color.softInk, letterSpacing: "0.06em" }}>
                 Σ per criterion
               </span>
               {totals.map((total, index) => (
                 <span
                   key={index}
                   style={{
-                    fontFamily: tokens.font.mono,
-                    fontSize: 10.5,
+                    ...prMonoMetaStyle,
                     color: total > 0 ? tokens.color.ink : tokens.color.softInk,
                     fontWeight: total > 0 ? 700 : 400
                   }}
@@ -864,7 +871,7 @@ function PrWorkingArea({
                   C{index + 1}:{total}
                 </span>
               ))}
-              <span style={{ marginLeft: "auto", fontFamily: tokens.font.mono, fontSize: 11, fontWeight: 700, color: matchedCells ? PR_MOSS : tokens.color.softInk }}>
+              <span style={{ ...textStyles.metric, marginLeft: "auto", color: matchedCells ? PR_MOSS : tokens.color.softInk }}>
                 {matchedCells} / {totalCells}
               </span>
             </div>
@@ -910,7 +917,7 @@ function PaneHeader({ title, caption, action }: { title: string; caption?: strin
           {title}
         </span>
         {caption ? (
-          <span style={{ fontFamily: tokens.font.mono, fontSize: 10.5, color: tokens.color.softInk, letterSpacing: "0.04em" }}>
+          <span style={{ ...prMonoMetaStyle, color: tokens.color.softInk, letterSpacing: "0.04em" }}>
             {caption}
           </span>
         ) : null}
@@ -968,11 +975,11 @@ function AdvancedMetricsPanel({ rows }: { rows: PrEvidenceRow[] }) {
                 }}
               >
                 <div style={{ display: "flex", alignItems: "center", gap: 10, minWidth: 0 }}>
-                  <span aria-hidden style={{ width: 22, height: 22, borderRadius: 999, background: `linear-gradient(135deg, ${tokens.color.neutralSurfaceSoft}, ${tokens.color.neutralSurface})`, border: `1px solid ${PR_RULE}`, flexShrink: 0 }} />
-                  <div style={{ fontFamily: tokens.font.mono, fontSize: 11.5, color: tokens.color.ink, fontWeight: 500, flexShrink: 0, maxWidth: 124, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                  <span aria-hidden style={{ width: 22, height: 22, borderRadius: PR_ROUND, background: `linear-gradient(135deg, ${tokens.color.neutralSurfaceSoft}, ${tokens.color.neutralSurface})`, border: `1px solid ${PR_RULE}`, flexShrink: 0 }} />
+                  <div style={{ ...prMonoMetaStyle, color: tokens.color.ink, flexShrink: 0, maxWidth: 124, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
                     {row.authorHandle || "-"}
                   </div>
-                  <div style={{ flex: 1, minWidth: 0, fontSize: 12.5, color: tokens.color.subInk, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                  <div style={{ ...prRowTextStyle, flex: 1, minWidth: 0, color: tokens.color.subInk, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
                     {row.caption || "-"}
                   </div>
                 </div>
@@ -1009,7 +1016,7 @@ function CsvPreview({ campaign, rows }: { campaign: PrCampaign; rows: PrEvidence
       <summary style={{ listStyle: "none", cursor: "pointer", display: "flex", alignItems: "baseline", gap: 8, fontFamily: `${tokens.font.serifCjk}, ${tokens.font.serif}`, fontSize: 16, fontWeight: 600, color: tokens.color.ink }}>
         <span style={{ fontSize: 11, color: tokens.color.softInk }}>▸</span>
         CSV preview
-        <span style={{ marginLeft: "auto", fontFamily: tokens.font.mono, fontSize: 10.5, color: tokens.color.softInk, fontWeight: 400 }}>
+        <span style={{ ...prMonoMetaStyle, marginLeft: "auto", color: tokens.color.softInk, fontWeight: 500 }}>
           header + first 20 rows · {rows.length} rows ready
         </span>
       </summary>
@@ -1036,10 +1043,10 @@ function CsvPreview({ campaign, rows }: { campaign: PrCampaign; rows: PrEvidence
             }}
           >
             <div style={{ display: "flex", alignItems: "baseline", gap: 8, flexWrap: "wrap" }}>
-              <span style={{ fontFamily: tokens.font.mono, fontSize: 10, color: PR_ACCENT, fontWeight: 700 }}>
+              <span style={{ ...textStyles.label, fontFamily: tokens.font.mono, color: PR_ACCENT }}>
                 row {rowIndex + 1}
               </span>
-              <span style={{ fontFamily: tokens.font.mono, fontSize: 10, color: tokens.color.softInk }}>
+              <span style={{ ...prMonoMetaStyle, color: tokens.color.softInk }}>
                 {(line[1] || line[0] || "-").slice(0, 72)}
               </span>
             </div>
@@ -1053,10 +1060,10 @@ function CsvPreview({ campaign, rows }: { campaign: PrCampaign; rows: PrEvidence
             >
               {(header || []).map((cell, cellIndex) => (
                 <div key={`${rowIndex}-${cell}-${cellIndex}`} style={{ display: "grid", gap: 3, minWidth: 0 }}>
-                  <span style={{ fontFamily: tokens.font.mono, fontSize: 9.5, letterSpacing: "0.04em", color: tokens.color.softInk, overflowWrap: "anywhere" }}>
+                  <span style={{ ...textStyles.label, fontFamily: tokens.font.mono, letterSpacing: "0.04em", color: tokens.color.softInk, overflowWrap: "anywhere" }}>
                     {cell}
                   </span>
-                  <span style={{ fontSize: 11.5, lineHeight: 1.35, color: line[cellIndex] ? tokens.color.subInk : tokens.color.softInk, overflowWrap: "anywhere" }}>
+                  <span style={{ ...textStyles.caption, fontWeight: 500, color: line[cellIndex] ? tokens.color.subInk : tokens.color.softInk, overflowWrap: "anywhere" }}>
                     {line[cellIndex] || "-"}
                   </span>
                 </div>
@@ -1409,7 +1416,7 @@ function SummaryGenerateCard({ onGenerate, loading, disabled = false }: { onGene
         <span style={{ fontFamily: `${tokens.font.serifCjk}, ${tokens.font.serif}`, fontSize: 14, fontWeight: 700, color: tokens.color.ink }}>
           Topline narrative
         </span>
-        <span style={{ fontSize: 11.5, color: tokens.color.softInk, lineHeight: 1.5 }}>
+        <span style={{ ...textStyles.caption, color: tokens.color.softInk, fontWeight: 500, lineHeight: 1.5 }}>
           Generate summary: turn matched evidence into a paragraph you can paste into the PR brief.
         </span>
       </div>

@@ -313,6 +313,8 @@ export const textStyles = {
   fieldLabel: { fontFamily: tokens.font.sans, fontWeight: 500, fontSize: 11, lineHeight: 1.4, color: tokens.color.softInk } as const,
   /** Monospace — evidence IDs, scores, code snippets */
   mono: { fontFamily: tokens.font.mono, fontVariantNumeric: "tabular-nums" as const } as const,
+  /** Monospace metric — compact counts, scores, and ledger numbers */
+  metric: { fontFamily: tokens.font.mono, fontWeight: 700, fontSize: 11, lineHeight: 1.4, fontVariantNumeric: "tabular-nums" as const } as const,
   /** Serif CJK italic pull quote — inside evidence cards */
   quote: { fontFamily: `${tokens.font.serifCjk}, ${tokens.font.serif}`, fontStyle: "italic" as const, fontWeight: 500, fontSize: 15, lineHeight: 1.65 } as const,
 } as const;

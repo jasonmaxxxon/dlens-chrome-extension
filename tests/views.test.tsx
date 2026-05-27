@@ -24,7 +24,7 @@ import {
   WorkspaceShell,
   surfaceCardStyle
 } from "../src/ui/components.tsx";
-import { modeThemeStyle, tokens } from "../src/ui/tokens.ts";
+import { modeThemeStyle, textStyles, tokens } from "../src/ui/tokens.ts";
 
 function buildSession(): SessionRecord {
   const session = createSessionRecord("Signals", "2026-03-24T07:00:00.000Z");
@@ -763,6 +763,55 @@ test("PrEvidenceView keeps metrics actions prominent and avoids horizontal inspe
   assert.match(previewHtml, /data-pr-csv-preview-layout="wrap"/);
   assert.doesNotMatch(previewHtml, /min-width:1320/);
   assert.match(html, /padding-bottom:28px/);
+});
+
+test("PR Evidence compact rows use shared typography tokens instead of fractional font drift", () => {
+  assert.equal(textStyles.metric.fontSize, 11);
+  assert.equal(textStyles.metric.fontWeight, 700);
+  assert.equal(textStyles.metric.fontVariantNumeric, "tabular-nums");
+
+  const previewCampaign: PrCampaign = {
+    id: "campaign-typography",
+    sessionId: "session-pr",
+    name: "Launch",
+    briefText: "Brief",
+    criteria: [
+      { id: "c1", label: "Campaign" },
+      { id: "c2", label: "Hashtag" },
+      { id: "c3", label: "Message" },
+      { id: "c4", label: "Venue" },
+      { id: "c5", label: "Experience" },
+      { id: "c6", label: "CTA" }
+    ],
+    createdAt: "2026-05-26T00:00:00.000Z",
+    updatedAt: "2026-05-26T00:00:00.000Z"
+  };
+  const row: PrEvidenceRow = {
+    id: "row-typography",
+    campaignId: "campaign-typography",
+    itemId: "item-typography",
+    postUrl: "https://www.threads.net/@alpha/post/1",
+    authorHandle: "alpha",
+    caption: "Launch post with enough text to inspect all CSV fields.",
+    metrics: { likes: 12, comments: 3, reposts: 1, views: 4200, followers: 987 },
+    criteriaMatches: { c1: true, c2: false, c3: true, c4: false, c5: false, c6: true },
+    collectedAt: "2026-05-26T00:00:00.000Z"
+  };
+
+  const ledgerHtml = renderToStaticMarkup(
+    React.createElement(prEvidenceViewTestables.EvidenceLedger, {
+      rows: [row],
+      criteria: previewCampaign.criteria
+    })
+  );
+  const previewHtml = renderToStaticMarkup(
+    React.createElement(prEvidenceViewTestables.CsvPreview, {
+      campaign: previewCampaign,
+      rows: [row]
+    })
+  );
+
+  assert.doesNotMatch(`${ledgerHtml}${previewHtml}`, /font-size:(?:9\.5|10\.5|11\.5|12\.5)px/);
 });
 
 test("PR Evidence advanced metrics notice includes the first failure reason", () => {
