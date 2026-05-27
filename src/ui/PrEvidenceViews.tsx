@@ -1,5 +1,5 @@
 import type { ReactNode } from "react";
-import { useEffect, useMemo, useRef, useState } from "react";
+import { memo, useEffect, useMemo, useRef, useState } from "react";
 import { ExternalLink } from "lucide-react";
 
 import { buildPrEvidenceCsv, buildPrEvidenceCsvRows, extractPrCoreMessages, inferPrViewsFromText } from "../compare/pr-evidence.ts";
@@ -1105,7 +1105,9 @@ function SummaryPanel({ campaign, summary }: { campaign: PrCampaign; summary: st
   );
 }
 
-export function PrEvidenceView({ sessionId }: { sessionId: string }) {
+// memo-wrapped below as PrEvidenceView. Inline export `PrEvidenceViewInner`
+// is kept for tests / hot-reload introspection.
+function PrEvidenceViewInner({ sessionId }: { sessionId: string }) {
   const [campaign, setCampaign] = useState<PrCampaign>(() => createDraftCampaign(sessionId));
   const [rows, setRows] = useState<PrEvidenceRow[]>([]);
   const [summary, setSummary] = useState("");
@@ -1377,6 +1379,15 @@ export function PrEvidenceView({ sessionId }: { sessionId: string }) {
     </div>
   );
 }
+
+/* ─── memoized export ───
+ * The popup re-renders for many unrelated reasons (pending workspace switch,
+ * mode rail badge counts, processing strip ticks). PrEvidenceView's only prop
+ * is the active sessionId — a string. Default React.memo comparator (===)
+ * skips re-render whenever sessionId is unchanged, which is the vast majority
+ * of popup re-renders while staying inside PR mode.
+ */
+export const PrEvidenceView = memo(PrEvidenceViewInner);
 
 function SummaryGenerateCard({ onGenerate, loading, disabled = false }: { onGenerate: () => void; loading: boolean; disabled?: boolean }) {
   return (

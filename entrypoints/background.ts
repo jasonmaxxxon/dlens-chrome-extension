@@ -2049,7 +2049,10 @@ export default defineBackground(() => {
           case "session/set-mode": {
             const startedAt = performance.now();
             const tabId = await resolveTabId(sender);
-            const current = await loadSnapshot(tabId);
+            // Cached read: hot path post-pending UI. saveSnapshot invalidates the
+            // global cache on every write, so cached read is safe for the active
+            // tab. Saves ~10–50ms vs the parallel storage round-trip in loadSnapshot.
+            const current = await loadSnapshotCached(tabId);
             const global = activateSessionForMode(current.global, message.mode);
             const activeSession = getActiveSession(global);
             const modeHomePage = getModeHomePage(message.mode);
