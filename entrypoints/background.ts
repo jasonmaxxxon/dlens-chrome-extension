@@ -1728,6 +1728,9 @@ async function refreshAllItems(tabId: number, sessionId?: string): Promise<Exten
 
   return withSnapshotLock(async () => {
     const latest = await loadSnapshot(tabId);
+    if (latest.tab.error === firstFailureMessage) {
+      return latest;
+    }
     return saveSnapshot(tabId, {
       global: latest.global,
       tab: {

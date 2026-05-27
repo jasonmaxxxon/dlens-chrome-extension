@@ -27,3 +27,15 @@ test("refresh-all final tab update does not write a stale global snapshot", () =
     "session/refresh-all must reload latest global state before its final tab-only save"
   );
 });
+
+test("refresh-all skips the final storage write when the tab error is unchanged", () => {
+  const refreshAllFunction = backgroundSource.match(
+    /async function refreshAllItems[\s\S]*?\n}\n\nexport default/
+  )?.[0] ?? "";
+
+  assert.match(
+    refreshAllFunction,
+    /if \(latest\.tab\.error === firstFailureMessage\) \{\s*return latest;\s*\}/,
+    "session/refresh-all must not enqueue a no-op saveSnapshot that competes with mode switching"
+  );
+});
