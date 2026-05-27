@@ -84,7 +84,7 @@ export function usePopupWorkspaceState({
   const page = workspaceState.currentMode;
   const primaryMode = page === "settings" || page === "result" ? null : page;
 
-  async function onNavigate(pageValue: PopupPage) {
+  function beginPendingNavigation(pageValue: PopupPage) {
     pendingNavigationRef.current = pageValue;
     setWorkspaceState((currentState) => ({
       ...currentState,
@@ -92,10 +92,18 @@ export function usePopupWorkspaceState({
       popupOpen: true,
       modeLocked: true
     }));
+  }
+
+  function clearPendingNavigation() {
+    pendingNavigationRef.current = null;
+  }
+
+  async function onNavigate(pageValue: PopupPage) {
+    beginPendingNavigation(pageValue);
     try {
       await sendAndSync({ type: "popup/navigate-active-tab", page: pageValue });
     } catch (error) {
-      pendingNavigationRef.current = null;
+      clearPendingNavigation();
       throw error;
     }
   }
@@ -105,6 +113,8 @@ export function usePopupWorkspaceState({
     setWorkspaceState,
     page,
     primaryMode,
+    beginPendingNavigation,
+    clearPendingNavigation,
     onNavigate
   };
 }

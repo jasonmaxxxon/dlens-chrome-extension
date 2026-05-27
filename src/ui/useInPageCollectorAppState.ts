@@ -253,6 +253,8 @@ export function useInPageCollectorAppState({ snapshot, tabId, sendAndSync }: Use
     workspaceState,
     setWorkspaceState,
     page: rawPage,
+    beginPendingNavigation,
+    clearPendingNavigation,
     onNavigate
   } = usePopupWorkspaceState({
     popupOpen,
@@ -847,17 +849,13 @@ export function useInPageCollectorAppState({ snapshot, tabId, sendAndSync }: Use
       const targetSessionExists = snapshot?.global.sessions.some((session) => session.mode === mode) ?? false;
       if (targetSessionExists && mode !== activeFolderMode) {
         setOptimisticSessionMode(mode);
-        setWorkspaceState((currentState) => ({
-          ...currentState,
-          currentMode: getModeHomePage(mode),
-          popupOpen: true,
-          modeLocked: true
-        }));
+        beginPendingNavigation(getModeHomePage(mode));
       }
       try {
         await topicState.onSessionModeChange(mode);
       } catch (error) {
         setOptimisticSessionMode(null);
+        clearPendingNavigation();
         setWorkspaceState((currentState) => ({
           ...currentState,
           currentMode: resolveEffectivePopupPage(snapshot?.tab.popupPage ?? currentState.currentMode, activeFolderMode),
