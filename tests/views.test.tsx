@@ -985,6 +985,10 @@ test("SettingsView exposes Google provider and save action", () => {
         sourceFileIds: ["file_readme"],
         promptVersion: "v1"
       },
+      storageUsage: {
+        bytesInUse: 2048,
+        quotaBytes: 10 * 1024 * 1024
+      },
       settingsSaveStatus: {
         kind: "success",
         message: "Settings 已儲存，ProductContext 已編譯。"
@@ -1019,6 +1023,7 @@ test("SettingsView exposes Google provider and save action", () => {
   assert.match(html, /Topic synthesis/);
   assert.match(html, /Compare result/);
   assert.match(html, /Connection/);
+  assert.match(html, /Storage 用量：2\.0 KB \/ 10 MB/);
   assert.match(html, /AI provider/);
   assert.match(html, /產品脈絡/);
   assert.match(html, /產品名稱/);

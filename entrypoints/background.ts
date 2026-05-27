@@ -183,6 +183,7 @@ const COMPARE_CLUSTER_SUMMARY_CACHE_KEY = "dlens:v1:compare-cluster-summary-cach
 const COMPARE_EVIDENCE_ANNOTATION_CACHE_KEY = "dlens:v1:compare-evidence-annotation-cache";
 const COMPARE_JUDGMENT_CACHE_KEY = "dlens:v1:compare-judgment-cache";
 const COMPARE_CACHE_MAX_ENTRIES = 50;
+const DEFAULT_STORAGE_QUOTA_BYTES = 10 * 1024 * 1024;
 const productSignalAnalysisInFlight = new Map<string, Promise<ProductSignalAnalysis[]>>();
 const prCriteriaMatchInFlight = new Map<string, Promise<PrEvidenceRow[]>>();
 
@@ -1856,6 +1857,18 @@ export default defineBackground(() => {
               ok: true,
               tabId: message.tabId,
               snapshot: await loadSnapshot(message.tabId)
+            } satisfies ExtensionResponse);
+            return;
+          }
+          case "storage/get-usage": {
+            const tabId = await resolveTabId(sender);
+            const storageArea = chrome.storage.local as chrome.storage.StorageArea & { QUOTA_BYTES?: number };
+            const bytesInUse = await chrome.storage.local.getBytesInUse();
+            sendResponse({
+              ok: true,
+              tabId,
+              bytesInUse,
+              quotaBytes: storageArea.QUOTA_BYTES ?? DEFAULT_STORAGE_QUOTA_BYTES
             } satisfies ExtensionResponse);
             return;
           }

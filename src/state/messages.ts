@@ -37,6 +37,7 @@ import type { TopicAuditMemoBundle } from "./topic-audit-storage";
 export type ExtensionMessage =
   | { type: "state/get-active-tab" }
   | { type: "state/get-tab"; tabId: number }
+  | { type: "storage/get-usage" }
   | { type: "settings/set-ingest-base-url"; value: string }
   | { type: "settings/set-product-profile"; productProfile: ProductProfile | null }
   | { type: "settings/init-product-profile"; description: string }
@@ -190,6 +191,8 @@ export type ExtensionSuccessResponse = {
   /** Optional chrome.storage.local.set duration inside saveSnapshot (ms).
    *  When present, surfaces the dominant cost inside serverDurationMs. */
   storageSetMs?: number;
+  bytesInUse?: number;
+  quotaBytes?: number;
   /** session/set-mode only. "fast" = active-id-only key write (~7ms);
    *  "slow" = full saveSnapshot. Lets popup logger correlate slow switches
    *  with sessions ref equality breaking. */

@@ -448,6 +448,7 @@ export function InPageCollectorPopup({ app }: { app: InPageCollectorAppModel }) 
                 draftLayoutPreferences={app.draftLayoutPreferences}
                 draftProductProfile={app.draftProductProfile}
                 compiledProductContext={app.compiledProductContext}
+                storageUsage={app.storageUsage}
                 settingsSaveStatus={app.settingsSaveStatus}
                 isSavingSettings={app.isSavingSettings}
                 productProfileSeedText={app.productProfileSeedText}

@@ -23,6 +23,7 @@ interface SettingsViewProps {
   draftLayoutPreferences: LayoutPreferences;
   draftProductProfile: ProductProfile;
   compiledProductContext?: ProductContext | null;
+  storageUsage?: { bytesInUse: number; quotaBytes: number } | null;
   settingsSaveStatus?: { kind: "success" | "error"; message: string } | null;
   isSavingSettings?: boolean;
   productProfileSeedText?: string;
@@ -58,12 +59,29 @@ const inputStyle = {
 const MAX_CONTEXT_FILES = 3;
 const MAX_CONTEXT_FILE_CHARS = 30000;
 const MAX_CONTEXT_TOTAL_CHARS = 60000;
+const KB = 1024;
+const MB = 1024 * 1024;
 
 function formatCompactCount(count: number): string {
   if (count >= 1000) {
     return `${(count / 1000).toFixed(count >= 10000 ? 0 : 1)}k`;
   }
   return String(count);
+}
+
+function formatStorageBytes(bytes: number): string {
+  if (bytes >= MB) {
+    const mb = bytes / MB;
+    return `${Number.isInteger(mb) ? mb.toFixed(0) : mb.toFixed(1)} MB`;
+  }
+  if (bytes >= KB) {
+    return `${(bytes / KB).toFixed(1)} KB`;
+  }
+  return `${bytes} B`;
+}
+
+function formatStorageUsage(storageUsage: NonNullable<SettingsViewProps["storageUsage"]>): string {
+  return `${formatStorageBytes(storageUsage.bytesInUse)} / ${formatStorageBytes(storageUsage.quotaBytes)}`;
 }
 
 function makeContextFileId(kind: ProductProfileContextFile["kind"], name: string): string {
@@ -166,6 +184,7 @@ export function SettingsView({
   draftLayoutPreferences,
   draftProductProfile,
   compiledProductContext = null,
+  storageUsage = null,
   settingsSaveStatus = null,
   isSavingSettings = false,
   productProfileSeedText = "",
@@ -338,6 +357,21 @@ export function SettingsView({
               Ingest base URL
               <input value={draftBaseUrl} onChange={(event) => onDraftBaseUrlChange(event.target.value)} style={inputStyle} />
             </label>
+
+            <div
+              data-settings-storage-usage="true"
+              style={{
+                fontSize: 11,
+                lineHeight: 1.5,
+                color: tokens.color.softInk,
+                padding: "7px 9px",
+                borderRadius: tokens.radius.card,
+                border: `1px solid ${tokens.color.line}`,
+                background: tokens.color.contextSurface
+              }}
+            >
+              Storage 用量：{storageUsage ? formatStorageUsage(storageUsage) : "讀取中"}
+            </div>
 
             <label style={{ display: "grid", gap: 6, fontSize: 11, color: tokens.color.subInk }}>
               AI provider
