@@ -187,6 +187,9 @@ export type ExtensionSuccessResponse = {
   /** Optional server-side wall-clock for the handler (ms). Used by popup
    *  perf loggers to break out IPC + reconcile cost from background work. */
   serverDurationMs?: number;
+  /** Optional chrome.storage.local.set duration inside saveSnapshot (ms).
+   *  When present, surfaces the dominant cost inside serverDurationMs. */
+  storageSetMs?: number;
 };
 
 export type StartProcessingResponse =

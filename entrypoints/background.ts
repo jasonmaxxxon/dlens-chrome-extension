@@ -1093,6 +1093,11 @@ const getOrGenerateJudgment = createLlmCallWrapper<
   }
 });
 
+// Last saveSnapshot storage.local.set duration. Service worker is single-
+// threaded, so handlers can read this right after `await saveSnapshot(...)`
+// to surface the storage cost in their response payload (popup-visible).
+let lastSaveSnapshotStorageMs = 0;
+
 async function saveSnapshot(tabId: number, snapshot: ExtensionSnapshot): Promise<ExtensionSnapshot> {
   const nextSnapshot = {
     global: withTimestamp(snapshot.global),
@@ -1108,6 +1113,7 @@ async function saveSnapshot(tabId: number, snapshot: ExtensionSnapshot): Promise
     [tabStorageKey(tabId)]: nextSnapshot.tab
   });
   const storageSetMs = Math.round(performance.now() - storageStart);
+  lastSaveSnapshotStorageMs = storageSetMs;
 
   // Fire-and-forget broadcast: popup callers already receive the new snapshot
   // via the direct sendAndSync response; this broadcast is a safety net for
@@ -2088,15 +2094,18 @@ export default defineBackground(() => {
               }
             });
             const serverDurationMs = Math.round(performance.now() - startedAt);
+            const storageSetMs = lastSaveSnapshotStorageMs;
             console.info("[DLens] session/set-mode", {
               mode: message.mode,
               sessionCount: global.sessions.length,
-              durationMs: serverDurationMs
+              durationMs: serverDurationMs,
+              storageSetMs
             });
             sendResponse({
               ok: true,
               tabId,
               serverDurationMs,
+              storageSetMs,
               snapshot
             } satisfies ExtensionResponse);
             return;
