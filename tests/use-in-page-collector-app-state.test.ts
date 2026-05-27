@@ -3,7 +3,9 @@ import test from "node:test";
 
 import type { ExtensionMessage, ExtensionResponse } from "../src/state/messages.ts";
 import type { WorkerStatus } from "../src/state/processing-state.ts";
-import { buildPreviewSaveMessage, runAnalyzeItemsPipeline } from "../src/ui/useInPageCollectorAppState.ts";
+import { createSessionRecord } from "../src/state/store-helpers.ts";
+import { createEmptyTabState, type ExtensionSnapshot } from "../src/state/types.ts";
+import { buildPreviewSaveMessage, resolveOptimisticSession, runAnalyzeItemsPipeline } from "../src/ui/useInPageCollectorAppState.ts";
 
 const descriptor = {
   target_type: "post" as const,
@@ -29,6 +31,25 @@ test("buildPreviewSaveMessage sends the visible preview descriptor with the topi
   assert.equal(message.type, "session/save-current-preview");
   assert.equal(message.topicId, "topic-love");
   assert.deepEqual(message.descriptor, descriptor);
+});
+
+test("resolveOptimisticSession returns an existing target-mode session without mutating active session", () => {
+  const productSession = createSessionRecord("Product workspace", "2026-05-27T00:00:00.000Z", "product");
+  const prSession = createSessionRecord("PR Evidence workspace", "2026-05-27T00:00:00.000Z", "pr-evidence");
+  const snapshot: ExtensionSnapshot = {
+    global: {
+      version: 1,
+      sessions: [productSession, prSession],
+      activeSessionId: productSession.id,
+      settings: { ingestBaseUrl: "http://127.0.0.1:8000" },
+      updatedAt: "2026-05-27T00:00:00.000Z"
+    },
+    tab: createEmptyTabState()
+  };
+
+  assert.equal(resolveOptimisticSession(snapshot, "pr-evidence")?.id, prSession.id);
+  assert.equal(resolveOptimisticSession(snapshot, "topic"), null);
+  assert.equal(snapshot.global.activeSessionId, productSession.id);
 });
 
 test("runAnalyzeItemsPipeline queues selected items then starts worker and refreshes", async () => {

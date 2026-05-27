@@ -2047,24 +2047,31 @@ export default defineBackground(() => {
             return;
           }
           case "session/set-mode": {
+            const startedAt = performance.now();
             const tabId = await resolveTabId(sender);
             const current = await loadSnapshot(tabId);
             const global = activateSessionForMode(current.global, message.mode);
             const activeSession = getActiveSession(global);
             const modeHomePage = getModeHomePage(message.mode);
+            const snapshot = await saveSnapshot(tabId, {
+              global,
+              tab: {
+                ...current.tab,
+                activeItemId: activeSession ? ensureActiveItemId(activeSession, current.tab.activeItemId) : null,
+                popupPage: modeHomePage,
+                currentMainPage: modeHomePage,
+                error: null
+              }
+            });
+            console.info("[DLens] session/set-mode", {
+              mode: message.mode,
+              sessionCount: global.sessions.length,
+              durationMs: Math.round(performance.now() - startedAt)
+            });
             sendResponse({
               ok: true,
               tabId,
-              snapshot: await saveSnapshot(tabId, {
-                global,
-                tab: {
-                  ...current.tab,
-                  activeItemId: activeSession ? ensureActiveItemId(activeSession, current.tab.activeItemId) : null,
-                  popupPage: modeHomePage,
-                  currentMainPage: modeHomePage,
-                  error: null
-                }
-              })
+              snapshot
             } satisfies ExtensionResponse);
             return;
           }

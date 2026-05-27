@@ -13,6 +13,7 @@ import {
   type ProductAgentTaskFeedback,
   type ProductSignalAnalysis,
   type SavedAnalysisSnapshot,
+  type SessionRecord,
   type TechniqueReadingSnapshot,
 } from "../state/types";
 import { isDescriptorSavedInFolder } from "../state/ui-state";
@@ -28,6 +29,7 @@ import type { PrCampaign } from "../state/pr-evidence-storage";
 import { getProcessingFailureMessage } from "../state/processing-errors";
 import {
   getItemReadinessStatus,
+  getModeHomePage,
   guardPage,
   isProductSignalPage as isProductSignalWorkspacePage,
   summarizeSessionProcessing,
@@ -70,6 +72,16 @@ export function resolveEffectivePopupPage(page: ExtensionSnapshot["tab"]["popupP
     return page;
   }
   return guardPage(page, activeFolderMode);
+}
+
+export function resolveOptimisticSession(
+  snapshot: ExtensionSnapshot | null,
+  optimisticMode: FolderMode | null
+): SessionRecord | null {
+  if (!snapshot || optimisticMode === null) {
+    return null;
+  }
+  return snapshot.global.sessions.find((session) => session.mode === optimisticMode) ?? null;
 }
 
 export function buildPreviewSaveMessage({
@@ -216,8 +228,14 @@ export function useInPageCollectorAppState({ snapshot, tabId, sendAndSync }: Use
   const [compiledProductContext, setCompiledProductContext] = useState<ProductContext | null>(null);
   const [settingsSaveStatus, setSettingsSaveStatus] = useState<{ kind: "success" | "error"; message: string } | null>(null);
   const [isSavingSettings, setIsSavingSettings] = useState(false);
+  const [optimisticSessionMode, setOptimisticSessionMode] = useState<FolderMode | null>(null);
 
-  const activeFolder = useMemo(() => getActiveSession(snapshot), [snapshot]);
+  const snapshotActiveFolder = useMemo(() => getActiveSession(snapshot), [snapshot]);
+  const optimisticFolder = useMemo(
+    () => resolveOptimisticSession(snapshot, optimisticSessionMode),
+    [optimisticSessionMode, snapshot]
+  );
+  const activeFolder = optimisticFolder ?? snapshotActiveFolder;
   const activeItem = useMemo(() => getActiveItem(snapshot), [snapshot]);
   const activeFolderMode: FolderMode = activeFolder?.mode ?? "archive";
   const popupOpen = Boolean(snapshot?.tab.popupOpen);
@@ -270,6 +288,12 @@ export function useInPageCollectorAppState({ snapshot, tabId, sendAndSync }: Use
     snapshot?.global.settings.openaiApiKey,
     snapshot?.global.settings.claudeApiKey
   ]);
+
+  useEffect(() => {
+    if (optimisticSessionMode !== null && snapshotActiveFolder?.mode === optimisticSessionMode) {
+      setOptimisticSessionMode(null);
+    }
+  }, [optimisticSessionMode, snapshotActiveFolder?.mode]);
 
   useEffect(() => {
     if (!popupOpen) {
@@ -820,7 +844,28 @@ export function useInPageCollectorAppState({ snapshot, tabId, sendAndSync }: Use
 
   async function onSessionModeChange(mode: FolderMode) {
     if (activeFolder) {
-      await topicState.onSessionModeChange(mode);
+      const targetSessionExists = snapshot?.global.sessions.some((session) => session.mode === mode) ?? false;
+      if (targetSessionExists && mode !== activeFolderMode) {
+        setOptimisticSessionMode(mode);
+        setWorkspaceState((currentState) => ({
+          ...currentState,
+          currentMode: getModeHomePage(mode),
+          popupOpen: true,
+          modeLocked: true
+        }));
+      }
+      try {
+        await topicState.onSessionModeChange(mode);
+      } catch (error) {
+        setOptimisticSessionMode(null);
+        setWorkspaceState((currentState) => ({
+          ...currentState,
+          currentMode: resolveEffectivePopupPage(snapshot?.tab.popupPage ?? currentState.currentMode, activeFolderMode),
+          popupOpen: true,
+          modeLocked: true
+        }));
+        throw error;
+      }
       return;
     }
 
