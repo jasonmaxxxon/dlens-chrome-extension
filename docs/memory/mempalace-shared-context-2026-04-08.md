@@ -6,7 +6,7 @@ type: project
 
 # DLens Extension Shared Context
 
-Last updated: 2026-05-20
+Last updated: 2026-05-27
 
 This note is the high-signal shared memory for Codex and Claude when working on `dlens-chrome-extension-v0`.
 
@@ -54,14 +54,16 @@ This note is the high-signal shared memory for Codex and Claude when working on 
 - Topic synthesis uses deterministic `v2.work-signal-lens`; Stack is collapsible, Console is dense and always visible.
 - Folder synthesis uses the same deterministic work-signal lens and renders as the Library Briefing card. Storage key: `dlens:v1:folder-synthesis`.
 - Compare result variants are Reading, Parallel, and Chapters; Parallel is default and uses sticky A/B columns.
-- Current verification: `574/574` tests, typecheck, build, and diff check passed from `/Users/tung/Desktop/dlens-product-latest`.
+- Current verification: `604/604` tests, typecheck, build, and diff check passed from `/Users/tung/Desktop/dlens-product-latest`.
 - Verified build artifact was copied to `/Users/tung/Desktop/dlens-product-latest/output/chrome-mv3`; the source checkout there may still be dirty.
 
-## Version Rule As Of 2026-05-20
+## Version Rule As Of 2026-05-27
 
-- Current extension version: `0.1.22`.
-- Current verification: `574/574` tests, typecheck, build, and diff check passed from `/Users/tung/Desktop/dlens-product-latest`.
-- Release baseline main commit: pending local `0.1.22` release commit.
+- Current extension version: `0.1.25`.
+- Current verification: `604/604` tests, typecheck, build, and diff check passed from `/Users/tung/Desktop/dlens-product-latest`.
+- Current engineering branch: `codex/pr-visible-metrics`.
+- `docs/ENGINEERING_PLAN.md` §2 N1-N5 is complete: React ErrorBoundary, Settings storage usage, `mutateSnapshot` seam, behavioral storage contracts, and code-review checklist.
+- §3 remains a deferred trigger pool, not a backlog drain queue.
 - Motion Layer v2 is pure CSS/token-based and shared across modes; content-script CSS is scoped under `data-dlens-control="true"` and respects `prefers-reduced-motion`.
 - Motion Layer v2 adds Apple Music-style verdict filter sliding plates, stronger primary CTA/card deltas, loading shimmer, copy feedback, and filed-reading compose highlights without adding a motion dependency.
 - Signal Reading review text now uses a lighter lead-title + summary rhythm, and Product rail / candidate-action navigation can trigger on pointerdown to avoid live Chrome/Threads click swallowing.

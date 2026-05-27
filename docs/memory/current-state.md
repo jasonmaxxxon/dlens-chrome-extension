@@ -1,6 +1,6 @@
 # Current State
 
-## System State As Of 2026-05-26
+## System State As Of 2026-05-27
 
 DLens is now best described as a **desktop-first Threads research, product-signal, and PR evidence extension**.
 
@@ -65,10 +65,18 @@ The current product split is:
    - JSONL is the agent handoff surface; HTML is the human reading surface and deliberately hides raw `decisionTrace`
    - `DLENS_SIGNAL_PACKET_VERSION` is `v3`; keep upcoming JSONL semantic clarifications additive unless a breaking reader change is truly required
 
+8. Engineering-plan hardening slice
+   - `docs/ENGINEERING_PLAN.md` §2 N1-N5 is complete on `codex/pr-visible-metrics`
+   - popup React tree has a top-level `WorkspaceErrorBoundary`
+   - Settings surfaces local storage usage through background message `storage/get-usage`
+   - snapshot RMW paths use `mutateSnapshot` by default; raw `withSnapshotLock` escapes are documented
+   - storage behavior contracts now dispatch real background handlers with mocked `chrome.storage`
+   - PR template links `docs/CODE_REVIEW.md`
+
 The verified build in the active Phase B implementation worktree is:
 
 - verification worktree: `/Users/tung/Desktop/dlens-product-latest`
-- current extension version: `0.1.22`
+- current extension version: `0.1.25`
 - active load-unpacked folder: `/Users/tung/Desktop/dlens-product-latest/output/chrome-mv3`
 - note: `/Users/tung/Desktop/dlens-product-latest` source checkout may be dirty; do not infer clean source state from the copied build artifact
 - unpacked extension: `/Users/tung/Desktop/dlens-product-latest/output/chrome-mv3`
@@ -76,11 +84,11 @@ The verified build in the active Phase B implementation worktree is:
 - backend physical checkout: `/Users/tung/Desktop/dlens-backend/dlens-ingest-core`
 - old versions and historical worktrees: `/Users/tung/Desktop/dlens-old`
 - verification: `npm run typecheck`, `npx tsx --test tests/*.test.ts tests/*.test.tsx`, and `npm run build`
-- latest full test count after Signal drawer popover clipping fix, source-list ledger UI, PR Evidence follower contract sync, and version 0.1.22 sync: `574 pass, 0 fail`
+- latest full test count after engineering-plan N1-N5 hardening and behavioral storage-contract tests: `604 pass, 0 fail`
 - latest build output was mirrored to `/Users/tung/Desktop/dlens-product-latest/output/chrome-mv3`
-- release baseline main commit: pending local `0.1.22` release commit
+- current engineering branch: `codex/pr-visible-metrics`
 - live backend smoke from the prior product run: `GET http://127.0.0.1:8000/worker/status` returned `{"status":"idle"}`
-- extension manifest name is `DLens v3`; current extension version is `0.1.22`
+- extension manifest name is `DLens v3`; current extension version is `0.1.25`
 - version is locked across `package.json`, `package-lock.json`, `wxt.config.ts` `manifest.version`, and `src/ui/version.ts` `BUILD_VERSION`
 
 ## PR Evidence V1 Contract State
@@ -184,7 +192,7 @@ Topic Detail now uses per-signal semantic tags as the primary scan layer. Topic 
 
 ## Version State
 
-- Current extension version: `0.1.22`.
+- Current extension version: `0.1.25`.
 - Chrome extension page version comes from `wxt.config.ts` `manifest.version` in the built manifest.
 - Popup masthead version comes from `src/ui/version.ts` `BUILD_VERSION`.
 - `package.json`, `package-lock.json`, `wxt.config.ts`, and `src/ui/version.ts` must stay in sync for every main-facing update unless explicitly skipped.

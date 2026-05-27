@@ -1,7 +1,33 @@
 # AGENTS.md — DLens Chrome Extension v0.1
 
-> **Last updated:** 2026-05-26 (Signal drawer citation popovers, source-list ledger UI, and PR Evidence follower metrics fixed, version 0.1.22 mirrored into MV3 — 574/574 tests, typecheck, build)
+> **Last updated:** 2026-05-27 (Engineering plan N1-N5 completed on `codex/pr-visible-metrics`: React ErrorBoundary, storage usage surfacing, `mutateSnapshot` seam, behavioral storage contracts, code-review checklist, PR typography lock — 604/604 tests, typecheck, build, version 0.1.25 mirrored into MV3)
 > **For:** any agent continuing work in this repo
+
+## Recently Fixed (2026-05-27) — Engineering plan N1-N5
+
+The `codex/pr-visible-metrics` branch completed the committed-next slice in
+`docs/ENGINEERING_PLAN.md` §2. Keep this as execution trace; do not drain §3
+unless a trigger promotes an item into a new committed-next slice.
+
+1. **React popup fallback.** `src/ui/WorkspaceErrorBoundary.tsx` wraps the
+   popup tree in `InPageCollectorApp.tsx`. This is separate from the existing
+   `threads.content.ts` runtime fallback.
+2. **Storage usage surface.** `storage/get-usage` is a background-only message
+   using `chrome.storage.local.getBytesInUse()`. `SettingsView` consumes a
+   prop and must not call `chrome.storage` directly.
+3. **Snapshot write seam.** `mutateSnapshot(tabId, fn)` is now the default
+   read-modify-write seam for snapshot handlers. Raw `withSnapshotLock` is an
+   explicit escape only for extra return metadata, no-write returns, or
+   global-only worker-wake writes.
+4. **Behavioral storage contracts.** `tests/background-behavior.test.ts`
+   dispatches real background handlers with mocked `chrome.storage` and asserts
+   storage keys for mode-switch fast/slow paths, refresh-all no-op writes,
+   non-blocking broadcasts, and real `mutateSnapshot` serialization.
+5. **Review checklist.** `docs/CODE_REVIEW.md` and
+   `.github/pull_request_template.md` are the current self-check contract.
+6. **PR visual grammar.** PR Evidence fractional font drift was folded into
+   shared typography tokens; `textStyles.metric` is the compact mono numeric
+   token.
 
 ## Recently Fixed (2026-05-22) — Collect→save reliability
 
@@ -305,7 +331,7 @@ Important implementation points:
 - `SettingsView.tsx` owns the three user-facing layout controls.
 - `InPageCollectorPopup.tsx` threads persisted layout settings into Product signal cards, Topic synthesis, and Compare Result.
 - Topic Detail's primary overview is now semantic `SignalTagsRecord` data from `dlens:v1:signal-tags`, not deterministic keyword frequency. `TopicSynthesis` and `FolderSynthesis` remain deterministic extension-side layers over analyzed signals for legacy/folder contexts and do not replace backend clustering.
-- Current verification was run from `/Users/tung/Desktop/dlens-product-latest`: `574/574` tests, `npm run typecheck`, and `npm run build` passed.
+- Current verification was run from `/Users/tung/Desktop/dlens-product-latest`: `604/604` tests, `npm run typecheck`, and `npm run build` passed.
 - The verified unpacked build was copied to `/Users/tung/Desktop/dlens-product-latest/output/chrome-mv3` for Chrome load-unpacked use.
 - `/Users/tung/Desktop/dlens-product-latest` source checkout may be dirty; do not infer clean source state from the copied build artifact.
 
@@ -441,7 +467,7 @@ This was a major product-direction change. Summary for any agent picking up here
 
 ```bash
 npm run typecheck && npx tsx --test tests/*.test.ts tests/*.test.tsx
-# Expected on current checkout: 574 pass, 0 fail
+# Expected on current checkout: 604 pass, 0 fail
 ```
 
 ### Current engineering roadmap
