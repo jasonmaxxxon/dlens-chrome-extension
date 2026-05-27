@@ -184,6 +184,9 @@ export type ExtensionSuccessResponse = {
   auditMemos?: TopicAuditMemoBundle | null;
   auditValidatorFlags?: TopicAuditValidationFlag[];
   crossTopicCalibration?: CrossTopicCalibration | null;
+  /** Optional server-side wall-clock for the handler (ms). Used by popup
+   *  perf loggers to break out IPC + reconcile cost from background work. */
+  serverDurationMs?: number;
 };
 
 export type StartProcessingResponse =

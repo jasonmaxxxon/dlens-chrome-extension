@@ -852,7 +852,7 @@ export function useInPageCollectorAppState({ snapshot, tabId, sendAndSync }: Use
         beginPendingNavigation(getModeHomePage(mode));
       }
       try {
-        await topicState.onSessionModeChange(mode);
+        return await topicState.onSessionModeChange(mode);
       } catch (error) {
         setOptimisticSessionMode(null);
         clearPendingNavigation();
@@ -864,16 +864,16 @@ export function useInPageCollectorAppState({ snapshot, tabId, sendAndSync }: Use
         }));
         throw error;
       }
-      return;
     }
 
-    await sendAndSync({
+    const createResponse = await sendAndSync({
       type: "session/create",
       name: DEFAULT_SESSION_NAME_BY_MODE[mode],
       mode
     });
     setShowFolderPrompt(false);
     setFolderName("");
+    return createResponse;
   }
 
   async function onRenameFolder() {

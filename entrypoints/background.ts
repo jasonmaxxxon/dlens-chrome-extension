@@ -2066,14 +2066,16 @@ export default defineBackground(() => {
                 error: null
               }
             });
+            const serverDurationMs = Math.round(performance.now() - startedAt);
             console.info("[DLens] session/set-mode", {
               mode: message.mode,
               sessionCount: global.sessions.length,
-              durationMs: Math.round(performance.now() - startedAt)
+              durationMs: serverDurationMs
             });
             sendResponse({
               ok: true,
               tabId,
+              serverDurationMs,
               snapshot
             } satisfies ExtensionResponse);
             return;

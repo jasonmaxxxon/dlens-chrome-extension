@@ -90,12 +90,35 @@ export function InPageCollectorPopup({ app }: { app: InPageCollectorAppModel }) 
     const startedAt = performance.now();
     setSwitchingWorkspaceMode(mode);
     try {
-      await app.onSessionModeChange(mode);
-      console.info("[DLens] workspace switch", {
+      const response = await app.onSessionModeChange(mode);
+      const popupDurationMs = Math.round(performance.now() - startedAt);
+      const serverDurationMs = response && "serverDurationMs" in response
+        ? (response.serverDurationMs ?? null)
+        : null;
+      const overheadMs = serverDurationMs != null
+        ? popupDurationMs - serverDurationMs
+        : null;
+      const payload = {
         from: activeFolderMode,
         to: mode,
-        durationMs: Math.round(performance.now() - startedAt)
-      });
+        popupDurationMs,
+        serverDurationMs,
+        overheadMs
+      };
+      // JSON.stringify so Chrome bridges that flatten object payloads
+      // still surface the breakdown (popup vs background vs IPC+reconcile).
+      console.info("[DLens] workspace switch " + JSON.stringify(payload));
+      if (typeof window !== "undefined") {
+        const w = window as typeof window & {
+          __DLENS_LAST_SWITCH_PERF__?: typeof payload;
+          __DLENS_SWITCH_PERF_LOG__?: Array<typeof payload>;
+        };
+        w.__DLENS_LAST_SWITCH_PERF__ = payload;
+        const log = w.__DLENS_SWITCH_PERF_LOG__ ?? [];
+        log.push(payload);
+        if (log.length > 20) log.shift();
+        w.__DLENS_SWITCH_PERF_LOG__ = log;
+      }
     } catch (error) {
       console.error("[DLens] workspace switch failed", error);
     } finally {

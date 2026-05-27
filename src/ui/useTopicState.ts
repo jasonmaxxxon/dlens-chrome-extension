@@ -438,7 +438,7 @@ export function useTopicState({
 
   async function onSessionModeChange(mode: FolderMode) {
     if (!activeFolder) {
-      return;
+      return null;
     }
     const response = await sendAndSync({
       type: "session/set-mode",
@@ -449,6 +449,7 @@ export function useTopicState({
       setSelectedTopicId(null);
       setResultTopicContext(null);
     }
+    return response;
   }
 
   async function onCreateTopic() {
