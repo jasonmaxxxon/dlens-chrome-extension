@@ -30,7 +30,7 @@ Current workspace modes:
 - Product workflow: ProductContextCompiler, ProductSignalAnalyzer, Marginalia/Verdict card layouts, SignalReading review/compose, local feedback history.
 - Signal Packet export baseline: Product sessions can export `DLensSignalPacket` records as HTML, Markdown, or JSONL through `signal-packet/export`.
 - PR Evidence workflow: one active campaign per session, brief upload, six editable criteria, evidence rows, criteria matching, CSV export, Markdown/DOCX audit summary.
-- Layout preferences in Settings: Product signal card, Topic synthesis, Compare result.
+- Layout preferences remain persisted for existing records, but the visible Settings layout card is removed; workspace typography, rounded surfaces, and shadow treatment now follow the Topic card grammar across modes.
 - Popup runtime hardening: the React tree is wrapped in a top-level workspace ErrorBoundary, and the content-script runtime fallback remains separate.
 - Storage diagnostics: Settings displays local `chrome.storage.local` usage through a background-only `storage/get-usage` message boundary.
 - Snapshot write discipline: read-modify-write handlers route through `mutateSnapshot` where possible; documented raw-lock escapes cover extra return metadata, no-write returns, and global-only worker wake writes.
@@ -58,7 +58,7 @@ npm run build
 
 Expected verified state for `0.1.26`:
 
-- `604/604` tests pass
+- `608/608` tests pass
 - `npm run typecheck` passes
 - `npm run build` mirrors the unpacked MV3 build to `output/chrome-mv3`
 - `output/chrome-mv3/manifest.json` reports `version: "0.1.26"` and `name: "DLens v3"`

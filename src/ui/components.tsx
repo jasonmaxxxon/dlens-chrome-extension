@@ -424,6 +424,28 @@ const WORKSPACE_SWITCHER_OPTIONS: ReadonlyArray<{
   { key: "pr-evidence", label: "PR", tint: tokens.color.teal }
 ];
 
+const WORKSPACE_SWITCHER_CSS = `
+[data-dlens-control="true"] [data-workspace-switcher-motion="verdict"] [data-workspace-switcher-mode] {
+  transition:transform 220ms ${tokens.motion.easing.springSoft}, background-color 180ms ${tokens.motion.easing.standard}, border-color 180ms ${tokens.motion.easing.standard}, box-shadow 180ms ${tokens.motion.easing.standard}, color 180ms ${tokens.motion.easing.standard};
+  will-change: transform;
+}
+[data-dlens-control="true"] [data-workspace-switcher-motion="verdict"] [data-workspace-switcher-mode]:not(:disabled):hover {
+  transform: scale(1.04);
+}
+[data-dlens-control="true"] [data-workspace-switcher-motion="verdict"] [data-workspace-switcher-active="true"] {
+  transform: scale(1.03);
+  box-shadow: 0 4px 10px rgba(27,26,23,0.10);
+}
+@media (prefers-reduced-motion: reduce) {
+  [data-dlens-control="true"] [data-workspace-switcher-motion="verdict"] [data-workspace-switcher-mode],
+  [data-dlens-control="true"] [data-workspace-switcher-motion="verdict"] [data-workspace-switcher-mode]:not(:disabled):hover,
+  [data-dlens-control="true"] [data-workspace-switcher-motion="verdict"] [data-workspace-switcher-active="true"] {
+    transition: background-color 140ms ${tokens.motion.easing.standard}, border-color 140ms ${tokens.motion.easing.standard}, color 140ms ${tokens.motion.easing.standard} !important;
+    transform: none !important;
+  }
+}
+`;
+
 export function WorkspaceSwitcher({
   activeMode,
   modes,
@@ -469,55 +491,60 @@ export function WorkspaceSwitcher({
   const isBusy = pendingMode !== null;
 
   return (
-    <div
-      role="tablist"
-      aria-label="Workspace"
-      aria-busy={isBusy || undefined}
-      data-workspace-switcher="segmented"
-      data-workspace-switcher-pending={pendingMode ?? undefined}
-      style={{
-        display: "inline-flex",
-        gap: 2,
-        padding: 2,
-        borderRadius: 6,
-        background: tokens.color.neutralSurfaceSoft,
-        border: `1px solid ${tokens.color.line}`
-      }}
-    >
-      {options.map(({ key, label, tint }) => {
-        const pending = pendingMode === key;
-        const active = pendingMode ? pending : activeMode === key;
-        return (
-          <button
-            key={key}
-            type="button"
-            role="tab"
-            aria-selected={active}
-            data-workspace-switcher-mode={key}
-            disabled={isBusy}
-            onClick={() => onChange(key)}
-            style={{
-              fontFamily: tokens.font.sans,
-              fontSize: 10,
-              fontWeight: 700,
-              letterSpacing: 0.3,
-              color: active ? tint : tokens.color.softInk,
-              background: active ? `${tint}14` : "transparent",
-              border: `1px solid ${active ? `${tint}40` : "transparent"}`,
-              borderRadius: 4,
-              padding: "3px 9px",
-              cursor: isBusy ? "progress" : "pointer",
-              opacity: isBusy && !pending ? 0.62 : 1,
-              transition: tokens.motion.interactiveTransition,
-              whiteSpace: "nowrap",
-              lineHeight: 1.1
-            }}
-          >
-            {pending ? `${label}...` : label}
-          </button>
-        );
-      })}
-    </div>
+    <>
+      <style>{WORKSPACE_SWITCHER_CSS}</style>
+      <div
+        role="tablist"
+        aria-label="Workspace"
+        aria-busy={isBusy || undefined}
+        data-workspace-switcher="segmented"
+        data-workspace-switcher-motion="verdict"
+        data-workspace-switcher-pending={pendingMode ?? undefined}
+        style={{
+          display: "inline-flex",
+          gap: 2,
+          padding: 2,
+          borderRadius: 6,
+          background: tokens.color.neutralSurfaceSoft,
+          border: `1px solid ${tokens.color.line}`
+        }}
+      >
+        {options.map(({ key, label, tint }) => {
+          const pending = pendingMode === key;
+          const active = pendingMode ? pending : activeMode === key;
+          return (
+            <button
+              key={key}
+              type="button"
+              role="tab"
+              aria-selected={active}
+              data-workspace-switcher-mode={key}
+              data-workspace-switcher-active={active ? "true" : undefined}
+              disabled={isBusy}
+              onClick={() => onChange(key)}
+              style={{
+                fontFamily: tokens.font.sans,
+                fontSize: 10,
+                fontWeight: 700,
+                letterSpacing: 0.3,
+                color: active ? tint : tokens.color.softInk,
+                background: active ? `${tint}14` : "transparent",
+                border: `1px solid ${active ? `${tint}40` : "transparent"}`,
+                borderRadius: 4,
+                padding: "3px 9px",
+                cursor: isBusy ? "progress" : "pointer",
+                opacity: isBusy && !pending ? 0.62 : 1,
+                transition: tokens.motion.interactiveTransition,
+                whiteSpace: "nowrap",
+                lineHeight: 1.1
+              }}
+            >
+              {pending ? `${label}...` : label}
+            </button>
+          );
+        })}
+      </div>
+    </>
   );
 }
 
@@ -1026,17 +1053,17 @@ export function ModeHeader({
         display: "grid",
         gap: 8,
         padding: "14px 16px",
-        borderRadius: tokens.radius.card,
-        border: `1px solid ${tokens.color.line}`,
+        borderRadius: tokens.radius.cardLg,
+        border: `1px solid ${tokens.color.cardEdge}`,
         background: `linear-gradient(180deg, ${tokens.color.elevated}, ${tokens.color.surface})`,
-        boxShadow: tokens.shadow.glass
+        boxShadow: tokens.shadow.topicCard
       }}
     >
       <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10 }}>
         <Kicker>{kicker}</Kicker>
         {stamp ?? null}
       </div>
-      <div style={{ fontFamily: `${tokens.font.serifCjk}, ${tokens.font.serif}`, fontSize: 24, lineHeight: 1, color: tokens.color.ink }}>
+      <div style={{ fontFamily: `${tokens.font.serifCjk}, ${tokens.font.serif}`, fontSize: 24, fontWeight: 900, lineHeight: 1.08, color: tokens.color.ink }}>
         {title}
       </div>
       <p style={{ margin: 0, fontSize: 12, lineHeight: 1.65, color: tokens.color.subInk }}>

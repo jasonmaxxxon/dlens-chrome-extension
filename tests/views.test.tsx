@@ -1030,16 +1030,18 @@ test("SettingsView exposes Google provider and save action", () => {
   assert.doesNotMatch(html, /field drawer/);
   assert.match(html, /data-settings-surface="drawer"/);
   assert.match(html, /data-settings-group="folder"/);
-  assert.match(html, /data-settings-group="layout"/);
+  assert.doesNotMatch(html, /data-settings-group="layout"/);
   assert.match(html, /data-settings-group="connection"/);
   assert.match(html, /data-settings-group="keys"/);
   assert.match(html, /data-settings-group="product"/);
+  assert.match(html, /data-settings-group="connection"[^>]*border-radius:20px/);
+  assert.match(html, /data-settings-group="connection"[^>]*0 4px 14px -4px rgba\(27,26,23,0\.07\)/);
   assert.match(html, /資料夾類型/);
   assert.match(html, /產品觀察（Product）/);
-  assert.match(html, /版面偏好/);
-  assert.match(html, /Product signal card/);
-  assert.match(html, /Topic synthesis/);
-  assert.match(html, /Compare result/);
+  assert.doesNotMatch(html, /版面偏好/);
+  assert.doesNotMatch(html, /Product signal card/);
+  assert.doesNotMatch(html, /Topic synthesis/);
+  assert.doesNotMatch(html, /Compare result/);
   assert.match(html, /Connection/);
   assert.match(html, /Storage 用量：2\.0 KB \/ 10 MB/);
   assert.match(html, /AI provider/);
@@ -1139,14 +1141,14 @@ test("ProductSignalView keeps existing analyses visible when signal inbox is emp
       analyses: [
         {
           signalId: "signal_orphan",
-          signalType: "demand",
+          signalType: "noise",
           signalSubtype: "mobile_capture",
           contentType: "mixed",
           contentSummary: "使用者想把 Threads 討論直接變成可執行任務。",
           relevance: 5,
           relevantTo: ["coreWorkflows"],
           whyRelevant: "對應 Product mode 的核心承諾。",
-          verdict: "try",
+          verdict: "park",
           reason: "需求具體，適合先做小實驗。",
           experimentHint: "做一個 collect-to-task 的最小流程。",
           evidenceRefs: ["e1"],
@@ -1181,7 +1183,63 @@ test("ProductSignalView keeps existing analyses visible when signal inbox is emp
   assert.match(html, /已有 1 筆既有分析，但目前 signal 清單是空的/);
   assert.match(html, /使用者想把 Threads 討論直接變成可執行任務。/);
   assert.match(html, /AI enabled/);
+  assert.match(html, /噪音/);
+  assert.doesNotMatch(html, /前提不符/);
+  assert.doesNotMatch(html, /signal_orphan/);
   assert.doesNotMatch(html, /尚未有 AI 分析結果/);
+});
+
+test("ProductSignalView action route uses recovered analyses when signal inbox is empty", () => {
+  const html = renderToStaticMarkup(
+    React.createElement(ProductSignalView as any, {
+      kind: "actionable-filter",
+      signals: [],
+      analyses: [
+        {
+          signalId: "signal_recovered_action",
+          signalType: "demand",
+          signalSubtype: "agent_workflow",
+          contentType: "mixed",
+          contentSummary: "團隊想把討論整理成可交付的 agent brief。",
+          relevance: 5,
+          relevantTo: ["coreWorkflows"],
+          whyRelevant: "直接對應產品工作流。",
+          verdict: "try",
+          reason: "可以先做小型 action board。",
+          experimentHint: "整理候選行動。",
+          evidenceRefs: ["e1"],
+          productContextHash: "ctx",
+          promptVersion: "v1",
+          analyzedAt: "2026-05-27T07:00:00.000Z",
+          status: "complete"
+        }
+      ],
+      productProfile: {
+        name: "DLens",
+        category: "Creator analysis",
+        audience: "Threads creators",
+        contextText: "README context",
+        contextFiles: [
+          {
+            id: "file_readme",
+            name: "README.md",
+            kind: "readme",
+            importedAt: "2026-05-27T00:00:00.000Z",
+            charCount: 14
+          }
+        ]
+      },
+      signalPreviewById: {},
+      signalReadings: [],
+      onReviewSignalReading: async () => ({ ok: false, error: "unused" }),
+      onAnalyze: () => undefined
+    })
+  );
+
+  assert.match(html, /data-actionable-insights-board="true"/);
+  assert.match(html, /團隊想把討論整理成可交付的 agent brief。/);
+  assert.doesNotMatch(html, /data-signal-reading-review-workspace/);
+  assert.doesNotMatch(html, /0 則訊號已評估/);
 });
 
 test("ProductSignalView only shows remove controls when delete is wired", () => {

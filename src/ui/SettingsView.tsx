@@ -113,9 +113,10 @@ function SettingsGroup({
         display: "grid",
         gap: 14,
         padding: "14px 16px",
-        borderRadius: tokens.radius.card,
-        border: `1px solid ${tokens.color.line}`,
-        background: tokens.color.surface
+        borderRadius: tokens.radius.cardLg,
+        border: `1px solid ${tokens.color.cardEdge}`,
+        background: tokens.color.elevated,
+        boxShadow: tokens.shadow.topicCard
       }}
     >
       <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10 }}>
@@ -311,45 +312,6 @@ export function SettingsView({
                 })}
               </div>
             </div>
-          </SettingsGroup>
-
-          <SettingsGroup name="layout" kicker="版面偏好">
-            <label style={{ display: "grid", gap: 6, fontSize: 11, color: tokens.color.subInk }}>
-              Product signal card
-              <select
-                value={draftLayoutPreferences.productSignalCardLayout}
-                onChange={(event) => onDraftLayoutPreferencesChange({ productSignalCardLayout: event.target.value as LayoutPreferences["productSignalCardLayout"] })}
-                style={inputStyle}
-              >
-                <option value="marginalia">Marginalia</option>
-                <option value="verdict">Verdict</option>
-              </select>
-            </label>
-
-            <label style={{ display: "grid", gap: 6, fontSize: 11, color: tokens.color.subInk }}>
-              Topic synthesis
-              <select
-                value={draftLayoutPreferences.topicSynthesisLayout}
-                onChange={(event) => onDraftLayoutPreferencesChange({ topicSynthesisLayout: event.target.value as LayoutPreferences["topicSynthesisLayout"] })}
-                style={inputStyle}
-              >
-                <option value="console">Console</option>
-                <option value="stack">Stack</option>
-              </select>
-            </label>
-
-            <label style={{ display: "grid", gap: 6, fontSize: 11, color: tokens.color.subInk }}>
-              Compare result
-              <select
-                value={draftLayoutPreferences.compareResultLayout}
-                onChange={(event) => onDraftLayoutPreferencesChange({ compareResultLayout: event.target.value as LayoutPreferences["compareResultLayout"] })}
-                style={inputStyle}
-              >
-                <option value="parallel">Parallel</option>
-                <option value="chapters">Chapters</option>
-                <option value="reading">Reading</option>
-              </select>
-            </label>
           </SettingsGroup>
 
           <SettingsGroup name="connection" kicker="Connection">

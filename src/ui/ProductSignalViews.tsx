@@ -2249,6 +2249,7 @@ function RecoveredAnalysesBoard({
         <div data-scan-list="recovered-product-analyses" style={{ display: "grid" }}>
           {analyses.map((analysis) => {
             const typeMeta = SIGNAL_TYPE_META[analysis.signalType];
+            const preview = signalPreviewById[analysis.signalId] || analysis.contentSummary || "已分析資料";
             return (
               <div
                 key={analysis.signalId}
@@ -2264,10 +2265,7 @@ function RecoveredAnalysesBoard({
               >
                 <span style={{ minWidth: 0, display: "grid", gap: 3 }}>
                   <span style={{ ...textStyles.bodyTight, color: tokens.color.ink, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-                    {excerpt(signalPreviewById[analysis.signalId] || analysis.contentSummary || analysis.signalId, 120)}
-                  </span>
-                  <span style={{ ...textStyles.meta, color: tokens.color.softInk }}>
-                    {SIGNAL_TYPE_LABELS[analysis.signalType]} · {VERDICT_LABELS[analysis.verdict]} · {analysis.signalId}
+                    {excerpt(preview, 120)}
                   </span>
                 </span>
                 <ScorePill color={typeMeta.color} soft={typeMeta.soft}>{typeMeta.label}</ScorePill>
@@ -3866,7 +3864,7 @@ export function ProductSignalView({
   const hasRecoveredAnalyses = safeSignals.length === 0 && scopedAnalyses.length > 0;
   const pendingSignals = safeSignals.filter((signal) => bySignal.get(signal.id)?.status !== "complete");
   const canAnalyze = canRunProductSignalAction({ signals: safeSignals, productProfile, aiProviderReady, signalReadinessById });
-  const showSignalReadingReview = Boolean(onReviewSignalReading) || safeSignalReadings.length > 0;
+  const showSignalReadingReview = safeSignals.length > 0 && (Boolean(onReviewSignalReading) || safeSignalReadings.length > 0);
   const [selectedSignalIds, setSelectedSignalIds] = useState<string[]>([]);
   const [briefMode, setBriefMode] = useState<AgentBriefMode>("original");
 
@@ -3987,7 +3985,7 @@ export function ProductSignalView({
                     historicalAnalyses={safeHistoricalAnalyses}
                     agentTaskFeedback={safeAgentTaskFeedback}
                     cardLayout={cardLayout}
-                    onRemoveSignal={handleRemoveSignal}
+                    onRemoveSignal={onRemoveSignal ? handleRemoveSignal : undefined}
                   />
                   <SavedSignalsBatchExport
                     signals={safeSignals}

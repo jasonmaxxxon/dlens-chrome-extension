@@ -1,6 +1,6 @@
 # AGENTS.md — DLens Chrome Extension v0.1
 
-> **Last updated:** 2026-05-27 (Engineering plan N1-N5 completed on `codex/pr-visible-metrics`: React ErrorBoundary, storage usage surfacing, `mutateSnapshot` seam, behavioral storage contracts, code-review checklist, PR typography lock — 604/604 tests, typecheck, build, version 0.1.26 mirrored into MV3)
+> **Last updated:** 2026-05-27 (Compact workspace UI consolidation on `codex/pr-visible-metrics`: Topic-style header/card grammar across modes, animated workspace switcher, Settings layout card removed, Product recovered analyses/action route compacted — 608/608 tests, typecheck, build, version 0.1.26 mirrored into MV3)
 > **For:** any agent continuing work in this repo
 
 ## Recently Fixed (2026-05-27) — Engineering plan N1-N5
@@ -103,7 +103,7 @@ npx tsx --test tests/*.test.ts tests/*.test.tsx
 - folder CRUD and save accumulation
 - popup workspace shell now uses an editorial masthead + left rail with primary mode navigation for `Library / Compare / Collect`, plus a separate Settings utility action
 - `pr-evidence` workspace mode is live with `PR Evidence / Collect / Settings` navigation, one active campaign per PR session, PDF/txt/md brief upload, six editable criteria, compact evidence ledger, explicit batch matching with deterministic backstop, CSV preview/export, and Markdown/DOCX PR audit summary export
-- Layout preferences are live in Settings and persisted under `ExtensionSettings.layoutPreferences`: Product signal card (`verdict` / `marginalia`, default `marginalia`), Topic synthesis (`stack` / `console`, default `console`), and Compare result (`reading` / `parallel` / `chapters`, default `parallel`)
+- Layout preferences remain persisted under `ExtensionSettings.layoutPreferences`, but Settings no longer exposes the visible Layout preference card. Product signal card (`verdict` / `marginalia`, default `marginalia`), Topic synthesis (`stack` / `console`, default `console`), and Compare result (`reading` / `parallel` / `chapters`, default `parallel`) stay supported through persisted state and call sites.
 - Product signal cards support both Verdict and Marginalia layouts in `ActionableItemCard`; keep `reusable_pattern` as the card headline, cited evidence visible, and `experimentHint` / `agentTaskSpec` in the task slot
 - Product Agent Brief uses `SignalReading` records as a local corpus: generate free-text readings on demand, review them, file useful readings, and compose filed-only Markdown for coding agents
 - Signal Packet export is live for Product sessions: background can build per-signal packets and export HTML/JSONL through `src/compare/signal-packet.ts` and `src/compare/signal-packet-export.ts`; packets include source, evidence, judgment, ProductContext, readings, feedback timeline, agent handoff, topic context, and `decisionTrace`.
@@ -328,10 +328,10 @@ Important implementation points:
 - `LayoutPreferences` lives in `src/state/types.ts`.
 - `createDefaultLayoutPreferences()` returns `marginalia`, `console`, and `parallel`.
 - `settings/set-layout-preferences` merges partial layout updates through the background storage path.
-- `SettingsView.tsx` owns the three user-facing layout controls.
+- `SettingsView.tsx` no longer owns visible layout controls; it stays focused on folder mode, connection/storage usage, API keys, and ProductProfile.
 - `InPageCollectorPopup.tsx` threads persisted layout settings into Product signal cards, Topic synthesis, and Compare Result.
 - Topic Detail's primary overview is now semantic `SignalTagsRecord` data from `dlens:v1:signal-tags`, not deterministic keyword frequency. `TopicSynthesis` and `FolderSynthesis` remain deterministic extension-side layers over analyzed signals for legacy/folder contexts and do not replace backend clustering.
-- Current verification was run from `/Users/tung/Desktop/dlens-product-latest`: `604/604` tests, `npm run typecheck`, and `npm run build` passed.
+- Current verification was run from `/Users/tung/Desktop/dlens-product-latest`: `608/608` tests, `npm run typecheck`, and `npm run build` passed.
 - The verified unpacked build was copied to `/Users/tung/Desktop/dlens-product-latest/output/chrome-mv3` for Chrome load-unpacked use.
 - `/Users/tung/Desktop/dlens-product-latest` source checkout may be dirty; do not infer clean source state from the copied build artifact.
 
@@ -467,7 +467,7 @@ This was a major product-direction change. Summary for any agent picking up here
 
 ```bash
 npm run typecheck && npx tsx --test tests/*.test.ts tests/*.test.tsx
-# Expected on current checkout: 604 pass, 0 fail
+# Expected on current checkout: 608 pass, 0 fail
 ```
 
 ### Current engineering roadmap

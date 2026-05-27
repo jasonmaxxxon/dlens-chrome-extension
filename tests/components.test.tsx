@@ -8,6 +8,7 @@ import type { TargetDescriptor } from "../src/contracts/target-descriptor.ts";
 import { BUILD_VERSION } from "../src/ui/version.ts";
 import {
   DLENS_BUTTON_CSS,
+  ModeHeader,
   ModeRail,
   PreviewCard,
   SCAN_ROW_HOVER_CSS,
@@ -178,6 +179,22 @@ test("WorkspaceShell masthead exposes the extension build version", () => {
   assert.match(html, /data-shell-header="workspace"[^>]*align-self:start/);
 });
 
+test("ModeHeader uses the Topic card grammar across modes", () => {
+  const html = renderToStaticMarkup(
+    React.createElement(ModeHeader, {
+      mode: "saved-signals",
+      kicker: "Product mode",
+      title: "Saved Signals",
+      deck: "Read the real inbox state."
+    })
+  );
+
+  assert.match(html, /data-mode-header="saved-signals"[^>]*border-radius:20px/);
+  assert.match(html, /data-mode-header="saved-signals"[^>]*0 4px 14px -4px rgba\(27,26,23,0\.07\)/);
+  assert.match(html, /Saved Signals<\/div>/);
+  assert.match(html, /font-weight:900/);
+});
+
 test("WorkspaceShell renders masthead WorkspaceSwitcher when onSwitchWorkspace is wired", () => {
   const html = renderToStaticMarkup(
     React.createElement(
@@ -199,6 +216,9 @@ test("WorkspaceShell renders masthead WorkspaceSwitcher when onSwitchWorkspace i
   assert.match(html, /data-workspace-switcher-mode="pr-evidence"/);
   // Active button is marked aria-selected="true" — and it's the Product one
   assert.match(html, /aria-selected="true"\s+data-workspace-switcher-mode="product"/);
+  assert.match(html, /data-workspace-switcher-motion="verdict"/);
+  assert.match(html, /scale\(1\.04\)/);
+  assert.match(html, /transition:transform 220ms/);
   // Static mode badge should not render alongside the switcher
   assert.doesNotMatch(html, /data-mode-badge="product"/);
 });
@@ -221,7 +241,7 @@ test("WorkspaceShell marks a pending workspace switch immediately", () => {
 
   assert.match(html, /data-workspace-switcher-pending="pr-evidence"/);
   assert.match(html, /aria-busy="true"/);
-  assert.match(html, /aria-selected="true"\s+data-workspace-switcher-mode="pr-evidence"\s+disabled=""/);
+  assert.match(html, /aria-selected="true"[^>]+data-workspace-switcher-mode="pr-evidence"[^>]+disabled=""/);
   assert.match(html, /PR\.\.\./);
 });
 

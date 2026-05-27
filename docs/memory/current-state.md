@@ -40,14 +40,16 @@ The current product split is:
    - the main surface is a compact evidence ledger, not a full spreadsheet
    - CSV is the primary evidence export; summary is a secondary client-ready Markdown/DOCX audit memo
 
-5. Layout preference surface
+5. Layout preference storage and compact UI surface
    - landed on `main` as `2738d2f feature: Persist layout preferences (#4)`
    - depends on `16ae177 feature: Product signal and synthesis layout variants (#2)` and `f52f73b feature: Compare result parallel and chapters layouts (#3)`
    - `ExtensionSettings.layoutPreferences` persists:
      - `productSignalCardLayout: "verdict" | "marginalia"`; default `marginalia`
      - `topicSynthesisLayout: "stack" | "console"`; default `console`
      - `compareResultLayout: "reading" | "parallel" | "chapters"`; default `parallel`
-   - Settings exposes the three controls; `InPageCollectorPopup` threads them to Product signal, Topic synthesis, and Compare result views
+   - `InPageCollectorPopup` still threads persisted values to Product signal, Topic synthesis, and Compare result views
+   - Settings no longer exposes the visible Layout preference card; runtime settings stay focused on folder mode, connection, keys, storage usage, and ProductProfile
+   - Product and PR headers, Product recovered-analysis rows, Settings groups, and workspace switching now follow the Topic-style typography, card radius, shadow, and compact content grammar
    - verified clean-main build output was copied to `/Users/tung/Desktop/dlens-product-latest/output/chrome-mv3` for Chrome load-unpacked use
 
 6. Signal Reading Review surface
@@ -84,7 +86,7 @@ The verified build in the active Phase B implementation worktree is:
 - backend physical checkout: `/Users/tung/Desktop/dlens-backend/dlens-ingest-core`
 - old versions and historical worktrees: `/Users/tung/Desktop/dlens-old`
 - verification: `npm run typecheck`, `npx tsx --test tests/*.test.ts tests/*.test.tsx`, and `npm run build`
-- latest full test count after engineering-plan N1-N5 hardening and behavioral storage-contract tests: `604 pass, 0 fail`
+- latest full test count after compact workspace UI consolidation: `608 pass, 0 fail`
 - latest build output was mirrored to `/Users/tung/Desktop/dlens-product-latest/output/chrome-mv3`
 - current engineering branch: `codex/pr-visible-metrics`
 - live backend smoke from the prior product run: `GET http://127.0.0.1:8000/worker/status` returned `{"status":"idle"}`
@@ -233,7 +235,7 @@ RAG remains intentionally out of V1. The accepted V1 design is:
 ## Immediate Next Work
 
 1. Backend P0: refine `ThreadReadModel` OP continuation splitting and remove root duplication.
-2. Chrome QA: reload `/Users/tung/Desktop/dlens-product-latest/output/chrome-mv3` and walk Product Settings -> Collect -> crawl -> Product insights, layout preference switching, Compare Parallel/Chapters, Topic Console/Stack, then PR Evidence campaign setup -> PDF upload -> Generate criteria -> Collect -> Match criteria -> CSV export -> summary MD/DOCX export.
+2. Chrome QA: reload `/Users/tung/Desktop/dlens-product-latest/output/chrome-mv3` and walk Product Settings -> Collect -> crawl -> Product insights, Compare Parallel/Chapters, Topic Console/Stack, then PR Evidence campaign setup -> PDF upload -> Generate criteria -> Collect -> Match criteria -> CSV export -> summary MD/DOCX export.
 3. UI cleanup: verify topic mode green theme everywhere, product mode does not show folder concept, PR Evidence keeps the compact ledger grammar, and popup spacing/mode/layout switching stay fixed.
 4. Background split: move product/topic/PR handlers out of `entrypoints/background.ts` before adding digest/watch-mode work.
 5. Phase C later: signal digest / watch mode / recurring intelligence. Do not start there before backend read-model quality is fixed.
@@ -337,10 +339,10 @@ The extension may present backend output more clearly, but it should not fabrica
 - `Result` is the contextual reading route, not a primary rail destination
 - Product mode has its own insight pages backed by `dlens:v1:product-signal-analyses`; these pages should not render backend clusters as the primary product output
 - Product mode cards should lead with useful insight, cited evidence, verdict, experiment hint, and optional `agentTaskSpec`
-- Product mode cards now default to Marginalia; Verdict remains available through layout preferences
+- Product mode cards now default to Marginalia; persisted Verdict records remain supported, but Settings no longer exposes the layout switcher
 - Marginalia should avoid duplicate support chrome: the rail owns verdict/relevance/task summary, the main column owns TRY/drop-cap/footnotes, and repeated bottom AI detail panels stay hidden for this layout
-- Topic synthesis defaults to Console; Stack remains available through layout preferences
-- Compare Result defaults to Parallel; Reading and Chapters remain available through layout preferences
+- Topic synthesis defaults to Console; persisted Stack settings remain supported
+- Compare Result defaults to Parallel; persisted Reading and Chapters settings remain supported
 - the popup shell now uses an editorial masthead + left vertical rail instead of the older horizontal pill strip
 - Result hero now follows an editorial grammar: compact headline, explicit relation line, compact `AI Brief · CONF` label
 - Library ready cards now use left-accent case cards with real keyword chips from current analysis snapshots
@@ -350,7 +352,7 @@ The extension may present backend output more clearly, but it should not fabrica
 ## Open Gaps
 
 - backend ThreadReadModel OP continuation quality is now Product mode P0
-- Chrome QA still needs to walk the v3 Product, PR Evidence, and layout preference flows in `/Users/tung/Desktop/dlens-product-latest/output/chrome-mv3`
+- Chrome QA still needs to walk the v3 Product and PR Evidence flows in `/Users/tung/Desktop/dlens-product-latest/output/chrome-mv3`
 - topic mode theme still needs verification that hover overlays and action buttons are fully green
 - Product mode should not leak folder concept into user-facing workflow
 - compare cluster pairing is still rank-based, not semantic
