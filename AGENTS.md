@@ -426,9 +426,9 @@ This was a major product-direction change. Summary for any agent picking up here
 | `src/state/types.ts` | Added `FolderMode`, `Topic`, `Signal`, `TopicStatus`, `SignalSource`, `SignalInboxStatus`; added `mode` to `SessionRecord`; expanded `MainPage` to include `'casebook' | 'inbox'` |
 | `src/state/messages.ts` | Added `topic/*`, `signal/*`, `session/set-mode`, `TriageAction` |
 | `src/state/store-helpers.ts` | `normalizeSessionRecord` defaults `mode` to `'topic'` for legacy sessions |
-| `entrypoints/background.ts` | 1394 → 1986 lines in Slice A-B; now 2734 lines after Product + PR + Signal Packet + TopicSignalReading handlers; split before more growth |
+| `entrypoints/background.ts` | Expanded in Slice A-B and later Product / PR / Signal Packet / TopicSignalReading work; current split roadmap lives in `docs/ENGINEERING_PLAN.md` |
 | `src/ui/InPageCollectorPopup.tsx` | Mode guard (`ALLOWED_PAGES` + `guardPage`); casebook + inbox + topic detail + PR routing |
-| `src/ui/useInPageCollectorAppState.ts` | 712 → 905 lines after `useTopicState` extraction; now 1382 lines after Product + PR + export + TopicSignalReading orchestration |
+| `src/ui/useInPageCollectorAppState.ts` | Grew after Product / PR / export / TopicSignalReading orchestration; current extraction roadmap lives in `docs/ENGINEERING_PLAN.md` |
 | `src/ui/CompareView.tsx` | Breadcrumb + "附加至案例" button for topic context |
 | `src/ui/CollectView.tsx` | Save toast changes to "已加入收件匣" in topic/product mode |
 | `src/ui/SettingsView.tsx` | Folder mode selector + ProductProfile form (product mode only) |
@@ -444,13 +444,12 @@ npm run typecheck && npx tsx --test tests/*.test.ts tests/*.test.tsx
 # Expected on current checkout: 574 pass, 0 fail
 ```
 
-### Watch items for next agent
+### Current engineering roadmap
 
-1. `background.ts` is at 2734 lines — split product/topic/PR/export handlers before adding signal digest or watch mode.
-2. `useInPageCollectorAppState.ts` is at 1382 lines — continue extraction before adding more product, PR, or export routes.
-3. Backend ThreadReadModel OP continuation quality is the Product mode P0 dependency.
-4. Product mode is live; Settings + imported product context are the entry point.
-5. Product UI should stay insight-first and evidence-first, not cluster-first.
+This older handoff section is historical context for the Slice A-B mode work.
+Use `docs/ENGINEERING_PLAN.md` for the current tech-debt and roadmap source of
+truth, including background handler split, hook extraction, storage migration,
+and popup resilience work.
 
 ---
 
