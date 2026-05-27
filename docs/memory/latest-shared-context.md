@@ -1,5 +1,5 @@
 ---
-name: mempalace_shared_context_2026_04_08
+name: latest_shared_context
 description: Shared Codex and Claude memory for DLens extension product direction, repo boundary, and update protocol
 type: project
 ---
@@ -7,6 +7,10 @@ type: project
 # DLens Extension Shared Context
 
 Last updated: 2026-05-27
+
+This file is the current shared context. Keep this filename stable and update
+the contents in place whenever an automated or manual handoff refresh makes it
+the latest issue.
 
 This note is the high-signal shared memory for Codex and Claude when working on `dlens-chrome-extension-v0`.
 
@@ -59,7 +63,7 @@ This note is the high-signal shared memory for Codex and Claude when working on 
 
 ## Version Rule As Of 2026-05-27
 
-- Current extension version: `0.1.25`.
+- Current extension version: `0.1.26`.
 - Current verification: `604/604` tests, typecheck, build, and diff check passed from `/Users/tung/Desktop/dlens-product-latest`.
 - Current engineering branch: `codex/pr-visible-metrics`.
 - `docs/ENGINEERING_PLAN.md` §2 N1-N5 is complete: React ErrorBoundary, Settings storage usage, `mutateSnapshot` seam, behavioral storage contracts, and code-review checklist.

@@ -3,7 +3,7 @@
 DLens is a mode-aware MV3 Chrome extension for capturing Threads posts and turning them into research, product-signal, and PR evidence workflows.
 
 > Last updated: 2026-05-27
-> Current release: `0.1.25`
+> Current release: `0.1.26`
 > Current engineering branch: `codex/pr-visible-metrics`
 > Verified build: `/Users/tung/Desktop/dlens-product-latest/output/chrome-mv3`
 
@@ -56,12 +56,12 @@ npx tsx --test tests/*.test.ts tests/*.test.tsx
 npm run build
 ```
 
-Expected verified state for `0.1.25`:
+Expected verified state for `0.1.26`:
 
 - `604/604` tests pass
 - `npm run typecheck` passes
 - `npm run build` mirrors the unpacked MV3 build to `output/chrome-mv3`
-- `output/chrome-mv3/manifest.json` reports `version: "0.1.25"` and `name: "DLens v3"`
+- `output/chrome-mv3/manifest.json` reports `version: "0.1.26"` and `name: "DLens v3"`
 
 ## Active Paths
 
@@ -89,7 +89,7 @@ Read these before non-trivial work:
 - [`docs/ENGINEERING_PLAN.md`](./docs/ENGINEERING_PLAN.md) for the completed N1-N5 engineering-plan slice and deferred-trigger pool.
 - [`docs/CODE_REVIEW.md`](./docs/CODE_REVIEW.md) for the current PR self-check contract.
 - [`docs/memory/current-state.md`](./docs/memory/current-state.md) for the fuller repo state.
-- [`docs/memory/mempalace-shared-context-2026-04-08.md`](./docs/memory/mempalace-shared-context-2026-04-08.md) for Codex/Claude shared memory context.
+- [`docs/memory/latest-shared-context.md`](./docs/memory/latest-shared-context.md) for Codex/Claude shared memory context.
 
 Current open risks:
 

@@ -1,6 +1,6 @@
 # AGENTS.md — DLens Chrome Extension v0.1
 
-> **Last updated:** 2026-05-27 (Engineering plan N1-N5 completed on `codex/pr-visible-metrics`: React ErrorBoundary, storage usage surfacing, `mutateSnapshot` seam, behavioral storage contracts, code-review checklist, PR typography lock — 604/604 tests, typecheck, build, version 0.1.25 mirrored into MV3)
+> **Last updated:** 2026-05-27 (Engineering plan N1-N5 completed on `codex/pr-visible-metrics`: React ErrorBoundary, storage usage surfacing, `mutateSnapshot` seam, behavioral storage contracts, code-review checklist, PR typography lock — 604/604 tests, typecheck, build, version 0.1.26 mirrored into MV3)
 > **For:** any agent continuing work in this repo
 
 ## Recently Fixed (2026-05-27) — Engineering plan N1-N5
