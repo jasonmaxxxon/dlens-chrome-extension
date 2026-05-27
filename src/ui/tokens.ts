@@ -294,9 +294,9 @@ export function modeThemeStyle(mode: string | null | undefined) {
  */
 export const textStyles = {
   /** Serif headline — compare hero, mode header title */
-  h2: { fontFamily: `${tokens.font.serifCjk}, ${tokens.font.serif}`, fontWeight: 700, fontSize: 24, lineHeight: 1.25, letterSpacing: "-0.01em" } as const,
+  h2: { fontFamily: `${tokens.font.serifCjk}, ${tokens.font.serif}`, fontWeight: 700, fontSize: 24, lineHeight: 1.25, letterSpacing: 0 } as const,
   /** Serif sub-headline — section titles inside views */
-  h3: { fontFamily: `${tokens.font.serifCjk}, ${tokens.font.serif}`, fontWeight: 700, fontSize: 18, lineHeight: 1.3, letterSpacing: "-0.005em" } as const,
+  h3: { fontFamily: `${tokens.font.serifCjk}, ${tokens.font.serif}`, fontWeight: 700, fontSize: 18, lineHeight: 1.3, letterSpacing: 0 } as const,
   /** Bold sans — card titles, workflow pattern names */
   cardTitle: { fontFamily: tokens.font.sans, fontWeight: 700, fontSize: 15, lineHeight: 1.35 } as const,
   /** Regular sans — primary reading text */

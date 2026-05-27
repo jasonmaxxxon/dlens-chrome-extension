@@ -664,10 +664,10 @@ test("PrEvidenceView renders campaign setup and compact evidence ledger", () => 
   assert.match(html, /data-pr-campaign-setup="true"/);
   assert.match(html, /data-pr-actions="true"/);
   assert.match(html, /data-pr-evidence-ledger="compact"/);
-  assert.match(html, /Match criteria/);
-  assert.match(html, /Fetch advanced metrics/);
-  assert.match(html, /Export CSV/);
-  assert.match(html, /Generate summary/);
+  assert.match(html, /批次判斷/);
+  assert.match(html, /抓取進階指標/);
+  assert.match(html, /匯出 CSV/);
+  assert.match(html, /生成摘要/);
 });
 
 test("PrEvidenceView aligns the editorial PR structure to shared workspace tokens", () => {
@@ -681,11 +681,29 @@ test("PrEvidenceView aligns the editorial PR structure to shared workspace token
   assert.match(html, /data-mode-header="pr-evidence"/);
   assert.match(html, /data-workspace-surface="utility"/);
   assert.match(html, /data-pr-working-area="true"/);
-  assert.match(html, /Ledger/);
-  assert.match(html, /Match criteria/);
-  assert.match(html, /Fetch metrics/);
-  assert.match(html, /border-radius:12px/);
-  assert.doesNotMatch(html, /border-radius:20px/);
+  assert.match(html, /證據帳本/);
+  assert.match(html, /批次判斷/);
+  assert.match(html, /抓取指標/);
+  assert.match(html, /border-radius:20px/);
+  assert.match(html, /0 4px 14px -4px rgba\(27,26,23,0\.07\)/);
+});
+
+test("PR Evidence setup copy is Chinese-first and avoids fake campaign examples", () => {
+  const html = renderToStaticMarkup(
+    React.createElement(PrEvidenceView, {
+      sessionId: "session-pr"
+    })
+  );
+
+  assert.match(html, /活動名稱/);
+  assert.match(html, /貼上新聞稿、message house 或 PR guideline，也可以上傳 PDF。/);
+  assert.match(html, /PR 判斷條件/);
+  assert.match(html, /儲存活動/);
+  assert.match(html, /取消/);
+  assert.match(html, /儲存後自動同步/);
+  assert.doesNotMatch(html, /Mannings BoostUP Wellness Carnival/);
+  assert.doesNotMatch(html, /Campaign name|Saved posts|Ledger|Auto-saves after Save/);
+  assert.doesNotMatch(html, /criterion_1/);
 });
 
 test("PR Evidence ledger rows expose the original Threads post link", () => {
@@ -756,7 +774,7 @@ test("PrEvidenceView keeps metrics actions prominent and avoids horizontal inspe
   );
 
   assert.match(html, /data-pr-metrics-action="toolbar"/);
-  assert.match(html, /Fetch advanced metrics/);
+  assert.match(html, /抓取進階指標/);
   assert.match(html, /data-pr-work-tab="metrics"/);
   assert.match(html, /data-pr-match-list="wrap"/);
   assert.match(html, /data-pr-metrics-list="wrap"/);
@@ -834,8 +852,8 @@ test("PR Evidence advanced metrics notice includes the first failure reason", ()
     ]
   );
 
-  assert.match(notice, /0 rows, 5 failed/);
-  assert.match(notice, /First error: 404 Not Found/);
+  assert.match(notice, /0 列，5 列失敗/);
+  assert.match(notice, /第一個錯誤：404 Not Found/);
 });
 
 test("Product and PR Evidence modes render no folder strip", () => {
@@ -1111,6 +1129,59 @@ test("ProductSignalView shows real readiness state without fake AI results", () 
   assert.match(html, /尚未抓取/);
   assert.match(html, /按分析會先送出抓取請求/);
   assert.doesNotMatch(html, /航班觀察|fixture|score/i);
+});
+
+test("ProductSignalView keeps existing analyses visible when signal inbox is empty", () => {
+  const html = renderToStaticMarkup(
+    React.createElement(ProductSignalView as any, {
+      kind: "saved-signals",
+      signals: [],
+      analyses: [
+        {
+          signalId: "signal_orphan",
+          signalType: "demand",
+          signalSubtype: "mobile_capture",
+          contentType: "mixed",
+          contentSummary: "使用者想把 Threads 討論直接變成可執行任務。",
+          relevance: 5,
+          relevantTo: ["coreWorkflows"],
+          whyRelevant: "對應 Product mode 的核心承諾。",
+          verdict: "try",
+          reason: "需求具體，適合先做小實驗。",
+          experimentHint: "做一個 collect-to-task 的最小流程。",
+          evidenceRefs: ["e1"],
+          productContextHash: "ctx",
+          promptVersion: "v1",
+          analyzedAt: "2026-05-27T06:00:00.000Z",
+          status: "complete"
+        }
+      ],
+      productProfile: {
+        name: "DLens",
+        category: "Creator analysis",
+        audience: "Threads creators",
+        contextText: "README context",
+        contextFiles: [
+          {
+            id: "file_readme",
+            name: "README.md",
+            kind: "readme",
+            importedAt: "2026-05-27T00:00:00.000Z",
+            charCount: 14
+          }
+        ]
+      },
+      signalPreviewById: {},
+      signalReadinessById: {},
+      onAnalyze: () => undefined
+    })
+  );
+
+  assert.match(html, /data-product-recovered-analyses="true"/);
+  assert.match(html, /已有 1 筆既有分析，但目前 signal 清單是空的/);
+  assert.match(html, /使用者想把 Threads 討論直接變成可執行任務。/);
+  assert.match(html, /AI enabled/);
+  assert.doesNotMatch(html, /尚未有 AI 分析結果/);
 });
 
 test("ProductSignalView only shows remove controls when delete is wired", () => {

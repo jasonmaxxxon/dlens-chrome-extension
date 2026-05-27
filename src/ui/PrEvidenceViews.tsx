@@ -35,12 +35,12 @@ type PrResponse = ExtensionResponse & {
 };
 
 const CRITERION_PLACEHOLDERS: Record<PrCriterionId, string> = {
-  c1: "Campaign name or identity",
-  c2: "#Hashtag or handle",
-  c3: "Core message or tagline",
-  c4: "Venue / location",
-  c5: "Experience theme",
-  c6: "CTA / ticket / action"
+  c1: "活動名稱或品牌",
+  c2: "Hashtag 或官方帳號",
+  c3: "核心訊息或 tagline",
+  c4: "場地 / 地點",
+  c5: "體驗主題",
+  c6: "CTA / 報名動作"
 };
 
 function createId(prefix: string): string {
@@ -77,10 +77,10 @@ function formatMetric(value: number | undefined): string {
 function metricLine(row: PrEvidenceRow): string {
   const views = row.metrics.views ?? inferPrViewsFromText(row.caption) ?? undefined;
   return [
-    `${formatMetric(row.metrics.likes)} likes`,
-    `${formatMetric(row.metrics.comments)} replies`,
-    `${formatMetric(row.metrics.reposts)} reposts`,
-    views != null ? `${formatMetric(views)} views` : "",
+    `${formatMetric(row.metrics.likes)} 喜歡`,
+    `${formatMetric(row.metrics.comments)} 回覆`,
+    `${formatMetric(row.metrics.reposts)} 轉發`,
+    views != null ? `${formatMetric(views)} 瀏覽` : "",
     row.metrics.followers != null ? `${formatMetric(row.metrics.followers)} followers` : ""
   ].filter(Boolean).join(" · ");
 }
@@ -93,9 +93,9 @@ function summarizeAdvancedMetricsNotice(
   const failed = summary?.failed ?? 0;
   const firstError = rows.find((row) => row.advancedMetricsError)?.advancedMetricsError?.trim();
   const firstErrorText = firstError
-    ? ` First error: ${firstError.slice(0, 160)}`
+    ? ` 第一個錯誤：${firstError.slice(0, 160)}`
     : "";
-  return `Advanced metrics updated: ${updated} rows${failed ? `, ${failed} failed` : ""}.${firstErrorText}`;
+  return `進階指標已更新：${updated} 列${failed ? `，${failed} 列失敗` : ""}.${firstErrorText}`;
 }
 
 function formatTime(value: string): string {
@@ -288,16 +288,16 @@ function CampaignEditor({
           borderRadius: PR_RADIUS
         }}
       >
-        <span style={{ ...fieldLabelStyle, flex: "0 0 96px" }}>Campaign</span>
+        <span style={{ ...fieldLabelStyle, flex: "0 0 96px" }}>活動</span>
         <span style={{ fontSize: 13, fontWeight: 700, color: tokens.color.ink, flex: 1, minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-          {campaign.name || "Unnamed campaign"}
+          {campaign.name || "未命名活動"}
         </span>
         <span style={{ display: "inline-flex", alignItems: "center", gap: 6, color: PR_MOSS, fontSize: 12, fontWeight: 600 }}>
           <span aria-hidden style={{ width: 6, height: 6, borderRadius: PR_ROUND, background: PR_MOSS }} />
-          Ready
+          已設定
         </span>
         <SecondaryButton onClick={() => onExpand?.()} style={compactButtonStyle}>
-          Edit setup
+          編輯設定
         </SecondaryButton>
       </div>
     );
@@ -321,13 +321,13 @@ function CampaignEditor({
         <div data-pr-section="name">
           <label style={{ display: "grid", gap: 6 }}>
             <span style={fieldLabelStyle}>
-              Campaign name
+              活動名稱
             </span>
             <input
               data-pr-field="name"
               value={campaign.name}
               onChange={(event) => onChange({ ...campaign, name: event.target.value, updatedAt: new Date().toISOString() })}
-              placeholder="Mannings BoostUP Wellness Carnival"
+              placeholder="輸入活動或品牌名稱"
               style={inputLineStyle}
             />
           </label>
@@ -339,7 +339,7 @@ function CampaignEditor({
           {/* Header row — always visible */}
           <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 8 }}>
             <span style={fieldLabelStyle}>
-              PR brief
+              新聞稿 / PR brief
             </span>
             <div style={{ display: "flex", gap: 6, alignItems: "center" }}>
               {/* Upload — always available */}
@@ -351,7 +351,7 @@ function CampaignEditor({
                 disabled={isReadingBrief || isGenerating}
                 style={{ ...accentButtonStyle, ...compactButtonStyle, whiteSpace: "nowrap" }}
               >
-                {isReadingBrief ? "Reading..." : "Upload PDF"}
+                {isReadingBrief ? "讀取中..." : "上傳 PDF"}
               </SecondaryButton>
               {/* Edit / Done toggle — only when brief has content */}
               {campaign.briefText.trim() ? (
@@ -359,7 +359,7 @@ function CampaignEditor({
                   onClick={() => setBriefExpanded((v) => !v)}
                   style={compactButtonStyle}
                 >
-                  {briefExpanded ? "Done" : "Edit"}
+                  {briefExpanded ? "完成" : "編輯"}
                 </SecondaryButton>
               ) : null}
             </div>
@@ -413,7 +413,7 @@ function CampaignEditor({
                   borderRadius: PR_ROUND
                 }}
               >
-                {campaign.briefText.length} chars
+                {campaign.briefText.length} 字
               </span>
             </div>
           ) : null}
@@ -426,7 +426,7 @@ function CampaignEditor({
                 data-pr-field="brief"
                 value={campaign.briefText}
                 onChange={(event) => onChange({ ...campaign, briefText: event.target.value, updatedAt: new Date().toISOString() })}
-                placeholder="Paste the press release, message house, or PR guideline — or upload a PDF."
+                placeholder="貼上新聞稿、message house 或 PR guideline，也可以上傳 PDF。"
                 rows={4}
                 style={{
                   width: "100%",
@@ -475,7 +475,7 @@ function CampaignEditor({
                 <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="var(--dlens-mode-accent)" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
                   <circle cx="12" cy="12" r="9" /><path d="M12 8v4" /><path d="M12 16h.01" />
                 </svg>
-                <Kicker tone="accent">Detected core PR messages</Kicker>
+                <Kicker tone="accent">偵測到的核心訊息</Kicker>
               </div>
               <div style={{ display: "grid" }}>
                 {parsedMessages.map(({ label, value }, i) => (
@@ -535,10 +535,10 @@ function CampaignEditor({
         <div data-pr-section="criteria" style={{ display: "grid", gap: 9 }}>
           <div style={{ display: "flex", justifyContent: "space-between", gap: 10, alignItems: "center" }}>
             <span style={fieldLabelStyle}>
-              PR matching criteria
+              PR 判斷條件
             </span>
             <SecondaryButton onClick={onGenerateCriteria} disabled={isReadingBrief || isGenerating} style={{ ...accentButtonStyle, ...compactButtonStyle }}>
-              {isGenerating ? "Generating..." : "Generate criteria"}
+              {isGenerating ? "生成中..." : "生成條件"}
             </SecondaryButton>
           </div>
           <div style={{ display: "grid", gridTemplateColumns: "repeat(2, minmax(0, 1fr))", gap: `${tokens.spacing.sm}px ${tokens.spacing.md}px` }}>
@@ -562,13 +562,13 @@ function CampaignEditor({
         {/* ── Save ─────────────────────────────────────────────────── */}
         <div data-pr-section="save" style={{ paddingTop: 4, display: "flex", gap: 8, alignItems: "center" }}>
           <PrimaryButton onClick={onSave} disabled={isSaving || !campaign.name.trim()} style={compactButtonStyle}>
-            {isSaving ? "Saving..." : "Save campaign"}
+            {isSaving ? "儲存中..." : "儲存活動"}
           </PrimaryButton>
           <SecondaryButton onClick={() => onCollapse?.()} style={compactButtonStyle}>
-            Cancel
+            取消
           </SecondaryButton>
           <span style={{ ...prMonoMetaStyle, marginLeft: "auto", color: tokens.color.softInk }}>
-            Auto-saves after Save
+            儲存後自動同步
           </span>
         </div>
     </section>
@@ -770,9 +770,9 @@ function PrWorkingArea({
   const totalCells = rows.length * 6;
   const hasFetchedMetrics = rows.some((row) => row.advancedMetricsFetchedAt);
   const tabs: ReadonlyArray<SegmentedTabItem<PrWorkPane>> = [
-    { id: "ledger", label: "Ledger", count: String(rows.length), tone: rows.length ? "accent" : "neutral" },
-    { id: "match", label: "Match criteria", count: `${matchedCells}/${totalCells}`, tone: matchedCells ? "success" : "neutral" },
-    { id: "metrics", label: "Fetch metrics", count: hasFetchedMetrics ? "done" : "—", tone: hasFetchedMetrics ? "success" : "neutral" }
+    { id: "ledger", label: "證據帳本", count: String(rows.length), tone: rows.length ? "accent" : "neutral" },
+    { id: "match", label: "批次判斷", count: `${matchedCells}/${totalCells}`, tone: matchedCells ? "success" : "neutral" },
+    { id: "metrics", label: "抓取指標", count: hasFetchedMetrics ? "已完成" : "—", tone: hasFetchedMetrics ? "success" : "neutral" }
   ];
 
   const paneStyle = (pane: PrWorkPane) => ({
@@ -794,36 +794,36 @@ function PrWorkingArea({
           tabs={tabs}
           activeId={activePane}
           onChange={onPaneChange}
-          ariaLabel="PR working area panes"
+          ariaLabel="PR 工作區分頁"
           dataAttr={(id) => ({ "data-pr-work-tab": id })}
         />
         <span style={{ flex: 1 }} />
         <div style={{ display: "flex", alignItems: "center", paddingBottom: 6 }}>
           <PrimaryButton onClick={onExportCsv} disabled={!savedCampaignReady} style={compactButtonStyle}>
-            Export CSV
+            匯出 CSV
           </PrimaryButton>
         </div>
       </div>
 
       <div style={paneStyle("ledger")}>
         <PaneHeader
-          title="Saved posts"
-          caption={`${rows.length} rows · click to inspect${lastMatchedAt ? ` · matched ${formatTime(lastMatchedAt)}` : ""}`}
+          title="已儲存貼文"
+          caption={`${rows.length} 列 · 點擊查看${lastMatchedAt ? ` · 已判斷 ${formatTime(lastMatchedAt)}` : ""}`}
         />
         <EvidenceLedger rows={rows} criteria={campaign.criteria} />
       </div>
 
       <div style={paneStyle("match")}>
         <PaneHeader
-          title="Score each post against 6 criteria"
-          caption={`~${Math.max(0, Math.ceil(rows.length / 25))} AI calls · ${totalCells} cells`}
+          title="用 6 項條件逐篇判斷"
+          caption={`約 ${Math.max(0, Math.ceil(rows.length / 25))} 次 AI call · ${totalCells} 格`}
           action={
             <PrimaryButton
               onClick={onMatchCriteria}
               disabled={!rows.length || isMatching || !savedCampaignReady}
               style={compactButtonStyle}
             >
-              {isMatching ? "Matching..." : "Match criteria"}
+              {isMatching ? "判斷中..." : "批次判斷"}
             </PrimaryButton>
           }
         />
@@ -852,12 +852,12 @@ function PrWorkingArea({
               <CriterionChips row={row} criteria={campaign.criteria} variant="full" />
             </div>
           )) : (
-            <div style={{ padding: "16px 8px", fontSize: 12, color: tokens.color.subInk }}>Collect posts before matching criteria.</div>
+            <div style={{ padding: "16px 8px", fontSize: 12, color: tokens.color.subInk }}>先收集貼文，再執行條件判斷。</div>
           )}
           {rows.length ? (
             <div style={{ display: "flex", flexWrap: "wrap", gap: 14, alignItems: "center", padding: "10px 4px", borderTop: `1px solid ${PR_RULE}` }}>
               <span style={{ ...textStyles.label, fontFamily: tokens.font.mono, color: tokens.color.softInk, letterSpacing: "0.06em" }}>
-                Σ per criterion
+                Σ 各條件
               </span>
               {totals.map((total, index) => (
                 <span
@@ -881,16 +881,16 @@ function PrWorkingArea({
 
       <div style={paneStyle("metrics")}>
         <PaneHeader
-          title="Advanced metrics"
+          title="進階指標"
           caption="likes · replies · reposts · views · followers"
           action={
-            <span data-pr-metrics-action="toolbar" title="Fetch advanced metrics" style={{ display: "inline-flex" }}>
+            <span data-pr-metrics-action="toolbar" title="抓取進階指標" style={{ display: "inline-flex" }}>
               <PrimaryButton
                 onClick={onFetchAdvancedMetrics}
                 disabled={!rows.length || isFetchingAdvancedMetrics || !savedCampaignReady}
                 style={compactButtonStyle}
               >
-                {isFetchingAdvancedMetrics ? "Fetching..." : "Fetch advanced metrics"}
+                {isFetchingAdvancedMetrics ? "抓取中..." : "抓取進階指標"}
               </PrimaryButton>
             </span>
           }
@@ -984,10 +984,10 @@ function AdvancedMetricsPanel({ rows }: { rows: PrEvidenceRow[] }) {
                   </div>
                 </div>
                 <div style={{ display: "flex", flexWrap: "wrap", columnGap: 16, rowGap: 4, paddingLeft: 32 }}>
-                  <MetricCell label="likes" value={formatMetric(row.metrics.likes)} />
-                  <MetricCell label="replies" value={formatMetric(row.metrics.comments)} />
-                  <MetricCell label="reposts" value={formatMetric(row.metrics.reposts)} advanced />
-                  <MetricCell label="views" value={formatMetric(views)} advanced />
+                  <MetricCell label="喜歡" value={formatMetric(row.metrics.likes)} />
+                  <MetricCell label="回覆" value={formatMetric(row.metrics.comments)} />
+                  <MetricCell label="轉發" value={formatMetric(row.metrics.reposts)} advanced />
+                  <MetricCell label="瀏覽" value={formatMetric(views)} advanced />
                   <MetricCell label="followers" value={formatMetric(row.metrics.followers)} advanced />
                 </div>
                 {row.advancedMetricsError ? (
@@ -1001,7 +1001,7 @@ function AdvancedMetricsPanel({ rows }: { rows: PrEvidenceRow[] }) {
         </div>
       ) : (
         <div style={{ padding: "16px 12px", borderRadius: PR_RADIUS, border: `1px solid ${PR_RULE}`, background: tokens.color.surface, fontSize: 12, color: tokens.color.subInk }}>
-          Collect posts before fetching advanced metrics.
+          先收集貼文，再抓取進階指標。
         </div>
       )}
     </section>
@@ -1015,9 +1015,9 @@ function CsvPreview({ campaign, rows }: { campaign: PrCampaign; rows: PrEvidence
     <details data-pr-csv-preview="true" style={{ marginTop: 4, borderTop: `1px solid ${PR_RULE}`, paddingTop: 18, borderRadius: PR_RADIUS }}>
       <summary style={{ listStyle: "none", cursor: "pointer", display: "flex", alignItems: "baseline", gap: 8, fontFamily: `${tokens.font.serifCjk}, ${tokens.font.serif}`, fontSize: 16, fontWeight: 600, color: tokens.color.ink }}>
         <span style={{ fontSize: 11, color: tokens.color.softInk }}>▸</span>
-        CSV preview
+        CSV 預覽
         <span style={{ ...prMonoMetaStyle, marginLeft: "auto", color: tokens.color.softInk, fontWeight: 500 }}>
-          header + first 20 rows · {rows.length} rows ready
+          header + 前 20 列 · {rows.length} 列可匯出
         </span>
       </summary>
       <div
@@ -1044,7 +1044,7 @@ function CsvPreview({ campaign, rows }: { campaign: PrCampaign; rows: PrEvidence
           >
             <div style={{ display: "flex", alignItems: "baseline", gap: 8, flexWrap: "wrap" }}>
               <span style={{ ...textStyles.label, fontFamily: tokens.font.mono, color: PR_ACCENT }}>
-                row {rowIndex + 1}
+                第 {rowIndex + 1} 列
               </span>
               <span style={{ ...prMonoMetaStyle, color: tokens.color.softInk }}>
                 {(line[1] || line[0] || "-").slice(0, 72)}
@@ -1072,7 +1072,7 @@ function CsvPreview({ campaign, rows }: { campaign: PrCampaign; rows: PrEvidence
           </article>
         )) : (
           <div style={{ padding: "14px 12px", fontSize: 12, color: tokens.color.subInk }}>
-            No CSV rows yet.
+            還沒有 CSV 列。
           </div>
         )}
       </div>
@@ -1095,13 +1095,13 @@ function SummaryPanel({ campaign, summary }: { campaign: PrCampaign; summary: st
       }}
     >
       <div style={{ display: "flex", justifyContent: "space-between", gap: 10, alignItems: "center", flexWrap: "wrap" }}>
-        <Kicker>Topline PR audit summary</Kicker>
+        <Kicker>PR 稽核摘要</Kicker>
         <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
           <SecondaryButton onClick={() => exportPrSummaryMarkdown(summary, campaign.name)} style={{ ...accentButtonStyle, ...compactButtonStyle }}>
-            Export MD
+            匯出 MD
           </SecondaryButton>
           <SecondaryButton onClick={() => exportPrSummaryDocx(summary, campaign.name)} style={{ ...exportButtonStyle, ...compactButtonStyle }}>
-            Export DOCX
+            匯出 DOCX
           </SecondaryButton>
         </div>
       </div>
@@ -1185,7 +1185,7 @@ function PrEvidenceViewInner({ sessionId }: { sessionId: string }) {
       const active = response.prCampaigns?.[0] || next;
       setCampaign(active);
       setSetupCollapsed(true);
-      setNotice("Campaign saved. Collect can now add evidence rows.");
+      setNotice("活動已儲存；Collect 現在可以加入 evidence rows。");
     } else {
       setNotice(response.error);
     }
@@ -1216,12 +1216,12 @@ function PrEvidenceViewInner({ sessionId }: { sessionId: string }) {
         const saveResponse = await sendExtensionMessage<PrResponse>({ type: "pr/save-campaign", campaign: next });
         if (saveResponse.ok) {
           setCampaign(saveResponse.prCampaigns?.[0] || next);
-          setNotice("Criteria generated and saved. Match criteria can now use the six labels.");
+          setNotice("條件已生成並儲存；批次判斷會使用這六個標籤。");
         } else {
           setNotice(saveResponse.error);
         }
       } else {
-        setNotice("Criteria generated. Add a campaign name before matching.");
+        setNotice("條件已生成。請先填活動名稱，再執行批次判斷。");
       }
     } else if (!response.ok) {
       setNotice(response.error);
@@ -1242,7 +1242,7 @@ function PrEvidenceViewInner({ sessionId }: { sessionId: string }) {
       const nextName = campaign.name.trim() || result.inferredName;
       setCampaign((current) => ({ ...current, name: nextName, briefText: result.text, updatedAt: now }));
       setIsReadingBrief(false);
-      setNotice(`已載入 ${file.name}${result.sourceKind === "pdf" ? " PDF" : ""}，正在用 brief 產生六項 criteria...`);
+      setNotice(`已載入 ${file.name}${result.sourceKind === "pdf" ? " PDF" : ""}，正在用 brief 產生六項條件...`);
       await generateCriteriaFromBrief(nextName, result.text);
     } catch (error) {
       setUploadError(error instanceof Error ? error.message : String(error));
@@ -1253,7 +1253,7 @@ function PrEvidenceViewInner({ sessionId }: { sessionId: string }) {
 
   async function matchCriteria() {
     if (!savedCampaignReady) {
-      setNotice("Save a campaign before matching criteria.");
+      setNotice("請先儲存活動，再執行批次判斷。");
       return;
     }
     setIsMatching(true);
@@ -1261,7 +1261,7 @@ function PrEvidenceViewInner({ sessionId }: { sessionId: string }) {
     const response = await sendExtensionMessage<PrResponse>({ type: "pr/match-criteria", campaignId: campaign.id });
     if (response.ok) {
       setRows(response.prEvidenceRows ?? []);
-      setNotice("Criteria matching updated.");
+      setNotice("條件判斷已更新。");
     } else {
       setNotice(response.error);
     }
@@ -1270,7 +1270,7 @@ function PrEvidenceViewInner({ sessionId }: { sessionId: string }) {
 
   async function fetchAdvancedMetrics() {
     if (!savedCampaignReady) {
-      setNotice("Save a campaign before fetching advanced metrics.");
+      setNotice("請先儲存活動，再抓取進階指標。");
       return;
     }
     setIsFetchingAdvancedMetrics(true);
@@ -1293,7 +1293,7 @@ function PrEvidenceViewInner({ sessionId }: { sessionId: string }) {
 
   async function generateSummary() {
     if (!savedCampaignReady) {
-      setNotice("Save a campaign before generating summary.");
+      setNotice("請先儲存活動，再生成摘要。");
       return;
     }
     setIsGeneratingSummary(true);
@@ -1334,11 +1334,22 @@ function PrEvidenceViewInner({ sessionId }: { sessionId: string }) {
         mode="pr-evidence"
         kicker="PR Evidence"
         title="把已找到的 Threads 貼文整理成 PR evidence CSV"
-        deck="Collect 儲存貼文 → Match 批次判斷 → Export CSV 交付。V1 不在 Collect 跑 AI。"
-        stamp={<Stamp tone="accent">CSV first</Stamp>}
+        deck="採集先儲存貼文，PR 頁再批次判斷與匯出 CSV；V1 不在採集時跑 AI。"
+        stamp={<Stamp tone="accent">先出 CSV</Stamp>}
       />
 
-      <WorkspaceSurface tone="utility" style={{ display: "grid", gap: tokens.spacing.md, minWidth: 0, maxWidth: "100%", overflow: "hidden" }}>
+      <WorkspaceSurface
+        tone="utility"
+        style={{
+          display: "grid",
+          gap: tokens.spacing.md,
+          minWidth: 0,
+          maxWidth: "100%",
+          overflow: "hidden",
+          borderRadius: tokens.radius.cardLg,
+          boxShadow: tokens.shadow.topicCard
+        }}
+      >
         <CampaignEditor
           campaign={campaign}
           onChange={setCampaign}
@@ -1414,14 +1425,14 @@ function SummaryGenerateCard({ onGenerate, loading, disabled = false }: { onGene
     >
       <div style={{ display: "grid", gap: 3, minWidth: 0 }}>
         <span style={{ fontFamily: `${tokens.font.serifCjk}, ${tokens.font.serif}`, fontSize: 14, fontWeight: 700, color: tokens.color.ink }}>
-          Topline narrative
+          PR 摘要
         </span>
         <span style={{ ...textStyles.caption, color: tokens.color.softInk, fontWeight: 500, lineHeight: 1.5 }}>
-          Generate summary: turn matched evidence into a paragraph you can paste into the PR brief.
+          生成摘要：把已判斷 evidence 轉成可貼進 PR brief 的段落。
         </span>
       </div>
       <SecondaryButton onClick={onGenerate} disabled={disabled || loading} style={{ ...accentButtonStyle, ...compactButtonStyle, whiteSpace: "nowrap" }}>
-        {loading ? "Generating..." : "Generate summary"}
+        {loading ? "生成中..." : "生成摘要"}
       </SecondaryButton>
     </section>
   );

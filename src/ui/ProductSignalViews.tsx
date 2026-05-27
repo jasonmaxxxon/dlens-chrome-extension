@@ -342,6 +342,10 @@ function readinessCopy({
   signalReadinessById: Record<string, ProductSignalReadiness>;
 }) {
   if (!signals.length) {
+    const visibleCount = analyses.filter((analysis) => analysis.status === "complete").length || analyses.length;
+    if (visibleCount > 0) {
+      return `已有 ${visibleCount} 筆既有分析，但目前 signal 清單是空的。先顯示已分析資料；新的貼文仍從 Collect 加入。`;
+    }
     return "Product mode 收件匣沒有 signal。先在 Collect 儲存一篇 Threads post。";
   }
   if (!aiProviderReady) {
@@ -465,8 +469,9 @@ function cardStyle(extra?: CSSProperties): CSSProperties {
     display: "grid",
     gap: 9,
     padding: "12px 13px",
-    background: tokens.color.surface,
-    boxShadow: tokens.shadow.card,
+    borderRadius: tokens.radius.cardLg,
+    background: tokens.color.elevated,
+    boxShadow: tokens.shadow.topicCard,
     ...extra
   });
 }
@@ -476,8 +481,9 @@ function mutedPanelStyle(extra?: CSSProperties): CSSProperties {
     display: "grid",
     gap: 8,
     padding: "10px 12px",
+    borderRadius: tokens.radius.cardLg,
     background: tokens.color.contextSurface,
-    boxShadow: "none",
+    boxShadow: tokens.shadow.topicCard,
     ...extra
   });
 }
@@ -2222,6 +2228,58 @@ function SavedSignalsBoard({
   );
 }
 
+function RecoveredAnalysesBoard({
+  analyses,
+  signalPreviewById
+}: {
+  analyses: ProductSignalAnalysis[];
+  signalPreviewById: Record<string, string>;
+}) {
+  if (!analyses.length) {
+    return null;
+  }
+
+  return (
+    <section data-product-recovered-analyses="true" style={{ display: "grid", gap: 12 }}>
+      <div style={cardStyle({ gap: 10 })}>
+        <div style={{ display: "flex", justifyContent: "space-between", gap: 10, alignItems: "baseline" }}>
+          <Kicker>已分析資料</Kicker>
+          <span style={{ ...textStyles.meta, color: tokens.color.softInk }}>{analyses.length} analyses · signal 清單是空的</span>
+        </div>
+        <div data-scan-list="recovered-product-analyses" style={{ display: "grid" }}>
+          {analyses.map((analysis) => {
+            const typeMeta = SIGNAL_TYPE_META[analysis.signalType];
+            return (
+              <div
+                key={analysis.signalId}
+                data-recovered-analysis-row="true"
+                data-scan-row="true"
+                style={scanRowStyle({
+                  display: "grid",
+                  gridTemplateColumns: "minmax(0, 1fr) auto",
+                  gap: 9,
+                  alignItems: "center",
+                  padding: "9px 10px"
+                })}
+              >
+                <span style={{ minWidth: 0, display: "grid", gap: 3 }}>
+                  <span style={{ ...textStyles.bodyTight, color: tokens.color.ink, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                    {excerpt(signalPreviewById[analysis.signalId] || analysis.contentSummary || analysis.signalId, 120)}
+                  </span>
+                  <span style={{ ...textStyles.meta, color: tokens.color.softInk }}>
+                    {SIGNAL_TYPE_LABELS[analysis.signalType]} · {VERDICT_LABELS[analysis.verdict]} · {analysis.signalId}
+                  </span>
+                </span>
+                <ScorePill color={typeMeta.color} soft={typeMeta.soft}>{typeMeta.label}</ScorePill>
+              </div>
+            );
+          })}
+        </div>
+      </div>
+    </section>
+  );
+}
+
 type SynthesizeSignalReading = (
   signalId: string,
   sessionId: string,
@@ -3801,7 +3859,11 @@ export function ProductSignalView({
   const safeAgentTaskFeedback = Array.isArray(agentTaskFeedback) ? agentTaskFeedback : [];
   const safeSignalReadings = Array.isArray(signalReadings) ? signalReadings : [];
   const bySignal = analysisBySignalId(safeAnalyses);
-  const scopedAnalyses = visibleAnalyses(kind, safeSignals.map((signal) => bySignal.get(signal.id)).filter((entry): entry is ProductSignalAnalysis => Boolean(entry)));
+  const signalScopedAnalyses = safeSignals.length
+    ? safeSignals.map((signal) => bySignal.get(signal.id)).filter((entry): entry is ProductSignalAnalysis => Boolean(entry))
+    : safeAnalyses;
+  const scopedAnalyses = visibleAnalyses(kind, signalScopedAnalyses);
+  const hasRecoveredAnalyses = safeSignals.length === 0 && scopedAnalyses.length > 0;
   const pendingSignals = safeSignals.filter((signal) => bySignal.get(signal.id)?.status !== "complete");
   const canAnalyze = canRunProductSignalAction({ signals: safeSignals, productProfile, aiProviderReady, signalReadinessById });
   const showSignalReadingReview = Boolean(onReviewSignalReading) || safeSignalReadings.length > 0;
@@ -3881,15 +3943,22 @@ export function ProductSignalView({
           </div>
         ) : null}
         {kind === "saved-signals" ? (
-          <SavedSignalsBoard
-            signals={safeSignals}
-            analyses={scopedAnalyses}
-            signalPreviewById={signalPreviewById}
-            signalReadinessById={signalReadinessById}
-            selectedIds={selectedSignalIds}
-            onToggleSignal={toggleSelectedSignal}
-            onRemoveSignal={onRemoveSignal ? handleRemoveSignal : undefined}
-          />
+          hasRecoveredAnalyses ? (
+            <RecoveredAnalysesBoard
+              analyses={scopedAnalyses}
+              signalPreviewById={signalPreviewById}
+            />
+          ) : (
+            <SavedSignalsBoard
+              signals={safeSignals}
+              analyses={scopedAnalyses}
+              signalPreviewById={signalPreviewById}
+              signalReadinessById={signalReadinessById}
+              selectedIds={selectedSignalIds}
+              onToggleSignal={toggleSelectedSignal}
+              onRemoveSignal={onRemoveSignal ? handleRemoveSignal : undefined}
+            />
+          )
         ) : scopedAnalyses.length ? (
           kind === "classification" ? (
             <ClassificationBoard analyses={scopedAnalyses} signalPreviewById={signalPreviewById} />

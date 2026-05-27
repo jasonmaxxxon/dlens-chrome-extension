@@ -60,9 +60,9 @@ function readNumber(value: unknown): number | undefined {
   return typeof value === "number" && Number.isFinite(value) ? value : undefined;
 }
 
-function criterionLabel(value: unknown, index: number): string {
+function criterionLabel(value: unknown): string {
   const label = readString(value).trim();
-  return label || `criterion_${index + 1}`;
+  return label;
 }
 
 export function normalizePrCriteria(value: unknown): PrCampaign["criteria"] {
@@ -71,7 +71,7 @@ export function normalizePrCriteria(value: unknown): PrCampaign["criteria"] {
     const entry = raw[index] && typeof raw[index] === "object" ? raw[index] as Record<string, unknown> : {};
     return {
       id,
-      label: criterionLabel(entry.label, index)
+      label: criterionLabel(entry.label)
     };
   }) as PrCampaign["criteria"];
 }

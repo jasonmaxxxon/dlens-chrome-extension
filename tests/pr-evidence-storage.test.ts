@@ -48,7 +48,7 @@ function buildItem(): SessionItem {
   );
 }
 
-test("normalizePrCampaign enforces exactly six criteria and drops malformed campaigns", () => {
+test("normalizePrCampaign enforces exactly six criteria without inventing placeholder labels", () => {
   assert.equal(normalizePrCampaign(null), null);
   assert.equal(normalizePrCampaign({ id: "campaign-1", sessionId: "session-1" }), null);
 
@@ -68,7 +68,7 @@ test("normalizePrCampaign enforces exactly six criteria and drops malformed camp
   assert.equal(normalized?.criteria.length, 6);
   assert.deepEqual(normalized?.criteria.map((criterion) => criterion.id), ["c1", "c2", "c3", "c4", "c5", "c6"]);
   assert.equal(normalized?.criteria[0]?.label, "Brand named");
-  assert.equal(normalized?.criteria[2]?.label, "criterion_3");
+  assert.equal(normalized?.criteria[2]?.label, "");
 });
 
 test("savePrCampaign keeps one active campaign per session", async () => {
