@@ -1101,14 +1101,35 @@ async function saveSnapshot(tabId: number, snapshot: ExtensionSnapshot): Promise
   // Invalidate global cache so next loadGlobalState() reads fresh data
   globalStateCache = nextSnapshot.global;
   tabStateCache.set(tabId, nextSnapshot.tab);
+
+  const storageStart = performance.now();
   await chrome.storage.local.set({
     [GLOBAL_STORAGE_KEY]: nextSnapshot.global,
     [tabStorageKey(tabId)]: nextSnapshot.tab
   });
-  // Broadcast to the content script in this specific tab (avoids "Receiving end does not exist")
-  await chrome.tabs
+  const storageSetMs = Math.round(performance.now() - storageStart);
+
+  // Fire-and-forget broadcast: popup callers already receive the new snapshot
+  // via the direct sendAndSync response; this broadcast is a safety net for
+  // any listener that didn't originate the write. Awaiting the ack added
+  // ~10–30ms per saveSnapshot for no correctness benefit on the caller side.
+  void chrome.tabs
     .sendMessage(tabId, { type: "state/updated", tabId, snapshot: nextSnapshot } satisfies ExtensionMessage)
     .catch(() => undefined);
+
+  // Diagnostic: log slow saves with cheap state-size proxies (no JSON.stringify).
+  // Threshold filters noise from trivial saves while surfacing hot paths like
+  // session/set-mode. >400ms here means snapshot segment writes are warranted.
+  if (storageSetMs >= 50) {
+    const sessions = nextSnapshot.global.sessions;
+    const itemTotal = sessions.reduce((sum, session) => sum + session.items.length, 0);
+    console.info("[DLens] saveSnapshot", {
+      storageSetMs,
+      sessionCount: sessions.length,
+      itemTotal
+    });
+  }
+
   return nextSnapshot;
 }
 
