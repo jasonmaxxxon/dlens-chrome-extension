@@ -196,6 +196,10 @@ let globalStateCache: ExtensionGlobalState | null = null;
 // Per-tab UI state cache — lets the hover hot path skip a storage read on every move.
 const tabStateCache = new Map<number, TabUiState>();
 const withSnapshotLock = createAsyncLock();
+// Last saveSnapshot/global-only storage.local.set duration. Service worker is
+// single-threaded, so handlers can read this right after a persist call to
+// surface the storage cost in their response payload (popup-visible).
+let lastSaveSnapshotStorageMs = 0;
 
 interface OneLinerCacheValue {
   text: string;
@@ -239,6 +243,27 @@ function withTimestamp<T extends { updatedAt: string | null }>(value: T): T {
   };
 }
 
+async function persistGlobalStateOnly(global: ExtensionGlobalState, logLabel: string): Promise<ExtensionGlobalState> {
+  const nextGlobal = withTimestamp(normalizeGlobalState(global));
+  globalStateCache = nextGlobal;
+
+  const storageStart = performance.now();
+  await chrome.storage.local.set({ [GLOBAL_STORAGE_KEY]: nextGlobal });
+  const storageSetMs = Math.round(performance.now() - storageStart);
+  lastSaveSnapshotStorageMs = storageSetMs;
+
+  if (storageSetMs >= 50) {
+    const itemTotal = nextGlobal.sessions.reduce((sum, session) => sum + session.items.length, 0);
+    console.info(logLabel, {
+      storageSetMs,
+      sessionCount: nextGlobal.sessions.length,
+      itemTotal
+    });
+  }
+
+  return nextGlobal;
+}
+
 async function getActiveTabId(): Promise<number> {
   const tabs = await chrome.tabs.query({ active: true, currentWindow: true });
   const tabId = tabs[0]?.id;
@@ -264,7 +289,7 @@ async function loadGlobalState(): Promise<ExtensionGlobalState> {
   const activeOverlaid = applyStoredActiveSessionId(normalized, raw[ACTIVE_SESSION_ID_STORAGE_KEY]);
   const expired = expireStaleInFlightItems(activeOverlaid);
   if (expired !== activeOverlaid) {
-    await chrome.storage.local.set({ [GLOBAL_STORAGE_KEY]: expired });
+    return persistGlobalStateOnly(expired, "[DLens] loadGlobalState");
   }
   return expired;
 }
@@ -1096,11 +1121,6 @@ const getOrGenerateJudgment = createLlmCallWrapper<
   }
 });
 
-// Last saveSnapshot storage.local.set duration. Service worker is single-
-// threaded, so handlers can read this right after `await saveSnapshot(...)`
-// to surface the storage cost in their response payload (popup-visible).
-let lastSaveSnapshotStorageMs = 0;
-
 interface SnapshotSaveOptions {
   persistActiveSessionId?: boolean;
 }
@@ -1542,6 +1562,7 @@ async function queueSessionItem(
   sessionId: string,
   itemId: string
 ): Promise<{ snapshot: ExtensionSnapshot; submit: CaptureTargetResponse }> {
+  // Raw lock: this mutation returns ingest submit metadata in addition to the saved snapshot.
   return withSnapshotLock(async () => {
     const current = await loadSnapshot(tabId);
     const session = current.global.sessions.find((candidate) => candidate.id === sessionId);
@@ -1687,6 +1708,7 @@ async function refreshItem(
   sessionId: string,
   itemId: string
 ): Promise<{ snapshot: ExtensionSnapshot; job: JobSnapshot | null; capture: CaptureSnapshot | null }> {
+  // Raw lock: refresh returns job/capture metadata alongside the saved snapshot.
   return withSnapshotLock(async () => {
     const current = await loadSnapshot(tabId);
     const session = current.global.sessions.find((candidate) => candidate.id === sessionId);
@@ -1766,6 +1788,7 @@ async function refreshAllItems(tabId: number, sessionId?: string): Promise<Exten
     }
   }
 
+  // Raw lock: this path may return the latest snapshot without writing when the error is unchanged.
   return withSnapshotLock(async () => {
     const latest = await loadSnapshot(tabId);
     if (latest.tab.error === firstFailureMessage) {
@@ -1780,6 +1803,21 @@ async function refreshAllItems(tabId: number, sessionId?: string): Promise<Exten
     });
   });
 }
+
+function resetBackgroundTestState(): void {
+  globalStateCache = null;
+  tabStateCache.clear();
+  tabHoverCache.clear();
+  lastSaveSnapshotStorageMs = 0;
+}
+
+export const backgroundTestables = {
+  ACTIVE_SESSION_ID_STORAGE_KEY,
+  GLOBAL_STORAGE_KEY,
+  mutateSnapshot,
+  resetBackgroundTestState,
+  tabStorageKey
+};
 
 export default defineBackground(() => {
   chrome.runtime.onInstalled.addListener(() => {
@@ -1859,11 +1897,11 @@ export default defineBackground(() => {
     }
 
     if (refreshResults.length) {
+      // Raw lock: worker wake has no tab context, so it persists a global-only snapshot.
       await withSnapshotLock(async () => {
         const latest = await loadGlobalState();
         const merged = mergeItemRefreshResultsIntoGlobal(latest, refreshResults);
-        globalStateCache = withTimestamp(merged);
-        await chrome.storage.local.set({ [GLOBAL_STORAGE_KEY]: globalStateCache });
+        globalStateCache = await persistGlobalStateOnly(merged, "[DLens] backgroundRefreshInFlightItems");
         for (const session of globalStateCache.sessions) {
           if (session.mode === "product") {
             queueProductSignalAutoAnalysis(null, globalStateCache, session.id);

@@ -5,8 +5,9 @@ message handler, storage key, or test that proves the claim.
 
 - **Snapshot write path**: every snapshot mutation states whether it is
   tab-only, active-session-only, or full snapshot.
-- **Lock seam**: any read-modify-write path uses the shared lock seam
-  (`withSnapshotLock` or `mutateSnapshot`) unless it is explicitly not RMW.
+- **Lock seam**: any snapshot read-modify-write path uses `mutateSnapshot`
+  first. Use raw `withSnapshotLock` only when the handler must return extra
+  non-snapshot data or deliberately skip a write, and document that escape.
 - **Storage migration plan**: every new persisted storage key has a forward
   migration or an explicit reason it can safely default when absent.
 - **LLM fallback + usage accounting**: every new LLM call has deterministic
