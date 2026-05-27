@@ -1,4 +1,5 @@
 import assert from "node:assert/strict";
+import { readFileSync } from "node:fs";
 import test from "node:test";
 
 import {
@@ -34,4 +35,11 @@ test("buildWorkspaceCrashMarkup renders a visible fallback shell instead of blan
   assert.match(markup, /CompareView exploded/);
   assert.match(markup, /Open the page console or reload the tab/i);
   assert.match(markup, /data-dlens-control="true"/);
+});
+
+test("InPageCollectorApp is wrapped in a React tree error boundary", () => {
+  const source = readFileSync(new URL("../src/ui/InPageCollectorApp.tsx", import.meta.url), "utf8");
+
+  assert.match(source, /WorkspaceErrorBoundary/);
+  assert.match(source, /<WorkspaceErrorBoundary>[\s\S]*<InPageCollectorPopup app=\{app\} \/>[\s\S]*<\/WorkspaceErrorBoundary>/);
 });

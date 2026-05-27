@@ -2,6 +2,7 @@ import type { CSSProperties } from "react";
 
 import { InPageCollectorOverlays } from "./InPageCollectorOverlays";
 import { InPageCollectorPopup } from "./InPageCollectorPopup";
+import { WorkspaceErrorBoundary } from "./WorkspaceErrorBoundary";
 import { useExtensionSnapshot } from "./controller";
 import { modeThemeStyle } from "./tokens";
 import { useInPageCollectorAppState } from "./useInPageCollectorAppState";
@@ -16,8 +17,10 @@ export function InPageCollectorApp() {
 
   return (
     <div data-dlens-mode-theme={app.activeFolderMode} style={modeThemeStyle(app.activeFolderMode) as CSSProperties}>
-      <InPageCollectorOverlays app={app} />
-      <InPageCollectorPopup app={app} />
+      <WorkspaceErrorBoundary>
+        <InPageCollectorOverlays app={app} />
+        <InPageCollectorPopup app={app} />
+      </WorkspaceErrorBoundary>
     </div>
   );
 }
