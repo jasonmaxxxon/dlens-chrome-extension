@@ -8,9 +8,9 @@
 1. **Product Action route regression.** `ProductSignalView` must not switch back
    to the old `SignalReadingReviewWorkspace` when `SignalReading` rows or review
    callbacks exist. The `actionable-filter` route now stays on
-   `ActionableInsightsBoard` plus `SavedSignalsBatchExport`; tests explicitly
-   reject `READING REVIEW`, `PACKET EXPORT`, and
-   `data-signal-reading-review-workspace` on that route.
+   `ActionableInsightsBoard` only; tests explicitly reject `READING REVIEW`,
+   `PACKET EXPORT`, `data-signal-reading-review-workspace`, `Agent export`,
+   `原文優先`, and `複製 Agent Brief` on that route.
 2. **Shared card radius.** `surfaceCardStyle()` now defaults to
    `tokens.radius.cardLg` (`20px`) so Product/PR/shared surfaces match Topic's
    softer paper-card geometry. The Saved Signals action CTA also uses the same

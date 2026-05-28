@@ -1293,7 +1293,7 @@ test("ProductSignalView only shows remove controls when delete is wired", () => 
   assert.match(wiredHtml, /aria-label="移除此訊號"/);
 });
 
-test("ProductSignalView renders batch export only on the actionable page", () => {
+test("ProductSignalView keeps Agent export off Product action pages", () => {
   const baseProps = {
     signals: [
       {
@@ -1373,22 +1373,18 @@ test("ProductSignalView renders batch export only on the actionable page", () =>
   assert.doesNotMatch(savedHtml, /data-saved-signals-batch-export="true"/);
   assert.match(savedHtml, /data-product-action-cta="true"[^>]*border-radius:20px/);
   assert.match(actionableHtml, /data-actionable-insights-board="true"/);
-  assert.match(actionableHtml, /data-saved-signals-batch-export="true"/);
-  assert.ok(
-    actionableHtml.indexOf('data-actionable-insights-board="true"') < actionableHtml.indexOf('data-saved-signals-batch-export="true"'),
-    "Batch export should render after the actionable analysis board"
-  );
-  assert.match(actionableHtml, /原文優先/);
-  assert.match(actionableHtml, /精簡決策/);
-  assert.match(actionableHtml, /複製 Agent Brief/);
-  assert.match(actionableHtml, /data-signal-packet-html-export="true"/);
-  assert.match(actionableHtml, /data-signal-packet-format-option="html"/);
-  assert.match(actionableHtml, /data-signal-packet-format-option="jsonl"/);
-  assert.match(actionableHtml, /匯出 HTML Reading/);
-  assert.match(actionableHtml, /JSONL Packet/);
-  assert.match(actionableHtml, /data-agent-brief-copy-status="idle"/);
-  assert.match(actionableHtml, /aria-live="polite"/);
-  assert.match(actionableHtml, /data-batch-export-selection-row="true"/);
+  assert.doesNotMatch(actionableHtml, /data-saved-signals-batch-export="true"/);
+  assert.doesNotMatch(actionableHtml, /Agent export/);
+  assert.doesNotMatch(actionableHtml, /原文優先/);
+  assert.doesNotMatch(actionableHtml, /精簡決策/);
+  assert.doesNotMatch(actionableHtml, /複製 Agent Brief/);
+  assert.doesNotMatch(actionableHtml, /data-signal-packet-html-export="true"/);
+  assert.doesNotMatch(actionableHtml, /data-signal-packet-format-option="html"/);
+  assert.doesNotMatch(actionableHtml, /data-signal-packet-format-option="jsonl"/);
+  assert.doesNotMatch(actionableHtml, /匯出 HTML Reading/);
+  assert.doesNotMatch(actionableHtml, /JSONL Packet/);
+  assert.doesNotMatch(actionableHtml, /data-agent-brief-copy-status/);
+  assert.doesNotMatch(actionableHtml, /data-batch-export-selection-row="true"/);
   assert.doesNotMatch(actionableHtml, /# Agent Brief/);
 });
 
@@ -2491,7 +2487,11 @@ test("ProductSignalView action route stays on action board when readings exist",
   );
 
   assert.match(html, /data-actionable-insights-board="true"/);
-  assert.match(html, /data-saved-signals-batch-export="true"/);
+  assert.doesNotMatch(html, /data-saved-signals-batch-export="true"/);
+  assert.doesNotMatch(html, /Agent export/);
+  assert.doesNotMatch(html, /原文優先/);
+  assert.doesNotMatch(html, /精簡決策/);
+  assert.doesNotMatch(html, /複製 Agent Brief/);
   assert.doesNotMatch(html, /READING REVIEW/);
   assert.doesNotMatch(html, /PACKET EXPORT/);
   assert.doesNotMatch(html, /data-signal-reading-review-workspace="true"/);
@@ -2509,7 +2509,7 @@ test("ProductSignalView action route stays on action board when readings exist",
   assert.doesNotMatch(html, /data-signal-reading-provenance="true"/);
   assert.doesNotMatch(html, /data-signal-reading-evidence="true"/);
   assert.doesNotMatch(html, /引用留言 1 則/);
-  assert.match(html, /對產品參考：這是一段完整顯示的長判斷，不能被截斷。/);
+  assert.doesNotMatch(html, /對產品參考：這是一段完整顯示的長判斷，不能被截斷。/);
   assert.doesNotMatch(html, /source link/);
   assert.doesNotMatch(html, /border-left:3px/);
   assert.match(html, /值得嘗試/);
@@ -2523,11 +2523,11 @@ test("ProductSignalView action route stays on action board when readings exist",
   assert.doesNotMatch(html, /預覽 Brief/);
   assert.doesNotMatch(html, /複製 Brief/);
   assert.doesNotMatch(html, /what gets copied/);
-  assert.match(html, /data-signal-packet-html-export="true"/);
-  assert.match(html, /data-signal-packet-format-option="html"/);
-  assert.match(html, /data-signal-packet-format-option="jsonl"/);
-  assert.match(html, /匯出 HTML Reading/);
-  assert.match(html, /JSONL Packet/);
+  assert.doesNotMatch(html, /data-signal-packet-html-export="true"/);
+  assert.doesNotMatch(html, /data-signal-packet-format-option="html"/);
+  assert.doesNotMatch(html, /data-signal-packet-format-option="jsonl"/);
+  assert.doesNotMatch(html, /匯出 HTML Reading/);
+  assert.doesNotMatch(html, /JSONL Packet/);
   assert.doesNotMatch(html, /<strong[^>]*>判讀內容<\/strong>/);
   assert.doesNotMatch(html, /\*\*判讀內容\*\*/);
   assert.doesNotMatch(html, /SOURCE https/);

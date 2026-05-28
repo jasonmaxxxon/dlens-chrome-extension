@@ -3786,7 +3786,6 @@ export function ProductSignalView({
   const pendingSignals = safeSignals.filter((signal) => bySignal.get(signal.id)?.status !== "complete");
   const canAnalyze = canRunProductSignalAction({ signals: safeSignals, productProfile, aiProviderReady, signalReadinessById });
   const [selectedSignalIds, setSelectedSignalIds] = useState<string[]>([]);
-  const [briefMode, setBriefMode] = useState<AgentBriefMode>("original");
 
   function toggleSelectedSignal(signalId: string) {
     setSelectedSignalIds((current) =>
@@ -3883,32 +3882,15 @@ export function ProductSignalView({
           kind === "classification" ? (
             <ClassificationBoard analyses={scopedAnalyses} signalPreviewById={signalPreviewById} />
           ) : (
-            <>
-              <ActionableInsightsBoard
-                analyses={scopedAnalyses}
-                productProfile={productProfile}
-                evidenceBySignalId={evidenceBySignalId}
-                historicalAnalyses={safeHistoricalAnalyses}
-                agentTaskFeedback={safeAgentTaskFeedback}
-                cardLayout={cardLayout}
-                onRemoveSignal={onRemoveSignal ? handleRemoveSignal : undefined}
-              />
-              <SavedSignalsBatchExport
-                signals={safeSignals}
-                analyses={safeAnalyses}
-                activeFolderId={activeFolderId}
-                exportFolders={exportFolders}
-                signalPreviewById={signalPreviewById}
-                signalUrlById={signalUrlById}
-                selectedIds={selectedSignalIds}
-                briefMode={briefMode}
-                onBriefModeChange={setBriefMode}
-                onToggleSignal={toggleSelectedSignal}
-                onSynthesizeSignalReading={onSynthesizeSignalReading}
-                onExportSignalPackets={onExportSignalPackets}
-                evidenceBySignalId={evidenceBySignalId}
-              />
-            </>
+            <ActionableInsightsBoard
+              analyses={scopedAnalyses}
+              productProfile={productProfile}
+              evidenceBySignalId={evidenceBySignalId}
+              historicalAnalyses={safeHistoricalAnalyses}
+              agentTaskFeedback={safeAgentTaskFeedback}
+              cardLayout={cardLayout}
+              onRemoveSignal={onRemoveSignal ? handleRemoveSignal : undefined}
+            />
           )
         ) : (
           <div style={cardStyle()}>
