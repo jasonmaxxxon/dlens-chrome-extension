@@ -186,8 +186,8 @@ const PAGE_COPY: Record<ProductSignalPageKind, { title: string; deck: string }> 
     deck: "先把每則 Threads signal 放回正確範疇，再決定是否值得產品團隊處理。"
   },
   "actionable-filter": {
-    title: "候選行動",
-    deck: "先看哪些 signal 值得處理，再輸出可交給 agent 的 brief。"
+    title: "Agent Brief",
+    deck: "先審視模型判讀，再把已收錄 reading 組成可貼給 coding agent 的 brief。"
   },
 };
 
@@ -3785,6 +3785,7 @@ export function ProductSignalView({
   const hasRecoveredAnalyses = safeSignals.length === 0 && scopedAnalyses.length > 0;
   const pendingSignals = safeSignals.filter((signal) => bySignal.get(signal.id)?.status !== "complete");
   const canAnalyze = canRunProductSignalAction({ signals: safeSignals, productProfile, aiProviderReady, signalReadinessById });
+  const showSignalReadingReview = safeSignals.length > 0 && (Boolean(onReviewSignalReading) || safeSignalReadings.length > 0);
   const [selectedSignalIds, setSelectedSignalIds] = useState<string[]>([]);
 
   function toggleSelectedSignal(signalId: string) {
@@ -3881,6 +3882,20 @@ export function ProductSignalView({
         ) : scopedAnalyses.length ? (
           kind === "classification" ? (
             <ClassificationBoard analyses={scopedAnalyses} signalPreviewById={signalPreviewById} />
+          ) : showSignalReadingReview ? (
+            <SignalReadingReviewWorkspace
+              signals={safeSignals}
+              analyses={safeAnalyses}
+              activeFolderId={activeFolderId}
+              exportFolders={exportFolders}
+              signalReadings={safeSignalReadings}
+              signalPreviewById={signalPreviewById}
+              signalUrlById={signalUrlById}
+              evidenceBySignalId={evidenceBySignalId}
+              onSynthesizeSignalReading={onSynthesizeSignalReading}
+              onReviewSignalReading={onReviewSignalReading}
+              onExportSignalPackets={onExportSignalPackets}
+            />
           ) : (
             <ActionableInsightsBoard
               analyses={scopedAnalyses}

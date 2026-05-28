@@ -1,16 +1,17 @@
 # AGENTS.md — DLens Chrome Extension v0.1
 
-> **Last updated:** 2026-05-28 (Product preview/action cleanup: shared metric icons, Topic-style pending cards, ProductSignalAnalyzer v17 without legacy recipe fields — 609/609 tests, typecheck, build, version 0.1.26 mirrored into MV3)
+> **Last updated:** 2026-05-28 (Product Action restored the 0.1.15 Reading Review UI while keeping ProductSignalAnalyzer v17 — 609/609 tests, typecheck, build, version 0.1.26 mirrored into MV3)
 > **For:** any agent continuing work in this repo
 
 ## Recently Fixed (2026-05-28) — Product action board and card geometry
 
-1. **Product Action route regression.** `ProductSignalView` must not switch back
-   to the old `SignalReadingReviewWorkspace` when `SignalReading` rows or review
-   callbacks exist. The `actionable-filter` route now stays on
-   `ActionableInsightsBoard` only; tests explicitly reject `READING REVIEW`,
-   `PACKET EXPORT`, `data-signal-reading-review-workspace`, `Agent export`,
-   `原文優先`, and `複製 Agent Brief` on that route.
+1. **Product Action route regression.** `ProductSignalView` must open the
+   0.1.15 `SignalReadingReviewWorkspace` / `READING REVIEW` UI when the Action
+   route has saved signals plus `SignalReading` rows or a review callback. This
+   restores the carefully designed review card, verdict tiles, marginalia panel,
+   provenance row, and deep-reading controls. Do not confuse this with the old
+   page-level `SavedSignalsBatchExport`: tests still reject `Agent export`,
+   `原文優先`, `精簡決策`, and `複製 Agent Brief` on the Action route.
 2. **Shared card radius.** `surfaceCardStyle()` now defaults to
    `tokens.radius.cardLg` (`20px`) so Product/PR/shared surfaces match Topic's
    softer paper-card geometry. The Saved Signals action CTA also uses the same
@@ -25,7 +26,7 @@
    `MetricChip` / `MetricIcon` grammar, including likes, comments, reposts,
    forwards, and views. Do not reintroduce text-only `Like 123` /
    `Reply 45` chips in Product Collect.
-5. **ProductSignalAnalyzer v17.** New Product analyses no longer request
+5. **ProductSignalAnalyzer v17 stays.** New Product analyses no longer request
    legacy recipe output fields (`copy_recipe_markdown`, `workflow_stack`,
    `copyable_template`) from the strict provider schema. Action cards should
    present reusable evidence patterns plus an agent brief, not a long

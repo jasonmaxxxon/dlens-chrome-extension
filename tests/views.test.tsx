@@ -2151,7 +2151,7 @@ test("merged candidate-action board keeps AI commentary collapsed on action rout
   const openDetails = html.match(/<details open=""[^]*?<\/details>/g) ?? [];
 
   assert.equal(openDetails.length, 0);
-  assert.match(html, /候選行動/);
+  assert.match(html, /Agent Brief/);
   assert.doesNotMatch(html, /儲存至行動清單|>\+<\/span> 儲存/);
   assert.match(html, /s1 摘錄。/);
   assert.match(html, /s2 摘錄。/);
@@ -2390,7 +2390,7 @@ test("ProductSignalView original batch export includes audience reactions and au
   assert.match(brief, /預期落差: 作者預期毒舌語氣成為差異化/);
 });
 
-test("ProductSignalView action route stays on action board when readings exist", () => {
+test("ProductSignalView restores the 0.1.15 reading review route when readings exist", () => {
   const signals = [
     { id: "signal_pending", sessionId: "sess", itemId: "i1", source: "threads" as const, inboxStatus: "unprocessed" as const, capturedAt: "2026-05-18T00:00:00.000Z" },
     { id: "signal_filed", sessionId: "sess", itemId: "i2", source: "threads" as const, inboxStatus: "unprocessed" as const, capturedAt: "2026-05-18T00:00:00.000Z" }
@@ -2486,36 +2486,34 @@ test("ProductSignalView action route stays on action board when readings exist",
     })
   );
 
-  assert.match(html, /data-actionable-insights-board="true"/);
+  assert.match(html, /Agent Brief/);
+  assert.match(html, /READING REVIEW/);
+  assert.match(html, /data-signal-reading-review-workspace="true"[^>]*padding-bottom:76px/);
   assert.doesNotMatch(html, /data-saved-signals-batch-export="true"/);
   assert.doesNotMatch(html, /Agent export/);
   assert.doesNotMatch(html, /原文優先/);
   assert.doesNotMatch(html, /精簡決策/);
   assert.doesNotMatch(html, /複製 Agent Brief/);
-  assert.doesNotMatch(html, /READING REVIEW/);
-  assert.doesNotMatch(html, /PACKET EXPORT/);
-  assert.doesNotMatch(html, /data-signal-reading-review-workspace="true"/);
-  assert.doesNotMatch(html, /收錄此判讀/);
-  assert.doesNotMatch(html, /0 收錄 ·/);
+  assert.doesNotMatch(html, /data-actionable-insights-board="true"/);
+  assert.match(html, /收錄此判讀/);
+  assert.match(html, /已收錄/);
   assert.match(html, /data-action-verdict-filter="try"/);
   assert.match(html, /data-action-verdict-filter="watch"/);
   assert.match(html, /data-verdict-filter-tiles="true"/);
   assert.match(html, /data-verdict-filter-plate="true"/);
   assert.match(html, /data-verdict-tile-count="true"/);
-  assert.doesNotMatch(html, /data-signal-reading-review-list-filter="watch"/);
-  assert.doesNotMatch(html, /data-signal-reading-marginalia="true"/);
-  assert.doesNotMatch(html, /data-signal-reading-relevance-summary="true"/);
+  assert.match(html, /data-signal-reading-review-list-filter="watch"/);
+  assert.match(html, /data-signal-reading-marginalia="true"/);
+  assert.match(html, /data-signal-reading-relevance-summary="true"/);
   assert.doesNotMatch(html, /data-signal-reading-marginalia-rail="true"/);
-  assert.doesNotMatch(html, /data-signal-reading-provenance="true"/);
-  assert.doesNotMatch(html, /data-signal-reading-evidence="true"/);
-  assert.doesNotMatch(html, /引用留言 1 則/);
-  assert.doesNotMatch(html, /對產品參考：這是一段完整顯示的長判斷，不能被截斷。/);
+  assert.match(html, /data-signal-reading-provenance="true"/);
+  assert.match(html, /data-signal-reading-evidence="true"/);
+  assert.match(html, /引用留言 1 則/);
+  assert.match(html, /對產品參考：這是一段完整顯示的長判斷，不能被截斷。/);
   assert.doesNotMatch(html, /source link/);
   assert.doesNotMatch(html, /border-left:3px/);
   assert.match(html, /值得嘗試/);
   assert.match(html, /保留觀察/);
-  assert.doesNotMatch(html, /signals → packet/);
-  assert.doesNotMatch(html, /BRIEF COMPOSE/);
   assert.doesNotMatch(html, /data-signal-reading-brief-copy-bar="inline"/);
   assert.doesNotMatch(html, /data-signal-reading-brief-copy-status="idle"/);
   assert.doesNotMatch(html, /data-signal-reading-brief-preview="true"/);
@@ -2523,18 +2521,12 @@ test("ProductSignalView action route stays on action board when readings exist",
   assert.doesNotMatch(html, /預覽 Brief/);
   assert.doesNotMatch(html, /複製 Brief/);
   assert.doesNotMatch(html, /what gets copied/);
-  assert.doesNotMatch(html, /data-signal-packet-html-export="true"/);
-  assert.doesNotMatch(html, /data-signal-packet-format-option="html"/);
-  assert.doesNotMatch(html, /data-signal-packet-format-option="jsonl"/);
-  assert.doesNotMatch(html, /匯出 HTML Reading/);
-  assert.doesNotMatch(html, /JSONL Packet/);
-  assert.doesNotMatch(html, /<strong[^>]*>判讀內容<\/strong>/);
+  assert.match(html, /<strong[^>]*>判讀內容<\/strong>/);
   assert.doesNotMatch(html, /\*\*判讀內容\*\*/);
   assert.doesNotMatch(html, /SOURCE https/);
   assert.doesNotMatch(html, /逐則審視判讀 → 決定值得進 corpus/);
   assert.doesNotMatch(html, /1 已收錄，可複製給 agent/);
   assert.doesNotMatch(html, /1 則判讀已收錄 → 可複製給 coding agent/);
-  assert.equal("buildSignalReadingAgentBrief" in productSignalViewTestables, false);
 });
 
 test("ProductSignalView turns long reading openings into a lighter lead title and summary", () => {
@@ -2548,7 +2540,7 @@ test("ProductSignalView turns long reading openings into a lighter lead title an
   assert.match(display.body, /第二段保留完整判讀/);
 });
 
-test("ProductSignalView action route does not open reading review before readings exist", () => {
+test("ProductSignalView opens the 0.1.15 reading review workflow before readings exist", () => {
   const html = renderToStaticMarkup(
     React.createElement(ProductSignalView as any, {
       kind: "actionable-filter",
@@ -2588,15 +2580,15 @@ test("ProductSignalView action route does not open reading review before reading
     })
   );
 
-  assert.match(html, /候選行動/);
-  assert.match(html, /data-actionable-insights-board="true"/);
-  assert.doesNotMatch(html, /尚未生成深度判讀/);
-  assert.doesNotMatch(html, /深度判讀/);
+  assert.match(html, /Agent Brief/);
+  assert.match(html, /data-signal-reading-review-workspace="true"/);
+  assert.match(html, /尚未生成深度判讀/);
+  assert.match(html, /深度判讀/);
   assert.match(html, /保留觀察/);
-  assert.doesNotMatch(html, /data-signal-reading-review-workspace/);
+  assert.doesNotMatch(html, /data-actionable-insights-board="true"/);
 });
 
-test("ProductSignalView action route does not expose reading regeneration controls", () => {
+test("ProductSignalView action route shows existing reading review content", () => {
   const html = renderToStaticMarkup(
     React.createElement(ProductSignalView as any, {
       kind: "actionable-filter",
@@ -2651,10 +2643,9 @@ test("ProductSignalView action route does not expose reading regeneration contro
     })
   );
 
-  assert.doesNotMatch(html, /現有判讀內容/);
-  assert.doesNotMatch(html, /重新生成判讀/);
-  assert.doesNotMatch(html, /判讀建議重新生成/);
-  assert.match(html, /data-actionable-insights-board="true"/);
+  assert.match(html, /data-signal-reading-review-workspace="true"/);
+  assert.match(html, /現有判讀內容/);
+  assert.doesNotMatch(html, /data-actionable-insights-board="true"/);
 });
 
 test("ClassificationBoard selected post aside collapses long text behind 展開全文", () => {
