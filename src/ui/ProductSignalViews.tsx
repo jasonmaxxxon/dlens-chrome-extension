@@ -530,39 +530,10 @@ function citationUseCase(citation: EvidenceCitation, maxLength = 120): string {
   return excerpt(citation.note?.quoteSummary || citation.entry?.text || "", maxLength);
 }
 
-const TOOL_PATTERNS: Array<{ label: string; pattern: RegExp }> = [
-  { label: "Claude Skill", pattern: /Claude\s+Skill/i },
-  { label: "Claude", pattern: /\bClaude\b/i },
-  { label: "Slack", pattern: /\bSlack\b/i },
-  { label: "Jira", pattern: /\bJira\b/i },
-  { label: "GitLab", pattern: /\bGitLab\b/i },
-  { label: "CI/CD", pattern: /\bCI\/CD\b|\bcicd\b/i },
-  { label: "Metabase", pattern: /\bMetabase\b/i },
-  { label: "Google Analytics", pattern: /\bGoogle\s+Analytics\b|\bGA\b/i },
-  { label: "Confluence", pattern: /\bConfluence\b/i },
-  { label: "Clarity", pattern: /\bClarity\b/i },
-  { label: "SQL", pattern: /\bSQL\b/i },
-  { label: "MCP", pattern: /\bMCP\b/i },
-  { label: "crawler", pattern: /爬蟲|crawler/i }
-];
-
-function extractToolNames(value: string): string[] {
-  const names: string[] = [];
-  for (const tool of TOOL_PATTERNS) {
-    if (tool.pattern.test(value) && !names.includes(tool.label)) {
-      names.push(tool.label);
-    }
-  }
-  return names.filter((name) => !(name === "Claude" && names.includes("Claude Skill"))).slice(0, 6);
-}
-
 function inferWorkflowPattern(citation: EvidenceCitation): {
   pattern: string;
   whyItWorks: string;
-  copyableTemplate: string;
-  recipeMarkdown: string;
   tradeoff: string;
-  tools: string[];
   grounding: ProductSignalEvidenceNote["grounding"];
 } {
   const raw = [
@@ -571,30 +542,20 @@ function inferWorkflowPattern(citation: EvidenceCitation): {
     citation.note?.whyItMatters,
     citation.note?.reusablePattern,
     citation.note?.whyItWorks,
-    citation.note?.copyableTemplate,
-    citation.note?.copyRecipeMarkdown,
-    citation.note?.tradeoff,
-    ...(citation.note?.workflowStack ?? [])
+    citation.note?.tradeoff
   ].filter(Boolean).join(" ");
   const lower = raw.toLowerCase();
-  const explicitStack = Array.isArray(citation.note?.workflowStack) ? citation.note.workflowStack.filter(Boolean).slice(0, 6) : [];
-  const tools = explicitStack.length ? explicitStack : extractToolNames(raw);
   const explicitPattern = citation.note?.reusablePattern?.trim();
   const explicitWhy = citation.note?.whyItWorks?.trim();
-  const explicitTemplate = citation.note?.copyableTemplate?.trim();
-  const explicitRecipe = citation.note?.copyRecipeMarkdown?.trim();
   const explicitTradeoff = citation.note?.tradeoff?.trim();
   const explicitGrounding = citation.note?.grounding;
 
-  if (explicitPattern || explicitWhy || explicitTemplate || explicitRecipe || explicitTradeoff || explicitStack.length) {
+  if (explicitPattern || explicitWhy || explicitTradeoff) {
     return {
       pattern: explicitPattern || citationUseCase(citation, 70) || "可重用工作流",
       whyItWorks: explicitWhy || citation.note?.whyItMatters || "這條留言把場景、工具和輸出連在一起。",
-      copyableTemplate: explicitTemplate || "輸入來源 -> Agent 處理 -> 可交付輸出",
-      recipeMarkdown: explicitRecipe || explicitTemplate || "輸入來源 -> Agent 處理 -> 可交付輸出",
       tradeoff: explicitTradeoff || "",
-      tools,
-      grounding: explicitGrounding || (explicitRecipe ? "model_inferred" : "insufficient_detail")
+      grounding: explicitGrounding || "insufficient_detail"
     };
   }
 
@@ -602,10 +563,7 @@ function inferWorkflowPattern(citation: EvidenceCitation): {
     return {
       pattern: "多來源工作流轉文件",
       whyItWorks: "它把資料來源、Agent 處理和可交付文件分清楚，團隊可替換自己的工具。",
-      copyableTemplate: "Slack/Jira/資料庫 -> Claude Skill -> Release note / ticket / Confluence",
-      recipeMarkdown: "- Input: Slack/Jira/資料庫\n- Process: Claude Skill 摘要與整理\n- Output: Release note / ticket / Confluence",
       tradeoff: "需要工具授權與資料讀取權限。",
-      tools,
       grounding: "model_inferred"
     };
   }
@@ -614,10 +572,7 @@ function inferWorkflowPattern(citation: EvidenceCitation): {
     return {
       pattern: "工程回饋自動化",
       whyItWorks: "它讓 agent 進入既有 issue、CI 和 review 節點，不要求使用者重整上下文。",
-      copyableTemplate: "Jira/GitLab issue -> CI/CD agent -> review/test feedback",
-      recipeMarkdown: "- Input: Jira/GitLab issue\n- Process: CI/CD agent 讀取結果\n- Output: review/test feedback",
       tradeoff: "需要接入工程權限與測試結果。",
-      tools,
       grounding: "model_inferred"
     };
   }
@@ -626,10 +581,7 @@ function inferWorkflowPattern(citation: EvidenceCitation): {
     return {
       pattern: "搜尋與爬蟲做市場雷達",
       whyItWorks: "它先自動過濾雜訊，再保留產品團隊需要追蹤的趨勢敏感度。",
-      copyableTemplate: "creator/keyword -> crawler/search agent -> trend digest",
-      recipeMarkdown: "- Input: creator/keyword\n- Process: crawler/search agent 定期掃描\n- Output: trend digest",
       tradeoff: "需要控制抓取頻率與來源品質。",
-      tools,
       grounding: "model_inferred"
     };
   }
@@ -637,10 +589,7 @@ function inferWorkflowPattern(citation: EvidenceCitation): {
   return {
     pattern: citationUseCase(citation, 70) || "可重用工作流",
     whyItWorks: citation.note?.whyItMatters || "這條留言把抽象需求落到具體操作方式。",
-    copyableTemplate: "",
-    recipeMarkdown: "",
     tradeoff: "原文不足以推導完整做法。",
-    tools,
     grounding: "insufficient_detail"
   };
 }
@@ -650,19 +599,6 @@ const GROUNDING_LABELS: Record<NonNullable<ProductSignalEvidenceNote["grounding"
   model_inferred: "AI 推斷，請交叉驗證原文",
   insufficient_detail: "原文不足"
 };
-
-const STACK_PILL_STYLE = {
-  display: "inline-flex",
-  alignItems: "center",
-  minHeight: 20,
-  padding: "0 7px",
-  borderRadius: 999,
-  background: tokens.color.neutralSurfaceSoft,
-  border: `1px solid ${tokens.color.line}`,
-  color: tokens.color.subInk,
-  fontSize: 10.5,
-  fontWeight: 600
-} as const;
 
 type WorkflowSectionTone = "copy" | "why" | "tradeoff";
 
@@ -713,27 +649,6 @@ function workflowSectionLabelStyle(tone: WorkflowSectionTone): CSSProperties {
     fontWeight: 700,
     letterSpacing: 0
   };
-}
-
-function StackTagRow({ tools, maxVisible = 4 }: { tools: string[]; maxVisible?: number }) {
-  const visible = tools.slice(0, maxVisible);
-  const overflow = tools.length - maxVisible;
-  return (
-    <div style={{ display: "flex", gap: 5, flexWrap: "nowrap", alignItems: "center", overflow: "hidden" }} aria-label="工具鏈">
-      <span style={{ ...textStyles.fieldLabel, lineHeight: "20px", flexShrink: 0 }}>Stack</span>
-      {visible.map((tool) => (
-        <span key={tool} style={{ ...STACK_PILL_STYLE, flexShrink: 0 }}>{tool}</span>
-      ))}
-      {overflow > 0 ? (
-        <span
-          title={tools.slice(maxVisible).join(", ")}
-          style={{ ...STACK_PILL_STYLE, flexShrink: 0, color: tokens.color.softInk, fontWeight: 500, cursor: "default" }}
-        >
-          +{overflow}
-        </span>
-      ) : null}
-    </div>
-  );
 }
 
 function WorkflowEvidenceCard({
@@ -800,19 +715,16 @@ function WorkflowEvidenceCard({
         >
           {groundingLabel}
         </span>
-        {workflow.tools.length ? (
-          <StackTagRow tools={workflow.tools} maxVisible={4} />
-        ) : null}
       </div>
       <div style={{ display: "grid", gap: flatten ? 0 : 6 }}>
         <div data-workflow-section-tone="copy" data-workflow-row-layout={flatten ? "stacked" : "boxed"} style={flatten ? rowStyle(false) : workflowSectionPanelStyle("copy")}>
-          <span data-workflow-field-label="copy" style={flatten ? fieldLabelStyle : workflowSectionLabelStyle("copy")}>如何照抄</span>
+          <span data-workflow-field-label="copy" style={flatten ? fieldLabelStyle : workflowSectionLabelStyle("copy")}>可借用模式</span>
           <pre style={{ margin: 0, fontSize: flatten ? 12 : 12.5, lineHeight: 1.55, color: tokens.color.ink, fontFamily: tokens.font.mono, whiteSpace: "pre-wrap", wordBreak: "break-word" }}>
-            {workflow.recipeMarkdown || workflow.copyableTemplate || "原文不足以推導完整做法。"}
+            {workflow.pattern}
           </pre>
         </div>
         <div data-workflow-section-tone="why" data-workflow-row-layout={flatten ? "stacked" : "boxed"} style={flatten ? rowStyle(!workflow.tradeoff) : workflowSectionPanelStyle("why")}>
-          <span data-workflow-field-label="why" style={flatten ? fieldLabelStyle : workflowSectionLabelStyle("why")}>為什麼可以這樣做</span>
+          <span data-workflow-field-label="why" style={flatten ? fieldLabelStyle : workflowSectionLabelStyle("why")}>判讀依據</span>
           <span style={{ fontSize: 12.5, lineHeight: 1.55, color: tokens.color.subInk }}>
             {workflow.whyItWorks}
           </span>
@@ -1164,7 +1076,16 @@ function PendingSignalCard({
     : readinessLabel(readiness);
   const isProcessing = analysis?.status === "pending" || analysis?.status === "analyzing" || (!analysis && readiness.status === "crawling");
   return (
-    <div style={cardStyle({ padding: "10px 12px" })}>
+    <div
+      className="dlens-card-lift"
+      data-product-pending-card="topic-card"
+      style={cardStyle({
+        padding: "14px 16px",
+        border: "none",
+        boxShadow: tokens.shadow.topicCard,
+        gap: 10
+      })}
+    >
       <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8, flexWrap: "wrap" }}>
         <div style={{ display: "flex", alignItems: "center", gap: 6, flexWrap: "wrap" }}>
           <Stamp tone={label.tone}>{label.label}</Stamp>
@@ -1185,10 +1106,10 @@ function PendingSignalCard({
               }}
             />
           ) : null}
-          <span style={{ fontSize: 11, color: tokens.color.softInk }}>{analysis?.status === "error" ? "需重試" : "未分析"}</span>
+          <span style={{ ...textStyles.meta, color: tokens.color.softInk }}>{analysis?.status === "error" ? "需重試" : "未分析"}</span>
         </div>
         <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-          <span style={{ fontSize: 10.5, color: tokens.color.softInk }}>{signal.source}</span>
+          <span style={{ ...textStyles.meta, color: tokens.color.softInk }}>{signal.source}</span>
           {onRemove ? (
             <button
               type="button"
@@ -1199,9 +1120,9 @@ function PendingSignalCard({
           ) : null}
         </div>
       </div>
-      <div style={{ fontSize: 12, lineHeight: 1.55, color: tokens.color.subInk }}>{label.detail}</div>
+      <div style={{ ...textStyles.body, fontSize: 12.5, color: tokens.color.subInk }}>{label.detail}</div>
       {preview ? (
-        <div style={{ fontSize: 11.5, lineHeight: 1.5, color: tokens.color.ink }}>{preview}</div>
+        <div style={{ ...textStyles.body, color: tokens.color.ink, ...lineClamp(2) }}>{preview}</div>
       ) : null}
     </div>
   );
@@ -1306,7 +1227,7 @@ function ReadinessPanel({
         </div>
       ) : null}
       <div style={{ display: "flex", justifyContent: "flex-start" }}>
-        <PrimaryButton onClick={onAnalyze} disabled={!canAnalyze || isAnalyzing}>
+        <PrimaryButton onClick={onAnalyze} disabled={!canAnalyze || isAnalyzing} activateOnPointerDown>
           {isAnalyzing ? "分析中" : hasResults ? "重新分析" : "分析收件匣"}
         </PrimaryButton>
       </div>

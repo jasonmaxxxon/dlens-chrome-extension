@@ -609,6 +609,10 @@ test("CollectView renders captured engagement metrics in the hover preview", () 
   assert.match(html, /data-collect-metric="reposts"/);
   assert.match(html, />10</);
   assert.match(html, />5</);
+  assert.doesNotMatch(html, />Like</);
+  assert.doesNotMatch(html, />Reply</);
+  assert.doesNotMatch(html, />Repost</);
+  assert.doesNotMatch(html, />Share</);
 });
 
 test("CollectView uses product inbox language in product mode", () => {
@@ -1131,6 +1135,8 @@ test("ProductSignalView shows real readiness state without fake AI results", () 
   assert.match(html, /ProductContext/);
   assert.match(html, /data-saved-signals-route="true"/);
   assert.match(html, /data-saved-signal-row="compact"/);
+  assert.match(html, /data-product-pending-card="topic-card"/);
+  assert.match(html, /data-product-pending-card="topic-card"[^>]*border:none/);
   assert.doesNotMatch(html, /data-saved-signals-batch-export="true"/);
   assert.match(html, /尚未抓取/);
   assert.match(html, /按分析會先送出抓取請求/);
@@ -1899,10 +1905,14 @@ test("ProductSignalView surfaces legacy optional fields when present", () => {
   assert.equal((actionableHtml.match(/可借用 workflow/g) ?? []).length, 1);
   assert.match(actionableHtml, /data-actionable-title="workflow"[^>]*>多來源工作流轉文件/);
   assert.doesNotMatch(actionableHtml, /data-actionable-title="workflow"[^>]*>用 Claude Skill 讀 Slack/);
-  assert.match(actionableHtml, /如何照抄/);
+  assert.match(actionableHtml, /可借用模式/);
+  assert.doesNotMatch(actionableHtml, /如何照抄/);
+  assert.doesNotMatch(actionableHtml, /讀取 Slack thread/);
+  assert.doesNotMatch(actionableHtml, /Release Note \/ Confluence 文件/);
+  assert.doesNotMatch(actionableHtml, /Slack\/Jira -&gt; Claude Skill/);
   assert.match(actionableHtml, /data-workflow-grounding="model_inferred"/);
   assert.match(actionableHtml, /AI 推斷，請交叉驗證原文/);
-  assert.match(actionableHtml, /為什麼可以這樣做/);
+  assert.match(actionableHtml, /判讀依據/);
   assert.match(actionableHtml, /data-workflow-section-tone="copy"[^>]*style="[^"]*border-left:4px solid #3f5a3b[^"]*"/);
   assert.match(actionableHtml, /data-workflow-section-tone="why"[^>]*style="[^"]*border-left:4px solid #1a2e4f[^"]*"/);
   assert.match(actionableHtml, /data-workflow-section-tone="tradeoff"[^>]*style="[^"]*border-left:4px solid #a16a17[^"]*"/);
@@ -1913,17 +1923,12 @@ test("ProductSignalView surfaces legacy optional fields when present", () => {
   assert.match(actionableHtml, /多來源工作流轉文件/);
   assert.match(actionableHtml, /引用理由：直接驗證 PM document workflow/);
   assert.doesNotMatch(actionableHtml, /AI 摘要：PM 想把 Threads 討論轉成可交付文件/);
-  assert.match(actionableHtml, /讀取 Slack thread 與 Jira tickets/);
-  assert.match(actionableHtml, /輸出 Release Note \/ Confluence 文件/);
+  assert.doesNotMatch(actionableHtml, /讀取 Slack thread 與 Jira tickets/);
+  assert.doesNotMatch(actionableHtml, /輸出 Release Note \/ Confluence 文件/);
   assert.match(actionableHtml, /限制/);
   assert.match(actionableHtml, /需要各工具授權與資料讀取權限/);
   assert.match(actionableHtml, /把資料來源、處理邏輯和交付物分清楚/);
-  assert.match(actionableHtml, /Stack/);
-  assert.match(actionableHtml, /Slack/);
-  assert.match(actionableHtml, /Jira/);
-  assert.match(actionableHtml, /Metabase/);
-  assert.match(actionableHtml, /Confluence/);
-  assert.match(actionableHtml, /Claude Skill/);
+  assert.doesNotMatch(actionableHtml, /Stack/);
   assert.match(actionableHtml, /text-transform:uppercase/);
   assert.doesNotMatch(actionableHtml, /可用做法（留言原文）/);
   assert.doesNotMatch(actionableHtml, /AI 判斷依據/);

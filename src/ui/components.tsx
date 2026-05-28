@@ -77,7 +77,7 @@ export function MetricIcon({
   kind,
   size = 13
 }: {
-  kind: "likes" | "comments" | "reposts" | "forwards";
+  kind: "likes" | "comments" | "reposts" | "forwards" | "views";
   size?: number;
 }) {
   const common = {
@@ -100,6 +100,8 @@ export function MetricIcon({
       return <svg {...common}><path d="M7 7h10l-2.5-2.5" /><path d="M17 17H7l2.5 2.5" /><path d="M17 7v4" /><path d="M7 17v-4" /></svg>;
     case "forwards":
       return <svg {...common}><path d="M21 4 10 15" /><path d="m21 4-7 16-4-5-5-4 16-7Z" /></svg>;
+    case "views":
+      return <svg {...common}><path d="M2.5 12s3.4-5.5 9.5-5.5 9.5 5.5 9.5 5.5-3.4 5.5-9.5 5.5S2.5 12 2.5 12Z" /><circle cx="12" cy="12" r="2.5" /></svg>;
   }
 }
 
@@ -110,7 +112,7 @@ export function MetricChip({
   value,
   present
 }: {
-  kind: "likes" | "comments" | "reposts" | "forwards";
+  kind: "likes" | "comments" | "reposts" | "forwards" | "views";
   value: number | null;
   present: boolean;
 }) {
@@ -215,7 +217,8 @@ function previewMetrics(descriptor: TargetDescriptor | null | undefined) {
     <MetricChip key="likes" kind="likes" value={descriptor.engagement.likes} present={descriptor.engagement_present.likes} />,
     <MetricChip key="comments" kind="comments" value={descriptor.engagement.comments} present={descriptor.engagement_present.comments} />,
     <MetricChip key="reposts" kind="reposts" value={descriptor.engagement.reposts} present={descriptor.engagement_present.reposts} />,
-    <MetricChip key="forwards" kind="forwards" value={descriptor.engagement.forwards} present={descriptor.engagement_present.forwards} />
+    <MetricChip key="forwards" kind="forwards" value={descriptor.engagement.forwards} present={descriptor.engagement_present.forwards} />,
+    <MetricChip key="views" kind="views" value={descriptor.engagement.views} present={descriptor.engagement_present.views} />
   ];
 }
 

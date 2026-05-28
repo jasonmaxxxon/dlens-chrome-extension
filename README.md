@@ -22,12 +22,12 @@ Current workspace modes:
 
 ## Current Features
 
-- Hover-to-preview and collect on Threads feeds/post pages. Hover uses a warm in-memory cache (no per-move storage read); saves carry the live hovered post and the popup's visible folder/topic so they always land where intended. Collect saves and refresh-all writes share the snapshot lock so Topic signals cannot be left without a usable backing saved item/descriptor; pre-existing orphan/corrupt signals are hidden from Topic counts/lists and queued for storage cleanup. Content scripts also rehydrate active collect mode after extension reload/page refresh (see AGENTS.md "Recently Fixed 2026-05-22").
+- Hover-to-preview and collect on Threads feeds/post pages. Hover uses a warm in-memory cache (no per-move storage read); saves carry the live hovered post and the popup's visible folder/topic so they always land where intended. Collect metrics use shared icon chips across the overlay and popup preview. Collect saves and refresh-all writes share the snapshot lock so Topic signals cannot be left without a usable backing saved item/descriptor; pre-existing orphan/corrupt signals are hidden from Topic counts/lists and queued for storage cleanup. Content scripts also rehydrate active collect mode after extension reload/page refresh (see AGENTS.md "Recently Fixed 2026-05-22").
 - Mode-aware save routing: archive saves to Library; topic/product saves become Inbox signals; PR Evidence saves become campaign rows. Save messages now pass an explicit `sessionId`/`topicId`, so a drifted active folder cannot reroute a save.
 - Backend queue/drain/polling against `ingestBaseUrl`, defaulting to `http://127.0.0.1:8000`.
 - Compare setup and Result surfaces with backend read models plus extension-side compare brief v8, cluster summaries, evidence annotations, and saved analysis snapshots.
 - Topic workflow: Casebook, Inbox, Topic Detail, signal triage, per-signal semantic tags/gists, optional-question TopicSignalReading, and attached compare pairs.
-- Product workflow: ProductContextCompiler, ProductSignalAnalyzer, Marginalia/Verdict card layouts, candidate-action board, SignalReading packet/export support, and local feedback history.
+- Product workflow: ProductContextCompiler, ProductSignalAnalyzer v17, Marginalia/Verdict card layouts, candidate-action board, SignalReading packet/export support, and local feedback history. v17 stops asking the model for legacy action-recipe fields such as `copy_recipe_markdown` / `workflow_stack`; action cards also ignore those legacy fields if present and keep evidence as reusable patterns plus agent briefs, not tutorial recipes.
 - Signal Packet export baseline: Product sessions can export `DLensSignalPacket` records as HTML, Markdown, or JSONL through `signal-packet/export`.
 - PR Evidence workflow: one active campaign per session, brief upload, six editable criteria, evidence rows, criteria matching, CSV export, Markdown/DOCX audit summary.
 - Layout preferences remain persisted for existing records, but the visible Settings layout card is removed; workspace typography, rounded surfaces, and shadow treatment now follow the Topic card grammar across modes. Shared cards default to the 20px Topic-style radius.
@@ -60,7 +60,7 @@ npm run build
 
 Expected verified state for `0.1.26`:
 
-- `608/608` tests pass
+- `609/609` tests pass
 - `npm run typecheck` passes
 - `npm run build` mirrors the unpacked MV3 build to `output/chrome-mv3`
 - `output/chrome-mv3/manifest.json` reports `version: "0.1.26"` and `name: "DLens v3"`

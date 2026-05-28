@@ -4,6 +4,7 @@ import type { TargetDescriptor } from "../contracts/target-descriptor";
 import type { FolderMode, Signal, SignalTagsRecord } from "../state/types";
 import {
   Kicker,
+  MetricChip,
   ModeHeader,
   PrimaryButton,
   SecondaryButton,
@@ -24,21 +25,14 @@ function avatarInitial(author: string | undefined): string {
   return clean.charAt(0).toUpperCase();
 }
 
-function formatMetricValue(value: number | null | undefined): string {
-  if (value === null || value === undefined) return "—";
-  if (Math.abs(value) >= 1000000) return `${(value / 1000000).toFixed(value >= 10000000 ? 0 : 1).replace(/\.0$/, "")}M`;
-  if (Math.abs(value) >= 1000) return `${(value / 1000).toFixed(value >= 10000 ? 0 : 1).replace(/\.0$/, "")}K`;
-  return String(value);
-}
-
 function collectMetrics(preview: TargetDescriptor | null) {
   if (!preview) return [];
   return [
-    { key: "likes", label: "Like", value: preview.engagement.likes, present: preview.engagement_present.likes },
-    { key: "comments", label: "Reply", value: preview.engagement.comments, present: preview.engagement_present.comments },
-    { key: "reposts", label: "Repost", value: preview.engagement.reposts, present: preview.engagement_present.reposts },
-    { key: "forwards", label: "Share", value: preview.engagement.forwards, present: preview.engagement_present.forwards },
-    { key: "views", label: "View", value: preview.engagement.views, present: preview.engagement_present.views }
+    { key: "likes" as const, value: preview.engagement.likes, present: preview.engagement_present.likes },
+    { key: "comments" as const, value: preview.engagement.comments, present: preview.engagement_present.comments },
+    { key: "reposts" as const, value: preview.engagement.reposts, present: preview.engagement_present.reposts },
+    { key: "forwards" as const, value: preview.engagement.forwards, present: preview.engagement_present.forwards },
+    { key: "views" as const, value: preview.engagement.views, present: preview.engagement_present.views }
   ].filter((metric) => metric.present || metric.value !== null && metric.value !== undefined);
 }
 
@@ -193,22 +187,8 @@ export function CollectView({
                       <span
                         key={metric.key}
                         data-collect-metric={metric.key}
-                        style={{
-                          display: "inline-flex",
-                          alignItems: "center",
-                          gap: 4,
-                          minHeight: 22,
-                          padding: "0 7px",
-                          borderRadius: 999,
-                          border: `1px solid ${tokens.color.line}`,
-                          background: tokens.color.neutralSurface,
-                          color: tokens.color.subInk,
-                          fontSize: 10.5,
-                          fontWeight: 700
-                        }}
                       >
-                        <span style={{ color: tokens.color.softInk, fontWeight: 600 }}>{metric.label}</span>
-                        <span>{formatMetricValue(metric.value)}</span>
+                        <MetricChip kind={metric.key} value={metric.value} present={metric.present} />
                       </span>
                     ))}
                   </div>
@@ -216,7 +196,7 @@ export function CollectView({
               </div>
             </div>
 
-            <PrimaryButton onClick={onSavePreview} disabled={!hasPreview || isSaved || !canSavePreview} style={{ width: "100%" }}>
+            <PrimaryButton onClick={onSavePreview} disabled={!hasPreview || isSaved || !canSavePreview} activateOnPointerDown style={{ width: "100%" }}>
               {isSaved ? savedCopy : saveCopy}
             </PrimaryButton>
             {disabledReason ? (

@@ -20,8 +20,9 @@ The current product split is:
    - legacy `chrome.storage.local["dlens_product_context"]` is migrated forward and removed
    - Settings shows a `系統理解` preview so the user can inspect what the AI understood before trusting later judgments
    - `ProductSignalAnalyzer` is wired as the product AI path for saved signals
+   - `ProductSignalAnalyzer` prompt/cache version is `v17`; new strict provider output no longer asks for legacy action-recipe fields (`copy_recipe_markdown`, `workflow_stack`, `copyable_template`)
    - product pages read real stored analysis state and show readiness/error/empty states instead of fabricated analytics
-   - product cards show useful insight, cited discussion replies, `experimentHint`, and optional paste-ready `agentTaskSpec`
+   - product cards show useful insight, cited discussion replies, reusable evidence patterns, `experimentHint`, and optional paste-ready `agentTaskSpec`; they should not turn Product Action into a long tutorial recipe surface, and the UI ignores legacy recipe fields if old records still contain them
    - product signal cards now support persisted layout variants: `marginalia` and `verdict`; default is `marginalia`
    - Product Action route stays on the candidate-action board plus batch export surface; it must not fall back to the old `READING REVIEW` / `PACKET EXPORT` review workspace when `SignalReading` rows exist
    - SignalReading records remain available as local corpus/export support, but they are not the primary Product Action route UI
@@ -51,6 +52,7 @@ The current product split is:
    - `InPageCollectorPopup` still threads persisted values to Product signal, Topic synthesis, and Compare result views
    - Settings no longer exposes the visible Layout preference card; runtime settings stay focused on folder mode, connection, keys, storage usage, and ProductProfile
    - Product and PR headers, Product recovered-analysis rows, Settings groups, and workspace switching now follow the Topic-style typography, 20px card radius, shadow, and compact content grammar
+   - Collect preview metrics use shared icon chips across the overlay and popup, and Product pending signal cards use Topic-style matte cards with compact clamped preview text
    - verified clean-main build output was copied to `/Users/tung/Desktop/dlens-product-latest/output/chrome-mv3` for Chrome load-unpacked use
 
 6. Signal Reading Review surface
@@ -87,7 +89,7 @@ The verified build in the active Phase B implementation worktree is:
 - backend physical checkout: `/Users/tung/Desktop/dlens-backend/dlens-ingest-core`
 - old versions and historical worktrees: `/Users/tung/Desktop/dlens-old`
 - verification: `npm run typecheck`, `npx tsx --test tests/*.test.ts tests/*.test.tsx`, and `npm run build`
-- latest full test count after Product Action route/card geometry fix: `608 pass, 0 fail`
+- latest full test count after Product Action route/card geometry fix: `609 pass, 0 fail`
 - latest build output was mirrored to `/Users/tung/Desktop/dlens-product-latest/output/chrome-mv3`
 - current engineering branch: `codex/pr-visible-metrics`
 - live backend smoke from the prior product run: `GET http://127.0.0.1:8000/worker/status` returned `{"status":"idle"}`
@@ -156,7 +158,7 @@ Product mode now has two schema-first AI contracts:
 
 2. `ProductSignalAnalyzer`
    - files: `src/compare/product-signal-analysis.ts`, `src/compare/provider.ts`
-   - prompt/cache version: `PRODUCT_SIGNAL_ANALYSIS_PROMPT_VERSION = "v16"`
+   - prompt/cache version: `PRODUCT_SIGNAL_ANALYSIS_PROMPT_VERSION = "v17"`
    - output schema: `PRODUCT_SIGNAL_ANALYSIS_JSON_SCHEMA`
    - classifies saved signals into `learning | competitor | demand | technical | marketing | noise`
    - classifies content shape into `content | discussion_starter | mixed`

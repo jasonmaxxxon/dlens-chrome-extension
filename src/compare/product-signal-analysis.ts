@@ -22,7 +22,7 @@ import type {
 } from "../state/types.ts";
 import type { ProductSignalPreferenceExample } from "./product-signal-history.ts";
 
-export const PRODUCT_SIGNAL_ANALYSIS_PROMPT_VERSION = "v16";
+export const PRODUCT_SIGNAL_ANALYSIS_PROMPT_VERSION = "v17";
 export const PRODUCT_SIGNAL_ANALYSIS_CACHE_VERSION = PRODUCT_SIGNAL_ANALYSIS_PROMPT_VERSION;
 
 const PRODUCT_SIGNAL_REFERENCE_TYPES: ProductSignalReferenceType[] = [
@@ -117,11 +117,7 @@ export const PRODUCT_SIGNAL_ANALYSIS_JSON_SCHEMA = {
           "why_it_matters",
           "grounding",
           "reusable_pattern",
-          "why_it_works",
-          "copyable_template",
-          "workflow_stack",
-          "copy_recipe_markdown",
-          "tradeoff"
+          "why_it_works"
         ],
         properties: {
           ref: { type: "string" },
@@ -129,11 +125,7 @@ export const PRODUCT_SIGNAL_ANALYSIS_JSON_SCHEMA = {
           why_it_matters: { type: "string" },
           grounding: { type: "string", enum: ["text_grounded", "model_inferred", "insufficient_detail"] },
           reusable_pattern: { type: "string" },
-          why_it_works: { type: "string" },
-          copyable_template: { type: "string" },
-          workflow_stack: { type: "array", items: { type: "string" } },
-          copy_recipe_markdown: { type: "string" },
-          tradeoff: { type: "string" }
+          why_it_works: { type: "string" }
         }
       }
     }
@@ -516,7 +508,7 @@ export function buildProductSignalAnalyzerPrompt(input: ProductSignalAnalyzerInp
     "只回傳 JSON，不要加入 markdown 或解釋。不要使用 rule-based hint；content_type 必須由 assembled_content 和 discussion replies 判斷。",
     "",
     "語言規則（重要）：",
-    "- 所有面向用戶的文字欄位必須用繁體中文書寫：content_summary、reference_label、reference_takeaway、why_relevant、reason、experiment_hint、evidence_notes 的 quote_summary、why_it_matters、reusable_pattern、why_it_works、copyable_template、workflow_stack、copy_recipe_markdown、tradeoff、agent_task_spec.task_title。",
+    "- 所有面向用戶的文字欄位必須用繁體中文書寫：content_summary、reference_label、reference_takeaway、why_relevant、reason、experiment_hint、evidence_notes 的 quote_summary、why_it_matters、reusable_pattern、why_it_works、agent_task_spec.task_title。",
     "- 原文若是英文，要用中文「翻譯 + 摘要」，不要直接引用整段英文。",
     "- 機器欄位保留英文 enum：signal_type、signal_subtype（snake_case 標籤）、content_type、verdict、relevant_to、reference_type、target_agent、evidence_refs、ref。",
     "- agent_task_spec.task_prompt 是貼給 Codex/Claude 的指令，可以英文或中文；其他欄位都要繁中。",
@@ -530,13 +522,9 @@ export function buildProductSignalAnalyzerPrompt(input: ProductSignalAnalyzerInp
     "- experiment_hint：單句，<= 50 字；寫成可執行的小實驗，不要寫抽象研究任務",
     "- evidence_notes[*].quote_summary：單句中文摘錄，<= 40 字（不是貼原文）",
     "- evidence_notes[*].why_it_matters：單句，<= 50 字，說明這條為什麼是該判斷的證據",
-    "- evidence_notes[*].grounding：text_grounded | model_inferred | insufficient_detail。text_grounded = 原文明確提供工具、步驟與輸出；model_inferred = 技術概念可合理解釋但 recipe 仍依賴 AI 推斷，UI 會顯示「AI 推斷，請交叉驗證原文」；insufficient_detail = 原文不足以推導做法",
-    "- evidence_notes[*].reusable_pattern：單句，<= 28 字，抽出可借用 workflow；不是分類名",
-    "- evidence_notes[*].why_it_works：1-2 句，<= 150 字；必須先指出這條 evidence 原文的具體觀察（作者說了什麼、看到了什麼），再用一句話推導底層機制（「這說明...」）；禁止直接寫通用 AI 理論或課本解釋；讀完後應該讓人覺得「是這條留言讓我懂了這件事」，而不是「這段可以從任何教材複製」",
-    "- evidence_notes[*].copyable_template：<= 70 字，寫成「輸入來源 -> Agent 處理 -> 交付物」的如何照抄模板；不能只是抽象描述，必須用 evidence 原文中出現的具體工具和步驟",
-    "- evidence_notes[*].workflow_stack：0-6 個明確出現在該 evidence 原文的工具、資料來源或輸出位置；不要補不存在的工具",
-    "- evidence_notes[*].copy_recipe_markdown：<= 700 字的 numbered-step markdown recipe，格式 '1. 打開 X\\n2. 做 Y\\n3. 輸出 Z'；每個步驟必須對應 evidence 原文的具體動作或描述（作者說了什麼、做了什麼），讓讀者看出這是從 evidence 提取出來的操作而不是通用教程；必須包含具體工具名、操作動詞、每步預期結果；如果 evidence 原文提到成效或意外收穫，必須寫進對應步驟的預期結果，不要發明原文沒有的 outcome；只有 grounding=text_grounded 且 evidence 原文明確提供輸入、處理、輸出時才填；不能用一般知識補 API、webhook、參數或安裝步驟；quote 太短或缺任一環節就用空字串",
-    "- evidence_notes[*].tradeoff：單句，<= 50 字；從這條 evidence 的脈絡推導這個做法的邊界條件：作者在什麼前提下說它有效？什麼類型的用戶或情境不適用？複製這個做法最可能卡在哪裡？禁止套用「資料品質」「整合成本」「權限」等通用套語；要說的是「如果你不符合 X 條件，這個做法的效果未知」",
+    "- evidence_notes[*].grounding：text_grounded | model_inferred | insufficient_detail。text_grounded = 原文明確提供觀察與脈絡；model_inferred = 技術概念可合理解釋但仍需交叉驗證；insufficient_detail = 原文不足以支撐具體產品判斷",
+    "- evidence_notes[*].reusable_pattern：單句，<= 28 字，抽出可借用的產品/工作流模式；不是分類名，也不是操作教學標題",
+    "- evidence_notes[*].why_it_works：1-2 句，<= 150 字；必須先指出這條 evidence 原文的具體觀察（作者說了什麼、看到了什麼），再用一句話推導底層機制（「這說明...」）；禁止直接寫通用 AI 理論、教程步驟或課本解釋；讀完後應該讓人覺得「是這條留言讓我懂了這件事」，不是「這段可以從任何教材複製」",
     "- agent_task_spec.task_title：<= 12 字，用於 UI 卡片 header；不是 task_prompt 的第一行",
     "",
     "判斷規則：",
@@ -550,13 +538,13 @@ export function buildProductSignalAnalyzerPrompt(input: ProductSignalAnalyzerInp
     "- 所有 schema keys 都必須出現；不適用時用 null、空字串或空陣列，不要省略 key。",
     "- experiment_hint 必須是 string；只有 verdict=try 時填具體實驗，其餘情況用空字串",
     "- agent_task_spec: 只有 verdict=try 時填 object；其餘回 null。target_agent 按性質選 codex/claude/generic；task_title <=12 字。",
-    "- agent_task_spec.task_prompt 必須是可直接貼入 Codex / Claude 的完整指令，不是描述。格式必須是 numbered steps：'1. 做什麼\\n2. 用什麼工具\\n3. 輸出什麼格式'。必須引用 evidence 原文的具體工具/平台/步驟，不能寫通用模板。",
+    "- agent_task_spec.task_prompt 必須是可直接貼入 Codex / Claude 的 brief：說清楚要檢查的產品假設、可用 evidence refs、要輸出的格式與停止條件；不要寫成操作教學，也不要發明原文沒有的工具或步驟。",
     "- evidence_refs 只能引用下方 evidence catalog 的 e1/e2/...；沒有證據就回空陣列",
     "- evidence_notes：對 evidence_refs 列出的每個 ref 都要補一條對應 note；ref 必須來自 evidence_refs；沒有 evidence_refs 就回空陣列",
-    "- evidence_notes 不只是引用理由；要把高技術含量留言拆成可學習的 workflow pattern，讓用戶知道可以 copy/改造哪個做法。",
+    "- evidence_notes 不只是引用理由；要把高技術含量留言拆成可學習的模式，讓用戶知道可以保留、測試或交給 agent 追問哪個假設。",
     "- evidence_notes 必須是 evidence-specific，不要把 thread-level content_summary 複製到每條 evidence。",
-    "- quote 太短時，不要硬擠 how-to；grounding 用 insufficient_detail，workflow_stack 用空陣列、copy_recipe_markdown 用空字串，tradeoff 寫「原文不足以推導完整做法」。",
-    "- 工具或組合方式不確定時，不要假裝知道作者的實作。why_it_works 只可寫一般機制並標 grounding=model_inferred；copy_recipe_markdown 用空字串，tradeoff 寫「AI 推斷，請交叉驗證原文」。",
+    "- quote 太短時，不要硬擠操作方法；grounding 用 insufficient_detail，why_it_works 寫「原文不足以推導具體機制」並說明缺哪一段。",
+    "- 工具或組合方式不確定時，不要假裝知道作者的實作。why_it_works 只可寫 evidence 能支撐的一般機制並標 grounding=model_inferred。",
     "- 反面案例規則：如果主文在分享 app、產品、campaign 或定位語氣，但 replies 明顯出現嘲諷、反感、不買帳、信任下降或使用門檻抗拒，不要硬判成 try。content_type 用 mixed 或 discussion_starter；verdict 優先 watch 或 park；relevance 視 ProductContext 相關性給 2-3；reason 必須寫成「可作為反面語氣/定位案例」並引用負面 audience evidence。不要只因主文有粗口就判負面，必須看 replies 的反應。",
     "- 輸出面向產品洞察，不要提 cluster、分群演算法或後端分析細節。",
     "- 產品功能比對：仔細讀 [PRODUCT_CONTEXT].currentCapabilities 和 coreWorkflows。如果 evidence 建議的做法已經是產品現有功能，why_relevant 要明確寫「產品已有此功能」，experiment_hint 要改成「強化既有 X 功能」而非「新增 Y」，verdict 傾向 watch 而非 try。不要推薦產品已有的功能當作新實驗。",
@@ -566,7 +554,7 @@ export function buildProductSignalAnalyzerPrompt(input: ProductSignalAnalyzerInp
     "- why_it_works 不好的例子：AI 模型透過注意力機制處理輸入，當指令包含明確邊界條件與結構化指引時，能有效減少幻覺並聚焦於用戶設定的邏輯框架內。（這是通用課本解釋，跟 evidence 完全斷開）",
     "- why_it_works 好的例子（evidence-grounded）：queenfian 說「仔細描述同埋指引 outcome 正常同達標機率好多」— 這說明 prompt 精確度直接決定模型搜尋空間的寬度：描述越具體，模型能排除的錯誤路徑越多，命中率自然提高。",
     "- why_it_works 好的例子（MCP 類）：作者說 host 啟動時會自動 discovery server 能力 — 這說明 MCP 透過動態 schema 讀取取代硬編碼 API，新工具加入時不需要改 host 端邏輯。",
-    "- copy_recipe_markdown 好的例子：1. 在 MCP server 宣告可讀取的資料來源、工具名稱與參數 schema，預期 host 啟動時能 discovery。\\n2. 讓 agent 先列出可用工具，再選擇與任務相符的資料來源，預期降低猜 API 的風險。\\n3. 將工具結果輸出成 markdown brief，預期交付物同時包含來源、限制和下一步。",
+    "- agent_task_spec 好的例子：請檢查 DLens 是否已有可接 MCP tool schema 的讀取層；輸入 evidence e1/e2 與目前 ProductContext；輸出一頁 brief，分成現有能力、缺口、可測假設、停止條件。",
     "",
     "[PRODUCT_CONTEXT]",
     JSON.stringify(input.productContext, null, 2),
@@ -612,10 +600,6 @@ export function buildProductSignalAnalyzerPrompt(input: ProductSignalAnalyzerInp
         grounding: "text_grounded|model_inferred|insufficient_detail",
         reusable_pattern: "可借用 workflow <=28 字",
         why_it_works: "底層機制，<=150 字",
-        copyable_template: "輸入來源 -> Agent 處理 -> 可交付輸出",
-        workflow_stack: ["明確工具或資料來源"],
-        copy_recipe_markdown: "1. 具體工具/資料來源\n2. agent 處理方式\n3. 預期交付物",
-        tradeoff: "權限、整合或資料限制"
       }]
     }, null, 2)
   ].join("\n");

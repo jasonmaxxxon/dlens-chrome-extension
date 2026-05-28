@@ -159,17 +159,17 @@ test("strict schema keeps only the minimal current analyzer fields plus evidence
   assert.deepEqual([...agentTask.required].sort(), ["required_context", "target_agent", "task_prompt", "task_title"]);
   const evidenceNotes = props.evidence_notes as { items: { required: string[] } };
   assert.deepEqual([...evidenceNotes.items.required].sort(), [
-    "copy_recipe_markdown",
-    "copyable_template",
     "grounding",
     "quote_summary",
     "ref",
     "reusable_pattern",
-    "tradeoff",
     "why_it_matters",
-    "why_it_works",
-    "workflow_stack"
+    "why_it_works"
   ]);
+  const evidenceProps = evidenceNotes.items as unknown as { properties: Record<string, unknown> };
+  assert.equal(evidenceProps.properties.copy_recipe_markdown, undefined);
+  assert.equal(evidenceProps.properties.workflow_stack, undefined);
+  assert.equal(evidenceProps.properties.copyable_template, undefined);
 });
 
 test("parseProductSignalAnalysisResponse only keeps agent task specs for try verdicts", () => {
@@ -394,32 +394,31 @@ test("buildProductSignalAnalyzerPrompt enforces evidence-specific workflow recip
   assert.match(prompt, /why_it_matters/);
   assert.match(prompt, /reusable_pattern/);
   assert.match(prompt, /why_it_works/);
-  assert.match(prompt, /copyable_template/);
-  assert.match(prompt, /workflow_stack/);
-  assert.match(prompt, /copy_recipe_markdown/);
-  assert.match(prompt, /tradeoff/);
+  assert.doesNotMatch(prompt, /copyable_template/);
+  assert.doesNotMatch(prompt, /workflow_stack/);
+  assert.doesNotMatch(prompt, /copy_recipe_markdown/);
+  assert.doesNotMatch(prompt, /如何照抄/);
   assert.match(prompt, /不要把 thread-level content_summary/);
   assert.match(prompt, /quote 太短/);
-  assert.match(prompt, /如何照抄/);
   assert.match(prompt, /task_title/);
-  // v9: agent prompt must be numbered steps
-  assert.match(prompt, /numbered steps/);
-  assert.match(prompt, /具體工具/);
+  assert.match(prompt, /brief/);
+  assert.doesNotMatch(prompt, /numbered steps/);
+  assert.match(prompt, /產品假設/);
+  assert.match(prompt, /evidence refs/);
   // v9: product-aware duplicate blocking
   assert.match(prompt, /currentCapabilities/);
   assert.match(prompt, /產品已有此功能/);
   assert.match(prompt, /不要推薦產品已有的功能/);
   assert.match(prompt, /grounding/);
-  assert.match(prompt, /AI 推斷/);
-  assert.match(prompt, /交叉驗證原文/);
-  assert.match(prompt, /不能用一般知識補 API、webhook、參數或安裝步驟/);
+  assert.match(prompt, /model_inferred/);
+  assert.match(prompt, /交叉驗證/);
+  assert.match(prompt, /不要假裝知道作者的實作/);
 });
 
 test("buildProductSignalAnalyzerPrompt gives enough room and examples for technical understanding", () => {
   const prompt = buildProductSignalAnalyzerPrompt(analyzerInput);
 
   assert.match(prompt, /why_it_works：.*<= 150 字/);
-  assert.match(prompt, /copy_recipe_markdown：.*<= 700 字/);
   assert.match(prompt, /不好的例子/);
   assert.match(prompt, /好的例子/);
   assert.match(prompt, /底層機制/);
@@ -511,10 +510,10 @@ test("buildProductSignalAnalyzerPrompt includes local feedback examples only whe
   assert.doesNotMatch(promptWithoutExamples, /\[USER_FEEDBACK_EXAMPLES\]/);
 });
 
-test("PROMPT_VERSION + CACHE_VERSION are v16 (audience reaction and source-link brief)", async () => {
+test("PROMPT_VERSION + CACHE_VERSION are v17 (no legacy action recipe fields)", async () => {
   const { PRODUCT_SIGNAL_ANALYSIS_CACHE_VERSION } = await import("../src/compare/product-signal-analysis.ts");
-  assert.equal(PRODUCT_SIGNAL_ANALYSIS_PROMPT_VERSION, "v16");
-  assert.equal(PRODUCT_SIGNAL_ANALYSIS_CACHE_VERSION, "v16");
+  assert.equal(PRODUCT_SIGNAL_ANALYSIS_PROMPT_VERSION, "v17");
+  assert.equal(PRODUCT_SIGNAL_ANALYSIS_CACHE_VERSION, "v17");
 });
 
 test("parseProductSignalAnalysisResponse rejects incomplete or fake score payloads", () => {

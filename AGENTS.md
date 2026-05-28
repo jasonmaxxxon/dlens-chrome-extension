@@ -1,6 +1,6 @@
 # AGENTS.md — DLens Chrome Extension v0.1
 
-> **Last updated:** 2026-05-28 (Product Action route restored to candidate-action board + batch export, shared surface cards now default to Topic-style 20px radius — 608/608 tests, typecheck, build, version 0.1.26 mirrored into MV3)
+> **Last updated:** 2026-05-28 (Product preview/action cleanup: shared metric icons, Topic-style pending cards, ProductSignalAnalyzer v17 without legacy recipe fields — 609/609 tests, typecheck, build, version 0.1.26 mirrored into MV3)
 > **For:** any agent continuing work in this repo
 
 ## Recently Fixed (2026-05-28) — Product action board and card geometry
@@ -21,6 +21,19 @@
    `dlens:v1:product-agent-task-feedback`, `dlens:v1:signal-readings`, and
    `dlens:v1:product-context`. It must not delete saved signals, sessions,
    topics, archive folders, or PR evidence.
+4. **Collect metric icons.** Collect preview metrics use the shared
+   `MetricChip` / `MetricIcon` grammar, including likes, comments, reposts,
+   forwards, and views. Do not reintroduce text-only `Like 123` /
+   `Reply 45` chips in Product Collect.
+5. **ProductSignalAnalyzer v17.** New Product analyses no longer request
+   legacy recipe output fields (`copy_recipe_markdown`, `workflow_stack`,
+   `copyable_template`) from the strict provider schema. Action cards should
+   present reusable evidence patterns plus an agent brief, not a long
+   tutorial/how-to recipe; the UI also ignores legacy recipe fields if an old
+   record or provider response still contains them.
+6. **Product pending card grammar.** Pending saved-signal cards use the
+   Topic-style 20px card radius, matte shadow, compact meta text, and clamped
+   preview copy.
 
 ## Recently Fixed (2026-05-27) — Engineering plan N1-N5
 
@@ -350,7 +363,7 @@ Important implementation points:
 - `SettingsView.tsx` no longer owns visible layout controls; it stays focused on folder mode, connection/storage usage, API keys, and ProductProfile.
 - `InPageCollectorPopup.tsx` threads persisted layout settings into Product signal cards, Topic synthesis, and Compare Result.
 - Topic Detail's primary overview is now semantic `SignalTagsRecord` data from `dlens:v1:signal-tags`, not deterministic keyword frequency. `TopicSynthesis` and `FolderSynthesis` remain deterministic extension-side layers over analyzed signals for legacy/folder contexts and do not replace backend clustering.
-- Current verification was run from `/Users/tung/Desktop/dlens-product-latest`: `608/608` tests, `npm run typecheck`, and `npm run build` passed.
+- Current verification was run from `/Users/tung/Desktop/dlens-product-latest`: `609/609` tests, `npm run typecheck`, and `npm run build` passed.
 - The verified unpacked build was copied to `/Users/tung/Desktop/dlens-product-latest/output/chrome-mv3` for Chrome load-unpacked use.
 - `/Users/tung/Desktop/dlens-product-latest` source checkout may be dirty; do not infer clean source state from the copied build artifact.
 
@@ -486,7 +499,7 @@ This was a major product-direction change. Summary for any agent picking up here
 
 ```bash
 npm run typecheck && npx tsx --test tests/*.test.ts tests/*.test.tsx
-# Expected on current checkout: 608 pass, 0 fail
+# Expected on current checkout: 609 pass, 0 fail
 ```
 
 ### Current engineering roadmap
