@@ -334,6 +334,10 @@ export const DLENS_BUTTON_CSS = `
   background: var(--dlens-mode-accent-soft, ${tokens.color.accentSoft});
   border-color: var(--dlens-mode-hover-border-soft, ${tokens.color.lineStrong});
 }
+@keyframes dlens-mode-swap-in {
+  0% { opacity: 0.45; transform: translateY(2px); }
+  100% { opacity: 1; transform: translateY(0); }
+}
 @media (prefers-reduced-motion: reduce) {
   [data-dlens-control="true"] [data-dlens-button],
   [data-dlens-control="true"] [data-dlens-button]:not(:disabled):active {
@@ -343,7 +347,8 @@ export const DLENS_BUTTON_CSS = `
   [data-dlens-control="true"] [data-dlens-button]:not(:disabled):active {
     transform: none !important;
   }
-  [data-dlens-control="true"] [data-dlens-button] {
+  [data-dlens-control="true"] [data-dlens-button],
+  [data-dlens-control="true"] [data-workspace-mode-frame="true"] {
     animation: none !important;
   }
 }
@@ -706,13 +711,33 @@ export function WorkspaceShell({
         </header>
 
         <div data-shell-main="workspace" style={{ display: "grid", gap: tokens.spacing.md, minWidth: 0, minHeight: 0, alignContent: "start" }}>
-          {contextStrip ? (
-            <div data-shell-context-strip="processing">
-              {contextStrip}
-            </div>
-          ) : null}
+          {/* Keep the strip slot reserved so ProcessingStrip visibility does not shift the workspace. */}
+          <div
+            data-shell-context-strip="processing"
+            data-strip-visible={contextStrip ? "true" : "false"}
+            style={{
+              minHeight: 52,
+              opacity: contextStrip ? 1 : 0,
+              pointerEvents: contextStrip ? "auto" : "none",
+              transition: "opacity 140ms ease-out"
+            }}
+          >
+            {contextStrip}
+          </div>
 
-          <main data-workspace-mode={mode} style={{ display: "grid", minWidth: 0, minHeight: 0, alignContent: "start" }}>
+          {/* Remount only across workspace modes so the crossfade does not replay on intra-mode tabs. */}
+          <main
+            data-workspace-mode={mode}
+            data-workspace-mode-frame="true"
+            key={folderMode ?? "_default"}
+            style={{
+              display: "grid",
+              minWidth: 0,
+              minHeight: 480,
+              alignContent: "start",
+              animation: "dlens-mode-swap-in 160ms cubic-bezier(0.16, 1, 0.3, 1)"
+            }}
+          >
             {children}
           </main>
         </div>

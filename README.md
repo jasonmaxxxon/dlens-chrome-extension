@@ -3,7 +3,7 @@
 DLens is a mode-aware MV3 Chrome extension for capturing Threads posts and turning them into research, product-signal, and PR evidence workflows.
 
 > Last updated: 2026-05-28
-> Current release: `0.1.26`
+> Current release: `0.1.27`
 > Current engineering branch: `codex/pr-visible-metrics`
 > Verified build: `/Users/tung/Desktop/dlens-product-latest/output/chrome-mv3`
 
@@ -31,6 +31,7 @@ Current workspace modes:
 - Signal Packet export baseline: Product sessions can export `DLensSignalPacket` records as HTML, Markdown, or JSONL through `signal-packet/export`.
 - PR Evidence workflow: one active campaign per session, brief upload, six editable criteria, evidence rows, criteria matching, CSV export, Markdown/DOCX audit summary.
 - Layout preferences remain persisted for existing records, but the visible Settings layout card is removed; workspace typography, rounded surfaces, and shadow treatment now follow the Topic card grammar across modes. Shared cards default to the 20px Topic-style radius.
+- Workspace mode switches reserve the processing-strip slot, reset scroll before paint, and crossfade the content frame so Topic/Product/PR data changes no longer produce a visible vertical jump.
 - Product Action route restores the 0.1.15 `READING REVIEW` UI when saved signals have readings or review callbacks. The old page-level `Agent export` / `原文優先` panel remains removed.
 - Product Settings includes a Product-only cache reset. It clears derived Product analysis, SignalReading, feedback, and compiled ProductContext storage without deleting saved signals, topics, archive folders, or PR evidence.
 - Popup runtime hardening: the React tree is wrapped in a top-level workspace ErrorBoundary, and the content-script runtime fallback remains separate.
@@ -58,12 +59,12 @@ npx tsx --test tests/*.test.ts tests/*.test.tsx
 npm run build
 ```
 
-Expected verified state for `0.1.26`:
+Expected verified state for `0.1.27`:
 
 - `609/609` tests pass
 - `npm run typecheck` passes
 - `npm run build` mirrors the unpacked MV3 build to `output/chrome-mv3`
-- `output/chrome-mv3/manifest.json` reports `version: "0.1.26"` and `name: "DLens v3"`
+- `output/chrome-mv3/manifest.json` reports `version: "0.1.27"` and `name: "DLens v3"`
 
 ## Active Paths
 

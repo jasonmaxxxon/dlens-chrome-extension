@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import type { MainPage, PopupPage } from "../state/types";
 import { CasebookView } from "./CasebookView";
 import { CompareSetupView } from "./CompareSetupView";
@@ -71,7 +71,8 @@ export function InPageCollectorPopup({ app }: { app: InPageCollectorAppModel }) 
   const scrollRef = useRef<HTMLDivElement>(null);
   const [switchingWorkspaceMode, setSwitchingWorkspaceMode] = useState<WorkspaceSwitcherMode | null>(null);
 
-  useEffect(() => {
+  // Reset before paint so mode switches do not flash at the prior scrollTop.
+  useLayoutEffect(() => {
     if (scrollRef.current) {
       scrollRef.current.scrollTop = 0;
     }

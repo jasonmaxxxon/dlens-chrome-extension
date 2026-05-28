@@ -52,6 +52,7 @@ The current product split is:
    - `InPageCollectorPopup` still threads persisted values to Product signal, Topic synthesis, and Compare result views
    - Settings no longer exposes the visible Layout preference card; runtime settings stay focused on folder mode, connection, keys, storage usage, and ProductProfile
    - Product and PR headers, Product recovered-analysis rows, Settings groups, and workspace switching now follow the Topic-style typography, 20px card radius, shadow, and compact content grammar
+   - Workspace mode switching now reserves the ProcessingStrip slot, resets scroll before paint with `useLayoutEffect`, and crossfades the mode frame while preserving same-mode tab navigation without extra animation
    - Collect preview metrics use shared icon chips across the overlay and popup, and Product pending signal cards use Topic-style matte cards with compact clamped preview text
    - verified clean-main build output was copied to `/Users/tung/Desktop/dlens-product-latest/output/chrome-mv3` for Chrome load-unpacked use
 
@@ -81,7 +82,7 @@ The current product split is:
 The verified build in the active Phase B implementation worktree is:
 
 - verification worktree: `/Users/tung/Desktop/dlens-product-latest`
-- current extension version: `0.1.26`
+- current extension version: `0.1.27`
 - active load-unpacked folder: `/Users/tung/Desktop/dlens-product-latest/output/chrome-mv3`
 - note: `/Users/tung/Desktop/dlens-product-latest` source checkout may be dirty; do not infer clean source state from the copied build artifact
 - unpacked extension: `/Users/tung/Desktop/dlens-product-latest/output/chrome-mv3`
@@ -93,7 +94,7 @@ The verified build in the active Phase B implementation worktree is:
 - latest build output was mirrored to `/Users/tung/Desktop/dlens-product-latest/output/chrome-mv3`
 - current engineering branch: `codex/pr-visible-metrics`
 - live backend smoke from the prior product run: `GET http://127.0.0.1:8000/worker/status` returned `{"status":"idle"}`
-- extension manifest name is `DLens v3`; current extension version is `0.1.26`
+- extension manifest name is `DLens v3`; current extension version is `0.1.27`
 - version is locked across `package.json`, `package-lock.json`, `wxt.config.ts` `manifest.version`, and `src/ui/version.ts` `BUILD_VERSION`
 
 ## PR Evidence V1 Contract State
@@ -197,7 +198,7 @@ Topic Detail now uses per-signal semantic tags as the primary scan layer. Topic 
 
 ## Version State
 
-- Current extension version: `0.1.26`.
+- Current extension version: `0.1.27`.
 - Chrome extension page version comes from `wxt.config.ts` `manifest.version` in the built manifest.
 - Popup masthead version comes from `src/ui/version.ts` `BUILD_VERSION`.
 - `package.json`, `package-lock.json`, `wxt.config.ts`, and `src/ui/version.ts` must stay in sync for every main-facing update unless explicitly skipped.

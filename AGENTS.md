@@ -1,6 +1,6 @@
 # AGENTS.md — DLens Chrome Extension v0.1
 
-> **Last updated:** 2026-05-28 (Product Action restored the 0.1.15 Reading Review UI while keeping ProductSignalAnalyzer v17 — 609/609 tests, typecheck, build, version 0.1.26 mirrored into MV3)
+> **Last updated:** 2026-05-28 (Workspace mode switches now reserve the processing strip, reset scroll before paint, and crossfade the content frame; Product Action keeps the restored 0.1.15 Reading Review UI — 609/609 tests, typecheck, build, version 0.1.27 mirrored into MV3)
 > **For:** any agent continuing work in this repo
 
 ## Recently Fixed (2026-05-28) — Product action board and card geometry
