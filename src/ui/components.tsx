@@ -266,7 +266,7 @@ export function viewRootStyle(extra?: CSSProperties): CSSProperties {
 export function surfaceCardStyle(extra?: CSSProperties): CSSProperties {
   return {
     padding: tokens.spacing.section,
-    borderRadius: tokens.radius.card,
+    borderRadius: tokens.radius.cardLg,
     overflow: "hidden",
     background: `linear-gradient(180deg, ${tokens.color.focusedSurface}, ${tokens.color.contentSurface})`,
     backdropFilter: tokens.effect.glassBlur,

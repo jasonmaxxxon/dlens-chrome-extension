@@ -1,6 +1,6 @@
 # Current State
 
-## System State As Of 2026-05-27
+## System State As Of 2026-05-28
 
 DLens is now best described as a **desktop-first Threads research, product-signal, and PR evidence extension**.
 
@@ -23,8 +23,8 @@ The current product split is:
    - product pages read real stored analysis state and show readiness/error/empty states instead of fabricated analytics
    - product cards show useful insight, cited discussion replies, `experimentHint`, and optional paste-ready `agentTaskSpec`
    - product signal cards now support persisted layout variants: `marginalia` and `verdict`; default is `marginalia`
-   - Agent Brief now uses `SignalReading` records as a local corpus: generate a free-text reading, review it, file it, then compose a filed-only Markdown brief for coding agents
-   - the Agent Brief review card keeps a compact Marginalia signal strip (`verdict`, `referenceType`, `relevance`) so reading review still carries the original product-signal judgment density
+   - Product Action route stays on the candidate-action board plus batch export surface; it must not fall back to the old `READING REVIEW` / `PACKET EXPORT` review workspace when `SignalReading` rows exist
+   - SignalReading records remain available as local corpus/export support, but they are not the primary Product Action route UI
    - product pages must not show backend clusters as the product output; clusters are internal backend support, not the user-facing product abstraction
 
 3. Archive / Library mode
@@ -49,7 +49,7 @@ The current product split is:
      - `compareResultLayout: "reading" | "parallel" | "chapters"`; default `parallel`
    - `InPageCollectorPopup` still threads persisted values to Product signal, Topic synthesis, and Compare result views
    - Settings no longer exposes the visible Layout preference card; runtime settings stay focused on folder mode, connection, keys, storage usage, and ProductProfile
-   - Product and PR headers, Product recovered-analysis rows, Settings groups, and workspace switching now follow the Topic-style typography, card radius, shadow, and compact content grammar
+   - Product and PR headers, Product recovered-analysis rows, Settings groups, and workspace switching now follow the Topic-style typography, 20px card radius, shadow, and compact content grammar
    - verified clean-main build output was copied to `/Users/tung/Desktop/dlens-product-latest/output/chrome-mv3` for Chrome load-unpacked use
 
 6. Signal Reading Review surface
@@ -86,7 +86,7 @@ The verified build in the active Phase B implementation worktree is:
 - backend physical checkout: `/Users/tung/Desktop/dlens-backend/dlens-ingest-core`
 - old versions and historical worktrees: `/Users/tung/Desktop/dlens-old`
 - verification: `npm run typecheck`, `npx tsx --test tests/*.test.ts tests/*.test.tsx`, and `npm run build`
-- latest full test count after compact workspace UI consolidation: `608 pass, 0 fail`
+- latest full test count after Product Action route/card geometry fix: `608 pass, 0 fail`
 - latest build output was mirrored to `/Users/tung/Desktop/dlens-product-latest/output/chrome-mv3`
 - current engineering branch: `codex/pr-visible-metrics`
 - live backend smoke from the prior product run: `GET http://127.0.0.1:8000/worker/status` returned `{"status":"idle"}`
@@ -340,13 +340,14 @@ The extension may present backend output more clearly, but it should not fabrica
 - Product mode has its own insight pages backed by `dlens:v1:product-signal-analyses`; these pages should not render backend clusters as the primary product output
 - Product mode cards should lead with useful insight, cited evidence, verdict, experiment hint, and optional `agentTaskSpec`
 - Product mode cards now default to Marginalia; persisted Verdict records remain supported, but Settings no longer exposes the layout switcher
+- Product Action route stays on `ActionableInsightsBoard` and `SavedSignalsBatchExport`; do not route it through `SignalReadingReviewWorkspace`
 - Marginalia should avoid duplicate support chrome: the rail owns verdict/relevance/task summary, the main column owns TRY/drop-cap/footnotes, and repeated bottom AI detail panels stay hidden for this layout
 - Topic synthesis defaults to Console; persisted Stack settings remain supported
 - Compare Result defaults to Parallel; persisted Reading and Chapters settings remain supported
 - the popup shell now uses an editorial masthead + left vertical rail instead of the older horizontal pill strip
 - Result hero now follows an editorial grammar: compact headline, explicit relation line, compact `AI Brief · CONF` label
 - Library ready cards now use left-accent case cards with real keyword chips from current analysis snapshots
-- shared visual language now uses warm paper canvas, deep ink text, matte shadows, and navy/oxide accents
+- shared visual language now uses warm paper canvas, deep ink text, 20px paper-card radius, matte shadows, and navy/oxide accents
 - product judgment can rebuild a compare brief on cache miss before generating `JudgmentResult`
 
 ## Open Gaps

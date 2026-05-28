@@ -159,7 +159,7 @@ test("surfaceCardStyle uses the editorial paper defaults", () => {
     style.background,
     `linear-gradient(180deg, ${tokens.color.elevated}, ${tokens.color.surface})`
   );
-  assert.equal(style.borderRadius, tokens.radius.card);
+  assert.equal(style.borderRadius, tokens.radius.cardLg);
   assert.equal(style.border, `1px solid ${tokens.color.cardEdge}`);
   assert.equal(style.boxShadow, tokens.shadow.shell);
 });
@@ -1335,7 +1335,7 @@ test("ProductSignalView renders batch export only on the actionable page", () =>
   };
 
   const savedHtml = renderToStaticMarkup(
-    React.createElement(ProductSignalView, { ...baseProps, kind: "saved-signals" })
+    React.createElement(ProductSignalView, { ...baseProps, kind: "saved-signals", onGoToActionable: () => undefined })
   );
   const actionableHtml = renderToStaticMarkup(
     React.createElement(ProductSignalView, {
@@ -1361,6 +1361,7 @@ test("ProductSignalView renders batch export only on the actionable page", () =>
   );
 
   assert.doesNotMatch(savedHtml, /data-saved-signals-batch-export="true"/);
+  assert.match(savedHtml, /data-product-action-cta="true"[^>]*border-radius:20px/);
   assert.match(actionableHtml, /data-actionable-insights-board="true"/);
   assert.match(actionableHtml, /data-saved-signals-batch-export="true"/);
   assert.ok(
@@ -2145,7 +2146,7 @@ test("merged candidate-action board keeps AI commentary collapsed on action rout
   const openDetails = html.match(/<details open=""[^]*?<\/details>/g) ?? [];
 
   assert.equal(openDetails.length, 0);
-  assert.match(html, /Agent Brief/);
+  assert.match(html, /候選行動/);
   assert.doesNotMatch(html, /儲存至行動清單|>\+<\/span> 儲存/);
   assert.match(html, /s1 摘錄。/);
   assert.match(html, /s2 摘錄。/);
@@ -2384,7 +2385,7 @@ test("ProductSignalView original batch export includes audience reactions and au
   assert.match(brief, /預期落差: 作者預期毒舌語氣成為差異化/);
 });
 
-test("ProductSignalView reviews signal readings before composing filed-only brief", () => {
+test("ProductSignalView action route stays on action board when readings exist", () => {
   const signals = [
     { id: "signal_pending", sessionId: "sess", itemId: "i1", source: "threads" as const, inboxStatus: "unprocessed" as const, capturedAt: "2026-05-18T00:00:00.000Z" },
     { id: "signal_filed", sessionId: "sess", itemId: "i2", source: "threads" as const, inboxStatus: "unprocessed" as const, capturedAt: "2026-05-18T00:00:00.000Z" }
@@ -2480,37 +2481,31 @@ test("ProductSignalView reviews signal readings before composing filed-only brie
     })
   );
 
-  assert.match(html, /READING REVIEW/);
-  assert.match(html, /PACKET EXPORT/);
-  assert.match(html, /data-signal-reading-review-workspace="true"[^>]*padding-bottom:76px/);
-  assert.doesNotMatch(html, /收錄後會進入本地判讀庫/);
-  assert.match(html, /收錄此判讀/);
-  assert.match(html, /已收錄/);
-  assert.match(html, /data-signal-reading-verdict-summary="true"/);
+  assert.match(html, /data-actionable-insights-board="true"/);
+  assert.match(html, /data-saved-signals-batch-export="true"/);
+  assert.doesNotMatch(html, /READING REVIEW/);
+  assert.doesNotMatch(html, /PACKET EXPORT/);
+  assert.doesNotMatch(html, /data-signal-reading-review-workspace="true"/);
+  assert.doesNotMatch(html, /收錄此判讀/);
+  assert.doesNotMatch(html, /0 收錄 ·/);
   assert.match(html, /data-action-verdict-filter="try"/);
   assert.match(html, /data-action-verdict-filter="watch"/);
   assert.match(html, /data-verdict-filter-tiles="true"/);
   assert.match(html, /data-verdict-filter-plate="true"/);
   assert.match(html, /data-verdict-tile-count="true"/);
-  assert.match(html, /data-signal-reading-review-list-filter="watch"/);
-  assert.match(html, /data-signal-reading-marginalia="true"/);
-  assert.match(html, /data-signal-reading-relevance-summary="true"/);
+  assert.doesNotMatch(html, /data-signal-reading-review-list-filter="watch"/);
+  assert.doesNotMatch(html, /data-signal-reading-marginalia="true"/);
+  assert.doesNotMatch(html, /data-signal-reading-relevance-summary="true"/);
   assert.doesNotMatch(html, /data-signal-reading-marginalia-rail="true"/);
-  assert.match(html, /data-signal-reading-provenance="true"/);
-  assert.match(html, /data-signal-reading-provenance-layout="inline"/);
-  assert.match(html, /href="https:\/\/www\.threads\.net\/@dlens\/post\/pending"/);
-  assert.match(html, /data-signal-reading-evidence="true"/);
-  assert.match(html, /引用留言 1 則/);
-  assert.match(html, /data-signal-reading-evidence-chip="e1"/);
-  assert.match(html, /變蠢可能係真嘅/);
+  assert.doesNotMatch(html, /data-signal-reading-provenance="true"/);
+  assert.doesNotMatch(html, /data-signal-reading-evidence="true"/);
+  assert.doesNotMatch(html, /引用留言 1 則/);
   assert.match(html, /對產品參考：這是一段完整顯示的長判斷，不能被截斷。/);
-  assert.match(html, /relevance 3\/5/);
-  assert.doesNotMatch(html, /子型/);
   assert.doesNotMatch(html, /source link/);
   assert.doesNotMatch(html, /border-left:3px/);
   assert.match(html, /值得嘗試/);
   assert.match(html, /保留觀察/);
-  assert.match(html, /signals → packet/);
+  assert.doesNotMatch(html, /signals → packet/);
   assert.doesNotMatch(html, /BRIEF COMPOSE/);
   assert.doesNotMatch(html, /data-signal-reading-brief-copy-bar="inline"/);
   assert.doesNotMatch(html, /data-signal-reading-brief-copy-status="idle"/);
@@ -2524,7 +2519,7 @@ test("ProductSignalView reviews signal readings before composing filed-only brie
   assert.match(html, /data-signal-packet-format-option="jsonl"/);
   assert.match(html, /匯出 HTML Reading/);
   assert.match(html, /JSONL Packet/);
-  assert.match(html, /<strong[^>]*>判讀內容<\/strong>/);
+  assert.doesNotMatch(html, /<strong[^>]*>判讀內容<\/strong>/);
   assert.doesNotMatch(html, /\*\*判讀內容\*\*/);
   assert.doesNotMatch(html, /SOURCE https/);
   assert.doesNotMatch(html, /逐則審視判讀 → 決定值得進 corpus/);
@@ -2544,7 +2539,7 @@ test("ProductSignalView turns long reading openings into a lighter lead title an
   assert.match(display.body, /第二段保留完整判讀/);
 });
 
-test("ProductSignalView opens the reading review workflow before any readings exist", () => {
+test("ProductSignalView action route does not open reading review before readings exist", () => {
   const html = renderToStaticMarkup(
     React.createElement(ProductSignalView as any, {
       kind: "actionable-filter",
@@ -2584,13 +2579,15 @@ test("ProductSignalView opens the reading review workflow before any readings ex
     })
   );
 
-  assert.match(html, /Agent Brief/);
-  assert.match(html, /尚未生成深度判讀/);
-  assert.match(html, /深度判讀/);
-  assert.doesNotMatch(html, /可直接試的做法/);
+  assert.match(html, /候選行動/);
+  assert.match(html, /data-actionable-insights-board="true"/);
+  assert.doesNotMatch(html, /尚未生成深度判讀/);
+  assert.doesNotMatch(html, /深度判讀/);
+  assert.match(html, /保留觀察/);
+  assert.doesNotMatch(html, /data-signal-reading-review-workspace/);
 });
 
-test("ProductSignalView exposes regenerate action for an existing fresh reading", () => {
+test("ProductSignalView action route does not expose reading regeneration controls", () => {
   const html = renderToStaticMarkup(
     React.createElement(ProductSignalView as any, {
       kind: "actionable-filter",
@@ -2645,9 +2642,10 @@ test("ProductSignalView exposes regenerate action for an existing fresh reading"
     })
   );
 
-  assert.match(html, /現有判讀內容/);
-  assert.match(html, /重新生成判讀/);
+  assert.doesNotMatch(html, /現有判讀內容/);
+  assert.doesNotMatch(html, /重新生成判讀/);
   assert.doesNotMatch(html, /判讀建議重新生成/);
+  assert.match(html, /data-actionable-insights-board="true"/);
 });
 
 test("ClassificationBoard selected post aside collapses long text behind 展開全文", () => {

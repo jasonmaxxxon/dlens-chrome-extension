@@ -1,7 +1,20 @@
 # AGENTS.md — DLens Chrome Extension v0.1
 
-> **Last updated:** 2026-05-27 (Compact workspace UI consolidation on `codex/pr-visible-metrics`: Topic-style header/card grammar across modes, animated workspace switcher, Settings layout card removed, Product recovered analyses/action route compacted — 608/608 tests, typecheck, build, version 0.1.26 mirrored into MV3)
+> **Last updated:** 2026-05-28 (Product Action route restored to candidate-action board + batch export, shared surface cards now default to Topic-style 20px radius — 608/608 tests, typecheck, build, version 0.1.26 mirrored into MV3)
 > **For:** any agent continuing work in this repo
+
+## Recently Fixed (2026-05-28) — Product action board and card geometry
+
+1. **Product Action route regression.** `ProductSignalView` must not switch back
+   to the old `SignalReadingReviewWorkspace` when `SignalReading` rows or review
+   callbacks exist. The `actionable-filter` route now stays on
+   `ActionableInsightsBoard` plus `SavedSignalsBatchExport`; tests explicitly
+   reject `READING REVIEW`, `PACKET EXPORT`, and
+   `data-signal-reading-review-workspace` on that route.
+2. **Shared card radius.** `surfaceCardStyle()` now defaults to
+   `tokens.radius.cardLg` (`20px`) so Product/PR/shared surfaces match Topic's
+   softer paper-card geometry. The Saved Signals action CTA also uses the same
+   radius and Topic-style matte shadow.
 
 ## Recently Fixed (2026-05-27) — Engineering plan N1-N5
 
