@@ -15,6 +15,12 @@
    `tokens.radius.cardLg` (`20px`) so Product/PR/shared surfaces match Topic's
    softer paper-card geometry. The Saved Signals action CTA also uses the same
    radius and Topic-style matte shadow.
+3. **Product-only cache reset.** Settings exposes `清除 Product cache`, wired to
+   `product/clear-cache`. It removes only derived Product keys:
+   `dlens:v1:product-signal-analyses`,
+   `dlens:v1:product-agent-task-feedback`, `dlens:v1:signal-readings`, and
+   `dlens:v1:product-context`. It must not delete saved signals, sessions,
+   topics, archive folders, or PR evidence.
 
 ## Recently Fixed (2026-05-27) — Engineering plan N1-N5
 

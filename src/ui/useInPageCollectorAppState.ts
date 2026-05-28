@@ -1257,6 +1257,29 @@ export function useInPageCollectorAppState({ snapshot, tabId, sendAndSync }: Use
     }
   }
 
+  async function onClearProductCache() {
+    setSettingsSaveStatus(null);
+    try {
+      const response = await sendAndSync({ type: "product/clear-cache" });
+      if (!response.ok) {
+        setSettingsSaveStatus({ kind: "error", message: response.error });
+        return;
+      }
+      setProductSignalAnalyses([]);
+      setHistoricalProductSignalAnalyses([]);
+      setProductAgentTaskFeedback([]);
+      setSignalReadings([]);
+      setCompiledProductContext(null);
+      setProductSignalAnalysisNotice("Product cache 已清除；保留已儲存 signals，請重新分析。");
+      setSettingsSaveStatus({
+        kind: "success",
+        message: "Product cache 已清除。已儲存 signals、topics、PR evidence 不受影響。"
+      });
+    } catch (error) {
+      setSettingsSaveStatus({ kind: "error", message: error instanceof Error ? error.message : String(error) });
+    }
+  }
+
   function onDraftProductProfileChange(patch: Partial<typeof draftProductProfile>) {
     setDraftProductProfile((current) => ({
       ...current,
@@ -1570,7 +1593,8 @@ export function useInPageCollectorAppState({ snapshot, tabId, sendAndSync }: Use
     onProcessAll,
     onSetActiveSession,
     onSelectItem,
-    onSaveSettings
+    onSaveSettings,
+    onClearProductCache
   };
 }
 

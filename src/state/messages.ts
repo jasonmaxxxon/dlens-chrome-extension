@@ -112,6 +112,7 @@ export type ExtensionMessage =
   | { type: "product/analyze-signals"; sessionId: string }
   | { type: "product/list-agent-task-feedback" }
   | { type: "product/save-agent-task-feedback"; feedback: ProductAgentTaskFeedback }
+  | { type: "product/clear-cache" }
   | { type: "product/get-context" }
   | { type: "product/synthesize-signal-reading"; signalId: string; sessionId: string; force?: boolean }
   | { type: "product/list-signal-readings" }

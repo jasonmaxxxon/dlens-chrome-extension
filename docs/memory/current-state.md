@@ -25,6 +25,7 @@ The current product split is:
    - product signal cards now support persisted layout variants: `marginalia` and `verdict`; default is `marginalia`
    - Product Action route stays on the candidate-action board plus batch export surface; it must not fall back to the old `READING REVIEW` / `PACKET EXPORT` review workspace when `SignalReading` rows exist
    - SignalReading records remain available as local corpus/export support, but they are not the primary Product Action route UI
+   - Settings has a Product-only cache reset that clears derived product analyses, agent-task feedback, SignalReading rows, and compiled ProductContext without deleting saved signals/topics/PR evidence
    - product pages must not show backend clusters as the product output; clusters are internal backend support, not the user-facing product abstraction
 
 3. Archive / Library mode
@@ -341,6 +342,7 @@ The extension may present backend output more clearly, but it should not fabrica
 - Product mode cards should lead with useful insight, cited evidence, verdict, experiment hint, and optional `agentTaskSpec`
 - Product mode cards now default to Marginalia; persisted Verdict records remain supported, but Settings no longer exposes the layout switcher
 - Product Action route stays on `ActionableInsightsBoard` and `SavedSignalsBatchExport`; do not route it through `SignalReadingReviewWorkspace`
+- Product cache reset is `product/clear-cache`; keep it scoped to derived Product keys only, not saved `Signal` rows or session items
 - Marginalia should avoid duplicate support chrome: the rail owns verdict/relevance/task summary, the main column owns TRY/drop-cap/footnotes, and repeated bottom AI detail panels stay hidden for this layout
 - Topic synthesis defaults to Console; persisted Stack settings remain supported
 - Compare Result defaults to Parallel; persisted Reading and Chapters settings remain supported

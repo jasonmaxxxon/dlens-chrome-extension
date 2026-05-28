@@ -64,9 +64,14 @@ import {
   deleteProductSignalAnalysis,
   getProductSignalAnalysis,
   listProductSignalAnalyses,
+  PRODUCT_SIGNAL_ANALYSES_STORAGE_KEY,
   saveProductSignalAnalysis
 } from "../src/compare/product-signal-storage";
-import { listProductAgentTaskFeedback, saveProductAgentTaskFeedback } from "../src/compare/product-agent-task-feedback";
+import {
+  listProductAgentTaskFeedback,
+  PRODUCT_AGENT_TASK_FEEDBACK_STORAGE_KEY,
+  saveProductAgentTaskFeedback
+} from "../src/compare/product-agent-task-feedback";
 import { buildDLensSignalPacket, buildSignalPacketIndex } from "../src/compare/signal-packet";
 import { exportSignalPackets } from "../src/compare/signal-packet-export";
 import { buildProductSignalPreferenceExamples } from "../src/compare/product-signal-history";
@@ -102,6 +107,7 @@ import {
   buildSignalReadingCacheKey,
   getSignalReading,
   listSignalReadings,
+  SIGNAL_READINGS_STORAGE_KEY,
   saveSignalReading
 } from "../src/compare/signal-reading-storage";
 import { buildSignalTagsInputFromCapture } from "../src/compare/signal-tags";
@@ -2758,6 +2764,17 @@ export default defineBackground(() => {
               ok: true,
               tabId
             } satisfies ExtensionResponse);
+            return;
+          }
+          case "product/clear-cache": {
+            const tabId = await resolveTabId(sender);
+            await chrome.storage.local.remove([
+              PRODUCT_SIGNAL_ANALYSES_STORAGE_KEY,
+              PRODUCT_AGENT_TASK_FEEDBACK_STORAGE_KEY,
+              SIGNAL_READINGS_STORAGE_KEY,
+              PRODUCT_CONTEXT_STORAGE_KEY
+            ]);
+            sendResponse({ ok: true, tabId } satisfies ExtensionResponse);
             return;
           }
           case "product/get-context": {

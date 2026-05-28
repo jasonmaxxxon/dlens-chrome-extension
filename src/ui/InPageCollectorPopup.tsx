@@ -463,6 +463,7 @@ export function InPageCollectorPopup({ app }: { app: InPageCollectorAppModel }) 
                 onProductProfileSeedTextChange={app.setProductProfileSeedText}
                 onInitProductProfile={() => void app.onInitProductProfile()}
                 onSessionModeChange={(mode) => void app.onSessionModeChange(mode)}
+                onClearProductCache={() => void app.onClearProductCache()}
                 onSaveSettings={() => void app.onSaveSettings()}
               />
             </WorkspaceSurface>

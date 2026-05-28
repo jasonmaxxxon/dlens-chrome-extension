@@ -38,6 +38,7 @@ interface SettingsViewProps {
   onDraftProductProfileChange: (patch: Partial<ProductProfile>) => void;
   onProductProfileSeedTextChange?: (value: string) => void;
   onInitProductProfile?: () => void;
+  onClearProductCache?: () => void;
   onSaveSettings: () => void;
 }
 
@@ -200,6 +201,7 @@ export function SettingsView({
   onDraftProductProfileChange,
   onProductProfileSeedTextChange,
   onInitProductProfile,
+  onClearProductCache,
   onSaveSettings
 }: SettingsViewProps) {
   const [contextNotice, setContextNotice] = useState("");
@@ -521,6 +523,30 @@ export function SettingsView({
                   系統理解尚未編譯；儲存 Settings 後才會產生可檢查的 ProductContext。
                 </div>
               )}
+
+              <div
+                data-product-cache-reset="true"
+                style={{
+                  display: "grid",
+                  gap: 8,
+                  padding: "10px 11px",
+                  borderRadius: tokens.radius.card,
+                  border: `1px solid ${tokens.color.line}`,
+                  background: tokens.color.surface
+                }}
+              >
+                <div style={{ display: "grid", gap: 3 }}>
+                  <span style={{ fontSize: 12, fontWeight: 800, color: tokens.color.ink }}>清除 Product cache</span>
+                  <span style={{ fontSize: 10.5, lineHeight: 1.55, color: tokens.color.softInk }}>
+                    只會移除 Product 分析、判讀與編譯脈絡；已儲存的 signals、topics、PR evidence 不會被刪除。
+                  </span>
+                </div>
+                <div>
+                  <SecondaryButton onClick={() => onClearProductCache?.()}>
+                    清除 Product cache
+                  </SecondaryButton>
+                </div>
+              </div>
             </SettingsGroup>
           ) : null}
 

@@ -1021,6 +1021,7 @@ test("SettingsView exposes Google provider and save action", () => {
       onProductProfileSeedTextChange: () => undefined,
       onInitProductProfile: () => undefined,
       onSessionModeChange: () => undefined,
+      onClearProductCache: () => undefined,
       onSaveSettings: () => undefined
     })
   );
@@ -1072,6 +1073,9 @@ test("SettingsView exposes Google provider and save action", () => {
   assert.match(html, /DLens turns Threads posts into product decisions/);
   assert.match(html, /capture/);
   assert.match(html, /local-first/);
+  assert.match(html, /data-product-cache-reset="true"/);
+  assert.match(html, /清除 Product cache/);
+  assert.match(html, /只會移除 Product 分析、判讀與編譯脈絡/);
   assert.match(html, /Save settings/);
   assert.match(html, /data-settings-save-status="success"/);
   assert.match(html, /ProductContext 已編譯/);

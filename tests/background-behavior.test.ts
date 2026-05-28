@@ -2,6 +2,10 @@ import assert from "node:assert/strict";
 import test from "node:test";
 
 import background, { backgroundTestables } from "../entrypoints/background.ts";
+import { PRODUCT_AGENT_TASK_FEEDBACK_STORAGE_KEY } from "../src/compare/product-agent-task-feedback.ts";
+import { PRODUCT_CONTEXT_STORAGE_KEY } from "../src/compare/product-context.ts";
+import { PRODUCT_SIGNAL_ANALYSES_STORAGE_KEY } from "../src/compare/product-signal-storage.ts";
+import { SIGNAL_READINGS_STORAGE_KEY } from "../src/compare/signal-reading-storage.ts";
 import type { ExtensionMessage, ExtensionResponse } from "../src/state/messages.ts";
 import { createEmptyGlobalState, createEmptyTabState, type ExtensionGlobalState, type FolderMode, type SessionRecord } from "../src/state/types.ts";
 
@@ -247,4 +251,29 @@ test("background mutateSnapshot serializes real snapshot writes", async () => {
 
   assert.equal(global.sessions.find((session) => session.id === topic.id)?.name, "topic-updated");
   assert.equal(global.sessions.find((session) => session.id === product.id)?.name, "product-updated");
+});
+
+test("product/clear-cache removes derived product cache without deleting saved signals", async () => {
+  const product = makeSession("product-session", "product");
+  const tabKey = backgroundTestables.tabStorageKey(TAB_ID);
+  const signalsKey = "dlens:v1:signals";
+  const harness = await createHarness({
+    [backgroundTestables.GLOBAL_STORAGE_KEY]: makeGlobal([product], product.id),
+    [backgroundTestables.ACTIVE_SESSION_ID_STORAGE_KEY]: product.id,
+    [tabKey]: createEmptyTabState(),
+    [PRODUCT_SIGNAL_ANALYSES_STORAGE_KEY]: [{ signalId: "signal-1" }],
+    [PRODUCT_AGENT_TASK_FEEDBACK_STORAGE_KEY]: [{ signalId: "signal-1" }],
+    [SIGNAL_READINGS_STORAGE_KEY]: [{ signalId: "signal-1" }],
+    [PRODUCT_CONTEXT_STORAGE_KEY]: { productPromise: "old compiled context" },
+    [signalsKey]: [{ id: "signal-1", sessionId: product.id }]
+  });
+
+  const response = await harness.dispatch({ type: "product/clear-cache" });
+
+  assert.equal(response.ok, true);
+  assert.equal(PRODUCT_SIGNAL_ANALYSES_STORAGE_KEY in harness.state, false);
+  assert.equal(PRODUCT_AGENT_TASK_FEEDBACK_STORAGE_KEY in harness.state, false);
+  assert.equal(SIGNAL_READINGS_STORAGE_KEY in harness.state, false);
+  assert.equal(PRODUCT_CONTEXT_STORAGE_KEY in harness.state, false);
+  assert.deepEqual(harness.state[signalsKey], [{ id: "signal-1", sessionId: product.id }]);
 });
