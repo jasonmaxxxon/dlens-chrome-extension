@@ -70,6 +70,7 @@ export type ExtensionMessage =
   | { type: "session/refresh-all"; sessionId?: string }
   | { type: "worker/start-processing" }
   | { type: "worker/get-status" }
+  | { type: "backend/get-health"; baseUrl: string }
   | { type: "compare/get-brief"; request: CompareBriefRequest }
   | { type: "compare/get-one-liner"; request: CompareOneLinerRequest }
   | { type: "compare/get-cluster-summaries"; request: CompareClusterSummaryRequest }
@@ -137,10 +138,18 @@ export type ExtensionMessage =
   }
   | { type: "state/updated"; tabId: number; snapshot: ExtensionSnapshot };
 
+export interface BackendHealth {
+  reachable: boolean;
+  baseUrl: string;
+  checkedAt: string;
+  error?: string;
+}
+
 export type ExtensionSuccessResponse = {
   ok: true;
   tabId?: number;
   snapshot?: ExtensionSnapshot;
+  backendHealth?: BackendHealth | null;
   submit?: CaptureTargetResponse;
   queuedItemIds?: string[];
   failedItemIds?: string[];

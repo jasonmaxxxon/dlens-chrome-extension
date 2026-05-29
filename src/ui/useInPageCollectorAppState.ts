@@ -281,12 +281,15 @@ export function useInPageCollectorAppState({ snapshot, tabId, sendAndSync }: Use
       return false;
     }
     return Boolean(
-      (settings.oneLinerProvider === "google" && settings.googleApiKey.trim())
-      || (settings.oneLinerProvider === "openai" && settings.openaiApiKey.trim())
-      || (settings.oneLinerProvider === "claude" && settings.claudeApiKey.trim())
+      (settings.oneLinerProvider === "google" && (settings.hasGoogleKey ?? Boolean(settings.googleApiKey.trim())))
+      || (settings.oneLinerProvider === "openai" && (settings.hasOpenAiKey ?? Boolean(settings.openaiApiKey.trim())))
+      || (settings.oneLinerProvider === "claude" && (settings.hasClaudeKey ?? Boolean(settings.claudeApiKey.trim())))
     );
   }, [
     snapshot?.global.settings.oneLinerProvider,
+    snapshot?.global.settings.hasGoogleKey,
+    snapshot?.global.settings.hasOpenAiKey,
+    snapshot?.global.settings.hasClaudeKey,
     snapshot?.global.settings.googleApiKey,
     snapshot?.global.settings.openaiApiKey,
     snapshot?.global.settings.claudeApiKey

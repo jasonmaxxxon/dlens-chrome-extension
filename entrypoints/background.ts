@@ -179,6 +179,7 @@ import { buildRefreshFailureMessage } from "../src/state/refresh-errors";
 import { createAsyncLock } from "../src/state/snapshot-lock";
 import { applyHoveredPreview, createInlineToast, setCollectModeState } from "../src/state/ui-state";
 import { getModeHomePage } from "../src/state/processing-state";
+import { sanitizeSnapshotForContentScript } from "../src/state/sanitize-snapshot";
 
 const GLOBAL_STORAGE_KEY = "dlens:v0:global-state";
 const ACTIVE_SESSION_ID_STORAGE_KEY = "dlens:v1:active-session-id";
@@ -1142,8 +1143,16 @@ function broadcastSnapshotUpdate(tabId: number, snapshot: ExtensionSnapshot): vo
   // any listener that didn't originate the write. Awaiting the ack added
   // ~10-30ms per saveSnapshot for no correctness benefit on the caller side.
   void chrome.tabs
-    .sendMessage(tabId, { type: "state/updated", tabId, snapshot } satisfies ExtensionMessage)
+    .sendMessage(tabId, { type: "state/updated", tabId, snapshot: sanitizeSnapshotForContentScript(snapshot) } satisfies ExtensionMessage)
     .catch(() => undefined);
+}
+
+/** Strip raw API keys from any snapshot in a response bound for a content-script sender. */
+function sanitizeResponseForContentScript(response: ExtensionResponse): ExtensionResponse {
+  if (response.ok && response.snapshot) {
+    return { ...response, snapshot: sanitizeSnapshotForContentScript(response.snapshot) };
+  }
+  return response;
 }
 
 function logSlowSnapshotSave(label: string, snapshot: ExtensionSnapshot, storageSetMs: number): void {
@@ -1926,7 +1935,12 @@ export default defineBackground(() => {
     void chrome.storage.local.remove(tabStorageKey(tabId)).catch(() => undefined);
   });
 
-  chrome.runtime.onMessage.addListener((message: ExtensionMessage, sender, sendResponse) => {
+  chrome.runtime.onMessage.addListener((message: ExtensionMessage, sender, sendResponseRaw) => {
+    // Content-script senders (sender.tab is set) must never receive raw API keys.
+    // Wrap the responder once so every handler below stays unchanged.
+    const sendResponse: typeof sendResponseRaw = sender.tab
+      ? (response) => sendResponseRaw(sanitizeResponseForContentScript(response))
+      : sendResponseRaw;
     void (async () => {
       try {
         switch (message.type) {
@@ -1953,6 +1967,21 @@ export default defineBackground(() => {
               bytesInUse,
               quotaBytes: storageArea.QUOTA_BYTES ?? DEFAULT_STORAGE_QUOTA_BYTES
             } satisfies ExtensionResponse);
+            return;
+          }
+          case "backend/get-health": {
+            const baseUrl = normalizeBaseUrl(message.baseUrl);
+            const checkedAt = new Date().toISOString();
+            try {
+              await fetchWorkerStatus(baseUrl);
+              sendResponse({ ok: true, backendHealth: { reachable: true, baseUrl, checkedAt } } satisfies ExtensionResponse);
+            } catch (error) {
+              const detail = error instanceof Error ? error.message : String(error);
+              sendResponse({
+                ok: true,
+                backendHealth: { reachable: false, baseUrl, checkedAt, error: detail.replace(/\s+/g, " ").trim().slice(0, 200) }
+              } satisfies ExtensionResponse);
+            }
             return;
           }
           case "settings/set-ingest-base-url": {
@@ -2151,9 +2180,7 @@ export default defineBackground(() => {
               snapshot: merged
             } satisfies ExtensionResponse);
             // Broadcast to tab so the in-page popup also gets the hover update
-            chrome.tabs
-              .sendMessage(tabId, { type: "state/updated", tabId, snapshot: merged } satisfies ExtensionMessage)
-              .catch(() => undefined);
+            broadcastSnapshotUpdate(tabId, merged);
             return;
           }
           case "selection/selected": {

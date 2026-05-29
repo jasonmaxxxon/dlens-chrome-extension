@@ -52,6 +52,10 @@ export interface ExtensionSettings {
   openaiApiKey: string;
   claudeApiKey: string;
   googleApiKey: string;
+  /** Presence flags exposed to the content-script world instead of the raw keys (see sanitize-snapshot.ts). */
+  hasOpenAiKey?: boolean;
+  hasClaudeKey?: boolean;
+  hasGoogleKey?: boolean;
   productProfile?: ProductProfile | null;
   layoutPreferences: LayoutPreferences;
 }

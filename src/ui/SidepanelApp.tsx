@@ -1,5 +1,5 @@
-import { useEffect, useMemo, useState } from "react";
-import type { ExtensionResponse } from "../state/messages";
+import { useCallback, useEffect, useMemo, useState } from "react";
+import type { BackendHealth, ExtensionResponse } from "../state/messages";
 import { getActiveItem, getActiveSession, sendExtensionMessage, useExtensionSnapshot } from "./controller";
 import { tokens } from "./tokens";
 
@@ -24,12 +24,36 @@ export function SidepanelApp() {
   const activeItem = useMemo(() => getActiveItem(snapshot), [snapshot]);
   const [ingestBaseUrl, setIngestBaseUrl] = useState("http://127.0.0.1:8000");
   const [newFolderName, setNewFolderName] = useState("");
+  const [backendHealth, setBackendHealth] = useState<BackendHealth | null>(null);
+  const [checkingBackend, setCheckingBackend] = useState(false);
 
   useEffect(() => {
     if (snapshot?.global.settings.ingestBaseUrl) {
       setIngestBaseUrl(snapshot.global.settings.ingestBaseUrl);
     }
   }, [snapshot?.global.settings.ingestBaseUrl]);
+
+  const checkBackend = useCallback(async (url: string) => {
+    const target = url.trim();
+    if (!target) {
+      setBackendHealth(null);
+      return;
+    }
+    setCheckingBackend(true);
+    try {
+      const response = await sendExtensionMessage<ExtensionResponse>({ type: "backend/get-health", baseUrl: target });
+      setBackendHealth(response.ok && response.backendHealth ? response.backendHealth : null);
+    } finally {
+      setCheckingBackend(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    const url = snapshot?.global.settings.ingestBaseUrl;
+    if (url) {
+      void checkBackend(url);
+    }
+  }, [snapshot?.global.settings.ingestBaseUrl, checkBackend]);
 
   const sessions = snapshot?.global.sessions || [];
 
@@ -104,6 +128,21 @@ export function SidepanelApp() {
           <button onClick={onSaveBaseUrl} style={btnStyle}>
             Save
           </button>
+          <button onClick={() => void checkBackend(ingestBaseUrl)} disabled={checkingBackend} style={{ ...btnStyle, opacity: checkingBackend ? 0.5 : 1 }}>
+            {checkingBackend ? "Testing…" : "Test"}
+          </button>
+        </div>
+        <div style={{ marginTop: 6, fontSize: 12, display: "flex", alignItems: "center", gap: 6, color: tokens.color.softInk }}>
+          {checkingBackend ? (
+            <span>Checking backend…</span>
+          ) : backendHealth ? (
+            <>
+              <span style={{ width: 8, height: 8, borderRadius: 999, flexShrink: 0, background: backendHealth.reachable ? tokens.color.success : tokens.color.failed }} />
+              <span>{backendHealth.reachable ? "Backend connected" : `Backend offline${backendHealth.error ? ` — ${backendHealth.error}` : ""}`}</span>
+            </>
+          ) : (
+            <span>Backend status unknown</span>
+          )}
         </div>
       </section>
 
