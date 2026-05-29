@@ -358,9 +358,9 @@ function surfacedEvidenceCount(summaries: readonly ClusterSummaryCard[]): number
 
 function hasConfiguredProviderKey(settings: ExtensionSettings): boolean {
   const provider = settings.oneLinerProvider;
-  if (provider === "google") return Boolean(settings.googleApiKey?.trim());
-  if (provider === "openai") return Boolean(settings.openaiApiKey.trim());
-  if (provider === "claude") return Boolean(settings.claudeApiKey.trim());
+  if (provider === "google") return settings.hasGoogleKey ?? Boolean(settings.googleApiKey?.trim());
+  if (provider === "openai") return settings.hasOpenAiKey ?? Boolean(settings.openaiApiKey.trim());
+  if (provider === "claude") return settings.hasClaudeKey ?? Boolean(settings.claudeApiKey.trim());
   return false;
 }
 
@@ -3529,7 +3529,8 @@ export const compareViewTestables = {
   ClusterBubbleMap,
   DictionaryCard,
   ResultWhyCard,
-  resolveAnnotationRequestKey
+  resolveAnnotationRequestKey,
+  hasConfiguredProviderKey
 };
 
 export function CompareView({
@@ -3660,7 +3661,19 @@ export function CompareView({
         setCompareBriefState("fallback");
       });
     return () => { cancelled = true; };
-  }, [compareBriefRequest, analysisA?.status, analysisB?.status, settings.oneLinerProvider, settings.openaiApiKey, settings.claudeApiKey, settings.googleApiKey, aiProviderConfigured]);
+  }, [
+    compareBriefRequest,
+    analysisA?.status,
+    analysisB?.status,
+    settings.oneLinerProvider,
+    settings.openaiApiKey,
+    settings.claudeApiKey,
+    settings.googleApiKey,
+    settings.hasOpenAiKey,
+    settings.hasClaudeKey,
+    settings.hasGoogleKey,
+    aiProviderConfigured
+  ]);
 
   useEffect(() => {
     const request = itemA && itemB ? buildClusterSummaryRequest(itemA, itemB) : null;
@@ -3700,7 +3713,20 @@ export function CompareView({
     return () => {
       cancelled = true;
     };
-  }, [itemA?.id, itemB?.id, analysisA?.updated_at, analysisB?.updated_at, settings.oneLinerProvider, settings.openaiApiKey, settings.claudeApiKey, settings.googleApiKey]);
+  }, [
+    itemA?.id,
+    itemB?.id,
+    analysisA?.updated_at,
+    analysisB?.updated_at,
+    settings.oneLinerProvider,
+    settings.openaiApiKey,
+    settings.claudeApiKey,
+    settings.googleApiKey,
+    settings.hasOpenAiKey,
+    settings.hasClaudeKey,
+    settings.hasGoogleKey,
+    aiProviderConfigured
+  ]);
 
   const leftClusterSummaries = buildClusterSummaries(analysisA, 5, 4, itemA?.captureId ?? "");
   const rightClusterSummaries = buildClusterSummaries(analysisB, 5, 4, itemB?.captureId ?? "");

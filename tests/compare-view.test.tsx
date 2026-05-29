@@ -442,6 +442,17 @@ test("createDefaultSettings includes empty one-liner settings by default", () =>
   assert.equal(settings.productProfile, null);
 });
 
+test("CompareView provider gate accepts sanitized content-script key presence flags", () => {
+  const settings: ExtensionSettings = {
+    ...createDefaultSettings(),
+    oneLinerProvider: "google",
+    googleApiKey: "",
+    hasGoogleKey: true
+  };
+
+  assert.equal(compareViewTestables.hasConfiguredProviderKey(settings), true);
+});
+
 test("CompareView renders a Compare-language bridge when fewer than two items are ready", () => {
   let navigated = false;
   const html = renderToStaticMarkup(
