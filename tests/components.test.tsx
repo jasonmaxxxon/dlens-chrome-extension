@@ -179,7 +179,7 @@ test("WorkspaceShell masthead exposes the extension build version", () => {
   assert.match(html, /data-shell-header="workspace"[^>]*align-self:start/);
 });
 
-test("ModeHeader uses the Topic card grammar across modes", () => {
+test("ModeHeader uses the Topic list intro grammar across modes", () => {
   const html = renderToStaticMarkup(
     React.createElement(ModeHeader, {
       mode: "saved-signals",
@@ -189,9 +189,12 @@ test("ModeHeader uses the Topic card grammar across modes", () => {
     })
   );
 
-  assert.match(html, /data-mode-header="saved-signals"[^>]*border-radius:20px/);
-  assert.match(html, /data-mode-header="saved-signals"[^>]*0 4px 14px -4px rgba\(27,26,23,0\.07\)/);
-  assert.match(html, /Saved Signals<\/div>/);
+  assert.match(html, /data-mode-header="saved-signals"/);
+  assert.match(html, /data-mode-intro="topic"/);
+  assert.match(html, /padding:10px 4px 0/);
+  assert.doesNotMatch(html, /data-mode-header="saved-signals"[^>]*border-radius:20px/);
+  assert.doesNotMatch(html, /data-mode-header="saved-signals"[^>]*0 4px 14px -4px rgba\(27,26,23,0\.07\)/);
+  assert.match(html, /Saved Signals<\/h2>/);
   assert.match(html, /font-weight:900/);
 });
 

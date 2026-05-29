@@ -3,6 +3,7 @@ import type { CSSProperties } from "react";
 import { getItemReadinessStatus } from "../state/processing-state.ts";
 import type { SessionItem, Signal, Topic } from "../state/types.ts";
 import { tokens } from "./tokens";
+import { ModeHeader } from "./components.tsx";
 import {
   TopicAuditStatusPill,
   type TopicAuditSummary
@@ -160,17 +161,12 @@ export function TopicsListView({
   const sourceSummariesByTopicId = buildTopicSourceSummaries(topics, signals, sessionItems);
   return (
     <div data-topics-list="audit" style={{ display: "grid", gap: 14 }}>
-      <div style={{ display: "flex", alignItems: "end", justifyContent: "space-between", gap: 12 }}>
-        <div style={{ display: "grid", gap: 4 }}>
-          <h2 style={{ margin: 0, fontFamily: `${tokens.font.serifCjk}, ${tokens.font.serif}`, fontSize: 23, lineHeight: 1.15, color: tokens.color.ink }}>
-            議題
-          </h2>
-          <p style={{ margin: 0, fontSize: 12.5, lineHeight: 1.55, color: tokens.color.softInk }}>
-            每個議題收一批 Threads 訊號；點進去看詞群、敘事與源清單。
-          </p>
-        </div>
-        <span style={{ fontSize: 11, color: tokens.color.softInk, whiteSpace: "nowrap" }}>{topics.length} 個議題</span>
-      </div>
+      <ModeHeader
+        mode="topics"
+        title="議題"
+        deck="每個議題收一批 Threads 訊號；點進去看詞群、敘事與源清單。"
+        stamp={<span style={{ fontSize: 11, color: tokens.color.softInk, whiteSpace: "nowrap" }}>{topics.length} 個議題</span>}
+      />
       <div style={{ display: "grid", gap: 12 }}>
         {topics.map((topic) => (
           <TopicCard

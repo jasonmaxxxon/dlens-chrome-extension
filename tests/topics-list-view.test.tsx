@@ -98,6 +98,9 @@ test("TopicsListView renders the five audit states with distinct status copy", (
   );
 
   assert.match(html, /data-topics-list="audit"/);
+  assert.match(html, /data-mode-header="topics"/);
+  assert.match(html, /data-mode-intro="topic"/);
+  assert.match(html, /padding:10px 4px 0/);
   assert.match(html, /報告 已生成/);
   assert.match(html, /報告 生成中/);
   assert.match(html, /P3/);

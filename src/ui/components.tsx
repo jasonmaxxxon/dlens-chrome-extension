@@ -1069,35 +1069,35 @@ export function ModeHeader({
   stamp
 }: {
   mode: string;
-  kicker: string;
+  kicker?: string;
   title: string;
   deck: string;
   stamp?: ReactNode;
 }) {
   return (
-    <div
+    <header
       data-mode-header={mode}
+      data-mode-intro="topic"
       style={{
-        display: "grid",
-        gap: 8,
-        padding: "14px 16px",
-        borderRadius: tokens.radius.cardLg,
-        border: `1px solid ${tokens.color.cardEdge}`,
-        background: `linear-gradient(180deg, ${tokens.color.elevated}, ${tokens.color.surface})`,
-        boxShadow: tokens.shadow.topicCard
+        display: "flex",
+        alignItems: "end",
+        justifyContent: "space-between",
+        gap: 12,
+        padding: "10px 4px 0",
+        minWidth: 0
       }}
     >
-      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10 }}>
-        <Kicker>{kicker}</Kicker>
-        {stamp ?? null}
+      <div style={{ display: "grid", gap: kicker ? 4 : 3, minWidth: 0 }}>
+        {kicker ? <Kicker>{kicker}</Kicker> : null}
+        <h2 style={{ margin: 0, fontFamily: `${tokens.font.serifCjk}, ${tokens.font.serif}`, fontSize: 23, fontWeight: 900, lineHeight: 1.15, color: tokens.color.ink }}>
+          {title}
+        </h2>
+        <p style={{ margin: 0, fontSize: 12.5, lineHeight: 1.55, color: tokens.color.softInk }}>
+          {deck}
+        </p>
       </div>
-      <div style={{ fontFamily: `${tokens.font.serifCjk}, ${tokens.font.serif}`, fontSize: 24, fontWeight: 900, lineHeight: 1.08, color: tokens.color.ink }}>
-        {title}
-      </div>
-      <p style={{ margin: 0, fontSize: 12, lineHeight: 1.65, color: tokens.color.subInk }}>
-        {deck}
-      </p>
-    </div>
+      {stamp ? <div style={{ flexShrink: 0, alignSelf: "end", paddingBottom: 3 }}>{stamp}</div> : null}
+    </header>
   );
 }
 
