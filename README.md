@@ -2,10 +2,11 @@
 
 DLens is a mode-aware MV3 Chrome extension for capturing Threads posts and turning them into research, product-signal, and PR evidence workflows.
 
-> Last updated: 2026-05-28
-> Current release: `0.1.27`
-> Current engineering branch: `codex/pr-visible-metrics`
-> Verified build: `/Users/tung/Desktop/dlens-product-latest/output/chrome-mv3`
+> Last updated: 2026-06-08
+> Current release: `0.1.27` · 615/615 tests · build clean
+> Current engineering branch: `codex/pr-visible-metrics` (= `origin/main` 553b861, latest)
+> Positioning (2026-06-08): local power-tool (self + small technical circle); two separate repos (extension public · ingest-core **private**), not monorepo; visual reset Option A pending
+> Verified build: `output/chrome-mv3`
 
 ## What It Does
 
@@ -53,7 +54,7 @@ For every user-visible `main` update, keep these in sync:
 ## Build And Verify
 
 ```bash
-cd /Users/tung/Desktop/dlens-product-latest
+cd dlens-product-latest
 npm run typecheck
 npx tsx --test tests/*.test.ts tests/*.test.tsx
 npm run build
@@ -61,7 +62,7 @@ npm run build
 
 Expected verified state for `0.1.27`:
 
-- `609/609` tests pass
+- `615/615` tests pass
 - `npm run typecheck` passes
 - `npm run build` mirrors the unpacked MV3 build to `output/chrome-mv3`
 - `output/chrome-mv3/manifest.json` reports `version: "0.1.27"` and `name: "DLens v3"`
@@ -70,11 +71,11 @@ Expected verified state for `0.1.27`:
 
 | Purpose | Path |
 |---|---|
-| Active extension worktree | `/Users/tung/Desktop/dlens-product-latest` |
-| Load unpacked extension | `/Users/tung/Desktop/dlens-product-latest/output/chrome-mv3` |
-| Backend stable entry | `/Users/tung/Desktop/dlens-ingest-core` |
-| Backend physical checkout | `/Users/tung/Desktop/dlens-backend/dlens-ingest-core` |
-| Older worktrees/archive | `/Users/tung/Desktop/dlens-old` |
+| Active extension worktree | `dlens-product-latest` |
+| Load unpacked extension | `output/chrome-mv3` |
+| Backend (resolved at) | sibling `../dlens-ingest-core` or `DLENS_INGEST_CORE_DIR` |
+| Backend repo | `github.com/jasonmaxxxon/dlens-ingest-core` (private) — clone as a sibling; see its `SETUP.md` |
+| Backups | `~/Desktop/dlens-archive-<date>/` (extension + backend bundles + RESTORE.md) |
 
 ## Architecture Boundary
 

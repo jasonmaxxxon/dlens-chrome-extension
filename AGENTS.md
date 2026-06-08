@@ -1,6 +1,6 @@
 # AGENTS.md — DLens Chrome Extension v0.1
 
-> **Last updated:** 2026-05-28 (Workspace mode switches now reserve the processing strip, reset scroll before paint, and crossfade the content frame; Product Action keeps the restored 0.1.15 Reading Review UI — 609/609 tests, typecheck, build, version 0.1.27 mirrored into MV3)
+> **Last updated:** 2026-06-08 (docs/infra sync — file paths made repo-relative; backend is now a **private** repo `github.com/jasonmaxxxon/dlens-ingest-core`; positioning = local power-tool, two separate repos not monorepo. No extension code change this pass. Prior code state 2026-05-28: workspace mode switches reserve the processing strip, reset scroll before paint, crossfade the content frame; Product Action keeps the restored 0.1.15 Reading Review UI — 615/615 tests, typecheck, build, version 0.1.27 mirrored into MV3.)
 > **For:** any agent continuing work in this repo
 
 ## Recently Fixed (2026-05-28) — Product action board and card geometry
@@ -117,13 +117,13 @@ The extension is now **extension-first**, not SaaS-first:
 
 ## Quick Start
 
-1. Read `/Users/tung/Desktop/dlens-product-latest/README.md` when working in the active product/PR worktree.
-2. Read `/Users/tung/Desktop/dlens-product-latest/docs/memory/current-state.md`.
-3. If you are in another checkout, confirm whether the task belongs there or in `/Users/tung/Desktop/dlens-product-latest` before editing.
+1. Read `README.md` when working in the active product/PR worktree.
+2. Read `docs/memory/current-state.md`.
+3. If you are in another checkout, confirm whether the task belongs there or in `dlens-product-latest` before editing.
 4. Run:
 
 ```bash
-cd /Users/tung/Desktop/dlens-product-latest
+cd dlens-product-latest
 npm run typecheck
 npx tsx --test tests/*.test.ts tests/*.test.tsx
 ```
@@ -364,9 +364,9 @@ Important implementation points:
 - `SettingsView.tsx` no longer owns visible layout controls; it stays focused on folder mode, connection/storage usage, API keys, and ProductProfile.
 - `InPageCollectorPopup.tsx` threads persisted layout settings into Product signal cards, Topic synthesis, and Compare Result.
 - Topic Detail's primary overview is now semantic `SignalTagsRecord` data from `dlens:v1:signal-tags`, not deterministic keyword frequency. `TopicSynthesis` and `FolderSynthesis` remain deterministic extension-side layers over analyzed signals for legacy/folder contexts and do not replace backend clustering.
-- Current verification was run from `/Users/tung/Desktop/dlens-product-latest`: `609/609` tests, `npm run typecheck`, and `npm run build` passed.
-- The verified unpacked build was copied to `/Users/tung/Desktop/dlens-product-latest/output/chrome-mv3` for Chrome load-unpacked use.
-- `/Users/tung/Desktop/dlens-product-latest` source checkout may be dirty; do not infer clean source state from the copied build artifact.
+- Current verification was run from `dlens-product-latest`: `615/615` tests, `npm run typecheck`, and `npm run build` passed.
+- The verified unpacked build was copied to `output/chrome-mv3` for Chrome load-unpacked use.
+- `dlens-product-latest` source checkout may be dirty; do not infer clean source state from the copied build artifact.
 
 ## Motion Layer State (2026-05-19)
 
@@ -387,7 +387,7 @@ Every user-visible update that is pushed to `main` should bump the extension ver
 - `wxt.config.ts` `manifest.version`
 - `src/ui/version.ts` `BUILD_VERSION`
 
-The Chrome extension page shows `manifest.version`; the popup masthead shows `BUILD_VERSION`. `tests/manifest-config.test.ts` locks package / manifest / UI version consistency. After a version bump, run typecheck, tests, build, and copy the verified build to `/Users/tung/Desktop/dlens-product-latest/output/chrome-mv3` if that is the active load-unpacked folder.
+The Chrome extension page shows `manifest.version`; the popup masthead shows `BUILD_VERSION`. `tests/manifest-config.test.ts` locks package / manifest / UI version consistency. After a version bump, run typecheck, tests, build, and copy the verified build to `output/chrome-mv3` if that is the active load-unpacked folder.
 
 ## Signal Reading Review State (2026-05-20)
 
@@ -500,7 +500,7 @@ This was a major product-direction change. Summary for any agent picking up here
 
 ```bash
 npm run typecheck && npx tsx --test tests/*.test.ts tests/*.test.tsx
-# Expected on current checkout: 609 pass, 0 fail
+# Expected on current checkout: 615 pass, 0 fail
 ```
 
 ### Current engineering roadmap
@@ -581,39 +581,39 @@ The full cluster pipeline runs in `dlens-ingest-core`, not in this repo:
 
 | File | Role |
 |------|------|
-| `/Users/tung/Desktop/dlens-chrome-extension-v0/entrypoints/background.ts` | service worker; state owner; queue, polling, worker control, compare-summary bridge |
-| `/Users/tung/Desktop/dlens-chrome-extension-v0/entrypoints/threads.content.ts` | content script; targeting, overlay, React mount |
-| `/Users/tung/Desktop/dlens-chrome-extension-v0/src/targeting/threads.ts` | Threads heuristics, engagement extraction, author extraction |
-| `/Users/tung/Desktop/dlens-chrome-extension-v0/src/ui/InPageCollectorApp.tsx` | thin popup shell that wires the hook and split UI modules |
-| `/Users/tung/Desktop/dlens-chrome-extension-v0/src/ui/useInPageCollectorAppState.ts` | popup state, effects, polling handlers, selection actions, and shell-level orchestration |
-| `/Users/tung/Desktop/dlens-chrome-extension-v0/src/ui/InPageCollectorPopup.tsx` | main popup layout and page routing |
-| `/Users/tung/Desktop/dlens-chrome-extension-v0/src/ui/InPageCollectorOverlays.tsx` | launcher button plus hover/flash overlays |
-| `/Users/tung/Desktop/dlens-chrome-extension-v0/src/ui/InPageCollectorFolderControls.tsx` | folder strip, rename flow, and prompt controls |
-| `/Users/tung/Desktop/dlens-chrome-extension-v0/src/ui/inpage-helpers.tsx` | popup helper functions and compact display atoms |
-| `/Users/tung/Desktop/dlens-chrome-extension-v0/src/ui/components.tsx` | shared popup atoms, PreviewCard, and styling helpers |
-| `/Users/tung/Desktop/dlens-chrome-extension-v0/src/ui/ProcessingStrip.tsx` | processing summary strip component |
-| `/Users/tung/Desktop/dlens-chrome-extension-v0/src/ui/CollectView.tsx` | collect rail page wired to the existing preview/save/toggle contract |
-| `/Users/tung/Desktop/dlens-chrome-extension-v0/src/ui/LibraryView.tsx` | library home: saved posts, saved analyses, casebook |
-| `/Users/tung/Desktop/dlens-chrome-extension-v0/src/ui/CompareSetupView.tsx` | compare setup page: pair selection, teaser, result CTA |
-| `/Users/tung/Desktop/dlens-chrome-extension-v0/src/ui/SettingsView.tsx` | settings tab view |
-| `/Users/tung/Desktop/dlens-chrome-extension-v0/src/ui/CompareView.tsx` | compare UI; intelligence-first layout: compare hero, dual audience bubble maps, selected cluster detail, engagement support, expandable comments |
-| `/Users/tung/Desktop/dlens-chrome-extension-v0/src/ui/TechniqueView.tsx` | Compare-internal second page for deeper reading: static technique rows, evidence list, save action, and reverse jump back to the selected cluster |
-| `/Users/tung/Desktop/dlens-chrome-extension-v0/src/compare/technique-reading.ts` | stable technique-reading snapshot builder plus static placeholder technique definitions |
-| `/Users/tung/Desktop/dlens-chrome-extension-v0/src/compare/saved-analysis-storage.ts` | local storage helpers for saved analysis snapshots |
-| `/Users/tung/Desktop/dlens-chrome-extension-v0/src/compare/technique-reading-storage.ts` | local storage helpers for saved technique-reading snapshots |
-| `/Users/tung/Desktop/dlens-chrome-extension-v0/src/ui/controller.tsx` | snapshot sync, retry-on-worker-wake, 10s polling |
-| `/Users/tung/Desktop/dlens-chrome-extension-v0/src/state/analysis-result-state.ts` | hybrid result landing resolver (`active -> saved -> empty`) |
-| `/Users/tung/Desktop/dlens-chrome-extension-v0/src/state/processing-state.ts` | processing summary, readiness status, polling delay, popup width constants |
-| `/Users/tung/Desktop/dlens-chrome-extension-v0/src/state/snapshot-lock.ts` | tiny async lock used to serialize background queue/refresh snapshot writes |
-| `/Users/tung/Desktop/dlens-chrome-extension-v0/src/state/messages.ts` | ExtensionMessage union type definitions |
-| `/Users/tung/Desktop/dlens-chrome-extension-v0/src/ingest/client.ts` | backend HTTP client including worker drain/status |
-| `/Users/tung/Desktop/dlens-chrome-extension-v0/src/contracts/ingest.ts` | capture/job/analysis/worker status contracts |
-| `/Users/tung/Desktop/dlens-chrome-extension-v0/src/compare/brief.ts` | stable compare brief contract, prompt/parsing helpers, deterministic fallback |
-| `/Users/tung/Desktop/dlens-chrome-extension-v0/src/analysis/cluster-summary.ts` | stable read-model cluster/evidence shaping helpers, visible suppression, dominance labels, compare-row assembly |
-| `/Users/tung/Desktop/dlens-chrome-extension-v0/src/analysis/experimental/cip.ts` | experimental Python-parity cluster interpretation helpers kept separate from production flow |
-| `/Users/tung/Desktop/dlens-chrome-extension-v0/src/compare/cluster-interpretation.ts` | cluster AI summary prompt/parsing helpers plus deterministic fallback copy for backend-shaped clusters |
-| `/Users/tung/Desktop/dlens-chrome-extension-v0/src/state/store-helpers.ts` | session item operations, normalization, refresh decisions |
-| `/Users/tung/Desktop/dlens-chrome-extension-v0/src/ui/tokens.ts` | shared popup design tokens for common atoms |
+| `entrypoints/background.ts` | service worker; state owner; queue, polling, worker control, compare-summary bridge |
+| `entrypoints/threads.content.ts` | content script; targeting, overlay, React mount |
+| `src/targeting/threads.ts` | Threads heuristics, engagement extraction, author extraction |
+| `src/ui/InPageCollectorApp.tsx` | thin popup shell that wires the hook and split UI modules |
+| `src/ui/useInPageCollectorAppState.ts` | popup state, effects, polling handlers, selection actions, and shell-level orchestration |
+| `src/ui/InPageCollectorPopup.tsx` | main popup layout and page routing |
+| `src/ui/InPageCollectorOverlays.tsx` | launcher button plus hover/flash overlays |
+| `src/ui/InPageCollectorFolderControls.tsx` | folder strip, rename flow, and prompt controls |
+| `src/ui/inpage-helpers.tsx` | popup helper functions and compact display atoms |
+| `src/ui/components.tsx` | shared popup atoms, PreviewCard, and styling helpers |
+| `src/ui/ProcessingStrip.tsx` | processing summary strip component |
+| `src/ui/CollectView.tsx` | collect rail page wired to the existing preview/save/toggle contract |
+| `src/ui/LibraryView.tsx` | library home: saved posts, saved analyses, casebook |
+| `src/ui/CompareSetupView.tsx` | compare setup page: pair selection, teaser, result CTA |
+| `src/ui/SettingsView.tsx` | settings tab view |
+| `src/ui/CompareView.tsx` | compare UI; intelligence-first layout: compare hero, dual audience bubble maps, selected cluster detail, engagement support, expandable comments |
+| `src/ui/TechniqueView.tsx` | Compare-internal second page for deeper reading: static technique rows, evidence list, save action, and reverse jump back to the selected cluster |
+| `src/compare/technique-reading.ts` | stable technique-reading snapshot builder plus static placeholder technique definitions |
+| `src/compare/saved-analysis-storage.ts` | local storage helpers for saved analysis snapshots |
+| `src/compare/technique-reading-storage.ts` | local storage helpers for saved technique-reading snapshots |
+| `src/ui/controller.tsx` | snapshot sync, retry-on-worker-wake, 10s polling |
+| `src/state/analysis-result-state.ts` | hybrid result landing resolver (`active -> saved -> empty`) |
+| `src/state/processing-state.ts` | processing summary, readiness status, polling delay, popup width constants |
+| `src/state/snapshot-lock.ts` | tiny async lock used to serialize background queue/refresh snapshot writes |
+| `src/state/messages.ts` | ExtensionMessage union type definitions |
+| `src/ingest/client.ts` | backend HTTP client including worker drain/status |
+| `src/contracts/ingest.ts` | capture/job/analysis/worker status contracts |
+| `src/compare/brief.ts` | stable compare brief contract, prompt/parsing helpers, deterministic fallback |
+| `src/analysis/cluster-summary.ts` | stable read-model cluster/evidence shaping helpers, visible suppression, dominance labels, compare-row assembly |
+| `src/analysis/experimental/cip.ts` | experimental Python-parity cluster interpretation helpers kept separate from production flow |
+| `src/compare/cluster-interpretation.ts` | cluster AI summary prompt/parsing helpers plus deterministic fallback copy for backend-shaped clusters |
+| `src/state/store-helpers.ts` | session item operations, normalization, refresh decisions |
+| `src/ui/tokens.ts` | shared popup design tokens for common atoms |
 
 ## Rules You Must Not Break
 
@@ -737,7 +737,7 @@ The active debt list for v0 is the one in this file, not the older prototype bun
 | Button radius | — | 8px |
 | Badge radius | — | 5px |
 
-Full spec: `/Users/tung/Desktop/dlens-chrome-extension-v0/DESIGN.md`
+Full spec: `DESIGN.md`
 
 ### Three-Page IA (confirmed, not reversible)
 | Page | Metaphor | Contents |
@@ -810,7 +810,7 @@ Also fixed in the optional ingest backend:
 Before claiming success:
 
 ```bash
-cd /Users/tung/Desktop/dlens-chrome-extension-v0
+cd dlens-chrome-extension-v0
 npm run typecheck
 npx tsx --test tests/*.test.ts tests/*.test.tsx  # expect 178/178
 npm run build
