@@ -54,7 +54,7 @@ The current product split is:
    - Product and PR headers, Product recovered-analysis rows, Settings groups, and workspace switching now follow the Topic-style typography, 20px card radius, shadow, and compact content grammar
    - Workspace mode switching now reserves the ProcessingStrip slot, resets scroll before paint with `useLayoutEffect`, and crossfades the mode frame while preserving same-mode tab navigation without extra animation
    - Collect preview metrics use shared icon chips across the overlay and popup, and Product pending signal cards use Topic-style matte cards with compact clamped preview text
-   - verified clean-main build output was copied to `/Users/tung/Desktop/dlens-product-latest/output/chrome-mv3` for Chrome load-unpacked use
+   - verified clean-main build output was copied to `dlens-product-latest/output/chrome-mv3` for Chrome load-unpacked use
 
 6. Signal Reading Review surface
    - `src/compare/signal-reading.ts` builds the free-text reading prompt and source packet identity; prompt version is `v9`
@@ -81,17 +81,17 @@ The current product split is:
 
 The verified build in the active Phase B implementation worktree is:
 
-- verification worktree: `/Users/tung/Desktop/dlens-product-latest`
+- verification worktree: `dlens-product-latest`
 - current extension version: `0.1.27`
-- active load-unpacked folder: `/Users/tung/Desktop/dlens-product-latest/output/chrome-mv3`
-- note: `/Users/tung/Desktop/dlens-product-latest` source checkout may be dirty; do not infer clean source state from the copied build artifact
-- unpacked extension: `/Users/tung/Desktop/dlens-product-latest/output/chrome-mv3`
+- active load-unpacked folder: `dlens-product-latest/output/chrome-mv3`
+- note: `dlens-product-latest` source checkout may be dirty; do not infer clean source state from the copied build artifact
+- unpacked extension: `dlens-product-latest/output/chrome-mv3`
 - backend stable entry: `/Users/tung/Desktop/dlens-ingest-core`
 - backend physical checkout: `/Users/tung/Desktop/dlens-backend/dlens-ingest-core`
 - old versions and historical worktrees: `/Users/tung/Desktop/dlens-old`
 - verification: `npm run typecheck`, `npx tsx --test tests/*.test.ts tests/*.test.tsx`, and `npm run build`
-- latest full test count after Product Action route/card geometry fix: `609 pass, 0 fail`
-- latest build output was mirrored to `/Users/tung/Desktop/dlens-product-latest/output/chrome-mv3`
+- latest full test count after Product Action route/card geometry fix: `615 pass, 0 fail`
+- latest build output was mirrored to `dlens-product-latest/output/chrome-mv3`
 - current engineering branch: `codex/pr-visible-metrics`
 - live backend smoke from the prior product run: `GET http://127.0.0.1:8000/worker/status` returned `{"status":"idle"}`
 - extension manifest name is `DLens v3`; current extension version is `0.1.27`
@@ -239,7 +239,7 @@ RAG remains intentionally out of V1. The accepted V1 design is:
 ## Immediate Next Work
 
 1. Backend P0: refine `ThreadReadModel` OP continuation splitting and remove root duplication.
-2. Chrome QA: reload `/Users/tung/Desktop/dlens-product-latest/output/chrome-mv3` and walk Product Settings -> Collect -> crawl -> Product insights, Compare Parallel/Chapters, Topic Console/Stack, then PR Evidence campaign setup -> PDF upload -> Generate criteria -> Collect -> Match criteria -> CSV export -> summary MD/DOCX export.
+2. Chrome QA: reload `dlens-product-latest/output/chrome-mv3` and walk Product Settings -> Collect -> crawl -> Product insights, Compare Parallel/Chapters, Topic Console/Stack, then PR Evidence campaign setup -> PDF upload -> Generate criteria -> Collect -> Match criteria -> CSV export -> summary MD/DOCX export.
 3. UI cleanup: verify topic mode green theme everywhere, product mode does not show folder concept, PR Evidence keeps the compact ledger grammar, and popup spacing/mode/layout switching stay fixed.
 4. Background split: move product/topic/PR handlers out of `entrypoints/background.ts` before adding digest/watch-mode work.
 5. Phase C later: signal digest / watch mode / recurring intelligence. Do not start there before backend read-model quality is fixed.
@@ -358,7 +358,7 @@ The extension may present backend output more clearly, but it should not fabrica
 ## Open Gaps
 
 - backend ThreadReadModel OP continuation quality is now Product mode P0
-- Chrome QA still needs to walk the v3 Product and PR Evidence flows in `/Users/tung/Desktop/dlens-product-latest/output/chrome-mv3`
+- Chrome QA still needs to walk the v3 Product and PR Evidence flows in `dlens-product-latest/output/chrome-mv3`
 - topic mode theme still needs verification that hover overlays and action buttons are fully green
 - Product mode should not leak folder concept into user-facing workflow
 - compare cluster pairing is still rank-based, not semantic

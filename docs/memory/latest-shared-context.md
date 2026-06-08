@@ -62,16 +62,16 @@ This note is the high-signal shared memory for Codex and Claude when working on 
 - Marginalia visual hierarchy is intentionally simplified: eyebrow has no verdict, FOOTNOTES header is hidden, bottom AI experiment/judgment detail blocks are not rendered, and workflow evidence rows are flat label-stacked sections with dotted dividers.
 - Product classification list rows no longer render relevance dots; `最新在前` only appears when the selected type group has at least two signals.
 - Product Agent Brief uses reviewable `SignalReading` records; active review cards keep a compact Marginalia signal strip with verdict, reference category, and relevance bars.
-- Topic synthesis uses deterministic `v2.work-signal-lens`; Stack is collapsible, Console is dense and always visible.
+- Topic synthesis uses deterministic `v3.generic-keyword-lens`; Stack is collapsible, Console is dense and always visible.
 - Folder synthesis uses the same deterministic work-signal lens and renders as the Library Briefing card. Storage key: `dlens:v1:folder-synthesis`.
 - Compare result variants are Reading, Parallel, and Chapters; Parallel is default and uses sticky A/B columns.
-- Current verification: `609/609` tests, typecheck, build, and diff check passed from `/Users/tung/Desktop/dlens-product-latest`.
-- Verified build artifact was copied to `/Users/tung/Desktop/dlens-product-latest/output/chrome-mv3`; the source checkout there may still be dirty.
+- Current verification: `615/615` tests, typecheck, build, and diff check passed from `dlens-product-latest`.
+- Verified build artifact was copied to `dlens-product-latest/output/chrome-mv3`; the source checkout there may still be dirty.
 
 ## Version Rule As Of 2026-05-28
 
 - Current extension version: `0.1.27`.
-- Current verification: `609/609` tests, typecheck, build, and diff check passed from `/Users/tung/Desktop/dlens-product-latest`.
+- Current verification: `615/615` tests, typecheck, build, and diff check passed from `dlens-product-latest`.
 - Current engineering branch: `codex/pr-visible-metrics`.
 - `docs/ENGINEERING_PLAN.md` §2 N1-N5 is complete: React ErrorBoundary, Settings storage usage, `mutateSnapshot` seam, behavioral storage contracts, and code-review checklist.
 - §3 remains a deferred trigger pool, not a backlog drain queue.
@@ -140,7 +140,7 @@ This note is the high-signal shared memory for Codex and Claude when working on 
 - Add better honest loading states for crawl / analysis / compare waits.
 - Keep compare cluster matching skepticism high because pairing is still rank-driven.
 - Keep save/bookmark features lightweight until there is a real downstream destination.
-- Chrome QA still needs to walk Product and PR Evidence flows from `/Users/tung/Desktop/dlens-product-latest/output/chrome-mv3`, including Product recovered-analysis/action views, Topic Console/Stack, Compare Parallel/Chapters, PR PDF upload, criteria generation, matching, CSV export, and summary MD/DOCX export.
+- Chrome QA still needs to walk Product and PR Evidence flows from `dlens-product-latest/output/chrome-mv3`, including Product recovered-analysis/action views, Topic Console/Stack, Compare Parallel/Chapters, PR PDF upload, criteria generation, matching, CSV export, and summary MD/DOCX export.
 
 ## Working Rules For Future Product Updates
 
