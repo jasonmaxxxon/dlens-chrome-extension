@@ -4,7 +4,7 @@ DLens is a mode-aware MV3 Chrome extension for capturing Threads posts and turni
 
 > Last updated: 2026-06-09
 > Current release: `0.1.29` · 617/617 tests · build clean
-> Current engineering branch: `codex/pr-visible-metrics` (= `origin/main` 69bb9ab, latest)
+> Current engineering branch: `codex/pr-visible-metrics` (mirrored to `origin/main` for release)
 > Positioning (2026-06-08): local power-tool (self + small technical circle); two separate repos (extension public · ingest-core **private**), not monorepo; visual reset Option A pending
 > Verified build: `output/chrome-mv3`
 
