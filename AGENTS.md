@@ -647,7 +647,7 @@ The full cluster pipeline runs in `dlens-ingest-core`, not in this repo:
 
 ## Alignment Note (2026-03-31)
 
-Some audits against `/Users/tung/Desktop/dlens_chrome_extension_branch` no longer describe the real state of this repo.
+Some audits against `historical dlens_chrome_extension_branch checkout` no longer describe the real state of this repo.
 
 In `dlens-chrome-extension-v0`, these older prototype debts are already reduced or closed:
 
@@ -746,7 +746,7 @@ Full spec: `DESIGN.md`
 | Compare | Problem room | Post A/B selector + thesis preview + CTA only |
 | Result | Reading room | Hero card + DictionaryCard evidence + Why it matters + verification drawer |
 
-Mockup: `/Users/tung/.claude/skills/artifacts-builder/dlens-compare-mockup/` (live: http://localhost:5199)
+Mockup: `local Claude artifacts-builder/dlens-compare-mockup/` (live: http://localhost:5199)
 
 ### Components to Implement
 

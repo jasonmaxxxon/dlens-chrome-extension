@@ -40,6 +40,6 @@ This repo now has:
 ## Canonical Upstream Repos
 
 - browser-side prototype:
-  - `/Users/tung/Desktop/dlens_chrome_extension_branch`
+  - `historical dlens_chrome_extension_branch checkout`
 - ingestion heart:
   - set `DLENS_INGEST_CORE_DIR` or place the checkout at `../dlens-ingest-core` if full pipeline dev is needed

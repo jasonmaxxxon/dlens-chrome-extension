@@ -1,6 +1,6 @@
 ---
 name: dlens-release-publish
-description: Use when publishing a user-visible DLens Chrome extension release from /Users/tung/Desktop/dlens-product-latest, especially version bumps, docs/state sync, MV3 build verification, GitHub branch pushes, or "push main" requests.
+description: Use when publishing a user-visible DLens Chrome extension release from dlens-product-latest, especially version bumps, docs/state sync, MV3 build verification, GitHub branch pushes, or "push main" requests.
 ---
 
 # DLens Release Publish
@@ -11,8 +11,8 @@ Use this for release-style DLens work, not for ordinary feature edits. The goal 
 
 ## Source Of Truth
 
-- Repo: `/Users/tung/Desktop/dlens-product-latest`
-- Built unpacked extension: `/Users/tung/Desktop/dlens-product-latest/output/chrome-mv3`
+- Repo: `dlens-product-latest`
+- Built unpacked extension: `output/chrome-mv3`
 - Reliable visible build check: `output/chrome-mv3/manifest.json`
 - Version lock files:
   - `package.json`

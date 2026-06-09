@@ -1,7 +1,7 @@
 # Audit Pipeline — Slice 2 Execution Handoff (background messages)
 
 **日期：** 2026-05-22
-**前置：** Slice 1 已完成（worktree `/Users/tung/Desktop/dlens-topic-audit-pipeline`，branch `codex/topic-audit-pipeline`）
+**前置：** Slice 1 已完成（worktree `historical dlens-topic-audit-pipeline worktree`，branch `codex/topic-audit-pipeline`）
 **Spec：** `2026-05-22-audit-pipeline-prompt-spec.md` §3 §7
 **Slice 1 handoff：** `2026-05-22-audit-pipeline-execution-handoff.md`
 

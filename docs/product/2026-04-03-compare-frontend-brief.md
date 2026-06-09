@@ -261,7 +261,7 @@ This pass is successful when:
 
 This brief is paired with:
 
-- [2026-04-03-compare-working-plan.md](/Users/tung/Desktop/dlens-chrome-extension-v0/docs/product/2026-04-03-compare-working-plan.md)
-- [2026-04-02-compare-methodology.md](/Users/tung/Desktop/dlens-chrome-extension-v0/docs/product/2026-04-02-compare-methodology.md)
+- [2026-04-03-compare-working-plan.md](docs/product/2026-04-03-compare-working-plan.md)
+- [2026-04-02-compare-methodology.md](docs/product/2026-04-02-compare-methodology.md)
 
 Use this brief when doing the next presentation pass in `CompareView`, `tokens.ts`, and shared UI atoms.

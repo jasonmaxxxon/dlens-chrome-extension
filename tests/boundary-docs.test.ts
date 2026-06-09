@@ -4,7 +4,10 @@ import path from "node:path";
 import test from "node:test";
 
 const REPO_ROOT = path.resolve(import.meta.dirname, "..");
-const FORBIDDEN = "/Users/tung/Desktop/dlens-ingest-core";
+const FORBIDDEN_PATTERNS = [
+  /\/Users\/tung/,
+  /\/Users\/[^/\n]+\/Desktop\/dlens/i
+];
 
 const runtimeBoundaryFiles = [
   "AGENTS.md",
@@ -13,14 +16,12 @@ const runtimeBoundaryFiles = [
   ...readdirSync(path.join(REPO_ROOT, "docs/handoff")).map((name) => `docs/handoff/${name}`)
 ];
 
-test("runtime boundary docs do not depend on a hard-coded desktop ingest-core path", () => {
+test("runtime boundary docs do not depend on hard-coded desktop paths", () => {
   for (const relativePath of runtimeBoundaryFiles) {
     const absolutePath = path.join(REPO_ROOT, relativePath);
     const contents = readFileSync(absolutePath, "utf8");
-    assert.doesNotMatch(
-      contents,
-      new RegExp(FORBIDDEN.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")),
-      relativePath
-    );
+    for (const pattern of FORBIDDEN_PATTERNS) {
+      assert.doesNotMatch(contents, pattern, relativePath);
+    }
   }
 });

@@ -9,7 +9,7 @@
 
 ## Implementation Status (2026-05-07)
 
-Implemented in `/Users/tung/Desktop/dlens-product-latest`.
+Implemented in `dlens-product-latest`.
 
 Resolved implementation choices:
 
@@ -710,7 +710,7 @@ Coverage:
 Run from:
 
 ```bash
-cd /Users/tung/Desktop/dlens-product-latest
+cd dlens-product-latest
 ```
 
 Required:

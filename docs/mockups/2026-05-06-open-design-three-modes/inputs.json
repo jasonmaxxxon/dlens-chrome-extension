@@ -1,5 +1,5 @@
 {
-  "$schema": "/Users/tung/.agents/skills/open-design-landing-deck/schema.ts",
+  "$schema": "open-design-landing-deck/schema.ts",
   "brand": {
     "name": "DLens",
     "mark": "D",

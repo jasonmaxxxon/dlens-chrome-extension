@@ -183,7 +183,7 @@ Do not borrow:
 
 ## 6. Tokens
 
-Global tokens remain the source of truth in [src/ui/tokens.ts](/Users/tung/Desktop/dlens-chrome-extension-v0/src/ui/tokens.ts).
+Global tokens remain the source of truth in [src/ui/tokens.ts](src/ui/tokens.ts).
 
 ### 6.1 Color Roles
 
@@ -213,9 +213,9 @@ Use one global scale only. Surface-specific borrowing must not create a second v
 
 Files:
 
-- [src/ui/InPageCollectorApp.tsx](/Users/tung/Desktop/dlens-chrome-extension-v0/src/ui/InPageCollectorApp.tsx)
-- [src/ui/components.tsx](/Users/tung/Desktop/dlens-chrome-extension-v0/src/ui/components.tsx)
-- [src/ui/tokens.ts](/Users/tung/Desktop/dlens-chrome-extension-v0/src/ui/tokens.ts)
+- [src/ui/InPageCollectorApp.tsx](src/ui/InPageCollectorApp.tsx)
+- [src/ui/components.tsx](src/ui/components.tsx)
+- [src/ui/tokens.ts](src/ui/tokens.ts)
 
 Do:
 
@@ -233,7 +233,7 @@ Don't:
 
 File:
 
-- [src/ui/CompareView.tsx](/Users/tung/Desktop/dlens-chrome-extension-v0/src/ui/CompareView.tsx)
+- [src/ui/CompareView.tsx](src/ui/CompareView.tsx)
 
 Do:
 
@@ -252,7 +252,7 @@ Don't:
 
 File:
 
-- [src/ui/CompareView.tsx](/Users/tung/Desktop/dlens-chrome-extension-v0/src/ui/CompareView.tsx)
+- [src/ui/CompareView.tsx](src/ui/CompareView.tsx)
 
 Do:
 
@@ -270,7 +270,7 @@ Don't:
 
 File:
 
-- [src/ui/TechniqueView.tsx](/Users/tung/Desktop/dlens-chrome-extension-v0/src/ui/TechniqueView.tsx)
+- [src/ui/TechniqueView.tsx](src/ui/TechniqueView.tsx)
 
 Do:
 
@@ -288,9 +288,9 @@ Don't:
 
 Files:
 
-- [src/ui/components.tsx](/Users/tung/Desktop/dlens-chrome-extension-v0/src/ui/components.tsx)
-- [src/ui/ProcessingStrip.tsx](/Users/tung/Desktop/dlens-chrome-extension-v0/src/ui/ProcessingStrip.tsx)
-- relevant status atoms inside [src/ui/CompareView.tsx](/Users/tung/Desktop/dlens-chrome-extension-v0/src/ui/CompareView.tsx)
+- [src/ui/components.tsx](src/ui/components.tsx)
+- [src/ui/ProcessingStrip.tsx](src/ui/ProcessingStrip.tsx)
+- relevant status atoms inside [src/ui/CompareView.tsx](src/ui/CompareView.tsx)
 
 Do:
 
@@ -471,9 +471,9 @@ Interpretation:
 
 Local previews inside this repo:
 
-- [docs/preview-macos-cards.html](/Users/tung/Desktop/dlens-chrome-extension-v0/docs/preview-macos-cards.html)
-- [docs/preview-macos-selective-merge.html](/Users/tung/Desktop/dlens-chrome-extension-v0/docs/preview-macos-selective-merge.html)
-- [docs/preview-v3-research-informed.html](/Users/tung/Desktop/dlens-chrome-extension-v0/docs/preview-v3-research-informed.html)
+- [docs/preview-macos-cards.html](docs/preview-macos-cards.html)
+- [docs/preview-macos-selective-merge.html](docs/preview-macos-selective-merge.html)
+- [docs/preview-v3-research-informed.html](docs/preview-v3-research-informed.html)
 
 Usage rule:
 
@@ -500,7 +500,7 @@ Before shipping any UI change:
 If the next session is implementation-focused:
 
 - read this file first
-- then read [docs/product/2026-04-03-compare-frontend-brief.md](/Users/tung/Desktop/dlens-chrome-extension-v0/docs/product/2026-04-03-compare-frontend-brief.md)
+- then read [docs/product/2026-04-03-compare-frontend-brief.md](docs/product/2026-04-03-compare-frontend-brief.md)
 - then inspect the exact target file being edited
 
 This document defines the visual decision hierarchy. It does not replace implementation-specific acceptance criteria.

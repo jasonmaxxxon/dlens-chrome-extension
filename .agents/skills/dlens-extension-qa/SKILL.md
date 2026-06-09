@@ -1,6 +1,6 @@
 ---
 name: dlens-extension-qa
-description: Verify DLens extension changes before handoff, especially collect/save, Product mode routes, product signal analysis output, storage normalization, settings access, and visible UX regressions in /Users/tung/Desktop/dlens-product-latest.
+description: Verify DLens extension changes before handoff, especially collect/save, Product mode routes, product signal analysis output, storage normalization, settings access, and visible UX regressions in dlens-product-latest.
 ---
 
 # DLens Extension QA

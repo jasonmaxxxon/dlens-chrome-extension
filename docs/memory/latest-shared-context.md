@@ -66,7 +66,7 @@ This note is the high-signal shared memory for Codex and Claude when working on 
 - Folder synthesis uses the same deterministic work-signal lens and renders as the Library Briefing card. Storage key: `dlens:v1:folder-synthesis`.
 - Compare result variants are Reading, Parallel, and Chapters; Parallel is default and uses sticky A/B columns.
 - Current verification: `615/615` tests, typecheck, build, and diff check passed from `dlens-product-latest`.
-- Verified build artifact was copied to `dlens-product-latest/output/chrome-mv3`; the source checkout there may still be dirty.
+- Verified build artifact was copied to `output/chrome-mv3`; the source checkout there may still be dirty.
 
 ## Version Rule As Of 2026-05-28
 
@@ -140,7 +140,7 @@ This note is the high-signal shared memory for Codex and Claude when working on 
 - Add better honest loading states for crawl / analysis / compare waits.
 - Keep compare cluster matching skepticism high because pairing is still rank-driven.
 - Keep save/bookmark features lightweight until there is a real downstream destination.
-- Chrome QA still needs to walk Product and PR Evidence flows from `dlens-product-latest/output/chrome-mv3`, including Product recovered-analysis/action views, Topic Console/Stack, Compare Parallel/Chapters, PR PDF upload, criteria generation, matching, CSV export, and summary MD/DOCX export.
+- Chrome QA still needs to walk Product and PR Evidence flows from `output/chrome-mv3`, including Product recovered-analysis/action views, Topic Console/Stack, Compare Parallel/Chapters, PR PDF upload, criteria generation, matching, CSV export, and summary MD/DOCX export.
 
 ## Working Rules For Future Product Updates
 

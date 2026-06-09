@@ -4,8 +4,8 @@
 
 This handoff describes the Phase B worktree:
 
-- repo: `/Users/tung/Desktop/dlens-product-latest`
-- build output: `/Users/tung/Desktop/dlens-product-latest/output/chrome-mv3`
+- repo: `dlens-product-latest`
+- build output: `output/chrome-mv3`
 - extension name: `DLens v3`
 - latest verified gate before this documentation sync: `npm run typecheck`, `npx tsx --test tests/*.test.ts tests/*.test.tsx`, `npm run build`
 - latest full test count: `281 pass, 0 fail`

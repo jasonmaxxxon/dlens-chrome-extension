@@ -4,7 +4,7 @@
 
 It is derived from the prototype heuristics in:
 
-- `/Users/tung/Desktop/dlens_chrome_extension_branch/scripts/threads_targeting_prototype.js`
+- `historical dlens_chrome_extension_branch checkout/scripts/threads_targeting_prototype.js`
 
 ## Fields
 

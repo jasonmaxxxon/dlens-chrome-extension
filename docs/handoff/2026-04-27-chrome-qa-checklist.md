@@ -5,7 +5,7 @@ _For Codex execution. All paths must be walked in a real loaded Chrome extension
 ## Pre-flight
 
 ```bash
-cd /Users/tung/Desktop/dlens-product-latest
+cd dlens-product-latest
 npm run build
 ```
 
@@ -182,7 +182,7 @@ Record any failures as issues in the handoff doc with:
 ### Chrome follow-up after rebuild/reload — 2026-04-27 HKT
 
 - **Pre-flight**
-  - Ran `npm run build` again in `/Users/tung/Desktop/dlens-product-latest`; build passed and mirrored to `output/chrome-mv3`.
+  - Ran `npm run build` again in `dlens-product-latest`; build passed and mirrored to `output/chrome-mv3`.
   - Reloaded the unpacked Chrome extension from `chrome://extensions`.
   - Confirmed Chrome extension title is `DLens v3`; extension id observed as `hihgplinfhopjpjonkcdbbmkoklombkj`.
   - Backend `/worker/status` at `http://127.0.0.1:8000` returned `{"status":"idle"}`.

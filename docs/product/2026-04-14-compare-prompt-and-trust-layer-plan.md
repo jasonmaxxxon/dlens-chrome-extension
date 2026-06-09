@@ -25,8 +25,8 @@ The root problem is not only model quality.
 
 The deeper issue is that the current prompt contracts in:
 
-- [src/compare/brief.ts](/Users/tung/Desktop/dlens-chrome-extension-v0/src/compare/brief.ts)
-- [src/compare/cluster-interpretation.ts](/Users/tung/Desktop/dlens-chrome-extension-v0/src/compare/cluster-interpretation.ts)
+- [src/compare/brief.ts](src/compare/brief.ts)
+- [src/compare/cluster-interpretation.ts](src/compare/cluster-interpretation.ts)
 
 still ask the model to produce a verdict-like summary too early.
 
@@ -66,7 +66,7 @@ The useful reference is not the full analyst stack. It is the discipline in the 
 
 Relevant files in `DLens_26`:
 
-- [analysis/analyst.py](/Users/tung/Desktop/DLens_26/analysis/analyst.py)
+- [analysis/analyst.py](historical DLens_26/analysis/analyst.py)
 - especially `format_claims_only_metrics()`
 - especially `build_claims_only_prompt()`
 
@@ -82,7 +82,7 @@ This is the part worth borrowing.
 
 ### 2.1 What `DLens_26` Does Well
 
-In [analysis/analyst.py](/Users/tung/Desktop/DLens_26/analysis/analyst.py), `build_claims_only_prompt()` does three things that matter:
+In [analysis/analyst.py](historical DLens_26/analysis/analyst.py), `build_claims_only_prompt()` does three things that matter:
 
 - it separates `POST`, `CLUSTERS`, `MIN_METRICS`, and `EVIDENCE_CATALOG`
 - it outputs a strict JSON schema
@@ -244,7 +244,7 @@ This is much closer to `DLens_26` discipline while staying lightweight enough fo
 
 Current file:
 
-- [src/compare/brief.ts](/Users/tung/Desktop/dlens-chrome-extension-v0/src/compare/brief.ts)
+- [src/compare/brief.ts](src/compare/brief.ts)
 
 Current weakness:
 
@@ -265,7 +265,7 @@ This will likely increase rejection rate, which is acceptable. A stricter fallba
 
 Current file:
 
-- [src/compare/cluster-interpretation.ts](/Users/tung/Desktop/dlens-chrome-extension-v0/src/compare/cluster-interpretation.ts)
+- [src/compare/cluster-interpretation.ts](src/compare/cluster-interpretation.ts)
 
 Current weakness:
 
@@ -464,7 +464,7 @@ The direction remains good, but it should stay in Phase 2.
 
 Current relevant file:
 
-- [src/ui/CompareView.tsx](/Users/tung/Desktop/dlens-chrome-extension-v0/src/ui/CompareView.tsx)
+- [src/ui/CompareView.tsx](src/ui/CompareView.tsx)
 - current component: `FlowingClusterViz`
 
 ### 7.1 Desired Behavior
@@ -527,8 +527,8 @@ Recommended sequence:
 
 Files:
 
-- [src/compare/brief.ts](/Users/tung/Desktop/dlens-chrome-extension-v0/src/compare/brief.ts)
-- [src/compare/cluster-interpretation.ts](/Users/tung/Desktop/dlens-chrome-extension-v0/src/compare/cluster-interpretation.ts)
+- [src/compare/brief.ts](src/compare/brief.ts)
+- [src/compare/cluster-interpretation.ts](src/compare/cluster-interpretation.ts)
 
 Goals:
 
@@ -540,7 +540,7 @@ Goals:
 
 Files:
 
-- [src/ui/CompareView.tsx](/Users/tung/Desktop/dlens-chrome-extension-v0/src/ui/CompareView.tsx)
+- [src/ui/CompareView.tsx](src/ui/CompareView.tsx)
 
 Goals:
 
@@ -553,7 +553,7 @@ Goals:
 
 Files:
 
-- [src/ui/CompareView.tsx](/Users/tung/Desktop/dlens-chrome-extension-v0/src/ui/CompareView.tsx)
+- [src/ui/CompareView.tsx](src/ui/CompareView.tsx)
 
 Goals:
 
@@ -564,7 +564,7 @@ Goals:
 
 Files:
 
-- [src/ui/CompareView.tsx](/Users/tung/Desktop/dlens-chrome-extension-v0/src/ui/CompareView.tsx)
+- [src/ui/CompareView.tsx](src/ui/CompareView.tsx)
 
 Goals:
 

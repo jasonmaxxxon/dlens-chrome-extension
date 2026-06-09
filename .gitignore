@@ -6,4 +6,7 @@ output/chrome-mv3-pr-only/
 dist/
 *.log
 .DS_Store
+__pycache__/
+*.py[cod]
+.claude/settings.local.json
 tmp/

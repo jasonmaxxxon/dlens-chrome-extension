@@ -1,10 +1,16 @@
 import { readFile, writeFile, mkdir } from "node:fs/promises";
-import { dirname } from "node:path";
-import { pathToFileURL } from "node:url";
+import { dirname, resolve } from "node:path";
+import { fileURLToPath, pathToFileURL } from "node:url";
 
-const root = "/Users/tung/Desktop/dlens-product-latest/docs/mockups/2026-05-06-open-design-three-modes";
-const skillScript = "/Users/tung/.agents/skills/open-design-landing-deck/scripts/compose.ts";
-const examplePath = "/Users/tung/.agents/skills/open-design-landing-deck/example.html";
+const root = dirname(fileURLToPath(import.meta.url));
+const skillDir = process.env.OPEN_DESIGN_LANDING_DECK_SKILL_DIR;
+
+if (!skillDir) {
+  throw new Error("Set OPEN_DESIGN_LANDING_DECK_SKILL_DIR to the local open-design-landing-deck skill directory.");
+}
+
+const skillScript = resolve(skillDir, "scripts/compose.ts");
+const examplePath = resolve(skillDir, "example.html");
 
 const { renderDeck } = await import(pathToFileURL(skillScript).href);
 const inputs = JSON.parse(await readFile(`${root}/inputs.json`, "utf8"));

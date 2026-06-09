@@ -67,6 +67,10 @@ Expected verified state for `0.1.27`:
 - `npm run build` mirrors the unpacked MV3 build to `output/chrome-mv3`
 - `output/chrome-mv3/manifest.json` reports `version: "0.1.27"` and `name: "DLens v3"`
 
+## Second Mac Install
+
+For a 30-minute assisted install on another Mac, use [`docs/setup/second-mac-30-minute-install.md`](./docs/setup/second-mac-30-minute-install.md). It is written for someone using Terminal with help from a simple AI chatbot.
+
 ## Active Paths
 
 | Purpose | Path |
@@ -75,7 +79,7 @@ Expected verified state for `0.1.27`:
 | Load unpacked extension | `output/chrome-mv3` |
 | Backend (resolved at) | sibling `../dlens-ingest-core` or `DLENS_INGEST_CORE_DIR` |
 | Backend repo | `github.com/jasonmaxxxon/dlens-ingest-core` (private) — clone as a sibling; see its `SETUP.md` |
-| Backups | `~/Desktop/dlens-archive-<date>/` (extension + backend bundles + RESTORE.md) |
+| Backups | `~/dlens-archive-<date>/` (extension + backend bundles + RESTORE.md) |
 
 ## Architecture Boundary
 

@@ -123,7 +123,7 @@ Current extension code can fall back to older capture shapes, but mature Product
 Run in:
 
 ```bash
-cd /Users/tung/Desktop/dlens-product-latest
+cd dlens-product-latest
 ```
 
 Verified:

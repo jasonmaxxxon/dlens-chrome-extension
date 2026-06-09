@@ -2,7 +2,7 @@
 
 **日期：** 2026-05-23
 **前置：** Slice 1 + 2 已完成並 push 到 `origin/codex/topic-audit-pipeline`
-**Prototype（視覺 + 結構 source of truth）：** `/Users/tung/Downloads/dlens-design-v3-functional-additions.zip` → `topic-redesign/`（user 已 approve）
+**Prototype（視覺 + 結構 source of truth）：** `local design-v3-functional-additions.zip` → `topic-redesign/`（user 已 approve）
 **Spec：** `2026-05-22-audit-pipeline-prompt-spec.md`、`2026-05-22-topic-mode-redesign-claude-design-brief-v2.md`
 
 > **Slice 3 = 把 prototype 鏡像進真實 MV3 extension code**。結構 + 視覺語言要 match prototype；後端 contract 已就位（slice 2 的 `topic/audit/*` messages）。**不重做 prompt 設計、不重做後端**。

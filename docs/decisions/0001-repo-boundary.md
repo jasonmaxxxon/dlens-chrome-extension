@@ -9,7 +9,7 @@ Accepted
 DLens now has:
 
 - a stable ingestion heart exposed through an HTTP backend contract
-- a stable page-side targeting prototype in `/Users/tung/Desktop/dlens_chrome_extension_branch`
+- a stable page-side targeting prototype in `historical dlens_chrome_extension_branch checkout`
 
 The missing piece is a real extension shell that lets a user select and submit Threads targets without manual API calls.
 

@@ -67,11 +67,11 @@ So v0 is about making the input seam real, deterministic enough, and pleasant en
 
 ## 5. Related Repos And Their Roles
 
-### `/Users/tung/Desktop/dlens-chrome-extension-v0`
+### `historical dlens-chrome-extension-v0 checkout`
 
 This repo is the real MV3 extension shell and current working product surface.
 
-### `/Users/tung/Desktop/dlens_chrome_extension_branch`
+### `historical dlens_chrome_extension_branch checkout`
 
 This repo is the canonical browser-side targeting prototype.
 
@@ -185,36 +185,36 @@ As of this handoff, `dlens-chrome-extension-v0` has:
 
 ### Core entrypoints
 
-- `/Users/tung/Desktop/dlens-chrome-extension-v0/entrypoints/threads.content.ts`
-- `/Users/tung/Desktop/dlens-chrome-extension-v0/entrypoints/background.ts`
-- `/Users/tung/Desktop/dlens-chrome-extension-v0/entrypoints/sidepanel/main.tsx`
+- `entrypoints/threads.content.ts`
+- `entrypoints/background.ts`
+- `entrypoints/sidepanel/main.tsx`
 
 ### Key UI files
 
-- `/Users/tung/Desktop/dlens-chrome-extension-v0/src/ui/InPageCollectorApp.tsx`
-- `/Users/tung/Desktop/dlens-chrome-extension-v0/src/ui/SidepanelApp.tsx`
-- `/Users/tung/Desktop/dlens-chrome-extension-v0/src/ui/controller.tsx`
+- `src/ui/InPageCollectorApp.tsx`
+- `src/ui/SidepanelApp.tsx`
+- `src/ui/controller.tsx`
 
 ### State / messages / storage helpers
 
-- `/Users/tung/Desktop/dlens-chrome-extension-v0/src/state/types.ts`
-- `/Users/tung/Desktop/dlens-chrome-extension-v0/src/state/messages.ts`
-- `/Users/tung/Desktop/dlens-chrome-extension-v0/src/state/ui-state.ts`
-- `/Users/tung/Desktop/dlens-chrome-extension-v0/src/state/store-helpers.ts`
-- `/Users/tung/Desktop/dlens-chrome-extension-v0/src/state/comment-preview.ts`
+- `src/state/types.ts`
+- `src/state/messages.ts`
+- `src/state/ui-state.ts`
+- `src/state/store-helpers.ts`
+- `src/state/comment-preview.ts`
 
 ### Targeting logic
 
-- `/Users/tung/Desktop/dlens-chrome-extension-v0/src/targeting/threads.ts`
+- `src/targeting/threads.ts`
 
 ### Existing tests
 
-- `/Users/tung/Desktop/dlens-chrome-extension-v0/tests/comment-preview.test.ts`
-- `/Users/tung/Desktop/dlens-chrome-extension-v0/tests/selection-mode-messages.test.ts`
-- `/Users/tung/Desktop/dlens-chrome-extension-v0/tests/session-model.test.ts`
-- `/Users/tung/Desktop/dlens-chrome-extension-v0/tests/store-helpers.test.ts`
-- `/Users/tung/Desktop/dlens-chrome-extension-v0/tests/ui-state.test.ts`
-- `/Users/tung/Desktop/dlens-chrome-extension-v0/tests/targeting.test.ts`
+- `tests/comment-preview.test.ts`
+- `tests/selection-mode-messages.test.ts`
+- `tests/session-model.test.ts`
+- `tests/store-helpers.test.ts`
+- `tests/ui-state.test.ts`
+- `tests/targeting.test.ts`
 
 ## 10. Current Known Problems / Risks
 
@@ -260,7 +260,7 @@ Avoid user-facing:
 
 ## 13. Current Verification Commands
 
-From `/Users/tung/Desktop/dlens-chrome-extension-v0`:
+From `historical dlens-chrome-extension-v0 checkout`:
 
 ```bash
 npm run build
@@ -297,7 +297,7 @@ The latest local pass status before this handoff:
 
 ### Repo status
 
-`/Users/tung/Desktop/dlens-chrome-extension-v0` is currently **not a git repository**.
+`historical dlens-chrome-extension-v0 checkout` is currently **not a git repository**.
 
 Do not assume:
 
