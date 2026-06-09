@@ -501,7 +501,7 @@ This was a major product-direction change. Summary for any agent picking up here
 
 ```bash
 npm run typecheck && npx tsx --test tests/*.test.ts tests/*.test.tsx
-# Expected on current checkout: 615 pass, 0 fail
+# Expected on current checkout: 618 pass, 0 fail
 ```
 
 ### Current engineering roadmap
@@ -635,7 +635,7 @@ The full cluster pipeline runs in `dlens-ingest-core`, not in this repo:
 - `useInPageCollectorAppState.ts` is still a large orchestration hub after the shell split and is the next place to keep carving down
 - inline styles are widespread but `tokens.ts` now provides the full design token layer; remaining inline refs can migrate incrementally
 - hover debounce still feels slow (360ms)
-- the full `tests/*.test.ts{,x}` suite passes **178/178** as of Phase 2 (commit `6453f73`); `manifest-config.test.ts` has a known pre-existing rolldown native binding issue on Darwin arm64 that is environment-specific and not a code failure
+- the full `tests/*.test.ts{,x}` suite passes **618/618** as of release `0.1.30` (commit `5fd4f41`)
 
 ### P3
 
@@ -813,7 +813,7 @@ Before claiming success:
 ```bash
 cd dlens-chrome-extension-v0
 npm run typecheck
-npx tsx --test tests/*.test.ts tests/*.test.tsx  # expect 178/178
+npx tsx --test tests/*.test.ts tests/*.test.tsx  # expect 618/618
 npm run build
 ```
 
