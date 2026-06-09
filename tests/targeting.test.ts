@@ -88,6 +88,40 @@ test("scoreCardCandidateSignals keeps quoted-post outer cards eligible", () => {
   assert.equal(classifyCandidateStrength(score), "hard");
 });
 
+test("composer detection does not reject post detail wrappers with reply composers", () => {
+  const postDetailWrapper = {
+    querySelector(selector: string) {
+      if (selector === "textarea, [contenteditable='true']") return {};
+      if (selector === 'a[href*="/post/"]') return {};
+      if (selector === "a[href^='/@'], a[href*='threads.net/@']") return {};
+      return null;
+    },
+    querySelectorAll(selector: string) {
+      if (selector === "svg[aria-label]") {
+        return [
+          { getAttribute: () => "Like" },
+          { getAttribute: () => "Reply" }
+        ];
+      }
+      return [];
+    },
+    innerText: "Follow sswirll 2d 第二次上樓 Like 1.8K Reply 86",
+    textContent: "Follow sswirll 2d 第二次上樓 Like 1.8K Reply 86"
+  };
+  const pureComposer = {
+    querySelector(selector: string) {
+      if (selector === "textarea, [contenteditable='true']") return {};
+      return null;
+    },
+    querySelectorAll: () => [],
+    innerText: "Start a thread",
+    textContent: "Start a thread"
+  };
+
+  assert.equal(threadsTargetingTestables.isComposerLike(postDetailWrapper as any), false);
+  assert.equal(threadsTargetingTestables.isComposerLike(pureComposer as any), true);
+});
+
 // classifyMetric tests
 
 test("classifyMetric identifies likes from aria-label", () => {

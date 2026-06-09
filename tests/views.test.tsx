@@ -2540,7 +2540,7 @@ test("ProductSignalView turns long reading openings into a lighter lead title an
   assert.match(display.body, /第二段保留完整判讀/);
 });
 
-test("ProductSignalView opens the 0.1.15 reading review workflow before readings exist", () => {
+test("ProductSignalView action route stays on actionable cards before readings exist", () => {
   const html = renderToStaticMarkup(
     React.createElement(ProductSignalView as any, {
       kind: "actionable-filter",
@@ -2580,12 +2580,70 @@ test("ProductSignalView opens the 0.1.15 reading review workflow before readings
     })
   );
 
-  assert.match(html, /Agent Brief/);
-  assert.match(html, /data-signal-reading-review-workspace="true"/);
-  assert.match(html, /尚未生成深度判讀/);
-  assert.match(html, /深度判讀/);
+  assert.match(html, /data-actionable-insights-board="true"/);
   assert.match(html, /保留觀察/);
-  assert.doesNotMatch(html, /data-actionable-insights-board="true"/);
+  assert.doesNotMatch(html, /data-signal-reading-review-workspace="true"/);
+  assert.doesNotMatch(html, /尚未生成深度判讀/);
+});
+
+test("ProductSignalView action route ignores stale readings from other signals", () => {
+  const html = renderToStaticMarkup(
+    React.createElement(ProductSignalView as any, {
+      kind: "actionable-filter",
+      signals: [
+        { id: "signal_current", sessionId: "sess", itemId: "i1", source: "threads", inboxStatus: "unprocessed", capturedAt: "2026-05-18T00:00:00.000Z" }
+      ],
+      analyses: [
+        {
+          signalId: "signal_current",
+          signalType: "marketing",
+          signalSubtype: "positioning_signal",
+          contentType: "mixed",
+          contentSummary: "目前資料只足夠留在 action card。",
+          relevance: 3,
+          relevantTo: ["productPromise"],
+          referenceType: "product_reference",
+          referenceLabel: "對產品參考",
+          referenceTakeaway: "用來判斷產品語氣。",
+          whyRelevant: "對產品語氣有參考價值。",
+          verdict: "watch",
+          reason: "理由。",
+          evidenceRefs: ["e1"],
+          productContextHash: "ctx",
+          promptVersion: "v16",
+          analyzedAt: "2026-05-18T00:00:00.000Z",
+          status: "complete"
+        }
+      ],
+      productProfile: {
+        name: "DLens", category: "x", audience: "y", contextText: "z",
+        contextFiles: [{ id: "f", name: "README.md", kind: "readme", importedAt: "2026-05-18T00:00:00.000Z", charCount: 1 }]
+      },
+      signalReadings: [
+        {
+          signalId: "signal_other",
+          cacheKey: "other-key",
+          productContextHash: "ctx",
+          sourcePacketHash: "pkt-other",
+          promptVersion: SIGNAL_READING_PROMPT_VERSION,
+          reading: "其他訊號的舊判讀不應該啟動這個 route。",
+          generatedAt: "2026-05-18T01:00:00.000Z",
+          model: "google:test",
+          sourceRefs: ["e1"],
+          sourcePacket: { assembledContent: "source content", postUrl: "https://www.threads.net/@dlens/post/other", representativeComments: [], analysisPromptVersion: "v16" },
+          feedbackEvents: [],
+          reviewState: "pending"
+        }
+      ],
+      onAnalyze: () => undefined,
+      onSynthesizeSignalReading: async () => ({ ok: true, reading: "new reading" }),
+      onReviewSignalReading: async () => ({ ok: false, error: "missing" })
+    })
+  );
+
+  assert.match(html, /data-actionable-insights-board="true"/);
+  assert.doesNotMatch(html, /data-signal-reading-review-workspace="true"/);
+  assert.doesNotMatch(html, /其他訊號的舊判讀不應該啟動這個 route/);
 });
 
 test("ProductSignalView action route shows existing reading review content", () => {

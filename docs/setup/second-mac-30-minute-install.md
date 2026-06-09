@@ -52,20 +52,20 @@ Owner 必須在交給新手前完成這段。這段不算進 30 分鐘。
 cd /path/to/dlens-chrome-extension
 npm run build
 node -e "const fs=require('fs'); const m=JSON.parse(fs.readFileSync('output/chrome-mv3/manifest.json','utf8')); console.log(m.name, m.version)"
-rm -f ~/Downloads/dlens-chrome-mv3-0.1.27.zip
-(cd output && ditto -c -k --keepParent chrome-mv3 ~/Downloads/dlens-chrome-mv3-0.1.27.zip)
+rm -f ~/Downloads/dlens-chrome-mv3-0.1.29.zip
+(cd output && ditto -c -k --keepParent chrome-mv3 ~/Downloads/dlens-chrome-mv3-0.1.29.zip)
 ```
 
 預期輸出包含：
 
 ```text
-DLens v3 0.1.27
+DLens v3 0.1.29
 ```
 
 交付給新手的 zip 檔名：
 
 ```text
-dlens-chrome-mv3-0.1.27.zip
+dlens-chrome-mv3-0.1.29.zip
 ```
 
 ### 3. 確認 backend DB 已套 schema
@@ -88,7 +88,7 @@ python scripts/db_exec_sql.py --file migrations/0003_thread_read_model.sql
 ### 4. 準備新手要放到 `~/Downloads` 的 3 個檔案
 
 ```text
-~/Downloads/dlens-chrome-mv3-0.1.27.zip
+~/Downloads/dlens-chrome-mv3-0.1.29.zip
 ~/Downloads/dlens-ingest-core.env
 ~/Downloads/auth_threads.json
 ```
@@ -229,7 +229,7 @@ PYTHONPATH=src python scripts/run_api.py
 
 ```bash
 mkdir -p ~/dlens
-ditto -x -k ~/Downloads/dlens-chrome-mv3-0.1.27.zip ~/dlens
+ditto -x -k ~/Downloads/dlens-chrome-mv3-0.1.29.zip ~/dlens
 test -f ~/dlens/chrome-mv3/manifest.json && echo "extension folder OK"
 ```
 
@@ -255,7 +255,7 @@ Chrome 載入方式：
 
 ```text
 DLens v3
-Version 0.1.27
+Version 0.1.29
 ```
 
 ### 6. Smoke Test
@@ -310,7 +310,7 @@ python src/dlens_ingest_core/crawlers/threads/vendor/login.py
 
 ## Fallback：自行 build extension
 
-只有在 owner 沒有提供 `dlens-chrome-mv3-0.1.27.zip` 時才走這段。這條路需要 Node/npm，而且時間比較不可控。
+只有在 owner 沒有提供 `dlens-chrome-mv3-0.1.29.zip` 時才走這段。這條路需要 Node/npm，而且時間比較不可控。
 
 ```bash
 cd ~/dlens
@@ -426,7 +426,7 @@ curl -s http://127.0.0.1:8000/worker/status && echo
 Chrome：
 
 - `DLens v3` loaded
-- Version is `0.1.27`
+- Version is `0.1.29`
 - Loaded from `~/dlens/chrome-mv3` or fallback `~/dlens/dlens-chrome-extension/output/chrome-mv3`
 - Threads page shows DLens launcher / popup
 - Settings backend URL is `http://127.0.0.1:8000`

@@ -3777,6 +3777,10 @@ export function ProductSignalView({
   const safeHistoricalAnalyses = Array.isArray(historicalAnalyses) ? historicalAnalyses : safeAnalyses;
   const safeAgentTaskFeedback = Array.isArray(agentTaskFeedback) ? agentTaskFeedback : [];
   const safeSignalReadings = Array.isArray(signalReadings) ? signalReadings : [];
+  const safeSignalIdSet = new Set(safeSignals.map((signal) => signal.id));
+  const scopedSignalReadings = safeSignalIdSet.size
+    ? safeSignalReadings.filter((reading) => safeSignalIdSet.has(reading.signalId))
+    : [];
   const bySignal = analysisBySignalId(safeAnalyses);
   const signalScopedAnalyses = safeSignals.length
     ? safeSignals.map((signal) => bySignal.get(signal.id)).filter((entry): entry is ProductSignalAnalysis => Boolean(entry))
@@ -3785,7 +3789,7 @@ export function ProductSignalView({
   const hasRecoveredAnalyses = safeSignals.length === 0 && scopedAnalyses.length > 0;
   const pendingSignals = safeSignals.filter((signal) => bySignal.get(signal.id)?.status !== "complete");
   const canAnalyze = canRunProductSignalAction({ signals: safeSignals, productProfile, aiProviderReady, signalReadinessById });
-  const showSignalReadingReview = safeSignals.length > 0 && (Boolean(onReviewSignalReading) || safeSignalReadings.length > 0);
+  const showSignalReadingReview = scopedSignalReadings.length > 0;
   const [selectedSignalIds, setSelectedSignalIds] = useState<string[]>([]);
 
   function toggleSelectedSignal(signalId: string) {
@@ -3888,7 +3892,7 @@ export function ProductSignalView({
               analyses={safeAnalyses}
               activeFolderId={activeFolderId}
               exportFolders={exportFolders}
-              signalReadings={safeSignalReadings}
+              signalReadings={scopedSignalReadings}
               signalPreviewById={signalPreviewById}
               signalUrlById={signalUrlById}
               evidenceBySignalId={evidenceBySignalId}

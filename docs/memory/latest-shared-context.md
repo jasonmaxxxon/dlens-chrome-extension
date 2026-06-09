@@ -53,7 +53,7 @@ This note is the high-signal shared memory for Codex and Claude when working on 
 - `InPageCollectorPopup` still threads persisted layout values into `ProductSignalViews`, `TopicDetailView`, and `CompareView`.
 - `SettingsView` no longer exposes the Layout preference card; the visible Settings drawer is limited to folder mode, connection, storage usage, API keys, and ProductProfile.
 - Workspace headers, Settings groups, Product recovered-analysis rows, and the PR/Product surfaces now follow the Topic-style serif title weight, 20px card radius, matte shadow, and compact duplicate-free row grammar.
-- Product Action route restores the 0.1.15 `SignalReadingReviewWorkspace` / `READING REVIEW` UI when saved signals have readings or review callbacks; it must still not render the removed Agent export / 原文優先 panel.
+- Product Action route restores the 0.1.15 `SignalReadingReviewWorkspace` / `READING REVIEW` UI only when the current saved signals have matching `SignalReading` rows; review callbacks alone must not switch the route away from the Marginalia action cards. It must still not render the removed Agent export / 原文優先 panel.
 - Product-only cache reset is available from Settings through `product/clear-cache`; it clears derived Product analyses, agent-task feedback, SignalReading rows, and compiled ProductContext while preserving saved signals, sessions, topics, archive data, and PR evidence.
 - ProductSignalAnalyzer prompt/cache version is `v17`; strict provider output no longer asks for legacy recipe fields (`copy_recipe_markdown`, `workflow_stack`, `copyable_template`). Product Action should show reusable evidence patterns plus agent-brief context, not a long how-to/tutorial recipe; the UI ignores legacy recipe fields if old records or provider responses still contain them.
 - Collect preview metrics use shared icon chips in both the popup preview and hover overlay. Product pending saved-signal cards follow Topic-style matte card grammar with compact meta and clamped preview text.
@@ -65,13 +65,13 @@ This note is the high-signal shared memory for Codex and Claude when working on 
 - Topic synthesis uses deterministic `v3.generic-keyword-lens`; Stack is collapsible, Console is dense and always visible.
 - Folder synthesis uses the same deterministic work-signal lens and renders as the Library Briefing card. Storage key: `dlens:v1:folder-synthesis`.
 - Compare result variants are Reading, Parallel, and Chapters; Parallel is default and uses sticky A/B columns.
-- Current verification: `615/615` tests, typecheck, build, and diff check passed from `dlens-product-latest`.
+- Current verification: `617/617` tests, typecheck, build, and diff check passed from `dlens-product-latest`.
 - Verified build artifact was copied to `output/chrome-mv3`; the source checkout there may still be dirty.
 
 ## Version Rule As Of 2026-05-28
 
-- Current extension version: `0.1.27`.
-- Current verification: `615/615` tests, typecheck, build, and diff check passed from `dlens-product-latest`.
+- Current extension version: `0.1.29`.
+- Current verification: `617/617` tests, typecheck, build, and diff check passed from `dlens-product-latest`.
 - Current engineering branch: `codex/pr-visible-metrics`.
 - `docs/ENGINEERING_PLAN.md` §2 N1-N5 is complete: React ErrorBoundary, Settings storage usage, `mutateSnapshot` seam, behavioral storage contracts, and code-review checklist.
 - §3 remains a deferred trigger pool, not a backlog drain queue.

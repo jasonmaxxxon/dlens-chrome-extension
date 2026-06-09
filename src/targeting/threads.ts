@@ -167,6 +167,11 @@ function hasLikelyEngagementRow(card: HTMLElement): boolean {
 
 function isComposerLike(card: HTMLElement): boolean {
   if (card.querySelector("textarea, [contenteditable='true']")) {
+    const hasPostPermalink = Boolean(card.querySelector('a[href*="/post/"]'));
+    const hasAuthorHint = Boolean(card.querySelector("a[href^='/@'], a[href*='threads.net/@']"));
+    if (hasPostPermalink && hasAuthorHint && hasLikelyEngagementRow(card)) {
+      return false;
+    }
     return true;
   }
 
@@ -535,5 +540,6 @@ export function canSubmitDescriptor(descriptor: TargetDescriptor): boolean {
 }
 
 export const threadsTargetingTestables = {
-  cleanBodyText
+  cleanBodyText,
+  isComposerLike
 };

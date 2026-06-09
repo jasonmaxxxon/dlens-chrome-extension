@@ -1,13 +1,14 @@
 # AGENTS.md — DLens Chrome Extension v0.1
 
-> **Last updated:** 2026-06-08 (docs/infra sync — file paths made repo-relative; backend is now a **private** repo `github.com/jasonmaxxxon/dlens-ingest-core`; positioning = local power-tool, two separate repos not monorepo. No extension code change this pass. Prior code state 2026-05-28: workspace mode switches reserve the processing strip, reset scroll before paint, crossfade the content frame; Product Action keeps the restored 0.1.15 Reading Review UI — 615/615 tests, typecheck, build, version 0.1.27 mirrored into MV3.)
+> **Last updated:** 2026-06-09 (Product Action route guard plus hover collect targeting fix: Reading Review opens only for matching `SignalReading` rows, and post-detail cards with reply composers remain collectible. 617/617 tests, typecheck, build, version 0.1.29 mirrored into MV3.)
 > **For:** any agent continuing work in this repo
 
 ## Recently Fixed (2026-05-28) — Product action board and card geometry
 
 1. **Product Action route regression.** `ProductSignalView` must open the
    0.1.15 `SignalReadingReviewWorkspace` / `READING REVIEW` UI when the Action
-   route has saved signals plus `SignalReading` rows or a review callback. This
+   route has saved signals plus matching `SignalReading` rows. A review callback
+   alone must not switch the route away from the Marginalia action cards. This
    restores the carefully designed review card, verdict tiles, marginalia panel,
    provenance row, and deep-reading controls. Do not confuse this with the old
    page-level `SavedSignalsBatchExport`: tests still reject `Agent export`,
@@ -364,7 +365,7 @@ Important implementation points:
 - `SettingsView.tsx` no longer owns visible layout controls; it stays focused on folder mode, connection/storage usage, API keys, and ProductProfile.
 - `InPageCollectorPopup.tsx` threads persisted layout settings into Product signal cards, Topic synthesis, and Compare Result.
 - Topic Detail's primary overview is now semantic `SignalTagsRecord` data from `dlens:v1:signal-tags`, not deterministic keyword frequency. `TopicSynthesis` and `FolderSynthesis` remain deterministic extension-side layers over analyzed signals for legacy/folder contexts and do not replace backend clustering.
-- Current verification was run from `dlens-product-latest`: `615/615` tests, `npm run typecheck`, and `npm run build` passed.
+- Current verification was run from `dlens-product-latest`: `617/617` tests, `npm run typecheck`, and `npm run build` passed.
 - The verified unpacked build was copied to `output/chrome-mv3` for Chrome load-unpacked use.
 - `dlens-product-latest` source checkout may be dirty; do not infer clean source state from the copied build artifact.
 
