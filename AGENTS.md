@@ -1,6 +1,6 @@
 # AGENTS.md — DLens Chrome Extension v0.1
 
-> **Last updated:** 2026-06-09 (Product Action route guard plus hover collect targeting fix: Reading Review opens only for matching `SignalReading` rows, and post-detail cards with reply composers remain collectible. 617/617 tests, typecheck, build, version 0.1.29 mirrored into MV3.)
+> **Last updated:** 2026-06-09 (Runtime tab targeting fix: content-script `state/get-active-tab` and collect start/cancel now resolve to the sender tab instead of any other focused Chrome tab; this prevents collect UI state from splitting from the Threads content script. Product Reading Review remains guarded to matching `SignalReading` rows, and post-detail cards with reply composers remain collectible. 618/618 tests, typecheck, build, version 0.1.30 mirrored into MV3.)
 > **For:** any agent continuing work in this repo
 
 ## Recently Fixed (2026-05-28) — Product action board and card geometry
@@ -365,7 +365,7 @@ Important implementation points:
 - `SettingsView.tsx` no longer owns visible layout controls; it stays focused on folder mode, connection/storage usage, API keys, and ProductProfile.
 - `InPageCollectorPopup.tsx` threads persisted layout settings into Product signal cards, Topic synthesis, and Compare Result.
 - Topic Detail's primary overview is now semantic `SignalTagsRecord` data from `dlens:v1:signal-tags`, not deterministic keyword frequency. `TopicSynthesis` and `FolderSynthesis` remain deterministic extension-side layers over analyzed signals for legacy/folder contexts and do not replace backend clustering.
-- Current verification was run from `dlens-product-latest`: `617/617` tests, `npm run typecheck`, and `npm run build` passed.
+- Current verification was run from `dlens-product-latest`: `618/618` tests, `npm run typecheck`, and `npm run build` passed.
 - The verified unpacked build was copied to `output/chrome-mv3` for Chrome load-unpacked use.
 - `dlens-product-latest` source checkout may be dirty; do not infer clean source state from the copied build artifact.
 

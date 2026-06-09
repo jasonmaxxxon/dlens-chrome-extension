@@ -1945,7 +1945,7 @@ export default defineBackground(() => {
       try {
         switch (message.type) {
           case "state/get-active-tab": {
-            const tabId = await getActiveTabId();
+            const tabId = await resolveTabId(sender);
             sendResponse({ ok: true, tabId, snapshot: snapshotWithHover(tabId, await loadSnapshot(tabId)) } satisfies ExtensionResponse);
             return;
           }
@@ -2125,7 +2125,7 @@ export default defineBackground(() => {
             return;
           }
           case "selection/start-active-tab": {
-            const tabId = await getActiveTabId();
+            const tabId = await resolveTabId(sender);
             const current = await loadSnapshot(tabId);
             const activeMode = getActiveSession(current.global)?.mode ?? "archive";
             await chrome.tabs.sendMessage(tabId, { type: "selection/start-tab", tabId, mode: activeMode } satisfies ExtensionMessage);
@@ -2146,7 +2146,7 @@ export default defineBackground(() => {
             return;
           }
           case "selection/cancel-active-tab": {
-            const tabId = await getActiveTabId();
+            const tabId = await resolveTabId(sender);
             await chrome.tabs.sendMessage(tabId, { type: "selection/cancel-tab", tabId } satisfies ExtensionMessage);
             sendResponse({
               ok: true,

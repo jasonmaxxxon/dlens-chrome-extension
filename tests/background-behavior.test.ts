@@ -7,11 +7,12 @@ import { PRODUCT_CONTEXT_STORAGE_KEY } from "../src/compare/product-context.ts";
 import { PRODUCT_SIGNAL_ANALYSES_STORAGE_KEY } from "../src/compare/product-signal-storage.ts";
 import { SIGNAL_READINGS_STORAGE_KEY } from "../src/compare/signal-reading-storage.ts";
 import type { ExtensionMessage, ExtensionResponse } from "../src/state/messages.ts";
-import { createEmptyGlobalState, createEmptyTabState, type ExtensionGlobalState, type FolderMode, type SessionRecord } from "../src/state/types.ts";
+import { createEmptyGlobalState, createEmptyTabState, type ExtensionGlobalState, type FolderMode, type SessionRecord, type TabUiState } from "../src/state/types.ts";
 
 type StorageState = Record<string, unknown>;
 
 const TAB_ID = 1;
+const OTHER_TAB_ID = 2;
 
 function makeSession(id: string, mode: FolderMode): SessionRecord {
   return {
@@ -49,19 +50,23 @@ function readStorageKeys(keys: string | string[] | Record<string, unknown> | nul
 
 async function createHarness(
   initialState: StorageState,
-  options: { blockStateUpdatedBroadcast?: boolean } = {}
+  options: { activeTabId?: number; blockStateUpdatedBroadcast?: boolean; senderTabId?: number } = {}
 ): Promise<{
   dispatch: (message: ExtensionMessage) => Promise<ExtensionResponse>;
   state: StorageState;
   tabKey: string;
   tabMessages: ExtensionMessage[];
+  tabMessageTargets: Array<{ tabId: number; message: ExtensionMessage }>;
   writes: string[][];
 }> {
   const state = structuredClone(initialState);
   const writes: string[][] = [];
   const tabMessages: ExtensionMessage[] = [];
+  const tabMessageTargets: Array<{ tabId: number; message: ExtensionMessage }> = [];
   let listener: Parameters<typeof chrome.runtime.onMessage.addListener>[0] | null = null;
   const tabKey = backgroundTestables.tabStorageKey(TAB_ID);
+  const activeTabId = options.activeTabId ?? TAB_ID;
+  const senderTabId = options.senderTabId ?? TAB_ID;
 
   const storageArea = {
     QUOTA_BYTES: 10 * 1024 * 1024,
@@ -97,11 +102,12 @@ async function createHarness(
     },
     tabs: {
       create: async () => ({ id: TAB_ID }) as chrome.tabs.Tab,
-      get: async () => ({ id: TAB_ID }) as chrome.tabs.Tab,
+      get: async () => ({ id: activeTabId }) as chrome.tabs.Tab,
       onRemoved: { addListener: () => undefined },
-      query: async () => [{ id: TAB_ID }] as chrome.tabs.Tab[],
-      sendMessage: async (_tabId: number, message: ExtensionMessage) => {
+      query: async () => [{ id: activeTabId }] as chrome.tabs.Tab[],
+      sendMessage: async (tabId: number, message: ExtensionMessage) => {
         tabMessages.push(message);
+        tabMessageTargets.push({ tabId, message });
         if (options.blockStateUpdatedBroadcast && message.type === "state/updated") {
           await new Promise(() => undefined);
         }
@@ -125,7 +131,7 @@ async function createHarness(
         console.info = originalInfo;
         reject(new Error(`No response for ${message.type}`));
       }, 1000);
-      listener?.(message, { tab: { id: TAB_ID } } as chrome.runtime.MessageSender, (response: ExtensionResponse) => {
+      listener?.(message, { tab: { id: senderTabId } } as chrome.runtime.MessageSender, (response: ExtensionResponse) => {
         clearTimeout(timeout);
         console.info = originalInfo;
         resolve(response);
@@ -134,6 +140,7 @@ async function createHarness(
     state,
     tabKey,
     tabMessages,
+    tabMessageTargets,
     writes
   };
 }
@@ -214,6 +221,49 @@ test("state update broadcast does not block the set-mode response", async () => 
 
   assert.equal(result, "response");
   assert.equal(harness.tabMessages.some((message) => message.type === "state/updated"), true);
+});
+
+test("content-script active-tab messages resolve to the sender tab, not another focused Chrome tab", async () => {
+  const topic = makeSession("topic-session", "topic");
+  const senderTabKey = backgroundTestables.tabStorageKey(TAB_ID);
+  const focusedTabKey = backgroundTestables.tabStorageKey(OTHER_TAB_ID);
+  const harness = await createHarness({
+    [backgroundTestables.GLOBAL_STORAGE_KEY]: makeGlobal([topic], topic.id),
+    [backgroundTestables.ACTIVE_SESSION_ID_STORAGE_KEY]: topic.id,
+    [senderTabKey]: createEmptyTabState(),
+    [focusedTabKey]: {
+      ...createEmptyTabState(),
+      popupOpen: true
+    }
+  }, {
+    activeTabId: OTHER_TAB_ID,
+    senderTabId: TAB_ID
+  });
+
+  const stateResponse = await harness.dispatch({ type: "state/get-active-tab" });
+  assert.equal(stateResponse.ok, true);
+  assert.equal(stateResponse.tabId, TAB_ID);
+
+  const startResponse = await harness.dispatch({ type: "selection/start-active-tab" });
+  assert.equal(startResponse.ok, true);
+  assert.equal(startResponse.tabId, TAB_ID);
+  assert.equal(startResponse.snapshot?.tab.selectionMode, true);
+  assert.equal((harness.state[senderTabKey] as TabUiState).selectionMode, true);
+  assert.equal((harness.state[focusedTabKey] as TabUiState).selectionMode, false);
+  assert.equal(
+    harness.tabMessageTargets.some(({ tabId, message }) => tabId === TAB_ID && message.type === "selection/start-tab"),
+    true
+  );
+  assert.equal(
+    harness.tabMessageTargets.some(({ tabId, message }) => tabId === OTHER_TAB_ID && message.type === "selection/start-tab"),
+    false
+  );
+
+  const cancelResponse = await harness.dispatch({ type: "selection/cancel-active-tab" });
+  assert.equal(cancelResponse.ok, true);
+  assert.equal(cancelResponse.tabId, TAB_ID);
+  assert.equal(cancelResponse.snapshot?.tab.selectionMode, false);
+  assert.equal((harness.state[senderTabKey] as TabUiState).selectionMode, false);
 });
 
 test("background mutateSnapshot serializes real snapshot writes", async () => {

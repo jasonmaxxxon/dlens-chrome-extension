@@ -65,13 +65,14 @@ This note is the high-signal shared memory for Codex and Claude when working on 
 - Topic synthesis uses deterministic `v3.generic-keyword-lens`; Stack is collapsible, Console is dense and always visible.
 - Folder synthesis uses the same deterministic work-signal lens and renders as the Library Briefing card. Storage key: `dlens:v1:folder-synthesis`.
 - Compare result variants are Reading, Parallel, and Chapters; Parallel is default and uses sticky A/B columns.
-- Current verification: `617/617` tests, typecheck, build, and diff check passed from `dlens-product-latest`.
+- Runtime tab targeting now treats the content-script sender tab as authoritative for `state/get-active-tab` and collect start/cancel; do not route those calls through another focused Chrome tab.
+- Current verification: `618/618` tests, typecheck, build, and diff check passed from `dlens-product-latest`.
 - Verified build artifact was copied to `output/chrome-mv3`; the source checkout there may still be dirty.
 
 ## Version Rule As Of 2026-05-28
 
-- Current extension version: `0.1.29`.
-- Current verification: `617/617` tests, typecheck, build, and diff check passed from `dlens-product-latest`.
+- Current extension version: `0.1.30`.
+- Current verification: `618/618` tests, typecheck, build, and diff check passed from `dlens-product-latest`.
 - Current engineering branch: `codex/pr-visible-metrics`.
 - `docs/ENGINEERING_PLAN.md` §2 N1-N5 is complete: React ErrorBoundary, Settings storage usage, `mutateSnapshot` seam, behavioral storage contracts, and code-review checklist.
 - §3 remains a deferred trigger pool, not a backlog drain queue.
