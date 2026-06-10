@@ -199,6 +199,68 @@ test("state/get-active-tab normalizes a null active session when sessions still 
   assert.deepEqual(harness.writes, []);
 });
 
+test("topic↔product switching across worker restarts keeps the product session aligned", async () => {
+  const topic = makeSession("topic-session", "topic");
+  const product = {
+    ...makeSession("product-session", "product"),
+    items: [
+      {
+        ...createSessionItem(makeDescriptor("post-1"), "2026-05-27T00:00:00.000Z"),
+        id: "item-1"
+      }
+    ]
+  };
+  const tabKey = backgroundTestables.tabStorageKey(TAB_ID);
+
+  let harness = await createHarness({
+    [backgroundTestables.GLOBAL_STORAGE_KEY]: makeGlobal([topic, product], product.id),
+    [backgroundTestables.ACTIVE_SESSION_ID_STORAGE_KEY]: product.id,
+    [tabKey]: createEmptyTabState()
+  });
+  await harness.dispatch({ type: "session/set-mode", sessionId: topic.id, mode: "topic" });
+  assert.equal(harness.state[backgroundTestables.ACTIVE_SESSION_ID_STORAGE_KEY], topic.id);
+
+  // MV3 worker teardown: fresh worker, caches empty, same persisted storage.
+  harness = await createHarness(harness.state);
+  await harness.dispatch({ type: "session/set-mode", sessionId: product.id, mode: "product" });
+  assert.equal(harness.state[backgroundTestables.ACTIVE_SESSION_ID_STORAGE_KEY], product.id);
+
+  harness = await createHarness(harness.state);
+  const response = await harness.dispatch({ type: "state/get-active-tab" });
+
+  assert.equal(response.ok, true);
+  assert.equal(response.snapshot?.global.activeSessionId, product.id);
+  const activeSession = response.snapshot?.global.sessions.find(
+    (session) => session.id === response.snapshot?.global.activeSessionId
+  );
+  assert.equal(activeSession?.mode, "product");
+  assert.equal(activeSession?.items.length, 1);
+  assert.equal(response.snapshot?.global.sessions.length, 2);
+});
+
+test("snapshot writers never persist a null active-session pointer while sessions exist", async () => {
+  const topic = makeSession("topic-session", "topic");
+  const product = makeSession("product-session", "product");
+  const tabKey = backgroundTestables.tabStorageKey(TAB_ID);
+  const harness = await createHarness({
+    [backgroundTestables.GLOBAL_STORAGE_KEY]: makeGlobal([topic, product], product.id),
+    [backgroundTestables.ACTIVE_SESSION_ID_STORAGE_KEY]: product.id,
+    [tabKey]: createEmptyTabState()
+  });
+
+  await backgroundTestables.mutateSnapshot(TAB_ID, (current) => ({
+    snapshot: {
+      global: { ...current.global, activeSessionId: null },
+      tab: current.tab
+    },
+    saveOptions: { persistActiveSessionId: true }
+  }));
+
+  assert.equal(harness.state[backgroundTestables.ACTIVE_SESSION_ID_STORAGE_KEY], product.id);
+  const storedGlobal = harness.state[backgroundTestables.GLOBAL_STORAGE_KEY] as ExtensionGlobalState;
+  assert.equal(storedGlobal.activeSessionId, product.id);
+});
+
 test("signal/list repairs missing product signal rows from existing session items", async () => {
   const product = {
     ...makeSession("product-session", "product"),

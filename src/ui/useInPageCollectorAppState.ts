@@ -847,13 +847,27 @@ export function useInPageCollectorAppState({ snapshot, tabId, sendAndSync }: Use
 
       if (event.key.toLowerCase() === "s") {
         event.preventDefault();
-        void sendAndSync(buildPreviewSaveMessage({
+        const message = buildPreviewSaveMessage({
           activeFolderMode,
           sessionId: activeFolder?.id,
           selectedTopicId: topicState.selectedTopicId,
           collectionTopicId: snapshot?.tab.collectionTopicId,
           preview: snapshot.tab.currentPreview
-        }));
+        });
+        markQaTrace("popup.collect.save.request", {
+          via: "keyboard",
+          postUrl: message.descriptor?.post_url ?? null,
+          sessionId: message.sessionId ?? null,
+          topicId: message.topicId ?? null
+        });
+        const saveStartedAt = performance.now();
+        void sendAndSync(message).then((response) => {
+          markQaTrace("popup.collect.save.response", {
+            via: "keyboard",
+            ok: response.ok,
+            elapsedMs: Math.round((performance.now() - saveStartedAt) * 10) / 10
+          });
+        });
       }
 
       if (event.key.toLowerCase() === "o" && snapshot.tab.currentPreview?.post_url) {
@@ -911,13 +925,26 @@ export function useInPageCollectorAppState({ snapshot, tabId, sendAndSync }: Use
         });
       }
     }
-    const response = await sendAndSync(buildPreviewSaveMessage({
+    const message = buildPreviewSaveMessage({
       activeFolderMode,
       sessionId: activeFolder?.id,
       selectedTopicId: topicState.selectedTopicId,
       collectionTopicId: snapshot?.tab.collectionTopicId,
       preview
-    }));
+    });
+    markQaTrace("popup.collect.save.request", {
+      via: "button",
+      postUrl: message.descriptor?.post_url ?? null,
+      sessionId: message.sessionId ?? null,
+      topicId: message.topicId ?? null
+    });
+    const saveStartedAt = performance.now();
+    const response = await sendAndSync(message);
+    markQaTrace("popup.collect.save.response", {
+      via: "button",
+      ok: response.ok,
+      elapsedMs: Math.round((performance.now() - saveStartedAt) * 10) / 10
+    });
     if (!response.ok && normalized) {
       setOptimisticSavedUrl((current) => (current === normalized ? null : current));
     }

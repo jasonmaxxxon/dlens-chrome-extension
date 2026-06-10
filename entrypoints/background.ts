@@ -1247,9 +1247,33 @@ async function persistSnapshot(
   return snapshot;
 }
 
+// A null/dangling active-session pointer must never reach storage while sessions
+// still exist: that is exactly the B-05 drift state where Product renders empty
+// against populated storage. Fall back to the last cached pointer, then the
+// first session, before accepting null (legitimate only when no sessions remain).
+function resolvePersistableActiveSessionId(
+  global: ExtensionGlobalState,
+  fallbackId: string | null | undefined
+): string | null {
+  const isValid = (id: string | null | undefined): id is string =>
+    typeof id === "string" && global.sessions.some((session) => session.id === id);
+  if (isValid(global.activeSessionId)) {
+    return global.activeSessionId;
+  }
+  if (isValid(fallbackId)) {
+    return fallbackId;
+  }
+  return global.sessions[0]?.id ?? null;
+}
+
+function withPersistableActiveSessionId(global: ExtensionGlobalState): ExtensionGlobalState {
+  const resolved = resolvePersistableActiveSessionId(global, globalStateCache?.activeSessionId);
+  return resolved === global.activeSessionId ? global : { ...global, activeSessionId: resolved };
+}
+
 async function saveSnapshot(tabId: number, snapshot: ExtensionSnapshot, options: SnapshotSaveOptions = {}): Promise<ExtensionSnapshot> {
   const global = options.persistActiveSessionId
-    ? snapshot.global
+    ? withPersistableActiveSessionId(snapshot.global)
     : applyStoredActiveSessionId(snapshot.global, globalStateCache?.activeSessionId);
   const nextSnapshot = {
     global: withTimestamp(global),
@@ -1268,7 +1292,7 @@ async function saveSnapshot(tabId: number, snapshot: ExtensionSnapshot, options:
 
 async function saveActiveSessionSnapshot(tabId: number, snapshot: ExtensionSnapshot): Promise<ExtensionSnapshot> {
   const nextSnapshot = {
-    global: withTimestamp(snapshot.global),
+    global: withTimestamp(withPersistableActiveSessionId(snapshot.global)),
     tab: withTimestamp(normalizeTabState(snapshot.tab))
   };
   return persistSnapshot(
@@ -2343,7 +2367,9 @@ export default defineBackground(() => {
               storageSetMs,
               path: setModePath,
               currentSessionsLen: current.global.sessions.length,
-              nextSessionsLen: global.sessions.length
+              nextSessionsLen: global.sessions.length,
+              activeSessionIdBefore: current.global.activeSessionId,
+              activeSessionIdAfter: global.activeSessionId
             });
             sendResponse({
               ok: true,

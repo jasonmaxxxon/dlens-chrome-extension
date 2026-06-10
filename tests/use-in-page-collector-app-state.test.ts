@@ -1,4 +1,5 @@
 import assert from "node:assert/strict";
+import { readFileSync } from "node:fs";
 import test from "node:test";
 
 import type { ExtensionMessage, ExtensionResponse } from "../src/state/messages.ts";
@@ -31,6 +32,15 @@ test("buildPreviewSaveMessage sends the visible preview descriptor with the topi
   assert.equal(message.type, "session/save-current-preview");
   assert.equal(message.topicId, "topic-love");
   assert.deepEqual(message.descriptor, descriptor);
+});
+
+test("popup save paths emit collect-save trace events for both button and keyboard channels", () => {
+  const source = readFileSync(new URL("../src/ui/useInPageCollectorAppState.ts", import.meta.url), "utf8");
+
+  assert.match(source, /markQaTrace\("popup\.collect\.save\.request"/);
+  assert.match(source, /markQaTrace\("popup\.collect\.save\.response"/);
+  assert.match(source, /via: "button"/);
+  assert.match(source, /via: "keyboard"/);
 });
 
 test("resolveOptimisticSession returns an existing target-mode session without mutating active session", () => {
