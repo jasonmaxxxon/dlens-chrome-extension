@@ -225,6 +225,23 @@ const VERDICT_META: Record<ProductSignalVerdict, { label: string; color: string;
   insufficient_data: { label: "資料不足", color: tokens.color.queued, soft: tokens.color.queuedSoft }
 };
 
+const CONTENT_TYPE_LABELS: Record<ProductSignalAnalysis["contentType"], string> = {
+  content: "內容片段",
+  discussion_starter: "討論開場",
+  mixed: "混合內容"
+};
+
+const SUBTYPE_LABELS: Record<string, string> = {
+  agent_memory_pattern: "Agent 記憶模式",
+  analysis_error: "分析錯誤",
+  browser_automation: "瀏覽器自動化",
+  ecommerce_platform_selection: "電商平台選型",
+  mobile_share_extension: "行動分享入口",
+  pm_document_generation: "PM 文件產出",
+  productboard_gap: "Productboard 缺口",
+  user_sentiment_reflection: "使用者情緒回饋"
+};
+
 type ActionVerdictFilter = "try" | "park" | "insufficient" | "watch";
 type AgentBriefCopyStatus = "idle" | "copied" | "error";
 
@@ -411,10 +428,23 @@ function splitFirstSentence(value: string | null | undefined, fallbackLength = 8
 }
 
 function formatSubtype(value: string): string {
-  return value
-    .split("_")
-    .filter(Boolean)
-    .join(" ");
+  const normalized = value.trim().toLowerCase().replace(/\s+/g, "_");
+  if (!normalized) {
+    return "未分類訊號";
+  }
+  return SUBTYPE_LABELS[normalized] ?? "未分類訊號";
+}
+
+function formatContentType(value: ProductSignalAnalysis["contentType"]): string {
+  return CONTENT_TYPE_LABELS[value] ?? "內容類型未分類";
+}
+
+function formatRelevanceScore(score: ProductSignalAnalysis["relevance"]): string {
+  return `相關度 ${score}/5`;
+}
+
+function formatActionCue(verdict: ProductSignalVerdict): string {
+  return verdict === "try" ? "排入小實驗" : "保留觀察";
 }
 
 function contextLabels(fields: ProductSignalReferenceTarget[]): string {
@@ -1033,7 +1063,7 @@ function RelevanceBars({ score, tone = "light" }: { score: ProductSignalAnalysis
   return (
     <div data-relevance-bars="true" style={{ display: "grid", gap: 6 }}>
       <div style={{ fontSize: 11, lineHeight: 1.2, fontWeight: 800, color: labelColor }}>
-        relevance {score}/5
+        {formatRelevanceScore(score)}
       </div>
       <div style={{ display: "grid", gridTemplateColumns: "repeat(5, minmax(0, 1fr))", gap: 4 }}>
         {[1, 2, 3, 4, 5].map((bar) => (
@@ -1133,8 +1163,10 @@ function ReadinessPanel({
   analyses,
   productProfile,
   aiProviderReady,
+  backendError,
   analysisError,
   analysisNotice,
+  isHydrating,
   isAnalyzing,
   signalReadinessById,
   onAnalyze
@@ -1143,16 +1175,41 @@ function ReadinessPanel({
   analyses: ProductSignalAnalysis[];
   productProfile: ProductProfile | null | undefined;
   aiProviderReady: boolean;
+  backendError?: string | null;
   analysisError?: string | null;
   analysisNotice?: string | null;
+  isHydrating?: boolean;
   isAnalyzing: boolean;
   signalReadinessById: Record<string, ProductSignalReadiness>;
   onAnalyze: () => void;
 }) {
-  const copy = readinessCopy({ signals, analyses, productProfile, aiProviderReady, signalReadinessById });
-  const canAnalyze = canRunProductSignalAction({ signals, productProfile, aiProviderReady, signalReadinessById });
   const completedCount = analyses.filter((analysis) => analysis.status === "complete").length;
   const hasResults = completedCount > 0;
+  const visibleError = analysisError || backendError || null;
+  const canAnalyze = canRunProductSignalAction({ signals, productProfile, aiProviderReady, signalReadinessById });
+  const copy = readinessCopy({ signals, analyses, productProfile, aiProviderReady, signalReadinessById });
+
+  if (isHydrating && signals.length === 0 && analyses.length === 0 && !visibleError) {
+    return (
+      <div
+        data-product-hydrating="true"
+        style={mutedPanelStyle({
+          display: "grid",
+          gap: 9,
+          padding: "10px 12px"
+        })}
+      >
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10, flexWrap: "wrap" }}>
+          <Kicker>讀取狀態</Kicker>
+          <Stamp tone="neutral">讀取中</Stamp>
+        </div>
+        <div style={{ fontSize: 12, lineHeight: 1.65, color: tokens.color.subInk }}>
+          正在讀取本地 Product signals 與分析結果。
+        </div>
+      </div>
+    );
+  }
+
   const allGreen = signals.length > 0
     && completedCount > 0
     && aiProviderReady
@@ -1160,7 +1217,7 @@ function ReadinessPanel({
     && isProductContextSourceReady(productProfile);
 
   /* Compact single-line status bar when everything is green */
-  if (allGreen && !isAnalyzing && !analysisError) {
+  if (allGreen && !isAnalyzing && !visibleError) {
     return (
       <div
         className="dlens-card-lift"
@@ -1196,7 +1253,7 @@ function ReadinessPanel({
         </div>
       </div>
       {copy ? <div style={{ fontSize: 12, lineHeight: 1.65, color: tokens.color.subInk }}>{copy}</div> : null}
-      {analysisError ? (
+      {visibleError ? (
         <div
           style={{
             borderRadius: tokens.radius.card,
@@ -1208,7 +1265,7 @@ function ReadinessPanel({
             lineHeight: 1.55
           }}
         >
-          {analysisError}
+          {visibleError}
         </div>
       ) : null}
       {analysisNotice ? (
@@ -1311,7 +1368,7 @@ function SelectedPostAside({
     <aside style={cardStyle({ gap: 11 })}>
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 8 }}>
         <Kicker>系統挑出的內容</Kicker>
-        <Stamp tone="neutral">{analysis.contentType}</Stamp>
+        <Stamp tone="neutral">{formatContentType(analysis.contentType)}</Stamp>
       </div>
       <div style={mutedPanelStyle({ background: tokens.color.elevated, gap: 6 })}>
         <div style={{ fontSize: 10.5, color: tokens.color.softInk, fontWeight: 750 }}>討論串內容</div>
@@ -2506,7 +2563,7 @@ function SignalReadingReviewWorkspace({
                     <span style={{ display: "flex", gap: 6, flexWrap: "wrap", alignItems: "center", ...textStyles.meta, color: tokens.color.softInk }}>
                       {analysis && verdictMeta ? <ScorePill color={verdictMeta.color} soft={verdictMeta.soft}>{VERDICT_LABELS[analysis.verdict]}</ScorePill> : null}
                       {analysis && typeMeta ? <ScorePill color={typeMeta.color} soft={typeMeta.soft}>{typeMeta.label}</ScorePill> : null}
-                      <span>{analysis ? `${referenceTypeLabel(analysis.referenceType)} · relevance ${analysis.relevance}/5` : "尚未分析"}</span>
+                      <span>{analysis ? `${referenceTypeLabel(analysis.referenceType)} · ${formatRelevanceScore(analysis.relevance)}` : "尚未分析"}</span>
                       <span>·</span>
                       <span>{reading ? `判讀 ${reading.promptVersion}` : "未生成"}</span>
                     </span>
@@ -2801,7 +2858,7 @@ function ClassificationBoard({
       <section style={cardStyle({ gap: 10 })}>
         <div style={{ display: "flex", justifyContent: "space-between", gap: 10, alignItems: "baseline" }}>
           <Kicker>分類構成</Kicker>
-          <span style={{ fontSize: 11, color: tokens.color.softInk }}>AI 已分類 {analyses.length} 則 collected posts</span>
+          <span style={{ fontSize: 11, color: tokens.color.softInk }}>AI 已分類 {analyses.length} 則訊號</span>
         </div>
         <div style={{ display: "grid", gap: 7 }}>
           {categoryRows.map((row) => (
@@ -3034,6 +3091,10 @@ function SimilarHistoryBlock({ items }: { items: SimilarHistoricalSignal[] }) {
 
 type ActionableItemCardLayout = "verdict" | "marginalia";
 
+function isExcludedActionSignal(analysis: ProductSignalAnalysis): boolean {
+  return analysis.verdict === "park" || analysis.signalType === "noise";
+}
+
 function ActionableItemCard({
   analysis,
   index,
@@ -3064,6 +3125,110 @@ function ActionableItemCard({
     || analysis.experimentHint?.trim()
     || "尚未有可派發任務；先保留為觀察。";
   const railReferenceCopy = analysis.referenceLabel?.trim() || referenceTypeLabel(analysis.referenceType);
+  const excluded = isExcludedActionSignal(analysis);
+
+  if (excluded) {
+    return (
+      <article
+        className="dlens-card-lift"
+        data-dlens-motion-card="true"
+        data-exclusion-card="true"
+        onMouseEnter={() => setCardHovered(true)}
+        onMouseLeave={() => setCardHovered(false)}
+        style={cardStyle({
+          gap: 14,
+          padding: 18,
+          borderColor: cardHovered ? "rgba(27, 26, 23, 0.18)" : tokens.color.line,
+          boxShadow: cardHovered
+            ? "0 12px 28px rgba(27, 26, 23, 0.08), 0 2px 6px rgba(27, 26, 23, 0.04)"
+            : "none",
+          overflow: "hidden",
+          transform: cardHovered ? "translateY(-2px)" : undefined
+        })}
+      >
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: 12 }}>
+          <div style={{ display: "grid", gap: 8, minWidth: 0 }}>
+            <div style={{ display: "flex", gap: 7, alignItems: "center", flexWrap: "wrap" }}>
+              <span
+                data-dlens-number-badge="true"
+                style={{
+                  width: 24,
+                  height: 24,
+                  borderRadius: 999,
+                  display: "inline-grid",
+                  placeItems: "center",
+                  fontSize: 12,
+                  fontWeight: 600,
+                  color: tokens.color.subInk,
+                  background: tokens.color.neutralSurface,
+                  border: `1px solid ${tokens.color.lineStrong}`,
+                  fontFamily: tokens.font.serifCjk,
+                  fontVariantNumeric: "tabular-nums"
+                }}
+              >
+                {index + 1}
+              </span>
+              <ScorePill color={tokens.color.neutralText} soft={tokens.color.neutralSurfaceSoft}>
+                {VERDICT_META[analysis.verdict]?.label ?? VERDICT_LABELS[analysis.verdict]}
+              </ScorePill>
+              <span style={{ fontSize: 11.5, color: tokens.color.softInk }}>{SIGNAL_TYPE_LABELS[analysis.signalType]}</span>
+              <span style={{ fontSize: 11.5, color: tokens.color.softInk }}>{formatRelevanceScore(analysis.relevance)}</span>
+            </div>
+            <h3 style={{ margin: 0, fontSize: 22, lineHeight: 1.25, color: tokens.color.ink, fontWeight: 760, fontFamily: tokens.font.serifCjk }}>
+              不納入行動清單
+            </h3>
+            <div style={{ fontSize: 13.5, lineHeight: 1.65, color: tokens.color.subInk }}>
+              {analysis.contentSummary}
+            </div>
+          </div>
+          {onRemove ? (
+            <button
+              type="button"
+              aria-label="移除此訊號"
+              onClick={onRemove}
+              style={{ background: "none", border: "none", cursor: "pointer", padding: "2px 4px", lineHeight: 1, color: tokens.color.softInk, fontSize: 16, borderRadius: 4, display: "flex", alignItems: "center", flexShrink: 0 }}
+            >×</button>
+          ) : null}
+        </div>
+
+        <div style={mutedPanelStyle({ gap: 7, background: tokens.color.neutralSurfaceSoft })}>
+          <div style={{ ...textStyles.label, color: tokens.color.softInk }}>排除原因</div>
+          <div style={{ fontSize: 13, lineHeight: 1.65, color: tokens.color.subInk }}>
+            {analysis.reason || referenceTakeaway(analysis)}
+          </div>
+        </div>
+
+        <div style={{ display: "grid", gap: 8 }}>
+          <div style={{ display: "grid", gap: 4 }}>
+            <span style={{ ...textStyles.fieldLabel, color: tokens.color.softInk }}>{referenceTypeLabel(analysis.referenceType)}</span>
+            <span style={{ fontSize: 13, lineHeight: 1.55, color: tokens.color.ink, fontWeight: 650 }}>{referenceLabel(analysis)}</span>
+            <span style={{ fontSize: 12.5, lineHeight: 1.55, color: tokens.color.subInk }}>{referenceTakeaway(analysis)}</span>
+          </div>
+          <div style={{ display: "flex", gap: 8, flexWrap: "wrap", fontSize: 11.5, color: tokens.color.softInk }}>
+            <span>子型：{formatSubtype(analysis.signalSubtype)}</span>
+            <span>證據：{citationCount} 則</span>
+            <span>Analyzed：{formatAnalyzedAt(analysis.analyzedAt)}</span>
+          </div>
+        </div>
+
+        {citations.length ? (
+          <div style={{ display: "grid", gap: 7 }}>
+            <span data-evidence-section-label="true" style={{ ...textStyles.label, color: tokens.color.softInk }}>
+              原文證據 · {citationCount} 則
+            </span>
+            {citations.slice(0, 3).map((citation) => (
+              <div key={citation.ref} style={{ display: "grid", gridTemplateColumns: "30px minmax(0, 1fr)", gap: 8, alignItems: "start" }}>
+                <span style={{ fontFamily: tokens.font.mono, fontSize: 11, color: tokens.color.softInk }}>{citation.ref}.</span>
+                <div style={{ fontSize: 12.5, lineHeight: 1.6, color: tokens.color.subInk }}>
+                  {citationText(citation, 220)}
+                </div>
+              </div>
+            ))}
+          </div>
+        ) : null}
+      </article>
+    );
+  }
 
   if (layout === "marginalia") {
     return (
@@ -3197,7 +3362,7 @@ function ActionableItemCard({
             >
               <span style={{ fontSize: 16, lineHeight: 1 }}>→</span>
               <span style={{ fontSize: 12.5, lineHeight: 1.5, fontWeight: 760 }}>
-                {analysis.verdict === "try" ? "TRY experiment" : "Keep as observation"}
+                {formatActionCue(analysis.verdict)}
               </span>
               <span style={{ fontSize: 12.5, lineHeight: 1.5, color: tokens.color.subInk }}>
                 {taskSlotCopy}
@@ -3453,7 +3618,7 @@ function ActionableItemCard({
             <RelevanceBars score={analysis.relevance} />
             <div style={{ display: "grid", gap: 4 }}>
               <span style={{ fontSize: 10.5, lineHeight: 1.2, textTransform: "uppercase", letterSpacing: "0.04em", color: "rgba(255,255,255,0.62)", fontWeight: 800 }}>
-                signal type
+                訊號類型
               </span>
               <span style={{ fontSize: 12, lineHeight: 1.3, color: "#fff", fontWeight: 800 }}>
                 {SIGNAL_TYPE_LABELS[analysis.signalType]}
@@ -3556,7 +3721,7 @@ function ActionableItemCard({
           >
             <span>分類：{subtypeMeta.label}</span>
             <span>·</span>
-            <span>Subtype：{formatSubtype(analysis.signalSubtype)}</span>
+            <span>子型：{formatSubtype(analysis.signalSubtype)}</span>
             <span>·</span>
             <span>Analyzed：{formatAnalyzedAt(analysis.analyzedAt)}</span>
             <span>·</span>
@@ -3736,8 +3901,10 @@ export function ProductSignalView({
   signalReadings = [],
   aiProviderReady = true,
   cardLayout = "marginalia",
+  backendError = null,
   analysisError = null,
   analysisNotice = null,
+  isHydrating = false,
   isAnalyzing = false,
   onAnalyze,
   onGoToActionable,
@@ -3761,8 +3928,10 @@ export function ProductSignalView({
   signalReadings?: SignalReading[];
   aiProviderReady?: boolean;
   cardLayout?: ProductSignalCardLayout;
+  backendError?: string | null;
   analysisError?: string | null;
   analysisNotice?: string | null;
+  isHydrating?: boolean;
   isAnalyzing?: boolean;
   onAnalyze: () => void;
   onGoToActionable?: () => void;
@@ -3814,7 +3983,13 @@ export function ProductSignalView({
         kicker="Product mode"
         title={copy.title}
         deck={copy.deck}
-        stamp={<Stamp tone={scopedAnalyses.length ? "success" : "neutral"}>{scopedAnalyses.length ? "AI enabled" : "No result"}</Stamp>}
+        stamp={
+          backendError || analysisError
+            ? <Stamp tone="warning">Backend 離線</Stamp>
+            : isHydrating && scopedAnalyses.length === 0
+              ? <Stamp tone="neutral">讀取中</Stamp>
+            : <Stamp tone={scopedAnalyses.length ? "success" : "neutral"}>{scopedAnalyses.length ? "AI enabled" : "No result"}</Stamp>
+        }
       />
       <WorkspaceSurface tone="utility" style={{ display: "grid", gap: tokens.spacing.md, overflow: "visible" }}>
         <ReadinessPanel
@@ -3822,8 +3997,10 @@ export function ProductSignalView({
           analyses={safeAnalyses}
           productProfile={productProfile}
           aiProviderReady={aiProviderReady}
+          backendError={backendError}
           analysisError={analysisError}
           analysisNotice={analysisNotice}
+          isHydrating={isHydrating}
           isAnalyzing={isAnalyzing}
           signalReadinessById={signalReadinessById}
           onAnalyze={onAnalyze}
@@ -3911,7 +4088,7 @@ export function ProductSignalView({
               onRemoveSignal={onRemoveSignal ? handleRemoveSignal : undefined}
             />
           )
-        ) : (
+        ) : isHydrating ? null : (
           <div style={cardStyle()}>
             <div style={{ fontSize: 14, fontWeight: 800, color: tokens.color.ink }}>
               尚未有 AI 分析結果

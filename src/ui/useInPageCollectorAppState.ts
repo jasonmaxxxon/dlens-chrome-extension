@@ -26,7 +26,7 @@ import type {
 import type { SignalPacketExportFormat, SignalPacketExportResult } from "../compare/signal-packet-export";
 import type { SignalReading } from "../compare/signal-reading-storage";
 import type { PrCampaign } from "../state/pr-evidence-storage";
-import { getProcessingFailureMessage } from "../state/processing-errors";
+import { getProcessingFailureMessage, getProcessingFailureUiMessage } from "../state/processing-errors";
 import {
   getItemReadinessStatus,
   getModeHomePage,
@@ -36,6 +36,7 @@ import {
   type WorkerStatus
 } from "../state/processing-state";
 import { addRuntimeMessageListener, getActiveItem, getActiveSession, sendExtensionMessage } from "./controller";
+import { markQaTrace } from "./qa-trace";
 import {
   computeFlashPreviewStyle,
   flashPreviewMetrics,
@@ -82,6 +83,25 @@ export function resolveOptimisticSession(
     return null;
   }
   return snapshot.global.sessions.find((session) => session.mode === optimisticMode) ?? null;
+}
+
+export function buildSessionModeChangeMessage(
+  snapshot: ExtensionSnapshot | null,
+  mode: FolderMode
+): Extract<ExtensionMessage, { type: "session/set-mode" }> | Extract<ExtensionMessage, { type: "session/create" }> {
+  const existingSession = snapshot?.global.sessions.find((session) => session.mode === mode) ?? null;
+  if (existingSession) {
+    return {
+      type: "session/set-mode",
+      sessionId: existingSession.id,
+      mode
+    };
+  }
+  return {
+    type: "session/create",
+    name: DEFAULT_SESSION_NAME_BY_MODE[mode],
+    mode
+  };
 }
 
 export function buildPreviewSaveMessage({
@@ -218,6 +238,7 @@ export function useInPageCollectorAppState({ snapshot, tabId, sendAndSync }: Use
   const [historicalProductSignalAnalyses, setHistoricalProductSignalAnalyses] = useState<ProductSignalAnalysis[]>([]);
   const [productAgentTaskFeedback, setProductAgentTaskFeedback] = useState<ProductAgentTaskFeedback[]>([]);
   const [signalReadings, setSignalReadings] = useState<SignalReading[]>([]);
+  const [isHydratingProductSignals, setIsHydratingProductSignals] = useState(false);
   const [activePrCampaign, setActivePrCampaign] = useState<PrCampaign | null>(null);
   const [folderSynthesis, setFolderSynthesis] = useState<FolderSynthesis | null>(null);
   const [isGeneratingFolderSynthesis, setIsGeneratingFolderSynthesis] = useState(false);
@@ -244,12 +265,16 @@ export function useInPageCollectorAppState({ snapshot, tabId, sendAndSync }: Use
     () => summarizeSessionProcessing(activeFolder?.items || []),
     [activeFolder?.items]
   );
-  const { workerStatus, setWorkerStatus } = useProcessingCoordinator({
+  const { workerStatus, workerError, setWorkerStatus } = useProcessingCoordinator({
     popupOpen,
     activeFolderId: activeFolder?.id,
     hasInflight: processingSummary.hasInflight,
     sendAndSync
   });
+  const productBackendError = useMemo(
+    () => activeFolderMode === "product" && workerError ? getProcessingFailureUiMessage(workerError) : null,
+    [activeFolderMode, workerError]
+  );
   const {
     workspaceState,
     setWorkspaceState,
@@ -558,10 +583,24 @@ export function useInPageCollectorAppState({ snapshot, tabId, sendAndSync }: Use
 
   useEffect(() => {
     if (!popupOpen || !activeFolder?.id || activeFolderMode !== "product" || !isProductSignalPage) {
+      setIsHydratingProductSignals(false);
+      markQaTrace("popup.product.hydrate.skip", {
+        popupOpen,
+        folderId: activeFolder?.id ?? null,
+        mode: activeFolderMode,
+        page,
+        isProductSignalPage
+      });
       return;
     }
     let cancelled = false;
     const signalIds = topicState.signals.map((signal) => signal.id);
+    setIsHydratingProductSignals(true);
+    markQaTrace("popup.product.hydrate.request", {
+      folderId: activeFolder.id,
+      page,
+      signalCount: signalIds.length
+    });
     void Promise.all([
       sendExtensionMessage<{ ok: true; productSignalAnalyses?: ProductSignalAnalysis[] } | { ok: false; error: string }>({
         type: "product/list-signal-analyses",
@@ -581,6 +620,20 @@ export function useInPageCollectorAppState({ snapshot, tabId, sendAndSync }: Use
         if (cancelled) {
           return;
         }
+        setIsHydratingProductSignals(false);
+        markQaTrace("popup.product.hydrate.response", {
+          folderId: activeFolder.id,
+          page,
+          signalCount: signalIds.length,
+          currentOk: currentResponse.ok,
+          currentAnalysisCount: currentResponse.ok ? currentResponse.productSignalAnalyses?.length ?? 0 : null,
+          historicalOk: historicalResponse.ok,
+          historicalAnalysisCount: historicalResponse.ok ? historicalResponse.productSignalAnalyses?.length ?? 0 : null,
+          feedbackOk: feedbackResponse.ok,
+          feedbackCount: feedbackResponse.ok ? feedbackResponse.productAgentTaskFeedback?.length ?? 0 : null,
+          readingsOk: readingsResponse.ok,
+          readingCount: readingsResponse.ok ? readingsResponse.signalReadings?.length ?? 0 : null
+        });
         if (currentResponse.ok) {
           setProductSignalAnalyses(currentResponse.productSignalAnalyses ?? []);
         }
@@ -597,6 +650,12 @@ export function useInPageCollectorAppState({ snapshot, tabId, sendAndSync }: Use
       })
       .catch(() => {
         if (!cancelled) {
+          setIsHydratingProductSignals(false);
+          markQaTrace("popup.product.hydrate.error", {
+            folderId: activeFolder.id,
+            page,
+            signalCount: signalIds.length
+          });
           setProductSignalAnalyses([]);
           setHistoricalProductSignalAnalyses([]);
           setProductAgentTaskFeedback([]);
@@ -901,11 +960,7 @@ export function useInPageCollectorAppState({ snapshot, tabId, sendAndSync }: Use
       }
     }
 
-    const createResponse = await sendAndSync({
-      type: "session/create",
-      name: DEFAULT_SESSION_NAME_BY_MODE[mode],
-      mode
-    });
+    const createResponse = await sendAndSync(buildSessionModeChangeMessage(snapshot, mode));
     setShowFolderPrompt(false);
     setFolderName("");
     return createResponse;
@@ -950,8 +1005,20 @@ export function useInPageCollectorAppState({ snapshot, tabId, sendAndSync }: Use
   }
 
   async function onToggleCollectMode() {
-    await sendAndSync({
-      type: snapshot?.tab.selectionMode ? "selection/cancel-active-tab" : "selection/start-active-tab"
+    const nextType = snapshot?.tab.selectionMode ? "selection/cancel-active-tab" : "selection/start-active-tab";
+    const startedAt = performance.now();
+    markQaTrace("popup.collect.toggle.request", {
+      type: nextType,
+      activeFolderId: activeFolder?.id ?? null,
+      activeFolderMode
+    });
+    const response = await sendAndSync({
+      type: nextType
+    });
+    markQaTrace("popup.collect.toggle.response", {
+      ok: response.ok,
+      elapsedMs: Math.round((performance.now() - startedAt) * 10) / 10,
+      selectionMode: response.ok ? response.snapshot?.tab.selectionMode ?? null : null
     });
   }
 
@@ -1322,10 +1389,24 @@ export function useInPageCollectorAppState({ snapshot, tabId, sendAndSync }: Use
     setIsAnalyzingProductSignals(true);
     setProductSignalAnalysisError(null);
     setProductSignalAnalysisNotice(null);
+    const startedAt = performance.now();
+    markQaTrace("popup.product.analyze.request", {
+      sessionId: activeFolder.id,
+      signalCount: topicState.signals.length,
+      analysisCount: productSignalAnalyses.length
+    });
     try {
-      const response = await sendAndSync<{ ok: true; productSignalAnalyses?: ProductSignalAnalysis[]; productSignalAnalysisSummary?: { queued: number; analyzed: number; failed: number } } | { ok: false; error: string }>({
+      const response = await sendAndSync({
         type: "product/analyze-signals",
         sessionId: activeFolder.id
+      });
+      markQaTrace("popup.product.analyze.response", {
+        ok: response.ok,
+        elapsedMs: Math.round((performance.now() - startedAt) * 10) / 10,
+        queued: response.ok ? response.productSignalAnalysisSummary?.queued ?? null : null,
+        analyzed: response.ok ? response.productSignalAnalysisSummary?.analyzed ?? null : null,
+        failed: response.ok ? response.productSignalAnalysisSummary?.failed ?? null : null,
+        failureCount: response.ok ? response.productSignalAnalysisSummary?.failures?.length ?? 0 : null
       });
       if (response.ok) {
         setProductSignalAnalyses(response.productSignalAnalyses ?? []);
@@ -1333,10 +1414,15 @@ export function useInPageCollectorAppState({ snapshot, tabId, sendAndSync }: Use
         const queued = response.productSignalAnalysisSummary?.queued ?? 0;
         const analyzed = response.productSignalAnalysisSummary?.analyzed ?? 0;
         const failed = response.productSignalAnalysisSummary?.failed ?? 0;
+        const firstFailure = response.productSignalAnalysisSummary?.failures?.[0] || null;
         if (queued > 0) {
           setProductSignalAnalysisNotice(`已送出 ${queued} 條抓取，完成後請再按分析。`);
         } else if (failed > 0) {
-          setProductSignalAnalysisError(`有 ${failed} 條產品訊號分析失敗；其他 ready signals 已繼續處理。`);
+          setProductSignalAnalysisError(
+            firstFailure
+              ? `有 ${failed} 條產品訊號分析失敗；第一筆：${getProcessingFailureUiMessage(firstFailure.error)}`
+              : `有 ${failed} 條產品訊號分析失敗；其他 ready signals 已繼續處理。`
+          );
         } else if (analyzed > 0) {
           setProductSignalAnalysisNotice(`已完成 ${analyzed} 條產品訊號分析。`);
         } else {
@@ -1344,9 +1430,13 @@ export function useInPageCollectorAppState({ snapshot, tabId, sendAndSync }: Use
         }
         return;
       }
-      setProductSignalAnalysisError(response.error);
+      setProductSignalAnalysisError(getProcessingFailureUiMessage(response.error));
     } catch (error) {
-      setProductSignalAnalysisError(error instanceof Error ? error.message : String(error));
+      markQaTrace("popup.product.analyze.throw", {
+        elapsedMs: Math.round((performance.now() - startedAt) * 10) / 10,
+        error: error instanceof Error ? error.message : String(error)
+      });
+      setProductSignalAnalysisError(getProcessingFailureUiMessage(error instanceof Error ? error.message : String(error)));
     } finally {
       setIsAnalyzingProductSignals(false);
     }
@@ -1437,7 +1527,7 @@ export function useInPageCollectorAppState({ snapshot, tabId, sendAndSync }: Use
       setProductSignalAnalysisNotice("已移除 signal。");
       return;
     }
-    setProductSignalAnalysisError(response.error);
+    setProductSignalAnalysisError(getProcessingFailureUiMessage(response.error));
   }
 
   return {
@@ -1489,8 +1579,10 @@ export function useInPageCollectorAppState({ snapshot, tabId, sendAndSync }: Use
     historicalProductSignalAnalyses,
     productAgentTaskFeedback,
     signalReadings,
+    isHydratingProductSignals,
     isAnalyzingProductSignals,
     productSignalAnalysisError,
+    productBackendError,
     productSignalAnalysisNotice,
     productAiProviderReady,
     activePrCampaign,

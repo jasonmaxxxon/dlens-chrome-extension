@@ -39,6 +39,7 @@ export function InPageCollectorOverlays({ app }: { app: InPageCollectorAppModel 
           fontWeight: 700,
           zIndex: 2147483640,
           cursor: "pointer",
+          pointerEvents: "auto",
           transition: TOKENS.transition,
           display: "grid",
           placeItems: "center"
@@ -76,6 +77,7 @@ export function InPageCollectorOverlays({ app }: { app: InPageCollectorAppModel 
             fontWeight: 600,
             letterSpacing: "0.02em",
             boxShadow: `0 12px 40px ${MODE_ACCENT_GLOW}`,
+            pointerEvents: "auto",
             display: "flex",
             alignItems: "center",
             gap: 8
@@ -108,6 +110,7 @@ export function InPageCollectorOverlays({ app }: { app: InPageCollectorAppModel 
             fontSize: 11,
             fontWeight: 700,
             boxShadow: "0 4px 16px rgba(15,23,42,0.08)",
+            pointerEvents: "auto",
             display: "flex",
             alignItems: "center",
             gap: 4,
@@ -124,7 +127,7 @@ export function InPageCollectorOverlays({ app }: { app: InPageCollectorAppModel 
       ) : null}
 
       {snapshot?.tab.selectionMode && flashPreview && flashStyle ? (
-        <div data-dlens-control="true" style={flashStyle}>
+        <div data-dlens-control="true" style={{ ...flashStyle, pointerEvents: "auto" }}>
           <div style={surfaceCardStyle({ padding: 12, display: "grid", gap: 10 })}>
             <div style={{ display: "flex", alignItems: "flex-start", gap: 10 }}>
               <div
@@ -190,6 +193,7 @@ export function InPageCollectorOverlays({ app }: { app: InPageCollectorAppModel 
             lineHeight: 1.45,
             maxWidth: 360,
             boxShadow: "0 8px 24px rgba(15,23,42,0.1)",
+            pointerEvents: "auto",
             display: "flex",
             alignItems: "center",
             gap: 6,

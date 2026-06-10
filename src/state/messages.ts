@@ -180,6 +180,13 @@ export type ExtensionSuccessResponse = {
     queued: number;
     analyzed: number;
     failed: number;
+    failures?: Array<{
+      signalId: string;
+      itemId?: string;
+      sourceUrl?: string;
+      error: string;
+      errorKind?: string | null;
+    }>;
   };
   prCampaigns?: PrCampaign[];
   prEvidenceRows?: PrEvidenceRow[];

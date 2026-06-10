@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 
 import { createSessionItem, createSessionRecord } from "../src/state/store-helpers.ts";
-import { ensureSignalForSavedItem, ensureWorkspaceTopicForSession, handleTopicMessage } from "../src/state/topic-handlers.ts";
+import { ensureSignalForSavedItem, ensureSignalsForSessionItems, ensureWorkspaceTopicForSession, handleTopicMessage } from "../src/state/topic-handlers.ts";
 import { loadSignals, loadTopics, SIGNALS_STORAGE_KEY, TOPICS_STORAGE_KEY } from "../src/state/topic-storage.ts";
 import { FOLDER_SYNTHESIS_STORAGE_KEY, loadFolderSynthesis, saveFolderSynthesis } from "../src/compare/folder-synthesis-storage.ts";
 import { FOLDER_SYNTHESIS_VERSION } from "../src/compare/folder-synthesis.ts";
@@ -52,6 +52,40 @@ test("ensureSignalForSavedItem creates one inbox signal for topic/product folder
   assert.equal(signals.length, 1);
   assert.equal(signals[0]?.itemId, item.id);
   assert.equal(signals[0]?.inboxStatus, "unprocessed");
+});
+
+test("ensureSignalsForSessionItems repairs missing Product signal rows from saved session items", async () => {
+  const storage = createStorageArea({
+    [SIGNALS_STORAGE_KEY]: [
+      {
+        id: "signal-existing",
+        sessionId: "session-product",
+        itemId: "item-existing",
+        source: "threads",
+        inboxStatus: "unprocessed",
+        capturedAt: "2026-04-23T08:00:00.000Z"
+      }
+    ]
+  });
+  const existingItem = {
+    ...createSessionItem(buildDescriptor("existing"), "2026-04-23T08:00:00.000Z"),
+    id: "item-existing"
+  };
+  const missingItem = {
+    ...createSessionItem(buildDescriptor("missing"), "2026-04-23T08:00:00.000Z"),
+    id: "item-missing"
+  };
+  const session = {
+    ...createSessionRecord("Product workspace", "2026-04-23T08:00:00.000Z", "product"),
+    id: "session-product",
+    items: [existingItem, missingItem]
+  };
+
+  const signals = await ensureSignalsForSessionItems(storage, session);
+
+  assert.equal(signals.length, 2);
+  assert.equal(signals.filter((signal) => signal.itemId === "item-existing").length, 1);
+  assert.equal(signals.filter((signal) => signal.itemId === "item-missing").length, 1);
 });
 
 test("ensureSignalForSavedItem leaves topic saves unassigned without an explicit topic target", async () => {

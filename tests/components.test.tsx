@@ -17,6 +17,7 @@ import {
   UtilityEdge,
   scanRowStyle
 } from "../src/ui/components.tsx";
+import { tokens } from "../src/ui/tokens.ts";
 
 function makeDescriptor(overrides: Partial<TargetDescriptor> = {}): TargetDescriptor {
   return {
@@ -226,6 +227,43 @@ test("WorkspaceShell renders masthead WorkspaceSwitcher when onSwitchWorkspace i
   assert.doesNotMatch(html, /data-mode-badge="product"/);
 });
 
+test("WorkspaceShell WorkspaceSwitcher active tabs use each mode accent", () => {
+  const topicHtml = renderToStaticMarkup(
+    React.createElement(
+      WorkspaceShell,
+      {
+        mode: "topics",
+        folderMode: "topic",
+        onSwitchWorkspace: () => {},
+        availableWorkspaceModes: ["topic", "product", "pr-evidence"] as const,
+        header: React.createElement("div", null, "Header")
+      },
+      React.createElement("div", null, "Body")
+    )
+  );
+  const prHtml = renderToStaticMarkup(
+    React.createElement(
+      WorkspaceShell,
+      {
+        mode: "pr-evidence",
+        folderMode: "pr-evidence",
+        onSwitchWorkspace: () => {},
+        availableWorkspaceModes: ["topic", "product", "pr-evidence"] as const,
+        header: React.createElement("div", null, "Header")
+      },
+      React.createElement("div", null, "Body")
+    )
+  );
+
+  const activeTopicTab = topicHtml.match(/aria-selected="true"[^>]+data-workspace-switcher-mode="topic"[^>]+/)?.[0];
+  const activePrTab = prHtml.match(/aria-selected="true"[^>]+data-workspace-switcher-mode="pr-evidence"[^>]+/)?.[0];
+
+  assert.ok(activeTopicTab);
+  assert.ok(activePrTab);
+  assert.match(activeTopicTab, new RegExp(`color:${tokens.color.cyan};background:${tokens.color.cyan}14;border:1px solid ${tokens.color.cyan}40`));
+  assert.match(activePrTab, new RegExp(`color:${tokens.color.techniqueRose};background:${tokens.color.techniqueRose}14;border:1px solid ${tokens.color.techniqueRose}40`));
+});
+
 test("WorkspaceShell marks a pending workspace switch immediately", () => {
   const html = renderToStaticMarkup(
     React.createElement(
@@ -286,4 +324,40 @@ test("WorkspaceShell falls back to static mode badge when no switcher is wired",
   assert.match(html, /data-mode-badge="topic"/);
   assert.match(html, /TOPIC MODE/);
   assert.doesNotMatch(html, /data-workspace-switcher=/);
+});
+
+test("WorkspaceShell does not reserve an empty processing strip by default", () => {
+  const html = renderToStaticMarkup(
+    React.createElement(
+      WorkspaceShell,
+      {
+        mode: "topics",
+        folderMode: "topic",
+        header: React.createElement("div", null, "Header")
+      },
+      React.createElement("div", null, "Body")
+    )
+  );
+
+  assert.doesNotMatch(html, /data-shell-context-strip="processing"/);
+  assert.doesNotMatch(html, /min-height:52px/);
+});
+
+test("WorkspaceShell can reserve the processing strip only when requested", () => {
+  const html = renderToStaticMarkup(
+    React.createElement(
+      WorkspaceShell,
+      {
+        mode: "compare",
+        folderMode: "topic",
+        reserveContextStrip: true,
+        header: React.createElement("div", null, "Header")
+      },
+      React.createElement("div", null, "Body")
+    )
+  );
+
+  assert.match(html, /data-shell-context-strip="processing"/);
+  assert.match(html, /data-strip-visible="false"/);
+  assert.match(html, /min-height:52px/);
 });

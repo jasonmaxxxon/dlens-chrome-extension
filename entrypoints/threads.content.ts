@@ -11,6 +11,7 @@ import {
   type SelectionModeExitReason
 } from "../src/state/selection-mode-messages";
 import { InPageCollectorApp } from "../src/ui/InPageCollectorApp";
+import { markQaTrace } from "../src/ui/qa-trace";
 import { buildWorkspaceCrashMarkup, getWorkspaceCrashMessage, isExtensionRuntimeError } from "../src/ui/runtime-guard";
 import { DLENS_MOTION_CSS } from "../src/ui/ProductSignalViews";
 import {
@@ -24,6 +25,7 @@ import {
 
 const OVERLAY_ID = "__dlens_extension_v0_overlay__";
 const ROOT_ID = "__dlens_extension_v0_root__";
+const QA_TRACE_VERSION = "run14-url-trace-v1";
 
 let selectionMode = false;
 let hoverCard: HTMLElement | null = null;
@@ -124,6 +126,13 @@ function ensureRoot(): HTMLDivElement {
     root.setAttribute("data-dlens-control", "true");
     document.documentElement.appendChild(root);
   }
+  root.style.position = "fixed";
+  root.style.inset = "0";
+  root.style.width = "100vw";
+  root.style.height = "100vh";
+  root.style.pointerEvents = "none";
+  root.style.zIndex = "2147483639";
+  root.setAttribute("data-dlens-qa-trace-version", QA_TRACE_VERSION);
   // Inject the shared motion layer once (must go via document.head to survive Threads CSP)
   if (!document.getElementById("__dlens_product_motion__")) {
     const motionStyle = document.createElement("style");
@@ -186,6 +195,7 @@ function renderOverlay(card: HTMLElement | null, strength: CandidateStrength | n
   if (!card) {
     overlay.style.display = "none";
     emitHoverRect(null);
+    markQaTrace("content.overlay.hide");
     return;
   }
 
@@ -203,6 +213,15 @@ function renderOverlay(card: HTMLElement | null, strength: CandidateStrength | n
       ? `0 0 0 1px rgba(255,255,255,0.35), 0 6px 16px ${theme.shadowSoft}`
       : `0 0 0 1px rgba(255,255,255,0.5), 0 10px 24px ${theme.shadowStrong}`;
   emitHoverRect(card);
+  markQaTrace("content.overlay.render", {
+    strength,
+    rect: {
+      top: Math.round(rect.top),
+      left: Math.round(rect.left),
+      width: Math.round(rect.width),
+      height: Math.round(rect.height)
+    }
+  });
 }
 
 function clearHoverIntent() {
@@ -227,6 +246,12 @@ function setCollectCursor(enabled: boolean) {
 
 function publishHoveredDescriptor(descriptor: ReturnType<typeof buildTargetDescriptor> | null) {
   setLiveHoverDescriptor(descriptor);
+  markQaTrace("content.hover.publish", {
+    hasDescriptor: Boolean(descriptor),
+    postUrl: descriptor?.post_url ?? null,
+    author: descriptor?.author_hint ?? null,
+    strength: hoverStrength
+  });
   chrome.runtime
     .sendMessage({ type: "selection/hovered", descriptor, strength: hoverStrength } satisfies ExtensionMessage)
     .catch(() => undefined);
@@ -264,6 +289,12 @@ function setHoverCard(card: HTMLElement | null, strength: CandidateStrength | nu
   lastCardFingerprint = fp;
   renderOverlay(card, strength);
   clearHoverIntent();
+  markQaTrace("content.hover.card-change", {
+    hasCard: Boolean(card),
+    strength,
+    fingerprint: fp || null,
+    delayMs: card ? strength === "hard" ? 0 : HOVER_INTENT_DELAY_MS : null
+  });
 
   if (!card) {
     publishHoveredDescriptor(null);
@@ -272,8 +303,14 @@ function setHoverCard(card: HTMLElement | null, strength: CandidateStrength | nu
 
   const delayMs = strength === "hard" ? 0 : HOVER_INTENT_DELAY_MS;
   hoverIntentHandle = window.setTimeout(() => {
+    const startedAt = performance.now();
     const descriptor = readSubmittableDescriptor(card);
     hoverDescriptor = descriptor;
+    markQaTrace("content.hover.intent-fired", {
+      hasDescriptor: Boolean(descriptor),
+      postUrl: descriptor?.post_url ?? null,
+      readMs: Math.round((performance.now() - startedAt) * 10) / 10
+    });
     publishHoveredDescriptor(descriptor);
   }, delayMs);
 }
@@ -333,6 +370,7 @@ function stopSelectionMode(reason: SelectionModeExitReason = "manual-cancel") {
   setHoverCard(null, null);
   dropKeepAlive();
   const message = buildSelectionModeMessage(false, reason);
+  markQaTrace("content.selection.stop", { reason });
   if (!message) {
     return;
   }
@@ -344,6 +382,7 @@ function startSelectionMode(mode: FolderMode = "archive", notify = true) {
   selectionMode = true;
   setCollectCursor(true);
   ensureKeepAlive();
+  markQaTrace("content.selection.start", { mode, notify });
   if (!notify) {
     return;
   }
@@ -354,9 +393,14 @@ function startSelectionMode(mode: FolderMode = "archive", notify = true) {
 }
 
 function syncSelectionModeFromSnapshot() {
+  markQaTrace("content.selection.sync.request");
   chrome.runtime
     .sendMessage({ type: "state/get-active-tab" } satisfies ExtensionMessage)
     .then((response: ExtensionResponse) => {
+      markQaTrace("content.selection.sync.response", {
+        ok: response.ok,
+        hasSnapshot: Boolean(response.ok && response.snapshot)
+      });
       if (!response.ok || !response.snapshot) {
         return;
       }
@@ -384,20 +428,27 @@ function onClick(event: MouseEvent) {
   if (!selectionMode || isControlSurface(event.target)) {
     return;
   }
-  event.preventDefault();
-  event.stopPropagation();
 
   const candidate = findCardCandidate(event.target);
   const card = candidate.root;
   if (!card) {
+    markQaTrace("content.collect.click.pass-through", { reason: "no-card", strength: candidate.strength });
     return;
   }
 
   const descriptor = hoverCard === card && hoverDescriptor ? hoverDescriptor : readSubmittableDescriptor(card);
   if (!descriptor) {
+    markQaTrace("content.collect.click.pass-through", { reason: "no-descriptor", strength: candidate.strength });
     return;
   }
 
+  event.preventDefault();
+  event.stopPropagation();
+  markQaTrace("content.collect.click.capture", {
+    postUrl: descriptor.post_url,
+    author: descriptor.author_hint,
+    strength: candidate.strength
+  });
   window.dispatchEvent(new CustomEvent(OPTIMISTIC_SAVE_EVENT, { detail: descriptor }));
 
   // Read the folder/topic the popup is showing right now so the click saves to the
@@ -405,9 +456,15 @@ function onClick(event: MouseEvent) {
   const target = getLiveCollectionTarget();
 
   void (async () => {
+    const saveStartedAt = performance.now();
     await chrome.runtime
       .sendMessage({ type: "selection/hovered", descriptor, strength: candidate.strength } satisfies ExtensionMessage)
       .catch(() => undefined);
+    markQaTrace("content.collect.save.request", {
+      postUrl: descriptor.post_url,
+      sessionId: target.sessionId || null,
+      topicId: target.topicId || null
+    });
     const response = await chrome.runtime
       .sendMessage({
         type: "session/save-current-preview",
@@ -416,6 +473,11 @@ function onClick(event: MouseEvent) {
         ...(target.topicId ? { topicId: target.topicId } : {})
       } satisfies ExtensionMessage)
       .catch(() => null);
+    markQaTrace("content.collect.save.response", {
+      ok: Boolean(response?.ok),
+      elapsedMs: Math.round((performance.now() - saveStartedAt) * 10) / 10,
+      hasSnapshot: Boolean(response?.ok && response.snapshot)
+    });
     if (response?.ok) {
       window.dispatchEvent(new CustomEvent(OPTIMISTIC_SAVE_CONFIRMED_EVENT, { detail: response.snapshot ?? null }));
       return;

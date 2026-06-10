@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import { getProcessingFailureMessage } from "../src/state/processing-errors.ts";
+import { getProcessingFailureMessage, getProcessingFailureUiMessage } from "../src/state/processing-errors.ts";
 
 test("getProcessingFailureMessage explains unavailable backend errors", () => {
   const message = getProcessingFailureMessage(
@@ -19,4 +19,13 @@ test("getProcessingFailureMessage falls back to the original server error", () =
 
 test("getProcessingFailureMessage falls back to a generic message when missing", () => {
   assert.equal(getProcessingFailureMessage(""), "Processing failed.");
+});
+
+test("getProcessingFailureUiMessage maps backend failures to user-facing Chinese", () => {
+  const message = getProcessingFailureUiMessage(
+    "Optional ingest backend unavailable at http://127.0.0.1:8000/worker/status. Check ingestBaseUrl or start the backend. Original error: Failed to fetch"
+  );
+
+  assert.equal(message, "Backend 無法連線。請到設定確認 backend URL，或先啟動 ingest backend。");
+  assert.doesNotMatch(message, /http:\/\/127\.0\.0\.1|Failed to fetch|Optional ingest/i);
 });

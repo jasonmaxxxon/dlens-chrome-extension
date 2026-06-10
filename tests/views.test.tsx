@@ -1143,6 +1143,73 @@ test("ProductSignalView shows real readiness state without fake AI results", () 
   assert.doesNotMatch(html, /航班觀察|fixture|score/i);
 });
 
+test("ProductSignalView surfaces backend health errors even when analyses already exist", () => {
+  const html = renderToStaticMarkup(
+    React.createElement(ProductSignalView as any, {
+      kind: "saved-signals",
+      signals: [
+        {
+          id: "signal_backend",
+          sessionId: "session_product",
+          itemId: "item_backend",
+          source: "threads",
+          inboxStatus: "processed",
+          capturedAt: "2026-06-10T00:00:00.000Z"
+        }
+      ],
+      analyses: [
+        {
+          signalId: "signal_backend",
+          signalType: "learning",
+          signalSubtype: "browser_automation",
+          contentType: "discussion_starter",
+          contentSummary: "使用者想知道 extension backend 是否仍然可用。",
+          relevance: 5,
+          relevantTo: ["coreWorkflows"],
+          whyRelevant: "直接影響 Product 分析流程。",
+          verdict: "watch",
+          reason: "需要持續觀察 backend 健康狀態。",
+          experimentHint: "在主 UI 顯示 backend health。",
+          evidenceRefs: ["e1"],
+          productContextHash: "ctx",
+          promptVersion: "v1",
+          analyzedAt: "2026-06-10T00:00:00.000Z",
+          status: "complete"
+        }
+      ],
+      productProfile: {
+        name: "DLens",
+        category: "Creator analysis",
+        audience: "Threads creators",
+        contextText: "README context",
+        contextFiles: [
+          {
+            id: "file_readme",
+            name: "README.md",
+            kind: "readme",
+            importedAt: "2026-06-10T00:00:00.000Z",
+            charCount: 14
+          }
+        ]
+      },
+      signalPreviewById: {},
+      signalReadinessById: {
+        signal_backend: {
+          status: "ready",
+          itemStatus: "succeeded"
+        }
+      },
+      backendError: "Backend 無法連線。請到設定確認 backend URL，或先啟動 ingest backend。",
+      onAnalyze: () => undefined
+    })
+  );
+
+  assert.match(html, /Backend 離線/);
+  assert.match(html, /Backend 無法連線。請到設定確認 backend URL/);
+  assert.doesNotMatch(html, /AI enabled/);
+  assert.doesNotMatch(html, /✓ 已就緒/);
+});
+
 test("ProductSignalView keeps existing analyses visible when signal inbox is empty", () => {
   const html = renderToStaticMarkup(
     React.createElement(ProductSignalView as any, {
@@ -1196,6 +1263,40 @@ test("ProductSignalView keeps existing analyses visible when signal inbox is emp
   assert.match(html, /噪音/);
   assert.doesNotMatch(html, /前提不符/);
   assert.doesNotMatch(html, /signal_orphan/);
+  assert.doesNotMatch(html, /尚未有 AI 分析結果/);
+});
+
+test("ProductSignalView shows hydration state instead of an empty result while product data loads", () => {
+  const html = renderToStaticMarkup(
+    React.createElement(ProductSignalView as any, {
+      kind: "saved-signals",
+      signals: [],
+      analyses: [],
+      isHydrating: true,
+      productProfile: {
+        name: "DLens",
+        category: "Creator analysis",
+        audience: "Threads creators",
+        contextText: "README context",
+        contextFiles: [
+          {
+            id: "file_readme",
+            name: "README.md",
+            kind: "readme",
+            importedAt: "2026-06-10T00:00:00.000Z",
+            charCount: 14
+          }
+        ]
+      },
+      signalPreviewById: {},
+      signalReadinessById: {},
+      onAnalyze: () => undefined
+    })
+  );
+
+  assert.match(html, /data-product-hydrating="true"/);
+  assert.match(html, /讀取中/);
+  assert.doesNotMatch(html, /No result/);
   assert.doesNotMatch(html, /尚未有 AI 分析結果/);
 });
 
@@ -1522,6 +1623,10 @@ test("ProductSignalView gives each product page a distinct information shape", (
   assert.match(classificationHtml, /data-classification-row-indicator="true"/);
   assert.match(classificationHtml, /Users want a one-tap mobile save flow/);
   assert.doesNotMatch(classificationHtml, /relevance 5 of 5/);
+  assert.doesNotMatch(classificationHtml, /collected posts|mobile share extension|mixed/);
+  assert.match(classificationHtml, /AI 已分類 1 則訊號/);
+  assert.match(classificationHtml, /行動分享入口/);
+  assert.match(classificationHtml, /混合內容/);
   assert.doesNotMatch(classificationHtml, /最新在前/);
   assert.match(classificationHtml, /AI 建議分類/);
   assert.doesNotMatch(classificationHtml, /Agent 任務卡|實驗假設草稿/);
@@ -1538,6 +1643,9 @@ test("ProductSignalView gives each product page a distinct information shape", (
   assert.doesNotMatch(actionableHtml, /Agent 任務卡 ·/);
   assert.doesNotMatch(actionableHtml, /這個任務建議/);
   assert.doesNotMatch(actionableHtml, /\d+\s+likes/);
+  assert.doesNotMatch(actionableHtml, /TRY experiment|relevance 5\/5|signal type/);
+  assert.match(actionableHtml, /排入小實驗/);
+  assert.match(actionableHtml, /相關度 5\/5/);
   assert.doesNotMatch(actionableHtml, /R5/);
   // Marginalia owns the experiment and judgment slots in its main column / rail.
   assert.doesNotMatch(actionableHtml, /data-product-panel="experiment"/);
@@ -1780,6 +1888,30 @@ test("ActionableItemCard marginalia removes repeated support chrome", () => {
   assert.match(html, /data-workflow-row-layout="stacked"/);
 });
 
+test("ActionableItemCard renders noise and park verdicts as exclusion cards without workflow task framing", () => {
+  const html = renderActionableCardFixture("marginalia", {
+    signalType: "noise",
+    signalSubtype: "user_sentiment_reflection",
+    verdict: "park",
+    relevance: 1,
+    contentSummary: "這只是一般情緒宣洩，沒有直接產品參考。",
+    reason: "沒有可採用的產品需求或 workflow pattern。",
+    referenceType: "no_direct_fit",
+    referenceLabel: "暫無直接用途",
+    referenceTakeaway: "保留為背景噪音，不排進 Agent 任務。",
+    experimentHint: "",
+    agentTaskSpec: undefined
+  });
+
+  assert.match(html, /data-exclusion-card="true"/);
+  assert.match(html, /噪音 \/ 前提不符/);
+  assert.match(html, /排除原因/);
+  assert.match(html, /沒有可採用的產品需求或 workflow pattern/);
+  assert.match(html, /暫無直接用途/);
+  assert.doesNotMatch(html, /data-testid="marginalia-experiment"/);
+  assert.doesNotMatch(html, /可借用 workflow|TASK ›|排入小實驗|保留觀察/);
+});
+
 test("ActionableItemCard defaults to verdict layout without layout prop", () => {
   const html = renderActionableCardFixture();
 
@@ -1801,7 +1933,7 @@ test("ActionableItemCard defaults to verdict layout without layout prop", () => 
   assert.match(html, /1 則原文證據/);
   assert.match(html, /產出 release-note 草稿/);
   assert.match(html, /分類：需求/);
-  assert.match(html, /Subtype：pm document generation/);
+  assert.match(html, /子型：PM 文件產出/);
   assert.match(html, /Prompt：v16/);
 });
 
@@ -2199,7 +2331,7 @@ test("citationsForAnalysis filters out refs missing both entry and note", () => 
   // e1 has note only, e2 has entry only → both render. e_dangling has neither → must be skipped.
   assert.match(html, /e1 摘錄。/);
   assert.match(html, /raw 2/);
-  assert.match(html, /subtype/);
+  assert.match(html, /子型/);
   assert.match(html, /2 則原文證據/);
   assert.doesNotMatch(html, /e_dangling/);
 });

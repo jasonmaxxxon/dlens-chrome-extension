@@ -67,6 +67,7 @@ export function InPageCollectorPopup({ app }: { app: InPageCollectorAppModel }) 
     : activeFolderMode === "pr-evidence" && !app.activePrCampaign
       ? "先在 PR 頁建立 campaign，Collect 才能加入 evidence row。"
       : "";
+  const showProcessingContextStrip = Boolean(activeFolder) && shouldShowProcessingContextStrip(activeFolderMode, guardedPage);
 
   const scrollRef = useRef<HTMLDivElement>(null);
   const [switchingWorkspaceMode, setSwitchingWorkspaceMode] = useState<WorkspaceSwitcherMode | null>(null);
@@ -161,6 +162,7 @@ export function InPageCollectorPopup({ app }: { app: InPageCollectorAppModel }) 
         fontFamily: tokens.font.sans,
         animation: "dlens-slide-in 280ms cubic-bezier(0.16, 1, 0.3, 1)",
         transition: "width 200ms cubic-bezier(0.4, 0, 0.2, 1)",
+        pointerEvents: "auto",
         isolation: "isolate"
       }}
       onClick={(event) => event.stopPropagation()}
@@ -202,6 +204,7 @@ export function InPageCollectorPopup({ app }: { app: InPageCollectorAppModel }) 
           onSwitchWorkspace={(mode) => void handleSwitchWorkspace(mode)}
           availableWorkspaceModes={WORKSPACE_SWITCHER_MODES}
           switchingWorkspaceMode={switchingWorkspaceMode}
+          reserveContextStrip={showProcessingContextStrip}
           header={(
             <div style={{ display: "grid", gap: 10 }}>
               <ModeRail
@@ -214,7 +217,7 @@ export function InPageCollectorPopup({ app }: { app: InPageCollectorAppModel }) 
             </div>
           )}
           contextStrip={
-            activeFolder && shouldShowProcessingContextStrip(activeFolderMode, guardedPage) ? (
+            showProcessingContextStrip ? (
               <ProcessingStrip
                 workerStatus={app.workerStatus}
                 ready={app.processingSummary.ready}
@@ -406,8 +409,10 @@ export function InPageCollectorPopup({ app }: { app: InPageCollectorAppModel }) 
                 signalReadinessById={app.productSignalReadinessById}
                 aiProviderReady={app.productAiProviderReady}
                 cardLayout={snapshot?.global.settings.layoutPreferences.productSignalCardLayout}
+                backendError={app.productBackendError}
                 analysisError={app.productSignalAnalysisError}
                 analysisNotice={app.productSignalAnalysisNotice}
+                isHydrating={app.isHydratingProductSignals}
                 isAnalyzing={app.isAnalyzingProductSignals}
                 onAnalyze={() => void app.onAnalyzeProductSignals()}
                 onSynthesizeSignalReading={app.onSynthesizeSignalReading}

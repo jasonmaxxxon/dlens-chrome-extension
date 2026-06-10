@@ -7,6 +7,8 @@ import { PRODUCT_CONTEXT_STORAGE_KEY } from "../src/compare/product-context.ts";
 import { PRODUCT_SIGNAL_ANALYSES_STORAGE_KEY } from "../src/compare/product-signal-storage.ts";
 import { SIGNAL_READINGS_STORAGE_KEY } from "../src/compare/signal-reading-storage.ts";
 import type { ExtensionMessage, ExtensionResponse } from "../src/state/messages.ts";
+import { createSessionItem } from "../src/state/store-helpers.ts";
+import { SIGNALS_STORAGE_KEY } from "../src/state/topic-storage.ts";
 import { createEmptyGlobalState, createEmptyTabState, type ExtensionGlobalState, type FolderMode, type SessionRecord, type TabUiState } from "../src/state/types.ts";
 
 type StorageState = Record<string, unknown>;
@@ -25,11 +27,26 @@ function makeSession(id: string, mode: FolderMode): SessionRecord {
   };
 }
 
-function makeGlobal(sessions: SessionRecord[], activeSessionId: string): ExtensionGlobalState {
+function makeGlobal(sessions: SessionRecord[], activeSessionId: string | null): ExtensionGlobalState {
   return {
     ...createEmptyGlobalState(),
     sessions,
     activeSessionId
+  };
+}
+
+function makeDescriptor(id: string) {
+  return {
+    target_type: "post" as const,
+    page_url: `https://www.threads.net/@dlens/post/${id}`,
+    post_url: `https://www.threads.net/@dlens/post/${id}`,
+    author_hint: "dlens",
+    text_snippet: `signal ${id}`,
+    time_token_hint: "1h",
+    dom_anchor: id,
+    engagement: { likes: 1 },
+    engagement_present: { likes: true },
+    captured_at: "2026-05-27T00:00:00.000Z"
   };
 }
 
@@ -164,6 +181,51 @@ test("session/set-mode existing target mode writes only active-session and tab k
     harness.tabKey
   ].toSorted()]);
   assert.equal(harness.state[backgroundTestables.ACTIVE_SESSION_ID_STORAGE_KEY], product.id);
+});
+
+test("state/get-active-tab normalizes a null active session when sessions still exist", async () => {
+  const topic = makeSession("topic-session", "topic");
+  const product = makeSession("product-session", "product");
+  const tabKey = backgroundTestables.tabStorageKey(TAB_ID);
+  const harness = await createHarness({
+    [backgroundTestables.GLOBAL_STORAGE_KEY]: makeGlobal([topic, product], null),
+    [tabKey]: createEmptyTabState()
+  });
+
+  const response = await harness.dispatch({ type: "state/get-active-tab" });
+
+  assert.equal(response.ok, true);
+  assert.equal(response.snapshot?.global.activeSessionId, topic.id);
+  assert.deepEqual(harness.writes, []);
+});
+
+test("signal/list repairs missing product signal rows from existing session items", async () => {
+  const product = {
+    ...makeSession("product-session", "product"),
+    items: [
+      {
+        ...createSessionItem(makeDescriptor("post-1"), "2026-05-27T00:00:00.000Z"),
+        id: "item-1"
+      },
+      {
+        ...createSessionItem(makeDescriptor("post-2"), "2026-05-27T00:00:00.000Z"),
+        id: "item-2"
+      }
+    ]
+  };
+  const tabKey = backgroundTestables.tabStorageKey(TAB_ID);
+  const harness = await createHarness({
+    [backgroundTestables.GLOBAL_STORAGE_KEY]: makeGlobal([product], product.id),
+    [backgroundTestables.ACTIVE_SESSION_ID_STORAGE_KEY]: product.id,
+    [tabKey]: createEmptyTabState()
+  });
+
+  const response = await harness.dispatch({ type: "signal/list", sessionId: product.id });
+
+  assert.equal(response.ok, true);
+  assert.equal(response.signals?.length, 2);
+  assert.deepEqual(response.signals?.map((signal) => signal.itemId).sort(), ["item-1", "item-2"]);
+  assert.equal((harness.state[SIGNALS_STORAGE_KEY] as unknown[]).length, 2);
 });
 
 test("session/set-mode missing target mode persists the global key", async () => {

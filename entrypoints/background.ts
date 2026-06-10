@@ -129,6 +129,7 @@ import {
   type FolderMode,
   type ProductContext,
   type ProductSignalAnalysis,
+  type Signal,
   type SessionItem,
   type SessionRecord,
   type TabUiState
@@ -154,7 +155,7 @@ import {
   updateSessionItem,
   type ItemRefreshResult
 } from "../src/state/store-helpers";
-import { ensureSignalForSavedItem, ensureWorkspaceTopicForSession, handleTopicMessage } from "../src/state/topic-handlers";
+import { ensureSignalForSavedItem, ensureSignalsForSessionItems, ensureWorkspaceTopicForSession, handleTopicMessage } from "../src/state/topic-handlers";
 import { handleTopicAuditMessage } from "../src/state/topic-audit-handlers";
 import { deleteSignal, loadSignals, loadTopicById, loadTopics, saveTopic } from "../src/state/topic-storage";
 import { generateTopicSynthesis } from "../src/compare/topic-synthesis";
@@ -193,6 +194,14 @@ const COMPARE_CACHE_MAX_ENTRIES = 50;
 const DEFAULT_STORAGE_QUOTA_BYTES = 10 * 1024 * 1024;
 const productSignalAnalysisInFlight = new Map<string, Promise<ProductSignalAnalysis[]>>();
 const prCriteriaMatchInFlight = new Map<string, Promise<PrEvidenceRow[]>>();
+
+type ProductSignalFailureDetail = {
+  signalId: string;
+  itemId?: string;
+  sourceUrl?: string;
+  error: string;
+  errorKind?: string | null;
+};
 
 // In-memory hover state per tab — never persisted to storage
 const tabHoverCache = new Map<number, Pick<TabUiState, "hoveredTarget" | "hoveredTargetStrength" | "flashPreview" | "currentPreview">>();
@@ -324,9 +333,15 @@ async function loadSnapshot(tabId: number): Promise<ExtensionSnapshot> {
 }
 
 function normalizeGlobalState(state: ExtensionGlobalState): ExtensionGlobalState {
+  const sessions = Array.isArray(state?.sessions) ? state.sessions.map((session) => normalizeSessionRecord(session)) : [];
+  const activeSessionId =
+    typeof state?.activeSessionId === "string" && sessions.some((session) => session.id === state.activeSessionId)
+      ? state.activeSessionId
+      : sessions[0]?.id ?? null;
   return {
     ...state,
-    sessions: Array.isArray(state?.sessions) ? state.sessions.map((session) => normalizeSessionRecord(session)) : [],
+    sessions,
+    activeSessionId,
     settings: normalizeExtensionSettings(state?.settings)
   };
 }
@@ -463,6 +478,51 @@ function buildProductSignalErrorAnalysis({
     status: "error",
     error: message
   };
+}
+
+function buildProductSignalFailureDetails({
+  session,
+  signals,
+  analyses
+}: {
+  session: SessionRecord | null;
+  signals: Signal[];
+  analyses: ProductSignalAnalysis[];
+}): ProductSignalFailureDetail[] {
+  const itemById = new Map((session?.items || []).map((item) => [item.id, item]));
+  const signalById = new Map(signals.map((signal) => [signal.id, signal]));
+  const failures: ProductSignalFailureDetail[] = [];
+  const seenSignalIds = new Set<string>();
+
+  for (const signal of signals) {
+    const item = signal.itemId ? itemById.get(signal.itemId) : null;
+    if (!item || (!item.lastError && item.status !== "failed")) {
+      continue;
+    }
+    seenSignalIds.add(signal.id);
+    failures.push({
+      signalId: signal.id,
+      itemId: item.id,
+      sourceUrl: item.canonicalTargetUrl || item.descriptor.post_url || item.descriptor.page_url,
+      error: item.lastError || "Backend processing failed.",
+      errorKind: item.lastErrorKind
+    });
+  }
+
+  for (const analysis of analyses) {
+    if (analysis.status !== "error" || seenSignalIds.has(analysis.signalId)) {
+      continue;
+    }
+    const signal = signalById.get(analysis.signalId);
+    failures.push({
+      signalId: analysis.signalId,
+      ...(signal?.itemId ? { itemId: signal.itemId } : {}),
+      error: analysis.error || analysis.reason || "Product signal analysis failed.",
+      errorKind: "product_signal_analysis"
+    });
+  }
+
+  return failures.slice(0, 5);
 }
 
 async function compileProductContextIfReady(global: ExtensionGlobalState): Promise<{ productContext: ProductContext | null; error: string | null }> {
@@ -2305,6 +2365,13 @@ export default defineBackground(() => {
           case "signal/list":
           case "signal/triage": {
             const tabId = await resolveTabId(sender);
+            if (message.type === "signal/list") {
+              const current = await loadSnapshotCached(tabId);
+              const session = current.global.sessions.find((entry) => entry.id === message.sessionId) ?? null;
+              if (session?.mode === "product" && session.items.length > 0) {
+                await ensureSignalsForSessionItems(chrome.storage.local, session);
+              }
+            }
             if (message.type === "topic/set-collection-target") {
               sendResponse({
                 ok: true,
@@ -2757,6 +2824,11 @@ export default defineBackground(() => {
               await triggerWorkerDrain(normalizeBaseUrl(current.global.settings.ingestBaseUrl));
             }
             const productSignalAnalyses = await analyzeProductSignalsForSession(current.global, message.sessionId);
+            const failureDetails = buildProductSignalFailureDetails({
+              session,
+              signals,
+              analyses: productSignalAnalyses
+            });
             sendResponse({
               ok: true,
               tabId,
@@ -2765,7 +2837,8 @@ export default defineBackground(() => {
               productSignalAnalysisSummary: {
                 queued: queued.queued,
                 analyzed: productSignalAnalyses.filter((analysis) => analysis.status === "complete").length,
-                failed: productSignalAnalyses.filter((analysis) => analysis.status === "error").length
+                failed: failureDetails.length,
+                failures: failureDetails
               }
             } satisfies ExtensionResponse);
             return;
