@@ -251,9 +251,15 @@ export function pickCompareSelection(
   return { selectedA: nextA, selectedB: nextB };
 }
 
+// Low-frequency heartbeat while the worker is idle: worker/get-status hits the
+// ingest backend, so this is what lets passive surfaces (readiness panel, mode
+// header stamp) flip to Backend 離線 without an analyze click (B-03). It also
+// bounds how stale a recovery can look after the backend comes back.
+const IDLE_BACKEND_HEARTBEAT_MS = 12000;
+
 export function getPollingDelayMs(input: PollingDelayInput): number | null {
   if (!input.hasInflight && input.workerStatus === "idle") {
-    return null;
+    return IDLE_BACKEND_HEARTBEAT_MS;
   }
   const base = input.workerStatus === "draining" ? 4000 : 8000;
   const multiplier = input.failureCount <= 0 ? 1 : Math.min(2 ** input.failureCount, 4);

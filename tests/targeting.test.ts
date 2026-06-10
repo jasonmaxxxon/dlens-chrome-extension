@@ -1,4 +1,5 @@
 import assert from "node:assert/strict";
+import { readFileSync } from "node:fs";
 import test from "node:test";
 
 import {
@@ -180,4 +181,23 @@ test("cleanBodyText keeps CJK post text even when it has no spaces", () => {
     threadsTargetingTestables.cleanBodyText("一張圖讓你知道現在的就業出路有多艱難\nLike\n7"),
     "一張圖讓你知道現在的就業出路有多艱難"
   );
+});
+
+test("findCardCandidate promotes depth-capped fragment wins to the enclosing post root", () => {
+  const source = readFileSync(new URL("../src/targeting/threads.ts", import.meta.url), "utf8");
+
+  const promoteStart = source.indexOf("function promoteCandidateToPostRoot(");
+  assert.notEqual(promoteStart, -1, "promotion helper must exist");
+  const promoteEnd = source.indexOf("\nexport function findCardCandidate", promoteStart);
+  assert.notEqual(promoteEnd, -1, "promotion helper must precede findCardCandidate");
+  const promoteBlock = source.slice(promoteStart, promoteEnd);
+
+  // Walks past the depth budget to the real article root, and only promotes
+  // when the root classifies at least as strongly as the fragment.
+  assert.match(promoteBlock, /closest\("article, div\[role='article'\]"\)/);
+  assert.match(promoteBlock, /score >= candidate\.score/);
+
+  const findStart = source.indexOf("export function findCardCandidate(");
+  const findBlock = source.slice(findStart, source.indexOf("\nexport function findCardRoot", findStart));
+  assert.match(findBlock, /return promoteCandidateToPostRoot\(best\);/);
 });

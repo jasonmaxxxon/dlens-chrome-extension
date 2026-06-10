@@ -1128,7 +1128,7 @@ test("ProductSignalView shows real readiness state without fake AI results", () 
   );
 
   assert.match(html, /data-product-signal-view="saved-signals"/);
-  assert.match(html, /Saved Signals/);
+  assert.match(html, /已存訊號/);
   assert.match(html, /1 signals/);
   assert.match(html, /0 analyses/);
   assert.match(html, /ProductProfile/);
@@ -1206,7 +1206,7 @@ test("ProductSignalView surfaces backend health errors even when analyses alread
 
   assert.match(html, /Backend 離線/);
   assert.match(html, /Backend 無法連線。請到設定確認 backend URL/);
-  assert.doesNotMatch(html, /AI enabled/);
+  assert.doesNotMatch(html, /AI enabled|分析完成/);
   assert.doesNotMatch(html, /✓ 已就緒/);
 });
 
@@ -1259,7 +1259,7 @@ test("ProductSignalView keeps existing analyses visible when signal inbox is emp
   assert.match(html, /data-product-recovered-analyses="true"/);
   assert.match(html, /已有 1 筆既有分析，但目前 signal 清單是空的/);
   assert.match(html, /使用者想把 Threads 討論直接變成可執行任務。/);
-  assert.match(html, /AI enabled/);
+  assert.match(html, /分析完成/);
   assert.match(html, /噪音/);
   assert.doesNotMatch(html, /前提不符/);
   assert.doesNotMatch(html, /signal_orphan/);
@@ -1296,7 +1296,7 @@ test("ProductSignalView shows hydration state instead of an empty result while p
 
   assert.match(html, /data-product-hydrating="true"/);
   assert.match(html, /讀取中/);
-  assert.doesNotMatch(html, /No result/);
+  assert.doesNotMatch(html, /No result|尚無結果/);
   assert.doesNotMatch(html, /尚未有 AI 分析結果/);
 });
 
@@ -1478,7 +1478,7 @@ test("ProductSignalView keeps Agent export off Product action pages", () => {
   assert.doesNotMatch(actionableHtml, /Agent export/);
   assert.doesNotMatch(actionableHtml, /原文優先/);
   assert.doesNotMatch(actionableHtml, /精簡決策/);
-  assert.doesNotMatch(actionableHtml, /複製 Agent Brief/);
+  assert.doesNotMatch(actionableHtml, /複製 Agent Brief|複製行動簡報/);
   assert.doesNotMatch(actionableHtml, /data-signal-packet-html-export="true"/);
   assert.doesNotMatch(actionableHtml, /data-signal-packet-format-option="html"/);
   assert.doesNotMatch(actionableHtml, /data-signal-packet-format-option="jsonl"/);
@@ -1854,7 +1854,7 @@ test("ActionableItemCard marginalia rail contains verdict, relevance, and task s
   assert.match(html, /data-testid="rail-verdict"[^>]*data-verdict-value="try"[^>]*>值得嘗試/);
   assert.match(html, /data-testid="rail-relevance"/);
   assert.match(html, /data-testid="rail-task"/);
-  assert.match(html, /TASK ›/);
+  assert.match(html, /任務 ›/);
   assert.match(html, /產出 release-note 草稿/);
 });
 
@@ -1909,7 +1909,7 @@ test("ActionableItemCard renders noise and park verdicts as exclusion cards with
   assert.match(html, /沒有可採用的產品需求或 workflow pattern/);
   assert.match(html, /暫無直接用途/);
   assert.doesNotMatch(html, /data-testid="marginalia-experiment"/);
-  assert.doesNotMatch(html, /可借用 workflow|TASK ›|排入小實驗|保留觀察/);
+  assert.doesNotMatch(html, /可借用 workflow|TASK ›|任務 ›|排入小實驗|保留觀察/);
 });
 
 test("ActionableItemCard defaults to verdict layout without layout prop", () => {
@@ -2283,10 +2283,113 @@ test("merged candidate-action board keeps AI commentary collapsed on action rout
   const openDetails = html.match(/<details open=""[^]*?<\/details>/g) ?? [];
 
   assert.equal(openDetails.length, 0);
-  assert.match(html, /Agent Brief/);
+  assert.match(html, /行動簡報/);
   assert.doesNotMatch(html, /儲存至行動清單|>\+<\/span> 儲存/);
   assert.match(html, /s1 摘錄。/);
   assert.match(html, /s2 摘錄。/);
+});
+
+test("actionable view with analyses but no readings surfaces the first-reading CTA", () => {
+  const baseProps = {
+    signals: [
+      { id: "s1", sessionId: "sess", itemId: "i1", source: "threads" as const, inboxStatus: "unprocessed" as const, capturedAt: "2026-04-28T00:00:00.000Z" }
+    ],
+    analyses: [{
+      signalId: "s1",
+      signalType: "demand" as const,
+      signalSubtype: "subtype",
+      contentType: "discussion_starter" as const,
+      contentSummary: "卡片 s1",
+      relevance: 5 as const,
+      relevantTo: ["coreWorkflows" as const],
+      whyRelevant: "相關。",
+      verdict: "try" as const,
+      reason: "理由。",
+      evidenceRefs: ["e1"],
+      evidenceNotes: [{ ref: "e1", quoteSummary: "s1 摘錄。", whyItMatters: "s1 引用原因。" }],
+      productContextHash: "ctx",
+      promptVersion: "v3",
+      analyzedAt: "2026-04-28T01:00:00.000Z",
+      status: "complete" as const
+    }],
+    productProfile: {
+      name: "DLens", category: "x", audience: "y", contextText: "z",
+      contextFiles: [{ id: "f", name: "README.md", kind: "readme" as const, importedAt: "2026-04-28T00:00:00.000Z", charCount: 1 }]
+    },
+    onAnalyze: () => undefined,
+    onSynthesizeSignalReading: async () => ({ ok: true as const, reading: "r" })
+  };
+
+  const html = renderToStaticMarkup(
+    React.createElement(ProductSignalView as any, { ...baseProps, kind: "actionable-filter", signalReadings: [] })
+  );
+
+  assert.match(html, /data-reading-first-run-cta="true"/);
+  assert.match(html, /深度判讀/);
+  assert.match(html, /data-actionable-insights-board="true"/);
+
+  const withReading = renderToStaticMarkup(
+    React.createElement(ProductSignalView as any, {
+      ...baseProps,
+      kind: "actionable-filter",
+      signalReadings: [{
+        signalId: "s1",
+        cacheKey: "k1",
+        productContextHash: "ctx",
+        sourcePacketHash: "pkt",
+        promptVersion: "v5.1",
+        reading: "判讀內容",
+        generatedAt: "2026-04-28T02:00:00.000Z",
+        model: "google:test",
+        sourceRefs: ["e1"],
+        sourcePacket: { assembledContent: "src", postUrl: "", representativeComments: [], analysisPromptVersion: "v16" },
+        feedbackEvents: [],
+        reviewState: "pending"
+      }]
+    })
+  );
+
+  assert.doesNotMatch(withReading, /data-reading-first-run-cta="true"/);
+  assert.match(withReading, /data-signal-reading-review-workspace="true"/);
+});
+
+test("product view chrome stays 繁中 — no english workspace labels", () => {
+  const baseProps = {
+    signals: [
+      { id: "s1", sessionId: "sess", itemId: "i1", source: "threads" as const, inboxStatus: "unprocessed" as const, capturedAt: "2026-04-28T00:00:00.000Z" }
+    ],
+    analyses: [{
+      signalId: "s1",
+      signalType: "demand" as const,
+      signalSubtype: "subtype",
+      contentType: "discussion_starter" as const,
+      contentSummary: "卡片 s1",
+      relevance: 5 as const,
+      relevantTo: ["coreWorkflows" as const],
+      whyRelevant: "相關。",
+      verdict: "try" as const,
+      reason: "理由。",
+      evidenceRefs: ["e1"],
+      evidenceNotes: [{ ref: "e1", quoteSummary: "s1 摘錄。", whyItMatters: "s1 引用原因。" }],
+      productContextHash: "ctx",
+      promptVersion: "v3",
+      analyzedAt: "2026-04-28T01:00:00.000Z",
+      status: "complete" as const
+    }],
+    productProfile: {
+      name: "DLens", category: "x", audience: "y", contextText: "z",
+      contextFiles: [{ id: "f", name: "README.md", kind: "readme" as const, importedAt: "2026-04-28T00:00:00.000Z", charCount: 1 }]
+    },
+    onAnalyze: () => undefined
+  };
+  const englishChrome = /Saved Signals|Agent Brief|AI enabled|TASK ›|No result/;
+
+  for (const kind of ["saved-signals", "actionable-filter"] as const) {
+    const html = renderToStaticMarkup(
+      React.createElement(ProductSignalView as any, { ...baseProps, kind, signalReadings: [] })
+    );
+    assert.doesNotMatch(html, englishChrome, `${kind} must not render english chrome labels`);
+  }
 });
 
 test("citationsForAnalysis filters out refs missing both entry and note", () => {
@@ -2618,14 +2721,14 @@ test("ProductSignalView restores the 0.1.15 reading review route when readings e
     })
   );
 
-  assert.match(html, /Agent Brief/);
+  assert.match(html, /行動簡報/);
   assert.match(html, /READING REVIEW/);
   assert.match(html, /data-signal-reading-review-workspace="true"[^>]*padding-bottom:76px/);
   assert.doesNotMatch(html, /data-saved-signals-batch-export="true"/);
   assert.doesNotMatch(html, /Agent export/);
   assert.doesNotMatch(html, /原文優先/);
   assert.doesNotMatch(html, /精簡決策/);
-  assert.doesNotMatch(html, /複製 Agent Brief/);
+  assert.doesNotMatch(html, /複製 Agent Brief|複製行動簡報/);
   assert.doesNotMatch(html, /data-actionable-insights-board="true"/);
   assert.match(html, /收錄此判讀/);
   assert.match(html, /已收錄/);

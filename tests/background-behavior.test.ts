@@ -199,6 +199,36 @@ test("state/get-active-tab normalizes a null active session when sessions still 
   assert.deepEqual(harness.writes, []);
 });
 
+test("selection toggle writes only the tab key and starts content selection with the active mode", async () => {
+  const product = makeSession("product-session", "product");
+  const tabKey = backgroundTestables.tabStorageKey(TAB_ID);
+  const harness = await createHarness({
+    [backgroundTestables.GLOBAL_STORAGE_KEY]: makeGlobal([product], product.id),
+    [backgroundTestables.ACTIVE_SESSION_ID_STORAGE_KEY]: product.id,
+    [tabKey]: createEmptyTabState()
+  });
+
+  const startResponse = await harness.dispatch({ type: "selection/start-active-tab" });
+
+  assert.equal(startResponse.ok, true);
+  assert.equal(startResponse.snapshot?.tab.selectionMode, true);
+  assert.deepEqual(
+    harness.tabMessageTargets
+      .filter(({ message }) => message.type === "selection/start-tab")
+      .map(({ tabId, message }) => ({ tabId, mode: (message as { mode?: string }).mode })),
+    [{ tabId: TAB_ID, mode: "product" }]
+  );
+  // The toggle only changes tab UI state — the heavy global blob must not be rewritten.
+  assert.deepEqual(harness.writes, [[tabKey]]);
+
+  harness.writes.length = 0;
+  const cancelResponse = await harness.dispatch({ type: "selection/cancel-active-tab" });
+
+  assert.equal(cancelResponse.ok, true);
+  assert.equal(cancelResponse.snapshot?.tab.selectionMode, false);
+  assert.deepEqual(harness.writes, [[tabKey]]);
+});
+
 test("topic↔product switching across worker restarts keeps the product session aligned", async () => {
   const topic = makeSession("topic-session", "topic");
   const product = {

@@ -178,7 +178,7 @@ export const DLENS_MOTION_CSS = `
 
 const PAGE_COPY: Record<ProductSignalPageKind, { title: string; deck: string }> = {
   "saved-signals": {
-    title: "Saved Signals",
+    title: "已存訊號",
     deck: "先確認已儲存的 Threads post 是否完成抓取，再到行動頁整理可試 workflow。"
   },
   classification: {
@@ -186,7 +186,7 @@ const PAGE_COPY: Record<ProductSignalPageKind, { title: string; deck: string }> 
     deck: "先把每則 Threads signal 放回正確範疇，再決定是否值得產品團隊處理。"
   },
   "actionable-filter": {
-    title: "Agent Brief",
+    title: "行動簡報",
     deck: "先審視模型判讀，再把已收錄 reading 組成可貼給 coding agent 的 brief。"
   },
 };
@@ -2146,7 +2146,7 @@ function SavedSignalsBoard({
     <section data-saved-signals-route="true" style={{ display: "grid", gap: 12 }}>
       <div style={cardStyle({ gap: 10 })}>
         <div style={{ display: "flex", justifyContent: "space-between", gap: 10, alignItems: "baseline" }}>
-          <Kicker>Saved Signals</Kicker>
+          <Kicker>已存訊號</Kicker>
           <span style={{ ...textStyles.meta, color: tokens.color.softInk }}>{signals.length} saved</span>
         </div>
         <div data-scan-list="saved-signals" style={{ display: "grid" }}>
@@ -2334,6 +2334,59 @@ function SignalReadingDisclosure({
         </div>
       ) : null}
     </div>
+  );
+}
+
+function FirstReadingCta({
+  signal,
+  analysisCount,
+  onSynthesize
+}: {
+  signal: Signal;
+  analysisCount: number;
+  onSynthesize: SynthesizeSignalReading;
+}) {
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  const handleGenerate = () => {
+    if (loading) {
+      return;
+    }
+    setLoading(true);
+    setError(null);
+    void onSynthesize(signal.id, signal.sessionId).then((result) => {
+      if (!result.ok) {
+        setError(result.error);
+      }
+      setLoading(false);
+    });
+  };
+
+  return (
+    <section
+      data-reading-first-run-cta="true"
+      style={{
+        display: "grid",
+        gap: 8,
+        padding: "12px 14px",
+        borderRadius: tokens.radius.cardLg,
+        border: `1px solid var(--dlens-mode-accent-soft, ${tokens.color.productSoft})`,
+        background: `var(--dlens-mode-accent-soft, ${tokens.color.productSoft})`,
+        boxShadow: tokens.shadow.topicCard
+      }}
+    >
+      <Kicker>深度判讀 → 匯出</Kicker>
+      <p style={{ margin: 0, fontSize: 12, lineHeight: 1.6, color: tokens.color.subInk }}>
+        已完成 {analysisCount} 條分析。生成第一份深度判讀後，這裡會變成審核與匯出工作區（Signal Packet／行動簡報）。
+      </p>
+      <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+        <PrimaryButton onClick={handleGenerate} disabled={loading} activateOnPointerDown style={{ padding: "6px 14px", whiteSpace: "nowrap" }}>
+          {loading ? "判讀中…" : "生成第一份深度判讀"}
+        </PrimaryButton>
+        {error ? <span style={{ fontSize: 12, color: tokens.color.queued }}>{error}</span> : null}
+      </div>
+    </section>
   );
 }
 
@@ -2767,7 +2820,7 @@ function SavedSignalsBatchExport({
           );
         })}
       </div>
-      <div role="radiogroup" aria-label="Agent Brief 輸出格式" style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+      <div role="radiogroup" aria-label="行動簡報輸出格式" style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
         {[
           ["original", "原文優先"],
           ["decision", "精簡決策"]
@@ -2794,7 +2847,7 @@ function SavedSignalsBatchExport({
           </button>
         ))}
       </div>
-      <PrimaryButton onClick={copyBrief} disabled={!selectedIds.length}>複製 Agent Brief</PrimaryButton>
+      <PrimaryButton onClick={copyBrief} disabled={!selectedIds.length}>複製行動簡報</PrimaryButton>
       <div
         data-agent-brief-copy-status={copyStatus}
         aria-live="polite"
@@ -3538,7 +3591,7 @@ function ActionableItemCard({
                 gap: 6
               }}
             >
-              <span style={{ fontSize: 10, fontWeight: 850, letterSpacing: "0.06em" }}>TASK ›</span>
+              <span style={{ fontSize: 10, fontWeight: 850, letterSpacing: "0.06em" }}>任務 ›</span>
               <span style={{ fontSize: 12, lineHeight: 1.45, fontWeight: 650 }}>{taskSlotCopy}</span>
             </div>
           </aside>
@@ -3959,6 +4012,7 @@ export function ProductSignalView({
   const pendingSignals = safeSignals.filter((signal) => bySignal.get(signal.id)?.status !== "complete");
   const canAnalyze = canRunProductSignalAction({ signals: safeSignals, productProfile, aiProviderReady, signalReadinessById });
   const showSignalReadingReview = scopedSignalReadings.length > 0;
+  const firstSynthesizableSignal = safeSignals.find((signal) => bySignal.get(signal.id)?.status === "complete") ?? null;
   const [selectedSignalIds, setSelectedSignalIds] = useState<string[]>([]);
 
   function toggleSelectedSignal(signalId: string) {
@@ -3988,7 +4042,7 @@ export function ProductSignalView({
             ? <Stamp tone="warning">Backend 離線</Stamp>
             : isHydrating && scopedAnalyses.length === 0
               ? <Stamp tone="neutral">讀取中</Stamp>
-            : <Stamp tone={scopedAnalyses.length ? "success" : "neutral"}>{scopedAnalyses.length ? "AI enabled" : "No result"}</Stamp>
+            : <Stamp tone={scopedAnalyses.length ? "success" : "neutral"}>{scopedAnalyses.length ? "分析完成" : "尚無結果"}</Stamp>
         }
       />
       <WorkspaceSurface tone="utility" style={{ display: "grid", gap: tokens.spacing.md, overflow: "visible" }}>
@@ -4078,15 +4132,24 @@ export function ProductSignalView({
               onExportSignalPackets={onExportSignalPackets}
             />
           ) : (
-            <ActionableInsightsBoard
-              analyses={scopedAnalyses}
-              productProfile={productProfile}
-              evidenceBySignalId={evidenceBySignalId}
-              historicalAnalyses={safeHistoricalAnalyses}
-              agentTaskFeedback={safeAgentTaskFeedback}
-              cardLayout={cardLayout}
-              onRemoveSignal={onRemoveSignal ? handleRemoveSignal : undefined}
-            />
+            <>
+              {firstSynthesizableSignal && onSynthesizeSignalReading ? (
+                <FirstReadingCta
+                  signal={firstSynthesizableSignal}
+                  analysisCount={scopedAnalyses.length}
+                  onSynthesize={onSynthesizeSignalReading}
+                />
+              ) : null}
+              <ActionableInsightsBoard
+                analyses={scopedAnalyses}
+                productProfile={productProfile}
+                evidenceBySignalId={evidenceBySignalId}
+                historicalAnalyses={safeHistoricalAnalyses}
+                agentTaskFeedback={safeAgentTaskFeedback}
+                cardLayout={cardLayout}
+                onRemoveSignal={onRemoveSignal ? handleRemoveSignal : undefined}
+              />
+            </>
           )
         ) : isHydrating ? null : (
           <div style={cardStyle()}>

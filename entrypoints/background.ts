@@ -1190,6 +1190,10 @@ const getOrGenerateJudgment = createLlmCallWrapper<
 
 interface SnapshotSaveOptions {
   persistActiveSessionId?: boolean;
+  /** Persist only the tab-state key. For mutations that leave the global
+   * state untouched (e.g. selection toggles) this skips serializing and
+   * rewriting the full session blob on the hot path (B-02). */
+  tabOnly?: boolean;
 }
 
 function cacheSnapshot(tabId: number, snapshot: ExtensionSnapshot): void {
@@ -1276,13 +1280,15 @@ async function saveSnapshot(tabId: number, snapshot: ExtensionSnapshot, options:
     ? withPersistableActiveSessionId(snapshot.global)
     : applyStoredActiveSessionId(snapshot.global, globalStateCache?.activeSessionId);
   const nextSnapshot = {
-    global: withTimestamp(global),
+    global: options.tabOnly ? global : withTimestamp(global),
     tab: withTimestamp(normalizeTabState(snapshot.tab))
   };
   const payload: Record<string, unknown> = {
-    [GLOBAL_STORAGE_KEY]: nextSnapshot.global,
     [tabStorageKey(tabId)]: nextSnapshot.tab
   };
+  if (!options.tabOnly) {
+    payload[GLOBAL_STORAGE_KEY] = nextSnapshot.global;
+  }
   if (options.persistActiveSessionId) {
     payload[ACTIVE_SESSION_ID_STORAGE_KEY] = nextSnapshot.global.activeSessionId;
   }
@@ -2209,14 +2215,16 @@ export default defineBackground(() => {
             return;
           }
           case "selection/start-active-tab": {
+            const startedAt = performance.now();
             const tabId = await resolveTabId(sender);
-            const current = await loadSnapshot(tabId);
+            // Cached read: only the active session mode is needed before the
+            // content script can flip the cursor; mutateSnapshot re-reads
+            // under the lock for the persisted write.
+            const current = await loadSnapshotCached(tabId);
             const activeMode = getActiveSession(current.global)?.mode ?? "archive";
             await chrome.tabs.sendMessage(tabId, { type: "selection/start-tab", tabId, mode: activeMode } satisfies ExtensionMessage);
-            sendResponse({
-              ok: true,
-              tabId,
-              snapshot: await mutateSnapshot(tabId, (latest) => ({
+            const snapshot = await mutateSnapshot(tabId, (latest) => ({
+              snapshot: {
                 global: latest.global,
                 tab: {
                   ...setCollectModeState(latest.tab, true),
@@ -2225,24 +2233,35 @@ export default defineBackground(() => {
                   flashPreview: null,
                   error: null
                 }
-              }))
-            } satisfies ExtensionResponse);
+              },
+              saveOptions: { tabOnly: true }
+            }));
+            console.info("[DLens] selection/start-active-tab", {
+              durationMs: Math.round(performance.now() - startedAt),
+              storageSetMs: lastSaveSnapshotStorageMs
+            });
+            sendResponse({ ok: true, tabId, snapshot } satisfies ExtensionResponse);
             return;
           }
           case "selection/cancel-active-tab": {
+            const startedAt = performance.now();
             const tabId = await resolveTabId(sender);
             await chrome.tabs.sendMessage(tabId, { type: "selection/cancel-tab", tabId } satisfies ExtensionMessage);
-            sendResponse({
-              ok: true,
-              tabId,
-              snapshot: await mutateSnapshot(tabId, (current) => ({
+            const snapshot = await mutateSnapshot(tabId, (current) => ({
+              snapshot: {
                 global: current.global,
                 tab: {
                   ...setCollectModeState(current.tab, false),
                   error: null
                 }
-              }))
-            } satisfies ExtensionResponse);
+              },
+              saveOptions: { tabOnly: true }
+            }));
+            console.info("[DLens] selection/cancel-active-tab", {
+              durationMs: Math.round(performance.now() - startedAt),
+              storageSetMs: lastSaveSnapshotStorageMs
+            });
+            sendResponse({ ok: true, tabId, snapshot } satisfies ExtensionResponse);
             return;
           }
           case "selection/hovered": {

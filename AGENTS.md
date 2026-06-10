@@ -1,6 +1,6 @@
 # AGENTS.md — DLens Chrome Extension v0.1
 
-> **Last updated:** 2026-06-09 (Runtime tab targeting fix: content-script `state/get-active-tab` and collect start/cancel now resolve to the sender tab instead of any other focused Chrome tab; this prevents collect UI state from splitting from the Threads content script. Product Reading Review remains guarded to matching `SignalReading` rows, and post-detail cards with reply composers remain collectible. 618/618 tests, typecheck, build, version 0.1.30 mirrored into MV3.)
+> **Last updated:** 2026-06-10 (QA Run 21 code patch round, see `docs/qa/2026-06-09-output-quality-qa.md` §4.10: B-02 selection toggle now persists tab-state only via `saveSnapshot({tabOnly})`; B-03 idle worker poll keeps a 12s backend heartbeat; B-05 snapshot writers refuse null/dangling active-session pointers while sessions exist; B-08 actionable view shows a first-reading CTA when analyses exist without readings; B-09 popup save paths emit collect-save qa-trace events; B-10 `findCardCandidate` promotes depth-capped fragment candidates to the enclosing post root; B-11 product chrome labels are 繁中 (已存訊號/行動簡報/分析完成/任務 ›). 641/641 tests, typecheck, build, version 0.1.30 mirrored into MV3. Live regression checklist pending: §4.10 Run 22.)
 > **For:** any agent continuing work in this repo
 
 ## Recently Fixed (2026-05-28) — Product action board and card geometry

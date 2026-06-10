@@ -312,7 +312,14 @@ test("getPollingDelayMs follows the shared coordinator rules and backoff", () =>
   assert.equal(getPollingDelayMs({ workerStatus: "draining", hasInflight: true, failureCount: 1 }), 8000);
   assert.equal(getPollingDelayMs({ workerStatus: "draining", hasInflight: true, failureCount: 3 }), 15000);
   assert.equal(getPollingDelayMs({ workerStatus: "idle", hasInflight: true, failureCount: 0 }), 8000);
-  assert.equal(getPollingDelayMs({ workerStatus: "idle", hasInflight: false, failureCount: 0 }), null);
+});
+
+test("getPollingDelayMs keeps an idle heartbeat so passive surfaces notice a dead backend", () => {
+  // B-03: idle must not stop polling entirely, or readiness/stamp keep
+  // showing 已就緒 after the backend dies until the user clicks analyze.
+  assert.equal(getPollingDelayMs({ workerStatus: "idle", hasInflight: false, failureCount: 0 }), 12000);
+  // Heartbeat stays flat under failures — recovery is noticed within one beat.
+  assert.equal(getPollingDelayMs({ workerStatus: "idle", hasInflight: false, failureCount: 3 }), 12000);
 });
 
 test("shouldRefreshProcessingFolder keeps refreshing during and just after worker drain", () => {
