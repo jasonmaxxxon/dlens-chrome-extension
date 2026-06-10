@@ -1,0 +1,323 @@
+{
+  "generatedAt": "2026-06-09T16:52:17.916Z",
+  "cwd": "/Users/tung/Desktop/dlens-product-latest",
+  "type": "dlens-code-path-audit",
+  "note": "Read-only code-path evidence. This complements live Chrome QA but does not replace hover/collect/analyze runs.",
+  "summary": {
+    "fail": 2,
+    "warn": 1,
+    "pass": 2
+  },
+  "checks": [
+    {
+      "id": "B-01",
+      "status": "pass",
+      "summary": "collect mode click handler can swallow non-card navigation before proving the click is collectable",
+      "evidence": {
+        "functionRange": {
+          "file": "entrypoints/threads.content.ts",
+          "startLine": 383,
+          "endLine": 431
+        },
+        "preventLine": 399,
+        "stopLine": 400,
+        "candidateLine": 388,
+        "cardGuardLine": 390,
+        "descriptorGuardLine": 395,
+        "preventBeforeCardResolution": false,
+        "preventBeforeCardGuard": false,
+        "preventBeforeDescriptorGuard": false
+      },
+      "expectedFixShape": "resolve card/descriptor first; only call preventDefault/stopPropagation after the click is known to be a collect action; let non-card clicks pass through"
+    },
+    {
+      "id": "B-04",
+      "status": "fail",
+      "summary": "Product analysis UI can render raw errors and the analyze response lacks failed item/job details",
+      "evidence": {
+        "rawErrorHits": [
+          {
+            "file": "src/ui/useInPageCollectorAppState.ts",
+            "line": 1347,
+            "text": "setProductSignalAnalysisError(response.error);",
+            "label": "raw response.error rendered"
+          },
+          {
+            "file": "src/ui/useInPageCollectorAppState.ts",
+            "line": 1440,
+            "text": "setProductSignalAnalysisError(response.error);",
+            "label": "raw response.error rendered"
+          },
+          {
+            "file": "src/ui/useInPageCollectorAppState.ts",
+            "line": 1349,
+            "text": "setProductSignalAnalysisError(error instanceof Error ? error.message : String(error));",
+            "label": "raw thrown error rendered"
+          }
+        ],
+        "responseSummaryHits": [
+          {
+            "file": "entrypoints/background.ts",
+            "line": 2765,
+            "text": "productSignalAnalysisSummary: {",
+            "label": "summary response"
+          }
+        ],
+        "failedItemDetailHits": [],
+        "storeErrorHits": [
+          {
+            "file": "src/state/store-helpers.ts",
+            "line": 156,
+            "text": "lastErrorKind: null,",
+            "label": "stored lastErrorKind"
+          },
+          {
+            "file": "src/state/store-helpers.ts",
+            "line": 337,
+            "text": "if (item.status === \"failed\" && item.lastErrorKind === \"stale_timeout\") {",
+            "label": "stored lastErrorKind"
+          },
+          {
+            "file": "src/state/store-helpers.ts",
+            "line": 390,
+            "text": "lastErrorKind: \"stale_timeout\",",
+            "label": "stored lastErrorKind"
+          },
+          {
+            "file": "src/state/store-helpers.ts",
+            "line": 431,
+            "text": "lastErrorKind: job?.last_error_kind ?? null,",
+            "label": "stored lastErrorKind"
+          },
+          {
+            "file": "src/state/store-helpers.ts",
+            "line": 467,
+            "text": "lastErrorKind: job?.last_error_kind ?? null,",
+            "label": "stored lastErrorKind"
+          },
+          {
+            "file": "src/state/store-helpers.ts",
+            "line": 157,
+            "text": "lastError: null",
+            "label": "stored lastError"
+          },
+          {
+            "file": "src/state/store-helpers.ts",
+            "line": 391,
+            "text": "lastError: staleInFlightError(item)",
+            "label": "stored lastError"
+          },
+          {
+            "file": "src/state/store-helpers.ts",
+            "line": 432,
+            "text": "lastError: job?.last_error ?? null",
+            "label": "stored lastError"
+          },
+          {
+            "file": "src/state/store-helpers.ts",
+            "line": 468,
+            "text": "lastError: job?.last_error ?? null",
+            "label": "stored lastError"
+          }
+        ]
+      },
+      "expectedFixShape": "return failed item/job lastError details from product/analyze-signals and map user-visible errors to concise Chinese copy; keep raw backend detail in console/log evidence"
+    },
+    {
+      "id": "B-06",
+      "status": "pass",
+      "summary": "Product signal display layer still exposes raw provider/schema labels",
+      "evidence": {
+        "rawDisplayHits": []
+      },
+      "expectedFixShape": "centralize label mapping for subtype/contentType/relevance/action CTA; unknown enum must not be shown verbatim in user UI"
+    },
+    {
+      "id": "B-07",
+      "status": "fail",
+      "summary": "noise/park verdicts use the same action-card framing as usable signals",
+      "evidence": {
+        "filterHits": [
+          {
+            "file": "src/ui/ProductSignalViews.tsx",
+            "line": 3689,
+            "text": "const parkItems = analyses.filter((analysis) => verdictFilterKeyForAnalysis(analysis) === \"park\");",
+            "label": "park/noise action filter"
+          },
+          {
+            "file": "src/ui/ProductSignalViews.tsx",
+            "line": 3700,
+            "text": "park: parkItems,",
+            "label": "park items rendered in action board"
+          }
+        ],
+        "actionFramingHits": [
+          {
+            "file": "src/ui/ProductSignalViews.tsx",
+            "line": 3406,
+            "text": "<span style={{ fontSize: 10, fontWeight: 850, letterSpacing: \"0.06em\" }}>TASK ›</span>",
+            "label": "task slot label"
+          },
+          {
+            "file": "src/ui/ProductSignalViews.tsx",
+            "line": 930,
+            "text": "可借用 workflow",
+            "label": "workflow framing"
+          },
+          {
+            "file": "src/ui/ProductSignalViews.tsx",
+            "line": 3242,
+            "text": "<span style={{ fontSize: 10.5, color: tokens.color.softInk }}>可借用 workflow</span>",
+            "label": "workflow framing"
+          }
+        ]
+      },
+      "expectedFixShape": "render park/noise/premise-mismatch as exclusion cards without workflow/task CTA; keep action framing for try/watch signals only"
+    },
+    {
+      "id": "B-08",
+      "status": "warn",
+      "summary": "Signal Packet review/export workspace is gated behind existing SignalReading records, while first-reading creation lives elsewhere",
+      "evidence": {
+        "gateHits": [
+          {
+            "file": "src/ui/ProductSignalViews.tsx",
+            "line": 3822,
+            "text": "const showSignalReadingReview = scopedSignalReadings.length > 0;",
+            "label": "reading review gate"
+          },
+          {
+            "file": "src/ui/ProductSignalViews.tsx",
+            "line": 3919,
+            "text": ") : showSignalReadingReview ? (",
+            "label": "conditional review workspace"
+          },
+          {
+            "file": "src/ui/ProductSignalViews.tsx",
+            "line": 3920,
+            "text": "<SignalReadingReviewWorkspace",
+            "label": "review/export workspace"
+          }
+        ],
+        "firstRunCtaHits": [
+          {
+            "file": "src/ui/ProductSignalViews.tsx",
+            "line": 2287,
+            "text": "{open ? \"▾ 深度判讀\" : \"▸ 深度判讀\"}",
+            "label": "visible reading disclosure"
+          },
+          {
+            "file": "src/ui/ProductSignalViews.tsx",
+            "line": 2564,
+            "text": "尚未生成深度判讀。生成後才能收錄進本地判讀庫。",
+            "label": "visible reading disclosure"
+          },
+          {
+            "file": "src/ui/ProductSignalViews.tsx",
+            "line": 2238,
+            "text": "function SignalReadingDisclosure({",
+            "label": "visible reading disclosure component"
+          },
+          {
+            "file": "src/ui/ProductSignalViews.tsx",
+            "line": 2600,
+            "text": "<SignalReadingDisclosure signal={signal} onSynthesize={onSynthesizeSignalReading} />",
+            "label": "visible reading disclosure component"
+          },
+          {
+            "file": "src/ui/ProductSignalViews.tsx",
+            "line": 2737,
+            "text": "<SignalReadingDisclosure signal={signal} onSynthesize={onSynthesizeSignalReading} />",
+            "label": "visible reading disclosure component"
+          },
+          {
+            "file": "src/ui/ProductSignalViews.tsx",
+            "line": 2322,
+            "text": "onSynthesizeSignalReading,",
+            "label": "synthesis callback"
+          },
+          {
+            "file": "src/ui/ProductSignalViews.tsx",
+            "line": 2334,
+            "text": "onSynthesizeSignalReading?: SynthesizeSignalReading;",
+            "label": "synthesis callback"
+          },
+          {
+            "file": "src/ui/ProductSignalViews.tsx",
+            "line": 2426,
+            "text": "if (!onSynthesizeSignalReading || regeneratingSignalId) {",
+            "label": "synthesis callback"
+          },
+          {
+            "file": "src/ui/ProductSignalViews.tsx",
+            "line": 2431,
+            "text": "void onSynthesizeSignalReading(signal.id, signal.sessionId, true).then((result) => {",
+            "label": "synthesis callback"
+          },
+          {
+            "file": "src/ui/ProductSignalViews.tsx",
+            "line": 2569,
+            "text": "{onSynthesizeSignalReading ? (",
+            "label": "synthesis callback"
+          },
+          {
+            "file": "src/ui/ProductSignalViews.tsx",
+            "line": 2599,
+            "text": ") : onSynthesizeSignalReading ? (",
+            "label": "synthesis callback"
+          },
+          {
+            "file": "src/ui/ProductSignalViews.tsx",
+            "line": 2600,
+            "text": "<SignalReadingDisclosure signal={signal} onSynthesize={onSynthesizeSignalReading} />",
+            "label": "synthesis callback"
+          },
+          {
+            "file": "src/ui/ProductSignalViews.tsx",
+            "line": 2649,
+            "text": "onSynthesizeSignalReading,",
+            "label": "synthesis callback"
+          },
+          {
+            "file": "src/ui/ProductSignalViews.tsx",
+            "line": 2663,
+            "text": "onSynthesizeSignalReading?: SynthesizeSignalReading;",
+            "label": "synthesis callback"
+          },
+          {
+            "file": "src/ui/ProductSignalViews.tsx",
+            "line": 2736,
+            "text": "{checked && onSynthesizeSignalReading ? (",
+            "label": "synthesis callback"
+          },
+          {
+            "file": "src/ui/ProductSignalViews.tsx",
+            "line": 2737,
+            "text": "<SignalReadingDisclosure signal={signal} onSynthesize={onSynthesizeSignalReading} />",
+            "label": "synthesis callback"
+          },
+          {
+            "file": "src/ui/ProductSignalViews.tsx",
+            "line": 3775,
+            "text": "onSynthesizeSignalReading,",
+            "label": "synthesis callback"
+          },
+          {
+            "file": "src/ui/ProductSignalViews.tsx",
+            "line": 3800,
+            "text": "onSynthesizeSignalReading?: SynthesizeSignalReading;",
+            "label": "synthesis callback"
+          },
+          {
+            "file": "src/ui/ProductSignalViews.tsx",
+            "line": 3929,
+            "text": "onSynthesizeSignalReading={onSynthesizeSignalReading}",
+            "label": "synthesis callback"
+          }
+        ],
+        "hasVisibleFirstRunCta": true
+      },
+      "expectedFixShape": "when analyses exist but scopedSignalReadings is empty, surface the first-reading action near the review/export affordance instead of requiring users to discover it through selection/disclosure rows"
+    }
+  ]
+}

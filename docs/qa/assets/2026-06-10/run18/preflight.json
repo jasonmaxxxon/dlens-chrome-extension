@@ -1,0 +1,284 @@
+{
+  "generatedAt": "2026-06-10T02:18:04.272Z",
+  "cwd": "/Users/tung/Desktop/dlens-product-latest",
+  "chrome": {
+    "chromeBase": "/Users/tung/Library/Application Support/Google/Chrome",
+    "localStatePath": "/Users/tung/Library/Application Support/Google/Chrome/Local State",
+    "profileDirectory": "Default",
+    "profileInfo": {
+      "active_time": 1781057780.165513,
+      "avatar_icon": "chrome://theme/IDR_PROFILE_AVATAR_26",
+      "background_apps": false,
+      "default_avatar_fill_color": -9761,
+      "default_avatar_stroke_color": -2555870,
+      "enterprise_label": "",
+      "force_signin_profile_locked": false,
+      "gaia_given_name": "Jason",
+      "gaia_id": "110142701139477295164",
+      "gaia_name": "Jason Lam",
+      "gaia_picture_file_name": "Google Profile Picture.png",
+      "hosted_domain": "brandonproject.co",
+      "is_consented_primary_account": false,
+      "is_ephemeral": false,
+      "is_glic_eligible": true,
+      "is_managed": 1,
+      "is_using_default_avatar": true,
+      "is_using_default_name": false,
+      "last_downloaded_gaia_picture_url_with_size": "https://lh3.googleusercontent.com/a/ACg8ocL2Y9KIl67r5xDgwH1jKvQRk56gOhgiN2RcwaE5ntHfs4bZeg=s256-c-ns",
+      "managed_user_id": "",
+      "metrics_bucket_index": 1,
+      "name": "brandonproject.co",
+      "profile_color_seed": -806210,
+      "profile_highlight_color": -9761,
+      "signin.with_credential_provider": false,
+      "user_accepted_account_management": true,
+      "user_name": "jason@brandonproject.co"
+    },
+    "cookies": {
+      "profileRoot": {
+        "dbPath": "/Users/tung/Library/Application Support/Google/Chrome/Default/Cookies",
+        "exists": true,
+        "ok": true,
+        "error": null,
+        "hosts": [
+          {
+            "host": ".instagram.com",
+            "count": 10
+          },
+          {
+            "host": ".threads.com",
+            "count": 9
+          },
+          {
+            "host": ".threads.net",
+            "count": 3
+          }
+        ]
+      },
+      "network": {
+        "dbPath": "/Users/tung/Library/Application Support/Google/Chrome/Default/Network/Cookies",
+        "exists": false,
+        "hosts": []
+      }
+    },
+    "tabs": {
+      "ok": true,
+      "error": null,
+      "stderr": "",
+      "tabs": [
+        {
+          "windowIndex": 1,
+          "tabIndex": 1,
+          "title": "DLens · 2027 Design Gallery",
+          "url": "file:///Users/tung/Desktop/dlens-product-latest/docs/mockups/2026-06-09-design-gallery.html",
+          "isThreads": false
+        },
+        {
+          "windowIndex": 1,
+          "tabIndex": 2,
+          "title": "Threads",
+          "url": "https://www.threads.com/",
+          "isThreads": true
+        },
+        {
+          "windowIndex": 1,
+          "tabIndex": 3,
+          "title": "Threads",
+          "url": "https://www.threads.com/",
+          "isThreads": true
+        },
+        {
+          "windowIndex": 1,
+          "tabIndex": 4,
+          "title": "Threads",
+          "url": "https://www.threads.com/",
+          "isThreads": true
+        }
+      ]
+    },
+    "processes": {
+      "ok": true,
+      "processes": [
+        {
+          "pid": 13660,
+          "commandPath": "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome",
+          "userDataDir": "/Users/tung/.cache/chrome-devtools-mcp/chrome-profile",
+          "profileDirectory": null,
+          "remoteDebuggingPort": null,
+          "hasRemoteDebuggingPipe": true,
+          "hasDisableExtensions": true,
+          "hasEnableAutomation": true,
+          "isDevtoolsMcpProfile": true,
+          "isUserChromeProfile": false,
+          "argumentSummary": {
+            "aboutBlank": true,
+            "noFirstRun": true,
+            "disableSync": true
+          }
+        },
+        {
+          "pid": 14496,
+          "commandPath": "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome",
+          "userDataDir": null,
+          "profileDirectory": null,
+          "remoteDebuggingPort": null,
+          "hasRemoteDebuggingPipe": false,
+          "hasDisableExtensions": false,
+          "hasEnableAutomation": false,
+          "isDevtoolsMcpProfile": false,
+          "isUserChromeProfile": true,
+          "argumentSummary": {
+            "aboutBlank": false,
+            "noFirstRun": false,
+            "disableSync": false
+          }
+        }
+      ],
+      "boundary": {
+        "hasDevtoolsMcpChrome": true,
+        "hasUserChrome": true,
+        "userChromeHasRemoteDebugging": false
+      }
+    },
+    "cdpPorts": [
+      {
+        "port": 9222,
+        "ok": false,
+        "error": "fetch failed"
+      },
+      {
+        "port": 9223,
+        "ok": false,
+        "error": "fetch failed"
+      },
+      {
+        "port": 9224,
+        "ok": false,
+        "error": "fetch failed"
+      },
+      {
+        "port": 9333,
+        "ok": false,
+        "error": "fetch failed"
+      },
+      {
+        "port": 9444,
+        "ok": false,
+        "error": "fetch failed"
+      },
+      {
+        "port": 9515,
+        "ok": false,
+        "error": "fetch failed"
+      }
+    ]
+  },
+  "backend": {
+    "ok": false,
+    "statusUrl": "http://127.0.0.1:8000/worker/status",
+    "error": "fetch failed"
+  },
+  "build": {
+    "exists": true,
+    "manifestPath": "/Users/tung/Desktop/dlens-product-latest/output/chrome-mv3/manifest.json",
+    "name": "DLens v3",
+    "version": "0.1.30",
+    "manifestVersion": 3
+  },
+  "codePathHints": {
+    "entrypoints/threads.content.ts": [
+      {
+        "line": 439,
+        "text": "event.preventDefault();"
+      },
+      {
+        "line": 440,
+        "text": "event.stopPropagation();"
+      },
+      {
+        "line": 494,
+        "text": "event.preventDefault();"
+      },
+      {
+        "line": 495,
+        "text": "event.stopPropagation();"
+      }
+    ],
+    "src/ui/useInPageCollectorAppState.ts": [
+      {
+        "line": 830,
+        "text": "event.preventDefault();"
+      },
+      {
+        "line": 841,
+        "text": "event.preventDefault();"
+      },
+      {
+        "line": 1385,
+        "text": "type: \"product/analyze-signals\","
+      }
+    ],
+    "entrypoints/background.ts": [
+      {
+        "line": 493,
+        "text": "if (!item || (!item.lastError && item.status !== \"failed\")) {"
+      },
+      {
+        "line": 501,
+        "text": "error: item.lastError || \"Backend processing failed.\","
+      },
+      {
+        "line": 502,
+        "text": "errorKind: item.lastErrorKind"
+      },
+      {
+        "line": 2803,
+        "text": "case \"product/analyze-signals\": {"
+      }
+    ],
+    "src/state/store-helpers.ts": [
+      {
+        "line": 156,
+        "text": "lastErrorKind: null,"
+      },
+      {
+        "line": 157,
+        "text": "lastError: null"
+      },
+      {
+        "line": 337,
+        "text": "if (item.status === \"failed\" && item.lastErrorKind === \"stale_timeout\") {"
+      },
+      {
+        "line": 390,
+        "text": "lastErrorKind: \"stale_timeout\","
+      },
+      {
+        "line": 391,
+        "text": "lastError: staleInFlightError(item)"
+      },
+      {
+        "line": 431,
+        "text": "lastErrorKind: job?.last_error_kind ?? null,"
+      },
+      {
+        "line": 432,
+        "text": "lastError: job?.last_error ?? null"
+      },
+      {
+        "line": 467,
+        "text": "lastErrorKind: job?.last_error_kind ?? null,"
+      },
+      {
+        "line": 468,
+        "text": "lastError: job?.last_error ?? null"
+      }
+    ],
+    "src/ui/ProductSignalViews.tsx": [
+      {
+        "line": 430,
+        "text": "function formatSubtype(value: string): string {"
+      }
+    ]
+  }
+}

@@ -1,0 +1,242 @@
+[
+  {
+    "aria": "Close DLens popup",
+    "disabled": null,
+    "idx": 0,
+    "rect": {
+      "h": 48,
+      "w": 48,
+      "x": 2088,
+      "y": 24
+    },
+    "role": null,
+    "tag": "BUTTON",
+    "text": "",
+    "visible": true
+  },
+  {
+    "aria": null,
+    "disabled": null,
+    "idx": 1,
+    "rect": {
+      "h": 29,
+      "w": 107,
+      "x": 967,
+      "y": 251
+    },
+    "role": null,
+    "tag": "BUTTON",
+    "text": "Saved",
+    "visible": true
+  },
+  {
+    "aria": null,
+    "disabled": null,
+    "idx": 2,
+    "rect": {
+      "h": 29,
+      "w": 107,
+      "x": 1083,
+      "y": 251
+    },
+    "role": null,
+    "tag": "BUTTON",
+    "text": "Open",
+    "visible": true
+  },
+  {
+    "aria": null,
+    "disabled": null,
+    "idx": 3,
+    "rect": {
+      "h": 18,
+      "w": 47,
+      "x": 1493,
+      "y": 112
+    },
+    "role": "tab",
+    "tag": "BUTTON",
+    "text": "Topic",
+    "visible": true
+  },
+  {
+    "aria": null,
+    "disabled": null,
+    "idx": 4,
+    "rect": {
+      "h": 19,
+      "w": 63,
+      "x": 1541,
+      "y": 112
+    },
+    "role": "tab",
+    "tag": "BUTTON",
+    "text": "Product",
+    "visible": true
+  },
+  {
+    "aria": null,
+    "disabled": null,
+    "idx": 5,
+    "rect": {
+      "h": 18,
+      "w": 34,
+      "x": 1605,
+      "y": 112
+    },
+    "role": "tab",
+    "tag": "BUTTON",
+    "text": "PR",
+    "visible": true
+  },
+  {
+    "aria": null,
+    "disabled": null,
+    "idx": 6,
+    "rect": {
+      "h": 58,
+      "w": 55,
+      "x": 1440,
+      "y": 215
+    },
+    "role": null,
+    "tag": "BUTTON",
+    "text": "採集",
+    "visible": true
+  },
+  {
+    "aria": null,
+    "disabled": null,
+    "idx": 7,
+    "rect": {
+      "h": 58,
+      "w": 55,
+      "x": 1440,
+      "y": 281
+    },
+    "role": null,
+    "tag": "BUTTON",
+    "text": "訊號",
+    "visible": true
+  },
+  {
+    "aria": null,
+    "disabled": null,
+    "idx": 8,
+    "rect": {
+      "h": 58,
+      "w": 55,
+      "x": 1440,
+      "y": 347
+    },
+    "role": null,
+    "tag": "BUTTON",
+    "text": "分類",
+    "visible": true
+  },
+  {
+    "aria": null,
+    "disabled": null,
+    "idx": 9,
+    "rect": {
+      "h": 58,
+      "w": 55,
+      "x": 1440,
+      "y": 413
+    },
+    "role": null,
+    "tag": "BUTTON",
+    "text": "行動",
+    "visible": true
+  },
+  {
+    "aria": null,
+    "disabled": null,
+    "idx": 10,
+    "rect": {
+      "h": 58,
+      "w": 55,
+      "x": 1440,
+      "y": 485
+    },
+    "role": null,
+    "tag": "BUTTON",
+    "text": "設定",
+    "visible": true
+  },
+  {
+    "aria": null,
+    "disabled": null,
+    "idx": 11,
+    "rect": {
+      "h": 32,
+      "w": 76,
+      "x": 1545,
+      "y": 400
+    },
+    "role": null,
+    "tag": "BUTTON",
+    "text": "重新分析",
+    "visible": true
+  },
+  {
+    "aria": null,
+    "disabled": null,
+    "idx": 12,
+    "rect": {
+      "h": 70,
+      "w": 130,
+      "x": 1546,
+      "y": 537
+    },
+    "role": null,
+    "tag": "BUTTON",
+    "text": "值得嘗試 0",
+    "visible": true
+  },
+  {
+    "aria": null,
+    "disabled": null,
+    "idx": 13,
+    "rect": {
+      "h": 70,
+      "w": 130,
+      "x": 1683,
+      "y": 537
+    },
+    "role": null,
+    "tag": "BUTTON",
+    "text": "噪音 / 前提不符 0",
+    "visible": true
+  },
+  {
+    "aria": null,
+    "disabled": null,
+    "idx": 14,
+    "rect": {
+      "h": 70,
+      "w": 130,
+      "x": 1821,
+      "y": 537
+    },
+    "role": null,
+    "tag": "BUTTON",
+    "text": "資料不足 0",
+    "visible": true
+  },
+  {
+    "aria": null,
+    "disabled": null,
+    "idx": 15,
+    "rect": {
+      "h": 70,
+      "w": 130,
+      "x": 1959,
+      "y": 537
+    },
+    "role": null,
+    "tag": "BUTTON",
+    "text": "保留觀察 1",
+    "visible": true
+  }
+]

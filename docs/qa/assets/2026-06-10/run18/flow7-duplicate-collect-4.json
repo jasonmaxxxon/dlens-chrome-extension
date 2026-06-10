@@ -1,0 +1,3516 @@
+{
+  "postRect": {
+    "cx": 928.7109375,
+    "cy": 171.09375,
+    "h": 17.25,
+    "href": "https://www.threads.com/@fredhongyi/post/DZYqHaCjzT6",
+    "text": "2h",
+    "w": 24,
+    "x": 916.7109375,
+    "y": 162.46875
+  },
+  "before": {
+    "href": "https://www.threads.com/",
+    "rootText": "Hover to preview | S save | Esc exit dlens Topic Product PR Annotated Field Guide VOL.1 NO.01 Jun 10 · v.0.1.30 d 採集 訊號 分類 行動 設定 Product mode Agent Brief 先審視模型判讀，再把已收錄 reading 組成可貼給 coding agent 的 brief。 Backend 離線 分析狀態 1 signals 1 analyses AI key ProductProfile ProductContext Backend 無法連線。請到設定確認 backend URL，或先啟動 ingest backend。 已完成 1 條產品訊號分析。 重新分析 DLens Founders, product builders, PR/marketing researchers, journalists, analysts ProductContext 1 則訊號已評估 值得嘗試 0 噪音 / 前提不符 0 資料不足 0 保留觀察 1 可直接試的做法 目前沒有 verdict=try 的訊號。先看保留觀察或資料不足。",
+    "traceCount": 500
+  },
+  "afterHover": {
+    "href": "https://www.threads.com/",
+    "overlayDisplay": "block",
+    "overlayRect": {
+      "h": 23.00390625,
+      "w": 33,
+      "x": 913.7109375,
+      "y": 160.96875
+    },
+    "rootText": "Hover to preview | S save | Esc exit Saved 2 2h No snippet — — — — Saved Open 已加入隊列：ai discussion dlens Topic Product PR Annotated Field Guide VOL.1 NO.01 Jun 10 · v.0.1.30 d 採集 訊號 分類 行動 設定 Product mode Agent Brief 先審視模型判讀，再把已收錄 reading 組成可貼給 coding agent 的 brief。 Backend 離線 分析狀態 1 signals 1 analyses AI key ProductProfile ProductContext Backend 無法連線。請到設定確認 backend URL，或先啟動 ingest backend。 已完成 1 條產品訊號分析。 重新分析 DLens Founders, product builders, PR/marketing researchers, journalists, analysts ProductContext 1 則訊號已評估 值得嘗試 0 噪音 / 前提不符 0 資料不足 0 保留觀察 1 可直接試的做法 目前沒有 verdict=try 的訊號。先看保留觀察或資料不足。",
+    "traceTail": [
+      {
+        "at": 794800.9000000358,
+        "detail": {
+          "activeFolderId": "session_ywskiblc_mp6p013z",
+          "failureCount": 0,
+          "hasInflight": false
+        },
+        "event": "popup.worker.status.request",
+        "id": 1006,
+        "isoTime": "2026-06-10T02:39:45.308Z"
+      },
+      {
+        "at": 795679.1000000238,
+        "detail": {
+          "activeFolderId": "session_ywskiblc_mp6p013z",
+          "failureCount": 0,
+          "hasInflight": false
+        },
+        "event": "popup.worker.status.request",
+        "id": 1007,
+        "isoTime": "2026-06-10T02:39:46.186Z"
+      },
+      {
+        "at": 795681,
+        "detail": {
+          "folderId": "session_ywskiblc_mp6p013z",
+          "mode": "product"
+        },
+        "event": "popup.topic.hydrate.request",
+        "id": 1008,
+        "isoTime": "2026-06-10T02:39:46.188Z"
+      },
+      {
+        "at": 795681.6000000238,
+        "detail": {
+          "folderId": "session_ywskiblc_mp6p013z",
+          "page": "saved-signals",
+          "signalCount": 1
+        },
+        "event": "popup.product.hydrate.request",
+        "id": 1009,
+        "isoTime": "2026-06-10T02:39:46.189Z"
+      },
+      {
+        "at": 795682.9000000358,
+        "detail": {
+          "activeFolderId": "session_ywskiblc_mp6p013z",
+          "failureCount": 0,
+          "hasInflight": false
+        },
+        "event": "popup.worker.status.request",
+        "id": 1010,
+        "isoTime": "2026-06-10T02:39:46.190Z"
+      },
+      {
+        "at": 795958.6000000238,
+        "detail": {
+          "activeFolderId": "session_ywskiblc_mp6p013z"
+        },
+        "event": "popup.worker.refresh.response",
+        "id": 1011,
+        "isoTime": "2026-06-10T02:39:46.466Z"
+      },
+      {
+        "at": 795960.9000000358,
+        "detail": {
+          "activeFolderId": "session_ywskiblc_mp6p013z",
+          "failureCount": 0,
+          "hasInflight": false
+        },
+        "event": "popup.worker.status.request",
+        "id": 1012,
+        "isoTime": "2026-06-10T02:39:46.468Z"
+      },
+      {
+        "at": 795962.2000000477,
+        "detail": {
+          "activeFolderId": "session_ywskiblc_mp6p013z",
+          "failureCount": 0,
+          "hasInflight": false
+        },
+        "event": "popup.worker.status.request",
+        "id": 1013,
+        "isoTime": "2026-06-10T02:39:46.470Z"
+      },
+      {
+        "at": 796024.1000000238,
+        "detail": {
+          "currentAnalysisCount": 1,
+          "currentOk": true,
+          "feedbackCount": 0,
+          "feedbackOk": true,
+          "folderId": "session_ywskiblc_mp6p013z",
+          "historicalAnalysisCount": 1,
+          "historicalOk": true,
+          "page": "saved-signals",
+          "readingCount": 7,
+          "readingsOk": true,
+          "signalCount": 1
+        },
+        "event": "popup.product.hydrate.response",
+        "id": 1014,
+        "isoTime": "2026-06-10T02:39:46.531Z"
+      },
+      {
+        "at": 796025,
+        "detail": {
+          "folderId": "session_ywskiblc_mp6p013z",
+          "mode": "product",
+          "signalCount": 1,
+          "signalsOk": true,
+          "topicCount": 0,
+          "topicsOk": true
+        },
+        "event": "popup.topic.hydrate.response",
+        "id": 1015,
+        "isoTime": "2026-06-10T02:39:46.532Z"
+      },
+      {
+        "at": 796026.6000000238,
+        "detail": {
+          "activeFolderId": "session_ywskiblc_mp6p013z",
+          "failureCount": 0,
+          "hasInflight": false
+        },
+        "event": "popup.worker.status.request",
+        "id": 1016,
+        "isoTime": "2026-06-10T02:39:46.534Z"
+      },
+      {
+        "at": 796775.9000000358,
+        "detail": {
+          "activeFolderId": "session_ywskiblc_mp6p013z",
+          "failureCount": 0,
+          "hasInflight": false
+        },
+        "event": "popup.worker.status.request",
+        "id": 1017,
+        "isoTime": "2026-06-10T02:39:47.283Z"
+      },
+      {
+        "at": 796777.2000000477,
+        "detail": {
+          "folderId": "session_ywskiblc_mp6p013z",
+          "mode": "product"
+        },
+        "event": "popup.topic.hydrate.request",
+        "id": 1018,
+        "isoTime": "2026-06-10T02:39:47.284Z"
+      },
+      {
+        "at": 796777.8000000119,
+        "detail": {
+          "folderId": "session_ywskiblc_mp6p013z",
+          "page": "saved-signals",
+          "signalCount": 1
+        },
+        "event": "popup.product.hydrate.request",
+        "id": 1019,
+        "isoTime": "2026-06-10T02:39:47.285Z"
+      },
+      {
+        "at": 796779.1000000238,
+        "detail": {
+          "activeFolderId": "session_ywskiblc_mp6p013z",
+          "failureCount": 0,
+          "hasInflight": false
+        },
+        "event": "popup.worker.status.request",
+        "id": 1020,
+        "isoTime": "2026-06-10T02:39:47.286Z"
+      },
+      {
+        "at": 797115.9000000358,
+        "detail": {
+          "activeFolderId": "session_ywskiblc_mp6p013z"
+        },
+        "event": "popup.worker.refresh.response",
+        "id": 1021,
+        "isoTime": "2026-06-10T02:39:47.623Z"
+      },
+      {
+        "at": 797118.8000000119,
+        "detail": {
+          "activeFolderId": "session_ywskiblc_mp6p013z",
+          "failureCount": 0,
+          "hasInflight": false
+        },
+        "event": "popup.worker.status.request",
+        "id": 1022,
+        "isoTime": "2026-06-10T02:39:47.626Z"
+      },
+      {
+        "at": 797120.1000000238,
+        "detail": {
+          "activeFolderId": "session_ywskiblc_mp6p013z",
+          "failureCount": 0,
+          "hasInflight": false
+        },
+        "event": "popup.worker.status.request",
+        "id": 1023,
+        "isoTime": "2026-06-10T02:39:47.627Z"
+      },
+      {
+        "at": 797217.4000000358,
+        "detail": {
+          "currentAnalysisCount": 1,
+          "currentOk": true,
+          "feedbackCount": 0,
+          "feedbackOk": true,
+          "folderId": "session_ywskiblc_mp6p013z",
+          "historicalAnalysisCount": 1,
+          "historicalOk": true,
+          "page": "saved-signals",
+          "readingCount": 7,
+          "readingsOk": true,
+          "signalCount": 1
+        },
+        "event": "popup.product.hydrate.response",
+        "id": 1024,
+        "isoTime": "2026-06-10T02:39:47.725Z"
+      },
+      {
+        "at": 797218.2000000477,
+        "detail": {
+          "folderId": "session_ywskiblc_mp6p013z",
+          "mode": "product",
+          "signalCount": 1,
+          "signalsOk": true,
+          "topicCount": 0,
+          "topicsOk": true
+        },
+        "event": "popup.topic.hydrate.response",
+        "id": 1025,
+        "isoTime": "2026-06-10T02:39:47.726Z"
+      },
+      {
+        "at": 797219.6000000238,
+        "detail": {
+          "activeFolderId": "session_ywskiblc_mp6p013z",
+          "failureCount": 0,
+          "hasInflight": false
+        },
+        "event": "popup.worker.status.request",
+        "id": 1026,
+        "isoTime": "2026-06-10T02:39:47.727Z"
+      },
+      {
+        "at": 797954.3000000119,
+        "detail": {
+          "activeFolderId": "session_ywskiblc_mp6p013z",
+          "failureCount": 0,
+          "hasInflight": false
+        },
+        "event": "popup.worker.status.request",
+        "id": 1027,
+        "isoTime": "2026-06-10T02:39:48.462Z"
+      },
+      {
+        "at": 797955.5,
+        "detail": {
+          "folderId": "session_ywskiblc_mp6p013z",
+          "mode": "product"
+        },
+        "event": "popup.topic.hydrate.request",
+        "id": 1028,
+        "isoTime": "2026-06-10T02:39:48.463Z"
+      },
+      {
+        "at": 797956.6000000238,
+        "detail": {
+          "folderId": "session_ywskiblc_mp6p013z",
+          "page": "saved-signals",
+          "signalCount": 1
+        },
+        "event": "popup.product.hydrate.request",
+        "id": 1029,
+        "isoTime": "2026-06-10T02:39:48.464Z"
+      },
+      {
+        "at": 797957.8000000119,
+        "detail": {
+          "activeFolderId": "session_ywskiblc_mp6p013z",
+          "failureCount": 0,
+          "hasInflight": false
+        },
+        "event": "popup.worker.status.request",
+        "id": 1030,
+        "isoTime": "2026-06-10T02:39:48.465Z"
+      },
+      {
+        "at": 798309.9000000358,
+        "detail": {
+          "activeFolderId": "session_ywskiblc_mp6p013z"
+        },
+        "event": "popup.worker.refresh.response",
+        "id": 1031,
+        "isoTime": "2026-06-10T02:39:48.817Z"
+      },
+      {
+        "at": 798312.4000000358,
+        "detail": {
+          "activeFolderId": "session_ywskiblc_mp6p013z",
+          "failureCount": 0,
+          "hasInflight": false
+        },
+        "event": "popup.worker.status.request",
+        "id": 1032,
+        "isoTime": "2026-06-10T02:39:48.820Z"
+      },
+      {
+        "at": 798315.1000000238,
+        "detail": {
+          "activeFolderId": "session_ywskiblc_mp6p013z",
+          "failureCount": 0,
+          "hasInflight": false
+        },
+        "event": "popup.worker.status.request",
+        "id": 1033,
+        "isoTime": "2026-06-10T02:39:48.822Z"
+      },
+      {
+        "at": 798404.7000000477,
+        "detail": {
+          "currentAnalysisCount": 1,
+          "currentOk": true,
+          "feedbackCount": 0,
+          "feedbackOk": true,
+          "folderId": "session_ywskiblc_mp6p013z",
+          "historicalAnalysisCount": 1,
+          "historicalOk": true,
+          "page": "saved-signals",
+          "readingCount": 7,
+          "readingsOk": true,
+          "signalCount": 1
+        },
+        "event": "popup.product.hydrate.response",
+        "id": 1034,
+        "isoTime": "2026-06-10T02:39:48.912Z"
+      },
+      {
+        "at": 798405.4000000358,
+        "detail": {
+          "folderId": "session_ywskiblc_mp6p013z",
+          "mode": "product",
+          "signalCount": 1,
+          "signalsOk": true,
+          "topicCount": 0,
+          "topicsOk": true
+        },
+        "event": "popup.topic.hydrate.response",
+        "id": 1035,
+        "isoTime": "2026-06-10T02:39:48.913Z"
+      },
+      {
+        "at": 798407,
+        "detail": {
+          "activeFolderId": "session_ywskiblc_mp6p013z",
+          "failureCount": 0,
+          "hasInflight": false
+        },
+        "event": "popup.worker.status.request",
+        "id": 1036,
+        "isoTime": "2026-06-10T02:39:48.914Z"
+      },
+      {
+        "at": 799212.6000000238,
+        "detail": {
+          "activeFolderId": "session_ywskiblc_mp6p013z",
+          "failureCount": 0,
+          "hasInflight": false
+        },
+        "event": "popup.worker.status.request",
+        "id": 1037,
+        "isoTime": "2026-06-10T02:39:49.720Z"
+      },
+      {
+        "at": 799213.3000000119,
+        "detail": {
+          "folderId": "session_ywskiblc_mp6p013z",
+          "mode": "product"
+        },
+        "event": "popup.topic.hydrate.request",
+        "id": 1038,
+        "isoTime": "2026-06-10T02:39:49.721Z"
+      },
+      {
+        "at": 799213.7000000477,
+        "detail": {
+          "folderId": "session_ywskiblc_mp6p013z",
+          "page": "saved-signals",
+          "signalCount": 1
+        },
+        "event": "popup.product.hydrate.request",
+        "id": 1039,
+        "isoTime": "2026-06-10T02:39:49.721Z"
+      },
+      {
+        "at": 799214.7000000477,
+        "detail": {
+          "activeFolderId": "session_ywskiblc_mp6p013z",
+          "failureCount": 0,
+          "hasInflight": false
+        },
+        "event": "popup.worker.status.request",
+        "id": 1040,
+        "isoTime": "2026-06-10T02:39:49.722Z"
+      },
+      {
+        "at": 799461.7000000477,
+        "detail": {
+          "activeFolderId": "session_ywskiblc_mp6p013z"
+        },
+        "event": "popup.worker.refresh.response",
+        "id": 1041,
+        "isoTime": "2026-06-10T02:39:49.969Z"
+      },
+      {
+        "at": 799464.1000000238,
+        "detail": {
+          "activeFolderId": "session_ywskiblc_mp6p013z",
+          "failureCount": 0,
+          "hasInflight": false
+        },
+        "event": "popup.worker.status.request",
+        "id": 1042,
+        "isoTime": "2026-06-10T02:39:49.971Z"
+      },
+      {
+        "at": 799465.3000000119,
+        "detail": {
+          "activeFolderId": "session_ywskiblc_mp6p013z",
+          "failureCount": 0,
+          "hasInflight": false
+        },
+        "event": "popup.worker.status.request",
+        "id": 1043,
+        "isoTime": "2026-06-10T02:39:49.973Z"
+      },
+      {
+        "at": 800133.6000000238,
+        "detail": {
+          "currentAnalysisCount": 1,
+          "currentOk": true,
+          "feedbackCount": 0,
+          "feedbackOk": true,
+          "folderId": "session_ywskiblc_mp6p013z",
+          "historicalAnalysisCount": 1,
+          "historicalOk": true,
+          "page": "saved-signals",
+          "readingCount": 7,
+          "readingsOk": true,
+          "signalCount": 1
+        },
+        "event": "popup.product.hydrate.response",
+        "id": 1044,
+        "isoTime": "2026-06-10T02:39:50.641Z"
+      },
+      {
+        "at": 800135.7000000477,
+        "detail": {
+          "folderId": "session_ywskiblc_mp6p013z",
+          "mode": "product",
+          "signalCount": 1,
+          "signalsOk": true,
+          "topicCount": 0,
+          "topicsOk": true
+        },
+        "event": "popup.topic.hydrate.response",
+        "id": 1045,
+        "isoTime": "2026-06-10T02:39:50.643Z"
+      },
+      {
+        "at": 800140.5,
+        "detail": {
+          "activeFolderId": "session_ywskiblc_mp6p013z",
+          "failureCount": 0,
+          "hasInflight": false
+        },
+        "event": "popup.worker.status.request",
+        "id": 1046,
+        "isoTime": "2026-06-10T02:39:50.648Z"
+      },
+      {
+        "at": 800355.5,
+        "detail": {
+          "activeFolderId": "session_ywskiblc_mp6p013z",
+          "failureCount": 0,
+          "hasInflight": false
+        },
+        "event": "popup.worker.status.request",
+        "id": 1047,
+        "isoTime": "2026-06-10T02:39:50.863Z"
+      },
+      {
+        "at": 800356.4000000358,
+        "detail": {
+          "folderId": "session_ywskiblc_mp6p013z",
+          "mode": "product"
+        },
+        "event": "popup.topic.hydrate.request",
+        "id": 1048,
+        "isoTime": "2026-06-10T02:39:50.864Z"
+      },
+      {
+        "at": 800356.9000000358,
+        "detail": {
+          "folderId": "session_ywskiblc_mp6p013z",
+          "page": "saved-signals",
+          "signalCount": 1
+        },
+        "event": "popup.product.hydrate.request",
+        "id": 1049,
+        "isoTime": "2026-06-10T02:39:50.864Z"
+      },
+      {
+        "at": 800358.2000000477,
+        "detail": {
+          "activeFolderId": "session_ywskiblc_mp6p013z",
+          "failureCount": 0,
+          "hasInflight": false
+        },
+        "event": "popup.worker.status.request",
+        "id": 1050,
+        "isoTime": "2026-06-10T02:39:50.866Z"
+      },
+      {
+        "at": 800782.6000000238,
+        "detail": {
+          "currentAnalysisCount": 1,
+          "currentOk": true,
+          "feedbackCount": 0,
+          "feedbackOk": true,
+          "folderId": "session_ywskiblc_mp6p013z",
+          "historicalAnalysisCount": 1,
+          "historicalOk": true,
+          "page": "saved-signals",
+          "readingCount": 7,
+          "readingsOk": true,
+          "signalCount": 1
+        },
+        "event": "popup.product.hydrate.response",
+        "id": 1051,
+        "isoTime": "2026-06-10T02:39:51.290Z"
+      },
+      {
+        "at": 800783.9000000358,
+        "detail": {
+          "folderId": "session_ywskiblc_mp6p013z",
+          "mode": "product",
+          "signalCount": 1,
+          "signalsOk": true,
+          "topicCount": 0,
+          "topicsOk": true
+        },
+        "event": "popup.topic.hydrate.response",
+        "id": 1052,
+        "isoTime": "2026-06-10T02:39:51.291Z"
+      },
+      {
+        "at": 800786.1000000238,
+        "detail": {
+          "activeFolderId": "session_ywskiblc_mp6p013z",
+          "failureCount": 0,
+          "hasInflight": false
+        },
+        "event": "popup.worker.status.request",
+        "id": 1053,
+        "isoTime": "2026-06-10T02:39:51.293Z"
+      },
+      {
+        "at": 801319.6000000238,
+        "detail": {
+          "elapsedMs": 533.6,
+          "previousWorkerStatus": "idle",
+          "workerStatus": "idle"
+        },
+        "event": "popup.worker.status.response",
+        "id": 1054,
+        "isoTime": "2026-06-10T02:39:51.827Z"
+      },
+      {
+        "at": 801562.8000000119,
+        "detail": {
+          "activeFolderId": "session_ywskiblc_mp6p013z",
+          "failureCount": 0,
+          "hasInflight": false
+        },
+        "event": "popup.worker.status.request",
+        "id": 1055,
+        "isoTime": "2026-06-10T02:39:52.070Z"
+      },
+      {
+        "at": 801891.3000000119,
+        "detail": {
+          "elapsedMs": 328.6,
+          "previousWorkerStatus": "idle",
+          "workerStatus": "idle"
+        },
+        "event": "popup.worker.status.response",
+        "id": 1056,
+        "isoTime": "2026-06-10T02:39:52.399Z"
+      },
+      {
+        "at": 975834.4000000358,
+        "detail": {
+          "activeFolderId": "session_ywskiblc_mp6p013z",
+          "failureCount": 0,
+          "hasInflight": false
+        },
+        "event": "popup.worker.status.request",
+        "id": 1057,
+        "isoTime": "2026-06-10T02:42:46.341Z"
+      },
+      {
+        "at": 976229.4000000358,
+        "detail": {
+          "activeFolderId": "session_ywskiblc_mp6p013z",
+          "failureCount": 0,
+          "hasInflight": false
+        },
+        "event": "popup.worker.status.request",
+        "id": 1058,
+        "isoTime": "2026-06-10T02:42:46.736Z"
+      },
+      {
+        "at": 976527.300000012,
+        "detail": {
+          "activeFolderId": "session_ywskiblc_mp6p013z",
+          "failureCount": 0,
+          "hasInflight": false
+        },
+        "event": "popup.worker.status.request",
+        "id": 1059,
+        "isoTime": "2026-06-10T02:42:47.034Z"
+      },
+      {
+        "at": 976528.2000000476,
+        "detail": {
+          "folderId": "session_ywskiblc_mp6p013z",
+          "mode": "product"
+        },
+        "event": "popup.topic.hydrate.request",
+        "id": 1060,
+        "isoTime": "2026-06-10T02:42:47.035Z"
+      },
+      {
+        "at": 976528.7000000476,
+        "detail": {
+          "folderId": "session_ywskiblc_mp6p013z",
+          "page": "actionable-filter",
+          "signalCount": 1
+        },
+        "event": "popup.product.hydrate.request",
+        "id": 1061,
+        "isoTime": "2026-06-10T02:42:47.035Z"
+      },
+      {
+        "at": 976530.6000000238,
+        "detail": {
+          "activeFolderId": "session_ywskiblc_mp6p013z",
+          "failureCount": 0,
+          "hasInflight": false
+        },
+        "event": "popup.worker.status.request",
+        "id": 1062,
+        "isoTime": "2026-06-10T02:42:47.037Z"
+      },
+      {
+        "at": 976588.800000012,
+        "detail": {
+          "activeFolderId": "session_ywskiblc_mp6p013z",
+          "failureCount": 0,
+          "hasInflight": false
+        },
+        "event": "popup.worker.status.request",
+        "id": 1063,
+        "isoTime": "2026-06-10T02:42:47.095Z"
+      },
+      {
+        "at": 976590.300000012,
+        "detail": {
+          "activeFolderId": "session_ywskiblc_mp6p013z",
+          "failureCount": 0,
+          "hasInflight": false
+        },
+        "event": "popup.worker.status.request",
+        "id": 1064,
+        "isoTime": "2026-06-10T02:42:47.097Z"
+      },
+      {
+        "at": 976900.1000000238,
+        "detail": {
+          "currentAnalysisCount": 1,
+          "currentOk": true,
+          "feedbackCount": 0,
+          "feedbackOk": true,
+          "folderId": "session_ywskiblc_mp6p013z",
+          "historicalAnalysisCount": 1,
+          "historicalOk": true,
+          "page": "actionable-filter",
+          "readingCount": 7,
+          "readingsOk": true,
+          "signalCount": 1
+        },
+        "event": "popup.product.hydrate.response",
+        "id": 1065,
+        "isoTime": "2026-06-10T02:42:47.406Z"
+      },
+      {
+        "at": 976900.9000000358,
+        "detail": {
+          "folderId": "session_ywskiblc_mp6p013z",
+          "mode": "product",
+          "signalCount": 1,
+          "signalsOk": true,
+          "topicCount": 0,
+          "topicsOk": true
+        },
+        "event": "popup.topic.hydrate.response",
+        "id": 1066,
+        "isoTime": "2026-06-10T02:42:47.407Z"
+      },
+      {
+        "at": 976902.5,
+        "detail": {
+          "activeFolderId": "session_ywskiblc_mp6p013z",
+          "failureCount": 0,
+          "hasInflight": false
+        },
+        "event": "popup.worker.status.request",
+        "id": 1067,
+        "isoTime": "2026-06-10T02:42:47.409Z"
+      },
+      {
+        "at": 977762.5,
+        "detail": {
+          "elapsedMs": 860.1,
+          "previousWorkerStatus": "idle",
+          "workerStatus": "idle"
+        },
+        "event": "popup.worker.status.response",
+        "id": 1068,
+        "isoTime": "2026-06-10T02:42:48.269Z"
+      },
+      {
+        "at": 977792.1000000238,
+        "detail": {
+          "activeFolderId": "session_ywskiblc_mp6p013z",
+          "failureCount": 0,
+          "hasInflight": false
+        },
+        "event": "popup.worker.status.request",
+        "id": 1069,
+        "isoTime": "2026-06-10T02:42:48.298Z"
+      },
+      {
+        "at": 978107.300000012,
+        "detail": {
+          "elapsedMs": 315.2,
+          "previousWorkerStatus": "idle",
+          "workerStatus": "idle"
+        },
+        "event": "popup.worker.status.response",
+        "id": 1070,
+        "isoTime": "2026-06-10T02:42:48.614Z"
+      },
+      {
+        "at": 1093837.4000000358,
+        "detail": {
+          "analysisCount": 1,
+          "sessionId": "session_ywskiblc_mp6p013z",
+          "signalCount": 1
+        },
+        "event": "popup.product.analyze.request",
+        "id": 1071,
+        "isoTime": "2026-06-10T02:44:44.343Z"
+      },
+      {
+        "at": 1093846.300000012,
+        "detail": {
+          "activeFolderId": "session_ywskiblc_mp6p013z",
+          "failureCount": 0,
+          "hasInflight": false
+        },
+        "event": "popup.worker.status.request",
+        "id": 1072,
+        "isoTime": "2026-06-10T02:44:44.352Z"
+      },
+      {
+        "at": 1094127.800000012,
+        "detail": {
+          "elapsedMs": 281.4,
+          "error": "Optional ingest backend unavailable at http://127.0.0.1:8000/worker/status. Check ingestBaseUrl or start the backend. Original error: Failed to fetch",
+          "failureCount": 1
+        },
+        "event": "popup.worker.status.error",
+        "id": 1073,
+        "isoTime": "2026-06-10T02:44:44.633Z"
+      },
+      {
+        "at": 1094130.7000000477,
+        "detail": {
+          "activeFolderId": "session_ywskiblc_mp6p013z",
+          "failureCount": 1,
+          "hasInflight": false
+        },
+        "event": "popup.worker.status.request",
+        "id": 1074,
+        "isoTime": "2026-06-10T02:44:44.636Z"
+      },
+      {
+        "at": 1094214.5,
+        "detail": {
+          "analyzed": 1,
+          "elapsedMs": 377.3,
+          "failed": 0,
+          "failureCount": 0,
+          "ok": true,
+          "queued": 0
+        },
+        "event": "popup.product.analyze.response",
+        "id": 1075,
+        "isoTime": "2026-06-10T02:44:44.720Z"
+      },
+      {
+        "at": 1094217.9000000358,
+        "detail": {
+          "activeFolderId": "session_ywskiblc_mp6p013z",
+          "failureCount": 1,
+          "hasInflight": false
+        },
+        "event": "popup.worker.status.request",
+        "id": 1076,
+        "isoTime": "2026-06-10T02:44:44.724Z"
+      },
+      {
+        "at": 1094219.9000000358,
+        "detail": {
+          "activeFolderId": "session_ywskiblc_mp6p013z",
+          "failureCount": 1,
+          "hasInflight": false
+        },
+        "event": "popup.worker.status.request",
+        "id": 1077,
+        "isoTime": "2026-06-10T02:44:44.726Z"
+      },
+      {
+        "at": 1094503.1000000238,
+        "detail": {
+          "elapsedMs": 283.2,
+          "error": "Optional ingest backend unavailable at http://127.0.0.1:8000/worker/status. Check ingestBaseUrl or start the backend. Original error: Failed to fetch",
+          "failureCount": 2
+        },
+        "event": "popup.worker.status.error",
+        "id": 1078,
+        "isoTime": "2026-06-10T02:44:45.009Z"
+      },
+      {
+        "at": 1095423.1000000238,
+        "detail": {
+          "activeFolderId": "session_ywskiblc_mp6p013z",
+          "failureCount": 2,
+          "hasInflight": false
+        },
+        "event": "popup.worker.status.request",
+        "id": 1079,
+        "isoTime": "2026-06-10T02:44:45.929Z"
+      },
+      {
+        "at": 1095597.800000012,
+        "detail": {
+          "elapsedMs": 174.7,
+          "error": "Optional ingest backend unavailable at http://127.0.0.1:8000/worker/status. Check ingestBaseUrl or start the backend. Original error: Failed to fetch",
+          "failureCount": 3
+        },
+        "event": "popup.worker.status.error",
+        "id": 1080,
+        "isoTime": "2026-06-10T02:44:46.103Z"
+      },
+      {
+        "at": 1200700.6000000238,
+        "event": "content.overlay.hide",
+        "id": 1081,
+        "isoTime": "2026-06-10T02:46:31.206Z"
+      },
+      {
+        "at": 1200706.6000000238,
+        "detail": {
+          "delayMs": null,
+          "fingerprint": null,
+          "hasCard": false,
+          "strength": null
+        },
+        "event": "content.hover.card-change",
+        "id": 1082,
+        "isoTime": "2026-06-10T02:46:31.212Z"
+      },
+      {
+        "at": 1200707.800000012,
+        "detail": {
+          "author": null,
+          "hasDescriptor": false,
+          "postUrl": null,
+          "strength": null
+        },
+        "event": "content.hover.publish",
+        "id": 1083,
+        "isoTime": "2026-06-10T02:46:31.213Z"
+      },
+      {
+        "at": 1200726.2000000477,
+        "detail": {
+          "activeFolderId": "session_ywskiblc_mp6p013z",
+          "failureCount": 3,
+          "hasInflight": false
+        },
+        "event": "popup.worker.status.request",
+        "id": 1084,
+        "isoTime": "2026-06-10T02:46:31.231Z"
+      },
+      {
+        "at": 1200786.800000012,
+        "detail": {
+          "reason": "no-card",
+          "strength": null
+        },
+        "event": "content.collect.click.pass-through",
+        "id": 1085,
+        "isoTime": "2026-06-10T02:46:31.292Z"
+      }
+    ]
+  },
+  "afterType": {
+    "at": "2026-06-10T02:49:31.451Z",
+    "hasAlreadySaved": true,
+    "rootText": "Hover to preview | S save | Esc exit Saved 2 2h No snippet — — — — Saved Open dlens Topic Product PR Annotated Field Guide VOL.1 NO.01 Jun 10 · v.0.1.30 d 採集 訊號 分類 行動 設定 Product mode Agent Brief 先審視模型判讀，再把已收錄 reading 組成可貼給 coding agent 的 brief。 Backend 離線 分析狀態 1 signals 1 analyses AI key ProductProfile ProductContext Backend 無法連線。請到設定確認 backend URL，或先啟動 ingest backend。 已完成 1 條產品訊號分析。 重新分析 DLens Founders, product builders, PR/marketing researchers, journalists, analysts ProductContext 1 則訊號已評估 值得嘗試 0 噪音 / 前提不符 0 資料不足 0 保留觀察 1 可直接試的做法 目前沒有 verdict=try 的訊號。先看保留觀察或資料不足。",
+    "saveEvents": [
+      {
+        "at": 736925.9000000358,
+        "detail": {
+          "folderId": "session_ywskiblc_mp6p013z",
+          "mode": "product"
+        },
+        "event": "popup.topic.hydrate.request",
+        "id": 733,
+        "isoTime": "2026-06-10T02:38:47.434Z"
+      },
+      {
+        "at": 736926.3000000119,
+        "detail": {
+          "folderId": "session_ywskiblc_mp6p013z",
+          "page": "saved-signals",
+          "signalCount": 1
+        },
+        "event": "popup.product.hydrate.request",
+        "id": 734,
+        "isoTime": "2026-06-10T02:38:47.434Z"
+      },
+      {
+        "at": 737123.7000000477,
+        "detail": {
+          "currentAnalysisCount": 0,
+          "currentOk": true,
+          "feedbackCount": 0,
+          "feedbackOk": true,
+          "folderId": "session_ywskiblc_mp6p013z",
+          "historicalAnalysisCount": 0,
+          "historicalOk": true,
+          "page": "saved-signals",
+          "readingCount": 7,
+          "readingsOk": true,
+          "signalCount": 1
+        },
+        "event": "popup.product.hydrate.response",
+        "id": 736,
+        "isoTime": "2026-06-10T02:38:47.631Z"
+      },
+      {
+        "at": 737124.5,
+        "detail": {
+          "folderId": "session_ywskiblc_mp6p013z",
+          "mode": "product",
+          "signalCount": 1,
+          "signalsOk": true,
+          "topicCount": 0,
+          "topicsOk": true
+        },
+        "event": "popup.topic.hydrate.response",
+        "id": 737,
+        "isoTime": "2026-06-10T02:38:47.632Z"
+      },
+      {
+        "at": 740135.6000000238,
+        "detail": {
+          "folderId": "session_ywskiblc_mp6p013z",
+          "mode": "product"
+        },
+        "event": "popup.topic.hydrate.request",
+        "id": 745,
+        "isoTime": "2026-06-10T02:38:50.643Z"
+      },
+      {
+        "at": 740136.1000000238,
+        "detail": {
+          "folderId": "session_ywskiblc_mp6p013z",
+          "page": "saved-signals",
+          "signalCount": 1
+        },
+        "event": "popup.product.hydrate.request",
+        "id": 746,
+        "isoTime": "2026-06-10T02:38:50.644Z"
+      },
+      {
+        "at": 740537.5,
+        "detail": {
+          "currentAnalysisCount": 1,
+          "currentOk": true,
+          "feedbackCount": 0,
+          "feedbackOk": true,
+          "folderId": "session_ywskiblc_mp6p013z",
+          "historicalAnalysisCount": 1,
+          "historicalOk": true,
+          "page": "saved-signals",
+          "readingCount": 7,
+          "readingsOk": true,
+          "signalCount": 1
+        },
+        "event": "popup.product.hydrate.response",
+        "id": 751,
+        "isoTime": "2026-06-10T02:38:51.045Z"
+      },
+      {
+        "at": 740540.2000000477,
+        "detail": {
+          "folderId": "session_ywskiblc_mp6p013z",
+          "mode": "product",
+          "signalCount": 1,
+          "signalsOk": true,
+          "topicCount": 0,
+          "topicsOk": true
+        },
+        "event": "popup.topic.hydrate.response",
+        "id": 752,
+        "isoTime": "2026-06-10T02:38:51.048Z"
+      },
+      {
+        "at": 741247.2000000477,
+        "detail": {
+          "folderId": "session_ywskiblc_mp6p013z",
+          "mode": "product"
+        },
+        "event": "popup.topic.hydrate.request",
+        "id": 755,
+        "isoTime": "2026-06-10T02:38:51.755Z"
+      },
+      {
+        "at": 741247.8000000119,
+        "detail": {
+          "folderId": "session_ywskiblc_mp6p013z",
+          "page": "saved-signals",
+          "signalCount": 1
+        },
+        "event": "popup.product.hydrate.request",
+        "id": 756,
+        "isoTime": "2026-06-10T02:38:51.755Z"
+      },
+      {
+        "at": 741599.4000000358,
+        "detail": {
+          "currentAnalysisCount": 1,
+          "currentOk": true,
+          "feedbackCount": 0,
+          "feedbackOk": true,
+          "folderId": "session_ywskiblc_mp6p013z",
+          "historicalAnalysisCount": 1,
+          "historicalOk": true,
+          "page": "saved-signals",
+          "readingCount": 7,
+          "readingsOk": true,
+          "signalCount": 1
+        },
+        "event": "popup.product.hydrate.response",
+        "id": 758,
+        "isoTime": "2026-06-10T02:38:52.107Z"
+      },
+      {
+        "at": 741600.2000000477,
+        "detail": {
+          "folderId": "session_ywskiblc_mp6p013z",
+          "mode": "product",
+          "signalCount": 1,
+          "signalsOk": true,
+          "topicCount": 0,
+          "topicsOk": true
+        },
+        "event": "popup.topic.hydrate.response",
+        "id": 759,
+        "isoTime": "2026-06-10T02:38:52.108Z"
+      },
+      {
+        "at": 745875.8000000119,
+        "detail": {
+          "folderId": "session_ywskiblc_mp6p013z",
+          "mode": "product"
+        },
+        "event": "popup.topic.hydrate.request",
+        "id": 767,
+        "isoTime": "2026-06-10T02:38:56.383Z"
+      },
+      {
+        "at": 745876.2000000477,
+        "detail": {
+          "folderId": "session_ywskiblc_mp6p013z",
+          "page": "saved-signals",
+          "signalCount": 1
+        },
+        "event": "popup.product.hydrate.request",
+        "id": 768,
+        "isoTime": "2026-06-10T02:38:56.384Z"
+      },
+      {
+        "at": 746176.4000000358,
+        "detail": {
+          "currentAnalysisCount": 1,
+          "currentOk": true,
+          "feedbackCount": 0,
+          "feedbackOk": true,
+          "folderId": "session_ywskiblc_mp6p013z",
+          "historicalAnalysisCount": 1,
+          "historicalOk": true,
+          "page": "saved-signals",
+          "readingCount": 7,
+          "readingsOk": true,
+          "signalCount": 1
+        },
+        "event": "popup.product.hydrate.response",
+        "id": 770,
+        "isoTime": "2026-06-10T02:38:56.684Z"
+      },
+      {
+        "at": 746177.3000000119,
+        "detail": {
+          "folderId": "session_ywskiblc_mp6p013z",
+          "mode": "product",
+          "signalCount": 1,
+          "signalsOk": true,
+          "topicCount": 0,
+          "topicsOk": true
+        },
+        "event": "popup.topic.hydrate.response",
+        "id": 771,
+        "isoTime": "2026-06-10T02:38:56.685Z"
+      },
+      {
+        "at": 750017.9000000358,
+        "detail": {
+          "folderId": "session_ywskiblc_mp6p013z",
+          "mode": "product"
+        },
+        "event": "popup.topic.hydrate.request",
+        "id": 779,
+        "isoTime": "2026-06-10T02:39:00.525Z"
+      },
+      {
+        "at": 750018.3000000119,
+        "detail": {
+          "folderId": "session_ywskiblc_mp6p013z",
+          "page": "saved-signals",
+          "signalCount": 1
+        },
+        "event": "popup.product.hydrate.request",
+        "id": 780,
+        "isoTime": "2026-06-10T02:39:00.526Z"
+      },
+      {
+        "at": 750286.6000000238,
+        "detail": {
+          "currentAnalysisCount": 1,
+          "currentOk": true,
+          "feedbackCount": 0,
+          "feedbackOk": true,
+          "folderId": "session_ywskiblc_mp6p013z",
+          "historicalAnalysisCount": 1,
+          "historicalOk": true,
+          "page": "saved-signals",
+          "readingCount": 7,
+          "readingsOk": true,
+          "signalCount": 1
+        },
+        "event": "popup.product.hydrate.response",
+        "id": 785,
+        "isoTime": "2026-06-10T02:39:00.794Z"
+      },
+      {
+        "at": 750287.4000000358,
+        "detail": {
+          "folderId": "session_ywskiblc_mp6p013z",
+          "mode": "product",
+          "signalCount": 1,
+          "signalsOk": true,
+          "topicCount": 0,
+          "topicsOk": true
+        },
+        "event": "popup.topic.hydrate.response",
+        "id": 786,
+        "isoTime": "2026-06-10T02:39:00.795Z"
+      },
+      {
+        "at": 751098.4000000358,
+        "detail": {
+          "folderId": "session_ywskiblc_mp6p013z",
+          "mode": "product"
+        },
+        "event": "popup.topic.hydrate.request",
+        "id": 789,
+        "isoTime": "2026-06-10T02:39:01.606Z"
+      },
+      {
+        "at": 751099.5,
+        "detail": {
+          "folderId": "session_ywskiblc_mp6p013z",
+          "page": "saved-signals",
+          "signalCount": 1
+        },
+        "event": "popup.product.hydrate.request",
+        "id": 790,
+        "isoTime": "2026-06-10T02:39:01.607Z"
+      },
+      {
+        "at": 751542.5,
+        "detail": {
+          "currentAnalysisCount": 1,
+          "currentOk": true,
+          "feedbackCount": 0,
+          "feedbackOk": true,
+          "folderId": "session_ywskiblc_mp6p013z",
+          "historicalAnalysisCount": 1,
+          "historicalOk": true,
+          "page": "saved-signals",
+          "readingCount": 7,
+          "readingsOk": true,
+          "signalCount": 1
+        },
+        "event": "popup.product.hydrate.response",
+        "id": 792,
+        "isoTime": "2026-06-10T02:39:02.050Z"
+      },
+      {
+        "at": 751543.1000000238,
+        "detail": {
+          "folderId": "session_ywskiblc_mp6p013z",
+          "mode": "product",
+          "signalCount": 1,
+          "signalsOk": true,
+          "topicCount": 0,
+          "topicsOk": true
+        },
+        "event": "popup.topic.hydrate.response",
+        "id": 793,
+        "isoTime": "2026-06-10T02:39:02.051Z"
+      },
+      {
+        "at": 754801.5,
+        "detail": {
+          "folderId": "session_ywskiblc_mp6p013z",
+          "mode": "product"
+        },
+        "event": "popup.topic.hydrate.request",
+        "id": 803,
+        "isoTime": "2026-06-10T02:39:05.309Z"
+      },
+      {
+        "at": 754801.8000000119,
+        "detail": {
+          "folderId": "session_ywskiblc_mp6p013z",
+          "page": "saved-signals",
+          "signalCount": 1
+        },
+        "event": "popup.product.hydrate.request",
+        "id": 804,
+        "isoTime": "2026-06-10T02:39:05.309Z"
+      },
+      {
+        "at": 755006,
+        "detail": {
+          "currentAnalysisCount": 1,
+          "currentOk": true,
+          "feedbackCount": 0,
+          "feedbackOk": true,
+          "folderId": "session_ywskiblc_mp6p013z",
+          "historicalAnalysisCount": 1,
+          "historicalOk": true,
+          "page": "saved-signals",
+          "readingCount": 7,
+          "readingsOk": true,
+          "signalCount": 1
+        },
+        "event": "popup.product.hydrate.response",
+        "id": 806,
+        "isoTime": "2026-06-10T02:39:05.513Z"
+      },
+      {
+        "at": 755006.7000000477,
+        "detail": {
+          "folderId": "session_ywskiblc_mp6p013z",
+          "mode": "product",
+          "signalCount": 1,
+          "signalsOk": true,
+          "topicCount": 0,
+          "topicsOk": true
+        },
+        "event": "popup.topic.hydrate.response",
+        "id": 807,
+        "isoTime": "2026-06-10T02:39:05.514Z"
+      },
+      {
+        "at": 758863.8000000119,
+        "detail": {
+          "folderId": "session_ywskiblc_mp6p013z",
+          "mode": "product"
+        },
+        "event": "popup.topic.hydrate.request",
+        "id": 813,
+        "isoTime": "2026-06-10T02:39:09.371Z"
+      },
+      {
+        "at": 758864.2000000477,
+        "detail": {
+          "folderId": "session_ywskiblc_mp6p013z",
+          "page": "saved-signals",
+          "signalCount": 1
+        },
+        "event": "popup.product.hydrate.request",
+        "id": 814,
+        "isoTime": "2026-06-10T02:39:09.372Z"
+      },
+      {
+        "at": 759167.9000000358,
+        "detail": {
+          "currentAnalysisCount": 1,
+          "currentOk": true,
+          "feedbackCount": 0,
+          "feedbackOk": true,
+          "folderId": "session_ywskiblc_mp6p013z",
+          "historicalAnalysisCount": 1,
+          "historicalOk": true,
+          "page": "saved-signals",
+          "readingCount": 7,
+          "readingsOk": true,
+          "signalCount": 1
+        },
+        "event": "popup.product.hydrate.response",
+        "id": 819,
+        "isoTime": "2026-06-10T02:39:09.675Z"
+      },
+      {
+        "at": 759168.5,
+        "detail": {
+          "folderId": "session_ywskiblc_mp6p013z",
+          "mode": "product",
+          "signalCount": 1,
+          "signalsOk": true,
+          "topicCount": 0,
+          "topicsOk": true
+        },
+        "event": "popup.topic.hydrate.response",
+        "id": 820,
+        "isoTime": "2026-06-10T02:39:09.676Z"
+      },
+      {
+        "at": 759898.6000000238,
+        "detail": {
+          "folderId": "session_ywskiblc_mp6p013z",
+          "mode": "product"
+        },
+        "event": "popup.topic.hydrate.request",
+        "id": 823,
+        "isoTime": "2026-06-10T02:39:10.406Z"
+      },
+      {
+        "at": 759899,
+        "detail": {
+          "folderId": "session_ywskiblc_mp6p013z",
+          "page": "saved-signals",
+          "signalCount": 1
+        },
+        "event": "popup.product.hydrate.request",
+        "id": 824,
+        "isoTime": "2026-06-10T02:39:10.406Z"
+      },
+      {
+        "at": 760378.6000000238,
+        "detail": {
+          "currentAnalysisCount": 1,
+          "currentOk": true,
+          "feedbackCount": 0,
+          "feedbackOk": true,
+          "folderId": "session_ywskiblc_mp6p013z",
+          "historicalAnalysisCount": 1,
+          "historicalOk": true,
+          "page": "saved-signals",
+          "readingCount": 7,
+          "readingsOk": true,
+          "signalCount": 1
+        },
+        "event": "popup.product.hydrate.response",
+        "id": 826,
+        "isoTime": "2026-06-10T02:39:10.886Z"
+      },
+      {
+        "at": 760379.3000000119,
+        "detail": {
+          "folderId": "session_ywskiblc_mp6p013z",
+          "mode": "product",
+          "signalCount": 1,
+          "signalsOk": true,
+          "topicCount": 0,
+          "topicsOk": true
+        },
+        "event": "popup.topic.hydrate.response",
+        "id": 827,
+        "isoTime": "2026-06-10T02:39:10.887Z"
+      },
+      {
+        "at": 763136.5,
+        "detail": {
+          "folderId": "session_ywskiblc_mp6p013z",
+          "mode": "product"
+        },
+        "event": "popup.topic.hydrate.request",
+        "id": 833,
+        "isoTime": "2026-06-10T02:39:13.644Z"
+      },
+      {
+        "at": 763136.8000000119,
+        "detail": {
+          "folderId": "session_ywskiblc_mp6p013z",
+          "page": "saved-signals",
+          "signalCount": 1
+        },
+        "event": "popup.product.hydrate.request",
+        "id": 834,
+        "isoTime": "2026-06-10T02:39:13.644Z"
+      },
+      {
+        "at": 763333.1000000238,
+        "detail": {
+          "currentAnalysisCount": 1,
+          "currentOk": true,
+          "feedbackCount": 0,
+          "feedbackOk": true,
+          "folderId": "session_ywskiblc_mp6p013z",
+          "historicalAnalysisCount": 1,
+          "historicalOk": true,
+          "page": "saved-signals",
+          "readingCount": 7,
+          "readingsOk": true,
+          "signalCount": 1
+        },
+        "event": "popup.product.hydrate.response",
+        "id": 836,
+        "isoTime": "2026-06-10T02:39:13.841Z"
+      },
+      {
+        "at": 763333.9000000358,
+        "detail": {
+          "folderId": "session_ywskiblc_mp6p013z",
+          "mode": "product",
+          "signalCount": 1,
+          "signalsOk": true,
+          "topicCount": 0,
+          "topicsOk": true
+        },
+        "event": "popup.topic.hydrate.response",
+        "id": 837,
+        "isoTime": "2026-06-10T02:39:13.841Z"
+      },
+      {
+        "at": 766328.9000000358,
+        "detail": {
+          "folderId": "session_ywskiblc_mp6p013z",
+          "mode": "product"
+        },
+        "event": "popup.topic.hydrate.request",
+        "id": 843,
+        "isoTime": "2026-06-10T02:39:16.836Z"
+      },
+      {
+        "at": 766329.3000000119,
+        "detail": {
+          "folderId": "session_ywskiblc_mp6p013z",
+          "page": "saved-signals",
+          "signalCount": 1
+        },
+        "event": "popup.product.hydrate.request",
+        "id": 844,
+        "isoTime": "2026-06-10T02:39:16.837Z"
+      },
+      {
+        "at": 766582.1000000238,
+        "detail": {
+          "currentAnalysisCount": 1,
+          "currentOk": true,
+          "feedbackCount": 0,
+          "feedbackOk": true,
+          "folderId": "session_ywskiblc_mp6p013z",
+          "historicalAnalysisCount": 1,
+          "historicalOk": true,
+          "page": "saved-signals",
+          "readingCount": 7,
+          "readingsOk": true,
+          "signalCount": 1
+        },
+        "event": "popup.product.hydrate.response",
+        "id": 849,
+        "isoTime": "2026-06-10T02:39:17.090Z"
+      },
+      {
+        "at": 766582.9000000358,
+        "detail": {
+          "folderId": "session_ywskiblc_mp6p013z",
+          "mode": "product",
+          "signalCount": 1,
+          "signalsOk": true,
+          "topicCount": 0,
+          "topicsOk": true
+        },
+        "event": "popup.topic.hydrate.response",
+        "id": 850,
+        "isoTime": "2026-06-10T02:39:17.090Z"
+      },
+      {
+        "at": 767381,
+        "detail": {
+          "folderId": "session_ywskiblc_mp6p013z",
+          "mode": "product"
+        },
+        "event": "popup.topic.hydrate.request",
+        "id": 853,
+        "isoTime": "2026-06-10T02:39:17.889Z"
+      },
+      {
+        "at": 767381.5,
+        "detail": {
+          "folderId": "session_ywskiblc_mp6p013z",
+          "page": "saved-signals",
+          "signalCount": 1
+        },
+        "event": "popup.product.hydrate.request",
+        "id": 854,
+        "isoTime": "2026-06-10T02:39:17.889Z"
+      },
+      {
+        "at": 767712.1000000238,
+        "detail": {
+          "currentAnalysisCount": 1,
+          "currentOk": true,
+          "feedbackCount": 0,
+          "feedbackOk": true,
+          "folderId": "session_ywskiblc_mp6p013z",
+          "historicalAnalysisCount": 1,
+          "historicalOk": true,
+          "page": "saved-signals",
+          "readingCount": 7,
+          "readingsOk": true,
+          "signalCount": 1
+        },
+        "event": "popup.product.hydrate.response",
+        "id": 856,
+        "isoTime": "2026-06-10T02:39:18.220Z"
+      },
+      {
+        "at": 767712.9000000358,
+        "detail": {
+          "folderId": "session_ywskiblc_mp6p013z",
+          "mode": "product",
+          "signalCount": 1,
+          "signalsOk": true,
+          "topicCount": 0,
+          "topicsOk": true
+        },
+        "event": "popup.topic.hydrate.response",
+        "id": 857,
+        "isoTime": "2026-06-10T02:39:18.220Z"
+      },
+      {
+        "at": 771375.4000000358,
+        "detail": {
+          "folderId": "session_ywskiblc_mp6p013z",
+          "mode": "product"
+        },
+        "event": "popup.topic.hydrate.request",
+        "id": 863,
+        "isoTime": "2026-06-10T02:39:21.883Z"
+      },
+      {
+        "at": 771375.8000000119,
+        "detail": {
+          "folderId": "session_ywskiblc_mp6p013z",
+          "page": "saved-signals",
+          "signalCount": 1
+        },
+        "event": "popup.product.hydrate.request",
+        "id": 864,
+        "isoTime": "2026-06-10T02:39:21.883Z"
+      },
+      {
+        "at": 771582.1000000238,
+        "detail": {
+          "currentAnalysisCount": 1,
+          "currentOk": true,
+          "feedbackCount": 0,
+          "feedbackOk": true,
+          "folderId": "session_ywskiblc_mp6p013z",
+          "historicalAnalysisCount": 1,
+          "historicalOk": true,
+          "page": "saved-signals",
+          "readingCount": 7,
+          "readingsOk": true,
+          "signalCount": 1
+        },
+        "event": "popup.product.hydrate.response",
+        "id": 866,
+        "isoTime": "2026-06-10T02:39:22.090Z"
+      },
+      {
+        "at": 771582.9000000358,
+        "detail": {
+          "folderId": "session_ywskiblc_mp6p013z",
+          "mode": "product",
+          "signalCount": 1,
+          "signalsOk": true,
+          "topicCount": 0,
+          "topicsOk": true
+        },
+        "event": "popup.topic.hydrate.response",
+        "id": 867,
+        "isoTime": "2026-06-10T02:39:22.090Z"
+      },
+      {
+        "at": 774602.3000000119,
+        "detail": {
+          "folderId": "session_ywskiblc_mp6p013z",
+          "mode": "product"
+        },
+        "event": "popup.topic.hydrate.request",
+        "id": 873,
+        "isoTime": "2026-06-10T02:39:25.110Z"
+      },
+      {
+        "at": 774602.5,
+        "detail": {
+          "folderId": "session_ywskiblc_mp6p013z",
+          "page": "saved-signals",
+          "signalCount": 1
+        },
+        "event": "popup.product.hydrate.request",
+        "id": 874,
+        "isoTime": "2026-06-10T02:39:25.110Z"
+      },
+      {
+        "at": 774860.8000000119,
+        "detail": {
+          "currentAnalysisCount": 1,
+          "currentOk": true,
+          "feedbackCount": 0,
+          "feedbackOk": true,
+          "folderId": "session_ywskiblc_mp6p013z",
+          "historicalAnalysisCount": 1,
+          "historicalOk": true,
+          "page": "saved-signals",
+          "readingCount": 7,
+          "readingsOk": true,
+          "signalCount": 1
+        },
+        "event": "popup.product.hydrate.response",
+        "id": 879,
+        "isoTime": "2026-06-10T02:39:25.368Z"
+      },
+      {
+        "at": 774861.9000000358,
+        "detail": {
+          "folderId": "session_ywskiblc_mp6p013z",
+          "mode": "product",
+          "signalCount": 1,
+          "signalsOk": true,
+          "topicCount": 0,
+          "topicsOk": true
+        },
+        "event": "popup.topic.hydrate.response",
+        "id": 880,
+        "isoTime": "2026-06-10T02:39:25.369Z"
+      },
+      {
+        "at": 778262,
+        "detail": {
+          "folderId": "session_ywskiblc_mp6p013z",
+          "mode": "product"
+        },
+        "event": "popup.topic.hydrate.request",
+        "id": 886,
+        "isoTime": "2026-06-10T02:39:28.769Z"
+      },
+      {
+        "at": 778262.4000000358,
+        "detail": {
+          "folderId": "session_ywskiblc_mp6p013z",
+          "page": "saved-signals",
+          "signalCount": 1
+        },
+        "event": "popup.product.hydrate.request",
+        "id": 887,
+        "isoTime": "2026-06-10T02:39:28.770Z"
+      },
+      {
+        "at": 778465.4000000358,
+        "detail": {
+          "currentAnalysisCount": 1,
+          "currentOk": true,
+          "feedbackCount": 0,
+          "feedbackOk": true,
+          "folderId": "session_ywskiblc_mp6p013z",
+          "historicalAnalysisCount": 1,
+          "historicalOk": true,
+          "page": "saved-signals",
+          "readingCount": 7,
+          "readingsOk": true,
+          "signalCount": 1
+        },
+        "event": "popup.product.hydrate.response",
+        "id": 889,
+        "isoTime": "2026-06-10T02:39:28.973Z"
+      },
+      {
+        "at": 778466.2000000477,
+        "detail": {
+          "folderId": "session_ywskiblc_mp6p013z",
+          "mode": "product",
+          "signalCount": 1,
+          "signalsOk": true,
+          "topicCount": 0,
+          "topicsOk": true
+        },
+        "event": "popup.topic.hydrate.response",
+        "id": 890,
+        "isoTime": "2026-06-10T02:39:28.974Z"
+      },
+      {
+        "at": 781460.8000000119,
+        "detail": {
+          "folderId": "session_ywskiblc_mp6p013z",
+          "mode": "product"
+        },
+        "event": "popup.topic.hydrate.request",
+        "id": 896,
+        "isoTime": "2026-06-10T02:39:31.968Z"
+      },
+      {
+        "at": 781461.2000000477,
+        "detail": {
+          "folderId": "session_ywskiblc_mp6p013z",
+          "page": "saved-signals",
+          "signalCount": 1
+        },
+        "event": "popup.product.hydrate.request",
+        "id": 897,
+        "isoTime": "2026-06-10T02:39:31.969Z"
+      },
+      {
+        "at": 781716.5,
+        "detail": {
+          "currentAnalysisCount": 1,
+          "currentOk": true,
+          "feedbackCount": 0,
+          "feedbackOk": true,
+          "folderId": "session_ywskiblc_mp6p013z",
+          "historicalAnalysisCount": 1,
+          "historicalOk": true,
+          "page": "saved-signals",
+          "readingCount": 7,
+          "readingsOk": true,
+          "signalCount": 1
+        },
+        "event": "popup.product.hydrate.response",
+        "id": 902,
+        "isoTime": "2026-06-10T02:39:32.224Z"
+      },
+      {
+        "at": 781717,
+        "detail": {
+          "folderId": "session_ywskiblc_mp6p013z",
+          "mode": "product",
+          "signalCount": 1,
+          "signalsOk": true,
+          "topicCount": 0,
+          "topicsOk": true
+        },
+        "event": "popup.topic.hydrate.response",
+        "id": 903,
+        "isoTime": "2026-06-10T02:39:32.224Z"
+      },
+      {
+        "at": 783542.1000000238,
+        "detail": {
+          "folderId": "session_ywskiblc_mp6p013z",
+          "mode": "product"
+        },
+        "event": "popup.topic.hydrate.request",
+        "id": 912,
+        "isoTime": "2026-06-10T02:39:34.049Z"
+      },
+      {
+        "at": 783542.6000000238,
+        "detail": {
+          "folderId": "session_ywskiblc_mp6p013z",
+          "page": "saved-signals",
+          "signalCount": 1
+        },
+        "event": "popup.product.hydrate.request",
+        "id": 913,
+        "isoTime": "2026-06-10T02:39:34.050Z"
+      },
+      {
+        "at": 783926.9000000358,
+        "detail": {
+          "folderId": "session_ywskiblc_mp6p013z",
+          "mode": "product",
+          "signalCount": 1,
+          "signalsOk": true,
+          "topicCount": 0,
+          "topicsOk": true
+        },
+        "event": "popup.topic.hydrate.response",
+        "id": 915,
+        "isoTime": "2026-06-10T02:39:34.434Z"
+      },
+      {
+        "at": 784057.7000000477,
+        "detail": {
+          "currentAnalysisCount": 1,
+          "currentOk": true,
+          "feedbackCount": 0,
+          "feedbackOk": true,
+          "folderId": "session_ywskiblc_mp6p013z",
+          "historicalAnalysisCount": 1,
+          "historicalOk": true,
+          "page": "saved-signals",
+          "readingCount": 7,
+          "readingsOk": true,
+          "signalCount": 1
+        },
+        "event": "popup.product.hydrate.response",
+        "id": 917,
+        "isoTime": "2026-06-10T02:39:34.565Z"
+      },
+      {
+        "at": 784211.1000000238,
+        "detail": {
+          "folderId": "session_ywskiblc_mp6p013z",
+          "mode": "product"
+        },
+        "event": "popup.topic.hydrate.request",
+        "id": 920,
+        "isoTime": "2026-06-10T02:39:34.719Z"
+      },
+      {
+        "at": 784211.5,
+        "detail": {
+          "folderId": "session_ywskiblc_mp6p013z",
+          "page": "saved-signals",
+          "signalCount": 1
+        },
+        "event": "popup.product.hydrate.request",
+        "id": 921,
+        "isoTime": "2026-06-10T02:39:34.719Z"
+      },
+      {
+        "at": 784699.8000000119,
+        "detail": {
+          "currentAnalysisCount": 1,
+          "currentOk": true,
+          "feedbackCount": 0,
+          "feedbackOk": true,
+          "folderId": "session_ywskiblc_mp6p013z",
+          "historicalAnalysisCount": 1,
+          "historicalOk": true,
+          "page": "saved-signals",
+          "readingCount": 7,
+          "readingsOk": true,
+          "signalCount": 1
+        },
+        "event": "popup.product.hydrate.response",
+        "id": 926,
+        "isoTime": "2026-06-10T02:39:35.207Z"
+      },
+      {
+        "at": 784700.5,
+        "detail": {
+          "folderId": "session_ywskiblc_mp6p013z",
+          "mode": "product",
+          "signalCount": 1,
+          "signalsOk": true,
+          "topicCount": 0,
+          "topicsOk": true
+        },
+        "event": "popup.topic.hydrate.response",
+        "id": 927,
+        "isoTime": "2026-06-10T02:39:35.208Z"
+      },
+      {
+        "at": 785628.1000000238,
+        "detail": {
+          "folderId": "session_ywskiblc_mp6p013z",
+          "mode": "product"
+        },
+        "event": "popup.topic.hydrate.request",
+        "id": 930,
+        "isoTime": "2026-06-10T02:39:36.135Z"
+      },
+      {
+        "at": 785628.5,
+        "detail": {
+          "folderId": "session_ywskiblc_mp6p013z",
+          "page": "saved-signals",
+          "signalCount": 1
+        },
+        "event": "popup.product.hydrate.request",
+        "id": 931,
+        "isoTime": "2026-06-10T02:39:36.136Z"
+      },
+      {
+        "at": 786050,
+        "detail": {
+          "currentAnalysisCount": 1,
+          "currentOk": true,
+          "feedbackCount": 0,
+          "feedbackOk": true,
+          "folderId": "session_ywskiblc_mp6p013z",
+          "historicalAnalysisCount": 1,
+          "historicalOk": true,
+          "page": "saved-signals",
+          "readingCount": 7,
+          "readingsOk": true,
+          "signalCount": 1
+        },
+        "event": "popup.product.hydrate.response",
+        "id": 936,
+        "isoTime": "2026-06-10T02:39:36.557Z"
+      },
+      {
+        "at": 786050.6000000238,
+        "detail": {
+          "folderId": "session_ywskiblc_mp6p013z",
+          "mode": "product",
+          "signalCount": 1,
+          "signalsOk": true,
+          "topicCount": 0,
+          "topicsOk": true
+        },
+        "event": "popup.topic.hydrate.response",
+        "id": 937,
+        "isoTime": "2026-06-10T02:39:36.558Z"
+      },
+      {
+        "at": 787613,
+        "detail": {
+          "folderId": "session_ywskiblc_mp6p013z",
+          "mode": "product"
+        },
+        "event": "popup.topic.hydrate.request",
+        "id": 946,
+        "isoTime": "2026-06-10T02:39:38.120Z"
+      },
+      {
+        "at": 787613.6000000238,
+        "detail": {
+          "folderId": "session_ywskiblc_mp6p013z",
+          "page": "saved-signals",
+          "signalCount": 1
+        },
+        "event": "popup.product.hydrate.request",
+        "id": 947,
+        "isoTime": "2026-06-10T02:39:38.121Z"
+      },
+      {
+        "at": 787965.3000000119,
+        "detail": {
+          "currentAnalysisCount": 1,
+          "currentOk": true,
+          "feedbackCount": 0,
+          "feedbackOk": true,
+          "folderId": "session_ywskiblc_mp6p013z",
+          "historicalAnalysisCount": 1,
+          "historicalOk": true,
+          "page": "saved-signals",
+          "readingCount": 7,
+          "readingsOk": true,
+          "signalCount": 1
+        },
+        "event": "popup.product.hydrate.response",
+        "id": 952,
+        "isoTime": "2026-06-10T02:39:38.473Z"
+      },
+      {
+        "at": 787966,
+        "detail": {
+          "folderId": "session_ywskiblc_mp6p013z",
+          "mode": "product",
+          "signalCount": 1,
+          "signalsOk": true,
+          "topicCount": 0,
+          "topicsOk": true
+        },
+        "event": "popup.topic.hydrate.response",
+        "id": 953,
+        "isoTime": "2026-06-10T02:39:38.473Z"
+      },
+      {
+        "at": 789800.7000000477,
+        "detail": {
+          "folderId": "session_ywskiblc_mp6p013z",
+          "mode": "product"
+        },
+        "event": "popup.topic.hydrate.request",
+        "id": 962,
+        "isoTime": "2026-06-10T02:39:40.308Z"
+      },
+      {
+        "at": 789801.2000000477,
+        "detail": {
+          "folderId": "session_ywskiblc_mp6p013z",
+          "page": "saved-signals",
+          "signalCount": 1
+        },
+        "event": "popup.product.hydrate.request",
+        "id": 963,
+        "isoTime": "2026-06-10T02:39:40.309Z"
+      },
+      {
+        "at": 790119.3000000119,
+        "detail": {
+          "currentAnalysisCount": 1,
+          "currentOk": true,
+          "feedbackCount": 0,
+          "feedbackOk": true,
+          "folderId": "session_ywskiblc_mp6p013z",
+          "historicalAnalysisCount": 1,
+          "historicalOk": true,
+          "page": "saved-signals",
+          "readingCount": 7,
+          "readingsOk": true,
+          "signalCount": 1
+        },
+        "event": "popup.product.hydrate.response",
+        "id": 968,
+        "isoTime": "2026-06-10T02:39:40.627Z"
+      },
+      {
+        "at": 790119.9000000358,
+        "detail": {
+          "folderId": "session_ywskiblc_mp6p013z",
+          "mode": "product",
+          "signalCount": 1,
+          "signalsOk": true,
+          "topicCount": 0,
+          "topicsOk": true
+        },
+        "event": "popup.topic.hydrate.response",
+        "id": 969,
+        "isoTime": "2026-06-10T02:39:40.627Z"
+      },
+      {
+        "at": 791884.2000000477,
+        "detail": {
+          "folderId": "session_ywskiblc_mp6p013z",
+          "mode": "product"
+        },
+        "event": "popup.topic.hydrate.request",
+        "id": 978,
+        "isoTime": "2026-06-10T02:39:42.392Z"
+      },
+      {
+        "at": 791884.8000000119,
+        "detail": {
+          "folderId": "session_ywskiblc_mp6p013z",
+          "page": "saved-signals",
+          "signalCount": 1
+        },
+        "event": "popup.product.hydrate.request",
+        "id": 979,
+        "isoTime": "2026-06-10T02:39:42.392Z"
+      },
+      {
+        "at": 792242.2000000477,
+        "detail": {
+          "currentAnalysisCount": 1,
+          "currentOk": true,
+          "feedbackCount": 0,
+          "feedbackOk": true,
+          "folderId": "session_ywskiblc_mp6p013z",
+          "historicalAnalysisCount": 1,
+          "historicalOk": true,
+          "page": "saved-signals",
+          "readingCount": 7,
+          "readingsOk": true,
+          "signalCount": 1
+        },
+        "event": "popup.product.hydrate.response",
+        "id": 984,
+        "isoTime": "2026-06-10T02:39:42.750Z"
+      },
+      {
+        "at": 792242.8000000119,
+        "detail": {
+          "folderId": "session_ywskiblc_mp6p013z",
+          "mode": "product",
+          "signalCount": 1,
+          "signalsOk": true,
+          "topicCount": 0,
+          "topicsOk": true
+        },
+        "event": "popup.topic.hydrate.response",
+        "id": 985,
+        "isoTime": "2026-06-10T02:39:42.750Z"
+      },
+      {
+        "at": 793089.9000000358,
+        "detail": {
+          "folderId": "session_ywskiblc_mp6p013z",
+          "mode": "product"
+        },
+        "event": "popup.topic.hydrate.request",
+        "id": 988,
+        "isoTime": "2026-06-10T02:39:43.597Z"
+      },
+      {
+        "at": 793090.9000000358,
+        "detail": {
+          "folderId": "session_ywskiblc_mp6p013z",
+          "page": "saved-signals",
+          "signalCount": 1
+        },
+        "event": "popup.product.hydrate.request",
+        "id": 989,
+        "isoTime": "2026-06-10T02:39:43.598Z"
+      },
+      {
+        "at": 793735.7000000477,
+        "detail": {
+          "currentAnalysisCount": 1,
+          "currentOk": true,
+          "feedbackCount": 0,
+          "feedbackOk": true,
+          "folderId": "session_ywskiblc_mp6p013z",
+          "historicalAnalysisCount": 1,
+          "historicalOk": true,
+          "page": "saved-signals",
+          "readingCount": 7,
+          "readingsOk": true,
+          "signalCount": 1
+        },
+        "event": "popup.product.hydrate.response",
+        "id": 994,
+        "isoTime": "2026-06-10T02:39:44.243Z"
+      },
+      {
+        "at": 793736.3000000119,
+        "detail": {
+          "folderId": "session_ywskiblc_mp6p013z",
+          "mode": "product",
+          "signalCount": 1,
+          "signalsOk": true,
+          "topicCount": 0,
+          "topicsOk": true
+        },
+        "event": "popup.topic.hydrate.response",
+        "id": 995,
+        "isoTime": "2026-06-10T02:39:44.244Z"
+      },
+      {
+        "at": 794285.8000000119,
+        "detail": {
+          "folderId": "session_ywskiblc_mp6p013z",
+          "mode": "product"
+        },
+        "event": "popup.topic.hydrate.request",
+        "id": 998,
+        "isoTime": "2026-06-10T02:39:44.793Z"
+      },
+      {
+        "at": 794286.2000000477,
+        "detail": {
+          "folderId": "session_ywskiblc_mp6p013z",
+          "page": "saved-signals",
+          "signalCount": 1
+        },
+        "event": "popup.product.hydrate.request",
+        "id": 999,
+        "isoTime": "2026-06-10T02:39:44.794Z"
+      },
+      {
+        "at": 794799.3000000119,
+        "detail": {
+          "currentAnalysisCount": 1,
+          "currentOk": true,
+          "feedbackCount": 0,
+          "feedbackOk": true,
+          "folderId": "session_ywskiblc_mp6p013z",
+          "historicalAnalysisCount": 1,
+          "historicalOk": true,
+          "page": "saved-signals",
+          "readingCount": 7,
+          "readingsOk": true,
+          "signalCount": 1
+        },
+        "event": "popup.product.hydrate.response",
+        "id": 1004,
+        "isoTime": "2026-06-10T02:39:45.307Z"
+      },
+      {
+        "at": 794799.8000000119,
+        "detail": {
+          "folderId": "session_ywskiblc_mp6p013z",
+          "mode": "product",
+          "signalCount": 1,
+          "signalsOk": true,
+          "topicCount": 0,
+          "topicsOk": true
+        },
+        "event": "popup.topic.hydrate.response",
+        "id": 1005,
+        "isoTime": "2026-06-10T02:39:45.307Z"
+      },
+      {
+        "at": 795681,
+        "detail": {
+          "folderId": "session_ywskiblc_mp6p013z",
+          "mode": "product"
+        },
+        "event": "popup.topic.hydrate.request",
+        "id": 1008,
+        "isoTime": "2026-06-10T02:39:46.188Z"
+      },
+      {
+        "at": 795681.6000000238,
+        "detail": {
+          "folderId": "session_ywskiblc_mp6p013z",
+          "page": "saved-signals",
+          "signalCount": 1
+        },
+        "event": "popup.product.hydrate.request",
+        "id": 1009,
+        "isoTime": "2026-06-10T02:39:46.189Z"
+      },
+      {
+        "at": 796024.1000000238,
+        "detail": {
+          "currentAnalysisCount": 1,
+          "currentOk": true,
+          "feedbackCount": 0,
+          "feedbackOk": true,
+          "folderId": "session_ywskiblc_mp6p013z",
+          "historicalAnalysisCount": 1,
+          "historicalOk": true,
+          "page": "saved-signals",
+          "readingCount": 7,
+          "readingsOk": true,
+          "signalCount": 1
+        },
+        "event": "popup.product.hydrate.response",
+        "id": 1014,
+        "isoTime": "2026-06-10T02:39:46.531Z"
+      },
+      {
+        "at": 796025,
+        "detail": {
+          "folderId": "session_ywskiblc_mp6p013z",
+          "mode": "product",
+          "signalCount": 1,
+          "signalsOk": true,
+          "topicCount": 0,
+          "topicsOk": true
+        },
+        "event": "popup.topic.hydrate.response",
+        "id": 1015,
+        "isoTime": "2026-06-10T02:39:46.532Z"
+      },
+      {
+        "at": 796777.2000000477,
+        "detail": {
+          "folderId": "session_ywskiblc_mp6p013z",
+          "mode": "product"
+        },
+        "event": "popup.topic.hydrate.request",
+        "id": 1018,
+        "isoTime": "2026-06-10T02:39:47.284Z"
+      },
+      {
+        "at": 796777.8000000119,
+        "detail": {
+          "folderId": "session_ywskiblc_mp6p013z",
+          "page": "saved-signals",
+          "signalCount": 1
+        },
+        "event": "popup.product.hydrate.request",
+        "id": 1019,
+        "isoTime": "2026-06-10T02:39:47.285Z"
+      },
+      {
+        "at": 797217.4000000358,
+        "detail": {
+          "currentAnalysisCount": 1,
+          "currentOk": true,
+          "feedbackCount": 0,
+          "feedbackOk": true,
+          "folderId": "session_ywskiblc_mp6p013z",
+          "historicalAnalysisCount": 1,
+          "historicalOk": true,
+          "page": "saved-signals",
+          "readingCount": 7,
+          "readingsOk": true,
+          "signalCount": 1
+        },
+        "event": "popup.product.hydrate.response",
+        "id": 1024,
+        "isoTime": "2026-06-10T02:39:47.725Z"
+      },
+      {
+        "at": 797218.2000000477,
+        "detail": {
+          "folderId": "session_ywskiblc_mp6p013z",
+          "mode": "product",
+          "signalCount": 1,
+          "signalsOk": true,
+          "topicCount": 0,
+          "topicsOk": true
+        },
+        "event": "popup.topic.hydrate.response",
+        "id": 1025,
+        "isoTime": "2026-06-10T02:39:47.726Z"
+      },
+      {
+        "at": 797955.5,
+        "detail": {
+          "folderId": "session_ywskiblc_mp6p013z",
+          "mode": "product"
+        },
+        "event": "popup.topic.hydrate.request",
+        "id": 1028,
+        "isoTime": "2026-06-10T02:39:48.463Z"
+      },
+      {
+        "at": 797956.6000000238,
+        "detail": {
+          "folderId": "session_ywskiblc_mp6p013z",
+          "page": "saved-signals",
+          "signalCount": 1
+        },
+        "event": "popup.product.hydrate.request",
+        "id": 1029,
+        "isoTime": "2026-06-10T02:39:48.464Z"
+      },
+      {
+        "at": 798404.7000000477,
+        "detail": {
+          "currentAnalysisCount": 1,
+          "currentOk": true,
+          "feedbackCount": 0,
+          "feedbackOk": true,
+          "folderId": "session_ywskiblc_mp6p013z",
+          "historicalAnalysisCount": 1,
+          "historicalOk": true,
+          "page": "saved-signals",
+          "readingCount": 7,
+          "readingsOk": true,
+          "signalCount": 1
+        },
+        "event": "popup.product.hydrate.response",
+        "id": 1034,
+        "isoTime": "2026-06-10T02:39:48.912Z"
+      },
+      {
+        "at": 798405.4000000358,
+        "detail": {
+          "folderId": "session_ywskiblc_mp6p013z",
+          "mode": "product",
+          "signalCount": 1,
+          "signalsOk": true,
+          "topicCount": 0,
+          "topicsOk": true
+        },
+        "event": "popup.topic.hydrate.response",
+        "id": 1035,
+        "isoTime": "2026-06-10T02:39:48.913Z"
+      },
+      {
+        "at": 799213.3000000119,
+        "detail": {
+          "folderId": "session_ywskiblc_mp6p013z",
+          "mode": "product"
+        },
+        "event": "popup.topic.hydrate.request",
+        "id": 1038,
+        "isoTime": "2026-06-10T02:39:49.721Z"
+      },
+      {
+        "at": 799213.7000000477,
+        "detail": {
+          "folderId": "session_ywskiblc_mp6p013z",
+          "page": "saved-signals",
+          "signalCount": 1
+        },
+        "event": "popup.product.hydrate.request",
+        "id": 1039,
+        "isoTime": "2026-06-10T02:39:49.721Z"
+      },
+      {
+        "at": 800133.6000000238,
+        "detail": {
+          "currentAnalysisCount": 1,
+          "currentOk": true,
+          "feedbackCount": 0,
+          "feedbackOk": true,
+          "folderId": "session_ywskiblc_mp6p013z",
+          "historicalAnalysisCount": 1,
+          "historicalOk": true,
+          "page": "saved-signals",
+          "readingCount": 7,
+          "readingsOk": true,
+          "signalCount": 1
+        },
+        "event": "popup.product.hydrate.response",
+        "id": 1044,
+        "isoTime": "2026-06-10T02:39:50.641Z"
+      },
+      {
+        "at": 800135.7000000477,
+        "detail": {
+          "folderId": "session_ywskiblc_mp6p013z",
+          "mode": "product",
+          "signalCount": 1,
+          "signalsOk": true,
+          "topicCount": 0,
+          "topicsOk": true
+        },
+        "event": "popup.topic.hydrate.response",
+        "id": 1045,
+        "isoTime": "2026-06-10T02:39:50.643Z"
+      },
+      {
+        "at": 800356.4000000358,
+        "detail": {
+          "folderId": "session_ywskiblc_mp6p013z",
+          "mode": "product"
+        },
+        "event": "popup.topic.hydrate.request",
+        "id": 1048,
+        "isoTime": "2026-06-10T02:39:50.864Z"
+      },
+      {
+        "at": 800356.9000000358,
+        "detail": {
+          "folderId": "session_ywskiblc_mp6p013z",
+          "page": "saved-signals",
+          "signalCount": 1
+        },
+        "event": "popup.product.hydrate.request",
+        "id": 1049,
+        "isoTime": "2026-06-10T02:39:50.864Z"
+      },
+      {
+        "at": 800782.6000000238,
+        "detail": {
+          "currentAnalysisCount": 1,
+          "currentOk": true,
+          "feedbackCount": 0,
+          "feedbackOk": true,
+          "folderId": "session_ywskiblc_mp6p013z",
+          "historicalAnalysisCount": 1,
+          "historicalOk": true,
+          "page": "saved-signals",
+          "readingCount": 7,
+          "readingsOk": true,
+          "signalCount": 1
+        },
+        "event": "popup.product.hydrate.response",
+        "id": 1051,
+        "isoTime": "2026-06-10T02:39:51.290Z"
+      },
+      {
+        "at": 800783.9000000358,
+        "detail": {
+          "folderId": "session_ywskiblc_mp6p013z",
+          "mode": "product",
+          "signalCount": 1,
+          "signalsOk": true,
+          "topicCount": 0,
+          "topicsOk": true
+        },
+        "event": "popup.topic.hydrate.response",
+        "id": 1052,
+        "isoTime": "2026-06-10T02:39:51.291Z"
+      },
+      {
+        "at": 976528.2000000476,
+        "detail": {
+          "folderId": "session_ywskiblc_mp6p013z",
+          "mode": "product"
+        },
+        "event": "popup.topic.hydrate.request",
+        "id": 1060,
+        "isoTime": "2026-06-10T02:42:47.035Z"
+      },
+      {
+        "at": 976528.7000000476,
+        "detail": {
+          "folderId": "session_ywskiblc_mp6p013z",
+          "page": "actionable-filter",
+          "signalCount": 1
+        },
+        "event": "popup.product.hydrate.request",
+        "id": 1061,
+        "isoTime": "2026-06-10T02:42:47.035Z"
+      },
+      {
+        "at": 976900.1000000238,
+        "detail": {
+          "currentAnalysisCount": 1,
+          "currentOk": true,
+          "feedbackCount": 0,
+          "feedbackOk": true,
+          "folderId": "session_ywskiblc_mp6p013z",
+          "historicalAnalysisCount": 1,
+          "historicalOk": true,
+          "page": "actionable-filter",
+          "readingCount": 7,
+          "readingsOk": true,
+          "signalCount": 1
+        },
+        "event": "popup.product.hydrate.response",
+        "id": 1065,
+        "isoTime": "2026-06-10T02:42:47.406Z"
+      },
+      {
+        "at": 976900.9000000358,
+        "detail": {
+          "folderId": "session_ywskiblc_mp6p013z",
+          "mode": "product",
+          "signalCount": 1,
+          "signalsOk": true,
+          "topicCount": 0,
+          "topicsOk": true
+        },
+        "event": "popup.topic.hydrate.response",
+        "id": 1066,
+        "isoTime": "2026-06-10T02:42:47.407Z"
+      }
+    ],
+    "traceTail": [
+      {
+        "at": 790059.5,
+        "detail": {
+          "activeFolderId": "session_ywskiblc_mp6p013z",
+          "failureCount": 0,
+          "hasInflight": false
+        },
+        "event": "popup.worker.status.request",
+        "id": 966,
+        "isoTime": "2026-06-10T02:39:40.567Z"
+      },
+      {
+        "at": 790060.9000000358,
+        "detail": {
+          "activeFolderId": "session_ywskiblc_mp6p013z",
+          "failureCount": 0,
+          "hasInflight": false
+        },
+        "event": "popup.worker.status.request",
+        "id": 967,
+        "isoTime": "2026-06-10T02:39:40.568Z"
+      },
+      "[Circular]",
+      "[Circular]",
+      {
+        "at": 790123.4000000358,
+        "detail": {
+          "activeFolderId": "session_ywskiblc_mp6p013z",
+          "failureCount": 0,
+          "hasInflight": false
+        },
+        "event": "popup.worker.status.request",
+        "id": 970,
+        "isoTime": "2026-06-10T02:39:40.631Z"
+      },
+      {
+        "at": 790465.5,
+        "detail": {
+          "activeFolderId": "session_ywskiblc_mp6p013z"
+        },
+        "event": "popup.worker.refresh.response",
+        "id": 971,
+        "isoTime": "2026-06-10T02:39:40.973Z"
+      },
+      {
+        "at": 790467.6000000238,
+        "detail": {
+          "activeFolderId": "session_ywskiblc_mp6p013z",
+          "failureCount": 0,
+          "hasInflight": false
+        },
+        "event": "popup.worker.status.request",
+        "id": 972,
+        "isoTime": "2026-06-10T02:39:40.975Z"
+      },
+      {
+        "at": 790468.8000000119,
+        "detail": {
+          "activeFolderId": "session_ywskiblc_mp6p013z",
+          "failureCount": 0,
+          "hasInflight": false
+        },
+        "event": "popup.worker.status.request",
+        "id": 973,
+        "isoTime": "2026-06-10T02:39:40.976Z"
+      },
+      {
+        "at": 790994.3000000119,
+        "detail": {
+          "activeFolderId": "session_ywskiblc_mp6p013z"
+        },
+        "event": "popup.worker.refresh.response",
+        "id": 974,
+        "isoTime": "2026-06-10T02:39:41.502Z"
+      },
+      {
+        "at": 790996.9000000358,
+        "detail": {
+          "activeFolderId": "session_ywskiblc_mp6p013z",
+          "failureCount": 0,
+          "hasInflight": false
+        },
+        "event": "popup.worker.status.request",
+        "id": 975,
+        "isoTime": "2026-06-10T02:39:41.504Z"
+      },
+      {
+        "at": 790998.3000000119,
+        "detail": {
+          "activeFolderId": "session_ywskiblc_mp6p013z",
+          "failureCount": 0,
+          "hasInflight": false
+        },
+        "event": "popup.worker.status.request",
+        "id": 976,
+        "isoTime": "2026-06-10T02:39:41.506Z"
+      },
+      {
+        "at": 791882.9000000358,
+        "detail": {
+          "activeFolderId": "session_ywskiblc_mp6p013z",
+          "failureCount": 0,
+          "hasInflight": false
+        },
+        "event": "popup.worker.status.request",
+        "id": 977,
+        "isoTime": "2026-06-10T02:39:42.390Z"
+      },
+      "[Circular]",
+      "[Circular]",
+      {
+        "at": 791887.9000000358,
+        "detail": {
+          "activeFolderId": "session_ywskiblc_mp6p013z",
+          "failureCount": 0,
+          "hasInflight": false
+        },
+        "event": "popup.worker.status.request",
+        "id": 980,
+        "isoTime": "2026-06-10T02:39:42.395Z"
+      },
+      {
+        "at": 792183.4000000358,
+        "detail": {
+          "activeFolderId": "session_ywskiblc_mp6p013z"
+        },
+        "event": "popup.worker.refresh.response",
+        "id": 981,
+        "isoTime": "2026-06-10T02:39:42.691Z"
+      },
+      {
+        "at": 792185.5,
+        "detail": {
+          "activeFolderId": "session_ywskiblc_mp6p013z",
+          "failureCount": 0,
+          "hasInflight": false
+        },
+        "event": "popup.worker.status.request",
+        "id": 982,
+        "isoTime": "2026-06-10T02:39:42.693Z"
+      },
+      {
+        "at": 792186.4000000358,
+        "detail": {
+          "activeFolderId": "session_ywskiblc_mp6p013z",
+          "failureCount": 0,
+          "hasInflight": false
+        },
+        "event": "popup.worker.status.request",
+        "id": 983,
+        "isoTime": "2026-06-10T02:39:42.694Z"
+      },
+      "[Circular]",
+      "[Circular]",
+      {
+        "at": 792244.3000000119,
+        "detail": {
+          "activeFolderId": "session_ywskiblc_mp6p013z",
+          "failureCount": 0,
+          "hasInflight": false
+        },
+        "event": "popup.worker.status.request",
+        "id": 986,
+        "isoTime": "2026-06-10T02:39:42.752Z"
+      },
+      {
+        "at": 793087.7000000477,
+        "detail": {
+          "activeFolderId": "session_ywskiblc_mp6p013z",
+          "failureCount": 0,
+          "hasInflight": false
+        },
+        "event": "popup.worker.status.request",
+        "id": 987,
+        "isoTime": "2026-06-10T02:39:43.595Z"
+      },
+      "[Circular]",
+      "[Circular]",
+      {
+        "at": 793092.3000000119,
+        "detail": {
+          "activeFolderId": "session_ywskiblc_mp6p013z",
+          "failureCount": 0,
+          "hasInflight": false
+        },
+        "event": "popup.worker.status.request",
+        "id": 990,
+        "isoTime": "2026-06-10T02:39:43.600Z"
+      },
+      {
+        "at": 793352.2000000477,
+        "detail": {
+          "activeFolderId": "session_ywskiblc_mp6p013z"
+        },
+        "event": "popup.worker.refresh.response",
+        "id": 991,
+        "isoTime": "2026-06-10T02:39:43.860Z"
+      },
+      {
+        "at": 793354.9000000358,
+        "detail": {
+          "activeFolderId": "session_ywskiblc_mp6p013z",
+          "failureCount": 0,
+          "hasInflight": false
+        },
+        "event": "popup.worker.status.request",
+        "id": 992,
+        "isoTime": "2026-06-10T02:39:43.862Z"
+      },
+      {
+        "at": 793356.5,
+        "detail": {
+          "activeFolderId": "session_ywskiblc_mp6p013z",
+          "failureCount": 0,
+          "hasInflight": false
+        },
+        "event": "popup.worker.status.request",
+        "id": 993,
+        "isoTime": "2026-06-10T02:39:43.864Z"
+      },
+      "[Circular]",
+      "[Circular]",
+      {
+        "at": 793738.8000000119,
+        "detail": {
+          "activeFolderId": "session_ywskiblc_mp6p013z",
+          "failureCount": 0,
+          "hasInflight": false
+        },
+        "event": "popup.worker.status.request",
+        "id": 996,
+        "isoTime": "2026-06-10T02:39:44.246Z"
+      },
+      {
+        "at": 794285,
+        "detail": {
+          "activeFolderId": "session_ywskiblc_mp6p013z",
+          "failureCount": 0,
+          "hasInflight": false
+        },
+        "event": "popup.worker.status.request",
+        "id": 997,
+        "isoTime": "2026-06-10T02:39:44.792Z"
+      },
+      "[Circular]",
+      "[Circular]",
+      {
+        "at": 794287.6000000238,
+        "detail": {
+          "activeFolderId": "session_ywskiblc_mp6p013z",
+          "failureCount": 0,
+          "hasInflight": false
+        },
+        "event": "popup.worker.status.request",
+        "id": 1000,
+        "isoTime": "2026-06-10T02:39:44.795Z"
+      },
+      {
+        "at": 794711.3000000119,
+        "detail": {
+          "activeFolderId": "session_ywskiblc_mp6p013z"
+        },
+        "event": "popup.worker.refresh.response",
+        "id": 1001,
+        "isoTime": "2026-06-10T02:39:45.219Z"
+      },
+      {
+        "at": 794715.8000000119,
+        "detail": {
+          "activeFolderId": "session_ywskiblc_mp6p013z",
+          "failureCount": 0,
+          "hasInflight": false
+        },
+        "event": "popup.worker.status.request",
+        "id": 1002,
+        "isoTime": "2026-06-10T02:39:45.223Z"
+      },
+      {
+        "at": 794717.7000000477,
+        "detail": {
+          "activeFolderId": "session_ywskiblc_mp6p013z",
+          "failureCount": 0,
+          "hasInflight": false
+        },
+        "event": "popup.worker.status.request",
+        "id": 1003,
+        "isoTime": "2026-06-10T02:39:45.225Z"
+      },
+      "[Circular]",
+      "[Circular]",
+      {
+        "at": 794800.9000000358,
+        "detail": {
+          "activeFolderId": "session_ywskiblc_mp6p013z",
+          "failureCount": 0,
+          "hasInflight": false
+        },
+        "event": "popup.worker.status.request",
+        "id": 1006,
+        "isoTime": "2026-06-10T02:39:45.308Z"
+      },
+      {
+        "at": 795679.1000000238,
+        "detail": {
+          "activeFolderId": "session_ywskiblc_mp6p013z",
+          "failureCount": 0,
+          "hasInflight": false
+        },
+        "event": "popup.worker.status.request",
+        "id": 1007,
+        "isoTime": "2026-06-10T02:39:46.186Z"
+      },
+      "[Circular]",
+      "[Circular]",
+      {
+        "at": 795682.9000000358,
+        "detail": {
+          "activeFolderId": "session_ywskiblc_mp6p013z",
+          "failureCount": 0,
+          "hasInflight": false
+        },
+        "event": "popup.worker.status.request",
+        "id": 1010,
+        "isoTime": "2026-06-10T02:39:46.190Z"
+      },
+      {
+        "at": 795958.6000000238,
+        "detail": {
+          "activeFolderId": "session_ywskiblc_mp6p013z"
+        },
+        "event": "popup.worker.refresh.response",
+        "id": 1011,
+        "isoTime": "2026-06-10T02:39:46.466Z"
+      },
+      {
+        "at": 795960.9000000358,
+        "detail": {
+          "activeFolderId": "session_ywskiblc_mp6p013z",
+          "failureCount": 0,
+          "hasInflight": false
+        },
+        "event": "popup.worker.status.request",
+        "id": 1012,
+        "isoTime": "2026-06-10T02:39:46.468Z"
+      },
+      {
+        "at": 795962.2000000477,
+        "detail": {
+          "activeFolderId": "session_ywskiblc_mp6p013z",
+          "failureCount": 0,
+          "hasInflight": false
+        },
+        "event": "popup.worker.status.request",
+        "id": 1013,
+        "isoTime": "2026-06-10T02:39:46.470Z"
+      },
+      "[Circular]",
+      "[Circular]",
+      {
+        "at": 796026.6000000238,
+        "detail": {
+          "activeFolderId": "session_ywskiblc_mp6p013z",
+          "failureCount": 0,
+          "hasInflight": false
+        },
+        "event": "popup.worker.status.request",
+        "id": 1016,
+        "isoTime": "2026-06-10T02:39:46.534Z"
+      },
+      {
+        "at": 796775.9000000358,
+        "detail": {
+          "activeFolderId": "session_ywskiblc_mp6p013z",
+          "failureCount": 0,
+          "hasInflight": false
+        },
+        "event": "popup.worker.status.request",
+        "id": 1017,
+        "isoTime": "2026-06-10T02:39:47.283Z"
+      },
+      "[Circular]",
+      "[Circular]",
+      {
+        "at": 796779.1000000238,
+        "detail": {
+          "activeFolderId": "session_ywskiblc_mp6p013z",
+          "failureCount": 0,
+          "hasInflight": false
+        },
+        "event": "popup.worker.status.request",
+        "id": 1020,
+        "isoTime": "2026-06-10T02:39:47.286Z"
+      },
+      {
+        "at": 797115.9000000358,
+        "detail": {
+          "activeFolderId": "session_ywskiblc_mp6p013z"
+        },
+        "event": "popup.worker.refresh.response",
+        "id": 1021,
+        "isoTime": "2026-06-10T02:39:47.623Z"
+      },
+      {
+        "at": 797118.8000000119,
+        "detail": {
+          "activeFolderId": "session_ywskiblc_mp6p013z",
+          "failureCount": 0,
+          "hasInflight": false
+        },
+        "event": "popup.worker.status.request",
+        "id": 1022,
+        "isoTime": "2026-06-10T02:39:47.626Z"
+      },
+      {
+        "at": 797120.1000000238,
+        "detail": {
+          "activeFolderId": "session_ywskiblc_mp6p013z",
+          "failureCount": 0,
+          "hasInflight": false
+        },
+        "event": "popup.worker.status.request",
+        "id": 1023,
+        "isoTime": "2026-06-10T02:39:47.627Z"
+      },
+      "[Circular]",
+      "[Circular]",
+      {
+        "at": 797219.6000000238,
+        "detail": {
+          "activeFolderId": "session_ywskiblc_mp6p013z",
+          "failureCount": 0,
+          "hasInflight": false
+        },
+        "event": "popup.worker.status.request",
+        "id": 1026,
+        "isoTime": "2026-06-10T02:39:47.727Z"
+      },
+      {
+        "at": 797954.3000000119,
+        "detail": {
+          "activeFolderId": "session_ywskiblc_mp6p013z",
+          "failureCount": 0,
+          "hasInflight": false
+        },
+        "event": "popup.worker.status.request",
+        "id": 1027,
+        "isoTime": "2026-06-10T02:39:48.462Z"
+      },
+      "[Circular]",
+      "[Circular]",
+      {
+        "at": 797957.8000000119,
+        "detail": {
+          "activeFolderId": "session_ywskiblc_mp6p013z",
+          "failureCount": 0,
+          "hasInflight": false
+        },
+        "event": "popup.worker.status.request",
+        "id": 1030,
+        "isoTime": "2026-06-10T02:39:48.465Z"
+      },
+      {
+        "at": 798309.9000000358,
+        "detail": {
+          "activeFolderId": "session_ywskiblc_mp6p013z"
+        },
+        "event": "popup.worker.refresh.response",
+        "id": 1031,
+        "isoTime": "2026-06-10T02:39:48.817Z"
+      },
+      {
+        "at": 798312.4000000358,
+        "detail": {
+          "activeFolderId": "session_ywskiblc_mp6p013z",
+          "failureCount": 0,
+          "hasInflight": false
+        },
+        "event": "popup.worker.status.request",
+        "id": 1032,
+        "isoTime": "2026-06-10T02:39:48.820Z"
+      },
+      {
+        "at": 798315.1000000238,
+        "detail": {
+          "activeFolderId": "session_ywskiblc_mp6p013z",
+          "failureCount": 0,
+          "hasInflight": false
+        },
+        "event": "popup.worker.status.request",
+        "id": 1033,
+        "isoTime": "2026-06-10T02:39:48.822Z"
+      },
+      "[Circular]",
+      "[Circular]",
+      {
+        "at": 798407,
+        "detail": {
+          "activeFolderId": "session_ywskiblc_mp6p013z",
+          "failureCount": 0,
+          "hasInflight": false
+        },
+        "event": "popup.worker.status.request",
+        "id": 1036,
+        "isoTime": "2026-06-10T02:39:48.914Z"
+      },
+      {
+        "at": 799212.6000000238,
+        "detail": {
+          "activeFolderId": "session_ywskiblc_mp6p013z",
+          "failureCount": 0,
+          "hasInflight": false
+        },
+        "event": "popup.worker.status.request",
+        "id": 1037,
+        "isoTime": "2026-06-10T02:39:49.720Z"
+      },
+      "[Circular]",
+      "[Circular]",
+      {
+        "at": 799214.7000000477,
+        "detail": {
+          "activeFolderId": "session_ywskiblc_mp6p013z",
+          "failureCount": 0,
+          "hasInflight": false
+        },
+        "event": "popup.worker.status.request",
+        "id": 1040,
+        "isoTime": "2026-06-10T02:39:49.722Z"
+      },
+      {
+        "at": 799461.7000000477,
+        "detail": {
+          "activeFolderId": "session_ywskiblc_mp6p013z"
+        },
+        "event": "popup.worker.refresh.response",
+        "id": 1041,
+        "isoTime": "2026-06-10T02:39:49.969Z"
+      },
+      {
+        "at": 799464.1000000238,
+        "detail": {
+          "activeFolderId": "session_ywskiblc_mp6p013z",
+          "failureCount": 0,
+          "hasInflight": false
+        },
+        "event": "popup.worker.status.request",
+        "id": 1042,
+        "isoTime": "2026-06-10T02:39:49.971Z"
+      },
+      {
+        "at": 799465.3000000119,
+        "detail": {
+          "activeFolderId": "session_ywskiblc_mp6p013z",
+          "failureCount": 0,
+          "hasInflight": false
+        },
+        "event": "popup.worker.status.request",
+        "id": 1043,
+        "isoTime": "2026-06-10T02:39:49.973Z"
+      },
+      "[Circular]",
+      "[Circular]",
+      {
+        "at": 800140.5,
+        "detail": {
+          "activeFolderId": "session_ywskiblc_mp6p013z",
+          "failureCount": 0,
+          "hasInflight": false
+        },
+        "event": "popup.worker.status.request",
+        "id": 1046,
+        "isoTime": "2026-06-10T02:39:50.648Z"
+      },
+      {
+        "at": 800355.5,
+        "detail": {
+          "activeFolderId": "session_ywskiblc_mp6p013z",
+          "failureCount": 0,
+          "hasInflight": false
+        },
+        "event": "popup.worker.status.request",
+        "id": 1047,
+        "isoTime": "2026-06-10T02:39:50.863Z"
+      },
+      "[Circular]",
+      "[Circular]",
+      {
+        "at": 800358.2000000477,
+        "detail": {
+          "activeFolderId": "session_ywskiblc_mp6p013z",
+          "failureCount": 0,
+          "hasInflight": false
+        },
+        "event": "popup.worker.status.request",
+        "id": 1050,
+        "isoTime": "2026-06-10T02:39:50.866Z"
+      },
+      "[Circular]",
+      "[Circular]",
+      {
+        "at": 800786.1000000238,
+        "detail": {
+          "activeFolderId": "session_ywskiblc_mp6p013z",
+          "failureCount": 0,
+          "hasInflight": false
+        },
+        "event": "popup.worker.status.request",
+        "id": 1053,
+        "isoTime": "2026-06-10T02:39:51.293Z"
+      },
+      {
+        "at": 801319.6000000238,
+        "detail": {
+          "elapsedMs": 533.6,
+          "previousWorkerStatus": "idle",
+          "workerStatus": "idle"
+        },
+        "event": "popup.worker.status.response",
+        "id": 1054,
+        "isoTime": "2026-06-10T02:39:51.827Z"
+      },
+      {
+        "at": 801562.8000000119,
+        "detail": {
+          "activeFolderId": "session_ywskiblc_mp6p013z",
+          "failureCount": 0,
+          "hasInflight": false
+        },
+        "event": "popup.worker.status.request",
+        "id": 1055,
+        "isoTime": "2026-06-10T02:39:52.070Z"
+      },
+      {
+        "at": 801891.3000000119,
+        "detail": {
+          "elapsedMs": 328.6,
+          "previousWorkerStatus": "idle",
+          "workerStatus": "idle"
+        },
+        "event": "popup.worker.status.response",
+        "id": 1056,
+        "isoTime": "2026-06-10T02:39:52.399Z"
+      },
+      {
+        "at": 975834.4000000358,
+        "detail": {
+          "activeFolderId": "session_ywskiblc_mp6p013z",
+          "failureCount": 0,
+          "hasInflight": false
+        },
+        "event": "popup.worker.status.request",
+        "id": 1057,
+        "isoTime": "2026-06-10T02:42:46.341Z"
+      },
+      {
+        "at": 976229.4000000358,
+        "detail": {
+          "activeFolderId": "session_ywskiblc_mp6p013z",
+          "failureCount": 0,
+          "hasInflight": false
+        },
+        "event": "popup.worker.status.request",
+        "id": 1058,
+        "isoTime": "2026-06-10T02:42:46.736Z"
+      },
+      {
+        "at": 976527.300000012,
+        "detail": {
+          "activeFolderId": "session_ywskiblc_mp6p013z",
+          "failureCount": 0,
+          "hasInflight": false
+        },
+        "event": "popup.worker.status.request",
+        "id": 1059,
+        "isoTime": "2026-06-10T02:42:47.034Z"
+      },
+      "[Circular]",
+      "[Circular]",
+      {
+        "at": 976530.6000000238,
+        "detail": {
+          "activeFolderId": "session_ywskiblc_mp6p013z",
+          "failureCount": 0,
+          "hasInflight": false
+        },
+        "event": "popup.worker.status.request",
+        "id": 1062,
+        "isoTime": "2026-06-10T02:42:47.037Z"
+      },
+      {
+        "at": 976588.800000012,
+        "detail": {
+          "activeFolderId": "session_ywskiblc_mp6p013z",
+          "failureCount": 0,
+          "hasInflight": false
+        },
+        "event": "popup.worker.status.request",
+        "id": 1063,
+        "isoTime": "2026-06-10T02:42:47.095Z"
+      },
+      {
+        "at": 976590.300000012,
+        "detail": {
+          "activeFolderId": "session_ywskiblc_mp6p013z",
+          "failureCount": 0,
+          "hasInflight": false
+        },
+        "event": "popup.worker.status.request",
+        "id": 1064,
+        "isoTime": "2026-06-10T02:42:47.097Z"
+      },
+      "[Circular]",
+      "[Circular]",
+      {
+        "at": 976902.5,
+        "detail": {
+          "activeFolderId": "session_ywskiblc_mp6p013z",
+          "failureCount": 0,
+          "hasInflight": false
+        },
+        "event": "popup.worker.status.request",
+        "id": 1067,
+        "isoTime": "2026-06-10T02:42:47.409Z"
+      },
+      {
+        "at": 977762.5,
+        "detail": {
+          "elapsedMs": 860.1,
+          "previousWorkerStatus": "idle",
+          "workerStatus": "idle"
+        },
+        "event": "popup.worker.status.response",
+        "id": 1068,
+        "isoTime": "2026-06-10T02:42:48.269Z"
+      },
+      {
+        "at": 977792.1000000238,
+        "detail": {
+          "activeFolderId": "session_ywskiblc_mp6p013z",
+          "failureCount": 0,
+          "hasInflight": false
+        },
+        "event": "popup.worker.status.request",
+        "id": 1069,
+        "isoTime": "2026-06-10T02:42:48.298Z"
+      },
+      {
+        "at": 978107.300000012,
+        "detail": {
+          "elapsedMs": 315.2,
+          "previousWorkerStatus": "idle",
+          "workerStatus": "idle"
+        },
+        "event": "popup.worker.status.response",
+        "id": 1070,
+        "isoTime": "2026-06-10T02:42:48.614Z"
+      },
+      {
+        "at": 1093837.4000000358,
+        "detail": {
+          "analysisCount": 1,
+          "sessionId": "session_ywskiblc_mp6p013z",
+          "signalCount": 1
+        },
+        "event": "popup.product.analyze.request",
+        "id": 1071,
+        "isoTime": "2026-06-10T02:44:44.343Z"
+      },
+      {
+        "at": 1093846.300000012,
+        "detail": {
+          "activeFolderId": "session_ywskiblc_mp6p013z",
+          "failureCount": 0,
+          "hasInflight": false
+        },
+        "event": "popup.worker.status.request",
+        "id": 1072,
+        "isoTime": "2026-06-10T02:44:44.352Z"
+      },
+      {
+        "at": 1094127.800000012,
+        "detail": {
+          "elapsedMs": 281.4,
+          "error": "Optional ingest backend unavailable at http://127.0.0.1:8000/worker/status. Check ingestBaseUrl or start the backend. Original error: Failed to fetch",
+          "failureCount": 1
+        },
+        "event": "popup.worker.status.error",
+        "id": 1073,
+        "isoTime": "2026-06-10T02:44:44.633Z"
+      },
+      {
+        "at": 1094130.7000000477,
+        "detail": {
+          "activeFolderId": "session_ywskiblc_mp6p013z",
+          "failureCount": 1,
+          "hasInflight": false
+        },
+        "event": "popup.worker.status.request",
+        "id": 1074,
+        "isoTime": "2026-06-10T02:44:44.636Z"
+      },
+      {
+        "at": 1094214.5,
+        "detail": {
+          "analyzed": 1,
+          "elapsedMs": 377.3,
+          "failed": 0,
+          "failureCount": 0,
+          "ok": true,
+          "queued": 0
+        },
+        "event": "popup.product.analyze.response",
+        "id": 1075,
+        "isoTime": "2026-06-10T02:44:44.720Z"
+      },
+      {
+        "at": 1094217.9000000358,
+        "detail": {
+          "activeFolderId": "session_ywskiblc_mp6p013z",
+          "failureCount": 1,
+          "hasInflight": false
+        },
+        "event": "popup.worker.status.request",
+        "id": 1076,
+        "isoTime": "2026-06-10T02:44:44.724Z"
+      },
+      {
+        "at": 1094219.9000000358,
+        "detail": {
+          "activeFolderId": "session_ywskiblc_mp6p013z",
+          "failureCount": 1,
+          "hasInflight": false
+        },
+        "event": "popup.worker.status.request",
+        "id": 1077,
+        "isoTime": "2026-06-10T02:44:44.726Z"
+      },
+      {
+        "at": 1094503.1000000238,
+        "detail": {
+          "elapsedMs": 283.2,
+          "error": "Optional ingest backend unavailable at http://127.0.0.1:8000/worker/status. Check ingestBaseUrl or start the backend. Original error: Failed to fetch",
+          "failureCount": 2
+        },
+        "event": "popup.worker.status.error",
+        "id": 1078,
+        "isoTime": "2026-06-10T02:44:45.009Z"
+      },
+      {
+        "at": 1095423.1000000238,
+        "detail": {
+          "activeFolderId": "session_ywskiblc_mp6p013z",
+          "failureCount": 2,
+          "hasInflight": false
+        },
+        "event": "popup.worker.status.request",
+        "id": 1079,
+        "isoTime": "2026-06-10T02:44:45.929Z"
+      },
+      {
+        "at": 1095597.800000012,
+        "detail": {
+          "elapsedMs": 174.7,
+          "error": "Optional ingest backend unavailable at http://127.0.0.1:8000/worker/status. Check ingestBaseUrl or start the backend. Original error: Failed to fetch",
+          "failureCount": 3
+        },
+        "event": "popup.worker.status.error",
+        "id": 1080,
+        "isoTime": "2026-06-10T02:44:46.103Z"
+      },
+      {
+        "at": 1200700.6000000238,
+        "event": "content.overlay.hide",
+        "id": 1081,
+        "isoTime": "2026-06-10T02:46:31.206Z"
+      },
+      {
+        "at": 1200706.6000000238,
+        "detail": {
+          "delayMs": null,
+          "fingerprint": null,
+          "hasCard": false,
+          "strength": null
+        },
+        "event": "content.hover.card-change",
+        "id": 1082,
+        "isoTime": "2026-06-10T02:46:31.212Z"
+      },
+      {
+        "at": 1200707.800000012,
+        "detail": {
+          "author": null,
+          "hasDescriptor": false,
+          "postUrl": null,
+          "strength": null
+        },
+        "event": "content.hover.publish",
+        "id": 1083,
+        "isoTime": "2026-06-10T02:46:31.213Z"
+      },
+      {
+        "at": 1200726.2000000477,
+        "detail": {
+          "activeFolderId": "session_ywskiblc_mp6p013z",
+          "failureCount": 3,
+          "hasInflight": false
+        },
+        "event": "popup.worker.status.request",
+        "id": 1084,
+        "isoTime": "2026-06-10T02:46:31.231Z"
+      },
+      {
+        "at": 1200786.800000012,
+        "detail": {
+          "reason": "no-card",
+          "strength": null
+        },
+        "event": "content.collect.click.pass-through",
+        "id": 1085,
+        "isoTime": "2026-06-10T02:46:31.292Z"
+      }
+    ]
+  },
+  "afterWait": {
+    "rootText": "Hover to preview | S save | Esc exit Saved 2 2h No snippet — — — — Saved Open dlens Topic Product PR Annotated Field Guide VOL.1 NO.01 Jun 10 · v.0.1.30 d 採集 訊號 分類 行動 設定 Product mode Agent Brief 先審視模型判讀，再把已收錄 reading 組成可貼給 coding agent 的 brief。 Backend 離線 分析狀態 1 signals 1 analyses AI key ProductProfile ProductContext Backend 無法連線。請到設定確認 backend URL，或先啟動 ingest backend。 已完成 1 條產品訊號分析。 重新分析 DLens Founders, product builders, PR/marketing researchers, journalists, analysts ProductContext 1 則訊號已評估 值得嘗試 0 噪音 / 前提不符 0 資料不足 0 保留觀察 1 可直接試的做法 目前沒有 verdict=try 的訊號。先看保留觀察或資料不足。",
+    "traceCount": 500
+  },
+  "error": null
+}

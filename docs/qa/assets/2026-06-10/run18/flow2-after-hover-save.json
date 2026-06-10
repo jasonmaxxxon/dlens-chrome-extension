@@ -1,0 +1,224 @@
+{
+  "flow2HoverSaveStartRun18": {
+    "count": 162,
+    "nowIso": "2026-06-10T02:32:05.140Z",
+    "traceStartId": 162
+  },
+  "flow2AfterHoverSaveRun18": {
+    "bodyCursor": "crosshair",
+    "capturedAt": "2026-06-10T02:32:07.455Z",
+    "docCursor": "crosshair",
+    "newTrace": [
+      {
+        "at": 335203.40000003576,
+        "detail": {
+          "rect": {
+            "height": 450,
+            "left": 761,
+            "top": 148,
+            "width": 638
+          },
+          "strength": "hard"
+        },
+        "event": "content.overlay.render",
+        "id": 163,
+        "isoTime": "2026-06-10T02:32:05.713Z"
+      },
+      {
+        "at": 335204.3000000119,
+        "detail": {
+          "delayMs": 0,
+          "fingerprint": "/@fredhongyi/post/DZYqHaCjzT6",
+          "hasCard": true,
+          "strength": "hard"
+        },
+        "event": "content.hover.card-change",
+        "id": 164,
+        "isoTime": "2026-06-10T02:32:05.714Z"
+      },
+      {
+        "at": 335212.60000002384,
+        "detail": {
+          "hasDescriptor": true,
+          "postUrl": "https://www.threads.net/@fredhongyi/post/DZYqHaCjzT6",
+          "readMs": 2.6
+        },
+        "event": "content.hover.intent-fired",
+        "id": 165,
+        "isoTime": "2026-06-10T02:32:05.722Z"
+      },
+      {
+        "at": 335213.40000003576,
+        "detail": {
+          "author": "fredhongyi",
+          "hasDescriptor": true,
+          "postUrl": "https://www.threads.net/@fredhongyi/post/DZYqHaCjzT6",
+          "strength": "hard"
+        },
+        "event": "content.hover.publish",
+        "id": 166,
+        "isoTime": "2026-06-10T02:32:05.723Z"
+      },
+      {
+        "at": 335222.3000000119,
+        "detail": {
+          "activeFolderId": "session_ywskiblc_mp6p013z",
+          "failureCount": 12,
+          "hasInflight": false
+        },
+        "event": "popup.worker.status.request",
+        "id": 167,
+        "isoTime": "2026-06-10T02:32:05.732Z"
+      },
+      {
+        "at": 335390.8000000119,
+        "detail": {
+          "activeFolderId": "session_ywskiblc_mp6p013z",
+          "failureCount": 12,
+          "hasInflight": false
+        },
+        "event": "popup.worker.status.request",
+        "id": 168,
+        "isoTime": "2026-06-10T02:32:05.901Z"
+      },
+      {
+        "at": 335392.10000002384,
+        "detail": {
+          "activeFolderId": "session_ywskiblc_mp6p013z",
+          "failureCount": 12,
+          "hasInflight": false
+        },
+        "event": "popup.worker.status.request",
+        "id": 169,
+        "isoTime": "2026-06-10T02:32:05.902Z"
+      },
+      {
+        "at": 335717.5,
+        "detail": {
+          "elapsedMs": 325.3,
+          "error": "Optional ingest backend unavailable at http://127.0.0.1:8000/worker/status. Check ingestBaseUrl or start the backend. Original error: Failed to fetch",
+          "failureCount": 13
+        },
+        "event": "popup.worker.status.error",
+        "id": 170,
+        "isoTime": "2026-06-10T02:32:06.227Z"
+      },
+      {
+        "at": 336597.90000003576,
+        "detail": {
+          "activeFolderId": "session_ywskiblc_mp6p013z",
+          "failureCount": 13,
+          "hasInflight": false
+        },
+        "event": "popup.worker.status.request",
+        "id": 171,
+        "isoTime": "2026-06-10T02:32:07.108Z"
+      },
+      {
+        "at": 336598.7000000477,
+        "detail": {
+          "folderId": "session_ywskiblc_mp6p013z",
+          "mode": "product"
+        },
+        "event": "popup.topic.hydrate.request",
+        "id": 172,
+        "isoTime": "2026-06-10T02:32:07.109Z"
+      },
+      {
+        "at": 336599.3000000119,
+        "detail": {
+          "folderId": "session_ywskiblc_mp6p013z",
+          "isProductSignalPage": false,
+          "mode": "product",
+          "page": "collect",
+          "popupOpen": true
+        },
+        "event": "popup.product.hydrate.skip",
+        "id": 173,
+        "isoTime": "2026-06-10T02:32:07.109Z"
+      },
+      {
+        "at": 336600.5,
+        "detail": {
+          "activeFolderId": "session_ywskiblc_mp6p013z",
+          "failureCount": 13,
+          "hasInflight": false
+        },
+        "event": "popup.worker.status.request",
+        "id": 174,
+        "isoTime": "2026-06-10T02:32:07.110Z"
+      },
+      {
+        "at": 336635.3000000119,
+        "detail": {
+          "activeFolderId": "session_ywskiblc_mp6p013z",
+          "failureCount": 13,
+          "hasInflight": false
+        },
+        "event": "popup.worker.status.request",
+        "id": 175,
+        "isoTime": "2026-06-10T02:32:07.145Z"
+      },
+      {
+        "at": 336636.3000000119,
+        "detail": {
+          "activeFolderId": "session_ywskiblc_mp6p013z",
+          "failureCount": 13,
+          "hasInflight": false
+        },
+        "event": "popup.worker.status.request",
+        "id": 176,
+        "isoTime": "2026-06-10T02:32:07.146Z"
+      },
+      {
+        "at": 336842.2000000477,
+        "detail": {
+          "folderId": "session_ywskiblc_mp6p013z",
+          "mode": "product",
+          "signalCount": 4,
+          "signalsOk": true,
+          "topicCount": 0,
+          "topicsOk": true
+        },
+        "event": "popup.topic.hydrate.response",
+        "id": 177,
+        "isoTime": "2026-06-10T02:32:07.352Z"
+      },
+      {
+        "at": 336843.8000000119,
+        "detail": {
+          "activeFolderId": "session_ywskiblc_mp6p013z",
+          "failureCount": 13,
+          "hasInflight": false
+        },
+        "event": "popup.worker.status.request",
+        "id": 178,
+        "isoTime": "2026-06-10T02:32:07.354Z"
+      },
+      {
+        "at": 336844.2000000477,
+        "detail": {
+          "folderId": "session_ywskiblc_mp6p013z",
+          "isProductSignalPage": false,
+          "mode": "product",
+          "page": "collect",
+          "popupOpen": true
+        },
+        "event": "popup.product.hydrate.skip",
+        "id": 179,
+        "isoTime": "2026-06-10T02:32:07.354Z"
+      }
+    ],
+    "overlay": {
+      "display": "block",
+      "rect": {
+        "h": 459,
+        "w": 647,
+        "x": 758,
+        "y": 145
+      }
+    },
+    "rootText": "Hover to preview\n|\nS\nsave\n|\nEsc\nexit\nReady\n已加入產品訊號\ndlens\nTopic\nProduct\nPR\nAnnotated Field Guide\nVOL.1\nNO.02\nJun 10\n·\nv.0.1.30\nd\n採集\n訊號\n分類\n行動\n設定\nCollect mode live\n快速判斷，加入產品訊號\n\n指向 Threads 貼文即可預覽，按下加入產品訊號收件匣。\n\nActive\nLive capture\n已儲存\nF\nfredhongyi\n產品訊號收件匣 · Product mode\n在 Threads 開啟\n從好物變被丟棄... github copilot 本來主打，以提出幾次 prompt 為計算單位，等於說，prompt 下的好，可以一次性開發出一個很棒的專案，且只算一次使用的量。 但6月後調整為 AI credits 已經沒有此紅利... 實測，我用不到一個下午，就已經快撐爆一個月的用量。 只好直接捨棄了。\n2\n4\n—\n—\n已加入產品訊號\nSelection active\n收集模式：開啟\n移動游標選取貼文。\n關閉收集模式\nS · 儲存\nEsc · 離開",
+    "traceCount": "179"
+  }
+}

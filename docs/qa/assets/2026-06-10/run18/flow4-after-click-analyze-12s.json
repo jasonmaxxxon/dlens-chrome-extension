@@ -1,0 +1,431 @@
+{
+  "flow4ClickAnalyzeStart": {
+    "nowIso": "2026-06-10T02:37:56.987Z",
+    "rootText": "Hover to preview\n|\nS\nsave\n|\nEsc\nexit\nReady\ndlens\nTopic\nProduct\nPR\nAnnotated Field Guide\nVOL.1\nNO.01\nJun 10\n·\nv.0.1.30\nd\n採集\n訊號\n分類\n行動\n設定\nProduct mode\nSaved Signals\n\n先確認已儲存的 Threads post 是否完成抓取，再到行動頁整理可試 workflow。\n\nNo result\n真實狀態\n1 signals\n0 analyses\nAI key\nProductProfile\nProductContext\n有 signal 尚未抓取。按分析收件匣會先送出抓取請求，完成後再分析。\n分析收件匣\n等待處理的 signals\n尚未抓取\n未分析\nthreads\n×\n按分析會先送出抓取請求。\n從好物變被丟棄... github copilot 本來主打，以提出幾次 prompt 為計算單位，等於說，prompt 下的好，可以一次性開發出一個很棒的專案，且只算一次使用的量。 但6月後調整為 AI credits 已經沒有此紅利... 實測，我用不到一個下午，就已經快撐爆一個月的用量。 只好直接捨棄了。\nSaved Signals\n1 saved\n從好物變被丟棄... github copilot 本來主打，以提出幾次 prompt 為計算單位，等於說，prompt 下的好，可以一次性開發出一個很棒的專案，且只算一次使用的量。 但6月後調整為 AI credits 已經沒有此紅利.…\n尚未抓取 · 尚未分析\n尚未抓取\n×",
+    "traceStartId": 532
+  },
+  "flow4LoadingImmediate": {
+    "capturedAt": "2026-06-10T02:37:58.712Z",
+    "newTrace": [
+      {
+        "at": 686933.3000000119,
+        "detail": {
+          "analysisCount": 0,
+          "sessionId": "session_ywskiblc_mp6p013z",
+          "signalCount": 1
+        },
+        "event": "popup.product.analyze.request",
+        "id": 533,
+        "isoTime": "2026-06-10T02:37:57.441Z"
+      },
+      {
+        "at": 686937.5,
+        "detail": {
+          "activeFolderId": "session_ywskiblc_mp6p013z",
+          "failureCount": 0,
+          "hasInflight": false
+        },
+        "event": "popup.worker.status.request",
+        "id": 534,
+        "isoTime": "2026-06-10T02:37:57.445Z"
+      },
+      {
+        "at": 687388.1000000238,
+        "detail": {
+          "elapsedMs": 450.7,
+          "previousWorkerStatus": "idle",
+          "workerStatus": "idle"
+        },
+        "event": "popup.worker.status.response",
+        "id": 535,
+        "isoTime": "2026-06-10T02:37:57.896Z"
+      }
+    ],
+    "rootText": "Hover to preview\n|\nS\nsave\n|\nEsc\nexit\nReady\ndlens\nTopic\nProduct\nPR\nAnnotated Field Guide\nVOL.1\nNO.01\nJun 10\n·\nv.0.1.30\nd\n採集\n訊號\n分類\n行動\n設定\nProduct mode\nSaved Signals\n\n先確認已儲存的 Threads post 是否完成抓取，再到行動頁整理可試 workflow。\n\nNo result\n真實狀態\n1 signals\n0 analyses\nAI key\nProductProfile\nProductContext\n有 signal 尚未抓取。按分析收件匣會先送出抓取請求，完成後再分析。\n分析中\n等待處理的 signals\n尚未抓取\n未分析\nthreads\n×\n按分析會先送出抓取請求。\n從好物變被丟棄... github copilot 本來主打，以提出幾次 prompt 為計算單位，等於說，prompt 下的好，可以一次性開發出一個很棒的專案，且只算一次使用的量。 但6月後調整為 AI credits 已經沒有此紅利... 實測，我用不到一個下午，就已經快撐爆一個月的用量。 只好直接捨棄了。\nSaved Signals\n1 saved\n從好物變被丟棄... github copilot 本來主打，以提出幾次 prompt 為計算單位，等於說，prompt 下的好，可以一次性開發出一個很棒的專案，且只算一次使用的量。 但6月後調整為 AI credits 已經沒有此紅利.…\n尚未抓取 · 尚未分析\n尚未抓取\n×"
+  },
+  "flow4AfterAnalyze12s": {
+    "buttons": [
+      {
+        "disabled": false,
+        "text": ""
+      },
+      {
+        "disabled": false,
+        "text": "Topic"
+      },
+      {
+        "disabled": false,
+        "text": "Product"
+      },
+      {
+        "disabled": false,
+        "text": "PR"
+      },
+      {
+        "disabled": false,
+        "text": "採集"
+      },
+      {
+        "disabled": false,
+        "text": "訊號"
+      },
+      {
+        "disabled": false,
+        "text": "分類"
+      },
+      {
+        "disabled": false,
+        "text": "行動"
+      },
+      {
+        "disabled": false,
+        "text": "設定"
+      },
+      {
+        "disabled": true,
+        "text": "分析收件匣"
+      },
+      {
+        "disabled": false,
+        "text": "×"
+      },
+      {
+        "disabled": false,
+        "text": "×"
+      }
+    ],
+    "capturedAt": "2026-06-10T02:38:10.779Z",
+    "newTrace": [
+      {
+        "at": 686933.3000000119,
+        "detail": {
+          "analysisCount": 0,
+          "sessionId": "session_ywskiblc_mp6p013z",
+          "signalCount": 1
+        },
+        "event": "popup.product.analyze.request",
+        "id": 533,
+        "isoTime": "2026-06-10T02:37:57.441Z"
+      },
+      {
+        "at": 686937.5,
+        "detail": {
+          "activeFolderId": "session_ywskiblc_mp6p013z",
+          "failureCount": 0,
+          "hasInflight": false
+        },
+        "event": "popup.worker.status.request",
+        "id": 534,
+        "isoTime": "2026-06-10T02:37:57.445Z"
+      },
+      {
+        "at": 687388.1000000238,
+        "detail": {
+          "elapsedMs": 450.7,
+          "previousWorkerStatus": "idle",
+          "workerStatus": "idle"
+        },
+        "event": "popup.worker.status.response",
+        "id": 535,
+        "isoTime": "2026-06-10T02:37:57.896Z"
+      },
+      {
+        "at": 695369.4000000358,
+        "detail": {
+          "activeFolderId": "session_ywskiblc_mp6p013z",
+          "failureCount": 0,
+          "hasInflight": true
+        },
+        "event": "popup.worker.status.request",
+        "id": 536,
+        "isoTime": "2026-06-10T02:38:05.877Z"
+      },
+      {
+        "at": 695369.9000000358,
+        "detail": {
+          "folderId": "session_ywskiblc_mp6p013z",
+          "mode": "product"
+        },
+        "event": "popup.topic.hydrate.request",
+        "id": 537,
+        "isoTime": "2026-06-10T02:38:05.878Z"
+      },
+      {
+        "at": 695370.3000000119,
+        "detail": {
+          "folderId": "session_ywskiblc_mp6p013z",
+          "page": "saved-signals",
+          "signalCount": 1
+        },
+        "event": "popup.product.hydrate.request",
+        "id": 538,
+        "isoTime": "2026-06-10T02:38:05.878Z"
+      },
+      {
+        "at": 695371.5,
+        "detail": {
+          "activeFolderId": "session_ywskiblc_mp6p013z",
+          "failureCount": 0,
+          "hasInflight": true
+        },
+        "event": "popup.worker.status.request",
+        "id": 539,
+        "isoTime": "2026-06-10T02:38:05.879Z"
+      },
+      {
+        "at": 695802.3000000119,
+        "detail": {
+          "currentAnalysisCount": 0,
+          "currentOk": true,
+          "feedbackCount": 0,
+          "feedbackOk": true,
+          "folderId": "session_ywskiblc_mp6p013z",
+          "historicalAnalysisCount": 0,
+          "historicalOk": true,
+          "page": "saved-signals",
+          "readingCount": 7,
+          "readingsOk": true,
+          "signalCount": 1
+        },
+        "event": "popup.product.hydrate.response",
+        "id": 540,
+        "isoTime": "2026-06-10T02:38:06.310Z"
+      },
+      {
+        "at": 695803.8000000119,
+        "detail": {
+          "folderId": "session_ywskiblc_mp6p013z",
+          "mode": "product",
+          "signalCount": 1,
+          "signalsOk": true,
+          "topicCount": 0,
+          "topicsOk": true
+        },
+        "event": "popup.topic.hydrate.response",
+        "id": 541,
+        "isoTime": "2026-06-10T02:38:06.312Z"
+      },
+      {
+        "at": 695808.9000000358,
+        "detail": {
+          "activeFolderId": "session_ywskiblc_mp6p013z",
+          "failureCount": 0,
+          "hasInflight": true
+        },
+        "event": "popup.worker.status.request",
+        "id": 542,
+        "isoTime": "2026-06-10T02:38:06.317Z"
+      },
+      {
+        "at": 696120.1000000238,
+        "detail": {
+          "activeFolderId": "session_ywskiblc_mp6p013z",
+          "failureCount": 0,
+          "hasInflight": true
+        },
+        "event": "popup.worker.status.request",
+        "id": 543,
+        "isoTime": "2026-06-10T02:38:06.628Z"
+      },
+      {
+        "at": 696120.8000000119,
+        "detail": {
+          "folderId": "session_ywskiblc_mp6p013z",
+          "mode": "product"
+        },
+        "event": "popup.topic.hydrate.request",
+        "id": 544,
+        "isoTime": "2026-06-10T02:38:06.629Z"
+      },
+      {
+        "at": 696121.3000000119,
+        "detail": {
+          "folderId": "session_ywskiblc_mp6p013z",
+          "page": "saved-signals",
+          "signalCount": 1
+        },
+        "event": "popup.product.hydrate.request",
+        "id": 545,
+        "isoTime": "2026-06-10T02:38:06.629Z"
+      },
+      {
+        "at": 696123,
+        "detail": {
+          "activeFolderId": "session_ywskiblc_mp6p013z",
+          "failureCount": 0,
+          "hasInflight": true
+        },
+        "event": "popup.worker.status.request",
+        "id": 546,
+        "isoTime": "2026-06-10T02:38:06.631Z"
+      },
+      {
+        "at": 696244.6000000238,
+        "detail": {
+          "analyzed": 0,
+          "elapsedMs": 9311.2,
+          "failed": 0,
+          "failureCount": 0,
+          "ok": true,
+          "queued": 1
+        },
+        "event": "popup.product.analyze.response",
+        "id": 547,
+        "isoTime": "2026-06-10T02:38:06.752Z"
+      },
+      {
+        "at": 696248.9000000358,
+        "detail": {
+          "activeFolderId": "session_ywskiblc_mp6p013z",
+          "failureCount": 0,
+          "hasInflight": true
+        },
+        "event": "popup.worker.status.request",
+        "id": 548,
+        "isoTime": "2026-06-10T02:38:06.757Z"
+      },
+      {
+        "at": 696249.8000000119,
+        "detail": {
+          "folderId": "session_ywskiblc_mp6p013z",
+          "mode": "product"
+        },
+        "event": "popup.topic.hydrate.request",
+        "id": 549,
+        "isoTime": "2026-06-10T02:38:06.758Z"
+      },
+      {
+        "at": 696250.4000000358,
+        "detail": {
+          "folderId": "session_ywskiblc_mp6p013z",
+          "page": "saved-signals",
+          "signalCount": 1
+        },
+        "event": "popup.product.hydrate.request",
+        "id": 550,
+        "isoTime": "2026-06-10T02:38:06.758Z"
+      },
+      {
+        "at": 696251.8000000119,
+        "detail": {
+          "activeFolderId": "session_ywskiblc_mp6p013z",
+          "failureCount": 0,
+          "hasInflight": true
+        },
+        "event": "popup.worker.status.request",
+        "id": 551,
+        "isoTime": "2026-06-10T02:38:06.760Z"
+      },
+      {
+        "at": 696778.3000000119,
+        "detail": {
+          "currentAnalysisCount": 0,
+          "currentOk": true,
+          "feedbackCount": 0,
+          "feedbackOk": true,
+          "folderId": "session_ywskiblc_mp6p013z",
+          "historicalAnalysisCount": 0,
+          "historicalOk": true,
+          "page": "saved-signals",
+          "readingCount": 7,
+          "readingsOk": true,
+          "signalCount": 1
+        },
+        "event": "popup.product.hydrate.response",
+        "id": 552,
+        "isoTime": "2026-06-10T02:38:07.286Z"
+      },
+      {
+        "at": 696778.9000000358,
+        "detail": {
+          "folderId": "session_ywskiblc_mp6p013z",
+          "mode": "product",
+          "signalCount": 1,
+          "signalsOk": true,
+          "topicCount": 0,
+          "topicsOk": true
+        },
+        "event": "popup.topic.hydrate.response",
+        "id": 553,
+        "isoTime": "2026-06-10T02:38:07.287Z"
+      },
+      {
+        "at": 696780.4000000358,
+        "detail": {
+          "activeFolderId": "session_ywskiblc_mp6p013z",
+          "failureCount": 0,
+          "hasInflight": true
+        },
+        "event": "popup.worker.status.request",
+        "id": 554,
+        "isoTime": "2026-06-10T02:38:07.288Z"
+      },
+      {
+        "at": 697239.4000000358,
+        "detail": {
+          "elapsedMs": 459,
+          "previousWorkerStatus": "idle",
+          "workerStatus": "draining"
+        },
+        "event": "popup.worker.status.response",
+        "id": 555,
+        "isoTime": "2026-06-10T02:38:07.747Z"
+      },
+      {
+        "at": 697240.6000000238,
+        "detail": {
+          "activeFolderId": "session_ywskiblc_mp6p013z",
+          "workerStatus": "draining"
+        },
+        "event": "popup.worker.refresh.request",
+        "id": 556,
+        "isoTime": "2026-06-10T02:38:07.748Z"
+      },
+      {
+        "at": 697244.9000000358,
+        "detail": {
+          "activeFolderId": "session_ywskiblc_mp6p013z",
+          "failureCount": 0,
+          "hasInflight": true
+        },
+        "event": "popup.worker.status.request",
+        "id": 557,
+        "isoTime": "2026-06-10T02:38:07.753Z"
+      },
+      {
+        "at": 697457.7000000477,
+        "detail": {
+          "activeFolderId": "session_ywskiblc_mp6p013z",
+          "failureCount": 0,
+          "hasInflight": true
+        },
+        "event": "popup.worker.status.request",
+        "id": 558,
+        "isoTime": "2026-06-10T02:38:07.966Z"
+      },
+      {
+        "at": 697884.4000000358,
+        "detail": {
+          "elapsedMs": 426.7,
+          "previousWorkerStatus": "draining",
+          "workerStatus": "draining"
+        },
+        "event": "popup.worker.status.response",
+        "id": 559,
+        "isoTime": "2026-06-10T02:38:08.392Z"
+      },
+      {
+        "at": 697884.9000000358,
+        "detail": {
+          "activeFolderId": "session_ywskiblc_mp6p013z",
+          "workerStatus": "draining"
+        },
+        "event": "popup.worker.refresh.request",
+        "id": 560,
+        "isoTime": "2026-06-10T02:38:08.393Z"
+      }
+    ],
+    "rootText": "Hover to preview\n|\nS\nsave\n|\nEsc\nexit\nReady\ndlens\nTopic\nProduct\nPR\nAnnotated Field Guide\nVOL.1\nNO.01\nJun 10\n·\nv.0.1.30\nd\n採集\n訊號\n分類\n行動\n設定\nProduct mode\nSaved Signals\n\n先確認已儲存的 Threads post 是否完成抓取，再到行動頁整理可試 workflow。\n\nNo result\n真實狀態\n1 signals\n0 analyses\nAI key\nProductProfile\nProductContext\n抓取正在進行；完成後會自動嘗試分析，也可以稍後再按分析。\n已送出 1 條抓取，完成後請再按分析。\n分析收件匣\n等待處理的 signals\n抓取中\n未分析\nthreads\n×\n等待 backend 完成 ThreadReadModel。\n從好物變被丟棄... github copilot 本來主打，以提出幾次 prompt 為計算單位，等於說，prompt 下的好，可以一次性開發出一個很棒的專案，且只算一次使用的量。 但6月後調整為 AI credits 已經沒有此紅利... 實測，我用不到一個下午，就已經快撐爆一個月的用量。 只好直接捨棄了。\nSaved Signals\n1 saved\n從好物變被丟棄... github copilot 本來主打，以提出幾次 prompt 為計算單位，等於說，prompt 下的好，可以一次性開發出一個很棒的專案，且只算一次使用的量。 但6月後調整為 AI credits 已經沒有此紅利.…\n抓取中 · 尚未分析\n抓取中\n×",
+    "traceCount": "500"
+  }
+}

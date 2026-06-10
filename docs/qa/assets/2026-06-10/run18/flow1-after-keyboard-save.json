@@ -1,0 +1,119 @@
+{
+  "flow1KeyboardStartMeta": {
+    "count": 148,
+    "nowIso": "2026-06-10T02:30:43.165Z",
+    "traceStartId": 148
+  },
+  "flow1AfterKeyboardSaveRun18": {
+    "capturedAt": "2026-06-10T02:30:44.666Z",
+    "newTrace": [
+      {
+        "at": 253609.40000003576,
+        "detail": {
+          "activeFolderId": "session_ywskiblc_mp6p013z",
+          "failureCount": 9,
+          "hasInflight": false
+        },
+        "event": "popup.worker.status.request",
+        "id": 149,
+        "isoTime": "2026-06-10T02:30:44.120Z"
+      },
+      {
+        "at": 253610.40000003576,
+        "detail": {
+          "folderId": "session_ywskiblc_mp6p013z",
+          "mode": "product"
+        },
+        "event": "popup.topic.hydrate.request",
+        "id": 150,
+        "isoTime": "2026-06-10T02:30:44.121Z"
+      },
+      {
+        "at": 253610.90000003576,
+        "detail": {
+          "folderId": "session_ywskiblc_mp6p013z",
+          "isProductSignalPage": false,
+          "mode": "product",
+          "page": "collect",
+          "popupOpen": true
+        },
+        "event": "popup.product.hydrate.skip",
+        "id": 151,
+        "isoTime": "2026-06-10T02:30:44.121Z"
+      },
+      {
+        "at": 253613.60000002384,
+        "detail": {
+          "activeFolderId": "session_ywskiblc_mp6p013z",
+          "failureCount": 9,
+          "hasInflight": false
+        },
+        "event": "popup.worker.status.request",
+        "id": 152,
+        "isoTime": "2026-06-10T02:30:44.124Z"
+      },
+      {
+        "at": 253675.80000001192,
+        "detail": {
+          "activeFolderId": "session_ywskiblc_mp6p013z",
+          "failureCount": 9,
+          "hasInflight": false
+        },
+        "event": "popup.worker.status.request",
+        "id": 153,
+        "isoTime": "2026-06-10T02:30:44.186Z"
+      },
+      {
+        "at": 253677.20000004768,
+        "detail": {
+          "activeFolderId": "session_ywskiblc_mp6p013z",
+          "failureCount": 9,
+          "hasInflight": false
+        },
+        "event": "popup.worker.status.request",
+        "id": 154,
+        "isoTime": "2026-06-10T02:30:44.187Z"
+      },
+      {
+        "at": 253906.30000001192,
+        "detail": {
+          "folderId": "session_ywskiblc_mp6p013z",
+          "mode": "product",
+          "signalCount": 3,
+          "signalsOk": true,
+          "topicCount": 0,
+          "topicsOk": true
+        },
+        "event": "popup.topic.hydrate.response",
+        "id": 155,
+        "isoTime": "2026-06-10T02:30:44.417Z"
+      },
+      {
+        "at": 253908.40000003576,
+        "detail": {
+          "activeFolderId": "session_ywskiblc_mp6p013z",
+          "failureCount": 9,
+          "hasInflight": false
+        },
+        "event": "popup.worker.status.request",
+        "id": 156,
+        "isoTime": "2026-06-10T02:30:44.419Z"
+      },
+      {
+        "at": 253909,
+        "detail": {
+          "folderId": "session_ywskiblc_mp6p013z",
+          "isProductSignalPage": false,
+          "mode": "product",
+          "page": "collect",
+          "popupOpen": true
+        },
+        "event": "popup.product.hydrate.skip",
+        "id": 157,
+        "isoTime": "2026-06-10T02:30:44.419Z"
+      }
+    ],
+    "rootText": "Hover to preview\n|\nS\nsave\n|\nEsc\nexit\nReady\n已加入產品訊號\ndlens\nTopic\nProduct\nPR\nAnnotated Field Guide\nVOL.1\nNO.02\nJun 10\n·\nv.0.1.30\nd\n採集\n訊號\n分類\n行動\n設定\nCollect mode live\n快速判斷，加入產品訊號\n\n指向 Threads 貼文即可預覽，按下加入產品訊號收件匣。\n\nActive\nLive capture\n已儲存\n天\n天下一恆運香港觀塘分公司內有1000平方呎全黑室內多用途Studio🕋場地配備休息室，可供化妝或更衣，可供任何廣告拍攝、創意拍攝、教學活動或任何展覽展示活動使用，歡迎租用📞27939662  Translate\n產品訊號收件匣 · Product mode\n在 Threads 開啟\n天下一恆運香港觀塘分公司內有1000平方呎全黑室內多用途Studio🕋場地配備休息室，可供化妝或更衣，可供任何廣告拍攝、創意拍攝、教學活動或任何展覽展示活動使用，歡迎租用📞27939662\n已加入產品訊號\nSelection active\n收集模式：開啟\n移動游標選取貼文。\n關閉收集模式\nS · 儲存\nEsc · 離開",
+    "traceCount": "157"
+  }
+}

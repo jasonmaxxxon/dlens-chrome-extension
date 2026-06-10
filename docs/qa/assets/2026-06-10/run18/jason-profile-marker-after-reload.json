@@ -1,0 +1,10 @@
+{
+  "capturedAt": "2026-06-10T02:26:58.117Z",
+  "marker": "run14-url-trace-v1",
+  "rootExists": true,
+  "rootTextPreview": "Hover to preview|S save|Esc exit\n[data-dlens-control=\"true\"] [data-dlens-button] {\n  transition: transform 160ms cubic-bezier(0.34, 1.56, 0.64, 1), background-color 140ms cubic-bezier(0.4, 0, 0.2, 1), box-shadow 160ms cubic-bezier(0.4, 0, 0.2, 1), border-color 140ms cubic-bezier(0.4, 0, 0.2, 1), filter 140ms cubic-bezier(0.4, 0, 0.2, 1);\n}\n[data-dlens-control=\"true\"] [data-dlens-button]:not(:disabled):hover {\n  transform: translateY(-1px);\n}\n[data-dlens-control=\"true\"] [data-dlens-button]:not(:disabled):active {\n  transform: translateY(0) scale(0.96);\n  transition: transform 90ms cubic-bezier(0.4, 0, 0.2, 1), background-color 140ms cubic-bezier(0.4, 0, 0.2, 1);\n}\n[data-dlens-control=\"true\"] [data-dlens-button]:focus-visible {\n  outline: 2px solid var(--dlens-mode-accent, #1a2e4f);\n  outline-offset: 2px;\n}\n[data-dlens-control=\"true\"] [data-dlens-button=\"primary\"]:not(:disabled):hover {\n  transform: translateY(-3px);\n  box-shadow: 0 12px 26px rgba(27, 26, 23, 0.22);\n  filter: brightness(",
+  "title": "(4) Home • Threads",
+  "traceNodeCount": "23",
+  "traceNodeExists": true,
+  "url": "https://www.threads.com/#dlensQaTrace=1"
+}

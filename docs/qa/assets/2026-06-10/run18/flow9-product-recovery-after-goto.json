@@ -1,0 +1,16 @@
+{
+  "before": {
+    "href": "https://www.threads.com/",
+    "marker": "run14-url-trace-v1",
+    "rootText": "Hover to preview | S save | Esc exit Ready dlens Topic Product PR Annotated Field Guide VOL.1 NO.01 Jun 10 · v.0.1.30 d 採集 訊號 分類 行動 設定 Product mode Saved Signals 先確認已儲存的 Threads post 是否完成抓取，再到行動頁整理可試 workflow。 Backend 離線 真實狀態 0 signals 0 analyses AI key ProductProfile ProductContext Product mode 收件匣沒有 signal。先在 Collect 儲存一篇 Threads post。 Backend 無法連線。請到設定確認 backend URL，或先啟動 ingest backend。 已完成 1 條產品訊號分析。 分析收件匣"
+  },
+  "after": {
+    "cursor": "crosshair",
+    "href": "https://www.threads.com/#dlensQaTrace=1",
+    "marker": "run14-url-trace-v1",
+    "rootText": "Hover to preview | S save | Esc exit dlens Topic Product PR Annotated Field Guide VOL.1 NO.01 Jun 10 · v.0.1.30 d 採集 訊號 分類 行動 設定 Product mode Saved Signals 先確認已儲存的 Threads post 是否完成抓取，再到行動頁整理可試 workflow。 Backend 離線 真實狀態 0 signals 0 analyses AI key ProductProfile ProductContext Product mode 收件匣沒有 signal。先在 Collect 儲存一篇 Threads post。 Backend 無法連線。請到設定確認 backend URL，或先啟動 ingest backend。 已完成 1 條產品訊號分析。 分析收件匣",
+    "title": "(4) Home • Threads",
+    "traceCount": 500
+  },
+  "error": null
+}

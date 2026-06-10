@@ -1,0 +1,17 @@
+{
+  "generatedAt": "2026-06-09T17:08:42.125Z",
+  "recoveredNoiseProbe": {
+    "badNoiseFramingHits": [
+      "可借用 workflow",
+      "TASK",
+      "Keep as observation"
+    ],
+    "counts": {
+      "exclusion": 0,
+      "marginaliaExperiment": 1,
+      "workflowEvidence": 0
+    },
+    "hasExclusionCard": false,
+    "text": "dlens\nTopic\nProduct\nPR\nAnnotated Field Guide\nVOL.1\nNO.01\nJun 10\n·\nv.0.1.30\nd\n採集\n訊號\n分類\n行動\n設定\nProduct mode\nAgent Brief\n\n先審視模型判讀，再把已收錄 reading 組成可貼給 coding agent 的 brief。\n\nAI enabled\n分析狀態\n✓ 已就緒\n2 signals · 2 analyses\n重新分析\nDLens\nFounders, product builders, PR/marketing researchers, journalists, analysts\nProductContext\n2 則訊號已評估\n值得嘗試\n0\n噪音 / 前提不符\n1\n資料不足\n0\n保留觀察\n1\n噪音 / 前提不符\n1\n噪音\n·\n6/10\n跨領域社交資訊獲取\n用\n戶在 Threads 討論 30 歲後的職涯焦慮與平庸感，引發關於接受現狀與尋求突破的討論。\n內容與產品目標受眾的專業需求或工作流優化無關，屬於一般社交雜訊。\ne6\ne7\ne13\n引用理由：顯示用戶透過社交網絡獲取資訊的行為模式。\n→\nKeep as observation\n尚未有可派發任務；先保留為觀察。\n原文證據 · 3 則\n可借用 workflow\ne6.\n其實平庸好正常 唔甘心都好正常 周圍識下人先囉 利申：我會久唔久搞活動識啲我想識嘅人 同唔同經歷/行業嘅人傾計係有好多衝擊\n— siryc_chung\n跨領域社交資訊獲取\n原文可還原\n可借用模式\n跨領域社交資訊獲取\n判讀依據\n作者提到透過搞活動接觸不同背景的人，這說明資訊獲取不僅限於被動閱讀，主動建立連結能打破同溫層的認知限制。\n查看原文與模型判讀 →\n原文\n其實平庸好正常 唔甘心都好正常 周圍識下人先囉 利申：我會久唔久搞活動識啲我想識嘅人 同唔同經歷/行業嘅人傾計係有好多衝擊\n模型判讀（輔助）\n顯示用戶透過社交網絡獲取資訊的行為模式。\ne7.\n我同你一樣，都想沖一波，搵一行你覺得搵得錢多嘅，自己能力又handle到嘅，就考個牌入行做💪🏻我都考咗等時機入行\n— overthinker_moody\n目標導向的技能轉移\n原文可還原\n可借用模式\n目標導向的技能轉移\n判讀依據\n作者提到考牌入行，這說明當現有職涯受阻時，用戶會採取「技能認證」作為進入新領域的門檻，將焦慮轉化為具體行動。\n查看原文與模型判讀 →\n原文\n我同你一樣，都想沖一波，搵一行你覺得搵得錢多嘅，自己能力又handle到嘅，就考個牌入行做💪🏻我都考咗等時機入行\n模型判讀（輔助）\n反映用戶在職涯卡關時的具體行動策略。\ne13.\n「接受平庸」 你係接受自己「成世都平庸」定係「呢一刻我係平庸」先? 你好想衝一波 就衝啦 由平庸衝到不平庸就可以了😄😄\n— aagwaai ♡ 2\n狀態重構與行動驅動\n原文可還原\n可借用模式\n狀態重構與行動驅動\n判讀依據\n作者將平庸定義為動態過程而非靜態結果，這說明透過重新定義問題框架，能有效降低心理負擔並激發行動意願。\n查看原文與模型判讀 →\n原文\n「接受平庸」 你係接受自己「成世都平庸」定係「呢一刻我係平庸」先? 你好想衝一波 就衝啦 由平庸衝到不平庸就可以了😄😄\n模型判讀（輔助）\n展現用戶對自我狀態的認知重構。\n判讀\n前提不符\n相關度\nrelevance 1/5\n分類\n噪音\n子型\nuser sentiment reflection\n對到\n無直接產品參考價值\n證據\n3 則\n待解\n無明確阻礙\nTASK ›\n尚未有可派發任務；先保留為觀察。"
+  }
+}
