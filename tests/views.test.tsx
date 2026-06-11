@@ -3094,4 +3094,6 @@ test("ProductSignalView surfaces product analyzer readiness and errors", () => {
   assert.match(html, /Invalid product signal analysis payload/);
   assert.match(html, /分析失敗/);
   assert.match(html, /需重試/);
+  assert.match(html, /部分失敗/);
+  assert.doesNotMatch(html, /Backend 離線/);
 });

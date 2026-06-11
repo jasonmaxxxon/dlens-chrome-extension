@@ -1,0 +1,22 @@
+{
+  "ts": "2026-06-11T03:36:06.384Z",
+  "action": "Built and mirrored output/chrome-mv3, reloaded DLens v3 from chrome://extensions in Jason profile, then reloaded the Threads tab.",
+  "ui": {
+    "marker": "run14-url-trace-v1",
+    "rootExists": true,
+    "hasAnalyzed3": true,
+    "hasBackendOffline": false,
+    "hasBrowserLaunchError": false,
+    "hasFailedAnalysisCopy": false,
+    "hasPartialFailure": false,
+    "visibleStamp": "分析完成 / ✓ 已就緒",
+    "signalCount": "3 signals · 3 analyses",
+    "reviewDefault": "顯示 保留觀察 · 2 則"
+  },
+  "verification": {
+    "typecheck": "pass",
+    "tests": "647/647 pass",
+    "build": "pass and mirrored to output/chrome-mv3"
+  },
+  "conclusion": "B-13 fixed and live passed: analysis failures no longer force the Backend 離線 stamp, and the recovered third signal renders normally."
+}

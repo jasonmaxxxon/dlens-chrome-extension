@@ -4043,8 +4043,10 @@ export function ProductSignalView({
         title={copy.title}
         deck={copy.deck}
         stamp={
-          backendError || analysisError
+          backendError
             ? <Stamp tone="warning">Backend 離線</Stamp>
+            : analysisError
+              ? <Stamp tone="warning">部分失敗</Stamp>
             : isHydrating && scopedAnalyses.length === 0
               ? <Stamp tone="neutral">讀取中</Stamp>
             : <Stamp tone={scopedAnalyses.length ? "success" : "neutral"}>{scopedAnalyses.length ? "分析完成" : "尚無結果"}</Stamp>

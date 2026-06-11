@@ -1,0 +1,20 @@
+{
+  "ts": "2026-06-11T03:29:21.832Z",
+  "action": "Clicked Product 重新分析 after observing that passive worker/status polling did not auto-drain the retrying B-12 job.",
+  "backendLogSummary": {
+    "drain": "POST /worker/drain 202 Accepted",
+    "jobId": "ed45cc85-b670-4543-91fb-a68da6a1b565",
+    "captureId": "3940ee57-657a-404c-a7b6-93dede1381f9",
+    "attemptCount": 3,
+    "events": ["job_claimed", "crawl_started", "threads_crawl_normalized", "crawl_succeeded", "worker_drain_completed"],
+    "commentCount": 11,
+    "crawlDurationMs": 22611
+  },
+  "ui": {
+    "hasRetrying": false,
+    "hasWaitingOnly": false,
+    "hasAnalyzed3": true,
+    "summary": "3 signals / 3 analyses; pending card disappeared."
+  },
+  "conclusion": "B-12 clear path passed after manual drain: the old retrying card cleared and the third signal reached analysis output."
+}

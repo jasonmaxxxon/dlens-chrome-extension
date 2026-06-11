@@ -1,0 +1,20 @@
+{
+  "ts": "2026-06-11T03:29:57.996Z",
+  "backendStatus": {
+    "url": "http://127.0.0.1:8000/worker/status",
+    "response": { "status": "idle" }
+  },
+  "ui": {
+    "hasAnalyzed3": true,
+    "hasBackendOffline": true,
+    "hasBackendOfflineBanner": false,
+    "hasBrowserLaunchError": true,
+    "hasFailedAnalysisCopy": true,
+    "hasRetrying": false,
+    "workerReadyCopy": false,
+    "visibleStamp": "Backend 離線",
+    "visibleError": "有 1 條產品訊號分析失敗；第一筆：處理失敗：BrowserType.launch..."
+  },
+  "rootCause": "ProductSignalView used backendError || analysisError to choose the header stamp, so a product analysis error rendered as Backend 離線 even when worker/status was healthy.",
+  "conclusion": "New B-13 reproduced live before code fix."
+}
