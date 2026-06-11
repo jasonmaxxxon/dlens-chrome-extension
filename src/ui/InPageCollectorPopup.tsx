@@ -296,6 +296,7 @@ export function InPageCollectorPopup({ app }: { app: InPageCollectorAppModel }) 
                   topic={app.activeTopic}
                   signals={app.activeTopicSignals}
                   pairs={app.activeTopicPairs}
+                  loadState={app.topicLoadState}
                   sessionMode={app.activeFolderMode}
                   sessionItems={activeFolder?.items ?? []}
                   savedAnalyses={app.savedAnalyses}

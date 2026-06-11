@@ -15,14 +15,14 @@ Slice ① (signal readiness) already proved this: `src/state/signal-readiness.ts
 | # | Unnamed question | State |
 |---|------------------|-------|
 | ① | Is this signal ready to analyze? | **DONE** — `signal-readiness.ts` |
-| ② | What is the canonical content of a captured post? | next |
-| ③ | Is this view loading / empty / error / recovering? | after ② |
+| ② | What is the canonical content of a captured post? | **DONE** — `captured-post.ts` |
+| ③ | Is this view loading / empty / error / recovering? | **DONE** — `load-state.ts` |
 | ④ | (defensive arrays / safe props) | **SKIP** |
 | ⑤ | Which entity does this action target? | sequenced |
 | ⑥ | What single write path keeps storage consistent? | sequenced (riskiest) |
-| ⑦ | Does this page exist / can I enter / how wide / which workspace? | sequenced |
+| ⑦ | Does this page exist / can I enter / how wide / which workspace? | **DONE** — `page-registry.ts` |
 | ⑧ | Is this derived record stale / reusable? | sequenced |
-| ⑨ | Did this output come from AI, fallback, or is it missing? | sequenced |
+| ⑨ | Did this output come from AI, fallback, or is it missing? | **DONE** — `ai-provenance.ts` |
 
 ## Governing rules (apply to EVERY slice — do not skip)
 
@@ -98,6 +98,8 @@ Slice ① (signal readiness) already proved this: `src/state/signal-readiness.ts
 
 **Claude's note:** This is more UI-state than pure-data, so the "src/state pure module" pattern is looser — a derive helper + a consistent prop is enough. Pairs with ⑨ (both are "show the real state honestly").
 
+**Execution note (codex/hydration-load-state):** `src/state/load-state.ts` now owns `LoadState` plus Product and Topic adapters. `ProductSignalView` derives `productLoadState` once and uses it for the root marker, header stamp, readiness loading panel, recovered-analysis board, and empty-result suppression; the old `hasRecoveredAnalyses` local inference and scattered `isHydrating && ...` ternaries were removed. `useTopicState` now tracks hydrate loading/error explicitly and exposes `topicLoadState`; `TopicDetailView` consumes it through `data-topic-load-state`, including recovering when stale Topic data remains visible after a hydrate failure.
+
 ---
 
 ## Slice ⑨ — AI / fallback / missing provenance
@@ -166,11 +168,11 @@ User-agreed: ① done → ② → ③ → skip ④. I agree, and propose slottin
 
 ```
 ① readiness            ✅ done (main @ f9d0abf)
-② capture projection   ← next  (MEDIUM, feeds ①)
-⑦ page registry        (LOW, cheap clarity win, unblocks UI reasoning)
-⑨ AI/fallback provenance (LOW–MED, retires fallback-pollution class)
-③ hydration load-state (MEDIUM, UI breadth)
-⑧ cache/staleness      (MEDIUM, explains stale readings)
+② capture projection   ✅ done (main @ cfc8096)
+⑦ page registry        ✅ done (main @ e98a83c)
+⑨ AI/fallback provenance ✅ done (main @ 1243ed9)
+③ hydration load-state ✅ done (codex/hydration-load-state)
+⑧ cache/staleness      ← next  (MEDIUM, explains stale readings)
 ⑤ identity/target      (HIGH, multi-PR, kills B-05 class)
 ⑥ storage seam         (HIGHEST, last, may stay partial)
 ④ defensive arrays     SKIP

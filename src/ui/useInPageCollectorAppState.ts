@@ -1620,6 +1620,8 @@ export function useInPageCollectorAppState({ snapshot, tabId, sendAndSync }: Use
     activeTopic: topicState.activeTopic,
     activeTopicSignals: topicState.activeTopicSignals,
     activeTopicPairs: topicState.activeTopicPairs,
+    topicLoadState: topicState.topicLoadState,
+    topicHydrationError: topicState.topicHydrationError,
     topicAuditByTopicId: topicAuditState.auditByTopicId,
     activeTopicAudit: topicState.activeTopic ? topicAuditState.auditByTopicId[topicState.activeTopic.id] : undefined,
     signalPreviewById: topicState.signalPreviewById,

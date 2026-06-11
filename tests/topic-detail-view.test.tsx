@@ -490,6 +490,22 @@ test("TopicDetailView failed audit state shows resume copy and failed reason", (
   assert.match(html, /主題與敘事尚未產出/);
 });
 
+test("TopicDetailView exposes the explicit Topic load state", () => {
+  const html = renderToStaticMarkup(
+    React.createElement(TopicDetailView, {
+      topic,
+      signals,
+      pairs,
+      loadState: "recovering",
+      onBack: () => undefined,
+      onOpenPair: () => undefined,
+      onUpdateTopic: () => undefined
+    })
+  );
+
+  assert.match(html, /data-topic-load-state="recovering"/);
+});
+
 test("TopicDetailView renders the legacy research question editor only in product detail mode", () => {
   const html = renderToStaticMarkup(
     React.createElement(TopicDetailView, {

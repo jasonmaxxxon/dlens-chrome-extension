@@ -1257,6 +1257,7 @@ test("ProductSignalView keeps existing analyses visible when signal inbox is emp
   );
 
   assert.match(html, /data-product-recovered-analyses="true"/);
+  assert.match(html, /data-product-load-state="recovering"/);
   assert.match(html, /已有 1 筆既有分析，但目前 signal 清單是空的/);
   assert.match(html, /使用者想把 Threads 討論直接變成可執行任務。/);
   assert.match(html, /分析完成/);
@@ -1295,6 +1296,7 @@ test("ProductSignalView shows hydration state instead of an empty result while p
   );
 
   assert.match(html, /data-product-hydrating="true"/);
+  assert.match(html, /data-product-load-state="loading"/);
   assert.match(html, /讀取中/);
   assert.doesNotMatch(html, /No result|尚無結果/);
   assert.doesNotMatch(html, /尚未有 AI 分析結果/);

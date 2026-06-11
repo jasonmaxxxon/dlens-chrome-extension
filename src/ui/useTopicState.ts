@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 
 import type { ExtensionMessage, ExtensionResponse } from "../state/messages";
+import { deriveTopicLoadState } from "../state/load-state";
 import type {
   FolderMode,
   PopupPage,
@@ -213,6 +214,8 @@ export function useTopicState({
   const [resultTopicContext, setResultTopicContext] = useState<{ topicId: string; topicName: string } | null>(null);
   const [topicSignalReadingsBySignalId, setTopicSignalReadingsBySignalId] = useState<Record<string, TopicSignalReading>>({});
   const [signalTagsByItemId, setSignalTagsByItemId] = useState<Record<string, SignalTagsRecord>>({});
+  const [isHydratingTopics, setIsHydratingTopics] = useState(false);
+  const [topicHydrationError, setTopicHydrationError] = useState<string | null>(null);
   const orphanCleanupAttemptedIdsRef = useRef<Set<string>>(new Set());
 
   const activeTopic = useMemo(
@@ -263,6 +266,15 @@ export function useTopicState({
     () => buildTopicJudgmentById(topics, savedAnalyses),
     [savedAnalyses, topics]
   );
+  const topicLoadState = useMemo(
+    () => deriveTopicLoadState({
+      isHydrating: isHydratingTopics,
+      topicCount: topics.length,
+      signalCount: displaySignals.length,
+      hasError: Boolean(topicHydrationError)
+    }),
+    [displaySignals.length, isHydratingTopics, topicHydrationError, topics.length]
+  );
   const collectionTargetId = useMemo(
     () => resolveTopicCollectionTargetId(topics, selectedTopicId, collectionTopicId),
     [collectionTopicId, selectedTopicId, topics]
@@ -280,10 +292,14 @@ export function useTopicState({
       setSelectedTopicId(null);
       setTopicSignalReadingsBySignalId({});
       setSignalTagsByItemId({});
+      setIsHydratingTopics(false);
+      setTopicHydrationError(null);
       return;
     }
 
     let cancelled = false;
+    setIsHydratingTopics(true);
+    setTopicHydrationError(null);
     markQaTrace("popup.topic.hydrate.request", {
       folderId: activeFolder.id,
       mode: activeFolderMode
@@ -310,9 +326,20 @@ export function useTopicState({
           topicCount: topicsResponse.ok ? topicsResponse.topics?.length ?? 0 : null,
           signalCount: signalsResponse.ok ? signalsResponse.signals?.length ?? 0 : null
         });
+        setIsHydratingTopics(false);
+        const errors = [
+          topicsResponse.ok ? null : topicsResponse.error,
+          signalsResponse.ok ? null : signalsResponse.error
+        ].filter((entry): entry is string => Boolean(entry));
+        setTopicHydrationError(errors.length ? errors.join("；") : null);
         applyTopicListResponses({ topicsResponse, signalsResponse, setTopics, setSignals });
       })
       .catch(() => {
+        if (cancelled) {
+          return;
+        }
+        setIsHydratingTopics(false);
+        setTopicHydrationError("Topic 資料讀取失敗。");
         markQaTrace("popup.topic.hydrate.error", {
           folderId: activeFolder.id,
           mode: activeFolderMode
@@ -706,6 +733,8 @@ export function useTopicState({
     activeTopic,
     activeTopicSignals,
     activeTopicPairs,
+    topicLoadState,
+    topicHydrationError,
     signalPreviewById,
     signalUrlById,
     signalTagsByItemId,
