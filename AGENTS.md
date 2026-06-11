@@ -1,6 +1,6 @@
 # AGENTS.md — DLens Chrome Extension v0.1
 
-> **Last updated:** 2026-06-11 (release 0.1.31 after QA Run 27, see `docs/qa/2026-06-09-output-quality-qa.md` §4.16: B-02 live passed after reload, B-15 Saved Signals `行動簡報匯出` live passed, and B-14 Topic `work` detail live rechecked at `15 訊號 / 15/15 已分析 / 覆蓋 15/15` with no `30 訊號` drift. Flow 1–16 bug log has 0 open bugs. 650/650 tests, typecheck, build, version 0.1.31 mirrored into MV3.)
+> **Last updated:** 2026-06-11 (release 0.1.32 — Topic audit signal-readiness gate. A shared classifier `src/state/signal-readiness.ts` (consumed by both Product and Topic) is now the single source of capture state. Topic audit P1 only runs on `ready` signals; uncrawled/`saved` signals render as 未抓取 and no longer produce OP-only cold-reads. Audit header/coverage/source rows derive from one evidence list, replacing the `Math.max/min` + coverage-clamp count reconciliation (B-14 `15/15` locked by characterization test). Prior 0.1.31 state: Flow 1–16 bug log has 0 open bugs, Run 27 live rechecked. 656/656 tests, typecheck, build, version 0.1.32 mirrored into MV3.)
 > **For:** any agent continuing work in this repo
 
 ## Recently Fixed (2026-05-28) — Product action board and card geometry
@@ -365,7 +365,7 @@ Important implementation points:
 - `SettingsView.tsx` no longer owns visible layout controls; it stays focused on folder mode, connection/storage usage, API keys, and ProductProfile.
 - `InPageCollectorPopup.tsx` threads persisted layout settings into Product signal cards, Topic synthesis, and Compare Result.
 - Topic Detail's primary overview is now semantic `SignalTagsRecord` data from `dlens:v1:signal-tags`, not deterministic keyword frequency. `TopicSynthesis` and `FolderSynthesis` remain deterministic extension-side layers over analyzed signals for legacy/folder contexts and do not replace backend clustering.
-- Current verification was run from `dlens-product-latest`: `650/650` tests, `npm run typecheck`, and `npm run build` passed.
+- Current verification was run from `dlens-product-latest`: `656/656` tests, `npm run typecheck`, and `npm run build` passed.
 - The verified unpacked build was copied to `output/chrome-mv3` for Chrome load-unpacked use.
 - `dlens-product-latest` source checkout may be dirty; do not infer clean source state from the copied build artifact.
 
@@ -635,7 +635,7 @@ The full cluster pipeline runs in `dlens-ingest-core`, not in this repo:
 - `useInPageCollectorAppState.ts` is still a large orchestration hub after the shell split and is the next place to keep carving down
 - inline styles are widespread but `tokens.ts` now provides the full design token layer; remaining inline refs can migrate incrementally
 - hover debounce still feels slow (360ms)
-- the full `tests/*.test.ts{,x}` suite passes **650/650** as of the current `0.1.31` verification
+- the full `tests/*.test.ts{,x}` suite passes **656/656** as of the current `0.1.32` verification
 
 ### P3
 
@@ -813,7 +813,7 @@ Before claiming success:
 ```bash
 cd dlens-chrome-extension-v0
 npm run typecheck
-npx tsx --test tests/*.test.ts tests/*.test.tsx  # expect 650/650
+npx tsx --test tests/*.test.ts tests/*.test.tsx  # expect 656/656
 npm run build
 ```
 

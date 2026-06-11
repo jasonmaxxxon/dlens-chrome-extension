@@ -3,11 +3,11 @@
 DLens is a mode-aware MV3 Chrome extension for capturing Threads posts and turning them into research, product-signal, and PR evidence workflows.
 
 > Last updated: 2026-06-11
-> Current release: `0.1.31` · 650/650 tests · build clean
+> Current release: `0.1.32` · 656/656 tests · build clean
 > Current engineering branch: `main` (release bump staged from `origin/main`)
 > Positioning (2026-06-08): local power-tool (self + small technical circle); two separate repos (extension public · ingest-core **private**), not monorepo; visual reset Option A pending
 > Verified build: `output/chrome-mv3`
-> Stability note (0.1.31): Flow 1–16 QA is closed with no open bugs; Run 27 live rechecked Topic audit counts, and the install lockfile is clean for GitHub Actions `npm ci`.
+> Stability note (0.1.32): Topic audit now gates P1 to capture-ready signals via a shared signal-readiness classifier — uncrawled signals show 未抓取 instead of OP-only readings, and audit counts derive from one evidence list (replacing the old count clamps). Flow 1–16 QA closed with no open bugs; 656/656 tests, build clean.
 
 ## What It Does
 
@@ -61,12 +61,12 @@ npx tsx --test tests/*.test.ts tests/*.test.tsx
 npm run build
 ```
 
-Expected verified state for `0.1.31`:
+Expected verified state for `0.1.32`:
 
-- `650/650` tests pass
+- `656/656` tests pass
 - `npm run typecheck` passes
 - `npm run build` mirrors the unpacked MV3 build to `output/chrome-mv3`
-- `output/chrome-mv3/manifest.json` reports `version: "0.1.31"` and `name: "DLens v3"`
+- `output/chrome-mv3/manifest.json` reports `version: "0.1.32"` and `name: "DLens v3"`
 
 ## Second Mac Install
 
