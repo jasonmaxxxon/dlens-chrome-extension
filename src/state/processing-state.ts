@@ -1,30 +1,24 @@
 import type { FolderMode, MainPage, PopupPage, SessionItem, SessionRecord } from "./types.ts";
 import { DLENS_BUILD_VARIANT, resolveAllowedPagesForBuildVariant } from "../build-variant.ts";
+import {
+  PAGE_POPUP_WIDTH,
+  getAllowedPagesForMode,
+  getHomePageForMode,
+  getPageWidth,
+  isPageComponentKind,
+  isPageRailVisible
+} from "./page-registry.ts";
 
-export const DEFAULT_POPUP_WIDTH = 720;
-export const EXPANDED_COMPARE_POPUP_WIDTH = 720;
-export const PRODUCT_POPUP_WIDTH = 720;
+export const DEFAULT_POPUP_WIDTH = PAGE_POPUP_WIDTH;
+export const EXPANDED_COMPARE_POPUP_WIDTH = PAGE_POPUP_WIDTH;
+export const PRODUCT_POPUP_WIDTH = PAGE_POPUP_WIDTH;
 export const NETWORK_BATCH_SIZE = 3;
 
-export const PRODUCT_SIGNAL_PAGES: ReadonlyArray<MainPage> = [
-  "saved-signals",
-  "classification",
-  "actionable-filter"
-];
-export const PR_EVIDENCE_PAGES: ReadonlyArray<MainPage> = ["pr-evidence"];
-
 const DEFAULT_ALLOWED_PAGES: Record<FolderMode, PopupPage[]> = {
-  archive: ["library", "collect"],
-  topic: ["collect", "topics", "settings"],
-  product: ["saved-signals", "classification", "actionable-filter", "collect"],
-  "pr-evidence": ["pr-evidence", "collect"]
-};
-
-const MODE_HOME_PAGE: Record<FolderMode, MainPage> = {
-  archive: "library",
-  topic: "topics",
-  product: "saved-signals",
-  "pr-evidence": "pr-evidence"
+  archive: getAllowedPagesForMode("archive"),
+  topic: getAllowedPagesForMode("topic"),
+  product: getAllowedPagesForMode("product"),
+  "pr-evidence": getAllowedPagesForMode("pr-evidence")
 };
 
 export const ALLOWED_PAGES: Record<FolderMode, PopupPage[]> = resolveAllowedPagesForBuildVariant(
@@ -37,19 +31,29 @@ function isMainPage(page: PopupPage): page is MainPage {
 }
 
 export function getModeHomePage(mode: FolderMode): MainPage {
-  const preferred = MODE_HOME_PAGE[mode];
+  const preferred = getHomePageForMode(mode);
   if ((ALLOWED_PAGES[mode] as ReadonlyArray<PopupPage>).includes(preferred)) {
     return preferred;
   }
   return ALLOWED_PAGES[mode].find(isMainPage) ?? "library";
 }
 
+export function getModeRailPages(mode: FolderMode): MainPage[] {
+  const pages: MainPage[] = [];
+  for (const page of ALLOWED_PAGES[mode]) {
+    if (isMainPage(page) && isPageRailVisible(page)) {
+      pages.push(page);
+    }
+  }
+  return pages;
+}
+
 export function isProductSignalPage(page: PopupPage): boolean {
-  return (PRODUCT_SIGNAL_PAGES as ReadonlyArray<PopupPage>).includes(page);
+  return isPageComponentKind(page, "product-signal");
 }
 
 export function isPrEvidencePage(page: PopupPage): boolean {
-  return (PR_EVIDENCE_PAGES as ReadonlyArray<PopupPage>).includes(page);
+  return isPageComponentKind(page, "pr-evidence");
 }
 
 export function guardPage(page: PopupPage, mode: FolderMode): PopupPage {
@@ -58,13 +62,7 @@ export function guardPage(page: PopupPage, mode: FolderMode): PopupPage {
 }
 
 export function getPopupWidth(page: PopupPage): number {
-  if (isProductSignalPage(page) || isPrEvidencePage(page)) {
-    return PRODUCT_POPUP_WIDTH;
-  }
-  if (page === "compare" || page === "result") {
-    return EXPANDED_COMPARE_POPUP_WIDTH;
-  }
-  return DEFAULT_POPUP_WIDTH;
+  return getPageWidth(page);
 }
 
 export type WorkerStatus = "idle" | "draining";

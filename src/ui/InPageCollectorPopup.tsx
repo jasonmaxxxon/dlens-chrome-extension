@@ -4,11 +4,12 @@ import { CasebookView } from "./CasebookView";
 import { CompareSetupView } from "./CompareSetupView";
 import { CollectView } from "./CollectView";
 import { DLENS_BUTTON_CSS, WorkspaceShell, WorkspaceSurface, ModeRail, UtilityEdge, type WorkspaceSwitcherMode } from "./components";
-import { ALLOWED_PAGES, getModeHomePage, getPopupWidth } from "../state/processing-state";
+import { getModeHomePage, getModeRailPages } from "../state/processing-state";
+import { getPageComponentKind, getPageWidth } from "../state/page-registry";
 import { IS_PR_ONLY_BUILD } from "../build-variant";
 import { LibraryView } from "./LibraryView";
 import { ProcessingStrip } from "./ProcessingStrip";
-import { ProductSignalView } from "./ProductSignalViews";
+import { ProductSignalView, type ProductSignalPageKind } from "./ProductSignalViews";
 import { PrEvidenceView } from "./PrEvidenceViews";
 import { SettingsView } from "./SettingsView";
 import { TopicDetailView } from "./TopicDetailView";
@@ -33,6 +34,16 @@ function shouldShowProcessingContextStrip(folderMode: string, page: PopupPage): 
   return page === "library" || page === "compare" || page === "result";
 }
 
+type RailMode = Exclude<MainPage, "result" | "topic-detail">;
+
+function isRailMode(page: PopupPage): page is RailMode {
+  return page !== "settings" && page !== "audit-report" && page !== "result" && page !== "topic-detail";
+}
+
+function isProductSignalPageKind(page: PopupPage): page is ProductSignalPageKind {
+  return getPageComponentKind(page) === "product-signal";
+}
+
 export function InPageCollectorPopup({ app }: { app: InPageCollectorAppModel }) {
   const { snapshot, page, popupOpen, activeFolder, resultItemA, resultItemB } = app;
   const activeFolderMode = activeFolder?.mode ?? "archive";
@@ -43,14 +54,12 @@ export function InPageCollectorPopup({ app }: { app: InPageCollectorAppModel }) 
       name: session.name,
       itemCount: session.items.length
     }));
-  type RailMode = Exclude<MainPage, "result" | "topic-detail">;
   const guardedPage = page as PopupPage;
-  const guardedPrimaryMode: RailMode | null = guardedPage === "settings" || guardedPage === "result" || guardedPage === "topic-detail" || guardedPage === "audit-report"
-    ? null
-    : guardedPage as RailMode;
-  const allowedRailModes = ALLOWED_PAGES[activeFolderMode].filter((entry): entry is RailMode =>
-    entry !== "result" && entry !== "settings" && entry !== "topic-detail" && entry !== "audit-report"
-  );
+  const pageComponentKind = getPageComponentKind(guardedPage);
+  const allowedRailModes = getModeRailPages(activeFolderMode).filter(isRailMode);
+  const guardedPrimaryMode: RailMode | null = isRailMode(guardedPage) && allowedRailModes.includes(guardedPage)
+    ? guardedPage
+    : null;
   const homePage = getModeHomePage(activeFolderMode);
   const attachedTopicIds = app.activeSavedAnalysis
     ? app.topics.filter((topic) => topic.pairIds.includes(app.activeSavedAnalysis!.resultId)).map((topic) => topic.id)
@@ -150,7 +159,7 @@ export function InPageCollectorPopup({ app }: { app: InPageCollectorAppModel }) 
         position: "fixed",
         right: 24,
         top: 82,
-        width: getPopupWidth(guardedPage),
+        width: getPageWidth(guardedPage),
         height: "min(86vh, 860px)",
         maxHeight: "min(86vh, 860px)",
         overflow: "hidden",
@@ -391,7 +400,7 @@ export function InPageCollectorPopup({ app }: { app: InPageCollectorAppModel }) 
             </WorkspaceSurface>
           ) : null}
 
-          {guardedPage === "saved-signals" || guardedPage === "classification" || guardedPage === "actionable-filter" ? (
+          {pageComponentKind === "product-signal" && isProductSignalPageKind(guardedPage) ? (
             <WorkspaceSurface style={{ padding: 0, background: "transparent", boxShadow: "none", border: "none", overflow: "visible" }}>
               <ProductSignalView
                 kind={guardedPage}

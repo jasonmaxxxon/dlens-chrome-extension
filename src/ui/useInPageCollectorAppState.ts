@@ -35,6 +35,7 @@ import {
   summarizeSessionProcessing,
   type WorkerStatus
 } from "../state/processing-state";
+import { shouldBypassModeGuard } from "../state/page-registry";
 import { addRuntimeMessageListener, getActiveItem, getActiveSession, sendExtensionMessage } from "./controller";
 import { markQaTrace } from "./qa-trace";
 import {
@@ -69,7 +70,7 @@ type UseInPageCollectorAppStateArgs = {
 };
 
 export function resolveEffectivePopupPage(page: ExtensionSnapshot["tab"]["popupPage"], activeFolderMode: FolderMode) {
-  if (page === "settings" || page === "result" || page === "topic-detail") {
+  if (shouldBypassModeGuard(page)) {
     return page;
   }
   return guardPage(page, activeFolderMode);
