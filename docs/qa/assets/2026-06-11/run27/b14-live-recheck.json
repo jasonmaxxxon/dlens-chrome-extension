@@ -1,0 +1,33 @@
+{
+  "run": "Run 27",
+  "date": "2026-06-11",
+  "profile": "Chrome Default = jason@brandonproject.co",
+  "extensionPath": "output/chrome-mv3",
+  "threadsUrl": "https://www.threads.com/@se_ranking/post/DZYf_mngRnt#dlensQaTrace=1",
+  "scope": "Flow 8 / B-14 live recheck after user reloaded the unpacked extension",
+  "steps": [
+    "Claimed the already-open Jason Chrome Threads tab.",
+    "Reloaded the Threads page after detecting the old content script had been invalidated.",
+    "Opened the DLens in-page popup.",
+    "Switched to Topic workspace.",
+    "Clicked the visible work topic row.",
+    "Read the Topic detail header/overview text from the live popup UI."
+  ],
+  "observed": {
+    "rootPresent": true,
+    "qaTraceMarker": "run14-url-trace-v1",
+    "topic": "work",
+    "visibleCounts": {
+      "signals": "15 訊號",
+      "analysisProgress": "15/15 已分析",
+      "coverage": "覆蓋 15/15"
+    },
+    "sourceRows": "S1.OP through S15.OP visible in detail list",
+    "negativeChecks": {
+      "has30Signals": false,
+      "has15of30": false
+    }
+  },
+  "result": "pass",
+  "bug": "B-14 fixed · live passed"
+}
