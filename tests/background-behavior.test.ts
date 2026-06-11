@@ -396,6 +396,83 @@ test("session/save-current-preview rejects messages without an explicit target",
   assert.equal(global.sessions.find((session) => session.id === topic.id)?.items.length, 0);
 });
 
+test("session/queue-selected rejects messages without an explicit item target", async () => {
+  const topic = {
+    ...makeSession("topic-session", "topic"),
+    items: [{ ...createSessionItem(makeDescriptor("active-item")), id: "active-item" }]
+  };
+  const tabKey = backgroundTestables.tabStorageKey(TAB_ID);
+  const harness = await createHarness({
+    [backgroundTestables.GLOBAL_STORAGE_KEY]: makeGlobal([topic], topic.id),
+    [backgroundTestables.ACTIVE_SESSION_ID_STORAGE_KEY]: topic.id,
+    [tabKey]: {
+      ...createEmptyTabState(),
+      activeItemId: "active-item"
+    }
+  });
+
+  const response = await harness.dispatch({ type: "session/queue-selected" } as unknown as ExtensionMessage);
+
+  assert.equal(response.ok, false);
+  assert.match(response.ok ? "" : response.error, /Explicit item target is required/);
+});
+
+test("session/queue-selected uses the explicit item target instead of the active cursor", async () => {
+  const topic = {
+    ...makeSession("topic-session", "topic"),
+    items: [{ ...createSessionItem(makeDescriptor("active-item")), id: "active-item" }]
+  };
+  const product = makeSession("product-session", "product");
+  const tabKey = backgroundTestables.tabStorageKey(TAB_ID);
+  const harness = await createHarness({
+    [backgroundTestables.GLOBAL_STORAGE_KEY]: makeGlobal([topic, product], topic.id),
+    [backgroundTestables.ACTIVE_SESSION_ID_STORAGE_KEY]: topic.id,
+    [tabKey]: {
+      ...createEmptyTabState(),
+      activeItemId: "active-item"
+    }
+  });
+
+  const response = await harness.dispatch({
+    type: "session/queue-selected",
+    target: {
+      sessionId: product.id,
+      itemId: "missing-product-item"
+    }
+  } as unknown as ExtensionMessage);
+
+  assert.equal(response.ok, false);
+  assert.match(response.ok ? "" : response.error, /Saved post not found/);
+});
+
+test("session/refresh-selected uses the explicit item target instead of the active cursor", async () => {
+  const topic = {
+    ...makeSession("topic-session", "topic"),
+    items: [{ ...createSessionItem(makeDescriptor("active-item")), id: "active-item" }]
+  };
+  const product = makeSession("product-session", "product");
+  const tabKey = backgroundTestables.tabStorageKey(TAB_ID);
+  const harness = await createHarness({
+    [backgroundTestables.GLOBAL_STORAGE_KEY]: makeGlobal([topic, product], topic.id),
+    [backgroundTestables.ACTIVE_SESSION_ID_STORAGE_KEY]: topic.id,
+    [tabKey]: {
+      ...createEmptyTabState(),
+      activeItemId: "active-item"
+    }
+  });
+
+  const response = await harness.dispatch({
+    type: "session/refresh-selected",
+    target: {
+      sessionId: product.id,
+      itemId: "missing-product-item"
+    }
+  } as unknown as ExtensionMessage);
+
+  assert.equal(response.ok, false);
+  assert.match(response.ok ? "" : response.error, /Saved post not found/);
+});
+
 test("session/set-mode missing target mode persists the global key", async () => {
   const topic = makeSession("topic-session", "topic");
   const tabKey = backgroundTestables.tabStorageKey(TAB_ID);

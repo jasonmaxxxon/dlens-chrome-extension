@@ -150,6 +150,8 @@ Slice ① (signal readiness) already proved this: `src/state/signal-readiness.ts
 
 **Execution note (codex/identity-target-session, ⑤a):** `src/state/action-target.ts` now owns the first explicit save target contract for `session/save-current-preview`. Popup, content-script click save, and Sidepanel now send `target: { sessionId, topicId }`; background validates that target and writes to `target.sessionId` instead of re-deriving the write destination from `activeSessionId`. `activeSessionId` is still realigned as a UI cursor after an explicit target save, but it is no longer the write authority for this path. Remaining implicit write paths (`queue-selected`, `refresh-selected`, optional all-pending/all-refresh targets, and broader signal/topic ownership) stay split into later ⑤ sub-slices.
 
+**Execution note (codex/identity-target-selected, ⑤b):** `src/state/action-target.ts` now also owns explicit `{ sessionId, itemId }` targets for selected-item mutations. `session/queue-selected` and `session/refresh-selected` carry `target` and background dispatches directly to the existing explicit `queueSessionItem` / `refreshItem` paths. The old `queueSelectedItem` / `refreshSelectedItem` wrappers that inferred session and item from `activeSessionId` + `tab.activeItemId` were deleted. Sidepanel now builds the selected item target through the shared helper before sending those debug actions.
+
 ---
 
 ## Slice ⑥ — Storage consistency / single mutation seam — DO LAST
