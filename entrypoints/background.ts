@@ -2359,7 +2359,10 @@ export default defineBackground(() => {
             // global cache on every write, so cached read is safe for the active
             // tab. Saves ~10–50ms vs the parallel storage round-trip in loadSnapshot.
             const current = await loadSnapshotCached(tabId);
-            const global = activateSessionForMode(current.global, message.mode);
+            const requestedSession = getSessionById(current.global, message.sessionId);
+            const global = requestedSession?.mode === message.mode
+              ? setActiveSession(current.global, requestedSession.id)
+              : activateSessionForMode(current.global, message.mode);
             const activeSession = getActiveSession(global);
             const modeHomePage = getModeHomePage(message.mode);
             const nextSnapshotInput = {

@@ -967,13 +967,13 @@ export function useInPageCollectorAppState({ snapshot, tabId, sendAndSync }: Use
 
   async function onSessionModeChange(mode: FolderMode) {
     if (activeFolder) {
-      const targetSessionExists = snapshot?.global.sessions.some((session) => session.mode === mode) ?? false;
-      if (targetSessionExists && mode !== activeFolderMode) {
+      const targetSession = snapshot?.global.sessions.find((session) => session.mode === mode) ?? null;
+      if (targetSession && mode !== activeFolderMode) {
         setOptimisticSessionMode(mode);
         beginPendingNavigation(getModeHomePage(mode));
       }
       try {
-        return await topicState.onSessionModeChange(mode);
+        return await topicState.onSessionModeChange(mode, targetSession?.id);
       } catch (error) {
         setOptimisticSessionMode(null);
         clearPendingNavigation();

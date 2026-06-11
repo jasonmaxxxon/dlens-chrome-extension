@@ -183,6 +183,34 @@ test("session/set-mode existing target mode writes only active-session and tab k
   assert.equal(harness.state[backgroundTestables.ACTIVE_SESSION_ID_STORAGE_KEY], product.id);
 });
 
+test("session/set-mode honors the requested session when several sessions share a mode", async () => {
+  const topic = makeSession("topic-session", "topic");
+  const olderProduct = {
+    ...makeSession("older-product-session", "product"),
+    items: [{ ...createSessionItem(makeDescriptor("old-1")), id: "old-item" }]
+  };
+  const targetProduct = {
+    ...makeSession("target-product-session", "product"),
+    items: [
+      { ...createSessionItem(makeDescriptor("target-1")), id: "target-item-1" },
+      { ...createSessionItem(makeDescriptor("target-2")), id: "target-item-2" }
+    ]
+  };
+  const tabKey = backgroundTestables.tabStorageKey(TAB_ID);
+  const harness = await createHarness({
+    [backgroundTestables.GLOBAL_STORAGE_KEY]: makeGlobal([topic, olderProduct, targetProduct], topic.id),
+    [backgroundTestables.ACTIVE_SESSION_ID_STORAGE_KEY]: topic.id,
+    [tabKey]: createEmptyTabState()
+  });
+
+  const response = await harness.dispatch({ type: "session/set-mode", sessionId: targetProduct.id, mode: "product" });
+
+  assert.equal(response.ok, true);
+  assert.equal(response.snapshot?.global.activeSessionId, targetProduct.id);
+  assert.equal(response.snapshot?.global.sessions.find((session) => session.id === targetProduct.id)?.items.length, 2);
+  assert.equal(harness.state[backgroundTestables.ACTIVE_SESSION_ID_STORAGE_KEY], targetProduct.id);
+});
+
 test("state/get-active-tab normalizes a null active session when sessions still exist", async () => {
   const topic = makeSession("topic-session", "topic");
   const product = makeSession("product-session", "product");

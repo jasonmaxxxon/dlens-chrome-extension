@@ -43,6 +43,12 @@ test("popup save paths emit collect-save trace events for both button and keyboa
   assert.match(source, /via: "keyboard"/);
 });
 
+test("active-folder workspace switches pass the target session id through the topic state path", () => {
+  const source = readFileSync(new URL("../src/ui/useInPageCollectorAppState.ts", import.meta.url), "utf8");
+
+  assert.match(source, /topicState\.onSessionModeChange\(mode,\s*targetSession\?\.id/);
+});
+
 test("resolveOptimisticSession returns an existing target-mode session without mutating active session", () => {
   const productSession = createSessionRecord("Product workspace", "2026-05-27T00:00:00.000Z", "product");
   const prSession = createSessionRecord("PR Evidence workspace", "2026-05-27T00:00:00.000Z", "pr-evidence");

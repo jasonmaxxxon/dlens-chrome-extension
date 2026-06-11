@@ -81,8 +81,14 @@ export function buildSignalPreviewById(activeFolder: SessionRecord | null, signa
 }
 
 export function findSignalsMissingBackingItems(activeFolder: SessionRecord | null, signals: Signal[]): Signal[] {
+  if (!activeFolder?.id) {
+    return [];
+  }
   const itemById = new Map(activeFolder?.items.map((item) => [item.id, item]) ?? []);
   return signals.filter((signal) => {
+    if (signal.sessionId !== activeFolder.id) {
+      return false;
+    }
     if (!signal.itemId) {
       return false;
     }
@@ -97,8 +103,11 @@ export function findSignalsMissingBackingItems(activeFolder: SessionRecord | nul
 }
 
 export function filterSignalsWithBackingItems(activeFolder: SessionRecord | null, signals: Signal[]): Signal[] {
+  if (!activeFolder?.id) {
+    return [];
+  }
   const orphanIds = new Set(findSignalsMissingBackingItems(activeFolder, signals).map((signal) => signal.id));
-  return signals.filter((signal) => !orphanIds.has(signal.id));
+  return signals.filter((signal) => signal.sessionId === activeFolder.id && !orphanIds.has(signal.id));
 }
 
 export function resolveTopicCollectionTargetId(
@@ -458,13 +467,13 @@ export function useTopicState({
     };
   }, [activeTopicItemIds.join("|"), selectedTopicId]);
 
-  async function onSessionModeChange(mode: FolderMode) {
+  async function onSessionModeChange(mode: FolderMode, targetSessionId?: string | null) {
     if (!activeFolder) {
       return null;
     }
     const response = await sendAndSync({
       type: "session/set-mode",
-      sessionId: activeFolder.id,
+      sessionId: targetSessionId ?? activeFolder.id,
       mode
     });
     if (response.ok && mode === "archive") {
