@@ -195,6 +195,10 @@ test("findCardCandidate promotes depth-capped fragment wins to the enclosing pos
   // Walks past the depth budget to the real article root, and only promotes
   // when the root classifies at least as strongly as the fragment.
   assert.match(promoteBlock, /closest\("article, div\[role='article'\]"\)/);
+  // Post-detail pages render posts without an article wrapper (run22
+  // b10-hover.json: articles=[]), so promotion must fall back to the per-post
+  // pressable container — article stays first so feed behavior is unchanged.
+  assert.match(promoteBlock, /closest\("div\[data-pressable-container\]"\)/);
   assert.match(promoteBlock, /score >= candidate\.score/);
 
   const findStart = source.indexOf("export function findCardCandidate(");

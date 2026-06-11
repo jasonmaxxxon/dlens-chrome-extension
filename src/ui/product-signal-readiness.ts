@@ -12,6 +12,7 @@ export type ProductSignalReadinessStatus =
 export interface ProductSignalReadiness {
   status: ProductSignalReadinessStatus;
   itemStatus?: SessionItemStatus;
+  lastError?: string | null;
 }
 
 export function buildProductSignalReadinessById(
@@ -29,10 +30,10 @@ export function buildProductSignalReadinessById(
         return [signal.id, { status: "saved", itemStatus: item.status }] as const;
       }
       if (item.status === "queued" || item.status === "running") {
-        return [signal.id, { status: "crawling", itemStatus: item.status }] as const;
+        return [signal.id, { status: "crawling", itemStatus: item.status, lastError: item.lastError ?? null }] as const;
       }
       if (item.status === "failed") {
-        return [signal.id, { status: "failed", itemStatus: item.status }] as const;
+        return [signal.id, { status: "failed", itemStatus: item.status, lastError: item.lastError ?? null }] as const;
       }
       return [
         signal.id,

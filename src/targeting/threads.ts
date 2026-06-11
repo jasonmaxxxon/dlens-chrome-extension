@@ -259,12 +259,17 @@ export function classifyCandidateStrength(score: number): CandidateStrength | nu
 // so a fragment that happens to classify can win while the depth-capped loop
 // never reaches the real post root — descriptors then extract from the
 // fragment (empty snippet, wrong author). Prefer the enclosing article root
-// whenever it classifies at least as strongly as the fragment.
+// whenever it classifies at least as strongly as the fragment. Post-detail
+// pages render posts without any article wrapper, so fall back to the
+// per-post pressable container there — article stays first so feed quote
+// cards keep promoting to the outer article.
 function promoteCandidateToPostRoot(candidate: CardCandidate): CardCandidate {
   if (!candidate.root || candidate.root.matches("article, div[role='article']")) {
     return candidate;
   }
-  const postRoot = candidate.root.parentElement?.closest("article, div[role='article']");
+  const postRoot =
+    candidate.root.parentElement?.closest("article, div[role='article']") ??
+    candidate.root.parentElement?.closest("div[data-pressable-container]");
   if (!(postRoot instanceof HTMLElement)) {
     return candidate;
   }

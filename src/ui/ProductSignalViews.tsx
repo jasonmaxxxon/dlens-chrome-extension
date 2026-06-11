@@ -389,17 +389,22 @@ function readinessCopy({
 }
 
 function readinessLabel(readiness: ProductSignalReadiness): { label: string; detail: string; tone: "success" | "warning" | "neutral" } {
+  // Backend jobs report last_error while still retrying; without it the card
+  // claims plain progress forever even when every attempt is failing (B-12).
+  const backendErrorDetail = readiness.lastError ? `backend 回報錯誤：${excerpt(readiness.lastError, 160)}` : null;
   switch (readiness.status) {
     case "saved":
       return { label: "尚未抓取", detail: "按分析會先送出抓取請求。", tone: "warning" };
     case "crawling":
-      return { label: "抓取中", detail: "等待 backend 完成 ThreadReadModel。", tone: "neutral" };
+      return backendErrorDetail
+        ? { label: "抓取中（重試中）", detail: backendErrorDetail, tone: "warning" }
+        : { label: "抓取中", detail: "等待 backend 完成 ThreadReadModel。", tone: "neutral" };
     case "ready":
       return { label: "可分析", detail: "已有 assembled content，可以執行 ProductSignalAnalyzer。", tone: "success" };
     case "missing_content":
       return { label: "內容不完整", detail: "crawl 完成但缺少 assembled content，請重新處理該貼文。", tone: "warning" };
     case "failed":
-      return { label: "抓取失敗", detail: "請重新送出抓取後再分析。", tone: "warning" };
+      return { label: "抓取失敗", detail: backendErrorDetail ?? "請重新送出抓取後再分析。", tone: "warning" };
     case "missing_item":
     default:
       return { label: "找不到貼文", detail: "signal 缺少對應的 saved item。", tone: "warning" };

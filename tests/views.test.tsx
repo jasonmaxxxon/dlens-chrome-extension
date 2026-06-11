@@ -1489,6 +1489,53 @@ test("ProductSignalView keeps Agent export off Product action pages", () => {
   assert.doesNotMatch(actionableHtml, /# Agent Brief/);
 });
 
+test("PendingSignalCard surfaces the backend job error while a crawl is retrying", () => {
+  const html = renderToStaticMarkup(
+    React.createElement(ProductSignalView, {
+      kind: "saved-signals",
+      signals: [
+        {
+          id: "signal_fetching",
+          sessionId: "session_a",
+          itemId: "item_fetching",
+          source: "threads",
+          inboxStatus: "unprocessed",
+          capturedAt: "2026-04-27T00:00:00.000Z"
+        }
+      ],
+      analyses: [],
+      productProfile: {
+        name: "DLens",
+        category: "Creator analysis",
+        audience: "Threads creators",
+        contextText: "README context",
+        contextFiles: [
+          {
+            id: "file_readme",
+            name: "README.md",
+            kind: "readme",
+            importedAt: "2026-04-27T00:00:00.000Z",
+            charCount: 14
+          }
+        ]
+      },
+      signalReadinessById: {
+        signal_fetching: {
+          status: "crawling",
+          itemStatus: "queued",
+          lastError: "BrowserType.launch: Executable doesn't exist at /Users/tung/Library/Caches/ms-playwright/chromium"
+        }
+      },
+      onAnalyze: () => undefined
+    })
+  );
+
+  assert.match(html, /抓取中（重試中）/);
+  assert.match(html, /backend 回報錯誤/);
+  assert.match(html, /BrowserType\.launch/);
+  assert.doesNotMatch(html, /等待 backend 完成 ThreadReadModel/);
+});
+
 test("ProductSignalView shows a spinner for crawling pending signals", () => {
   const html = renderToStaticMarkup(
     React.createElement(ProductSignalView, {
