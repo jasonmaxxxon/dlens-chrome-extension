@@ -149,7 +149,6 @@ import {
   normalizeSessionRecord,
   reconcileSessionItem,
   renameSession,
-  removeSessionItem,
   saveDescriptorToSession,
   setActiveSession,
   updateSessionItem,
@@ -157,7 +156,7 @@ import {
 } from "../src/state/store-helpers";
 import { ensureSignalForSavedItem, ensureSignalsForSessionItems, ensureWorkspaceTopicForSession, handleTopicMessage } from "../src/state/topic-handlers";
 import { handleTopicAuditMessage } from "../src/state/topic-audit-handlers";
-import { deleteSignal, loadSignals, loadTopicById, loadTopics, saveTopic } from "../src/state/topic-storage";
+import { loadSignals, loadTopicById, loadTopics, saveTopic } from "../src/state/topic-storage";
 import { generateTopicSynthesis } from "../src/compare/topic-synthesis";
 import { generateFolderSynthesis } from "../src/compare/folder-synthesis";
 import {
@@ -184,6 +183,7 @@ import {
   requireSessionItemActionTarget,
   type SaveCurrentPreviewActionTarget
 } from "../src/state/action-target";
+import { applySignalDeletionToGlobalState, deleteSignalStorageRecords } from "../src/state/session-signal-seam";
 import { applyHoveredPreview, createInlineToast, setCollectModeState } from "../src/state/ui-state";
 import { getModeHomePage } from "../src/state/processing-state";
 import { sanitizeSnapshotForContentScript } from "../src/state/sanitize-snapshot";
@@ -2416,17 +2416,16 @@ export default defineBackground(() => {
           }
           case "signal/delete": {
             const tabId = await resolveTabId(sender);
-            const result = await deleteSignal(chrome.storage.local, message.signalId);
-            await deleteProductSignalAnalysis(chrome.storage.local, message.signalId);
-            await clearFolderSynthesis(chrome.storage.local, result.deleted.sessionId);
-            const snapshot = await mutateSnapshot(tabId, (current) => {
-              const shouldRemoveBackingItem = Boolean(result.deleted.itemId)
-                && !result.signals.some((signal) => signal.itemId === result.deleted.itemId);
-              const global = shouldRemoveBackingItem && result.deleted.itemId
-                ? removeSessionItem(current.global, result.deleted.sessionId, result.deleted.itemId)
-                : current.global;
-              const deletedActiveItem = Boolean(result.deleted.itemId) && current.tab.activeItemId === result.deleted.itemId;
-              const deletedSession = global.sessions.find((session) => session.id === result.deleted.sessionId) ?? null;
+            const resultRef: {
+              value: Awaited<ReturnType<typeof deleteSignalStorageRecords>> | null;
+            } = { value: null };
+            const snapshot = await mutateSnapshot(tabId, async (current) => {
+              const deletion = await deleteSignalStorageRecords(chrome.storage.local, message.signalId);
+              resultRef.value = deletion;
+              await deleteProductSignalAnalysis(chrome.storage.local, message.signalId);
+              const applied = applySignalDeletionToGlobalState(current.global, deletion);
+              const deletedActiveItem = applied.removedItemId !== null && current.tab.activeItemId === applied.removedItemId;
+              const deletedSession = applied.globalState.sessions.find((session) => session.id === deletion.deleted.sessionId) ?? null;
               const nextActiveItemId = deletedActiveItem && deletedSession
                 ? ensureActiveItemId(deletedSession, null)
                 : deletedActiveItem
@@ -2434,7 +2433,7 @@ export default defineBackground(() => {
                   : current.tab.activeItemId;
               const nextActiveItem = deletedSession?.items.find((item) => item.id === nextActiveItemId) ?? null;
               return {
-                global,
+                global: applied.globalState,
                 tab: {
                   ...current.tab,
                   activeItemId: nextActiveItemId,
@@ -2443,16 +2442,20 @@ export default defineBackground(() => {
                 }
               };
             });
+            const deletion = resultRef.value;
+            if (!deletion) {
+              throw new Error("Signal deletion did not complete.");
+            }
             const productSignalAnalyses = await listProductSignalAnalyses(
               chrome.storage.local,
-              result.signals.map((signal) => signal.id)
+              deletion.signals.map((signal) => signal.id)
             );
             sendResponse({
               ok: true,
               tabId,
               snapshot,
-              signals: result.signals,
-              topics: result.topics,
+              signals: deletion.signals,
+              topics: deletion.topics,
               productSignalAnalyses
             } satisfies ExtensionResponse);
             return;

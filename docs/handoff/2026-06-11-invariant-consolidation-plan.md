@@ -168,6 +168,8 @@ Slice ① (signal readiness) already proved this: `src/state/signal-readiness.ts
 
 **Claude's note:** Most dangerous slice. Do not attempt until ⑤ is done and stable. It's acceptable for this one to stay partial.
 
+**Execution note (codex/storage-seam-partial, ⑥ partial):** `src/state/session-signal-seam.ts` now owns the first cross-key consistency seam for signal deletion. `deleteSignalStorageRecords()` deletes the signal and clears folder synthesis together; `applySignalDeletionToGlobalState()` removes the backing session item only when no remaining signal still references that item. Background `signal/delete` now runs this seam inside `mutateSnapshot()`, and `handleTopicMessage("signal/delete")` uses the same helper instead of re-deriving the folder-synthesis cleanup. This is intentionally partial: no storage migration, no snapshot-system rewrite, and no backward-compat normalization changes.
+
 ---
 
 ## Recommended sequence (Claude's risk-adjusted ordering)
