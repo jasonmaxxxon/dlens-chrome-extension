@@ -33,6 +33,7 @@ import type { SignalPacketExportFormat, SignalPacketExportResult } from "../comp
 import type { CrossTopicCalibration, EvidencePacket, TopicAuditReport, TopicAuditStageName } from "../compare/topic-audit";
 import type { TopicAuditValidationFlag } from "../compare/topic-audit-validator";
 import type { TopicAuditMemoBundle } from "./topic-audit-storage";
+import type { SaveCurrentPreviewActionTarget } from "./action-target";
 
 export type ExtensionMessage =
   | { type: "state/get-active-tab" }
@@ -58,7 +59,7 @@ export type ExtensionMessage =
   | { type: "session/delete"; sessionId: string }
   | { type: "session/set-active"; sessionId: string }
   | { type: "session/set-mode"; sessionId: string; mode: FolderMode }
-  | { type: "session/save-current-preview"; sessionId?: string; topicId?: string; descriptor?: TargetDescriptor }
+  | { type: "session/save-current-preview"; target: SaveCurrentPreviewActionTarget; descriptor?: TargetDescriptor }
   | { type: "session/select-item"; sessionId: string; itemId: string }
   | { type: "session/queue-item"; sessionId: string; itemId: string }
   | { type: "session/queue-items"; sessionId: string; itemIds: string[] }

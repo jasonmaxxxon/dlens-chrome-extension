@@ -24,14 +24,30 @@ const descriptor = {
 test("buildPreviewSaveMessage sends the visible preview descriptor with the topic target", () => {
   const message = buildPreviewSaveMessage({
     activeFolderMode: "topic",
+    sessionId: "session-topic",
     selectedTopicId: "topic-love",
     collectionTopicId: "topic-work",
     preview: descriptor
   });
 
-  assert.equal(message.type, "session/save-current-preview");
-  assert.equal(message.topicId, "topic-love");
-  assert.deepEqual(message.descriptor, descriptor);
+  assert.equal(message?.type, "session/save-current-preview");
+  assert.deepEqual(message?.target, {
+    sessionId: "session-topic",
+    topicId: "topic-love"
+  });
+  assert.deepEqual(message?.descriptor, descriptor);
+});
+
+test("buildPreviewSaveMessage refuses to create a save message without an explicit session target", () => {
+  const message = buildPreviewSaveMessage({
+    activeFolderMode: "topic",
+    sessionId: null,
+    selectedTopicId: "topic-love",
+    collectionTopicId: "topic-work",
+    preview: descriptor
+  });
+
+  assert.equal(message, null);
 });
 
 test("popup save paths emit collect-save trace events for both button and keyboard channels", () => {

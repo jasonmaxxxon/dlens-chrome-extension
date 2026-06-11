@@ -178,6 +178,7 @@ import {
 import { mergeLayoutPreferences, mergeOneLinerSettings, normalizeExtensionSettings } from "../src/state/settings-storage";
 import { buildRefreshFailureMessage } from "../src/state/refresh-errors";
 import { createAsyncLock } from "../src/state/snapshot-lock";
+import { requireSaveCurrentPreviewTarget, type SaveCurrentPreviewActionTarget } from "../src/state/action-target";
 import { applyHoveredPreview, createInlineToast, setCollectModeState } from "../src/state/ui-state";
 import { getModeHomePage } from "../src/state/processing-state";
 import { sanitizeSnapshotForContentScript } from "../src/state/sanitize-snapshot";
@@ -1434,16 +1435,19 @@ async function closePopup(tabId: number): Promise<ExtensionSnapshot> {
 
 async function saveCurrentPreviewToSession(
   tabId: number,
-  sessionId?: string,
-  topicId?: string,
+  target: SaveCurrentPreviewActionTarget,
   descriptor?: TargetDescriptor
 ): Promise<ExtensionSnapshot> {
   return mutateSnapshot(tabId, async (current) => {
+    const session = getSessionById(current.global, target.sessionId);
+    if (!session) {
+      throw new Error("Target folder not found.");
+    }
     let activeSessionRealigned = false;
     // The popup tells us exactly which folder it is showing. Honor it (and realign the
     // active session) so a drifted activeSessionId can't reroute the save to the wrong folder.
-    if (sessionId && sessionId !== current.global.activeSessionId && getSessionById(current.global, sessionId)) {
-      current.global = setActiveSession(current.global, sessionId);
+    if (target.sessionId !== current.global.activeSessionId) {
+      current.global = setActiveSession(current.global, target.sessionId);
       activeSessionRealigned = true;
     }
     if (descriptor) {
@@ -1465,24 +1469,12 @@ async function saveCurrentPreviewToSession(
       throw new Error("No current post preview to save.");
     }
 
-    const session = getActiveSession(current.global);
-    if (!session) {
-      return {
-        snapshot: {
-          global: current.global,
-          tab: {
-            ...current.tab,
-            popupOpen: true,
-            popupPage: "library",
-            currentMainPage: "library",
-            error: null
-          }
-        }
-      };
+    if (session.mode === "topic" && !target.topicId) {
+      throw new Error("Choose a topic before saving.");
     }
 
-    const collectionTopicId = session.mode === "topic" ? topicId ?? current.tab.collectionTopicId ?? undefined : undefined;
-    const saved = saveDescriptorToSession(current.global, session.id, current.tab.currentPreview);
+    const collectionTopicId = session.mode === "topic" ? target.topicId ?? undefined : undefined;
+    const saved = saveDescriptorToSession(current.global, target.sessionId, current.tab.currentPreview);
     if (session.mode === "pr-evidence") {
       const campaign = await loadActivePrCampaign(chrome.storage.local, session.id);
       if (!campaign) {
@@ -3083,7 +3075,11 @@ export default defineBackground(() => {
             sendResponse({
               ok: true,
               tabId,
-              snapshot: await saveCurrentPreviewToSession(tabId, message.sessionId, message.topicId, message.descriptor)
+              snapshot: await saveCurrentPreviewToSession(
+                tabId,
+                requireSaveCurrentPreviewTarget(message.target),
+                message.descriptor
+              )
             } satisfies ExtensionResponse);
             return;
           }
