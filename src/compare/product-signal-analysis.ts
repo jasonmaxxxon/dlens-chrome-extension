@@ -1,8 +1,5 @@
-import type {
-  CaptureSnapshot,
-  ThreadReadModelPostSnapshot,
-  ThreadReadModelSnapshot
-} from "../contracts/ingest.ts";
+import type { CaptureSnapshot } from "../contracts/ingest.ts";
+import { projectCapturedPostFromCapture, type CapturedPostFragment } from "../state/captured-post.ts";
 import type {
   ProductContext,
   ProductAgentTaskSpec,
@@ -153,60 +150,25 @@ export interface ProductSignalAnalyzerInput {
   feedbackExamples?: ProductSignalPreferenceExample[];
 }
 
-function readNumber(value: unknown): number | null {
-  return typeof value === "number" && Number.isFinite(value) ? value : null;
-}
-
-function readThreadPostId(post: ThreadReadModelPostSnapshot): string {
-  return readTrimmedString(post.postId ?? post.post_id ?? post.commentId ?? post.comment_id);
-}
-
-function readThreadPostText(post: ThreadReadModelPostSnapshot): string {
-  return readTrimmedString(post.text);
-}
-
-function readThreadPostAuthor(post: ThreadReadModelPostSnapshot): string {
-  return readTrimmedString(post.author) || "unknown";
-}
-
-function readThreadPostLikeCount(post: ThreadReadModelPostSnapshot): number | null {
-  return readNumber(post.likeCount ?? post.like_count);
-}
-
-function normalizeThreadPost(post: ThreadReadModelPostSnapshot, fallbackId: string): ProductSignalDiscussionReply | null {
-  const text = readThreadPostText(post);
+function toProductSignalDiscussionReply(fragment: CapturedPostFragment, fallbackId: string): ProductSignalDiscussionReply | null {
+  const text = readTrimmedString(fragment.text);
   if (!text) {
     return null;
   }
   return {
-    id: readThreadPostId(post) || fallbackId,
-    author: readThreadPostAuthor(post),
+    id: readTrimmedString(fragment.id) || fallbackId,
+    author: readTrimmedString(fragment.author) || "unknown",
     text,
-    likeCount: readThreadPostLikeCount(post)
+    likeCount: fragment.likes
   };
 }
 
-function readThreadReadModel(capture: CaptureSnapshot | null | undefined): ThreadReadModelSnapshot | null {
-  const result = capture?.result;
-  return result?.threadReadModel ?? result?.thread_read_model ?? null;
-}
-
 export function hasProductSignalAssembledContent(capture: CaptureSnapshot | null | undefined): boolean {
-  const threadReadModel = readThreadReadModel(capture);
-  return Boolean(readTrimmedString(threadReadModel?.assembledContent ?? threadReadModel?.assembled_content));
+  return projectCapturedPostFromCapture(capture).hasAssembledContent;
 }
 
 function readLegacyCanonicalContent(capture: CaptureSnapshot | null | undefined): string {
   return readTrimmedString(capture?.result?.canonical_post?.text ?? capture?.text_snippet);
-}
-
-function readLegacyDiscussionReplies(capture: CaptureSnapshot | null | undefined): ProductSignalDiscussionReply[] {
-  const comments = capture?.result?.comments ?? [];
-  return comments
-    .map((comment, index) =>
-      normalizeThreadPost(comment as ThreadReadModelPostSnapshot, `comment_${index + 1}`)
-    )
-    .filter((reply): reply is ProductSignalDiscussionReply => reply !== null);
 }
 
 export function buildProductSignalAnalyzerInputFromCapture({
@@ -224,19 +186,15 @@ export function buildProductSignalAnalyzerInputFromCapture({
   productContextHash: string;
   feedbackExamples?: ProductSignalPreferenceExample[];
 }): ProductSignalAnalyzerInput | null {
-  const threadReadModel = readThreadReadModel(capture);
-  const assembledContent = readTrimmedString(threadReadModel?.assembledContent ?? threadReadModel?.assembled_content)
-    || readLegacyCanonicalContent(capture);
+  const capturedPost = projectCapturedPostFromCapture(capture, { includeLegacyComments: true });
+  const assembledContent = capturedPost.assembledContent || readLegacyCanonicalContent(capture);
   if (!assembledContent) {
     return null;
   }
 
-  const discussionPosts = threadReadModel?.discussionReplies ?? threadReadModel?.discussion_replies;
-  const discussionReplies = Array.isArray(discussionPosts)
-    ? discussionPosts
-      .map((post, index) => normalizeThreadPost(post, `discussion_${index + 1}`))
-      .filter((reply): reply is ProductSignalDiscussionReply => reply !== null)
-    : readLegacyDiscussionReplies(capture);
+  const discussionReplies = capturedPost.discussionReplies
+    .map((fragment, index) => toProductSignalDiscussionReply(fragment, `discussion_${index + 1}`))
+    .filter((reply): reply is ProductSignalDiscussionReply => reply !== null);
 
   return {
     signalId,
@@ -488,13 +446,9 @@ function buildFeedbackExamplesSection(examples: ProductSignalPreferenceExample[]
 export function buildProductSignalEvidenceCatalogFromCapture(
   capture: CaptureSnapshot | null | undefined
 ): ProductSignalEvidenceEntry[] {
-  const threadReadModel = readThreadReadModel(capture);
-  const discussionPosts = threadReadModel?.discussionReplies ?? threadReadModel?.discussion_replies;
-  const replies = Array.isArray(discussionPosts)
-    ? discussionPosts
-      .map((post, index) => normalizeThreadPost(post, `discussion_${index + 1}`))
-      .filter((reply): reply is ProductSignalDiscussionReply => reply !== null)
-    : readLegacyDiscussionReplies(capture);
+  const replies = projectCapturedPostFromCapture(capture, { includeLegacyComments: true }).discussionReplies
+    .map((fragment, index) => toProductSignalDiscussionReply(fragment, `discussion_${index + 1}`))
+    .filter((reply): reply is ProductSignalDiscussionReply => reply !== null);
 
   return replies.slice(0, 20).map((reply, index) => ({
     ...reply,

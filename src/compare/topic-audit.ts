@@ -1,8 +1,4 @@
-import type {
-  CaptureSnapshot,
-  ThreadReadModelPostSnapshot,
-  ThreadReadModelSnapshot
-} from "../contracts/ingest.ts";
+import { projectCapturedPost, type CapturedPostFragment, type CapturedPostProjection } from "../state/captured-post.ts";
 import type { SessionItem, Signal, SignalTagsRecord, Topic } from "../state/types.ts";
 
 export type TopicAuditStatus = "succeeded" | "queued" | "failed";
@@ -125,47 +121,6 @@ export interface TopicEvidencePacketInput {
   inputHash?: string;
 }
 
-function readTrimmedString(value: unknown): string {
-  return typeof value === "string" ? value.replace(/\s+/g, " ").trim() : "";
-}
-
-function readTextString(value: unknown): string {
-  return typeof value === "string" ? value.trim() : "";
-}
-
-function readNumberOrNull(value: unknown): number | null {
-  return typeof value === "number" && Number.isFinite(value) ? value : null;
-}
-
-function readThreadReadModel(capture: CaptureSnapshot | null | undefined): ThreadReadModelSnapshot | null {
-  const result = capture?.result;
-  return result?.threadReadModel ?? result?.thread_read_model ?? null;
-}
-
-function readRootPost(model: ThreadReadModelSnapshot | null): ThreadReadModelPostSnapshot | null {
-  return model?.rootPost ?? model?.root_post ?? null;
-}
-
-function readOpContinuations(model: ThreadReadModelSnapshot | null): ThreadReadModelPostSnapshot[] {
-  return model?.opContinuations ?? model?.op_continuations ?? [];
-}
-
-function readDiscussionReplies(model: ThreadReadModelSnapshot | null): ThreadReadModelPostSnapshot[] {
-  return model?.discussionReplies ?? model?.discussion_replies ?? [];
-}
-
-function readPostText(post: ThreadReadModelPostSnapshot | null | undefined): string {
-  return readTextString(post?.text);
-}
-
-function readPostAuthor(post: ThreadReadModelPostSnapshot | null | undefined): string {
-  return readTrimmedString(post?.author);
-}
-
-function readPostLikes(post: ThreadReadModelPostSnapshot | null | undefined): number | null {
-  return readNumberOrNull(post?.likeCount ?? post?.like_count);
-}
-
 function normalizeStatus(item: SessionItem): TopicAuditStatus {
   if (item.status === "failed") {
     return "failed";
@@ -174,31 +129,6 @@ function normalizeStatus(item: SessionItem): TopicAuditStatus {
     return "succeeded";
   }
   return "queued";
-}
-
-function resolveOpAuthor(item: SessionItem, rootPost: ThreadReadModelPostSnapshot | null): string {
-  return readPostAuthor(rootPost) || readTrimmedString(item.latestCapture?.author_hint) || readTrimmedString(item.descriptor.author_hint);
-}
-
-function resolveOpText(item: SessionItem, rootPost: ThreadReadModelPostSnapshot | null): string {
-  return readPostText(rootPost)
-    || readTextString(item.latestCapture?.text_snippet)
-    || readTextString(item.descriptor.text_snippet);
-}
-
-function resolveSourceUrl(item: SessionItem): string {
-  return readTrimmedString(item.latestCapture?.source_post_url)
-    || readTrimmedString(item.latestCapture?.canonical_target_url)
-    || readTrimmedString(item.canonicalTargetUrl)
-    || readTrimmedString(item.descriptor.post_url);
-}
-
-function resolveCommentCount(item: SessionItem): number | null {
-  const analysisCount = readNumberOrNull(item.latestCapture?.analysis?.source_comment_count);
-  if (analysisCount !== null) {
-    return analysisCount;
-  }
-  return readNumberOrNull(item.descriptor.engagement.comments);
 }
 
 function makeFragmentRef(shortCode: string, role: ReplyFragmentRole, index: number): string {
@@ -211,21 +141,14 @@ function makeFragmentRef(shortCode: string, role: ReplyFragmentRole, index: numb
   return `${shortCode}.R${index}`;
 }
 
-function buildReplyFragments(shortCode: string, model: ThreadReadModelSnapshot | null, opAuthor: string): ReplyFragment[] {
+function buildReplyFragments(shortCode: string, capturedPost: CapturedPostProjection): ReplyFragment[] {
   const fragments: ReplyFragment[] = [];
   let opIndex = 0;
   let audienceIndex = 0;
   let placeholderIndex = 0;
-  const normalizedOpAuthor = opAuthor.toLowerCase();
 
-  const pushFragment = (post: ThreadReadModelPostSnapshot, forcedRole?: ReplyFragmentRole) => {
-    const text = readPostText(post);
-    if (!text) {
-      return;
-    }
-    const author = readPostAuthor(post);
-    const role: ReplyFragmentRole = forcedRole
-      ?? (!author ? "placeholder" : author.toLowerCase() === normalizedOpAuthor ? "op_continuation" : "audience");
+  const pushFragment = (fragment: CapturedPostFragment) => {
+    const role = fragment.role;
     const index = role === "op_continuation"
       ? ++opIndex
       : role === "placeholder"
@@ -233,19 +156,18 @@ function buildReplyFragments(shortCode: string, model: ThreadReadModelSnapshot |
         : ++audienceIndex;
     fragments.push({
       ref: makeFragmentRef(shortCode, role, index),
-      author,
-      text,
-      likes: readPostLikes(post),
+      author: fragment.author,
+      text: fragment.text,
+      likes: fragment.likes,
       role
     });
   };
 
-  for (const post of readOpContinuations(model)) {
-    pushFragment(post, "op_continuation");
-  }
-  for (const post of readDiscussionReplies(model)) {
-    pushFragment(post);
-  }
+  const discussionFragments = new Set(capturedPost.discussionReplies);
+  capturedPost.opContinuations
+    .filter((fragment) => !discussionFragments.has(fragment))
+    .forEach(pushFragment);
+  capturedPost.discussionReplies.forEach(pushFragment);
   return fragments;
 }
 
@@ -287,19 +209,16 @@ export function buildTopicEvidencePackets(input: TopicEvidencePacketInput): Evid
     }
 
     const shortCode = `S${index + 1}`;
-    const model = readThreadReadModel(item.latestCapture);
-    const rootPost = readRootPost(model);
-    const opAuthor = resolveOpAuthor(item, rootPost);
-    const opText = resolveOpText(item, rootPost);
+    const capturedPost = projectCapturedPost(item);
     const status = normalizeStatus(item);
     const gaps: string[] = [];
     if (status !== "succeeded") {
       gaps.push("capture not completed");
     }
-    if (!model) {
+    if (!capturedPost.hasThreadReadModel) {
       gaps.push("thread read model unavailable");
     }
-    if (!opText) {
+    if (!capturedPost.text) {
       gaps.push("op text unavailable");
     }
 
@@ -310,14 +229,14 @@ export function buildTopicEvidencePackets(input: TopicEvidencePacketInput): Evid
       signalId: signal.id,
       itemId: item.id,
       shortCode,
-      sourceUrl: resolveSourceUrl(item),
+      sourceUrl: capturedPost.sourceUrl,
       capturedAt: signal.capturedAt || item.savedAt || item.descriptor.captured_at,
       status,
-      opAuthor,
-      opText,
-      opLikes: readPostLikes(rootPost) ?? readNumberOrNull(item.descriptor.engagement.likes),
-      commentCount: status === "succeeded" ? resolveCommentCount(item) : null,
-      replyFragments: status === "succeeded" ? buildReplyFragments(shortCode, model, opAuthor) : [],
+      opAuthor: capturedPost.author,
+      opText: capturedPost.text,
+      opLikes: capturedPost.likes,
+      commentCount: status === "succeeded" ? capturedPost.commentCount : null,
+      replyFragments: status === "succeeded" ? buildReplyFragments(shortCode, capturedPost) : [],
       aiArtifacts: buildAiArtifacts(input.signalTagsByItemId?.[item.id]),
       gaps,
       notes: []
