@@ -148,6 +148,8 @@ Slice ① (signal readiness) already proved this: `src/state/signal-readiness.ts
 
 **Claude's note:** Permanently kills the B-05 class, but treat as its own *multi-PR* effort, sequenced after the lower-risk slices. Do not bundle.
 
+**Execution note (codex/identity-target-session, ⑤a):** `src/state/action-target.ts` now owns the first explicit save target contract for `session/save-current-preview`. Popup, content-script click save, and Sidepanel now send `target: { sessionId, topicId }`; background validates that target and writes to `target.sessionId` instead of re-deriving the write destination from `activeSessionId`. `activeSessionId` is still realigned as a UI cursor after an explicit target save, but it is no longer the write authority for this path. Remaining implicit write paths (`queue-selected`, `refresh-selected`, optional all-pending/all-refresh targets, and broader signal/topic ownership) stay split into later ⑤ sub-slices.
+
 ---
 
 ## Slice ⑥ — Storage consistency / single mutation seam — DO LAST

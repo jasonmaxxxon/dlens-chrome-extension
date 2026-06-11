@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 import type { TargetDescriptor } from "../contracts/target-descriptor";
+import { buildSaveCurrentPreviewTarget } from "../state/action-target";
 import { DEFAULT_SESSION_NAME_BY_MODE, normalizePostUrl } from "../state/store-helpers";
 import {
   createDefaultLayoutPreferences,
@@ -117,15 +118,22 @@ export function buildPreviewSaveMessage({
   selectedTopicId?: string | null;
   collectionTopicId?: string | null;
   preview?: TargetDescriptor | null;
-}): Extract<ExtensionMessage, { type: "session/save-current-preview" }> {
-  const targetTopicId = activeFolderMode === "topic" ? selectedTopicId || collectionTopicId || "" : "";
+}): Extract<ExtensionMessage, { type: "session/save-current-preview" }> | null {
+  const target = buildSaveCurrentPreviewTarget({
+    activeFolderMode,
+    sessionId,
+    selectedTopicId,
+    collectionTopicId
+  });
+  if (!target) {
+    return null;
+  }
   // Prefer the live hovered post (freshest) over the snapshot preview, which can lag
   // a fast cursor by a render frame and cause a save against the previous post.
   const descriptor = getLiveHoverDescriptor() ?? preview ?? null;
   return {
     type: "session/save-current-preview",
-    ...(sessionId ? { sessionId } : {}),
-    ...(targetTopicId ? { topicId: targetTopicId } : {}),
+    target,
     ...(descriptor ? { descriptor } : {})
   };
 }
@@ -855,11 +863,27 @@ export function useInPageCollectorAppState({ snapshot, tabId, sendAndSync }: Use
           collectionTopicId: snapshot?.tab.collectionTopicId,
           preview: snapshot.tab.currentPreview
         });
+        if (!message) {
+          setDisplayToast({
+            id: `folder-required-${Date.now()}`,
+            kind: "saved",
+            message: "先選擇資料夾"
+          });
+          return;
+        }
+        if (activeFolderMode === "topic" && !message.target.topicId) {
+          setDisplayToast({
+            id: `topic-required-${Date.now()}`,
+            kind: "saved",
+            message: "先選擇主題"
+          });
+          return;
+        }
         markQaTrace("popup.collect.save.request", {
           via: "keyboard",
           postUrl: message.descriptor?.post_url ?? null,
-          sessionId: message.sessionId ?? null,
-          topicId: message.topicId ?? null
+          sessionId: message.target.sessionId,
+          topicId: message.target.topicId
         });
         const saveStartedAt = performance.now();
         void sendAndSync(message).then((response) => {
@@ -915,6 +939,21 @@ export function useInPageCollectorAppState({ snapshot, tabId, sendAndSync }: Use
       });
       return;
     }
+    const message = buildPreviewSaveMessage({
+      activeFolderMode,
+      sessionId: activeFolder?.id,
+      selectedTopicId: topicState.selectedTopicId,
+      collectionTopicId: snapshot?.tab.collectionTopicId,
+      preview
+    });
+    if (!message) {
+      setDisplayToast({
+        id: `folder-required-${Date.now()}`,
+        kind: "saved",
+        message: "先選擇資料夾"
+      });
+      return;
+    }
     const normalized = normalizePostUrl(preview?.post_url || "");
     if (normalized) {
       setOptimisticSavedUrl(normalized);
@@ -926,18 +965,11 @@ export function useInPageCollectorAppState({ snapshot, tabId, sendAndSync }: Use
         });
       }
     }
-    const message = buildPreviewSaveMessage({
-      activeFolderMode,
-      sessionId: activeFolder?.id,
-      selectedTopicId: topicState.selectedTopicId,
-      collectionTopicId: snapshot?.tab.collectionTopicId,
-      preview
-    });
     markQaTrace("popup.collect.save.request", {
       via: "button",
       postUrl: message.descriptor?.post_url ?? null,
-      sessionId: message.sessionId ?? null,
-      topicId: message.topicId ?? null
+      sessionId: message.target.sessionId,
+      topicId: message.target.topicId
     });
     const saveStartedAt = performance.now();
     const response = await sendAndSync(message);

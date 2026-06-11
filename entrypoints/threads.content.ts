@@ -460,17 +460,32 @@ function onClick(event: MouseEvent) {
     await chrome.runtime
       .sendMessage({ type: "selection/hovered", descriptor, strength: candidate.strength } satisfies ExtensionMessage)
       .catch(() => undefined);
+    if (!target.sessionId) {
+      markQaTrace("content.collect.save.response", {
+        ok: false,
+        elapsedMs: Math.round((performance.now() - saveStartedAt) * 10) / 10,
+        hasSnapshot: false
+      });
+      window.dispatchEvent(
+        new CustomEvent(OPTIMISTIC_SAVE_FAILED_EVENT, {
+          detail: descriptor.post_url
+        })
+      );
+      return;
+    }
     markQaTrace("content.collect.save.request", {
       postUrl: descriptor.post_url,
-      sessionId: target.sessionId || null,
-      topicId: target.topicId || null
+      sessionId: target.sessionId,
+      topicId: target.topicId
     });
     const response = await chrome.runtime
       .sendMessage({
         type: "session/save-current-preview",
-        descriptor,
-        ...(target.sessionId ? { sessionId: target.sessionId } : {}),
-        ...(target.topicId ? { topicId: target.topicId } : {})
+        target: {
+          sessionId: target.sessionId,
+          topicId: target.topicId
+        },
+        descriptor
       } satisfies ExtensionMessage)
       .catch(() => null);
     markQaTrace("content.collect.save.response", {

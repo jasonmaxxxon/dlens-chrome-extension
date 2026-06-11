@@ -85,7 +85,16 @@ export function SidepanelApp() {
   }
 
   async function onSavePreview() {
-    await sendExtensionMessage<ExtensionResponse>({ type: "session/save-current-preview" });
+    if (!activeSession) {
+      return;
+    }
+    await sendExtensionMessage<ExtensionResponse>({
+      type: "session/save-current-preview",
+      target: {
+        sessionId: activeSession.id,
+        topicId: activeSession.mode === "topic" ? snapshot?.tab.collectionTopicId ?? null : null
+      }
+    });
   }
 
   async function onQueueSelected() {

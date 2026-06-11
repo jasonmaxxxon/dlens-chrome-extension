@@ -348,6 +348,54 @@ test("signal/list repairs missing product signal rows from existing session item
   assert.equal((harness.state[SIGNALS_STORAGE_KEY] as unknown[]).length, 2);
 });
 
+test("session/save-current-preview writes to the explicit target session instead of the active cursor", async () => {
+  const topic = makeSession("topic-session", "topic");
+  const product = makeSession("product-session", "product");
+  const tabKey = backgroundTestables.tabStorageKey(TAB_ID);
+  const descriptor = makeDescriptor("explicit-target");
+  const harness = await createHarness({
+    [backgroundTestables.GLOBAL_STORAGE_KEY]: makeGlobal([topic, product], topic.id),
+    [backgroundTestables.ACTIVE_SESSION_ID_STORAGE_KEY]: topic.id,
+    [tabKey]: createEmptyTabState()
+  });
+
+  const response = await harness.dispatch({
+    type: "session/save-current-preview",
+    target: {
+      sessionId: product.id,
+      topicId: null
+    },
+    descriptor
+  } as unknown as ExtensionMessage);
+
+  const global = harness.state[backgroundTestables.GLOBAL_STORAGE_KEY] as ExtensionGlobalState;
+  assert.equal(response.ok, true);
+  assert.equal(global.sessions.find((session) => session.id === topic.id)?.items.length, 0);
+  assert.equal(global.sessions.find((session) => session.id === product.id)?.items.length, 1);
+  assert.equal(global.activeSessionId, product.id);
+  assert.equal(harness.state[backgroundTestables.ACTIVE_SESSION_ID_STORAGE_KEY], product.id);
+});
+
+test("session/save-current-preview rejects messages without an explicit target", async () => {
+  const topic = makeSession("topic-session", "topic");
+  const tabKey = backgroundTestables.tabStorageKey(TAB_ID);
+  const harness = await createHarness({
+    [backgroundTestables.GLOBAL_STORAGE_KEY]: makeGlobal([topic], topic.id),
+    [backgroundTestables.ACTIVE_SESSION_ID_STORAGE_KEY]: topic.id,
+    [tabKey]: createEmptyTabState()
+  });
+
+  const response = await harness.dispatch({
+    type: "session/save-current-preview",
+    descriptor: makeDescriptor("missing-target")
+  } as unknown as ExtensionMessage);
+
+  const global = harness.state[backgroundTestables.GLOBAL_STORAGE_KEY] as ExtensionGlobalState;
+  assert.equal(response.ok, false);
+  assert.match(response.ok ? "" : response.error, /Explicit save target is required/);
+  assert.equal(global.sessions.find((session) => session.id === topic.id)?.items.length, 0);
+});
+
 test("session/set-mode missing target mode persists the global key", async () => {
   const topic = makeSession("topic-session", "topic");
   const tabKey = backgroundTestables.tabStorageKey(TAB_ID);
