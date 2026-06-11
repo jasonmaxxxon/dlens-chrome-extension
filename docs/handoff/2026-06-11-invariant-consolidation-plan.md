@@ -80,6 +80,8 @@ Slice ① (signal readiness) already proved this: `src/state/signal-readiness.ts
 
 **Claude's note:** I'd slot this *second* (right after ②), not last. It's low-risk, high-clarity, and unblocks reasoning about every other UI slice. Keep `guardPage()` as the API; only change its *implementation* to read the registry — zero behavior change, fully test-lockable.
 
+**Implementation note (codex/page-registry):** `src/state/page-registry.ts` now owns page key, workspace mode, allowed-entry order, rail visibility, component kind, home page, and width. `processing-state` keeps the legacy public adapters (`ALLOWED_PAGES`, `guardPage()`, `getModeHomePage()`, `getPopupWidth()`), but their answers derive from the registry. `InPageCollectorPopup` now reads rail pages, width, home page, and Product page family from the registry instead of re-declaring page lists.
+
 ---
 
 ## Slice ③ — Hydration / load state (after ⑦)
