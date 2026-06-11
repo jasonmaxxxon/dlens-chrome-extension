@@ -11,6 +11,11 @@ import type { TopicAuditMemoBundle } from "../src/state/topic-audit-storage.ts";
 import type { SavedAnalysisSnapshot, SessionItem, Signal, SignalTagsRecord, Topic, TopicSignalReading, TopicSynthesis } from "../src/state/types.ts";
 import { TopicDetailView, topicDetailViewTestables } from "../src/ui/TopicDetailView.tsx";
 import { pickPrimaryJudgmentPair } from "../src/ui/useTopicState.ts";
+import {
+  buildTopicDetailViewModel,
+  type BuildTopicDetailViewModelInput,
+  type TopicDetailCommand
+} from "../src/viewmodel/topic-detail.ts";
 
 const topic: Topic = {
   id: "topic-1",
@@ -177,9 +182,118 @@ function buildSessionItem(id = "item-1", status: SessionItem["status"] = "saved"
   return item;
 }
 
+type LegacyTopicDetailViewProps = BuildTopicDetailViewModelInput & {
+  signalPreviewById?: Record<string, string>;
+  onBack?: () => void;
+  onOpenPair?: (resultId: string) => void;
+  onUpdateTopic?: (patch: Partial<Topic>) => void;
+  onQueueItemById?: (itemId: string) => void;
+  onAnalyzeItems?: (itemIds: string[]) => Promise<{ ok: boolean; failedCount: number }>;
+  onStartProcessing?: () => void;
+  onOpenAnalysis?: (resultId: string) => void;
+  onAddToCompare?: (itemId: string) => void;
+  onSaveJudgmentOverride?: (resultId: string, patch: { relevance: 1 | 2 | 3 | 4 | 5; recommendedState: "park" | "watch" | "act" }) => void;
+  onGenerateSynthesis?: (topicId: string) => Promise<{ ok: boolean; error?: string }>;
+  onGenerateSignalReading?: (signalId: string, topicId: string) => Promise<{ ok: boolean; error?: string }>;
+  onSignalDeleted?: (signalId: string) => Promise<void>;
+  onRunAudit?: (topicId: string, fromStage?: TopicDetailCommand extends { fromStage?: infer Stage } ? Stage : never) => void;
+  onRunAuditP1?: (topicId: string, signalId: string) => void;
+  onOpenAuditReport?: (topicId: string, stale?: boolean) => void;
+};
+
+function topicDetailViewElement({
+  onBack,
+  onOpenPair,
+  onUpdateTopic,
+  onQueueItemById,
+  onAnalyzeItems,
+  onStartProcessing,
+  onOpenAnalysis,
+  onAddToCompare,
+  onSaveJudgmentOverride,
+  onGenerateSynthesis,
+  onGenerateSignalReading,
+  onSignalDeleted,
+  onRunAudit,
+  onRunAuditP1,
+  onOpenAuditReport,
+  signalPreviewById,
+  ...input
+}: LegacyTopicDetailViewProps) {
+  const sessionItems = input.sessionItems?.map((item) => {
+    const signal = input.signals.find((entry) => entry.itemId === item.id);
+    const preview = signal ? signalPreviewById?.[signal.id] : undefined;
+    return preview
+      ? { ...item, descriptor: { ...item.descriptor, text_snippet: preview } }
+      : item;
+  });
+  const viewModel = buildTopicDetailViewModel({
+    ...input,
+    ...(sessionItems ? { sessionItems } : {}),
+    capabilities: {
+      analyzeItems: Boolean(onAnalyzeItems),
+      queueItem: Boolean(onQueueItemById),
+      startProcessing: Boolean(onStartProcessing),
+      openAnalysis: Boolean(onOpenAnalysis),
+      addToCompare: Boolean(onAddToCompare),
+      saveJudgmentOverride: Boolean(onSaveJudgmentOverride),
+      generateSynthesis: Boolean(onGenerateSynthesis),
+      generateSignalReading: Boolean(onGenerateSignalReading),
+      deleteSignal: Boolean(onSignalDeleted),
+      runAudit: Boolean(onRunAudit),
+      runAuditP1: Boolean(onRunAuditP1),
+      openAuditReport: Boolean(onOpenAuditReport)
+    }
+  });
+  const onCommand = (command: TopicDetailCommand): Promise<unknown> | unknown => {
+    switch (command.kind) {
+      case "back":
+        return onBack?.();
+      case "openPair":
+        return onOpenPair?.(command.target.resultId);
+      case "updateTopic":
+        return onUpdateTopic?.(command.patch);
+      case "analyzeItems":
+        return onAnalyzeItems?.(command.target.itemIds);
+      case "analyzeItem":
+        return onAnalyzeItems?.([command.target.itemId]);
+      case "queueItem":
+      case "queueSignalItem":
+        return onQueueItemById?.(command.target.itemId);
+      case "startProcessing":
+        return onStartProcessing?.();
+      case "openAnalysis":
+        return onOpenAnalysis?.(command.target.resultId);
+      case "openSignalAnalysis":
+        return onOpenAnalysis?.(command.target.resultId);
+      case "addToCompare":
+        return onAddToCompare?.(command.target.itemId);
+      case "addSignalToCompare":
+        return onAddToCompare?.(command.target.itemId);
+      case "saveJudgmentOverride":
+        return onSaveJudgmentOverride?.(command.target.resultId, command.patch);
+      case "generateSynthesis":
+        return onGenerateSynthesis?.(command.target.topicId);
+      case "generateSignalReading":
+        return onGenerateSignalReading?.(command.target.signalId, command.target.topicId);
+      case "deleteSignal":
+        return onSignalDeleted?.(command.target.signalId);
+      case "runAudit":
+        return onRunAudit?.(command.target.topicId, command.fromStage as never);
+      case "runAuditP1":
+        return onRunAuditP1?.(command.target.topicId, command.target.signalId);
+      case "openAuditReport":
+        return onOpenAuditReport?.(command.target.topicId, command.stale);
+      default:
+        return undefined;
+    }
+  };
+  return React.createElement(TopicDetailView, { viewModel, onCommand });
+}
+
 test("TopicDetailView mirrors the audit popup surface in topic mode without legacy detail blocks", () => {
   const html = renderToStaticMarkup(
-    React.createElement(TopicDetailView, {
+    topicDetailViewElement({
       topic,
       signals,
       pairs,
@@ -214,7 +328,7 @@ test("TopicDetailView mirrors the audit popup surface in topic mode without lega
 
 test("TopicDetailView exposes a remove action inside topic source rows", () => {
   const html = renderToStaticMarkup(
-    React.createElement(TopicDetailView, {
+    topicDetailViewElement({
       topic,
       signals,
       pairs: [],
@@ -239,7 +353,7 @@ test("TopicDetailView exposes a remove action inside topic source rows", () => {
 
 test("TopicDetailView exposes a remove action inside product signal rows", () => {
   const html = renderToStaticMarkup(
-    React.createElement(TopicDetailView, {
+    topicDetailViewElement({
       topic,
       signals,
       pairs: [],
@@ -257,7 +371,7 @@ test("TopicDetailView exposes a remove action inside product signal rows", () =>
 
 test("TopicDetailView renders audit overview, themes, lanes, and source list from displayHints", () => {
   const html = renderToStaticMarkup(
-    React.createElement(TopicDetailView, {
+    topicDetailViewElement({
       topic,
       signals,
       pairs: [],
@@ -300,7 +414,7 @@ test("TopicDetailView uses audit evidence as the denominator when topic signal p
   };
 
   const html = renderToStaticMarkup(
-    React.createElement(TopicDetailView, {
+    topicDetailViewElement({
       topic: { ...topic, signalIds: [] },
       signals: [],
       pairs: [],
@@ -345,7 +459,7 @@ test("TopicDetailView ignores non-topic-scoped signals when audit sources are pr
   };
 
   const html = renderToStaticMarkup(
-    React.createElement(TopicDetailView, {
+    topicDetailViewElement({
       topic: { ...topic, signalIds: ["audit-signal-1"] },
       signals: auditOnlySignals,
       pairs: [],
@@ -398,7 +512,7 @@ test("TopicDetailView keeps the B-14 audit count at 15/15 when a topic also has 
   };
 
   const html = renderToStaticMarkup(
-    React.createElement(TopicDetailView, {
+    topicDetailViewElement({
       topic: { ...topic, signalIds: topicSignals.map((signal) => signal.id) },
       signals: topicSignals,
       pairs: [],
@@ -441,7 +555,7 @@ test("TopicDetailView derives audit header, coverage, and source rows from the s
   };
 
   const html = renderToStaticMarkup(
-    React.createElement(TopicDetailView, {
+    topicDetailViewElement({
       topic: { ...topic, signalIds: ["audit-signal-1", "audit-signal-2", "stale-signal"] },
       signals: [
         { ...signals[0]!, id: "audit-signal-1", itemId: "audit-item-1" },
@@ -470,7 +584,7 @@ test("TopicDetailView derives audit header, coverage, and source rows from the s
 
 test("TopicDetailView failed audit state shows resume copy and failed reason", () => {
   const html = renderToStaticMarkup(
-    React.createElement(TopicDetailView, {
+    topicDetailViewElement({
       topic,
       signals,
       pairs: [],
@@ -492,7 +606,7 @@ test("TopicDetailView failed audit state shows resume copy and failed reason", (
 
 test("TopicDetailView exposes the explicit Topic load state", () => {
   const html = renderToStaticMarkup(
-    React.createElement(TopicDetailView, {
+    topicDetailViewElement({
       topic,
       signals,
       pairs,
@@ -508,7 +622,7 @@ test("TopicDetailView exposes the explicit Topic load state", () => {
 
 test("TopicDetailView renders the legacy research question editor only in product detail mode", () => {
   const html = renderToStaticMarkup(
-    React.createElement(TopicDetailView, {
+    topicDetailViewElement({
       topic: {
         ...topic,
         context: {
@@ -548,7 +662,7 @@ test("TopicDetailView signal row shows reading card when signalReadingsBySignalI
   };
 
   const html = renderToStaticMarkup(
-    React.createElement(TopicDetailView, {
+    topicDetailViewElement({
       topic: topicWithContext,
       signals,
       pairs: [],
@@ -588,7 +702,7 @@ test("TopicDetailView signal row shows generate button without requiring a resea
   } as SessionItem["latestCapture"];
 
   const html = renderToStaticMarkup(
-    React.createElement(TopicDetailView, {
+    topicDetailViewElement({
       topic,
       signals,
       pairs: [],
@@ -607,7 +721,7 @@ test("TopicDetailView signal row shows generate button without requiring a resea
 
 test("TopicDetailView hides legacy keyword synthesis even when storage still has it", () => {
   const html = renderToStaticMarkup(
-    React.createElement(TopicDetailView, {
+    topicDetailViewElement({
       topic: topicWithSynthesis,
       signalTagsByItemId,
       signals,
@@ -671,7 +785,7 @@ test("TopicSynthesisCard Stack layout observation section expands when open", ()
 
 test("TopicDetailView empty pairs folds the compare-results section away", () => {
   const html = renderToStaticMarkup(
-    React.createElement(TopicDetailView, {
+    topicDetailViewElement({
       topic: { ...topic, signalIds: [], pairIds: [] },
       signals: [],
       pairs: [],
@@ -687,7 +801,7 @@ test("TopicDetailView empty pairs folds the compare-results section away", () =>
 
 test("TopicDetailView with no signals omits the signals fold entirely", () => {
   const html = renderToStaticMarkup(
-    React.createElement(TopicDetailView, {
+    topicDetailViewElement({
       topic: { ...topic, signalIds: [], pairIds: [] },
       signals: [],
       pairs: [],
@@ -701,7 +815,7 @@ test("TopicDetailView with no signals omits the signals fold entirely", () => {
 
 test("TopicDetailView pairs render as a folded tool when present", () => {
   const html = renderToStaticMarkup(
-    React.createElement(TopicDetailView, {
+    topicDetailViewElement({
       topic,
       signals,
       pairs,
@@ -741,7 +855,7 @@ test("topicDetailViewTestables pair row opens the saved analysis", () => {
 
 test("TopicDetailView renders the product judgment panel in product mode", () => {
   const html = renderToStaticMarkup(
-    React.createElement(TopicDetailView, {
+    topicDetailViewElement({
       topic,
       signals,
       pairs: [
@@ -773,7 +887,7 @@ test("TopicDetailView renders the product judgment panel in product mode", () =>
 
 test("TopicDetailView renders bulk analyze as the primary signal action", () => {
   const html = renderToStaticMarkup(
-    React.createElement(TopicDetailView, {
+    topicDetailViewElement({
       topic,
       signals,
       pairs: [],
@@ -795,7 +909,7 @@ test("TopicDetailView renders bulk analyze as the primary signal action", () => 
 
 test("TopicDetailView single-row analysis action starts processing when available", () => {
   const html = renderToStaticMarkup(
-    React.createElement(TopicDetailView, {
+    topicDetailViewElement({
       topic,
       signals,
       pairs: [],
@@ -816,7 +930,7 @@ test("TopicDetailView single-row analysis action starts processing when availabl
 
 test("TopicDetailView surfaces bulk analyze in the single overview", () => {
   const html = renderToStaticMarkup(
-    React.createElement(TopicDetailView, {
+    topicDetailViewElement({
       topic,
       signals,
       pairs: [],
@@ -836,7 +950,7 @@ test("TopicDetailView surfaces bulk analyze in the single overview", () => {
 
 test("TopicDetailView bulk analyze loading state disables the CTA", () => {
   const html = renderToStaticMarkup(
-    React.createElement(TopicDetailView, {
+    topicDetailViewElement({
       topic,
       signals,
       pairs: [],
@@ -857,7 +971,7 @@ test("TopicDetailView bulk analyze loading state disables the CTA", () => {
 
 test("TopicDetailView optimistic queued ids immediately update row status", () => {
   const html = renderToStaticMarkup(
-    React.createElement(TopicDetailView, {
+    topicDetailViewElement({
       topic,
       signals,
       pairs: [],
@@ -877,7 +991,7 @@ test("TopicDetailView optimistic queued ids immediately update row status", () =
 
 test("TopicDetailView lets real running status override optimistic queued rows", () => {
   const html = renderToStaticMarkup(
-    React.createElement(TopicDetailView, {
+    topicDetailViewElement({
       topic,
       signals,
       pairs: [],
@@ -898,7 +1012,7 @@ test("TopicDetailView lets real running status override optimistic queued rows",
 
 test("TopicDetailView keeps a visible processing state after bulk queueing", () => {
   const html = renderToStaticMarkup(
-    React.createElement(TopicDetailView, {
+    topicDetailViewElement({
       topic,
       signals,
       pairs: [],
@@ -934,7 +1048,7 @@ test("TopicDetailView shows processing status alongside remaining unanalyzed CTA
     }
   ];
   const html = renderToStaticMarkup(
-    React.createElement(TopicDetailView, {
+    topicDetailViewElement({
       topic: mixedTopic,
       signals: mixedSignals,
       pairs: [],
@@ -953,7 +1067,7 @@ test("TopicDetailView shows processing status alongside remaining unanalyzed CTA
 
 test("TopicDetailView can restart queued topic processing when worker is idle", () => {
   const html = renderToStaticMarkup(
-    React.createElement(TopicDetailView, {
+    topicDetailViewElement({
       topic,
       signals,
       pairs: [],

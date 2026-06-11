@@ -16,6 +16,7 @@ import { TopicDetailView } from "./TopicDetailView";
 import { TopicsListView } from "./TopicsListView";
 import { tokens } from "./tokens";
 import { buildProductSignalWorkspaceViewModel, type ProductSignalCommand } from "../viewmodel/product-signal";
+import { buildTopicDetailViewModel, type TopicDetailCommand } from "../viewmodel/topic-detail";
 import { getProcessingFailureMessage } from "../state/processing-errors";
 import { InPageCollectorFolderControls } from "./InPageCollectorFolderControls";
 import { InPageCollectorResultWorkspace } from "./InPageCollectorResultWorkspace";
@@ -74,6 +75,32 @@ export function InPageCollectorPopup({ app }: { app: InPageCollectorAppModel }) 
         isAnalyzing: app.isAnalyzingProductSignals
       })
     : null;
+  const topicDetailViewModel = app.activeTopic
+    ? buildTopicDetailViewModel({
+        topic: app.activeTopic,
+        signals: app.activeTopicSignals,
+        pairs: app.activeTopicPairs,
+        loadState: app.topicLoadState,
+        sessionMode: app.activeFolderMode,
+        sessionItems: activeFolder?.items ?? [],
+        savedAnalyses: app.savedAnalyses,
+        signalReadingsBySignalId: app.topicSignalReadingsBySignalId,
+        signalTagsByItemId: app.signalTagsByItemId,
+        synthLayout: snapshot?.global.settings.layoutPreferences.topicSynthesisLayout,
+        auditEvidence: app.activeTopicAudit?.auditEvidence,
+        auditMemos: app.activeTopicAudit?.auditMemos,
+        auditSummary: app.activeTopicAudit?.summary,
+        auditValidatorFlags: app.activeTopicAudit?.auditValidatorFlags,
+        p1RunningSignalIds: app.activeTopic && app.topicAuditP1RunningBySignalId[app.activeTopic.id]
+          ? Object.keys(app.topicAuditP1RunningBySignalId[app.activeTopic.id])
+          : [],
+        p1ErrorBySignalId: app.activeTopic ? app.topicAuditP1ErrorBySignalId[app.activeTopic.id] : undefined,
+        optimisticQueuedItemIds: app.optimisticQueuedIds,
+        isBulkAnalyzing: app.bulkAnalyzingFolderId === activeFolder?.id,
+        isStartingProcessing: app.isStartingProcessing,
+        workerStatus: app.workerStatus
+      })
+    : null;
 
   function onProductSignalCommand(command: ProductSignalCommand): Promise<unknown> | unknown {
     switch (command.kind) {
@@ -89,6 +116,50 @@ export function InPageCollectorPopup({ app }: { app: InPageCollectorAppModel }) 
         return app.onReviewSignalReading(command.target.cacheKey, command.decision, command.note);
       case "exportSignalPackets":
         return app.onExportSignalPackets({ sessionId: command.target.sessionId, format: command.format });
+      default:
+        return undefined;
+    }
+  }
+
+  function onTopicDetailCommand(command: TopicDetailCommand): Promise<unknown> | unknown {
+    switch (command.kind) {
+      case "back":
+        return app.onBackFromTopicDetail();
+      case "openPair":
+        return app.onOpenTopicPair(command.target.resultId, command.target.topicId);
+      case "updateTopic":
+        return app.onUpdateTopic(command.patch);
+      case "analyzeItems":
+        return app.onAnalyzeItems(command.target.itemIds);
+      case "analyzeItem":
+        return app.onAnalyzeItems([command.target.itemId]);
+      case "queueItem":
+      case "queueSignalItem":
+        return app.onQueueItemById(command.target.itemId);
+      case "startProcessing":
+        return app.onStartProcessing();
+      case "openAnalysis":
+        return app.onOpenSavedAnalysis(command.target.resultId);
+      case "openSignalAnalysis":
+        return app.onOpenSavedAnalysis(command.target.resultId);
+      case "addToCompare":
+        return app.onAddToCompare(command.target.itemId);
+      case "addSignalToCompare":
+        return app.onAddToCompare(command.target.itemId);
+      case "saveJudgmentOverride":
+        return app.onSaveJudgmentOverride(command.target.resultId, command.patch);
+      case "generateSynthesis":
+        return app.onGenerateTopicSynthesis(command.target.topicId);
+      case "generateSignalReading":
+        return app.onGenerateTopicSignalReading(command.target.signalId, command.target.topicId);
+      case "deleteSignal":
+        return app.onSignalDeleted(command.target.signalId);
+      case "runAudit":
+        return app.onRunTopicAudit(command.target.topicId, command.fromStage);
+      case "runAuditP1":
+        return app.onRunTopicAuditP1(command.target.topicId, command.target.signalId);
+      case "openAuditReport":
+        return app.onOpenAuditReport(command.target.topicId, command.stale);
       default:
         return undefined;
     }
@@ -330,50 +401,10 @@ export function InPageCollectorPopup({ app }: { app: InPageCollectorAppModel }) 
 
           {guardedPage === "topic-detail" || guardedPage === "casebook" ? (
             <WorkspaceSurface tone="utility">
-              {app.activeTopic ? (
+              {topicDetailViewModel ? (
                 <TopicDetailView
-                  topic={app.activeTopic}
-                  signals={app.activeTopicSignals}
-                  pairs={app.activeTopicPairs}
-                  loadState={app.topicLoadState}
-                  sessionMode={app.activeFolderMode}
-                  sessionItems={activeFolder?.items ?? []}
-                  savedAnalyses={app.savedAnalyses}
-                  signalPreviewById={app.signalPreviewById}
-                  onBack={app.onBackFromTopicDetail}
-                  onOpenPair={(resultId) => void app.onOpenTopicPair(resultId, app.activeTopic!.id)}
-                  onUpdateTopic={(patch) => void app.onUpdateTopic(patch)}
-                  onQueueItemById={(itemId) => void app.onQueueItemById(itemId)}
-                  onAnalyzeItems={(itemIds) => app.onAnalyzeItems(itemIds)}
-                  onStartProcessing={() => void app.onStartProcessing()}
-                  isBulkAnalyzing={app.bulkAnalyzingFolderId === activeFolder?.id}
-                  isStartingProcessing={app.isStartingProcessing}
-                  workerStatus={app.workerStatus}
-                  optimisticQueuedItemIds={app.optimisticQueuedIds}
-                  onOpenAnalysis={(resultId) => void app.onOpenSavedAnalysis(resultId)}
-                  onAddToCompare={(itemId) => app.onAddToCompare(itemId)}
-                  onSaveJudgmentOverride={(resultId, patch) => void app.onSaveJudgmentOverride(resultId, patch)}
-                  onGenerateSynthesis={(topicId) => app.onGenerateTopicSynthesis(topicId)}
-                  signalReadingsBySignalId={app.topicSignalReadingsBySignalId}
-                  signalTagsByItemId={app.signalTagsByItemId}
-                  onGenerateSignalReading={(signalId, topicId) => app.onGenerateTopicSignalReading(signalId, topicId)}
-                  onSignalDeleted={(signalId) => app.onSignalDeleted(signalId)}
-                  synthLayout={snapshot?.global.settings.layoutPreferences.topicSynthesisLayout}
-                  auditEvidence={app.activeTopicAudit?.auditEvidence}
-                  auditMemos={app.activeTopicAudit?.auditMemos}
-                  auditSummary={app.activeTopicAudit?.summary}
-                  auditValidatorFlags={app.activeTopicAudit?.auditValidatorFlags}
-                  onRunAudit={app.onRunTopicAudit}
-                  onRunAuditP1={app.onRunTopicAuditP1}
-                  p1RunningSignalIds={
-                    app.activeTopic && app.topicAuditP1RunningBySignalId[app.activeTopic.id]
-                      ? Object.keys(app.topicAuditP1RunningBySignalId[app.activeTopic.id])
-                      : []
-                  }
-                  p1ErrorBySignalId={
-                    app.activeTopic ? app.topicAuditP1ErrorBySignalId[app.activeTopic.id] : undefined
-                  }
-                  onOpenAuditReport={app.onOpenAuditReport}
+                  viewModel={topicDetailViewModel}
+                  onCommand={onTopicDetailCommand}
                 />
               ) : (
                 <CasebookView
