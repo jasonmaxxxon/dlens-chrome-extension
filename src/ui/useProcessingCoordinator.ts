@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 
 import type { ExtensionMessage, ExtensionResponse, WorkerStatusMessageResponse } from "../state/messages";
 import { getPollingDelayMs, shouldRefreshProcessingFolder, type WorkerStatus } from "../state/processing-state";
@@ -19,12 +19,18 @@ export function useProcessingCoordinator({
   sendAndSync: SendAndSync;
 }) {
   const processingFailureCountRef = useRef(0);
-  const [workerStatus, setWorkerStatus] = useState<WorkerStatus | null>(null);
+  const lastKnownWorkerStatusRef = useRef<WorkerStatus>("idle");
+  const [workerStatus, setWorkerStatusState] = useState<WorkerStatus | null>(null);
   const [workerError, setWorkerError] = useState<string | null>(null);
+  const setWorkerStatus = useCallback((status: WorkerStatus) => {
+    lastKnownWorkerStatusRef.current = status;
+    setWorkerStatusState(status);
+  }, []);
 
   useEffect(() => {
     if (!popupOpen) {
-      setWorkerStatus(null);
+      lastKnownWorkerStatusRef.current = "idle";
+      setWorkerStatusState(null);
       setWorkerError(null);
       processingFailureCountRef.current = 0;
       return;
@@ -32,7 +38,7 @@ export function useProcessingCoordinator({
 
     let cancelled = false;
     let timeoutHandle: number | null = null;
-    let lastKnownWorkerStatus: WorkerStatus = workerStatus ?? "idle";
+    let lastKnownWorkerStatus: WorkerStatus = lastKnownWorkerStatusRef.current;
 
     async function runCoordinator() {
       const startedAt = performance.now();
@@ -52,7 +58,8 @@ export function useProcessingCoordinator({
         const nextWorkerStatus = workerResponse.workerStatus;
         const previousWorkerStatus = lastKnownWorkerStatus;
         lastKnownWorkerStatus = nextWorkerStatus;
-        setWorkerStatus(nextWorkerStatus);
+        lastKnownWorkerStatusRef.current = nextWorkerStatus;
+        setWorkerStatusState(nextWorkerStatus);
         setWorkerError(null);
         markQaTrace("popup.worker.status.response", {
           workerStatus: nextWorkerStatus,
@@ -88,7 +95,7 @@ export function useProcessingCoordinator({
         if (cancelled) {
           return;
         }
-        setWorkerStatus((current) => current);
+        setWorkerStatusState((current) => current);
         setWorkerError(error instanceof Error ? error.message : String(error));
         processingFailureCountRef.current += 1;
         markQaTrace("popup.worker.status.error", {
@@ -117,7 +124,7 @@ export function useProcessingCoordinator({
         window.clearTimeout(timeoutHandle);
       }
     };
-  }, [popupOpen, activeFolderId, hasInflight, sendAndSync, workerStatus]);
+  }, [popupOpen, activeFolderId, hasInflight, sendAndSync]);
 
   return {
     workerStatus,

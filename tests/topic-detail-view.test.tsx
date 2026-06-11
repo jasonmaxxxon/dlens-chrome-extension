@@ -281,6 +281,46 @@ test("TopicDetailView renders audit overview, themes, lanes, and source list fro
   assert.match(html, /航班改動後等不到客服/);
 });
 
+test("TopicDetailView uses audit evidence as the denominator when topic signal pointers drift", () => {
+  const driftedEvidence = Array.from({ length: 3 }, (_, index) => ({
+    ...auditPacket,
+    signalId: `orphan-signal-${index + 1}`,
+    itemId: `orphan-item-${index + 1}`,
+    shortCode: `S${index + 1}`,
+    opText: `audit source ${index + 1}`
+  }));
+  const driftedMemos: TopicAuditMemoBundle = {
+    ...auditMemos,
+    signalReadings: driftedEvidence.map((packet) => ({
+      ...auditMemos.signalReadings[0]!,
+      signalId: packet.signalId,
+      shortCode: packet.shortCode,
+      evidenceRefs: [`${packet.shortCode}.OP`]
+    }))
+  };
+
+  const html = renderToStaticMarkup(
+    React.createElement(TopicDetailView, {
+      topic: { ...topic, signalIds: [] },
+      signals: [],
+      pairs: [],
+      auditEvidence: driftedEvidence,
+      auditMemos: driftedMemos,
+      auditSummary: { reportStatus: "ready", analyzedCount: 3, queuedCount: 0, coverage: "3/0" },
+      auditValidatorFlags: [],
+      onBack: () => undefined,
+      onOpenPair: () => undefined,
+      onUpdateTopic: () => undefined
+    })
+  );
+
+  assert.match(html, /3 訊號/);
+  assert.match(html, /3\/3 已分析/);
+  assert.match(html, /覆蓋 3\/3/);
+  assert.doesNotMatch(html, /3\/0 已分析/);
+  assert.doesNotMatch(html, /覆蓋 3\/0/);
+});
+
 test("TopicDetailView failed audit state shows resume copy and failed reason", () => {
   const html = renderToStaticMarkup(
     React.createElement(TopicDetailView, {

@@ -1,0 +1,23 @@
+{
+  "run": "Run 25",
+  "testedAt": "2026-06-11T13:00:00+08:00",
+  "profile": "Google Chrome - Jason (brandonproject.co)",
+  "flow": "Flow 16 HTML packet export",
+  "result": "passed",
+  "action": "Clicked 匯出 HTML Reading from the Action packet export section.",
+  "downloadEvent": "Playwright download event timed out, but UI status and filesystem confirmed export.",
+  "uiStatus": {
+    "statusAttr": "exported",
+    "statusText": "3 packets · dlens-signal-packets-2026-06-11T05-52-55-074Z.html"
+  },
+  "file": {
+    "path": "/Users/tung/Downloads/dlens-signal-packets-2026-06-11T05-52-55-074Z.html",
+    "sizeBytes": 31629,
+    "contentChecks": [
+      "contains artificialsweetener.ai source text",
+      "contains Claude Fable source text",
+      "contains Can AI content actually be good? source text",
+      "no raw undefined/null/[object Object]/insufficient_data hits in the checked output"
+    ]
+  }
+}

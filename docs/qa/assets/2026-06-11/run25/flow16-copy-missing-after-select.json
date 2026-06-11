@@ -1,0 +1,32 @@
+{
+  "run": "Run 25",
+  "testedAt": "2026-06-11T13:00:00+08:00",
+  "profile": "Google Chrome - Jason (brandonproject.co)",
+  "flow": "Flow 16 batch copy",
+  "preFixLiveResult": "failed",
+  "steps": [
+    "Opened Product Saved signals page.",
+    "Confirmed three selectable checkboxes were present.",
+    "Selected signal_s2wfivlu_mq8w6z8g.",
+    "Scanned for batch export / copy controls."
+  ],
+  "observation": {
+    "checkboxChecked": true,
+    "hasBatchExport": false,
+    "hasCopyButton": false,
+    "hasModes": false,
+    "missingControls": [
+      "原文優先",
+      "精簡決策",
+      "複製行動簡報"
+    ]
+  },
+  "codeFix": {
+    "summary": "Saved route now renders SavedSignalsBatchExport when saved signals have analyses; action route remains reading-review/packet-only and does not reintroduce the old batch export.",
+    "files": [
+      "src/ui/ProductSignalViews.tsx",
+      "tests/views.test.tsx"
+    ]
+  },
+  "liveRecheck": "blocked until user reloads output/chrome-mv3"
+}

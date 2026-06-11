@@ -1187,17 +1187,58 @@ function buildTopicAuditSummary({
   auditMemos: TopicAuditMemoBundle | null | undefined;
   auditSummary?: TopicAuditSummary;
 }): TopicAuditSummary {
+  const sourceTotal = topicAuditSourceTotal({ signals, auditEvidence, auditMemos, auditSummary });
   if (auditSummary) {
-    return auditSummary;
+    return {
+      ...auditSummary,
+      coverage: auditCoverageDisplay(auditSummary.coverage, sourceTotal)
+    };
   }
   const analyzedCount = auditMemos?.signalReadings.length ?? 0;
   return {
     reportStatus: auditMemos ? "ready" : "none",
     analyzedCount,
-    queuedCount: Math.max(signals.length - analyzedCount, 0),
-    coverage: auditEvidence.length ? `${auditEvidence.length}/${signals.length}` : undefined,
+    queuedCount: Math.max(sourceTotal - analyzedCount, 0),
+    coverage: auditEvidence.length ? `${auditEvidence.length}/${sourceTotal}` : undefined,
     flags: []
   };
+}
+
+function readCoverageParts(value: string | undefined): { numerator: number; denominator: number } | null {
+  const match = value?.match(/^(\d+)\/(\d+)$/);
+  if (!match) return null;
+  return { numerator: Number(match[1]), denominator: Number(match[2]) };
+}
+
+function topicAuditSourceTotal({
+  signals,
+  auditEvidence,
+  auditMemos,
+  auditSummary
+}: {
+  signals: Signal[];
+  auditEvidence: EvidencePacket[];
+  auditMemos: TopicAuditMemoBundle | null | undefined;
+  auditSummary?: TopicAuditSummary;
+}): number {
+  const coverage = readCoverageParts(auditSummary?.coverage);
+  return Math.max(
+    signals.length,
+    auditEvidence.length,
+    auditMemos?.signalReadings.length ?? 0,
+    auditSummary ? auditSummary.analyzedCount + auditSummary.queuedCount : 0,
+    coverage?.numerator ?? 0,
+    coverage?.denominator ?? 0
+  );
+}
+
+function auditCoverageDisplay(value: string | undefined, sourceTotal: number): string | undefined {
+  const coverage = readCoverageParts(value);
+  if (!coverage) return value;
+  if (coverage.denominator === 0 || coverage.numerator > coverage.denominator) {
+    return `${coverage.numerator}/${Math.max(sourceTotal, coverage.numerator)}`;
+  }
+  return value;
 }
 
 function TopicAuditOverview({
@@ -1209,6 +1250,7 @@ function TopicAuditOverview({
   blockedReason,
   p1ReadyCount,
   p1TotalCount,
+  sourceTotalCount,
   onRunAudit,
   onOpenAuditReport
 }: {
@@ -1220,9 +1262,17 @@ function TopicAuditOverview({
   blockedReason?: string;
   p1ReadyCount?: number;
   p1TotalCount?: number;
+  sourceTotalCount?: number;
   onRunAudit?: (topicId: string, fromStage?: TopicAuditStageName) => void;
   onOpenAuditReport?: (topicId: string, stale?: boolean) => void;
 }) {
+  const displaySourceTotal = Math.max(
+    sourceTotalCount ?? signals.length,
+    signals.length,
+    summary.analyzedCount + summary.queuedCount,
+    summary.analyzedCount
+  );
+  const coverageLabel = auditCoverageDisplay(summary.coverage, displaySourceTotal) ?? `${displaySourceTotal}/${displaySourceTotal}`;
   const p1All = typeof p1ReadyCount === "number" && typeof p1TotalCount === "number" && p1TotalCount > 0 && p1ReadyCount === p1TotalCount;
   const p1NoneReady = (p1ReadyCount ?? 0) === 0;
   const generateCtaLabel = p1All ? "生成審查報告（綜合 P2–P6）" : "生成審查報告";
@@ -1255,8 +1305,8 @@ function TopicAuditOverview({
             {topic.name}
           </h1>
           <div style={{ display: "flex", gap: 8, flexWrap: "wrap", alignItems: "center", fontSize: 12, color: tokens.color.subInk }}>
-            <span>{signals.length} 訊號</span>
-            <span>{summary.analyzedCount}/{signals.length} 已分析</span>
+            <span>{displaySourceTotal} 訊號</span>
+            <span>{summary.analyzedCount}/{displaySourceTotal} 已分析</span>
             <TopicAuditStatusPill summary={summary} />
           </div>
         </div>
@@ -1296,7 +1346,7 @@ function TopicAuditOverview({
         </div>
       </div>
       <div style={{ display: "flex", justifyContent: "space-between", gap: 10, flexWrap: "wrap", borderTop: `1px solid ${tokens.color.line}`, paddingTop: 12 }}>
-        <span style={{ fontSize: 11, color: tokens.color.softInk }}>覆蓋 {summary.coverage ?? `${signals.length}/${signals.length}`}</span>
+        <span style={{ fontSize: 11, color: tokens.color.softInk }}>覆蓋 {coverageLabel}</span>
         <ValidatorChip
           topicId={topic.id}
           flags={flags}
@@ -1476,6 +1526,10 @@ export function TopicDetailView({
     ),
     [selectedTag, signalTagsByItemId, signals]
   );
+  const auditSourceTotal = useMemo(
+    () => topicAuditSourceTotal({ signals, auditEvidence, auditMemos, auditSummary }),
+    [auditEvidence, auditMemos, auditSummary, signals]
+  );
   const auditSummaryValue = useMemo(
     () => buildTopicAuditSummary({ signals, auditEvidence, auditMemos, auditSummary }),
     [auditEvidence, auditMemos, auditSummary, signals]
@@ -1596,7 +1650,7 @@ export function TopicDetailView({
       }
     : primaryJudgmentPair?.judgmentResult || null;
   const sourcePendingCount = topicAnalysisCounts.saved + topicAnalysisCounts.failed + topicAnalysisCounts.missing;
-  const canRunAuditFromSources = topicAnalysisCounts.ready > 0;
+  const canRunAuditFromSources = topicAnalysisCounts.ready > 0 || auditEvidence.length > 0;
   const auditBlockedReason = canRunAuditFromSources
     ? undefined
     : "先爬取至少 1 篇貼文，審查報告才有可讀內容；目前不會用空資料硬生成。";
@@ -1842,6 +1896,7 @@ export function TopicDetailView({
           blockedReason={auditBlockedReason}
           p1ReadyCount={p1ReadyCount}
           p1TotalCount={auditEvidence.length}
+          sourceTotalCount={auditSourceTotal}
           onRunAudit={onRunAudit}
           onOpenAuditReport={onOpenAuditReport}
         />
@@ -1975,6 +2030,7 @@ export function TopicDetailView({
         flags={auditValidatorFlags}
         p1ReadyCount={p1ReadyCount}
         p1TotalCount={auditEvidence.length}
+        sourceTotalCount={auditSourceTotal}
         onRunAudit={onRunAudit}
         onOpenAuditReport={onOpenAuditReport}
       />

@@ -1471,7 +1471,11 @@ test("ProductSignalView keeps Agent export off Product action pages", () => {
     })
   );
 
-  assert.doesNotMatch(savedHtml, /data-saved-signals-batch-export="true"/);
+  assert.match(savedHtml, /data-saved-signals-batch-export="true"/);
+  assert.match(savedHtml, /行動簡報匯出/);
+  assert.match(savedHtml, /原文優先/);
+  assert.match(savedHtml, /精簡決策/);
+  assert.match(savedHtml, /複製行動簡報/);
   assert.match(savedHtml, /data-product-action-cta="true"[^>]*border-radius:20px/);
   assert.match(actionableHtml, /data-actionable-insights-board="true"/);
   assert.doesNotMatch(actionableHtml, /data-saved-signals-batch-export="true"/);

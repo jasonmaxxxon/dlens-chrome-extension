@@ -1,0 +1,48 @@
+{
+  "run": "Run 25",
+  "testedAt": "2026-06-11T13:00:00+08:00",
+  "profile": "Google Chrome - Jason (brandonproject.co)",
+  "flow": "Flow 9-15 Product output scan",
+  "result": "passed with minor watch items",
+  "savedSignals": {
+    "status": "3 signals · 3 analyses",
+    "rows": [
+      {
+        "source": "artificialsweetener.ai reply",
+        "type": "學習資源",
+        "verdict": "保留觀察"
+      },
+      {
+        "source": "Claude Fable post",
+        "type": "技術討論",
+        "verdict": "保留觀察"
+      },
+      {
+        "source": "SE Ranking post",
+        "type": "噪音",
+        "verdict": "前提不符"
+      }
+    ],
+    "rawHits": [],
+    "overflow": []
+  },
+  "classification": {
+    "summary": "AI 已分類 3 則訊號",
+    "groups": {
+      "技術討論": 1,
+      "學習資源": 1,
+      "噪音": 1
+    },
+    "rawHits": [],
+    "overflow": []
+  },
+  "action": {
+    "status": "3 signals · 3 analyses",
+    "review": "1 收錄 · 1/3 reviewed after filing the Fable reading",
+    "rawHits": [],
+    "watchItems": [
+      "Verdict tile row had a small measured overflow (scrollWidth 549 / clientWidth 543) but no visible severe breakage.",
+      "English residual chrome still visible: Product mode, READING REVIEW, PACKET EXPORT, HTML Reading, JSONL Packet, Source."
+    ]
+  }
+}

@@ -2776,8 +2776,8 @@ function SavedSignalsBatchExport({
   return (
     <div data-saved-signals-batch-export="true" style={cardStyle({ gap: 13, borderColor: tokens.color.product, background: `linear-gradient(180deg, ${tokens.color.elevated}, ${tokens.color.productSoft})` })}>
       <div style={{ display: "flex", justifyContent: "space-between", gap: 10, alignItems: "center" }}>
-        <Kicker>Agent export</Kicker>
-        <Stamp tone={selectedIds.length ? "accent" : "neutral"}>{selectedIds.length} selected</Stamp>
+        <Kicker>行動簡報匯出</Kicker>
+        <Stamp tone={selectedIds.length ? "accent" : "neutral"}>{selectedIds.length} 已選</Stamp>
       </div>
       <div data-batch-export-selection-list="true" style={{ display: "grid", borderTop: `1px solid ${tokens.color.line}`, borderBottom: `1px solid ${tokens.color.line}`, maxHeight: 240, overflowY: "auto" }}>
         {signals.map((signal) => {
@@ -4019,6 +4019,7 @@ export function ProductSignalView({
   const showSignalReadingReview = scopedSignalReadings.length > 0;
   const firstSynthesizableSignal = safeSignals.find((signal) => bySignal.get(signal.id)?.status === "complete") ?? null;
   const [selectedSignalIds, setSelectedSignalIds] = useState<string[]>([]);
+  const [briefMode, setBriefMode] = useState<AgentBriefMode>("original");
 
   function toggleSelectedSignal(signalId: string) {
     setSelectedSignalIds((current) =>
@@ -4111,15 +4112,34 @@ export function ProductSignalView({
               signalPreviewById={signalPreviewById}
             />
           ) : (
-            <SavedSignalsBoard
-              signals={safeSignals}
-              analyses={scopedAnalyses}
-              signalPreviewById={signalPreviewById}
-              signalReadinessById={signalReadinessById}
-              selectedIds={selectedSignalIds}
-              onToggleSignal={toggleSelectedSignal}
-              onRemoveSignal={onRemoveSignal ? handleRemoveSignal : undefined}
-            />
+            <>
+              <SavedSignalsBoard
+                signals={safeSignals}
+                analyses={scopedAnalyses}
+                signalPreviewById={signalPreviewById}
+                signalReadinessById={signalReadinessById}
+                selectedIds={selectedSignalIds}
+                onToggleSignal={toggleSelectedSignal}
+                onRemoveSignal={onRemoveSignal ? handleRemoveSignal : undefined}
+              />
+              {scopedAnalyses.length ? (
+                <SavedSignalsBatchExport
+                  signals={safeSignals}
+                  analyses={scopedAnalyses}
+                  activeFolderId={activeFolderId}
+                  exportFolders={exportFolders}
+                  signalPreviewById={signalPreviewById}
+                  signalUrlById={signalUrlById}
+                  selectedIds={selectedSignalIds}
+                  briefMode={briefMode}
+                  onBriefModeChange={setBriefMode}
+                  onToggleSignal={toggleSelectedSignal}
+                  onSynthesizeSignalReading={onSynthesizeSignalReading}
+                  onExportSignalPackets={onExportSignalPackets}
+                  evidenceBySignalId={evidenceBySignalId}
+                />
+              ) : null}
+            </>
           )
         ) : scopedAnalyses.length ? (
           kind === "classification" ? (

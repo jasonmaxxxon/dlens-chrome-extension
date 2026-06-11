@@ -1,6 +1,6 @@
 # AGENTS.md — DLens Chrome Extension v0.1
 
-> **Last updated:** 2026-06-10 (QA Run 22 partial live + code 收尾, see `docs/qa/2026-06-09-output-quality-qa.md` §4.11: B-05 live passed after second root cause fix — folder-scoped orphan cleanup in `useTopicState` + `session/set-mode` honors the requested sessionId; B-09/B-08 main path/B-11 live passed; B-10 refixed for post-detail pages (no article wrapper → `data-pressable-container` fallback in `promoteCandidateToPostRoot`); new B-12 — pending signal cards surface backend job `last_error` while crawls retry. 647/647 tests, typecheck, build, version 0.1.30 mirrored into MV3. Remaining: §4.11 Run 23 checklist — B-10/B-12 live recheck, B-02 in-page measurement, Flow 9–16 收尾.)
+> **Last updated:** 2026-06-11 (QA Run 25 remaining QA + code fixes, see `docs/qa/2026-06-09-output-quality-qa.md` §4.14: B-02 in-page trace still exceeded target pre-fix, then `useProcessingCoordinator` stopped self-restarting on `workerStatus`; B-14 fixed Topic audit invalid denominators such as `15/0`; B-15 restored Saved Signals `行動簡報匯出` without reintroducing the old Action-route batch export. Flow 9–15 live passed, Flow 16 HTML export live passed. 649/649 tests, typecheck, build, version 0.1.30 mirrored into MV3. Remaining: user reload `output/chrome-mv3`, then Run 26 live recheck B-02/B-14/B-15.)
 > **For:** any agent continuing work in this repo
 
 ## Recently Fixed (2026-05-28) — Product action board and card geometry
@@ -10,9 +10,9 @@
    route has saved signals plus matching `SignalReading` rows. A review callback
    alone must not switch the route away from the Marginalia action cards. This
    restores the carefully designed review card, verdict tiles, marginalia panel,
-   provenance row, and deep-reading controls. Do not confuse this with the old
-   page-level `SavedSignalsBatchExport`: tests still reject `Agent export`,
-   `原文優先`, `精簡決策`, and `複製 Agent Brief` on the Action route.
+   provenance row, and deep-reading controls. Do not confuse this with the
+   Saved Signals batch-copy surface: tests still reject `行動簡報匯出`,
+   `原文優先`, `精簡決策`, and `複製行動簡報` on the Action route.
 2. **Shared card radius.** `surfaceCardStyle()` now defaults to
    `tokens.radius.cardLg` (`20px`) so Product/PR/shared surfaces match Topic's
    softer paper-card geometry. The Saved Signals action CTA also uses the same
@@ -365,7 +365,7 @@ Important implementation points:
 - `SettingsView.tsx` no longer owns visible layout controls; it stays focused on folder mode, connection/storage usage, API keys, and ProductProfile.
 - `InPageCollectorPopup.tsx` threads persisted layout settings into Product signal cards, Topic synthesis, and Compare Result.
 - Topic Detail's primary overview is now semantic `SignalTagsRecord` data from `dlens:v1:signal-tags`, not deterministic keyword frequency. `TopicSynthesis` and `FolderSynthesis` remain deterministic extension-side layers over analyzed signals for legacy/folder contexts and do not replace backend clustering.
-- Current verification was run from `dlens-product-latest`: `618/618` tests, `npm run typecheck`, and `npm run build` passed.
+- Current verification was run from `dlens-product-latest`: `649/649` tests, `npm run typecheck`, and `npm run build` passed.
 - The verified unpacked build was copied to `output/chrome-mv3` for Chrome load-unpacked use.
 - `dlens-product-latest` source checkout may be dirty; do not infer clean source state from the copied build artifact.
 
@@ -635,7 +635,7 @@ The full cluster pipeline runs in `dlens-ingest-core`, not in this repo:
 - `useInPageCollectorAppState.ts` is still a large orchestration hub after the shell split and is the next place to keep carving down
 - inline styles are widespread but `tokens.ts` now provides the full design token layer; remaining inline refs can migrate incrementally
 - hover debounce still feels slow (360ms)
-- the full `tests/*.test.ts{,x}` suite passes **618/618** as of release `0.1.30` (commit `5fd4f41`)
+- the full `tests/*.test.ts{,x}` suite passes **649/649** as of the current `0.1.30` verification on `codex/pr-visible-metrics`
 
 ### P3
 
@@ -813,7 +813,7 @@ Before claiming success:
 ```bash
 cd dlens-chrome-extension-v0
 npm run typecheck
-npx tsx --test tests/*.test.ts tests/*.test.tsx  # expect 618/618
+npx tsx --test tests/*.test.ts tests/*.test.tsx  # expect 649/649
 npm run build
 ```
 

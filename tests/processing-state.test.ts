@@ -1,4 +1,5 @@
 import assert from "node:assert/strict";
+import { readFileSync } from "node:fs";
 import test from "node:test";
 
 import type { AnalysisSnapshot, CaptureSnapshot, JobSnapshot } from "../src/contracts/ingest.ts";
@@ -320,6 +321,13 @@ test("getPollingDelayMs keeps an idle heartbeat so passive surfaces notice a dea
   assert.equal(getPollingDelayMs({ workerStatus: "idle", hasInflight: false, failureCount: 0 }), 12000);
   // Heartbeat stays flat under failures — recovery is noticed within one beat.
   assert.equal(getPollingDelayMs({ workerStatus: "idle", hasInflight: false, failureCount: 3 }), 12000);
+});
+
+test("processing coordinator does not restart polling just because workerStatus state changed", () => {
+  const source = readFileSync(new URL("../src/ui/useProcessingCoordinator.ts", import.meta.url), "utf8");
+  assert.match(source, /lastKnownWorkerStatusRef/);
+  assert.match(source, /\[popupOpen,\s*activeFolderId,\s*hasInflight,\s*sendAndSync\]/);
+  assert.doesNotMatch(source, /\[popupOpen,\s*activeFolderId,\s*hasInflight,\s*sendAndSync,\s*workerStatus\]/);
 });
 
 test("shouldRefreshProcessingFolder keeps refreshing during and just after worker drain", () => {

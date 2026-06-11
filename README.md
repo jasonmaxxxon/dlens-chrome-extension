@@ -2,8 +2,8 @@
 
 DLens is a mode-aware MV3 Chrome extension for capturing Threads posts and turning them into research, product-signal, and PR evidence workflows.
 
-> Last updated: 2026-06-10
-> Current release: `0.1.30` · 647/647 tests · build clean
+> Last updated: 2026-06-11
+> Current release: `0.1.30` · 649/649 tests · build clean
 > Current engineering branch: `codex/pr-visible-metrics` (mirrored to `origin/main` for release)
 > Positioning (2026-06-08): local power-tool (self + small technical circle); two separate repos (extension public · ingest-core **private**), not monorepo; visual reset Option A pending
 > Verified build: `output/chrome-mv3`
@@ -34,7 +34,7 @@ Current workspace modes:
 - PR Evidence workflow: one active campaign per session, brief upload, six editable criteria, evidence rows, criteria matching, CSV export, Markdown/DOCX audit summary.
 - Layout preferences remain persisted for existing records, but the visible Settings layout card is removed; workspace typography, rounded surfaces, and shadow treatment now follow the Topic card grammar across modes. Shared cards default to the 20px Topic-style radius.
 - Workspace mode switches reserve the processing-strip slot, reset scroll before paint, and crossfade the content frame so Topic/Product/PR data changes no longer produce a visible vertical jump.
-- Product Action route restores the 0.1.15 `READING REVIEW` UI only when the current saved signals have matching `SignalReading` rows. Review callbacks alone must not switch the Action route away from the Marginalia action cards. The old page-level `Agent export` / `原文優先` panel remains removed.
+- Product Action route restores the 0.1.15 `READING REVIEW` UI only when the current saved signals have matching `SignalReading` rows. Review callbacks alone must not switch the Action route away from the Marginalia action cards. The old page-level batch export remains off the Action route; Saved Signals owns the `行動簡報匯出` selection/copy surface.
 - Product Settings includes a Product-only cache reset. It clears derived Product analysis, SignalReading, feedback, and compiled ProductContext storage without deleting saved signals, topics, archive folders, or PR evidence.
 - Popup runtime hardening: the React tree is wrapped in a top-level workspace ErrorBoundary, and the content-script runtime fallback remains separate.
 - Storage diagnostics: Settings displays local `chrome.storage.local` usage through a background-only `storage/get-usage` message boundary.
@@ -63,7 +63,7 @@ npm run build
 
 Expected verified state for `0.1.30`:
 
-- `647/647` tests pass
+- `649/649` tests pass
 - `npm run typecheck` passes
 - `npm run build` mirrors the unpacked MV3 build to `output/chrome-mv3`
 - `output/chrome-mv3/manifest.json` reports `version: "0.1.30"` and `name: "DLens v3"`
