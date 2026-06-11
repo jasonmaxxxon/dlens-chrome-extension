@@ -366,6 +366,62 @@ test("TopicDetailView ignores non-topic-scoped signals when audit sources are pr
   assert.doesNotMatch(html, /15\/30 已分析/);
 });
 
+test("TopicDetailView keeps the B-14 audit count at 15/15 when a topic also has an uncrawled saved signal", () => {
+  const auditEvidence = Array.from({ length: 15 }, (_, index) => ({
+    ...auditPacket,
+    signalId: `audit-signal-${index + 1}`,
+    itemId: `audit-item-${index + 1}`,
+    shortCode: `S${index + 1}`,
+    opText: `audit source ${index + 1}`
+  }));
+  const topicSignals: Signal[] = [
+    ...auditEvidence.map((packet) => ({
+      ...signals[0]!,
+      id: packet.signalId,
+      itemId: packet.itemId
+    })),
+    {
+      ...signals[0]!,
+      id: "saved-signal",
+      itemId: "saved-item",
+      capturedAt: "2026-04-23T11:00:00.000Z"
+    }
+  ];
+  const auditOnlyMemos: TopicAuditMemoBundle = {
+    ...auditMemos,
+    signalReadings: auditEvidence.map((packet) => ({
+      ...auditMemos.signalReadings[0]!,
+      signalId: packet.signalId,
+      shortCode: packet.shortCode,
+      evidenceRefs: [`${packet.shortCode}.OP`]
+    }))
+  };
+
+  const html = renderToStaticMarkup(
+    React.createElement(TopicDetailView, {
+      topic: { ...topic, signalIds: topicSignals.map((signal) => signal.id) },
+      signals: topicSignals,
+      pairs: [],
+      sessionItems: [buildSessionItem("saved-item", "saved")],
+      auditEvidence,
+      auditMemos: auditOnlyMemos,
+      auditSummary: { reportStatus: "ready", analyzedCount: 15, queuedCount: 1, coverage: "15/15" },
+      auditValidatorFlags: [],
+      onBack: () => undefined,
+      onOpenPair: () => undefined,
+      onUpdateTopic: () => undefined
+    })
+  );
+
+  assert.match(html, /15 訊號/);
+  assert.match(html, /15\/15 已分析/);
+  assert.match(html, /覆蓋 15\/15/);
+  assert.equal((html.match(/data-source-row="S\d+"/g) ?? []).length, 15);
+  assert.doesNotMatch(html, /16 訊號/);
+  assert.doesNotMatch(html, /15\/16 已分析/);
+  assert.doesNotMatch(html, /覆蓋 15\/16/);
+});
+
 test("TopicDetailView failed audit state shows resume copy and failed reason", () => {
   const html = renderToStaticMarkup(
     React.createElement(TopicDetailView, {

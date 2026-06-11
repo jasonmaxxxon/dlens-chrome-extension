@@ -57,3 +57,54 @@ test("buildProductSignalReadinessById carries the backend job error for crawling
   assert.equal(readiness["sig-failed"]?.status, "failed");
   assert.equal(readiness["sig-failed"]?.lastError, "crawl exhausted retries");
 });
+
+test("buildProductSignalReadinessById classifies the six saved signal readiness states", () => {
+  const folder = createSessionRecord("Product workspace", "2026-06-10T00:00:00.000Z", "product");
+  const saved = { ...createSessionItem(descriptor), id: "item-saved", status: "saved" as const };
+  const crawling = { ...createSessionItem(descriptor), id: "item-crawling", status: "running" as const };
+  const ready = {
+    ...createSessionItem(descriptor),
+    id: "item-ready",
+    status: "succeeded" as const,
+    latestCapture: {
+      result: {
+        thread_read_model: {
+          assembled_content: "root text\n\nreply text",
+          root_post: { author: "alpha", text: "root text" },
+          discussion_replies: [{ author: "reader", text: "reply text" }]
+        }
+      }
+    } as unknown as ReturnType<typeof createSessionItem>["latestCapture"]
+  };
+  const missingContent = {
+    ...createSessionItem(descriptor),
+    id: "item-missing-content",
+    status: "succeeded" as const,
+    latestCapture: {
+      result: { thread_read_model: { root_post: { author: "alpha", text: "" }, discussion_replies: [] } }
+    } as unknown as ReturnType<typeof createSessionItem>["latestCapture"]
+  };
+  const failed = { ...createSessionItem(descriptor), id: "item-failed", status: "failed" as const };
+  folder.items = [saved, crawling, ready, missingContent, failed];
+
+  const readiness = buildProductSignalReadinessById(folder, [
+    makeSignal("sig-saved", "item-saved"),
+    makeSignal("sig-crawling", "item-crawling"),
+    makeSignal("sig-ready", "item-ready"),
+    makeSignal("sig-missing-content", "item-missing-content"),
+    makeSignal("sig-failed", "item-failed"),
+    makeSignal("sig-missing-item", "item-missing-item")
+  ]);
+
+  assert.deepEqual(
+    Object.fromEntries(Object.entries(readiness).map(([signalId, value]) => [signalId, value.status])),
+    {
+      "sig-saved": "saved",
+      "sig-crawling": "crawling",
+      "sig-ready": "ready",
+      "sig-missing-content": "missing_content",
+      "sig-failed": "failed",
+      "sig-missing-item": "missing_item"
+    }
+  );
+});
