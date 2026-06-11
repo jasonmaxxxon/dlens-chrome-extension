@@ -152,6 +152,8 @@ Slice ① (signal readiness) already proved this: `src/state/signal-readiness.ts
 
 **Execution note (codex/identity-target-selected, ⑤b):** `src/state/action-target.ts` now also owns explicit `{ sessionId, itemId }` targets for selected-item mutations. `session/queue-selected` and `session/refresh-selected` carry `target` and background dispatches directly to the existing explicit `queueSessionItem` / `refreshItem` paths. The old `queueSelectedItem` / `refreshSelectedItem` wrappers that inferred session and item from `activeSessionId` + `tab.activeItemId` were deleted. Sidepanel now builds the selected item target through the shared helper before sending those debug actions.
 
+**Execution note (codex/identity-target-bulk, ⑤c):** `src/state/action-target.ts` now owns explicit session-only targets for all-folder mutations. `session/queue-all-pending` and `session/refresh-all` carry `target: { sessionId }`; background validates it and no longer falls back to `getActiveSession()` when the target is missing. Popup processing flows, the processing coordinator, and Sidepanel legacy polling now pass the visible active folder/session id explicitly.
+
 ---
 
 ## Slice ⑥ — Storage consistency / single mutation seam — DO LAST

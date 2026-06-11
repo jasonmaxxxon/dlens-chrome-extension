@@ -130,19 +130,26 @@ export function useExtensionSnapshot(polling = true) {
   }, [snapshot]);
 
   useEffect(() => {
-    if (!polling || !runningItemIds.length) {
+    const session = getActiveSession(snapshot);
+    if (!polling || !runningItemIds.length || !session) {
       return;
     }
     // Legacy polling remains for the sidepanel; the in-page popup runs its own
     // shared processing coordinator so worker and item refreshes stay in sync.
-    void sendExtensionMessage<ExtensionResponse>({ type: "session/refresh-all" }).catch(() => undefined);
+    void sendExtensionMessage<ExtensionResponse>({
+      type: "session/refresh-all",
+      target: { sessionId: session.id }
+    }).catch(() => undefined);
     const handle = window.setInterval(() => {
-      void sendExtensionMessage<ExtensionResponse>({ type: "session/refresh-all" }).catch((error: unknown) => {
+      void sendExtensionMessage<ExtensionResponse>({
+        type: "session/refresh-all",
+        target: { sessionId: session.id }
+      }).catch((error: unknown) => {
         console.error("failed to refresh session items", error);
       });
     }, 10000);
     return () => window.clearInterval(handle);
-  }, [polling, runningItemIds.join(",")]);
+  }, [polling, runningItemIds.join(","), snapshot?.global.activeSessionId]);
 
   async function sendAndSync<T extends ExtensionResponse = ExtensionResponse>(message: ExtensionMessage): Promise<T> {
     const response = await sendExtensionMessage<T>(message);

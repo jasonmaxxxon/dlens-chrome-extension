@@ -204,7 +204,7 @@ export async function runAnalyzeItemsPipeline({
         ? `開始分析 ${queuedCount} 篇（${failedCount} 篇失敗）`
         : `開始分析 ${queuedCount} 篇`
     });
-    await sendAndSync({ type: "session/refresh-all", sessionId: folderId });
+    await sendAndSync({ type: "session/refresh-all", target: { sessionId: folderId } });
     return { ok: true, failedCount };
   }
 
@@ -345,7 +345,7 @@ export function useInPageCollectorAppState({ snapshot, tabId, sendAndSync }: Use
       return;
     }
     refreshedOnOpenFolderRef.current = folderId;
-    void sendAndSync({ type: "session/refresh-all", sessionId: folderId }).catch((error: unknown) => {
+    void sendAndSync({ type: "session/refresh-all", target: { sessionId: folderId } }).catch((error: unknown) => {
       console.error("failed to refresh active folder on popup open", error);
     });
   }, [popupOpen, activeFolder?.id, sendAndSync]);
@@ -1161,7 +1161,9 @@ export function useInPageCollectorAppState({ snapshot, tabId, sendAndSync }: Use
         setOptimisticQueuedIds((current) => Array.from(new Set([...current, ...pendingIds])));
         const queueResponse = await sendAndSync({
           type: "session/queue-all-pending",
-          sessionId: activeFolder.id
+          target: {
+            sessionId: activeFolder.id
+          }
         });
         setOptimisticQueuedIds((current) => current.filter((id) => !pendingIds.includes(id)));
         if (!queueResponse.ok) {
@@ -1187,7 +1189,7 @@ export function useInPageCollectorAppState({ snapshot, tabId, sendAndSync }: Use
           : getProcessingFailureMessage(response.error)
       });
       if (response.ok) {
-        await sendAndSync({ type: "session/refresh-all", sessionId: activeFolder?.id });
+        await sendAndSync({ type: "session/refresh-all", target: { sessionId: activeFolder.id } });
       }
     } finally {
       setIsStartingProcessing(false);
@@ -1214,7 +1216,7 @@ export function useInPageCollectorAppState({ snapshot, tabId, sendAndSync }: Use
           : getProcessingFailureMessage(response.error)
       });
       if (response.ok) {
-        await sendAndSync({ type: "session/refresh-all", sessionId: activeFolder.id });
+        await sendAndSync({ type: "session/refresh-all", target: { sessionId: activeFolder.id } });
       }
     } finally {
       setIsStartingProcessing(false);

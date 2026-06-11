@@ -72,7 +72,7 @@ export function useProcessingCoordinator({
           hasInflight
         })) {
           markQaTrace("popup.worker.refresh.request", { activeFolderId, workerStatus: nextWorkerStatus });
-          await sendAndSync({ type: "session/refresh-all", sessionId: activeFolderId });
+          await sendAndSync({ type: "session/refresh-all", target: { sessionId: activeFolderId } });
           markQaTrace("popup.worker.refresh.response", { activeFolderId });
         }
         if (cancelled) {

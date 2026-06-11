@@ -33,7 +33,7 @@ import type { SignalPacketExportFormat, SignalPacketExportResult } from "../comp
 import type { CrossTopicCalibration, EvidencePacket, TopicAuditReport, TopicAuditStageName } from "../compare/topic-audit";
 import type { TopicAuditValidationFlag } from "../compare/topic-audit-validator";
 import type { TopicAuditMemoBundle } from "./topic-audit-storage";
-import type { SaveCurrentPreviewActionTarget, SessionItemActionTarget } from "./action-target";
+import type { SaveCurrentPreviewActionTarget, SessionActionTarget, SessionItemActionTarget } from "./action-target";
 
 export type ExtensionMessage =
   | { type: "state/get-active-tab" }
@@ -65,10 +65,10 @@ export type ExtensionMessage =
   | { type: "session/queue-items"; sessionId: string; itemIds: string[] }
   | { type: "session/queue-items-and-start-processing"; sessionId: string; itemIds: string[] }
   | { type: "session/queue-selected"; target: SessionItemActionTarget }
-  | { type: "session/queue-all-pending"; sessionId?: string }
+  | { type: "session/queue-all-pending"; target: SessionActionTarget }
   | { type: "session/refresh-item"; sessionId: string; itemId: string }
   | { type: "session/refresh-selected"; target: SessionItemActionTarget }
-  | { type: "session/refresh-all"; sessionId?: string }
+  | { type: "session/refresh-all"; target: SessionActionTarget }
   | { type: "worker/start-processing" }
   | { type: "worker/get-status" }
   | { type: "backend/get-health"; baseUrl: string }

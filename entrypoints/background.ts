@@ -180,6 +180,7 @@ import { buildRefreshFailureMessage } from "../src/state/refresh-errors";
 import { createAsyncLock } from "../src/state/snapshot-lock";
 import {
   requireSaveCurrentPreviewTarget,
+  requireSessionActionTarget,
   requireSessionItemActionTarget,
   type SaveCurrentPreviewActionTarget
 } from "../src/state/action-target";
@@ -1707,13 +1708,11 @@ async function queueSessionItem(
   });
 }
 
-async function queueAllPending(tabId: number, sessionId?: string): Promise<ExtensionSnapshot> {
+async function queueAllPending(tabId: number, sessionId: string): Promise<ExtensionSnapshot> {
   let snapshot = await loadSnapshot(tabId);
-  const session = sessionId
-    ? snapshot.global.sessions.find((candidate) => candidate.id === sessionId)
-    : getActiveSession(snapshot.global);
+  const session = snapshot.global.sessions.find((candidate) => candidate.id === sessionId);
   if (!session) {
-    throw new Error("No active folder.");
+    throw new Error("Target folder not found.");
   }
 
   const pending = session.items.filter((item) => item.status === "saved" || item.status === "failed");
@@ -1840,13 +1839,11 @@ async function refreshItem(
   });
 }
 
-async function refreshAllItems(tabId: number, sessionId?: string): Promise<ExtensionSnapshot> {
+async function refreshAllItems(tabId: number, sessionId: string): Promise<ExtensionSnapshot> {
   let snapshot = await loadSnapshot(tabId);
-  const session = sessionId
-    ? snapshot.global.sessions.find((candidate) => candidate.id === sessionId)
-    : getActiveSession(snapshot.global);
+  const session = snapshot.global.sessions.find((candidate) => candidate.id === sessionId);
   if (!session) {
-    throw new Error("No active folder.");
+    throw new Error("Target folder not found.");
   }
 
   const refreshable = session.items.filter((item) => needsCaptureRefresh(item));
@@ -3099,10 +3096,11 @@ export default defineBackground(() => {
           }
           case "session/queue-all-pending": {
             const tabId = await resolveTabId(sender);
+            const target = requireSessionActionTarget(message.target);
             sendResponse({
               ok: true,
               tabId,
-              snapshot: await queueAllPending(tabId, message.sessionId)
+              snapshot: await queueAllPending(tabId, target.sessionId)
             } satisfies ExtensionResponse);
             return;
           }
@@ -3167,10 +3165,11 @@ export default defineBackground(() => {
           }
           case "session/refresh-all": {
             const tabId = await resolveTabId(sender);
+            const target = requireSessionActionTarget(message.target);
             sendResponse({
               ok: true,
               tabId,
-              snapshot: await refreshAllItems(tabId, message.sessionId)
+              snapshot: await refreshAllItems(tabId, target.sessionId)
             } satisfies ExtensionResponse);
             return;
           }
