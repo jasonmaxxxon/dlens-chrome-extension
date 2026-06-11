@@ -414,6 +414,78 @@ function ThreadsStyleFragment({
   );
 }
 
+function OriginalPostCard({
+  fragment,
+  capturedAt,
+  commentCount,
+  highlighted
+}: {
+  fragment: FragmentLookup;
+  capturedAt: string;
+  commentCount: number | null;
+  highlighted: boolean;
+}) {
+  const displayDate = new Intl.DateTimeFormat("zh-HK", { year: "numeric", month: "2-digit", day: "2-digit" }).format(new Date(capturedAt));
+  return (
+    <section
+      data-signal-drawer-block="op-card"
+      data-highlight={highlighted ? "true" : "false"}
+      style={{
+        background: tokens.color.elevated,
+        border: `1px solid ${highlighted ? tokens.topicAccent.warm : tokens.color.line}`,
+        borderRadius: 12,
+        padding: "14px 16px",
+        display: "grid",
+        gridTemplateColumns: "38px minmax(0, 1fr)",
+        gap: 11,
+        boxShadow: "0 2px 10px rgba(0,0,0,0.03)"
+      }}
+    >
+      <span
+        aria-hidden="true"
+        style={{
+          width: 38,
+          height: 38,
+          borderRadius: 999,
+          background: avatarColor(fragment.author),
+          color: tokens.color.elevated,
+          fontFamily: tokens.font.sans,
+          fontSize: 15,
+          fontWeight: 800,
+          display: "inline-flex",
+          alignItems: "center",
+          justifyContent: "center"
+        }}
+      >
+        {(fragment.author || "?").slice(0, 1).toUpperCase()}
+      </span>
+      <div style={{ minWidth: 0 }}>
+        <div style={{ display: "flex", gap: 8, alignItems: "baseline", flexWrap: "wrap" }}>
+          <span style={{ fontSize: 13.5, fontWeight: 700, color: tokens.color.ink }}>@{fragment.author}</span>
+          <span style={{ fontSize: 11, color: tokens.color.softInk }}>{displayDate}</span>
+          <span style={{ fontFamily: tokens.font.mono, fontSize: 10, color: tokens.topicAccent.primary, fontWeight: 700, letterSpacing: "0.04em" }}>{fragment.ref}</span>
+        </div>
+        <div
+          style={{
+            marginTop: 6,
+            fontSize: 13.5,
+            lineHeight: 1.7,
+            color: tokens.color.ink,
+            whiteSpace: "pre-wrap",
+            wordBreak: "break-word"
+          }}
+        >
+          {fragment.text}
+        </div>
+        <div style={{ marginTop: 9, display: "flex", gap: 14, fontSize: 11, color: tokens.color.softInk, fontFamily: tokens.font.mono }}>
+          <span>♥ {fragment.likes ?? "?"}</span>
+          <span>💬 {commentCount ?? "?"}</span>
+        </div>
+      </div>
+    </section>
+  );
+}
+
 function Caveats({ items }: { items: string[] }) {
   if (!items.length) return null;
   return (
@@ -476,7 +548,12 @@ export function SignalDrawer({
   const audienceReplies = packet.replyFragments.filter((fragment) => fragment.role === "audience");
   const opContinuations = packet.replyFragments.filter((fragment) => fragment.role === "op_continuation");
   const showDataGap = audienceReplies.length === 0 && opContinuations.length > 0;
-  const fragmentCount = packet.replyFragments.length + 1;
+  const opRef = `${packet.shortCode}.OP`;
+  const opFragment = fragmentLookup.get(opRef);
+  // OP root post is surfaced as an always-visible card up top; the collapsible
+  // now holds the rest of the thread (OP continuations + audience replies).
+  const threadFragments = allFragments.filter((fragment) => fragment.ref !== opRef);
+  const replyCount = packet.replyFragments.length;
   const displayDate = new Intl.DateTimeFormat("zh-HK", { year: "numeric", month: "2-digit", day: "2-digit" }).format(new Date(packet.capturedAt));
 
   return (
@@ -555,6 +632,15 @@ export function SignalDrawer({
           justifyContent: "center"
         }}
       >
+        {opFragment ? (
+          <OriginalPostCard
+            fragment={opFragment}
+            capturedAt={packet.capturedAt}
+            commentCount={packet.commentCount}
+            highlighted={pinnedRef === opRef}
+          />
+        ) : null}
+
         {reading ? (
           <section
             data-signal-drawer-block="p1"
@@ -655,55 +741,57 @@ export function SignalDrawer({
 
         <Caveats items={reading?.watchNotes ?? []} />
 
-        <section data-signal-drawer-block="raw" style={{ display: "grid", gap: 10, alignSelf: "start" }}>
-          <button
-            type="button"
-            data-raw-toggle="true"
-            onClick={() => setRawOpen((current) => !current)}
-            style={{
-              width: "100%",
-              background: "transparent",
-              border: `1px dashed ${tokens.color.lineStrong}`,
-              borderRadius: 8,
-              padding: "9px 14px",
-              minHeight: 40,
-              fontFamily: tokens.font.mono,
-              fontSize: 11,
-              color: tokens.color.softInk,
-              cursor: "pointer",
-              display: "flex",
-              justifyContent: "space-between",
-              alignItems: "center",
-              letterSpacing: "0.04em"
-            }}
-          >
-            <span>原文 · OP + 留言（{fragmentCount} fragments）</span>
-            <span aria-hidden="true" style={{ transform: rawOpen ? "rotate(180deg)" : "rotate(0deg)", transition: "transform 200ms", display: "inline-block" }}>▾</span>
-          </button>
-          {rawOpen ? (
-            <div
-              data-raw-body="open"
+        {threadFragments.length > 0 ? (
+          <section data-signal-drawer-block="raw" style={{ display: "grid", gap: 10, alignSelf: "start" }}>
+            <button
+              type="button"
+              data-raw-toggle="true"
+              onClick={() => setRawOpen((current) => !current)}
               style={{
-                padding: "12px 12px",
-                background: tokens.color.elevated,
-                borderRadius: 10,
-                border: `1px solid ${tokens.color.line}`,
-                display: "grid",
-                gap: 12,
-                maxHeight: 320,
-                overflowY: "auto"
+                width: "100%",
+                background: "transparent",
+                border: `1px dashed ${tokens.color.lineStrong}`,
+                borderRadius: 8,
+                padding: "9px 14px",
+                minHeight: 40,
+                fontFamily: tokens.font.mono,
+                fontSize: 11,
+                color: tokens.color.softInk,
+                cursor: "pointer",
+                display: "flex",
+                justifyContent: "space-between",
+                alignItems: "center",
+                letterSpacing: "0.04em"
               }}
             >
-              {allFragments.map((fragment) => (
-                <ThreadsStyleFragment
-                  key={fragment.ref}
-                  fragment={fragment}
-                  highlighted={pinnedRef === fragment.ref}
-                />
-              ))}
-            </div>
-          ) : null}
-        </section>
+              <span>留言串（{replyCount} 則）</span>
+              <span aria-hidden="true" style={{ transform: rawOpen ? "rotate(180deg)" : "rotate(0deg)", transition: "transform 200ms", display: "inline-block" }}>▾</span>
+            </button>
+            {rawOpen ? (
+              <div
+                data-raw-body="open"
+                style={{
+                  padding: "12px 12px",
+                  background: tokens.color.elevated,
+                  borderRadius: 10,
+                  border: `1px solid ${tokens.color.line}`,
+                  display: "grid",
+                  gap: 12,
+                  maxHeight: 320,
+                  overflowY: "auto"
+                }}
+              >
+                {threadFragments.map((fragment) => (
+                  <ThreadsStyleFragment
+                    key={fragment.ref}
+                    fragment={fragment}
+                    highlighted={pinnedRef === fragment.ref}
+                  />
+                ))}
+              </div>
+            ) : null}
+          </section>
+        ) : null}
 
         {showDataGap ? (
           <div

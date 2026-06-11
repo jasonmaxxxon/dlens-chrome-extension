@@ -69,8 +69,41 @@ test("SignalDrawer renders the P1 hero with inline citation chips and topic memb
   assert.match(html, /data-citation-chip="S1\.OPC1"/);
   assert.match(html, /data-citation-chip="S1\.R1"/);
   assert.match(html, /受眾回覆偏少/);
+  assert.match(html, /data-signal-drawer-block="op-card"/);
   assert.match(html, /data-raw-toggle="true"/);
-  assert.match(html, /3 fragments/);
+  assert.match(html, /留言串（2 則）/);
+});
+
+test("SignalDrawer surfaces the OP as an always-visible Threads card and keeps replies collapsible", () => {
+  const html = renderToStaticMarkup(
+    React.createElement(SignalDrawer, {
+      packet,
+      reading,
+      topicName: "航班爭議",
+      onClose: () => undefined
+    })
+  );
+
+  // OP root post is rendered up top, not hidden behind the raw toggle.
+  assert.match(html, /data-signal-drawer-block="op-card"/);
+  assert.match(html, /OP 原文/);
+  // Collapsible now holds the rest of the thread only; OP is pulled out.
+  assert.match(html, /留言串（2 則）/);
+  assert.doesNotMatch(html, /OP \+ 留言/);
+});
+
+test("SignalDrawer hides the reply thread toggle when the OP has no replies", () => {
+  const html = renderToStaticMarkup(
+    React.createElement(SignalDrawer, {
+      packet: { ...packet, replyFragments: [] },
+      reading,
+      topicName: "航班爭議",
+      onClose: () => undefined
+    })
+  );
+
+  assert.match(html, /data-signal-drawer-block="op-card"/);
+  assert.doesNotMatch(html, /data-raw-toggle="true"/);
 });
 
 test("SignalDrawer splits multi-ref citation groups into individual chips", () => {
@@ -125,9 +158,10 @@ test("SignalDrawer surfaces data-gap note and P1-missing placeholder when readin
     })
   );
 
+  assert.match(html, /data-signal-drawer-block="op-card"/);
   assert.match(html, /data-signal-drawer-block="p1-missing"/);
   assert.match(html, /尚未生成 P1 判讀/);
   assert.match(html, /data-gap 不是 absence/);
   assert.match(html, /long-tail commentCount = 9/);
-  assert.match(html, /2 fragments/);
+  assert.match(html, /留言串（1 則）/);
 });
