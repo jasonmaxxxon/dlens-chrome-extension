@@ -1,0 +1,30 @@
+{
+  "generatedAt": "2026-06-10T06:39:37.513Z",
+  "cwd": "/Users/tung/Desktop/dlens-product-latest",
+  "type": "dlens-storage-log-probe",
+  "note": "Read-only LevelDB write-ahead log probe. It does not decode compressed .ldb SSTables and does not modify chrome.storage.",
+  "chrome": {
+    "profileDirectory": "Default",
+    "extensionId": "hihgplinfhopjpjonkcdbbmkoklombkj",
+    "storageDir": "/Users/tung/Library/Application Support/Google/Chrome/Default/Local Extension Settings/hihgplinfhopjpjonkcdbbmkoklombkj"
+  },
+  "source": {
+    "logFiles": [
+      {
+        "file": "057397.log",
+        "recordCount": 1
+      }
+    ],
+    "dlensKeysInLatestLog": [
+      "dlens:v1:signals"
+    ]
+  },
+  "globalState": null,
+  "tabUi": [],
+  "consistency": {
+    "activeSessionExists": false,
+    "productSessionCount": 0,
+    "productNamedNonProductSessions": [],
+    "tabsWithSelectionMode": []
+  }
+}

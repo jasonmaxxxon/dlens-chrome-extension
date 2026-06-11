@@ -1,0 +1,171 @@
+{
+  "articles": [],
+  "bodyTextHead": "For you\nNew thread\nSearch\nMessages\nActivity\nProfile\nInsights\nSaved\nFeeds\nEdit\nFollowing\nGhost posts\nMore\nThread\n4.6K views\nse_ranking\n7h\nCan AI content actually be good?\n6\n17\nTop\nView activity\nReply to se_ranking...\nartificialsweetener.ai\n6h\nThis is subjective. I think it can be if I'm the one deciding, but I don't like all of it, just like I don't like all of anything even within other mediums or genres I enjoy. It's no different than anything else.\n5\ndattamatrika\n2h\ndattamatrika\n2h\ndattamatrika\n2h\ndattamatrika\n2h\nSome replies have been hidden. See all\n© 2026\nThreads Terms\nPrivacy Policy\nConsumer Health Privacy Policy\nCookies Policy",
+  "buttons": [
+    {
+      "aria": "Close DLens popup",
+      "index": 0,
+      "mode": null,
+      "rect": {
+        "height": 48,
+        "width": 48,
+        "x": 2088,
+        "y": 24
+      },
+      "tag": "BUTTON",
+      "testid": null,
+      "text": "",
+      "utility": null,
+      "visible": true,
+      "workspace": null
+    },
+    {
+      "aria": null,
+      "index": 1,
+      "mode": null,
+      "rect": {
+        "height": 18.4921875,
+        "width": 47.37890625,
+        "x": 1492.921875,
+        "y": 112.23046875
+      },
+      "tag": "BUTTON",
+      "testid": null,
+      "text": "Topic",
+      "utility": null,
+      "visible": true,
+      "workspace": "topic"
+    },
+    {
+      "aria": null,
+      "index": 2,
+      "mode": null,
+      "rect": {
+        "height": 19.046951293945312,
+        "width": 62.6568603515625,
+        "x": 1541.380615234375,
+        "y": 111.95308685302734
+      },
+      "tag": "BUTTON",
+      "testid": null,
+      "text": "Product",
+      "utility": null,
+      "visible": true,
+      "workspace": "product"
+    },
+    {
+      "aria": null,
+      "index": 3,
+      "mode": null,
+      "rect": {
+        "height": 18.4921875,
+        "width": 33.59765625,
+        "x": 1605.1171875,
+        "y": 112.23046875
+      },
+      "tag": "BUTTON",
+      "testid": null,
+      "text": "PR",
+      "utility": null,
+      "visible": true,
+      "workspace": "pr-evidence"
+    },
+    {
+      "aria": null,
+      "index": 4,
+      "mode": "collect",
+      "rect": {
+        "height": 57.99609375,
+        "width": 54.515625,
+        "x": 1439.98828125,
+        "y": 214.9453125
+      },
+      "tag": "BUTTON",
+      "testid": null,
+      "text": "採集",
+      "utility": null,
+      "visible": true,
+      "workspace": null
+    },
+    {
+      "aria": null,
+      "index": 5,
+      "mode": "saved-signals",
+      "rect": {
+        "height": 57.99609375,
+        "width": 54.515625,
+        "x": 1439.98828125,
+        "y": 280.93359375
+      },
+      "tag": "BUTTON",
+      "testid": null,
+      "text": "訊號",
+      "utility": null,
+      "visible": true,
+      "workspace": null
+    },
+    {
+      "aria": null,
+      "index": 6,
+      "mode": "classification",
+      "rect": {
+        "height": 57.99609375,
+        "width": 54.515625,
+        "x": 1439.98828125,
+        "y": 346.921875
+      },
+      "tag": "BUTTON",
+      "testid": null,
+      "text": "分類",
+      "utility": null,
+      "visible": true,
+      "workspace": null
+    },
+    {
+      "aria": null,
+      "index": 7,
+      "mode": "actionable-filter",
+      "rect": {
+        "height": 57.99609375,
+        "width": 54.515625,
+        "x": 1439.98828125,
+        "y": 412.91015625
+      },
+      "tag": "BUTTON",
+      "testid": null,
+      "text": "行動",
+      "utility": null,
+      "visible": true,
+      "workspace": null
+    },
+    {
+      "aria": null,
+      "index": 8,
+      "mode": null,
+      "rect": {
+        "height": 57.99609375,
+        "width": 54.515625,
+        "x": 1439.98828125,
+        "y": 484.8984375
+      },
+      "tag": "BUTTON",
+      "testid": null,
+      "text": "設定",
+      "utility": "settings",
+      "visible": true,
+      "workspace": null
+    }
+  ],
+  "firstReadingText": null,
+  "firstReadingVisible": false,
+  "label": "b05-after-reload-wait",
+  "rootText": "已加入產品訊號\ndlens\nTopic\nProduct\nPR\nAnnotated Field Guide\nVOL.1\nNO.01\nJun 10\n·\nv.0.1.30\nd\n採集\n訊號\n分類\n行動\n設定\nProduct mode\n已存訊號\n先確認已儲存的 Threads post 是否完成抓取，再到行動頁整理可試 workflow。\n讀取中\n讀取狀態\n讀取中\n正在讀取本地 Product signals 與分析結果。\nError: Signal not found",
+  "title": "(4) Can AI content actually be good?",
+  "traceCount": 0,
+  "traceTail": [],
+  "url": "https://www.threads.com/@se_ranking/post/DZYf_mngRnt",
+  "viewport": {
+    "height": 1083,
+    "width": 2160
+  }
+}

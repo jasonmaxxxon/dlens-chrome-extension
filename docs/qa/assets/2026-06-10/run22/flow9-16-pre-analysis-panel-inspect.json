@@ -1,0 +1,367 @@
+{
+  "roots": [
+    {
+      "cls": "_9dls _aoqh __fb-light-mode",
+      "id": "",
+      "rect": {
+        "h": 12452,
+        "w": 2160,
+        "x": 0,
+        "y": 0
+      },
+      "tag": "HTML",
+      "text": "For you New thread Search Messages Activity Profile Insights Saved Feeds Edit Following Ghost posts More For you Following Ghost posts What's new? Post maxfei22 4h 報告一下剛用Claude今天新出的Fable，跟他說做個部落格列表跟文章頁，一個prompt就直接用掉3%…對，我是用Claude Max! Translate 1 / 2 2 3 7.ki_yan 2h 個啲因為「當年佢地都支持香港警察」而支持重慶警察既香港人係咩心態 如果係咁 你地當初又真係為自由民主，為人權而戰嗎？ Translate 81 65 3 1 chanchillon 45m 真係唔好以為2019年全部「黃絲」 係為左「自由民主」 一來大家想像嘅自由民主有唔同 二來唔係個個都熟悉/ 了解政治（各層面） 三來，真係好多人純粹見到警察嘅作為而憤怒，對什麼自由民主其實冇乜所謂 簡單講，好多行為同說話都係情緒主導，背後未必有咩大道理/目標 支持 Trans"
+    },
+    {
+      "cls": "",
+      "id": "__dlens_product_motion__",
+      "rect": {
+        "h": 0,
+        "w": 0,
+        "x": 0,
+        "y": 0
+      },
+      "tag": "STYLE",
+      "text": "[data-dlens-control=\"true\"] .dlens-card-lift { transition: transform 200ms cubic-bezier(0.22, 1.12, 0.36, 1), box-shadow 200ms cubic-bezier(0.22, 1.12, 0.36, 1), border-color 180ms cubic-bezier(0.4, 0, 0.2, 1); will-change: transform; transform: translateY(0); } [data-dlens-control=\"true\"] .dlens-card-lift:hover, [data-dlens-control=\"true\"] .dlens-card-lift:focus-within { transform: translateY(-4px); box-shadow: 0 18px 40px rgba(27, 26, 23, 0.16), 0 3px 10px rgba(27, 26, 23, 0.07) !important; bo"
+    },
+    {
+      "cls": "",
+      "id": "__dlens_keyframes__",
+      "rect": {
+        "h": 0,
+        "w": 0,
+        "x": 0,
+        "y": 0
+      },
+      "tag": "STYLE",
+      "text": "@keyframes dlens-slide-in { from { opacity: 0; transform: translateY(-8px) scale(0.97); } to { opacity: 1; transform: translateY(0) scale(1); } } @keyframes dlens-pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.35; } } @keyframes dlens-glow-border { 0%, 100% { border-color: rgba(63,90,59,0.18); } 50% { border-color: rgba(63,90,59,0.35); } } @keyframes dlens-scan { 0% { background-position: 0% 0%; } 100% { background-position: 0% 100%; } } @keyframes dlens-bump { 0% { transform: scale(1); } 32%"
+    },
+    {
+      "cls": "",
+      "id": "__dlens_popup_keyframes__",
+      "rect": {
+        "h": 0,
+        "w": 0,
+        "x": 0,
+        "y": 0
+      },
+      "tag": "STYLE",
+      "text": "@import url(\"https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=JetBrains+Mono:wght@400;500;700&family=Noto+Sans+TC:wght@400;500;600;700;900&family=Noto+Serif+TC:wght@400;500;700;900&display=swap\"); :root { --dlens-canvas-deep: #f7f4ec; --dlens-paper-raised: #fdfbf6; --dlens-sunken: #f1ece0; --dlens-line-hair: rgba(27,26,23,0.10); --dlens-oxide: #7a2030; --dlens-ink-blue: #1a2e4f; } [data-paper-grain=\"true\"]::before { content: \"\"; position: absolute; inset: 0; pointer-even"
+    },
+    {
+      "cls": "",
+      "id": "",
+      "rect": {
+        "h": 0,
+        "w": 0,
+        "x": 0,
+        "y": 0
+      },
+      "tag": "SCRIPT",
+      "text": "{\"require\":[[\"ScheduledServerJS\",\"handle\",null,[{\"__bbox\":{\"define\":[[\"cr:310\",[\"RunWWW\"],{\"__rc\":[\"RunWWW\",null]},-1],[\"cr:1078\",[],{\"__rc\":[null,null]},-1],[\"cr:1080\",[\"unexpectedUseInComet\"],{\"__rc\":[\"unexpectedUseInComet\",null]},-1],[\"cr:1126\",[\"TimeSliceSham\"],{\"__rc\":[\"TimeSliceSham\",null]},-1],[\"cr:3725\",[\"clearTimeoutWWWOrMobile\"],{\"__rc\":[\"clearTimeoutWWWOrMobile\",null]},-1],[\"cr:4344\",[\"setTimeoutWWWOrMobile\"],{\"__rc\":[\"setTimeoutWWWOrMobile\",null]},-1],[\"cr:6640\",[],{\"__rc\":[null,null"
+    },
+    {
+      "cls": "",
+      "id": "__dlens_extension_v0_overlay__",
+      "rect": {
+        "h": 138,
+        "w": 647,
+        "x": 758,
+        "y": 145
+      },
+      "tag": "DIV",
+      "text": ""
+    },
+    {
+      "cls": "",
+      "id": "__dlens_extension_v0_root__",
+      "rect": {
+        "h": 1083,
+        "w": 2160,
+        "x": 0,
+        "y": 0
+      },
+      "tag": "DIV",
+      "text": "Hover to preview | S save | Esc exit Ready dlens Topic Product PR Annotated Field Guide VOL.1 NO.01 Jun 10 · v.0.1.30 d 採集 訊號 分類 行動 設定 Product mode 已存訊號 先確認已儲存的 Threads post 是否完成抓取，再到行動頁整理可試 workflow。 尚無結果 真實狀態 2 signals 0 analyses AI key ProductProfile ProductContext 有 signal 尚未抓取。按分析收件匣會先送出抓取請求，完成後再分析。 分析收件匣 等待處理的 signals 尚未抓取 未分析 threads × 按分析會先送出抓取請求。 報告一下剛用Claude今天新出的Fable，跟他說做個部落格列表跟文章頁，一個prompt就直接用掉3%…對，我是用Claude Max! 尚未抓取 未分析 threads × 按分析會先送出抓取請求。 Can AI content actually be good? Reply "
+    },
+    {
+      "cls": "",
+      "id": "",
+      "rect": {
+        "h": 0,
+        "w": 2160,
+        "x": 0,
+        "y": 0
+      },
+      "tag": "DIV",
+      "text": "Hover to preview | S save | Esc exit Ready dlens Topic Product PR Annotated Field Guide VOL.1 NO.01 Jun 10 · v.0.1.30 d 採集 訊號 分類 行動 設定 Product mode 已存訊號 先確認已儲存的 Threads post 是否完成抓取，再到行動頁整理可試 workflow。 尚無結果 真實狀態 2 signals 0 analyses AI key ProductProfile ProductContext 有 signal 尚未抓取。按分析收件匣會先送出抓取請求，完成後再分析。 分析收件匣 等待處理的 signals 尚未抓取 未分析 threads × 按分析會先送出抓取請求。 報告一下剛用Claude今天新出的Fable，跟他說做個部落格列表跟文章頁，一個prompt就直接用掉3%…對，我是用Claude Max! 尚未抓取 未分析 threads × 按分析會先送出抓取請求。 Can AI content actually be good? Reply "
+    },
+    {
+      "cls": "",
+      "id": "__dlens_extension_v0_launcher__",
+      "rect": {
+        "h": 48,
+        "w": 48,
+        "x": 2088,
+        "y": 24
+      },
+      "tag": "BUTTON",
+      "text": ""
+    },
+    {
+      "cls": "",
+      "id": "",
+      "rect": {
+        "h": 861,
+        "w": 722,
+        "x": 1415,
+        "y": 82
+      },
+      "tag": "DIV",
+      "text": "dlens Topic Product PR Annotated Field Guide VOL.1 NO.01 Jun 10 · v.0.1.30 d 採集 訊號 分類 行動 設定 Product mode 已存訊號 先確認已儲存的 Threads post 是否完成抓取，再到行動頁整理可試 workflow。 尚無結果 真實狀態 2 signals 0 analyses AI key ProductProfile ProductContext 有 signal 尚未抓取。按分析收件匣會先送出抓取請求，完成後再分析。 分析收件匣 等待處理的 signals 尚未抓取 未分析 threads × 按分析會先送出抓取請求。 報告一下剛用Claude今天新出的Fable，跟他說做個部落格列表跟文章頁，一個prompt就直接用掉3%…對，我是用Claude Max! 尚未抓取 未分析 threads × 按分析會先送出抓取請求。 Can AI content actually be good? Reply to se_ranking... 已存訊號 2 saved 報告一下剛用Claude今"
+    },
+    {
+      "cls": "",
+      "id": "",
+      "rect": {
+        "h": 900,
+        "w": 720,
+        "x": 1415,
+        "y": 83
+      },
+      "tag": "DIV",
+      "text": "dlens Topic Product PR Annotated Field Guide VOL.1 NO.01 Jun 10 · v.0.1.30 d 採集 訊號 分類 行動 設定 Product mode 已存訊號 先確認已儲存的 Threads post 是否完成抓取，再到行動頁整理可試 workflow。 尚無結果 真實狀態 2 signals 0 analyses AI key ProductProfile ProductContext 有 signal 尚未抓取。按分析收件匣會先送出抓取請求，完成後再分析。 分析收件匣 等待處理的 signals 尚未抓取 未分析 threads × 按分析會先送出抓取請求。 報告一下剛用Claude今天新出的Fable，跟他說做個部落格列表跟文章頁，一個prompt就直接用掉3%…對，我是用Claude Max! 尚未抓取 未分析 threads × 按分析會先送出抓取請求。 Can AI content actually be good? Reply to se_ranking... 已存訊號 2 saved 報告一下剛用Claude今"
+    },
+    {
+      "cls": "",
+      "id": "",
+      "rect": {
+        "h": 860,
+        "w": 688,
+        "x": 1431,
+        "y": 99
+      },
+      "tag": "DIV",
+      "text": "dlens Topic Product PR Annotated Field Guide VOL.1 NO.01 Jun 10 · v.0.1.30 d 採集 訊號 分類 行動 設定 Product mode 已存訊號 先確認已儲存的 Threads post 是否完成抓取，再到行動頁整理可試 workflow。 尚無結果 真實狀態 2 signals 0 analyses AI key ProductProfile ProductContext 有 signal 尚未抓取。按分析收件匣會先送出抓取請求，完成後再分析。 分析收件匣 等待處理的 signals 尚未抓取 未分析 threads × 按分析會先送出抓取請求。 報告一下剛用Claude今天新出的Fable，跟他說做個部落格列表跟文章頁，一個prompt就直接用掉3%…對，我是用Claude Max! 尚未抓取 未分析 threads × 按分析會先送出抓取請求。 Can AI content actually be good? Reply to se_ranking... 已存訊號 2 saved 報告一下剛用Claude今"
+    },
+    {
+      "cls": "",
+      "id": "",
+      "rect": {
+        "h": 43,
+        "w": 688,
+        "x": 1431,
+        "y": 99
+      },
+      "tag": "DIV",
+      "text": "dlens Topic Product PR Annotated Field Guide VOL.1 NO.01 Jun 10 · v.0.1.30"
+    },
+    {
+      "cls": "",
+      "id": "",
+      "rect": {
+        "h": 24,
+        "w": 312,
+        "x": 1446,
+        "y": 109
+      },
+      "tag": "DIV",
+      "text": "dlens Topic Product PR Annotated Field Guide"
+    },
+    {
+      "cls": "",
+      "id": "",
+      "rect": {
+        "h": 24,
+        "w": 151,
+        "x": 1490,
+        "y": 109
+      },
+      "tag": "DIV",
+      "text": "Topic Product PR"
+    },
+    {
+      "cls": "",
+      "id": "",
+      "rect": {
+        "h": 19,
+        "w": 63,
+        "x": 1541,
+        "y": 112
+      },
+      "tag": "BUTTON",
+      "text": "Product"
+    },
+    {
+      "cls": "",
+      "id": "",
+      "rect": {
+        "h": 805,
+        "w": 688,
+        "x": 1431,
+        "y": 154
+      },
+      "tag": "DIV",
+      "text": "d 採集 訊號 分類 行動 設定 Product mode 已存訊號 先確認已儲存的 Threads post 是否完成抓取，再到行動頁整理可試 workflow。 尚無結果 真實狀態 2 signals 0 analyses AI key ProductProfile ProductContext 有 signal 尚未抓取。按分析收件匣會先送出抓取請求，完成後再分析。 分析收件匣 等待處理的 signals 尚未抓取 未分析 threads × 按分析會先送出抓取請求。 報告一下剛用Claude今天新出的Fable，跟他說做個部落格列表跟文章頁，一個prompt就直接用掉3%…對，我是用Claude Max! 尚未抓取 未分析 threads × 按分析會先送出抓取請求。 Can AI content actually be good? Reply to se_ranking... 已存訊號 2 saved 報告一下剛用Claude今天新出的Fable，跟他說做個部落格列表跟文章頁，一個prompt就直接用掉3%…對，我是用Claude Max! 尚未抓取 · 尚未分析 尚未抓取 "
+    },
+    {
+      "cls": "",
+      "id": "",
+      "rect": {
+        "h": 729,
+        "w": 604,
+        "x": 1515,
+        "y": 154
+      },
+      "tag": "DIV",
+      "text": "Product mode 已存訊號 先確認已儲存的 Threads post 是否完成抓取，再到行動頁整理可試 workflow。 尚無結果 真實狀態 2 signals 0 analyses AI key ProductProfile ProductContext 有 signal 尚未抓取。按分析收件匣會先送出抓取請求，完成後再分析。 分析收件匣 等待處理的 signals 尚未抓取 未分析 threads × 按分析會先送出抓取請求。 報告一下剛用Claude今天新出的Fable，跟他說做個部落格列表跟文章頁，一個prompt就直接用掉3%…對，我是用Claude Max! 尚未抓取 未分析 threads × 按分析會先送出抓取請求。 Can AI content actually be good? Reply to se_ranking... 已存訊號 2 saved 報告一下剛用Claude今天新出的Fable，跟他說做個部落格列表跟文章頁，一個prompt就直接用掉3%…對，我是用Claude Max! 尚未抓取 · 尚未分析 尚未抓取 × Can AI content "
+    },
+    {
+      "cls": "",
+      "id": "",
+      "rect": {
+        "h": 729,
+        "w": 604,
+        "x": 1515,
+        "y": 154
+      },
+      "tag": "MAIN",
+      "text": "Product mode 已存訊號 先確認已儲存的 Threads post 是否完成抓取，再到行動頁整理可試 workflow。 尚無結果 真實狀態 2 signals 0 analyses AI key ProductProfile ProductContext 有 signal 尚未抓取。按分析收件匣會先送出抓取請求，完成後再分析。 分析收件匣 等待處理的 signals 尚未抓取 未分析 threads × 按分析會先送出抓取請求。 報告一下剛用Claude今天新出的Fable，跟他說做個部落格列表跟文章頁，一個prompt就直接用掉3%…對，我是用Claude Max! 尚未抓取 未分析 threads × 按分析會先送出抓取請求。 Can AI content actually be good? Reply to se_ranking... 已存訊號 2 saved 報告一下剛用Claude今天新出的Fable，跟他說做個部落格列表跟文章頁，一個prompt就直接用掉3%…對，我是用Claude Max! 尚未抓取 · 尚未分析 尚未抓取 × Can AI content "
+    },
+    {
+      "cls": "",
+      "id": "",
+      "rect": {
+        "h": 729,
+        "w": 604,
+        "x": 1515,
+        "y": 154
+      },
+      "tag": "SECTION",
+      "text": "Product mode 已存訊號 先確認已儲存的 Threads post 是否完成抓取，再到行動頁整理可試 workflow。 尚無結果 真實狀態 2 signals 0 analyses AI key ProductProfile ProductContext 有 signal 尚未抓取。按分析收件匣會先送出抓取請求，完成後再分析。 分析收件匣 等待處理的 signals 尚未抓取 未分析 threads × 按分析會先送出抓取請求。 報告一下剛用Claude今天新出的Fable，跟他說做個部落格列表跟文章頁，一個prompt就直接用掉3%…對，我是用Claude Max! 尚未抓取 未分析 threads × 按分析會先送出抓取請求。 Can AI content actually be good? Reply to se_ranking... 已存訊號 2 saved 報告一下剛用Claude今天新出的Fable，跟他說做個部落格列表跟文章頁，一個prompt就直接用掉3%…對，我是用Claude Max! 尚未抓取 · 尚未分析 尚未抓取 × Can AI content "
+    },
+    {
+      "cls": "",
+      "id": "",
+      "rect": {
+        "h": 729,
+        "w": 604,
+        "x": 1515,
+        "y": 154
+      },
+      "tag": "DIV",
+      "text": "Product mode 已存訊號 先確認已儲存的 Threads post 是否完成抓取，再到行動頁整理可試 workflow。 尚無結果 真實狀態 2 signals 0 analyses AI key ProductProfile ProductContext 有 signal 尚未抓取。按分析收件匣會先送出抓取請求，完成後再分析。 分析收件匣 等待處理的 signals 尚未抓取 未分析 threads × 按分析會先送出抓取請求。 報告一下剛用Claude今天新出的Fable，跟他說做個部落格列表跟文章頁，一個prompt就直接用掉3%…對，我是用Claude Max! 尚未抓取 未分析 threads × 按分析會先送出抓取請求。 Can AI content actually be good? Reply to se_ranking... 已存訊號 2 saved 報告一下剛用Claude今天新出的Fable，跟他說做個部落格列表跟文章頁，一個prompt就直接用掉3%…對，我是用Claude Max! 尚未抓取 · 尚未分析 尚未抓取 × Can AI content "
+    },
+    {
+      "cls": "",
+      "id": "",
+      "rect": {
+        "h": 78,
+        "w": 604,
+        "x": 1515,
+        "y": 154
+      },
+      "tag": "HEADER",
+      "text": "Product mode 已存訊號 先確認已儲存的 Threads post 是否完成抓取，再到行動頁整理可試 workflow。 尚無結果"
+    },
+    {
+      "cls": "",
+      "id": "",
+      "rect": {
+        "h": 68,
+        "w": 438,
+        "x": 1519,
+        "y": 164
+      },
+      "tag": "DIV",
+      "text": "Product mode 已存訊號 先確認已儲存的 Threads post 是否完成抓取，再到行動頁整理可試 workflow。"
+    },
+    {
+      "cls": "",
+      "id": "",
+      "rect": {
+        "h": 14,
+        "w": 438,
+        "x": 1519,
+        "y": 164
+      },
+      "tag": "SPAN",
+      "text": "Product mode"
+    },
+    {
+      "cls": "",
+      "id": "",
+      "rect": {
+        "h": 631,
+        "w": 604,
+        "x": 1515,
+        "y": 252
+      },
+      "tag": "SECTION",
+      "text": "真實狀態 2 signals 0 analyses AI key ProductProfile ProductContext 有 signal 尚未抓取。按分析收件匣會先送出抓取請求，完成後再分析。 分析收件匣 等待處理的 signals 尚未抓取 未分析 threads × 按分析會先送出抓取請求。 報告一下剛用Claude今天新出的Fable，跟他說做個部落格列表跟文章頁，一個prompt就直接用掉3%…對，我是用Claude Max! 尚未抓取 未分析 threads × 按分析會先送出抓取請求。 Can AI content actually be good? Reply to se_ranking... 已存訊號 2 saved 報告一下剛用Claude今天新出的Fable，跟他說做個部落格列表跟文章頁，一個prompt就直接用掉3%…對，我是用Claude Max! 尚未抓取 · 尚未分析 尚未抓取 × Can AI content actually be good? Reply to se_ranking... 尚未抓取 · 尚未分析 尚未抓取 ×"
+    },
+    {
+      "cls": "",
+      "id": "",
+      "rect": {
+        "h": 116,
+        "w": 571,
+        "x": 1532,
+        "y": 269
+      },
+      "tag": "DIV",
+      "text": "真實狀態 2 signals 0 analyses AI key ProductProfile ProductContext 有 signal 尚未抓取。按分析收件匣會先送出抓取請求，完成後再分析。 分析收件匣"
+    },
+    {
+      "cls": "",
+      "id": "",
+      "rect": {
+        "h": 22,
+        "w": 545,
+        "x": 1545,
+        "y": 280
+      },
+      "tag": "DIV",
+      "text": "真實狀態 2 signals 0 analyses AI key ProductProfile ProductContext"
+    },
+    {
+      "cls": "",
+      "id": "",
+      "rect": {
+        "h": 22,
+        "w": 376,
+        "x": 1714,
+        "y": 280
+      },
+      "tag": "DIV",
+      "text": "2 signals 0 analyses AI key ProductProfile ProductContext"
+    },
+    {
+      "cls": "",
+      "id": "",
+      "rect": {
+        "h": 22,
+        "w": 88,
+        "x": 1902,
+        "y": 280
+      },
+      "tag": "SPAN",
+      "text": "ProductProfile"
+    },
+    {
+      "cls": "",
+      "id": "",
+      "rect": {
+        "h": 22,
+        "w": 93,
+        "x": 1996,
+        "y": 280
+      },
+      "tag": "SPAN",
+      "text": "ProductContext"
+    }
+  ],
+  "title": "(4) Home • Threads",
+  "traceTail": null,
+  "url": "https://www.threads.com/#dlensQaTrace=1"
+}

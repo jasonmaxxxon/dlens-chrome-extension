@@ -1,0 +1,1748 @@
+{
+  "before": {
+    "articles": [],
+    "bodyTextHead": "For you\nNew thread\nSearch\nMessages\nActivity\nProfile\nInsights\nSaved\nFeeds\nEdit\nFollowing\nGhost posts\nMore\nThread\n4.6K views\nse_ranking\n7h\nCan AI content actually be good?\n6\n17\nTop\nView activity\nReply to se_ranking...\nartificialsweetener.ai\n6h\nThis is subjective. I think it can be if I'm the one deciding, but I don't like all of it, just like I don't like all of anything even within other mediums or genres I enjoy. It's no different than anything else.\n5\ndattamatrika\n2h\ndattamatrika\n2h\ndattamatrika\n2h\ndattamatrika\n2h\nSome replies have been hidden. See all\n© 2026\nThreads Terms\nPrivacy Policy\nConsumer Health Privacy Policy\nCookies Policy",
+    "buttons": [
+      {
+        "aria": "Close DLens popup",
+        "index": 0,
+        "mode": null,
+        "rect": {
+          "height": 48,
+          "width": 48,
+          "x": 2088,
+          "y": 24
+        },
+        "tag": "BUTTON",
+        "testid": null,
+        "text": "",
+        "utility": null,
+        "visible": true,
+        "workspace": null
+      },
+      {
+        "aria": null,
+        "index": 1,
+        "mode": null,
+        "rect": {
+          "height": 29.484375,
+          "width": 107.25,
+          "x": 1425.984375,
+          "y": 191.2265625
+        },
+        "tag": "BUTTON",
+        "testid": null,
+        "text": "Save",
+        "utility": null,
+        "visible": true,
+        "workspace": null
+      },
+      {
+        "aria": null,
+        "index": 2,
+        "mode": null,
+        "rect": {
+          "height": 29.484375,
+          "width": 107.25,
+          "x": 1541.2265625,
+          "y": 191.2265625
+        },
+        "tag": "BUTTON",
+        "testid": null,
+        "text": "Open",
+        "utility": null,
+        "visible": true,
+        "workspace": null
+      },
+      {
+        "aria": null,
+        "index": 3,
+        "mode": null,
+        "rect": {
+          "height": 18.4921875,
+          "width": 47.37890625,
+          "x": 1492.921875,
+          "y": 112.23046875
+        },
+        "tag": "BUTTON",
+        "testid": null,
+        "text": "Topic",
+        "utility": null,
+        "visible": true,
+        "workspace": "topic"
+      },
+      {
+        "aria": null,
+        "index": 4,
+        "mode": null,
+        "rect": {
+          "height": 19.046951293945312,
+          "width": 62.6568603515625,
+          "x": 1541.380615234375,
+          "y": 111.95308685302734
+        },
+        "tag": "BUTTON",
+        "testid": null,
+        "text": "Product",
+        "utility": null,
+        "visible": true,
+        "workspace": "product"
+      },
+      {
+        "aria": null,
+        "index": 5,
+        "mode": null,
+        "rect": {
+          "height": 18.4921875,
+          "width": 33.59765625,
+          "x": 1605.1171875,
+          "y": 112.23046875
+        },
+        "tag": "BUTTON",
+        "testid": null,
+        "text": "PR",
+        "utility": null,
+        "visible": true,
+        "workspace": "pr-evidence"
+      },
+      {
+        "aria": null,
+        "index": 6,
+        "mode": "collect",
+        "rect": {
+          "height": 57.99609375,
+          "width": 54.515625,
+          "x": 1439.98828125,
+          "y": 214.9453125
+        },
+        "tag": "BUTTON",
+        "testid": null,
+        "text": "採集",
+        "utility": null,
+        "visible": true,
+        "workspace": null
+      },
+      {
+        "aria": null,
+        "index": 7,
+        "mode": "saved-signals",
+        "rect": {
+          "height": 57.99609375,
+          "width": 54.515625,
+          "x": 1439.98828125,
+          "y": 280.93359375
+        },
+        "tag": "BUTTON",
+        "testid": null,
+        "text": "訊號",
+        "utility": null,
+        "visible": true,
+        "workspace": null
+      },
+      {
+        "aria": null,
+        "index": 8,
+        "mode": "classification",
+        "rect": {
+          "height": 57.99609375,
+          "width": 54.515625,
+          "x": 1439.98828125,
+          "y": 346.921875
+        },
+        "tag": "BUTTON",
+        "testid": null,
+        "text": "分類",
+        "utility": null,
+        "visible": true,
+        "workspace": null
+      },
+      {
+        "aria": null,
+        "index": 9,
+        "mode": "actionable-filter",
+        "rect": {
+          "height": 57.99609375,
+          "width": 54.515625,
+          "x": 1439.98828125,
+          "y": 412.91015625
+        },
+        "tag": "BUTTON",
+        "testid": null,
+        "text": "行動",
+        "utility": null,
+        "visible": true,
+        "workspace": null
+      },
+      {
+        "aria": null,
+        "index": 10,
+        "mode": null,
+        "rect": {
+          "height": 57.99609375,
+          "width": 54.515625,
+          "x": 1439.98828125,
+          "y": 484.8984375
+        },
+        "tag": "BUTTON",
+        "testid": null,
+        "text": "設定",
+        "utility": "settings",
+        "visible": true,
+        "workspace": null
+      },
+      {
+        "aria": null,
+        "index": 11,
+        "mode": null,
+        "rect": {
+          "height": 29.25,
+          "width": 100.921875,
+          "x": 2001.5859375,
+          "y": 294.87890625
+        },
+        "tag": "BUTTON",
+        "testid": null,
+        "text": "在 Threads 開啟",
+        "utility": null,
+        "visible": true,
+        "workspace": null
+      },
+      {
+        "aria": null,
+        "index": 12,
+        "mode": null,
+        "rect": {
+          "height": 32.484375,
+          "width": 555.515625,
+          "x": 1546.9921875,
+          "y": 387.03515625
+        },
+        "tag": "BUTTON",
+        "testid": null,
+        "text": "加入產品訊號",
+        "utility": null,
+        "visible": true,
+        "workspace": null
+      },
+      {
+        "aria": null,
+        "index": 13,
+        "mode": null,
+        "rect": {
+          "height": 33.234375,
+          "width": 91.4765625,
+          "x": 2011.03125,
+          "y": 461.00390625
+        },
+        "tag": "BUTTON",
+        "testid": null,
+        "text": "關閉收集模式",
+        "utility": null,
+        "visible": true,
+        "workspace": null
+      }
+    ],
+    "firstReadingText": null,
+    "firstReadingVisible": false,
+    "label": "b09-before-save",
+    "rootText": "Hover to preview\n|\nS\nsave\n|\nEsc\nexit\nReady\nS\nse_ranking\nCan AI content actually be good? Reply to se_ranking...\n6\n17\n—\n—\nSave\nOpen\ndlens\nTopic\nProduct\nPR\nAnnotated Field Guide\nVOL.1\nNO.02\nJun 10\n·\nv.0.1.30\nd\n採集\n訊號\n分類\n行動\n設定\nCollect mode live\n快速判斷，加入產品訊號\n指向 Threads 貼文即可預覽，按下加入產品訊號收件匣。\nActive\nLive capture\n預覽中\nS\nse_ranking\n產品訊號收件匣 · Product mode\n在 Threads 開啟\nCan AI content actually be good? Reply to se_ranking...\n6\n17\n—\n—\n—\n加入產品訊號\nSelection active\n收集模式：開啟\n移動游標選取貼文。\n關閉收集模式\nS · 儲存\nEsc · 離開",
+    "title": "(4) Can AI content actually be good?",
+    "traceCount": 54,
+    "traceTail": [
+      {
+        "at": 3417.5,
+        "event": "content.selection.sync.request",
+        "id": 1,
+        "isoTime": "2026-06-10T06:33:03.544Z"
+      },
+      {
+        "at": 3661.399999976158,
+        "detail": {
+          "folderId": null,
+          "mode": "archive",
+          "popupOpen": false
+        },
+        "event": "popup.topic.hydrate.skip",
+        "id": 2,
+        "isoTime": "2026-06-10T06:33:03.788Z"
+      },
+      {
+        "at": 3662.799999952316,
+        "detail": {
+          "folderId": null,
+          "isProductSignalPage": false,
+          "mode": "archive",
+          "page": "library",
+          "popupOpen": false
+        },
+        "event": "popup.product.hydrate.skip",
+        "id": 3,
+        "isoTime": "2026-06-10T06:33:03.789Z"
+      },
+      {
+        "at": 3773.899999976158,
+        "detail": {
+          "hasSnapshot": true,
+          "ok": true
+        },
+        "event": "content.selection.sync.response",
+        "id": 4,
+        "isoTime": "2026-06-10T06:33:03.901Z"
+      },
+      {
+        "at": 4014.899999976158,
+        "detail": {
+          "folderId": "session_ywskiblc_mp6p013z",
+          "mode": "product",
+          "popupOpen": false
+        },
+        "event": "popup.topic.hydrate.skip",
+        "id": 5,
+        "isoTime": "2026-06-10T06:33:04.142Z"
+      },
+      {
+        "at": 4015.299999952316,
+        "detail": {
+          "folderId": "session_ywskiblc_mp6p013z",
+          "isProductSignalPage": true,
+          "mode": "product",
+          "page": "saved-signals",
+          "popupOpen": false
+        },
+        "event": "popup.product.hydrate.skip",
+        "id": 6,
+        "isoTime": "2026-06-10T06:33:04.142Z"
+      },
+      {
+        "at": 38401.5,
+        "detail": {
+          "activeFolderId": "session_ywskiblc_mp6p013z",
+          "failureCount": 0,
+          "hasInflight": false
+        },
+        "event": "popup.worker.status.request",
+        "id": 7,
+        "isoTime": "2026-06-10T06:33:38.528Z"
+      },
+      {
+        "at": 38402.29999995232,
+        "detail": {
+          "folderId": "session_ywskiblc_mp6p013z",
+          "mode": "product"
+        },
+        "event": "popup.topic.hydrate.request",
+        "id": 8,
+        "isoTime": "2026-06-10T06:33:38.529Z"
+      },
+      {
+        "at": 38402.59999996424,
+        "detail": {
+          "folderId": "session_ywskiblc_mp6p013z",
+          "page": "saved-signals",
+          "signalCount": 0
+        },
+        "event": "popup.product.hydrate.request",
+        "id": 9,
+        "isoTime": "2026-06-10T06:33:38.530Z"
+      },
+      {
+        "at": 38404.59999996424,
+        "detail": {
+          "activeFolderId": "session_ywskiblc_mp6p013z",
+          "failureCount": 0,
+          "hasInflight": false
+        },
+        "event": "popup.worker.status.request",
+        "id": 10,
+        "isoTime": "2026-06-10T06:33:38.532Z"
+      },
+      {
+        "at": 38577.5,
+        "detail": {
+          "activeFolderId": "session_ywskiblc_mp6p013z",
+          "failureCount": 0,
+          "hasInflight": false
+        },
+        "event": "popup.worker.status.request",
+        "id": 11,
+        "isoTime": "2026-06-10T06:33:38.705Z"
+      },
+      {
+        "at": 38579.19999998808,
+        "detail": {
+          "activeFolderId": "session_ywskiblc_mp6p013z",
+          "failureCount": 0,
+          "hasInflight": false
+        },
+        "event": "popup.worker.status.request",
+        "id": 12,
+        "isoTime": "2026-06-10T06:33:38.706Z"
+      },
+      {
+        "at": 38759.69999998808,
+        "detail": {
+          "currentAnalysisCount": 9,
+          "currentOk": true,
+          "feedbackCount": 0,
+          "feedbackOk": true,
+          "folderId": "session_ywskiblc_mp6p013z",
+          "historicalAnalysisCount": 9,
+          "historicalOk": true,
+          "page": "saved-signals",
+          "readingCount": 7,
+          "readingsOk": true,
+          "signalCount": 0
+        },
+        "event": "popup.product.hydrate.response",
+        "id": 13,
+        "isoTime": "2026-06-10T06:33:38.887Z"
+      },
+      {
+        "at": 38760.19999998808,
+        "detail": {
+          "activeFolderId": "session_ywskiblc_mp6p013z",
+          "failureCount": 0,
+          "hasInflight": false
+        },
+        "event": "popup.worker.status.request",
+        "id": 14,
+        "isoTime": "2026-06-10T06:33:38.887Z"
+      },
+      {
+        "at": 38846.39999997616,
+        "detail": {
+          "activeFolderId": "session_ywskiblc_mp6p013z",
+          "failureCount": 0,
+          "hasInflight": false
+        },
+        "event": "popup.worker.status.request",
+        "id": 15,
+        "isoTime": "2026-06-10T06:33:38.974Z"
+      },
+      {
+        "at": 38942.59999996424,
+        "detail": {
+          "folderId": "session_ywskiblc_mp6p013z",
+          "mode": "product",
+          "signalCount": 9,
+          "signalsOk": true,
+          "topicCount": 0,
+          "topicsOk": true
+        },
+        "event": "popup.topic.hydrate.response",
+        "id": 16,
+        "isoTime": "2026-06-10T06:33:39.070Z"
+      },
+      {
+        "at": 38947.59999996424,
+        "detail": {
+          "activeFolderId": "session_ywskiblc_mp6p013z",
+          "failureCount": 0,
+          "hasInflight": false
+        },
+        "event": "popup.worker.status.request",
+        "id": 17,
+        "isoTime": "2026-06-10T06:33:39.075Z"
+      },
+      {
+        "at": 38948,
+        "detail": {
+          "folderId": "session_ywskiblc_mp6p013z",
+          "page": "saved-signals",
+          "signalCount": 9
+        },
+        "event": "popup.product.hydrate.request",
+        "id": 18,
+        "isoTime": "2026-06-10T06:33:39.075Z"
+      },
+      {
+        "at": 38949.59999996424,
+        "detail": {
+          "activeFolderId": "session_ywskiblc_mp6p013z",
+          "failureCount": 0,
+          "hasInflight": false
+        },
+        "event": "popup.worker.status.request",
+        "id": 19,
+        "isoTime": "2026-06-10T06:33:39.077Z"
+      },
+      {
+        "at": 39166.29999995232,
+        "detail": {
+          "activeFolderId": "session_ywskiblc_mp6p013z",
+          "failureCount": 0,
+          "hasInflight": false
+        },
+        "event": "popup.worker.status.request",
+        "id": 20,
+        "isoTime": "2026-06-10T06:33:39.293Z"
+      },
+      {
+        "at": 39167.69999998808,
+        "detail": {
+          "activeFolderId": "session_ywskiblc_mp6p013z",
+          "failureCount": 0,
+          "hasInflight": false
+        },
+        "event": "popup.worker.status.request",
+        "id": 21,
+        "isoTime": "2026-06-10T06:33:39.295Z"
+      },
+      {
+        "at": 39874.69999998808,
+        "detail": {
+          "currentAnalysisCount": 9,
+          "currentOk": true,
+          "feedbackCount": 0,
+          "feedbackOk": true,
+          "folderId": "session_ywskiblc_mp6p013z",
+          "historicalAnalysisCount": 9,
+          "historicalOk": true,
+          "page": "saved-signals",
+          "readingCount": 7,
+          "readingsOk": true,
+          "signalCount": 9
+        },
+        "event": "popup.product.hydrate.response",
+        "id": 22,
+        "isoTime": "2026-06-10T06:33:40.002Z"
+      },
+      {
+        "at": 39875.29999995232,
+        "detail": {
+          "activeFolderId": "session_ywskiblc_mp6p013z",
+          "failureCount": 0,
+          "hasInflight": false
+        },
+        "event": "popup.worker.status.request",
+        "id": 23,
+        "isoTime": "2026-06-10T06:33:40.002Z"
+      },
+      {
+        "at": 39877.89999997616,
+        "detail": {
+          "activeFolderId": "session_ywskiblc_mp6p013z",
+          "failureCount": 0,
+          "hasInflight": false
+        },
+        "event": "popup.worker.status.request",
+        "id": 24,
+        "isoTime": "2026-06-10T06:33:40.005Z"
+      },
+      {
+        "at": 40653.69999998808,
+        "detail": {
+          "elapsedMs": 775.7,
+          "error": "Optional ingest backend unavailable at http://127.0.0.1:8000/worker/status. Check ingestBaseUrl or start the backend. Original error: Failed to fetch",
+          "failureCount": 1
+        },
+        "event": "popup.worker.status.error",
+        "id": 25,
+        "isoTime": "2026-06-10T06:33:40.781Z"
+      },
+      {
+        "at": 40653.89999997616,
+        "detail": {
+          "delayMs": 12000,
+          "failureCount": 1,
+          "workerStatus": "idle"
+        },
+        "event": "popup.worker.next-poll",
+        "id": 26,
+        "isoTime": "2026-06-10T06:33:40.781Z"
+      },
+      {
+        "at": 40655.69999998808,
+        "detail": {
+          "activeFolderId": "session_ywskiblc_mp6p013z",
+          "failureCount": 1,
+          "hasInflight": false
+        },
+        "event": "popup.worker.status.request",
+        "id": 27,
+        "isoTime": "2026-06-10T06:33:40.783Z"
+      },
+      {
+        "at": 40839.89999997616,
+        "detail": {
+          "elapsedMs": 184.2,
+          "error": "Optional ingest backend unavailable at http://127.0.0.1:8000/worker/status. Check ingestBaseUrl or start the backend. Original error: Failed to fetch",
+          "failureCount": 2
+        },
+        "event": "popup.worker.status.error",
+        "id": 28,
+        "isoTime": "2026-06-10T06:33:40.967Z"
+      },
+      {
+        "at": 40840.09999996424,
+        "detail": {
+          "delayMs": 12000,
+          "failureCount": 2,
+          "workerStatus": "idle"
+        },
+        "event": "popup.worker.next-poll",
+        "id": 29,
+        "isoTime": "2026-06-10T06:33:40.967Z"
+      },
+      {
+        "at": 52842.29999995232,
+        "detail": {
+          "activeFolderId": "session_ywskiblc_mp6p013z",
+          "failureCount": 2,
+          "hasInflight": false
+        },
+        "event": "popup.worker.status.request",
+        "id": 30,
+        "isoTime": "2026-06-10T06:33:52.969Z"
+      },
+      {
+        "at": 53050.29999995232,
+        "detail": {
+          "elapsedMs": 208.2,
+          "error": "Optional ingest backend unavailable at http://127.0.0.1:8000/worker/status. Check ingestBaseUrl or start the backend. Original error: Failed to fetch",
+          "failureCount": 3
+        },
+        "event": "popup.worker.status.error",
+        "id": 31,
+        "isoTime": "2026-06-10T06:33:53.178Z"
+      },
+      {
+        "at": 53050.5,
+        "detail": {
+          "delayMs": 12000,
+          "failureCount": 3,
+          "workerStatus": "idle"
+        },
+        "event": "popup.worker.next-poll",
+        "id": 32,
+        "isoTime": "2026-06-10T06:33:53.178Z"
+      },
+      {
+        "at": 65051.79999995232,
+        "detail": {
+          "activeFolderId": "session_ywskiblc_mp6p013z",
+          "failureCount": 3,
+          "hasInflight": false
+        },
+        "event": "popup.worker.status.request",
+        "id": 33,
+        "isoTime": "2026-06-10T06:34:05.179Z"
+      },
+      {
+        "at": 65261.29999995232,
+        "detail": {
+          "elapsedMs": 209.6,
+          "error": "Optional ingest backend unavailable at http://127.0.0.1:8000/worker/status. Check ingestBaseUrl or start the backend. Original error: Failed to fetch",
+          "failureCount": 4
+        },
+        "event": "popup.worker.status.error",
+        "id": 34,
+        "isoTime": "2026-06-10T06:34:05.389Z"
+      },
+      {
+        "at": 65261.5,
+        "detail": {
+          "delayMs": 12000,
+          "failureCount": 4,
+          "workerStatus": "idle"
+        },
+        "event": "popup.worker.next-poll",
+        "id": 35,
+        "isoTime": "2026-06-10T06:34:05.389Z"
+      },
+      {
+        "at": 77262.29999995232,
+        "detail": {
+          "activeFolderId": "session_ywskiblc_mp6p013z",
+          "failureCount": 4,
+          "hasInflight": false
+        },
+        "event": "popup.worker.status.request",
+        "id": 36,
+        "isoTime": "2026-06-10T06:34:17.450Z"
+      },
+      {
+        "at": 77479.29999995232,
+        "detail": {
+          "elapsedMs": 217.3,
+          "error": "Optional ingest backend unavailable at http://127.0.0.1:8000/worker/status. Check ingestBaseUrl or start the backend. Original error: Failed to fetch",
+          "failureCount": 5
+        },
+        "event": "popup.worker.status.error",
+        "id": 37,
+        "isoTime": "2026-06-10T06:34:17.667Z"
+      },
+      {
+        "at": 77479.59999996424,
+        "detail": {
+          "delayMs": 12000,
+          "failureCount": 5,
+          "workerStatus": "idle"
+        },
+        "event": "popup.worker.next-poll",
+        "id": 38,
+        "isoTime": "2026-06-10T06:34:17.667Z"
+      },
+      {
+        "at": 85785.59999996424,
+        "detail": {
+          "activeFolderId": "session_ywskiblc_mp6p013z",
+          "failureCount": 5,
+          "hasInflight": false
+        },
+        "event": "popup.worker.status.request",
+        "id": 39,
+        "isoTime": "2026-06-10T06:34:25.973Z"
+      },
+      {
+        "at": 85786.5,
+        "detail": {
+          "folderId": "session_ywskiblc_mp6p013z",
+          "isProductSignalPage": false,
+          "mode": "product",
+          "page": "collect",
+          "popupOpen": true
+        },
+        "event": "popup.product.hydrate.skip",
+        "id": 40,
+        "isoTime": "2026-06-10T06:34:25.974Z"
+      },
+      {
+        "at": 86428.29999995232,
+        "detail": {
+          "activeFolderId": "session_ywskiblc_mp6p013z",
+          "failureCount": 5,
+          "hasInflight": false
+        },
+        "event": "popup.worker.status.request",
+        "id": 41,
+        "isoTime": "2026-06-10T06:34:26.616Z"
+      },
+      {
+        "at": 86874.59999996424,
+        "detail": {
+          "activeFolderId": "session_ywskiblc_mp6p013z",
+          "failureCount": 5,
+          "hasInflight": false
+        },
+        "event": "popup.worker.status.request",
+        "id": 42,
+        "isoTime": "2026-06-10T06:34:27.062Z"
+      },
+      {
+        "at": 86875.29999995232,
+        "detail": {
+          "folderId": "session_ywskiblc_mp6p013z",
+          "mode": "product"
+        },
+        "event": "popup.topic.hydrate.request",
+        "id": 43,
+        "isoTime": "2026-06-10T06:34:27.063Z"
+      },
+      {
+        "at": 86875.69999998808,
+        "detail": {
+          "folderId": "session_ywskiblc_mp6p013z",
+          "isProductSignalPage": false,
+          "mode": "product",
+          "page": "collect",
+          "popupOpen": true
+        },
+        "event": "popup.product.hydrate.skip",
+        "id": 44,
+        "isoTime": "2026-06-10T06:34:27.063Z"
+      },
+      {
+        "at": 86877.19999998808,
+        "detail": {
+          "activeFolderId": "session_ywskiblc_mp6p013z",
+          "failureCount": 5,
+          "hasInflight": false
+        },
+        "event": "popup.worker.status.request",
+        "id": 45,
+        "isoTime": "2026-06-10T06:34:27.065Z"
+      },
+      {
+        "at": 87462.5,
+        "detail": {
+          "folderId": "session_ywskiblc_mp6p013z",
+          "mode": "product",
+          "signalCount": 9,
+          "signalsOk": true,
+          "topicCount": 0,
+          "topicsOk": true
+        },
+        "event": "popup.topic.hydrate.response",
+        "id": 46,
+        "isoTime": "2026-06-10T06:34:27.650Z"
+      },
+      {
+        "at": 87463.29999995232,
+        "detail": {
+          "elapsedMs": 586.1,
+          "error": "Optional ingest backend unavailable at http://127.0.0.1:8000/worker/status. Check ingestBaseUrl or start the backend. Original error: Failed to fetch",
+          "failureCount": 6
+        },
+        "event": "popup.worker.status.error",
+        "id": 47,
+        "isoTime": "2026-06-10T06:34:27.651Z"
+      },
+      {
+        "at": 87463.59999996424,
+        "detail": {
+          "delayMs": 12000,
+          "failureCount": 6,
+          "workerStatus": "idle"
+        },
+        "event": "popup.worker.next-poll",
+        "id": 48,
+        "isoTime": "2026-06-10T06:34:27.651Z"
+      },
+      {
+        "at": 87467,
+        "detail": {
+          "activeFolderId": "session_ywskiblc_mp6p013z",
+          "failureCount": 6,
+          "hasInflight": false
+        },
+        "event": "popup.worker.status.request",
+        "id": 49,
+        "isoTime": "2026-06-10T06:34:27.655Z"
+      },
+      {
+        "at": 87798,
+        "detail": {
+          "elapsedMs": 331.1,
+          "error": "Optional ingest backend unavailable at http://127.0.0.1:8000/worker/status. Check ingestBaseUrl or start the backend. Original error: Failed to fetch",
+          "failureCount": 7
+        },
+        "event": "popup.worker.status.error",
+        "id": 50,
+        "isoTime": "2026-06-10T06:34:27.986Z"
+      },
+      {
+        "at": 87798.29999995232,
+        "detail": {
+          "delayMs": 12000,
+          "failureCount": 7,
+          "workerStatus": "idle"
+        },
+        "event": "popup.worker.next-poll",
+        "id": 51,
+        "isoTime": "2026-06-10T06:34:27.986Z"
+      },
+      {
+        "at": 99800.39999997616,
+        "detail": {
+          "activeFolderId": "session_ywskiblc_mp6p013z",
+          "failureCount": 7,
+          "hasInflight": false
+        },
+        "event": "popup.worker.status.request",
+        "id": 52,
+        "isoTime": "2026-06-10T06:34:39.988Z"
+      },
+      {
+        "at": 100019,
+        "detail": {
+          "elapsedMs": 218.6,
+          "error": "Optional ingest backend unavailable at http://127.0.0.1:8000/worker/status. Check ingestBaseUrl or start the backend. Original error: Failed to fetch",
+          "failureCount": 8
+        },
+        "event": "popup.worker.status.error",
+        "id": 53,
+        "isoTime": "2026-06-10T06:34:40.207Z"
+      },
+      {
+        "at": 100019.09999996424,
+        "detail": {
+          "delayMs": 12000,
+          "failureCount": 8,
+          "workerStatus": "idle"
+        },
+        "event": "popup.worker.next-poll",
+        "id": 54,
+        "isoTime": "2026-06-10T06:34:40.207Z"
+      }
+    ],
+    "url": "https://www.threads.com/@se_ranking/post/DZYf_mngRnt",
+    "viewport": {
+      "height": 1083,
+      "width": 2160
+    }
+  },
+  "after": {
+    "articles": [],
+    "bodyTextHead": "For you\nNew thread\nSearch\nMessages\nActivity\nProfile\nInsights\nSaved\nFeeds\nEdit\nFollowing\nGhost posts\nMore\nThread\n4.6K views\nse_ranking\n7h\nCan AI content actually be good?\n6\n17\nTop\nView activity\nReply to se_ranking...\nartificialsweetener.ai\n6h\nThis is subjective. I think it can be if I'm the one deciding, but I don't like all of it, just like I don't like all of anything even within other mediums or genres I enjoy. It's no different than anything else.\n5\ndattamatrika\n2h\ndattamatrika\n2h\ndattamatrika\n2h\ndattamatrika\n2h\nSome replies have been hidden. See all\n© 2026\nThreads Terms\nPrivacy Policy\nConsumer Health Privacy Policy\nCookies Policy",
+    "buttons": [
+      {
+        "aria": "Close DLens popup",
+        "index": 0,
+        "mode": null,
+        "rect": {
+          "height": 48,
+          "width": 48,
+          "x": 2088,
+          "y": 24
+        },
+        "tag": "BUTTON",
+        "testid": null,
+        "text": "",
+        "utility": null,
+        "visible": true,
+        "workspace": null
+      },
+      {
+        "aria": null,
+        "index": 1,
+        "mode": null,
+        "rect": {
+          "height": 29.484375,
+          "width": 107.25,
+          "x": 1425.984375,
+          "y": 191.2265625
+        },
+        "tag": "BUTTON",
+        "testid": null,
+        "text": "Saved",
+        "utility": null,
+        "visible": true,
+        "workspace": null
+      },
+      {
+        "aria": null,
+        "index": 2,
+        "mode": null,
+        "rect": {
+          "height": 29.484375,
+          "width": 107.25,
+          "x": 1541.2265625,
+          "y": 191.2265625
+        },
+        "tag": "BUTTON",
+        "testid": null,
+        "text": "Open",
+        "utility": null,
+        "visible": true,
+        "workspace": null
+      },
+      {
+        "aria": null,
+        "index": 3,
+        "mode": null,
+        "rect": {
+          "height": 18.4921875,
+          "width": 47.37890625,
+          "x": 1492.921875,
+          "y": 112.23046875
+        },
+        "tag": "BUTTON",
+        "testid": null,
+        "text": "Topic",
+        "utility": null,
+        "visible": true,
+        "workspace": "topic"
+      },
+      {
+        "aria": null,
+        "index": 4,
+        "mode": null,
+        "rect": {
+          "height": 19.046951293945312,
+          "width": 62.6568603515625,
+          "x": 1541.380615234375,
+          "y": 111.95308685302734
+        },
+        "tag": "BUTTON",
+        "testid": null,
+        "text": "Product",
+        "utility": null,
+        "visible": true,
+        "workspace": "product"
+      },
+      {
+        "aria": null,
+        "index": 5,
+        "mode": null,
+        "rect": {
+          "height": 18.4921875,
+          "width": 33.59765625,
+          "x": 1605.1171875,
+          "y": 112.23046875
+        },
+        "tag": "BUTTON",
+        "testid": null,
+        "text": "PR",
+        "utility": null,
+        "visible": true,
+        "workspace": "pr-evidence"
+      },
+      {
+        "aria": null,
+        "index": 6,
+        "mode": "collect",
+        "rect": {
+          "height": 57.99609375,
+          "width": 54.515625,
+          "x": 1439.98828125,
+          "y": 214.9453125
+        },
+        "tag": "BUTTON",
+        "testid": null,
+        "text": "採集",
+        "utility": null,
+        "visible": true,
+        "workspace": null
+      },
+      {
+        "aria": null,
+        "index": 7,
+        "mode": "saved-signals",
+        "rect": {
+          "height": 57.99609375,
+          "width": 54.515625,
+          "x": 1439.98828125,
+          "y": 280.93359375
+        },
+        "tag": "BUTTON",
+        "testid": null,
+        "text": "訊號",
+        "utility": null,
+        "visible": true,
+        "workspace": null
+      },
+      {
+        "aria": null,
+        "index": 8,
+        "mode": "classification",
+        "rect": {
+          "height": 57.99609375,
+          "width": 54.515625,
+          "x": 1439.98828125,
+          "y": 346.921875
+        },
+        "tag": "BUTTON",
+        "testid": null,
+        "text": "分類",
+        "utility": null,
+        "visible": true,
+        "workspace": null
+      },
+      {
+        "aria": null,
+        "index": 9,
+        "mode": "actionable-filter",
+        "rect": {
+          "height": 57.99609375,
+          "width": 54.515625,
+          "x": 1439.98828125,
+          "y": 412.91015625
+        },
+        "tag": "BUTTON",
+        "testid": null,
+        "text": "行動",
+        "utility": null,
+        "visible": true,
+        "workspace": null
+      },
+      {
+        "aria": null,
+        "index": 10,
+        "mode": null,
+        "rect": {
+          "height": 57.99609375,
+          "width": 54.515625,
+          "x": 1439.98828125,
+          "y": 484.8984375
+        },
+        "tag": "BUTTON",
+        "testid": null,
+        "text": "設定",
+        "utility": "settings",
+        "visible": true,
+        "workspace": null
+      },
+      {
+        "aria": null,
+        "index": 11,
+        "mode": null,
+        "rect": {
+          "height": 29.25,
+          "width": 100.921875,
+          "x": 2001.5859375,
+          "y": 294.87890625
+        },
+        "tag": "BUTTON",
+        "testid": null,
+        "text": "在 Threads 開啟",
+        "utility": null,
+        "visible": true,
+        "workspace": null
+      },
+      {
+        "aria": null,
+        "index": 12,
+        "mode": null,
+        "rect": {
+          "height": 32.484375,
+          "width": 555.515625,
+          "x": 1546.9921875,
+          "y": 387.03515625
+        },
+        "tag": "BUTTON",
+        "testid": null,
+        "text": "已加入產品訊號",
+        "utility": null,
+        "visible": true,
+        "workspace": null
+      },
+      {
+        "aria": null,
+        "index": 13,
+        "mode": null,
+        "rect": {
+          "height": 33.234375,
+          "width": 91.4765625,
+          "x": 2011.03125,
+          "y": 461.00390625
+        },
+        "tag": "BUTTON",
+        "testid": null,
+        "text": "關閉收集模式",
+        "utility": null,
+        "visible": true,
+        "workspace": null
+      }
+    ],
+    "firstReadingText": null,
+    "firstReadingVisible": false,
+    "label": "b09-poll-0",
+    "rootText": "Hover to preview\n|\nS\nsave\n|\nEsc\nexit\nSaved\nS\nse_ranking\nCan AI content actually be good? Reply to se_ranking...\n6\n17\n—\n—\nSaved\nOpen\n已加入產品訊號\ndlens\nTopic\nProduct\nPR\nAnnotated Field Guide\nVOL.1\nNO.02\nJun 10\n·\nv.0.1.30\nd\n採集\n訊號\n分類\n行動\n設定\nCollect mode live\n快速判斷，加入產品訊號\n指向 Threads 貼文即可預覽，按下加入產品訊號收件匣。\nActive\nLive capture\n已儲存\nS\nse_ranking\n產品訊號收件匣 · Product mode\n在 Threads 開啟\nCan AI content actually be good? Reply to se_ranking...\n6\n17\n—\n—\n—\n已加入產品訊號\nSelection active\n收集模式：開啟\n移動游標選取貼文。\n關閉收集模式\nS · 儲存\nEsc · 離開",
+    "title": "(4) Can AI content actually be good?",
+    "traceCount": 54,
+    "traceTail": [
+      {
+        "at": 3417.5,
+        "event": "content.selection.sync.request",
+        "id": 1,
+        "isoTime": "2026-06-10T06:33:03.544Z"
+      },
+      {
+        "at": 3661.399999976158,
+        "detail": {
+          "folderId": null,
+          "mode": "archive",
+          "popupOpen": false
+        },
+        "event": "popup.topic.hydrate.skip",
+        "id": 2,
+        "isoTime": "2026-06-10T06:33:03.788Z"
+      },
+      {
+        "at": 3662.799999952316,
+        "detail": {
+          "folderId": null,
+          "isProductSignalPage": false,
+          "mode": "archive",
+          "page": "library",
+          "popupOpen": false
+        },
+        "event": "popup.product.hydrate.skip",
+        "id": 3,
+        "isoTime": "2026-06-10T06:33:03.789Z"
+      },
+      {
+        "at": 3773.899999976158,
+        "detail": {
+          "hasSnapshot": true,
+          "ok": true
+        },
+        "event": "content.selection.sync.response",
+        "id": 4,
+        "isoTime": "2026-06-10T06:33:03.901Z"
+      },
+      {
+        "at": 4014.899999976158,
+        "detail": {
+          "folderId": "session_ywskiblc_mp6p013z",
+          "mode": "product",
+          "popupOpen": false
+        },
+        "event": "popup.topic.hydrate.skip",
+        "id": 5,
+        "isoTime": "2026-06-10T06:33:04.142Z"
+      },
+      {
+        "at": 4015.299999952316,
+        "detail": {
+          "folderId": "session_ywskiblc_mp6p013z",
+          "isProductSignalPage": true,
+          "mode": "product",
+          "page": "saved-signals",
+          "popupOpen": false
+        },
+        "event": "popup.product.hydrate.skip",
+        "id": 6,
+        "isoTime": "2026-06-10T06:33:04.142Z"
+      },
+      {
+        "at": 38401.5,
+        "detail": {
+          "activeFolderId": "session_ywskiblc_mp6p013z",
+          "failureCount": 0,
+          "hasInflight": false
+        },
+        "event": "popup.worker.status.request",
+        "id": 7,
+        "isoTime": "2026-06-10T06:33:38.528Z"
+      },
+      {
+        "at": 38402.29999995232,
+        "detail": {
+          "folderId": "session_ywskiblc_mp6p013z",
+          "mode": "product"
+        },
+        "event": "popup.topic.hydrate.request",
+        "id": 8,
+        "isoTime": "2026-06-10T06:33:38.529Z"
+      },
+      {
+        "at": 38402.59999996424,
+        "detail": {
+          "folderId": "session_ywskiblc_mp6p013z",
+          "page": "saved-signals",
+          "signalCount": 0
+        },
+        "event": "popup.product.hydrate.request",
+        "id": 9,
+        "isoTime": "2026-06-10T06:33:38.530Z"
+      },
+      {
+        "at": 38404.59999996424,
+        "detail": {
+          "activeFolderId": "session_ywskiblc_mp6p013z",
+          "failureCount": 0,
+          "hasInflight": false
+        },
+        "event": "popup.worker.status.request",
+        "id": 10,
+        "isoTime": "2026-06-10T06:33:38.532Z"
+      },
+      {
+        "at": 38577.5,
+        "detail": {
+          "activeFolderId": "session_ywskiblc_mp6p013z",
+          "failureCount": 0,
+          "hasInflight": false
+        },
+        "event": "popup.worker.status.request",
+        "id": 11,
+        "isoTime": "2026-06-10T06:33:38.705Z"
+      },
+      {
+        "at": 38579.19999998808,
+        "detail": {
+          "activeFolderId": "session_ywskiblc_mp6p013z",
+          "failureCount": 0,
+          "hasInflight": false
+        },
+        "event": "popup.worker.status.request",
+        "id": 12,
+        "isoTime": "2026-06-10T06:33:38.706Z"
+      },
+      {
+        "at": 38759.69999998808,
+        "detail": {
+          "currentAnalysisCount": 9,
+          "currentOk": true,
+          "feedbackCount": 0,
+          "feedbackOk": true,
+          "folderId": "session_ywskiblc_mp6p013z",
+          "historicalAnalysisCount": 9,
+          "historicalOk": true,
+          "page": "saved-signals",
+          "readingCount": 7,
+          "readingsOk": true,
+          "signalCount": 0
+        },
+        "event": "popup.product.hydrate.response",
+        "id": 13,
+        "isoTime": "2026-06-10T06:33:38.887Z"
+      },
+      {
+        "at": 38760.19999998808,
+        "detail": {
+          "activeFolderId": "session_ywskiblc_mp6p013z",
+          "failureCount": 0,
+          "hasInflight": false
+        },
+        "event": "popup.worker.status.request",
+        "id": 14,
+        "isoTime": "2026-06-10T06:33:38.887Z"
+      },
+      {
+        "at": 38846.39999997616,
+        "detail": {
+          "activeFolderId": "session_ywskiblc_mp6p013z",
+          "failureCount": 0,
+          "hasInflight": false
+        },
+        "event": "popup.worker.status.request",
+        "id": 15,
+        "isoTime": "2026-06-10T06:33:38.974Z"
+      },
+      {
+        "at": 38942.59999996424,
+        "detail": {
+          "folderId": "session_ywskiblc_mp6p013z",
+          "mode": "product",
+          "signalCount": 9,
+          "signalsOk": true,
+          "topicCount": 0,
+          "topicsOk": true
+        },
+        "event": "popup.topic.hydrate.response",
+        "id": 16,
+        "isoTime": "2026-06-10T06:33:39.070Z"
+      },
+      {
+        "at": 38947.59999996424,
+        "detail": {
+          "activeFolderId": "session_ywskiblc_mp6p013z",
+          "failureCount": 0,
+          "hasInflight": false
+        },
+        "event": "popup.worker.status.request",
+        "id": 17,
+        "isoTime": "2026-06-10T06:33:39.075Z"
+      },
+      {
+        "at": 38948,
+        "detail": {
+          "folderId": "session_ywskiblc_mp6p013z",
+          "page": "saved-signals",
+          "signalCount": 9
+        },
+        "event": "popup.product.hydrate.request",
+        "id": 18,
+        "isoTime": "2026-06-10T06:33:39.075Z"
+      },
+      {
+        "at": 38949.59999996424,
+        "detail": {
+          "activeFolderId": "session_ywskiblc_mp6p013z",
+          "failureCount": 0,
+          "hasInflight": false
+        },
+        "event": "popup.worker.status.request",
+        "id": 19,
+        "isoTime": "2026-06-10T06:33:39.077Z"
+      },
+      {
+        "at": 39166.29999995232,
+        "detail": {
+          "activeFolderId": "session_ywskiblc_mp6p013z",
+          "failureCount": 0,
+          "hasInflight": false
+        },
+        "event": "popup.worker.status.request",
+        "id": 20,
+        "isoTime": "2026-06-10T06:33:39.293Z"
+      },
+      {
+        "at": 39167.69999998808,
+        "detail": {
+          "activeFolderId": "session_ywskiblc_mp6p013z",
+          "failureCount": 0,
+          "hasInflight": false
+        },
+        "event": "popup.worker.status.request",
+        "id": 21,
+        "isoTime": "2026-06-10T06:33:39.295Z"
+      },
+      {
+        "at": 39874.69999998808,
+        "detail": {
+          "currentAnalysisCount": 9,
+          "currentOk": true,
+          "feedbackCount": 0,
+          "feedbackOk": true,
+          "folderId": "session_ywskiblc_mp6p013z",
+          "historicalAnalysisCount": 9,
+          "historicalOk": true,
+          "page": "saved-signals",
+          "readingCount": 7,
+          "readingsOk": true,
+          "signalCount": 9
+        },
+        "event": "popup.product.hydrate.response",
+        "id": 22,
+        "isoTime": "2026-06-10T06:33:40.002Z"
+      },
+      {
+        "at": 39875.29999995232,
+        "detail": {
+          "activeFolderId": "session_ywskiblc_mp6p013z",
+          "failureCount": 0,
+          "hasInflight": false
+        },
+        "event": "popup.worker.status.request",
+        "id": 23,
+        "isoTime": "2026-06-10T06:33:40.002Z"
+      },
+      {
+        "at": 39877.89999997616,
+        "detail": {
+          "activeFolderId": "session_ywskiblc_mp6p013z",
+          "failureCount": 0,
+          "hasInflight": false
+        },
+        "event": "popup.worker.status.request",
+        "id": 24,
+        "isoTime": "2026-06-10T06:33:40.005Z"
+      },
+      {
+        "at": 40653.69999998808,
+        "detail": {
+          "elapsedMs": 775.7,
+          "error": "Optional ingest backend unavailable at http://127.0.0.1:8000/worker/status. Check ingestBaseUrl or start the backend. Original error: Failed to fetch",
+          "failureCount": 1
+        },
+        "event": "popup.worker.status.error",
+        "id": 25,
+        "isoTime": "2026-06-10T06:33:40.781Z"
+      },
+      {
+        "at": 40653.89999997616,
+        "detail": {
+          "delayMs": 12000,
+          "failureCount": 1,
+          "workerStatus": "idle"
+        },
+        "event": "popup.worker.next-poll",
+        "id": 26,
+        "isoTime": "2026-06-10T06:33:40.781Z"
+      },
+      {
+        "at": 40655.69999998808,
+        "detail": {
+          "activeFolderId": "session_ywskiblc_mp6p013z",
+          "failureCount": 1,
+          "hasInflight": false
+        },
+        "event": "popup.worker.status.request",
+        "id": 27,
+        "isoTime": "2026-06-10T06:33:40.783Z"
+      },
+      {
+        "at": 40839.89999997616,
+        "detail": {
+          "elapsedMs": 184.2,
+          "error": "Optional ingest backend unavailable at http://127.0.0.1:8000/worker/status. Check ingestBaseUrl or start the backend. Original error: Failed to fetch",
+          "failureCount": 2
+        },
+        "event": "popup.worker.status.error",
+        "id": 28,
+        "isoTime": "2026-06-10T06:33:40.967Z"
+      },
+      {
+        "at": 40840.09999996424,
+        "detail": {
+          "delayMs": 12000,
+          "failureCount": 2,
+          "workerStatus": "idle"
+        },
+        "event": "popup.worker.next-poll",
+        "id": 29,
+        "isoTime": "2026-06-10T06:33:40.967Z"
+      },
+      {
+        "at": 52842.29999995232,
+        "detail": {
+          "activeFolderId": "session_ywskiblc_mp6p013z",
+          "failureCount": 2,
+          "hasInflight": false
+        },
+        "event": "popup.worker.status.request",
+        "id": 30,
+        "isoTime": "2026-06-10T06:33:52.969Z"
+      },
+      {
+        "at": 53050.29999995232,
+        "detail": {
+          "elapsedMs": 208.2,
+          "error": "Optional ingest backend unavailable at http://127.0.0.1:8000/worker/status. Check ingestBaseUrl or start the backend. Original error: Failed to fetch",
+          "failureCount": 3
+        },
+        "event": "popup.worker.status.error",
+        "id": 31,
+        "isoTime": "2026-06-10T06:33:53.178Z"
+      },
+      {
+        "at": 53050.5,
+        "detail": {
+          "delayMs": 12000,
+          "failureCount": 3,
+          "workerStatus": "idle"
+        },
+        "event": "popup.worker.next-poll",
+        "id": 32,
+        "isoTime": "2026-06-10T06:33:53.178Z"
+      },
+      {
+        "at": 65051.79999995232,
+        "detail": {
+          "activeFolderId": "session_ywskiblc_mp6p013z",
+          "failureCount": 3,
+          "hasInflight": false
+        },
+        "event": "popup.worker.status.request",
+        "id": 33,
+        "isoTime": "2026-06-10T06:34:05.179Z"
+      },
+      {
+        "at": 65261.29999995232,
+        "detail": {
+          "elapsedMs": 209.6,
+          "error": "Optional ingest backend unavailable at http://127.0.0.1:8000/worker/status. Check ingestBaseUrl or start the backend. Original error: Failed to fetch",
+          "failureCount": 4
+        },
+        "event": "popup.worker.status.error",
+        "id": 34,
+        "isoTime": "2026-06-10T06:34:05.389Z"
+      },
+      {
+        "at": 65261.5,
+        "detail": {
+          "delayMs": 12000,
+          "failureCount": 4,
+          "workerStatus": "idle"
+        },
+        "event": "popup.worker.next-poll",
+        "id": 35,
+        "isoTime": "2026-06-10T06:34:05.389Z"
+      },
+      {
+        "at": 77262.29999995232,
+        "detail": {
+          "activeFolderId": "session_ywskiblc_mp6p013z",
+          "failureCount": 4,
+          "hasInflight": false
+        },
+        "event": "popup.worker.status.request",
+        "id": 36,
+        "isoTime": "2026-06-10T06:34:17.450Z"
+      },
+      {
+        "at": 77479.29999995232,
+        "detail": {
+          "elapsedMs": 217.3,
+          "error": "Optional ingest backend unavailable at http://127.0.0.1:8000/worker/status. Check ingestBaseUrl or start the backend. Original error: Failed to fetch",
+          "failureCount": 5
+        },
+        "event": "popup.worker.status.error",
+        "id": 37,
+        "isoTime": "2026-06-10T06:34:17.667Z"
+      },
+      {
+        "at": 77479.59999996424,
+        "detail": {
+          "delayMs": 12000,
+          "failureCount": 5,
+          "workerStatus": "idle"
+        },
+        "event": "popup.worker.next-poll",
+        "id": 38,
+        "isoTime": "2026-06-10T06:34:17.667Z"
+      },
+      {
+        "at": 85785.59999996424,
+        "detail": {
+          "activeFolderId": "session_ywskiblc_mp6p013z",
+          "failureCount": 5,
+          "hasInflight": false
+        },
+        "event": "popup.worker.status.request",
+        "id": 39,
+        "isoTime": "2026-06-10T06:34:25.973Z"
+      },
+      {
+        "at": 85786.5,
+        "detail": {
+          "folderId": "session_ywskiblc_mp6p013z",
+          "isProductSignalPage": false,
+          "mode": "product",
+          "page": "collect",
+          "popupOpen": true
+        },
+        "event": "popup.product.hydrate.skip",
+        "id": 40,
+        "isoTime": "2026-06-10T06:34:25.974Z"
+      },
+      {
+        "at": 86428.29999995232,
+        "detail": {
+          "activeFolderId": "session_ywskiblc_mp6p013z",
+          "failureCount": 5,
+          "hasInflight": false
+        },
+        "event": "popup.worker.status.request",
+        "id": 41,
+        "isoTime": "2026-06-10T06:34:26.616Z"
+      },
+      {
+        "at": 86874.59999996424,
+        "detail": {
+          "activeFolderId": "session_ywskiblc_mp6p013z",
+          "failureCount": 5,
+          "hasInflight": false
+        },
+        "event": "popup.worker.status.request",
+        "id": 42,
+        "isoTime": "2026-06-10T06:34:27.062Z"
+      },
+      {
+        "at": 86875.29999995232,
+        "detail": {
+          "folderId": "session_ywskiblc_mp6p013z",
+          "mode": "product"
+        },
+        "event": "popup.topic.hydrate.request",
+        "id": 43,
+        "isoTime": "2026-06-10T06:34:27.063Z"
+      },
+      {
+        "at": 86875.69999998808,
+        "detail": {
+          "folderId": "session_ywskiblc_mp6p013z",
+          "isProductSignalPage": false,
+          "mode": "product",
+          "page": "collect",
+          "popupOpen": true
+        },
+        "event": "popup.product.hydrate.skip",
+        "id": 44,
+        "isoTime": "2026-06-10T06:34:27.063Z"
+      },
+      {
+        "at": 86877.19999998808,
+        "detail": {
+          "activeFolderId": "session_ywskiblc_mp6p013z",
+          "failureCount": 5,
+          "hasInflight": false
+        },
+        "event": "popup.worker.status.request",
+        "id": 45,
+        "isoTime": "2026-06-10T06:34:27.065Z"
+      },
+      {
+        "at": 87462.5,
+        "detail": {
+          "folderId": "session_ywskiblc_mp6p013z",
+          "mode": "product",
+          "signalCount": 9,
+          "signalsOk": true,
+          "topicCount": 0,
+          "topicsOk": true
+        },
+        "event": "popup.topic.hydrate.response",
+        "id": 46,
+        "isoTime": "2026-06-10T06:34:27.650Z"
+      },
+      {
+        "at": 87463.29999995232,
+        "detail": {
+          "elapsedMs": 586.1,
+          "error": "Optional ingest backend unavailable at http://127.0.0.1:8000/worker/status. Check ingestBaseUrl or start the backend. Original error: Failed to fetch",
+          "failureCount": 6
+        },
+        "event": "popup.worker.status.error",
+        "id": 47,
+        "isoTime": "2026-06-10T06:34:27.651Z"
+      },
+      {
+        "at": 87463.59999996424,
+        "detail": {
+          "delayMs": 12000,
+          "failureCount": 6,
+          "workerStatus": "idle"
+        },
+        "event": "popup.worker.next-poll",
+        "id": 48,
+        "isoTime": "2026-06-10T06:34:27.651Z"
+      },
+      {
+        "at": 87467,
+        "detail": {
+          "activeFolderId": "session_ywskiblc_mp6p013z",
+          "failureCount": 6,
+          "hasInflight": false
+        },
+        "event": "popup.worker.status.request",
+        "id": 49,
+        "isoTime": "2026-06-10T06:34:27.655Z"
+      },
+      {
+        "at": 87798,
+        "detail": {
+          "elapsedMs": 331.1,
+          "error": "Optional ingest backend unavailable at http://127.0.0.1:8000/worker/status. Check ingestBaseUrl or start the backend. Original error: Failed to fetch",
+          "failureCount": 7
+        },
+        "event": "popup.worker.status.error",
+        "id": 50,
+        "isoTime": "2026-06-10T06:34:27.986Z"
+      },
+      {
+        "at": 87798.29999995232,
+        "detail": {
+          "delayMs": 12000,
+          "failureCount": 7,
+          "workerStatus": "idle"
+        },
+        "event": "popup.worker.next-poll",
+        "id": 51,
+        "isoTime": "2026-06-10T06:34:27.986Z"
+      },
+      {
+        "at": 99800.39999997616,
+        "detail": {
+          "activeFolderId": "session_ywskiblc_mp6p013z",
+          "failureCount": 7,
+          "hasInflight": false
+        },
+        "event": "popup.worker.status.request",
+        "id": 52,
+        "isoTime": "2026-06-10T06:34:39.988Z"
+      },
+      {
+        "at": 100019,
+        "detail": {
+          "elapsedMs": 218.6,
+          "error": "Optional ingest backend unavailable at http://127.0.0.1:8000/worker/status. Check ingestBaseUrl or start the backend. Original error: Failed to fetch",
+          "failureCount": 8
+        },
+        "event": "popup.worker.status.error",
+        "id": 53,
+        "isoTime": "2026-06-10T06:34:40.207Z"
+      },
+      {
+        "at": 100019.09999996424,
+        "detail": {
+          "delayMs": 12000,
+          "failureCount": 8,
+          "workerStatus": "idle"
+        },
+        "event": "popup.worker.next-poll",
+        "id": 54,
+        "isoTime": "2026-06-10T06:34:40.207Z"
+      }
+    ],
+    "url": "https://www.threads.com/@se_ranking/post/DZYf_mngRnt",
+    "viewport": {
+      "height": 1083,
+      "width": 2160
+    }
+  }
+}

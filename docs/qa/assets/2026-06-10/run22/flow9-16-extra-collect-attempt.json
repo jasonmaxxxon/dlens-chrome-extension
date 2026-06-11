@@ -1,0 +1,452 @@
+{
+  "hoverCollectAttemptsB": [
+    {
+      "buttonDisabled": false,
+      "buttonText": "加入產品訊號",
+      "hoverEvents": [
+        {
+          "at": 254674.59999996424,
+          "detail": {
+            "delayMs": 0,
+            "fingerprint": "/@maxfei22/post/DZY4C9HASgG",
+            "hasCard": true,
+            "strength": "hard"
+          },
+          "event": "content.hover.card-change",
+          "id": 184,
+          "isoTime": "2026-06-10T07:06:30.603Z"
+        },
+        {
+          "at": 254679.69999998808,
+          "detail": {
+            "hasDescriptor": true,
+            "postUrl": "https://www.threads.net/@maxfei22/post/DZY4C9HASgG",
+            "readMs": 2.3
+          },
+          "event": "content.hover.intent-fired",
+          "id": 185,
+          "isoTime": "2026-06-10T07:06:30.608Z"
+        },
+        {
+          "at": 254680.09999996424,
+          "detail": {
+            "author": "maxfei22",
+            "hasDescriptor": true,
+            "postUrl": "https://www.threads.net/@maxfei22/post/DZY4C9HASgG",
+            "strength": "hard"
+          },
+          "event": "content.hover.publish",
+          "id": 186,
+          "isoTime": "2026-06-10T07:06:30.608Z"
+        }
+      ],
+      "label": "maxfei22",
+      "tail": "form: none !important; } [data-dlens-control=\"true\"] [data-dlens-button], [data-dlens-control=\"true\"] [data-workspace-mode-frame=\"true\"] { animation: none !important; } } dlens [data-dlens-control=\"true\"] [data-workspace-switcher-motion=\"verdict\"] [data-workspace-switcher-mode] { transition:transform 220ms cubic-bezier(0.22, 1.12, 0.36, 1), background-color 180ms cubic-bezier(0.4, 0, 0.2, 1), border-color 180ms cubic-bezier(0.4, 0, 0.2, 1), box-shadow 180ms cubic-bezier(0.4, 0, 0.2, 1), color 180ms cubic-bezier(0.4, 0, 0.2, 1); will-change: transform; } [data-dlens-control=\"true\"] [data-workspace-switcher-motion=\"verdict\"] [data-workspace-switcher-mode]:not(:disabled):hover { transform: scale(1.04); } [data-dlens-control=\"true\"] [data-workspace-switcher-motion=\"verdict\"] [data-workspace-switcher-active=\"true\"] { transform: scale(1.03); box-shadow: 0 4px 10px rgba(27,26,23,0.10); } @media (prefers-reduced-motion: reduce) { [data-dlens-control=\"true\"] [data-workspace-switcher-motion=\"verdict\"] [data-workspace-switcher-mode], [data-dlens-control=\"true\"] [data-workspace-switcher-motion=\"verdict\"] [data-workspace-switcher-mode]:not(:disabled):hover, [data-dlens-control=\"true\"] [data-workspace-switcher-motion=\"verdict\"] [data-workspace-switcher-active=\"true\"] { transition: background-color 140ms cubic-bezier(0.4, 0, 0.2, 1), border-color 140ms cubic-bezier(0.4, 0, 0.2, 1), color 140ms cubic-bezier(0.4, 0, 0.2, 1) !important; transform: none !important; } } TopicProductPRAnnotated Field GuideVOL.1NO.02Jun 10·v.0.1.30d採集訊號分類行動設定Collect mode live快速判斷，加入產品訊號指向 Threads 貼文即可預覽，按下加入產品訊號收件匣。ActiveLive capture預覽中Mmaxfei22產品訊號收件匣 · Product mode在 Threads 開啟報告一下剛用Claude今天新出的Fable，跟他說做個部落格列表跟文章頁，一個prompt就直接用掉3%…對，我是用Claude Max!23——加入產品訊號Selection active收集模式：開啟移動游標選取貼文。關閉收集模式S · 儲存Esc · 離開"
+    }
+  ],
+  "afterAttemptExtraB": {
+    "hasBackendOffline": false,
+    "hasCollectedPost": true,
+    "hasSignalNotFound": false,
+    "hydrateEvents": [
+      {
+        "at": 223964.89999997616,
+        "detail": {
+          "folderId": "session_ywskiblc_mp6p013z",
+          "page": "saved-signals",
+          "signalCount": 1
+        },
+        "event": "popup.product.hydrate.request",
+        "id": 138,
+        "isoTime": "2026-06-10T07:05:59.864Z"
+      },
+      {
+        "at": 224301.59999996424,
+        "detail": {
+          "currentAnalysisCount": 0,
+          "currentOk": true,
+          "feedbackCount": 0,
+          "feedbackOk": true,
+          "folderId": "session_ywskiblc_mp6p013z",
+          "historicalAnalysisCount": 0,
+          "historicalOk": true,
+          "page": "saved-signals",
+          "readingCount": 7,
+          "readingsOk": true,
+          "signalCount": 1
+        },
+        "event": "popup.product.hydrate.response",
+        "id": 142,
+        "isoTime": "2026-06-10T07:06:00.201Z"
+      },
+      {
+        "at": 224638.19999998808,
+        "detail": {
+          "folderId": "session_ywskiblc_mp6p013z",
+          "mode": "product",
+          "signalCount": 1,
+          "signalsOk": true,
+          "topicCount": 0,
+          "topicsOk": true
+        },
+        "event": "popup.topic.hydrate.response",
+        "id": 144,
+        "isoTime": "2026-06-10T07:06:00.537Z"
+      },
+      {
+        "at": 251310.79999995232,
+        "detail": {
+          "folderId": "session_ywskiblc_mp6p013z",
+          "isProductSignalPage": false,
+          "mode": "product",
+          "page": "collect",
+          "popupOpen": true
+        },
+        "event": "popup.product.hydrate.skip",
+        "id": 158,
+        "isoTime": "2026-06-10T07:06:27.235Z"
+      },
+      {
+        "at": 251914.29999995232,
+        "detail": {
+          "folderId": "session_ywskiblc_mp6p013z",
+          "mode": "product"
+        },
+        "event": "popup.topic.hydrate.request",
+        "id": 161,
+        "isoTime": "2026-06-10T07:06:27.839Z"
+      },
+      {
+        "at": 251914.59999996424,
+        "detail": {
+          "folderId": "session_ywskiblc_mp6p013z",
+          "isProductSignalPage": false,
+          "mode": "product",
+          "page": "collect",
+          "popupOpen": true
+        },
+        "event": "popup.product.hydrate.skip",
+        "id": 162,
+        "isoTime": "2026-06-10T07:06:27.840Z"
+      },
+      {
+        "at": 252278.19999998808,
+        "detail": {
+          "folderId": "session_ywskiblc_mp6p013z",
+          "mode": "product",
+          "signalCount": 1,
+          "signalsOk": true,
+          "topicCount": 0,
+          "topicsOk": true
+        },
+        "event": "popup.topic.hydrate.response",
+        "id": 166,
+        "isoTime": "2026-06-10T07:06:28.204Z"
+      },
+      {
+        "at": 252827.69999998808,
+        "detail": {
+          "folderId": "session_ywskiblc_mp6p013z",
+          "isProductSignalPage": false,
+          "mode": "product",
+          "page": "collect",
+          "popupOpen": true
+        },
+        "event": "popup.product.hydrate.skip",
+        "id": 173,
+        "isoTime": "2026-06-10T07:06:28.754Z"
+      },
+      {
+        "at": 256288.79999995232,
+        "detail": {
+          "folderId": "session_ywskiblc_mp6p013z",
+          "mode": "product"
+        },
+        "event": "popup.topic.hydrate.request",
+        "id": 198,
+        "isoTime": "2026-06-10T07:06:32.219Z"
+      },
+      {
+        "at": 256289,
+        "detail": {
+          "folderId": "session_ywskiblc_mp6p013z",
+          "isProductSignalPage": false,
+          "mode": "product",
+          "page": "collect",
+          "popupOpen": true
+        },
+        "event": "popup.product.hydrate.skip",
+        "id": 199,
+        "isoTime": "2026-06-10T07:06:32.219Z"
+      },
+      {
+        "at": 256516.19999998808,
+        "detail": {
+          "folderId": "session_ywskiblc_mp6p013z",
+          "mode": "product",
+          "signalCount": 2,
+          "signalsOk": true,
+          "topicCount": 0,
+          "topicsOk": true
+        },
+        "event": "popup.topic.hydrate.response",
+        "id": 201,
+        "isoTime": "2026-06-10T07:06:32.447Z"
+      },
+      {
+        "at": 256519.39999997616,
+        "detail": {
+          "folderId": "session_ywskiblc_mp6p013z",
+          "isProductSignalPage": false,
+          "mode": "product",
+          "page": "collect",
+          "popupOpen": true
+        },
+        "event": "popup.product.hydrate.skip",
+        "id": 203,
+        "isoTime": "2026-06-10T07:06:32.450Z"
+      },
+      {
+        "at": 258513.29999995232,
+        "detail": {
+          "folderId": "session_ywskiblc_mp6p013z",
+          "page": "saved-signals",
+          "signalCount": 2
+        },
+        "event": "popup.product.hydrate.request",
+        "id": 211,
+        "isoTime": "2026-06-10T07:06:34.445Z"
+      },
+      {
+        "at": 258809.5,
+        "detail": {
+          "currentAnalysisCount": 0,
+          "currentOk": true,
+          "feedbackCount": 0,
+          "feedbackOk": true,
+          "folderId": "session_ywskiblc_mp6p013z",
+          "historicalAnalysisCount": 0,
+          "historicalOk": true,
+          "page": "saved-signals",
+          "readingCount": 7,
+          "readingsOk": true,
+          "signalCount": 2
+        },
+        "event": "popup.product.hydrate.response",
+        "id": 213,
+        "isoTime": "2026-06-10T07:06:34.742Z"
+      },
+      {
+        "at": 259036.79999995232,
+        "detail": {
+          "folderId": "session_ywskiblc_mp6p013z",
+          "mode": "product"
+        },
+        "event": "popup.topic.hydrate.request",
+        "id": 217,
+        "isoTime": "2026-06-10T07:06:34.969Z"
+      },
+      {
+        "at": 259037,
+        "detail": {
+          "folderId": "session_ywskiblc_mp6p013z",
+          "page": "saved-signals",
+          "signalCount": 2
+        },
+        "event": "popup.product.hydrate.request",
+        "id": 218,
+        "isoTime": "2026-06-10T07:06:34.970Z"
+      },
+      {
+        "at": 259396.29999995232,
+        "detail": {
+          "currentAnalysisCount": 0,
+          "currentOk": true,
+          "feedbackCount": 0,
+          "feedbackOk": true,
+          "folderId": "session_ywskiblc_mp6p013z",
+          "historicalAnalysisCount": 0,
+          "historicalOk": true,
+          "page": "saved-signals",
+          "readingCount": 7,
+          "readingsOk": true,
+          "signalCount": 2
+        },
+        "event": "popup.product.hydrate.response",
+        "id": 222,
+        "isoTime": "2026-06-10T07:06:35.329Z"
+      },
+      {
+        "at": 259698.69999998808,
+        "detail": {
+          "folderId": "session_ywskiblc_mp6p013z",
+          "mode": "product",
+          "signalCount": 2,
+          "signalsOk": true,
+          "topicCount": 0,
+          "topicsOk": true
+        },
+        "event": "popup.topic.hydrate.response",
+        "id": 224,
+        "isoTime": "2026-06-10T07:06:35.632Z"
+      }
+    ],
+    "iso": "2026-06-10T07:06:38.214Z",
+    "label": "after-extra-collect-attempt",
+    "modeButtons": [
+      {
+        "active": null,
+        "mode": "topic",
+        "rect": {
+          "h": 18,
+          "w": 47,
+          "x": 1493,
+          "y": 112
+        },
+        "text": "Topic"
+      },
+      {
+        "active": "true",
+        "mode": "product",
+        "rect": {
+          "h": 19,
+          "w": 63,
+          "x": 1541,
+          "y": 112
+        },
+        "text": "Product"
+      },
+      {
+        "active": null,
+        "mode": "pr-evidence",
+        "rect": {
+          "h": 18,
+          "w": 34,
+          "x": 1605,
+          "y": 112
+        },
+        "text": "PR"
+      }
+    ],
+    "rootTextSnippet": "Hover to preview|S save|Esc exitReady [data-dlens-control=\"true\"] [data-dlens-button] { transition: transform 160ms cubic-bezier(0.34, 1.56, 0.64, 1), background-color 140ms cubic-bezier(0.4, 0, 0.2, 1), box-shadow 160ms cubic-bezier(0.4, 0, 0.2, 1), border-color 140ms cubic-bezier(0.4, 0, 0.2, 1), filter 140ms cubic-bezier(0.4, 0, 0.2, 1); } [data-dlens-control=\"true\"] [data-dlens-button]:not(:disabled):hover { transform: translateY(-1px); } [data-dlens-control=\"true\"] [data-dlens-button]:not(:disabled):active { transform: translateY(0) scale(0.96); transition: transform 90ms cubic-bezier(0.4, 0, 0.2, 1), background-color 140ms cubic-bezier(0.4, 0, 0.2, 1); } [data-dlens-control=\"true\"] [data-dlens-button]:focus-visible { outline: 2px solid var(--dlens-mode-accent, #1a2e4f); outline-offset: 2px; } [data-dlens-control=\"true\"] [data-dlens-button=\"primary\"]:not(:disabled):hover { transform: translateY(-3px); box-shadow: 0 12px 26px rgba(27, 26, 23, 0.22); filter: brightness(1.05); } [data-dlens-control=\"true\"] [data-dlens-button=\"primary\"]:not(:disabled):active { transform: translateY(0) scale(0.93); transition: transform 90ms cubic-bezier(0.4, 0, 0.2, 1), box-shadow 140ms cubic-bezier(0.4, 0, 0.2, 1); } [data-dlens-control=\"true\"] [data-dlens-button=\"secondary\"]:not(:disabled):hover { background: var(--dlens-mode-accent-soft, rgba(26,46,79,0.09)); border-color: var(--dlens-mode-hover-border-soft, rgba(27,26,23,0.18)); } @keyframes dlens-mode-swap-in { 0% { opacity: 0.45; transform: translateY(2px); } 100% { opacity: 1; transform: translateY(0); } } @media (prefers-reduced-motion: reduce) { [data-dlens-control=\"true\"] [data-dlens-button], [data-dlens-control=\"true\"] [data-dlens-button]:not(:disabled):active { transition: background-color 140ms cubic-bezier(0.4, 0, 0.2, 1), box-shadow 140ms cubic-bezier(0.4, 0, 0.2, 1), border-color 140ms cubic-bezier(0.4, 0, 0.2, 1) !important; } [data-dlens-control=\"true\"] [data-dlens-button]:not(:disabled):hover, [data-dlens-control=\"true\"] [data-dlens-button]:not(:disabled):active { transform: none !important; } [data-dlens-control=\"true\"] [data-dlens-button], [data-dlens-control=\"true\"] [data-workspace-mode-frame=\"true\"] { animation: none !important; } } dlens [data-dlens-control=\"true\"] [data-workspace-switcher-motion=\"verdict\"] [data-workspace-switcher-mode] { transition:transform 220ms cubic-bezier(0.22, 1.12, 0.36, 1), background-color 180ms cubic-bezier(0.4, 0, 0.2, 1), border-color 180ms cubic-bezier(0.4, 0, 0.2, 1), box-shadow 180ms cubic-bezier(0.4, 0, 0.2, 1), color 180ms cubic-bezier(0.4, 0, 0.2, 1); will-change: transform; } [data-dlens-control=\"true\"] [data-workspace-switcher-motion=\"verdict\"] [data-workspace-switcher-mode]:not(:disabled):hover { transform: scale(1.04); } [data-dlens-control=\"true\"] [data-workspace-switcher-motion=\"verdict\"] [data-workspace-switcher-active=\"true\"] { transform: scale(1.03); box-shadow: 0 4px 10px rgba(27,26,23,0.10); } @media (prefers-reduced-motion: reduce) { [data-dlens-control=\"true\"] [data-workspace-switcher-motion=\"verdict\"] [data-workspace-switcher-mode], [data-dlens-control=\"true\"] [data-workspace-switcher-motion=\"verdict\"] [data-workspace-switcher-mode]:not(:disabled):hover, [data-dlens-control=\"true\"] [data-workspace-switcher-motion=\"verdict\"] [data-workspace-switcher-active=\"true\"] { transition: background-color 140ms cubic-bezier(0.4, 0, 0.2, 1), border-color 140ms cubic-bezier(0.4, 0, 0.2, 1), color 140ms cubic-bezier(0.4, 0, 0.2, 1) !important; transform: none !important; } } TopicProductPRAnnotated Field GuideVOL.1NO.01Jun 10·v.0.1.30d採集訊號分類行動設定 [data-dlens-control=\"true\"] [data-scan-list] [data-scan-row]:hover { background: rgba(27, 26, 23, 0.028); } [data-dlens-control=\"true\"] [data-scan-list] [data-scan-row]:last-child { border-bottom: 0; } Product mode已存訊號先確認已儲存的 Threads post 是否完成抓取，再到行動頁整理可試 workflow。尚無結果真實狀態2 signals0 analysesAI keyProductProfileProductContext有 signal 尚未抓取。按分析收件匣會先送出抓取請求，完成後再分析。分析收件匣等待處理的 signals尚未抓取未分析threads×按分析會先送出抓取請求。報告一下剛用Claude今天新出的Fable，跟他說做個部落格列表跟文章頁，一個prompt就直接用掉3%…對，我是用Claude Max!尚未抓取未分析threads×按分析會先送出抓取請求。Can AI content actually be good? Reply to se_ranking...已存訊號2 saved報告一下剛用Claude今天新出的Fable，跟他說做個部落格列表跟文章頁，一個prompt就直接用掉3%…對，我是用Claude Max!尚未抓取 · 尚未分析尚未抓取×Can AI content actually be good? Reply to se_ranking...尚未抓取 · 尚未分析尚未抓取×",
+    "rootTextTail": "Hover to preview|S save|Esc exitReady [data-dlens-control=\"true\"] [data-dlens-button] { transition: transform 160ms cubic-bezier(0.34, 1.56, 0.64, 1), background-color 140ms cubic-bezier(0.4, 0, 0.2, 1), box-shadow 160ms cubic-bezier(0.4, 0, 0.2, 1), border-color 140ms cubic-bezier(0.4, 0, 0.2, 1), filter 140ms cubic-bezier(0.4, 0, 0.2, 1); } [data-dlens-control=\"true\"] [data-dlens-button]:not(:disabled):hover { transform: translateY(-1px); } [data-dlens-control=\"true\"] [data-dlens-button]:not(:disabled):active { transform: translateY(0) scale(0.96); transition: transform 90ms cubic-bezier(0.4, 0, 0.2, 1), background-color 140ms cubic-bezier(0.4, 0, 0.2, 1); } [data-dlens-control=\"true\"] [data-dlens-button]:focus-visible { outline: 2px solid var(--dlens-mode-accent, #1a2e4f); outline-offset: 2px; } [data-dlens-control=\"true\"] [data-dlens-button=\"primary\"]:not(:disabled):hover { transform: translateY(-3px); box-shadow: 0 12px 26px rgba(27, 26, 23, 0.22); filter: brightness(1.05); } [data-dlens-control=\"true\"] [data-dlens-button=\"primary\"]:not(:disabled):active { transform: translateY(0) scale(0.93); transition: transform 90ms cubic-bezier(0.4, 0, 0.2, 1), box-shadow 140ms cubic-bezier(0.4, 0, 0.2, 1); } [data-dlens-control=\"true\"] [data-dlens-button=\"secondary\"]:not(:disabled):hover { background: var(--dlens-mode-accent-soft, rgba(26,46,79,0.09)); border-color: var(--dlens-mode-hover-border-soft, rgba(27,26,23,0.18)); } @keyframes dlens-mode-swap-in { 0% { opacity: 0.45; transform: translateY(2px); } 100% { opacity: 1; transform: translateY(0); } } @media (prefers-reduced-motion: reduce) { [data-dlens-control=\"true\"] [data-dlens-button], [data-dlens-control=\"true\"] [data-dlens-button]:not(:disabled):active { transition: background-color 140ms cubic-bezier(0.4, 0, 0.2, 1), box-shadow 140ms cubic-bezier(0.4, 0, 0.2, 1), border-color 140ms cubic-bezier(0.4, 0, 0.2, 1) !important; } [data-dlens-control=\"true\"] [data-dlens-button]:not(:disabled):hover, [data-dlens-control=\"true\"] [data-dlens-button]:not(:disabled):active { transform: none !important; } [data-dlens-control=\"true\"] [data-dlens-button], [data-dlens-control=\"true\"] [data-workspace-mode-frame=\"true\"] { animation: none !important; } } dlens [data-dlens-control=\"true\"] [data-workspace-switcher-motion=\"verdict\"] [data-workspace-switcher-mode] { transition:transform 220ms cubic-bezier(0.22, 1.12, 0.36, 1), background-color 180ms cubic-bezier(0.4, 0, 0.2, 1), border-color 180ms cubic-bezier(0.4, 0, 0.2, 1), box-shadow 180ms cubic-bezier(0.4, 0, 0.2, 1), color 180ms cubic-bezier(0.4, 0, 0.2, 1); will-change: transform; } [data-dlens-control=\"true\"] [data-workspace-switcher-motion=\"verdict\"] [data-workspace-switcher-mode]:not(:disabled):hover { transform: scale(1.04); } [data-dlens-control=\"true\"] [data-workspace-switcher-motion=\"verdict\"] [data-workspace-switcher-active=\"true\"] { transform: scale(1.03); box-shadow: 0 4px 10px rgba(27,26,23,0.10); } @media (prefers-reduced-motion: reduce) { [data-dlens-control=\"true\"] [data-workspace-switcher-motion=\"verdict\"] [data-workspace-switcher-mode], [data-dlens-control=\"true\"] [data-workspace-switcher-motion=\"verdict\"] [data-workspace-switcher-mode]:not(:disabled):hover, [data-dlens-control=\"true\"] [data-workspace-switcher-motion=\"verdict\"] [data-workspace-switcher-active=\"true\"] { transition: background-color 140ms cubic-bezier(0.4, 0, 0.2, 1), border-color 140ms cubic-bezier(0.4, 0, 0.2, 1), color 140ms cubic-bezier(0.4, 0, 0.2, 1) !important; transform: none !important; } } TopicProductPRAnnotated Field GuideVOL.1NO.01Jun 10·v.0.1.30d採集訊號分類行動設定 [data-dlens-control=\"true\"] [data-scan-list] [data-scan-row]:hover { background: rgba(27, 26, 23, 0.028); } [data-dlens-control=\"true\"] [data-scan-list] [data-scan-row]:last-child { border-bottom: 0; } Product mode已存訊號先確認已儲存的 Threads post 是否完成抓取，再到行動頁整理可試 workflow。尚無結果真實狀態2 signals0 analysesAI keyProductProfileProductContext有 signal 尚未抓取。按分析收件匣會先送出抓取請求，完成後再分析。分析收件匣等待處理的 signals尚未抓取未分析threads×按分析會先送出抓取請求。報告一下剛用Claude今天新出的Fable，跟他說做個部落格列表跟文章頁，一個prompt就直接用掉3%…對，我是用Claude Max!尚未抓取未分析threads×按分析會先送出抓取請求。Can AI content actually be good? Reply to se_ranking...已存訊號2 saved報告一下剛用Claude今天新出的Fable，跟他說做個部落格列表跟文章頁，一個prompt就直接用掉3%…對，我是用Claude Max!尚未抓取 · 尚未分析尚未抓取×Can AI content actually be good? Reply to se_ranking...尚未抓取 · 尚未分析尚未抓取×",
+    "saveEvents": [
+      {
+        "at": 255707.79999995232,
+        "detail": {
+          "postUrl": "https://www.threads.net/@maxfei22/post/DZY4C9HASgG",
+          "sessionId": "session_ywskiblc_mp6p013z",
+          "topicId": null,
+          "via": "button"
+        },
+        "event": "popup.collect.save.request",
+        "id": 192,
+        "isoTime": "2026-06-10T07:06:31.637Z"
+      },
+      {
+        "at": 256286.79999995232,
+        "detail": {
+          "elapsedMs": 578.3,
+          "ok": true,
+          "via": "button"
+        },
+        "event": "popup.collect.save.response",
+        "id": 196,
+        "isoTime": "2026-06-10T07:06:32.217Z"
+      }
+    ],
+    "signalDeletes": [],
+    "staleEnglish": [],
+    "url": "https://www.threads.com/#dlensQaTrace=1",
+    "workerEvents": [
+      {
+        "at": 259089.39999997616,
+        "detail": {
+          "activeFolderId": "session_ywskiblc_mp6p013z",
+          "failureCount": 0,
+          "hasInflight": false
+        },
+        "event": "popup.worker.status.request",
+        "id": 221,
+        "isoTime": "2026-06-10T07:06:35.022Z"
+      },
+      {
+        "at": 259397.59999996424,
+        "detail": {
+          "activeFolderId": "session_ywskiblc_mp6p013z",
+          "failureCount": 0,
+          "hasInflight": false
+        },
+        "event": "popup.worker.status.request",
+        "id": 223,
+        "isoTime": "2026-06-10T07:06:35.331Z"
+      },
+      {
+        "at": 259700.5,
+        "detail": {
+          "activeFolderId": "session_ywskiblc_mp6p013z",
+          "failureCount": 0,
+          "hasInflight": false
+        },
+        "event": "popup.worker.status.request",
+        "id": 225,
+        "isoTime": "2026-06-10T07:06:35.634Z"
+      },
+      {
+        "at": 259952.69999998808,
+        "detail": {
+          "elapsedMs": 252.1,
+          "previousWorkerStatus": "idle",
+          "workerStatus": "idle"
+        },
+        "event": "popup.worker.status.response",
+        "id": 226,
+        "isoTime": "2026-06-10T07:06:35.886Z"
+      },
+      {
+        "at": 259953.19999998808,
+        "detail": {
+          "delayMs": 12000,
+          "failureCount": 0,
+          "workerStatus": "idle"
+        },
+        "event": "popup.worker.next-poll",
+        "id": 227,
+        "isoTime": "2026-06-10T07:06:35.887Z"
+      },
+      {
+        "at": 260294,
+        "detail": {
+          "activeFolderId": "session_ywskiblc_mp6p013z",
+          "failureCount": 0,
+          "hasInflight": false
+        },
+        "event": "popup.worker.status.request",
+        "id": 228,
+        "isoTime": "2026-06-10T07:06:36.228Z"
+      },
+      {
+        "at": 260564.09999996424,
+        "detail": {
+          "elapsedMs": 270.2,
+          "previousWorkerStatus": "idle",
+          "workerStatus": "idle"
+        },
+        "event": "popup.worker.status.response",
+        "id": 229,
+        "isoTime": "2026-06-10T07:06:36.498Z"
+      },
+      {
+        "at": 260564.5,
+        "detail": {
+          "delayMs": 12000,
+          "failureCount": 0,
+          "workerStatus": "idle"
+        },
+        "event": "popup.worker.next-poll",
+        "id": 230,
+        "isoTime": "2026-06-10T07:06:36.498Z"
+      }
+    ]
+  }
+}

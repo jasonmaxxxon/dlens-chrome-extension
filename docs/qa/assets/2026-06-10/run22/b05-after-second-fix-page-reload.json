@@ -1,0 +1,302 @@
+{
+  "hasBackendOffline": true,
+  "hasCollectedPost": true,
+  "hasSignalNotFound": false,
+  "hydrateEvents": [
+    {
+      "at": 845.2999999523163,
+      "detail": {
+        "folderId": null,
+        "mode": "archive",
+        "popupOpen": false
+      },
+      "event": "popup.topic.hydrate.skip",
+      "id": 2,
+      "isoTime": "2026-06-10T07:02:16.741Z"
+    },
+    {
+      "at": 846,
+      "detail": {
+        "folderId": null,
+        "isProductSignalPage": false,
+        "mode": "archive",
+        "page": "library",
+        "popupOpen": false
+      },
+      "event": "popup.product.hydrate.skip",
+      "id": 3,
+      "isoTime": "2026-06-10T07:02:16.742Z"
+    },
+    {
+      "at": 1179.0999999642372,
+      "detail": {
+        "folderId": "session_ywskiblc_mp6p013z",
+        "mode": "product"
+      },
+      "event": "popup.topic.hydrate.request",
+      "id": 6,
+      "isoTime": "2026-06-10T07:02:17.075Z"
+    },
+    {
+      "at": 1179.2999999523165,
+      "detail": {
+        "folderId": "session_ywskiblc_mp6p013z",
+        "page": "saved-signals",
+        "signalCount": 0
+      },
+      "event": "popup.product.hydrate.request",
+      "id": 7,
+      "isoTime": "2026-06-10T07:02:17.075Z"
+    },
+    {
+      "at": 1381.199999988079,
+      "detail": {
+        "currentAnalysisCount": 0,
+        "currentOk": true,
+        "feedbackCount": 0,
+        "feedbackOk": true,
+        "folderId": "session_ywskiblc_mp6p013z",
+        "historicalAnalysisCount": 0,
+        "historicalOk": true,
+        "page": "saved-signals",
+        "readingCount": 7,
+        "readingsOk": true,
+        "signalCount": 0
+      },
+      "event": "popup.product.hydrate.response",
+      "id": 9,
+      "isoTime": "2026-06-10T07:02:17.277Z"
+    },
+    {
+      "at": 1446.2999999523165,
+      "detail": {
+        "folderId": "session_ywskiblc_mp6p013z",
+        "mode": "product",
+        "signalCount": 1,
+        "signalsOk": true,
+        "topicCount": 0,
+        "topicsOk": true
+      },
+      "event": "popup.topic.hydrate.response",
+      "id": 12,
+      "isoTime": "2026-06-10T07:02:17.342Z"
+    },
+    {
+      "at": 1453,
+      "detail": {
+        "folderId": "session_ywskiblc_mp6p013z",
+        "page": "saved-signals",
+        "signalCount": 1
+      },
+      "event": "popup.product.hydrate.request",
+      "id": 14,
+      "isoTime": "2026-06-10T07:02:17.349Z"
+    },
+    {
+      "at": 1823.0999999642372,
+      "detail": {
+        "currentAnalysisCount": 0,
+        "currentOk": true,
+        "feedbackCount": 0,
+        "feedbackOk": true,
+        "folderId": "session_ywskiblc_mp6p013z",
+        "historicalAnalysisCount": 0,
+        "historicalOk": true,
+        "page": "saved-signals",
+        "readingCount": 7,
+        "readingsOk": true,
+        "signalCount": 1
+      },
+      "event": "popup.product.hydrate.response",
+      "id": 19,
+      "isoTime": "2026-06-10T07:02:17.719Z"
+    },
+    {
+      "at": 8418,
+      "detail": {
+        "folderId": "session_ywskiblc_mp6p013z",
+        "mode": "product"
+      },
+      "event": "popup.topic.hydrate.request",
+      "id": 33,
+      "isoTime": "2026-06-10T07:02:24.314Z"
+    },
+    {
+      "at": 8418.299999952316,
+      "detail": {
+        "folderId": "session_ywskiblc_mp6p013z",
+        "page": "saved-signals",
+        "signalCount": 1
+      },
+      "event": "popup.product.hydrate.request",
+      "id": 34,
+      "isoTime": "2026-06-10T07:02:24.314Z"
+    },
+    {
+      "at": 8572.5,
+      "detail": {
+        "currentAnalysisCount": 0,
+        "currentOk": true,
+        "feedbackCount": 0,
+        "feedbackOk": true,
+        "folderId": "session_ywskiblc_mp6p013z",
+        "historicalAnalysisCount": 0,
+        "historicalOk": true,
+        "page": "saved-signals",
+        "readingCount": 7,
+        "readingsOk": true,
+        "signalCount": 1
+      },
+      "event": "popup.product.hydrate.response",
+      "id": 38,
+      "isoTime": "2026-06-10T07:02:24.468Z"
+    },
+    {
+      "at": 8635.199999988079,
+      "detail": {
+        "folderId": "session_ywskiblc_mp6p013z",
+        "mode": "product",
+        "signalCount": 1,
+        "signalsOk": true,
+        "topicCount": 0,
+        "topicsOk": true
+      },
+      "event": "popup.topic.hydrate.response",
+      "id": 40,
+      "isoTime": "2026-06-10T07:02:24.531Z"
+    }
+  ],
+  "iso": "2026-06-10T07:02:27.622Z",
+  "label": "second-fix-after-page-reload",
+  "modeButtons": [
+    {
+      "active": null,
+      "mode": "topic",
+      "rect": {
+        "h": 18,
+        "w": 47,
+        "x": 1493,
+        "y": 112
+      },
+      "text": "Topic"
+    },
+    {
+      "active": "true",
+      "mode": "product",
+      "rect": {
+        "h": 19,
+        "w": 63,
+        "x": 1541,
+        "y": 112
+      },
+      "text": "Product"
+    },
+    {
+      "active": null,
+      "mode": "pr-evidence",
+      "rect": {
+        "h": 18,
+        "w": 34,
+        "x": 1605,
+        "y": 112
+      },
+      "text": "PR"
+    }
+  ],
+  "rootTextSnippet": " [data-dlens-control=\"true\"] [data-dlens-button] { transition: transform 160ms cubic-bezier(0.34, 1.56, 0.64, 1), background-color 140ms cubic-bezier(0.4, 0, 0.2, 1), box-shadow 160ms cubic-bezier(0.4, 0, 0.2, 1), border-color 140ms cubic-bezier(0.4, 0, 0.2, 1), filter 140ms cubic-bezier(0.4, 0, 0.2, 1); } [data-dlens-control=\"true\"] [data-dlens-button]:not(:disabled):hover { transform: translateY(-1px); } [data-dlens-control=\"true\"] [data-dlens-button]:not(:disabled):active { transform: translateY(0) scale(0.96); transition: transform 90ms cubic-bezier(0.4, 0, 0.2, 1), background-color 140ms cubic-bezier(0.4, 0, 0.2, 1); } [data-dlens-control=\"true\"] [data-dlens-button]:focus-visible { outline: 2px solid var(--dlens-mode-accent, #1a2e4f); outline-offset: 2px; } [data-dlens-control=\"true\"] [data-dlens-button=\"primary\"]:not(:disabled):hover { transform: translateY(-3px); box-shadow: 0 12px 26px rgba(27, 26, 23, 0.22); filter: brightness(1.05); } [data-dlens-control=\"true\"] [data-dlens-button=\"primary\"]:not(:disabled):active { transform: translateY(0) scale(0.93); transition: transform 90ms cubic-bezier(0.4, 0, 0.2, 1), box-shadow 140ms cubic-bezier(0.4, 0, 0.2, 1); } [data-dlens-control=\"true\"] [data-dlens-button=\"secondary\"]:not(:disabled):hover { background: var(--dlens-mode-accent-soft, rgba(26,46,79,0.09)); border-color: var(--dlens-mode-hover-border-soft, rgba(27,26,23,0.18)); } @keyframes dlens-mode-swap-in { 0% { opacity: 0.45; transform: translateY(2px); } 100% { opacity: 1; transform: translateY(0); } } @media (prefers-reduced-motion: reduce) { [data-dlens-control=\"true\"] [data-dlens-button], [data-dlens-control=\"true\"] [data-dlens-button]:not(:disabled):active { transition: background-color 140ms cubic-bezier(0.4, 0, 0.2, 1), box-shadow 140ms cubic-bezier(0.4, 0, 0.2, 1), border-color 140ms cubic-bezier(0.4, 0, 0.2, 1) !important; } [data-dlens-control=\"true\"] [data-dlens-button]:not(:disabled):hover, [data-dlens-control=\"true\"] [data-dlens-button]:not(:disabled):active { transform: none !important; } [data-dlens-control=\"true\"] [data-dlens-button], [data-dlens-control=\"true\"] [data-workspace-mode-frame=\"true\"] { animation: none !important; } } dlens [data-dlens-control=\"true\"] [data-workspace-switcher-motion=\"verdict\"] [data-workspace-switcher-mode] { transition:transform 220ms cubic-bezier(0.22, 1.12, 0.36, 1), background-color 180ms cubic-bezier(0.4, 0, 0.2, 1), border-color 180ms cubic-bezier(0.4, 0, 0.2, 1), box-shadow 180ms cubic-bezier(0.4, 0, 0.2, 1), color 180ms cubic-bezier(0.4, 0, 0.2, 1); will-change: transform; } [data-dlens-control=\"true\"] [data-workspace-switcher-motion=\"verdict\"] [data-workspace-switcher-mode]:not(:disabled):hover { transform: scale(1.04); } [data-dlens-control=\"true\"] [data-workspace-switcher-motion=\"verdict\"] [data-workspace-switcher-active=\"true\"] { transform: scale(1.03); box-shadow: 0 4px 10px rgba(27,26,23,0.10); } @media (prefers-reduced-motion: reduce) { [data-dlens-control=\"true\"] [data-workspace-switcher-motion=\"verdict\"] [data-workspace-switcher-mode], [data-dlens-control=\"true\"] [data-workspace-switcher-motion=\"verdict\"] [data-workspace-switcher-mode]:not(:disabled):hover, [data-dlens-control=\"true\"] [data-workspace-switcher-motion=\"verdict\"] [data-workspace-switcher-active=\"true\"] { transition: background-color 140ms cubic-bezier(0.4, 0, 0.2, 1), border-color 140ms cubic-bezier(0.4, 0, 0.2, 1), color 140ms cubic-bezier(0.4, 0, 0.2, 1) !important; transform: none !important; } } TopicProductPRAnnotated Field GuideVOL.1NO.01Jun 10·v.0.1.30d採集訊號分類行動設定 [data-dlens-control=\"true\"] [data-scan-list] [data-scan-row]:hover { background: rgba(27, 26, 23, 0.028); } [data-dlens-control=\"true\"] [data-scan-list] [data-scan-row]:last-child { border-bottom: 0; } Product mode已存訊號先確認已儲存的 Threads post 是否完成抓取，再到行動頁整理可試 workflow。Backend 離線真實狀態1 signals0 analysesAI keyProductProfileProductContext有 signal 尚未抓取。按分析收件匣會先送出抓取請求，完成後再分析。Backend 無法連線。請到設定確認 backend URL，或先啟動 ingest backend。分析收件匣等待處理的 signals尚未抓取未分析threads×按分析會先送出抓取請求。Can AI content actually be good? Reply to se_ranking...已存訊號1 savedCan AI content actually be good? Reply to se_ranking...尚未抓取 · 尚未分析尚未抓取×",
+  "rootTextTail": " [data-dlens-control=\"true\"] [data-dlens-button] { transition: transform 160ms cubic-bezier(0.34, 1.56, 0.64, 1), background-color 140ms cubic-bezier(0.4, 0, 0.2, 1), box-shadow 160ms cubic-bezier(0.4, 0, 0.2, 1), border-color 140ms cubic-bezier(0.4, 0, 0.2, 1), filter 140ms cubic-bezier(0.4, 0, 0.2, 1); } [data-dlens-control=\"true\"] [data-dlens-button]:not(:disabled):hover { transform: translateY(-1px); } [data-dlens-control=\"true\"] [data-dlens-button]:not(:disabled):active { transform: translateY(0) scale(0.96); transition: transform 90ms cubic-bezier(0.4, 0, 0.2, 1), background-color 140ms cubic-bezier(0.4, 0, 0.2, 1); } [data-dlens-control=\"true\"] [data-dlens-button]:focus-visible { outline: 2px solid var(--dlens-mode-accent, #1a2e4f); outline-offset: 2px; } [data-dlens-control=\"true\"] [data-dlens-button=\"primary\"]:not(:disabled):hover { transform: translateY(-3px); box-shadow: 0 12px 26px rgba(27, 26, 23, 0.22); filter: brightness(1.05); } [data-dlens-control=\"true\"] [data-dlens-button=\"primary\"]:not(:disabled):active { transform: translateY(0) scale(0.93); transition: transform 90ms cubic-bezier(0.4, 0, 0.2, 1), box-shadow 140ms cubic-bezier(0.4, 0, 0.2, 1); } [data-dlens-control=\"true\"] [data-dlens-button=\"secondary\"]:not(:disabled):hover { background: var(--dlens-mode-accent-soft, rgba(26,46,79,0.09)); border-color: var(--dlens-mode-hover-border-soft, rgba(27,26,23,0.18)); } @keyframes dlens-mode-swap-in { 0% { opacity: 0.45; transform: translateY(2px); } 100% { opacity: 1; transform: translateY(0); } } @media (prefers-reduced-motion: reduce) { [data-dlens-control=\"true\"] [data-dlens-button], [data-dlens-control=\"true\"] [data-dlens-button]:not(:disabled):active { transition: background-color 140ms cubic-bezier(0.4, 0, 0.2, 1), box-shadow 140ms cubic-bezier(0.4, 0, 0.2, 1), border-color 140ms cubic-bezier(0.4, 0, 0.2, 1) !important; } [data-dlens-control=\"true\"] [data-dlens-button]:not(:disabled):hover, [data-dlens-control=\"true\"] [data-dlens-button]:not(:disabled):active { transform: none !important; } [data-dlens-control=\"true\"] [data-dlens-button], [data-dlens-control=\"true\"] [data-workspace-mode-frame=\"true\"] { animation: none !important; } } dlens [data-dlens-control=\"true\"] [data-workspace-switcher-motion=\"verdict\"] [data-workspace-switcher-mode] { transition:transform 220ms cubic-bezier(0.22, 1.12, 0.36, 1), background-color 180ms cubic-bezier(0.4, 0, 0.2, 1), border-color 180ms cubic-bezier(0.4, 0, 0.2, 1), box-shadow 180ms cubic-bezier(0.4, 0, 0.2, 1), color 180ms cubic-bezier(0.4, 0, 0.2, 1); will-change: transform; } [data-dlens-control=\"true\"] [data-workspace-switcher-motion=\"verdict\"] [data-workspace-switcher-mode]:not(:disabled):hover { transform: scale(1.04); } [data-dlens-control=\"true\"] [data-workspace-switcher-motion=\"verdict\"] [data-workspace-switcher-active=\"true\"] { transform: scale(1.03); box-shadow: 0 4px 10px rgba(27,26,23,0.10); } @media (prefers-reduced-motion: reduce) { [data-dlens-control=\"true\"] [data-workspace-switcher-motion=\"verdict\"] [data-workspace-switcher-mode], [data-dlens-control=\"true\"] [data-workspace-switcher-motion=\"verdict\"] [data-workspace-switcher-mode]:not(:disabled):hover, [data-dlens-control=\"true\"] [data-workspace-switcher-motion=\"verdict\"] [data-workspace-switcher-active=\"true\"] { transition: background-color 140ms cubic-bezier(0.4, 0, 0.2, 1), border-color 140ms cubic-bezier(0.4, 0, 0.2, 1), color 140ms cubic-bezier(0.4, 0, 0.2, 1) !important; transform: none !important; } } TopicProductPRAnnotated Field GuideVOL.1NO.01Jun 10·v.0.1.30d採集訊號分類行動設定 [data-dlens-control=\"true\"] [data-scan-list] [data-scan-row]:hover { background: rgba(27, 26, 23, 0.028); } [data-dlens-control=\"true\"] [data-scan-list] [data-scan-row]:last-child { border-bottom: 0; } Product mode已存訊號先確認已儲存的 Threads post 是否完成抓取，再到行動頁整理可試 workflow。Backend 離線真實狀態1 signals0 analysesAI keyProductProfileProductContext有 signal 尚未抓取。按分析收件匣會先送出抓取請求，完成後再分析。Backend 無法連線。請到設定確認 backend URL，或先啟動 ingest backend。分析收件匣等待處理的 signals尚未抓取未分析threads×按分析會先送出抓取請求。Can AI content actually be good? Reply to se_ranking...已存訊號1 savedCan AI content actually be good? Reply to se_ranking...尚未抓取 · 尚未分析尚未抓取×",
+  "saveEvents": [],
+  "signalDeletes": [],
+  "staleEnglish": [],
+  "url": "https://www.threads.com/#dlensQaTrace=1",
+  "workerEvents": [
+    {
+      "at": 8466.299999952316,
+      "detail": {
+        "activeFolderId": "session_ywskiblc_mp6p013z",
+        "failureCount": 4,
+        "hasInflight": false
+      },
+      "event": "popup.worker.status.request",
+      "id": 37,
+      "isoTime": "2026-06-10T07:02:24.362Z"
+    },
+    {
+      "at": 8574.099999964237,
+      "detail": {
+        "activeFolderId": "session_ywskiblc_mp6p013z",
+        "failureCount": 4,
+        "hasInflight": false
+      },
+      "event": "popup.worker.status.request",
+      "id": 39,
+      "isoTime": "2026-06-10T07:02:24.470Z"
+    },
+    {
+      "at": 8636.299999952316,
+      "detail": {
+        "activeFolderId": "session_ywskiblc_mp6p013z",
+        "failureCount": 4,
+        "hasInflight": false
+      },
+      "event": "popup.worker.status.request",
+      "id": 41,
+      "isoTime": "2026-06-10T07:02:24.532Z"
+    },
+    {
+      "at": 8864.899999976158,
+      "detail": {
+        "elapsedMs": 228.6,
+        "error": "Optional ingest backend unavailable at http://127.0.0.1:8000/worker/status. Check ingestBaseUrl or start the backend. Original error: Failed to fetch",
+        "failureCount": 5
+      },
+      "event": "popup.worker.status.error",
+      "id": 42,
+      "isoTime": "2026-06-10T07:02:24.761Z"
+    },
+    {
+      "at": 8865,
+      "detail": {
+        "delayMs": 12000,
+        "failureCount": 5,
+        "workerStatus": "idle"
+      },
+      "event": "popup.worker.next-poll",
+      "id": 43,
+      "isoTime": "2026-06-10T07:02:24.761Z"
+    },
+    {
+      "at": 9669.599999964235,
+      "detail": {
+        "activeFolderId": "session_ywskiblc_mp6p013z",
+        "failureCount": 5,
+        "hasInflight": false
+      },
+      "event": "popup.worker.status.request",
+      "id": 44,
+      "isoTime": "2026-06-10T07:02:25.565Z"
+    },
+    {
+      "at": 9811.19999998808,
+      "detail": {
+        "elapsedMs": 141.6,
+        "error": "Optional ingest backend unavailable at http://127.0.0.1:8000/worker/status. Check ingestBaseUrl or start the backend. Original error: Failed to fetch",
+        "failureCount": 6
+      },
+      "event": "popup.worker.status.error",
+      "id": 45,
+      "isoTime": "2026-06-10T07:02:25.707Z"
+    },
+    {
+      "at": 9811.399999976158,
+      "detail": {
+        "delayMs": 12000,
+        "failureCount": 6,
+        "workerStatus": "idle"
+      },
+      "event": "popup.worker.next-poll",
+      "id": 46,
+      "isoTime": "2026-06-10T07:02:25.707Z"
+    }
+  ]
+}
