@@ -422,6 +422,52 @@ test("TopicDetailView keeps the B-14 audit count at 15/15 when a topic also has 
   assert.doesNotMatch(html, /覆蓋 15\/16/);
 });
 
+test("TopicDetailView derives audit header, coverage, and source rows from the same evidence list", () => {
+  const auditEvidence = Array.from({ length: 2 }, (_, index) => ({
+    ...auditPacket,
+    signalId: `audit-signal-${index + 1}`,
+    itemId: `audit-item-${index + 1}`,
+    shortCode: `S${index + 1}`,
+    opText: `audit source ${index + 1}`
+  }));
+  const oneReading: TopicAuditMemoBundle = {
+    ...auditMemos,
+    signalReadings: [{
+      ...auditMemos.signalReadings[0]!,
+      signalId: "audit-signal-1",
+      shortCode: "S1",
+      evidenceRefs: ["S1.OP"]
+    }]
+  };
+
+  const html = renderToStaticMarkup(
+    React.createElement(TopicDetailView, {
+      topic: { ...topic, signalIds: ["audit-signal-1", "audit-signal-2", "stale-signal"] },
+      signals: [
+        { ...signals[0]!, id: "audit-signal-1", itemId: "audit-item-1" },
+        { ...signals[0]!, id: "audit-signal-2", itemId: "audit-item-2" },
+        { ...signals[0]!, id: "stale-signal", itemId: "stale-item" }
+      ],
+      pairs: [],
+      auditEvidence,
+      auditMemos: oneReading,
+      auditSummary: { reportStatus: "ready", analyzedCount: 5, queuedCount: 7, coverage: "5/12" },
+      auditValidatorFlags: [],
+      onBack: () => undefined,
+      onOpenPair: () => undefined,
+      onUpdateTopic: () => undefined
+    })
+  );
+
+  assert.match(html, /2 訊號/);
+  assert.match(html, /1\/2 已分析/);
+  assert.match(html, /覆蓋 2\/2/);
+  assert.equal((html.match(/data-source-row="S\d+"/g) ?? []).length, 2);
+  assert.doesNotMatch(html, /12 訊號/);
+  assert.doesNotMatch(html, /5\/12 已分析/);
+  assert.doesNotMatch(html, /覆蓋 5\/12/);
+});
+
 test("TopicDetailView failed audit state shows resume copy and failed reason", () => {
   const html = renderToStaticMarkup(
     React.createElement(TopicDetailView, {

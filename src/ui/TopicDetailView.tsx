@@ -1188,29 +1188,22 @@ function buildTopicAuditSummary({
   auditSummary?: TopicAuditSummary;
 }): TopicAuditSummary {
   const sourceTotal = topicAuditSourceTotal({ signals, auditEvidence, auditMemos, auditSummary });
+  const analyzedCount = topicAuditAnalyzedCount({ auditEvidence, auditMemos, auditSummary });
   if (auditSummary) {
-    const analyzedCount = Math.min(auditSummary.analyzedCount, sourceTotal || auditSummary.analyzedCount);
     return {
       ...auditSummary,
       analyzedCount,
-      queuedCount: Math.max(sourceTotal - analyzedCount, 0),
-      coverage: auditCoverageDisplay(auditSummary.coverage, sourceTotal)
+      queuedCount: sourceTotal - analyzedCount,
+      coverage: topicAuditCoverageLabel({ auditEvidence, auditSummary, sourceTotal })
     };
   }
-  const analyzedCount = auditMemos?.signalReadings.length ?? 0;
   return {
     reportStatus: auditMemos ? "ready" : "none",
     analyzedCount,
-    queuedCount: Math.max(sourceTotal - analyzedCount, 0),
-    coverage: auditEvidence.length ? `${auditEvidence.length}/${sourceTotal}` : undefined,
+    queuedCount: sourceTotal - analyzedCount,
+    coverage: topicAuditCoverageLabel({ auditEvidence, auditSummary, sourceTotal }),
     flags: []
   };
-}
-
-function readCoverageParts(value: string | undefined): { numerator: number; denominator: number } | null {
-  const match = value?.match(/^(\d+)\/(\d+)$/);
-  if (!match) return null;
-  return { numerator: Number(match[1]), denominator: Number(match[2]) };
 }
 
 function topicAuditSourceTotal({
@@ -1224,29 +1217,50 @@ function topicAuditSourceTotal({
   auditMemos: TopicAuditMemoBundle | null | undefined;
   auditSummary?: TopicAuditSummary;
 }): number {
-  const coverage = readCoverageParts(auditSummary?.coverage);
-  const auditSourceTotal = Math.max(
-    auditEvidence.length,
-    auditMemos?.signalReadings.length ?? 0,
-    coverage?.numerator ?? 0,
-    coverage?.denominator ?? 0
-  );
-  if (auditSourceTotal > 0) {
-    return auditSourceTotal;
+  if (auditEvidence.length > 0) {
+    return auditEvidence.length;
   }
-  return Math.max(
-    signals.length,
-    auditSummary ? auditSummary.analyzedCount + auditSummary.queuedCount : 0
-  );
+  if (auditMemos?.signalReadings.length) {
+    return auditMemos.signalReadings.length;
+  }
+  if (auditSummary) {
+    return auditSummary.analyzedCount + auditSummary.queuedCount;
+  }
+  return signals.length;
 }
 
-function auditCoverageDisplay(value: string | undefined, sourceTotal: number): string | undefined {
-  const coverage = readCoverageParts(value);
-  if (!coverage) return value;
-  if (coverage.denominator === 0 || coverage.numerator > coverage.denominator) {
-    return `${coverage.numerator}/${Math.max(sourceTotal, coverage.numerator)}`;
+function topicAuditAnalyzedCount({
+  auditEvidence,
+  auditMemos,
+  auditSummary
+}: {
+  auditEvidence: EvidencePacket[];
+  auditMemos: TopicAuditMemoBundle | null | undefined;
+  auditSummary?: TopicAuditSummary;
+}): number {
+  if (auditEvidence.length > 0) {
+    const readSignalIds = new Set((auditMemos?.signalReadings ?? []).map((reading) => reading.signalId));
+    return auditEvidence.filter((packet) => readSignalIds.has(packet.signalId)).length;
   }
-  return value;
+  if (auditMemos?.signalReadings.length) {
+    return auditMemos.signalReadings.length;
+  }
+  return auditSummary?.analyzedCount ?? 0;
+}
+
+function topicAuditCoverageLabel({
+  auditEvidence,
+  auditSummary,
+  sourceTotal
+}: {
+  auditEvidence: EvidencePacket[];
+  auditSummary?: TopicAuditSummary;
+  sourceTotal: number;
+}): string | undefined {
+  if (auditEvidence.length > 0) {
+    return `${auditEvidence.length}/${sourceTotal}`;
+  }
+  return auditSummary?.coverage;
 }
 
 function TopicAuditOverview({
@@ -1274,8 +1288,8 @@ function TopicAuditOverview({
   onRunAudit?: (topicId: string, fromStage?: TopicAuditStageName) => void;
   onOpenAuditReport?: (topicId: string, stale?: boolean) => void;
 }) {
-  const displaySourceTotal = sourceTotalCount ?? Math.max(signals.length, summary.analyzedCount + summary.queuedCount, summary.analyzedCount);
-  const coverageLabel = auditCoverageDisplay(summary.coverage, displaySourceTotal) ?? `${displaySourceTotal}/${displaySourceTotal}`;
+  const displaySourceTotal = sourceTotalCount ?? summary.analyzedCount + summary.queuedCount;
+  const coverageLabel = summary.coverage ?? `${displaySourceTotal}/${displaySourceTotal}`;
   const p1All = typeof p1ReadyCount === "number" && typeof p1TotalCount === "number" && p1TotalCount > 0 && p1ReadyCount === p1TotalCount;
   const p1NoneReady = (p1ReadyCount ?? 0) === 0;
   const generateCtaLabel = p1All ? "生成審查報告（綜合 P2–P6）" : "生成審查報告";

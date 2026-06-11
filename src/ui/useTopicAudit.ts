@@ -51,13 +51,40 @@ function topicAuditSourceTotal({
   memos: TopicAuditMemoBundle | null;
   report: TopicAuditReport | null;
 }): number {
+  if (evidence.length > 0) {
+    return evidence.length;
+  }
+  if (memos?.signalReadings.length) {
+    return memos.signalReadings.length;
+  }
   const generatedSignals = report?.generatedFrom.filter((entry) => entry.endsWith(":p1")).length ?? 0;
-  return Math.max(
-    topic.signalIds.length,
-    evidence.length,
-    memos?.signalReadings.length ?? 0,
-    generatedSignals
-  );
+  if (generatedSignals > 0) {
+    return generatedSignals;
+  }
+  return topic.signalIds.length;
+}
+
+function topicAuditAnalyzedCount({
+  evidence,
+  memos,
+  report
+}: {
+  evidence: EvidencePacket[];
+  memos: TopicAuditMemoBundle | null;
+  report: TopicAuditReport | null;
+}): number {
+  if (evidence.length > 0) {
+    const readSignalIds = new Set((memos?.signalReadings ?? []).map((reading) => reading.signalId));
+    return evidence.filter((packet) => readSignalIds.has(packet.signalId)).length;
+  }
+  if (memos?.signalReadings.length) {
+    return memos.signalReadings.length;
+  }
+  return report?.generatedFrom.filter((entry) => entry.endsWith(":p1")).length ?? 0;
+}
+
+function topicAuditCoverageLabel(evidence: EvidencePacket[], sourceTotal: number): string | undefined {
+  return evidence.length > 0 ? `${evidence.length}/${sourceTotal}` : undefined;
 }
 
 function makeSummary({
@@ -75,15 +102,16 @@ function makeSummary({
   flags: TopicAuditValidationFlag[];
   local?: LocalRunState;
 }): TopicAuditSummary {
-  const analyzedCount = memos?.signalReadings.length ?? 0;
   const sourceTotal = topicAuditSourceTotal({ topic, evidence, memos, report });
+  const analyzedCount = topicAuditAnalyzedCount({ evidence, memos, report });
+  const coverage = topicAuditCoverageLabel(evidence, sourceTotal);
   if (local?.status === "running") {
     return {
       reportStatus: "running",
       analyzedCount,
-      queuedCount: Math.max(sourceTotal - analyzedCount, 0),
+      queuedCount: sourceTotal - analyzedCount,
       runningStage: stageNumber(local.stage),
-      coverage: evidence.length ? `${evidence.length}/${sourceTotal}` : undefined,
+      coverage,
       flags
     };
   }
@@ -91,24 +119,25 @@ function makeSummary({
     return {
       reportStatus: "failed",
       analyzedCount,
-      queuedCount: Math.max(sourceTotal - analyzedCount, 0),
+      queuedCount: sourceTotal - analyzedCount,
       failedStage: stageNumber(local.stage),
       failedReason: local.error,
-      coverage: evidence.length ? `${evidence.length}/${sourceTotal}` : undefined,
+      coverage,
       flags
     };
   }
   if (report && memos) {
-    const generatedSignals = report.generatedFrom.filter((entry) => entry.endsWith(":p1")).length;
-    const added = Math.max(sourceTotal - generatedSignals, 0);
-    const isStale = added > 0 || Date.parse(topic.updatedAt) > Date.parse(report.generatedAt);
+    const generatedSignals = topicAuditAnalyzedCount({ evidence, memos, report });
+    const added = sourceTotal > generatedSignals ? sourceTotal - generatedSignals : 0;
+    const removed = generatedSignals > sourceTotal ? generatedSignals - sourceTotal : 0;
+    const isStale = added > 0 || removed > 0 || Date.parse(topic.updatedAt) > Date.parse(report.generatedAt);
     return {
       reportStatus: isStale ? "stale" : "ready",
       analyzedCount,
-      queuedCount: Math.max(sourceTotal - analyzedCount, 0),
-      staleDelta: isStale ? { added, removed: 0 } : undefined,
+      queuedCount: sourceTotal - analyzedCount,
+      staleDelta: isStale ? { added, removed } : undefined,
       generatedAt: report.generatedAt,
-      coverage: evidence.length ? `${evidence.length}/${sourceTotal}` : undefined,
+      coverage,
       flags
     };
   }
@@ -116,7 +145,7 @@ function makeSummary({
     reportStatus: "none",
     analyzedCount,
     queuedCount: sourceTotal,
-    coverage: evidence.length ? `${evidence.length}/${sourceTotal}` : undefined,
+    coverage,
     flags
   };
 }
