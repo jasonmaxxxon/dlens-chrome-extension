@@ -5,6 +5,7 @@ import type {
 } from "../contracts/ingest";
 import type { CompareResultLayout, ExtensionSettings, SessionItem, SessionRecord, Topic } from "../state/types";
 import { getItemReadinessStatus, pickCompareSelection, type ItemReadinessStatus } from "../state/processing-state";
+import { describeAiOutputProvenance, normalizeAiOutputProvenance, type AiOutputProvenance } from "../state/ai-provenance";
 import { sendExtensionMessage } from "./controller";
 import {
   buildDeterministicCompareBrief,
@@ -439,6 +440,9 @@ interface ClusterSurface {
   title: string;
   thesis: string;
   supportLabel: string;
+  provenance: AiOutputProvenance;
+  provenanceLabel: string;
+  provenanceDetail: string;
   audienceEvidence: CommentData[];
   alignment: ClusterAlignment;
   toneVariant: ClusterToneVariant;
@@ -589,8 +593,12 @@ function resolveClusterSurface(
 ): ClusterSurface {
   const interpretation = interpretations.get(clusterInterpretationKey(summary.captureId, summary.cluster.cluster_key)) ?? null;
   const fallback = buildDeterministicClusterInterpretation(summary.cluster);
-  const title = interpretation?.label || fallback.label || "低訊號群組";
-  const thesis = interpretation?.oneLiner || fallback.oneLiner || "這個群組目前只有有限線索，仍需回看代表留言。";
+  const selectedInterpretation = interpretation
+    ? { ...interpretation, provenance: normalizeAiOutputProvenance(interpretation.provenance) }
+    : fallback;
+  const provenanceCopy = describeAiOutputProvenance(selectedInterpretation.provenance);
+  const title = selectedInterpretation.label || "低訊號群組";
+  const thesis = selectedInterpretation.oneLiner || "這個群組目前只有有限線索，仍需回看代表留言。";
   const audienceEvidence = pickClusterExampleEvidence(summary.evidence, interpretation?.evidenceIds, 4)
     .map((comment) => mergeEvidenceDetails(comment, commentLookup));
 
@@ -601,6 +609,9 @@ function resolveClusterSurface(
     title,
     thesis,
     supportLabel: clusterSupportLabel(summary),
+    provenance: selectedInterpretation.provenance,
+    provenanceLabel: provenanceCopy.label,
+    provenanceDetail: provenanceCopy.detail,
     audienceEvidence,
     alignment: inferClusterAlignment(summary),
     toneVariant: toneVariantForSummary(summary)
@@ -2465,7 +2476,11 @@ function ResultHeroCard({
   if (!heroSummary) return null;
   const briefBadgeColor = compareBriefState === "ready" ? AR.blue : compareBriefState === "loading" ? "#636366" : "#8e8e93";
   const confidenceLabel = brief?.confidence ? `CONF · ${String(brief.confidence).toUpperCase()}` : "CONF · MEDIUM";
-  const briefLabel = compareBriefState === "loading" ? "生成中…" : `AI Brief · ${confidenceLabel}`;
+  const briefProvenance = compareBriefState === "loading"
+    ? "missing"
+    : normalizeAiOutputProvenance(brief?.source ?? "fallback");
+  const briefProvenanceCopy = describeAiOutputProvenance(briefProvenance);
+  const briefLabel = compareBriefState === "loading" ? "生成中…" : `${briefProvenanceCopy.label} · ${confidenceLabel}`;
   return (
     <div style={{ background: AR.card, borderRadius: 12, padding: "17px 17px 15px", boxShadow: "0 2px 16px rgba(0,0,0,0.065)", minWidth: 0 }}>
       <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 11, gap: 10, flexWrap: "wrap" as const, minWidth: 0 }}>
@@ -2936,6 +2951,15 @@ function ResultParallelColumn({
             <div style={{ marginTop: 4, fontSize: 11, color: AR.muteInk, ...WRAP_ANYWHERE }}>
               {summary ? clusterSupportLabel(summary) : "No cluster summary"}
             </div>
+            {surface ? (
+              <div
+                data-cluster-provenance={surface.provenance}
+                title={surface.provenanceDetail}
+                style={{ marginTop: 4, fontSize: 10.5, color: AR.muteInk, fontWeight: 700, ...WRAP_ANYWHERE }}
+              >
+                {surface.provenanceLabel}
+              </div>
+            ) : null}
           </div>
           {clusterPct != null ? (
             <div style={{ fontSize: 28, fontWeight: 700, color: accent, lineHeight: 1 }}>
@@ -3105,6 +3129,15 @@ function ResultChapterPostSection({
             <div style={{ marginTop: 4, fontSize: 11, color: AR.muteInk, ...WRAP_ANYWHERE }}>
               {surface?.thesis || (summary ? clusterSupportLabel(summary) : "No cluster summary")}
             </div>
+            {surface ? (
+              <div
+                data-cluster-provenance={surface.provenance}
+                title={surface.provenanceDetail}
+                style={{ marginTop: 4, fontSize: 10.5, color: AR.muteInk, fontWeight: 700, ...WRAP_ANYWHERE }}
+              >
+                {surface.provenanceLabel}
+              </div>
+            ) : null}
           </div>
           {clusterPct != null ? (
             <div style={{ fontSize: 28, fontWeight: 700, color: accent, lineHeight: 1 }}>

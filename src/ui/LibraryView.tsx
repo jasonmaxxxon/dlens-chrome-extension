@@ -7,6 +7,7 @@ import {
 } from "../compare/folder-synthesis";
 import { getLibraryItemUiState, type SessionProcessingSummary, type WorkerStatus } from "../state/processing-state";
 import type { FolderSynthesis, SavedAnalysisSnapshot, SessionItem, SessionRecord, TechniqueReadingSnapshot } from "../state/types";
+import { describeAiOutputProvenance, normalizeAiOutputProvenance } from "../state/ai-provenance";
 import { getSessionDisplayName } from "../state/store-helpers";
 import { Kicker, PrimaryButton, SCAN_ROW_HOVER_CSS, SecondaryButton, SideMark, Stamp, TOKENS, lineClamp, scanRowStyle, skeletonBlockStyle, viewRootStyle } from "./components";
 import { tokens } from "./tokens";
@@ -135,13 +136,8 @@ function keywordPillColor(keyword: string): string {
 }
 
 function savedAnalysisStamp(briefSource: SavedAnalysisSnapshot["briefSource"]): { tone: "success" | "warning" | "neutral"; label: string } {
-  if (briefSource === "ai") {
-    return { tone: "success", label: "Ready" };
-  }
-  if (briefSource === "fallback") {
-    return { tone: "warning", label: "Conf · Medium" };
-  }
-  return { tone: "neutral", label: "Saved" };
+  const provenance = describeAiOutputProvenance(normalizeAiOutputProvenance(briefSource));
+  return { tone: provenance.tone, label: provenance.label };
 }
 
 function PostCard({

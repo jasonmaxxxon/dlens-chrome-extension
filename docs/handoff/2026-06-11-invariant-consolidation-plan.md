@@ -108,6 +108,8 @@ Slice ① (signal readiness) already proved this: `src/state/signal-readiness.ts
 
 **Claude's note:** This is the "honesty" slice and it directly retires a whole bug class (fallback polluting judgment). Cheap relative to its value; could even precede ③.
 
+**Execution note (2026-06-11):** Slice ⑨ now has `src/state/ai-provenance.ts` as the pure answer for `ai | fallback | missing`. Saved-analysis storage normalizes legacy `unknown` / null / absent source into `missing`; new snapshots no longer write null judgment provenance. Cluster interpretations now tag AI parser output as `ai` and deterministic output as `fallback`. Product reading provenance, Library saved-analysis stamps, and Compare hero / cluster labels read the shared helper instead of presenting fallback or missing output as `AI Brief`, `Ready`, or `模型：unknown`.
+
 ---
 
 ## Slice ⑧ — Cache / staleness provenance

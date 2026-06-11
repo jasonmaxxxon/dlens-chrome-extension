@@ -893,6 +893,8 @@ test("CompareView frames primary evidence as receipts before interpretation", ()
   );
 
   assert.match(html, /代表性原文/);
+  assert.match(html, /data-cluster-provenance="fallback"/);
+  assert.match(html, /本機 fallback/);
   // DictionaryCard compact mode: 剖析 block absent when no AI annotations present
   assert.doesNotMatch(html, /剖析/);
   assert.match(html, /為什麼重要/);
@@ -1124,7 +1126,8 @@ test("CompareView shows a small inline AI notice and keeps the fallback hero sum
 
   assert.match(html, /AI summaries are off\. Add a Google, OpenAI, or Claude key in Settings to enable them\./);
   assert.match(html, /共鳴放大型|分歧探索型|張力並存型/);
-  assert.match(html, /AI Brief/);
+  assert.match(html, /本機 fallback/);
+  assert.doesNotMatch(html, /AI Brief/);
 });
 
 test("CompareView renders a compact judgment hero without risk chips", () => {
@@ -1139,7 +1142,7 @@ test("CompareView renders a compact judgment hero without risk chips", () => {
   );
 
   assert.match(html, /共鳴放大型|分歧探索型|張力並存型/);
-  assert.match(html, /AI Brief/);
+  assert.match(html, /本機 fallback/);
   assert.doesNotMatch(html, /Representative evidence/i);
   assert.doesNotMatch(html, /Compare brief/i);
   assert.doesNotMatch(html, /data-risk-signals="subtle"/);
@@ -1155,7 +1158,7 @@ test("CompareView renders an editorial relation line and confidence stamp in the
 
   assert.match(html, /同一議題都能聚攏反應/);
   assert.match(html, /A 收向support，B 則帶往harmful/);
-  assert.match(html, /AI Brief|CONF|confidence|medium/i);
+  assert.match(html, /本機 fallback|CONF|confidence|medium/i);
 });
 
 test("CompareView keeps result prose blocks wrap-safe inside the popup measure", () => {

@@ -2988,8 +2988,69 @@ test("ProductSignalView action route shows existing reading review content", () 
   );
 
   assert.match(html, /data-signal-reading-review-workspace="true"/);
+  assert.match(html, /AI 生成/);
   assert.match(html, /現有判讀內容/);
   assert.doesNotMatch(html, /data-actionable-insights-board="true"/);
+});
+
+test("ProductSignalView marks signal readings with missing provenance explicitly", () => {
+  const html = renderToStaticMarkup(
+    React.createElement(ProductSignalView as any, {
+      kind: "actionable-filter",
+      signals: [
+        { id: "signal_missing_model", sessionId: "sess", itemId: "i1", source: "threads", inboxStatus: "unprocessed", capturedAt: "2026-05-18T00:00:00.000Z" }
+      ],
+      analyses: [
+        {
+          signalId: "signal_missing_model",
+          signalType: "marketing",
+          signalSubtype: "positioning_signal",
+          contentType: "mixed",
+          contentSummary: "缺 provenance 的舊判讀",
+          relevance: 3,
+          relevantTo: ["productPromise"],
+          referenceType: "product_reference",
+          referenceLabel: "對產品參考",
+          referenceTakeaway: "用來判斷產品語氣。",
+          whyRelevant: "對產品語氣有參考價值。",
+          verdict: "watch",
+          reason: "理由。",
+          evidenceRefs: ["e1"],
+          productContextHash: "ctx",
+          promptVersion: "v16",
+          analyzedAt: "2026-05-18T00:00:00.000Z",
+          status: "complete"
+        }
+      ],
+      productProfile: {
+        name: "DLens", category: "x", audience: "y", contextText: "z",
+        contextFiles: [{ id: "f", name: "README.md", kind: "readme", importedAt: "2026-05-18T00:00:00.000Z", charCount: 1 }]
+      },
+      signalReadings: [
+        {
+          signalId: "signal_missing_model",
+          cacheKey: "missing-model-key",
+          productContextHash: "ctx",
+          sourcePacketHash: "pkt-missing",
+          promptVersion: SIGNAL_READING_PROMPT_VERSION,
+          reading: "舊版判讀內容。",
+          generatedAt: "2026-05-18T01:00:00.000Z",
+          model: "",
+          sourceRefs: ["e1"],
+          sourcePacket: { assembledContent: "source content", postUrl: "", representativeComments: [], analysisPromptVersion: "v16" },
+          feedbackEvents: [],
+          reviewState: "pending"
+        }
+      ],
+      onAnalyze: () => undefined,
+      onSynthesizeSignalReading: async () => ({ ok: true, reading: "new reading" }),
+      onReviewSignalReading: async () => ({ ok: false, error: "missing" })
+    })
+  );
+
+  assert.match(html, /data-signal-reading-provenance="true"/);
+  assert.match(html, /來源未標示/);
+  assert.doesNotMatch(html, /模型：unknown/);
 });
 
 test("ClassificationBoard selected post aside collapses long text behind 展開全文", () => {

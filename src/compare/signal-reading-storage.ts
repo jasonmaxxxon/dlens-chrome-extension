@@ -1,5 +1,6 @@
 import type { StorageAreaLike } from "./product-signal-storage.ts";
 import type { SignalReadingComment, SignalReadingSourcePacket } from "./signal-reading.ts";
+import { aiOutputProvenanceFromModel } from "../state/ai-provenance.ts";
 
 export const SIGNAL_READINGS_STORAGE_KEY = "dlens:v1:signal-readings";
 
@@ -213,7 +214,7 @@ export function signalReadingStaleness(
   if (reading.promptVersion !== currentPromptVersion) {
     reasons.push("prompt_version");
   }
-  if (!reading.model || !reading.sourcePacket.assembledContent) {
+  if (aiOutputProvenanceFromModel(reading.model) === "missing" || !reading.sourcePacket.assembledContent) {
     reasons.push("missing_provenance");
   }
   return { stale: reasons.length > 0, reasons };
