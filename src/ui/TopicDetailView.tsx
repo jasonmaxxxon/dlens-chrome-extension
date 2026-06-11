@@ -1548,10 +1548,11 @@ export function TopicDetailView({
     () => new Set((auditMemos?.signalReadings ?? []).map((reading) => reading.signalId)),
     [auditMemos]
   );
-  const readingStatusFor = (signalId: string): SourceRowReadingStatus => {
-    if (p1RunningSet.has(signalId)) return "running";
-    if (readSignalIdsSet.has(signalId)) return "ready";
-    if (p1ErrorBySignalId[signalId]) return "failed";
+  const readingStatusFor = (packet: EvidencePacket): SourceRowReadingStatus => {
+    if (p1RunningSet.has(packet.signalId)) return "running";
+    if (readSignalIdsSet.has(packet.signalId)) return "ready";
+    if (p1ErrorBySignalId[packet.signalId]) return "failed";
+    if (packet.status !== "succeeded") return "not_ready";
     return "pending";
   };
   const p1ReadyCount = auditEvidence.filter((packet) => readSignalIdsSet.has(packet.signalId)).length;
@@ -1991,7 +1992,7 @@ export function TopicDetailView({
                   key={packet.signalId}
                   packet={packet}
                   active={openAuditSignalId === packet.signalId}
-                  readingStatus={readingStatusFor(packet.signalId)}
+                  readingStatus={readingStatusFor(packet)}
                   tags={packet.itemId ? signalTagsByItemId[packet.itemId]?.signalTags : undefined}
                   onOpen={() => setOpenAuditSignalId(packet.signalId)}
                   onRunP1={onRunAuditP1 ? () => onRunAuditP1(topic.id, packet.signalId) : undefined}
@@ -2121,7 +2122,7 @@ export function TopicDetailView({
                   key={packet.signalId}
                   packet={packet}
                   active={openAuditSignalId === packet.signalId}
-                  readingStatus={readingStatusFor(packet.signalId)}
+                  readingStatus={readingStatusFor(packet)}
                   tags={packet.itemId ? signalTagsByItemId[packet.itemId]?.signalTags : undefined}
                   onOpen={() => setOpenAuditSignalId(packet.signalId)}
                   onRunP1={onRunAuditP1 ? () => onRunAuditP1(topic.id, packet.signalId) : undefined}

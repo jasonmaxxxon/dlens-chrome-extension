@@ -79,6 +79,22 @@ test("SourceRow exposes 分析此篇 only when pending|failed and onRunP1 is wir
   assert.doesNotMatch(readyHtml, /data-source-row-run-p1/);
 });
 
+test("SourceRow marks not-ready sources as 未抓取 and does not expose P1 generation", () => {
+  const html = renderToStaticMarkup(
+    React.createElement(SourceRow, {
+      packet: { ...basePacket, status: "queued", commentCount: null, replyFragments: [] },
+      readingStatus: "not_ready",
+      onRunP1: () => undefined
+    })
+  );
+
+  assert.match(html, /data-reading-status="not_ready"/);
+  assert.match(html, /data-source-row-not-ready-label="true"/);
+  assert.match(html, /未抓取/);
+  assert.doesNotMatch(html, /data-source-row-run-p1/);
+  assert.doesNotMatch(html, /分析此篇/);
+});
+
 test("SourceRow shows running label + pulse dot for running status", () => {
   const html = renderToStaticMarkup(
     React.createElement(SourceRow, {

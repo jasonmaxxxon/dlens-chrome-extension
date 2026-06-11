@@ -33,6 +33,7 @@ import {
   type StorageAreaLike,
   type TopicAuditMemoBundle
 } from "./topic-audit-storage.ts";
+import { buildSignalReadinessById } from "./signal-readiness.ts";
 import { loadSignals, loadTopics } from "./topic-storage.ts";
 import { listSignalTags } from "../compare/signal-tags-storage.ts";
 import { validateCrossTopicCalibrationDraft, validateTopicAuditDraft, type TopicAuditValidationFlag } from "../compare/topic-audit-validator.ts";
@@ -106,6 +107,15 @@ function buildInputHash(topic: Topic, signals: Signal[], itemsById: Map<string, 
     promptVersion: Object.values(TOPIC_AUDIT_PROMPT_VERSIONS).join("|"),
     stageName: "all"
   });
+}
+
+function auditReadySignalIds(session: SessionRecord, signals: Signal[]): Set<string> {
+  const readinessById = buildSignalReadinessById(session, signals);
+  return new Set(
+    Object.entries(readinessById)
+      .filter(([, readiness]) => readiness.status === "ready")
+      .map(([signalId]) => signalId)
+  );
 }
 
 async function buildAndSaveEvidence(
@@ -306,6 +316,7 @@ async function runAuditPipeline(
 ): Promise<TopicAuditHandlerResult> {
   const signals = await loadSignals(storageArea, session.id);
   const itemsById = new Map(session.items.map((item) => [item.id, item]));
+  const readySignalIds = auditReadySignalIds(session, signals);
   const inputHash = buildInputHash(topic, signals, itemsById);
   const auditRunId = `audit_${inputHash.replace(/^topic-audit:/, "")}`;
   const existingReport = await loadTopicAuditReport(storageArea, topic.id);
@@ -337,7 +348,7 @@ async function runAuditPipeline(
   const p1Failures: string[] = [];
 
   const readingBySignalId = new Map(signalReadings.map((reading) => [reading.signalId, reading]));
-  const missingPackets = evidence.filter((packet) => !readingBySignalId.has(packet.signalId));
+  const missingPackets = evidence.filter((packet) => readySignalIds.has(packet.signalId) && !readingBySignalId.has(packet.signalId));
   if (missingPackets.length > 0) {
     for (const packet of missingPackets) {
       try {
@@ -454,6 +465,7 @@ async function runP1ForSingleSignal(
 ): Promise<TopicAuditHandlerResult> {
   const signals = await loadSignals(storageArea, session.id);
   const itemsById = new Map(session.items.map((item) => [item.id, item]));
+  const readySignalIds = auditReadySignalIds(session, signals);
   const inputHash = buildInputHash(topic, signals, itemsById);
   const auditRunId = `audit_${inputHash.replace(/^topic-audit:/, "")}`;
 
@@ -462,6 +474,9 @@ async function runP1ForSingleSignal(
   const targetPacket = evidence.find((packet) => packet.signalId === signalId);
   if (!targetPacket) {
     throw new Error("Signal not found in evidence for this topic");
+  }
+  if (!readySignalIds.has(targetPacket.signalId)) {
+    throw new Error("Signal is not ready for audit; crawl it before generating a reading");
   }
   const allowedRefs = allAllowedRefs(evidence);
 

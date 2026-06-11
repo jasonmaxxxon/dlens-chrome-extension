@@ -111,6 +111,7 @@ function makeItem(id: string, author: string, text: string, replyText: string): 
         canonical_post: {},
         comments: [],
         thread_read_model: {
+          assembled_content: `${text}\n\nOP 補充\n\n${replyText}`,
           root_post: { author, text, like_count: 10 },
           op_continuations: [{ comment_id: `op-${id}`, author, text: "OP 補充", like_count: 2 }],
           discussion_replies: [{ comment_id: `r-${id}`, author: "reader", text: replyText, like_count: 5 }]
@@ -153,6 +154,24 @@ function makeSession(): SessionRecord {
     items: [
       makeItem("item-1", "op", "靚女玩 app 會遇到市場錯配。", "我同老公就是 app 識的。"),
       makeItem("item-2", "op2", "有人用收入衡量男友。", "點解用收入衡量一個男士？")
+    ]
+  };
+}
+
+function makeSessionWithSecondItemSaved(): SessionRecord {
+  const session = makeSession();
+  return {
+    ...session,
+    items: [
+      session.items[0]!,
+      {
+        ...session.items[1]!,
+        status: "saved",
+        completedAt: null,
+        captureId: null,
+        latestCapture: null,
+        commentsPreview: []
+      }
     ]
   };
 }
@@ -273,6 +292,48 @@ test("topic audit run persists each stage and reuses cache on the same input", a
 
   assert.equal(calls.length, 7);
   assert.equal(second.auditReport?.inputHash, first.auditReport?.inputHash);
+});
+
+test("topic audit run only generates P1 readings for ready signals", async () => {
+  const storage = new MemoryStorage();
+  await seedTopic(storage);
+  const calls: string[] = [];
+
+  const response = await handleTopicAuditMessage(storage, {
+    message: { type: "topic/audit/run", sessionId: "session-1", topicId: "topic-1" },
+    sessions: [makeSessionWithSecondItemSaved()],
+    generateEnvelope: async (stageName) => {
+      calls.push(stageName);
+      return makeEnvelope(stageName);
+    },
+    model: "mock:model"
+  });
+
+  assert.deepEqual(calls, ["p1-signal-reading", "lexicon", "narrative", "audience", "absence", "final"]);
+  assert.deepEqual(response.auditMemos?.signalReadings.map((reading) => reading.signalId), ["signal-1"]);
+  assert.deepEqual(response.auditReport?.generatedFrom.filter((entry) => entry.endsWith(":p1")), ["S1:p1"]);
+});
+
+test("topic audit single P1 refuses saved signals before generating an OP-only reading", async () => {
+  const storage = new MemoryStorage();
+  await seedTopic(storage);
+  const calls: string[] = [];
+
+  await assert.rejects(
+    () => handleTopicAuditMessage(storage, {
+      message: { type: "topic/audit/p1-signal", sessionId: "session-1", topicId: "topic-1", signalId: "signal-2" },
+      sessions: [makeSessionWithSecondItemSaved()],
+      generateEnvelope: async (stageName) => {
+        calls.push(stageName);
+        return makeEnvelope(stageName);
+      },
+      model: "mock:model"
+    }),
+    /Signal is not ready for audit/
+  );
+
+  assert.deepEqual(calls, []);
+  assert.equal((await loadTopicAuditMemos(storage, "topic-1"))?.signalReadings.length ?? 0, 0);
 });
 
 test("topic audit run can resume from a later stage without rerunning completed stages", async () => {

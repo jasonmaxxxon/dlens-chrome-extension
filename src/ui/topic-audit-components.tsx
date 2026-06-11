@@ -461,7 +461,7 @@ export function NarrativeLane({
   );
 }
 
-export type SourceRowReadingStatus = "ready" | "running" | "failed" | "pending";
+export type SourceRowReadingStatus = "ready" | "running" | "failed" | "pending" | "not_ready";
 
 const MAX_TAGS_VISIBLE = 2;
 
@@ -589,6 +589,7 @@ export function SourceRow({
   const isPending = readingStatus === "pending";
   const isRunning = readingStatus === "running";
   const isFailed = readingStatus === "failed";
+  const isNotReady = readingStatus === "not_ready";
   const visibleTags = (tags ?? []).slice(0, MAX_TAGS_VISIBLE);
   const hiddenTagCount = Math.max(0, (tags?.length ?? 0) - visibleTags.length);
   const showAllTags = Boolean(active);
@@ -598,10 +599,10 @@ export function SourceRow({
   const likesText = formatMetric(packet.opLikes);
   const commentsText = formatMetric(packet.commentCount);
 
-  const codeColor = isPending ? tokens.color.softInk : TOPIC.primary;
-  const authorColor = isPending ? tokens.color.softInk : tokens.color.subInk;
-  const previewColor = isPending ? tokens.color.softInk : tokens.color.subInk;
-  const previewOpacity = isPending ? 0.72 : 1;
+  const codeColor = isPending || isNotReady ? tokens.color.softInk : TOPIC.primary;
+  const authorColor = isPending || isNotReady ? tokens.color.softInk : tokens.color.subInk;
+  const previewColor = isPending || isNotReady ? tokens.color.softInk : tokens.color.subInk;
+  const previewOpacity = isPending || isNotReady ? 0.72 : 1;
 
   return (
     <div
@@ -691,6 +692,25 @@ export function SourceRow({
               }}
             >
               失敗
+            </span>
+          ) : null}
+          {isNotReady ? (
+            <span
+              data-source-row-not-ready-label="true"
+              style={{
+                display: "inline-flex",
+                alignItems: "center",
+                fontFamily: tokens.font.mono,
+                fontSize: 9.5,
+                fontWeight: 700,
+                letterSpacing: "0.06em",
+                color: tokens.color.softInk,
+                background: tokens.color.contextSurface,
+                padding: "1px 6px",
+                borderRadius: 4
+              }}
+            >
+              未抓取
             </span>
           ) : null}
           <Sep />
