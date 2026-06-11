@@ -1,4 +1,5 @@
 import type { SavedAnalysisSnapshot } from "../state/types.ts";
+import { normalizeAiOutputProvenance } from "../state/ai-provenance.ts";
 import { COMPARE_BRIEF_PROMPT_VERSION } from "./provider.ts";
 
 export const SAVED_ANALYSES_STORAGE_KEY = "dlens:v1:saved-analyses";
@@ -17,11 +18,11 @@ function readNumber(value: unknown, fallback = 0): number {
 }
 
 function readBriefSource(value: unknown): SavedAnalysisSnapshot["briefSource"] {
-  return value === "ai" || value === "fallback" || value === "unknown" ? value : "unknown";
+  return normalizeAiOutputProvenance(value);
 }
 
-function readJudgmentSource(value: unknown): NonNullable<SavedAnalysisSnapshot["judgmentSource"]> | null {
-  return value === "ai" || value === "fallback" || value === "unknown" ? value : null;
+function readJudgmentSource(value: unknown): NonNullable<SavedAnalysisSnapshot["judgmentSource"]> {
+  return normalizeAiOutputProvenance(value);
 }
 
 function readJudgmentRecommendedState(value: unknown): NonNullable<SavedAnalysisSnapshot["judgmentResult"]>["recommendedState"] | null {
@@ -72,6 +73,8 @@ export function normalizeSavedAnalysisSnapshot(value: unknown): SavedAnalysisSna
     return null;
   }
 
+  const judgmentResult = readJudgmentResult(raw.judgmentResult);
+
   return {
     resultId,
     compareKey,
@@ -89,9 +92,9 @@ export function normalizeSavedAnalysisSnapshot(value: unknown): SavedAnalysisSna
     analysisVersion: readString(raw.analysisVersion, "unknown").trim() || "unknown",
     briefVersion: readString(raw.briefVersion, "unknown").trim() || "unknown",
     briefSource: readBriefSource(raw.briefSource),
-    judgmentResult: readJudgmentResult(raw.judgmentResult),
+    judgmentResult,
     judgmentVersion: readString(raw.judgmentVersion).trim() || null,
-    judgmentSource: readJudgmentSource(raw.judgmentSource)
+    judgmentSource: judgmentResult ? readJudgmentSource(raw.judgmentSource) : "missing"
   };
 }
 
@@ -105,7 +108,7 @@ export function buildSavedAnalysisSnapshot(
     briefVersion: COMPARE_BRIEF_PROMPT_VERSION,
     judgmentResult: null,
     judgmentVersion: null,
-    judgmentSource: null
+    judgmentSource: "missing"
   };
 }
 
@@ -158,7 +161,7 @@ export async function saveSavedAnalysisJudgment(
     ...existing[targetIndex],
     judgmentResult: input.judgmentResult ?? null,
     judgmentVersion: input.judgmentVersion ?? null,
-    judgmentSource: input.judgmentSource ?? null
+    judgmentSource: input.judgmentSource ?? "missing"
   });
   if (!updated) {
     throw new Error("Invalid saved analysis judgment update");

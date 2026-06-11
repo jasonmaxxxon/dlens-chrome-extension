@@ -1,5 +1,6 @@
 import type { AnalysisClusterSnapshot, AnalysisEvidenceCommentSnapshot } from "../contracts/ingest.ts";
 import { isWeakClusterLabel, validateClusterOneLinerPayload } from "../analysis/cluster-validation.ts";
+import type { AiOutputProvenance } from "../state/ai-provenance.ts";
 
 export interface CompareClusterSummaryRequestItem {
   captureId: string;
@@ -26,6 +27,7 @@ export interface ClusterInterpretation {
   reading: string;
   oneLiner: string;
   evidenceIds: string[];
+  provenance: AiOutputProvenance;
 }
 
 export function buildCompareClusterSummaryCacheKey(
@@ -128,7 +130,8 @@ export function buildDeterministicClusterInterpretation(cluster: AnalysisCluster
     observation,
     reading,
     oneLiner,
-    evidenceIds: []
+    evidenceIds: [],
+    provenance: "fallback"
   };
 }
 
@@ -278,7 +281,8 @@ export function parseCompareClusterSummaryResponse(
       observation,
       reading,
       oneLiner,
-      evidenceIds: (payload.evidence_ids || []).slice(0, 2)
+      evidenceIds: (payload.evidence_ids || []).slice(0, 2),
+      provenance: "ai"
     });
   }
 

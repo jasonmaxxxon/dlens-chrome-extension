@@ -42,6 +42,7 @@ test("buildDeterministicClusterInterpretation produces observation, reading, and
   });
 
   assert.equal(interpretation.label, "集中回聲型 · support");
+  assert.equal(interpretation.provenance, "fallback");
   assert.ok(interpretation.observation.length > 0);
   assert.ok(interpretation.reading.length > 0);
   // oneLiner is observation + reading combined
@@ -120,6 +121,7 @@ test("parseCompareClusterSummaryResponse keeps only validated cluster summaries 
   assert.equal(parsed[0]?.captureId, "cap-a");
   assert.equal(parsed[0]?.clusterKey, 3);
   assert.equal(parsed[0]?.label, "支持政策預算");
+  assert.equal(parsed[0]?.provenance, "ai");
   assert.ok(parsed[0]?.observation.length > 0);
   assert.ok(parsed[0]?.reading.length > 0);
   assert.equal(parsed[0]?.oneLiner, "這群留言以集中回聲型方式回應原文，支持政策聲音高度一致。");

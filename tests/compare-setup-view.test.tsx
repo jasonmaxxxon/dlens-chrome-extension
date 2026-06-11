@@ -69,7 +69,8 @@ test("CompareSetupView renders the teaser card and keeps the CTA disabled while 
   assert.match(html, /比較/);
   assert.match(html, /選擇兩篇貼文/);
   assert.match(html, /data-compare-teaser-state="loading"/);
-  assert.match(html, /AI brief 生成中…/);
+  assert.match(html, /分析預覽生成中…/);
+  assert.doesNotMatch(html, /AI brief 生成中…/);
   assert.match(html, /disabled/);
   assert.ok(
     html.indexOf('data-compare-cta-row="above-teaser"') < html.indexOf('data-compare-teaser-state="loading"'),
@@ -103,6 +104,8 @@ test("CompareSetupView enables the CTA once the teaser is ready, including fallb
   assert.match(html, /data-compare-primary-cta="true"/);
   assert.match(html, /焦慮是主調，但理性聲音正在集結/);
   assert.match(html, /847 則留言 · 3 群組 · fallback/);
+  assert.match(html, /本機 fallback/);
+  assert.doesNotMatch(html, /AI Brief/);
   assert.doesNotMatch(html, /查看完整分析[^<]*disabled/);
 });
 

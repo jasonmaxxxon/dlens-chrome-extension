@@ -9,7 +9,7 @@ import {
   SAVED_ANALYSES_STORAGE_KEY
 } from "../src/compare/saved-analysis-storage.ts";
 
-test("loadSavedAnalyses normalizes legacy snapshots to an unknown brief source", async () => {
+test("loadSavedAnalyses normalizes legacy snapshots to missing provenance", async () => {
   const bucket: Record<string, unknown> = {
     [SAVED_ANALYSES_STORAGE_KEY]: [
       {
@@ -46,11 +46,11 @@ test("loadSavedAnalyses normalizes legacy snapshots to an unknown brief source",
   const loaded = await loadSavedAnalyses(storageArea);
 
   assert.equal(loaded.length, 1);
-  assert.equal(loaded[0]?.briefSource, "unknown");
+  assert.equal(loaded[0]?.briefSource, "missing");
   assert.equal(loaded[0]?.briefVersion, "v5");
   assert.equal(loaded[0]?.judgmentResult, null);
   assert.equal(loaded[0]?.judgmentVersion, null);
-  assert.equal(loaded[0]?.judgmentSource, null);
+  assert.equal(loaded[0]?.judgmentSource, "missing");
 });
 
 test("buildSavedAnalysisSnapshot uses the current compare brief version and explicit semantic source", () => {
@@ -75,7 +75,7 @@ test("buildSavedAnalysisSnapshot uses the current compare brief version and expl
   assert.equal(snapshot.primaryTensionSummary, snapshot.deck);
   assert.equal(snapshot.judgmentResult, null);
   assert.equal(snapshot.judgmentVersion, null);
-  assert.equal(snapshot.judgmentSource, null);
+  assert.equal(snapshot.judgmentSource, "missing");
 });
 
 test("saveSavedAnalysisJudgment updates only the targeted saved analysis entry", async () => {

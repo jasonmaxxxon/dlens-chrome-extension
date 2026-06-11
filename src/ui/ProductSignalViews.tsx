@@ -26,6 +26,7 @@ import {
   type SignalReadingStaleness
 } from "../compare/signal-reading-storage";
 import { SIGNAL_READING_PROMPT_VERSION } from "../compare/signal-reading";
+import { aiOutputProvenanceFromModel, describeAiOutputProvenance } from "../state/ai-provenance";
 import type { ProductSignalReadiness } from "./product-signal-readiness";
 import {
   Kicker,
@@ -1608,6 +1609,13 @@ function SignalReadingProvenanceRow({
   reading?: SignalReading;
 }) {
   const model = reading?.model || "";
+  const provenance = aiOutputProvenanceFromModel(model);
+  const provenanceCopy = describeAiOutputProvenance(provenance);
+  const provenanceColor = provenanceCopy.tone === "success"
+    ? tokens.color.success
+    : provenanceCopy.tone === "warning"
+      ? tokens.color.queued
+      : tokens.color.softInk;
   return (
     <div
       data-signal-reading-provenance="true"
@@ -1643,10 +1651,10 @@ function SignalReadingProvenanceRow({
       </span>
       <span
         data-signal-reading-model-hover="true"
-        title={model ? `模型：${model}` : "模型：unknown"}
-        style={{ color: tokens.color.softInk, cursor: model ? "help" : "default" }}
+        title={model ? `模型：${model}` : provenanceCopy.detail}
+        style={{ color: provenanceColor, cursor: model ? "help" : "default" }}
       >
-        模型
+        判讀來源：{provenanceCopy.label}
       </span>
     </div>
   );

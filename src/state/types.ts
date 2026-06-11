@@ -1,5 +1,6 @@
 import type { CaptureSnapshot, JobSnapshot } from "../contracts/ingest";
 import type { TargetDescriptor } from "../contracts/target-descriptor";
+import type { AiOutputProvenance } from "./ai-provenance";
 
 export type FolderMode = "archive" | "topic" | "product" | "pr-evidence";
 export type TopicStatus = "pending" | "watching" | "learning" | "testing" | "archived";
@@ -268,10 +269,10 @@ export interface SavedAnalysisSnapshot {
   savedAt: string;
   analysisVersion: string;
   briefVersion: string;
-  briefSource: "ai" | "fallback" | "unknown";
+  briefSource: AiOutputProvenance;
   judgmentResult?: JudgmentResult | null;
   judgmentVersion?: string | null;
-  judgmentSource?: "ai" | "fallback" | "unknown" | null;
+  judgmentSource?: AiOutputProvenance;
 }
 
 export interface SessionItem {

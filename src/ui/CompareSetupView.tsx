@@ -1,4 +1,5 @@
 import type { SessionItem } from "../state/types.ts";
+import { describeAiOutputProvenance, normalizeAiOutputProvenance, type AiOutputProvenance } from "../state/ai-provenance.ts";
 import { tokens } from "./tokens.ts";
 
 const AR = {
@@ -17,7 +18,7 @@ export interface CompareSetupTeaser {
   headline: string;
   deck: string;
   metadataLabel: string;
-  briefSource: "ai" | "fallback";
+  briefSource: Exclude<AiOutputProvenance, "missing">;
 }
 
 interface CompareSetupViewProps {
@@ -236,6 +237,18 @@ export function CompareSetupView({
   // Allow opening compare as soon as both A+B are selected — don't block on teaser readiness.
   // The teaser is supplementary (brief preview). The result page loads the full analysis regardless.
   const openDisabled = !bothSelected || teaserState === "loading";
+  const teaserProvenance = teaserState === "ready"
+    ? normalizeAiOutputProvenance(teaser?.briefSource)
+    : "missing";
+  const teaserProvenanceCopy = describeAiOutputProvenance(teaserProvenance);
+  const teaserBadgeLabel = teaserState === "ready" ? teaserProvenanceCopy.label : "生成中…";
+  const teaserBadgeColor = teaserState === "ready"
+    ? teaserProvenanceCopy.tone === "success"
+      ? AR.green
+      : teaserProvenanceCopy.tone === "warning"
+        ? AR.orange
+        : AR.muteInk
+    : AR.muteInk;
 
   return (
     <div
@@ -329,7 +342,7 @@ export function CompareSetupView({
             transition: "background 180ms ease, color 180ms ease, transform 180ms ease",
           }}
         >
-          {bothSelected && teaserState === "loading" ? "AI brief 生成中…" : "查看完整分析"}
+          {bothSelected && teaserState === "loading" ? "分析預覽生成中…" : "查看完整分析"}
         </button>
         {bothSelected ? (
           <button
@@ -377,13 +390,13 @@ export function CompareSetupView({
               style={{
                 fontSize: 10,
                 fontWeight: 700,
-                color: teaserState === "ready" ? AR.blue : AR.muteInk,
+                color: teaserBadgeColor,
                 background: teaserState === "ready" ? "rgba(0,113,227,0.08)" : AR.canvas,
                 borderRadius: tokens.radius.sm,
                 padding: "2px 8px",
               }}
             >
-              {teaserState === "ready" ? "AI Brief" : "生成中…"}
+              {teaserBadgeLabel}
             </span>
           </div>
 
