@@ -1,6 +1,7 @@
 import type { StorageAreaLike } from "./product-signal-storage.ts";
 import type { SignalReadingComment, SignalReadingSourcePacket } from "./signal-reading.ts";
 import { aiOutputProvenanceFromModel } from "../state/ai-provenance.ts";
+import { deriveDerivedRecordStaleness } from "../state/derived-record.ts";
 
 export const SIGNAL_READINGS_STORAGE_KEY = "dlens:v1:signal-readings";
 
@@ -210,13 +211,22 @@ export function signalReadingStaleness(
   reading: SignalReading,
   currentPromptVersion: string
 ): SignalReadingStaleness {
-  const reasons: SignalReadingStaleness["reasons"] = [];
-  if (reading.promptVersion !== currentPromptVersion) {
-    reasons.push("prompt_version");
-  }
-  if (aiOutputProvenanceFromModel(reading.model) === "missing" || !reading.sourcePacket.assembledContent) {
-    reasons.push("missing_provenance");
-  }
+  const staleness = deriveDerivedRecordStaleness({
+    record: {
+      sourceHash: [reading.productContextHash, reading.sourcePacketHash].join("::"),
+      generatedAt: reading.generatedAt,
+      generatorVersion: reading.promptVersion
+    },
+    currentGeneratorVersion: currentPromptVersion,
+    missingProvenance: aiOutputProvenanceFromModel(reading.model) === "missing" || !reading.sourcePacket.assembledContent
+  });
+  const reasons = staleness.reasons
+    .map((reason): SignalReadingStaleness["reasons"][number] | null => {
+      if (reason === "generator_version") return "prompt_version";
+      if (reason === "missing_provenance") return "missing_provenance";
+      return null;
+    })
+    .filter((reason): reason is SignalReadingStaleness["reasons"][number] => reason !== null);
   return { stale: reasons.length > 0, reasons };
 }
 

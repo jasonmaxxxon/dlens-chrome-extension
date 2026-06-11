@@ -209,5 +209,6 @@ test("folderSynthesisStaleReason marks synthesis stale once delta crosses the th
   // deletion: negative delta must also trigger stale
   assert.equal(folderSynthesisStaleReason(base, 4 - FOLDER_SYNTHESIS_STALE_DELTA + 1), "fresh");
   assert.equal(folderSynthesisStaleReason(base, 4 - FOLDER_SYNTHESIS_STALE_DELTA), "stale");
+  assert.equal(folderSynthesisStaleReason({ ...base, generatorVersion: "v-old" }, 4), "stale");
   assert.equal(folderSynthesisStaleReason(null, 0), "absent");
 });

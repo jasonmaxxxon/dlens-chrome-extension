@@ -21,7 +21,7 @@ Slice ① (signal readiness) already proved this: `src/state/signal-readiness.ts
 | ⑤ | Which entity does this action target? | sequenced |
 | ⑥ | What single write path keeps storage consistent? | sequenced (riskiest) |
 | ⑦ | Does this page exist / can I enter / how wide / which workspace? | **DONE** — `page-registry.ts` |
-| ⑧ | Is this derived record stale / reusable? | sequenced |
+| ⑧ | Is this derived record stale / reusable? | **DONE** — `derived-record.ts` |
 | ⑨ | Did this output come from AI, fallback, or is it missing? | **DONE** — `ai-provenance.ts` |
 
 ## Governing rules (apply to EVERY slice — do not skip)
@@ -130,6 +130,8 @@ Slice ① (signal readiness) already proved this: `src/state/signal-readiness.ts
 
 **Claude's note:** The stale-reading-with-no-inline-citations issue lives here (old `promptVersion`). After ⑧, "this reading is from an old prompt version" becomes an explicit `stalenessReason`, not an invisible degradation.
 
+**Execution note (codex/cache-staleness-provenance):** `src/state/derived-record.ts` now owns derived-record freshness with `fresh | stale | absent` plus explicit reasons: `source_hash`, `generator_version`, `source_delta`, `updated_after_generated`, and `missing_provenance`. Signal Reading staleness maps the shared `generator_version` / `missing_provenance` answers back to its legacy UI labels; Topic synthesis and Folder synthesis use the same helper for count delta and generator-version drift; Topic audit report status uses it for added/removed source drift and `topic.updatedAt > report.generatedAt`. The ad-hoc stale calculations in those consumers were removed.
+
 ---
 
 ## Slice ⑤ — Identity / ownership (explicit target) — HIGH VALUE, HIGH RISK
@@ -172,7 +174,7 @@ User-agreed: ① done → ② → ③ → skip ④. I agree, and propose slottin
 ⑦ page registry        ✅ done (main @ e98a83c)
 ⑨ AI/fallback provenance ✅ done (main @ 1243ed9)
 ③ hydration load-state ✅ done (codex/hydration-load-state)
-⑧ cache/staleness      ← next  (MEDIUM, explains stale readings)
+⑧ cache/staleness      ✅ done (codex/cache-staleness-provenance)
 ⑤ identity/target      (HIGH, multi-PR, kills B-05 class)
 ⑥ storage seam         (HIGHEST, last, may stay partial)
 ④ defensive arrays     SKIP

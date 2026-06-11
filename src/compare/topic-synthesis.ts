@@ -7,6 +7,7 @@ import type {
   TopicSynthesisObservation,
   TopicSynthesisOutlier
 } from "../state/types.ts";
+import { deriveDerivedRecordStaleness } from "../state/derived-record.ts";
 import { readItemSynthesisText } from "./synthesis-text.ts";
 
 export const TOPIC_SYNTHESIS_VERSION = "v3.generic-keyword-lens";
@@ -221,7 +222,16 @@ export function topicSynthesisStaleReason(
   synthesis: TopicSynthesis | null | undefined,
   currentAnalyzedCount: number
 ): "fresh" | "stale" | "absent" {
-  if (!synthesis) return "absent";
-  const delta = currentAnalyzedCount - synthesis.generatedFromCount;
-  return Math.abs(delta) >= TOPIC_SYNTHESIS_STALE_DELTA ? "stale" : "fresh";
+  return deriveDerivedRecordStaleness({
+    record: synthesis
+      ? {
+          generatedAt: synthesis.generatedAt,
+          generatorVersion: synthesis.generatorVersion
+        }
+      : null,
+    currentGeneratorVersion: TOPIC_SYNTHESIS_VERSION,
+    sourceCount: synthesis?.generatedFromCount,
+    currentSourceCount: currentAnalyzedCount,
+    sourceDeltaThreshold: TOPIC_SYNTHESIS_STALE_DELTA
+  }).state;
 }

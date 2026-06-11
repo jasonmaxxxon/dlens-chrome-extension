@@ -8,6 +8,7 @@ import type {
   Topic,
   TopicSynthesisObservation
 } from "../state/types.ts";
+import { deriveDerivedRecordStaleness } from "../state/derived-record.ts";
 
 export const FOLDER_SYNTHESIS_VERSION = "v3.generic-keyword-lens";
 export const FOLDER_SYNTHESIS_MIN_ANALYZED = 3;
@@ -228,6 +229,16 @@ export function folderSynthesisStaleReason(
   synthesis: FolderSynthesis | null | undefined,
   currentAnalyzedCount: number
 ): "fresh" | "stale" | "absent" {
-  if (!synthesis) return "absent";
-  return Math.abs(currentAnalyzedCount - synthesis.generatedFromCount) >= FOLDER_SYNTHESIS_STALE_DELTA ? "stale" : "fresh";
+  return deriveDerivedRecordStaleness({
+    record: synthesis
+      ? {
+          generatedAt: synthesis.generatedAt,
+          generatorVersion: synthesis.generatorVersion
+        }
+      : null,
+    currentGeneratorVersion: FOLDER_SYNTHESIS_VERSION,
+    sourceCount: synthesis?.generatedFromCount,
+    currentSourceCount: currentAnalyzedCount,
+    sourceDeltaThreshold: FOLDER_SYNTHESIS_STALE_DELTA
+  }).state;
 }
