@@ -1,8 +1,8 @@
 import type { ExtensionMessage, ExtensionSuccessResponse } from "./messages";
 import type { SessionItem, SessionRecord, Signal, Topic } from "./types";
 import { DEFAULT_SESSION_NAME_BY_MODE, getSessionDisplayName } from "./store-helpers";
+import { deleteSignalStorageRecords } from "./session-signal-seam";
 import {
-  deleteSignal,
   deleteTopic,
   loadSignals,
   loadTopics,
@@ -16,7 +16,6 @@ import {
   TOPICS_STORAGE_KEY,
   triageSignal
 } from "./topic-storage";
-import { clearFolderSynthesis } from "../compare/folder-synthesis-storage";
 
 type TopicHandlerMessage = Extract<
   ExtensionMessage,
@@ -307,8 +306,7 @@ export async function handleTopicMessage(
       };
     }
     case "signal/delete": {
-      const result = await deleteSignal(storageArea, message.signalId);
-      await clearFolderSynthesis(storageArea, result.deleted.sessionId);
+      const result = await deleteSignalStorageRecords(storageArea, message.signalId);
       return {
         signals: result.signals,
         topics: result.topics
