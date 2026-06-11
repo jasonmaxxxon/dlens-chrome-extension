@@ -180,6 +180,7 @@ test("topicSynthesisStaleReason marks synthesis stale once delta crosses the thr
   // deletion: negative delta must also trigger stale
   assert.equal(topicSynthesisStaleReason(base, 4 - TOPIC_SYNTHESIS_STALE_DELTA + 1), "fresh");
   assert.equal(topicSynthesisStaleReason(base, 4 - TOPIC_SYNTHESIS_STALE_DELTA), "stale");
+  assert.equal(topicSynthesisStaleReason({ ...base, generatorVersion: "v-old" }, 4), "stale");
   assert.equal(topicSynthesisStaleReason(null, 0), "absent");
   assert.equal(TOPIC_SYNTHESIS_MIN_ANALYZED >= 2, true);
 });

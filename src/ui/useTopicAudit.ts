@@ -3,6 +3,7 @@ import { useEffect, useMemo, useState } from "react";
 import type { EvidencePacket, TopicAuditReport, TopicAuditStageName } from "../compare/topic-audit.ts";
 import type { TopicAuditValidationFlag } from "../compare/topic-audit-validator.ts";
 import type { ExtensionMessage, ExtensionResponse } from "../state/messages.ts";
+import { deriveDerivedRecordStaleness } from "../state/derived-record.ts";
 import type { SessionRecord, Topic } from "../state/types.ts";
 import type { TopicAuditMemoBundle } from "../state/topic-audit-storage.ts";
 import { sendExtensionMessage } from "./controller.tsx";
@@ -130,7 +131,17 @@ function makeSummary({
     const generatedSignals = topicAuditAnalyzedCount({ evidence, memos, report });
     const added = sourceTotal > generatedSignals ? sourceTotal - generatedSignals : 0;
     const removed = generatedSignals > sourceTotal ? generatedSignals - sourceTotal : 0;
-    const isStale = added > 0 || removed > 0 || Date.parse(topic.updatedAt) > Date.parse(report.generatedAt);
+    const staleness = deriveDerivedRecordStaleness({
+      record: {
+        generatedAt: report.generatedAt,
+        generatorVersion: report.promptVersion
+      },
+      sourceCount: generatedSignals,
+      currentSourceCount: sourceTotal,
+      sourceDeltaThreshold: 1,
+      currentUpdatedAt: topic.updatedAt
+    });
+    const isStale = staleness.state === "stale";
     return {
       reportStatus: isStale ? "stale" : "ready",
       analyzedCount,
