@@ -1189,8 +1189,11 @@ function buildTopicAuditSummary({
 }): TopicAuditSummary {
   const sourceTotal = topicAuditSourceTotal({ signals, auditEvidence, auditMemos, auditSummary });
   if (auditSummary) {
+    const analyzedCount = Math.min(auditSummary.analyzedCount, sourceTotal || auditSummary.analyzedCount);
     return {
       ...auditSummary,
+      analyzedCount,
+      queuedCount: Math.max(sourceTotal - analyzedCount, 0),
       coverage: auditCoverageDisplay(auditSummary.coverage, sourceTotal)
     };
   }
@@ -1222,13 +1225,18 @@ function topicAuditSourceTotal({
   auditSummary?: TopicAuditSummary;
 }): number {
   const coverage = readCoverageParts(auditSummary?.coverage);
-  return Math.max(
-    signals.length,
+  const auditSourceTotal = Math.max(
     auditEvidence.length,
     auditMemos?.signalReadings.length ?? 0,
-    auditSummary ? auditSummary.analyzedCount + auditSummary.queuedCount : 0,
     coverage?.numerator ?? 0,
     coverage?.denominator ?? 0
+  );
+  if (auditSourceTotal > 0) {
+    return auditSourceTotal;
+  }
+  return Math.max(
+    signals.length,
+    auditSummary ? auditSummary.analyzedCount + auditSummary.queuedCount : 0
   );
 }
 
@@ -1266,12 +1274,7 @@ function TopicAuditOverview({
   onRunAudit?: (topicId: string, fromStage?: TopicAuditStageName) => void;
   onOpenAuditReport?: (topicId: string, stale?: boolean) => void;
 }) {
-  const displaySourceTotal = Math.max(
-    sourceTotalCount ?? signals.length,
-    signals.length,
-    summary.analyzedCount + summary.queuedCount,
-    summary.analyzedCount
-  );
+  const displaySourceTotal = sourceTotalCount ?? Math.max(signals.length, summary.analyzedCount + summary.queuedCount, summary.analyzedCount);
   const coverageLabel = auditCoverageDisplay(summary.coverage, displaySourceTotal) ?? `${displaySourceTotal}/${displaySourceTotal}`;
   const p1All = typeof p1ReadyCount === "number" && typeof p1TotalCount === "number" && p1TotalCount > 0 && p1ReadyCount === p1TotalCount;
   const p1NoneReady = (p1ReadyCount ?? 0) === 0;

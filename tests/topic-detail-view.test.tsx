@@ -321,6 +321,51 @@ test("TopicDetailView uses audit evidence as the denominator when topic signal p
   assert.doesNotMatch(html, /覆蓋 3\/0/);
 });
 
+test("TopicDetailView ignores non-topic-scoped signals when audit sources are present", () => {
+  const auditEvidence = Array.from({ length: 15 }, (_, index) => ({
+    ...auditPacket,
+    signalId: `audit-signal-${index + 1}`,
+    itemId: `audit-item-${index + 1}`,
+    shortCode: `S${index + 1}`,
+    opText: `audit source ${index + 1}`
+  }));
+  const auditOnlySignals: Signal[] = Array.from({ length: 30 }, (_, index) => ({
+    ...signals[0]!,
+    id: `unscoped-signal-${index + 1}`,
+    itemId: `unscoped-item-${index + 1}`
+  }));
+  const auditOnlyMemos: TopicAuditMemoBundle = {
+    ...auditMemos,
+    signalReadings: auditEvidence.map((packet) => ({
+      ...auditMemos.signalReadings[0]!,
+      signalId: packet.signalId,
+      shortCode: packet.shortCode,
+      evidenceRefs: [`${packet.shortCode}.OP`]
+    }))
+  };
+
+  const html = renderToStaticMarkup(
+    React.createElement(TopicDetailView, {
+      topic: { ...topic, signalIds: ["audit-signal-1"] },
+      signals: auditOnlySignals,
+      pairs: [],
+      auditEvidence,
+      auditMemos: auditOnlyMemos,
+      auditSummary: { reportStatus: "ready", analyzedCount: 15, queuedCount: 15, coverage: "15/15" },
+      auditValidatorFlags: [],
+      onBack: () => undefined,
+      onOpenPair: () => undefined,
+      onUpdateTopic: () => undefined
+    })
+  );
+
+  assert.match(html, /15 訊號/);
+  assert.match(html, /15\/15 已分析/);
+  assert.match(html, /覆蓋 15\/15/);
+  assert.doesNotMatch(html, /30 訊號/);
+  assert.doesNotMatch(html, /15\/30 已分析/);
+});
+
 test("TopicDetailView failed audit state shows resume copy and failed reason", () => {
   const html = renderToStaticMarkup(
     React.createElement(TopicDetailView, {

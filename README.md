@@ -3,7 +3,7 @@
 DLens is a mode-aware MV3 Chrome extension for capturing Threads posts and turning them into research, product-signal, and PR evidence workflows.
 
 > Last updated: 2026-06-11
-> Current release: `0.1.30` · 649/649 tests · build clean
+> Current release: `0.1.30` · 650/650 tests · build clean
 > Current engineering branch: `codex/pr-visible-metrics` (mirrored to `origin/main` for release)
 > Positioning (2026-06-08): local power-tool (self + small technical circle); two separate repos (extension public · ingest-core **private**), not monorepo; visual reset Option A pending
 > Verified build: `output/chrome-mv3`
@@ -63,7 +63,7 @@ npm run build
 
 Expected verified state for `0.1.30`:
 
-- `649/649` tests pass
+- `650/650` tests pass
 - `npm run typecheck` passes
 - `npm run build` mirrors the unpacked MV3 build to `output/chrome-mv3`
 - `output/chrome-mv3/manifest.json` reports `version: "0.1.30"` and `name: "DLens v3"`

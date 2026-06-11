@@ -1,0 +1,120 @@
+{
+  "run": "Run 26",
+  "date": "2026-06-11",
+  "profile": "jason@brandonproject.co",
+  "tab": "https://www.threads.com/@se_ranking/post/DZYf_mngRnt#dlensQaTrace=1",
+  "backend": {
+    "url": "http://127.0.0.1:8000",
+    "workerStatus": "idle"
+  },
+  "extensionReload": {
+    "userReloadedOutputChromeMv3": true,
+    "threadsPageReloadRequired": true,
+    "reason": "After extension reload, the existing Threads content-script context emitted Extension context invalidated until the page itself was reloaded."
+  },
+  "b02ToggleTiming": {
+    "status": "live passed",
+    "summary": "No 1-2s regression after reload. Toggle response is now 308.6-489.1ms; DOM wait is 370-724ms. Content start/stop reached the content script in 1.5-108.1ms.",
+    "samples": [
+      {
+        "from": "on",
+        "to": "off",
+        "domWaitMs": 512,
+        "traceToggleMs": 436.4,
+        "requestToResponseMs": 436.5,
+        "contentEvent": "content.selection.stop",
+        "contentDeltaFromRequestMs": 2.6,
+        "workerErrors": 0
+      },
+      {
+        "from": "off",
+        "to": "on",
+        "domWaitMs": 445,
+        "traceToggleMs": 366.5,
+        "requestToResponseMs": 366.6,
+        "contentEvent": "content.selection.start",
+        "contentDeltaFromRequestMs": 2.5,
+        "workerErrors": 0
+      },
+      {
+        "from": "on",
+        "to": "off",
+        "domWaitMs": 406,
+        "traceToggleMs": 324.1,
+        "requestToResponseMs": 324.1,
+        "contentEvent": "content.selection.stop",
+        "contentDeltaFromRequestMs": 2.0,
+        "workerErrors": 0
+      },
+      {
+        "from": "off",
+        "to": "on",
+        "domWaitMs": 370,
+        "traceToggleMs": 308.6,
+        "requestToResponseMs": 308.7,
+        "contentEvent": "content.selection.start",
+        "contentDeltaFromRequestMs": 1.5,
+        "workerErrors": 0
+      },
+      {
+        "from": "on",
+        "to": "off",
+        "domWaitMs": 724,
+        "traceToggleMs": 489.1,
+        "requestToResponseMs": 489.1,
+        "contentEvent": "content.selection.stop",
+        "contentDeltaFromRequestMs": 108.1,
+        "workerErrors": 0,
+        "note": "This sample overlapped one worker heartbeat response."
+      }
+    ],
+    "watch": "Still a 300-500ms response path, but the Run 25 backend-healthy 925-1427ms self-restart regression is gone."
+  },
+  "flow8B14": {
+    "status": "second root cause fixed in code; live recheck pending another extension reload",
+    "run26LiveBeforeSecondFix": {
+      "topicList": "work: 1 訊號 0/1 已完成 0 處理中 1 待處理; love: 1 訊號 0/1 已完成 0 處理中 1 待處理",
+      "workDetail": "30 訊號 / 15/30 已分析 / 覆蓋 15/15",
+      "sourceRowsVisible": "S1.OP-S15.OP",
+      "diagnosis": "The Run 25 fix removed invalid 15/0 coverage but TopicDetailView still let non-topic-scoped signals.length inflate the audit overview denominator."
+    },
+    "codeFix": {
+      "files": [
+        "src/ui/TopicDetailView.tsx",
+        "tests/topic-detail-view.test.tsx"
+      ],
+      "behavior": "When audit evidence or memos exist, audit overview sourceTotal is derived from audit artifacts and coverage parts. signals.length is only a fallback when no audit artifacts exist. Stale queuedCount is normalized to sourceTotal - analyzedCount."
+    }
+  },
+  "flow16B15": {
+    "status": "live passed",
+    "controls": {
+      "hasActionBriefExport": true,
+      "hasOriginalMode": true,
+      "hasCompactDecisionMode": true,
+      "hasCopyButton": true
+    },
+    "selection": {
+      "selectedStamp": "1 已選",
+      "copyButtonEnabled": true,
+      "checkedSignalsSyncedAcrossSavedRowAndExportList": true
+    },
+    "copy": {
+      "uiStatus": "已複製",
+      "systemClipboardLength": 1190,
+      "containsOriginalSignal": true,
+      "containsSourceUrl": true,
+      "containsAudienceReactions": true,
+      "containsProductJudgment": true,
+      "containsRawResidue": false,
+      "clipboardHead": "# Product Action Brief - 原文優先\\n\\n## 使用方式\\n- 先處理 `值得嘗試`；這些可以轉成實驗、prototype 或 agent task。\\n- `保留觀察` 只作產品學習或後續研究，不應直接排入開發。\\n\\n## 1. 討論 AI 生成內容的價值，用戶認為其價值取決於創作者意圖與具體應用場景（如工作優化或情感記憶）。"
+    },
+    "note": "The Chrome connector clipboard reader returned an empty string, but macOS pbpaste showed the real 1190-character system clipboard content."
+  },
+  "verification": {
+    "targeted": "npx tsx --test tests/views.test.tsx tests/topic-detail-view.test.tsx tests/processing-state.test.ts -> 110/110",
+    "typecheck": "npm run typecheck -> pass",
+    "fullSuite": "npx tsx --test tests/*.test.ts tests/*.test.tsx -> 650/650",
+    "build": "npm run build -> pass; mirrored to output/chrome-mv3"
+  }
+}
