@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import type { BackendHealth, ExtensionResponse } from "../state/messages";
+import { buildSessionItemActionTarget } from "../state/action-target";
 import { getActiveItem, getActiveSession, sendExtensionMessage, useExtensionSnapshot } from "./controller";
 import { tokens } from "./tokens";
 
@@ -98,7 +99,31 @@ export function SidepanelApp() {
   }
 
   async function onQueueSelected() {
-    await sendExtensionMessage<ExtensionResponse>({ type: "session/queue-selected" });
+    const target = buildSessionItemActionTarget({
+      sessionId: activeSession?.id,
+      itemId: activeItem?.id
+    });
+    if (!target) {
+      return;
+    }
+    await sendExtensionMessage<ExtensionResponse>({
+      type: "session/queue-selected",
+      target
+    });
+  }
+
+  async function onRefreshSelected() {
+    const target = buildSessionItemActionTarget({
+      sessionId: activeSession?.id,
+      itemId: activeItem?.id
+    });
+    if (!target) {
+      return;
+    }
+    await sendExtensionMessage<ExtensionResponse>({
+      type: "session/refresh-selected",
+      target
+    });
   }
 
   const panelBg = tokens.color.canvas;
@@ -282,7 +307,7 @@ export function SidepanelApp() {
             <div><strong>errors:</strong> {activeItem.lastError || "-"}</div>
             <div style={{ marginTop: 8 }}>
               <button
-                onClick={() => sendExtensionMessage<ExtensionResponse>({ type: "session/refresh-selected" })}
+                onClick={onRefreshSelected}
                 style={btnStyle}
               >
                 Refresh selected

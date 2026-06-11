@@ -178,7 +178,11 @@ import {
 import { mergeLayoutPreferences, mergeOneLinerSettings, normalizeExtensionSettings } from "../src/state/settings-storage";
 import { buildRefreshFailureMessage } from "../src/state/refresh-errors";
 import { createAsyncLock } from "../src/state/snapshot-lock";
-import { requireSaveCurrentPreviewTarget, type SaveCurrentPreviewActionTarget } from "../src/state/action-target";
+import {
+  requireSaveCurrentPreviewTarget,
+  requireSessionItemActionTarget,
+  type SaveCurrentPreviewActionTarget
+} from "../src/state/action-target";
 import { applyHoveredPreview, createInlineToast, setCollectModeState } from "../src/state/ui-state";
 import { getModeHomePage } from "../src/state/processing-state";
 import { sanitizeSnapshotForContentScript } from "../src/state/sanitize-snapshot";
@@ -1703,16 +1707,6 @@ async function queueSessionItem(
   });
 }
 
-async function queueSelectedItem(tabId: number): Promise<{ snapshot: ExtensionSnapshot; submit: CaptureTargetResponse }> {
-  const current = await loadSnapshot(tabId);
-  const session = activeSessionWithFallback(current.global);
-  const itemId = ensureActiveItemId(session, current.tab.activeItemId);
-  if (!itemId) {
-    throw new Error("No saved post selected.");
-  }
-  return queueSessionItem(tabId, session.id, itemId);
-}
-
 async function queueAllPending(tabId: number, sessionId?: string): Promise<ExtensionSnapshot> {
   let snapshot = await loadSnapshot(tabId);
   const session = sessionId
@@ -1844,18 +1838,6 @@ async function refreshItem(
 
     return { snapshot, job, capture };
   });
-}
-
-async function refreshSelectedItem(
-  tabId: number
-): Promise<{ snapshot: ExtensionSnapshot; job: JobSnapshot | null; capture: CaptureSnapshot | null }> {
-  const current = await loadSnapshot(tabId);
-  const session = activeSessionWithFallback(current.global);
-  const itemId = ensureActiveItemId(session, current.tab.activeItemId);
-  if (!itemId) {
-    throw new Error("No saved post selected.");
-  }
-  return refreshItem(tabId, session.id, itemId);
 }
 
 async function refreshAllItems(tabId: number, sessionId?: string): Promise<ExtensionSnapshot> {
@@ -3105,7 +3087,8 @@ export default defineBackground(() => {
           }
           case "session/queue-selected": {
             const tabId = await resolveTabId(sender);
-            const queued = await queueSelectedItem(tabId);
+            const target = requireSessionItemActionTarget(message.target);
+            const queued = await queueSessionItem(tabId, target.sessionId, target.itemId);
             sendResponse({
               ok: true,
               tabId,
@@ -3171,7 +3154,8 @@ export default defineBackground(() => {
           }
           case "session/refresh-selected": {
             const tabId = await resolveTabId(sender);
-            const refreshed = await refreshSelectedItem(tabId);
+            const target = requireSessionItemActionTarget(message.target);
+            const refreshed = await refreshItem(tabId, target.sessionId, target.itemId);
             sendResponse({
               ok: true,
               tabId,

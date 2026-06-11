@@ -5,6 +5,11 @@ export type SaveCurrentPreviewActionTarget = {
   topicId: string | null;
 };
 
+export type SessionItemActionTarget = {
+  sessionId: string;
+  itemId: string;
+};
+
 function normalizeId(value: string | null | undefined): string | null {
   const trimmed = value?.trim() ?? "";
   return trimmed ? trimmed : null;
@@ -46,4 +51,35 @@ export function requireSaveCurrentPreviewTarget(
     sessionId: normalizedSessionId,
     topicId: normalizeId(target?.topicId) ?? null
   };
+}
+
+export function buildSessionItemActionTarget({
+  sessionId,
+  itemId
+}: {
+  sessionId?: string | null;
+  itemId?: string | null;
+}): SessionItemActionTarget | null {
+  const normalizedSessionId = normalizeId(sessionId);
+  const normalizedItemId = normalizeId(itemId);
+  if (!normalizedSessionId || !normalizedItemId) {
+    return null;
+  }
+  return {
+    sessionId: normalizedSessionId,
+    itemId: normalizedItemId
+  };
+}
+
+export function requireSessionItemActionTarget(
+  target: SessionItemActionTarget | null | undefined
+): SessionItemActionTarget {
+  const normalized = buildSessionItemActionTarget({
+    sessionId: target?.sessionId,
+    itemId: target?.itemId
+  });
+  if (!normalized) {
+    throw new Error("Explicit item target is required.");
+  }
+  return normalized;
 }
