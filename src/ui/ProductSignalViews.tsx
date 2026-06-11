@@ -27,6 +27,7 @@ import {
 } from "../compare/signal-reading-storage";
 import { SIGNAL_READING_PROMPT_VERSION } from "../compare/signal-reading";
 import { aiOutputProvenanceFromModel, describeAiOutputProvenance } from "../state/ai-provenance";
+import { deriveProductSignalLoadState, type LoadState } from "../state/load-state";
 import type { ProductSignalReadiness } from "./product-signal-readiness";
 import {
   Kicker,
@@ -1172,7 +1173,7 @@ function ReadinessPanel({
   backendError,
   analysisError,
   analysisNotice,
-  isHydrating,
+  loadState,
   isAnalyzing,
   signalReadinessById,
   onAnalyze
@@ -1184,7 +1185,7 @@ function ReadinessPanel({
   backendError?: string | null;
   analysisError?: string | null;
   analysisNotice?: string | null;
-  isHydrating?: boolean;
+  loadState: LoadState;
   isAnalyzing: boolean;
   signalReadinessById: Record<string, ProductSignalReadiness>;
   onAnalyze: () => void;
@@ -1195,7 +1196,7 @@ function ReadinessPanel({
   const canAnalyze = canRunProductSignalAction({ signals, productProfile, aiProviderReady, signalReadinessById });
   const copy = readinessCopy({ signals, analyses, productProfile, aiProviderReady, signalReadinessById });
 
-  if (isHydrating && signals.length === 0 && analyses.length === 0 && !visibleError) {
+  if (loadState === "loading") {
     return (
       <div
         data-product-hydrating="true"
@@ -4021,7 +4022,13 @@ export function ProductSignalView({
     ? safeSignals.map((signal) => bySignal.get(signal.id)).filter((entry): entry is ProductSignalAnalysis => Boolean(entry))
     : safeAnalyses;
   const scopedAnalyses = visibleAnalyses(kind, signalScopedAnalyses);
-  const hasRecoveredAnalyses = safeSignals.length === 0 && scopedAnalyses.length > 0;
+  const visibleError = analysisError || backendError || null;
+  const productLoadState = deriveProductSignalLoadState({
+    isHydrating,
+    signalCount: safeSignals.length,
+    analysisCount: scopedAnalyses.length,
+    hasError: Boolean(visibleError)
+  });
   const pendingSignals = safeSignals.filter((signal) => bySignal.get(signal.id)?.status !== "complete");
   const canAnalyze = canRunProductSignalAction({ signals: safeSignals, productProfile, aiProviderReady, signalReadinessById });
   const showSignalReadingReview = scopedSignalReadings.length > 0;
@@ -4044,7 +4051,7 @@ export function ProductSignalView({
   }
 
   return (
-    <div style={viewRootStyle()} data-product-signal-view={kind}>
+    <div style={viewRootStyle()} data-product-signal-view={kind} data-product-load-state={productLoadState}>
       <style>{SCAN_ROW_HOVER_CSS}</style>
       <ModeHeader
         mode={kind}
@@ -4056,9 +4063,11 @@ export function ProductSignalView({
             ? <Stamp tone="warning">Backend 離線</Stamp>
             : analysisError
               ? <Stamp tone="warning">部分失敗</Stamp>
-            : isHydrating && scopedAnalyses.length === 0
+            : productLoadState === "loading"
               ? <Stamp tone="neutral">讀取中</Stamp>
-            : <Stamp tone={scopedAnalyses.length ? "success" : "neutral"}>{scopedAnalyses.length ? "分析完成" : "尚無結果"}</Stamp>
+            : <Stamp tone={productLoadState === "ready" || productLoadState === "recovering" ? "success" : "neutral"}>
+                {productLoadState === "ready" || productLoadState === "recovering" ? "分析完成" : "尚無結果"}
+              </Stamp>
         }
       />
       <WorkspaceSurface tone="utility" style={{ display: "grid", gap: tokens.spacing.md, overflow: "visible" }}>
@@ -4070,7 +4079,7 @@ export function ProductSignalView({
           backendError={backendError}
           analysisError={analysisError}
           analysisNotice={analysisNotice}
-          isHydrating={isHydrating}
+          loadState={productLoadState}
           isAnalyzing={isAnalyzing}
           signalReadinessById={signalReadinessById}
           onAnalyze={onAnalyze}
@@ -4114,7 +4123,7 @@ export function ProductSignalView({
           </div>
         ) : null}
         {kind === "saved-signals" ? (
-          hasRecoveredAnalyses ? (
+          productLoadState === "recovering" ? (
             <RecoveredAnalysesBoard
               analyses={scopedAnalyses}
               signalPreviewById={signalPreviewById}
@@ -4186,7 +4195,7 @@ export function ProductSignalView({
               />
             </>
           )
-        ) : isHydrating ? null : (
+        ) : productLoadState === "loading" ? null : (
           <div style={cardStyle()}>
             <div style={{ fontSize: 14, fontWeight: 800, color: tokens.color.ink }}>
               尚未有 AI 分析結果

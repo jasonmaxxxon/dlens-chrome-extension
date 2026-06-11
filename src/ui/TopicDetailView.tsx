@@ -9,6 +9,7 @@ import type { EvidencePacket, LensMemo, TopicAuditStageName } from "../compare/t
 import type { TopicAuditValidationFlag } from "../compare/topic-audit-validator.ts";
 import { getItemReadinessStatus, type ItemReadinessStatus } from "../state/processing-state.ts";
 import type { TopicAuditMemoBundle } from "../state/topic-audit-storage.ts";
+import type { LoadState } from "../state/load-state.ts";
 import type {
   FolderMode,
   SavedAnalysisSnapshot,
@@ -48,6 +49,7 @@ interface TopicDetailViewProps {
   onBack: () => void;
   onOpenPair: (resultId: string) => void;
   onUpdateTopic: (patch: Partial<Topic>) => void;
+  loadState?: LoadState;
   sessionMode?: FolderMode;
   sessionItems?: SessionItem[];
   savedAnalyses?: SavedAnalysisSnapshot[];
@@ -1403,6 +1405,7 @@ export function TopicDetailView({
   onBack,
   onOpenPair,
   onUpdateTopic,
+  loadState = "ready",
   sessionMode = "topic",
   sessionItems = [],
   savedAnalyses = [],
@@ -1902,7 +1905,7 @@ export function TopicDetailView({
   if (sessionMode === "topic") {
     const showAuditPlaceholder = auditSummaryValue.reportStatus === "failed" || (auditThemes.length === 0 && auditLanes.length === 0 && auditEvidence.length === 0);
     return (
-      <div style={viewRootStyle()}>
+      <div style={viewRootStyle()} data-topic-load-state={loadState}>
         <Breadcrumb topicName={topic.name} onBack={onBack} />
 
         <TopicAuditOverview
@@ -2030,7 +2033,7 @@ export function TopicDetailView({
   }
 
   return (
-    <div style={viewRootStyle()}>
+    <div style={viewRootStyle()} data-topic-load-state={loadState}>
       <div style={{ display: "grid", gap: 10 }}>
         <Breadcrumb topicName={topic.name} onBack={onBack} />
         <TopicCompactHeader
