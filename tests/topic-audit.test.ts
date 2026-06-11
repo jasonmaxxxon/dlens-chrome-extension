@@ -98,8 +98,8 @@ function makeItem(): SessionItem {
             { comment_id: "op-c1", author: "op", text: "第一點：app 會放大選擇成本。", like_count: 7 }
           ],
           discussion_replies: [
-            { comment_id: "op-c2", author: "op", text: "補充：這不是叫人不要拍拖。", like_count: 3 },
             { comment_id: "r1", author: "reader", text: "我同老公就是 app 識的。", like_count: null },
+            { comment_id: "op-c2", author: "op", text: "補充：這不是叫人不要拍拖。", like_count: 3 },
             { comment_id: "p1", author: "", text: "bookmark", like_count: undefined }
           ]
         },
@@ -161,8 +161,8 @@ test("buildTopicEvidencePackets role-tags OP continuations, audience replies, an
   });
   assert.deepEqual(packet.replyFragments.map((fragment) => [fragment.ref, fragment.role, fragment.author, fragment.likes]), [
     ["S1.OPC1", "op_continuation", "op", 7],
-    ["S1.OPC2", "op_continuation", "op", 3],
     ["S1.R1", "audience", "reader", null],
+    ["S1.OPC2", "op_continuation", "op", 3],
     ["S1.P1", "placeholder", "", null]
   ]);
   assert.deepEqual(getOpContinuations(packet).map((fragment) => fragment.text), [

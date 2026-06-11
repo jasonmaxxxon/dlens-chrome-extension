@@ -56,11 +56,13 @@ Slice ① (signal readiness) already proved this: `src/state/signal-readiness.ts
 
 **Delete:** the per-reader `resolve*` chains + duplicated `?? snake_case` reads. `signal-readiness`, topic-audit packet build, and SignalDrawer all read `projectCapturedPost`.
 
-**Tests:** characterization fixtures from a *real* capture (camel + legacy snake + missing-field + uncrawled). Invariants: "OP author/text never silently swaps with a reply", "replies empty ⟺ no discussion_replies", "commentCount null ⟺ not succeeded".
+**Tests:** characterization fixtures from a *real* capture (camel + legacy snake + missing-field + uncrawled). Invariants: "OP author/text never silently swaps with a reply", "replies empty ⟺ no discussion_replies", "not succeeded -> commentCount null" (a succeeded item may still have unknown/null counts).
 
 **Risk: MEDIUM** — this feeds the LLM audit input; a projection bug changes what the model sees. Mitigate with the existing topic-audit tests + new characterization tests.
 
 **Claude's note:** ② strengthens ① (readiness already calls `hasProductSignalAssembledContent`). Keep it a *pure projection* — no readiness/eligibility logic leaks in (that's ①'s job). The inline-citation issue we saw is downstream of this: once projection is canonical, "OP-only" is a property of the projection, not a guess.
+
+**Implementation note (codex/capture-projection):** `src/state/captured-post.ts` now owns the capture projection. `topic-audit` packet generation, Product analyzer/evidence catalog, and signal readiness consume it; the old per-reader `threadReadModel/thread_read_model`, `rootPost/root_post`, `discussionReplies/discussion_replies`, `likeCount/like_count`, source URL, and comment-count fallback chains were removed from those consumers. `SignalDrawer` remains packet-only by design; it indirectly receives the projection through `EvidencePacket` and does not grow a `SessionItem` dependency.
 
 ---
 
@@ -182,4 +184,4 @@ Rationale for moving ⑦/⑨ up: both are low-risk, delete real scatter, and mak
 
 ## Open item (not part of this plan)
 
-Reload-path topology: `main` is currently checked out in the archived `dlens-old/git-root` worktree, so the Desktop checkout can't `git switch main`. Resolving that (free `main` for Desktop) is pending user decision and is independent of the slices above.
+Reload-path topology was resolved before Slice ② started: the primary Desktop checkout is now `main`, and the archived root worktree is parked on `codex/archive-main-worktree-20260611`.
