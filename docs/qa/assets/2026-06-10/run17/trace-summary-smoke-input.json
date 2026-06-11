@@ -1,0 +1,58 @@
+[
+  {
+    "id": 1,
+    "event": "popup.collect.toggle.request",
+    "at": 100,
+    "isoTime": "2026-06-10T01:45:00.000+08:00",
+    "detail": { "mode": "product" }
+  },
+  {
+    "id": 2,
+    "event": "popup.collect.toggle.response",
+    "at": 345.2,
+    "isoTime": "2026-06-10T01:45:00.245+08:00",
+    "detail": { "ok": true }
+  },
+  {
+    "id": 3,
+    "event": "content.hover.card-change",
+    "at": 410,
+    "isoTime": "2026-06-10T01:45:00.310+08:00",
+    "detail": { "strength": "soft" }
+  },
+  {
+    "id": 4,
+    "event": "content.overlay.render",
+    "at": 428,
+    "isoTime": "2026-06-10T01:45:00.328+08:00",
+    "detail": { "strength": "soft" }
+  },
+  {
+    "id": 5,
+    "event": "content.collect.click.capture",
+    "at": 900,
+    "isoTime": "2026-06-10T01:45:00.800+08:00",
+    "detail": { "postUrl": "https://www.threads.com/@demo/post/1" }
+  },
+  {
+    "id": 6,
+    "event": "content.collect.save.response",
+    "at": 1082.4,
+    "isoTime": "2026-06-10T01:45:00.982+08:00",
+    "detail": { "ok": true }
+  },
+  {
+    "id": 7,
+    "event": "popup.product.hydrate.request",
+    "at": 1300,
+    "isoTime": "2026-06-10T01:45:01.200+08:00",
+    "detail": { "signalCount": 2 }
+  },
+  {
+    "id": 8,
+    "event": "popup.product.hydrate.response",
+    "at": 1575,
+    "isoTime": "2026-06-10T01:45:01.475+08:00",
+    "detail": { "currentAnalysisCount": 2 }
+  }
+]

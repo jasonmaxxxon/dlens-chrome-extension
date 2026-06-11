@@ -1,0 +1,363 @@
+{
+  "flow4PrepStartRun18": {
+    "bodyCursor": "crosshair",
+    "nowIso": "2026-06-10T02:36:20.477Z",
+    "rootText": "Hover to preview\n|\nS\nsave\n|\nEsc\nexit\nReady\n選擇主題\nwork\nlove\n0 未分流\n2 主題\n新建主題\ndlens\nTopic\nProduct\nPR\nAnnotated Field Guide\nVOL.1\nNO.01\nJun 10\n·\nv.0.1.30\nd\n採集\n議題\n設定\n議題\n\n每個議題收一批 Threads 訊號；點進去看詞群、敘事與源清單。\n\n2 個議題\nwork\n由同名 Topic workspace 自動建立。\n報告 未生成\n1\n訊號\n0/1\n已完成\n0\n處理中\n1\n待處理\n打開 ›\nlove\n採集批次待整理\n報告 過期\n+0\n1\n訊號\n0/1\n已完成\n0\n處理中\n1\n待處理\n打開 ›\n+ 建立新議題 · 從採集匣選 ≥3 訊號開始",
+    "traceStartId": 453
+  },
+  "flow4ProductStateRun18": {
+    "bodyCursor": "crosshair",
+    "buttons": [
+      {
+        "disabled": false,
+        "text": ""
+      },
+      {
+        "disabled": false,
+        "text": "Topic"
+      },
+      {
+        "disabled": false,
+        "text": "Product"
+      },
+      {
+        "disabled": false,
+        "text": "PR"
+      },
+      {
+        "disabled": false,
+        "text": "採集"
+      },
+      {
+        "disabled": false,
+        "text": "訊號"
+      },
+      {
+        "disabled": false,
+        "text": "分類"
+      },
+      {
+        "disabled": false,
+        "text": "行動"
+      },
+      {
+        "disabled": false,
+        "text": "設定"
+      },
+      {
+        "disabled": true,
+        "text": "分析收件匣"
+      }
+    ],
+    "capturedAt": "2026-06-10T02:36:23.933Z",
+    "newTrace": [
+      {
+        "at": 590538.8000000119,
+        "detail": {
+          "activeFolderId": "session_ywskiblc_mp6p013z",
+          "failureCount": 35,
+          "hasInflight": false
+        },
+        "event": "popup.worker.status.request",
+        "id": 454,
+        "isoTime": "2026-06-10T02:36:21.047Z"
+      },
+      {
+        "at": 590541.3000000119,
+        "detail": {
+          "folderId": "session_ywskiblc_mp6p013z",
+          "mode": "product"
+        },
+        "event": "popup.topic.hydrate.request",
+        "id": 455,
+        "isoTime": "2026-06-10T02:36:21.050Z"
+      },
+      {
+        "at": 590541.9000000358,
+        "detail": {
+          "folderId": "session_ywskiblc_mp6p013z",
+          "page": "saved-signals",
+          "signalCount": 0
+        },
+        "event": "popup.product.hydrate.request",
+        "id": 456,
+        "isoTime": "2026-06-10T02:36:21.050Z"
+      },
+      {
+        "at": 590544.5,
+        "detail": {
+          "activeFolderId": "session_ywskiblc_mp6p013z",
+          "failureCount": 35,
+          "hasInflight": false
+        },
+        "event": "popup.worker.status.request",
+        "id": 457,
+        "isoTime": "2026-06-10T02:36:21.053Z"
+      },
+      {
+        "at": 590649.7000000477,
+        "detail": {
+          "activeFolderId": "session_ywskiblc_mp6p013z",
+          "failureCount": 35,
+          "hasInflight": false
+        },
+        "event": "popup.worker.status.request",
+        "id": 458,
+        "isoTime": "2026-06-10T02:36:21.158Z"
+      },
+      {
+        "at": 590650.8000000119,
+        "detail": {
+          "folderId": "session_ywskiblc_mp6p013z",
+          "mode": "product"
+        },
+        "event": "popup.topic.hydrate.request",
+        "id": 459,
+        "isoTime": "2026-06-10T02:36:21.159Z"
+      },
+      {
+        "at": 590651.7000000477,
+        "detail": {
+          "folderId": "session_ywskiblc_mp6p013z",
+          "page": "saved-signals",
+          "signalCount": 0
+        },
+        "event": "popup.product.hydrate.request",
+        "id": 460,
+        "isoTime": "2026-06-10T02:36:21.160Z"
+      },
+      {
+        "at": 590653.1000000238,
+        "detail": {
+          "activeFolderId": "session_ywskiblc_mp6p013z",
+          "failureCount": 35,
+          "hasInflight": false
+        },
+        "event": "popup.worker.status.request",
+        "id": 461,
+        "isoTime": "2026-06-10T02:36:21.162Z"
+      },
+      {
+        "at": 590706.6000000238,
+        "detail": {
+          "activeFolderId": "session_ywskiblc_mp6p013z",
+          "failureCount": 35,
+          "hasInflight": false
+        },
+        "event": "popup.worker.status.request",
+        "id": 462,
+        "isoTime": "2026-06-10T02:36:21.215Z"
+      },
+      {
+        "at": 590707.8000000119,
+        "detail": {
+          "activeFolderId": "session_ywskiblc_mp6p013z",
+          "failureCount": 35,
+          "hasInflight": false
+        },
+        "event": "popup.worker.status.request",
+        "id": 463,
+        "isoTime": "2026-06-10T02:36:21.216Z"
+      },
+      {
+        "at": 591047.8000000119,
+        "detail": {
+          "activeFolderId": "session_ywskiblc_mp6p013z",
+          "failureCount": 35,
+          "hasInflight": false
+        },
+        "event": "popup.worker.status.request",
+        "id": 464,
+        "isoTime": "2026-06-10T02:36:21.556Z"
+      },
+      {
+        "at": 591233.7000000477,
+        "detail": {
+          "currentAnalysisCount": 0,
+          "currentOk": true,
+          "feedbackCount": 0,
+          "feedbackOk": true,
+          "folderId": "session_ywskiblc_mp6p013z",
+          "historicalAnalysisCount": 0,
+          "historicalOk": true,
+          "page": "saved-signals",
+          "readingCount": 7,
+          "readingsOk": true,
+          "signalCount": 0
+        },
+        "event": "popup.product.hydrate.response",
+        "id": 465,
+        "isoTime": "2026-06-10T02:36:21.742Z"
+      },
+      {
+        "at": 591234.9000000358,
+        "detail": {
+          "folderId": "session_ywskiblc_mp6p013z",
+          "mode": "product",
+          "signalCount": 0,
+          "signalsOk": true,
+          "topicCount": 0,
+          "topicsOk": true
+        },
+        "event": "popup.topic.hydrate.response",
+        "id": 466,
+        "isoTime": "2026-06-10T02:36:21.743Z"
+      },
+      {
+        "at": 591238.1000000238,
+        "detail": {
+          "activeFolderId": "session_ywskiblc_mp6p013z",
+          "failureCount": 35,
+          "hasInflight": false
+        },
+        "event": "popup.worker.status.request",
+        "id": 467,
+        "isoTime": "2026-06-10T02:36:21.747Z"
+      },
+      {
+        "at": 591932.2000000477,
+        "detail": {
+          "activeFolderId": "session_ywskiblc_mp6p013z",
+          "failureCount": 35,
+          "hasInflight": false
+        },
+        "event": "popup.worker.status.request",
+        "id": 468,
+        "isoTime": "2026-06-10T02:36:22.441Z"
+      },
+      {
+        "at": 591933.1000000238,
+        "detail": {
+          "folderId": "session_ywskiblc_mp6p013z",
+          "mode": "product"
+        },
+        "event": "popup.topic.hydrate.request",
+        "id": 469,
+        "isoTime": "2026-06-10T02:36:22.441Z"
+      },
+      {
+        "at": 591933.5,
+        "detail": {
+          "folderId": "session_ywskiblc_mp6p013z",
+          "page": "saved-signals",
+          "signalCount": 0
+        },
+        "event": "popup.product.hydrate.request",
+        "id": 470,
+        "isoTime": "2026-06-10T02:36:22.442Z"
+      },
+      {
+        "at": 591934.8000000119,
+        "detail": {
+          "activeFolderId": "session_ywskiblc_mp6p013z",
+          "failureCount": 35,
+          "hasInflight": false
+        },
+        "event": "popup.worker.status.request",
+        "id": 471,
+        "isoTime": "2026-06-10T02:36:22.443Z"
+      },
+      {
+        "at": 592254.5,
+        "detail": {
+          "currentAnalysisCount": 0,
+          "currentOk": true,
+          "feedbackCount": 0,
+          "feedbackOk": true,
+          "folderId": "session_ywskiblc_mp6p013z",
+          "historicalAnalysisCount": 0,
+          "historicalOk": true,
+          "page": "saved-signals",
+          "readingCount": 7,
+          "readingsOk": true,
+          "signalCount": 0
+        },
+        "event": "popup.product.hydrate.response",
+        "id": 472,
+        "isoTime": "2026-06-10T02:36:22.763Z"
+      },
+      {
+        "at": 592255,
+        "detail": {
+          "folderId": "session_ywskiblc_mp6p013z",
+          "mode": "product",
+          "signalCount": 0,
+          "signalsOk": true,
+          "topicCount": 0,
+          "topicsOk": true
+        },
+        "event": "popup.topic.hydrate.response",
+        "id": 473,
+        "isoTime": "2026-06-10T02:36:22.763Z"
+      },
+      {
+        "at": 592256,
+        "detail": {
+          "activeFolderId": "session_ywskiblc_mp6p013z",
+          "failureCount": 35,
+          "hasInflight": false
+        },
+        "event": "popup.worker.status.request",
+        "id": 474,
+        "isoTime": "2026-06-10T02:36:22.764Z"
+      },
+      {
+        "at": 592756.1000000238,
+        "detail": {
+          "elapsedMs": 500.1,
+          "previousWorkerStatus": "idle",
+          "workerStatus": "idle"
+        },
+        "event": "popup.worker.status.response",
+        "id": 475,
+        "isoTime": "2026-06-10T02:36:23.265Z"
+      },
+      {
+        "at": 592757.8000000119,
+        "detail": {
+          "activeFolderId": "session_ywskiblc_mp6p013z",
+          "failureCount": 0,
+          "hasInflight": false
+        },
+        "event": "popup.worker.status.request",
+        "id": 476,
+        "isoTime": "2026-06-10T02:36:23.266Z"
+      },
+      {
+        "at": 593074.8000000119,
+        "detail": {
+          "elapsedMs": 316.9,
+          "previousWorkerStatus": "idle",
+          "workerStatus": "idle"
+        },
+        "event": "popup.worker.status.response",
+        "id": 477,
+        "isoTime": "2026-06-10T02:36:23.583Z"
+      },
+      {
+        "at": 593137.7000000477,
+        "detail": {
+          "activeFolderId": "session_ywskiblc_mp6p013z",
+          "failureCount": 0,
+          "hasInflight": false
+        },
+        "event": "popup.worker.status.request",
+        "id": 478,
+        "isoTime": "2026-06-10T02:36:23.646Z"
+      },
+      {
+        "at": 593417.7000000477,
+        "detail": {
+          "elapsedMs": 279.9,
+          "previousWorkerStatus": "idle",
+          "workerStatus": "idle"
+        },
+        "event": "popup.worker.status.response",
+        "id": 479,
+        "isoTime": "2026-06-10T02:36:23.926Z"
+      }
+    ],
+    "rootText": "Hover to preview\n|\nS\nsave\n|\nEsc\nexit\nReady\ndlens\nTopic\nProduct\nPR\nAnnotated Field Guide\nVOL.1\nNO.01\nJun 10\n·\nv.0.1.30\nd\n採集\n訊號\n分類\n行動\n設定\nProduct mode\nSaved Signals\n\n先確認已儲存的 Threads post 是否完成抓取，再到行動頁整理可試 workflow。\n\nNo result\n真實狀態\n0 signals\n0 analyses\nAI key\nProductProfile\nProductContext\nProduct mode 收件匣沒有 signal。先在 Collect 儲存一篇 Threads post。\n分析收件匣",
+    "url": "https://www.threads.com/#dlensQaTrace=1"
+  }
+}

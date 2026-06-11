@@ -1,0 +1,22 @@
+{
+  "generatedAt": "2026-06-09T17:32:36Z",
+  "generatedAtHkt": "2026-06-10 01:32:36 HKT",
+  "cwd": "/Users/tung/Desktop/dlens-product-latest",
+  "type": "dlens-live-marker-gate",
+  "chromeProfile": "Default / jason@brandonproject.co",
+  "tab": {
+    "title": "(4) Home • Threads",
+    "url": "https://www.threads.com/"
+  },
+  "expectedMarker": "run14-url-trace-v1",
+  "observed": {
+    "hasRoot": true,
+    "hasOverlay": true,
+    "marker": null,
+    "rootAttributes": {
+      "id": "__dlens_extension_v0_root__",
+      "data-dlens-control": "true"
+    }
+  },
+  "conclusion": "Chrome is still running the stale loaded DLens content script. Do not count Flow 1-16 live regression results until the unpacked extension has been reloaded from output/chrome-mv3 and this marker reads run14-url-trace-v1."
+}

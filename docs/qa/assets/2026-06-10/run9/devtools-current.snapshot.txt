@@ -1,0 +1,17 @@
+uid=4_0 RootWebArea "Threads" url="https://www.threads.com/"
+  uid=4_1 link "Threads" url="https://www.threads.com/"
+    uid=4_2 image "Threads"
+  uid=4_3 link "Home" url="https://www.threads.com/"
+    uid=4_4 image "Home" description="Home"
+  uid=4_5 link "Search" url="https://www.threads.com/search"
+    uid=4_6 image "Search" description="Search"
+  uid=4_7 button "Create"
+  uid=4_8 button "Notifications"
+  uid=4_9 button "Profile"
+  uid=4_10 button "Pin"
+  uid=4_11 button "More More" expandable haspopup="menu"
+  uid=4_12 generic
+    uid=4_13 dialog modal
+      uid=4_14 StaticText "Say more with Threads"
+      uid=4_15 StaticText "Join Threads to share thoughts, find out what's going on, follow your people and more."
+      uid=4_16 button "Instagram Continue with Instagram Log in" focusable focused

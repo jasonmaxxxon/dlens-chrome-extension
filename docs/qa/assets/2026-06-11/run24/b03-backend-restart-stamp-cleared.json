@@ -1,0 +1,19 @@
+{
+  "ts": "2026-06-11T03:27:44.381Z",
+  "context": "Backend restarted after Run23 handoff; Threads tab remained on Jason profile in DLens Run 23 QA group.",
+  "backendStatus": {
+    "url": "http://127.0.0.1:8000/worker/status",
+    "response": { "status": "idle" }
+  },
+  "ui": {
+    "marker": "run14-url-trace-v1",
+    "hasBackendOffline": false,
+    "hasBackendOfflineBanner": false,
+    "hasRetrying": true,
+    "hasBrowserLaunchError": true,
+    "hasWaitingOnly": false,
+    "signalCount": "3 signals · 2 analyses",
+    "stampText": "分析完成 / ✓ 已就緒"
+  },
+  "conclusion": "B-03 recovery stamp passed: after backend restart, passive Product header cleared Backend 離線 without needing a page reload."
+}

@@ -427,9 +427,9 @@ const WORKSPACE_SWITCHER_OPTIONS: ReadonlyArray<{
   label: string;
   tint: string;
 }> = [
-  { key: "topic", label: "Topic", tint: tokens.color.accent },
+  { key: "topic", label: "Topic", tint: tokens.color.cyan },
   { key: "product", label: "Product", tint: tokens.color.product },
-  { key: "pr-evidence", label: "PR", tint: tokens.color.teal }
+  { key: "pr-evidence", label: "PR", tint: tokens.color.techniqueRose }
 ];
 
 const WORKSPACE_SWITCHER_CSS = `
@@ -564,7 +564,8 @@ export function WorkspaceShell({
   children,
   onSwitchWorkspace,
   availableWorkspaceModes,
-  switchingWorkspaceMode
+  switchingWorkspaceMode,
+  reserveContextStrip = false
 }: {
   mode: WorkspaceMode | "settings";
   folderMode?: "topic" | "product" | "archive" | "pr-evidence";
@@ -574,8 +575,10 @@ export function WorkspaceShell({
   onSwitchWorkspace?: (mode: WorkspaceSwitcherMode) => void;
   availableWorkspaceModes?: ReadonlyArray<WorkspaceSwitcherMode>;
   switchingWorkspaceMode?: WorkspaceSwitcherMode | null;
+  reserveContextStrip?: boolean;
 }) {
   const showSwitcher = typeof onSwitchWorkspace === "function";
+  const renderContextStrip = Boolean(contextStrip) || reserveContextStrip;
   const switcherActiveMode: WorkspaceSwitcherMode | "archive" | null = folderMode === "topic"
     || folderMode === "product"
     || folderMode === "pr-evidence"
@@ -583,11 +586,11 @@ export function WorkspaceShell({
     ? folderMode
     : null;
   const modeBadge = !showSwitcher && folderMode === "topic"
-    ? { label: "TOPIC", tint: tokens.color.accent }
+    ? { label: "TOPIC", tint: tokens.color.cyan }
     : !showSwitcher && folderMode === "product"
     ? { label: "PRODUCT", tint: tokens.color.product }
     : !showSwitcher && folderMode === "pr-evidence"
-    ? { label: "PR", tint: tokens.color.teal }
+    ? { label: "PR", tint: tokens.color.techniqueRose }
     : !showSwitcher && folderMode === "archive"
     ? { label: "ARCHIVE", tint: tokens.color.softInk }
     : null;
@@ -711,19 +714,20 @@ export function WorkspaceShell({
         </header>
 
         <div data-shell-main="workspace" style={{ display: "grid", gap: tokens.spacing.md, minWidth: 0, minHeight: 0, alignContent: "start" }}>
-          {/* Keep the strip slot reserved so ProcessingStrip visibility does not shift the workspace. */}
-          <div
-            data-shell-context-strip="processing"
-            data-strip-visible={contextStrip ? "true" : "false"}
-            style={{
-              minHeight: 52,
-              opacity: contextStrip ? 1 : 0,
-              pointerEvents: contextStrip ? "auto" : "none",
-              transition: "opacity 140ms ease-out"
-            }}
-          >
-            {contextStrip}
-          </div>
+          {renderContextStrip ? (
+            <div
+              data-shell-context-strip="processing"
+              data-strip-visible={contextStrip ? "true" : "false"}
+              style={{
+                minHeight: 52,
+                opacity: contextStrip ? 1 : 0,
+                pointerEvents: contextStrip ? "auto" : "none",
+                transition: "opacity 140ms ease-out"
+              }}
+            >
+              {contextStrip}
+            </div>
+          ) : null}
 
           {/* Remount only across workspace modes so the crossfade does not replay on intra-mode tabs. */}
           <main

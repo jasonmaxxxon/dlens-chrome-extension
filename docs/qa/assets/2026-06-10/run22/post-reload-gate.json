@@ -1,0 +1,376 @@
+{
+  "articles": [],
+  "bodyTextHead": "For you\nNew thread\nSearch\nMessages\nActivity\nProfile\nInsights\nSaved\nFeeds\nEdit\nFollowing\nGhost posts\nMore\nFor you\nFollowing\nGhost posts\nWhat's new?\nPost\nzac_yutai\nClaudeCode\n1h\n原來用Fable5的好處是\nCode 2.5小時，可以強迫自己改做其他工作2.5小時\nTranslate\n2\nbsunter\nAI Threads\n5h\nHit my claude limits in 13 minutes with one prompt on the $100 plan.\n5\n3\nse_ranking\n7h\nCan AI content actually be good?\n6\n17\nclarice.felicia\nLove Island USA\n2h\nWhy can’t I vote????\n@loveislandusa\n it’s been hours and I’m still getting error messages\n56\n11\n3\nboris_cherny\n9h\nFable 5 is the biggest step up I’ve felt in our models since Opus 4.5 back in November. After 4.5 came out I uninstalled my IDE when I realized that I’d been doing 100% of my coding in a terminal for a few weeks. With Fable, it’s felt like Claude has stepped up from being a coding agent to a thought and design partner in building the product. Fable has judgement, taste, and dimensionality in a way that previous models didn’t, leading me to trust it more with the most complex work.\n1\n/\n3\n1K\n96\n42\n43\ngorgo.inanna\nLove Island USA\n4h\nDid you MFs crash the app?!? Why can’t I vote 😡😡😡\n8\nkasetheace\n17h\nWho’s the best with Claude code / Claude co work? Looking for someo",
+  "buttons": [
+    {
+      "aria": "Close DLens popup",
+      "index": 0,
+      "mode": null,
+      "rect": {
+        "height": 48,
+        "width": 48,
+        "x": 1216.5,
+        "y": 24
+      },
+      "tag": "BUTTON",
+      "testid": null,
+      "text": "",
+      "utility": null,
+      "visible": true,
+      "workspace": null
+    },
+    {
+      "aria": null,
+      "index": 1,
+      "mode": null,
+      "rect": {
+        "height": 18.4921875,
+        "width": 48.66796875,
+        "x": 632.58984375,
+        "y": 112.23046875
+      },
+      "tag": "BUTTON",
+      "testid": null,
+      "text": "Topic",
+      "utility": null,
+      "visible": true,
+      "workspace": "topic"
+    },
+    {
+      "aria": null,
+      "index": 2,
+      "mode": null,
+      "rect": {
+        "height": 19.046951293945312,
+        "width": 64.2864990234375,
+        "x": 682.3137817382812,
+        "y": 111.95308685302734
+      },
+      "tag": "BUTTON",
+      "testid": null,
+      "text": "Product",
+      "utility": null,
+      "visible": true,
+      "workspace": "product"
+    },
+    {
+      "aria": null,
+      "index": 3,
+      "mode": null,
+      "rect": {
+        "height": 18.4921875,
+        "width": 34.01953125,
+        "x": 747.65625,
+        "y": 112.23046875
+      },
+      "tag": "BUTTON",
+      "testid": null,
+      "text": "PR",
+      "utility": null,
+      "visible": true,
+      "workspace": "pr-evidence"
+    },
+    {
+      "aria": null,
+      "index": 4,
+      "mode": "collect",
+      "rect": {
+        "height": 57.99609375,
+        "width": 54.515625,
+        "x": 568.48828125,
+        "y": 214.9453125
+      },
+      "tag": "BUTTON",
+      "testid": null,
+      "text": "採集",
+      "utility": null,
+      "visible": true,
+      "workspace": null
+    },
+    {
+      "aria": null,
+      "index": 5,
+      "mode": "saved-signals",
+      "rect": {
+        "height": 57.99609375,
+        "width": 54.515625,
+        "x": 568.48828125,
+        "y": 280.93359375
+      },
+      "tag": "BUTTON",
+      "testid": null,
+      "text": "訊號",
+      "utility": null,
+      "visible": true,
+      "workspace": null
+    },
+    {
+      "aria": null,
+      "index": 6,
+      "mode": "classification",
+      "rect": {
+        "height": 57.99609375,
+        "width": 54.515625,
+        "x": 568.48828125,
+        "y": 346.921875
+      },
+      "tag": "BUTTON",
+      "testid": null,
+      "text": "分類",
+      "utility": null,
+      "visible": true,
+      "workspace": null
+    },
+    {
+      "aria": null,
+      "index": 7,
+      "mode": "actionable-filter",
+      "rect": {
+        "height": 57.99609375,
+        "width": 54.515625,
+        "x": 568.48828125,
+        "y": 412.91015625
+      },
+      "tag": "BUTTON",
+      "testid": null,
+      "text": "行動",
+      "utility": null,
+      "visible": true,
+      "workspace": null
+    },
+    {
+      "aria": null,
+      "index": 8,
+      "mode": null,
+      "rect": {
+        "height": 57.99609375,
+        "width": 54.515625,
+        "x": 568.48828125,
+        "y": 484.8984375
+      },
+      "tag": "BUTTON",
+      "testid": null,
+      "text": "設定",
+      "utility": "settings",
+      "visible": true,
+      "workspace": null
+    },
+    {
+      "aria": null,
+      "index": 9,
+      "mode": null,
+      "rect": {
+        "height": 32.484375,
+        "width": 75.984375,
+        "x": 673.2421875,
+        "y": 335.2734375
+      },
+      "tag": "BUTTON",
+      "testid": null,
+      "text": "重新分析",
+      "utility": null,
+      "visible": true,
+      "workspace": null
+    },
+    {
+      "aria": null,
+      "index": 10,
+      "mode": null,
+      "rect": {
+        "height": 28.5,
+        "width": 115.32421875,
+        "x": 1102.93359375,
+        "y": 401.25
+      },
+      "tag": "BUTTON",
+      "testid": null,
+      "text": "查看候選行動 →",
+      "utility": null,
+      "visible": true,
+      "workspace": null
+    }
+  ],
+  "firstReadingText": null,
+  "firstReadingVisible": false,
+  "label": "post-reload-gate",
+  "rootText": "dlens\nTopic\nProduct\nPR\nAnnotated Field Guide\nVOL.1\nNO.01\nJun 10\n·\nv.0.1.30\nd\n採集\n訊號\n分類\n行動\n設定\nProduct mode\n已存訊號\n先確認已儲存的 Threads post 是否完成抓取，再到行動頁整理可試 workflow。\n分析完成\n分析狀態\n0 signals\n9 analyses\nAI key\nProductProfile\nProductContext\n已有 9 筆既有分析，但目前 signal 清單是空的。先顯示已分析資料；新的貼文仍從 Collect 加入。\n重新分析\n分析完成，查看哪些 signal 值得行動\n查看候選行動 →\n已分析資料\n9 analyses · signal 清單是空的\n討論 PhD 學位帶來的心理壓力與學術界現實，與產品功能無直接關聯。\n噪音\n用戶分享透過強制 AI 執行「即時搜尋驗證」與「自我審查」的 Prompt，解決 AI 生成論文數據時的幻覺問題。\n學習資源\n用戶分享透過 Claude Code 將原始資訊轉為 HTML 與知識圖譜，建立以好奇心為中心的自動化閱讀系統。\n學習資源\n用戶討論 AI 認證課程的實用性，傾向透過實作 API 與 Docker 來學習 AI 應用而非僅取得證書。\n學習資源\n用戶透過在 System Prompt 加入「完成後請另一模型覆檢」指令，顯著提升 Claude Code 產出品質。\n技術討論\n用戶於 Threads 投訴葵芳某餐廳衛生惡劣及食物品質下降，引發大量負面迴響。\n噪音\n用戶詢問收到假冒品牌招募模特兒的私訊是否為詐騙，引發社群對詐騙帳號特徵的討論。\n噪音\n用戶分享畢業與求職焦慮的個人情緒，並引發關於學業階段與就業狀態的討論。\n噪音\n利用 Claude Code 自動化 SNS 內容收集、生成與排程的營運模式。\n學習資源",
+  "title": "(4) Home • Threads",
+  "traceCount": 15,
+  "traceTail": [
+    {
+      "at": 3417.5,
+      "event": "content.selection.sync.request",
+      "id": 1,
+      "isoTime": "2026-06-10T06:33:03.544Z"
+    },
+    {
+      "at": 3661.399999976158,
+      "detail": {
+        "folderId": null,
+        "mode": "archive",
+        "popupOpen": false
+      },
+      "event": "popup.topic.hydrate.skip",
+      "id": 2,
+      "isoTime": "2026-06-10T06:33:03.788Z"
+    },
+    {
+      "at": 3662.799999952316,
+      "detail": {
+        "folderId": null,
+        "isProductSignalPage": false,
+        "mode": "archive",
+        "page": "library",
+        "popupOpen": false
+      },
+      "event": "popup.product.hydrate.skip",
+      "id": 3,
+      "isoTime": "2026-06-10T06:33:03.789Z"
+    },
+    {
+      "at": 3773.899999976158,
+      "detail": {
+        "hasSnapshot": true,
+        "ok": true
+      },
+      "event": "content.selection.sync.response",
+      "id": 4,
+      "isoTime": "2026-06-10T06:33:03.901Z"
+    },
+    {
+      "at": 4014.899999976158,
+      "detail": {
+        "folderId": "session_ywskiblc_mp6p013z",
+        "mode": "product",
+        "popupOpen": false
+      },
+      "event": "popup.topic.hydrate.skip",
+      "id": 5,
+      "isoTime": "2026-06-10T06:33:04.142Z"
+    },
+    {
+      "at": 4015.299999952316,
+      "detail": {
+        "folderId": "session_ywskiblc_mp6p013z",
+        "isProductSignalPage": true,
+        "mode": "product",
+        "page": "saved-signals",
+        "popupOpen": false
+      },
+      "event": "popup.product.hydrate.skip",
+      "id": 6,
+      "isoTime": "2026-06-10T06:33:04.142Z"
+    },
+    {
+      "at": 38401.5,
+      "detail": {
+        "activeFolderId": "session_ywskiblc_mp6p013z",
+        "failureCount": 0,
+        "hasInflight": false
+      },
+      "event": "popup.worker.status.request",
+      "id": 7,
+      "isoTime": "2026-06-10T06:33:38.528Z"
+    },
+    {
+      "at": 38402.29999995232,
+      "detail": {
+        "folderId": "session_ywskiblc_mp6p013z",
+        "mode": "product"
+      },
+      "event": "popup.topic.hydrate.request",
+      "id": 8,
+      "isoTime": "2026-06-10T06:33:38.529Z"
+    },
+    {
+      "at": 38402.59999996424,
+      "detail": {
+        "folderId": "session_ywskiblc_mp6p013z",
+        "page": "saved-signals",
+        "signalCount": 0
+      },
+      "event": "popup.product.hydrate.request",
+      "id": 9,
+      "isoTime": "2026-06-10T06:33:38.530Z"
+    },
+    {
+      "at": 38404.59999996424,
+      "detail": {
+        "activeFolderId": "session_ywskiblc_mp6p013z",
+        "failureCount": 0,
+        "hasInflight": false
+      },
+      "event": "popup.worker.status.request",
+      "id": 10,
+      "isoTime": "2026-06-10T06:33:38.532Z"
+    },
+    {
+      "at": 38577.5,
+      "detail": {
+        "activeFolderId": "session_ywskiblc_mp6p013z",
+        "failureCount": 0,
+        "hasInflight": false
+      },
+      "event": "popup.worker.status.request",
+      "id": 11,
+      "isoTime": "2026-06-10T06:33:38.705Z"
+    },
+    {
+      "at": 38579.19999998808,
+      "detail": {
+        "activeFolderId": "session_ywskiblc_mp6p013z",
+        "failureCount": 0,
+        "hasInflight": false
+      },
+      "event": "popup.worker.status.request",
+      "id": 12,
+      "isoTime": "2026-06-10T06:33:38.706Z"
+    },
+    {
+      "at": 38759.69999998808,
+      "detail": {
+        "currentAnalysisCount": 9,
+        "currentOk": true,
+        "feedbackCount": 0,
+        "feedbackOk": true,
+        "folderId": "session_ywskiblc_mp6p013z",
+        "historicalAnalysisCount": 9,
+        "historicalOk": true,
+        "page": "saved-signals",
+        "readingCount": 7,
+        "readingsOk": true,
+        "signalCount": 0
+      },
+      "event": "popup.product.hydrate.response",
+      "id": 13,
+      "isoTime": "2026-06-10T06:33:38.887Z"
+    },
+    {
+      "at": 38760.19999998808,
+      "detail": {
+        "activeFolderId": "session_ywskiblc_mp6p013z",
+        "failureCount": 0,
+        "hasInflight": false
+      },
+      "event": "popup.worker.status.request",
+      "id": 14,
+      "isoTime": "2026-06-10T06:33:38.887Z"
+    },
+    {
+      "at": 38846.39999997616,
+      "detail": {
+        "activeFolderId": "session_ywskiblc_mp6p013z",
+        "failureCount": 0,
+        "hasInflight": false
+      },
+      "event": "popup.worker.status.request",
+      "id": 15,
+      "isoTime": "2026-06-10T06:33:38.974Z"
+    }
+  ],
+  "url": "https://www.threads.com/#dlensQaTrace=1",
+  "viewport": {
+    "height": 996,
+    "width": 1288
+  }
+}

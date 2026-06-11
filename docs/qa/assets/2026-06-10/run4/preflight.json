@@ -1,0 +1,201 @@
+{
+  "generatedAt": "2026-06-09T16:21:48.114Z",
+  "cwd": "/Users/tung/Desktop/dlens-product-latest",
+  "chrome": {
+    "chromeBase": "/Users/tung/Library/Application Support/Google/Chrome",
+    "localStatePath": "/Users/tung/Library/Application Support/Google/Chrome/Local State",
+    "profileDirectory": "Default",
+    "profileInfo": {
+      "active_time": 1781021553.660915,
+      "avatar_icon": "chrome://theme/IDR_PROFILE_AVATAR_26",
+      "background_apps": false,
+      "default_avatar_fill_color": -9761,
+      "default_avatar_stroke_color": -2555870,
+      "enterprise_label": "",
+      "force_signin_profile_locked": false,
+      "gaia_given_name": "Jason",
+      "gaia_id": "110142701139477295164",
+      "gaia_name": "Jason Lam",
+      "gaia_picture_file_name": "Google Profile Picture.png",
+      "hosted_domain": "brandonproject.co",
+      "is_consented_primary_account": false,
+      "is_ephemeral": false,
+      "is_glic_eligible": true,
+      "is_managed": 1,
+      "is_using_default_avatar": true,
+      "is_using_default_name": false,
+      "last_downloaded_gaia_picture_url_with_size": "https://lh3.googleusercontent.com/a/ACg8ocL2Y9KIl67r5xDgwH1jKvQRk56gOhgiN2RcwaE5ntHfs4bZeg=s256-c-ns",
+      "managed_user_id": "",
+      "metrics_bucket_index": 1,
+      "name": "brandonproject.co",
+      "profile_color_seed": -806210,
+      "profile_highlight_color": -9761,
+      "signin.with_credential_provider": false,
+      "user_accepted_account_management": true,
+      "user_name": "jason@brandonproject.co"
+    },
+    "cookies": {
+      "profileRoot": {
+        "dbPath": "/Users/tung/Library/Application Support/Google/Chrome/Default/Cookies",
+        "exists": true,
+        "ok": true,
+        "error": null,
+        "hosts": [
+          {
+            "host": ".instagram.com",
+            "count": 10
+          },
+          {
+            "host": ".threads.com",
+            "count": 9
+          },
+          {
+            "host": ".threads.net",
+            "count": 3
+          }
+        ]
+      },
+      "network": {
+        "dbPath": "/Users/tung/Library/Application Support/Google/Chrome/Default/Network/Cookies",
+        "exists": false,
+        "hosts": []
+      }
+    },
+    "tabs": {
+      "ok": true,
+      "error": null,
+      "stderr": "",
+      "tabs": [
+        {
+          "windowIndex": 1,
+          "tabIndex": 1,
+          "title": "DLens · 2027 Design Gallery",
+          "url": "file:///Users/tung/Desktop/dlens-product-latest/docs/mockups/2026-06-09-design-gallery.html",
+          "isThreads": false
+        },
+        {
+          "windowIndex": 1,
+          "tabIndex": 2,
+          "title": "Threads",
+          "url": "https://www.threads.com/",
+          "isThreads": true
+        },
+        {
+          "windowIndex": 1,
+          "tabIndex": 3,
+          "title": "Threads",
+          "url": "https://www.threads.com/",
+          "isThreads": true
+        }
+      ]
+    }
+  },
+  "backend": {
+    "ok": false,
+    "statusUrl": "http://127.0.0.1:8000/worker/status",
+    "error": "fetch failed"
+  },
+  "build": {
+    "exists": true,
+    "manifestPath": "/Users/tung/Desktop/dlens-product-latest/output/chrome-mv3/manifest.json",
+    "name": "DLens v3",
+    "version": "0.1.30",
+    "manifestVersion": 3
+  },
+  "codePathHints": {
+    "entrypoints/threads.content.ts": [
+      {
+        "line": 387,
+        "text": "event.preventDefault();"
+      },
+      {
+        "line": 388,
+        "text": "event.stopPropagation();"
+      },
+      {
+        "line": 438,
+        "text": "event.preventDefault();"
+      },
+      {
+        "line": 439,
+        "text": "event.stopPropagation();"
+      }
+    ],
+    "src/ui/useInPageCollectorAppState.ts": [
+      {
+        "line": 790,
+        "text": "event.preventDefault();"
+      },
+      {
+        "line": 801,
+        "text": "event.preventDefault();"
+      },
+      {
+        "line": 1327,
+        "text": "type: \"product/analyze-signals\","
+      }
+    ],
+    "entrypoints/background.ts": [
+      {
+        "line": 2749,
+        "text": "case \"product/analyze-signals\": {"
+      }
+    ],
+    "src/state/store-helpers.ts": [
+      {
+        "line": 156,
+        "text": "lastErrorKind: null,"
+      },
+      {
+        "line": 157,
+        "text": "lastError: null"
+      },
+      {
+        "line": 337,
+        "text": "if (item.status === \"failed\" && item.lastErrorKind === \"stale_timeout\") {"
+      },
+      {
+        "line": 390,
+        "text": "lastErrorKind: \"stale_timeout\","
+      },
+      {
+        "line": 391,
+        "text": "lastError: staleInFlightError(item)"
+      },
+      {
+        "line": 431,
+        "text": "lastErrorKind: job?.last_error_kind ?? null,"
+      },
+      {
+        "line": 432,
+        "text": "lastError: job?.last_error ?? null"
+      },
+      {
+        "line": 467,
+        "text": "lastErrorKind: job?.last_error_kind ?? null,"
+      },
+      {
+        "line": 468,
+        "text": "lastError: job?.last_error ?? null"
+      }
+    ],
+    "src/ui/ProductSignalViews.tsx": [
+      {
+        "line": 413,
+        "text": "function formatSubtype(value: string): string {"
+      },
+      {
+        "line": 1036,
+        "text": "relevance {score}/5"
+      },
+      {
+        "line": 2804,
+        "text": "<span style={{ fontSize: 11, color: tokens.color.softInk }}>AI 已分類 {analyses.length} 則 collected posts</span>"
+      },
+      {
+        "line": 3200,
+        "text": "{analysis.verdict === \"try\" ? \"TRY experiment\" : \"Keep as observation\"}"
+      }
+    ]
+  }
+}

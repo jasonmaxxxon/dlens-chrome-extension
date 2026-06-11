@@ -1,0 +1,214 @@
+{
+  "bodyCursor": "crosshair",
+  "controls": [
+    {
+      "aria": "Close DLens popup",
+      "disabled": false,
+      "dlensButton": null,
+      "rect": {
+        "h": 48,
+        "w": 48,
+        "x": 2088,
+        "y": 24
+      },
+      "role": null,
+      "tag": "BUTTON",
+      "testid": null,
+      "text": ""
+    },
+    {
+      "aria": "Workspace",
+      "disabled": false,
+      "dlensButton": null,
+      "rect": {
+        "h": 24,
+        "w": 151,
+        "x": 1490,
+        "y": 109
+      },
+      "role": "tablist",
+      "tag": "DIV",
+      "testid": null,
+      "text": "TopicProductPR"
+    },
+    {
+      "aria": null,
+      "disabled": false,
+      "dlensButton": null,
+      "rect": {
+        "h": 18,
+        "w": 47,
+        "x": 1493,
+        "y": 112
+      },
+      "role": "tab",
+      "tag": "BUTTON",
+      "testid": null,
+      "text": "Topic"
+    },
+    {
+      "aria": null,
+      "disabled": false,
+      "dlensButton": null,
+      "rect": {
+        "h": 19,
+        "w": 63,
+        "x": 1541,
+        "y": 112
+      },
+      "role": "tab",
+      "tag": "BUTTON",
+      "testid": null,
+      "text": "Product"
+    },
+    {
+      "aria": null,
+      "disabled": false,
+      "dlensButton": null,
+      "rect": {
+        "h": 18,
+        "w": 34,
+        "x": 1605,
+        "y": 112
+      },
+      "role": "tab",
+      "tag": "BUTTON",
+      "testid": null,
+      "text": "PR"
+    },
+    {
+      "aria": "Workspace modes",
+      "disabled": false,
+      "dlensButton": null,
+      "rect": {
+        "h": 256,
+        "w": 55,
+        "x": 1440,
+        "y": 215
+      },
+      "role": null,
+      "tag": "NAV",
+      "testid": null,
+      "text": "採集訊號分類行動"
+    },
+    {
+      "aria": null,
+      "disabled": false,
+      "dlensButton": null,
+      "rect": {
+        "h": 58,
+        "w": 55,
+        "x": 1440,
+        "y": 215
+      },
+      "role": null,
+      "tag": "BUTTON",
+      "testid": null,
+      "text": "採集"
+    },
+    {
+      "aria": null,
+      "disabled": false,
+      "dlensButton": null,
+      "rect": {
+        "h": 58,
+        "w": 55,
+        "x": 1440,
+        "y": 281
+      },
+      "role": null,
+      "tag": "BUTTON",
+      "testid": null,
+      "text": "訊號"
+    },
+    {
+      "aria": null,
+      "disabled": false,
+      "dlensButton": null,
+      "rect": {
+        "h": 58,
+        "w": 55,
+        "x": 1440,
+        "y": 347
+      },
+      "role": null,
+      "tag": "BUTTON",
+      "testid": null,
+      "text": "分類"
+    },
+    {
+      "aria": null,
+      "disabled": false,
+      "dlensButton": null,
+      "rect": {
+        "h": 58,
+        "w": 55,
+        "x": 1440,
+        "y": 413
+      },
+      "role": null,
+      "tag": "BUTTON",
+      "testid": null,
+      "text": "行動"
+    },
+    {
+      "aria": null,
+      "disabled": false,
+      "dlensButton": null,
+      "rect": {
+        "h": 58,
+        "w": 55,
+        "x": 1440,
+        "y": 485
+      },
+      "role": null,
+      "tag": "BUTTON",
+      "testid": null,
+      "text": "設定"
+    },
+    {
+      "aria": null,
+      "disabled": true,
+      "dlensButton": "primary",
+      "rect": {
+        "h": 32,
+        "w": 556,
+        "x": 1547,
+        "y": 352
+      },
+      "role": null,
+      "tag": "BUTTON",
+      "testid": null,
+      "text": "加入產品訊號"
+    },
+    {
+      "aria": null,
+      "disabled": false,
+      "dlensButton": "secondary",
+      "rect": {
+        "h": 33,
+        "w": 91,
+        "x": 2011,
+        "y": 426
+      },
+      "role": null,
+      "tag": "BUTTON",
+      "testid": null,
+      "text": "關閉收集模式"
+    }
+  ],
+  "docCursor": "crosshair",
+  "overlay": {
+    "display": "none",
+    "opacity": "1",
+    "rect": {
+      "h": 0,
+      "w": 0,
+      "x": 0,
+      "y": 0
+    }
+  },
+  "rootText": "Hover to preview\n|\nS\nsave\n|\nEsc\nexit\ndlens\nTopic\nProduct\nPR\nAnnotated Field Guide\nVOL.1\nNO.02\nJun 10\n·\nv.0.1.30\nd\n採集\n訊號\n分類\n行動\n設定\nCollect mode live\n快速判斷，加入產品訊號\n\n指向 Threads 貼文即可預覽，按下加入產品訊號收件匣。\n\nActive\nLive capture\n·\n尚無預覽\n產品訊號收件匣 · Product mode\n將游標移到 Threads 貼文上，這裡會顯示快速預覽。\n加入產品訊號\nSelection active\n收集模式：開啟\n移動游標選取貼文。\n關閉收集模式\nS · 儲存\nEsc · 離開",
+  "title": "(4) Home • Threads",
+  "url": "https://www.threads.com/#dlensQaTrace=1"
+}

@@ -1,11 +1,12 @@
 import assert from "node:assert/strict";
+import { readFileSync } from "node:fs";
 import test from "node:test";
 
 import type { ExtensionMessage, ExtensionResponse } from "../src/state/messages.ts";
 import type { WorkerStatus } from "../src/state/processing-state.ts";
 import { createSessionRecord } from "../src/state/store-helpers.ts";
 import { createEmptyTabState, type ExtensionSnapshot } from "../src/state/types.ts";
-import { buildPreviewSaveMessage, resolveOptimisticSession, runAnalyzeItemsPipeline } from "../src/ui/useInPageCollectorAppState.ts";
+import { buildPreviewSaveMessage, buildSessionModeChangeMessage, resolveOptimisticSession, runAnalyzeItemsPipeline } from "../src/ui/useInPageCollectorAppState.ts";
 
 const descriptor = {
   target_type: "post" as const,
@@ -33,6 +34,21 @@ test("buildPreviewSaveMessage sends the visible preview descriptor with the topi
   assert.deepEqual(message.descriptor, descriptor);
 });
 
+test("popup save paths emit collect-save trace events for both button and keyboard channels", () => {
+  const source = readFileSync(new URL("../src/ui/useInPageCollectorAppState.ts", import.meta.url), "utf8");
+
+  assert.match(source, /markQaTrace\("popup\.collect\.save\.request"/);
+  assert.match(source, /markQaTrace\("popup\.collect\.save\.response"/);
+  assert.match(source, /via: "button"/);
+  assert.match(source, /via: "keyboard"/);
+});
+
+test("active-folder workspace switches pass the target session id through the topic state path", () => {
+  const source = readFileSync(new URL("../src/ui/useInPageCollectorAppState.ts", import.meta.url), "utf8");
+
+  assert.match(source, /topicState\.onSessionModeChange\(mode,\s*targetSession\?\.id/);
+});
+
 test("resolveOptimisticSession returns an existing target-mode session without mutating active session", () => {
   const productSession = createSessionRecord("Product workspace", "2026-05-27T00:00:00.000Z", "product");
   const prSession = createSessionRecord("PR Evidence workspace", "2026-05-27T00:00:00.000Z", "pr-evidence");
@@ -50,6 +66,29 @@ test("resolveOptimisticSession returns an existing target-mode session without m
   assert.equal(resolveOptimisticSession(snapshot, "pr-evidence")?.id, prSession.id);
   assert.equal(resolveOptimisticSession(snapshot, "topic"), null);
   assert.equal(snapshot.global.activeSessionId, productSession.id);
+});
+
+test("buildSessionModeChangeMessage realigns to an existing product session when active session drifted null", () => {
+  const productSession = createSessionRecord("Product workspace", "2026-05-27T00:00:00.000Z", "product");
+  const topicSession = createSessionRecord("Topic workspace", "2026-05-27T00:00:00.000Z", "topic");
+  const snapshot: ExtensionSnapshot = {
+    global: {
+      version: 1,
+      sessions: [topicSession, productSession],
+      activeSessionId: null,
+      settings: { ingestBaseUrl: "http://127.0.0.1:8000" },
+      updatedAt: "2026-05-27T00:00:00.000Z"
+    },
+    tab: createEmptyTabState()
+  };
+
+  const message = buildSessionModeChangeMessage(snapshot, "product");
+
+  assert.deepEqual(message, {
+    type: "session/set-mode",
+    sessionId: productSession.id,
+    mode: "product"
+  });
 });
 
 test("runAnalyzeItemsPipeline queues selected items then starts worker and refreshes", async () => {

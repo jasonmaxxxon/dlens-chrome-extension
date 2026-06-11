@@ -1,0 +1,1087 @@
+[
+  {
+    "step": "before",
+    "summary": {
+      "head": "dlens\nTopic\nProduct\nPR\nAnnotated Field Guide\nVOL.1\nNO.01\nJun 10\n·\nv.0.1.30\nd\n採集\n訊號\n分類\n行動\n設定\nProduct mode\n已存訊號\n先確認已儲存的 Threads post 是否完成抓取，再到行動頁整理可試 workflow。\nBackend 離線\n分析狀態\n10 signals\n9 analyses\nAI key\nProductProfile\nProductContext\n有 signal 尚未抓取。按分析收件匣會先送出抓取請求，完成後再分析。\nBackend 無法連線。請到設定確認 backend URL，或先啟動 ingest backend。\n重新分析\n等待處理的 signals\n尚未抓取\n未分析\nthreads\n×\n按分析會先送出抓取請求。\nCan AI content actually be good? Reply to se_ranking...\n分析完成，查看哪些 signal 值得行動\n查看候選行動 →\n已存訊號\n10 saved\nCan AI content actually be good? Reply to se_ranking...\n尚未抓取 · 尚未分析\n尚未抓取\n×\nClaude Codeだけで10個のSNSアカウントを自動管理し、月2万ドル超を稼いでいる日本人の動画が話題になってる🧵 どうやってるか、仕組みを整理した。\n可分析 · 學習資源 · 保留觀察\n學習資源\n×\n我有個朋友終於完成phd學位，同佢食食下飯，問佢:「辛苦左咁多年，有咩想講？」 佢話:「粗口。」 我靜左。\n可分析 · 噪音 · 前提不符\n噪音\n×\n好羨慕大家可以用「完sem」兩隻字 Final year既我已經要用「畢業」了。 …………😭🙏🏻\n可分析 · 噪音 · 前提不符\n噪音\n×\n我收到聲稱係6ixty 8ight team 搵人做model 拍片，但拍完又5使公開 想問下係真 定又係詐騙🥹🥹🥹\n可分析 · 噪音 · 前提不符\n噪音\n×\n大家唔好去食葵芳新都會廣場二",
+      "signals": "10",
+      "analyses": "9",
+      "saved": "10",
+      "zeroSignals": true,
+      "backendOffline": true,
+      "productMode": true,
+      "topicMode": false,
+      "hydrateEvents": [
+        {
+          "event": "popup.topic.hydrate.skip",
+          "detail": {
+            "folderId": null,
+            "mode": "archive",
+            "popupOpen": false
+          }
+        },
+        {
+          "event": "popup.product.hydrate.skip",
+          "detail": {
+            "folderId": null,
+            "isProductSignalPage": false,
+            "mode": "archive",
+            "page": "library",
+            "popupOpen": false
+          }
+        },
+        {
+          "event": "popup.topic.hydrate.skip",
+          "detail": {
+            "folderId": "session_ywskiblc_mp6p013z",
+            "mode": "product",
+            "popupOpen": false
+          }
+        },
+        {
+          "event": "popup.product.hydrate.skip",
+          "detail": {
+            "folderId": "session_ywskiblc_mp6p013z",
+            "isProductSignalPage": true,
+            "mode": "product",
+            "page": "saved-signals",
+            "popupOpen": false
+          }
+        },
+        {
+          "event": "popup.topic.hydrate.request",
+          "detail": {
+            "folderId": "session_ywskiblc_mp6p013z",
+            "mode": "product"
+          }
+        },
+        {
+          "event": "popup.product.hydrate.request",
+          "detail": {
+            "folderId": "session_ywskiblc_mp6p013z",
+            "page": "saved-signals",
+            "signalCount": 0
+          }
+        },
+        {
+          "event": "popup.product.hydrate.response",
+          "detail": {
+            "currentAnalysisCount": 9,
+            "currentOk": true,
+            "feedbackCount": 0,
+            "feedbackOk": true,
+            "folderId": "session_ywskiblc_mp6p013z",
+            "historicalAnalysisCount": 9,
+            "historicalOk": true,
+            "page": "saved-signals",
+            "readingCount": 7,
+            "readingsOk": true,
+            "signalCount": 0
+          }
+        },
+        {
+          "event": "popup.topic.hydrate.response",
+          "detail": {
+            "folderId": "session_ywskiblc_mp6p013z",
+            "mode": "product",
+            "signalCount": 9,
+            "signalsOk": true,
+            "topicCount": 0,
+            "topicsOk": true
+          }
+        },
+        {
+          "event": "popup.product.hydrate.request",
+          "detail": {
+            "folderId": "session_ywskiblc_mp6p013z",
+            "page": "saved-signals",
+            "signalCount": 9
+          }
+        },
+        {
+          "event": "popup.product.hydrate.response",
+          "detail": {
+            "currentAnalysisCount": 9,
+            "currentOk": true,
+            "feedbackCount": 0,
+            "feedbackOk": true,
+            "folderId": "session_ywskiblc_mp6p013z",
+            "historicalAnalysisCount": 9,
+            "historicalOk": true,
+            "page": "saved-signals",
+            "readingCount": 7,
+            "readingsOk": true,
+            "signalCount": 9
+          }
+        },
+        {
+          "event": "popup.product.hydrate.skip",
+          "detail": {
+            "folderId": "session_ywskiblc_mp6p013z",
+            "isProductSignalPage": false,
+            "mode": "product",
+            "page": "collect",
+            "popupOpen": true
+          }
+        },
+        {
+          "event": "popup.topic.hydrate.request",
+          "detail": {
+            "folderId": "session_ywskiblc_mp6p013z",
+            "mode": "product"
+          }
+        },
+        {
+          "event": "popup.product.hydrate.skip",
+          "detail": {
+            "folderId": "session_ywskiblc_mp6p013z",
+            "isProductSignalPage": false,
+            "mode": "product",
+            "page": "collect",
+            "popupOpen": true
+          }
+        },
+        {
+          "event": "popup.topic.hydrate.response",
+          "detail": {
+            "folderId": "session_ywskiblc_mp6p013z",
+            "mode": "product",
+            "signalCount": 9,
+            "signalsOk": true,
+            "topicCount": 0,
+            "topicsOk": true
+          }
+        }
+      ]
+    }
+  },
+  {
+    "step": "topic-1",
+    "summary": {
+      "head": "已加入主題\n選擇主題\nwork\nlove\n0 未分流\n2 主題\n新建主題\ndlens\nTopic\nProduct\nPR\nAnnotated Field Guide\nVOL.1\nNO.01\nJun 10\n·\nv.0.1.30\nd\n採集\n議題\n設定\n議題\n每個議題收一批 Threads 訊號；點進去看詞群、敘事與源清單。\n2 個議題\nwork\n由同名 Topic workspace 自動建立。\n報告 未生成\n1\n訊號\n0/1\n已完成\n0\n處理中\n1\n待處理\n打開 ›\nlove\n採集批次待整理\n報告 未生成\n1\n訊號\n0/1\n已完成\n0\n處理中\n1\n待處理\n打開 ›\n+ 建立新議題 · 從採集匣選 ≥3 訊號開始",
+      "signals": null,
+      "analyses": null,
+      "saved": null,
+      "zeroSignals": false,
+      "backendOffline": false,
+      "productMode": false,
+      "topicMode": true,
+      "hydrateEvents": [
+        {
+          "event": "popup.topic.hydrate.skip",
+          "detail": {
+            "folderId": null,
+            "mode": "archive",
+            "popupOpen": false
+          }
+        },
+        {
+          "event": "popup.product.hydrate.skip",
+          "detail": {
+            "folderId": null,
+            "isProductSignalPage": false,
+            "mode": "archive",
+            "page": "library",
+            "popupOpen": false
+          }
+        },
+        {
+          "event": "popup.topic.hydrate.skip",
+          "detail": {
+            "folderId": "session_ywskiblc_mp6p013z",
+            "mode": "product",
+            "popupOpen": false
+          }
+        },
+        {
+          "event": "popup.product.hydrate.skip",
+          "detail": {
+            "folderId": "session_ywskiblc_mp6p013z",
+            "isProductSignalPage": true,
+            "mode": "product",
+            "page": "saved-signals",
+            "popupOpen": false
+          }
+        },
+        {
+          "event": "popup.topic.hydrate.request",
+          "detail": {
+            "folderId": "session_ywskiblc_mp6p013z",
+            "mode": "product"
+          }
+        },
+        {
+          "event": "popup.product.hydrate.request",
+          "detail": {
+            "folderId": "session_ywskiblc_mp6p013z",
+            "page": "saved-signals",
+            "signalCount": 0
+          }
+        },
+        {
+          "event": "popup.product.hydrate.response",
+          "detail": {
+            "currentAnalysisCount": 9,
+            "currentOk": true,
+            "feedbackCount": 0,
+            "feedbackOk": true,
+            "folderId": "session_ywskiblc_mp6p013z",
+            "historicalAnalysisCount": 9,
+            "historicalOk": true,
+            "page": "saved-signals",
+            "readingCount": 7,
+            "readingsOk": true,
+            "signalCount": 0
+          }
+        },
+        {
+          "event": "popup.topic.hydrate.response",
+          "detail": {
+            "folderId": "session_ywskiblc_mp6p013z",
+            "mode": "product",
+            "signalCount": 9,
+            "signalsOk": true,
+            "topicCount": 0,
+            "topicsOk": true
+          }
+        },
+        {
+          "event": "popup.product.hydrate.request",
+          "detail": {
+            "folderId": "session_ywskiblc_mp6p013z",
+            "page": "saved-signals",
+            "signalCount": 9
+          }
+        },
+        {
+          "event": "popup.product.hydrate.response",
+          "detail": {
+            "currentAnalysisCount": 9,
+            "currentOk": true,
+            "feedbackCount": 0,
+            "feedbackOk": true,
+            "folderId": "session_ywskiblc_mp6p013z",
+            "historicalAnalysisCount": 9,
+            "historicalOk": true,
+            "page": "saved-signals",
+            "readingCount": 7,
+            "readingsOk": true,
+            "signalCount": 9
+          }
+        },
+        {
+          "event": "popup.product.hydrate.skip",
+          "detail": {
+            "folderId": "session_ywskiblc_mp6p013z",
+            "isProductSignalPage": false,
+            "mode": "product",
+            "page": "collect",
+            "popupOpen": true
+          }
+        },
+        {
+          "event": "popup.topic.hydrate.request",
+          "detail": {
+            "folderId": "session_ywskiblc_mp6p013z",
+            "mode": "product"
+          }
+        },
+        {
+          "event": "popup.product.hydrate.skip",
+          "detail": {
+            "folderId": "session_ywskiblc_mp6p013z",
+            "isProductSignalPage": false,
+            "mode": "product",
+            "page": "collect",
+            "popupOpen": true
+          }
+        },
+        {
+          "event": "popup.topic.hydrate.response",
+          "detail": {
+            "folderId": "session_ywskiblc_mp6p013z",
+            "mode": "product",
+            "signalCount": 9,
+            "signalsOk": true,
+            "topicCount": 0,
+            "topicsOk": true
+          }
+        }
+      ]
+    }
+  },
+  {
+    "step": "product-1",
+    "summary": {
+      "head": "已加入產品訊號\ndlens\nTopic\nProduct\nPR\nAnnotated Field Guide\nVOL.1\nNO.01\nJun 10\n·\nv.0.1.30\nd\n採集\n訊號\n分類\n行動\n設定\nProduct mode\n已存訊號\n先確認已儲存的 Threads post 是否完成抓取，再到行動頁整理可試 workflow。\nBackend 離線\n分析狀態\n7 signals\n7 analyses\nAI key\nProductProfile\nProductContext\nBackend 無法連線。請到設定確認 backend URL，或先啟動 ingest backend。\n重新分析\n等待處理的 signals\n可分析\n未分析\nthreads\n×\n已有 assembled content，可以執行 ProductSignalAnalyzer。\n我用 AI 寫論文，差點引用了一個不存在的研究。 數字漂亮，格式正確，連期刊名稱都寫得出來。我去查，查無此文。 AI 最危險的不是「寫錯」，是「錯得太像真的」 語法錯誤你看得出來，邏輯漏洞你可以感覺到。但 AI 編造的數字，你通常感覺不到任何異樣。 它不會說「我不確定」。它會直接給你一個數字、一個來源、一個看起來合理的脈絡，然後你就信了。一般文章裡這頂多是資訊不準確，但在論文、報告、任何要對外引用數據的內容裡，這是一個可以直接讓你信譽歸零的錯誤。 我在每次 AI 輸出後，都追\n分析完成，查看哪些 signal 值得行動\n查看候選行動 →\n已存訊號\n7 saved\n好羨慕大家可以用「完sem」兩隻字 Final year既我已經要用「畢業」了。 …………😭🙏🏻\n可分析 · 噪音 · 前提不符\n噪音\n×\n我收到聲稱係6ixty 8ight team 搵人做model 拍片，但拍完又5使公開 想問下係真 定又係詐騙🥹🥹🥹\n可分析 · 噪音 · 前提不符\n噪音\n×\n大家唔好去食葵芳新都會廣場二樓「樂麵」 衛生真係差到仆街，開放式廚房，發黑發霉嘅外賣盒係照用，跌過落地嘅夾係照用（廚房地下係鋪滿廢油，湯積，積水），堂食用嘅餐具",
+      "signals": "7",
+      "analyses": "7",
+      "saved": "7",
+      "zeroSignals": false,
+      "backendOffline": true,
+      "productMode": true,
+      "topicMode": false,
+      "hydrateEvents": [
+        {
+          "event": "popup.topic.hydrate.skip",
+          "detail": {
+            "folderId": null,
+            "mode": "archive",
+            "popupOpen": false
+          }
+        },
+        {
+          "event": "popup.product.hydrate.skip",
+          "detail": {
+            "folderId": null,
+            "isProductSignalPage": false,
+            "mode": "archive",
+            "page": "library",
+            "popupOpen": false
+          }
+        },
+        {
+          "event": "popup.topic.hydrate.skip",
+          "detail": {
+            "folderId": "session_ywskiblc_mp6p013z",
+            "mode": "product",
+            "popupOpen": false
+          }
+        },
+        {
+          "event": "popup.product.hydrate.skip",
+          "detail": {
+            "folderId": "session_ywskiblc_mp6p013z",
+            "isProductSignalPage": true,
+            "mode": "product",
+            "page": "saved-signals",
+            "popupOpen": false
+          }
+        },
+        {
+          "event": "popup.topic.hydrate.request",
+          "detail": {
+            "folderId": "session_ywskiblc_mp6p013z",
+            "mode": "product"
+          }
+        },
+        {
+          "event": "popup.product.hydrate.request",
+          "detail": {
+            "folderId": "session_ywskiblc_mp6p013z",
+            "page": "saved-signals",
+            "signalCount": 0
+          }
+        },
+        {
+          "event": "popup.product.hydrate.response",
+          "detail": {
+            "currentAnalysisCount": 9,
+            "currentOk": true,
+            "feedbackCount": 0,
+            "feedbackOk": true,
+            "folderId": "session_ywskiblc_mp6p013z",
+            "historicalAnalysisCount": 9,
+            "historicalOk": true,
+            "page": "saved-signals",
+            "readingCount": 7,
+            "readingsOk": true,
+            "signalCount": 0
+          }
+        },
+        {
+          "event": "popup.topic.hydrate.response",
+          "detail": {
+            "folderId": "session_ywskiblc_mp6p013z",
+            "mode": "product",
+            "signalCount": 9,
+            "signalsOk": true,
+            "topicCount": 0,
+            "topicsOk": true
+          }
+        },
+        {
+          "event": "popup.product.hydrate.request",
+          "detail": {
+            "folderId": "session_ywskiblc_mp6p013z",
+            "page": "saved-signals",
+            "signalCount": 9
+          }
+        },
+        {
+          "event": "popup.product.hydrate.response",
+          "detail": {
+            "currentAnalysisCount": 9,
+            "currentOk": true,
+            "feedbackCount": 0,
+            "feedbackOk": true,
+            "folderId": "session_ywskiblc_mp6p013z",
+            "historicalAnalysisCount": 9,
+            "historicalOk": true,
+            "page": "saved-signals",
+            "readingCount": 7,
+            "readingsOk": true,
+            "signalCount": 9
+          }
+        },
+        {
+          "event": "popup.product.hydrate.skip",
+          "detail": {
+            "folderId": "session_ywskiblc_mp6p013z",
+            "isProductSignalPage": false,
+            "mode": "product",
+            "page": "collect",
+            "popupOpen": true
+          }
+        },
+        {
+          "event": "popup.topic.hydrate.request",
+          "detail": {
+            "folderId": "session_ywskiblc_mp6p013z",
+            "mode": "product"
+          }
+        },
+        {
+          "event": "popup.product.hydrate.skip",
+          "detail": {
+            "folderId": "session_ywskiblc_mp6p013z",
+            "isProductSignalPage": false,
+            "mode": "product",
+            "page": "collect",
+            "popupOpen": true
+          }
+        },
+        {
+          "event": "popup.topic.hydrate.response",
+          "detail": {
+            "folderId": "session_ywskiblc_mp6p013z",
+            "mode": "product",
+            "signalCount": 9,
+            "signalsOk": true,
+            "topicCount": 0,
+            "topicsOk": true
+          }
+        }
+      ]
+    }
+  },
+  {
+    "step": "topic-2",
+    "summary": {
+      "head": "已加入主題\n尚無主題\n0 未分流\n0 主題\n新建主題\ndlens\nTopic\nProduct\nPR\nAnnotated Field Guide\nVOL.1\nNO.02\nJun 10\n·\nv.0.1.30\nd\n採集\n議題\n設定\nCollect\n快速採集，存入主題\n指向 Threads 貼文即可預覽，儲存後可在主題頁分配或追蹤。\nIdle\nHover preview\n預覽中\nS\nse_ranking\n主題 · 未選主題\n在 Threads 開啟\nCan AI content actually be good? Reply to se_ranking...\n6\n17\n—\n—\n—\n加入主題\n先在上方選擇主題，Collect 才會寫入正確主題。\nSelection idle\n收集模式：關閉\n開啟後滑過貼文即可快速預覽。\n開啟收集模式\nS · 儲存\nEsc · 離開",
+      "signals": null,
+      "analyses": null,
+      "saved": null,
+      "zeroSignals": false,
+      "backendOffline": false,
+      "productMode": false,
+      "topicMode": true,
+      "hydrateEvents": [
+        {
+          "event": "popup.topic.hydrate.skip",
+          "detail": {
+            "folderId": null,
+            "mode": "archive",
+            "popupOpen": false
+          }
+        },
+        {
+          "event": "popup.product.hydrate.skip",
+          "detail": {
+            "folderId": null,
+            "isProductSignalPage": false,
+            "mode": "archive",
+            "page": "library",
+            "popupOpen": false
+          }
+        },
+        {
+          "event": "popup.topic.hydrate.skip",
+          "detail": {
+            "folderId": "session_ywskiblc_mp6p013z",
+            "mode": "product",
+            "popupOpen": false
+          }
+        },
+        {
+          "event": "popup.product.hydrate.skip",
+          "detail": {
+            "folderId": "session_ywskiblc_mp6p013z",
+            "isProductSignalPage": true,
+            "mode": "product",
+            "page": "saved-signals",
+            "popupOpen": false
+          }
+        },
+        {
+          "event": "popup.topic.hydrate.request",
+          "detail": {
+            "folderId": "session_ywskiblc_mp6p013z",
+            "mode": "product"
+          }
+        },
+        {
+          "event": "popup.product.hydrate.request",
+          "detail": {
+            "folderId": "session_ywskiblc_mp6p013z",
+            "page": "saved-signals",
+            "signalCount": 0
+          }
+        },
+        {
+          "event": "popup.product.hydrate.response",
+          "detail": {
+            "currentAnalysisCount": 9,
+            "currentOk": true,
+            "feedbackCount": 0,
+            "feedbackOk": true,
+            "folderId": "session_ywskiblc_mp6p013z",
+            "historicalAnalysisCount": 9,
+            "historicalOk": true,
+            "page": "saved-signals",
+            "readingCount": 7,
+            "readingsOk": true,
+            "signalCount": 0
+          }
+        },
+        {
+          "event": "popup.topic.hydrate.response",
+          "detail": {
+            "folderId": "session_ywskiblc_mp6p013z",
+            "mode": "product",
+            "signalCount": 9,
+            "signalsOk": true,
+            "topicCount": 0,
+            "topicsOk": true
+          }
+        },
+        {
+          "event": "popup.product.hydrate.request",
+          "detail": {
+            "folderId": "session_ywskiblc_mp6p013z",
+            "page": "saved-signals",
+            "signalCount": 9
+          }
+        },
+        {
+          "event": "popup.product.hydrate.response",
+          "detail": {
+            "currentAnalysisCount": 9,
+            "currentOk": true,
+            "feedbackCount": 0,
+            "feedbackOk": true,
+            "folderId": "session_ywskiblc_mp6p013z",
+            "historicalAnalysisCount": 9,
+            "historicalOk": true,
+            "page": "saved-signals",
+            "readingCount": 7,
+            "readingsOk": true,
+            "signalCount": 9
+          }
+        },
+        {
+          "event": "popup.product.hydrate.skip",
+          "detail": {
+            "folderId": "session_ywskiblc_mp6p013z",
+            "isProductSignalPage": false,
+            "mode": "product",
+            "page": "collect",
+            "popupOpen": true
+          }
+        },
+        {
+          "event": "popup.topic.hydrate.request",
+          "detail": {
+            "folderId": "session_ywskiblc_mp6p013z",
+            "mode": "product"
+          }
+        },
+        {
+          "event": "popup.product.hydrate.skip",
+          "detail": {
+            "folderId": "session_ywskiblc_mp6p013z",
+            "isProductSignalPage": false,
+            "mode": "product",
+            "page": "collect",
+            "popupOpen": true
+          }
+        },
+        {
+          "event": "popup.topic.hydrate.response",
+          "detail": {
+            "folderId": "session_ywskiblc_mp6p013z",
+            "mode": "product",
+            "signalCount": 9,
+            "signalsOk": true,
+            "topicCount": 0,
+            "topicsOk": true
+          }
+        }
+      ]
+    }
+  },
+  {
+    "step": "product-2",
+    "summary": {
+      "head": "已加入產品訊號\ndlens\nTopic\nProduct\nPR\nAnnotated Field Guide\nVOL.1\nNO.01\nJun 10\n·\nv.0.1.30\nd\n採集\n訊號\n分類\n行動\n設定\nProduct mode\n已存訊號\n先確認已儲存的 Threads post 是否完成抓取，再到行動頁整理可試 workflow。\nBackend 離線\n真實狀態\n1 signals\n0 analyses\nAI key\nProductProfile\nProductContext\n已有 ready signal。按下分析收件匣後，這裡才會顯示真實 AI 結果。\nBackend 無法連線。請到設定確認 backend URL，或先啟動 ingest backend。\n分析收件匣\n等待處理的 signals\n可分析\n未分析\nthreads\n×\n已有 assembled content，可以執行 ProductSignalAnalyzer。\n我用 AI 寫論文，差點引用了一個不存在的研究。 數字漂亮，格式正確，連期刊名稱都寫得出來。我去查，查無此文。 AI 最危險的不是「寫錯」，是「錯得太像真的」 語法錯誤你看得出來，邏輯漏洞你可以感覺到。但 AI 編造的數字，你通常感覺不到任何異樣。 它不會說「我不確定」。它會直接給你一個數字、一個來源、一個看起來合理的脈絡，然後你就信了。一般文章裡這頂多是資訊不準確，但在論文、報告、任何要對外引用數據的內容裡，這是一個可以直接讓你信譽歸零的錯誤。 我在每次 AI 輸出後，都追\n已存訊號\n1 saved\n我用 AI 寫論文，差點引用了一個不存在的研究。 數字漂亮，格式正確，連期刊名稱都寫得出來。我去查，查無此文。 AI 最危險的不是「寫錯」，是「錯得太像真的」 語法錯誤你看得出來，邏輯漏洞你可以感覺到。但 AI 編造的數字，你通常感覺不到…\n可分析 · 尚未分析\n可分析\n×",
+      "signals": "1",
+      "analyses": "0",
+      "saved": "1",
+      "zeroSignals": false,
+      "backendOffline": true,
+      "productMode": true,
+      "topicMode": false,
+      "hydrateEvents": [
+        {
+          "event": "popup.topic.hydrate.skip",
+          "detail": {
+            "folderId": null,
+            "mode": "archive",
+            "popupOpen": false
+          }
+        },
+        {
+          "event": "popup.product.hydrate.skip",
+          "detail": {
+            "folderId": null,
+            "isProductSignalPage": false,
+            "mode": "archive",
+            "page": "library",
+            "popupOpen": false
+          }
+        },
+        {
+          "event": "popup.topic.hydrate.skip",
+          "detail": {
+            "folderId": "session_ywskiblc_mp6p013z",
+            "mode": "product",
+            "popupOpen": false
+          }
+        },
+        {
+          "event": "popup.product.hydrate.skip",
+          "detail": {
+            "folderId": "session_ywskiblc_mp6p013z",
+            "isProductSignalPage": true,
+            "mode": "product",
+            "page": "saved-signals",
+            "popupOpen": false
+          }
+        },
+        {
+          "event": "popup.topic.hydrate.request",
+          "detail": {
+            "folderId": "session_ywskiblc_mp6p013z",
+            "mode": "product"
+          }
+        },
+        {
+          "event": "popup.product.hydrate.request",
+          "detail": {
+            "folderId": "session_ywskiblc_mp6p013z",
+            "page": "saved-signals",
+            "signalCount": 0
+          }
+        },
+        {
+          "event": "popup.product.hydrate.response",
+          "detail": {
+            "currentAnalysisCount": 9,
+            "currentOk": true,
+            "feedbackCount": 0,
+            "feedbackOk": true,
+            "folderId": "session_ywskiblc_mp6p013z",
+            "historicalAnalysisCount": 9,
+            "historicalOk": true,
+            "page": "saved-signals",
+            "readingCount": 7,
+            "readingsOk": true,
+            "signalCount": 0
+          }
+        },
+        {
+          "event": "popup.topic.hydrate.response",
+          "detail": {
+            "folderId": "session_ywskiblc_mp6p013z",
+            "mode": "product",
+            "signalCount": 9,
+            "signalsOk": true,
+            "topicCount": 0,
+            "topicsOk": true
+          }
+        },
+        {
+          "event": "popup.product.hydrate.request",
+          "detail": {
+            "folderId": "session_ywskiblc_mp6p013z",
+            "page": "saved-signals",
+            "signalCount": 9
+          }
+        },
+        {
+          "event": "popup.product.hydrate.response",
+          "detail": {
+            "currentAnalysisCount": 9,
+            "currentOk": true,
+            "feedbackCount": 0,
+            "feedbackOk": true,
+            "folderId": "session_ywskiblc_mp6p013z",
+            "historicalAnalysisCount": 9,
+            "historicalOk": true,
+            "page": "saved-signals",
+            "readingCount": 7,
+            "readingsOk": true,
+            "signalCount": 9
+          }
+        },
+        {
+          "event": "popup.product.hydrate.skip",
+          "detail": {
+            "folderId": "session_ywskiblc_mp6p013z",
+            "isProductSignalPage": false,
+            "mode": "product",
+            "page": "collect",
+            "popupOpen": true
+          }
+        },
+        {
+          "event": "popup.topic.hydrate.request",
+          "detail": {
+            "folderId": "session_ywskiblc_mp6p013z",
+            "mode": "product"
+          }
+        },
+        {
+          "event": "popup.product.hydrate.skip",
+          "detail": {
+            "folderId": "session_ywskiblc_mp6p013z",
+            "isProductSignalPage": false,
+            "mode": "product",
+            "page": "collect",
+            "popupOpen": true
+          }
+        },
+        {
+          "event": "popup.topic.hydrate.response",
+          "detail": {
+            "folderId": "session_ywskiblc_mp6p013z",
+            "mode": "product",
+            "signalCount": 9,
+            "signalsOk": true,
+            "topicCount": 0,
+            "topicsOk": true
+          }
+        }
+      ]
+    }
+  },
+  {
+    "step": "topic-3",
+    "summary": {
+      "head": "2 posts ready to compare\n尚無主題\n0 未分流\n0 主題\n新建主題\ndlens\nTopic\nProduct\nPR\nAnnotated Field Guide\nVOL.1\nNO.01\nJun 10\n·\nv.0.1.30\nd\n採集\n議題\n設定\n議題\n每個議題收一批 Threads 訊號；點進去看詞群、敘事與源清單。\n0 個議題\n+ 建立新議題 · 從採集匣選 ≥3 訊號開始",
+      "signals": null,
+      "analyses": null,
+      "saved": null,
+      "zeroSignals": false,
+      "backendOffline": false,
+      "productMode": false,
+      "topicMode": true,
+      "hydrateEvents": [
+        {
+          "event": "popup.topic.hydrate.skip",
+          "detail": {
+            "folderId": null,
+            "mode": "archive",
+            "popupOpen": false
+          }
+        },
+        {
+          "event": "popup.product.hydrate.skip",
+          "detail": {
+            "folderId": null,
+            "isProductSignalPage": false,
+            "mode": "archive",
+            "page": "library",
+            "popupOpen": false
+          }
+        },
+        {
+          "event": "popup.topic.hydrate.skip",
+          "detail": {
+            "folderId": "session_ywskiblc_mp6p013z",
+            "mode": "product",
+            "popupOpen": false
+          }
+        },
+        {
+          "event": "popup.product.hydrate.skip",
+          "detail": {
+            "folderId": "session_ywskiblc_mp6p013z",
+            "isProductSignalPage": true,
+            "mode": "product",
+            "page": "saved-signals",
+            "popupOpen": false
+          }
+        },
+        {
+          "event": "popup.topic.hydrate.request",
+          "detail": {
+            "folderId": "session_ywskiblc_mp6p013z",
+            "mode": "product"
+          }
+        },
+        {
+          "event": "popup.product.hydrate.request",
+          "detail": {
+            "folderId": "session_ywskiblc_mp6p013z",
+            "page": "saved-signals",
+            "signalCount": 0
+          }
+        },
+        {
+          "event": "popup.product.hydrate.response",
+          "detail": {
+            "currentAnalysisCount": 9,
+            "currentOk": true,
+            "feedbackCount": 0,
+            "feedbackOk": true,
+            "folderId": "session_ywskiblc_mp6p013z",
+            "historicalAnalysisCount": 9,
+            "historicalOk": true,
+            "page": "saved-signals",
+            "readingCount": 7,
+            "readingsOk": true,
+            "signalCount": 0
+          }
+        },
+        {
+          "event": "popup.topic.hydrate.response",
+          "detail": {
+            "folderId": "session_ywskiblc_mp6p013z",
+            "mode": "product",
+            "signalCount": 9,
+            "signalsOk": true,
+            "topicCount": 0,
+            "topicsOk": true
+          }
+        },
+        {
+          "event": "popup.product.hydrate.request",
+          "detail": {
+            "folderId": "session_ywskiblc_mp6p013z",
+            "page": "saved-signals",
+            "signalCount": 9
+          }
+        },
+        {
+          "event": "popup.product.hydrate.response",
+          "detail": {
+            "currentAnalysisCount": 9,
+            "currentOk": true,
+            "feedbackCount": 0,
+            "feedbackOk": true,
+            "folderId": "session_ywskiblc_mp6p013z",
+            "historicalAnalysisCount": 9,
+            "historicalOk": true,
+            "page": "saved-signals",
+            "readingCount": 7,
+            "readingsOk": true,
+            "signalCount": 9
+          }
+        },
+        {
+          "event": "popup.product.hydrate.skip",
+          "detail": {
+            "folderId": "session_ywskiblc_mp6p013z",
+            "isProductSignalPage": false,
+            "mode": "product",
+            "page": "collect",
+            "popupOpen": true
+          }
+        },
+        {
+          "event": "popup.topic.hydrate.request",
+          "detail": {
+            "folderId": "session_ywskiblc_mp6p013z",
+            "mode": "product"
+          }
+        },
+        {
+          "event": "popup.product.hydrate.skip",
+          "detail": {
+            "folderId": "session_ywskiblc_mp6p013z",
+            "isProductSignalPage": false,
+            "mode": "product",
+            "page": "collect",
+            "popupOpen": true
+          }
+        },
+        {
+          "event": "popup.topic.hydrate.response",
+          "detail": {
+            "folderId": "session_ywskiblc_mp6p013z",
+            "mode": "product",
+            "signalCount": 9,
+            "signalsOk": true,
+            "topicCount": 0,
+            "topicsOk": true
+          }
+        }
+      ]
+    }
+  },
+  {
+    "step": "product-3",
+    "summary": {
+      "head": "已加入產品訊號\ndlens\nTopic\nProduct\nPR\nAnnotated Field Guide\nVOL.1\nNO.01\nJun 10\n·\nv.0.1.30\nd\n採集\n訊號\n分類\n行動\n設定\nProduct mode\n已存訊號\n先確認已儲存的 Threads post 是否完成抓取，再到行動頁整理可試 workflow。\nBackend 離線\n真實狀態\n0 signals\n0 analyses\nAI key\nProductProfile\nProductContext\nProduct mode 收件匣沒有 signal。先在 Collect 儲存一篇 Threads post。\nBackend 無法連線。請到設定確認 backend URL，或先啟動 ingest backend。\n分析收件匣\nError: Signal not found",
+      "signals": "0",
+      "analyses": "0",
+      "saved": null,
+      "zeroSignals": true,
+      "backendOffline": true,
+      "productMode": true,
+      "topicMode": false,
+      "hydrateEvents": [
+        {
+          "event": "popup.topic.hydrate.skip",
+          "detail": {
+            "folderId": null,
+            "mode": "archive",
+            "popupOpen": false
+          }
+        },
+        {
+          "event": "popup.product.hydrate.skip",
+          "detail": {
+            "folderId": null,
+            "isProductSignalPage": false,
+            "mode": "archive",
+            "page": "library",
+            "popupOpen": false
+          }
+        },
+        {
+          "event": "popup.topic.hydrate.skip",
+          "detail": {
+            "folderId": "session_ywskiblc_mp6p013z",
+            "mode": "product",
+            "popupOpen": false
+          }
+        },
+        {
+          "event": "popup.product.hydrate.skip",
+          "detail": {
+            "folderId": "session_ywskiblc_mp6p013z",
+            "isProductSignalPage": true,
+            "mode": "product",
+            "page": "saved-signals",
+            "popupOpen": false
+          }
+        },
+        {
+          "event": "popup.topic.hydrate.request",
+          "detail": {
+            "folderId": "session_ywskiblc_mp6p013z",
+            "mode": "product"
+          }
+        },
+        {
+          "event": "popup.product.hydrate.request",
+          "detail": {
+            "folderId": "session_ywskiblc_mp6p013z",
+            "page": "saved-signals",
+            "signalCount": 0
+          }
+        },
+        {
+          "event": "popup.product.hydrate.response",
+          "detail": {
+            "currentAnalysisCount": 9,
+            "currentOk": true,
+            "feedbackCount": 0,
+            "feedbackOk": true,
+            "folderId": "session_ywskiblc_mp6p013z",
+            "historicalAnalysisCount": 9,
+            "historicalOk": true,
+            "page": "saved-signals",
+            "readingCount": 7,
+            "readingsOk": true,
+            "signalCount": 0
+          }
+        },
+        {
+          "event": "popup.topic.hydrate.response",
+          "detail": {
+            "folderId": "session_ywskiblc_mp6p013z",
+            "mode": "product",
+            "signalCount": 9,
+            "signalsOk": true,
+            "topicCount": 0,
+            "topicsOk": true
+          }
+        },
+        {
+          "event": "popup.product.hydrate.request",
+          "detail": {
+            "folderId": "session_ywskiblc_mp6p013z",
+            "page": "saved-signals",
+            "signalCount": 9
+          }
+        },
+        {
+          "event": "popup.product.hydrate.response",
+          "detail": {
+            "currentAnalysisCount": 9,
+            "currentOk": true,
+            "feedbackCount": 0,
+            "feedbackOk": true,
+            "folderId": "session_ywskiblc_mp6p013z",
+            "historicalAnalysisCount": 9,
+            "historicalOk": true,
+            "page": "saved-signals",
+            "readingCount": 7,
+            "readingsOk": true,
+            "signalCount": 9
+          }
+        },
+        {
+          "event": "popup.product.hydrate.skip",
+          "detail": {
+            "folderId": "session_ywskiblc_mp6p013z",
+            "isProductSignalPage": false,
+            "mode": "product",
+            "page": "collect",
+            "popupOpen": true
+          }
+        },
+        {
+          "event": "popup.topic.hydrate.request",
+          "detail": {
+            "folderId": "session_ywskiblc_mp6p013z",
+            "mode": "product"
+          }
+        },
+        {
+          "event": "popup.product.hydrate.skip",
+          "detail": {
+            "folderId": "session_ywskiblc_mp6p013z",
+            "isProductSignalPage": false,
+            "mode": "product",
+            "page": "collect",
+            "popupOpen": true
+          }
+        },
+        {
+          "event": "popup.topic.hydrate.response",
+          "detail": {
+            "folderId": "session_ywskiblc_mp6p013z",
+            "mode": "product",
+            "signalCount": 9,
+            "signalsOk": true,
+            "topicCount": 0,
+            "topicsOk": true
+          }
+        }
+      ]
+    }
+  }
+]

@@ -1,6 +1,6 @@
 # AGENTS.md — DLens Chrome Extension v0.1
 
-> **Last updated:** 2026-06-09 (Runtime tab targeting fix: content-script `state/get-active-tab` and collect start/cancel now resolve to the sender tab instead of any other focused Chrome tab; this prevents collect UI state from splitting from the Threads content script. Product Reading Review remains guarded to matching `SignalReading` rows, and post-detail cards with reply composers remain collectible. 618/618 tests, typecheck, build, version 0.1.30 mirrored into MV3.)
+> **Last updated:** 2026-06-11 (QA Run 26 reload recheck + B-14 second fix, see `docs/qa/2026-06-09-output-quality-qa.md` §4.15: B-02 live passed after reload with toggle response `308–489ms`; B-15 Saved Signals `行動簡報匯出` live passed with system clipboard Markdown; B-14 Run25 invalid `15/0` fix exposed a second root cause where non-topic-scoped `signals.length` inflated Topic audit detail to `30 訊號 / 15/30`, now fixed in `TopicDetailView` by using audit artifacts as the sourceTotal when present and normalizing stale queued counts. 650/650 tests, typecheck, build, version 0.1.30 mirrored into MV3. Remaining: user reload `output/chrome-mv3`, reload Threads page, then Run 27 live recheck B-14 only.)
 > **For:** any agent continuing work in this repo
 
 ## Recently Fixed (2026-05-28) — Product action board and card geometry
@@ -10,9 +10,9 @@
    route has saved signals plus matching `SignalReading` rows. A review callback
    alone must not switch the route away from the Marginalia action cards. This
    restores the carefully designed review card, verdict tiles, marginalia panel,
-   provenance row, and deep-reading controls. Do not confuse this with the old
-   page-level `SavedSignalsBatchExport`: tests still reject `Agent export`,
-   `原文優先`, `精簡決策`, and `複製 Agent Brief` on the Action route.
+   provenance row, and deep-reading controls. Do not confuse this with the
+   Saved Signals batch-copy surface: tests still reject `行動簡報匯出`,
+   `原文優先`, `精簡決策`, and `複製行動簡報` on the Action route.
 2. **Shared card radius.** `surfaceCardStyle()` now defaults to
    `tokens.radius.cardLg` (`20px`) so Product/PR/shared surfaces match Topic's
    softer paper-card geometry. The Saved Signals action CTA also uses the same
@@ -365,7 +365,7 @@ Important implementation points:
 - `SettingsView.tsx` no longer owns visible layout controls; it stays focused on folder mode, connection/storage usage, API keys, and ProductProfile.
 - `InPageCollectorPopup.tsx` threads persisted layout settings into Product signal cards, Topic synthesis, and Compare Result.
 - Topic Detail's primary overview is now semantic `SignalTagsRecord` data from `dlens:v1:signal-tags`, not deterministic keyword frequency. `TopicSynthesis` and `FolderSynthesis` remain deterministic extension-side layers over analyzed signals for legacy/folder contexts and do not replace backend clustering.
-- Current verification was run from `dlens-product-latest`: `618/618` tests, `npm run typecheck`, and `npm run build` passed.
+- Current verification was run from `dlens-product-latest`: `650/650` tests, `npm run typecheck`, and `npm run build` passed.
 - The verified unpacked build was copied to `output/chrome-mv3` for Chrome load-unpacked use.
 - `dlens-product-latest` source checkout may be dirty; do not infer clean source state from the copied build artifact.
 
@@ -501,7 +501,7 @@ This was a major product-direction change. Summary for any agent picking up here
 
 ```bash
 npm run typecheck && npx tsx --test tests/*.test.ts tests/*.test.tsx
-# Expected on current checkout: 615 pass, 0 fail
+# Expected on current checkout: 618 pass, 0 fail
 ```
 
 ### Current engineering roadmap
@@ -635,7 +635,7 @@ The full cluster pipeline runs in `dlens-ingest-core`, not in this repo:
 - `useInPageCollectorAppState.ts` is still a large orchestration hub after the shell split and is the next place to keep carving down
 - inline styles are widespread but `tokens.ts` now provides the full design token layer; remaining inline refs can migrate incrementally
 - hover debounce still feels slow (360ms)
-- the full `tests/*.test.ts{,x}` suite passes **178/178** as of Phase 2 (commit `6453f73`); `manifest-config.test.ts` has a known pre-existing rolldown native binding issue on Darwin arm64 that is environment-specific and not a code failure
+- the full `tests/*.test.ts{,x}` suite passes **650/650** as of the current `0.1.30` verification on `codex/pr-visible-metrics`
 
 ### P3
 
@@ -813,7 +813,7 @@ Before claiming success:
 ```bash
 cd dlens-chrome-extension-v0
 npm run typecheck
-npx tsx --test tests/*.test.ts tests/*.test.tsx  # expect 178/178
+npx tsx --test tests/*.test.ts tests/*.test.tsx  # expect 650/650
 npm run build
 ```
 

@@ -1128,7 +1128,7 @@ test("ProductSignalView shows real readiness state without fake AI results", () 
   );
 
   assert.match(html, /data-product-signal-view="saved-signals"/);
-  assert.match(html, /Saved Signals/);
+  assert.match(html, /已存訊號/);
   assert.match(html, /1 signals/);
   assert.match(html, /0 analyses/);
   assert.match(html, /ProductProfile/);
@@ -1141,6 +1141,73 @@ test("ProductSignalView shows real readiness state without fake AI results", () 
   assert.match(html, /尚未抓取/);
   assert.match(html, /按分析會先送出抓取請求/);
   assert.doesNotMatch(html, /航班觀察|fixture|score/i);
+});
+
+test("ProductSignalView surfaces backend health errors even when analyses already exist", () => {
+  const html = renderToStaticMarkup(
+    React.createElement(ProductSignalView as any, {
+      kind: "saved-signals",
+      signals: [
+        {
+          id: "signal_backend",
+          sessionId: "session_product",
+          itemId: "item_backend",
+          source: "threads",
+          inboxStatus: "processed",
+          capturedAt: "2026-06-10T00:00:00.000Z"
+        }
+      ],
+      analyses: [
+        {
+          signalId: "signal_backend",
+          signalType: "learning",
+          signalSubtype: "browser_automation",
+          contentType: "discussion_starter",
+          contentSummary: "使用者想知道 extension backend 是否仍然可用。",
+          relevance: 5,
+          relevantTo: ["coreWorkflows"],
+          whyRelevant: "直接影響 Product 分析流程。",
+          verdict: "watch",
+          reason: "需要持續觀察 backend 健康狀態。",
+          experimentHint: "在主 UI 顯示 backend health。",
+          evidenceRefs: ["e1"],
+          productContextHash: "ctx",
+          promptVersion: "v1",
+          analyzedAt: "2026-06-10T00:00:00.000Z",
+          status: "complete"
+        }
+      ],
+      productProfile: {
+        name: "DLens",
+        category: "Creator analysis",
+        audience: "Threads creators",
+        contextText: "README context",
+        contextFiles: [
+          {
+            id: "file_readme",
+            name: "README.md",
+            kind: "readme",
+            importedAt: "2026-06-10T00:00:00.000Z",
+            charCount: 14
+          }
+        ]
+      },
+      signalPreviewById: {},
+      signalReadinessById: {
+        signal_backend: {
+          status: "ready",
+          itemStatus: "succeeded"
+        }
+      },
+      backendError: "Backend 無法連線。請到設定確認 backend URL，或先啟動 ingest backend。",
+      onAnalyze: () => undefined
+    })
+  );
+
+  assert.match(html, /Backend 離線/);
+  assert.match(html, /Backend 無法連線。請到設定確認 backend URL/);
+  assert.doesNotMatch(html, /AI enabled|分析完成/);
+  assert.doesNotMatch(html, /✓ 已就緒/);
 });
 
 test("ProductSignalView keeps existing analyses visible when signal inbox is empty", () => {
@@ -1192,10 +1259,44 @@ test("ProductSignalView keeps existing analyses visible when signal inbox is emp
   assert.match(html, /data-product-recovered-analyses="true"/);
   assert.match(html, /已有 1 筆既有分析，但目前 signal 清單是空的/);
   assert.match(html, /使用者想把 Threads 討論直接變成可執行任務。/);
-  assert.match(html, /AI enabled/);
+  assert.match(html, /分析完成/);
   assert.match(html, /噪音/);
   assert.doesNotMatch(html, /前提不符/);
   assert.doesNotMatch(html, /signal_orphan/);
+  assert.doesNotMatch(html, /尚未有 AI 分析結果/);
+});
+
+test("ProductSignalView shows hydration state instead of an empty result while product data loads", () => {
+  const html = renderToStaticMarkup(
+    React.createElement(ProductSignalView as any, {
+      kind: "saved-signals",
+      signals: [],
+      analyses: [],
+      isHydrating: true,
+      productProfile: {
+        name: "DLens",
+        category: "Creator analysis",
+        audience: "Threads creators",
+        contextText: "README context",
+        contextFiles: [
+          {
+            id: "file_readme",
+            name: "README.md",
+            kind: "readme",
+            importedAt: "2026-06-10T00:00:00.000Z",
+            charCount: 14
+          }
+        ]
+      },
+      signalPreviewById: {},
+      signalReadinessById: {},
+      onAnalyze: () => undefined
+    })
+  );
+
+  assert.match(html, /data-product-hydrating="true"/);
+  assert.match(html, /讀取中/);
+  assert.doesNotMatch(html, /No result|尚無結果/);
   assert.doesNotMatch(html, /尚未有 AI 分析結果/);
 });
 
@@ -1370,14 +1471,18 @@ test("ProductSignalView keeps Agent export off Product action pages", () => {
     })
   );
 
-  assert.doesNotMatch(savedHtml, /data-saved-signals-batch-export="true"/);
+  assert.match(savedHtml, /data-saved-signals-batch-export="true"/);
+  assert.match(savedHtml, /行動簡報匯出/);
+  assert.match(savedHtml, /原文優先/);
+  assert.match(savedHtml, /精簡決策/);
+  assert.match(savedHtml, /複製行動簡報/);
   assert.match(savedHtml, /data-product-action-cta="true"[^>]*border-radius:20px/);
   assert.match(actionableHtml, /data-actionable-insights-board="true"/);
   assert.doesNotMatch(actionableHtml, /data-saved-signals-batch-export="true"/);
   assert.doesNotMatch(actionableHtml, /Agent export/);
   assert.doesNotMatch(actionableHtml, /原文優先/);
   assert.doesNotMatch(actionableHtml, /精簡決策/);
-  assert.doesNotMatch(actionableHtml, /複製 Agent Brief/);
+  assert.doesNotMatch(actionableHtml, /複製 Agent Brief|複製行動簡報/);
   assert.doesNotMatch(actionableHtml, /data-signal-packet-html-export="true"/);
   assert.doesNotMatch(actionableHtml, /data-signal-packet-format-option="html"/);
   assert.doesNotMatch(actionableHtml, /data-signal-packet-format-option="jsonl"/);
@@ -1386,6 +1491,53 @@ test("ProductSignalView keeps Agent export off Product action pages", () => {
   assert.doesNotMatch(actionableHtml, /data-agent-brief-copy-status/);
   assert.doesNotMatch(actionableHtml, /data-batch-export-selection-row="true"/);
   assert.doesNotMatch(actionableHtml, /# Agent Brief/);
+});
+
+test("PendingSignalCard surfaces the backend job error while a crawl is retrying", () => {
+  const html = renderToStaticMarkup(
+    React.createElement(ProductSignalView, {
+      kind: "saved-signals",
+      signals: [
+        {
+          id: "signal_fetching",
+          sessionId: "session_a",
+          itemId: "item_fetching",
+          source: "threads",
+          inboxStatus: "unprocessed",
+          capturedAt: "2026-04-27T00:00:00.000Z"
+        }
+      ],
+      analyses: [],
+      productProfile: {
+        name: "DLens",
+        category: "Creator analysis",
+        audience: "Threads creators",
+        contextText: "README context",
+        contextFiles: [
+          {
+            id: "file_readme",
+            name: "README.md",
+            kind: "readme",
+            importedAt: "2026-04-27T00:00:00.000Z",
+            charCount: 14
+          }
+        ]
+      },
+      signalReadinessById: {
+        signal_fetching: {
+          status: "crawling",
+          itemStatus: "queued",
+          lastError: "BrowserType.launch: Executable doesn't exist at /Users/tung/Library/Caches/ms-playwright/chromium"
+        }
+      },
+      onAnalyze: () => undefined
+    })
+  );
+
+  assert.match(html, /抓取中（重試中）/);
+  assert.match(html, /backend 回報錯誤/);
+  assert.match(html, /BrowserType\.launch/);
+  assert.doesNotMatch(html, /等待 backend 完成 ThreadReadModel/);
 });
 
 test("ProductSignalView shows a spinner for crawling pending signals", () => {
@@ -1522,6 +1674,10 @@ test("ProductSignalView gives each product page a distinct information shape", (
   assert.match(classificationHtml, /data-classification-row-indicator="true"/);
   assert.match(classificationHtml, /Users want a one-tap mobile save flow/);
   assert.doesNotMatch(classificationHtml, /relevance 5 of 5/);
+  assert.doesNotMatch(classificationHtml, /collected posts|mobile share extension|mixed/);
+  assert.match(classificationHtml, /AI 已分類 1 則訊號/);
+  assert.match(classificationHtml, /行動分享入口/);
+  assert.match(classificationHtml, /混合內容/);
   assert.doesNotMatch(classificationHtml, /最新在前/);
   assert.match(classificationHtml, /AI 建議分類/);
   assert.doesNotMatch(classificationHtml, /Agent 任務卡|實驗假設草稿/);
@@ -1538,6 +1694,9 @@ test("ProductSignalView gives each product page a distinct information shape", (
   assert.doesNotMatch(actionableHtml, /Agent 任務卡 ·/);
   assert.doesNotMatch(actionableHtml, /這個任務建議/);
   assert.doesNotMatch(actionableHtml, /\d+\s+likes/);
+  assert.doesNotMatch(actionableHtml, /TRY experiment|relevance 5\/5|signal type/);
+  assert.match(actionableHtml, /排入小實驗/);
+  assert.match(actionableHtml, /相關度 5\/5/);
   assert.doesNotMatch(actionableHtml, /R5/);
   // Marginalia owns the experiment and judgment slots in its main column / rail.
   assert.doesNotMatch(actionableHtml, /data-product-panel="experiment"/);
@@ -1746,7 +1905,7 @@ test("ActionableItemCard marginalia rail contains verdict, relevance, and task s
   assert.match(html, /data-testid="rail-verdict"[^>]*data-verdict-value="try"[^>]*>值得嘗試/);
   assert.match(html, /data-testid="rail-relevance"/);
   assert.match(html, /data-testid="rail-task"/);
-  assert.match(html, /TASK ›/);
+  assert.match(html, /任務 ›/);
   assert.match(html, /產出 release-note 草稿/);
 });
 
@@ -1780,6 +1939,30 @@ test("ActionableItemCard marginalia removes repeated support chrome", () => {
   assert.match(html, /data-workflow-row-layout="stacked"/);
 });
 
+test("ActionableItemCard renders noise and park verdicts as exclusion cards without workflow task framing", () => {
+  const html = renderActionableCardFixture("marginalia", {
+    signalType: "noise",
+    signalSubtype: "user_sentiment_reflection",
+    verdict: "park",
+    relevance: 1,
+    contentSummary: "這只是一般情緒宣洩，沒有直接產品參考。",
+    reason: "沒有可採用的產品需求或 workflow pattern。",
+    referenceType: "no_direct_fit",
+    referenceLabel: "暫無直接用途",
+    referenceTakeaway: "保留為背景噪音，不排進 Agent 任務。",
+    experimentHint: "",
+    agentTaskSpec: undefined
+  });
+
+  assert.match(html, /data-exclusion-card="true"/);
+  assert.match(html, /噪音 \/ 前提不符/);
+  assert.match(html, /排除原因/);
+  assert.match(html, /沒有可採用的產品需求或 workflow pattern/);
+  assert.match(html, /暫無直接用途/);
+  assert.doesNotMatch(html, /data-testid="marginalia-experiment"/);
+  assert.doesNotMatch(html, /可借用 workflow|TASK ›|任務 ›|排入小實驗|保留觀察/);
+});
+
 test("ActionableItemCard defaults to verdict layout without layout prop", () => {
   const html = renderActionableCardFixture();
 
@@ -1801,7 +1984,7 @@ test("ActionableItemCard defaults to verdict layout without layout prop", () => 
   assert.match(html, /1 則原文證據/);
   assert.match(html, /產出 release-note 草稿/);
   assert.match(html, /分類：需求/);
-  assert.match(html, /Subtype：pm document generation/);
+  assert.match(html, /子型：PM 文件產出/);
   assert.match(html, /Prompt：v16/);
 });
 
@@ -2151,10 +2334,113 @@ test("merged candidate-action board keeps AI commentary collapsed on action rout
   const openDetails = html.match(/<details open=""[^]*?<\/details>/g) ?? [];
 
   assert.equal(openDetails.length, 0);
-  assert.match(html, /Agent Brief/);
+  assert.match(html, /行動簡報/);
   assert.doesNotMatch(html, /儲存至行動清單|>\+<\/span> 儲存/);
   assert.match(html, /s1 摘錄。/);
   assert.match(html, /s2 摘錄。/);
+});
+
+test("actionable view with analyses but no readings surfaces the first-reading CTA", () => {
+  const baseProps = {
+    signals: [
+      { id: "s1", sessionId: "sess", itemId: "i1", source: "threads" as const, inboxStatus: "unprocessed" as const, capturedAt: "2026-04-28T00:00:00.000Z" }
+    ],
+    analyses: [{
+      signalId: "s1",
+      signalType: "demand" as const,
+      signalSubtype: "subtype",
+      contentType: "discussion_starter" as const,
+      contentSummary: "卡片 s1",
+      relevance: 5 as const,
+      relevantTo: ["coreWorkflows" as const],
+      whyRelevant: "相關。",
+      verdict: "try" as const,
+      reason: "理由。",
+      evidenceRefs: ["e1"],
+      evidenceNotes: [{ ref: "e1", quoteSummary: "s1 摘錄。", whyItMatters: "s1 引用原因。" }],
+      productContextHash: "ctx",
+      promptVersion: "v3",
+      analyzedAt: "2026-04-28T01:00:00.000Z",
+      status: "complete" as const
+    }],
+    productProfile: {
+      name: "DLens", category: "x", audience: "y", contextText: "z",
+      contextFiles: [{ id: "f", name: "README.md", kind: "readme" as const, importedAt: "2026-04-28T00:00:00.000Z", charCount: 1 }]
+    },
+    onAnalyze: () => undefined,
+    onSynthesizeSignalReading: async () => ({ ok: true as const, reading: "r" })
+  };
+
+  const html = renderToStaticMarkup(
+    React.createElement(ProductSignalView as any, { ...baseProps, kind: "actionable-filter", signalReadings: [] })
+  );
+
+  assert.match(html, /data-reading-first-run-cta="true"/);
+  assert.match(html, /深度判讀/);
+  assert.match(html, /data-actionable-insights-board="true"/);
+
+  const withReading = renderToStaticMarkup(
+    React.createElement(ProductSignalView as any, {
+      ...baseProps,
+      kind: "actionable-filter",
+      signalReadings: [{
+        signalId: "s1",
+        cacheKey: "k1",
+        productContextHash: "ctx",
+        sourcePacketHash: "pkt",
+        promptVersion: "v5.1",
+        reading: "判讀內容",
+        generatedAt: "2026-04-28T02:00:00.000Z",
+        model: "google:test",
+        sourceRefs: ["e1"],
+        sourcePacket: { assembledContent: "src", postUrl: "", representativeComments: [], analysisPromptVersion: "v16" },
+        feedbackEvents: [],
+        reviewState: "pending"
+      }]
+    })
+  );
+
+  assert.doesNotMatch(withReading, /data-reading-first-run-cta="true"/);
+  assert.match(withReading, /data-signal-reading-review-workspace="true"/);
+});
+
+test("product view chrome stays 繁中 — no english workspace labels", () => {
+  const baseProps = {
+    signals: [
+      { id: "s1", sessionId: "sess", itemId: "i1", source: "threads" as const, inboxStatus: "unprocessed" as const, capturedAt: "2026-04-28T00:00:00.000Z" }
+    ],
+    analyses: [{
+      signalId: "s1",
+      signalType: "demand" as const,
+      signalSubtype: "subtype",
+      contentType: "discussion_starter" as const,
+      contentSummary: "卡片 s1",
+      relevance: 5 as const,
+      relevantTo: ["coreWorkflows" as const],
+      whyRelevant: "相關。",
+      verdict: "try" as const,
+      reason: "理由。",
+      evidenceRefs: ["e1"],
+      evidenceNotes: [{ ref: "e1", quoteSummary: "s1 摘錄。", whyItMatters: "s1 引用原因。" }],
+      productContextHash: "ctx",
+      promptVersion: "v3",
+      analyzedAt: "2026-04-28T01:00:00.000Z",
+      status: "complete" as const
+    }],
+    productProfile: {
+      name: "DLens", category: "x", audience: "y", contextText: "z",
+      contextFiles: [{ id: "f", name: "README.md", kind: "readme" as const, importedAt: "2026-04-28T00:00:00.000Z", charCount: 1 }]
+    },
+    onAnalyze: () => undefined
+  };
+  const englishChrome = /Saved Signals|Agent Brief|AI enabled|TASK ›|No result/;
+
+  for (const kind of ["saved-signals", "actionable-filter"] as const) {
+    const html = renderToStaticMarkup(
+      React.createElement(ProductSignalView as any, { ...baseProps, kind, signalReadings: [] })
+    );
+    assert.doesNotMatch(html, englishChrome, `${kind} must not render english chrome labels`);
+  }
 });
 
 test("citationsForAnalysis filters out refs missing both entry and note", () => {
@@ -2199,7 +2485,7 @@ test("citationsForAnalysis filters out refs missing both entry and note", () => 
   // e1 has note only, e2 has entry only → both render. e_dangling has neither → must be skipped.
   assert.match(html, /e1 摘錄。/);
   assert.match(html, /raw 2/);
-  assert.match(html, /subtype/);
+  assert.match(html, /子型/);
   assert.match(html, /2 則原文證據/);
   assert.doesNotMatch(html, /e_dangling/);
 });
@@ -2486,14 +2772,14 @@ test("ProductSignalView restores the 0.1.15 reading review route when readings e
     })
   );
 
-  assert.match(html, /Agent Brief/);
+  assert.match(html, /行動簡報/);
   assert.match(html, /READING REVIEW/);
   assert.match(html, /data-signal-reading-review-workspace="true"[^>]*padding-bottom:76px/);
   assert.doesNotMatch(html, /data-saved-signals-batch-export="true"/);
   assert.doesNotMatch(html, /Agent export/);
   assert.doesNotMatch(html, /原文優先/);
   assert.doesNotMatch(html, /精簡決策/);
-  assert.doesNotMatch(html, /複製 Agent Brief/);
+  assert.doesNotMatch(html, /複製 Agent Brief|複製行動簡報/);
   assert.doesNotMatch(html, /data-actionable-insights-board="true"/);
   assert.match(html, /收錄此判讀/);
   assert.match(html, /已收錄/);
@@ -2812,4 +3098,6 @@ test("ProductSignalView surfaces product analyzer readiness and errors", () => {
   assert.match(html, /Invalid product signal analysis payload/);
   assert.match(html, /分析失敗/);
   assert.match(html, /需重試/);
+  assert.match(html, /部分失敗/);
+  assert.doesNotMatch(html, /Backend 離線/);
 });

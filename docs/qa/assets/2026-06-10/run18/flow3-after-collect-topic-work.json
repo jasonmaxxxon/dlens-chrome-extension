@@ -1,0 +1,685 @@
+{
+  "flow3CollectAStartRun18": {
+    "nowIso": "2026-06-10T02:33:29.662Z",
+    "rootText": "選擇主題\nwork\nlove\n0 未分流\n2 主題\n新建主題\ndlens\nTopic\nProduct\nPR\nAnnotated Field Guide\nVOL.1\nNO.01\nJun 10\n·\nv.0.1.30\nd\n採集\n議題\n設定\n← 主題\nwork\n議題\nwork\n0 訊號\n15/0 已分析\n報告 未生成\n生成審查報告（綜合 P2–P6）\n覆蓋 15/1\npending\n↗\n先爬取至少 1 篇貼文，審查報告才有可讀內容；目前不會用空資料硬生成。\n資料來源\n一行一篇　點開看判讀與引用\nS1.OP\n·\n@mstyleyam_6823\n·\n08/05/2026\n·\n755\n·\n230\n職場新人難題 話說就嚟過試用期 公司潛規則係要請大家食糖水/飲廢水 但人工得17k嘅我 本身又要交租、家用、日常開支嗰啲 基本上都係月光族嚟 平時返工都已經帶飯 而家同事成日有意無意都會講 「你就嚟過試用喇喎，有咩表示？」 作為一個死窮鬼都唔知點答 因為公司都有廿幾30人 計過條數要請嘅話起碼要成1000蚊 但係唔好講1000，500平時都好難攞到出嚟 本身自己又唔係叻，如果轉第二份工 又未必會好似而家呢度咁穩定 究竟我應該要點做好？\nS2.OP\n·\n@lok_channel\n·\n08/05/2026\n·\n246\n·\n43\n仆你街，洗唔洗俾埋個屎忽你吊丫，都On9嘅 咁你咪去請 新移民 囉 唔使搵咁多藉口喎，講到好似好無可奈何咁 而家啲人最鍾意攞現代嘅後生仔做遮醜布 相片來源： CTgoodjobs #年輕也是有罪 #將心比己啦唔該 #你哋啲仔女都受緊 #所以咪無人生bb囉 #又要馬兒好又要馬兒不吃草\nS3.OP\n·\n@just_for_justise\n·\n08/05/2026\n·\n188\n·\n29\n交稅冷知識： 香港只有不足一般嘅人口要交薪俸稅。 返工交稅嘅人，大概是200萬左右，喺香港人口嘅3分之一。 所以大家要覺得自己返工交稅係件好偉大嘅事，養起無數大媽同長者\nS4.OP\n·\n@hakodatedingdong\n·\n08/05/2026\n·\n212\n·\n94\n當住成功人士面前拆穿自己係基層單親女 雖然我哋黎自同一大學、學院、專業，但只要佢哋深入少少了解我，就感受到書香後代、同我呢種基層雜草本質上嘅區別。 - 我的確讀過吓藝術、去左陣歐洲、做過拍賣行，傾呢個領域嘅野係幾投契。或者咁，異性會約我去亞協/ 西九/ gallery，去啲氣氛較好嘅西餐/ 高級居酒屋/ 遊艇會食吓飯。 - 我扮演人設提供智性對話/ 情緒價值。每次見面我都會諗好style去match個vibe，產生幻象令佢以為我高質。 - 直到最近gathering，我係全檯\nS5.OP\n·\n@shingi_shiratori\n·\n08/05/2026\n·\n52\n·\n9\n我80後，創業做生意賣咖啡豆有七年了，由一個咖啡師到做生意，一架墨綠色Bentley continental GT，存款唔多，Office 由葵興工廈進駐尖沙咀甲級寫字樓，平平地住啟德天璽天方便返工，另外買入西沙 Sierra Sea 連天台單位方便星期六日休息。謙虛勉勵大家，即使學歷不高，只要用心做事，真誠待人，為夢想奮鬥，肯努力去試，真係乜字都夠膽打得出嚟，記住夢想同目標係有分別，目標唔一定達到，但夢裏一定什麼都有。\nS6.OP\n·\n@smallpotatololo\n·\n08/05/2026\n·\n11\n·\n16\n有無人開過、經營過茶飲店？ franchise 返黎做個d， 其實扣埋租金/水電/材料/人工， 每個月大概有幾多錢賺？ 定其實",
+    "traceStartId": 287
+  },
+  "flow3CollectPageBeforeStartRun18": {
+    "bodyCursor": "",
+    "capturedAt": "2026-06-10T02:33:31.294Z",
+    "controls": [
+      {
+        "disabled": false,
+        "text": ""
+      },
+      {
+        "disabled": false,
+        "text": "新建主題"
+      },
+      {
+        "disabled": false,
+        "text": "Topic"
+      },
+      {
+        "disabled": false,
+        "text": "Product"
+      },
+      {
+        "disabled": false,
+        "text": "PR"
+      },
+      {
+        "disabled": false,
+        "text": "採集"
+      },
+      {
+        "disabled": false,
+        "text": "議題"
+      },
+      {
+        "disabled": false,
+        "text": "設定"
+      },
+      {
+        "disabled": false,
+        "text": "在 Threads 開啟"
+      },
+      {
+        "disabled": false,
+        "text": "加入主題"
+      },
+      {
+        "disabled": false,
+        "text": "開啟收集模式"
+      }
+    ],
+    "newTrace": [
+      {
+        "at": 419738.2000000477,
+        "detail": {
+          "activeFolderId": "session_4g6mmfp0_mowelc1p",
+          "failureCount": 22,
+          "hasInflight": false
+        },
+        "event": "popup.worker.status.request",
+        "id": 288,
+        "isoTime": "2026-06-10T02:33:30.248Z"
+      },
+      {
+        "at": 420116.2000000477,
+        "detail": {
+          "activeFolderId": "session_4g6mmfp0_mowelc1p",
+          "failureCount": 22,
+          "hasInflight": false
+        },
+        "event": "popup.worker.status.request",
+        "id": 289,
+        "isoTime": "2026-06-10T02:33:30.626Z"
+      },
+      {
+        "at": 420338.90000003576,
+        "detail": {
+          "activeFolderId": "session_4g6mmfp0_mowelc1p",
+          "failureCount": 22,
+          "hasInflight": false
+        },
+        "event": "popup.worker.status.request",
+        "id": 290,
+        "isoTime": "2026-06-10T02:33:30.848Z"
+      },
+      {
+        "at": 420339.60000002384,
+        "detail": {
+          "folderId": "session_4g6mmfp0_mowelc1p",
+          "mode": "topic"
+        },
+        "event": "popup.topic.hydrate.request",
+        "id": 291,
+        "isoTime": "2026-06-10T02:33:30.849Z"
+      },
+      {
+        "at": 420340,
+        "detail": {
+          "folderId": "session_4g6mmfp0_mowelc1p",
+          "isProductSignalPage": false,
+          "mode": "topic",
+          "page": "collect",
+          "popupOpen": true
+        },
+        "event": "popup.product.hydrate.skip",
+        "id": 292,
+        "isoTime": "2026-06-10T02:33:30.849Z"
+      },
+      {
+        "at": 420341.2000000477,
+        "detail": {
+          "activeFolderId": "session_4g6mmfp0_mowelc1p",
+          "failureCount": 22,
+          "hasInflight": false
+        },
+        "event": "popup.worker.status.request",
+        "id": 293,
+        "isoTime": "2026-06-10T02:33:30.851Z"
+      },
+      {
+        "at": 420385.3000000119,
+        "detail": {
+          "activeFolderId": "session_4g6mmfp0_mowelc1p",
+          "failureCount": 22,
+          "hasInflight": false
+        },
+        "event": "popup.worker.status.request",
+        "id": 294,
+        "isoTime": "2026-06-10T02:33:30.895Z"
+      },
+      {
+        "at": 420386.60000002384,
+        "detail": {
+          "activeFolderId": "session_4g6mmfp0_mowelc1p",
+          "failureCount": 22,
+          "hasInflight": false
+        },
+        "event": "popup.worker.status.request",
+        "id": 295,
+        "isoTime": "2026-06-10T02:33:30.896Z"
+      },
+      {
+        "at": 420647.10000002384,
+        "detail": {
+          "folderId": "session_4g6mmfp0_mowelc1p",
+          "mode": "topic",
+          "signalCount": 0,
+          "signalsOk": true,
+          "topicCount": 2,
+          "topicsOk": true
+        },
+        "event": "popup.topic.hydrate.response",
+        "id": 296,
+        "isoTime": "2026-06-10T02:33:31.156Z"
+      },
+      {
+        "at": 420648.7000000477,
+        "detail": {
+          "activeFolderId": "session_4g6mmfp0_mowelc1p",
+          "failureCount": 22,
+          "hasInflight": false
+        },
+        "event": "popup.worker.status.request",
+        "id": 297,
+        "isoTime": "2026-06-10T02:33:31.158Z"
+      }
+    ],
+    "rootText": "已加入主題\n選擇主題\nwork\nlove\n0 未分流\n2 主題\n新建主題\ndlens\nTopic\nProduct\nPR\nAnnotated Field Guide\nVOL.1\nNO.02\nJun 10\n·\nv.0.1.30\nd\n採集\n議題\n設定\nCollect\n快速採集，存入主題\n\n指向 Threads 貼文即可預覽，儲存後可在主題頁分配或追蹤。\n\nIdle\nHover preview\n預覽中\nF\nfredhongyi\n主題 · work\n在 Threads 開啟\n從好物變被丟棄... github copilot 本來主打，以提出幾次 prompt 為計算單位，等於說，prompt 下的好，可以一次性開發出一個很棒的專案，且只算一次使用的量。 但6月後調整為 AI credits 已經沒有此紅利... 實測，我用不到一個下午，就已經快撐爆一個月的用量。 只好直接捨棄了。\n2\n4\n—\n—\n加入主題\nSelection idle\n收集模式：關閉\n開啟後滑過貼文即可快速預覽。\n開啟收集模式\nS · 儲存\nEsc · 離開"
+  },
+  "flow3AfterCollectA": {
+    "bodyCursor": "crosshair",
+    "capturedAt": "2026-06-10T02:33:36.060Z",
+    "newTrace": [
+      {
+        "at": 419738.2000000477,
+        "detail": {
+          "activeFolderId": "session_4g6mmfp0_mowelc1p",
+          "failureCount": 22,
+          "hasInflight": false
+        },
+        "event": "popup.worker.status.request",
+        "id": 288,
+        "isoTime": "2026-06-10T02:33:30.248Z"
+      },
+      {
+        "at": 420116.2000000477,
+        "detail": {
+          "activeFolderId": "session_4g6mmfp0_mowelc1p",
+          "failureCount": 22,
+          "hasInflight": false
+        },
+        "event": "popup.worker.status.request",
+        "id": 289,
+        "isoTime": "2026-06-10T02:33:30.626Z"
+      },
+      {
+        "at": 420338.90000003576,
+        "detail": {
+          "activeFolderId": "session_4g6mmfp0_mowelc1p",
+          "failureCount": 22,
+          "hasInflight": false
+        },
+        "event": "popup.worker.status.request",
+        "id": 290,
+        "isoTime": "2026-06-10T02:33:30.848Z"
+      },
+      {
+        "at": 420339.60000002384,
+        "detail": {
+          "folderId": "session_4g6mmfp0_mowelc1p",
+          "mode": "topic"
+        },
+        "event": "popup.topic.hydrate.request",
+        "id": 291,
+        "isoTime": "2026-06-10T02:33:30.849Z"
+      },
+      {
+        "at": 420340,
+        "detail": {
+          "folderId": "session_4g6mmfp0_mowelc1p",
+          "isProductSignalPage": false,
+          "mode": "topic",
+          "page": "collect",
+          "popupOpen": true
+        },
+        "event": "popup.product.hydrate.skip",
+        "id": 292,
+        "isoTime": "2026-06-10T02:33:30.849Z"
+      },
+      {
+        "at": 420341.2000000477,
+        "detail": {
+          "activeFolderId": "session_4g6mmfp0_mowelc1p",
+          "failureCount": 22,
+          "hasInflight": false
+        },
+        "event": "popup.worker.status.request",
+        "id": 293,
+        "isoTime": "2026-06-10T02:33:30.851Z"
+      },
+      {
+        "at": 420385.3000000119,
+        "detail": {
+          "activeFolderId": "session_4g6mmfp0_mowelc1p",
+          "failureCount": 22,
+          "hasInflight": false
+        },
+        "event": "popup.worker.status.request",
+        "id": 294,
+        "isoTime": "2026-06-10T02:33:30.895Z"
+      },
+      {
+        "at": 420386.60000002384,
+        "detail": {
+          "activeFolderId": "session_4g6mmfp0_mowelc1p",
+          "failureCount": 22,
+          "hasInflight": false
+        },
+        "event": "popup.worker.status.request",
+        "id": 295,
+        "isoTime": "2026-06-10T02:33:30.896Z"
+      },
+      {
+        "at": 420647.10000002384,
+        "detail": {
+          "folderId": "session_4g6mmfp0_mowelc1p",
+          "mode": "topic",
+          "signalCount": 0,
+          "signalsOk": true,
+          "topicCount": 2,
+          "topicsOk": true
+        },
+        "event": "popup.topic.hydrate.response",
+        "id": 296,
+        "isoTime": "2026-06-10T02:33:31.156Z"
+      },
+      {
+        "at": 420648.7000000477,
+        "detail": {
+          "activeFolderId": "session_4g6mmfp0_mowelc1p",
+          "failureCount": 22,
+          "hasInflight": false
+        },
+        "event": "popup.worker.status.request",
+        "id": 297,
+        "isoTime": "2026-06-10T02:33:31.158Z"
+      },
+      {
+        "at": 420939.90000003576,
+        "detail": {
+          "elapsedMs": 291.3,
+          "error": "Optional ingest backend unavailable at http://127.0.0.1:8000/worker/status. Check ingestBaseUrl or start the backend. Original error: Failed to fetch",
+          "failureCount": 23
+        },
+        "event": "popup.worker.status.error",
+        "id": 298,
+        "isoTime": "2026-06-10T02:33:31.449Z"
+      },
+      {
+        "at": 421590.60000002384,
+        "detail": {
+          "activeFolderId": "session_4g6mmfp0_mowelc1p",
+          "failureCount": 23,
+          "hasInflight": false
+        },
+        "event": "popup.worker.status.request",
+        "id": 299,
+        "isoTime": "2026-06-10T02:33:32.100Z"
+      },
+      {
+        "at": 421652.7000000477,
+        "detail": {
+          "activeFolderId": "session_4g6mmfp0_mowelc1p",
+          "activeFolderMode": "topic",
+          "type": "selection/start-active-tab"
+        },
+        "event": "popup.collect.toggle.request",
+        "id": 300,
+        "isoTime": "2026-06-10T02:33:32.162Z"
+      },
+      {
+        "at": 421774.5,
+        "detail": {
+          "elapsedMs": 183.9,
+          "error": "Optional ingest backend unavailable at http://127.0.0.1:8000/worker/status. Check ingestBaseUrl or start the backend. Original error: Failed to fetch",
+          "failureCount": 24
+        },
+        "event": "popup.worker.status.error",
+        "id": 301,
+        "isoTime": "2026-06-10T02:33:32.284Z"
+      },
+      {
+        "at": 421837.3000000119,
+        "detail": {
+          "mode": "topic",
+          "notify": false
+        },
+        "event": "content.selection.start",
+        "id": 302,
+        "isoTime": "2026-06-10T02:33:32.347Z"
+      },
+      {
+        "at": 422608.7000000477,
+        "detail": {
+          "activeFolderId": "session_4g6mmfp0_mowelc1p",
+          "failureCount": 24,
+          "hasInflight": false
+        },
+        "event": "popup.worker.status.request",
+        "id": 303,
+        "isoTime": "2026-06-10T02:33:33.118Z"
+      },
+      {
+        "at": 422609.40000003576,
+        "detail": {
+          "folderId": "session_4g6mmfp0_mowelc1p",
+          "mode": "topic"
+        },
+        "event": "popup.topic.hydrate.request",
+        "id": 304,
+        "isoTime": "2026-06-10T02:33:33.119Z"
+      },
+      {
+        "at": 422609.8000000119,
+        "detail": {
+          "folderId": "session_4g6mmfp0_mowelc1p",
+          "isProductSignalPage": false,
+          "mode": "topic",
+          "page": "collect",
+          "popupOpen": true
+        },
+        "event": "popup.product.hydrate.skip",
+        "id": 305,
+        "isoTime": "2026-06-10T02:33:33.119Z"
+      },
+      {
+        "at": 422610.60000002384,
+        "detail": {
+          "activeFolderId": "session_4g6mmfp0_mowelc1p",
+          "failureCount": 24,
+          "hasInflight": false
+        },
+        "event": "popup.worker.status.request",
+        "id": 306,
+        "isoTime": "2026-06-10T02:33:33.120Z"
+      },
+      {
+        "at": 422647.60000002384,
+        "detail": {
+          "elapsedMs": 994.9,
+          "ok": true,
+          "selectionMode": true
+        },
+        "event": "popup.collect.toggle.response",
+        "id": 307,
+        "isoTime": "2026-06-10T02:33:33.157Z"
+      },
+      {
+        "at": 422650.60000002384,
+        "detail": {
+          "activeFolderId": "session_4g6mmfp0_mowelc1p",
+          "failureCount": 24,
+          "hasInflight": false
+        },
+        "event": "popup.worker.status.request",
+        "id": 308,
+        "isoTime": "2026-06-10T02:33:33.160Z"
+      },
+      {
+        "at": 422651.7000000477,
+        "detail": {
+          "activeFolderId": "session_4g6mmfp0_mowelc1p",
+          "failureCount": 24,
+          "hasInflight": false
+        },
+        "event": "popup.worker.status.request",
+        "id": 309,
+        "isoTime": "2026-06-10T02:33:33.161Z"
+      },
+      {
+        "at": 422873.3000000119,
+        "detail": {
+          "folderId": "session_4g6mmfp0_mowelc1p",
+          "mode": "topic",
+          "signalCount": 0,
+          "signalsOk": true,
+          "topicCount": 2,
+          "topicsOk": true
+        },
+        "event": "popup.topic.hydrate.response",
+        "id": 310,
+        "isoTime": "2026-06-10T02:33:33.383Z"
+      },
+      {
+        "at": 422875,
+        "detail": {
+          "activeFolderId": "session_4g6mmfp0_mowelc1p",
+          "failureCount": 24,
+          "hasInflight": false
+        },
+        "event": "popup.worker.status.request",
+        "id": 311,
+        "isoTime": "2026-06-10T02:33:33.384Z"
+      },
+      {
+        "at": 423156.90000003576,
+        "detail": {
+          "elapsedMs": 282,
+          "error": "Optional ingest backend unavailable at http://127.0.0.1:8000/worker/status. Check ingestBaseUrl or start the backend. Original error: Failed to fetch",
+          "failureCount": 25
+        },
+        "event": "popup.worker.status.error",
+        "id": 312,
+        "isoTime": "2026-06-10T02:33:33.666Z"
+      },
+      {
+        "at": 423452.3000000119,
+        "detail": {
+          "rect": {
+            "height": 260,
+            "left": 849,
+            "top": 711,
+            "width": 509
+          },
+          "strength": "soft"
+        },
+        "event": "content.overlay.render",
+        "id": 313,
+        "isoTime": "2026-06-10T02:33:33.962Z"
+      },
+      {
+        "at": 423453.10000002384,
+        "detail": {
+          "delayMs": 120,
+          "fingerprint": "/@onecoolhangwanrental/post/DZWipIKj6i_",
+          "hasCard": true,
+          "strength": "soft"
+        },
+        "event": "content.hover.card-change",
+        "id": 314,
+        "isoTime": "2026-06-10T02:33:33.962Z"
+      },
+      {
+        "at": 423464.5,
+        "detail": {
+          "activeFolderId": "session_4g6mmfp0_mowelc1p",
+          "failureCount": 25,
+          "hasInflight": false
+        },
+        "event": "popup.worker.status.request",
+        "id": 315,
+        "isoTime": "2026-06-10T02:33:33.974Z"
+      },
+      {
+        "at": 423575.2000000477,
+        "detail": {
+          "hasDescriptor": true,
+          "postUrl": "https://www.threads.net/@onecoolhangwanrental/post/DZWipIKj6i_",
+          "readMs": 1
+        },
+        "event": "content.hover.intent-fired",
+        "id": 316,
+        "isoTime": "2026-06-10T02:33:34.085Z"
+      },
+      {
+        "at": 423575.7000000477,
+        "detail": {
+          "author": "天下一恆運香港觀塘分公司內有1000平方呎全黑室內多用途Studio🕋場地配備休息室，可供化妝或更衣，可供任何廣告拍攝、創意拍攝、教學活動或任何展覽展示活動使用，歡迎租用📞27939662  Translate",
+          "hasDescriptor": true,
+          "postUrl": "https://www.threads.net/@onecoolhangwanrental/post/DZWipIKj6i_",
+          "strength": "soft"
+        },
+        "event": "content.hover.publish",
+        "id": 317,
+        "isoTime": "2026-06-10T02:33:34.085Z"
+      },
+      {
+        "at": 423720.90000003576,
+        "detail": {
+          "elapsedMs": 256.5,
+          "error": "Optional ingest backend unavailable at http://127.0.0.1:8000/worker/status. Check ingestBaseUrl or start the backend. Original error: Failed to fetch",
+          "failureCount": 26
+        },
+        "event": "popup.worker.status.error",
+        "id": 318,
+        "isoTime": "2026-06-10T02:33:34.230Z"
+      },
+      {
+        "at": 423723.5,
+        "detail": {
+          "activeFolderId": "session_4g6mmfp0_mowelc1p",
+          "failureCount": 26,
+          "hasInflight": false
+        },
+        "event": "popup.worker.status.request",
+        "id": 319,
+        "isoTime": "2026-06-10T02:33:34.233Z"
+      },
+      {
+        "at": 423724.3000000119,
+        "detail": {
+          "activeFolderId": "session_4g6mmfp0_mowelc1p",
+          "failureCount": 26,
+          "hasInflight": false
+        },
+        "event": "popup.worker.status.request",
+        "id": 320,
+        "isoTime": "2026-06-10T02:33:34.234Z"
+      },
+      {
+        "at": 423942,
+        "detail": {
+          "elapsedMs": 217.7,
+          "error": "Optional ingest backend unavailable at http://127.0.0.1:8000/worker/status. Check ingestBaseUrl or start the backend. Original error: Failed to fetch",
+          "failureCount": 27
+        },
+        "event": "popup.worker.status.error",
+        "id": 321,
+        "isoTime": "2026-06-10T02:33:34.451Z"
+      },
+      {
+        "at": 424750.10000002384,
+        "detail": {
+          "activeFolderId": "session_4g6mmfp0_mowelc1p",
+          "failureCount": 27,
+          "hasInflight": false
+        },
+        "event": "popup.worker.status.request",
+        "id": 322,
+        "isoTime": "2026-06-10T02:33:35.259Z"
+      },
+      {
+        "at": 424750.8000000119,
+        "detail": {
+          "folderId": "session_4g6mmfp0_mowelc1p",
+          "mode": "topic"
+        },
+        "event": "popup.topic.hydrate.request",
+        "id": 323,
+        "isoTime": "2026-06-10T02:33:35.260Z"
+      },
+      {
+        "at": 424751.3000000119,
+        "detail": {
+          "folderId": "session_4g6mmfp0_mowelc1p",
+          "isProductSignalPage": false,
+          "mode": "topic",
+          "page": "collect",
+          "popupOpen": true
+        },
+        "event": "popup.product.hydrate.skip",
+        "id": 324,
+        "isoTime": "2026-06-10T02:33:35.261Z"
+      },
+      {
+        "at": 424752.2000000477,
+        "detail": {
+          "activeFolderId": "session_4g6mmfp0_mowelc1p",
+          "failureCount": 27,
+          "hasInflight": false
+        },
+        "event": "popup.worker.status.request",
+        "id": 325,
+        "isoTime": "2026-06-10T02:33:35.262Z"
+      },
+      {
+        "at": 424788.7000000477,
+        "detail": {
+          "activeFolderId": "session_4g6mmfp0_mowelc1p",
+          "failureCount": 27,
+          "hasInflight": false
+        },
+        "event": "popup.worker.status.request",
+        "id": 326,
+        "isoTime": "2026-06-10T02:33:35.298Z"
+      },
+      {
+        "at": 424789.90000003576,
+        "detail": {
+          "activeFolderId": "session_4g6mmfp0_mowelc1p",
+          "failureCount": 27,
+          "hasInflight": false
+        },
+        "event": "popup.worker.status.request",
+        "id": 327,
+        "isoTime": "2026-06-10T02:33:35.299Z"
+      },
+      {
+        "at": 425006.7000000477,
+        "detail": {
+          "folderId": "session_4g6mmfp0_mowelc1p",
+          "mode": "topic",
+          "signalCount": 1,
+          "signalsOk": true,
+          "topicCount": 2,
+          "topicsOk": true
+        },
+        "event": "popup.topic.hydrate.response",
+        "id": 328,
+        "isoTime": "2026-06-10T02:33:35.516Z"
+      },
+      {
+        "at": 425008.40000003576,
+        "detail": {
+          "activeFolderId": "session_4g6mmfp0_mowelc1p",
+          "failureCount": 27,
+          "hasInflight": false
+        },
+        "event": "popup.worker.status.request",
+        "id": 329,
+        "isoTime": "2026-06-10T02:33:35.518Z"
+      },
+      {
+        "at": 425009.2000000477,
+        "detail": {
+          "folderId": "session_4g6mmfp0_mowelc1p",
+          "isProductSignalPage": false,
+          "mode": "topic",
+          "page": "collect",
+          "popupOpen": true
+        },
+        "event": "popup.product.hydrate.skip",
+        "id": 330,
+        "isoTime": "2026-06-10T02:33:35.519Z"
+      },
+      {
+        "at": 425350.2000000477,
+        "detail": {
+          "activeFolderId": "session_4g6mmfp0_mowelc1p",
+          "failureCount": 27,
+          "hasInflight": false
+        },
+        "event": "popup.worker.status.request",
+        "id": 331,
+        "isoTime": "2026-06-10T02:33:35.860Z"
+      }
+    ],
+    "overlayDisplay": "block",
+    "rootText": "Hover to preview\n|\nS\nsave\n|\nEsc\nexit\nReady\n已加入主題\n選擇主題\nwork\nlove\n0 未分流\n2 主題\n新建主題\ndlens\nTopic\nProduct\nPR\nAnnotated Field Guide\nVOL.1\nNO.02\nJun 10\n·\nv.0.1.30\nd\n採集\n議題\n設定\nCollect mode live\n快速採集，存入主題\n\n指向 Threads 貼文即可預覽，儲存後可在主題頁分配或追蹤。\n\nActive\nLive capture\n已儲存\n天\n天下一恆運香港觀塘分公司內有1000平方呎全黑室內多用途Studio🕋場地配備休息室，可供化妝或更衣，可供任何廣告拍攝、創意拍攝、教學活動或任何展覽展示活動使用，歡迎租用📞27939662  Translate\n主題 · work\n在 Threads 開啟\n天下一恆運香港觀塘分公司內有1000平方呎全黑室內多用途Studio🕋場地配備休息室，可供化妝或更衣，可供任何廣告拍攝、創意拍攝、教學活動或任何展覽展示活動使用，歡迎租用📞27939662\n已加入主題\nSelection active\n收集模式：開啟\n移動游標選取貼文。\n關閉收集模式\nS · 儲存\nEsc · 離開"
+  }
+}

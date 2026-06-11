@@ -1,0 +1,212 @@
+{
+  "at": "2026-06-10T02:53:58.171Z",
+  "bodyCursor": "crosshair",
+  "buttons": [
+    {
+      "aria": "Close DLens popup",
+      "disabled": null,
+      "idx": 0,
+      "rect": {
+        "h": 48,
+        "w": 48,
+        "x": 2088,
+        "y": 24
+      },
+      "role": null,
+      "text": "",
+      "visible": true
+    },
+    {
+      "aria": null,
+      "disabled": null,
+      "idx": 1,
+      "rect": {
+        "h": 18,
+        "w": 47,
+        "x": 1493,
+        "y": 112
+      },
+      "role": "tab",
+      "text": "Topic",
+      "visible": true
+    },
+    {
+      "aria": null,
+      "disabled": null,
+      "idx": 2,
+      "rect": {
+        "h": 19,
+        "w": 63,
+        "x": 1541,
+        "y": 112
+      },
+      "role": "tab",
+      "text": "Product",
+      "visible": true
+    },
+    {
+      "aria": null,
+      "disabled": null,
+      "idx": 3,
+      "rect": {
+        "h": 18,
+        "w": 34,
+        "x": 1605,
+        "y": 112
+      },
+      "role": "tab",
+      "text": "PR",
+      "visible": true
+    },
+    {
+      "aria": null,
+      "disabled": null,
+      "idx": 4,
+      "rect": {
+        "h": 58,
+        "w": 55,
+        "x": 1440,
+        "y": 215
+      },
+      "role": null,
+      "text": "採集",
+      "visible": true
+    },
+    {
+      "aria": null,
+      "disabled": null,
+      "idx": 5,
+      "rect": {
+        "h": 58,
+        "w": 55,
+        "x": 1440,
+        "y": 281
+      },
+      "role": null,
+      "text": "訊號",
+      "visible": true
+    },
+    {
+      "aria": null,
+      "disabled": null,
+      "idx": 6,
+      "rect": {
+        "h": 58,
+        "w": 55,
+        "x": 1440,
+        "y": 347
+      },
+      "role": null,
+      "text": "分類",
+      "visible": true
+    },
+    {
+      "aria": null,
+      "disabled": null,
+      "idx": 7,
+      "rect": {
+        "h": 58,
+        "w": 55,
+        "x": 1440,
+        "y": 413
+      },
+      "role": null,
+      "text": "行動",
+      "visible": true
+    },
+    {
+      "aria": null,
+      "disabled": null,
+      "idx": 8,
+      "rect": {
+        "h": 58,
+        "w": 55,
+        "x": 1440,
+        "y": 485
+      },
+      "role": null,
+      "text": "設定",
+      "visible": true
+    },
+    {
+      "aria": null,
+      "disabled": true,
+      "idx": 9,
+      "rect": {
+        "h": 32,
+        "w": 88,
+        "x": 1545,
+        "y": 436
+      },
+      "role": null,
+      "text": "分析收件匣",
+      "visible": true
+    }
+  ],
+  "exportControls": [],
+  "hits": [],
+  "href": "https://www.threads.com/#dlensQaTrace=1",
+  "overflow": [
+    {
+      "idx": 11,
+      "overflowX": "hidden",
+      "overflowY": "hidden",
+      "rect": {
+        "h": 861,
+        "w": 722,
+        "x": 1415,
+        "y": 82
+      },
+      "scroll": {
+        "ch": 860,
+        "cw": 720,
+        "h": 900,
+        "w": 720
+      },
+      "tag": "DIV",
+      "text": "dlens Topic Product PR Annotated Field Guide VOL.1 NO.01 Jun 10 · v.0.1.30 d 採集 訊號 分類 行動 設定 Product mode Saved Signals 先確認已儲存的 Threads post ",
+      "whiteSpace": "normal"
+    },
+    {
+      "idx": 18,
+      "overflowX": "visible",
+      "overflowY": "visible",
+      "rect": {
+        "h": 20,
+        "w": 36,
+        "x": 1446,
+        "y": 111
+      },
+      "scroll": {
+        "ch": 20,
+        "cw": 36,
+        "h": 23,
+        "w": 36
+      },
+      "tag": "SPAN",
+      "text": "dlens",
+      "whiteSpace": "normal"
+    },
+    {
+      "idx": 82,
+      "overflowX": "visible",
+      "overflowY": "visible",
+      "rect": {
+        "h": 26,
+        "w": 438,
+        "x": 1519,
+        "y": 182
+      },
+      "scroll": {
+        "ch": 26,
+        "cw": 438,
+        "h": 29,
+        "w": 438
+      },
+      "tag": "H2",
+      "text": "Saved Signals",
+      "whiteSpace": "normal"
+    }
+  ],
+  "rootText": "Hover to preview | S save | Esc exit dlens Topic Product PR Annotated Field Guide VOL.1 NO.01 Jun 10 · v.0.1.30 d 採集 訊號 分類 行動 設定 Product mode Saved Signals 先確認已儲存的 Threads post 是否完成抓取，再到行動頁整理可試 workflow。 Backend 離線 真實狀態 0 signals 0 analyses AI key ProductProfile ProductContext Product mode 收件匣沒有 signal。先在 Collect 儲存一篇 Threads post。 Backend 無法連線。請到設定確認 backend URL，或先啟動 ingest backend。 已完成 1 條產品訊號分析。 分析收件匣"
+}

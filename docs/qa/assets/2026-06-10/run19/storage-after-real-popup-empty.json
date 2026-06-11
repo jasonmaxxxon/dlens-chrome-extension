@@ -1,0 +1,652 @@
+{
+  "generatedAt": "2026-06-10T03:29:41.527Z",
+  "cwd": "/Users/tung/Desktop/dlens-product-latest",
+  "type": "dlens-storage-log-probe",
+  "note": "Read-only LevelDB write-ahead log probe. It does not decode compressed .ldb SSTables and does not modify chrome.storage.",
+  "chrome": {
+    "profileDirectory": "Default",
+    "extensionId": "hihgplinfhopjpjonkcdbbmkoklombkj",
+    "storageDir": "/Users/tung/Library/Application Support/Google/Chrome/Default/Local Extension Settings/hihgplinfhopjpjonkcdbbmkoklombkj"
+  },
+  "source": {
+    "logFiles": [
+      {
+        "file": "057164.log",
+        "recordCount": 5
+      }
+    ],
+    "dlensKeysInLatestLog": [
+      "dlens:v0:global-state",
+      "dlens:v0:tab-ui:203544490",
+      "dlens:v1:active-session-id"
+    ]
+  },
+  "globalState": {
+    "activeSessionId": "session_ywskiblc_mp6p013z",
+    "settings": {
+      "ingestBaseUrl": "http://127.0.0.1:8000",
+      "aiProvider": null,
+      "hasProductProfile": true
+    },
+    "sessions": [
+      {
+        "id": "session_4g6mmfp0_mowelc1p",
+        "name": "work",
+        "mode": "topic",
+        "isActive": false,
+        "topicId": null,
+        "items": 15,
+        "statuses": {
+          "succeeded": 15
+        },
+        "backend": {
+          "withJobId": 15,
+          "withCaptureId": 15,
+          "withLastError": 0,
+          "withLatestCapture": 15
+        },
+        "createdAt": "2026-05-08T04:16:53.821Z",
+        "updatedAt": "2026-06-10T02:34:01.736Z",
+        "recentItems": [
+          {
+            "id": "item_dfb9z07t_mpgfrcgc",
+            "status": "succeeded",
+            "source": null,
+            "title": "https://www.threads.net/@mandychow311/post/DYAFFNtkmfc",
+            "selectedAt": "2026-05-22T04:44:52.899Z",
+            "savedAt": "2026-05-22T04:44:57.419Z",
+            "queuedAt": "2026-05-22T08:37:09.362Z",
+            "completedAt": "2026-05-22T08:55:08.042Z",
+            "jobId": "36a157df-c665-461e-b974-b5c0cc208d0c",
+            "captureId": "72c14b14-5ec5-44bc-bf7d-bf11cbaf040e",
+            "lastErrorKind": null,
+            "lastError": null
+          },
+          {
+            "id": "item_ud1jj5dz_mpgfs4pd",
+            "status": "succeeded",
+            "source": null,
+            "title": "https://www.threads.net/@hfsn_____rmnmn/post/DXH0r3GE0on",
+            "selectedAt": "2026-05-22T04:45:31.598Z",
+            "savedAt": "2026-05-22T04:45:34.033Z",
+            "queuedAt": "2026-05-22T08:37:01.087Z",
+            "completedAt": "2026-05-22T08:54:57.633Z",
+            "jobId": "58901d40-7af0-413f-b9ad-08899c87a8cb",
+            "captureId": "773fa5af-8d50-4ab1-b240-a976b8bc1ed5",
+            "lastErrorKind": null,
+            "lastError": null
+          },
+          {
+            "id": "item_ndu4kuov_mpgft2hd",
+            "status": "succeeded",
+            "source": null,
+            "title": "https://www.threads.net/@uhc_nerakuhc/post/DYKfZ6YE6Si",
+            "selectedAt": "2026-05-22T04:46:13.093Z",
+            "savedAt": "2026-05-22T04:46:17.809Z",
+            "queuedAt": "2026-05-22T08:36:52.577Z",
+            "completedAt": "2026-05-22T08:53:47.542Z",
+            "jobId": "b693d6f9-4b59-4e91-9d0d-b5591c9562f3",
+            "captureId": "f8c572c4-743a-4fed-9454-a80b0ed0eecb",
+            "lastErrorKind": null,
+            "lastError": null
+          },
+          {
+            "id": "item_iyhqlmy9_mpgme8rk",
+            "status": "succeeded",
+            "source": null,
+            "title": "https://www.threads.net/@no_responsesss/post/DYm0fO1khC4",
+            "selectedAt": "2026-05-22T07:50:38.403Z",
+            "savedAt": "2026-05-22T07:50:43.423Z",
+            "queuedAt": "2026-05-22T07:52:38.303Z",
+            "completedAt": "2026-05-22T08:19:54.688Z",
+            "jobId": "4d40d700-4bc8-4fb2-9110-9b616e43e094",
+            "captureId": "0474c555-1521-4841-a1bb-9301a6c712c8",
+            "lastErrorKind": null,
+            "lastError": null
+          },
+          {
+            "id": "item_s0s8ve4f_mpgmf6l2",
+            "status": "succeeded",
+            "source": null,
+            "title": "https://www.threads.net/@ccccc12713/post/DYmF8Fbke0Q",
+            "selectedAt": "2026-05-22T07:51:24.903Z",
+            "savedAt": "2026-05-22T07:51:27.254Z",
+            "queuedAt": "2026-05-22T07:51:43.267Z",
+            "completedAt": "2026-05-22T08:21:44.929Z",
+            "jobId": "a618465d-d3d8-431c-a81c-74722fd62a18",
+            "captureId": "925b21df-1e7c-4614-841e-57a11543a7ba",
+            "lastErrorKind": null,
+            "lastError": null
+          }
+        ]
+      },
+      {
+        "id": "session_yc8do3rm_mp11oty3",
+        "name": "Product workspace",
+        "mode": "topic",
+        "isActive": false,
+        "topicId": null,
+        "items": 7,
+        "statuses": {
+          "saved": 3,
+          "succeeded": 4
+        },
+        "backend": {
+          "withJobId": 4,
+          "withCaptureId": 4,
+          "withLastError": 0,
+          "withLatestCapture": 4
+        },
+        "createdAt": "2026-05-11T10:14:32.859Z",
+        "updatedAt": "2026-05-15T09:03:41.113Z",
+        "recentItems": [
+          {
+            "id": "item_9reaeez6_mp58f8x6",
+            "status": "saved",
+            "source": null,
+            "title": null,
+            "selectedAt": "2026-05-14T08:34:05.860Z",
+            "savedAt": "2026-05-14T08:34:07.722Z",
+            "queuedAt": null,
+            "completedAt": null,
+            "jobId": null,
+            "captureId": null,
+            "lastErrorKind": null,
+            "lastError": null
+          },
+          {
+            "id": "item_rkjuh40n_mp58g3lb",
+            "status": "succeeded",
+            "source": null,
+            "title": "https://www.threads.net/@eduspace.space/post/DYSEI6BE1YU",
+            "selectedAt": "2026-05-14T08:34:46.022Z",
+            "savedAt": "2026-05-14T08:34:47.470Z",
+            "queuedAt": "2026-05-14T08:37:08.811Z",
+            "completedAt": "2026-05-14T08:48:33.928Z",
+            "jobId": "d9ea9abf-f3f0-4da9-a30d-c504fb506efb",
+            "captureId": "8a4d6bf8-9200-473b-8c10-3f6f8321929b",
+            "lastErrorKind": null,
+            "lastError": null
+          },
+          {
+            "id": "item_ztqwo049_mp58gx2c",
+            "status": "succeeded",
+            "source": null,
+            "title": "https://www.threads.net/@aiposthub/post/DYT3K1zEehp",
+            "selectedAt": "2026-05-14T08:35:24.154Z",
+            "savedAt": "2026-05-14T08:35:25.668Z",
+            "queuedAt": "2026-05-14T08:36:32.532Z",
+            "completedAt": "2026-05-14T09:07:43.027Z",
+            "jobId": "0574bd43-4f10-4e11-a82d-0ae951a1d90d",
+            "captureId": "fa30099b-d96b-416c-b379-f2cb0f4cda3f",
+            "lastErrorKind": null,
+            "lastError": null
+          },
+          {
+            "id": "item_r58v6f90_mp58he7n",
+            "status": "succeeded",
+            "source": null,
+            "title": "https://www.threads.net/@exilestories/post/DYTolYkE1SZ",
+            "selectedAt": "2026-05-14T08:35:46.471Z",
+            "savedAt": "2026-05-14T08:35:47.891Z",
+            "queuedAt": "2026-05-14T08:36:18.835Z",
+            "completedAt": "2026-05-14T09:12:07.577Z",
+            "jobId": "8a5f66a0-c716-461f-b701-92f22f1d1762",
+            "captureId": "2a02110d-e4a8-419e-9079-f114e9b96125",
+            "lastErrorKind": null,
+            "lastError": null
+          },
+          {
+            "id": "item_c3u8sxt0_mp58hpfu",
+            "status": "succeeded",
+            "source": null,
+            "title": "https://www.threads.net/@yjia_tan._/post/DYRdiHjgSa7",
+            "selectedAt": "2026-05-14T08:36:01.261Z",
+            "savedAt": "2026-05-14T08:36:02.442Z",
+            "queuedAt": "2026-05-14T08:36:12.108Z",
+            "completedAt": "2026-05-14T09:15:10.200Z",
+            "jobId": "6b88d859-d1be-4fbb-b410-6cbc1044f4a4",
+            "captureId": "fcd5aa7b-3e66-4af8-8603-e9974181093a",
+            "lastErrorKind": null,
+            "lastError": null
+          }
+        ]
+      },
+      {
+        "id": "session_cz4d1git_mp11qs3s",
+        "name": "Archive",
+        "mode": "archive",
+        "isActive": false,
+        "topicId": null,
+        "items": 0,
+        "statuses": {},
+        "backend": {
+          "withJobId": 0,
+          "withCaptureId": 0,
+          "withLastError": 0,
+          "withLatestCapture": 0
+        },
+        "createdAt": "2026-05-11T10:16:03.780Z",
+        "updatedAt": "2026-05-11T10:16:03.780Z",
+        "recentItems": []
+      },
+      {
+        "id": "session_cwe4se8x_mp11tij2",
+        "name": "PR Evidence workspace",
+        "mode": "pr-evidence",
+        "isActive": false,
+        "topicId": null,
+        "items": 0,
+        "statuses": {},
+        "backend": {
+          "withJobId": 0,
+          "withCaptureId": 0,
+          "withLastError": 0,
+          "withLatestCapture": 0
+        },
+        "createdAt": "2026-05-11T10:18:11.342Z",
+        "updatedAt": "2026-05-11T10:18:11.342Z",
+        "recentItems": []
+      },
+      {
+        "id": "session_ywskiblc_mp6p013z",
+        "name": "ai discussion",
+        "mode": "product",
+        "isActive": true,
+        "topicId": null,
+        "items": 9,
+        "statuses": {
+          "succeeded": 8,
+          "saved": 1
+        },
+        "backend": {
+          "withJobId": 8,
+          "withCaptureId": 8,
+          "withLastError": 0,
+          "withLatestCapture": 8
+        },
+        "createdAt": "2026-05-15T09:05:57.407Z",
+        "updatedAt": "2026-06-10T02:50:52.506Z",
+        "recentItems": [
+          {
+            "id": "item_xitltdg5_mpcea7fg",
+            "status": "succeeded",
+            "source": null,
+            "title": "https://www.threads.net/@hellommmmm0/post/DYfi-RFExvC",
+            "selectedAt": "2026-05-19T08:52:30.480Z",
+            "savedAt": "2026-05-19T08:52:33.436Z",
+            "queuedAt": "2026-05-19T08:54:42.180Z",
+            "completedAt": "2026-05-19T09:24:23.547Z",
+            "jobId": "10541ba3-ce6a-4dab-994e-8ce086a8df1e",
+            "captureId": "9bbfc895-879d-4e3f-92dc-54d6d716a4f0",
+            "lastErrorKind": null,
+            "lastError": null
+          },
+          {
+            "id": "item_oqdb35ni_mpceamuy",
+            "status": "succeeded",
+            "source": null,
+            "title": "https://www.threads.net/@toto_tongpuiyee/post/DYgpglwkV7y",
+            "selectedAt": "2026-05-19T08:52:49.320Z",
+            "savedAt": "2026-05-19T08:52:53.434Z",
+            "queuedAt": "2026-05-19T08:54:30.726Z",
+            "completedAt": "2026-05-19T09:21:37.604Z",
+            "jobId": "a6b8c205-8335-47bb-9221-ab5d5ff0c7df",
+            "captureId": "6afb8318-f1ae-4dfb-8847-d6134534d110",
+            "lastErrorKind": null,
+            "lastError": null
+          },
+          {
+            "id": "item_ai9ejnuo_mpceb682",
+            "status": "succeeded",
+            "source": null,
+            "title": "https://www.threads.net/@imyour_yoyo/post/DYe1EqFFFjs",
+            "selectedAt": "2026-05-19T08:53:17.338Z",
+            "savedAt": "2026-05-19T08:53:18.530Z",
+            "queuedAt": "2026-05-19T08:54:23.941Z",
+            "completedAt": "2026-05-19T09:28:03.757Z",
+            "jobId": "e9159bd5-320f-4819-b9a6-05dd00a00a85",
+            "captureId": "19cc9cca-4aaa-47f1-aa2e-72066fd519e9",
+            "lastErrorKind": null,
+            "lastError": null
+          },
+          {
+            "id": "item_vdmg8w29_mpf3pavj",
+            "status": "saved",
+            "source": null,
+            "title": null,
+            "selectedAt": "2026-05-21T04:58:44.568Z",
+            "savedAt": "2026-05-21T06:19:40.495Z",
+            "queuedAt": null,
+            "completedAt": null,
+            "jobId": null,
+            "captureId": null,
+            "lastErrorKind": null,
+            "lastError": null
+          },
+          {
+            "id": "item_5xdlufmv_mpf3qgvd",
+            "status": "succeeded",
+            "source": null,
+            "title": "https://www.threads.net/@yoshiki.ai/post/DYkyRtiiqm7",
+            "selectedAt": "2026-05-21T06:20:28.526Z",
+            "savedAt": "2026-05-21T06:20:34.921Z",
+            "queuedAt": "2026-05-21T06:20:52.613Z",
+            "completedAt": "2026-05-21T06:22:03.692Z",
+            "jobId": "1dd0ed33-e4c2-4746-9e41-67c1a7360d62",
+            "captureId": "c09fe2fe-1704-4507-9267-74660e7d57ea",
+            "lastErrorKind": null,
+            "lastError": null
+          }
+        ]
+      }
+    ],
+    "activeSession": {
+      "id": "session_ywskiblc_mp6p013z",
+      "name": "ai discussion",
+      "mode": "product",
+      "isActive": true,
+      "topicId": null,
+      "items": 9,
+      "statuses": {
+        "succeeded": 8,
+        "saved": 1
+      },
+      "backend": {
+        "withJobId": 8,
+        "withCaptureId": 8,
+        "withLastError": 0,
+        "withLatestCapture": 8
+      },
+      "createdAt": "2026-05-15T09:05:57.407Z",
+      "updatedAt": "2026-06-10T02:50:52.506Z",
+      "recentItems": [
+        {
+          "id": "item_xitltdg5_mpcea7fg",
+          "status": "succeeded",
+          "source": null,
+          "title": "https://www.threads.net/@hellommmmm0/post/DYfi-RFExvC",
+          "selectedAt": "2026-05-19T08:52:30.480Z",
+          "savedAt": "2026-05-19T08:52:33.436Z",
+          "queuedAt": "2026-05-19T08:54:42.180Z",
+          "completedAt": "2026-05-19T09:24:23.547Z",
+          "jobId": "10541ba3-ce6a-4dab-994e-8ce086a8df1e",
+          "captureId": "9bbfc895-879d-4e3f-92dc-54d6d716a4f0",
+          "lastErrorKind": null,
+          "lastError": null
+        },
+        {
+          "id": "item_oqdb35ni_mpceamuy",
+          "status": "succeeded",
+          "source": null,
+          "title": "https://www.threads.net/@toto_tongpuiyee/post/DYgpglwkV7y",
+          "selectedAt": "2026-05-19T08:52:49.320Z",
+          "savedAt": "2026-05-19T08:52:53.434Z",
+          "queuedAt": "2026-05-19T08:54:30.726Z",
+          "completedAt": "2026-05-19T09:21:37.604Z",
+          "jobId": "a6b8c205-8335-47bb-9221-ab5d5ff0c7df",
+          "captureId": "6afb8318-f1ae-4dfb-8847-d6134534d110",
+          "lastErrorKind": null,
+          "lastError": null
+        },
+        {
+          "id": "item_ai9ejnuo_mpceb682",
+          "status": "succeeded",
+          "source": null,
+          "title": "https://www.threads.net/@imyour_yoyo/post/DYe1EqFFFjs",
+          "selectedAt": "2026-05-19T08:53:17.338Z",
+          "savedAt": "2026-05-19T08:53:18.530Z",
+          "queuedAt": "2026-05-19T08:54:23.941Z",
+          "completedAt": "2026-05-19T09:28:03.757Z",
+          "jobId": "e9159bd5-320f-4819-b9a6-05dd00a00a85",
+          "captureId": "19cc9cca-4aaa-47f1-aa2e-72066fd519e9",
+          "lastErrorKind": null,
+          "lastError": null
+        },
+        {
+          "id": "item_vdmg8w29_mpf3pavj",
+          "status": "saved",
+          "source": null,
+          "title": null,
+          "selectedAt": "2026-05-21T04:58:44.568Z",
+          "savedAt": "2026-05-21T06:19:40.495Z",
+          "queuedAt": null,
+          "completedAt": null,
+          "jobId": null,
+          "captureId": null,
+          "lastErrorKind": null,
+          "lastError": null
+        },
+        {
+          "id": "item_5xdlufmv_mpf3qgvd",
+          "status": "succeeded",
+          "source": null,
+          "title": "https://www.threads.net/@yoshiki.ai/post/DYkyRtiiqm7",
+          "selectedAt": "2026-05-21T06:20:28.526Z",
+          "savedAt": "2026-05-21T06:20:34.921Z",
+          "queuedAt": "2026-05-21T06:20:52.613Z",
+          "completedAt": "2026-05-21T06:22:03.692Z",
+          "jobId": "1dd0ed33-e4c2-4746-9e41-67c1a7360d62",
+          "captureId": "c09fe2fe-1704-4507-9267-74660e7d57ea",
+          "lastErrorKind": null,
+          "lastError": null
+        }
+      ]
+    },
+    "productLikeSessions": [
+      {
+        "id": "session_yc8do3rm_mp11oty3",
+        "name": "Product workspace",
+        "mode": "topic",
+        "isActive": false,
+        "topicId": null,
+        "items": 7,
+        "statuses": {
+          "saved": 3,
+          "succeeded": 4
+        },
+        "backend": {
+          "withJobId": 4,
+          "withCaptureId": 4,
+          "withLastError": 0,
+          "withLatestCapture": 4
+        },
+        "createdAt": "2026-05-11T10:14:32.859Z",
+        "updatedAt": "2026-05-15T09:03:41.113Z",
+        "recentItems": [
+          {
+            "id": "item_9reaeez6_mp58f8x6",
+            "status": "saved",
+            "source": null,
+            "title": null,
+            "selectedAt": "2026-05-14T08:34:05.860Z",
+            "savedAt": "2026-05-14T08:34:07.722Z",
+            "queuedAt": null,
+            "completedAt": null,
+            "jobId": null,
+            "captureId": null,
+            "lastErrorKind": null,
+            "lastError": null
+          },
+          {
+            "id": "item_rkjuh40n_mp58g3lb",
+            "status": "succeeded",
+            "source": null,
+            "title": "https://www.threads.net/@eduspace.space/post/DYSEI6BE1YU",
+            "selectedAt": "2026-05-14T08:34:46.022Z",
+            "savedAt": "2026-05-14T08:34:47.470Z",
+            "queuedAt": "2026-05-14T08:37:08.811Z",
+            "completedAt": "2026-05-14T08:48:33.928Z",
+            "jobId": "d9ea9abf-f3f0-4da9-a30d-c504fb506efb",
+            "captureId": "8a4d6bf8-9200-473b-8c10-3f6f8321929b",
+            "lastErrorKind": null,
+            "lastError": null
+          },
+          {
+            "id": "item_ztqwo049_mp58gx2c",
+            "status": "succeeded",
+            "source": null,
+            "title": "https://www.threads.net/@aiposthub/post/DYT3K1zEehp",
+            "selectedAt": "2026-05-14T08:35:24.154Z",
+            "savedAt": "2026-05-14T08:35:25.668Z",
+            "queuedAt": "2026-05-14T08:36:32.532Z",
+            "completedAt": "2026-05-14T09:07:43.027Z",
+            "jobId": "0574bd43-4f10-4e11-a82d-0ae951a1d90d",
+            "captureId": "fa30099b-d96b-416c-b379-f2cb0f4cda3f",
+            "lastErrorKind": null,
+            "lastError": null
+          },
+          {
+            "id": "item_r58v6f90_mp58he7n",
+            "status": "succeeded",
+            "source": null,
+            "title": "https://www.threads.net/@exilestories/post/DYTolYkE1SZ",
+            "selectedAt": "2026-05-14T08:35:46.471Z",
+            "savedAt": "2026-05-14T08:35:47.891Z",
+            "queuedAt": "2026-05-14T08:36:18.835Z",
+            "completedAt": "2026-05-14T09:12:07.577Z",
+            "jobId": "8a5f66a0-c716-461f-b701-92f22f1d1762",
+            "captureId": "2a02110d-e4a8-419e-9079-f114e9b96125",
+            "lastErrorKind": null,
+            "lastError": null
+          },
+          {
+            "id": "item_c3u8sxt0_mp58hpfu",
+            "status": "succeeded",
+            "source": null,
+            "title": "https://www.threads.net/@yjia_tan._/post/DYRdiHjgSa7",
+            "selectedAt": "2026-05-14T08:36:01.261Z",
+            "savedAt": "2026-05-14T08:36:02.442Z",
+            "queuedAt": "2026-05-14T08:36:12.108Z",
+            "completedAt": "2026-05-14T09:15:10.200Z",
+            "jobId": "6b88d859-d1be-4fbb-b410-6cbc1044f4a4",
+            "captureId": "fcd5aa7b-3e66-4af8-8603-e9974181093a",
+            "lastErrorKind": null,
+            "lastError": null
+          }
+        ]
+      },
+      {
+        "id": "session_ywskiblc_mp6p013z",
+        "name": "ai discussion",
+        "mode": "product",
+        "isActive": true,
+        "topicId": null,
+        "items": 9,
+        "statuses": {
+          "succeeded": 8,
+          "saved": 1
+        },
+        "backend": {
+          "withJobId": 8,
+          "withCaptureId": 8,
+          "withLastError": 0,
+          "withLatestCapture": 8
+        },
+        "createdAt": "2026-05-15T09:05:57.407Z",
+        "updatedAt": "2026-06-10T02:50:52.506Z",
+        "recentItems": [
+          {
+            "id": "item_xitltdg5_mpcea7fg",
+            "status": "succeeded",
+            "source": null,
+            "title": "https://www.threads.net/@hellommmmm0/post/DYfi-RFExvC",
+            "selectedAt": "2026-05-19T08:52:30.480Z",
+            "savedAt": "2026-05-19T08:52:33.436Z",
+            "queuedAt": "2026-05-19T08:54:42.180Z",
+            "completedAt": "2026-05-19T09:24:23.547Z",
+            "jobId": "10541ba3-ce6a-4dab-994e-8ce086a8df1e",
+            "captureId": "9bbfc895-879d-4e3f-92dc-54d6d716a4f0",
+            "lastErrorKind": null,
+            "lastError": null
+          },
+          {
+            "id": "item_oqdb35ni_mpceamuy",
+            "status": "succeeded",
+            "source": null,
+            "title": "https://www.threads.net/@toto_tongpuiyee/post/DYgpglwkV7y",
+            "selectedAt": "2026-05-19T08:52:49.320Z",
+            "savedAt": "2026-05-19T08:52:53.434Z",
+            "queuedAt": "2026-05-19T08:54:30.726Z",
+            "completedAt": "2026-05-19T09:21:37.604Z",
+            "jobId": "a6b8c205-8335-47bb-9221-ab5d5ff0c7df",
+            "captureId": "6afb8318-f1ae-4dfb-8847-d6134534d110",
+            "lastErrorKind": null,
+            "lastError": null
+          },
+          {
+            "id": "item_ai9ejnuo_mpceb682",
+            "status": "succeeded",
+            "source": null,
+            "title": "https://www.threads.net/@imyour_yoyo/post/DYe1EqFFFjs",
+            "selectedAt": "2026-05-19T08:53:17.338Z",
+            "savedAt": "2026-05-19T08:53:18.530Z",
+            "queuedAt": "2026-05-19T08:54:23.941Z",
+            "completedAt": "2026-05-19T09:28:03.757Z",
+            "jobId": "e9159bd5-320f-4819-b9a6-05dd00a00a85",
+            "captureId": "19cc9cca-4aaa-47f1-aa2e-72066fd519e9",
+            "lastErrorKind": null,
+            "lastError": null
+          },
+          {
+            "id": "item_vdmg8w29_mpf3pavj",
+            "status": "saved",
+            "source": null,
+            "title": null,
+            "selectedAt": "2026-05-21T04:58:44.568Z",
+            "savedAt": "2026-05-21T06:19:40.495Z",
+            "queuedAt": null,
+            "completedAt": null,
+            "jobId": null,
+            "captureId": null,
+            "lastErrorKind": null,
+            "lastError": null
+          },
+          {
+            "id": "item_5xdlufmv_mpf3qgvd",
+            "status": "succeeded",
+            "source": null,
+            "title": "https://www.threads.net/@yoshiki.ai/post/DYkyRtiiqm7",
+            "selectedAt": "2026-05-21T06:20:28.526Z",
+            "savedAt": "2026-05-21T06:20:34.921Z",
+            "queuedAt": "2026-05-21T06:20:52.613Z",
+            "completedAt": "2026-05-21T06:22:03.692Z",
+            "jobId": "1dd0ed33-e4c2-4746-9e41-67c1a7360d62",
+            "captureId": "c09fe2fe-1704-4507-9267-74660e7d57ea",
+            "lastErrorKind": null,
+            "lastError": null
+          }
+        ]
+      }
+    ]
+  },
+  "tabUi": [
+    {
+      "key": "dlens:v0:tab-ui:203544490",
+      "popupOpen": true,
+      "currentMainPage": "library",
+      "popupPage": "library",
+      "selectionMode": false,
+      "collectModeBannerVisible": false,
+      "activeItemId": null,
+      "activeSessionId": null,
+      "activeFolderId": null,
+      "currentPreviewUrl": null,
+      "hoveredTargetUrl": null,
+      "error": null
+    }
+  ],
+  "consistency": {
+    "activeSessionExists": true,
+    "productSessionCount": 1,
+    "productNamedNonProductSessions": [
+      {
+        "id": "session_yc8do3rm_mp11oty3",
+        "name": "Product workspace",
+        "mode": "topic",
+        "items": 7
+      }
+    ],
+    "tabsWithSelectionMode": []
+  }
+}

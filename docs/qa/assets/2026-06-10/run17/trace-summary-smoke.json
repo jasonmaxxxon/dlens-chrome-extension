@@ -1,0 +1,327 @@
+{
+  "generatedAt": "2026-06-09T17:45:18.969Z",
+  "type": "dlens-qa-trace-summary",
+  "label": "run17-smoke",
+  "traceFile": "docs/qa/assets/2026-06-10/run17/trace-summary-smoke-input.json",
+  "eventCount": 8,
+  "firstAt": 100,
+  "lastAt": 1575,
+  "firstIsoTime": "2026-06-10T01:45:00.000+08:00",
+  "lastIsoTime": "2026-06-10T01:45:01.475+08:00",
+  "durationMs": 1475,
+  "eventCounts": {
+    "content.collect.click.capture": 1,
+    "content.collect.save.response": 1,
+    "content.hover.card-change": 1,
+    "content.overlay.render": 1,
+    "popup.collect.toggle.request": 1,
+    "popup.collect.toggle.response": 1,
+    "popup.product.hydrate.request": 1,
+    "popup.product.hydrate.response": 1
+  },
+  "pairs": [
+    {
+      "label": "collect toggle roundtrip",
+      "startEvent": "popup.collect.toggle.request",
+      "endEvent": "popup.collect.toggle.response",
+      "count": 1,
+      "minMs": 245.2,
+      "p50Ms": 245.2,
+      "p95Ms": 245.2,
+      "maxMs": 245.2,
+      "avgMs": 245.2,
+      "missingEndCount": 0,
+      "missingStarts": [],
+      "samples": [
+        {
+          "startId": 1,
+          "endId": 2,
+          "latencyMs": 245.2,
+          "startAt": 100,
+          "endAt": 345.2,
+          "startDetail": {
+            "mode": "product"
+          },
+          "endDetail": {
+            "ok": true
+          }
+        }
+      ]
+    },
+    {
+      "label": "content selection rehydrate",
+      "startEvent": "content.selection.sync.request",
+      "endEvent": "content.selection.sync.response",
+      "count": 0,
+      "minMs": null,
+      "p50Ms": null,
+      "p95Ms": null,
+      "maxMs": null,
+      "avgMs": null,
+      "missingEndCount": 0,
+      "missingStarts": [],
+      "samples": []
+    },
+    {
+      "label": "hover to overlay render",
+      "startEvent": "content.hover.card-change",
+      "endEvent": "content.overlay.render",
+      "count": 1,
+      "minMs": 18,
+      "p50Ms": 18,
+      "p95Ms": 18,
+      "maxMs": 18,
+      "avgMs": 18,
+      "missingEndCount": 0,
+      "missingStarts": [],
+      "samples": [
+        {
+          "startId": 3,
+          "endId": 4,
+          "latencyMs": 18,
+          "startAt": 410,
+          "endAt": 428,
+          "startDetail": {
+            "strength": "soft"
+          },
+          "endDetail": {
+            "strength": "soft"
+          }
+        }
+      ]
+    },
+    {
+      "label": "hover descriptor publish",
+      "startEvent": "content.hover.intent-fired",
+      "endEvent": "content.hover.publish",
+      "count": 0,
+      "minMs": null,
+      "p50Ms": null,
+      "p95Ms": null,
+      "maxMs": null,
+      "avgMs": null,
+      "missingEndCount": 0,
+      "missingStarts": [],
+      "samples": []
+    },
+    {
+      "label": "collect click to save response",
+      "startEvent": "content.collect.click.capture",
+      "endEvent": "content.collect.save.response",
+      "count": 1,
+      "minMs": 182.4,
+      "p50Ms": 182.4,
+      "p95Ms": 182.4,
+      "maxMs": 182.4,
+      "avgMs": 182.4,
+      "missingEndCount": 0,
+      "missingStarts": [],
+      "samples": [
+        {
+          "startId": 5,
+          "endId": 6,
+          "latencyMs": 182.4,
+          "startAt": 900,
+          "endAt": 1082.4,
+          "startDetail": {
+            "postUrl": "https://www.threads.com/@demo/post/1"
+          },
+          "endDetail": {
+            "ok": true
+          }
+        }
+      ]
+    },
+    {
+      "label": "topic/signal hydration",
+      "startEvent": "popup.topic.hydrate.request",
+      "endEvent": "popup.topic.hydrate.response",
+      "count": 0,
+      "minMs": null,
+      "p50Ms": null,
+      "p95Ms": null,
+      "maxMs": null,
+      "avgMs": null,
+      "missingEndCount": 0,
+      "missingStarts": [],
+      "samples": []
+    },
+    {
+      "label": "product hydration",
+      "startEvent": "popup.product.hydrate.request",
+      "endEvent": "popup.product.hydrate.response",
+      "count": 1,
+      "minMs": 275,
+      "p50Ms": 275,
+      "p95Ms": 275,
+      "maxMs": 275,
+      "avgMs": 275,
+      "missingEndCount": 0,
+      "missingStarts": [],
+      "samples": [
+        {
+          "startId": 7,
+          "endId": 8,
+          "latencyMs": 275,
+          "startAt": 1300,
+          "endAt": 1575,
+          "startDetail": {
+            "signalCount": 2
+          },
+          "endDetail": {
+            "currentAnalysisCount": 2
+          }
+        }
+      ]
+    },
+    {
+      "label": "product analyze",
+      "startEvent": "popup.product.analyze.request",
+      "endEvent": "popup.product.analyze.response",
+      "count": 0,
+      "minMs": null,
+      "p50Ms": null,
+      "p95Ms": null,
+      "maxMs": null,
+      "avgMs": null,
+      "missingEndCount": 0,
+      "missingStarts": [],
+      "samples": []
+    },
+    {
+      "label": "worker status poll",
+      "startEvent": "popup.worker.status.request",
+      "endEvent": "popup.worker.status.response",
+      "count": 0,
+      "minMs": null,
+      "p50Ms": null,
+      "p95Ms": null,
+      "maxMs": null,
+      "avgMs": null,
+      "missingEndCount": 0,
+      "missingStarts": [],
+      "samples": []
+    },
+    {
+      "label": "worker refresh",
+      "startEvent": "popup.worker.refresh.request",
+      "endEvent": "popup.worker.refresh.response",
+      "count": 0,
+      "minMs": null,
+      "p50Ms": null,
+      "p95Ms": null,
+      "maxMs": null,
+      "avgMs": null,
+      "missingEndCount": 0,
+      "missingStarts": [],
+      "samples": []
+    },
+    {
+      "label": "worker error backoff",
+      "startEvent": "popup.worker.status.error",
+      "endEvent": "popup.worker.next-poll",
+      "count": 0,
+      "minMs": null,
+      "p50Ms": null,
+      "p95Ms": null,
+      "maxMs": null,
+      "avgMs": null,
+      "missingEndCount": 0,
+      "missingStarts": [],
+      "samples": []
+    }
+  ],
+  "slowestGaps": [
+    {
+      "fromEvent": "content.overlay.render",
+      "toEvent": "content.collect.click.capture",
+      "fromId": 4,
+      "toId": 5,
+      "gapMs": 472,
+      "fromDetail": {
+        "strength": "soft"
+      },
+      "toDetail": {
+        "postUrl": "https://www.threads.com/@demo/post/1"
+      }
+    },
+    {
+      "fromEvent": "popup.product.hydrate.request",
+      "toEvent": "popup.product.hydrate.response",
+      "fromId": 7,
+      "toId": 8,
+      "gapMs": 275,
+      "fromDetail": {
+        "signalCount": 2
+      },
+      "toDetail": {
+        "currentAnalysisCount": 2
+      }
+    },
+    {
+      "fromEvent": "popup.collect.toggle.request",
+      "toEvent": "popup.collect.toggle.response",
+      "fromId": 1,
+      "toId": 2,
+      "gapMs": 245.2,
+      "fromDetail": {
+        "mode": "product"
+      },
+      "toDetail": {
+        "ok": true
+      }
+    },
+    {
+      "fromEvent": "content.collect.save.response",
+      "toEvent": "popup.product.hydrate.request",
+      "fromId": 6,
+      "toId": 7,
+      "gapMs": 217.6,
+      "fromDetail": {
+        "ok": true
+      },
+      "toDetail": {
+        "signalCount": 2
+      }
+    },
+    {
+      "fromEvent": "content.collect.click.capture",
+      "toEvent": "content.collect.save.response",
+      "fromId": 5,
+      "toId": 6,
+      "gapMs": 182.4,
+      "fromDetail": {
+        "postUrl": "https://www.threads.com/@demo/post/1"
+      },
+      "toDetail": {
+        "ok": true
+      }
+    },
+    {
+      "fromEvent": "popup.collect.toggle.response",
+      "toEvent": "content.hover.card-change",
+      "fromId": 2,
+      "toId": 3,
+      "gapMs": 64.8,
+      "fromDetail": {
+        "ok": true
+      },
+      "toDetail": {
+        "strength": "soft"
+      }
+    },
+    {
+      "fromEvent": "content.hover.card-change",
+      "toEvent": "content.overlay.render",
+      "fromId": 3,
+      "toId": 4,
+      "gapMs": 18,
+      "fromDetail": {
+        "strength": "soft"
+      },
+      "toDetail": {
+        "strength": "soft"
+      }
+    }
+  ]
+}

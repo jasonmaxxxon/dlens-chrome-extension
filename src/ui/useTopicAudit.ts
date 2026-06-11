@@ -40,6 +40,26 @@ function inferLatestStage(memos: TopicAuditMemoBundle | null): TopicAuditStageNa
   return latest ?? (memos?.signalReadings.length ? "p1-signal-reading" : "p1-signal-reading");
 }
 
+function topicAuditSourceTotal({
+  topic,
+  evidence,
+  memos,
+  report
+}: {
+  topic: Topic;
+  evidence: EvidencePacket[];
+  memos: TopicAuditMemoBundle | null;
+  report: TopicAuditReport | null;
+}): number {
+  const generatedSignals = report?.generatedFrom.filter((entry) => entry.endsWith(":p1")).length ?? 0;
+  return Math.max(
+    topic.signalIds.length,
+    evidence.length,
+    memos?.signalReadings.length ?? 0,
+    generatedSignals
+  );
+}
+
 function makeSummary({
   topic,
   evidence,
@@ -56,13 +76,14 @@ function makeSummary({
   local?: LocalRunState;
 }): TopicAuditSummary {
   const analyzedCount = memos?.signalReadings.length ?? 0;
+  const sourceTotal = topicAuditSourceTotal({ topic, evidence, memos, report });
   if (local?.status === "running") {
     return {
       reportStatus: "running",
       analyzedCount,
-      queuedCount: Math.max(topic.signalIds.length - analyzedCount, 0),
+      queuedCount: Math.max(sourceTotal - analyzedCount, 0),
       runningStage: stageNumber(local.stage),
-      coverage: evidence.length ? `${evidence.length}/${topic.signalIds.length}` : undefined,
+      coverage: evidence.length ? `${evidence.length}/${sourceTotal}` : undefined,
       flags
     };
   }
@@ -70,32 +91,32 @@ function makeSummary({
     return {
       reportStatus: "failed",
       analyzedCount,
-      queuedCount: Math.max(topic.signalIds.length - analyzedCount, 0),
+      queuedCount: Math.max(sourceTotal - analyzedCount, 0),
       failedStage: stageNumber(local.stage),
       failedReason: local.error,
-      coverage: evidence.length ? `${evidence.length}/${topic.signalIds.length}` : undefined,
+      coverage: evidence.length ? `${evidence.length}/${sourceTotal}` : undefined,
       flags
     };
   }
   if (report && memos) {
     const generatedSignals = report.generatedFrom.filter((entry) => entry.endsWith(":p1")).length;
-    const added = Math.max(topic.signalIds.length - generatedSignals, 0);
+    const added = Math.max(sourceTotal - generatedSignals, 0);
     const isStale = added > 0 || Date.parse(topic.updatedAt) > Date.parse(report.generatedAt);
     return {
       reportStatus: isStale ? "stale" : "ready",
       analyzedCount,
-      queuedCount: Math.max(topic.signalIds.length - analyzedCount, 0),
+      queuedCount: Math.max(sourceTotal - analyzedCount, 0),
       staleDelta: isStale ? { added, removed: 0 } : undefined,
       generatedAt: report.generatedAt,
-      coverage: evidence.length ? `${evidence.length}/${topic.signalIds.length}` : undefined,
+      coverage: evidence.length ? `${evidence.length}/${sourceTotal}` : undefined,
       flags
     };
   }
   return {
     reportStatus: "none",
     analyzedCount,
-    queuedCount: topic.signalIds.length,
-    coverage: evidence.length ? `${evidence.length}/${topic.signalIds.length}` : undefined,
+    queuedCount: sourceTotal,
+    coverage: evidence.length ? `${evidence.length}/${sourceTotal}` : undefined,
     flags
   };
 }

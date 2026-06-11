@@ -1,0 +1,1277 @@
+{
+  "articles": [],
+  "bodyTextHead": "For you\nNew thread\nSearch\nMessages\nActivity\nProfile\nInsights\nSaved\nFeeds\nEdit\nFollowing\nGhost posts\nMore\nFor you\nFollowing\nGhost posts\nWhat's new?\nPost\nfreddiervega\n10h\nI hit my Fable 5 limit in 2 hours with a $100/month Claude Max subscription 🤡\n127\n37\n6\nthelancecarlson\n4h\nFable 5 out.\nGPT 6 when?\n17\n11\ntiffsawitch\n5h\nPlease do not come to the United States, especially NY & NJ, ￼ for the FIFA World Cup.\n111\n11\nantonia_tbrinfinity\nLove Island USA\n3h\nWelp. . .yall let me know when the app is fixed so we can vote🫠🥲🤦🏽‍♀️\n18\nsandro.ieva\n7h\nWhat are you building first with Claude Fable?\n12\n19\n1\nwiningaboutbravo\nSummer House\n5h\nAmanda hugging Kyle is DEEPLY manipulative\n1.2K\n28\n16\n11\njvr668\n5h\nEvery day he draws a breath is an insult to the world.\n236\n2\n2\nboris_cherny\n17h\nJust landed nested subagent support in Claude Code\nStarting to experiment more with agents kicking off agents as a way to better manage context. Capped at depth=5 to start, going out in today’s release. Lmk what you th",
+  "buttons": [
+    {
+      "aria": "Close DLens popup",
+      "index": 0,
+      "mode": null,
+      "rect": {
+        "height": 48,
+        "width": 48,
+        "x": 2088,
+        "y": 24
+      },
+      "tag": "BUTTON",
+      "text": "",
+      "utility": null,
+      "visible": true,
+      "workspace": null
+    },
+    {
+      "aria": null,
+      "index": 1,
+      "mode": null,
+      "rect": {
+        "height": 18.4921875,
+        "width": 47.37890625,
+        "x": 1492.921875,
+        "y": 112.23046875
+      },
+      "tag": "BUTTON",
+      "text": "Topic",
+      "utility": null,
+      "visible": true,
+      "workspace": "topic"
+    },
+    {
+      "aria": null,
+      "index": 2,
+      "mode": null,
+      "rect": {
+        "height": 19.046951293945312,
+        "width": 62.6568603515625,
+        "x": 1541.380615234375,
+        "y": 111.95308685302734
+      },
+      "tag": "BUTTON",
+      "text": "Product",
+      "utility": null,
+      "visible": true,
+      "workspace": "product"
+    },
+    {
+      "aria": null,
+      "index": 3,
+      "mode": null,
+      "rect": {
+        "height": 18.4921875,
+        "width": 33.59765625,
+        "x": 1605.1171875,
+        "y": 112.23046875
+      },
+      "tag": "BUTTON",
+      "text": "PR",
+      "utility": null,
+      "visible": true,
+      "workspace": "pr-evidence"
+    },
+    {
+      "aria": null,
+      "index": 4,
+      "mode": "collect",
+      "rect": {
+        "height": 57.99609375,
+        "width": 54.515625,
+        "x": 1439.98828125,
+        "y": 214.9453125
+      },
+      "tag": "BUTTON",
+      "text": "採集",
+      "utility": null,
+      "visible": true,
+      "workspace": null
+    },
+    {
+      "aria": null,
+      "index": 5,
+      "mode": "saved-signals",
+      "rect": {
+        "height": 57.99609375,
+        "width": 54.515625,
+        "x": 1439.98828125,
+        "y": 280.93359375
+      },
+      "tag": "BUTTON",
+      "text": "訊號",
+      "utility": null,
+      "visible": true,
+      "workspace": null
+    },
+    {
+      "aria": null,
+      "index": 6,
+      "mode": "classification",
+      "rect": {
+        "height": 57.99609375,
+        "width": 54.515625,
+        "x": 1439.98828125,
+        "y": 346.921875
+      },
+      "tag": "BUTTON",
+      "text": "分類",
+      "utility": null,
+      "visible": true,
+      "workspace": null
+    },
+    {
+      "aria": null,
+      "index": 7,
+      "mode": "actionable-filter",
+      "rect": {
+        "height": 57.99609375,
+        "width": 54.515625,
+        "x": 1439.98828125,
+        "y": 412.91015625
+      },
+      "tag": "BUTTON",
+      "text": "行動",
+      "utility": null,
+      "visible": true,
+      "workspace": null
+    },
+    {
+      "aria": null,
+      "index": 8,
+      "mode": null,
+      "rect": {
+        "height": 57.99609375,
+        "width": 54.515625,
+        "x": 1439.98828125,
+        "y": 484.8984375
+      },
+      "tag": "BUTTON",
+      "text": "設定",
+      "utility": "settings",
+      "visible": true,
+      "workspace": null
+    },
+    {
+      "aria": null,
+      "index": 9,
+      "mode": null,
+      "rect": {
+        "height": 31.9921875,
+        "width": 77.484375,
+        "x": 2012.2734375,
+        "y": 278.75390625
+      },
+      "tag": "BUTTON",
+      "text": "重新分析",
+      "utility": null,
+      "visible": true,
+      "workspace": null
+    },
+    {
+      "aria": null,
+      "index": 10,
+      "mode": null,
+      "rect": {
+        "height": 28.5,
+        "width": 115.32421875,
+        "x": 1974.43359375,
+        "y": 343.2421875
+      },
+      "tag": "BUTTON",
+      "text": "查看候選行動 →",
+      "utility": null,
+      "visible": true,
+      "workspace": null
+    },
+    {
+      "aria": "移除此訊號",
+      "index": 11,
+      "mode": null,
+      "rect": {
+        "height": 15.99609375,
+        "width": 19.9921875,
+        "x": 2058.7734375,
+        "y": 456.796875
+      },
+      "tag": "BUTTON",
+      "text": "×",
+      "utility": null,
+      "visible": true,
+      "workspace": null
+    },
+    {
+      "aria": "移除此訊號",
+      "index": 12,
+      "mode": null,
+      "rect": {
+        "height": 15.99609375,
+        "width": 19.9921875,
+        "x": 2058.7734375,
+        "y": 516.6796875
+      },
+      "tag": "BUTTON",
+      "text": "×",
+      "utility": null,
+      "visible": true,
+      "workspace": null
+    },
+    {
+      "aria": "移除此訊號",
+      "index": 13,
+      "mode": null,
+      "rect": {
+        "height": 15.99609375,
+        "width": 19.9921875,
+        "x": 2058.7734375,
+        "y": 576.5625
+      },
+      "tag": "BUTTON",
+      "text": "×",
+      "utility": null,
+      "visible": true,
+      "workspace": null
+    },
+    {
+      "aria": "移除此訊號",
+      "index": 14,
+      "mode": null,
+      "rect": {
+        "height": 15.99609375,
+        "width": 19.9921875,
+        "x": 2058.7734375,
+        "y": 636.4453125
+      },
+      "tag": "BUTTON",
+      "text": "×",
+      "utility": null,
+      "visible": true,
+      "workspace": null
+    },
+    {
+      "aria": "移除此訊號",
+      "index": 15,
+      "mode": null,
+      "rect": {
+        "height": 15.99609375,
+        "width": 19.9921875,
+        "x": 2058.7734375,
+        "y": 696.328125
+      },
+      "tag": "BUTTON",
+      "text": "×",
+      "utility": null,
+      "visible": true,
+      "workspace": null
+    },
+    {
+      "aria": "移除此訊號",
+      "index": 16,
+      "mode": null,
+      "rect": {
+        "height": 15.99609375,
+        "width": 19.9921875,
+        "x": 2058.7734375,
+        "y": 756.2109375
+      },
+      "tag": "BUTTON",
+      "text": "×",
+      "utility": null,
+      "visible": true,
+      "workspace": null
+    },
+    {
+      "aria": "移除此訊號",
+      "index": 17,
+      "mode": null,
+      "rect": {
+        "height": 15.99609375,
+        "width": 19.9921875,
+        "x": 2058.7734375,
+        "y": 816.09375
+      },
+      "tag": "BUTTON",
+      "text": "×",
+      "utility": null,
+      "visible": true,
+      "workspace": null
+    },
+    {
+      "aria": "移除此訊號",
+      "index": 18,
+      "mode": null,
+      "rect": {
+        "height": 15.99609375,
+        "width": 19.9921875,
+        "x": 2058.7734375,
+        "y": 875.9765625
+      },
+      "tag": "BUTTON",
+      "text": "×",
+      "utility": null,
+      "visible": true,
+      "workspace": null
+    },
+    {
+      "aria": "移除此訊號",
+      "index": 19,
+      "mode": null,
+      "rect": {
+        "height": 15.99609375,
+        "width": 19.9921875,
+        "x": 2058.7734375,
+        "y": 935.859375
+      },
+      "tag": "BUTTON",
+      "text": "×",
+      "utility": null,
+      "visible": true,
+      "workspace": null
+    }
+  ],
+  "firstReadingText": null,
+  "firstReadingVisible": false,
+  "label": "baseline",
+  "now": 1781073064546,
+  "rootText": "dlens\nTopic\nProduct\nPR\nAnnotated Field Guide\nVOL.1\nNO.01\nJun 10\n·\nv.0.1.30\nd\n採集\n訊號\n分類\n行動\n設定\nProduct mode\nSaved Signals\n先確認已儲存的 Threads post 是否完成抓取，再到行動頁整理可試 workflow。\nAI enabled\n分析狀態\n✓ 已就緒\n9 signals · 9 analyses\n重新分析\n分析完成，查看哪些 signal 值得行動\n查看候選行動 →\nSaved Signals\n9 saved\nClaude Codeだけで10個のSNSアカウントを自動管理し、月2万ドル超を稼いでいる日本人の動画が話題になってる🧵 どうやってるか、仕組みを整理した。\n可分析 · 學習資源 · 保留觀察\n學習資源\n×\n我有個朋友終於完成phd學位，同佢食食下飯，問佢:「辛苦左咁多年，有咩想講？」 佢話:「粗口。」 我靜左。\n可分析 · 噪音 · 前提不符\n噪音\n×\n好羨慕大家可以用「完sem」兩隻字 Final year既我已經要用「畢業」了。 …………😭🙏🏻\n可分析 · 噪音 · 前提不符\n噪音\n×\n我收到聲稱係6ixty 8ight team 搵人做model 拍片，但拍完又5使公開 想問下係真 定又係詐騙🥹🥹🥹\n可分析 · 噪音 · 前提不符\n噪音\n×\n大家唔好去食葵芳新都會廣場二樓「樂麵」 衛生真係差到仆街，開放式廚房，發黑發霉嘅外賣盒係照用，跌過落地嘅夾係照用（廚房地下係鋪滿廢油，湯積，積水），堂食用嘅餐具係好似冇洗過咁，啲調味料仲喺個羹到，一百蚊一個拉麵，五十幾蚊5隻餃子，咁嘅衛生…\n可分析 · 噪音 · 前提不符\n噪音\n×\nClaude code就很犯賤 結尾加上一句「完成後會請Codex覆檢」 成果好到靠北 by Opus 4.7 xhigh\n可分析 · 技術討論 · 值得嘗試\n技術討論\n×\n家母見我完sem冇嘢做就想我報下course 學下嘢 但係佢地而家係咁叫我去上ai course 我硬係覺得ai cert course都好似冇乜用🫣 dum錢出街咁 寧願學返coding 睇下搞唔搞project 或者學下ui/ux …\n可分析 · 學習資源 · 保留觀察\n學習資源\n×\n分享最近為自己 vibe code 的大量閱讀工具：Long Drive / 長途駕駛。 目標很簡單：讓大量閱讀變得像在漂亮公路上長途駕駛一樣舒服。 AI 時代，我最大的痛點就是：每天要讀太多純文字資訊。 AI 不會累，我會 😢 所以我…\n可分析 · 學習資源 · 值得嘗試\n學習資源\n×\n我用 AI 寫論文，差點引用了一個不存在的研究。 數字漂亮，格式正確，連期刊名稱都寫得出來。我去查，查無此文。 AI 最危險的不是「寫錯」，是「錯得太像真的」 語法錯誤你看得出來，邏輯漏洞你可以感覺到。但 AI 編造的數字，你通常感覺不到…\n可分析 · 學習資源 · 值得嘗試\n學習資源\n×",
+  "title": "(4) Home • Threads",
+  "traceCount": 500,
+  "traceTail": [
+    {
+      "at": 232539.89999997616,
+      "detail": {
+        "folderId": "session_ywskiblc_mp6p013z",
+        "mode": "product",
+        "signalCount": 9,
+        "signalsOk": true,
+        "topicCount": 0,
+        "topicsOk": true
+      },
+      "event": "popup.topic.hydrate.response",
+      "id": 783,
+      "isoTime": "2026-06-10T03:51:22.926Z"
+    },
+    {
+      "at": 232542.29999995232,
+      "detail": {
+        "activeFolderId": "session_ywskiblc_mp6p013z",
+        "failureCount": 0,
+        "hasInflight": false
+      },
+      "event": "popup.worker.status.request",
+      "id": 784,
+      "isoTime": "2026-06-10T03:51:22.928Z"
+    },
+    {
+      "at": 232542.89999997616,
+      "detail": {
+        "folderId": "session_ywskiblc_mp6p013z",
+        "mode": "product"
+      },
+      "event": "popup.topic.hydrate.request",
+      "id": 785,
+      "isoTime": "2026-06-10T03:51:22.929Z"
+    },
+    {
+      "at": 232543.19999998808,
+      "detail": {
+        "folderId": "session_ywskiblc_mp6p013z",
+        "page": "saved-signals",
+        "signalCount": 9
+      },
+      "event": "popup.product.hydrate.request",
+      "id": 786,
+      "isoTime": "2026-06-10T03:51:22.929Z"
+    },
+    {
+      "at": 232544.29999995232,
+      "detail": {
+        "activeFolderId": "session_ywskiblc_mp6p013z",
+        "failureCount": 0,
+        "hasInflight": false
+      },
+      "event": "popup.worker.status.request",
+      "id": 787,
+      "isoTime": "2026-06-10T03:51:22.930Z"
+    },
+    {
+      "at": 232604.69999998808,
+      "detail": {
+        "activeFolderId": "session_ywskiblc_mp6p013z",
+        "failureCount": 0,
+        "hasInflight": false
+      },
+      "event": "popup.worker.status.request",
+      "id": 788,
+      "isoTime": "2026-06-10T03:51:22.990Z"
+    },
+    {
+      "at": 232605.79999995232,
+      "detail": {
+        "activeFolderId": "session_ywskiblc_mp6p013z",
+        "failureCount": 0,
+        "hasInflight": false
+      },
+      "event": "popup.worker.status.request",
+      "id": 789,
+      "isoTime": "2026-06-10T03:51:22.992Z"
+    },
+    {
+      "at": 232807.79999995232,
+      "detail": {
+        "activeFolderId": "session_ywskiblc_mp6p013z"
+      },
+      "event": "popup.worker.refresh.response",
+      "id": 790,
+      "isoTime": "2026-06-10T03:51:23.193Z"
+    },
+    {
+      "at": 232809.89999997616,
+      "detail": {
+        "activeFolderId": "session_ywskiblc_mp6p013z",
+        "failureCount": 0,
+        "hasInflight": false
+      },
+      "event": "popup.worker.status.request",
+      "id": 791,
+      "isoTime": "2026-06-10T03:51:23.196Z"
+    },
+    {
+      "at": 232811.09999996424,
+      "detail": {
+        "activeFolderId": "session_ywskiblc_mp6p013z",
+        "failureCount": 0,
+        "hasInflight": false
+      },
+      "event": "popup.worker.status.request",
+      "id": 792,
+      "isoTime": "2026-06-10T03:51:23.197Z"
+    },
+    {
+      "at": 232917.39999997616,
+      "detail": {
+        "currentAnalysisCount": 9,
+        "currentOk": true,
+        "feedbackCount": 0,
+        "feedbackOk": true,
+        "folderId": "session_ywskiblc_mp6p013z",
+        "historicalAnalysisCount": 9,
+        "historicalOk": true,
+        "page": "saved-signals",
+        "readingCount": 7,
+        "readingsOk": true,
+        "signalCount": 9
+      },
+      "event": "popup.product.hydrate.response",
+      "id": 793,
+      "isoTime": "2026-06-10T03:51:23.303Z"
+    },
+    {
+      "at": 232920,
+      "detail": {
+        "activeFolderId": "session_ywskiblc_mp6p013z",
+        "failureCount": 0,
+        "hasInflight": false
+      },
+      "event": "popup.worker.status.request",
+      "id": 794,
+      "isoTime": "2026-06-10T03:51:23.306Z"
+    },
+    {
+      "at": 233494.89999997616,
+      "detail": {
+        "folderId": "session_ywskiblc_mp6p013z",
+        "mode": "product",
+        "signalCount": 9,
+        "signalsOk": true,
+        "topicCount": 0,
+        "topicsOk": true
+      },
+      "event": "popup.topic.hydrate.response",
+      "id": 795,
+      "isoTime": "2026-06-10T03:51:23.881Z"
+    },
+    {
+      "at": 233497.19999998808,
+      "detail": {
+        "activeFolderId": "session_ywskiblc_mp6p013z",
+        "failureCount": 0,
+        "hasInflight": false
+      },
+      "event": "popup.worker.status.request",
+      "id": 796,
+      "isoTime": "2026-06-10T03:51:23.883Z"
+    },
+    {
+      "at": 233835.5,
+      "detail": {
+        "activeFolderId": "session_ywskiblc_mp6p013z",
+        "failureCount": 0,
+        "hasInflight": false
+      },
+      "event": "popup.worker.status.request",
+      "id": 797,
+      "isoTime": "2026-06-10T03:51:24.221Z"
+    },
+    {
+      "at": 233836,
+      "detail": {
+        "folderId": "session_ywskiblc_mp6p013z",
+        "mode": "product"
+      },
+      "event": "popup.topic.hydrate.request",
+      "id": 798,
+      "isoTime": "2026-06-10T03:51:24.222Z"
+    },
+    {
+      "at": 233836.79999995232,
+      "detail": {
+        "folderId": "session_ywskiblc_mp6p013z",
+        "page": "saved-signals",
+        "signalCount": 9
+      },
+      "event": "popup.product.hydrate.request",
+      "id": 799,
+      "isoTime": "2026-06-10T03:51:24.223Z"
+    },
+    {
+      "at": 233837.89999997616,
+      "detail": {
+        "activeFolderId": "session_ywskiblc_mp6p013z",
+        "failureCount": 0,
+        "hasInflight": false
+      },
+      "event": "popup.worker.status.request",
+      "id": 800,
+      "isoTime": "2026-06-10T03:51:24.224Z"
+    },
+    {
+      "at": 234150.69999998808,
+      "detail": {
+        "activeFolderId": "session_ywskiblc_mp6p013z"
+      },
+      "event": "popup.worker.refresh.response",
+      "id": 801,
+      "isoTime": "2026-06-10T03:51:24.536Z"
+    },
+    {
+      "at": 234153.59999996424,
+      "detail": {
+        "activeFolderId": "session_ywskiblc_mp6p013z",
+        "failureCount": 0,
+        "hasInflight": false
+      },
+      "event": "popup.worker.status.request",
+      "id": 802,
+      "isoTime": "2026-06-10T03:51:24.539Z"
+    },
+    {
+      "at": 234154.59999996424,
+      "detail": {
+        "activeFolderId": "session_ywskiblc_mp6p013z",
+        "failureCount": 0,
+        "hasInflight": false
+      },
+      "event": "popup.worker.status.request",
+      "id": 803,
+      "isoTime": "2026-06-10T03:51:24.540Z"
+    },
+    {
+      "at": 234190.89999997616,
+      "detail": {
+        "currentAnalysisCount": 9,
+        "currentOk": true,
+        "feedbackCount": 0,
+        "feedbackOk": true,
+        "folderId": "session_ywskiblc_mp6p013z",
+        "historicalAnalysisCount": 9,
+        "historicalOk": true,
+        "page": "saved-signals",
+        "readingCount": 7,
+        "readingsOk": true,
+        "signalCount": 9
+      },
+      "event": "popup.product.hydrate.response",
+      "id": 804,
+      "isoTime": "2026-06-10T03:51:24.577Z"
+    },
+    {
+      "at": 234192.19999998808,
+      "detail": {
+        "activeFolderId": "session_ywskiblc_mp6p013z",
+        "failureCount": 0,
+        "hasInflight": false
+      },
+      "event": "popup.worker.status.request",
+      "id": 805,
+      "isoTime": "2026-06-10T03:51:24.578Z"
+    },
+    {
+      "at": 234462.19999998808,
+      "detail": {
+        "folderId": "session_ywskiblc_mp6p013z",
+        "mode": "product",
+        "signalCount": 9,
+        "signalsOk": true,
+        "topicCount": 0,
+        "topicsOk": true
+      },
+      "event": "popup.topic.hydrate.response",
+      "id": 806,
+      "isoTime": "2026-06-10T03:51:24.848Z"
+    },
+    {
+      "at": 234464.09999996424,
+      "detail": {
+        "activeFolderId": "session_ywskiblc_mp6p013z",
+        "failureCount": 0,
+        "hasInflight": false
+      },
+      "event": "popup.worker.status.request",
+      "id": 807,
+      "isoTime": "2026-06-10T03:51:24.850Z"
+    },
+    {
+      "at": 234911.5,
+      "detail": {
+        "activeFolderId": "session_ywskiblc_mp6p013z",
+        "failureCount": 0,
+        "hasInflight": false
+      },
+      "event": "popup.worker.status.request",
+      "id": 808,
+      "isoTime": "2026-06-10T03:51:25.297Z"
+    },
+    {
+      "at": 234912.09999996424,
+      "detail": {
+        "folderId": "session_ywskiblc_mp6p013z",
+        "mode": "product"
+      },
+      "event": "popup.topic.hydrate.request",
+      "id": 809,
+      "isoTime": "2026-06-10T03:51:25.298Z"
+    },
+    {
+      "at": 234912.39999997616,
+      "detail": {
+        "folderId": "session_ywskiblc_mp6p013z",
+        "page": "saved-signals",
+        "signalCount": 9
+      },
+      "event": "popup.product.hydrate.request",
+      "id": 810,
+      "isoTime": "2026-06-10T03:51:25.298Z"
+    },
+    {
+      "at": 234913.59999996424,
+      "detail": {
+        "activeFolderId": "session_ywskiblc_mp6p013z",
+        "failureCount": 0,
+        "hasInflight": false
+      },
+      "event": "popup.worker.status.request",
+      "id": 811,
+      "isoTime": "2026-06-10T03:51:25.299Z"
+    },
+    {
+      "at": 235186.59999996424,
+      "detail": {
+        "activeFolderId": "session_ywskiblc_mp6p013z"
+      },
+      "event": "popup.worker.refresh.response",
+      "id": 812,
+      "isoTime": "2026-06-10T03:51:25.572Z"
+    },
+    {
+      "at": 235188.5,
+      "detail": {
+        "activeFolderId": "session_ywskiblc_mp6p013z",
+        "failureCount": 0,
+        "hasInflight": false
+      },
+      "event": "popup.worker.status.request",
+      "id": 813,
+      "isoTime": "2026-06-10T03:51:25.574Z"
+    },
+    {
+      "at": 235189.29999995232,
+      "detail": {
+        "activeFolderId": "session_ywskiblc_mp6p013z",
+        "failureCount": 0,
+        "hasInflight": false
+      },
+      "event": "popup.worker.status.request",
+      "id": 814,
+      "isoTime": "2026-06-10T03:51:25.575Z"
+    },
+    {
+      "at": 235295.79999995232,
+      "detail": {
+        "currentAnalysisCount": 9,
+        "currentOk": true,
+        "feedbackCount": 0,
+        "feedbackOk": true,
+        "folderId": "session_ywskiblc_mp6p013z",
+        "historicalAnalysisCount": 9,
+        "historicalOk": true,
+        "page": "saved-signals",
+        "readingCount": 7,
+        "readingsOk": true,
+        "signalCount": 9
+      },
+      "event": "popup.product.hydrate.response",
+      "id": 815,
+      "isoTime": "2026-06-10T03:51:25.682Z"
+    },
+    {
+      "at": 235297.39999997616,
+      "detail": {
+        "activeFolderId": "session_ywskiblc_mp6p013z",
+        "failureCount": 0,
+        "hasInflight": false
+      },
+      "event": "popup.worker.status.request",
+      "id": 816,
+      "isoTime": "2026-06-10T03:51:25.683Z"
+    },
+    {
+      "at": 235580.89999997616,
+      "detail": {
+        "folderId": "session_ywskiblc_mp6p013z",
+        "mode": "product",
+        "signalCount": 9,
+        "signalsOk": true,
+        "topicCount": 0,
+        "topicsOk": true
+      },
+      "event": "popup.topic.hydrate.response",
+      "id": 817,
+      "isoTime": "2026-06-10T03:51:25.967Z"
+    },
+    {
+      "at": 235582.5,
+      "detail": {
+        "activeFolderId": "session_ywskiblc_mp6p013z",
+        "failureCount": 0,
+        "hasInflight": false
+      },
+      "event": "popup.worker.status.request",
+      "id": 818,
+      "isoTime": "2026-06-10T03:51:25.968Z"
+    },
+    {
+      "at": 235929,
+      "detail": {
+        "activeFolderId": "session_ywskiblc_mp6p013z",
+        "failureCount": 0,
+        "hasInflight": false
+      },
+      "event": "popup.worker.status.request",
+      "id": 819,
+      "isoTime": "2026-06-10T03:51:26.315Z"
+    },
+    {
+      "at": 235929.89999997616,
+      "detail": {
+        "folderId": "session_ywskiblc_mp6p013z",
+        "mode": "product"
+      },
+      "event": "popup.topic.hydrate.request",
+      "id": 820,
+      "isoTime": "2026-06-10T03:51:26.316Z"
+    },
+    {
+      "at": 235930.39999997616,
+      "detail": {
+        "folderId": "session_ywskiblc_mp6p013z",
+        "page": "saved-signals",
+        "signalCount": 9
+      },
+      "event": "popup.product.hydrate.request",
+      "id": 821,
+      "isoTime": "2026-06-10T03:51:26.316Z"
+    },
+    {
+      "at": 235931.69999998808,
+      "detail": {
+        "activeFolderId": "session_ywskiblc_mp6p013z",
+        "failureCount": 0,
+        "hasInflight": false
+      },
+      "event": "popup.worker.status.request",
+      "id": 822,
+      "isoTime": "2026-06-10T03:51:26.317Z"
+    },
+    {
+      "at": 236302,
+      "detail": {
+        "activeFolderId": "session_ywskiblc_mp6p013z"
+      },
+      "event": "popup.worker.refresh.response",
+      "id": 823,
+      "isoTime": "2026-06-10T03:51:26.688Z"
+    },
+    {
+      "at": 236304.69999998808,
+      "detail": {
+        "activeFolderId": "session_ywskiblc_mp6p013z",
+        "failureCount": 0,
+        "hasInflight": false
+      },
+      "event": "popup.worker.status.request",
+      "id": 824,
+      "isoTime": "2026-06-10T03:51:26.690Z"
+    },
+    {
+      "at": 236305.89999997616,
+      "detail": {
+        "activeFolderId": "session_ywskiblc_mp6p013z",
+        "failureCount": 0,
+        "hasInflight": false
+      },
+      "event": "popup.worker.status.request",
+      "id": 825,
+      "isoTime": "2026-06-10T03:51:26.692Z"
+    },
+    {
+      "at": 236345.79999995232,
+      "detail": {
+        "currentAnalysisCount": 9,
+        "currentOk": true,
+        "feedbackCount": 0,
+        "feedbackOk": true,
+        "folderId": "session_ywskiblc_mp6p013z",
+        "historicalAnalysisCount": 9,
+        "historicalOk": true,
+        "page": "saved-signals",
+        "readingCount": 7,
+        "readingsOk": true,
+        "signalCount": 9
+      },
+      "event": "popup.product.hydrate.response",
+      "id": 826,
+      "isoTime": "2026-06-10T03:51:26.732Z"
+    },
+    {
+      "at": 236347.39999997616,
+      "detail": {
+        "activeFolderId": "session_ywskiblc_mp6p013z",
+        "failureCount": 0,
+        "hasInflight": false
+      },
+      "event": "popup.worker.status.request",
+      "id": 827,
+      "isoTime": "2026-06-10T03:51:26.733Z"
+    },
+    {
+      "at": 236632.5,
+      "detail": {
+        "folderId": "session_ywskiblc_mp6p013z",
+        "mode": "product",
+        "signalCount": 9,
+        "signalsOk": true,
+        "topicCount": 0,
+        "topicsOk": true
+      },
+      "event": "popup.topic.hydrate.response",
+      "id": 828,
+      "isoTime": "2026-06-10T03:51:27.018Z"
+    },
+    {
+      "at": 236634.69999998808,
+      "detail": {
+        "activeFolderId": "session_ywskiblc_mp6p013z",
+        "failureCount": 0,
+        "hasInflight": false
+      },
+      "event": "popup.worker.status.request",
+      "id": 829,
+      "isoTime": "2026-06-10T03:51:27.020Z"
+    },
+    {
+      "at": 237089.79999995232,
+      "detail": {
+        "activeFolderId": "session_ywskiblc_mp6p013z",
+        "failureCount": 0,
+        "hasInflight": false
+      },
+      "event": "popup.worker.status.request",
+      "id": 830,
+      "isoTime": "2026-06-10T03:51:27.476Z"
+    },
+    {
+      "at": 237090.59999996424,
+      "detail": {
+        "folderId": "session_ywskiblc_mp6p013z",
+        "mode": "product"
+      },
+      "event": "popup.topic.hydrate.request",
+      "id": 831,
+      "isoTime": "2026-06-10T03:51:27.476Z"
+    },
+    {
+      "at": 237090.89999997616,
+      "detail": {
+        "folderId": "session_ywskiblc_mp6p013z",
+        "page": "saved-signals",
+        "signalCount": 9
+      },
+      "event": "popup.product.hydrate.request",
+      "id": 832,
+      "isoTime": "2026-06-10T03:51:27.477Z"
+    },
+    {
+      "at": 237091.89999997616,
+      "detail": {
+        "activeFolderId": "session_ywskiblc_mp6p013z",
+        "failureCount": 0,
+        "hasInflight": false
+      },
+      "event": "popup.worker.status.request",
+      "id": 833,
+      "isoTime": "2026-06-10T03:51:27.478Z"
+    },
+    {
+      "at": 237362.89999997616,
+      "detail": {
+        "activeFolderId": "session_ywskiblc_mp6p013z"
+      },
+      "event": "popup.worker.refresh.response",
+      "id": 834,
+      "isoTime": "2026-06-10T03:51:27.749Z"
+    },
+    {
+      "at": 237365.5,
+      "detail": {
+        "activeFolderId": "session_ywskiblc_mp6p013z",
+        "failureCount": 0,
+        "hasInflight": false
+      },
+      "event": "popup.worker.status.request",
+      "id": 835,
+      "isoTime": "2026-06-10T03:51:27.751Z"
+    },
+    {
+      "at": 237366.5,
+      "detail": {
+        "activeFolderId": "session_ywskiblc_mp6p013z",
+        "failureCount": 0,
+        "hasInflight": false
+      },
+      "event": "popup.worker.status.request",
+      "id": 836,
+      "isoTime": "2026-06-10T03:51:27.752Z"
+    },
+    {
+      "at": 237476,
+      "detail": {
+        "currentAnalysisCount": 9,
+        "currentOk": true,
+        "feedbackCount": 0,
+        "feedbackOk": true,
+        "folderId": "session_ywskiblc_mp6p013z",
+        "historicalAnalysisCount": 9,
+        "historicalOk": true,
+        "page": "saved-signals",
+        "readingCount": 7,
+        "readingsOk": true,
+        "signalCount": 9
+      },
+      "event": "popup.product.hydrate.response",
+      "id": 837,
+      "isoTime": "2026-06-10T03:51:27.862Z"
+    },
+    {
+      "at": 237477.5,
+      "detail": {
+        "activeFolderId": "session_ywskiblc_mp6p013z",
+        "failureCount": 0,
+        "hasInflight": false
+      },
+      "event": "popup.worker.status.request",
+      "id": 838,
+      "isoTime": "2026-06-10T03:51:27.863Z"
+    },
+    {
+      "at": 237771.5,
+      "detail": {
+        "folderId": "session_ywskiblc_mp6p013z",
+        "mode": "product",
+        "signalCount": 9,
+        "signalsOk": true,
+        "topicCount": 0,
+        "topicsOk": true
+      },
+      "event": "popup.topic.hydrate.response",
+      "id": 839,
+      "isoTime": "2026-06-10T03:51:28.157Z"
+    },
+    {
+      "at": 237773.29999995232,
+      "detail": {
+        "activeFolderId": "session_ywskiblc_mp6p013z",
+        "failureCount": 0,
+        "hasInflight": false
+      },
+      "event": "popup.worker.status.request",
+      "id": 840,
+      "isoTime": "2026-06-10T03:51:28.159Z"
+    },
+    {
+      "at": 238051.79999995232,
+      "detail": {
+        "activeFolderId": "session_ywskiblc_mp6p013z",
+        "failureCount": 0,
+        "hasInflight": false
+      },
+      "event": "popup.worker.status.request",
+      "id": 841,
+      "isoTime": "2026-06-10T03:51:28.438Z"
+    },
+    {
+      "at": 238052.5,
+      "detail": {
+        "folderId": "session_ywskiblc_mp6p013z",
+        "mode": "product"
+      },
+      "event": "popup.topic.hydrate.request",
+      "id": 842,
+      "isoTime": "2026-06-10T03:51:28.438Z"
+    },
+    {
+      "at": 238052.69999998808,
+      "detail": {
+        "folderId": "session_ywskiblc_mp6p013z",
+        "page": "saved-signals",
+        "signalCount": 9
+      },
+      "event": "popup.product.hydrate.request",
+      "id": 843,
+      "isoTime": "2026-06-10T03:51:28.438Z"
+    },
+    {
+      "at": 238053.59999996424,
+      "detail": {
+        "activeFolderId": "session_ywskiblc_mp6p013z",
+        "failureCount": 0,
+        "hasInflight": false
+      },
+      "event": "popup.worker.status.request",
+      "id": 844,
+      "isoTime": "2026-06-10T03:51:28.439Z"
+    },
+    {
+      "at": 238461.09999996424,
+      "detail": {
+        "activeFolderId": "session_ywskiblc_mp6p013z"
+      },
+      "event": "popup.worker.refresh.response",
+      "id": 845,
+      "isoTime": "2026-06-10T03:51:28.847Z"
+    },
+    {
+      "at": 238464.29999995232,
+      "detail": {
+        "activeFolderId": "session_ywskiblc_mp6p013z",
+        "failureCount": 0,
+        "hasInflight": false
+      },
+      "event": "popup.worker.status.request",
+      "id": 846,
+      "isoTime": "2026-06-10T03:51:28.850Z"
+    },
+    {
+      "at": 238465.5,
+      "detail": {
+        "activeFolderId": "session_ywskiblc_mp6p013z",
+        "failureCount": 0,
+        "hasInflight": false
+      },
+      "event": "popup.worker.status.request",
+      "id": 847,
+      "isoTime": "2026-06-10T03:51:28.851Z"
+    },
+    {
+      "at": 238502.39999997616,
+      "detail": {
+        "currentAnalysisCount": 9,
+        "currentOk": true,
+        "feedbackCount": 0,
+        "feedbackOk": true,
+        "folderId": "session_ywskiblc_mp6p013z",
+        "historicalAnalysisCount": 9,
+        "historicalOk": true,
+        "page": "saved-signals",
+        "readingCount": 7,
+        "readingsOk": true,
+        "signalCount": 9
+      },
+      "event": "popup.product.hydrate.response",
+      "id": 848,
+      "isoTime": "2026-06-10T03:51:28.888Z"
+    },
+    {
+      "at": 238503.69999998808,
+      "detail": {
+        "activeFolderId": "session_ywskiblc_mp6p013z",
+        "failureCount": 0,
+        "hasInflight": false
+      },
+      "event": "popup.worker.status.request",
+      "id": 849,
+      "isoTime": "2026-06-10T03:51:28.889Z"
+    },
+    {
+      "at": 238737.39999997616,
+      "detail": {
+        "folderId": "session_ywskiblc_mp6p013z",
+        "mode": "product",
+        "signalCount": 9,
+        "signalsOk": true,
+        "topicCount": 0,
+        "topicsOk": true
+      },
+      "event": "popup.topic.hydrate.response",
+      "id": 850,
+      "isoTime": "2026-06-10T03:51:29.123Z"
+    },
+    {
+      "at": 238739,
+      "detail": {
+        "activeFolderId": "session_ywskiblc_mp6p013z",
+        "failureCount": 0,
+        "hasInflight": false
+      },
+      "event": "popup.worker.status.request",
+      "id": 851,
+      "isoTime": "2026-06-10T03:51:29.125Z"
+    },
+    {
+      "at": 239148.59999996424,
+      "detail": {
+        "activeFolderId": "session_ywskiblc_mp6p013z",
+        "failureCount": 0,
+        "hasInflight": false
+      },
+      "event": "popup.worker.status.request",
+      "id": 852,
+      "isoTime": "2026-06-10T03:51:29.534Z"
+    },
+    {
+      "at": 239149.39999997616,
+      "detail": {
+        "folderId": "session_ywskiblc_mp6p013z",
+        "mode": "product"
+      },
+      "event": "popup.topic.hydrate.request",
+      "id": 853,
+      "isoTime": "2026-06-10T03:51:29.535Z"
+    },
+    {
+      "at": 239149.69999998808,
+      "detail": {
+        "folderId": "session_ywskiblc_mp6p013z",
+        "page": "saved-signals",
+        "signalCount": 9
+      },
+      "event": "popup.product.hydrate.request",
+      "id": 854,
+      "isoTime": "2026-06-10T03:51:29.535Z"
+    },
+    {
+      "at": 239150.89999997616,
+      "detail": {
+        "activeFolderId": "session_ywskiblc_mp6p013z",
+        "failureCount": 0,
+        "hasInflight": false
+      },
+      "event": "popup.worker.status.request",
+      "id": 855,
+      "isoTime": "2026-06-10T03:51:29.537Z"
+    },
+    {
+      "at": 239469.29999995232,
+      "detail": {
+        "currentAnalysisCount": 9,
+        "currentOk": true,
+        "feedbackCount": 0,
+        "feedbackOk": true,
+        "folderId": "session_ywskiblc_mp6p013z",
+        "historicalAnalysisCount": 9,
+        "historicalOk": true,
+        "page": "saved-signals",
+        "readingCount": 7,
+        "readingsOk": true,
+        "signalCount": 9
+      },
+      "event": "popup.product.hydrate.response",
+      "id": 856,
+      "isoTime": "2026-06-10T03:51:29.855Z"
+    },
+    {
+      "at": 239470.69999998808,
+      "detail": {
+        "activeFolderId": "session_ywskiblc_mp6p013z",
+        "failureCount": 0,
+        "hasInflight": false
+      },
+      "event": "popup.worker.status.request",
+      "id": 857,
+      "isoTime": "2026-06-10T03:51:29.856Z"
+    },
+    {
+      "at": 239673.79999995232,
+      "detail": {
+        "folderId": "session_ywskiblc_mp6p013z",
+        "mode": "product",
+        "signalCount": 9,
+        "signalsOk": true,
+        "topicCount": 0,
+        "topicsOk": true
+      },
+      "event": "popup.topic.hydrate.response",
+      "id": 858,
+      "isoTime": "2026-06-10T03:51:30.060Z"
+    },
+    {
+      "at": 239677.09999996424,
+      "detail": {
+        "activeFolderId": "session_ywskiblc_mp6p013z",
+        "failureCount": 0,
+        "hasInflight": false
+      },
+      "event": "popup.worker.status.request",
+      "id": 859,
+      "isoTime": "2026-06-10T03:51:30.063Z"
+    },
+    {
+      "at": 240000,
+      "detail": {
+        "elapsedMs": 322.8,
+        "previousWorkerStatus": "idle",
+        "workerStatus": "idle"
+      },
+      "event": "popup.worker.status.response",
+      "id": 860,
+      "isoTime": "2026-06-10T03:51:30.386Z"
+    },
+    {
+      "at": 240362.39999997616,
+      "detail": {
+        "activeFolderId": "session_ywskiblc_mp6p013z",
+        "failureCount": 0,
+        "hasInflight": false
+      },
+      "event": "popup.worker.status.request",
+      "id": 861,
+      "isoTime": "2026-06-10T03:51:30.748Z"
+    },
+    {
+      "at": 240675.59999996424,
+      "detail": {
+        "elapsedMs": 313.2,
+        "previousWorkerStatus": "idle",
+        "workerStatus": "idle"
+      },
+      "event": "popup.worker.status.response",
+      "id": 862,
+      "isoTime": "2026-06-10T03:51:31.061Z"
+    }
+  ],
+  "url": "https://www.threads.com/#dlensQaTrace=1"
+}

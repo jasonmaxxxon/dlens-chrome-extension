@@ -1,0 +1,1087 @@
+{
+  "at": "2026-06-10T02:44:04.268Z",
+  "bodyCursor": "crosshair",
+  "hasBackendOffline": false,
+  "hasSpinnerLike": false,
+  "href": "https://www.threads.com/#dlensQaTrace=1",
+  "overlay": {
+    "display": "block",
+    "rect": {
+      "h": 458.8828125,
+      "w": 647.49609375,
+      "x": 757.74609375,
+      "y": 145.4765625
+    }
+  },
+  "rootText": "Hover to preview | S save | Esc exit Ready dlens Topic Product PR Annotated Field Guide VOL.1 NO.01 Jun 10 · v.0.1.30 d 採集 訊號 分類 行動 設定 Product mode Agent Brief 先審視模型判讀，再把已收錄 reading 組成可貼給 coding agent 的 brief。 AI enabled 分析狀態 ✓ 已就緒 1 signals · 1 analyses 重新分析 DLens Founders, product builders, PR/marketing researchers, journalists, analysts ProductContext 1 則訊號已評估 值得嘗試 0 噪音 / 前提不符 0 資料不足 0 保留觀察 1 可直接試的做法 目前沒有 verdict=try 的訊號。先看保留觀察或資料不足。",
+  "title": "(4) Home • Threads",
+  "traceCount": 500,
+  "workerTraceTail": [
+    {
+      "at": 784210.2000000477,
+      "detail": {
+        "activeFolderId": "session_ywskiblc_mp6p013z",
+        "failureCount": 0,
+        "hasInflight": false
+      },
+      "event": "popup.worker.status.request",
+      "id": 919,
+      "isoTime": "2026-06-10T02:39:34.718Z"
+    },
+    {
+      "at": 784212.5,
+      "detail": {
+        "activeFolderId": "session_ywskiblc_mp6p013z",
+        "failureCount": 0,
+        "hasInflight": false
+      },
+      "event": "popup.worker.status.request",
+      "id": 922,
+      "isoTime": "2026-06-10T02:39:34.720Z"
+    },
+    {
+      "at": 784618.2000000477,
+      "detail": {
+        "activeFolderId": "session_ywskiblc_mp6p013z"
+      },
+      "event": "popup.worker.refresh.response",
+      "id": 923,
+      "isoTime": "2026-06-10T02:39:35.126Z"
+    },
+    {
+      "at": 784620.5,
+      "detail": {
+        "activeFolderId": "session_ywskiblc_mp6p013z",
+        "failureCount": 0,
+        "hasInflight": false
+      },
+      "event": "popup.worker.status.request",
+      "id": 924,
+      "isoTime": "2026-06-10T02:39:35.128Z"
+    },
+    {
+      "at": 784622,
+      "detail": {
+        "activeFolderId": "session_ywskiblc_mp6p013z",
+        "failureCount": 0,
+        "hasInflight": false
+      },
+      "event": "popup.worker.status.request",
+      "id": 925,
+      "isoTime": "2026-06-10T02:39:35.129Z"
+    },
+    {
+      "at": 784701.5,
+      "detail": {
+        "activeFolderId": "session_ywskiblc_mp6p013z",
+        "failureCount": 0,
+        "hasInflight": false
+      },
+      "event": "popup.worker.status.request",
+      "id": 928,
+      "isoTime": "2026-06-10T02:39:35.209Z"
+    },
+    {
+      "at": 785627.2000000477,
+      "detail": {
+        "activeFolderId": "session_ywskiblc_mp6p013z",
+        "failureCount": 0,
+        "hasInflight": false
+      },
+      "event": "popup.worker.status.request",
+      "id": 929,
+      "isoTime": "2026-06-10T02:39:36.135Z"
+    },
+    {
+      "at": 785629.7000000477,
+      "detail": {
+        "activeFolderId": "session_ywskiblc_mp6p013z",
+        "failureCount": 0,
+        "hasInflight": false
+      },
+      "event": "popup.worker.status.request",
+      "id": 932,
+      "isoTime": "2026-06-10T02:39:36.137Z"
+    },
+    {
+      "at": 785919.9000000358,
+      "detail": {
+        "activeFolderId": "session_ywskiblc_mp6p013z"
+      },
+      "event": "popup.worker.refresh.response",
+      "id": 933,
+      "isoTime": "2026-06-10T02:39:36.427Z"
+    },
+    {
+      "at": 785922.9000000358,
+      "detail": {
+        "activeFolderId": "session_ywskiblc_mp6p013z",
+        "failureCount": 0,
+        "hasInflight": false
+      },
+      "event": "popup.worker.status.request",
+      "id": 934,
+      "isoTime": "2026-06-10T02:39:36.430Z"
+    },
+    {
+      "at": 785924.6000000238,
+      "detail": {
+        "activeFolderId": "session_ywskiblc_mp6p013z",
+        "failureCount": 0,
+        "hasInflight": false
+      },
+      "event": "popup.worker.status.request",
+      "id": 935,
+      "isoTime": "2026-06-10T02:39:36.432Z"
+    },
+    {
+      "at": 786051.6000000238,
+      "detail": {
+        "activeFolderId": "session_ywskiblc_mp6p013z",
+        "failureCount": 0,
+        "hasInflight": false
+      },
+      "event": "popup.worker.status.request",
+      "id": 938,
+      "isoTime": "2026-06-10T02:39:36.559Z"
+    },
+    {
+      "at": 786319.9000000358,
+      "detail": {
+        "activeFolderId": "session_ywskiblc_mp6p013z"
+      },
+      "event": "popup.worker.refresh.response",
+      "id": 939,
+      "isoTime": "2026-06-10T02:39:36.827Z"
+    },
+    {
+      "at": 786323.2000000477,
+      "detail": {
+        "activeFolderId": "session_ywskiblc_mp6p013z",
+        "failureCount": 0,
+        "hasInflight": false
+      },
+      "event": "popup.worker.status.request",
+      "id": 940,
+      "isoTime": "2026-06-10T02:39:36.831Z"
+    },
+    {
+      "at": 786324.9000000358,
+      "detail": {
+        "activeFolderId": "session_ywskiblc_mp6p013z",
+        "failureCount": 0,
+        "hasInflight": false
+      },
+      "event": "popup.worker.status.request",
+      "id": 941,
+      "isoTime": "2026-06-10T02:39:36.832Z"
+    },
+    {
+      "at": 786808.7000000477,
+      "detail": {
+        "activeFolderId": "session_ywskiblc_mp6p013z"
+      },
+      "event": "popup.worker.refresh.response",
+      "id": 942,
+      "isoTime": "2026-06-10T02:39:37.316Z"
+    },
+    {
+      "at": 786811,
+      "detail": {
+        "activeFolderId": "session_ywskiblc_mp6p013z",
+        "failureCount": 0,
+        "hasInflight": false
+      },
+      "event": "popup.worker.status.request",
+      "id": 943,
+      "isoTime": "2026-06-10T02:39:37.318Z"
+    },
+    {
+      "at": 786812.4000000358,
+      "detail": {
+        "activeFolderId": "session_ywskiblc_mp6p013z",
+        "failureCount": 0,
+        "hasInflight": false
+      },
+      "event": "popup.worker.status.request",
+      "id": 944,
+      "isoTime": "2026-06-10T02:39:37.320Z"
+    },
+    {
+      "at": 787611.9000000358,
+      "detail": {
+        "activeFolderId": "session_ywskiblc_mp6p013z",
+        "failureCount": 0,
+        "hasInflight": false
+      },
+      "event": "popup.worker.status.request",
+      "id": 945,
+      "isoTime": "2026-06-10T02:39:38.119Z"
+    },
+    {
+      "at": 787614.9000000358,
+      "detail": {
+        "activeFolderId": "session_ywskiblc_mp6p013z",
+        "failureCount": 0,
+        "hasInflight": false
+      },
+      "event": "popup.worker.status.request",
+      "id": 948,
+      "isoTime": "2026-06-10T02:39:38.122Z"
+    },
+    {
+      "at": 787912.5,
+      "detail": {
+        "activeFolderId": "session_ywskiblc_mp6p013z"
+      },
+      "event": "popup.worker.refresh.response",
+      "id": 949,
+      "isoTime": "2026-06-10T02:39:38.420Z"
+    },
+    {
+      "at": 787914.9000000358,
+      "detail": {
+        "activeFolderId": "session_ywskiblc_mp6p013z",
+        "failureCount": 0,
+        "hasInflight": false
+      },
+      "event": "popup.worker.status.request",
+      "id": 950,
+      "isoTime": "2026-06-10T02:39:38.422Z"
+    },
+    {
+      "at": 787916.2000000477,
+      "detail": {
+        "activeFolderId": "session_ywskiblc_mp6p013z",
+        "failureCount": 0,
+        "hasInflight": false
+      },
+      "event": "popup.worker.status.request",
+      "id": 951,
+      "isoTime": "2026-06-10T02:39:38.423Z"
+    },
+    {
+      "at": 787967.1000000238,
+      "detail": {
+        "activeFolderId": "session_ywskiblc_mp6p013z",
+        "failureCount": 0,
+        "hasInflight": false
+      },
+      "event": "popup.worker.status.request",
+      "id": 954,
+      "isoTime": "2026-06-10T02:39:38.474Z"
+    },
+    {
+      "at": 788313.2000000477,
+      "detail": {
+        "activeFolderId": "session_ywskiblc_mp6p013z"
+      },
+      "event": "popup.worker.refresh.response",
+      "id": 955,
+      "isoTime": "2026-06-10T02:39:38.821Z"
+    },
+    {
+      "at": 788315.5,
+      "detail": {
+        "activeFolderId": "session_ywskiblc_mp6p013z",
+        "failureCount": 0,
+        "hasInflight": false
+      },
+      "event": "popup.worker.status.request",
+      "id": 956,
+      "isoTime": "2026-06-10T02:39:38.823Z"
+    },
+    {
+      "at": 788316.9000000358,
+      "detail": {
+        "activeFolderId": "session_ywskiblc_mp6p013z",
+        "failureCount": 0,
+        "hasInflight": false
+      },
+      "event": "popup.worker.status.request",
+      "id": 957,
+      "isoTime": "2026-06-10T02:39:38.824Z"
+    },
+    {
+      "at": 788871.5,
+      "detail": {
+        "activeFolderId": "session_ywskiblc_mp6p013z"
+      },
+      "event": "popup.worker.refresh.response",
+      "id": 958,
+      "isoTime": "2026-06-10T02:39:39.379Z"
+    },
+    {
+      "at": 788873.9000000358,
+      "detail": {
+        "activeFolderId": "session_ywskiblc_mp6p013z",
+        "failureCount": 0,
+        "hasInflight": false
+      },
+      "event": "popup.worker.status.request",
+      "id": 959,
+      "isoTime": "2026-06-10T02:39:39.381Z"
+    },
+    {
+      "at": 788876.9000000358,
+      "detail": {
+        "activeFolderId": "session_ywskiblc_mp6p013z",
+        "failureCount": 0,
+        "hasInflight": false
+      },
+      "event": "popup.worker.status.request",
+      "id": 960,
+      "isoTime": "2026-06-10T02:39:39.384Z"
+    },
+    {
+      "at": 789799.9000000358,
+      "detail": {
+        "activeFolderId": "session_ywskiblc_mp6p013z",
+        "failureCount": 0,
+        "hasInflight": false
+      },
+      "event": "popup.worker.status.request",
+      "id": 961,
+      "isoTime": "2026-06-10T02:39:40.307Z"
+    },
+    {
+      "at": 789802.1000000238,
+      "detail": {
+        "activeFolderId": "session_ywskiblc_mp6p013z",
+        "failureCount": 0,
+        "hasInflight": false
+      },
+      "event": "popup.worker.status.request",
+      "id": 964,
+      "isoTime": "2026-06-10T02:39:40.309Z"
+    },
+    {
+      "at": 790057.4000000358,
+      "detail": {
+        "activeFolderId": "session_ywskiblc_mp6p013z"
+      },
+      "event": "popup.worker.refresh.response",
+      "id": 965,
+      "isoTime": "2026-06-10T02:39:40.565Z"
+    },
+    {
+      "at": 790059.5,
+      "detail": {
+        "activeFolderId": "session_ywskiblc_mp6p013z",
+        "failureCount": 0,
+        "hasInflight": false
+      },
+      "event": "popup.worker.status.request",
+      "id": 966,
+      "isoTime": "2026-06-10T02:39:40.567Z"
+    },
+    {
+      "at": 790060.9000000358,
+      "detail": {
+        "activeFolderId": "session_ywskiblc_mp6p013z",
+        "failureCount": 0,
+        "hasInflight": false
+      },
+      "event": "popup.worker.status.request",
+      "id": 967,
+      "isoTime": "2026-06-10T02:39:40.568Z"
+    },
+    {
+      "at": 790123.4000000358,
+      "detail": {
+        "activeFolderId": "session_ywskiblc_mp6p013z",
+        "failureCount": 0,
+        "hasInflight": false
+      },
+      "event": "popup.worker.status.request",
+      "id": 970,
+      "isoTime": "2026-06-10T02:39:40.631Z"
+    },
+    {
+      "at": 790465.5,
+      "detail": {
+        "activeFolderId": "session_ywskiblc_mp6p013z"
+      },
+      "event": "popup.worker.refresh.response",
+      "id": 971,
+      "isoTime": "2026-06-10T02:39:40.973Z"
+    },
+    {
+      "at": 790467.6000000238,
+      "detail": {
+        "activeFolderId": "session_ywskiblc_mp6p013z",
+        "failureCount": 0,
+        "hasInflight": false
+      },
+      "event": "popup.worker.status.request",
+      "id": 972,
+      "isoTime": "2026-06-10T02:39:40.975Z"
+    },
+    {
+      "at": 790468.8000000119,
+      "detail": {
+        "activeFolderId": "session_ywskiblc_mp6p013z",
+        "failureCount": 0,
+        "hasInflight": false
+      },
+      "event": "popup.worker.status.request",
+      "id": 973,
+      "isoTime": "2026-06-10T02:39:40.976Z"
+    },
+    {
+      "at": 790994.3000000119,
+      "detail": {
+        "activeFolderId": "session_ywskiblc_mp6p013z"
+      },
+      "event": "popup.worker.refresh.response",
+      "id": 974,
+      "isoTime": "2026-06-10T02:39:41.502Z"
+    },
+    {
+      "at": 790996.9000000358,
+      "detail": {
+        "activeFolderId": "session_ywskiblc_mp6p013z",
+        "failureCount": 0,
+        "hasInflight": false
+      },
+      "event": "popup.worker.status.request",
+      "id": 975,
+      "isoTime": "2026-06-10T02:39:41.504Z"
+    },
+    {
+      "at": 790998.3000000119,
+      "detail": {
+        "activeFolderId": "session_ywskiblc_mp6p013z",
+        "failureCount": 0,
+        "hasInflight": false
+      },
+      "event": "popup.worker.status.request",
+      "id": 976,
+      "isoTime": "2026-06-10T02:39:41.506Z"
+    },
+    {
+      "at": 791882.9000000358,
+      "detail": {
+        "activeFolderId": "session_ywskiblc_mp6p013z",
+        "failureCount": 0,
+        "hasInflight": false
+      },
+      "event": "popup.worker.status.request",
+      "id": 977,
+      "isoTime": "2026-06-10T02:39:42.390Z"
+    },
+    {
+      "at": 791887.9000000358,
+      "detail": {
+        "activeFolderId": "session_ywskiblc_mp6p013z",
+        "failureCount": 0,
+        "hasInflight": false
+      },
+      "event": "popup.worker.status.request",
+      "id": 980,
+      "isoTime": "2026-06-10T02:39:42.395Z"
+    },
+    {
+      "at": 792183.4000000358,
+      "detail": {
+        "activeFolderId": "session_ywskiblc_mp6p013z"
+      },
+      "event": "popup.worker.refresh.response",
+      "id": 981,
+      "isoTime": "2026-06-10T02:39:42.691Z"
+    },
+    {
+      "at": 792185.5,
+      "detail": {
+        "activeFolderId": "session_ywskiblc_mp6p013z",
+        "failureCount": 0,
+        "hasInflight": false
+      },
+      "event": "popup.worker.status.request",
+      "id": 982,
+      "isoTime": "2026-06-10T02:39:42.693Z"
+    },
+    {
+      "at": 792186.4000000358,
+      "detail": {
+        "activeFolderId": "session_ywskiblc_mp6p013z",
+        "failureCount": 0,
+        "hasInflight": false
+      },
+      "event": "popup.worker.status.request",
+      "id": 983,
+      "isoTime": "2026-06-10T02:39:42.694Z"
+    },
+    {
+      "at": 792244.3000000119,
+      "detail": {
+        "activeFolderId": "session_ywskiblc_mp6p013z",
+        "failureCount": 0,
+        "hasInflight": false
+      },
+      "event": "popup.worker.status.request",
+      "id": 986,
+      "isoTime": "2026-06-10T02:39:42.752Z"
+    },
+    {
+      "at": 793087.7000000477,
+      "detail": {
+        "activeFolderId": "session_ywskiblc_mp6p013z",
+        "failureCount": 0,
+        "hasInflight": false
+      },
+      "event": "popup.worker.status.request",
+      "id": 987,
+      "isoTime": "2026-06-10T02:39:43.595Z"
+    },
+    {
+      "at": 793092.3000000119,
+      "detail": {
+        "activeFolderId": "session_ywskiblc_mp6p013z",
+        "failureCount": 0,
+        "hasInflight": false
+      },
+      "event": "popup.worker.status.request",
+      "id": 990,
+      "isoTime": "2026-06-10T02:39:43.600Z"
+    },
+    {
+      "at": 793352.2000000477,
+      "detail": {
+        "activeFolderId": "session_ywskiblc_mp6p013z"
+      },
+      "event": "popup.worker.refresh.response",
+      "id": 991,
+      "isoTime": "2026-06-10T02:39:43.860Z"
+    },
+    {
+      "at": 793354.9000000358,
+      "detail": {
+        "activeFolderId": "session_ywskiblc_mp6p013z",
+        "failureCount": 0,
+        "hasInflight": false
+      },
+      "event": "popup.worker.status.request",
+      "id": 992,
+      "isoTime": "2026-06-10T02:39:43.862Z"
+    },
+    {
+      "at": 793356.5,
+      "detail": {
+        "activeFolderId": "session_ywskiblc_mp6p013z",
+        "failureCount": 0,
+        "hasInflight": false
+      },
+      "event": "popup.worker.status.request",
+      "id": 993,
+      "isoTime": "2026-06-10T02:39:43.864Z"
+    },
+    {
+      "at": 793738.8000000119,
+      "detail": {
+        "activeFolderId": "session_ywskiblc_mp6p013z",
+        "failureCount": 0,
+        "hasInflight": false
+      },
+      "event": "popup.worker.status.request",
+      "id": 996,
+      "isoTime": "2026-06-10T02:39:44.246Z"
+    },
+    {
+      "at": 794285,
+      "detail": {
+        "activeFolderId": "session_ywskiblc_mp6p013z",
+        "failureCount": 0,
+        "hasInflight": false
+      },
+      "event": "popup.worker.status.request",
+      "id": 997,
+      "isoTime": "2026-06-10T02:39:44.792Z"
+    },
+    {
+      "at": 794287.6000000238,
+      "detail": {
+        "activeFolderId": "session_ywskiblc_mp6p013z",
+        "failureCount": 0,
+        "hasInflight": false
+      },
+      "event": "popup.worker.status.request",
+      "id": 1000,
+      "isoTime": "2026-06-10T02:39:44.795Z"
+    },
+    {
+      "at": 794711.3000000119,
+      "detail": {
+        "activeFolderId": "session_ywskiblc_mp6p013z"
+      },
+      "event": "popup.worker.refresh.response",
+      "id": 1001,
+      "isoTime": "2026-06-10T02:39:45.219Z"
+    },
+    {
+      "at": 794715.8000000119,
+      "detail": {
+        "activeFolderId": "session_ywskiblc_mp6p013z",
+        "failureCount": 0,
+        "hasInflight": false
+      },
+      "event": "popup.worker.status.request",
+      "id": 1002,
+      "isoTime": "2026-06-10T02:39:45.223Z"
+    },
+    {
+      "at": 794717.7000000477,
+      "detail": {
+        "activeFolderId": "session_ywskiblc_mp6p013z",
+        "failureCount": 0,
+        "hasInflight": false
+      },
+      "event": "popup.worker.status.request",
+      "id": 1003,
+      "isoTime": "2026-06-10T02:39:45.225Z"
+    },
+    {
+      "at": 794800.9000000358,
+      "detail": {
+        "activeFolderId": "session_ywskiblc_mp6p013z",
+        "failureCount": 0,
+        "hasInflight": false
+      },
+      "event": "popup.worker.status.request",
+      "id": 1006,
+      "isoTime": "2026-06-10T02:39:45.308Z"
+    },
+    {
+      "at": 795679.1000000238,
+      "detail": {
+        "activeFolderId": "session_ywskiblc_mp6p013z",
+        "failureCount": 0,
+        "hasInflight": false
+      },
+      "event": "popup.worker.status.request",
+      "id": 1007,
+      "isoTime": "2026-06-10T02:39:46.186Z"
+    },
+    {
+      "at": 795682.9000000358,
+      "detail": {
+        "activeFolderId": "session_ywskiblc_mp6p013z",
+        "failureCount": 0,
+        "hasInflight": false
+      },
+      "event": "popup.worker.status.request",
+      "id": 1010,
+      "isoTime": "2026-06-10T02:39:46.190Z"
+    },
+    {
+      "at": 795958.6000000238,
+      "detail": {
+        "activeFolderId": "session_ywskiblc_mp6p013z"
+      },
+      "event": "popup.worker.refresh.response",
+      "id": 1011,
+      "isoTime": "2026-06-10T02:39:46.466Z"
+    },
+    {
+      "at": 795960.9000000358,
+      "detail": {
+        "activeFolderId": "session_ywskiblc_mp6p013z",
+        "failureCount": 0,
+        "hasInflight": false
+      },
+      "event": "popup.worker.status.request",
+      "id": 1012,
+      "isoTime": "2026-06-10T02:39:46.468Z"
+    },
+    {
+      "at": 795962.2000000477,
+      "detail": {
+        "activeFolderId": "session_ywskiblc_mp6p013z",
+        "failureCount": 0,
+        "hasInflight": false
+      },
+      "event": "popup.worker.status.request",
+      "id": 1013,
+      "isoTime": "2026-06-10T02:39:46.470Z"
+    },
+    {
+      "at": 796026.6000000238,
+      "detail": {
+        "activeFolderId": "session_ywskiblc_mp6p013z",
+        "failureCount": 0,
+        "hasInflight": false
+      },
+      "event": "popup.worker.status.request",
+      "id": 1016,
+      "isoTime": "2026-06-10T02:39:46.534Z"
+    },
+    {
+      "at": 796775.9000000358,
+      "detail": {
+        "activeFolderId": "session_ywskiblc_mp6p013z",
+        "failureCount": 0,
+        "hasInflight": false
+      },
+      "event": "popup.worker.status.request",
+      "id": 1017,
+      "isoTime": "2026-06-10T02:39:47.283Z"
+    },
+    {
+      "at": 796779.1000000238,
+      "detail": {
+        "activeFolderId": "session_ywskiblc_mp6p013z",
+        "failureCount": 0,
+        "hasInflight": false
+      },
+      "event": "popup.worker.status.request",
+      "id": 1020,
+      "isoTime": "2026-06-10T02:39:47.286Z"
+    },
+    {
+      "at": 797115.9000000358,
+      "detail": {
+        "activeFolderId": "session_ywskiblc_mp6p013z"
+      },
+      "event": "popup.worker.refresh.response",
+      "id": 1021,
+      "isoTime": "2026-06-10T02:39:47.623Z"
+    },
+    {
+      "at": 797118.8000000119,
+      "detail": {
+        "activeFolderId": "session_ywskiblc_mp6p013z",
+        "failureCount": 0,
+        "hasInflight": false
+      },
+      "event": "popup.worker.status.request",
+      "id": 1022,
+      "isoTime": "2026-06-10T02:39:47.626Z"
+    },
+    {
+      "at": 797120.1000000238,
+      "detail": {
+        "activeFolderId": "session_ywskiblc_mp6p013z",
+        "failureCount": 0,
+        "hasInflight": false
+      },
+      "event": "popup.worker.status.request",
+      "id": 1023,
+      "isoTime": "2026-06-10T02:39:47.627Z"
+    },
+    {
+      "at": 797219.6000000238,
+      "detail": {
+        "activeFolderId": "session_ywskiblc_mp6p013z",
+        "failureCount": 0,
+        "hasInflight": false
+      },
+      "event": "popup.worker.status.request",
+      "id": 1026,
+      "isoTime": "2026-06-10T02:39:47.727Z"
+    },
+    {
+      "at": 797954.3000000119,
+      "detail": {
+        "activeFolderId": "session_ywskiblc_mp6p013z",
+        "failureCount": 0,
+        "hasInflight": false
+      },
+      "event": "popup.worker.status.request",
+      "id": 1027,
+      "isoTime": "2026-06-10T02:39:48.462Z"
+    },
+    {
+      "at": 797957.8000000119,
+      "detail": {
+        "activeFolderId": "session_ywskiblc_mp6p013z",
+        "failureCount": 0,
+        "hasInflight": false
+      },
+      "event": "popup.worker.status.request",
+      "id": 1030,
+      "isoTime": "2026-06-10T02:39:48.465Z"
+    },
+    {
+      "at": 798309.9000000358,
+      "detail": {
+        "activeFolderId": "session_ywskiblc_mp6p013z"
+      },
+      "event": "popup.worker.refresh.response",
+      "id": 1031,
+      "isoTime": "2026-06-10T02:39:48.817Z"
+    },
+    {
+      "at": 798312.4000000358,
+      "detail": {
+        "activeFolderId": "session_ywskiblc_mp6p013z",
+        "failureCount": 0,
+        "hasInflight": false
+      },
+      "event": "popup.worker.status.request",
+      "id": 1032,
+      "isoTime": "2026-06-10T02:39:48.820Z"
+    },
+    {
+      "at": 798315.1000000238,
+      "detail": {
+        "activeFolderId": "session_ywskiblc_mp6p013z",
+        "failureCount": 0,
+        "hasInflight": false
+      },
+      "event": "popup.worker.status.request",
+      "id": 1033,
+      "isoTime": "2026-06-10T02:39:48.822Z"
+    },
+    {
+      "at": 798407,
+      "detail": {
+        "activeFolderId": "session_ywskiblc_mp6p013z",
+        "failureCount": 0,
+        "hasInflight": false
+      },
+      "event": "popup.worker.status.request",
+      "id": 1036,
+      "isoTime": "2026-06-10T02:39:48.914Z"
+    },
+    {
+      "at": 799212.6000000238,
+      "detail": {
+        "activeFolderId": "session_ywskiblc_mp6p013z",
+        "failureCount": 0,
+        "hasInflight": false
+      },
+      "event": "popup.worker.status.request",
+      "id": 1037,
+      "isoTime": "2026-06-10T02:39:49.720Z"
+    },
+    {
+      "at": 799214.7000000477,
+      "detail": {
+        "activeFolderId": "session_ywskiblc_mp6p013z",
+        "failureCount": 0,
+        "hasInflight": false
+      },
+      "event": "popup.worker.status.request",
+      "id": 1040,
+      "isoTime": "2026-06-10T02:39:49.722Z"
+    },
+    {
+      "at": 799461.7000000477,
+      "detail": {
+        "activeFolderId": "session_ywskiblc_mp6p013z"
+      },
+      "event": "popup.worker.refresh.response",
+      "id": 1041,
+      "isoTime": "2026-06-10T02:39:49.969Z"
+    },
+    {
+      "at": 799464.1000000238,
+      "detail": {
+        "activeFolderId": "session_ywskiblc_mp6p013z",
+        "failureCount": 0,
+        "hasInflight": false
+      },
+      "event": "popup.worker.status.request",
+      "id": 1042,
+      "isoTime": "2026-06-10T02:39:49.971Z"
+    },
+    {
+      "at": 799465.3000000119,
+      "detail": {
+        "activeFolderId": "session_ywskiblc_mp6p013z",
+        "failureCount": 0,
+        "hasInflight": false
+      },
+      "event": "popup.worker.status.request",
+      "id": 1043,
+      "isoTime": "2026-06-10T02:39:49.973Z"
+    },
+    {
+      "at": 800140.5,
+      "detail": {
+        "activeFolderId": "session_ywskiblc_mp6p013z",
+        "failureCount": 0,
+        "hasInflight": false
+      },
+      "event": "popup.worker.status.request",
+      "id": 1046,
+      "isoTime": "2026-06-10T02:39:50.648Z"
+    },
+    {
+      "at": 800355.5,
+      "detail": {
+        "activeFolderId": "session_ywskiblc_mp6p013z",
+        "failureCount": 0,
+        "hasInflight": false
+      },
+      "event": "popup.worker.status.request",
+      "id": 1047,
+      "isoTime": "2026-06-10T02:39:50.863Z"
+    },
+    {
+      "at": 800358.2000000477,
+      "detail": {
+        "activeFolderId": "session_ywskiblc_mp6p013z",
+        "failureCount": 0,
+        "hasInflight": false
+      },
+      "event": "popup.worker.status.request",
+      "id": 1050,
+      "isoTime": "2026-06-10T02:39:50.866Z"
+    },
+    {
+      "at": 800786.1000000238,
+      "detail": {
+        "activeFolderId": "session_ywskiblc_mp6p013z",
+        "failureCount": 0,
+        "hasInflight": false
+      },
+      "event": "popup.worker.status.request",
+      "id": 1053,
+      "isoTime": "2026-06-10T02:39:51.293Z"
+    },
+    {
+      "at": 801319.6000000238,
+      "detail": {
+        "elapsedMs": 533.6,
+        "previousWorkerStatus": "idle",
+        "workerStatus": "idle"
+      },
+      "event": "popup.worker.status.response",
+      "id": 1054,
+      "isoTime": "2026-06-10T02:39:51.827Z"
+    },
+    {
+      "at": 801562.8000000119,
+      "detail": {
+        "activeFolderId": "session_ywskiblc_mp6p013z",
+        "failureCount": 0,
+        "hasInflight": false
+      },
+      "event": "popup.worker.status.request",
+      "id": 1055,
+      "isoTime": "2026-06-10T02:39:52.070Z"
+    },
+    {
+      "at": 801891.3000000119,
+      "detail": {
+        "elapsedMs": 328.6,
+        "previousWorkerStatus": "idle",
+        "workerStatus": "idle"
+      },
+      "event": "popup.worker.status.response",
+      "id": 1056,
+      "isoTime": "2026-06-10T02:39:52.399Z"
+    },
+    {
+      "at": 975834.4000000358,
+      "detail": {
+        "activeFolderId": "session_ywskiblc_mp6p013z",
+        "failureCount": 0,
+        "hasInflight": false
+      },
+      "event": "popup.worker.status.request",
+      "id": 1057,
+      "isoTime": "2026-06-10T02:42:46.341Z"
+    },
+    {
+      "at": 976229.4000000358,
+      "detail": {
+        "activeFolderId": "session_ywskiblc_mp6p013z",
+        "failureCount": 0,
+        "hasInflight": false
+      },
+      "event": "popup.worker.status.request",
+      "id": 1058,
+      "isoTime": "2026-06-10T02:42:46.736Z"
+    },
+    {
+      "at": 976527.300000012,
+      "detail": {
+        "activeFolderId": "session_ywskiblc_mp6p013z",
+        "failureCount": 0,
+        "hasInflight": false
+      },
+      "event": "popup.worker.status.request",
+      "id": 1059,
+      "isoTime": "2026-06-10T02:42:47.034Z"
+    },
+    {
+      "at": 976530.6000000238,
+      "detail": {
+        "activeFolderId": "session_ywskiblc_mp6p013z",
+        "failureCount": 0,
+        "hasInflight": false
+      },
+      "event": "popup.worker.status.request",
+      "id": 1062,
+      "isoTime": "2026-06-10T02:42:47.037Z"
+    },
+    {
+      "at": 976588.800000012,
+      "detail": {
+        "activeFolderId": "session_ywskiblc_mp6p013z",
+        "failureCount": 0,
+        "hasInflight": false
+      },
+      "event": "popup.worker.status.request",
+      "id": 1063,
+      "isoTime": "2026-06-10T02:42:47.095Z"
+    },
+    {
+      "at": 976590.300000012,
+      "detail": {
+        "activeFolderId": "session_ywskiblc_mp6p013z",
+        "failureCount": 0,
+        "hasInflight": false
+      },
+      "event": "popup.worker.status.request",
+      "id": 1064,
+      "isoTime": "2026-06-10T02:42:47.097Z"
+    },
+    {
+      "at": 976902.5,
+      "detail": {
+        "activeFolderId": "session_ywskiblc_mp6p013z",
+        "failureCount": 0,
+        "hasInflight": false
+      },
+      "event": "popup.worker.status.request",
+      "id": 1067,
+      "isoTime": "2026-06-10T02:42:47.409Z"
+    },
+    {
+      "at": 977762.5,
+      "detail": {
+        "elapsedMs": 860.1,
+        "previousWorkerStatus": "idle",
+        "workerStatus": "idle"
+      },
+      "event": "popup.worker.status.response",
+      "id": 1068,
+      "isoTime": "2026-06-10T02:42:48.269Z"
+    },
+    {
+      "at": 977792.1000000238,
+      "detail": {
+        "activeFolderId": "session_ywskiblc_mp6p013z",
+        "failureCount": 0,
+        "hasInflight": false
+      },
+      "event": "popup.worker.status.request",
+      "id": 1069,
+      "isoTime": "2026-06-10T02:42:48.298Z"
+    },
+    {
+      "at": 978107.300000012,
+      "detail": {
+        "elapsedMs": 315.2,
+        "previousWorkerStatus": "idle",
+        "workerStatus": "idle"
+      },
+      "event": "popup.worker.status.response",
+      "id": 1070,
+      "isoTime": "2026-06-10T02:42:48.614Z"
+    }
+  ]
+}

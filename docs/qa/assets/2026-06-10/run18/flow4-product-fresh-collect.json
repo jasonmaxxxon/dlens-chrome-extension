@@ -1,0 +1,508 @@
+{
+  "flow4FreshStartRun18": {
+    "bodyCursor": "crosshair",
+    "nowIso": "2026-06-10T02:36:51.620Z",
+    "text": "Hover to preview\n|\nS\nsave\n|\nEsc\nexit\nReady\ndlens\nTopic\nProduct\nPR\nAnnotated Field Guide\nVOL.1\nNO.01\nJun 10\n·\nv.0.1.30\nd\n採集\n訊號\n分類\n行動\n設定\nProduct mode\nSaved Signals\n\n先確認已儲存的 Threads post 是否完成抓取，再到行動頁整理可試 workflow。\n\nNo result\n真實狀態\n0 signals\n0 analyses\nAI key\nProductProfile\nProductContext\nProduct mode 收件匣沒有 signal。先在 Collect 儲存一篇 Threads post。\n分析收件匣",
+    "traceStartId": 479
+  },
+  "productCollectBeforeSaveFlow4": {
+    "bodyCursor": "crosshair",
+    "capturedAt": "2026-06-10T02:36:53.430Z",
+    "newTrace": [
+      {
+        "at": 621603.8000000119,
+        "detail": {
+          "activeFolderId": "session_ywskiblc_mp6p013z",
+          "failureCount": 0,
+          "hasInflight": false
+        },
+        "event": "popup.worker.status.request",
+        "id": 480,
+        "isoTime": "2026-06-10T02:36:52.112Z"
+      },
+      {
+        "at": 621605.4000000358,
+        "detail": {
+          "folderId": "session_ywskiblc_mp6p013z",
+          "isProductSignalPage": false,
+          "mode": "product",
+          "page": "collect",
+          "popupOpen": true
+        },
+        "event": "popup.product.hydrate.skip",
+        "id": 481,
+        "isoTime": "2026-06-10T02:36:52.114Z"
+      },
+      {
+        "at": 622001.3000000119,
+        "detail": {
+          "activeFolderId": "session_ywskiblc_mp6p013z",
+          "failureCount": 0,
+          "hasInflight": false
+        },
+        "event": "popup.worker.status.request",
+        "id": 482,
+        "isoTime": "2026-06-10T02:36:52.510Z"
+      },
+      {
+        "at": 622274,
+        "detail": {
+          "activeFolderId": "session_ywskiblc_mp6p013z",
+          "failureCount": 0,
+          "hasInflight": false
+        },
+        "event": "popup.worker.status.request",
+        "id": 483,
+        "isoTime": "2026-06-10T02:36:52.782Z"
+      },
+      {
+        "at": 622275.1000000238,
+        "detail": {
+          "folderId": "session_ywskiblc_mp6p013z",
+          "mode": "product"
+        },
+        "event": "popup.topic.hydrate.request",
+        "id": 484,
+        "isoTime": "2026-06-10T02:36:52.783Z"
+      },
+      {
+        "at": 622276.1000000238,
+        "detail": {
+          "folderId": "session_ywskiblc_mp6p013z",
+          "isProductSignalPage": false,
+          "mode": "product",
+          "page": "collect",
+          "popupOpen": true
+        },
+        "event": "popup.product.hydrate.skip",
+        "id": 485,
+        "isoTime": "2026-06-10T02:36:52.784Z"
+      },
+      {
+        "at": 622278.3000000119,
+        "detail": {
+          "activeFolderId": "session_ywskiblc_mp6p013z",
+          "failureCount": 0,
+          "hasInflight": false
+        },
+        "event": "popup.worker.status.request",
+        "id": 486,
+        "isoTime": "2026-06-10T02:36:52.787Z"
+      },
+      {
+        "at": 622331.4000000358,
+        "detail": {
+          "activeFolderId": "session_ywskiblc_mp6p013z",
+          "failureCount": 0,
+          "hasInflight": false
+        },
+        "event": "popup.worker.status.request",
+        "id": 487,
+        "isoTime": "2026-06-10T02:36:52.840Z"
+      },
+      {
+        "at": 622333.1000000238,
+        "detail": {
+          "activeFolderId": "session_ywskiblc_mp6p013z",
+          "failureCount": 0,
+          "hasInflight": false
+        },
+        "event": "popup.worker.status.request",
+        "id": 488,
+        "isoTime": "2026-06-10T02:36:52.841Z"
+      },
+      {
+        "at": 622584.6000000238,
+        "detail": {
+          "folderId": "session_ywskiblc_mp6p013z",
+          "mode": "product",
+          "signalCount": 0,
+          "signalsOk": true,
+          "topicCount": 0,
+          "topicsOk": true
+        },
+        "event": "popup.topic.hydrate.response",
+        "id": 489,
+        "isoTime": "2026-06-10T02:36:53.093Z"
+      },
+      {
+        "at": 622586.2000000477,
+        "detail": {
+          "activeFolderId": "session_ywskiblc_mp6p013z",
+          "failureCount": 0,
+          "hasInflight": false
+        },
+        "event": "popup.worker.status.request",
+        "id": 490,
+        "isoTime": "2026-06-10T02:36:53.094Z"
+      }
+    ],
+    "rootText": "Hover to preview\n|\nS\nsave\n|\nEsc\nexit\nReady\n已加入產品訊號\ndlens\nTopic\nProduct\nPR\nAnnotated Field Guide\nVOL.1\nNO.02\nJun 10\n·\nv.0.1.30\nd\n採集\n訊號\n分類\n行動\n設定\nCollect mode live\n快速判斷，加入產品訊號\n\n指向 Threads 貼文即可預覽，按下加入產品訊號收件匣。\n\nActive\nLive capture\n預覽中\n天\n天下一恆運香港觀塘分公司內有1000平方呎全黑室內多用途Studio🕋場地配備休息室，可供化妝或更衣，可供任何廣告拍攝、創意拍攝、教學活動或任何展覽展示活動使用，歡迎租用📞27939662  Translate\n產品訊號收件匣 · Product mode\n在 Threads 開啟\n天下一恆運香港觀塘分公司內有1000平方呎全黑室內多用途Studio🕋場地配備休息室，可供化妝或更衣，可供任何廣告拍攝、創意拍攝、教學活動或任何展覽展示活動使用，歡迎租用📞27939662\n加入產品訊號\nSelection active\n收集模式：開啟\n移動游標選取貼文。\n關閉收集模式\nS · 儲存\nEsc · 離開"
+  },
+  "productCollectAfterSaveFlow4": {
+    "bodyCursor": "crosshair",
+    "capturedAt": "2026-06-10T02:36:56.258Z",
+    "newTrace": [
+      {
+        "at": 621603.8000000119,
+        "detail": {
+          "activeFolderId": "session_ywskiblc_mp6p013z",
+          "failureCount": 0,
+          "hasInflight": false
+        },
+        "event": "popup.worker.status.request",
+        "id": 480,
+        "isoTime": "2026-06-10T02:36:52.112Z"
+      },
+      {
+        "at": 621605.4000000358,
+        "detail": {
+          "folderId": "session_ywskiblc_mp6p013z",
+          "isProductSignalPage": false,
+          "mode": "product",
+          "page": "collect",
+          "popupOpen": true
+        },
+        "event": "popup.product.hydrate.skip",
+        "id": 481,
+        "isoTime": "2026-06-10T02:36:52.114Z"
+      },
+      {
+        "at": 622001.3000000119,
+        "detail": {
+          "activeFolderId": "session_ywskiblc_mp6p013z",
+          "failureCount": 0,
+          "hasInflight": false
+        },
+        "event": "popup.worker.status.request",
+        "id": 482,
+        "isoTime": "2026-06-10T02:36:52.510Z"
+      },
+      {
+        "at": 622274,
+        "detail": {
+          "activeFolderId": "session_ywskiblc_mp6p013z",
+          "failureCount": 0,
+          "hasInflight": false
+        },
+        "event": "popup.worker.status.request",
+        "id": 483,
+        "isoTime": "2026-06-10T02:36:52.782Z"
+      },
+      {
+        "at": 622275.1000000238,
+        "detail": {
+          "folderId": "session_ywskiblc_mp6p013z",
+          "mode": "product"
+        },
+        "event": "popup.topic.hydrate.request",
+        "id": 484,
+        "isoTime": "2026-06-10T02:36:52.783Z"
+      },
+      {
+        "at": 622276.1000000238,
+        "detail": {
+          "folderId": "session_ywskiblc_mp6p013z",
+          "isProductSignalPage": false,
+          "mode": "product",
+          "page": "collect",
+          "popupOpen": true
+        },
+        "event": "popup.product.hydrate.skip",
+        "id": 485,
+        "isoTime": "2026-06-10T02:36:52.784Z"
+      },
+      {
+        "at": 622278.3000000119,
+        "detail": {
+          "activeFolderId": "session_ywskiblc_mp6p013z",
+          "failureCount": 0,
+          "hasInflight": false
+        },
+        "event": "popup.worker.status.request",
+        "id": 486,
+        "isoTime": "2026-06-10T02:36:52.787Z"
+      },
+      {
+        "at": 622331.4000000358,
+        "detail": {
+          "activeFolderId": "session_ywskiblc_mp6p013z",
+          "failureCount": 0,
+          "hasInflight": false
+        },
+        "event": "popup.worker.status.request",
+        "id": 487,
+        "isoTime": "2026-06-10T02:36:52.840Z"
+      },
+      {
+        "at": 622333.1000000238,
+        "detail": {
+          "activeFolderId": "session_ywskiblc_mp6p013z",
+          "failureCount": 0,
+          "hasInflight": false
+        },
+        "event": "popup.worker.status.request",
+        "id": 488,
+        "isoTime": "2026-06-10T02:36:52.841Z"
+      },
+      {
+        "at": 622584.6000000238,
+        "detail": {
+          "folderId": "session_ywskiblc_mp6p013z",
+          "mode": "product",
+          "signalCount": 0,
+          "signalsOk": true,
+          "topicCount": 0,
+          "topicsOk": true
+        },
+        "event": "popup.topic.hydrate.response",
+        "id": 489,
+        "isoTime": "2026-06-10T02:36:53.093Z"
+      },
+      {
+        "at": 622586.2000000477,
+        "detail": {
+          "activeFolderId": "session_ywskiblc_mp6p013z",
+          "failureCount": 0,
+          "hasInflight": false
+        },
+        "event": "popup.worker.status.request",
+        "id": 490,
+        "isoTime": "2026-06-10T02:36:53.094Z"
+      },
+      {
+        "at": 623293.6000000238,
+        "detail": {
+          "elapsedMs": 707.3,
+          "previousWorkerStatus": "idle",
+          "workerStatus": "idle"
+        },
+        "event": "popup.worker.status.response",
+        "id": 491,
+        "isoTime": "2026-06-10T02:36:53.802Z"
+      },
+      {
+        "at": 623444.8000000119,
+        "detail": {
+          "rect": {
+            "height": 450,
+            "left": 761,
+            "top": 148,
+            "width": 638
+          },
+          "strength": "hard"
+        },
+        "event": "content.overlay.render",
+        "id": 492,
+        "isoTime": "2026-06-10T02:36:53.953Z"
+      },
+      {
+        "at": 623445.5,
+        "detail": {
+          "delayMs": 0,
+          "fingerprint": "/@fredhongyi/post/DZYqHaCjzT6",
+          "hasCard": true,
+          "strength": "hard"
+        },
+        "event": "content.hover.card-change",
+        "id": 493,
+        "isoTime": "2026-06-10T02:36:53.954Z"
+      },
+      {
+        "at": 623451,
+        "detail": {
+          "hasDescriptor": true,
+          "postUrl": "https://www.threads.net/@fredhongyi/post/DZYqHaCjzT6",
+          "readMs": 2.5
+        },
+        "event": "content.hover.intent-fired",
+        "id": 494,
+        "isoTime": "2026-06-10T02:36:53.959Z"
+      },
+      {
+        "at": 623451.8000000119,
+        "detail": {
+          "author": "fredhongyi",
+          "hasDescriptor": true,
+          "postUrl": "https://www.threads.net/@fredhongyi/post/DZYqHaCjzT6",
+          "strength": "hard"
+        },
+        "event": "content.hover.publish",
+        "id": 495,
+        "isoTime": "2026-06-10T02:36:53.960Z"
+      },
+      {
+        "at": 623454.1000000238,
+        "detail": {
+          "activeFolderId": "session_ywskiblc_mp6p013z",
+          "failureCount": 0,
+          "hasInflight": false
+        },
+        "event": "popup.worker.status.request",
+        "id": 496,
+        "isoTime": "2026-06-10T02:36:53.962Z"
+      },
+      {
+        "at": 623538,
+        "detail": {
+          "activeFolderId": "session_ywskiblc_mp6p013z",
+          "failureCount": 0,
+          "hasInflight": false
+        },
+        "event": "popup.worker.status.request",
+        "id": 497,
+        "isoTime": "2026-06-10T02:36:54.046Z"
+      },
+      {
+        "at": 623571.7000000477,
+        "detail": {
+          "activeFolderId": "session_ywskiblc_mp6p013z",
+          "failureCount": 0,
+          "hasInflight": false
+        },
+        "event": "popup.worker.status.request",
+        "id": 498,
+        "isoTime": "2026-06-10T02:36:54.080Z"
+      },
+      {
+        "at": 623572.8000000119,
+        "detail": {
+          "activeFolderId": "session_ywskiblc_mp6p013z",
+          "failureCount": 0,
+          "hasInflight": false
+        },
+        "event": "popup.worker.status.request",
+        "id": 499,
+        "isoTime": "2026-06-10T02:36:54.081Z"
+      },
+      {
+        "at": 624207.9000000358,
+        "detail": {
+          "elapsedMs": 635,
+          "previousWorkerStatus": "idle",
+          "workerStatus": "idle"
+        },
+        "event": "popup.worker.status.response",
+        "id": 500,
+        "isoTime": "2026-06-10T02:36:54.716Z"
+      },
+      {
+        "at": 624776.5,
+        "detail": {
+          "activeFolderId": "session_ywskiblc_mp6p013z",
+          "failureCount": 0,
+          "hasInflight": false
+        },
+        "event": "popup.worker.status.request",
+        "id": 501,
+        "isoTime": "2026-06-10T02:36:55.285Z"
+      },
+      {
+        "at": 624867.6000000238,
+        "detail": {
+          "activeFolderId": "session_ywskiblc_mp6p013z",
+          "failureCount": 0,
+          "hasInflight": false
+        },
+        "event": "popup.worker.status.request",
+        "id": 502,
+        "isoTime": "2026-06-10T02:36:55.376Z"
+      },
+      {
+        "at": 624868.4000000358,
+        "detail": {
+          "folderId": "session_ywskiblc_mp6p013z",
+          "mode": "product"
+        },
+        "event": "popup.topic.hydrate.request",
+        "id": 503,
+        "isoTime": "2026-06-10T02:36:55.377Z"
+      },
+      {
+        "at": 624868.8000000119,
+        "detail": {
+          "folderId": "session_ywskiblc_mp6p013z",
+          "isProductSignalPage": false,
+          "mode": "product",
+          "page": "collect",
+          "popupOpen": true
+        },
+        "event": "popup.product.hydrate.skip",
+        "id": 504,
+        "isoTime": "2026-06-10T02:36:55.377Z"
+      },
+      {
+        "at": 624869.9000000358,
+        "detail": {
+          "activeFolderId": "session_ywskiblc_mp6p013z",
+          "failureCount": 0,
+          "hasInflight": false
+        },
+        "event": "popup.worker.status.request",
+        "id": 505,
+        "isoTime": "2026-06-10T02:36:55.378Z"
+      },
+      {
+        "at": 624905.2000000477,
+        "detail": {
+          "activeFolderId": "session_ywskiblc_mp6p013z",
+          "failureCount": 0,
+          "hasInflight": false
+        },
+        "event": "popup.worker.status.request",
+        "id": 506,
+        "isoTime": "2026-06-10T02:36:55.413Z"
+      },
+      {
+        "at": 624906.4000000358,
+        "detail": {
+          "activeFolderId": "session_ywskiblc_mp6p013z",
+          "failureCount": 0,
+          "hasInflight": false
+        },
+        "event": "popup.worker.status.request",
+        "id": 507,
+        "isoTime": "2026-06-10T02:36:55.415Z"
+      },
+      {
+        "at": 625195.8000000119,
+        "detail": {
+          "folderId": "session_ywskiblc_mp6p013z",
+          "mode": "product",
+          "signalCount": 1,
+          "signalsOk": true,
+          "topicCount": 0,
+          "topicsOk": true
+        },
+        "event": "popup.topic.hydrate.response",
+        "id": 508,
+        "isoTime": "2026-06-10T02:36:55.704Z"
+      },
+      {
+        "at": 625197.7000000477,
+        "detail": {
+          "activeFolderId": "session_ywskiblc_mp6p013z",
+          "failureCount": 0,
+          "hasInflight": false
+        },
+        "event": "popup.worker.status.request",
+        "id": 509,
+        "isoTime": "2026-06-10T02:36:55.706Z"
+      },
+      {
+        "at": 625198.8000000119,
+        "detail": {
+          "folderId": "session_ywskiblc_mp6p013z",
+          "isProductSignalPage": false,
+          "mode": "product",
+          "page": "collect",
+          "popupOpen": true
+        },
+        "event": "popup.product.hydrate.skip",
+        "id": 510,
+        "isoTime": "2026-06-10T02:36:55.707Z"
+      }
+    ],
+    "rootText": "Hover to preview\n|\nS\nsave\n|\nEsc\nexit\nReady\n已加入產品訊號\ndlens\nTopic\nProduct\nPR\nAnnotated Field Guide\nVOL.1\nNO.02\nJun 10\n·\nv.0.1.30\nd\n採集\n訊號\n分類\n行動\n設定\nCollect mode live\n快速判斷，加入產品訊號\n\n指向 Threads 貼文即可預覽，按下加入產品訊號收件匣。\n\nActive\nLive capture\n已儲存\nF\nfredhongyi\n產品訊號收件匣 · Product mode\n在 Threads 開啟\n從好物變被丟棄... github copilot 本來主打，以提出幾次 prompt 為計算單位，等於說，prompt 下的好，可以一次性開發出一個很棒的專案，且只算一次使用的量。 但6月後調整為 AI credits 已經沒有此紅利... 實測，我用不到一個下午，就已經快撐爆一個月的用量。 只好直接捨棄了。\n2\n5\n—\n—\n已加入產品訊號\nSelection active\n收集模式：開啟\n移動游標選取貼文。\n關閉收集模式\nS · 儲存\nEsc · 離開"
+  }
+}

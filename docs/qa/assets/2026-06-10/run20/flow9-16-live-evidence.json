@@ -1,0 +1,1151 @@
+{
+  "gate": {
+    "launcherAria": "Open DLens popup",
+    "launcherComputed": {
+      "pointerEvents": "auto",
+      "zIndex": "2147483640"
+    },
+    "launcherRect": {
+      "h": 48,
+      "w": 48,
+      "x": 2088,
+      "y": 24
+    },
+    "loggedInFeed": true,
+    "qaTraceVersion": "run14-url-trace-v1",
+    "rootComputed": {
+      "height": "1083px",
+      "pointerEvents": "none",
+      "position": "fixed",
+      "width": "2160px",
+      "zIndex": "2147483639"
+    },
+    "rootExists": true,
+    "rootInline": {
+      "height": "100vh",
+      "inset": "0px",
+      "pointerEvents": "none",
+      "position": "fixed",
+      "width": "100vw",
+      "zIndex": "2147483639"
+    },
+    "title": "(4) Home • Threads",
+    "url": "https://www.threads.com/#dlensQaTrace=1"
+  },
+  "popupOpen": {
+    "controls": [
+      {
+        "aria": "Close DLens popup",
+        "disabled": false,
+        "rect": {
+          "h": 48,
+          "w": 48,
+          "x": 2088,
+          "y": 24
+        },
+        "tag": "button",
+        "text": ""
+      },
+      {
+        "aria": null,
+        "disabled": false,
+        "rect": {
+          "h": 18.4921875,
+          "w": 47.37890625,
+          "x": 1492.921875,
+          "y": 112.23046875
+        },
+        "tag": "button",
+        "text": "Topic"
+      },
+      {
+        "aria": null,
+        "disabled": false,
+        "rect": {
+          "h": 19.046951293945312,
+          "w": 62.6568603515625,
+          "x": 1541.380615234375,
+          "y": 111.95308685302734
+        },
+        "tag": "button",
+        "text": "Product"
+      },
+      {
+        "aria": null,
+        "disabled": false,
+        "rect": {
+          "h": 18.4921875,
+          "w": 33.59765625,
+          "x": 1605.1171875,
+          "y": 112.23046875
+        },
+        "tag": "button",
+        "text": "PR"
+      },
+      {
+        "aria": null,
+        "disabled": false,
+        "rect": {
+          "h": 57.99609375,
+          "w": 54.515625,
+          "x": 1439.98828125,
+          "y": 214.9453125
+        },
+        "tag": "button",
+        "text": "採集"
+      },
+      {
+        "aria": null,
+        "disabled": false,
+        "rect": {
+          "h": 57.99609375,
+          "w": 54.515625,
+          "x": 1439.98828125,
+          "y": 280.93359375
+        },
+        "tag": "button",
+        "text": "訊號"
+      },
+      {
+        "aria": null,
+        "disabled": false,
+        "rect": {
+          "h": 57.99609375,
+          "w": 54.515625,
+          "x": 1439.98828125,
+          "y": 346.921875
+        },
+        "tag": "button",
+        "text": "分類"
+      },
+      {
+        "aria": null,
+        "disabled": false,
+        "rect": {
+          "h": 57.99609375,
+          "w": 54.515625,
+          "x": 1439.98828125,
+          "y": 412.91015625
+        },
+        "tag": "button",
+        "text": "行動"
+      },
+      {
+        "aria": null,
+        "disabled": false,
+        "rect": {
+          "h": 57.99609375,
+          "w": 54.515625,
+          "x": 1439.98828125,
+          "y": 484.8984375
+        },
+        "tag": "button",
+        "text": "設定"
+      },
+      {
+        "aria": null,
+        "disabled": true,
+        "rect": {
+          "h": 32.484375,
+          "w": 87.984375,
+          "x": 1544.7421875,
+          "y": 341.53125
+        },
+        "tag": "button",
+        "text": "分析收件匣"
+      }
+    ],
+    "hasProduct": true,
+    "launcherAria": "Close DLens popup",
+    "rootHtmlLen": 25202,
+    "text": "[data-dlens-control=\"true\"] [data-dlens-button] { transition: transform 160ms cubic-bezier(0.34, 1.56, 0.64, 1), background-color 140ms cubic-bezier(0.4, 0, 0.2, 1), box-shadow 160ms cubic-bezier(0.4, 0, 0.2, 1), border-color 140ms cubic-bezier(0.4, 0, 0.2, 1), filter 140ms cubic-bezier(0.4, 0, 0.2, 1); } [data-dlens-control=\"true\"] [data-dlens-button]:not(:disabled):hover { transform: translateY(-1px); } [data-dlens-control=\"true\"] [data-dlens-button]:not(:disabled):active { transform: translateY(0) scale(0.96); transition: transform 90ms cubic-bezier(0.4, 0, 0.2, 1), background-color 140ms cubic-bezier(0.4, 0, 0.2, 1); } [data-dlens-control=\"true\"] [data-dlens-button]:focus-visible { outline: 2px solid var(--dlens-mode-accent, #1a2e4f); outline-offset: 2px; } [data-dlens-control=\"true\"] [data-dlens-button=\"primary\"]:not(:disabled):hover { transform: translateY(-3px); box-shadow: 0 12px 26px rgba(27, 26, 23, 0.22); filter: brightness(1.05); } [data-dlens-control=\"true\"] [data-dlens-button=\"primary\"]:not(:disabled):active { transform: translateY(0) scale(0.93); transition: transform 90ms cubic-bezier(0.4, 0, 0.2, 1), box-shadow 140ms cubic-bezier(0.4, 0, 0.2, 1); } [data-dlens-control=\"true\"] [data-dlens-button=\"secondary\"]:not(:disabled):hover { background: var(--dlens-mode-accent-soft, rgba(26,46,79,0.09)); border-color: var(--dlens-mode-hover-border-soft, rgba(27,26,23,0.18)); } @keyframes dlens-mode-swap-in { 0% { opacity: 0.45; transform: translateY(2px); } 100% { opacity: 1; transform: translateY(0); } } @media (prefers-reduced-motion: reduce) { [data-dlens-control=\"true\"] [data-dlens-button], [data-dlens-control=\"true\"] [data-dlens-button]:not(:disabled):active { transition: background-color 140ms cubic-bezier(0.4, 0, 0.2, 1), box-shadow 140ms cubic-bezier(0.4, 0, 0.2, 1), border-color 140ms cubic-bezier(0.4, 0, 0.2, 1) !important; } [data-dlens-control=\"true\"] [data-dlens-button]:not(:disabled):hover, [data-dlens-control=\"true\"] [data-dlens-button]:not(:disabled):active { transform: none !important; } [data-dlens-control=\"true\"] [data-dlens-button], [data-dlens-control=\"true\"] [data-workspace-mode-frame=\"true\"] { animation: none !important; } } dlens [data-dlens-control=\"true\"] [data-workspace-switcher-motion=\"verdict\"] [data-workspace-switcher-mode] { transition:transform 220ms cubic-bezier(0.22, 1.12, 0.36, 1), background-color 180ms cubic-bezier(0.4, 0, 0.2, 1), border-color 180ms cubic-bezier(0.4, 0, 0.2, 1), box-shadow 180ms cubic-bezier(0.4, 0, 0.2, 1), color 180ms cubic-bezier(0.4, 0, 0.2, 1); will-change: transform; } [data-dlens-control=\"true\"] [data-workspace-switcher-motion=\"verdict\"] [data-workspace-switcher-mode]:not(:disabled):hover { transform: scale(1.04); } [data-dlens-control=\"true\"] [data-workspace-switcher-motion=\"verdict\"] [data-workspace-switcher-active=\"true\"] { transform: scale(1.03); box-shadow: 0 4px 10px rgba(27,26,23,0.10); } @media (prefers-reduced-motion: reduce) { [data-dlens-control=\"true\"] [data-workspace-switcher-motion=\"verdict\"] [data-workspace-switcher-mode], [data-dlens-control=\"true\"] [data-workspace-switcher-motion=\"verdict\"] [data-workspace-switcher-mode]:not(:disabled):hover, [data-dlens-control=\"true\"] [data-workspace-switcher-motion=\"verdict\"] [data-workspace-switcher-active=\"true\"] { transition: background-color 140ms cubic-bezier(0.4, 0, 0.2, 1), border-color 140ms cubic-bezier(0.4, 0, 0.2, 1), color 140ms cubic-bezier(0.4, 0, 0.2, 1) !important; transform: none !important; } } TopicProductPRAnnotated Field GuideVOL.1NO.01Jun 10·v.0.1.30d採集訊號分類行動設定 [data-dlens-control=\"true\"] [data-scan-list] [data-scan-row]:hover { background: rgba(27, 26, 23, 0.028); } [data-dlens-control=\"true\"] [data-scan-list] [data-scan-row]:last-child { border-bottom: 0; } Product modeSaved Signals先確認已儲存的 Threads post 是否完成抓取，再到行動頁整理可試 workflow。No result真實狀態0 signals0 analysesAI keyProductProfileProductContextProduct mode 收件匣沒有 signal。先在 Collect 儲存一篇 Threads post。分析收件匣",
+    "traceCount": null,
+    "traceTail": null
+  },
+  "afterHydrateWait": {
+    "badTokens": [],
+    "controls": [
+      {
+        "aria": "Close DLens popup",
+        "disabled": false,
+        "text": ""
+      },
+      {
+        "aria": null,
+        "disabled": false,
+        "text": "Topic"
+      },
+      {
+        "aria": null,
+        "disabled": false,
+        "text": "Product"
+      },
+      {
+        "aria": null,
+        "disabled": false,
+        "text": "PR"
+      },
+      {
+        "aria": null,
+        "disabled": false,
+        "text": "採集"
+      },
+      {
+        "aria": null,
+        "disabled": false,
+        "text": "訊號"
+      },
+      {
+        "aria": null,
+        "disabled": false,
+        "text": "分類"
+      },
+      {
+        "aria": null,
+        "disabled": false,
+        "text": "行動"
+      },
+      {
+        "aria": null,
+        "disabled": false,
+        "text": "設定"
+      },
+      {
+        "aria": null,
+        "disabled": false,
+        "text": "分析收件匣"
+      },
+      {
+        "aria": "移除此訊號",
+        "disabled": false,
+        "text": "×"
+      },
+      {
+        "aria": "移除此訊號",
+        "disabled": false,
+        "text": "×"
+      },
+      {
+        "aria": "移除此訊號",
+        "disabled": false,
+        "text": "×"
+      },
+      {
+        "aria": "移除此訊號",
+        "disabled": false,
+        "text": "×"
+      },
+      {
+        "aria": "移除此訊號",
+        "disabled": false,
+        "text": "×"
+      },
+      {
+        "aria": "移除此訊號",
+        "disabled": false,
+        "text": "×"
+      },
+      {
+        "aria": "移除此訊號",
+        "disabled": false,
+        "text": "×"
+      },
+      {
+        "aria": "移除此訊號",
+        "disabled": false,
+        "text": "×"
+      },
+      {
+        "aria": "移除此訊號",
+        "disabled": false,
+        "text": "×"
+      },
+      {
+        "aria": "移除此訊號",
+        "disabled": false,
+        "text": "×"
+      },
+      {
+        "aria": "移除此訊號",
+        "disabled": false,
+        "text": "×"
+      },
+      {
+        "aria": "移除此訊號",
+        "disabled": false,
+        "text": "×"
+      },
+      {
+        "aria": "移除此訊號",
+        "disabled": false,
+        "text": "×"
+      },
+      {
+        "aria": "移除此訊號",
+        "disabled": false,
+        "text": "×"
+      },
+      {
+        "aria": "移除此訊號",
+        "disabled": false,
+        "text": "×"
+      },
+      {
+        "aria": "移除此訊號",
+        "disabled": false,
+        "text": "×"
+      },
+      {
+        "aria": "移除此訊號",
+        "disabled": false,
+        "text": "×"
+      },
+      {
+        "aria": "移除此訊號",
+        "disabled": false,
+        "text": "×"
+      }
+    ],
+    "text": "[data-dlens-control=\"true\"] [data-dlens-button] { transition: transform 160ms cubic-bezier(0.34, 1.56, 0.64, 1), background-color 140ms cubic-bezier(0.4, 0, 0.2, 1), box-shadow 160ms cubic-bezier(0.4, 0, 0.2, 1), border-color 140ms cubic-bezier(0.4, 0, 0.2, 1), filter 140ms cubic-bezier(0.4, 0, 0.2, 1); } [data-dlens-control=\"true\"] [data-dlens-button]:not(:disabled):hover { transform: translateY(-1px); } [data-dlens-control=\"true\"] [data-dlens-button]:not(:disabled):active { transform: translateY(0) scale(0.96); transition: transform 90ms cubic-bezier(0.4, 0, 0.2, 1), background-color 140ms cubic-bezier(0.4, 0, 0.2, 1); } [data-dlens-control=\"true\"] [data-dlens-button]:focus-visible { outline: 2px solid var(--dlens-mode-accent, #1a2e4f); outline-offset: 2px; } [data-dlens-control=\"true\"] [data-dlens-button=\"primary\"]:not(:disabled):hover { transform: translateY(-3px); box-shadow: 0 12px 26px rgba(27, 26, 23, 0.22); filter: brightness(1.05); } [data-dlens-control=\"true\"] [data-dlens-button=\"primary\"]:not(:disabled):active { transform: translateY(0) scale(0.93); transition: transform 90ms cubic-bezier(0.4, 0, 0.2, 1), box-shadow 140ms cubic-bezier(0.4, 0, 0.2, 1); } [data-dlens-control=\"true\"] [data-dlens-button=\"secondary\"]:not(:disabled):hover { background: var(--dlens-mode-accent-soft, rgba(26,46,79,0.09)); border-color: var(--dlens-mode-hover-border-soft, rgba(27,26,23,0.18)); } @keyframes dlens-mode-swap-in { 0% { opacity: 0.45; transform: translateY(2px); } 100% { opacity: 1; transform: translateY(0); } } @media (prefers-reduced-motion: reduce) { [data-dlens-control=\"true\"] [data-dlens-button], [data-dlens-control=\"true\"] [data-dlens-button]:not(:disabled):active { transition: background-color 140ms cubic-bezier(0.4, 0, 0.2, 1), box-shadow 140ms cubic-bezier(0.4, 0, 0.2, 1), border-color 140ms cubic-bezier(0.4, 0, 0.2, 1) !important; } [data-dlens-control=\"true\"] [data-dlens-button]:not(:disabled):hover, [data-dlens-control=\"true\"] [data-dlens-button]:not(:disabled):active { transform: none !important; } [data-dlens-control=\"true\"] [data-dlens-button], [data-dlens-control=\"true\"] [data-workspace-mode-frame=\"true\"] { animation: none !important; } } dlens [data-dlens-control=\"true\"] [data-workspace-switcher-motion=\"verdict\"] [data-workspace-switcher-mode] { transition:transform 220ms cubic-bezier(0.22, 1.12, 0.36, 1), background-color 180ms cubic-bezier(0.4, 0, 0.2, 1), border-color 180ms cubic-bezier(0.4, 0, 0.2, 1), box-shadow 180ms cubic-bezier(0.4, 0, 0.2, 1), color 180ms cubic-bezier(0.4, 0, 0.2, 1); will-change: transform; } [data-dlens-control=\"true\"] [data-workspace-switcher-motion=\"verdict\"] [data-workspace-switcher-mode]:not(:disabled):hover { transform: scale(1.04); } [data-dlens-control=\"true\"] [data-workspace-switcher-motion=\"verdict\"] [data-workspace-switcher-active=\"true\"] { transform: scale(1.03); box-shadow: 0 4px 10px rgba(27,26,23,0.10); } @media (prefers-reduced-motion: reduce) { [data-dlens-control=\"true\"] [data-workspace-switcher-motion=\"verdict\"] [data-workspace-switcher-mode], [data-dlens-control=\"true\"] [data-workspace-switcher-motion=\"verdict\"] [data-workspace-switcher-mode]:not(:disabled):hover, [data-dlens-control=\"true\"] [data-workspace-switcher-motion=\"verdict\"] [data-workspace-switcher-active=\"true\"] { transition: background-color 140ms cubic-bezier(0.4, 0, 0.2, 1), border-color 140ms cubic-bezier(0.4, 0, 0.2, 1), color 140ms cubic-bezier(0.4, 0, 0.2, 1) !important; transform: none !important; } } TopicProductPRAnnotated Field GuideVOL.1NO.01Jun 10·v.0.1.30d採集訊號分類行動設定 [data-dlens-control=\"true\"] [data-scan-list] [data-scan-row]:hover { background: rgba(27, 26, 23, 0.028); } [data-dlens-control=\"true\"] [data-scan-list] [data-scan-row]:last-child { border-bottom: 0; } Product modeSaved Signals先確認已儲存的 Threads post 是否完成抓取，再到行動頁整理可試 workflow。No result真實狀態9 signals0 analysesAI keyProductProfileProductContext有 signal 尚未抓取。按分析收件匣會先送出抓取請求，完成後再分析。分析收件匣等待處理的 signals可分析未分析threads×已有 assembled content，可以執行 ProductSignalAnalyzer。Claude Codeだけで10個のSNSアカウントを自動管理し、月2万ドル超を稼いでいる日本人の動画が話題になってる🧵 どうやってるか、仕組みを整理した。尚未抓取未分析threads×按分析會先送出抓取請求。我有個朋友終於完成phd學位，同佢食食下飯，問佢:「辛苦左咁多年，有咩想講？」 佢話:「粗口。」 我靜左。可分析未分析threads×已有 assembled content，可以執行 ProductSignalAnalyzer。好羨慕大家可以用「完sem」兩隻字 Final year既我已經要用「畢業」了。 …………😭🙏🏻可分析未分析threads×已有 assembled content，可以執行 ProductSignalAnalyzer。我收到聲稱係6ixty 8ight team 搵人做model 拍片，但拍完又5使公開 想問下係真 定又係詐騙🥹🥹🥹可分析未分析threads×已有 assembled content，可以執行 ProductSignalAnalyzer。大家唔好去食葵芳新都會廣場二樓「樂麵」 衛生真係差到仆街，開放式廚房，發黑發霉嘅外賣盒係照用，跌過落地嘅夾係照用（廚房地下係鋪滿廢油，湯積，積水），堂食用嘅餐具係好似冇洗過咁，啲調味料仲喺個羹到，一百蚊一個拉麵，五十幾蚊5隻餃子，咁嘅衛生，我真係笑出嚟可分析未分析threads×已有 assembled content，可以執行 ProductSignalAnalyzer。Claude code就很犯賤 結尾加上一句「完成後會請Codex覆檢」 成果好到靠北 by Opus 4.7 xhigh可分析未分析threads×已有 assembled content，可以執行 ProductSignalAnalyzer。家母見我完sem冇嘢做就想我報下course 學下嘢 但係佢地而家係咁叫我去上ai course 我硬係覺得ai cert course都好似冇乜用🫣 dum錢出街咁 寧願學返coding 睇下搞唔搞project 或者學下ui/ux 有冇人同我講究竟市面上啲ai course 其實教緊啲乜🙂‍↕️🙏🏻🙏🏻可分析未分析threads×已有 assembled content，可以執行 ProductSignalAnalyzer。分享最近為自己 vibe code 的大量閱讀工具：Long Drive / 長途駕駛。 目標很簡單：讓大量閱讀變得像在漂亮公路上長途駕駛一樣舒服。 AI 時代，我最大的痛點就是：每天要讀太多純文字資訊。 AI 不會累，我會 😢 所以我做了一套更適合自己大腦的閱讀系統： 1. 所有要吸收的文章、影片、AI 回覆，除了請 AI 產出 Markdown，多產出一層 html（感謝 Claude Code 和 Thariq 的文章啟發） 2. 建構一套「知識視覺化系統」，把不同類可分析未分析threads×已有 assembled content，可以執行 ProductSignalAnalyzer。我用 AI 寫論文，差點引用了一個不存在的研究。 數字漂亮，格式正確，連期刊名稱都寫得出來。我去查，查無此文。 AI 最危險的不是「寫錯」，是「錯得太像真的」 語法錯誤你看得出來，邏輯漏洞你可以感覺到。但 AI 編造的數字，你通常感覺不到任何異樣。 它不會說「我不確定」。它會直接給你一個數字、一個來源、一個看起來合理的脈絡，然後你就信了。一般文章裡這頂多是資訊不準確，但在論文、報告、任何要對外引用數據的內容裡，這是一個可以直接讓你信譽歸零的錯誤。 我在每次 AI 輸出後，都追Saved Signals9 savedClaude Codeだけで10個のSNSアカウントを自動管理し、月2万ドル超を稼いでいる日本人の動画が話題になってる🧵 どうやってるか、仕組みを整理した。可分析 · 尚未分析可分析×我有個朋友終於完成phd學位，同佢食食下飯，問佢:「辛苦左咁多年，有咩想講？」 佢話:「粗口。」 我靜左。尚未抓取 · 尚未分析尚未抓取×好羨慕大家可以用「完sem」兩隻字 Final year既我已經要用「畢業」了。 …………😭🙏🏻可分析 · 尚未分析可分析×我收到聲稱係6ixty 8ight team 搵人做model 拍片，但拍完又5使公開 想問下係真 定又係詐騙🥹🥹🥹可分析 · 尚未分析可分析×大家唔好去食葵芳新都會廣場二樓「樂麵」 衛生真係差到仆街，開放式廚房，發黑發霉嘅外賣盒係照用，跌過落地嘅夾係照用（廚房地下係鋪滿廢油，湯積，積水），堂食用嘅餐具係好似冇洗過咁，啲調味料仲喺個羹到，一百蚊一個拉麵，五十幾蚊5隻餃子，咁嘅衛生…可分析 · 尚未分析可分析×Claude code就很犯賤 結尾加上一句「完成後會請Codex覆檢」 成果好到靠北 by Opus 4.7 xhigh可分析 · 尚未分析可分析×家母見我完sem冇嘢做就想我報下course 學下嘢 但係佢地而家係咁叫我去上ai course 我硬係覺得ai cert course都好似冇乜用🫣 dum錢出街咁 寧願學返coding 睇下搞唔搞project 或者學下ui/ux …可分析 · 尚未分析可分析×分享最近為自己 vibe code 的大量閱讀工具：Long Drive / 長途駕駛。 目標很簡單：讓大量閱讀變得像在漂亮公路上長途駕駛一樣舒服。 AI 時代，我最大的痛點就是：每天要讀太多純文字資訊。 AI 不會累，我會 😢 所以我…可分析 · 尚未分析可分析×我用 AI 寫論文，差點引用了一個不存在的研究。 數字漂亮，格式正確，連期刊名稱都寫得出來。我去查，查無此文。 AI 最危險的不是「寫錯」，是「錯得太像真的」 語法錯誤你看得出來，邏輯漏洞你可以感覺到。但 AI 編造的數字，你通常感覺不到…可分析 · 尚未分析可分析×",
+    "trace": null
+  },
+  "afterAnalyzeClick": {
+    "badTokens": [],
+    "elapsedMs": 3630,
+    "hasLoading": true,
+    "text": "[data-dlens-control=\"true\"] [data-dlens-button] { transition: transform 160ms cubic-bezier(0.34, 1.56, 0.64, 1), background-color 140ms cubic-bezier(0.4, 0, 0.2, 1), box-shadow 160ms cubic-bezier(0.4, 0, 0.2, 1), border-color 140ms cubic-bezier(0.4, 0, 0.2, 1), filter 140ms cubic-bezier(0.4, 0, 0.2, 1); } [data-dlens-control=\"true\"] [data-dlens-button]:not(:disabled):hover { transform: translateY(-1px); } [data-dlens-control=\"true\"] [data-dlens-button]:not(:disabled):active { transform: translateY(0) scale(0.96); transition: transform 90ms cubic-bezier(0.4, 0, 0.2, 1), background-color 140ms cubic-bezier(0.4, 0, 0.2, 1); } [data-dlens-control=\"true\"] [data-dlens-button]:focus-visible { outline: 2px solid var(--dlens-mode-accent, #1a2e4f); outline-offset: 2px; } [data-dlens-control=\"true\"] [data-dlens-button=\"primary\"]:not(:disabled):hover { transform: translateY(-3px); box-shadow: 0 12px 26px rgba(27, 26, 23, 0.22); filter: brightness(1.05); } [data-dlens-control=\"true\"] [data-dlens-button=\"primary\"]:not(:disabled):active { transform: translateY(0) scale(0.93); transition: transform 90ms cubic-bezier(0.4, 0, 0.2, 1), box-shadow 140ms cubic-bezier(0.4, 0, 0.2, 1); } [data-dlens-control=\"true\"] [data-dlens-button=\"secondary\"]:not(:disabled):hover { background: var(--dlens-mode-accent-soft, rgba(26,46,79,0.09)); border-color: var(--dlens-mode-hover-border-soft, rgba(27,26,23,0.18)); } @keyframes dlens-mode-swap-in { 0% { opacity: 0.45; transform: translateY(2px); } 100% { opacity: 1; transform: translateY(0); } } @media (prefers-reduced-motion: reduce) { [data-dlens-control=\"true\"] [data-dlens-button], [data-dlens-control=\"true\"] [data-dlens-button]:not(:disabled):active { transition: background-color 140ms cubic-bezier(0.4, 0, 0.2, 1), box-shadow 140ms cubic-bezier(0.4, 0, 0.2, 1), border-color 140ms cubic-bezier(0.4, 0, 0.2, 1) !important; } [data-dlens-control=\"true\"] [data-dlens-button]:not(:disabled):hover, [data-dlens-control=\"true\"] [data-dlens-button]:not(:disabled):active { transform: none !important; } [data-dlens-control=\"true\"] [data-dlens-button], [data-dlens-control=\"true\"] [data-workspace-mode-frame=\"true\"] { animation: none !important; } } dlens [data-dlens-control=\"true\"] [data-workspace-switcher-motion=\"verdict\"] [data-workspace-switcher-mode] { transition:transform 220ms cubic-bezier(0.22, 1.12, 0.36, 1), background-color 180ms cubic-bezier(0.4, 0, 0.2, 1), border-color 180ms cubic-bezier(0.4, 0, 0.2, 1), box-shadow 180ms cubic-bezier(0.4, 0, 0.2, 1), color 180ms cubic-bezier(0.4, 0, 0.2, 1); will-change: transform; } [data-dlens-control=\"true\"] [data-workspace-switcher-motion=\"verdict\"] [data-workspace-switcher-mode]:not(:disabled):hover { transform: scale(1.04); } [data-dlens-control=\"true\"] [data-workspace-switcher-motion=\"verdict\"] [data-workspace-switcher-active=\"true\"] { transform: scale(1.03); box-shadow: 0 4px 10px rgba(27,26,23,0.10); } @media (prefers-reduced-motion: reduce) { [data-dlens-control=\"true\"] [data-workspace-switcher-motion=\"verdict\"] [data-workspace-switcher-mode], [data-dlens-control=\"true\"] [data-workspace-switcher-motion=\"verdict\"] [data-workspace-switcher-mode]:not(:disabled):hover, [data-dlens-control=\"true\"] [data-workspace-switcher-motion=\"verdict\"] [data-workspace-switcher-active=\"true\"] { transition: background-color 140ms cubic-bezier(0.4, 0, 0.2, 1), border-color 140ms cubic-bezier(0.4, 0, 0.2, 1), color 140ms cubic-bezier(0.4, 0, 0.2, 1) !important; transform: none !important; } } TopicProductPRAnnotated Field GuideVOL.1NO.01Jun 10·v.0.1.30d採集訊號分類行動設定 [data-dlens-control=\"true\"] [data-scan-list] [data-scan-row]:hover { background: rgba(27, 26, 23, 0.028); } [data-dlens-control=\"true\"] [data-scan-list] [data-scan-row]:last-child { border-bottom: 0; } Product modeSaved Signals先確認已儲存的 Threads post 是否完成抓取，再到行動頁整理可試 workflow。No result真實狀態9 signals0 analysesAI keyProductProfileProductContext有 signal 尚未抓取。按分析收件匣會先送出抓取請求，完成後再分析。分析中等待處理的 signals可分析未分析threads×已有 assembled content，可以執行 ProductSignalAnalyzer。Claude Codeだけで10個のSNSアカウントを自動管理し、月2万ドル超を稼いでいる日本人の動画が話題になってる🧵 どうやってるか、仕組みを整理した。尚未抓取未分析threads×按分析會先送出抓取請求。我有個朋友終於完成phd學位，同佢食食下飯，問佢:「辛苦左咁多年，有咩想講？」 佢話:「粗口。」 我靜左。可分析未分析threads×已有 assembled content，可以執行 ProductSignalAnalyzer。好羨慕大家可以用「完sem」兩隻字 Final year既我已經要用「畢業」了。 …………😭🙏🏻可分析未分析threads×已有 assembled content，可以執行 ProductSignalAnalyzer。我收到聲稱係6ixty 8ight team 搵人做model 拍片，但拍完又5使公開 想問下係真 定又係詐騙🥹🥹🥹可分析未分析threads×已有 assembled content，可以執行 ProductSignalAnalyzer。大家唔好去食葵芳新都會廣場二樓「樂麵」 衛生真係差到仆街，開放式廚房，發黑發霉嘅外賣盒係照用，跌過落地嘅夾係照用（廚房地下係鋪滿廢油，湯積，積水），堂食用嘅餐具係好似冇洗過咁，啲調味料仲喺個羹到，一百蚊一個拉麵，五十幾蚊5隻餃子，咁嘅衛生，我真係笑出嚟可分析未分析threads×已有 assembled content，可以執行 ProductSignalAnalyzer。Claude code就很犯賤 結尾加上一句「完成後會請Codex覆檢」 成果好到靠北 by Opus 4.7 xhigh可分析未分析threads×已有 assembled content，可以執行 ProductSignalAnalyzer。家母見我完sem冇嘢做就想我報下course 學下嘢 但係佢地而家係咁叫我去上ai course 我硬係覺得ai cert course都好似冇乜用🫣 dum錢出街咁 寧願學返coding 睇下搞唔搞project 或者學下ui/ux 有冇人同我講究竟市面上啲ai course 其實教緊啲乜🙂‍↕️🙏🏻🙏🏻可分析未分析threads×已有 assembled content，可以執行 ProductSignalAnalyzer。分享最近為自己 vibe code 的大量閱讀工具：Long Drive / 長途駕駛。 目標很簡單：讓大量閱讀變得像在漂亮公路上長途駕駛一樣舒服。 AI 時代，我最大的痛點就是：每天要讀太多純文字資訊。 AI 不會累，我會 😢 所以我做了一套更適合自己大腦的閱讀系統： 1. 所有要吸收的文章、影片、AI 回覆，除了請 AI 產出 Markdown，多產出一層 html（感謝 Claude Code 和 Thariq 的文章啟發） 2. 建構一套「知識視覺化系統」，把不同類可分析未分析threads×已有 assembled content，可以執行 ProductSignalAnalyzer。我用 AI 寫論文，差點引用了一個不存在的研究。 數字漂亮，格式正確，連期刊名稱都寫得出來。我去查，查無此文。 AI 最危險的不是「寫錯」，是「錯得太像真的」 語法錯誤你看得出來，邏輯漏洞你可以感覺到。但 AI 編造的數字，你通常感覺不到任何異樣。 它不會說「我不確定」。它會直接給你一個數字、一個來源、一個看起來合理的脈絡，然後你就信了。一般文章裡這頂多是資訊不準確，但在論文、報告、任何要對外引用數據的內容裡，這是一個可以直接讓你信譽歸零的錯誤。 我在每次 AI 輸出後，都追Saved Signals9 savedClaude Codeだけで10個のSNSアカウントを自動管理し、月2万ドル超を稼いでいる日本人の動画が話題になってる🧵 どうやってるか、仕組みを整理した。可分析 · 尚未分析可分析×我有個朋友終於完成phd學位，同佢食食下飯，問佢:「辛苦左咁多年，有咩想講？」 佢話:「粗口。」 我靜左。尚未抓取 · 尚未分析尚未抓取×好羨慕大家可以用「完sem」兩隻字 Final year既我已經要用「畢業」了。 …………😭🙏🏻可分析 · 尚未分析可分析×我收到聲稱係6ixty 8ight team 搵人做model 拍片，但拍完又5使公開 想問下係真 定又係詐騙🥹🥹🥹可分析 · 尚未分析可分析×大家唔好去食葵芳新都會廣場二樓「樂麵」 衛生真係差到仆街，開放式廚房，發黑發霉嘅外賣盒係照用，跌過落地嘅夾係照用（廚房地下係鋪滿廢油，湯積，積水），堂食用嘅餐具係好似冇洗過咁，啲調味料仲喺個羹到，一百蚊一個拉麵，五十幾蚊5隻餃子，咁嘅衛生…可分析 · 尚未分析可分析×Claude code就很犯賤 結尾加上一句「完成後會請Codex覆檢」 成果好到靠北 by Opus 4.7 xhigh可分析 · 尚未分析可分析×家母見我完sem冇嘢做就想我報下course 學下嘢 但係佢地而家係咁叫我去上ai course 我硬係覺得ai cert course都好似冇乜用🫣 dum錢出街咁 寧願學返coding 睇下搞唔搞project 或者學下ui/ux …可分析 · 尚未分析可分析×分享最近為自己 vibe code 的大量閱讀工具：Long Drive / 長途駕駛。 目標很簡單：讓大量閱讀變得像在漂亮公路上長途駕駛一樣舒服。 AI 時代，我最大的痛點就是：每天要讀太多純文字資訊。 AI 不會累，我會 😢 所以我…可分析 · 尚未分析可分析×我用 AI 寫論文，差點引用了一個不存在的研究。 數字漂亮，格式正確，連期刊名稱都寫得出來。我去查，查無此文。 AI 最危險的不是「寫錯」，是「錯得太像真的」 語法錯誤你看得出來，邏輯漏洞你可以感覺到。但 AI 編造的數字，你通常感覺不到…可分析 · 尚未分析可分析×",
+    "traceTail": null
+  },
+  "visiblePolls": [
+    {
+      "badTokens": [],
+      "hasAnalyzing": true,
+      "hasHumanError": true,
+      "hasRawError": false,
+      "iteration": 1,
+      "status": null,
+      "text": "dlens Topic Product PR Annotated Field Guide VOL.1 NO.01 Jun 10 · v.0.1.30 d 採集 訊號 分類 行動 設定 Product mode Saved Signals 先確認已儲存的 Threads post 是否完成抓取，再到行動頁整理可試 workflow。 AI enabled 分析狀態 ✓ 已就緒 9 signals · 8 analyses 重新分析 等待處理的 signals 抓取中 未分析 threads × 等待 backend 完成 ThreadReadModel。 我有個朋友終於完成phd學位，同佢食食下飯，問佢:「辛苦左咁多年，有咩想講？」 佢話:「粗口。」 我靜左。 分析完成，查看哪些 signal 值得行動 查看候選行動 → Saved Signals 9 saved Claude Codeだけで10個のSNSアカウントを自動管理し、月2万ドル超を稼いでいる日本人の動画が話題になってる🧵 どうやってるか、仕組みを整理した。 可分析 · 學習資源 · 保留觀察 學習資源 × 我有個朋友終於完成phd學位，同佢食食下飯，問佢:「辛苦左咁多年，有咩想講？」 佢話:「粗口。」 我靜左。 抓取中 · 尚未分析 抓取中 × 好羨慕大家可以用「完sem」兩隻字 Final year既我已經要用「畢業」了。 …………😭🙏🏻 可分析 · 噪音 · 前提不符 噪音 × 我收到聲稱係6ixty 8ight team 搵人做model 拍片，但拍完又5使公開 想問下係真 定又係詐騙🥹🥹🥹 可分析 · 噪音 · 前提不符 噪音 × 大家唔好去食葵芳新都會廣場二樓「樂麵」 衛生真係差到仆街，開放式廚房，發黑發霉嘅外賣盒係照用，跌過落地嘅夾係照用（廚房地下係鋪滿廢油，湯積，積水），堂食用嘅餐具係好似冇洗過咁，啲調味料仲喺個羹到，一百蚊一個拉麵，五十幾蚊5隻餃子，咁嘅衛生… 可分析 · 噪音 · 前提不符 噪音 × Claude code就很犯賤 結尾加上一句「完成後會請Codex覆檢」 成果好到靠北 by Opus 4.7 xhigh 可分析 · 技術討論 · 值得嘗試 技術討論 × 家母見我完sem冇嘢做就想我報下course 學下嘢 但係佢地而家係咁叫我去上ai course 我硬係覺得ai cert course都好似冇乜用🫣 dum錢出街咁 寧願學返coding 睇下搞唔搞project 或者學下ui/ux … 可分析 · 學習資源 · 保留觀察 學習資源 × 分享最近為自己 vibe code 的大量閱讀工具：Long Drive / 長途駕駛。 目標很簡單：讓大量閱讀變得像在漂亮公路上長途駕駛一樣舒服。 AI 時代，我最大的痛點就是：每天要讀太多純文字資訊。 AI 不會累，我會 😢 所以我… 可分析 · 學習資源 · 值得嘗試 學習資源 × 我用 AI 寫論文，差點引用了一個不存在的研究。 數字漂亮，格式正確，連期刊名稱都寫得出來。我去查，查無此文。 AI 最危險的不是「寫錯」，是「錯得太像真的」 語法錯誤你看得出來，邏輯漏洞你可以感覺到。但 AI 編造的數字，你通常感覺不到… 可分析 · 學習資源 · 值得嘗試 學習資源 ×",
+      "time": "2026-06-10T03:49:22.372Z"
+    }
+  ],
+  "classification": {
+    "badTokens": [],
+    "overflow": [
+      {
+        "overflow": "hidden auto",
+        "overflowX": 0,
+        "overflowY": 121,
+        "rect": {
+          "h": 899.98828125,
+          "w": 720,
+          "x": 1415.25,
+          "y": 82.74609375
+        },
+        "tag": "div",
+        "text": "dlens [data-dlens-control=\"true\"] [data-workspace-switcher-motion=\"verdict\"] [da",
+        "textOverflow": "clip",
+        "whiteSpace": "normal"
+      },
+      {
+        "overflow": "visible",
+        "overflowX": 0,
+        "overflowY": 145,
+        "rect": {
+          "h": 859.9921875,
+          "w": 688.0078125,
+          "x": 1431.24609375,
+          "y": 98.7421875
+        },
+        "tag": "div",
+        "text": "dlens [data-dlens-control=\"true\"] [data-workspace-switcher-motion=\"verdict\"] [da",
+        "textOverflow": "clip",
+        "whiteSpace": "normal"
+      },
+      {
+        "overflow": "visible",
+        "overflowX": 0,
+        "overflowY": 145,
+        "rect": {
+          "h": 804.52734375,
+          "w": 688.0078125,
+          "x": 1431.24609375,
+          "y": 154.20703125
+        },
+        "tag": "div",
+        "text": "d採集訊號分類行動設定 [data-dlens-control=\"true\"] [data-scan-list] [data-scan-row]:hover {",
+        "textOverflow": "clip",
+        "whiteSpace": "normal"
+      }
+    ],
+    "rawError": [],
+    "text": "dlens Topic Product PR Annotated Field Guide VOL.1 NO.01 Jun 10 · v.0.1.30 d 採集 訊號 分類 行動 設定 Product mode 分類整理 先把每則 Threads signal 放回正確範疇，再決定是否值得產品團隊處理。 AI enabled 分析狀態 ✓ 已就緒 9 signals · 9 analyses 重新分析 分類構成 AI 已分類 9 則訊號 技術討論 1 則 學習資源 4 則 噪音 4 則 技術討論 · 1 則 用戶透過在 System Prompt 加入「完成後請另一模型覆檢」指令，顯著提升 Claude Code 產出品質。 未分類訊號 · 值得嘗試 系統挑出的內容 混合內容 討論串內容 Claude code就很犯賤 結尾加上一句「完成後會請Codex覆檢」 成果好到靠北 by Opus 4. ▾ 展開全文 7 xhigh AI 建議分類 技術討論 分類原因 這揭示了一種低成本提升 AI 產出品質的實務模式，值得參考並應用於產品的 Agent 協作機制。 流程借用 多模型交叉驗證工作流 可帶走 可將「交叉審核」納入產品的 Agent 執行流程中，透過讓不同模型互審來降低單一模型幻覺，提升產出穩定性。 相關脈絡 Agent 角色、流程模式、技術學習 後續判斷 值得嘗試"
+  },
+  "action": {
+    "badTokens": [],
+    "controls": [
+      {
+        "aria": "Close DLens popup",
+        "disabled": false,
+        "rect": {
+          "h": 48,
+          "w": 48,
+          "x": 2088,
+          "y": 24
+        },
+        "tag": "button",
+        "text": ""
+      },
+      {
+        "aria": null,
+        "disabled": false,
+        "rect": {
+          "h": 18.4921875,
+          "w": 47.37890625,
+          "x": 1492.921875,
+          "y": 112.23046875
+        },
+        "tag": "button",
+        "text": "Topic"
+      },
+      {
+        "aria": null,
+        "disabled": false,
+        "rect": {
+          "h": 19.046951293945312,
+          "w": 62.6568603515625,
+          "x": 1541.380615234375,
+          "y": 111.95308685302734
+        },
+        "tag": "button",
+        "text": "Product"
+      },
+      {
+        "aria": null,
+        "disabled": false,
+        "rect": {
+          "h": 18.4921875,
+          "w": 33.59765625,
+          "x": 1605.1171875,
+          "y": 112.23046875
+        },
+        "tag": "button",
+        "text": "PR"
+      },
+      {
+        "aria": null,
+        "disabled": false,
+        "rect": {
+          "h": 57.99609375,
+          "w": 54.515625,
+          "x": 1439.98828125,
+          "y": 214.9453125
+        },
+        "tag": "button",
+        "text": "採集"
+      },
+      {
+        "aria": null,
+        "disabled": false,
+        "rect": {
+          "h": 57.99609375,
+          "w": 54.515625,
+          "x": 1439.98828125,
+          "y": 280.93359375
+        },
+        "tag": "button",
+        "text": "訊號"
+      },
+      {
+        "aria": null,
+        "disabled": false,
+        "rect": {
+          "h": 57.99609375,
+          "w": 54.515625,
+          "x": 1439.98828125,
+          "y": 346.921875
+        },
+        "tag": "button",
+        "text": "分類"
+      },
+      {
+        "aria": null,
+        "disabled": false,
+        "rect": {
+          "h": 57.99609375,
+          "w": 54.515625,
+          "x": 1439.98828125,
+          "y": 412.91015625
+        },
+        "tag": "button",
+        "text": "行動"
+      },
+      {
+        "aria": null,
+        "disabled": false,
+        "rect": {
+          "h": 57.99609375,
+          "w": 54.515625,
+          "x": 1439.98828125,
+          "y": 484.8984375
+        },
+        "tag": "button",
+        "text": "設定"
+      },
+      {
+        "aria": null,
+        "disabled": false,
+        "rect": {
+          "h": 31.9921875,
+          "w": 77.484375,
+          "x": 2012.2734375,
+          "y": 278.75390625
+        },
+        "tag": "button",
+        "text": "重新分析"
+      },
+      {
+        "aria": null,
+        "disabled": false,
+        "rect": {
+          "h": 70.2421875,
+          "w": 129.76171875,
+          "x": 1545.73828125,
+          "y": 413.484375
+        },
+        "tag": "button",
+        "text": "值得嘗試3"
+      },
+      {
+        "aria": null,
+        "disabled": false,
+        "rect": {
+          "h": 70.2421875,
+          "w": 129.76171875,
+          "x": 1683.4921875,
+          "y": 413.484375
+        },
+        "tag": "button",
+        "text": "噪音 / 前提不符4"
+      },
+      {
+        "aria": null,
+        "disabled": false,
+        "rect": {
+          "h": 70.2421875,
+          "w": 129.76171875,
+          "x": 1821.24609375,
+          "y": 413.484375
+        },
+        "tag": "button",
+        "text": "資料不足0"
+      },
+      {
+        "aria": null,
+        "disabled": false,
+        "rect": {
+          "h": 70.2421875,
+          "w": 129.76171875,
+          "x": 1959,
+          "y": 413.484375
+        },
+        "tag": "button",
+        "text": "保留觀察2"
+      },
+      {
+        "aria": null,
+        "disabled": false,
+        "rect": {
+          "h": 24,
+          "w": 353.015625,
+          "x": 1556.7421875,
+          "y": 1165.4765625
+        },
+        "tag": "button",
+        "text": "查看原文與模型判讀 →"
+      },
+      {
+        "aria": null,
+        "disabled": false,
+        "rect": {
+          "h": 24,
+          "w": 353.015625,
+          "x": 1556.7421875,
+          "y": 1420.55859375
+        },
+        "tag": "button",
+        "text": "查看原文與模型判讀 →"
+      },
+      {
+        "aria": null,
+        "disabled": false,
+        "rect": {
+          "h": 24,
+          "w": 353.015625,
+          "x": 1556.7421875,
+          "y": 1695.64453125
+        },
+        "tag": "button",
+        "text": "查看原文與模型判讀 →"
+      },
+      {
+        "aria": null,
+        "disabled": false,
+        "rect": {
+          "h": 24,
+          "w": 353.015625,
+          "x": 1556.7421875,
+          "y": 2591.51953125
+        },
+        "tag": "button",
+        "text": "查看原文與模型判讀 →"
+      },
+      {
+        "aria": null,
+        "disabled": false,
+        "rect": {
+          "h": 24,
+          "w": 353.015625,
+          "x": 1556.7421875,
+          "y": 3415.76953125
+        },
+        "tag": "button",
+        "text": "查看原文與模型判讀 →"
+      }
+    ],
+    "exclusionCards": [],
+    "exportControls": [],
+    "rawError": [],
+    "text": "已加入隊列：ai discussion dlens Topic Product PR Annotated Field Guide VOL.1 NO.01 Jun 10 · v.0.1.30 d 採集 訊號 分類 行動 設定 Product mode Agent Brief 先審視模型判讀，再把已收錄 reading 組成可貼給 coding agent 的 brief。 AI enabled 分析狀態 ✓ 已就緒 9 signals · 9 analyses 重新分析 DLens Founders, product builders, PR/marketing researchers, journalists, analysts ProductContext 9 則訊號已評估 值得嘗試 3 噪音 / 前提不符 4 資料不足 0 保留觀察 2 可直接試的做法 1 技術討論 · 6/10 系統級交叉審核指令 用 戶透過在 System Prompt 加入「完成後請另一模型覆檢」指令，顯著提升 Claude Code 產出品質。 此模式能有效提升 Agent 產出品質，且符合產品作為 intelligence tool 的定位。 e2 e3 e8 引用理由：證明透過系統級指令即可強制執行多模型協作。 → 排入小實驗 設計交叉審核流程 原文證據 · 3 則 可借用 workflow e2. 這句我可是加在system prompt 裡面呢 — ww999956 ♡ 12 系統級交叉審核指令 原文可還原 可借用模式 系統級交叉審核指令 判讀依據 作者將審核邏輯寫入 System Prompt，這說明透過預設的行為框架，能確保 Agent 在每次任務結束時自動執行檢查，無需用戶手動干預。 查看原文與模型判讀 → 原文 這句我可是加在system prompt 裡面呢 模型判讀（輔助） 證明透過系統級指令即可強制執行多模型協作。 e3. 我已經完全自己做commands呼叫 codex審核😇😇XD — a_novel_13 ♡ 13 自動化審核呼叫機制 原文可還原 可借用模式 自動化審核呼叫機制 判讀依據 用戶透過自定義指令呼叫外部模型審核，這說明將審核流程模組化並提供快捷呼叫，能大幅降低用戶的操作門檻。 查看原文與模型判讀 → 原文 我已經完全自己做commands呼叫 codex審核😇😇XD 模型判讀（輔助） 顯示用戶對自動化審核有強烈需求且已在實踐。 e8. 我現在會說，做完一個 session 直接讓 OMC 和 Codex 雙審 — arcobaleno830623 ♡ 4 雙模型雙重審核 原文可還原 可借用模式 雙模型雙重審核 判讀依據 作者提到讓 OMC 和 Codex 雙審，這說明不同模型在邏輯與知識庫上的差異，能形成互補，透過交叉比對排除單一模型的盲點。 查看原文與模型判讀 → 原文 我現在會說，做完一個 session 直接讓 OMC 和 Codex 雙審 模型判讀（輔助） 指出多模型協作能提供比單一模型更可靠的結果。 判讀 值得嘗試 相關度 相關度 4/5 分類 技術討論 子型 未分類訊號 對到 多模型交叉驗證工作流 證據 3 則 待解 無明確阻礙 TASK › 設計交叉審核流程 2 學習資源 · 6/10 Raw-Wiki-Output 三層知識流 用 戶分享透過 Claude Code 將原始資訊轉為 HTML 與知識圖譜，建立以好奇心為中心的自動化閱讀系統。 該 workflow 具備將非結構化資訊轉化為高價值知識的潛力，值得探索如何整合進產品的資訊處理流程。 e1 引用理由：這定義了一種動態更新的知識庫模式，能解決資訊過載與檢索困難的問題。 → 排入小實驗 設計知識轉化流程 原文證據 · 1 則 可借用 workflow e1. 這週末嘗試了 Karparthy 在 4/3 分享了他個人的「LLM 知識庫」，這架構簡單優雅，讓我重新感受到了與 AI 和 Claude Code 一起學習的愉悅和強大！ 這架構神奇的地方在於： 「你只要負責好奇與發問、你的知識庫會隨著你的學習，被 AI 整理越來越好用。」 這是一個以「你的好奇心」為中心的設計： 第一層 Raw ：未經加工的原料層，所有最優質文章、repo、影片、資料都存放這。 第二層 Wiki：是 AI 閱讀原料… — unknown ♡ 78 Raw-Wiki-Output 三層知識流 原文可還原 可借用模式 Raw-Wiki-Output 三層知識流 判讀依據 作者透過將資訊分為原料、知識庫與產出層，並讓 AI 在過程中持續維護 Wiki，這說明了知識庫的價值在於「自動化維護」而非靜態儲存，能讓用戶專注於提問與心流。 查看原文與模型判讀 → 原文 這週末嘗試了 Karparthy 在 4/3 分享了他個人的「LLM 知識庫」，這架構簡單優雅，讓我重新感受到了與 AI 和 Claude Code 一起學習的愉悅和強大！ 這架構神奇的地方在於： 「你只要負責好奇與發問、你的知識庫會隨著你的學習，被 AI 整理越來越好用。」 這是一個以「你的好奇心」為中心的設計： 第一層 Raw ：未經加工的原料層，所有最優質文章、repo、影片、資料都存放這。 第二層 Wiki：是 AI 閱讀原料後，撰寫的知識庫。 第三層 Output：Q&A Agent 透過查閱 wiki… 模型判讀（輔助） 這定義了一種動態更新的知識庫模式，能解決資訊過載與檢索困難的問題。 判讀 值得嘗試 相關度 相關度 4/5 分類 學習資源 子型 未分類訊號 對到 可參考的 AI 知識自動化處理流程 證據 1 則 待解 無明確阻礙 TASK › 設計知識轉化流程 3 學習資源 · 6/10 AI 輸出後強制驗證循環 用 戶分享透過強制 AI 執行「即時搜尋驗證」與「自我審查」的 Prompt，解決 AI 生成論文數據時的幻覺問題。 此驗證模式可直接轉化為 Agent 的系統提示詞，強化產品輸出數據的準確性。 e1 引用理由：反映了專業用戶對 AI 輸出數據的信任門檻，驗證了強制驗證機制的必要性。 → 排入小實驗 設計數據驗證 Promp 原文證據 · 1 則 可借用 workflow e1. 「它不會說我不確定」這句話很精準，也是我最在意的一點。現在我習慣讓 AI 先給方向，具體數字和來源一定自己查過一遍才用。反而覺得多這個步驟沒有比較慢——至少確定那些數字真的存在，而不是某個權重下的「聽起來合理」。 — arumwu ♡ 1 AI 輸出後強制驗證循環 原文可還原 可借用模式 AI 輸出後強制驗證循環 判讀依據 用戶指出 AI 容易在權重計算下產生「聽起來合理」的錯誤數據，這說明 AI 的生成機制傾向於機率性匹配而非事實檢索；透過強制驗證步驟，能將 AI 的角色從「事實提供者」轉變為「方向建議者」，並由外部搜尋機制補足事實準確性。 查看原文與模型判讀 → 原文 「它不會說我不確定」這句話很精準，也是我最在意的一點。現在我習慣讓 AI 先給方向，具體數字和來源一定自己查過一遍才用。反而覺得多這個步驟沒有比較慢——至少確定那些數字真的存在，而不是某個權重下的「聽起來合理」。 模型判讀（輔助） 反映了專業用戶對 AI 輸出數據的信任門檻，驗證了強制驗證機制的必要性。 判讀 值得嘗試 相關度 相關度 4/5 分類 學習資源 子型 未分類訊號 對到 可學習的 AI 數據驗證工作流 證據 1 則 待解 無明確阻礙 TASK › 設計數據驗證 Promp"
+  },
+  "noise": {
+    "badTokens": [],
+    "exclusionCardCount": 4,
+    "exclusionCards": [
+      "1噪音 / 前提不符噪音相關度 1/5不納入行動清單討論 PhD 學位帶來的心理壓力與學術界現實，與產品功能無直接關聯。×排除原因內容與產品核心功能及目標受眾的工作流無關，屬於社交雜訊。暫無直接用途無直接產品參考價值此討論屬於學術與職場情緒抒發，缺乏可轉化為產品功能、工作流或技術機制的具體洞察。子型：未分類訊號證據：3 則Analyzed：6/10原文證據 · 3 則e1.Permanent head Damage 你估簡單呀，沒有讀書就沒有傷害…..e3.認真，讀master都癲，仲要PhD 對住同一樣嘢幾年，仲要唔一定做到positive resulte10.19000做狗🤣冇放假冇收工",
+      "2噪音 / 前提不符噪音相關度 1/5不納入行動清單用戶分享畢業與求職焦慮的個人情緒，並引發關於學業階段與就業狀態的討論。×排除原因內容屬於個人生活感觸，不具備產品開發或市場研究的參考價值。暫無直接用途無直接產品參考價值此討論屬於個人情緒抒發與社交互動，缺乏可轉化為產品功能、工作流或技術機制的洞察，暫無直接產品用途。子型：未分類訊號證據：3 則Analyzed：6/10原文證據 · 3 則e1.好羨慕大家可以已經要用「畢業」兩隻字了 Defer既我仲要用「完sem」。 …………😭🙏🏻e2.好羨慕你可以用「畢業」兩隻字 冇offer嘅我已經要用「失業」了。e3.我反而想快啲用「畢業」依個字眼🫩 唔defer嘅話用多兩次「完sem」就可以用啦🙏🏻",
+      "3噪音 / 前提不符噪音相關度 1/5不納入行動清單用戶詢問收到假冒品牌招募模特兒的私訊是否為詐騙，引發社群對詐騙帳號特徵的討論。×排除原因內容為用戶間的詐騙辨識交流，不涉及產品核心工作流或技術需求。暫無直接用途詐騙帳號識別特徵討論此討論集中於社交媒體詐騙識別，與產品核心功能（Threads 內容整理與分析）無直接關聯，無需納入產品開發。子型：未分類訊號證據：3 則Analyzed：6/10原文證據 · 3 則e2.個頭像AI到咁你都信係真？？e15.仲有扮啲鞋brand sportbra brand 專呃啲傻西想做model點知被人呃啲bra片腳片嚟打飛機 出面大把model公司唔搵 會搵你？e16.真係做manager又點會得5個人follow",
+      "4噪音 / 前提不符噪音相關度 1/5不納入行動清單用戶於 Threads 投訴葵芳某餐廳衛生惡劣及食物品質下降，引發大量負面迴響。×排除原因此內容為餐飲業負面評價，對產品功能迭代無參考價值。暫無直接用途無直接產品參考價值此訊號為純粹的餐飲業負面評論，與 DLens 產品核心功能（Threads 討論轉化為情報資產）無直接關聯，無需納入產品開發。子型：未分類訊號證據：2 則Analyzed：6/10原文證據 · 2 則e6.佢新開張，人人都排隊的時候，我食過一次。 佢用打奶棒（蒸氣）令雞湯起泡，出黎成品卻出唔到綿密的泡。 同時，我見佢用完枝棒係唔會抹乾淨或噴出殘留在棒內的湯 。 以上，我就知呢間野職員係無接受正式教育。 依家好多野都好鐘意用網絡或媒體去帶風氣，比以前報紙雜誌電視的廣告更有效。當然熱潮都更容易退熱。e15.呢間差到爆，開放式廚房細心睇啲邊位勁多昆蟲屍體，成間嘢都油淋淋￼。"
+    ],
+    "hasExcludeCopy": true,
+    "hasTask": false,
+    "hasWorkflow": false,
+    "text": "dlens Topic Product PR Annotated Field Guide VOL.1 NO.01 Jun 10 · v.0.1.30 d 採集 訊號 分類 行動 設定 Product mode Agent Brief 先審視模型判讀，再把已收錄 reading 組成可貼給 coding agent 的 brief。 AI enabled 分析狀態 ✓ 已就緒 9 signals · 9 analyses 重新分析 DLens Founders, product builders, PR/marketing researchers, journalists, analysts ProductContext 9 則訊號已評估 值得嘗試 3 噪音 / 前提不符 4 資料不足 0 保留觀察 2 噪音 / 前提不符 1 噪音 / 前提不符 噪音 相關度 1/5 不納入行動清單 討論 PhD 學位帶來的心理壓力與學術界現實，與產品功能無直接關聯。 × 排除原因 內容與產品核心功能及目標受眾的工作流無關，屬於社交雜訊。 暫無直接用途 無直接產品參考價值 此討論屬於學術與職場情緒抒發，缺乏可轉化為產品功能、工作流或技術機制的具體洞察。 子型：未分類訊號 證據：3 則 Analyzed：6/10 原文證據 · 3 則 e1. Permanent head Damage 你估簡單呀，沒有讀書就沒有傷害….. e3. 認真，讀master都癲，仲要PhD 對住同一樣嘢幾年，仲要唔一定做到positive result e10. 19000做狗🤣冇放假冇收工 2 噪音 / 前提不符 噪音 相關度 1/5 不納入行動清單 用戶分享畢業與求職焦慮的個人情緒，並引發關於學業階段與就業狀態的討論。 × 排除原因 內容屬於個人生活感觸，不具備產品開發或市場研究的參考價值。 暫無直接用途 無直接產品參考價值 此討論屬於個人情緒抒發與社交互動，缺乏可轉化為產品功能、工作流或技術機制的洞察，暫無直接產品用途。 子型：未分類訊號 證據：3 則 Analyzed：6/10 原文證據 · 3 則 e1. 好羨慕大家可以已經要用「畢業」兩隻字了 Defer既我仲要用「完sem」。 …………😭🙏🏻 e2. 好羨慕你可以用「畢業」兩隻字 冇offer嘅我已經要用「失業」了。 e3. 我反而想快啲用「畢業」依個字眼🫩 唔defer嘅話用多兩次「完sem」就可以用啦🙏🏻 3 噪音 / 前提不符 噪音 相關度 1/5 不納入行動清單 用戶詢問收到假冒品牌招募模特兒的私訊是否為詐騙，引發社群對詐騙帳號特徵的討論。 × 排除原因 內容為用戶間的詐騙辨識交流，不涉及產品核心工作流或技術需求。 暫無直接用途 詐騙帳號識別特徵討論 此討論集中於社交媒體詐騙識別，與產品核心功能（Threads 內容整理與分析）無直接關聯，無需納入產品開發。 子型：未分類訊號 證據：3 則 Analyzed：6/10 原文證據 · 3 則 e2. 個頭像AI到咁你都信係真？？ e15. 仲有扮啲鞋brand sportbra brand 專呃啲傻西想做model點知被人呃啲bra片腳片嚟打飛機 出面大把model公司唔搵 會搵你？ e16. 真係做manager又點會得5個人follow 4 噪音 / 前提不符 噪音 相關度 1/5 不納入行動清單 用戶於 Threads 投訴葵芳某餐廳衛生惡劣及食物品質下降，引發大量負面迴響。 × 排除原因 此內容為餐飲業負面評價，對產品功能迭代無參考價值。 暫無直接用途 無直接產品參考價值 此訊號為純粹的餐飲業負面評論，與 DLens 產品核心功能（Threads 討論轉化為情報資產）無直接關聯，無需納入產品開發。 子型：未分類訊號 證據：2 則 Analyzed：6/10 原文證據 · 2 則 e6. 佢新開張，人人都排隊的時候，我食過一次。 佢用打奶棒（蒸氣）令雞湯起泡，出黎成品卻出唔到綿密的泡。 同時，我見佢用完枝棒係唔會抹乾淨或噴出殘留在棒內的湯 。 以上，我就知呢間野職員係無接受正式教育。 依家好多野都好鐘意用網絡或媒體去帶風氣，比以前報紙雜誌電視的廣告更有效。當然熱潮都更容易退熱。 e15. 呢間差到爆，開放式廚房細心睇啲邊位勁多昆蟲屍體，成間嘢都油淋淋￼。"
+  },
+  "savedExport": {
+    "badTokens": [],
+    "controls": [
+      {
+        "aria": "Close DLens popup",
+        "disabled": false,
+        "rect": {
+          "h": 48,
+          "w": 48,
+          "x": 2088,
+          "y": 24
+        },
+        "tag": "button",
+        "text": ""
+      },
+      {
+        "aria": null,
+        "disabled": false,
+        "rect": {
+          "h": 18.4921875,
+          "w": 47.37890625,
+          "x": 1492.921875,
+          "y": 112.23046875
+        },
+        "tag": "button",
+        "text": "Topic"
+      },
+      {
+        "aria": null,
+        "disabled": false,
+        "rect": {
+          "h": 19.046951293945312,
+          "w": 62.6568603515625,
+          "x": 1541.380615234375,
+          "y": 111.95308685302734
+        },
+        "tag": "button",
+        "text": "Product"
+      },
+      {
+        "aria": null,
+        "disabled": false,
+        "rect": {
+          "h": 18.4921875,
+          "w": 33.59765625,
+          "x": 1605.1171875,
+          "y": 112.23046875
+        },
+        "tag": "button",
+        "text": "PR"
+      },
+      {
+        "aria": null,
+        "disabled": false,
+        "rect": {
+          "h": 57.99609375,
+          "w": 54.515625,
+          "x": 1439.98828125,
+          "y": 214.9453125
+        },
+        "tag": "button",
+        "text": "採集"
+      },
+      {
+        "aria": null,
+        "disabled": false,
+        "rect": {
+          "h": 57.99609375,
+          "w": 54.515625,
+          "x": 1439.98828125,
+          "y": 280.93359375
+        },
+        "tag": "button",
+        "text": "訊號"
+      },
+      {
+        "aria": null,
+        "disabled": false,
+        "rect": {
+          "h": 57.99609375,
+          "w": 54.515625,
+          "x": 1439.98828125,
+          "y": 346.921875
+        },
+        "tag": "button",
+        "text": "分類"
+      },
+      {
+        "aria": null,
+        "disabled": false,
+        "rect": {
+          "h": 57.99609375,
+          "w": 54.515625,
+          "x": 1439.98828125,
+          "y": 412.91015625
+        },
+        "tag": "button",
+        "text": "行動"
+      },
+      {
+        "aria": null,
+        "disabled": false,
+        "rect": {
+          "h": 57.99609375,
+          "w": 54.515625,
+          "x": 1439.98828125,
+          "y": 484.8984375
+        },
+        "tag": "button",
+        "text": "設定"
+      },
+      {
+        "aria": null,
+        "disabled": false,
+        "rect": {
+          "h": 31.9921875,
+          "w": 77.484375,
+          "x": 2012.2734375,
+          "y": 278.75390625
+        },
+        "tag": "button",
+        "text": "重新分析"
+      },
+      {
+        "aria": null,
+        "disabled": false,
+        "rect": {
+          "h": 28.5,
+          "w": 115.32421875,
+          "x": 1974.43359375,
+          "y": 343.2421875
+        },
+        "tag": "button",
+        "text": "查看候選行動 →"
+      },
+      {
+        "aria": "移除此訊號",
+        "disabled": false,
+        "rect": {
+          "h": 15.99609375,
+          "w": 19.9921875,
+          "x": 2058.7734375,
+          "y": 456.796875
+        },
+        "tag": "button",
+        "text": "×"
+      },
+      {
+        "aria": "移除此訊號",
+        "disabled": false,
+        "rect": {
+          "h": 15.99609375,
+          "w": 19.9921875,
+          "x": 2058.7734375,
+          "y": 516.6796875
+        },
+        "tag": "button",
+        "text": "×"
+      },
+      {
+        "aria": "移除此訊號",
+        "disabled": false,
+        "rect": {
+          "h": 15.99609375,
+          "w": 19.9921875,
+          "x": 2058.7734375,
+          "y": 576.5625
+        },
+        "tag": "button",
+        "text": "×"
+      },
+      {
+        "aria": "移除此訊號",
+        "disabled": false,
+        "rect": {
+          "h": 15.99609375,
+          "w": 19.9921875,
+          "x": 2058.7734375,
+          "y": 636.4453125
+        },
+        "tag": "button",
+        "text": "×"
+      },
+      {
+        "aria": "移除此訊號",
+        "disabled": false,
+        "rect": {
+          "h": 15.99609375,
+          "w": 19.9921875,
+          "x": 2058.7734375,
+          "y": 696.328125
+        },
+        "tag": "button",
+        "text": "×"
+      },
+      {
+        "aria": "移除此訊號",
+        "disabled": false,
+        "rect": {
+          "h": 15.99609375,
+          "w": 19.9921875,
+          "x": 2058.7734375,
+          "y": 756.2109375
+        },
+        "tag": "button",
+        "text": "×"
+      },
+      {
+        "aria": "移除此訊號",
+        "disabled": false,
+        "rect": {
+          "h": 15.99609375,
+          "w": 19.9921875,
+          "x": 2058.7734375,
+          "y": 816.09375
+        },
+        "tag": "button",
+        "text": "×"
+      },
+      {
+        "aria": "移除此訊號",
+        "disabled": false,
+        "rect": {
+          "h": 15.99609375,
+          "w": 19.9921875,
+          "x": 2058.7734375,
+          "y": 875.9765625
+        },
+        "tag": "button",
+        "text": "×"
+      },
+      {
+        "aria": "移除此訊號",
+        "disabled": false,
+        "rect": {
+          "h": 15.99609375,
+          "w": 19.9921875,
+          "x": 2058.7734375,
+          "y": 935.859375
+        },
+        "tag": "button",
+        "text": "×"
+      }
+    ],
+    "exportControls": [],
+    "text": "已加入隊列：ai discussion dlens Topic Product PR Annotated Field Guide VOL.1 NO.01 Jun 10 · v.0.1.30 d 採集 訊號 分類 行動 設定 Product mode Saved Signals 先確認已儲存的 Threads post 是否完成抓取，再到行動頁整理可試 workflow。 AI enabled 分析狀態 ✓ 已就緒 9 signals · 9 analyses 重新分析 分析完成，查看哪些 signal 值得行動 查看候選行動 → Saved Signals 9 saved Claude Codeだけで10個のSNSアカウントを自動管理し、月2万ドル超を稼いでいる日本人の動画が話題になってる🧵 どうやってるか、仕組みを整理した。 可分析 · 學習資源 · 保留觀察 學習資源 × 我有個朋友終於完成phd學位，同佢食食下飯，問佢:「辛苦左咁多年，有咩想講？」 佢話:「粗口。」 我靜左。 可分析 · 噪音 · 前提不符 噪音 × 好羨慕大家可以用「完sem」兩隻字 Final year既我已經要用「畢業」了。 …………😭🙏🏻 可分析 · 噪音 · 前提不符 噪音 × 我收到聲稱係6ixty 8ight team 搵人做model 拍片，但拍完又5使公開 想問下係真 定又係詐騙🥹🥹🥹 可分析 · 噪音 · 前提不符 噪音 × 大家唔好去食葵芳新都會廣場二樓「樂麵」 衛生真係差到仆街，開放式廚房，發黑發霉嘅外賣盒係照用，跌過落地嘅夾係照用（廚房地下係鋪滿廢油，湯積，積水），堂食用嘅餐具係好似冇洗過咁，啲調味料仲喺個羹到，一百蚊一個拉麵，五十幾蚊5隻餃子，咁嘅衛生… 可分析 · 噪音 · 前提不符 噪音 × Claude code就很犯賤 結尾加上一句「完成後會請Codex覆檢」 成果好到靠北 by Opus 4.7 xhigh 可分析 · 技術討論 · 值得嘗試 技術討論 × 家母見我完sem冇嘢做就想我報下course 學下嘢 但係佢地而家係咁叫我去上ai course 我硬係覺得ai cert course都好似冇乜用🫣 dum錢出街咁 寧願學返coding 睇下搞唔搞project 或者學下ui/ux … 可分析 · 學習資源 · 保留觀察 學習資源 × 分享最近為自己 vibe code 的大量閱讀工具：Long Drive / 長途駕駛。 目標很簡單：讓大量閱讀變得像在漂亮公路上長途駕駛一樣舒服。 AI 時代，我最大的痛點就是：每天要讀太多純文字資訊。 AI 不會累，我會 😢 所以我… 可分析 · 學習資源 · 值得嘗試 學習資源 × 我用 AI 寫論文，差點引用了一個不存在的研究。 數字漂亮，格式正確，連期刊名稱都寫得出來。我去查，查無此文。 AI 最危險的不是「寫錯」，是「錯得太像真的」 語法錯誤你看得出來，邏輯漏洞你可以感覺到。但 AI 編造的數字，你通常感覺不到… 可分析 · 學習資源 · 值得嘗試 學習資源 ×"
+  },
+  "savedDetail": {
+    "controls": [
+      {
+        "aria": "Close DLens popup",
+        "disabled": false,
+        "tag": "button",
+        "text": ""
+      },
+      {
+        "aria": null,
+        "disabled": false,
+        "tag": "button",
+        "text": "Topic"
+      },
+      {
+        "aria": null,
+        "disabled": false,
+        "tag": "button",
+        "text": "Product"
+      },
+      {
+        "aria": null,
+        "disabled": false,
+        "tag": "button",
+        "text": "PR"
+      },
+      {
+        "aria": null,
+        "disabled": false,
+        "tag": "button",
+        "text": "採集"
+      },
+      {
+        "aria": null,
+        "disabled": false,
+        "tag": "button",
+        "text": "訊號"
+      },
+      {
+        "aria": null,
+        "disabled": false,
+        "tag": "button",
+        "text": "分類"
+      },
+      {
+        "aria": null,
+        "disabled": false,
+        "tag": "button",
+        "text": "行動"
+      },
+      {
+        "aria": null,
+        "disabled": false,
+        "tag": "button",
+        "text": "設定"
+      },
+      {
+        "aria": null,
+        "disabled": false,
+        "tag": "button",
+        "text": "重新分析"
+      },
+      {
+        "aria": null,
+        "disabled": false,
+        "tag": "button",
+        "text": "查看候選行動 →"
+      },
+      {
+        "aria": "移除此訊號",
+        "disabled": false,
+        "tag": "button",
+        "text": "×"
+      },
+      {
+        "aria": "移除此訊號",
+        "disabled": false,
+        "tag": "button",
+        "text": "×"
+      },
+      {
+        "aria": "移除此訊號",
+        "disabled": false,
+        "tag": "button",
+        "text": "×"
+      },
+      {
+        "aria": "移除此訊號",
+        "disabled": false,
+        "tag": "button",
+        "text": "×"
+      },
+      {
+        "aria": "移除此訊號",
+        "disabled": false,
+        "tag": "button",
+        "text": "×"
+      },
+      {
+        "aria": "移除此訊號",
+        "disabled": false,
+        "tag": "button",
+        "text": "×"
+      },
+      {
+        "aria": "移除此訊號",
+        "disabled": false,
+        "tag": "button",
+        "text": "×"
+      },
+      {
+        "aria": "移除此訊號",
+        "disabled": false,
+        "tag": "button",
+        "text": "×"
+      },
+      {
+        "aria": "移除此訊號",
+        "disabled": false,
+        "tag": "button",
+        "text": "×"
+      }
+    ],
+    "exportControls": [],
+    "hasReadingText": false,
+    "text": "已加入隊列：ai discussion dlens Topic Product PR Annotated Field Guide VOL.1 NO.01 Jun 10 · v.0.1.30 d 採集 訊號 分類 行動 設定 Product mode Saved Signals 先確認已儲存的 Threads post 是否完成抓取，再到行動頁整理可試 workflow。 AI enabled 分析狀態 ✓ 已就緒 9 signals · 9 analyses 重新分析 分析完成，查看哪些 signal 值得行動 查看候選行動 → Saved Signals 9 saved Claude Codeだけで10個のSNSアカウントを自動管理し、月2万ドル超を稼いでいる日本人の動画が話題になってる🧵 どうやってるか、仕組みを整理した。 可分析 · 學習資源 · 保留觀察 學習資源 × 我有個朋友終於完成phd學位，同佢食食下飯，問佢:「辛苦左咁多年，有咩想講？」 佢話:「粗口。」 我靜左。 可分析 · 噪音 · 前提不符 噪音 × 好羨慕大家可以用「完sem」兩隻字 Final year既我已經要用「畢業」了。 …………😭🙏🏻 可分析 · 噪音 · 前提不符 噪音 × 我收到聲稱係6ixty 8ight team 搵人做model 拍片，但拍完又5使公開 想問下係真 定又係詐騙🥹🥹🥹 可分析 · 噪音 · 前提不符 噪音 × 大家唔好去食葵芳新都會廣場二樓「樂麵」 衛生真係差到仆街，開放式廚房，發黑發霉嘅外賣盒係照用，跌過落地嘅夾係照用（廚房地下係鋪滿廢油，湯積，積水），堂食用嘅餐具係好似冇洗過咁，啲調味料仲喺個羹到，一百蚊一個拉麵，五十幾蚊5隻餃子，咁嘅衛生… 可分析 · 噪音 · 前提不符 噪音 × Claude code就很犯賤 結尾加上一句「完成後會請Codex覆檢」 成果好到靠北 by Opus 4.7 xhigh 可分析 · 技術討論 · 值得嘗試 技術討論 × 家母見我完sem冇嘢做就想我報下course 學下嘢 但係佢地而家係咁叫我去上ai course 我硬係覺得ai cert course都好似冇乜用🫣 dum錢出街咁 寧願學返coding 睇下搞唔搞project 或者學下ui/ux … 可分析 · 學習資源 · 保留觀察 學習資源 × 分享最近為自己 vibe code 的大量閱讀工具：Long Drive / 長途駕駛。 目標很簡單：讓大量閱讀變得像在漂亮公路上長途駕駛一樣舒服。 AI 時代，我最大的痛點就是：每天要讀太多純文字資訊。 AI 不會累，我會 😢 所以我… 可分析 · 學習資源 · 值得嘗試 學習資源 × 我用 AI 寫論文，差點引用了一個不存在的研究。 數字漂亮，格式正確，連期刊名稱都寫得出來。我去查，查無此文。 AI 最危險的不是「寫錯」，是「錯得太像真的」 語法錯誤你看得出來，邏輯漏洞你可以感覺到。但 AI 編造的數字，你通常感覺不到… 可分析 · 學習資源 · 值得嘗試 學習資源 ×"
+  },
+  "qualityScan": {
+    "horizontalOverflow": [
+      {
+        "overflow": "hidden",
+        "overflowX": 508,
+        "rect": {
+          "h": 20.1328125,
+          "w": 398.5546875,
+          "x": 1582.734375,
+          "y": 444.234375
+        },
+        "tag": "span",
+        "text": "Claude Codeだけで10個のSNSアカウントを自動管理し、月2万ドル超を稼いでいる日本人の動画が話題になってる🧵 どうやってるか、仕組みを整理した。",
+        "textOverflow": "ellipsis",
+        "whiteSpace": "nowrap"
+      },
+      {
+        "overflow": "hidden",
+        "overflowX": 215,
+        "rect": {
+          "h": 20.1328125,
+          "w": 419.5546875,
+          "x": 1582.734375,
+          "y": 504.1171875
+        },
+        "tag": "span",
+        "text": "我有個朋友終於完成phd學位，同佢食食下飯，問佢:「辛苦左咁多年，有咩想講？」 佢話:「粗口。」 我靜左。",
+        "textOverflow": "ellipsis",
+        "whiteSpace": "nowrap"
+      },
+      {
+        "overflow": "hidden",
+        "overflowX": 91,
+        "rect": {
+          "h": 20.1328125,
+          "w": 419.5546875,
+          "x": 1582.734375,
+          "y": 564
+        },
+        "tag": "span",
+        "text": "好羨慕大家可以用「完sem」兩隻字 Final year既我已經要用「畢業」了。 …………😭🙏🏻",
+        "textOverflow": "ellipsis",
+        "whiteSpace": "nowrap"
+      },
+      {
+        "overflow": "hidden",
+        "overflowX": 158,
+        "rect": {
+          "h": 20.1328125,
+          "w": 419.5546875,
+          "x": 1582.734375,
+          "y": 623.8828125
+        },
+        "tag": "span",
+        "text": "我收到聲稱係6ixty 8ight team 搵人做model 拍片，但拍完又5使公開 想問下係真 定又係詐騙🥹🥹🥹",
+        "textOverflow": "ellipsis",
+        "whiteSpace": "nowrap"
+      },
+      {
+        "overflow": "hidden",
+        "overflowX": 1117,
+        "rect": {
+          "h": 20.1328125,
+          "w": 419.5546875,
+          "x": 1582.734375,
+          "y": 683.765625
+        },
+        "tag": "span",
+        "text": "大家唔好去食葵芳新都會廣場二樓「樂麵」 衛生真係差到仆街，開放式廚房，發黑發霉嘅外賣盒係照用，跌過落地嘅夾係照用（廚房地下係鋪滿廢油，湯積，積水），堂食用嘅餐具係好似冇洗過咁，啲調味料仲喺個羹到，一百蚊一個拉麵，五十幾蚊5隻餃子，咁嘅衛生…",
+        "textOverflow": "ellipsis",
+        "whiteSpace": "nowrap"
+      },
+      {
+        "overflow": "hidden",
+        "overflowX": 153,
+        "rect": {
+          "h": 20.1328125,
+          "w": 398.5546875,
+          "x": 1582.734375,
+          "y": 743.6484375
+        },
+        "tag": "span",
+        "text": "Claude code就很犯賤 結尾加上一句「完成後會請Codex覆檢」 成果好到靠北 by Opus 4.7 xhigh",
+        "textOverflow": "ellipsis",
+        "whiteSpace": "nowrap"
+      },
+      {
+        "overflow": "hidden",
+        "overflowX": 724,
+        "rect": {
+          "h": 20.1328125,
+          "w": 398.5546875,
+          "x": 1582.734375,
+          "y": 803.53125
+        },
+        "tag": "span",
+        "text": "家母見我完sem冇嘢做就想我報下course 學下嘢 但係佢地而家係咁叫我去上ai course 我硬係覺得ai cert course都好似冇乜用🫣 dum錢出街咁 寧願學返coding 睇下搞唔搞project 或者學下ui/ux …",
+        "textOverflow": "ellipsis",
+        "whiteSpace": "nowrap"
+      },
+      {
+        "overflow": "hidden",
+        "overflowX": 878,
+        "rect": {
+          "h": 20.1328125,
+          "w": 398.5546875,
+          "x": 1582.734375,
+          "y": 863.4140625
+        },
+        "tag": "span",
+        "text": "分享最近為自己 vibe code 的大量閱讀工具：Long Drive / 長途駕駛。 目標很簡單：讓大量閱讀變得像在漂亮公路上長途駕駛一樣舒服。 AI 時代，我最大的痛點就是：每天要讀太多純文字資訊。 AI 不會累，我會 😢 所以我…",
+        "textOverflow": "ellipsis",
+        "whiteSpace": "nowrap"
+      },
+      {
+        "overflow": "hidden",
+        "overflowX": 1031,
+        "rect": {
+          "h": 20.1328125,
+          "w": 398.5546875,
+          "x": 1582.734375,
+          "y": 923.296875
+        },
+        "tag": "span",
+        "text": "我用 AI 寫論文，差點引用了一個不存在的研究。 數字漂亮，格式正確，連期刊名稱都寫得出來。我去查，查無此文。 AI 最危險的不是「寫錯」，是「錯得太像真的」 語法錯誤你看得出來，邏輯漏洞你可以感覺到。但 AI 編造的數字，你通常感覺不到…",
+        "textOverflow": "ellipsis",
+        "whiteSpace": "nowrap"
+      }
+    ],
+    "overlapping": [],
+    "popupRect": {
+      "clientHeight": 860,
+      "h": 861.4921875,
+      "scrollHeight": 900,
+      "w": 721.5,
+      "x": 1414.5,
+      "y": 81.99609375
+    },
+    "rawHits": [],
+    "secretHits": [],
+    "summary": "9 signals · 9 analyses",
+    "textSample": "已加入隊列：ai discussion dlens Topic Product PR Annotated Field Guide VOL.1 NO.01 Jun 10 · v.0.1.30 d 採集 訊號 分類 行動 設定 Product mode Saved Signals 先確認已儲存的 Threads post 是否完成抓取，再到行動頁整理可試 workflow。 AI enabled 分析狀態 ✓ 已就緒 9 signals · 9 analyses 重新分析 分析完成，查看哪些 signal 值得行動 查看候選行動 → Saved Signals 9 saved Claude Codeだけで10個のSNSアカウントを自動管理し、月2万ドル超を稼いでいる日本人の動画が話題になってる🧵 どうやってるか、仕組みを整理した。 可分析 · 學習資源 · 保留觀察 學習資源 × 我有個朋友終於完成phd學位，同佢食食下飯，問佢:「辛苦左咁多年，有咩想講？」 佢話:「粗口。」 我靜左。 可分析 · 噪音 · 前提不符 噪音 × 好羨慕大家可以用「完sem」兩隻字 Final year既我已經要用「畢業」了。 …………😭🙏🏻 可分析 · 噪音 · 前提不符 噪音 × 我收到聲稱係6ixty 8ight team 搵人做model 拍片，但拍完又5使公開 想問下係真 定又係詐騙🥹🥹🥹 可分析 · 噪音 · 前提不符 噪音 × 大家唔好去食葵芳新都會廣場二樓「樂麵」 衛生真係差到仆街，開放式廚房，發黑發霉嘅外賣盒係照用，跌過落地嘅夾係照用（廚房地下係鋪滿廢油，湯積，積水），堂食用嘅餐具係好似冇洗過咁，啲調味料仲喺個羹到，一百蚊一個拉麵，五十幾蚊5隻餃子，咁嘅衛生… 可分析 · 噪音 · 前提不符 噪音 × Claude code就很犯賤 結尾加上一句「完成後會請Codex覆檢」 成果好到靠北 by Opus 4.7 xhigh 可分析 · 技術討論 · 值得嘗試 技術討論 × 家母見我完sem冇嘢做就想我報下course 學下嘢 但係佢地而家係咁叫我去上ai course 我硬係覺得ai cert course都好似冇乜用🫣 dum錢出街咁 寧願學返coding 睇下搞唔搞project 或者學下ui/ux … 可分析 · 學習資源 · 保留觀察 學習資源 × 分享最近為自己 vibe code 的大量閱讀工具：Long Drive / 長途駕駛。 目標很簡單：讓大量閱讀變得像在漂亮公路上長途駕駛一樣舒服。 AI 時代，我最大的痛點就是：每天要讀太多純文字資訊。 AI 不會累，我會 😢 所以我… 可分析 · 學習資源 · 值得嘗試 學習資源 × 我用 AI 寫論文，差點引用了一個不存在的研究。 數字漂亮，格式正確，連期刊名稱都寫得出來。我去查，查無此文。 AI 最危險的不是「寫錯」，是「錯得太像真的」 語法錯誤你看得出來，邏輯漏洞你可以感覺到。但 AI 編造的數字，你通常感覺不到… 可分析 · 學習資源 · 值得嘗試 學習資源 ×"
+  }
+}

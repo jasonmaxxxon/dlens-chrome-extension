@@ -14,6 +14,7 @@ import type {
   TriageAction
 } from "../state/types";
 import { sendExtensionMessage } from "./controller";
+import { markQaTrace } from "./qa-trace";
 import {
   buildProductSignalEvidenceCatalogFromCapture,
   type ProductSignalEvidenceEntry
@@ -80,8 +81,14 @@ export function buildSignalPreviewById(activeFolder: SessionRecord | null, signa
 }
 
 export function findSignalsMissingBackingItems(activeFolder: SessionRecord | null, signals: Signal[]): Signal[] {
+  if (!activeFolder?.id) {
+    return [];
+  }
   const itemById = new Map(activeFolder?.items.map((item) => [item.id, item]) ?? []);
   return signals.filter((signal) => {
+    if (signal.sessionId !== activeFolder.id) {
+      return false;
+    }
     if (!signal.itemId) {
       return false;
     }
@@ -96,8 +103,11 @@ export function findSignalsMissingBackingItems(activeFolder: SessionRecord | nul
 }
 
 export function filterSignalsWithBackingItems(activeFolder: SessionRecord | null, signals: Signal[]): Signal[] {
+  if (!activeFolder?.id) {
+    return [];
+  }
   const orphanIds = new Set(findSignalsMissingBackingItems(activeFolder, signals).map((signal) => signal.id));
-  return signals.filter((signal) => !orphanIds.has(signal.id));
+  return signals.filter((signal) => signal.sessionId === activeFolder.id && !orphanIds.has(signal.id));
 }
 
 export function resolveTopicCollectionTargetId(
@@ -260,6 +270,11 @@ export function useTopicState({
 
   useEffect(() => {
     if (!popupOpen || !activeFolder?.id || activeFolderMode === "archive") {
+      markQaTrace("popup.topic.hydrate.skip", {
+        popupOpen,
+        folderId: activeFolder?.id ?? null,
+        mode: activeFolderMode
+      });
       setTopics([]);
       setSignals([]);
       setSelectedTopicId(null);
@@ -269,6 +284,10 @@ export function useTopicState({
     }
 
     let cancelled = false;
+    markQaTrace("popup.topic.hydrate.request", {
+      folderId: activeFolder.id,
+      mode: activeFolderMode
+    });
     void Promise.all([
       sendExtensionMessage<TopicListResponse>({
         type: "topic/list",
@@ -283,9 +302,21 @@ export function useTopicState({
         if (cancelled) {
           return;
         }
+        markQaTrace("popup.topic.hydrate.response", {
+          folderId: activeFolder.id,
+          mode: activeFolderMode,
+          topicsOk: topicsResponse.ok,
+          signalsOk: signalsResponse.ok,
+          topicCount: topicsResponse.ok ? topicsResponse.topics?.length ?? 0 : null,
+          signalCount: signalsResponse.ok ? signalsResponse.signals?.length ?? 0 : null
+        });
         applyTopicListResponses({ topicsResponse, signalsResponse, setTopics, setSignals });
       })
       .catch(() => {
+        markQaTrace("popup.topic.hydrate.error", {
+          folderId: activeFolder.id,
+          mode: activeFolderMode
+        });
         // Keep the current topic detail mounted through transient storage/runtime errors.
       });
 
@@ -436,13 +467,13 @@ export function useTopicState({
     };
   }, [activeTopicItemIds.join("|"), selectedTopicId]);
 
-  async function onSessionModeChange(mode: FolderMode) {
+  async function onSessionModeChange(mode: FolderMode, targetSessionId?: string | null) {
     if (!activeFolder) {
       return null;
     }
     const response = await sendAndSync({
       type: "session/set-mode",
-      sessionId: activeFolder.id,
+      sessionId: targetSessionId ?? activeFolder.id,
       mode
     });
     if (response.ok && mode === "archive") {

@@ -25,7 +25,7 @@ The current product split is:
    - product cards show useful insight, cited discussion replies, reusable evidence patterns, `experimentHint`, and optional paste-ready `agentTaskSpec`; they should not turn Product Action into a long tutorial recipe surface, and the UI ignores legacy recipe fields if old records still contain them
    - product signal cards now support persisted layout variants: `marginalia` and `verdict`; default is `marginalia`
    - Product Action route restores the 0.1.15 `SignalReadingReviewWorkspace` / `READING REVIEW` UI only when the current saved signals have matching `SignalReading` rows; review callbacks alone must not switch the route away from the Marginalia action cards
-   - the removed page-level `SavedSignalsBatchExport` / `Agent export` / `原文優先` panel must not return
+   - the old page-level batch export must not return to the Action route; Saved Signals owns the `行動簡報匯出` selection/copy surface
    - Settings has a Product-only cache reset that clears derived product analyses, agent-task feedback, SignalReading rows, and compiled ProductContext without deleting saved signals/topics/PR evidence
    - product pages must not show backend clusters as the product output; clusters are internal backend support, not the user-facing product abstraction
 
@@ -345,7 +345,7 @@ The extension may present backend output more clearly, but it should not fabrica
 - Product mode has its own insight pages backed by `dlens:v1:product-signal-analyses`; these pages should not render backend clusters as the primary product output
 - Product mode cards should lead with useful insight, cited evidence, verdict, experiment hint, and optional `agentTaskSpec`
 - Product mode cards now default to Marginalia; persisted Verdict records remain supported, but Settings no longer exposes the layout switcher
-- Product Action route uses `SignalReadingReviewWorkspace` / `READING REVIEW` only when the current saved signals have matching `SignalReading` rows; do not render the removed Agent export / 原文優先 panel there
+- Product Action route uses `SignalReadingReviewWorkspace` / `READING REVIEW` only when the current saved signals have matching `SignalReading` rows; do not render the Saved Signals `行動簡報匯出` / `原文優先` batch-copy panel there
 - Product cache reset is `product/clear-cache`; keep it scoped to derived Product keys only, not saved `Signal` rows or session items
 - Marginalia should avoid duplicate support chrome: the rail owns verdict/relevance/task summary, the main column owns TRY/drop-cap/footnotes, and repeated bottom AI detail panels stay hidden for this layout
 - Topic synthesis defaults to Console; persisted Stack settings remain supported

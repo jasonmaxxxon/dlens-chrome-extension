@@ -1,0 +1,139 @@
+{
+  "after": {
+    "href": "https://www.threads.com/",
+    "rootText": "Hover to preview | S save | Esc exit Ready 已加入隊列：ai discussion dlens Topic Product PR Annotated Field Guide VOL.1 NO.01 Jun 10 · v.0.1.30 d 採集 訊號 分類 行動 設定 Product mode Saved Signals 先確認已儲存的 Threads post 是否完成抓取，再到行動頁整理可試 workflow。 Backend 離線 真實狀態 0 signals 0 analyses AI key ProductProfile ProductContext Product mode 收件匣沒有 signal。先在 Collect 儲存一篇 Threads post。 Backend 無法連線。請到設定確認 backend URL，或先啟動 ingest backend。 已完成 1 條產品訊號分析。 分析收件匣"
+  },
+  "controls": [
+    {
+      "disabled": null,
+      "idx": 0,
+      "rect": {
+        "h": 48,
+        "w": 48,
+        "x": 2088,
+        "y": 24
+      },
+      "role": null,
+      "text": "",
+      "visible": true
+    },
+    {
+      "disabled": null,
+      "idx": 1,
+      "rect": {
+        "h": 18,
+        "w": 47,
+        "x": 1493,
+        "y": 112
+      },
+      "role": "tab",
+      "text": "Topic",
+      "visible": true
+    },
+    {
+      "disabled": null,
+      "idx": 2,
+      "rect": {
+        "h": 19,
+        "w": 63,
+        "x": 1541,
+        "y": 112
+      },
+      "role": "tab",
+      "text": "Product",
+      "visible": true
+    },
+    {
+      "disabled": null,
+      "idx": 3,
+      "rect": {
+        "h": 18,
+        "w": 34,
+        "x": 1605,
+        "y": 112
+      },
+      "role": "tab",
+      "text": "PR",
+      "visible": true
+    },
+    {
+      "disabled": null,
+      "idx": 4,
+      "rect": {
+        "h": 58,
+        "w": 55,
+        "x": 1440,
+        "y": 215
+      },
+      "role": null,
+      "text": "採集",
+      "visible": true
+    },
+    {
+      "disabled": null,
+      "idx": 5,
+      "rect": {
+        "h": 58,
+        "w": 55,
+        "x": 1440,
+        "y": 281
+      },
+      "role": null,
+      "text": "訊號",
+      "visible": true
+    },
+    {
+      "disabled": null,
+      "idx": 6,
+      "rect": {
+        "h": 58,
+        "w": 55,
+        "x": 1440,
+        "y": 347
+      },
+      "role": null,
+      "text": "分類",
+      "visible": true
+    },
+    {
+      "disabled": null,
+      "idx": 7,
+      "rect": {
+        "h": 58,
+        "w": 55,
+        "x": 1440,
+        "y": 413
+      },
+      "role": null,
+      "text": "行動",
+      "visible": true
+    },
+    {
+      "disabled": null,
+      "idx": 8,
+      "rect": {
+        "h": 58,
+        "w": 55,
+        "x": 1440,
+        "y": 485
+      },
+      "role": null,
+      "text": "設定",
+      "visible": true
+    },
+    {
+      "disabled": true,
+      "idx": 9,
+      "rect": {
+        "h": 32,
+        "w": 88,
+        "x": 1545,
+        "y": 436
+      },
+      "role": null,
+      "text": "分析收件匣",
+      "visible": true
+    }
+  ],
+  "error": null
+}

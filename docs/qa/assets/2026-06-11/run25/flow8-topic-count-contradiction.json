@@ -1,0 +1,37 @@
+{
+  "run": "Run 25",
+  "testedAt": "2026-06-11T13:00:00+08:00",
+  "profile": "Google Chrome - Jason (brandonproject.co)",
+  "url": "https://www.threads.com/@se_ranking/post/DZYf_mngRnt#dlensQaTrace=1",
+  "flow": "Flow 8 count contradiction",
+  "preFixLiveResult": "failed",
+  "listPageObservation": {
+    "result": "passed",
+    "visibleText": [
+      "0 未分流",
+      "2 主題",
+      "work 1 訊號 0/1 已完成 0 處理中 1 待處理",
+      "love 1 訊號 0/1 已完成 0 處理中 1 待處理"
+    ]
+  },
+  "detailPageObservation": {
+    "result": "failed",
+    "topic": "work",
+    "visibleText": [
+      "0 訊號",
+      "15/0 已分析",
+      "覆蓋 15/1",
+      "S1.OP-S15.OP source list visible"
+    ],
+    "interpretation": "Topic detail used topic.signalIds / signals length as denominator while audit evidence and memo data still had 15 sources."
+  },
+  "codeFix": {
+    "summary": "Topic audit summaries and overview display now use audit evidence/readings as the denominator when topic signal pointers drift, and sanitize impossible coverage values like 15/0 or 15/1.",
+    "files": [
+      "src/ui/TopicDetailView.tsx",
+      "src/ui/useTopicAudit.ts",
+      "tests/topic-detail-view.test.tsx"
+    ]
+  },
+  "liveRecheck": "blocked until user reloads output/chrome-mv3"
+}

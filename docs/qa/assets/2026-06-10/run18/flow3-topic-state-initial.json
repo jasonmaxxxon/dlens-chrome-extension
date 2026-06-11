@@ -1,0 +1,184 @@
+{
+  "flow3PrepStateRun18": {
+    "bodyCursor": "crosshair",
+    "text": "Hover to preview\n|\nS\nsave\n|\nEsc\nexit\nReady\ndlens\nTopic\nProduct\nPR\nAnnotated Field Guide\nVOL.1\nNO.02\nJun 10\n·\nv.0.1.30\nd\n採集\n訊號\n分類\n行動\n設定\nCollect mode live\n快速判斷，加入產品訊號\n\n指向 Threads 貼文即可預覽，按下加入產品訊號收件匣。\n\nActive\nLive capture\n已儲存\nF\nfredhongyi\n產品訊號收件匣 · Product mode\n在 Threads 開啟\n從好物變被丟棄... github copilot 本來主打，以提出幾次 prompt 為計算單位，等於說，prompt 下的好，可以一次性開發出一個很棒的專案，且只算一次使用的量。 但6月後調整為 AI credits 已經沒有此紅利... 實測，我用不到一個下午，就已經快撐爆一個月的用量。 只好直接捨棄了。\n2\n4\n—\n—\n已加入產品訊號\nSelection active\n收集模式：開啟\n移動游標選取貼文。\n關閉收集模式\nS · 儲存\nEsc · 離開"
+  },
+  "flow3TopicStateRun18": {
+    "bodyCursor": "",
+    "capturedAt": "2026-06-10T02:32:39.952Z",
+    "controls": [
+      {
+        "aria": "Close DLens popup",
+        "disabled": false,
+        "rect": {
+          "h": 48,
+          "w": 48,
+          "x": 2088,
+          "y": 24
+        },
+        "role": null,
+        "tag": "BUTTON",
+        "text": ""
+      },
+      {
+        "aria": null,
+        "disabled": false,
+        "rect": {
+          "h": 31,
+          "w": 65,
+          "x": 2043,
+          "y": 94
+        },
+        "role": null,
+        "tag": "BUTTON",
+        "text": "新建主題"
+      },
+      {
+        "aria": "Workspace",
+        "disabled": false,
+        "rect": {
+          "h": 24,
+          "w": 151,
+          "x": 1490,
+          "y": 143
+        },
+        "role": "tablist",
+        "tag": "DIV",
+        "text": "TopicProductPR"
+      },
+      {
+        "aria": null,
+        "disabled": false,
+        "rect": {
+          "h": 19,
+          "w": 49,
+          "x": 1492,
+          "y": 145
+        },
+        "role": "tab",
+        "tag": "BUTTON",
+        "text": "Topic"
+      },
+      {
+        "aria": null,
+        "disabled": false,
+        "rect": {
+          "h": 18,
+          "w": 61,
+          "x": 1542,
+          "y": 146
+        },
+        "role": "tab",
+        "tag": "BUTTON",
+        "text": "Product"
+      },
+      {
+        "aria": null,
+        "disabled": false,
+        "rect": {
+          "h": 18,
+          "w": 34,
+          "x": 1605,
+          "y": 146
+        },
+        "role": "tab",
+        "tag": "BUTTON",
+        "text": "PR"
+      },
+      {
+        "aria": "Workspace modes",
+        "disabled": false,
+        "rect": {
+          "h": 124,
+          "w": 55,
+          "x": 1440,
+          "y": 248
+        },
+        "role": null,
+        "tag": "NAV",
+        "text": "採集議題"
+      },
+      {
+        "aria": null,
+        "disabled": false,
+        "rect": {
+          "h": 58,
+          "w": 55,
+          "x": 1440,
+          "y": 248
+        },
+        "role": null,
+        "tag": "BUTTON",
+        "text": "採集"
+      },
+      {
+        "aria": null,
+        "disabled": false,
+        "rect": {
+          "h": 58,
+          "w": 55,
+          "x": 1440,
+          "y": 314
+        },
+        "role": null,
+        "tag": "BUTTON",
+        "text": "議題"
+      },
+      {
+        "aria": null,
+        "disabled": false,
+        "rect": {
+          "h": 58,
+          "w": 55,
+          "x": 1440,
+          "y": 386
+        },
+        "role": null,
+        "tag": "BUTTON",
+        "text": "設定"
+      },
+      {
+        "aria": null,
+        "disabled": false,
+        "rect": {
+          "h": 143,
+          "w": 604,
+          "x": 1515,
+          "y": 261
+        },
+        "role": null,
+        "tag": "BUTTON",
+        "text": "work由同名 Topic workspace 自動建立。報告 未生成1訊號0/1已完成0處理中1待處理打開 ›"
+      },
+      {
+        "aria": null,
+        "disabled": false,
+        "rect": {
+          "h": 143,
+          "w": 604,
+          "x": 1515,
+          "y": 416
+        },
+        "role": null,
+        "tag": "BUTTON",
+        "text": "love採集批次待整理報告 未生成1訊號0/1已完成0處理中1待處理打開 ›"
+      },
+      {
+        "aria": null,
+        "disabled": false,
+        "rect": {
+          "h": 45,
+          "w": 604,
+          "x": 1515,
+          "y": 587
+        },
+        "role": null,
+        "tag": "BUTTON",
+        "text": "+ 建立新議題 · 從採集匣選 ≥3 訊號開始"
+      }
+    ],
+    "rootText": "已加入主題\n選擇主題\nwork\nlove\n0 未分流\n2 主題\n新建主題\ndlens\nTopic\nProduct\nPR\nAnnotated Field Guide\nVOL.1\nNO.01\nJun 10\n·\nv.0.1.30\nd\n採集\n議題\n設定\n議題\n\n每個議題收一批 Threads 訊號；點進去看詞群、敘事與源清單。\n\n2 個議題\nwork\n由同名 Topic workspace 自動建立。\n報告 未生成\n1\n訊號\n0/1\n已完成\n0\n處理中\n1\n待處理\n打開 ›\nlove\n採集批次待整理\n報告 未生成\n1\n訊號\n0/1\n已完成\n0\n處理中\n1\n待處理\n打開 ›\n+ 建立新議題 · 從採集匣選 ≥3 訊號開始",
+    "traceCount": "222",
+    "url": "https://www.threads.com/#dlensQaTrace=1"
+  }
+}

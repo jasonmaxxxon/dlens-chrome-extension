@@ -1,0 +1,40 @@
+{
+  "run": "Run 25",
+  "testedAt": "2026-06-11T13:00:00+08:00",
+  "profile": "Google Chrome - Jason (brandonproject.co)",
+  "url": "https://www.threads.com/@se_ranking/post/DZYf_mngRnt#dlensQaTrace=1",
+  "traceMarker": "run14-url-trace-v1",
+  "flow": "B-02 / Flow 1 collect-mode toggle timing",
+  "preFixLiveResult": "failed",
+  "notes": [
+    "Backend-down sample was not 7s and not the original automation wall-clock artifact, but responses still often exceeded the 300ms target.",
+    "Backend-healthy sample showed repeated 0.5-1.4s toggle response latencies.",
+    "Trace segment showed worker/status and product hydrate events overlapping toggle operations."
+  ],
+  "backendDownSample": {
+    "domWaitMs": [404, 207, 397, 206, 262, 267],
+    "toggleResponseMs": [389.5, 369.2, 500.2, 430.3, 492.8, 490.6],
+    "contentStartOrStopMs": [6.3, 43, 185.9, 119.7, 174.5, 157.8]
+  },
+  "backendHealthySample": {
+    "domWaitMs": [352, 1292, 699, 1234, 994, 1256],
+    "toggleResponseMs": [509.1, 1427.1, 925.8, 1355.1, 1119.5, 1302.8],
+    "contentStartOrStopMs": [16.3, 792, 403.7, 670, 452.8, 640.1],
+    "overlap": "worker.status.response around 963-1230ms and product hydrate skip/response events were present near toggle pairs"
+  },
+  "codeFix": {
+    "summary": "useProcessingCoordinator no longer restarts its polling effect when workerStatus state changes; last-known worker status is now kept in a ref.",
+    "files": [
+      "src/ui/useProcessingCoordinator.ts",
+      "tests/processing-state.test.ts"
+    ],
+    "verification": [
+      "npx tsx --test tests/processing-state.test.ts",
+      "npx tsx --test tests/views.test.tsx tests/topic-detail-view.test.tsx",
+      "npm run typecheck",
+      "npx tsx --test tests/*.test.ts tests/*.test.tsx",
+      "npm run build"
+    ]
+  },
+  "liveRecheck": "blocked until user reloads output/chrome-mv3; Browser Use policy blocks opening chrome://extensions and forbids alternate browser workarounds for the same action"
+}

@@ -255,6 +255,33 @@ export function classifyCandidateStrength(score: number): CandidateStrength | nu
   return null;
 }
 
+// Threads nests time links and avatar wrappers deeper than the walk-up budget,
+// so a fragment that happens to classify can win while the depth-capped loop
+// never reaches the real post root — descriptors then extract from the
+// fragment (empty snippet, wrong author). Prefer the enclosing article root
+// whenever it classifies at least as strongly as the fragment. Post-detail
+// pages render posts without any article wrapper, so fall back to the
+// per-post pressable container there — article stays first so feed quote
+// cards keep promoting to the outer article.
+function promoteCandidateToPostRoot(candidate: CardCandidate): CardCandidate {
+  if (!candidate.root || candidate.root.matches("article, div[role='article']")) {
+    return candidate;
+  }
+  const postRoot =
+    candidate.root.parentElement?.closest("article, div[role='article']") ??
+    candidate.root.parentElement?.closest("div[data-pressable-container]");
+  if (!(postRoot instanceof HTMLElement)) {
+    return candidate;
+  }
+  const signals = collectCandidateSignals(postRoot);
+  const score = scoreCardCandidateSignals(signals);
+  const strength = classifyCandidateStrength(score);
+  if (strength && score >= candidate.score) {
+    return { root: postRoot, strength, score };
+  }
+  return candidate;
+}
+
 export function findCardCandidate(node: EventTarget | Node | null): CardCandidate {
   const element =
     node instanceof Element ? node : node instanceof Node ? node.parentElement : null;
@@ -282,7 +309,7 @@ export function findCardCandidate(node: EventTarget | Node | null): CardCandidat
     depth += 1;
   }
 
-  return best;
+  return promoteCandidateToPostRoot(best);
 }
 
 export function findCardRoot(node: EventTarget | Node | null): HTMLElement | null {

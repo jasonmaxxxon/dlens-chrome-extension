@@ -1,0 +1,256 @@
+{
+  "flow1StartTraceMeta": {
+    "count": 36,
+    "nowIso": "2026-06-10T02:28:01.573Z",
+    "traceStartId": 36
+  },
+  "afterOpenCollectRecoverRun18": {
+    "bodyCursor": "crosshair",
+    "capturedAt": "2026-06-10T02:28:16.571Z",
+    "docCursor": "crosshair",
+    "lastTrace": [
+      {
+        "at": 57391.5,
+        "detail": {
+          "activeFolderId": "session_ywskiblc_mp6p013z",
+          "failureCount": 3,
+          "hasInflight": false
+        },
+        "event": "popup.worker.status.request",
+        "id": 27,
+        "isoTime": "2026-06-10T02:27:27.903Z"
+      },
+      {
+        "at": 57392.20000004768,
+        "detail": {
+          "folderId": "session_ywskiblc_mp6p013z",
+          "mode": "product"
+        },
+        "event": "popup.topic.hydrate.request",
+        "id": 28,
+        "isoTime": "2026-06-10T02:27:27.904Z"
+      },
+      {
+        "at": 57392.70000004768,
+        "detail": {
+          "folderId": "session_ywskiblc_mp6p013z",
+          "isProductSignalPage": false,
+          "mode": "product",
+          "page": "collect",
+          "popupOpen": true
+        },
+        "event": "popup.product.hydrate.skip",
+        "id": 29,
+        "isoTime": "2026-06-10T02:27:27.904Z"
+      },
+      {
+        "at": 57393.5,
+        "detail": {
+          "activeFolderId": "session_ywskiblc_mp6p013z",
+          "failureCount": 3,
+          "hasInflight": false
+        },
+        "event": "popup.worker.status.request",
+        "id": 30,
+        "isoTime": "2026-06-10T02:27:27.905Z"
+      },
+      {
+        "at": 57437.70000004768,
+        "detail": {
+          "elapsedMs": 952.3,
+          "ok": true,
+          "selectionMode": false
+        },
+        "event": "popup.collect.toggle.response",
+        "id": 31,
+        "isoTime": "2026-06-10T02:27:27.949Z"
+      },
+      {
+        "at": 57439.80000001192,
+        "detail": {
+          "activeFolderId": "session_ywskiblc_mp6p013z",
+          "failureCount": 3,
+          "hasInflight": false
+        },
+        "event": "popup.worker.status.request",
+        "id": 32,
+        "isoTime": "2026-06-10T02:27:27.951Z"
+      },
+      {
+        "at": 57440.80000001192,
+        "detail": {
+          "activeFolderId": "session_ywskiblc_mp6p013z",
+          "failureCount": 3,
+          "hasInflight": false
+        },
+        "event": "popup.worker.status.request",
+        "id": 33,
+        "isoTime": "2026-06-10T02:27:27.952Z"
+      },
+      {
+        "at": 57639.30000001192,
+        "detail": {
+          "folderId": "session_ywskiblc_mp6p013z",
+          "mode": "product",
+          "signalCount": 2,
+          "signalsOk": true,
+          "topicCount": 0,
+          "topicsOk": true
+        },
+        "event": "popup.topic.hydrate.response",
+        "id": 34,
+        "isoTime": "2026-06-10T02:27:28.151Z"
+      },
+      {
+        "at": 57640.80000001192,
+        "detail": {
+          "activeFolderId": "session_ywskiblc_mp6p013z",
+          "failureCount": 3,
+          "hasInflight": false
+        },
+        "event": "popup.worker.status.request",
+        "id": 35,
+        "isoTime": "2026-06-10T02:27:28.152Z"
+      },
+      {
+        "at": 57934.40000003576,
+        "detail": {
+          "elapsedMs": 293.6,
+          "error": "Optional ingest backend unavailable at http://127.0.0.1:8000/worker/status. Check ingestBaseUrl or start the backend. Original error: Failed to fetch",
+          "failureCount": 4
+        },
+        "event": "popup.worker.status.error",
+        "id": 36,
+        "isoTime": "2026-06-10T02:27:28.446Z"
+      },
+      "[Circular]",
+      "[Circular]",
+      "[Circular]",
+      "[Circular]",
+      "[Circular]",
+      "[Circular]",
+      "[Circular]",
+      "[Circular]",
+      "[Circular]",
+      "[Circular]"
+    ],
+    "newTrace": [
+      {
+        "at": 91474.5,
+        "detail": {
+          "activeFolderId": "session_ywskiblc_mp6p013z",
+          "activeFolderMode": "product",
+          "type": "selection/start-active-tab"
+        },
+        "event": "popup.collect.toggle.request",
+        "id": 37,
+        "isoTime": "2026-06-10T02:28:01.986Z"
+      },
+      {
+        "at": 91828.80000001192,
+        "detail": {
+          "mode": "product",
+          "notify": false
+        },
+        "event": "content.selection.start",
+        "id": 38,
+        "isoTime": "2026-06-10T02:28:02.340Z"
+      },
+      {
+        "at": 92641.70000004768,
+        "detail": {
+          "elapsedMs": 1167.1,
+          "ok": true,
+          "selectionMode": true
+        },
+        "event": "popup.collect.toggle.response",
+        "id": 39,
+        "isoTime": "2026-06-10T02:28:03.153Z"
+      },
+      {
+        "at": 92644.40000003576,
+        "detail": {
+          "activeFolderId": "session_ywskiblc_mp6p013z",
+          "failureCount": 4,
+          "hasInflight": false
+        },
+        "event": "popup.worker.status.request",
+        "id": 40,
+        "isoTime": "2026-06-10T02:28:03.156Z"
+      },
+      {
+        "at": 92644.70000004768,
+        "detail": {
+          "folderId": "session_ywskiblc_mp6p013z",
+          "mode": "product"
+        },
+        "event": "popup.topic.hydrate.request",
+        "id": 41,
+        "isoTime": "2026-06-10T02:28:03.156Z"
+      },
+      {
+        "at": 92645,
+        "detail": {
+          "folderId": "session_ywskiblc_mp6p013z",
+          "isProductSignalPage": false,
+          "mode": "product",
+          "page": "collect",
+          "popupOpen": true
+        },
+        "event": "popup.product.hydrate.skip",
+        "id": 42,
+        "isoTime": "2026-06-10T02:28:03.156Z"
+      },
+      {
+        "at": 92645.80000001192,
+        "detail": {
+          "activeFolderId": "session_ywskiblc_mp6p013z",
+          "failureCount": 4,
+          "hasInflight": false
+        },
+        "event": "popup.worker.status.request",
+        "id": 43,
+        "isoTime": "2026-06-10T02:28:03.157Z"
+      },
+      {
+        "at": 92871.40000003576,
+        "detail": {
+          "folderId": "session_ywskiblc_mp6p013z",
+          "mode": "product",
+          "signalCount": 2,
+          "signalsOk": true,
+          "topicCount": 0,
+          "topicsOk": true
+        },
+        "event": "popup.topic.hydrate.response",
+        "id": 44,
+        "isoTime": "2026-06-10T02:28:03.383Z"
+      },
+      {
+        "at": 92872.70000004768,
+        "detail": {
+          "activeFolderId": "session_ywskiblc_mp6p013z",
+          "failureCount": 4,
+          "hasInflight": false
+        },
+        "event": "popup.worker.status.request",
+        "id": 45,
+        "isoTime": "2026-06-10T02:28:03.384Z"
+      },
+      {
+        "at": 93005.40000003576,
+        "detail": {
+          "elapsedMs": 132.8,
+          "error": "Optional ingest backend unavailable at http://127.0.0.1:8000/worker/status. Check ingestBaseUrl or start the backend. Original error: Failed to fetch",
+          "failureCount": 5
+        },
+        "event": "popup.worker.status.error",
+        "id": 46,
+        "isoTime": "2026-06-10T02:28:03.517Z"
+      }
+    ],
+    "overlayDisplay": "none",
+    "rootText": "Hover to preview\n|\nS\nsave\n|\nEsc\nexit\ndlens\nTopic\nProduct\nPR\nAnnotated Field Guide\nVOL.1\nNO.02\nJun 10\n·\nv.0.1.30\nd\n採集\n訊號\n分類\n行動\n設定\nCollect mode live\n快速判斷，加入產品訊號\n\n指向 Threads 貼文即可預覽，按下加入產品訊號收件匣。\n\nActive\nLive capture\n·\n尚無預覽\n產品訊號收件匣 · Product mode\n將游標移到 Threads 貼文上，這裡會顯示快速預覽。\n加入產品訊號\nSelection active\n收集模式：開啟\n移動游標選取貼文。\n關閉收集模式\nS · 儲存\nEsc · 離開",
+    "traceCount": "46"
+  }
+}

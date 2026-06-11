@@ -129,6 +129,7 @@ import {
   type FolderMode,
   type ProductContext,
   type ProductSignalAnalysis,
+  type Signal,
   type SessionItem,
   type SessionRecord,
   type TabUiState
@@ -154,7 +155,7 @@ import {
   updateSessionItem,
   type ItemRefreshResult
 } from "../src/state/store-helpers";
-import { ensureSignalForSavedItem, ensureWorkspaceTopicForSession, handleTopicMessage } from "../src/state/topic-handlers";
+import { ensureSignalForSavedItem, ensureSignalsForSessionItems, ensureWorkspaceTopicForSession, handleTopicMessage } from "../src/state/topic-handlers";
 import { handleTopicAuditMessage } from "../src/state/topic-audit-handlers";
 import { deleteSignal, loadSignals, loadTopicById, loadTopics, saveTopic } from "../src/state/topic-storage";
 import { generateTopicSynthesis } from "../src/compare/topic-synthesis";
@@ -193,6 +194,14 @@ const COMPARE_CACHE_MAX_ENTRIES = 50;
 const DEFAULT_STORAGE_QUOTA_BYTES = 10 * 1024 * 1024;
 const productSignalAnalysisInFlight = new Map<string, Promise<ProductSignalAnalysis[]>>();
 const prCriteriaMatchInFlight = new Map<string, Promise<PrEvidenceRow[]>>();
+
+type ProductSignalFailureDetail = {
+  signalId: string;
+  itemId?: string;
+  sourceUrl?: string;
+  error: string;
+  errorKind?: string | null;
+};
 
 // In-memory hover state per tab — never persisted to storage
 const tabHoverCache = new Map<number, Pick<TabUiState, "hoveredTarget" | "hoveredTargetStrength" | "flashPreview" | "currentPreview">>();
@@ -324,9 +333,15 @@ async function loadSnapshot(tabId: number): Promise<ExtensionSnapshot> {
 }
 
 function normalizeGlobalState(state: ExtensionGlobalState): ExtensionGlobalState {
+  const sessions = Array.isArray(state?.sessions) ? state.sessions.map((session) => normalizeSessionRecord(session)) : [];
+  const activeSessionId =
+    typeof state?.activeSessionId === "string" && sessions.some((session) => session.id === state.activeSessionId)
+      ? state.activeSessionId
+      : sessions[0]?.id ?? null;
   return {
     ...state,
-    sessions: Array.isArray(state?.sessions) ? state.sessions.map((session) => normalizeSessionRecord(session)) : [],
+    sessions,
+    activeSessionId,
     settings: normalizeExtensionSettings(state?.settings)
   };
 }
@@ -463,6 +478,51 @@ function buildProductSignalErrorAnalysis({
     status: "error",
     error: message
   };
+}
+
+function buildProductSignalFailureDetails({
+  session,
+  signals,
+  analyses
+}: {
+  session: SessionRecord | null;
+  signals: Signal[];
+  analyses: ProductSignalAnalysis[];
+}): ProductSignalFailureDetail[] {
+  const itemById = new Map((session?.items || []).map((item) => [item.id, item]));
+  const signalById = new Map(signals.map((signal) => [signal.id, signal]));
+  const failures: ProductSignalFailureDetail[] = [];
+  const seenSignalIds = new Set<string>();
+
+  for (const signal of signals) {
+    const item = signal.itemId ? itemById.get(signal.itemId) : null;
+    if (!item || (!item.lastError && item.status !== "failed")) {
+      continue;
+    }
+    seenSignalIds.add(signal.id);
+    failures.push({
+      signalId: signal.id,
+      itemId: item.id,
+      sourceUrl: item.canonicalTargetUrl || item.descriptor.post_url || item.descriptor.page_url,
+      error: item.lastError || "Backend processing failed.",
+      errorKind: item.lastErrorKind
+    });
+  }
+
+  for (const analysis of analyses) {
+    if (analysis.status !== "error" || seenSignalIds.has(analysis.signalId)) {
+      continue;
+    }
+    const signal = signalById.get(analysis.signalId);
+    failures.push({
+      signalId: analysis.signalId,
+      ...(signal?.itemId ? { itemId: signal.itemId } : {}),
+      error: analysis.error || analysis.reason || "Product signal analysis failed.",
+      errorKind: "product_signal_analysis"
+    });
+  }
+
+  return failures.slice(0, 5);
 }
 
 async function compileProductContextIfReady(global: ExtensionGlobalState): Promise<{ productContext: ProductContext | null; error: string | null }> {
@@ -1130,6 +1190,10 @@ const getOrGenerateJudgment = createLlmCallWrapper<
 
 interface SnapshotSaveOptions {
   persistActiveSessionId?: boolean;
+  /** Persist only the tab-state key. For mutations that leave the global
+   * state untouched (e.g. selection toggles) this skips serializing and
+   * rewriting the full session blob on the hot path (B-02). */
+  tabOnly?: boolean;
 }
 
 function cacheSnapshot(tabId: number, snapshot: ExtensionSnapshot): void {
@@ -1187,18 +1251,44 @@ async function persistSnapshot(
   return snapshot;
 }
 
+// A null/dangling active-session pointer must never reach storage while sessions
+// still exist: that is exactly the B-05 drift state where Product renders empty
+// against populated storage. Fall back to the last cached pointer, then the
+// first session, before accepting null (legitimate only when no sessions remain).
+function resolvePersistableActiveSessionId(
+  global: ExtensionGlobalState,
+  fallbackId: string | null | undefined
+): string | null {
+  const isValid = (id: string | null | undefined): id is string =>
+    typeof id === "string" && global.sessions.some((session) => session.id === id);
+  if (isValid(global.activeSessionId)) {
+    return global.activeSessionId;
+  }
+  if (isValid(fallbackId)) {
+    return fallbackId;
+  }
+  return global.sessions[0]?.id ?? null;
+}
+
+function withPersistableActiveSessionId(global: ExtensionGlobalState): ExtensionGlobalState {
+  const resolved = resolvePersistableActiveSessionId(global, globalStateCache?.activeSessionId);
+  return resolved === global.activeSessionId ? global : { ...global, activeSessionId: resolved };
+}
+
 async function saveSnapshot(tabId: number, snapshot: ExtensionSnapshot, options: SnapshotSaveOptions = {}): Promise<ExtensionSnapshot> {
   const global = options.persistActiveSessionId
-    ? snapshot.global
+    ? withPersistableActiveSessionId(snapshot.global)
     : applyStoredActiveSessionId(snapshot.global, globalStateCache?.activeSessionId);
   const nextSnapshot = {
-    global: withTimestamp(global),
+    global: options.tabOnly ? global : withTimestamp(global),
     tab: withTimestamp(normalizeTabState(snapshot.tab))
   };
   const payload: Record<string, unknown> = {
-    [GLOBAL_STORAGE_KEY]: nextSnapshot.global,
     [tabStorageKey(tabId)]: nextSnapshot.tab
   };
+  if (!options.tabOnly) {
+    payload[GLOBAL_STORAGE_KEY] = nextSnapshot.global;
+  }
   if (options.persistActiveSessionId) {
     payload[ACTIVE_SESSION_ID_STORAGE_KEY] = nextSnapshot.global.activeSessionId;
   }
@@ -1208,7 +1298,7 @@ async function saveSnapshot(tabId: number, snapshot: ExtensionSnapshot, options:
 
 async function saveActiveSessionSnapshot(tabId: number, snapshot: ExtensionSnapshot): Promise<ExtensionSnapshot> {
   const nextSnapshot = {
-    global: withTimestamp(snapshot.global),
+    global: withTimestamp(withPersistableActiveSessionId(snapshot.global)),
     tab: withTimestamp(normalizeTabState(snapshot.tab))
   };
   return persistSnapshot(
@@ -2125,14 +2215,16 @@ export default defineBackground(() => {
             return;
           }
           case "selection/start-active-tab": {
+            const startedAt = performance.now();
             const tabId = await resolveTabId(sender);
-            const current = await loadSnapshot(tabId);
+            // Cached read: only the active session mode is needed before the
+            // content script can flip the cursor; mutateSnapshot re-reads
+            // under the lock for the persisted write.
+            const current = await loadSnapshotCached(tabId);
             const activeMode = getActiveSession(current.global)?.mode ?? "archive";
             await chrome.tabs.sendMessage(tabId, { type: "selection/start-tab", tabId, mode: activeMode } satisfies ExtensionMessage);
-            sendResponse({
-              ok: true,
-              tabId,
-              snapshot: await mutateSnapshot(tabId, (latest) => ({
+            const snapshot = await mutateSnapshot(tabId, (latest) => ({
+              snapshot: {
                 global: latest.global,
                 tab: {
                   ...setCollectModeState(latest.tab, true),
@@ -2141,24 +2233,35 @@ export default defineBackground(() => {
                   flashPreview: null,
                   error: null
                 }
-              }))
-            } satisfies ExtensionResponse);
+              },
+              saveOptions: { tabOnly: true }
+            }));
+            console.info("[DLens] selection/start-active-tab", {
+              durationMs: Math.round(performance.now() - startedAt),
+              storageSetMs: lastSaveSnapshotStorageMs
+            });
+            sendResponse({ ok: true, tabId, snapshot } satisfies ExtensionResponse);
             return;
           }
           case "selection/cancel-active-tab": {
+            const startedAt = performance.now();
             const tabId = await resolveTabId(sender);
             await chrome.tabs.sendMessage(tabId, { type: "selection/cancel-tab", tabId } satisfies ExtensionMessage);
-            sendResponse({
-              ok: true,
-              tabId,
-              snapshot: await mutateSnapshot(tabId, (current) => ({
+            const snapshot = await mutateSnapshot(tabId, (current) => ({
+              snapshot: {
                 global: current.global,
                 tab: {
                   ...setCollectModeState(current.tab, false),
                   error: null
                 }
-              }))
-            } satisfies ExtensionResponse);
+              },
+              saveOptions: { tabOnly: true }
+            }));
+            console.info("[DLens] selection/cancel-active-tab", {
+              durationMs: Math.round(performance.now() - startedAt),
+              storageSetMs: lastSaveSnapshotStorageMs
+            });
+            sendResponse({ ok: true, tabId, snapshot } satisfies ExtensionResponse);
             return;
           }
           case "selection/hovered": {
@@ -2256,7 +2359,10 @@ export default defineBackground(() => {
             // global cache on every write, so cached read is safe for the active
             // tab. Saves ~10–50ms vs the parallel storage round-trip in loadSnapshot.
             const current = await loadSnapshotCached(tabId);
-            const global = activateSessionForMode(current.global, message.mode);
+            const requestedSession = getSessionById(current.global, message.sessionId);
+            const global = requestedSession?.mode === message.mode
+              ? setActiveSession(current.global, requestedSession.id)
+              : activateSessionForMode(current.global, message.mode);
             const activeSession = getActiveSession(global);
             const modeHomePage = getModeHomePage(message.mode);
             const nextSnapshotInput = {
@@ -2283,7 +2389,9 @@ export default defineBackground(() => {
               storageSetMs,
               path: setModePath,
               currentSessionsLen: current.global.sessions.length,
-              nextSessionsLen: global.sessions.length
+              nextSessionsLen: global.sessions.length,
+              activeSessionIdBefore: current.global.activeSessionId,
+              activeSessionIdAfter: global.activeSessionId
             });
             sendResponse({
               ok: true,
@@ -2305,6 +2413,13 @@ export default defineBackground(() => {
           case "signal/list":
           case "signal/triage": {
             const tabId = await resolveTabId(sender);
+            if (message.type === "signal/list") {
+              const current = await loadSnapshotCached(tabId);
+              const session = current.global.sessions.find((entry) => entry.id === message.sessionId) ?? null;
+              if (session?.mode === "product" && session.items.length > 0) {
+                await ensureSignalsForSessionItems(chrome.storage.local, session);
+              }
+            }
             if (message.type === "topic/set-collection-target") {
               sendResponse({
                 ok: true,
@@ -2757,6 +2872,11 @@ export default defineBackground(() => {
               await triggerWorkerDrain(normalizeBaseUrl(current.global.settings.ingestBaseUrl));
             }
             const productSignalAnalyses = await analyzeProductSignalsForSession(current.global, message.sessionId);
+            const failureDetails = buildProductSignalFailureDetails({
+              session,
+              signals,
+              analyses: productSignalAnalyses
+            });
             sendResponse({
               ok: true,
               tabId,
@@ -2765,7 +2885,8 @@ export default defineBackground(() => {
               productSignalAnalysisSummary: {
                 queued: queued.queued,
                 analyzed: productSignalAnalyses.filter((analysis) => analysis.status === "complete").length,
-                failed: productSignalAnalyses.filter((analysis) => analysis.status === "error").length
+                failed: failureDetails.length,
+                failures: failureDetails
               }
             } satisfies ExtensionResponse);
             return;

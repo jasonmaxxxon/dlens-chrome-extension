@@ -1,0 +1,293 @@
+{
+  "generatedAt": "2026-06-09T17:08:16.342Z",
+  "secondReloadBefore": {
+    "aria": "Open DLens popup",
+    "launcher": true,
+    "rootHtmlLen": 2080,
+    "rootText": "2 posts ready to compare"
+  },
+  "secondLauncherCount": 1,
+  "secondReloadAfter": {
+    "aria": "Close DLens popup",
+    "rootHtmlLen": 29870,
+    "rootText": "dlens\nTopic\nProduct\nPR\nAnnotated Field Guide\nVOL.1\nNO.01\nJun 10\n·\nv.0.1.30\nd\n採集\n訊號\n分類\n行動\n設定\nProduct mode\nAgent Brief\n\n先審視模型判讀，再把已收錄 reading 組成可貼給 coding agent 的 brief。\n\nAI enabled\n分析狀態\n✓ 已就緒\n2 signals · 2 analyses\n重新分析\nDLens\nFounders, product builders, PR/marketing researchers, journalists, analysts\nProductContext\n2 則訊號已評估\n值得嘗試\n0\n噪音 / 前提不符\n1\n資料不足\n0\n保留觀察\n1\n可直接試的做法\n目前沒有 verdict=try 的訊號。先看保留觀察或資料不足。"
+  },
+  "secondLogs": [
+    {
+      "level": "error",
+      "message": "failed to coordinate processing state Error: Optional ingest backend unavailable at http://127.0.0.1:8000/worker/status. Check ingestBaseUrl or start the backend. Original error: Failed to fetch\n    at f (chrome-extension://hihgplinfhopjpjonkcdbbmkoklombkj/content-scripts/threads.js:510:1443)",
+      "timestamp": "2026-06-09T17:02:54.498Z",
+      "url": "chrome-extension://hihgplinfhopjpjonkcdbbmkoklombkj/content-scripts/threads.js"
+    },
+    {
+      "level": "error",
+      "message": "failed to coordinate processing state Error: Optional ingest backend unavailable at http://127.0.0.1:8000/worker/status. Check ingestBaseUrl or start the backend. Original error: Failed to fetch\n    at f (chrome-extension://hihgplinfhopjpjonkcdbbmkoklombkj/content-scripts/threads.js:510:1443)",
+      "timestamp": "2026-06-09T17:02:54.600Z",
+      "url": "chrome-extension://hihgplinfhopjpjonkcdbbmkoklombkj/content-scripts/threads.js"
+    },
+    {
+      "level": "error",
+      "message": "failed to coordinate processing state Error: Optional ingest backend unavailable at http://127.0.0.1:8000/worker/status. Check ingestBaseUrl or start the backend. Original error: Failed to fetch\n    at f (chrome-extension://hihgplinfhopjpjonkcdbbmkoklombkj/content-scripts/threads.js:510:1443)",
+      "timestamp": "2026-06-09T17:02:54.842Z",
+      "url": "chrome-extension://hihgplinfhopjpjonkcdbbmkoklombkj/content-scripts/threads.js"
+    },
+    {
+      "level": "error",
+      "message": "failed to coordinate processing state Error: Optional ingest backend unavailable at http://127.0.0.1:8000/worker/status. Check ingestBaseUrl or start the backend. Original error: Failed to fetch\n    at f (chrome-extension://hihgplinfhopjpjonkcdbbmkoklombkj/content-scripts/threads.js:510:1443)",
+      "timestamp": "2026-06-09T17:02:54.843Z",
+      "url": "chrome-extension://hihgplinfhopjpjonkcdbbmkoklombkj/content-scripts/threads.js"
+    },
+    {
+      "level": "error",
+      "message": "failed to coordinate processing state Error: Optional ingest backend unavailable at http://127.0.0.1:8000/worker/status. Check ingestBaseUrl or start the backend. Original error: Failed to fetch\n    at f (chrome-extension://hihgplinfhopjpjonkcdbbmkoklombkj/content-scripts/threads.js:510:1443)",
+      "timestamp": "2026-06-09T17:02:54.985Z",
+      "url": "chrome-extension://hihgplinfhopjpjonkcdbbmkoklombkj/content-scripts/threads.js"
+    },
+    {
+      "level": "error",
+      "message": "failed to coordinate processing state Error: Optional ingest backend unavailable at http://127.0.0.1:8000/worker/status. Check ingestBaseUrl or start the backend. Original error: Failed to fetch\n    at f (chrome-extension://hihgplinfhopjpjonkcdbbmkoklombkj/content-scripts/threads.js:510:1443)",
+      "timestamp": "2026-06-09T17:02:55.092Z",
+      "url": "chrome-extension://hihgplinfhopjpjonkcdbbmkoklombkj/content-scripts/threads.js"
+    },
+    {
+      "level": "error",
+      "message": "failed to coordinate processing state Error: Optional ingest backend unavailable at http://127.0.0.1:8000/worker/status. Check ingestBaseUrl or start the backend. Original error: Failed to fetch\n    at f (chrome-extension://hihgplinfhopjpjonkcdbbmkoklombkj/content-scripts/threads.js:510:1443)",
+      "timestamp": "2026-06-09T17:02:55.115Z",
+      "url": "chrome-extension://hihgplinfhopjpjonkcdbbmkoklombkj/content-scripts/threads.js"
+    },
+    {
+      "level": "error",
+      "message": "failed to coordinate processing state Error: Optional ingest backend unavailable at http://127.0.0.1:8000/worker/status. Check ingestBaseUrl or start the backend. Original error: Failed to fetch\n    at f (chrome-extension://hihgplinfhopjpjonkcdbbmkoklombkj/content-scripts/threads.js:510:1443)",
+      "timestamp": "2026-06-09T17:02:55.177Z",
+      "url": "chrome-extension://hihgplinfhopjpjonkcdbbmkoklombkj/content-scripts/threads.js"
+    },
+    {
+      "level": "error",
+      "message": "failed to coordinate processing state Error: Optional ingest backend unavailable at http://127.0.0.1:8000/worker/status. Check ingestBaseUrl or start the backend. Original error: Failed to fetch\n    at f (chrome-extension://hihgplinfhopjpjonkcdbbmkoklombkj/content-scripts/threads.js:510:1443)",
+      "timestamp": "2026-06-09T17:02:55.178Z",
+      "url": "chrome-extension://hihgplinfhopjpjonkcdbbmkoklombkj/content-scripts/threads.js"
+    },
+    {
+      "level": "error",
+      "message": "failed to coordinate processing state Error: Optional ingest backend unavailable at http://127.0.0.1:8000/worker/status. Check ingestBaseUrl or start the backend. Original error: Failed to fetch\n    at f (chrome-extension://hihgplinfhopjpjonkcdbbmkoklombkj/content-scripts/threads.js:510:1443)",
+      "timestamp": "2026-06-09T17:03:39.281Z",
+      "url": "chrome-extension://hihgplinfhopjpjonkcdbbmkoklombkj/content-scripts/threads.js"
+    },
+    {
+      "level": "error",
+      "message": "failed to coordinate processing state Error: Optional ingest backend unavailable at http://127.0.0.1:8000/worker/status. Check ingestBaseUrl or start the backend. Original error: Failed to fetch\n    at f (chrome-extension://hihgplinfhopjpjonkcdbbmkoklombkj/content-scripts/threads.js:510:1443)",
+      "timestamp": "2026-06-09T17:03:39.616Z",
+      "url": "chrome-extension://hihgplinfhopjpjonkcdbbmkoklombkj/content-scripts/threads.js"
+    },
+    {
+      "level": "error",
+      "message": "failed to coordinate processing state Error: Optional ingest backend unavailable at http://127.0.0.1:8000/worker/status. Check ingestBaseUrl or start the backend. Original error: Failed to fetch\n    at f (chrome-extension://hihgplinfhopjpjonkcdbbmkoklombkj/content-scripts/threads.js:510:1443)",
+      "timestamp": "2026-06-09T17:03:39.822Z",
+      "url": "chrome-extension://hihgplinfhopjpjonkcdbbmkoklombkj/content-scripts/threads.js"
+    },
+    {
+      "level": "error",
+      "message": "failed to coordinate processing state Error: Optional ingest backend unavailable at http://127.0.0.1:8000/worker/status. Check ingestBaseUrl or start the backend. Original error: Failed to fetch\n    at f (chrome-extension://hihgplinfhopjpjonkcdbbmkoklombkj/content-scripts/threads.js:510:1443)",
+      "timestamp": "2026-06-09T17:03:39.825Z",
+      "url": "chrome-extension://hihgplinfhopjpjonkcdbbmkoklombkj/content-scripts/threads.js"
+    },
+    {
+      "level": "error",
+      "message": "failed to coordinate processing state Error: Optional ingest backend unavailable at http://127.0.0.1:8000/worker/status. Check ingestBaseUrl or start the backend. Original error: Failed to fetch\n    at f (chrome-extension://hihgplinfhopjpjonkcdbbmkoklombkj/content-scripts/threads.js:510:1443)",
+      "timestamp": "2026-06-09T17:03:39.950Z",
+      "url": "chrome-extension://hihgplinfhopjpjonkcdbbmkoklombkj/content-scripts/threads.js"
+    },
+    {
+      "level": "error",
+      "message": "failed to coordinate processing state Error: Optional ingest backend unavailable at http://127.0.0.1:8000/worker/status. Check ingestBaseUrl or start the backend. Original error: Failed to fetch\n    at f (chrome-extension://hihgplinfhopjpjonkcdbbmkoklombkj/content-scripts/threads.js:510:1443)",
+      "timestamp": "2026-06-09T17:05:01.015Z",
+      "url": "chrome-extension://hihgplinfhopjpjonkcdbbmkoklombkj/content-scripts/threads.js"
+    },
+    {
+      "level": "error",
+      "message": "failed to coordinate processing state Error: Optional ingest backend unavailable at http://127.0.0.1:8000/worker/status. Check ingestBaseUrl or start the backend. Original error: Failed to fetch\n    at f (chrome-extension://hihgplinfhopjpjonkcdbbmkoklombkj/content-scripts/threads.js:510:1443)",
+      "timestamp": "2026-06-09T17:05:01.126Z",
+      "url": "chrome-extension://hihgplinfhopjpjonkcdbbmkoklombkj/content-scripts/threads.js"
+    },
+    {
+      "level": "error",
+      "message": "failed to coordinate processing state Error: Optional ingest backend unavailable at http://127.0.0.1:8000/worker/status. Check ingestBaseUrl or start the backend. Original error: Failed to fetch\n    at f (chrome-extension://hihgplinfhopjpjonkcdbbmkoklombkj/content-scripts/threads.js:510:1443)",
+      "timestamp": "2026-06-09T17:05:01.501Z",
+      "url": "chrome-extension://hihgplinfhopjpjonkcdbbmkoklombkj/content-scripts/threads.js"
+    },
+    {
+      "level": "error",
+      "message": "failed to coordinate processing state Error: Optional ingest backend unavailable at http://127.0.0.1:8000/worker/status. Check ingestBaseUrl or start the backend. Original error: Failed to fetch\n    at f (chrome-extension://hihgplinfhopjpjonkcdbbmkoklombkj/content-scripts/threads.js:510:1443)",
+      "timestamp": "2026-06-09T17:05:01.720Z",
+      "url": "chrome-extension://hihgplinfhopjpjonkcdbbmkoklombkj/content-scripts/threads.js"
+    },
+    {
+      "level": "error",
+      "message": "failed to coordinate processing state Error: Optional ingest backend unavailable at http://127.0.0.1:8000/worker/status. Check ingestBaseUrl or start the backend. Original error: Failed to fetch\n    at f (chrome-extension://hihgplinfhopjpjonkcdbbmkoklombkj/content-scripts/threads.js:510:1443)",
+      "timestamp": "2026-06-09T17:05:02.118Z",
+      "url": "chrome-extension://hihgplinfhopjpjonkcdbbmkoklombkj/content-scripts/threads.js"
+    },
+    {
+      "level": "error",
+      "message": "failed to coordinate processing state Error: Optional ingest backend unavailable at http://127.0.0.1:8000/worker/status. Check ingestBaseUrl or start the backend. Original error: Failed to fetch\n    at f (chrome-extension://hihgplinfhopjpjonkcdbbmkoklombkj/content-scripts/threads.js:510:1443)",
+      "timestamp": "2026-06-09T17:05:02.118Z",
+      "url": "chrome-extension://hihgplinfhopjpjonkcdbbmkoklombkj/content-scripts/threads.js"
+    },
+    {
+      "level": "error",
+      "message": "failed to coordinate processing state Error: Optional ingest backend unavailable at http://127.0.0.1:8000/worker/status. Check ingestBaseUrl or start the backend. Original error: Failed to fetch\n    at f (chrome-extension://hihgplinfhopjpjonkcdbbmkoklombkj/content-scripts/threads.js:510:1443)",
+      "timestamp": "2026-06-09T17:05:02.258Z",
+      "url": "chrome-extension://hihgplinfhopjpjonkcdbbmkoklombkj/content-scripts/threads.js"
+    },
+    {
+      "level": "error",
+      "message": "failed to coordinate processing state Error: Optional ingest backend unavailable at http://127.0.0.1:8000/worker/status. Check ingestBaseUrl or start the backend. Original error: Failed to fetch\n    at f (chrome-extension://hihgplinfhopjpjonkcdbbmkoklombkj/content-scripts/threads.js:510:1443)",
+      "timestamp": "2026-06-09T17:05:02.258Z",
+      "url": "chrome-extension://hihgplinfhopjpjonkcdbbmkoklombkj/content-scripts/threads.js"
+    },
+    {
+      "level": "error",
+      "message": "failed to coordinate processing state Error: Optional ingest backend unavailable at http://127.0.0.1:8000/worker/status. Check ingestBaseUrl or start the backend. Original error: Failed to fetch\n    at f (chrome-extension://hihgplinfhopjpjonkcdbbmkoklombkj/content-scripts/threads.js:510:1443)",
+      "timestamp": "2026-06-09T17:05:02.289Z",
+      "url": "chrome-extension://hihgplinfhopjpjonkcdbbmkoklombkj/content-scripts/threads.js"
+    },
+    {
+      "level": "error",
+      "message": "failed to coordinate processing state Error: Optional ingest backend unavailable at http://127.0.0.1:8000/worker/status. Check ingestBaseUrl or start the backend. Original error: Failed to fetch\n    at f (chrome-extension://hihgplinfhopjpjonkcdbbmkoklombkj/content-scripts/threads.js:510:1443)",
+      "timestamp": "2026-06-09T17:06:31.872Z",
+      "url": "chrome-extension://hihgplinfhopjpjonkcdbbmkoklombkj/content-scripts/threads.js"
+    },
+    {
+      "level": "error",
+      "message": "failed to coordinate processing state Error: Optional ingest backend unavailable at http://127.0.0.1:8000/worker/status. Check ingestBaseUrl or start the backend. Original error: Failed to fetch\n    at f (chrome-extension://hihgplinfhopjpjonkcdbbmkoklombkj/content-scripts/threads.js:510:1443)",
+      "timestamp": "2026-06-09T17:06:32.151Z",
+      "url": "chrome-extension://hihgplinfhopjpjonkcdbbmkoklombkj/content-scripts/threads.js"
+    },
+    {
+      "level": "error",
+      "message": "failed to coordinate processing state Error: Optional ingest backend unavailable at http://127.0.0.1:8000/worker/status. Check ingestBaseUrl or start the backend. Original error: Failed to fetch\n    at f (chrome-extension://hihgplinfhopjpjonkcdbbmkoklombkj/content-scripts/threads.js:510:1443)",
+      "timestamp": "2026-06-09T17:06:32.212Z",
+      "url": "chrome-extension://hihgplinfhopjpjonkcdbbmkoklombkj/content-scripts/threads.js"
+    },
+    {
+      "level": "error",
+      "message": "failed to coordinate processing state Error: Optional ingest backend unavailable at http://127.0.0.1:8000/worker/status. Check ingestBaseUrl or start the backend. Original error: Failed to fetch\n    at f (chrome-extension://hihgplinfhopjpjonkcdbbmkoklombkj/content-scripts/threads.js:510:1443)",
+      "timestamp": "2026-06-09T17:06:32.212Z",
+      "url": "chrome-extension://hihgplinfhopjpjonkcdbbmkoklombkj/content-scripts/threads.js"
+    },
+    {
+      "level": "error",
+      "message": "failed to coordinate processing state Error: Optional ingest backend unavailable at http://127.0.0.1:8000/worker/status. Check ingestBaseUrl or start the backend. Original error: Failed to fetch\n    at f (chrome-extension://hihgplinfhopjpjonkcdbbmkoklombkj/content-scripts/threads.js:510:1443)",
+      "timestamp": "2026-06-09T17:06:32.339Z",
+      "url": "chrome-extension://hihgplinfhopjpjonkcdbbmkoklombkj/content-scripts/threads.js"
+    },
+    {
+      "level": "error",
+      "message": "failed to coordinate processing state Error: Optional ingest backend unavailable at http://127.0.0.1:8000/worker/status. Check ingestBaseUrl or start the backend. Original error: Failed to fetch\n    at f (chrome-extension://hihgplinfhopjpjonkcdbbmkoklombkj/content-scripts/threads.js:510:1443)",
+      "timestamp": "2026-06-09T17:06:32.340Z",
+      "url": "chrome-extension://hihgplinfhopjpjonkcdbbmkoklombkj/content-scripts/threads.js"
+    },
+    {
+      "level": "error",
+      "message": "failed to coordinate processing state Error: Optional ingest backend unavailable at http://127.0.0.1:8000/worker/status. Check ingestBaseUrl or start the backend. Original error: Failed to fetch\n    at f (chrome-extension://hihgplinfhopjpjonkcdbbmkoklombkj/content-scripts/threads.js:510:1443)",
+      "timestamp": "2026-06-09T17:06:32.541Z",
+      "url": "chrome-extension://hihgplinfhopjpjonkcdbbmkoklombkj/content-scripts/threads.js"
+    },
+    {
+      "level": "error",
+      "message": "failed to coordinate processing state Error: Optional ingest backend unavailable at http://127.0.0.1:8000/worker/status. Check ingestBaseUrl or start the backend. Original error: Failed to fetch\n    at f (chrome-extension://hihgplinfhopjpjonkcdbbmkoklombkj/content-scripts/threads.js:510:1443)",
+      "timestamp": "2026-06-09T17:06:32.541Z",
+      "url": "chrome-extension://hihgplinfhopjpjonkcdbbmkoklombkj/content-scripts/threads.js"
+    },
+    {
+      "level": "error",
+      "message": "failed to coordinate processing state Error: Optional ingest backend unavailable at http://127.0.0.1:8000/worker/status. Check ingestBaseUrl or start the backend. Original error: Failed to fetch\n    at f (chrome-extension://hihgplinfhopjpjonkcdbbmkoklombkj/content-scripts/threads.js:510:1443)",
+      "timestamp": "2026-06-09T17:06:32.677Z",
+      "url": "chrome-extension://hihgplinfhopjpjonkcdbbmkoklombkj/content-scripts/threads.js"
+    },
+    {
+      "level": "error",
+      "message": "failed to coordinate processing state Error: Optional ingest backend unavailable at http://127.0.0.1:8000/worker/status. Check ingestBaseUrl or start the backend. Original error: Failed to fetch\n    at f (chrome-extension://hihgplinfhopjpjonkcdbbmkoklombkj/content-scripts/threads.js:510:1443)",
+      "timestamp": "2026-06-09T17:06:32.677Z",
+      "url": "chrome-extension://hihgplinfhopjpjonkcdbbmkoklombkj/content-scripts/threads.js"
+    },
+    {
+      "level": "error",
+      "message": "failed to coordinate processing state Error: Optional ingest backend unavailable at http://127.0.0.1:8000/worker/status. Check ingestBaseUrl or start the backend. Original error: Failed to fetch\n    at f (chrome-extension://hihgplinfhopjpjonkcdbbmkoklombkj/content-scripts/threads.js:510:1443)",
+      "timestamp": "2026-06-09T17:07:30.475Z",
+      "url": "chrome-extension://hihgplinfhopjpjonkcdbbmkoklombkj/content-scripts/threads.js"
+    },
+    {
+      "level": "error",
+      "message": "failed to coordinate processing state Error: Optional ingest backend unavailable at http://127.0.0.1:8000/worker/status. Check ingestBaseUrl or start the backend. Original error: Failed to fetch\n    at f (chrome-extension://hihgplinfhopjpjonkcdbbmkoklombkj/content-scripts/threads.js:510:1443)",
+      "timestamp": "2026-06-09T17:07:30.762Z",
+      "url": "chrome-extension://hihgplinfhopjpjonkcdbbmkoklombkj/content-scripts/threads.js"
+    },
+    {
+      "level": "error",
+      "message": "failed to coordinate processing state Error: Optional ingest backend unavailable at http://127.0.0.1:8000/worker/status. Check ingestBaseUrl or start the backend. Original error: Failed to fetch\n    at f (chrome-extension://hihgplinfhopjpjonkcdbbmkoklombkj/content-scripts/threads.js:510:1443)",
+      "timestamp": "2026-06-09T17:07:30.830Z",
+      "url": "chrome-extension://hihgplinfhopjpjonkcdbbmkoklombkj/content-scripts/threads.js"
+    },
+    {
+      "level": "error",
+      "message": "failed to coordinate processing state Error: Optional ingest backend unavailable at http://127.0.0.1:8000/worker/status. Check ingestBaseUrl or start the backend. Original error: Failed to fetch\n    at f (chrome-extension://hihgplinfhopjpjonkcdbbmkoklombkj/content-scripts/threads.js:510:1443)",
+      "timestamp": "2026-06-09T17:07:30.831Z",
+      "url": "chrome-extension://hihgplinfhopjpjonkcdbbmkoklombkj/content-scripts/threads.js"
+    },
+    {
+      "level": "error",
+      "message": "failed to coordinate processing state Error: Optional ingest backend unavailable at http://127.0.0.1:8000/worker/status. Check ingestBaseUrl or start the backend. Original error: Failed to fetch\n    at f (chrome-extension://hihgplinfhopjpjonkcdbbmkoklombkj/content-scripts/threads.js:510:1443)",
+      "timestamp": "2026-06-09T17:07:30.895Z",
+      "url": "chrome-extension://hihgplinfhopjpjonkcdbbmkoklombkj/content-scripts/threads.js"
+    },
+    {
+      "level": "error",
+      "message": "failed to coordinate processing state Error: Optional ingest backend unavailable at http://127.0.0.1:8000/worker/status. Check ingestBaseUrl or start the backend. Original error: Failed to fetch\n    at f (chrome-extension://hihgplinfhopjpjonkcdbbmkoklombkj/content-scripts/threads.js:510:1443)",
+      "timestamp": "2026-06-09T17:07:31.041Z",
+      "url": "chrome-extension://hihgplinfhopjpjonkcdbbmkoklombkj/content-scripts/threads.js"
+    },
+    {
+      "level": "error",
+      "message": "failed to coordinate processing state Error: Optional ingest backend unavailable at http://127.0.0.1:8000/worker/status. Check ingestBaseUrl or start the backend. Original error: Failed to fetch\n    at f (chrome-extension://hihgplinfhopjpjonkcdbbmkoklombkj/content-scripts/threads.js:510:1443)",
+      "timestamp": "2026-06-09T17:07:31.103Z",
+      "url": "chrome-extension://hihgplinfhopjpjonkcdbbmkoklombkj/content-scripts/threads.js"
+    },
+    {
+      "level": "error",
+      "message": "failed to coordinate processing state Error: Optional ingest backend unavailable at http://127.0.0.1:8000/worker/status. Check ingestBaseUrl or start the backend. Original error: Failed to fetch\n    at f (chrome-extension://hihgplinfhopjpjonkcdbbmkoklombkj/content-scripts/threads.js:510:1443)",
+      "timestamp": "2026-06-09T17:07:31.105Z",
+      "url": "chrome-extension://hihgplinfhopjpjonkcdbbmkoklombkj/content-scripts/threads.js"
+    },
+    {
+      "level": "error",
+      "message": "failed to coordinate processing state Error: Optional ingest backend unavailable at http://127.0.0.1:8000/worker/status. Check ingestBaseUrl or start the backend. Original error: Failed to fetch\n    at f (chrome-extension://hihgplinfhopjpjonkcdbbmkoklombkj/content-scripts/threads.js:510:1443)",
+      "timestamp": "2026-06-09T17:07:31.224Z",
+      "url": "chrome-extension://hihgplinfhopjpjonkcdbbmkoklombkj/content-scripts/threads.js"
+    },
+    {
+      "level": "error",
+      "message": "failed to coordinate processing state Error: Optional ingest backend unavailable at http://127.0.0.1:8000/worker/status. Check ingestBaseUrl or start the backend. Original error: Failed to fetch\n    at f (chrome-extension://hihgplinfhopjpjonkcdbbmkoklombkj/content-scripts/threads.js:510:1443)",
+      "timestamp": "2026-06-09T17:08:15.963Z",
+      "url": "chrome-extension://hihgplinfhopjpjonkcdbbmkoklombkj/content-scripts/threads.js"
+    },
+    {
+      "level": "error",
+      "message": "failed to coordinate processing state Error: Optional ingest backend unavailable at http://127.0.0.1:8000/worker/status. Check ingestBaseUrl or start the backend. Original error: Failed to fetch\n    at f (chrome-extension://hihgplinfhopjpjonkcdbbmkoklombkj/content-scripts/threads.js:510:1443)",
+      "timestamp": "2026-06-09T17:08:16.052Z",
+      "url": "chrome-extension://hihgplinfhopjpjonkcdbbmkoklombkj/content-scripts/threads.js"
+    },
+    {
+      "level": "error",
+      "message": "failed to coordinate processing state Error: Optional ingest backend unavailable at http://127.0.0.1:8000/worker/status. Check ingestBaseUrl or start the backend. Original error: Failed to fetch\n    at f (chrome-extension://hihgplinfhopjpjonkcdbbmkoklombkj/content-scripts/threads.js:510:1443)",
+      "timestamp": "2026-06-09T17:08:16.336Z",
+      "url": "chrome-extension://hihgplinfhopjpjonkcdbbmkoklombkj/content-scripts/threads.js"
+    },
+    {
+      "level": "error",
+      "message": "failed to coordinate processing state Error: Optional ingest backend unavailable at http://127.0.0.1:8000/worker/status. Check ingestBaseUrl or start the backend. Original error: Failed to fetch\n    at f (chrome-extension://hihgplinfhopjpjonkcdbbmkoklombkj/content-scripts/threads.js:510:1443)",
+      "timestamp": "2026-06-09T17:08:16.342Z",
+      "url": "chrome-extension://hihgplinfhopjpjonkcdbbmkoklombkj/content-scripts/threads.js"
+    }
+  ]
+}

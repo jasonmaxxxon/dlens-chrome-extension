@@ -1,0 +1,5225 @@
+{
+  "generatedAt": "2026-06-10T02:54:36.043Z",
+  "type": "dlens-qa-trace-summary",
+  "label": "trace-after-flow5-backend-down",
+  "traceFile": "docs/qa/assets/2026-06-10/run18/trace-after-flow5-backend-down.json",
+  "eventCount": 500,
+  "firstAt": 701983.7,
+  "lastAt": 978107.3,
+  "firstIsoTime": "2026-06-10T02:38:12.492Z",
+  "lastIsoTime": "2026-06-10T02:42:48.614Z",
+  "durationMs": 276123.6,
+  "eventCounts": {
+    "popup.product.hydrate.request": 44,
+    "popup.product.hydrate.response": 44,
+    "popup.topic.hydrate.request": 44,
+    "popup.topic.hydrate.response": 44,
+    "popup.worker.refresh.request": 27,
+    "popup.worker.refresh.response": 30,
+    "popup.worker.status.request": 221,
+    "popup.worker.status.response": 46
+  },
+  "pairs": [
+    {
+      "label": "collect toggle roundtrip",
+      "startEvent": "popup.collect.toggle.request",
+      "endEvent": "popup.collect.toggle.response",
+      "count": 0,
+      "minMs": null,
+      "p50Ms": null,
+      "p95Ms": null,
+      "maxMs": null,
+      "avgMs": null,
+      "missingEndCount": 0,
+      "missingStarts": [],
+      "samples": []
+    },
+    {
+      "label": "content selection rehydrate",
+      "startEvent": "content.selection.sync.request",
+      "endEvent": "content.selection.sync.response",
+      "count": 0,
+      "minMs": null,
+      "p50Ms": null,
+      "p95Ms": null,
+      "maxMs": null,
+      "avgMs": null,
+      "missingEndCount": 0,
+      "missingStarts": [],
+      "samples": []
+    },
+    {
+      "label": "hover to overlay render",
+      "startEvent": "content.hover.card-change",
+      "endEvent": "content.overlay.render",
+      "count": 0,
+      "minMs": null,
+      "p50Ms": null,
+      "p95Ms": null,
+      "maxMs": null,
+      "avgMs": null,
+      "missingEndCount": 0,
+      "missingStarts": [],
+      "samples": []
+    },
+    {
+      "label": "hover descriptor publish",
+      "startEvent": "content.hover.intent-fired",
+      "endEvent": "content.hover.publish",
+      "count": 0,
+      "minMs": null,
+      "p50Ms": null,
+      "p95Ms": null,
+      "maxMs": null,
+      "avgMs": null,
+      "missingEndCount": 0,
+      "missingStarts": [],
+      "samples": []
+    },
+    {
+      "label": "collect click to save response",
+      "startEvent": "content.collect.click.capture",
+      "endEvent": "content.collect.save.response",
+      "count": 0,
+      "minMs": null,
+      "p50Ms": null,
+      "p95Ms": null,
+      "maxMs": null,
+      "avgMs": null,
+      "missingEndCount": 0,
+      "missingStarts": [],
+      "samples": []
+    },
+    {
+      "label": "topic/signal hydration",
+      "startEvent": "popup.topic.hydrate.request",
+      "endEvent": "popup.topic.hydrate.response",
+      "count": 44,
+      "minMs": 197.4,
+      "p50Ms": 356.2,
+      "p95Ms": 628.8,
+      "maxMs": 922.4,
+      "avgMs": 383.7,
+      "missingEndCount": 0,
+      "missingStarts": [],
+      "samples": [
+        {
+          "startId": 574,
+          "endId": 581,
+          "latencyMs": 558.2,
+          "startAt": 703261,
+          "endAt": 703819.2,
+          "startDetail": {
+            "folderId": "session_ywskiblc_mp6p013z",
+            "mode": "product"
+          },
+          "endDetail": {
+            "folderId": "session_ywskiblc_mp6p013z",
+            "mode": "product",
+            "topicsOk": true,
+            "signalsOk": true,
+            "topicCount": 0,
+            "signalCount": 1
+          }
+        },
+        {
+          "startId": 584,
+          "endId": 588,
+          "latencyMs": 417.2,
+          "startAt": 704454.3,
+          "endAt": 704871.5,
+          "startDetail": {
+            "folderId": "session_ywskiblc_mp6p013z",
+            "mode": "product"
+          },
+          "endDetail": {
+            "folderId": "session_ywskiblc_mp6p013z",
+            "mode": "product",
+            "topicsOk": true,
+            "signalsOk": true,
+            "topicCount": 0,
+            "signalCount": 1
+          }
+        },
+        {
+          "startId": 596,
+          "endId": 600,
+          "latencyMs": 431.8,
+          "startAt": 707486.4,
+          "endAt": 707918.2,
+          "startDetail": {
+            "folderId": "session_ywskiblc_mp6p013z",
+            "mode": "product"
+          },
+          "endDetail": {
+            "folderId": "session_ywskiblc_mp6p013z",
+            "mode": "product",
+            "topicsOk": true,
+            "signalsOk": true,
+            "topicCount": 0,
+            "signalCount": 1
+          }
+        },
+        {
+          "startId": 608,
+          "endId": 615,
+          "latencyMs": 287.6,
+          "startAt": 710481.3,
+          "endAt": 710768.9,
+          "startDetail": {
+            "folderId": "session_ywskiblc_mp6p013z",
+            "mode": "product"
+          },
+          "endDetail": {
+            "folderId": "session_ywskiblc_mp6p013z",
+            "mode": "product",
+            "topicsOk": true,
+            "signalsOk": true,
+            "topicCount": 0,
+            "signalCount": 1
+          }
+        },
+        {
+          "startId": 618,
+          "endId": 622,
+          "latencyMs": 500.7,
+          "startAt": 711685.5,
+          "endAt": 712186.2,
+          "startDetail": {
+            "folderId": "session_ywskiblc_mp6p013z",
+            "mode": "product"
+          },
+          "endDetail": {
+            "folderId": "session_ywskiblc_mp6p013z",
+            "mode": "product",
+            "topicsOk": true,
+            "signalsOk": true,
+            "topicCount": 0,
+            "signalCount": 1
+          }
+        },
+        {
+          "startId": 630,
+          "endId": 634,
+          "latencyMs": 263.4,
+          "startAt": 714800.2,
+          "endAt": 715063.6,
+          "startDetail": {
+            "folderId": "session_ywskiblc_mp6p013z",
+            "mode": "product"
+          },
+          "endDetail": {
+            "folderId": "session_ywskiblc_mp6p013z",
+            "mode": "product",
+            "topicsOk": true,
+            "signalsOk": true,
+            "topicCount": 0,
+            "signalCount": 1
+          }
+        },
+        {
+          "startId": 642,
+          "endId": 649,
+          "latencyMs": 628.8,
+          "startAt": 717525.4,
+          "endAt": 718154.2,
+          "startDetail": {
+            "folderId": "session_ywskiblc_mp6p013z",
+            "mode": "product"
+          },
+          "endDetail": {
+            "folderId": "session_ywskiblc_mp6p013z",
+            "mode": "product",
+            "topicsOk": true,
+            "signalsOk": true,
+            "topicCount": 0,
+            "signalCount": 1
+          }
+        },
+        {
+          "startId": 653,
+          "endId": 657,
+          "latencyMs": 359.5,
+          "startAt": 719294.1,
+          "endAt": 719653.6,
+          "startDetail": {
+            "folderId": "session_ywskiblc_mp6p013z",
+            "mode": "product"
+          },
+          "endDetail": {
+            "folderId": "session_ywskiblc_mp6p013z",
+            "mode": "product",
+            "topicsOk": true,
+            "signalsOk": true,
+            "topicCount": 0,
+            "signalCount": 1
+          }
+        },
+        {
+          "startId": 665,
+          "endId": 669,
+          "latencyMs": 441.4,
+          "startAt": 722357.7,
+          "endAt": 722799.1,
+          "startDetail": {
+            "folderId": "session_ywskiblc_mp6p013z",
+            "mode": "product"
+          },
+          "endDetail": {
+            "folderId": "session_ywskiblc_mp6p013z",
+            "mode": "product",
+            "topicsOk": true,
+            "signalsOk": true,
+            "topicCount": 0,
+            "signalCount": 1
+          }
+        },
+        {
+          "startId": 677,
+          "endId": 684,
+          "latencyMs": 485.7,
+          "startAt": 725201.8,
+          "endAt": 725687.5,
+          "startDetail": {
+            "folderId": "session_ywskiblc_mp6p013z",
+            "mode": "product"
+          },
+          "endDetail": {
+            "folderId": "session_ywskiblc_mp6p013z",
+            "mode": "product",
+            "topicsOk": true,
+            "signalsOk": true,
+            "topicCount": 0,
+            "signalCount": 1
+          }
+        },
+        {
+          "startId": 687,
+          "endId": 691,
+          "latencyMs": 356.2,
+          "startAt": 726659.7,
+          "endAt": 727015.9,
+          "startDetail": {
+            "folderId": "session_ywskiblc_mp6p013z",
+            "mode": "product"
+          },
+          "endDetail": {
+            "folderId": "session_ywskiblc_mp6p013z",
+            "mode": "product",
+            "topicsOk": true,
+            "signalsOk": true,
+            "topicCount": 0,
+            "signalCount": 1
+          }
+        },
+        {
+          "startId": 699,
+          "endId": 703,
+          "latencyMs": 355.1,
+          "startAt": 729754.2,
+          "endAt": 730109.3,
+          "startDetail": {
+            "folderId": "session_ywskiblc_mp6p013z",
+            "mode": "product"
+          },
+          "endDetail": {
+            "folderId": "session_ywskiblc_mp6p013z",
+            "mode": "product",
+            "topicsOk": true,
+            "signalsOk": true,
+            "topicCount": 0,
+            "signalCount": 1
+          }
+        },
+        {
+          "startId": 711,
+          "endId": 718,
+          "latencyMs": 323.5,
+          "startAt": 732744.8,
+          "endAt": 733068.3,
+          "startDetail": {
+            "folderId": "session_ywskiblc_mp6p013z",
+            "mode": "product"
+          },
+          "endDetail": {
+            "folderId": "session_ywskiblc_mp6p013z",
+            "mode": "product",
+            "topicsOk": true,
+            "signalsOk": true,
+            "topicCount": 0,
+            "signalCount": 1
+          }
+        },
+        {
+          "startId": 721,
+          "endId": 725,
+          "latencyMs": 355.8,
+          "startAt": 733830,
+          "endAt": 734185.8,
+          "startDetail": {
+            "folderId": "session_ywskiblc_mp6p013z",
+            "mode": "product"
+          },
+          "endDetail": {
+            "folderId": "session_ywskiblc_mp6p013z",
+            "mode": "product",
+            "topicsOk": true,
+            "signalsOk": true,
+            "topicCount": 0,
+            "signalCount": 1
+          }
+        },
+        {
+          "startId": 733,
+          "endId": 737,
+          "latencyMs": 198.6,
+          "startAt": 736925.9,
+          "endAt": 737124.5,
+          "startDetail": {
+            "folderId": "session_ywskiblc_mp6p013z",
+            "mode": "product"
+          },
+          "endDetail": {
+            "folderId": "session_ywskiblc_mp6p013z",
+            "mode": "product",
+            "topicsOk": true,
+            "signalsOk": true,
+            "topicCount": 0,
+            "signalCount": 1
+          }
+        },
+        {
+          "startId": 745,
+          "endId": 752,
+          "latencyMs": 404.6,
+          "startAt": 740135.6,
+          "endAt": 740540.2,
+          "startDetail": {
+            "folderId": "session_ywskiblc_mp6p013z",
+            "mode": "product"
+          },
+          "endDetail": {
+            "folderId": "session_ywskiblc_mp6p013z",
+            "mode": "product",
+            "topicsOk": true,
+            "signalsOk": true,
+            "topicCount": 0,
+            "signalCount": 1
+          }
+        },
+        {
+          "startId": 755,
+          "endId": 759,
+          "latencyMs": 353,
+          "startAt": 741247.2,
+          "endAt": 741600.2,
+          "startDetail": {
+            "folderId": "session_ywskiblc_mp6p013z",
+            "mode": "product"
+          },
+          "endDetail": {
+            "folderId": "session_ywskiblc_mp6p013z",
+            "mode": "product",
+            "topicsOk": true,
+            "signalsOk": true,
+            "topicCount": 0,
+            "signalCount": 1
+          }
+        },
+        {
+          "startId": 767,
+          "endId": 771,
+          "latencyMs": 301.5,
+          "startAt": 745875.8,
+          "endAt": 746177.3,
+          "startDetail": {
+            "folderId": "session_ywskiblc_mp6p013z",
+            "mode": "product"
+          },
+          "endDetail": {
+            "folderId": "session_ywskiblc_mp6p013z",
+            "mode": "product",
+            "topicsOk": true,
+            "signalsOk": true,
+            "topicCount": 0,
+            "signalCount": 1
+          }
+        },
+        {
+          "startId": 779,
+          "endId": 786,
+          "latencyMs": 269.5,
+          "startAt": 750017.9,
+          "endAt": 750287.4,
+          "startDetail": {
+            "folderId": "session_ywskiblc_mp6p013z",
+            "mode": "product"
+          },
+          "endDetail": {
+            "folderId": "session_ywskiblc_mp6p013z",
+            "mode": "product",
+            "topicsOk": true,
+            "signalsOk": true,
+            "topicCount": 0,
+            "signalCount": 1
+          }
+        },
+        {
+          "startId": 789,
+          "endId": 793,
+          "latencyMs": 444.7,
+          "startAt": 751098.4,
+          "endAt": 751543.1,
+          "startDetail": {
+            "folderId": "session_ywskiblc_mp6p013z",
+            "mode": "product"
+          },
+          "endDetail": {
+            "folderId": "session_ywskiblc_mp6p013z",
+            "mode": "product",
+            "topicsOk": true,
+            "signalsOk": true,
+            "topicCount": 0,
+            "signalCount": 1
+          }
+        },
+        {
+          "startId": 803,
+          "endId": 807,
+          "latencyMs": 205.2,
+          "startAt": 754801.5,
+          "endAt": 755006.7,
+          "startDetail": {
+            "folderId": "session_ywskiblc_mp6p013z",
+            "mode": "product"
+          },
+          "endDetail": {
+            "folderId": "session_ywskiblc_mp6p013z",
+            "mode": "product",
+            "topicsOk": true,
+            "signalsOk": true,
+            "topicCount": 0,
+            "signalCount": 1
+          }
+        },
+        {
+          "startId": 813,
+          "endId": 820,
+          "latencyMs": 304.7,
+          "startAt": 758863.8,
+          "endAt": 759168.5,
+          "startDetail": {
+            "folderId": "session_ywskiblc_mp6p013z",
+            "mode": "product"
+          },
+          "endDetail": {
+            "folderId": "session_ywskiblc_mp6p013z",
+            "mode": "product",
+            "topicsOk": true,
+            "signalsOk": true,
+            "topicCount": 0,
+            "signalCount": 1
+          }
+        },
+        {
+          "startId": 823,
+          "endId": 827,
+          "latencyMs": 480.7,
+          "startAt": 759898.6,
+          "endAt": 760379.3,
+          "startDetail": {
+            "folderId": "session_ywskiblc_mp6p013z",
+            "mode": "product"
+          },
+          "endDetail": {
+            "folderId": "session_ywskiblc_mp6p013z",
+            "mode": "product",
+            "topicsOk": true,
+            "signalsOk": true,
+            "topicCount": 0,
+            "signalCount": 1
+          }
+        },
+        {
+          "startId": 833,
+          "endId": 837,
+          "latencyMs": 197.4,
+          "startAt": 763136.5,
+          "endAt": 763333.9,
+          "startDetail": {
+            "folderId": "session_ywskiblc_mp6p013z",
+            "mode": "product"
+          },
+          "endDetail": {
+            "folderId": "session_ywskiblc_mp6p013z",
+            "mode": "product",
+            "topicsOk": true,
+            "signalsOk": true,
+            "topicCount": 0,
+            "signalCount": 1
+          }
+        },
+        {
+          "startId": 843,
+          "endId": 850,
+          "latencyMs": 254,
+          "startAt": 766328.9,
+          "endAt": 766582.9,
+          "startDetail": {
+            "folderId": "session_ywskiblc_mp6p013z",
+            "mode": "product"
+          },
+          "endDetail": {
+            "folderId": "session_ywskiblc_mp6p013z",
+            "mode": "product",
+            "topicsOk": true,
+            "signalsOk": true,
+            "topicCount": 0,
+            "signalCount": 1
+          }
+        },
+        {
+          "startId": 853,
+          "endId": 857,
+          "latencyMs": 331.9,
+          "startAt": 767381,
+          "endAt": 767712.9,
+          "startDetail": {
+            "folderId": "session_ywskiblc_mp6p013z",
+            "mode": "product"
+          },
+          "endDetail": {
+            "folderId": "session_ywskiblc_mp6p013z",
+            "mode": "product",
+            "topicsOk": true,
+            "signalsOk": true,
+            "topicCount": 0,
+            "signalCount": 1
+          }
+        },
+        {
+          "startId": 863,
+          "endId": 867,
+          "latencyMs": 207.5,
+          "startAt": 771375.4,
+          "endAt": 771582.9,
+          "startDetail": {
+            "folderId": "session_ywskiblc_mp6p013z",
+            "mode": "product"
+          },
+          "endDetail": {
+            "folderId": "session_ywskiblc_mp6p013z",
+            "mode": "product",
+            "topicsOk": true,
+            "signalsOk": true,
+            "topicCount": 0,
+            "signalCount": 1
+          }
+        },
+        {
+          "startId": 873,
+          "endId": 880,
+          "latencyMs": 259.6,
+          "startAt": 774602.3,
+          "endAt": 774861.9,
+          "startDetail": {
+            "folderId": "session_ywskiblc_mp6p013z",
+            "mode": "product"
+          },
+          "endDetail": {
+            "folderId": "session_ywskiblc_mp6p013z",
+            "mode": "product",
+            "topicsOk": true,
+            "signalsOk": true,
+            "topicCount": 0,
+            "signalCount": 1
+          }
+        },
+        {
+          "startId": 886,
+          "endId": 890,
+          "latencyMs": 204.2,
+          "startAt": 778262,
+          "endAt": 778466.2,
+          "startDetail": {
+            "folderId": "session_ywskiblc_mp6p013z",
+            "mode": "product"
+          },
+          "endDetail": {
+            "folderId": "session_ywskiblc_mp6p013z",
+            "mode": "product",
+            "topicsOk": true,
+            "signalsOk": true,
+            "topicCount": 0,
+            "signalCount": 1
+          }
+        },
+        {
+          "startId": 896,
+          "endId": 903,
+          "latencyMs": 256.2,
+          "startAt": 781460.8,
+          "endAt": 781717,
+          "startDetail": {
+            "folderId": "session_ywskiblc_mp6p013z",
+            "mode": "product"
+          },
+          "endDetail": {
+            "folderId": "session_ywskiblc_mp6p013z",
+            "mode": "product",
+            "topicsOk": true,
+            "signalsOk": true,
+            "topicCount": 0,
+            "signalCount": 1
+          }
+        },
+        {
+          "startId": 912,
+          "endId": 915,
+          "latencyMs": 384.8,
+          "startAt": 783542.1,
+          "endAt": 783926.9,
+          "startDetail": {
+            "folderId": "session_ywskiblc_mp6p013z",
+            "mode": "product"
+          },
+          "endDetail": {
+            "folderId": "session_ywskiblc_mp6p013z",
+            "mode": "product",
+            "topicsOk": true,
+            "signalsOk": true,
+            "topicCount": 0,
+            "signalCount": 1
+          }
+        },
+        {
+          "startId": 920,
+          "endId": 927,
+          "latencyMs": 489.4,
+          "startAt": 784211.1,
+          "endAt": 784700.5,
+          "startDetail": {
+            "folderId": "session_ywskiblc_mp6p013z",
+            "mode": "product"
+          },
+          "endDetail": {
+            "folderId": "session_ywskiblc_mp6p013z",
+            "mode": "product",
+            "topicsOk": true,
+            "signalsOk": true,
+            "topicCount": 0,
+            "signalCount": 1
+          }
+        },
+        {
+          "startId": 930,
+          "endId": 937,
+          "latencyMs": 422.5,
+          "startAt": 785628.1,
+          "endAt": 786050.6,
+          "startDetail": {
+            "folderId": "session_ywskiblc_mp6p013z",
+            "mode": "product"
+          },
+          "endDetail": {
+            "folderId": "session_ywskiblc_mp6p013z",
+            "mode": "product",
+            "topicsOk": true,
+            "signalsOk": true,
+            "topicCount": 0,
+            "signalCount": 1
+          }
+        },
+        {
+          "startId": 946,
+          "endId": 953,
+          "latencyMs": 353,
+          "startAt": 787613,
+          "endAt": 787966,
+          "startDetail": {
+            "folderId": "session_ywskiblc_mp6p013z",
+            "mode": "product"
+          },
+          "endDetail": {
+            "folderId": "session_ywskiblc_mp6p013z",
+            "mode": "product",
+            "topicsOk": true,
+            "signalsOk": true,
+            "topicCount": 0,
+            "signalCount": 1
+          }
+        },
+        {
+          "startId": 962,
+          "endId": 969,
+          "latencyMs": 319.2,
+          "startAt": 789800.7,
+          "endAt": 790119.9,
+          "startDetail": {
+            "folderId": "session_ywskiblc_mp6p013z",
+            "mode": "product"
+          },
+          "endDetail": {
+            "folderId": "session_ywskiblc_mp6p013z",
+            "mode": "product",
+            "topicsOk": true,
+            "signalsOk": true,
+            "topicCount": 0,
+            "signalCount": 1
+          }
+        },
+        {
+          "startId": 978,
+          "endId": 985,
+          "latencyMs": 358.6,
+          "startAt": 791884.2,
+          "endAt": 792242.8,
+          "startDetail": {
+            "folderId": "session_ywskiblc_mp6p013z",
+            "mode": "product"
+          },
+          "endDetail": {
+            "folderId": "session_ywskiblc_mp6p013z",
+            "mode": "product",
+            "topicsOk": true,
+            "signalsOk": true,
+            "topicCount": 0,
+            "signalCount": 1
+          }
+        },
+        {
+          "startId": 988,
+          "endId": 995,
+          "latencyMs": 646.4,
+          "startAt": 793089.9,
+          "endAt": 793736.3,
+          "startDetail": {
+            "folderId": "session_ywskiblc_mp6p013z",
+            "mode": "product"
+          },
+          "endDetail": {
+            "folderId": "session_ywskiblc_mp6p013z",
+            "mode": "product",
+            "topicsOk": true,
+            "signalsOk": true,
+            "topicCount": 0,
+            "signalCount": 1
+          }
+        },
+        {
+          "startId": 998,
+          "endId": 1005,
+          "latencyMs": 514,
+          "startAt": 794285.8,
+          "endAt": 794799.8,
+          "startDetail": {
+            "folderId": "session_ywskiblc_mp6p013z",
+            "mode": "product"
+          },
+          "endDetail": {
+            "folderId": "session_ywskiblc_mp6p013z",
+            "mode": "product",
+            "topicsOk": true,
+            "signalsOk": true,
+            "topicCount": 0,
+            "signalCount": 1
+          }
+        },
+        {
+          "startId": 1008,
+          "endId": 1015,
+          "latencyMs": 344,
+          "startAt": 795681,
+          "endAt": 796025,
+          "startDetail": {
+            "folderId": "session_ywskiblc_mp6p013z",
+            "mode": "product"
+          },
+          "endDetail": {
+            "folderId": "session_ywskiblc_mp6p013z",
+            "mode": "product",
+            "topicsOk": true,
+            "signalsOk": true,
+            "topicCount": 0,
+            "signalCount": 1
+          }
+        },
+        {
+          "startId": 1018,
+          "endId": 1025,
+          "latencyMs": 441,
+          "startAt": 796777.2,
+          "endAt": 797218.2,
+          "startDetail": {
+            "folderId": "session_ywskiblc_mp6p013z",
+            "mode": "product"
+          },
+          "endDetail": {
+            "folderId": "session_ywskiblc_mp6p013z",
+            "mode": "product",
+            "topicsOk": true,
+            "signalsOk": true,
+            "topicCount": 0,
+            "signalCount": 1
+          }
+        },
+        {
+          "startId": 1028,
+          "endId": 1035,
+          "latencyMs": 449.9,
+          "startAt": 797955.5,
+          "endAt": 798405.4,
+          "startDetail": {
+            "folderId": "session_ywskiblc_mp6p013z",
+            "mode": "product"
+          },
+          "endDetail": {
+            "folderId": "session_ywskiblc_mp6p013z",
+            "mode": "product",
+            "topicsOk": true,
+            "signalsOk": true,
+            "topicCount": 0,
+            "signalCount": 1
+          }
+        },
+        {
+          "startId": 1038,
+          "endId": 1045,
+          "latencyMs": 922.4,
+          "startAt": 799213.3,
+          "endAt": 800135.7,
+          "startDetail": {
+            "folderId": "session_ywskiblc_mp6p013z",
+            "mode": "product"
+          },
+          "endDetail": {
+            "folderId": "session_ywskiblc_mp6p013z",
+            "mode": "product",
+            "topicsOk": true,
+            "signalsOk": true,
+            "topicCount": 0,
+            "signalCount": 1
+          }
+        },
+        {
+          "startId": 1048,
+          "endId": 1052,
+          "latencyMs": 427.5,
+          "startAt": 800356.4,
+          "endAt": 800783.9,
+          "startDetail": {
+            "folderId": "session_ywskiblc_mp6p013z",
+            "mode": "product"
+          },
+          "endDetail": {
+            "folderId": "session_ywskiblc_mp6p013z",
+            "mode": "product",
+            "topicsOk": true,
+            "signalsOk": true,
+            "topicCount": 0,
+            "signalCount": 1
+          }
+        },
+        {
+          "startId": 1060,
+          "endId": 1066,
+          "latencyMs": 372.7,
+          "startAt": 976528.2,
+          "endAt": 976900.9,
+          "startDetail": {
+            "folderId": "session_ywskiblc_mp6p013z",
+            "mode": "product"
+          },
+          "endDetail": {
+            "folderId": "session_ywskiblc_mp6p013z",
+            "mode": "product",
+            "topicsOk": true,
+            "signalsOk": true,
+            "topicCount": 0,
+            "signalCount": 1
+          }
+        }
+      ]
+    },
+    {
+      "label": "product hydration",
+      "startEvent": "popup.product.hydrate.request",
+      "endEvent": "popup.product.hydrate.response",
+      "count": 44,
+      "minMs": 196.3,
+      "p50Ms": 354.8,
+      "p95Ms": 627.1,
+      "maxMs": 919.9,
+      "avgMs": 385.3,
+      "missingEndCount": 0,
+      "missingStarts": [],
+      "samples": [
+        {
+          "startId": 575,
+          "endId": 580,
+          "latencyMs": 556.7,
+          "startAt": 703261.7,
+          "endAt": 703818.4,
+          "startDetail": {
+            "folderId": "session_ywskiblc_mp6p013z",
+            "page": "saved-signals",
+            "signalCount": 1
+          },
+          "endDetail": {
+            "folderId": "session_ywskiblc_mp6p013z",
+            "page": "saved-signals",
+            "signalCount": 1,
+            "currentOk": true,
+            "currentAnalysisCount": 0,
+            "historicalOk": true,
+            "historicalAnalysisCount": 0,
+            "feedbackOk": true,
+            "feedbackCount": 0,
+            "readingsOk": true,
+            "readingCount": 7
+          }
+        },
+        {
+          "startId": 585,
+          "endId": 587,
+          "latencyMs": 415.7,
+          "startAt": 704454.9,
+          "endAt": 704870.6,
+          "startDetail": {
+            "folderId": "session_ywskiblc_mp6p013z",
+            "page": "saved-signals",
+            "signalCount": 1
+          },
+          "endDetail": {
+            "folderId": "session_ywskiblc_mp6p013z",
+            "page": "saved-signals",
+            "signalCount": 1,
+            "currentOk": true,
+            "currentAnalysisCount": 0,
+            "historicalOk": true,
+            "historicalAnalysisCount": 0,
+            "feedbackOk": true,
+            "feedbackCount": 0,
+            "readingsOk": true,
+            "readingCount": 7
+          }
+        },
+        {
+          "startId": 597,
+          "endId": 599,
+          "latencyMs": 429.6,
+          "startAt": 707487,
+          "endAt": 707916.6,
+          "startDetail": {
+            "folderId": "session_ywskiblc_mp6p013z",
+            "page": "saved-signals",
+            "signalCount": 1
+          },
+          "endDetail": {
+            "folderId": "session_ywskiblc_mp6p013z",
+            "page": "saved-signals",
+            "signalCount": 1,
+            "currentOk": true,
+            "currentAnalysisCount": 0,
+            "historicalOk": true,
+            "historicalAnalysisCount": 0,
+            "feedbackOk": true,
+            "feedbackCount": 0,
+            "readingsOk": true,
+            "readingCount": 7
+          }
+        },
+        {
+          "startId": 609,
+          "endId": 614,
+          "latencyMs": 286.3,
+          "startAt": 710481.8,
+          "endAt": 710768.1,
+          "startDetail": {
+            "folderId": "session_ywskiblc_mp6p013z",
+            "page": "saved-signals",
+            "signalCount": 1
+          },
+          "endDetail": {
+            "folderId": "session_ywskiblc_mp6p013z",
+            "page": "saved-signals",
+            "signalCount": 1,
+            "currentOk": true,
+            "currentAnalysisCount": 0,
+            "historicalOk": true,
+            "historicalAnalysisCount": 0,
+            "feedbackOk": true,
+            "feedbackCount": 0,
+            "readingsOk": true,
+            "readingCount": 7
+          }
+        },
+        {
+          "startId": 619,
+          "endId": 621,
+          "latencyMs": 499.7,
+          "startAt": 711685.8,
+          "endAt": 712185.5,
+          "startDetail": {
+            "folderId": "session_ywskiblc_mp6p013z",
+            "page": "saved-signals",
+            "signalCount": 1
+          },
+          "endDetail": {
+            "folderId": "session_ywskiblc_mp6p013z",
+            "page": "saved-signals",
+            "signalCount": 1,
+            "currentOk": true,
+            "currentAnalysisCount": 0,
+            "historicalOk": true,
+            "historicalAnalysisCount": 0,
+            "feedbackOk": true,
+            "feedbackCount": 0,
+            "readingsOk": true,
+            "readingCount": 7
+          }
+        },
+        {
+          "startId": 631,
+          "endId": 633,
+          "latencyMs": 261.4,
+          "startAt": 714800.8,
+          "endAt": 715062.2,
+          "startDetail": {
+            "folderId": "session_ywskiblc_mp6p013z",
+            "page": "saved-signals",
+            "signalCount": 1
+          },
+          "endDetail": {
+            "folderId": "session_ywskiblc_mp6p013z",
+            "page": "saved-signals",
+            "signalCount": 1,
+            "currentOk": true,
+            "currentAnalysisCount": 0,
+            "historicalOk": true,
+            "historicalAnalysisCount": 0,
+            "feedbackOk": true,
+            "feedbackCount": 0,
+            "readingsOk": true,
+            "readingCount": 7
+          }
+        },
+        {
+          "startId": 643,
+          "endId": 648,
+          "latencyMs": 627.1,
+          "startAt": 717526.3,
+          "endAt": 718153.4,
+          "startDetail": {
+            "folderId": "session_ywskiblc_mp6p013z",
+            "page": "saved-signals",
+            "signalCount": 1
+          },
+          "endDetail": {
+            "folderId": "session_ywskiblc_mp6p013z",
+            "page": "saved-signals",
+            "signalCount": 1,
+            "currentOk": true,
+            "currentAnalysisCount": 0,
+            "historicalOk": true,
+            "historicalAnalysisCount": 0,
+            "feedbackOk": true,
+            "feedbackCount": 0,
+            "readingsOk": true,
+            "readingCount": 7
+          }
+        },
+        {
+          "startId": 654,
+          "endId": 656,
+          "latencyMs": 358.1,
+          "startAt": 719294.7,
+          "endAt": 719652.8,
+          "startDetail": {
+            "folderId": "session_ywskiblc_mp6p013z",
+            "page": "saved-signals",
+            "signalCount": 1
+          },
+          "endDetail": {
+            "folderId": "session_ywskiblc_mp6p013z",
+            "page": "saved-signals",
+            "signalCount": 1,
+            "currentOk": true,
+            "currentAnalysisCount": 0,
+            "historicalOk": true,
+            "historicalAnalysisCount": 0,
+            "feedbackOk": true,
+            "feedbackCount": 0,
+            "readingsOk": true,
+            "readingCount": 7
+          }
+        },
+        {
+          "startId": 666,
+          "endId": 668,
+          "latencyMs": 439.4,
+          "startAt": 722358.8,
+          "endAt": 722798.2,
+          "startDetail": {
+            "folderId": "session_ywskiblc_mp6p013z",
+            "page": "saved-signals",
+            "signalCount": 1
+          },
+          "endDetail": {
+            "folderId": "session_ywskiblc_mp6p013z",
+            "page": "saved-signals",
+            "signalCount": 1,
+            "currentOk": true,
+            "currentAnalysisCount": 0,
+            "historicalOk": true,
+            "historicalAnalysisCount": 0,
+            "feedbackOk": true,
+            "feedbackCount": 0,
+            "readingsOk": true,
+            "readingCount": 7
+          }
+        },
+        {
+          "startId": 678,
+          "endId": 683,
+          "latencyMs": 484.5,
+          "startAt": 725202.3,
+          "endAt": 725686.8,
+          "startDetail": {
+            "folderId": "session_ywskiblc_mp6p013z",
+            "page": "saved-signals",
+            "signalCount": 1
+          },
+          "endDetail": {
+            "folderId": "session_ywskiblc_mp6p013z",
+            "page": "saved-signals",
+            "signalCount": 1,
+            "currentOk": true,
+            "currentAnalysisCount": 0,
+            "historicalOk": true,
+            "historicalAnalysisCount": 0,
+            "feedbackOk": true,
+            "feedbackCount": 0,
+            "readingsOk": true,
+            "readingCount": 7
+          }
+        },
+        {
+          "startId": 688,
+          "endId": 690,
+          "latencyMs": 354.7,
+          "startAt": 726660.3,
+          "endAt": 727015,
+          "startDetail": {
+            "folderId": "session_ywskiblc_mp6p013z",
+            "page": "saved-signals",
+            "signalCount": 1
+          },
+          "endDetail": {
+            "folderId": "session_ywskiblc_mp6p013z",
+            "page": "saved-signals",
+            "signalCount": 1,
+            "currentOk": true,
+            "currentAnalysisCount": 0,
+            "historicalOk": true,
+            "historicalAnalysisCount": 0,
+            "feedbackOk": true,
+            "feedbackCount": 0,
+            "readingsOk": true,
+            "readingCount": 7
+          }
+        },
+        {
+          "startId": 700,
+          "endId": 702,
+          "latencyMs": 353.2,
+          "startAt": 729755.1,
+          "endAt": 730108.3,
+          "startDetail": {
+            "folderId": "session_ywskiblc_mp6p013z",
+            "page": "saved-signals",
+            "signalCount": 1
+          },
+          "endDetail": {
+            "folderId": "session_ywskiblc_mp6p013z",
+            "page": "saved-signals",
+            "signalCount": 1,
+            "currentOk": true,
+            "currentAnalysisCount": 0,
+            "historicalOk": true,
+            "historicalAnalysisCount": 0,
+            "feedbackOk": true,
+            "feedbackCount": 0,
+            "readingsOk": true,
+            "readingCount": 7
+          }
+        },
+        {
+          "startId": 712,
+          "endId": 717,
+          "latencyMs": 322.5,
+          "startAt": 732745.2,
+          "endAt": 733067.7,
+          "startDetail": {
+            "folderId": "session_ywskiblc_mp6p013z",
+            "page": "saved-signals",
+            "signalCount": 1
+          },
+          "endDetail": {
+            "folderId": "session_ywskiblc_mp6p013z",
+            "page": "saved-signals",
+            "signalCount": 1,
+            "currentOk": true,
+            "currentAnalysisCount": 0,
+            "historicalOk": true,
+            "historicalAnalysisCount": 0,
+            "feedbackOk": true,
+            "feedbackCount": 0,
+            "readingsOk": true,
+            "readingCount": 7
+          }
+        },
+        {
+          "startId": 722,
+          "endId": 724,
+          "latencyMs": 354.8,
+          "startAt": 733830.4,
+          "endAt": 734185.2,
+          "startDetail": {
+            "folderId": "session_ywskiblc_mp6p013z",
+            "page": "saved-signals",
+            "signalCount": 1
+          },
+          "endDetail": {
+            "folderId": "session_ywskiblc_mp6p013z",
+            "page": "saved-signals",
+            "signalCount": 1,
+            "currentOk": true,
+            "currentAnalysisCount": 0,
+            "historicalOk": true,
+            "historicalAnalysisCount": 0,
+            "feedbackOk": true,
+            "feedbackCount": 0,
+            "readingsOk": true,
+            "readingCount": 7
+          }
+        },
+        {
+          "startId": 734,
+          "endId": 736,
+          "latencyMs": 197.4,
+          "startAt": 736926.3,
+          "endAt": 737123.7,
+          "startDetail": {
+            "folderId": "session_ywskiblc_mp6p013z",
+            "page": "saved-signals",
+            "signalCount": 1
+          },
+          "endDetail": {
+            "folderId": "session_ywskiblc_mp6p013z",
+            "page": "saved-signals",
+            "signalCount": 1,
+            "currentOk": true,
+            "currentAnalysisCount": 0,
+            "historicalOk": true,
+            "historicalAnalysisCount": 0,
+            "feedbackOk": true,
+            "feedbackCount": 0,
+            "readingsOk": true,
+            "readingCount": 7
+          }
+        },
+        {
+          "startId": 746,
+          "endId": 751,
+          "latencyMs": 401.4,
+          "startAt": 740136.1,
+          "endAt": 740537.5,
+          "startDetail": {
+            "folderId": "session_ywskiblc_mp6p013z",
+            "page": "saved-signals",
+            "signalCount": 1
+          },
+          "endDetail": {
+            "folderId": "session_ywskiblc_mp6p013z",
+            "page": "saved-signals",
+            "signalCount": 1,
+            "currentOk": true,
+            "currentAnalysisCount": 1,
+            "historicalOk": true,
+            "historicalAnalysisCount": 1,
+            "feedbackOk": true,
+            "feedbackCount": 0,
+            "readingsOk": true,
+            "readingCount": 7
+          }
+        },
+        {
+          "startId": 756,
+          "endId": 758,
+          "latencyMs": 351.6,
+          "startAt": 741247.8,
+          "endAt": 741599.4,
+          "startDetail": {
+            "folderId": "session_ywskiblc_mp6p013z",
+            "page": "saved-signals",
+            "signalCount": 1
+          },
+          "endDetail": {
+            "folderId": "session_ywskiblc_mp6p013z",
+            "page": "saved-signals",
+            "signalCount": 1,
+            "currentOk": true,
+            "currentAnalysisCount": 1,
+            "historicalOk": true,
+            "historicalAnalysisCount": 1,
+            "feedbackOk": true,
+            "feedbackCount": 0,
+            "readingsOk": true,
+            "readingCount": 7
+          }
+        },
+        {
+          "startId": 768,
+          "endId": 770,
+          "latencyMs": 300.2,
+          "startAt": 745876.2,
+          "endAt": 746176.4,
+          "startDetail": {
+            "folderId": "session_ywskiblc_mp6p013z",
+            "page": "saved-signals",
+            "signalCount": 1
+          },
+          "endDetail": {
+            "folderId": "session_ywskiblc_mp6p013z",
+            "page": "saved-signals",
+            "signalCount": 1,
+            "currentOk": true,
+            "currentAnalysisCount": 1,
+            "historicalOk": true,
+            "historicalAnalysisCount": 1,
+            "feedbackOk": true,
+            "feedbackCount": 0,
+            "readingsOk": true,
+            "readingCount": 7
+          }
+        },
+        {
+          "startId": 780,
+          "endId": 785,
+          "latencyMs": 268.3,
+          "startAt": 750018.3,
+          "endAt": 750286.6,
+          "startDetail": {
+            "folderId": "session_ywskiblc_mp6p013z",
+            "page": "saved-signals",
+            "signalCount": 1
+          },
+          "endDetail": {
+            "folderId": "session_ywskiblc_mp6p013z",
+            "page": "saved-signals",
+            "signalCount": 1,
+            "currentOk": true,
+            "currentAnalysisCount": 1,
+            "historicalOk": true,
+            "historicalAnalysisCount": 1,
+            "feedbackOk": true,
+            "feedbackCount": 0,
+            "readingsOk": true,
+            "readingCount": 7
+          }
+        },
+        {
+          "startId": 790,
+          "endId": 792,
+          "latencyMs": 443,
+          "startAt": 751099.5,
+          "endAt": 751542.5,
+          "startDetail": {
+            "folderId": "session_ywskiblc_mp6p013z",
+            "page": "saved-signals",
+            "signalCount": 1
+          },
+          "endDetail": {
+            "folderId": "session_ywskiblc_mp6p013z",
+            "page": "saved-signals",
+            "signalCount": 1,
+            "currentOk": true,
+            "currentAnalysisCount": 1,
+            "historicalOk": true,
+            "historicalAnalysisCount": 1,
+            "feedbackOk": true,
+            "feedbackCount": 0,
+            "readingsOk": true,
+            "readingCount": 7
+          }
+        },
+        {
+          "startId": 804,
+          "endId": 806,
+          "latencyMs": 204.2,
+          "startAt": 754801.8,
+          "endAt": 755006,
+          "startDetail": {
+            "folderId": "session_ywskiblc_mp6p013z",
+            "page": "saved-signals",
+            "signalCount": 1
+          },
+          "endDetail": {
+            "folderId": "session_ywskiblc_mp6p013z",
+            "page": "saved-signals",
+            "signalCount": 1,
+            "currentOk": true,
+            "currentAnalysisCount": 1,
+            "historicalOk": true,
+            "historicalAnalysisCount": 1,
+            "feedbackOk": true,
+            "feedbackCount": 0,
+            "readingsOk": true,
+            "readingCount": 7
+          }
+        },
+        {
+          "startId": 814,
+          "endId": 819,
+          "latencyMs": 303.7,
+          "startAt": 758864.2,
+          "endAt": 759167.9,
+          "startDetail": {
+            "folderId": "session_ywskiblc_mp6p013z",
+            "page": "saved-signals",
+            "signalCount": 1
+          },
+          "endDetail": {
+            "folderId": "session_ywskiblc_mp6p013z",
+            "page": "saved-signals",
+            "signalCount": 1,
+            "currentOk": true,
+            "currentAnalysisCount": 1,
+            "historicalOk": true,
+            "historicalAnalysisCount": 1,
+            "feedbackOk": true,
+            "feedbackCount": 0,
+            "readingsOk": true,
+            "readingCount": 7
+          }
+        },
+        {
+          "startId": 824,
+          "endId": 826,
+          "latencyMs": 479.6,
+          "startAt": 759899,
+          "endAt": 760378.6,
+          "startDetail": {
+            "folderId": "session_ywskiblc_mp6p013z",
+            "page": "saved-signals",
+            "signalCount": 1
+          },
+          "endDetail": {
+            "folderId": "session_ywskiblc_mp6p013z",
+            "page": "saved-signals",
+            "signalCount": 1,
+            "currentOk": true,
+            "currentAnalysisCount": 1,
+            "historicalOk": true,
+            "historicalAnalysisCount": 1,
+            "feedbackOk": true,
+            "feedbackCount": 0,
+            "readingsOk": true,
+            "readingCount": 7
+          }
+        },
+        {
+          "startId": 834,
+          "endId": 836,
+          "latencyMs": 196.3,
+          "startAt": 763136.8,
+          "endAt": 763333.1,
+          "startDetail": {
+            "folderId": "session_ywskiblc_mp6p013z",
+            "page": "saved-signals",
+            "signalCount": 1
+          },
+          "endDetail": {
+            "folderId": "session_ywskiblc_mp6p013z",
+            "page": "saved-signals",
+            "signalCount": 1,
+            "currentOk": true,
+            "currentAnalysisCount": 1,
+            "historicalOk": true,
+            "historicalAnalysisCount": 1,
+            "feedbackOk": true,
+            "feedbackCount": 0,
+            "readingsOk": true,
+            "readingCount": 7
+          }
+        },
+        {
+          "startId": 844,
+          "endId": 849,
+          "latencyMs": 252.8,
+          "startAt": 766329.3,
+          "endAt": 766582.1,
+          "startDetail": {
+            "folderId": "session_ywskiblc_mp6p013z",
+            "page": "saved-signals",
+            "signalCount": 1
+          },
+          "endDetail": {
+            "folderId": "session_ywskiblc_mp6p013z",
+            "page": "saved-signals",
+            "signalCount": 1,
+            "currentOk": true,
+            "currentAnalysisCount": 1,
+            "historicalOk": true,
+            "historicalAnalysisCount": 1,
+            "feedbackOk": true,
+            "feedbackCount": 0,
+            "readingsOk": true,
+            "readingCount": 7
+          }
+        },
+        {
+          "startId": 854,
+          "endId": 856,
+          "latencyMs": 330.6,
+          "startAt": 767381.5,
+          "endAt": 767712.1,
+          "startDetail": {
+            "folderId": "session_ywskiblc_mp6p013z",
+            "page": "saved-signals",
+            "signalCount": 1
+          },
+          "endDetail": {
+            "folderId": "session_ywskiblc_mp6p013z",
+            "page": "saved-signals",
+            "signalCount": 1,
+            "currentOk": true,
+            "currentAnalysisCount": 1,
+            "historicalOk": true,
+            "historicalAnalysisCount": 1,
+            "feedbackOk": true,
+            "feedbackCount": 0,
+            "readingsOk": true,
+            "readingCount": 7
+          }
+        },
+        {
+          "startId": 864,
+          "endId": 866,
+          "latencyMs": 206.3,
+          "startAt": 771375.8,
+          "endAt": 771582.1,
+          "startDetail": {
+            "folderId": "session_ywskiblc_mp6p013z",
+            "page": "saved-signals",
+            "signalCount": 1
+          },
+          "endDetail": {
+            "folderId": "session_ywskiblc_mp6p013z",
+            "page": "saved-signals",
+            "signalCount": 1,
+            "currentOk": true,
+            "currentAnalysisCount": 1,
+            "historicalOk": true,
+            "historicalAnalysisCount": 1,
+            "feedbackOk": true,
+            "feedbackCount": 0,
+            "readingsOk": true,
+            "readingCount": 7
+          }
+        },
+        {
+          "startId": 874,
+          "endId": 879,
+          "latencyMs": 258.3,
+          "startAt": 774602.5,
+          "endAt": 774860.8,
+          "startDetail": {
+            "folderId": "session_ywskiblc_mp6p013z",
+            "page": "saved-signals",
+            "signalCount": 1
+          },
+          "endDetail": {
+            "folderId": "session_ywskiblc_mp6p013z",
+            "page": "saved-signals",
+            "signalCount": 1,
+            "currentOk": true,
+            "currentAnalysisCount": 1,
+            "historicalOk": true,
+            "historicalAnalysisCount": 1,
+            "feedbackOk": true,
+            "feedbackCount": 0,
+            "readingsOk": true,
+            "readingCount": 7
+          }
+        },
+        {
+          "startId": 887,
+          "endId": 889,
+          "latencyMs": 203,
+          "startAt": 778262.4,
+          "endAt": 778465.4,
+          "startDetail": {
+            "folderId": "session_ywskiblc_mp6p013z",
+            "page": "saved-signals",
+            "signalCount": 1
+          },
+          "endDetail": {
+            "folderId": "session_ywskiblc_mp6p013z",
+            "page": "saved-signals",
+            "signalCount": 1,
+            "currentOk": true,
+            "currentAnalysisCount": 1,
+            "historicalOk": true,
+            "historicalAnalysisCount": 1,
+            "feedbackOk": true,
+            "feedbackCount": 0,
+            "readingsOk": true,
+            "readingCount": 7
+          }
+        },
+        {
+          "startId": 897,
+          "endId": 902,
+          "latencyMs": 255.3,
+          "startAt": 781461.2,
+          "endAt": 781716.5,
+          "startDetail": {
+            "folderId": "session_ywskiblc_mp6p013z",
+            "page": "saved-signals",
+            "signalCount": 1
+          },
+          "endDetail": {
+            "folderId": "session_ywskiblc_mp6p013z",
+            "page": "saved-signals",
+            "signalCount": 1,
+            "currentOk": true,
+            "currentAnalysisCount": 1,
+            "historicalOk": true,
+            "historicalAnalysisCount": 1,
+            "feedbackOk": true,
+            "feedbackCount": 0,
+            "readingsOk": true,
+            "readingCount": 7
+          }
+        },
+        {
+          "startId": 913,
+          "endId": 917,
+          "latencyMs": 515.1,
+          "startAt": 783542.6,
+          "endAt": 784057.7,
+          "startDetail": {
+            "folderId": "session_ywskiblc_mp6p013z",
+            "page": "saved-signals",
+            "signalCount": 1
+          },
+          "endDetail": {
+            "folderId": "session_ywskiblc_mp6p013z",
+            "page": "saved-signals",
+            "signalCount": 1,
+            "currentOk": true,
+            "currentAnalysisCount": 1,
+            "historicalOk": true,
+            "historicalAnalysisCount": 1,
+            "feedbackOk": true,
+            "feedbackCount": 0,
+            "readingsOk": true,
+            "readingCount": 7
+          }
+        },
+        {
+          "startId": 921,
+          "endId": 926,
+          "latencyMs": 488.3,
+          "startAt": 784211.5,
+          "endAt": 784699.8,
+          "startDetail": {
+            "folderId": "session_ywskiblc_mp6p013z",
+            "page": "saved-signals",
+            "signalCount": 1
+          },
+          "endDetail": {
+            "folderId": "session_ywskiblc_mp6p013z",
+            "page": "saved-signals",
+            "signalCount": 1,
+            "currentOk": true,
+            "currentAnalysisCount": 1,
+            "historicalOk": true,
+            "historicalAnalysisCount": 1,
+            "feedbackOk": true,
+            "feedbackCount": 0,
+            "readingsOk": true,
+            "readingCount": 7
+          }
+        },
+        {
+          "startId": 931,
+          "endId": 936,
+          "latencyMs": 421.5,
+          "startAt": 785628.5,
+          "endAt": 786050,
+          "startDetail": {
+            "folderId": "session_ywskiblc_mp6p013z",
+            "page": "saved-signals",
+            "signalCount": 1
+          },
+          "endDetail": {
+            "folderId": "session_ywskiblc_mp6p013z",
+            "page": "saved-signals",
+            "signalCount": 1,
+            "currentOk": true,
+            "currentAnalysisCount": 1,
+            "historicalOk": true,
+            "historicalAnalysisCount": 1,
+            "feedbackOk": true,
+            "feedbackCount": 0,
+            "readingsOk": true,
+            "readingCount": 7
+          }
+        },
+        {
+          "startId": 947,
+          "endId": 952,
+          "latencyMs": 351.7,
+          "startAt": 787613.6,
+          "endAt": 787965.3,
+          "startDetail": {
+            "folderId": "session_ywskiblc_mp6p013z",
+            "page": "saved-signals",
+            "signalCount": 1
+          },
+          "endDetail": {
+            "folderId": "session_ywskiblc_mp6p013z",
+            "page": "saved-signals",
+            "signalCount": 1,
+            "currentOk": true,
+            "currentAnalysisCount": 1,
+            "historicalOk": true,
+            "historicalAnalysisCount": 1,
+            "feedbackOk": true,
+            "feedbackCount": 0,
+            "readingsOk": true,
+            "readingCount": 7
+          }
+        },
+        {
+          "startId": 963,
+          "endId": 968,
+          "latencyMs": 318.1,
+          "startAt": 789801.2,
+          "endAt": 790119.3,
+          "startDetail": {
+            "folderId": "session_ywskiblc_mp6p013z",
+            "page": "saved-signals",
+            "signalCount": 1
+          },
+          "endDetail": {
+            "folderId": "session_ywskiblc_mp6p013z",
+            "page": "saved-signals",
+            "signalCount": 1,
+            "currentOk": true,
+            "currentAnalysisCount": 1,
+            "historicalOk": true,
+            "historicalAnalysisCount": 1,
+            "feedbackOk": true,
+            "feedbackCount": 0,
+            "readingsOk": true,
+            "readingCount": 7
+          }
+        },
+        {
+          "startId": 979,
+          "endId": 984,
+          "latencyMs": 357.4,
+          "startAt": 791884.8,
+          "endAt": 792242.2,
+          "startDetail": {
+            "folderId": "session_ywskiblc_mp6p013z",
+            "page": "saved-signals",
+            "signalCount": 1
+          },
+          "endDetail": {
+            "folderId": "session_ywskiblc_mp6p013z",
+            "page": "saved-signals",
+            "signalCount": 1,
+            "currentOk": true,
+            "currentAnalysisCount": 1,
+            "historicalOk": true,
+            "historicalAnalysisCount": 1,
+            "feedbackOk": true,
+            "feedbackCount": 0,
+            "readingsOk": true,
+            "readingCount": 7
+          }
+        },
+        {
+          "startId": 989,
+          "endId": 994,
+          "latencyMs": 644.8,
+          "startAt": 793090.9,
+          "endAt": 793735.7,
+          "startDetail": {
+            "folderId": "session_ywskiblc_mp6p013z",
+            "page": "saved-signals",
+            "signalCount": 1
+          },
+          "endDetail": {
+            "folderId": "session_ywskiblc_mp6p013z",
+            "page": "saved-signals",
+            "signalCount": 1,
+            "currentOk": true,
+            "currentAnalysisCount": 1,
+            "historicalOk": true,
+            "historicalAnalysisCount": 1,
+            "feedbackOk": true,
+            "feedbackCount": 0,
+            "readingsOk": true,
+            "readingCount": 7
+          }
+        },
+        {
+          "startId": 999,
+          "endId": 1004,
+          "latencyMs": 513.1,
+          "startAt": 794286.2,
+          "endAt": 794799.3,
+          "startDetail": {
+            "folderId": "session_ywskiblc_mp6p013z",
+            "page": "saved-signals",
+            "signalCount": 1
+          },
+          "endDetail": {
+            "folderId": "session_ywskiblc_mp6p013z",
+            "page": "saved-signals",
+            "signalCount": 1,
+            "currentOk": true,
+            "currentAnalysisCount": 1,
+            "historicalOk": true,
+            "historicalAnalysisCount": 1,
+            "feedbackOk": true,
+            "feedbackCount": 0,
+            "readingsOk": true,
+            "readingCount": 7
+          }
+        },
+        {
+          "startId": 1009,
+          "endId": 1014,
+          "latencyMs": 342.5,
+          "startAt": 795681.6,
+          "endAt": 796024.1,
+          "startDetail": {
+            "folderId": "session_ywskiblc_mp6p013z",
+            "page": "saved-signals",
+            "signalCount": 1
+          },
+          "endDetail": {
+            "folderId": "session_ywskiblc_mp6p013z",
+            "page": "saved-signals",
+            "signalCount": 1,
+            "currentOk": true,
+            "currentAnalysisCount": 1,
+            "historicalOk": true,
+            "historicalAnalysisCount": 1,
+            "feedbackOk": true,
+            "feedbackCount": 0,
+            "readingsOk": true,
+            "readingCount": 7
+          }
+        },
+        {
+          "startId": 1019,
+          "endId": 1024,
+          "latencyMs": 439.6,
+          "startAt": 796777.8,
+          "endAt": 797217.4,
+          "startDetail": {
+            "folderId": "session_ywskiblc_mp6p013z",
+            "page": "saved-signals",
+            "signalCount": 1
+          },
+          "endDetail": {
+            "folderId": "session_ywskiblc_mp6p013z",
+            "page": "saved-signals",
+            "signalCount": 1,
+            "currentOk": true,
+            "currentAnalysisCount": 1,
+            "historicalOk": true,
+            "historicalAnalysisCount": 1,
+            "feedbackOk": true,
+            "feedbackCount": 0,
+            "readingsOk": true,
+            "readingCount": 7
+          }
+        },
+        {
+          "startId": 1029,
+          "endId": 1034,
+          "latencyMs": 448.1,
+          "startAt": 797956.6,
+          "endAt": 798404.7,
+          "startDetail": {
+            "folderId": "session_ywskiblc_mp6p013z",
+            "page": "saved-signals",
+            "signalCount": 1
+          },
+          "endDetail": {
+            "folderId": "session_ywskiblc_mp6p013z",
+            "page": "saved-signals",
+            "signalCount": 1,
+            "currentOk": true,
+            "currentAnalysisCount": 1,
+            "historicalOk": true,
+            "historicalAnalysisCount": 1,
+            "feedbackOk": true,
+            "feedbackCount": 0,
+            "readingsOk": true,
+            "readingCount": 7
+          }
+        },
+        {
+          "startId": 1039,
+          "endId": 1044,
+          "latencyMs": 919.9,
+          "startAt": 799213.7,
+          "endAt": 800133.6,
+          "startDetail": {
+            "folderId": "session_ywskiblc_mp6p013z",
+            "page": "saved-signals",
+            "signalCount": 1
+          },
+          "endDetail": {
+            "folderId": "session_ywskiblc_mp6p013z",
+            "page": "saved-signals",
+            "signalCount": 1,
+            "currentOk": true,
+            "currentAnalysisCount": 1,
+            "historicalOk": true,
+            "historicalAnalysisCount": 1,
+            "feedbackOk": true,
+            "feedbackCount": 0,
+            "readingsOk": true,
+            "readingCount": 7
+          }
+        },
+        {
+          "startId": 1049,
+          "endId": 1051,
+          "latencyMs": 425.7,
+          "startAt": 800356.9,
+          "endAt": 800782.6,
+          "startDetail": {
+            "folderId": "session_ywskiblc_mp6p013z",
+            "page": "saved-signals",
+            "signalCount": 1
+          },
+          "endDetail": {
+            "folderId": "session_ywskiblc_mp6p013z",
+            "page": "saved-signals",
+            "signalCount": 1,
+            "currentOk": true,
+            "currentAnalysisCount": 1,
+            "historicalOk": true,
+            "historicalAnalysisCount": 1,
+            "feedbackOk": true,
+            "feedbackCount": 0,
+            "readingsOk": true,
+            "readingCount": 7
+          }
+        },
+        {
+          "startId": 1061,
+          "endId": 1065,
+          "latencyMs": 371.4,
+          "startAt": 976528.7,
+          "endAt": 976900.1,
+          "startDetail": {
+            "folderId": "session_ywskiblc_mp6p013z",
+            "page": "actionable-filter",
+            "signalCount": 1
+          },
+          "endDetail": {
+            "folderId": "session_ywskiblc_mp6p013z",
+            "page": "actionable-filter",
+            "signalCount": 1,
+            "currentOk": true,
+            "currentAnalysisCount": 1,
+            "historicalOk": true,
+            "historicalAnalysisCount": 1,
+            "feedbackOk": true,
+            "feedbackCount": 0,
+            "readingsOk": true,
+            "readingCount": 7
+          }
+        }
+      ]
+    },
+    {
+      "label": "product analyze",
+      "startEvent": "popup.product.analyze.request",
+      "endEvent": "popup.product.analyze.response",
+      "count": 0,
+      "minMs": null,
+      "p50Ms": null,
+      "p95Ms": null,
+      "maxMs": null,
+      "avgMs": null,
+      "missingEndCount": 0,
+      "missingStarts": [],
+      "samples": []
+    },
+    {
+      "label": "worker status poll",
+      "startEvent": "popup.worker.status.request",
+      "endEvent": "popup.worker.status.response",
+      "count": 45,
+      "minMs": 2170.7,
+      "p50Ms": 31883.9,
+      "p95Ms": 76392.7,
+      "maxMs": 252415.1,
+      "avgMs": 41201.6,
+      "missingEndCount": 176,
+      "missingStarts": [
+        {
+          "startId": 686,
+          "at": 726658.6,
+          "isoTime": "2026-06-10T02:38:37.166Z",
+          "detail": {
+            "activeFolderId": "session_ywskiblc_mp6p013z",
+            "hasInflight": true,
+            "failureCount": 0
+          }
+        },
+        {
+          "startId": 689,
+          "at": 726661.6,
+          "isoTime": "2026-06-10T02:38:37.169Z",
+          "detail": {
+            "activeFolderId": "session_ywskiblc_mp6p013z",
+            "hasInflight": true,
+            "failureCount": 0
+          }
+        },
+        {
+          "startId": 692,
+          "at": 727017.3,
+          "isoTime": "2026-06-10T02:38:37.525Z",
+          "detail": {
+            "activeFolderId": "session_ywskiblc_mp6p013z",
+            "hasInflight": true,
+            "failureCount": 0
+          }
+        },
+        {
+          "startId": 695,
+          "at": 727865.8,
+          "isoTime": "2026-06-10T02:38:38.373Z",
+          "detail": {
+            "activeFolderId": "session_ywskiblc_mp6p013z",
+            "hasInflight": true,
+            "failureCount": 0
+          }
+        },
+        {
+          "startId": 698,
+          "at": 729752.9,
+          "isoTime": "2026-06-10T02:38:40.261Z",
+          "detail": {
+            "activeFolderId": "session_ywskiblc_mp6p013z",
+            "hasInflight": true,
+            "failureCount": 0
+          }
+        },
+        {
+          "startId": 701,
+          "at": 729757.3,
+          "isoTime": "2026-06-10T02:38:40.265Z",
+          "detail": {
+            "activeFolderId": "session_ywskiblc_mp6p013z",
+            "hasInflight": true,
+            "failureCount": 0
+          }
+        },
+        {
+          "startId": 704,
+          "at": 730110.8,
+          "isoTime": "2026-06-10T02:38:40.618Z",
+          "detail": {
+            "activeFolderId": "session_ywskiblc_mp6p013z",
+            "hasInflight": true,
+            "failureCount": 0
+          }
+        },
+        {
+          "startId": 707,
+          "at": 730960.5,
+          "isoTime": "2026-06-10T02:38:41.468Z",
+          "detail": {
+            "activeFolderId": "session_ywskiblc_mp6p013z",
+            "hasInflight": true,
+            "failureCount": 0
+          }
+        },
+        {
+          "startId": 710,
+          "at": 732743.9,
+          "isoTime": "2026-06-10T02:38:43.252Z",
+          "detail": {
+            "activeFolderId": "session_ywskiblc_mp6p013z",
+            "hasInflight": true,
+            "failureCount": 0
+          }
+        },
+        {
+          "startId": 713,
+          "at": 732746.7,
+          "isoTime": "2026-06-10T02:38:43.254Z",
+          "detail": {
+            "activeFolderId": "session_ywskiblc_mp6p013z",
+            "hasInflight": true,
+            "failureCount": 0
+          }
+        },
+        {
+          "startId": 715,
+          "at": 732964.2,
+          "isoTime": "2026-06-10T02:38:43.472Z",
+          "detail": {
+            "activeFolderId": "session_ywskiblc_mp6p013z",
+            "hasInflight": true,
+            "failureCount": 0
+          }
+        },
+        {
+          "startId": 716,
+          "at": 732965.5,
+          "isoTime": "2026-06-10T02:38:43.473Z",
+          "detail": {
+            "activeFolderId": "session_ywskiblc_mp6p013z",
+            "hasInflight": true,
+            "failureCount": 0
+          }
+        },
+        {
+          "startId": 719,
+          "at": 733069.6,
+          "isoTime": "2026-06-10T02:38:43.577Z",
+          "detail": {
+            "activeFolderId": "session_ywskiblc_mp6p013z",
+            "hasInflight": true,
+            "failureCount": 0
+          }
+        },
+        {
+          "startId": 720,
+          "at": 733828.9,
+          "isoTime": "2026-06-10T02:38:44.337Z",
+          "detail": {
+            "activeFolderId": "session_ywskiblc_mp6p013z",
+            "hasInflight": true,
+            "failureCount": 0
+          }
+        },
+        {
+          "startId": 723,
+          "at": 733832.1,
+          "isoTime": "2026-06-10T02:38:44.340Z",
+          "detail": {
+            "activeFolderId": "session_ywskiblc_mp6p013z",
+            "hasInflight": true,
+            "failureCount": 0
+          }
+        },
+        {
+          "startId": 726,
+          "at": 734187,
+          "isoTime": "2026-06-10T02:38:44.695Z",
+          "detail": {
+            "activeFolderId": "session_ywskiblc_mp6p013z",
+            "hasInflight": true,
+            "failureCount": 0
+          }
+        },
+        {
+          "startId": 729,
+          "at": 735035.6,
+          "isoTime": "2026-06-10T02:38:45.543Z",
+          "detail": {
+            "activeFolderId": "session_ywskiblc_mp6p013z",
+            "hasInflight": true,
+            "failureCount": 0
+          }
+        },
+        {
+          "startId": 732,
+          "at": 736925.1,
+          "isoTime": "2026-06-10T02:38:47.433Z",
+          "detail": {
+            "activeFolderId": "session_ywskiblc_mp6p013z",
+            "hasInflight": false,
+            "failureCount": 0
+          }
+        },
+        {
+          "startId": 735,
+          "at": 736927.4,
+          "isoTime": "2026-06-10T02:38:47.435Z",
+          "detail": {
+            "activeFolderId": "session_ywskiblc_mp6p013z",
+            "hasInflight": false,
+            "failureCount": 0
+          }
+        },
+        {
+          "startId": 738,
+          "at": 737126.2,
+          "isoTime": "2026-06-10T02:38:47.634Z",
+          "detail": {
+            "activeFolderId": "session_ywskiblc_mp6p013z",
+            "hasInflight": false,
+            "failureCount": 0
+          }
+        },
+        {
+          "startId": 741,
+          "at": 738131.1,
+          "isoTime": "2026-06-10T02:38:48.639Z",
+          "detail": {
+            "activeFolderId": "session_ywskiblc_mp6p013z",
+            "hasInflight": false,
+            "failureCount": 0
+          }
+        },
+        {
+          "startId": 744,
+          "at": 740135.1,
+          "isoTime": "2026-06-10T02:38:50.643Z",
+          "detail": {
+            "activeFolderId": "session_ywskiblc_mp6p013z",
+            "hasInflight": false,
+            "failureCount": 0
+          }
+        },
+        {
+          "startId": 747,
+          "at": 740137.1,
+          "isoTime": "2026-06-10T02:38:50.645Z",
+          "detail": {
+            "activeFolderId": "session_ywskiblc_mp6p013z",
+            "hasInflight": false,
+            "failureCount": 0
+          }
+        },
+        {
+          "startId": 749,
+          "at": 740363.1,
+          "isoTime": "2026-06-10T02:38:50.871Z",
+          "detail": {
+            "activeFolderId": "session_ywskiblc_mp6p013z",
+            "hasInflight": false,
+            "failureCount": 0
+          }
+        },
+        {
+          "startId": 750,
+          "at": 740364.2,
+          "isoTime": "2026-06-10T02:38:50.872Z",
+          "detail": {
+            "activeFolderId": "session_ywskiblc_mp6p013z",
+            "hasInflight": false,
+            "failureCount": 0
+          }
+        },
+        {
+          "startId": 753,
+          "at": 740544.9,
+          "isoTime": "2026-06-10T02:38:51.053Z",
+          "detail": {
+            "activeFolderId": "session_ywskiblc_mp6p013z",
+            "hasInflight": false,
+            "failureCount": 0
+          }
+        },
+        {
+          "startId": 754,
+          "at": 741245.8,
+          "isoTime": "2026-06-10T02:38:51.753Z",
+          "detail": {
+            "activeFolderId": "session_ywskiblc_mp6p013z",
+            "hasInflight": false,
+            "failureCount": 0
+          }
+        },
+        {
+          "startId": 757,
+          "at": 741249.1,
+          "isoTime": "2026-06-10T02:38:51.757Z",
+          "detail": {
+            "activeFolderId": "session_ywskiblc_mp6p013z",
+            "hasInflight": false,
+            "failureCount": 0
+          }
+        },
+        {
+          "startId": 760,
+          "at": 741601.4,
+          "isoTime": "2026-06-10T02:38:52.109Z",
+          "detail": {
+            "activeFolderId": "session_ywskiblc_mp6p013z",
+            "hasInflight": false,
+            "failureCount": 0
+          }
+        },
+        {
+          "startId": 763,
+          "at": 742452.5,
+          "isoTime": "2026-06-10T02:38:52.960Z",
+          "detail": {
+            "activeFolderId": "session_ywskiblc_mp6p013z",
+            "hasInflight": false,
+            "failureCount": 0
+          }
+        },
+        {
+          "startId": 766,
+          "at": 745875,
+          "isoTime": "2026-06-10T02:38:56.383Z",
+          "detail": {
+            "activeFolderId": "session_ywskiblc_mp6p013z",
+            "hasInflight": false,
+            "failureCount": 0
+          }
+        },
+        {
+          "startId": 769,
+          "at": 745877.6,
+          "isoTime": "2026-06-10T02:38:56.385Z",
+          "detail": {
+            "activeFolderId": "session_ywskiblc_mp6p013z",
+            "hasInflight": false,
+            "failureCount": 0
+          }
+        },
+        {
+          "startId": 772,
+          "at": 746178.7,
+          "isoTime": "2026-06-10T02:38:56.686Z",
+          "detail": {
+            "activeFolderId": "session_ywskiblc_mp6p013z",
+            "hasInflight": false,
+            "failureCount": 0
+          }
+        },
+        {
+          "startId": 775,
+          "at": 747082.1,
+          "isoTime": "2026-06-10T02:38:57.590Z",
+          "detail": {
+            "activeFolderId": "session_ywskiblc_mp6p013z",
+            "hasInflight": false,
+            "failureCount": 0
+          }
+        },
+        {
+          "startId": 778,
+          "at": 750017.2,
+          "isoTime": "2026-06-10T02:39:00.525Z",
+          "detail": {
+            "activeFolderId": "session_ywskiblc_mp6p013z",
+            "hasInflight": false,
+            "failureCount": 0
+          }
+        },
+        {
+          "startId": 781,
+          "at": 750019.3,
+          "isoTime": "2026-06-10T02:39:00.527Z",
+          "detail": {
+            "activeFolderId": "session_ywskiblc_mp6p013z",
+            "hasInflight": false,
+            "failureCount": 0
+          }
+        },
+        {
+          "startId": 783,
+          "at": 750233.8,
+          "isoTime": "2026-06-10T02:39:00.741Z",
+          "detail": {
+            "activeFolderId": "session_ywskiblc_mp6p013z",
+            "hasInflight": false,
+            "failureCount": 0
+          }
+        },
+        {
+          "startId": 784,
+          "at": 750234.7,
+          "isoTime": "2026-06-10T02:39:00.742Z",
+          "detail": {
+            "activeFolderId": "session_ywskiblc_mp6p013z",
+            "hasInflight": false,
+            "failureCount": 0
+          }
+        },
+        {
+          "startId": 787,
+          "at": 750289.1,
+          "isoTime": "2026-06-10T02:39:00.797Z",
+          "detail": {
+            "activeFolderId": "session_ywskiblc_mp6p013z",
+            "hasInflight": false,
+            "failureCount": 0
+          }
+        },
+        {
+          "startId": 788,
+          "at": 751097.4,
+          "isoTime": "2026-06-10T02:39:01.605Z",
+          "detail": {
+            "activeFolderId": "session_ywskiblc_mp6p013z",
+            "hasInflight": false,
+            "failureCount": 0
+          }
+        },
+        {
+          "startId": 791,
+          "at": 751100.9,
+          "isoTime": "2026-06-10T02:39:01.608Z",
+          "detail": {
+            "activeFolderId": "session_ywskiblc_mp6p013z",
+            "hasInflight": false,
+            "failureCount": 0
+          }
+        },
+        {
+          "startId": 794,
+          "at": 751544.5,
+          "isoTime": "2026-06-10T02:39:02.052Z",
+          "detail": {
+            "activeFolderId": "session_ywskiblc_mp6p013z",
+            "hasInflight": false,
+            "failureCount": 0
+          }
+        },
+        {
+          "startId": 797,
+          "at": 752304,
+          "isoTime": "2026-06-10T02:39:02.812Z",
+          "detail": {
+            "activeFolderId": "session_ywskiblc_mp6p013z",
+            "hasInflight": false,
+            "failureCount": 0
+          }
+        },
+        {
+          "startId": 800,
+          "at": 752613.9,
+          "isoTime": "2026-06-10T02:39:03.121Z",
+          "detail": {
+            "activeFolderId": "session_ywskiblc_mp6p013z",
+            "hasInflight": false,
+            "failureCount": 0
+          }
+        },
+        {
+          "startId": 802,
+          "at": 754801,
+          "isoTime": "2026-06-10T02:39:05.309Z",
+          "detail": {
+            "activeFolderId": "session_ywskiblc_mp6p013z",
+            "hasInflight": false,
+            "failureCount": 0
+          }
+        },
+        {
+          "startId": 805,
+          "at": 754802.7,
+          "isoTime": "2026-06-10T02:39:05.310Z",
+          "detail": {
+            "activeFolderId": "session_ywskiblc_mp6p013z",
+            "hasInflight": false,
+            "failureCount": 0
+          }
+        },
+        {
+          "startId": 808,
+          "at": 755007.9,
+          "isoTime": "2026-06-10T02:39:05.515Z",
+          "detail": {
+            "activeFolderId": "session_ywskiblc_mp6p013z",
+            "hasInflight": false,
+            "failureCount": 0
+          }
+        },
+        {
+          "startId": 810,
+          "at": 756007.8,
+          "isoTime": "2026-06-10T02:39:06.515Z",
+          "detail": {
+            "activeFolderId": "session_ywskiblc_mp6p013z",
+            "hasInflight": false,
+            "failureCount": 0
+          }
+        },
+        {
+          "startId": 812,
+          "at": 758863.2,
+          "isoTime": "2026-06-10T02:39:09.371Z",
+          "detail": {
+            "activeFolderId": "session_ywskiblc_mp6p013z",
+            "hasInflight": false,
+            "failureCount": 0
+          }
+        },
+        {
+          "startId": 815,
+          "at": 758865.3,
+          "isoTime": "2026-06-10T02:39:09.373Z",
+          "detail": {
+            "activeFolderId": "session_ywskiblc_mp6p013z",
+            "hasInflight": false,
+            "failureCount": 0
+          }
+        },
+        {
+          "startId": 817,
+          "at": 759114.3,
+          "isoTime": "2026-06-10T02:39:09.622Z",
+          "detail": {
+            "activeFolderId": "session_ywskiblc_mp6p013z",
+            "hasInflight": false,
+            "failureCount": 0
+          }
+        },
+        {
+          "startId": 818,
+          "at": 759115.3,
+          "isoTime": "2026-06-10T02:39:09.623Z",
+          "detail": {
+            "activeFolderId": "session_ywskiblc_mp6p013z",
+            "hasInflight": false,
+            "failureCount": 0
+          }
+        },
+        {
+          "startId": 821,
+          "at": 759169.4,
+          "isoTime": "2026-06-10T02:39:09.677Z",
+          "detail": {
+            "activeFolderId": "session_ywskiblc_mp6p013z",
+            "hasInflight": false,
+            "failureCount": 0
+          }
+        },
+        {
+          "startId": 822,
+          "at": 759897.9,
+          "isoTime": "2026-06-10T02:39:10.405Z",
+          "detail": {
+            "activeFolderId": "session_ywskiblc_mp6p013z",
+            "hasInflight": false,
+            "failureCount": 0
+          }
+        },
+        {
+          "startId": 825,
+          "at": 759900,
+          "isoTime": "2026-06-10T02:39:10.408Z",
+          "detail": {
+            "activeFolderId": "session_ywskiblc_mp6p013z",
+            "hasInflight": false,
+            "failureCount": 0
+          }
+        },
+        {
+          "startId": 828,
+          "at": 760380.4,
+          "isoTime": "2026-06-10T02:39:10.888Z",
+          "detail": {
+            "activeFolderId": "session_ywskiblc_mp6p013z",
+            "hasInflight": false,
+            "failureCount": 0
+          }
+        },
+        {
+          "startId": 830,
+          "at": 761107.9,
+          "isoTime": "2026-06-10T02:39:11.615Z",
+          "detail": {
+            "activeFolderId": "session_ywskiblc_mp6p013z",
+            "hasInflight": false,
+            "failureCount": 0
+          }
+        },
+        {
+          "startId": 832,
+          "at": 763136,
+          "isoTime": "2026-06-10T02:39:13.644Z",
+          "detail": {
+            "activeFolderId": "session_ywskiblc_mp6p013z",
+            "hasInflight": false,
+            "failureCount": 0
+          }
+        },
+        {
+          "startId": 835,
+          "at": 763137.9,
+          "isoTime": "2026-06-10T02:39:13.645Z",
+          "detail": {
+            "activeFolderId": "session_ywskiblc_mp6p013z",
+            "hasInflight": false,
+            "failureCount": 0
+          }
+        },
+        {
+          "startId": 838,
+          "at": 763334.8,
+          "isoTime": "2026-06-10T02:39:13.842Z",
+          "detail": {
+            "activeFolderId": "session_ywskiblc_mp6p013z",
+            "hasInflight": false,
+            "failureCount": 0
+          }
+        },
+        {
+          "startId": 840,
+          "at": 764341.1,
+          "isoTime": "2026-06-10T02:39:14.849Z",
+          "detail": {
+            "activeFolderId": "session_ywskiblc_mp6p013z",
+            "hasInflight": false,
+            "failureCount": 0
+          }
+        },
+        {
+          "startId": 842,
+          "at": 766328.2,
+          "isoTime": "2026-06-10T02:39:16.836Z",
+          "detail": {
+            "activeFolderId": "session_ywskiblc_mp6p013z",
+            "hasInflight": false,
+            "failureCount": 0
+          }
+        },
+        {
+          "startId": 845,
+          "at": 766330.4,
+          "isoTime": "2026-06-10T02:39:16.838Z",
+          "detail": {
+            "activeFolderId": "session_ywskiblc_mp6p013z",
+            "hasInflight": false,
+            "failureCount": 0
+          }
+        },
+        {
+          "startId": 847,
+          "at": 766527.4,
+          "isoTime": "2026-06-10T02:39:17.035Z",
+          "detail": {
+            "activeFolderId": "session_ywskiblc_mp6p013z",
+            "hasInflight": false,
+            "failureCount": 0
+          }
+        },
+        {
+          "startId": 848,
+          "at": 766528.7,
+          "isoTime": "2026-06-10T02:39:17.036Z",
+          "detail": {
+            "activeFolderId": "session_ywskiblc_mp6p013z",
+            "hasInflight": false,
+            "failureCount": 0
+          }
+        },
+        {
+          "startId": 851,
+          "at": 766584,
+          "isoTime": "2026-06-10T02:39:17.092Z",
+          "detail": {
+            "activeFolderId": "session_ywskiblc_mp6p013z",
+            "hasInflight": false,
+            "failureCount": 0
+          }
+        },
+        {
+          "startId": 852,
+          "at": 767380.2,
+          "isoTime": "2026-06-10T02:39:17.888Z",
+          "detail": {
+            "activeFolderId": "session_ywskiblc_mp6p013z",
+            "hasInflight": false,
+            "failureCount": 0
+          }
+        },
+        {
+          "startId": 855,
+          "at": 767382.8,
+          "isoTime": "2026-06-10T02:39:17.890Z",
+          "detail": {
+            "activeFolderId": "session_ywskiblc_mp6p013z",
+            "hasInflight": false,
+            "failureCount": 0
+          }
+        },
+        {
+          "startId": 858,
+          "at": 767714.4,
+          "isoTime": "2026-06-10T02:39:18.222Z",
+          "detail": {
+            "activeFolderId": "session_ywskiblc_mp6p013z",
+            "hasInflight": false,
+            "failureCount": 0
+          }
+        },
+        {
+          "startId": 860,
+          "at": 768588.8,
+          "isoTime": "2026-06-10T02:39:19.096Z",
+          "detail": {
+            "activeFolderId": "session_ywskiblc_mp6p013z",
+            "hasInflight": false,
+            "failureCount": 0
+          }
+        },
+        {
+          "startId": 862,
+          "at": 771374.6,
+          "isoTime": "2026-06-10T02:39:21.882Z",
+          "detail": {
+            "activeFolderId": "session_ywskiblc_mp6p013z",
+            "hasInflight": false,
+            "failureCount": 0
+          }
+        },
+        {
+          "startId": 865,
+          "at": 771376.9,
+          "isoTime": "2026-06-10T02:39:21.884Z",
+          "detail": {
+            "activeFolderId": "session_ywskiblc_mp6p013z",
+            "hasInflight": false,
+            "failureCount": 0
+          }
+        },
+        {
+          "startId": 868,
+          "at": 771583.8,
+          "isoTime": "2026-06-10T02:39:22.091Z",
+          "detail": {
+            "activeFolderId": "session_ywskiblc_mp6p013z",
+            "hasInflight": false,
+            "failureCount": 0
+          }
+        },
+        {
+          "startId": 870,
+          "at": 772581.6,
+          "isoTime": "2026-06-10T02:39:23.089Z",
+          "detail": {
+            "activeFolderId": "session_ywskiblc_mp6p013z",
+            "hasInflight": false,
+            "failureCount": 0
+          }
+        },
+        {
+          "startId": 872,
+          "at": 774601.7,
+          "isoTime": "2026-06-10T02:39:25.109Z",
+          "detail": {
+            "activeFolderId": "session_ywskiblc_mp6p013z",
+            "hasInflight": false,
+            "failureCount": 0
+          }
+        },
+        {
+          "startId": 875,
+          "at": 774603.6,
+          "isoTime": "2026-06-10T02:39:25.111Z",
+          "detail": {
+            "activeFolderId": "session_ywskiblc_mp6p013z",
+            "hasInflight": false,
+            "failureCount": 0
+          }
+        },
+        {
+          "startId": 877,
+          "at": 774805.1,
+          "isoTime": "2026-06-10T02:39:25.313Z",
+          "detail": {
+            "activeFolderId": "session_ywskiblc_mp6p013z",
+            "hasInflight": false,
+            "failureCount": 0
+          }
+        },
+        {
+          "startId": 878,
+          "at": 774806.3,
+          "isoTime": "2026-06-10T02:39:25.314Z",
+          "detail": {
+            "activeFolderId": "session_ywskiblc_mp6p013z",
+            "hasInflight": false,
+            "failureCount": 0
+          }
+        },
+        {
+          "startId": 881,
+          "at": 774863.3,
+          "isoTime": "2026-06-10T02:39:25.371Z",
+          "detail": {
+            "activeFolderId": "session_ywskiblc_mp6p013z",
+            "hasInflight": false,
+            "failureCount": 0
+          }
+        },
+        {
+          "startId": 883,
+          "at": 776009.1,
+          "isoTime": "2026-06-10T02:39:26.517Z",
+          "detail": {
+            "activeFolderId": "session_ywskiblc_mp6p013z",
+            "hasInflight": false,
+            "failureCount": 0
+          }
+        },
+        {
+          "startId": 885,
+          "at": 778261.3,
+          "isoTime": "2026-06-10T02:39:28.769Z",
+          "detail": {
+            "activeFolderId": "session_ywskiblc_mp6p013z",
+            "hasInflight": false,
+            "failureCount": 0
+          }
+        },
+        {
+          "startId": 888,
+          "at": 778263.6,
+          "isoTime": "2026-06-10T02:39:28.771Z",
+          "detail": {
+            "activeFolderId": "session_ywskiblc_mp6p013z",
+            "hasInflight": false,
+            "failureCount": 0
+          }
+        },
+        {
+          "startId": 891,
+          "at": 778467.5,
+          "isoTime": "2026-06-10T02:39:28.975Z",
+          "detail": {
+            "activeFolderId": "session_ywskiblc_mp6p013z",
+            "hasInflight": false,
+            "failureCount": 0
+          }
+        },
+        {
+          "startId": 893,
+          "at": 779469.4,
+          "isoTime": "2026-06-10T02:39:29.977Z",
+          "detail": {
+            "activeFolderId": "session_ywskiblc_mp6p013z",
+            "hasInflight": false,
+            "failureCount": 0
+          }
+        },
+        {
+          "startId": 895,
+          "at": 781460.3,
+          "isoTime": "2026-06-10T02:39:31.968Z",
+          "detail": {
+            "activeFolderId": "session_ywskiblc_mp6p013z",
+            "hasInflight": false,
+            "failureCount": 0
+          }
+        },
+        {
+          "startId": 898,
+          "at": 781462.4,
+          "isoTime": "2026-06-10T02:39:31.970Z",
+          "detail": {
+            "activeFolderId": "session_ywskiblc_mp6p013z",
+            "hasInflight": false,
+            "failureCount": 0
+          }
+        },
+        {
+          "startId": 900,
+          "at": 781663.6,
+          "isoTime": "2026-06-10T02:39:32.171Z",
+          "detail": {
+            "activeFolderId": "session_ywskiblc_mp6p013z",
+            "hasInflight": false,
+            "failureCount": 0
+          }
+        },
+        {
+          "startId": 901,
+          "at": 781664.6,
+          "isoTime": "2026-06-10T02:39:32.172Z",
+          "detail": {
+            "activeFolderId": "session_ywskiblc_mp6p013z",
+            "hasInflight": false,
+            "failureCount": 0
+          }
+        },
+        {
+          "startId": 904,
+          "at": 781717.9,
+          "isoTime": "2026-06-10T02:39:32.225Z",
+          "detail": {
+            "activeFolderId": "session_ywskiblc_mp6p013z",
+            "hasInflight": false,
+            "failureCount": 0
+          }
+        },
+        {
+          "startId": 906,
+          "at": 782046,
+          "isoTime": "2026-06-10T02:39:32.553Z",
+          "detail": {
+            "activeFolderId": "session_ywskiblc_mp6p013z",
+            "hasInflight": false,
+            "failureCount": 0
+          }
+        },
+        {
+          "startId": 907,
+          "at": 782047.8,
+          "isoTime": "2026-06-10T02:39:32.555Z",
+          "detail": {
+            "activeFolderId": "session_ywskiblc_mp6p013z",
+            "hasInflight": false,
+            "failureCount": 0
+          }
+        },
+        {
+          "startId": 909,
+          "at": 782656.5,
+          "isoTime": "2026-06-10T02:39:33.164Z",
+          "detail": {
+            "activeFolderId": "session_ywskiblc_mp6p013z",
+            "hasInflight": false,
+            "failureCount": 0
+          }
+        },
+        {
+          "startId": 910,
+          "at": 782658,
+          "isoTime": "2026-06-10T02:39:33.165Z",
+          "detail": {
+            "activeFolderId": "session_ywskiblc_mp6p013z",
+            "hasInflight": false,
+            "failureCount": 0
+          }
+        },
+        {
+          "startId": 911,
+          "at": 783541.2,
+          "isoTime": "2026-06-10T02:39:34.049Z",
+          "detail": {
+            "activeFolderId": "session_ywskiblc_mp6p013z",
+            "hasInflight": false,
+            "failureCount": 0
+          }
+        },
+        {
+          "startId": 914,
+          "at": 783543.6,
+          "isoTime": "2026-06-10T02:39:34.051Z",
+          "detail": {
+            "activeFolderId": "session_ywskiblc_mp6p013z",
+            "hasInflight": false,
+            "failureCount": 0
+          }
+        },
+        {
+          "startId": 916,
+          "at": 783928.7,
+          "isoTime": "2026-06-10T02:39:34.436Z",
+          "detail": {
+            "activeFolderId": "session_ywskiblc_mp6p013z",
+            "hasInflight": false,
+            "failureCount": 0
+          }
+        },
+        {
+          "startId": 918,
+          "at": 784059.3,
+          "isoTime": "2026-06-10T02:39:34.567Z",
+          "detail": {
+            "activeFolderId": "session_ywskiblc_mp6p013z",
+            "hasInflight": false,
+            "failureCount": 0
+          }
+        },
+        {
+          "startId": 919,
+          "at": 784210.2,
+          "isoTime": "2026-06-10T02:39:34.718Z",
+          "detail": {
+            "activeFolderId": "session_ywskiblc_mp6p013z",
+            "hasInflight": false,
+            "failureCount": 0
+          }
+        },
+        {
+          "startId": 922,
+          "at": 784212.5,
+          "isoTime": "2026-06-10T02:39:34.720Z",
+          "detail": {
+            "activeFolderId": "session_ywskiblc_mp6p013z",
+            "hasInflight": false,
+            "failureCount": 0
+          }
+        },
+        {
+          "startId": 924,
+          "at": 784620.5,
+          "isoTime": "2026-06-10T02:39:35.128Z",
+          "detail": {
+            "activeFolderId": "session_ywskiblc_mp6p013z",
+            "hasInflight": false,
+            "failureCount": 0
+          }
+        },
+        {
+          "startId": 925,
+          "at": 784622,
+          "isoTime": "2026-06-10T02:39:35.129Z",
+          "detail": {
+            "activeFolderId": "session_ywskiblc_mp6p013z",
+            "hasInflight": false,
+            "failureCount": 0
+          }
+        },
+        {
+          "startId": 928,
+          "at": 784701.5,
+          "isoTime": "2026-06-10T02:39:35.209Z",
+          "detail": {
+            "activeFolderId": "session_ywskiblc_mp6p013z",
+            "hasInflight": false,
+            "failureCount": 0
+          }
+        },
+        {
+          "startId": 929,
+          "at": 785627.2,
+          "isoTime": "2026-06-10T02:39:36.135Z",
+          "detail": {
+            "activeFolderId": "session_ywskiblc_mp6p013z",
+            "hasInflight": false,
+            "failureCount": 0
+          }
+        },
+        {
+          "startId": 932,
+          "at": 785629.7,
+          "isoTime": "2026-06-10T02:39:36.137Z",
+          "detail": {
+            "activeFolderId": "session_ywskiblc_mp6p013z",
+            "hasInflight": false,
+            "failureCount": 0
+          }
+        },
+        {
+          "startId": 934,
+          "at": 785922.9,
+          "isoTime": "2026-06-10T02:39:36.430Z",
+          "detail": {
+            "activeFolderId": "session_ywskiblc_mp6p013z",
+            "hasInflight": false,
+            "failureCount": 0
+          }
+        },
+        {
+          "startId": 935,
+          "at": 785924.6,
+          "isoTime": "2026-06-10T02:39:36.432Z",
+          "detail": {
+            "activeFolderId": "session_ywskiblc_mp6p013z",
+            "hasInflight": false,
+            "failureCount": 0
+          }
+        },
+        {
+          "startId": 938,
+          "at": 786051.6,
+          "isoTime": "2026-06-10T02:39:36.559Z",
+          "detail": {
+            "activeFolderId": "session_ywskiblc_mp6p013z",
+            "hasInflight": false,
+            "failureCount": 0
+          }
+        },
+        {
+          "startId": 940,
+          "at": 786323.2,
+          "isoTime": "2026-06-10T02:39:36.831Z",
+          "detail": {
+            "activeFolderId": "session_ywskiblc_mp6p013z",
+            "hasInflight": false,
+            "failureCount": 0
+          }
+        },
+        {
+          "startId": 941,
+          "at": 786324.9,
+          "isoTime": "2026-06-10T02:39:36.832Z",
+          "detail": {
+            "activeFolderId": "session_ywskiblc_mp6p013z",
+            "hasInflight": false,
+            "failureCount": 0
+          }
+        },
+        {
+          "startId": 943,
+          "at": 786811,
+          "isoTime": "2026-06-10T02:39:37.318Z",
+          "detail": {
+            "activeFolderId": "session_ywskiblc_mp6p013z",
+            "hasInflight": false,
+            "failureCount": 0
+          }
+        },
+        {
+          "startId": 944,
+          "at": 786812.4,
+          "isoTime": "2026-06-10T02:39:37.320Z",
+          "detail": {
+            "activeFolderId": "session_ywskiblc_mp6p013z",
+            "hasInflight": false,
+            "failureCount": 0
+          }
+        },
+        {
+          "startId": 945,
+          "at": 787611.9,
+          "isoTime": "2026-06-10T02:39:38.119Z",
+          "detail": {
+            "activeFolderId": "session_ywskiblc_mp6p013z",
+            "hasInflight": false,
+            "failureCount": 0
+          }
+        },
+        {
+          "startId": 948,
+          "at": 787614.9,
+          "isoTime": "2026-06-10T02:39:38.122Z",
+          "detail": {
+            "activeFolderId": "session_ywskiblc_mp6p013z",
+            "hasInflight": false,
+            "failureCount": 0
+          }
+        },
+        {
+          "startId": 950,
+          "at": 787914.9,
+          "isoTime": "2026-06-10T02:39:38.422Z",
+          "detail": {
+            "activeFolderId": "session_ywskiblc_mp6p013z",
+            "hasInflight": false,
+            "failureCount": 0
+          }
+        },
+        {
+          "startId": 951,
+          "at": 787916.2,
+          "isoTime": "2026-06-10T02:39:38.423Z",
+          "detail": {
+            "activeFolderId": "session_ywskiblc_mp6p013z",
+            "hasInflight": false,
+            "failureCount": 0
+          }
+        },
+        {
+          "startId": 954,
+          "at": 787967.1,
+          "isoTime": "2026-06-10T02:39:38.474Z",
+          "detail": {
+            "activeFolderId": "session_ywskiblc_mp6p013z",
+            "hasInflight": false,
+            "failureCount": 0
+          }
+        },
+        {
+          "startId": 956,
+          "at": 788315.5,
+          "isoTime": "2026-06-10T02:39:38.823Z",
+          "detail": {
+            "activeFolderId": "session_ywskiblc_mp6p013z",
+            "hasInflight": false,
+            "failureCount": 0
+          }
+        },
+        {
+          "startId": 957,
+          "at": 788316.9,
+          "isoTime": "2026-06-10T02:39:38.824Z",
+          "detail": {
+            "activeFolderId": "session_ywskiblc_mp6p013z",
+            "hasInflight": false,
+            "failureCount": 0
+          }
+        },
+        {
+          "startId": 959,
+          "at": 788873.9,
+          "isoTime": "2026-06-10T02:39:39.381Z",
+          "detail": {
+            "activeFolderId": "session_ywskiblc_mp6p013z",
+            "hasInflight": false,
+            "failureCount": 0
+          }
+        },
+        {
+          "startId": 960,
+          "at": 788876.9,
+          "isoTime": "2026-06-10T02:39:39.384Z",
+          "detail": {
+            "activeFolderId": "session_ywskiblc_mp6p013z",
+            "hasInflight": false,
+            "failureCount": 0
+          }
+        },
+        {
+          "startId": 961,
+          "at": 789799.9,
+          "isoTime": "2026-06-10T02:39:40.307Z",
+          "detail": {
+            "activeFolderId": "session_ywskiblc_mp6p013z",
+            "hasInflight": false,
+            "failureCount": 0
+          }
+        },
+        {
+          "startId": 964,
+          "at": 789802.1,
+          "isoTime": "2026-06-10T02:39:40.309Z",
+          "detail": {
+            "activeFolderId": "session_ywskiblc_mp6p013z",
+            "hasInflight": false,
+            "failureCount": 0
+          }
+        },
+        {
+          "startId": 966,
+          "at": 790059.5,
+          "isoTime": "2026-06-10T02:39:40.567Z",
+          "detail": {
+            "activeFolderId": "session_ywskiblc_mp6p013z",
+            "hasInflight": false,
+            "failureCount": 0
+          }
+        },
+        {
+          "startId": 967,
+          "at": 790060.9,
+          "isoTime": "2026-06-10T02:39:40.568Z",
+          "detail": {
+            "activeFolderId": "session_ywskiblc_mp6p013z",
+            "hasInflight": false,
+            "failureCount": 0
+          }
+        },
+        {
+          "startId": 970,
+          "at": 790123.4,
+          "isoTime": "2026-06-10T02:39:40.631Z",
+          "detail": {
+            "activeFolderId": "session_ywskiblc_mp6p013z",
+            "hasInflight": false,
+            "failureCount": 0
+          }
+        },
+        {
+          "startId": 972,
+          "at": 790467.6,
+          "isoTime": "2026-06-10T02:39:40.975Z",
+          "detail": {
+            "activeFolderId": "session_ywskiblc_mp6p013z",
+            "hasInflight": false,
+            "failureCount": 0
+          }
+        },
+        {
+          "startId": 973,
+          "at": 790468.8,
+          "isoTime": "2026-06-10T02:39:40.976Z",
+          "detail": {
+            "activeFolderId": "session_ywskiblc_mp6p013z",
+            "hasInflight": false,
+            "failureCount": 0
+          }
+        },
+        {
+          "startId": 975,
+          "at": 790996.9,
+          "isoTime": "2026-06-10T02:39:41.504Z",
+          "detail": {
+            "activeFolderId": "session_ywskiblc_mp6p013z",
+            "hasInflight": false,
+            "failureCount": 0
+          }
+        },
+        {
+          "startId": 976,
+          "at": 790998.3,
+          "isoTime": "2026-06-10T02:39:41.506Z",
+          "detail": {
+            "activeFolderId": "session_ywskiblc_mp6p013z",
+            "hasInflight": false,
+            "failureCount": 0
+          }
+        },
+        {
+          "startId": 977,
+          "at": 791882.9,
+          "isoTime": "2026-06-10T02:39:42.390Z",
+          "detail": {
+            "activeFolderId": "session_ywskiblc_mp6p013z",
+            "hasInflight": false,
+            "failureCount": 0
+          }
+        },
+        {
+          "startId": 980,
+          "at": 791887.9,
+          "isoTime": "2026-06-10T02:39:42.395Z",
+          "detail": {
+            "activeFolderId": "session_ywskiblc_mp6p013z",
+            "hasInflight": false,
+            "failureCount": 0
+          }
+        },
+        {
+          "startId": 982,
+          "at": 792185.5,
+          "isoTime": "2026-06-10T02:39:42.693Z",
+          "detail": {
+            "activeFolderId": "session_ywskiblc_mp6p013z",
+            "hasInflight": false,
+            "failureCount": 0
+          }
+        },
+        {
+          "startId": 983,
+          "at": 792186.4,
+          "isoTime": "2026-06-10T02:39:42.694Z",
+          "detail": {
+            "activeFolderId": "session_ywskiblc_mp6p013z",
+            "hasInflight": false,
+            "failureCount": 0
+          }
+        },
+        {
+          "startId": 986,
+          "at": 792244.3,
+          "isoTime": "2026-06-10T02:39:42.752Z",
+          "detail": {
+            "activeFolderId": "session_ywskiblc_mp6p013z",
+            "hasInflight": false,
+            "failureCount": 0
+          }
+        },
+        {
+          "startId": 987,
+          "at": 793087.7,
+          "isoTime": "2026-06-10T02:39:43.595Z",
+          "detail": {
+            "activeFolderId": "session_ywskiblc_mp6p013z",
+            "hasInflight": false,
+            "failureCount": 0
+          }
+        },
+        {
+          "startId": 990,
+          "at": 793092.3,
+          "isoTime": "2026-06-10T02:39:43.600Z",
+          "detail": {
+            "activeFolderId": "session_ywskiblc_mp6p013z",
+            "hasInflight": false,
+            "failureCount": 0
+          }
+        },
+        {
+          "startId": 992,
+          "at": 793354.9,
+          "isoTime": "2026-06-10T02:39:43.862Z",
+          "detail": {
+            "activeFolderId": "session_ywskiblc_mp6p013z",
+            "hasInflight": false,
+            "failureCount": 0
+          }
+        },
+        {
+          "startId": 993,
+          "at": 793356.5,
+          "isoTime": "2026-06-10T02:39:43.864Z",
+          "detail": {
+            "activeFolderId": "session_ywskiblc_mp6p013z",
+            "hasInflight": false,
+            "failureCount": 0
+          }
+        },
+        {
+          "startId": 996,
+          "at": 793738.8,
+          "isoTime": "2026-06-10T02:39:44.246Z",
+          "detail": {
+            "activeFolderId": "session_ywskiblc_mp6p013z",
+            "hasInflight": false,
+            "failureCount": 0
+          }
+        },
+        {
+          "startId": 997,
+          "at": 794285,
+          "isoTime": "2026-06-10T02:39:44.792Z",
+          "detail": {
+            "activeFolderId": "session_ywskiblc_mp6p013z",
+            "hasInflight": false,
+            "failureCount": 0
+          }
+        },
+        {
+          "startId": 1000,
+          "at": 794287.6,
+          "isoTime": "2026-06-10T02:39:44.795Z",
+          "detail": {
+            "activeFolderId": "session_ywskiblc_mp6p013z",
+            "hasInflight": false,
+            "failureCount": 0
+          }
+        },
+        {
+          "startId": 1002,
+          "at": 794715.8,
+          "isoTime": "2026-06-10T02:39:45.223Z",
+          "detail": {
+            "activeFolderId": "session_ywskiblc_mp6p013z",
+            "hasInflight": false,
+            "failureCount": 0
+          }
+        },
+        {
+          "startId": 1003,
+          "at": 794717.7,
+          "isoTime": "2026-06-10T02:39:45.225Z",
+          "detail": {
+            "activeFolderId": "session_ywskiblc_mp6p013z",
+            "hasInflight": false,
+            "failureCount": 0
+          }
+        },
+        {
+          "startId": 1006,
+          "at": 794800.9,
+          "isoTime": "2026-06-10T02:39:45.308Z",
+          "detail": {
+            "activeFolderId": "session_ywskiblc_mp6p013z",
+            "hasInflight": false,
+            "failureCount": 0
+          }
+        },
+        {
+          "startId": 1007,
+          "at": 795679.1,
+          "isoTime": "2026-06-10T02:39:46.186Z",
+          "detail": {
+            "activeFolderId": "session_ywskiblc_mp6p013z",
+            "hasInflight": false,
+            "failureCount": 0
+          }
+        },
+        {
+          "startId": 1010,
+          "at": 795682.9,
+          "isoTime": "2026-06-10T02:39:46.190Z",
+          "detail": {
+            "activeFolderId": "session_ywskiblc_mp6p013z",
+            "hasInflight": false,
+            "failureCount": 0
+          }
+        },
+        {
+          "startId": 1012,
+          "at": 795960.9,
+          "isoTime": "2026-06-10T02:39:46.468Z",
+          "detail": {
+            "activeFolderId": "session_ywskiblc_mp6p013z",
+            "hasInflight": false,
+            "failureCount": 0
+          }
+        },
+        {
+          "startId": 1013,
+          "at": 795962.2,
+          "isoTime": "2026-06-10T02:39:46.470Z",
+          "detail": {
+            "activeFolderId": "session_ywskiblc_mp6p013z",
+            "hasInflight": false,
+            "failureCount": 0
+          }
+        },
+        {
+          "startId": 1016,
+          "at": 796026.6,
+          "isoTime": "2026-06-10T02:39:46.534Z",
+          "detail": {
+            "activeFolderId": "session_ywskiblc_mp6p013z",
+            "hasInflight": false,
+            "failureCount": 0
+          }
+        },
+        {
+          "startId": 1017,
+          "at": 796775.9,
+          "isoTime": "2026-06-10T02:39:47.283Z",
+          "detail": {
+            "activeFolderId": "session_ywskiblc_mp6p013z",
+            "hasInflight": false,
+            "failureCount": 0
+          }
+        },
+        {
+          "startId": 1020,
+          "at": 796779.1,
+          "isoTime": "2026-06-10T02:39:47.286Z",
+          "detail": {
+            "activeFolderId": "session_ywskiblc_mp6p013z",
+            "hasInflight": false,
+            "failureCount": 0
+          }
+        },
+        {
+          "startId": 1022,
+          "at": 797118.8,
+          "isoTime": "2026-06-10T02:39:47.626Z",
+          "detail": {
+            "activeFolderId": "session_ywskiblc_mp6p013z",
+            "hasInflight": false,
+            "failureCount": 0
+          }
+        },
+        {
+          "startId": 1023,
+          "at": 797120.1,
+          "isoTime": "2026-06-10T02:39:47.627Z",
+          "detail": {
+            "activeFolderId": "session_ywskiblc_mp6p013z",
+            "hasInflight": false,
+            "failureCount": 0
+          }
+        },
+        {
+          "startId": 1026,
+          "at": 797219.6,
+          "isoTime": "2026-06-10T02:39:47.727Z",
+          "detail": {
+            "activeFolderId": "session_ywskiblc_mp6p013z",
+            "hasInflight": false,
+            "failureCount": 0
+          }
+        },
+        {
+          "startId": 1027,
+          "at": 797954.3,
+          "isoTime": "2026-06-10T02:39:48.462Z",
+          "detail": {
+            "activeFolderId": "session_ywskiblc_mp6p013z",
+            "hasInflight": false,
+            "failureCount": 0
+          }
+        },
+        {
+          "startId": 1030,
+          "at": 797957.8,
+          "isoTime": "2026-06-10T02:39:48.465Z",
+          "detail": {
+            "activeFolderId": "session_ywskiblc_mp6p013z",
+            "hasInflight": false,
+            "failureCount": 0
+          }
+        },
+        {
+          "startId": 1032,
+          "at": 798312.4,
+          "isoTime": "2026-06-10T02:39:48.820Z",
+          "detail": {
+            "activeFolderId": "session_ywskiblc_mp6p013z",
+            "hasInflight": false,
+            "failureCount": 0
+          }
+        },
+        {
+          "startId": 1033,
+          "at": 798315.1,
+          "isoTime": "2026-06-10T02:39:48.822Z",
+          "detail": {
+            "activeFolderId": "session_ywskiblc_mp6p013z",
+            "hasInflight": false,
+            "failureCount": 0
+          }
+        },
+        {
+          "startId": 1036,
+          "at": 798407,
+          "isoTime": "2026-06-10T02:39:48.914Z",
+          "detail": {
+            "activeFolderId": "session_ywskiblc_mp6p013z",
+            "hasInflight": false,
+            "failureCount": 0
+          }
+        },
+        {
+          "startId": 1037,
+          "at": 799212.6,
+          "isoTime": "2026-06-10T02:39:49.720Z",
+          "detail": {
+            "activeFolderId": "session_ywskiblc_mp6p013z",
+            "hasInflight": false,
+            "failureCount": 0
+          }
+        },
+        {
+          "startId": 1040,
+          "at": 799214.7,
+          "isoTime": "2026-06-10T02:39:49.722Z",
+          "detail": {
+            "activeFolderId": "session_ywskiblc_mp6p013z",
+            "hasInflight": false,
+            "failureCount": 0
+          }
+        },
+        {
+          "startId": 1042,
+          "at": 799464.1,
+          "isoTime": "2026-06-10T02:39:49.971Z",
+          "detail": {
+            "activeFolderId": "session_ywskiblc_mp6p013z",
+            "hasInflight": false,
+            "failureCount": 0
+          }
+        },
+        {
+          "startId": 1043,
+          "at": 799465.3,
+          "isoTime": "2026-06-10T02:39:49.973Z",
+          "detail": {
+            "activeFolderId": "session_ywskiblc_mp6p013z",
+            "hasInflight": false,
+            "failureCount": 0
+          }
+        },
+        {
+          "startId": 1046,
+          "at": 800140.5,
+          "isoTime": "2026-06-10T02:39:50.648Z",
+          "detail": {
+            "activeFolderId": "session_ywskiblc_mp6p013z",
+            "hasInflight": false,
+            "failureCount": 0
+          }
+        },
+        {
+          "startId": 1047,
+          "at": 800355.5,
+          "isoTime": "2026-06-10T02:39:50.863Z",
+          "detail": {
+            "activeFolderId": "session_ywskiblc_mp6p013z",
+            "hasInflight": false,
+            "failureCount": 0
+          }
+        },
+        {
+          "startId": 1050,
+          "at": 800358.2,
+          "isoTime": "2026-06-10T02:39:50.866Z",
+          "detail": {
+            "activeFolderId": "session_ywskiblc_mp6p013z",
+            "hasInflight": false,
+            "failureCount": 0
+          }
+        },
+        {
+          "startId": 1053,
+          "at": 800786.1,
+          "isoTime": "2026-06-10T02:39:51.293Z",
+          "detail": {
+            "activeFolderId": "session_ywskiblc_mp6p013z",
+            "hasInflight": false,
+            "failureCount": 0
+          }
+        },
+        {
+          "startId": 1055,
+          "at": 801562.8,
+          "isoTime": "2026-06-10T02:39:52.070Z",
+          "detail": {
+            "activeFolderId": "session_ywskiblc_mp6p013z",
+            "hasInflight": false,
+            "failureCount": 0
+          }
+        },
+        {
+          "startId": 1057,
+          "at": 975834.4,
+          "isoTime": "2026-06-10T02:42:46.341Z",
+          "detail": {
+            "activeFolderId": "session_ywskiblc_mp6p013z",
+            "hasInflight": false,
+            "failureCount": 0
+          }
+        },
+        {
+          "startId": 1058,
+          "at": 976229.4,
+          "isoTime": "2026-06-10T02:42:46.736Z",
+          "detail": {
+            "activeFolderId": "session_ywskiblc_mp6p013z",
+            "hasInflight": false,
+            "failureCount": 0
+          }
+        },
+        {
+          "startId": 1059,
+          "at": 976527.3,
+          "isoTime": "2026-06-10T02:42:47.034Z",
+          "detail": {
+            "activeFolderId": "session_ywskiblc_mp6p013z",
+            "hasInflight": false,
+            "failureCount": 0
+          }
+        },
+        {
+          "startId": 1062,
+          "at": 976530.6,
+          "isoTime": "2026-06-10T02:42:47.037Z",
+          "detail": {
+            "activeFolderId": "session_ywskiblc_mp6p013z",
+            "hasInflight": false,
+            "failureCount": 0
+          }
+        },
+        {
+          "startId": 1063,
+          "at": 976588.8,
+          "isoTime": "2026-06-10T02:42:47.095Z",
+          "detail": {
+            "activeFolderId": "session_ywskiblc_mp6p013z",
+            "hasInflight": false,
+            "failureCount": 0
+          }
+        },
+        {
+          "startId": 1064,
+          "at": 976590.3,
+          "isoTime": "2026-06-10T02:42:47.097Z",
+          "detail": {
+            "activeFolderId": "session_ywskiblc_mp6p013z",
+            "hasInflight": false,
+            "failureCount": 0
+          }
+        },
+        {
+          "startId": 1067,
+          "at": 976902.5,
+          "isoTime": "2026-06-10T02:42:47.409Z",
+          "detail": {
+            "activeFolderId": "session_ywskiblc_mp6p013z",
+            "hasInflight": false,
+            "failureCount": 0
+          }
+        },
+        {
+          "startId": 1069,
+          "at": 977792.1,
+          "isoTime": "2026-06-10T02:42:48.298Z",
+          "detail": {
+            "activeFolderId": "session_ywskiblc_mp6p013z",
+            "hasInflight": false,
+            "failureCount": 0
+          }
+        }
+      ],
+      "samples": [
+        {
+          "startId": 573,
+          "endId": 590,
+          "latencyMs": 2170.7,
+          "startAt": 703259.9,
+          "endAt": 705430.6,
+          "startDetail": {
+            "activeFolderId": "session_ywskiblc_mp6p013z",
+            "hasInflight": true,
+            "failureCount": 0
+          },
+          "endDetail": {
+            "workerStatus": "draining",
+            "previousWorkerStatus": "draining",
+            "elapsedMs": 553.9
+          }
+        },
+        {
+          "startId": 576,
+          "endId": 593,
+          "latencyMs": 2763.8,
+          "startAt": 703263.4,
+          "endAt": 706027.2,
+          "startDetail": {
+            "activeFolderId": "session_ywskiblc_mp6p013z",
+            "hasInflight": true,
+            "failureCount": 0
+          },
+          "endDetail": {
+            "workerStatus": "draining",
+            "previousWorkerStatus": "draining",
+            "elapsedMs": 365.5
+          }
+        },
+        {
+          "startId": 578,
+          "endId": 602,
+          "latencyMs": 5033.8,
+          "startAt": 703457.8,
+          "endAt": 708491.6,
+          "startDetail": {
+            "activeFolderId": "session_ywskiblc_mp6p013z",
+            "hasInflight": true,
+            "failureCount": 0
+          },
+          "endDetail": {
+            "workerStatus": "draining",
+            "previousWorkerStatus": "draining",
+            "elapsedMs": 571.4
+          }
+        },
+        {
+          "startId": 579,
+          "endId": 605,
+          "latencyMs": 5626.1,
+          "startAt": 703460.5,
+          "endAt": 709086.6,
+          "startDetail": {
+            "activeFolderId": "session_ywskiblc_mp6p013z",
+            "hasInflight": true,
+            "failureCount": 0
+          },
+          "endDetail": {
+            "workerStatus": "draining",
+            "previousWorkerStatus": "draining",
+            "elapsedMs": 393.5
+          }
+        },
+        {
+          "startId": 582,
+          "endId": 624,
+          "latencyMs": 8779.4,
+          "startAt": 703820.5,
+          "endAt": 712599.9,
+          "startDetail": {
+            "activeFolderId": "session_ywskiblc_mp6p013z",
+            "hasInflight": true,
+            "failureCount": 0
+          },
+          "endDetail": {
+            "workerStatus": "draining",
+            "previousWorkerStatus": "draining",
+            "elapsedMs": 412.7
+          }
+        },
+        {
+          "startId": 583,
+          "endId": 627,
+          "latencyMs": 8755.3,
+          "startAt": 704452.7,
+          "endAt": 713208,
+          "startDetail": {
+            "activeFolderId": "session_ywskiblc_mp6p013z",
+            "hasInflight": true,
+            "failureCount": 0
+          },
+          "endDetail": {
+            "workerStatus": "draining",
+            "previousWorkerStatus": "draining",
+            "elapsedMs": 317.1
+          }
+        },
+        {
+          "startId": 586,
+          "endId": 636,
+          "latencyMs": 11208.7,
+          "startAt": 704458.1,
+          "endAt": 715666.8,
+          "startDetail": {
+            "activeFolderId": "session_ywskiblc_mp6p013z",
+            "hasInflight": true,
+            "failureCount": 0
+          },
+          "endDetail": {
+            "workerStatus": "draining",
+            "previousWorkerStatus": "draining",
+            "elapsedMs": 601.4
+          }
+        },
+        {
+          "startId": 589,
+          "endId": 639,
+          "latencyMs": 11443.5,
+          "startAt": 704876.6,
+          "endAt": 716320.1,
+          "startDetail": {
+            "activeFolderId": "session_ywskiblc_mp6p013z",
+            "hasInflight": true,
+            "failureCount": 0
+          },
+          "endDetail": {
+            "workerStatus": "draining",
+            "previousWorkerStatus": "draining",
+            "elapsedMs": 313.3
+          }
+        },
+        {
+          "startId": 592,
+          "endId": 659,
+          "latencyMs": 14720.3,
+          "startAt": 705661.6,
+          "endAt": 720381.9,
+          "startDetail": {
+            "activeFolderId": "session_ywskiblc_mp6p013z",
+            "hasInflight": true,
+            "failureCount": 0
+          },
+          "endDetail": {
+            "workerStatus": "draining",
+            "previousWorkerStatus": "draining",
+            "elapsedMs": 722.8
+          }
+        },
+        {
+          "startId": 595,
+          "endId": 662,
+          "latencyMs": 13377.1,
+          "startAt": 707485.5,
+          "endAt": 720862.6,
+          "startDetail": {
+            "activeFolderId": "session_ywskiblc_mp6p013z",
+            "hasInflight": true,
+            "failureCount": 0
+          },
+          "endDetail": {
+            "workerStatus": "draining",
+            "previousWorkerStatus": "draining",
+            "elapsedMs": 361.4
+          }
+        },
+        {
+          "startId": 598,
+          "endId": 671,
+          "latencyMs": 15749.8,
+          "startAt": 707490.1,
+          "endAt": 723239.9,
+          "startDetail": {
+            "activeFolderId": "session_ywskiblc_mp6p013z",
+            "hasInflight": true,
+            "failureCount": 0
+          },
+          "endDetail": {
+            "workerStatus": "draining",
+            "previousWorkerStatus": "draining",
+            "elapsedMs": 439.4
+          }
+        },
+        {
+          "startId": 601,
+          "endId": 674,
+          "latencyMs": 15966.4,
+          "startAt": 707920.2,
+          "endAt": 723886.6,
+          "startDetail": {
+            "activeFolderId": "session_ywskiblc_mp6p013z",
+            "hasInflight": true,
+            "failureCount": 0
+          },
+          "endDetail": {
+            "workerStatus": "draining",
+            "previousWorkerStatus": "draining",
+            "elapsedMs": 321.2
+          }
+        },
+        {
+          "startId": 604,
+          "endId": 693,
+          "latencyMs": 18756.1,
+          "startAt": 708693,
+          "endAt": 727449.1,
+          "startDetail": {
+            "activeFolderId": "session_ywskiblc_mp6p013z",
+            "hasInflight": true,
+            "failureCount": 0
+          },
+          "endDetail": {
+            "workerStatus": "draining",
+            "previousWorkerStatus": "draining",
+            "elapsedMs": 431.8
+          }
+        },
+        {
+          "startId": 607,
+          "endId": 696,
+          "latencyMs": 17766.5,
+          "startAt": 710480.1,
+          "endAt": 728246.6,
+          "startDetail": {
+            "activeFolderId": "session_ywskiblc_mp6p013z",
+            "hasInflight": true,
+            "failureCount": 0
+          },
+          "endDetail": {
+            "workerStatus": "draining",
+            "previousWorkerStatus": "draining",
+            "elapsedMs": 380.9
+          }
+        },
+        {
+          "startId": 610,
+          "endId": 705,
+          "latencyMs": 20062.4,
+          "startAt": 710483.5,
+          "endAt": 730545.9,
+          "startDetail": {
+            "activeFolderId": "session_ywskiblc_mp6p013z",
+            "hasInflight": true,
+            "failureCount": 0
+          },
+          "endDetail": {
+            "workerStatus": "draining",
+            "previousWorkerStatus": "draining",
+            "elapsedMs": 435.1
+          }
+        },
+        {
+          "startId": 612,
+          "endId": 708,
+          "latencyMs": 20561.6,
+          "startAt": 710716.1,
+          "endAt": 731277.7,
+          "startDetail": {
+            "activeFolderId": "session_ywskiblc_mp6p013z",
+            "hasInflight": true,
+            "failureCount": 0
+          },
+          "endDetail": {
+            "workerStatus": "draining",
+            "previousWorkerStatus": "draining",
+            "elapsedMs": 317.2
+          }
+        },
+        {
+          "startId": 613,
+          "endId": 727,
+          "latencyMs": 23976.9,
+          "startAt": 710717.2,
+          "endAt": 734694.1,
+          "startDetail": {
+            "activeFolderId": "session_ywskiblc_mp6p013z",
+            "hasInflight": true,
+            "failureCount": 0
+          },
+          "endDetail": {
+            "workerStatus": "draining",
+            "previousWorkerStatus": "draining",
+            "elapsedMs": 507.1
+          }
+        },
+        {
+          "startId": 616,
+          "endId": 730,
+          "latencyMs": 24585.2,
+          "startAt": 710770.1,
+          "endAt": 735355.3,
+          "startDetail": {
+            "activeFolderId": "session_ywskiblc_mp6p013z",
+            "hasInflight": true,
+            "failureCount": 0
+          },
+          "endDetail": {
+            "workerStatus": "draining",
+            "previousWorkerStatus": "draining",
+            "elapsedMs": 319.8
+          }
+        },
+        {
+          "startId": 617,
+          "endId": 739,
+          "latencyMs": 25923.4,
+          "startAt": 711684.6,
+          "endAt": 737608,
+          "startDetail": {
+            "activeFolderId": "session_ywskiblc_mp6p013z",
+            "hasInflight": true,
+            "failureCount": 0
+          },
+          "endDetail": {
+            "workerStatus": "draining",
+            "previousWorkerStatus": "draining",
+            "elapsedMs": 481.8
+          }
+        },
+        {
+          "startId": 620,
+          "endId": 742,
+          "latencyMs": 26773.1,
+          "startAt": 711686.9,
+          "endAt": 738460,
+          "startDetail": {
+            "activeFolderId": "session_ywskiblc_mp6p013z",
+            "hasInflight": true,
+            "failureCount": 0
+          },
+          "endDetail": {
+            "workerStatus": "draining",
+            "previousWorkerStatus": "draining",
+            "elapsedMs": 328.9
+          }
+        },
+        {
+          "startId": 623,
+          "endId": 761,
+          "latencyMs": 29989.6,
+          "startAt": 712187.2,
+          "endAt": 742176.8,
+          "startDetail": {
+            "activeFolderId": "session_ywskiblc_mp6p013z",
+            "hasInflight": true,
+            "failureCount": 0
+          },
+          "endDetail": {
+            "workerStatus": "draining",
+            "previousWorkerStatus": "draining",
+            "elapsedMs": 575.3
+          }
+        },
+        {
+          "startId": 626,
+          "endId": 764,
+          "latencyMs": 29854.1,
+          "startAt": 712890.9,
+          "endAt": 742745,
+          "startDetail": {
+            "activeFolderId": "session_ywskiblc_mp6p013z",
+            "hasInflight": true,
+            "failureCount": 0
+          },
+          "endDetail": {
+            "workerStatus": "draining",
+            "previousWorkerStatus": "draining",
+            "elapsedMs": 292.5
+          }
+        },
+        {
+          "startId": 629,
+          "endId": 773,
+          "latencyMs": 31883.9,
+          "startAt": 714798.8,
+          "endAt": 746682.7,
+          "startDetail": {
+            "activeFolderId": "session_ywskiblc_mp6p013z",
+            "hasInflight": true,
+            "failureCount": 0
+          },
+          "endDetail": {
+            "workerStatus": "draining",
+            "previousWorkerStatus": "draining",
+            "elapsedMs": 503.9
+          }
+        },
+        {
+          "startId": 632,
+          "endId": 776,
+          "latencyMs": 32601.2,
+          "startAt": 714802.5,
+          "endAt": 747403.7,
+          "startDetail": {
+            "activeFolderId": "session_ywskiblc_mp6p013z",
+            "hasInflight": true,
+            "failureCount": 0
+          },
+          "endDetail": {
+            "workerStatus": "draining",
+            "previousWorkerStatus": "draining",
+            "elapsedMs": 321.6
+          }
+        },
+        {
+          "startId": 635,
+          "endId": 795,
+          "latencyMs": 36929.8,
+          "startAt": 715065.5,
+          "endAt": 751995.3,
+          "startDetail": {
+            "activeFolderId": "session_ywskiblc_mp6p013z",
+            "hasInflight": true,
+            "failureCount": 0
+          },
+          "endDetail": {
+            "workerStatus": "draining",
+            "previousWorkerStatus": "draining",
+            "elapsedMs": 450.8
+          }
+        },
+        {
+          "startId": 638,
+          "endId": 798,
+          "latencyMs": 36604.2,
+          "startAt": 716006.8,
+          "endAt": 752611,
+          "startDetail": {
+            "activeFolderId": "session_ywskiblc_mp6p013z",
+            "hasInflight": true,
+            "failureCount": 0
+          },
+          "endDetail": {
+            "workerStatus": "idle",
+            "previousWorkerStatus": "draining",
+            "elapsedMs": 306.9
+          }
+        },
+        {
+          "startId": 641,
+          "endId": 801,
+          "latencyMs": 35480.2,
+          "startAt": 717524.1,
+          "endAt": 753004.3,
+          "startDetail": {
+            "activeFolderId": "session_ywskiblc_mp6p013z",
+            "hasInflight": true,
+            "failureCount": 0
+          },
+          "endDetail": {
+            "workerStatus": "idle",
+            "previousWorkerStatus": "idle",
+            "elapsedMs": 390.2
+          }
+        },
+        {
+          "startId": 644,
+          "endId": 809,
+          "latencyMs": 37987.3,
+          "startAt": 717528.7,
+          "endAt": 755516,
+          "startDetail": {
+            "activeFolderId": "session_ywskiblc_mp6p013z",
+            "hasInflight": true,
+            "failureCount": 0
+          },
+          "endDetail": {
+            "workerStatus": "idle",
+            "previousWorkerStatus": "idle",
+            "elapsedMs": 508
+          }
+        },
+        {
+          "startId": 646,
+          "endId": 811,
+          "latencyMs": 38410.8,
+          "startAt": 717906.9,
+          "endAt": 756317.7,
+          "startDetail": {
+            "activeFolderId": "session_ywskiblc_mp6p013z",
+            "hasInflight": true,
+            "failureCount": 0
+          },
+          "endDetail": {
+            "workerStatus": "idle",
+            "previousWorkerStatus": "idle",
+            "elapsedMs": 309.9
+          }
+        },
+        {
+          "startId": 647,
+          "endId": 829,
+          "latencyMs": 42894.6,
+          "startAt": 717909.1,
+          "endAt": 760803.7,
+          "startDetail": {
+            "activeFolderId": "session_ywskiblc_mp6p013z",
+            "hasInflight": true,
+            "failureCount": 0
+          },
+          "endDetail": {
+            "workerStatus": "idle",
+            "previousWorkerStatus": "idle",
+            "elapsedMs": 423.2
+          }
+        },
+        {
+          "startId": 650,
+          "endId": 831,
+          "latencyMs": 43270.6,
+          "startAt": 718158.2,
+          "endAt": 761428.8,
+          "startDetail": {
+            "activeFolderId": "session_ywskiblc_mp6p013z",
+            "hasInflight": true,
+            "failureCount": 0
+          },
+          "endDetail": {
+            "workerStatus": "idle",
+            "previousWorkerStatus": "idle",
+            "elapsedMs": 320.8
+          }
+        },
+        {
+          "startId": 651,
+          "endId": 839,
+          "latencyMs": 44681.1,
+          "startAt": 719128.1,
+          "endAt": 763809.2,
+          "startDetail": {
+            "activeFolderId": "session_ywskiblc_mp6p013z",
+            "hasInflight": true,
+            "failureCount": 0
+          },
+          "endDetail": {
+            "workerStatus": "idle",
+            "previousWorkerStatus": "idle",
+            "elapsedMs": 474.3
+          }
+        },
+        {
+          "startId": 652,
+          "endId": 841,
+          "latencyMs": 45365.1,
+          "startAt": 719293.2,
+          "endAt": 764658.3,
+          "startDetail": {
+            "activeFolderId": "session_ywskiblc_mp6p013z",
+            "hasInflight": true,
+            "failureCount": 0
+          },
+          "endDetail": {
+            "workerStatus": "idle",
+            "previousWorkerStatus": "idle",
+            "elapsedMs": 317.2
+          }
+        },
+        {
+          "startId": 655,
+          "endId": 859,
+          "latencyMs": 48879.5,
+          "startAt": 719297,
+          "endAt": 768176.5,
+          "startDetail": {
+            "activeFolderId": "session_ywskiblc_mp6p013z",
+            "hasInflight": true,
+            "failureCount": 0
+          },
+          "endDetail": {
+            "workerStatus": "idle",
+            "previousWorkerStatus": "idle",
+            "elapsedMs": 462.1
+          }
+        },
+        {
+          "startId": 658,
+          "endId": 861,
+          "latencyMs": 49245.9,
+          "startAt": 719659.2,
+          "endAt": 768905.1,
+          "startDetail": {
+            "activeFolderId": "session_ywskiblc_mp6p013z",
+            "hasInflight": true,
+            "failureCount": 0
+          },
+          "endDetail": {
+            "workerStatus": "idle",
+            "previousWorkerStatus": "idle",
+            "elapsedMs": 316.4
+          }
+        },
+        {
+          "startId": 661,
+          "endId": 869,
+          "latencyMs": 51607.7,
+          "startAt": 720501.2,
+          "endAt": 772108.9,
+          "startDetail": {
+            "activeFolderId": "session_ywskiblc_mp6p013z",
+            "hasInflight": true,
+            "failureCount": 0
+          },
+          "endDetail": {
+            "workerStatus": "idle",
+            "previousWorkerStatus": "idle",
+            "elapsedMs": 525.1
+          }
+        },
+        {
+          "startId": 664,
+          "endId": 871,
+          "latencyMs": 50546.2,
+          "startAt": 722354.6,
+          "endAt": 772900.8,
+          "startDetail": {
+            "activeFolderId": "session_ywskiblc_mp6p013z",
+            "hasInflight": true,
+            "failureCount": 0
+          },
+          "endDetail": {
+            "workerStatus": "idle",
+            "previousWorkerStatus": "idle",
+            "elapsedMs": 319.2
+          }
+        },
+        {
+          "startId": 667,
+          "endId": 882,
+          "latencyMs": 53195.1,
+          "startAt": 722361.8,
+          "endAt": 775556.9,
+          "startDetail": {
+            "activeFolderId": "session_ywskiblc_mp6p013z",
+            "hasInflight": true,
+            "failureCount": 0
+          },
+          "endDetail": {
+            "workerStatus": "idle",
+            "previousWorkerStatus": "idle",
+            "elapsedMs": 693.5
+          }
+        },
+        {
+          "startId": 670,
+          "endId": 884,
+          "latencyMs": 53515.3,
+          "startAt": 722800.5,
+          "endAt": 776315.8,
+          "startDetail": {
+            "activeFolderId": "session_ywskiblc_mp6p013z",
+            "hasInflight": true,
+            "failureCount": 0
+          },
+          "endDetail": {
+            "workerStatus": "idle",
+            "previousWorkerStatus": "idle",
+            "elapsedMs": 306.7
+          }
+        },
+        {
+          "startId": 673,
+          "endId": 892,
+          "latencyMs": 55351.8,
+          "startAt": 723565.3,
+          "endAt": 778917.1,
+          "startDetail": {
+            "activeFolderId": "session_ywskiblc_mp6p013z",
+            "hasInflight": true,
+            "failureCount": 0
+          },
+          "endDetail": {
+            "workerStatus": "idle",
+            "previousWorkerStatus": "idle",
+            "elapsedMs": 449.6
+          }
+        },
+        {
+          "startId": 676,
+          "endId": 894,
+          "latencyMs": 54590.8,
+          "startAt": 725200,
+          "endAt": 779790.8,
+          "startDetail": {
+            "activeFolderId": "session_ywskiblc_mp6p013z",
+            "hasInflight": true,
+            "failureCount": 0
+          },
+          "endDetail": {
+            "workerStatus": "idle",
+            "previousWorkerStatus": "idle",
+            "elapsedMs": 321.4
+          }
+        },
+        {
+          "startId": 679,
+          "endId": 1054,
+          "latencyMs": 76115.8,
+          "startAt": 725203.8,
+          "endAt": 801319.6,
+          "startDetail": {
+            "activeFolderId": "session_ywskiblc_mp6p013z",
+            "hasInflight": true,
+            "failureCount": 0
+          },
+          "endDetail": {
+            "workerStatus": "idle",
+            "previousWorkerStatus": "idle",
+            "elapsedMs": 533.6
+          }
+        },
+        {
+          "startId": 681,
+          "endId": 1056,
+          "latencyMs": 76392.7,
+          "startAt": 725498.6,
+          "endAt": 801891.3,
+          "startDetail": {
+            "activeFolderId": "session_ywskiblc_mp6p013z",
+            "hasInflight": true,
+            "failureCount": 0
+          },
+          "endDetail": {
+            "workerStatus": "idle",
+            "previousWorkerStatus": "idle",
+            "elapsedMs": 328.6
+          }
+        },
+        {
+          "startId": 682,
+          "endId": 1068,
+          "latencyMs": 252262.3,
+          "startAt": 725500.2,
+          "endAt": 977762.5,
+          "startDetail": {
+            "activeFolderId": "session_ywskiblc_mp6p013z",
+            "hasInflight": true,
+            "failureCount": 0
+          },
+          "endDetail": {
+            "workerStatus": "idle",
+            "previousWorkerStatus": "idle",
+            "elapsedMs": 860.1
+          }
+        },
+        {
+          "startId": 685,
+          "endId": 1070,
+          "latencyMs": 252415.1,
+          "startAt": 725692.2,
+          "endAt": 978107.3,
+          "startDetail": {
+            "activeFolderId": "session_ywskiblc_mp6p013z",
+            "hasInflight": true,
+            "failureCount": 0
+          },
+          "endDetail": {
+            "workerStatus": "idle",
+            "previousWorkerStatus": "idle",
+            "elapsedMs": 315.2
+          }
+        }
+      ]
+    },
+    {
+      "label": "worker refresh",
+      "startEvent": "popup.worker.refresh.request",
+      "endEvent": "popup.worker.refresh.response",
+      "count": 27,
+      "minMs": 1470.8,
+      "p50Ms": 48287.9,
+      "p95Ms": 58801.9,
+      "maxMs": 60797.7,
+      "avgMs": 42960.9,
+      "missingEndCount": 0,
+      "missingStarts": [],
+      "samples": [
+        {
+          "startId": 572,
+          "endId": 577,
+          "latencyMs": 1470.8,
+          "startAt": 701984.3,
+          "endAt": 703455.1,
+          "startDetail": {
+            "activeFolderId": "session_ywskiblc_mp6p013z",
+            "workerStatus": "draining"
+          },
+          "endDetail": {
+            "activeFolderId": "session_ywskiblc_mp6p013z"
+          }
+        },
+        {
+          "startId": 591,
+          "endId": 611,
+          "latencyMs": 5281.4,
+          "startAt": 705431.5,
+          "endAt": 710712.9,
+          "startDetail": {
+            "activeFolderId": "session_ywskiblc_mp6p013z",
+            "workerStatus": "draining"
+          },
+          "endDetail": {
+            "activeFolderId": "session_ywskiblc_mp6p013z"
+          }
+        },
+        {
+          "startId": 594,
+          "endId": 645,
+          "latencyMs": 11874.6,
+          "startAt": 706028,
+          "endAt": 717902.6,
+          "startDetail": {
+            "activeFolderId": "session_ywskiblc_mp6p013z",
+            "workerStatus": "draining"
+          },
+          "endDetail": {
+            "activeFolderId": "session_ywskiblc_mp6p013z"
+          }
+        },
+        {
+          "startId": 603,
+          "endId": 680,
+          "latencyMs": 17003.5,
+          "startAt": 708492.4,
+          "endAt": 725495.9,
+          "startDetail": {
+            "activeFolderId": "session_ywskiblc_mp6p013z",
+            "workerStatus": "draining"
+          },
+          "endDetail": {
+            "activeFolderId": "session_ywskiblc_mp6p013z"
+          }
+        },
+        {
+          "startId": 606,
+          "endId": 714,
+          "latencyMs": 23873,
+          "startAt": 709087.4,
+          "endAt": 732960.4,
+          "startDetail": {
+            "activeFolderId": "session_ywskiblc_mp6p013z",
+            "workerStatus": "draining"
+          },
+          "endDetail": {
+            "activeFolderId": "session_ywskiblc_mp6p013z"
+          }
+        },
+        {
+          "startId": 625,
+          "endId": 748,
+          "latencyMs": 27759.3,
+          "startAt": 712600.4,
+          "endAt": 740359.7,
+          "startDetail": {
+            "activeFolderId": "session_ywskiblc_mp6p013z",
+            "workerStatus": "draining"
+          },
+          "endDetail": {
+            "activeFolderId": "session_ywskiblc_mp6p013z"
+          }
+        },
+        {
+          "startId": 628,
+          "endId": 782,
+          "latencyMs": 37021.7,
+          "startAt": 713208.9,
+          "endAt": 750230.6,
+          "startDetail": {
+            "activeFolderId": "session_ywskiblc_mp6p013z",
+            "workerStatus": "draining"
+          },
+          "endDetail": {
+            "activeFolderId": "session_ywskiblc_mp6p013z"
+          }
+        },
+        {
+          "startId": 637,
+          "endId": 816,
+          "latencyMs": 43445,
+          "startAt": 715667.3,
+          "endAt": 759112.3,
+          "startDetail": {
+            "activeFolderId": "session_ywskiblc_mp6p013z",
+            "workerStatus": "draining"
+          },
+          "endDetail": {
+            "activeFolderId": "session_ywskiblc_mp6p013z"
+          }
+        },
+        {
+          "startId": 640,
+          "endId": 846,
+          "latencyMs": 50204.1,
+          "startAt": 716320.6,
+          "endAt": 766524.7,
+          "startDetail": {
+            "activeFolderId": "session_ywskiblc_mp6p013z",
+            "workerStatus": "draining"
+          },
+          "endDetail": {
+            "activeFolderId": "session_ywskiblc_mp6p013z"
+          }
+        },
+        {
+          "startId": 660,
+          "endId": 876,
+          "latencyMs": 54420,
+          "startAt": 720383.2,
+          "endAt": 774803.2,
+          "startDetail": {
+            "activeFolderId": "session_ywskiblc_mp6p013z",
+            "workerStatus": "draining"
+          },
+          "endDetail": {
+            "activeFolderId": "session_ywskiblc_mp6p013z"
+          }
+        },
+        {
+          "startId": 663,
+          "endId": 899,
+          "latencyMs": 60797.7,
+          "startAt": 720863.3,
+          "endAt": 781661,
+          "startDetail": {
+            "activeFolderId": "session_ywskiblc_mp6p013z",
+            "workerStatus": "draining"
+          },
+          "endDetail": {
+            "activeFolderId": "session_ywskiblc_mp6p013z"
+          }
+        },
+        {
+          "startId": 672,
+          "endId": 905,
+          "latencyMs": 58801.9,
+          "startAt": 723240.8,
+          "endAt": 782042.7,
+          "startDetail": {
+            "activeFolderId": "session_ywskiblc_mp6p013z",
+            "workerStatus": "draining"
+          },
+          "endDetail": {
+            "activeFolderId": "session_ywskiblc_mp6p013z"
+          }
+        },
+        {
+          "startId": 675,
+          "endId": 908,
+          "latencyMs": 58766.5,
+          "startAt": 723887,
+          "endAt": 782653.5,
+          "startDetail": {
+            "activeFolderId": "session_ywskiblc_mp6p013z",
+            "workerStatus": "draining"
+          },
+          "endDetail": {
+            "activeFolderId": "session_ywskiblc_mp6p013z"
+          }
+        },
+        {
+          "startId": 694,
+          "endId": 923,
+          "latencyMs": 57168.4,
+          "startAt": 727449.8,
+          "endAt": 784618.2,
+          "startDetail": {
+            "activeFolderId": "session_ywskiblc_mp6p013z",
+            "workerStatus": "draining"
+          },
+          "endDetail": {
+            "activeFolderId": "session_ywskiblc_mp6p013z"
+          }
+        },
+        {
+          "startId": 697,
+          "endId": 933,
+          "latencyMs": 57672.6,
+          "startAt": 728247.3,
+          "endAt": 785919.9,
+          "startDetail": {
+            "activeFolderId": "session_ywskiblc_mp6p013z",
+            "workerStatus": "draining"
+          },
+          "endDetail": {
+            "activeFolderId": "session_ywskiblc_mp6p013z"
+          }
+        },
+        {
+          "startId": 706,
+          "endId": 939,
+          "latencyMs": 55773.4,
+          "startAt": 730546.5,
+          "endAt": 786319.9,
+          "startDetail": {
+            "activeFolderId": "session_ywskiblc_mp6p013z",
+            "workerStatus": "draining"
+          },
+          "endDetail": {
+            "activeFolderId": "session_ywskiblc_mp6p013z"
+          }
+        },
+        {
+          "startId": 709,
+          "endId": 942,
+          "latencyMs": 55530.3,
+          "startAt": 731278.4,
+          "endAt": 786808.7,
+          "startDetail": {
+            "activeFolderId": "session_ywskiblc_mp6p013z",
+            "workerStatus": "draining"
+          },
+          "endDetail": {
+            "activeFolderId": "session_ywskiblc_mp6p013z"
+          }
+        },
+        {
+          "startId": 728,
+          "endId": 949,
+          "latencyMs": 53217.9,
+          "startAt": 734694.6,
+          "endAt": 787912.5,
+          "startDetail": {
+            "activeFolderId": "session_ywskiblc_mp6p013z",
+            "workerStatus": "draining"
+          },
+          "endDetail": {
+            "activeFolderId": "session_ywskiblc_mp6p013z"
+          }
+        },
+        {
+          "startId": 731,
+          "endId": 955,
+          "latencyMs": 52956.9,
+          "startAt": 735356.3,
+          "endAt": 788313.2,
+          "startDetail": {
+            "activeFolderId": "session_ywskiblc_mp6p013z",
+            "workerStatus": "draining"
+          },
+          "endDetail": {
+            "activeFolderId": "session_ywskiblc_mp6p013z"
+          }
+        },
+        {
+          "startId": 740,
+          "endId": 958,
+          "latencyMs": 51262.8,
+          "startAt": 737608.7,
+          "endAt": 788871.5,
+          "startDetail": {
+            "activeFolderId": "session_ywskiblc_mp6p013z",
+            "workerStatus": "draining"
+          },
+          "endDetail": {
+            "activeFolderId": "session_ywskiblc_mp6p013z"
+          }
+        },
+        {
+          "startId": 743,
+          "endId": 965,
+          "latencyMs": 51596.8,
+          "startAt": 738460.6,
+          "endAt": 790057.4,
+          "startDetail": {
+            "activeFolderId": "session_ywskiblc_mp6p013z",
+            "workerStatus": "draining"
+          },
+          "endDetail": {
+            "activeFolderId": "session_ywskiblc_mp6p013z"
+          }
+        },
+        {
+          "startId": 762,
+          "endId": 971,
+          "latencyMs": 48287.9,
+          "startAt": 742177.6,
+          "endAt": 790465.5,
+          "startDetail": {
+            "activeFolderId": "session_ywskiblc_mp6p013z",
+            "workerStatus": "draining"
+          },
+          "endDetail": {
+            "activeFolderId": "session_ywskiblc_mp6p013z"
+          }
+        },
+        {
+          "startId": 765,
+          "endId": 974,
+          "latencyMs": 48248.5,
+          "startAt": 742745.8,
+          "endAt": 790994.3,
+          "startDetail": {
+            "activeFolderId": "session_ywskiblc_mp6p013z",
+            "workerStatus": "draining"
+          },
+          "endDetail": {
+            "activeFolderId": "session_ywskiblc_mp6p013z"
+          }
+        },
+        {
+          "startId": 774,
+          "endId": 981,
+          "latencyMs": 45500.3,
+          "startAt": 746683.1,
+          "endAt": 792183.4,
+          "startDetail": {
+            "activeFolderId": "session_ywskiblc_mp6p013z",
+            "workerStatus": "draining"
+          },
+          "endDetail": {
+            "activeFolderId": "session_ywskiblc_mp6p013z"
+          }
+        },
+        {
+          "startId": 777,
+          "endId": 991,
+          "latencyMs": 45947.8,
+          "startAt": 747404.4,
+          "endAt": 793352.2,
+          "startDetail": {
+            "activeFolderId": "session_ywskiblc_mp6p013z",
+            "workerStatus": "draining"
+          },
+          "endDetail": {
+            "activeFolderId": "session_ywskiblc_mp6p013z"
+          }
+        },
+        {
+          "startId": 796,
+          "endId": 1001,
+          "latencyMs": 42715.4,
+          "startAt": 751995.9,
+          "endAt": 794711.3,
+          "startDetail": {
+            "activeFolderId": "session_ywskiblc_mp6p013z",
+            "workerStatus": "draining"
+          },
+          "endDetail": {
+            "activeFolderId": "session_ywskiblc_mp6p013z"
+          }
+        },
+        {
+          "startId": 799,
+          "endId": 1011,
+          "latencyMs": 43346.8,
+          "startAt": 752611.8,
+          "endAt": 795958.6,
+          "startDetail": {
+            "activeFolderId": "session_ywskiblc_mp6p013z",
+            "workerStatus": "idle"
+          },
+          "endDetail": {
+            "activeFolderId": "session_ywskiblc_mp6p013z"
+          }
+        }
+      ]
+    },
+    {
+      "label": "worker error backoff",
+      "startEvent": "popup.worker.status.error",
+      "endEvent": "popup.worker.next-poll",
+      "count": 0,
+      "minMs": null,
+      "p50Ms": null,
+      "p95Ms": null,
+      "maxMs": null,
+      "avgMs": null,
+      "missingEndCount": 0,
+      "missingStarts": [],
+      "samples": []
+    }
+  ],
+  "slowestGaps": [
+    {
+      "fromEvent": "popup.worker.status.response",
+      "toEvent": "popup.worker.status.request",
+      "fromId": 1056,
+      "toId": 1057,
+      "gapMs": 173943.1,
+      "fromDetail": {
+        "workerStatus": "idle",
+        "previousWorkerStatus": "idle",
+        "elapsedMs": 328.6
+      },
+      "toDetail": {
+        "activeFolderId": "session_ywskiblc_mp6p013z",
+        "hasInflight": false,
+        "failureCount": 0
+      }
+    },
+    {
+      "fromEvent": "popup.worker.refresh.request",
+      "toEvent": "popup.worker.status.request",
+      "fromId": 765,
+      "toId": 766,
+      "gapMs": 3129.2,
+      "fromDetail": {
+        "activeFolderId": "session_ywskiblc_mp6p013z",
+        "workerStatus": "draining"
+      },
+      "toDetail": {
+        "activeFolderId": "session_ywskiblc_mp6p013z",
+        "hasInflight": false,
+        "failureCount": 0
+      }
+    },
+    {
+      "fromEvent": "popup.worker.refresh.request",
+      "toEvent": "popup.worker.status.request",
+      "fromId": 777,
+      "toId": 778,
+      "gapMs": 2612.8,
+      "fromDetail": {
+        "activeFolderId": "session_ywskiblc_mp6p013z",
+        "workerStatus": "draining"
+      },
+      "toDetail": {
+        "activeFolderId": "session_ywskiblc_mp6p013z",
+        "hasInflight": false,
+        "failureCount": 0
+      }
+    },
+    {
+      "fromEvent": "popup.worker.status.response",
+      "toEvent": "popup.worker.status.request",
+      "fromId": 811,
+      "toId": 812,
+      "gapMs": 2545.5,
+      "fromDetail": {
+        "workerStatus": "idle",
+        "previousWorkerStatus": "idle",
+        "elapsedMs": 309.9
+      },
+      "toDetail": {
+        "activeFolderId": "session_ywskiblc_mp6p013z",
+        "hasInflight": false,
+        "failureCount": 0
+      }
+    },
+    {
+      "fromEvent": "popup.worker.status.response",
+      "toEvent": "popup.worker.status.request",
+      "fromId": 861,
+      "toId": 862,
+      "gapMs": 2469.5,
+      "fromDetail": {
+        "workerStatus": "idle",
+        "previousWorkerStatus": "idle",
+        "elapsedMs": 316.4
+      },
+      "toDetail": {
+        "activeFolderId": "session_ywskiblc_mp6p013z",
+        "hasInflight": false,
+        "failureCount": 0
+      }
+    },
+    {
+      "fromEvent": "popup.worker.status.response",
+      "toEvent": "popup.worker.status.request",
+      "fromId": 884,
+      "toId": 885,
+      "gapMs": 1945.5,
+      "fromDetail": {
+        "workerStatus": "idle",
+        "previousWorkerStatus": "idle",
+        "elapsedMs": 306.7
+      },
+      "toDetail": {
+        "activeFolderId": "session_ywskiblc_mp6p013z",
+        "hasInflight": false,
+        "failureCount": 0
+      }
+    },
+    {
+      "fromEvent": "popup.worker.status.response",
+      "toEvent": "popup.worker.status.request",
+      "fromId": 801,
+      "toId": 802,
+      "gapMs": 1796.7,
+      "fromDetail": {
+        "workerStatus": "idle",
+        "previousWorkerStatus": "idle",
+        "elapsedMs": 390.2
+      },
+      "toDetail": {
+        "activeFolderId": "session_ywskiblc_mp6p013z",
+        "hasInflight": false,
+        "failureCount": 0
+      }
+    },
+    {
+      "fromEvent": "popup.worker.status.response",
+      "toEvent": "popup.worker.status.request",
+      "fromId": 831,
+      "toId": 832,
+      "gapMs": 1707.2,
+      "fromDetail": {
+        "workerStatus": "idle",
+        "previousWorkerStatus": "idle",
+        "elapsedMs": 320.8
+      },
+      "toDetail": {
+        "activeFolderId": "session_ywskiblc_mp6p013z",
+        "hasInflight": false,
+        "failureCount": 0
+      }
+    },
+    {
+      "fromEvent": "popup.worker.status.response",
+      "toEvent": "popup.worker.status.request",
+      "fromId": 871,
+      "toId": 872,
+      "gapMs": 1700.9,
+      "fromDetail": {
+        "workerStatus": "idle",
+        "previousWorkerStatus": "idle",
+        "elapsedMs": 319.2
+      },
+      "toDetail": {
+        "activeFolderId": "session_ywskiblc_mp6p013z",
+        "hasInflight": false,
+        "failureCount": 0
+      }
+    },
+    {
+      "fromEvent": "popup.worker.refresh.request",
+      "toEvent": "popup.worker.status.request",
+      "fromId": 743,
+      "toId": 744,
+      "gapMs": 1674.5,
+      "fromDetail": {
+        "activeFolderId": "session_ywskiblc_mp6p013z",
+        "workerStatus": "draining"
+      },
+      "toDetail": {
+        "activeFolderId": "session_ywskiblc_mp6p013z",
+        "hasInflight": false,
+        "failureCount": 0
+      }
+    },
+    {
+      "fromEvent": "popup.worker.status.response",
+      "toEvent": "popup.worker.status.request",
+      "fromId": 841,
+      "toId": 842,
+      "gapMs": 1669.9,
+      "fromDetail": {
+        "workerStatus": "idle",
+        "previousWorkerStatus": "idle",
+        "elapsedMs": 317.2
+      },
+      "toDetail": {
+        "activeFolderId": "session_ywskiblc_mp6p013z",
+        "hasInflight": false,
+        "failureCount": 0
+      }
+    },
+    {
+      "fromEvent": "popup.worker.status.response",
+      "toEvent": "popup.worker.status.request",
+      "fromId": 894,
+      "toId": 895,
+      "gapMs": 1669.5,
+      "fromDetail": {
+        "workerStatus": "idle",
+        "previousWorkerStatus": "idle",
+        "elapsedMs": 321.4
+      },
+      "toDetail": {
+        "activeFolderId": "session_ywskiblc_mp6p013z",
+        "hasInflight": false,
+        "failureCount": 0
+      }
+    }
+  ]
+}

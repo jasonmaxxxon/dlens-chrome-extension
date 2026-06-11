@@ -1,0 +1,782 @@
+{
+  "activeElement": "BODY",
+  "bodyCursor": "crosshair",
+  "candidates": [
+    {
+      "attrs": [
+        [
+          "id",
+          "__dlens_product_motion__"
+        ]
+      ],
+      "className": "",
+      "id": "__dlens_product_motion__",
+      "rect": {
+        "h": 0,
+        "w": 0,
+        "x": 0,
+        "y": 0
+      },
+      "tag": "STYLE",
+      "text": " [data-dlens-control=\"true\"] .dlens-card-lift { transition: transform 200ms cubic-bezier(0.22, 1.12, 0.36, 1), box-shadow 200ms cubic-bezier(0.22, 1.12, 0.36, 1), border-color 180ms cubic-bezier(0.4, 0, 0.2, 1); will-change: transform; transform: translateY(0); } [data-dlens-control=\"true\"] .dlens-card-lift:hover, [data-dlens-control=\"true\"] .dlens-card-lift:focus-within { transform: translateY(-4px); box-shadow: 0 18px 40px rgba(27, 26, 23, 0.16), 0 3px 10px rgba(27, 26, 23, 0.07) !important; b"
+    },
+    {
+      "attrs": [
+        [
+          "id",
+          "__dlens_keyframes__"
+        ]
+      ],
+      "className": "",
+      "id": "__dlens_keyframes__",
+      "rect": {
+        "h": 0,
+        "w": 0,
+        "x": 0,
+        "y": 0
+      },
+      "tag": "STYLE",
+      "text": " @keyframes dlens-slide-in { from { opacity: 0; transform: translateY(-8px) scale(0.97); } to { opacity: 1; transform: translateY(0) scale(1); } } @keyframes dlens-pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.35; } } @keyframes dlens-glow-border { 0%, 100% { border-color: rgba(63,90,59,0.18); } 50% { border-color: rgba(63,90,59,0.35); } } @keyframes dlens-scan { 0% { background-position: 0% 0%; } 100% { background-position: 0% 100%; } } @keyframes dlens-bump { 0% { transform: scale(1); } 32"
+    },
+    {
+      "attrs": [
+        [
+          "id",
+          "__dlens_popup_keyframes__"
+        ]
+      ],
+      "className": "",
+      "id": "__dlens_popup_keyframes__",
+      "rect": {
+        "h": 0,
+        "w": 0,
+        "x": 0,
+        "y": 0
+      },
+      "tag": "STYLE",
+      "text": " @import url(\"https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=JetBrains+Mono:wght@400;500;700&family=Noto+Sans+TC:wght@400;500;600;700;900&family=Noto+Serif+TC:wght@400;500;700;900&display=swap\"); :root { --dlens-canvas-deep: #f7f4ec; --dlens-paper-raised: #fdfbf6; --dlens-sunken: #f1ece0; --dlens-line-hair: rgba(27,26,23,0.10); --dlens-oxide: #7a2030; --dlens-ink-blue: #1a2e4f; } [data-paper-grain=\"true\"]::before { content: \"\"; position: absolute; inset: 0; pointer-eve"
+    },
+    {
+      "attrs": [
+        [
+          "id",
+          "__dlens_extension_v0_overlay__"
+        ],
+        [
+          "style",
+          "position: fixed; pointer-events: none; border: 1.5px solid rgba(63, 90, 59, 0.58); border-radius: 16px; background: rgba(63, 90, 59, 0.05); box-shadow: rgba(255, 255, 255, 0.5) 0px 0px 0px 1px, rgba(63, 90, 59, 0.15) 0px 10px 24px; transition: transform 120ms ease-out, top 120ms ease-out, left 120ms ease-out, width 120ms ease-out, height 120ms ease-out, opacity 120ms ease-out, border-color 120ms ease-out, background-color 120ms ease-out, box-shadow 120ms ease-out; z-index: 2147483645; display: block; top: 145.477px; left: 757.746px; width: 644.496px; height: 455.883px;"
+        ]
+      ],
+      "className": "",
+      "id": "__dlens_extension_v0_overlay__",
+      "rect": {
+        "h": 459,
+        "w": 647,
+        "x": 758,
+        "y": 145
+      },
+      "tag": "DIV",
+      "text": ""
+    },
+    {
+      "attrs": [
+        [
+          "id",
+          "__dlens_extension_v0_root__"
+        ],
+        [
+          "data-dlens-control",
+          "true"
+        ],
+        [
+          "data-dlens-qa-trace-version",
+          "run14-url-trace-v1"
+        ]
+      ],
+      "className": "",
+      "id": "__dlens_extension_v0_root__",
+      "rect": {
+        "h": 0,
+        "w": 2160,
+        "x": 0,
+        "y": 7487
+      },
+      "tag": "DIV",
+      "text": "Hover to preview | S save | Esc exit Ready dlens Topic Product PR Annotated Field Guide VOL.1 NO.01 Jun 10 · v.0.1.30 d 採集 訊號 分類 行動 設定 Product mode Saved Signals 先確認已儲存的 Threads post 是否完成抓取，再到行動頁整理可試 workflow。 AI enabled 分析狀態 ✓ 已就緒 1 signals · 1 analyses 重新分析 分析完成，查看哪些 signal 值得行動 查看候選行動 → Saved Signals 1 saved 從好物變被丟棄... github copilot 本來主打，以提出幾次 prompt 為計算單位，等於說，prompt 下的好，可以一次性開發出一個很棒的專案，且只算一次使用的量。 但6月後調整為 AI credits 已經沒有此紅利.… 可分析 · 競品分析 · 保留觀察 競品分析 ×"
+    },
+    {
+      "attrs": [
+        [
+          "data-dlens-mode-theme",
+          "product"
+        ],
+        [
+          "style",
+          "--dlens-mode-accent: #234f7a; --dlens-mode-accent-mid: #2f6a96; --dlens-mode-accent-soft: rgba(35,79,122,0.10); --dlens-mode-accent-glow: rgba(35,79,122,0.18); --dlens-mode-accent-button-shadow: 0 8px 18px rgba(35,79,122,0.16); --dlens-mode-hover-border-strong: rgba(35,79,122,0.58); --dlens-mode-hover-border-soft: rgba(35,79,122,0.28); --dlens-mode-hover-surface-strong: rgba(35,79,122,0.045); --dlens-mode-hover-surface-soft: rgba(35,79,122,0.025); --dlens-mode-hover-shadow-strong: rgba(35,79,122,0.14); --dlens-mode-hover-shadow-soft: rgba(35,79,122,0.07);"
+        ]
+      ],
+      "className": "",
+      "id": null,
+      "rect": {
+        "h": 0,
+        "w": 2160,
+        "x": 0,
+        "y": 7487
+      },
+      "tag": "DIV",
+      "text": "Hover to preview | S save | Esc exit Ready dlens Topic Product PR Annotated Field Guide VOL.1 NO.01 Jun 10 · v.0.1.30 d 採集 訊號 分類 行動 設定 Product mode Saved Signals 先確認已儲存的 Threads post 是否完成抓取，再到行動頁整理可試 workflow。 AI enabled 分析狀態 ✓ 已就緒 1 signals · 1 analyses 重新分析 分析完成，查看哪些 signal 值得行動 查看候選行動 → Saved Signals 1 saved 從好物變被丟棄... github copilot 本來主打，以提出幾次 prompt 為計算單位，等於說，prompt 下的好，可以一次性開發出一個很棒的專案，且只算一次使用的量。 但6月後調整為 AI credits 已經沒有此紅利.… 可分析 · 競品分析 · 保留觀察 競品分析 ×"
+    },
+    {
+      "attrs": [
+        [
+          "id",
+          "__dlens_extension_v0_launcher__"
+        ],
+        [
+          "data-dlens-control",
+          "true"
+        ],
+        [
+          "aria-label",
+          "Close DLens popup"
+        ],
+        [
+          "style",
+          "position: fixed; right: 24px; top: 24px; width: 48px; height: 48px; border-radius: 16px; border: 1px solid rgba(27, 26, 23, 0.1); background: linear-gradient(135deg, var(--dlens-mode-accent, #1a2e4f), var(--dlens-mode-accent-mid, #2b4a80)); backdrop-filter: none; box-shadow: 0 8px 24px var(--dlens-mode-accent-glow, rgba(26,46,79,0.18)); color: rgb(255, 255, 255); font-size: 22px; font-weight: 700; z-index: 2147483640; cursor: pointer; transition: 180ms cubic-bezier(0.4, 0, 0.2, 1); display: grid; place-items: center;"
+        ]
+      ],
+      "className": "",
+      "id": "__dlens_extension_v0_launcher__",
+      "rect": {
+        "h": 48,
+        "w": 48,
+        "x": 2088,
+        "y": 24
+      },
+      "tag": "BUTTON",
+      "text": ""
+    },
+    {
+      "attrs": [
+        [
+          "data-dlens-control",
+          "true"
+        ],
+        [
+          "style",
+          "position: fixed; top: 20px; left: 50%; transform: translateX(-50%); z-index: 2147483646; padding: 10px 20px; border-radius: 999px; background: linear-gradient(135deg, var(--dlens-mode-accent, #1a2e4f), var(--dlens-mode-accent-mid, #2b4a80)); backdrop-filter: blur(16px); color: rgb(255, 255, 255); font-size: 12px; font-weight: 600; letter-spacing: 0.02em; box-shadow: 0 12px 40px var(--dlens-mode-accent-glow, rgba(26,46,79,0.18)); display: flex; align-items: center; gap: 8px;"
+        ]
+      ],
+      "className": "",
+      "id": null,
+      "rect": {
+        "h": 35,
+        "w": 294,
+        "x": 933,
+        "y": 20
+      },
+      "tag": "DIV",
+      "text": "Hover to preview | S save | Esc exit"
+    },
+    {
+      "attrs": [
+        [
+          "style",
+          "width: 6px; height: 6px; border-radius: 999px; background: var(--dlens-mode-accent-mid, #2b4a80); display: inline-block; animation: 2s ease-in-out 0s infinite normal none running dlens-pulse;"
+        ]
+      ],
+      "className": "",
+      "id": null,
+      "rect": {
+        "h": 6,
+        "w": 6,
+        "x": 953,
+        "y": 34
+      },
+      "tag": "SPAN",
+      "text": ""
+    },
+    {
+      "attrs": [
+        [
+          "data-dlens-control",
+          "true"
+        ],
+        [
+          "style",
+          "position: fixed; top: 134.477px; left: 1311.24px; z-index: 2147483646; padding: 4px 10px; border-radius: 999px; background: var(--dlens-mode-accent-soft, rgba(26,46,79,0.09)); backdrop-filter: blur(12px); border: 1px solid var(--dlens-mode-hover-border-soft, rgba(26,46,79,0.26)); color: var(--dlens-mode-accent, #1a2e4f); font-size: 11px; font-weight: 700; box-shadow: rgba(15, 23, 42, 0.08) 0px 4px 16px; display: flex; align-items: center; gap: 4px; animation: 150ms cubic-bezier(0.4, 0, 0.2, 1) 0s 1 normal none running dlens-slide-in;"
+        ]
+      ],
+      "className": "",
+      "id": null,
+      "rect": {
+        "h": 22,
+        "w": 51,
+        "x": 1311,
+        "y": 134
+      },
+      "tag": "DIV",
+      "text": "Ready"
+    },
+    {
+      "attrs": [
+        [
+          "data-dlens-control",
+          "true"
+        ],
+        [
+          "data-workspace-popup",
+          "shell"
+        ],
+        [
+          "data-paper-grain",
+          "true"
+        ],
+        [
+          "style",
+          "position: fixed; right: 24px; top: 82px; width: 720px; height: min(86vh, 860px); max-height: min(86vh, 860px); overflow: hidden; border-radius: 14px; border: 1px solid rgba(27, 26, 23, 0.1); box-shadow: rgba(27, 26, 23, 0.16) 0px 20px 56px, rgba(27, 26, 23, 0.08) 0px 2px 8px, rgba(27, 26, 23, 0.08) 0px 0px 0px 1px, rgba(253, 251, 246, 0.96) 0px 1px 0px inset; z-index: 2147483640; color: rgb(27, 26, 23); font-family: \"Noto Sans TC\", -apple-system, BlinkMacSystemFont, \"SF Pro Text\", system-ui, sans-serif; animation: 280ms cubic-bezier(0.16, 1, 0.3, 1) 0s 1 normal none running dlens-slide-in; transition: width 200ms cubic-bezier(0.4, 0, 0.2, 1); isolation: isolate;"
+        ]
+      ],
+      "className": "",
+      "id": null,
+      "rect": {
+        "h": 861,
+        "w": 722,
+        "x": 1415,
+        "y": 82
+      },
+      "tag": "DIV",
+      "text": "dlens Topic Product PR Annotated Field Guide VOL.1 NO.01 Jun 10 · v.0.1.30 d 採集 訊號 分類 行動 設定 Product mode Saved Signals 先確認已儲存的 Threads post 是否完成抓取，再到行動頁整理可試 workflow。 AI enabled 分析狀態 ✓ 已就緒 1 signals · 1 analyses 重新分析 分析完成，查看哪些 signal 值得行動 查看候選行動 → Saved Signals 1 saved 從好物變被丟棄... github copilot 本來主打，以提出幾次 prompt 為計算單位，等於說，prompt 下的好，可以一次性開發出一個很棒的專案，且只算一次使用的量。 但6月後調整為 AI credits 已經沒有此紅利.… 可分析 · 競品分析 · 保留觀察 競品分析 ×"
+    },
+    {
+      "attrs": [],
+      "className": "",
+      "id": null,
+      "rect": {
+        "h": 0,
+        "w": 0,
+        "x": 0,
+        "y": 0
+      },
+      "tag": "STYLE",
+      "text": " [data-dlens-control=\"true\"] [data-dlens-button] { transition: transform 160ms cubic-bezier(0.34, 1.56, 0.64, 1), background-color 140ms cubic-bezier(0.4, 0, 0.2, 1), box-shadow 160ms cubic-bezier(0.4, 0, 0.2, 1), border-color 140ms cubic-bezier(0.4, 0, 0.2, 1), filter 140ms cubic-bezier(0.4, 0, 0.2, 1); } [data-dlens-control=\"true\"] [data-dlens-button]:not(:disabled):hover { transform: translateY(-1px); } [data-dlens-control=\"true\"] [data-dlens-button]:not(:disabled):active { transform: transla"
+    },
+    {
+      "attrs": [
+        [
+          "data-workspace-popup-scroll",
+          "viewport"
+        ],
+        [
+          "style",
+          "position: relative; z-index: 1; height: 100%; max-height: min(86vh, 860px); overflow: hidden auto; border-radius: 14px; padding: 16px 16px 24px; display: flex; flex-direction: column; gap: 12px; scrollbar-gutter: stable both-edges;"
+        ]
+      ],
+      "className": "",
+      "id": null,
+      "rect": {
+        "h": 900,
+        "w": 720,
+        "x": 1415,
+        "y": 83
+      },
+      "tag": "DIV",
+      "text": "dlens Topic Product PR Annotated Field Guide VOL.1 NO.01 Jun 10 · v.0.1.30 d 採集 訊號 分類 行動 設定 Product mode Saved Signals 先確認已儲存的 Threads post 是否完成抓取，再到行動頁整理可試 workflow。 AI enabled 分析狀態 ✓ 已就緒 1 signals · 1 analyses 重新分析 分析完成，查看哪些 signal 值得行動 查看候選行動 → Saved Signals 1 saved 從好物變被丟棄... github copilot 本來主打，以提出幾次 prompt 為計算單位，等於說，prompt 下的好，可以一次性開發出一個很棒的專案，且只算一次使用的量。 但6月後調整為 AI credits 已經沒有此紅利.… 可分析 · 競品分析 · 保留觀察 競品分析 ×"
+    },
+    {
+      "attrs": [
+        [
+          "data-workspace-shell",
+          "compare-first"
+        ],
+        [
+          "style",
+          "display: grid; grid-template-rows: auto minmax(0px, 1fr); gap: 12px; min-width: 0px; min-height: 100%; flex: 1 1 auto;"
+        ]
+      ],
+      "className": "",
+      "id": null,
+      "rect": {
+        "h": 860,
+        "w": 688,
+        "x": 1431,
+        "y": 99
+      },
+      "tag": "DIV",
+      "text": "dlens Topic Product PR Annotated Field Guide VOL.1 NO.01 Jun 10 · v.0.1.30 d 採集 訊號 分類 行動 設定 Product mode Saved Signals 先確認已儲存的 Threads post 是否完成抓取，再到行動頁整理可試 workflow。 AI enabled 分析狀態 ✓ 已就緒 1 signals · 1 analyses 重新分析 分析完成，查看哪些 signal 值得行動 查看候選行動 → Saved Signals 1 saved 從好物變被丟棄... github copilot 本來主打，以提出幾次 prompt 為計算單位，等於說，prompt 下的好，可以一次性開發出一個很棒的專案，且只算一次使用的量。 但6月後調整為 AI credits 已經沒有此紅利.… 可分析 · 競品分析 · 保留觀察 競品分析 ×"
+    },
+    {
+      "attrs": [
+        [
+          "data-shell-masthead",
+          "editorial"
+        ],
+        [
+          "style",
+          "display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 10px 14px 8px; border-radius: 12px; border: 1px solid rgba(27, 26, 23, 0.1); background: linear-gradient(rgb(253, 251, 246), rgb(251, 248, 241)); box-shadow: rgba(253, 251, 246, 0.72) 0px 1px 0px, rgba(253, 251, 246, 0.54) 0px 1px 0px inset; color: rgb(61, 59, 53);"
+        ]
+      ],
+      "className": "",
+      "id": null,
+      "rect": {
+        "h": 43,
+        "w": 688,
+        "x": 1431,
+        "y": 99
+      },
+      "tag": "DIV",
+      "text": "dlens Topic Product PR Annotated Field Guide VOL.1 NO.01 Jun 10 · v.0.1.30"
+    },
+    {
+      "attrs": [
+        [
+          "style",
+          "display: flex; align-items: center; gap: 8px; min-width: 0px;"
+        ]
+      ],
+      "className": "",
+      "id": null,
+      "rect": {
+        "h": 24,
+        "w": 312,
+        "x": 1446,
+        "y": 109
+      },
+      "tag": "DIV",
+      "text": "dlens Topic Product PR Annotated Field Guide"
+    },
+    {
+      "attrs": [
+        [
+          "data-dlens-wordmark",
+          "masthead"
+        ],
+        [
+          "style",
+          "font-family: \"Instrument Serif\", \"Iowan Old Style\", \"Times New Roman\", Georgia, serif; font-size: 20px; line-height: 1; color: var(--dlens-mode-accent, #1a2e4f); transition: background-color 180ms cubic-bezier(0.4, 0, 0.2, 1), border-color 180ms cubic-bezier(0.4, 0, 0.2, 1), color 180ms cubic-bezier(0.4, 0, 0.2, 1), box-shadow 180ms cubic-bezier(0.4, 0, 0.2, 1), opacity 180ms cubic-bezier(0.4, 0, 0.2, 1), transform 180ms cubic-bezier(0.4, 0, 0.2, 1);"
+        ]
+      ],
+      "className": "",
+      "id": null,
+      "rect": {
+        "h": 20,
+        "w": 36,
+        "x": 1446,
+        "y": 111
+      },
+      "tag": "SPAN",
+      "text": "dlens"
+    },
+    {
+      "attrs": [],
+      "className": "",
+      "id": null,
+      "rect": {
+        "h": 0,
+        "w": 0,
+        "x": 0,
+        "y": 0
+      },
+      "tag": "STYLE",
+      "text": " [data-dlens-control=\"true\"] [data-workspace-switcher-motion=\"verdict\"] [data-workspace-switcher-mode] { transition:transform 220ms cubic-bezier(0.22, 1.12, 0.36, 1), background-color 180ms cubic-bezier(0.4, 0, 0.2, 1), border-color 180ms cubic-bezier(0.4, 0, 0.2, 1), box-shadow 180ms cubic-bezier(0.4, 0, 0.2, 1), color 180ms cubic-bezier(0.4, 0, 0.2, 1); will-change: transform; } [data-dlens-control=\"true\"] [data-workspace-switcher-motion=\"verdict\"] [data-workspace-switcher-mode]:not(:disabled)"
+    },
+    {
+      "attrs": [
+        [
+          "title",
+          "Folder: dlens-product-latest"
+        ]
+      ],
+      "className": "",
+      "id": null,
+      "rect": {
+        "h": 14,
+        "w": 35,
+        "x": 2069,
+        "y": 114
+      },
+      "tag": "SPAN",
+      "text": "v.0.1.30"
+    },
+    {
+      "attrs": [
+        [
+          "data-shell-frame",
+          "editorial"
+        ],
+        [
+          "style",
+          "display: grid; grid-template-columns: 72px minmax(0px, 1fr); gap: 12px; min-width: 0px; min-height: 0px; align-items: start;"
+        ]
+      ],
+      "className": "",
+      "id": null,
+      "rect": {
+        "h": 805,
+        "w": 688,
+        "x": 1431,
+        "y": 154
+      },
+      "tag": "DIV",
+      "text": "d 採集 訊號 分類 行動 設定 Product mode Saved Signals 先確認已儲存的 Threads post 是否完成抓取，再到行動頁整理可試 workflow。 AI enabled 分析狀態 ✓ 已就緒 1 signals · 1 analyses 重新分析 分析完成，查看哪些 signal 值得行動 查看候選行動 → Saved Signals 1 saved 從好物變被丟棄... github copilot 本來主打，以提出幾次 prompt 為計算單位，等於說，prompt 下的好，可以一次性開發出一個很棒的專案，且只算一次使用的量。 但6月後調整為 AI credits 已經沒有此紅利.… 可分析 · 競品分析 · 保留觀察 競品分析 ×"
+    },
+    {
+      "attrs": [
+        [
+          "aria-hidden",
+          "true"
+        ],
+        [
+          "data-dlens-avatar",
+          "masthead"
+        ],
+        [
+          "style",
+          "width: 34px; height: 34px; border-radius: 999px; background: var(--dlens-mode-accent, #1a2e4f); color: rgb(253, 251, 246); display: grid; place-items: center; font-family: \"Instrument Serif\", \"Iowan Old Style\", \"Times New Roman\", Georgia, serif; font-size: 21px; line-height: 1; box-shadow: var(--dlens-mode-accent-button-shadow, 0 8px 18px rgba(26,46,79,0.16)); transition: background-color 180ms cubic-bezier(0.4, 0, 0.2, 1), border-color 180ms cubic-bezier(0.4, 0, 0.2, 1), color 180ms cubic-bezier(0.4, 0, 0.2, 1), box-shadow 180ms cubic-bezier(0.4, 0, 0.2, 1), opacity 180ms cubic-bezier(0.4, 0, 0.2, 1), transform 180ms cubic-bezier(0.4, 0, 0.2, 1);"
+        ]
+      ],
+      "className": "",
+      "id": null,
+      "rect": {
+        "h": 34,
+        "w": 34,
+        "x": 1450,
+        "y": 168
+      },
+      "tag": "DIV",
+      "text": "d"
+    },
+    {
+      "attrs": [
+        [
+          "data-rail-icon",
+          "true"
+        ],
+        [
+          "style",
+          "display: inline-flex; color: var(--dlens-mode-accent, #1a2e4f);"
+        ]
+      ],
+      "className": "",
+      "id": null,
+      "rect": {
+        "h": 16,
+        "w": 16,
+        "x": 1459,
+        "y": 291
+      },
+      "tag": "SPAN",
+      "text": ""
+    },
+    {
+      "attrs": [
+        [
+          "data-shell-main",
+          "workspace"
+        ],
+        [
+          "style",
+          "display: grid; gap: 12px; min-width: 0px; min-height: 0px; align-content: start;"
+        ]
+      ],
+      "className": "",
+      "id": null,
+      "rect": {
+        "h": 480,
+        "w": 604,
+        "x": 1515,
+        "y": 154
+      },
+      "tag": "DIV",
+      "text": "Product mode Saved Signals 先確認已儲存的 Threads post 是否完成抓取，再到行動頁整理可試 workflow。 AI enabled 分析狀態 ✓ 已就緒 1 signals · 1 analyses 重新分析 分析完成，查看哪些 signal 值得行動 查看候選行動 → Saved Signals 1 saved 從好物變被丟棄... github copilot 本來主打，以提出幾次 prompt 為計算單位，等於說，prompt 下的好，可以一次性開發出一個很棒的專案，且只算一次使用的量。 但6月後調整為 AI credits 已經沒有此紅利.… 可分析 · 競品分析 · 保留觀察 競品分析 ×"
+    },
+    {
+      "attrs": [
+        [
+          "data-workspace-mode",
+          "saved-signals"
+        ],
+        [
+          "data-workspace-mode-frame",
+          "true"
+        ],
+        [
+          "style",
+          "display: grid; min-width: 0px; min-height: 480px; align-content: start; animation: 160ms cubic-bezier(0.16, 1, 0.3, 1) 0s 1 normal none running dlens-mode-swap-in;"
+        ]
+      ],
+      "className": "",
+      "id": null,
+      "rect": {
+        "h": 480,
+        "w": 604,
+        "x": 1515,
+        "y": 154
+      },
+      "tag": "MAIN",
+      "text": "Product mode Saved Signals 先確認已儲存的 Threads post 是否完成抓取，再到行動頁整理可試 workflow。 AI enabled 分析狀態 ✓ 已就緒 1 signals · 1 analyses 重新分析 分析完成，查看哪些 signal 值得行動 查看候選行動 → Saved Signals 1 saved 從好物變被丟棄... github copilot 本來主打，以提出幾次 prompt 為計算單位，等於說，prompt 下的好，可以一次性開發出一個很棒的專案，且只算一次使用的量。 但6月後調整為 AI credits 已經沒有此紅利.… 可分析 · 競品分析 · 保留觀察 競品分析 ×"
+    },
+    {
+      "attrs": [
+        [
+          "data-workspace-surface",
+          "content"
+        ],
+        [
+          "style",
+          "padding: 0px; border-radius: 20px; overflow: visible; background: transparent; backdrop-filter: none; border-width: medium; border-style: none; border-color: currentcolor; border-image: initial; box-shadow: none; transition: background-color 180ms cubic-bezier(0.4, 0, 0.2, 1), border-color 180ms cubic-bezier(0.4, 0, 0.2, 1), color 180ms cubic-bezier(0.4, 0, 0.2, 1), box-shadow 180ms cubic-bezier(0.4, 0, 0.2, 1), opacity 180ms cubic-bezier(0.4, 0, 0.2, 1), transform 180ms cubic-bezier(0.4, 0, 0.2, 1); min-width: 0px;"
+        ]
+      ],
+      "className": "",
+      "id": null,
+      "rect": {
+        "h": 370,
+        "w": 604,
+        "x": 1515,
+        "y": 154
+      },
+      "tag": "SECTION",
+      "text": "Product mode Saved Signals 先確認已儲存的 Threads post 是否完成抓取，再到行動頁整理可試 workflow。 AI enabled 分析狀態 ✓ 已就緒 1 signals · 1 analyses 重新分析 分析完成，查看哪些 signal 值得行動 查看候選行動 → Saved Signals 1 saved 從好物變被丟棄... github copilot 本來主打，以提出幾次 prompt 為計算單位，等於說，prompt 下的好，可以一次性開發出一個很棒的專案，且只算一次使用的量。 但6月後調整為 AI credits 已經沒有此紅利.… 可分析 · 競品分析 · 保留觀察 競品分析 ×"
+    },
+    {
+      "attrs": [
+        [
+          "data-product-signal-view",
+          "saved-signals"
+        ],
+        [
+          "style",
+          "display: grid; gap: 20px; min-width: 0px; overflow-x: clip;"
+        ]
+      ],
+      "className": "",
+      "id": null,
+      "rect": {
+        "h": 370,
+        "w": 604,
+        "x": 1515,
+        "y": 154
+      },
+      "tag": "DIV",
+      "text": "Product mode Saved Signals 先確認已儲存的 Threads post 是否完成抓取，再到行動頁整理可試 workflow。 AI enabled 分析狀態 ✓ 已就緒 1 signals · 1 analyses 重新分析 分析完成，查看哪些 signal 值得行動 查看候選行動 → Saved Signals 1 saved 從好物變被丟棄... github copilot 本來主打，以提出幾次 prompt 為計算單位，等於說，prompt 下的好，可以一次性開發出一個很棒的專案，且只算一次使用的量。 但6月後調整為 AI credits 已經沒有此紅利.… 可分析 · 競品分析 · 保留觀察 競品分析 ×"
+    },
+    {
+      "attrs": [],
+      "className": "",
+      "id": null,
+      "rect": {
+        "h": 0,
+        "w": 0,
+        "x": 0,
+        "y": 0
+      },
+      "tag": "STYLE",
+      "text": " [data-dlens-control=\"true\"] [data-scan-list] [data-scan-row]:hover { background: rgba(27, 26, 23, 0.028); } [data-dlens-control=\"true\"] [data-scan-list] [data-scan-row]:last-child { border-bottom: 0; } "
+    },
+    {
+      "attrs": [
+        [
+          "data-mode-header",
+          "saved-signals"
+        ],
+        [
+          "data-mode-intro",
+          "topic"
+        ],
+        [
+          "style",
+          "display: flex; align-items: end; justify-content: space-between; gap: 12px; padding: 10px 4px 0px; min-width: 0px;"
+        ]
+      ],
+      "className": "",
+      "id": null,
+      "rect": {
+        "h": 78,
+        "w": 604,
+        "x": 1515,
+        "y": 154
+      },
+      "tag": "HEADER",
+      "text": "Product mode Saved Signals 先確認已儲存的 Threads post 是否完成抓取，再到行動頁整理可試 workflow。 AI enabled"
+    },
+    {
+      "attrs": [
+        [
+          "style",
+          "flex-shrink: 0; align-self: end; padding-bottom: 3px;"
+        ]
+      ],
+      "className": "",
+      "id": null,
+      "rect": {
+        "h": 29,
+        "w": 68,
+        "x": 2047,
+        "y": 204
+      },
+      "tag": "DIV",
+      "text": "AI enabled"
+    },
+    {
+      "attrs": [
+        [
+          "style",
+          "display: inline-flex; align-items: center; min-height: 22px; padding: 0px 8px; border-radius: 999px; background: rgba(63, 90, 59, 0.1); color: rgb(63, 90, 59); font-size: 10px; font-weight: 700; letter-spacing: 0px;"
+        ]
+      ],
+      "className": "",
+      "id": null,
+      "rect": {
+        "h": 22,
+        "w": 68,
+        "x": 2047,
+        "y": 207
+      },
+      "tag": "SPAN",
+      "text": "AI enabled"
+    },
+    {
+      "attrs": [
+        [
+          "data-workspace-surface",
+          "utility"
+        ],
+        [
+          "style",
+          "padding: 16px; border-radius: 20px; overflow: visible; background: linear-gradient(rgba(253, 251, 246, 0.96), rgb(251, 248, 241)); backdrop-filter: none; border: 1px solid rgba(27, 26, 23, 0.055); box-shadow: rgba(255, 255, 255, 0.7) 0px 1px 0px inset, rgba(27, 26, 23, 0.043) 0px 1px 2px, rgba(27, 26, 23, 0.08) 0px 8px 16px -6px, rgba(27, 26, 23, 0.11) 0px 20px 38px -16px; transition: background-color 180ms cubic-bezier(0.4, 0, 0.2, 1), border-color 180ms cubic-bezier(0.4, 0, 0.2, 1), color 180ms cubic-bezier(0.4, 0, 0.2, 1), box-shadow 180ms cubic-bezier(0.4, 0, 0.2, 1), opacity 180ms cubic-bezier(0.4, 0, 0.2, 1), transform 180ms cubic-bezier(0.4, 0, 0.2, 1); min-width: 0px; display: grid; gap: 12px;"
+        ]
+      ],
+      "className": "",
+      "id": null,
+      "rect": {
+        "h": 272,
+        "w": 604,
+        "x": 1515,
+        "y": 252
+      },
+      "tag": "SECTION",
+      "text": "分析狀態 ✓ 已就緒 1 signals · 1 analyses 重新分析 分析完成，查看哪些 signal 值得行動 查看候選行動 → Saved Signals 1 saved 從好物變被丟棄... github copilot 本來主打，以提出幾次 prompt 為計算單位，等於說，prompt 下的好，可以一次性開發出一個很棒的專案，且只算一次使用的量。 但6月後調整為 AI credits 已經沒有此紅利.… 可分析 · 競品分析 · 保留觀察 競品分析 ×"
+    },
+    {
+      "attrs": [
+        [
+          "style",
+          "padding: 9px 12px; border-radius: 20px; overflow: hidden; background: rgba(242, 238, 226, 0.72); backdrop-filter: none; border: 1px solid rgba(27, 26, 23, 0.055); box-shadow: rgba(27, 26, 23, 0.04) 0px 1px 2px, rgba(27, 26, 23, 0.07) 0px 4px 14px -4px; transition: background-color 180ms cubic-bezier(0.4, 0, 0.2, 1), border-color 180ms cubic-bezier(0.4, 0, 0.2, 1), color 180ms cubic-bezier(0.4, 0, 0.2, 1), box-shadow 180ms cubic-bezier(0.4, 0, 0.2, 1), opacity 180ms cubic-bezier(0.4, 0, 0.2, 1), transform 180ms cubic-bezier(0.4, 0, 0.2, 1); display: flex; gap: 10px; align-items: center; flex-wrap: wrap;"
+        ],
+        [
+          "class",
+          "dlens-card-lift"
+        ]
+      ],
+      "className": "dlens-card-lift",
+      "id": null,
+      "rect": {
+        "h": 51,
+        "w": 571,
+        "x": 1532,
+        "y": 269
+      },
+      "tag": "DIV",
+      "text": "分析狀態 ✓ 已就緒 1 signals · 1 analyses 重新分析"
+    },
+    {
+      "attrs": [
+        [
+          "data-dlens-button",
+          "secondary"
+        ],
+        [
+          "style",
+          "border: 1px solid rgba(27, 26, 23, 0.1); border-radius: 8px; padding: 7px 14px; background: rgb(251, 248, 241); backdrop-filter: none; color: rgb(61, 59, 53); font-weight: 500; font-size: 12px; cursor: pointer; opacity: 1; transition: background-color 180ms cubic-bezier(0.4, 0, 0.2, 1), border-color 180ms cubic-bezier(0.4, 0, 0.2, 1), color 180ms cubic-bezier(0.4, 0, 0.2, 1), box-shadow 180ms cubic-bezier(0.4, 0, 0.2, 1), opacity 180ms cubic-bezier(0.4, 0, 0.2, 1), transform 180ms cubic-bezier(0.4, 0, 0.2, 1);"
+        ]
+      ],
+      "className": "",
+      "id": null,
+      "rect": {
+        "h": 32,
+        "w": 77,
+        "x": 2012,
+        "y": 279
+      },
+      "tag": "BUTTON",
+      "text": "重新分析"
+    },
+    {
+      "attrs": [
+        [
+          "data-product-action-cta",
+          "true"
+        ],
+        [
+          "style",
+          "display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 10px 12px; border-radius: 20px; border: 1px solid var(--dlens-mode-accent-soft, rgba(35,79,122,0.10)); background: var(--dlens-mode-accent-soft, rgba(35,79,122,0.10)); box-shadow: rgba(27, 26, 23, 0.04) 0px 1px 2px, rgba(27, 26, 23, 0.07) 0px 4px 14px -4px;"
+        ]
+      ],
+      "className": "",
+      "id": null,
+      "rect": {
+        "h": 50,
+        "w": 571,
+        "x": 1532,
+        "y": 332
+      },
+      "tag": "DIV",
+      "text": "分析完成，查看哪些 signal 值得行動 查看候選行動 →"
+    },
+    {
+      "attrs": [
+        [
+          "data-dlens-button",
+          "primary"
+        ],
+        [
+          "style",
+          "border-width: medium; border-style: none; border-color: currentcolor; border-image: initial; border-radius: 8px; padding: 6px 14px; background: linear-gradient(135deg, var(--dlens-mode-accent, #1a2e4f), var(--dlens-mode-accent-mid, #2b4a80)); color: rgb(253, 251, 246); font-weight: 600; font-size: 12px; letter-spacing: 0px; cursor: pointer; box-shadow: var(--dlens-mode-accent-button-shadow, 0 8px 18px rgba(26,46,79,0.16)); transition: background-color 180ms cubic-bezier(0.4, 0, 0.2, 1), border-color 180ms cubic-bezier(0.4, 0, 0.2, 1), color 180ms cubic-bezier(0.4, 0, 0.2, 1), box-shadow 180ms cubic-bezier(0.4, 0, 0.2, 1), opacity 180ms cubic-bezier(0.4, 0, 0.2, 1), transform 180ms cubic-bezier(0.4, 0, 0.2, 1); white-space: nowrap;"
+        ]
+      ],
+      "className": "",
+      "id": null,
+      "rect": {
+        "h": 29,
+        "w": 115,
+        "x": 1974,
+        "y": 343
+      },
+      "tag": "BUTTON",
+      "text": "查看候選行動 →"
+    },
+    {
+      "attrs": [
+        [
+          "id",
+          "__dlens_qa_trace_json__"
+        ],
+        [
+          "type",
+          "application/json"
+        ],
+        [
+          "data-dlens-qa-trace",
+          "true"
+        ],
+        [
+          "data-count",
+          "500"
+        ]
+      ],
+      "className": "",
+      "id": "__dlens_qa_trace_json__",
+      "rect": {
+        "h": 0,
+        "w": 0,
+        "x": 0,
+        "y": 0
+      },
+      "tag": "SCRIPT",
+      "text": "[{\"id\":557,\"event\":\"popup.worker.status.request\",\"at\":697244.9000000358,\"isoTime\":\"2026-06-10T02:38:07.753Z\",\"detail\":{\"activeFolderId\":\"session_ywskiblc_mp6p013z\",\"hasInflight\":true,\"failureCount\":0}},{\"id\":558,\"event\":\"popup.worker.status.request\",\"at\":697457.7000000477,\"isoTime\":\"2026-06-10T02:38:07.966Z\",\"detail\":{\"activeFolderId\":\"session_ywskiblc_mp6p013z\",\"hasInflight\":true,\"failureCount\":0}},{\"id\":559,\"event\":\"popup.worker.status.response\",\"at\":697884.4000000358,\"isoTime\":\"2026-06-10T02:"
+    }
+  ],
+  "href": "https://www.threads.com/#dlensQaTrace=1",
+  "title": "(4) Home • Threads",
+  "traceCount": 500
+}

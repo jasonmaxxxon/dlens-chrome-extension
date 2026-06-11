@@ -120,6 +120,23 @@ export async function ensureSignalForSavedItem(
   }
 }
 
+export async function ensureSignalsForSessionItems(
+  storageArea: StorageAreaLike,
+  session: SessionRecord
+): Promise<Signal[]> {
+  if (session.mode === "archive" || session.mode === "pr-evidence") {
+    return loadSignals(storageArea, session.id);
+  }
+
+  const existing = await loadSignals(storageArea, session.id);
+  const existingItemIds = new Set(existing.map((signal) => signal.itemId).filter((itemId): itemId is string => Boolean(itemId)));
+  const missingItems = session.items.filter((item) => !existingItemIds.has(item.id));
+  for (const item of missingItems) {
+    await ensureSignalForSavedItem(storageArea, session, item);
+  }
+  return missingItems.length ? loadSignals(storageArea, session.id) : existing;
+}
+
 export async function ensureWorkspaceTopicForSession(
   storageArea: StorageAreaLike,
   session: SessionRecord

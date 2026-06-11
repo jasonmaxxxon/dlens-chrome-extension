@@ -1,0 +1,345 @@
+{
+  "bodyCursor": "crosshair",
+  "buttons": [
+    {
+      "disabled": false,
+      "rect": {
+        "h": 48,
+        "w": 48,
+        "x": 2088,
+        "y": 24
+      },
+      "text": ""
+    },
+    {
+      "disabled": false,
+      "rect": {
+        "h": 18,
+        "w": 47,
+        "x": 1493,
+        "y": 112
+      },
+      "text": "Topic"
+    },
+    {
+      "disabled": false,
+      "rect": {
+        "h": 19,
+        "w": 63,
+        "x": 1541,
+        "y": 112
+      },
+      "text": "Product"
+    },
+    {
+      "disabled": false,
+      "rect": {
+        "h": 18,
+        "w": 34,
+        "x": 1605,
+        "y": 112
+      },
+      "text": "PR"
+    },
+    {
+      "disabled": false,
+      "rect": {
+        "h": 58,
+        "w": 55,
+        "x": 1440,
+        "y": 215
+      },
+      "text": "採集"
+    },
+    {
+      "disabled": false,
+      "rect": {
+        "h": 58,
+        "w": 55,
+        "x": 1440,
+        "y": 281
+      },
+      "text": "訊號"
+    },
+    {
+      "disabled": false,
+      "rect": {
+        "h": 58,
+        "w": 55,
+        "x": 1440,
+        "y": 347
+      },
+      "text": "分類"
+    },
+    {
+      "disabled": false,
+      "rect": {
+        "h": 58,
+        "w": 55,
+        "x": 1440,
+        "y": 413
+      },
+      "text": "行動"
+    },
+    {
+      "disabled": false,
+      "rect": {
+        "h": 58,
+        "w": 55,
+        "x": 1440,
+        "y": 485
+      },
+      "text": "設定"
+    },
+    {
+      "disabled": false,
+      "rect": {
+        "h": 32,
+        "w": 88,
+        "x": 1545,
+        "y": 342
+      },
+      "text": "分析收件匣"
+    },
+    {
+      "disabled": false,
+      "rect": {
+        "h": 16,
+        "w": 14,
+        "x": 2072,
+        "y": 436
+      },
+      "text": "×"
+    },
+    {
+      "disabled": false,
+      "rect": {
+        "h": 16,
+        "w": 20,
+        "x": 2059,
+        "y": 632
+      },
+      "text": "×"
+    }
+  ],
+  "capturedAt": "2026-06-10T02:37:37.793Z",
+  "newTrace": [
+    {
+      "at": 664555.4000000358,
+      "detail": {
+        "activeFolderId": "session_ywskiblc_mp6p013z",
+        "failureCount": 0,
+        "hasInflight": false
+      },
+      "event": "popup.worker.status.request",
+      "id": 515,
+      "isoTime": "2026-06-10T02:37:35.063Z"
+    },
+    {
+      "at": 664556.7000000477,
+      "detail": {
+        "folderId": "session_ywskiblc_mp6p013z",
+        "page": "saved-signals",
+        "signalCount": 1
+      },
+      "event": "popup.product.hydrate.request",
+      "id": 516,
+      "isoTime": "2026-06-10T02:37:35.065Z"
+    },
+    {
+      "at": 664584,
+      "detail": {
+        "activeFolderId": "session_ywskiblc_mp6p013z",
+        "failureCount": 0,
+        "hasInflight": false
+      },
+      "event": "popup.worker.status.request",
+      "id": 517,
+      "isoTime": "2026-06-10T02:37:35.092Z"
+    },
+    {
+      "at": 664962.7000000477,
+      "detail": {
+        "currentAnalysisCount": 0,
+        "currentOk": true,
+        "feedbackCount": 0,
+        "feedbackOk": true,
+        "folderId": "session_ywskiblc_mp6p013z",
+        "historicalAnalysisCount": 0,
+        "historicalOk": true,
+        "page": "saved-signals",
+        "readingCount": 7,
+        "readingsOk": true,
+        "signalCount": 1
+      },
+      "event": "popup.product.hydrate.response",
+      "id": 518,
+      "isoTime": "2026-06-10T02:37:35.471Z"
+    },
+    {
+      "at": 664963.6000000238,
+      "detail": {
+        "activeFolderId": "session_ywskiblc_mp6p013z",
+        "failureCount": 0,
+        "hasInflight": false
+      },
+      "event": "popup.worker.status.request",
+      "id": 519,
+      "isoTime": "2026-06-10T02:37:35.472Z"
+    },
+    {
+      "at": 664965.2000000477,
+      "detail": {
+        "activeFolderId": "session_ywskiblc_mp6p013z",
+        "failureCount": 0,
+        "hasInflight": false
+      },
+      "event": "popup.worker.status.request",
+      "id": 520,
+      "isoTime": "2026-06-10T02:37:35.473Z"
+    },
+    {
+      "at": 665266.6000000238,
+      "detail": {
+        "activeFolderId": "session_ywskiblc_mp6p013z",
+        "failureCount": 0,
+        "hasInflight": false
+      },
+      "event": "popup.worker.status.request",
+      "id": 521,
+      "isoTime": "2026-06-10T02:37:35.775Z"
+    },
+    {
+      "at": 665267.8000000119,
+      "detail": {
+        "folderId": "session_ywskiblc_mp6p013z",
+        "mode": "product"
+      },
+      "event": "popup.topic.hydrate.request",
+      "id": 522,
+      "isoTime": "2026-06-10T02:37:35.776Z"
+    },
+    {
+      "at": 665268.4000000358,
+      "detail": {
+        "folderId": "session_ywskiblc_mp6p013z",
+        "page": "saved-signals",
+        "signalCount": 1
+      },
+      "event": "popup.product.hydrate.request",
+      "id": 523,
+      "isoTime": "2026-06-10T02:37:35.776Z"
+    },
+    {
+      "at": 665270.2000000477,
+      "detail": {
+        "activeFolderId": "session_ywskiblc_mp6p013z",
+        "failureCount": 0,
+        "hasInflight": false
+      },
+      "event": "popup.worker.status.request",
+      "id": 524,
+      "isoTime": "2026-06-10T02:37:35.778Z"
+    },
+    {
+      "at": 665377.2000000477,
+      "detail": {
+        "activeFolderId": "session_ywskiblc_mp6p013z",
+        "failureCount": 0,
+        "hasInflight": false
+      },
+      "event": "popup.worker.status.request",
+      "id": 525,
+      "isoTime": "2026-06-10T02:37:35.885Z"
+    },
+    {
+      "at": 665378.9000000358,
+      "detail": {
+        "activeFolderId": "session_ywskiblc_mp6p013z",
+        "failureCount": 0,
+        "hasInflight": false
+      },
+      "event": "popup.worker.status.request",
+      "id": 526,
+      "isoTime": "2026-06-10T02:37:35.887Z"
+    },
+    {
+      "at": 665858.9000000358,
+      "detail": {
+        "currentAnalysisCount": 0,
+        "currentOk": true,
+        "feedbackCount": 0,
+        "feedbackOk": true,
+        "folderId": "session_ywskiblc_mp6p013z",
+        "historicalAnalysisCount": 0,
+        "historicalOk": true,
+        "page": "saved-signals",
+        "readingCount": 7,
+        "readingsOk": true,
+        "signalCount": 1
+      },
+      "event": "popup.product.hydrate.response",
+      "id": 527,
+      "isoTime": "2026-06-10T02:37:36.367Z"
+    },
+    {
+      "at": 665859.7000000477,
+      "detail": {
+        "folderId": "session_ywskiblc_mp6p013z",
+        "mode": "product",
+        "signalCount": 1,
+        "signalsOk": true,
+        "topicCount": 0,
+        "topicsOk": true
+      },
+      "event": "popup.topic.hydrate.response",
+      "id": 528,
+      "isoTime": "2026-06-10T02:37:36.368Z"
+    },
+    {
+      "at": 665861.2000000477,
+      "detail": {
+        "activeFolderId": "session_ywskiblc_mp6p013z",
+        "failureCount": 0,
+        "hasInflight": false
+      },
+      "event": "popup.worker.status.request",
+      "id": 529,
+      "isoTime": "2026-06-10T02:37:36.369Z"
+    },
+    {
+      "at": 666520.4000000358,
+      "detail": {
+        "elapsedMs": 659.1,
+        "previousWorkerStatus": "idle",
+        "workerStatus": "idle"
+      },
+      "event": "popup.worker.status.response",
+      "id": 530,
+      "isoTime": "2026-06-10T02:37:37.028Z"
+    },
+    {
+      "at": 666581.9000000358,
+      "detail": {
+        "activeFolderId": "session_ywskiblc_mp6p013z",
+        "failureCount": 0,
+        "hasInflight": false
+      },
+      "event": "popup.worker.status.request",
+      "id": 531,
+      "isoTime": "2026-06-10T02:37:37.090Z"
+    },
+    {
+      "at": 666866,
+      "detail": {
+        "elapsedMs": 284.1,
+        "previousWorkerStatus": "idle",
+        "workerStatus": "idle"
+      },
+      "event": "popup.worker.status.response",
+      "id": 532,
+      "isoTime": "2026-06-10T02:37:37.374Z"
+    }
+  ],
+  "rootText": "Hover to preview\n|\nS\nsave\n|\nEsc\nexit\nReady\ndlens\nTopic\nProduct\nPR\nAnnotated Field Guide\nVOL.1\nNO.01\nJun 10\n·\nv.0.1.30\nd\n採集\n訊號\n分類\n行動\n設定\nProduct mode\nSaved Signals\n\n先確認已儲存的 Threads post 是否完成抓取，再到行動頁整理可試 workflow。\n\nNo result\n真實狀態\n1 signals\n0 analyses\nAI key\nProductProfile\nProductContext\n有 signal 尚未抓取。按分析收件匣會先送出抓取請求，完成後再分析。\n分析收件匣\n等待處理的 signals\n尚未抓取\n未分析\nthreads\n×\n按分析會先送出抓取請求。\n從好物變被丟棄... github copilot 本來主打，以提出幾次 prompt 為計算單位，等於說，prompt 下的好，可以一次性開發出一個很棒的專案，且只算一次使用的量。 但6月後調整為 AI credits 已經沒有此紅利... 實測，我用不到一個下午，就已經快撐爆一個月的用量。 只好直接捨棄了。\nSaved Signals\n1 saved\n從好物變被丟棄... github copilot 本來主打，以提出幾次 prompt 為計算單位，等於說，prompt 下的好，可以一次性開發出一個很棒的專案，且只算一次使用的量。 但6月後調整為 AI credits 已經沒有此紅利.…\n尚未抓取 · 尚未分析\n尚未抓取\n×"
+}
