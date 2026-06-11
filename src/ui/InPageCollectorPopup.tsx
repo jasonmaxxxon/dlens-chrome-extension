@@ -15,6 +15,7 @@ import { SettingsView } from "./SettingsView";
 import { TopicDetailView } from "./TopicDetailView";
 import { TopicsListView } from "./TopicsListView";
 import { tokens } from "./tokens";
+import { buildProductSignalWorkspaceViewModel, type ProductSignalCommand } from "../viewmodel/product-signal";
 import { getProcessingFailureMessage } from "../state/processing-errors";
 import { InPageCollectorFolderControls } from "./InPageCollectorFolderControls";
 import { InPageCollectorResultWorkspace } from "./InPageCollectorResultWorkspace";
@@ -54,6 +55,44 @@ export function InPageCollectorPopup({ app }: { app: InPageCollectorAppModel }) 
       name: session.name,
       itemCount: session.items.length
     }));
+  const productSignalViewModel = snapshot && isProductSignalPageKind(page)
+    ? buildProductSignalWorkspaceViewModel({
+        kind: page,
+        snapshot,
+        signals: app.signals,
+        analyses: app.productSignalAnalyses,
+        historicalAnalyses: app.historicalProductSignalAnalyses,
+        agentTaskFeedback: app.productAgentTaskFeedback,
+        signalReadings: app.signalReadings,
+        productContext: app.compiledProductContext,
+        aiProviderReady: app.productAiProviderReady,
+        cardLayout: snapshot.global.settings.layoutPreferences.productSignalCardLayout,
+        backendError: app.productBackendError,
+        analysisError: app.productSignalAnalysisError,
+        analysisNotice: app.productSignalAnalysisNotice,
+        isHydrating: app.isHydratingProductSignals,
+        isAnalyzing: app.isAnalyzingProductSignals
+      })
+    : null;
+
+  function onProductSignalCommand(command: ProductSignalCommand): Promise<unknown> | unknown {
+    switch (command.kind) {
+      case "analyzeInbox":
+        return app.onAnalyzeProductSignals();
+      case "openActionable":
+        return app.onNavigate("actionable-filter");
+      case "remove":
+        return app.onRemoveProductSignal(command.target.signalId);
+      case "generateReading":
+        return app.onSynthesizeSignalReading(command.target.signalId, command.target.sessionId, command.force);
+      case "reviewReading":
+        return app.onReviewSignalReading(command.target.cacheKey, command.decision, command.note);
+      case "exportSignalPackets":
+        return app.onExportSignalPackets({ sessionId: command.target.sessionId, format: command.format });
+      default:
+        return undefined;
+    }
+  }
   const guardedPage = page as PopupPage;
   const pageComponentKind = getPageComponentKind(guardedPage);
   const allowedRailModes = getModeRailPages(activeFolderMode).filter(isRailMode);
@@ -401,35 +440,12 @@ export function InPageCollectorPopup({ app }: { app: InPageCollectorAppModel }) 
             </WorkspaceSurface>
           ) : null}
 
-          {pageComponentKind === "product-signal" && isProductSignalPageKind(guardedPage) ? (
+          {pageComponentKind === "product-signal" && productSignalViewModel ? (
             <WorkspaceSurface style={{ padding: 0, background: "transparent", boxShadow: "none", border: "none", overflow: "visible" }}>
               <ProductSignalView
-                kind={guardedPage}
-                signals={app.signals}
-                analyses={app.productSignalAnalyses}
-                activeFolderId={activeFolder?.id}
+                viewModel={productSignalViewModel}
                 exportFolders={productExportFolders}
-                historicalAnalyses={app.historicalProductSignalAnalyses}
-                agentTaskFeedback={app.productAgentTaskFeedback}
-                signalReadings={app.signalReadings}
-                productProfile={snapshot?.global.settings.productProfile ?? null}
-                signalPreviewById={app.signalPreviewById}
-                signalUrlById={app.signalUrlById}
-                evidenceBySignalId={app.productSignalEvidenceById}
-                signalReadinessById={app.productSignalReadinessById}
-                aiProviderReady={app.productAiProviderReady}
-                cardLayout={snapshot?.global.settings.layoutPreferences.productSignalCardLayout}
-                backendError={app.productBackendError}
-                analysisError={app.productSignalAnalysisError}
-                analysisNotice={app.productSignalAnalysisNotice}
-                isHydrating={app.isHydratingProductSignals}
-                isAnalyzing={app.isAnalyzingProductSignals}
-                onAnalyze={() => void app.onAnalyzeProductSignals()}
-                onSynthesizeSignalReading={app.onSynthesizeSignalReading}
-                onReviewSignalReading={app.onReviewSignalReading}
-                onExportSignalPackets={app.onExportSignalPackets}
-                onGoToActionable={() => void app.onNavigate("actionable-filter")}
-                onRemoveSignal={(signalId) => void app.onRemoveProductSignal(signalId)}
+                onCommand={onProductSignalCommand}
               />
             </WorkspaceSurface>
           ) : null}

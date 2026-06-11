@@ -11,8 +11,7 @@ import type {
   ProductSignalReferenceTarget,
   ProductSignalReferenceType,
   ProductSignalType,
-  ProductSignalVerdict,
-  Signal
+  ProductSignalVerdict
 } from "../state/types";
 import { isProductContextSourceReady } from "../compare/product-context";
 import { findSimilarHistoricalSignals, type SimilarHistoricalSignal } from "../compare/product-signal-history";
@@ -27,8 +26,8 @@ import {
 } from "../compare/signal-reading-storage";
 import { SIGNAL_READING_PROMPT_VERSION } from "../compare/signal-reading";
 import { aiOutputProvenanceFromModel, describeAiOutputProvenance } from "../state/ai-provenance";
-import { deriveProductSignalLoadState, type LoadState } from "../state/load-state";
-import type { ProductSignalReadiness } from "./product-signal-readiness";
+import type { ProductSignalAction, ProductSignalCommand, ProductSignalViewModel, ProductSignalWorkspaceViewModel } from "../viewmodel/product-signal";
+import type { SignalReadiness } from "../state/signal-readiness";
 import {
   Kicker,
   ModeHeader,
@@ -300,97 +299,11 @@ const FEEDBACK_LABELS: Record<ProductAgentTaskFeedbackValue, string> = {
   ignored: "先忽略"
 };
 
-function isProductProfileReady(productProfile: ProductProfile | null | undefined): boolean {
-  return Boolean(productProfile?.name?.trim() && productProfile.category?.trim() && productProfile.audience?.trim());
-}
-
 function analysisBySignalId(analyses: ProductSignalAnalysis[]): Map<string, ProductSignalAnalysis> {
   return new Map(analyses.map((analysis) => [analysis.signalId, analysis]));
 }
 
-function visibleAnalyses(kind: ProductSignalPageKind, analyses: ProductSignalAnalysis[]): ProductSignalAnalysis[] {
-  const complete = analyses.filter((analysis) => analysis.status === "complete");
-  return complete;
-}
-
-function readSignalReadiness(signal: Signal, readinessById: Record<string, ProductSignalReadiness>): ProductSignalReadiness {
-  return readinessById[signal.id] ?? { status: "missing_item" };
-}
-
-function hasQueueableSignals(signals: Signal[], readinessById: Record<string, ProductSignalReadiness>): boolean {
-  return signals.some((signal) => readSignalReadiness(signal, readinessById).status === "saved");
-}
-
-function hasAnalyzableSignals(signals: Signal[], readinessById: Record<string, ProductSignalReadiness>): boolean {
-  return signals.some((signal) => readSignalReadiness(signal, readinessById).status === "ready");
-}
-
-function hasInFlightSignals(signals: Signal[], readinessById: Record<string, ProductSignalReadiness>): boolean {
-  return signals.some((signal) => readSignalReadiness(signal, readinessById).status === "crawling");
-}
-
-function canRunProductSignalAction({
-  signals,
-  productProfile,
-  aiProviderReady,
-  signalReadinessById
-}: {
-  signals: Signal[];
-  productProfile: ProductProfile | null | undefined;
-  aiProviderReady: boolean;
-  signalReadinessById: Record<string, ProductSignalReadiness>;
-}): boolean {
-  return signals.length > 0
-    && aiProviderReady
-    && isProductProfileReady(productProfile)
-    && isProductContextSourceReady(productProfile)
-    && (hasQueueableSignals(signals, signalReadinessById) || hasAnalyzableSignals(signals, signalReadinessById));
-}
-
-function readinessCopy({
-  signals,
-  analyses,
-  productProfile,
-  aiProviderReady,
-  signalReadinessById
-}: {
-  signals: Signal[];
-  analyses: ProductSignalAnalysis[];
-  productProfile: ProductProfile | null | undefined;
-  aiProviderReady: boolean;
-  signalReadinessById: Record<string, ProductSignalReadiness>;
-}) {
-  if (!signals.length) {
-    const visibleCount = analyses.filter((analysis) => analysis.status === "complete").length || analyses.length;
-    if (visibleCount > 0) {
-      return `已有 ${visibleCount} 筆既有分析，但目前 signal 清單是空的。先顯示已分析資料；新的貼文仍從 Collect 加入。`;
-    }
-    return "Product mode 收件匣沒有 signal。先在 Collect 儲存一篇 Threads post。";
-  }
-  if (!aiProviderReady) {
-    return "尚未設定 AI key。先到 Settings 設定 Google / OpenAI / Claude key。";
-  }
-  if (!isProductProfileReady(productProfile)) {
-    return "先到 Settings 補產品名稱、類別和受眾。";
-  }
-  if (!isProductContextSourceReady(productProfile)) {
-    return "先到 Settings 匯入 README / AGENTS / 產品文件，讓 ProductContext 可編譯。";
-  }
-  if (hasQueueableSignals(signals, signalReadinessById)) {
-    return "有 signal 尚未抓取。按分析收件匣會先送出抓取請求，完成後再分析。";
-  }
-  if (hasInFlightSignals(signals, signalReadinessById)) {
-    return "抓取正在進行；完成後會自動嘗試分析，也可以稍後再按分析。";
-  }
-  if (!analyses.length) {
-    return hasAnalyzableSignals(signals, signalReadinessById)
-      ? "已有 ready signal。按下分析收件匣後，這裡才會顯示真實 AI 結果。"
-      : "目前沒有可分析的 ready signal。請先處理抓取失敗或內容不完整的項目。";
-  }
-  return "";
-}
-
-function readinessLabel(readiness: ProductSignalReadiness): { label: string; detail: string; tone: "success" | "warning" | "neutral" } {
+function readinessLabel(readiness: SignalReadiness): { label: string; detail: string; tone: "success" | "warning" | "neutral" } {
   // Backend jobs report last_error while still retrying; without it the card
   // claims plain progress forever even when every attempt is failing (B-12).
   const backendErrorDetail = readiness.lastError ? `backend 回報錯誤：${excerpt(readiness.lastError, 160)}` : null;
@@ -1097,17 +1010,12 @@ function formatAnalyzedAt(value: string): string {
 
 function PendingSignalCard({
   signal,
-  preview,
-  readiness,
-  analysis,
   onRemove
 }: {
-  signal: Signal;
-  preview?: string;
-  readiness: ProductSignalReadiness;
-  analysis?: ProductSignalAnalysis;
+  signal: ProductSignalViewModel;
   onRemove?: () => void;
 }) {
+  const { analysis, readiness } = signal;
   const label = analysis?.status === "error"
     ? { label: "分析失敗", detail: analysis.error || analysis.reason || "這則訊號未能產生可信分析。", tone: "warning" as const }
     : readinessLabel(readiness);
@@ -1158,45 +1066,26 @@ function PendingSignalCard({
         </div>
       </div>
       <div style={{ ...textStyles.body, fontSize: 12.5, color: tokens.color.subInk }}>{label.detail}</div>
-      {preview ? (
-        <div style={{ ...textStyles.body, color: tokens.color.ink, ...lineClamp(2) }}>{preview}</div>
+      {signal.sourcePreview.displayText ? (
+        <div style={{ ...textStyles.body, color: tokens.color.ink, ...lineClamp(2) }}>{signal.sourcePreview.displayText}</div>
       ) : null}
     </div>
   );
 }
 
 function ReadinessPanel({
-  signals,
-  analyses,
-  productProfile,
-  aiProviderReady,
-  backendError,
-  analysisError,
-  analysisNotice,
-  loadState,
-  isAnalyzing,
-  signalReadinessById,
+  viewModel,
   onAnalyze
 }: {
-  signals: Signal[];
-  analyses: ProductSignalAnalysis[];
-  productProfile: ProductProfile | null | undefined;
-  aiProviderReady: boolean;
-  backendError?: string | null;
-  analysisError?: string | null;
-  analysisNotice?: string | null;
-  loadState: LoadState;
-  isAnalyzing: boolean;
-  signalReadinessById: Record<string, ProductSignalReadiness>;
+  viewModel: ProductSignalWorkspaceViewModel;
   onAnalyze: () => void;
 }) {
-  const completedCount = analyses.filter((analysis) => analysis.status === "complete").length;
+  const completedCount = viewModel.completedAnalysisCount;
   const hasResults = completedCount > 0;
-  const visibleError = analysisError || backendError || null;
-  const canAnalyze = canRunProductSignalAction({ signals, productProfile, aiProviderReady, signalReadinessById });
-  const copy = readinessCopy({ signals, analyses, productProfile, aiProviderReady, signalReadinessById });
+  const visibleError = viewModel.visibleError;
+  const copy = viewModel.readinessCopy;
 
-  if (loadState === "loading") {
+  if (viewModel.loadState === "loading") {
     return (
       <div
         data-product-hydrating="true"
@@ -1217,14 +1106,8 @@ function ReadinessPanel({
     );
   }
 
-  const allGreen = signals.length > 0
-    && completedCount > 0
-    && aiProviderReady
-    && isProductProfileReady(productProfile)
-    && isProductContextSourceReady(productProfile);
-
   /* Compact single-line status bar when everything is green */
-  if (allGreen && !isAnalyzing && !visibleError) {
+  if (viewModel.allGreen && !viewModel.isAnalyzing && !visibleError) {
     return (
       <div
         className="dlens-card-lift"
@@ -1238,9 +1121,9 @@ function ReadinessPanel({
       >
         <Kicker>分析狀態</Kicker>
         <Stamp tone="success">✓ 已就緒</Stamp>
-        <Stamp tone="neutral">{signals.length} signals · {completedCount} analyses</Stamp>
+        <Stamp tone="neutral">{viewModel.signalCount} signals · {completedCount} analyses</Stamp>
         <div style={{ flex: 1 }} />
-        <SecondaryButton onClick={onAnalyze} disabled={!canAnalyze}>
+        <SecondaryButton onClick={onAnalyze} disabled={!viewModel.canAnalyze}>
           重新分析
         </SecondaryButton>
       </div>
@@ -1252,11 +1135,11 @@ function ReadinessPanel({
       <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10, flexWrap: "wrap" }}>
         <Kicker>{hasResults ? "分析狀態" : "真實狀態"}</Kicker>
         <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
-          <Stamp tone={signals.length ? "success" : "warning"}>{signals.length} signals</Stamp>
+          <Stamp tone={viewModel.signalCount ? "success" : "warning"}>{viewModel.signalCount} signals</Stamp>
           <Stamp tone={completedCount ? "success" : "neutral"}>{completedCount} analyses</Stamp>
-          <Stamp tone={aiProviderReady ? "success" : "warning"}>AI key</Stamp>
-          <Stamp tone={isProductProfileReady(productProfile) ? "success" : "warning"}>ProductProfile</Stamp>
-          <Stamp tone={isProductContextSourceReady(productProfile) ? "success" : "warning"}>ProductContext</Stamp>
+          <Stamp tone={viewModel.aiProviderReady ? "success" : "warning"}>AI key</Stamp>
+          <Stamp tone={viewModel.productProfile?.name && viewModel.productProfile.category && viewModel.productProfile.audience ? "success" : "warning"}>ProductProfile</Stamp>
+          <Stamp tone={isProductContextSourceReady(viewModel.productProfile) ? "success" : "warning"}>ProductContext</Stamp>
         </div>
       </div>
       {copy ? <div style={{ fontSize: 12, lineHeight: 1.65, color: tokens.color.subInk }}>{copy}</div> : null}
@@ -1275,7 +1158,7 @@ function ReadinessPanel({
           {visibleError}
         </div>
       ) : null}
-      {analysisNotice ? (
+      {viewModel.analysisNotice ? (
         <div
           style={{
             borderRadius: tokens.radius.card,
@@ -1287,12 +1170,12 @@ function ReadinessPanel({
             lineHeight: 1.55
           }}
         >
-          {analysisNotice}
+          {viewModel.analysisNotice}
         </div>
       ) : null}
       <div style={{ display: "flex", justifyContent: "flex-start" }}>
-        <PrimaryButton onClick={onAnalyze} disabled={!canAnalyze || isAnalyzing} activateOnPointerDown>
-          {isAnalyzing ? "分析中" : hasResults ? "重新分析" : "分析收件匣"}
+        <PrimaryButton onClick={onAnalyze} disabled={!viewModel.canAnalyze || viewModel.isAnalyzing} activateOnPointerDown>
+          {viewModel.isAnalyzing ? "分析中" : hasResults ? "重新分析" : "分析收件匣"}
         </PrimaryButton>
       </div>
     </div>
@@ -1871,7 +1754,7 @@ function buildAgentBrief({
   evidenceBySignalId = {}
 }: {
   mode: AgentBriefMode;
-  selectedSignals: Signal[];
+  selectedSignals: Array<ProductSignalViewModel | { id: string }>;
   analysesBySignal: Map<string, ProductSignalAnalysis>;
   signalPreviewById: Record<string, string>;
   signalUrlById: Record<string, string>;
@@ -1886,9 +1769,11 @@ function buildAgentBrief({
     "- `保留觀察` 只作產品學習或後續研究，不應直接排入開發。"
   ].join("\n");
   const sections = selectedSignals.map((signal, index) => {
-    const analysis = analysesBySignal.get(signal.id);
-    const preview = excerpt(signalPreviewById[signal.id] || analysis?.contentSummary || "", mode === "original" ? 900 : 420);
-    const url = signalUrlById[signal.id] || "";
+    const signalId = "signalId" in signal ? signal.signalId : signal.id;
+    const analysis = ("analysis" in signal ? signal.analysis : undefined) ?? analysesBySignal.get(signalId);
+    const previewSource = "sourcePreview" in signal ? signal.sourcePreview.displayText : signalPreviewById[signalId];
+    const preview = excerpt(previewSource || analysis?.contentSummary || "", mode === "original" ? 900 : 420);
+    const url = ("sourcePreview" in signal ? signal.sourcePreview.displayUrl : signalUrlById[signalId]) || "";
     const title = analysis?.contentSummary || `Signal ${index + 1}`;
     const task = analysis?.agentTaskSpec?.taskPrompt?.trim();
     const reference = referenceLabel(analysis);
@@ -1914,7 +1799,7 @@ function buildAgentBrief({
       ].join("\n");
     }
     const evidenceNotes = analysis?.evidenceNotes ?? [];
-    const evidenceByRef = new Map((evidenceBySignalId[signal.id] ?? []).map((entry) => [entry.ref, entry]));
+    const evidenceByRef = new Map((("evidence" in signal ? signal.evidence : evidenceBySignalId[signalId]) ?? []).map((entry) => [entry.ref, entry]));
     const evidenceLines = evidenceNotes
       .map((note) => {
         const entry = evidenceByRef.get(note.ref);
@@ -2136,22 +2021,15 @@ function SignalPacketHtmlExportSection({
 
 function SavedSignalsBoard({
   signals,
-  analyses,
-  signalPreviewById,
-  signalReadinessById,
   selectedIds,
   onToggleSignal,
   onRemoveSignal
 }: {
-  signals: Signal[];
-  analyses: ProductSignalAnalysis[];
-  signalPreviewById: Record<string, string>;
-  signalReadinessById: Record<string, ProductSignalReadiness>;
+  signals: ProductSignalViewModel[];
   selectedIds: string[];
   onToggleSignal: (signalId: string) => void;
   onRemoveSignal?: (signalId: string) => void;
 }) {
-  const analysesBySignal = analysisBySignalId(analyses);
   if (!signals.length) {
     return null;
   }
@@ -2165,13 +2043,13 @@ function SavedSignalsBoard({
         </div>
         <div data-scan-list="saved-signals" style={{ display: "grid" }}>
           {signals.map((signal) => {
-            const analysis = analysesBySignal.get(signal.id);
-            const readiness = readinessLabel(readSignalReadiness(signal, signalReadinessById));
-            const checked = selectedIds.includes(signal.id);
+            const analysis = signal.analysis;
+            const readiness = readinessLabel(signal.readiness);
+            const checked = selectedIds.includes(signal.signalId);
             const typeMeta = analysis ? SIGNAL_TYPE_META[analysis.signalType] : null;
             return (
               <label
-                key={signal.id}
+                key={signal.signalId}
                 data-saved-signal-row="compact"
                 data-scan-row="true"
                 style={scanRowStyle({
@@ -2187,12 +2065,12 @@ function SavedSignalsBoard({
 	                <input
 	                  type="checkbox"
 	                  checked={checked}
-	                  onChange={() => onToggleSignal(signal.id)}
-	                  aria-label={`選取 ${signal.id}`}
+	                  onChange={() => onToggleSignal(signal.signalId)}
+	                  aria-label={`選取 ${signal.signalId}`}
 	                />
                 <span style={{ minWidth: 0, display: "grid", gap: 3 }}>
                   <span style={{ ...textStyles.bodyTight, color: tokens.color.ink, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-                    {excerpt(signalPreviewById[signal.id] || analysis?.contentSummary || signal.id, 120)}
+                    {excerpt(signal.sourcePreview.displayText || analysis?.contentSummary || signal.signalId, 120)}
                   </span>
                   <span style={{ ...textStyles.meta, color: tokens.color.softInk }}>
                     {readiness.label} · {analysis ? `${SIGNAL_TYPE_LABELS[analysis.signalType]} · ${VERDICT_LABELS[analysis.verdict]}` : "尚未分析"}
@@ -2207,7 +2085,7 @@ function SavedSignalsBoard({
                   <button
                     type="button"
                     aria-label="移除此訊號"
-                    onClick={(e) => { e.preventDefault(); onRemoveSignal(signal.id); }}
+                    onClick={(e) => { e.preventDefault(); onRemoveSignal(signal.signalId); }}
                     style={{ background: "none", border: "none", cursor: "pointer", padding: "1px 2px", lineHeight: 1, color: tokens.color.softInk, fontSize: 14, borderRadius: 4, display: "flex", alignItems: "center", justifyContent: "center" }}
                   >×</button>
                 ) : null}
@@ -2280,7 +2158,7 @@ function SignalReadingDisclosure({
   signal,
   onSynthesize
 }: {
-  signal: Signal;
+  signal: ProductSignalViewModel;
   onSynthesize: SynthesizeSignalReading;
 }) {
   const [open, setOpen] = useState(false);
@@ -2294,7 +2172,7 @@ function SignalReadingDisclosure({
     if (next && reading === null && !loading) {
       setLoading(true);
       setError(null);
-      void onSynthesize(signal.id, signal.sessionId).then((result) => {
+      void onSynthesize(signal.signalId, signal.sessionId).then((result) => {
         if (result.ok) {
           setReading(result.reading);
         } else {
@@ -2356,7 +2234,7 @@ function FirstReadingCta({
   analysisCount,
   onSynthesize
 }: {
-  signal: Signal;
+  signal: ProductSignalViewModel;
   analysisCount: number;
   onSynthesize: SynthesizeSignalReading;
 }) {
@@ -2369,7 +2247,7 @@ function FirstReadingCta({
     }
     setLoading(true);
     setError(null);
-    void onSynthesize(signal.id, signal.sessionId).then((result) => {
+    void onSynthesize(signal.signalId, signal.sessionId).then((result) => {
       if (!result.ok) {
         setError(result.error);
       }
@@ -2417,7 +2295,7 @@ function SignalReadingReviewWorkspace({
   onReviewSignalReading,
   onExportSignalPackets
 }: {
-  signals: Signal[];
+  signals: ProductSignalViewModel[];
   analyses: ProductSignalAnalysis[];
   activeFolderId?: string;
   exportFolders?: SignalPacketExportFolderOption[];
@@ -2431,8 +2309,8 @@ function SignalReadingReviewWorkspace({
 }) {
   const analysesBySignal = analysisBySignalId(analyses);
   const readingsBySignal = latestReadingBySignalId(signalReadings);
-  const firstActiveSignalId = signals.find((signal) => signalReadingReviewState(readingsBySignal.get(signal.id)) === "pending")?.id
-    ?? signals[0]?.id
+  const firstActiveSignalId = signals.find((signal) => signalReadingReviewState(readingsBySignal.get(signal.signalId)) === "pending")?.signalId
+    ?? signals[0]?.signalId
     ?? null;
   const firstActiveAnalysis = firstActiveSignalId ? analysesBySignal.get(firstActiveSignalId) : undefined;
   const initialReviewFilter = firstActiveAnalysis ? verdictFilterKeyForAnalysis(firstActiveAnalysis) : "try";
@@ -2456,9 +2334,9 @@ function SignalReadingReviewWorkspace({
     return override ? ({ ...reading, reviewState: override } as SignalReading) : reading;
   });
   const filedReadings = readingsWithReview.filter((reading) => signalReadingReviewState(reading) === "filed");
-  const pendingCount = signals.filter((signal) => signalReadingReviewState(readingsBySignal.get(signal.id)) === "pending").length;
+  const pendingCount = signals.filter((signal) => signalReadingReviewState(readingsBySignal.get(signal.signalId)) === "pending").length;
   const analysesForSignals = signals
-    .map((signal) => analysesBySignal.get(signal.id))
+    .map((signal) => analysesBySignal.get(signal.signalId))
     .filter((analysis): analysis is ProductSignalAnalysis => Boolean(analysis));
   const reviewStats: Array<{ key: ActionVerdictFilter; label: string; color: string; soft: string; count: number }> = [
     { key: "try", ...VERDICT_META.try, count: analysesForSignals.filter((analysis) => verdictFilterKeyForAnalysis(analysis) === "try").length },
@@ -2468,7 +2346,7 @@ function SignalReadingReviewWorkspace({
   ];
   const selectedReviewStat = reviewStats.find((stat) => stat.key === selectedReviewFilter) ?? reviewStats[0];
   const visibleReviewSignals = signals.filter((signal) => {
-    const analysis = analysesBySignal.get(signal.id);
+    const analysis = analysesBySignal.get(signal.signalId);
     return analysis ? verdictFilterKeyForAnalysis(analysis) === selectedReviewFilter : false;
   });
   const reviewNoticeForDecision = (decision: SignalReadingReviewDecision) => {
@@ -2516,13 +2394,13 @@ function SignalReadingReviewWorkspace({
       }
     });
   };
-  const handleRegenerateReading = (signal: Signal) => {
+  const handleRegenerateReading = (signal: ProductSignalViewModel) => {
     if (!onSynthesizeSignalReading || regeneratingSignalId) {
       return;
     }
     setReviewError(null);
-    setRegeneratingSignalId(signal.id);
-    void onSynthesizeSignalReading(signal.id, signal.sessionId, true).then((result) => {
+    setRegeneratingSignalId(signal.signalId);
+    void onSynthesizeSignalReading(signal.signalId, signal.sessionId, true).then((result) => {
       if (!result.ok) {
         setReviewError(result.error);
       }
@@ -2544,10 +2422,10 @@ function SignalReadingReviewWorkspace({
           onSelect={(key) => {
             setSelectedReviewFilter(key);
             const target = signals.find((signal) => {
-              const analysis = analysesBySignal.get(signal.id);
+              const analysis = analysesBySignal.get(signal.signalId);
               return analysis ? verdictFilterKeyForAnalysis(analysis) === key : false;
             });
-            if (target) setActiveSignalId(target.id);
+            if (target) setActiveSignalId(target.signalId);
           }}
         />
       </section>
@@ -2576,25 +2454,25 @@ function SignalReadingReviewWorkspace({
         ) : null}
         <div data-signal-reading-review-list-filter={selectedReviewFilter} style={{ display: "grid", gap: 10 }}>
           {visibleReviewSignals.length ? visibleReviewSignals.map((signal, index) => {
-            const analysis = analysesBySignal.get(signal.id);
-            const reading = readingsBySignal.get(signal.id);
+            const analysis = analysesBySignal.get(signal.signalId);
+            const reading = readingsBySignal.get(signal.signalId);
             const reviewedReading = reading ? readingsWithReview.find((entry) => entry.cacheKey === reading.cacheKey) ?? reading : undefined;
             const reviewState = signalReadingReviewState(reviewedReading);
             const stateTone = SIGNAL_READING_REVIEW_TONES[reviewState];
-            const title = analysis?.contentSummary || excerpt(signalPreviewById[signal.id] || signal.id, 96);
-            const isActive = activeSignalId === signal.id;
+            const title = analysis?.contentSummary || excerpt(signal.sourcePreview.displayText || signalPreviewById[signal.signalId] || signal.signalId, 96);
+            const isActive = activeSignalId === signal.signalId;
             const verdictMeta = analysis ? VERDICT_META[analysis.verdict] : null;
             const typeMeta = analysis ? SIGNAL_TYPE_META[analysis.signalType] : null;
-            const sourceUrl = signalUrlById[signal.id] || reading?.sourcePacket?.postUrl || "";
+            const sourceUrl = signal.sourcePreview.displayUrl || signalUrlById[signal.signalId] || reading?.sourcePacket?.postUrl || "";
             const evidenceCitations = analysis ? citationsForAnalysis(analysis, evidenceBySignalId) : [];
             const staleness = reading
               ? signalReadingStaleness(reading, SIGNAL_READING_PROMPT_VERSION)
               : { stale: false, reasons: [] };
             return (
               <article
-                key={signal.id}
+                key={signal.signalId}
                 data-signal-reading-review-row="true"
-                data-signal-reading-filed-flash={recentlyFiledSignalId === signal.id ? "true" : undefined}
+                data-signal-reading-filed-flash={recentlyFiledSignalId === signal.signalId ? "true" : undefined}
                 className="dlens-card-lift"
                 style={{
                   border: `1px solid ${tokens.color.cardEdge}`,
@@ -2603,12 +2481,12 @@ function SignalReadingReviewWorkspace({
                   boxShadow: isActive ? tokens.shadow.raised : tokens.shadow.card,
                   overflow: "hidden",
                   transition: tokens.motion.preset.cardLift,
-                  animation: recentlyFiledSignalId === signal.id ? tokens.motion.keyframes.successPulse : undefined
+                  animation: recentlyFiledSignalId === signal.signalId ? tokens.motion.keyframes.successPulse : undefined
                 }}
               >
                 <button
                   type="button"
-                  onClick={() => setActiveSignalId(signal.id)}
+                  onClick={() => setActiveSignalId(signal.signalId)}
                   style={{
                     appearance: "none",
                     border: 0,
@@ -2663,7 +2541,7 @@ function SignalReadingReviewWorkspace({
                         {onSynthesizeSignalReading ? (
                           <SecondaryButton
                             onClick={() => handleRegenerateReading(signal)}
-                            disabled={regeneratingSignalId === signal.id}
+                            disabled={regeneratingSignalId === signal.signalId}
                             style={{
                               padding: "7px 13px",
                               whiteSpace: "nowrap",
@@ -2671,7 +2549,7 @@ function SignalReadingReviewWorkspace({
                               overflow: "hidden"
                             }}
                           >
-                            {regeneratingSignalId === signal.id ? (
+                            {regeneratingSignalId === signal.signalId ? (
                               <>生成中…<ButtonShimmer /></>
                             ) : "重新生成判讀"}
                           </SecondaryButton>
@@ -2744,7 +2622,7 @@ function SavedSignalsBatchExport({
   onExportSignalPackets,
   evidenceBySignalId
 }: {
-  signals: Signal[];
+  signals: ProductSignalViewModel[];
   analyses: ProductSignalAnalysis[];
   activeFolderId?: string;
   exportFolders?: SignalPacketExportFolderOption[];
@@ -2760,7 +2638,7 @@ function SavedSignalsBatchExport({
 }) {
   const [copyStatus, setCopyStatus] = useState<AgentBriefCopyStatus>("idle");
   const analysesBySignal = analysisBySignalId(analyses);
-  const selectedSignals = signals.filter((signal) => selectedIds.includes(signal.id));
+  const selectedSignals = signals.filter((signal) => selectedIds.includes(signal.signalId));
   const agentBrief = selectedSignals.length
     ? buildAgentBrief({ mode: briefMode, selectedSignals, analysesBySignal, signalPreviewById, signalUrlById, evidenceBySignalId })
     : "";
@@ -2790,11 +2668,11 @@ function SavedSignalsBatchExport({
       </div>
       <div data-batch-export-selection-list="true" style={{ display: "grid", borderTop: `1px solid ${tokens.color.line}`, borderBottom: `1px solid ${tokens.color.line}`, maxHeight: 240, overflowY: "auto" }}>
         {signals.map((signal) => {
-          const analysis = analysesBySignal.get(signal.id);
-          const checked = selectedIds.includes(signal.id);
+          const analysis = signal.analysis ?? analysesBySignal.get(signal.signalId);
+          const checked = selectedIds.includes(signal.signalId);
           const typeMeta = analysis ? SIGNAL_TYPE_META[analysis.signalType] : null;
           return (
-            <div key={signal.id} style={{ background: checked ? tokens.color.surface : "transparent" }}>
+            <div key={signal.signalId} style={{ background: checked ? tokens.color.surface : "transparent" }}>
               <label
                 data-batch-export-selection-row="true"
                 data-scan-row="true"
@@ -2810,7 +2688,7 @@ function SavedSignalsBatchExport({
                 <input
                   type="checkbox"
                   checked={checked}
-                  onChange={() => onToggleSignal(signal.id)}
+                  onChange={() => onToggleSignal(signal.signalId)}
                   aria-label={`選取 ${referenceLabel(analysis)}`}
                 />
                 <span style={{ minWidth: 0, display: "grid", gap: 3 }}>
@@ -3953,88 +3831,34 @@ export const productSignalViewTestables = {
 };
 
 export function ProductSignalView({
-  kind,
-  signals,
-  analyses,
-  productProfile,
-  activeFolderId,
-  exportFolders = [],
-  historicalAnalyses = analyses,
-  agentTaskFeedback = [],
-  signalPreviewById = {},
-  signalUrlById = {},
-  evidenceBySignalId = {},
-  signalReadinessById = {},
-  signalReadings = [],
-  aiProviderReady = true,
-  cardLayout = "marginalia",
-  backendError = null,
-  analysisError = null,
-  analysisNotice = null,
-  isHydrating = false,
-  isAnalyzing = false,
-  onAnalyze,
-  onGoToActionable,
-  onRemoveSignal,
-  onSynthesizeSignalReading,
-  onReviewSignalReading,
-  onExportSignalPackets
+  viewModel,
+  onCommand,
+  exportFolders = []
 }: {
-  kind: ProductSignalPageKind;
-  signals: Signal[];
-  analyses: ProductSignalAnalysis[];
-  productProfile: ProductProfile | null | undefined;
-  activeFolderId?: string;
+  viewModel: ProductSignalWorkspaceViewModel;
+  onCommand: (command: ProductSignalCommand) => Promise<unknown> | unknown;
   exportFolders?: SignalPacketExportFolderOption[];
-  historicalAnalyses?: ProductSignalAnalysis[];
-  agentTaskFeedback?: ProductAgentTaskFeedback[];
-  signalPreviewById?: Record<string, string>;
-  signalUrlById?: Record<string, string>;
-  evidenceBySignalId?: Record<string, ProductSignalEvidenceEntry[]>;
-  signalReadinessById?: Record<string, ProductSignalReadiness>;
-  signalReadings?: SignalReading[];
-  aiProviderReady?: boolean;
-  cardLayout?: ProductSignalCardLayout;
-  backendError?: string | null;
-  analysisError?: string | null;
-  analysisNotice?: string | null;
-  isHydrating?: boolean;
-  isAnalyzing?: boolean;
-  onAnalyze: () => void;
-  onGoToActionable?: () => void;
-  onRemoveSignal?: (signalId: string) => void;
-  onSynthesizeSignalReading?: SynthesizeSignalReading;
-  onReviewSignalReading?: ReviewSignalReading;
-  onExportSignalPackets?: ExportSignalPackets;
 }) {
+  const {
+    kind,
+    signals,
+    scopedAnalyses,
+    historicalAnalyses,
+    agentTaskFeedback,
+    signalPreviewById,
+    signalUrlById,
+    evidenceBySignalId,
+    scopedSignalReadings,
+    pendingSignals
+  } = viewModel;
   const copy = PAGE_COPY[kind];
-  const safeSignals = Array.isArray(signals) ? signals : [];
-  const safeAnalyses = Array.isArray(analyses) ? analyses : [];
-  const safeHistoricalAnalyses = Array.isArray(historicalAnalyses) ? historicalAnalyses : safeAnalyses;
-  const safeAgentTaskFeedback = Array.isArray(agentTaskFeedback) ? agentTaskFeedback : [];
-  const safeSignalReadings = Array.isArray(signalReadings) ? signalReadings : [];
-  const safeSignalIdSet = new Set(safeSignals.map((signal) => signal.id));
-  const scopedSignalReadings = safeSignalIdSet.size
-    ? safeSignalReadings.filter((reading) => safeSignalIdSet.has(reading.signalId))
-    : [];
-  const bySignal = analysisBySignalId(safeAnalyses);
-  const signalScopedAnalyses = safeSignals.length
-    ? safeSignals.map((signal) => bySignal.get(signal.id)).filter((entry): entry is ProductSignalAnalysis => Boolean(entry))
-    : safeAnalyses;
-  const scopedAnalyses = visibleAnalyses(kind, signalScopedAnalyses);
-  const visibleError = analysisError || backendError || null;
-  const productLoadState = deriveProductSignalLoadState({
-    isHydrating,
-    signalCount: safeSignals.length,
-    analysisCount: scopedAnalyses.length,
-    hasError: Boolean(visibleError)
-  });
-  const pendingSignals = safeSignals.filter((signal) => bySignal.get(signal.id)?.status !== "complete");
-  const canAnalyze = canRunProductSignalAction({ signals: safeSignals, productProfile, aiProviderReady, signalReadinessById });
-  const showSignalReadingReview = scopedSignalReadings.length > 0;
-  const firstSynthesizableSignal = safeSignals.find((signal) => bySignal.get(signal.id)?.status === "complete") ?? null;
   const [selectedSignalIds, setSelectedSignalIds] = useState<string[]>([]);
   const [briefMode, setBriefMode] = useState<AgentBriefMode>("original");
+
+  const dispatchCommand = (command: ProductSignalCommand) => Promise.resolve(onCommand(command));
+  const analyzeCommand = viewModel.actions.find((action) => action.kind === "analyzeInbox");
+  const openActionableCommand = viewModel.actions.find((action) => action.kind === "openActionable");
+  const hasReadingCommand = signals.some((signal) => signal.actions.some((action) => action.kind === "generateReading"));
 
   function toggleSelectedSignal(signalId: string) {
     setSelectedSignalIds((current) =>
@@ -4044,14 +3868,64 @@ export function ProductSignalView({
     );
   }
 
-  function handleRemoveSignal(signalId: string) {
-    if (!window.confirm("確認刪除此 signal？此操作無法復原。")) return;
-    setSelectedSignalIds((current) => current.filter((id) => id !== signalId));
-    onRemoveSignal?.(signalId);
+  function signalAction(signalId: string, kind: ProductSignalAction["kind"]): ProductSignalAction | null {
+    return signals.find((signal) => signal.signalId === signalId)?.actions.find((action) => action.kind === kind) ?? null;
   }
 
+  function handleAnalyze() {
+    if (analyzeCommand) {
+      void dispatchCommand(analyzeCommand);
+    }
+  }
+
+  function handleGoToActionable() {
+    if (openActionableCommand) {
+      void dispatchCommand(openActionableCommand);
+    }
+  }
+
+  function handleRemoveSignal(signalId: string) {
+    if (!window.confirm("確認刪除此 signal？此操作無法復原。")) return;
+    const action = signalAction(signalId, "remove");
+    if (!action) return;
+    setSelectedSignalIds((current) => current.filter((id) => id !== signalId));
+    void dispatchCommand({ kind: "remove", target: action.target });
+  }
+
+  const synthesizeSignalReading: SynthesizeSignalReading | undefined = hasReadingCommand
+    ? (signalId, sessionId, force) => {
+        const action = signalAction(signalId, "generateReading");
+        if (!action || action.target.sessionId !== sessionId) {
+          return Promise.resolve({ ok: false, error: "這則 signal 目前尚未可生成判讀。" });
+        }
+        return dispatchCommand({ kind: "generateReading", target: action.target, force }) as Promise<{ ok: true; reading: string } | { ok: false; error: string }>;
+      }
+    : undefined;
+
+  const reviewSignalReading: ReviewSignalReading = (cacheKey, decision, note) => {
+    const reading = scopedSignalReadings.find((entry) => entry.cacheKey === cacheKey);
+    if (!reading || !viewModel.sessionId) {
+      return Promise.resolve({ ok: false, error: "找不到這筆 signal reading。" });
+    }
+    return dispatchCommand({
+      kind: "reviewReading",
+      target: { sessionId: viewModel.sessionId, signalId: reading.signalId, cacheKey },
+      decision,
+      ...(note ? { note } : {})
+    }) as Promise<{ ok: true; signalReading: SignalReading } | { ok: false; error: string }>;
+  };
+
+  const exportSignalPackets: ExportSignalPackets | undefined = viewModel.actions.some((action) => action.kind === "exportSignalPackets")
+    ? (options) =>
+        dispatchCommand({
+          kind: "exportSignalPackets",
+          target: { sessionId: options.sessionId },
+          format: options.format
+        }) as Promise<{ ok: true; exportResult: SignalPacketExportResult } | { ok: false; error: string }>
+    : undefined;
+
   return (
-    <div style={viewRootStyle()} data-product-signal-view={kind} data-product-load-state={productLoadState}>
+    <div style={viewRootStyle()} data-product-signal-view={kind} data-product-load-state={viewModel.loadState}>
       <style>{SCAN_ROW_HOVER_CSS}</style>
       <ModeHeader
         mode={kind}
@@ -4059,47 +3933,33 @@ export function ProductSignalView({
         title={copy.title}
         deck={copy.deck}
         stamp={
-          backendError
-            ? <Stamp tone="warning">Backend 離線</Stamp>
-            : analysisError
-              ? <Stamp tone="warning">部分失敗</Stamp>
-            : productLoadState === "loading"
+          viewModel.statusErrorLabel
+            ? <Stamp tone="warning">{viewModel.statusErrorLabel}</Stamp>
+            : viewModel.loadState === "loading"
               ? <Stamp tone="neutral">讀取中</Stamp>
-            : <Stamp tone={productLoadState === "ready" || productLoadState === "recovering" ? "success" : "neutral"}>
-                {productLoadState === "ready" || productLoadState === "recovering" ? "分析完成" : "尚無結果"}
+            : <Stamp tone={viewModel.loadState === "ready" || viewModel.loadState === "recovering" ? "success" : "neutral"}>
+                {viewModel.loadState === "ready" || viewModel.loadState === "recovering" ? "分析完成" : "尚無結果"}
               </Stamp>
         }
       />
       <WorkspaceSurface tone="utility" style={{ display: "grid", gap: tokens.spacing.md, overflow: "visible" }}>
         <ReadinessPanel
-          signals={safeSignals}
-          analyses={safeAnalyses}
-          productProfile={productProfile}
-          aiProviderReady={aiProviderReady}
-          backendError={backendError}
-          analysisError={analysisError}
-          analysisNotice={analysisNotice}
-          loadState={productLoadState}
-          isAnalyzing={isAnalyzing}
-          signalReadinessById={signalReadinessById}
-          onAnalyze={onAnalyze}
+          viewModel={viewModel}
+          onAnalyze={handleAnalyze}
         />
         {pendingSignals.length ? (
           <section style={{ display: "grid", gap: 8 }}>
             <Kicker>等待處理的 signals</Kicker>
             {pendingSignals.map((signal) => (
               <PendingSignalCard
-                key={signal.id}
+                key={signal.signalId}
                 signal={signal}
-                preview={signalPreviewById[signal.id]}
-                readiness={readSignalReadiness(signal, signalReadinessById)}
-                analysis={bySignal.get(signal.id)}
-                onRemove={onRemoveSignal ? () => handleRemoveSignal(signal.id) : undefined}
+                onRemove={signal.actions.some((action) => action.kind === "remove") ? () => handleRemoveSignal(signal.signalId) : undefined}
               />
             ))}
           </section>
         ) : null}
-        {kind === "saved-signals" && scopedAnalyses.length > 0 && !isAnalyzing && onGoToActionable ? (
+        {kind === "saved-signals" && scopedAnalyses.length > 0 && !viewModel.isAnalyzing && openActionableCommand ? (
           <div
             data-product-action-cta="true"
             style={{
@@ -4117,13 +3977,13 @@ export function ProductSignalView({
             <span style={{ fontSize: 12, color: tokens.color.subInk, lineHeight: 1.4 }}>
               分析完成，查看哪些 signal 值得行動
             </span>
-            <PrimaryButton onClick={onGoToActionable} activateOnPointerDown style={{ padding: "6px 14px", whiteSpace: "nowrap" }}>
+            <PrimaryButton onClick={handleGoToActionable} activateOnPointerDown style={{ padding: "6px 14px", whiteSpace: "nowrap" }}>
               查看候選行動 →
             </PrimaryButton>
           </div>
         ) : null}
         {kind === "saved-signals" ? (
-          productLoadState === "recovering" ? (
+          viewModel.loadState === "recovering" ? (
             <RecoveredAnalysesBoard
               analyses={scopedAnalyses}
               signalPreviewById={signalPreviewById}
@@ -4131,19 +3991,16 @@ export function ProductSignalView({
           ) : (
             <>
               <SavedSignalsBoard
-                signals={safeSignals}
-                analyses={scopedAnalyses}
-                signalPreviewById={signalPreviewById}
-                signalReadinessById={signalReadinessById}
+                signals={signals}
                 selectedIds={selectedSignalIds}
                 onToggleSignal={toggleSelectedSignal}
-                onRemoveSignal={onRemoveSignal ? handleRemoveSignal : undefined}
+                onRemoveSignal={signals.some((signal) => signal.actions.some((action) => action.kind === "remove")) ? handleRemoveSignal : undefined}
               />
               {scopedAnalyses.length ? (
                 <SavedSignalsBatchExport
-                  signals={safeSignals}
+                  signals={signals}
                   analyses={scopedAnalyses}
-                  activeFolderId={activeFolderId}
+                  activeFolderId={viewModel.sessionId ?? undefined}
                   exportFolders={exportFolders}
                   signalPreviewById={signalPreviewById}
                   signalUrlById={signalUrlById}
@@ -4151,8 +4008,8 @@ export function ProductSignalView({
                   briefMode={briefMode}
                   onBriefModeChange={setBriefMode}
                   onToggleSignal={toggleSelectedSignal}
-                  onSynthesizeSignalReading={onSynthesizeSignalReading}
-                  onExportSignalPackets={onExportSignalPackets}
+                  onSynthesizeSignalReading={synthesizeSignalReading}
+                  onExportSignalPackets={exportSignalPackets}
                   evidenceBySignalId={evidenceBySignalId}
                 />
               ) : null}
@@ -4161,41 +4018,41 @@ export function ProductSignalView({
         ) : scopedAnalyses.length ? (
           kind === "classification" ? (
             <ClassificationBoard analyses={scopedAnalyses} signalPreviewById={signalPreviewById} />
-          ) : showSignalReadingReview ? (
+          ) : viewModel.showSignalReadingReview ? (
             <SignalReadingReviewWorkspace
-              signals={safeSignals}
-              analyses={safeAnalyses}
-              activeFolderId={activeFolderId}
+              signals={signals}
+              analyses={scopedAnalyses}
+              activeFolderId={viewModel.sessionId ?? undefined}
               exportFolders={exportFolders}
               signalReadings={scopedSignalReadings}
               signalPreviewById={signalPreviewById}
               signalUrlById={signalUrlById}
               evidenceBySignalId={evidenceBySignalId}
-              onSynthesizeSignalReading={onSynthesizeSignalReading}
-              onReviewSignalReading={onReviewSignalReading}
-              onExportSignalPackets={onExportSignalPackets}
+              onSynthesizeSignalReading={synthesizeSignalReading}
+              onReviewSignalReading={reviewSignalReading}
+              onExportSignalPackets={exportSignalPackets}
             />
           ) : (
             <>
-              {firstSynthesizableSignal && onSynthesizeSignalReading ? (
+              {viewModel.firstSynthesizableSignal && synthesizeSignalReading ? (
                 <FirstReadingCta
-                  signal={firstSynthesizableSignal}
+                  signal={viewModel.firstSynthesizableSignal}
                   analysisCount={scopedAnalyses.length}
-                  onSynthesize={onSynthesizeSignalReading}
+                  onSynthesize={synthesizeSignalReading}
                 />
               ) : null}
               <ActionableInsightsBoard
                 analyses={scopedAnalyses}
-                productProfile={productProfile}
+                productProfile={viewModel.productProfile}
                 evidenceBySignalId={evidenceBySignalId}
-                historicalAnalyses={safeHistoricalAnalyses}
-                agentTaskFeedback={safeAgentTaskFeedback}
-                cardLayout={cardLayout}
-                onRemoveSignal={onRemoveSignal ? handleRemoveSignal : undefined}
+                historicalAnalyses={historicalAnalyses}
+                agentTaskFeedback={agentTaskFeedback}
+                cardLayout={viewModel.cardLayout}
+                onRemoveSignal={signals.some((signal) => signal.actions.some((action) => action.kind === "remove")) ? handleRemoveSignal : undefined}
               />
             </>
           )
-        ) : productLoadState === "loading" ? null : (
+        ) : viewModel.loadState === "loading" ? null : (
           <div style={cardStyle()}>
             <div style={{ fontSize: 14, fontWeight: 800, color: tokens.color.ink }}>
               尚未有 AI 分析結果
@@ -4204,7 +4061,7 @@ export function ProductSignalView({
               這裡只顯示 storage 裡的真實分析；如果 AI 尚未跑完，不會顯示假分類、假數字或示範案例。
             </div>
             <div>
-              <SecondaryButton onClick={onAnalyze} disabled={!canAnalyze || isAnalyzing}>
+              <SecondaryButton onClick={handleAnalyze} disabled={!viewModel.canAnalyze || viewModel.isAnalyzing}>
                 重新整理分析
               </SecondaryButton>
             </div>

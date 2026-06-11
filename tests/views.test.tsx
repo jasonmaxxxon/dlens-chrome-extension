@@ -10,7 +10,14 @@ import type { SessionProcessingSummary, WorkerStatus } from "../src/state/proces
 import type { TargetDescriptor } from "../src/contracts/target-descriptor.ts";
 import type { PrCampaign, PrEvidenceRow } from "../src/state/pr-evidence-storage.ts";
 import type { SavedAnalysisSnapshot, SessionItem, SessionRecord, TechniqueReadingSnapshot } from "../src/state/types.ts";
+import { createDefaultSettings, createEmptyTabState } from "../src/state/types.ts";
 import { createSessionItem, createSessionRecord } from "../src/state/store-helpers.ts";
+import {
+  buildProductSignalWorkspaceViewModel,
+  type ProductSignalCommand,
+  type ProductSignalViewModel,
+  type ProductSignalWorkspaceViewModel
+} from "../src/viewmodel/product-signal.ts";
 import { CollectView } from "../src/ui/CollectView.tsx";
 import { InPageCollectorFolderControls, inPageCollectorFolderControlsTestables } from "../src/ui/InPageCollectorFolderControls.tsx";
 import { inPageCollectorPopupTestables } from "../src/ui/InPageCollectorPopup.tsx";
@@ -25,6 +32,223 @@ import {
   surfaceCardStyle
 } from "../src/ui/components.tsx";
 import { modeThemeStyle, textStyles, tokens } from "../src/ui/tokens.ts";
+
+function productTestProfile() {
+  return {
+    name: "DLens",
+    category: "Creator analysis",
+    audience: "Threads creators",
+    contextText: "README context",
+    contextFiles: [
+      {
+        id: "file_readme",
+        name: "README.md",
+        kind: "readme",
+        importedAt: "2026-04-27T00:00:00.000Z",
+        charCount: 14
+      }
+    ]
+  };
+}
+
+function itemStatusFromReadiness(readiness: any): SessionItem["status"] {
+  if (readiness?.itemStatus) return readiness.itemStatus;
+  if (readiness?.status === "saved") return "saved";
+  if (readiness?.status === "crawling") return "running";
+  if (readiness?.status === "failed") return "failed";
+  return "succeeded";
+}
+
+function buildProductTestItem(signal: any, props: any): SessionItem | null {
+  if (!signal.itemId) return null;
+  const readiness = props.signalReadinessById?.[signal.id] ?? { status: "ready", itemStatus: "succeeded" };
+  const preview = props.signalPreviewById?.[signal.id] || signal.id;
+  const url = props.signalUrlById?.[signal.id] || `https://www.threads.net/@dlens/post/${signal.id}`;
+  const item = createSessionItem(
+    {
+      target_type: "post",
+      page_url: url,
+      post_url: url,
+      author_hint: "dlens",
+      text_snippet: preview,
+      time_token_hint: "",
+      dom_anchor: signal.id,
+      engagement: { likes: 0, comments: 0, reposts: null, forwards: null, views: null },
+      engagement_present: { likes: false, comments: false, reposts: false, forwards: false, views: false },
+      captured_at: signal.capturedAt || "2026-04-27T00:00:00.000Z"
+    },
+    signal.capturedAt || "2026-04-27T00:00:00.000Z"
+  );
+  item.id = signal.itemId;
+  item.status = itemStatusFromReadiness(readiness);
+  item.lastError = readiness.lastError ?? null;
+  item.latestCapture = item.status === "succeeded" && readiness.status !== "missing_content"
+    ? {
+        id: `cap-${signal.id}`,
+        source_type: "threads",
+        capture_type: "post",
+        source_page_url: url,
+        source_post_url: url,
+        canonical_target_url: url,
+        author_hint: "dlens",
+        text_snippet: preview,
+        time_token_hint: "",
+        dom_anchor: signal.id,
+        engagement: {},
+        client_context: {},
+        raw_payload: {},
+        ingestion_status: "succeeded",
+        captured_at: signal.capturedAt || "2026-04-27T00:00:00.000Z",
+        created_at: signal.capturedAt || "2026-04-27T00:00:00.000Z",
+        updated_at: signal.capturedAt || "2026-04-27T00:00:00.000Z",
+        job: null,
+        result: {
+          threadReadModel: {
+            rootPost: { postId: signal.id, author: "dlens", text: preview, likeCount: 0 },
+            opContinuations: [],
+            discussionReplies: (props.evidenceBySignalId?.[signal.id] ?? []).map((entry: any) => ({
+              commentId: entry.id || entry.ref,
+              author: entry.author || "reader",
+              text: entry.text || entry.quoteSummary || entry.ref,
+              likeCount: entry.likeCount ?? null
+            })),
+            assembledContent: preview
+          }
+        },
+        analysis: null
+      } as SessionItem["latestCapture"]
+    : null;
+  return item;
+}
+
+function patchProductTestCapabilities(vm: ProductSignalWorkspaceViewModel, props: any): ProductSignalWorkspaceViewModel {
+  const allowRemove = typeof props.onRemoveSignal === "function";
+  const allowReading = typeof props.onSynthesizeSignalReading === "function";
+  const patchSignal = (signal: ProductSignalViewModel): ProductSignalViewModel => {
+    const preview = props.signalPreviewById?.[signal.signalId] ?? signal.sourcePreview.displayText;
+    const url = props.signalUrlById?.[signal.signalId] ?? signal.sourcePreview.displayUrl;
+    const readiness = props.signalReadinessById?.[signal.signalId] ?? signal.readiness;
+    const evidence = props.evidenceBySignalId?.[signal.signalId] ?? signal.evidence;
+    return {
+      ...signal,
+      title: preview || signal.title,
+      sourcePreview: {
+        ...signal.sourcePreview,
+        text: preview || signal.sourcePreview.text,
+        displayText: preview,
+        sourceUrl: url || signal.sourcePreview.sourceUrl,
+        displayUrl: url
+      },
+      readiness,
+      evidence,
+      actions: signal.actions.filter((action) => {
+        if (action.kind === "remove") return allowRemove;
+        if (action.kind === "generateReading") return allowReading;
+        return true;
+      })
+    };
+  };
+  const signals = vm.signals.map(patchSignal);
+  const byId = new Map(signals.map((signal) => [signal.signalId, signal]));
+  const pendingSignals = vm.pendingSignals.map((signal) => byId.get(signal.signalId) ?? patchSignal(signal));
+  const firstSynthesizableSignal = vm.firstSynthesizableSignal
+    ? byId.get(vm.firstSynthesizableSignal.signalId) ?? patchSignal(vm.firstSynthesizableSignal)
+    : null;
+  return {
+    ...vm,
+    signals,
+    pendingSignals,
+    firstSynthesizableSignal,
+    signalPreviewById: Object.fromEntries(signals.map((signal) => [signal.signalId, signal.sourcePreview.displayText] as const)),
+    signalUrlById: Object.fromEntries(signals.map((signal) => [signal.signalId, signal.sourcePreview.displayUrl] as const)),
+    signalReadinessById: Object.fromEntries(signals.map((signal) => [signal.signalId, signal.readiness] as const)),
+    evidenceBySignalId: Object.fromEntries(signals.map((signal) => [signal.signalId, signal.evidence] as const)),
+    actions: vm.actions.filter((action) => {
+      if (action.kind === "openActionable") return typeof props.onGoToActionable === "function";
+      if (action.kind === "exportSignalPackets") return typeof props.onExportSignalPackets === "function";
+      return true;
+    })
+  };
+}
+
+function productSignalViewElement(props: any) {
+  const signals = Array.isArray(props.signals) ? props.signals : [];
+  const sessionId = signals[0]?.sessionId || props.activeFolderId || "session_product";
+  const items = signals.map((signal: any) => buildProductTestItem(signal, props)).filter((item: SessionItem | null): item is SessionItem => Boolean(item));
+  const session: SessionRecord = {
+    id: sessionId,
+    name: "Product test",
+    mode: "product",
+    createdAt: "2026-04-27T00:00:00.000Z",
+    updatedAt: "2026-04-27T00:00:00.000Z",
+    items
+  };
+  const snapshot = {
+    global: {
+      settings: {
+        ...createDefaultSettings(),
+        productProfile: props.productProfile ?? productTestProfile(),
+        layoutPreferences: {
+          ...createDefaultSettings().layoutPreferences,
+          productSignalCardLayout: props.cardLayout ?? "marginalia"
+        }
+      },
+      sessions: [session],
+      activeSessionId: session.id,
+      updatedAt: "2026-04-27T00:00:00.000Z"
+    },
+    tab: createEmptyTabState()
+  };
+  const vm = patchProductTestCapabilities(
+    buildProductSignalWorkspaceViewModel({
+      kind: props.kind,
+      snapshot,
+      signals,
+      analyses: props.analyses ?? [],
+      historicalAnalyses: props.historicalAnalyses,
+      agentTaskFeedback: props.agentTaskFeedback,
+      signalReadings: props.signalReadings,
+      productContext: null,
+      aiProviderReady: props.aiProviderReady ?? true,
+      cardLayout: props.cardLayout,
+      backendError: props.backendError ?? null,
+      analysisError: props.analysisError ?? null,
+      analysisNotice: props.analysisNotice ?? null,
+      isHydrating: props.isHydrating ?? false,
+      isAnalyzing: props.isAnalyzing ?? false
+    }),
+    props
+  );
+  const onCommand = (command: ProductSignalCommand) => {
+    switch (command.kind) {
+      case "analyzeInbox":
+        return props.onAnalyze?.();
+      case "openActionable":
+        return props.onGoToActionable?.();
+      case "remove":
+        return props.onRemoveSignal?.(command.target.signalId);
+      case "generateReading":
+        return props.onSynthesizeSignalReading
+          ? props.onSynthesizeSignalReading(command.target.signalId, command.target.sessionId, command.force)
+          : Promise.resolve({ ok: false, error: "missing synthesize handler" });
+      case "reviewReading":
+        return props.onReviewSignalReading
+          ? props.onReviewSignalReading(command.target.cacheKey, command.decision, command.note)
+          : Promise.resolve({ ok: false, error: "missing review handler" });
+      case "exportSignalPackets":
+        return props.onExportSignalPackets
+          ? props.onExportSignalPackets({ sessionId: command.target.sessionId, format: command.format })
+          : Promise.resolve({ ok: false, error: "missing export handler" });
+      default:
+        return undefined;
+    }
+  };
+  return React.createElement(ProductSignalView, {
+    viewModel: vm,
+    exportFolders: props.exportFolders,
+    onCommand
+  });
+}
 
 function buildSession(): SessionRecord {
   const session = createSessionRecord("Signals", "2026-03-24T07:00:00.000Z");
@@ -1088,7 +1312,7 @@ test("SettingsView exposes Google provider and save action", () => {
 
 test("ProductSignalView shows real readiness state without fake AI results", () => {
   const html = renderToStaticMarkup(
-    React.createElement(ProductSignalView as any, {
+    productSignalViewElement( {
       kind: "saved-signals",
       signals: [
         {
@@ -1145,7 +1369,7 @@ test("ProductSignalView shows real readiness state without fake AI results", () 
 
 test("ProductSignalView surfaces backend health errors even when analyses already exist", () => {
   const html = renderToStaticMarkup(
-    React.createElement(ProductSignalView as any, {
+    productSignalViewElement( {
       kind: "saved-signals",
       signals: [
         {
@@ -1212,7 +1436,7 @@ test("ProductSignalView surfaces backend health errors even when analyses alread
 
 test("ProductSignalView keeps existing analyses visible when signal inbox is empty", () => {
   const html = renderToStaticMarkup(
-    React.createElement(ProductSignalView as any, {
+    productSignalViewElement( {
       kind: "saved-signals",
       signals: [],
       analyses: [
@@ -1269,7 +1493,7 @@ test("ProductSignalView keeps existing analyses visible when signal inbox is emp
 
 test("ProductSignalView shows hydration state instead of an empty result while product data loads", () => {
   const html = renderToStaticMarkup(
-    React.createElement(ProductSignalView as any, {
+    productSignalViewElement( {
       kind: "saved-signals",
       signals: [],
       analyses: [],
@@ -1304,7 +1528,7 @@ test("ProductSignalView shows hydration state instead of an empty result while p
 
 test("ProductSignalView action route uses recovered analyses when signal inbox is empty", () => {
   const html = renderToStaticMarkup(
-    React.createElement(ProductSignalView as any, {
+    productSignalViewElement( {
       kind: "actionable-filter",
       signals: [],
       analyses: [
@@ -1383,10 +1607,10 @@ test("ProductSignalView only shows remove controls when delete is wired", () => 
   };
 
   const unwiredHtml = renderToStaticMarkup(
-    React.createElement(ProductSignalView, baseProps)
+    productSignalViewElement( baseProps)
   );
   const wiredHtml = renderToStaticMarkup(
-    React.createElement(ProductSignalView, {
+    productSignalViewElement( {
       ...baseProps,
       onRemoveSignal: () => undefined
     })
@@ -1448,10 +1672,10 @@ test("ProductSignalView keeps Agent export off Product action pages", () => {
   };
 
   const savedHtml = renderToStaticMarkup(
-    React.createElement(ProductSignalView, { ...baseProps, kind: "saved-signals", onGoToActionable: () => undefined })
+    productSignalViewElement( { ...baseProps, kind: "saved-signals", onGoToActionable: () => undefined })
   );
   const actionableHtml = renderToStaticMarkup(
-    React.createElement(ProductSignalView, {
+    productSignalViewElement( {
       ...baseProps,
       kind: "actionable-filter",
       activeFolderId: "session_a",
@@ -1497,7 +1721,7 @@ test("ProductSignalView keeps Agent export off Product action pages", () => {
 
 test("PendingSignalCard surfaces the backend job error while a crawl is retrying", () => {
   const html = renderToStaticMarkup(
-    React.createElement(ProductSignalView, {
+    productSignalViewElement( {
       kind: "saved-signals",
       signals: [
         {
@@ -1544,7 +1768,7 @@ test("PendingSignalCard surfaces the backend job error while a crawl is retrying
 
 test("ProductSignalView shows a spinner for crawling pending signals", () => {
   const html = renderToStaticMarkup(
-    React.createElement(ProductSignalView, {
+    productSignalViewElement( {
       kind: "saved-signals",
       signals: [
         {
@@ -1655,13 +1879,13 @@ test("ProductSignalView gives each product page a distinct information shape", (
   };
 
   const classificationHtml = renderToStaticMarkup(
-    React.createElement(ProductSignalView, {
+    productSignalViewElement( {
       ...baseProps,
       kind: "classification"
     })
   );
   const actionableHtml = renderToStaticMarkup(
-    React.createElement(ProductSignalView, {
+    productSignalViewElement( {
       ...baseProps,
       kind: "actionable-filter"
     })
@@ -1749,7 +1973,7 @@ test("ProductSignalView gives each product page a distinct information shape", (
     analyzedAt: "2026-04-27T02:00:00.000Z"
   };
   const classificationTwoHtml = renderToStaticMarkup(
-    React.createElement(ProductSignalView, {
+    productSignalViewElement( {
       ...baseProps,
       kind: "classification",
       signals: [...baseProps.signals, secondSignal],
@@ -1879,7 +2103,7 @@ function extractTestIdSection(html: string, testId: string, closeTag: string) {
 test("ProductSignalView actionable cards expose marginalia layout slots", () => {
   const fixture = buildActionableCardFixture();
   const html = renderToStaticMarkup(
-    React.createElement(ProductSignalView, {
+    productSignalViewElement( {
       kind: "actionable-filter",
       signals: [fixture.signal],
       analyses: [fixture.analysis],
@@ -2075,7 +2299,7 @@ test("ProductSignalView surfaces legacy optional fields when present", () => {
   };
 
   const actionableHtml = renderToStaticMarkup(
-    React.createElement(ProductSignalView, {
+    productSignalViewElement( {
       ...v3Props,
       kind: "actionable-filter",
       cardLayout: "verdict"
@@ -2163,7 +2387,7 @@ test("ProductSignalView keeps non-try verdicts behind clickable filters by defau
     status: "complete" as const
   };
   const html = renderToStaticMarkup(
-    React.createElement(ProductSignalView, {
+    productSignalViewElement( {
       kind: "actionable-filter",
       signals: [
         { id: "signal_try", sessionId: "sess", itemId: "i1", source: "threads", inboxStatus: "unprocessed", capturedAt: "2026-05-07T00:00:00.000Z" },
@@ -2258,7 +2482,7 @@ test("ProductSignalView shows feedback-backed similar history without inflating 
   };
 
   const html = renderToStaticMarkup(
-    React.createElement(ProductSignalView, {
+    productSignalViewElement( {
       kind: "actionable-filter",
       signals: [
         { id: "signal_current", sessionId: "sess", itemId: "i1", source: "threads", inboxStatus: "unprocessed", capturedAt: "2026-04-28T00:00:00.000Z" }
@@ -2330,7 +2554,7 @@ test("merged candidate-action board keeps AI commentary collapsed on action rout
   };
 
   const html = renderToStaticMarkup(
-    React.createElement(ProductSignalView, { ...v3Props, kind: "actionable-filter", cardLayout: "verdict" })
+    productSignalViewElement( { ...v3Props, kind: "actionable-filter", cardLayout: "verdict" })
   );
 
   const openDetails = html.match(/<details open=""[^]*?<\/details>/g) ?? [];
@@ -2374,7 +2598,7 @@ test("actionable view with analyses but no readings surfaces the first-reading C
   };
 
   const html = renderToStaticMarkup(
-    React.createElement(ProductSignalView as any, { ...baseProps, kind: "actionable-filter", signalReadings: [] })
+    productSignalViewElement( { ...baseProps, kind: "actionable-filter", signalReadings: [] })
   );
 
   assert.match(html, /data-reading-first-run-cta="true"/);
@@ -2382,7 +2606,7 @@ test("actionable view with analyses but no readings surfaces the first-reading C
   assert.match(html, /data-actionable-insights-board="true"/);
 
   const withReading = renderToStaticMarkup(
-    React.createElement(ProductSignalView as any, {
+    productSignalViewElement( {
       ...baseProps,
       kind: "actionable-filter",
       signalReadings: [{
@@ -2439,7 +2663,7 @@ test("product view chrome stays 繁中 — no english workspace labels", () => {
 
   for (const kind of ["saved-signals", "actionable-filter"] as const) {
     const html = renderToStaticMarkup(
-      React.createElement(ProductSignalView as any, { ...baseProps, kind, signalReadings: [] })
+      productSignalViewElement( { ...baseProps, kind, signalReadings: [] })
     );
     assert.doesNotMatch(html, englishChrome, `${kind} must not render english chrome labels`);
   }
@@ -2481,7 +2705,7 @@ test("citationsForAnalysis filters out refs missing both entry and note", () => 
   };
 
   const html = renderToStaticMarkup(
-    React.createElement(ProductSignalView, { ...v3Props, kind: "actionable-filter", cardLayout: "verdict" })
+    productSignalViewElement( { ...v3Props, kind: "actionable-filter", cardLayout: "verdict" })
   );
 
   // e1 has note only, e2 has entry only → both render. e_dangling has neither → must be skipped.
@@ -2520,7 +2744,7 @@ test("ProductSignalView tolerates legacy analysis records with missing optional 
   };
 
   const html = renderToStaticMarkup(
-    React.createElement(ProductSignalView, {
+    productSignalViewElement( {
       kind: "actionable-filter",
       signals: [
         { id: "s_legacy", sessionId: "sess", itemId: "i1", source: "threads", inboxStatus: "unprocessed", capturedAt: "2026-04-28T00:00:00.000Z" }
@@ -2737,7 +2961,7 @@ test("ProductSignalView restores the 0.1.15 reading review route when readings e
   ];
 
   const html = renderToStaticMarkup(
-    React.createElement(ProductSignalView as any, {
+    productSignalViewElement( {
       kind: "actionable-filter",
       signals,
       analyses,
@@ -2830,7 +3054,7 @@ test("ProductSignalView turns long reading openings into a lighter lead title an
 
 test("ProductSignalView action route stays on actionable cards before readings exist", () => {
   const html = renderToStaticMarkup(
-    React.createElement(ProductSignalView as any, {
+    productSignalViewElement( {
       kind: "actionable-filter",
       signals: [
         { id: "signal_empty", sessionId: "sess", itemId: "i1", source: "threads", inboxStatus: "unprocessed", capturedAt: "2026-05-18T00:00:00.000Z" }
@@ -2876,7 +3100,7 @@ test("ProductSignalView action route stays on actionable cards before readings e
 
 test("ProductSignalView action route ignores stale readings from other signals", () => {
   const html = renderToStaticMarkup(
-    React.createElement(ProductSignalView as any, {
+    productSignalViewElement( {
       kind: "actionable-filter",
       signals: [
         { id: "signal_current", sessionId: "sess", itemId: "i1", source: "threads", inboxStatus: "unprocessed", capturedAt: "2026-05-18T00:00:00.000Z" }
@@ -2936,7 +3160,7 @@ test("ProductSignalView action route ignores stale readings from other signals",
 
 test("ProductSignalView action route shows existing reading review content", () => {
   const html = renderToStaticMarkup(
-    React.createElement(ProductSignalView as any, {
+    productSignalViewElement( {
       kind: "actionable-filter",
       signals: [
         { id: "signal_ready", sessionId: "sess", itemId: "i1", source: "threads", inboxStatus: "unprocessed", capturedAt: "2026-05-18T00:00:00.000Z" }
@@ -2997,7 +3221,7 @@ test("ProductSignalView action route shows existing reading review content", () 
 
 test("ProductSignalView marks signal readings with missing provenance explicitly", () => {
   const html = renderToStaticMarkup(
-    React.createElement(ProductSignalView as any, {
+    productSignalViewElement( {
       kind: "actionable-filter",
       signals: [
         { id: "signal_missing_model", sessionId: "sess", itemId: "i1", source: "threads", inboxStatus: "unprocessed", capturedAt: "2026-05-18T00:00:00.000Z" }
@@ -3087,7 +3311,7 @@ test("ClassificationBoard selected post aside collapses long text behind 展開�
   };
 
   const html = renderToStaticMarkup(
-    React.createElement(ProductSignalView, { ...v3Props, kind: "classification" })
+    productSignalViewElement( { ...v3Props, kind: "classification" })
   );
 
   assert.match(html, /展開全文/);
@@ -3102,7 +3326,7 @@ test("ClassificationBoard selected post aside collapses long text behind 展開�
 
 test("ProductSignalView surfaces product analyzer readiness and errors", () => {
   const html = renderToStaticMarkup(
-    React.createElement(ProductSignalView, {
+    productSignalViewElement( {
       kind: "classification",
       signals: [
         {
