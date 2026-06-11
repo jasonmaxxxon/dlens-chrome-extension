@@ -82,7 +82,7 @@ The current product split is:
 The verified build in the active Phase B implementation worktree is:
 
 - verification worktree: `dlens-product-latest`
-- current extension version: `0.1.32`
+- current extension version: `0.1.33`
 - active load-unpacked folder: `output/chrome-mv3`
 - note: `dlens-product-latest` source checkout may be dirty; do not infer clean source state from the copied build artifact
 - unpacked extension: `output/chrome-mv3`
@@ -90,11 +90,11 @@ The verified build in the active Phase B implementation worktree is:
 - backend physical checkout: `../dlens-ingest-core`
 - old versions and historical worktrees: `local dlens-old archive`
 - verification: `npm run typecheck`, `npx tsx --test tests/*.test.ts tests/*.test.tsx`, and `npm run build`
-- latest full test count after sender-tab collect state fix: `618 pass, 0 fail`
+- latest full test count after invariant consolidation: `701 pass, 0 fail`
 - latest build output was mirrored to `output/chrome-mv3`
 - current engineering branch: `codex/pr-visible-metrics`
 - live backend smoke from the prior product run: `GET http://127.0.0.1:8000/worker/status` returned `{"status":"idle"}`
-- extension manifest name is `DLens v3`; current extension version is `0.1.32`
+- extension manifest name is `DLens v3`; current extension version is `0.1.33`
 - version is locked across `package.json`, `package-lock.json`, `wxt.config.ts` `manifest.version`, and `src/ui/version.ts` `BUILD_VERSION`
 - runtime tab targeting fix: content-script `state/get-active-tab` and collect start/cancel must resolve to `sender.tab.id` before falling back to Chrome's focused tab, otherwise the popup can show collect mode off while the Threads content script is already in crosshair/overlay mode
 
@@ -199,7 +199,7 @@ Topic Detail now uses per-signal semantic tags as the primary scan layer. Topic 
 
 ## Version State
 
-- Current extension version: `0.1.32`.
+- Current extension version: `0.1.33`.
 - Chrome extension page version comes from `wxt.config.ts` `manifest.version` in the built manifest.
 - Popup masthead version comes from `src/ui/version.ts` `BUILD_VERSION`.
 - `package.json`, `package-lock.json`, `wxt.config.ts`, and `src/ui/version.ts` must stay in sync for every main-facing update unless explicitly skipped.
