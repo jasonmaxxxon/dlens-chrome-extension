@@ -473,6 +473,76 @@ test("session/refresh-selected uses the explicit item target instead of the acti
   assert.match(response.ok ? "" : response.error, /Saved post not found/);
 });
 
+test("session/queue-all-pending rejects messages without an explicit session target", async () => {
+  const topic = makeSession("topic-session", "topic");
+  const tabKey = backgroundTestables.tabStorageKey(TAB_ID);
+  const harness = await createHarness({
+    [backgroundTestables.GLOBAL_STORAGE_KEY]: makeGlobal([topic], topic.id),
+    [backgroundTestables.ACTIVE_SESSION_ID_STORAGE_KEY]: topic.id,
+    [tabKey]: createEmptyTabState()
+  });
+
+  const response = await harness.dispatch({ type: "session/queue-all-pending" } as unknown as ExtensionMessage);
+
+  assert.equal(response.ok, false);
+  assert.match(response.ok ? "" : response.error, /Explicit session target is required/);
+});
+
+test("session/queue-all-pending uses the explicit session target instead of the active cursor", async () => {
+  const topic = makeSession("topic-session", "topic");
+  const tabKey = backgroundTestables.tabStorageKey(TAB_ID);
+  const harness = await createHarness({
+    [backgroundTestables.GLOBAL_STORAGE_KEY]: makeGlobal([topic], topic.id),
+    [backgroundTestables.ACTIVE_SESSION_ID_STORAGE_KEY]: topic.id,
+    [tabKey]: createEmptyTabState()
+  });
+
+  const response = await harness.dispatch({
+    type: "session/queue-all-pending",
+    target: {
+      sessionId: "missing-session"
+    }
+  } as unknown as ExtensionMessage);
+
+  assert.equal(response.ok, false);
+  assert.match(response.ok ? "" : response.error, /Target folder not found/);
+});
+
+test("session/refresh-all rejects messages without an explicit session target", async () => {
+  const topic = makeSession("topic-session", "topic");
+  const tabKey = backgroundTestables.tabStorageKey(TAB_ID);
+  const harness = await createHarness({
+    [backgroundTestables.GLOBAL_STORAGE_KEY]: makeGlobal([topic], topic.id),
+    [backgroundTestables.ACTIVE_SESSION_ID_STORAGE_KEY]: topic.id,
+    [tabKey]: createEmptyTabState()
+  });
+
+  const response = await harness.dispatch({ type: "session/refresh-all" } as unknown as ExtensionMessage);
+
+  assert.equal(response.ok, false);
+  assert.match(response.ok ? "" : response.error, /Explicit session target is required/);
+});
+
+test("session/refresh-all uses the explicit session target instead of the active cursor", async () => {
+  const topic = makeSession("topic-session", "topic");
+  const tabKey = backgroundTestables.tabStorageKey(TAB_ID);
+  const harness = await createHarness({
+    [backgroundTestables.GLOBAL_STORAGE_KEY]: makeGlobal([topic], topic.id),
+    [backgroundTestables.ACTIVE_SESSION_ID_STORAGE_KEY]: topic.id,
+    [tabKey]: createEmptyTabState()
+  });
+
+  const response = await harness.dispatch({
+    type: "session/refresh-all",
+    target: {
+      sessionId: "missing-session"
+    }
+  } as unknown as ExtensionMessage);
+
+  assert.equal(response.ok, false);
+  assert.match(response.ok ? "" : response.error, /Target folder not found/);
+});
+
 test("session/set-mode missing target mode persists the global key", async () => {
   const topic = makeSession("topic-session", "topic");
   const tabKey = backgroundTestables.tabStorageKey(TAB_ID);
@@ -505,7 +575,12 @@ test("session/refresh-all with no refreshable work and unchanged error performs 
     [tabKey]: createEmptyTabState()
   });
 
-  const response = await harness.dispatch({ type: "session/refresh-all", sessionId: topic.id });
+  const response = await harness.dispatch({
+    type: "session/refresh-all",
+    target: {
+      sessionId: topic.id
+    }
+  });
 
   assert.equal(response.ok, true);
   assert.deepEqual(harness.writes, []);

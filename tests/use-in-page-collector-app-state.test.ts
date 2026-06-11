@@ -136,6 +136,7 @@ test("runAnalyzeItemsPipeline queues selected items then starts worker and refre
   ]);
   assert.equal((calls[0] as Extract<ExtensionMessage, { type: "session/queue-items-and-start-processing" }>).sessionId, "folder-1");
   assert.deepEqual((calls[0] as Extract<ExtensionMessage, { type: "session/queue-items-and-start-processing" }>).itemIds, ["a", "b"]);
+  assert.deepEqual((calls[1] as Extract<ExtensionMessage, { type: "session/refresh-all" }>).target, { sessionId: "folder-1" });
   assert.deepEqual(statuses, ["draining"]);
   assert.deepEqual(result, { ok: true, failedCount: 0 });
   assert.match(toasts.at(-1) ?? "", /開始分析 2 篇/);

@@ -2,8 +2,10 @@ import assert from "node:assert/strict";
 import test from "node:test";
 
 import {
+  buildSessionActionTarget,
   buildSessionItemActionTarget,
   buildSaveCurrentPreviewTarget,
+  requireSessionActionTarget,
   requireSessionItemActionTarget,
   requireSaveCurrentPreviewTarget
 } from "../src/state/action-target.ts";
@@ -67,4 +69,15 @@ test("buildSessionItemActionTarget requires both session and item identity", () 
 test("requireSessionItemActionTarget rejects missing or blank item targets", () => {
   assert.throws(() => requireSessionItemActionTarget(undefined), /Explicit item target is required/);
   assert.throws(() => requireSessionItemActionTarget({ sessionId: "session-1", itemId: " " }), /Explicit item target is required/);
+});
+
+test("buildSessionActionTarget requires session identity", () => {
+  assert.deepEqual(buildSessionActionTarget("session-1"), { sessionId: "session-1" });
+  assert.equal(buildSessionActionTarget(null), null);
+  assert.equal(buildSessionActionTarget(" "), null);
+});
+
+test("requireSessionActionTarget rejects missing or blank session targets", () => {
+  assert.throws(() => requireSessionActionTarget(undefined), /Explicit session target is required/);
+  assert.throws(() => requireSessionActionTarget({ sessionId: " " }), /Explicit session target is required/);
 });
