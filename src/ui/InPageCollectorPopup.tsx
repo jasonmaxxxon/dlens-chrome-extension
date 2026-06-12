@@ -483,7 +483,12 @@ export function InPageCollectorPopup({ app }: { app: InPageCollectorAppModel }) 
 
           {guardedPage === "pr-evidence" ? (
             <WorkspaceSurface style={{ padding: 0, background: "transparent", boxShadow: "none", border: "none", overflow: "visible" }}>
-              <PrEvidenceView sessionId={activeFolder?.id || ""} />
+              <PrEvidenceView
+                sessionId={activeFolder?.id || ""}
+                resource={app.prEvidenceResource}
+                onResourceChange={app.onPrEvidenceResourceChange}
+                onActiveCampaignChange={app.onPrEvidenceActiveCampaignChange}
+              />
             </WorkspaceSurface>
           ) : null}
 

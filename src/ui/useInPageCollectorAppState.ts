@@ -26,7 +26,7 @@ import type {
 } from "../state/messages";
 import type { SignalPacketExportFormat, SignalPacketExportResult } from "../compare/signal-packet-export";
 import type { SignalReading } from "../compare/signal-reading-storage";
-import type { PrCampaign } from "../state/pr-evidence-storage";
+import type { PrCampaign, PrEvidenceRow } from "../state/pr-evidence-storage";
 import { getProcessingFailureMessage, getProcessingFailureUiMessage } from "../state/processing-errors";
 import {
   getItemReadinessStatus,
@@ -61,6 +61,7 @@ import { useProcessingCoordinator } from "./useProcessingCoordinator";
 import { useResultSurfaceState } from "./useResultSurfaceState";
 import { useTopicAudit } from "./useTopicAudit";
 import { useTopicState } from "./useTopicState";
+import { createPrEvidenceResource, type PrEvidenceResourceState } from "./pr-evidence-resource";
 
 type SendAndSync = <T extends ExtensionResponse = ExtensionResponse>(message: ExtensionMessage) => Promise<T>;
 
@@ -249,6 +250,7 @@ export function useInPageCollectorAppState({ snapshot, tabId, sendAndSync }: Use
   const [signalReadings, setSignalReadings] = useState<SignalReading[]>([]);
   const [isHydratingProductSignals, setIsHydratingProductSignals] = useState(false);
   const [activePrCampaign, setActivePrCampaign] = useState<PrCampaign | null>(null);
+  const [prEvidenceResource, setPrEvidenceResource] = useState<PrEvidenceResourceState>(() => createPrEvidenceResource(""));
   const [folderSynthesis, setFolderSynthesis] = useState<FolderSynthesis | null>(null);
   const [isGeneratingFolderSynthesis, setIsGeneratingFolderSynthesis] = useState(false);
   const [folderSynthesisError, setFolderSynthesisError] = useState<string | null>(null);
@@ -443,20 +445,80 @@ export function useInPageCollectorAppState({ snapshot, tabId, sendAndSync }: Use
     let cancelled = false;
     if (!popupOpen || !activeFolder?.id || activeFolderMode !== "pr-evidence") {
       setActivePrCampaign(null);
+      const inactiveSessionId = activeFolder?.id || "";
+      setPrEvidenceResource((current) => (
+        current.campaign.sessionId === inactiveSessionId ? current : createPrEvidenceResource(inactiveSessionId)
+      ));
       return;
     }
+    const sessionId = activeFolder.id;
     void sendExtensionMessage<{ ok: true; prCampaigns?: PrCampaign[] } | { ok: false; error: string }>({
       type: "pr/list-campaigns",
-      sessionId: activeFolder.id
+      sessionId
     })
-      .then((response) => {
+      .then(async (response) => {
+        if (cancelled) {
+          return;
+        }
+        if (!response.ok) {
+          setActivePrCampaign(null);
+          setPrEvidenceResource((current) => ({
+            ...(current.campaign.sessionId === sessionId ? current : createPrEvidenceResource(sessionId)),
+            notice: response.error
+          }));
+          return;
+        }
+        const active = response.prCampaigns?.[0] ?? null;
+        if (!active) {
+          setActivePrCampaign(null);
+          setPrEvidenceResource(createPrEvidenceResource(sessionId));
+          return;
+        }
+        setActivePrCampaign(active);
+        setPrEvidenceResource((current) => ({
+          campaign: active,
+          rows: current.campaign.id === active.id ? current.rows : [],
+          summary: current.campaign.id === active.id ? current.summary : "",
+          notice: "",
+          uploadError: "",
+          setupCollapsed: true
+        }));
+        let rowResponse: { ok: true; prEvidenceRows?: PrEvidenceRow[] } | { ok: false; error: string };
+        try {
+          rowResponse = await sendExtensionMessage<{ ok: true; prEvidenceRows?: PrEvidenceRow[] } | { ok: false; error: string }>({
+            type: "pr/list-evidence-rows",
+            campaignId: active.id
+          });
+        } catch (error) {
+          if (!cancelled) {
+            setPrEvidenceResource((current) => ({
+              ...current,
+              campaign: active,
+              rows: [],
+              notice: error instanceof Error ? error.message : String(error)
+            }));
+          }
+          return;
+        }
         if (!cancelled) {
-          setActivePrCampaign(response.ok ? response.prCampaigns?.[0] ?? null : null);
+          setActivePrCampaign(active);
+          setPrEvidenceResource({
+            campaign: active,
+            rows: rowResponse.ok ? rowResponse.prEvidenceRows ?? [] : [],
+            summary: "",
+            notice: rowResponse.ok ? "" : rowResponse.error,
+            uploadError: "",
+            setupCollapsed: true
+          });
         }
       })
       .catch(() => {
         if (!cancelled) {
           setActivePrCampaign(null);
+          setPrEvidenceResource((current) => ({
+            ...(current.campaign.sessionId === sessionId ? current : createPrEvidenceResource(sessionId)),
+            notice: "PR campaign 讀取失敗。"
+          }));
         }
       });
     return () => {
@@ -1592,6 +1654,21 @@ export function useInPageCollectorAppState({ snapshot, tabId, sendAndSync }: Use
     setProductSignalAnalysisError(getProcessingFailureUiMessage(response.error));
   }
 
+  const onPrEvidenceResourceChange = useCallback((resource: PrEvidenceResourceState) => {
+    setPrEvidenceResource(resource);
+  }, []);
+
+  const onPrEvidenceActiveCampaignChange = useCallback((campaign: PrCampaign | null) => {
+    setActivePrCampaign(campaign);
+    if (campaign) {
+      setPrEvidenceResource((current) => ({
+        ...current,
+        campaign,
+        setupCollapsed: true
+      }));
+    }
+  }, []);
+
   return {
     popupRef,
     snapshot,
@@ -1648,6 +1725,7 @@ export function useInPageCollectorAppState({ snapshot, tabId, sendAndSync }: Use
     productSignalAnalysisNotice,
     productAiProviderReady,
     activePrCampaign,
+    prEvidenceResource,
     topics: topicState.topics,
     signals: topicState.signals,
     selectedTopicId: topicState.selectedTopicId,
@@ -1734,6 +1812,8 @@ export function useInPageCollectorAppState({ snapshot, tabId, sendAndSync }: Use
     onReviewSignalReading,
     onExportSignalPackets,
     onRemoveProductSignal,
+    onPrEvidenceResourceChange,
+    onPrEvidenceActiveCampaignChange,
     onCreateFolder,
     onRenameFolder,
     onDeleteFolder,

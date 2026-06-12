@@ -898,6 +898,55 @@ test("PrEvidenceView renders campaign setup and compact evidence ledger", () => 
   assert.match(html, /生成摘要/);
 });
 
+test("PrEvidenceView renders PR campaign and rows from the shared resource state", () => {
+  const campaign: PrCampaign = {
+    id: "campaign-shared",
+    sessionId: "session-pr",
+    name: "Shared campaign",
+    briefText: "Shared brief",
+    criteria: [
+      { id: "c1", label: "Campaign" },
+      { id: "c2", label: "Hashtag" },
+      { id: "c3", label: "Message" },
+      { id: "c4", label: "Venue" },
+      { id: "c5", label: "Experience" },
+      { id: "c6", label: "CTA" }
+    ],
+    createdAt: "2026-05-26T00:00:00.000Z",
+    updatedAt: "2026-05-26T00:00:00.000Z"
+  };
+  const row: PrEvidenceRow = {
+    id: "row-shared",
+    campaignId: "campaign-shared",
+    itemId: "item-shared",
+    postUrl: "https://www.threads.net/@shared/post/1",
+    authorHandle: "shared_author",
+    caption: "Shared row from app boundary",
+    metrics: { likes: 12, comments: 3, reposts: 1 },
+    criteriaMatches: { c1: true, c2: false, c3: true, c4: false, c5: false, c6: false },
+    collectedAt: "2026-05-26T00:00:00.000Z"
+  };
+
+  const html = renderToStaticMarkup(
+    React.createElement(PrEvidenceView, {
+      sessionId: "session-pr",
+      resource: {
+        campaign,
+        rows: [row],
+        summary: "",
+        notice: "",
+        uploadError: "",
+        setupCollapsed: true
+      }
+    })
+  );
+
+  assert.match(html, /Shared campaign/);
+  assert.match(html, /shared_author/);
+  assert.match(html, /Shared row from app boundary/);
+  assert.match(html, /1 列/);
+});
+
 test("PrEvidenceView aligns the editorial PR structure to shared workspace tokens", () => {
   const html = renderToStaticMarkup(
     React.createElement(PrEvidenceView, {
