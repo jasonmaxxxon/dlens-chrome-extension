@@ -2,7 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 import type { TargetDescriptor } from "../contracts/target-descriptor";
 import { buildSaveCurrentPreviewTarget } from "../state/action-target";
-import { emitPipelineEvent } from "../state/pipeline-trace";
+import { createPipelineRequestId, emitPipelineEvent } from "../state/pipeline-trace";
 import { DEFAULT_SESSION_NAME_BY_MODE, normalizePostUrl } from "../state/store-helpers";
 import {
   createDefaultLayoutPreferences,
@@ -190,10 +190,33 @@ export async function runAnalyzeItemsPipeline({
   setWorkerStatus: (status: WorkerStatus) => void;
   setDisplayToast: (toast: DisplayToastState) => void;
 }): Promise<{ ok: boolean; failedCount: number }> {
+  const queueRequestId = createPipelineRequestId("popup-bulk-queue");
+  emitPipelineEvent({
+    phase: "crawl.queued",
+    step: "popup.bulk.queue-start.request",
+    target: { sessionId: folderId },
+    result: "pending",
+    requestId: queueRequestId,
+    detail: { itemCount: itemIds.length }
+  });
   const queueResp = await sendAndSync<QueueItemsAndStartProcessingResponse>({
     type: "session/queue-items-and-start-processing",
+    requestId: queueRequestId,
     sessionId: folderId,
     itemIds
+  });
+  emitPipelineEvent({
+    phase: "crawl.queued",
+    step: "popup.bulk.queue-start.response",
+    target: { sessionId: folderId },
+    result: queueResp.ok ? "ok" : "error",
+    requestId: queueRequestId,
+    detail: {
+      ok: queueResp.ok,
+      queuedCount: queueResp.ok ? queueResp.queuedItemIds?.length ?? null : null,
+      failedCount: queueResp.ok ? queueResp.failedItemIds?.length ?? null : null,
+      processingStatus: queueResp.ok ? queueResp.processingStatus ?? null : null
+    }
   });
   if (!queueResp.ok) {
     setDisplayToast({
@@ -224,7 +247,27 @@ export async function runAnalyzeItemsPipeline({
         ? `開始分析 ${queuedCount} 篇（${failedCount} 篇失敗）`
         : `開始分析 ${queuedCount} 篇`
     });
-    await sendAndSync({ type: "session/refresh-all", target: { sessionId: folderId } });
+    const refreshRequestId = createPipelineRequestId("popup-bulk-refresh");
+    emitPipelineEvent({
+      phase: "capture.ready",
+      step: "popup.bulk.refresh.request",
+      target: { sessionId: folderId },
+      result: "pending",
+      requestId: refreshRequestId
+    });
+    const refreshResponse = await sendAndSync({
+      type: "session/refresh-all",
+      requestId: refreshRequestId,
+      target: { sessionId: folderId }
+    });
+    emitPipelineEvent({
+      phase: "capture.ready",
+      step: "popup.bulk.refresh.response",
+      target: { sessionId: folderId },
+      result: refreshResponse.ok ? "ok" : "error",
+      requestId: refreshRequestId,
+      detail: { ok: refreshResponse.ok }
+    });
     return { ok: true, failedCount };
   }
 
@@ -982,11 +1025,13 @@ export function useInPageCollectorAppState({ snapshot, tabId, sendAndSync }: Use
           });
           return;
         }
+        const requestId = createPipelineRequestId("popup-collect-save");
         emitPipelineEvent({
           phase: "preview.confirmed",
           step: "popup.collect.save.request",
           target: { sessionId: message.target.sessionId },
           result: "pending",
+          requestId,
           detail: {
             via: "keyboard",
             postUrl: message.descriptor?.post_url ?? null,
@@ -994,12 +1039,13 @@ export function useInPageCollectorAppState({ snapshot, tabId, sendAndSync }: Use
           }
         });
         const saveStartedAt = performance.now();
-        void sendAndSync(message).then((response) => {
+        void sendAndSync({ ...message, requestId }).then((response) => {
           emitPipelineEvent({
             phase: "signal.saved",
             step: "popup.collect.save.response",
             target: { sessionId: message.target.sessionId },
             result: response.ok ? "ok" : "error",
+            requestId,
             detail: {
               via: "keyboard",
               ok: response.ok,
@@ -1079,11 +1125,13 @@ export function useInPageCollectorAppState({ snapshot, tabId, sendAndSync }: Use
         });
       }
     }
+    const requestId = createPipelineRequestId("popup-collect-save");
     emitPipelineEvent({
       phase: "preview.confirmed",
       step: "popup.collect.save.request",
       target: { sessionId: message.target.sessionId },
       result: "pending",
+      requestId,
       detail: {
         via: "button",
         postUrl: message.descriptor?.post_url ?? null,
@@ -1091,12 +1139,13 @@ export function useInPageCollectorAppState({ snapshot, tabId, sendAndSync }: Use
       }
     });
     const saveStartedAt = performance.now();
-    const response = await sendAndSync(message);
+    const response = await sendAndSync({ ...message, requestId });
     emitPipelineEvent({
       phase: "signal.saved",
       step: "popup.collect.save.response",
       target: { sessionId: message.target.sessionId },
       result: response.ok ? "ok" : "error",
+      requestId,
       detail: {
         via: "button",
         ok: response.ok,
@@ -1258,10 +1307,27 @@ export function useInPageCollectorAppState({ snapshot, tabId, sendAndSync }: Use
       kind: "queued",
       message: `已加入隊列：${activeFolder.name}`
     });
+    const requestId = createPipelineRequestId("popup-queue-item");
+    emitPipelineEvent({
+      phase: "crawl.queued",
+      step: "popup.queue-item.request",
+      target: { sessionId: activeFolder.id, itemId },
+      result: "pending",
+      requestId
+    });
     const response = await sendAndSync({
       type: "session/queue-item",
+      requestId,
       sessionId: activeFolder.id,
       itemId
+    });
+    emitPipelineEvent({
+      phase: "crawl.queued",
+      step: "popup.queue-item.response",
+      target: { sessionId: activeFolder.id, itemId },
+      result: response.ok ? "ok" : "error",
+      requestId,
+      detail: { ok: response.ok }
     });
     setOptimisticQueuedIds((current) => current.filter((id) => id !== itemId));
     if (!response.ok) {
@@ -1295,11 +1361,29 @@ export function useInPageCollectorAppState({ snapshot, tabId, sendAndSync }: Use
         .map((item) => item.id);
       if (pendingIds.length) {
         setOptimisticQueuedIds((current) => Array.from(new Set([...current, ...pendingIds])));
+        const queueRequestId = createPipelineRequestId("popup-queue-all");
+        emitPipelineEvent({
+          phase: "crawl.queued",
+          step: "popup.queue-all.request",
+          target: { sessionId: activeFolder.id },
+          result: "pending",
+          requestId: queueRequestId,
+          detail: { itemCount: pendingIds.length }
+        });
         const queueResponse = await sendAndSync({
           type: "session/queue-all-pending",
+          requestId: queueRequestId,
           target: {
             sessionId: activeFolder.id
           }
+        });
+        emitPipelineEvent({
+          phase: "crawl.queued",
+          step: "popup.queue-all.response",
+          target: { sessionId: activeFolder.id },
+          result: queueResponse.ok ? "ok" : "error",
+          requestId: queueRequestId,
+          detail: { ok: queueResponse.ok }
         });
         setOptimisticQueuedIds((current) => current.filter((id) => !pendingIds.includes(id)));
         if (!queueResponse.ok) {
@@ -1311,7 +1395,29 @@ export function useInPageCollectorAppState({ snapshot, tabId, sendAndSync }: Use
           return;
         }
       }
-      const response = await sendAndSync<StartProcessingResponse>({ type: "worker/start-processing" });
+      const startRequestId = createPipelineRequestId("popup-worker-start");
+      emitPipelineEvent({
+        phase: "crawl.queued",
+        step: "popup.worker.start-processing.request",
+        target: { sessionId: activeFolder.id },
+        result: "pending",
+        requestId: startRequestId
+      });
+      const response = await sendAndSync<StartProcessingResponse>({
+        type: "worker/start-processing",
+        requestId: startRequestId
+      });
+      emitPipelineEvent({
+        phase: "crawl.queued",
+        step: "popup.worker.start-processing.response",
+        target: { sessionId: activeFolder.id },
+        result: response.ok ? "ok" : "error",
+        requestId: startRequestId,
+        detail: {
+          ok: response.ok,
+          processingStatus: response.ok ? response.processingStatus ?? null : null
+        }
+      });
       if (response.ok) {
         setWorkerStatus("draining");
       }
@@ -1325,7 +1431,27 @@ export function useInPageCollectorAppState({ snapshot, tabId, sendAndSync }: Use
           : getProcessingFailureMessage(response.error)
       });
       if (response.ok) {
-        await sendAndSync({ type: "session/refresh-all", target: { sessionId: activeFolder.id } });
+        const refreshRequestId = createPipelineRequestId("popup-process-refresh");
+        emitPipelineEvent({
+          phase: "capture.ready",
+          step: "popup.process.refresh.request",
+          target: { sessionId: activeFolder.id },
+          result: "pending",
+          requestId: refreshRequestId
+        });
+        const refreshResponse = await sendAndSync({
+          type: "session/refresh-all",
+          requestId: refreshRequestId,
+          target: { sessionId: activeFolder.id }
+        });
+        emitPipelineEvent({
+          phase: "capture.ready",
+          step: "popup.process.refresh.response",
+          target: { sessionId: activeFolder.id },
+          result: refreshResponse.ok ? "ok" : "error",
+          requestId: refreshRequestId,
+          detail: { ok: refreshResponse.ok }
+        });
       }
     } finally {
       setIsStartingProcessing(false);
@@ -1338,7 +1464,29 @@ export function useInPageCollectorAppState({ snapshot, tabId, sendAndSync }: Use
     }
     setIsStartingProcessing(true);
     try {
-      const response = await sendAndSync<StartProcessingResponse>({ type: "worker/start-processing" });
+      const startRequestId = createPipelineRequestId("popup-worker-start");
+      emitPipelineEvent({
+        phase: "crawl.queued",
+        step: "popup.worker.start-processing.request",
+        target: { sessionId: activeFolder.id },
+        result: "pending",
+        requestId: startRequestId
+      });
+      const response = await sendAndSync<StartProcessingResponse>({
+        type: "worker/start-processing",
+        requestId: startRequestId
+      });
+      emitPipelineEvent({
+        phase: "crawl.queued",
+        step: "popup.worker.start-processing.response",
+        target: { sessionId: activeFolder.id },
+        result: response.ok ? "ok" : "error",
+        requestId: startRequestId,
+        detail: {
+          ok: response.ok,
+          processingStatus: response.ok ? response.processingStatus ?? null : null
+        }
+      });
       if (response.ok) {
         setWorkerStatus("draining");
       }
@@ -1352,7 +1500,27 @@ export function useInPageCollectorAppState({ snapshot, tabId, sendAndSync }: Use
           : getProcessingFailureMessage(response.error)
       });
       if (response.ok) {
-        await sendAndSync({ type: "session/refresh-all", target: { sessionId: activeFolder.id } });
+        const refreshRequestId = createPipelineRequestId("popup-process-refresh");
+        emitPipelineEvent({
+          phase: "capture.ready",
+          step: "popup.process.refresh.request",
+          target: { sessionId: activeFolder.id },
+          result: "pending",
+          requestId: refreshRequestId
+        });
+        const refreshResponse = await sendAndSync({
+          type: "session/refresh-all",
+          requestId: refreshRequestId,
+          target: { sessionId: activeFolder.id }
+        });
+        emitPipelineEvent({
+          phase: "capture.ready",
+          step: "popup.process.refresh.response",
+          target: { sessionId: activeFolder.id },
+          result: refreshResponse.ok ? "ok" : "error",
+          requestId: refreshRequestId,
+          detail: { ok: refreshResponse.ok }
+        });
       }
     } finally {
       setIsStartingProcessing(false);

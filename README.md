@@ -2,12 +2,12 @@
 
 DLens is a mode-aware MV3 Chrome extension for capturing Threads posts and turning them into research, product-signal, and PR evidence workflows.
 
-> Last updated: 2026-06-11
-> Current release: `0.1.32` · 656/656 tests · build clean
-> Current engineering branch: `main` (release bump staged from `origin/main`)
+> Last updated: 2026-06-12
+> Current release: `0.1.33` · latest merged-code full suite `726/726` · build clean
+> Current engineering branch: `main`
 > Positioning (2026-06-08): local power-tool (self + small technical circle); two separate repos (extension public · ingest-core **private**), not monorepo; visual reset Option A pending
 > Verified build: `output/chrome-mv3`
-> Stability note (0.1.32): Topic audit now gates P1 to capture-ready signals via a shared signal-readiness classifier — uncrawled signals show 未抓取 instead of OP-only readings, and audit counts derive from one evidence list (replacing the old count clamps). Flow 1–16 QA closed with no open bugs; 656/656 tests, build clean.
+> Stability note (0.1.33): Topic audit gates P1 to capture-ready signals via the shared signal-readiness classifier; the typed pipeline trace spine is in place through PR #21, and PR #22 is the open requestId trace-correlation slice. `docs/architecture/dlens-current-architecture-map.md` is now the live architecture/status map.
 
 ## What It Does
 
@@ -61,12 +61,14 @@ npx tsx --test tests/*.test.ts tests/*.test.tsx
 npm run build
 ```
 
-Expected verified state for `0.1.32`:
+Expected verified state for merged `main` `0.1.33` through PR #21:
 
-- `656/656` tests pass
+- `726/726` tests pass
 - `npm run typecheck` passes
 - `npm run build` mirrors the unpacked MV3 build to `output/chrome-mv3`
-- `output/chrome-mv3/manifest.json` reports `version: "0.1.32"` and `name: "DLens v3"`
+- `output/chrome-mv3/manifest.json` reports `version: "0.1.33"` and `name: "DLens v3"`
+
+Open PR #22 (`codex/pipeline-spine-slice-2`) is verified separately at `732/732` with GitHub `verify` checks passing. It adds requestId trace correlation; it does not yet implement stale-response rejection.
 
 ## Second Mac Install
 
@@ -94,6 +96,7 @@ For a 30-minute assisted install on another Mac, use [`docs/setup/second-mac-30-
 
 Read these before non-trivial work:
 
+- [`docs/architecture/dlens-current-architecture-map.md`](./docs/architecture/dlens-current-architecture-map.md) for the live architecture/status map. Treat 🟢 as built, not locked; update the map if a node/edge status changes.
 - [`AGENTS.md`](./AGENTS.md) for process rules, current contracts, and agent handoff notes.
 - [`docs/ENGINEERING_PLAN.md`](./docs/ENGINEERING_PLAN.md) for the completed N1-N5 engineering-plan slice and deferred-trigger pool.
 - [`docs/CODE_REVIEW.md`](./docs/CODE_REVIEW.md) for the current PR self-check contract.
@@ -102,7 +105,7 @@ Read these before non-trivial work:
 
 Current open risks:
 
-- `entrypoints/background.ts` is 3373 lines; do not split handlers unless the trigger in `docs/ENGINEERING_PLAN.md` promotes that work into the committed-next slice.
-- `src/ui/useInPageCollectorAppState.ts` is 1604 lines; continue extraction before adding more product/PR/export routes.
+- `entrypoints/background.ts` is 3488 lines; do not split handlers unless the trigger in `docs/ENGINEERING_PLAN.md` promotes that work into the committed-next slice.
+- `src/ui/useInPageCollectorAppState.ts` is 2148 lines; continue extraction before adding more product/PR/export routes.
 - Backend ThreadReadModel OP-continuation refinement remains Product mode P0.
 - Signal Packet HTML/JSONL needs the next semantic cleanup: HTML evidence density/provenance, `citedInReadingRefs`, latest vs superseded readings, and root `source.pageUrl` investigation.

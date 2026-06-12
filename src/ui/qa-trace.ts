@@ -1,5 +1,6 @@
 export {
   appendPipelineTraceEntry as appendQaTraceEntry,
+  createPipelineRequestId,
   emitPipelineEvent,
   isQaTraceEnabled,
   isQaTraceFlagEnabled,

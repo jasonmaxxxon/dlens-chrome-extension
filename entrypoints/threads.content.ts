@@ -4,7 +4,7 @@ import { defineContentScript } from "wxt/utils/define-content-script";
 import { buildTargetDescriptor, canSubmitDescriptor, findCardCandidate, type CandidateStrength } from "../src/targeting/threads";
 import { createLocationChangeChecker, HOVER_INTENT_DELAY_MS } from "../src/targeting/navigation-reset";
 import type { ExtensionMessage, ExtensionResponse } from "../src/state/messages";
-import { emitPipelineEvent } from "../src/state/pipeline-trace";
+import { createPipelineRequestId, emitPipelineEvent } from "../src/state/pipeline-trace";
 import type { FolderMode } from "../src/state/types";
 import {
   buildSelectionModeMessage,
@@ -524,6 +524,7 @@ function onClick(event: MouseEvent) {
   // Read the folder/topic the popup is showing right now so the click saves to the
   // intended target instead of whatever the background's activeSessionId happens to be.
   const target = getLiveCollectionTarget();
+  const requestId = createPipelineRequestId("content-collect-save");
 
   void (async () => {
     const saveStartedAt = performance.now();
@@ -536,6 +537,7 @@ function onClick(event: MouseEvent) {
         step: "content.collect.save.response",
         target: {},
         result: "error",
+        requestId,
         detail: {
           ok: false,
           elapsedMs: Math.round((performance.now() - saveStartedAt) * 10) / 10,
@@ -554,6 +556,7 @@ function onClick(event: MouseEvent) {
       step: "content.collect.save.request",
       target: { sessionId: target.sessionId },
       result: "pending",
+      requestId,
       detail: {
         postUrl: descriptor.post_url,
         topicId: target.topicId
@@ -562,6 +565,7 @@ function onClick(event: MouseEvent) {
     const response = await chrome.runtime
       .sendMessage({
         type: "session/save-current-preview",
+        requestId,
         target: {
           sessionId: target.sessionId,
           topicId: target.topicId
@@ -574,6 +578,7 @@ function onClick(event: MouseEvent) {
       step: "content.collect.save.response",
       target: { sessionId: target.sessionId },
       result: response?.ok ? "ok" : "error",
+      requestId,
       detail: {
         ok: Boolean(response?.ok),
         elapsedMs: Math.round((performance.now() - saveStartedAt) * 10) / 10,

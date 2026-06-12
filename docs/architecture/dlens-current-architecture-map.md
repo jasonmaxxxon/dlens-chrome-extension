@@ -1,6 +1,6 @@
 # DLens Current Architecture Map (v0.3 — honest status)
 
-> Last updated: 2026-06-12 · Baseline: `main` @ `f77d145` (0.1.33)
+> Last updated: 2026-06-12 · Baseline code: `main` @ `f77d145` before the docs-only map landing; map landed on `main` @ `bcad04f` (0.1.33). Open PR #22 adds requestId trace correlation but does not yet change the `RECONCILE` status.
 > **This is the agent handoff map.** Any Codex / ChatGPT / Claude session reads this FIRST. It is the single source of truth for "what is built, what is enforced, what you must not bypass." Status colors must be kept honest (see DoD rule below) — a stale map is worse than none.
 
 ## Legend
@@ -136,9 +136,9 @@ This file lives at `docs/architecture/dlens-current-architecture-map.md`. Every 
 
 - **A1. Boundary / architecture tests** → 🟢→🟩. View ⊅ `sendExtensionMessage`/`Date.now`/`Math.random`/storage mutation; ViewModel ⊅ `chrome`/`fetch`/DOM/`File`/React; storage write ⊅ bypass seam. *(Do first — it's what makes green mean protected.)*
 - **A2. Storage schema version + migration** → `MIGRATE` 🔴→🟡/🟩. `CURRENT_STORAGE_SCHEMA_VERSION`, migration registry, non-destructive migration, legacy fixture tests.
-- **A3. requestId reconcile / stale-result ignore** → `RECONCILE` 🔴→🟡/🟩. Async command carries `requestId`; backend/LLM late result must match current target; stale result ignored, not written.
+- **A3. requestId reconcile / stale-result ignore** → `RECONCILE` 🔴→🟡/🟩. Async command carries `requestId`; backend/LLM late result must match current target; stale result ignored, not written. PR #22 only seeds requestId trace correlation; do not mark `RECONCILE` built until stale-result ignore is implemented and locked by tests.
 - **A4. Invalidation / rehydrate contract** → `INVALIDATE` 🟡→🟩. Storage write triggers state update; popup rehydrates deterministically; no infinite loading after write.
-- **A5. Backend + direct LLM trace integration** → `TRACE` 🟡→🟩. Trace backend polling + direct LLM calls; record timeout / fallback / provider / provenance.
+- **A5. Backend + direct LLM trace integration** → `TRACE` 🟡→🟩. Trace backend polling + direct LLM calls; record timeout / fallback / provider / provenance. PR #21 typed the event stream; PR #22 threads requestId through collect/capture trace paths; live QA harness and terminal `ui.ready` assertion are still required before `TRACE` can become 🟩.
 
 ### Track B — Product quality / analysis credibility (the user-felt value — run parallel, do NOT defer behind A)
 

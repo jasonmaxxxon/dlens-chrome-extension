@@ -1,6 +1,6 @@
 # AGENTS.md — DLens Chrome Extension v0.1
 
-> **Last updated:** 2026-06-11 (release 0.1.32 — Topic audit signal-readiness gate. A shared classifier `src/state/signal-readiness.ts` (consumed by both Product and Topic) is now the single source of capture state. Topic audit P1 only runs on `ready` signals; uncrawled/`saved` signals render as 未抓取 and no longer produce OP-only cold-reads. Audit header/coverage/source rows derive from one evidence list, replacing the `Math.max/min` + coverage-clamp count reconciliation (B-14 `15/15` locked by characterization test). Prior 0.1.31 state: Flow 1–16 bug log has 0 open bugs, Run 27 live rechecked. 656/656 tests, typecheck, build, version 0.1.32 mirrored into MV3.)
+> **Last updated:** 2026-06-12 (release 0.1.33 — typed pipeline trace is merged through PR #21, and open PR #22 adds requestId trace correlation. `docs/architecture/dlens-current-architecture-map.md` is now the live status-colored architecture map. Latest merged-code verification: 726/726 tests, typecheck, build, version 0.1.33 mirrored into MV3. PR #22 branch verification: 732/732 plus GitHub `verify` checks. Prior 0.1.32 state: Topic audit P1 only runs on `ready` signals via shared `src/state/signal-readiness.ts`; uncrawled/`saved` signals render as 未抓取 and no longer produce OP-only cold-reads.)
 > **For:** any agent continuing work in this repo
 > **READ FIRST:** [`docs/architecture/dlens-current-architecture-map.md`](docs/architecture/dlens-current-architecture-map.md) — the status-colored handoff map (🟩 locked / 🟢 built / 🟡 partial / 🔴 not built). Don't treat 🟢 as 🟩; don't bypass ViewModel / typed command target / storage seam / pipeline trace; any async-path PR must handle requestId + invalidation + rehydrate; update the map's colors in your PR if status changes.
 
@@ -119,10 +119,11 @@ The extension is now **extension-first**, not SaaS-first:
 
 ## Quick Start
 
-1. Read `README.md` when working in the active product/PR worktree.
-2. Read `docs/memory/current-state.md`.
-3. If you are in another checkout, confirm whether the task belongs there or in `dlens-product-latest` before editing.
-4. Run:
+1. Read `docs/architecture/dlens-current-architecture-map.md` first; it is the live architecture/status map.
+2. Read `README.md` when working in the active product/PR worktree.
+3. Read `docs/memory/current-state.md`.
+4. If you are in another checkout, confirm whether the task belongs there or in `dlens-product-latest` before editing.
+5. Run:
 
 ```bash
 cd dlens-product-latest
@@ -366,7 +367,7 @@ Important implementation points:
 - `SettingsView.tsx` no longer owns visible layout controls; it stays focused on folder mode, connection/storage usage, API keys, and ProductProfile.
 - `InPageCollectorPopup.tsx` threads persisted layout settings into Product signal cards, Topic synthesis, and Compare Result.
 - Topic Detail's primary overview is now semantic `SignalTagsRecord` data from `dlens:v1:signal-tags`, not deterministic keyword frequency. `TopicSynthesis` and `FolderSynthesis` remain deterministic extension-side layers over analyzed signals for legacy/folder contexts and do not replace backend clustering.
-- Current verification was run from `dlens-product-latest`: `656/656` tests, `npm run typecheck`, and `npm run build` passed.
+- Latest merged-code verification was run from `dlens-product-latest`: `726/726` tests, `npm run typecheck`, and `npm run build` passed. Open PR #22 is separately verified at `732/732` with GitHub `verify` checks passing.
 - The verified unpacked build was copied to `output/chrome-mv3` for Chrome load-unpacked use.
 - `dlens-product-latest` source checkout may be dirty; do not infer clean source state from the copied build artifact.
 
@@ -627,7 +628,7 @@ The full cluster pipeline runs in `dlens-ingest-core`, not in this repo:
 6. Compare summaries must degrade cleanly when no key is configured or model call fails.
 7. Google (Gemini 3.1 Flash Lite) is the default compare-summary provider; `ExtensionSettings.googleApiKey` must be handled alongside openai/claude keys in all settings paths.
 8. `src/analysis/*` and `src/compare/*` are display/read-model adapters, not the canonical backend clustering source of truth.
-9. After any code change, update this file and the README.
+9. After any code change, update this file and the README. If a boundary, data flow, async path, storage seam, backend job path, LLM call path, or ViewModel/View responsibility changed, update `docs/architecture/dlens-current-architecture-map.md` too.
 
 ## Known Risks
 
@@ -636,7 +637,7 @@ The full cluster pipeline runs in `dlens-ingest-core`, not in this repo:
 - `useInPageCollectorAppState.ts` is still a large orchestration hub after the shell split and is the next place to keep carving down
 - inline styles are widespread but `tokens.ts` now provides the full design token layer; remaining inline refs can migrate incrementally
 - hover debounce still feels slow (360ms)
-- the full `tests/*.test.ts{,x}` suite passes **656/656** as of the current `0.1.32` verification
+- the full `tests/*.test.ts{,x}` suite passes **726/726** on merged `main` through PR #21; open PR #22 is separately verified at **732/732**
 
 ### P3
 
@@ -651,7 +652,7 @@ The full cluster pipeline runs in `dlens-ingest-core`, not in this repo:
 
 Some audits against `historical dlens_chrome_extension_branch checkout` no longer describe the real state of this repo.
 
-In `dlens-chrome-extension-v0`, these older prototype debts are already reduced or closed:
+In the active `dlens-product-latest` extension repo, these older prototype debts are already reduced or closed:
 
 - local persistence uses `chrome.storage.local`, not `window.localStorage`
 - hover preview no longer writes to storage; it uses in-memory state/cache
@@ -812,9 +813,9 @@ Also fixed in the optional ingest backend:
 Before claiming success:
 
 ```bash
-cd dlens-chrome-extension-v0
+cd dlens-product-latest
 npm run typecheck
-npx tsx --test tests/*.test.ts tests/*.test.tsx  # expect 656/656
+npx tsx --test tests/*.test.ts tests/*.test.tsx  # expect current-branch count: 726/726 on main through PR #21; 732/732 on PR #22
 npm run build
 ```
 

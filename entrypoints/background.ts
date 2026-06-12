@@ -12,6 +12,12 @@ import {
 import type { CaptureSnapshot, CaptureTargetResponse, JobSnapshot } from "../src/contracts/ingest";
 import type { TargetDescriptor } from "../src/contracts/target-descriptor";
 import type { ExtensionMessage, ExtensionResponse, StartProcessingResponse, WorkerStatusMessageResponse } from "../src/state/messages";
+import {
+  createPipelineRequestId,
+  emitPipelineEvent,
+  type PipelinePhase,
+  type PipelineTarget
+} from "../src/state/pipeline-trace";
 import { queueItemsSequential } from "../src/state/queue-items";
 import {
   buildCompareBriefCacheKey,
@@ -1393,6 +1399,58 @@ async function broadcastToAllTabs(message: ExtensionMessage): Promise<void> {
       .filter((tabId): tabId is number => typeof tabId === "number")
       .map((tabId) => chrome.tabs.sendMessage(tabId, message).catch(() => undefined))
   );
+}
+
+async function traceBackgroundPipeline<T>({
+  phase,
+  step,
+  target,
+  requestId,
+  detail,
+  responseDetail,
+  run
+}: {
+  phase: PipelinePhase;
+  step: string;
+  target: PipelineTarget;
+  requestId?: string;
+  detail?: unknown;
+  responseDetail?: (value: T) => unknown;
+  run: () => Promise<T>;
+}): Promise<T> {
+  const resolvedRequestId = requestId ?? createPipelineRequestId(step);
+  emitPipelineEvent({
+    phase,
+    step: `${step}.request`,
+    target,
+    result: "pending",
+    requestId: resolvedRequestId,
+    detail
+  });
+  try {
+    const value = await run();
+    emitPipelineEvent({
+      phase,
+      step: `${step}.response`,
+      target,
+      result: "ok",
+      requestId: resolvedRequestId,
+      detail: responseDetail ? responseDetail(value) : undefined
+    });
+    return value;
+  } catch (error) {
+    emitPipelineEvent({
+      phase,
+      step: `${step}.response`,
+      target,
+      result: "error",
+      requestId: resolvedRequestId,
+      detail: {
+        error: error instanceof Error ? error.message : String(error)
+      }
+    });
+    throw error;
+  }
 }
 
 function activeSessionWithFallback(globalState: ExtensionGlobalState): SessionRecord {
@@ -3066,14 +3124,25 @@ export default defineBackground(() => {
           }
           case "session/save-current-preview": {
             const tabId = await resolveTabId(sender);
+            const target = requireSaveCurrentPreviewTarget(message.target);
+            const snapshot = await traceBackgroundPipeline({
+              phase: "signal.saved",
+              step: "background.session.save-current-preview",
+              target: { sessionId: target.sessionId, tabId },
+              requestId: message.requestId,
+              detail: {
+                hasDescriptor: Boolean(message.descriptor),
+                topicId: target.topicId ?? null
+              },
+              responseDetail: (nextSnapshot) => ({
+                itemId: nextSnapshot.tab.activeItemId ?? null
+              }),
+              run: () => saveCurrentPreviewToSession(tabId, target, message.descriptor)
+            });
             sendResponse({
               ok: true,
               tabId,
-              snapshot: await saveCurrentPreviewToSession(
-                tabId,
-                requireSaveCurrentPreviewTarget(message.target),
-                message.descriptor
-              )
+              snapshot
             } satisfies ExtensionResponse);
             return;
           }
@@ -3088,7 +3157,18 @@ export default defineBackground(() => {
           }
           case "session/queue-item": {
             const tabId = await resolveTabId(sender);
-            const queued = await queueSessionItem(tabId, message.sessionId, message.itemId);
+            const queued = await traceBackgroundPipeline({
+              phase: "crawl.queued",
+              step: "background.session.queue-item",
+              target: { sessionId: message.sessionId, itemId: message.itemId, tabId },
+              requestId: message.requestId,
+              detail: { source: "session/queue-item" },
+              responseDetail: (result) => ({
+                jobId: result.submit.job_id,
+                captureId: result.submit.capture_id
+              }),
+              run: () => queueSessionItem(tabId, message.sessionId, message.itemId)
+            });
             sendResponse({
               ok: true,
               tabId,
@@ -3100,7 +3180,18 @@ export default defineBackground(() => {
           case "session/queue-selected": {
             const tabId = await resolveTabId(sender);
             const target = requireSessionItemActionTarget(message.target);
-            const queued = await queueSessionItem(tabId, target.sessionId, target.itemId);
+            const queued = await traceBackgroundPipeline({
+              phase: "crawl.queued",
+              step: "background.session.queue-item",
+              target: { sessionId: target.sessionId, itemId: target.itemId, tabId },
+              requestId: message.requestId,
+              detail: { source: "session/queue-selected" },
+              responseDetail: (result) => ({
+                jobId: result.submit.job_id,
+                captureId: result.submit.capture_id
+              }),
+              run: () => queueSessionItem(tabId, target.sessionId, target.itemId)
+            });
             sendResponse({
               ok: true,
               tabId,
@@ -3112,16 +3203,34 @@ export default defineBackground(() => {
           case "session/queue-all-pending": {
             const tabId = await resolveTabId(sender);
             const target = requireSessionActionTarget(message.target);
+            const snapshot = await traceBackgroundPipeline({
+              phase: "crawl.queued",
+              step: "background.session.queue-all-pending",
+              target: { sessionId: target.sessionId, tabId },
+              requestId: message.requestId,
+              run: () => queueAllPending(tabId, target.sessionId)
+            });
             sendResponse({
               ok: true,
               tabId,
-              snapshot: await queueAllPending(tabId, target.sessionId)
+              snapshot
             } satisfies ExtensionResponse);
             return;
           }
           case "session/queue-items": {
             const tabId = await resolveTabId(sender);
-            const result = await queueSessionItems(tabId, message.sessionId, message.itemIds);
+            const result = await traceBackgroundPipeline({
+              phase: "crawl.queued",
+              step: "background.session.queue-items",
+              target: { sessionId: message.sessionId, tabId },
+              requestId: message.requestId,
+              detail: { itemCount: message.itemIds.length },
+              responseDetail: (queued) => ({
+                queuedCount: queued.queuedItemIds.length,
+                failedCount: queued.failedItemIds.length
+              }),
+              run: () => queueSessionItems(tabId, message.sessionId, message.itemIds)
+            });
             sendResponse({
               ok: true,
               tabId,
@@ -3134,7 +3243,20 @@ export default defineBackground(() => {
           case "session/queue-items-and-start-processing": {
             const tabId = await resolveTabId(sender);
             try {
-              const result = await queueSessionItemsAndStartProcessing(tabId, message.sessionId, message.itemIds);
+              const result = await traceBackgroundPipeline({
+                phase: "crawl.queued",
+                step: "background.session.queue-items-and-start-processing",
+                target: { sessionId: message.sessionId, tabId },
+                requestId: message.requestId,
+                detail: { itemCount: message.itemIds.length },
+                responseDetail: (queued) => ({
+                  queuedCount: queued.queuedItemIds.length,
+                  failedCount: queued.failedItemIds.length,
+                  processingStatus: queued.processingStatus ?? null,
+                  processingError: queued.processingError ?? null
+                }),
+                run: () => queueSessionItemsAndStartProcessing(tabId, message.sessionId, message.itemIds)
+              });
               sendResponse({
                 ok: true,
                 tabId,
@@ -3155,7 +3277,17 @@ export default defineBackground(() => {
           }
           case "session/refresh-item": {
             const tabId = await resolveTabId(sender);
-            const refreshed = await refreshItem(tabId, message.sessionId, message.itemId);
+            const refreshed = await traceBackgroundPipeline({
+              phase: "capture.ready",
+              step: "background.session.refresh-item",
+              target: { sessionId: message.sessionId, itemId: message.itemId, tabId },
+              requestId: message.requestId,
+              responseDetail: (result) => ({
+                jobStatus: result.job?.status ?? null,
+                hasCapture: Boolean(result.capture)
+              }),
+              run: () => refreshItem(tabId, message.sessionId, message.itemId)
+            });
             sendResponse({
               ok: true,
               tabId,
@@ -3168,7 +3300,18 @@ export default defineBackground(() => {
           case "session/refresh-selected": {
             const tabId = await resolveTabId(sender);
             const target = requireSessionItemActionTarget(message.target);
-            const refreshed = await refreshItem(tabId, target.sessionId, target.itemId);
+            const refreshed = await traceBackgroundPipeline({
+              phase: "capture.ready",
+              step: "background.session.refresh-item",
+              target: { sessionId: target.sessionId, itemId: target.itemId, tabId },
+              requestId: message.requestId,
+              detail: { source: "session/refresh-selected" },
+              responseDetail: (result) => ({
+                jobStatus: result.job?.status ?? null,
+                hasCapture: Boolean(result.capture)
+              }),
+              run: () => refreshItem(tabId, target.sessionId, target.itemId)
+            });
             sendResponse({
               ok: true,
               tabId,
@@ -3181,10 +3324,17 @@ export default defineBackground(() => {
           case "session/refresh-all": {
             const tabId = await resolveTabId(sender);
             const target = requireSessionActionTarget(message.target);
+            const snapshot = await traceBackgroundPipeline({
+              phase: "capture.ready",
+              step: "background.session.refresh-all",
+              target: { sessionId: target.sessionId, tabId },
+              requestId: message.requestId,
+              run: () => refreshAllItems(tabId, target.sessionId)
+            });
             sendResponse({
               ok: true,
               tabId,
-              snapshot: await refreshAllItems(tabId, target.sessionId)
+              snapshot
             } satisfies ExtensionResponse);
             return;
           }
@@ -3192,7 +3342,14 @@ export default defineBackground(() => {
             const tabId = await resolveTabId(sender);
             const current = await loadSnapshot(tabId);
             try {
-              const processing = await triggerWorkerDrain(normalizeBaseUrl(current.global.settings.ingestBaseUrl));
+              const processing = await traceBackgroundPipeline({
+                phase: "crawl.queued",
+                step: "background.worker.start-processing",
+                target: { tabId },
+                requestId: message.requestId,
+                responseDetail: (result) => ({ processingStatus: result.status }),
+                run: () => triggerWorkerDrain(normalizeBaseUrl(current.global.settings.ingestBaseUrl))
+              });
               const snapshot = await mutateSnapshot(tabId, (latest) => ({
                 global: latest.global,
                 tab: {
@@ -3226,7 +3383,14 @@ export default defineBackground(() => {
             const tabId = await resolveTabId(sender);
             const current = await loadSnapshot(tabId);
             try {
-              const worker = await fetchWorkerStatus(normalizeBaseUrl(current.global.settings.ingestBaseUrl));
+              const worker = await traceBackgroundPipeline({
+                phase: "crawl.queued",
+                step: "background.worker.get-status",
+                target: { tabId },
+                requestId: message.requestId,
+                responseDetail: (result) => ({ workerStatus: result.status }),
+                run: () => fetchWorkerStatus(normalizeBaseUrl(current.global.settings.ingestBaseUrl))
+              });
               sendResponse({
                 ok: true,
                 tabId,

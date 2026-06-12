@@ -35,7 +35,7 @@ import type { TopicAuditValidationFlag } from "../compare/topic-audit-validator"
 import type { TopicAuditMemoBundle } from "./topic-audit-storage";
 import type { SaveCurrentPreviewActionTarget, SessionActionTarget, SessionItemActionTarget } from "./action-target";
 
-export type ExtensionMessage =
+export type ExtensionMessagePayload =
   | { type: "state/get-active-tab" }
   | { type: "state/get-tab"; tabId: number }
   | { type: "storage/get-usage" }
@@ -138,6 +138,8 @@ export type ExtensionMessage =
     judgmentSource: SavedAnalysisSnapshot["judgmentSource"];
   }
   | { type: "state/updated"; tabId: number; snapshot: ExtensionSnapshot };
+
+export type ExtensionMessage = ExtensionMessagePayload & { requestId?: string };
 
 export interface BackendHealth {
   reachable: boolean;
