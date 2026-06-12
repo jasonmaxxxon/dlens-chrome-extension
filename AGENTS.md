@@ -2,6 +2,7 @@
 
 > **Last updated:** 2026-06-11 (release 0.1.32 — Topic audit signal-readiness gate. A shared classifier `src/state/signal-readiness.ts` (consumed by both Product and Topic) is now the single source of capture state. Topic audit P1 only runs on `ready` signals; uncrawled/`saved` signals render as 未抓取 and no longer produce OP-only cold-reads. Audit header/coverage/source rows derive from one evidence list, replacing the `Math.max/min` + coverage-clamp count reconciliation (B-14 `15/15` locked by characterization test). Prior 0.1.31 state: Flow 1–16 bug log has 0 open bugs, Run 27 live rechecked. 656/656 tests, typecheck, build, version 0.1.32 mirrored into MV3.)
 > **For:** any agent continuing work in this repo
+> **READ FIRST:** [`docs/architecture/dlens-current-architecture-map.md`](docs/architecture/dlens-current-architecture-map.md) — the status-colored handoff map (🟩 locked / 🟢 built / 🟡 partial / 🔴 not built). Don't treat 🟢 as 🟩; don't bypass ViewModel / typed command target / storage seam / pipeline trace; any async-path PR must handle requestId + invalidation + rehydrate; update the map's colors in your PR if status changes.
 
 ## Recently Fixed (2026-05-28) — Product action board and card geometry
 
