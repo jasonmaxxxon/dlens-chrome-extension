@@ -95,8 +95,8 @@ The verified build in the active Phase B implementation worktree is:
 - backend physical checkout: `../dlens-ingest-core`
 - old versions and historical worktrees: `local dlens-old archive`
 - verification: `npm run typecheck`, `npx tsx --test tests/*.test.ts tests/*.test.tsx`, and `npm run build`
-- latest merged-code full test count after PR #22: `732 pass, 0 fail`
-- PR #22 merged on 2026-06-12 as `ad8ddbf`; Desktop was fast-forwarded and rebuilt into `output/chrome-mv3`
+- latest merged-code full test count after PR #25: `752 pass, 0 fail`
+- PR #25 merged on 2026-06-13 as `8106c42`; version remains `0.1.33`
 - latest build output was mirrored to `output/chrome-mv3`
 - current engineering branch: `main`
 - live backend smoke from the prior product run: `GET http://127.0.0.1:8000/worker/status` returned `{"status":"idle"}`
@@ -104,7 +104,7 @@ The verified build in the active Phase B implementation worktree is:
 - version is locked across `package.json`, `package-lock.json`, `wxt.config.ts` `manifest.version`, and `src/ui/version.ts` `BUILD_VERSION`
 - runtime tab targeting fix: content-script `state/get-active-tab` and collect start/cancel must resolve to `sender.tab.id` before falling back to Chrome's focused tab, otherwise the popup can show collect mode off while the Threads content script is already in crosshair/overlay mode
 
-## Recent PR Progress As Of 2026-06-12
+## Recent PR Progress As Of 2026-06-13
 
 - PR #17 merged: Topic ViewModel boundary, Topic view consumes `{ viewModel, onCommand }`, and B-14 audit denominator drift is characterized.
 - PR #18 merged: Compare ViewModel boundary with readiness/selection, fallback/provenance/load-state, cluster surfaces, and async fetch responsibility kept in the shell.
@@ -114,7 +114,8 @@ The verified build in the active Phase B implementation worktree is:
 - PR #22 merged: collect/capture requestId trace correlation across content, popup, background save/queue/worker/refresh, and processing coordinator paths. It deliberately does not implement stale-response rejection yet.
 - PR #23 merged: terminal `ui.ready` events now project from Product / Topic / Compare / PR Evidence ViewModel state through the UI shell.
 - PR #24 merged: typed trace summary + live QA harness gate landed; `TRACE` remains 🟡 until backend/direct LLM trace paths and real live trace artifacts are locked.
-- This slice starts `RECONCILE` by adding tested stale-result ignore for Compare/Product/Folder/PR UI async response writes plus a narrow session-scoped snapshot guard. Treat it as 🟡 until storage-seam-wide stale write rejection lands.
+- PR #25 merged: `RECONCILE` starts with tested stale-result ignore for Compare/Product/Folder/PR UI async response writes plus a narrow session-scoped snapshot guard. Treat it as 🟡 until storage-seam-wide stale write rejection lands.
+- Current TRACE fixture-gate branch: adds `docs/qa/assets/2026-06-13/live-trace-happy.json`, `npm run qa:harness:fixture`, and a CI verify step that runs the live pipeline harness against a committed Chrome-captured typed `ui.ready` trace. This locks popup rehydrate / `ui.ready` terminal reachability only; backend/direct LLM trace and a full hover → queue → analysis live artifact remain pending.
 
 ## PR Evidence V1 Contract State
 

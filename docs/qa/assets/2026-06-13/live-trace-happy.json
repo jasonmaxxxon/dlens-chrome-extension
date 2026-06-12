@@ -1,0 +1,84 @@
+[
+  {
+    "at": 5658.5,
+    "id": 1,
+    "isoTime": "2026-06-12T17:05:22.911Z",
+    "phase": "signal.saved",
+    "result": "pending",
+    "step": "content.selection.sync.request",
+    "target": {}
+  },
+  {
+    "at": 5699,
+    "detail": {
+      "mode": "archive",
+      "popupOpen": false
+    },
+    "id": 2,
+    "isoTime": "2026-06-12T17:05:22.952Z",
+    "phase": "ui.ready",
+    "result": "ok",
+    "step": "popup.topic.hydrate.skip",
+    "target": {}
+  },
+  {
+    "at": 5700.29999999702,
+    "detail": {
+      "isProductSignalPage": false,
+      "mode": "archive",
+      "page": "library",
+      "popupOpen": false
+    },
+    "id": 3,
+    "isoTime": "2026-06-12T17:05:22.953Z",
+    "phase": "ui.ready",
+    "result": "ok",
+    "step": "popup.product.hydrate.skip",
+    "target": {}
+  },
+  {
+    "at": 6873.39999999851,
+    "detail": {
+      "hasSnapshot": true,
+      "ok": true
+    },
+    "id": 4,
+    "isoTime": "2026-06-12T17:05:24.127Z",
+    "phase": "signal.saved",
+    "result": "ok",
+    "step": "content.selection.sync.response",
+    "target": {}
+  },
+  {
+    "at": 6933.199999999255,
+    "detail": {
+      "mode": "product",
+      "popupOpen": false
+    },
+    "id": 5,
+    "isoTime": "2026-06-12T17:05:24.186Z",
+    "phase": "ui.ready",
+    "result": "ok",
+    "step": "popup.topic.hydrate.skip",
+    "target": {
+      "sessionId": "session_ywskiblc_mp6p013z"
+    }
+  },
+  {
+    "at": 6933.699999999255,
+    "detail": {
+      "isProductSignalPage": true,
+      "mode": "product",
+      "page": "saved-signals",
+      "popupOpen": false
+    },
+    "id": 6,
+    "isoTime": "2026-06-12T17:05:24.187Z",
+    "phase": "ui.ready",
+    "result": "ok",
+    "step": "popup.product.hydrate.skip",
+    "target": {
+      "sessionId": "session_ywskiblc_mp6p013z"
+    }
+  }
+]

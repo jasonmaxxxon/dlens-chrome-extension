@@ -212,9 +212,11 @@ async function loadTrace(args) {
 
 function buildEvidence({ args, build, traceSource, trace, summary }) {
   const terminal = summary.terminal;
+  const status = summary.firstError || !terminal?.reached ? "fail" : "pass";
   return {
     generatedAt: new Date().toISOString(),
     type: "dlens-live-pipeline-harness",
+    status,
     label: args.label ?? "live-pipeline",
     build,
     traceSource,

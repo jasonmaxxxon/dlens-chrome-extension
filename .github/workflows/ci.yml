@@ -19,3 +19,4 @@ jobs:
       # Mirrors the README verify flow; tsx is resolved on demand by npx.
       - run: npx tsx --test tests/*.test.ts tests/*.test.tsx
       - run: npm run build
+      - run: npm run qa:harness:fixture
