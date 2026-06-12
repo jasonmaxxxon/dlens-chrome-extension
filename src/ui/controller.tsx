@@ -1,6 +1,12 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import type { ExtensionMessage, ExtensionResponse } from "../state/messages";
 import type { ExtensionSnapshot, SessionItem, SessionRecord } from "../state/types";
+import { createPipelineRequestId, emitPipelineEvent } from "../state/pipeline-trace";
+import {
+  buildReconcileIgnoredEvent,
+  createRequestReconciler,
+  type RequestReconcileTarget
+} from "../state/request-reconcile";
 import { needsCaptureRefresh } from "../state/store-helpers";
 
 type RuntimeMessageListener = Parameters<typeof chrome.runtime.onMessage.addListener>[0];
@@ -76,6 +82,51 @@ export function addRuntimeMessageListener(listener: RuntimeMessageListener): () 
   };
 }
 
+const SNAPSHOT_RECONCILE_MESSAGE_TYPES = new Set<string>([
+  "session/refresh-all",
+  "session/queue-items-and-start-processing",
+  "product/analyze-signals",
+  "product/synthesize-signal-reading",
+  "product/review-signal-reading",
+  "folder/synthesis/generate",
+  "folder/synthesis/clear",
+  "pr/match-criteria",
+  "pr/fetch-advanced-metrics",
+  "pr/generate-summary"
+]);
+
+function readStringField(source: Record<string, unknown>, key: string): string | undefined {
+  const value = source[key];
+  return typeof value === "string" && value.trim() ? value : undefined;
+}
+
+function readMessageTarget(message: ExtensionMessage): RequestReconcileTarget {
+  const raw = message as Record<string, unknown>;
+  const nestedTarget = raw.target && typeof raw.target === "object" && !Array.isArray(raw.target)
+    ? raw.target as Record<string, unknown>
+    : {};
+  return {
+    sessionId: readStringField(raw, "sessionId") ?? readStringField(nestedTarget, "sessionId"),
+    itemId: readStringField(raw, "itemId") ?? readStringField(nestedTarget, "itemId"),
+    signalId: readStringField(raw, "signalId") ?? readStringField(nestedTarget, "signalId"),
+    campaignId: readStringField(raw, "campaignId") ?? readStringField(nestedTarget, "campaignId")
+  };
+}
+
+export function buildSnapshotReconcileDescriptor(message: ExtensionMessage): { lane: string; target: RequestReconcileTarget } | null {
+  if (!SNAPSHOT_RECONCILE_MESSAGE_TYPES.has(message.type)) {
+    return null;
+  }
+  const target = readMessageTarget(message);
+  if (!target.sessionId) {
+    return null;
+  }
+  return {
+    lane: `snapshot.${message.type}`,
+    target: { sessionId: target.sessionId }
+  };
+}
+
 export function getActiveSession(snapshot: ExtensionSnapshot | null): SessionRecord | null {
   if (!snapshot?.global.activeSessionId) {
     return null;
@@ -94,10 +145,17 @@ export function getActiveItem(snapshot: ExtensionSnapshot | null): SessionItem |
 export function useExtensionSnapshot(polling = true) {
   const [snapshot, setSnapshot] = useState<ExtensionSnapshot | null>(null);
   const [tabId, setTabId] = useState<number | null>(null);
+  const snapshotRef = useRef<ExtensionSnapshot | null>(null);
+  const snapshotReconcilerRef = useRef(createRequestReconciler());
+
+  useEffect(() => {
+    snapshotRef.current = snapshot;
+  }, [snapshot]);
 
   async function refreshState() {
     const response = await sendExtensionMessage<ExtensionResponse>({ type: "state/get-active-tab" });
     if (response.ok && response.snapshot) {
+      snapshotRef.current = response.snapshot;
       setSnapshot(response.snapshot);
       setTabId(response.tabId ?? null);
     }
@@ -112,6 +170,7 @@ export function useExtensionSnapshot(polling = true) {
     const listener = (message: unknown) => {
       const typed = message as { type?: string; tabId?: number; snapshot?: ExtensionSnapshot };
       if (typed.type === "state/updated" && typed.snapshot) {
+        snapshotRef.current = typed.snapshot;
         setSnapshot(typed.snapshot);
         setTabId(typed.tabId ?? null);
       }
@@ -152,8 +211,29 @@ export function useExtensionSnapshot(polling = true) {
   }, [polling, runningItemIds.join(","), snapshot?.global.activeSessionId]);
 
   async function sendAndSync<T extends ExtensionResponse = ExtensionResponse>(message: ExtensionMessage): Promise<T> {
-    const response = await sendExtensionMessage<T>(message);
+    const outgoing = {
+      ...message,
+      requestId: message.requestId ?? createPipelineRequestId(`ui-${message.type}`)
+    } as ExtensionMessage;
+    const descriptor = buildSnapshotReconcileDescriptor(outgoing);
+    const token = descriptor
+      ? snapshotReconcilerRef.current.begin({
+        ...descriptor,
+        requestId: outgoing.requestId!
+      })
+      : null;
+    const response = await sendExtensionMessage<T>(outgoing);
     if (response.ok && response.snapshot) {
+      if (token) {
+        const decision = snapshotReconcilerRef.current.complete(token, {
+          currentTarget: { sessionId: snapshotRef.current?.global.activeSessionId ?? "" }
+        });
+        if (!decision.accepted) {
+          emitPipelineEvent(buildReconcileIgnoredEvent(token, decision));
+          return response;
+        }
+      }
+      snapshotRef.current = response.snapshot;
       setSnapshot(response.snapshot);
       setTabId(response.tabId ?? null);
     }

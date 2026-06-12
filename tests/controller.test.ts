@@ -1,7 +1,11 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import { addRuntimeMessageListener, sendExtensionMessage } from "../src/ui/controller.tsx";
+import {
+  addRuntimeMessageListener,
+  buildSnapshotReconcileDescriptor,
+  sendExtensionMessage
+} from "../src/ui/controller.tsx";
 
 test("sendExtensionMessage retries connection loss with staggered backoff delays", async () => {
   const originalChrome = globalThis.chrome;
@@ -130,4 +134,52 @@ test("addRuntimeMessageListener still throws unrelated listener setup errors", (
   } finally {
     globalThis.chrome = originalChrome;
   }
+});
+
+test("buildSnapshotReconcileDescriptor only guards long async session-scoped writes", () => {
+  assert.deepEqual(
+    buildSnapshotReconcileDescriptor({
+      type: "product/analyze-signals",
+      sessionId: "session-1",
+      requestId: "request-1"
+    }),
+    {
+      lane: "snapshot.product/analyze-signals",
+      target: { sessionId: "session-1" }
+    }
+  );
+  assert.deepEqual(
+    buildSnapshotReconcileDescriptor({
+      type: "session/refresh-all",
+      target: { sessionId: "session-2" }
+    }),
+    {
+      lane: "snapshot.session/refresh-all",
+      target: { sessionId: "session-2" }
+    }
+  );
+  assert.deepEqual(
+    buildSnapshotReconcileDescriptor({
+      type: "folder/synthesis/generate",
+      sessionId: "session-4"
+    }),
+    {
+      lane: "snapshot.folder/synthesis/generate",
+      target: { sessionId: "session-4" }
+    }
+  );
+  assert.equal(
+    buildSnapshotReconcileDescriptor({
+      type: "session/set-active",
+      sessionId: "session-3"
+    }),
+    null
+  );
+  assert.equal(
+    buildSnapshotReconcileDescriptor({
+      type: "pr/match-criteria",
+      campaignId: "campaign-1"
+    }),
+    null
+  );
 });

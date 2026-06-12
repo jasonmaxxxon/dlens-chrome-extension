@@ -3,6 +3,13 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { TargetDescriptor } from "../contracts/target-descriptor";
 import { buildSaveCurrentPreviewTarget } from "../state/action-target";
 import { createPipelineRequestId, emitPipelineEvent } from "../state/pipeline-trace";
+import {
+  buildReconcileIgnoredEvent,
+  createRequestReconciler,
+  type RequestReconcileDecision,
+  type RequestReconcileTarget,
+  type RequestReconcileToken
+} from "../state/request-reconcile";
 import { DEFAULT_SESSION_NAME_BY_MODE, normalizePostUrl } from "../state/store-helpers";
 import {
   createDefaultLayoutPreferences,
@@ -283,6 +290,7 @@ export function useInPageCollectorAppState({ snapshot, tabId, sendAndSync }: Use
   const popupRef = useRef<HTMLDivElement | null>(null);
   const hadReadyPairRef = useRef(false);
   const refreshedOnOpenFolderRef = useRef<string | null>(null);
+  const requestReconcilerRef = useRef(createRequestReconciler());
   usePopupKeyframes();
 
   const [showFolderPrompt, setShowFolderPrompt] = useState(false);
@@ -332,6 +340,20 @@ export function useInPageCollectorAppState({ snapshot, tabId, sendAndSync }: Use
     [optimisticSessionMode, snapshot]
   );
   const activeFolder = optimisticFolder ?? snapshotActiveFolder;
+  const activeFolderIdRef = useRef(activeFolder?.id ?? "");
+  const activePrCampaignIdRef = useRef(activePrCampaign?.id ?? prEvidenceResource.campaign.id ?? "");
+  activeFolderIdRef.current = activeFolder?.id ?? "";
+  activePrCampaignIdRef.current = activePrCampaign?.id ?? prEvidenceResource.campaign.id ?? "";
+  const settleReconciledResponse = useCallback((
+    token: RequestReconcileToken,
+    currentTarget: RequestReconcileTarget
+  ): RequestReconcileDecision => {
+    const decision = requestReconcilerRef.current.complete(token, { currentTarget });
+    if (!decision.accepted) {
+      emitPipelineEvent(buildReconcileIgnoredEvent(token, decision));
+    }
+    return decision;
+  }, []);
   const activeItem = useMemo(() => getActiveItem(snapshot), [snapshot]);
   const activeFolderMode: FolderMode = activeFolder?.mode ?? "archive";
   const popupOpen = Boolean(snapshot?.tab.popupOpen);
@@ -1582,37 +1604,72 @@ export function useInPageCollectorAppState({ snapshot, tabId, sendAndSync }: Use
     if (!activeFolder?.id || isGeneratingFolderSynthesis) {
       return;
     }
+    const sessionId = activeFolder.id;
+    const requestId = createPipelineRequestId("folder-synthesis-generate");
+    const token = requestReconcilerRef.current.begin({
+      lane: "folder.generateSynthesis",
+      requestId,
+      target: { sessionId }
+    });
     setIsGeneratingFolderSynthesis(true);
     setFolderSynthesisError(null);
+    let settled: RequestReconcileDecision | null = null;
     try {
       const response = await sendAndSync({
         type: "folder/synthesis/generate",
-        sessionId: activeFolder.id
+        requestId,
+        sessionId
       });
+      settled = settleReconciledResponse(token, { sessionId: activeFolderIdRef.current });
+      if (!settled.accepted) {
+        return;
+      }
       if (response.ok) {
         setFolderSynthesis(response.folderSynthesis ?? null);
       } else {
         setFolderSynthesisError(response.error || "合成失敗");
       }
     } catch (error) {
+      settled = settleReconciledResponse(token, { sessionId: activeFolderIdRef.current });
+      if (!settled.accepted) {
+        return;
+      }
       setFolderSynthesisError(error instanceof Error ? error.message : "合成失敗");
     } finally {
-      setIsGeneratingFolderSynthesis(false);
+      if (settled === null || settled.accepted || settled.reason === "target-mismatch") {
+        setIsGeneratingFolderSynthesis(false);
+      }
     }
   }
 
   async function onClearFolderSynthesis() {
     if (!activeFolder?.id) return;
+    const sessionId = activeFolder.id;
+    const requestId = createPipelineRequestId("folder-synthesis-clear");
+    const token = requestReconcilerRef.current.begin({
+      lane: "folder.clearSynthesis",
+      requestId,
+      target: { sessionId }
+    });
     setFolderSynthesisError(null);
     try {
       const response = await sendAndSync({
         type: "folder/synthesis/clear",
-        sessionId: activeFolder.id
+        requestId,
+        sessionId
       });
+      const decision = settleReconciledResponse(token, { sessionId: activeFolderIdRef.current });
+      if (!decision.accepted) {
+        return;
+      }
       if (response.ok) {
         setFolderSynthesis(null);
       }
     } catch (error) {
+      const decision = settleReconciledResponse(token, { sessionId: activeFolderIdRef.current });
+      if (!decision.accepted) {
+        return;
+      }
       setFolderSynthesisError(error instanceof Error ? error.message : "清除失敗");
     }
   }
@@ -1756,26 +1813,40 @@ export function useInPageCollectorAppState({ snapshot, tabId, sendAndSync }: Use
     setProductSignalAnalysisError(null);
     setProductSignalAnalysisNotice(null);
     const startedAt = performance.now();
+    const requestId = createPipelineRequestId("product-analyze");
+    const token = requestReconcilerRef.current.begin({
+      lane: "product.analyzeSignals",
+      requestId,
+      target: { sessionId: activeFolder.id }
+    });
     emitPipelineEvent({
       phase: "analysis.ready",
       step: "popup.product.analyze.request",
       target: { sessionId: activeFolder.id },
       result: "pending",
+      requestId,
       detail: {
         signalCount: topicState.signals.length,
         analysisCount: productSignalAnalyses.length
       }
     });
+    let settled: RequestReconcileDecision | null = null;
     try {
       const response = await sendAndSync({
         type: "product/analyze-signals",
+        requestId,
         sessionId: activeFolder.id
       });
+      settled = settleReconciledResponse(token, { sessionId: activeFolderIdRef.current });
+      if (!settled.accepted) {
+        return;
+      }
       emitPipelineEvent({
         phase: "analysis.ready",
         step: "popup.product.analyze.response",
         target: { sessionId: activeFolder.id },
         result: response.ok ? "ok" : "error",
+        requestId,
         detail: {
           ok: response.ok,
           elapsedMs: Math.round((performance.now() - startedAt) * 10) / 10,
@@ -1809,11 +1880,16 @@ export function useInPageCollectorAppState({ snapshot, tabId, sendAndSync }: Use
       }
       setProductSignalAnalysisError(getProcessingFailureUiMessage(response.error));
     } catch (error) {
+      settled = settleReconciledResponse(token, { sessionId: activeFolderIdRef.current });
+      if (!settled.accepted) {
+        return;
+      }
       emitPipelineEvent({
         phase: "analysis.ready",
         step: "popup.product.analyze.throw",
         target: { sessionId: activeFolder.id },
         result: "error",
+        requestId,
         detail: {
           elapsedMs: Math.round((performance.now() - startedAt) * 10) / 10,
           error: error instanceof Error ? error.message : String(error)
@@ -1821,7 +1897,9 @@ export function useInPageCollectorAppState({ snapshot, tabId, sendAndSync }: Use
       });
       setProductSignalAnalysisError(getProcessingFailureUiMessage(error instanceof Error ? error.message : String(error)));
     } finally {
-      setIsAnalyzingProductSignals(false);
+      if (settled === null || settled.accepted || settled.reason === "target-mismatch") {
+        setIsAnalyzingProductSignals(false);
+      }
     }
   }
 
@@ -1830,13 +1908,27 @@ export function useInPageCollectorAppState({ snapshot, tabId, sendAndSync }: Use
     sessionId: string,
     force?: boolean
   ): Promise<{ ok: true; reading: string } | { ok: false; error: string }> {
+    const requestId = createPipelineRequestId("product-signal-reading");
+    const token = requestReconcilerRef.current.begin({
+      lane: `product.synthesizeSignalReading:${signalId}`,
+      requestId,
+      target: { sessionId, signalId }
+    });
     try {
       const response = await sendAndSync({
         type: "product/synthesize-signal-reading",
+        requestId,
         signalId,
         sessionId,
         force
       });
+      const decision = settleReconciledResponse(token, {
+        sessionId: activeFolderIdRef.current,
+        signalId
+      });
+      if (!decision.accepted) {
+        return { ok: false, error: "已忽略過期的判讀結果。" };
+      }
       if (response.ok) {
         if (response.signalReading) {
           setSignalReadings((previous) => upsertSignalReading(previous, response.signalReading!));
@@ -1846,6 +1938,13 @@ export function useInPageCollectorAppState({ snapshot, tabId, sendAndSync }: Use
       }
       return { ok: false, error: response.error };
     } catch (error) {
+      const decision = settleReconciledResponse(token, {
+        sessionId: activeFolderIdRef.current,
+        signalId
+      });
+      if (!decision.accepted) {
+        return { ok: false, error: "已忽略過期的判讀結果。" };
+      }
       return { ok: false, error: error instanceof Error ? error.message : String(error) };
     }
   }
@@ -1855,13 +1954,28 @@ export function useInPageCollectorAppState({ snapshot, tabId, sendAndSync }: Use
     decision: "filed" | "deferred" | "rejected",
     note?: string
   ): Promise<{ ok: true; signalReading: SignalReading } | { ok: false; error: string }> {
+    const sessionId = activeFolder?.id ?? "";
+    const requestId = createPipelineRequestId("product-review-reading");
+    const token = requestReconcilerRef.current.begin({
+      lane: `product.reviewSignalReading:${cacheKey}`,
+      requestId,
+      target: { sessionId, cacheKey }
+    });
     try {
       const response = await sendAndSync({
         type: "product/review-signal-reading",
+        requestId,
         cacheKey,
         decision,
         ...(note ? { note } : {})
       });
+      const reconcileDecision = settleReconciledResponse(token, {
+        sessionId: activeFolderIdRef.current,
+        cacheKey
+      });
+      if (!reconcileDecision.accepted) {
+        return { ok: false, error: "已忽略過期的判讀審核結果。" };
+      }
       if (response.ok) {
         if (response.signalReading) {
           setSignalReadings((previous) => upsertSignalReading(previous, response.signalReading!));
@@ -1871,6 +1985,13 @@ export function useInPageCollectorAppState({ snapshot, tabId, sendAndSync }: Use
       }
       return { ok: false, error: response.error };
     } catch (error) {
+      const reconcileDecision = settleReconciledResponse(token, {
+        sessionId: activeFolderIdRef.current,
+        cacheKey
+      });
+      if (!reconcileDecision.accepted) {
+        return { ok: false, error: "已忽略過期的判讀審核結果。" };
+      }
       return { ok: false, error: error instanceof Error ? error.message : String(error) };
     }
   }
@@ -1941,6 +2062,25 @@ export function useInPageCollectorAppState({ snapshot, tabId, sendAndSync }: Use
     const updateResource = (updater: (current: PrEvidenceResourceState) => PrEvidenceResourceState) => {
       setPrEvidenceResource(updater);
     };
+    const beginPrRequest = (
+      lane: string,
+      target: RequestReconcileTarget,
+      prefix: string
+    ): { requestId: string; token: RequestReconcileToken } => {
+      const requestId = createPipelineRequestId(prefix);
+      return {
+        requestId,
+        token: requestReconcilerRef.current.begin({
+          lane,
+          requestId,
+          target
+        })
+      };
+    };
+    const currentPrTarget = (campaignId: string): RequestReconcileTarget => ({
+      sessionId: activeFolderIdRef.current,
+      campaignId: activePrCampaignIdRef.current || campaignId
+    });
     const saveDraft = async (draft: PrEvidenceCommand & { kind: "saveCampaign" }, successNotice: string) => {
       updateUiState({ isSaving: true });
       updateResource((current) => ({ ...current, notice: "" }));
@@ -1973,12 +2113,24 @@ export function useInPageCollectorAppState({ snapshot, tabId, sendAndSync }: Use
     const generateCriteria = async (campaignName: string, briefText: string) => {
       updateUiState({ isGeneratingCriteria: true });
       updateResource((current) => ({ ...current, notice: "" }));
+      const campaignId = prEvidenceResource.campaign.id || "draft";
+      const { requestId, token } = beginPrRequest(
+        "pr.generateCriteria",
+        { sessionId: command.target.sessionId, campaignId },
+        "pr-generate-criteria"
+      );
+      let settled: RequestReconcileDecision | null = null;
       try {
         const response = await sendAndSync({
           type: "pr/generate-criteria",
+          requestId,
           campaignName,
           briefText
         });
+        settled = settleReconciledResponse(token, currentPrTarget(campaignId));
+        if (!settled.accepted) {
+          return;
+        }
         if (response.ok && response.prCriteria?.length) {
           const nextDraft = {
             ...prEvidenceResource.campaign,
@@ -1988,8 +2140,17 @@ export function useInPageCollectorAppState({ snapshot, tabId, sendAndSync }: Use
           };
           updateResource((current) => ({ ...current, campaign: nextDraft }));
           if (campaignName.trim()) {
+            const {
+              requestId: saveRequestId,
+              token: saveToken
+            } = beginPrRequest(
+              "pr.saveGeneratedCriteria",
+              { sessionId: command.target.sessionId, campaignId },
+              "pr-save-generated-criteria"
+            );
             const saveResponse = await sendAndSync({
               type: "pr/save-campaign",
+              requestId: saveRequestId,
               sessionId: command.target.sessionId,
               draft: {
                 ...(nextDraft.id ? { id: nextDraft.id } : {}),
@@ -1998,6 +2159,10 @@ export function useInPageCollectorAppState({ snapshot, tabId, sendAndSync }: Use
                 criteria: nextDraft.criteria
               }
             });
+            const saveSettled = settleReconciledResponse(saveToken, currentPrTarget(campaignId));
+            if (!saveSettled.accepted) {
+              return;
+            }
             if (saveResponse.ok) {
               const active = saveResponse.prCampaigns?.[0] || null;
               if (active) {
@@ -2019,9 +2184,15 @@ export function useInPageCollectorAppState({ snapshot, tabId, sendAndSync }: Use
           updateResource((current) => ({ ...current, notice: response.error }));
         }
       } catch (error) {
+        settled = settleReconciledResponse(token, currentPrTarget(campaignId));
+        if (!settled.accepted) {
+          return;
+        }
         updateResource((current) => ({ ...current, notice: error instanceof Error ? error.message : String(error) }));
       } finally {
-        updateUiState({ isGeneratingCriteria: false });
+        if (settled === null || settled.accepted || settled.reason === "target-mismatch") {
+          updateUiState({ isGeneratingCriteria: false });
+        }
       }
     };
 
@@ -2053,50 +2224,105 @@ export function useInPageCollectorAppState({ snapshot, tabId, sendAndSync }: Use
       case "matchCriteria":
         updateUiState({ isMatching: true });
         updateResource((current) => ({ ...current, notice: "" }));
-        try {
-          const response = await sendAndSync({ type: "pr/match-criteria", campaignId: command.target.campaignId });
-          if (response.ok) {
-            updateResource((current) => ({ ...current, rows: response.prEvidenceRows ?? [], notice: "條件判斷已更新。" }));
-          } else {
-            updateResource((current) => ({ ...current, notice: response.error }));
+        {
+          const { requestId, token } = beginPrRequest(
+            "pr.matchCriteria",
+            { sessionId: command.target.sessionId, campaignId: command.target.campaignId },
+            "pr-match-criteria"
+          );
+          let settled: RequestReconcileDecision | null = null;
+          try {
+            const response = await sendAndSync({ type: "pr/match-criteria", requestId, campaignId: command.target.campaignId });
+            settled = settleReconciledResponse(token, currentPrTarget(command.target.campaignId));
+            if (!settled.accepted) {
+              return;
+            }
+            if (response.ok) {
+              updateResource((current) => ({ ...current, rows: response.prEvidenceRows ?? [], notice: "條件判斷已更新。" }));
+            } else {
+              updateResource((current) => ({ ...current, notice: response.error }));
+            }
+          } catch (error) {
+            settled = settleReconciledResponse(token, currentPrTarget(command.target.campaignId));
+            if (settled.accepted) {
+              updateResource((current) => ({ ...current, notice: error instanceof Error ? error.message : String(error) }));
+            }
+          } finally {
+            if (settled === null || settled.accepted || settled.reason === "target-mismatch") {
+              updateUiState({ isMatching: false });
+            }
           }
-        } finally {
-          updateUiState({ isMatching: false });
         }
         return;
       case "fetchAdvancedMetrics":
         updateUiState({ isFetchingAdvancedMetrics: true });
         updateResource((current) => ({ ...current, notice: "" }));
-        try {
-          const response = await sendAndSync({ type: "pr/fetch-advanced-metrics", campaignId: command.target.campaignId });
-          if (response.ok) {
-            const nextRows = response.prEvidenceRows ?? [];
-            updateResource((current) => ({
-              ...current,
-              rows: nextRows,
-              notice: summarizeAdvancedMetricsNotice(response.prAdvancedMetricsSummary, nextRows)
-            }));
-          } else {
-            updateResource((current) => ({ ...current, notice: response.error }));
+        {
+          const { requestId, token } = beginPrRequest(
+            "pr.fetchAdvancedMetrics",
+            { sessionId: command.target.sessionId, campaignId: command.target.campaignId },
+            "pr-fetch-metrics"
+          );
+          let settled: RequestReconcileDecision | null = null;
+          try {
+            const response = await sendAndSync({ type: "pr/fetch-advanced-metrics", requestId, campaignId: command.target.campaignId });
+            settled = settleReconciledResponse(token, currentPrTarget(command.target.campaignId));
+            if (!settled.accepted) {
+              return;
+            }
+            if (response.ok) {
+              const nextRows = response.prEvidenceRows ?? [];
+              updateResource((current) => ({
+                ...current,
+                rows: nextRows,
+                notice: summarizeAdvancedMetricsNotice(response.prAdvancedMetricsSummary, nextRows)
+              }));
+            } else {
+              updateResource((current) => ({ ...current, notice: response.error }));
+            }
+          } catch (error) {
+            settled = settleReconciledResponse(token, currentPrTarget(command.target.campaignId));
+            if (settled.accepted) {
+              updateResource((current) => ({ ...current, notice: error instanceof Error ? error.message : String(error) }));
+            }
+          } finally {
+            if (settled === null || settled.accepted || settled.reason === "target-mismatch") {
+              updateUiState({ isFetchingAdvancedMetrics: false });
+            }
           }
-        } catch (error) {
-          updateResource((current) => ({ ...current, notice: error instanceof Error ? error.message : String(error) }));
-        } finally {
-          updateUiState({ isFetchingAdvancedMetrics: false });
         }
         return;
       case "generateSummary":
         updateUiState({ isGeneratingSummary: true });
         updateResource((current) => ({ ...current, notice: "" }));
-        try {
-          const response = await sendAndSync({ type: "pr/generate-summary", campaignId: command.target.campaignId });
-          if (response.ok) {
-            updateResource((current) => ({ ...current, summary: response.prSummary || "" }));
-          } else {
-            updateResource((current) => ({ ...current, notice: response.error }));
+        {
+          const { requestId, token } = beginPrRequest(
+            "pr.generateSummary",
+            { sessionId: command.target.sessionId, campaignId: command.target.campaignId },
+            "pr-generate-summary"
+          );
+          let settled: RequestReconcileDecision | null = null;
+          try {
+            const response = await sendAndSync({ type: "pr/generate-summary", requestId, campaignId: command.target.campaignId });
+            settled = settleReconciledResponse(token, currentPrTarget(command.target.campaignId));
+            if (!settled.accepted) {
+              return;
+            }
+            if (response.ok) {
+              updateResource((current) => ({ ...current, summary: response.prSummary || "" }));
+            } else {
+              updateResource((current) => ({ ...current, notice: response.error }));
+            }
+          } catch (error) {
+            settled = settleReconciledResponse(token, currentPrTarget(command.target.campaignId));
+            if (settled.accepted) {
+              updateResource((current) => ({ ...current, notice: error instanceof Error ? error.message : String(error) }));
+            }
+          } finally {
+            if (settled === null || settled.accepted || settled.reason === "target-mismatch") {
+              updateUiState({ isGeneratingSummary: false });
+            }
           }
-        } finally {
-          updateUiState({ isGeneratingSummary: false });
         }
         return;
       case "exportCsv":
