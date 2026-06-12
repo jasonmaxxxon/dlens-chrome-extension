@@ -2,6 +2,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 
 import type { ExtensionMessage, ExtensionResponse } from "../state/messages";
 import { deriveTopicLoadState } from "../state/load-state";
+import { emitPipelineEvent } from "../state/pipeline-trace";
 import type {
   FolderMode,
   PopupPage,
@@ -15,7 +16,6 @@ import type {
   TriageAction
 } from "../state/types";
 import { sendExtensionMessage } from "./controller";
-import { markQaTrace } from "./qa-trace";
 import {
   buildProductSignalEvidenceCatalogFromCapture,
   type ProductSignalEvidenceEntry
@@ -282,10 +282,15 @@ export function useTopicState({
 
   useEffect(() => {
     if (!popupOpen || !activeFolder?.id || activeFolderMode === "archive") {
-      markQaTrace("popup.topic.hydrate.skip", {
-        popupOpen,
-        folderId: activeFolder?.id ?? null,
-        mode: activeFolderMode
+      emitPipelineEvent({
+        phase: "ui.ready",
+        step: "popup.topic.hydrate.skip",
+        target: { sessionId: activeFolder?.id },
+        result: "ok",
+        detail: {
+          popupOpen,
+          mode: activeFolderMode
+        }
       });
       setTopics([]);
       setSignals([]);
@@ -300,9 +305,14 @@ export function useTopicState({
     let cancelled = false;
     setIsHydratingTopics(true);
     setTopicHydrationError(null);
-    markQaTrace("popup.topic.hydrate.request", {
-      folderId: activeFolder.id,
-      mode: activeFolderMode
+    emitPipelineEvent({
+      phase: "ui.ready",
+      step: "popup.topic.hydrate.request",
+      target: { sessionId: activeFolder.id },
+      result: "pending",
+      detail: {
+        mode: activeFolderMode
+      }
     });
     void Promise.all([
       sendExtensionMessage<TopicListResponse>({
@@ -318,13 +328,18 @@ export function useTopicState({
         if (cancelled) {
           return;
         }
-        markQaTrace("popup.topic.hydrate.response", {
-          folderId: activeFolder.id,
-          mode: activeFolderMode,
-          topicsOk: topicsResponse.ok,
-          signalsOk: signalsResponse.ok,
-          topicCount: topicsResponse.ok ? topicsResponse.topics?.length ?? 0 : null,
-          signalCount: signalsResponse.ok ? signalsResponse.signals?.length ?? 0 : null
+        emitPipelineEvent({
+          phase: "ui.ready",
+          step: "popup.topic.hydrate.response",
+          target: { sessionId: activeFolder.id },
+          result: topicsResponse.ok && signalsResponse.ok ? "ok" : "error",
+          detail: {
+            mode: activeFolderMode,
+            topicsOk: topicsResponse.ok,
+            signalsOk: signalsResponse.ok,
+            topicCount: topicsResponse.ok ? topicsResponse.topics?.length ?? 0 : null,
+            signalCount: signalsResponse.ok ? signalsResponse.signals?.length ?? 0 : null
+          }
         });
         setIsHydratingTopics(false);
         const errors = [
@@ -340,9 +355,14 @@ export function useTopicState({
         }
         setIsHydratingTopics(false);
         setTopicHydrationError("Topic 資料讀取失敗。");
-        markQaTrace("popup.topic.hydrate.error", {
-          folderId: activeFolder.id,
-          mode: activeFolderMode
+        emitPipelineEvent({
+          phase: "ui.ready",
+          step: "popup.topic.hydrate.error",
+          target: { sessionId: activeFolder.id },
+          result: "error",
+          detail: {
+            mode: activeFolderMode
+          }
         });
         // Keep the current topic detail mounted through transient storage/runtime errors.
       });

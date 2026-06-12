@@ -1,9 +1,9 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 
 import type { ExtensionMessage, ExtensionResponse, WorkerStatusMessageResponse } from "../state/messages";
+import { emitPipelineEvent } from "../state/pipeline-trace";
 import { getPollingDelayMs, shouldRefreshProcessingFolder, type WorkerStatus } from "../state/processing-state";
 import { sendExtensionMessage } from "./controller";
-import { markQaTrace } from "./qa-trace";
 
 type SendAndSync = <T extends ExtensionResponse = ExtensionResponse>(message: ExtensionMessage) => Promise<T>;
 
@@ -42,10 +42,15 @@ export function useProcessingCoordinator({
 
     async function runCoordinator() {
       const startedAt = performance.now();
-      markQaTrace("popup.worker.status.request", {
-        activeFolderId: activeFolderId ?? null,
-        hasInflight,
-        failureCount: processingFailureCountRef.current
+      emitPipelineEvent({
+        phase: "crawl.queued",
+        step: "popup.worker.status.request",
+        target: { sessionId: activeFolderId },
+        result: "pending",
+        detail: {
+          hasInflight,
+          failureCount: processingFailureCountRef.current
+        }
       });
       try {
         const workerResponse = await sendExtensionMessage<WorkerStatusMessageResponse>({ type: "worker/get-status" });
@@ -61,19 +66,36 @@ export function useProcessingCoordinator({
         lastKnownWorkerStatusRef.current = nextWorkerStatus;
         setWorkerStatusState(nextWorkerStatus);
         setWorkerError(null);
-        markQaTrace("popup.worker.status.response", {
-          workerStatus: nextWorkerStatus,
-          previousWorkerStatus,
-          elapsedMs: Math.round((performance.now() - startedAt) * 10) / 10
+        emitPipelineEvent({
+          phase: "crawl.queued",
+          step: "popup.worker.status.response",
+          target: { sessionId: activeFolderId },
+          result: "ok",
+          detail: {
+            workerStatus: nextWorkerStatus,
+            previousWorkerStatus,
+            elapsedMs: Math.round((performance.now() - startedAt) * 10) / 10
+          }
         });
         if (activeFolderId && shouldRefreshProcessingFolder({
           workerStatus: nextWorkerStatus,
           previousWorkerStatus,
           hasInflight
         })) {
-          markQaTrace("popup.worker.refresh.request", { activeFolderId, workerStatus: nextWorkerStatus });
+          emitPipelineEvent({
+            phase: "capture.ready",
+            step: "popup.worker.refresh.request",
+            target: { sessionId: activeFolderId },
+            result: "pending",
+            detail: { workerStatus: nextWorkerStatus }
+          });
           await sendAndSync({ type: "session/refresh-all", target: { sessionId: activeFolderId } });
-          markQaTrace("popup.worker.refresh.response", { activeFolderId });
+          emitPipelineEvent({
+            phase: "capture.ready",
+            step: "popup.worker.refresh.response",
+            target: { sessionId: activeFolderId },
+            result: "ok"
+          });
         }
         if (cancelled) {
           return;
@@ -85,7 +107,13 @@ export function useProcessingCoordinator({
           failureCount: 0
         });
         if (nextDelay != null) {
-          markQaTrace("popup.worker.next-poll", { delayMs: nextDelay, workerStatus: nextWorkerStatus, failureCount: 0 });
+          emitPipelineEvent({
+            phase: "crawl.queued",
+            step: "popup.worker.next-poll",
+            target: { sessionId: activeFolderId },
+            result: "pending",
+            detail: { delayMs: nextDelay, workerStatus: nextWorkerStatus, failureCount: 0 }
+          });
           timeoutHandle = window.setTimeout(() => {
             void runCoordinator();
           }, nextDelay);
@@ -98,10 +126,16 @@ export function useProcessingCoordinator({
         setWorkerStatusState((current) => current);
         setWorkerError(error instanceof Error ? error.message : String(error));
         processingFailureCountRef.current += 1;
-        markQaTrace("popup.worker.status.error", {
-          elapsedMs: Math.round((performance.now() - startedAt) * 10) / 10,
-          failureCount: processingFailureCountRef.current,
-          error: error instanceof Error ? error.message : String(error)
+        emitPipelineEvent({
+          phase: "crawl.queued",
+          step: "popup.worker.status.error",
+          target: { sessionId: activeFolderId },
+          result: "error",
+          detail: {
+            elapsedMs: Math.round((performance.now() - startedAt) * 10) / 10,
+            failureCount: processingFailureCountRef.current,
+            error: error instanceof Error ? error.message : String(error)
+          }
         });
         const nextDelay = getPollingDelayMs({
           workerStatus: lastKnownWorkerStatus,
@@ -109,7 +143,13 @@ export function useProcessingCoordinator({
           failureCount: processingFailureCountRef.current
         });
         if (nextDelay != null) {
-          markQaTrace("popup.worker.next-poll", { delayMs: nextDelay, workerStatus: lastKnownWorkerStatus, failureCount: processingFailureCountRef.current });
+          emitPipelineEvent({
+            phase: "crawl.queued",
+            step: "popup.worker.next-poll",
+            target: { sessionId: activeFolderId },
+            result: "pending",
+            detail: { delayMs: nextDelay, workerStatus: lastKnownWorkerStatus, failureCount: processingFailureCountRef.current }
+          });
           timeoutHandle = window.setTimeout(() => {
             void runCoordinator();
           }, nextDelay);

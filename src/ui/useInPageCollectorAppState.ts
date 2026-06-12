@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 import type { TargetDescriptor } from "../contracts/target-descriptor";
 import { buildSaveCurrentPreviewTarget } from "../state/action-target";
+import { emitPipelineEvent } from "../state/pipeline-trace";
 import { DEFAULT_SESSION_NAME_BY_MODE, normalizePostUrl } from "../state/store-helpers";
 import {
   createDefaultLayoutPreferences,
@@ -39,7 +40,6 @@ import {
 } from "../state/processing-state";
 import { shouldBypassModeGuard } from "../state/page-registry";
 import { addRuntimeMessageListener, getActiveItem, getActiveSession, sendExtensionMessage } from "./controller";
-import { markQaTrace } from "./qa-trace";
 import {
   computeFlashPreviewStyle,
   flashPreviewMetrics,
@@ -675,22 +675,32 @@ export function useInPageCollectorAppState({ snapshot, tabId, sendAndSync }: Use
   useEffect(() => {
     if (!popupOpen || !activeFolder?.id || activeFolderMode !== "product" || !isProductSignalPage) {
       setIsHydratingProductSignals(false);
-      markQaTrace("popup.product.hydrate.skip", {
-        popupOpen,
-        folderId: activeFolder?.id ?? null,
-        mode: activeFolderMode,
-        page,
-        isProductSignalPage
+      emitPipelineEvent({
+        phase: "ui.ready",
+        step: "popup.product.hydrate.skip",
+        target: { sessionId: activeFolder?.id },
+        result: "ok",
+        detail: {
+          popupOpen,
+          mode: activeFolderMode,
+          page,
+          isProductSignalPage
+        }
       });
       return;
     }
     let cancelled = false;
     const signalIds = topicState.signals.map((signal) => signal.id);
     setIsHydratingProductSignals(true);
-    markQaTrace("popup.product.hydrate.request", {
-      folderId: activeFolder.id,
-      page,
-      signalCount: signalIds.length
+    emitPipelineEvent({
+      phase: "ui.ready",
+      step: "popup.product.hydrate.request",
+      target: { sessionId: activeFolder.id },
+      result: "pending",
+      detail: {
+        page,
+        signalCount: signalIds.length
+      }
     });
     void Promise.all([
       sendExtensionMessage<{ ok: true; productSignalAnalyses?: ProductSignalAnalysis[] } | { ok: false; error: string }>({
@@ -712,18 +722,24 @@ export function useInPageCollectorAppState({ snapshot, tabId, sendAndSync }: Use
           return;
         }
         setIsHydratingProductSignals(false);
-        markQaTrace("popup.product.hydrate.response", {
-          folderId: activeFolder.id,
-          page,
-          signalCount: signalIds.length,
-          currentOk: currentResponse.ok,
-          currentAnalysisCount: currentResponse.ok ? currentResponse.productSignalAnalyses?.length ?? 0 : null,
-          historicalOk: historicalResponse.ok,
-          historicalAnalysisCount: historicalResponse.ok ? historicalResponse.productSignalAnalyses?.length ?? 0 : null,
-          feedbackOk: feedbackResponse.ok,
-          feedbackCount: feedbackResponse.ok ? feedbackResponse.productAgentTaskFeedback?.length ?? 0 : null,
-          readingsOk: readingsResponse.ok,
-          readingCount: readingsResponse.ok ? readingsResponse.signalReadings?.length ?? 0 : null
+        const allOk = currentResponse.ok && historicalResponse.ok && feedbackResponse.ok && readingsResponse.ok;
+        emitPipelineEvent({
+          phase: "ui.ready",
+          step: "popup.product.hydrate.response",
+          target: { sessionId: activeFolder.id },
+          result: allOk ? "ok" : "error",
+          detail: {
+            page,
+            signalCount: signalIds.length,
+            currentOk: currentResponse.ok,
+            currentAnalysisCount: currentResponse.ok ? currentResponse.productSignalAnalyses?.length ?? 0 : null,
+            historicalOk: historicalResponse.ok,
+            historicalAnalysisCount: historicalResponse.ok ? historicalResponse.productSignalAnalyses?.length ?? 0 : null,
+            feedbackOk: feedbackResponse.ok,
+            feedbackCount: feedbackResponse.ok ? feedbackResponse.productAgentTaskFeedback?.length ?? 0 : null,
+            readingsOk: readingsResponse.ok,
+            readingCount: readingsResponse.ok ? readingsResponse.signalReadings?.length ?? 0 : null
+          }
         });
         if (currentResponse.ok) {
           setProductSignalAnalyses(currentResponse.productSignalAnalyses ?? []);
@@ -742,10 +758,15 @@ export function useInPageCollectorAppState({ snapshot, tabId, sendAndSync }: Use
       .catch(() => {
         if (!cancelled) {
           setIsHydratingProductSignals(false);
-          markQaTrace("popup.product.hydrate.error", {
-            folderId: activeFolder.id,
-            page,
-            signalCount: signalIds.length
+          emitPipelineEvent({
+            phase: "ui.ready",
+            step: "popup.product.hydrate.error",
+            target: { sessionId: activeFolder.id },
+            result: "error",
+            detail: {
+              page,
+              signalCount: signalIds.length
+            }
           });
           setProductSignalAnalyses([]);
           setHistoricalProductSignalAnalyses([]);
@@ -961,18 +982,29 @@ export function useInPageCollectorAppState({ snapshot, tabId, sendAndSync }: Use
           });
           return;
         }
-        markQaTrace("popup.collect.save.request", {
-          via: "keyboard",
-          postUrl: message.descriptor?.post_url ?? null,
-          sessionId: message.target.sessionId,
-          topicId: message.target.topicId
+        emitPipelineEvent({
+          phase: "preview.confirmed",
+          step: "popup.collect.save.request",
+          target: { sessionId: message.target.sessionId },
+          result: "pending",
+          detail: {
+            via: "keyboard",
+            postUrl: message.descriptor?.post_url ?? null,
+            topicId: message.target.topicId
+          }
         });
         const saveStartedAt = performance.now();
         void sendAndSync(message).then((response) => {
-          markQaTrace("popup.collect.save.response", {
-            via: "keyboard",
-            ok: response.ok,
-            elapsedMs: Math.round((performance.now() - saveStartedAt) * 10) / 10
+          emitPipelineEvent({
+            phase: "signal.saved",
+            step: "popup.collect.save.response",
+            target: { sessionId: message.target.sessionId },
+            result: response.ok ? "ok" : "error",
+            detail: {
+              via: "keyboard",
+              ok: response.ok,
+              elapsedMs: Math.round((performance.now() - saveStartedAt) * 10) / 10
+            }
           });
         });
       }
@@ -1047,18 +1079,29 @@ export function useInPageCollectorAppState({ snapshot, tabId, sendAndSync }: Use
         });
       }
     }
-    markQaTrace("popup.collect.save.request", {
-      via: "button",
-      postUrl: message.descriptor?.post_url ?? null,
-      sessionId: message.target.sessionId,
-      topicId: message.target.topicId
+    emitPipelineEvent({
+      phase: "preview.confirmed",
+      step: "popup.collect.save.request",
+      target: { sessionId: message.target.sessionId },
+      result: "pending",
+      detail: {
+        via: "button",
+        postUrl: message.descriptor?.post_url ?? null,
+        topicId: message.target.topicId
+      }
     });
     const saveStartedAt = performance.now();
     const response = await sendAndSync(message);
-    markQaTrace("popup.collect.save.response", {
-      via: "button",
-      ok: response.ok,
-      elapsedMs: Math.round((performance.now() - saveStartedAt) * 10) / 10
+    emitPipelineEvent({
+      phase: "signal.saved",
+      step: "popup.collect.save.response",
+      target: { sessionId: message.target.sessionId },
+      result: response.ok ? "ok" : "error",
+      detail: {
+        via: "button",
+        ok: response.ok,
+        elapsedMs: Math.round((performance.now() - saveStartedAt) * 10) / 10
+      }
     });
     if (!response.ok && normalized) {
       setOptimisticSavedUrl((current) => (current === normalized ? null : current));
@@ -1149,18 +1192,29 @@ export function useInPageCollectorAppState({ snapshot, tabId, sendAndSync }: Use
   async function onToggleCollectMode() {
     const nextType = snapshot?.tab.selectionMode ? "selection/cancel-active-tab" : "selection/start-active-tab";
     const startedAt = performance.now();
-    markQaTrace("popup.collect.toggle.request", {
-      type: nextType,
-      activeFolderId: activeFolder?.id ?? null,
-      activeFolderMode
+    emitPipelineEvent({
+      phase: "signal.saved",
+      step: "popup.collect.toggle.request",
+      target: { sessionId: activeFolder?.id },
+      result: "pending",
+      detail: {
+        type: nextType,
+        activeFolderMode
+      }
     });
     const response = await sendAndSync({
       type: nextType
     });
-    markQaTrace("popup.collect.toggle.response", {
-      ok: response.ok,
-      elapsedMs: Math.round((performance.now() - startedAt) * 10) / 10,
-      selectionMode: response.ok ? response.snapshot?.tab.selectionMode ?? null : null
+    emitPipelineEvent({
+      phase: "signal.saved",
+      step: "popup.collect.toggle.response",
+      target: { sessionId: activeFolder?.id },
+      result: response.ok ? "ok" : "error",
+      detail: {
+        ok: response.ok,
+        elapsedMs: Math.round((performance.now() - startedAt) * 10) / 10,
+        selectionMode: response.ok ? response.snapshot?.tab.selectionMode ?? null : null
+      }
     });
   }
 
@@ -1534,23 +1588,34 @@ export function useInPageCollectorAppState({ snapshot, tabId, sendAndSync }: Use
     setProductSignalAnalysisError(null);
     setProductSignalAnalysisNotice(null);
     const startedAt = performance.now();
-    markQaTrace("popup.product.analyze.request", {
-      sessionId: activeFolder.id,
-      signalCount: topicState.signals.length,
-      analysisCount: productSignalAnalyses.length
+    emitPipelineEvent({
+      phase: "analysis.ready",
+      step: "popup.product.analyze.request",
+      target: { sessionId: activeFolder.id },
+      result: "pending",
+      detail: {
+        signalCount: topicState.signals.length,
+        analysisCount: productSignalAnalyses.length
+      }
     });
     try {
       const response = await sendAndSync({
         type: "product/analyze-signals",
         sessionId: activeFolder.id
       });
-      markQaTrace("popup.product.analyze.response", {
-        ok: response.ok,
-        elapsedMs: Math.round((performance.now() - startedAt) * 10) / 10,
-        queued: response.ok ? response.productSignalAnalysisSummary?.queued ?? null : null,
-        analyzed: response.ok ? response.productSignalAnalysisSummary?.analyzed ?? null : null,
-        failed: response.ok ? response.productSignalAnalysisSummary?.failed ?? null : null,
-        failureCount: response.ok ? response.productSignalAnalysisSummary?.failures?.length ?? 0 : null
+      emitPipelineEvent({
+        phase: "analysis.ready",
+        step: "popup.product.analyze.response",
+        target: { sessionId: activeFolder.id },
+        result: response.ok ? "ok" : "error",
+        detail: {
+          ok: response.ok,
+          elapsedMs: Math.round((performance.now() - startedAt) * 10) / 10,
+          queued: response.ok ? response.productSignalAnalysisSummary?.queued ?? null : null,
+          analyzed: response.ok ? response.productSignalAnalysisSummary?.analyzed ?? null : null,
+          failed: response.ok ? response.productSignalAnalysisSummary?.failed ?? null : null,
+          failureCount: response.ok ? response.productSignalAnalysisSummary?.failures?.length ?? 0 : null
+        }
       });
       if (response.ok) {
         setProductSignalAnalyses(response.productSignalAnalyses ?? []);
@@ -1576,9 +1641,15 @@ export function useInPageCollectorAppState({ snapshot, tabId, sendAndSync }: Use
       }
       setProductSignalAnalysisError(getProcessingFailureUiMessage(response.error));
     } catch (error) {
-      markQaTrace("popup.product.analyze.throw", {
-        elapsedMs: Math.round((performance.now() - startedAt) * 10) / 10,
-        error: error instanceof Error ? error.message : String(error)
+      emitPipelineEvent({
+        phase: "analysis.ready",
+        step: "popup.product.analyze.throw",
+        target: { sessionId: activeFolder.id },
+        result: "error",
+        detail: {
+          elapsedMs: Math.round((performance.now() - startedAt) * 10) / 10,
+          error: error instanceof Error ? error.message : String(error)
+        }
       });
       setProductSignalAnalysisError(getProcessingFailureUiMessage(error instanceof Error ? error.message : String(error)));
     } finally {

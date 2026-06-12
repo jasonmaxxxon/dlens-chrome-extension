@@ -87,6 +87,8 @@ The flag-gating + DOM mirror + buffer cap from today's `src/ui/qa-trace.ts` move
 - `typecheck` + full suite + `build` green; one PR; no version bump.
 - One line appended here: slice ✓, what was absorbed.
 
+2026-06-12 Slice 1 ✓ — added `src/state/pipeline-trace.ts` with the locked seven-phase `PipelineEvent` contract, flag-gated typed emitter, DOM mirror, buffer cap, and validator; `src/ui/qa-trace.ts` is now only a typed adapter. Absorbed all production `markQaTrace("...")` call sites in `threads.content.ts`, `useInPageCollectorAppState.ts`, `useTopicState.ts`, and `useProcessingCoordinator.ts` into `emitPipelineEvent({ phase, step, target, result })` without rewriting hover extraction, storage transactions, polling/backoff, or UI behavior. Added characterization/boundary tests for flag-gating, structured entries, valid phases, explicit target objects, and grep-clean migrated call sites.
+
 ## After the spine
 
 With the spine + harness in place, the deferred frontiers become tractable as **observed** problems: hover DOM extraction can get fixture-replay hardening (now that `hover.detected` results are traced), and the storage transaction seam can be deepened only where the trace shows real inconsistency. Product-value track (backend OP/reply read-model — the analysis-trustworthiness lever) remains parallel and unblocked.

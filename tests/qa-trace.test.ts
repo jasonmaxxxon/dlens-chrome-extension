@@ -3,8 +3,8 @@ import test from "node:test";
 
 import {
   appendQaTraceEntry,
+  emitPipelineEvent,
   isQaTraceFlagEnabled,
-  markQaTrace,
   qaTraceTestables,
   readQaTrace,
   type QaTraceEntry
@@ -28,13 +28,21 @@ test("isQaTraceFlagEnabled accepts explicit truthy trace flags only", () => {
 
 test("appendQaTraceEntry caps the trace buffer", () => {
   const entries: QaTraceEntry[] = [
-    { id: 1, event: "old", at: 1, isoTime: "2026-06-10T00:00:00.000Z" },
-    { id: 2, event: "middle", at: 2, isoTime: "2026-06-10T00:00:01.000Z" }
+    { id: 1, phase: "hover.detected", step: "old", target: {}, result: "ok", at: 1, isoTime: "2026-06-10T00:00:00.000Z" },
+    { id: 2, phase: "preview.confirmed", step: "middle", target: {}, result: "ok", at: 2, isoTime: "2026-06-10T00:00:01.000Z" }
   ];
 
-  const capped = appendQaTraceEntry(entries, { id: 3, event: "new", at: 3, isoTime: "2026-06-10T00:00:02.000Z" }, 2);
+  const capped = appendQaTraceEntry(entries, {
+    id: 3,
+    phase: "signal.saved",
+    step: "new",
+    target: {},
+    result: "ok",
+    at: 3,
+    isoTime: "2026-06-10T00:00:02.000Z"
+  }, 2);
 
-  assert.deepEqual(capped.map((entry) => entry.event), ["middle", "new"]);
+  assert.deepEqual(capped.map((entry) => entry.step), ["middle", "new"]);
 });
 
 test("qa trace can be enabled from query or hash URL params", () => {
@@ -43,7 +51,7 @@ test("qa trace can be enabled from query or hash URL params", () => {
   assert.equal(qaTraceTestables.readUrlTraceFlag({ search: "?dlensQaTrace=0", hash: "" } as Location), false);
 });
 
-test("markQaTrace writes only when the session flag is enabled", () => {
+test("qa trace typed adapter writes only when the session flag is enabled", () => {
   const originalWindow = (globalThis as any).window;
   const originalDocument = (globalThis as any).document;
   const originalDebug = console.debug;
@@ -59,7 +67,13 @@ test("markQaTrace writes only when the session flag is enabled", () => {
       sessionStorage: fakeStorage(null),
       localStorage: fakeStorage(null)
     };
-    markQaTrace("disabled.event", { ok: false });
+    emitPipelineEvent({
+      phase: "signal.saved",
+      step: "disabled",
+      target: { sessionId: "session-1" },
+      result: "ok",
+      detail: { ok: false }
+    });
     assert.deepEqual(readQaTrace(), []);
 
     (globalThis as any).window = {
@@ -90,17 +104,24 @@ test("markQaTrace writes only when the session flag is enabled", () => {
         }
       }
     };
-    markQaTrace("enabled.event", { ok: true });
+    emitPipelineEvent({
+      phase: "signal.saved",
+      step: "enabled",
+      target: { sessionId: "session-1" },
+      result: "ok",
+      detail: { ok: true }
+    });
     const trace = readQaTrace();
 
     assert.equal(trace.length, 1);
-    assert.equal(trace[0]?.event, "enabled.event");
+    assert.equal(trace[0]?.phase, "signal.saved");
+    assert.equal(trace[0]?.step, "enabled");
     assert.deepEqual(trace[0]?.detail, { ok: true });
     assert.equal(debugCalls.length, 2);
-    assert.match(String(debugCalls[1]?.[0] ?? ""), /^\[DLens QA JSON\] /);
+    assert.match(String(debugCalls[1]?.[0] ?? ""), /^\[DLens Pipeline JSON\] /);
     assert.equal(domNodes.length, 1);
     assert.equal(domNodes[0]?.id, "__dlens_qa_trace_json__");
-    assert.deepEqual(JSON.parse(domNodes[0]?.textContent || "[]").map((entry: QaTraceEntry) => entry.event), ["enabled.event"]);
+    assert.deepEqual(JSON.parse(domNodes[0]?.textContent || "[]").map((entry: QaTraceEntry) => entry.phase), ["signal.saved"]);
   } finally {
     console.debug = originalDebug;
     (globalThis as any).window = originalWindow;
