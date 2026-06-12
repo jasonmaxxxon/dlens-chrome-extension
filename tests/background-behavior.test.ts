@@ -6,11 +6,12 @@ import { PRODUCT_AGENT_TASK_FEEDBACK_STORAGE_KEY } from "../src/compare/product-
 import { PRODUCT_CONTEXT_STORAGE_KEY } from "../src/compare/product-context.ts";
 import { PRODUCT_SIGNAL_ANALYSES_STORAGE_KEY } from "../src/compare/product-signal-storage.ts";
 import { SIGNAL_READINGS_STORAGE_KEY } from "../src/compare/signal-reading-storage.ts";
+import type { CaptureSnapshot, JobSnapshot } from "../src/contracts/ingest.ts";
 import type { ExtensionMessage, ExtensionResponse } from "../src/state/messages.ts";
 import { readPipelineTrace } from "../src/state/pipeline-trace.ts";
 import { createSessionItem } from "../src/state/store-helpers.ts";
 import { SIGNALS_STORAGE_KEY } from "../src/state/topic-storage.ts";
-import { createEmptyGlobalState, createEmptyTabState, type ExtensionGlobalState, type FolderMode, type SessionRecord, type TabUiState } from "../src/state/types.ts";
+import { createEmptyGlobalState, createEmptyTabState, type ExtensionGlobalState, type FolderMode, type SessionItem, type SessionRecord, type TabUiState } from "../src/state/types.ts";
 
 type StorageState = Record<string, unknown>;
 
@@ -50,6 +51,100 @@ function makeDescriptor(id: string) {
     engagement_present: { likes: true },
     captured_at: "2026-05-27T00:00:00.000Z"
   };
+}
+
+function makeRefreshableItem(id: string): SessionItem {
+  return {
+    ...createSessionItem(makeDescriptor(id), "2026-05-27T00:00:00.000Z"),
+    id: `item-${id}`,
+    status: "queued",
+    jobId: `job-${id}`,
+    captureId: `cap-${id}`,
+    latestJob: null,
+    latestCapture: null
+  };
+}
+
+function makeJob(id: string): JobSnapshot {
+  return {
+    id: `job-${id}`,
+    capture_id: `cap-${id}`,
+    job_type: "threads_post_comments_crawl",
+    status: "succeeded",
+    priority: 0,
+    attempt_count: 1,
+    max_attempts: 3,
+    scheduled_at: "2026-05-27T00:00:00.000Z",
+    claimed_at: null,
+    started_at: null,
+    finished_at: "2026-05-27T00:00:02.000Z",
+    lease_expires_at: null,
+    worker_token: null,
+    last_error_kind: null,
+    last_error: null,
+    last_error_at: null,
+    created_at: "2026-05-27T00:00:00.000Z",
+    updated_at: "2026-05-27T00:00:02.000Z"
+  };
+}
+
+function makeCapture(id: string): CaptureSnapshot {
+  return {
+    id: `cap-${id}`,
+    source_type: "threads",
+    capture_type: "post",
+    source_page_url: `https://www.threads.net/@dlens/post/${id}`,
+    source_post_url: `https://www.threads.net/@dlens/post/${id}`,
+    canonical_target_url: `https://www.threads.net/@dlens/post/${id}`,
+    author_hint: "dlens",
+    text_snippet: `signal ${id}`,
+    time_token_hint: "1h",
+    dom_anchor: id,
+    engagement: {},
+    client_context: {},
+    raw_payload: {},
+    ingestion_status: "succeeded",
+    captured_at: "2026-05-27T00:00:00.000Z",
+    created_at: "2026-05-27T00:00:00.000Z",
+    updated_at: "2026-05-27T00:00:02.000Z",
+    job: makeJob(id),
+    result: null,
+    analysis: {
+      id: `analysis-${id}`,
+      capture_id: `cap-${id}`,
+      status: "succeeded",
+      stage: "final",
+      analysis_version: "v1",
+      source_comment_count: 0,
+      clusters: [],
+      evidence: [],
+      metrics: {},
+      generated_at: "2026-05-27T00:00:03.000Z",
+      last_error: null,
+      created_at: "2026-05-27T00:00:03.000Z",
+      updated_at: "2026-05-27T00:00:03.000Z"
+    }
+  };
+}
+
+function jsonResponse(payload: unknown): Response {
+  return {
+    ok: true,
+    status: 200,
+    statusText: "OK",
+    json: async () => payload,
+    text: async () => JSON.stringify(payload)
+  } as Response;
+}
+
+async function waitFor(predicate: () => boolean, label: string): Promise<void> {
+  const startedAt = Date.now();
+  while (!predicate()) {
+    if (Date.now() - startedAt > 1000) {
+      throw new Error(`Timed out waiting for ${label}`);
+    }
+    await new Promise((resolve) => setTimeout(resolve, 0));
+  }
 }
 
 function enablePipelineTraceForTest(): void {
@@ -642,6 +737,101 @@ test("session/refresh-all with no refreshable work and unchanged error performs 
 
   assert.equal(response.ok, true);
   assert.deepEqual(harness.writes, []);
+});
+
+test("session/refresh-all ignores stale request writes before storage and broadcast", async () => {
+  enablePipelineTraceForTest();
+  const originalFetch = globalThis.fetch;
+  let releaseOldJob: ((response: Response) => void) | null = null;
+  const oldJobResponse = new Promise<Response>((resolve) => {
+    releaseOldJob = resolve;
+  });
+
+  try {
+    const oldSession = {
+      ...makeSession("old-session", "topic"),
+      items: [makeRefreshableItem("old")]
+    };
+    const newSession = {
+      ...makeSession("new-session", "topic"),
+      items: [makeRefreshableItem("new")]
+    };
+    const tabKey = backgroundTestables.tabStorageKey(TAB_ID);
+    const global = makeGlobal([oldSession, newSession], oldSession.id);
+    const fetchUrls: string[] = [];
+    globalThis.fetch = (async (input: RequestInfo | URL) => {
+      const url = String(input);
+      fetchUrls.push(url);
+      if (url.endsWith("/jobs/job-old")) {
+        return oldJobResponse;
+      }
+      if (url.endsWith("/captures/cap-old")) {
+        return jsonResponse(makeCapture("old"));
+      }
+      if (url.endsWith("/jobs/job-new")) {
+        return jsonResponse(makeJob("new"));
+      }
+      if (url.endsWith("/captures/cap-new")) {
+        return jsonResponse(makeCapture("new"));
+      }
+      throw new Error(`Unexpected fetch URL: ${url}`);
+    }) as typeof fetch;
+
+    const harness = await createHarness({
+      [backgroundTestables.GLOBAL_STORAGE_KEY]: {
+        ...global,
+        settings: {
+          ...global.settings,
+          ingestBaseUrl: ""
+        }
+      },
+      [backgroundTestables.ACTIVE_SESSION_ID_STORAGE_KEY]: oldSession.id,
+      [tabKey]: createEmptyTabState()
+    });
+
+    const oldResponsePromise = harness.dispatch({
+      type: "session/refresh-all",
+      requestId: "refresh-old",
+      target: { sessionId: oldSession.id }
+    } as ExtensionMessage);
+    await waitFor(() => fetchUrls.some((url) => url.endsWith("/jobs/job-old")), "old refresh fetch");
+
+    const newResponsePromise = harness.dispatch({
+      type: "session/refresh-all",
+      requestId: "refresh-new",
+      target: { sessionId: newSession.id }
+    } as ExtensionMessage);
+    await waitFor(
+      () => readPipelineTrace().some((event) =>
+        event.step === "background.session.refresh-all.request"
+        && event.requestId === "refresh-new"
+      ),
+      "new refresh request trace"
+    );
+
+    assert.notEqual(releaseOldJob, null);
+    releaseOldJob?.(jsonResponse(makeJob("old")));
+    const [oldResponse, newResponse] = await Promise.all([oldResponsePromise, newResponsePromise]);
+
+    assert.equal(oldResponse.ok, true);
+    assert.equal(newResponse.ok, true);
+    assert.equal(harness.writes.length, 1);
+    assert.equal(harness.tabMessages.filter((message) => message.type === "state/updated").length, 1);
+
+    const storedGlobal = harness.state[backgroundTestables.GLOBAL_STORAGE_KEY] as ExtensionGlobalState;
+    assert.equal(storedGlobal.sessions.find((session) => session.id === oldSession.id)?.items[0]?.status, "queued");
+    assert.equal(storedGlobal.sessions.find((session) => session.id === newSession.id)?.items[0]?.status, "succeeded");
+    assert.equal(
+      readPipelineTrace().some((event) =>
+        event.step === "reconcile.stale-result.ignore"
+        && event.requestId === "refresh-old"
+      ),
+      true
+    );
+  } finally {
+    globalThis.fetch = originalFetch;
+    disablePipelineTraceForTest();
+  }
 });
 
 test("queue-all and refresh-all emit crawl/capture background boundary events with requestId", async () => {

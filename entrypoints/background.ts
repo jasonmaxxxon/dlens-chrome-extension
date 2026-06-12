@@ -194,6 +194,12 @@ import { applySignalDeletionToGlobalState, deleteSignalStorageRecords } from "..
 import { applyHoveredPreview, createInlineToast, setCollectModeState } from "../src/state/ui-state";
 import { getModeHomePage } from "../src/state/processing-state";
 import { sanitizeSnapshotForContentScript } from "../src/state/sanitize-snapshot";
+import {
+  buildReconcileIgnoredEvent,
+  createRequestReconciler,
+  type RequestReconcileTarget,
+  type RequestReconcileToken
+} from "../src/state/request-reconcile";
 
 const GLOBAL_STORAGE_KEY = "dlens:v0:global-state";
 const ACTIVE_SESSION_ID_STORAGE_KEY = "dlens:v1:active-session-id";
@@ -225,6 +231,7 @@ let globalStateCache: ExtensionGlobalState | null = null;
 // Per-tab UI state cache — lets the hover hot path skip a storage read on every move.
 const tabStateCache = new Map<number, TabUiState>();
 const withSnapshotLock = createAsyncLock();
+const backgroundRequestReconciler = createRequestReconciler();
 // Last saveSnapshot/global-only storage.local.set duration. Service worker is
 // single-threaded, so handlers can read this right after a persist call to
 // surface the storage cost in their response payload (popup-visible).
@@ -1215,6 +1222,33 @@ interface SnapshotSaveOptions {
    * state untouched (e.g. selection toggles) this skips serializing and
    * rewriting the full session blob on the hot path (B-02). */
   tabOnly?: boolean;
+  reconcileToken?: RequestReconcileToken | null;
+}
+
+function beginBackgroundSnapshotReconcile(
+  lane: string,
+  requestId: string,
+  target: RequestReconcileTarget
+): RequestReconcileToken {
+  return backgroundRequestReconciler.begin({
+    lane,
+    requestId,
+    target
+  });
+}
+
+function shouldPersistSnapshot(options: SnapshotSaveOptions): boolean {
+  if (!options.reconcileToken) {
+    return true;
+  }
+  const decision = backgroundRequestReconciler.check(options.reconcileToken, {
+    currentTarget: options.reconcileToken.target
+  });
+  if (!decision.accepted) {
+    emitPipelineEvent(buildReconcileIgnoredEvent(options.reconcileToken, decision));
+    return false;
+  }
+  return true;
 }
 
 function cacheSnapshot(tabId: number, snapshot: ExtensionSnapshot): void {
@@ -1314,6 +1348,9 @@ async function saveSnapshot(tabId: number, snapshot: ExtensionSnapshot, options:
     payload[ACTIVE_SESSION_ID_STORAGE_KEY] = nextSnapshot.global.activeSessionId;
   }
 
+  if (!shouldPersistSnapshot(options)) {
+    return nextSnapshot;
+  }
   return persistSnapshot(tabId, nextSnapshot, payload, "[DLens] saveSnapshot");
 }
 
@@ -1729,7 +1766,8 @@ async function setActiveItem(tabId: number, sessionId: string, itemId: string): 
 async function queueSessionItem(
   tabId: number,
   sessionId: string,
-  itemId: string
+  itemId: string,
+  options: { reconcileToken?: RequestReconcileToken | null } = {}
 ): Promise<{ snapshot: ExtensionSnapshot; submit: CaptureTargetResponse }> {
   // Raw lock: this mutation returns ingest submit metadata in addition to the saved snapshot.
   return withSnapshotLock(async () => {
@@ -1763,7 +1801,7 @@ async function queueSessionItem(
         lastSavedToast: createInlineToast("queued", session.name),
         error: null
       }
-    });
+    }, { reconcileToken: options.reconcileToken });
     if (session.mode === "product") {
       queueProductSignalAutoAnalysis(tabId, nextSnapshot.global, sessionId);
     }
@@ -1800,14 +1838,17 @@ async function queueAllPending(tabId: number, sessionId: string): Promise<Extens
 async function queueSessionItems(
   tabId: number,
   sessionId: string,
-  itemIds: string[]
+  itemIds: string[],
+  options: { reconcileToken?: RequestReconcileToken | null } = {}
 ): Promise<{ snapshot: ExtensionSnapshot; queuedItemIds: string[]; failedItemIds: string[] }> {
   const snapshot = await loadSnapshot(tabId);
   return queueItemsSequential({
     initialSnapshot: snapshot,
     itemIds,
     queueOne: async (itemId) => {
-      const result = await queueSessionItem(tabId, sessionId, itemId);
+      const result = await queueSessionItem(tabId, sessionId, itemId, {
+        reconcileToken: options.reconcileToken
+      });
       return result.snapshot;
     }
   });
@@ -1816,7 +1857,8 @@ async function queueSessionItems(
 async function queueSessionItemsAndStartProcessing(
   tabId: number,
   sessionId: string,
-  itemIds: string[]
+  itemIds: string[],
+  options: { reconcileToken?: RequestReconcileToken | null } = {}
 ): Promise<{
   snapshot: ExtensionSnapshot;
   queuedItemIds: string[];
@@ -1824,7 +1866,9 @@ async function queueSessionItemsAndStartProcessing(
   processingStatus?: "started" | "already_running";
   processingError?: string;
 }> {
-  const queued = await queueSessionItems(tabId, sessionId, itemIds);
+  const queued = await queueSessionItems(tabId, sessionId, itemIds, {
+    reconcileToken: options.reconcileToken
+  });
   if (queued.queuedItemIds.length <= 0) {
     return queued;
   }
@@ -1837,7 +1881,7 @@ async function queueSessionItemsAndStartProcessing(
         ...current.tab,
         error: null
       }
-    }));
+    }), { reconcileToken: options.reconcileToken });
     return {
       ...queued,
       snapshot,
@@ -1851,7 +1895,7 @@ async function queueSessionItemsAndStartProcessing(
         ...current.tab,
         error: message
       }
-    })).catch(() => undefined);
+    }), { reconcileToken: options.reconcileToken }).catch(() => undefined);
     return {
       ...queued,
       snapshot: snapshot || queued.snapshot,
@@ -1863,7 +1907,8 @@ async function queueSessionItemsAndStartProcessing(
 async function refreshItem(
   tabId: number,
   sessionId: string,
-  itemId: string
+  itemId: string,
+  options: { reconcileToken?: RequestReconcileToken | null } = {}
 ): Promise<{ snapshot: ExtensionSnapshot; job: JobSnapshot | null; capture: CaptureSnapshot | null }> {
   // Raw lock: refresh returns job/capture metadata alongside the saved snapshot.
   return withSnapshotLock(async () => {
@@ -1897,7 +1942,7 @@ async function refreshItem(
         ...current.tab,
         error: null
       }
-    });
+    }, { reconcileToken: options.reconcileToken });
     if (session.mode === "product") {
       queueProductSignalAutoAnalysis(tabId, snapshot.global, sessionId);
     }
@@ -1906,7 +1951,11 @@ async function refreshItem(
   });
 }
 
-async function refreshAllItems(tabId: number, sessionId: string): Promise<ExtensionSnapshot> {
+async function refreshAllItems(
+  tabId: number,
+  sessionId: string,
+  options: { reconcileToken?: RequestReconcileToken | null } = {}
+): Promise<ExtensionSnapshot> {
   let snapshot = await loadSnapshot(tabId);
   const session = snapshot.global.sessions.find((candidate) => candidate.id === sessionId);
   if (!session) {
@@ -1919,7 +1968,9 @@ async function refreshAllItems(tabId: number, sessionId: string): Promise<Extens
   // Keep refresh sequential so later saves cannot overwrite earlier item updates.
   for (const item of refreshable) {
     try {
-      const result = await refreshItem(tabId, session.id, item.id);
+      const result = await refreshItem(tabId, session.id, item.id, {
+        reconcileToken: options.reconcileToken
+      });
       snapshot = result.snapshot;
     } catch (error) {
       console.error("failed to refresh session item", error);
@@ -1943,7 +1994,7 @@ async function refreshAllItems(tabId: number, sessionId: string): Promise<Extens
         ...latest.tab,
         error: firstFailureMessage
       }
-    });
+    }, { reconcileToken: options.reconcileToken });
   });
 }
 
@@ -1951,6 +2002,7 @@ function resetBackgroundTestState(): void {
   globalStateCache = null;
   tabStateCache.clear();
   tabHoverCache.clear();
+  backgroundRequestReconciler.reset();
   lastSaveSnapshotStorageMs = 0;
 }
 
@@ -3243,11 +3295,17 @@ export default defineBackground(() => {
           case "session/queue-items-and-start-processing": {
             const tabId = await resolveTabId(sender);
             try {
+              const requestId = message.requestId ?? createPipelineRequestId("background.session.queue-items-and-start-processing");
+              const reconcileToken = beginBackgroundSnapshotReconcile(
+                "background.session.queue-items-and-start-processing",
+                requestId,
+                { sessionId: message.sessionId, tabId }
+              );
               const result = await traceBackgroundPipeline({
                 phase: "crawl.queued",
                 step: "background.session.queue-items-and-start-processing",
                 target: { sessionId: message.sessionId, tabId },
-                requestId: message.requestId,
+                requestId,
                 detail: { itemCount: message.itemIds.length },
                 responseDetail: (queued) => ({
                   queuedCount: queued.queuedItemIds.length,
@@ -3255,7 +3313,7 @@ export default defineBackground(() => {
                   processingStatus: queued.processingStatus ?? null,
                   processingError: queued.processingError ?? null
                 }),
-                run: () => queueSessionItemsAndStartProcessing(tabId, message.sessionId, message.itemIds)
+                run: () => queueSessionItemsAndStartProcessing(tabId, message.sessionId, message.itemIds, { reconcileToken })
               });
               sendResponse({
                 ok: true,
@@ -3324,12 +3382,18 @@ export default defineBackground(() => {
           case "session/refresh-all": {
             const tabId = await resolveTabId(sender);
             const target = requireSessionActionTarget(message.target);
+            const requestId = message.requestId ?? createPipelineRequestId("background.session.refresh-all");
+            const reconcileToken = beginBackgroundSnapshotReconcile(
+              "background.session.refresh-all",
+              requestId,
+              { sessionId: target.sessionId, tabId }
+            );
             const snapshot = await traceBackgroundPipeline({
               phase: "capture.ready",
               step: "background.session.refresh-all",
               target: { sessionId: target.sessionId, tabId },
-              requestId: message.requestId,
-              run: () => refreshAllItems(tabId, target.sessionId)
+              requestId,
+              run: () => refreshAllItems(tabId, target.sessionId, { reconcileToken })
             });
             sendResponse({
               ok: true,

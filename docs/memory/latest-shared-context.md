@@ -143,8 +143,8 @@ This note is the high-signal shared memory for Codex and Claude when working on 
 
 ## Current Known Priorities
 
-- Split growing popup/background orchestration before adding digest/watch-mode work. `entrypoints/background.ts` is now 3488 lines and `src/ui/useInPageCollectorAppState.ts` is now 2148 lines.
-- Pipeline spine status: PR #21 merged the typed trace event stream, PR #22 merged requestId trace correlation, PR #23 merged terminal VM `ui.ready`, PR #24 merged the typed trace summarizer + live harness gate, and PR #25 moved `RECONCILE` to 🟡 with UI stale-result ignore. Current TRACE fixture-gate work adds a committed Chrome-captured `ui.ready` fixture plus CI gate, but `TRACE` stays 🟡 until backend/direct LLM trace paths and a full live hover → queue → analysis artifact are locked.
+- Split growing popup/background orchestration before adding digest/watch-mode work. `entrypoints/background.ts` is now 3716 lines and `src/ui/useInPageCollectorAppState.ts` is now 2542 lines.
+- Pipeline spine status: PR #21 merged the typed trace event stream, PR #22 merged requestId trace correlation, PR #23 merged terminal VM `ui.ready`, PR #24 merged the typed trace summarizer + live harness gate, PR #25 started `RECONCILE` UI stale-result ignore, and PR #28 added the first committed `ui.ready` fixture CI gate. `TRACE` stays 🟡 until backend/direct LLM trace paths and a real full live hover → queue → analysis artifact are locked. Current RECONCILE follow-up guards the background snapshot save seam for `session/refresh-all` and `session/queue-items-and-start-processing`; keep `RECONCILE` short of 🟩 until direct Product/Folder/PR storage-key writes are also stale-skip guarded.
 - Improve hover debounce and clear stale overlay state on SPA route changes.
 - Add better honest loading states for crawl / analysis / compare waits.
 - Keep compare cluster matching skepticism high because pairing is still rank-driven.

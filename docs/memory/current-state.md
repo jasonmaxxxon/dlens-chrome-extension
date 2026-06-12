@@ -96,7 +96,7 @@ The verified build in the active Phase B implementation worktree is:
 - old versions and historical worktrees: `local dlens-old archive`
 - verification: `npm run typecheck`, `npx tsx --test tests/*.test.ts tests/*.test.tsx`, and `npm run build`
 - latest merged-code full test count after PR #25: `752 pass, 0 fail`
-- PR #25 merged on 2026-06-13 as `8106c42`; version remains `0.1.33`
+- PR #25 merged as `8106c42`; PR #28 merged as `807cfb4`; version remains `0.1.33`
 - latest build output was mirrored to `output/chrome-mv3`
 - current engineering branch: `main`
 - live backend smoke from the prior product run: `GET http://127.0.0.1:8000/worker/status` returned `{"status":"idle"}`
@@ -114,8 +114,9 @@ The verified build in the active Phase B implementation worktree is:
 - PR #22 merged: collect/capture requestId trace correlation across content, popup, background save/queue/worker/refresh, and processing coordinator paths. It deliberately does not implement stale-response rejection yet.
 - PR #23 merged: terminal `ui.ready` events now project from Product / Topic / Compare / PR Evidence ViewModel state through the UI shell.
 - PR #24 merged: typed trace summary + live QA harness gate landed; `TRACE` remains 🟡 until backend/direct LLM trace paths and real live trace artifacts are locked.
-- PR #25 merged: `RECONCILE` starts with tested stale-result ignore for Compare/Product/Folder/PR UI async response writes plus a narrow session-scoped snapshot guard. Treat it as 🟡 until storage-seam-wide stale write rejection lands.
-- Current TRACE fixture-gate branch: adds `docs/qa/assets/2026-06-13/live-trace-happy.json`, `npm run qa:harness:fixture`, and a CI verify step that runs the live pipeline harness against a committed Chrome-captured typed `ui.ready` trace. This locks popup rehydrate / `ui.ready` terminal reachability only; backend/direct LLM trace and a full hover → queue → analysis live artifact remain pending.
+- PR #25 merged: `RECONCILE` started with tested stale-result ignore for Compare/Product/Folder/PR UI async response writes plus a narrow session-scoped snapshot guard. Treat it as 🟡 until storage-seam-wide stale write rejection lands.
+- PR #28 merged: adds `docs/qa/assets/2026-06-13/live-trace-happy.json`, `npm run qa:harness:fixture`, and a CI verify step that runs the live pipeline harness against a committed Chrome-captured typed `ui.ready` trace. This locks popup rehydrate / `ui.ready` terminal reachability only; backend/direct LLM trace and a full hover → queue → analysis live artifact remain pending.
+- Current RECONCILE follow-up branch mirrors the request reconciler into the background snapshot save seam for `session/refresh-all` and `session/queue-items-and-start-processing`; stale capture/queue responses now skip snapshot storage writes and `state/updated` broadcasts. `RECONCILE` still stays 🟡 because direct Product/Folder/PR storage-key writes are not yet background-guarded.
 
 ## PR Evidence V1 Contract State
 
