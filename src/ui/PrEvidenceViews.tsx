@@ -20,6 +20,7 @@ import {
   type SegmentedTabItem
 } from "./components.tsx";
 import { readPrBriefFile } from "./pr-brief-upload.ts";
+import { createPrEvidenceResource, type PrEvidenceResourceState } from "./pr-evidence-resource.ts";
 import { exportPrSummaryDocx, exportPrSummaryMarkdown } from "./pr-summary-export.ts";
 import { textStyles, tokens } from "./tokens.ts";
 
@@ -42,23 +43,6 @@ const CRITERION_PLACEHOLDERS: Record<PrCriterionId, string> = {
   c5: "體驗主題",
   c6: "CTA / 報名動作"
 };
-
-function createId(prefix: string): string {
-  return `${prefix}_${Math.random().toString(36).slice(2, 10)}_${Date.now().toString(36)}`;
-}
-
-function createDraftCampaign(sessionId: string): PrCampaign {
-  const now = new Date().toISOString();
-  return {
-    id: createId("prcampaign"),
-    sessionId,
-    name: "",
-    briefText: "",
-    criteria: normalizePrCriteria([]),
-    createdAt: now,
-    updatedAt: now
-  };
-}
 
 function matchedCount(row: PrEvidenceRow): number {
   return Object.values(row.criteriaMatches).filter(Boolean).length;
@@ -1112,62 +1096,84 @@ function SummaryPanel({ campaign, summary }: { campaign: PrCampaign; summary: st
   );
 }
 
+export interface PrEvidenceViewProps {
+  sessionId: string;
+  resource?: PrEvidenceResourceState;
+  onResourceChange?: (resource: PrEvidenceResourceState) => void;
+  onActiveCampaignChange?: (campaign: PrCampaign | null) => void;
+}
+
 // memo-wrapped below as PrEvidenceView. Inline export `PrEvidenceViewInner`
 // is kept for tests / hot-reload introspection.
-function PrEvidenceViewInner({ sessionId }: { sessionId: string }) {
-  const [campaign, setCampaign] = useState<PrCampaign>(() => createDraftCampaign(sessionId));
-  const [rows, setRows] = useState<PrEvidenceRow[]>([]);
-  const [summary, setSummary] = useState("");
-  const [notice, setNotice] = useState("");
-  const [uploadError, setUploadError] = useState("");
+function PrEvidenceViewInner({
+  sessionId,
+  resource,
+  onResourceChange,
+  onActiveCampaignChange
+}: PrEvidenceViewProps) {
+  const [localResource, setLocalResource] = useState<PrEvidenceResourceState>(() => createPrEvidenceResource(sessionId));
   const [activePane, setActivePane] = useState<PrWorkPane>("ledger");
-  const [setupCollapsed, setSetupCollapsed] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const [isReadingBrief, setIsReadingBrief] = useState(false);
   const [isGeneratingCriteria, setIsGeneratingCriteria] = useState(false);
   const [isMatching, setIsMatching] = useState(false);
   const [isFetchingAdvancedMetrics, setIsFetchingAdvancedMetrics] = useState(false);
   const [isGeneratingSummary, setIsGeneratingSummary] = useState(false);
+  const currentResource = resource ?? localResource;
+  const currentResourceRef = useRef(currentResource);
+  const { campaign, rows, summary, notice, uploadError, setupCollapsed } = currentResource;
   const coreMessages = useMemo(() => extractPrCoreMessages(campaign.briefText), [campaign.briefText]);
 
   const savedCampaignReady = Boolean(campaign.id && campaign.name.trim());
 
   useEffect(() => {
-    setCampaign((current) => current.sessionId === sessionId ? current : createDraftCampaign(sessionId));
-  }, [sessionId]);
+    currentResourceRef.current = currentResource;
+  }, [currentResource]);
 
   useEffect(() => {
-    let cancelled = false;
-    if (!sessionId) {
+    if (!resource) {
+      setLocalResource((current) => current.campaign.sessionId === sessionId ? current : createPrEvidenceResource(sessionId));
+    }
+  }, [resource, sessionId]);
+
+  function updateResource(updater: (current: PrEvidenceResourceState) => PrEvidenceResourceState) {
+    if (resource) {
+      const next = updater(currentResourceRef.current);
+      currentResourceRef.current = next;
+      onResourceChange?.(next);
       return;
     }
-    void sendExtensionMessage<PrResponse>({ type: "pr/list-campaigns", sessionId })
-      .then(async (response) => {
-        if (!response.ok || cancelled) {
-          return;
-        }
-        const active = response.prCampaigns?.[0] || null;
-        if (!active) {
-          setCampaign(createDraftCampaign(sessionId));
-          setRows([]);
-          return;
-        }
-        setCampaign(active);
-        setSetupCollapsed(true);
-        const rowResponse = await sendExtensionMessage<PrResponse>({ type: "pr/list-evidence-rows", campaignId: active.id });
-        if (!cancelled && rowResponse.ok) {
-          setRows(rowResponse.prEvidenceRows ?? []);
-        }
-      })
-      .catch((error) => {
-        if (!cancelled) {
-          setNotice(error instanceof Error ? error.message : String(error));
-        }
-      });
-    return () => {
-      cancelled = true;
-    };
-  }, [sessionId]);
+    setLocalResource((current) => {
+      const next = updater(current);
+      currentResourceRef.current = next;
+      onResourceChange?.(next);
+      return next;
+    });
+  }
+
+  function setCampaign(next: PrCampaign) {
+    updateResource((current) => ({ ...current, campaign: next }));
+  }
+
+  function setRows(next: PrEvidenceRow[]) {
+    updateResource((current) => ({ ...current, rows: next }));
+  }
+
+  function setSummary(next: string) {
+    updateResource((current) => ({ ...current, summary: next }));
+  }
+
+  function setNotice(next: string) {
+    updateResource((current) => ({ ...current, notice: next }));
+  }
+
+  function setUploadError(next: string) {
+    updateResource((current) => ({ ...current, uploadError: next }));
+  }
+
+  function setSetupCollapsed(next: boolean) {
+    updateResource((current) => ({ ...current, setupCollapsed: next }));
+  }
 
   async function saveCampaign() {
     setIsSaving(true);
@@ -1184,6 +1190,7 @@ function PrEvidenceViewInner({ sessionId }: { sessionId: string }) {
     if (response.ok) {
       const active = response.prCampaigns?.[0] || next;
       setCampaign(active);
+      onActiveCampaignChange?.(active);
       setSetupCollapsed(true);
       setNotice("活動已儲存；Collect 現在可以加入 evidence rows。");
     } else {
@@ -1215,7 +1222,9 @@ function PrEvidenceViewInner({ sessionId }: { sessionId: string }) {
       if (next.name.trim()) {
         const saveResponse = await sendExtensionMessage<PrResponse>({ type: "pr/save-campaign", campaign: next });
         if (saveResponse.ok) {
-          setCampaign(saveResponse.prCampaigns?.[0] || next);
+          const active = saveResponse.prCampaigns?.[0] || next;
+          setCampaign(active);
+          onActiveCampaignChange?.(active);
           setNotice("條件已生成並儲存；批次判斷會使用這六個標籤。");
         } else {
           setNotice(saveResponse.error);
@@ -1240,7 +1249,7 @@ function PrEvidenceViewInner({ sessionId }: { sessionId: string }) {
       const result = await readPrBriefFile(file);
       const now = new Date().toISOString();
       const nextName = campaign.name.trim() || result.inferredName;
-      setCampaign((current) => ({ ...current, name: nextName, briefText: result.text, updatedAt: now }));
+      setCampaign({ ...campaign, name: nextName, briefText: result.text, updatedAt: now });
       setIsReadingBrief(false);
       setNotice(`已載入 ${file.name}${result.sourceKind === "pdf" ? " PDF" : ""}，正在用 brief 產生六項條件...`);
       await generateCriteriaFromBrief(nextName, result.text);

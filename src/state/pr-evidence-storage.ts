@@ -52,6 +52,18 @@ function createId(prefix: string): string {
   return `${prefix}_${Math.random().toString(36).slice(2, 10)}_${Date.now().toString(36)}`;
 }
 
+export function createDraftPrCampaign(sessionId: string, now = new Date().toISOString()): PrCampaign {
+  return {
+    id: createId("prcampaign"),
+    sessionId,
+    name: "",
+    briefText: "",
+    criteria: normalizePrCriteria([]),
+    createdAt: now,
+    updatedAt: now
+  };
+}
+
 function readString(value: unknown, fallback = ""): string {
   return typeof value === "string" ? value : fallback;
 }
