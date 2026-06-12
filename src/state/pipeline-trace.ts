@@ -23,6 +23,7 @@ export interface PipelineEvent {
   step: string;
   target: PipelineTarget;
   result: PipelineResult;
+  requestId?: string;
   detail?: unknown;
   at: number;
 }
@@ -39,13 +40,19 @@ const TRACE_URL_KEY = "dlensQaTrace";
 const TRACE_DOM_ID = "__dlens_qa_trace_json__";
 const TRACE_MAX_ENTRIES = 500;
 
-type TraceWindow = Window & {
+type TraceHost = typeof globalThis & {
   __DLENS_QA_TRACE__?: PipelineTraceEntry[];
   __DLENS_QA_TRACE_SEQ__?: number;
+  __DLENS_QA_TRACE_ENABLED__?: boolean;
 };
 
 const PHASE_SET = new Set<string>(PIPELINE_PHASES);
 const RESULT_SET = new Set<string>(["ok", "pending", "error"]);
+let pipelineRequestSequence = 0;
+
+function traceHost(): TraceHost {
+  return globalThis as TraceHost;
+}
 
 export function isQaTraceFlagEnabled(value: string | null | undefined): boolean {
   return value === "1" || value === "true" || value === "yes";
@@ -73,6 +80,9 @@ function readUrlTraceFlag(locationLike: Pick<Location, "search" | "hash"> | null
 }
 
 function readTraceFlag(): boolean {
+  if (traceHost().__DLENS_QA_TRACE_ENABLED__ === true) {
+    return true;
+  }
   if (typeof window === "undefined") {
     return false;
   }
@@ -94,6 +104,12 @@ export function isQaTraceEnabled(): boolean {
 export const pipelineTraceTestables = {
   readUrlTraceFlag
 };
+
+export function createPipelineRequestId(prefix = "pipeline"): string {
+  const normalizedPrefix = prefix.trim().replace(/[^a-zA-Z0-9._-]+/g, "-").replace(/^-+|-+$/g, "") || "pipeline";
+  pipelineRequestSequence = (pipelineRequestSequence + 1) % Number.MAX_SAFE_INTEGER;
+  return `${normalizedPrefix}-${Date.now().toString(36)}-${pipelineRequestSequence.toString(36)}`;
+}
 
 function compactDetail(detail: unknown): unknown {
   if (detail == null) {
@@ -146,18 +162,22 @@ export function isPipelineEvent(value: unknown): value is PipelineEvent {
     && typeof event.target === "object"
     && !Array.isArray(event.target)
     && RESULT_SET.has(String(event.result))
+    && (
+      event.requestId == null
+      || (typeof event.requestId === "string" && event.requestId.trim().length > 0)
+    )
     && typeof event.at === "number"
     && Number.isFinite(event.at);
 }
 
 export function emitPipelineEvent(event: PipelineEventInput): void {
-  if (!isQaTraceEnabled() || typeof window === "undefined") {
+  if (!isQaTraceEnabled()) {
     return;
   }
 
-  const traceWindow = window as TraceWindow;
-  const nextId = (traceWindow.__DLENS_QA_TRACE_SEQ__ ?? 0) + 1;
-  traceWindow.__DLENS_QA_TRACE_SEQ__ = nextId;
+  const host = traceHost();
+  const nextId = (host.__DLENS_QA_TRACE_SEQ__ ?? 0) + 1;
+  host.__DLENS_QA_TRACE_SEQ__ = nextId;
   const entry: PipelineTraceEntry = {
     id: nextId,
     ...event,
@@ -166,15 +186,12 @@ export function emitPipelineEvent(event: PipelineEventInput): void {
     isoTime: new Date().toISOString(),
     detail: compactDetail(event.detail)
   };
-  traceWindow.__DLENS_QA_TRACE__ = appendPipelineTraceEntry(traceWindow.__DLENS_QA_TRACE__ ?? [], entry);
-  mirrorTraceToDom(traceWindow.__DLENS_QA_TRACE__);
+  host.__DLENS_QA_TRACE__ = appendPipelineTraceEntry(host.__DLENS_QA_TRACE__ ?? [], entry);
+  mirrorTraceToDom(host.__DLENS_QA_TRACE__);
   console.debug(`[DLens Pipeline] ${entry.phase}:${entry.step}`, entry);
   console.debug(`[DLens Pipeline JSON] ${JSON.stringify(entry)}`);
 }
 
 export function readPipelineTrace(): PipelineTraceEntry[] {
-  if (typeof window === "undefined") {
-    return [];
-  }
-  return [...(((window as TraceWindow).__DLENS_QA_TRACE__) ?? [])];
+  return [...(traceHost().__DLENS_QA_TRACE__ ?? [])];
 }

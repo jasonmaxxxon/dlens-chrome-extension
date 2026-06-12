@@ -7,6 +7,7 @@ import { PRODUCT_CONTEXT_STORAGE_KEY } from "../src/compare/product-context.ts";
 import { PRODUCT_SIGNAL_ANALYSES_STORAGE_KEY } from "../src/compare/product-signal-storage.ts";
 import { SIGNAL_READINGS_STORAGE_KEY } from "../src/compare/signal-reading-storage.ts";
 import type { ExtensionMessage, ExtensionResponse } from "../src/state/messages.ts";
+import { readPipelineTrace } from "../src/state/pipeline-trace.ts";
 import { createSessionItem } from "../src/state/store-helpers.ts";
 import { SIGNALS_STORAGE_KEY } from "../src/state/topic-storage.ts";
 import { createEmptyGlobalState, createEmptyTabState, type ExtensionGlobalState, type FolderMode, type SessionRecord, type TabUiState } from "../src/state/types.ts";
@@ -15,6 +16,7 @@ type StorageState = Record<string, unknown>;
 
 const TAB_ID = 1;
 const OTHER_TAB_ID = 2;
+let restorePipelineTraceDebug: (() => void) | null = null;
 
 function makeSession(id: string, mode: FolderMode): SessionRecord {
   return {
@@ -48,6 +50,25 @@ function makeDescriptor(id: string) {
     engagement_present: { likes: true },
     captured_at: "2026-05-27T00:00:00.000Z"
   };
+}
+
+function enablePipelineTraceForTest(): void {
+  (globalThis as any).__DLENS_QA_TRACE_ENABLED__ = true;
+  (globalThis as any).__DLENS_QA_TRACE__ = [];
+  (globalThis as any).__DLENS_QA_TRACE_SEQ__ = 0;
+  const originalDebug = console.debug;
+  console.debug = () => undefined;
+  restorePipelineTraceDebug = () => {
+    console.debug = originalDebug;
+  };
+}
+
+function disablePipelineTraceForTest(): void {
+  delete (globalThis as any).__DLENS_QA_TRACE_ENABLED__;
+  delete (globalThis as any).__DLENS_QA_TRACE__;
+  delete (globalThis as any).__DLENS_QA_TRACE_SEQ__;
+  restorePipelineTraceDebug?.();
+  restorePipelineTraceDebug = null;
 }
 
 function readStorageKeys(keys: string | string[] | Record<string, unknown> | null | undefined, state: StorageState): StorageState {
@@ -376,6 +397,43 @@ test("session/save-current-preview writes to the explicit target session instead
   assert.equal(harness.state[backgroundTestables.ACTIVE_SESSION_ID_STORAGE_KEY], product.id);
 });
 
+test("session/save-current-preview emits signal.saved background boundary events with requestId", async () => {
+  enablePipelineTraceForTest();
+  try {
+    const product = makeSession("product-session", "product");
+    const tabKey = backgroundTestables.tabStorageKey(TAB_ID);
+    const harness = await createHarness({
+      [backgroundTestables.GLOBAL_STORAGE_KEY]: makeGlobal([product], product.id),
+      [backgroundTestables.ACTIVE_SESSION_ID_STORAGE_KEY]: product.id,
+      [tabKey]: createEmptyTabState()
+    });
+
+    const response = await harness.dispatch({
+      type: "session/save-current-preview",
+      requestId: "save-req-1",
+      target: {
+        sessionId: product.id,
+        topicId: null
+      },
+      descriptor: makeDescriptor("traced-save")
+    } as ExtensionMessage);
+
+    assert.equal(response.ok, true);
+    const events = readPipelineTrace().filter((event) => event.step.startsWith("background.session.save-current-preview."));
+    assert.deepEqual(events.map((event) => [event.phase, event.step, event.result]), [
+      ["signal.saved", "background.session.save-current-preview.request", "pending"],
+      ["signal.saved", "background.session.save-current-preview.response", "ok"]
+    ]);
+    assert.deepEqual(events.map((event) => event.requestId), ["save-req-1", "save-req-1"]);
+    assert.deepEqual(events.map((event) => event.target), [
+      { sessionId: product.id, tabId: TAB_ID },
+      { sessionId: product.id, tabId: TAB_ID }
+    ]);
+  } finally {
+    disablePipelineTraceForTest();
+  }
+});
+
 test("session/save-current-preview rejects messages without an explicit target", async () => {
   const topic = makeSession("topic-session", "topic");
   const tabKey = backgroundTestables.tabStorageKey(TAB_ID);
@@ -584,6 +642,51 @@ test("session/refresh-all with no refreshable work and unchanged error performs 
 
   assert.equal(response.ok, true);
   assert.deepEqual(harness.writes, []);
+});
+
+test("queue-all and refresh-all emit crawl/capture background boundary events with requestId", async () => {
+  enablePipelineTraceForTest();
+  try {
+    const topic = makeSession("topic-session", "topic");
+    const tabKey = backgroundTestables.tabStorageKey(TAB_ID);
+    const harness = await createHarness({
+      [backgroundTestables.GLOBAL_STORAGE_KEY]: makeGlobal([topic], topic.id),
+      [backgroundTestables.ACTIVE_SESSION_ID_STORAGE_KEY]: topic.id,
+      [tabKey]: createEmptyTabState()
+    });
+
+    const queueResponse = await harness.dispatch({
+      type: "session/queue-all-pending",
+      requestId: "queue-req-1",
+      target: { sessionId: topic.id }
+    } as ExtensionMessage);
+    const refreshResponse = await harness.dispatch({
+      type: "session/refresh-all",
+      requestId: "refresh-req-1",
+      target: { sessionId: topic.id }
+    } as ExtensionMessage);
+
+    assert.equal(queueResponse.ok, true);
+    assert.equal(refreshResponse.ok, true);
+    const events = readPipelineTrace().filter((event) =>
+      event.step.startsWith("background.session.queue-all-pending.")
+      || event.step.startsWith("background.session.refresh-all.")
+    );
+    assert.deepEqual(events.map((event) => [event.phase, event.step, event.result, event.requestId]), [
+      ["crawl.queued", "background.session.queue-all-pending.request", "pending", "queue-req-1"],
+      ["crawl.queued", "background.session.queue-all-pending.response", "ok", "queue-req-1"],
+      ["capture.ready", "background.session.refresh-all.request", "pending", "refresh-req-1"],
+      ["capture.ready", "background.session.refresh-all.response", "ok", "refresh-req-1"]
+    ]);
+    assert.deepEqual(events.map((event) => event.target), [
+      { sessionId: topic.id, tabId: TAB_ID },
+      { sessionId: topic.id, tabId: TAB_ID },
+      { sessionId: topic.id, tabId: TAB_ID },
+      { sessionId: topic.id, tabId: TAB_ID }
+    ]);
+  } finally {
+    disablePipelineTraceForTest();
+  }
 });
 
 test("state update broadcast does not block the set-mode response", async () => {

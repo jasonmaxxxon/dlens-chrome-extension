@@ -38,8 +38,17 @@ test("isPipelineEvent validates phase, target object, and result", () => {
     step: "popup.button.response",
     target: { sessionId: "session-1" },
     result: "ok",
+    requestId: "save-req-1",
     at: 1
   }), true);
+  assert.equal(isPipelineEvent({
+    phase: "signal.saved",
+    step: "popup.button.response",
+    target: { sessionId: "session-1" },
+    result: "ok",
+    requestId: "",
+    at: 1
+  }), false);
   assert.equal(isPipelineEvent({
     phase: "legacy.string",
     step: "popup.button.response",
@@ -139,6 +148,7 @@ test("emitPipelineEvent writes structured events only when the trace flag is ena
       step: "popup.button.response",
       target: { sessionId: "session-1", itemId: "item-1" },
       result: "ok",
+      requestId: "save-req-2",
       detail: { ok: true }
     });
     const trace = readPipelineTrace();
@@ -146,6 +156,7 @@ test("emitPipelineEvent writes structured events only when the trace flag is ena
     assert.equal(trace.length, 1);
     assert.equal(trace[0]?.phase, "signal.saved");
     assert.equal(trace[0]?.step, "popup.button.response");
+    assert.equal(trace[0]?.requestId, "save-req-2");
     assert.deepEqual(trace[0]?.target, { sessionId: "session-1", itemId: "item-1" });
     assert.deepEqual(trace[0]?.detail, { ok: true });
     assert.equal("event" in (trace[0] as any), false);
@@ -156,6 +167,47 @@ test("emitPipelineEvent writes structured events only when the trace flag is ena
     assert.deepEqual(JSON.parse(domNodes[0]?.textContent || "[]").map((entry: PipelineTraceEntry) => entry.phase), ["signal.saved"]);
   } finally {
     console.debug = originalDebug;
+    (globalThis as any).window = originalWindow;
+    (globalThis as any).document = originalDocument;
+  }
+});
+
+test("emitPipelineEvent supports a process trace sink for background events", () => {
+  const originalWindow = (globalThis as any).window;
+  const originalDocument = (globalThis as any).document;
+  const originalDebug = console.debug;
+  const debugCalls: unknown[] = [];
+  console.debug = (...args: unknown[]) => {
+    debugCalls.push(args);
+  };
+
+  try {
+    delete (globalThis as any).window;
+    delete (globalThis as any).document;
+    (globalThis as any).__DLENS_QA_TRACE_ENABLED__ = true;
+    (globalThis as any).__DLENS_QA_TRACE__ = [];
+    (globalThis as any).__DLENS_QA_TRACE_SEQ__ = 0;
+
+    emitPipelineEvent({
+      phase: "capture.ready",
+      step: "background.session.refresh-all.response",
+      target: { sessionId: "session-1", tabId: 3 },
+      result: "ok",
+      requestId: "refresh-req-1",
+      detail: { itemCount: 2 }
+    });
+
+    const trace = readPipelineTrace();
+    assert.equal(trace.length, 1);
+    assert.equal(trace[0]?.phase, "capture.ready");
+    assert.equal(trace[0]?.requestId, "refresh-req-1");
+    assert.deepEqual(trace[0]?.target, { sessionId: "session-1", tabId: 3 });
+    assert.equal(debugCalls.length, 2);
+  } finally {
+    console.debug = originalDebug;
+    delete (globalThis as any).__DLENS_QA_TRACE_ENABLED__;
+    delete (globalThis as any).__DLENS_QA_TRACE__;
+    delete (globalThis as any).__DLENS_QA_TRACE_SEQ__;
     (globalThis as any).window = originalWindow;
     (globalThis as any).document = originalDocument;
   }

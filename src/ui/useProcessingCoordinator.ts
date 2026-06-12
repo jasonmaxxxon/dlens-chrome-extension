@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 
 import type { ExtensionMessage, ExtensionResponse, WorkerStatusMessageResponse } from "../state/messages";
-import { emitPipelineEvent } from "../state/pipeline-trace";
+import { createPipelineRequestId, emitPipelineEvent } from "../state/pipeline-trace";
 import { getPollingDelayMs, shouldRefreshProcessingFolder, type WorkerStatus } from "../state/processing-state";
 import { sendExtensionMessage } from "./controller";
 
@@ -42,18 +42,23 @@ export function useProcessingCoordinator({
 
     async function runCoordinator() {
       const startedAt = performance.now();
+      const statusRequestId = createPipelineRequestId("popup-worker-status");
       emitPipelineEvent({
         phase: "crawl.queued",
         step: "popup.worker.status.request",
         target: { sessionId: activeFolderId },
         result: "pending",
+        requestId: statusRequestId,
         detail: {
           hasInflight,
           failureCount: processingFailureCountRef.current
         }
       });
       try {
-        const workerResponse = await sendExtensionMessage<WorkerStatusMessageResponse>({ type: "worker/get-status" });
+        const workerResponse = await sendExtensionMessage<WorkerStatusMessageResponse>({
+          type: "worker/get-status",
+          requestId: statusRequestId
+        });
         if (!workerResponse.ok) {
           throw new Error(workerResponse.error);
         }
@@ -71,6 +76,7 @@ export function useProcessingCoordinator({
           step: "popup.worker.status.response",
           target: { sessionId: activeFolderId },
           result: "ok",
+          requestId: statusRequestId,
           detail: {
             workerStatus: nextWorkerStatus,
             previousWorkerStatus,
@@ -82,19 +88,26 @@ export function useProcessingCoordinator({
           previousWorkerStatus,
           hasInflight
         })) {
+          const refreshRequestId = createPipelineRequestId("popup-worker-refresh");
           emitPipelineEvent({
             phase: "capture.ready",
             step: "popup.worker.refresh.request",
             target: { sessionId: activeFolderId },
             result: "pending",
+            requestId: refreshRequestId,
             detail: { workerStatus: nextWorkerStatus }
           });
-          await sendAndSync({ type: "session/refresh-all", target: { sessionId: activeFolderId } });
+          await sendAndSync({
+            type: "session/refresh-all",
+            requestId: refreshRequestId,
+            target: { sessionId: activeFolderId }
+          });
           emitPipelineEvent({
             phase: "capture.ready",
             step: "popup.worker.refresh.response",
             target: { sessionId: activeFolderId },
-            result: "ok"
+            result: "ok",
+            requestId: refreshRequestId
           });
         }
         if (cancelled) {
@@ -131,6 +144,7 @@ export function useProcessingCoordinator({
           step: "popup.worker.status.error",
           target: { sessionId: activeFolderId },
           result: "error",
+          requestId: statusRequestId,
           detail: {
             elapsedMs: Math.round((performance.now() - startedAt) * 10) / 10,
             failureCount: processingFailureCountRef.current,
