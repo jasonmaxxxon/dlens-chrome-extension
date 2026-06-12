@@ -17,6 +17,7 @@ import { TopicsListView } from "./TopicsListView";
 import { tokens } from "./tokens";
 import { buildProductSignalWorkspaceViewModel, type ProductSignalCommand } from "../viewmodel/product-signal";
 import { buildTopicDetailViewModel, type TopicDetailCommand } from "../viewmodel/topic-detail";
+import type { PrEvidenceCommand } from "../viewmodel/pr-evidence";
 import { getProcessingFailureMessage } from "../state/processing-errors";
 import { InPageCollectorFolderControls } from "./InPageCollectorFolderControls";
 import { InPageCollectorResultWorkspace } from "./InPageCollectorResultWorkspace";
@@ -189,6 +190,7 @@ export function InPageCollectorPopup({ app }: { app: InPageCollectorAppModel }) 
   const showProcessingContextStrip = Boolean(activeFolder) && shouldShowProcessingContextStrip(activeFolderMode, guardedPage);
 
   const scrollRef = useRef<HTMLDivElement>(null);
+  const prBriefInputRef = useRef<HTMLInputElement>(null);
   const [switchingWorkspaceMode, setSwitchingWorkspaceMode] = useState<WorkspaceSwitcherMode | null>(null);
 
   // Reset before paint so mode switches do not flash at the prior scrollTop.
@@ -253,6 +255,14 @@ export function InPageCollectorPopup({ app }: { app: InPageCollectorAppModel }) 
     } finally {
       setSwitchingWorkspaceMode(null);
     }
+  }
+
+  function handlePrEvidenceCommand(command: PrEvidenceCommand) {
+    if (command.kind === "requestBriefUpload") {
+      prBriefInputRef.current?.click();
+      return;
+    }
+    return app.onPrEvidenceCommand(command);
   }
 
   if (!popupOpen) {
@@ -483,11 +493,20 @@ export function InPageCollectorPopup({ app }: { app: InPageCollectorAppModel }) 
 
           {guardedPage === "pr-evidence" ? (
             <WorkspaceSurface style={{ padding: 0, background: "transparent", boxShadow: "none", border: "none", overflow: "visible" }}>
+              <input
+                ref={prBriefInputRef}
+                type="file"
+                accept=".pdf,.txt,.md,.markdown,.text,application/pdf,text/plain,text/markdown"
+                style={{ display: "none" }}
+                onChange={(event) => {
+                  const file = event.currentTarget.files?.[0];
+                  if (file) void app.onPrEvidenceBriefFileSelected(file);
+                  event.currentTarget.value = "";
+                }}
+              />
               <PrEvidenceView
-                sessionId={activeFolder?.id || ""}
-                resource={app.prEvidenceResource}
-                onResourceChange={app.onPrEvidenceResourceChange}
-                onActiveCampaignChange={app.onPrEvidenceActiveCampaignChange}
+                viewModel={app.prEvidenceViewModel}
+                onCommand={handlePrEvidenceCommand}
               />
             </WorkspaceSurface>
           ) : null}

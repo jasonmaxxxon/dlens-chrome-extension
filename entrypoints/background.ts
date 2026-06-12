@@ -169,6 +169,7 @@ import {
   loadPrCampaigns,
   loadPrEvidenceRows,
   savePrCampaign,
+  savePrCampaignDraft,
   savePrEvidenceRow,
   toPrEvidenceRowFromSessionItem,
   type PrCampaign,
@@ -763,6 +764,14 @@ function chunkArray<T>(items: T[], size: number): T[][] {
     chunks.push(items.slice(index, index + size));
   }
   return chunks;
+}
+
+function createPrCampaignStamp() {
+  const random = Math.random().toString(36).slice(2, 10);
+  return {
+    id: `prcampaign_${random}_${Date.now().toString(36)}`,
+    now: new Date().toISOString()
+  };
 }
 
 async function generatePrCriteriaForGlobal(
@@ -2756,11 +2765,14 @@ export default defineBackground(() => {
           }
           case "pr/save-campaign": {
             const tabId = await resolveTabId(sender);
-            const prCampaigns = await savePrCampaign(chrome.storage.local, message.campaign);
+            const prCampaigns = await savePrCampaignDraft(chrome.storage.local, {
+              ...message.draft,
+              sessionId: message.sessionId
+            }, createPrCampaignStamp());
             sendResponse({
               ok: true,
               tabId,
-              prCampaigns: prCampaigns.filter((campaign) => campaign.sessionId === message.campaign.sessionId)
+              prCampaigns: prCampaigns.filter((campaign) => campaign.sessionId === message.sessionId)
             } satisfies ExtensionResponse);
             return;
           }

@@ -8,7 +8,7 @@ import { buildProductAgentTaskPromptHash } from "../src/compare/product-agent-ta
 import { SIGNAL_READING_PROMPT_VERSION } from "../src/compare/signal-reading.ts";
 import type { SessionProcessingSummary, WorkerStatus } from "../src/state/processing-state.ts";
 import type { TargetDescriptor } from "../src/contracts/target-descriptor.ts";
-import type { PrCampaign, PrEvidenceRow } from "../src/state/pr-evidence-storage.ts";
+import { prCampaignToDraft, type PrCampaign, type PrEvidenceRow } from "../src/state/pr-evidence-storage.ts";
 import type { SavedAnalysisSnapshot, SessionItem, SessionRecord, TechniqueReadingSnapshot } from "../src/state/types.ts";
 import { createDefaultSettings, createEmptyTabState } from "../src/state/types.ts";
 import { createSessionItem, createSessionRecord } from "../src/state/store-helpers.ts";
@@ -18,10 +18,17 @@ import {
   type ProductSignalViewModel,
   type ProductSignalWorkspaceViewModel
 } from "../src/viewmodel/product-signal.ts";
+import {
+  buildPrEvidenceViewModel,
+  type PrEvidenceResourceState,
+  type PrEvidenceUiState,
+  type PrEvidenceViewModel
+} from "../src/viewmodel/pr-evidence.ts";
 import { CollectView } from "../src/ui/CollectView.tsx";
 import { InPageCollectorFolderControls, inPageCollectorFolderControlsTestables } from "../src/ui/InPageCollectorFolderControls.tsx";
 import { inPageCollectorPopupTestables } from "../src/ui/InPageCollectorPopup.tsx";
 import { LibraryView } from "../src/ui/LibraryView.tsx";
+import { createPrEvidenceResource } from "../src/ui/pr-evidence-resource.ts";
 import { PrEvidenceView, prEvidenceViewTestables } from "../src/ui/PrEvidenceViews.tsx";
 import { ProductSignalView, DLENS_MOTION_CSS, productSignalViewTestables } from "../src/ui/ProductSignalViews.tsx";
 import { SettingsView } from "../src/ui/SettingsView.tsx";
@@ -323,6 +330,41 @@ function buildDescriptor(): TargetDescriptor {
     engagement_present: { likes: true, comments: true, reposts: true, forwards: true, views: true },
     captured_at: "2026-03-24T07:22:21.000Z"
   };
+}
+
+const idlePrEvidenceUiState: PrEvidenceUiState = {
+  activePane: "ledger",
+  isSaving: false,
+  isReadingBrief: false,
+  isGeneratingCriteria: false,
+  isMatching: false,
+  isFetchingAdvancedMetrics: false,
+  isGeneratingSummary: false
+};
+
+function buildPrEvidenceVm(
+  resource: Partial<PrEvidenceResourceState> = {},
+  uiState: Partial<PrEvidenceUiState> = {},
+  sessionId = "session-pr"
+): PrEvidenceViewModel {
+  const baseResource = createPrEvidenceResource(sessionId);
+  return buildPrEvidenceViewModel({
+    sessionId,
+    resource: { ...baseResource, ...resource },
+    uiState: { ...idlePrEvidenceUiState, ...uiState }
+  });
+}
+
+function renderPrEvidenceView(
+  resource: Partial<PrEvidenceResourceState> = {},
+  uiState: Partial<PrEvidenceUiState> = {}
+): string {
+  return renderToStaticMarkup(
+    React.createElement(PrEvidenceView, {
+      viewModel: buildPrEvidenceVm(resource, uiState),
+      onCommand: () => undefined
+    })
+  );
 }
 
 function buildComments(count: number) {
@@ -882,11 +924,7 @@ test("CollectView blocks PR Evidence saves until a campaign exists", () => {
 });
 
 test("PrEvidenceView renders campaign setup and compact evidence ledger", () => {
-  const html = renderToStaticMarkup(
-    React.createElement(PrEvidenceView, {
-      sessionId: "session-pr"
-    })
-  );
+  const html = renderPrEvidenceView();
 
   assert.match(html, /data-pr-evidence-view="true"/);
   assert.match(html, /data-pr-campaign-setup="true"/);
@@ -927,19 +965,11 @@ test("PrEvidenceView renders PR campaign and rows from the shared resource state
     collectedAt: "2026-05-26T00:00:00.000Z"
   };
 
-  const html = renderToStaticMarkup(
-    React.createElement(PrEvidenceView, {
-      sessionId: "session-pr",
-      resource: {
-        campaign,
-        rows: [row],
-        summary: "",
-        notice: "",
-        uploadError: "",
-        setupCollapsed: true
-      }
-    })
-  );
+  const html = renderPrEvidenceView({
+    campaign: prCampaignToDraft(campaign),
+    rows: [row],
+    setupCollapsed: true
+  });
 
   assert.match(html, /Shared campaign/);
   assert.match(html, /shared_author/);
@@ -948,11 +978,7 @@ test("PrEvidenceView renders PR campaign and rows from the shared resource state
 });
 
 test("PrEvidenceView aligns the editorial PR structure to shared workspace tokens", () => {
-  const html = renderToStaticMarkup(
-    React.createElement(PrEvidenceView, {
-      sessionId: "session-pr"
-    })
-  );
+  const html = renderPrEvidenceView();
 
   assert.match(html, /data-pr-editorial-v1="true"/);
   assert.match(html, /data-mode-header="pr-evidence"/);
@@ -966,11 +992,7 @@ test("PrEvidenceView aligns the editorial PR structure to shared workspace token
 });
 
 test("PR Evidence setup copy is Chinese-first and avoids fake campaign examples", () => {
-  const html = renderToStaticMarkup(
-    React.createElement(PrEvidenceView, {
-      sessionId: "session-pr"
-    })
-  );
+  const html = renderPrEvidenceView();
 
   assert.match(html, /活動名稱/);
   assert.match(html, /貼上新聞稿、message house 或 PR guideline，也可以上傳 PDF。/);
@@ -996,11 +1018,31 @@ test("PR Evidence ledger rows expose the original Threads post link", () => {
     collectedAt: "2026-05-26T00:00:00.000Z"
   };
   const { EvidenceLedger } = prEvidenceViewTestables as unknown as {
-    EvidenceLedger: (props: { rows: PrEvidenceRow[] }) => React.ReactElement;
+    EvidenceLedger: (props: { rows: ReturnType<typeof buildPrEvidenceVm>["ledger"]["rows"] }) => React.ReactElement;
   };
+  const campaign: PrCampaign = {
+    id: "campaign-1",
+    sessionId: "session-pr",
+    name: "Launch",
+    briefText: "Brief",
+    criteria: [
+      { id: "c1", label: "Campaign" },
+      { id: "c2", label: "Hashtag" },
+      { id: "c3", label: "Message" },
+      { id: "c4", label: "Venue" },
+      { id: "c5", label: "Experience" },
+      { id: "c6", label: "CTA" }
+    ],
+    createdAt: "2026-05-26T00:00:00.000Z",
+    updatedAt: "2026-05-26T00:00:00.000Z"
+  };
+  const vm = buildPrEvidenceVm({
+    campaign: prCampaignToDraft(campaign),
+    rows: [row]
+  });
   const html = renderToStaticMarkup(
     React.createElement(EvidenceLedger, {
-      rows: [row]
+      rows: vm.ledger.rows
     })
   );
 
@@ -1011,11 +1053,7 @@ test("PR Evidence ledger rows expose the original Threads post link", () => {
 });
 
 test("PrEvidenceView keeps metrics actions prominent and avoids horizontal inspection tables", () => {
-  const html = renderToStaticMarkup(
-    React.createElement(PrEvidenceView, {
-      sessionId: "session-pr"
-    })
-  );
+  const html = renderPrEvidenceView();
   const previewCampaign: PrCampaign = {
     id: "campaign-1",
     sessionId: "session-pr",
@@ -1043,10 +1081,13 @@ test("PrEvidenceView keeps metrics actions prominent and avoids horizontal inspe
     criteriaMatches: { c1: true, c2: false, c3: true, c4: false, c5: false, c6: true },
     collectedAt: "2026-05-26T00:00:00.000Z"
   }];
+  const previewVm = buildPrEvidenceVm({
+    campaign: prCampaignToDraft(previewCampaign),
+    rows: previewRows
+  });
   const previewHtml = renderToStaticMarkup(
     React.createElement(prEvidenceViewTestables.CsvPreview, {
-      campaign: previewCampaign,
-      rows: previewRows
+      preview: previewVm.csvPreview
     })
   );
 
@@ -1093,16 +1134,18 @@ test("PR Evidence compact rows use shared typography tokens instead of fractiona
     collectedAt: "2026-05-26T00:00:00.000Z"
   };
 
+  const vm = buildPrEvidenceVm({
+    campaign: prCampaignToDraft(previewCampaign),
+    rows: [row]
+  });
   const ledgerHtml = renderToStaticMarkup(
     React.createElement(prEvidenceViewTestables.EvidenceLedger, {
-      rows: [row],
-      criteria: previewCampaign.criteria
+      rows: vm.ledger.rows
     })
   );
   const previewHtml = renderToStaticMarkup(
     React.createElement(prEvidenceViewTestables.CsvPreview, {
-      campaign: previewCampaign,
-      rows: [row]
+      preview: vm.csvPreview
     })
   );
 

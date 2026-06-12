@@ -1,12 +1,18 @@
 import type { ReactNode } from "react";
-import { memo, useEffect, useMemo, useRef, useState } from "react";
+import { memo, useEffect, useRef, useState } from "react";
 import { ExternalLink } from "lucide-react";
 
-import { buildPrEvidenceCsv, buildPrEvidenceCsvRows, extractPrCoreMessages, inferPrViewsFromText } from "../compare/pr-evidence.ts";
-import type { ExtensionResponse } from "../state/messages.ts";
-import type { PrCampaign, PrCriterion, PrCriterionId, PrEvidenceRow } from "../state/pr-evidence-storage.ts";
-import { normalizePrCriteria, PR_CRITERION_IDS } from "../state/pr-evidence-storage.ts";
-import { sendExtensionMessage } from "./controller.tsx";
+import type { PrCampaignSaveDraft } from "../state/pr-evidence-storage.ts";
+import {
+  metricLine,
+  PR_CRITERION_PLACEHOLDERS,
+  summarizeAdvancedMetricsNotice,
+  type PrEvidenceCommand,
+  type PrEvidenceCsvPreviewViewModel,
+  type PrEvidenceRowViewModel,
+  type PrEvidenceViewModel,
+  type PrWorkPane
+} from "../viewmodel/pr-evidence.ts";
 import {
   Kicker,
   ModeHeader,
@@ -19,79 +25,7 @@ import {
   viewRootStyle,
   type SegmentedTabItem
 } from "./components.tsx";
-import { readPrBriefFile } from "./pr-brief-upload.ts";
-import { createPrEvidenceResource, type PrEvidenceResourceState } from "./pr-evidence-resource.ts";
-import { exportPrSummaryDocx, exportPrSummaryMarkdown } from "./pr-summary-export.ts";
 import { textStyles, tokens } from "./tokens.ts";
-
-type PrResponse = ExtensionResponse & {
-  prCampaigns?: PrCampaign[];
-  prEvidenceRows?: PrEvidenceRow[];
-  prAdvancedMetricsSummary?: {
-    updated: number;
-    failed: number;
-  };
-  prCriteria?: PrCriterion[];
-  prSummary?: string;
-};
-
-const CRITERION_PLACEHOLDERS: Record<PrCriterionId, string> = {
-  c1: "活動名稱或品牌",
-  c2: "Hashtag 或官方帳號",
-  c3: "核心訊息或 tagline",
-  c4: "場地 / 地點",
-  c5: "體驗主題",
-  c6: "CTA / 報名動作"
-};
-
-function matchedCount(row: PrEvidenceRow): number {
-  return Object.values(row.criteriaMatches).filter(Boolean).length;
-}
-
-function formatMetric(value: number | undefined): string {
-  if (typeof value !== "number") {
-    return "-";
-  }
-  if (value >= 1000) {
-    return `${(value / 1000).toFixed(value >= 10_000 ? 0 : 1).replace(/\.0$/, "")}k`;
-  }
-  return String(value);
-}
-
-function metricLine(row: PrEvidenceRow): string {
-  const views = row.metrics.views ?? inferPrViewsFromText(row.caption) ?? undefined;
-  return [
-    `${formatMetric(row.metrics.likes)} 喜歡`,
-    `${formatMetric(row.metrics.comments)} 回覆`,
-    `${formatMetric(row.metrics.reposts)} 轉發`,
-    views != null ? `${formatMetric(views)} 瀏覽` : "",
-    row.metrics.followers != null ? `${formatMetric(row.metrics.followers)} followers` : ""
-  ].filter(Boolean).join(" · ");
-}
-
-function summarizeAdvancedMetricsNotice(
-  summary: { updated: number; failed: number } | undefined,
-  rows: PrEvidenceRow[]
-): string {
-  const updated = summary?.updated ?? 0;
-  const failed = summary?.failed ?? 0;
-  const firstError = rows.find((row) => row.advancedMetricsError)?.advancedMetricsError?.trim();
-  const firstErrorText = firstError
-    ? ` 第一個錯誤：${firstError.slice(0, 160)}`
-    : "";
-  return `進階指標已更新：${updated} 列${failed ? `，${failed} 列失敗` : ""}.${firstErrorText}`;
-}
-
-function formatTime(value: string): string {
-  if (!value || value.startsWith("1970-01-01")) {
-    return "剛加入";
-  }
-  return new Intl.DateTimeFormat("zh-HK", { month: "numeric", day: "numeric", hour: "numeric", minute: "2-digit" }).format(new Date(value));
-}
-
-function csvPreviewRows(campaign: PrCampaign, rows: PrEvidenceRow[]): string[][] {
-  return buildPrEvidenceCsvRows(campaign, rows, 20);
-}
 
 const accentButtonStyle = {
   borderColor: "var(--dlens-mode-accent)",
@@ -187,11 +121,11 @@ function CampaignEditor({
   onExpand,
   onCollapse
 }: {
-  campaign: PrCampaign;
-  onChange: (campaign: PrCampaign) => void;
+  campaign: PrEvidenceViewModel["campaign"];
+  onChange: (draft: PrCampaignSaveDraft) => void;
   onSave: () => void;
   onGenerateCriteria: () => void;
-  onUploadBrief: (file: File) => void;
+  onUploadBrief: () => void;
   isSaving: boolean;
   isReadingBrief: boolean;
   isGenerating: boolean;
@@ -201,7 +135,6 @@ function CampaignEditor({
   onExpand?: () => void;
   onCollapse?: () => void;
 }) {
-  const fileInputRef = useRef<HTMLInputElement | null>(null);
   const [briefExpanded, setBriefExpanded] = useState(true);
   const hasAutoCollapsed = useRef(false);
   const prevIsReadingBrief = useRef(isReadingBrief);
@@ -225,8 +158,8 @@ function CampaignEditor({
   function updateCriterion(index: number, label: string) {
     const criteria = campaign.criteria.map((criterion, currentIndex) =>
       currentIndex === index ? { ...criterion, label } : criterion
-    ) as PrCampaign["criteria"];
-    onChange({ ...campaign, criteria, updatedAt: new Date().toISOString() });
+    ) as PrCampaignSaveDraft["criteria"];
+    onChange({ ...campaign.saveDraft, criteria });
   }
 
   const parsedMessages = coreMessages.slice(0, 5).map(parseCoreMessage);
@@ -310,7 +243,7 @@ function CampaignEditor({
             <input
               data-pr-field="name"
               value={campaign.name}
-              onChange={(event) => onChange({ ...campaign, name: event.target.value, updatedAt: new Date().toISOString() })}
+              onChange={(event) => onChange({ ...campaign.saveDraft, name: event.target.value })}
               placeholder="輸入活動或品牌名稱"
               style={inputLineStyle}
             />
@@ -330,7 +263,7 @@ function CampaignEditor({
               <SecondaryButton
                 onClick={() => {
                   setBriefExpanded(true);
-                  fileInputRef.current?.click();
+                  onUploadBrief();
                 }}
                 disabled={isReadingBrief || isGenerating}
                 style={{ ...accentButtonStyle, ...compactButtonStyle, whiteSpace: "nowrap" }}
@@ -347,17 +280,6 @@ function CampaignEditor({
                 </SecondaryButton>
               ) : null}
             </div>
-            <input
-              ref={fileInputRef}
-              type="file"
-              accept=".pdf,.txt,.md,.markdown,.text,application/pdf,text/plain,text/markdown"
-              style={{ display: "none" }}
-              onChange={(event) => {
-                const file = event.target.files?.[0];
-                if (file) onUploadBrief(file);
-                event.target.value = "";
-              }}
-            />
           </div>
 
           {/* Collapsed: one-line preview + char count */}
@@ -409,7 +331,7 @@ function CampaignEditor({
                 id="pr-brief-text"
                 data-pr-field="brief"
                 value={campaign.briefText}
-                onChange={(event) => onChange({ ...campaign, briefText: event.target.value, updatedAt: new Date().toISOString() })}
+                onChange={(event) => onChange({ ...campaign.saveDraft, briefText: event.target.value })}
                 placeholder="貼上新聞稿、message house 或 PR guideline，也可以上傳 PDF。"
                 rows={4}
                 style={{
@@ -535,7 +457,7 @@ function CampaignEditor({
                   data-pr-field={`criterion-${index}`}
                   value={criterion.label}
                   onChange={(event) => updateCriterion(index, event.target.value)}
-                  placeholder={CRITERION_PLACEHOLDERS[criterion.id]}
+                  placeholder={campaign.placeholders[criterion.id] || PR_CRITERION_PLACEHOLDERS[criterion.id]}
                   style={criteriaInputLineStyle}
                 />
               </div>
@@ -559,7 +481,7 @@ function CampaignEditor({
   );
 }
 
-function EvidenceLedger({ rows, criteria = [] }: { rows: PrEvidenceRow[]; criteria?: PrCriterion[] }) {
+function EvidenceLedger({ rows }: { rows: PrEvidenceRowViewModel[] }) {
   return (
     <section data-pr-evidence-ledger="compact" style={{ display: "grid", minWidth: 0 }}>
       <style>{SCAN_ROW_HOVER_CSS}</style>
@@ -583,13 +505,13 @@ function EvidenceLedger({ rows, criteria = [] }: { rows: PrEvidenceRow[]; criter
               }}
             >
               <SourceLinkIcon row={row} />
-              <div style={{ ...prMonoMetaStyle, color: tokens.color.ink, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{row.authorHandle || "-"}</div>
-              <div style={{ ...prRowTextStyle, color: tokens.color.subInk, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{row.caption || "-"}</div>
-              <div style={{ ...textStyles.metric, color: tokens.color.softInk, textAlign: "right", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{metricLine(row)}</div>
+              <div style={{ ...prMonoMetaStyle, color: tokens.color.ink, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{row.authorLabel}</div>
+              <div style={{ ...prRowTextStyle, color: tokens.color.subInk, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{row.captionLabel}</div>
+              <div style={{ ...textStyles.metric, color: tokens.color.softInk, textAlign: "right", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{row.metricLine}</div>
               <div style={{ display: "flex", justifyContent: "flex-end", overflow: "hidden" }}>
-                <CriterionChips row={row} criteria={criteria} variant="compact" />
+                <CriterionChips row={row} variant="compact" />
               </div>
-              <div style={{ ...prMonoMetaStyle, color: tokens.color.softInk, textAlign: "right", minWidth: 56 }}>{formatTime(row.collectedAt)}</div>
+              <div style={{ ...prMonoMetaStyle, color: tokens.color.softInk, textAlign: "right", minWidth: 56 }}>{row.collectedAtLabel}</div>
             </div>
           ))}
         </div>
@@ -602,8 +524,8 @@ function EvidenceLedger({ rows, criteria = [] }: { rows: PrEvidenceRow[]; criter
   );
 }
 
-function SourceLinkIcon({ row }: { row: PrEvidenceRow }) {
-  const href = row.postUrl.trim();
+function SourceLinkIcon({ row }: { row: PrEvidenceRowViewModel }) {
+  const href = row.sourceUrl;
   const baseStyle = {
     width: 24,
     height: 24,
@@ -628,7 +550,7 @@ function SourceLinkIcon({ row }: { row: PrEvidenceRow }) {
       href={href}
       target="_blank"
       rel="noreferrer"
-      aria-label={`Open original Threads post by ${row.authorHandle || "unknown author"}`}
+      aria-label={row.sourceLinkAriaLabel}
       title="Open original Threads post"
       onClick={(event) => event.stopPropagation()}
       style={baseStyle}
@@ -638,19 +560,8 @@ function SourceLinkIcon({ row }: { row: PrEvidenceRow }) {
   );
 }
 
-type PrWorkPane = "ledger" | "match" | "metrics";
-
-function CriterionChips({
-  row,
-  criteria,
-  variant
-}: {
-  row: PrEvidenceRow;
-  criteria: PrCriterion[];
-  variant: "full" | "compact";
-}) {
-  const matchedTotal = matchedCount(row);
-
+function CriterionChips({ row, variant }: { row: PrEvidenceRowViewModel; variant: "full" | "compact" }) {
+  const matchedTotal = row.matchedCount;
   if (variant === "compact") {
     if (matchedTotal === 0) {
       return (
@@ -666,13 +577,11 @@ function CriterionChips({
         </span>
       );
     }
-    const matchedIds = PR_CRITERION_IDS
-      .map((id, index) => ({ id, index, matched: row.criteriaMatches[id] }))
-      .filter((entry) => entry.matched);
+    const matchedIds = row.criteria.filter((entry) => entry.matched);
     return (
       <span
         aria-label={`${matchedTotal} of 6 criteria matched`}
-        title={matchedIds.map(({ index }) => criteria[index]?.label || `C${index + 1}`).join(" · ")}
+        title={row.matchedCriterionLabels.join(" · ")}
         style={{
           display: "inline-flex",
           gap: 5,
@@ -692,13 +601,12 @@ function CriterionChips({
 
   return (
     <div style={{ display: "flex", flexWrap: "wrap", gap: 14, paddingLeft: 2 }}>
-      {PR_CRITERION_IDS.map((id, index) => {
-        const criterion = criteria[index];
-        const matched = row.criteriaMatches[id];
+      {row.criteria.map((criterion) => {
+        const matched = criterion.matched;
         return (
           <span
-            key={id}
-            title={criterion?.label || id}
+            key={criterion.id}
+            title={criterion.label || criterion.id}
             style={{
               display: "inline-flex",
               alignItems: "baseline",
@@ -709,7 +617,7 @@ function CriterionChips({
               opacity: matched ? 1 : 0.7
             }}
           >
-            C{index + 1}
+            C{criterion.index + 1}
             <span aria-hidden>{matched ? "✓" : "·"}</span>
           </span>
         );
@@ -718,46 +626,21 @@ function CriterionChips({
   );
 }
 
-function criterionTotals(campaign: PrCampaign, rows: PrEvidenceRow[]): number[] {
-  return campaign.criteria.map((criterion) =>
-    rows.reduce((total, row) => total + (row.criteriaMatches[criterion.id] ? 1 : 0), 0)
-  );
-}
-
 function PrWorkingArea({
-  campaign,
-  rows,
-  activePane,
+  viewModel,
   onPaneChange,
-  onMatchCriteria,
-  onFetchAdvancedMetrics,
-  onExportCsv,
-  isMatching,
-  isFetchingAdvancedMetrics,
-  savedCampaignReady,
-  lastMatchedAt
+  onCommand
 }: {
-  campaign: PrCampaign;
-  rows: PrEvidenceRow[];
-  activePane: PrWorkPane;
+  viewModel: PrEvidenceViewModel;
   onPaneChange: (pane: PrWorkPane) => void;
-  onMatchCriteria: () => void;
-  onFetchAdvancedMetrics: () => void;
-  onExportCsv: () => void;
-  isMatching: boolean;
-  isFetchingAdvancedMetrics: boolean;
-  savedCampaignReady: boolean;
-  lastMatchedAt?: string;
+  onCommand: (command: PrEvidenceCommand) => void;
 }) {
-  const totals = criterionTotals(campaign, rows);
-  const matchedCells = rows.reduce((total, row) => total + matchedCount(row), 0);
-  const totalCells = rows.length * 6;
-  const hasFetchedMetrics = rows.some((row) => row.advancedMetricsFetchedAt);
-  const tabs: ReadonlyArray<SegmentedTabItem<PrWorkPane>> = [
-    { id: "ledger", label: "證據帳本", count: String(rows.length), tone: rows.length ? "accent" : "neutral" },
-    { id: "match", label: "批次判斷", count: `${matchedCells}/${totalCells}`, tone: matchedCells ? "success" : "neutral" },
-    { id: "metrics", label: "抓取指標", count: hasFetchedMetrics ? "已完成" : "—", tone: hasFetchedMetrics ? "success" : "neutral" }
-  ];
+  const rows = viewModel.rows;
+  const activePane = viewModel.workingArea.activePane;
+  const tabs: ReadonlyArray<SegmentedTabItem<PrWorkPane>> = viewModel.workingArea.tabs;
+  const matchAction = viewModel.actions.find((action) => action.kind === "matchCriteria");
+  const metricsAction = viewModel.actions.find((action) => action.kind === "fetchAdvancedMetrics");
+  const exportCsvAction = viewModel.actions.find((action) => action.kind === "exportCsv");
 
   const paneStyle = (pane: PrWorkPane) => ({
     display: activePane === pane ? "block" : "none"
@@ -774,16 +657,16 @@ function PrWorkingArea({
           flexWrap: "wrap"
         }}
       >
-        <SegmentedTabs
-          tabs={tabs}
-          activeId={activePane}
+          <SegmentedTabs
+            tabs={tabs}
+            activeId={activePane}
           onChange={onPaneChange}
           ariaLabel="PR 工作區分頁"
           dataAttr={(id) => ({ "data-pr-work-tab": id })}
         />
         <span style={{ flex: 1 }} />
         <div style={{ display: "flex", alignItems: "center", paddingBottom: 6 }}>
-          <PrimaryButton onClick={onExportCsv} disabled={!savedCampaignReady} style={compactButtonStyle}>
+          <PrimaryButton onClick={() => exportCsvAction ? onCommand(exportCsvAction) : undefined} disabled={!viewModel.workingArea.canExportCsv || !exportCsvAction} style={compactButtonStyle}>
             匯出 CSV
           </PrimaryButton>
         </div>
@@ -792,22 +675,22 @@ function PrWorkingArea({
       <div style={paneStyle("ledger")}>
         <PaneHeader
           title="已儲存貼文"
-          caption={`${rows.length} 列 · 點擊查看${lastMatchedAt ? ` · 已判斷 ${formatTime(lastMatchedAt)}` : ""}`}
+          caption={viewModel.workingArea.ledgerCaption}
         />
-        <EvidenceLedger rows={rows} criteria={campaign.criteria} />
+        <EvidenceLedger rows={rows} />
       </div>
 
       <div style={paneStyle("match")}>
         <PaneHeader
           title="用 6 項條件逐篇判斷"
-          caption={`約 ${Math.max(0, Math.ceil(rows.length / 25))} 次 AI call · ${totalCells} 格`}
+          caption={viewModel.workingArea.match.caption}
           action={
             <PrimaryButton
-              onClick={onMatchCriteria}
-              disabled={!rows.length || isMatching || !savedCampaignReady}
+              onClick={() => matchAction ? onCommand(matchAction) : undefined}
+              disabled={!viewModel.workingArea.canMatchCriteria || !matchAction}
               style={compactButtonStyle}
             >
-              {isMatching ? "判斷中..." : "批次判斷"}
+              {viewModel.ui.isMatching ? "判斷中..." : "批次判斷"}
             </PrimaryButton>
           }
         />
@@ -824,16 +707,16 @@ function PrWorkingArea({
             >
               <div style={{ display: "flex", alignItems: "baseline", gap: 10, minWidth: 0 }}>
                 <span style={{ ...prMonoMetaStyle, color: tokens.color.ink, flex: "0 0 auto", minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", maxWidth: 124 }}>
-                  {row.authorHandle || "-"}
+                  {row.authorLabel}
                 </span>
                 <span style={{ ...prRowTextStyle, flex: 1, minWidth: 0, color: tokens.color.subInk, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-                  {row.caption || "-"}
+                  {row.captionLabel}
                 </span>
-                <span style={{ ...textStyles.metric, color: matchedCount(row) >= 5 ? PR_MOSS : matchedCount(row) > 0 ? PR_ACCENT : tokens.color.softInk, flexShrink: 0 }}>
-                  {matchedCount(row)} / 6
+                <span style={{ ...textStyles.metric, color: row.matchedCount >= 5 ? PR_MOSS : row.matchedCount > 0 ? PR_ACCENT : tokens.color.softInk, flexShrink: 0 }}>
+                  {row.matchCountLabel}
                 </span>
               </div>
-              <CriterionChips row={row} criteria={campaign.criteria} variant="full" />
+              <CriterionChips row={row} variant="full" />
             </div>
           )) : (
             <div style={{ padding: "16px 8px", fontSize: 12, color: tokens.color.subInk }}>先收集貼文，再執行條件判斷。</div>
@@ -843,7 +726,7 @@ function PrWorkingArea({
               <span style={{ ...textStyles.label, fontFamily: tokens.font.mono, color: tokens.color.softInk, letterSpacing: "0.06em" }}>
                 Σ 各條件
               </span>
-              {totals.map((total, index) => (
+              {viewModel.workingArea.match.criterionTotals.map((total, index) => (
                 <span
                   key={index}
                   style={{
@@ -855,8 +738,8 @@ function PrWorkingArea({
                   C{index + 1}:{total}
                 </span>
               ))}
-              <span style={{ ...textStyles.metric, marginLeft: "auto", color: matchedCells ? PR_MOSS : tokens.color.softInk }}>
-                {matchedCells} / {totalCells}
+              <span style={{ ...textStyles.metric, marginLeft: "auto", color: viewModel.workingArea.match.matchedCells ? PR_MOSS : tokens.color.softInk }}>
+                {viewModel.workingArea.match.matchedCells} / {viewModel.workingArea.match.totalCells}
               </span>
             </div>
           ) : null}
@@ -866,15 +749,15 @@ function PrWorkingArea({
       <div style={paneStyle("metrics")}>
         <PaneHeader
           title="進階指標"
-          caption="likes · replies · reposts · views · followers"
+          caption={viewModel.workingArea.metricsCaption}
           action={
             <span data-pr-metrics-action="toolbar" title="抓取進階指標" style={{ display: "inline-flex" }}>
               <PrimaryButton
-                onClick={onFetchAdvancedMetrics}
-                disabled={!rows.length || isFetchingAdvancedMetrics || !savedCampaignReady}
+                onClick={() => metricsAction ? onCommand(metricsAction) : undefined}
+                disabled={!viewModel.workingArea.canFetchAdvancedMetrics || !metricsAction}
                 style={compactButtonStyle}
               >
-                {isFetchingAdvancedMetrics ? "抓取中..." : "抓取進階指標"}
+                {viewModel.ui.isFetchingAdvancedMetrics ? "抓取中..." : "抓取進階指標"}
               </PrimaryButton>
             </span>
           }
@@ -939,15 +822,13 @@ function MetricCell({ label, value, advanced = false }: { label: string; value: 
   );
 }
 
-function AdvancedMetricsPanel({ rows }: { rows: PrEvidenceRow[] }) {
+function AdvancedMetricsPanel({ rows }: { rows: PrEvidenceRowViewModel[] }) {
   return (
     <section data-pr-metrics-list="wrap" style={{ display: "grid", minWidth: 0 }}>
       {rows.length ? (
         <div data-scan-list="pr-metrics" style={{ display: "grid", borderTop: `1px solid ${PR_RULE}` }}>
           <style>{SCAN_ROW_HOVER_CSS}</style>
-          {rows.map((row) => {
-            const views = row.metrics.views ?? inferPrViewsFromText(row.caption) ?? undefined;
-            return (
+          {rows.map((row) => (
               <div
                 key={row.id}
                 data-scan-row="true"
@@ -961,18 +842,16 @@ function AdvancedMetricsPanel({ rows }: { rows: PrEvidenceRow[] }) {
                 <div style={{ display: "flex", alignItems: "center", gap: 10, minWidth: 0 }}>
                   <span aria-hidden style={{ width: 22, height: 22, borderRadius: PR_ROUND, background: `linear-gradient(135deg, ${tokens.color.neutralSurfaceSoft}, ${tokens.color.neutralSurface})`, border: `1px solid ${PR_RULE}`, flexShrink: 0 }} />
                   <div style={{ ...prMonoMetaStyle, color: tokens.color.ink, flexShrink: 0, maxWidth: 124, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-                    {row.authorHandle || "-"}
+                    {row.authorLabel}
                   </div>
                   <div style={{ ...prRowTextStyle, flex: 1, minWidth: 0, color: tokens.color.subInk, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-                    {row.caption || "-"}
+                    {row.captionLabel}
                   </div>
                 </div>
                 <div style={{ display: "flex", flexWrap: "wrap", columnGap: 16, rowGap: 4, paddingLeft: 32 }}>
-                  <MetricCell label="喜歡" value={formatMetric(row.metrics.likes)} />
-                  <MetricCell label="回覆" value={formatMetric(row.metrics.comments)} />
-                  <MetricCell label="轉發" value={formatMetric(row.metrics.reposts)} advanced />
-                  <MetricCell label="瀏覽" value={formatMetric(views)} advanced />
-                  <MetricCell label="followers" value={formatMetric(row.metrics.followers)} advanced />
+                  {row.metrics.map((metric) => (
+                    <MetricCell key={metric.label} label={metric.label} value={metric.value} advanced={metric.advanced} />
+                  ))}
                 </div>
                 {row.advancedMetricsError ? (
                   <div style={{ fontSize: 11, lineHeight: 1.45, color: tokens.color.failed, paddingLeft: 32 }}>
@@ -980,8 +859,7 @@ function AdvancedMetricsPanel({ rows }: { rows: PrEvidenceRow[] }) {
                   </div>
                 ) : null}
               </div>
-            );
-          })}
+          ))}
         </div>
       ) : (
         <div style={{ padding: "16px 12px", borderRadius: PR_RADIUS, border: `1px solid ${PR_RULE}`, background: tokens.color.surface, fontSize: 12, color: tokens.color.subInk }}>
@@ -992,16 +870,15 @@ function AdvancedMetricsPanel({ rows }: { rows: PrEvidenceRow[] }) {
   );
 }
 
-function CsvPreview({ campaign, rows }: { campaign: PrCampaign; rows: PrEvidenceRow[] }) {
-  const preview = csvPreviewRows(campaign, rows);
-  const [header, ...body] = preview;
+function CsvPreview({ preview }: { preview: PrEvidenceCsvPreviewViewModel }) {
+  const body = preview.rows;
   return (
     <details data-pr-csv-preview="true" style={{ marginTop: 4, borderTop: `1px solid ${PR_RULE}`, paddingTop: 18, borderRadius: PR_RADIUS }}>
       <summary style={{ listStyle: "none", cursor: "pointer", display: "flex", alignItems: "baseline", gap: 8, fontFamily: `${tokens.font.serifCjk}, ${tokens.font.serif}`, fontSize: 16, fontWeight: 600, color: tokens.color.ink }}>
         <span style={{ fontSize: 11, color: tokens.color.softInk }}>▸</span>
         CSV 預覽
         <span style={{ ...prMonoMetaStyle, marginLeft: "auto", color: tokens.color.softInk, fontWeight: 500 }}>
-          header + 前 20 列 · {rows.length} 列可匯出
+          {preview.exportableCountLabel}
         </span>
       </summary>
       <div
@@ -1042,7 +919,7 @@ function CsvPreview({ campaign, rows }: { campaign: PrCampaign; rows: PrEvidence
                 minWidth: 0
               }}
             >
-              {(header || []).map((cell, cellIndex) => (
+              {preview.header.map((cell, cellIndex) => (
                 <div key={`${rowIndex}-${cell}-${cellIndex}`} style={{ display: "grid", gap: 3, minWidth: 0 }}>
                   <span style={{ ...textStyles.label, fontFamily: tokens.font.mono, letterSpacing: "0.04em", color: tokens.color.softInk, overflowWrap: "anywhere" }}>
                     {cell}
@@ -1064,7 +941,17 @@ function CsvPreview({ campaign, rows }: { campaign: PrCampaign; rows: PrEvidence
   );
 }
 
-function SummaryPanel({ campaign, summary }: { campaign: PrCampaign; summary: string }) {
+function SummaryPanel({
+  summary,
+  markdownCommand,
+  docxCommand,
+  onCommand
+}: {
+  summary: string;
+  markdownCommand: PrEvidenceCommand | null;
+  docxCommand: PrEvidenceCommand | null;
+  onCommand: (command: PrEvidenceCommand) => void;
+}) {
   return (
     <section
       data-pr-summary="facts-first"
@@ -1081,10 +968,10 @@ function SummaryPanel({ campaign, summary }: { campaign: PrCampaign; summary: st
       <div style={{ display: "flex", justifyContent: "space-between", gap: 10, alignItems: "center", flexWrap: "wrap" }}>
         <Kicker>PR 稽核摘要</Kicker>
         <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
-          <SecondaryButton onClick={() => exportPrSummaryMarkdown(summary, campaign.name)} style={{ ...accentButtonStyle, ...compactButtonStyle }}>
+          <SecondaryButton onClick={() => markdownCommand ? onCommand(markdownCommand) : undefined} disabled={!markdownCommand} style={{ ...accentButtonStyle, ...compactButtonStyle }}>
             匯出 MD
           </SecondaryButton>
-          <SecondaryButton onClick={() => exportPrSummaryDocx(summary, campaign.name)} style={{ ...exportButtonStyle, ...compactButtonStyle }}>
+          <SecondaryButton onClick={() => docxCommand ? onCommand(docxCommand) : undefined} disabled={!docxCommand} style={{ ...exportButtonStyle, ...compactButtonStyle }}>
             匯出 DOCX
           </SecondaryButton>
         </div>
@@ -1097,235 +984,19 @@ function SummaryPanel({ campaign, summary }: { campaign: PrCampaign; summary: st
 }
 
 export interface PrEvidenceViewProps {
-  sessionId: string;
-  resource?: PrEvidenceResourceState;
-  onResourceChange?: (resource: PrEvidenceResourceState) => void;
-  onActiveCampaignChange?: (campaign: PrCampaign | null) => void;
+  viewModel: PrEvidenceViewModel;
+  onCommand: (command: PrEvidenceCommand) => Promise<unknown> | unknown;
 }
 
 // memo-wrapped below as PrEvidenceView. Inline export `PrEvidenceViewInner`
 // is kept for tests / hot-reload introspection.
-function PrEvidenceViewInner({
-  sessionId,
-  resource,
-  onResourceChange,
-  onActiveCampaignChange
-}: PrEvidenceViewProps) {
-  const [localResource, setLocalResource] = useState<PrEvidenceResourceState>(() => createPrEvidenceResource(sessionId));
-  const [activePane, setActivePane] = useState<PrWorkPane>("ledger");
-  const [isSaving, setIsSaving] = useState(false);
-  const [isReadingBrief, setIsReadingBrief] = useState(false);
-  const [isGeneratingCriteria, setIsGeneratingCriteria] = useState(false);
-  const [isMatching, setIsMatching] = useState(false);
-  const [isFetchingAdvancedMetrics, setIsFetchingAdvancedMetrics] = useState(false);
-  const [isGeneratingSummary, setIsGeneratingSummary] = useState(false);
-  const currentResource = resource ?? localResource;
-  const currentResourceRef = useRef(currentResource);
-  const { campaign, rows, summary, notice, uploadError, setupCollapsed } = currentResource;
-  const coreMessages = useMemo(() => extractPrCoreMessages(campaign.briefText), [campaign.briefText]);
-
-  const savedCampaignReady = Boolean(campaign.id && campaign.name.trim());
-
-  useEffect(() => {
-    currentResourceRef.current = currentResource;
-  }, [currentResource]);
-
-  useEffect(() => {
-    if (!resource) {
-      setLocalResource((current) => current.campaign.sessionId === sessionId ? current : createPrEvidenceResource(sessionId));
-    }
-  }, [resource, sessionId]);
-
-  function updateResource(updater: (current: PrEvidenceResourceState) => PrEvidenceResourceState) {
-    if (resource) {
-      const next = updater(currentResourceRef.current);
-      currentResourceRef.current = next;
-      onResourceChange?.(next);
-      return;
-    }
-    setLocalResource((current) => {
-      const next = updater(current);
-      currentResourceRef.current = next;
-      onResourceChange?.(next);
-      return next;
-    });
-  }
-
-  function setCampaign(next: PrCampaign) {
-    updateResource((current) => ({ ...current, campaign: next }));
-  }
-
-  function setRows(next: PrEvidenceRow[]) {
-    updateResource((current) => ({ ...current, rows: next }));
-  }
-
-  function setSummary(next: string) {
-    updateResource((current) => ({ ...current, summary: next }));
-  }
-
-  function setNotice(next: string) {
-    updateResource((current) => ({ ...current, notice: next }));
-  }
-
-  function setUploadError(next: string) {
-    updateResource((current) => ({ ...current, uploadError: next }));
-  }
-
-  function setSetupCollapsed(next: boolean) {
-    updateResource((current) => ({ ...current, setupCollapsed: next }));
-  }
-
-  async function saveCampaign() {
-    setIsSaving(true);
-    setNotice("");
-    const now = new Date().toISOString();
-    const next = {
-      ...campaign,
-      sessionId,
-      criteria: normalizePrCriteria(campaign.criteria),
-      updatedAt: now,
-      createdAt: campaign.createdAt || now
-    };
-    const response = await sendExtensionMessage<PrResponse>({ type: "pr/save-campaign", campaign: next });
-    if (response.ok) {
-      const active = response.prCampaigns?.[0] || next;
-      setCampaign(active);
-      onActiveCampaignChange?.(active);
-      setSetupCollapsed(true);
-      setNotice("活動已儲存；Collect 現在可以加入 evidence rows。");
-    } else {
-      setNotice(response.error);
-    }
-    setIsSaving(false);
-  }
-
-  async function generateCriteriaFromBrief(name: string, briefText: string) {
-    setIsGeneratingCriteria(true);
-    setNotice("");
-    const response = await sendExtensionMessage<PrResponse>({
-      type: "pr/generate-criteria",
-      campaignName: name,
-      briefText
-    });
-    if (response.ok && response.prCriteria?.length) {
-      const now = new Date().toISOString();
-      const next = {
-        ...campaign,
-        criteria: normalizePrCriteria(response.prCriteria!),
-        name,
-        briefText,
-        sessionId,
-        updatedAt: now,
-        createdAt: campaign.createdAt || now
-      };
-      setCampaign(next);
-      if (next.name.trim()) {
-        const saveResponse = await sendExtensionMessage<PrResponse>({ type: "pr/save-campaign", campaign: next });
-        if (saveResponse.ok) {
-          const active = saveResponse.prCampaigns?.[0] || next;
-          setCampaign(active);
-          onActiveCampaignChange?.(active);
-          setNotice("條件已生成並儲存；批次判斷會使用這六個標籤。");
-        } else {
-          setNotice(saveResponse.error);
-        }
-      } else {
-        setNotice("條件已生成。請先填活動名稱，再執行批次判斷。");
-      }
-    } else if (!response.ok) {
-      setNotice(response.error);
-    }
-    setIsGeneratingCriteria(false);
-  }
-
-  async function generateCriteria() {
-    await generateCriteriaFromBrief(campaign.name, campaign.briefText);
-  }
-
-  async function uploadBriefFile(file: File) {
-    setUploadError("");
-    setIsReadingBrief(true);
-    try {
-      const result = await readPrBriefFile(file);
-      const now = new Date().toISOString();
-      const nextName = campaign.name.trim() || result.inferredName;
-      setCampaign({ ...campaign, name: nextName, briefText: result.text, updatedAt: now });
-      setIsReadingBrief(false);
-      setNotice(`已載入 ${file.name}${result.sourceKind === "pdf" ? " PDF" : ""}，正在用 brief 產生六項條件...`);
-      await generateCriteriaFromBrief(nextName, result.text);
-    } catch (error) {
-      setUploadError(error instanceof Error ? error.message : String(error));
-    } finally {
-      setIsReadingBrief(false);
-    }
-  }
-
-  async function matchCriteria() {
-    if (!savedCampaignReady) {
-      setNotice("請先儲存活動，再執行批次判斷。");
-      return;
-    }
-    setIsMatching(true);
-    setNotice("");
-    const response = await sendExtensionMessage<PrResponse>({ type: "pr/match-criteria", campaignId: campaign.id });
-    if (response.ok) {
-      setRows(response.prEvidenceRows ?? []);
-      setNotice("條件判斷已更新。");
-    } else {
-      setNotice(response.error);
-    }
-    setIsMatching(false);
-  }
-
-  async function fetchAdvancedMetrics() {
-    if (!savedCampaignReady) {
-      setNotice("請先儲存活動，再抓取進階指標。");
-      return;
-    }
-    setIsFetchingAdvancedMetrics(true);
-    setNotice("");
-    try {
-      const response = await sendExtensionMessage<PrResponse>({ type: "pr/fetch-advanced-metrics", campaignId: campaign.id });
-      if (response.ok) {
-        const nextRows = response.prEvidenceRows ?? [];
-        setRows(nextRows);
-        setNotice(summarizeAdvancedMetricsNotice(response.prAdvancedMetricsSummary, nextRows));
-      } else {
-        setNotice(response.error);
-      }
-    } catch (error) {
-      setNotice(error instanceof Error ? error.message : String(error));
-    } finally {
-      setIsFetchingAdvancedMetrics(false);
-    }
-  }
-
-  async function generateSummary() {
-    if (!savedCampaignReady) {
-      setNotice("請先儲存活動，再生成摘要。");
-      return;
-    }
-    setIsGeneratingSummary(true);
-    setNotice("");
-    const response = await sendExtensionMessage<PrResponse>({ type: "pr/generate-summary", campaignId: campaign.id });
-    if (response.ok) {
-      setSummary(response.prSummary || "");
-    } else {
-      setNotice(response.error);
-    }
-    setIsGeneratingSummary(false);
-  }
-
-  function exportCsv() {
-    const csv = buildPrEvidenceCsv(campaign, rows);
-    const blob = new Blob([csv], { type: "text/csv;charset=utf-8" });
-    const url = URL.createObjectURL(blob);
-    const anchor = document.createElement("a");
-    anchor.href = url;
-    anchor.download = `${campaign.name.trim() || "pr-evidence"}-evidence.csv`;
-    anchor.click();
-    URL.revokeObjectURL(url);
-  }
+function PrEvidenceViewInner({ viewModel, onCommand }: PrEvidenceViewProps) {
+  const dispatchCommand = (command: PrEvidenceCommand) => Promise.resolve(onCommand(command));
+  const saveCampaignAction = viewModel.actions.find((action) => action.kind === "saveCampaign");
+  const generateCriteriaAction = viewModel.actions.find((action) => action.kind === "generateCriteria");
+  const generateSummaryAction = viewModel.actions.find((action) => action.kind === "generateSummary");
+  const markdownCommand = viewModel.actions.find((action) => action.kind === "exportSummaryMarkdown") ?? null;
+  const docxCommand = viewModel.actions.find((action) => action.kind === "exportSummaryDocx") ?? null;
 
   return (
     <div
@@ -1360,46 +1031,43 @@ function PrEvidenceViewInner({
         }}
       >
         <CampaignEditor
-          campaign={campaign}
-          onChange={setCampaign}
-          onSave={() => void saveCampaign()}
-          onGenerateCriteria={() => void generateCriteria()}
-          onUploadBrief={(file) => void uploadBriefFile(file)}
-          isSaving={isSaving}
-          isReadingBrief={isReadingBrief}
-          isGenerating={isGeneratingCriteria}
-          uploadError={uploadError}
-          coreMessages={coreMessages}
-          collapsed={setupCollapsed}
-          onExpand={() => setSetupCollapsed(false)}
-          onCollapse={() => setSetupCollapsed(true)}
+          campaign={viewModel.campaign}
+          onChange={(draft) => void dispatchCommand({ kind: "updateDraft", target: { sessionId: viewModel.sessionId }, draft })}
+          onSave={() => saveCampaignAction ? void dispatchCommand(saveCampaignAction) : undefined}
+          onGenerateCriteria={() => generateCriteriaAction ? void dispatchCommand(generateCriteriaAction) : undefined}
+          onUploadBrief={() => void dispatchCommand({ kind: "requestBriefUpload", target: { sessionId: viewModel.sessionId } })}
+          isSaving={viewModel.ui.isSaving}
+          isReadingBrief={viewModel.ui.isReadingBrief}
+          isGenerating={viewModel.ui.isGeneratingCriteria}
+          uploadError={viewModel.uploadError}
+          coreMessages={viewModel.coreMessages}
+          collapsed={viewModel.campaign.setupCollapsed}
+          onExpand={() => void dispatchCommand({ kind: "setSetupCollapsed", target: { sessionId: viewModel.sessionId }, collapsed: false })}
+          onCollapse={() => void dispatchCommand({ kind: "setSetupCollapsed", target: { sessionId: viewModel.sessionId }, collapsed: true })}
         />
 
         <PrWorkingArea
-          campaign={campaign}
-          rows={rows}
-          activePane={activePane}
-          onPaneChange={setActivePane}
-          onMatchCriteria={() => void matchCriteria()}
-          onFetchAdvancedMetrics={() => void fetchAdvancedMetrics()}
-          onExportCsv={exportCsv}
-          isMatching={isMatching}
-          isFetchingAdvancedMetrics={isFetchingAdvancedMetrics}
-          savedCampaignReady={savedCampaignReady}
-          lastMatchedAt={campaign.lastMatchedAt}
+          viewModel={viewModel}
+          onPaneChange={(pane) => void dispatchCommand({ kind: "setPane", target: { sessionId: viewModel.sessionId }, pane })}
+          onCommand={(command) => void dispatchCommand(command)}
         />
 
-        <NoticeBar notice={notice} />
+        <NoticeBar notice={viewModel.notice} />
 
-        {rows.length ? <CsvPreview campaign={campaign} rows={rows} /> : null}
+        {viewModel.csvPreview ? <CsvPreview preview={viewModel.csvPreview} /> : null}
 
-        {summary ? (
-          <SummaryPanel campaign={campaign} summary={summary} />
+        {viewModel.summary ? (
+          <SummaryPanel
+            summary={viewModel.summary}
+            markdownCommand={markdownCommand}
+            docxCommand={docxCommand}
+            onCommand={(command) => void dispatchCommand(command)}
+          />
         ) : (
           <SummaryGenerateCard
-            onGenerate={() => void generateSummary()}
-            loading={isGeneratingSummary}
-            disabled={!savedCampaignReady || rows.length === 0}
+            onGenerate={() => generateSummaryAction ? void dispatchCommand(generateSummaryAction) : undefined}
+            loading={viewModel.ui.isGeneratingSummary}
+            disabled={!generateSummaryAction || viewModel.ui.isGeneratingSummary}
           />
         )}
       </WorkspaceSurface>
@@ -1409,10 +1077,9 @@ function PrEvidenceViewInner({
 
 /* ─── memoized export ───
  * The popup re-renders for many unrelated reasons (pending workspace switch,
- * mode rail badge counts, processing strip ticks). PrEvidenceView's only prop
- * is the active sessionId — a string. Default React.memo comparator (===)
- * skips re-render whenever sessionId is unchanged, which is the vast majority
- * of popup re-renders while staying inside PR mode.
+ * mode rail badge counts, processing strip ticks). PrEvidenceView now receives
+ * a shell-built ViewModel and command dispatcher; React.memo keeps unrelated
+ * shell renders from re-running the presentational tree when the VM is stable.
  */
 export const PrEvidenceView = memo(PrEvidenceViewInner);
 
@@ -1448,8 +1115,6 @@ function SummaryGenerateCard({ onGenerate, loading, disabled = false }: { onGene
 }
 
 export const prEvidenceViewTestables = {
-  matchedCount,
-  csvPreviewRows,
   metricLine,
   summarizeAdvancedMetricsNotice,
   CsvPreview,
