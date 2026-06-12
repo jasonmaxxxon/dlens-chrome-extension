@@ -1,6 +1,13 @@
+import { useCallback, useEffect, useMemo, useState } from "react";
 import type { MainPage } from "../state/types";
 import { CompareView } from "./CompareView";
+import type { CompareBrief } from "../compare/brief";
+import type { ClusterInterpretation } from "../compare/cluster-interpretation";
+import type { EvidenceAnnotation } from "../compare/evidence-annotation";
+import { buildTechniqueReadingSnapshot } from "../compare/technique-reading";
+import { buildCompareViewModel, type CompareCommand, type CompareFetchedState } from "../viewmodel/compare";
 import { PrimaryButton, SecondaryButton, WorkspaceSurface, surfaceCardStyle } from "./components";
+import { sendExtensionMessage } from "./controller";
 import { buildDateRangeLabel } from "./inpage-helpers";
 import { tokens } from "./tokens";
 import type { InPageCollectorAppModel } from "./useInPageCollectorAppState";
@@ -97,20 +104,13 @@ export function InPageCollectorResultWorkspace({
               </div>
             </div>
           )}
-          <CompareView
-            session={activeFolder}
-            settings={app.compareViewSettings}
-            onGoToLibrary={() => void app.onNavigate(homePage)}
-            forcedSelection={{ itemAId: resultItemA.id, itemBId: resultItemB.id }}
-            fromTopicId={app.resultTopicContext?.topicId}
-            fromTopicName={app.resultTopicContext?.topicName}
-            onReturnToTopic={() => void app.onReturnToTopic()}
-            topics={app.topics}
-            activeResultId={app.activeSavedAnalysis?.resultId ?? null}
+          <CompareResultViewModelBoundary
+            app={app}
+            activeFolder={activeFolder}
+            resultItemA={resultItemA}
+            resultItemB={resultItemB}
             attachedTopicIds={attachedTopicIds}
-            onAttachToTopic={(topicId) => void app.onAttachActiveResultToTopic(topicId)}
-            compareLayout={app.snapshot?.global.settings.layoutPreferences.compareResultLayout}
-            hideSelector
+            homePage={homePage}
           />
         </div>
       ) : (
@@ -124,4 +124,220 @@ export function InPageCollectorResultWorkspace({
       )}
     </WorkspaceSurface>
   );
+}
+
+function requestKey(value: unknown): string {
+  return value ? JSON.stringify(value) : "";
+}
+
+function CompareResultViewModelBoundary({
+  app,
+  activeFolder,
+  resultItemA,
+  resultItemB,
+  attachedTopicIds,
+  homePage
+}: {
+  app: InPageCollectorAppModel;
+  activeFolder: NonNullable<InPageCollectorAppModel["activeFolder"]>;
+  resultItemA: NonNullable<InPageCollectorAppModel["resultItemA"]>;
+  resultItemB: NonNullable<InPageCollectorAppModel["resultItemB"]>;
+  attachedTopicIds: string[];
+  homePage: MainPage;
+}) {
+  const [selectedA, setSelectedA] = useState(resultItemA.id);
+  const [selectedB, setSelectedB] = useState(resultItemB.id);
+  const [fetched, setFetched] = useState<CompareFetchedState>({
+    brief: null,
+    briefState: "idle",
+    clusterInterpretations: [],
+    clusterSummaryState: "idle",
+    evidenceAnnotations: []
+  });
+
+  useEffect(() => {
+    setSelectedA(resultItemA.id);
+    setSelectedB(resultItemB.id);
+  }, [resultItemA.id, resultItemB.id]);
+
+  const viewModel = useMemo(
+    () => buildCompareViewModel({
+      session: activeFolder,
+      settings: app.compareViewSettings,
+      selectedAId: selectedA,
+      selectedBId: selectedB,
+      forcedSelection: { itemAId: resultItemA.id, itemBId: resultItemB.id },
+      fromTopicId: app.resultTopicContext?.topicId,
+      fromTopicName: app.resultTopicContext?.topicName,
+      topics: app.topics,
+      activeResultId: app.activeSavedAnalysis?.resultId ?? null,
+      attachedTopicIds,
+      compareLayout: app.snapshot?.global.settings.layoutPreferences.compareResultLayout,
+      hideSelector: true,
+      fetched
+    }),
+    [
+      activeFolder,
+      app.compareViewSettings,
+      app.resultTopicContext?.topicId,
+      app.resultTopicContext?.topicName,
+      app.topics,
+      app.activeSavedAnalysis?.resultId,
+      app.snapshot?.global.settings.layoutPreferences.compareResultLayout,
+      attachedTopicIds,
+      fetched,
+      resultItemA.id,
+      resultItemB.id,
+      selectedA,
+      selectedB
+    ]
+  );
+
+  const onCommand = useCallback(async (command: CompareCommand): Promise<unknown> => {
+    switch (command.kind) {
+      case "goToLibrary":
+        await app.onNavigate(homePage);
+        return undefined;
+      case "returnToTopic":
+        await app.onReturnToTopic();
+        return undefined;
+      case "selectPair":
+        setSelectedA(command.target.itemAId);
+        setSelectedB(command.target.itemBId);
+        return undefined;
+      case "attachToTopic":
+        if (command.target.topicId) {
+          await app.onAttachActiveResultToTopic(command.target.topicId);
+        }
+        return undefined;
+      case "fetchBrief":
+        return sendExtensionMessage<{ ok: true; compareBrief?: CompareBrief | null } | { ok: false; error: string }>({
+          type: "compare/get-brief",
+          request: command.request
+        });
+      case "fetchClusterSummaries":
+        return sendExtensionMessage<{ ok: true; clusterInterpretations?: ClusterInterpretation[] } | { ok: false; error: string }>({
+          type: "compare/get-cluster-summaries",
+          request: command.request
+        });
+      case "fetchEvidenceAnnotations":
+        return sendExtensionMessage<{ ok: true; evidenceAnnotations?: EvidenceAnnotation[] } | { ok: false; error: string }>({
+          type: "compare/get-evidence-annotations",
+          request: command.request
+        });
+      case "saveTechniqueReading": {
+        const snapshot = buildTechniqueReadingSnapshot({
+          sessionId: command.target.sessionId,
+          itemId: command.target.itemId,
+          side: command.target.side,
+          clusterKey: command.target.clusterKey,
+          detail: command.detail
+        });
+        const response = await sendExtensionMessage<{ ok: true } | { ok: false; error: string }>({
+          type: "compare/save-technique-reading",
+          snapshot
+        });
+        if (!response.ok) {
+          throw new Error(response.error);
+        }
+        return response;
+      }
+    }
+  }, [app, homePage]);
+
+  const fetchBriefAction = viewModel.actions.find((action): action is Extract<CompareCommand, { kind: "fetchBrief" }> => action.kind === "fetchBrief") ?? null;
+  const fetchBriefKey = requestKey(fetchBriefAction?.request);
+  useEffect(() => {
+    if (!fetchBriefAction) {
+      setFetched((current) => ({ ...current, brief: null, briefState: "idle" }));
+      return;
+    }
+    let cancelled = false;
+    setFetched((current) => ({ ...current, briefState: "loading" }));
+    void onCommand(fetchBriefAction)
+      .then((response) => {
+        if (cancelled) return;
+        const payload = response as { ok: true; compareBrief?: CompareBrief | null } | { ok: false; error: string };
+        if (payload.ok && payload.compareBrief) {
+          setFetched((current) => ({
+            ...current,
+            brief: payload.compareBrief ?? null,
+            briefState: payload.compareBrief?.source === "ai" ? "ready" : "fallback"
+          }));
+          return;
+        }
+        setFetched((current) => ({ ...current, brief: null, briefState: "fallback" }));
+      })
+      .catch(() => {
+        if (!cancelled) {
+          setFetched((current) => ({ ...current, brief: null, briefState: "fallback" }));
+        }
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [fetchBriefKey, onCommand]);
+
+  const fetchClusterAction = viewModel.actions.find((action): action is Extract<CompareCommand, { kind: "fetchClusterSummaries" }> => action.kind === "fetchClusterSummaries") ?? null;
+  const fetchClusterKey = requestKey(fetchClusterAction?.request);
+  useEffect(() => {
+    if (!fetchClusterAction) {
+      setFetched((current) => ({ ...current, clusterInterpretations: [], clusterSummaryState: "idle" }));
+      return;
+    }
+    let cancelled = false;
+    setFetched((current) => ({ ...current, clusterSummaryState: "loading" }));
+    void onCommand(fetchClusterAction)
+      .then((response) => {
+        if (cancelled) return;
+        const payload = response as { ok: true; clusterInterpretations?: ClusterInterpretation[] } | { ok: false; error: string };
+        if (payload.ok && payload.clusterInterpretations?.length) {
+          setFetched((current) => ({
+            ...current,
+            clusterInterpretations: payload.clusterInterpretations ?? [],
+            clusterSummaryState: "ready"
+          }));
+          return;
+        }
+        setFetched((current) => ({ ...current, clusterInterpretations: [], clusterSummaryState: "idle" }));
+      })
+      .catch(() => {
+        if (!cancelled) {
+          setFetched((current) => ({ ...current, clusterInterpretations: [], clusterSummaryState: "error" }));
+        }
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [fetchClusterKey, onCommand]);
+
+  const fetchAnnotationAction = viewModel.actions.find((action): action is Extract<CompareCommand, { kind: "fetchEvidenceAnnotations" }> => action.kind === "fetchEvidenceAnnotations") ?? null;
+  const fetchAnnotationKey = requestKey(fetchAnnotationAction?.request);
+  useEffect(() => {
+    if (!fetchAnnotationAction) {
+      setFetched((current) => ({ ...current, evidenceAnnotations: [] }));
+      return;
+    }
+    let cancelled = false;
+    void onCommand(fetchAnnotationAction)
+      .then((response) => {
+        if (cancelled) return;
+        const payload = response as { ok: true; evidenceAnnotations?: EvidenceAnnotation[] } | { ok: false; error: string };
+        if (payload.ok && payload.evidenceAnnotations?.length) {
+          setFetched((current) => ({ ...current, evidenceAnnotations: payload.evidenceAnnotations ?? [] }));
+          return;
+        }
+        setFetched((current) => ({ ...current, evidenceAnnotations: [] }));
+      })
+      .catch(() => {
+        if (!cancelled) {
+          setFetched((current) => ({ ...current, evidenceAnnotations: [] }));
+        }
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [fetchAnnotationKey, onCommand]);
+
+  return <CompareView viewModel={viewModel} onCommand={onCommand} />;
 }

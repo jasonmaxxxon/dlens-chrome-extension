@@ -11,6 +11,7 @@ import { createDefaultSettings } from "../src/state/types.ts";
 import { createSessionItem, createSessionRecord } from "../src/state/store-helpers.ts";
 import { CompareView } from "../src/ui/CompareView.tsx";
 import { LibraryView } from "../src/ui/LibraryView.tsx";
+import { buildCompareViewModel } from "../src/viewmodel/compare.ts";
 
 function buildCapture(
   id: string,
@@ -193,8 +194,11 @@ test("CompareView shows a pending result hero skeleton while analysis is still i
 
   const html = renderToStaticMarkup(
     React.createElement(CompareView, {
-      session: buildPendingCompareSession(),
-      settings
+      viewModel: buildCompareViewModel({
+        session: buildPendingCompareSession(),
+        settings
+      }),
+      onCommand: () => undefined
     })
   );
 

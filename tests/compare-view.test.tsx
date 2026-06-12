@@ -11,6 +11,7 @@ import { createDefaultSettings } from "../src/state/types.ts";
 import { createSessionItem, createSessionRecord } from "../src/state/store-helpers.ts";
 import { buildTechniqueReadingSnapshot, STATIC_TECHNIQUE_DEFINITIONS } from "../src/compare/technique-reading.ts";
 import type { Topic } from "../src/state/types.ts";
+import { buildCompareViewModel, type CompareFetchedState } from "../src/viewmodel/compare.ts";
 
 function buildCapture(
   id: string,
@@ -168,9 +169,57 @@ function buildPendingSession(): SessionRecord {
   return session;
 }
 
+interface CompareViewElementProps {
+  session: SessionRecord;
+  settings?: ExtensionSettings;
+  forcedSelection?: { itemAId: string; itemBId: string } | null;
+  hideSelector?: boolean;
+  compareLayout?: "reading" | "parallel" | "chapters";
+  fromTopicId?: string;
+  fromTopicName?: string;
+  topics?: Topic[];
+  activeResultId?: string | null;
+  attachedTopicIds?: string[];
+  fetched?: CompareFetchedState;
+  onGoToLibrary?: () => void;
+  onReturnToTopic?: () => void;
+  onAttachToTopic?: (topicId: string) => void;
+}
+
+function compareViewElement({
+  session,
+  settings = createDefaultSettings(),
+  forcedSelection = null,
+  hideSelector = false,
+  compareLayout = "parallel",
+  fromTopicId,
+  fromTopicName,
+  topics = [],
+  activeResultId = null,
+  attachedTopicIds = [],
+  fetched,
+}: CompareViewElementProps): React.ReactElement {
+  return React.createElement(CompareView, {
+    viewModel: buildCompareViewModel({
+      session,
+      settings,
+      forcedSelection,
+      hideSelector,
+      compareLayout,
+      fromTopicId,
+      fromTopicName,
+      topics,
+      activeResultId,
+      attachedTopicIds,
+      fetched
+    }),
+    onCommand: () => undefined
+  });
+}
+
 test("CompareView renders an analysis sheet before support data", () => {
   const html = renderToStaticMarkup(
-    React.createElement(CompareView, {
+    compareViewElement({
       session: buildSession(),
       settings: createDefaultSettings()
     })
@@ -185,7 +234,7 @@ test("CompareView renders an analysis sheet before support data", () => {
 
 test("CompareView renders the parallel result layout by default", () => {
   const html = renderToStaticMarkup(
-    React.createElement(CompareView, {
+    compareViewElement({
       session: buildSession(),
       settings: createDefaultSettings()
     })
@@ -199,7 +248,7 @@ test("CompareView renders the parallel result layout by default", () => {
 
 test("CompareView keeps A and B labels in the parallel sticky header", () => {
   const html = renderToStaticMarkup(
-    React.createElement(CompareView, {
+    compareViewElement({
       session: buildSession(),
       settings: createDefaultSettings()
     })
@@ -212,7 +261,7 @@ test("CompareView keeps A and B labels in the parallel sticky header", () => {
 
 test("CompareView can still render the reading layout seam", () => {
   const html = renderToStaticMarkup(
-    React.createElement(CompareView, {
+    compareViewElement({
       session: buildSession(),
       settings: createDefaultSettings(),
       compareLayout: "reading"
@@ -227,7 +276,7 @@ test("CompareView can still render the reading layout seam", () => {
 
 test("CompareView chapters layout renders five section markers", () => {
   const html = renderToStaticMarkup(
-    React.createElement(CompareView, {
+    compareViewElement({
       session: buildSession(),
       settings: createDefaultSettings(),
       compareLayout: "chapters"
@@ -242,7 +291,7 @@ test("CompareView chapters layout renders five section markers", () => {
 
 test("CompareView chapters layout has no parallel column hooks", () => {
   const html = renderToStaticMarkup(
-    React.createElement(CompareView, {
+    compareViewElement({
       session: buildSession(),
       settings: createDefaultSettings(),
       compareLayout: "chapters"
@@ -254,7 +303,7 @@ test("CompareView chapters layout has no parallel column hooks", () => {
 
 test("CompareView keeps support data collapsed while preserving navigation affordances", () => {
   const html = renderToStaticMarkup(
-    React.createElement(CompareView, {
+    compareViewElement({
       session: buildSession(),
       settings: createDefaultSettings()
     })
@@ -269,7 +318,7 @@ test("CompareView keeps support data collapsed while preserving navigation affor
 // The support-data dock now uses semantic cluster titles instead of the older 群組 A/B copy.
 test("CompareView renders side-specific support-data tabs with semantic cluster labels", () => {
   const html = renderToStaticMarkup(
-    React.createElement(CompareView, {
+    compareViewElement({
       session: buildSession(),
       settings: createDefaultSettings()
     })
@@ -282,7 +331,7 @@ test("CompareView renders side-specific support-data tabs with semantic cluster 
 
 test("CompareView uses placeholder avatars and engagement metrics in representative evidence cards", () => {
   const html = renderToStaticMarkup(
-    React.createElement(CompareView, {
+    compareViewElement({
       session: buildSession(),
       settings: createDefaultSettings()
     })
@@ -310,7 +359,7 @@ test("CompareView can render topic breadcrumb and attach-to-topic controls witho
   };
 
   const html = renderToStaticMarkup(
-    React.createElement(CompareView, {
+    compareViewElement({
       session,
       settings: createDefaultSettings(),
       forcedSelection: {
@@ -456,7 +505,7 @@ test("CompareView provider gate accepts sanitized content-script key presence fl
 test("CompareView renders a Compare-language bridge when fewer than two items are ready", () => {
   let navigated = false;
   const html = renderToStaticMarkup(
-    React.createElement(CompareView, {
+    compareViewElement({
       session: buildPendingSession(),
       settings: createDefaultSettings(),
       onGoToLibrary: () => {
@@ -475,7 +524,7 @@ test("CompareView renders a Compare-language bridge when fewer than two items ar
 
 test("CompareView keeps the unavailable bridge as hero-language, not a readiness dashboard", () => {
   const html = renderToStaticMarkup(
-    React.createElement(CompareView, {
+    compareViewElement({
       session: buildPendingSession(),
       settings: createDefaultSettings(),
       onGoToLibrary: () => undefined
@@ -502,7 +551,7 @@ test("CompareView keeps dominance labels in support data instead of the hero", (
   });
 
   const html = renderToStaticMarkup(
-    React.createElement(CompareView, {
+    compareViewElement({
       session,
       settings: createDefaultSettings()
     })
@@ -565,7 +614,7 @@ test("CompareView surfaces up to four audience evidence items in the selected cl
   });
 
   const html = renderToStaticMarkup(
-    React.createElement(CompareView, {
+    compareViewElement({
       session,
       settings: createDefaultSettings()
     })
@@ -584,7 +633,7 @@ test("CompareView keeps engagement collapsed by default while preserving age con
   session.items[0]!.descriptor.engagement_present.views = false;
 
   const html = renderToStaticMarkup(
-    React.createElement(CompareView, {
+    compareViewElement({
       session,
       settings: createDefaultSettings()
     })
@@ -615,7 +664,7 @@ test("CompareView renders audience evidence with inline captured metrics", () =>
   };
 
   const html = renderToStaticMarkup(
-    React.createElement(CompareView, {
+    compareViewElement({
       session,
       settings: createDefaultSettings()
     })
@@ -632,7 +681,7 @@ test("CompareView uses comments captured copy instead of ambiguous crawled label
   session.items[1]!.latestCapture!.analysis!.source_comment_count = 6;
 
   const html = renderToStaticMarkup(
-    React.createElement(CompareView, {
+    compareViewElement({
       session,
       settings: createDefaultSettings()
     })
@@ -682,7 +731,7 @@ test("CompareView hides the alert rail when there are no compare alerts yet", ()
   settings.googleApiKey = "AIza-test";
 
   const html = renderToStaticMarkup(
-    React.createElement(CompareView, {
+    compareViewElement({
       session: buildSession(),
       settings
     })
@@ -800,7 +849,7 @@ test("CompareView keeps selected detail copy on semantic cluster labels", () => 
   session.items[1]!.latestCapture = buildCapture("cap-b", "ownership", "ownership feels missing");
 
   const html = renderToStaticMarkup(
-    React.createElement(CompareView, {
+    compareViewElement({
       session,
       settings: createDefaultSettings()
     })
@@ -815,7 +864,7 @@ test("CompareView keeps selected detail copy on semantic cluster labels", () => 
 
 test("CompareView promotes why-matters copy over support metric pills on the first screen", () => {
   const html = renderToStaticMarkup(
-    React.createElement(CompareView, {
+    compareViewElement({
       session: buildSession(),
       settings: createDefaultSettings()
     })
@@ -886,7 +935,7 @@ test("annotation request key helper resets when request disappears", () => {
 
 test("CompareView frames primary evidence as receipts before interpretation", () => {
   const html = renderToStaticMarkup(
-    React.createElement(CompareView, {
+    compareViewElement({
       session: buildSession(),
       settings: createDefaultSettings()
     })
@@ -904,7 +953,7 @@ test("CompareView frames primary evidence as receipts before interpretation", ()
 
 test("CompareView places primary evidence ahead of support data", () => {
   const html = renderToStaticMarkup(
-    React.createElement(CompareView, {
+    compareViewElement({
       session: buildSession(),
       settings: createDefaultSettings()
     })
@@ -933,7 +982,7 @@ test("CompareView keeps evidence cards collapsed by default", () => {
   });
 
   const html = renderToStaticMarkup(
-    React.createElement(CompareView, {
+    compareViewElement({
       session,
       settings: createDefaultSettings()
     })
@@ -950,7 +999,7 @@ test("CompareView keeps evidence cards collapsed by default", () => {
 
 test("CompareView selected cluster detail does not fabricate per-quote evidence prose", () => {
   const html = renderToStaticMarkup(
-    React.createElement(CompareView, {
+    compareViewElement({
       session: buildSession(),
       settings: createDefaultSettings()
     })
@@ -1079,7 +1128,7 @@ test("CompareView shows semantic cluster labels inside bubble hover previews", (
 
 test("CompareView keeps bubble maps behind support data instead of the hero", () => {
   const html = renderToStaticMarkup(
-    React.createElement(CompareView, {
+    compareViewElement({
       session: buildSession(),
       settings: createDefaultSettings()
     })
@@ -1092,7 +1141,7 @@ test("CompareView keeps bubble maps behind support data instead of the hero", ()
 
 test("CompareView keeps section anchors while deferring cluster jump targets until support data opens", () => {
   const html = renderToStaticMarkup(
-    React.createElement(CompareView, {
+    compareViewElement({
       session: buildSession(),
       settings: createDefaultSettings()
     })
@@ -1106,7 +1155,7 @@ test("CompareView keeps section anchors while deferring cluster jump targets unt
 
 test("CompareView explains alignment as a readable proxy instead of a hard classifier", () => {
   const html = renderToStaticMarkup(
-    React.createElement(CompareView, {
+    compareViewElement({
       session: buildSession(),
       settings: createDefaultSettings()
     })
@@ -1118,7 +1167,7 @@ test("CompareView explains alignment as a readable proxy instead of a hard class
 
 test("CompareView shows a small inline AI notice and keeps the fallback hero summary when no key is configured", () => {
   const html = renderToStaticMarkup(
-    React.createElement(CompareView, {
+    compareViewElement({
       session: buildSession(),
       settings: createDefaultSettings()
     })
@@ -1135,7 +1184,7 @@ test("CompareView renders a compact judgment hero without risk chips", () => {
   settings.googleApiKey = "AIza-test";
 
   const html = renderToStaticMarkup(
-    React.createElement(CompareView, {
+    compareViewElement({
       session: buildSession(),
       settings
     })
@@ -1150,7 +1199,7 @@ test("CompareView renders a compact judgment hero without risk chips", () => {
 
 test("CompareView renders an editorial relation line and confidence stamp in the hero", () => {
   const html = renderToStaticMarkup(
-    React.createElement(CompareView, {
+    compareViewElement({
       session: buildSession(),
       settings: createDefaultSettings()
     })
@@ -1163,7 +1212,7 @@ test("CompareView renders an editorial relation line and confidence stamp in the
 
 test("CompareView keeps result prose blocks wrap-safe inside the popup measure", () => {
   const html = renderToStaticMarkup(
-    React.createElement(CompareView, {
+    compareViewElement({
       session: buildSession(),
       settings: createDefaultSettings()
     })
@@ -1175,7 +1224,7 @@ test("CompareView keeps result prose blocks wrap-safe inside the popup measure",
 
 test("CompareView uses lighter section anchors instead of uppercase chrome", () => {
   const html = renderToStaticMarkup(
-    React.createElement(CompareView, {
+    compareViewElement({
       session: buildSession(),
       settings: createDefaultSettings()
     })
@@ -1218,7 +1267,7 @@ test("CompareView uses 12px/600 label typography for section anchors", () => {
 
 test("CompareView auto-selects a distinct ready pair", () => {
   const html = renderToStaticMarkup(
-    React.createElement(CompareView, {
+    compareViewElement({
       session: buildSession(),
       settings: createDefaultSettings()
     })
