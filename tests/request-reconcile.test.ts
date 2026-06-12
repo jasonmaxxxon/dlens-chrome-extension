@@ -170,7 +170,19 @@ test("reconcile guard is wired into current async response write paths", () => {
   const background = readRepoFile("entrypoints/background.ts");
   assert.match(background, /beginBackgroundSnapshotReconcile/);
   assert.match(background, /shouldPersistSnapshot/);
+  assert.match(background, /withDirectStorageReconcile/);
   assert.match(background, /reconcileToken/);
   assert.match(background, /background\.session\.refresh-all/);
   assert.match(background, /background\.session\.queue-items-and-start-processing/);
+  for (const lane of [
+    "folder.generateSynthesis",
+    "folder.clearSynthesis",
+    "product.analyzeSignals",
+    "product.synthesizeSignalReading",
+    "product.reviewSignalReading",
+    "pr.matchCriteria",
+    "pr.fetchAdvancedMetrics"
+  ]) {
+    assert.match(background, new RegExp(lane.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")));
+  }
 });

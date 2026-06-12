@@ -162,7 +162,7 @@ import {
 } from "../src/state/store-helpers";
 import { ensureSignalForSavedItem, ensureSignalsForSessionItems, ensureWorkspaceTopicForSession, handleTopicMessage } from "../src/state/topic-handlers";
 import { handleTopicAuditMessage } from "../src/state/topic-audit-handlers";
-import { loadSignals, loadTopicById, loadTopics, saveTopic } from "../src/state/topic-storage";
+import { loadSignals, loadTopicById, loadTopics, saveTopic, type StorageAreaLike } from "../src/state/topic-storage";
 import { generateTopicSynthesis } from "../src/compare/topic-synthesis";
 import { generateFolderSynthesis } from "../src/compare/folder-synthesis";
 import {
@@ -444,7 +444,13 @@ async function saveJudgmentCache(cache: JudgmentCache): Promise<void> {
   await chrome.storage.local.set({ [COMPARE_JUDGMENT_CACHE_KEY]: cache });
 }
 
-async function saveProductContext(productContext: ProductContext | null): Promise<void> {
+async function saveProductContext(
+  productContext: ProductContext | null,
+  options: BackgroundReconcileOptions = {}
+): Promise<void> {
+  if (!shouldApplyBackgroundReconcile(options)) {
+    return;
+  }
   await chrome.storage.local.set({ [PRODUCT_CONTEXT_STORAGE_KEY]: productContext });
   await chrome.storage.local.remove(LEGACY_PRODUCT_CONTEXT_STORAGE_KEY);
 }
@@ -545,16 +551,19 @@ function buildProductSignalFailureDetails({
   return failures.slice(0, 5);
 }
 
-async function compileProductContextIfReady(global: ExtensionGlobalState): Promise<{ productContext: ProductContext | null; error: string | null }> {
+async function compileProductContextIfReady(
+  global: ExtensionGlobalState,
+  options: BackgroundReconcileOptions = {}
+): Promise<{ productContext: ProductContext | null; error: string | null }> {
   const productProfile = global.settings.productProfile;
   if (!productProfile || !isProductContextSourceReady(productProfile)) {
-    await saveProductContext(null);
+    await saveProductContext(null, options);
     return { productContext: null, error: null };
   }
 
   const providerConfig = providerKeyForRequest(global);
   if (!providerConfig) {
-    await saveProductContext(null);
+    await saveProductContext(null, options);
     return { productContext: null, error: "尚未設定目前 AI provider 的 API key。" };
   }
 
@@ -564,11 +573,11 @@ async function compileProductContextIfReady(global: ExtensionGlobalState): Promi
       providerConfig.apiKey,
       productProfile
     );
-    await saveProductContext(productContext);
+    await saveProductContext(productContext, options);
     return { productContext, error: null };
   } catch (error) {
     console.error("[dlens] product context compile failed:", error instanceof Error ? error.message : error);
-    await saveProductContext(null);
+    await saveProductContext(null, options);
     return { productContext: null, error: compactProviderError(error, providerConfig.apiKey) };
   }
 }
@@ -576,10 +585,10 @@ async function compileProductContextIfReady(global: ExtensionGlobalState): Promi
 async function analyzeProductSignalsForSession(
   global: ExtensionGlobalState,
   sessionId: string,
-  options: { allowMissingPrerequisites?: boolean } = {}
+  options: { allowMissingPrerequisites?: boolean } & BackgroundReconcileOptions = {}
 ): Promise<ProductSignalAnalysis[]> {
   const inFlight = productSignalAnalysisInFlight.get(sessionId);
-  if (inFlight) {
+  if (inFlight && !options.reconcileToken) {
     return inFlight;
   }
   const run = analyzeProductSignalsForSessionUnlocked(global, sessionId, options);
@@ -587,15 +596,18 @@ async function analyzeProductSignalsForSession(
   try {
     return await run;
   } finally {
-    productSignalAnalysisInFlight.delete(sessionId);
+    if (productSignalAnalysisInFlight.get(sessionId) === run) {
+      productSignalAnalysisInFlight.delete(sessionId);
+    }
   }
 }
 
 async function analyzeProductSignalsForSessionUnlocked(
   global: ExtensionGlobalState,
   sessionId: string,
-  options: { allowMissingPrerequisites?: boolean } = {}
+  options: { allowMissingPrerequisites?: boolean } & BackgroundReconcileOptions = {}
 ): Promise<ProductSignalAnalysis[]> {
+  const storageArea = withDirectStorageReconcile(chrome.storage.local, options);
   const session = normalizeGlobalState(global).sessions.find((entry) => entry.id === sessionId) || null;
   if (!session || session.mode !== "product") {
     return [];
@@ -605,10 +617,10 @@ async function analyzeProductSignalsForSessionUnlocked(
     cachedContext: await loadProductContext(),
     productProfile: global.settings.productProfile,
     allowMissingPrerequisites: options.allowMissingPrerequisites,
-    compileProductContext: () => compileProductContextIfReady(global)
+    compileProductContext: () => compileProductContextIfReady(global, options)
   });
   if (!productContext) {
-    return listProductSignalAnalyses(chrome.storage.local);
+    return listProductSignalAnalyses(storageArea);
   }
 
   const providerConfig = providerKeyForRequest(global);
@@ -616,15 +628,15 @@ async function analyzeProductSignalsForSessionUnlocked(
     if (!options.allowMissingPrerequisites) {
       throw new Error("尚未設定 AI key。請先在 Settings 設定 Google / OpenAI / Claude key。");
     }
-    return listProductSignalAnalyses(chrome.storage.local);
+    return listProductSignalAnalyses(storageArea);
   }
 
   const productContextHash = buildProductContextHash(productContext);
-  const signals = await loadSignals(chrome.storage.local, sessionId);
+  const signals = await loadSignals(storageArea, sessionId);
   const itemsById = new Map(session.items.map((item) => [item.id, item]));
   const [agentTaskFeedback, historicalAnalyses] = await Promise.all([
-    listProductAgentTaskFeedback(chrome.storage.local),
-    listProductSignalAnalyses(chrome.storage.local)
+    listProductAgentTaskFeedback(storageArea),
+    listProductSignalAnalyses(storageArea)
   ]);
   const feedbackExamples = buildProductSignalPreferenceExamples(agentTaskFeedback, historicalAnalyses);
   const touchedSignalIds: string[] = [];
@@ -635,7 +647,7 @@ async function analyzeProductSignalsForSessionUnlocked(
       continue;
     }
     touchedSignalIds.push(signal.id);
-    const existing = await getProductSignalAnalysis(chrome.storage.local, signal.id);
+    const existing = await getProductSignalAnalysis(storageArea, signal.id);
 
     const item = itemsById.get(signal.itemId) || null;
     if (!item) {
@@ -673,11 +685,11 @@ async function analyzeProductSignalsForSessionUnlocked(
         providerConfig.apiKey,
         input
       );
-      await saveProductSignalAnalysis(chrome.storage.local, analysis);
+      await saveProductSignalAnalysis(storageArea, analysis);
     } catch (error) {
       console.error("[dlens] product signal analysis failed:", signal.id, error instanceof Error ? error.message : error);
       await saveProductSignalAnalysis(
-        chrome.storage.local,
+        storageArea,
         buildProductSignalErrorAnalysis({
           signalId: signal.id,
           productContextHash,
@@ -692,12 +704,13 @@ async function analyzeProductSignalsForSessionUnlocked(
     throw new Error("crawl 已完成，但沒有 assembled content 可分析。請重新處理該貼文。");
   }
 
-  return listProductSignalAnalyses(chrome.storage.local, touchedSignalIds);
+  return listProductSignalAnalyses(storageArea, touchedSignalIds);
 }
 
 async function queueSavedProductSignalItemsForAnalysis(
   tabId: number,
-  sessionId: string
+  sessionId: string,
+  options: BackgroundReconcileOptions = {}
 ): Promise<{ snapshot: ExtensionSnapshot; queued: number }> {
   let snapshot = await loadSnapshot(tabId);
   const session = snapshot.global.sessions.find((entry) => entry.id === sessionId) || null;
@@ -717,7 +730,9 @@ async function queueSavedProductSignalItemsForAnalysis(
       snapshot = latest;
       continue;
     }
-    const result = await queueSessionItem(tabId, sessionId, itemId);
+    const result = await queueSessionItem(tabId, sessionId, itemId, {
+      reconcileToken: options.reconcileToken
+    });
     snapshot = result.snapshot;
     queued += 1;
   }
@@ -799,23 +814,28 @@ async function generatePrCriteriaForGlobal(
   return generatePrCriteriaSuggestions(providerConfig.provider, providerConfig.apiKey, campaignName, briefText);
 }
 
-async function matchPrCriteriaForCampaign(global: ExtensionGlobalState, campaignId: string): Promise<PrEvidenceRow[]> {
+async function matchPrCriteriaForCampaign(
+  global: ExtensionGlobalState,
+  campaignId: string,
+  options: BackgroundReconcileOptions = {}
+): Promise<PrEvidenceRow[]> {
+  const storageArea = withDirectStorageReconcile(chrome.storage.local, options);
   const existing = prCriteriaMatchInFlight.get(campaignId);
-  if (existing) {
+  if (existing && !options.reconcileToken) {
     return existing;
   }
 
   const promise = (async () => {
-    const campaigns = await loadPrCampaigns(chrome.storage.local, "");
+    const campaigns = await loadPrCampaigns(storageArea, "");
     const campaign = campaigns.find((entry) => entry.id === campaignId)
-      || (await Promise.all(global.sessions.map((session) => loadPrCampaigns(chrome.storage.local, session.id))))
+      || (await Promise.all(global.sessions.map((session) => loadPrCampaigns(storageArea, session.id))))
         .flat()
         .find((entry) => entry.id === campaignId)
       || null;
     if (!campaign) {
       throw new Error("PR campaign not found.");
     }
-    const rows = await loadPrEvidenceRows(chrome.storage.local, campaignId);
+    const rows = await loadPrEvidenceRows(storageArea, campaignId);
     if (!rows.length) {
       return rows;
     }
@@ -832,23 +852,25 @@ async function matchPrCriteriaForCampaign(global: ExtensionGlobalState, campaign
           criteriaMatches: matchesByRowId[row.id] || row.criteriaMatches,
           matchedAt: now
         };
-        await savePrEvidenceRow(chrome.storage.local, nextRow);
+        await savePrEvidenceRow(storageArea, nextRow);
         nextRows.push(nextRow);
       }
     }
-    await savePrCampaign(chrome.storage.local, {
+    await savePrCampaign(storageArea, {
       ...campaign,
       lastMatchedAt: now,
       updatedAt: now
     });
-    return loadPrEvidenceRows(chrome.storage.local, campaignId);
+    return loadPrEvidenceRows(storageArea, campaignId);
   })();
 
   prCriteriaMatchInFlight.set(campaignId, promise);
   try {
     return await promise;
   } finally {
-    prCriteriaMatchInFlight.delete(campaignId);
+    if (prCriteriaMatchInFlight.get(campaignId) === promise) {
+      prCriteriaMatchInFlight.delete(campaignId);
+    }
   }
 }
 
@@ -896,11 +918,13 @@ function mergeAdvancedMetrics(row: PrEvidenceRow, metrics: Record<string, unknow
 
 async function fetchAdvancedMetricsForPrCampaign(
   global: ExtensionGlobalState,
-  campaignId: string
+  campaignId: string,
+  options: BackgroundReconcileOptions = {}
 ): Promise<{ rows: PrEvidenceRow[]; summary: { updated: number; failed: number } }> {
-  const campaigns = await loadPrCampaigns(chrome.storage.local, "");
+  const storageArea = withDirectStorageReconcile(chrome.storage.local, options);
+  const campaigns = await loadPrCampaigns(storageArea, "");
   const campaign = campaigns.find((entry) => entry.id === campaignId)
-    || (await Promise.all(global.sessions.map((session) => loadPrCampaigns(chrome.storage.local, session.id))))
+    || (await Promise.all(global.sessions.map((session) => loadPrCampaigns(storageArea, session.id))))
       .flat()
       .find((entry) => entry.id === campaignId)
     || null;
@@ -908,7 +932,7 @@ async function fetchAdvancedMetricsForPrCampaign(
     throw new Error("PR campaign not found.");
   }
 
-  const rows = await loadPrEvidenceRows(chrome.storage.local, campaignId);
+  const rows = await loadPrEvidenceRows(storageArea, campaignId);
   if (!rows.length) {
     return { rows, summary: { updated: 0, failed: 0 } };
   }
@@ -919,7 +943,7 @@ async function fetchAdvancedMetricsForPrCampaign(
   for (const row of rows) {
     if (!row.postUrl.trim()) {
       failed += 1;
-      await savePrEvidenceRow(chrome.storage.local, {
+      await savePrEvidenceRow(storageArea, {
         ...row,
         advancedMetricsError: "Missing post URL."
       });
@@ -928,11 +952,11 @@ async function fetchAdvancedMetricsForPrCampaign(
     try {
       const response = await fetchThreadsAdvancedMetrics(baseUrl, row.postUrl);
       const nextRow = mergeAdvancedMetrics(row, response.metrics || {}, response.fetched_at || new Date().toISOString());
-      await savePrEvidenceRow(chrome.storage.local, nextRow);
+      await savePrEvidenceRow(storageArea, nextRow);
       updated += 1;
     } catch (error) {
       failed += 1;
-      await savePrEvidenceRow(chrome.storage.local, {
+      await savePrEvidenceRow(storageArea, {
         ...row,
         advancedMetricsError: error instanceof Error ? error.message : String(error)
       });
@@ -940,7 +964,7 @@ async function fetchAdvancedMetricsForPrCampaign(
   }
 
   return {
-    rows: await loadPrEvidenceRows(chrome.storage.local, campaignId),
+    rows: await loadPrEvidenceRows(storageArea, campaignId),
     summary: { updated, failed }
   };
 }
@@ -1216,13 +1240,16 @@ const getOrGenerateJudgment = createLlmCallWrapper<
   }
 });
 
-interface SnapshotSaveOptions {
+interface BackgroundReconcileOptions {
+  reconcileToken?: RequestReconcileToken | null;
+}
+
+interface SnapshotSaveOptions extends BackgroundReconcileOptions {
   persistActiveSessionId?: boolean;
   /** Persist only the tab-state key. For mutations that leave the global
    * state untouched (e.g. selection toggles) this skips serializing and
    * rewriting the full session blob on the hot path (B-02). */
   tabOnly?: boolean;
-  reconcileToken?: RequestReconcileToken | null;
 }
 
 function beginBackgroundSnapshotReconcile(
@@ -1237,7 +1264,7 @@ function beginBackgroundSnapshotReconcile(
   });
 }
 
-function shouldPersistSnapshot(options: SnapshotSaveOptions): boolean {
+function shouldApplyBackgroundReconcile(options: BackgroundReconcileOptions): boolean {
   if (!options.reconcileToken) {
     return true;
   }
@@ -1249,6 +1276,25 @@ function shouldPersistSnapshot(options: SnapshotSaveOptions): boolean {
     return false;
   }
   return true;
+}
+
+function shouldPersistSnapshot(options: SnapshotSaveOptions): boolean {
+  return shouldApplyBackgroundReconcile(options);
+}
+
+function withDirectStorageReconcile(
+  storageArea: StorageAreaLike,
+  options: BackgroundReconcileOptions
+): StorageAreaLike {
+  return {
+    get: storageArea.get.bind(storageArea),
+    set: async (items) => {
+      if (!shouldApplyBackgroundReconcile(options)) {
+        return;
+      }
+      await storageArea.set(items);
+    }
+  };
 }
 
 function cacheSnapshot(tabId: number, snapshot: ExtensionSnapshot): void {
@@ -2818,13 +2864,20 @@ export default defineBackground(() => {
           case "folder/synthesis/generate": {
             const tabId = await resolveTabId(sender);
             const current = await loadSnapshot(tabId);
+            const requestId = message.requestId ?? createPipelineRequestId("background.folder.synthesis.generate");
+            const reconcileToken = beginBackgroundSnapshotReconcile(
+              "folder.generateSynthesis",
+              requestId,
+              { sessionId: message.sessionId, tabId }
+            );
+            const storageArea = withDirectStorageReconcile(chrome.storage.local, { reconcileToken });
             const session = current.global.sessions.find((entry) => entry.id === message.sessionId) ?? null;
             if (!session) {
               sendResponse({ ok: false, error: "Folder not found" } satisfies ExtensionResponse);
               return;
             }
-            const topics = await loadTopics(chrome.storage.local, message.sessionId);
-            const signals = await loadSignals(chrome.storage.local, message.sessionId);
+            const topics = await loadTopics(storageArea, message.sessionId);
+            const signals = await loadSignals(storageArea, message.sessionId);
             const signalsByTopic = new Map<string, typeof signals>();
             for (const topic of topics) {
               signalsByTopic.set(topic.id, signals.filter((signal) => topic.signalIds.includes(signal.id)));
@@ -2846,7 +2899,7 @@ export default defineBackground(() => {
               } satisfies ExtensionResponse);
               return;
             }
-            await saveFolderSynthesis(chrome.storage.local, synthesis);
+            await saveFolderSynthesis(storageArea, synthesis);
             sendResponse({
               ok: true,
               tabId,
@@ -2856,7 +2909,13 @@ export default defineBackground(() => {
           }
           case "folder/synthesis/clear": {
             const tabId = await resolveTabId(sender);
-            await clearFolderSynthesis(chrome.storage.local, message.sessionId);
+            const requestId = message.requestId ?? createPipelineRequestId("background.folder.synthesis.clear");
+            const reconcileToken = beginBackgroundSnapshotReconcile(
+              "folder.clearSynthesis",
+              requestId,
+              { sessionId: message.sessionId, tabId }
+            );
+            await clearFolderSynthesis(withDirectStorageReconcile(chrome.storage.local, { reconcileToken }), message.sessionId);
             sendResponse({
               ok: true,
               tabId,
@@ -2918,17 +2977,29 @@ export default defineBackground(() => {
           case "pr/match-criteria": {
             const tabId = await resolveTabId(sender);
             const current = await loadSnapshot(tabId);
+            const requestId = message.requestId ?? createPipelineRequestId("background.pr.match-criteria");
+            const reconcileToken = beginBackgroundSnapshotReconcile(
+              "pr.matchCriteria",
+              requestId,
+              { campaignId: message.campaignId, tabId }
+            );
             sendResponse({
               ok: true,
               tabId,
-              prEvidenceRows: await matchPrCriteriaForCampaign(current.global, message.campaignId)
+              prEvidenceRows: await matchPrCriteriaForCampaign(current.global, message.campaignId, { reconcileToken })
             } satisfies ExtensionResponse);
             return;
           }
           case "pr/fetch-advanced-metrics": {
             const tabId = await resolveTabId(sender);
             const current = await loadSnapshot(tabId);
-            const result = await fetchAdvancedMetricsForPrCampaign(current.global, message.campaignId);
+            const requestId = message.requestId ?? createPipelineRequestId("background.pr.fetch-advanced-metrics");
+            const reconcileToken = beginBackgroundSnapshotReconcile(
+              "pr.fetchAdvancedMetrics",
+              requestId,
+              { campaignId: message.campaignId, tabId }
+            );
+            const result = await fetchAdvancedMetricsForPrCampaign(current.global, message.campaignId, { reconcileToken });
             sendResponse({
               ok: true,
               tabId,
@@ -2959,7 +3030,13 @@ export default defineBackground(() => {
           }
           case "product/analyze-signals": {
             const tabId = await resolveTabId(sender);
-            const queued = await queueSavedProductSignalItemsForAnalysis(tabId, message.sessionId);
+            const requestId = message.requestId ?? createPipelineRequestId("background.product.analyze-signals");
+            const reconcileToken = beginBackgroundSnapshotReconcile(
+              "product.analyzeSignals",
+              requestId,
+              { sessionId: message.sessionId, tabId }
+            );
+            const queued = await queueSavedProductSignalItemsForAnalysis(tabId, message.sessionId, { reconcileToken });
             const current = queued.snapshot;
             const session = current.global.sessions.find((entry) => entry.id === message.sessionId) || null;
             const signals = await loadSignals(chrome.storage.local, message.sessionId);
@@ -2967,7 +3044,7 @@ export default defineBackground(() => {
             if (shouldDrainWorkerAfterProductSignalQueue(queued.queued, hasDrainableWork)) {
               await triggerWorkerDrain(normalizeBaseUrl(current.global.settings.ingestBaseUrl));
             }
-            const productSignalAnalyses = await analyzeProductSignalsForSession(current.global, message.sessionId);
+            const productSignalAnalyses = await analyzeProductSignalsForSession(current.global, message.sessionId, { reconcileToken });
             const failureDetails = buildProductSignalFailureDetails({
               session,
               signals,
@@ -3032,9 +3109,16 @@ export default defineBackground(() => {
           }
           case "product/synthesize-signal-reading": {
             const tabId = await resolveTabId(sender);
+            const requestId = message.requestId ?? createPipelineRequestId("background.product.synthesize-signal-reading");
+            const reconcileToken = beginBackgroundSnapshotReconcile(
+              `product.synthesizeSignalReading:${message.signalId}`,
+              requestId,
+              { sessionId: message.sessionId, signalId: message.signalId, tabId }
+            );
+            const storageArea = withDirectStorageReconcile(chrome.storage.local, { reconcileToken });
             const global = await loadGlobalState();
             const session = normalizeGlobalState(global).sessions.find((entry) => entry.id === message.sessionId) || null;
-            const signals = await loadSignals(chrome.storage.local, message.sessionId);
+            const signals = await loadSignals(storageArea, message.sessionId);
             const signal = signals.find((entry) => entry.id === message.signalId) || null;
             const item = session && signal?.itemId
               ? session.items.find((entry) => entry.id === signal.itemId) || null
@@ -3047,7 +3131,7 @@ export default defineBackground(() => {
               cachedContext: await loadProductContext(),
               productProfile: global.settings.productProfile,
               allowMissingPrerequisites: true,
-              compileProductContext: () => compileProductContextIfReady(global)
+              compileProductContext: () => compileProductContextIfReady(global, { reconcileToken })
             });
             if (!productContext) {
               sendResponse({ ok: false, error: "尚未設定 ProductContext。請先在 Settings 完成產品設定。" } satisfies ExtensionResponse);
@@ -3065,7 +3149,7 @@ export default defineBackground(() => {
               sendResponse({ ok: false, error: "這則貼文還沒有可分析的內容。請先完成抓取。" } satisfies ExtensionResponse);
               return;
             }
-            const analysis = await getProductSignalAnalysis(chrome.storage.local, signal.id);
+            const analysis = await getProductSignalAnalysis(storageArea, signal.id);
             const replies = analyzerInput.discussionReplies;
             const repRefs = selectSignalReadingRepresentativeRefs(replies, analysis?.evidenceRefs ?? []);
             const representativeComments = repRefs
@@ -3092,7 +3176,7 @@ export default defineBackground(() => {
               sourcePacketHash,
               promptVersion: SIGNAL_READING_PROMPT_VERSION
             });
-            const cached = await getSignalReading(chrome.storage.local, cacheKey);
+            const cached = await getSignalReading(storageArea, cacheKey);
             if (cached && !message.force) {
               sendResponse({ ok: true, tabId, signalReading: cached } satisfies ExtensionResponse);
               return;
@@ -3108,7 +3192,7 @@ export default defineBackground(() => {
                 providerConfig.apiKey,
                 readingInput
               );
-              const saved = await saveSignalReading(chrome.storage.local, {
+              const saved = await saveSignalReading(storageArea, {
                 signalId: signal.id,
                 cacheKey,
                 productContextHash,
@@ -3161,8 +3245,14 @@ export default defineBackground(() => {
           }
           case "product/review-signal-reading": {
             const tabId = await resolveTabId(sender);
+            const requestId = message.requestId ?? createPipelineRequestId("background.product.review-signal-reading");
+            const reconcileToken = beginBackgroundSnapshotReconcile(
+              `product.reviewSignalReading:${message.cacheKey}`,
+              requestId,
+              { cacheKey: message.cacheKey, tabId }
+            );
             const updated = await appendSignalReadingReview(
-              chrome.storage.local,
+              withDirectStorageReconcile(chrome.storage.local, { reconcileToken }),
               message.cacheKey,
               message.decision,
               message.note
