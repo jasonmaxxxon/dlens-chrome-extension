@@ -1,6 +1,6 @@
-# DLens Current Architecture Map (v0.4 — honest status)
+# DLens Current Architecture Map (v0.5 — honest status)
 
-> Last updated: 2026-06-12 · Baseline code: `main` after pipeline spine Slice 4 / PR #24 @ `9fb3f30` (0.1.33). This RECONCILE slice adds a tested request reconciler, UI stale-result ignore for Compare/Product/Folder/PR async writes, and a narrow session-scoped snapshot guard; `RECONCILE` is 🟡, not 🟩, because storage-seam-wide stale write rejection is still pending.
+> Last updated: 2026-06-13 · Baseline code: `main` after RECONCILE stale-result guard / PR #25 @ `8106c42` (0.1.33). This TRACE fixture-gate branch adds a committed Chrome-captured typed `ui.ready` trace fixture, `npm run qa:harness:fixture`, and a CI verify step. `TRACE` stays 🟡 because the fixture currently locks popup rehydrate / `ui.ready` terminal reachability only; backend polling, direct LLM calls, and the full hover → queue → analysis live artifact remain pending.
 > **This is the agent handoff map.** Any Codex / ChatGPT / Claude session reads this FIRST. It is the single source of truth for "what is built, what is enforced, what you must not bypass." Status colors must be kept honest (see DoD rule below) — a stale map is worse than none.
 
 ## Legend
@@ -49,7 +49,7 @@ flowchart LR
   end
 
   subgraph OBS["Observability + Product Walls"]
-    TRACE["🟡 Pipeline Spine Trace<br/>slices 1-4 exist, harness gate built<br/>backend/LLM live trace not locked"]
+    TRACE["🟡 Pipeline Spine Trace<br/>slices 1-4 exist, harness + fixture gate built<br/>backend/LLM full live trace not locked"]
     RECONCILE["🟡 Request reconcile<br/>UI stale-result ignore<br/>seam-wide guard pending"]
     BOUNDARY["🟡 Boundary tests<br/>some exists, not complete"]
     SEAM_GUARD["🔴 Seam-only storage write guard<br/>intended, not enforced"]
@@ -136,9 +136,9 @@ This file lives at `docs/architecture/dlens-current-architecture-map.md`. Every 
 
 - **A1. Boundary / architecture tests** → 🟢→🟩. View ⊅ `sendExtensionMessage`/`Date.now`/`Math.random`/storage mutation; ViewModel ⊅ `chrome`/`fetch`/DOM/`File`/React; storage write ⊅ bypass seam. *(Do first — it's what makes green mean protected.)*
 - **A2. Storage schema version + migration** → `MIGRATE` 🔴→🟡/🟩. `CURRENT_STORAGE_SCHEMA_VERSION`, migration registry, non-destructive migration, legacy fixture tests.
-- **A3. requestId reconcile / stale-result ignore** → `RECONCILE` 🟡→🟩. Async command carries `requestId`; backend/LLM late result must match current target; stale result ignored, not written. This slice adds `src/state/request-reconcile.ts`, UI-shell guards for Compare/Product/Folder/PR Evidence async responses, a narrow session-scoped snapshot guard in `sendAndSync`, and tests that reject stale / target-mismatched responses. Do not mark `RECONCILE` 🟩 until background/storage seam writes are protected consistently.
+- **A3. requestId reconcile / stale-result ignore** → `RECONCILE` 🟡→🟩. Async command carries `requestId`; backend/LLM late result must match current target; stale result ignored, not written. PR #25 adds `src/state/request-reconcile.ts`, UI-shell guards for Compare/Product/Folder/PR Evidence async responses, a narrow session-scoped snapshot guard in `sendAndSync`, and tests that reject stale / target-mismatched responses. Do not mark `RECONCILE` 🟩 until background/storage seam writes are protected consistently.
 - **A4. Invalidation / rehydrate contract** → `INVALIDATE` 🟡→🟩. Storage write triggers state update; popup rehydrates deterministically; no infinite loading after write.
-- **A5. Backend + direct LLM trace integration** → `TRACE` 🟡→🟩. Trace backend polling + direct LLM calls; record timeout / fallback / provider / provenance. PR #21 typed the event stream; PR #22 threads requestId through collect/capture trace paths; Slice 3 wires terminal VM `ui.ready` events; Slice 4 adds a typed summarizer and `ui.ready` harness gate. Keep `TRACE` 🟡 until backend / direct LLM trace paths are integrated and a real live trace artifact passes the terminal gate.
+- **A5. Backend + direct LLM trace integration** → `TRACE` 🟡→🟩. Trace backend polling + direct LLM calls; record timeout / fallback / provider / provenance. PR #21 typed the event stream; PR #22 threads requestId through collect/capture trace paths; Slice 3 wires terminal VM `ui.ready` events; Slice 4 adds a typed summarizer and `ui.ready` harness gate. This branch adds a fixture-backed CI gate against `docs/qa/assets/2026-06-13/live-trace-happy.json`; keep `TRACE` 🟡 until backend / direct LLM trace paths and a full live hover → queue → analysis artifact pass the terminal gate.
 
 ### Track B — Product quality / analysis credibility (the user-felt value — run parallel, do NOT defer behind A)
 

@@ -6,7 +6,7 @@ type: project
 
 # DLens Extension Shared Context
 
-Last updated: 2026-06-12
+Last updated: 2026-06-13
 
 This file is the current shared context. Keep this filename stable and update
 the contents in place whenever an automated or manual handoff refresh makes it
@@ -73,13 +73,13 @@ This note is the high-signal shared memory for Codex and Claude when working on 
 - Folder synthesis uses deterministic `v3.generic-keyword-lens` and renders as the Library Briefing card. Storage key: `dlens:v1:folder-synthesis`.
 - Compare result variants are Reading, Parallel, and Chapters; Parallel is default and uses sticky A/B columns.
 - Runtime tab targeting now treats the content-script sender tab as authoritative for `state/get-active-tab` and collect start/cancel; do not route those calls through another focused Chrome tab.
-- Latest merged-code verification through PR #22: `732/732` tests, typecheck, build, and diff check passed from `dlens-product-latest`; Desktop is synced to `ad8ddbf`.
+- Latest merged-code verification through PR #25: `752/752` tests, typecheck, build, and diff check passed; `main` is synced to `8106c42`.
 - Verified build artifact was copied to `output/chrome-mv3`; the source checkout there may still be dirty.
 
 ## Version Rule As Of 2026-06-12
 
 - Current extension version: `0.1.33`.
-- Latest merged-code verification through PR #22: `732/732` tests, typecheck, build, and diff check passed from `dlens-product-latest`; Desktop is synced to `ad8ddbf`.
+- Latest merged-code verification through PR #25: `752/752` tests, typecheck, build, and diff check passed; `main` is synced to `8106c42`.
 - Current engineering branch: `main`.
 - `docs/ENGINEERING_PLAN.md` §2 N1-N5 is complete: React ErrorBoundary, Settings storage usage, `mutateSnapshot` seam, behavioral storage contracts, and code-review checklist.
 - §3 remains a deferred trigger pool, not a backlog drain queue.
@@ -144,7 +144,7 @@ This note is the high-signal shared memory for Codex and Claude when working on 
 ## Current Known Priorities
 
 - Split growing popup/background orchestration before adding digest/watch-mode work. `entrypoints/background.ts` is now 3488 lines and `src/ui/useInPageCollectorAppState.ts` is now 2148 lines.
-- Pipeline spine status: PR #21 merged the typed trace event stream, PR #22 merged requestId trace correlation, PR #23 merged terminal VM `ui.ready`, and PR #24 merged the typed trace summarizer + live harness gate. `TRACE` stays 🟡 until backend/direct LLM trace paths and a real live trace artifact are locked. Current RECONCILE work starts stale-result ignore in the UI shell and moves `RECONCILE` 🔴→🟡 only; keep it short of 🟩 until background/storage seam writes are guarded.
+- Pipeline spine status: PR #21 merged the typed trace event stream, PR #22 merged requestId trace correlation, PR #23 merged terminal VM `ui.ready`, PR #24 merged the typed trace summarizer + live harness gate, and PR #25 moved `RECONCILE` to 🟡 with UI stale-result ignore. Current TRACE fixture-gate work adds a committed Chrome-captured `ui.ready` fixture plus CI gate, but `TRACE` stays 🟡 until backend/direct LLM trace paths and a full live hover → queue → analysis artifact are locked.
 - Improve hover debounce and clear stale overlay state on SPA route changes.
 - Add better honest loading states for crawl / analysis / compare waits.
 - Keep compare cluster matching skepticism high because pairing is still rank-driven.

@@ -10,6 +10,7 @@
     "build:wxt": "wxt build",
     "zip": "wxt zip",
     "typecheck": "tsc --noEmit",
+    "qa:harness:fixture": "node scripts/qa-live-pipeline-harness.mjs --trace docs/qa/assets/2026-06-13/live-trace-happy.json --label live-trace-happy --skip-build --terminal ui.ready",
     "backend:locate": "node scripts/locate-ingest-core.mjs"
   },
   "dependencies": {
