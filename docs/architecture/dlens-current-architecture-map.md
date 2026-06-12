@@ -49,7 +49,7 @@ flowchart LR
   end
 
   subgraph OBS["Observability + Product Walls"]
-    TRACE["🟡 Pipeline Spine Trace<br/>slices 1-2 exist, terminal/harness not wired"]
+    TRACE["🟡 Pipeline Spine Trace<br/>slices 1-3 exist, live harness not wired"]
     RECONCILE["🔴 Request reconcile<br/>requestId / stale-result ignore"]
     BOUNDARY["🟡 Boundary tests<br/>some exists, not complete"]
     SEAM_GUARD["🔴 Seam-only storage write guard<br/>intended, not enforced"]
@@ -138,7 +138,7 @@ This file lives at `docs/architecture/dlens-current-architecture-map.md`. Every 
 - **A2. Storage schema version + migration** → `MIGRATE` 🔴→🟡/🟩. `CURRENT_STORAGE_SCHEMA_VERSION`, migration registry, non-destructive migration, legacy fixture tests.
 - **A3. requestId reconcile / stale-result ignore** → `RECONCILE` 🔴→🟡/🟩. Async command carries `requestId`; backend/LLM late result must match current target; stale result ignored, not written. PR #22 seeds requestId trace correlation only; do not mark `RECONCILE` built until stale-result ignore is implemented and locked by tests.
 - **A4. Invalidation / rehydrate contract** → `INVALIDATE` 🟡→🟩. Storage write triggers state update; popup rehydrates deterministically; no infinite loading after write.
-- **A5. Backend + direct LLM trace integration** → `TRACE` 🟡→🟩. Trace backend polling + direct LLM calls; record timeout / fallback / provider / provenance. PR #21 typed the event stream; PR #22 threads requestId through collect/capture trace paths; live QA harness and terminal `ui.ready` assertion are still required before `TRACE` can become 🟩.
+- **A5. Backend + direct LLM trace integration** → `TRACE` 🟡→🟩. Trace backend polling + direct LLM calls; record timeout / fallback / provider / provenance. PR #21 typed the event stream; PR #22 threads requestId through collect/capture trace paths; Slice 3 wires terminal VM `ui.ready` events; live QA harness and a real trace assertion are still required before `TRACE` can become 🟩.
 
 ### Track B — Product quality / analysis credibility (the user-felt value — run parallel, do NOT defer behind A)
 
