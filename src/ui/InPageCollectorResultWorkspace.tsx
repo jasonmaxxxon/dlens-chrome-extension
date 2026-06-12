@@ -9,6 +9,7 @@ import { buildCompareViewModel, type CompareCommand, type CompareFetchedState } 
 import { PrimaryButton, SecondaryButton, WorkspaceSurface, surfaceCardStyle } from "./components";
 import { sendExtensionMessage } from "./controller";
 import { buildDateRangeLabel } from "./inpage-helpers";
+import { buildCompareUiReadyEvent, usePipelineUiReadyTrace } from "./pipeline-ui-ready";
 import { tokens } from "./tokens";
 import type { InPageCollectorAppModel } from "./useInPageCollectorAppState";
 
@@ -192,6 +193,7 @@ function CompareResultViewModelBoundary({
       selectedB
     ]
   );
+  usePipelineUiReadyTrace(buildCompareUiReadyEvent(viewModel));
 
   const onCommand = useCallback(async (command: CompareCommand): Promise<unknown> => {
     switch (command.kind) {

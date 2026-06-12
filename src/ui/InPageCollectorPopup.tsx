@@ -21,6 +21,12 @@ import type { PrEvidenceCommand } from "../viewmodel/pr-evidence";
 import { getProcessingFailureMessage } from "../state/processing-errors";
 import { InPageCollectorFolderControls } from "./InPageCollectorFolderControls";
 import { InPageCollectorResultWorkspace } from "./InPageCollectorResultWorkspace";
+import {
+  buildPrEvidenceUiReadyEvent,
+  buildProductUiReadyEvent,
+  buildTopicUiReadyEvent,
+  usePipelineUiReadyTrace
+} from "./pipeline-ui-ready";
 import type { InPageCollectorAppModel } from "./useInPageCollectorAppState";
 
 const WORKSPACE_SWITCHER_MODES: ReadonlyArray<WorkspaceSwitcherMode> = IS_PR_ONLY_BUILD
@@ -188,6 +194,16 @@ export function InPageCollectorPopup({ app }: { app: InPageCollectorAppModel }) 
       ? "先在 PR 頁建立 campaign，Collect 才能加入 evidence row。"
       : "";
   const showProcessingContextStrip = Boolean(activeFolder) && shouldShowProcessingContextStrip(activeFolderMode, guardedPage);
+
+  usePipelineUiReadyTrace(popupOpen && productSignalViewModel
+    ? buildProductUiReadyEvent(productSignalViewModel)
+    : null);
+  usePipelineUiReadyTrace(popupOpen && guardedPage === "topic-detail" && topicDetailViewModel
+    ? buildTopicUiReadyEvent(topicDetailViewModel)
+    : null);
+  usePipelineUiReadyTrace(popupOpen && guardedPage === "pr-evidence"
+    ? buildPrEvidenceUiReadyEvent(app.prEvidenceViewModel)
+    : null);
 
   const scrollRef = useRef<HTMLDivElement>(null);
   const prBriefInputRef = useRef<HTMLInputElement>(null);
