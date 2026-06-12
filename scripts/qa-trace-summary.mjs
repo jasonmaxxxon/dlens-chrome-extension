@@ -1,8 +1,22 @@
 #!/usr/bin/env node
 import { mkdir, readFile, writeFile } from "node:fs/promises";
 import path from "node:path";
+import { pathToFileURL } from "node:url";
 
-const DEFAULT_PAIRS = [
+export const PIPELINE_PHASES = [
+  "hover.detected",
+  "preview.confirmed",
+  "signal.saved",
+  "crawl.queued",
+  "capture.ready",
+  "analysis.ready",
+  "ui.ready"
+];
+
+const PIPELINE_RESULTS = new Set(["ok", "pending", "error"]);
+const PIPELINE_PHASE_SET = new Set(PIPELINE_PHASES);
+
+const LEGACY_PAIRS = [
   ["popup.collect.toggle.request", "popup.collect.toggle.response", "collect toggle roundtrip"],
   ["content.selection.sync.request", "content.selection.sync.response", "content selection rehydrate"],
   ["content.hover.card-change", "content.overlay.render", "hover to overlay render"],
@@ -16,12 +30,13 @@ const DEFAULT_PAIRS = [
   ["popup.worker.status.error", "popup.worker.next-poll", "worker error backoff"]
 ];
 
-function parseArgs(argv) {
+export function parseArgs(argv) {
   const args = {
     trace: null,
     out: null,
     markdown: null,
-    label: null
+    label: null,
+    requireTerminal: null
   };
   for (let index = 0; index < argv.length; index += 1) {
     const arg = argv[index];
@@ -33,6 +48,8 @@ function parseArgs(argv) {
       args.markdown = argv[++index];
     } else if (arg === "--label") {
       args.label = argv[++index];
+    } else if (arg === "--require-terminal") {
+      args.requireTerminal = argv[++index];
     } else if (arg === "--help" || arg === "-h") {
       args.help = true;
     } else {
@@ -44,11 +61,11 @@ function parseArgs(argv) {
 
 function printHelp() {
   console.log(`Usage:
-  node scripts/qa-trace-summary.mjs --trace docs/qa/assets/YYYY-MM-DD/runN/flow1-trace.json --out docs/qa/assets/YYYY-MM-DD/runN/flow1-summary.json --markdown docs/qa/assets/YYYY-MM-DD/runN/flow1-summary.md
+  node scripts/qa-trace-summary.mjs --trace docs/qa/assets/YYYY-MM-DD/runN/trace.json --out docs/qa/assets/YYYY-MM-DD/runN/summary.json --markdown docs/qa/assets/YYYY-MM-DD/runN/summary.md --require-terminal ui.ready
 
-The trace input is the JSON copied from window.__DLENS_QA_TRACE__.
-This script is read-only against Chrome/backend state; it only reads the trace
-file and writes derived QA artifacts.
+The trace input is JSON copied from window.__DLENS_QA_TRACE__. The script
+supports the current typed pipeline trace shape {phase, step, target, result}
+and older legacy QA trace dumps that only had {event, detail}.
 `);
 }
 
@@ -64,7 +81,8 @@ function roundMs(value) {
 }
 
 function stats(values) {
-  if (!values.length) {
+  const numeric = values.filter((value) => typeof value === "number" && Number.isFinite(value));
+  if (!numeric.length) {
     return {
       count: 0,
       minMs: null,
@@ -74,35 +92,74 @@ function stats(values) {
       avgMs: null
     };
   }
-  const sum = values.reduce((total, value) => total + value, 0);
+  const sum = numeric.reduce((total, value) => total + value, 0);
   return {
-    count: values.length,
-    minMs: roundMs(Math.min(...values)),
-    p50Ms: roundMs(percentile(values, 50)),
-    p95Ms: roundMs(percentile(values, 95)),
-    maxMs: roundMs(Math.max(...values)),
-    avgMs: roundMs(sum / values.length)
+    count: numeric.length,
+    minMs: roundMs(Math.min(...numeric)),
+    p50Ms: roundMs(percentile(numeric, 50)),
+    p95Ms: roundMs(percentile(numeric, 95)),
+    maxMs: roundMs(Math.max(...numeric)),
+    avgMs: roundMs(sum / numeric.length)
   };
 }
 
-function normalizeTrace(raw) {
+function readOptionalObject(value) {
+  return value && typeof value === "object" && !Array.isArray(value) ? value : {};
+}
+
+function normalizeTypedEntry(entry, index) {
+  if (!PIPELINE_PHASE_SET.has(String(entry.phase)) || typeof entry.at !== "number") {
+    return null;
+  }
+  const result = PIPELINE_RESULTS.has(String(entry.result)) ? String(entry.result) : "ok";
+  return {
+    id: typeof entry.id === "number" ? entry.id : index + 1,
+    phase: String(entry.phase),
+    step: typeof entry.step === "string" && entry.step.trim() ? entry.step : "unknown",
+    target: readOptionalObject(entry.target),
+    result,
+    requestId: typeof entry.requestId === "string" && entry.requestId.trim() ? entry.requestId : null,
+    detail: entry.detail ?? null,
+    at: entry.at,
+    isoTime: typeof entry.isoTime === "string" ? entry.isoTime : null,
+    event: null
+  };
+}
+
+function normalizeLegacyEntry(entry, index) {
+  if (typeof entry.event !== "string" || typeof entry.at !== "number") {
+    return null;
+  }
+  const isError = entry.event.endsWith(".error") || entry.detail?.ok === false;
+  return {
+    id: typeof entry.id === "number" ? entry.id : index + 1,
+    phase: null,
+    step: entry.event,
+    target: {},
+    result: isError ? "error" : "ok",
+    requestId: null,
+    detail: entry.detail ?? null,
+    at: entry.at,
+    isoTime: typeof entry.isoTime === "string" ? entry.isoTime : null,
+    event: entry.event
+  };
+}
+
+export function normalizeTrace(raw) {
   if (!Array.isArray(raw)) {
     throw new Error("Trace file must contain a JSON array.");
   }
   return raw
-    .filter((entry) => entry && typeof entry.event === "string" && typeof entry.at === "number")
-    .map((entry, index) => ({
-      id: typeof entry.id === "number" ? entry.id : index + 1,
-      event: entry.event,
-      at: entry.at,
-      isoTime: typeof entry.isoTime === "string" ? entry.isoTime : null,
-      detail: entry.detail ?? null
-    }))
+    .map((entry, index) => {
+      if (!entry || typeof entry !== "object") return null;
+      return normalizeTypedEntry(entry, index) ?? normalizeLegacyEntry(entry, index);
+    })
+    .filter(Boolean)
     .sort((left, right) => left.at - right.at || left.id - right.id);
 }
 
-function summarizePairs(trace) {
-  return DEFAULT_PAIRS.map(([startEvent, endEvent, label]) => {
+function summarizeLegacyPairs(trace) {
+  return LEGACY_PAIRS.map(([startEvent, endEvent, label]) => {
     const starts = trace.filter((entry) => entry.event === startEvent);
     const ends = trace.filter((entry) => entry.event === endEvent);
     const usedEndIds = new Set();
@@ -134,7 +191,7 @@ function summarizePairs(trace) {
       label,
       startEvent,
       endEvent,
-      ...stats(samples.map((sample) => sample.latencyMs).filter((value) => typeof value === "number")),
+      ...stats(samples.map((sample) => sample.latencyMs)),
       missingEndCount: missingStarts.length,
       missingStarts,
       samples
@@ -148,8 +205,8 @@ function summarizeGaps(trace) {
     const previous = trace[index - 1];
     const current = trace[index];
     gaps.push({
-      fromEvent: previous.event,
-      toEvent: current.event,
+      fromEvent: previous.event ?? `${previous.phase}:${previous.step}`,
+      toEvent: current.event ?? `${current.phase}:${current.step}`,
       fromId: previous.id,
       toId: current.id,
       gapMs: roundMs(current.at - previous.at),
@@ -160,35 +217,173 @@ function summarizeGaps(trace) {
   return gaps.sort((left, right) => right.gapMs - left.gapMs).slice(0, 12);
 }
 
-function eventCounts(trace) {
+function countBy(trace, keyFn) {
   const counts = {};
   for (const entry of trace) {
-    counts[entry.event] = (counts[entry.event] ?? 0) + 1;
+    const key = keyFn(entry);
+    if (!key) continue;
+    counts[key] = (counts[key] ?? 0) + 1;
   }
   return Object.fromEntries(Object.entries(counts).sort(([left], [right]) => left.localeCompare(right)));
 }
 
-function renderMarkdown(summary) {
+function summarizePhaseJourney(trace) {
+  const journey = [];
+  const seen = new Set();
+  for (const entry of trace) {
+    if (!entry.phase || seen.has(entry.phase)) {
+      continue;
+    }
+    seen.add(entry.phase);
+    journey.push({
+      phase: entry.phase,
+      eventId: entry.id,
+      step: entry.step,
+      result: entry.result,
+      at: roundMs(entry.at),
+      isoTime: entry.isoTime,
+      target: entry.target,
+      requestId: entry.requestId
+    });
+  }
+  return journey;
+}
+
+function summarizePhaseTransitions(phaseJourney) {
+  const transitions = [];
+  for (let index = 1; index < phaseJourney.length; index += 1) {
+    const previous = phaseJourney[index - 1];
+    const current = phaseJourney[index];
+    transitions.push({
+      fromPhase: previous.phase,
+      toPhase: current.phase,
+      fromEventId: previous.eventId,
+      toEventId: current.eventId,
+      latencyMs: roundMs(current.at - previous.at)
+    });
+  }
+  return transitions;
+}
+
+function findFirstError(trace) {
+  const error = trace.find((entry) => entry.result === "error");
+  if (!error) return null;
+  return {
+    eventId: error.id,
+    phase: error.phase,
+    step: error.step,
+    event: error.event,
+    at: roundMs(error.at),
+    isoTime: error.isoTime,
+    target: error.target,
+    detail: error.detail
+  };
+}
+
+function summarizeTerminal(trace, requiredPhase) {
+  if (!requiredPhase) {
+    return null;
+  }
+  if (!PIPELINE_PHASE_SET.has(requiredPhase)) {
+    throw new Error(`Unknown terminal phase: ${requiredPhase}`);
+  }
+  const event = trace.find((entry) => entry.phase === requiredPhase);
+  if (!event) {
+    return {
+      requiredPhase,
+      reached: false,
+      eventId: null,
+      step: null,
+      result: null,
+      at: null,
+      target: null
+    };
+  }
+  return {
+    requiredPhase,
+    reached: true,
+    eventId: event.id,
+    step: event.step,
+    result: event.result,
+    at: roundMs(event.at),
+    target: event.target
+  };
+}
+
+export function buildTraceSummary(trace, options = {}) {
+  const first = trace[0] ?? null;
+  const last = trace[trace.length - 1] ?? null;
+  const phaseJourney = summarizePhaseJourney(trace);
+  const terminal = summarizeTerminal(trace, options.requireTerminal ?? null);
+  const firstError = findFirstError(trace);
+  const missingRequiredTerminal = terminal ? !terminal.reached : false;
+  const status = firstError || missingRequiredTerminal ? "fail" : "pass";
+
+  return {
+    generatedAt: new Date().toISOString(),
+    type: "dlens-qa-trace-summary",
+    status,
+    label: options.label ?? "trace",
+    traceFile: options.traceFile ?? null,
+    eventCount: trace.length,
+    firstAt: first ? roundMs(first.at) : null,
+    lastAt: last ? roundMs(last.at) : null,
+    firstIsoTime: first?.isoTime ?? null,
+    lastIsoTime: last?.isoTime ?? null,
+    durationMs: first && last ? roundMs(last.at - first.at) : null,
+    eventCounts: countBy(trace, (entry) => entry.event ?? `${entry.phase}:${entry.step}`),
+    phaseCounts: countBy(trace, (entry) => entry.phase),
+    terminal,
+    firstError,
+    phaseJourney,
+    phaseTransitions: summarizePhaseTransitions(phaseJourney),
+    pairs: summarizeLegacyPairs(trace),
+    slowestGaps: summarizeGaps(trace)
+  };
+}
+
+export function renderMarkdown(summary) {
   const lines = [
-    `# DLens QA Trace Summary`,
+    "# DLens QA Trace Summary",
     "",
+    `- Status: ${summary.status}`,
     `- Label: ${summary.label}`,
-    `- Trace: \`${summary.traceFile}\``,
+    `- Trace: \`${summary.traceFile ?? "n/a"}\``,
     `- Events: ${summary.eventCount}`,
-    `- Duration: ${summary.durationMs ?? "n/a"} ms`,
-    "",
-    "## Latency Pairs",
-    "",
-    "| Pair | Count | Avg | P50 | P95 | Max | Missing end |",
-    "|------|------:|----:|----:|----:|----:|------------:|"
+    `- Duration: ${summary.durationMs ?? "n/a"} ms`
   ];
+  if (summary.terminal) {
+    lines.push(`- Terminal \`${summary.terminal.requiredPhase}\`: ${summary.terminal.reached ? "reached" : "missing"}`);
+  }
+  if (summary.firstError) {
+    lines.push(`- First error: ${summary.firstError.phase ?? summary.firstError.event}:${summary.firstError.step}`);
+  }
+
+  lines.push("", "## Phase Journey", "", "| Phase | Step | Result | At |", "|------|------|--------|---:|");
+  for (const event of summary.phaseJourney) {
+    lines.push(`| ${event.phase} | ${event.step} | ${event.result} | ${event.at} |`);
+  }
+
+  lines.push("", "## Phase Transitions", "", "| Transition | Latency ms |", "|------------|-----------:|");
+  for (const transition of summary.phaseTransitions) {
+    lines.push(`| ${transition.fromPhase} -> ${transition.toPhase} | ${transition.latencyMs} |`);
+  }
+
+  lines.push("", "## Legacy Latency Pairs", "", "| Pair | Count | Avg | P50 | P95 | Max | Missing end |", "|------|------:|----:|----:|----:|----:|------------:|");
   for (const pair of summary.pairs) {
     lines.push(`| ${pair.label} | ${pair.count} | ${pair.avgMs ?? ""} | ${pair.p50Ms ?? ""} | ${pair.p95Ms ?? ""} | ${pair.maxMs ?? ""} | ${pair.missingEndCount} |`);
   }
+
   lines.push("", "## Slowest Event Gaps", "", "| Gap | From | To |", "|----:|------|----|");
   for (const gap of summary.slowestGaps) {
     lines.push(`| ${gap.gapMs} | ${gap.fromEvent} | ${gap.toEvent} |`);
   }
+
+  lines.push("", "## Phase Counts", "");
+  for (const [phase, count] of Object.entries(summary.phaseCounts)) {
+    lines.push(`- \`${phase}\`: ${count}`);
+  }
+
   lines.push("", "## Event Counts", "");
   for (const [event, count] of Object.entries(summary.eventCounts)) {
     lines.push(`- \`${event}\`: ${count}`);
@@ -196,14 +391,19 @@ function renderMarkdown(summary) {
   return `${lines.join("\n")}\n`;
 }
 
-async function writeJson(file, value) {
+export async function writeJson(file, value) {
   await mkdir(path.dirname(file), { recursive: true });
   await writeFile(file, `${JSON.stringify(value, null, 2)}\n`, "utf8");
 }
 
-async function writeText(file, value) {
+export async function writeText(file, value) {
   await mkdir(path.dirname(file), { recursive: true });
   await writeFile(file, value, "utf8");
+}
+
+export async function readTraceFile(traceFile) {
+  const raw = JSON.parse(await readFile(traceFile, "utf8"));
+  return normalizeTrace(raw);
 }
 
 async function main() {
@@ -213,25 +413,12 @@ async function main() {
     process.exit(args.help ? 0 : 1);
   }
 
-  const raw = JSON.parse(await readFile(args.trace, "utf8"));
-  const trace = normalizeTrace(raw);
-  const first = trace[0] ?? null;
-  const last = trace[trace.length - 1] ?? null;
-  const summary = {
-    generatedAt: new Date().toISOString(),
-    type: "dlens-qa-trace-summary",
+  const trace = await readTraceFile(args.trace);
+  const summary = buildTraceSummary(trace, {
     label: args.label ?? path.basename(args.trace, path.extname(args.trace)),
     traceFile: args.trace,
-    eventCount: trace.length,
-    firstAt: first ? roundMs(first.at) : null,
-    lastAt: last ? roundMs(last.at) : null,
-    firstIsoTime: first?.isoTime ?? null,
-    lastIsoTime: last?.isoTime ?? null,
-    durationMs: first && last ? roundMs(last.at - first.at) : null,
-    eventCounts: eventCounts(trace),
-    pairs: summarizePairs(trace),
-    slowestGaps: summarizeGaps(trace)
-  };
+    requireTerminal: args.requireTerminal
+  });
 
   if (args.out) {
     await writeJson(args.out, summary);
@@ -242,9 +429,21 @@ async function main() {
   if (!args.out && !args.markdown) {
     console.log(JSON.stringify(summary, null, 2));
   }
+
+  if (summary.firstError) {
+    console.error(`First pipeline error: ${summary.firstError.phase ?? summary.firstError.event}:${summary.firstError.step}`);
+    process.exit(2);
+  }
+  if (summary.terminal && !summary.terminal.reached) {
+    console.error(`Missing required terminal phase: ${summary.terminal.requiredPhase}`);
+    process.exit(2);
+  }
 }
 
-main().catch((error) => {
-  console.error(error instanceof Error ? error.message : String(error));
-  process.exit(1);
-});
+const isCli = process.argv[1] ? import.meta.url === pathToFileURL(process.argv[1]).href : false;
+if (isCli) {
+  main().catch((error) => {
+    console.error(error instanceof Error ? error.message : String(error));
+    process.exit(1);
+  });
+}
