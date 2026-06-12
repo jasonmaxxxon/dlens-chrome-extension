@@ -5,23 +5,25 @@ import {
   TOPIC_SYNTHESIS_STALE_DELTA,
   topicSynthesisStaleReason
 } from "../compare/topic-synthesis.ts";
-import type { EvidencePacket, LensMemo, TopicAuditStageName } from "../compare/topic-audit.ts";
+import type { TopicAuditStageName } from "../compare/topic-audit.ts";
 import type { TopicAuditValidationFlag } from "../compare/topic-audit-validator.ts";
-import { getItemReadinessStatus, type ItemReadinessStatus } from "../state/processing-state.ts";
-import type { TopicAuditMemoBundle } from "../state/topic-audit-storage.ts";
-import type { LoadState } from "../state/load-state.ts";
 import type {
   FolderMode,
   SavedAnalysisSnapshot,
-  SessionItem,
-  Signal,
   SignalTagsRecord,
   Topic,
-  TopicSignalReading,
   TopicSignalStance,
   TopicSynthesis,
   TopicSynthesisLayout
 } from "../state/types.ts";
+import type {
+  TopicAuditSourceViewModel,
+  TopicDetailCommand,
+  TopicDetailViewModel,
+  TopicItemAnalysisState,
+  SignalTagSummary,
+  TopicSignalViewModel
+} from "../viewmodel/topic-detail.ts";
 import { Kicker, PrimaryButton, SCAN_ROW_HOVER_CSS, SecondaryButton, Stamp, WorkspaceSurface, lineClamp, scanRowStyle, viewRootStyle } from "./components.tsx";
 import { SignalDrawer } from "./SignalDrawer.tsx";
 import { tokens } from "./tokens.ts";
@@ -40,45 +42,20 @@ import {
 } from "./topic-audit-components.tsx";
 import { pickPrimaryJudgmentPair } from "./useTopicState.ts";
 
-type TopicItemAnalysisState = ItemReadinessStatus | "queued";
-
 interface TopicDetailViewProps {
-  topic: Topic;
-  signals: Signal[];
-  pairs: SavedAnalysisSnapshot[];
-  onBack: () => void;
-  onOpenPair: (resultId: string) => void;
-  onUpdateTopic: (patch: Partial<Topic>) => void;
-  loadState?: LoadState;
-  sessionMode?: FolderMode;
-  sessionItems?: SessionItem[];
-  savedAnalyses?: SavedAnalysisSnapshot[];
-  signalPreviewById?: Record<string, string>;
-  onQueueItemById?: (itemId: string) => void;
-  onAnalyzeItems?: (itemIds: string[]) => Promise<{ ok: boolean; failedCount: number }>;
-  onStartProcessing?: () => void;
-  isBulkAnalyzing?: boolean;
-  isStartingProcessing?: boolean;
-  workerStatus?: "idle" | "draining" | null;
-  optimisticQueuedItemIds?: ReadonlyArray<string>;
-  onOpenAnalysis?: (resultId: string) => void;
-  onAddToCompare?: (itemId: string) => void;
-  onSaveJudgmentOverride?: (resultId: string, patch: { relevance: 1 | 2 | 3 | 4 | 5; recommendedState: "park" | "watch" | "act" }) => void;
-  onGenerateSynthesis?: (topicId: string) => Promise<{ ok: boolean; error?: string }>;
-  signalReadingsBySignalId?: Record<string, TopicSignalReading>;
-  signalTagsByItemId?: Record<string, SignalTagsRecord>;
-  onGenerateSignalReading?: (signalId: string, topicId: string) => Promise<{ ok: boolean; error?: string }>;
-  onSignalDeleted?: (signalId: string) => Promise<void>;
-  synthLayout?: TopicSynthesisLayout;
-  auditEvidence?: EvidencePacket[];
-  auditMemos?: TopicAuditMemoBundle | null;
-  auditSummary?: TopicAuditSummary;
-  auditValidatorFlags?: TopicAuditValidationFlag[];
-  onRunAudit?: (topicId: string, fromStage?: TopicAuditStageName) => void;
-  onRunAuditP1?: (topicId: string, signalId: string) => void;
-  p1RunningSignalIds?: ReadonlyArray<string>;
-  p1ErrorBySignalId?: Record<string, string>;
-  onOpenAuditReport?: (topicId: string, stale?: boolean) => void;
+  viewModel: TopicDetailViewModel;
+  onCommand: (command: TopicDetailCommand) => Promise<unknown> | unknown;
+}
+
+function readCommandResult(value: unknown): { ok: boolean; error?: string } | null {
+  if (!value || typeof value !== "object" || !("ok" in value)) {
+    return null;
+  }
+  const result = value as { ok?: unknown; error?: unknown };
+  return {
+    ok: result.ok === true,
+    ...(typeof result.error === "string" ? { error: result.error } : {})
+  };
 }
 
 function formatTopicDate(value: string): string {
@@ -97,8 +74,8 @@ function runSingleAnalyzeAction({
 }: {
   itemId: string;
   isBulkAnalyzing?: boolean;
-  onAnalyzeItems?: TopicDetailViewProps["onAnalyzeItems"];
-  onQueueItemById?: TopicDetailViewProps["onQueueItemById"];
+  onAnalyzeItems?: (itemIds: string[]) => Promise<{ ok: boolean; failedCount: number }>;
+  onQueueItemById?: (itemId: string) => void;
 }) {
   if (onAnalyzeItems) {
     if (!isBulkAnalyzing) {
@@ -122,16 +99,6 @@ function statusTone(status: Topic["status"]): "neutral" | "accent" | "success" |
     default:
       return "neutral";
   }
-}
-
-function getTopicItemAnalysisState(
-  item: SessionItem | undefined,
-  optimisticQueuedSet?: Set<string>
-): TopicItemAnalysisState | undefined {
-  if (!item) return undefined;
-  if (optimisticQueuedSet?.has(item.id) && (item.status === "saved" || item.status === "failed")) return "queued";
-  if (item.status === "queued") return "queued";
-  return getItemReadinessStatus(item);
 }
 
 function analysisStateLabel(status: TopicItemAnalysisState | undefined): string {
@@ -1014,39 +981,6 @@ function StanceBadge({ stance }: { stance: TopicSignalStance }) {
   );
 }
 
-interface SignalTagSummary {
-  tag: string;
-  count: number;
-}
-
-function buildSignalTagSummaries(
-  signals: Signal[],
-  signalTagsByItemId: Record<string, SignalTagsRecord>
-): SignalTagSummary[] {
-  const counts = new Map<string, { tag: string; count: number }>();
-  for (const signal of signals) {
-    if (!signal.itemId) continue;
-    const record = signalTagsByItemId[signal.itemId];
-    if (!record || record.status !== "complete") continue;
-    const seenInSignal = new Set<string>();
-    for (const tag of record.signalTags) {
-      const normalized = tag.trim().toLowerCase();
-      if (!normalized || seenInSignal.has(normalized)) continue;
-      seenInSignal.add(normalized);
-      const existing = counts.get(normalized);
-      if (existing) {
-        existing.count += 1;
-      } else {
-        counts.set(normalized, { tag, count: 1 });
-      }
-    }
-  }
-  return [...counts.values()].sort((left, right) =>
-    right.count - left.count
-    || left.tag.localeCompare(right.tag)
-  );
-}
-
 function TopicSignalTagCloud({
   summaries,
   taggedCount,
@@ -1135,23 +1069,6 @@ function hasSignalTag(record: SignalTagsRecord | undefined, tag: string | null):
   return Boolean(record?.signalTags.some((entry) => entry === tag));
 }
 
-type AuditDisplayHints = {
-  themeChips?: string[];
-  narrativeLanes?: NarrativeLaneHint[];
-};
-
-function auditStageToNumber(stage: TopicAuditStageName | undefined): number {
-  switch (stage) {
-    case "p1-signal-reading": return 1;
-    case "lexicon": return 2;
-    case "narrative": return 3;
-    case "audience": return 4;
-    case "absence": return 5;
-    case "final": return 6;
-    default: return 1;
-  }
-}
-
 function auditStageFromNumber(stage: number): TopicAuditStageName {
   switch (stage) {
     case 2: return "lexicon";
@@ -1161,108 +1078,6 @@ function auditStageFromNumber(stage: number): TopicAuditStageName {
     case 6: return "final";
     default: return "p1-signal-reading";
   }
-}
-
-function readAuditDisplayHints(memos: LensMemo[]): AuditDisplayHints {
-  const merged: AuditDisplayHints = {};
-  for (const memo of memos) {
-    const hints = memo.displayHints as AuditDisplayHints | undefined;
-    if (!hints) continue;
-    if (!merged.themeChips && hints.themeChips?.length) {
-      merged.themeChips = hints.themeChips;
-    }
-    if (!merged.narrativeLanes && hints.narrativeLanes?.length) {
-      merged.narrativeLanes = hints.narrativeLanes;
-    }
-  }
-  return merged;
-}
-
-function buildTopicAuditSummary({
-  signals,
-  auditEvidence,
-  auditMemos,
-  auditSummary
-}: {
-  signals: Signal[];
-  auditEvidence: EvidencePacket[];
-  auditMemos: TopicAuditMemoBundle | null | undefined;
-  auditSummary?: TopicAuditSummary;
-}): TopicAuditSummary {
-  const sourceTotal = topicAuditSourceTotal({ signals, auditEvidence, auditMemos, auditSummary });
-  const analyzedCount = topicAuditAnalyzedCount({ auditEvidence, auditMemos, auditSummary });
-  if (auditSummary) {
-    return {
-      ...auditSummary,
-      analyzedCount,
-      queuedCount: sourceTotal - analyzedCount,
-      coverage: topicAuditCoverageLabel({ auditEvidence, auditSummary, sourceTotal })
-    };
-  }
-  return {
-    reportStatus: auditMemos ? "ready" : "none",
-    analyzedCount,
-    queuedCount: sourceTotal - analyzedCount,
-    coverage: topicAuditCoverageLabel({ auditEvidence, auditSummary, sourceTotal }),
-    flags: []
-  };
-}
-
-function topicAuditSourceTotal({
-  signals,
-  auditEvidence,
-  auditMemos,
-  auditSummary
-}: {
-  signals: Signal[];
-  auditEvidence: EvidencePacket[];
-  auditMemos: TopicAuditMemoBundle | null | undefined;
-  auditSummary?: TopicAuditSummary;
-}): number {
-  if (auditEvidence.length > 0) {
-    return auditEvidence.length;
-  }
-  if (auditMemos?.signalReadings.length) {
-    return auditMemos.signalReadings.length;
-  }
-  if (auditSummary) {
-    return auditSummary.analyzedCount + auditSummary.queuedCount;
-  }
-  return signals.length;
-}
-
-function topicAuditAnalyzedCount({
-  auditEvidence,
-  auditMemos,
-  auditSummary
-}: {
-  auditEvidence: EvidencePacket[];
-  auditMemos: TopicAuditMemoBundle | null | undefined;
-  auditSummary?: TopicAuditSummary;
-}): number {
-  if (auditEvidence.length > 0) {
-    const readSignalIds = new Set((auditMemos?.signalReadings ?? []).map((reading) => reading.signalId));
-    return auditEvidence.filter((packet) => readSignalIds.has(packet.signalId)).length;
-  }
-  if (auditMemos?.signalReadings.length) {
-    return auditMemos.signalReadings.length;
-  }
-  return auditSummary?.analyzedCount ?? 0;
-}
-
-function topicAuditCoverageLabel({
-  auditEvidence,
-  auditSummary,
-  sourceTotal
-}: {
-  auditEvidence: EvidencePacket[];
-  auditSummary?: TopicAuditSummary;
-  sourceTotal: number;
-}): string | undefined {
-  if (auditEvidence.length > 0) {
-    return `${auditEvidence.length}/${sourceTotal}`;
-  }
-  return auditSummary?.coverage;
 }
 
 function TopicAuditOverview({
@@ -1279,7 +1094,7 @@ function TopicAuditOverview({
   onOpenAuditReport
 }: {
   topic: Topic;
-  signals: Signal[];
+  signals: TopicSignalViewModel[];
   summary: TopicAuditSummary;
   flags: TopicAuditValidationFlag[];
   canRunAudit?: boolean;
@@ -1399,43 +1214,43 @@ function TopicAuditOverview({
 }
 
 export function TopicDetailView({
-  topic,
-  signals,
-  pairs,
-  onBack,
-  onOpenPair,
-  onUpdateTopic,
-  loadState = "ready",
-  sessionMode = "topic",
-  sessionItems = [],
-  savedAnalyses = [],
-  signalPreviewById = {},
-  onQueueItemById,
-  onAnalyzeItems,
-  onStartProcessing,
-  isBulkAnalyzing = false,
-  isStartingProcessing = false,
-  workerStatus = null,
-  optimisticQueuedItemIds = [],
-  onOpenAnalysis,
-  onAddToCompare,
-  onSaveJudgmentOverride,
-  onGenerateSynthesis,
-  signalReadingsBySignalId = {},
-  signalTagsByItemId = {},
-  onGenerateSignalReading,
-  onSignalDeleted,
-  synthLayout = "console",
-  auditEvidence = [],
-  auditMemos = null,
-  auditSummary,
-  auditValidatorFlags = [],
-  onRunAudit,
-  onRunAuditP1,
-  p1RunningSignalIds = [],
-  p1ErrorBySignalId = {},
-  onOpenAuditReport
+  viewModel,
+  onCommand
 }: TopicDetailViewProps) {
+  const {
+    topic,
+    sessionMode,
+    loadState,
+    synthLayout,
+    pairs,
+    primaryJudgmentPair,
+    signalRows: signals,
+    analysisCounts: topicAnalysisCounts,
+    sourcePendingCount,
+    unanalyzedItemIds,
+    signalTagSummaries,
+    taggedSignalCount,
+    audit,
+    workerStatus,
+    isBulkAnalyzing,
+    isStartingProcessing
+  } = viewModel;
+  const auditEvidence = audit.evidence;
+  const auditSummaryValue = audit.summary as TopicAuditSummary;
+  const auditValidatorFlags = audit.validatorFlags;
+  const auditThemes = audit.themes;
+  const auditLanes = audit.lanes as NarrativeLaneHint[];
+  const auditSourceTotal = audit.sourceTotal;
+  const p1ReadyCount = audit.p1ReadyCount;
+  const p1AllReady = audit.p1AllReady;
+  const p1TotalCount = audit.p1TotalCount;
+  const canRunAuditFromSources = audit.canRunAudit;
+  const auditBlockedReason = audit.blockedReason;
+  const commandTarget = { sessionId: viewModel.sessionId, topicId: topic.id };
+  const dispatch = (command: TopicDetailCommand) => {
+    void onCommand(command);
+  };
+  const dispatchAsync = (command: TopicDetailCommand): Promise<unknown> => Promise.resolve(onCommand(command));
   const [draftDescription, setDraftDescription] = useState(topic.description || "");
   const [draftResearchQuestion, setDraftResearchQuestion] = useState(topic.context?.researchQuestion || "");
   const [isGeneratingForSignalId, setIsGeneratingForSignalId] = useState<string | null>(null);
@@ -1452,145 +1267,33 @@ export function TopicDetailView({
     recommendedState: "park" | "watch" | "act";
   } | null>(null);
 
-  const primaryJudgmentPair = useMemo(() => pickPrimaryJudgmentPair(pairs), [pairs]);
-
   useEffect(() => {
     setDraftDescription(topic.description || "");
     setDraftResearchQuestion(topic.context?.researchQuestion || "");
   }, [topic.context?.researchQuestion, topic.description, topic.id]);
 
-  const itemByItemId = useMemo(() => {
-    const map = new Map<string, SessionItem>();
-    for (const item of sessionItems) map.set(item.id, item);
-    return map;
-  }, [sessionItems]);
-
-  const resultIdByItemId = useMemo(() => {
-    const map = new Map<string, string>();
-    for (const analysis of savedAnalyses) {
-      if (!map.has(analysis.itemAId)) map.set(analysis.itemAId, analysis.resultId);
-      if (!map.has(analysis.itemBId)) map.set(analysis.itemBId, analysis.resultId);
-    }
-    return map;
-  }, [savedAnalyses]);
-  const optimisticQueuedSet = useMemo(
-    () => new Set(optimisticQueuedItemIds),
-    [optimisticQueuedItemIds]
-  );
-
-  const unanalyzedItemIds = useMemo(() => {
-    return signals
-      .filter((s) => {
-        if (!s.itemId) return false;
-        const item = itemByItemId.get(s.itemId);
-        const state = getTopicItemAnalysisState(item, optimisticQueuedSet);
-        return state === "saved" || state === "failed";
-      })
-      .map((s) => s.itemId!);
-  }, [signals, itemByItemId, optimisticQueuedSet]);
-
-  const topicAnalysisCounts = useMemo(() => {
-    const counts = {
-      total: signals.length,
-      ready: 0,
-      saved: 0,
-      queued: 0,
-      crawling: 0,
-      analyzing: 0,
-      failed: 0,
-      missing: 0,
-      processing: 0
-    };
-    for (const signal of signals) {
-      if (!signal.itemId) {
-        counts.missing += 1;
-        continue;
-      }
-      const item = itemByItemId.get(signal.itemId);
-      if (!item) {
-        counts.missing += 1;
-        continue;
-      }
-      const state = getTopicItemAnalysisState(item, optimisticQueuedSet);
-      if (state === "ready") {
-        counts.ready += 1;
-      } else if (state === "saved") {
-        counts.saved += 1;
-      } else if (state === "queued") {
-        counts.queued += 1;
-        counts.processing += 1;
-      } else if (state === "crawling") {
-        counts.crawling += 1;
-        counts.processing += 1;
-      } else if (state === "analyzing") {
-        counts.analyzing += 1;
-        counts.processing += 1;
-      } else if (state === "failed") {
-        counts.failed += 1;
-      }
-    }
-    return counts;
-  }, [signals, itemByItemId, optimisticQueuedSet]);
-
-  const signalTagSummaries = useMemo(
-    () => buildSignalTagSummaries(signals, signalTagsByItemId),
-    [signalTagsByItemId, signals]
-  );
-  const taggedSignalCount = useMemo(
-    () => signals.filter((signal) => signal.itemId && signalTagsByItemId[signal.itemId]?.status === "complete").length,
-    [signalTagsByItemId, signals]
-  );
   const visibleSignals = useMemo(
     () => signals.filter((signal) =>
-      hasSignalTag(signal.itemId ? signalTagsByItemId[signal.itemId] : undefined, selectedTag)
+      hasSignalTag(signal.tagRecord, selectedTag)
     ),
-    [selectedTag, signalTagsByItemId, signals]
+    [selectedTag, signals]
   );
-  const auditSourceTotal = useMemo(
-    () => topicAuditSourceTotal({ signals, auditEvidence, auditMemos, auditSummary }),
-    [auditEvidence, auditMemos, auditSummary, signals]
-  );
-  const auditSummaryValue = useMemo(
-    () => buildTopicAuditSummary({ signals, auditEvidence, auditMemos, auditSummary }),
-    [auditEvidence, auditMemos, auditSummary, signals]
-  );
-  const auditDisplayHints = useMemo(
-    () => readAuditDisplayHints(auditMemos?.lensMemos ?? []),
-    [auditMemos]
-  );
-  const auditThemes = auditDisplayHints.themeChips ?? [];
-  const auditLanes = auditDisplayHints.narrativeLanes ?? [];
-  const p1RunningSet = useMemo(() => new Set(p1RunningSignalIds), [p1RunningSignalIds]);
-  const readSignalIdsSet = useMemo(
-    () => new Set((auditMemos?.signalReadings ?? []).map((reading) => reading.signalId)),
-    [auditMemos]
-  );
-  const readingStatusFor = (packet: EvidencePacket): SourceRowReadingStatus => {
-    if (p1RunningSet.has(packet.signalId)) return "running";
-    if (readSignalIdsSet.has(packet.signalId)) return "ready";
-    if (p1ErrorBySignalId[packet.signalId]) return "failed";
-    if (packet.status !== "succeeded") return "not_ready";
-    return "pending";
-  };
-  const p1ReadyCount = auditEvidence.filter((packet) => readSignalIdsSet.has(packet.signalId)).length;
-  const p1AllReady = auditEvidence.length > 0 && p1ReadyCount === auditEvidence.length;
-  const filteredAuditEvidence = useMemo(() => {
+  const filteredAuditRows = useMemo(() => {
     if (activeAuditLane) {
       const lane = auditLanes.find((entry) => entry.id === activeAuditLane);
       const refs = new Set(lane?.signalRefs.map((ref) => ref.split(".")[0]) ?? []);
-      return auditEvidence.filter((packet) => refs.has(packet.shortCode));
+      return audit.sourceRows.filter((row) => refs.has(row.packet.shortCode));
     }
     if (activeAuditTheme) {
-      return auditEvidence.filter((packet) => packet.aiArtifacts?.tags?.includes(activeAuditTheme));
+      return audit.sourceRows.filter((row) => row.packet.aiArtifacts?.tags?.includes(activeAuditTheme));
     }
-    return auditEvidence;
-  }, [activeAuditLane, activeAuditTheme, auditEvidence, auditLanes]);
-  const openAuditPacket = openAuditSignalId
-    ? auditEvidence.find((packet) => packet.signalId === openAuditSignalId || packet.shortCode === openAuditSignalId) ?? null
+    return audit.sourceRows;
+  }, [activeAuditLane, activeAuditTheme, audit.sourceRows, auditLanes]);
+  const openAuditRow = openAuditSignalId
+    ? audit.sourceRows.find((row) => row.packet.signalId === openAuditSignalId || row.packet.shortCode === openAuditSignalId) ?? null
     : null;
-  const openAuditReading = openAuditPacket
-    ? auditMemos?.signalReadings.find((reading) => reading.signalId === openAuditPacket.signalId) ?? null
-    : null;
+  const openAuditPacket = openAuditRow?.packet ?? null;
+  const openAuditReading = openAuditRow?.reading ?? null;
 
   useEffect(() => {
     if (selectedTag && !signalTagSummaries.some((summary) => summary.tag === selectedTag)) {
@@ -1599,27 +1302,28 @@ export function TopicDetailView({
   }, [selectedTag, signalTagSummaries]);
 
   const handleAnalyzeUnanalyzedItems = () => {
-    if (onAnalyzeItems && !isBulkAnalyzing) {
-      void onAnalyzeItems(unanalyzedItemIds);
+    const action = viewModel.actions.find((entry) => entry.kind === "analyzeItems");
+    if (action && !isBulkAnalyzing) {
+      dispatch(action);
     }
   };
 
-  const handleAnalyzeItem = (itemId: string) => {
-    runSingleAnalyzeAction({
-      itemId,
-      isBulkAnalyzing,
-      onAnalyzeItems,
-      onQueueItemById
-    });
+  const handleAnalyzeItem = (signal: TopicSignalViewModel) => {
+    const action = signal.actions.find((entry) => entry.kind === "analyzeItem" || entry.kind === "queueSignalItem");
+    if (action && !(action.kind === "analyzeItem" && isBulkAnalyzing)) {
+      dispatch(action);
+    }
   };
 
   async function handleDeleteSignal(signalId: string) {
-    if (!onSignalDeleted) return;
+    const signal = signals.find((entry) => entry.signalId === signalId);
+    const action = signal?.actions.find((entry) => entry.kind === "deleteSignal");
+    if (!action) return;
     if (!window.confirm("確認移除此訊號？這會同時清走它背後的本地採集項目。")) return;
     setDeleteError(null);
     setDeletingSignalId(signalId);
     try {
-      await onSignalDeleted(signalId);
+      await dispatchAsync(action);
     } catch (error) {
       setDeleteError(error instanceof Error ? error.message : String(error));
     } finally {
@@ -1633,34 +1337,55 @@ export function TopicDetailView({
       return;
     }
     const researchQuestion = draftResearchQuestion.trim();
-    onUpdateTopic({
+    dispatch({
+      kind: "updateTopic",
+      target: commandTarget,
+      patch: {
       context: researchQuestion
         ? {
             ...(topic.context ?? {}),
             researchQuestion
           }
         : null
+      }
     });
   };
 
   const handleGenerateSignalReading = (signalId: string) => {
-    if (!onGenerateSignalReading || isGeneratingForSignalId) return;
+    const signal = signals.find((entry) => entry.signalId === signalId);
+    const action = signal?.actions.find((entry) => entry.kind === "generateSignalReading");
+    if (!action || isGeneratingForSignalId) return;
     setIsGeneratingForSignalId(signalId);
     setGeneratingErrorBySignalId((previous) => {
       const next = { ...previous };
       delete next[signalId];
       return next;
     });
-    void onGenerateSignalReading(signalId, topic.id)
+    void dispatchAsync(action)
       .then((result) => {
-        if (!result.ok && result.error) {
-          setGeneratingErrorBySignalId((previous) => ({ ...previous, [signalId]: result.error! }));
+        const commandResult = readCommandResult(result);
+        if (commandResult && !commandResult.ok && commandResult.error) {
+          setGeneratingErrorBySignalId((previous) => ({ ...previous, [signalId]: commandResult.error! }));
         }
       })
       .finally(() => {
         setIsGeneratingForSignalId(null);
       });
   };
+
+  const startProcessingAction = viewModel.actions.find((entry) => entry.kind === "startProcessing");
+  const handleStartProcessing = startProcessingAction ? () => dispatch(startProcessingAction) : undefined;
+  const handleBack = () => dispatch({ kind: "back", target: commandTarget });
+  const handleOpenPair = (resultId: string) => dispatch({ kind: "openPair", target: { ...commandTarget, resultId } });
+  const handleOpenAnalysis = (resultId: string) => dispatch({ kind: "openAnalysis", target: { ...commandTarget, resultId } });
+  const handleAddToCompare = (itemId: string) => dispatch({ kind: "addToCompare", target: { ...commandTarget, itemId } });
+  const handleRunAudit = (_topicId: string, fromStage?: TopicAuditStageName) => dispatch({ kind: "runAudit", target: commandTarget, fromStage });
+  const handleRunAuditP1 = (_topicId: string, signalId: string) => dispatch({ kind: "runAuditP1", target: { ...commandTarget, signalId } });
+  const handleOpenAuditReport = (_topicId: string, stale?: boolean) => dispatch({ kind: "openAuditReport", target: commandTarget, stale });
+  const handleSaveJudgmentOverride = (
+    resultId: string,
+    patch: { relevance: 1 | 2 | 3 | 4 | 5; recommendedState: "park" | "watch" | "act" }
+  ) => dispatch({ kind: "saveJudgmentOverride", target: { ...commandTarget, resultId }, patch });
 
   const visibleJudgment = manualJudgment && primaryJudgmentPair?.resultId === manualJudgment.resultId
     ? {
@@ -1670,11 +1395,6 @@ export function TopicDetailView({
         actionCue: primaryJudgmentPair?.judgmentResult?.actionCue || ""
       }
     : primaryJudgmentPair?.judgmentResult || null;
-  const sourcePendingCount = topicAnalysisCounts.saved + topicAnalysisCounts.failed + topicAnalysisCounts.missing;
-  const canRunAuditFromSources = topicAnalysisCounts.ready > 0 || auditEvidence.length > 0;
-  const auditBlockedReason = canRunAuditFromSources
-    ? undefined
-    : "先爬取至少 1 篇貼文，審查報告才有可讀內容；目前不會用空資料硬生成。";
   const topicSourceFeed = (
     <section
       data-topic-audit-block="sources"
@@ -1732,7 +1452,7 @@ export function TopicDetailView({
           analyzing={topicAnalysisCounts.analyzing}
           workerStatus={workerStatus}
           isStartingProcessing={isStartingProcessing}
-          onStartProcessing={onStartProcessing}
+          onStartProcessing={handleStartProcessing}
         />
       ) : null}
 
@@ -1750,7 +1470,7 @@ export function TopicDetailView({
         >
           <PrimaryButton
             onClick={handleAnalyzeUnanalyzedItems}
-            disabled={!onAnalyzeItems || isBulkAnalyzing}
+            disabled={!viewModel.actions.some((entry) => entry.kind === "analyzeItems") || isBulkAnalyzing}
             style={{ width: "100%", padding: "10px 16px", fontSize: 13 }}
           >
             {isBulkAnalyzing ? "正在加入隊列…" : `開始爬取 ${unanalyzedItemIds.length} 篇`}
@@ -1776,22 +1496,23 @@ export function TopicDetailView({
             目前篩選沒有貼文。
           </div>
         ) : visibleSignals.map((signal) => {
-          const item = signal.itemId ? itemByItemId.get(signal.itemId) : undefined;
-          const resultId = item ? resultIdByItemId.get(item.id) : undefined;
-          const status = getTopicItemAnalysisState(item, optimisticQueuedSet);
-          const isReady = status === "ready";
-          const isProcessing = status === "queued" || status === "crawling" || status === "analyzing";
-          const preview = signalPreviewById[signal.id] || item?.descriptor.text_snippet || signal.source || "資料不完整的 Threads 訊號";
-          const tagRecord = signal.itemId ? signalTagsByItemId[signal.itemId] : undefined;
+          const status = signal.analysisState;
+          const preview = signal.sourcePreview.displayText || signal.source || "資料不完整的 Threads 訊號";
+          const tagRecord = signal.tagRecord;
+          const originalUrl = signal.sourcePreview.displayUrl;
+          const openAnalysisAction = signal.actions.find((entry) => entry.kind === "openSignalAnalysis");
+          const addToCompareAction = signal.actions.find((entry) => entry.kind === "addSignalToCompare");
+          const analyzeAction = signal.actions.find((entry) => entry.kind === "analyzeItem" || entry.kind === "queueSignalItem");
+          const deleteAction = signal.actions.find((entry) => entry.kind === "deleteSignal");
 
           return (
             <div
-              key={signal.id}
-              data-topic-source-row={signal.id}
+              key={signal.signalId}
+              data-topic-source-row={signal.signalId}
               data-scan-row="true"
               style={scanRowStyle({
                 display: "grid",
-                gridTemplateColumns: onSignalDeleted ? "5px minmax(0, 1fr) auto 42px" : "5px minmax(0, 1fr) auto",
+                gridTemplateColumns: deleteAction ? "5px minmax(0, 1fr) auto 42px" : "5px minmax(0, 1fr) auto",
                 gap: 10,
                 padding: "11px 0",
                 alignItems: "start"
@@ -1803,7 +1524,7 @@ export function TopicDetailView({
                   width: 5,
                   height: 26,
                   borderRadius: tokens.radius.round,
-                  background: isReady ? tokens.color.success : isProcessing ? tokens.topicAccent.primary : tokens.color.lineStrong,
+                  background: signal.isReady ? tokens.color.success : signal.isProcessing ? tokens.topicAccent.primary : tokens.color.lineStrong,
                   marginTop: 2
                 }}
               />
@@ -1819,9 +1540,9 @@ export function TopicDetailView({
                 <div style={{ display: "flex", gap: 5, flexWrap: "wrap", alignItems: "center" }}>
                   <Stamp tone={analysisStateTone(status)}>{analysisStateLabel(status)}</Stamp>
                   <span style={{ fontSize: 10.5, color: tokens.color.softInk }}>加入 {formatTopicDate(signal.capturedAt)}</span>
-                  {item?.descriptor.post_url ? (
+                  {originalUrl ? (
                     <a
-                      href={item.descriptor.post_url}
+                      href={originalUrl}
                       target="_blank"
                       rel="noopener noreferrer"
                       style={{
@@ -1839,27 +1560,27 @@ export function TopicDetailView({
                       原文 ↗
                     </a>
                   ) : null}
-                  {item && !isProcessing ? (
-                    isReady ? (
+                  {signal.itemId && !signal.isProcessing ? (
+                    signal.isReady ? (
                       <>
-                        {resultId && onOpenAnalysis ? (
-                          <SecondaryButton onClick={() => onOpenAnalysis(resultId)} style={{ padding: "4px 8px", fontSize: 10.5 }}>
+                        {openAnalysisAction ? (
+                          <SecondaryButton onClick={() => dispatch(openAnalysisAction)} style={{ padding: "4px 8px", fontSize: 10.5 }}>
                             查看分析
                           </SecondaryButton>
                         ) : null}
-                        {onAddToCompare ? (
-                          <SecondaryButton onClick={() => onAddToCompare(item.id)} style={{ padding: "4px 8px", fontSize: 10.5 }}>
+                        {addToCompareAction ? (
+                          <SecondaryButton onClick={() => dispatch(addToCompareAction)} style={{ padding: "4px 8px", fontSize: 10.5 }}>
                             加入比較
                           </SecondaryButton>
                         ) : null}
                       </>
-                    ) : onAnalyzeItems || onQueueItemById ? (
+                    ) : analyzeAction ? (
                       <SecondaryButton
-                        onClick={() => handleAnalyzeItem(item.id)}
-                        disabled={Boolean(onAnalyzeItems && isBulkAnalyzing)}
+                        onClick={() => handleAnalyzeItem(signal)}
+                        disabled={analyzeAction.kind === "analyzeItem" && isBulkAnalyzing}
                         style={{ padding: "4px 8px", fontSize: 10.5 }}
                       >
-                        {onAnalyzeItems ? "開始爬取" : "排隊爬取"}
+                        {analyzeAction.kind === "analyzeItem" ? "開始爬取" : "排隊爬取"}
                       </SecondaryButton>
                     ) : null
                   ) : null}
@@ -1868,16 +1589,16 @@ export function TopicDetailView({
               <div style={{ fontSize: 10, color: tokens.color.softInk, whiteSpace: "nowrap" }}>
                 {formatTopicDate(signal.capturedAt)}
               </div>
-              {onSignalDeleted ? (
+              {deleteAction ? (
                 <button
                   type="button"
                   data-topic-signal-remove="true"
                   aria-label="移除此訊號"
-                  disabled={deletingSignalId === signal.id}
+                  disabled={deletingSignalId === signal.signalId}
                   onClick={(event) => {
                     event.preventDefault();
                     event.stopPropagation();
-                    void handleDeleteSignal(signal.id);
+                    void handleDeleteSignal(signal.signalId);
                   }}
                   style={{
                     minWidth: 38,
@@ -1886,7 +1607,7 @@ export function TopicDetailView({
                     border: `1px solid ${tokens.color.line}`,
                     background: tokens.color.surface,
                     color: tokens.color.softInk,
-                    cursor: deletingSignalId === signal.id ? "wait" : "pointer",
+                    cursor: deletingSignalId === signal.signalId ? "wait" : "pointer",
                     fontSize: 11,
                     fontWeight: 700,
                     padding: "0 7px"
@@ -1906,7 +1627,7 @@ export function TopicDetailView({
     const showAuditPlaceholder = auditSummaryValue.reportStatus === "failed" || (auditThemes.length === 0 && auditLanes.length === 0 && auditEvidence.length === 0);
     return (
       <div style={viewRootStyle()} data-topic-load-state={loadState}>
-        <Breadcrumb topicName={topic.name} onBack={onBack} />
+        <Breadcrumb topicName={topic.name} onBack={handleBack} />
 
         <TopicAuditOverview
           topic={topic}
@@ -1916,10 +1637,10 @@ export function TopicDetailView({
           canRunAudit={canRunAuditFromSources}
           blockedReason={auditBlockedReason}
           p1ReadyCount={p1ReadyCount}
-          p1TotalCount={auditEvidence.length}
+          p1TotalCount={p1TotalCount}
           sourceTotalCount={auditSourceTotal}
-          onRunAudit={onRunAudit}
-          onOpenAuditReport={onOpenAuditReport}
+          onRunAudit={handleRunAudit}
+          onOpenAuditReport={handleOpenAuditReport}
         />
 
         {showAuditPlaceholder ? (
@@ -2004,16 +1725,16 @@ export function TopicDetailView({
               ) : null}
             </div>
             <div style={{ display: "grid", gap: 2, borderRadius: tokens.radius.cardLg, background: tokens.color.elevated, boxShadow: tokens.shadow.topicCard, padding: 6 }}>
-              {filteredAuditEvidence.map((packet) => (
+              {filteredAuditRows.map((row) => (
                 <SourceRow
-                  key={packet.signalId}
-                  packet={packet}
-                  active={openAuditSignalId === packet.signalId}
-                  readingStatus={readingStatusFor(packet)}
-                  tags={packet.itemId ? signalTagsByItemId[packet.itemId]?.signalTags : undefined}
-                  onOpen={() => setOpenAuditSignalId(packet.signalId)}
-                  onRunP1={onRunAuditP1 ? () => onRunAuditP1(topic.id, packet.signalId) : undefined}
-                  isRunningP1={p1RunningSet.has(packet.signalId)}
+                  key={row.packet.signalId}
+                  packet={row.packet}
+                  active={openAuditSignalId === row.packet.signalId}
+                  readingStatus={row.readingStatus}
+                  tags={row.tags}
+                  onOpen={() => setOpenAuditSignalId(row.packet.signalId)}
+                  onRunP1={row.actions.some((entry) => entry.kind === "runAuditP1") ? () => handleRunAuditP1(topic.id, row.packet.signalId) : undefined}
+                  isRunningP1={row.isRunningP1}
                 />
               ))}
             </div>
@@ -2035,7 +1756,7 @@ export function TopicDetailView({
   return (
     <div style={viewRootStyle()} data-topic-load-state={loadState}>
       <div style={{ display: "grid", gap: 10 }}>
-        <Breadcrumb topicName={topic.name} onBack={onBack} />
+        <Breadcrumb topicName={topic.name} onBack={handleBack} />
         <TopicCompactHeader
           topic={topic}
           signalCount={signals.length}
@@ -2050,10 +1771,10 @@ export function TopicDetailView({
         summary={auditSummaryValue}
         flags={auditValidatorFlags}
         p1ReadyCount={p1ReadyCount}
-        p1TotalCount={auditEvidence.length}
+        p1TotalCount={p1TotalCount}
         sourceTotalCount={auditSourceTotal}
-        onRunAudit={onRunAudit}
-        onOpenAuditReport={onOpenAuditReport}
+        onRunAudit={handleRunAudit}
+        onOpenAuditReport={handleOpenAuditReport}
       />
 
       <WorkspaceSurface tone="utility" style={{ display: "grid", gap: 18 }}>
@@ -2134,16 +1855,16 @@ export function TopicDetailView({
               ) : null}
             </div>
             <div style={{ display: "grid", gap: 2, borderRadius: tokens.radius.cardLg, background: tokens.color.elevated, boxShadow: tokens.shadow.topicCard, padding: 6 }}>
-              {filteredAuditEvidence.map((packet) => (
+              {filteredAuditRows.map((row) => (
                 <SourceRow
-                  key={packet.signalId}
-                  packet={packet}
-                  active={openAuditSignalId === packet.signalId}
-                  readingStatus={readingStatusFor(packet)}
-                  tags={packet.itemId ? signalTagsByItemId[packet.itemId]?.signalTags : undefined}
-                  onOpen={() => setOpenAuditSignalId(packet.signalId)}
-                  onRunP1={onRunAuditP1 ? () => onRunAuditP1(topic.id, packet.signalId) : undefined}
-                  isRunningP1={p1RunningSet.has(packet.signalId)}
+                  key={row.packet.signalId}
+                  packet={row.packet}
+                  active={openAuditSignalId === row.packet.signalId}
+                  readingStatus={row.readingStatus}
+                  tags={row.tags}
+                  onOpen={() => setOpenAuditSignalId(row.packet.signalId)}
+                  onRunP1={row.actions.some((entry) => entry.kind === "runAuditP1") ? () => handleRunAuditP1(topic.id, row.packet.signalId) : undefined}
+                  isRunningP1={row.isRunningP1}
                 />
               ))}
             </div>
@@ -2208,7 +1929,7 @@ export function TopicDetailView({
           <textarea
             value={draftDescription}
             onChange={(event) => setDraftDescription(event.target.value)}
-            onBlur={() => draftDescription !== (topic.description || "") && onUpdateTopic({ description: draftDescription })}
+            onBlur={() => draftDescription !== (topic.description || "") && dispatch({ kind: "updateTopic", target: commandTarget, patch: { description: draftDescription } })}
             rows={2}
             style={{
               resize: "vertical",
@@ -2290,7 +2011,7 @@ export function TopicDetailView({
                 analyzing={topicAnalysisCounts.analyzing}
                 workerStatus={workerStatus}
                 isStartingProcessing={isStartingProcessing}
-                onStartProcessing={onStartProcessing}
+                onStartProcessing={handleStartProcessing}
               />
             ) : null}
 
@@ -2298,7 +2019,7 @@ export function TopicDetailView({
               <BulkAnalyzeCta
                 count={unanalyzedItemIds.length}
                 isBulkAnalyzing={isBulkAnalyzing}
-                disabled={!onAnalyzeItems || isBulkAnalyzing}
+                disabled={!viewModel.actions.some((entry) => entry.kind === "analyzeItems") || isBulkAnalyzing}
                 onAnalyze={handleAnalyzeUnanalyzedItems}
               />
             ) : null}
@@ -2318,7 +2039,7 @@ export function TopicDetailView({
                   <div style={{ fontSize: 14, fontWeight: 700, color: tokens.color.ink }}>產品情境判斷</div>
                   <SecondaryButton
                     onClick={() => {
-                      if (!primaryJudgmentPair || !onSaveJudgmentOverride) {
+                      if (!primaryJudgmentPair) {
                         return;
                       }
                       const next = manualJudgment ?? {
@@ -2326,7 +2047,7 @@ export function TopicDetailView({
                         relevance: primaryJudgmentPair.judgmentResult?.relevance ?? 3,
                         recommendedState: primaryJudgmentPair.judgmentResult?.recommendedState ?? "watch"
                       };
-                      onSaveJudgmentOverride(primaryJudgmentPair.resultId, {
+                      handleSaveJudgmentOverride(primaryJudgmentPair.resultId, {
                         relevance: next.relevance,
                         recommendedState: next.recommendedState
                       });
@@ -2410,7 +2131,7 @@ export function TopicDetailView({
                 </summary>
                 <div style={{ display: "grid", gap: 8, marginTop: 10 }}>
                   {pairs.map((pair) => (
-                    <PairRow key={pair.resultId} pair={pair} onOpenPair={onOpenPair} />
+                    <PairRow key={pair.resultId} pair={pair} onOpenPair={handleOpenPair} />
                   ))}
                 </div>
               </details>
@@ -2450,23 +2171,26 @@ export function TopicDetailView({
                     {deleteError}
                   </div>
                 ) : null}
-                <div style={{ display: "grid", marginTop: 8 }}>
-                  {visibleSignals.map((signal) => {
-                    const item = signal.itemId ? itemByItemId.get(signal.itemId) : undefined;
-                    const resultId = item ? resultIdByItemId.get(item.id) : undefined;
-                    const status = getTopicItemAnalysisState(item, optimisticQueuedSet);
-                    const isReady = status === "ready";
-                    const isProcessing = status === "queued" || status === "crawling" || status === "analyzing";
-                    const preview = signalPreviewById[signal.id] || signal.source;
-                    const tagRecord = signal.itemId ? signalTagsByItemId[signal.itemId] : undefined;
+	                <div style={{ display: "grid", marginTop: 8 }}>
+	                  {visibleSignals.map((signal) => {
+	                    const status = signal.analysisState;
+	                    const preview = signal.sourcePreview.displayText || signal.source;
+	                    const originalUrl = signal.sourcePreview.displayUrl || (typeof signal.source === "string" && signal.source.startsWith("http") ? signal.source : "");
+	                    const tagRecord = signal.tagRecord;
+	                    const openAnalysisAction = signal.actions.find((entry) => entry.kind === "openSignalAnalysis");
+	                    const addToCompareAction = signal.actions.find((entry) => entry.kind === "addSignalToCompare");
+	                    const analyzeAction = signal.actions.find((entry) => entry.kind === "analyzeItem" || entry.kind === "queueSignalItem");
+	                    const deleteAction = signal.actions.find((entry) => entry.kind === "deleteSignal");
+	                    const generateReadingAction = signal.actions.find((entry) => entry.kind === "generateSignalReading");
+	                    const reading = signal.reading;
 
-                    return (
-                      <div
-                        key={signal.id}
-                        data-scan-row="true"
-                        style={scanRowStyle({
-                          display: "grid",
-                          gridTemplateColumns: onSignalDeleted ? "5px minmax(0, 1fr) auto 24px" : "5px minmax(0, 1fr) auto",
+	                    return (
+	                      <div
+	                        key={signal.signalId}
+	                        data-scan-row="true"
+	                        style={scanRowStyle({
+	                          display: "grid",
+	                          gridTemplateColumns: deleteAction ? "5px minmax(0, 1fr) auto 24px" : "5px minmax(0, 1fr) auto",
                           gap: 10,
                           padding: "10px 4px",
                           alignItems: "start"
@@ -2491,11 +2215,11 @@ export function TopicDetailView({
                               {preview}
                             </div>
                           ) : null}
-                          {tagRecord?.signalTags.length ? (
-                            <div style={{ display: "flex", gap: 5, flexWrap: "wrap" }}>
-                              {tagRecord.signalTags.map((tag) => (
-                                <button
-                                  key={`${signal.id}-${tag}`}
+	                          {tagRecord?.signalTags.length ? (
+	                            <div style={{ display: "flex", gap: 5, flexWrap: "wrap" }}>
+	                              {tagRecord.signalTags.map((tag) => (
+	                                <button
+	                                  key={`${signal.signalId}-${tag}`}
                                   type="button"
                                   onClick={() => setSelectedTag(tag)}
                                   style={{
@@ -2517,17 +2241,17 @@ export function TopicDetailView({
                           <div style={{ fontSize: 11, color: tokens.color.softInk }}>
                             加入 {formatTopicDate(signal.capturedAt)}
                           </div>
-                          <div style={{ display: "flex", gap: 5, flexWrap: "wrap", alignItems: "center" }}>
-                              {item ? (
-                                <Stamp tone={analysisStateTone(status)}>
-                                  {analysisStateLabel(status)}
-                                </Stamp>
-                              ) : null}
-                              {signal.source && signal.source.startsWith("http") ? (
-                                <a
-                                  href={signal.source}
-                                  target="_blank"
-                                  rel="noopener noreferrer"
+	                          <div style={{ display: "flex", gap: 5, flexWrap: "wrap", alignItems: "center" }}>
+	                              {status ? (
+	                                <Stamp tone={analysisStateTone(status)}>
+	                                  {analysisStateLabel(status)}
+	                                </Stamp>
+	                              ) : null}
+	                              {originalUrl ? (
+	                                <a
+	                                  href={originalUrl}
+	                                  target="_blank"
+	                                  rel="noopener noreferrer"
                                   style={{
                                     padding: "4px 8px",
                                     fontSize: 10.5,
@@ -2539,57 +2263,37 @@ export function TopicDetailView({
                                     textDecoration: "none",
                                     lineHeight: 1
                                   }}
-                                >
-                                  查看原文 ↗
-                                </a>
-                              ) : item && item.descriptor.post_url ? (
-                                <a
-                                  href={item.descriptor.post_url}
-                                  target="_blank"
-                                  rel="noopener noreferrer"
-                                  style={{
-                                    padding: "4px 8px",
-                                    fontSize: 10.5,
-                                    borderRadius: 6,
-                                    border: `1px solid ${tokens.color.line}`,
-                                    background: tokens.color.surface,
-                                    color: tokens.color.subInk,
-                                    fontWeight: 600,
-                                    textDecoration: "none",
-                                    lineHeight: 1
-                                  }}
-                                >
-                                  查看原文 ↗
-                                </a>
-                              ) : null}
-                              {item && !isProcessing ? (
-                                isReady ? (
-                                  <>
-                                    {resultId && onOpenAnalysis ? (
-                                      <SecondaryButton onClick={() => onOpenAnalysis(resultId)} style={{ padding: "4px 8px", fontSize: 10.5 }}>
-                                        查看分析
-                                      </SecondaryButton>
-                                    ) : null}
-                                    {onAddToCompare ? (
-                                      <SecondaryButton onClick={() => onAddToCompare(item.id)} style={{ padding: "4px 8px", fontSize: 10.5 }}>
-                                        加入比較
-                                      </SecondaryButton>
-                                    ) : null}
-                                  </>
-                                ) : onAnalyzeItems || onQueueItemById ? (
-                                  <SecondaryButton
-                                    onClick={() => handleAnalyzeItem(item.id)}
-                                    disabled={Boolean(onAnalyzeItems && isBulkAnalyzing)}
-                                    style={{ padding: "4px 8px", fontSize: 10.5 }}
-                                  >
-                                    {singleAnalyzeActionLabel(Boolean(onAnalyzeItems))}
-                                  </SecondaryButton>
-                                ) : null
-                              ) : null}
-                            </div>
-                          {(() => {
-                            const reading = signalReadingsBySignalId[signal.id];
-                            if (reading) {
+	                                >
+	                                  查看原文 ↗
+	                                </a>
+	                              ) : null}
+	                              {signal.itemId && !signal.isProcessing ? (
+	                                signal.isReady ? (
+	                                  <>
+	                                    {openAnalysisAction ? (
+	                                      <SecondaryButton onClick={() => dispatch(openAnalysisAction)} style={{ padding: "4px 8px", fontSize: 10.5 }}>
+	                                        查看分析
+	                                      </SecondaryButton>
+	                                    ) : null}
+	                                    {addToCompareAction ? (
+	                                      <SecondaryButton onClick={() => dispatch(addToCompareAction)} style={{ padding: "4px 8px", fontSize: 10.5 }}>
+	                                        加入比較
+	                                      </SecondaryButton>
+	                                    ) : null}
+	                                  </>
+	                                ) : analyzeAction ? (
+	                                  <SecondaryButton
+	                                    onClick={() => handleAnalyzeItem(signal)}
+	                                    disabled={analyzeAction.kind === "analyzeItem" && isBulkAnalyzing}
+	                                    style={{ padding: "4px 8px", fontSize: 10.5 }}
+	                                  >
+	                                    {singleAnalyzeActionLabel(analyzeAction.kind === "analyzeItem")}
+	                                  </SecondaryButton>
+	                                ) : null
+	                              ) : null}
+	                            </div>
+	                          {(() => {
+	                            if (reading) {
                               return (
                                 <div
                                   data-topic-signal-reading="card"
@@ -2620,23 +2324,23 @@ export function TopicDetailView({
                                     </div>
                                   ) : null}
                                 </div>
-                              );
-                            }
-                            if (!isReady) return null;
-                            return (
-                              <div style={{ display: "flex", gap: 6, alignItems: "center", paddingTop: 4 }}>
-                                <SecondaryButton
-                                  onClick={() => handleGenerateSignalReading(signal.id)}
-                                  disabled={isGeneratingForSignalId === signal.id || !onGenerateSignalReading}
-                                  style={{ padding: "4px 8px", fontSize: 10.5 }}
-                                >
-                                  {isGeneratingForSignalId === signal.id ? "生成中…" : "生成判讀"}
-                                </SecondaryButton>
-                                {generatingErrorBySignalId[signal.id] ? (
-                                  <span style={{ fontSize: 10.5, color: tokens.color.failed }}>
-                                    {generatingErrorBySignalId[signal.id]}
-                                  </span>
-                                ) : null}
+	                              );
+	                            }
+	                            if (!signal.isReady || !generateReadingAction) return null;
+	                            return (
+	                              <div style={{ display: "flex", gap: 6, alignItems: "center", paddingTop: 4 }}>
+	                                <SecondaryButton
+	                                  onClick={() => handleGenerateSignalReading(signal.signalId)}
+	                                  disabled={isGeneratingForSignalId === signal.signalId}
+	                                  style={{ padding: "4px 8px", fontSize: 10.5 }}
+	                                >
+	                                  {isGeneratingForSignalId === signal.signalId ? "生成中…" : "生成判讀"}
+	                                </SecondaryButton>
+	                                {generatingErrorBySignalId[signal.signalId] ? (
+	                                  <span style={{ fontSize: 10.5, color: tokens.color.failed }}>
+	                                    {generatingErrorBySignalId[signal.signalId]}
+	                                  </span>
+	                                ) : null}
                               </div>
                             );
                           })()}
@@ -2644,17 +2348,17 @@ export function TopicDetailView({
                         <div style={{ fontSize: 10, color: tokens.color.softInk, whiteSpace: "nowrap" }}>
                           {formatTopicDate(signal.capturedAt)}
                         </div>
-                        {onSignalDeleted ? (
-                          <button
+	                        {deleteAction ? (
+	                          <button
                             type="button"
                             data-topic-signal-remove="true"
                             aria-label="移除此訊號"
-                            disabled={deletingSignalId === signal.id}
-                            onClick={(event) => {
-                              event.preventDefault();
-                              event.stopPropagation();
-                              void handleDeleteSignal(signal.id);
-                            }}
+	                            disabled={deletingSignalId === signal.signalId}
+	                            onClick={(event) => {
+	                              event.preventDefault();
+	                              event.stopPropagation();
+	                              void handleDeleteSignal(signal.signalId);
+	                            }}
                             style={{
                               width: 22,
                               height: 22,
@@ -2662,7 +2366,7 @@ export function TopicDetailView({
                               border: `1px solid ${tokens.color.line}`,
                               background: tokens.color.surface,
                               color: tokens.color.softInk,
-                              cursor: deletingSignalId === signal.id ? "wait" : "pointer",
+	                              cursor: deletingSignalId === signal.signalId ? "wait" : "pointer",
                               lineHeight: 1,
                               fontSize: 14,
                               padding: 0
