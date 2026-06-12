@@ -95,8 +95,8 @@ The verified build in the active Phase B implementation worktree is:
 - backend physical checkout: `../dlens-ingest-core`
 - old versions and historical worktrees: `local dlens-old archive`
 - verification: `npm run typecheck`, `npx tsx --test tests/*.test.ts tests/*.test.tsx`, and `npm run build`
-- latest merged-code full test count after PR #21: `726 pass, 0 fail`
-- open PR #22 (`codex/pipeline-spine-slice-2`) verification: `732 pass, 0 fail`, plus GitHub `verify` checks passing
+- latest merged-code full test count after PR #22: `732 pass, 0 fail`
+- PR #22 merged on 2026-06-12 as `ad8ddbf`; Desktop was fast-forwarded and rebuilt into `output/chrome-mv3`
 - latest build output was mirrored to `output/chrome-mv3`
 - current engineering branch: `main`
 - live backend smoke from the prior product run: `GET http://127.0.0.1:8000/worker/status` returned `{"status":"idle"}`
@@ -111,7 +111,7 @@ The verified build in the active Phase B implementation worktree is:
 - PR #19 merged: PR Evidence campaign/row read ownership lifted to the app shell so Collect and PrEvidenceView consume the same resource.
 - PR #20 merged: PR Evidence ViewModel boundary, typed command descriptors, background-owned campaign id/time stamping, and export/file side effects moved out of the view.
 - PR #21 merged: typed seven-phase pipeline trace stream in `src/state/pipeline-trace.ts`; old production `markQaTrace` strings collapsed into typed events.
-- PR #22 open: collect/capture requestId trace correlation across content, popup, background save/queue/worker/refresh, and processing coordinator paths. It is verified at `732/732` and GitHub `verify` checks pass, but it deliberately does not implement stale-response rejection yet.
+- PR #22 merged: collect/capture requestId trace correlation across content, popup, background save/queue/worker/refresh, and processing coordinator paths. It deliberately does not implement stale-response rejection yet.
 
 ## PR Evidence V1 Contract State
 
