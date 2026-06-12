@@ -79,6 +79,7 @@ The flag-gating + DOM mirror + buffer cap from today's `src/ui/qa-trace.ts` move
 3. OBSERVE-only on deferred frontiers (hover DOM extraction, storage transaction). No rewrite this phase.
 4. Flag-gated; zero overhead for normal users.
 5. Do NOT touch: storage backward-compat normalize, backend polling/backoff, error boundaries.
+6. **Update the architecture map** (`docs/architecture/dlens-current-architecture-map.md`) if any node/edge status changes — and don't claim 🟢/🟩 without a failing test. The spine work moves `TRACE` 🟡→🟩 and is the hook for `RECONCILE` (requestId); reflect that on the map as slices land.
 
 ## Definition of done (per slice)
 
