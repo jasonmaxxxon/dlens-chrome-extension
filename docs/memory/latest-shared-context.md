@@ -6,13 +6,13 @@ type: project
 
 # DLens Extension Shared Context
 
-Last updated: 2026-05-28
+Last updated: 2026-06-12
 
 This file is the current shared context. Keep this filename stable and update
 the contents in place whenever an automated or manual handoff refresh makes it
 the latest issue.
 
-This note is the high-signal shared memory for Codex and Claude when working on `dlens-chrome-extension-v0`.
+This note is the high-signal shared memory for Codex and Claude when working on `dlens-product-latest`.
 
 ## Product Identity
 
@@ -29,6 +29,13 @@ This note is the high-signal shared memory for Codex and Claude when working on 
 - Canonical clustering, evidence generation, normalization, and merge quality belong in `dlens-ingest-core`.
 - Background is the only network owner.
 - Hover state stays in memory, not storage.
+
+## Architecture Map Entry Rule
+
+- Read `docs/architecture/dlens-current-architecture-map.md` before non-trivial work. It is the live architecture/status map for Codex / ChatGPT / Claude handoff.
+- Treat 🟢 as built, not locked. Only 🟩 means a failing test or boundary guard catches the regression.
+- If a change touches a boundary, data flow, async path, storage seam, backend job path, LLM call path, or ViewModel/View responsibility, update the map colors in the same PR.
+- Do not let architecture hardening block analysis credibility work: Track A hardening and Track B backend OP/reply read-model work proceed in parallel.
 
 ## Current Product Shape
 
@@ -63,17 +70,17 @@ This note is the high-signal shared memory for Codex and Claude when working on 
 - Product classification list rows no longer render relevance dots; `最新在前` only appears when the selected type group has at least two signals.
 - Product Agent Brief uses reviewable `SignalReading` records; active review cards keep a compact Marginalia signal strip with verdict, reference category, and relevance bars.
 - Topic synthesis uses deterministic `v3.generic-keyword-lens`; Stack is collapsible, Console is dense and always visible.
-- Folder synthesis uses the same deterministic work-signal lens and renders as the Library Briefing card. Storage key: `dlens:v1:folder-synthesis`.
+- Folder synthesis uses deterministic `v3.generic-keyword-lens` and renders as the Library Briefing card. Storage key: `dlens:v1:folder-synthesis`.
 - Compare result variants are Reading, Parallel, and Chapters; Parallel is default and uses sticky A/B columns.
 - Runtime tab targeting now treats the content-script sender tab as authoritative for `state/get-active-tab` and collect start/cancel; do not route those calls through another focused Chrome tab.
-- Current verification: `618/618` tests, typecheck, build, and diff check passed from `dlens-product-latest`.
+- Latest merged-code verification through PR #21: `726/726` tests, typecheck, build, and diff check passed from `dlens-product-latest`. Open PR #22 is separately verified at `732/732` with GitHub `verify` checks passing.
 - Verified build artifact was copied to `output/chrome-mv3`; the source checkout there may still be dirty.
 
-## Version Rule As Of 2026-05-28
+## Version Rule As Of 2026-06-12
 
-- Current extension version: `0.1.30`.
-- Current verification: `618/618` tests, typecheck, build, and diff check passed from `dlens-product-latest`.
-- Current engineering branch: `codex/pr-visible-metrics`.
+- Current extension version: `0.1.33`.
+- Latest merged-code verification through PR #21: `726/726` tests, typecheck, build, and diff check passed from `dlens-product-latest`. Open PR #22 is separately verified at `732/732` with GitHub `verify` checks passing.
+- Current engineering branch: `main`.
 - `docs/ENGINEERING_PLAN.md` §2 N1-N5 is complete: React ErrorBoundary, Settings storage usage, `mutateSnapshot` seam, behavioral storage contracts, and code-review checklist.
 - §3 remains a deferred trigger pool, not a backlog drain queue.
 - Motion Layer v2 is pure CSS/token-based and shared across modes; content-script CSS is scoped under `data-dlens-control="true"` and respects `prefers-reduced-motion`.
@@ -136,7 +143,8 @@ This note is the high-signal shared memory for Codex and Claude when working on 
 
 ## Current Known Priorities
 
-- Split growing popup/background orchestration before adding digest/watch-mode work. `background.ts` is now 2668 lines and `useInPageCollectorAppState.ts` is now 1380 lines.
+- Split growing popup/background orchestration before adding digest/watch-mode work. `entrypoints/background.ts` is now 3488 lines and `src/ui/useInPageCollectorAppState.ts` is now 2148 lines.
+- Pipeline spine status: PR #21 merged the typed trace event stream; PR #22 is open and adds requestId trace correlation only. `RECONCILE` stays 🔴 until stale-result ignore is implemented and tested.
 - Improve hover debounce and clear stale overlay state on SPA route changes.
 - Add better honest loading states for crawl / analysis / compare waits.
 - Keep compare cluster matching skepticism high because pairing is still rank-driven.
@@ -145,7 +153,7 @@ This note is the high-signal shared memory for Codex and Claude when working on 
 
 ## Working Rules For Future Product Updates
 
-- Start from `README.md`, `AGENTS.md`, and `docs/memory/current-state.md`.
+- Start from `docs/architecture/dlens-current-architecture-map.md`, `README.md`, `AGENTS.md`, and `docs/memory/current-state.md`.
 - Treat `docs/handoff/2026-05-06-pr-evidence-mode-v1-brief.md` as the PR Evidence product-engineering record, with its 2026-05-07 implementation status as the current resolution.
 - Treat `docs/product/2026-04-03-compare-working-plan.md` as the execution split between extension-only work and backend-dependent work.
 - Treat `docs/product/2026-04-03-compare-frontend-brief.md` as presentation-only guidance.

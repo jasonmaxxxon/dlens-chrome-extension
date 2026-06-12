@@ -1,8 +1,13 @@
 # Current State
 
-## System State As Of 2026-05-28
+## System State As Of 2026-06-12
 
 DLens is now best described as a **desktop-first Threads research, product-signal, and PR evidence extension**.
+
+The architecture handoff source of truth is now
+`docs/architecture/dlens-current-architecture-map.md`. Treat its colors as the
+live status contract: 🟢 means built, 🟩 means regression-locked, 🟡 means
+partial/risky, and 🔴 means not built or not trustworthy enough to rely on.
 
 The current product split is:
 
@@ -72,7 +77,7 @@ The current product split is:
    - `DLENS_SIGNAL_PACKET_VERSION` is `v3`; keep upcoming JSONL semantic clarifications additive unless a breaking reader change is truly required
 
 8. Engineering-plan hardening slice
-   - `docs/ENGINEERING_PLAN.md` §2 N1-N5 is complete on `codex/pr-visible-metrics`
+   - `docs/ENGINEERING_PLAN.md` §2 N1-N5 is complete
    - popup React tree has a top-level `WorkspaceErrorBoundary`
    - Settings surfaces local storage usage through background message `storage/get-usage`
    - snapshot RMW paths use `mutateSnapshot` by default; raw `withSnapshotLock` escapes are documented
@@ -90,13 +95,23 @@ The verified build in the active Phase B implementation worktree is:
 - backend physical checkout: `../dlens-ingest-core`
 - old versions and historical worktrees: `local dlens-old archive`
 - verification: `npm run typecheck`, `npx tsx --test tests/*.test.ts tests/*.test.tsx`, and `npm run build`
-- latest full test count after invariant consolidation: `701 pass, 0 fail`
+- latest merged-code full test count after PR #21: `726 pass, 0 fail`
+- open PR #22 (`codex/pipeline-spine-slice-2`) verification: `732 pass, 0 fail`, plus GitHub `verify` checks passing
 - latest build output was mirrored to `output/chrome-mv3`
-- current engineering branch: `codex/pr-visible-metrics`
+- current engineering branch: `main`
 - live backend smoke from the prior product run: `GET http://127.0.0.1:8000/worker/status` returned `{"status":"idle"}`
 - extension manifest name is `DLens v3`; current extension version is `0.1.33`
 - version is locked across `package.json`, `package-lock.json`, `wxt.config.ts` `manifest.version`, and `src/ui/version.ts` `BUILD_VERSION`
 - runtime tab targeting fix: content-script `state/get-active-tab` and collect start/cancel must resolve to `sender.tab.id` before falling back to Chrome's focused tab, otherwise the popup can show collect mode off while the Threads content script is already in crosshair/overlay mode
+
+## Recent PR Progress As Of 2026-06-12
+
+- PR #17 merged: Topic ViewModel boundary, Topic view consumes `{ viewModel, onCommand }`, and B-14 audit denominator drift is characterized.
+- PR #18 merged: Compare ViewModel boundary with readiness/selection, fallback/provenance/load-state, cluster surfaces, and async fetch responsibility kept in the shell.
+- PR #19 merged: PR Evidence campaign/row read ownership lifted to the app shell so Collect and PrEvidenceView consume the same resource.
+- PR #20 merged: PR Evidence ViewModel boundary, typed command descriptors, background-owned campaign id/time stamping, and export/file side effects moved out of the view.
+- PR #21 merged: typed seven-phase pipeline trace stream in `src/state/pipeline-trace.ts`; old production `markQaTrace` strings collapsed into typed events.
+- PR #22 open: collect/capture requestId trace correlation across content, popup, background save/queue/worker/refresh, and processing coordinator paths. It is verified at `732/732` and GitHub `verify` checks pass, but it deliberately does not implement stale-response rejection yet.
 
 ## PR Evidence V1 Contract State
 
@@ -256,7 +271,7 @@ DLens currently has two active subsystems and one frozen prototype repo:
    - keeps crawl status and analysis status separate
    - runs deterministic post-crawl analysis and returns it in the capture read model
 
-2. `dlens-chrome-extension-v0`
+2. `dlens-product-latest` active extension checkout (formerly `dlens-chrome-extension-v0`)
    - production MV3 shell for Threads capture and queueing
    - local folders in `chrome.storage.local`
    - explicit processing control instead of assuming a permanent worker
