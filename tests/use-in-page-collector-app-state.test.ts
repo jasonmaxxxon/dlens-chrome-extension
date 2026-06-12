@@ -50,11 +50,12 @@ test("buildPreviewSaveMessage refuses to create a save message without an explic
   assert.equal(message, null);
 });
 
-test("popup save paths emit collect-save trace events for both button and keyboard channels", () => {
+test("popup save paths emit typed collect-save pipeline events for both button and keyboard channels", () => {
   const source = readFileSync(new URL("../src/ui/useInPageCollectorAppState.ts", import.meta.url), "utf8");
 
-  assert.match(source, /markQaTrace\("popup\.collect\.save\.request"/);
-  assert.match(source, /markQaTrace\("popup\.collect\.save\.response"/);
+  assert.doesNotMatch(source, /markQaTrace\("popup\.collect\.save\./);
+  assert.match(source, /phase:\s*"preview\.confirmed"/);
+  assert.match(source, /phase:\s*"signal\.saved"/);
   assert.match(source, /via: "button"/);
   assert.match(source, /via: "keyboard"/);
 });
