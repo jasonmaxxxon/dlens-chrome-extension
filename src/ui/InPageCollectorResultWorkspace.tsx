@@ -1,10 +1,17 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { MainPage } from "../state/types";
 import { CompareView } from "./CompareView";
 import type { CompareBrief } from "../compare/brief";
 import type { ClusterInterpretation } from "../compare/cluster-interpretation";
 import type { EvidenceAnnotation } from "../compare/evidence-annotation";
 import { buildTechniqueReadingSnapshot } from "../compare/technique-reading";
+import { createPipelineRequestId, emitPipelineEvent } from "../state/pipeline-trace";
+import {
+  buildReconcileIgnoredEvent,
+  createRequestReconciler,
+  type RequestReconcileTarget,
+  type RequestReconcileToken
+} from "../state/request-reconcile";
 import { buildCompareViewModel, type CompareCommand, type CompareFetchedState } from "../viewmodel/compare";
 import { PrimaryButton, SecondaryButton, WorkspaceSurface, surfaceCardStyle } from "./components";
 import { sendExtensionMessage } from "./controller";
@@ -131,6 +138,19 @@ function requestKey(value: unknown): string {
   return value ? JSON.stringify(value) : "";
 }
 
+type CompareAsyncCommand =
+  | Extract<CompareCommand, { kind: "fetchBrief" }>
+  | Extract<CompareCommand, { kind: "fetchClusterSummaries" }>
+  | Extract<CompareCommand, { kind: "fetchEvidenceAnnotations" }>;
+
+function compareCommandTarget(command: CompareAsyncCommand): RequestReconcileTarget {
+  return {
+    sessionId: command.target.sessionId,
+    itemAId: command.target.itemAId,
+    itemBId: command.target.itemBId
+  };
+}
+
 function CompareResultViewModelBoundary({
   app,
   activeFolder,
@@ -155,11 +175,31 @@ function CompareResultViewModelBoundary({
     clusterSummaryState: "idle",
     evidenceAnnotations: []
   });
+  const requestReconcilerRef = useRef(createRequestReconciler());
 
   useEffect(() => {
     setSelectedA(resultItemA.id);
     setSelectedB(resultItemB.id);
   }, [resultItemA.id, resultItemB.id]);
+
+  const currentCompareTarget = useMemo<RequestReconcileTarget>(() => ({
+    sessionId: activeFolder.id,
+    itemAId: selectedA,
+    itemBId: selectedB
+  }), [activeFolder.id, selectedA, selectedB]);
+  const currentCompareTargetRef = useRef(currentCompareTarget);
+  currentCompareTargetRef.current = currentCompareTarget;
+
+  const shouldApplyResponse = useCallback((token: RequestReconcileToken): boolean => {
+    const decision = requestReconcilerRef.current.complete(token, {
+      currentTarget: currentCompareTargetRef.current
+    });
+    if (!decision.accepted) {
+      emitPipelineEvent(buildReconcileIgnoredEvent(token, decision));
+      return false;
+    }
+    return true;
+  }, []);
 
   const viewModel = useMemo(
     () => buildCompareViewModel({
@@ -255,30 +295,41 @@ function CompareResultViewModelBoundary({
       return;
     }
     let cancelled = false;
+    const requestId = createPipelineRequestId("compare-brief");
+    const token = requestReconcilerRef.current.begin({
+      lane: "compare.fetchBrief",
+      requestId,
+      target: compareCommandTarget(fetchBriefAction)
+    });
     setFetched((current) => ({ ...current, briefState: "loading" }));
-    void onCommand(fetchBriefAction)
+    void sendExtensionMessage<{ ok: true; compareBrief?: CompareBrief | null } | { ok: false; error: string }>({
+      type: "compare/get-brief",
+      requestId,
+      request: fetchBriefAction.request
+    })
       .then((response) => {
-        if (cancelled) return;
-        const payload = response as { ok: true; compareBrief?: CompareBrief | null } | { ok: false; error: string };
-        if (payload.ok && payload.compareBrief) {
+        const accepted = shouldApplyResponse(token);
+        if (cancelled || !accepted) return;
+        if (response.ok && response.compareBrief) {
           setFetched((current) => ({
             ...current,
-            brief: payload.compareBrief ?? null,
-            briefState: payload.compareBrief?.source === "ai" ? "ready" : "fallback"
+            brief: response.compareBrief ?? null,
+            briefState: response.compareBrief?.source === "ai" ? "ready" : "fallback"
           }));
           return;
         }
         setFetched((current) => ({ ...current, brief: null, briefState: "fallback" }));
       })
       .catch(() => {
-        if (!cancelled) {
+        const accepted = shouldApplyResponse(token);
+        if (!cancelled && accepted) {
           setFetched((current) => ({ ...current, brief: null, briefState: "fallback" }));
         }
       });
     return () => {
       cancelled = true;
     };
-  }, [fetchBriefKey, onCommand]);
+  }, [fetchBriefKey, shouldApplyResponse]);
 
   const fetchClusterAction = viewModel.actions.find((action): action is Extract<CompareCommand, { kind: "fetchClusterSummaries" }> => action.kind === "fetchClusterSummaries") ?? null;
   const fetchClusterKey = requestKey(fetchClusterAction?.request);
@@ -288,15 +339,25 @@ function CompareResultViewModelBoundary({
       return;
     }
     let cancelled = false;
+    const requestId = createPipelineRequestId("compare-cluster-summaries");
+    const token = requestReconcilerRef.current.begin({
+      lane: "compare.fetchClusterSummaries",
+      requestId,
+      target: compareCommandTarget(fetchClusterAction)
+    });
     setFetched((current) => ({ ...current, clusterSummaryState: "loading" }));
-    void onCommand(fetchClusterAction)
+    void sendExtensionMessage<{ ok: true; clusterInterpretations?: ClusterInterpretation[] } | { ok: false; error: string }>({
+      type: "compare/get-cluster-summaries",
+      requestId,
+      request: fetchClusterAction.request
+    })
       .then((response) => {
-        if (cancelled) return;
-        const payload = response as { ok: true; clusterInterpretations?: ClusterInterpretation[] } | { ok: false; error: string };
-        if (payload.ok && payload.clusterInterpretations?.length) {
+        const accepted = shouldApplyResponse(token);
+        if (cancelled || !accepted) return;
+        if (response.ok && response.clusterInterpretations?.length) {
           setFetched((current) => ({
             ...current,
-            clusterInterpretations: payload.clusterInterpretations ?? [],
+            clusterInterpretations: response.clusterInterpretations ?? [],
             clusterSummaryState: "ready"
           }));
           return;
@@ -304,14 +365,15 @@ function CompareResultViewModelBoundary({
         setFetched((current) => ({ ...current, clusterInterpretations: [], clusterSummaryState: "idle" }));
       })
       .catch(() => {
-        if (!cancelled) {
+        const accepted = shouldApplyResponse(token);
+        if (!cancelled && accepted) {
           setFetched((current) => ({ ...current, clusterInterpretations: [], clusterSummaryState: "error" }));
         }
       });
     return () => {
       cancelled = true;
     };
-  }, [fetchClusterKey, onCommand]);
+  }, [fetchClusterKey, shouldApplyResponse]);
 
   const fetchAnnotationAction = viewModel.actions.find((action): action is Extract<CompareCommand, { kind: "fetchEvidenceAnnotations" }> => action.kind === "fetchEvidenceAnnotations") ?? null;
   const fetchAnnotationKey = requestKey(fetchAnnotationAction?.request);
@@ -321,25 +383,36 @@ function CompareResultViewModelBoundary({
       return;
     }
     let cancelled = false;
-    void onCommand(fetchAnnotationAction)
+    const requestId = createPipelineRequestId("compare-evidence-annotations");
+    const token = requestReconcilerRef.current.begin({
+      lane: "compare.fetchEvidenceAnnotations",
+      requestId,
+      target: compareCommandTarget(fetchAnnotationAction)
+    });
+    void sendExtensionMessage<{ ok: true; evidenceAnnotations?: EvidenceAnnotation[] } | { ok: false; error: string }>({
+      type: "compare/get-evidence-annotations",
+      requestId,
+      request: fetchAnnotationAction.request
+    })
       .then((response) => {
-        if (cancelled) return;
-        const payload = response as { ok: true; evidenceAnnotations?: EvidenceAnnotation[] } | { ok: false; error: string };
-        if (payload.ok && payload.evidenceAnnotations?.length) {
-          setFetched((current) => ({ ...current, evidenceAnnotations: payload.evidenceAnnotations ?? [] }));
+        const accepted = shouldApplyResponse(token);
+        if (cancelled || !accepted) return;
+        if (response.ok && response.evidenceAnnotations?.length) {
+          setFetched((current) => ({ ...current, evidenceAnnotations: response.evidenceAnnotations ?? [] }));
           return;
         }
         setFetched((current) => ({ ...current, evidenceAnnotations: [] }));
       })
       .catch(() => {
-        if (!cancelled) {
+        const accepted = shouldApplyResponse(token);
+        if (!cancelled && accepted) {
           setFetched((current) => ({ ...current, evidenceAnnotations: [] }));
         }
       });
     return () => {
       cancelled = true;
     };
-  }, [fetchAnnotationKey, onCommand]);
+  }, [fetchAnnotationKey, shouldApplyResponse]);
 
   return <CompareView viewModel={viewModel} onCommand={onCommand} />;
 }

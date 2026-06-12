@@ -144,7 +144,7 @@ This note is the high-signal shared memory for Codex and Claude when working on 
 ## Current Known Priorities
 
 - Split growing popup/background orchestration before adding digest/watch-mode work. `entrypoints/background.ts` is now 3488 lines and `src/ui/useInPageCollectorAppState.ts` is now 2148 lines.
-- Pipeline spine status: PR #21 merged the typed trace event stream; PR #22 merged requestId trace correlation only. `TRACE` stays 🟡 until terminal `ui.ready` + live harness land, and `RECONCILE` stays 🔴 until stale-result ignore is implemented and tested.
+- Pipeline spine status: PR #21 merged the typed trace event stream, PR #22 merged requestId trace correlation, PR #23 merged terminal VM `ui.ready`, and PR #24 merged the typed trace summarizer + live harness gate. `TRACE` stays 🟡 until backend/direct LLM trace paths and a real live trace artifact are locked. Current RECONCILE work starts stale-result ignore in the UI shell and moves `RECONCILE` 🔴→🟡 only; keep it short of 🟩 until background/storage seam writes are guarded.
 - Improve hover debounce and clear stale overlay state on SPA route changes.
 - Add better honest loading states for crawl / analysis / compare waits.
 - Keep compare cluster matching skepticism high because pairing is still rank-driven.

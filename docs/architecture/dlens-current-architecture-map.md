@@ -1,6 +1,6 @@
-# DLens Current Architecture Map (v0.3 — honest status)
+# DLens Current Architecture Map (v0.4 — honest status)
 
-> Last updated: 2026-06-12 · Baseline code: stacked on PR #23 / `codex/pipeline-spine-slice-3` @ `3401d7f` (0.1.33). Slice 4 adds typed trace summarizer + live harness gate, but does not change the `RECONCILE` status.
+> Last updated: 2026-06-12 · Baseline code: `main` after pipeline spine Slice 4 / PR #24 @ `9fb3f30` (0.1.33). This RECONCILE slice adds a tested request reconciler, UI stale-result ignore for Compare/Product/Folder/PR async writes, and a narrow session-scoped snapshot guard; `RECONCILE` is 🟡, not 🟩, because storage-seam-wide stale write rejection is still pending.
 > **This is the agent handoff map.** Any Codex / ChatGPT / Claude session reads this FIRST. It is the single source of truth for "what is built, what is enforced, what you must not bypass." Status colors must be kept honest (see DoD rule below) — a stale map is worse than none.
 
 ## Legend
@@ -50,7 +50,7 @@ flowchart LR
 
   subgraph OBS["Observability + Product Walls"]
     TRACE["🟡 Pipeline Spine Trace<br/>slices 1-4 exist, harness gate built<br/>backend/LLM live trace not locked"]
-    RECONCILE["🔴 Request reconcile<br/>requestId / stale-result ignore"]
+    RECONCILE["🟡 Request reconcile<br/>UI stale-result ignore<br/>seam-wide guard pending"]
     BOUNDARY["🟡 Boundary tests<br/>some exists, not complete"]
     SEAM_GUARD["🔴 Seam-only storage write guard<br/>intended, not enforced"]
   end
@@ -87,11 +87,11 @@ flowchart LR
   BG -.->|"trace collect/capture stages<br/>🟡 partial"| TRACE
   API -.->|"trace backend job stages<br/>🔴 not fully wired"| TRACE
 
-  API -.->|"late backend result<br/>🔴 needs requestId guard"| RECONCILE
-  OPENAI -.->|"late LLM result<br/>🔴 needs requestId guard"| RECONCILE
-  ANTHROPIC -.->|"late LLM result<br/>🔴 needs requestId guard"| RECONCILE
-  GOOGLE -.->|"late LLM result<br/>🔴 needs requestId guard"| RECONCILE
-  RECONCILE -.->|"accept current / ignore stale<br/>🔴 intended"| SEAM_PARTIAL
+  API -.->|"late backend result<br/>🟡 UI shell guard partial"| RECONCILE
+  OPENAI -.->|"late LLM result<br/>🟡 UI shell guard partial"| RECONCILE
+  ANTHROPIC -.->|"late LLM result<br/>🟡 UI shell guard partial"| RECONCILE
+  GOOGLE -.->|"late LLM result<br/>🟡 UI shell guard partial"| RECONCILE
+  RECONCILE -.->|"accept current / ignore stale<br/>🟡 UI guarded, seam-wide pending"| SEAM_PARTIAL
 
   BOUNDARY -.->|"protect View / VM walls<br/>🟡 partial"| VIEW
   BOUNDARY -.->|"protect pure ViewModels<br/>🟡 partial"| VM
@@ -104,8 +104,8 @@ flowchart LR
   classDef external fill:#e7f0ff,stroke:#3b6fb6,stroke-width:2px,color:#102a4c;
 
   class VIEW,VM,APP,BG,STORE,TARGET built;
-  class CS,API,CRAWLER,JOBS,SEAM_PARTIAL,INVALIDATE,TRACE,BOUNDARY partial;
-  class READMODEL_BACKEND,MIGRATE,RECONCILE,SEAM_GUARD intended;
+  class CS,API,CRAWLER,JOBS,SEAM_PARTIAL,INVALIDATE,TRACE,RECONCILE,BOUNDARY partial;
+  class READMODEL_BACKEND,MIGRATE,SEAM_GUARD intended;
   class OPENAI,ANTHROPIC,GOOGLE external;
 ```
 
@@ -136,7 +136,7 @@ This file lives at `docs/architecture/dlens-current-architecture-map.md`. Every 
 
 - **A1. Boundary / architecture tests** → 🟢→🟩. View ⊅ `sendExtensionMessage`/`Date.now`/`Math.random`/storage mutation; ViewModel ⊅ `chrome`/`fetch`/DOM/`File`/React; storage write ⊅ bypass seam. *(Do first — it's what makes green mean protected.)*
 - **A2. Storage schema version + migration** → `MIGRATE` 🔴→🟡/🟩. `CURRENT_STORAGE_SCHEMA_VERSION`, migration registry, non-destructive migration, legacy fixture tests.
-- **A3. requestId reconcile / stale-result ignore** → `RECONCILE` 🔴→🟡/🟩. Async command carries `requestId`; backend/LLM late result must match current target; stale result ignored, not written. PR #22 seeds requestId trace correlation only; do not mark `RECONCILE` built until stale-result ignore is implemented and locked by tests.
+- **A3. requestId reconcile / stale-result ignore** → `RECONCILE` 🟡→🟩. Async command carries `requestId`; backend/LLM late result must match current target; stale result ignored, not written. This slice adds `src/state/request-reconcile.ts`, UI-shell guards for Compare/Product/Folder/PR Evidence async responses, a narrow session-scoped snapshot guard in `sendAndSync`, and tests that reject stale / target-mismatched responses. Do not mark `RECONCILE` 🟩 until background/storage seam writes are protected consistently.
 - **A4. Invalidation / rehydrate contract** → `INVALIDATE` 🟡→🟩. Storage write triggers state update; popup rehydrates deterministically; no infinite loading after write.
 - **A5. Backend + direct LLM trace integration** → `TRACE` 🟡→🟩. Trace backend polling + direct LLM calls; record timeout / fallback / provider / provenance. PR #21 typed the event stream; PR #22 threads requestId through collect/capture trace paths; Slice 3 wires terminal VM `ui.ready` events; Slice 4 adds a typed summarizer and `ui.ready` harness gate. Keep `TRACE` 🟡 until backend / direct LLM trace paths are integrated and a real live trace artifact passes the terminal gate.
 

@@ -112,6 +112,9 @@ The verified build in the active Phase B implementation worktree is:
 - PR #20 merged: PR Evidence ViewModel boundary, typed command descriptors, background-owned campaign id/time stamping, and export/file side effects moved out of the view.
 - PR #21 merged: typed seven-phase pipeline trace stream in `src/state/pipeline-trace.ts`; old production `markQaTrace` strings collapsed into typed events.
 - PR #22 merged: collect/capture requestId trace correlation across content, popup, background save/queue/worker/refresh, and processing coordinator paths. It deliberately does not implement stale-response rejection yet.
+- PR #23 merged: terminal `ui.ready` events now project from Product / Topic / Compare / PR Evidence ViewModel state through the UI shell.
+- PR #24 merged: typed trace summary + live QA harness gate landed; `TRACE` remains 🟡 until backend/direct LLM trace paths and real live trace artifacts are locked.
+- This slice starts `RECONCILE` by adding tested stale-result ignore for Compare/Product/Folder/PR UI async response writes plus a narrow session-scoped snapshot guard. Treat it as 🟡 until storage-seam-wide stale write rejection lands.
 
 ## PR Evidence V1 Contract State
 
