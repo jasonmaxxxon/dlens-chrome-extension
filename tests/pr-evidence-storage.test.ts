@@ -12,6 +12,7 @@ import {
   PR_CAMPAIGNS_STORAGE_KEY,
   PR_EVIDENCE_ROWS_STORAGE_KEY,
   savePrCampaign,
+  savePrCampaignDraft,
   savePrEvidenceRow,
   toPrEvidenceRowFromSessionItem
 } from "../src/state/pr-evidence-storage.ts";
@@ -115,6 +116,33 @@ test("savePrCampaign keeps one active campaign per session", async () => {
   assert.deepEqual((await loadPrCampaigns(storage, "session-1")).map((campaign) => campaign.id), ["new"]);
   assert.equal((await loadActivePrCampaign(storage, "session-1"))?.id, "new");
   assert.deepEqual((await loadPrCampaigns(storage, "session-2")).map((campaign) => campaign.id), ["other"]);
+});
+
+test("savePrCampaignDraft stamps id and timestamps at the storage seam", async () => {
+  const storage = createStorageArea();
+
+  const saved = await savePrCampaignDraft(
+    storage,
+    {
+      sessionId: "session-1",
+      name: "Draft campaign",
+      briefText: "Draft brief",
+      criteria: [
+        { id: "c1", label: "A" },
+        { id: "c2", label: "B" },
+        { id: "c3", label: "C" },
+        { id: "c4", label: "D" },
+        { id: "c5", label: "E" },
+        { id: "c6", label: "F" }
+      ]
+    },
+    { id: "prcampaign-fixed", now: "2026-06-12T01:02:03.000Z" }
+  );
+
+  assert.equal(saved[0]?.id, "prcampaign-fixed");
+  assert.equal(saved[0]?.createdAt, "2026-06-12T01:02:03.000Z");
+  assert.equal(saved[0]?.updatedAt, "2026-06-12T01:02:03.000Z");
+  assert.equal((await loadActivePrCampaign(storage, "session-1"))?.id, "prcampaign-fixed");
 });
 
 test("normalizePrEvidenceRow defaults all criteria matches to false", () => {

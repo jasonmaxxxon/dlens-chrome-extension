@@ -22,6 +22,33 @@ export interface PrCampaign {
   lastMatchedAt?: string;
 }
 
+export interface PrCampaignDraft {
+  id?: string;
+  sessionId: string;
+  name: string;
+  briefText: string;
+  criteria: [PrCriterion, PrCriterion, PrCriterion, PrCriterion, PrCriterion, PrCriterion];
+  createdAt?: string;
+  updatedAt?: string;
+  lastMatchedAt?: string;
+}
+
+export interface PrCampaignSaveDraft {
+  id?: string;
+  name: string;
+  briefText: string;
+  criteria: [PrCriterion, PrCriterion, PrCriterion, PrCriterion, PrCriterion, PrCriterion];
+}
+
+export interface PrCampaignSaveDraftWithSession extends PrCampaignSaveDraft {
+  sessionId: string;
+}
+
+export interface PrCampaignStamp {
+  id?: string;
+  now?: string;
+}
+
 export type PrCriteriaMatches = Record<PrCriterionId, boolean>;
 
 export interface PrEvidenceRow {
@@ -52,15 +79,25 @@ function createId(prefix: string): string {
   return `${prefix}_${Math.random().toString(36).slice(2, 10)}_${Date.now().toString(36)}`;
 }
 
-export function createDraftPrCampaign(sessionId: string, now = new Date().toISOString()): PrCampaign {
+export function createDraftPrCampaign(sessionId: string): PrCampaignDraft {
   return {
-    id: createId("prcampaign"),
     sessionId,
     name: "",
     briefText: "",
-    criteria: normalizePrCriteria([]),
-    createdAt: now,
-    updatedAt: now
+    criteria: normalizePrCriteria([])
+  };
+}
+
+export function prCampaignToDraft(campaign: PrCampaign): PrCampaignDraft {
+  return {
+    id: campaign.id,
+    sessionId: campaign.sessionId,
+    name: campaign.name,
+    briefText: campaign.briefText,
+    criteria: normalizePrCriteria(campaign.criteria),
+    createdAt: campaign.createdAt,
+    updatedAt: campaign.updatedAt,
+    ...(campaign.lastMatchedAt ? { lastMatchedAt: campaign.lastMatchedAt } : {})
   };
 }
 
@@ -132,6 +169,26 @@ export function normalizePrCampaign(value: unknown): PrCampaign | null {
     createdAt: readString(raw.createdAt, "1970-01-01T00:00:00.000Z").trim() || "1970-01-01T00:00:00.000Z",
     updatedAt: readString(raw.updatedAt, "1970-01-01T00:00:00.000Z").trim() || "1970-01-01T00:00:00.000Z",
     ...(lastMatchedAt ? { lastMatchedAt } : {})
+  };
+}
+
+export function normalizePrCampaignSaveDraft(value: unknown): PrCampaignSaveDraftWithSession | null {
+  if (!value || typeof value !== "object") {
+    return null;
+  }
+  const raw = value as Record<string, unknown>;
+  const sessionId = readString(raw.sessionId).trim();
+  const name = readString(raw.name).trim();
+  if (!sessionId || !name) {
+    return null;
+  }
+  const id = readString(raw.id).trim();
+  return {
+    ...(id ? { id } : {}),
+    sessionId,
+    name,
+    briefText: readString(raw.briefText).trim(),
+    criteria: normalizePrCriteria(raw.criteria)
   };
 }
 
@@ -218,6 +275,38 @@ export async function savePrCampaign(storageArea: StorageAreaLike, campaign: PrC
   }
   const campaigns = await readPrCampaigns(storageArea);
   const next = [normalized, ...campaigns.filter((entry) => entry.sessionId !== normalized.sessionId)];
+  return writePrCampaigns(storageArea, next);
+}
+
+export async function savePrCampaignDraft(
+  storageArea: StorageAreaLike,
+  draft: PrCampaignSaveDraftWithSession,
+  stamp: PrCampaignStamp = {}
+): Promise<PrCampaign[]> {
+  const normalized = normalizePrCampaignSaveDraft(draft);
+  if (!normalized) {
+    throw new Error("Invalid PR campaign draft");
+  }
+  const campaigns = await readPrCampaigns(storageArea);
+  const existing = normalized.id
+    ? campaigns.find((entry) => entry.id === normalized.id)
+    : campaigns.find((entry) => entry.sessionId === normalized.sessionId);
+  const now = stamp.now ?? new Date().toISOString();
+  const id = normalized.id || existing?.id || stamp.id || createId("prcampaign");
+  const nextCampaign: PrCampaign = {
+    id,
+    sessionId: normalized.sessionId,
+    name: normalized.name,
+    briefText: normalized.briefText,
+    criteria: normalizePrCriteria(normalized.criteria),
+    createdAt: existing?.createdAt || now,
+    updatedAt: now,
+    ...(existing?.lastMatchedAt ? { lastMatchedAt: existing.lastMatchedAt } : {})
+  };
+  const next = [
+    nextCampaign,
+    ...campaigns.filter((entry) => entry.sessionId !== normalized.sessionId)
+  ];
   return writePrCampaigns(storageArea, next);
 }
 

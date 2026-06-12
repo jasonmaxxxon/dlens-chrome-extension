@@ -27,6 +27,7 @@ import type {
 import type { SignalPacketExportFormat, SignalPacketExportResult } from "../compare/signal-packet-export";
 import type { SignalReading } from "../compare/signal-reading-storage";
 import type { PrCampaign, PrEvidenceRow } from "../state/pr-evidence-storage";
+import { normalizePrCriteria, prCampaignToDraft } from "../state/pr-evidence-storage";
 import { getProcessingFailureMessage, getProcessingFailureUiMessage } from "../state/processing-errors";
 import {
   getItemReadinessStatus,
@@ -62,6 +63,14 @@ import { useResultSurfaceState } from "./useResultSurfaceState";
 import { useTopicAudit } from "./useTopicAudit";
 import { useTopicState } from "./useTopicState";
 import { createPrEvidenceResource, type PrEvidenceResourceState } from "./pr-evidence-resource";
+import { readPrBriefFile } from "./pr-brief-upload";
+import { downloadPrFileExport } from "./pr-summary-export";
+import {
+  buildPrEvidenceViewModel,
+  summarizeAdvancedMetricsNotice,
+  type PrEvidenceCommand,
+  type PrEvidenceUiState
+} from "../viewmodel/pr-evidence";
 
 type SendAndSync = <T extends ExtensionResponse = ExtensionResponse>(message: ExtensionMessage) => Promise<T>;
 
@@ -69,6 +78,16 @@ type UseInPageCollectorAppStateArgs = {
   snapshot: ExtensionSnapshot | null;
   tabId: number | null;
   sendAndSync: SendAndSync;
+};
+
+const DEFAULT_PR_EVIDENCE_UI_STATE: PrEvidenceUiState = {
+  activePane: "ledger",
+  isSaving: false,
+  isReadingBrief: false,
+  isGeneratingCriteria: false,
+  isMatching: false,
+  isFetchingAdvancedMetrics: false,
+  isGeneratingSummary: false
 };
 
 export function resolveEffectivePopupPage(page: ExtensionSnapshot["tab"]["popupPage"], activeFolderMode: FolderMode) {
@@ -251,6 +270,7 @@ export function useInPageCollectorAppState({ snapshot, tabId, sendAndSync }: Use
   const [isHydratingProductSignals, setIsHydratingProductSignals] = useState(false);
   const [activePrCampaign, setActivePrCampaign] = useState<PrCampaign | null>(null);
   const [prEvidenceResource, setPrEvidenceResource] = useState<PrEvidenceResourceState>(() => createPrEvidenceResource(""));
+  const [prEvidenceUiState, setPrEvidenceUiState] = useState<PrEvidenceUiState>(DEFAULT_PR_EVIDENCE_UI_STATE);
   const [folderSynthesis, setFolderSynthesis] = useState<FolderSynthesis | null>(null);
   const [isGeneratingFolderSynthesis, setIsGeneratingFolderSynthesis] = useState(false);
   const [folderSynthesisError, setFolderSynthesisError] = useState<string | null>(null);
@@ -476,7 +496,7 @@ export function useInPageCollectorAppState({ snapshot, tabId, sendAndSync }: Use
         }
         setActivePrCampaign(active);
         setPrEvidenceResource((current) => ({
-          campaign: active,
+          campaign: prCampaignToDraft(active),
           rows: current.campaign.id === active.id ? current.rows : [],
           summary: current.campaign.id === active.id ? current.summary : "",
           notice: "",
@@ -491,19 +511,19 @@ export function useInPageCollectorAppState({ snapshot, tabId, sendAndSync }: Use
           });
         } catch (error) {
           if (!cancelled) {
-            setPrEvidenceResource((current) => ({
-              ...current,
-              campaign: active,
-              rows: [],
-              notice: error instanceof Error ? error.message : String(error)
-            }));
+          setPrEvidenceResource((current) => ({
+            ...current,
+            campaign: prCampaignToDraft(active),
+            rows: [],
+            notice: error instanceof Error ? error.message : String(error)
+          }));
           }
           return;
         }
         if (!cancelled) {
           setActivePrCampaign(active);
           setPrEvidenceResource({
-            campaign: active,
+            campaign: prCampaignToDraft(active),
             rows: rowResponse.ok ? rowResponse.prEvidenceRows ?? [] : [],
             summary: "",
             notice: rowResponse.ok ? "" : rowResponse.error,
@@ -1663,11 +1683,225 @@ export function useInPageCollectorAppState({ snapshot, tabId, sendAndSync }: Use
     if (campaign) {
       setPrEvidenceResource((current) => ({
         ...current,
-        campaign,
+        campaign: prCampaignToDraft(campaign),
         setupCollapsed: true
       }));
     }
   }, []);
+
+  const prEvidenceViewModel = useMemo(() => buildPrEvidenceViewModel({
+    sessionId: activeFolder?.id || prEvidenceResource.campaign.sessionId || "",
+    resource: prEvidenceResource,
+    uiState: prEvidenceUiState
+  }), [activeFolder?.id, prEvidenceResource, prEvidenceUiState]);
+
+  const onPrEvidenceCommand = useCallback(async (command: PrEvidenceCommand) => {
+    const updateUiState = (patch: Partial<PrEvidenceUiState>) => {
+      setPrEvidenceUiState((current) => ({ ...current, ...patch }));
+    };
+    const updateResource = (updater: (current: PrEvidenceResourceState) => PrEvidenceResourceState) => {
+      setPrEvidenceResource(updater);
+    };
+    const saveDraft = async (draft: PrEvidenceCommand & { kind: "saveCampaign" }, successNotice: string) => {
+      updateUiState({ isSaving: true });
+      updateResource((current) => ({ ...current, notice: "" }));
+      try {
+        const response = await sendAndSync({
+          type: "pr/save-campaign",
+          sessionId: draft.target.sessionId,
+          draft: draft.draft
+        });
+        if (response.ok) {
+          const active = response.prCampaigns?.[0] || null;
+          if (active) {
+            setActivePrCampaign(active);
+            updateResource((current) => ({
+              ...current,
+              campaign: prCampaignToDraft(active),
+              setupCollapsed: true,
+              notice: successNotice
+            }));
+          }
+        } else {
+          updateResource((current) => ({ ...current, notice: response.error }));
+        }
+      } catch (error) {
+        updateResource((current) => ({ ...current, notice: error instanceof Error ? error.message : String(error) }));
+      } finally {
+        updateUiState({ isSaving: false });
+      }
+    };
+    const generateCriteria = async (campaignName: string, briefText: string) => {
+      updateUiState({ isGeneratingCriteria: true });
+      updateResource((current) => ({ ...current, notice: "" }));
+      try {
+        const response = await sendAndSync({
+          type: "pr/generate-criteria",
+          campaignName,
+          briefText
+        });
+        if (response.ok && response.prCriteria?.length) {
+          const nextDraft = {
+            ...prEvidenceResource.campaign,
+            name: campaignName,
+            briefText,
+            criteria: normalizePrCriteria(response.prCriteria)
+          };
+          updateResource((current) => ({ ...current, campaign: nextDraft }));
+          if (campaignName.trim()) {
+            const saveResponse = await sendAndSync({
+              type: "pr/save-campaign",
+              sessionId: command.target.sessionId,
+              draft: {
+                ...(nextDraft.id ? { id: nextDraft.id } : {}),
+                name: nextDraft.name.trim(),
+                briefText: nextDraft.briefText,
+                criteria: nextDraft.criteria
+              }
+            });
+            if (saveResponse.ok) {
+              const active = saveResponse.prCampaigns?.[0] || null;
+              if (active) {
+                setActivePrCampaign(active);
+                updateResource((current) => ({
+                  ...current,
+                  campaign: prCampaignToDraft(active),
+                  setupCollapsed: true,
+                  notice: "條件已生成並儲存；批次判斷會使用這六個標籤。"
+                }));
+              }
+            } else {
+              updateResource((current) => ({ ...current, notice: saveResponse.error }));
+            }
+          } else {
+            updateResource((current) => ({ ...current, notice: "條件已生成。請先填活動名稱，再執行批次判斷。" }));
+          }
+        } else if (!response.ok) {
+          updateResource((current) => ({ ...current, notice: response.error }));
+        }
+      } catch (error) {
+        updateResource((current) => ({ ...current, notice: error instanceof Error ? error.message : String(error) }));
+      } finally {
+        updateUiState({ isGeneratingCriteria: false });
+      }
+    };
+
+    switch (command.kind) {
+      case "updateDraft":
+        updateResource((current) => ({
+          ...current,
+          campaign: {
+            ...current.campaign,
+            ...command.draft,
+            sessionId: command.target.sessionId
+          }
+        }));
+        return;
+      case "setSetupCollapsed":
+        updateResource((current) => ({ ...current, setupCollapsed: command.collapsed }));
+        return;
+      case "setPane":
+        updateUiState({ activePane: command.pane });
+        return;
+      case "saveCampaign":
+        await saveDraft(command, "活動已儲存；Collect 現在可以加入 evidence rows。");
+        return;
+      case "generateCriteria":
+        await generateCriteria(command.campaignName, command.briefText);
+        return;
+      case "requestBriefUpload":
+        return;
+      case "matchCriteria":
+        updateUiState({ isMatching: true });
+        updateResource((current) => ({ ...current, notice: "" }));
+        try {
+          const response = await sendAndSync({ type: "pr/match-criteria", campaignId: command.target.campaignId });
+          if (response.ok) {
+            updateResource((current) => ({ ...current, rows: response.prEvidenceRows ?? [], notice: "條件判斷已更新。" }));
+          } else {
+            updateResource((current) => ({ ...current, notice: response.error }));
+          }
+        } finally {
+          updateUiState({ isMatching: false });
+        }
+        return;
+      case "fetchAdvancedMetrics":
+        updateUiState({ isFetchingAdvancedMetrics: true });
+        updateResource((current) => ({ ...current, notice: "" }));
+        try {
+          const response = await sendAndSync({ type: "pr/fetch-advanced-metrics", campaignId: command.target.campaignId });
+          if (response.ok) {
+            const nextRows = response.prEvidenceRows ?? [];
+            updateResource((current) => ({
+              ...current,
+              rows: nextRows,
+              notice: summarizeAdvancedMetricsNotice(response.prAdvancedMetricsSummary, nextRows)
+            }));
+          } else {
+            updateResource((current) => ({ ...current, notice: response.error }));
+          }
+        } catch (error) {
+          updateResource((current) => ({ ...current, notice: error instanceof Error ? error.message : String(error) }));
+        } finally {
+          updateUiState({ isFetchingAdvancedMetrics: false });
+        }
+        return;
+      case "generateSummary":
+        updateUiState({ isGeneratingSummary: true });
+        updateResource((current) => ({ ...current, notice: "" }));
+        try {
+          const response = await sendAndSync({ type: "pr/generate-summary", campaignId: command.target.campaignId });
+          if (response.ok) {
+            updateResource((current) => ({ ...current, summary: response.prSummary || "" }));
+          } else {
+            updateResource((current) => ({ ...current, notice: response.error }));
+          }
+        } finally {
+          updateUiState({ isGeneratingSummary: false });
+        }
+        return;
+      case "exportCsv":
+      case "exportSummaryMarkdown":
+      case "exportSummaryDocx":
+        downloadPrFileExport(command.file);
+        return;
+      default:
+        return;
+    }
+  }, [prEvidenceResource, sendAndSync]);
+
+  const onPrEvidenceBriefFileSelected = useCallback(async (file: File) => {
+    const updateUiState = (patch: Partial<PrEvidenceUiState>) => {
+      setPrEvidenceUiState((current) => ({ ...current, ...patch }));
+    };
+    const sessionId = activeFolder?.id || prEvidenceResource.campaign.sessionId || "";
+    updateUiState({ isReadingBrief: true });
+    setPrEvidenceResource((current) => ({ ...current, uploadError: "" }));
+    try {
+      const result = await readPrBriefFile(file);
+      const nextName = prEvidenceResource.campaign.name.trim() || result.inferredName;
+      setPrEvidenceResource((current) => ({
+        ...current,
+        campaign: {
+          ...current.campaign,
+          name: nextName,
+          briefText: result.text
+        },
+        notice: `已載入 ${file.name}${result.sourceKind === "pdf" ? " PDF" : ""}，正在用 brief 產生六項條件...`
+      }));
+      updateUiState({ isReadingBrief: false });
+      await onPrEvidenceCommand({
+        kind: "generateCriteria",
+        target: { sessionId },
+        campaignName: nextName,
+        briefText: result.text
+      });
+    } catch (error) {
+      setPrEvidenceResource((current) => ({ ...current, uploadError: error instanceof Error ? error.message : String(error) }));
+    } finally {
+      updateUiState({ isReadingBrief: false });
+    }
+  }, [activeFolder?.id, onPrEvidenceCommand, prEvidenceResource.campaign]);
 
   return {
     popupRef,
@@ -1726,6 +1960,7 @@ export function useInPageCollectorAppState({ snapshot, tabId, sendAndSync }: Use
     productAiProviderReady,
     activePrCampaign,
     prEvidenceResource,
+    prEvidenceViewModel,
     topics: topicState.topics,
     signals: topicState.signals,
     selectedTopicId: topicState.selectedTopicId,
@@ -1814,6 +2049,8 @@ export function useInPageCollectorAppState({ snapshot, tabId, sendAndSync }: Use
     onRemoveProductSignal,
     onPrEvidenceResourceChange,
     onPrEvidenceActiveCampaignChange,
+    onPrEvidenceCommand,
+    onPrEvidenceBriefFileSelected,
     onCreateFolder,
     onRenameFolder,
     onDeleteFolder,

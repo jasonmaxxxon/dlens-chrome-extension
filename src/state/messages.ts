@@ -27,7 +27,7 @@ import type { EvidenceAnnotation, EvidenceAnnotationRequest } from "../compare/e
 import type { TargetDescriptor } from "../contracts/target-descriptor";
 import type { ExtensionSnapshot, HoverCandidateStrength, PopupPage } from "./types";
 import type { WorkerStatus } from "./processing-state";
-import type { PrCampaign, PrCriterion, PrEvidenceRow } from "./pr-evidence-storage";
+import type { PrCampaign, PrCampaignSaveDraft, PrCriterion, PrEvidenceRow } from "./pr-evidence-storage";
 import type { DLensSignalPacket, SignalPacketIndexFilter } from "../compare/signal-packet";
 import type { SignalPacketExportFormat, SignalPacketExportResult } from "../compare/signal-packet-export";
 import type { CrossTopicCalibration, EvidencePacket, TopicAuditReport, TopicAuditStageName } from "../compare/topic-audit";
@@ -123,7 +123,7 @@ export type ExtensionMessage =
   | { type: "signal-packet/index"; filter?: SignalPacketIndexFilter }
   | { type: "signal-packet/export"; format: SignalPacketExportFormat; filter?: SignalPacketIndexFilter }
   | { type: "pr/list-campaigns"; sessionId: string }
-  | { type: "pr/save-campaign"; campaign: PrCampaign }
+  | { type: "pr/save-campaign"; sessionId: string; draft: PrCampaignSaveDraft }
   | { type: "pr/list-evidence-rows"; campaignId: string }
   | { type: "pr/save-evidence-row"; row: PrEvidenceRow }
   | { type: "pr/generate-criteria"; campaignName: string; briefText: string }

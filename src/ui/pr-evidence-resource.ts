@@ -1,18 +1,12 @@
-import type { PrCampaign, PrEvidenceRow } from "../state/pr-evidence-storage";
+import type { PrCampaignDraft, PrEvidenceRow } from "../state/pr-evidence-storage";
 import { createDraftPrCampaign } from "../state/pr-evidence-storage";
+import type { PrEvidenceResourceState } from "../viewmodel/pr-evidence";
 
-export interface PrEvidenceResourceState {
-  campaign: PrCampaign;
-  rows: PrEvidenceRow[];
-  summary: string;
-  notice: string;
-  uploadError: string;
-  setupCollapsed: boolean;
-}
+export type { PrEvidenceResourceState } from "../viewmodel/pr-evidence";
 
 export function createPrEvidenceResource(sessionId: string): PrEvidenceResourceState {
   return {
-    campaign: createDraftPrCampaign(sessionId),
+    campaign: createDraftPrCampaign(sessionId) satisfies PrCampaignDraft,
     rows: [],
     summary: "",
     notice: "",
