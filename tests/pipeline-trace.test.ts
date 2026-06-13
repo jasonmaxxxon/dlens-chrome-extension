@@ -3,12 +3,14 @@ import test from "node:test";
 
 import {
   appendPipelineTraceEntry,
+  appendExternalPipelineTraceEntry,
   emitPipelineEvent,
   isPipelineEvent,
   isQaTraceFlagEnabled,
   PIPELINE_PHASES,
   pipelineTraceTestables,
   readPipelineTrace,
+  setPipelineTraceMirrorTab,
   type PipelineTraceEntry
 } from "../src/state/pipeline-trace.ts";
 
@@ -20,13 +22,15 @@ function fakeStorage(value: string | null) {
   };
 }
 
-test("pipeline phases are the locked seven-stage spine", () => {
+test("pipeline phases lock the full live backend and LLM spine", () => {
   assert.deepEqual(PIPELINE_PHASES, [
     "hover.detected",
     "preview.confirmed",
     "signal.saved",
+    "backend.request",
     "crawl.queued",
     "capture.ready",
+    "llm.call",
     "analysis.ready",
     "ui.ready"
   ]);
@@ -81,6 +85,44 @@ test("appendPipelineTraceEntry caps the trace buffer", () => {
   }, 2);
 
   assert.deepEqual(capped.map((entry) => entry.step), ["middle", "new"]);
+});
+
+test("appendPipelineTraceEntry keeps a full live run by default", () => {
+  const entries: PipelineTraceEntry[] = Array.from({ length: 2499 }, (_, index) => ({
+    id: index + 1,
+    phase: "backend.request",
+    step: `backend.poll.${index + 1}`,
+    target: {},
+    result: "ok",
+    at: index + 1,
+    isoTime: "2026-06-12T00:00:00.000Z"
+  }));
+
+  const atLimit = appendPipelineTraceEntry(entries, {
+    id: 2500,
+    phase: "ui.ready",
+    step: "popup.vm.response",
+    target: {},
+    result: "ok",
+    at: 2500,
+    isoTime: "2026-06-12T00:00:02.500Z"
+  });
+
+  const overLimit = appendPipelineTraceEntry(atLimit, {
+    id: 2501,
+    phase: "llm.call",
+    step: "direct-llm.Google.response",
+    target: {},
+    result: "ok",
+    at: 2501,
+    isoTime: "2026-06-12T00:00:02.501Z"
+  });
+
+  assert.equal(atLimit.length, 2500);
+  assert.equal(atLimit[0]?.id, 1);
+  assert.equal(overLimit.length, 2500);
+  assert.equal(overLimit[0]?.id, 2);
+  assert.equal(overLimit.at(-1)?.phase, "llm.call");
 });
 
 test("pipeline trace can be enabled from query or hash URL params", () => {
@@ -206,6 +248,120 @@ test("emitPipelineEvent supports a process trace sink for background events", ()
   } finally {
     console.debug = originalDebug;
     delete (globalThis as any).__DLENS_QA_TRACE_ENABLED__;
+    delete (globalThis as any).__DLENS_QA_TRACE__;
+    delete (globalThis as any).__DLENS_QA_TRACE_SEQ__;
+    (globalThis as any).window = originalWindow;
+    (globalThis as any).document = originalDocument;
+  }
+});
+
+test("process trace events can mirror to the active trace tab", () => {
+  const originalWindow = (globalThis as any).window;
+  const originalDocument = (globalThis as any).document;
+  const originalChrome = (globalThis as any).chrome;
+  const originalDebug = console.debug;
+  const sentMessages: any[] = [];
+  console.debug = () => undefined;
+
+  try {
+    delete (globalThis as any).window;
+    delete (globalThis as any).document;
+    (globalThis as any).chrome = {
+      tabs: {
+        sendMessage(tabId: number, message: unknown) {
+          sentMessages.push({ tabId, message });
+          return Promise.resolve();
+        }
+      }
+    };
+    (globalThis as any).__DLENS_QA_TRACE_ENABLED__ = true;
+    (globalThis as any).__DLENS_QA_TRACE__ = [];
+    (globalThis as any).__DLENS_QA_TRACE_SEQ__ = 0;
+    setPipelineTraceMirrorTab(42);
+
+    emitPipelineEvent({
+      phase: "backend.request",
+      step: "backend.worker-status.response",
+      target: {},
+      result: "ok",
+      requestId: "backend-1",
+      detail: { status: 200 }
+    });
+
+    assert.equal(sentMessages.length, 1);
+    assert.equal(sentMessages[0]?.tabId, 42);
+    assert.equal(sentMessages[0]?.message?.type, "pipeline-trace/background-event");
+    assert.equal(sentMessages[0]?.message?.event?.phase, "backend.request");
+    assert.equal(sentMessages[0]?.message?.event?.detail?.status, 200);
+  } finally {
+    setPipelineTraceMirrorTab(null);
+    console.debug = originalDebug;
+    delete (globalThis as any).__DLENS_QA_TRACE_ENABLED__;
+    delete (globalThis as any).__DLENS_QA_TRACE__;
+    delete (globalThis as any).__DLENS_QA_TRACE_SEQ__;
+    (globalThis as any).window = originalWindow;
+    (globalThis as any).document = originalDocument;
+    (globalThis as any).chrome = originalChrome;
+  }
+});
+
+test("external background entries append to the page trace with original timing", () => {
+  const originalWindow = (globalThis as any).window;
+  const originalDocument = (globalThis as any).document;
+  const originalDebug = console.debug;
+  const domNodes: any[] = [];
+  console.debug = () => undefined;
+
+  try {
+    (globalThis as any).window = {
+      location: { search: "", hash: "" },
+      sessionStorage: fakeStorage("1"),
+      localStorage: fakeStorage(null)
+    };
+    (globalThis as any).document = {
+      getElementById(id: string) {
+        return domNodes.find((node) => node.id === id) ?? null;
+      },
+      createElement(tagName: string) {
+        return {
+          tagName: tagName.toUpperCase(),
+          id: "",
+          type: "",
+          textContent: "",
+          attributes: {} as Record<string, string>,
+          setAttribute(name: string, value: string) {
+            this.attributes[name] = value;
+          }
+        };
+      },
+      documentElement: {
+        appendChild(node: any) {
+          domNodes.push(node);
+          return node;
+        }
+      }
+    };
+
+    appendExternalPipelineTraceEntry({
+      id: 9,
+      phase: "llm.call",
+      step: "direct-llm.Google.response",
+      target: {},
+      result: "ok",
+      requestId: "llm-1",
+      detail: { provider: "Google" },
+      at: 12.5,
+      isoTime: "2026-06-12T00:00:02.500Z"
+    });
+
+    const trace = readPipelineTrace();
+    assert.equal(trace.length, 1);
+    assert.equal(trace[0]?.phase, "llm.call");
+    assert.equal(trace[0]?.at, 12.5);
+    assert.equal(trace[0]?.isoTime, "2026-06-12T00:00:02.500Z");
+    assert.deepEqual(JSON.parse(domNodes[0]?.textContent || "[]").map((entry: PipelineTraceEntry) => entry.phase), ["llm.call"]);
+  } finally {
+    console.debug = originalDebug;
     delete (globalThis as any).__DLENS_QA_TRACE__;
     delete (globalThis as any).__DLENS_QA_TRACE_SEQ__;
     (globalThis as any).window = originalWindow;

@@ -8,17 +8,35 @@ import { promisify } from "node:util";
 
 const execFileAsync = promisify(execFile);
 const repoRoot = path.resolve(new URL("..", import.meta.url).pathname);
-const fixturePath = "docs/qa/assets/2026-06-13/live-trace-happy.json";
+const fixturePath = "docs/qa/assets/2026-06-13/full-live-backend-llm/live-trace-full-hover-save-queue-analysis.json";
+const requiredPhases = [
+  "hover.detected",
+  "preview.confirmed",
+  "signal.saved",
+  "backend.request",
+  "crawl.queued",
+  "capture.ready",
+  "llm.call",
+  "analysis.ready",
+  "ui.ready"
+];
 
-test("qa harness fixture script gates the committed live trace on terminal ui.ready", async () => {
+test("qa harness fixture script gates the committed full live trace on terminal ui.ready", async () => {
   const packageJson = JSON.parse(await readFile(path.join(repoRoot, "package.json"), "utf8"));
-  assert.match(packageJson.scripts?.["qa:harness:fixture"] ?? "", new RegExp(fixturePath.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")));
+  const script = packageJson.scripts?.["qa:harness:fixture"] ?? "";
+  assert.match(script, new RegExp(fixturePath.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")));
   assert.match(packageJson.scripts?.["qa:harness:fixture"] ?? "", /qa-live-pipeline-harness\.mjs/);
   assert.match(packageJson.scripts?.["qa:harness:fixture"] ?? "", /--terminal ui\.ready/);
+  for (const phase of requiredPhases) {
+    assert.match(script, new RegExp(phase.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")));
+  }
 
   const fixture = JSON.parse(await readFile(path.join(repoRoot, fixturePath), "utf8"));
   assert.equal(Array.isArray(fixture), true);
   assert.equal(fixture.some((entry: any) => entry?.phase === "ui.ready" && entry?.result === "ok"), true);
+  for (const phase of requiredPhases) {
+    assert.equal(fixture.some((entry: any) => entry?.phase === phase && entry?.result === "ok"), true);
+  }
 
   const evidenceDir = await mkdtemp(path.join(tmpdir(), "dlens-live-fixture-"));
   const evidencePath = path.join(evidenceDir, "fixture-harness.json");

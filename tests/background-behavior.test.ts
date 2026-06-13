@@ -222,6 +222,18 @@ function disablePipelineTraceForTest(): void {
   restorePipelineTraceDebug = null;
 }
 
+test("background trace mirror can recover from sender URLs after worker wake", () => {
+  assert.equal(backgroundTestables.readSenderTraceFlag({
+    tab: { id: TAB_ID, url: "https://www.threads.com/?dlensQaTrace=1" } as chrome.tabs.Tab
+  }), true);
+  assert.equal(backgroundTestables.readSenderTraceFlag({
+    url: "https://www.threads.com/#dlensQaTrace=yes"
+  }), true);
+  assert.equal(backgroundTestables.readSenderTraceFlag({
+    tab: { id: TAB_ID, url: "https://www.threads.com/" } as chrome.tabs.Tab
+  }), false);
+});
+
 function readStorageKeys(keys: string | string[] | Record<string, unknown> | null | undefined, state: StorageState): StorageState {
   if (keys == null) {
     return structuredClone(state);

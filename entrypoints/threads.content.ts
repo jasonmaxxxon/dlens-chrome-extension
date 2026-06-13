@@ -4,7 +4,7 @@ import { defineContentScript } from "wxt/utils/define-content-script";
 import { buildTargetDescriptor, canSubmitDescriptor, findCardCandidate, type CandidateStrength } from "../src/targeting/threads";
 import { createLocationChangeChecker, HOVER_INTENT_DELAY_MS } from "../src/targeting/navigation-reset";
 import type { ExtensionMessage, ExtensionResponse } from "../src/state/messages";
-import { createPipelineRequestId, emitPipelineEvent } from "../src/state/pipeline-trace";
+import { appendExternalPipelineTraceEntry, createPipelineRequestId, emitPipelineEvent, isQaTraceEnabled } from "../src/state/pipeline-trace";
 import type { FolderMode } from "../src/state/types";
 import {
   buildSelectionModeMessage,
@@ -25,7 +25,7 @@ import {
 
 const OVERLAY_ID = "__dlens_extension_v0_overlay__";
 const ROOT_ID = "__dlens_extension_v0_root__";
-const QA_TRACE_VERSION = "run14-url-trace-v1";
+const QA_TRACE_VERSION = "full-live-trace-v2";
 
 let selectionMode = false;
 let hoverCard: HTMLElement | null = null;
@@ -636,6 +636,15 @@ function dropKeepAlive() {
   }
 }
 
+function enableBackgroundPipelineTraceMirror(): void {
+  if (!isQaTraceEnabled()) {
+    return;
+  }
+  void chrome.runtime
+    .sendMessage({ type: "pipeline-trace/enable-background" } satisfies ExtensionMessage)
+    .catch(() => undefined);
+}
+
 export default defineContentScript({
   matches: ["*://*.threads.net/*", "*://*.threads.com/*"],
   main() {
@@ -668,6 +677,7 @@ export default defineContentScript({
 
     reactRoot.render(React.createElement(InPageCollectorApp));
     syncSelectionModeFromSnapshot();
+    enableBackgroundPipelineTraceMirror();
 
     chrome.runtime.onMessage.addListener((message: ExtensionMessage, _sender, sendResponse) => {
       void (async () => {
@@ -678,6 +688,10 @@ export default defineContentScript({
             return;
           case "selection/cancel-tab":
             stopSelectionMode("remote-sync");
+            sendResponse({ ok: true } satisfies ExtensionResponse);
+            return;
+          case "pipeline-trace/background-event":
+            appendExternalPipelineTraceEntry(message.event);
             sendResponse({ ok: true } satisfies ExtensionResponse);
             return;
           default:

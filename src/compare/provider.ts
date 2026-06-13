@@ -61,6 +61,7 @@ import {
 } from "./topic-audit-prompts.ts";
 import type { PrCampaign, PrCriteriaMatches, PrEvidenceRow } from "../state/pr-evidence-storage.ts";
 import type { JudgmentResult, ProductProfile, ProductSignalAnalysis, SignalTagsRecord, TopicSignalReading } from "../state/types.ts";
+import { createPipelineRequestId, emitPipelineEvent } from "../state/pipeline-trace.ts";
 
 export const COMPARE_BRIEF_PROMPT_VERSION = "v8";
 export const COMPARE_ONE_LINER_PROMPT_VERSION = "v2";
@@ -81,12 +82,43 @@ function isRetryableStatus(status: number): boolean {
   return status === 408 || status === 429 || status >= 500;
 }
 
+function readRequestMethod(init: RequestInit): string {
+  return String(init.method || "GET").toUpperCase();
+}
+
+function readRequestHost(input: string): string {
+  try {
+    return new URL(input).host;
+  } catch {
+    return "unknown";
+  }
+}
+
 export async function fetchWithRetry(label: string, input: string, init: RequestInit): Promise<Response> {
   let lastError: Error | null = null;
+  const method = readRequestMethod(init);
+  const host = readRequestHost(input);
+  const requestId = createPipelineRequestId(`direct-llm.${label}`);
 
   for (let attempt = 0; attempt <= PROVIDER_MAX_RETRIES; attempt += 1) {
+    const attemptNumber = attempt + 1;
     const controller = new AbortController();
     const timeoutHandle = setTimeout(() => controller.abort(), PROVIDER_TIMEOUT_MS);
+    emitPipelineEvent({
+      phase: "llm.call",
+      step: `direct-llm.${label}.request`,
+      target: {},
+      result: "pending",
+      requestId,
+      detail: {
+        provider: label,
+        method,
+        host,
+        attempt: attemptNumber,
+        maxRetries: PROVIDER_MAX_RETRIES,
+        timeoutMs: PROVIDER_TIMEOUT_MS
+      }
+    });
     try {
       const response = await fetch(input, {
         ...init,
@@ -94,9 +126,44 @@ export async function fetchWithRetry(label: string, input: string, init: Request
       });
       clearTimeout(timeoutHandle);
       if (response.ok || !isRetryableStatus(response.status) || attempt === PROVIDER_MAX_RETRIES) {
+        emitPipelineEvent({
+          phase: "llm.call",
+          step: `direct-llm.${label}.response`,
+          target: {},
+          result: response.ok ? "ok" : "error",
+          requestId,
+          detail: {
+            provider: label,
+            method,
+            host,
+            status: response.status,
+            ok: response.ok,
+            attempt: attemptNumber,
+            maxRetries: PROVIDER_MAX_RETRIES,
+            timeoutMs: PROVIDER_TIMEOUT_MS
+          }
+        });
         return response;
       }
       lastError = new Error(`${label} ${response.status}: transient upstream failure`);
+      emitPipelineEvent({
+        phase: "llm.call",
+        step: `direct-llm.${label}.response`,
+        target: {},
+        result: "pending",
+        requestId,
+        detail: {
+          provider: label,
+          method,
+          host,
+          status: response.status,
+          ok: false,
+          retrying: true,
+          attempt: attemptNumber,
+          maxRetries: PROVIDER_MAX_RETRIES,
+          timeoutMs: PROVIDER_TIMEOUT_MS
+        }
+      });
     } catch (error) {
       clearTimeout(timeoutHandle);
       if ((error as Error)?.name === "AbortError") {
@@ -104,6 +171,24 @@ export async function fetchWithRetry(label: string, input: string, init: Request
       } else {
         lastError = error instanceof Error ? error : new Error(String(error));
       }
+      emitPipelineEvent({
+        phase: "llm.call",
+        step: `direct-llm.${label}.response`,
+        target: {},
+        result: attempt < PROVIDER_MAX_RETRIES ? "pending" : "error",
+        requestId,
+        detail: {
+          provider: label,
+          method,
+          host,
+          ok: false,
+          retrying: attempt < PROVIDER_MAX_RETRIES,
+          error: lastError.message,
+          attempt: attemptNumber,
+          maxRetries: PROVIDER_MAX_RETRIES,
+          timeoutMs: PROVIDER_TIMEOUT_MS
+        }
+      });
     }
 
     if (attempt < PROVIDER_MAX_RETRIES) {

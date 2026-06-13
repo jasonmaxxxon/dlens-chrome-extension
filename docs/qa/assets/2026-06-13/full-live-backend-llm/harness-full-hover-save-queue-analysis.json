@@ -1,0 +1,620 @@
+{
+  "generatedAt": "2026-06-13T03:36:04.676Z",
+  "type": "dlens-live-pipeline-harness",
+  "status": "pass",
+  "label": "full-hover-save-queue-analysis-backend-llm",
+  "build": {
+    "skipped": true
+  },
+  "traceSource": {
+    "mode": "trace-file",
+    "traceFile": "docs/qa/assets/2026-06-13/full-live-backend-llm/live-trace-full-hover-save-queue-analysis.json"
+  },
+  "trace": {
+    "eventCount": 900,
+    "firstAt": 2079.2,
+    "lastAt": 213871.6,
+    "durationMs": 211792.4
+  },
+  "assertions": {
+    "requiredPhases": {
+      "required": [
+        "hover.detected",
+        "preview.confirmed",
+        "signal.saved",
+        "backend.request",
+        "crawl.queued",
+        "capture.ready",
+        "llm.call",
+        "analysis.ready",
+        "ui.ready"
+      ],
+      "missing": [],
+      "reached": true
+    },
+    "terminalUiReady": {
+      "requiredPhase": "ui.ready",
+      "reached": true,
+      "eventId": 2,
+      "step": "popup.topic.hydrate.skip"
+    },
+    "noPipelineError": {
+      "ok": true,
+      "firstError": null
+    }
+  },
+  "summary": {
+    "generatedAt": "2026-06-13T03:36:04.656Z",
+    "type": "dlens-qa-trace-summary",
+    "status": "pass",
+    "label": "full-hover-save-queue-analysis-backend-llm",
+    "traceFile": "docs/qa/assets/2026-06-13/full-live-backend-llm/live-trace-full-hover-save-queue-analysis.json",
+    "eventCount": 900,
+    "firstAt": 2079.2,
+    "lastAt": 213871.6,
+    "firstIsoTime": "2026-06-13T03:32:13.018Z",
+    "lastIsoTime": "2026-06-13T03:35:44.808Z",
+    "durationMs": 211792.4,
+    "eventCounts": {
+      "analysis.ready:popup.product.analyze.request": 1,
+      "analysis.ready:popup.product.analyze.response": 1,
+      "backend.request:backend.capture-target.request": 1,
+      "backend.request:backend.capture-target.response": 1,
+      "backend.request:backend.capture.request": 14,
+      "backend.request:backend.capture.response": 12,
+      "backend.request:backend.job.request": 14,
+      "backend.request:backend.job.response": 12,
+      "backend.request:backend.worker-drain.request": 1,
+      "backend.request:backend.worker-drain.response": 1,
+      "backend.request:backend.worker-status.request": 124,
+      "backend.request:backend.worker-status.response": 121,
+      "capture.ready:background.session.refresh-all.request": 23,
+      "capture.ready:background.session.refresh-all.response": 4,
+      "capture.ready:popup.worker.refresh.request": 22,
+      "capture.ready:popup.worker.refresh.response": 3,
+      "crawl.queued:background.worker.get-status.request": 124,
+      "crawl.queued:background.worker.get-status.response": 118,
+      "crawl.queued:popup.worker.next-poll": 23,
+      "crawl.queued:popup.worker.status.request": 126,
+      "crawl.queued:popup.worker.status.response": 45,
+      "hover.detected:content.hover.card-change": 2,
+      "hover.detected:content.hover.intent-fired": 1,
+      "hover.detected:content.hover.publish": 2,
+      "hover.detected:content.overlay.hide": 1,
+      "hover.detected:content.overlay.render": 2,
+      "llm.call:direct-llm.Google.request": 1,
+      "llm.call:direct-llm.Google.response": 1,
+      "preview.confirmed:content.collect.click.capture": 1,
+      "signal.saved:background.session.save-current-preview.request": 1,
+      "signal.saved:background.session.save-current-preview.response": 1,
+      "signal.saved:content.collect.save.request": 1,
+      "signal.saved:content.collect.save.response": 1,
+      "signal.saved:content.selection.start": 1,
+      "signal.saved:content.selection.stop": 1,
+      "signal.saved:content.selection.sync.request": 1,
+      "signal.saved:content.selection.sync.response": 1,
+      "signal.saved:popup.collect.toggle.request": 1,
+      "signal.saved:popup.collect.toggle.response": 1,
+      "ui.ready:popup.product.hydrate.request": 16,
+      "ui.ready:popup.product.hydrate.response": 16,
+      "ui.ready:popup.product.hydrate.skip": 9,
+      "ui.ready:popup.product.vm.empty": 1,
+      "ui.ready:popup.product.vm.loading": 1,
+      "ui.ready:popup.product.vm.ready": 4,
+      "ui.ready:popup.topic.hydrate.request": 18,
+      "ui.ready:popup.topic.hydrate.response": 18,
+      "ui.ready:popup.topic.hydrate.skip": 2,
+      "ui.ready:reconcile.stale-result.ignore": 3
+    },
+    "phaseCounts": {
+      "analysis.ready": 2,
+      "backend.request": 301,
+      "capture.ready": 52,
+      "crawl.queued": 436,
+      "hover.detected": 8,
+      "llm.call": 2,
+      "preview.confirmed": 1,
+      "signal.saved": 10,
+      "ui.ready": 88
+    },
+    "requiredPhases": {
+      "required": [
+        "hover.detected",
+        "preview.confirmed",
+        "signal.saved",
+        "backend.request",
+        "crawl.queued",
+        "capture.ready",
+        "llm.call",
+        "analysis.ready",
+        "ui.ready"
+      ],
+      "missing": [],
+      "reached": true
+    },
+    "terminal": {
+      "requiredPhase": "ui.ready",
+      "reached": true,
+      "eventId": 2,
+      "step": "popup.topic.hydrate.skip",
+      "result": "ok",
+      "at": 2116.5,
+      "target": {}
+    },
+    "firstError": null,
+    "phaseJourney": [
+      {
+        "phase": "signal.saved",
+        "eventId": 1,
+        "step": "content.selection.sync.request",
+        "result": "pending",
+        "at": 2079.2,
+        "isoTime": "2026-06-13T03:32:13.018Z",
+        "target": {},
+        "requestId": null
+      },
+      {
+        "phase": "ui.ready",
+        "eventId": 2,
+        "step": "popup.topic.hydrate.skip",
+        "result": "ok",
+        "at": 2116.5,
+        "isoTime": "2026-06-13T03:32:13.056Z",
+        "target": {},
+        "requestId": null
+      },
+      {
+        "phase": "crawl.queued",
+        "eventId": 8,
+        "step": "popup.worker.status.request",
+        "result": "pending",
+        "at": 22280.4,
+        "isoTime": "2026-06-13T03:32:33.219Z",
+        "target": {
+          "sessionId": "session_ywskiblc_mp6p013z"
+        },
+        "requestId": "popup-worker-status-mqbsuz43-2"
+      },
+      {
+        "phase": "capture.ready",
+        "eventId": 14,
+        "step": "background.session.refresh-all.request",
+        "result": "pending",
+        "at": 2373594.8,
+        "isoTime": "2026-06-13T03:32:33.273Z",
+        "target": {
+          "sessionId": "session_ywskiblc_mp6p013z",
+          "tabId": 203544769
+        },
+        "requestId": "ui-session-refresh-all-mqbsuz44-3"
+      },
+      {
+        "phase": "backend.request",
+        "eventId": 15,
+        "step": "backend.worker-status.response",
+        "result": "ok",
+        "at": 2373600,
+        "isoTime": "2026-06-13T03:32:33.279Z",
+        "target": {},
+        "requestId": "backend.worker-status-mqbsuz5j-2n4"
+      },
+      {
+        "phase": "hover.detected",
+        "eventId": 124,
+        "step": "content.overlay.render",
+        "result": "ok",
+        "at": 70882.9,
+        "isoTime": "2026-06-13T03:33:21.821Z",
+        "target": {},
+        "requestId": null
+      },
+      {
+        "phase": "preview.confirmed",
+        "eventId": 147,
+        "step": "content.collect.click.capture",
+        "result": "ok",
+        "at": 71860,
+        "isoTime": "2026-06-13T03:33:22.798Z",
+        "target": {},
+        "requestId": null
+      },
+      {
+        "phase": "analysis.ready",
+        "eventId": 344,
+        "step": "popup.product.analyze.request",
+        "result": "pending",
+        "at": 125078.8,
+        "isoTime": "2026-06-13T03:34:16.017Z",
+        "target": {
+          "sessionId": "session_ywskiblc_mp6p013z"
+        },
+        "requestId": "product-analyze-mqbsx6fk-1n"
+      },
+      {
+        "phase": "llm.call",
+        "eventId": 596,
+        "step": "direct-llm.Google.request",
+        "result": "pending",
+        "at": 2517096.5,
+        "isoTime": "2026-06-13T03:34:56.774Z",
+        "target": {},
+        "requestId": "direct-llm.Google-mqbsy1vq-2rr"
+      }
+    ],
+    "phaseTransitions": [
+      {
+        "fromPhase": "signal.saved",
+        "toPhase": "ui.ready",
+        "fromEventId": 1,
+        "toEventId": 2,
+        "latencyMs": 37.3
+      },
+      {
+        "fromPhase": "ui.ready",
+        "toPhase": "crawl.queued",
+        "fromEventId": 2,
+        "toEventId": 8,
+        "latencyMs": 20163.9
+      },
+      {
+        "fromPhase": "crawl.queued",
+        "toPhase": "capture.ready",
+        "fromEventId": 8,
+        "toEventId": 14,
+        "latencyMs": 2351314.4
+      },
+      {
+        "fromPhase": "capture.ready",
+        "toPhase": "backend.request",
+        "fromEventId": 14,
+        "toEventId": 15,
+        "latencyMs": 5.2
+      },
+      {
+        "fromPhase": "backend.request",
+        "toPhase": "hover.detected",
+        "fromEventId": 15,
+        "toEventId": 124,
+        "latencyMs": -2302717.1
+      },
+      {
+        "fromPhase": "hover.detected",
+        "toPhase": "preview.confirmed",
+        "fromEventId": 124,
+        "toEventId": 147,
+        "latencyMs": 977.1
+      },
+      {
+        "fromPhase": "preview.confirmed",
+        "toPhase": "analysis.ready",
+        "fromEventId": 147,
+        "toEventId": 344,
+        "latencyMs": 53218.8
+      },
+      {
+        "fromPhase": "analysis.ready",
+        "toPhase": "llm.call",
+        "fromEventId": 344,
+        "toEventId": 596,
+        "latencyMs": 2392017.7
+      }
+    ],
+    "pairs": [
+      {
+        "label": "collect toggle roundtrip",
+        "startEvent": "popup.collect.toggle.request",
+        "endEvent": "popup.collect.toggle.response",
+        "count": 0,
+        "minMs": null,
+        "p50Ms": null,
+        "p95Ms": null,
+        "maxMs": null,
+        "avgMs": null,
+        "missingEndCount": 0,
+        "missingStarts": [],
+        "samples": []
+      },
+      {
+        "label": "content selection rehydrate",
+        "startEvent": "content.selection.sync.request",
+        "endEvent": "content.selection.sync.response",
+        "count": 0,
+        "minMs": null,
+        "p50Ms": null,
+        "p95Ms": null,
+        "maxMs": null,
+        "avgMs": null,
+        "missingEndCount": 0,
+        "missingStarts": [],
+        "samples": []
+      },
+      {
+        "label": "hover to overlay render",
+        "startEvent": "content.hover.card-change",
+        "endEvent": "content.overlay.render",
+        "count": 0,
+        "minMs": null,
+        "p50Ms": null,
+        "p95Ms": null,
+        "maxMs": null,
+        "avgMs": null,
+        "missingEndCount": 0,
+        "missingStarts": [],
+        "samples": []
+      },
+      {
+        "label": "hover descriptor publish",
+        "startEvent": "content.hover.intent-fired",
+        "endEvent": "content.hover.publish",
+        "count": 0,
+        "minMs": null,
+        "p50Ms": null,
+        "p95Ms": null,
+        "maxMs": null,
+        "avgMs": null,
+        "missingEndCount": 0,
+        "missingStarts": [],
+        "samples": []
+      },
+      {
+        "label": "collect click to save response",
+        "startEvent": "content.collect.click.capture",
+        "endEvent": "content.collect.save.response",
+        "count": 0,
+        "minMs": null,
+        "p50Ms": null,
+        "p95Ms": null,
+        "maxMs": null,
+        "avgMs": null,
+        "missingEndCount": 0,
+        "missingStarts": [],
+        "samples": []
+      },
+      {
+        "label": "topic/signal hydration",
+        "startEvent": "popup.topic.hydrate.request",
+        "endEvent": "popup.topic.hydrate.response",
+        "count": 0,
+        "minMs": null,
+        "p50Ms": null,
+        "p95Ms": null,
+        "maxMs": null,
+        "avgMs": null,
+        "missingEndCount": 0,
+        "missingStarts": [],
+        "samples": []
+      },
+      {
+        "label": "product hydration",
+        "startEvent": "popup.product.hydrate.request",
+        "endEvent": "popup.product.hydrate.response",
+        "count": 0,
+        "minMs": null,
+        "p50Ms": null,
+        "p95Ms": null,
+        "maxMs": null,
+        "avgMs": null,
+        "missingEndCount": 0,
+        "missingStarts": [],
+        "samples": []
+      },
+      {
+        "label": "product analyze",
+        "startEvent": "popup.product.analyze.request",
+        "endEvent": "popup.product.analyze.response",
+        "count": 0,
+        "minMs": null,
+        "p50Ms": null,
+        "p95Ms": null,
+        "maxMs": null,
+        "avgMs": null,
+        "missingEndCount": 0,
+        "missingStarts": [],
+        "samples": []
+      },
+      {
+        "label": "worker status poll",
+        "startEvent": "popup.worker.status.request",
+        "endEvent": "popup.worker.status.response",
+        "count": 0,
+        "minMs": null,
+        "p50Ms": null,
+        "p95Ms": null,
+        "maxMs": null,
+        "avgMs": null,
+        "missingEndCount": 0,
+        "missingStarts": [],
+        "samples": []
+      },
+      {
+        "label": "worker refresh",
+        "startEvent": "popup.worker.refresh.request",
+        "endEvent": "popup.worker.refresh.response",
+        "count": 0,
+        "minMs": null,
+        "p50Ms": null,
+        "p95Ms": null,
+        "maxMs": null,
+        "avgMs": null,
+        "missingEndCount": 0,
+        "missingStarts": [],
+        "samples": []
+      },
+      {
+        "label": "worker error backoff",
+        "startEvent": "popup.worker.status.error",
+        "endEvent": "popup.worker.next-poll",
+        "count": 0,
+        "minMs": null,
+        "p50Ms": null,
+        "p95Ms": null,
+        "maxMs": null,
+        "avgMs": null,
+        "missingEndCount": 0,
+        "missingStarts": [],
+        "samples": []
+      }
+    ],
+    "slowestGaps": [
+      {
+        "fromEvent": "crawl.queued:popup.worker.next-poll",
+        "toEvent": "backend.request:backend.job.response",
+        "fromId": 886,
+        "toId": 887,
+        "gapMs": 2352160.9,
+        "fromDetail": {
+          "delayMs": 12000,
+          "workerStatus": "idle",
+          "failureCount": 0
+        },
+        "toDetail": {
+          "method": "GET",
+          "path": "/jobs/01871891-dd65-4574-b492-f472d88a1d33",
+          "status": 200,
+          "ok": true
+        }
+      },
+      {
+        "fromEvent": "crawl.queued:popup.worker.next-poll",
+        "toEvent": "backend.request:backend.job.response",
+        "fromId": 851,
+        "toId": 852,
+        "gapMs": 2352107.5,
+        "fromDetail": {
+          "delayMs": 12000,
+          "workerStatus": "idle",
+          "failureCount": 0
+        },
+        "toDetail": {
+          "method": "GET",
+          "path": "/jobs/01871891-dd65-4574-b492-f472d88a1d33",
+          "status": 200,
+          "ok": true
+        }
+      },
+      {
+        "fromEvent": "crawl.queued:popup.worker.next-poll",
+        "toEvent": "signal.saved:background.session.save-current-preview.response",
+        "fromId": 170,
+        "toId": 171,
+        "gapMs": 2351815.7,
+        "fromDetail": {
+          "delayMs": 12000,
+          "workerStatus": "idle",
+          "failureCount": 0
+        },
+        "toDetail": {
+          "itemId": "item_vonmzeep_mqbsw1o0"
+        }
+      },
+      {
+        "fromEvent": "crawl.queued:popup.worker.status.request",
+        "toEvent": "crawl.queued:background.worker.get-status.request",
+        "fromId": 236,
+        "toId": 237,
+        "gapMs": 2351573.8,
+        "fromDetail": {
+          "hasInflight": false,
+          "failureCount": 0
+        },
+        "toDetail": null
+      },
+      {
+        "fromEvent": "crawl.queued:popup.worker.status.request",
+        "toEvent": "crawl.queued:background.worker.get-status.request",
+        "fromId": 368,
+        "toId": 370,
+        "gapMs": 2351547.4,
+        "fromDetail": {
+          "hasInflight": true,
+          "failureCount": 0
+        },
+        "toDetail": null
+      },
+      {
+        "fromEvent": "crawl.queued:popup.worker.status.request",
+        "toEvent": "crawl.queued:background.worker.get-status.request",
+        "fromId": 267,
+        "toId": 269,
+        "gapMs": 2351539.7,
+        "fromDetail": {
+          "hasInflight": false,
+          "failureCount": 0
+        },
+        "toDetail": null
+      },
+      {
+        "fromEvent": "crawl.queued:popup.worker.status.request",
+        "toEvent": "crawl.queued:background.worker.get-status.request",
+        "fromId": 515,
+        "toId": 516,
+        "gapMs": 2351486.2,
+        "fromDetail": {
+          "hasInflight": true,
+          "failureCount": 0
+        },
+        "toDetail": null
+      },
+      {
+        "fromEvent": "crawl.queued:popup.worker.status.request",
+        "toEvent": "crawl.queued:background.worker.get-status.request",
+        "fromId": 346,
+        "toId": 347,
+        "gapMs": 2351474.1,
+        "fromDetail": {
+          "hasInflight": false,
+          "failureCount": 0
+        },
+        "toDetail": null
+      },
+      {
+        "fromEvent": "crawl.queued:popup.worker.status.request",
+        "toEvent": "crawl.queued:background.worker.get-status.request",
+        "fromId": 637,
+        "toId": 638,
+        "gapMs": 2351465.6,
+        "fromDetail": {
+          "hasInflight": false,
+          "failureCount": 0
+        },
+        "toDetail": null
+      },
+      {
+        "fromEvent": "crawl.queued:popup.worker.status.request",
+        "toEvent": "crawl.queued:background.worker.get-status.request",
+        "fromId": 863,
+        "toId": 864,
+        "gapMs": 2351460.3,
+        "fromDetail": {
+          "hasInflight": false,
+          "failureCount": 0
+        },
+        "toDetail": null
+      },
+      {
+        "fromEvent": "crawl.queued:popup.worker.status.request",
+        "toEvent": "crawl.queued:background.worker.get-status.request",
+        "fromId": 838,
+        "toId": 839,
+        "gapMs": 2351450.1,
+        "fromDetail": {
+          "hasInflight": false,
+          "failureCount": 0
+        },
+        "toDetail": null
+      },
+      {
+        "fromEvent": "crawl.queued:popup.worker.status.request",
+        "toEvent": "crawl.queued:background.worker.get-status.request",
+        "fromId": 13,
+        "toId": 17,
+        "gapMs": 2351446.2,
+        "fromDetail": {
+          "hasInflight": false,
+          "failureCount": 0
+        },
+        "toDetail": null
+      }
+    ]
+  }
+}

@@ -96,7 +96,7 @@ The verified build in the active Phase B implementation worktree is:
 - old versions and historical worktrees: `local dlens-old archive`
 - verification: `npm run typecheck`, `npx tsx --test tests/*.test.ts tests/*.test.tsx`, and `npm run build`
 - latest merged-code full test count after PR #25: `752 pass, 0 fail`
-- PR #25 merged as `8106c42`; PR #28 merged as `807cfb4`; PR #26 merged as `3faff1b`; version remains `0.1.33`
+- PR #25 merged as `8106c42`; PR #28 merged as `807cfb4`; PR #26 merged as `3faff1b`; PR #27 merged as `10404ed`; version remains `0.1.33`
 - latest build output was mirrored to `output/chrome-mv3`
 - current engineering branch: `main`
 - live backend smoke from the prior product run: `GET http://127.0.0.1:8000/worker/status` returned `{"status":"idle"}`
@@ -110,14 +110,15 @@ The verified build in the active Phase B implementation worktree is:
 - PR #18 merged: Compare ViewModel boundary with readiness/selection, fallback/provenance/load-state, cluster surfaces, and async fetch responsibility kept in the shell.
 - PR #19 merged: PR Evidence campaign/row read ownership lifted to the app shell so Collect and PrEvidenceView consume the same resource.
 - PR #20 merged: PR Evidence ViewModel boundary, typed command descriptors, background-owned campaign id/time stamping, and export/file side effects moved out of the view.
-- PR #21 merged: typed seven-phase pipeline trace stream in `src/state/pipeline-trace.ts`; old production `markQaTrace` strings collapsed into typed events.
+- PR #21 merged: typed pipeline trace stream in `src/state/pipeline-trace.ts`; old production `markQaTrace` strings collapsed into typed events.
 - PR #22 merged: collect/capture requestId trace correlation across content, popup, background save/queue/worker/refresh, and processing coordinator paths. It deliberately does not implement stale-response rejection yet.
 - PR #23 merged: terminal `ui.ready` events now project from Product / Topic / Compare / PR Evidence ViewModel state through the UI shell.
 - PR #24 merged: typed trace summary + live QA harness gate landed; `TRACE` remains 🟡 until backend/direct LLM trace paths and real live trace artifacts are locked.
 - PR #25 merged: `RECONCILE` started with tested stale-result ignore for Compare/Product/Folder/PR UI async response writes plus a narrow session-scoped snapshot guard. Treat it as 🟡 until storage-seam-wide stale write rejection lands.
 - PR #28 merged: adds `docs/qa/assets/2026-06-13/live-trace-happy.json`, `npm run qa:harness:fixture`, and a CI verify step that runs the live pipeline harness against a committed Chrome-captured typed `ui.ready` trace. This locks popup rehydrate / `ui.ready` terminal reachability only; backend/direct LLM trace and a full hover → queue → analysis live artifact remain pending.
 - PR #26 merged: mirrors the request reconciler into the background snapshot save seam for `session/refresh-all` and `session/queue-items-and-start-processing`; stale capture/queue responses now skip snapshot storage writes and `state/updated` broadcasts.
-- Current stacked RECONCILE direct-key branch guards known stale-sensitive direct storage-key write lanes with the same reconciler: Folder synthesis generate/clear, Product analyze/synthesize/review writes, and PR criteria/advanced-metrics writes. It adds behavioral stale direct-key regression tests for `pr/fetch-advanced-metrics` and in-flight `pr/match-criteria` supersession. `RECONCILE` still stays 🟡 because this is targeted lane coverage, not a repo-wide raw storage bypass rule.
+- PR #27 merged: guards known stale-sensitive direct storage-key write lanes with the same reconciler: Folder synthesis generate/clear, Product analyze/synthesize/review writes, and PR criteria/advanced-metrics writes. It adds behavioral stale direct-key regression tests for `pr/fetch-advanced-metrics` and in-flight `pr/match-criteria` supersession. `RECONCILE` still stays 🟡 because this is targeted lane coverage, not a repo-wide raw storage bypass rule.
+- Current TRACE full-live branch: expands the trace spine with `backend.request` and `llm.call`, instruments ingest backend HTTP calls and direct provider HTTP calls, mirrors service-worker trace entries back into the active QA Threads page, and adds `--require-phases` to the summary/harness gate. Jason-profile full live QA captured `docs/qa/assets/2026-06-13/full-live-backend-llm/live-trace-full-hover-save-queue-analysis.json` (hover → save → queue → backend capture → direct Google LLM → Product analysis, 900 events, no pipeline errors). The full-phase harness is wired into `npm run qa:harness:fixture` and CI, so `TRACE` moves to 🟩 when PR #29 lands.
 
 ## PR Evidence V1 Contract State
 
@@ -263,7 +264,7 @@ RAG remains intentionally out of V1. The accepted V1 design is:
 1. Backend P0: refine `ThreadReadModel` OP continuation splitting and remove root duplication.
 2. Chrome QA: reload `output/chrome-mv3` and walk Product Settings -> Collect -> crawl -> Product insights, Compare Parallel/Chapters, Topic Console/Stack, then PR Evidence campaign setup -> PDF upload -> Generate criteria -> Collect -> Match criteria -> CSV export -> summary MD/DOCX export.
 3. UI cleanup: verify topic mode green theme everywhere, product mode does not show folder concept, PR Evidence keeps the compact ledger grammar, and popup spacing/mode/layout switching stay fixed.
-4. TRACE last mile: capture one real happy-path live trace fixture and wire `qa:harness:fixture` into CI so `ui.ready` is checked against actual pipeline output. Keep TRACE 🟡 because backend/direct LLM trace integration is still incomplete.
+4. TRACE is locked by the full live backend/LLM fixture gate once PR #29 lands; the remaining trace follow-up is performance investigation, not spine coverage.
 5. Background split: move product/topic/PR handlers out of `entrypoints/background.ts` before adding digest/watch-mode work.
 6. Phase C later: signal digest / watch mode / recurring intelligence. Do not start there before backend read-model quality is fixed.
 

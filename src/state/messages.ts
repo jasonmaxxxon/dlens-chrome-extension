@@ -34,6 +34,7 @@ import type { CrossTopicCalibration, EvidencePacket, TopicAuditReport, TopicAudi
 import type { TopicAuditValidationFlag } from "../compare/topic-audit-validator";
 import type { TopicAuditMemoBundle } from "./topic-audit-storage";
 import type { SaveCurrentPreviewActionTarget, SessionActionTarget, SessionItemActionTarget } from "./action-target";
+import type { PipelineTraceEntry } from "./pipeline-trace";
 
 export type ExtensionMessagePayload =
   | { type: "state/get-active-tab" }
@@ -54,6 +55,8 @@ export type ExtensionMessagePayload =
   | { type: "selection/hovered"; descriptor: TargetDescriptor | null; strength?: HoverCandidateStrength | null }
   | { type: "selection/selected"; descriptor: TargetDescriptor }
   | { type: "selection/mode-changed"; enabled: boolean }
+  | { type: "pipeline-trace/enable-background" }
+  | { type: "pipeline-trace/background-event"; event: PipelineTraceEntry }
   | { type: "session/create"; name: string; saveCurrentPreview?: boolean; mode?: FolderMode; descriptor?: TargetDescriptor }
   | { type: "session/rename"; sessionId: string; name: string }
   | { type: "session/delete"; sessionId: string }

@@ -7,8 +7,10 @@ export const PIPELINE_PHASES = [
   "hover.detected",
   "preview.confirmed",
   "signal.saved",
+  "backend.request",
   "crawl.queued",
   "capture.ready",
+  "llm.call",
   "analysis.ready",
   "ui.ready"
 ];
@@ -36,6 +38,7 @@ export function parseArgs(argv) {
     out: null,
     markdown: null,
     label: null,
+    requirePhases: [],
     requireTerminal: null
   };
   for (let index = 0; index < argv.length; index += 1) {
@@ -48,6 +51,11 @@ export function parseArgs(argv) {
       args.markdown = argv[++index];
     } else if (arg === "--label") {
       args.label = argv[++index];
+    } else if (arg === "--require-phases") {
+      args.requirePhases = String(argv[++index] || "")
+        .split(",")
+        .map((phase) => phase.trim())
+        .filter(Boolean);
     } else if (arg === "--require-terminal") {
       args.requireTerminal = argv[++index];
     } else if (arg === "--help" || arg === "-h") {
@@ -61,7 +69,7 @@ export function parseArgs(argv) {
 
 function printHelp() {
   console.log(`Usage:
-  node scripts/qa-trace-summary.mjs --trace docs/qa/assets/YYYY-MM-DD/runN/trace.json --out docs/qa/assets/YYYY-MM-DD/runN/summary.json --markdown docs/qa/assets/YYYY-MM-DD/runN/summary.md --require-terminal ui.ready
+  node scripts/qa-trace-summary.mjs --trace docs/qa/assets/YYYY-MM-DD/runN/trace.json --out docs/qa/assets/YYYY-MM-DD/runN/summary.json --markdown docs/qa/assets/YYYY-MM-DD/runN/summary.md --require-phases hover.detected,preview.confirmed,signal.saved,backend.request,crawl.queued,capture.ready,llm.call,analysis.ready,ui.ready --require-terminal ui.ready
 
 The trace input is JSON copied from window.__DLENS_QA_TRACE__. The script
 supports the current typed pipeline trace shape {phase, step, target, result}
@@ -78,6 +86,29 @@ function percentile(values, p) {
 
 function roundMs(value) {
   return value == null ? null : Math.round(value * 10) / 10;
+}
+
+function isoTimeMs(entry) {
+  if (!entry?.isoTime) return NaN;
+  return Date.parse(entry.isoTime);
+}
+
+function timeDeltaMs(start, end) {
+  const startIsoMs = isoTimeMs(start);
+  const endIsoMs = isoTimeMs(end);
+  if (Number.isFinite(startIsoMs) && Number.isFinite(endIsoMs)) {
+    return roundMs(endIsoMs - startIsoMs);
+  }
+  return roundMs(end.at - start.at);
+}
+
+function isSameOrAfter(start, candidate) {
+  const startIsoMs = isoTimeMs(start);
+  const candidateIsoMs = isoTimeMs(candidate);
+  if (Number.isFinite(startIsoMs) && Number.isFinite(candidateIsoMs)) {
+    return candidateIsoMs >= startIsoMs;
+  }
+  return candidate.at >= start.at;
 }
 
 function stats(values) {
@@ -155,7 +186,14 @@ export function normalizeTrace(raw) {
       return normalizeTypedEntry(entry, index) ?? normalizeLegacyEntry(entry, index);
     })
     .filter(Boolean)
-    .sort((left, right) => left.at - right.at || left.id - right.id);
+    .sort((left, right) => {
+      const leftIsoMs = left.isoTime ? Date.parse(left.isoTime) : NaN;
+      const rightIsoMs = right.isoTime ? Date.parse(right.isoTime) : NaN;
+      if (Number.isFinite(leftIsoMs) && Number.isFinite(rightIsoMs) && leftIsoMs !== rightIsoMs) {
+        return leftIsoMs - rightIsoMs;
+      }
+      return left.at - right.at || left.id - right.id;
+    });
 }
 
 function summarizeLegacyPairs(trace) {
@@ -166,7 +204,7 @@ function summarizeLegacyPairs(trace) {
     const samples = [];
     const missingStarts = [];
     for (const start of starts) {
-      const end = ends.find((candidate) => candidate.at >= start.at && !usedEndIds.has(candidate.id));
+      const end = ends.find((candidate) => isSameOrAfter(start, candidate) && !usedEndIds.has(candidate.id));
       if (!end) {
         missingStarts.push({
           startId: start.id,
@@ -180,7 +218,7 @@ function summarizeLegacyPairs(trace) {
       samples.push({
         startId: start.id,
         endId: end.id,
-        latencyMs: roundMs(end.at - start.at),
+        latencyMs: timeDeltaMs(start, end),
         startAt: roundMs(start.at),
         endAt: roundMs(end.at),
         startDetail: start.detail,
@@ -209,7 +247,7 @@ function summarizeGaps(trace) {
       toEvent: current.event ?? `${current.phase}:${current.step}`,
       fromId: previous.id,
       toId: current.id,
-      gapMs: roundMs(current.at - previous.at),
+      gapMs: timeDeltaMs(previous, current),
       fromDetail: previous.detail,
       toDetail: current.detail
     });
@@ -259,7 +297,7 @@ function summarizePhaseTransitions(phaseJourney) {
       toPhase: current.phase,
       fromEventId: previous.eventId,
       toEventId: current.eventId,
-      latencyMs: roundMs(current.at - previous.at)
+      latencyMs: timeDeltaMs(previous, current)
     });
   }
   return transitions;
@@ -310,14 +348,38 @@ function summarizeTerminal(trace, requiredPhase) {
   };
 }
 
+function summarizeRequiredPhases(trace, requiredPhases) {
+  const required = [];
+  for (const phase of requiredPhases || []) {
+    if (!PIPELINE_PHASE_SET.has(phase)) {
+      throw new Error(`Unknown required phase: ${phase}`);
+    }
+    if (!required.includes(phase)) {
+      required.push(phase);
+    }
+  }
+  if (!required.length) {
+    return null;
+  }
+  const seen = new Set(trace.map((entry) => entry.phase).filter(Boolean));
+  const missing = required.filter((phase) => !seen.has(phase));
+  return {
+    required,
+    missing,
+    reached: missing.length === 0
+  };
+}
+
 export function buildTraceSummary(trace, options = {}) {
   const first = trace[0] ?? null;
   const last = trace[trace.length - 1] ?? null;
   const phaseJourney = summarizePhaseJourney(trace);
+  const requiredPhases = summarizeRequiredPhases(trace, options.requirePhases ?? []);
   const terminal = summarizeTerminal(trace, options.requireTerminal ?? null);
   const firstError = findFirstError(trace);
+  const missingRequiredPhases = requiredPhases ? requiredPhases.missing.length > 0 : false;
   const missingRequiredTerminal = terminal ? !terminal.reached : false;
-  const status = firstError || missingRequiredTerminal ? "fail" : "pass";
+  const status = firstError || missingRequiredPhases || missingRequiredTerminal ? "fail" : "pass";
 
   return {
     generatedAt: new Date().toISOString(),
@@ -330,9 +392,10 @@ export function buildTraceSummary(trace, options = {}) {
     lastAt: last ? roundMs(last.at) : null,
     firstIsoTime: first?.isoTime ?? null,
     lastIsoTime: last?.isoTime ?? null,
-    durationMs: first && last ? roundMs(last.at - first.at) : null,
+    durationMs: first && last ? timeDeltaMs(first, last) : null,
     eventCounts: countBy(trace, (entry) => entry.event ?? `${entry.phase}:${entry.step}`),
     phaseCounts: countBy(trace, (entry) => entry.phase),
+    requiredPhases,
     terminal,
     firstError,
     phaseJourney,
@@ -354,6 +417,9 @@ export function renderMarkdown(summary) {
   ];
   if (summary.terminal) {
     lines.push(`- Terminal \`${summary.terminal.requiredPhase}\`: ${summary.terminal.reached ? "reached" : "missing"}`);
+  }
+  if (summary.requiredPhases) {
+    lines.push(`- Required phases: ${summary.requiredPhases.reached ? "reached" : `missing ${summary.requiredPhases.missing.join(", ")}`}`);
   }
   if (summary.firstError) {
     lines.push(`- First error: ${summary.firstError.phase ?? summary.firstError.event}:${summary.firstError.step}`);
@@ -417,6 +483,7 @@ async function main() {
   const summary = buildTraceSummary(trace, {
     label: args.label ?? path.basename(args.trace, path.extname(args.trace)),
     traceFile: args.trace,
+    requirePhases: args.requirePhases,
     requireTerminal: args.requireTerminal
   });
 
@@ -432,6 +499,10 @@ async function main() {
 
   if (summary.firstError) {
     console.error(`First pipeline error: ${summary.firstError.phase ?? summary.firstError.event}:${summary.firstError.step}`);
+    process.exit(2);
+  }
+  if (summary.requiredPhases && !summary.requiredPhases.reached) {
+    console.error(`Missing required phases: ${summary.requiredPhases.missing.join(", ")}`);
     process.exit(2);
   }
   if (summary.terminal && !summary.terminal.reached) {
