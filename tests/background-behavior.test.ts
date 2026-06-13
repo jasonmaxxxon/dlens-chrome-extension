@@ -9,6 +9,7 @@ import { SIGNAL_READINGS_STORAGE_KEY } from "../src/compare/signal-reading-stora
 import type { CaptureSnapshot, JobSnapshot } from "../src/contracts/ingest.ts";
 import type { ExtensionMessage, ExtensionResponse } from "../src/state/messages.ts";
 import { readPipelineTrace } from "../src/state/pipeline-trace.ts";
+import { PR_CAMPAIGNS_STORAGE_KEY, PR_EVIDENCE_ROWS_STORAGE_KEY, type PrCampaign, type PrEvidenceRow } from "../src/state/pr-evidence-storage.ts";
 import { createSessionItem } from "../src/state/store-helpers.ts";
 import { SIGNALS_STORAGE_KEY } from "../src/state/topic-storage.ts";
 import { createEmptyGlobalState, createEmptyTabState, type ExtensionGlobalState, type FolderMode, type SessionItem, type SessionRecord, type TabUiState } from "../src/state/types.ts";
@@ -28,6 +29,61 @@ function makeSession(id: string, mode: FolderMode): SessionRecord {
     updatedAt: "2026-05-27T00:00:00.000Z",
     items: []
   };
+}
+
+function makePrCriteria(): PrCampaign["criteria"] {
+  return [
+    { id: "c1", label: "brand" },
+    { id: "c2", label: "event" },
+    { id: "c3", label: "offer" },
+    { id: "c4", label: "engagement" },
+    { id: "c5", label: "sentiment" },
+    { id: "c6", label: "fit" }
+  ];
+}
+
+function makePrCampaign(id: string, sessionId: string): PrCampaign {
+  return {
+    id,
+    sessionId,
+    name: `${id} campaign`,
+    briefText: "campaign brief",
+    criteria: makePrCriteria(),
+    createdAt: "2026-05-27T00:00:00.000Z",
+    updatedAt: "2026-05-27T00:00:00.000Z"
+  };
+}
+
+function makePrEvidenceRow(campaignId: string, itemId: string, postSlug: string): PrEvidenceRow {
+  return {
+    id: `row-${itemId}`,
+    campaignId,
+    itemId,
+    postUrl: `https://www.threads.net/@dlens/post/${postSlug}`,
+    authorHandle: "dlens",
+    caption: `caption ${postSlug}`,
+    metrics: {},
+    expectedEngagement: "",
+    criteriaMatches: {
+      c1: false,
+      c2: false,
+      c3: false,
+      c4: false,
+      c5: false,
+      c6: false
+    },
+    collectedAt: "2026-05-27T00:00:00.000Z"
+  };
+}
+
+function makeGoogleJsonResponse(payload: unknown): Response {
+  return jsonResponse({
+    candidates: [{
+      content: {
+        parts: [{ text: JSON.stringify(payload) }]
+      }
+    }]
+  });
 }
 
 function makeGlobal(sessions: SessionRecord[], activeSessionId: string | null): ExtensionGlobalState {
@@ -825,6 +881,169 @@ test("session/refresh-all ignores stale request writes before storage and broadc
       readPipelineTrace().some((event) =>
         event.step === "reconcile.stale-result.ignore"
         && event.requestId === "refresh-old"
+      ),
+      true
+    );
+  } finally {
+    globalThis.fetch = originalFetch;
+    disablePipelineTraceForTest();
+  }
+});
+
+test("pr/fetch-advanced-metrics ignores stale direct storage-key writes", async () => {
+  enablePipelineTraceForTest();
+  const originalFetch = globalThis.fetch;
+  let releaseOldMetrics: ((response: Response) => void) | null = null;
+  const oldMetricsResponse = new Promise<Response>((resolve) => {
+    releaseOldMetrics = resolve;
+  });
+
+  try {
+    const prSession = makeSession("pr-session", "pr-evidence");
+    const campaign = makePrCampaign("campaign-1", prSession.id);
+    const row = makePrEvidenceRow(campaign.id, "item-1", "shared");
+    const tabKey = backgroundTestables.tabStorageKey(TAB_ID);
+    const fetchCalls: string[] = [];
+    globalThis.fetch = (async (input: RequestInfo | URL, init?: RequestInit) => {
+      const body = typeof init?.body === "string" ? JSON.parse(init.body) as { post_url?: string } : {};
+      fetchCalls.push(`${String(input)} ${body.post_url ?? ""}`);
+      if (fetchCalls.length === 1) {
+        return oldMetricsResponse;
+      }
+      return jsonResponse({
+        post_url: row.postUrl,
+        metrics: { views: 200 },
+        fetched_at: "2026-05-27T00:00:20.000Z"
+      });
+    }) as typeof fetch;
+
+    const harness = await createHarness({
+      [backgroundTestables.GLOBAL_STORAGE_KEY]: makeGlobal([prSession], prSession.id),
+      [backgroundTestables.ACTIVE_SESSION_ID_STORAGE_KEY]: prSession.id,
+      [PR_CAMPAIGNS_STORAGE_KEY]: [campaign],
+      [PR_EVIDENCE_ROWS_STORAGE_KEY]: [row],
+      [tabKey]: createEmptyTabState()
+    });
+
+    const oldResponsePromise = harness.dispatch({
+      type: "pr/fetch-advanced-metrics",
+      requestId: "metrics-old",
+      campaignId: campaign.id
+    } as ExtensionMessage);
+    await waitFor(() => fetchCalls.length === 1, "old metrics fetch");
+
+    const newResponsePromise = harness.dispatch({
+      type: "pr/fetch-advanced-metrics",
+      requestId: "metrics-new",
+      campaignId: campaign.id
+    } as ExtensionMessage);
+    await waitFor(() => fetchCalls.length === 2, "new metrics fetch");
+    const newResponse = await newResponsePromise;
+
+    assert.notEqual(releaseOldMetrics, null);
+    releaseOldMetrics?.(jsonResponse({
+      post_url: row.postUrl,
+      metrics: { views: 100 },
+      fetched_at: "2026-05-27T00:00:10.000Z"
+    }));
+    const oldResponse = await oldResponsePromise;
+
+    assert.equal(oldResponse.ok, true);
+    assert.equal(newResponse.ok, true);
+    const storedRows = harness.state[PR_EVIDENCE_ROWS_STORAGE_KEY] as PrEvidenceRow[];
+    assert.equal(storedRows.find((entry) => entry.id === row.id)?.metrics.views, 200);
+    assert.equal(storedRows.find((entry) => entry.id === row.id)?.advancedMetricsFetchedAt, "2026-05-27T00:00:20.000Z");
+    assert.equal(harness.writes.filter((keys) => keys.includes(PR_EVIDENCE_ROWS_STORAGE_KEY)).length, 1);
+    assert.equal(
+      readPipelineTrace().some((event) =>
+        event.step === "reconcile.stale-result.ignore"
+        && event.requestId === "metrics-old"
+      ),
+      true
+    );
+  } finally {
+    globalThis.fetch = originalFetch;
+    disablePipelineTraceForTest();
+  }
+});
+
+test("pr/match-criteria starts a fresh write when a newer request supersedes in-flight work", async () => {
+  enablePipelineTraceForTest();
+  const originalFetch = globalThis.fetch;
+  let releaseOldMatch: ((response: Response) => void) | null = null;
+  const oldMatchResponse = new Promise<Response>((resolve) => {
+    releaseOldMatch = resolve;
+  });
+
+  try {
+    const prSession = makeSession("pr-session", "pr-evidence");
+    const campaign = makePrCampaign("campaign-1", prSession.id);
+    const row = makePrEvidenceRow(campaign.id, "item-1", "shared");
+    const tabKey = backgroundTestables.tabStorageKey(TAB_ID);
+    const fetchCalls: string[] = [];
+    globalThis.fetch = (async (input: RequestInfo | URL) => {
+      fetchCalls.push(String(input));
+      if (fetchCalls.length === 1) {
+        return oldMatchResponse;
+      }
+      return makeGoogleJsonResponse({
+        rows: [{
+          row_id: row.id,
+          matches: { c1: false, c2: true, c3: false, c4: false, c5: false, c6: false }
+        }]
+      });
+    }) as typeof fetch;
+
+    const global = makeGlobal([prSession], prSession.id);
+    const harness = await createHarness({
+      [backgroundTestables.GLOBAL_STORAGE_KEY]: {
+        ...global,
+        settings: {
+          ...global.settings,
+          oneLinerProvider: "google",
+          googleApiKey: "test-google-key"
+        }
+      },
+      [backgroundTestables.ACTIVE_SESSION_ID_STORAGE_KEY]: prSession.id,
+      [PR_CAMPAIGNS_STORAGE_KEY]: [campaign],
+      [PR_EVIDENCE_ROWS_STORAGE_KEY]: [row],
+      [tabKey]: createEmptyTabState()
+    });
+
+    const oldResponsePromise = harness.dispatch({
+      type: "pr/match-criteria",
+      requestId: "match-old",
+      campaignId: campaign.id
+    } as ExtensionMessage);
+    await waitFor(() => fetchCalls.length === 1, "old criteria match fetch");
+
+    const newResponsePromise = harness.dispatch({
+      type: "pr/match-criteria",
+      requestId: "match-new",
+      campaignId: campaign.id
+    } as ExtensionMessage);
+    await waitFor(() => fetchCalls.length === 2, "new criteria match fetch");
+    const newResponse = await newResponsePromise;
+
+    assert.notEqual(releaseOldMatch, null);
+    releaseOldMatch?.(makeGoogleJsonResponse({
+      rows: [{
+        row_id: row.id,
+        matches: { c1: true, c2: false, c3: false, c4: false, c5: false, c6: false }
+      }]
+    }));
+    const oldResponse = await oldResponsePromise;
+
+    assert.equal(oldResponse.ok, true);
+    assert.equal(newResponse.ok, true);
+    const storedRows = harness.state[PR_EVIDENCE_ROWS_STORAGE_KEY] as PrEvidenceRow[];
+    assert.equal(storedRows.find((entry) => entry.id === row.id)?.criteriaMatches.c1, false);
+    assert.equal(storedRows.find((entry) => entry.id === row.id)?.criteriaMatches.c2, true);
+    assert.equal(harness.writes.filter((keys) => keys.includes(PR_EVIDENCE_ROWS_STORAGE_KEY)).length, 1);
+    assert.equal(
+      readPipelineTrace().some((event) =>
+        event.step === "reconcile.stale-result.ignore"
+        && event.requestId === "match-old"
       ),
       true
     );
