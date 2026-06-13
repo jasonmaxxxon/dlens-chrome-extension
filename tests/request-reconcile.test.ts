@@ -41,6 +41,34 @@ test("request reconciler accepts the latest response for the same lane and targe
   );
 });
 
+test("request reconciler can check the latest request repeatedly without consuming it", () => {
+  const reconciler = createRequestReconciler();
+  const token = reconciler.begin({
+    lane: "background.session.refresh-all",
+    requestId: "request-1",
+    target: { sessionId: "session-1", tabId: 1 }
+  });
+
+  assert.deepEqual(
+    reconciler.check(token, {
+      currentTarget: { sessionId: "session-1", tabId: 1 }
+    }),
+    { accepted: true }
+  );
+  assert.deepEqual(
+    reconciler.check(token, {
+      currentTarget: { sessionId: "session-1", tabId: 1 }
+    }),
+    { accepted: true }
+  );
+  assert.deepEqual(
+    reconciler.complete(token, {
+      currentTarget: { sessionId: "session-1", tabId: 1 }
+    }),
+    { accepted: true }
+  );
+});
+
 test("request reconciler rejects an older response after a newer request starts in the same lane", () => {
   const reconciler = createRequestReconciler();
   const stale = reconciler.begin({
@@ -138,4 +166,11 @@ test("reconcile guard is wired into current async response write paths", () => {
     assert.match(appState, new RegExp(lane.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")));
   }
   assert.match(appState, /settleReconciledResponse\(token/);
+
+  const background = readRepoFile("entrypoints/background.ts");
+  assert.match(background, /beginBackgroundSnapshotReconcile/);
+  assert.match(background, /shouldPersistSnapshot/);
+  assert.match(background, /reconcileToken/);
+  assert.match(background, /background\.session\.refresh-all/);
+  assert.match(background, /background\.session\.queue-items-and-start-processing/);
 });

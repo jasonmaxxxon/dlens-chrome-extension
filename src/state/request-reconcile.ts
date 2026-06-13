@@ -29,6 +29,12 @@ interface CompleteRequestOptions {
   currentTarget?: RequestReconcileTarget | null;
 }
 
+interface EvaluateRequestInput {
+  latest: RequestReconcileToken | null;
+  token: RequestReconcileToken;
+  options: CompleteRequestOptions;
+}
+
 function normalizeLane(lane: string): string {
   return lane.trim() || "request";
 }
@@ -67,6 +73,37 @@ function toPipelineTarget(target: RequestReconcileTarget): PipelineTarget {
   return pipelineTarget;
 }
 
+function evaluateRequest({
+  latest,
+  token,
+  options
+}: EvaluateRequestInput): RequestReconcileDecision {
+  if (!latest || latest.requestId !== token.requestId || latest.targetKey !== token.targetKey) {
+    return {
+      accepted: false,
+      reason: "stale-request",
+      expectedTargetKey: token.targetKey,
+      currentTargetKey: options.currentTarget === undefined ? null : buildRequestReconcileTargetKey(options.currentTarget ?? {}),
+      latestRequestId: latest?.requestId ?? null
+    };
+  }
+
+  if (options.currentTarget !== undefined) {
+    const currentTargetKey = buildRequestReconcileTargetKey(options.currentTarget ?? {});
+    if (currentTargetKey !== token.targetKey) {
+      return {
+        accepted: false,
+        reason: "target-mismatch",
+        expectedTargetKey: token.targetKey,
+        currentTargetKey,
+        latestRequestId: null
+      };
+    }
+  }
+
+  return { accepted: true };
+}
+
 export function createRequestReconciler() {
   const latestByLane = new Map<string, RequestReconcileToken>();
 
@@ -82,34 +119,28 @@ export function createRequestReconciler() {
       return token;
     },
 
+    check(token: RequestReconcileToken, options: CompleteRequestOptions = {}): RequestReconcileDecision {
+      return evaluateRequest({
+        latest: latestByLane.get(token.lane) ?? null,
+        token,
+        options
+      });
+    },
+
     complete(token: RequestReconcileToken, options: CompleteRequestOptions = {}): RequestReconcileDecision {
-      const latest = latestByLane.get(token.lane) ?? null;
-      if (!latest || latest.requestId !== token.requestId || latest.targetKey !== token.targetKey) {
-        return {
-          accepted: false,
-          reason: "stale-request",
-          expectedTargetKey: token.targetKey,
-          currentTargetKey: options.currentTarget === undefined ? null : buildRequestReconcileTargetKey(options.currentTarget ?? {}),
-          latestRequestId: latest?.requestId ?? null
-        };
+      const decision = evaluateRequest({
+        latest: latestByLane.get(token.lane) ?? null,
+        token,
+        options
+      });
+      if (decision.accepted || decision.reason === "target-mismatch") {
+        latestByLane.delete(token.lane);
       }
+      return decision;
+    },
 
-      if (options.currentTarget !== undefined) {
-        const currentTargetKey = buildRequestReconcileTargetKey(options.currentTarget ?? {});
-        if (currentTargetKey !== token.targetKey) {
-          latestByLane.delete(token.lane);
-          return {
-            accepted: false,
-            reason: "target-mismatch",
-            expectedTargetKey: token.targetKey,
-            currentTargetKey,
-            latestRequestId: null
-          };
-        }
-      }
-
-      latestByLane.delete(token.lane);
-      return { accepted: true };
+    reset(): void {
+      latestByLane.clear();
     }
   };
 }
