@@ -1,6 +1,6 @@
 # DLens Current Architecture Map (v0.6 — honest status)
 
-> Last updated: 2026-06-13 · Baseline code: `main` after RECONCILE background snapshot guard / PR #26 @ `3faff1b` (0.1.33). This RECONCILE follow-up extends the background stale-result guard from snapshot writes to known stale-sensitive direct storage-key lanes: Product signal analysis / SignalReading review writes, Folder synthesis writes, and PR criteria / advanced-metrics writes now use the same request reconciler and emit `reconcile.stale-result.ignore` before stale direct-key storage writes can land. `TRACE` still only locks popup rehydrate / `ui.ready` terminal reachability; backend polling, direct LLM calls, and the full hover → queue → analysis live artifact remain pending. `RECONCILE` stays 🟡, not 🟩, because this is targeted async-write coverage, not a repo-wide raw storage bypass ban or backend/direct-LLM trace lock.
+> Last updated: 2026-06-13 · Baseline code: `main` after RECONCILE direct storage-key guard / PR #27 @ `10404ed` (0.1.33). This TRACE full-live branch expands the spine with `backend.request` and `llm.call`, mirrors service-worker trace events back into the active QA page, and lets the harness require the full phase set. A Jason-profile full live hover → save → queue → backend capture → direct Google LLM → Product analysis trace now passes the local full-phase harness at `docs/qa/assets/2026-06-13/full-live-backend-llm/live-trace-full-hover-save-queue-analysis.json`. `RECONCILE` now has UI + snapshot + known direct-key stale guards but stays 🟡 because it is targeted async-write coverage, not a repo-wide raw storage bypass ban. `TRACE` stays 🟡 until this committed full-phase gate passes in CI.
 > **This is the agent handoff map.** Any Codex / ChatGPT / Claude session reads this FIRST. It is the single source of truth for "what is built, what is enforced, what you must not bypass." Status colors must be kept honest (see DoD rule below) — a stale map is worse than none.
 
 ## Legend
@@ -49,7 +49,7 @@ flowchart LR
   end
 
   subgraph OBS["Observability + Product Walls"]
-    TRACE["🟡 Pipeline Spine Trace<br/>slices 1-4 exist, harness gate built<br/>backend/LLM live trace not locked"]
+    TRACE["🟡 Pipeline Spine Trace<br/>full backend/LLM fixture gate pending CI"]
     RECONCILE["🟡 Request reconcile<br/>UI + snapshot + known direct-key guards"]
     BOUNDARY["🟡 Boundary tests<br/>some exists, not complete"]
     SEAM_GUARD["🔴 Seam-only storage write guard<br/>intended, not enforced"]
@@ -85,7 +85,7 @@ flowchart LR
 
   APP -.->|"trace command lifecycle<br/>🟡 partial"| TRACE
   BG -.->|"trace collect/capture stages<br/>🟡 partial"| TRACE
-  API -.->|"trace backend job stages<br/>🔴 not fully wired"| TRACE
+  API -.->|"trace backend HTTP stages<br/>🟡 instrumented, live artifact pending"| TRACE
 
   API -.->|"late backend result<br/>🟡 UI + storage guard partial"| RECONCILE
   OPENAI -.->|"late LLM result<br/>🟡 UI + known direct-key guard partial"| RECONCILE
@@ -138,7 +138,7 @@ This file lives at `docs/architecture/dlens-current-architecture-map.md`. Every 
 - **A2. Storage schema version + migration** → `MIGRATE` 🔴→🟡/🟩. `CURRENT_STORAGE_SCHEMA_VERSION`, migration registry, non-destructive migration, legacy fixture tests.
 - **A3. requestId reconcile / stale-result ignore** → `RECONCILE` 🟡→🟩. Async command carries `requestId`; backend/LLM late result must match current target; stale result ignored, not written. PR #25 added `src/state/request-reconcile.ts`, UI-shell guards for Compare/Product/Folder/PR Evidence async responses, a narrow session-scoped snapshot guard in `sendAndSync`, and tests that reject stale / target-mismatched responses. PR #26 adds a background snapshot save seam guard for `session/refresh-all` and `session/queue-items-and-start-processing` so stale capture/queue results skip storage writes and broadcasts. This stacked follow-up guards known stale-sensitive direct storage-key write lanes: `folder.generateSynthesis`, `folder.clearSynthesis`, `product.analyzeSignals`, `product.synthesizeSignalReading`, `product.reviewSignalReading`, `pr.matchCriteria`, and `pr.fetchAdvancedMetrics`. Do not mark `RECONCILE` 🟩 until raw storage bypass boundaries are enforced more generally and backend/direct-LLM trace coverage catches stale terminal behavior.
 - **A4. Invalidation / rehydrate contract** → `INVALIDATE` 🟡→🟩. Storage write triggers state update; popup rehydrates deterministically; no infinite loading after write.
-- **A5. Backend + direct LLM trace integration** → `TRACE` 🟡→🟩. Trace backend polling + direct LLM calls; record timeout / fallback / provider / provenance. PR #21 typed the event stream; PR #22 threads requestId through collect/capture trace paths; Slice 3 wires terminal VM `ui.ready` events; Slice 4 adds a typed summarizer and `ui.ready` harness gate. This branch adds a fixture-backed CI gate against `docs/qa/assets/2026-06-13/live-trace-happy.json`; keep `TRACE` 🟡 until backend / direct LLM trace paths and a full live hover → queue → analysis artifact pass the terminal gate.
+- **A5. Backend + direct LLM trace integration** → `TRACE` 🟡→🟩. Trace backend polling + direct LLM calls; record timeout / fallback / provider / provenance. PR #21 typed the event stream; PR #22 threads requestId through collect/capture trace paths; Slice 3 wires terminal VM `ui.ready` events; Slice 4 adds a typed summarizer and `ui.ready` harness gate; PR #28 adds the first fixture-backed CI gate against `docs/qa/assets/2026-06-13/live-trace-happy.json`. This branch adds `backend.request` / `llm.call`, background-to-page trace mirroring, `--require-phases`, and a full live Jason-profile fixture at `docs/qa/assets/2026-06-13/full-live-backend-llm/live-trace-full-hover-save-queue-analysis.json` that passes the local full-phase harness. Keep `TRACE` 🟡 until the committed full-phase gate passes in CI.
 
 ### Track B — Product quality / analysis credibility (the user-felt value — run parallel, do NOT defer behind A)
 

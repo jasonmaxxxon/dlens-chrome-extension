@@ -15,6 +15,7 @@ import type { ExtensionMessage, ExtensionResponse, StartProcessingResponse, Work
 import {
   createPipelineRequestId,
   emitPipelineEvent,
+  setPipelineTraceMirrorTab,
   type PipelinePhase,
   type PipelineTarget
 } from "../src/state/pipeline-trace";
@@ -317,6 +318,30 @@ async function resolveTabId(sender: chrome.runtime.MessageSender, explicitTabId?
     return sender.tab.id;
   }
   return getActiveTabId();
+}
+
+function readSenderTraceFlag(sender: chrome.runtime.MessageSender): boolean {
+  const url = sender.url || sender.tab?.url || "";
+  if (!url) {
+    return false;
+  }
+  try {
+    const parsed = new URL(url);
+    const searchValue = parsed.searchParams.get("dlensQaTrace");
+    const hashParams = new URLSearchParams(parsed.hash.replace(/^#/, ""));
+    const hashValue = hashParams.get("dlensQaTrace");
+    return searchValue === "1" || searchValue === "true" || searchValue === "yes"
+      || hashValue === "1" || hashValue === "true" || hashValue === "yes";
+  } catch {
+    return false;
+  }
+}
+
+function restorePipelineTraceMirrorFromSender(sender: chrome.runtime.MessageSender): void {
+  const tabId = sender.tab?.id;
+  if (typeof tabId === "number" && readSenderTraceFlag(sender)) {
+    setPipelineTraceMirrorTab(tabId);
+  }
 }
 
 async function loadGlobalState(): Promise<ExtensionGlobalState> {
@@ -2056,6 +2081,7 @@ export const backgroundTestables = {
   ACTIVE_SESSION_ID_STORAGE_KEY,
   GLOBAL_STORAGE_KEY,
   mutateSnapshot,
+  readSenderTraceFlag,
   resetBackgroundTestState,
   tabStorageKey
 };
@@ -2162,6 +2188,7 @@ export default defineBackground(() => {
   });
 
   chrome.runtime.onMessage.addListener((message: ExtensionMessage, sender, sendResponseRaw) => {
+    restorePipelineTraceMirrorFromSender(sender);
     // Content-script senders (sender.tab is set) must never receive raw API keys.
     // Wrap the responder once so every handler below stays unchanged.
     const sendResponse: typeof sendResponseRaw = sender.tab
@@ -2170,6 +2197,12 @@ export default defineBackground(() => {
     void (async () => {
       try {
         switch (message.type) {
+          case "pipeline-trace/enable-background": {
+            const tabId = await resolveTabId(sender);
+            setPipelineTraceMirrorTab(tabId);
+            sendResponse({ ok: true, tabId } satisfies ExtensionResponse);
+            return;
+          }
           case "state/get-active-tab": {
             const tabId = await resolveTabId(sender);
             sendResponse({ ok: true, tabId, snapshot: snapshotWithHover(tabId, await loadSnapshot(tabId)) } satisfies ExtensionResponse);

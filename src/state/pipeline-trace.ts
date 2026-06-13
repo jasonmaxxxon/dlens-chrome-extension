@@ -2,8 +2,10 @@ export const PIPELINE_PHASES = [
   "hover.detected",
   "preview.confirmed",
   "signal.saved",
+  "backend.request",
   "crawl.queued",
   "capture.ready",
+  "llm.call",
   "analysis.ready",
   "ui.ready"
 ] as const;
@@ -38,12 +40,13 @@ export type PipelineEventInput = Omit<PipelineEvent, "at">;
 const TRACE_KEY = "__DLENS_QA_TRACE__";
 const TRACE_URL_KEY = "dlensQaTrace";
 const TRACE_DOM_ID = "__dlens_qa_trace_json__";
-const TRACE_MAX_ENTRIES = 500;
+const TRACE_MAX_ENTRIES = 2500;
 
 type TraceHost = typeof globalThis & {
   __DLENS_QA_TRACE__?: PipelineTraceEntry[];
   __DLENS_QA_TRACE_SEQ__?: number;
   __DLENS_QA_TRACE_ENABLED__?: boolean;
+  __DLENS_QA_TRACE_MIRROR_TAB_ID__?: number;
 };
 
 const PHASE_SET = new Set<string>(PIPELINE_PHASES);
@@ -150,6 +153,38 @@ function mirrorTraceToDom(entries: PipelineTraceEntry[]): void {
   }
 }
 
+function mirrorTraceToChromeTab(entry: PipelineTraceEntry): void {
+  if (typeof window !== "undefined") {
+    return;
+  }
+  const tabId = traceHost().__DLENS_QA_TRACE_MIRROR_TAB_ID__;
+  if (typeof tabId !== "number") {
+    return;
+  }
+  const chromeLike = (globalThis as any).chrome;
+  const sendMessage = chromeLike?.tabs?.sendMessage;
+  if (typeof sendMessage !== "function") {
+    return;
+  }
+  try {
+    void sendMessage.call(chromeLike.tabs, tabId, {
+      type: "pipeline-trace/background-event",
+      event: entry
+    }).catch?.(() => undefined);
+  } catch {
+    // Trace mirroring must never affect runtime behavior.
+  }
+}
+
+export function setPipelineTraceMirrorTab(tabId: number | null): void {
+  if (typeof tabId === "number" && Number.isFinite(tabId)) {
+    traceHost().__DLENS_QA_TRACE_MIRROR_TAB_ID__ = tabId;
+    traceHost().__DLENS_QA_TRACE_ENABLED__ = true;
+    return;
+  }
+  delete traceHost().__DLENS_QA_TRACE_MIRROR_TAB_ID__;
+}
+
 export function isPipelineEvent(value: unknown): value is PipelineEvent {
   if (!value || typeof value !== "object") {
     return false;
@@ -170,6 +205,25 @@ export function isPipelineEvent(value: unknown): value is PipelineEvent {
     && Number.isFinite(event.at);
 }
 
+export function appendExternalPipelineTraceEntry(entry: PipelineTraceEntry): void {
+  if (!isQaTraceEnabled() || !isPipelineEvent(entry)) {
+    return;
+  }
+  const host = traceHost();
+  const nextId = (host.__DLENS_QA_TRACE_SEQ__ ?? 0) + 1;
+  host.__DLENS_QA_TRACE_SEQ__ = nextId;
+  const mirrored: PipelineTraceEntry = {
+    ...entry,
+    id: nextId,
+    target: { ...entry.target },
+    detail: compactDetail(entry.detail)
+  };
+  host.__DLENS_QA_TRACE__ = appendPipelineTraceEntry(host.__DLENS_QA_TRACE__ ?? [], mirrored);
+  mirrorTraceToDom(host.__DLENS_QA_TRACE__);
+  console.debug(`[DLens Pipeline Mirror] ${mirrored.phase}:${mirrored.step}`, mirrored);
+  console.debug(`[DLens Pipeline Mirror JSON] ${JSON.stringify(mirrored)}`);
+}
+
 export function emitPipelineEvent(event: PipelineEventInput): void {
   if (!isQaTraceEnabled()) {
     return;
@@ -188,6 +242,7 @@ export function emitPipelineEvent(event: PipelineEventInput): void {
   };
   host.__DLENS_QA_TRACE__ = appendPipelineTraceEntry(host.__DLENS_QA_TRACE__ ?? [], entry);
   mirrorTraceToDom(host.__DLENS_QA_TRACE__);
+  mirrorTraceToChromeTab(entry);
   console.debug(`[DLens Pipeline] ${entry.phase}:${entry.step}`, entry);
   console.debug(`[DLens Pipeline JSON] ${JSON.stringify(entry)}`);
 }

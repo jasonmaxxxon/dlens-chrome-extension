@@ -24,6 +24,7 @@ function parseArgs(argv) {
     skipBuild: false,
     cdpUrl: "http://127.0.0.1:9222",
     tabUrlIncludes: "threads.",
+    requirePhases: [],
     terminal: "ui.ready"
   };
   for (let index = 0; index < argv.length; index += 1) {
@@ -42,6 +43,11 @@ function parseArgs(argv) {
       args.cdpUrl = argv[++index];
     } else if (arg === "--tab-url-includes") {
       args.tabUrlIncludes = argv[++index];
+    } else if (arg === "--require-phases") {
+      args.requirePhases = String(argv[++index] || "")
+        .split(",")
+        .map((phase) => phase.trim())
+        .filter(Boolean);
     } else if (arg === "--terminal") {
       args.terminal = argv[++index];
     } else if (arg === "--help" || arg === "-h") {
@@ -57,6 +63,7 @@ function printHelp() {
   console.log(`Usage:
   node scripts/qa-live-pipeline-harness.mjs --out docs/qa/assets/YYYY-MM-DD/runN/live-pipeline.json
   node scripts/qa-live-pipeline-harness.mjs --trace docs/qa/assets/YYYY-MM-DD/runN/live-trace.json --out docs/qa/assets/YYYY-MM-DD/runN/live-pipeline.json
+  node scripts/qa-live-pipeline-harness.mjs --trace docs/qa/assets/YYYY-MM-DD/runN/live-trace.json --require-phases hover.detected,preview.confirmed,signal.saved,backend.request,crawl.queued,capture.ready,llm.call,analysis.ready,ui.ready
 
 By default the harness runs npm run build, then reads a live trace from a Chrome
 CDP tab whose URL contains "threads.". Use --trace to gate an already-dumped
@@ -212,7 +219,8 @@ async function loadTrace(args) {
 
 function buildEvidence({ args, build, traceSource, trace, summary }) {
   const terminal = summary.terminal;
-  const status = summary.firstError || !terminal?.reached ? "fail" : "pass";
+  const requiredPhasesReached = summary.requiredPhases ? summary.requiredPhases.reached : true;
+  const status = summary.firstError || !requiredPhasesReached || !terminal?.reached ? "fail" : "pass";
   return {
     generatedAt: new Date().toISOString(),
     type: "dlens-live-pipeline-harness",
@@ -227,6 +235,7 @@ function buildEvidence({ args, build, traceSource, trace, summary }) {
       durationMs: summary.durationMs
     },
     assertions: {
+      requiredPhases: summary.requiredPhases,
       terminalUiReady: {
         requiredPhase: args.terminal,
         reached: Boolean(terminal?.reached),
@@ -275,6 +284,7 @@ async function main() {
   const summary = buildTraceSummary(trace, {
     label: args.label ?? "live-pipeline",
     traceFile: traceFileForSummary,
+    requirePhases: args.requirePhases,
     requireTerminal: args.terminal
   });
   const evidence = buildEvidence({
@@ -297,6 +307,10 @@ async function main() {
 
   if (summary.firstError) {
     console.error(`First pipeline error: ${summary.firstError.phase ?? summary.firstError.event}:${summary.firstError.step}`);
+    process.exit(2);
+  }
+  if (summary.requiredPhases && !summary.requiredPhases.reached) {
+    console.error(`Missing required phases: ${summary.requiredPhases.missing.join(", ")}`);
     process.exit(2);
   }
   if (!summary.terminal?.reached) {
