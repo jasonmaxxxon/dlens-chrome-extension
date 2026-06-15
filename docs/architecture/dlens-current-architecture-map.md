@@ -1,6 +1,6 @@
 # DLens Current Architecture Map (v0.8 — honest status)
 
-> Last updated: 2026-06-15 · Baseline code: extension `main` after C-Backend B2 docs sync (PR #35 @ `ee2f998`) and backend `main` after B3 API typing (`dlens-ingest-core` PR #3 @ `116e18c`). `TRACE` is 🟩 because backend/direct LLM phase coverage is regression-locked by the committed full live fixture gate. `READMODEL_BACKEND` is 🟡 because backend B1, extension B2, and backend B3 now cover duplicate-root removal, parent-aware OP continuation chains, additive `reply_edges` / `orphan_replies`, OP self-reply separation, evidence metadata propagation, and API `ThreadReadModel` typing; it stays 🟡 until golden thread fixtures cover the end-to-end boundary. `SEAM_GUARD` is 🟡 because `npm run storage:seam-guard` now runs in CI and blocks new raw `chrome.storage.local.{set,remove,clear}` writes in production code, while 14 legacy bypasses remain explicitly marked with `TODO(seam-bypass): <key>`. `RECONCILE` stays 🟡: known stale-sensitive UI, snapshot, and direct-key lanes are guarded, but legacy raw bypasses still need seam-owned helpers and terminal-stale write/broadcast/UI tests before any 🟩 claim.
+> Last updated: 2026-06-15 · Baseline code: extension `main` after C-Backend B4 projection fixtures (PR #36 @ `282a3ea`) and backend `main` after B4 golden fixtures (`dlens-ingest-core` PR #4 @ `6d0cb70`). `TRACE` is 🟩 because backend/direct LLM phase coverage is regression-locked by the committed full live fixture gate. `READMODEL_BACKEND` is 🟢 because backend B1, extension B2, backend B3, and B4 golden fixtures now cover duplicate-root removal, parent-aware OP continuation chains, additive `reply_edges` / `orphan_replies`, OP self-reply separation, evidence metadata propagation, API `ThreadReadModel` typing, and seven shared thread-structure cases across backend builder and extension projection. It is not 🟩 because live DOM extraction and backend job orchestration remain under the 🟡 `CRAWLER` / `API` / `JOBS` nodes. `SEAM_GUARD` is 🟡 because `npm run storage:seam-guard` now runs in CI and blocks new raw `chrome.storage.local.{set,remove,clear}` writes in production code, while 14 legacy bypasses remain explicitly marked with `TODO(seam-bypass): <key>`. `RECONCILE` stays 🟡: known stale-sensitive UI, snapshot, and direct-key lanes are guarded, but legacy raw bypasses still need seam-owned helpers and terminal-stale write/broadcast/UI tests before any 🟩 claim.
 > **This is the agent handoff map.** Any Codex / ChatGPT / Claude session reads this FIRST. It is the single source of truth for "what is built, what is enforced, what you must not bypass." Status colors must be kept honest (see DoD rule below) — a stale map is worse than none.
 
 ## Legend
@@ -31,7 +31,7 @@ flowchart LR
   subgraph BACKEND["Backend Process :8000"]
     API["🟡 FastAPI API<br/>job bridge / polling"]
     CRAWLER["🟡 Playwright crawler<br/>built but DOM-sensitive"]
-    READMODEL_BACKEND["🟡 Backend OP / reply read model<br/>B1-B3 aligned; golden fixtures pending"]
+    READMODEL_BACKEND["🟢 Backend OP / reply read model<br/>B1-B4 aligned; golden fixtures merged"]
     JOBS["🟡 Job status cache<br/>capture.ready / analysis.ready"]
   end
 
@@ -70,7 +70,7 @@ flowchart LR
   BG <-->|"HTTP / polling boundary<br/>🟡 timeout + trace risk"| API
   API -->|"crawl jobs<br/>🟡 DOM-sensitive"| CRAWLER
   CRAWLER -->|"raw capture result<br/>🟡 depends on DOM correctness"| READMODEL_BACKEND
-  READMODEL_BACKEND -->|"thread structure result<br/>🟡 B1-B3 aligned; golden fixtures pending"| JOBS
+  READMODEL_BACKEND -->|"thread structure result<br/>🟢 B1-B4 aligned; golden fixtures merged"| JOBS
   JOBS -->|"poll status result<br/>🟡 built"| API
 
   BG -->|"direct LLM calls<br/>🟡 timeout / fallback / provenance risk"| OPENAI
@@ -103,9 +103,9 @@ flowchart LR
   classDef intended fill:#fde2e1,stroke:#d64545,stroke-width:2px,color:#4a1111;
   classDef external fill:#e7f0ff,stroke:#3b6fb6,stroke-width:2px,color:#102a4c;
 
-  class VIEW,VM,APP,BG,STORE,TARGET built;
+  class VIEW,VM,APP,BG,STORE,TARGET,READMODEL_BACKEND built;
   class TRACE locked;
-  class CS,API,CRAWLER,READMODEL_BACKEND,JOBS,SEAM_PARTIAL,INVALIDATE,RECONCILE,BOUNDARY,SEAM_GUARD partial;
+  class CS,API,CRAWLER,JOBS,SEAM_PARTIAL,INVALIDATE,RECONCILE,BOUNDARY,SEAM_GUARD partial;
   class MIGRATE intended;
   class OPENAI,ANTHROPIC,GOOGLE external;
 ```
@@ -146,7 +146,7 @@ This file lives at `docs/architecture/dlens-current-architecture-map.md`. Every 
 - **B1. Backend OP / reply read model fix** → `READMODEL_BACKEND` 🔴→🟡. Merged in backend PR #2 (`896373b`): duplicate-root is dropped, OP continuation chains stay assembled, and the backend exposes additive `reply_edges` / `orphan_replies`. *This is core DLens value, not UI polish or feature creep.*
 - **B2. Extension projection alignment** → merged through PR #32-#34. `captured-post.ts` consumes the documented backend read-model contract; Product / Topic / Signal Packet evidence now preserves OP reply and orphan metadata instead of relying on extension-side same-author guessing.
 - **B3. Backend API schema tightening** → merged in backend PR #3 (`116e18c`): `CrawlResultSnapshot.thread_read_model` is typed as `ThreadReadModel` instead of `dict[str, Any]`.
-- **B4. Golden fixtures for thread structure** → make the full extension/backend boundary testable: duplicate-root, OP-continuation, OP self-reply, discussion-reply, nested-reply, orphan-reply, and quote/repost-ambiguity cases. Backend PR #4 adds builder replay fixtures; this extension slice adds projection/evidence replay fixtures.
+- **B4. Golden fixtures for thread structure** → merged in backend PR #4 (`6d0cb70`) and extension PR #36 (`282a3ea`): duplicate-root, OP-continuation, OP self-reply, discussion-reply, nested-reply, orphan-reply, and quote/repost-ambiguity cases now replay through backend builder fixtures and extension projection/evidence fixtures. This completes the C-Backend read-model lever and moves `READMODEL_BACKEND` 🟡→🟢.
 
 **Real priority:** `A1 first → B1 in parallel → A2/A3/A4/A5 continue.` Do not let "architecture perfect" gate "analysis credible." The product value is reading Threads discussion structure accurately, preserving the evidence chain, and producing trustworthy analysis — the VM/seam/trace layers exist to let that grow stably.
 
@@ -156,5 +156,5 @@ This file lives at `docs/architecture/dlens-current-architecture-map.md`. Every 
 2. Don't treat 🔴 as built — it's not there / not trustworthy.
 3. Don't add features by bypassing ViewModel / typed command target / storage seam / pipeline trace.
 4. Any PR touching an async path must account for `requestId`, target reconciliation, invalidation, and rehydrate.
-5. Any PR touching backend analysis must check the OP/reply read-model status (currently 🟡: backend B1, extension B2, and backend B3 are aligned; golden fixtures are still pending).
+5. Any PR touching backend analysis must check the OP/reply read-model status (currently 🟢: backend B1, extension B2, backend B3, and B4 golden fixtures are aligned; future changes must update the shared seven-case fixtures).
 6. After merge, if any node/edge status changed, update this map (DoD rule above).
