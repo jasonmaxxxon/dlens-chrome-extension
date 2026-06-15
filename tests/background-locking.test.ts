@@ -80,12 +80,12 @@ test("settings and tab-only message handlers route RMW writes through mutateSnap
 test("global-only background writes go through the global persistence helper", () => {
   assert.match(
     backgroundSource,
-    /async function persistGlobalStateOnly[\s\S]*?chrome\.storage\.local\.set\(\{ \[GLOBAL_STORAGE_KEY\]: nextGlobal \}\);/,
+    /async function persistGlobalStateOnly[\s\S]*?writeGlobalStateSnapshot\(chrome\.storage\.local, GLOBAL_STORAGE_KEY, nextGlobal\);/,
     "global-only storage writes must share cache and timing bookkeeping"
   );
   assert.equal(
     [...backgroundSource.matchAll(/chrome\.storage\.local\.set\(\{ \[GLOBAL_STORAGE_KEY\]/g)].length,
-    1,
+    0,
     "cold-start and global-only refresh paths should not write the global key inline"
   );
 });

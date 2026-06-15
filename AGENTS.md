@@ -370,7 +370,7 @@ Important implementation points:
 - Topic Detail's primary overview is now semantic `SignalTagsRecord` data from `dlens:v1:signal-tags`, not deterministic keyword frequency. `TopicSynthesis` and `FolderSynthesis` remain deterministic extension-side layers over analyzed signals for legacy/folder contexts and do not replace backend clustering.
 - Latest merged-code verification was run from `dlens-product-latest`: `726/726` tests, `npm run typecheck`, and `npm run build` passed. Open PR #22 is separately verified at `732/732` with GitHub `verify` checks passing.
 - The verified unpacked build was copied to `output/chrome-mv3` for Chrome load-unpacked use.
-- User-visible Chrome QA must use Jason's `Default` Chrome profile (`jason@brandonproject.co`), where the unpacked DLens extension is installed from `/Users/tung/Desktop/dlens-product-latest/output/chrome-mv3`. Open DLens through the real extension action or the content-script in-page launcher on a real Threads page; do not count a direct `chrome-extension://.../sidepanel.html` tab or a temporary Chrome profile as user-visible QA.
+- User-visible Chrome QA must use Jason's `Default` Chrome profile (`jason@brandonproject.co`), where the unpacked DLens extension is installed from this repo's `output/chrome-mv3`. Open DLens through the real extension action or the content-script in-page launcher on a real Threads page; do not count a direct `chrome-extension://.../sidepanel.html` tab or a temporary Chrome profile as user-visible QA.
 - `dlens-product-latest` source checkout may be dirty; do not infer clean source state from the copied build artifact.
 
 ## Motion Layer State (2026-05-19)
