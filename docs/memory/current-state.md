@@ -238,7 +238,7 @@ ProductSignalAnalyzer is designed to consume the backend `ThreadReadModel`, espe
 
 The extension has fallback behavior for older capture shapes, but product-quality judgment depends on the backend producing a good Thread read model. OP continuation detection and discussion split should stay backend/deterministic, not in extension UI.
 
-As of 2026-06-15, C-Backend B1 is merged in `dlens-ingest-core` PR #2 (`896373b`) and extension B2 is merged through PR #32-#34 (`23d36d1`). `READMODEL_BACKEND` stays 🟡: backend tests cover duplicate-root removal, parent-aware OP continuation chains, and additive `reply_edges` / `orphan_replies`; extension projection now consumes that contract, separates OP self-replies, preserves orphan metadata, and carries the metadata into Product / Topic / Signal Packet evidence. The next gates are backend API typing (`thread_read_model` as `ThreadReadModel`) and expanded golden fixtures across the end-to-end boundary.
+As of 2026-06-15, C-Backend B1 is merged in `dlens-ingest-core` PR #2 (`896373b`), extension B2 is merged through PR #32-#34 (`23d36d1`), and backend B3 API typing is merged in `dlens-ingest-core` PR #3 (`116e18c`). `READMODEL_BACKEND` stays 🟡: backend tests cover duplicate-root removal, parent-aware OP continuation chains, and additive `reply_edges` / `orphan_replies`; extension projection now consumes that contract, separates OP self-replies, preserves orphan metadata, and carries the metadata into Product / Topic / Signal Packet evidence; API `thread_read_model` now validates as `ThreadReadModel`. The remaining gate is expanded golden fixtures across the end-to-end boundary.
 
 The live Kathy Threads crawl validated the older shape and exposed the backend fix that B1 now covers:
 
@@ -264,7 +264,7 @@ RAG remains intentionally out of V1. The accepted V1 design is:
 
 ## Immediate Next Work
 
-1. C-Backend follow-up: keep `READMODEL_BACKEND` 🟡 until backend API typing and golden thread fixtures close the end-to-end boundary; B2 projection alignment is already merged.
+1. C-Backend follow-up: keep `READMODEL_BACKEND` 🟡 until golden thread fixtures close the end-to-end boundary; backend API typing and B2 projection alignment are already merged.
 2. Chrome QA: reload `output/chrome-mv3` and walk Product Settings -> Collect -> crawl -> Product insights, Compare Parallel/Chapters, Topic Console/Stack, then PR Evidence campaign setup -> PDF upload -> Generate criteria -> Collect -> Match criteria -> CSV export -> summary MD/DOCX export.
 3. UI cleanup: verify topic mode green theme everywhere, product mode does not show folder concept, PR Evidence keeps the compact ledger grammar, and popup spacing/mode/layout switching stay fixed.
 4. TRACE is locked by the full live backend/LLM fixture gate once PR #29 lands; the remaining trace follow-up is performance investigation, not spine coverage.
@@ -384,7 +384,7 @@ The extension may present backend output more clearly, but it should not fabrica
 
 ## Open Gaps
 
-- backend ThreadReadModel API typing and golden thread fixtures are now Product mode P0
+- golden thread fixtures are now Product mode P0 for backend ThreadReadModel hardening
 - Chrome QA still needs to walk the v3 Product and PR Evidence flows in `output/chrome-mv3`
 - topic mode theme still needs verification that hover overlays and action buttons are fully green
 - Product mode should not leak folder concept into user-facing workflow

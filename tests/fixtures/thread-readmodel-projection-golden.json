@@ -1,0 +1,300 @@
+[
+  {
+    "name": "duplicate-root",
+    "thread_read_model": {
+      "root_post": { "post_id": "abc123", "author": "alice", "text": "Main post: launch note." },
+      "assembled_content": "Main post: launch note.",
+      "op_continuations": [],
+      "discussion_replies": [
+        {
+          "comment_id": "c_reader",
+          "source_comment_id": "src-reader",
+          "parent_comment_id": "abc123",
+          "parent_source_comment_id": "abc123",
+          "author": "bob",
+          "text": "Reader reply.",
+          "like_count": 3
+        }
+      ],
+      "reply_edges": [],
+      "orphan_replies": []
+    },
+    "expected": {
+      "opContinuationIds": [],
+      "replies": [
+        { "id": "c_reader", "role": "audience", "isOrphan": false, "parentId": "abc123", "resolvedParentId": null }
+      ],
+      "evidence": [
+        { "ref": "e1", "id": "c_reader", "role": "audience", "isOrphan": false, "parentId": "abc123", "resolvedParentId": null }
+      ]
+    }
+  },
+  {
+    "name": "op-continuation-chain",
+    "thread_read_model": {
+      "root_post": { "post_id": "abc123", "author": "alice", "text": "Part 1: main thesis." },
+      "assembled_content": "Part 1: main thesis.\n\nPart 2: OP continuation.\n\nPart 3: OP continuation replying to part 2.",
+      "op_continuations": [
+        {
+          "comment_id": "op-1",
+          "source_comment_id": "src-op-1",
+          "parent_comment_id": "abc123",
+          "parent_source_comment_id": "abc123",
+          "author": "alice",
+          "text": "Part 2: OP continuation.",
+          "like_count": 5
+        },
+        {
+          "comment_id": "op-2",
+          "source_comment_id": "src-op-2",
+          "parent_comment_id": "op-1",
+          "parent_source_comment_id": "src-op-1",
+          "author": "alice",
+          "text": "Part 3: OP continuation replying to part 2.",
+          "like_count": 4
+        }
+      ],
+      "discussion_replies": [
+        {
+          "comment_id": "r1",
+          "source_comment_id": "src-r1",
+          "parent_comment_id": "op-2",
+          "parent_source_comment_id": "src-op-2",
+          "author": "bob",
+          "text": "Audience reply to OP chain.",
+          "like_count": 3
+        }
+      ],
+      "reply_edges": [
+        { "comment_id": "op-2", "parent_comment_id": "op-1", "parent_kind": "comment" },
+        { "comment_id": "r1", "parent_comment_id": "op-2", "parent_kind": "comment" }
+      ],
+      "orphan_replies": []
+    },
+    "expected": {
+      "opContinuationIds": ["op-1", "op-2"],
+      "replies": [
+        { "id": "r1", "role": "audience", "isOrphan": false, "parentId": "op-2", "resolvedParentId": "op-2" }
+      ],
+      "evidence": [
+        { "ref": "e1", "id": "r1", "role": "audience", "isOrphan": false, "parentId": "op-2", "resolvedParentId": "op-2" }
+      ]
+    }
+  },
+  {
+    "name": "op-self-reply",
+    "thread_read_model": {
+      "root_post": { "post_id": "abc123", "author": "alice", "text": "Root asks for feedback." },
+      "assembled_content": "Root asks for feedback.",
+      "op_continuations": [],
+      "discussion_replies": [
+        {
+          "comment_id": "reader-1",
+          "source_comment_id": "src-reader-1",
+          "parent_comment_id": "abc123",
+          "parent_source_comment_id": "abc123",
+          "author": "bob",
+          "text": "Reader asks a question.",
+          "like_count": 7
+        },
+        {
+          "comment_id": "op-reply-1",
+          "source_comment_id": "src-op-reply-1",
+          "parent_comment_id": "reader-1",
+          "parent_source_comment_id": "src-reader-1",
+          "author": "alice",
+          "text": "OP replies to the reader, not a continuation.",
+          "like_count": 2
+        }
+      ],
+      "reply_edges": [
+        { "comment_id": "op-reply-1", "parent_comment_id": "reader-1", "parent_kind": "comment" }
+      ],
+      "orphan_replies": []
+    },
+    "expected": {
+      "opContinuationIds": [],
+      "replies": [
+        { "id": "reader-1", "role": "audience", "isOrphan": false, "parentId": "abc123", "resolvedParentId": null },
+        { "id": "op-reply-1", "role": "op_reply", "isOrphan": false, "parentId": "reader-1", "resolvedParentId": "reader-1" }
+      ],
+      "evidence": [
+        { "ref": "e1", "id": "reader-1", "role": "audience", "isOrphan": false, "parentId": "abc123", "resolvedParentId": null },
+        { "ref": "e2", "id": "op-reply-1", "role": "op_reply", "isOrphan": false, "parentId": "reader-1", "resolvedParentId": "reader-1" }
+      ]
+    }
+  },
+  {
+    "name": "discussion-reply",
+    "thread_read_model": {
+      "root_post": { "post_id": "abc123", "author": "alice", "text": "Root asks for feedback." },
+      "assembled_content": "Root asks for feedback.",
+      "op_continuations": [],
+      "discussion_replies": [
+        {
+          "comment_id": "reader-1",
+          "source_comment_id": "src-reader-1",
+          "parent_comment_id": "abc123",
+          "parent_source_comment_id": "abc123",
+          "author": "bob",
+          "text": "This would help my workflow.",
+          "like_count": 9
+        },
+        {
+          "comment_id": "reader-2",
+          "source_comment_id": "src-reader-2",
+          "parent_comment_id": "abc123",
+          "parent_source_comment_id": "abc123",
+          "author": "cara",
+          "text": "I would need export support.",
+          "like_count": 6
+        }
+      ],
+      "reply_edges": [],
+      "orphan_replies": []
+    },
+    "expected": {
+      "opContinuationIds": [],
+      "replies": [
+        { "id": "reader-1", "role": "audience", "isOrphan": false, "parentId": "abc123", "resolvedParentId": null },
+        { "id": "reader-2", "role": "audience", "isOrphan": false, "parentId": "abc123", "resolvedParentId": null }
+      ],
+      "evidence": [
+        { "ref": "e1", "id": "reader-1", "role": "audience", "isOrphan": false, "parentId": "abc123", "resolvedParentId": null },
+        { "ref": "e2", "id": "reader-2", "role": "audience", "isOrphan": false, "parentId": "abc123", "resolvedParentId": null }
+      ]
+    }
+  },
+  {
+    "name": "nested-reply",
+    "thread_read_model": {
+      "root_post": { "post_id": "abc123", "author": "alice", "text": "Root asks for feedback." },
+      "assembled_content": "Root asks for feedback.",
+      "op_continuations": [],
+      "discussion_replies": [
+        {
+          "comment_id": "reader-1",
+          "source_comment_id": "src-reader-1",
+          "parent_comment_id": "abc123",
+          "parent_source_comment_id": "abc123",
+          "author": "bob",
+          "text": "Top-level reader reply.",
+          "like_count": 8
+        },
+        {
+          "comment_id": "nested-1",
+          "source_comment_id": "src-nested-1",
+          "parent_comment_id": "reader-1",
+          "parent_source_comment_id": "src-reader-1",
+          "author": "cara",
+          "text": "Nested reply to reader.",
+          "like_count": 5
+        }
+      ],
+      "reply_edges": [
+        { "comment_id": "nested-1", "parent_comment_id": "reader-1", "parent_kind": "comment" }
+      ],
+      "orphan_replies": []
+    },
+    "expected": {
+      "opContinuationIds": [],
+      "replies": [
+        { "id": "reader-1", "role": "audience", "isOrphan": false, "parentId": "abc123", "resolvedParentId": null },
+        { "id": "nested-1", "role": "audience", "isOrphan": false, "parentId": "reader-1", "resolvedParentId": "reader-1" }
+      ],
+      "evidence": [
+        { "ref": "e1", "id": "reader-1", "role": "audience", "isOrphan": false, "parentId": "abc123", "resolvedParentId": null },
+        { "ref": "e2", "id": "nested-1", "role": "audience", "isOrphan": false, "parentId": "reader-1", "resolvedParentId": "reader-1" }
+      ]
+    }
+  },
+  {
+    "name": "orphan-reply",
+    "thread_read_model": {
+      "root_post": { "post_id": "abc123", "author": "alice", "text": "Root asks for feedback." },
+      "assembled_content": "Root asks for feedback.",
+      "op_continuations": [],
+      "discussion_replies": [
+        {
+          "comment_id": "reader-1",
+          "source_comment_id": "src-reader-1",
+          "parent_comment_id": "abc123",
+          "parent_source_comment_id": "abc123",
+          "author": "bob",
+          "text": "Top-level reader reply.",
+          "like_count": 8
+        },
+        {
+          "comment_id": "orphan-1",
+          "source_comment_id": "src-orphan-1",
+          "parent_comment_id": "missing-parent",
+          "parent_source_comment_id": "src-missing-parent",
+          "author": "cara",
+          "text": "Nested reply whose parent was not captured.",
+          "like_count": 5
+        }
+      ],
+      "reply_edges": [],
+      "orphan_replies": [
+        {
+          "comment_id": "orphan-1",
+          "parent_comment_id": "missing-parent",
+          "parent_source_comment_id": "src-missing-parent",
+          "reason": "parent_not_found_in_comments_or_root"
+        }
+      ]
+    },
+    "expected": {
+      "opContinuationIds": [],
+      "replies": [
+        { "id": "reader-1", "role": "audience", "isOrphan": false, "parentId": "abc123", "resolvedParentId": null },
+        { "id": "orphan-1", "role": "audience", "isOrphan": true, "parentId": "missing-parent", "resolvedParentId": null }
+      ],
+      "evidence": [
+        { "ref": "e1", "id": "reader-1", "role": "audience", "isOrphan": false, "parentId": "abc123", "resolvedParentId": null },
+        { "ref": "e2", "id": "orphan-1", "role": "audience", "isOrphan": true, "parentId": "missing-parent", "resolvedParentId": null }
+      ]
+    }
+  },
+  {
+    "name": "quote-repost-ambiguity",
+    "thread_read_model": {
+      "root_post": { "post_id": "abc123", "author": "alice", "text": "Launch note: agents need better context." },
+      "assembled_content": "Launch note: agents need better context.",
+      "op_continuations": [],
+      "discussion_replies": [
+        {
+          "comment_id": "quote-like-1",
+          "source_comment_id": "src-quote-like-1",
+          "parent_comment_id": "abc123",
+          "parent_source_comment_id": "abc123",
+          "author": "bob",
+          "text": "Launch note: agents need better context.",
+          "like_count": 4
+        },
+        {
+          "comment_id": "reader-2",
+          "source_comment_id": "src-reader-2",
+          "parent_comment_id": "abc123",
+          "parent_source_comment_id": "abc123",
+          "author": "cara",
+          "text": "The repeated wording is from another account, not the root.",
+          "like_count": 3
+        }
+      ],
+      "reply_edges": [],
+      "orphan_replies": []
+    },
+    "expected": {
+      "opContinuationIds": [],
+      "replies": [
+        { "id": "quote-like-1", "role": "audience", "isOrphan": false, "parentId": "abc123", "resolvedParentId": null },
+        { "id": "reader-2", "role": "audience", "isOrphan": false, "parentId": "abc123", "resolvedParentId": null }
+      ],
+      "evidence": [
+        { "ref": "e1", "id": "quote-like-1", "role": "audience", "isOrphan": false, "parentId": "abc123", "resolvedParentId": null },
+        { "ref": "e2", "id": "reader-2", "role": "audience", "isOrphan": false, "parentId": "abc123", "resolvedParentId": null }
+      ]
+    }
+  }
+]
