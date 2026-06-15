@@ -131,7 +131,7 @@ function makeItem(): SessionItem {
   };
 }
 
-test("buildTopicEvidencePackets role-tags OP continuations, audience replies, and placeholders without dropping OP thread text", () => {
+test("buildTopicEvidencePackets separates OP continuations, OP replies, audience replies, and placeholders", () => {
   const tags: SignalTagsRecord = {
     itemId: "item-love",
     status: "complete",
@@ -162,14 +162,14 @@ test("buildTopicEvidencePackets role-tags OP continuations, audience replies, an
   assert.deepEqual(packet.replyFragments.map((fragment) => [fragment.ref, fragment.role, fragment.author, fragment.likes]), [
     ["S1.OPC1", "op_continuation", "op", 7],
     ["S1.R1", "audience", "reader", null],
-    ["S1.OPC2", "op_continuation", "op", 3],
+    ["S1.OPR1", "op_reply", "op", 3],
     ["S1.P1", "placeholder", "", null]
   ]);
   assert.deepEqual(getOpContinuations(packet).map((fragment) => fragment.text), [
-    "第一點：app 會放大選擇成本。",
-    "補充：這不是叫人不要拍拖。"
+    "第一點：app 會放大選擇成本。"
   ]);
   assert.deepEqual(getAudienceReplies(packet).map((fragment) => fragment.ref), ["S1.R1"]);
+  assert.equal(packet.replyFragments.find((fragment) => fragment.ref === "S1.OPR1")?.text, "補充：這不是叫人不要拍拖。");
   assert.deepEqual(getPlaceholderReplies(packet).map((fragment) => fragment.ref), ["S1.P1"]);
 });
 
