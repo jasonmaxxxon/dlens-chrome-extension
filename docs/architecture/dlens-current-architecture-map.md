@@ -1,6 +1,6 @@
-# DLens Current Architecture Map (v0.6 — honest status)
+# DLens Current Architecture Map (v0.7 — honest status)
 
-> Last updated: 2026-06-13 · Baseline code: `main` after RECONCILE direct storage-key guard / PR #27 @ `10404ed` (0.1.33). This TRACE full-live branch expands the spine with `backend.request` and `llm.call`, mirrors service-worker trace events back into the active QA page, and lets the harness require the full phase set. A Jason-profile full live hover → save → queue → backend capture → direct Google LLM → Product analysis trace now passes the full-phase harness at `docs/qa/assets/2026-06-13/full-live-backend-llm/live-trace-full-hover-save-queue-analysis.json`, and the fixture gate is wired into CI. `TRACE` is now 🟩 once this PR lands because backend/direct LLM trace coverage is regression-locked by the committed fixture gate. `RECONCILE` stays 🟡 because it is targeted async-write coverage, not a repo-wide raw storage bypass ban.
+> Last updated: 2026-06-15 · Baseline code: `main` after TRACE full-live backend/LLM gate / PR #29 @ `4e625c3` (0.1.33). `TRACE` is 🟩 because backend/direct LLM phase coverage is regression-locked by the committed full live fixture gate. This SEAM_GUARD branch adds `npm run storage:seam-guard` plus a CI verify step that blocks new raw `chrome.storage.local.{set,remove,clear}` writes in production code. `SEAM_GUARD` moves 🔴→🟡 because new bypasses are blocked while 14 legacy bypasses remain explicitly marked with `TODO(seam-bypass): <key>`. `RECONCILE` stays 🟡: known stale-sensitive UI, snapshot, and direct-key lanes are guarded, but legacy raw bypasses still need seam-owned helpers and terminal-stale write/broadcast/UI tests before any 🟩 claim.
 > **This is the agent handoff map.** Any Codex / ChatGPT / Claude session reads this FIRST. It is the single source of truth for "what is built, what is enforced, what you must not bypass." Status colors must be kept honest (see DoD rule below) — a stale map is worse than none.
 
 ## Legend
@@ -52,7 +52,7 @@ flowchart LR
     TRACE["🟩 Pipeline Spine Trace<br/>full backend/LLM fixture gate locked"]
     RECONCILE["🟡 Request reconcile<br/>UI + snapshot + known direct-key guards"]
     BOUNDARY["🟡 Boundary tests<br/>some exists, not complete"]
-    SEAM_GUARD["🔴 Seam-only storage write guard<br/>intended, not enforced"]
+    SEAM_GUARD["🟡 Seam-only storage write guard<br/>CI guard + legacy TODO debt"]
   end
 
   VIEW -->|"props + onCommand only<br/>🟢 built pattern"| VM
@@ -95,7 +95,7 @@ flowchart LR
 
   BOUNDARY -.->|"protect View / VM walls<br/>🟡 partial"| VIEW
   BOUNDARY -.->|"protect pure ViewModels<br/>🟡 partial"| VM
-  SEAM_GUARD -.->|"prevent raw storage bypass<br/>🔴 intended"| SEAM_PARTIAL
+  SEAM_GUARD -.->|"prevent new raw storage bypass<br/>🟡 CI guard active, legacy debt listed"| SEAM_PARTIAL
 
   classDef locked fill:#bfeccf,stroke:#0f7a36,stroke-width:3px,color:#0b2d18;
   classDef built fill:#dff7e8,stroke:#1f8f4d,stroke-width:2px,color:#123524;
@@ -105,8 +105,8 @@ flowchart LR
 
   class VIEW,VM,APP,BG,STORE,TARGET built;
   class TRACE locked;
-  class CS,API,CRAWLER,JOBS,SEAM_PARTIAL,INVALIDATE,RECONCILE,BOUNDARY partial;
-  class READMODEL_BACKEND,MIGRATE,SEAM_GUARD intended;
+  class CS,API,CRAWLER,JOBS,SEAM_PARTIAL,INVALIDATE,RECONCILE,BOUNDARY,SEAM_GUARD partial;
+  class READMODEL_BACKEND,MIGRATE intended;
   class OPENAI,ANTHROPIC,GOOGLE external;
 ```
 
@@ -135,9 +135,9 @@ This file lives at `docs/architecture/dlens-current-architecture-map.md`. Every 
 
 ### Track A — Infrastructure hardening (status: claim → guarantee)
 
-- **A1. Boundary / architecture tests** → 🟢→🟩. View ⊅ `sendExtensionMessage`/`Date.now`/`Math.random`/storage mutation; ViewModel ⊅ `chrome`/`fetch`/DOM/`File`/React; storage write ⊅ bypass seam. *(Do first — it's what makes green mean protected.)*
+- **A1. Boundary / architecture tests** → 🟢→🟩. View ⊅ `sendExtensionMessage`/`Date.now`/`Math.random`/storage mutation; ViewModel ⊅ `chrome`/`fetch`/DOM/`File`/React; storage write ⊅ bypass seam. PR #30 adds the first storage-seam guard: `scripts/check-no-raw-storage.mjs` blocks new production `chrome.storage.local.{set,remove,clear}` bypasses in CI while allowing the 14 legacy writes only when marked with `TODO(seam-bypass): <key>`. This moves `SEAM_GUARD` 🔴→🟡, not 🟩.
 - **A2. Storage schema version + migration** → `MIGRATE` 🔴→🟡/🟩. `CURRENT_STORAGE_SCHEMA_VERSION`, migration registry, non-destructive migration, legacy fixture tests.
-- **A3. requestId reconcile / stale-result ignore** → `RECONCILE` 🟡→🟩. Async command carries `requestId`; backend/LLM late result must match current target; stale result ignored, not written. PR #25 added `src/state/request-reconcile.ts`, UI-shell guards for Compare/Product/Folder/PR Evidence async responses, a narrow session-scoped snapshot guard in `sendAndSync`, and tests that reject stale / target-mismatched responses. PR #26 adds a background snapshot save seam guard for `session/refresh-all` and `session/queue-items-and-start-processing` so stale capture/queue results skip storage writes and broadcasts. This stacked follow-up guards known stale-sensitive direct storage-key write lanes: `folder.generateSynthesis`, `folder.clearSynthesis`, `product.analyzeSignals`, `product.synthesizeSignalReading`, `product.reviewSignalReading`, `pr.matchCriteria`, and `pr.fetchAdvancedMetrics`. Do not mark `RECONCILE` 🟩 until raw storage bypass boundaries are enforced more generally and backend/direct-LLM trace coverage catches stale terminal behavior.
+- **A3. requestId reconcile / stale-result ignore** → `RECONCILE` 🟡→🟩. Async command carries `requestId`; backend/LLM late result must match current target; stale result ignored, not written. PR #25 added `src/state/request-reconcile.ts`, UI-shell guards for Compare/Product/Folder/PR Evidence async responses, a narrow session-scoped snapshot guard in `sendAndSync`, and tests that reject stale / target-mismatched responses. PR #26 adds a background snapshot save seam guard for `session/refresh-all` and `session/queue-items-and-start-processing` so stale capture/queue results skip storage writes and broadcasts. PR #27 guards known stale-sensitive direct storage-key write lanes: `folder.generateSynthesis`, `folder.clearSynthesis`, `product.analyzeSignals`, `product.synthesizeSignalReading`, `product.reviewSignalReading`, `pr.matchCriteria`, and `pr.fetchAdvancedMetrics`. PR #30 blocks new raw storage bypasses in CI, but `RECONCILE` stays 🟡 until legacy bypasses move behind seam-owned helpers and terminal-stale storage/broadcast/UI behavior is locked.
 - **A4. Invalidation / rehydrate contract** → `INVALIDATE` 🟡→🟩. Storage write triggers state update; popup rehydrates deterministically; no infinite loading after write.
 - **A5. Backend + direct LLM trace integration** → `TRACE` 🟩. Trace backend polling + direct LLM calls; record timeout / fallback / provider / provenance. PR #21 typed the event stream; PR #22 threads requestId through collect/capture trace paths; Slice 3 wires terminal VM `ui.ready` events; Slice 4 adds a typed summarizer and `ui.ready` harness gate; PR #28 adds the first fixture-backed CI gate against `docs/qa/assets/2026-06-13/live-trace-happy.json`. This branch adds `backend.request` / `llm.call`, background-to-page trace mirroring, `--require-phases`, and a full live Jason-profile fixture at `docs/qa/assets/2026-06-13/full-live-backend-llm/live-trace-full-hover-save-queue-analysis.json` that is wired into `npm run qa:harness:fixture` and CI.
 
