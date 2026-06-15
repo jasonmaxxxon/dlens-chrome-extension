@@ -345,7 +345,7 @@ Live crawl lesson from the Kathy Threads test:
 
 - discussion replies are first-class product intelligence, especially around recurring crawl, MCP/tool calling, browser automation, and PM document generation
 - backend `ThreadReadModel` is the quality gate for product analysis
-- C-Backend B1+B2+B3 now remove root duplication, split true OP continuation from OP reply chatter, carry orphan/reply metadata into extension evidence, and type the API read-model response; next hardening is golden thread fixtures
+- C-Backend B1-B4 now remove root duplication, split true OP continuation from OP reply chatter, carry orphan/reply metadata into extension evidence, type the API read-model response, and lock seven shared golden thread fixtures across backend and extension projection
 
 Do not start signal digest, watch mode, mobile share extension, or MCP execution until the ThreadReadModel and ProductSignalAnalyzer output are stable in Chrome.
 
