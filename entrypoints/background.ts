@@ -285,6 +285,7 @@ async function persistGlobalStateOnly(global: ExtensionGlobalState, logLabel: st
   globalStateCache = nextGlobal;
 
   const storageStart = performance.now();
+  // TODO(seam-bypass): global-state-write
   await chrome.storage.local.set({ [GLOBAL_STORAGE_KEY]: nextGlobal });
   const storageSetMs = Math.round(performance.now() - storageStart);
   lastSaveSnapshotStorageMs = storageSetMs;
@@ -416,6 +417,7 @@ async function loadCompareBriefCache(): Promise<CompareBriefCache> {
 }
 
 async function saveCompareBriefCache(cache: CompareBriefCache): Promise<void> {
+  // TODO(seam-bypass): compare-brief-cache-write
   await chrome.storage.local.set({ [COMPARE_BRIEF_CACHE_KEY]: cache });
 }
 
@@ -439,6 +441,7 @@ async function getCachedCompareBrief(request: CompareBriefRequest): Promise<{ br
 }
 
 async function saveOneLinerCache(cache: OneLinerCache): Promise<void> {
+  // TODO(seam-bypass): compare-one-liner-cache-write
   await chrome.storage.local.set({ [COMPARE_ONE_LINER_CACHE_KEY]: cache });
 }
 
@@ -448,6 +451,7 @@ async function loadClusterSummaryCache(): Promise<ClusterSummaryCache> {
 }
 
 async function saveClusterSummaryCache(cache: ClusterSummaryCache): Promise<void> {
+  // TODO(seam-bypass): compare-cluster-summary-cache-write
   await chrome.storage.local.set({ [COMPARE_CLUSTER_SUMMARY_CACHE_KEY]: cache });
 }
 
@@ -457,6 +461,7 @@ async function loadEvidenceAnnotationCache(): Promise<EvidenceAnnotationCache> {
 }
 
 async function saveEvidenceAnnotationCache(cache: EvidenceAnnotationCache): Promise<void> {
+  // TODO(seam-bypass): compare-evidence-annotation-cache-write
   await chrome.storage.local.set({ [COMPARE_EVIDENCE_ANNOTATION_CACHE_KEY]: cache });
 }
 
@@ -466,6 +471,7 @@ async function loadJudgmentCache(): Promise<JudgmentCache> {
 }
 
 async function saveJudgmentCache(cache: JudgmentCache): Promise<void> {
+  // TODO(seam-bypass): compare-judgment-cache-write
   await chrome.storage.local.set({ [COMPARE_JUDGMENT_CACHE_KEY]: cache });
 }
 
@@ -476,7 +482,9 @@ async function saveProductContext(
   if (!shouldApplyBackgroundReconcile(options)) {
     return;
   }
+  // TODO(seam-bypass): product-context-write
   await chrome.storage.local.set({ [PRODUCT_CONTEXT_STORAGE_KEY]: productContext });
+  // TODO(seam-bypass): legacy-product-context-cleanup
   await chrome.storage.local.remove(LEGACY_PRODUCT_CONTEXT_STORAGE_KEY);
 }
 
@@ -487,7 +495,9 @@ async function loadProductContext(): Promise<ProductContext | null> {
   ]);
   const value = raw[PRODUCT_CONTEXT_STORAGE_KEY] ?? raw[LEGACY_PRODUCT_CONTEXT_STORAGE_KEY];
   if (value && typeof value === "object" && !raw[PRODUCT_CONTEXT_STORAGE_KEY]) {
+    // TODO(seam-bypass): product-context-migration-write
     await chrome.storage.local.set({ [PRODUCT_CONTEXT_STORAGE_KEY]: value });
+    // TODO(seam-bypass): legacy-product-context-migration-cleanup
     await chrome.storage.local.remove(LEGACY_PRODUCT_CONTEXT_STORAGE_KEY);
   }
   return value && typeof value === "object" ? value as ProductContext : null;
@@ -1367,6 +1377,7 @@ async function persistSnapshot(
   cacheSnapshot(tabId, snapshot);
 
   const storageStart = performance.now();
+  // TODO(seam-bypass): snapshot-payload-bulk-write
   await chrome.storage.local.set(payload);
   const storageSetMs = Math.round(performance.now() - storageStart);
   lastSaveSnapshotStorageMs = storageSetMs;
@@ -2117,6 +2128,7 @@ export default defineBackground(() => {
           chrome.tabs.get(tabId).catch(() => {
             tabHoverCache.delete(tabId);
             tabStateCache.delete(tabId);
+            // TODO(seam-bypass): tab-storage-cleanup-on-missing-tab
             void chrome.storage.local.remove(tabStorageKey(tabId)).catch(() => undefined);
           });
         }
@@ -2184,6 +2196,7 @@ export default defineBackground(() => {
   chrome.tabs.onRemoved.addListener((tabId) => {
     tabHoverCache.delete(tabId);
     tabStateCache.delete(tabId);
+    // TODO(seam-bypass): tab-storage-cleanup-on-tab-removed
     void chrome.storage.local.remove(tabStorageKey(tabId)).catch(() => undefined);
   });
 
@@ -3122,6 +3135,7 @@ export default defineBackground(() => {
           }
           case "product/clear-cache": {
             const tabId = await resolveTabId(sender);
+            // TODO(seam-bypass): product-cache-clear-bulk-remove
             await chrome.storage.local.remove([
               PRODUCT_SIGNAL_ANALYSES_STORAGE_KEY,
               PRODUCT_AGENT_TASK_FEEDBACK_STORAGE_KEY,
