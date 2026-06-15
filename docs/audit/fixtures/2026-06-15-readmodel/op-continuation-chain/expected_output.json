@@ -37,5 +37,18 @@
       "reply_count": 0
     }
   ],
-  "assembled_content": "Part 1: main thesis.\n\nPart 2: OP continuation.\n\nPart 3: OP continuation replying to part 2."
+  "assembled_content": "Part 1: main thesis.\n\nPart 2: OP continuation.\n\nPart 3: OP continuation replying to part 2.",
+  "reply_edges": [
+    {
+      "comment_id": "c2",
+      "parent_comment_id": "c1",
+      "parent_kind": "comment"
+    },
+    {
+      "comment_id": "r1",
+      "parent_comment_id": "c2",
+      "parent_kind": "comment"
+    }
+  ],
+  "orphan_replies": []
 }
