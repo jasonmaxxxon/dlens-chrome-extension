@@ -107,5 +107,5 @@ Current open risks:
 
 - `entrypoints/background.ts` is 3488 lines; do not split handlers unless the trigger in `docs/ENGINEERING_PLAN.md` promotes that work into the committed-next slice.
 - `src/ui/useInPageCollectorAppState.ts` is 2148 lines; continue extraction before adding more product/PR/export routes.
-- Backend ThreadReadModel OP-continuation refinement remains Product mode P0.
+- C-Backend read-model hardening remains Product mode P0: B1+B2 landed; next gates are backend API typing and golden thread fixtures.
 - Signal Packet HTML/JSONL needs the next semantic cleanup: HTML evidence density/provenance, `citedInReadingRefs`, latest vs superseded readings, and root `source.pageUrl` investigation.

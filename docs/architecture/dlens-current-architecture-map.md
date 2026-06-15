@@ -1,6 +1,6 @@
 # DLens Current Architecture Map (v0.8 — honest status)
 
-> Last updated: 2026-06-15 · Baseline code: extension `main` after C-Backend C0/B1 docs (`d520eeb`) and backend `main` after B1 read-model merge (`dlens-ingest-core` PR #2 @ `896373b`). `TRACE` is 🟩 because backend/direct LLM phase coverage is regression-locked by the committed full live fixture gate. `READMODEL_BACKEND` is 🟡 because B1 backend tests now lock duplicate-root removal, parent-aware OP continuation chains, and additive `reply_edges` / `orphan_replies`, while extension projection alignment is still pending in B2. `SEAM_GUARD` is 🟡 because `npm run storage:seam-guard` now runs in CI and blocks new raw `chrome.storage.local.{set,remove,clear}` writes in production code, while 14 legacy bypasses remain explicitly marked with `TODO(seam-bypass): <key>`. `RECONCILE` stays 🟡: known stale-sensitive UI, snapshot, and direct-key lanes are guarded, but legacy raw bypasses still need seam-owned helpers and terminal-stale write/broadcast/UI tests before any 🟩 claim.
+> Last updated: 2026-06-15 · Baseline code: extension `main` after C-Backend B2.3 projection merge (PR #34 @ `23d36d1`) and backend `main` after B1 read-model merge (`dlens-ingest-core` PR #2 @ `896373b`). `TRACE` is 🟩 because backend/direct LLM phase coverage is regression-locked by the committed full live fixture gate. `READMODEL_BACKEND` is 🟡 because backend B1 plus extension B2 now cover duplicate-root removal, parent-aware OP continuation chains, additive `reply_edges` / `orphan_replies`, OP self-reply separation, and evidence metadata propagation; it stays 🟡 until the backend API response is typed as `ThreadReadModel` and golden thread fixtures cover the end-to-end boundary. `SEAM_GUARD` is 🟡 because `npm run storage:seam-guard` now runs in CI and blocks new raw `chrome.storage.local.{set,remove,clear}` writes in production code, while 14 legacy bypasses remain explicitly marked with `TODO(seam-bypass): <key>`. `RECONCILE` stays 🟡: known stale-sensitive UI, snapshot, and direct-key lanes are guarded, but legacy raw bypasses still need seam-owned helpers and terminal-stale write/broadcast/UI tests before any 🟩 claim.
 > **This is the agent handoff map.** Any Codex / ChatGPT / Claude session reads this FIRST. It is the single source of truth for "what is built, what is enforced, what you must not bypass." Status colors must be kept honest (see DoD rule below) — a stale map is worse than none.
 
 ## Legend
@@ -31,7 +31,7 @@ flowchart LR
   subgraph BACKEND["Backend Process :8000"]
     API["🟡 FastAPI API<br/>job bridge / polling"]
     CRAWLER["🟡 Playwright crawler<br/>built but DOM-sensitive"]
-    READMODEL_BACKEND["🟡 Backend OP / reply read model<br/>B1 fixed, extension projection pending"]
+    READMODEL_BACKEND["🟡 Backend OP / reply read model<br/>B1+B2 aligned; API/golden fixtures pending"]
     JOBS["🟡 Job status cache<br/>capture.ready / analysis.ready"]
   end
 
@@ -70,7 +70,7 @@ flowchart LR
   BG <-->|"HTTP / polling boundary<br/>🟡 timeout + trace risk"| API
   API -->|"crawl jobs<br/>🟡 DOM-sensitive"| CRAWLER
   CRAWLER -->|"raw capture result<br/>🟡 depends on DOM correctness"| READMODEL_BACKEND
-  READMODEL_BACKEND -->|"thread structure result<br/>🟡 backend B1 fixed, B2 projection pending"| JOBS
+  READMODEL_BACKEND -->|"thread structure result<br/>🟡 B1+B2 aligned; API/golden fixtures pending"| JOBS
   JOBS -->|"poll status result<br/>🟡 built"| API
 
   BG -->|"direct LLM calls<br/>🟡 timeout / fallback / provenance risk"| OPENAI
@@ -144,8 +144,9 @@ This file lives at `docs/architecture/dlens-current-architecture-map.md`. Every 
 ### Track B — Product quality / analysis credibility (the user-felt value — run parallel, do NOT defer behind A)
 
 - **B1. Backend OP / reply read model fix** → `READMODEL_BACKEND` 🔴→🟡. Merged in backend PR #2 (`896373b`): duplicate-root is dropped, OP continuation chains stay assembled, and the backend exposes additive `reply_edges` / `orphan_replies`. *This is core DLens value, not UI polish or feature creep.*
-- **B2. Extension projection alignment** → `captured-post.ts` consumes the documented backend read-model contract: OP continuation, OP reply chatter, audience reply, resolved edge, and orphan status come from backend-provided structure, not extension guessing. Plan: `docs/handoff/2026-06-15-c-backend-b2-extension-projection-alignment-plan.md`.
-- **B3. Golden fixtures for thread structure** → make OP/reply bugs testable: duplicate-root, OP-continuation, discussion-reply, nested-reply, quote/repost-ambiguity cases.
+- **B2. Extension projection alignment** → merged through PR #32-#34. `captured-post.ts` consumes the documented backend read-model contract; Product / Topic / Signal Packet evidence now preserves OP reply and orphan metadata instead of relying on extension-side same-author guessing.
+- **B3. Backend API schema tightening** → type `CrawlResultSnapshot.thread_read_model` as `ThreadReadModel` instead of `dict[str, Any]`.
+- **B4. Golden fixtures for thread structure** → make the full extension/backend boundary testable: duplicate-root, OP-continuation, OP self-reply, discussion-reply, nested-reply, orphan-reply, and quote/repost-ambiguity cases.
 
 **Real priority:** `A1 first → B1 in parallel → A2/A3/A4/A5 continue.` Do not let "architecture perfect" gate "analysis credible." The product value is reading Threads discussion structure accurately, preserving the evidence chain, and producing trustworthy analysis — the VM/seam/trace layers exist to let that grow stably.
 
@@ -155,5 +156,5 @@ This file lives at `docs/architecture/dlens-current-architecture-map.md`. Every 
 2. Don't treat 🔴 as built — it's not there / not trustworthy.
 3. Don't add features by bypassing ViewModel / typed command target / storage seam / pipeline trace.
 4. Any PR touching an async path must account for `requestId`, target reconciliation, invalidation, and rehydrate.
-5. Any PR touching backend analysis must check the OP/reply read-model status (currently 🟡: backend B1 merged, extension B2 projection pending).
+5. Any PR touching backend analysis must check the OP/reply read-model status (currently 🟡: backend B1 and extension B2 are aligned; API typing and golden fixtures are still pending).
 6. After merge, if any node/edge status changed, update this map (DoD rule above).
