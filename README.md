@@ -80,6 +80,7 @@ For a 30-minute assisted install on another Mac, use [`docs/setup/second-mac-30-
 |---|---|
 | Active extension worktree | `dlens-product-latest` |
 | Load unpacked extension | `output/chrome-mv3` |
+| Chrome QA profile | Jason `Default` profile (`jason@brandonproject.co`); this is the only local Chrome profile with DLens installed from `output/chrome-mv3` |
 | Backend (resolved at) | sibling `../dlens-ingest-core` or `DLENS_INGEST_CORE_DIR` |
 | Backend repo | `github.com/jasonmaxxxon/dlens-ingest-core` (private) — clone as a sibling; see its `SETUP.md` |
 | Backups | `~/dlens-archive-<date>/` (extension + backend bundles + RESTORE.md) |

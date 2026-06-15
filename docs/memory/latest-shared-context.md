@@ -152,7 +152,7 @@ This note is the high-signal shared memory for Codex and Claude when working on 
 - Add better honest loading states for crawl / analysis / compare waits.
 - Keep compare cluster matching skepticism high because pairing is still rank-driven.
 - Keep save/bookmark features lightweight until there is a real downstream destination.
-- Chrome QA still needs to walk Product and PR Evidence flows from `output/chrome-mv3`, including Product recovered-analysis/action views, Topic Console/Stack, Compare Parallel/Chapters, PR PDF upload, criteria generation, matching, CSV export, and summary MD/DOCX export.
+- Chrome QA still needs to walk Product and PR Evidence flows from `output/chrome-mv3` in Jason's `Default` Chrome profile (`jason@brandonproject.co`), which is the local profile with DLens installed. Include Product recovered-analysis/action views, Topic Console/Stack, Compare Parallel/Chapters, PR PDF upload, criteria generation, matching, CSV export, and summary MD/DOCX export. Open DLens through the real extension action or the content-script in-page launcher on a real Threads page; do not count a direct `chrome-extension://.../sidepanel.html` tab or a temporary Chrome profile as user-visible QA.
 
 ## Working Rules For Future Product Updates
 

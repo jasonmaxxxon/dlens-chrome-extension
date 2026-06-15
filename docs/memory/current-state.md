@@ -264,7 +264,7 @@ RAG remains intentionally out of V1. The accepted V1 design is:
 
 ## Immediate Next Work
 
-1. Chrome QA: reload `output/chrome-mv3` and walk Product Settings -> Collect -> crawl -> Product insights, Compare Parallel/Chapters, Topic Console/Stack, then PR Evidence campaign setup -> PDF upload -> Generate criteria -> Collect -> Match criteria -> CSV export -> summary MD/DOCX export.
+1. Chrome QA: use Jason's `Default` Chrome profile (`jason@brandonproject.co`), where DLens is installed from `output/chrome-mv3`; reload that unpacked extension and walk Product Settings -> Collect -> crawl -> Product insights, Compare Parallel/Chapters, Topic Console/Stack, then PR Evidence campaign setup -> PDF upload -> Generate criteria -> Collect -> Match criteria -> CSV export -> summary MD/DOCX export. Open DLens through the real extension action or the content-script in-page launcher on a real Threads page; do not count a direct `chrome-extension://.../sidepanel.html` tab or a temporary Chrome profile as user-visible QA.
 2. UI cleanup: verify topic mode green theme everywhere, product mode does not show folder concept, PR Evidence keeps the compact ledger grammar, and popup spacing/mode/layout switching stay fixed.
 3. TRACE is locked by the full live backend/LLM fixture gate once PR #29 lands; the remaining trace follow-up is performance investigation, not spine coverage.
 4. Background split: move product/topic/PR handlers out of `entrypoints/background.ts` before adding digest/watch-mode work.
