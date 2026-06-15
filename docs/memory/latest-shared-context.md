@@ -6,7 +6,7 @@ type: project
 
 # DLens Extension Shared Context
 
-Last updated: 2026-06-13
+Last updated: 2026-06-15
 
 This file is the current shared context. Keep this filename stable and update
 the contents in place whenever an automated or manual handoff refresh makes it
@@ -145,7 +145,7 @@ This note is the high-signal shared memory for Codex and Claude when working on 
 ## Current Known Priorities
 
 - Split growing popup/background orchestration before adding digest/watch-mode work. `entrypoints/background.ts` is now 3839 lines and `src/ui/useInPageCollectorAppState.ts` is now 2542 lines.
-- Pipeline spine status: PR #21 merged the typed trace event stream, PR #22 merged requestId trace correlation, PR #23 merged terminal VM `ui.ready`, PR #24 merged the typed trace summarizer + live harness gate, PR #25 started `RECONCILE` UI stale-result ignore, PR #28 added the first committed `ui.ready` fixture CI gate, PR #26 guards background snapshot writes for `session/refresh-all` plus `session/queue-items-and-start-processing`, PR #27 guards known stale-sensitive direct storage-key lanes for Folder synthesis, Product signal/reading writes, and PR criteria/advanced-metrics writes, and PR #29 locks full backend/direct LLM trace phases with a Jason-profile fixture gate. PR #30 adds the first seam guard: CI now runs `npm run storage:seam-guard`, which blocks new production `chrome.storage.local.{set,remove,clear}` bypasses unless marked `TODO(seam-bypass): <key>`. `TRACE` is 🟩, `SEAM_GUARD` becomes 🟡 when PR #30 lands, and `RECONCILE` stays 🟡 because this is targeted lane coverage plus a raw-write guard, not full legacy seam ownership.
+- Pipeline spine status: PR #21 merged the typed trace event stream, PR #22 merged requestId trace correlation, PR #23 merged terminal VM `ui.ready`, PR #24 merged the typed trace summarizer + live harness gate, PR #25 started `RECONCILE` UI stale-result ignore, PR #28 added the first committed `ui.ready` fixture CI gate, PR #26 guards background snapshot writes for `session/refresh-all` plus `session/queue-items-and-start-processing`, PR #27 guards known stale-sensitive direct storage-key lanes for Folder synthesis, Product signal/reading writes, and PR criteria/advanced-metrics writes, PR #29 locks full backend/direct LLM trace phases with a Jason-profile fixture gate, and PR #30 adds the first seam guard. CI now runs `npm run storage:seam-guard`, which blocks new production `chrome.storage.local.{set,remove,clear}` bypasses unless marked `TODO(seam-bypass): <key>`. `TRACE` is 🟩, `SEAM_GUARD` is 🟡, and `RECONCILE` stays 🟡 because this is targeted lane coverage plus a raw-write guard, not full legacy seam ownership.
 - Improve hover debounce and clear stale overlay state on SPA route changes.
 - Add better honest loading states for crawl / analysis / compare waits.
 - Keep compare cluster matching skepticism high because pairing is still rank-driven.
