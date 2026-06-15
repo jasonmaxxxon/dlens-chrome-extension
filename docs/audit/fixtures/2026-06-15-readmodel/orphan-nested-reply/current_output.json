@@ -1,0 +1,29 @@
+{
+  "post_id": "abc123",
+  "op_continuations": [],
+  "discussion_replies": [
+    {
+      "comment_id": "c1",
+      "source_comment_id": "src-c1",
+      "parent_comment_id": "abc123",
+      "parent_source_comment_id": "abc123",
+      "author": "bob",
+      "text": "Top-level reader reply.",
+      "time_token": "1h",
+      "like_count": 8,
+      "reply_count": 1
+    },
+    {
+      "comment_id": "c2",
+      "source_comment_id": "src-c2",
+      "parent_comment_id": "missing-parent",
+      "parent_source_comment_id": "src-missing-parent",
+      "author": "cara",
+      "text": "Nested reply whose parent was not captured.",
+      "time_token": "50m",
+      "like_count": 2,
+      "reply_count": 0
+    }
+  ],
+  "assembled_content": "Main post about agent workflows."
+}

@@ -1,0 +1,18 @@
+{
+  "post_id": "abc123",
+  "op_continuations": [],
+  "discussion_replies": [
+    {
+      "comment_id": "c_reader",
+      "source_comment_id": "src-reader",
+      "parent_comment_id": "abc123",
+      "parent_source_comment_id": "abc123",
+      "author": "bob",
+      "text": "Reader response.",
+      "time_token": "1h",
+      "like_count": 2,
+      "reply_count": 0
+    }
+  ],
+  "assembled_content": "Main post: launch note."
+}

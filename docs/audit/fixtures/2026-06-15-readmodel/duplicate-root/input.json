@@ -1,0 +1,32 @@
+{
+  "canonical_post": {
+    "post_id": "abc123",
+    "url": "https://www.threads.net/@alice/post/abc123",
+    "author": "alice",
+    "text": "Main post: launch note."
+  },
+  "comments": [
+    {
+      "comment_id": "abc123_dup",
+      "source_comment_id": "abc123",
+      "parent_comment_id": null,
+      "parent_source_comment_id": null,
+      "author": "alice",
+      "text": "Main post: launch note.",
+      "time_token": "2h",
+      "like_count": 10,
+      "reply_count": 0
+    },
+    {
+      "comment_id": "c_reader",
+      "source_comment_id": "src-reader",
+      "parent_comment_id": "abc123",
+      "parent_source_comment_id": "abc123",
+      "author": "bob",
+      "text": "Reader response.",
+      "time_token": "1h",
+      "like_count": 2,
+      "reply_count": 0
+    }
+  ]
+}
