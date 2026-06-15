@@ -238,11 +238,13 @@ ProductSignalAnalyzer is designed to consume the backend `ThreadReadModel`, espe
 
 The extension has fallback behavior for older capture shapes, but product-quality judgment depends on the backend producing a good Thread read model. OP continuation detection and discussion split should stay backend/deterministic, not in extension UI.
 
-The live Kathy Threads crawl validated the shape but also exposed the next backend fix:
+As of 2026-06-15, C-Backend B1 is merged in `dlens-ingest-core` PR #2 (`896373b`). `READMODEL_BACKEND` is now 🟡: backend tests cover duplicate-root removal, parent-aware OP continuation chains, and additive `reply_edges` / `orphan_replies`. The next step is B2 extension projection alignment so `src/state/captured-post.ts` consumes that contract instead of relying on same-author role guessing.
+
+The live Kathy Threads crawl validated the older shape and exposed the backend fix that B1 now covers:
 
 - crawler captured 53 comments, with 5 OP continuation candidates and 48 discussion replies
 - discussion replies contained product-intelligence value around recurring crawl, MCP/tool calling, browser automation, and PM document output
-- current OP continuation detection can include duplicate root content and OP interaction replies, so backend should split `content_continuation` from `op_reply_chatter`
+- pre-B1 OP continuation detection could include duplicate root content and OP interaction replies; B1 fixes the backend builder, while B2 still needs to remove the extension-side same-author promotion heuristic.
 
 RAG remains intentionally out of V1. The accepted V1 design is:
 
@@ -262,7 +264,7 @@ RAG remains intentionally out of V1. The accepted V1 design is:
 
 ## Immediate Next Work
 
-1. Backend P0: refine `ThreadReadModel` OP continuation splitting and remove root duplication.
+1. C-Backend B2: align extension projection with backend B1 by typing and consuming `reply_edges` / `orphan_replies`, preserving visible orphan replies, and stopping same-author `discussion_replies` from being promoted into OP continuations when a backend read-model exists.
 2. Chrome QA: reload `output/chrome-mv3` and walk Product Settings -> Collect -> crawl -> Product insights, Compare Parallel/Chapters, Topic Console/Stack, then PR Evidence campaign setup -> PDF upload -> Generate criteria -> Collect -> Match criteria -> CSV export -> summary MD/DOCX export.
 3. UI cleanup: verify topic mode green theme everywhere, product mode does not show folder concept, PR Evidence keeps the compact ledger grammar, and popup spacing/mode/layout switching stay fixed.
 4. TRACE is locked by the full live backend/LLM fixture gate once PR #29 lands; the remaining trace follow-up is performance investigation, not spine coverage.
