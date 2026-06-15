@@ -83,6 +83,12 @@ export function addRuntimeMessageListener(listener: RuntimeMessageListener): () 
 }
 
 const SNAPSHOT_RECONCILE_MESSAGE_TYPES = new Set<string>([
+  "session/queue-item",
+  "session/queue-selected",
+  "session/queue-all-pending",
+  "session/queue-items",
+  "session/refresh-item",
+  "session/refresh-selected",
   "session/refresh-all",
   "session/queue-items-and-start-processing",
   "product/analyze-signals",
@@ -121,9 +127,13 @@ export function buildSnapshotReconcileDescriptor(message: ExtensionMessage): { l
   if (!target.sessionId) {
     return null;
   }
+  const reconcileTarget: RequestReconcileTarget = { sessionId: target.sessionId };
+  if (target.itemId) {
+    reconcileTarget.itemId = target.itemId;
+  }
   return {
     lane: `snapshot.${message.type}`,
-    target: { sessionId: target.sessionId }
+    target: reconcileTarget
   };
 }
 

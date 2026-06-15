@@ -173,6 +173,10 @@ test("reconcile guard is wired into current async response write paths", () => {
   assert.match(background, /withDirectStorageReconcile/);
   assert.match(background, /reconcileToken/);
   assert.match(background, /background\.session\.refresh-all/);
+  assert.match(background, /background\.session\.queue-item/);
+  assert.match(background, /background\.session\.queue-all-pending/);
+  assert.match(background, /background\.session\.queue-items/);
+  assert.match(background, /background\.session\.refresh-item/);
   assert.match(background, /background\.session\.queue-items-and-start-processing/);
   for (const lane of [
     "folder.generateSynthesis",

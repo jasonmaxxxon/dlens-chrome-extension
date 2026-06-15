@@ -183,6 +183,16 @@ function makeCapture(id: string): CaptureSnapshot {
   };
 }
 
+function makeCaptureTargetResponse(id: string) {
+  return {
+    capture_id: `cap-${id}`,
+    job_id: `job-${id}`,
+    status: "queued" as const,
+    job_type: "threads_post_comments_crawl" as const,
+    canonical_target_url: `https://www.threads.net/@dlens/post/${id}`
+  };
+}
+
 function jsonResponse(payload: unknown): Response {
   return {
     ok: true,
@@ -805,6 +815,204 @@ test("session/refresh-all with no refreshable work and unchanged error performs 
 
   assert.equal(response.ok, true);
   assert.deepEqual(harness.writes, []);
+});
+
+test("session/queue-item ignores stale request writes before storage and broadcast", async () => {
+  enablePipelineTraceForTest();
+  const originalFetch = globalThis.fetch;
+  let releaseOldCaptureTarget: ((response: Response) => void) | null = null;
+  const oldCaptureTargetResponse = new Promise<Response>((resolve) => {
+    releaseOldCaptureTarget = resolve;
+  });
+
+  try {
+    const oldSession = {
+      ...makeSession("old-session", "topic"),
+      items: [{ ...createSessionItem(makeDescriptor("old")), id: "item-old" }]
+    };
+    const newSession = {
+      ...makeSession("new-session", "topic"),
+      items: [{ ...createSessionItem(makeDescriptor("new")), id: "item-new" }]
+    };
+    const tabKey = backgroundTestables.tabStorageKey(TAB_ID);
+    const global = makeGlobal([oldSession, newSession], oldSession.id);
+    const fetchRequests: Array<{ url: string; method: string }> = [];
+    globalThis.fetch = (async (input: RequestInfo | URL, init?: RequestInit) => {
+      const url = String(input);
+      const method = String(init?.method || "GET").toUpperCase();
+      fetchRequests.push({ url, method });
+      if (url.endsWith("/capture-target") && method === "POST") {
+        const body = typeof init?.body === "string" ? JSON.parse(init.body) as { post_url?: string } : {};
+        if (body.post_url?.endsWith("/old")) {
+          return oldCaptureTargetResponse;
+        }
+        if (body.post_url?.endsWith("/new")) {
+          return jsonResponse(makeCaptureTargetResponse("new"));
+        }
+      }
+      if (url.endsWith("/jobs/job-old") || url.endsWith("/jobs/job-new")) {
+        throw new Error("job not ready");
+      }
+      throw new Error(`Unexpected fetch URL: ${url}`);
+    }) as typeof fetch;
+
+    const harness = await createHarness({
+      [backgroundTestables.GLOBAL_STORAGE_KEY]: {
+        ...global,
+        settings: {
+          ...global.settings,
+          ingestBaseUrl: ""
+        }
+      },
+      [backgroundTestables.ACTIVE_SESSION_ID_STORAGE_KEY]: oldSession.id,
+      [tabKey]: createEmptyTabState()
+    });
+
+    const oldResponsePromise = harness.dispatch({
+      type: "session/queue-item",
+      requestId: "queue-old",
+      sessionId: oldSession.id,
+      itemId: "item-old"
+    } as ExtensionMessage);
+    await waitFor(
+      () => fetchRequests.some((request) => request.url.endsWith("/capture-target") && request.method === "POST"),
+      "old queue capture-target request"
+    );
+
+    const newResponsePromise = harness.dispatch({
+      type: "session/queue-item",
+      requestId: "queue-new",
+      sessionId: newSession.id,
+      itemId: "item-new"
+    } as ExtensionMessage);
+    await waitFor(
+      () => readPipelineTrace().some((event) =>
+        event.step === "background.session.queue-item.request"
+        && event.requestId === "queue-new"
+      ),
+      "new queue request trace"
+    );
+
+    assert.notEqual(releaseOldCaptureTarget, null);
+    releaseOldCaptureTarget?.(jsonResponse(makeCaptureTargetResponse("old")));
+    const [oldResponse, newResponse] = await Promise.all([oldResponsePromise, newResponsePromise]);
+
+    assert.equal(oldResponse.ok, true);
+    assert.equal(newResponse.ok, true);
+    assert.equal(harness.writes.length, 1);
+    assert.equal(harness.tabMessages.filter((message) => message.type === "state/updated").length, 1);
+
+    const storedGlobal = harness.state[backgroundTestables.GLOBAL_STORAGE_KEY] as ExtensionGlobalState;
+    assert.equal(storedGlobal.sessions.find((session) => session.id === oldSession.id)?.items[0]?.status, "saved");
+    assert.equal(storedGlobal.sessions.find((session) => session.id === newSession.id)?.items[0]?.status, "queued");
+    assert.equal(
+      readPipelineTrace().some((event) =>
+        event.step === "reconcile.stale-result.ignore"
+        && event.requestId === "queue-old"
+      ),
+      true
+    );
+  } finally {
+    globalThis.fetch = originalFetch;
+    disablePipelineTraceForTest();
+  }
+});
+
+test("session/refresh-item ignores stale request writes before storage and broadcast", async () => {
+  enablePipelineTraceForTest();
+  const originalFetch = globalThis.fetch;
+  let releaseOldJob: ((response: Response) => void) | null = null;
+  const oldJobResponse = new Promise<Response>((resolve) => {
+    releaseOldJob = resolve;
+  });
+
+  try {
+    const oldSession = {
+      ...makeSession("old-session", "topic"),
+      items: [makeRefreshableItem("old")]
+    };
+    const newSession = {
+      ...makeSession("new-session", "topic"),
+      items: [makeRefreshableItem("new")]
+    };
+    const tabKey = backgroundTestables.tabStorageKey(TAB_ID);
+    const global = makeGlobal([oldSession, newSession], oldSession.id);
+    const fetchUrls: string[] = [];
+    globalThis.fetch = (async (input: RequestInfo | URL) => {
+      const url = String(input);
+      fetchUrls.push(url);
+      if (url.endsWith("/jobs/job-old")) {
+        return oldJobResponse;
+      }
+      if (url.endsWith("/captures/cap-old")) {
+        return jsonResponse(makeCapture("old"));
+      }
+      if (url.endsWith("/jobs/job-new")) {
+        return jsonResponse(makeJob("new"));
+      }
+      if (url.endsWith("/captures/cap-new")) {
+        return jsonResponse(makeCapture("new"));
+      }
+      throw new Error(`Unexpected fetch URL: ${url}`);
+    }) as typeof fetch;
+
+    const harness = await createHarness({
+      [backgroundTestables.GLOBAL_STORAGE_KEY]: {
+        ...global,
+        settings: {
+          ...global.settings,
+          ingestBaseUrl: ""
+        }
+      },
+      [backgroundTestables.ACTIVE_SESSION_ID_STORAGE_KEY]: oldSession.id,
+      [tabKey]: createEmptyTabState()
+    });
+
+    const oldResponsePromise = harness.dispatch({
+      type: "session/refresh-item",
+      requestId: "refresh-item-old",
+      sessionId: oldSession.id,
+      itemId: "item-old"
+    } as ExtensionMessage);
+    await waitFor(() => fetchUrls.some((url) => url.endsWith("/jobs/job-old")), "old refresh-item fetch");
+
+    const newResponsePromise = harness.dispatch({
+      type: "session/refresh-item",
+      requestId: "refresh-item-new",
+      sessionId: newSession.id,
+      itemId: "item-new"
+    } as ExtensionMessage);
+    await waitFor(
+      () => readPipelineTrace().some((event) =>
+        event.step === "background.session.refresh-item.request"
+        && event.requestId === "refresh-item-new"
+      ),
+      "new refresh-item request trace"
+    );
+
+    assert.notEqual(releaseOldJob, null);
+    releaseOldJob?.(jsonResponse(makeJob("old")));
+    const [oldResponse, newResponse] = await Promise.all([oldResponsePromise, newResponsePromise]);
+
+    assert.equal(oldResponse.ok, true);
+    assert.equal(newResponse.ok, true);
+    assert.equal(harness.writes.length, 1);
+    assert.equal(harness.tabMessages.filter((message) => message.type === "state/updated").length, 1);
+
+    const storedGlobal = harness.state[backgroundTestables.GLOBAL_STORAGE_KEY] as ExtensionGlobalState;
+    assert.equal(storedGlobal.sessions.find((session) => session.id === oldSession.id)?.items[0]?.status, "queued");
+    assert.equal(storedGlobal.sessions.find((session) => session.id === newSession.id)?.items[0]?.status, "succeeded");
+    assert.equal(
+      readPipelineTrace().some((event) =>
+        event.step === "reconcile.stale-result.ignore"
+        && event.requestId === "refresh-item-old"
+      ),
+      true
+    );
+  } finally {
+    globalThis.fetch = originalFetch;
+    disablePipelineTraceForTest();
+  }
 });
 
 test("session/refresh-all ignores stale request writes before storage and broadcast", async () => {

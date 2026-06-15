@@ -160,6 +160,68 @@ test("buildSnapshotReconcileDescriptor only guards long async session-scoped wri
   );
   assert.deepEqual(
     buildSnapshotReconcileDescriptor({
+      type: "session/queue-item",
+      sessionId: "session-1",
+      itemId: "item-1"
+    }),
+    {
+      lane: "snapshot.session/queue-item",
+      target: { sessionId: "session-1", itemId: "item-1" }
+    }
+  );
+  assert.deepEqual(
+    buildSnapshotReconcileDescriptor({
+      type: "session/queue-selected",
+      target: { sessionId: "session-2", itemId: "item-2" }
+    }),
+    {
+      lane: "snapshot.session/queue-selected",
+      target: { sessionId: "session-2", itemId: "item-2" }
+    }
+  );
+  assert.deepEqual(
+    buildSnapshotReconcileDescriptor({
+      type: "session/queue-all-pending",
+      target: { sessionId: "session-3" }
+    }),
+    {
+      lane: "snapshot.session/queue-all-pending",
+      target: { sessionId: "session-3" }
+    }
+  );
+  assert.deepEqual(
+    buildSnapshotReconcileDescriptor({
+      type: "session/queue-items",
+      sessionId: "session-4"
+    }),
+    {
+      lane: "snapshot.session/queue-items",
+      target: { sessionId: "session-4" }
+    }
+  );
+  assert.deepEqual(
+    buildSnapshotReconcileDescriptor({
+      type: "session/refresh-item",
+      sessionId: "session-5",
+      itemId: "item-5"
+    }),
+    {
+      lane: "snapshot.session/refresh-item",
+      target: { sessionId: "session-5", itemId: "item-5" }
+    }
+  );
+  assert.deepEqual(
+    buildSnapshotReconcileDescriptor({
+      type: "session/refresh-selected",
+      target: { sessionId: "session-6", itemId: "item-6" }
+    }),
+    {
+      lane: "snapshot.session/refresh-selected",
+      target: { sessionId: "session-6", itemId: "item-6" }
+    }
+  );
+  assert.deepEqual(
+    buildSnapshotReconcileDescriptor({
       type: "folder/synthesis/generate",
       sessionId: "session-4"
     }),
