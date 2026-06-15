@@ -1,8 +1,16 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 
 import type { EvidencePacket, TopicAuditReport, TopicAuditStageName } from "../compare/topic-audit.ts";
 import type { TopicAuditValidationFlag } from "../compare/topic-audit-validator.ts";
 import type { ExtensionMessage, ExtensionResponse } from "../state/messages.ts";
+import { createPipelineRequestId, emitPipelineEvent } from "../state/pipeline-trace.ts";
+import {
+  buildReconcileIgnoredEvent,
+  createRequestReconciler,
+  type RequestReconcileDecision,
+  type RequestReconcileTarget,
+  type RequestReconcileToken
+} from "../state/request-reconcile.ts";
 import { deriveDerivedRecordStaleness } from "../state/derived-record.ts";
 import type { SessionRecord, Topic } from "../state/types.ts";
 import type { TopicAuditMemoBundle } from "../state/topic-audit-storage.ts";
@@ -19,10 +27,67 @@ export interface TopicAuditUiState {
   summary: TopicAuditSummary;
 }
 
+export interface LoadedTopicAuditState {
+  evidence: EvidencePacket[];
+  memos: TopicAuditMemoBundle | null;
+  report: TopicAuditReport | null;
+  flags: TopicAuditValidationFlag[];
+}
+
+export type LoadedTopicAuditByTopicId = Record<string, LoadedTopicAuditState>;
+
 interface LocalRunState {
   status: "running" | "failed";
   stage: TopicAuditStageName;
   error?: string;
+}
+
+export function shouldClearTopicAuditRunState(settled: RequestReconcileDecision | null): boolean {
+  return settled === null || settled.accepted || settled.reason === "target-mismatch";
+}
+
+export function shouldClearTopicAuditP1Running(settled: RequestReconcileDecision | null): boolean {
+  return settled === null || settled.accepted || settled.reason === "target-mismatch";
+}
+
+export function applyTopicAuditRunResult(
+  current: LoadedTopicAuditByTopicId,
+  topicId: string,
+  response: ExtensionResponse,
+  settled: RequestReconcileDecision
+): LoadedTopicAuditByTopicId {
+  if (!settled.accepted || !response.ok) {
+    return current;
+  }
+  return {
+    ...current,
+    [topicId]: {
+      evidence: response.auditEvidence ?? current[topicId]?.evidence ?? [],
+      memos: response.auditMemos ?? current[topicId]?.memos ?? null,
+      report: response.auditReport ?? current[topicId]?.report ?? null,
+      flags: response.auditValidatorFlags ?? current[topicId]?.flags ?? []
+    }
+  };
+}
+
+export function applyTopicAuditP1Result(
+  current: LoadedTopicAuditByTopicId,
+  topicId: string,
+  response: ExtensionResponse,
+  settled: RequestReconcileDecision
+): LoadedTopicAuditByTopicId {
+  if (!settled.accepted || !response.ok) {
+    return current;
+  }
+  return {
+    ...current,
+    [topicId]: {
+      evidence: response.auditEvidence ?? current[topicId]?.evidence ?? [],
+      memos: response.auditMemos ?? current[topicId]?.memos ?? null,
+      report: current[topicId]?.report ?? null,
+      flags: current[topicId]?.flags ?? []
+    }
+  };
 }
 
 function stageNumber(stage: TopicAuditStageName): number {
@@ -195,18 +260,26 @@ export function useTopicAudit({
   topics: Topic[];
   sendAndSync: SendAndSync;
 }) {
-  const [loadedByTopicId, setLoadedByTopicId] = useState<Record<string, {
-    evidence: EvidencePacket[];
-    memos: TopicAuditMemoBundle | null;
-    report: TopicAuditReport | null;
-    flags: TopicAuditValidationFlag[];
-  }>>({});
+  const [loadedByTopicId, setLoadedByTopicId] = useState<LoadedTopicAuditByTopicId>({});
   const [localRunByTopicId, setLocalRunByTopicId] = useState<Record<string, LocalRunState>>({});
   const [p1RunningByKey, setP1RunningByKey] = useState<Record<string, true>>({});
   const [p1ErrorByKey, setP1ErrorByKey] = useState<Record<string, string>>({});
+  const requestReconcilerRef = useRef(createRequestReconciler());
+  const activeFolderIdRef = useRef(activeFolder?.id ?? "");
+  activeFolderIdRef.current = activeFolder?.id ?? "";
   const topicById = useMemo(() => new Map(topics.map((topic) => [topic.id, topic])), [topics]);
 
   const p1Key = (topicId: string, signalId: string) => `${topicId}::${signalId}`;
+  const settleTopicAuditResponse = (
+    token: RequestReconcileToken,
+    currentTarget: RequestReconcileTarget
+  ): RequestReconcileDecision => {
+    const decision = requestReconcilerRef.current.complete(token, { currentTarget });
+    if (!decision.accepted) {
+      emitPipelineEvent(buildReconcileIgnoredEvent(token, decision));
+    }
+    return decision;
+  };
 
   useEffect(() => {
     if (!popupOpen || activeFolder?.mode !== "topic" || topics.length === 0) {
@@ -256,32 +329,43 @@ export function useTopicAudit({
       return;
     }
     const startStage = fromStage ?? inferLatestStage(loadedByTopicId[topicId]?.memos ?? null);
+    const requestId = createPipelineRequestId("topic-audit-run");
+    const token = requestReconcilerRef.current.begin({
+      lane: `topic.audit.run:${topicId}`,
+      requestId,
+      target: { sessionId: activeFolder.id, topicId }
+    });
+    let settled: RequestReconcileDecision | null = null;
     setLocalRunByTopicId((current) => ({ ...current, [topicId]: { status: "running", stage: startStage } }));
     try {
       const response = await sendAndSync({
         type: "topic/audit/run",
+        requestId,
         sessionId: activeFolder.id,
         topicId,
         ...(fromStage ? { fromStage } : {})
       });
+      settled = settleTopicAuditResponse(token, { sessionId: activeFolderIdRef.current, topicId });
+      if (!settled.accepted) {
+        return;
+      }
       if (!response.ok) {
         throw new Error(response.error);
       }
-      setLoadedByTopicId((current) => ({
-        ...current,
-        [topicId]: {
-          evidence: response.auditEvidence ?? current[topicId]?.evidence ?? [],
-          memos: response.auditMemos ?? current[topicId]?.memos ?? null,
-          report: response.auditReport ?? current[topicId]?.report ?? null,
-          flags: response.auditValidatorFlags ?? current[topicId]?.flags ?? []
-        }
-      }));
+      const acceptedSettled = settled;
+      setLoadedByTopicId((current) => applyTopicAuditRunResult(current, topicId, response, acceptedSettled));
       setLocalRunByTopicId((current) => {
         const next = { ...current };
         delete next[topicId];
         return next;
       });
     } catch (error) {
+      if (settled === null) {
+        settled = settleTopicAuditResponse(token, { sessionId: activeFolderIdRef.current, topicId });
+      }
+      if (!settled.accepted) {
+        return;
+      }
       setLocalRunByTopicId((current) => ({
         ...current,
         [topicId]: {
@@ -307,6 +391,13 @@ export function useTopicAudit({
   async function runP1ForSignal(topicId: string, signalId: string) {
     if (!activeFolder?.id) return { ok: false as const, error: "尚未開啟資料夾" };
     const key = p1Key(topicId, signalId);
+    const requestId = createPipelineRequestId("topic-audit-p1");
+    const token = requestReconcilerRef.current.begin({
+      lane: `topic.audit.p1:${topicId}:${signalId}`,
+      requestId,
+      target: { sessionId: activeFolder.id, topicId, signalId }
+    });
+    let settled: RequestReconcileDecision | null = null;
     setP1RunningByKey((current) => ({ ...current, [key]: true }));
     setP1ErrorByKey((current) => {
       const next = { ...current };
@@ -316,33 +407,39 @@ export function useTopicAudit({
     try {
       const response = await sendAndSync({
         type: "topic/audit/p1-signal",
+        requestId,
         sessionId: activeFolder.id,
         topicId,
         signalId
       });
+      settled = settleTopicAuditResponse(token, { sessionId: activeFolderIdRef.current, topicId, signalId });
+      if (!settled.accepted) {
+        return { ok: true as const };
+      }
       if (!response.ok) {
         throw new Error(response.error);
       }
-      setLoadedByTopicId((current) => ({
-        ...current,
-        [topicId]: {
-          evidence: response.auditEvidence ?? current[topicId]?.evidence ?? [],
-          memos: response.auditMemos ?? current[topicId]?.memos ?? null,
-          report: current[topicId]?.report ?? null,
-          flags: current[topicId]?.flags ?? []
-        }
-      }));
+      const acceptedSettled = settled;
+      setLoadedByTopicId((current) => applyTopicAuditP1Result(current, topicId, response, acceptedSettled));
       return { ok: true as const };
     } catch (error) {
+      if (settled === null) {
+        settled = settleTopicAuditResponse(token, { sessionId: activeFolderIdRef.current, topicId, signalId });
+      }
+      if (!settled.accepted) {
+        return { ok: true as const };
+      }
       const message = error instanceof Error ? error.message : String(error);
       setP1ErrorByKey((current) => ({ ...current, [key]: message }));
       return { ok: false as const, error: message };
     } finally {
-      setP1RunningByKey((current) => {
-        const next = { ...current };
-        delete next[key];
-        return next;
-      });
+      if (shouldClearTopicAuditP1Running(settled)) {
+        setP1RunningByKey((current) => {
+          const next = { ...current };
+          delete next[key];
+          return next;
+        });
+      }
     }
   }
 

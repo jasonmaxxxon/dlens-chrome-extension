@@ -150,7 +150,7 @@ test("reconcile guard is wired into current async response write paths", () => {
   ]) {
     assert.match(resultWorkspace, new RegExp(lane.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")));
   }
-  assert.match(resultWorkspace, /shouldApplyResponse\(token\)/);
+  assert.match(resultWorkspace, /settleCompareResponse\(token\)/);
 
   const appState = readRepoFile("src/ui/useInPageCollectorAppState.ts");
   for (const lane of [
@@ -167,6 +167,15 @@ test("reconcile guard is wired into current async response write paths", () => {
     assert.match(appState, new RegExp(lane.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")));
   }
   assert.match(appState, /settleReconciledResponse\(token/);
+
+  const topicAudit = readRepoFile("src/ui/useTopicAudit.ts");
+  assert.match(topicAudit, /topic\.audit\.run:\$\{topicId\}/);
+  assert.match(topicAudit, /topic\.audit\.p1:\$\{topicId\}:\$\{signalId\}/);
+  assert.match(topicAudit, /settleTopicAuditResponse\(token/);
+
+  const resultSurface = readRepoFile("src/ui/useResultSurfaceState.ts");
+  assert.match(resultSurface, /lane:\s*"judgment\.start"/);
+  assert.match(resultSurface, /buildReconcileIgnoredEvent\(token/);
 
   const background = readRepoFile("entrypoints/background.ts");
   assert.match(background, /beginBackgroundSnapshotReconcile/);
@@ -186,7 +195,8 @@ test("reconcile guard is wired into current async response write paths", () => {
     "product.synthesizeSignalReading",
     "product.reviewSignalReading",
     "pr.matchCriteria",
-    "pr.fetchAdvancedMetrics"
+    "pr.fetchAdvancedMetrics",
+    "judgment.start"
   ]) {
     assert.match(background, new RegExp(lane.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")));
   }

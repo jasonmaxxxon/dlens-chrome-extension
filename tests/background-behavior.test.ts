@@ -6,6 +6,7 @@ import { PRODUCT_AGENT_TASK_FEEDBACK_STORAGE_KEY } from "../src/compare/product-
 import { FOLDER_SYNTHESIS_VERSION } from "../src/compare/folder-synthesis.ts";
 import { FOLDER_SYNTHESIS_STORAGE_KEY } from "../src/compare/folder-synthesis-storage.ts";
 import { PRODUCT_CONTEXT_STORAGE_KEY } from "../src/compare/product-context.ts";
+import { SAVED_ANALYSES_STORAGE_KEY } from "../src/compare/saved-analysis-storage.ts";
 import { PRODUCT_SIGNAL_ANALYSES_STORAGE_KEY } from "../src/compare/product-signal-storage.ts";
 import { SIGNAL_READINGS_STORAGE_KEY } from "../src/compare/signal-reading-storage.ts";
 import type { CaptureSnapshot, JobSnapshot } from "../src/contracts/ingest.ts";
@@ -14,7 +15,7 @@ import { readPipelineTrace } from "../src/state/pipeline-trace.ts";
 import { PR_CAMPAIGNS_STORAGE_KEY, PR_EVIDENCE_ROWS_STORAGE_KEY, type PrCampaign, type PrEvidenceRow } from "../src/state/pr-evidence-storage.ts";
 import { createSessionItem } from "../src/state/store-helpers.ts";
 import { SIGNALS_STORAGE_KEY, TOPICS_STORAGE_KEY } from "../src/state/topic-storage.ts";
-import { createEmptyGlobalState, createEmptyTabState, type ExtensionGlobalState, type FolderMode, type FolderSynthesis, type ProductContext, type Signal, type SessionItem, type SessionRecord, type TabUiState, type Topic } from "../src/state/types.ts";
+import { createEmptyGlobalState, createEmptyTabState, type ExtensionGlobalState, type FolderMode, type FolderSynthesis, type ProductContext, type SavedAnalysisSnapshot, type Signal, type SessionItem, type SessionRecord, type TabUiState, type Topic } from "../src/state/types.ts";
 
 type StorageState = Record<string, unknown>;
 
@@ -129,6 +130,30 @@ function makeProductContext(): ProductContext {
     compiledAt: "2026-05-27T00:00:00.000Z",
     sourceFileIds: [],
     promptVersion: "v1"
+  };
+}
+
+function makeSavedAnalysis(resultId: string, itemAId: string, itemBId: string): SavedAnalysisSnapshot {
+  return {
+    resultId,
+    compareKey: `${itemAId}::${itemBId}`,
+    itemAId,
+    itemBId,
+    sourceLabelA: "@a",
+    sourceLabelB: "@b",
+    headline: `Headline ${resultId}`,
+    deck: "Saved compare deck.",
+    primaryTensionSummary: "Saved compare summary.",
+    groupSummary: "1 group",
+    totalComments: 12,
+    dateRangeLabel: "today",
+    savedAt: "2026-05-27T00:00:00.000Z",
+    analysisVersion: "v1",
+    briefVersion: "v8",
+    briefSource: "ai",
+    judgmentResult: null,
+    judgmentVersion: null,
+    judgmentSource: "missing"
   };
 }
 
@@ -1671,6 +1696,96 @@ test("pr/match-criteria starts a fresh write when a newer request supersedes in-
     );
   } finally {
     globalThis.fetch = originalFetch;
+    disablePipelineTraceForTest();
+  }
+});
+
+test("judgment/start ignores stale saved-analysis writes and broadcasts", async () => {
+  enablePipelineTraceForTest();
+  let releaseOldSavedRead: (() => void) | null = null;
+  let blockedOldSavedRead = false;
+
+  try {
+    const oldItems = [makeSucceededItem("judgment-old-a"), makeSucceededItem("judgment-old-b")];
+    const newItems = [makeSucceededItem("judgment-new-a"), makeSucceededItem("judgment-new-b")];
+    const session = {
+      ...makeSession("judgment-session", "topic"),
+      items: [...oldItems, ...newItems]
+    };
+    const oldAnalysis = makeSavedAnalysis("old-result", oldItems[0]!.id, oldItems[1]!.id);
+    const newAnalysis = makeSavedAnalysis("new-result", newItems[0]!.id, newItems[1]!.id);
+    const global = makeGlobal([session], session.id);
+    const tabKey = backgroundTestables.tabStorageKey(TAB_ID);
+    const harness = await createHarness({
+      [backgroundTestables.GLOBAL_STORAGE_KEY]: {
+        ...global,
+        settings: {
+          ...global.settings,
+          productProfile: {
+            name: "DLens",
+            category: "Chrome extension",
+            audience: "product teams"
+          }
+        }
+      },
+      [backgroundTestables.ACTIVE_SESSION_ID_STORAGE_KEY]: session.id,
+      [SAVED_ANALYSES_STORAGE_KEY]: [oldAnalysis, newAnalysis],
+      [tabKey]: createEmptyTabState()
+    }, {
+      onGet: (keys) => {
+        if (!blockedOldSavedRead && storageKeysInclude(keys, SAVED_ANALYSES_STORAGE_KEY)) {
+          blockedOldSavedRead = true;
+          return new Promise<void>((resolve) => {
+            releaseOldSavedRead = resolve;
+          });
+        }
+      }
+    });
+
+    const oldResponsePromise = harness.dispatch({
+      type: "judgment/start",
+      requestId: "judgment-old",
+      resultId: oldAnalysis.resultId
+    } as ExtensionMessage);
+    await waitFor(() => blockedOldSavedRead, "old judgment saved-analysis read");
+
+    const newResponse = await harness.dispatch({
+      type: "judgment/start",
+      requestId: "judgment-new",
+      resultId: newAnalysis.resultId
+    } as ExtensionMessage);
+
+    assert.notEqual(releaseOldSavedRead, null);
+    releaseOldSavedRead?.();
+    const oldResponse = await oldResponsePromise;
+
+    assert.equal(oldResponse.ok, true);
+    assert.equal(newResponse.ok, true);
+    assert.equal(harness.writesFor(SAVED_ANALYSES_STORAGE_KEY).length, 1);
+
+    const storedAnalyses = harness.state[SAVED_ANALYSES_STORAGE_KEY] as SavedAnalysisSnapshot[];
+    assert.equal(storedAnalyses.find((entry) => entry.resultId === oldAnalysis.resultId)?.judgmentResult, null);
+    assert.equal(storedAnalyses.find((entry) => entry.resultId === newAnalysis.resultId)?.judgmentResult?.recommendedState, "park");
+    assert.equal(
+      harness.tabMessages.some((message) =>
+        message.type === "judgment/result" && message.resultId === oldAnalysis.resultId
+      ),
+      false
+    );
+    assert.equal(
+      harness.tabMessages.some((message) =>
+        message.type === "judgment/result" && message.resultId === newAnalysis.resultId
+      ),
+      true
+    );
+    assert.equal(
+      readPipelineTrace().some((event) =>
+        event.step === "reconcile.stale-result.ignore"
+        && event.requestId === "judgment-old"
+      ),
+      true
+    );
+  } finally {
     disablePipelineTraceForTest();
   }
 });
