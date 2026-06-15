@@ -1,19 +1,43 @@
 import type {
   CaptureSnapshot,
+  ThreadReadModelOrphanReplySnapshot,
   ThreadReadModelPostSnapshot,
+  ThreadReadModelReplyEdgeSnapshot,
   ThreadReadModelSnapshot
 } from "../contracts/ingest.ts";
 import type { TargetDescriptor } from "../contracts/target-descriptor.ts";
 import type { SessionItem, SessionItemStatus } from "./types.ts";
 
 export type CapturedPostReplyRole = "op_continuation" | "audience" | "placeholder";
+export type CapturedPostOrphanReason = "parent_not_found_in_comments_or_root";
+
+export interface CapturedPostReplyEdge {
+  commentId: string;
+  parentCommentId: string;
+  parentKind: "comment";
+}
+
+export interface CapturedPostOrphanReply {
+  commentId: string;
+  parentCommentId: string | null;
+  parentSourceCommentId: string | null;
+  reason: CapturedPostOrphanReason;
+}
 
 export interface CapturedPostFragment {
   id: string;
+  sourceId: string | null;
+  parentId: string | null;
+  parentSourceId: string | null;
   author: string;
   text: string;
+  timeToken: string | null;
   likes: number | null;
+  replyCount: number | null;
   role: CapturedPostReplyRole;
+  isOrphan: boolean;
+  orphanReason?: CapturedPostOrphanReason;
+  resolvedParentId: string | null;
 }
 
 export interface CapturedPostProjection {
@@ -28,6 +52,8 @@ export interface CapturedPostProjection {
   opContinuations: CapturedPostFragment[];
   replies: CapturedPostFragment[];
   discussionReplies: CapturedPostFragment[];
+  replyEdges: CapturedPostReplyEdge[];
+  orphanReplies: CapturedPostOrphanReply[];
 }
 
 interface CapturedPostSourceInput {
@@ -72,12 +98,65 @@ function readDiscussionReplies(model: ThreadReadModelSnapshot | null): ThreadRea
   return Array.isArray(posts) ? posts : [];
 }
 
+function readReplyEdges(model: ThreadReadModelSnapshot | null): CapturedPostReplyEdge[] {
+  const edges = model?.replyEdges ?? model?.reply_edges ?? [];
+  if (!Array.isArray(edges)) {
+    return [];
+  }
+  return edges
+    .map((edge: ThreadReadModelReplyEdgeSnapshot): CapturedPostReplyEdge | null => {
+      const commentId = readTrimmedString(edge.commentId ?? edge.comment_id);
+      const parentCommentId = readTrimmedString(edge.parentCommentId ?? edge.parent_comment_id);
+      const parentKind = edge.parentKind ?? edge.parent_kind;
+      if (!commentId || !parentCommentId || (parentKind && parentKind !== "comment")) {
+        return null;
+      }
+      return { commentId, parentCommentId, parentKind: "comment" };
+    })
+    .filter((edge): edge is CapturedPostReplyEdge => edge !== null);
+}
+
+function readOrphanReplies(model: ThreadReadModelSnapshot | null): CapturedPostOrphanReply[] {
+  const orphans = model?.orphanReplies ?? model?.orphan_replies ?? [];
+  if (!Array.isArray(orphans)) {
+    return [];
+  }
+  return orphans
+    .map((orphan: ThreadReadModelOrphanReplySnapshot): CapturedPostOrphanReply | null => {
+      const commentId = readTrimmedString(orphan.commentId ?? orphan.comment_id);
+      if (!commentId) {
+        return null;
+      }
+      return {
+        commentId,
+        parentCommentId: readTrimmedString(orphan.parentCommentId ?? orphan.parent_comment_id) || null,
+        parentSourceCommentId: readTrimmedString(orphan.parentSourceCommentId ?? orphan.parent_source_comment_id) || null,
+        reason: orphan.reason === "parent_not_found_in_comments_or_root"
+          ? orphan.reason
+          : "parent_not_found_in_comments_or_root"
+      };
+    })
+    .filter((orphan): orphan is CapturedPostOrphanReply => orphan !== null);
+}
+
 function readAssembledContent(model: ThreadReadModelSnapshot | null): string {
   return readTextString(model?.assembledContent ?? model?.assembled_content);
 }
 
 function readPostId(post: ThreadReadModelPostSnapshot, fallbackId: string): string {
   return readTrimmedString(post.postId ?? post.post_id ?? post.commentId ?? post.comment_id) || fallbackId;
+}
+
+function readPostSourceId(post: ThreadReadModelPostSnapshot): string | null {
+  return readTrimmedString(post.sourceCommentId ?? post.source_comment_id) || null;
+}
+
+function readPostParentId(post: ThreadReadModelPostSnapshot): string | null {
+  return readTrimmedString(post.parentCommentId ?? post.parent_comment_id) || null;
+}
+
+function readPostParentSourceId(post: ThreadReadModelPostSnapshot): string | null {
+  return readTrimmedString(post.parentSourceCommentId ?? post.parent_source_comment_id) || null;
 }
 
 function readPostText(post: ThreadReadModelPostSnapshot | null | undefined): string {
@@ -92,26 +171,59 @@ function readPostLikes(post: ThreadReadModelPostSnapshot | null | undefined): nu
   return readNumberOrNull(post?.likeCount ?? post?.like_count);
 }
 
+function readPostReplyCount(post: ThreadReadModelPostSnapshot | null | undefined): number | null {
+  return readNumberOrNull(post?.replyCount ?? post?.reply_count);
+}
+
+function readPostTimeToken(post: ThreadReadModelPostSnapshot | null | undefined): string | null {
+  return readTrimmedString(post?.timeToken ?? post?.time_token) || null;
+}
+
 function readLegacyComments(capture: CaptureSnapshot | null | undefined): ThreadReadModelPostSnapshot[] {
   const comments = capture?.result?.comments ?? [];
   return Array.isArray(comments) ? comments as ThreadReadModelPostSnapshot[] : [];
 }
 
+function buildOrphanIdSet(orphanReplies: CapturedPostOrphanReply[]): Map<string, CapturedPostOrphanReply> {
+  return new Map(orphanReplies.map((orphan) => [orphan.commentId, orphan]));
+}
+
+function buildResolvedParentIdSet(replyEdges: CapturedPostReplyEdge[]): Map<string, string> {
+  return new Map(replyEdges.map((edge) => [edge.commentId, edge.parentCommentId]));
+}
+
 function normalizeFragment(
   post: ThreadReadModelPostSnapshot,
   fallbackId: string,
-  role: CapturedPostReplyRole
+  role: CapturedPostReplyRole,
+  relationships: {
+    orphanById: Map<string, CapturedPostOrphanReply>;
+    resolvedParentById: Map<string, string>;
+  }
 ): CapturedPostFragment | null {
   const text = readPostText(post);
   if (!text) {
     return null;
   }
+  const id = readPostId(post, fallbackId);
+  const sourceId = readPostSourceId(post);
+  const identityKeys = sourceId && sourceId !== id ? [id, sourceId] : [id];
+  const orphan = identityKeys.map((key) => relationships.orphanById.get(key)).find((entry): entry is CapturedPostOrphanReply => Boolean(entry));
+  const resolvedParentId = identityKeys.map((key) => relationships.resolvedParentById.get(key)).find((entry): entry is string => Boolean(entry)) ?? null;
   return {
-    id: readPostId(post, fallbackId),
+    id,
+    sourceId,
+    parentId: readPostParentId(post),
+    parentSourceId: readPostParentSourceId(post),
     author: readPostAuthor(post),
     text,
+    timeToken: readPostTimeToken(post),
     likes: readPostLikes(post),
-    role
+    replyCount: readPostReplyCount(post),
+    role,
+    isOrphan: Boolean(orphan),
+    ...(orphan ? { orphanReason: orphan.reason } : {}),
+    resolvedParentId
   };
 }
 
@@ -153,9 +265,15 @@ export function projectCapturedPostFromSources(
   const opContinuations: CapturedPostFragment[] = [];
   const replies: CapturedPostFragment[] = [];
   const discussionReplies: CapturedPostFragment[] = [];
+  const replyEdges = readReplyEdges(model);
+  const orphanReplies = readOrphanReplies(model);
+  const relationships = {
+    orphanById: buildOrphanIdSet(orphanReplies),
+    resolvedParentById: buildResolvedParentIdSet(replyEdges)
+  };
 
   for (const [index, post] of readOpContinuations(model).entries()) {
-    const fragment = normalizeFragment(post, `op_${index + 1}`, "op_continuation");
+    const fragment = normalizeFragment(post, `op_${index + 1}`, "op_continuation", relationships);
     if (fragment) {
       opContinuations.push(fragment);
     }
@@ -173,7 +291,7 @@ export function projectCapturedPostFromSources(
       : postAuthor.toLowerCase() === normalizedAuthor
         ? "op_continuation"
         : "audience";
-    const fragment = normalizeFragment(post, `reply_${index + 1}`, role);
+    const fragment = normalizeFragment(post, `reply_${index + 1}`, role, relationships);
     if (!fragment) {
       continue;
     }
@@ -196,7 +314,9 @@ export function projectCapturedPostFromSources(
     hasThreadReadModel: Boolean(model),
     opContinuations,
     replies,
-    discussionReplies
+    discussionReplies,
+    replyEdges,
+    orphanReplies
   };
 }
 

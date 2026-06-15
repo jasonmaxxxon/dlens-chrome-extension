@@ -217,12 +217,15 @@ PR body for each must include:
 
 ## Worktree mechanics
 
-Backend repo lives at `/Users/tung/Desktop/dlens-ingest-core` (symlink → `/Users/tung/Desktop/dlens-backend/dlens-ingest-core`). Unlike `dlens-product-latest`, there is no preconfigured `~/.config/superpowers/worktrees/dlens-ingest-core/<branch>` tree.
+Backend repo lives outside the extension repo. Use the local `dlens-ingest-core`
+checkout configured for this machine. Unlike `dlens-product-latest`, there may
+not be a preconfigured `~/.config/superpowers/worktrees/dlens-ingest-core/<branch>`
+tree.
 
 Suggested Codex setup (per slice):
 
 ```bash
-cd /Users/tung/Desktop/dlens-backend/dlens-ingest-core
+cd <backend-repo>
 git checkout -b fix/read-model-duplicate-root-guard main
 # implement, test
 git push -u origin fix/read-model-duplicate-root-guard

@@ -446,7 +446,7 @@ git commit -m "feature(c-backend): carry reply structure into evidence projectio
 
 ## Final Verification
 
-Run from `/Users/tung/Desktop/dlens-product-latest`:
+Run from the extension repo root:
 
 ```bash
 npm run typecheck

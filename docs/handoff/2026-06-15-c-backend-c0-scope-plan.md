@@ -125,8 +125,9 @@ List what B1 will deliberately not touch, to keep Codex from scope-creeping:
 
 ## Worktree mechanics for Codex
 
-Backend repo is `/Users/tung/Desktop/dlens-ingest-core` (main = current). The audit doc lands in `dlens-product-latest`, but the
-inspection target is the backend repo.
+Backend repo is the local `dlens-ingest-core` checkout configured for this
+machine (main = current). The audit doc lands in `dlens-product-latest`, but
+the inspection target is the backend repo.
 
 Suggested setup:
 
@@ -134,13 +135,13 @@ Suggested setup:
 # product-latest worktree (where the audit doc + fixtures live)
 cd ~/.config/superpowers/worktrees/dlens-product-latest/audit-readmodel-c0
 # backend (read-only inspection; do NOT branch / commit here)
-cd /Users/tung/Desktop/dlens-ingest-core  # or its own worktree if Codex prefers
+cd <backend-repo>  # or its own worktree if Codex prefers
 ```
 
 If Codex needs to replay a fixture through the real builder:
 
 ```
-cd /Users/tung/Desktop/dlens-ingest-core
+cd <backend-repo>
 .venv/bin/python -c "
 from dlens_ingest_core.crawlers.threads.normalize import build_thread_read_model
 import json

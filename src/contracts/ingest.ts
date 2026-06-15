@@ -87,10 +87,39 @@ export interface ThreadReadModelPostSnapshot {
   postId?: string;
   comment_id?: string;
   commentId?: string;
+  source_comment_id?: string;
+  sourceCommentId?: string;
+  parent_comment_id?: string | null;
+  parentCommentId?: string | null;
+  parent_source_comment_id?: string | null;
+  parentSourceCommentId?: string | null;
   author?: string;
   text?: string;
+  time_token?: string | null;
+  timeToken?: string | null;
   like_count?: number | null;
   likeCount?: number | null;
+  reply_count?: number | null;
+  replyCount?: number | null;
+}
+
+export interface ThreadReadModelReplyEdgeSnapshot {
+  comment_id?: string;
+  commentId?: string;
+  parent_comment_id?: string;
+  parentCommentId?: string;
+  parent_kind?: "comment";
+  parentKind?: "comment";
+}
+
+export interface ThreadReadModelOrphanReplySnapshot {
+  comment_id?: string;
+  commentId?: string;
+  parent_comment_id?: string | null;
+  parentCommentId?: string | null;
+  parent_source_comment_id?: string | null;
+  parentSourceCommentId?: string | null;
+  reason?: "parent_not_found_in_comments_or_root";
 }
 
 export interface ThreadReadModelSnapshot {
@@ -102,6 +131,10 @@ export interface ThreadReadModelSnapshot {
   discussionReplies?: ThreadReadModelPostSnapshot[];
   assembled_content?: string;
   assembledContent?: string;
+  reply_edges?: ThreadReadModelReplyEdgeSnapshot[];
+  replyEdges?: ThreadReadModelReplyEdgeSnapshot[];
+  orphan_replies?: ThreadReadModelOrphanReplySnapshot[];
+  orphanReplies?: ThreadReadModelOrphanReplySnapshot[];
 }
 
 export interface AnalysisClusterSnapshot {

@@ -134,6 +134,74 @@ test("projectCapturedPost treats legacy snake_case capture fields the same way",
   assert.deepEqual(post.replies.map((fragment) => fragment.id), ["snake-r1"]);
 });
 
+test("projectCapturedPost normalizes backend B1 reply edges and orphan replies", () => {
+  const item = makeItem();
+  item.latestCapture = {
+    ...item.latestCapture!,
+    result: {
+      ...item.latestCapture!.result!,
+      threadReadModel: null,
+      thread_read_model: {
+        assembled_content: "Root\n\nPart two",
+        root_post: { post_id: "root", author: "op", text: "Root" },
+        op_continuations: [
+          {
+            comment_id: "op-1",
+            source_comment_id: "src-op-1",
+            parent_comment_id: "root",
+            author: "op",
+            text: "Part two"
+          }
+        ],
+        discussion_replies: [
+          {
+            comment_id: "c1",
+            source_comment_id: "src-c1",
+            parent_comment_id: "root",
+            author: "reader",
+            text: "Top-level reply"
+          },
+          {
+            comment_id: "c2",
+            source_comment_id: "src-c2",
+            parent_comment_id: "missing-parent",
+            parent_source_comment_id: "src-missing",
+            author: "reader2",
+            text: "Orphan reply"
+          },
+          {
+            comment_id: "c3",
+            source_comment_id: "src-c3",
+            parent_comment_id: "c1",
+            parent_source_comment_id: "src-c1",
+            author: "reader3",
+            text: "Nested reply"
+          }
+        ],
+        reply_edges: [
+          { comment_id: "c3", parent_comment_id: "c1", parent_kind: "comment" }
+        ],
+        orphan_replies: [
+          {
+            comment_id: "c2",
+            parent_comment_id: "missing-parent",
+            parent_source_comment_id: "src-missing",
+            reason: "parent_not_found_in_comments_or_root"
+          }
+        ]
+      }
+    }
+  } as SessionItem["latestCapture"];
+
+  const post = projectCapturedPost(item);
+
+  assert.deepEqual(post.replyEdges, [{ commentId: "c3", parentCommentId: "c1", parentKind: "comment" }]);
+  assert.deepEqual(post.orphanReplies.map((entry) => entry.commentId), ["c2"]);
+  assert.equal(post.discussionReplies.find((fragment) => fragment.id === "c2")?.isOrphan, true);
+  assert.equal(post.discussionReplies.find((fragment) => fragment.id === "c2")?.parentId, "missing-parent");
+  assert.equal(post.discussionReplies.find((fragment) => fragment.id === "c3")?.resolvedParentId, "c1");
+});
+
 test("projectCapturedPost does not turn unknown counts on unfinished captures into zero", () => {
   const item = {
     ...makeItem(),
