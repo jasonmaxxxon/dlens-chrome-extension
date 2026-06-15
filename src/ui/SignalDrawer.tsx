@@ -9,6 +9,7 @@ import { GhostButton } from "./topic-audit-components.tsx";
 const ROLE_LABEL: Record<ReplyFragment["role"] | "op", string> = {
   op: "OP 原文",
   op_continuation: "OP 接話",
+  op_reply: "OP 回覆",
   audience: "留言",
   placeholder: "留言"
 };
@@ -21,8 +22,8 @@ interface FragmentLookup {
   role: ReplyFragment["role"] | "op";
 }
 
-const CITATION_GROUP_PATTERN = /\[(S\d+\.(?:OPC\d+|OP|R\d+|P\d+)(?:\s*,\s*S\d+\.(?:OPC\d+|OP|R\d+|P\d+))*)\]/g;
-const CITATION_REF_PATTERN = /S\d+\.(?:OPC\d+|OP|R\d+|P\d+)/g;
+const CITATION_GROUP_PATTERN = /\[(S\d+\.(?:OPC\d+|OPR\d+|OP|R\d+|P\d+)(?:\s*,\s*S\d+\.(?:OPC\d+|OPR\d+|OP|R\d+|P\d+))*)\]/g;
+const CITATION_REF_PATTERN = /S\d+\.(?:OPC\d+|OPR\d+|OP|R\d+|P\d+)/g;
 const CITATION_POPOVER_WIDTH = 320;
 const CITATION_POPOVER_HEIGHT = 156;
 const CITATION_POPOVER_MARGIN = 12;
@@ -547,11 +548,12 @@ export function SignalDrawer({
 
   const audienceReplies = packet.replyFragments.filter((fragment) => fragment.role === "audience");
   const opContinuations = packet.replyFragments.filter((fragment) => fragment.role === "op_continuation");
-  const showDataGap = audienceReplies.length === 0 && opContinuations.length > 0;
+  const opReplies = packet.replyFragments.filter((fragment) => fragment.role === "op_reply");
+  const showDataGap = audienceReplies.length === 0 && (opContinuations.length > 0 || opReplies.length > 0);
   const opRef = `${packet.shortCode}.OP`;
   const opFragment = fragmentLookup.get(opRef);
   // OP root post is surfaced as an always-visible card up top; the collapsible
-  // now holds the rest of the thread (OP continuations + audience replies).
+  // now holds the rest of the thread (OP continuations + OP replies + audience replies).
   const threadFragments = allFragments.filter((fragment) => fragment.ref !== opRef);
   const replyCount = packet.replyFragments.length;
   const displayDate = new Intl.DateTimeFormat("zh-HK", { year: "numeric", month: "2-digit", day: "2-digit" }).format(new Date(packet.capturedAt));

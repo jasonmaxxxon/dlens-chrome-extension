@@ -8,7 +8,7 @@ import type {
 import type { TargetDescriptor } from "../contracts/target-descriptor.ts";
 import type { SessionItem, SessionItemStatus } from "./types.ts";
 
-export type CapturedPostReplyRole = "op_continuation" | "audience" | "placeholder";
+export type CapturedPostReplyRole = "op_continuation" | "op_reply" | "audience" | "placeholder";
 export type CapturedPostOrphanReason = "parent_not_found_in_comments_or_root";
 
 export interface CapturedPostReplyEdge {
@@ -50,6 +50,7 @@ export interface CapturedPostProjection {
   hasAssembledContent: boolean;
   hasThreadReadModel: boolean;
   opContinuations: CapturedPostFragment[];
+  // Visible discussion fragments that are not OP continuation body text.
   replies: CapturedPostFragment[];
   discussionReplies: CapturedPostFragment[];
   replyEdges: CapturedPostReplyEdge[];
@@ -253,6 +254,7 @@ export function projectCapturedPostFromSources(
   options: CapturedPostProjectionOptions = {}
 ): CapturedPostProjection {
   const model = readThreadReadModel(input.capture);
+  const hasBackendModel = Boolean(model);
   const rootPost = readRootPost(model);
   const author = readPostAuthor(rootPost)
     || readTrimmedString(input.capture?.author_hint)
@@ -289,7 +291,7 @@ export function projectCapturedPostFromSources(
     const role: CapturedPostReplyRole = !postAuthor
       ? "placeholder"
       : postAuthor.toLowerCase() === normalizedAuthor
-        ? "op_continuation"
+        ? hasBackendModel ? "op_reply" : "op_continuation"
         : "audience";
     const fragment = normalizeFragment(post, `reply_${index + 1}`, role, relationships);
     if (!fragment) {

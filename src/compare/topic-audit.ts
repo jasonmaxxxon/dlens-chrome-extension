@@ -2,7 +2,7 @@ import { projectCapturedPost, type CapturedPostFragment, type CapturedPostProjec
 import type { SessionItem, Signal, SignalTagsRecord, Topic } from "../state/types.ts";
 
 export type TopicAuditStatus = "succeeded" | "queued" | "failed";
-export type ReplyFragmentRole = "op_continuation" | "audience" | "placeholder";
+export type ReplyFragmentRole = "op_continuation" | "op_reply" | "audience" | "placeholder";
 export type TopicAuditStageName = "p1-signal-reading" | "lexicon" | "narrative" | "audience" | "absence" | "final";
 
 export interface ReplyFragment {
@@ -135,6 +135,9 @@ function makeFragmentRef(shortCode: string, role: ReplyFragmentRole, index: numb
   if (role === "op_continuation") {
     return `${shortCode}.OPC${index}`;
   }
+  if (role === "op_reply") {
+    return `${shortCode}.OPR${index}`;
+  }
   if (role === "placeholder") {
     return `${shortCode}.P${index}`;
   }
@@ -144,6 +147,7 @@ function makeFragmentRef(shortCode: string, role: ReplyFragmentRole, index: numb
 function buildReplyFragments(shortCode: string, capturedPost: CapturedPostProjection): ReplyFragment[] {
   const fragments: ReplyFragment[] = [];
   let opIndex = 0;
+  let opReplyIndex = 0;
   let audienceIndex = 0;
   let placeholderIndex = 0;
 
@@ -151,9 +155,11 @@ function buildReplyFragments(shortCode: string, capturedPost: CapturedPostProjec
     const role = fragment.role;
     const index = role === "op_continuation"
       ? ++opIndex
-      : role === "placeholder"
-        ? ++placeholderIndex
-        : ++audienceIndex;
+      : role === "op_reply"
+        ? ++opReplyIndex
+        : role === "placeholder"
+          ? ++placeholderIndex
+          : ++audienceIndex;
     fragments.push({
       ref: makeFragmentRef(shortCode, role, index),
       author: fragment.author,

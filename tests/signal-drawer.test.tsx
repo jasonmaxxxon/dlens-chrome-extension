@@ -23,6 +23,7 @@ const packet: EvidencePacket = {
   commentCount: 9,
   replyFragments: [
     { ref: "S1.OPC1", author: "alpha", text: "OP 補充", likes: 3, role: "op_continuation" },
+    { ref: "S1.OPR1", author: "alpha", text: "OP 回覆讀者", likes: 2, role: "op_reply" },
     { ref: "S1.R1", author: "reader", text: "讀者回覆", likes: 4, role: "audience" }
   ],
   gaps: [],
@@ -35,8 +36,8 @@ const reading: SignalReading = {
   topicId: "topic-1",
   signalId: "signal-1",
   shortCode: "S1",
-  reading: "OP 在發起 [S1.OP] 後又補刀 [S1.OPC1]，讀者僅一條回應 [S1.R1]。",
-  evidenceRefs: ["S1.OP", "S1.OPC1", "S1.R1"],
+  reading: "OP 在發起 [S1.OP] 後又補刀 [S1.OPC1]，也回覆讀者 [S1.OPR1]，讀者僅一條回應 [S1.R1]。",
+  evidenceRefs: ["S1.OP", "S1.OPC1", "S1.OPR1", "S1.R1"],
   watchNotes: ["受眾回覆偏少"],
   promptVersion: "v1",
   model: "mock",
@@ -67,11 +68,12 @@ test("SignalDrawer renders the P1 hero with inline citation chips and topic memb
   assert.match(html, /P1 判讀/);
   assert.match(html, /data-citation-chip="S1\.OP"/);
   assert.match(html, /data-citation-chip="S1\.OPC1"/);
+  assert.match(html, /data-citation-chip="S1\.OPR1"/);
   assert.match(html, /data-citation-chip="S1\.R1"/);
   assert.match(html, /受眾回覆偏少/);
   assert.match(html, /data-signal-drawer-block="op-card"/);
   assert.match(html, /data-raw-toggle="true"/);
-  assert.match(html, /留言串（2 則）/);
+  assert.match(html, /留言串（3 則）/);
 });
 
 test("SignalDrawer surfaces the OP as an always-visible Threads card and keeps replies collapsible", () => {
@@ -88,7 +90,7 @@ test("SignalDrawer surfaces the OP as an always-visible Threads card and keeps r
   assert.match(html, /data-signal-drawer-block="op-card"/);
   assert.match(html, /OP 原文/);
   // Collapsible now holds the rest of the thread only; OP is pulled out.
-  assert.match(html, /留言串（2 則）/);
+  assert.match(html, /留言串（3 則）/);
   assert.doesNotMatch(html, /OP \+ 留言/);
 });
 
@@ -109,8 +111,8 @@ test("SignalDrawer hides the reply thread toggle when the OP has no replies", ()
 test("SignalDrawer splits multi-ref citation groups into individual chips", () => {
   const multiRefReading: SignalReading = {
     ...reading,
-    reading: "讀者反應兩極 [S1.OPC1, S1.R1]，另有人質疑 [S1.OP]。",
-    evidenceRefs: ["S1.OPC1", "S1.R1", "S1.OP"]
+    reading: "OP 補充與回覆分開 [S1.OPC1, S1.OPR1]，讀者反應兩極 [S1.R1]，另有人質疑 [S1.OP]。",
+    evidenceRefs: ["S1.OPC1", "S1.OPR1", "S1.R1", "S1.OP"]
   };
   const html = renderToStaticMarkup(
     React.createElement(SignalDrawer, {
@@ -122,9 +124,10 @@ test("SignalDrawer splits multi-ref citation groups into individual chips", () =
   );
 
   assert.match(html, /data-citation-chip="S1\.OPC1"/);
+  assert.match(html, /data-citation-chip="S1\.OPR1"/);
   assert.match(html, /data-citation-chip="S1\.R1"/);
   assert.match(html, /data-citation-chip="S1\.OP"/);
-  assert.doesNotMatch(html, /\[S1\.OPC1, S1\.R1\]/);
+  assert.doesNotMatch(html, /\[S1\.OPC1, S1\.OPR1\]/);
 });
 
 test("computeCitationPopoverLayout keeps citation popovers inside the viewport", () => {

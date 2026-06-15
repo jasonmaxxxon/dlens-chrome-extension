@@ -96,13 +96,21 @@ test("projectCapturedPost normalizes camelCase thread read model into one canoni
   assert.equal(post.hasAssembledContent, true);
   assert.equal(post.assembledContent, "Root from model\n\nPart two\n\nReader says hi");
   assert.deepEqual(post.opContinuations.map(({ id, author, text, likes, role }) => ({ id, author, text, likes, role })), [
-    { id: "op-1", author: "op", text: "Part two", likes: 7, role: "op_continuation" },
-    { id: "same-author", author: "op", text: "Same author reply", likes: 3, role: "op_continuation" }
+    { id: "op-1", author: "op", text: "Part two", likes: 7, role: "op_continuation" }
   ]);
   assert.deepEqual(post.replies.map(({ id, author, text, likes, role }) => ({ id, author, text, likes, role })), [
+    { id: "same-author", author: "op", text: "Same author reply", likes: 3, role: "op_reply" },
     { id: "reader-1", author: "reader", text: "Reader says hi", likes: null, role: "audience" },
     { id: "placeholder-1", author: "", text: "bookmark", likes: null, role: "placeholder" }
   ]);
+});
+
+test("projectCapturedPost trusts backend discussion_replies over same-author OP heuristic", () => {
+  const post = projectCapturedPost(makeItem());
+
+  assert.deepEqual(post.opContinuations.map((fragment) => fragment.id), ["op-1"]);
+  assert.equal(post.discussionReplies.find((fragment) => fragment.id === "same-author")?.role, "op_reply");
+  assert.equal(post.replies.find((fragment) => fragment.id === "same-author")?.role, "op_reply");
 });
 
 test("projectCapturedPost treats legacy snake_case capture fields the same way", () => {
