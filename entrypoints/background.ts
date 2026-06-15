@@ -1890,7 +1890,11 @@ async function queueSessionItem(
   });
 }
 
-async function queueAllPending(tabId: number, sessionId: string): Promise<ExtensionSnapshot> {
+async function queueAllPending(
+  tabId: number,
+  sessionId: string,
+  options: { reconcileToken?: RequestReconcileToken | null } = {}
+): Promise<ExtensionSnapshot> {
   let snapshot = await loadSnapshot(tabId);
   const session = snapshot.global.sessions.find((candidate) => candidate.id === sessionId);
   if (!session) {
@@ -1902,7 +1906,9 @@ async function queueAllPending(tabId: number, sessionId: string): Promise<Extens
   // Keep queueing sequential so each item sees the latest persisted snapshot.
   for (const item of pending) {
     try {
-      const result = await queueSessionItem(tabId, session.id, item.id);
+      const result = await queueSessionItem(tabId, session.id, item.id, {
+        reconcileToken: options.reconcileToken
+      });
       snapshot = result.snapshot;
     } catch (error) {
       console.error("failed to queue session item", error);
@@ -3333,17 +3339,23 @@ export default defineBackground(() => {
           }
           case "session/queue-item": {
             const tabId = await resolveTabId(sender);
+            const requestId = message.requestId ?? createPipelineRequestId("background.session.queue-item");
+            const reconcileToken = beginBackgroundSnapshotReconcile(
+              "background.session.queue-item",
+              requestId,
+              { sessionId: message.sessionId, itemId: message.itemId, tabId }
+            );
             const queued = await traceBackgroundPipeline({
               phase: "crawl.queued",
               step: "background.session.queue-item",
               target: { sessionId: message.sessionId, itemId: message.itemId, tabId },
-              requestId: message.requestId,
+              requestId,
               detail: { source: "session/queue-item" },
               responseDetail: (result) => ({
                 jobId: result.submit.job_id,
                 captureId: result.submit.capture_id
               }),
-              run: () => queueSessionItem(tabId, message.sessionId, message.itemId)
+              run: () => queueSessionItem(tabId, message.sessionId, message.itemId, { reconcileToken })
             });
             sendResponse({
               ok: true,
@@ -3356,17 +3368,23 @@ export default defineBackground(() => {
           case "session/queue-selected": {
             const tabId = await resolveTabId(sender);
             const target = requireSessionItemActionTarget(message.target);
+            const requestId = message.requestId ?? createPipelineRequestId("background.session.queue-item");
+            const reconcileToken = beginBackgroundSnapshotReconcile(
+              "background.session.queue-item",
+              requestId,
+              { sessionId: target.sessionId, itemId: target.itemId, tabId }
+            );
             const queued = await traceBackgroundPipeline({
               phase: "crawl.queued",
               step: "background.session.queue-item",
               target: { sessionId: target.sessionId, itemId: target.itemId, tabId },
-              requestId: message.requestId,
+              requestId,
               detail: { source: "session/queue-selected" },
               responseDetail: (result) => ({
                 jobId: result.submit.job_id,
                 captureId: result.submit.capture_id
               }),
-              run: () => queueSessionItem(tabId, target.sessionId, target.itemId)
+              run: () => queueSessionItem(tabId, target.sessionId, target.itemId, { reconcileToken })
             });
             sendResponse({
               ok: true,
@@ -3379,12 +3397,18 @@ export default defineBackground(() => {
           case "session/queue-all-pending": {
             const tabId = await resolveTabId(sender);
             const target = requireSessionActionTarget(message.target);
+            const requestId = message.requestId ?? createPipelineRequestId("background.session.queue-all-pending");
+            const reconcileToken = beginBackgroundSnapshotReconcile(
+              "background.session.queue-all-pending",
+              requestId,
+              { sessionId: target.sessionId, tabId }
+            );
             const snapshot = await traceBackgroundPipeline({
               phase: "crawl.queued",
               step: "background.session.queue-all-pending",
               target: { sessionId: target.sessionId, tabId },
-              requestId: message.requestId,
-              run: () => queueAllPending(tabId, target.sessionId)
+              requestId,
+              run: () => queueAllPending(tabId, target.sessionId, { reconcileToken })
             });
             sendResponse({
               ok: true,
@@ -3395,17 +3419,23 @@ export default defineBackground(() => {
           }
           case "session/queue-items": {
             const tabId = await resolveTabId(sender);
+            const requestId = message.requestId ?? createPipelineRequestId("background.session.queue-items");
+            const reconcileToken = beginBackgroundSnapshotReconcile(
+              "background.session.queue-items",
+              requestId,
+              { sessionId: message.sessionId, tabId }
+            );
             const result = await traceBackgroundPipeline({
               phase: "crawl.queued",
               step: "background.session.queue-items",
               target: { sessionId: message.sessionId, tabId },
-              requestId: message.requestId,
+              requestId,
               detail: { itemCount: message.itemIds.length },
               responseDetail: (queued) => ({
                 queuedCount: queued.queuedItemIds.length,
                 failedCount: queued.failedItemIds.length
               }),
-              run: () => queueSessionItems(tabId, message.sessionId, message.itemIds)
+              run: () => queueSessionItems(tabId, message.sessionId, message.itemIds, { reconcileToken })
             });
             sendResponse({
               ok: true,
@@ -3459,16 +3489,22 @@ export default defineBackground(() => {
           }
           case "session/refresh-item": {
             const tabId = await resolveTabId(sender);
+            const requestId = message.requestId ?? createPipelineRequestId("background.session.refresh-item");
+            const reconcileToken = beginBackgroundSnapshotReconcile(
+              "background.session.refresh-item",
+              requestId,
+              { sessionId: message.sessionId, itemId: message.itemId, tabId }
+            );
             const refreshed = await traceBackgroundPipeline({
               phase: "capture.ready",
               step: "background.session.refresh-item",
               target: { sessionId: message.sessionId, itemId: message.itemId, tabId },
-              requestId: message.requestId,
+              requestId,
               responseDetail: (result) => ({
                 jobStatus: result.job?.status ?? null,
                 hasCapture: Boolean(result.capture)
               }),
-              run: () => refreshItem(tabId, message.sessionId, message.itemId)
+              run: () => refreshItem(tabId, message.sessionId, message.itemId, { reconcileToken })
             });
             sendResponse({
               ok: true,
@@ -3482,17 +3518,23 @@ export default defineBackground(() => {
           case "session/refresh-selected": {
             const tabId = await resolveTabId(sender);
             const target = requireSessionItemActionTarget(message.target);
+            const requestId = message.requestId ?? createPipelineRequestId("background.session.refresh-item");
+            const reconcileToken = beginBackgroundSnapshotReconcile(
+              "background.session.refresh-item",
+              requestId,
+              { sessionId: target.sessionId, itemId: target.itemId, tabId }
+            );
             const refreshed = await traceBackgroundPipeline({
               phase: "capture.ready",
               step: "background.session.refresh-item",
               target: { sessionId: target.sessionId, itemId: target.itemId, tabId },
-              requestId: message.requestId,
+              requestId,
               detail: { source: "session/refresh-selected" },
               responseDetail: (result) => ({
                 jobStatus: result.job?.status ?? null,
                 hasCapture: Boolean(result.capture)
               }),
-              run: () => refreshItem(tabId, target.sessionId, target.itemId)
+              run: () => refreshItem(tabId, target.sessionId, target.itemId, { reconcileToken })
             });
             sendResponse({
               ok: true,
