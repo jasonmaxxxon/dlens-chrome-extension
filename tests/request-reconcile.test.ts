@@ -159,6 +159,7 @@ test("reconcile guard is wired into current async response write paths", () => {
     "folder.generateSynthesis",
     "folder.clearSynthesis",
     "pr.generateCriteria",
+    "pr.saveGeneratedCriteria",
     "pr.matchCriteria",
     "pr.fetchAdvancedMetrics",
     "pr.generateSummary"

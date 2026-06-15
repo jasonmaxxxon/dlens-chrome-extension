@@ -4,9 +4,21 @@ import test from "node:test";
 
 import type { ExtensionMessage, ExtensionResponse } from "../src/state/messages.ts";
 import type { WorkerStatus } from "../src/state/processing-state.ts";
+import type { PrCampaign } from "../src/state/pr-evidence-storage.ts";
+import { normalizePrCriteria } from "../src/state/pr-evidence-storage.ts";
+import { createRequestReconciler } from "../src/state/request-reconcile.ts";
 import { createSessionRecord } from "../src/state/store-helpers.ts";
 import { createEmptyTabState, type ExtensionSnapshot } from "../src/state/types.ts";
-import { buildPreviewSaveMessage, buildSessionModeChangeMessage, resolveOptimisticSession, runAnalyzeItemsPipeline } from "../src/ui/useInPageCollectorAppState.ts";
+import { createPrEvidenceResource } from "../src/ui/pr-evidence-resource.ts";
+import {
+  applyPrGeneratedCriteriaSaveResult,
+  applyPrGenerateSummaryResult,
+  buildPreviewSaveMessage,
+  buildSessionModeChangeMessage,
+  resolveOptimisticSession,
+  runAnalyzeItemsPipeline,
+  shouldClearPrReconciledLoading
+} from "../src/ui/useInPageCollectorAppState.ts";
 
 const descriptor = {
   target_type: "post" as const,
@@ -20,6 +32,47 @@ const descriptor = {
   engagement_present: { likes: true },
   captured_at: "2026-05-22T00:00:00.000Z"
 };
+
+function makePrCampaign(id: string, sessionId = "session-pr", label = id): PrCampaign {
+  return {
+    id,
+    sessionId,
+    name: `Campaign ${label}`,
+    briefText: `Brief ${label}`,
+    criteria: normalizePrCriteria([{ label: `Criterion ${label}` }]),
+    createdAt: "2026-05-27T00:00:00.000Z",
+    updatedAt: "2026-05-27T00:00:00.000Z"
+  };
+}
+
+function stalePrDecision(lane: string) {
+  const reconciler = createRequestReconciler();
+  const token = reconciler.begin({
+    lane,
+    requestId: `${lane}-old`,
+    target: { sessionId: "session-pr", campaignId: "campaign-old" }
+  });
+  reconciler.begin({
+    lane,
+    requestId: `${lane}-new`,
+    target: { sessionId: "session-pr", campaignId: "campaign-new" }
+  });
+  return reconciler.complete(token, {
+    currentTarget: { sessionId: "session-pr", campaignId: "campaign-new" }
+  });
+}
+
+function acceptedPrDecision(lane: string) {
+  const reconciler = createRequestReconciler();
+  const token = reconciler.begin({
+    lane,
+    requestId: `${lane}-accepted`,
+    target: { sessionId: "session-pr", campaignId: "campaign-new" }
+  });
+  return reconciler.complete(token, {
+    currentTarget: { sessionId: "session-pr", campaignId: "campaign-new" }
+  });
+}
 
 test("buildPreviewSaveMessage sends the visible preview descriptor with the topic target", () => {
   const message = buildPreviewSaveMessage({
@@ -106,6 +159,72 @@ test("buildSessionModeChangeMessage realigns to an existing product session when
     sessionId: productSession.id,
     mode: "product"
   });
+});
+
+test("applyPrGenerateSummaryResult ignores stale summary and leaves newer loading pending", () => {
+  const stale = stalePrDecision("pr.generateSummary");
+  const current = {
+    ...createPrEvidenceResource("session-pr"),
+    summary: "new campaign summary",
+    notice: ""
+  };
+
+  const next = applyPrGenerateSummaryResult(
+    current,
+    { ok: true, prSummary: "old campaign summary" } as ExtensionResponse,
+    stale
+  );
+
+  assert.equal(stale.accepted, false);
+  assert.deepEqual(next, current);
+  assert.equal(shouldClearPrReconciledLoading(stale), false);
+
+  const accepted = acceptedPrDecision("pr.generateSummary");
+  const applied = applyPrGenerateSummaryResult(
+    current,
+    { ok: true, prSummary: "accepted campaign summary" } as ExtensionResponse,
+    accepted
+  );
+
+  assert.equal(shouldClearPrReconciledLoading(accepted), true);
+  assert.equal(applied.summary, "accepted campaign summary");
+  assert.equal(applied.notice, "");
+});
+
+test("applyPrGeneratedCriteriaSaveResult ignores stale generated criteria save results", () => {
+  const stale = stalePrDecision("pr.saveGeneratedCriteria");
+  const current = {
+    ...createPrEvidenceResource("session-pr"),
+    campaign: {
+      ...createPrEvidenceResource("session-pr").campaign,
+      ...makePrCampaign("campaign-new")
+    },
+    setupCollapsed: false,
+    notice: ""
+  };
+
+  const next = applyPrGeneratedCriteriaSaveResult(
+    current,
+    { ok: true, prCampaigns: [makePrCampaign("campaign-old")] } as ExtensionResponse,
+    stale
+  );
+
+  assert.equal(stale.accepted, false);
+  assert.deepEqual(next, current);
+  assert.equal(shouldClearPrReconciledLoading(stale), false);
+
+  const accepted = acceptedPrDecision("pr.saveGeneratedCriteria");
+  const applied = applyPrGeneratedCriteriaSaveResult(
+    current,
+    { ok: true, prCampaigns: [makePrCampaign("campaign-new", "session-pr", "accepted")] } as ExtensionResponse,
+    accepted
+  );
+
+  assert.equal(shouldClearPrReconciledLoading(accepted), true);
+  assert.equal(applied.campaign.id, "campaign-new");
+  assert.equal(applied.campaign.name, "Campaign accepted");
+  assert.equal(applied.setupCollapsed, true);
+  assert.equal(applied.notice, "條件已生成並儲存；批次判斷會使用這六個標籤。");
 });
 
 test("runAnalyzeItemsPipeline queues selected items then starts worker and refreshes", async () => {

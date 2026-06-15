@@ -165,6 +165,56 @@ export function buildPreviewSaveMessage({
   };
 }
 
+export function shouldClearPrReconciledLoading(settled: RequestReconcileDecision | null): boolean {
+  return settled === null || settled.accepted || settled.reason === "target-mismatch";
+}
+
+export function applyPrGenerateSummaryResult(
+  current: PrEvidenceResourceState,
+  response: ExtensionResponse,
+  settled: RequestReconcileDecision
+): PrEvidenceResourceState {
+  if (!settled.accepted) {
+    return current;
+  }
+  if (response.ok) {
+    return {
+      ...current,
+      summary: response.prSummary || ""
+    };
+  }
+  return {
+    ...current,
+    notice: response.error
+  };
+}
+
+export function applyPrGeneratedCriteriaSaveResult(
+  current: PrEvidenceResourceState,
+  response: ExtensionResponse,
+  settled: RequestReconcileDecision
+): PrEvidenceResourceState {
+  if (!settled.accepted) {
+    return current;
+  }
+  if (!response.ok) {
+    return {
+      ...current,
+      notice: response.error
+    };
+  }
+  const active = response.prCampaigns?.[0] || null;
+  if (!active) {
+    return current;
+  }
+  return {
+    ...current,
+    campaign: prCampaignToDraft(active),
+    setupCollapsed: true,
+    notice: "條件已生成並儲存；批次判斷會使用這六個標籤。"
+  };
+}
+
 function mergeAnalysesBySignalId(
   previous: ProductSignalAnalysis[],
   next: ProductSignalAnalysis[]
@@ -2160,6 +2210,7 @@ export function useInPageCollectorAppState({ snapshot, tabId, sendAndSync }: Use
               }
             });
             const saveSettled = settleReconciledResponse(saveToken, currentPrTarget(campaignId));
+            settled = saveSettled;
             if (!saveSettled.accepted) {
               return;
             }
@@ -2167,16 +2218,9 @@ export function useInPageCollectorAppState({ snapshot, tabId, sendAndSync }: Use
               const active = saveResponse.prCampaigns?.[0] || null;
               if (active) {
                 setActivePrCampaign(active);
-                updateResource((current) => ({
-                  ...current,
-                  campaign: prCampaignToDraft(active),
-                  setupCollapsed: true,
-                  notice: "條件已生成並儲存；批次判斷會使用這六個標籤。"
-                }));
               }
-            } else {
-              updateResource((current) => ({ ...current, notice: saveResponse.error }));
             }
+            updateResource((current) => applyPrGeneratedCriteriaSaveResult(current, saveResponse, saveSettled));
           } else {
             updateResource((current) => ({ ...current, notice: "條件已生成。請先填活動名稱，再執行批次判斷。" }));
           }
@@ -2190,7 +2234,7 @@ export function useInPageCollectorAppState({ snapshot, tabId, sendAndSync }: Use
         }
         updateResource((current) => ({ ...current, notice: error instanceof Error ? error.message : String(error) }));
       } finally {
-        if (settled === null || settled.accepted || settled.reason === "target-mismatch") {
+        if (shouldClearPrReconciledLoading(settled)) {
           updateUiState({ isGeneratingCriteria: false });
         }
       }
@@ -2308,18 +2352,15 @@ export function useInPageCollectorAppState({ snapshot, tabId, sendAndSync }: Use
             if (!settled.accepted) {
               return;
             }
-            if (response.ok) {
-              updateResource((current) => ({ ...current, summary: response.prSummary || "" }));
-            } else {
-              updateResource((current) => ({ ...current, notice: response.error }));
-            }
+            const acceptedSettled = settled;
+            updateResource((current) => applyPrGenerateSummaryResult(current, response, acceptedSettled));
           } catch (error) {
             settled = settleReconciledResponse(token, currentPrTarget(command.target.campaignId));
             if (settled.accepted) {
               updateResource((current) => ({ ...current, notice: error instanceof Error ? error.message : String(error) }));
             }
           } finally {
-            if (settled === null || settled.accepted || settled.reason === "target-mismatch") {
+            if (shouldClearPrReconciledLoading(settled)) {
               updateUiState({ isGeneratingSummary: false });
             }
           }
