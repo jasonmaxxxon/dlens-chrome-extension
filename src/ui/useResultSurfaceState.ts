@@ -1,9 +1,15 @@
-import { useMemo, useState } from "react";
+import { useMemo, useRef, useState } from "react";
 
 import { buildSavedAnalysisSnapshot } from "../compare/saved-analysis-storage";
 import { findSavedAnalysisByResultId, resolveAnalysisResultSurface } from "../state/analysis-result-state";
+import { createPipelineRequestId, emitPipelineEvent } from "../state/pipeline-trace";
 import type { PopupWorkspaceState } from "../state/processing-state";
 import type { ExtensionMessage, ExtensionResponse } from "../state/messages";
+import {
+  buildReconcileIgnoredEvent,
+  createRequestReconciler,
+  type RequestReconcileDecision
+} from "../state/request-reconcile";
 import type {
   ActiveAnalysisResult,
   ProductProfile,
@@ -45,6 +51,21 @@ export function buildActiveResultFromCompareItems(
   };
 }
 
+export function shouldClearJudgmentLoading(settled: RequestReconcileDecision | null): boolean {
+  return settled === null || settled.accepted || settled.reason === "target-mismatch";
+}
+
+export function applyJudgmentStartResult(
+  currentSavedAnalyses: SavedAnalysisSnapshot[],
+  response: ExtensionResponse,
+  settled: RequestReconcileDecision
+): SavedAnalysisSnapshot[] {
+  if (!settled.accepted || !response.ok) {
+    return currentSavedAnalyses;
+  }
+  return response.savedAnalyses ?? currentSavedAnalyses;
+}
+
 export function useResultSurfaceState({
   activeResult,
   activeFolder,
@@ -71,6 +92,7 @@ export function useResultSurfaceState({
   setWorkspaceState: React.Dispatch<React.SetStateAction<PopupWorkspaceState>>;
 }) {
   const [isGeneratingJudgment, setIsGeneratingJudgment] = useState(false);
+  const requestReconcilerRef = useRef(createRequestReconciler());
   const resultSurface = useMemo(
     () => resolveAnalysisResultSurface({ activeResult: activeResult ?? null, savedAnalyses }),
     [activeResult, savedAnalyses]
@@ -92,6 +114,8 @@ export function useResultSurfaceState({
     () => findSavedAnalysisByResultId(savedAnalyses, resultSelection?.saved ? resultSelection.resultId : null),
     [resultSelection?.resultId, resultSelection?.saved, savedAnalyses]
   );
+  const activeSavedAnalysisResultIdRef = useRef(activeSavedAnalysis?.resultId ?? "");
+  activeSavedAnalysisResultIdRef.current = activeSavedAnalysis?.resultId ?? "";
 
   async function onOpenCompareResult() {
     if (!compareItemA || !compareItemB) {
@@ -164,17 +188,33 @@ export function useResultSurfaceState({
     if (!activeSavedAnalysis || isGeneratingJudgment) {
       return;
     }
+    const resultId = activeSavedAnalysis.resultId;
+    const requestId = createPipelineRequestId("judgment-start");
+    const token = requestReconcilerRef.current.begin({
+      lane: "judgment.start",
+      requestId,
+      target: { resultId }
+    });
+    let settled: RequestReconcileDecision | null = null;
     setIsGeneratingJudgment(true);
     try {
       const response = await sendAndSync({
         type: "judgment/start",
-        resultId: activeSavedAnalysis.resultId
+        requestId,
+        resultId
       });
-      if (response.ok) {
-        setSavedAnalyses(response.savedAnalyses ?? savedAnalyses);
+      settled = requestReconcilerRef.current.complete(token, {
+        currentTarget: { resultId: activeSavedAnalysisResultIdRef.current }
+      });
+      if (!settled.accepted) {
+        emitPipelineEvent(buildReconcileIgnoredEvent(token, settled));
+        return;
       }
+      setSavedAnalyses(applyJudgmentStartResult(savedAnalyses, response, settled));
     } finally {
-      setIsGeneratingJudgment(false);
+      if (shouldClearJudgmentLoading(settled)) {
+        setIsGeneratingJudgment(false);
+      }
     }
   }
 

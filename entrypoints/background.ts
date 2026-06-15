@@ -3768,6 +3768,12 @@ export default defineBackground(() => {
           }
           case "judgment/start": {
             const tabId = await resolveTabId(sender);
+            const requestId = message.requestId ?? createPipelineRequestId("background.judgment.start");
+            const reconcileToken = beginBackgroundSnapshotReconcile(
+              "judgment.start",
+              requestId,
+              { resultId: message.resultId, tabId }
+            );
             const current = await loadSnapshot(tabId);
             const productProfile = current.global.settings.productProfile;
             if (!productProfile) {
@@ -3800,19 +3806,27 @@ export default defineBackground(() => {
               briefHash: compareBrief.cacheKey,
               profileHash
             });
-            const nextSavedAnalyses = await saveSavedAnalysisJudgment(chrome.storage.local, {
+            const nextSavedAnalyses = await saveSavedAnalysisJudgment(withDirectStorageReconcile(chrome.storage.local, { reconcileToken }), {
               resultId: message.resultId,
               judgmentResult: judgment.judgmentResult,
               judgmentVersion: COMPARE_JUDGMENT_PROMPT_VERSION,
               judgmentSource: judgment.judgmentSource
             });
+            if (!shouldApplyBackgroundReconcile({ reconcileToken })) {
+              sendResponse({
+                ok: true,
+                tabId,
+                savedAnalyses: await loadSavedAnalyses(chrome.storage.local)
+              } satisfies ExtensionResponse);
+              return;
+            }
             const snapshot = await mutateSnapshot(tabId, (latest) => ({
               global: latest.global,
               tab: {
                 ...latest.tab,
                 error: null
               }
-            }));
+            }), { reconcileToken });
             await broadcastToAllTabs({
               type: "judgment/result",
               resultId: message.resultId,
