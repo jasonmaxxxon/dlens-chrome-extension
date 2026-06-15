@@ -481,7 +481,11 @@ function buildTextEvidence(
       ref,
       author: comment.author,
       text: comment.text,
-      likeCount: typeof comment.likeCount === "number" && Number.isFinite(comment.likeCount) ? comment.likeCount : null
+      likeCount: typeof comment.likeCount === "number" && Number.isFinite(comment.likeCount) ? comment.likeCount : null,
+      role: "audience",
+      isOrphan: false,
+      parentId: null,
+      resolvedParentId: null
     });
   }
 
@@ -586,7 +590,11 @@ function buildFreeReadingTraceStage(
     ref: comment.ref || `e${index + 1}`,
     author: comment.author,
     text: comment.text,
-    likeCount: null
+    likeCount: null,
+    role: "audience",
+    isOrphan: false,
+    parentId: null,
+    resolvedParentId: null
   }));
   const evidence = buildTraceEvidence(
     readingRefs,

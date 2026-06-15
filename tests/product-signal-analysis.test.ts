@@ -37,8 +37,26 @@ const analyzerInput = {
   source: "threads" as const,
   assembledContent: "Root feature share\n\nOP continues with implementation details.",
   discussionReplies: [
-    { id: "c1", author: "bob", text: "This matches my workflow.", likeCount: 4 },
-    { id: "c2", author: "cara", text: "How is this different from Productboard?", likeCount: 2 }
+    {
+      id: "c1",
+      author: "bob",
+      text: "This matches my workflow.",
+      likeCount: 4,
+      role: "audience" as const,
+      isOrphan: false,
+      parentId: null,
+      resolvedParentId: null
+    },
+    {
+      id: "c2",
+      author: "cara",
+      text: "How is this different from Productboard?",
+      likeCount: 2,
+      role: "audience" as const,
+      isOrphan: false,
+      parentId: null,
+      resolvedParentId: null
+    }
   ],
   productContext,
   productContextHash: buildProductContextHash(productContext)
@@ -50,7 +68,7 @@ test("buildProductSignalAnalyzerPrompt uses assembled content and no contentType
   assert.match(prompt, /ProductSignalAnalyzer/);
   assert.match(prompt, /Root feature share/);
   assert.match(prompt, /OP continues with implementation details/);
-  assert.match(prompt, /e1 author=bob likes=4/);
+  assert.match(prompt, /e1 role=audience orphan=false parent=none author=bob likes=4/);
   assert.match(prompt, /把 Threads 訊號變成產品判斷/);
   assert.match(prompt, /"verdict": "try\\|watch\\|park\\|insufficient_data"/);
   assert.match(prompt, /mcp_integration/);
@@ -562,7 +580,16 @@ test("buildProductSignalAnalyzerInputFromCapture prefers backend thread_read_mod
     source: "threads",
     assembledContent: "Root post plus OP continuation.",
     discussionReplies: [
-      { id: "c1", author: "reader", text: "I would use this.", likeCount: 3 }
+      {
+        id: "c1",
+        author: "reader",
+        text: "I would use this.",
+        likeCount: 3,
+        role: "audience",
+        isOrphan: false,
+        parentId: null,
+        resolvedParentId: null
+      }
     ],
     productContext,
     productContextHash: analyzerInput.productContextHash
@@ -583,8 +610,57 @@ test("buildProductSignalEvidenceCatalogFromCapture maps discussion replies to st
   } as any);
 
   assert.deepEqual(evidence, [
-    { ref: "e1", id: "c1", author: "reader", text: "Recurring crawl would help.", likeCount: 5 },
-    { ref: "e2", id: "c2", author: "pm", text: "Export this into a PM doc.", likeCount: 2 }
+    {
+      ref: "e1",
+      id: "c1",
+      author: "reader",
+      text: "Recurring crawl would help.",
+      likeCount: 5,
+      role: "audience",
+      isOrphan: false,
+      parentId: null,
+      resolvedParentId: null
+    },
+    {
+      ref: "e2",
+      id: "c2",
+      author: "pm",
+      text: "Export this into a PM doc.",
+      likeCount: 2,
+      role: "audience",
+      isOrphan: false,
+      parentId: null,
+      resolvedParentId: null
+    }
+  ]);
+});
+
+test("buildProductSignalEvidenceCatalogFromCapture preserves OP reply and orphan metadata", () => {
+  const evidence = buildProductSignalEvidenceCatalogFromCapture({
+    result: {
+      thread_read_model: {
+        root_post: { author: "op", text: "Root" },
+        assembled_content: "Root",
+        discussion_replies: [
+          { comment_id: "op-r1", author: "op", text: "OP replies to a reader.", like_count: 2 },
+          { comment_id: "c2", author: "reader", text: "Orphaned child.", parent_comment_id: "missing", like_count: 1 }
+        ],
+        orphan_replies: [
+          {
+            comment_id: "c2",
+            parent_comment_id: "missing",
+            parent_source_comment_id: null,
+            reason: "parent_not_found_in_comments_or_root"
+          }
+        ],
+        reply_edges: []
+      }
+    }
+  } as any);
+
+  assert.deepEqual(evidence.map((entry) => [entry.ref, entry.id, entry.role, entry.isOrphan]), [
+    ["e1", "op-r1", "op_reply", false],
+    ["e2", "c2", "audience", true]
   ]);
 });
 

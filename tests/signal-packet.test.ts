@@ -80,7 +80,21 @@ function makeCapture(overrides: Partial<CaptureSnapshot> = {}): CaptureSnapshot 
         assembled_content: "Root post plus OP continuation.",
         discussion_replies: [
           { comment_id: "c1", author: "pm", text: "This could become a weekly agent handoff.", like_count: 9 },
-          { comment_id: "c2", author: "eng", text: "Useful only if feedback is preserved.", like_count: 5 }
+          {
+            comment_id: "c2",
+            author: "eng",
+            text: "Useful only if feedback is preserved.",
+            parent_comment_id: "missing-parent",
+            like_count: 5
+          }
+        ],
+        orphan_replies: [
+          {
+            comment_id: "c2",
+            parent_comment_id: "missing-parent",
+            parent_source_comment_id: null,
+            reason: "parent_not_found_in_comments_or_root"
+          }
         ]
       },
       crawl_meta: {},
@@ -258,6 +272,11 @@ test("buildDLensSignalPacket joins source, judgment, reading, feedback timeline,
   assert.equal(packet.source.sessionName, "Product signals");
   assert.equal(packet.source.url, "https://www.threads.net/@builder/post/abc");
   assert.equal(packet.evidence.textEvidence[0]?.ref, "e1");
+  assert.equal(packet.evidence.textEvidence[0]?.role, "audience");
+  assert.equal(packet.evidence.textEvidence[0]?.isOrphan, false);
+  assert.equal(packet.evidence.textEvidence[1]?.ref, "e2");
+  assert.equal(packet.evidence.textEvidence[1]?.isOrphan, true);
+  assert.equal(packet.evidence.textEvidence[1]?.parentId, "missing-parent");
   assert.deepEqual(packet.evidence.imageEvidence, []);
   assert.equal(packet.judgment?.verdict, "try");
   assert.equal(packet.productContext.hash, buildProductContextHash(productContext));

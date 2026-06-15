@@ -26,8 +26,17 @@ test("buildTopicSignalReadingInputFromCapture uses assembled content, replies, a
             comment_id: `c${index + 1}`,
             author: `reader${index + 1}`,
             text: `留言 ${index + 1}`,
+            parent_comment_id: index === 1 ? "missing-parent" : null,
             like_count: TOPIC_SIGNAL_READING_EVIDENCE_CAP + 2 - index
-          }))
+          })),
+          orphan_replies: [
+            {
+              comment_id: "c2",
+              parent_comment_id: "missing-parent",
+              parent_source_comment_id: null,
+              reason: "parent_not_found_in_comments_or_root"
+            }
+          ]
         }
       },
       analysis: {
@@ -44,8 +53,28 @@ test("buildTopicSignalReadingInputFromCapture uses assembled content, replies, a
   assert.equal(input?.postUrl, "https://www.threads.net/@dev/post/abc");
   assert.equal(input?.evidenceCatalog.length, TOPIC_SIGNAL_READING_EVIDENCE_CAP);
   assert.deepEqual(input?.evidenceCatalog.slice(0, 2), [
-    { ref: "e1", id: "c1", author: "reader1", text: "留言 1", likeCount: 17 },
-    { ref: "e2", id: "c2", author: "reader2", text: "留言 2", likeCount: 16 }
+    {
+      ref: "e1",
+      id: "c1",
+      author: "reader1",
+      text: "留言 1",
+      likeCount: 17,
+      role: "audience",
+      isOrphan: false,
+      parentId: null,
+      resolvedParentId: null
+    },
+    {
+      ref: "e2",
+      id: "c2",
+      author: "reader2",
+      text: "留言 2",
+      likeCount: 16,
+      role: "audience",
+      isOrphan: true,
+      parentId: "missing-parent",
+      resolvedParentId: null
+    }
   ]);
   assert.deepEqual(input?.clusterKeywords, ["agent mode", "latency", "prompt caching"]);
 });
@@ -87,7 +116,7 @@ test("buildTopicSignalReadingPrompt grounds the reading in research question and
 
   assert.match(prompt, /AI coding agent 的採用障礙是速度還是信任？/);
   assert.match(prompt, /主文：agent 一直改壞測試/);
-  assert.match(prompt, /e1 \[♥42\] @builder: 我也是，最後都要人工 review。/);
+  assert.match(prompt, /e1 role=audience orphan=false parent=none \[♥42\] @builder: 我也是，最後都要人工 review。/);
   assert.match(prompt, /關鍵詞線索/);
   assert.match(prompt, /僅供參考，不要直接引用為分析結論/);
   assert.match(prompt, /reading：必須引用至少一個 e ref/);
