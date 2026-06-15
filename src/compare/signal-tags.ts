@@ -5,6 +5,7 @@ import type {
 import type { SignalTagsRecord } from "../state/types.ts";
 import {
   buildProductSignalEvidenceCatalogFromCapture,
+  formatProductSignalEvidenceMetadata,
   type ProductSignalEvidenceEntry
 } from "./product-signal-analysis.ts";
 
@@ -80,7 +81,7 @@ function renderEvidenceCatalog(evidenceCatalog: ProductSignalEvidenceEntry[]): s
   }
   return evidenceCatalog
     .map((entry) =>
-      `${entry.ref} [♥${entry.likeCount ?? 0}] @${entry.author || "unknown"}: ${entry.text}`
+      `${entry.ref} ${formatProductSignalEvidenceMetadata(entry)} [♥${entry.likeCount ?? 0}] @${entry.author || "unknown"}: ${entry.text}`
     )
     .join("\n");
 }

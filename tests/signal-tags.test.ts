@@ -22,8 +22,17 @@ test("buildSignalTagsInputFromCapture uses assembled content and top replies", (
             comment_id: `c${index + 1}`,
             author: `reader${index + 1}`,
             text: `留言 ${index + 1}`,
+            parent_comment_id: index === 1 ? "missing-parent" : null,
             like_count: SIGNAL_TAGS_EVIDENCE_CAP + 2 - index
-          }))
+          })),
+          orphan_replies: [
+            {
+              comment_id: "c2",
+              parent_comment_id: "missing-parent",
+              parent_source_comment_id: null,
+              reason: "parent_not_found_in_comments_or_root"
+            }
+          ]
         }
       }
     } as any
@@ -35,8 +44,28 @@ test("buildSignalTagsInputFromCapture uses assembled content and top replies", (
   assert.equal(input?.postUrl, "https://www.threads.net/@worker/post/abc");
   assert.equal(input?.evidenceCatalog.length, SIGNAL_TAGS_EVIDENCE_CAP);
   assert.deepEqual(input?.evidenceCatalog.slice(0, 2), [
-    { ref: "e1", id: "c1", author: "reader1", text: "留言 1", likeCount: 12 },
-    { ref: "e2", id: "c2", author: "reader2", text: "留言 2", likeCount: 11 }
+    {
+      ref: "e1",
+      id: "c1",
+      author: "reader1",
+      text: "留言 1",
+      likeCount: 12,
+      role: "audience",
+      isOrphan: false,
+      parentId: null,
+      resolvedParentId: null
+    },
+    {
+      ref: "e2",
+      id: "c2",
+      author: "reader2",
+      text: "留言 2",
+      likeCount: 11,
+      role: "audience",
+      isOrphan: true,
+      parentId: "missing-parent",
+      resolvedParentId: null
+    }
   ]);
 });
 
@@ -62,6 +91,7 @@ test("buildSignalTagsPrompt asks for semantic tags rather than term frequency", 
   assert.match(prompt, /不需要逐字出現在原文/);
   assert.match(prompt, /求職/);
   assert.match(prompt, /外勞/);
+  assert.match(prompt, /e1 role=audience orphan=false parent=none/);
   assert.match(prompt, /signal_tags/);
   assert.match(prompt, /signal_gist/);
   assert.equal(SIGNAL_TAGS_PROMPT_VERSION, "v1");

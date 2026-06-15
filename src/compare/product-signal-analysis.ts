@@ -1,5 +1,9 @@
 import type { CaptureSnapshot } from "../contracts/ingest.ts";
-import { projectCapturedPostFromCapture, type CapturedPostFragment } from "../state/captured-post.ts";
+import {
+  projectCapturedPostFromCapture,
+  type CapturedPostFragment,
+  type CapturedPostReplyRole
+} from "../state/captured-post.ts";
 import type {
   ProductContext,
   ProductAgentTaskSpec,
@@ -134,6 +138,10 @@ export interface ProductSignalDiscussionReply {
   author: string;
   text: string;
   likeCount?: number | null;
+  role: CapturedPostReplyRole;
+  isOrphan: boolean;
+  parentId: string | null;
+  resolvedParentId: string | null;
 }
 
 export interface ProductSignalEvidenceEntry extends ProductSignalDiscussionReply {
@@ -159,7 +167,11 @@ function toProductSignalDiscussionReply(fragment: CapturedPostFragment, fallback
     id: readTrimmedString(fragment.id) || fallbackId,
     author: readTrimmedString(fragment.author) || "unknown",
     text,
-    likeCount: fragment.likes
+    likeCount: fragment.likes,
+    role: fragment.role,
+    isOrphan: fragment.isOrphan,
+    parentId: fragment.parentId,
+    resolvedParentId: fragment.resolvedParentId
   };
 }
 
@@ -412,10 +424,15 @@ function buildEvidenceCatalog(replies: ProductSignalDiscussionReply[]): string {
     ? replies
       .slice(0, 20)
       .map((reply, index) =>
-        `e${index + 1} author=${readTrimmedString(reply.author) || "unknown"} likes=${reply.likeCount ?? 0} text=${readTrimmedString(reply.text).slice(0, 500)}`
+        `e${index + 1} ${formatProductSignalEvidenceMetadata(reply)} author=${readTrimmedString(reply.author) || "unknown"} likes=${reply.likeCount ?? 0} text=${readTrimmedString(reply.text).slice(0, 500)}`
       )
       .join("\n")
     : "none";
+}
+
+export function formatProductSignalEvidenceMetadata(entry: ProductSignalDiscussionReply): string {
+  const parent = readTrimmedString(entry.resolvedParentId ?? entry.parentId) || "none";
+  return `role=${entry.role} orphan=${entry.isOrphan ? "true" : "false"} parent=${parent}`;
 }
 
 function compactPromptLine(value: string, maxLength = 260): string {
