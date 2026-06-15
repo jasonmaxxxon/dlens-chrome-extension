@@ -74,5 +74,12 @@ test("entrypoints/background.ts has zero unauthorized raw writes", () => {
     [],
     `unauthorized raw writes:\n${findings.map((f) => `  ${f.filePath}:${f.line} ${f.op}  ${f.snippet}`).join("\n")}`
   );
-  assert.ok(allowlisted.length > 0, "expected at least one allowlisted legacy bypass");
+  assert.deepEqual(allowlisted, []);
+});
+
+test("entrypoints/background.ts has no legacy bypass markers", () => {
+  const source = readFileSync("entrypoints/background.ts", "utf8");
+  const markers = Array.from(source.matchAll(/TODO\(seam-bypass\):\s*(\S+)/g), (match) => match[1]).sort();
+
+  assert.deepEqual(markers, []);
 });

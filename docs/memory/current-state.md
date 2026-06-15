@@ -118,7 +118,8 @@ The verified build in the active Phase B implementation worktree is:
 - PR #28 merged: adds `docs/qa/assets/2026-06-13/live-trace-happy.json`, `npm run qa:harness:fixture`, and a CI verify step that runs the live pipeline harness against a committed Chrome-captured typed `ui.ready` trace. This locks popup rehydrate / `ui.ready` terminal reachability only; backend/direct LLM trace and a full hover → queue → analysis live artifact remain pending.
 - PR #26 merged: mirrors the request reconciler into the background snapshot save seam for `session/refresh-all` and `session/queue-items-and-start-processing`; stale capture/queue responses now skip snapshot storage writes and `state/updated` broadcasts.
 - PR #27 merged: guards known stale-sensitive direct storage-key write lanes with the same reconciler: Folder synthesis generate/clear, Product analyze/synthesize/review writes, and PR criteria/advanced-metrics writes. It adds behavioral stale direct-key regression tests for `pr/fetch-advanced-metrics` and in-flight `pr/match-criteria` supersession. `RECONCILE` still stays 🟡 because this is targeted lane coverage, not a repo-wide raw storage bypass rule.
-- PR #30 merged: adds `npm run storage:seam-guard`, `scripts/check-no-raw-storage.mjs`, and a CI verify step that blocks new production `chrome.storage.local.{set,remove,clear}` writes unless the site carries `TODO(seam-bypass): <key>`. It marks 14 existing `entrypoints/background.ts` bypasses as explicit legacy debt. `SEAM_GUARD` is now 🟡; `RECONCILE` remains 🟡 because legacy bypasses still need seam-owned helpers and terminal-stale storage/broadcast/UI tests.
+- PR #30 merged: adds `npm run storage:seam-guard`, `scripts/check-no-raw-storage.mjs`, and a CI verify step that blocks new production `chrome.storage.local.{set,remove,clear}` writes unless the site carries `TODO(seam-bypass): <key>`. It marked 14 existing `entrypoints/background.ts` bypasses as explicit legacy debt and moved `SEAM_GUARD` to 🟡 at that time.
+- SEAM_GUARD zero-bypass closure: the 14 legacy `entrypoints/background.ts` write bypasses now route through seam-owned helpers for compare cache, Product context/cache, global snapshots, snapshot payloads, and tab cleanup. `npm run storage:seam-guard` reports 0 allowlisted bypasses, so `SEAM_GUARD` is now 🟩. `RECONCILE` remains 🟡 until terminal-stale storage/broadcast/UI behavior is locked across the remaining async lanes.
 - Current TRACE full-live branch: expands the trace spine with `backend.request` and `llm.call`, instruments ingest backend HTTP calls and direct provider HTTP calls, mirrors service-worker trace entries back into the active QA Threads page, and adds `--require-phases` to the summary/harness gate. Jason-profile full live QA captured `docs/qa/assets/2026-06-13/full-live-backend-llm/live-trace-full-hover-save-queue-analysis.json` (hover → save → queue → backend capture → direct Google LLM → Product analysis, 900 events, no pipeline errors). The full-phase harness is wired into `npm run qa:harness:fixture` and CI, so `TRACE` moves to 🟩 when PR #29 lands.
 
 ## PR Evidence V1 Contract State
@@ -383,7 +384,7 @@ The extension may present backend output more clearly, but it should not fabrica
 
 ## Open Gaps
 
-- Chrome QA still needs to walk the v3 Product and PR Evidence flows in `output/chrome-mv3`
+- Broader Chrome QA still needs to walk the full v3 Product and PR Evidence export flows in `output/chrome-mv3`
 - topic mode theme still needs verification that hover overlays and action buttons are fully green
 - Product mode should not leak folder concept into user-facing workflow
 - compare cluster pairing is still rank-based, not semantic

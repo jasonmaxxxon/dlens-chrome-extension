@@ -27,6 +27,7 @@ import {
   type CompareBrief,
   type CompareBriefRequest
 } from "../src/compare/brief";
+import { saveCompareCacheMap } from "../src/compare/compare-cache-storage";
 import { buildCompareBriefRequest } from "../src/compare/brief-request";
 import { buildCompareOneLinerCacheKey, type CompareOneLinerRequest } from "../src/compare/one-liner";
 import {
@@ -58,6 +59,11 @@ import {
   PRODUCT_CONTEXT_STORAGE_KEY,
   resolveProductContextForAnalysis
 } from "../src/compare/product-context";
+import { clearProductDerivedCache } from "../src/compare/product-cache-storage";
+import {
+  migrateLegacyProductContextStorage,
+  writeProductContextStorage
+} from "../src/compare/product-context-storage";
 import {
   buildProductContextHash,
   buildProductSignalAnalyzerInputFromCapture,
@@ -71,12 +77,10 @@ import {
   deleteProductSignalAnalysis,
   getProductSignalAnalysis,
   listProductSignalAnalyses,
-  PRODUCT_SIGNAL_ANALYSES_STORAGE_KEY,
   saveProductSignalAnalysis
 } from "../src/compare/product-signal-storage";
 import {
   listProductAgentTaskFeedback,
-  PRODUCT_AGENT_TASK_FEEDBACK_STORAGE_KEY,
   saveProductAgentTaskFeedback
 } from "../src/compare/product-agent-task-feedback";
 import { buildDLensSignalPacket, buildSignalPacketIndex } from "../src/compare/signal-packet";
@@ -114,7 +118,6 @@ import {
   buildSignalReadingCacheKey,
   getSignalReading,
   listSignalReadings,
-  SIGNAL_READINGS_STORAGE_KEY,
   saveSignalReading
 } from "../src/compare/signal-reading-storage";
 import { buildSignalTagsInputFromCapture } from "../src/compare/signal-tags";
@@ -195,6 +198,11 @@ import { applySignalDeletionToGlobalState, deleteSignalStorageRecords } from "..
 import { applyHoveredPreview, createInlineToast, setCollectModeState } from "../src/state/ui-state";
 import { getModeHomePage } from "../src/state/processing-state";
 import { sanitizeSnapshotForContentScript } from "../src/state/sanitize-snapshot";
+import {
+  removeTabSnapshot,
+  writeGlobalStateSnapshot,
+  writeSnapshotPayload
+} from "../src/state/snapshot-storage-seam";
 import {
   buildReconcileIgnoredEvent,
   createRequestReconciler,
@@ -285,8 +293,7 @@ async function persistGlobalStateOnly(global: ExtensionGlobalState, logLabel: st
   globalStateCache = nextGlobal;
 
   const storageStart = performance.now();
-  // TODO(seam-bypass): global-state-write
-  await chrome.storage.local.set({ [GLOBAL_STORAGE_KEY]: nextGlobal });
+  await writeGlobalStateSnapshot(chrome.storage.local, GLOBAL_STORAGE_KEY, nextGlobal);
   const storageSetMs = Math.round(performance.now() - storageStart);
   lastSaveSnapshotStorageMs = storageSetMs;
 
@@ -417,8 +424,7 @@ async function loadCompareBriefCache(): Promise<CompareBriefCache> {
 }
 
 async function saveCompareBriefCache(cache: CompareBriefCache): Promise<void> {
-  // TODO(seam-bypass): compare-brief-cache-write
-  await chrome.storage.local.set({ [COMPARE_BRIEF_CACHE_KEY]: cache });
+  await saveCompareCacheMap(chrome.storage.local, COMPARE_BRIEF_CACHE_KEY, cache);
 }
 
 async function getCachedCompareBrief(request: CompareBriefRequest): Promise<{ brief: CompareBrief; cacheKey: string } | null> {
@@ -441,8 +447,7 @@ async function getCachedCompareBrief(request: CompareBriefRequest): Promise<{ br
 }
 
 async function saveOneLinerCache(cache: OneLinerCache): Promise<void> {
-  // TODO(seam-bypass): compare-one-liner-cache-write
-  await chrome.storage.local.set({ [COMPARE_ONE_LINER_CACHE_KEY]: cache });
+  await saveCompareCacheMap(chrome.storage.local, COMPARE_ONE_LINER_CACHE_KEY, cache);
 }
 
 async function loadClusterSummaryCache(): Promise<ClusterSummaryCache> {
@@ -451,8 +456,7 @@ async function loadClusterSummaryCache(): Promise<ClusterSummaryCache> {
 }
 
 async function saveClusterSummaryCache(cache: ClusterSummaryCache): Promise<void> {
-  // TODO(seam-bypass): compare-cluster-summary-cache-write
-  await chrome.storage.local.set({ [COMPARE_CLUSTER_SUMMARY_CACHE_KEY]: cache });
+  await saveCompareCacheMap(chrome.storage.local, COMPARE_CLUSTER_SUMMARY_CACHE_KEY, cache);
 }
 
 async function loadEvidenceAnnotationCache(): Promise<EvidenceAnnotationCache> {
@@ -461,8 +465,7 @@ async function loadEvidenceAnnotationCache(): Promise<EvidenceAnnotationCache> {
 }
 
 async function saveEvidenceAnnotationCache(cache: EvidenceAnnotationCache): Promise<void> {
-  // TODO(seam-bypass): compare-evidence-annotation-cache-write
-  await chrome.storage.local.set({ [COMPARE_EVIDENCE_ANNOTATION_CACHE_KEY]: cache });
+  await saveCompareCacheMap(chrome.storage.local, COMPARE_EVIDENCE_ANNOTATION_CACHE_KEY, cache);
 }
 
 async function loadJudgmentCache(): Promise<JudgmentCache> {
@@ -471,8 +474,7 @@ async function loadJudgmentCache(): Promise<JudgmentCache> {
 }
 
 async function saveJudgmentCache(cache: JudgmentCache): Promise<void> {
-  // TODO(seam-bypass): compare-judgment-cache-write
-  await chrome.storage.local.set({ [COMPARE_JUDGMENT_CACHE_KEY]: cache });
+  await saveCompareCacheMap(chrome.storage.local, COMPARE_JUDGMENT_CACHE_KEY, cache);
 }
 
 async function saveProductContext(
@@ -482,10 +484,7 @@ async function saveProductContext(
   if (!shouldApplyBackgroundReconcile(options)) {
     return;
   }
-  // TODO(seam-bypass): product-context-write
-  await chrome.storage.local.set({ [PRODUCT_CONTEXT_STORAGE_KEY]: productContext });
-  // TODO(seam-bypass): legacy-product-context-cleanup
-  await chrome.storage.local.remove(LEGACY_PRODUCT_CONTEXT_STORAGE_KEY);
+  await writeProductContextStorage(chrome.storage.local, productContext);
 }
 
 async function loadProductContext(): Promise<ProductContext | null> {
@@ -495,10 +494,7 @@ async function loadProductContext(): Promise<ProductContext | null> {
   ]);
   const value = raw[PRODUCT_CONTEXT_STORAGE_KEY] ?? raw[LEGACY_PRODUCT_CONTEXT_STORAGE_KEY];
   if (value && typeof value === "object" && !raw[PRODUCT_CONTEXT_STORAGE_KEY]) {
-    // TODO(seam-bypass): product-context-migration-write
-    await chrome.storage.local.set({ [PRODUCT_CONTEXT_STORAGE_KEY]: value });
-    // TODO(seam-bypass): legacy-product-context-migration-cleanup
-    await chrome.storage.local.remove(LEGACY_PRODUCT_CONTEXT_STORAGE_KEY);
+    await migrateLegacyProductContextStorage(chrome.storage.local, value);
   }
   return value && typeof value === "object" ? value as ProductContext : null;
 }
@@ -1377,8 +1373,7 @@ async function persistSnapshot(
   cacheSnapshot(tabId, snapshot);
 
   const storageStart = performance.now();
-  // TODO(seam-bypass): snapshot-payload-bulk-write
-  await chrome.storage.local.set(payload);
+  await writeSnapshotPayload(chrome.storage.local, payload);
   const storageSetMs = Math.round(performance.now() - storageStart);
   lastSaveSnapshotStorageMs = storageSetMs;
 
@@ -2128,8 +2123,7 @@ export default defineBackground(() => {
           chrome.tabs.get(tabId).catch(() => {
             tabHoverCache.delete(tabId);
             tabStateCache.delete(tabId);
-            // TODO(seam-bypass): tab-storage-cleanup-on-missing-tab
-            void chrome.storage.local.remove(tabStorageKey(tabId)).catch(() => undefined);
+            void removeTabSnapshot(chrome.storage.local, tabStorageKey(tabId)).catch(() => undefined);
           });
         }
       });
@@ -2196,8 +2190,7 @@ export default defineBackground(() => {
   chrome.tabs.onRemoved.addListener((tabId) => {
     tabHoverCache.delete(tabId);
     tabStateCache.delete(tabId);
-    // TODO(seam-bypass): tab-storage-cleanup-on-tab-removed
-    void chrome.storage.local.remove(tabStorageKey(tabId)).catch(() => undefined);
+    void removeTabSnapshot(chrome.storage.local, tabStorageKey(tabId)).catch(() => undefined);
   });
 
   chrome.runtime.onMessage.addListener((message: ExtensionMessage, sender, sendResponseRaw) => {
@@ -3135,13 +3128,7 @@ export default defineBackground(() => {
           }
           case "product/clear-cache": {
             const tabId = await resolveTabId(sender);
-            // TODO(seam-bypass): product-cache-clear-bulk-remove
-            await chrome.storage.local.remove([
-              PRODUCT_SIGNAL_ANALYSES_STORAGE_KEY,
-              PRODUCT_AGENT_TASK_FEEDBACK_STORAGE_KEY,
-              SIGNAL_READINGS_STORAGE_KEY,
-              PRODUCT_CONTEXT_STORAGE_KEY
-            ]);
+            await clearProductDerivedCache(chrome.storage.local);
             sendResponse({ ok: true, tabId } satisfies ExtensionResponse);
             return;
           }
