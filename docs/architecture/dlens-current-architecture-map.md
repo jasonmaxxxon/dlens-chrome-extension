@@ -1,6 +1,6 @@
 # DLens Current Architecture Map (v0.8 — honest status)
 
-> Last updated: 2026-06-16 · Baseline code: extension `main` after the MIGRATE storage schema closure (PR #49-#51), BOUNDARY wall guards (PR #46-#48), INVALIDATE rehydrate closure (PR #43-#45), C-Backend B4 projection fixtures (PR #36 @ `282a3ea`), and backend `main` after B4 golden fixtures (`dlens-ingest-core` PR #4 @ `6d0cb70`). `TRACE` is 🟩 because backend/direct LLM phase coverage is regression-locked by the committed full live fixture gate. `READMODEL_BACKEND` is 🟢 because backend B1, extension B2, backend B3, and B4 golden fixtures now cover duplicate-root removal, parent-aware OP continuation chains, additive `reply_edges` / `orphan_replies`, OP self-reply separation, evidence metadata propagation, API `ThreadReadModel` typing, and seven shared thread-structure cases across backend builder and extension projection. It is not 🟩 because live DOM extraction and backend job orchestration remain under the 🟡 `CRAWLER` / `API` / `JOBS` nodes. `SEAM_GUARD` is 🟩 because production `chrome.storage.local.{set,remove,clear}` writes now route through seam-owned helpers, `npm run storage:seam-guard` reports zero allowlisted bypasses, and CI blocks any new raw write unless the guard itself is changed. `RECONCILE` is 🟩 because scoped late backend/LLM/UI async responses are regression-locked against stale storage writes, stale `state/updated` broadcasts, and stale UI adoption. `INVALIDATE` is 🟩 because storage-seam writes broadcast `state/updated` exactly once per lane, the controller adopts well-formed snapshots and ignores ill-formed ones, and every `popup.{product,topic,pr}.hydrate.request` is paired with exactly one terminal event, so loading flags cannot stick. `BOUNDARY` is 🟩 because View modules cannot import `sendExtensionMessage` / call `Date.now()` / `Math.random()` / `performance.now()` / `chrome.storage.local.*` / `chrome.runtime.sendMessage`, ViewModels cannot import `chrome.*` / `fetch` / DOM / `File` / `Blob` / `FormData` / React, and `npm run boundary:guard` enforces both walls in CI at zero allowlisted violations. `MIGRATE` is 🟩 because every storage shape change is recorded in `src/state/storage-schema.ts`, every migration entry has a legacy fixture that replays through the registry into the current shape, and `npm run storage:migrate-fixtures` enforces fixture coverage in CI at zero unregistered migrations.
+> Last updated: 2026-06-16 · Baseline code: extension `main` after the API/JOBS work-truth closure (worker status summary + projection + negative fixtures + recovery copy), MIGRATE storage schema closure (PR #49-#51), BOUNDARY wall guards (PR #46-#48), INVALIDATE rehydrate closure (PR #43-#45), C-Backend B4 projection fixtures (PR #36 @ `282a3ea`), and backend `main` after B4 golden fixtures (`dlens-ingest-core` PR #4 @ `6d0cb70`) plus the worker-status summary + negative-fixtures PRs. `TRACE` is 🟩 because backend/direct LLM phase coverage is regression-locked by the committed full live fixture gate. `READMODEL_BACKEND` is 🟢 because backend B1, extension B2, backend B3, and B4 golden fixtures now cover duplicate-root removal, parent-aware OP continuation chains, additive `reply_edges` / `orphan_replies`, OP self-reply separation, evidence metadata propagation, API `ThreadReadModel` typing, and seven shared thread-structure cases across backend builder and extension projection. It is not 🟩 because live DOM extraction remains under the 🟡 `CRAWLER` node. `API` and `JOBS` are 🟢 because `/worker/status` now exposes pending-due / retry-scheduled / running / expired-running / dead job counts plus pending / running / failed analysis counts plus `earliest_retry_at` / `next_due_at` / `last_drain_error` / `last_drain_finished_at`, the extension projects those into a single `BackendWorkUiState` (`backend_error > expired_running > analysis_failed > retry_waiting > analysis_waiting > draining > idle`), `reconcileSessionItem` promotes failed analysis into the canonical item error path, and a five-case negative fixture set (`retry-scheduled-crawl` / `expired-running-lease` / `missing-analysis-after-crawl-success` / `failed-analysis-after-crawl-success` / `terminal-dead-crawl`) replays both layers offline with exact case-name set equality enforced in CI. They are not 🟩 because no automated live-failure gate proves the visible recovery surfaces against a live regression class — that needs a separate Phase D guard. `SEAM_GUARD` is 🟩 because production `chrome.storage.local.{set,remove,clear}` writes now route through seam-owned helpers, `npm run storage:seam-guard` reports zero allowlisted bypasses, and CI blocks any new raw write unless the guard itself is changed. `RECONCILE` is 🟩 because scoped late backend/LLM/UI async responses are regression-locked against stale storage writes, stale `state/updated` broadcasts, and stale UI adoption. `INVALIDATE` is 🟩 because storage-seam writes broadcast `state/updated` exactly once per lane, the controller adopts well-formed snapshots and ignores ill-formed ones, and every `popup.{product,topic,pr}.hydrate.request` is paired with exactly one terminal event, so loading flags cannot stick. `BOUNDARY` is 🟩 because View modules cannot import `sendExtensionMessage` / call `Date.now()` / `Math.random()` / `performance.now()` / `chrome.storage.local.*` / `chrome.runtime.sendMessage`, ViewModels cannot import `chrome.*` / `fetch` / DOM / `File` / `Blob` / `FormData` / React, and `npm run boundary:guard` enforces both walls in CI at zero allowlisted violations. `MIGRATE` is 🟩 because every storage shape change is recorded in `src/state/storage-schema.ts`, every migration entry has a legacy fixture that replays through the registry into the current shape, and `npm run storage:migrate-fixtures` enforces fixture coverage in CI at zero unregistered migrations.
 > **This is the agent handoff map.** Any Codex / ChatGPT / Claude session reads this FIRST. It is the single source of truth for "what is built, what is enforced, what you must not bypass." Status colors must be kept honest (see DoD rule below) — a stale map is worse than none.
 
 ## Legend
@@ -13,7 +13,7 @@
 ⚪ EXTERNAL — outside the extension repo's direct control
 ```
 
-Conservative truth today: **the core product walls (`TRACE` / `SEAM_GUARD` / `RECONCILE` / `INVALIDATE` / `BOUNDARY` / `MIGRATE`) are now 🟩, and no 🔴 nodes remain in the core extension repo.** The remaining 🟡 nodes are runtime/data boundary nodes (`CS` / `API` / `CRAWLER` / `JOBS` / `SEAM_PARTIAL`) — they are no longer "we don't have a guard"; they're "external systems we can only partially control." Each 🟩 above was earned by the same Track A discipline: convert status from *claim* to *guarantee* through a CI-enforced regression guard.
+Conservative truth today: **the core product walls (`TRACE` / `SEAM_GUARD` / `RECONCILE` / `INVALIDATE` / `BOUNDARY` / `MIGRATE`) are now 🟩, and no 🔴 nodes remain in the core extension repo.** The remaining 🟡 nodes are `CS` (Threads DOM extraction in the content script), `CRAWLER` (Playwright DOM extraction on the backend), and `SEAM_PARTIAL` (domain seams cascade). `API` and `JOBS` moved from 🟡 to 🟢 because the work-truth contract is now under test on both sides, but they are not 🟩 yet because no automated live-failure gate proves the visible recovery surfaces against a real-world regression class. Each 🟩 above was earned by the same Track A discipline: convert status from *claim* to *guarantee* through a CI-enforced regression guard.
 
 ## Map
 
@@ -29,10 +29,10 @@ flowchart LR
   end
 
   subgraph BACKEND["Backend Process :8000"]
-    API["🟡 FastAPI API<br/>job bridge / polling"]
+    API["🟢 FastAPI API<br/>job bridge / polling<br/>worker status summary surfaced"]
     CRAWLER["🟡 Playwright crawler<br/>built but DOM-sensitive"]
     READMODEL_BACKEND["🟢 Backend OP / reply read model<br/>B1-B4 aligned; golden fixtures merged"]
-    JOBS["🟡 Job status cache<br/>capture.ready / analysis.ready"]
+    JOBS["🟢 Job status cache<br/>backlog / retry / expired / analysis projection<br/>negative fixtures locked"]
   end
 
   subgraph LLMEXT["External LLM APIs"]
@@ -67,11 +67,11 @@ flowchart LR
   APP -->|"build VM<br/>🟢 built for 4 modes"| VM
   VM -->|"render props<br/>🟢 built"| VIEW
 
-  BG <-->|"HTTP / polling boundary<br/>🟡 timeout + trace risk"| API
+  BG <-->|"HTTP / polling boundary<br/>🟢 worker status + backendWorkUiState"| API
   API -->|"crawl jobs<br/>🟡 DOM-sensitive"| CRAWLER
   CRAWLER -->|"raw capture result<br/>🟡 depends on DOM correctness"| READMODEL_BACKEND
   READMODEL_BACKEND -->|"thread structure result<br/>🟢 B1-B4 aligned; golden fixtures merged"| JOBS
-  JOBS -->|"poll status result<br/>🟡 built"| API
+  JOBS -->|"poll status result<br/>🟢 backlog / retry / expired / analysis projected"| API
 
   BG -->|"direct LLM calls<br/>🟡 timeout / fallback / provenance risk"| OPENAI
   BG -->|"direct LLM calls<br/>🟡 timeout / fallback / provenance risk"| ANTHROPIC
@@ -103,9 +103,9 @@ flowchart LR
   classDef intended fill:#fde2e1,stroke:#d64545,stroke-width:2px,color:#4a1111;
   classDef external fill:#e7f0ff,stroke:#3b6fb6,stroke-width:2px,color:#102a4c;
 
-  class VIEW,VM,APP,BG,STORE,TARGET,READMODEL_BACKEND built;
+  class VIEW,VM,APP,BG,STORE,TARGET,READMODEL_BACKEND,API,JOBS built;
   class TRACE,RECONCILE,SEAM_GUARD,INVALIDATE,BOUNDARY,MIGRATE locked;
-  class CS,API,CRAWLER,JOBS,SEAM_PARTIAL partial;
+  class CS,CRAWLER,SEAM_PARTIAL partial;
   class OPENAI,ANTHROPIC,GOOGLE external;
 ```
 
