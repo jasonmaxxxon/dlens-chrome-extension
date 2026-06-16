@@ -13,7 +13,7 @@
 ⚪ EXTERNAL — outside the extension repo's direct control
 ```
 
-Conservative truth today: **most nodes are 🟢 / 🟡, almost none are 🟩.** That is exactly why roadmap Track A1 (boundary/architecture tests) comes first — it converts status from *claim* to *guarantee*.
+Conservative truth today: **the core product walls (`TRACE` / `SEAM_GUARD` / `RECONCILE` / `INVALIDATE` / `BOUNDARY`) are now 🟩, but most runtime/data nodes remain 🟢 / 🟡.** The remaining red gap is `MIGRATE` (storage version + migration). Each 🟩 above was earned by the same Track A1 discipline — convert status from *claim* to *guarantee* through a CI-enforced regression guard — and the next lever applies the same pattern to storage migration.
 
 ## Map
 
