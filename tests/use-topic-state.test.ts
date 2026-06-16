@@ -5,6 +5,7 @@ import type { Signal, Topic } from "../src/state/types.ts";
 import { createSessionItem, createSessionRecord } from "../src/state/store-helpers.ts";
 import {
   applyTopicListResponses,
+  buildTopicHydrateTraceTerminalSequence,
   buildSignalPreviewById,
   filterSignalsWithBackingItems,
   findSignalsMissingBackingItems,
@@ -78,6 +79,33 @@ test("applyTopicListResponses applies both successful topic and signal lists", (
 
   assert.deepEqual(topicSets, [[topic]]);
   assert.deepEqual(signalSets, [[signal]]);
+});
+
+test("popup.topic.hydrate.request is always followed by exactly one terminal hydrate event", () => {
+  const responseSequence = buildTopicHydrateTraceTerminalSequence({
+    sessionId: "topic-session",
+    terminal: "response"
+  });
+  const errorSequence = buildTopicHydrateTraceTerminalSequence({
+    sessionId: "topic-session",
+    terminal: "error"
+  });
+
+  assert.deepEqual(responseSequence.map((event) => event.step), [
+    "popup.topic.hydrate.request",
+    "popup.topic.hydrate.response"
+  ]);
+  assert.deepEqual(responseSequence.map((event) => event.result), ["pending", "ok"]);
+  assert.equal(responseSequence.filter((event) => event.step.endsWith(".request")).length, 1);
+  assert.equal(responseSequence.filter((event) => !event.step.endsWith(".request")).length, 1);
+
+  assert.deepEqual(errorSequence.map((event) => event.step), [
+    "popup.topic.hydrate.request",
+    "popup.topic.hydrate.error"
+  ]);
+  assert.deepEqual(errorSequence.map((event) => event.result), ["pending", "error"]);
+  assert.equal(errorSequence.filter((event) => event.step.endsWith(".request")).length, 1);
+  assert.equal(errorSequence.filter((event) => !event.step.endsWith(".request")).length, 1);
 });
 
 test("buildSignalPreviewById falls back to author and URL instead of generic threads", () => {

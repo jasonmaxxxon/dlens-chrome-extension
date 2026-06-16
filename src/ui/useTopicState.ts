@@ -2,7 +2,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 
 import type { ExtensionMessage, ExtensionResponse } from "../state/messages";
 import { deriveTopicLoadState } from "../state/load-state";
-import { emitPipelineEvent } from "../state/pipeline-trace";
+import { emitPipelineEvent, type PipelineEventInput } from "../state/pipeline-trace";
 import type {
   FolderMode,
   PopupPage,
@@ -28,6 +28,48 @@ import {
 type SendAndSync = <T extends ExtensionResponse = ExtensionResponse>(message: ExtensionMessage) => Promise<T>;
 type TopicListResponse = { ok: true; topics?: Topic[] } | { ok: false; error: string };
 type SignalListResponse = { ok: true; signals?: Signal[] } | { ok: false; error: string };
+type TopicHydrateTraceEventKind = "skip" | "request" | "response" | "error";
+
+export function buildTopicHydrateTraceEvent({
+  event,
+  sessionId,
+  result,
+  detail
+}: {
+  event: TopicHydrateTraceEventKind;
+  sessionId?: string;
+  result: PipelineEventInput["result"];
+  detail?: unknown;
+}): PipelineEventInput {
+  return {
+    phase: "ui.ready",
+    step: `popup.topic.hydrate.${event}`,
+    target: { sessionId },
+    result,
+    ...(detail === undefined ? {} : { detail })
+  };
+}
+
+export function buildTopicHydrateTraceTerminalSequence({
+  sessionId,
+  terminal
+}: {
+  sessionId: string;
+  terminal: "response" | "error";
+}): PipelineEventInput[] {
+  return [
+    buildTopicHydrateTraceEvent({
+      event: "request",
+      sessionId,
+      result: "pending"
+    }),
+    buildTopicHydrateTraceEvent({
+      event: terminal,
+      sessionId,
+      result: terminal === "response" ? "ok" : "error"
+    })
+  ];
+}
 
 export function applyTopicListResponses({
   topicsResponse,

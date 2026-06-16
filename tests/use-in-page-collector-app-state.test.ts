@@ -14,6 +14,7 @@ import {
   applyPrGeneratedCriteriaSaveResult,
   applyPrGenerateSummaryResult,
   buildPreviewSaveMessage,
+  buildInPageHydrateTraceTerminalSequence,
   buildSessionModeChangeMessage,
   planProductHydrateTransition,
   resolveOptimisticSession,
@@ -214,6 +215,64 @@ test("Product hydrate gate skips and clears loading when the active page is outs
     sessionId: "product-session",
     shouldClearHydrating: true
   });
+});
+
+test("popup.product.hydrate.request is always followed by exactly one terminal hydrate event", () => {
+  const responseSequence = buildInPageHydrateTraceTerminalSequence({
+    surface: "product",
+    sessionId: "product-session",
+    terminal: "response"
+  });
+  const errorSequence = buildInPageHydrateTraceTerminalSequence({
+    surface: "product",
+    sessionId: "product-session",
+    terminal: "error"
+  });
+
+  assert.deepEqual(responseSequence.map((event) => event.step), [
+    "popup.product.hydrate.request",
+    "popup.product.hydrate.response"
+  ]);
+  assert.deepEqual(responseSequence.map((event) => event.result), ["pending", "ok"]);
+  assert.equal(responseSequence.filter((event) => event.step.endsWith(".request")).length, 1);
+  assert.equal(responseSequence.filter((event) => !event.step.endsWith(".request")).length, 1);
+
+  assert.deepEqual(errorSequence.map((event) => event.step), [
+    "popup.product.hydrate.request",
+    "popup.product.hydrate.error"
+  ]);
+  assert.deepEqual(errorSequence.map((event) => event.result), ["pending", "error"]);
+  assert.equal(errorSequence.filter((event) => event.step.endsWith(".request")).length, 1);
+  assert.equal(errorSequence.filter((event) => !event.step.endsWith(".request")).length, 1);
+});
+
+test("popup.pr.hydrate.request is always followed by exactly one terminal hydrate event", () => {
+  const responseSequence = buildInPageHydrateTraceTerminalSequence({
+    surface: "pr",
+    sessionId: "pr-session",
+    terminal: "response"
+  });
+  const errorSequence = buildInPageHydrateTraceTerminalSequence({
+    surface: "pr",
+    sessionId: "pr-session",
+    terminal: "error"
+  });
+
+  assert.deepEqual(responseSequence.map((event) => event.step), [
+    "popup.pr.hydrate.request",
+    "popup.pr.hydrate.response"
+  ]);
+  assert.deepEqual(responseSequence.map((event) => event.result), ["pending", "ok"]);
+  assert.equal(responseSequence.filter((event) => event.step.endsWith(".request")).length, 1);
+  assert.equal(responseSequence.filter((event) => !event.step.endsWith(".request")).length, 1);
+
+  assert.deepEqual(errorSequence.map((event) => event.step), [
+    "popup.pr.hydrate.request",
+    "popup.pr.hydrate.error"
+  ]);
+  assert.deepEqual(errorSequence.map((event) => event.result), ["pending", "error"]);
+  assert.equal(errorSequence.filter((event) => event.step.endsWith(".request")).length, 1);
+  assert.equal(errorSequence.filter((event) => !event.step.endsWith(".request")).length, 1);
 });
 
 test("applyPrGenerateSummaryResult ignores stale summary and leaves newer loading pending", () => {

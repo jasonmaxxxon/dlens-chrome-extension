@@ -2,7 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 import type { TargetDescriptor } from "../contracts/target-descriptor";
 import { buildSaveCurrentPreviewTarget } from "../state/action-target";
-import { createPipelineRequestId, emitPipelineEvent } from "../state/pipeline-trace";
+import { createPipelineRequestId, emitPipelineEvent, type PipelineEventInput } from "../state/pipeline-trace";
 import {
   buildReconcileIgnoredEvent,
   createRequestReconciler,
@@ -231,6 +231,56 @@ type ProductHydrateTransition =
       sessionId: string | undefined;
       shouldClearHydrating: true;
     };
+
+type InPageHydrateSurface = "product" | "pr";
+type HydrateTraceEventKind = "skip" | "request" | "response" | "error";
+
+export function buildInPageHydrateTraceEvent({
+  surface,
+  event,
+  sessionId,
+  result,
+  detail
+}: {
+  surface: InPageHydrateSurface;
+  event: HydrateTraceEventKind;
+  sessionId?: string;
+  result: PipelineEventInput["result"];
+  detail?: unknown;
+}): PipelineEventInput {
+  return {
+    phase: "ui.ready",
+    step: `popup.${surface}.hydrate.${event}`,
+    target: { sessionId },
+    result,
+    ...(detail === undefined ? {} : { detail })
+  };
+}
+
+export function buildInPageHydrateTraceTerminalSequence({
+  surface,
+  sessionId,
+  terminal
+}: {
+  surface: InPageHydrateSurface;
+  sessionId: string;
+  terminal: "response" | "error";
+}): PipelineEventInput[] {
+  return [
+    buildInPageHydrateTraceEvent({
+      surface,
+      event: "request",
+      sessionId,
+      result: "pending"
+    }),
+    buildInPageHydrateTraceEvent({
+      surface,
+      event: terminal,
+      sessionId,
+      result: terminal === "response" ? "ok" : "error"
+    })
+  ];
+}
 
 export function planProductHydrateTransition({
   popupOpen,
@@ -648,9 +698,28 @@ export function useInPageCollectorAppState({ snapshot, tabId, sendAndSync }: Use
       setPrEvidenceResource((current) => (
         current.campaign.sessionId === inactiveSessionId ? current : createPrEvidenceResource(inactiveSessionId)
       ));
+      emitPipelineEvent(buildInPageHydrateTraceEvent({
+        surface: "pr",
+        event: "skip",
+        sessionId: activeFolder?.id,
+        result: "ok",
+        detail: {
+          popupOpen,
+          mode: activeFolderMode
+        }
+      }));
       return;
     }
     const sessionId = activeFolder.id;
+    emitPipelineEvent(buildInPageHydrateTraceEvent({
+      surface: "pr",
+      event: "request",
+      sessionId,
+      result: "pending",
+      detail: {
+        mode: activeFolderMode
+      }
+    }));
     void sendExtensionMessage<{ ok: true; prCampaigns?: PrCampaign[] } | { ok: false; error: string }>({
       type: "pr/list-campaigns",
       sessionId
@@ -665,12 +734,38 @@ export function useInPageCollectorAppState({ snapshot, tabId, sendAndSync }: Use
             ...(current.campaign.sessionId === sessionId ? current : createPrEvidenceResource(sessionId)),
             notice: response.error
           }));
+          emitPipelineEvent(buildInPageHydrateTraceEvent({
+            surface: "pr",
+            event: "response",
+            sessionId,
+            result: "error",
+            detail: {
+              mode: activeFolderMode,
+              campaignsOk: false,
+              campaignCount: null,
+              rowsOk: null,
+              rowCount: null
+            }
+          }));
           return;
         }
         const active = response.prCampaigns?.[0] ?? null;
         if (!active) {
           setActivePrCampaign(null);
           setPrEvidenceResource(createPrEvidenceResource(sessionId));
+          emitPipelineEvent(buildInPageHydrateTraceEvent({
+            surface: "pr",
+            event: "response",
+            sessionId,
+            result: "ok",
+            detail: {
+              mode: activeFolderMode,
+              campaignsOk: true,
+              campaignCount: response.prCampaigns?.length ?? 0,
+              rowsOk: null,
+              rowCount: null
+            }
+          }));
           return;
         }
         setActivePrCampaign(active);
@@ -690,12 +785,22 @@ export function useInPageCollectorAppState({ snapshot, tabId, sendAndSync }: Use
           });
         } catch (error) {
           if (!cancelled) {
-          setPrEvidenceResource((current) => ({
-            ...current,
-            campaign: prCampaignToDraft(active),
-            rows: [],
-            notice: error instanceof Error ? error.message : String(error)
-          }));
+            setPrEvidenceResource((current) => ({
+              ...current,
+              campaign: prCampaignToDraft(active),
+              rows: [],
+              notice: error instanceof Error ? error.message : String(error)
+            }));
+            emitPipelineEvent(buildInPageHydrateTraceEvent({
+              surface: "pr",
+              event: "error",
+              sessionId,
+              result: "error",
+              detail: {
+                mode: activeFolderMode,
+                campaignId: active.id
+              }
+            }));
           }
           return;
         }
@@ -709,6 +814,20 @@ export function useInPageCollectorAppState({ snapshot, tabId, sendAndSync }: Use
             uploadError: "",
             setupCollapsed: true
           });
+          emitPipelineEvent(buildInPageHydrateTraceEvent({
+            surface: "pr",
+            event: "response",
+            sessionId,
+            result: rowResponse.ok ? "ok" : "error",
+            detail: {
+              mode: activeFolderMode,
+              campaignId: active.id,
+              campaignsOk: true,
+              campaignCount: response.prCampaigns?.length ?? 0,
+              rowsOk: rowResponse.ok,
+              rowCount: rowResponse.ok ? rowResponse.prEvidenceRows?.length ?? 0 : null
+            }
+          }));
         }
       })
       .catch(() => {
@@ -717,6 +836,15 @@ export function useInPageCollectorAppState({ snapshot, tabId, sendAndSync }: Use
           setPrEvidenceResource((current) => ({
             ...(current.campaign.sessionId === sessionId ? current : createPrEvidenceResource(sessionId)),
             notice: "PR campaign 讀取失敗。"
+          }));
+          emitPipelineEvent(buildInPageHydrateTraceEvent({
+            surface: "pr",
+            event: "error",
+            sessionId,
+            result: "error",
+            detail: {
+              mode: activeFolderMode
+            }
           }));
         }
       });
@@ -866,10 +994,10 @@ export function useInPageCollectorAppState({ snapshot, tabId, sendAndSync }: Use
     if (transition.kind === "skip") {
       productHydrateInFlightKeyRef.current = null;
       setIsHydratingProductSignals(false);
-      emitPipelineEvent({
-        phase: "ui.ready",
-        step: "popup.product.hydrate.skip",
-        target: { sessionId: transition.sessionId },
+      emitPipelineEvent(buildInPageHydrateTraceEvent({
+        surface: "product",
+        event: "skip",
+        sessionId: transition.sessionId,
         result: "ok",
         detail: {
           popupOpen,
@@ -877,7 +1005,7 @@ export function useInPageCollectorAppState({ snapshot, tabId, sendAndSync }: Use
           page,
           isProductSignalPage
         }
-      });
+      }));
       return;
     }
 
@@ -887,16 +1015,16 @@ export function useInPageCollectorAppState({ snapshot, tabId, sendAndSync }: Use
 
     productHydrateInFlightKeyRef.current = transition.requestKey;
     setIsHydratingProductSignals(true);
-    emitPipelineEvent({
-      phase: "ui.ready",
-      step: "popup.product.hydrate.request",
-      target: { sessionId: transition.sessionId },
+    emitPipelineEvent(buildInPageHydrateTraceEvent({
+      surface: "product",
+      event: "request",
+      sessionId: transition.sessionId,
       result: "pending",
       detail: {
         page,
         signalCount: transition.signalIds.length
       }
-    });
+    }));
     void Promise.all([
       sendExtensionMessage<{ ok: true; productSignalAnalyses?: ProductSignalAnalysis[] } | { ok: false; error: string }>({
         type: "product/list-signal-analyses",
@@ -919,10 +1047,10 @@ export function useInPageCollectorAppState({ snapshot, tabId, sendAndSync }: Use
         productHydrateInFlightKeyRef.current = null;
         setIsHydratingProductSignals(false);
         const allOk = currentResponse.ok && historicalResponse.ok && feedbackResponse.ok && readingsResponse.ok;
-        emitPipelineEvent({
-          phase: "ui.ready",
-          step: "popup.product.hydrate.response",
-          target: { sessionId: transition.sessionId },
+        emitPipelineEvent(buildInPageHydrateTraceEvent({
+          surface: "product",
+          event: "response",
+          sessionId: transition.sessionId,
           result: allOk ? "ok" : "error",
           detail: {
             page,
@@ -936,7 +1064,7 @@ export function useInPageCollectorAppState({ snapshot, tabId, sendAndSync }: Use
             readingsOk: readingsResponse.ok,
             readingCount: readingsResponse.ok ? readingsResponse.signalReadings?.length ?? 0 : null
           }
-        });
+        }));
         if (currentResponse.ok) {
           setProductSignalAnalyses(currentResponse.productSignalAnalyses ?? []);
         }
@@ -957,16 +1085,16 @@ export function useInPageCollectorAppState({ snapshot, tabId, sendAndSync }: Use
         }
         productHydrateInFlightKeyRef.current = null;
         setIsHydratingProductSignals(false);
-        emitPipelineEvent({
-          phase: "ui.ready",
-          step: "popup.product.hydrate.error",
-          target: { sessionId: transition.sessionId },
+        emitPipelineEvent(buildInPageHydrateTraceEvent({
+          surface: "product",
+          event: "error",
+          sessionId: transition.sessionId,
           result: "error",
           detail: {
             page,
             signalCount: transition.signalIds.length
           }
-        });
+        }));
         setProductSignalAnalyses([]);
         setHistoricalProductSignalAnalyses([]);
         setProductAgentTaskFeedback([]);
