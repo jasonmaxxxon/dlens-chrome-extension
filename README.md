@@ -2,12 +2,12 @@
 
 DLens is a mode-aware MV3 Chrome extension for capturing Threads posts and turning them into research, product-signal, and PR evidence workflows.
 
-> Last updated: 2026-06-12
-> Current release: `0.1.33` · latest merged-code full suite `726/726` · build clean
+> Last updated: 2026-06-16
+> Current release: `0.1.33` · latest merged-code full suite `812/812` · build clean
 > Current engineering branch: `main`
 > Positioning (2026-06-08): local power-tool (self + small technical circle); two separate repos (extension public · ingest-core **private**), not monorepo; visual reset Option A pending
 > Verified build: `output/chrome-mv3`
-> Stability note (0.1.33): Topic audit gates P1 to capture-ready signals via the shared signal-readiness classifier; the typed pipeline trace spine is in place through PR #21, and PR #22 is the open requestId trace-correlation slice. `docs/architecture/dlens-current-architecture-map.md` is now the live architecture/status map.
+> Stability note (0.1.33): `TRACE`, `SEAM_GUARD`, `RECONCILE`, `INVALIDATE`, and `BOUNDARY` are locked in the live architecture map. `BOUNDARY` is enforced by `npm run boundary:guard`, which runs View and ViewModel wall scanners in CI at zero allowlisted violations.
 
 ## What It Does
 
@@ -57,18 +57,20 @@ For every user-visible `main` update, keep these in sync:
 ```bash
 cd dlens-product-latest
 npm run typecheck
+npm run storage:seam-guard
+npm run boundary:guard
 npx tsx --test tests/*.test.ts tests/*.test.tsx
 npm run build
 ```
 
-Expected verified state for merged `main` `0.1.33` through PR #21:
+Expected verified state for merged `main` `0.1.33` through PR #47:
 
-- `726/726` tests pass
+- `812/812` tests pass
 - `npm run typecheck` passes
+- `npm run storage:seam-guard` reports zero allowlisted bypasses
+- `npm run boundary:guard` reports zero View / ViewModel wall violations and zero allowlisted bypasses
 - `npm run build` mirrors the unpacked MV3 build to `output/chrome-mv3`
 - `output/chrome-mv3/manifest.json` reports `version: "0.1.33"` and `name: "DLens v3"`
-
-Open PR #22 (`codex/pipeline-spine-slice-2`) is verified separately at `732/732` with GitHub `verify` checks passing. It adds requestId trace correlation; it does not yet implement stale-response rejection.
 
 ## Second Mac Install
 
@@ -92,6 +94,7 @@ For a 30-minute assisted install on another Mac, use [`docs/setup/second-mac-30-
 - Backend analysis snapshots are the source of truth for crawl output and deterministic clustering.
 - Extension-side AI calls use the user's local Google/OpenAI/Claude key and must degrade cleanly when no key is configured.
 - Product mode must stay insight/evidence/task-first; backend clusters are support data, not the user-facing abstraction.
+- View modules must not own extension messaging, raw storage access, or nondeterministic time/random sources; ViewModels must not own browser APIs, network calls, DOM globals, file constructors, or React imports. `npm run boundary:guard` enforces both walls.
 
 ## Where To Continue
 
@@ -104,9 +107,10 @@ Read these before non-trivial work:
 - [`docs/memory/current-state.md`](./docs/memory/current-state.md) for the fuller repo state.
 - [`docs/memory/latest-shared-context.md`](./docs/memory/latest-shared-context.md) for Codex/Claude shared memory context.
 
-Current open risks:
+Current state and open risks:
 
 - `entrypoints/background.ts` is 3488 lines; do not split handlers unless the trigger in `docs/ENGINEERING_PLAN.md` promotes that work into the committed-next slice.
 - `src/ui/useInPageCollectorAppState.ts` is 2148 lines; continue extraction before adding more product/PR/export routes.
 - C-Backend read-model hardening is now 🟢: B1-B4 landed across backend and extension projection; future read-model changes must update the shared seven-case golden fixtures.
+- BOUNDARY is now 🟩: View / ViewModel wall guards are wired into CI through `npm run boundary:guard`.
 - Signal Packet HTML/JSONL needs the next semantic cleanup: HTML evidence density/provenance, `citedInReadingRefs`, latest vs superseded readings, and root `source.pageUrl` investigation.

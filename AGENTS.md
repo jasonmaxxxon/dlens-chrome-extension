@@ -1,8 +1,14 @@
 # AGENTS.md — DLens Chrome Extension v0.1
 
-> **Last updated:** 2026-06-12 (release 0.1.33 — typed pipeline trace is merged through PR #21, and open PR #22 adds requestId trace correlation. `docs/architecture/dlens-current-architecture-map.md` is now the live status-colored architecture map. Latest merged-code verification: 726/726 tests, typecheck, build, version 0.1.33 mirrored into MV3. PR #22 branch verification: 732/732 plus GitHub `verify` checks. Prior 0.1.32 state: Topic audit P1 only runs on `ready` signals via shared `src/state/signal-readiness.ts`; uncrawled/`saved` signals render as 未抓取 and no longer produce OP-only cold-reads.)
+> **Last updated:** 2026-06-16 (release 0.1.33 — `TRACE`, `SEAM_GUARD`, `RECONCILE`, `INVALIDATE`, and `BOUNDARY` are locked in `docs/architecture/dlens-current-architecture-map.md`. Latest merged-code verification through PR #47: 812/812 tests, typecheck, storage seam guard, boundary guard, build, and GitHub `verify` checks. `BOUNDARY` is enforced by `npm run boundary:guard`, which runs View and ViewModel wall scanners in CI at zero allowlisted violations.)
 > **For:** any agent continuing work in this repo
 > **READ FIRST:** [`docs/architecture/dlens-current-architecture-map.md`](docs/architecture/dlens-current-architecture-map.md) — the status-colored handoff map (🟩 locked / 🟢 built / 🟡 partial / 🔴 not built). Don't treat 🟢 as 🟩; don't bypass ViewModel / typed command target / storage seam / pipeline trace; any async-path PR must handle requestId + invalidation + rehydrate; update the map's colors in your PR if status changes.
+
+## Recently Fixed (2026-06-16) — Boundary wall guards
+
+`BOUNDARY` is 🟩 because View modules cannot import `sendExtensionMessage` / call `Date.now()` / `Math.random()` / `performance.now()` / `chrome.storage.local.*` / `chrome.runtime.sendMessage`, ViewModels cannot import `chrome.*` / `fetch` / DOM / `File` / `Blob` / `FormData` / React, and `npm run boundary:guard` enforces both walls in CI at zero allowlisted violations.
+
+Do not add `TODO(boundary-bypass)` unless a separate review explicitly accepts the exception. A PR that needs a View side effect should move it into the controller / hook / app shell. A PR that needs a ViewModel browser dependency should pass precomputed input from the controller instead.
 
 ## Recently Fixed (2026-05-28) — Product action board and card geometry
 
@@ -631,6 +637,7 @@ The full cluster pipeline runs in `dlens-ingest-core`, not in this repo:
 7. Google (Gemini 3.1 Flash Lite) is the default compare-summary provider; `ExtensionSettings.googleApiKey` must be handled alongside openai/claude keys in all settings paths.
 8. `src/analysis/*` and `src/compare/*` are display/read-model adapters, not the canonical backend clustering source of truth.
 9. After any code change, update this file and the README. If a boundary, data flow, async path, storage seam, backend job path, LLM call path, or ViewModel/View responsibility changed, update `docs/architecture/dlens-current-architecture-map.md` too.
+10. Run `npm run boundary:guard` before merging any PR that touches `src/ui/**/*.tsx` or `src/viewmodel/**/*.ts`; it must report zero unauthorized findings and zero allowlisted bypasses.
 
 ## Known Risks
 
