@@ -4,8 +4,10 @@ import test from "node:test";
 import {
   addRuntimeMessageListener,
   buildSnapshotReconcileDescriptor,
+  resolveStateUpdatedSnapshot,
   sendExtensionMessage
 } from "../src/ui/controller.tsx";
+import { createEmptyGlobalState, createEmptyTabState, type ExtensionSnapshot } from "../src/state/types.ts";
 
 test("sendExtensionMessage retries connection loss with staggered backoff delays", async () => {
   const originalChrome = globalThis.chrome;
@@ -134,6 +136,48 @@ test("addRuntimeMessageListener still throws unrelated listener setup errors", (
   } finally {
     globalThis.chrome = originalChrome;
   }
+});
+
+function makeControllerSnapshot(id: string): ExtensionSnapshot {
+  return {
+    global: {
+      ...createEmptyGlobalState(),
+      updatedAt: `2026-06-15T00:00:0${id}.000Z`
+    },
+    tab: createEmptyTabState()
+  };
+}
+
+test("resolveStateUpdatedSnapshot adopts well-formed snapshots for the current tab", () => {
+  const snapshot = makeControllerSnapshot("1");
+
+  assert.deepEqual(
+    resolveStateUpdatedSnapshot({ type: "state/updated", tabId: 7, snapshot }, 7),
+    { tabId: 7, snapshot }
+  );
+});
+
+test("resolveStateUpdatedSnapshot ignores state/updated without snapshot", () => {
+  assert.equal(
+    resolveStateUpdatedSnapshot({ type: "state/updated", tabId: 7 }, 7),
+    null
+  );
+});
+
+test("resolveStateUpdatedSnapshot ignores state/updated for a different tab", () => {
+  assert.equal(
+    resolveStateUpdatedSnapshot({ type: "state/updated", tabId: 99, snapshot: makeControllerSnapshot("2") }, 7),
+    null
+  );
+});
+
+test("resolveStateUpdatedSnapshot accepts the first well-formed update before tab id is known", () => {
+  const snapshot = makeControllerSnapshot("3");
+
+  assert.deepEqual(
+    resolveStateUpdatedSnapshot({ type: "state/updated", tabId: 7, snapshot }, null),
+    { tabId: 7, snapshot }
+  );
 });
 
 test("buildSnapshotReconcileDescriptor only guards long async session-scoped writes", () => {

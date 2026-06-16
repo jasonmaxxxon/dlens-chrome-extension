@@ -152,20 +152,43 @@ export function getActiveItem(snapshot: ExtensionSnapshot | null): SessionItem |
   return session.items.find((item) => item.id === snapshot.tab.activeItemId) || null;
 }
 
+export function resolveStateUpdatedSnapshot(
+  message: unknown,
+  currentTabId: number | null
+): { tabId: number | null; snapshot: ExtensionSnapshot } | null {
+  const typed = message as { type?: string; tabId?: number; snapshot?: ExtensionSnapshot };
+  if (typed.type !== "state/updated" || !typed.snapshot) {
+    return null;
+  }
+  if (typeof typed.tabId === "number" && currentTabId !== null && typed.tabId !== currentTabId) {
+    return null;
+  }
+  return {
+    tabId: typeof typed.tabId === "number" ? typed.tabId : currentTabId,
+    snapshot: typed.snapshot
+  };
+}
+
 export function useExtensionSnapshot(polling = true) {
   const [snapshot, setSnapshot] = useState<ExtensionSnapshot | null>(null);
   const [tabId, setTabId] = useState<number | null>(null);
   const snapshotRef = useRef<ExtensionSnapshot | null>(null);
+  const tabIdRef = useRef<number | null>(null);
   const snapshotReconcilerRef = useRef(createRequestReconciler());
 
   useEffect(() => {
     snapshotRef.current = snapshot;
   }, [snapshot]);
 
+  useEffect(() => {
+    tabIdRef.current = tabId;
+  }, [tabId]);
+
   async function refreshState() {
     const response = await sendExtensionMessage<ExtensionResponse>({ type: "state/get-active-tab" });
     if (response.ok && response.snapshot) {
       snapshotRef.current = response.snapshot;
+      tabIdRef.current = response.tabId ?? null;
       setSnapshot(response.snapshot);
       setTabId(response.tabId ?? null);
     }
@@ -178,11 +201,12 @@ export function useExtensionSnapshot(polling = true) {
     });
 
     const listener = (message: unknown) => {
-      const typed = message as { type?: string; tabId?: number; snapshot?: ExtensionSnapshot };
-      if (typed.type === "state/updated" && typed.snapshot) {
-        snapshotRef.current = typed.snapshot;
-        setSnapshot(typed.snapshot);
-        setTabId(typed.tabId ?? null);
+      const update = resolveStateUpdatedSnapshot(message, tabIdRef.current);
+      if (update) {
+        snapshotRef.current = update.snapshot;
+        tabIdRef.current = update.tabId;
+        setSnapshot(update.snapshot);
+        setTabId(update.tabId);
       }
     };
     return addRuntimeMessageListener(listener);

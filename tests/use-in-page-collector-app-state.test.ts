@@ -15,6 +15,7 @@ import {
   applyPrGenerateSummaryResult,
   buildPreviewSaveMessage,
   buildSessionModeChangeMessage,
+  planProductHydrateTransition,
   resolveOptimisticSession,
   runAnalyzeItemsPipeline,
   shouldClearPrReconciledLoading
@@ -158,6 +159,60 @@ test("buildSessionModeChangeMessage realigns to an existing product session when
     type: "session/set-mode",
     sessionId: productSession.id,
     mode: "product"
+  });
+});
+
+test("Product hydrate gate requests exactly once when the active Product signal page is eligible", () => {
+  const transition = planProductHydrateTransition({
+    popupOpen: true,
+    activeFolderId: "product-session",
+    activeFolderMode: "product",
+    isProductSignalPage: true,
+    page: "saved-signals",
+    signalIds: ["signal-1", "signal-2"],
+    inFlightKey: null
+  });
+
+  assert.deepEqual(transition, {
+    kind: "request",
+    requestKey: "product-session|saved-signals|signal-1|signal-2",
+    sessionId: "product-session",
+    signalIds: ["signal-1", "signal-2"]
+  });
+});
+
+test("Product hydrate gate coalesces repeated AppState changes while the same hydrate is in flight", () => {
+  const transition = planProductHydrateTransition({
+    popupOpen: true,
+    activeFolderId: "product-session",
+    activeFolderMode: "product",
+    isProductSignalPage: true,
+    page: "saved-signals",
+    signalIds: ["signal-1", "signal-2"],
+    inFlightKey: "product-session|saved-signals|signal-1|signal-2"
+  });
+
+  assert.deepEqual(transition, {
+    kind: "coalesce",
+    requestKey: "product-session|saved-signals|signal-1|signal-2"
+  });
+});
+
+test("Product hydrate gate skips and clears loading when the active page is outside Product signal surfaces", () => {
+  const transition = planProductHydrateTransition({
+    popupOpen: true,
+    activeFolderId: "product-session",
+    activeFolderMode: "product",
+    isProductSignalPage: false,
+    page: "collect",
+    signalIds: ["signal-1"],
+    inFlightKey: "product-session|saved-signals|signal-1"
+  });
+
+  assert.deepEqual(transition, {
+    kind: "skip",
+    sessionId: "product-session",
+    shouldClearHydrating: true
   });
 });
 
