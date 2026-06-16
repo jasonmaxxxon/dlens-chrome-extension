@@ -19,6 +19,7 @@ import {
   type FolderSynthesis,
   type LayoutPreferences,
   type ProductContext,
+  type ProductProfileContextFile,
   type ProductAgentTaskFeedback,
   type ProductSignalAnalysis,
   type SavedAnalysisSnapshot,
@@ -131,6 +132,18 @@ export function buildSessionModeChangeMessage(
     name: DEFAULT_SESSION_NAME_BY_MODE[mode],
     mode
   };
+}
+
+function readInteractionNowMs(): number {
+  return typeof performance !== "undefined" ? performance.now() : Date.now();
+}
+
+function readWallClockNowMs(): number {
+  return Date.now();
+}
+
+function createContextFileId(kind: ProductProfileContextFile["kind"], name: string): string {
+  return `ctx_${kind}_${name.replace(/[^a-z0-9]+/gi, "_").toLowerCase()}_${Date.now().toString(36)}`;
 }
 
 export function buildPreviewSaveMessage({
@@ -2626,6 +2639,9 @@ export function useInPageCollectorAppState({ snapshot, tabId, sendAndSync }: Use
     activeItem,
     popupOpen,
     page,
+    readInteractionNowMs,
+    readWallClockNowMs,
+    createContextFileId,
     workspaceState,
     processingSummary,
     flashPreview,

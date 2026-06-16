@@ -1468,8 +1468,7 @@ function FlowingClusterViz() {
   const pointerRef = useRef<{ x: number; y: number } | null>(null);
   const isReduced = typeof window !== "undefined" && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
 
-  const animate = useCallback(() => {
-    const now = typeof performance !== "undefined" ? performance.now() : Date.now();
+  const animate = useCallback((now: number) => {
     const time = now / 1000;
     const pointer = pointerRef.current;
     const pointerActive = Boolean(pointer);
