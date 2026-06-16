@@ -209,8 +209,8 @@ import {
   type RequestReconcileTarget,
   type RequestReconcileToken
 } from "../src/state/request-reconcile";
-
-const GLOBAL_STORAGE_KEY = "dlens:v0:global-state";
+import { GLOBAL_STATE_STORAGE_KEY as GLOBAL_STORAGE_KEY } from "../src/state/storage-keys";
+import { runMigrationsFor, STORAGE_MIGRATIONS } from "../src/state/storage-schema";
 const ACTIVE_SESSION_ID_STORAGE_KEY = "dlens:v1:active-session-id";
 const TAB_STORAGE_KEY_PREFIX = "dlens:v0:tab-ui:";
 const COMPARE_BRIEF_CACHE_KEY = "dlens:v1:compare-brief-cache";
@@ -354,7 +354,15 @@ function restorePipelineTraceMirrorFromSender(sender: chrome.runtime.MessageSend
 
 async function loadGlobalState(): Promise<ExtensionGlobalState> {
   const raw = await chrome.storage.local.get([GLOBAL_STORAGE_KEY, ACTIVE_SESSION_ID_STORAGE_KEY]);
-  const normalized = normalizeGlobalState(raw[GLOBAL_STORAGE_KEY] || createEmptyGlobalState());
+  const stored = raw[GLOBAL_STORAGE_KEY];
+  // Storage migration registry stamps schemaVersion on stored payloads from
+  // before the registry existed (`dlens:v0:global-state` written without a
+  // schemaVersion field). Fresh installs use createEmptyGlobalState() which
+  // already includes schemaVersion: 1.
+  const migrated = stored
+    ? runMigrationsFor<ExtensionGlobalState>(STORAGE_MIGRATIONS, GLOBAL_STORAGE_KEY, stored)
+    : createEmptyGlobalState();
+  const normalized = normalizeGlobalState(migrated);
   const activeOverlaid = applyStoredActiveSessionId(normalized, raw[ACTIVE_SESSION_ID_STORAGE_KEY]);
   const expired = expireStaleInFlightItems(activeOverlaid);
   if (expired !== activeOverlaid) {
@@ -496,7 +504,13 @@ async function loadProductContext(): Promise<ProductContext | null> {
   if (value && typeof value === "object" && !raw[PRODUCT_CONTEXT_STORAGE_KEY]) {
     await migrateLegacyProductContextStorage(chrome.storage.local, value);
   }
-  return value && typeof value === "object" ? value as ProductContext : null;
+  if (!value || typeof value !== "object") {
+    return null;
+  }
+  // Vertical schema migration: stamps schemaVersion on payloads written before
+  // the registry existed. Horizontal legacy key migration (the line above) is
+  // a separate concern handled by migrateLegacyProductContextStorage.
+  return runMigrationsFor<ProductContext>(STORAGE_MIGRATIONS, PRODUCT_CONTEXT_STORAGE_KEY, value);
 }
 
 function compactProviderError(error: unknown, apiKey?: string): string {

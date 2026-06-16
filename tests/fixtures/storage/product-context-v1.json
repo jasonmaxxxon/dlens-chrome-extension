@@ -1,0 +1,16 @@
+{
+  "productPromise": "Help indie agent builders ship one credible release per week.",
+  "targetAudience": "indie agent builders and small AI teams",
+  "agentRoles": ["planner", "executor", "QA"],
+  "coreWorkflows": ["context capture", "criteria match", "evidence export"],
+  "currentCapabilities": ["Threads ingest", "Compare two posts", "PR Evidence ledger"],
+  "explicitConstraints": ["no signup", "MV3 only", "Jason Default profile QA"],
+  "nonGoals": ["enterprise SSO", "team collaboration UI"],
+  "preferredTechDirection": "local-first, deterministic, traceable",
+  "evaluationCriteria": ["evidence chain integrity", "stale-result safety"],
+  "unknowns": ["live Threads DOM churn risk"],
+  "compiledAt": "2026-06-15T00:00:00.000Z",
+  "sourceFileIds": ["file-fixture-1"],
+  "promptVersion": "v1",
+  "schemaVersion": 1
+}

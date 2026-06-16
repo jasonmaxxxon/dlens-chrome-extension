@@ -78,6 +78,7 @@ export interface ProductProfile {
 }
 
 export interface ProductContext {
+  schemaVersion?: number;
   productPromise: string;
   targetAudience: string;
   agentRoles: string[];
@@ -443,6 +444,7 @@ export interface Signal {
 }
 
 export interface ExtensionGlobalState {
+  schemaVersion?: number;
   settings: ExtensionSettings;
   sessions: SessionRecord[];
   activeSessionId: string | null;
@@ -496,6 +498,7 @@ export function createDefaultLayoutPreferences(): LayoutPreferences {
 
 export function createEmptyGlobalState(): ExtensionGlobalState {
   return {
+    schemaVersion: 1,
     settings: createDefaultSettings(),
     sessions: [],
     activeSessionId: null,
