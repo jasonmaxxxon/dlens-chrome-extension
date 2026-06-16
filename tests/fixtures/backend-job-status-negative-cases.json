@@ -1,0 +1,169 @@
+{
+  "shared_case_names": [
+    "retry-scheduled-crawl",
+    "expired-running-lease",
+    "missing-analysis-after-crawl-success",
+    "failed-analysis-after-crawl-success",
+    "terminal-dead-crawl"
+  ],
+  "cases": {
+    "retry-scheduled-crawl": {
+      "description": "Pending job whose scheduled_at sits in the future after a retryable crawl failure. Worker thread is idle.",
+      "worker_status": {
+        "status": "idle",
+        "pending_due_jobs": 0,
+        "retry_scheduled_jobs": 1,
+        "running_jobs": 0,
+        "expired_running_jobs": 0,
+        "dead_jobs": 0,
+        "pending_analyses": 0,
+        "running_analyses": 0,
+        "failed_analyses": 0,
+        "earliest_retry_at": "2026-06-16T10:30:00.000Z",
+        "next_due_at": null,
+        "last_drain_error": null,
+        "last_drain_finished_at": null
+      },
+      "expected_projection": {
+        "kind": "retry_waiting",
+        "count": 1,
+        "earliestRetryAt": "2026-06-16T10:30:00.000Z",
+        "nextDueAt": null
+      },
+      "item_state_seed": {
+        "job": {
+          "status": "pending",
+          "scheduled_at": "2026-06-16T10:30:00.000Z",
+          "attempt_count": 1,
+          "last_error_kind": "retryable_runtime_error",
+          "last_error": "transient network blip"
+        },
+        "capture": null
+      },
+      "expected_item_readiness": "crawling"
+    },
+    "expired-running-lease": {
+      "description": "Running job whose lease_expires_at has passed. Worker thread may report idle or draining; the expired job is reclaimable.",
+      "worker_status": {
+        "status": "idle",
+        "pending_due_jobs": 0,
+        "retry_scheduled_jobs": 0,
+        "running_jobs": 0,
+        "expired_running_jobs": 1,
+        "dead_jobs": 0,
+        "pending_analyses": 0,
+        "running_analyses": 0,
+        "failed_analyses": 0,
+        "earliest_retry_at": null,
+        "next_due_at": null,
+        "last_drain_error": null,
+        "last_drain_finished_at": null
+      },
+      "expected_projection": {
+        "kind": "expired_running",
+        "count": 1
+      },
+      "item_state_seed": {
+        "job": {
+          "status": "running",
+          "lease_expires_at": "2026-06-16T09:55:00.000Z",
+          "worker_token": "expired",
+          "attempt_count": 1,
+          "last_error_kind": null,
+          "last_error": null
+        },
+        "capture": null
+      },
+      "expected_item_readiness": "crawling"
+    },
+    "missing-analysis-after-crawl-success": {
+      "description": "Crawl succeeded but no analysis row was ever enqueued. Worker summary cannot signal this; per-item readiness must.",
+      "worker_status": {
+        "status": "idle",
+        "pending_due_jobs": 0,
+        "retry_scheduled_jobs": 0,
+        "running_jobs": 0,
+        "expired_running_jobs": 0,
+        "dead_jobs": 0,
+        "pending_analyses": 0,
+        "running_analyses": 0,
+        "failed_analyses": 0,
+        "earliest_retry_at": null,
+        "next_due_at": null,
+        "last_drain_error": null,
+        "last_drain_finished_at": null
+      },
+      "expected_projection": { "kind": "idle" },
+      "item_state_seed": {
+        "job": { "status": "succeeded" },
+        "capture": { "ingestion_status": "succeeded", "analysis": null }
+      },
+      "expected_item_readiness": "analyzing"
+    },
+    "failed-analysis-after-crawl-success": {
+      "description": "Crawl succeeded but the latest analysis row is failed. Worker summary reports one failed analysis.",
+      "worker_status": {
+        "status": "idle",
+        "pending_due_jobs": 0,
+        "retry_scheduled_jobs": 0,
+        "running_jobs": 0,
+        "expired_running_jobs": 0,
+        "dead_jobs": 0,
+        "pending_analyses": 0,
+        "running_analyses": 0,
+        "failed_analyses": 1,
+        "earliest_retry_at": null,
+        "next_due_at": null,
+        "last_drain_error": null,
+        "last_drain_finished_at": null
+      },
+      "expected_projection": {
+        "kind": "analysis_failed",
+        "count": 1
+      },
+      "item_state_seed": {
+        "job": { "status": "succeeded", "last_error_kind": null, "last_error": null },
+        "capture": {
+          "ingestion_status": "succeeded",
+          "analysis": {
+            "status": "failed",
+            "last_error": "analysis parser rejected empty evidence"
+          }
+        }
+      },
+      "expected_item_readiness": "failed",
+      "expected_last_error_kind": "analysis_failed",
+      "expected_last_error_match": "analysis parser"
+    },
+    "terminal-dead-crawl": {
+      "description": "Job has exhausted retries and is dead. Worker summary reports one dead job; the item is terminally failed with the job's error kind.",
+      "worker_status": {
+        "status": "idle",
+        "pending_due_jobs": 0,
+        "retry_scheduled_jobs": 0,
+        "running_jobs": 0,
+        "expired_running_jobs": 0,
+        "dead_jobs": 1,
+        "pending_analyses": 0,
+        "running_analyses": 0,
+        "failed_analyses": 0,
+        "earliest_retry_at": null,
+        "next_due_at": null,
+        "last_drain_error": null,
+        "last_drain_finished_at": null
+      },
+      "expected_projection": { "kind": "idle" },
+      "item_state_seed": {
+        "job": {
+          "status": "dead",
+          "last_error_kind": "max_attempts_exceeded",
+          "last_error": "give up"
+        },
+        "capture": { "ingestion_status": "failed", "analysis": null }
+      },
+      "expected_item_readiness": "failed",
+      "expected_last_error_kind": "max_attempts_exceeded",
+      "expected_last_error_match": "give up"
+    }
+  }
+}
