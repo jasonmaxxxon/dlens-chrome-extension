@@ -1,6 +1,6 @@
 # Current State
 
-## System State As Of 2026-06-12
+## System State As Of 2026-06-16
 
 DLens is now best described as a **desktop-first Threads research, product-signal, and PR evidence extension**.
 
@@ -8,6 +8,7 @@ The architecture handoff source of truth is now
 `docs/architecture/dlens-current-architecture-map.md`. Treat its colors as the
 live status contract: 🟢 means built, 🟩 means regression-locked, 🟡 means
 partial/risky, and 🔴 means not built or not trustworthy enough to rely on.
+`BOUNDARY` is 🟩 because View modules cannot import `sendExtensionMessage` / call `Date.now()` / `Math.random()` / `performance.now()` / `chrome.storage.local.*` / `chrome.runtime.sendMessage`, ViewModels cannot import `chrome.*` / `fetch` / DOM / `File` / `Blob` / `FormData` / React, and `npm run boundary:guard` enforces both walls in CI at zero allowlisted violations.
 
 The current product split is:
 
@@ -275,7 +276,7 @@ RAG remains intentionally out of V1. The accepted V1 design is:
 
 1. Chrome QA: use Jason's `Default` Chrome profile (`jason@brandonproject.co`), where DLens is installed from `output/chrome-mv3`; reload that unpacked extension and walk Product Settings -> Collect -> crawl -> Product insights, Compare Parallel/Chapters, Topic Console/Stack, then PR Evidence campaign setup -> PDF upload -> Generate criteria -> Collect -> Match criteria -> CSV export -> summary MD/DOCX export. Open DLens through the real extension action or the content-script in-page launcher on a real Threads page; do not count a direct `chrome-extension://.../sidepanel.html` tab or a temporary Chrome profile as user-visible QA.
 2. UI cleanup: verify topic mode green theme everywhere, product mode does not show folder concept, PR Evidence keeps the compact ledger grammar, and popup spacing/mode/layout switching stay fixed.
-3. TRACE, RECONCILE, and INVALIDATE are locked; remaining trace/reconcile/rehydrate follow-up is performance investigation and future-lane coverage, not spine/gate construction.
+3. TRACE, RECONCILE, INVALIDATE, and BOUNDARY are locked; remaining trace/reconcile/rehydrate/boundary follow-up is performance investigation and future-lane coverage, not spine/gate construction.
 4. Background split: move product/topic/PR handlers out of `entrypoints/background.ts` before adding digest/watch-mode work.
 5. Phase C later: signal digest / watch mode / recurring intelligence. Do not start there before Chrome QA and popup/background orchestration cleanup are handled.
 
