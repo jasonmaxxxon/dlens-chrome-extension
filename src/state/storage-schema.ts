@@ -1,3 +1,6 @@
+import { PRODUCT_CONTEXT_STORAGE_KEY } from "../compare/product-context";
+import { GLOBAL_STATE_STORAGE_KEY } from "./storage-keys";
+
 export const CURRENT_STORAGE_SCHEMA_VERSION = 1;
 
 export interface StorageSchemaMigration<TFrom = unknown, TTo = unknown> {
@@ -66,3 +69,37 @@ function stampSchemaVersion(value: unknown, version: number): Record<string, unk
   }
   return { ...(value as Record<string, unknown>), schemaVersion: version };
 }
+
+/**
+ * Canonical registry of storage migrations.
+ *
+ * Each entry maps `(storage key, from version) → (to version, migrate fn)`.
+ * The CI fixture gate (`scripts/check-migration-fixtures.mjs`, added in PR 3)
+ * enforces that every entry has a paired legacy fixture + expected output
+ * under `tests/fixtures/storage/`.
+ *
+ * Migrations are forward-only and pure (no I/O). The caller is responsible
+ * for writing the migrated payload back through the storage seam.
+ */
+export const STORAGE_MIGRATIONS: ReadonlyArray<StorageSchemaMigration> = [
+  // Promotes pre-registry `dlens:v0:global-state` payloads (no schemaVersion field)
+  // to a registry-aware v1 shape. The migration is identity at the payload level —
+  // the registry stamps `schemaVersion: 1` on the result. Future shape changes
+  // register additional from=1→to=2 entries against the same key.
+  defineMigration<unknown, unknown>({
+    key: GLOBAL_STATE_STORAGE_KEY,
+    from: 0,
+    to: 1,
+    migrate: (input) => (input && typeof input === "object" ? input : {})
+  }),
+  // Same shape, separate key: pre-registry `dlens:v1:product-context` payloads
+  // had no schemaVersion field. The horizontal legacy key migration
+  // (`dlens_product_context` → `dlens:v1:product-context`) is handled in
+  // `src/compare/product-context-storage.ts` and feeds into this entry.
+  defineMigration<unknown, unknown>({
+    key: PRODUCT_CONTEXT_STORAGE_KEY,
+    from: 0,
+    to: 1,
+    migrate: (input) => (input && typeof input === "object" ? input : {})
+  })
+];

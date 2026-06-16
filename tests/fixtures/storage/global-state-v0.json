@@ -1,0 +1,31 @@
+{
+  "settings": {
+    "ingestBaseUrl": "http://127.0.0.1:8000",
+    "oneLinerProvider": "google",
+    "openaiApiKey": "",
+    "claudeApiKey": "",
+    "googleApiKey": "",
+    "productProfile": {
+      "name": "Example Product",
+      "category": "agent-tooling",
+      "audience": "indie hackers"
+    },
+    "layoutPreferences": {
+      "productSignalCardLayout": "marginalia",
+      "topicSynthesisLayout": "console",
+      "compareResultLayout": "parallel"
+    }
+  },
+  "sessions": [
+    {
+      "id": "session-fixture-1",
+      "name": "Fixture session",
+      "mode": "product",
+      "items": [],
+      "createdAt": "2026-06-15T00:00:00.000Z",
+      "updatedAt": "2026-06-15T00:00:00.000Z"
+    }
+  ],
+  "activeSessionId": "session-fixture-1",
+  "updatedAt": "2026-06-15T00:00:00.000Z"
+}
