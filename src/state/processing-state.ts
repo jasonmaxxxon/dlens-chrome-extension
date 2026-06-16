@@ -1,3 +1,4 @@
+import type { WorkerStatusResponse } from "../contracts/ingest.ts";
 import type { FolderMode, MainPage, PopupPage, SessionItem, SessionRecord } from "./types.ts";
 import { DLENS_BUILD_VARIANT, resolveAllowedPagesForBuildVariant } from "../build-variant.ts";
 import {
@@ -70,6 +71,55 @@ export type ItemReadinessStatus = "saved" | "queued" | "crawling" | "analyzing" 
 export type ProgressMode = "idle" | "queued" | "crawling" | "analyzing" | "ready";
 export type ProgressVariant = "neutral" | "queued" | "running" | "success" | "failed";
 export type WorkspaceMode = Exclude<PopupPage, "settings" | "audit-report">;
+
+export type BackendWorkUiState =
+  | { kind: "idle" }
+  | { kind: "draining" }
+  | { kind: "retry_waiting"; count: number; earliestRetryAt: string | null; nextDueAt: string | null }
+  | { kind: "expired_running"; count: number }
+  | { kind: "analysis_waiting"; count: number }
+  | { kind: "analysis_failed"; count: number }
+  | { kind: "backend_error"; message: string };
+
+export function projectBackendWorkStatus(response: WorkerStatusResponse): BackendWorkUiState {
+  const drainError = (response.last_drain_error ?? "").trim();
+  if (drainError) {
+    return { kind: "backend_error", message: drainError };
+  }
+
+  const expired = response.expired_running_jobs ?? 0;
+  if (expired > 0) {
+    return { kind: "expired_running", count: expired };
+  }
+
+  const failedAnalyses = response.failed_analyses ?? 0;
+  if (failedAnalyses > 0) {
+    return { kind: "analysis_failed", count: failedAnalyses };
+  }
+
+  const retry = response.retry_scheduled_jobs ?? 0;
+  if (retry > 0) {
+    return {
+      kind: "retry_waiting",
+      count: retry,
+      earliestRetryAt: response.earliest_retry_at ?? null,
+      nextDueAt: response.next_due_at ?? null
+    };
+  }
+
+  const pendingAnalyses = response.pending_analyses ?? 0;
+  const runningAnalyses = response.running_analyses ?? 0;
+  const analysisInFlight = pendingAnalyses + runningAnalyses;
+  if (analysisInFlight > 0) {
+    return { kind: "analysis_waiting", count: analysisInFlight };
+  }
+
+  if (response.status === "draining") {
+    return { kind: "draining" };
+  }
+
+  return { kind: "idle" };
+}
 
 export interface SessionProcessingSummary {
   total: number;

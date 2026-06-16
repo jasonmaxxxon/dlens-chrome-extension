@@ -566,3 +566,108 @@ test("deleteSession clears active folder when removing the last folder", () => {
   assert.equal(nextState.sessions.length, 0);
   assert.equal(nextState.activeSessionId, null);
 });
+
+function buildFailedAnalysisCapture(): CaptureSnapshot {
+  return buildCapture({
+    analysis: {
+      id: "analysis-1",
+      capture_id: "cap-1",
+      status: "failed",
+      stage: "final",
+      analysis_version: "v1",
+      source_comment_count: null,
+      clusters: [],
+      evidence: [],
+      metrics: {},
+      generated_at: null,
+      last_error: "analysis parser rejected empty evidence",
+      created_at: "2026-03-24T07:22:31.000Z",
+      updated_at: "2026-03-24T07:22:31.000Z"
+    }
+  });
+}
+
+test("reconcileSessionItem promotes failed analysis into canonical item error", () => {
+  const item = createSessionItem(buildDescriptor(), "2026-03-24T07:22:21.000Z");
+  const queued = markSessionItemQueued(
+    item,
+    {
+      capture_id: "cap-1",
+      job_id: "job-1",
+      status: "queued",
+      job_type: "threads_post_comments_crawl",
+      canonical_target_url: "https://www.threads.net/@alpha/post/abc"
+    },
+    buildJob({ status: "pending" })
+  );
+
+  const reconciled = reconcileSessionItem(
+    queued,
+    buildJob({ status: "succeeded", last_error: null, last_error_kind: null }),
+    buildFailedAnalysisCapture()
+  );
+
+  assert.equal(reconciled.status, "succeeded");
+  assert.equal(reconciled.lastErrorKind, "analysis_failed");
+  assert.match(String(reconciled.lastError), /analysis parser/i);
+});
+
+test("reconcileSessionItem prefers analysis failure over a stale succeeded job error", () => {
+  const item = createSessionItem(buildDescriptor(), "2026-03-24T07:22:21.000Z");
+  const reconciled = reconcileSessionItem(
+    item,
+    buildJob({
+      status: "succeeded",
+      last_error_kind: "retryable_runtime_error",
+      last_error: "earlier transient failure"
+    }),
+    buildFailedAnalysisCapture()
+  );
+
+  assert.equal(reconciled.lastErrorKind, "analysis_failed");
+  assert.match(String(reconciled.lastError), /analysis parser/i);
+});
+
+test("reconcileSessionItem keeps job error when analysis is not failed", () => {
+  const item = createSessionItem(buildDescriptor(), "2026-03-24T07:22:21.000Z");
+  const reconciled = reconcileSessionItem(
+    item,
+    buildJob({
+      status: "dead",
+      last_error_kind: "max_attempts_exceeded",
+      last_error: "give up"
+    }),
+    buildCapture({ ingestion_status: "failed", analysis: null })
+  );
+
+  assert.equal(reconciled.lastErrorKind, "max_attempts_exceeded");
+  assert.equal(reconciled.lastError, "give up");
+});
+
+test("reconcileSessionItem clears error when analysis succeeded and no job error", () => {
+  const item = createSessionItem(buildDescriptor(), "2026-03-24T07:22:21.000Z");
+  const reconciled = reconcileSessionItem(
+    item,
+    buildJob({ status: "succeeded" }),
+    buildCapture({
+      analysis: {
+        id: "analysis-1",
+        capture_id: "cap-1",
+        status: "succeeded",
+        stage: "final",
+        analysis_version: "v1",
+        source_comment_count: 3,
+        clusters: [],
+        evidence: [],
+        metrics: {},
+        generated_at: "2026-03-24T07:22:35.000Z",
+        last_error: null,
+        created_at: "2026-03-24T07:22:31.000Z",
+        updated_at: "2026-03-24T07:22:36.000Z"
+      }
+    })
+  );
+
+  assert.equal(reconciled.lastErrorKind, null);
+  assert.equal(reconciled.lastError, null);
+});

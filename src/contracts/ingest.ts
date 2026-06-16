@@ -34,6 +34,18 @@ export interface WorkerDrainResponse {
 
 export interface WorkerStatusResponse {
   status: "idle" | "draining";
+  pending_due_jobs?: number;
+  retry_scheduled_jobs?: number;
+  running_jobs?: number;
+  expired_running_jobs?: number;
+  dead_jobs?: number;
+  pending_analyses?: number;
+  running_analyses?: number;
+  failed_analyses?: number;
+  earliest_retry_at?: string | null;
+  next_due_at?: string | null;
+  last_drain_error?: string | null;
+  last_drain_finished_at?: string | null;
 }
 
 export interface ThreadsAdvancedMetricsResponse {

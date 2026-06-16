@@ -16,6 +16,7 @@ import {
   isProductSignalPage,
   isPrEvidencePage,
   pickCompareSelection,
+  projectBackendWorkStatus,
   resolveInitialPopupMode,
   shouldRefreshProcessingFolder,
   summarizeSessionProcessing
@@ -372,4 +373,82 @@ test("isProductSignalPage matches product mode signal pages only", () => {
   assert.equal(isProductSignalPage("collect"), false);
   assert.equal(isProductSignalPage("library"), false);
   assert.equal(isProductSignalPage("settings"), false);
+});
+
+test("projectBackendWorkStatus maps a fully idle backend to idle", () => {
+  const state = projectBackendWorkStatus({ status: "idle" });
+  assert.deepEqual(state, { kind: "idle" });
+});
+
+test("projectBackendWorkStatus maps a busy idle backend with only retry backoff to retry_waiting", () => {
+  const state = projectBackendWorkStatus({
+    status: "idle",
+    retry_scheduled_jobs: 2,
+    earliest_retry_at: "2026-06-16T10:30:00.000Z",
+    next_due_at: null
+  });
+  assert.equal(state.kind, "retry_waiting");
+  if (state.kind === "retry_waiting") {
+    assert.equal(state.count, 2);
+    assert.equal(state.earliestRetryAt, "2026-06-16T10:30:00.000Z");
+  }
+});
+
+test("projectBackendWorkStatus prioritizes expired_running over retry_waiting and analysis_failed", () => {
+  const state = projectBackendWorkStatus({
+    status: "draining",
+    retry_scheduled_jobs: 3,
+    expired_running_jobs: 1,
+    failed_analyses: 2
+  });
+  assert.equal(state.kind, "expired_running");
+  if (state.kind === "expired_running") {
+    assert.equal(state.count, 1);
+  }
+});
+
+test("projectBackendWorkStatus surfaces analysis_failed when no expired-running but failed analyses exist", () => {
+  const state = projectBackendWorkStatus({
+    status: "idle",
+    retry_scheduled_jobs: 2,
+    failed_analyses: 1
+  });
+  assert.equal(state.kind, "analysis_failed");
+  if (state.kind === "analysis_failed") {
+    assert.equal(state.count, 1);
+  }
+});
+
+test("projectBackendWorkStatus surfaces analysis_waiting when only pending/running analyses exist", () => {
+  const state = projectBackendWorkStatus({
+    status: "idle",
+    pending_analyses: 1,
+    running_analyses: 2
+  });
+  assert.equal(state.kind, "analysis_waiting");
+  if (state.kind === "analysis_waiting") {
+    assert.equal(state.count, 3);
+  }
+});
+
+test("projectBackendWorkStatus reports draining when the worker thread is alive and no blocker exists", () => {
+  const state = projectBackendWorkStatus({
+    status: "draining",
+    pending_due_jobs: 1,
+    running_jobs: 1
+  });
+  assert.equal(state.kind, "draining");
+});
+
+test("projectBackendWorkStatus reports backend_error with the highest priority", () => {
+  const state = projectBackendWorkStatus({
+    status: "draining",
+    expired_running_jobs: 1,
+    failed_analyses: 1,
+    last_drain_error: "db unavailable"
+  });
+  assert.equal(state.kind, "backend_error");
+  if (state.kind === "backend_error") {
+    assert.equal(state.message, "db unavailable");
+  }
 });

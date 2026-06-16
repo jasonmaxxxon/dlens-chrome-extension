@@ -449,10 +449,27 @@ function readBackendProgressTimestamp(
   return now;
 }
 
+function readCanonicalProcessingError(
+  job: JobSnapshot | null,
+  capture: CaptureSnapshot | null
+): { lastErrorKind: string | null; lastError: string | null } {
+  if (capture?.analysis?.status === "failed") {
+    return {
+      lastErrorKind: "analysis_failed",
+      lastError: capture.analysis.last_error ?? "Analysis failed."
+    };
+  }
+  return {
+    lastErrorKind: job?.last_error_kind ?? null,
+    lastError: job?.last_error ?? null
+  };
+}
+
 export function reconcileSessionItem(item: SessionItem, job: JobSnapshot | null, capture: CaptureSnapshot | null): SessionItem {
   const status = mapLifecycleStatus(job, capture, item.status);
   const now = new Date().toISOString();
   const lastStatusAt = readBackendProgressTimestamp(item, status, job, capture, now);
+  const canonicalError = readCanonicalProcessingError(job, capture);
   return {
     ...item,
     status,
@@ -464,8 +481,8 @@ export function reconcileSessionItem(item: SessionItem, job: JobSnapshot | null,
     commentsPreview: status === "succeeded" ? extractCommentsPreview(capture) : [],
     completedAt: status === "succeeded" || status === "failed" ? now : item.completedAt,
     lastStatusAt,
-    lastErrorKind: job?.last_error_kind ?? null,
-    lastError: job?.last_error ?? null
+    lastErrorKind: canonicalError.lastErrorKind,
+    lastError: canonicalError.lastError
   };
 }
 
