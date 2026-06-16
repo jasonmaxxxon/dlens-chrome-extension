@@ -18,6 +18,7 @@ jobs:
       - run: npm run typecheck
       - run: npm run storage:seam-guard
       - run: npm run boundary:guard
+      - run: npm run storage:migrate-fixtures
       # Mirrors the README verify flow; tsx is resolved on demand by npx.
       - run: npx tsx --test tests/*.test.ts tests/*.test.tsx
       - run: npm run build

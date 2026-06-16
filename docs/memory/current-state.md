@@ -8,7 +8,7 @@ The architecture handoff source of truth is now
 `docs/architecture/dlens-current-architecture-map.md`. Treat its colors as the
 live status contract: 🟢 means built, 🟩 means regression-locked, 🟡 means
 partial/risky, and 🔴 means not built or not trustworthy enough to rely on.
-`BOUNDARY` is 🟩 because View modules cannot import `sendExtensionMessage` / call `Date.now()` / `Math.random()` / `performance.now()` / `chrome.storage.local.*` / `chrome.runtime.sendMessage`, ViewModels cannot import `chrome.*` / `fetch` / DOM / `File` / `Blob` / `FormData` / React, and `npm run boundary:guard` enforces both walls in CI at zero allowlisted violations.
+`BOUNDARY` is 🟩 because View modules cannot import `sendExtensionMessage` / call `Date.now()` / `Math.random()` / `performance.now()` / `chrome.storage.local.*` / `chrome.runtime.sendMessage`, ViewModels cannot import `chrome.*` / `fetch` / DOM / `File` / `Blob` / `FormData` / React, and `npm run boundary:guard` enforces both walls in CI at zero allowlisted violations. `MIGRATE` is 🟩 because every storage shape change is recorded in `src/state/storage-schema.ts`, every migration entry has a legacy fixture that replays through the registry into the current shape, and `npm run storage:migrate-fixtures` enforces fixture coverage in CI at zero unregistered migrations.
 
 The current product split is:
 
@@ -129,6 +129,10 @@ The verified build in the active Phase B implementation worktree is:
 - PR #44 locks controller adoption plus Product hydrate gate behavior: well-formed current-tab snapshots are adopted, ill-formed / wrong-tab messages are ignored, and repeated Product AppState changes coalesce while the same hydrate is in flight.
 - PR #45 locks Product / Topic / PR hydrate terminal trace parity.
 - INVALIDATE rehydrate closure: `INVALIDATE` is 🟩 because storage-seam writes broadcast `state/updated` exactly once per lane, the controller adopts well-formed snapshots and ignores ill-formed ones, and every `popup.{product,topic,pr}.hydrate.request` is paired with exactly one terminal event, so loading flags cannot stick.
+- PR #49 added the storage schema migration registry primitive (`src/state/storage-schema.ts`: `CURRENT_STORAGE_SCHEMA_VERSION`, `defineMigration`, forward-only `runMigrationsFor`).
+- PR #50 registered the first real migrations: `dlens:v0:global-state` v0→v1 and `dlens:v1:product-context` v0→v1, both stamping `schemaVersion: 1`. Wires `runMigrationsFor` into `loadGlobalState` and `loadProductContext`. Adds anonymized `tests/fixtures/storage/*-v0.json` + `*-v1.json` legacy fixture replay tests.
+- PR #51 adds `scripts/check-migration-fixtures.mjs` and `npm run storage:migrate-fixtures`, wired into CI. Enforces that every entry in `STORAGE_MIGRATIONS` has paired `<base>-v<from>.json` + `<base>-v<to>.json` fixtures and that the replay matches.
+- MIGRATE storage schema closure: `MIGRATE` is 🟩 because every storage shape change is recorded in `src/state/storage-schema.ts`, every migration entry has a legacy fixture that replays through the registry into the current shape, and `npm run storage:migrate-fixtures` enforces fixture coverage in CI at zero unregistered migrations.
 - Current TRACE full-live branch: expands the trace spine with `backend.request` and `llm.call`, instruments ingest backend HTTP calls and direct provider HTTP calls, mirrors service-worker trace entries back into the active QA Threads page, and adds `--require-phases` to the summary/harness gate. Jason-profile full live QA captured `docs/qa/assets/2026-06-13/full-live-backend-llm/live-trace-full-hover-save-queue-analysis.json` (hover → save → queue → backend capture → direct Google LLM → Product analysis, 900 events, no pipeline errors). The full-phase harness is wired into `npm run qa:harness:fixture` and CI, so `TRACE` moves to 🟩 when PR #29 lands.
 
 ## PR Evidence V1 Contract State
@@ -276,7 +280,7 @@ RAG remains intentionally out of V1. The accepted V1 design is:
 
 1. Chrome QA: use Jason's `Default` Chrome profile (`jason@brandonproject.co`), where DLens is installed from `output/chrome-mv3`; reload that unpacked extension and walk Product Settings -> Collect -> crawl -> Product insights, Compare Parallel/Chapters, Topic Console/Stack, then PR Evidence campaign setup -> PDF upload -> Generate criteria -> Collect -> Match criteria -> CSV export -> summary MD/DOCX export. Open DLens through the real extension action or the content-script in-page launcher on a real Threads page; do not count a direct `chrome-extension://.../sidepanel.html` tab or a temporary Chrome profile as user-visible QA.
 2. UI cleanup: verify topic mode green theme everywhere, product mode does not show folder concept, PR Evidence keeps the compact ledger grammar, and popup spacing/mode/layout switching stay fixed.
-3. TRACE, RECONCILE, INVALIDATE, and BOUNDARY are locked; remaining trace/reconcile/rehydrate/boundary follow-up is performance investigation and future-lane coverage, not spine/gate construction.
+3. TRACE, RECONCILE, INVALIDATE, BOUNDARY, and MIGRATE are locked; remaining trace/reconcile/rehydrate/boundary/migration follow-up is performance investigation and future-lane coverage, not spine/gate construction.
 4. Background split: move product/topic/PR handlers out of `entrypoints/background.ts` before adding digest/watch-mode work.
 5. Phase C later: signal digest / watch mode / recurring intelligence. Do not start there before Chrome QA and popup/background orchestration cleanup are handled.
 
