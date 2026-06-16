@@ -1105,9 +1105,9 @@ export function ModeHeader({
   );
 }
 
-export function formatElapsed(isoTime: string | null | undefined): string {
+export function formatElapsed(isoTime: string | null | undefined, nowMs = 0): string {
   if (!isoTime) return "just now";
-  const diffMs = Date.now() - new Date(isoTime).getTime();
+  const diffMs = nowMs - new Date(isoTime).getTime();
   if (!Number.isFinite(diffMs) || diffMs < 0) return "just now";
   const totalSeconds = Math.max(0, Math.floor(diffMs / 1000));
   const minutes = Math.floor(totalSeconds / 60);

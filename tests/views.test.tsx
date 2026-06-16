@@ -1342,6 +1342,7 @@ test("SettingsView exposes Google provider and save action", () => {
       onInitProductProfile: () => undefined,
       onSessionModeChange: () => undefined,
       onClearProductCache: () => undefined,
+      createContextFileId: (kind, name) => `ctx_${kind}_${name}`,
       onSaveSettings: () => undefined
     })
   );

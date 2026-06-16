@@ -56,19 +56,23 @@ interface LibraryViewProps {
   folderSynthesisError?: string | null;
   onGenerateFolderSynthesis?: () => Promise<void> | void;
   onClearFolderSynthesis?: () => Promise<void> | void;
+  nowMs?: number;
   /** Folder-wide analyzed signal count (cross-topic). Drives the eligibility + stale banner. */
   folderAnalyzedCount?: number;
   /** Distinct topics that contributed at least one analyzed signal. */
   folderContributingTopicCount?: number;
 }
 
-function formatSavedAt(value: string): string {
+function formatSavedAt(value: string, nowMs: number): string {
   const date = new Date(value);
   if (Number.isNaN(date.getTime())) return value;
-  const now = Date.now();
-  const diffMs = now - date.getTime();
+  const diffMs = nowMs - date.getTime();
+  if (!Number.isFinite(diffMs)) {
+    const formatter = new Intl.DateTimeFormat("zh-HK", { month: "short", day: "numeric" });
+    return formatter.format(date);
+  }
   const diffDays = Math.floor(diffMs / 86400000);
-  if (diffDays === 0) return "今天";
+  if (diffDays <= 0) return "今天";
   if (diffDays === 1) return "昨天";
   if (diffDays < 7) return `${diffDays}天前`;
   const formatter = new Intl.DateTimeFormat("zh-HK", { month: "short", day: "numeric" });
@@ -145,12 +149,14 @@ function PostCard({
   isSelected,
   optimisticQueued,
   ordinal,
+  nowMs,
   onSelect,
 }: {
   item: SessionItem;
   isSelected: boolean;
   optimisticQueued: boolean;
   ordinal?: number;
+  nowMs: number;
   onSelect: () => void;
 }) {
   const uiState = getLibraryItemUiState(item, optimisticQueued);
@@ -262,7 +268,7 @@ function PostCard({
         <span style={{ fontSize: 11, color: AR.dimInk, textAlign: "right" }}>
           {item.latestCapture?.analysis?.source_comment_count
             ? `${item.latestCapture.analysis.source_comment_count} 則留言`
-            : item.descriptor.time_token_hint || formatSavedAt(item.savedAt)}
+            : item.descriptor.time_token_hint || formatSavedAt(item.savedAt, nowMs)}
         </span>
         {uiState.itemPhase === "ready" ? (
           <span style={{ fontSize: 10, fontWeight: 700, color: AR.blue }}>
@@ -291,9 +297,11 @@ function snapshotReadings(analysis: SavedAnalysisSnapshot): Array<{ side: "A" | 
 
 function SavedAnalysisCard({
   analysis,
+  nowMs,
   onOpen
 }: {
   analysis: SavedAnalysisSnapshot;
+  nowMs: number;
   onOpen?: () => void;
 }) {
   const readings = snapshotReadings(analysis).slice(0, 2);
@@ -385,7 +393,7 @@ function SavedAnalysisCard({
 
       <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10, padding: "10px 0 12px", borderTop: `1px solid ${tokens.color.line}` }}>
         <div style={{ fontSize: 10, color: AR.dimInk }}>
-          {analysis.totalComments} 則留言 · {formatSavedAt(analysis.savedAt)}
+          {analysis.totalComments} 則留言 · {formatSavedAt(analysis.savedAt, nowMs)}
         </div>
         <button
           type="button"
@@ -717,6 +725,7 @@ export function LibraryView({
   folderSynthesisError = null,
   onGenerateFolderSynthesis,
   onClearFolderSynthesis,
+  nowMs = Number.NaN,
   folderAnalyzedCount = 0,
   folderContributingTopicCount = 0,
 }: LibraryViewProps) {
@@ -939,6 +948,7 @@ export function LibraryView({
                 isSelected={item.id === activeItem?.id}
                 optimisticQueued={optimisticQueuedIds.includes(item.id)}
                 ordinal={index + 1}
+                nowMs={nowMs}
                 onSelect={() => onSelectItem(item.id)}
               />
             ))}
@@ -953,6 +963,7 @@ export function LibraryView({
               isSelected={item.id === activeItem?.id}
               optimisticQueued={optimisticQueuedIds.includes(item.id)}
               ordinal={index + 1}
+              nowMs={nowMs}
               onSelect={() => onSelectItem(item.id)}
             />
           ))}
@@ -967,7 +978,7 @@ export function LibraryView({
           </div>
           <div style={{ display: "grid", gap: 8 }}>
             {savedAnalyses.slice(0, 3).map((analysis) => (
-              <SavedAnalysisCard key={analysis.resultId} analysis={analysis} onOpen={onOpenSavedAnalysis ? () => onOpenSavedAnalysis(analysis.resultId) : undefined} />
+              <SavedAnalysisCard key={analysis.resultId} analysis={analysis} nowMs={nowMs} onOpen={onOpenSavedAnalysis ? () => onOpenSavedAnalysis(analysis.resultId) : undefined} />
             ))}
           </div>
         </div>
@@ -1019,7 +1030,7 @@ export function LibraryView({
                         {reading.clusterTitle}
                       </span>
                       <span style={{ fontSize: 10, color: AR.dimInk, whiteSpace: "nowrap" as const }}>
-                        {formatSavedAt(reading.savedAt)}
+                        {formatSavedAt(reading.savedAt, nowMs)}
                       </span>
                     </div>
                     <div style={{ padding: "0 13px 8px", borderLeft: `2.5px solid ${reading.side === "A" ? AR.blue : AR.orange}`, marginLeft: 13 }}>

@@ -226,11 +226,11 @@ export function InPageCollectorPopup({ app }: { app: InPageCollectorAppModel }) 
     if (switchingWorkspaceMode || mode === activeFolderMode) {
       return;
     }
-    const startedAt = performance.now();
+    const startedAt = app.readInteractionNowMs();
     setSwitchingWorkspaceMode(mode);
     try {
       const response = await app.onSessionModeChange(mode);
-      const popupDurationMs = Math.round(performance.now() - startedAt);
+      const popupDurationMs = Math.round(app.readInteractionNowMs() - startedAt);
       const serverDurationMs = response && "serverDurationMs" in response
         ? (response.serverDurationMs ?? null)
         : null;
@@ -402,6 +402,7 @@ export function InPageCollectorPopup({ app }: { app: InPageCollectorAppModel }) 
                 folderSynthesis={app.folderSynthesis}
                 isGeneratingFolderSynthesis={app.isGeneratingFolderSynthesis}
                 folderSynthesisError={app.folderSynthesisError}
+                nowMs={app.readWallClockNowMs()}
                 folderAnalyzedCount={app.folderAnalyzedCount}
                 folderContributingTopicCount={app.folderContributingTopicCount}
                 onGenerateFolderSynthesis={() => void app.onGenerateFolderSynthesis()}
@@ -567,6 +568,7 @@ export function InPageCollectorPopup({ app }: { app: InPageCollectorAppModel }) 
                 onInitProductProfile={() => void app.onInitProductProfile()}
                 onSessionModeChange={(mode) => void app.onSessionModeChange(mode)}
                 onClearProductCache={() => void app.onClearProductCache()}
+                createContextFileId={app.createContextFileId}
                 onSaveSettings={() => void app.onSaveSettings()}
               />
             </WorkspaceSurface>

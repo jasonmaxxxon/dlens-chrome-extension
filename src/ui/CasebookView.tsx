@@ -14,6 +14,8 @@ interface CasebookViewProps {
   onCreateTopic: () => void;
   initialTopics?: Topic[];
   signals?: Signal[];
+  loadTopics?: (sessionId: string) => Promise<Topic[]>;
+  loadSignals?: (sessionId: string) => Promise<Signal[]>;
   initialUnassignedOpen?: boolean;
   signalPreviewById?: Record<string, string>;
   sessionItems?: SessionItem[];
@@ -25,18 +27,6 @@ interface CasebookViewProps {
   optimisticQueuedItemIds?: ReadonlyArray<string>;
   onOpenAnalysis?: (resultId: string) => void;
   onAddToCompare?: (itemId: string) => void;
-}
-
-function readTopicsFromResponse(response: unknown): Topic[] {
-  if (!response || typeof response !== "object") return [];
-  const raw = (response as { topics?: unknown[] }).topics;
-  return Array.isArray(raw) ? (raw as Topic[]) : [];
-}
-
-function readSignalsFromResponse(response: unknown): Signal[] {
-  if (!response || typeof response !== "object") return [];
-  const raw = (response as { signals?: unknown[] }).signals;
-  return Array.isArray(raw) ? (raw as Signal[]) : [];
 }
 
 function statusTone(status: TopicStatus): "neutral" | "accent" | "success" | "warning" {
@@ -450,6 +440,8 @@ export function CasebookView({
   onCreateTopic,
   initialTopics = [],
   signals,
+  loadTopics,
+  loadSignals,
   initialUnassignedOpen = false,
   signalPreviewById = {},
   sessionItems = [],
@@ -475,22 +467,22 @@ export function CasebookView({
   useEffect(() => {
     let cancelled = false;
     if (initialTopics.length) return;
-    if (typeof chrome === "undefined" || !chrome.runtime?.sendMessage) return;
-    void chrome.runtime.sendMessage({ type: "topic/list", sessionId })
-      .then((response) => { if (!cancelled) setTopics(readTopicsFromResponse(response)); })
+    if (!loadTopics) return;
+    void loadTopics(sessionId)
+      .then((nextTopics) => { if (!cancelled) setTopics(nextTopics); })
       .catch(() => { if (!cancelled) setTopics([]); });
     return () => { cancelled = true; };
-  }, [initialTopics.length, sessionId]);
+  }, [initialTopics.length, loadTopics, sessionId]);
 
   useEffect(() => {
     let cancelled = false;
     if (signals !== undefined) return;
-    if (typeof chrome === "undefined" || !chrome.runtime?.sendMessage) return;
-    void chrome.runtime.sendMessage({ type: "signal/list", sessionId })
-      .then((response) => { if (!cancelled) setLoadedSignals(readSignalsFromResponse(response)); })
+    if (!loadSignals) return;
+    void loadSignals(sessionId)
+      .then((nextSignals) => { if (!cancelled) setLoadedSignals(nextSignals); })
       .catch(() => { if (!cancelled) setLoadedSignals([]); });
     return () => { cancelled = true; };
-  }, [sessionId, signals]);
+  }, [loadSignals, sessionId, signals]);
 
   const itemByItemId = useMemo(() => {
     const map = new Map<string, SessionItem>();

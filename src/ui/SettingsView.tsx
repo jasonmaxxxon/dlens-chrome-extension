@@ -39,6 +39,7 @@ interface SettingsViewProps {
   onProductProfileSeedTextChange?: (value: string) => void;
   onInitProductProfile?: () => void;
   onClearProductCache?: () => void;
+  createContextFileId: (kind: ProductProfileContextFile["kind"], name: string) => string;
   onSaveSettings: () => void;
 }
 
@@ -83,10 +84,6 @@ function formatStorageBytes(bytes: number): string {
 
 function formatStorageUsage(storageUsage: NonNullable<SettingsViewProps["storageUsage"]>): string {
   return `${formatStorageBytes(storageUsage.bytesInUse)} / ${formatStorageBytes(storageUsage.quotaBytes)}`;
-}
-
-function makeContextFileId(kind: ProductProfileContextFile["kind"], name: string): string {
-  return `ctx_${kind}_${name.replace(/[^a-z0-9]+/gi, "_").toLowerCase()}_${Date.now().toString(36)}`;
 }
 
 function SettingsGroup({
@@ -202,6 +199,7 @@ export function SettingsView({
   onProductProfileSeedTextChange,
   onInitProductProfile,
   onClearProductCache,
+  createContextFileId,
   onSaveSettings
 }: SettingsViewProps) {
   const [contextNotice, setContextNotice] = useState("");
@@ -229,7 +227,7 @@ export function SettingsView({
     const combined = [existingText, nextBlock].filter(Boolean).join("\n\n").slice(0, MAX_CONTEXT_TOTAL_CHARS);
     const truncated = rawText.length > MAX_CONTEXT_FILE_CHARS || [existingText, nextBlock].filter(Boolean).join("\n\n").length > MAX_CONTEXT_TOTAL_CHARS;
     const contextFile: ProductProfileContextFile = {
-      id: makeContextFileId(kind, file.name),
+      id: createContextFileId(kind, file.name),
       name: file.name,
       kind,
       importedAt: new Date().toISOString(),
