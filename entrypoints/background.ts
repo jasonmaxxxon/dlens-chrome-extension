@@ -1309,6 +1309,15 @@ function shouldApplyBackgroundReconcile(options: BackgroundReconcileOptions): bo
   return true;
 }
 
+function isBackgroundReconcileCurrent(options: BackgroundReconcileOptions): boolean {
+  if (!options.reconcileToken) {
+    return true;
+  }
+  return backgroundRequestReconciler.check(options.reconcileToken, {
+    currentTarget: options.reconcileToken.target
+  }).accepted;
+}
+
 function shouldPersistSnapshot(options: SnapshotSaveOptions): boolean {
   return shouldApplyBackgroundReconcile(options);
 }
@@ -1341,6 +1350,17 @@ function broadcastSnapshotUpdate(tabId: number, snapshot: ExtensionSnapshot): vo
   void chrome.tabs
     .sendMessage(tabId, { type: "state/updated", tabId, snapshot: sanitizeSnapshotForContentScript(snapshot) } satisfies ExtensionMessage)
     .catch(() => undefined);
+}
+
+function broadcastDirectStorageUpdate(
+  tabId: number,
+  snapshot: ExtensionSnapshot,
+  options: BackgroundReconcileOptions
+): void {
+  if (!isBackgroundReconcileCurrent(options)) {
+    return;
+  }
+  broadcastSnapshotUpdate(tabId, snapshot);
 }
 
 /** Strip raw API keys from any snapshot in a response bound for a content-script sender. */
@@ -2945,6 +2965,7 @@ export default defineBackground(() => {
               return;
             }
             await saveFolderSynthesis(storageArea, synthesis);
+            broadcastDirectStorageUpdate(tabId, current, { reconcileToken });
             sendResponse({
               ok: true,
               tabId,
@@ -2954,6 +2975,7 @@ export default defineBackground(() => {
           }
           case "folder/synthesis/clear": {
             const tabId = await resolveTabId(sender);
+            const current = await loadSnapshot(tabId);
             const requestId = message.requestId ?? createPipelineRequestId("background.folder.synthesis.clear");
             const reconcileToken = beginBackgroundSnapshotReconcile(
               "folder.clearSynthesis",
@@ -2961,6 +2983,7 @@ export default defineBackground(() => {
               { sessionId: message.sessionId, tabId }
             );
             await clearFolderSynthesis(withDirectStorageReconcile(chrome.storage.local, { reconcileToken }), message.sessionId);
+            broadcastDirectStorageUpdate(tabId, current, { reconcileToken });
             sendResponse({
               ok: true,
               tabId,
@@ -3028,10 +3051,12 @@ export default defineBackground(() => {
               requestId,
               { campaignId: message.campaignId, tabId }
             );
+            const prEvidenceRows = await matchPrCriteriaForCampaign(current.global, message.campaignId, { reconcileToken });
+            broadcastDirectStorageUpdate(tabId, current, { reconcileToken });
             sendResponse({
               ok: true,
               tabId,
-              prEvidenceRows: await matchPrCriteriaForCampaign(current.global, message.campaignId, { reconcileToken })
+              prEvidenceRows
             } satisfies ExtensionResponse);
             return;
           }
@@ -3045,6 +3070,7 @@ export default defineBackground(() => {
               { campaignId: message.campaignId, tabId }
             );
             const result = await fetchAdvancedMetricsForPrCampaign(current.global, message.campaignId, { reconcileToken });
+            broadcastDirectStorageUpdate(tabId, current, { reconcileToken });
             sendResponse({
               ok: true,
               tabId,
@@ -3090,6 +3116,7 @@ export default defineBackground(() => {
               await triggerWorkerDrain(normalizeBaseUrl(current.global.settings.ingestBaseUrl));
             }
             const productSignalAnalyses = await analyzeProductSignalsForSession(current.global, message.sessionId, { reconcileToken });
+            broadcastDirectStorageUpdate(tabId, current, { reconcileToken });
             const failureDetails = buildProductSignalFailureDetails({
               session,
               signals,
@@ -3134,7 +3161,9 @@ export default defineBackground(() => {
           }
           case "product/clear-cache": {
             const tabId = await resolveTabId(sender);
+            const current = await loadSnapshot(tabId);
             await clearProductDerivedCache(chrome.storage.local);
+            broadcastSnapshotUpdate(tabId, current);
             sendResponse({ ok: true, tabId } satisfies ExtensionResponse);
             return;
           }

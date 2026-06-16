@@ -576,6 +576,17 @@ async function createHarness(
   };
 }
 
+type BackgroundHarness = Awaited<ReturnType<typeof createHarness>>;
+
+function assertStateUpdatedBroadcastOnce(harness: BackgroundHarness, tabId = TAB_ID): void {
+  const broadcasts = harness.tabMessageTargets.filter(({ message }) => message.type === "state/updated");
+  assert.equal(broadcasts.length, 1);
+  assert.equal(broadcasts[0]?.tabId, tabId);
+  assert.equal(broadcasts[0]?.message.type, "state/updated");
+  assert.equal(broadcasts[0]?.message.tabId, tabId);
+  assert.ok(broadcasts[0]?.message.snapshot);
+}
+
 test("session/set-mode existing target mode writes only active-session and tab keys", async () => {
   const topic = makeSession("topic-session", "topic");
   const product = makeSession("product-session", "product");
@@ -1037,6 +1048,304 @@ test("session/refresh-all with no refreshable work and unchanged error performs 
   assert.deepEqual(harness.writes, []);
 });
 
+test("session/queue-item writes broadcast state/updated exactly once per tab", async () => {
+  const originalFetch = globalThis.fetch;
+  try {
+    const topic = {
+      ...makeSession("topic-session", "topic"),
+      items: [{ ...createSessionItem(makeDescriptor("queue-current")), id: "item-queue-current" }]
+    };
+    const tabKey = backgroundTestables.tabStorageKey(TAB_ID);
+    globalThis.fetch = (async (input: RequestInfo | URL, init?: RequestInit) => {
+      const url = String(input);
+      const method = String(init?.method || "GET").toUpperCase();
+      if (url.endsWith("/capture-target") && method === "POST") {
+        return jsonResponse(makeCaptureTargetResponse("queue-current"));
+      }
+      if (url.endsWith("/jobs/job-queue-current")) {
+        throw new Error("job not ready");
+      }
+      throw new Error(`Unexpected fetch URL: ${url}`);
+    }) as typeof fetch;
+    const global = makeGlobal([topic], topic.id);
+    const harness = await createHarness({
+      [backgroundTestables.GLOBAL_STORAGE_KEY]: {
+        ...global,
+        settings: {
+          ...global.settings,
+          ingestBaseUrl: ""
+        }
+      },
+      [backgroundTestables.ACTIVE_SESSION_ID_STORAGE_KEY]: topic.id,
+      [tabKey]: createEmptyTabState()
+    });
+
+    const response = await harness.dispatch({
+      type: "session/queue-item",
+      requestId: "queue-current",
+      sessionId: topic.id,
+      itemId: "item-queue-current"
+    } as ExtensionMessage);
+
+    assert.equal(response.ok, true);
+    assert.equal(harness.writes.length, 1);
+    assertStateUpdatedBroadcastOnce(harness);
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
+});
+
+test("session/refresh-item writes broadcast state/updated exactly once per tab", async () => {
+  const originalFetch = globalThis.fetch;
+  try {
+    const topic = {
+      ...makeSession("topic-session", "topic"),
+      items: [makeRefreshableItem("refresh-current")]
+    };
+    const tabKey = backgroundTestables.tabStorageKey(TAB_ID);
+    globalThis.fetch = (async (input: RequestInfo | URL) => {
+      const url = String(input);
+      if (url.endsWith("/jobs/job-refresh-current")) {
+        return jsonResponse(makeJob("refresh-current"));
+      }
+      if (url.endsWith("/captures/cap-refresh-current")) {
+        return jsonResponse(makeCapture("refresh-current"));
+      }
+      throw new Error(`Unexpected fetch URL: ${url}`);
+    }) as typeof fetch;
+    const global = makeGlobal([topic], topic.id);
+    const harness = await createHarness({
+      [backgroundTestables.GLOBAL_STORAGE_KEY]: {
+        ...global,
+        settings: {
+          ...global.settings,
+          ingestBaseUrl: ""
+        }
+      },
+      [backgroundTestables.ACTIVE_SESSION_ID_STORAGE_KEY]: topic.id,
+      [tabKey]: createEmptyTabState()
+    });
+
+    const response = await harness.dispatch({
+      type: "session/refresh-item",
+      requestId: "refresh-item-current",
+      sessionId: topic.id,
+      itemId: "item-refresh-current"
+    } as ExtensionMessage);
+
+    assert.equal(response.ok, true);
+    assert.equal(harness.writes.length, 1);
+    assertStateUpdatedBroadcastOnce(harness);
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
+});
+
+test("session/refresh-all writes broadcast state/updated exactly once per tab", async () => {
+  const originalFetch = globalThis.fetch;
+  try {
+    const topic = {
+      ...makeSession("topic-session", "topic"),
+      items: [makeRefreshableItem("refresh-all-current")]
+    };
+    const tabKey = backgroundTestables.tabStorageKey(TAB_ID);
+    globalThis.fetch = (async (input: RequestInfo | URL) => {
+      const url = String(input);
+      if (url.endsWith("/jobs/job-refresh-all-current")) {
+        return jsonResponse(makeJob("refresh-all-current"));
+      }
+      if (url.endsWith("/captures/cap-refresh-all-current")) {
+        return jsonResponse(makeCapture("refresh-all-current"));
+      }
+      throw new Error(`Unexpected fetch URL: ${url}`);
+    }) as typeof fetch;
+    const global = makeGlobal([topic], topic.id);
+    const harness = await createHarness({
+      [backgroundTestables.GLOBAL_STORAGE_KEY]: {
+        ...global,
+        settings: {
+          ...global.settings,
+          ingestBaseUrl: ""
+        }
+      },
+      [backgroundTestables.ACTIVE_SESSION_ID_STORAGE_KEY]: topic.id,
+      [tabKey]: createEmptyTabState()
+    });
+
+    const response = await harness.dispatch({
+      type: "session/refresh-all",
+      requestId: "refresh-all-current",
+      target: { sessionId: topic.id }
+    } as ExtensionMessage);
+
+    assert.equal(response.ok, true);
+    assert.equal(harness.writes.length, 1);
+    assertStateUpdatedBroadcastOnce(harness);
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
+});
+
+test("product/analyze-signals writes broadcast state/updated exactly once per tab", async () => {
+  const originalFetch = globalThis.fetch;
+  try {
+    const product = {
+      ...makeSession("product-session", "product"),
+      items: [makeSucceededItem("product-current")]
+    };
+    const signal = makeSignal("product-signal-current", product.id, "item-product-current");
+    const tabKey = backgroundTestables.tabStorageKey(TAB_ID);
+    globalThis.fetch = (async () => makeGoogleJsonResponse(makeProductSignalAnalysisPayload("current"))) as typeof fetch;
+    const global = makeGlobal([product], product.id);
+    const harness = await createHarness({
+      [backgroundTestables.GLOBAL_STORAGE_KEY]: {
+        ...global,
+        settings: {
+          ...global.settings,
+          oneLinerProvider: "google",
+          googleApiKey: "test-google-key"
+        }
+      },
+      [backgroundTestables.ACTIVE_SESSION_ID_STORAGE_KEY]: product.id,
+      [PRODUCT_CONTEXT_STORAGE_KEY]: makeProductContext(),
+      [SIGNALS_STORAGE_KEY]: [signal],
+      [tabKey]: createEmptyTabState()
+    });
+
+    const response = await harness.dispatch({
+      type: "product/analyze-signals",
+      requestId: "product-current",
+      sessionId: product.id
+    } as ExtensionMessage);
+
+    assert.equal(response.ok, true);
+    assert.equal(harness.writesFor(PRODUCT_SIGNAL_ANALYSES_STORAGE_KEY).length, 1);
+    assertStateUpdatedBroadcastOnce(harness);
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
+});
+
+test("folder/synthesis/generate writes broadcast state/updated exactly once per tab", async () => {
+  const scenario = makeFolderSynthesisScenario("topic-session", "folder-current");
+  const tabKey = backgroundTestables.tabStorageKey(TAB_ID);
+  const harness = await createHarness({
+    [backgroundTestables.GLOBAL_STORAGE_KEY]: makeGlobal([scenario.session], scenario.session.id),
+    [backgroundTestables.ACTIVE_SESSION_ID_STORAGE_KEY]: scenario.session.id,
+    [TOPICS_STORAGE_KEY]: scenario.topics,
+    [SIGNALS_STORAGE_KEY]: scenario.signals,
+    [tabKey]: createEmptyTabState()
+  });
+
+  const response = await harness.dispatch({
+    type: "folder/synthesis/generate",
+    requestId: "folder-generate-current",
+    sessionId: scenario.session.id
+  } as ExtensionMessage);
+
+  assert.equal(response.ok, true);
+  assert.equal(harness.writesFor(FOLDER_SYNTHESIS_STORAGE_KEY).length, 1);
+  assertStateUpdatedBroadcastOnce(harness);
+});
+
+test("folder/synthesis/clear writes broadcast state/updated exactly once per tab", async () => {
+  const topic = makeSession("topic-session", "topic");
+  const tabKey = backgroundTestables.tabStorageKey(TAB_ID);
+  const harness = await createHarness({
+    [backgroundTestables.GLOBAL_STORAGE_KEY]: makeGlobal([topic], topic.id),
+    [backgroundTestables.ACTIVE_SESSION_ID_STORAGE_KEY]: topic.id,
+    [FOLDER_SYNTHESIS_STORAGE_KEY]: [makeFolderSynthesisRecord(topic.id)],
+    [tabKey]: createEmptyTabState()
+  });
+
+  const response = await harness.dispatch({
+    type: "folder/synthesis/clear",
+    requestId: "folder-clear-current",
+    sessionId: topic.id
+  } as ExtensionMessage);
+
+  assert.equal(response.ok, true);
+  assert.equal(harness.writesFor(FOLDER_SYNTHESIS_STORAGE_KEY).length, 1);
+  assertStateUpdatedBroadcastOnce(harness);
+});
+
+test("pr/match-criteria writes broadcast state/updated exactly once per tab", async () => {
+  const originalFetch = globalThis.fetch;
+  try {
+    const prSession = makeSession("pr-session", "pr-evidence");
+    const campaign = makePrCampaign("campaign-current", prSession.id);
+    const row = makePrEvidenceRow(campaign.id, "item-current", "current");
+    const tabKey = backgroundTestables.tabStorageKey(TAB_ID);
+    globalThis.fetch = (async () => makeGoogleJsonResponse({
+      rows: [{
+        row_id: row.id,
+        matches: { c1: true, c2: false, c3: false, c4: false, c5: false, c6: false }
+      }]
+    })) as typeof fetch;
+    const global = makeGlobal([prSession], prSession.id);
+    const harness = await createHarness({
+      [backgroundTestables.GLOBAL_STORAGE_KEY]: {
+        ...global,
+        settings: {
+          ...global.settings,
+          oneLinerProvider: "google",
+          googleApiKey: "test-google-key"
+        }
+      },
+      [backgroundTestables.ACTIVE_SESSION_ID_STORAGE_KEY]: prSession.id,
+      [PR_CAMPAIGNS_STORAGE_KEY]: [campaign],
+      [PR_EVIDENCE_ROWS_STORAGE_KEY]: [row],
+      [tabKey]: createEmptyTabState()
+    });
+
+    const response = await harness.dispatch({
+      type: "pr/match-criteria",
+      requestId: "match-current",
+      campaignId: campaign.id
+    } as ExtensionMessage);
+
+    assert.equal(response.ok, true);
+    assert.equal(harness.writesFor(PR_EVIDENCE_ROWS_STORAGE_KEY).length, 1);
+    assertStateUpdatedBroadcastOnce(harness);
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
+});
+
+test("pr/fetch-advanced-metrics writes broadcast state/updated exactly once per tab", async () => {
+  const originalFetch = globalThis.fetch;
+  try {
+    const prSession = makeSession("pr-session", "pr-evidence");
+    const campaign = makePrCampaign("campaign-current", prSession.id);
+    const row = makePrEvidenceRow(campaign.id, "item-current", "current");
+    const tabKey = backgroundTestables.tabStorageKey(TAB_ID);
+    globalThis.fetch = (async () => jsonResponse({
+      post_url: row.postUrl,
+      metrics: { views: 123 },
+      fetched_at: "2026-05-27T00:00:30.000Z"
+    })) as typeof fetch;
+    const harness = await createHarness({
+      [backgroundTestables.GLOBAL_STORAGE_KEY]: makeGlobal([prSession], prSession.id),
+      [backgroundTestables.ACTIVE_SESSION_ID_STORAGE_KEY]: prSession.id,
+      [PR_CAMPAIGNS_STORAGE_KEY]: [campaign],
+      [PR_EVIDENCE_ROWS_STORAGE_KEY]: [row],
+      [tabKey]: createEmptyTabState()
+    });
+
+    const response = await harness.dispatch({
+      type: "pr/fetch-advanced-metrics",
+      requestId: "metrics-current",
+      campaignId: campaign.id
+    } as ExtensionMessage);
+
+    assert.equal(response.ok, true);
+    assert.equal(harness.writesFor(PR_EVIDENCE_ROWS_STORAGE_KEY).length, 1);
+    assertStateUpdatedBroadcastOnce(harness);
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
+});
+
 test("session/queue-item ignores stale request writes before storage and broadcast", async () => {
   enablePipelineTraceForTest();
   const originalFetch = globalThis.fetch;
@@ -1397,7 +1706,7 @@ test("product/analyze-signals ignores stale direct storage-key writes", async ()
     assert.equal(oldResponse.ok, true);
     assert.equal(newResponse.ok, true);
     assert.equal(harness.writesFor(PRODUCT_SIGNAL_ANALYSES_STORAGE_KEY).length, 1);
-    assert.equal(harness.tabMessages.filter((message) => message.type === "state/updated").length, 0);
+    assertStateUpdatedBroadcastOnce(harness);
 
     const storedAnalyses = harness.state[PRODUCT_SIGNAL_ANALYSES_STORAGE_KEY] as Record<string, unknown>;
     assert.deepEqual(Object.keys(storedAnalyses).toSorted(), ["new-signal"]);
@@ -1460,6 +1769,7 @@ test("folder/synthesis/generate ignores stale direct storage-key writes", async 
     assert.equal(oldResponse.ok, true);
     assert.equal(newResponse.ok, true);
     assert.equal(harness.writesFor(FOLDER_SYNTHESIS_STORAGE_KEY).length, 1);
+    assertStateUpdatedBroadcastOnce(harness);
 
     const storedSyntheses = harness.state[FOLDER_SYNTHESIS_STORAGE_KEY] as FolderSynthesis[];
     assert.deepEqual(storedSyntheses.map((entry) => entry.sessionId), [newScenario.session.id]);
@@ -1522,6 +1832,7 @@ test("folder/synthesis/clear ignores stale direct storage-key writes", async () 
     assert.equal(oldResponse.ok, true);
     assert.equal(newResponse.ok, true);
     assert.equal(harness.writesFor(FOLDER_SYNTHESIS_STORAGE_KEY).length, 1);
+    assertStateUpdatedBroadcastOnce(harness);
 
     const storedSyntheses = harness.state[FOLDER_SYNTHESIS_STORAGE_KEY] as FolderSynthesis[];
     assert.deepEqual(storedSyntheses.map((entry) => entry.sessionId), [oldSession.id]);
@@ -1601,6 +1912,7 @@ test("pr/fetch-advanced-metrics ignores stale direct storage-key writes", async 
     assert.equal(storedRows.find((entry) => entry.id === row.id)?.metrics.views, 200);
     assert.equal(storedRows.find((entry) => entry.id === row.id)?.advancedMetricsFetchedAt, "2026-05-27T00:00:20.000Z");
     assert.equal(harness.writes.filter((keys) => keys.includes(PR_EVIDENCE_ROWS_STORAGE_KEY)).length, 1);
+    assertStateUpdatedBroadcastOnce(harness);
     assert.equal(
       readPipelineTrace().some((event) =>
         event.step === "reconcile.stale-result.ignore"
@@ -1687,6 +1999,7 @@ test("pr/match-criteria starts a fresh write when a newer request supersedes in-
     assert.equal(storedRows.find((entry) => entry.id === row.id)?.criteriaMatches.c1, false);
     assert.equal(storedRows.find((entry) => entry.id === row.id)?.criteriaMatches.c2, true);
     assert.equal(harness.writes.filter((keys) => keys.includes(PR_EVIDENCE_ROWS_STORAGE_KEY)).length, 1);
+    assertStateUpdatedBroadcastOnce(harness);
     assert.equal(
       readPipelineTrace().some((event) =>
         event.step === "reconcile.stale-result.ignore"
@@ -1957,4 +2270,5 @@ test("product/clear-cache removes derived product cache without deleting saved s
   assert.equal(SIGNAL_READINGS_STORAGE_KEY in harness.state, false);
   assert.equal(PRODUCT_CONTEXT_STORAGE_KEY in harness.state, false);
   assert.deepEqual(harness.state[signalsKey], [{ id: "signal-1", sessionId: product.id }]);
+  assertStateUpdatedBroadcastOnce(harness);
 });
