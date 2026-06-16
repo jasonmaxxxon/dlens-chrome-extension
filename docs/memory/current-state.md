@@ -124,6 +124,10 @@ The verified build in the active Phase B implementation worktree is:
 - PR #41 merged: locks Product/Folder/PR direct-key terminal behavior, including Product analyze, Folder synthesis generate/clear, PR summary, and generated-criteria save UI adoption.
 - PR #42 closes the remaining RECONCILE terminal-stale UI adoption lanes for Topic Audit run/P1, Judgment start storage/broadcast/UI adoption, and Compare brief/cluster/annotation UI adoption.
 - RECONCILE terminal-stale closure: `RECONCILE` is 🟩 because scoped late backend/LLM/UI async responses are regression-locked against stale storage writes, stale `state/updated` broadcasts, and stale UI adoption.
+- PR #43 locks per-lane storage-seam write → `state/updated` broadcast count for session queue/refresh, Product analysis, Folder synthesis, and PR Evidence direct-key lanes.
+- PR #44 locks controller adoption plus Product hydrate gate behavior: well-formed current-tab snapshots are adopted, ill-formed / wrong-tab messages are ignored, and repeated Product AppState changes coalesce while the same hydrate is in flight.
+- PR #45 locks Product / Topic / PR hydrate terminal trace parity.
+- INVALIDATE rehydrate closure: `INVALIDATE` is 🟩 because storage-seam writes broadcast `state/updated` exactly once per lane, the controller adopts well-formed snapshots and ignores ill-formed ones, and every `popup.{product,topic,pr}.hydrate.request` is paired with exactly one terminal event, so loading flags cannot stick.
 - Current TRACE full-live branch: expands the trace spine with `backend.request` and `llm.call`, instruments ingest backend HTTP calls and direct provider HTTP calls, mirrors service-worker trace entries back into the active QA Threads page, and adds `--require-phases` to the summary/harness gate. Jason-profile full live QA captured `docs/qa/assets/2026-06-13/full-live-backend-llm/live-trace-full-hover-save-queue-analysis.json` (hover → save → queue → backend capture → direct Google LLM → Product analysis, 900 events, no pipeline errors). The full-phase harness is wired into `npm run qa:harness:fixture` and CI, so `TRACE` moves to 🟩 when PR #29 lands.
 
 ## PR Evidence V1 Contract State
@@ -271,7 +275,7 @@ RAG remains intentionally out of V1. The accepted V1 design is:
 
 1. Chrome QA: use Jason's `Default` Chrome profile (`jason@brandonproject.co`), where DLens is installed from `output/chrome-mv3`; reload that unpacked extension and walk Product Settings -> Collect -> crawl -> Product insights, Compare Parallel/Chapters, Topic Console/Stack, then PR Evidence campaign setup -> PDF upload -> Generate criteria -> Collect -> Match criteria -> CSV export -> summary MD/DOCX export. Open DLens through the real extension action or the content-script in-page launcher on a real Threads page; do not count a direct `chrome-extension://.../sidepanel.html` tab or a temporary Chrome profile as user-visible QA.
 2. UI cleanup: verify topic mode green theme everywhere, product mode does not show folder concept, PR Evidence keeps the compact ledger grammar, and popup spacing/mode/layout switching stay fixed.
-3. TRACE and RECONCILE are locked; remaining trace/reconcile follow-up is performance investigation and future-lane coverage, not spine/gate construction.
+3. TRACE, RECONCILE, and INVALIDATE are locked; remaining trace/reconcile/rehydrate follow-up is performance investigation and future-lane coverage, not spine/gate construction.
 4. Background split: move product/topic/PR handlers out of `entrypoints/background.ts` before adding digest/watch-mode work.
 5. Phase C later: signal digest / watch mode / recurring intelligence. Do not start there before Chrome QA and popup/background orchestration cleanup are handled.
 

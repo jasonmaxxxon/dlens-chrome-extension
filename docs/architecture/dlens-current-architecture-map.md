@@ -1,6 +1,6 @@
 # DLens Current Architecture Map (v0.8 — honest status)
 
-> Last updated: 2026-06-15 · Baseline code: extension `main` after the RECONCILE terminal-stale closure, C-Backend B4 projection fixtures (PR #36 @ `282a3ea`), and backend `main` after B4 golden fixtures (`dlens-ingest-core` PR #4 @ `6d0cb70`). `TRACE` is 🟩 because backend/direct LLM phase coverage is regression-locked by the committed full live fixture gate. `READMODEL_BACKEND` is 🟢 because backend B1, extension B2, backend B3, and B4 golden fixtures now cover duplicate-root removal, parent-aware OP continuation chains, additive `reply_edges` / `orphan_replies`, OP self-reply separation, evidence metadata propagation, API `ThreadReadModel` typing, and seven shared thread-structure cases across backend builder and extension projection. It is not 🟩 because live DOM extraction and backend job orchestration remain under the 🟡 `CRAWLER` / `API` / `JOBS` nodes. `SEAM_GUARD` is 🟩 because production `chrome.storage.local.{set,remove,clear}` writes now route through seam-owned helpers, `npm run storage:seam-guard` reports zero allowlisted bypasses, and CI blocks any new raw write unless the guard itself is changed. `RECONCILE` is 🟩 because scoped late backend/LLM/UI async responses are regression-locked against stale storage writes, stale `state/updated` broadcasts, and stale UI adoption.
+> Last updated: 2026-06-16 · Baseline code: extension `main` after the INVALIDATE rehydrate closure (PR #43-#45), C-Backend B4 projection fixtures (PR #36 @ `282a3ea`), and backend `main` after B4 golden fixtures (`dlens-ingest-core` PR #4 @ `6d0cb70`). `TRACE` is 🟩 because backend/direct LLM phase coverage is regression-locked by the committed full live fixture gate. `READMODEL_BACKEND` is 🟢 because backend B1, extension B2, backend B3, and B4 golden fixtures now cover duplicate-root removal, parent-aware OP continuation chains, additive `reply_edges` / `orphan_replies`, OP self-reply separation, evidence metadata propagation, API `ThreadReadModel` typing, and seven shared thread-structure cases across backend builder and extension projection. It is not 🟩 because live DOM extraction and backend job orchestration remain under the 🟡 `CRAWLER` / `API` / `JOBS` nodes. `SEAM_GUARD` is 🟩 because production `chrome.storage.local.{set,remove,clear}` writes now route through seam-owned helpers, `npm run storage:seam-guard` reports zero allowlisted bypasses, and CI blocks any new raw write unless the guard itself is changed. `RECONCILE` is 🟩 because scoped late backend/LLM/UI async responses are regression-locked against stale storage writes, stale `state/updated` broadcasts, and stale UI adoption. `INVALIDATE` is 🟩 because storage-seam writes broadcast `state/updated` exactly once per lane, the controller adopts well-formed snapshots and ignores ill-formed ones, and every `popup.{product,topic,pr}.hydrate.request` is paired with exactly one terminal event, so loading flags cannot stick.
 > **This is the agent handoff map.** Any Codex / ChatGPT / Claude session reads this FIRST. It is the single source of truth for "what is built, what is enforced, what you must not bypass." Status colors must be kept honest (see DoD rule below) — a stale map is worse than none.
 
 ## Legend
@@ -45,7 +45,7 @@ flowchart LR
     TARGET["🟢 Typed command target<br/>sessionId / itemId / topicId / campaignId"]
     SEAM_PARTIAL["🟡 Domain seams<br/>session / signal / PR partial"]
     MIGRATE["🔴 Storage version + migration<br/>schemaVersion / migrate"]
-    INVALIDATE["🟡 Invalidation / rehydrate<br/>state updated / polling"]
+    INVALIDATE["🟩 Invalidation / rehydrate<br/>broadcast + adoption + hydrate terminal locked"]
   end
 
   subgraph OBS["Observability + Product Walls"]
@@ -80,8 +80,8 @@ flowchart LR
   STORE -.->|"schema migration gate<br/>🔴 intended"| MIGRATE
   MIGRATE -.->|"normalized upgraded state<br/>🔴 intended"| SEAM_PARTIAL
 
-  SEAM_PARTIAL -.->|"state updated event / polling invalidation<br/>🟡 partial"| INVALIDATE
-  INVALIDATE -.->|"rehydrate AppState<br/>🟡 partial"| APP
+  SEAM_PARTIAL -.->|"state updated event / polling invalidation<br/>🟩 broadcast count locked"| INVALIDATE
+  INVALIDATE -.->|"rehydrate AppState<br/>🟩 adoption + terminal locked"| APP
 
   APP -.->|"trace command lifecycle<br/>🟩 fixture gated"| TRACE
   BG -.->|"trace collect/capture + mirror stages<br/>🟩 fixture gated"| TRACE
@@ -104,8 +104,8 @@ flowchart LR
   classDef external fill:#e7f0ff,stroke:#3b6fb6,stroke-width:2px,color:#102a4c;
 
   class VIEW,VM,APP,BG,STORE,TARGET,READMODEL_BACKEND built;
-  class TRACE,RECONCILE,SEAM_GUARD locked;
-  class CS,API,CRAWLER,JOBS,SEAM_PARTIAL,INVALIDATE,BOUNDARY partial;
+  class TRACE,RECONCILE,SEAM_GUARD,INVALIDATE locked;
+  class CS,API,CRAWLER,JOBS,SEAM_PARTIAL,BOUNDARY partial;
   class MIGRATE intended;
   class OPENAI,ANTHROPIC,GOOGLE external;
 ```
@@ -138,7 +138,7 @@ This file lives at `docs/architecture/dlens-current-architecture-map.md`. Every 
 - **A1. Boundary / architecture tests** → 🟢→🟩. View ⊅ `sendExtensionMessage`/`Date.now`/`Math.random`/storage mutation; ViewModel ⊅ `chrome`/`fetch`/DOM/`File`/React; storage write ⊅ bypass seam. PR #30 added the first storage-seam guard; the SEAM_GUARD zero-bypass closure moves the legacy raw writes behind seam-owned helpers and keeps `scripts/check-no-raw-storage.mjs` / CI at zero allowlisted bypasses. `SEAM_GUARD` is now 🟩.
 - **A2. Storage schema version + migration** → `MIGRATE` 🔴→🟡/🟩. `CURRENT_STORAGE_SCHEMA_VERSION`, migration registry, non-destructive migration, legacy fixture tests.
 - **A3. requestId reconcile / stale-result ignore** → `RECONCILE` 🟩. Async command carries `requestId`; backend/LLM late result must match current target; stale result ignored, not written. PR #25 added `src/state/request-reconcile.ts`, UI-shell guards for Compare/Product/Folder/PR Evidence async responses, a narrow session-scoped snapshot guard in `sendAndSync`, and tests that reject stale / target-mismatched responses. PR #26 adds a background snapshot save seam guard for `session/refresh-all` and `session/queue-items-and-start-processing` so stale capture/queue results skip storage writes and broadcasts. PR #27 guards known stale-sensitive direct storage-key write lanes: `folder.generateSynthesis`, `folder.clearSynthesis`, `product.analyzeSignals`, `product.synthesizeSignalReading`, `product.reviewSignalReading`, `pr.matchCriteria`, and `pr.fetchAdvancedMetrics`. PR #40 locks session queue/refresh terminal-stale snapshot lanes, PR #41 locks Product/Folder/PR direct-key terminal behavior, and PR #42 locks Topic Audit, Judgment, and Compare UI adoption lanes. `RECONCILE` is 🟩 because scoped late backend/LLM/UI async responses are regression-locked against stale storage writes, stale `state/updated` broadcasts, and stale UI adoption.
-- **A4. Invalidation / rehydrate contract** → `INVALIDATE` 🟡→🟩. Storage write triggers state update; popup rehydrates deterministically; no infinite loading after write.
+- **A4. Invalidation / rehydrate contract** → `INVALIDATE` 🟩. PR #43 locks per-lane storage-seam write → `state/updated` broadcast count, PR #44 locks controller adoption plus Product hydrate gate coalescing, and PR #45 locks Product / Topic / PR hydrate terminal trace parity. `INVALIDATE` is 🟩 because storage-seam writes broadcast `state/updated` exactly once per lane, the controller adopts well-formed snapshots and ignores ill-formed ones, and every `popup.{product,topic,pr}.hydrate.request` is paired with exactly one terminal event, so loading flags cannot stick.
 - **A5. Backend + direct LLM trace integration** → `TRACE` 🟩. Trace backend polling + direct LLM calls; record timeout / fallback / provider / provenance. PR #21 typed the event stream; PR #22 threads requestId through collect/capture trace paths; Slice 3 wires terminal VM `ui.ready` events; Slice 4 adds a typed summarizer and `ui.ready` harness gate; PR #28 adds the first fixture-backed CI gate against `docs/qa/assets/2026-06-13/live-trace-happy.json`. This branch adds `backend.request` / `llm.call`, background-to-page trace mirroring, `--require-phases`, and a full live Jason-profile fixture at `docs/qa/assets/2026-06-13/full-live-backend-llm/live-trace-full-hover-save-queue-analysis.json` that is wired into `npm run qa:harness:fixture` and CI.
 
 ### Track B — Product quality / analysis credibility (the user-felt value — run parallel, do NOT defer behind A)
