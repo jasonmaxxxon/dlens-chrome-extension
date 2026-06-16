@@ -14,6 +14,7 @@
     "boundary:guard:view": "node scripts/check-view-boundary.mjs",
     "boundary:guard:vm": "node scripts/check-viewmodel-boundary.mjs",
     "boundary:guard": "npm run boundary:guard:view && npm run boundary:guard:vm",
+    "storage:migrate-fixtures": "node scripts/check-migration-fixtures.mjs",
     "qa:harness:fixture": "node scripts/qa-live-pipeline-harness.mjs --trace docs/qa/assets/2026-06-13/full-live-backend-llm/live-trace-full-hover-save-queue-analysis.json --label full-hover-save-queue-analysis-backend-llm --skip-build --require-phases hover.detected,preview.confirmed,signal.saved,backend.request,crawl.queued,capture.ready,llm.call,analysis.ready,ui.ready --terminal ui.ready",
     "backend:locate": "node scripts/locate-ingest-core.mjs"
   },

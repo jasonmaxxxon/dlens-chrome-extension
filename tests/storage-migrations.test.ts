@@ -23,10 +23,10 @@ test("global-state v1 fixture round-trips unchanged through the migration", () =
   assert.deepEqual(result, v1);
 });
 
-test("product-context legacy fixture migrates to expected v1 shape", () => {
-  const legacy = readFixture("product-context-legacy.json");
+test("product-context v0 fixture migrates to expected v1 shape", () => {
+  const v0 = readFixture("product-context-v0.json");
   const expectedV1 = readFixture("product-context-v1.json");
-  const result = runMigrationsFor(STORAGE_MIGRATIONS, PRODUCT_CONTEXT_STORAGE_KEY, legacy);
+  const result = runMigrationsFor(STORAGE_MIGRATIONS, PRODUCT_CONTEXT_STORAGE_KEY, v0);
   assert.deepEqual(result, expectedV1);
 });
 
