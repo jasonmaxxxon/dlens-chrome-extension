@@ -44,3 +44,75 @@ test("ProcessingStrip stays compare-forward when a ready pair exists alongside i
   assert.match(html, /data-processing-ring="visible"/);
   assert.doesNotMatch(html, /Processing in progress/);
 });
+
+test("ProcessingStrip labels retry-waiting backlog instead of active processing", () => {
+  const html = renderToStaticMarkup(
+    React.createElement(ProcessingStrip, {
+      workerStatus: "idle",
+      backendWorkUiState: {
+        kind: "retry_waiting",
+        count: 1,
+        earliestRetryAt: "2026-06-16T10:30:00.000Z",
+        nextDueAt: null
+      },
+      ready: 0,
+      total: 1,
+      crawling: 0,
+      analyzing: 0,
+      pending: 1
+    })
+  );
+
+  assert.match(html, /Retry waiting/i);
+  assert.doesNotMatch(html, /Processing in progress/);
+});
+
+test("ProcessingStrip surfaces analysis_failed as a blocked state", () => {
+  const html = renderToStaticMarkup(
+    React.createElement(ProcessingStrip, {
+      workerStatus: "idle",
+      backendWorkUiState: { kind: "analysis_failed", count: 1 },
+      ready: 0,
+      total: 1,
+      crawling: 0,
+      analyzing: 0,
+      pending: 0
+    })
+  );
+
+  assert.match(html, /Analysis failed/i);
+  assert.match(html, /Open the capture/i);
+});
+
+test("ProcessingStrip surfaces expired_running as reclaimable", () => {
+  const html = renderToStaticMarkup(
+    React.createElement(ProcessingStrip, {
+      workerStatus: "idle",
+      backendWorkUiState: { kind: "expired_running", count: 1 },
+      ready: 0,
+      total: 1,
+      crawling: 0,
+      analyzing: 0,
+      pending: 0
+    })
+  );
+
+  assert.match(html, /Reclaim expired work/i);
+  assert.match(html, /Restart processing/i);
+});
+
+test("ProcessingStrip falls back to default copy when backendWorkUiState is idle or null", () => {
+  const idleHtml = renderToStaticMarkup(
+    React.createElement(ProcessingStrip, {
+      workerStatus: "draining",
+      backendWorkUiState: { kind: "draining" },
+      ready: 1,
+      total: 4,
+      crawling: 2,
+      analyzing: 1,
+      pending: 1
+    })
+  );
+
+  assert.match(idleHtml, /Processing in progress/);
+});

@@ -105,7 +105,8 @@ export function InPageCollectorPopup({ app }: { app: InPageCollectorAppModel }) 
         optimisticQueuedItemIds: app.optimisticQueuedIds,
         isBulkAnalyzing: app.bulkAnalyzingFolderId === activeFolder?.id,
         isStartingProcessing: app.isStartingProcessing,
-        workerStatus: app.workerStatus
+        workerStatus: app.workerStatus,
+        backendWorkUiState: app.backendWorkUiState
       })
     : null;
 
@@ -365,6 +366,7 @@ export function InPageCollectorPopup({ app }: { app: InPageCollectorAppModel }) 
             showProcessingContextStrip ? (
               <ProcessingStrip
                 workerStatus={app.workerStatus}
+                backendWorkUiState={app.backendWorkUiState}
                 ready={app.processingSummary.ready}
                 total={app.processingSummary.total}
                 crawling={app.processingSummary.crawling}

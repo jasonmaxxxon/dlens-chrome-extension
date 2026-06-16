@@ -26,6 +26,7 @@ import type {
 } from "../viewmodel/topic-detail.ts";
 import { Kicker, PrimaryButton, SCAN_ROW_HOVER_CSS, SecondaryButton, Stamp, WorkspaceSurface, lineClamp, scanRowStyle, viewRootStyle } from "./components.tsx";
 import { SignalDrawer } from "./SignalDrawer.tsx";
+import type { BackendWorkUiState } from "../state/processing-state.ts";
 import { tokens } from "./tokens.ts";
 import {
   GhostButton as AuditGhostButton,
@@ -234,6 +235,7 @@ function TopicProcessingStatus({
   crawling,
   analyzing,
   workerStatus,
+  backendWorkUiState = null,
   isStartingProcessing,
   onStartProcessing
 }: {
@@ -243,20 +245,30 @@ function TopicProcessingStatus({
   crawling: number;
   analyzing: number;
   workerStatus?: "idle" | "draining" | null;
+  backendWorkUiState?: BackendWorkUiState | null;
   isStartingProcessing?: boolean;
   onStartProcessing?: () => void;
 }) {
   const processing = queued + crawling + analyzing;
   const queuedOnly = queued > 0 && crawling === 0 && analyzing === 0;
+  const expiredRunningPresent = backendWorkUiState?.kind === "expired_running";
+  const restartActionable = (queuedOnly && workerStatus === "idle") || expiredRunningPresent;
   const title = analyzing > 0
     ? `正在分析 ${analyzing} 篇`
     : crawling > 0
       ? `正在捕捉 ${crawling} 篇`
       : `已排隊 ${queued} 篇`;
-  const detail = queuedOnly && workerStatus === "idle"
-    ? `${ready}/${total} 已完成，worker 目前未在跑，可重新啟動處理`
-    : `${ready}/${total} 已完成，完成後可查看單篇分析或加入比較`;
-  const stamp = queuedOnly && workerStatus === "idle" ? "等待處理" : "處理中";
+  const detail = expiredRunningPresent
+    ? `${ready}/${total} 已完成，有 ${backendWorkUiState!.count} 個任務的 lease 過期，重新啟動可回收`
+    : queuedOnly && workerStatus === "idle"
+      ? `${ready}/${total} 已完成，worker 目前未在跑，可重新啟動處理`
+      : `${ready}/${total} 已完成，完成後可查看單篇分析或加入比較`;
+  const stamp = expiredRunningPresent
+    ? "可重啟"
+    : queuedOnly && workerStatus === "idle"
+      ? "等待處理"
+      : "處理中";
+  const restartLabel = expiredRunningPresent ? "重啟處理" : "啟動處理";
 
   return (
     <div
@@ -291,13 +303,13 @@ function TopicProcessingStatus({
             </div>
           </div>
         </div>
-        {queuedOnly && workerStatus === "idle" && onStartProcessing ? (
+        {restartActionable && onStartProcessing ? (
           <SecondaryButton
             onClick={onStartProcessing}
             disabled={Boolean(isStartingProcessing)}
             style={{ padding: "7px 10px", fontSize: 11 }}
           >
-            {isStartingProcessing ? "啟動中…" : "啟動處理"}
+            {isStartingProcessing ? "啟動中…" : restartLabel}
           </SecondaryButton>
         ) : (
           <Stamp tone="accent">{stamp}</Stamp>
@@ -1232,6 +1244,7 @@ export function TopicDetailView({
     taggedSignalCount,
     audit,
     workerStatus,
+    backendWorkUiState,
     isBulkAnalyzing,
     isStartingProcessing
   } = viewModel;
@@ -1451,6 +1464,7 @@ export function TopicDetailView({
           crawling={topicAnalysisCounts.crawling}
           analyzing={topicAnalysisCounts.analyzing}
           workerStatus={workerStatus}
+          backendWorkUiState={backendWorkUiState}
           isStartingProcessing={isStartingProcessing}
           onStartProcessing={handleStartProcessing}
         />
@@ -2010,6 +2024,7 @@ export function TopicDetailView({
                 crawling={topicAnalysisCounts.crawling}
                 analyzing={topicAnalysisCounts.analyzing}
                 workerStatus={workerStatus}
+                backendWorkUiState={backendWorkUiState}
                 isStartingProcessing={isStartingProcessing}
                 onStartProcessing={handleStartProcessing}
               />
@@ -2393,6 +2408,7 @@ export const topicDetailViewTestables = {
   PairRow,
   BulkAnalyzeCta,
   SynthesisStackSection,
+  TopicProcessingStatus,
   singleAnalyzeActionLabel,
   runSingleAnalyzeAction,
   pickPrimaryJudgmentPair

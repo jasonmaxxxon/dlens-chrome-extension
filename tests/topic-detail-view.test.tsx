@@ -1169,3 +1169,41 @@ test("pickPrimaryJudgmentPair picks the highest-relevance judgment pair and brea
     "result-newer-high"
   );
 });
+
+test("TopicProcessingStatus exposes restart processing when backend has expired running work", () => {
+  const html = renderToStaticMarkup(
+    React.createElement(topicDetailViewTestables.TopicProcessingStatus, {
+      total: 3,
+      ready: 1,
+      queued: 0,
+      crawling: 0,
+      analyzing: 2,
+      workerStatus: "draining",
+      backendWorkUiState: { kind: "expired_running" as const, count: 1 },
+      isStartingProcessing: false,
+      onStartProcessing: () => undefined
+    })
+  );
+
+  assert.match(html, /重啟處理|Restart/i);
+  assert.match(html, /lease 過期|expired/i);
+});
+
+test("TopicProcessingStatus keeps existing queued-idle restart copy when no expired work", () => {
+  const html = renderToStaticMarkup(
+    React.createElement(topicDetailViewTestables.TopicProcessingStatus, {
+      total: 3,
+      ready: 1,
+      queued: 2,
+      crawling: 0,
+      analyzing: 0,
+      workerStatus: "idle",
+      backendWorkUiState: null,
+      isStartingProcessing: false,
+      onStartProcessing: () => undefined
+    })
+  );
+
+  assert.match(html, /啟動處理/);
+  assert.doesNotMatch(html, /重啟處理/);
+});

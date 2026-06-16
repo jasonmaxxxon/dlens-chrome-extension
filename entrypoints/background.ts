@@ -196,7 +196,7 @@ import {
 } from "../src/state/action-target";
 import { applySignalDeletionToGlobalState, deleteSignalStorageRecords } from "../src/state/session-signal-seam";
 import { applyHoveredPreview, createInlineToast, setCollectModeState } from "../src/state/ui-state";
-import { getModeHomePage } from "../src/state/processing-state";
+import { getModeHomePage, projectBackendWorkStatus } from "../src/state/processing-state";
 import { sanitizeSnapshotForContentScript } from "../src/state/sanitize-snapshot";
 import {
   removeTabSnapshot,
@@ -3664,11 +3664,13 @@ export default defineBackground(() => {
                 responseDetail: (result) => ({ workerStatus: result.status }),
                 run: () => fetchWorkerStatus(normalizeBaseUrl(current.global.settings.ingestBaseUrl))
               });
+              const backendWorkUiState = projectBackendWorkStatus(worker);
               sendResponse({
                 ok: true,
                 tabId,
                 snapshot: current,
-                workerStatus: worker.status
+                workerStatus: worker.status,
+                backendWorkUiState
               } satisfies WorkerStatusMessageResponse);
             } catch (error) {
               sendResponse({

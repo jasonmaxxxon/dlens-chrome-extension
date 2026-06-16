@@ -1,7 +1,9 @@
 import {
   getProcessingStripUiState,
+  type BackendWorkUiState,
   type WorkerStatus,
 } from "../state/processing-state.ts";
+import { resolveBackendWorkCopy } from "../state/backend-work-copy.ts";
 import { TOKENS, processingTone } from "./components.tsx";
 import { tokens } from "./tokens";
 
@@ -83,6 +85,7 @@ function SkeletonBar({ width }: { width: string }) {
 
 export function ProcessingStrip({
   workerStatus,
+  backendWorkUiState = null,
   ready,
   total,
   crawling,
@@ -90,6 +93,7 @@ export function ProcessingStrip({
   pending
 }: {
   workerStatus: WorkerStatus | null;
+  backendWorkUiState?: BackendWorkUiState | null;
   ready: number;
   total: number;
   crawling: number;
@@ -97,7 +101,7 @@ export function ProcessingStrip({
   pending: number;
 }) {
   const tone = processingTone(workerStatus, ready, total, pending);
-  const uiState = getProcessingStripUiState(workerStatus, {
+  const baseUiState = getProcessingStripUiState(workerStatus, {
     total,
     ready,
     crawling,
@@ -107,6 +111,10 @@ export function ProcessingStrip({
     hasReadyPair: ready >= 2,
     hasInflight: crawling > 0 || analyzing > 0
   });
+  const recoveryCopy = resolveBackendWorkCopy(backendWorkUiState);
+  const uiState = recoveryCopy
+    ? { phaseLabel: recoveryCopy.headline, progressMode: baseUiState.progressMode, progressHint: recoveryCopy.hint }
+    : baseUiState;
 
   return (
     <div
@@ -142,7 +150,7 @@ export function ProcessingStrip({
           {uiState.phaseLabel}
         </div>
         <div style={{ fontSize: 10, color: TOKENS.softInk, minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-          {stageCopy(uiState.progressMode, ready, total)}
+          {recoveryCopy ? recoveryCopy.hint : stageCopy(uiState.progressMode, ready, total)}
         </div>
         {(workerStatus === "draining" || uiState.progressMode === "analyzing") ? (
           <span data-processing-skeleton="visible" style={{ display: "flex", gap: 4, alignItems: "center", minWidth: 0 }}>

@@ -26,7 +26,7 @@ import type { ClusterInterpretation, CompareClusterSummaryRequest } from "../com
 import type { EvidenceAnnotation, EvidenceAnnotationRequest } from "../compare/evidence-annotation";
 import type { TargetDescriptor } from "../contracts/target-descriptor";
 import type { ExtensionSnapshot, HoverCandidateStrength, PopupPage } from "./types";
-import type { WorkerStatus } from "./processing-state";
+import type { BackendWorkUiState, WorkerStatus } from "./processing-state";
 import type { PrCampaign, PrCampaignSaveDraft, PrCriterion, PrEvidenceRow } from "./pr-evidence-storage";
 import type { DLensSignalPacket, SignalPacketIndexFilter } from "../compare/signal-packet";
 import type { SignalPacketExportFormat, SignalPacketExportResult } from "../compare/signal-packet-export";
@@ -236,7 +236,7 @@ export type QueueItemsAndStartProcessingResponse =
   | { ok: false; error: string; queuedItemIds?: string[]; failedItemIds?: string[] };
 
 export type WorkerStatusMessageResponse =
-  | (ExtensionSuccessResponse & { workerStatus: WorkerStatus })
+  | (ExtensionSuccessResponse & { workerStatus: WorkerStatus; backendWorkUiState?: BackendWorkUiState })
   | { ok: false; error: string };
 
 export type ExtensionResponse = ExtensionSuccessResponse | { ok: false; error: string };

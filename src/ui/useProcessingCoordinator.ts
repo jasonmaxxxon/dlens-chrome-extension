@@ -2,7 +2,12 @@ import { useCallback, useEffect, useRef, useState } from "react";
 
 import type { ExtensionMessage, ExtensionResponse, WorkerStatusMessageResponse } from "../state/messages";
 import { createPipelineRequestId, emitPipelineEvent } from "../state/pipeline-trace";
-import { getPollingDelayMs, shouldRefreshProcessingFolder, type WorkerStatus } from "../state/processing-state";
+import {
+  getPollingDelayMs,
+  shouldRefreshProcessingFolder,
+  type BackendWorkUiState,
+  type WorkerStatus
+} from "../state/processing-state";
 import { sendExtensionMessage } from "./controller";
 
 type SendAndSync = <T extends ExtensionResponse = ExtensionResponse>(message: ExtensionMessage) => Promise<T>;
@@ -22,6 +27,7 @@ export function useProcessingCoordinator({
   const lastKnownWorkerStatusRef = useRef<WorkerStatus>("idle");
   const [workerStatus, setWorkerStatusState] = useState<WorkerStatus | null>(null);
   const [workerError, setWorkerError] = useState<string | null>(null);
+  const [backendWorkUiState, setBackendWorkUiState] = useState<BackendWorkUiState | null>(null);
   const setWorkerStatus = useCallback((status: WorkerStatus) => {
     lastKnownWorkerStatusRef.current = status;
     setWorkerStatusState(status);
@@ -32,6 +38,7 @@ export function useProcessingCoordinator({
       lastKnownWorkerStatusRef.current = "idle";
       setWorkerStatusState(null);
       setWorkerError(null);
+      setBackendWorkUiState(null);
       processingFailureCountRef.current = 0;
       return;
     }
@@ -70,6 +77,7 @@ export function useProcessingCoordinator({
         lastKnownWorkerStatus = nextWorkerStatus;
         lastKnownWorkerStatusRef.current = nextWorkerStatus;
         setWorkerStatusState(nextWorkerStatus);
+        setBackendWorkUiState(workerResponse.backendWorkUiState ?? { kind: nextWorkerStatus });
         setWorkerError(null);
         emitPipelineEvent({
           phase: "crawl.queued",
@@ -183,6 +191,7 @@ export function useProcessingCoordinator({
   return {
     workerStatus,
     workerError,
+    backendWorkUiState,
     setWorkerStatus
   };
 }

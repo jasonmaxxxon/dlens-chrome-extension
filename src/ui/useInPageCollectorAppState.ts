@@ -532,7 +532,7 @@ export function useInPageCollectorAppState({ snapshot, tabId, sendAndSync }: Use
     () => summarizeSessionProcessing(activeFolder?.items || []),
     [activeFolder?.items]
   );
-  const { workerStatus, workerError, setWorkerStatus } = useProcessingCoordinator({
+  const { workerStatus, workerError, backendWorkUiState, setWorkerStatus } = useProcessingCoordinator({
     popupOpen,
     activeFolderId: activeFolder?.id,
     hasInflight: processingSummary.hasInflight,
@@ -2676,6 +2676,7 @@ export function useInPageCollectorAppState({ snapshot, tabId, sendAndSync }: Use
     bulkAnalyzingFolderId,
     isStartingProcessing,
     workerStatus,
+    backendWorkUiState,
     techniqueReadings,
     savedAnalyses,
     productSignalAnalyses,

@@ -2,7 +2,12 @@ import type { EvidencePacket, LensMemo, SignalReading, TopicAuditStageName } fro
 import type { TopicAuditValidationFlag } from "../compare/topic-audit-validator.ts";
 import { projectCapturedPost, projectCapturedPostFromSources, type CapturedPostProjection } from "../state/captured-post.ts";
 import type { LoadState } from "../state/load-state.ts";
-import { getItemReadinessStatus, type ItemReadinessStatus, type WorkerStatus } from "../state/processing-state.ts";
+import {
+  getItemReadinessStatus,
+  type BackendWorkUiState,
+  type ItemReadinessStatus,
+  type WorkerStatus
+} from "../state/processing-state.ts";
 import type { TopicAuditMemoBundle } from "../state/topic-audit-storage.ts";
 import type {
   FolderMode,
@@ -172,6 +177,7 @@ export interface TopicDetailViewModel {
   taggedSignalCount: number;
   audit: TopicAuditViewModel;
   workerStatus: WorkerStatus | null;
+  backendWorkUiState: BackendWorkUiState | null;
   isBulkAnalyzing: boolean;
   isStartingProcessing: boolean;
   actions: TopicDetailCommand[];
@@ -198,6 +204,7 @@ export interface BuildTopicDetailViewModelInput {
   isBulkAnalyzing?: boolean;
   isStartingProcessing?: boolean;
   workerStatus?: WorkerStatus | null;
+  backendWorkUiState?: BackendWorkUiState | null;
   capabilities?: TopicDetailCapabilities;
 }
 
@@ -695,6 +702,7 @@ export function buildTopicDetailViewModel({
   isBulkAnalyzing = false,
   isStartingProcessing = false,
   workerStatus = null,
+  backendWorkUiState = null,
   capabilities
 }: BuildTopicDetailViewModelInput): TopicDetailViewModel {
   const resolvedCapabilities = defaultCapabilities(capabilities);
@@ -744,6 +752,7 @@ export function buildTopicDetailViewModel({
     taggedSignalCount: signalRows.filter((row) => row.tagRecord?.status === "complete").length,
     audit,
     workerStatus,
+    backendWorkUiState,
     isBulkAnalyzing,
     isStartingProcessing,
     actions: buildWorkspaceActions({
