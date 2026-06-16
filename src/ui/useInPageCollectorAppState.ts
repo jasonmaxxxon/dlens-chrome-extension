@@ -215,6 +215,62 @@ export function applyPrGeneratedCriteriaSaveResult(
   };
 }
 
+type ProductHydrateTransition =
+  | {
+      kind: "request";
+      requestKey: string;
+      sessionId: string;
+      signalIds: string[];
+    }
+  | {
+      kind: "coalesce";
+      requestKey: string;
+    }
+  | {
+      kind: "skip";
+      sessionId: string | undefined;
+      shouldClearHydrating: true;
+    };
+
+export function planProductHydrateTransition({
+  popupOpen,
+  activeFolderId,
+  activeFolderMode,
+  isProductSignalPage,
+  page,
+  signalIds,
+  inFlightKey
+}: {
+  popupOpen: boolean;
+  activeFolderId?: string | null;
+  activeFolderMode: FolderMode;
+  isProductSignalPage: boolean;
+  page: ExtensionSnapshot["tab"]["popupPage"];
+  signalIds: string[];
+  inFlightKey: string | null;
+}): ProductHydrateTransition {
+  if (!popupOpen || !activeFolderId || activeFolderMode !== "product" || !isProductSignalPage) {
+    return {
+      kind: "skip",
+      sessionId: activeFolderId ?? undefined,
+      shouldClearHydrating: true
+    };
+  }
+  const requestKey = [activeFolderId, page, ...signalIds].join("|");
+  if (requestKey === inFlightKey) {
+    return {
+      kind: "coalesce",
+      requestKey
+    };
+  }
+  return {
+    kind: "request",
+    requestKey,
+    sessionId: activeFolderId,
+    signalIds
+  };
+}
+
 function mergeAnalysesBySignalId(
   previous: ProductSignalAnalysis[],
   next: ProductSignalAnalysis[]
@@ -341,6 +397,8 @@ export function useInPageCollectorAppState({ snapshot, tabId, sendAndSync }: Use
   const hadReadyPairRef = useRef(false);
   const refreshedOnOpenFolderRef = useRef<string | null>(null);
   const requestReconcilerRef = useRef(createRequestReconciler());
+  const productHydrateInFlightKeyRef = useRef<string | null>(null);
+  const productHydrateMountedRef = useRef(true);
   usePopupKeyframes();
 
   const [showFolderPrompt, setShowFolderPrompt] = useState(false);
@@ -465,6 +523,12 @@ export function useInPageCollectorAppState({ snapshot, tabId, sendAndSync }: Use
     snapshot?.global.settings.openaiApiKey,
     snapshot?.global.settings.claudeApiKey
   ]);
+
+  useEffect(() => {
+    return () => {
+      productHydrateMountedRef.current = false;
+    };
+  }, []);
 
   useEffect(() => {
     if (optimisticSessionMode !== null && snapshotActiveFolder?.mode === optimisticSessionMode) {
@@ -788,12 +852,24 @@ export function useInPageCollectorAppState({ snapshot, tabId, sendAndSync }: Use
   const isProductSignalPage = isProductSignalWorkspacePage(page);
 
   useEffect(() => {
-    if (!popupOpen || !activeFolder?.id || activeFolderMode !== "product" || !isProductSignalPage) {
+    const signalIds = topicState.signals.map((signal) => signal.id);
+    const transition = planProductHydrateTransition({
+      popupOpen,
+      activeFolderId: activeFolder?.id,
+      activeFolderMode,
+      isProductSignalPage,
+      page,
+      signalIds,
+      inFlightKey: productHydrateInFlightKeyRef.current
+    });
+
+    if (transition.kind === "skip") {
+      productHydrateInFlightKeyRef.current = null;
       setIsHydratingProductSignals(false);
       emitPipelineEvent({
         phase: "ui.ready",
         step: "popup.product.hydrate.skip",
-        target: { sessionId: activeFolder?.id },
+        target: { sessionId: transition.sessionId },
         result: "ok",
         detail: {
           popupOpen,
@@ -804,23 +880,27 @@ export function useInPageCollectorAppState({ snapshot, tabId, sendAndSync }: Use
       });
       return;
     }
-    let cancelled = false;
-    const signalIds = topicState.signals.map((signal) => signal.id);
+
+    if (transition.kind === "coalesce") {
+      return;
+    }
+
+    productHydrateInFlightKeyRef.current = transition.requestKey;
     setIsHydratingProductSignals(true);
     emitPipelineEvent({
       phase: "ui.ready",
       step: "popup.product.hydrate.request",
-      target: { sessionId: activeFolder.id },
+      target: { sessionId: transition.sessionId },
       result: "pending",
       detail: {
         page,
-        signalCount: signalIds.length
+        signalCount: transition.signalIds.length
       }
     });
     void Promise.all([
       sendExtensionMessage<{ ok: true; productSignalAnalyses?: ProductSignalAnalysis[] } | { ok: false; error: string }>({
         type: "product/list-signal-analyses",
-        signalIds
+        signalIds: transition.signalIds
       }),
       sendExtensionMessage<{ ok: true; productSignalAnalyses?: ProductSignalAnalysis[] } | { ok: false; error: string }>({
         type: "product/list-signal-analyses"
@@ -833,19 +913,20 @@ export function useInPageCollectorAppState({ snapshot, tabId, sendAndSync }: Use
       })
     ])
       .then(([currentResponse, historicalResponse, feedbackResponse, readingsResponse]) => {
-        if (cancelled) {
+        if (!productHydrateMountedRef.current || productHydrateInFlightKeyRef.current !== transition.requestKey) {
           return;
         }
+        productHydrateInFlightKeyRef.current = null;
         setIsHydratingProductSignals(false);
         const allOk = currentResponse.ok && historicalResponse.ok && feedbackResponse.ok && readingsResponse.ok;
         emitPipelineEvent({
           phase: "ui.ready",
           step: "popup.product.hydrate.response",
-          target: { sessionId: activeFolder.id },
+          target: { sessionId: transition.sessionId },
           result: allOk ? "ok" : "error",
           detail: {
             page,
-            signalCount: signalIds.length,
+            signalCount: transition.signalIds.length,
             currentOk: currentResponse.ok,
             currentAnalysisCount: currentResponse.ok ? currentResponse.productSignalAnalyses?.length ?? 0 : null,
             historicalOk: historicalResponse.ok,
@@ -866,39 +947,38 @@ export function useInPageCollectorAppState({ snapshot, tabId, sendAndSync }: Use
           setProductAgentTaskFeedback(feedbackResponse.productAgentTaskFeedback ?? []);
         }
         if (readingsResponse.ok) {
-          const scopedSignalIds = new Set(signalIds);
+          const scopedSignalIds = new Set(transition.signalIds);
           setSignalReadings((readingsResponse.signalReadings ?? []).filter((reading) => scopedSignalIds.has(reading.signalId)));
         }
       })
       .catch(() => {
-        if (!cancelled) {
-          setIsHydratingProductSignals(false);
-          emitPipelineEvent({
-            phase: "ui.ready",
-            step: "popup.product.hydrate.error",
-            target: { sessionId: activeFolder.id },
-            result: "error",
-            detail: {
-              page,
-              signalCount: signalIds.length
-            }
-          });
-          setProductSignalAnalyses([]);
-          setHistoricalProductSignalAnalyses([]);
-          setProductAgentTaskFeedback([]);
-          setSignalReadings([]);
+        if (!productHydrateMountedRef.current || productHydrateInFlightKeyRef.current !== transition.requestKey) {
+          return;
         }
+        productHydrateInFlightKeyRef.current = null;
+        setIsHydratingProductSignals(false);
+        emitPipelineEvent({
+          phase: "ui.ready",
+          step: "popup.product.hydrate.error",
+          target: { sessionId: transition.sessionId },
+          result: "error",
+          detail: {
+            page,
+            signalCount: transition.signalIds.length
+          }
+        });
+        setProductSignalAnalyses([]);
+        setHistoricalProductSignalAnalyses([]);
+        setProductAgentTaskFeedback([]);
+        setSignalReadings([]);
       });
-    return () => {
-      cancelled = true;
-    };
   }, [
     activeFolder?.id,
     activeFolderMode,
     isProductSignalPage,
+    page,
     popupOpen,
-    snapshot?.global.updatedAt,
-    snapshot?.tab.updatedAt,
+    snapshot,
     topicState.signals.map((signal) => signal.id).join("|")
   ]);
 
