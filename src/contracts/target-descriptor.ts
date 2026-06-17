@@ -19,6 +19,8 @@ export interface EngagementPresent {
   followers?: boolean;
 }
 
+export type EngagementSource = "card" | "page_fallback" | "missing";
+
 export interface TargetDescriptor {
   target_type: TargetType;
   page_url: string;
@@ -29,6 +31,19 @@ export interface TargetDescriptor {
   dom_anchor: string;
   engagement: EngagementMetrics;
   engagement_present: EngagementPresent;
+  /**
+   * Audit F1 telemetry: tracks where the engagement numbers came from.
+   * - "card": at least one metric resolved from the hovered card's
+   *   own SVG/text and no body fallback was used.
+   * - "page_fallback": views/followers were inferred from
+   *   document.body.innerText because the card itself didn't expose
+   *   them. This is the F1 risk class — those numbers may belong to
+   *   unrelated profile/recommendation chrome.
+   * - "missing": no engagement signals found at all.
+   * The field is optional in the contract so older saved descriptors
+   * stay valid through MIGRATE.
+   */
+  engagement_source?: EngagementSource;
   captured_at: string;
 }
 

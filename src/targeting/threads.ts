@@ -1,4 +1,4 @@
-import type { EngagementMetrics, EngagementPresent, TargetDescriptor, TargetSurface, TargetType } from "../contracts/target-descriptor";
+import type { EngagementMetrics, EngagementPresent, EngagementSource, TargetDescriptor, TargetSurface, TargetType } from "../contracts/target-descriptor";
 
 const TIME_TOKEN_RE = /\b\d+\s*[smhdw]\b/i;
 const UI_TOKENS = new Set([
@@ -450,7 +450,7 @@ export function classifyMetric(label: string): keyof EngagementMetrics | null {
   return null;
 }
 
-function resolveEngagement(card: HTMLElement, targetType: TargetType): { engagement: EngagementMetrics; engagement_present: EngagementPresent } {
+function resolveEngagement(card: HTMLElement, targetType: TargetType): { engagement: EngagementMetrics; engagement_present: EngagementPresent; engagement_source: EngagementSource } {
   const metrics: EngagementMetrics = {
     likes: null,
     comments: null,
@@ -467,6 +467,11 @@ function resolveEngagement(card: HTMLElement, targetType: TargetType): { engagem
     views: false,
     followers: false
   };
+  // F1 telemetry: did any metric come from the card itself vs the
+  // page-wide body fallback? "page_fallback" wins because it is the
+  // audit's risk class — those numbers may belong to unrelated chrome.
+  let usedCardSource = false;
+  let usedBodyFallback = false;
 
   // Threads DOM: <svg aria-label="Like"> + <span>582</span> as sibling
   const svgs = Array.from(card.querySelectorAll<SVGElement>("svg[aria-label]"));
@@ -482,6 +487,7 @@ function resolveEngagement(card: HTMLElement, targetType: TargetType): { engagem
 
     present[key] = true;
     metrics[key] = countText ? parseCount(countText) : null;
+    usedCardSource = true;
   }
 
   // Fallback: also check [aria-label] on non-SVG elements (buttons, links)
@@ -495,6 +501,7 @@ function resolveEngagement(card: HTMLElement, targetType: TargetType): { engagem
       const text = (el.textContent || "").trim();
       present[key] = true;
       metrics[key] = text.length <= 20 ? parseCount(text) : null;
+      usedCardSource = true;
     }
   }
 
@@ -504,6 +511,7 @@ function resolveEngagement(card: HTMLElement, targetType: TargetType): { engagem
     if (views !== null) {
       present.views = true;
       metrics.views = views;
+      usedCardSource = true;
     }
   }
 
@@ -513,6 +521,7 @@ function resolveEngagement(card: HTMLElement, targetType: TargetType): { engagem
     if (views !== null) {
       present.views = true;
       metrics.views = views;
+      usedBodyFallback = true;
     }
   }
 
@@ -522,6 +531,7 @@ function resolveEngagement(card: HTMLElement, targetType: TargetType): { engagem
     if (followers !== null) {
       present.followers = true;
       metrics.followers = followers;
+      usedCardSource = true;
     }
   }
 
@@ -531,10 +541,17 @@ function resolveEngagement(card: HTMLElement, targetType: TargetType): { engagem
     if (followers !== null) {
       present.followers = true;
       metrics.followers = followers;
+      usedBodyFallback = true;
     }
   }
 
-  return { engagement: metrics, engagement_present: present };
+  const engagement_source: EngagementSource = usedBodyFallback
+    ? "page_fallback"
+    : usedCardSource
+      ? "card"
+      : "missing";
+
+  return { engagement: metrics, engagement_present: present, engagement_source };
 }
 
 export function buildTargetDescriptor(card: HTMLElement, pageUrl: string): TargetDescriptor | null {
@@ -554,6 +571,7 @@ export function buildTargetDescriptor(card: HTMLElement, pageUrl: string): Targe
     dom_anchor: buildDomAnchor(card),
     engagement: metricsResult.engagement,
     engagement_present: metricsResult.engagement_present,
+    engagement_source: metricsResult.engagement_source,
     captured_at: new Date().toISOString()
   };
 }
