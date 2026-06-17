@@ -1,6 +1,6 @@
-# AGENTS.md — DLens Chrome Extension v0.1
+# AGENTS.md — DLens Chrome Extension v0.2
 
-> **Last updated:** 2026-06-16 (release 0.1.33 — `TRACE`, `SEAM_GUARD`, `RECONCILE`, `INVALIDATE`, and `BOUNDARY` are locked in `docs/architecture/dlens-current-architecture-map.md`. Latest merged-code verification through PR #47: 812/812 tests, typecheck, storage seam guard, boundary guard, build, and GitHub `verify` checks. `BOUNDARY` is enforced by `npm run boundary:guard`, which runs View and ViewModel wall scanners in CI at zero allowlisted violations.)
+> **Last updated:** 2026-06-17 (release 0.2.0 — `TRACE`, `SEAM_GUARD`, `RECONCILE`, `INVALIDATE`, `BOUNDARY`, and `MIGRATE` are locked in `docs/architecture/dlens-current-architecture-map.md`. Latest local verification: 881 passed / 5 skipped tests, typecheck, storage seam guard, boundary guard, `qa:harness:fixture`, build, and `git diff --check`. `BOUNDARY` is enforced by `npm run boundary:guard`, which runs View and ViewModel wall scanners in CI at zero allowlisted violations.)
 > **For:** any agent continuing work in this repo
 > **READ FIRST:** [`docs/architecture/dlens-current-architecture-map.md`](docs/architecture/dlens-current-architecture-map.md) — the status-colored handoff map (🟩 locked / 🟢 built / 🟡 partial / 🔴 not built). Don't treat 🟢 as 🟩; don't bypass ViewModel / typed command target / storage seam / pipeline trace; any async-path PR must handle requestId + invalidation + rehydrate; update the map's colors in your PR if status changes.
 
@@ -9,6 +9,10 @@
 `BOUNDARY` is 🟩 because View modules cannot import `sendExtensionMessage` / call `Date.now()` / `Math.random()` / `performance.now()` / `chrome.storage.local.*` / `chrome.runtime.sendMessage`, ViewModels cannot import `chrome.*` / `fetch` / DOM / `File` / `Blob` / `FormData` / React, and `npm run boundary:guard` enforces both walls in CI at zero allowlisted violations.
 
 Do not add `TODO(boundary-bypass)` unless a separate review explicitly accepts the exception. A PR that needs a View side effect should move it into the controller / hook / app shell. A PR that needs a ViewModel browser dependency should pass precomputed input from the controller instead.
+
+## Recently Fixed (2026-06-17) — Popup backend health dot
+
+The popup processing strip now has a backend health dot driven by `backend/get-health`, which calls the lightweight backend `/health` endpoint. Do not drive this dot from `/worker/status`: worker status can take seconds during Supabase DB connection spikes and is reserved for backlog / retry / analysis projection. Reachability intentionally suppresses one failed health poll, turns yellow after two consecutive failures, turns red after three, and returns green on one successful health poll.
 
 ## Recently Fixed (2026-05-28) — Product action board and card geometry
 

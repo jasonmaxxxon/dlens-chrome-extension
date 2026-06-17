@@ -1,4 +1,5 @@
 import type {
+  BackendHealthResponse,
   CaptureSnapshot,
   CaptureTargetRequest,
   CaptureTargetResponse,
@@ -49,6 +50,7 @@ export function buildCaptureTargetRequest(descriptor: TargetDescriptor, folderNa
 function backendTraceStep(input: string): string {
   try {
     const { pathname } = new URL(input);
+    if (pathname === "/health") return "health";
     if (pathname === "/capture-target") return "capture-target";
     if (pathname === "/worker/status") return "worker-status";
     if (pathname === "/worker/drain") return "worker-drain";
@@ -173,6 +175,18 @@ export async function triggerWorkerDrain(baseUrl: string): Promise<WorkerDrainRe
 
 export async function fetchWorkerStatus(baseUrl: string): Promise<WorkerStatusResponse> {
   return fetchJson<WorkerStatusResponse>(`${normalizeBaseUrl(baseUrl)}/worker/status`);
+}
+
+export async function fetchBackendHealth(baseUrl: string, timeoutMs = 3000): Promise<BackendHealthResponse> {
+  const controller = new AbortController();
+  const timeoutId = globalThis.setTimeout(() => controller.abort(), timeoutMs);
+  try {
+    return await fetchJson<BackendHealthResponse>(`${normalizeBaseUrl(baseUrl)}/health`, {
+      signal: controller.signal
+    });
+  } finally {
+    globalThis.clearTimeout(timeoutId);
+  }
 }
 
 export async function fetchThreadsAdvancedMetrics(baseUrl: string, postUrl: string): Promise<ThreadsAdvancedMetricsResponse> {

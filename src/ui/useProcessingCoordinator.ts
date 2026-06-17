@@ -4,34 +4,90 @@ import type { ExtensionMessage, ExtensionResponse, WorkerStatusMessageResponse }
 import { createPipelineRequestId, emitPipelineEvent } from "../state/pipeline-trace";
 import {
   getPollingDelayMs,
+  projectBackendReachability,
   shouldRefreshProcessingFolder,
+  type BackendReachability,
   type BackendWorkUiState,
   type WorkerStatus
 } from "../state/processing-state";
 import { sendExtensionMessage } from "./controller";
 
 type SendAndSync = <T extends ExtensionResponse = ExtensionResponse>(message: ExtensionMessage) => Promise<T>;
+const BACKEND_HEALTH_HEARTBEAT_MS = 12000;
 
 export function useProcessingCoordinator({
   popupOpen,
   activeFolderId,
   hasInflight,
+  ingestBaseUrl,
   sendAndSync
 }: {
   popupOpen: boolean;
   activeFolderId: string | undefined;
   hasInflight: boolean;
+  ingestBaseUrl?: string;
   sendAndSync: SendAndSync;
 }) {
   const processingFailureCountRef = useRef(0);
+  const backendHealthFailureCountRef = useRef(0);
   const lastKnownWorkerStatusRef = useRef<WorkerStatus>("idle");
   const [workerStatus, setWorkerStatusState] = useState<WorkerStatus | null>(null);
   const [workerError, setWorkerError] = useState<string | null>(null);
   const [backendWorkUiState, setBackendWorkUiState] = useState<BackendWorkUiState | null>(null);
+  const [backendReachability, setBackendReachability] = useState<BackendReachability>("reachable");
   const setWorkerStatus = useCallback((status: WorkerStatus) => {
     lastKnownWorkerStatusRef.current = status;
     setWorkerStatusState(status);
   }, []);
+
+  useEffect(() => {
+    if (!popupOpen) {
+      backendHealthFailureCountRef.current = 0;
+      setBackendReachability("reachable");
+      return;
+    }
+
+    let cancelled = false;
+    let timeoutHandle: number | null = null;
+    const baseUrl = ingestBaseUrl || "http://127.0.0.1:8000";
+
+    async function runHealthCheck() {
+      try {
+        const response = await sendExtensionMessage<ExtensionResponse>({
+          type: "backend/get-health",
+          baseUrl
+        });
+        if (cancelled) {
+          return;
+        }
+        if (!response.ok || response.backendHealth?.reachable !== true) {
+          throw new Error(response.ok ? response.backendHealth?.error || "Backend health check failed" : response.error);
+        }
+        backendHealthFailureCountRef.current = 0;
+        setBackendReachability("reachable");
+      } catch {
+        if (cancelled) {
+          return;
+        }
+        backendHealthFailureCountRef.current += 1;
+        setBackendReachability(projectBackendReachability(backendHealthFailureCountRef.current));
+      }
+
+      if (!cancelled) {
+        timeoutHandle = window.setTimeout(() => {
+          void runHealthCheck();
+        }, BACKEND_HEALTH_HEARTBEAT_MS);
+      }
+    }
+
+    void runHealthCheck();
+    return () => {
+      cancelled = true;
+      if (timeoutHandle != null) {
+        window.clearTimeout(timeoutHandle);
+      }
+    };
+  }, [popupOpen, ingestBaseUrl]);
 
   useEffect(() => {
     if (!popupOpen) {
@@ -192,6 +248,7 @@ export function useProcessingCoordinator({
     workerStatus,
     workerError,
     backendWorkUiState,
+    backendReachability,
     setWorkerStatus
   };
 }

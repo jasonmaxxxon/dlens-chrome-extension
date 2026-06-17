@@ -116,3 +116,35 @@ test("ProcessingStrip falls back to default copy when backendWorkUiState is idle
 
   assert.match(idleHtml, /Processing in progress/);
 });
+
+test("ProcessingStrip renders backend reachability dot at the leading edge", () => {
+  const slowHtml = renderToStaticMarkup(
+    React.createElement(ProcessingStrip, {
+      workerStatus: "idle",
+      backendReachability: "slow",
+      ready: 0,
+      total: 1,
+      crawling: 0,
+      analyzing: 0,
+      pending: 1
+    })
+  );
+
+  assert.match(slowHtml, /data-backend-health-dot="slow"/);
+  assert.match(slowHtml, /Backend slow/);
+
+  const unreachableHtml = renderToStaticMarkup(
+    React.createElement(ProcessingStrip, {
+      workerStatus: "idle",
+      backendReachability: "unreachable",
+      ready: 0,
+      total: 1,
+      crawling: 0,
+      analyzing: 0,
+      pending: 1
+    })
+  );
+
+  assert.match(unreachableHtml, /data-backend-health-dot="unreachable"/);
+  assert.match(unreachableHtml, /Backend unreachable/);
+});

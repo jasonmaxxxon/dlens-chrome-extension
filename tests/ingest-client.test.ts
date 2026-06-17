@@ -3,6 +3,7 @@ import test from "node:test";
 
 import {
   buildCaptureTargetRequest,
+  fetchBackendHealth,
   fetchThreadsAdvancedMetrics,
   fetchWorkerStatus,
   submitCaptureTarget,
@@ -144,6 +145,34 @@ test("fetchWorkerStatus reads /worker/status", async () => {
     assert.equal(calls.length, 1);
     assert.equal(calls[0]?.input, "http://127.0.0.1:8000/worker/status");
     assert.equal(calls[0]?.init?.method, undefined);
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
+});
+
+test("fetchBackendHealth reads the lightweight /health endpoint", async () => {
+  const calls: Array<{ input: string; init?: RequestInit }> = [];
+  const originalFetch = globalThis.fetch;
+  globalThis.fetch = (async (input: string | URL | Request, init?: RequestInit) => {
+    calls.push({ input: String(input), init });
+    return new Response(JSON.stringify({
+      status: "ok",
+      uptime_seconds: 24.198,
+      process_id: 94574
+    }), {
+      status: 200,
+      headers: { "Content-Type": "application/json" }
+    });
+  }) as typeof fetch;
+
+  try {
+    const response = await fetchBackendHealth("http://127.0.0.1:8000");
+    assert.equal(response.status, "ok");
+    assert.equal(response.process_id, 94574);
+    assert.equal(calls.length, 1);
+    assert.equal(calls[0]?.input, "http://127.0.0.1:8000/health");
+    assert.equal(calls[0]?.init?.method, undefined);
+    assert.ok(calls[0]?.init?.signal);
   } finally {
     globalThis.fetch = originalFetch;
   }

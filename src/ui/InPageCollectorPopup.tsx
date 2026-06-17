@@ -367,6 +367,7 @@ export function InPageCollectorPopup({ app }: { app: InPageCollectorAppModel }) 
               <ProcessingStrip
                 workerStatus={app.workerStatus}
                 backendWorkUiState={app.backendWorkUiState}
+                backendReachability={app.backendReachability}
                 ready={app.processingSummary.ready}
                 total={app.processingSummary.total}
                 crawling={app.processingSummary.crawling}

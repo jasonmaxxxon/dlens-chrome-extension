@@ -48,6 +48,12 @@ export interface WorkerStatusResponse {
   last_drain_finished_at?: string | null;
 }
 
+export interface BackendHealthResponse {
+  status: "ok";
+  uptime_seconds: number;
+  process_id: number;
+}
+
 export interface ThreadsAdvancedMetricsResponse {
   post_url: string;
   metrics: Record<string, unknown>;

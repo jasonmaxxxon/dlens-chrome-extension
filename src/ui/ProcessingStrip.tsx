@@ -1,5 +1,6 @@
 import {
   getProcessingStripUiState,
+  type BackendReachability,
   type BackendWorkUiState,
   type WorkerStatus,
 } from "../state/processing-state.ts";
@@ -83,9 +84,56 @@ function SkeletonBar({ width }: { width: string }) {
   );
 }
 
+function backendReachabilityTone(reachability: BackendReachability): { label: string; color: string; background: string; border: string } {
+  switch (reachability) {
+    case "slow":
+      return {
+        label: "Backend slow",
+        color: tokens.color.queued,
+        background: tokens.color.queuedSoft,
+        border: "rgba(161,106,23,0.24)"
+      };
+    case "unreachable":
+      return {
+        label: "Backend unreachable",
+        color: tokens.color.failed,
+        background: tokens.color.failedSoft,
+        border: "rgba(122,32,48,0.24)"
+      };
+    default:
+      return {
+        label: "Backend reachable",
+        color: tokens.color.success,
+        background: tokens.color.successSoft,
+        border: "rgba(63,90,59,0.24)"
+      };
+  }
+}
+
+function BackendHealthDot({ reachability }: { reachability: BackendReachability }) {
+  const tone = backendReachabilityTone(reachability);
+  return (
+    <span
+      data-backend-health-dot={reachability}
+      aria-label={tone.label}
+      title={tone.label}
+      style={{
+        width: 10,
+        height: 10,
+        borderRadius: tokens.radius.round,
+        background: tone.color,
+        border: `2px solid ${tone.background}`,
+        boxShadow: `0 0 0 1px ${tone.border}`,
+        flexShrink: 0
+      }}
+    />
+  );
+}
+
 export function ProcessingStrip({
   workerStatus,
   backendWorkUiState = null,
+  backendReachability = "reachable",
   ready,
   total,
   crawling,
@@ -94,6 +142,7 @@ export function ProcessingStrip({
 }: {
   workerStatus: WorkerStatus | null;
   backendWorkUiState?: BackendWorkUiState | null;
+  backendReachability?: BackendReachability;
   ready: number;
   total: number;
   crawling: number;
@@ -133,6 +182,7 @@ export function ProcessingStrip({
         marginBottom: 4
       }}
     >
+      <BackendHealthDot reachability={backendReachability} />
       <ProgressRing ready={ready} total={total} color={tone.text} />
 
       <div style={{ display: "grid", gap: 4, flex: 1, minWidth: 0 }}>

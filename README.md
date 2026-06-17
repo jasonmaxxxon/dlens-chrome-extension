@@ -2,12 +2,12 @@
 
 DLens is a mode-aware MV3 Chrome extension for capturing Threads posts and turning them into research, product-signal, and PR evidence workflows.
 
-> Last updated: 2026-06-16
-> Current release: `0.1.33` · latest merged-code full suite `812/812` · build clean
+> Last updated: 2026-06-17
+> Current release: `0.2.0` · latest local full suite `881 passed / 5 skipped` · build clean
 > Current engineering branch: `main`
 > Positioning (2026-06-08): local power-tool (self + small technical circle); two separate repos (extension public · ingest-core **private**), not monorepo; visual reset Option A pending
 > Verified build: `output/chrome-mv3`
-> Stability note (0.1.33): `TRACE`, `SEAM_GUARD`, `RECONCILE`, `INVALIDATE`, and `BOUNDARY` are locked in the live architecture map. `BOUNDARY` is enforced by `npm run boundary:guard`, which runs View and ViewModel wall scanners in CI at zero allowlisted violations.
+> Stability note (0.2.0): `TRACE`, `SEAM_GUARD`, `RECONCILE`, `INVALIDATE`, `BOUNDARY`, and `MIGRATE` are locked in the live architecture map. `BOUNDARY` is enforced by `npm run boundary:guard`, which runs View and ViewModel wall scanners in CI at zero allowlisted violations.
 
 ## What It Does
 
@@ -27,6 +27,7 @@ Current workspace modes:
 - Hover-to-preview and collect on Threads feeds/post pages. Hover uses a warm in-memory cache (no per-move storage read); saves carry the live hovered post and the popup's visible folder/topic so they always land where intended. Collect metrics use shared icon chips across the overlay and popup preview. Collect saves and refresh-all writes share the snapshot lock so Topic signals cannot be left without a usable backing saved item/descriptor; pre-existing orphan/corrupt signals are hidden from Topic counts/lists and queued for storage cleanup. Content scripts also rehydrate active collect mode after extension reload/page refresh (see AGENTS.md "Recently Fixed 2026-05-22").
 - Mode-aware save routing: archive saves to Library; topic/product saves become Inbox signals; PR Evidence saves become campaign rows. Save messages now pass an explicit `sessionId`/`topicId`, so a drifted active folder cannot reroute a save.
 - Backend queue/drain/polling against `ingestBaseUrl`, defaulting to `http://127.0.0.1:8000`.
+- Popup backend health dot uses the lightweight backend `/health` endpoint for liveness, while `/worker/status` remains the slower work-truth projection for backlog / retry / analysis state. One failed health poll is suppressed, two mark the dot slow, and three mark it unreachable.
 - Compare setup and Result surfaces with backend read models plus extension-side compare brief v8, cluster summaries, evidence annotations, and saved analysis snapshots.
 - Topic workflow: Casebook, Inbox, Topic Detail, signal triage, per-signal semantic tags/gists, optional-question TopicSignalReading, and attached compare pairs.
 - Product workflow: ProductContextCompiler, ProductSignalAnalyzer v17, Marginalia/Verdict card layouts, the restored Reading Review action UI, SignalReading packet/export support, and local feedback history. v17 stops asking the model for legacy action-recipe fields such as `copy_recipe_markdown` / `workflow_stack`; action cards also ignore those legacy fields if present and keep evidence as reusable patterns plus agent briefs, not tutorial recipes.
@@ -63,14 +64,14 @@ npx tsx --test tests/*.test.ts tests/*.test.tsx
 npm run build
 ```
 
-Expected verified state for merged `main` `0.1.33` through PR #47:
+Expected verified state for merged `main` `0.2.0`:
 
-- `812/812` tests pass
+- `881 passed / 5 skipped` in `npx tsx --test tests/*.test.ts tests/*.test.tsx`
 - `npm run typecheck` passes
 - `npm run storage:seam-guard` reports zero allowlisted bypasses
 - `npm run boundary:guard` reports zero View / ViewModel wall violations and zero allowlisted bypasses
 - `npm run build` mirrors the unpacked MV3 build to `output/chrome-mv3`
-- `output/chrome-mv3/manifest.json` reports `version: "0.1.33"` and `name: "DLens v3"`
+- `output/chrome-mv3/manifest.json` reports `version: "0.2.0"` and `name: "DLens v3"`
 
 ## Second Mac Install
 

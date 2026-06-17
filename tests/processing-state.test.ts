@@ -16,6 +16,7 @@ import {
   isProductSignalPage,
   isPrEvidencePage,
   pickCompareSelection,
+  projectBackendReachability,
   projectBackendWorkStatus,
   resolveInitialPopupMode,
   shouldRefreshProcessingFolder,
@@ -322,6 +323,14 @@ test("getPollingDelayMs keeps an idle heartbeat so passive surfaces notice a dea
   assert.equal(getPollingDelayMs({ workerStatus: "idle", hasInflight: false, failureCount: 0 }), 12000);
   // Heartbeat stays flat under failures — recovery is noticed within one beat.
   assert.equal(getPollingDelayMs({ workerStatus: "idle", hasInflight: false, failureCount: 3 }), 12000);
+});
+
+test("projectBackendReachability suppresses one timeout and escalates by streak", () => {
+  assert.equal(projectBackendReachability(0), "reachable");
+  assert.equal(projectBackendReachability(1), "reachable");
+  assert.equal(projectBackendReachability(2), "slow");
+  assert.equal(projectBackendReachability(3), "unreachable");
+  assert.equal(projectBackendReachability(8), "unreachable");
 });
 
 test("processing coordinator does not restart polling just because workerStatus state changed", () => {

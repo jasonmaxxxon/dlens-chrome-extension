@@ -71,6 +71,7 @@ export type ItemReadinessStatus = "saved" | "queued" | "crawling" | "analyzing" 
 export type ProgressMode = "idle" | "queued" | "crawling" | "analyzing" | "ready";
 export type ProgressVariant = "neutral" | "queued" | "running" | "success" | "failed";
 export type WorkspaceMode = Exclude<PopupPage, "settings" | "audit-report">;
+export type BackendReachability = "reachable" | "slow" | "unreachable";
 
 export type BackendWorkUiState =
   | { kind: "idle" }
@@ -119,6 +120,16 @@ export function projectBackendWorkStatus(response: WorkerStatusResponse): Backen
   }
 
   return { kind: "idle" };
+}
+
+export function projectBackendReachability(consecutiveTimeouts: number): BackendReachability {
+  if (consecutiveTimeouts >= 3) {
+    return "unreachable";
+  }
+  if (consecutiveTimeouts >= 2) {
+    return "slow";
+  }
+  return "reachable";
 }
 
 export interface SessionProcessingSummary {

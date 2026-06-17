@@ -149,6 +149,8 @@ export interface BackendHealth {
   baseUrl: string;
   checkedAt: string;
   error?: string;
+  uptimeSeconds?: number;
+  processId?: number;
 }
 
 export type ExtensionSuccessResponse = {

@@ -1,6 +1,7 @@
 import { defineBackground } from "wxt/utils/define-background";
 import { IS_PR_ONLY_BUILD } from "../src/build-variant";
 import {
+  fetchBackendHealth,
   fetchCapture,
   fetchJob,
   fetchThreadsAdvancedMetrics,
@@ -2278,8 +2279,17 @@ export default defineBackground(() => {
             const baseUrl = normalizeBaseUrl(message.baseUrl);
             const checkedAt = new Date().toISOString();
             try {
-              await fetchWorkerStatus(baseUrl);
-              sendResponse({ ok: true, backendHealth: { reachable: true, baseUrl, checkedAt } } satisfies ExtensionResponse);
+              const health = await fetchBackendHealth(baseUrl);
+              sendResponse({
+                ok: true,
+                backendHealth: {
+                  reachable: true,
+                  baseUrl,
+                  checkedAt,
+                  uptimeSeconds: health.uptime_seconds,
+                  processId: health.process_id
+                }
+              } satisfies ExtensionResponse);
             } catch (error) {
               const detail = error instanceof Error ? error.message : String(error);
               sendResponse({

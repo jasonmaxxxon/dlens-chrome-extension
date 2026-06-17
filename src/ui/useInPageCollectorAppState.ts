@@ -532,10 +532,11 @@ export function useInPageCollectorAppState({ snapshot, tabId, sendAndSync }: Use
     () => summarizeSessionProcessing(activeFolder?.items || []),
     [activeFolder?.items]
   );
-  const { workerStatus, workerError, backendWorkUiState, setWorkerStatus } = useProcessingCoordinator({
+  const { workerStatus, workerError, backendWorkUiState, backendReachability, setWorkerStatus } = useProcessingCoordinator({
     popupOpen,
     activeFolderId: activeFolder?.id,
     hasInflight: processingSummary.hasInflight,
+    ingestBaseUrl: snapshot?.global.settings.ingestBaseUrl,
     sendAndSync
   });
   const productBackendError = useMemo(
@@ -2677,6 +2678,7 @@ export function useInPageCollectorAppState({ snapshot, tabId, sendAndSync }: Use
     isStartingProcessing,
     workerStatus,
     backendWorkUiState,
+    backendReachability,
     techniqueReadings,
     savedAnalyses,
     productSignalAnalyses,
