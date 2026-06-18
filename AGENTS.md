@@ -1,8 +1,19 @@
 # AGENTS.md — DLens Chrome Extension v0.2
 
-> **Last updated:** 2026-06-17 (release 0.2.0 — `TRACE`, `SEAM_GUARD`, `RECONCILE`, `INVALIDATE`, `BOUNDARY`, and `MIGRATE` are locked in `docs/architecture/dlens-current-architecture-map.md`. Latest local verification: 881 passed / 5 skipped tests, typecheck, storage seam guard, boundary guard, `qa:harness:fixture`, build, and `git diff --check`. `BOUNDARY` is enforced by `npm run boundary:guard`, which runs View and ViewModel wall scanners in CI at zero allowlisted violations.)
+> **Last updated:** 2026-06-18 (release 0.2.1 — Signal Packet export adds compact HTML density, citation refs, filed-reading lineage, source URL provenance, and Product reading-review provenance mirror as additive packet v3/read-model fields. Latest local verification: 889 passed / 5 skipped tests, typecheck, storage seam guard, boundary guard, `qa:harness:fixture`, build, and `git diff --check`. `BOUNDARY` is enforced by `npm run boundary:guard`, which runs View and ViewModel wall scanners in CI at zero allowlisted violations.)
 > **For:** any agent continuing work in this repo
 > **READ FIRST:** [`docs/architecture/dlens-current-architecture-map.md`](docs/architecture/dlens-current-architecture-map.md) — the status-colored handoff map (🟩 locked / 🟢 built / 🟡 partial / 🔴 not built). Don't treat 🟢 as 🟩; don't bypass ViewModel / typed command target / storage seam / pipeline trace; any async-path PR must handle requestId + invalidation + rehydrate; update the map's colors in your PR if status changes.
+
+## Recently Fixed (2026-06-18) — Signal Packet export provenance and lineage
+
+Signal Packet export remains `DLENS_SIGNAL_PACKET_VERSION = "v3"`; the 0.2.1 changes are additive and require no storage migration.
+
+- HTML export is more compact and marks `data-signal-packet-density="compact"`.
+- HTML provenance strips now include source/capture/item metadata when present.
+- `DLensSignalEvidence.citedInReadingRefs` maps evidence refs back to the readings that cited them; the HTML evidence section shows the cited-by-reading affordance.
+- `DLensSignalReadingBundle` exposes `latestFiled` and `supersededFiled`; the HTML reading panel shows filed lineage without rendering superseded bodies.
+- `DLensSignalPacket.source` exposes `urlSource`, `pageUrlSource`, `pageUrlFallbackSource`, and `canonicalTargetUrlSource`, so renderer output can explain descriptor / capture / canonical / reading fallback choices.
+- Product Reading Review mirrors packet-style provenance in the popup row (`來源`, `capture`, `item`) from the ViewModel; Views still do not read storage or call browser APIs directly.
 
 ## Recently Fixed (2026-06-16) — Boundary wall guards
 

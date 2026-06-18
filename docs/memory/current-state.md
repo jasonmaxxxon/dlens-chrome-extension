@@ -1,6 +1,6 @@
 # Current State
 
-## System State As Of 2026-06-16
+## System State As Of 2026-06-18
 
 DLens is now best described as a **desktop-first Threads research, product-signal, and PR evidence extension**.
 
@@ -75,7 +75,10 @@ The current product split is:
    - `src/compare/signal-packet-export.ts` renders JSONL, Markdown, and HTML exports
    - background messages are wired: `signal-packet/get`, `signal-packet/index`, and `signal-packet/export`
    - JSONL is the agent handoff surface; HTML is the human reading surface and deliberately hides raw `decisionTrace`
-   - `DLENS_SIGNAL_PACKET_VERSION` is `v3`; keep upcoming JSONL semantic clarifications additive unless a breaking reader change is truly required
+   - `DLENS_SIGNAL_PACKET_VERSION` is `v3`; the 0.2.1 Signal Packet changes stayed additive and did not require storage migration or packet-version bump
+   - HTML exports now use compact density, source/capture/item provenance, cited-by-reading affordances, filed-reading lineage, and source URL fallback provenance
+   - `DLensSignalEvidence.citedInReadingRefs` maps evidence refs back to reading cache keys; `DLensSignalReadingBundle.latestFiled` / `supersededFiled` expose filed lineage while keeping `reading.latest` as the visible body source
+   - `DLensSignalPacket.source` records `urlSource`, `pageUrlSource`, `pageUrlFallbackSource`, and `canonicalTargetUrlSource`; Product Reading Review mirrors source/capture/item provenance from the ViewModel
 
 8. Engineering-plan hardening slice
    - `docs/ENGINEERING_PLAN.md` §2 N1-N5 is complete
@@ -88,7 +91,7 @@ The current product split is:
 The verified build in the active Phase B implementation worktree is:
 
 - verification worktree: `dlens-product-latest`
-- current extension version: `0.2.0`
+- current extension version: `0.2.1`
 - active load-unpacked folder: `output/chrome-mv3`
 - note: `dlens-product-latest` source checkout may be dirty; do not infer clean source state from the copied build artifact
 - unpacked extension: `output/chrome-mv3`
@@ -101,7 +104,7 @@ The verified build in the active Phase B implementation worktree is:
 - latest build output was mirrored to `output/chrome-mv3`
 - current engineering branch: `main`
 - live backend smoke from the prior product run: `GET http://127.0.0.1:8000/worker/status` returned `{"status":"idle"}`
-- extension manifest name is `DLens v3`; current extension version is `0.2.0`
+- extension manifest name is `DLens v3`; current extension version is `0.2.1`
 - version is locked across `package.json`, `package-lock.json`, `wxt.config.ts` `manifest.version`, and `src/ui/version.ts` `BUILD_VERSION`
 - runtime tab targeting fix: content-script `state/get-active-tab` and collect start/cancel must resolve to `sender.tab.id` before falling back to Chrome's focused tab, otherwise the popup can show collect mode off while the Threads content script is already in crosshair/overlay mode
 
@@ -237,7 +240,7 @@ Topic Detail now uses per-signal semantic tags as the primary scan layer. Topic 
 
 ## Version State
 
-- Current extension version: `0.2.0`.
+- Current extension version: `0.2.1`.
 - Chrome extension page version comes from `wxt.config.ts` `manifest.version` in the built manifest.
 - Popup masthead version comes from `src/ui/version.ts` `BUILD_VERSION`.
 - `package.json`, `package-lock.json`, `wxt.config.ts`, and `src/ui/version.ts` must stay in sync for every main-facing update unless explicitly skipped.
