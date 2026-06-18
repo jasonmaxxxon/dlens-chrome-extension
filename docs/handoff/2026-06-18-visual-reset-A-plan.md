@@ -87,6 +87,16 @@ Visual Reset A is done when:
 - [x] **DoD:** Boundary guard CI stays green. DOM tests confirm rendered primitive structure and PR Evidence ledger/source-link structure.
 - [x] **DoD test:** Components tests cover primitive DOM hooks; PR Evidence view tests render representative VM input and assert section/header/actions/export surfaces remain present.
 
+Post-merge LOC note (2026-06-18): PR 2 successfully added the primitive foundation, but it did not reduce the five large View files yet. Current counts after PR 4a:
+
+- `ProductSignalViews.tsx`: 4100
+- `CompareView.tsx`: 3193
+- `TopicDetailView.tsx`: 2415
+- `PrEvidenceViews.tsx`: 1144
+- `LibraryView.tsx`: 1062
+
+Treat primitive adoption / large-view LOC reduction as an explicit PR 4+ or later `refactor(ui)` item; do not treat the original ≥ 30% reduction target as satisfied.
+
 ### PR 3 — Shell + Interaction Reset (feature, first user-visible change)
 
 **Goal:** Make the popup feel like a native macOS utility without changing the editorial content language.
