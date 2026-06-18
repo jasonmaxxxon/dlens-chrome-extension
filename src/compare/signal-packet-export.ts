@@ -1148,16 +1148,32 @@ function renderHtmlEvidence(packet: DLensSignalPacket): string {
 
 function renderHtmlReading(packet: DLensSignalPacket): string {
   const latest = packet.reading.latest;
+  const lineageHtml = renderHtmlFiledReadingLineage(packet);
   if (!latest || !latest.reading.trim()) {
     return `<section class="reading-panel">
           <h4>Reading</h4>
           <p class="muted" style="font-style:italic">尚未生成深度判讀。</p>
+          ${lineageHtml}
         </section>`;
   }
   return `<section class="reading-panel">
           <h4>Reading</h4>
           <div class="reading-text">${renderReadingBody(latest.reading)}</div>
+          ${lineageHtml}
         </section>`;
+}
+
+function renderHtmlFiledReadingLineage(packet: DLensSignalPacket): string {
+  const latestFiled = packet.reading.latestFiled;
+  const supersededCount = packet.reading.supersededFiled.length;
+  if (!latestFiled && !supersededCount) return "";
+  const parts: string[] = [];
+  if (latestFiled) {
+    parts.push(`最新 filed ${latestFiled.cacheKey}`);
+    if (latestFiled.generatedAt) parts.push(latestFiled.generatedAt.slice(0, 10));
+  }
+  if (supersededCount) parts.push(`另有 ${supersededCount} 個歷史 filed`);
+  return `<p class="signal-meta" data-reading-lineage="filed">${escapeHtml(parts.join(" · "))}</p>`;
 }
 
 function renderReadingBody(value: string): string {

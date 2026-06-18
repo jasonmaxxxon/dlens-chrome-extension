@@ -8,6 +8,29 @@ import { DLENS_SIGNAL_PACKET_VERSION, type DLensSignalPacket } from "../src/comp
 
 type SignalPacketReading = NonNullable<DLensSignalPacket["reading"]["latest"]>;
 
+function makeReading(overrides: Partial<SignalPacketReading> = {}): SignalPacketReading {
+  return {
+    signalId: "signal-1",
+    cacheKey: "reading-1",
+    productContextHash: "ctx_1",
+    sourcePacketHash: "pkt_1",
+    promptVersion: "v1",
+    reading: "這段 reading 應該直接出現在卡片頂層。",
+    generatedAt: "2026-05-19T08:07:00.000Z",
+    model: "google:gemini",
+    sourceRefs: ["e1"],
+    sourcePacket: {
+      assembledContent: "source",
+      postUrl: "",
+      representativeComments: [],
+      analysisPromptVersion: "v16"
+    },
+    reviewState: "filed",
+    feedbackEvents: [],
+    ...overrides
+  };
+}
+
 function makeReadingBundle(latest: SignalPacketReading | null = null): DLensSignalPacket["reading"] {
   const all = latest ? [latest] : [];
   const filed = latest?.reviewState === "filed" ? [latest] : [];
@@ -460,6 +483,51 @@ test("exportSignalPackets html renders safe inline markdown in visible reading t
   assert.doesNotMatch(result.content, /_read later_/);
   assert.doesNotMatch(result.content, /產品啟示是/);
   assert.doesNotMatch(result.content, /Decision trace/);
+});
+
+test("exportSignalPackets html surfaces filed reading lineage without rendering superseded bodies", () => {
+  const latestReading = makeReading({
+    cacheKey: "reading-draft-latest",
+    promptVersion: "v10",
+    reading: "目前最新但尚未 filed 的 reading。",
+    generatedAt: "2026-05-20T08:07:00.000Z",
+    reviewState: "draft"
+  });
+  const latestFiled = makeReading({
+    ...latestReading,
+    cacheKey: "reading-filed-new",
+    promptVersion: "v9",
+    reading: "最新 filed reading 的本文不應在 lineage meta 重複展開。",
+    generatedAt: "2026-05-19T08:07:00.000Z",
+    reviewState: "filed"
+  });
+  const supersededFiled = makeReading({
+    ...latestFiled,
+    cacheKey: "reading-filed-old",
+    reading: "歷史 filed reading 本文不應被渲染。",
+    generatedAt: "2026-05-18T08:07:00.000Z"
+  });
+  const packet = makePacket({
+    reading: {
+      latest: latestReading,
+      latestFiled,
+      supersededFiled: [supersededFiled],
+      filed: [latestFiled, supersededFiled],
+      all: [latestReading, latestFiled, supersededFiled]
+    }
+  });
+
+  const result = exportSignalPackets([packet], {
+    format: "html",
+    generatedAt: "2026-05-20T08:30:00.000Z"
+  });
+
+  assert.match(result.content, /目前最新但尚未 filed 的 reading/);
+  assert.match(result.content, /data-reading-lineage="filed"/);
+  assert.match(result.content, /最新 filed reading-filed-new/);
+  assert.match(result.content, /另有 1 個歷史 filed/);
+  assert.doesNotMatch(result.content, /reading-draft-latest · 最新 filed/);
+  assert.doesNotMatch(result.content, /歷史 filed reading 本文不應被渲染/);
 });
 
 test("exportSignalPackets html renames cited evidence section and collapses beyond top 5", () => {
