@@ -575,6 +575,26 @@ test("exportSignalPackets html surfaces provenance strip with reading + analysis
   assert.match(result.content, /判讀 v9 · 分析 v16 · Gemini Flash · 2 則留言 · max ♥12 · captured 2026-05-15/);
 });
 
+test("exportSignalPackets html provenance strip displays existing source metadata only", () => {
+  const base = makePacket();
+  const packet = makePacket({
+    source: {
+      ...base.source,
+      source: "threads",
+      itemStatus: "succeeded",
+      captureId: "cap-html-1"
+    }
+  });
+
+  const result = exportSignalPackets([packet], {
+    format: "html",
+    generatedAt: "2026-05-19T08:30:00.000Z"
+  });
+
+  assert.match(result.content, /來源 threads · capture cap-html-1 · item succeeded/);
+  assert.doesNotMatch(result.content, /packetSourceProvenance|sourceProvenance/);
+});
+
 test("exportSignalPackets html catalog block also collapses beyond top 5", () => {
   const base = makePacket();
   const textEvidence = Array.from({ length: 8 }, (_, index) => ({

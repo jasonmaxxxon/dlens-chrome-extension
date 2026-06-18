@@ -1092,6 +1092,9 @@ function renderHtmlSignalMeta(packet: DLensSignalPacket): string {
   if (inputRefCount) parts.push(`${inputRefCount} 則留言`);
   if (maxLikes) parts.push(`max ♥${maxLikes}`);
   if (packet.source.capturedAt) parts.push(`captured ${packet.source.capturedAt.slice(0, 10)}`);
+  if (packet.source.source) parts.push(`來源 ${packet.source.source}`);
+  if (packet.source.captureId) parts.push(`capture ${packet.source.captureId}`);
+  if (packet.source.itemStatus) parts.push(`item ${packet.source.itemStatus}`);
 
   if (!parts.length) return "";
   return `<p class="signal-meta" data-signal-provenance="true">${escapeHtml(parts.join(" · "))}</p>`;
