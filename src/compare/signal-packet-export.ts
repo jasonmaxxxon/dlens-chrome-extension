@@ -444,9 +444,9 @@ function renderHtml(packets: DLensSignalPacket[], generatedAt: string): string {
     h2.lane-heading[data-lane="skip"] { color: var(--skip); border-bottom-color: var(--skip); }
     h2.lane-heading .muted { font-weight: 400; color: var(--muted); margin-left: 6px; }
     .verdict-lane {
-      margin-top: 56px;
+      margin-top: 48px;
     }
-    .verdict-lane:first-of-type { margin-top: 56px; }
+    .verdict-lane:first-of-type { margin-top: 48px; }
     .lane-empty {
       color: var(--muted);
       font-size: 14px;
@@ -454,13 +454,13 @@ function renderHtml(packets: DLensSignalPacket[], generatedAt: string): string {
       padding: 12px 0;
     }
     .signal-card {
-      margin: 0 0 56px;
+      margin: 0 0 44px;
       padding: 0;
       background: transparent;
       border: none;
     }
     .signal-card + .signal-card {
-      padding-top: 56px;
+      padding-top: 44px;
       border-top: 1px solid var(--line-soft);
     }
     .signal-head { margin-bottom: 14px; }
@@ -499,9 +499,9 @@ function renderHtml(packets: DLensSignalPacket[], generatedAt: string): string {
     }
     .insight-row {
       display: grid;
-      gap: 14px;
-      margin: 18px 0 26px;
-      padding: 18px 20px;
+      gap: 12px;
+      margin: 16px 0 22px;
+      padding: 14px 16px;
       background: var(--paper-deep);
       border-radius: 2px;
     }
@@ -519,10 +519,10 @@ function renderHtml(packets: DLensSignalPacket[], generatedAt: string): string {
       margin: 0;
     }
     .reading-panel {
-      margin: 32px 0;
+      margin: 24px 0;
     }
     .reading-panel h4 {
-      margin: 0 0 18px;
+      margin: 0 0 12px;
       font: 500 10px/1 var(--sans);
       letter-spacing: 0.32em;
       text-transform: uppercase;
@@ -538,28 +538,28 @@ function renderHtml(packets: DLensSignalPacket[], generatedAt: string): string {
       background: var(--line);
     }
     .reading-text {
-      font: 400 17px/1.9 var(--serif);
+      font: 400 16px/1.75 var(--serif);
       color: var(--ink);
     }
     .reading-text p {
-      margin: 0 0 1em;
+      margin: 0 0 0.8em;
     }
     .reading-text p:last-child { margin-bottom: 0; }
     .reading-text strong { font-weight: 700; color: var(--ink); }
     .reading-text em { font-style: italic; color: var(--accent); }
     .cited-evidence {
-      margin: 32px 0;
+      margin: 24px 0;
     }
     .cited-evidence h4 {
-      margin: 0 0 16px;
+      margin: 0 0 12px;
       font: 500 10px/1 var(--sans);
       letter-spacing: 0.32em;
       text-transform: uppercase;
       color: var(--muted);
     }
     .cited-quote {
-      margin: 0 0 18px;
-      padding: 14px 18px 14px 22px;
+      margin: 0 0 12px;
+      padding: 12px 16px 12px 18px;
       background: var(--surface);
       border-left: 3px solid var(--line);
       border-radius: 0 2px 2px 0;
@@ -568,7 +568,7 @@ function renderHtml(packets: DLensSignalPacket[], generatedAt: string): string {
       font: 500 11px/1 var(--sans);
       letter-spacing: 0.12em;
       color: var(--muted);
-      margin-bottom: 8px;
+      margin-bottom: 6px;
       display: flex;
       gap: 10px;
       align-items: baseline;
@@ -578,18 +578,18 @@ function renderHtml(packets: DLensSignalPacket[], generatedAt: string): string {
       font-weight: 700;
     }
     .cited-quote .quote-text {
-      font: 400 15px/1.75 var(--serif);
+      font: 400 14.5px/1.65 var(--serif);
       color: var(--ink);
       margin: 0;
     }
     .cited-quote .quote-note {
-      margin-top: 10px;
-      padding-top: 10px;
+      margin-top: 8px;
+      padding-top: 8px;
       border-top: 1px dashed var(--line);
       font: 400 13px/1.7 var(--sans);
       color: var(--ink-soft);
       display: grid;
-      gap: 6px;
+      gap: 4px;
     }
     .cited-quote .quote-note .note-label {
       font: 500 10px/1 var(--sans);
@@ -649,8 +649,8 @@ function renderHtml(packets: DLensSignalPacket[], generatedAt: string): string {
       letter-spacing: 0;
     }
     .signal-detail {
-      margin-top: 24px;
-      padding-top: 16px;
+      margin-top: 18px;
+      padding-top: 14px;
       border-top: 1px solid var(--line-soft);
     }
     .signal-detail summary {
@@ -667,12 +667,12 @@ function renderHtml(packets: DLensSignalPacket[], generatedAt: string): string {
     .detail-grid {
       display: grid;
       grid-template-columns: 1fr;
-      gap: 16px;
-      margin-top: 16px;
+      gap: 12px;
+      margin-top: 12px;
     }
     .detail-block {
       background: var(--soft);
-      padding: 16px 18px;
+      padding: 14px 16px;
       border-radius: 2px;
     }
     .detail-block h4 {
@@ -797,7 +797,7 @@ function renderHtml(packets: DLensSignalPacket[], generatedAt: string): string {
   </style>
 </head>
 <body>
-  <main>
+  <main data-signal-packet-density="compact">
     <header class="cover">
       <p class="cover-kicker">DLens · Signal Reading</p>
       <h1>${escapeHtml(coverTitle(packets))}</h1>

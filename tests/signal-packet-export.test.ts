@@ -287,6 +287,31 @@ test("exportSignalPackets html renders scannable verdict lanes and collapsed sig
   assert.match(result.content, /agent_task adopted/);
 });
 
+test("exportSignalPackets html uses compact density without changing packet contract", () => {
+  const base = makePacket();
+  const htmlResult = exportSignalPackets([base, makePacket({
+    source: { ...base.source, signalId: "signal-2" }
+  })], {
+    format: "html",
+    generatedAt: "2026-05-19T08:30:00.000Z"
+  });
+
+  assert.match(htmlResult.content, /<main data-signal-packet-density="compact">/);
+  assert.match(htmlResult.content, /\.signal-card \{\n      margin: 0 0 44px;/);
+  assert.match(htmlResult.content, /\.signal-card \+ \.signal-card \{\n      padding-top: 44px;/);
+  assert.match(htmlResult.content, /\.reading-text \{\n      font: 400 16px\/1\.75 var\(--serif\);/);
+  assert.match(htmlResult.content, /\.cited-quote \{\n      margin: 0 0 12px;\n      padding: 12px 16px 12px 18px;/);
+
+  const jsonlResult = exportSignalPackets([makePacket()], {
+    format: "jsonl",
+    generatedAt: "2026-05-19T08:30:00.000Z"
+  });
+  const [packet] = jsonlResult.content.trim().split("\n").map((line) => JSON.parse(line) as DLensSignalPacket);
+
+  assert.equal(packet?.packetVersion, DLENS_SIGNAL_PACKET_VERSION);
+  assert.doesNotMatch(jsonlResult.content, /signalPacketDensity|htmlDensity/);
+});
+
 test("exportSignalPackets html keeps raw details sparse with cited evidence only and no empty feedback", () => {
   const base = makePacket();
   const packet = makePacket({
