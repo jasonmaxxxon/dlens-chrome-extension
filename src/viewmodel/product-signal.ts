@@ -50,6 +50,7 @@ export interface ProductSignalViewModel {
   signalId: string;
   sessionId: string;
   itemId: string | null;
+  captureId: string | null;
   source: Signal["source"];
   title: string;
   sourcePreview: EvidencePreview;
@@ -347,6 +348,7 @@ function buildSignalViewModels({
       signalId: signal.id,
       sessionId: signal.sessionId,
       itemId: signal.itemId ?? null,
+      captureId: item?.captureId || item?.latestCapture?.id || null,
       source: signal.source,
       title,
       sourcePreview,
