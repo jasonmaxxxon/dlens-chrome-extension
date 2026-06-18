@@ -120,6 +120,7 @@ The rules:
 1. **One-in-one-out** — every PR that adds content, UI surface, copy, or dependency must remove something of comparable weight. Note both sides in the commit message. Additive-only PRs are rejected.
 2. **No "pass" / "refinement round" / "honesty pass" / "cleanup pass" changes** — every change is exactly one of: bug fix, feature, removal, refactor. These four words are the only allowed commit prefixes (or their short forms). Words like "pass" / "polish" / "round" / "tune" are banned from commit messages and doc headings.
 3. **`tokens.ts` is the sole design spec** — do not write design specs in markdown. `DESIGN.md`, `docs/product/*-design-system.md`, and any mockup repo spec are reference material only. If a new visual direction is chosen, update `tokens.ts` first and delete/archive prior markdown specs in the same PR.
+   Current Visual Reset A decision: DLens keeps the warm-paper editorial content language in `src/ui/tokens.ts`; macOS utility shell patterns may extend existing shadow / motion / effect tokens, but no second palette, font scale, or design-system file is allowed. Use `docs/handoff/2026-06-18-visual-reset-A-plan.md` for the PR sequence.
 4. **`InPageCollectorApp.tsx` hard cap: 400 lines** — locked because the shell had ballooned to 1442 lines on 2026-04-17 before T9. It is now a thin wrapper again; any PR touching this file must keep it at or below 400 lines unless explicitly labeled `refactor:shell-migration`. Growth requires deleting a matching number of lines elsewhere in `src/ui/`.
 5. **One UI slot per contract field** — no `CompareBrief` / `CompareHeroSummary` / `EvidenceAnnotation` field may render twice in the same user-visible page. When adding a new surface, first grep the field name across `src/ui/` and either remove the prior render or do not add the new one.
 
@@ -744,14 +745,14 @@ The active debt list for v0 is the one in this file, not the older prototype bun
 - Preferred navigation direction for the next major UI pass is an in-page slide-in drawer, not Chrome Side Panel first
   - do this only after the God Component split makes the popup views drawer-ready
 
-## UI Design Direction (2026-04-13) — PENDING IMPLEMENTATION
+## Archived UI Design Direction (2026-04-13) — Superseded
 
-**No extension code was changed in this session.** A full interactive mockup was built in a separate repo. Design specs below are the implementation target.
+**Status:** historical reference only. This 2026-04-13 Apple-style target was superseded by the active `src/ui/tokens.ts` warm-paper editorial direction and the Visual Reset A contract: "editorial reader inside a native-feeling utility shell." Do not use this section or `design-system/DESIGN.md` as the active design spec.
 
 ### Design Language
 - **Positioning**: news-led, finance-disciplined. "Annotated field guide" (社群現象注解手冊). NOT a dashboard.
 - **References**: Apple News (editorial cards, source chips) + finance apps (compact metrics, trust structure)
-- **Confirmed by Codex + user. Not negotiable.**
+- **Historical note:** superseded by `src/ui/tokens.ts`; retained to explain older UI artifacts and comments.
 
 ### Design Tokens (target for `src/ui/tokens.ts`)
 | Token | Current | Target |
@@ -764,7 +765,7 @@ The active debt list for v0 is the one in this file, not the older prototype bun
 | Button radius | — | 8px |
 | Badge radius | — | 5px |
 
-Full spec: `DESIGN.md`
+Historical spec: `design-system/DESIGN.md` (archived; superseded by `src/ui/tokens.ts`).
 
 ### Three-Page IA (confirmed, not reversible)
 | Page | Metaphor | Contents |

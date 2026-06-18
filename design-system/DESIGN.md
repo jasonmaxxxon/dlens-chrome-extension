@@ -1,5 +1,8 @@
 # DLens Design System — Decision Matrix
 
+> **Status: ARCHIVED — superseded by [`src/ui/tokens.ts`](../src/ui/tokens.ts) on 2026-06-18.**
+> Active Visual Reset A decision: DLens keeps the warm-paper editorial content language in `tokens.ts`, while macOS utility patterns may extend existing shell / motion / shadow tokens. This file is retained as historical reference only; do not use it as the active design spec.
+
 > **Identity**: Editorial analysis tool with desktop utility discipline.
 > Not a dashboard. Not a system preferences panel. A research brief you actually want to read.
 >

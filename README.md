@@ -5,7 +5,7 @@ DLens is a mode-aware MV3 Chrome extension for capturing Threads posts and turni
 > Last updated: 2026-06-18
 > Current release: `0.2.1` · latest local full suite `889 passed / 5 skipped` · build clean
 > Current engineering branch: `main`
-> Positioning (2026-06-08): local power-tool (self + small technical circle); two separate repos (extension public · ingest-core **private**), not monorepo; visual reset Option A pending
+> Positioning (2026-06-18): local power-tool (self + small technical circle); two separate repos (extension public · ingest-core **private**), not monorepo; Visual Reset A contract is `src/ui/tokens.ts` warm editorial + macOS utility shell
 > Verified build: `output/chrome-mv3`
 > Stability note (0.2.1): `TRACE`, `SEAM_GUARD`, `RECONCILE`, `INVALIDATE`, `BOUNDARY`, and `MIGRATE` are locked in the live architecture map. Signal Packet export gained additive provenance and lineage fields without a storage migration or packet-version bump.
 
@@ -103,6 +103,7 @@ Read these before non-trivial work:
 
 - [`docs/architecture/dlens-current-architecture-map.md`](./docs/architecture/dlens-current-architecture-map.md) for the live architecture/status map. Treat 🟢 as built, not locked; update the map if a node/edge status changes.
 - [`AGENTS.md`](./AGENTS.md) for process rules, current contracts, and agent handoff notes.
+- [`docs/handoff/2026-06-18-visual-reset-A-plan.md`](./docs/handoff/2026-06-18-visual-reset-A-plan.md) for the Visual Reset A PR sequence and single design-source contract.
 - [`docs/ENGINEERING_PLAN.md`](./docs/ENGINEERING_PLAN.md) for the completed N1-N5 engineering-plan slice and deferred-trigger pool.
 - [`docs/CODE_REVIEW.md`](./docs/CODE_REVIEW.md) for the current PR self-check contract.
 - [`docs/memory/current-state.md`](./docs/memory/current-state.md) for the fuller repo state.
