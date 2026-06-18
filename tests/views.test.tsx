@@ -1052,6 +1052,67 @@ test("PR Evidence ledger rows expose the original Threads post link", () => {
   assert.match(html, /Open original Threads post by alpha/);
 });
 
+test("PR Evidence ledger rows use audit numbering and editorial quote blocks", () => {
+  const campaign: PrCampaign = {
+    id: "campaign-audit",
+    sessionId: "session-pr",
+    name: "Launch",
+    briefText: "Brief",
+    criteria: [
+      { id: "c1", label: "Campaign" },
+      { id: "c2", label: "Hashtag" },
+      { id: "c3", label: "Message" },
+      { id: "c4", label: "Venue" },
+      { id: "c5", label: "Experience" },
+      { id: "c6", label: "CTA" }
+    ],
+    createdAt: "2026-05-26T00:00:00.000Z",
+    updatedAt: "2026-05-26T00:00:00.000Z"
+  };
+  const rows: PrEvidenceRow[] = [
+    {
+      id: "row-audit-1",
+      campaignId: "campaign-audit",
+      itemId: "item-1",
+      postUrl: "https://www.threads.net/@alpha/post/1",
+      authorHandle: "alpha",
+      caption: "Audience quote one with enough text to read like a PR evidence clipping.",
+      metrics: { likes: 12, comments: 3, reposts: 1 },
+      criteriaMatches: { c1: true, c2: false, c3: true, c4: false, c5: false, c6: false },
+      collectedAt: "2026-05-26T00:00:00.000Z"
+    },
+    {
+      id: "row-audit-2",
+      campaignId: "campaign-audit",
+      itemId: "item-2",
+      postUrl: "https://www.threads.net/@beta/post/2",
+      authorHandle: "beta",
+      caption: "Second audience quote that should receive the 02 audit index.",
+      metrics: { likes: 4, comments: 1, reposts: 0 },
+      criteriaMatches: { c1: false, c2: true, c3: false, c4: false, c5: false, c6: false },
+      collectedAt: "2026-05-26T00:01:00.000Z"
+    }
+  ];
+  const vm = buildPrEvidenceVm({
+    campaign: prCampaignToDraft(campaign),
+    rows
+  });
+  const html = renderToStaticMarkup(
+    React.createElement(prEvidenceViewTestables.EvidenceLedger, {
+      rows: vm.ledger.rows
+    })
+  );
+
+  assert.match(html, /data-pr-evidence-ledger-style="audit"/);
+  assert.match(html, /data-pr-evidence-row="audit"/);
+  assert.match(html, /data-pr-evidence-audit-number="01"/);
+  assert.match(html, /data-pr-evidence-audit-number="02"/);
+  assert.match(html, /data-quote-block="shared"/);
+  assert.match(html, /font-style:italic/);
+  assert.match(html, /grid-template-columns:34px minmax\(0, 1fr\)/);
+  assert.doesNotMatch(html, /min-width:1320/);
+});
+
 test("PrEvidenceView keeps metrics actions prominent and avoids horizontal inspection tables", () => {
   const html = renderPrEvidenceView();
   const previewCampaign: PrCampaign = {

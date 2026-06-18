@@ -13,7 +13,7 @@
 Date: 2026-06-18
 Depends on: `docs/architecture/dlens-current-architecture-map.md` (no 🔴 nodes; 6 walls 🟩), archived `design-system/DESIGN.md`, and `docs/mockups/references/2026-06-09-design-gallery-PROGRESS.md`.
 Product baseline: `origin/main` at `0.2.1` (889 passed / 5 skipped). Desktop checkout is 5 commits behind — sync before starting.
-Status: PR 1 merged as design-source convergence; PR 2 merged as primitive foundation; PR 3 shell interaction reset in progress; PR 4 pending.
+Status: PR 1 merged as design-source convergence; PR 2 merged as primitive foundation; PR 3 merged as shell interaction reset; PR 4a implemented as PR Evidence ledger surface; PR 4b pending.
 
 ## Current Truth
 
@@ -105,7 +105,7 @@ Visual Reset A is done when:
 
 Suggested order (smallest blast radius first):
 
-- [ ] **PR 4a — PR Evidence ledger.** Strengthen italic-serif quote treatment, evidence row density, audit-style numbering. Already smallest View; safest to tune first.
+- [x] **PR 4a — PR Evidence ledger.** Strengthen italic-serif quote treatment, evidence row density, audit-style numbering. Already smallest View; safest to tune first. This slice keeps the existing source-link command surface and changes only the ledger render structure.
 - [ ] **PR 4b — Topic detail.** Section rhythm, topic-accent (sage) usage, audit report entry typography.
 - [ ] **PR 4c — Compare hero.** This is the billboard moment per the Visual Reset A contract and the archived `DESIGN.md` reference, and the most-visible UI surface. Tight serif headline, generous breathing room, stance cells with mode-accent left border. Single raised card per view (elevation discipline).
 - [ ] **PR 4d — Product action cards / signal drawer.** Steel-blue product accent, action card lift on hover, signal readiness chip alignment.
@@ -115,6 +115,8 @@ Each PR 4x ships with:
 - [ ] Command-wiring test: `onCommand` dispatch fires expected typed command descriptor
 - [ ] Readability sanity: at least one golden assertion on text-overflow / line-height / focus ring
 - [ ] Mode accent contract test: switching mode swaps accent CSS vars correctly
+
+PR 4a shipped with a DOM/readability test for the PR Evidence ledger audit rows: `data-pr-evidence-ledger-style="audit"`, audit numbers, shared quote block usage, italic quote typography, two-column row grid, and no wide inspection-table fallback. Command wiring is intentionally unchanged for this slice; the source-link surface remains covered by the existing PR Evidence source-link test.
 
 ## Out of Scope
 

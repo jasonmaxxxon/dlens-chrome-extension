@@ -14,10 +14,10 @@ import {
   type PrWorkPane
 } from "../viewmodel/pr-evidence.ts";
 import {
-  EvidenceRow,
   Kicker,
   ModeHeader,
   PrimaryButton,
+  QuoteBlock,
   SCAN_ROW_HOVER_CSS,
   SectionHeader,
   SecondaryButton,
@@ -486,23 +486,80 @@ function CampaignEditor({
 
 function EvidenceLedger({ rows }: { rows: PrEvidenceRowViewModel[] }) {
   return (
-    <section data-pr-evidence-ledger="compact" style={{ display: "grid", minWidth: 0 }}>
+    <section data-pr-evidence-ledger="compact" data-pr-evidence-ledger-style="audit" style={{ display: "grid", minWidth: 0 }}>
       <style>{SCAN_ROW_HOVER_CSS}</style>
       {rows.length ? (
         <div data-scan-list="pr-evidence" style={{ display: "grid", borderTop: `1px solid ${PR_RULE}` }}>
-          {rows.map((row) => (
-            <EvidenceRow
-              key={row.id}
-              leading={<SourceLinkIcon row={row} />}
-              author={row.authorLabel}
-              body={row.captionLabel}
-              metric={row.metricLine}
-              status={<CriterionChips row={row} variant="compact" />}
-              meta={row.collectedAtLabel}
-              dataAttrs={{ "data-pr-evidence-row": "compact" }}
-              style={{ borderBottom: `1px solid ${PR_RULE}` }}
-            />
-          ))}
+          {rows.map((row, index) => {
+            const auditNumber = formatAuditNumber(index);
+            return (
+              <article
+                key={row.id}
+                data-pr-evidence-row="audit"
+                data-scan-row="true"
+                style={{
+                  display: "grid",
+                  gridTemplateColumns: "34px minmax(0, 1fr)",
+                  gap: 12,
+                  padding: "14px 4px",
+                  borderBottom: `1px solid ${PR_RULE}`,
+                  background: "transparent",
+                  cursor: "default",
+                  transition: tokens.motion.interactiveTransitionFast,
+                  minWidth: 0
+                }}
+              >
+                <span
+                  data-pr-evidence-audit-number={auditNumber}
+                  style={{
+                    ...textStyles.metric,
+                    color: PR_ACCENT,
+                    fontWeight: 800,
+                    paddingTop: 2,
+                    textAlign: "center",
+                    letterSpacing: "0.02em"
+                  }}
+                >
+                  {auditNumber}
+                </span>
+                <div style={{ display: "grid", gap: 8, minWidth: 0 }}>
+                  <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap", minWidth: 0 }}>
+                    <span
+                      style={{
+                        ...prMonoMetaStyle,
+                        color: tokens.color.ink,
+                        maxWidth: 124,
+                        overflow: "hidden",
+                        textOverflow: "ellipsis",
+                        whiteSpace: "nowrap"
+                      }}
+                    >
+                      {row.authorLabel}
+                    </span>
+                    <span style={{ ...textStyles.metric, color: tokens.color.softInk }}>
+                      {row.metricLine}
+                    </span>
+                    <span style={{ flex: 1 }} />
+                    <SourceLinkIcon row={row} />
+                    <CriterionChips row={row} variant="compact" />
+                    <span style={{ ...prMonoMetaStyle, color: tokens.color.softInk }}>
+                      {row.collectedAtLabel}
+                    </span>
+                  </div>
+                  <QuoteBlock
+                    cite={<span>PR evidence row {auditNumber}</span>}
+                    style={{
+                      padding: "10px 12px",
+                      borderRadius: tokens.radius.card,
+                      background: tokens.color.surface
+                    }}
+                  >
+                    {row.captionLabel}
+                  </QuoteBlock>
+                </div>
+              </article>
+            );
+          })}
         </div>
       ) : (
         <div style={{ padding: "16px 12px", borderRadius: PR_RADIUS, border: `1px solid ${PR_RULE}`, background: tokens.color.surface, fontSize: 12, color: tokens.color.subInk }}>
@@ -511,6 +568,10 @@ function EvidenceLedger({ rows }: { rows: PrEvidenceRowViewModel[] }) {
       )}
     </section>
   );
+}
+
+function formatAuditNumber(index: number) {
+  return String(index + 1).padStart(2, "0");
 }
 
 function SourceLinkIcon({ row }: { row: PrEvidenceRowViewModel }) {
