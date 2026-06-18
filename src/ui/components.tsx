@@ -1,4 +1,4 @@
-import type { CSSProperties, MouseEvent, PointerEvent, ReactNode } from "react";
+import type { CSSProperties, KeyboardEvent, MouseEvent, PointerEvent, ReactNode } from "react";
 
 import type { TargetDescriptor } from "../contracts/target-descriptor.ts";
 import { resolveBackendWorkCopy } from "../state/backend-work-copy.ts";
@@ -796,6 +796,13 @@ const WORKSPACE_SWITCHER_OPTIONS: ReadonlyArray<{
 ];
 
 const WORKSPACE_SWITCHER_CSS = `
+[data-dlens-control="true"] [data-workspace-switcher="segmented"]:focus-visible {
+  outline: 2px solid var(--dlens-mode-accent, ${tokens.color.accent});
+  outline-offset: 2px;
+}
+[data-dlens-control="true"] [data-workspace-switcher-thumb="sliding"] {
+  transition: transform 220ms ${tokens.motion.easing.springSoft}, background-color 180ms ${tokens.motion.easing.standard};
+}
 [data-dlens-control="true"] [data-workspace-switcher-motion="verdict"] [data-workspace-switcher-mode] {
   transition:transform 220ms ${tokens.motion.easing.springSoft}, background-color 180ms ${tokens.motion.easing.standard}, border-color 180ms ${tokens.motion.easing.standard}, box-shadow 180ms ${tokens.motion.easing.standard}, color 180ms ${tokens.motion.easing.standard};
   will-change: transform;
@@ -810,7 +817,8 @@ const WORKSPACE_SWITCHER_CSS = `
 @media (prefers-reduced-motion: reduce) {
   [data-dlens-control="true"] [data-workspace-switcher-motion="verdict"] [data-workspace-switcher-mode],
   [data-dlens-control="true"] [data-workspace-switcher-motion="verdict"] [data-workspace-switcher-mode]:not(:disabled):hover,
-  [data-dlens-control="true"] [data-workspace-switcher-motion="verdict"] [data-workspace-switcher-active="true"] {
+  [data-dlens-control="true"] [data-workspace-switcher-motion="verdict"] [data-workspace-switcher-active="true"],
+  [data-dlens-control="true"] [data-workspace-switcher-thumb="sliding"] {
     transition: background-color 140ms ${tokens.motion.easing.standard}, border-color 140ms ${tokens.motion.easing.standard}, color 140ms ${tokens.motion.easing.standard} !important;
     transform: none !important;
   }
@@ -860,6 +868,34 @@ export function WorkspaceSwitcher({
   }
 
   const isBusy = pendingMode !== null;
+  const activeKey = pendingMode ?? activeMode;
+  const activeIndex = Math.max(0, options.findIndex((option) => option.key === activeKey));
+  const activeTint = options[activeIndex]?.tint ?? tokens.color.accent;
+  const moveFocus = (nextIndex: number) => {
+    const next = options[nextIndex];
+    if (!next || isBusy || next.key === activeMode) {
+      return;
+    }
+    onChange(next.key);
+  };
+  const onKeyDown = (event: KeyboardEvent<HTMLDivElement>) => {
+    if (isBusy) {
+      return;
+    }
+    if (event.key === "ArrowRight" || event.key === "ArrowDown") {
+      event.preventDefault();
+      moveFocus((activeIndex + 1) % options.length);
+    } else if (event.key === "ArrowLeft" || event.key === "ArrowUp") {
+      event.preventDefault();
+      moveFocus((activeIndex - 1 + options.length) % options.length);
+    } else if (event.key === "Home") {
+      event.preventDefault();
+      moveFocus(0);
+    } else if (event.key === "End") {
+      event.preventDefault();
+      moveFocus(options.length - 1);
+    }
+  };
 
   return (
     <>
@@ -868,18 +904,40 @@ export function WorkspaceSwitcher({
         role="tablist"
         aria-label="Workspace"
         aria-busy={isBusy || undefined}
+        tabIndex={0}
+        onKeyDown={onKeyDown}
         data-workspace-switcher="segmented"
         data-workspace-switcher-motion="verdict"
         data-workspace-switcher-pending={pendingMode ?? undefined}
+        data-workspace-switcher-active-index={String(activeIndex)}
         style={{
           display: "inline-flex",
           gap: 2,
           padding: 2,
           borderRadius: 6,
           background: tokens.color.neutralSurfaceSoft,
-          border: `1px solid ${tokens.color.line}`
+          border: `1px solid ${tokens.color.line}`,
+          position: "relative",
+          overflow: "hidden"
         }}
       >
+        <span
+          aria-hidden="true"
+          data-workspace-switcher-thumb="sliding"
+          style={{
+            position: "absolute",
+            top: 2,
+            bottom: 2,
+            left: 2,
+            width: `calc((100% - 4px) / ${options.length})`,
+            borderRadius: 4,
+            background: `${activeTint}14`,
+            border: `1px solid ${activeTint}40`,
+            boxShadow: "0 4px 10px rgba(27,26,23,0.10)",
+            transform: `translateX(${activeIndex * 100}%)`,
+            pointerEvents: "none"
+          }}
+        />
         {options.map(({ key, label, tint }) => {
           const pending = pendingMode === key;
           const active = pendingMode ? pending : activeMode === key;
@@ -907,7 +965,9 @@ export function WorkspaceSwitcher({
                 opacity: isBusy && !pending ? 0.62 : 1,
                 transition: tokens.motion.interactiveTransition,
                 whiteSpace: "nowrap",
-                lineHeight: 1.1
+                lineHeight: 1.1,
+                position: "relative",
+                zIndex: 1
               }}
             >
               {pending ? `${label}...` : label}
@@ -928,6 +988,7 @@ export function WorkspaceShell({
   onSwitchWorkspace,
   availableWorkspaceModes,
   switchingWorkspaceMode,
+  statusRail,
   reserveContextStrip = false
 }: {
   mode: WorkspaceMode | "settings";
@@ -938,6 +999,7 @@ export function WorkspaceShell({
   onSwitchWorkspace?: (mode: WorkspaceSwitcherMode) => void;
   availableWorkspaceModes?: ReadonlyArray<WorkspaceSwitcherMode>;
   switchingWorkspaceMode?: WorkspaceSwitcherMode | null;
+  statusRail?: ReactNode;
   reserveContextStrip?: boolean;
 }) {
   const showSwitcher = typeof onSwitchWorkspace === "function";
@@ -1017,12 +1079,23 @@ export function WorkspaceShell({
             Annotated Field Guide
           </span>
         </div>
-        <div style={{ display: "flex", alignItems: "center", gap: 10, fontFamily: tokens.font.sans, fontSize: 10, color: tokens.color.softInk, whiteSpace: "nowrap" }}>
-          <span>VOL.1</span>
-          <span>NO.{mode === "result" ? "04" : mode === "compare" ? "03" : mode === "collect" ? "02" : mode === "settings" ? "05" : "01"}</span>
-          <span>{new Intl.DateTimeFormat("en-US", { month: "short", day: "numeric" }).format(new Date())}</span>
-          <span style={{ opacity: 0.5 }}>·</span>
-          <span title="Folder: dlens-product-latest">v.{BUILD_VERSION}</span>
+        <div style={{ display: "flex", alignItems: "center", gap: 10, minWidth: 0 }}>
+          {statusRail ? (
+            <div data-shell-status-rail="masthead" style={{ minWidth: 150, maxWidth: 220, flex: "1 1 auto" }}>
+              {statusRail}
+            </div>
+          ) : null}
+          <div data-shell-key-hints="idle" style={{ display: "inline-flex", alignItems: "center", gap: 6, flexShrink: 0 }}>
+            <KeyHint label="Mode" keys={["⌘", "1-3"]} />
+            <KeyHint label="Command" keys={["⌘", "K"]} />
+          </div>
+          <div style={{ display: "flex", alignItems: "center", gap: 10, fontFamily: tokens.font.sans, fontSize: 10, color: tokens.color.softInk, whiteSpace: "nowrap", flexShrink: 0 }}>
+            <span>VOL.1</span>
+            <span>NO.{mode === "result" ? "04" : mode === "compare" ? "03" : mode === "collect" ? "02" : mode === "settings" ? "05" : "01"}</span>
+            <span>{new Intl.DateTimeFormat("en-US", { month: "short", day: "numeric" }).format(new Date())}</span>
+            <span style={{ opacity: 0.5 }}>·</span>
+            <span title="Folder: dlens-product-latest">v.{BUILD_VERSION}</span>
+          </div>
         </div>
       </div>
 

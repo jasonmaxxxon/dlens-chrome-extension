@@ -3,7 +3,7 @@ import type { MainPage, PopupPage } from "../state/types";
 import { CasebookView } from "./CasebookView";
 import { CompareSetupView } from "./CompareSetupView";
 import { CollectView } from "./CollectView";
-import { DLENS_BUTTON_CSS, WorkspaceShell, WorkspaceSurface, ModeRail, UtilityEdge, type WorkspaceSwitcherMode } from "./components";
+import { DLENS_BUTTON_CSS, StatusRail, WorkspaceShell, WorkspaceSurface, ModeRail, UtilityEdge, type WorkspaceSwitcherMode } from "./components";
 import { getModeHomePage, getModeRailPages } from "../state/processing-state";
 import { getPageComponentKind, getPageWidth } from "../state/page-registry";
 import { IS_PR_ONLY_BUILD } from "../build-variant";
@@ -351,6 +351,15 @@ export function InPageCollectorPopup({ app }: { app: InPageCollectorAppModel }) 
           availableWorkspaceModes={WORKSPACE_SWITCHER_MODES}
           switchingWorkspaceMode={switchingWorkspaceMode}
           reserveContextStrip={showProcessingContextStrip}
+          statusRail={(
+            <StatusRail
+              backendReachability={app.backendReachability}
+              backendWorkUiState={app.backendWorkUiState}
+              workerStatus={app.workerStatus}
+              ready={app.processingSummary.ready}
+              total={app.processingSummary.total}
+            />
+          )}
           header={(
             <div style={{ display: "grid", gap: 10 }}>
               <ModeRail

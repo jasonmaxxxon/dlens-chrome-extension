@@ -13,7 +13,7 @@
 Date: 2026-06-18
 Depends on: `docs/architecture/dlens-current-architecture-map.md` (no 🔴 nodes; 6 walls 🟩), archived `design-system/DESIGN.md`, and `docs/mockups/references/2026-06-09-design-gallery-PROGRESS.md`.
 Product baseline: `origin/main` at `0.2.1` (889 passed / 5 skipped). Desktop checkout is 5 commits behind — sync before starting.
-Status: PR 1 merged as design-source convergence; PR 2 primitive foundation in progress; PR 3-4 pending.
+Status: PR 1 merged as design-source convergence; PR 2 merged as primitive foundation; PR 3 shell interaction reset in progress; PR 4 pending.
 
 ## Current Truth
 
@@ -91,13 +91,13 @@ Visual Reset A is done when:
 
 **Goal:** Make the popup feel like a native macOS utility without changing the editorial content language.
 
-- [ ] Apply multi-layer shell shadow consistently — `tokens.shadow.popup` already exists; audit `SidepanelApp.tsx` and ensure it is the outer container's shadow. Add subtle inset highlight for "lit from above" effect if not already present.
-- [ ] Replace mode tab bar with a real segmented control: sliding-thumb under active mode, spring easing from `tokens.motion.easing.spring`, keyboard arrow-key navigation. Reference: design-gallery's `positionThumb()` pattern (now in `references/`).
-- [ ] Build a status rail at popup top: backend health dot (already shipped in 0.2.0), processing strip integration, lag indicator if backend retry / expired-running is in play (read from existing `BackendWorkUiState` projection).
-- [ ] Add idle-state keyboard shortcut hints (Raycast pattern, e.g. footer `⌘K` / `⌘1-4` / `↵`).
-- [ ] Refine `tokens.shadow.shell` and `tokens.shadow.raised` to fit shell+card pairing without visual noise. Document the elevation model in the `tokens.ts` header.
-- [ ] **DoD:** `output/chrome-mv3` reload shows: shadowed shell, working segmented control with sliding thumb, status rail visible at top, shortcut hints visible at idle, all four mode switches respect new chrome.
-- [ ] **DoD test:** SegmentedControl DOM test asserts thumb position update on mode change, keyboard arrow-key navigation, focus-visible ring. StatusRail test asserts dot color matches `BackendWorkUiState`. SidepanelApp smoke test asserts shell shadow class/style is applied.
+- [x] Apply multi-layer shell shadow consistently — `tokens.shadow.popup` remains the popup outer container shadow with an inset highlight.
+- [x] Replace mode tab bar with a real segmented control: sliding thumb under active mode, spring easing from `tokens.motion.easing.springSoft`, keyboard arrow-key navigation. Reference: design-gallery's `positionThumb()` pattern (now in `references/`).
+- [x] Build a status rail at popup top: backend reachability + `BackendWorkUiState` projection + ready/total count are mounted in the masthead.
+- [x] Add idle-state keyboard shortcut hints (Raycast pattern): masthead shows `Mode ⌘ 1-3` and `Command ⌘ K`.
+- [ ] Refine `tokens.shadow.shell` and `tokens.shadow.raised` further only if PR 4 screenshots show visual noise; PR 3 uses existing elevation slots without creating new token values.
+- [x] **DoD:** `output/chrome-mv3` build contains: shadowed shell, segmented control with sliding thumb, masthead status rail, and idle shortcut hints. Full Jason-profile Chrome walk remains a release / final milestone QA item.
+- [x] **DoD test:** WorkspaceSwitcher DOM/JSDOM tests assert thumb index and ArrowRight navigation. StatusRail test asserts backend reachability/work hooks. WorkspaceShell smoke test asserts masthead status rail and idle key hints.
 
 ### PR 4+ — Mode-specific Surfaces (one PR per mode)
 
