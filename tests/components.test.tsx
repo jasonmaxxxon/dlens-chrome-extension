@@ -21,8 +21,10 @@ import {
   SurfaceCard,
   WorkspaceSurface,
   WorkspaceShell,
+  WorkspaceSwitcher,
   UtilityEdge,
-  scanRowStyle
+  scanRowStyle,
+  type WorkspaceSwitcherMode
 } from "../src/ui/components.tsx";
 import { tokens } from "../src/ui/tokens.ts";
 
@@ -227,11 +229,62 @@ test("WorkspaceShell renders masthead WorkspaceSwitcher when onSwitchWorkspace i
   assert.match(html, /data-workspace-switcher-mode="pr-evidence"/);
   // Active button is marked aria-selected="true" — and it's the Product one
   assert.match(html, /aria-selected="true"\s+data-workspace-switcher-mode="product"/);
+  assert.match(html, /data-workspace-switcher-thumb="sliding"/);
+  assert.match(html, /data-workspace-switcher-active-index="1"/);
   assert.match(html, /data-workspace-switcher-motion="verdict"/);
   assert.match(html, /scale\(1\.04\)/);
   assert.match(html, /transition:transform 220ms/);
+  assert.match(html, /data-shell-key-hints="idle"/);
   // Static mode badge should not render alongside the switcher
   assert.doesNotMatch(html, /data-mode-badge="product"/);
+});
+
+test("WorkspaceSwitcher moves by keyboard arrow keys", async () => {
+  const { JSDOM } = await import("jsdom");
+  const { createRoot } = await import("react-dom/client");
+  const { flushSync } = await import("react-dom");
+  const dom = new JSDOM("<div id=\"root\"></div>", { url: "https://dlens.test" });
+  const previous = {
+    window: globalThis.window,
+    document: globalThis.document,
+    HTMLElement: globalThis.HTMLElement,
+    Event: globalThis.Event,
+    KeyboardEvent: globalThis.KeyboardEvent
+  };
+  const calls: WorkspaceSwitcherMode[] = [];
+
+  Object.assign(globalThis, {
+    window: dom.window,
+    document: dom.window.document,
+    HTMLElement: dom.window.HTMLElement,
+    Event: dom.window.Event,
+    KeyboardEvent: dom.window.KeyboardEvent
+  });
+
+  const rootElement = dom.window.document.getElementById("root");
+  assert.ok(rootElement);
+  const root = createRoot(rootElement);
+
+  try {
+    flushSync(() => {
+      root.render(
+        React.createElement(WorkspaceSwitcher, {
+          activeMode: "topic",
+          onChange: (mode) => calls.push(mode)
+        })
+      );
+    });
+
+    const tablist = rootElement.querySelector('[data-workspace-switcher="segmented"]');
+    assert.ok(tablist);
+    tablist.dispatchEvent(new dom.window.KeyboardEvent("keydown", { key: "ArrowRight", bubbles: true }));
+
+    assert.deepEqual(calls, ["product"]);
+  } finally {
+    flushSync(() => root.unmount());
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    Object.assign(globalThis, previous);
+  }
 });
 
 test("WorkspaceShell WorkspaceSwitcher active tabs use each mode accent", () => {
@@ -348,6 +401,31 @@ test("WorkspaceShell does not reserve an empty processing strip by default", () 
 
   assert.doesNotMatch(html, /data-shell-context-strip="processing"/);
   assert.doesNotMatch(html, /min-height:52px/);
+});
+
+test("WorkspaceShell can mount a masthead status rail", () => {
+  const html = renderToStaticMarkup(
+    React.createElement(
+      WorkspaceShell,
+      {
+        mode: "library",
+        folderMode: "archive",
+        statusRail: React.createElement(StatusRail, {
+          backendReachability: "slow",
+          backendWorkUiState: { kind: "analysis_waiting", count: 2 },
+          ready: 1,
+          total: 4
+        }),
+        header: React.createElement("div", null, "Header")
+      },
+      React.createElement("div", null, "Body")
+    )
+  );
+
+  assert.match(html, /data-shell-status-rail="masthead"/);
+  assert.match(html, /data-status-rail="shared"/);
+  assert.match(html, /data-backend-reachability="slow"/);
+  assert.match(html, /1\/4 ready/);
 });
 
 test("WorkspaceShell can reserve the processing strip only when requested", () => {
