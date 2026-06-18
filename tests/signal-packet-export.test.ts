@@ -44,7 +44,8 @@ function makePacket(overrides: Partial<DLensSignalPacket> = {}): DLensSignalPack
         ],
         analysisPromptVersion: "v16"
       },
-      assembledContent: "Root post plus OP continuation."
+      assembledContent: "Root post plus OP continuation.",
+      citedInReadingRefs: {}
     },
     judgment: {
       signalId: "signal-1",

@@ -125,6 +125,7 @@ export interface DLensSignalEvidence {
   imageEvidence: DLensSignalImageEvidence[];
   sourcePacket: SignalReadingSourcePacket | null;
   assembledContent: string;
+  citedInReadingRefs: Record<string, string[]>;
 }
 
 export interface DLensSignalDecisionTraceEvidence {
@@ -347,7 +348,8 @@ function buildPacket({
       textEvidence,
       imageEvidence: [],
       sourcePacket,
-      assembledContent: sourcePacket?.assembledContent || readCaptureAssembledContent(item?.latestCapture ?? null)
+      assembledContent: sourcePacket?.assembledContent || readCaptureAssembledContent(item?.latestCapture ?? null),
+      citedInReadingRefs: buildCitedInReadingRefs(readings)
     },
     judgment: analysis,
     productContext: buildProductContextSnapshot(productContext, analysis),
@@ -513,6 +515,17 @@ function buildSourcePacketFromCapture(
     })),
     analysisPromptVersion
   };
+}
+
+function buildCitedInReadingRefs(readings: SignalReading[]): Record<string, string[]> {
+  const citedByRef: Record<string, string[]> = {};
+  for (const reading of readings) {
+    const refs = new Set(reading.sourceRefs.map((ref) => ref.trim()).filter(Boolean));
+    for (const ref of refs) {
+      citedByRef[ref] = [...(citedByRef[ref] ?? []), reading.cacheKey];
+    }
+  }
+  return citedByRef;
 }
 
 function buildDecisionTrace(

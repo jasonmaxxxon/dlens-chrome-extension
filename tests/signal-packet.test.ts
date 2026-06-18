@@ -376,6 +376,48 @@ test("buildDLensSignalPacket keeps reading source refs resolvable in top-level e
   assert.match(readingTrace?.evidence.find((entry) => entry.ref === "e3")?.text ?? "", /highest-signal objection/);
 });
 
+test("buildDLensSignalPacket maps evidence refs back to readings that cited them", async () => {
+  const productContext = makeProductContext();
+  const storage = makeStorage({
+    [SIGNALS_STORAGE_KEY]: [{
+      id: "signal-1",
+      sessionId: "session-1",
+      itemId: "item-1",
+      source: "threads",
+      inboxStatus: "assigned",
+      capturedAt: "2026-05-19T08:00:00.000Z"
+    }],
+    [TOPICS_STORAGE_KEY]: [],
+    [PRODUCT_SIGNAL_ANALYSES_STORAGE_KEY]: {
+      "signal-1": makeAnalysis("signal-1")
+    },
+    [SIGNAL_READINGS_STORAGE_KEY]: {
+      "signal-1::ctx_1::pkt_1::v1": makeReading({
+        cacheKey: "signal-1::ctx_1::pkt_1::v1",
+        generatedAt: "2026-05-19T08:07:00.000Z",
+        sourceRefs: ["e1", "e3"]
+      }),
+      "signal-1::ctx_1::pkt_1::v2": makeReading({
+        cacheKey: "signal-1::ctx_1::pkt_1::v2",
+        promptVersion: "v2",
+        generatedAt: "2026-05-19T08:09:00.000Z",
+        sourceRefs: ["e3"]
+      })
+    },
+    [PRODUCT_CONTEXT_STORAGE_KEY]: productContext,
+    [PRODUCT_AGENT_TASK_FEEDBACK_STORAGE_KEY]: []
+  });
+
+  const packet = await buildDLensSignalPacket(storage, makeGlobalState([makeItem("item-1")]), "signal-1");
+
+  assert.ok(packet);
+  assert.deepEqual(packet.evidence.citedInReadingRefs, {
+    e1: ["signal-1::ctx_1::pkt_1::v1"],
+    e3: ["signal-1::ctx_1::pkt_1::v2", "signal-1::ctx_1::pkt_1::v1"]
+  });
+  assert.equal(packet.packetVersion, DLENS_SIGNAL_PACKET_VERSION);
+});
+
 test("buildSignalPacketIndex bulk-loads storage once per layer and filters packets", async () => {
   const productContext = makeProductContext();
   const storage = makeStorage({
