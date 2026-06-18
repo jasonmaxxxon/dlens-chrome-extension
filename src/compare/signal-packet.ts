@@ -444,11 +444,12 @@ function buildPacketSource(
 ): DLensSignalPacketSource {
   const capture = item?.latestCapture ?? null;
   const descriptor = item?.descriptor ?? null;
-  const url = descriptor?.post_url
-    || capture?.source_post_url
-    || capture?.canonical_target_url
-    || latestReading?.sourcePacket.postUrl
-    || "";
+  const url = firstNonBlankString(
+    descriptor?.post_url,
+    capture?.source_post_url,
+    capture?.canonical_target_url,
+    latestReading?.sourcePacket.postUrl
+  );
 
   return {
     signalId: signal.id,
@@ -459,12 +460,12 @@ function buildPacketSource(
     itemId: signal.itemId ?? null,
     itemStatus: item?.status ?? null,
     url,
-    pageUrl: descriptor?.page_url || capture?.source_page_url || url,
-    author: descriptor?.author_hint || capture?.author_hint || "",
-    textSnippet: descriptor?.text_snippet || capture?.text_snippet || "",
-    capturedAt: signal.capturedAt || descriptor?.captured_at || capture?.captured_at || "",
+    pageUrl: firstNonBlankString(descriptor?.page_url, capture?.source_page_url, url),
+    author: firstNonBlankString(descriptor?.author_hint, capture?.author_hint),
+    textSnippet: firstNonBlankString(descriptor?.text_snippet, capture?.text_snippet),
+    capturedAt: firstNonBlankString(signal.capturedAt, descriptor?.captured_at, capture?.captured_at),
     captureId: item?.captureId || capture?.id || null,
-    canonicalTargetUrl: item?.canonicalTargetUrl || capture?.canonical_target_url || null
+    canonicalTargetUrl: firstNonBlankString(item?.canonicalTargetUrl, capture?.canonical_target_url) || null
   };
 }
 
@@ -845,6 +846,16 @@ function groupBy<T>(values: T[], getKey: (value: T) => string): Map<string, T[]>
 
 function readString(value: unknown): string {
   return typeof value === "string" ? value.trim() : "";
+}
+
+function firstNonBlankString(...values: unknown[]): string {
+  for (const value of values) {
+    const text = readString(value);
+    if (text) {
+      return text;
+    }
+  }
+  return "";
 }
 
 function readStringArray(value: unknown): string[] {

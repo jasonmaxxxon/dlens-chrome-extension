@@ -469,6 +469,53 @@ test("buildDLensSignalPacket separates latest reading from latest filed and supe
   assert.deepEqual(packet.reading.filed.map((reading) => reading.cacheKey), [latestFiled.cacheKey, olderFiled.cacheKey]);
 });
 
+test("buildDLensSignalPacket falls back pageUrl through nonblank reading source packet URL", async () => {
+  const productContext = makeProductContext();
+  const reading = makeReading({
+    sourcePacket: {
+      assembledContent: "Root post plus OP continuation.",
+      postUrl: "https://www.threads.net/@builder/post/from-reading",
+      representativeComments: [{ ref: "e1", author: "pm", text: "This could become a weekly agent handoff." }],
+      analysisPromptVersion: "v16"
+    }
+  });
+  const storage = makeStorage({
+    [SIGNALS_STORAGE_KEY]: [{
+      id: "signal-1",
+      sessionId: "session-1",
+      itemId: "item-1",
+      source: "threads",
+      inboxStatus: "assigned",
+      capturedAt: "2026-05-19T08:00:00.000Z"
+    }],
+    [TOPICS_STORAGE_KEY]: [],
+    [PRODUCT_SIGNAL_ANALYSES_STORAGE_KEY]: {
+      "signal-1": makeAnalysis("signal-1")
+    },
+    [SIGNAL_READINGS_STORAGE_KEY]: {
+      [reading.cacheKey]: reading
+    },
+    [PRODUCT_CONTEXT_STORAGE_KEY]: productContext,
+    [PRODUCT_AGENT_TASK_FEEDBACK_STORAGE_KEY]: []
+  });
+  const item = makeItem("item-1", makeDescriptor({
+    page_url: "   ",
+    post_url: "   "
+  }));
+  item.canonicalTargetUrl = "   ";
+  item.latestCapture = makeCapture({
+    source_page_url: "   ",
+    source_post_url: "   ",
+    canonical_target_url: "   "
+  });
+
+  const packet = await buildDLensSignalPacket(storage, makeGlobalState([item]), "signal-1");
+
+  assert.ok(packet);
+  assert.equal(packet.source.url, "https://www.threads.net/@builder/post/from-reading");
+  assert.equal(packet.source.pageUrl, "https://www.threads.net/@builder/post/from-reading");
+});
+
 test("buildSignalPacketIndex bulk-loads storage once per layer and filters packets", async () => {
   const productContext = makeProductContext();
   const storage = makeStorage({
