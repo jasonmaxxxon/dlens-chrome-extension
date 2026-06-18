@@ -12,8 +12,8 @@
 
 Date: 2026-06-18
 Depends on: `docs/architecture/dlens-current-architecture-map.md` (no 🔴 nodes; 6 walls 🟩), archived `design-system/DESIGN.md`, and `docs/mockups/references/2026-06-09-design-gallery-PROGRESS.md`.
-Product baseline: `origin/main` at `0.2.1` (889 passed / 5 skipped). Desktop checkout is 5 commits behind — sync before starting.
-Status: PR 1 merged as design-source convergence; PR 2 merged as primitive foundation; PR 3 merged as shell interaction reset; PR 4a implemented as PR Evidence ledger surface; PR 4b implemented as Topic detail audit rhythm; PR 4c implemented as Compare hero surface.
+Product baseline: `origin/main` at `0.2.1` (889 passed / 5 skipped). Desktop checkout was fast-forwarded before PR 4d; six origin-missing audit / handoff scratchpads remain local-only.
+Status: PR 1 merged as design-source convergence; PR 2 merged as primitive foundation; PR 3 merged as shell interaction reset; PR 4a implemented as PR Evidence ledger surface; PR 4b implemented as Topic detail audit rhythm; PR 4c implemented as Compare hero surface; PR 4d implemented as Product action surface.
 
 ## Current Truth
 
@@ -118,7 +118,7 @@ Suggested order (smallest blast radius first):
 - [x] **PR 4a — PR Evidence ledger.** Strengthen italic-serif quote treatment, evidence row density, audit-style numbering. Already smallest View; safest to tune first. This slice keeps the existing source-link command surface and changes only the ledger render structure.
 - [x] **PR 4b — Topic detail.** Section rhythm, topic-accent (sage) usage, audit report entry typography. This slice moves the visible Topic audit overview / themes / lanes / source-list rhythm onto `SurfaceCard` + `SectionHeader`, keeps source-row command wiring intact, and adds topic-accent CSS-var hooks for the sage rail.
 - [x] **PR 4c — Compare hero.** This is the billboard moment per the Visual Reset A contract and the archived `DESIGN.md` reference, and the most-visible UI surface. Tight serif headline, generous breathing room, stance cells with mode-accent left border. Single raised card per view (elevation discipline). Scope is hero only: cluster dock, casebook, evidence rows, processing strip, Compare VM, and async state derivation remain untouched; remaining CompareView surfaces are follow-up.
-- [ ] **PR 4d — Product action cards / signal drawer.** Steel-blue product accent, action card lift on hover, signal readiness chip alignment.
+- [x] **PR 4d — Product action cards / signal drawer.** Steel-blue product accent, action card lift on hover, signal readiness chip alignment. Scope is action cards + readiness chip + drawer accent rail only: ProductSignalClassifier, Product VM, command targets, signal storage seam, and other Product signal surfaces remain untouched follow-up.
 
 Each PR 4x ships with:
 - [ ] DOM test: critical layout assertions at 320px and 440px width
@@ -131,6 +131,8 @@ PR 4a shipped with a DOM/readability test for the PR Evidence ledger audit rows:
 PR 4b shipped with Topic Detail DOM/readability tests for `data-topic-detail-surface`, shared `SurfaceCard` / `SectionHeader` usage, topic accent CSS-var rails, audit source-list style, and no wide inspection-table fallback. It also adds a JSDOM command-wiring smoke test for the audit-report CTA. `TopicDetailView.tsx` is 2450 lines after this slice; deeper row-level inline style migration remains a PR 4+ adoption item, not a completed LOC-reduction claim.
 
 PR 4c shipped with Compare hero DOM/readability tests for `data-compare-hero="billboard"`, a single `tokens.shadow.raised` hero surface, headline / verdict / two stance cells, mode-accent CSS var consumption, async fetched brief rendering, and 320px / 440px stance-cell width safety. Command wiring is covered by a JSDOM selector smoke test asserting the typed `selectPair` target stays intact. `CompareView.tsx` is 3306 lines after this slice; body-level primitive adoption and LOC reduction remain follow-up work, not a completed claim.
+
+PR 4d shipped with Product action-card DOM/readability tests for `data-product-action-card`, `data-product-readiness-chip`, drawer accent rail, steel-blue mode-accent fallback `#234f7a`, exactly one `tokens.shadow.raised` action surface in the isolated fixture, transform-only hover lift, and 320px / 440px width-safety constraints. It also updates the Product signal-reading marginalia rail to the same drawer accent grammar while keeping command wiring unchanged; the existing delete-wired visibility and Product route regression tests stay green. `ProductSignalViews.tsx` is 4163 lines after this slice; deeper Product row-level primitive adoption and LOC reduction remain follow-up work, not a completed claim.
 
 ## Out of Scope
 
