@@ -1,0 +1,407 @@
+<!doctype html>
+<!-- Reference only: chosen direction is src/ui/tokens.ts warm editorial + macOS utility shell. See docs/handoff/2026-06-18-visual-reset-A-plan.md. -->
+<html lang="zh-Hant">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>DLens · 2027 Design Gallery</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&family=Space+Grotesk:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;700&family=IBM+Plex+Mono:wght@400;500;600&family=Instrument+Serif:ital@0;1&family=Newsreader:opsz,wght@6..72,400;6..72,500;6..72,600&family=Playfair+Display:wght@500;600;700;800&family=Space+Mono:wght@400;700&display=swap" rel="stylesheet">
+<style>
+/* ════════ BASE / FRAME (skinned entirely by per-design vars) ════════ */
+*{box-sizing:border-box;}
+:root{
+  --bg:#0b0c0e; --bg2:#0b0c0e; --panel:#141518; --elevated:#16181c;
+  --ink:#e9edf2; --sub:#aab3bd; --soft:#7b848e;
+  --line:rgba(255,255,255,.08); --line2:rgba(255,255,255,.15);
+  --accent:#7c8cff; --accentInk:#0b0c0e; --accent2:#7c8cff;
+  --radius:14px; --rbtn:9px; --rpill:999px; --rcard:14px;
+  --font:'Inter',system-ui,sans-serif; --fontD:'Inter',system-ui,sans-serif; --fontM:'JetBrains Mono',ui-monospace,monospace;
+  --shadow:0 1px 2px rgba(0,0,0,.3),0 14px 34px -18px rgba(0,0,0,.55);
+  --shadowPop:0 30px 80px -28px rgba(0,0,0,.7);
+  --blur:0px; --glow:none; --grain:0;
+  --dur:170ms; --ease:cubic-bezier(.4,0,.2,1); --spring:cubic-bezier(.34,1.56,.64,1);
+  --label-tt:none; --label-ls:.02em; --btn-weight:700;
+}
+body{margin:0;min-height:100vh;background:linear-gradient(180deg,var(--bg),var(--bg2));color:var(--ink);font-family:var(--font);}
+button{font:inherit;cursor:pointer;color:inherit;}
+.shell{display:grid;grid-template-columns:230px minmax(0,1fr);min-height:100vh;}
+
+/* picker */
+.picker{position:sticky;top:0;align-self:start;height:100vh;overflow:auto;border-right:1px solid rgba(128,128,128,.18);background:rgba(20,22,26,.6);backdrop-filter:blur(8px);padding:16px 12px;display:grid;gap:6px;align-content:start;color:#d7dde3;font-family:'Inter',sans-serif;}
+.picker h2{margin:2px 4px 8px;font:800 13px/1.2 'Inter';letter-spacing:.04em;}
+.picker .hint{margin:0 4px 10px;font:500 11px/1.5 'Inter';color:#8b95a0;}
+.pk{display:grid;gap:1px;border:1px solid rgba(128,128,128,.2);border-radius:10px;background:rgba(255,255,255,.02);padding:9px 11px;text-align:left;transition:transform .14s var(--ease),border-color .14s;}
+.pk:hover{transform:translateX(2px);border-color:rgba(150,160,255,.5);}
+.pk[aria-pressed="true"]{border-color:#8ea2ff;background:rgba(140,160,255,.12);}
+.pk b{font:700 12.5px/1.25 'Inter';}
+.pk span{font:500 10.5px/1.3 'Inter';color:#8b95a0;}
+.pk i{font:600 9px/1 'JetBrains Mono';color:#6f7782;}
+
+/* stage */
+.stage{display:grid;place-items:center;padding:40px 28px;}
+.app{position:relative;width:760px;max-width:100%;border-radius:var(--radius);overflow:hidden;background:linear-gradient(180deg,var(--elevated),var(--bg));border:1px solid var(--line);box-shadow:var(--shadowPop);font-family:var(--font);}
+.glow{position:absolute;inset:0;z-index:0;pointer-events:none;background:var(--glow);}
+.app > *:not(.glow){position:relative;z-index:1;}
+.app .pad{padding:16px;display:grid;gap:12px;}
+
+.kick{font:var(--btn-weight) 10px/1.3 var(--fontM);letter-spacing:.06em;color:var(--soft);text-transform:var(--label-tt);}
+.ws{font:700 13px/1.3 var(--font);color:var(--sub);}
+.pill{display:inline-flex;align-items:center;min-height:22px;padding:3px 9px;border-radius:var(--rpill);border:1px solid var(--line);background:var(--panel);color:var(--soft);font:700 10px/1 var(--fontM);}
+
+.topbar,.masthead,.strip{border:1px solid var(--line);border-radius:var(--rcard);background:var(--panel);box-shadow:var(--shadow);backdrop-filter:blur(var(--blur));}
+.topbar{display:flex;justify-content:space-between;align-items:center;gap:12px;padding:11px 14px;}
+.badges{display:flex;gap:8px;}
+.masthead{display:flex;justify-content:space-between;align-items:center;gap:12px;padding:9px 14px;}
+.brand{display:flex;align-items:center;gap:10px;}
+.word{font:500 22px/1 var(--fontD);color:var(--accent);}
+.switch{display:inline-flex;gap:2px;padding:3px;border-radius:var(--rbtn);background:var(--bg);border:1px solid var(--line);}
+.switch button{min-height:26px;border:1px solid transparent;border-radius:calc(var(--rbtn) - 2px);background:transparent;color:var(--soft);padding:3px 11px;font:800 10px/1 var(--font);transition:all var(--dur) var(--ease);text-transform:var(--label-tt);}
+.switch button.on{color:var(--accent);background:color-mix(in srgb,var(--accent) 14%,transparent);border-color:color-mix(in srgb,var(--accent) 30%,transparent);}
+.meta{font:700 10px/1 var(--fontM);color:var(--soft);letter-spacing:.04em;}
+
+.frame{display:grid;grid-template-columns:74px minmax(0,1fr);gap:12px;padding:0 16px 16px;}
+.frame > .pad0{display:none;}
+.rail{display:grid;gap:10px;align-content:start;border:1px solid var(--line);border-radius:var(--rcard);background:var(--panel);box-shadow:var(--shadow);backdrop-filter:blur(var(--blur));padding:10px 8px 12px;}
+.ava{width:36px;height:36px;border-radius:var(--rpill);margin:0 auto 2px;display:grid;place-items:center;background:var(--accent);color:var(--accentInk);font:500 21px/1 var(--fontD);box-shadow:0 8px 18px color-mix(in srgb,var(--accent) 30%,transparent);}
+.rb{min-height:44px;border:1px solid transparent;border-radius:var(--rbtn);background:transparent;color:var(--soft);display:grid;place-items:center;gap:3px;padding:7px 4px;font:800 9.5px/1 var(--font);transition:all var(--dur) var(--spring);text-transform:var(--label-tt);}
+.rb i{width:16px;height:16px;border-radius:5px;border:1.5px solid currentColor;display:block;}
+.rb.on{color:var(--accent);background:color-mix(in srgb,var(--accent) 10%,transparent);border-color:color-mix(in srgb,var(--accent) 24%,transparent);}
+.rb:hover{transform:translateY(-1px);color:var(--ink);}
+.main{display:grid;gap:12px;min-width:0;}
+.strip{display:grid;grid-template-columns:auto 1fr auto;gap:12px;align-items:center;padding:11px 14px;}
+.ring{width:30px;height:30px;border-radius:var(--rpill);border:3px solid color-mix(in srgb,var(--accent) 26%,var(--line2));border-top-color:var(--accent);animation:spin 1s linear infinite;}
+@keyframes spin{to{transform:rotate(360deg);}}
+
+.surface{border:1px solid var(--line);border-radius:var(--radius);background:var(--elevated);box-shadow:var(--shadow);backdrop-filter:blur(var(--blur));padding:16px;display:grid;gap:14px;animation:rise .4s var(--ease);}
+@keyframes rise{from{opacity:.6;transform:translateY(6px);}to{opacity:1;transform:none;}}
+.head{display:grid;grid-template-columns:1fr auto;gap:12px;align-items:start;padding-bottom:12px;border-bottom:1px solid var(--line);}
+.head h1{margin:4px 0 0;font:var(--h1w,500) 30px/1 var(--fontD);color:var(--ink);letter-spacing:var(--h1ls,0);}
+.head p{margin:8px 0 0;font:400 12px/1.5 var(--font);color:var(--soft);max-width:62ch;}
+.acts{display:flex;gap:8px;}
+.btn{min-height:36px;border:1px solid var(--line2);border-radius:var(--rbtn);background:var(--panel);color:var(--sub);padding:8px 13px;font:var(--btn-weight) 11px/1 var(--font);transition:all var(--dur) var(--spring);text-transform:var(--label-tt);}
+.btn:hover{transform:translateY(-1px);border-color:color-mix(in srgb,var(--accent) 40%,var(--line2));}
+.btn.primary{background:var(--accent);color:var(--accentInk);border-color:transparent;box-shadow:0 8px 18px color-mix(in srgb,var(--accent) 28%,transparent);}
+
+.cards{display:grid;grid-template-columns:1fr 264px;gap:14px;}
+.list{display:grid;gap:10px;}
+.tcard{display:grid;grid-template-columns:auto 1fr auto;gap:11px;align-items:start;border:1px solid var(--line);border-radius:var(--rcard);background:var(--panel);padding:13px;transition:all var(--dur) var(--ease);}
+.tcard.on{border-color:color-mix(in srgb,var(--accent) 36%,var(--line2));box-shadow:0 0 0 1px color-mix(in srgb,var(--accent) 18%,transparent),var(--shadow);}
+.tcard:hover{transform:translateY(-2px);}
+.dot{width:30px;height:30px;border-radius:var(--rpill);background:color-mix(in srgb,var(--accent) 18%,var(--panel));border:1px solid color-mix(in srgb,var(--accent) 24%,transparent);display:grid;place-items:center;color:var(--accent);font:800 11px/1 var(--fontM);}
+.tc h3{margin:0;font:700 14px/1.3 var(--font);color:var(--ink);}
+.tc p{margin:5px 0 0;font:500 11px/1.4 var(--fontM);color:var(--soft);}
+.chips{display:flex;flex-wrap:wrap;gap:6px;margin-top:9px;}
+.chip{border:1px solid var(--line);border-radius:var(--rpill);background:var(--bg);padding:4px 9px;font:500 10.5px/1 var(--fontM);color:var(--sub);}
+.tag{font:700 10px/1 var(--fontM);color:var(--soft);background:var(--bg);border:1px solid var(--line);border-radius:var(--rpill);padding:4px 8px;height:max-content;}
+.dock{border:1px solid var(--line);border-radius:var(--rcard);background:var(--panel);box-shadow:var(--shadow);backdrop-filter:blur(var(--blur));padding:13px;display:grid;gap:10px;align-content:start;}
+.dock h3{margin:0;font:700 13px/1.3 var(--font);color:var(--ink);}
+.quote{border-left:3px solid var(--accent);padding:8px 11px;background:color-mix(in srgb,var(--accent) 7%,transparent);color:var(--sub);font:500 12.5px/1.5 var(--fontD);border-radius:0 8px 8px 0;}
+.drow{display:grid;grid-template-columns:1fr 1fr;gap:8px;border:1px solid var(--line);border-radius:10px;background:var(--elevated);padding:9px 10px;}
+.drow b{font:700 11px/1.3 var(--font);color:var(--sub);}
+.drow span{font:500 11px/1.3 var(--font);color:var(--soft);}
+
+/* ════════ DESIGN 01 · LINEAR NOIR — near-black, indigo, crisp, faint top glow ════════ */
+[data-design="linear-noir"]{
+  --bg:#08090b;--bg2:#0a0b0e;--panel:#121419;--elevated:#15171d;
+  --ink:#eceef2;--sub:#a7adb8;--soft:#6f7681;
+  --line:rgba(255,255,255,.07);--line2:rgba(255,255,255,.13);
+  --accent:#8b9bff;--accentInk:#0a0b10;--accent2:#8b9bff;
+  --radius:14px;--rbtn:8px;--rcard:11px;--font:'Inter',sans-serif;--fontD:'Inter',sans-serif;
+  --dur:130ms;--ease:cubic-bezier(.4,0,.2,1);--h1w:600;--h1ls:-.02em;
+  --glow:radial-gradient(60% 38% at 50% -8%,rgba(139,155,255,.16),transparent 70%);
+}
+[data-design="linear-noir"] .head h1{letter-spacing:-.025em;}
+[data-design="linear-noir"] .btn:hover{background:color-mix(in srgb,var(--accent) 10%,var(--panel));}
+
+/* ════════ DESIGN 02 · VERCEL MONO — pure black/white, sharp, mono, instant ════════ */
+[data-design="vercel-mono"]{
+  --bg:#ffffff;--bg2:#ffffff;--panel:#ffffff;--elevated:#ffffff;
+  --ink:#000000;--sub:#171717;--soft:#666666;
+  --line:#eaeaea;--line2:#000000;
+  --accent:#000000;--accentInk:#ffffff;--accent2:#000000;
+  --radius:6px;--rbtn:6px;--rcard:8px;--rpill:5px;
+  --font:'Inter',sans-serif;--fontD:'Inter',sans-serif;--fontM:'Space Mono',monospace;
+  --dur:1ms;--shadow:none;--shadowPop:0 0 0 1px #eaeaea,0 18px 40px -24px rgba(0,0,0,.25);
+  --label-tt:none;--h1w:800;--h1ls:-.04em;--btn-weight:600;
+}
+[data-design="vercel-mono"] .app{border-color:#eaeaea;}
+[data-design="vercel-mono"] .btn{border-radius:6px;}
+[data-design="vercel-mono"] .btn:hover{background:#fafafa;border-color:#000;}
+[data-design="vercel-mono"] .btn.primary{box-shadow:none;}
+[data-design="vercel-mono"] .tcard:hover{border-color:#000;}
+[data-design="vercel-mono"] .word{font-family:'Inter';font-weight:800;letter-spacing:-.03em;}
+[data-design="vercel-mono"] .ring{border-top-color:#000;}
+
+/* ════════ DESIGN 04 · RAYCAST GLASS — dark frosted command surface, vibrant, blur-heavy ════════ */
+[data-design="raycast-glass"]{
+  --bg:#0e0e12;--bg2:#141118;--panel:rgba(38,38,46,.55);--elevated:rgba(30,30,38,.5);
+  --ink:#f3f1f6;--sub:#bcb8c6;--soft:#857f92;
+  --line:rgba(255,255,255,.1);--line2:rgba(255,255,255,.18);
+  --accent:#ff6363;--accentInk:#1a0e0e;--accent2:#ff9a3d;
+  --radius:16px;--rbtn:11px;--rcard:13px;--blur:22px;
+  --font:'Inter',sans-serif;--fontD:'Inter',sans-serif;--dur:160ms;--h1w:600;--h1ls:-.02em;
+  --shadow:inset 0 1px 0 rgba(255,255,255,.08),0 16px 40px -20px rgba(0,0,0,.7);
+  --glow:radial-gradient(50% 40% at 20% 0%,rgba(255,99,99,.22),transparent 70%),radial-gradient(46% 38% at 88% 100%,rgba(255,154,61,.18),transparent 72%);
+}
+[data-design="raycast-glass"] .app{background:linear-gradient(180deg,rgba(28,28,36,.6),rgba(14,14,18,.7));backdrop-filter:blur(30px);}
+[data-design="raycast-glass"] .btn:hover{transform:scale(1.03);}
+
+/* ════════ 20 · NIGHT DESK PRO — deep slate glass + cyan, pushed (the surprise one) ════════ */
+[data-design="night-desk-pro"]{
+  --bg:#13181f;--bg2:#0f141b;--panel:rgba(38,47,58,.55);--elevated:rgba(30,38,48,.55);--ink:#f1f6f9;--sub:#b7c2cc;--soft:#76828d;
+  --line:rgba(150,200,230,.12);--line2:rgba(150,200,230,.22);--accent:#67d4e0;--accentInk:#06222a;--accent2:#8ab4ff;
+  --radius:16px;--rbtn:11px;--rcard:13px;--blur:18px;--h1w:600;--h1ls:-.02em;
+  --shadow:inset 0 1px 0 rgba(255,255,255,.06),0 18px 42px -22px rgba(0,0,0,.7);
+  --glow:radial-gradient(44% 38% at 16% 4%,rgba(103,212,224,.18),transparent 70%),radial-gradient(44% 40% at 88% 102%,rgba(138,180,255,.16),transparent 72%);
+}
+[data-design="night-desk-pro"] .app{background:linear-gradient(180deg,rgba(32,40,50,.6),rgba(15,20,27,.7));backdrop-filter:blur(26px) saturate(1.3);}
+[data-design="night-desk-pro"] .btn:hover{transform:translateY(-1px);}
+
+
+/* ════════ M1 · macOS LIGHT — native panel, vibrancy, push buttons, SF ════════ */
+[data-design="macos-light"]{
+  --bg:#ececf1;--bg2:#e3e3e9;--panel:rgba(255,255,255,.62);--elevated:rgba(255,255,255,.8);
+  --ink:#1d1d1f;--sub:#3a3a3e;--soft:#86868b;
+  --line:rgba(0,0,0,.08);--line2:rgba(0,0,0,.14);
+  --radius:12px;--rbtn:7px;--rcard:10px;--blur:26px;
+  --font:-apple-system,BlinkMacSystemFont,'SF Pro Text','Helvetica Neue',sans-serif;
+  --fontD:-apple-system,BlinkMacSystemFont,'SF Pro Display','Helvetica Neue',sans-serif;
+  --fontM:ui-monospace,'SF Mono','JetBrains Mono',monospace;
+  --dur:190ms;--ease:cubic-bezier(.25,.6,.3,1);--spring:cubic-bezier(.32,1.35,.42,1);
+  --h1w:700;--h1ls:-.022em;--btn-weight:600;
+  --shadow:0 0 0 .5px rgba(0,0,0,.04),0 1px 2.5px rgba(0,0,0,.08),0 10px 26px -14px rgba(0,0,0,.16);
+  --shadowPop:0 0 0 .5px rgba(0,0,0,.07),0 28px 70px -24px rgba(0,0,0,.38);
+  --glow:none;
+}
+[data-design="macos-light"] .app{background:linear-gradient(180deg,rgba(249,249,251,.88),rgba(236,236,241,.84));backdrop-filter:blur(38px) saturate(1.6);}
+[data-design="macos-light"] .btn{background:linear-gradient(180deg,#ffffff,#f3f3f6);border-color:rgba(0,0,0,.12);box-shadow:0 .5px 1.5px rgba(0,0,0,.12),inset 0 .5px 0 rgba(255,255,255,.9);}
+
+/* ════════ M2 · macOS DARK — dark vibrancy ════════ */
+[data-design="macos-dark"]{
+  --bg:#1b1b1e;--bg2:#151517;--panel:rgba(46,46,50,.55);--elevated:rgba(56,56,60,.5);
+  --ink:#f5f5f7;--sub:#d1d1d6;--soft:#98989d;
+  --line:rgba(255,255,255,.09);--line2:rgba(255,255,255,.16);
+  --radius:12px;--rbtn:7px;--rcard:10px;--blur:30px;
+  --font:-apple-system,BlinkMacSystemFont,'SF Pro Text','Helvetica Neue',sans-serif;
+  --fontD:-apple-system,BlinkMacSystemFont,'SF Pro Display','Helvetica Neue',sans-serif;
+  --fontM:ui-monospace,'SF Mono','JetBrains Mono',monospace;
+  --dur:190ms;--ease:cubic-bezier(.25,.6,.3,1);--spring:cubic-bezier(.32,1.35,.42,1);
+  --h1w:700;--h1ls:-.022em;--btn-weight:600;
+  --shadow:0 0 0 .5px rgba(0,0,0,.32),0 1px 3px rgba(0,0,0,.32),0 12px 30px -16px rgba(0,0,0,.55);
+  --shadowPop:0 0 0 .5px rgba(0,0,0,.5),0 30px 76px -26px rgba(0,0,0,.75);
+  --glow:none;
+}
+[data-design="macos-dark"] .app{background:linear-gradient(180deg,rgba(42,42,46,.8),rgba(27,27,30,.86));backdrop-filter:blur(44px) saturate(1.6);}
+[data-design="macos-dark"] .btn{background:linear-gradient(180deg,rgba(118,118,128,.3),rgba(118,118,128,.18));border-color:rgba(255,255,255,.1);box-shadow:inset 0 .5px 0 rgba(255,255,255,.14),0 .5px 1.5px rgba(0,0,0,.32);}
+
+/* ════════ M3 · macOS GRAPHITE — same bones, mode hue almost muted out ════════ */
+[data-design="macos-graphite"]{
+  --bg:#e9e9ec;--bg2:#e0e0e4;--panel:rgba(255,255,255,.66);--elevated:rgba(255,255,255,.84);
+  --ink:#1d1d1f;--sub:#48484c;--soft:#8a8a8f;
+  --line:rgba(0,0,0,.09);--line2:rgba(0,0,0,.16);
+  --radius:12px;--rbtn:7px;--rcard:10px;--blur:26px;
+  --font:-apple-system,BlinkMacSystemFont,'SF Pro Text','Helvetica Neue',sans-serif;
+  --fontD:-apple-system,BlinkMacSystemFont,'SF Pro Display','Helvetica Neue',sans-serif;
+  --fontM:ui-monospace,'SF Mono','JetBrains Mono',monospace;
+  --dur:180ms;--ease:cubic-bezier(.25,.6,.3,1);--spring:cubic-bezier(.32,1.3,.42,1);
+  --h1w:700;--h1ls:-.022em;--btn-weight:600;
+  --shadow:0 0 0 .5px rgba(0,0,0,.05),0 1px 2.5px rgba(0,0,0,.09),0 10px 26px -14px rgba(0,0,0,.16);
+  --glow:none;
+}
+[data-design="macos-graphite"] .app{background:linear-gradient(180deg,rgba(248,248,250,.9),rgba(233,233,236,.86));backdrop-filter:blur(38px) saturate(1.2);}
+[data-design="macos-graphite"] .btn{background:linear-gradient(180deg,#ffffff,#f2f2f4);border-color:rgba(0,0,0,.13);box-shadow:0 .5px 1.5px rgba(0,0,0,.12),inset 0 .5px 0 rgba(255,255,255,.9);}
+[data-design="macos-graphite"][data-mode="topic"]{--accent:#5f6b64;--accent2:#7e8a83;}
+[data-design="macos-graphite"][data-mode="product"]{--accent:#5d6878;--accent2:#7d8898;}
+[data-design="macos-graphite"][data-mode="pr"]{--accent:#7a5f68;--accent2:#9a7f88;}
+[data-design="macos-graphite"][data-mode="archive"]{--accent:#63666e;--accent2:#83868e;}
+
+/* ════════ M4 · macOS GLASS — Control-Center weight vibrancy ════════ */
+[data-design="macos-glass"]{
+  --bg:#b6bfcc;--bg2:#a9b2c2;--panel:rgba(252,253,255,.42);--elevated:rgba(255,255,255,.55);
+  --ink:#15181d;--sub:#3c424c;--soft:#6f7682;
+  --line:rgba(255,255,255,.55);--line2:rgba(40,50,65,.22);
+  --radius:16px;--rbtn:9px;--rcard:12px;--blur:34px;
+  --font:-apple-system,BlinkMacSystemFont,'SF Pro Text','Helvetica Neue',sans-serif;
+  --fontD:-apple-system,BlinkMacSystemFont,'SF Pro Display','Helvetica Neue',sans-serif;
+  --fontM:ui-monospace,'SF Mono','JetBrains Mono',monospace;
+  --dur:200ms;--ease:cubic-bezier(.25,.6,.3,1);--spring:cubic-bezier(.32,1.35,.42,1);
+  --h1w:700;--h1ls:-.022em;--btn-weight:600;
+  --shadow:inset 0 .5px 0 rgba(255,255,255,.7),0 1px 3px rgba(20,28,40,.1),0 14px 34px -18px rgba(20,28,40,.3);
+  --shadowPop:0 0 0 .5px rgba(255,255,255,.4),0 30px 80px -28px rgba(20,28,40,.5);
+  --glow:radial-gradient(44% 38% at 14% 4%,rgba(255,255,255,.5),transparent 70%),radial-gradient(40% 36% at 88% 100%,rgba(120,140,180,.25),transparent 72%);
+}
+[data-design="macos-glass"] .app{background:linear-gradient(180deg,rgba(248,250,253,.55),rgba(232,236,243,.45));backdrop-filter:blur(54px) saturate(1.8);}
+[data-design="macos-glass"] .btn{background:linear-gradient(180deg,rgba(255,255,255,.85),rgba(248,249,252,.7));border-color:rgba(255,255,255,.6);box-shadow:0 .5px 1.5px rgba(20,28,40,.14),inset 0 .5px 0 rgba(255,255,255,.95);}
+
+/* shared macOS touches */
+[data-design^="macos-"] .word{font-weight:700;letter-spacing:-.02em;}
+[data-design^="macos-"] .btn.primary{background:linear-gradient(180deg,color-mix(in srgb,var(--accent) 82%,#ffffff 18%),var(--accent));border-color:transparent;box-shadow:inset 0 .5px 0 rgba(255,255,255,.4),0 1px 2.5px color-mix(in srgb,var(--accent) 45%,transparent),0 7px 18px -7px color-mix(in srgb,var(--accent) 55%,transparent);}
+[data-design^="macos-"] .head h1{letter-spacing:-.024em;}
+
+/* ── fluidity layer: hover float · press · focus ring · sliding segmented thumb ── */
+.btn,.rb,.pk,.tcard{will-change:transform;}
+.btn:hover{transform:translateY(-1px);}
+.btn:active{transform:translateY(0) scale(.965);transition-duration:70ms;}
+.btn.primary:active{filter:brightness(.9);}
+.rb:active{transform:scale(.93);transition-duration:70ms;}
+.tcard:active{transform:translateY(0) scale(.995);transition-duration:80ms;}
+button:focus-visible{outline:2.5px solid color-mix(in srgb,var(--accent) 55%,transparent);outline-offset:1.5px;}
+.switch{position:relative;}
+.switch button{position:relative;z-index:1;}
+.switch .thumb{position:absolute;z-index:0;top:3px;bottom:3px;left:0;width:0;border-radius:calc(var(--rbtn) - 2px);background:color-mix(in srgb,var(--accent) 15%,transparent);border:1px solid color-mix(in srgb,var(--accent) 32%,transparent);transition:transform 320ms var(--spring),width 320ms var(--spring),background 200ms ease;pointer-events:none;}
+.switch button.on{background:transparent;border-color:transparent;}
+
+/* ════════ MODE ACCENTS — overlay ANY design (Topic green · Product blue · PR rose · Archive indigo) ════════ */
+[data-mode="topic"]  {--accent:#2e8c5f;--accent2:#5ec98c;--accentInk:#ffffff;}
+[data-mode="product"]{--accent:#2f6fbf;--accent2:#5fa0e6;--accentInk:#ffffff;}
+[data-mode="pr"]     {--accent:#c8456e;--accent2:#ec7a98;--accentInk:#ffffff;}
+[data-mode="archive"]{--accent:#5c6a93;--accent2:#8a98c0;--accentInk:#ffffff;}
+
+@media (prefers-reduced-motion: reduce){*,*::before,*::after{animation:none!important;transition:none!important;}}
+</style>
+</head>
+<body>
+<div class="shell">
+  <aside class="picker" id="picker">
+    <h2>DLens · 2027 Gallery</h2>
+    <p class="hint">同一組 frame，不同視覺語言。← → 切換。每個都是一套完整 system（色 / 字 / 圓角 / 玻璃 / glow / 動畫）。</p>
+  </aside>
+  <main class="stage">
+    <div class="app" id="app" data-design="macos-light" data-mode="topic">
+      <div class="glow"></div>
+      <div class="pad">
+        <div class="topbar">
+          <div><div class="kick">Active workspace</div><div class="ws" id="wsLabel">Real Chrome QA · Topic</div></div>
+          <div class="badges"><span class="pill">backend idle</span><span class="pill">v0.1.27</span></div>
+        </div>
+        <header class="masthead">
+          <div class="brand">
+            <span class="word">dlens</span>
+            <nav class="switch"><span class="thumb" id="switchThumb"></span><button data-mode-btn="topic" class="on">Topic</button><button data-mode-btn="product">Product</button><button data-mode-btn="pr">PR</button><button data-mode-btn="archive">Archive</button></nav>
+            <span class="kick">Annotated Field Guide</span>
+          </div>
+          <div class="meta">VOL.1 · NO.01 · Jun 8 · v.0.1.27</div>
+        </header>
+      </div>
+      <div class="frame">
+        <nav class="rail">
+          <div class="ava">d</div>
+          <button class="rb on"><i></i><span id="railHome">Topics</span></button>
+          <button class="rb"><i></i>Collect</button>
+          <button class="rb"><i></i><span id="railAction">Compare</span></button>
+          <button class="rb"><i></i>Settings</button>
+        </nav>
+        <div class="main">
+          <div class="strip">
+            <div class="ring"></div>
+            <div><div class="ws">Mapping comments into clusters…</div><div class="kick">2 ready · 1 analyzing · 4 pending</div></div>
+            <button class="btn">Process all</button>
+          </div>
+          <section class="surface" id="surface"></section>
+        </div>
+      </div>
+    </div>
+  </main>
+</div>
+<script>
+const DESIGNS = [
+  {id:"macos-light",   name:"01 · macOS Light",    vendor:"Apple native",  note:"vibrancy · push buttons · SF"},
+  {id:"macos-dark",    name:"02 · macOS Dark",     vendor:"Apple native",  note:"dark vibrancy · SF"},
+  {id:"macos-graphite",name:"03 · macOS Graphite", vendor:"Apple native",  note:"ultra restrained · muted accent"},
+  {id:"macos-glass",   name:"04 · macOS Glass",    vendor:"Control Center",note:"heavy vibrancy panel"},
+  {id:"raycast-glass", name:"05 · Raycast",        vendor:"Raycast",       note:"launcher glass · dark"},
+  {id:"night-desk-pro",name:"06 · Night Desk Pro", vendor:"—",             note:"deep slate glass · cyan"},
+  {id:"linear-noir",   name:"07 · Linear Noir",    vendor:"Linear",        note:"near-black · crisp"},
+  {id:"vercel-mono",   name:"08 · Vercel Mono",    vendor:"Vercel",        note:"pure B/W · sharp"},
+];
+const app = document.getElementById("app");
+const picker = document.getElementById("picker");
+let idx = 0;
+function renderPicker(){
+  DESIGNS.forEach((d,i)=>{
+    const b=document.createElement("button");
+    b.className="pk"; b.setAttribute("aria-pressed", String(i===idx));
+    b.innerHTML=`<b>${d.name}</b><span>${d.note}</span><i>${d.vendor}</i>`;
+    b.onclick=()=>setDesign(i);
+    picker.appendChild(b);
+  });
+}
+function setDesign(i){
+  idx=(i+DESIGNS.length)%DESIGNS.length;
+  app.dataset.design=DESIGNS[idx].id;
+  [...picker.querySelectorAll(".pk")].forEach((el,j)=>el.setAttribute("aria-pressed",String(j===idx)));
+  requestAnimationFrame(positionThumb);
+}
+document.addEventListener("keydown",(e)=>{
+  if(e.key==="ArrowRight") setDesign(idx+1);
+  if(e.key==="ArrowLeft") setDesign(idx-1);
+});
+// cursor glow var for designs that use it
+app.addEventListener("mousemove",(e)=>{
+  const r=app.getBoundingClientRect();
+  app.style.setProperty("--mx",((e.clientX-r.left)/r.width*100).toFixed(1)+"%");
+  app.style.setProperty("--my",((e.clientY-r.top)/r.height*100).toFixed(1)+"%");
+});
+// ── MODE switching: content + accent per DLens mode ──
+const MODES={
+  topic:{home:"Topics",action:"Compare",ws:"Real Chrome QA · Topic"},
+  product:{home:"Signals",action:"Action",ws:"DLens product vision · Product"},
+  pr:{home:"PR",action:"Match",ws:"Wellness Carnival · PR"},
+  archive:{home:"Library",action:"Inspect",ws:"Saved posts · Archive"}
+};
+const CONTENT={
+  topic:`<div class="head"><div><div class="kick">Topic · Real Chrome QA</div><h1>Topic Casebook</h1><p>Triage saved posts into topics; compare ready pairs.</p></div><div class="acts"><button class="btn">Refresh</button><button class="btn primary">Open Compare</button></div></div>
+  <div class="cards"><div class="list">
+    <div class="tcard on"><div class="dot">T1</div><div class="tc"><h3>AI agent workflows are judged by handoff quality</h3><p>Real Chrome QA · 27 sources · 4 clusters</p><div class="chips"><span class="chip">C1 · Builder pragmatists</span><span class="chip">C2 · Document operators</span><span class="chip">C3 · Tool skeptics</span></div></div><span class="tag">t1</span></div>
+    <div class="tcard"><div class="dot">T2</div><div class="tc"><h3>Wellness carnival reaction splits into utility vs skepticism</h3><p>DLens HTML reference · 42 sources · 3 clusters</p><div class="chips"><span class="chip">C1 · Practical planners</span><span class="chip">C2 · Skeptical observers</span><span class="chip">C3 · Event sharers</span></div></div><span class="tag">t2</span></div>
+  </div><aside class="dock"><div class="kick">Selected cluster dock</div><h3>AI agent workflows are judged by handoff quality</h3><div class="quote">不用幫我想所有東西，只要把資料整理好給下一個 agent。</div><div class="drow"><b>C1 · Builder pragmatists</b><span>Ask for recurring automation</span></div><div class="drow"><b>C2 · Document operators</b><span>Need editable briefs</span></div><div class="drow"><b>C3 · Tool skeptics</b><span>Avoid abstract dashboards</span></div></aside></div>`,
+  product:`<div class="head"><div><div class="kick">Product · DLens vision</div><h1>Saved Signals</h1><p>Analyze signals against ProductContext; turn into agent briefs.</p></div><div class="acts"><button class="btn">Try</button><button class="btn">Watch</button><button class="btn primary">Copy Agent Brief (1)</button></div></div>
+  <div class="cards"><div class="list">
+    <div class="tcard on"><div class="dot">P1</div><div class="tc"><h3>Wrap recurring crawl into a daily monitoring agent</h3><p>technical workflow · 5/5 relevance</p><div class="chips"><span class="chip">Try</span><span class="chip">Workflow</span><span class="chip">selected</span></div></div><span class="tag">p1</span></div>
+    <div class="tcard"><div class="dot">P2</div><div class="tc"><h3>PMs want threads turned into editable docs, not dashboards</h3><p>demand · 4/5 relevance</p><div class="chips"><span class="chip">Watch</span><span class="chip">Demand</span></div></div><span class="tag">p2</span></div>
+    <div class="tcard"><div class="dot">P3</div><div class="tc"><h3>Use customer language as landing-page proof</h3><p>marketing · 3/5 relevance</p><div class="chips"><span class="chip">Park</span><span class="chip">Marketing</span></div></div><span class="tag">p3</span></div>
+  </div><aside class="dock"><div class="kick">Marginalia rail</div><h3>Try · Workflow</h3><div class="quote">If it can grab once a day and tell me what changed, that is already enough.</div><div class="drow"><b>Verdict</b><span>Try</span></div><div class="drow"><b>Why</b><span>First low-cost batch export</span></div></aside></div>`,
+  pr:`<div class="head"><div><div class="kick">PR Evidence · Wellness Carnival</div><h1>Campaign Evidence Ledger</h1><p>Match criteria, export CSV / MD / DOCX from opened posts.</p></div><div class="acts"><button class="btn primary">Match criteria</button><button class="btn">CSV</button><button class="btn">Summary</button></div></div>
+  <div class="cards"><div class="list">
+    <div class="tcard on"><div class="dot">R1</div><div class="tc"><h3>@mediahk</h3><p>40+ inside-out wellness experiences to West Kowloon.</p><div class="chips"><span class="chip">1,280 likes</span><span class="chip">44 comments</span><span class="chip">32.1k views</span></div></div><span class="tag">4/6</span></div>
+    <div class="tcard"><div class="dot">R2</div><div class="tc"><h3>@kol_mavis</h3><p>Went for member benefits and mini health checks.</p><div class="chips"><span class="chip">842 likes</span><span class="chip">38 comments</span><span class="chip">18.4k views</span></div></div><span class="tag">4/6</span></div>
+    <div class="tcard"><div class="dot">R3</div><div class="tc"><h3>@hkfamilylife</h3><p>Venue convenient, but want clearer schedule.</p><div class="chips"><span class="chip">231 likes</span><span class="chip">19 comments</span></div></div><span class="tag">2/6</span></div>
+  </div><aside class="dock"><div class="kick">Criteria · @mediahk</div><div class="drow"><b>Inside-out wellness</b><span>✓</span></div><div class="drow"><b>Event experience</b><span>✓</span></div><div class="drow"><b>40+ experiences</b><span>✓</span></div><div class="drow"><b>Member benefits</b><span>—</span></div><div class="drow"><b>Brand visibility</b><span>✓</span></div></aside></div>`,
+  archive:`<div class="head"><div><div class="kick">Archive · Saved posts</div><h1>Quiet Library</h1><p>Saved posts + backend readiness — lower weight, no AI promise.</p></div><div class="acts"><button class="btn primary">Save current preview</button></div></div>
+  <div class="cards"><div class="list">
+    <div class="tcard"><div class="dot">L1</div><div class="tc"><h3>DLens bundled product vision</h3><p>ready · agent handoff workflow</p></div><span class="tag">·</span></div>
+    <div class="tcard"><div class="dot">L2</div><div class="tc"><h3>Real Chrome QA</h3><p>analyzing · workspace switch perf</p></div><span class="tag">·</span></div>
+    <div class="tcard"><div class="dot">L3</div><div class="tc"><h3>DLens HTML reference</h3><p>saved · visual grammar</p></div><span class="tag">·</span></div>
+  </div><aside class="dock"><div class="kick">Backend</div><h3>idle</h3><div class="drow"><b>queue</b><span>0 pending</span></div><div class="drow"><b>worker</b><span>idle</span></div><div class="quote">Archive 保持安靜：只有已存貼文 + 後端狀態。</div></aside></div>`
+};
+let mode="topic";
+function renderSurface(){document.getElementById("surface").innerHTML=CONTENT[mode];}
+function setMode(m){
+  mode=m; app.dataset.mode=m;
+  document.querySelectorAll("[data-mode-btn]").forEach(b=>b.classList.toggle("on",b.dataset.modeBtn===m));
+  document.getElementById("wsLabel").textContent=MODES[m].ws;
+  const rh=document.getElementById("railHome"),ra=document.getElementById("railAction");
+  if(rh)rh.textContent=MODES[m].home; if(ra)ra.textContent=MODES[m].action;
+  renderSurface();
+  positionThumb();
+}
+document.querySelectorAll("[data-mode-btn]").forEach(b=>b.onclick=()=>setMode(b.dataset.modeBtn));
+function positionThumb(){
+  const sw=document.querySelector(".switch"),on=sw?.querySelector("button.on"),th=document.getElementById("switchThumb");
+  if(!sw||!on||!th)return;
+  th.style.width=on.offsetWidth+"px";
+  th.style.transform=`translateX(${on.offsetLeft}px)`;
+}
+window.addEventListener("resize",positionThumb);
+if(document.fonts&&document.fonts.ready)document.fonts.ready.then(()=>positionThumb());
+// init (supports #design/mode deep-link)
+const _h=decodeURIComponent(location.hash.slice(1)).split("/");
+const _di=DESIGNS.findIndex(d=>d.id===_h[0]); if(_di>=0) idx=_di;
+app.dataset.design=DESIGNS[idx].id;
+setMode((_h[1]&&MODES[_h[1]])?_h[1]:"topic");
+renderPicker();
+</script>
+</body>
+</html>

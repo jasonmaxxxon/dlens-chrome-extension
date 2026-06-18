@@ -364,6 +364,7 @@ This repo currently covers:
 - processing is bounded and explicit, not a permanent daemon
 - compare remains limited to two posts for v1.x
 - `tokens.ts` is the sole design spec, and the active direction is now editorial warm paper / field guide
+- Visual Reset A keeps the `tokens.ts` warm-paper editorial content language and absorbs macOS utility shell patterns into existing shadow / motion / effect tokens; archived `DESIGN.md` and mockups are references only, not competing specs
 
 ## Current Important Boundary
 

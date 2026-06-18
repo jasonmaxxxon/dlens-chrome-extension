@@ -1,8 +1,17 @@
 /* ─── DLens Editorial Field Guide Theme ───
  *
+ * Active design contract (Visual Reset A, 2026-06-18):
+ *   DLens 的內容語言維持 `tokens.ts` 的暖紙 editorial；
+ *   外框與互動語言吸收 macOS utility，但不另開第二套設計系統。
+ *
+ * English shorthand:
+ *   Editorial reader inside a native-feeling utility shell.
+ *
  * Design direction: warm paper workspace, deep editorial ink, specimen-style accents.
- * `tokens.ts` remains the sole design spec even while some callers still use legacy
- * alias names such as glass*.
+ * `tokens.ts` is the single active design source. macOS utility patterns extend
+ * existing token slots such as shadow.popup, shadow.shell, motion.preset.*,
+ * and effect.*; they do not introduce a parallel palette, font stack, or scale.
+ * Some callers still use legacy alias names such as glass*.
  */
 
 export const tokens = {
