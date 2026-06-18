@@ -1092,6 +1092,52 @@ function renderHtmlReadingCitationRefs(packet: DLensSignalPacket, evidenceRef: s
             </details>`;
 }
 
+function formatPacketSourceOrigin(origin: DLensSignalPacket["source"]["urlSource"] | null | undefined): string {
+  switch (origin) {
+    case "descriptor.postUrl":
+      return "descriptor.postUrl";
+    case "descriptor.pageUrl":
+      return "descriptor.pageUrl";
+    case "capture.sourcePostUrl":
+      return "capture.sourcePostUrl";
+    case "capture.sourcePageUrl":
+      return "capture.sourcePageUrl";
+    case "capture.canonicalTargetUrl":
+      return "capture.canonicalTargetUrl";
+    case "item.canonicalTargetUrl":
+      return "item.canonicalTargetUrl";
+    case "reading.sourcePacket.postUrl":
+      return "reading.sourcePacket.postUrl";
+    case "urlFallback":
+      return "url fallback";
+    default:
+      return "";
+  }
+}
+
+function packetSourceProvenanceParts(packet: DLensSignalPacket): string[] {
+  const parts: string[] = [];
+  const urlSource = formatPacketSourceOrigin(packet.source.urlSource);
+  const pageUrlSource = formatPacketSourceOrigin(packet.source.pageUrlSource);
+  const pageUrlFallbackSource = formatPacketSourceOrigin(packet.source.pageUrlFallbackSource);
+  const canonicalTargetUrlSource = formatPacketSourceOrigin(packet.source.canonicalTargetUrlSource);
+
+  if (packet.source.url && urlSource) {
+    parts.push(`url via ${urlSource}`);
+  }
+  if (packet.source.pageUrl && pageUrlSource) {
+    parts.push(
+      packet.source.pageUrlSource === "urlFallback" && pageUrlFallbackSource
+        ? `pageUrl via ${pageUrlSource} (${pageUrlFallbackSource})`
+        : `pageUrl via ${pageUrlSource}`
+    );
+  }
+  if (packet.source.canonicalTargetUrl && canonicalTargetUrlSource) {
+    parts.push(`canonicalTargetUrl via ${canonicalTargetUrlSource}`);
+  }
+  return parts;
+}
+
 function renderHtmlSignalMeta(packet: DLensSignalPacket): string {
   const parts: string[] = [];
   const readingVersion = packet.reading.latest?.promptVersion;
@@ -1109,6 +1155,7 @@ function renderHtmlSignalMeta(packet: DLensSignalPacket): string {
   if (packet.source.source) parts.push(`來源 ${packet.source.source}`);
   if (packet.source.captureId) parts.push(`capture ${packet.source.captureId}`);
   if (packet.source.itemStatus) parts.push(`item ${packet.source.itemStatus}`);
+  parts.push(...packetSourceProvenanceParts(packet));
 
   if (!parts.length) return "";
   return `<p class="signal-meta" data-signal-provenance="true">${escapeHtml(parts.join(" · "))}</p>`;

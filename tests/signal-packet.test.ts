@@ -514,6 +514,10 @@ test("buildDLensSignalPacket falls back pageUrl through nonblank reading source 
   assert.ok(packet);
   assert.equal(packet.source.url, "https://www.threads.net/@builder/post/from-reading");
   assert.equal(packet.source.pageUrl, "https://www.threads.net/@builder/post/from-reading");
+  assert.equal(packet.source.urlSource, "reading.sourcePacket.postUrl");
+  assert.equal(packet.source.pageUrlSource, "urlFallback");
+  assert.equal(packet.source.pageUrlFallbackSource, "reading.sourcePacket.postUrl");
+  assert.equal(packet.source.canonicalTargetUrlSource, "missing");
 });
 
 test("buildSignalPacketIndex bulk-loads storage once per layer and filters packets", async () => {

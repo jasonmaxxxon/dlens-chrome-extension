@@ -1487,10 +1487,16 @@ function SignalReadingBody({ reading }: { reading: string }) {
 
 function SignalReadingProvenanceRow({
   sourceUrl,
-  reading
+  reading,
+  sourceKind,
+  captureId,
+  itemStatus
 }: {
   sourceUrl: string;
   reading?: SignalReading;
+  sourceKind?: ProductSignalViewModel["source"];
+  captureId?: ProductSignalViewModel["captureId"];
+  itemStatus?: ProductSignalViewModel["readiness"]["itemStatus"];
 }) {
   const model = reading?.model || "";
   const provenance = aiOutputProvenanceFromModel(model);
@@ -1500,6 +1506,11 @@ function SignalReadingProvenanceRow({
     : provenanceCopy.tone === "warning"
       ? tokens.color.queued
       : tokens.color.softInk;
+  const sourceMeta = [
+    sourceKind ? `來源 ${sourceKind}` : "",
+    captureId ? `capture ${captureId}` : "",
+    itemStatus ? `item ${itemStatus}` : ""
+  ].filter(Boolean);
   return (
     <div
       data-signal-reading-provenance="true"
@@ -1533,6 +1544,16 @@ function SignalReadingProvenanceRow({
           <span style={{ color: tokens.color.subInk }}>local</span>
         )}
       </span>
+      {sourceMeta.map((meta) => (
+        <span
+          key={meta}
+          data-signal-reading-source-meta="true"
+          title={meta}
+          style={{ color: tokens.color.softInk }}
+        >
+          {meta}
+        </span>
+      ))}
       <span
         data-signal-reading-model-hover="true"
         title={model ? `模型：${model}` : provenanceCopy.detail}
@@ -2517,7 +2538,13 @@ function SignalReadingReviewWorkspace({
                 </button>
                 {isActive ? (
                   <div style={{ borderTop: `1px solid ${tokens.color.line}`, display: "grid", gap: 10, padding: "10px 12px 12px" }}>
-                    <SignalReadingProvenanceRow sourceUrl={sourceUrl} reading={reading} />
+                    <SignalReadingProvenanceRow
+                      sourceUrl={sourceUrl}
+                      reading={reading}
+                      sourceKind={signal.source}
+                      captureId={signal.captureId}
+                      itemStatus={signal.readiness.itemStatus}
+                    />
                     {analysis ? (
                       <SignalReadingMarginaliaPanel
                         analysis={analysis}

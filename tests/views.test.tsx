@@ -3308,6 +3308,9 @@ test("ProductSignalView action route shows existing reading review content", () 
 
   assert.match(html, /data-signal-reading-review-workspace="true"/);
   assert.match(html, /AI 生成/);
+  assert.match(html, /來源 threads/);
+  assert.match(html, /capture cap-signal_ready/);
+  assert.match(html, /item succeeded/);
   assert.match(html, /現有判讀內容/);
   assert.doesNotMatch(html, /data-actionable-insights-board="true"/);
 });
