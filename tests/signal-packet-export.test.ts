@@ -6,6 +6,20 @@ import {
 } from "../src/compare/signal-packet-export.ts";
 import { DLENS_SIGNAL_PACKET_VERSION, type DLensSignalPacket } from "../src/compare/signal-packet.ts";
 
+type SignalPacketReading = NonNullable<DLensSignalPacket["reading"]["latest"]>;
+
+function makeReadingBundle(latest: SignalPacketReading | null = null): DLensSignalPacket["reading"] {
+  const all = latest ? [latest] : [];
+  const filed = latest?.reviewState === "filed" ? [latest] : [];
+  return {
+    latest,
+    latestFiled: filed[0] ?? null,
+    supersededFiled: [],
+    filed,
+    all
+  };
+}
+
 function makePacket(overrides: Partial<DLensSignalPacket> = {}): DLensSignalPacket {
   return {
     packetVersion: DLENS_SIGNAL_PACKET_VERSION,
@@ -44,7 +58,8 @@ function makePacket(overrides: Partial<DLensSignalPacket> = {}): DLensSignalPack
         ],
         analysisPromptVersion: "v16"
       },
-      assembledContent: "Root post plus OP continuation."
+      assembledContent: "Root post plus OP continuation.",
+      citedInReadingRefs: {}
     },
     judgment: {
       signalId: "signal-1",
@@ -87,11 +102,7 @@ function makePacket(overrides: Partial<DLensSignalPacket> = {}): DLensSignalPack
       sourceFileIds: ["file-1"],
       promptVersion: "v1"
     },
-    reading: {
-      latest: null,
-      filed: [],
-      all: []
-    },
+    reading: makeReadingBundle(),
     userFeedback: {
       currentReadingState: "filed",
       readingFeedback: [],
@@ -287,6 +298,31 @@ test("exportSignalPackets html renders scannable verdict lanes and collapsed sig
   assert.match(result.content, /agent_task adopted/);
 });
 
+test("exportSignalPackets html uses compact density without changing packet contract", () => {
+  const base = makePacket();
+  const htmlResult = exportSignalPackets([base, makePacket({
+    source: { ...base.source, signalId: "signal-2" }
+  })], {
+    format: "html",
+    generatedAt: "2026-05-19T08:30:00.000Z"
+  });
+
+  assert.match(htmlResult.content, /<main data-signal-packet-density="compact">/);
+  assert.match(htmlResult.content, /\.signal-card \{\n      margin: 0 0 44px;/);
+  assert.match(htmlResult.content, /\.signal-card \+ \.signal-card \{\n      padding-top: 44px;/);
+  assert.match(htmlResult.content, /\.reading-text \{\n      font: 400 16px\/1\.75 var\(--serif\);/);
+  assert.match(htmlResult.content, /\.cited-quote \{\n      margin: 0 0 12px;\n      padding: 12px 16px 12px 18px;/);
+
+  const jsonlResult = exportSignalPackets([makePacket()], {
+    format: "jsonl",
+    generatedAt: "2026-05-19T08:30:00.000Z"
+  });
+  const [packet] = jsonlResult.content.trim().split("\n").map((line) => JSON.parse(line) as DLensSignalPacket);
+
+  assert.equal(packet?.packetVersion, DLENS_SIGNAL_PACKET_VERSION);
+  assert.doesNotMatch(jsonlResult.content, /signalPacketDensity|htmlDensity/);
+});
+
 test("exportSignalPackets html keeps raw details sparse with cited evidence only and no empty feedback", () => {
   const base = makePacket();
   const packet = makePacket({
@@ -302,8 +338,7 @@ test("exportSignalPackets html keeps raw details sparse with cited evidence only
       ...base.judgment!,
       evidenceRefs: ["e1"]
     },
-    reading: {
-      latest: {
+    reading: makeReadingBundle({
         signalId: "signal-1",
         cacheKey: "reading-1",
         productContextHash: "ctx_1",
@@ -321,10 +356,7 @@ test("exportSignalPackets html keeps raw details sparse with cited evidence only
         },
         reviewState: "filed",
         feedbackEvents: []
-      },
-      filed: [],
-      all: []
-    },
+    }),
     userFeedback: {
       ...base.userFeedback,
       feedbackTimeline: []
@@ -376,8 +408,7 @@ test("exportSignalPackets html escapes source and evidence text", () => {
 
 test("exportSignalPackets html renders safe inline markdown in visible reading text", () => {
   const packet = makePacket({
-    reading: {
-      latest: {
+    reading: makeReadingBundle({
         signalId: "signal-1",
         cacheKey: "reading-1",
         productContextHash: "ctx_1",
@@ -395,10 +426,7 @@ test("exportSignalPackets html renders safe inline markdown in visible reading t
         },
         reviewState: "filed",
         feedbackEvents: []
-      },
-      filed: [],
-      all: []
-    },
+    }),
     decisionTrace: {
       traceVersion: "v1",
       stages: [{
@@ -449,8 +477,7 @@ test("exportSignalPackets html renames cited evidence section and collapses beyo
       ...base.judgment!,
       evidenceRefs: textEvidence.map((entry) => entry.ref)
     },
-    reading: {
-      latest: {
+    reading: makeReadingBundle({
         signalId: "signal-1",
         cacheKey: "reading-collapse",
         productContextHash: "ctx_1",
@@ -468,10 +495,7 @@ test("exportSignalPackets html renames cited evidence section and collapses beyo
         },
         reviewState: "filed",
         feedbackEvents: []
-      },
-      filed: [],
-      all: []
-    }
+    })
   });
 
   const result = exportSignalPackets([packet], {
@@ -515,8 +539,7 @@ test("exportSignalPackets html surfaces provenance strip with reading + analysis
     evidence: { ...base.evidence, textEvidence },
     judgment: { ...base.judgment!, evidenceRefs: ["e1", "e2"], promptVersion: "v16" },
     source: { ...base.source, capturedAt: "2026-05-15T10:00:00.000Z" },
-    reading: {
-      latest: {
+    reading: makeReadingBundle({
         signalId: "signal-1",
         cacheKey: "reading-prov",
         productContextHash: "ctx_1",
@@ -534,10 +557,7 @@ test("exportSignalPackets html surfaces provenance strip with reading + analysis
         },
         reviewState: "filed",
         feedbackEvents: []
-      },
-      filed: [],
-      all: []
-    }
+    })
   });
 
   const result = exportSignalPackets([packet], {
@@ -548,6 +568,26 @@ test("exportSignalPackets html surfaces provenance strip with reading + analysis
   assert.match(result.content, /data-signal-provenance="true"/);
   // Each provenance fragment present in order
   assert.match(result.content, /判讀 v9 · 分析 v16 · Gemini Flash · 2 則留言 · max ♥12 · captured 2026-05-15/);
+});
+
+test("exportSignalPackets html provenance strip displays existing source metadata only", () => {
+  const base = makePacket();
+  const packet = makePacket({
+    source: {
+      ...base.source,
+      source: "threads",
+      itemStatus: "succeeded",
+      captureId: "cap-html-1"
+    }
+  });
+
+  const result = exportSignalPackets([packet], {
+    format: "html",
+    generatedAt: "2026-05-19T08:30:00.000Z"
+  });
+
+  assert.match(result.content, /來源 threads · capture cap-html-1 · item succeeded/);
+  assert.doesNotMatch(result.content, /packetSourceProvenance|sourceProvenance/);
 });
 
 test("exportSignalPackets html catalog block also collapses beyond top 5", () => {
@@ -565,8 +605,7 @@ test("exportSignalPackets html catalog block also collapses beyond top 5", () =>
       ...base.judgment!,
       evidenceRefs: textEvidence.map((entry) => entry.ref)
     },
-    reading: {
-      latest: {
+    reading: makeReadingBundle({
         signalId: "signal-1",
         cacheKey: "reading-catalog",
         productContextHash: "ctx_1",
@@ -584,10 +623,7 @@ test("exportSignalPackets html catalog block also collapses beyond top 5", () =>
         },
         reviewState: "filed",
         feedbackEvents: []
-      },
-      filed: [],
-      all: []
-    }
+    })
   });
 
   const result = exportSignalPackets([packet], {
@@ -613,8 +649,7 @@ test("formatModelShortName fallback table covers Gemini/Claude/GPT and other pro
   ];
   for (const { model, expected } of cases) {
     const packet = makePacket({
-      reading: {
-        latest: {
+      reading: makeReadingBundle({
           signalId: "signal-1",
           cacheKey: `reading-${model}`,
           productContextHash: "ctx_1",
@@ -632,10 +667,7 @@ test("formatModelShortName fallback table covers Gemini/Claude/GPT and other pro
           },
           reviewState: "filed",
           feedbackEvents: []
-        },
-        filed: [],
-        all: []
-      },
+      }),
       judgment: { ...base.judgment!, evidenceRefs: ["e1"], promptVersion: "v16" }
     });
     const result = exportSignalPackets([packet], {

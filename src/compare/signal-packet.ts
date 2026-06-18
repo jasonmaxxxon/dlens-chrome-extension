@@ -65,6 +65,8 @@ export interface DLensSignalPacketSource {
 
 export interface DLensSignalReadingBundle {
   latest: SignalReading | null;
+  latestFiled: SignalReading | null;
+  supersededFiled: SignalReading[];
   filed: SignalReading[];
   all: SignalReading[];
 }
@@ -125,6 +127,7 @@ export interface DLensSignalEvidence {
   imageEvidence: DLensSignalImageEvidence[];
   sourcePacket: SignalReadingSourcePacket | null;
   assembledContent: string;
+  citedInReadingRefs: Record<string, string[]>;
 }
 
 export interface DLensSignalDecisionTraceEvidence {
@@ -332,6 +335,7 @@ function buildPacket({
   topics: Topic[];
 }): DLensSignalPacket {
   const latestReading = readings[0] ?? null;
+  const filedReadings = readings.filter((reading) => reading.reviewState === "filed");
   const textEvidence = buildTextEvidence(item?.latestCapture, latestReading);
   const sourcePacket = latestReading?.sourcePacket ?? buildSourcePacketFromCapture(
     item?.latestCapture ?? null,
@@ -347,13 +351,16 @@ function buildPacket({
       textEvidence,
       imageEvidence: [],
       sourcePacket,
-      assembledContent: sourcePacket?.assembledContent || readCaptureAssembledContent(item?.latestCapture ?? null)
+      assembledContent: sourcePacket?.assembledContent || readCaptureAssembledContent(item?.latestCapture ?? null),
+      citedInReadingRefs: buildCitedInReadingRefs(readings)
     },
     judgment: analysis,
     productContext: buildProductContextSnapshot(productContext, analysis),
     reading: {
       latest: latestReading,
-      filed: readings.filter((reading) => reading.reviewState === "filed"),
+      latestFiled: filedReadings[0] ?? null,
+      supersededFiled: filedReadings.slice(1),
+      filed: filedReadings,
       all: readings
     },
     userFeedback: {
@@ -437,11 +444,12 @@ function buildPacketSource(
 ): DLensSignalPacketSource {
   const capture = item?.latestCapture ?? null;
   const descriptor = item?.descriptor ?? null;
-  const url = descriptor?.post_url
-    || capture?.source_post_url
-    || capture?.canonical_target_url
-    || latestReading?.sourcePacket.postUrl
-    || "";
+  const url = firstNonBlankString(
+    descriptor?.post_url,
+    capture?.source_post_url,
+    capture?.canonical_target_url,
+    latestReading?.sourcePacket.postUrl
+  );
 
   return {
     signalId: signal.id,
@@ -452,12 +460,12 @@ function buildPacketSource(
     itemId: signal.itemId ?? null,
     itemStatus: item?.status ?? null,
     url,
-    pageUrl: descriptor?.page_url || capture?.source_page_url || url,
-    author: descriptor?.author_hint || capture?.author_hint || "",
-    textSnippet: descriptor?.text_snippet || capture?.text_snippet || "",
-    capturedAt: signal.capturedAt || descriptor?.captured_at || capture?.captured_at || "",
+    pageUrl: firstNonBlankString(descriptor?.page_url, capture?.source_page_url, url),
+    author: firstNonBlankString(descriptor?.author_hint, capture?.author_hint),
+    textSnippet: firstNonBlankString(descriptor?.text_snippet, capture?.text_snippet),
+    capturedAt: firstNonBlankString(signal.capturedAt, descriptor?.captured_at, capture?.captured_at),
     captureId: item?.captureId || capture?.id || null,
-    canonicalTargetUrl: item?.canonicalTargetUrl || capture?.canonical_target_url || null
+    canonicalTargetUrl: firstNonBlankString(item?.canonicalTargetUrl, capture?.canonical_target_url) || null
   };
 }
 
@@ -513,6 +521,17 @@ function buildSourcePacketFromCapture(
     })),
     analysisPromptVersion
   };
+}
+
+function buildCitedInReadingRefs(readings: SignalReading[]): Record<string, string[]> {
+  const citedByRef: Record<string, string[]> = {};
+  for (const reading of readings) {
+    const refs = new Set(reading.sourceRefs.map((ref) => ref.trim()).filter(Boolean));
+    for (const ref of refs) {
+      citedByRef[ref] = [...(citedByRef[ref] ?? []), reading.cacheKey];
+    }
+  }
+  return citedByRef;
 }
 
 function buildDecisionTrace(
@@ -827,6 +846,16 @@ function groupBy<T>(values: T[], getKey: (value: T) => string): Map<string, T[]>
 
 function readString(value: unknown): string {
   return typeof value === "string" ? value.trim() : "";
+}
+
+function firstNonBlankString(...values: unknown[]): string {
+  for (const value of values) {
+    const text = readString(value);
+    if (text) {
+      return text;
+    }
+  }
+  return "";
 }
 
 function readStringArray(value: unknown): string[] {
