@@ -46,6 +46,17 @@ export interface DLensSignalImageEvidence {
   confidence?: number;
 }
 
+export type DLensSignalPacketSourceOrigin =
+  | "descriptor.postUrl"
+  | "descriptor.pageUrl"
+  | "capture.sourcePostUrl"
+  | "capture.sourcePageUrl"
+  | "capture.canonicalTargetUrl"
+  | "item.canonicalTargetUrl"
+  | "reading.sourcePacket.postUrl"
+  | "urlFallback"
+  | "missing";
+
 export interface DLensSignalPacketSource {
   signalId: string;
   source: SignalSource;
@@ -56,11 +67,15 @@ export interface DLensSignalPacketSource {
   itemStatus: SessionItem["status"] | null;
   url: string;
   pageUrl: string;
+  urlSource: DLensSignalPacketSourceOrigin;
+  pageUrlSource: DLensSignalPacketSourceOrigin;
+  pageUrlFallbackSource: DLensSignalPacketSourceOrigin | null;
   author: string;
   textSnippet: string;
   capturedAt: string;
   captureId: string | null;
   canonicalTargetUrl: string | null;
+  canonicalTargetUrlSource: DLensSignalPacketSourceOrigin;
 }
 
 export interface DLensSignalReadingBundle {
@@ -444,12 +459,26 @@ function buildPacketSource(
 ): DLensSignalPacketSource {
   const capture = item?.latestCapture ?? null;
   const descriptor = item?.descriptor ?? null;
-  const url = firstNonBlankString(
-    descriptor?.post_url,
-    capture?.source_post_url,
-    capture?.canonical_target_url,
-    latestReading?.sourcePacket.postUrl
-  );
+  const urlChoice = firstNonBlankSource([
+    { value: descriptor?.post_url, source: "descriptor.postUrl" },
+    { value: capture?.source_post_url, source: "capture.sourcePostUrl" },
+    { value: capture?.canonical_target_url, source: "capture.canonicalTargetUrl" },
+    { value: latestReading?.sourcePacket.postUrl, source: "reading.sourcePacket.postUrl" }
+  ]);
+  const pageUrlChoice = firstNonBlankSource([
+    { value: descriptor?.page_url, source: "descriptor.pageUrl" },
+    { value: capture?.source_page_url, source: "capture.sourcePageUrl" }
+  ]);
+  const pageUrl = pageUrlChoice.value || urlChoice.value;
+  const pageUrlSource = pageUrlChoice.value
+    ? pageUrlChoice.source
+    : urlChoice.value
+      ? "urlFallback"
+      : "missing";
+  const canonicalTargetUrlChoice = firstNonBlankSource([
+    { value: item?.canonicalTargetUrl, source: "item.canonicalTargetUrl" },
+    { value: capture?.canonical_target_url, source: "capture.canonicalTargetUrl" }
+  ]);
 
   return {
     signalId: signal.id,
@@ -459,13 +488,17 @@ function buildPacketSource(
     sessionMode: session?.mode ?? null,
     itemId: signal.itemId ?? null,
     itemStatus: item?.status ?? null,
-    url,
-    pageUrl: firstNonBlankString(descriptor?.page_url, capture?.source_page_url, url),
+    url: urlChoice.value,
+    pageUrl,
+    urlSource: urlChoice.source,
+    pageUrlSource,
+    pageUrlFallbackSource: pageUrlSource === "urlFallback" ? urlChoice.source : null,
     author: firstNonBlankString(descriptor?.author_hint, capture?.author_hint),
     textSnippet: firstNonBlankString(descriptor?.text_snippet, capture?.text_snippet),
     capturedAt: firstNonBlankString(signal.capturedAt, descriptor?.captured_at, capture?.captured_at),
     captureId: item?.captureId || capture?.id || null,
-    canonicalTargetUrl: firstNonBlankString(item?.canonicalTargetUrl, capture?.canonical_target_url) || null
+    canonicalTargetUrl: canonicalTargetUrlChoice.value || null,
+    canonicalTargetUrlSource: canonicalTargetUrlChoice.source
   };
 }
 
@@ -856,6 +889,18 @@ function firstNonBlankString(...values: unknown[]): string {
     }
   }
   return "";
+}
+
+function firstNonBlankSource(
+  candidates: Array<{ value: unknown; source: DLensSignalPacketSourceOrigin }>
+): { value: string; source: DLensSignalPacketSourceOrigin } {
+  for (const candidate of candidates) {
+    const text = readString(candidate.value);
+    if (text) {
+      return { value: text, source: candidate.source };
+    }
+  }
+  return { value: "", source: "missing" };
 }
 
 function readStringArray(value: unknown): string[] {

@@ -33,11 +33,15 @@ function makePacket(overrides: Partial<DLensSignalPacket> = {}): DLensSignalPack
       itemStatus: "succeeded",
       url: "https://www.threads.net/@builder/post/abc",
       pageUrl: "https://www.threads.net/@builder/post/abc",
+      urlSource: "descriptor.postUrl",
+      pageUrlSource: "descriptor.pageUrl",
+      pageUrlFallbackSource: null,
       author: "builder",
       textSnippet: "Agent handoff workflow.",
       capturedAt: "2026-05-19T08:00:00.000Z",
       captureId: "cap-1",
-      canonicalTargetUrl: "https://www.threads.net/@builder/post/abc"
+      canonicalTargetUrl: "https://www.threads.net/@builder/post/abc",
+      canonicalTargetUrlSource: "item.canonicalTargetUrl"
     },
     evidence: {
       textEvidence: [
@@ -593,7 +597,7 @@ test("exportSignalPackets html surfaces provenance strip with reading + analysis
   assert.match(result.content, /判讀 v9 · 分析 v16 · Gemini Flash · 2 則留言 · max ♥12 · captured 2026-05-15/);
 });
 
-test("exportSignalPackets html provenance strip displays existing source metadata only", () => {
+test("exportSignalPackets html provenance strip displays source metadata", () => {
   const base = makePacket();
   const packet = makePacket({
     source: {
@@ -611,6 +615,31 @@ test("exportSignalPackets html provenance strip displays existing source metadat
 
   assert.match(result.content, /來源 threads · capture cap-html-1 · item succeeded/);
   assert.doesNotMatch(result.content, /packetSourceProvenance|sourceProvenance/);
+});
+
+test("exportSignalPackets html provenance strip displays url fallback sources", () => {
+  const base = makePacket();
+  const packet = makePacket({
+    source: {
+      ...base.source,
+      url: "https://www.threads.net/@builder/post/from-reading",
+      pageUrl: "https://www.threads.net/@builder/post/from-reading",
+      canonicalTargetUrl: null,
+      urlSource: "reading.sourcePacket.postUrl",
+      pageUrlSource: "urlFallback",
+      pageUrlFallbackSource: "reading.sourcePacket.postUrl",
+      canonicalTargetUrlSource: "missing"
+    }
+  });
+
+  const result = exportSignalPackets([packet], {
+    format: "html",
+    generatedAt: "2026-05-19T08:30:00.000Z"
+  });
+
+  assert.match(result.content, /url via reading\.sourcePacket\.postUrl/);
+  assert.match(result.content, /pageUrl via url fallback \(reading\.sourcePacket\.postUrl\)/);
+  assert.doesNotMatch(result.content, /canonicalTargetUrl via missing/);
 });
 
 test("exportSignalPackets html catalog block also collapses beyond top 5", () => {
