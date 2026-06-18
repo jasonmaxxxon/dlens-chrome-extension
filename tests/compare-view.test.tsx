@@ -5,13 +5,15 @@ import React from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 
 import type { AnalysisSnapshot, CaptureSnapshot } from "../src/contracts/ingest.ts";
+import type { CompareBrief } from "../src/compare/brief.ts";
 import { compareViewTestables, CompareView } from "../src/ui/CompareView.tsx";
 import type { ExtensionSettings, SessionRecord } from "../src/state/types.ts";
 import { createDefaultSettings } from "../src/state/types.ts";
 import { createSessionItem, createSessionRecord } from "../src/state/store-helpers.ts";
 import { buildTechniqueReadingSnapshot, STATIC_TECHNIQUE_DEFINITIONS } from "../src/compare/technique-reading.ts";
 import type { Topic } from "../src/state/types.ts";
-import { buildCompareViewModel, type CompareFetchedState } from "../src/viewmodel/compare.ts";
+import { modeThemes, modeThemeStyle, tokens } from "../src/ui/tokens.ts";
+import { buildCompareViewModel, type CompareCommand, type CompareFetchedState } from "../src/viewmodel/compare.ts";
 
 function buildCapture(
   id: string,
@@ -181,6 +183,7 @@ interface CompareViewElementProps {
   activeResultId?: string | null;
   attachedTopicIds?: string[];
   fetched?: CompareFetchedState;
+  onCommand?: (command: CompareCommand) => Promise<unknown> | unknown;
   onGoToLibrary?: () => void;
   onReturnToTopic?: () => void;
   onAttachToTopic?: (topicId: string) => void;
@@ -198,6 +201,7 @@ function compareViewElement({
   activeResultId = null,
   attachedTopicIds = [],
   fetched,
+  onCommand = () => undefined,
 }: CompareViewElementProps): React.ReactElement {
   return React.createElement(CompareView, {
     viewModel: buildCompareViewModel({
@@ -213,8 +217,46 @@ function compareViewElement({
       attachedTopicIds,
       fetched
     }),
-    onCommand: () => undefined
+    onCommand
   });
+}
+
+function countOccurrences(value: string, needle: string): number {
+  return value.split(needle).length - 1;
+}
+
+function escapeRegExp(value: string): string {
+  return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+}
+
+function findTagWithAttr(html: string, attr: string): string {
+  const match = html.match(new RegExp(`<[^>]+${escapeRegExp(attr)}[^>]*>`));
+  assert.ok(match, `missing tag with ${attr}`);
+  return match[0]!;
+}
+
+function styleFromTag(tag: string): string {
+  const match = tag.match(/style="([^"]*)"/);
+  assert.ok(match, `missing style in ${tag}`);
+  return match[1]!;
+}
+
+function makeBrief(overrides: Partial<CompareBrief> = {}): CompareBrief {
+  return {
+    source: "ai",
+    headline: "AI headline splits risk from proof",
+    relation: "A moves toward proof, while B keeps the risk frame alive.",
+    supportingObservations: [],
+    aReading: "A treats the thread as proof of demand.",
+    bReading: "B treats the same thread as a risk signal.",
+    whyItMatters: "The reply strategy changes when the audience frame splits.",
+    creatorCue: "Use A for proof and answer B with risk boundaries.",
+    keywords: ["proof", "risk", "decision"],
+    audienceAlignmentLeft: "Align",
+    audienceAlignmentRight: "Oppose",
+    confidence: "medium",
+    ...overrides
+  };
 }
 
 test("CompareView renders an analysis sheet before support data", () => {
@@ -230,6 +272,171 @@ test("CompareView renders an analysis sheet before support data", () => {
   assert.match(html, /驗證數據/);
   assert.match(html, /support this policy/);
   assert.doesNotMatch(html, /Cluster #1/);
+});
+
+test("CompareView hero renders a raised billboard with headline verdict and stance cells", () => {
+  const html = renderToStaticMarkup(
+    compareViewElement({
+      session: buildSession(),
+      settings: createDefaultSettings()
+    })
+  );
+
+  assert.match(html, /data-compare-hero="billboard"/);
+  assert.match(html, /data-compare-raised-surface="true"/);
+  assert.match(html, /data-compare-hero-headline="true"/);
+  assert.match(html, /data-compare-hero-verdict="true"/);
+  assert.equal(countOccurrences(html, "data-compare-stance-cell="), 2);
+  assert.match(html, /data-compare-stance-cell="A"/);
+  assert.match(html, /data-compare-stance-cell="B"/);
+  assert.ok(html.indexOf("data-compare-hero-headline") < html.indexOf("data-compare-stance-cell=\"A\""));
+});
+
+test("CompareView hero is the only raised Compare surface and consumes the mode accent vars", () => {
+  const html = renderToStaticMarkup(
+    compareViewElement({
+      session: buildSession(),
+      settings: createDefaultSettings()
+    })
+  );
+
+  assert.equal(countOccurrences(html, `box-shadow:${tokens.shadow.raised}`), 1);
+  assert.equal(countOccurrences(html, "data-compare-raised-surface=\"true\""), 1);
+  assert.match(html, /data-compare-hero-accent="mode-var"/);
+  assert.match(html, /var\(--dlens-mode-accent, #1a2e4f\)/);
+  assert.match(html, /var\(--dlens-mode-accent-soft, rgba\(26,46,79,0.09\)\)/);
+});
+
+test("CompareView hero keeps stance cells width-safe for 320 and 440 popup widths", () => {
+  const html = renderToStaticMarkup(
+    compareViewElement({
+      session: buildSession(),
+      settings: createDefaultSettings()
+    })
+  );
+  const gridStyle = styleFromTag(findTagWithAttr(html, "data-compare-stance-grid=\"responsive\""));
+  const cellAStyle = styleFromTag(findTagWithAttr(html, "data-compare-stance-cell=\"A\""));
+  const cellBStyle = styleFromTag(findTagWithAttr(html, "data-compare-stance-cell=\"B\""));
+
+  assert.match(gridStyle, /grid-template-columns:repeat\(2, minmax\(0, 1fr\)\)/);
+  assert.match(gridStyle, /min-width:0/);
+  for (const style of [cellAStyle, cellBStyle]) {
+    assert.match(style, /min-width:0/);
+    assert.match(style, /overflow-wrap:anywhere/);
+    assert.match(style, /word-break:break-word/);
+    assert.doesNotMatch(style, /min-width:(?!0)/);
+  }
+});
+
+test("CompareView hero keeps async fetched brief divergence on the render-only path", () => {
+  const settings = createDefaultSettings();
+  settings.googleApiKey = "AIza-test";
+  const html = renderToStaticMarkup(
+    compareViewElement({
+      session: buildSession(),
+      settings,
+      fetched: {
+        briefState: "ready",
+        brief: makeBrief(),
+        clusterInterpretations: [],
+        evidenceAnnotations: []
+      }
+    })
+  );
+
+  assert.match(html, /data-compare-brief-state="ready"/);
+  assert.match(html, /AI headline splits risk from proof/);
+  assert.match(html, /A moves toward proof, while B keeps the risk frame alive\./);
+  assert.match(html, /data-compare-stance-cell="A"/);
+  assert.match(html, /data-compare-stance-cell="B"/);
+  assert.match(html, /data-compare-hero-accent="mode-var"/);
+});
+
+test("CompareView mode accent vars still flip through the shell mode theme contract", () => {
+  for (const mode of ["archive", "topic", "product", "pr-evidence"] as const) {
+    const style = modeThemeStyle(mode);
+    assert.equal(style["--dlens-mode-accent"], modeThemes[mode].accent);
+    assert.equal(style["--dlens-mode-accent-soft"], modeThemes[mode].accentSoft);
+  }
+});
+
+test("CompareView selector keeps selectPair command wiring after hero shaping", async () => {
+  const { JSDOM } = await import("jsdom");
+  const { createRoot } = await import("react-dom/client");
+  const { flushSync } = await import("react-dom");
+  const dom = new JSDOM("<div id=\"root\"></div>", { url: "https://dlens.test" });
+  const previous = {
+    window: globalThis.window,
+    document: globalThis.document,
+    HTMLElement: globalThis.HTMLElement,
+    HTMLSelectElement: globalThis.HTMLSelectElement,
+    Event: globalThis.Event
+  };
+  const session = buildSession();
+  const itemC = createSessionItem(
+    {
+      target_type: "post",
+      page_url: "https://www.threads.net/@gamma/post/c",
+      post_url: "https://www.threads.net/@gamma/post/c",
+      author_hint: "gamma",
+      text_snippet: "C",
+      time_token_hint: "1h",
+      dom_anchor: "card-c",
+      engagement: { likes: 4, comments: 2, reposts: 0, forwards: 0, views: 40 },
+      engagement_present: { likes: true, comments: true, reposts: true, forwards: true, views: true },
+      captured_at: "2026-03-24T07:22:21.000Z"
+    },
+    "2026-03-24T07:22:21.000Z"
+  );
+  itemC.status = "succeeded";
+  itemC.captureId = "cap-c";
+  itemC.latestCapture = buildCapture("cap-c", "decision", "decision evidence");
+  session.items.push(itemC);
+  const calls: CompareCommand[] = [];
+
+  Object.assign(globalThis, {
+    window: dom.window,
+    document: dom.window.document,
+    HTMLElement: dom.window.HTMLElement,
+    HTMLSelectElement: dom.window.HTMLSelectElement,
+    Event: dom.window.Event
+  });
+
+  const rootElement = dom.window.document.getElementById("root");
+  assert.ok(rootElement);
+  const root = createRoot(rootElement);
+
+  try {
+    flushSync(() => {
+      root.render(compareViewElement({
+        session,
+        settings: createDefaultSettings(),
+        onCommand: (command) => {
+          calls.push(command);
+        }
+      }));
+    });
+
+    const firstSelect = rootElement.querySelector("select") as HTMLSelectElement | null;
+    assert.ok(firstSelect);
+    firstSelect.value = itemC.id;
+    firstSelect.dispatchEvent(new dom.window.Event("change", { bubbles: true }));
+
+    assert.deepEqual(calls, [
+      {
+        kind: "selectPair",
+        target: {
+          sessionId: session.id,
+          itemAId: itemC.id,
+          itemBId: session.items[1]!.id
+        }
+      }
+    ]);
+  } finally {
+    flushSync(() => root.unmount());
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    Object.assign(globalThis, previous);
+  }
 });
 
 test("CompareView renders the parallel result layout by default", () => {
