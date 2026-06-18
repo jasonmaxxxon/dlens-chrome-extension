@@ -1057,8 +1057,10 @@ function renderHtmlCitedEvidence(packet: DLensSignalPacket): string {
       noteParts.push(`<pre class="quote-recipe">${escapeHtml(note.copyRecipeMarkdown)}</pre>`);
     }
     const noteHtml = noteParts.length ? `<div class="quote-note">${noteParts.join("")}</div>` : "";
+    const citationHtml = renderHtmlReadingCitationRefs(packet, entry.ref);
     return `<blockquote class="cited-quote" data-evidence-ref="${escapeHtml(entry.ref)}">
             <div class="quote-ref"><strong>${escapeHtml(entry.ref)}</strong>${authorFragment}${likeFragment}</div>
+            ${citationHtml}
             <p class="quote-text">${escapeHtml(entry.text)}</p>
             ${noteHtml}
           </blockquote>`;
@@ -1076,6 +1078,18 @@ function renderHtmlCitedEvidence(packet: DLensSignalPacket): string {
           ${visibleHtml}
           ${collapsedHtml}
         </section>`;
+}
+
+function renderHtmlReadingCitationRefs(packet: DLensSignalPacket, evidenceRef: string): string {
+  const citationRefs = Array.from(new Set((packet.evidence.citedInReadingRefs[evidenceRef] ?? [])
+    .map((ref) => ref.trim())
+    .filter(Boolean)));
+  if (!citationRefs.length) return "";
+  const items = citationRefs.map((ref) => `<li>${escapeHtml(ref)}</li>`).join("");
+  return `<details class="evidence-collapse" data-reading-citation-ref="${escapeHtml(evidenceRef)}">
+              <summary>被 ${citationRefs.length} 個 reading 引用</summary>
+              <ul class="evidence-collapse-body">${items}</ul>
+            </details>`;
 }
 
 function renderHtmlSignalMeta(packet: DLensSignalPacket): string {

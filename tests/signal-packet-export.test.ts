@@ -529,6 +529,29 @@ test("exportSignalPackets html renames cited evidence section and collapses beyo
   }
 });
 
+test("exportSignalPackets html shows reading citation affordance for cited evidence", () => {
+  const base = makePacket();
+  const packet = makePacket({
+    evidence: {
+      ...base.evidence,
+      citedInReadingRefs: {
+        e1: ["reading-alpha", "reading-beta"]
+      }
+    }
+  });
+
+  const result = exportSignalPackets([packet], {
+    format: "html",
+    generatedAt: "2026-05-19T08:30:00.000Z"
+  });
+
+  assert.match(result.content, /data-reading-citation-ref="e1"/);
+  assert.match(result.content, /被 2 個 reading 引用/);
+  assert.match(result.content, /reading-alpha/);
+  assert.match(result.content, /reading-beta/);
+  assert.doesNotMatch(result.content, /reading-gamma/);
+});
+
 test("exportSignalPackets html surfaces provenance strip with reading + analysis + model + counts", () => {
   const base = makePacket();
   const textEvidence = [
