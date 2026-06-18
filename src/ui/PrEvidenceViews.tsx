@@ -14,13 +14,16 @@ import {
   type PrWorkPane
 } from "../viewmodel/pr-evidence.ts";
 import {
+  EvidenceRow,
   Kicker,
   ModeHeader,
   PrimaryButton,
   SCAN_ROW_HOVER_CSS,
+  SectionHeader,
   SecondaryButton,
   SegmentedTabs,
   Stamp,
+  SurfaceCard,
   WorkspaceSurface,
   viewRootStyle,
   type SegmentedTabItem
@@ -488,31 +491,17 @@ function EvidenceLedger({ rows }: { rows: PrEvidenceRowViewModel[] }) {
       {rows.length ? (
         <div data-scan-list="pr-evidence" style={{ display: "grid", borderTop: `1px solid ${PR_RULE}` }}>
           {rows.map((row) => (
-            <div
+            <EvidenceRow
               key={row.id}
-              data-pr-evidence-row="compact"
-              data-scan-row="true"
-              style={{
-                display: "grid",
-                gridTemplateColumns: "28px minmax(96px, 124px) minmax(0, 1fr) minmax(82px, 92px) minmax(62px, 78px) 56px",
-                alignItems: "center",
-                gap: 14,
-                padding: "12px 4px",
-                borderBottom: `1px solid ${PR_RULE}`,
-                background: "transparent",
-                cursor: "default",
-                transition: tokens.motion.interactiveTransitionFast
-              }}
-            >
-              <SourceLinkIcon row={row} />
-              <div style={{ ...prMonoMetaStyle, color: tokens.color.ink, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{row.authorLabel}</div>
-              <div style={{ ...prRowTextStyle, color: tokens.color.subInk, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{row.captionLabel}</div>
-              <div style={{ ...textStyles.metric, color: tokens.color.softInk, textAlign: "right", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{row.metricLine}</div>
-              <div style={{ display: "flex", justifyContent: "flex-end", overflow: "hidden" }}>
-                <CriterionChips row={row} variant="compact" />
-              </div>
-              <div style={{ ...prMonoMetaStyle, color: tokens.color.softInk, textAlign: "right", minWidth: 56 }}>{row.collectedAtLabel}</div>
-            </div>
+              leading={<SourceLinkIcon row={row} />}
+              author={row.authorLabel}
+              body={row.captionLabel}
+              metric={row.metricLine}
+              status={<CriterionChips row={row} variant="compact" />}
+              meta={row.collectedAtLabel}
+              dataAttrs={{ "data-pr-evidence-row": "compact" }}
+              style={{ borderBottom: `1px solid ${PR_RULE}` }}
+            />
           ))}
         </div>
       ) : (
@@ -770,32 +759,7 @@ function PrWorkingArea({
 
 function PaneHeader({ title, caption, action }: { title: string; caption?: string; action?: ReactNode }) {
   return (
-    <div
-      style={{
-        display: "flex",
-        alignItems: "baseline",
-        gap: 10,
-        marginBottom: 12,
-        flexWrap: "wrap"
-      }}
-    >
-      <div style={{ display: "flex", alignItems: "baseline", gap: 10, flexWrap: "wrap", minWidth: 0 }}>
-        <span style={{ fontFamily: `${tokens.font.serifCjk}, ${tokens.font.serif}`, fontSize: 16, color: tokens.color.ink, fontWeight: 700, lineHeight: 1.3 }}>
-          {title}
-        </span>
-        {caption ? (
-          <span style={{ ...prMonoMetaStyle, color: tokens.color.softInk, letterSpacing: "0.04em" }}>
-            {caption}
-          </span>
-        ) : null}
-      </div>
-      {action ? (
-        <>
-          <span style={{ flex: 1 }} />
-          {action}
-        </>
-      ) : null}
-    </div>
+    <SectionHeader title={title} caption={caption} action={action} />
   );
 }
 
@@ -953,16 +917,14 @@ function SummaryPanel({
   onCommand: (command: PrEvidenceCommand) => void;
 }) {
   return (
-    <section
-      data-pr-summary="facts-first"
+    <SurfaceCard
+      tone="default"
+      dataAttrs={{ "data-pr-summary": "facts-first" }}
       style={{
         display: "grid",
         gap: 12,
         padding: "14px 16px",
-        border: `1px solid ${PR_RULE}`,
-        borderRadius: PR_RADIUS,
-        background: tokens.color.surface,
-        overflow: "hidden"
+        background: tokens.color.surface
       }}
     >
       <div style={{ display: "flex", justifyContent: "space-between", gap: 10, alignItems: "center", flexWrap: "wrap" }}>
@@ -979,7 +941,7 @@ function SummaryPanel({
       <pre style={{ margin: 0, whiteSpace: "pre-wrap", fontFamily: tokens.font.sans, fontSize: 12, lineHeight: 1.65, color: tokens.color.subInk }}>
         {summary}
       </pre>
-    </section>
+    </SurfaceCard>
   );
 }
 
@@ -1085,8 +1047,9 @@ export const PrEvidenceView = memo(PrEvidenceViewInner);
 
 function SummaryGenerateCard({ onGenerate, loading, disabled = false }: { onGenerate: () => void; loading: boolean; disabled?: boolean }) {
   return (
-    <section
-      data-pr-summary-cta="empty"
+    <SurfaceCard
+      tone="default"
+      dataAttrs={{ "data-pr-summary-cta": "empty" }}
       style={{
         display: "flex",
         justifyContent: "space-between",
@@ -1094,8 +1057,6 @@ function SummaryGenerateCard({ onGenerate, loading, disabled = false }: { onGene
         alignItems: "center",
         flexWrap: "wrap",
         padding: "12px 14px",
-        border: `1px solid ${PR_RULE}`,
-        borderRadius: PR_RADIUS,
         background: tokens.color.surface
       }}
     >
@@ -1110,7 +1071,7 @@ function SummaryGenerateCard({ onGenerate, loading, disabled = false }: { onGene
       <SecondaryButton onClick={onGenerate} disabled={disabled || loading} style={{ ...accentButtonStyle, ...compactButtonStyle, whiteSpace: "nowrap" }}>
         {loading ? "生成中..." : "生成摘要"}
       </SecondaryButton>
-    </section>
+    </SurfaceCard>
   );
 }
 
