@@ -70,6 +70,10 @@ const T = {
   running: TOKENS.running,
   runningSoft: TOKENS.runningSoft
 } as const;
+const COMPARE_MODE_ACCENT = `var(--dlens-mode-accent, ${tokens.color.accent})`;
+const COMPARE_MODE_ACCENT_MID = `var(--dlens-mode-accent-mid, ${tokens.color.accentMid})`;
+const COMPARE_MODE_ACCENT_SOFT = `var(--dlens-mode-accent-soft, ${tokens.color.accentSoft})`;
+const COMPARE_MODE_ACCENT_GLOW = `var(--dlens-mode-accent-glow, ${tokens.color.accentGlow})`;
 
 interface CompareViewProps {
   viewModel: CompareViewModel;
@@ -1741,61 +1745,110 @@ function ResultHeroCard({
   briefProvenanceLabel: string;
 }) {
   if (!heroSummary) return null;
-  const briefBadgeColor = compareBriefState === "ready" ? AR.blue : compareBriefState === "loading" ? "#636366" : "#8e8e93";
+  const briefBadgeColor = compareBriefState === "ready" ? COMPARE_MODE_ACCENT : compareBriefState === "loading" ? "#636366" : "#8e8e93";
   const confidenceLabel = brief?.confidence ? `CONF · ${String(brief.confidence).toUpperCase()}` : "CONF · MEDIUM";
   const briefLabel = compareBriefState === "loading" ? "生成中…" : `${briefProvenanceLabel} · ${confidenceLabel}`;
+  const verdictLabel = heroSummary.audienceAlignmentLeft.badge === "Align" && heroSummary.audienceAlignmentRight.badge === "Align" ? "共鳴放大型"
+    : heroSummary.audienceAlignmentLeft.badge === "Oppose" || heroSummary.audienceAlignmentRight.badge === "Oppose" ? "分歧探索型"
+    : "張力並存型";
+  const stanceItems = [
+    {
+      side: "A" as const,
+      post: postA,
+      alignment: heroSummary.audienceAlignmentLeft,
+      accent: COMPARE_MODE_ACCENT,
+      surface: COMPARE_MODE_ACCENT_SOFT
+    },
+    {
+      side: "B" as const,
+      post: postB,
+      alignment: heroSummary.audienceAlignmentRight,
+      accent: AR.orange,
+      surface: "rgba(161,106,23,0.11)"
+    }
+  ];
   return (
-    <div style={{ background: AR.card, borderRadius: 12, padding: "17px 17px 15px", boxShadow: "0 2px 16px rgba(0,0,0,0.065)", minWidth: 0 }}>
-      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 11, gap: 10, flexWrap: "wrap" as const, minWidth: 0 }}>
-        <div style={{ display: "inline-flex", alignItems: "center", gap: 5, background: "rgba(255,149,0,0.1)", borderRadius: 6, padding: "3px 9px" }}>
-          <div style={{ width: 5, height: 5, borderRadius: "50%", background: AR.orange }} />
-          <span style={{ fontSize: 10.5, fontWeight: 700, color: "#b06200" }}>
-            {heroSummary.audienceAlignmentLeft.badge === "Align" && heroSummary.audienceAlignmentRight.badge === "Align" ? "共鳴放大型"
-              : heroSummary.audienceAlignmentLeft.badge === "Oppose" || heroSummary.audienceAlignmentRight.badge === "Oppose" ? "分歧探索型"
-              : "張力並存型"}
+    <section
+      data-compare-hero="billboard"
+      data-compare-brief-state={compareBriefState}
+      data-compare-raised-surface="true"
+      data-compare-hero-accent="mode-var"
+      style={{
+        position: "relative",
+        display: "grid",
+        gap: 14,
+        background: `linear-gradient(135deg, ${tokens.color.elevated} 0%, ${tokens.color.contentSurface} 56%, ${COMPARE_MODE_ACCENT_SOFT} 100%)`,
+        borderRadius: tokens.radius.cardLg,
+        padding: "19px 18px 17px",
+        border: `1px solid ${COMPARE_MODE_ACCENT_GLOW}`,
+        boxShadow: tokens.shadow.raised,
+        minWidth: 0,
+        overflow: "hidden"
+      }}
+    >
+      <div
+        aria-hidden="true"
+        style={{
+          position: "absolute",
+          inset: "0 auto 0 0",
+          width: 4,
+          background: `linear-gradient(180deg, ${COMPARE_MODE_ACCENT}, ${COMPARE_MODE_ACCENT_MID})`
+        }}
+      />
+      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10, flexWrap: "wrap" as const, minWidth: 0, paddingLeft: 2 }}>
+        <div
+          data-compare-hero-verdict="true"
+          style={{
+            display: "inline-flex",
+            alignItems: "center",
+            gap: 6,
+            background: COMPARE_MODE_ACCENT_SOFT,
+            border: `1px solid ${COMPARE_MODE_ACCENT_GLOW}`,
+            borderRadius: tokens.radius.pill,
+            padding: "4px 10px",
+            minWidth: 0
+          }}
+        >
+          <div style={{ width: 5, height: 5, borderRadius: "50%", background: COMPARE_MODE_ACCENT, flexShrink: 0 }} />
+          <span style={{ fontSize: 10.5, fontWeight: 800, color: COMPARE_MODE_ACCENT, ...WRAP_ANYWHERE }}>
+            {verdictLabel}
           </span>
         </div>
         <div style={{ display: "flex", alignItems: "center", gap: 3, minWidth: 0 }}>
           <ARSparkle color={briefBadgeColor} />
-          <span style={{ fontSize: 10.5, color: briefBadgeColor, fontWeight: 600 }}>
+          <span style={{ fontSize: 10.5, color: briefBadgeColor, fontWeight: 700, ...WRAP_ANYWHERE }}>
             {briefLabel}
           </span>
         </div>
       </div>
-      {(postA || postB) && (
-        <div style={{ display: "grid", gridTemplateColumns: "repeat(2, minmax(0, 1fr))", gap: 6, marginBottom: 13, minWidth: 0 }}>
-          {[
-            { label: "A", post: postA, colors: [AR.blue, "#34aadc"] },
-            { label: "B", post: postB, colors: [AR.orange, "#ffcc00"] },
-          ].map(({ label, post, colors }) => (
-            <div key={label} style={{ display: "flex", alignItems: "center", gap: 7, background: AR.canvas, borderRadius: 8, padding: "7px 10px", minWidth: 0, overflow: "hidden" }}>
-              <div style={{ width: 26, height: 26, borderRadius: 8, background: `linear-gradient(135deg,${colors[0]},${colors[1]})`, flexShrink: 0, display: "flex", alignItems: "center", justifyContent: "center" }}>
-                <span style={{ fontSize: 9, color: tokens.color.elevated, fontWeight: 800 }}>貼{label}</span>
-              </div>
-              <div style={{ minWidth: 0, overflow: "hidden" }}>
-                <div style={{ fontSize: 10, fontWeight: 700, color: AR.ink, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>@{post?.author || "—"}</div>
-                <div style={{ fontSize: 9.5, color: AR.muteInk, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-                  {post?.text ? `「${post.text.slice(0, 18)}…」` : "—"}
-                </div>
-              </div>
-            </div>
-          ))}
-        </div>
-      )}
-      <h1 style={{ fontFamily: tokens.font.sans, fontSize: 23, fontWeight: 700, lineHeight: 1.15, letterSpacing: 0, color: AR.ink, marginBottom: 12, ...WRAP_ANYWHERE }}>
+
+      <h1
+        data-compare-hero-headline="true"
+        style={{
+          fontFamily: `${tokens.font.serif}, ${tokens.font.serifCjk}`,
+          fontSize: 27,
+          fontWeight: 700,
+          lineHeight: 1.18,
+          letterSpacing: 0,
+          color: AR.ink,
+          margin: 0,
+          ...WRAP_ANYWHERE
+        }}
+      >
         {heroSummary.headline}
       </h1>
+
       {heroSummary.relation ? (
         <div
+          data-compare-hero-relation="true"
           style={{
             display: "grid",
-            gap: 4,
-            padding: "10px 11px",
-            borderRadius: 10,
-            background: "rgba(26,46,79,0.035)",
+            gap: 5,
+            padding: "11px 12px",
+            borderRadius: tokens.radius.card,
+            background: "rgba(253,251,246,0.72)",
             border: `1px solid ${AR.line}`,
-            marginBottom: 12,
-            minWidth: 0,
+            minWidth: 0
           }}
         >
           <span style={{ fontSize: 9, fontWeight: 700, color: AR.muteInk, letterSpacing: 0 }}>
@@ -1806,13 +1859,74 @@ function ResultHeroCard({
           </p>
         </div>
       ) : null}
-      <div style={{ display: "flex", gap: 7, paddingTop: 11, borderTop: `0.5px solid ${AR.line}`, minWidth: 0 }}>
+
+      {(postA || postB) && (
+        <div
+          data-compare-stance-grid="responsive"
+          style={{
+            display: "grid",
+            gridTemplateColumns: "repeat(2, minmax(0, 1fr))",
+            gap: 8,
+            minWidth: 0
+          }}
+        >
+          {stanceItems.map(({ side, post, alignment, accent, surface }) => (
+            <div
+              key={side}
+              data-compare-stance-cell={side}
+              style={{
+                display: "grid",
+                gridTemplateColumns: "30px minmax(0, 1fr)",
+                gap: 8,
+                alignItems: "start",
+                background: surface,
+                border: `1px solid ${side === "A" ? COMPARE_MODE_ACCENT_GLOW : "rgba(161,106,23,0.18)"}`,
+                borderLeft: `3px solid ${side === "A" ? COMPARE_MODE_ACCENT : AR.orange}`,
+                borderRadius: tokens.radius.card,
+                padding: "9px 10px",
+                minWidth: 0,
+                overflowWrap: "anywhere" as const,
+                wordBreak: "break-word" as const
+              }}
+            >
+              <div
+                style={{
+                  width: 30,
+                  height: 30,
+                  borderRadius: 9,
+                  background: `linear-gradient(135deg, ${accent}, ${side === "A" ? COMPARE_MODE_ACCENT_MID : "#ffcc00"})`,
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  flexShrink: 0
+                }}
+              >
+                <span style={{ fontSize: 9, color: tokens.color.elevated, fontWeight: 850 }}>貼{side}</span>
+              </div>
+              <div style={{ display: "grid", gap: 4, minWidth: 0 }}>
+                <div style={{ display: "flex", alignItems: "baseline", gap: 6, flexWrap: "wrap" as const, minWidth: 0 }}>
+                  <span style={{ fontSize: 10.5, fontWeight: 800, color: accent }}>{alignment.badge}</span>
+                  <span style={{ fontSize: 10, fontWeight: 700, color: AR.ink, ...WRAP_ANYWHERE }}>@{post?.author || "unknown"}</span>
+                </div>
+                <div style={{ fontSize: 11.5, color: AR.softInk, lineHeight: 1.45, ...WRAP_ANYWHERE }}>
+                  {alignment.summary}
+                </div>
+                <div style={{ fontSize: 10.5, color: AR.muteInk, lineHeight: 1.4, ...WRAP_ANYWHERE }}>
+                  {post?.text ? `「${post.text.slice(0, 34)}${post.text.length > 34 ? "..." : ""}」` : "No post text"}
+                </div>
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+
+      <div style={{ display: "flex", gap: 7, paddingTop: 2, minWidth: 0 }}>
         <span style={{ fontSize: 9.5, fontWeight: 700, color: AR.muteInk, paddingTop: 2, whiteSpace: "nowrap", letterSpacing: 0 }}>為何成立</span>
         <p style={{ fontSize: 12, lineHeight: 1.47, letterSpacing: 0, color: AR.softInk, margin: 0, ...WRAP_ANYWHERE }}>
           {heroSummary.creatorCue}
         </p>
       </div>
-    </div>
+    </section>
   );
 }
 
