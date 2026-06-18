@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
+import { useEffect, useMemo, useRef, useState, type CSSProperties, type ReactNode } from "react";
 
 import {
   TOPIC_SYNTHESIS_MIN_ANALYZED,
@@ -24,7 +24,7 @@ import type {
   SignalTagSummary,
   TopicSignalViewModel
 } from "../viewmodel/topic-detail.ts";
-import { Kicker, PrimaryButton, SCAN_ROW_HOVER_CSS, SecondaryButton, Stamp, WorkspaceSurface, lineClamp, scanRowStyle, viewRootStyle } from "./components.tsx";
+import { Kicker, PrimaryButton, SCAN_ROW_HOVER_CSS, SecondaryButton, SectionHeader, Stamp, SurfaceCard, WorkspaceSurface, lineClamp, scanRowStyle, viewRootStyle } from "./components.tsx";
 import { SignalDrawer } from "./SignalDrawer.tsx";
 import type { BackendWorkUiState } from "../state/processing-state.ts";
 import { tokens } from "./tokens.ts";
@@ -42,6 +42,9 @@ import {
   type TopicAuditSummary
 } from "./topic-audit-components.tsx";
 import { pickPrimaryJudgmentPair } from "./useTopicState.ts";
+
+const TOPIC_MODE_ACCENT = `var(--dlens-mode-accent, ${tokens.topicAccent.primary})`;
+const TOPIC_MODE_ACCENT_SOFT = `var(--dlens-mode-accent-soft, ${tokens.topicAccent.tintSage})`;
 
 interface TopicDetailViewProps {
   viewModel: TopicDetailViewModel;
@@ -1081,6 +1084,44 @@ function hasSignalTag(record: SignalTagsRecord | undefined, tag: string | null):
   return Boolean(record?.signalTags.some((entry) => entry === tag));
 }
 
+function TopicDetailSection({
+  surface,
+  title,
+  caption,
+  action,
+  children,
+  style
+}: {
+  surface: "themes" | "lanes" | "sources";
+  title: string;
+  caption?: ReactNode;
+  action?: ReactNode;
+  children: ReactNode;
+  style?: CSSProperties;
+}) {
+  return (
+    <SurfaceCard
+      tone="utility"
+      dataAttrs={{
+        "data-topic-audit-block": surface,
+        "data-topic-detail-surface": surface,
+        "data-topic-detail-rhythm": "section"
+      }}
+      style={{
+        display: "grid",
+        gap: 10,
+        padding: "16px 18px",
+        borderLeft: `3px solid ${TOPIC_MODE_ACCENT_SOFT}`,
+        boxShadow: tokens.shadow.topicCard,
+        ...style
+      }}
+    >
+      <SectionHeader title={title} caption={caption} action={action} style={{ marginBottom: 0 }} />
+      {children}
+    </SurfaceCard>
+  );
+}
+
 function auditStageFromNumber(stage: number): TopicAuditStageName {
   switch (stage) {
     case 2: return "lexicon";
@@ -1133,12 +1174,18 @@ function TopicAuditOverview({
     onRunAudit?.(topic.id, fromStage);
   };
   return (
-    <section
-      data-topic-audit-block="overview"
+    <SurfaceCard
+      tone="focused"
+      dataAttrs={{
+        "data-topic-audit-block": "overview",
+        "data-topic-detail-surface": "overview",
+        "data-topic-detail-surface-style": "audit-report",
+        "data-topic-detail-rhythm": "section"
+      }}
       style={{
         display: "grid",
         gap: 14,
-        borderRadius: tokens.radius.cardLg,
+        borderLeft: `4px solid ${TOPIC_MODE_ACCENT}`,
         background: `linear-gradient(180deg, ${tokens.color.elevated}, ${tokens.color.surface})`,
         boxShadow: tokens.shadow.topicCard,
         padding: "16px 18px"
@@ -1221,7 +1268,7 @@ function TopicAuditOverview({
           {blockedReason}
         </div>
       ) : null}
-    </section>
+    </SurfaceCard>
   );
 }
 
@@ -1409,32 +1456,18 @@ export function TopicDetailView({
       }
     : primaryJudgmentPair?.judgmentResult || null;
   const topicSourceFeed = (
-    <section
-      data-topic-audit-block="sources"
-      style={{
-        display: "grid",
-        gap: 12,
-        borderRadius: tokens.radius.cardLg,
-        background: tokens.color.elevated,
-        boxShadow: tokens.shadow.topicCard,
-        padding: "16px 18px"
-      }}
+    <TopicDetailSection
+      surface="sources"
+      title="源清單"
+      caption="先確認來源、爬取狀態與刪除項目，再生成議題審查報告。"
+      action={(
+        <Stamp tone={topicAnalysisCounts.ready > 0 ? "success" : "neutral"}>
+          {topicAnalysisCounts.ready}/{topicAnalysisCounts.total} 已完成
+        </Stamp>
+      )}
+      style={{ gap: 12 }}
     >
-      <header style={{ display: "grid", gap: 11 }}>
-        <div style={{ display: "flex", alignItems: "start", justifyContent: "space-between", gap: 12 }}>
-          <div style={{ display: "grid", gap: 4, minWidth: 0 }}>
-            <span style={{ fontSize: 11, color: tokens.color.softInk, fontWeight: 800 }}>sources</span>
-            <h1 style={{ margin: 0, fontFamily: `${tokens.font.serifCjk}, ${tokens.font.serif}`, fontSize: 24, lineHeight: 1.15, color: tokens.color.ink }}>
-              源清單
-            </h1>
-            <span style={{ fontSize: 12, lineHeight: 1.55, color: tokens.color.subInk }}>
-              先確認來源、爬取狀態與刪除項目，再生成議題審查報告。
-            </span>
-          </div>
-          <Stamp tone={topicAnalysisCounts.ready > 0 ? "success" : "neutral"}>
-            {topicAnalysisCounts.ready}/{topicAnalysisCounts.total} 已完成
-          </Stamp>
-        </div>
+      <div style={{ display: "grid", gap: 11 }}>
         <div
           style={{
             display: "flex",
@@ -1454,7 +1487,7 @@ export function TopicDetailView({
             報告素材 {auditSummaryValue.analyzedCount}/{signals.length}
           </span>
         </div>
-      </header>
+      </div>
 
       {topicAnalysisCounts.processing > 0 ? (
         <TopicProcessingStatus
@@ -1634,7 +1667,7 @@ export function TopicDetailView({
           );
         })}
       </div>
-    </section>
+    </TopicDetailSection>
   );
 
   if (sessionMode === "topic") {
@@ -1679,10 +1712,11 @@ export function TopicDetailView({
         ) : null}
 
         {auditThemes.length > 0 ? (
-          <section data-topic-audit-block="themes" style={{ display: "grid", gap: 10 }}>
-            <SectionLabel kicker="主題" hint={auditSummaryValue.reportStatus === "stale" ? "基於舊版報告" : "廣議題層　非細粒標籤"}>
-              主題
-            </SectionLabel>
+          <TopicDetailSection
+            surface="themes"
+            title="主題"
+            caption={auditSummaryValue.reportStatus === "stale" ? "基於舊版報告" : "廣議題層　非細粒標籤"}
+          >
             <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
               {auditThemes.map((theme) => (
                 <ThemeChip
@@ -1696,14 +1730,16 @@ export function TopicDetailView({
                 />
               ))}
             </div>
-          </section>
+          </TopicDetailSection>
         ) : null}
 
         {auditLanes.length > 0 ? (
-          <section data-topic-audit-block="lanes" style={{ display: "grid", gap: 8 }}>
-            <SectionLabel kicker="敘事" hint={auditSummaryValue.reportStatus === "stale" ? "基於舊版　新訊號未納入" : "從訊號自然長出的故事線"}>
-              敘事線
-            </SectionLabel>
+          <TopicDetailSection
+            surface="lanes"
+            title="敘事線"
+            caption={auditSummaryValue.reportStatus === "stale" ? "基於舊版　新訊號未納入" : "從訊號自然長出的故事線"}
+            style={{ gap: 8 }}
+          >
             {auditLanes.map((lane) => (
               <NarrativeLane
                 key={lane.id}
@@ -1715,30 +1751,29 @@ export function TopicDetailView({
                 }}
               />
             ))}
-          </section>
+          </TopicDetailSection>
         ) : null}
 
         {auditEvidence.length === 0 ? topicSourceFeed : null}
 
         {auditEvidence.length > 0 ? (
-          <section data-topic-audit-block="sources" style={{ display: "grid", gap: 10 }}>
-            <div style={{ display: "flex", justifyContent: "space-between", gap: 10, alignItems: "end" }}>
-              <SectionLabel hint="一行一篇　點開看判讀與引用">
-                資料來源
-              </SectionLabel>
-              {activeAuditLane || activeAuditTheme ? (
-                <AuditGhostButton
-                  onClick={() => {
-                    setActiveAuditLane(null);
-                    setActiveAuditTheme(null);
-                  }}
-                  style={{ padding: "5px 8px", fontSize: 10.5 }}
-                >
-                  清除篩選
-                </AuditGhostButton>
-              ) : null}
-            </div>
-            <div style={{ display: "grid", gap: 2, borderRadius: tokens.radius.cardLg, background: tokens.color.elevated, boxShadow: tokens.shadow.topicCard, padding: 6 }}>
+          <TopicDetailSection
+            surface="sources"
+            title="資料來源"
+            caption="一行一篇　點開看判讀與引用"
+            action={activeAuditLane || activeAuditTheme ? (
+              <AuditGhostButton
+                onClick={() => {
+                  setActiveAuditLane(null);
+                  setActiveAuditTheme(null);
+                }}
+                style={{ padding: "5px 8px", fontSize: 10.5 }}
+              >
+                清除篩選
+              </AuditGhostButton>
+            ) : null}
+          >
+            <div data-topic-audit-source-list-style="audit-report" style={{ display: "grid", gap: 2, borderRadius: tokens.radius.cardLg, background: tokens.color.elevated, boxShadow: tokens.shadow.topicCard, padding: 6 }}>
               {filteredAuditRows.map((row) => (
                 <SourceRow
                   key={row.packet.signalId}
@@ -1752,7 +1787,7 @@ export function TopicDetailView({
                 />
               ))}
             </div>
-          </section>
+          </TopicDetailSection>
         ) : null}
 
         {openAuditPacket ? (
