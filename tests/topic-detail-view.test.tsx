@@ -395,6 +395,94 @@ test("TopicDetailView renders audit overview, themes, lanes, and source list fro
   assert.match(html, /航班改動後等不到客服/);
 });
 
+test("TopicDetailView uses shared primitives and topic accent rhythm for audit mode surfaces", () => {
+  const html = renderToStaticMarkup(
+    topicDetailViewElement({
+      topic,
+      signals,
+      pairs: [],
+      auditEvidence: [auditPacket],
+      auditMemos,
+      auditSummary: { reportStatus: "ready", analyzedCount: 1, queuedCount: 0 },
+      auditValidatorFlags: [],
+      onBack: () => undefined,
+      onOpenPair: () => undefined,
+      onUpdateTopic: () => undefined
+    })
+  );
+
+  assert.match(html, /data-topic-detail-surface="overview"/);
+  assert.match(html, /data-topic-detail-surface-style="audit-report"/);
+  assert.match(html, /data-topic-detail-surface="themes"/);
+  assert.match(html, /data-topic-detail-surface="lanes"/);
+  assert.match(html, /data-topic-detail-surface="sources"/);
+  assert.match(html, /data-topic-detail-rhythm="section"/);
+  assert.match(html, /data-shared-surface-card="focused"/);
+  assert.match(html, /data-shared-surface-card="utility"/);
+  assert.match(html, /data-section-header="shared"/);
+  assert.match(html, /var\(--dlens-mode-accent, #3f5a3b\)/);
+  assert.match(html, /data-topic-audit-source-list-style="audit-report"/);
+  assert.doesNotMatch(html, /min-width:1320/);
+});
+
+test("TopicDetailView audit report CTA keeps command wiring after the surface reset", async () => {
+  const { JSDOM } = await import("jsdom");
+  const { createRoot } = await import("react-dom/client");
+  const { flushSync } = await import("react-dom");
+  const dom = new JSDOM("<div id=\"root\"></div>", { url: "https://dlens.test" });
+  const previous = {
+    window: globalThis.window,
+    document: globalThis.document,
+    HTMLElement: globalThis.HTMLElement,
+    Event: globalThis.Event,
+    MouseEvent: globalThis.MouseEvent
+  };
+  const calls: Array<{ topicId: string; stale?: boolean }> = [];
+
+  Object.assign(globalThis, {
+    window: dom.window,
+    document: dom.window.document,
+    HTMLElement: dom.window.HTMLElement,
+    Event: dom.window.Event,
+    MouseEvent: dom.window.MouseEvent
+  });
+
+  const rootElement = dom.window.document.getElementById("root");
+  assert.ok(rootElement);
+  const root = createRoot(rootElement);
+
+  try {
+    flushSync(() => {
+      root.render(
+        topicDetailViewElement({
+          topic,
+          signals,
+          pairs: [],
+          auditEvidence: [auditPacket],
+          auditMemos,
+          auditSummary: { reportStatus: "ready", analyzedCount: 1, queuedCount: 0 },
+          auditValidatorFlags: [],
+          onBack: () => undefined,
+          onOpenPair: () => undefined,
+          onUpdateTopic: () => undefined,
+          onOpenAuditReport: (topicId, stale) => calls.push({ topicId, ...(typeof stale === "boolean" ? { stale } : {}) })
+        })
+      );
+    });
+
+    const cta = Array.from(rootElement.querySelectorAll("button"))
+      .find((button) => button.textContent?.includes("開啟審查報告"));
+    assert.ok(cta);
+    cta.dispatchEvent(new dom.window.MouseEvent("click", { bubbles: true }));
+
+    assert.deepEqual(calls, [{ topicId: "topic-1" }]);
+  } finally {
+    flushSync(() => root.unmount());
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    Object.assign(globalThis, previous);
+  }
+});
+
 test("TopicDetailView uses audit evidence as the denominator when topic signal pointers drift", () => {
   const driftedEvidence = Array.from({ length: 3 }, (_, index) => ({
     ...auditPacket,
