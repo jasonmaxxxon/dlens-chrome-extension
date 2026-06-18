@@ -8,10 +8,17 @@ import type { TargetDescriptor } from "../src/contracts/target-descriptor.ts";
 import { BUILD_VERSION } from "../src/ui/version.ts";
 import {
   DLENS_BUTTON_CSS,
+  EvidenceRow,
+  KeyHint,
   ModeHeader,
   ModeRail,
   PreviewCard,
+  QuoteBlock,
   SCAN_ROW_HOVER_CSS,
+  SectionHeader,
+  StatusDot,
+  StatusRail,
+  SurfaceCard,
   WorkspaceSurface,
   WorkspaceShell,
   UtilityEdge,
@@ -360,4 +367,111 @@ test("WorkspaceShell can reserve the processing strip only when requested", () =
   assert.match(html, /data-shell-context-strip="processing"/);
   assert.match(html, /data-strip-visible="false"/);
   assert.match(html, /min-height:52px/);
+});
+
+test("SurfaceCard exposes shared utility surface geometry", () => {
+  const html = renderToStaticMarkup(
+    React.createElement(
+      SurfaceCard,
+      { tone: "utility", dataAttrs: { "data-test-surface": "card" } },
+      React.createElement("div", null, "Shared card")
+    )
+  );
+
+  assert.match(html, /data-shared-surface-card="utility"/);
+  assert.match(html, /data-test-surface="card"/);
+  assert.match(html, /border-radius:20px/);
+  assert.match(html, /overflow:hidden/);
+});
+
+test("SectionHeader keeps section title, caption, and action in one shared row", () => {
+  const html = renderToStaticMarkup(
+    React.createElement(SectionHeader, {
+      title: "已儲存貼文",
+      caption: "2 rows",
+      action: React.createElement("button", { type: "button" }, "Run")
+    })
+  );
+
+  assert.match(html, /data-section-header="shared"/);
+  assert.match(html, /已儲存貼文/);
+  assert.match(html, /2 rows/);
+  assert.match(html, /Run/);
+  assert.match(html, /Instrument Serif/);
+});
+
+test("EvidenceRow renders scan-safe columns without command handlers", () => {
+  const html = renderToStaticMarkup(
+    React.createElement(EvidenceRow, {
+      leading: React.createElement("span", null, "source"),
+      author: "alpha",
+      body: "Evidence caption",
+      metric: "12 likes",
+      status: React.createElement("span", null, "C1"),
+      meta: "today"
+    })
+  );
+
+  assert.match(html, /data-shared-evidence-row="true"/);
+  assert.match(html, /data-scan-row="true"/);
+  assert.match(html, /grid-template-columns:28px minmax\(96px,\s*124px\) minmax\(0,\s*1fr\) minmax\(82px,\s*92px\) minmax\(62px,\s*78px\) 56px/);
+  assert.match(html, /alpha/);
+  assert.match(html, /Evidence caption/);
+  assert.match(html, /12 likes/);
+  assert.match(html, /today/);
+  assert.doesNotMatch(html, /onClick/);
+});
+
+test("StatusDot and StatusRail map backend reachability and work states to DOM hooks", () => {
+  const dotHtml = renderToStaticMarkup(
+    React.createElement(StatusDot, {
+      tone: "danger",
+      label: "Backend unreachable"
+    })
+  );
+  const railHtml = renderToStaticMarkup(
+    React.createElement(StatusRail, {
+      backendReachability: "slow",
+      backendWorkUiState: { kind: "retry_waiting", count: 2, earliestRetryAt: null, nextDueAt: null },
+      workerStatus: "idle",
+      ready: 1,
+      total: 3
+    })
+  );
+
+  assert.match(dotHtml, /data-status-dot="danger"/);
+  assert.match(dotHtml, /Backend unreachable/);
+  assert.match(railHtml, /data-status-rail="shared"/);
+  assert.match(railHtml, /data-backend-reachability="slow"/);
+  assert.match(railHtml, /data-backend-work-kind="retry_waiting"/);
+  assert.match(railHtml, /1\/3 ready/);
+});
+
+test("KeyHint renders keyboard chips without layout prose", () => {
+  const html = renderToStaticMarkup(
+    React.createElement(KeyHint, {
+      label: "Open",
+      keys: ["⌘", "K"]
+    })
+  );
+
+  assert.match(html, /data-key-hint="shared"/);
+  assert.match(html, /<kbd/);
+  assert.match(html, /⌘/);
+  assert.match(html, /K/);
+});
+
+test("QuoteBlock uses the editorial quote text style", () => {
+  const html = renderToStaticMarkup(
+    React.createElement(
+      QuoteBlock,
+      { cite: "alpha" },
+      "This is a cited audience quote."
+    )
+  );
+
+  assert.match(html, /data-quote-block="shared"/);
+  assert.match(html, /font-style:italic/);
+  assert.match(html, /This is a cited audience quote/);
+  assert.match(html, /alpha/);
 });

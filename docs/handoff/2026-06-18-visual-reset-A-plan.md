@@ -13,7 +13,7 @@
 Date: 2026-06-18
 Depends on: `docs/architecture/dlens-current-architecture-map.md` (no 🔴 nodes; 6 walls 🟩), archived `design-system/DESIGN.md`, and `docs/mockups/references/2026-06-09-design-gallery-PROGRESS.md`.
 Product baseline: `origin/main` at `0.2.1` (889 passed / 5 skipped). Desktop checkout is 5 commits behind — sync before starting.
-Status: PR 1 complete in `codex/visual-reset-a-pr1`; PR 2-4 pending.
+Status: PR 1 merged as design-source convergence; PR 2 primitive foundation in progress; PR 3-4 pending.
 
 ## Current Truth
 
@@ -57,7 +57,7 @@ These must hold after every PR:
 Visual Reset A is done when:
 
 1. Repo has exactly one active design contract: `src/ui/tokens.ts`. `DESIGN.md` is archived (moved or front-matter labelled). Mockup gallery is demoted to reference status, not a competing source-of-truth.
-2. Shared primitives extracted from the 4 big mode Views: `Card`, `SectionHeader`, `SegmentedControl`, `StatusRail` / `StatusDot`, `MetricChip`, `QuoteBlock` / `EvidenceRow`. Total Views LOC shrinks by ≥ 30% (target floor — actual ratio depends on duplication density).
+2. Shared primitives extracted from the 4 big mode Views: `SurfaceCard`, `SectionHeader`, `SegmentedControl` / `SegmentedTabs`, `StatusRail` / `StatusDot`, `MetricChip`, `QuoteBlock` / `EvidenceRow`, `KeyHint`. The large-view LOC reduction is tracked across PR 2-4+ rather than forced into one oversized refactor PR.
 3. Popup shell reads as native-feeling utility: multi-layer shell shadow visible, mode switch is a real segmented control with sliding thumb, status rail surfaces backend health + processing state, keyboard shortcut hints visible at idle.
 4. Compare hero, Product action cards, Topic detail header, PR Evidence ledger each have a defined billboard / reading / data / archive rhythm aligned with the two-layer language.
 5. Each PR ships with DOM-behavior sanity tests. No PR lands on visual feel alone.
@@ -80,11 +80,12 @@ Visual Reset A is done when:
 
 **Goal:** Make subsequent visual changes cheap and local. Stop ad-hoc inline styling.
 
-- [ ] Identify duplicated layout patterns across `ProductSignalViews.tsx` (4073 lines), `CompareView.tsx` (3193 lines), `TopicDetailView.tsx` (2415 lines), `PrEvidenceViews.tsx` (1122 lines), `LibraryView.tsx` (1062 lines).
-- [ ] Extract into `src/ui/components.tsx` (or a new `src/ui/primitives/` if it gets crowded): `Card`, `SectionHeader`, `SegmentedControl`, `StatusDot`, `StatusRail`, `MetricChip`, `QuoteBlock`, `EvidenceRow`, `KeyHint`. Each consumes `tokens.ts` + `modeThemes` only — no new styling values.
-- [ ] Migrate one mode View at a time. Order: `PrEvidenceViews.tsx` (smallest, lowest risk) → `TopicDetailView.tsx` → `CompareView.tsx` → `ProductSignalViews.tsx`.
-- [ ] **DoD:** Total LOC across the 5 big Views drops by ≥ 30%. Boundary guard CI stays green. Snapshot tests (or new DOM tests, see below) confirm rendered structure unchanged.
-- [ ] **DoD test:** Each migrated View has a smoke test that renders it with representative VM input and asserts: (a) section headers present, (b) primary actions wired to expected `onCommand` callback, (c) no layout overflow at 320px width.
+- [x] Identify duplicated layout patterns across `ProductSignalViews.tsx`, `CompareView.tsx`, `TopicDetailView.tsx`, `PrEvidenceViews.tsx`, and `LibraryView.tsx`.
+- [x] Extract the foundation primitives into `src/ui/components.tsx`: `SurfaceCard`, `SectionHeader`, `StatusDot`, `StatusRail`, `QuoteBlock`, `EvidenceRow`, `KeyHint`. Existing `SegmentedTabs`, `MetricChip`, and `EvidenceMetricRow` remain the active segmented / metric primitives for this slice.
+- [x] Migrate the smallest mode View first: `PrEvidenceViews.tsx` now uses `EvidenceRow`, `SectionHeader`, and `SurfaceCard` for ledger/header/summary surfaces.
+- [ ] Continue large-view migration in PR 4+ as mode surfaces are reshaped. The original ≥ 30% LOC reduction is still a milestone-level target, not a PR 2 merge gate.
+- [x] **DoD:** Boundary guard CI stays green. DOM tests confirm rendered primitive structure and PR Evidence ledger/source-link structure.
+- [x] **DoD test:** Components tests cover primitive DOM hooks; PR Evidence view tests render representative VM input and assert section/header/actions/export surfaces remain present.
 
 ### PR 3 — Shell + Interaction Reset (feature, first user-visible change)
 

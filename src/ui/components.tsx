@@ -1,8 +1,14 @@
 import type { CSSProperties, MouseEvent, PointerEvent, ReactNode } from "react";
 
 import type { TargetDescriptor } from "../contracts/target-descriptor.ts";
-import type { WorkerStatus, WorkspaceMode } from "../state/processing-state.ts";
-import { TOKENS, tokens } from "./tokens";
+import { resolveBackendWorkCopy } from "../state/backend-work-copy.ts";
+import type {
+  BackendReachability,
+  BackendWorkUiState,
+  WorkerStatus,
+  WorkspaceMode
+} from "../state/processing-state.ts";
+import { TOKENS, textStyles, tokens } from "./tokens";
 import { BUILD_VERSION } from "./version";
 
 export { TOKENS } from "./tokens";
@@ -279,6 +285,363 @@ export function surfaceCardStyle(extra?: CSSProperties): CSSProperties {
     transition: tokens.motion.interactiveTransition,
     ...extra
   };
+}
+
+export type SurfaceCardTone = "default" | "utility" | "focused";
+
+export function SurfaceCard({
+  children,
+  tone = "default",
+  style,
+  dataAttrs
+}: {
+  children: ReactNode;
+  tone?: SurfaceCardTone;
+  style?: CSSProperties;
+  dataAttrs?: Record<string, string>;
+}) {
+  let background: string = `linear-gradient(180deg, ${tokens.color.focusedSurface}, ${tokens.color.contentSurface})`;
+  let boxShadow: string = tokens.shadow.shell;
+
+  if (tone === "utility") {
+    background = `linear-gradient(180deg, ${tokens.color.utilitySurface}, ${tokens.color.contentSurface})`;
+  }
+
+  if (tone === "focused") {
+    background = `linear-gradient(180deg, ${tokens.color.focusedSurface}, ${tokens.color.elevated})`;
+    boxShadow = tokens.shadow.focusedSurface;
+  }
+
+  return (
+    <section
+      data-shared-surface-card={tone}
+      {...dataAttrs}
+      style={surfaceCardStyle({
+        padding: tokens.spacing.section,
+        background,
+        boxShadow,
+        minWidth: 0,
+        ...style
+      })}
+    >
+      {children}
+    </section>
+  );
+}
+
+export function SectionHeader({
+  title,
+  caption,
+  action,
+  style
+}: {
+  title: string;
+  caption?: ReactNode;
+  action?: ReactNode;
+  style?: CSSProperties;
+}) {
+  return (
+    <div
+      data-section-header="shared"
+      style={{
+        display: "flex",
+        alignItems: "baseline",
+        gap: 10,
+        marginBottom: 12,
+        flexWrap: "wrap",
+        ...style
+      }}
+    >
+      <div style={{ display: "flex", alignItems: "baseline", gap: 10, flexWrap: "wrap", minWidth: 0 }}>
+        <span
+          style={{
+            fontFamily: `${tokens.font.serif}, ${tokens.font.serifCjk}`,
+            fontSize: 16,
+            color: tokens.color.ink,
+            fontWeight: 700,
+            lineHeight: 1.3
+          }}
+        >
+          {title}
+        </span>
+        {caption ? (
+          <span
+            style={{
+              ...textStyles.mono,
+              fontSize: textStyles.caption.fontSize,
+              lineHeight: textStyles.caption.lineHeight,
+              fontWeight: 500,
+              color: tokens.color.softInk,
+              letterSpacing: "0.04em"
+            }}
+          >
+            {caption}
+          </span>
+        ) : null}
+      </div>
+      {action ? (
+        <>
+          <span style={{ flex: 1 }} />
+          {action}
+        </>
+      ) : null}
+    </div>
+  );
+}
+
+export function EvidenceRow({
+  leading,
+  author,
+  body,
+  metric,
+  status,
+  meta,
+  style,
+  dataAttrs
+}: {
+  leading?: ReactNode;
+  author: ReactNode;
+  body: ReactNode;
+  metric?: ReactNode;
+  status?: ReactNode;
+  meta?: ReactNode;
+  style?: CSSProperties;
+  dataAttrs?: Record<string, string>;
+}) {
+  return (
+    <div
+      data-shared-evidence-row="true"
+      data-scan-row="true"
+      {...dataAttrs}
+      style={{
+        display: "grid",
+        gridTemplateColumns: "28px minmax(96px, 124px) minmax(0, 1fr) minmax(82px, 92px) minmax(62px, 78px) 56px",
+        alignItems: "center",
+        gap: 14,
+        padding: "12px 4px",
+        borderBottom: `1px solid ${tokens.color.line}`,
+        background: "transparent",
+        cursor: "default",
+        transition: tokens.motion.interactiveTransitionFast,
+        ...style
+      }}
+    >
+      <span style={{ minWidth: 0, display: "inline-flex", alignItems: "center" }}>
+        {leading}
+      </span>
+      <span style={{ ...textStyles.mono, fontSize: textStyles.caption.fontSize, lineHeight: textStyles.caption.lineHeight, fontWeight: 500, color: tokens.color.ink, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+        {author}
+      </span>
+      <span style={{ ...textStyles.bodyTight, lineHeight: 1.4, color: tokens.color.subInk, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+        {body}
+      </span>
+      <span style={{ ...textStyles.metric, color: tokens.color.softInk, textAlign: "right", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+        {metric}
+      </span>
+      <span style={{ display: "flex", justifyContent: "flex-end", overflow: "hidden" }}>
+        {status}
+      </span>
+      <span style={{ ...textStyles.mono, fontSize: textStyles.caption.fontSize, lineHeight: textStyles.caption.lineHeight, fontWeight: 500, color: tokens.color.softInk, textAlign: "right", minWidth: 56 }}>
+        {meta}
+      </span>
+    </div>
+  );
+}
+
+export type StatusDotTone = "success" | "warning" | "danger" | "info" | "neutral";
+
+function statusDotTheme(tone: StatusDotTone) {
+  switch (tone) {
+    case "success":
+      return { color: tokens.color.success, background: tokens.color.successSoft, border: "rgba(63,90,59,0.24)" };
+    case "warning":
+      return { color: tokens.color.queued, background: tokens.color.queuedSoft, border: "rgba(161,106,23,0.24)" };
+    case "danger":
+      return { color: tokens.color.failed, background: tokens.color.failedSoft, border: "rgba(122,32,48,0.24)" };
+    case "info":
+      return { color: MODE_ACCENT, background: MODE_ACCENT_SOFT, border: "rgba(26,46,79,0.24)" };
+    default:
+      return { color: tokens.color.softInk, background: tokens.color.neutralSurfaceSoft, border: tokens.color.lineStrong };
+  }
+}
+
+export function StatusDot({
+  tone = "neutral",
+  label,
+  size = 10
+}: {
+  tone?: StatusDotTone;
+  label: string;
+  size?: number;
+}) {
+  const theme = statusDotTheme(tone);
+  return (
+    <span
+      data-status-dot={tone}
+      aria-label={label}
+      title={label}
+      style={{
+        width: size,
+        height: size,
+        borderRadius: tokens.radius.round,
+        background: theme.color,
+        border: `2px solid ${theme.background}`,
+        boxShadow: `0 0 0 1px ${theme.border}`,
+        flexShrink: 0
+      }}
+    />
+  );
+}
+
+function reachabilityStatus(reachability: BackendReachability): { tone: StatusDotTone; label: string } {
+  switch (reachability) {
+    case "slow":
+      return { tone: "warning", label: "Backend slow" };
+    case "unreachable":
+      return { tone: "danger", label: "Backend unreachable" };
+    default:
+      return { tone: "success", label: "Backend reachable" };
+  }
+}
+
+function backendWorkStatus(state: BackendWorkUiState | null | undefined, workerStatus: WorkerStatus | null): { tone: StatusDotTone; label: string } {
+  if (state?.kind === "backend_error" || state?.kind === "analysis_failed" || state?.kind === "expired_running") {
+    return { tone: "danger", label: state.kind };
+  }
+  if (state?.kind === "retry_waiting") {
+    return { tone: "warning", label: "retry_waiting" };
+  }
+  if (state?.kind === "analysis_waiting" || state?.kind === "draining" || workerStatus === "draining") {
+    return { tone: "info", label: state?.kind ?? "draining" };
+  }
+  return { tone: "neutral", label: "idle" };
+}
+
+export function StatusRail({
+  backendReachability = "reachable",
+  backendWorkUiState = null,
+  workerStatus = null,
+  ready,
+  total,
+  hint,
+  style
+}: {
+  backendReachability?: BackendReachability;
+  backendWorkUiState?: BackendWorkUiState | null;
+  workerStatus?: WorkerStatus | null;
+  ready?: number;
+  total?: number;
+  hint?: string;
+  style?: CSSProperties;
+}) {
+  const reachability = reachabilityStatus(backendReachability);
+  const work = backendWorkStatus(backendWorkUiState, workerStatus);
+  const recoveryCopy = resolveBackendWorkCopy(backendWorkUiState);
+  const resolvedHint = hint ?? recoveryCopy?.headline ?? work.label;
+  const countLabel = ready !== undefined && total !== undefined ? `${ready}/${total} ready` : null;
+
+  return (
+    <div
+      data-status-rail="shared"
+      data-backend-reachability={backendReachability}
+      data-backend-work-kind={backendWorkUiState?.kind ?? workerStatus ?? "idle"}
+      style={{
+        display: "flex",
+        alignItems: "center",
+        gap: 8,
+        minWidth: 0,
+        padding: "7px 10px",
+        borderRadius: tokens.radius.pill,
+        border: `1px solid ${tokens.color.line}`,
+        background: tokens.color.contextSurface,
+        color: tokens.color.subInk,
+        ...style
+      }}
+    >
+      <StatusDot tone={reachability.tone} label={reachability.label} />
+      <StatusDot tone={work.tone} label={work.label} size={8} />
+      <span style={{ ...textStyles.caption, color: tokens.color.subInk, minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+        {resolvedHint}
+      </span>
+      {countLabel ? (
+        <span style={{ ...textStyles.metric, marginLeft: "auto", color: tokens.color.softInk, whiteSpace: "nowrap" }}>
+          {countLabel}
+        </span>
+      ) : null}
+    </div>
+  );
+}
+
+export function KeyHint({
+  keys,
+  label
+}: {
+  keys: ReadonlyArray<string>;
+  label?: string;
+}) {
+  return (
+    <span data-key-hint="shared" style={{ display: "inline-flex", alignItems: "center", gap: 5, minWidth: 0 }}>
+      {label ? <span style={{ ...textStyles.caption, color: tokens.color.softInk }}>{label}</span> : null}
+      {keys.map((key) => (
+        <kbd
+          key={key}
+          style={{
+            minWidth: 20,
+            height: 20,
+            padding: "0 6px",
+            borderRadius: tokens.radius.sm,
+            border: `1px solid ${tokens.color.lineStrong}`,
+            background: tokens.color.surface,
+            boxShadow: "inset 0 1px 0 rgba(255,255,255,0.7)",
+            color: tokens.color.subInk,
+            fontFamily: tokens.font.mono,
+            fontSize: 10,
+            fontWeight: 700,
+            lineHeight: "18px",
+            textAlign: "center"
+          }}
+        >
+          {key}
+        </kbd>
+      ))}
+    </span>
+  );
+}
+
+export function QuoteBlock({
+  children,
+  cite,
+  style
+}: {
+  children: ReactNode;
+  cite?: ReactNode;
+  style?: CSSProperties;
+}) {
+  return (
+    <figure
+      data-quote-block="shared"
+      style={{
+        margin: 0,
+        display: "grid",
+        gap: 8,
+        padding: "12px 14px",
+        borderRadius: tokens.radius.card,
+        border: `1px solid ${tokens.color.line}`,
+        background: tokens.color.contextSurface,
+        minWidth: 0,
+        ...style
+      }}
+    >
+      <blockquote style={{ ...textStyles.quote, margin: 0, color: tokens.color.ink }}>
+        {children}
+      </blockquote>
+      {cite ? (
+        <figcaption style={{ ...textStyles.caption, color: tokens.color.softInk }}>
+          {cite}
+        </figcaption>
+      ) : null}
+    </figure>
+  );
 }
 
 /** Row grammar — for scan-page list items (Inbox, Library, Casebook, Product list) */
