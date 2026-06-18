@@ -418,6 +418,57 @@ test("buildDLensSignalPacket maps evidence refs back to readings that cited them
   assert.equal(packet.packetVersion, DLENS_SIGNAL_PACKET_VERSION);
 });
 
+test("buildDLensSignalPacket separates latest reading from latest filed and superseded filed readings", async () => {
+  const productContext = makeProductContext();
+  const olderFiled = makeReading({
+    cacheKey: "signal-1::ctx_1::pkt_1::filed-old",
+    promptVersion: "v1",
+    generatedAt: "2026-05-19T08:07:00.000Z",
+    reviewState: "filed"
+  });
+  const latestFiled = makeReading({
+    cacheKey: "signal-1::ctx_1::pkt_1::filed-new",
+    promptVersion: "v2",
+    generatedAt: "2026-05-19T08:09:00.000Z",
+    reviewState: "filed"
+  });
+  const latestPending = makeReading({
+    cacheKey: "signal-1::ctx_1::pkt_1::pending-newer",
+    promptVersion: "v3",
+    generatedAt: "2026-05-19T08:11:00.000Z",
+    reviewState: "pending"
+  });
+  const storage = makeStorage({
+    [SIGNALS_STORAGE_KEY]: [{
+      id: "signal-1",
+      sessionId: "session-1",
+      itemId: "item-1",
+      source: "threads",
+      inboxStatus: "assigned",
+      capturedAt: "2026-05-19T08:00:00.000Z"
+    }],
+    [TOPICS_STORAGE_KEY]: [],
+    [PRODUCT_SIGNAL_ANALYSES_STORAGE_KEY]: {
+      "signal-1": makeAnalysis("signal-1")
+    },
+    [SIGNAL_READINGS_STORAGE_KEY]: {
+      [olderFiled.cacheKey]: olderFiled,
+      [latestFiled.cacheKey]: latestFiled,
+      [latestPending.cacheKey]: latestPending
+    },
+    [PRODUCT_CONTEXT_STORAGE_KEY]: productContext,
+    [PRODUCT_AGENT_TASK_FEEDBACK_STORAGE_KEY]: []
+  });
+
+  const packet = await buildDLensSignalPacket(storage, makeGlobalState([makeItem("item-1")]), "signal-1");
+
+  assert.ok(packet);
+  assert.equal(packet.reading.latest?.cacheKey, latestPending.cacheKey);
+  assert.equal(packet.reading.latestFiled?.cacheKey, latestFiled.cacheKey);
+  assert.deepEqual(packet.reading.supersededFiled.map((reading) => reading.cacheKey), [olderFiled.cacheKey]);
+  assert.deepEqual(packet.reading.filed.map((reading) => reading.cacheKey), [latestFiled.cacheKey, olderFiled.cacheKey]);
+});
+
 test("buildSignalPacketIndex bulk-loads storage once per layer and filters packets", async () => {
   const productContext = makeProductContext();
   const storage = makeStorage({

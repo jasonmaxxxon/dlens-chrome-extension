@@ -65,6 +65,8 @@ export interface DLensSignalPacketSource {
 
 export interface DLensSignalReadingBundle {
   latest: SignalReading | null;
+  latestFiled: SignalReading | null;
+  supersededFiled: SignalReading[];
   filed: SignalReading[];
   all: SignalReading[];
 }
@@ -333,6 +335,7 @@ function buildPacket({
   topics: Topic[];
 }): DLensSignalPacket {
   const latestReading = readings[0] ?? null;
+  const filedReadings = readings.filter((reading) => reading.reviewState === "filed");
   const textEvidence = buildTextEvidence(item?.latestCapture, latestReading);
   const sourcePacket = latestReading?.sourcePacket ?? buildSourcePacketFromCapture(
     item?.latestCapture ?? null,
@@ -355,7 +358,9 @@ function buildPacket({
     productContext: buildProductContextSnapshot(productContext, analysis),
     reading: {
       latest: latestReading,
-      filed: readings.filter((reading) => reading.reviewState === "filed"),
+      latestFiled: filedReadings[0] ?? null,
+      supersededFiled: filedReadings.slice(1),
+      filed: filedReadings,
       all: readings
     },
     userFeedback: {

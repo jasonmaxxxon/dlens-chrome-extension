@@ -6,6 +6,20 @@ import {
 } from "../src/compare/signal-packet-export.ts";
 import { DLENS_SIGNAL_PACKET_VERSION, type DLensSignalPacket } from "../src/compare/signal-packet.ts";
 
+type SignalPacketReading = NonNullable<DLensSignalPacket["reading"]["latest"]>;
+
+function makeReadingBundle(latest: SignalPacketReading | null = null): DLensSignalPacket["reading"] {
+  const all = latest ? [latest] : [];
+  const filed = latest?.reviewState === "filed" ? [latest] : [];
+  return {
+    latest,
+    latestFiled: filed[0] ?? null,
+    supersededFiled: [],
+    filed,
+    all
+  };
+}
+
 function makePacket(overrides: Partial<DLensSignalPacket> = {}): DLensSignalPacket {
   return {
     packetVersion: DLENS_SIGNAL_PACKET_VERSION,
@@ -88,11 +102,7 @@ function makePacket(overrides: Partial<DLensSignalPacket> = {}): DLensSignalPack
       sourceFileIds: ["file-1"],
       promptVersion: "v1"
     },
-    reading: {
-      latest: null,
-      filed: [],
-      all: []
-    },
+    reading: makeReadingBundle(),
     userFeedback: {
       currentReadingState: "filed",
       readingFeedback: [],
@@ -328,8 +338,7 @@ test("exportSignalPackets html keeps raw details sparse with cited evidence only
       ...base.judgment!,
       evidenceRefs: ["e1"]
     },
-    reading: {
-      latest: {
+    reading: makeReadingBundle({
         signalId: "signal-1",
         cacheKey: "reading-1",
         productContextHash: "ctx_1",
@@ -347,10 +356,7 @@ test("exportSignalPackets html keeps raw details sparse with cited evidence only
         },
         reviewState: "filed",
         feedbackEvents: []
-      },
-      filed: [],
-      all: []
-    },
+    }),
     userFeedback: {
       ...base.userFeedback,
       feedbackTimeline: []
@@ -402,8 +408,7 @@ test("exportSignalPackets html escapes source and evidence text", () => {
 
 test("exportSignalPackets html renders safe inline markdown in visible reading text", () => {
   const packet = makePacket({
-    reading: {
-      latest: {
+    reading: makeReadingBundle({
         signalId: "signal-1",
         cacheKey: "reading-1",
         productContextHash: "ctx_1",
@@ -421,10 +426,7 @@ test("exportSignalPackets html renders safe inline markdown in visible reading t
         },
         reviewState: "filed",
         feedbackEvents: []
-      },
-      filed: [],
-      all: []
-    },
+    }),
     decisionTrace: {
       traceVersion: "v1",
       stages: [{
@@ -475,8 +477,7 @@ test("exportSignalPackets html renames cited evidence section and collapses beyo
       ...base.judgment!,
       evidenceRefs: textEvidence.map((entry) => entry.ref)
     },
-    reading: {
-      latest: {
+    reading: makeReadingBundle({
         signalId: "signal-1",
         cacheKey: "reading-collapse",
         productContextHash: "ctx_1",
@@ -494,10 +495,7 @@ test("exportSignalPackets html renames cited evidence section and collapses beyo
         },
         reviewState: "filed",
         feedbackEvents: []
-      },
-      filed: [],
-      all: []
-    }
+    })
   });
 
   const result = exportSignalPackets([packet], {
@@ -541,8 +539,7 @@ test("exportSignalPackets html surfaces provenance strip with reading + analysis
     evidence: { ...base.evidence, textEvidence },
     judgment: { ...base.judgment!, evidenceRefs: ["e1", "e2"], promptVersion: "v16" },
     source: { ...base.source, capturedAt: "2026-05-15T10:00:00.000Z" },
-    reading: {
-      latest: {
+    reading: makeReadingBundle({
         signalId: "signal-1",
         cacheKey: "reading-prov",
         productContextHash: "ctx_1",
@@ -560,10 +557,7 @@ test("exportSignalPackets html surfaces provenance strip with reading + analysis
         },
         reviewState: "filed",
         feedbackEvents: []
-      },
-      filed: [],
-      all: []
-    }
+    })
   });
 
   const result = exportSignalPackets([packet], {
@@ -611,8 +605,7 @@ test("exportSignalPackets html catalog block also collapses beyond top 5", () =>
       ...base.judgment!,
       evidenceRefs: textEvidence.map((entry) => entry.ref)
     },
-    reading: {
-      latest: {
+    reading: makeReadingBundle({
         signalId: "signal-1",
         cacheKey: "reading-catalog",
         productContextHash: "ctx_1",
@@ -630,10 +623,7 @@ test("exportSignalPackets html catalog block also collapses beyond top 5", () =>
         },
         reviewState: "filed",
         feedbackEvents: []
-      },
-      filed: [],
-      all: []
-    }
+    })
   });
 
   const result = exportSignalPackets([packet], {
@@ -659,8 +649,7 @@ test("formatModelShortName fallback table covers Gemini/Claude/GPT and other pro
   ];
   for (const { model, expected } of cases) {
     const packet = makePacket({
-      reading: {
-        latest: {
+      reading: makeReadingBundle({
           signalId: "signal-1",
           cacheKey: `reading-${model}`,
           productContextHash: "ctx_1",
@@ -678,10 +667,7 @@ test("formatModelShortName fallback table covers Gemini/Claude/GPT and other pro
           },
           reviewState: "filed",
           feedbackEvents: []
-        },
-        filed: [],
-        all: []
-      },
+      }),
       judgment: { ...base.judgment!, evidenceRefs: ["e1"], promptVersion: "v16" }
     });
     const result = exportSignalPackets([packet], {
