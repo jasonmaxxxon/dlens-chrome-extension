@@ -299,6 +299,12 @@ const FEEDBACK_LABELS: Record<ProductAgentTaskFeedbackValue, string> = {
   ignored: "先忽略"
 };
 
+const PRODUCT_MODE_ACCENT = `var(--dlens-mode-accent, ${tokens.color.product})`;
+const PRODUCT_MODE_ACCENT_MID = `var(--dlens-mode-accent-mid, ${tokens.color.productMid})`;
+const PRODUCT_MODE_ACCENT_SOFT = `var(--dlens-mode-accent-soft, ${tokens.color.productSoft})`;
+const PRODUCT_MODE_ACCENT_GLOW = `var(--dlens-mode-accent-glow, ${tokens.color.productGlow})`;
+const DEFAULT_PRODUCT_ACTION_READINESS: SignalReadiness = { status: "ready", itemStatus: "succeeded" };
+
 function analysisBySignalId(analyses: ProductSignalAnalysis[]): Map<string, ProductSignalAnalysis> {
   return new Map(analyses.map((analysis) => [analysis.signalId, analysis]));
 }
@@ -324,6 +330,39 @@ function readinessLabel(readiness: SignalReadiness): { label: string; detail: st
     default:
       return { label: "找不到貼文", detail: "signal 缺少對應的 saved item。", tone: "warning" };
   }
+}
+
+function ProductReadinessChip({ readiness }: { readiness: SignalReadiness }) {
+  const copy = readinessLabel(readiness);
+  const toneStyle = copy.tone === "success"
+    ? { color: PRODUCT_MODE_ACCENT, background: PRODUCT_MODE_ACCENT_SOFT, borderColor: PRODUCT_MODE_ACCENT_GLOW }
+    : copy.tone === "warning"
+      ? { color: tokens.color.queued, background: tokens.color.queuedSoft, borderColor: "rgba(161,106,23,0.24)" }
+      : { color: PRODUCT_MODE_ACCENT_MID, background: "rgba(35,79,122,0.07)", borderColor: PRODUCT_MODE_ACCENT_GLOW };
+
+  return (
+    <span
+      data-product-readiness-chip="true"
+      data-product-readiness-status={readiness.status}
+      title={copy.detail}
+      style={{
+        display: "inline-flex",
+        alignItems: "center",
+        minHeight: 22,
+        padding: "2px 7px",
+        borderRadius: tokens.radius.round,
+        border: `1px solid ${toneStyle.borderColor}`,
+        background: toneStyle.background,
+        color: toneStyle.color,
+        fontSize: 10.5,
+        lineHeight: 1.25,
+        fontWeight: 760,
+        whiteSpace: "nowrap"
+      }}
+    >
+      {copy.label}
+    </span>
+  );
 }
 
 function excerpt(value: string | null | undefined, maxLength = 150): string {
@@ -1716,9 +1755,9 @@ function SignalReadingMarginaliaPanel({
         gridTemplateColumns: "minmax(0, 1fr) 138px",
         gap: 0,
         overflow: "hidden",
-        border: `1px solid ${verdictMeta.color}`,
+        border: `1px solid ${PRODUCT_MODE_ACCENT_GLOW}`,
         borderRadius: tokens.radius.card,
-        background: `linear-gradient(90deg, ${verdictMeta.soft}, ${tokens.color.elevated} 68%)`
+        background: `linear-gradient(90deg, ${PRODUCT_MODE_ACCENT_SOFT}, ${tokens.color.elevated} 68%)`
       }}
     >
       <div style={{ display: "grid", gap: 10, padding: "13px 14px", minWidth: 0 }}>
@@ -1744,14 +1783,17 @@ function SignalReadingMarginaliaPanel({
         </div>
       </div>
       <aside
+        data-signal-reading-marginalia-rail="true"
+        data-product-drawer-accent-rail="true"
         data-signal-reading-relevance-summary="true"
         style={{
           display: "grid",
           alignContent: "start",
           gap: 9,
           padding: "13px 12px",
-          borderLeft: `1px solid ${tokens.color.line}`,
-          background: "rgba(255,255,255,0.20)"
+          borderLeft: `3px solid ${PRODUCT_MODE_ACCENT}`,
+          background: `linear-gradient(180deg, ${PRODUCT_MODE_ACCENT_SOFT}, rgba(255,255,255,0.20))`,
+          minWidth: 0
         }}
       >
         <div style={{ display: "grid", gap: 2 }}>
@@ -3074,7 +3116,8 @@ function ActionableItemCard({
   historicalAnalyses,
   agentTaskFeedback,
   onRemove,
-  layout = "verdict"
+  layout = "verdict",
+  readiness = DEFAULT_PRODUCT_ACTION_READINESS
 }: {
   analysis: ProductSignalAnalysis;
   index: number;
@@ -3083,6 +3126,7 @@ function ActionableItemCard({
   agentTaskFeedback: ProductAgentTaskFeedback[];
   onRemove?: () => void;
   layout?: ActionableItemCardLayout;
+  readiness?: SignalReadiness;
 }) {
   const [cardHovered, setCardHovered] = useState(false);
   const subtypeMeta = SIGNAL_TYPE_META[analysis.signalType];
@@ -3098,22 +3142,27 @@ function ActionableItemCard({
     || "尚未有可派發任務；先保留為觀察。";
   const railReferenceCopy = analysis.referenceLabel?.trim() || referenceTypeLabel(analysis.referenceType);
   const excluded = isExcludedActionSignal(analysis);
+  const primaryActionCard = index === 0;
+  const baseActionCardShadow = primaryActionCard ? tokens.shadow.raised : tokens.shadow.card;
 
   if (excluded) {
     return (
       <article
         className="dlens-card-lift"
         data-dlens-motion-card="true"
+        data-product-action-card="exclusion"
+        data-product-action-card-primary={primaryActionCard ? "true" : "false"}
         data-exclusion-card="true"
         onMouseEnter={() => setCardHovered(true)}
         onMouseLeave={() => setCardHovered(false)}
         style={cardStyle({
           gap: 14,
           padding: 18,
+          minWidth: 0,
           borderColor: cardHovered ? "rgba(27, 26, 23, 0.18)" : tokens.color.line,
           boxShadow: cardHovered
             ? "0 12px 28px rgba(27, 26, 23, 0.08), 0 2px 6px rgba(27, 26, 23, 0.04)"
-            : "none",
+            : baseActionCardShadow,
           overflow: "hidden",
           transform: cardHovered ? "translateY(-2px)" : undefined
         })}
@@ -3143,6 +3192,7 @@ function ActionableItemCard({
               <ScorePill color={tokens.color.neutralText} soft={tokens.color.neutralSurfaceSoft}>
                 {VERDICT_META[analysis.verdict]?.label ?? VERDICT_LABELS[analysis.verdict]}
               </ScorePill>
+              <ProductReadinessChip readiness={readiness} />
               <span style={{ fontSize: 11.5, color: tokens.color.softInk }}>{SIGNAL_TYPE_LABELS[analysis.signalType]}</span>
               <span style={{ fontSize: 11.5, color: tokens.color.softInk }}>{formatRelevanceScore(analysis.relevance)}</span>
             </div>
@@ -3207,21 +3257,24 @@ function ActionableItemCard({
       <article
         className="dlens-card-lift"
         data-dlens-motion-card="true"
+        data-product-action-card="marginalia"
+        data-product-action-card-primary={primaryActionCard ? "true" : "false"}
         data-marginalia-layout="true"
         onMouseEnter={() => setCardHovered(true)}
         onMouseLeave={() => setCardHovered(false)}
         style={cardStyle({
           gap: 0,
           padding: 0,
+          minWidth: 0,
           borderColor: cardHovered ? "rgba(27, 26, 23, 0.18)" : tokens.color.line,
           boxShadow: cardHovered
             ? "0 14px 32px rgba(27, 26, 23, 0.10), 0 2px 6px rgba(27, 26, 23, 0.04)"
-            : "none",
+            : baseActionCardShadow,
           overflow: "hidden",
           transform: cardHovered ? "translateY(-2px)" : undefined,
         })}
       >
-        <div style={{ display: "grid", gridTemplateColumns: "minmax(0, 1fr) 168px", minWidth: 0 }}>
+        <div data-product-action-card-grid="responsive" style={{ display: "grid", gridTemplateColumns: "minmax(0, 1fr) minmax(132px, 168px)", minWidth: 0 }}>
           <main
             data-testid="marginalia-main"
             style={{
@@ -3254,6 +3307,7 @@ function ActionableItemCard({
               <span>{SIGNAL_TYPE_LABELS[analysis.signalType]}</span>
               <span>·</span>
               <span>{formatAnalyzedAt(analysis.analyzedAt)}</span>
+              <ProductReadinessChip readiness={readiness} />
             </div>
 
             <h3
@@ -3450,9 +3504,10 @@ function ActionableItemCard({
 
           <aside
             data-testid="marginalia-rail"
+            data-product-drawer-accent-rail="true"
             style={{
-              background: tokens.color.contextSurface,
-              borderLeft: `1px solid ${tokens.color.line}`,
+              background: `linear-gradient(180deg, ${PRODUCT_MODE_ACCENT_SOFT}, ${tokens.color.contextSurface})`,
+              borderLeft: `3px solid ${PRODUCT_MODE_ACCENT}`,
               padding: "18px 14px",
               display: "grid",
               alignContent: "start",
@@ -3526,16 +3581,19 @@ function ActionableItemCard({
     <article
       className="dlens-card-lift"
       data-dlens-motion-card="true"
+      data-product-action-card="verdict"
+      data-product-action-card-primary={primaryActionCard ? "true" : "false"}
       data-verdict-layout="true"
       onMouseEnter={() => setCardHovered(true)}
       onMouseLeave={() => setCardHovered(false)}
       style={cardStyle({
         gap: 18,
         padding: 0,
+        minWidth: 0,
         borderColor: cardHovered ? "rgba(27, 26, 23, 0.18)" : tokens.color.line,
         boxShadow: cardHovered
           ? "0 14px 32px rgba(27, 26, 23, 0.10), 0 2px 6px rgba(27, 26, 23, 0.04)"
-          : "none",
+          : baseActionCardShadow,
         overflow: "hidden",
         transform: cardHovered ? "translateY(-2px)" : undefined,
       })}
@@ -3601,6 +3659,7 @@ function ActionableItemCard({
         <div style={{ minWidth: 0, display: "grid", gap: 14, padding: "24px 22px 18px" }}>
           <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: 12 }}>
             <div style={{ minWidth: 0, display: "grid", gap: 10 }}>
+              <ProductReadinessChip readiness={readiness} />
               <h3
                 data-actionable-title="workflow"
                 data-testid="insight-headline"
@@ -3778,6 +3837,7 @@ function ActionableInsightsBoard({
   analyses,
   productProfile,
   evidenceBySignalId,
+  signalReadinessById,
   historicalAnalyses,
   agentTaskFeedback,
   cardLayout,
@@ -3786,6 +3846,7 @@ function ActionableInsightsBoard({
   analyses: ProductSignalAnalysis[];
   productProfile: ProductProfile | null | undefined;
   evidenceBySignalId: Record<string, ProductSignalEvidenceEntry[]>;
+  signalReadinessById: Record<string, SignalReadiness>;
   historicalAnalyses: ProductSignalAnalysis[];
   agentTaskFeedback: ProductAgentTaskFeedback[];
   cardLayout: ProductSignalCardLayout;
@@ -3841,6 +3902,7 @@ function ActionableInsightsBoard({
             historicalAnalyses={historicalAnalyses}
             agentTaskFeedback={agentTaskFeedback}
             layout={cardLayout}
+            readiness={signalReadinessById[analysis.signalId] ?? DEFAULT_PRODUCT_ACTION_READINESS}
             onRemove={onRemoveSignal ? () => onRemoveSignal(analysis.signalId) : undefined}
           />
         )) : (
@@ -4072,6 +4134,7 @@ export function ProductSignalView({
                 analyses={scopedAnalyses}
                 productProfile={viewModel.productProfile}
                 evidenceBySignalId={evidenceBySignalId}
+                signalReadinessById={viewModel.signalReadinessById}
                 historicalAnalyses={historicalAnalyses}
                 agentTaskFeedback={agentTaskFeedback}
                 cardLayout={viewModel.cardLayout}

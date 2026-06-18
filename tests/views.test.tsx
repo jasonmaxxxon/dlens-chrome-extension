@@ -7,6 +7,7 @@ import { renderToStaticMarkup } from "react-dom/server";
 import { buildProductAgentTaskPromptHash } from "../src/compare/product-agent-task-feedback.ts";
 import { SIGNAL_READING_PROMPT_VERSION } from "../src/compare/signal-reading.ts";
 import type { SessionProcessingSummary, WorkerStatus } from "../src/state/processing-state.ts";
+import type { SignalReadiness } from "../src/state/signal-readiness.ts";
 import type { TargetDescriptor } from "../src/contracts/target-descriptor.ts";
 import { prCampaignToDraft, type PrCampaign, type PrEvidenceRow } from "../src/state/pr-evidence-storage.ts";
 import type { SavedAnalysisSnapshot, SessionItem, SessionRecord, TechniqueReadingSnapshot } from "../src/state/types.ts";
@@ -2217,7 +2218,8 @@ function buildActionableCardFixture() {
 
 function renderActionableCardFixture(
   layout?: "verdict" | "marginalia",
-  analysisOverride: Partial<ReturnType<typeof buildActionableCardFixture>["analysis"]> = {}
+  analysisOverride: Partial<ReturnType<typeof buildActionableCardFixture>["analysis"]> = {},
+  readiness: SignalReadiness = { status: "ready", itemStatus: "succeeded" }
 ) {
   const fixture = buildActionableCardFixture();
   const analysis = { ...fixture.analysis, ...analysisOverride };
@@ -2229,6 +2231,7 @@ function renderActionableCardFixture(
       historicalAnalyses: typeof analysis[];
       agentTaskFeedback: [];
       layout?: "verdict" | "marginalia";
+      readiness?: SignalReadiness;
     }>;
   };
 
@@ -2239,9 +2242,44 @@ function renderActionableCardFixture(
       evidenceBySignalId: fixture.evidenceBySignalId,
       historicalAnalyses: [analysis],
       agentTaskFeedback: [],
+      readiness,
       ...(layout ? { layout } : {})
     })
   );
+}
+
+function countOccurrences(haystack: string, needle: string): number {
+  let count = 0;
+  let index = haystack.indexOf(needle);
+  while (index !== -1) {
+    count += 1;
+    index = haystack.indexOf(needle, index + needle.length);
+  }
+  return count;
+}
+
+function findTagWithAttribute(html: string, attribute: string): string {
+  const markerIndex = html.indexOf(attribute);
+  assert.ok(markerIndex >= 0, `${attribute} must exist`);
+  const tagStart = html.lastIndexOf("<", markerIndex);
+  const tagEnd = html.indexOf(">", markerIndex);
+  assert.ok(tagStart >= 0 && tagEnd >= 0, `${attribute} tag must be complete`);
+  return html.slice(tagStart, tagEnd + 1);
+}
+
+function styleFromTag(tag: string): string {
+  const match = tag.match(/\sstyle="([^"]*)"/);
+  assert.ok(match, `${tag} must include inline style`);
+  return match[1];
+}
+
+function cssRuleBlock(css: string, selectorNeedle: string): string {
+  const selectorIndex = css.indexOf(selectorNeedle);
+  assert.ok(selectorIndex >= 0, `${selectorNeedle} must exist`);
+  const blockStart = css.indexOf("{", selectorIndex);
+  const blockEnd = css.indexOf("}", blockStart);
+  assert.ok(blockStart >= 0 && blockEnd >= 0, `${selectorNeedle} CSS block must close`);
+  return css.slice(blockStart + 1, blockEnd);
 }
 
 function extractTestIdSection(html: string, testId: string, closeTag: string) {
@@ -2281,12 +2319,64 @@ test("ProductSignalView actionable cards expose marginalia layout slots", () => 
 test("ActionableItemCard marginalia rail contains verdict, relevance, and task slots", () => {
   const html = renderActionableCardFixture("marginalia");
 
+  assert.match(html, /data-product-action-card="marginalia"/);
+  assert.match(html, /data-product-readiness-chip="true"[^>]*data-product-readiness-status="ready"[^>]*>可分析/);
+  assert.match(html, /data-product-drawer-accent-rail="true"/);
   assert.match(html, /data-testid="marginalia-rail"/);
   assert.match(html, /data-testid="rail-verdict"[^>]*data-verdict-value="try"[^>]*>值得嘗試/);
   assert.match(html, /data-testid="rail-relevance"/);
   assert.match(html, /data-testid="rail-task"/);
   assert.match(html, /任務 ›/);
   assert.match(html, /產出 release-note 草稿/);
+});
+
+test("ActionableItemCard keeps Product Visual Reset A elevation and accent contract", () => {
+  const html = renderActionableCardFixture("marginalia");
+  const shellStyle = styleFromTag(findTagWithAttribute(html, `data-product-action-card="marginalia"`));
+  const railStyle = styleFromTag(findTagWithAttribute(html, `data-product-drawer-accent-rail="true"`));
+  const hoverBlock = cssRuleBlock(DLENS_MOTION_CSS, `.dlens-card-lift:hover`);
+
+  assert.equal(countOccurrences(html, `box-shadow:${tokens.shadow.raised}`), 1);
+  assert.match(shellStyle, /min-width:0/);
+  assert.match(shellStyle, /box-shadow:inset 0 1px 0 rgba\(255,255,255,0\.8\)/);
+  assert.match(railStyle, /border-left:3px solid var\(--dlens-mode-accent, #234f7a\)/);
+  assert.match(railStyle, /background:linear-gradient\(180deg, var\(--dlens-mode-accent-soft, rgba\(35,79,122,0\.10\)\), rgba\(242,238,226,0\.72\)\)/);
+  assert.match(hoverBlock, /transform:\s*translateY\(-4px\)/);
+  assert.doesNotMatch(hoverBlock, /\b(?:margin|padding|top|right|bottom|left)\s*:/);
+});
+
+test("ActionableItemCard keeps Product action layout width-safe at 320 and 440", () => {
+  const html = renderActionableCardFixture("marginalia");
+  const gridStyle = styleFromTag(findTagWithAttribute(html, `data-product-action-card-grid="responsive"`));
+  const mainStyle = styleFromTag(findTagWithAttribute(html, `data-testid="marginalia-main"`));
+  const railStyle = styleFromTag(findTagWithAttribute(html, `data-testid="marginalia-rail"`));
+
+  assert.match(gridStyle, /grid-template-columns:minmax\(0, 1fr\) minmax\(132px, 168px\)/);
+  assert.match(gridStyle, /min-width:0/);
+  assert.match(mainStyle, /min-width:0/);
+  assert.match(railStyle, /min-width:0/);
+  assert.doesNotMatch(html, /\bwidth:(?:320|440)px/);
+  assert.doesNotMatch(html, /\bmin-width:[2-9]\d{2}px/);
+});
+
+test("ProductSignalView threads action readiness into Product action cards", () => {
+  const fixture = buildActionableCardFixture();
+  const html = renderToStaticMarkup(
+    productSignalViewElement({
+      kind: "actionable-filter",
+      signals: [fixture.signal],
+      analyses: [fixture.analysis],
+      productProfile: fixture.productProfile,
+      evidenceBySignalId: fixture.evidenceBySignalId,
+      signalReadinessById: {
+        [fixture.signal.id]: { status: "crawling", itemStatus: "running" }
+      },
+      onAnalyze: () => undefined
+    })
+  );
+
+  assert.match(html, /data-product-action-card="marginalia"/);
+  assert.match(html, /data-product-readiness-chip="true"[^>]*data-product-readiness-status="crawling"[^>]*>抓取中/);
 });
 
 test("ActionableItemCard marginalia rail does not duplicate main-column prose", () => {
@@ -3170,14 +3260,14 @@ test("ProductSignalView restores the 0.1.15 reading review route when readings e
   assert.match(html, /data-verdict-tile-count="true"/);
   assert.match(html, /data-signal-reading-review-list-filter="watch"/);
   assert.match(html, /data-signal-reading-marginalia="true"/);
+  assert.match(html, /data-signal-reading-marginalia-rail="true"/);
+  assert.match(html, /border-left:3px solid var\(--dlens-mode-accent, #234f7a\)/);
   assert.match(html, /data-signal-reading-relevance-summary="true"/);
-  assert.doesNotMatch(html, /data-signal-reading-marginalia-rail="true"/);
   assert.match(html, /data-signal-reading-provenance="true"/);
   assert.match(html, /data-signal-reading-evidence="true"/);
   assert.match(html, /引用留言 1 則/);
   assert.match(html, /對產品參考：這是一段完整顯示的長判斷，不能被截斷。/);
   assert.doesNotMatch(html, /source link/);
-  assert.doesNotMatch(html, /border-left:3px/);
   assert.match(html, /值得嘗試/);
   assert.match(html, /保留觀察/);
   assert.doesNotMatch(html, /data-signal-reading-brief-copy-bar="inline"/);
