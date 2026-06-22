@@ -1593,12 +1593,14 @@ export function PrimaryButton({
   onClick,
   disabled,
   style,
+  dataAttrs,
   activateOnPointerDown = false
 }: {
   children: ReactNode;
   onClick: () => void;
   disabled?: boolean;
   style?: CSSProperties;
+  dataAttrs?: Record<string, string>;
   activateOnPointerDown?: boolean;
 }) {
   const handlePointerDown = (event: PointerEvent<HTMLButtonElement>) => {
@@ -1616,6 +1618,7 @@ export function PrimaryButton({
   return (
     <button
       data-dlens-button="primary"
+      {...dataAttrs}
       onPointerDown={handlePointerDown}
       onClick={handleClick}
       disabled={disabled}
@@ -1647,16 +1650,19 @@ export function SecondaryButton({
   children,
   onClick,
   disabled,
-  style
+  style,
+  dataAttrs
 }: {
   children: ReactNode;
   onClick: () => void;
   disabled?: boolean;
   style?: CSSProperties;
+  dataAttrs?: Record<string, string>;
 }) {
   return (
     <button
       data-dlens-button="secondary"
+      {...dataAttrs}
       onClick={onClick}
       disabled={disabled}
       style={{

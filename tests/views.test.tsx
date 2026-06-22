@@ -419,6 +419,56 @@ function buildTechniqueReading(): TechniqueReadingSnapshot {
   };
 }
 
+function renderLibraryViewHtml(
+  props: Partial<React.ComponentProps<typeof LibraryView>> = {}
+): string {
+  const session = props.activeFolder ?? buildSession();
+  return renderToStaticMarkup(
+    React.createElement(LibraryView, {
+      activeFolder: session,
+      activeItem: props.activeItem ?? session.items[0] ?? null,
+      optimisticQueuedIds: props.optimisticQueuedIds ?? [],
+      workerStatus: props.workerStatus ?? ("idle" as WorkerStatus | null),
+      isStartingProcessing: props.isStartingProcessing ?? false,
+      processAllLabel: props.processAllLabel ?? "Process All",
+      processingSummary: props.processingSummary ?? {
+        total: session.items.length,
+        ready: session.items.filter((item) => item.status === "succeeded").length,
+        crawling: 0,
+        analyzing: 0,
+        pending: 0,
+        failed: 0,
+        hasReadyPair: session.items.filter((item) => item.status === "succeeded").length >= 2,
+        hasInflight: false
+      },
+      canPrev: props.canPrev ?? false,
+      canNext: props.canNext ?? false,
+      onSelectItem: props.onSelectItem ?? (() => undefined),
+      onProcessAll: props.onProcessAll ?? (() => undefined),
+      onMoveSelection: props.onMoveSelection ?? (() => undefined),
+      onQueueItem: props.onQueueItem ?? (() => undefined),
+      renderMetrics: props.renderMetrics ?? (() => null),
+      techniqueReadings: props.techniqueReadings ?? [],
+      savedAnalyses: props.savedAnalyses,
+      topicSignalItemIds: props.topicSignalItemIds,
+      topicInboxCount: props.topicInboxCount,
+      topicCount: props.topicCount,
+      initialSection: props.initialSection,
+      onGoToCollect: props.onGoToCollect,
+      onGoToCompare: props.onGoToCompare,
+      onOpenSavedAnalysis: props.onOpenSavedAnalysis,
+      folderSynthesis: props.folderSynthesis,
+      isGeneratingFolderSynthesis: props.isGeneratingFolderSynthesis,
+      folderSynthesisError: props.folderSynthesisError,
+      onGenerateFolderSynthesis: props.onGenerateFolderSynthesis,
+      onClearFolderSynthesis: props.onClearFolderSynthesis,
+      nowMs: props.nowMs,
+      folderAnalyzedCount: props.folderAnalyzedCount,
+      folderContributingTopicCount: props.folderContributingTopicCount
+    })
+  );
+}
+
 test("surfaceCardStyle uses the editorial paper defaults", () => {
   const style = surfaceCardStyle();
 
@@ -669,6 +719,166 @@ test("LibraryView exposes item phase and pending skeleton outlets for active wor
   assert.match(html, /data-scan-row="true"/);
   assert.match(html, /data-library-card-skeleton="visible"/);
   assert.match(html, /crawling/);
+});
+
+test("LibraryView render layer keeps row count, section state, and shared framing contracts", () => {
+  const session = buildSession();
+  const pendingItem = createSessionItem(
+    {
+      ...buildDescriptor(),
+      post_url: "https://www.threads.net/@beta/post/b",
+      page_url: "https://www.threads.net/@beta/post/b",
+      author_hint: "beta",
+      text_snippet: "Pending row"
+    },
+    "2026-03-24T07:24:21.000Z"
+  );
+  pendingItem.status = "queued";
+  session.items.push(pendingItem);
+
+  const pendingHtml = renderLibraryViewHtml({
+    activeFolder: session,
+    processingSummary: {
+      total: 2,
+      ready: 1,
+      crawling: 0,
+      analyzing: 0,
+      pending: 1,
+      failed: 0,
+      hasReadyPair: false,
+      hasInflight: false
+    },
+    activeItem: session.items[0]!
+  });
+
+  assert.equal(countOccurrences(pendingHtml, `data-library-row="scan"`), 2);
+  assert.match(pendingHtml, /data-library-section-state="pending"/);
+  assert.match(pendingHtml, /data-library-process-all="true"/);
+  assert.match(pendingHtml, /data-library-section="posts"/);
+  assert.match(pendingHtml, /data-section-header="shared"/);
+  assert.ok(countOccurrences(pendingHtml, `data-shared-surface-card=`) >= 2);
+
+  const readyHtml = renderLibraryViewHtml({
+    activeFolder: session,
+    processingSummary: {
+      total: 2,
+      ready: 2,
+      crawling: 0,
+      analyzing: 0,
+      pending: 0,
+      failed: 0,
+      hasReadyPair: true,
+      hasInflight: false
+    },
+    onGoToCompare: () => undefined
+  });
+  assert.match(readyHtml, /data-library-section-state="ready"/);
+  assert.doesNotMatch(readyHtml, /data-library-process-all="true"/);
+
+  const emptySession = buildSession();
+  emptySession.items = [];
+  const emptyHtml = renderLibraryViewHtml({
+    activeFolder: emptySession,
+    activeItem: null,
+    processingSummary: {
+      total: 0,
+      ready: 0,
+      crawling: 0,
+      analyzing: 0,
+      pending: 0,
+      failed: 0,
+      hasReadyPair: false,
+      hasInflight: false
+    }
+  });
+  assert.match(emptyHtml, /data-library-section-state="empty"/);
+});
+
+test("LibraryView row and Process All actions keep callback wiring", async () => {
+  const { JSDOM } = await import("jsdom");
+  const { createRoot } = await import("react-dom/client");
+  const { flushSync } = await import("react-dom");
+  const dom = new JSDOM("<div id=\"root\"></div>", { url: "https://dlens.test" });
+  const previous = {
+    window: globalThis.window,
+    document: globalThis.document,
+    HTMLElement: globalThis.HTMLElement,
+    HTMLButtonElement: globalThis.HTMLButtonElement,
+    MouseEvent: globalThis.MouseEvent
+  };
+  const session = buildSession();
+  const calls: string[] = [];
+
+  Object.assign(globalThis, {
+    window: dom.window,
+    document: dom.window.document,
+    HTMLElement: dom.window.HTMLElement,
+    HTMLButtonElement: dom.window.HTMLButtonElement,
+    MouseEvent: dom.window.MouseEvent
+  });
+
+  const rootElement = dom.window.document.getElementById("root");
+  assert.ok(rootElement);
+  const root = createRoot(rootElement);
+
+  try {
+    flushSync(() => {
+      root.render(
+        React.createElement(LibraryView, {
+          activeFolder: session,
+          activeItem: null as SessionItem | null,
+          optimisticQueuedIds: [],
+          workerStatus: "idle" as WorkerStatus | null,
+          isStartingProcessing: false,
+          processAllLabel: "Process All",
+          processingSummary: {
+            total: 1,
+            ready: 0,
+            crawling: 0,
+            analyzing: 0,
+            pending: 1,
+            failed: 0,
+            hasReadyPair: false,
+            hasInflight: false
+          },
+          canPrev: false,
+          canNext: false,
+          onSelectItem: (itemId) => calls.push(`select:${itemId}`),
+          onProcessAll: () => calls.push("process-all"),
+          onMoveSelection: () => undefined,
+          onQueueItem: () => undefined,
+          renderMetrics: () => null,
+          techniqueReadings: []
+        })
+      );
+    });
+
+    const row = rootElement.querySelector('[data-library-row="scan"]') as HTMLButtonElement | null;
+    const processAll = rootElement.querySelector('[data-library-process-all="true"]') as HTMLButtonElement | null;
+    assert.ok(row);
+    assert.ok(processAll);
+
+    row.dispatchEvent(new dom.window.MouseEvent("click", { bubbles: true }));
+    processAll.dispatchEvent(new dom.window.MouseEvent("click", { bubbles: true }));
+
+    assert.deepEqual(calls, [`select:${session.items[0]!.id}`, "process-all"]);
+  } finally {
+    flushSync(() => root.unmount());
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    Object.assign(globalThis, previous);
+  }
+});
+
+test("LibraryView framing stays width-safe and avoids raised elevation", () => {
+  const html = renderLibraryViewHtml({
+    savedAnalyses: [buildSavedAnalysis()],
+    techniqueReadings: [buildTechniqueReading()]
+  });
+
+  assert.match(html, /data-library-layout="surface-primitives"/);
+  assert.doesNotMatch(html, /\bwidth:(?:320|440)px/);
+  assert.doesNotMatch(html, /\bmin-width:[2-9]\d{2}px/);
+  assert.equal(countOccurrences(html, `box-shadow:${tokens.shadow.raised}`), 0);
 });
 
 test("LibraryView explains archive empty state without implying AI work", () => {
