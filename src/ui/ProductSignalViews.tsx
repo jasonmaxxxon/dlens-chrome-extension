@@ -2183,12 +2183,25 @@ function SavedSignalsBoard({
     return null;
   }
 
+  function savedRowTitle(signal: ProductSignalViewModel, analysis: ProductSignalAnalysis | undefined): string {
+    const raw = analysis?.contentSummary || signal.sourcePreview.displayText || signal.signalId;
+    const maxLength = /[\u3400-\u9fff]/.test(raw) ? 30 : 72;
+    return excerpt(raw, maxLength);
+  }
+
+  function savedRowMeta(readiness: ReadinessLabel, analysis: ProductSignalAnalysis | undefined): string {
+    if (analysis) {
+      return VERDICT_LABELS[analysis.verdict];
+    }
+    return readiness.isTerminal ? readiness.label : "未分析";
+  }
+
   return (
     <section data-saved-signals-route="true" style={{ display: "grid", gap: 12 }}>
       <div style={cardStyle({ gap: 10 })}>
         <div style={{ display: "flex", justifyContent: "space-between", gap: 10, alignItems: "baseline" }}>
           <Kicker>已存訊號</Kicker>
-          <span style={{ ...textStyles.meta, color: tokens.color.softInk }}>{signals.length} saved</span>
+          <span style={{ ...textStyles.meta, color: tokens.color.softInk }}>{signals.length}</span>
         </div>
         <div data-scan-list="saved-signals" style={{ display: "grid" }}>
           {signals.map((signal) => {
@@ -2196,6 +2209,8 @@ function SavedSignalsBoard({
             const readiness = readinessLabel(signal.readiness);
             const checked = selectedIds.includes(signal.signalId);
             const typeMeta = analysis ? SIGNAL_TYPE_META[analysis.signalType] : null;
+            const rowTitle = savedRowTitle(signal, analysis);
+            const rowMeta = savedRowMeta(readiness, analysis);
             return (
               <label
                 key={signal.signalId}
@@ -2211,18 +2226,21 @@ function SavedSignalsBoard({
                   cursor: "pointer"
                 })}
               >
-	                <input
-	                  type="checkbox"
-	                  checked={checked}
-	                  onChange={() => onToggleSignal(signal.signalId)}
-	                  aria-label={`選取 ${signal.signalId}`}
-	                />
+                <input
+                  type="checkbox"
+                  checked={checked}
+                  onChange={() => onToggleSignal(signal.signalId)}
+                  aria-label={`選取 ${signal.signalId}`}
+                />
                 <span style={{ minWidth: 0, display: "grid", gap: 3 }}>
-                  <span style={{ ...textStyles.bodyTight, color: tokens.color.ink, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-                    {excerpt(signal.sourcePreview.displayText || analysis?.contentSummary || signal.signalId, 120)}
+                  <span
+                    data-saved-signal-title="compact"
+                    style={{ ...textStyles.bodyTight, color: tokens.color.ink, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}
+                  >
+                    {rowTitle}
                   </span>
                   <span style={{ ...textStyles.meta, color: tokens.color.softInk }}>
-                    {readiness.label} · {analysis ? `${SIGNAL_TYPE_LABELS[analysis.signalType]} · ${VERDICT_LABELS[analysis.verdict]}` : "尚未分析"}
+                    {rowMeta}
                   </span>
                 </span>
                 {typeMeta ? (
@@ -2241,9 +2259,9 @@ function SavedSignalsBoard({
               </label>
             );
           })}
-	        </div>
-	      </div>
-	    </section>
+        </div>
+      </div>
+    </section>
   );
 }
 

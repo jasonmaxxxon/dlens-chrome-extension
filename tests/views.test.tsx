@@ -1677,7 +1677,7 @@ test("SettingsView exposes Google provider and save action", () => {
 
 test("ProductSignalView shows real readiness state without fake AI results", () => {
   const html = renderToStaticMarkup(
-    productSignalViewElement( {
+    productSignalViewElement({
       kind: "saved-signals",
       signals: [
         {
@@ -1983,6 +1983,61 @@ test("ProductSignalView only shows remove controls when delete is wired", () => 
 
   assert.doesNotMatch(unwiredHtml, /aria-label="移除此訊號"/);
   assert.match(wiredHtml, /aria-label="移除此訊號"/);
+});
+
+test("SavedSignalsBoard keeps saved rows scan-first with compact copy", () => {
+  const longPreview = "用戶問產品需要如何收斂訊號列表，避免每行都像文章一樣難掃描 META_ROW_SHOULD_NOT_RENDER 這段不應在 compact row 出現";
+  const html = renderToStaticMarkup(
+    productSignalViewElement( {
+      kind: "saved-signals",
+      signals: [
+        {
+          id: "signal_compact",
+          sessionId: "session_a",
+          itemId: "item_compact",
+          source: "threads",
+          inboxStatus: "processed",
+          capturedAt: "2026-04-27T00:00:00.000Z"
+        }
+      ],
+      analyses: [
+        {
+          signalId: "signal_compact",
+          signalType: "learning",
+          signalSubtype: "inbox_density",
+          contentType: "discussion_starter",
+          contentSummary: "列表需要更像營運 inbox。",
+          relevance: 5,
+          relevantTo: ["coreWorkflows"],
+          whyRelevant: "直接影響 Product saved route 掃描效率。",
+          verdict: "watch",
+          reason: "先壓縮列表資訊量。",
+          experimentHint: "把 row meta 降到一行。",
+          evidenceRefs: ["e1"],
+          productContextHash: "ctx_1",
+          promptVersion: "v1",
+          analyzedAt: "2026-04-27T01:00:00.000Z",
+          status: "complete"
+        }
+      ],
+      productProfile: productTestProfile(),
+      signalPreviewById: { signal_compact: longPreview },
+      signalReadinessById: {
+        signal_compact: {
+          status: "ready",
+          itemStatus: "succeeded"
+        }
+      },
+      onAnalyze: () => undefined,
+      onGoToActionable: () => undefined
+    })
+  );
+
+  assert.match(html, /data-saved-signal-title="compact"/);
+  assert.match(html, /列表需要更像營運 inbox。/);
+  assert.doesNotMatch(html, /META_ROW_SHOULD_NOT_RENDER/);
+  assert.equal(countOccurrences(html, "學習資源"), 1);
+  assert.doesNotMatch(html, /可分析 · 學習資源 · 保留觀察/);
 });
 
 test("ProductSignalView keeps Agent export off Product action pages", () => {
