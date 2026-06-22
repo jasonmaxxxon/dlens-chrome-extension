@@ -26,6 +26,7 @@ import {
 } from "../compare/signal-reading-storage";
 import { SIGNAL_READING_PROMPT_VERSION } from "../compare/signal-reading";
 import { aiOutputProvenanceFromModel, describeAiOutputProvenance } from "../state/ai-provenance";
+import { describeProcessingError, type ProcessingErrorClass, type ProcessingErrorView } from "../state/processing-errors";
 import type { ProductSignalAction, ProductSignalCommand, ProductSignalViewModel, ProductSignalWorkspaceViewModel } from "../viewmodel/product-signal";
 import type { SignalReadiness } from "../state/signal-readiness";
 import {
@@ -309,23 +310,46 @@ function analysisBySignalId(analyses: ProductSignalAnalysis[]): Map<string, Prod
   return new Map(analyses.map((analysis) => [analysis.signalId, analysis]));
 }
 
-function readinessLabel(readiness: SignalReadiness): { label: string; detail: string; tone: "success" | "warning" | "neutral" } {
-  // Backend jobs report last_error while still retrying; without it the card
-  // claims plain progress forever even when every attempt is failing (B-12).
-  const backendErrorDetail = readiness.lastError ? `backend 回報錯誤：${excerpt(readiness.lastError, 160)}` : null;
+type ReadinessLabel = {
+  label: string;
+  detail: string;
+  tone: "success" | "warning" | "neutral";
+  isTerminal?: boolean;
+  errorClass?: ProcessingErrorClass;
+};
+
+function readinessLabel(readiness: SignalReadiness): ReadinessLabel {
+  const processingError = describeProcessingError(readiness);
+  if (processingError) {
+    if (processingError.isTerminal) {
+      return {
+        label: processingError.label,
+        detail: processingError.detail,
+        tone: "warning",
+        isTerminal: true,
+        errorClass: processingError.errorClass
+      };
+    }
+    if (readiness.status === "crawling") {
+      return {
+        label: processingError.label,
+        detail: processingError.detail,
+        tone: "warning",
+        errorClass: processingError.errorClass
+      };
+    }
+  }
   switch (readiness.status) {
     case "saved":
       return { label: "尚未抓取", detail: "按分析會先送出抓取請求。", tone: "warning" };
     case "crawling":
-      return backendErrorDetail
-        ? { label: "抓取中（重試中）", detail: backendErrorDetail, tone: "warning" }
-        : { label: "抓取中", detail: "等待 backend 完成 ThreadReadModel。", tone: "neutral" };
+      return { label: "抓取中", detail: "等待 backend 完成 ThreadReadModel。", tone: "neutral" };
     case "ready":
       return { label: "可分析", detail: "已有 assembled content，可以執行 ProductSignalAnalyzer。", tone: "success" };
     case "missing_content":
       return { label: "內容不完整", detail: "crawl 完成但缺少 assembled content，請重新處理該貼文。", tone: "warning" };
     case "failed":
-      return { label: "抓取失敗", detail: backendErrorDetail ?? "請重新送出抓取後再分析。", tone: "warning" };
+      return { label: "抓取失敗", detail: "請重新送出抓取後再分析。", tone: "warning", isTerminal: true };
     case "missing_item":
     default:
       return { label: "找不到貼文", detail: "signal 缺少對應的 saved item。", tone: "warning" };
@@ -1049,16 +1073,23 @@ function formatAnalyzedAt(value: string): string {
 
 function PendingSignalCard({
   signal,
-  onRemove
+  onRemove,
+  suppressTerminalDetail = false
 }: {
   signal: ProductSignalViewModel;
   onRemove?: () => void;
+  suppressTerminalDetail?: boolean;
 }) {
   const { analysis, readiness } = signal;
-  const label = analysis?.status === "error"
+  const label: ReadinessLabel = analysis?.status === "error"
     ? { label: "分析失敗", detail: analysis.error || analysis.reason || "這則訊號未能產生可信分析。", tone: "warning" as const }
     : readinessLabel(readiness);
-  const isProcessing = analysis?.status === "pending" || analysis?.status === "analyzing" || (!analysis && readiness.status === "crawling");
+  const showDetail = !(suppressTerminalDetail && label.isTerminal);
+  const isProcessing = (
+    analysis?.status === "pending"
+    || analysis?.status === "analyzing"
+    || (!analysis && readiness.status === "crawling" && !label.isTerminal)
+  );
   return (
     <div
       className="dlens-card-lift"
@@ -1104,10 +1135,62 @@ function PendingSignalCard({
           ) : null}
         </div>
       </div>
-      <div style={{ ...textStyles.body, fontSize: 12.5, color: tokens.color.subInk }}>{label.detail}</div>
+      {showDetail ? (
+        <div style={{ ...textStyles.body, fontSize: 12.5, color: tokens.color.subInk }}>{label.detail}</div>
+      ) : null}
       {signal.sourcePreview.displayText ? (
         <div style={{ ...textStyles.body, color: tokens.color.ink, ...lineClamp(2) }}>{signal.sourcePreview.displayText}</div>
       ) : null}
+    </div>
+  );
+}
+
+interface ProcessingErrorAggregate {
+  errorClass: ProcessingErrorClass;
+  count: number;
+  error: ProcessingErrorView;
+}
+
+function summarizeProcessingErrorAggregate(signals: ProductSignalViewModel[]): ProcessingErrorAggregate | null {
+  const groups = new Map<ProcessingErrorClass, { count: number; error: ProcessingErrorView }>();
+  for (const signal of signals) {
+    const error = describeProcessingError(signal.readiness);
+    if (!error?.isTerminal) {
+      continue;
+    }
+    const current = groups.get(error.errorClass);
+    groups.set(error.errorClass, {
+      count: (current?.count ?? 0) + 1,
+      error
+    });
+  }
+  const largest = [...groups.entries()]
+    .map(([errorClass, value]) => ({ errorClass, ...value }))
+    .filter((summary) => summary.count > 1)
+    .sort((a, b) => b.count - a.count)[0];
+  return largest ?? null;
+}
+
+function ProcessingErrorAggregateBanner({ summary }: { summary: ProcessingErrorAggregate }) {
+  return (
+    <div
+      data-product-error-aggregate={summary.errorClass}
+      style={{
+        display: "grid",
+        gap: 5,
+        padding: "10px 12px",
+        borderRadius: tokens.radius.sm,
+        border: `1px solid rgba(161,106,23,0.24)`,
+        background: tokens.color.queuedSoft,
+        color: tokens.color.queued
+      }}
+    >
+      <div style={{ fontSize: 12.5, lineHeight: 1.45, fontWeight: 800 }}>
+        {summary.error.aggregateTitle(summary.count)}
+      </div>
+      <div style={{ fontSize: 12, lineHeight: 1.55, color: tokens.color.subInk }}>
+        {summary.error.aggregateDetail}
+      </div>
     </div>
   );
 }
@@ -2710,7 +2793,13 @@ function SavedSignalsBatchExport({
 }) {
   const [copyStatus, setCopyStatus] = useState<AgentBriefCopyStatus>("idle");
   const analysesBySignal = analysisBySignalId(analyses);
-  const selectedSignals = signals.filter((signal) => selectedIds.includes(signal.signalId));
+  const exportableRows = signals
+    .map((signal) => ({ signal, analysis: signal.analysis ?? analysesBySignal.get(signal.signalId) }))
+    .filter((row): row is { signal: ProductSignalViewModel; analysis: ProductSignalAnalysis } => Boolean(row.analysis));
+  const unanalyzedCount = signals.length - exportableRows.length;
+  const selectedSignals = exportableRows
+    .filter((row) => selectedIds.includes(row.signal.signalId))
+    .map((row) => row.signal);
   const agentBrief = selectedSignals.length
     ? buildAgentBrief({ mode: briefMode, selectedSignals, analysesBySignal, signalPreviewById, signalUrlById, evidenceBySignalId })
     : "";
@@ -2736,13 +2825,12 @@ function SavedSignalsBatchExport({
     <div data-saved-signals-batch-export="true" style={cardStyle({ gap: 13, borderColor: tokens.color.product, background: `linear-gradient(180deg, ${tokens.color.elevated}, ${tokens.color.productSoft})` })}>
       <div style={{ display: "flex", justifyContent: "space-between", gap: 10, alignItems: "center" }}>
         <Kicker>行動簡報匯出</Kicker>
-        <Stamp tone={selectedIds.length ? "accent" : "neutral"}>{selectedIds.length} 已選</Stamp>
+        <Stamp tone={selectedSignals.length ? "accent" : "neutral"}>{selectedSignals.length} 已選</Stamp>
       </div>
       <div data-batch-export-selection-list="true" style={{ display: "grid", borderTop: `1px solid ${tokens.color.line}`, borderBottom: `1px solid ${tokens.color.line}`, maxHeight: 240, overflowY: "auto" }}>
-        {signals.map((signal) => {
-          const analysis = signal.analysis ?? analysesBySignal.get(signal.signalId);
+        {exportableRows.map(({ signal, analysis }) => {
           const checked = selectedIds.includes(signal.signalId);
-          const typeMeta = analysis ? SIGNAL_TYPE_META[analysis.signalType] : null;
+          const typeMeta = SIGNAL_TYPE_META[analysis.signalType];
           return (
             <div key={signal.signalId} style={{ background: checked ? tokens.color.surface : "transparent" }}>
               <label
@@ -2771,11 +2859,7 @@ function SavedSignalsBatchExport({
                     {referenceTypeLabel(analysis?.referenceType)} · {referenceTakeaway(analysis)}
                   </span>
                 </span>
-                {typeMeta ? (
-                  <ScorePill color={typeMeta.color} soft={typeMeta.soft}>{VERDICT_LABELS[analysis!.verdict]}</ScorePill>
-                ) : (
-                  <Stamp tone="neutral">未分析</Stamp>
-                )}
+                <ScorePill color={typeMeta.color} soft={typeMeta.soft}>{VERDICT_LABELS[analysis.verdict]}</ScorePill>
               </label>
               {checked && onSynthesizeSignalReading ? (
                 <SignalReadingDisclosure signal={signal} onSynthesize={onSynthesizeSignalReading} />
@@ -2783,6 +2867,31 @@ function SavedSignalsBatchExport({
             </div>
           );
         })}
+        {unanalyzedCount ? (
+          <div
+            data-batch-export-unanalysed-summary="true"
+            data-scan-row="true"
+            style={scanRowStyle({
+              display: "grid",
+              gridTemplateColumns: "18px minmax(0, 1fr) auto",
+              gap: 9,
+              alignItems: "center",
+              padding: "9px 4px",
+              color: tokens.color.softInk
+            })}
+          >
+            <span aria-hidden="true" style={{ textAlign: "center", fontSize: 12 }}>•</span>
+            <span style={{ minWidth: 0, display: "grid", gap: 3 }}>
+              <span style={{ ...textStyles.bodyTight, color: tokens.color.subInk }}>
+                {unanalyzedCount} 個 signal 待分析後可生成 brief
+              </span>
+              <span style={{ ...textStyles.meta, color: tokens.color.softInk }}>
+                先完成分析後再輸出 agent brief。
+              </span>
+            </span>
+            <Stamp tone="neutral">未分析</Stamp>
+          </div>
+        ) : null}
       </div>
       <div role="radiogroup" aria-label="行動簡報輸出格式" style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
         {[
@@ -2811,7 +2920,7 @@ function SavedSignalsBatchExport({
           </button>
         ))}
       </div>
-      <PrimaryButton onClick={copyBrief} disabled={!selectedIds.length}>複製行動簡報</PrimaryButton>
+      <PrimaryButton onClick={copyBrief} disabled={!selectedSignals.length}>複製行動簡報</PrimaryButton>
       <div
         data-agent-brief-copy-status={copyStatus}
         aria-live="polite"
@@ -3951,6 +4060,7 @@ export function ProductSignalView({
   const analyzeCommand = viewModel.actions.find((action) => action.kind === "analyzeInbox");
   const openActionableCommand = viewModel.actions.find((action) => action.kind === "openActionable");
   const hasReadingCommand = signals.some((signal) => signal.actions.some((action) => action.kind === "generateReading"));
+  const pendingErrorAggregate = summarizeProcessingErrorAggregate(pendingSignals);
 
   function toggleSelectedSignal(signalId: string) {
     setSelectedSignalIds((current) =>
@@ -4042,11 +4152,13 @@ export function ProductSignalView({
         {pendingSignals.length ? (
           <section style={{ display: "grid", gap: 8 }}>
             <Kicker>等待處理的 signals</Kicker>
+            {pendingErrorAggregate ? <ProcessingErrorAggregateBanner summary={pendingErrorAggregate} /> : null}
             {pendingSignals.map((signal) => (
               <PendingSignalCard
                 key={signal.signalId}
                 signal={signal}
                 onRemove={signal.actions.some((action) => action.kind === "remove") ? () => handleRemoveSignal(signal.signalId) : undefined}
+                suppressTerminalDetail={pendingErrorAggregate?.errorClass === readinessLabel(signal.readiness).errorClass}
               />
             ))}
           </section>

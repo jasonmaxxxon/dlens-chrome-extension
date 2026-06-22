@@ -2084,20 +2084,95 @@ test("ProductSignalView keeps Agent export off Product action pages", () => {
   assert.doesNotMatch(actionableHtml, /# Agent Brief/);
 });
 
-test("PendingSignalCard surfaces the backend job error while a crawl is retrying", () => {
+test("SavedSignalsBatchExport collapses unanalyzed placeholders into one summary row", () => {
+  const signals = [
+    {
+      id: "signal_done",
+      sessionId: "session_a",
+      itemId: "item_done",
+      source: "threads" as const,
+      inboxStatus: "processed" as const,
+      capturedAt: "2026-04-27T00:00:00.000Z"
+    },
+    ...["a", "b", "c", "d"].map((suffix) => ({
+      id: `signal_pending_${suffix}`,
+      sessionId: "session_a",
+      itemId: `item_pending_${suffix}`,
+      source: "threads" as const,
+      inboxStatus: "unprocessed" as const,
+      capturedAt: "2026-04-27T00:00:00.000Z"
+    }))
+  ];
   const html = renderToStaticMarkup(
     productSignalViewElement( {
       kind: "saved-signals",
-      signals: [
+      signals,
+      analyses: [
         {
-          id: "signal_fetching",
-          sessionId: "session_a",
-          itemId: "item_fetching",
-          source: "threads",
-          inboxStatus: "unprocessed",
-          capturedAt: "2026-04-27T00:00:00.000Z"
+          signalId: "signal_done",
+          signalType: "learning",
+          signalSubtype: "agent_brief",
+          contentType: "discussion_starter",
+          contentSummary: "已完成分析的 signal 可輸出 brief。",
+          relevance: 4,
+          relevantTo: ["coreWorkflows"],
+          whyRelevant: "可驗證 batch export。",
+          verdict: "try",
+          reason: "已有判讀。",
+          experimentHint: "整理 agent brief。",
+          evidenceRefs: ["e1"],
+          productContextHash: "ctx_1",
+          promptVersion: "v1",
+          analyzedAt: "2026-04-27T01:00:00.000Z",
+          status: "complete"
         }
       ],
+      productProfile: productTestProfile(),
+      signalPreviewById: Object.fromEntries(signals.map((signal) => [signal.id, `${signal.id} preview`])),
+      signalReadinessById: Object.fromEntries(
+        signals.map((signal) => [
+          signal.id,
+          signal.id === "signal_done"
+            ? { status: "ready" as const, itemStatus: "succeeded" as const }
+            : { status: "saved" as const, itemStatus: "saved" as const }
+        ])
+      ),
+      onAnalyze: () => undefined,
+      onGoToActionable: () => undefined
+    })
+  );
+
+  assert.match(html, /data-saved-signals-batch-export="true"/);
+  assert.match(html, /data-batch-export-unanalysed-summary="true"/);
+  assert.match(html, /4 個 signal 待分析後可生成 brief/);
+  assert.equal(countOccurrences(html, 'data-batch-export-selection-row="true"'), 1);
+});
+
+test("ProductSignalView aggregates terminal crawler setup errors without raw backend details", () => {
+  const signals = ["a", "b", "c", "d"].map((suffix) => ({
+    id: `signal_fetching_${suffix}`,
+    sessionId: "session_a",
+    itemId: `item_fetching_${suffix}`,
+    source: "threads" as const,
+    inboxStatus: "unprocessed" as const,
+    capturedAt: "2026-04-27T00:00:00.000Z"
+  }));
+  const signalReadinessById = Object.fromEntries(
+    signals.map((signal) => [
+      signal.id,
+      {
+        status: "crawling" as const,
+        itemStatus: "queued" as const,
+        lastErrorKind: "crawler_setup_error",
+        lastError: "BrowserType.launch: Executable doesn't exist at /Users/tung/Library/Caches/ms-playwright/chromium"
+      }
+    ])
+  );
+
+  const html = renderToStaticMarkup(
+    productSignalViewElement( {
+      kind: "saved-signals",
+      signals,
       analyses: [],
       productProfile: {
         name: "DLens",
@@ -2114,20 +2189,19 @@ test("PendingSignalCard surfaces the backend job error while a crawl is retrying
           }
         ]
       },
-      signalReadinessById: {
-        signal_fetching: {
-          status: "crawling",
-          itemStatus: "queued",
-          lastError: "BrowserType.launch: Executable doesn't exist at /Users/tung/Library/Caches/ms-playwright/chromium"
-        }
-      },
+      signalReadinessById,
       onAnalyze: () => undefined
     })
   );
 
-  assert.match(html, /抓取中（重試中）/);
-  assert.match(html, /backend 回報錯誤/);
-  assert.match(html, /BrowserType\.launch/);
+  assert.match(html, /data-product-error-aggregate="crawler_setup_error"/);
+  assert.match(html, /4 個 signal 因後端瀏覽器設定失敗/);
+  assert.match(html, /暫停自動重試/);
+  assert.match(html, /抓取失敗/);
+  assert.doesNotMatch(html, /抓取中（重試中）/);
+  assert.doesNotMatch(html, /backend 回報錯誤/);
+  assert.doesNotMatch(html, /BrowserType\.launch/);
+  assert.doesNotMatch(html, /ms-playwright/);
   assert.doesNotMatch(html, /等待 backend 完成 ThreadReadModel/);
 });
 

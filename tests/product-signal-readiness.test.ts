@@ -54,8 +54,10 @@ test("buildProductSignalReadinessById carries the backend job error for crawling
 
   assert.equal(readiness["sig-crawling"]?.status, "crawling");
   assert.equal(readiness["sig-crawling"]?.lastError, "BrowserType.launch: Executable doesn't exist");
+  assert.equal(readiness["sig-crawling"]?.lastErrorKind, "unexpected_runtime_error");
   assert.equal(readiness["sig-failed"]?.status, "failed");
   assert.equal(readiness["sig-failed"]?.lastError, "crawl exhausted retries");
+  assert.equal(readiness["sig-failed"]?.lastErrorKind, "unexpected_runtime_error");
 });
 
 test("buildProductSignalReadinessById classifies the six saved signal readiness states", () => {
