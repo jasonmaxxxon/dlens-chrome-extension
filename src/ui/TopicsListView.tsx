@@ -66,6 +66,7 @@ export function TopicCard({
     processing: 0,
     pending: signalCount
   };
+  const canDelete = typeof onDeleteTopic === "function";
   const openTopic = () => onOpenTopic(topic.id);
   const handleKeyDown = (event: KeyboardEvent<HTMLDivElement>) => {
     if (event.key === "Enter" || event.key === " ") {
@@ -87,6 +88,8 @@ export function TopicCard({
       style={{
         textAlign: "left",
         width: "100%",
+        maxWidth: "100%",
+        boxSizing: "border-box",
         border: "none",
         borderRadius: tokens.radius.cardLg,
         background: tokens.color.elevated,
@@ -96,40 +99,14 @@ export function TopicCard({
         cursor: "pointer",
         display: "grid",
         gap: 12,
+        overflow: "hidden",
         fontFamily: tokens.font.sans,
         color: tokens.color.ink,
         transition: tokens.motion.preset.cardLift
       }}
     >
-      {onDeleteTopic ? (
-        <button
-          type="button"
-          data-topic-delete-button="true"
-          aria-label={`移除議題 ${topic.name}`}
-          onClick={handleDelete}
-          style={{
-            position: "absolute",
-            top: 12,
-            right: 12,
-            width: 28,
-            height: 28,
-            borderRadius: 999,
-            border: `1px solid ${tokens.color.line}`,
-            background: tokens.color.surface,
-            color: tokens.color.softInk,
-            cursor: "pointer",
-            fontFamily: tokens.font.sans,
-            fontSize: 16,
-            lineHeight: "24px",
-            display: "grid",
-            placeItems: "center"
-          }}
-        >
-          ×
-        </button>
-      ) : null}
-      <span style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: 12 }}>
-        <span style={{ display: "grid", gap: 5, minWidth: 0, paddingRight: onDeleteTopic ? 28 : 0 }}>
+      <span style={{ display: "grid", gridTemplateColumns: "minmax(0, 1fr) auto", alignItems: "flex-start", gap: 12, minWidth: 0 }}>
+        <span style={{ display: "grid", gap: 5, minWidth: 0 }}>
           <span style={{ fontFamily: `${tokens.font.serifCjk}, ${tokens.font.serif}`, fontSize: 18, fontWeight: 900, lineHeight: 1.2 }}>
             {topic.name}
           </span>
@@ -137,13 +114,41 @@ export function TopicCard({
             {topic.description || topic.tags.join(" · ") || "採集批次待整理"}
           </span>
         </span>
-        <TopicAuditStatusPill summary={summary} />
+        <span data-topic-card-actions="true" style={{ display: "inline-flex", alignItems: "center", justifyContent: "flex-end", gap: 8, minWidth: 0, maxWidth: "100%" }}>
+          <TopicAuditStatusPill summary={summary} />
+          {canDelete ? (
+            <button
+              type="button"
+              data-topic-delete-button="true"
+              aria-label={`移除議題 ${topic.name}`}
+              onClick={handleDelete}
+              style={{
+                flex: "0 0 28px",
+                width: 28,
+                height: 28,
+                borderRadius: 999,
+                border: `1px solid ${tokens.color.line}`,
+                background: tokens.color.surface,
+                color: tokens.color.softInk,
+                cursor: "pointer",
+                fontFamily: tokens.font.sans,
+                fontSize: 16,
+                lineHeight: "24px",
+                display: "grid",
+                placeItems: "center"
+              }}
+            >
+              ×
+            </button>
+          ) : null}
+        </span>
       </span>
       <span
         style={{
           display: "flex",
           alignItems: "center",
           gap: 0,
+          minWidth: 0,
           borderRadius: tokens.radius.button,
           background: tokens.color.contextSurface,
           padding: "10px 14px"
@@ -169,6 +174,8 @@ export function NewTopicButton({ onCreateTopic }: { onCreateTopic: () => void })
       onClick={onCreateTopic}
       style={{
         width: "100%",
+        maxWidth: "100%",
+        boxSizing: "border-box",
         marginTop: 14,
         border: `1.5px dashed ${tokens.color.lineStrong}`,
         borderRadius: tokens.radius.card,

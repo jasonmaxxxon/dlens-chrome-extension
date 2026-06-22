@@ -572,42 +572,6 @@ export function StatusRail({
   );
 }
 
-export function KeyHint({
-  keys,
-  label
-}: {
-  keys: ReadonlyArray<string>;
-  label?: string;
-}) {
-  return (
-    <span data-key-hint="shared" style={{ display: "inline-flex", alignItems: "center", gap: 5, minWidth: 0 }}>
-      {label ? <span style={{ ...textStyles.caption, color: tokens.color.softInk }}>{label}</span> : null}
-      {keys.map((key) => (
-        <kbd
-          key={key}
-          style={{
-            minWidth: 20,
-            height: 20,
-            padding: "0 6px",
-            borderRadius: tokens.radius.sm,
-            border: `1px solid ${tokens.color.lineStrong}`,
-            background: tokens.color.surface,
-            boxShadow: "inset 0 1px 0 rgba(255,255,255,0.7)",
-            color: tokens.color.subInk,
-            fontFamily: tokens.font.mono,
-            fontSize: 10,
-            fontWeight: 700,
-            lineHeight: "18px",
-            textAlign: "center"
-          }}
-        >
-          {key}
-        </kbd>
-      ))}
-    </span>
-  );
-}
-
 export function QuoteBlock({
   children,
   cite,
@@ -1079,27 +1043,26 @@ export function WorkspaceShell({
               {modeBadge.label} MODE
             </span>
           ) : null}
-          <span style={{ fontSize: 10, fontWeight: 700, letterSpacing: 0, color: tokens.color.softInk, minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", lineHeight: 1.2 }}>
-            Annotated Field Guide
-          </span>
         </div>
-        <div style={{ display: "flex", alignItems: "center", justifyContent: "flex-end", gap: 8, minWidth: 0, flex: "0 1 360px", overflow: "hidden" }}>
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "flex-end", gap: 8, minWidth: 0, flex: "0 1 248px", overflow: "hidden" }}>
           {statusRail ? (
-            <div data-shell-status-rail="masthead" style={{ minWidth: 0, maxWidth: 200, flex: "1 1 128px", overflow: "hidden" }}>
+            <div data-shell-status-rail="masthead" style={{ minWidth: 0, maxWidth: 196, flex: "1 1 148px", overflow: "hidden" }}>
               {statusRail}
             </div>
           ) : null}
-          <div data-shell-key-hints="idle" style={{ display: "inline-flex", alignItems: "center", gap: 6, minWidth: 0, flex: "0 1 172px", overflow: "hidden" }}>
-            <KeyHint label="Mode" keys={["⌘", "1-3"]} />
-            <KeyHint label="Command" keys={["⌘", "K"]} />
-          </div>
-          <div style={{ display: "flex", alignItems: "center", justifyContent: "flex-end", gap: 6, minWidth: 0, maxWidth: 44, overflow: "hidden", fontFamily: tokens.font.sans, fontSize: 10, color: tokens.color.softInk, whiteSpace: "nowrap", flex: "0 1 44px" }}>
-            <span>VOL.1</span>
-            <span>NO.{mode === "result" ? "04" : mode === "compare" ? "03" : mode === "collect" ? "02" : mode === "settings" ? "05" : "01"}</span>
-            <span>{new Intl.DateTimeFormat("en-US", { month: "short", day: "numeric" }).format(new Date())}</span>
-            <span style={{ opacity: 0.5 }}>·</span>
-            <span title="Folder: dlens-product-latest">v.{BUILD_VERSION}</span>
-          </div>
+          <span
+            data-shell-version="masthead"
+            title="Folder: dlens-product-latest"
+            style={{
+              flexShrink: 0,
+              fontFamily: tokens.font.sans,
+              fontSize: 10,
+              color: tokens.color.softInk,
+              whiteSpace: "nowrap"
+            }}
+          >
+            v.{BUILD_VERSION}
+          </span>
         </div>
       </div>
 

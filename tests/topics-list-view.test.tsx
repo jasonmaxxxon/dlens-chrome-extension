@@ -8,6 +8,38 @@ import { createSessionItem } from "../src/state/store-helpers.ts";
 import type { SessionItem, Signal, Topic } from "../src/state/types.ts";
 import { TopicsListView, topicsListViewTestables } from "../src/ui/TopicsListView.tsx";
 
+function findTagWithAttribute(html: string, attribute: string): string {
+  const attributeIndex = html.indexOf(attribute);
+  assert.ok(attributeIndex >= 0, `${attribute} must exist`);
+  const tagStart = html.lastIndexOf("<", attributeIndex);
+  const tagEnd = html.indexOf(">", attributeIndex);
+  assert.ok(tagStart >= 0 && tagEnd >= 0, `${attribute} tag must close`);
+  return html.slice(tagStart, tagEnd + 1);
+}
+
+function styleFromTag(tag: string): string {
+  const match = tag.match(/\sstyle="([^"]*)"/);
+  assert.ok(match, `${tag} must include inline style`);
+  return match[1];
+}
+
+function findElementWithProp(node: React.ReactNode, propName: string, value: string): React.ReactElement | null {
+  if (!React.isValidElement(node)) {
+    return null;
+  }
+  const props = node.props as Record<string, unknown> & { children?: React.ReactNode };
+  if (props[propName] === value) {
+    return node;
+  }
+  for (const child of React.Children.toArray(props.children)) {
+    const match = findElementWithProp(child, propName, value);
+    if (match) {
+      return match;
+    }
+  }
+  return null;
+}
+
 function topic(id: string, name: string): Topic {
   return {
     id,
@@ -177,13 +209,11 @@ test("TopicsListView exposes a topic remove action without opening the topic", (
     }
   });
 
-  const deleteButton = React.Children.toArray(card.props.children).find(
-    (child): child is React.ReactElement =>
-      React.isValidElement(child) && child.props["data-topic-delete-button"] === "true"
-  );
+  const deleteButton = findElementWithProp(card, "data-topic-delete-button", "true");
 
   assert.ok(deleteButton, "topic card must render a delete affordance");
-  deleteButton.props.onClick({
+  const deleteProps = deleteButton.props as { onClick: (event: { stopPropagation: () => void }) => void };
+  deleteProps.onClick({
     stopPropagation: () => {
       propagationStopped += 1;
     }
@@ -192,4 +222,31 @@ test("TopicsListView exposes a topic remove action without opening the topic", (
   assert.equal(deleted, "topic-1");
   assert.equal(opened, "");
   assert.equal(propagationStopped, 1);
+});
+
+test("TopicsListView keeps topic cards and delete actions inside the content width", () => {
+  const html = renderToStaticMarkup(
+    React.createElement(TopicsListView, {
+      topics: [topic("topic-1", "一個很長很長的議題名稱用來檢查右側邊界")],
+      auditSummariesByTopicId: {
+        "topic-1": { reportStatus: "ready", analyzedCount: 2, queuedCount: 1 }
+      },
+      onOpenTopic: () => undefined,
+      onCreateTopic: () => undefined,
+      onDeleteTopic: () => undefined
+    })
+  );
+
+  const cardStyle = styleFromTag(findTagWithAttribute(html, `data-topic-card="topic-1"`));
+  const actionStyle = styleFromTag(findTagWithAttribute(html, `data-topic-card-actions="true"`));
+  const deleteStyle = styleFromTag(findTagWithAttribute(html, `data-topic-delete-button="true"`));
+  const newTopicStyle = styleFromTag(findTagWithAttribute(html, `data-new-topic-button="triage"`));
+
+  assert.match(cardStyle, /box-sizing:border-box/);
+  assert.match(cardStyle, /max-width:100%/);
+  assert.match(cardStyle, /overflow:hidden/);
+  assert.match(actionStyle, /min-width:0/);
+  assert.doesNotMatch(deleteStyle, /position:absolute/);
+  assert.match(newTopicStyle, /box-sizing:border-box/);
+  assert.match(newTopicStyle, /max-width:100%/);
 });

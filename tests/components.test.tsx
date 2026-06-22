@@ -9,7 +9,6 @@ import { BUILD_VERSION } from "../src/ui/version.ts";
 import {
   DLENS_BUTTON_CSS,
   EvidenceRow,
-  KeyHint,
   ModeHeader,
   ModeRail,
   PreviewCard,
@@ -249,7 +248,7 @@ test("WorkspaceShell renders masthead WorkspaceSwitcher when onSwitchWorkspace i
   assert.match(html, /data-workspace-switcher-motion="verdict"/);
   assert.match(html, /scale\(1\.04\)/);
   assert.match(html, /transition:transform 220ms/);
-  assert.match(html, /data-shell-key-hints="idle"/);
+  assert.match(html, /data-shell-version="masthead"/);
   // Static mode badge should not render alongside the switcher
   assert.doesNotMatch(html, /data-mode-badge="product"/);
 });
@@ -443,7 +442,7 @@ test("WorkspaceShell can mount a masthead status rail", () => {
   assert.match(html, /1\/4 ready/);
 });
 
-test("WorkspaceShell masthead keeps status and hints inside the popup width", () => {
+test("WorkspaceShell masthead omits nonessential shortcut and issue chrome in the compact popup", () => {
   const html = renderToStaticMarkup(
     React.createElement(
       WorkspaceShell,
@@ -465,13 +464,17 @@ test("WorkspaceShell masthead keeps status and hints inside the popup width", ()
   );
 
   const statusStyle = styleFromTag(findTagWithAttribute(html, `data-shell-status-rail="masthead"`));
-  const hintsStyle = styleFromTag(findTagWithAttribute(html, `data-shell-key-hints="idle"`));
+  const versionStyle = styleFromTag(findTagWithAttribute(html, `data-shell-version="masthead"`));
 
   assert.match(statusStyle, /min-width:0/);
   assert.match(statusStyle, /overflow:hidden/);
   assert.doesNotMatch(statusStyle, /min-width:150px/);
-  assert.match(hintsStyle, /min-width:0/);
-  assert.match(hintsStyle, /overflow:hidden/);
+  assert.match(versionStyle, /flex-shrink:0/);
+  assert.doesNotMatch(html, /data-shell-key-hints="idle"/);
+  assert.doesNotMatch(html, />Mode</);
+  assert.doesNotMatch(html, />Command</);
+  assert.doesNotMatch(html, />VOL\.1</);
+  assert.doesNotMatch(html, /Annotated Field Guide/);
 });
 
 test("WorkspaceShell can reserve the processing strip only when requested", () => {
@@ -569,20 +572,6 @@ test("StatusDot and StatusRail map backend reachability and work states to DOM h
   assert.match(railHtml, /data-backend-reachability="slow"/);
   assert.match(railHtml, /data-backend-work-kind="retry_waiting"/);
   assert.match(railHtml, /1\/3 ready/);
-});
-
-test("KeyHint renders keyboard chips without layout prose", () => {
-  const html = renderToStaticMarkup(
-    React.createElement(KeyHint, {
-      label: "Open",
-      keys: ["⌘", "K"]
-    })
-  );
-
-  assert.match(html, /data-key-hint="shared"/);
-  assert.match(html, /<kbd/);
-  assert.match(html, /⌘/);
-  assert.match(html, /K/);
 });
 
 test("QuoteBlock uses the editorial quote text style", () => {
