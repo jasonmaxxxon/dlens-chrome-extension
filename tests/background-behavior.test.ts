@@ -1226,6 +1226,45 @@ test("product/analyze-signals writes broadcast state/updated exactly once per ta
   }
 });
 
+test("product failure summary ignores stale job errors for queued and running items", () => {
+  const session = makeSession("product-session", "product");
+  const queued = {
+    ...createSessionItem(makeDescriptor("queued"), "2026-05-27T00:00:00.000Z"),
+    id: "item-queued",
+    status: "queued" as const,
+    lastErrorKind: "unexpected_runtime_error",
+    lastError: "BrowserType.launch: Executable doesn't exist at /Users/tung/Library/Caches/ms-playwright/chromium"
+  };
+  const running = {
+    ...createSessionItem(makeDescriptor("running"), "2026-05-27T00:00:00.000Z"),
+    id: "item-running",
+    status: "running" as const,
+    lastErrorKind: "unexpected_runtime_error",
+    lastError: "BrowserType.launch: Executable doesn't exist at /Users/tung/Library/Caches/ms-playwright/chromium"
+  };
+  const failed = {
+    ...createSessionItem(makeDescriptor("failed"), "2026-05-27T00:00:00.000Z"),
+    id: "item-failed",
+    status: "failed" as const,
+    lastErrorKind: "crawler_setup_error",
+    lastError: "BrowserType.launch: Executable doesn't exist at /Users/tung/Library/Caches/ms-playwright/chromium"
+  };
+  session.items = [queued, running, failed];
+  const signals = [
+    makeSignal("signal-queued", session.id, queued.id),
+    makeSignal("signal-running", session.id, running.id),
+    makeSignal("signal-failed", session.id, failed.id)
+  ];
+
+  const failures = backgroundTestables.buildProductSignalFailureDetails({
+    session,
+    signals,
+    analyses: []
+  });
+
+  assert.deepEqual(failures.map((failure) => failure.signalId), ["signal-failed"]);
+});
+
 test("folder/synthesis/generate writes broadcast state/updated exactly once per tab", async () => {
   const scenario = makeFolderSynthesisScenario("topic-session", "folder-current");
   const tabKey = backgroundTestables.tabStorageKey(TAB_ID);

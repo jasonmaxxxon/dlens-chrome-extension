@@ -2216,8 +2216,8 @@ test("ProductSignalView aggregates terminal crawler setup errors without raw bac
     signals.map((signal) => [
       signal.id,
       {
-        status: "crawling" as const,
-        itemStatus: "queued" as const,
+        status: "failed" as const,
+        itemStatus: "failed" as const,
         lastErrorKind: "crawler_setup_error",
         lastError: "BrowserType.launch: Executable doesn't exist at /Users/tung/Library/Caches/ms-playwright/chromium"
       }
@@ -2258,6 +2258,40 @@ test("ProductSignalView aggregates terminal crawler setup errors without raw bac
   assert.doesNotMatch(html, /BrowserType\.launch/);
   assert.doesNotMatch(html, /ms-playwright/);
   assert.doesNotMatch(html, /等待 backend 完成 ThreadReadModel/);
+});
+
+test("ProductSignalView ignores stale terminal job errors while signals are still crawling", () => {
+  const html = renderToStaticMarkup(
+    productSignalViewElement({
+      kind: "saved-signals",
+      signals: [
+        {
+          id: "signal_retrying",
+          sessionId: "session_a",
+          itemId: "item_retrying",
+          source: "threads",
+          inboxStatus: "unprocessed",
+          capturedAt: "2026-04-27T00:00:00.000Z"
+        }
+      ],
+      analyses: [],
+      productProfile: productTestProfile(),
+      signalReadinessById: {
+        signal_retrying: {
+          status: "crawling",
+          itemStatus: "running",
+          lastErrorKind: "unexpected_runtime_error",
+          lastError: "BrowserType.launch: Executable doesn't exist at /Users/tung/Library/Caches/ms-playwright/chromium"
+        }
+      },
+      onAnalyze: () => undefined
+    })
+  );
+
+  assert.match(html, /抓取中/);
+  assert.doesNotMatch(html, /data-product-error-aggregate/);
+  assert.doesNotMatch(html, /抓取失敗/);
+  assert.doesNotMatch(html, /BrowserType\.launch|ms-playwright|\/Users\/tung/);
 });
 
 test("ProductSignalView shows a spinner for crawling pending signals", () => {

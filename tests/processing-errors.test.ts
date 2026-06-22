@@ -29,3 +29,12 @@ test("getProcessingFailureUiMessage maps backend failures to user-facing Chinese
   assert.equal(message, "Backend 無法連線。請到設定確認 backend URL，或先啟動 ingest backend。");
   assert.doesNotMatch(message, /http:\/\/127\.0\.0\.1|Failed to fetch|Optional ingest/i);
 });
+
+test("getProcessingFailureUiMessage maps Playwright setup errors without raw paths", () => {
+  const message = getProcessingFailureUiMessage(
+    "BrowserType.launch: Executable doesn't exist at /Users/tung/Library/Caches/ms-playwright/chromium_headless_shell-1223/chrome-headless-shell-mac-arm64/chrome-headless-shell\nLooks like Playwright was just installed or updated. Please run: playwright install"
+  );
+
+  assert.equal(message, "後端瀏覽器設定有問題。請在 ingest-core 安裝 Playwright Chromium 後再重試。");
+  assert.doesNotMatch(message, /BrowserType\.launch|ms-playwright|\/Users\/tung|chrome-headless-shell/i);
+});

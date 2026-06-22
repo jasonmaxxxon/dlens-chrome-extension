@@ -568,7 +568,7 @@ function buildProductSignalFailureDetails({
 
   for (const signal of signals) {
     const item = signal.itemId ? itemById.get(signal.itemId) : null;
-    if (!item || (!item.lastError && item.status !== "failed")) {
+    if (!item || item.status !== "failed") {
       continue;
     }
     seenSignalIds.add(signal.id);
@@ -2127,6 +2127,7 @@ function resetBackgroundTestState(): void {
 export const backgroundTestables = {
   ACTIVE_SESSION_ID_STORAGE_KEY,
   GLOBAL_STORAGE_KEY,
+  buildProductSignalFailureDetails,
   mutateSnapshot,
   readSenderTraceFlag,
   resetBackgroundTestState,

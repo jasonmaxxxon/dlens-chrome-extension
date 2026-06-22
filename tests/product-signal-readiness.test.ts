@@ -29,7 +29,7 @@ function makeSignal(id: string, itemId: string): Signal {
   } as Signal;
 }
 
-test("buildProductSignalReadinessById carries the backend job error for crawling and failed items", () => {
+test("buildProductSignalReadinessById only surfaces backend job errors for failed items", () => {
   const folder = createSessionRecord("Product workspace", "2026-06-10T00:00:00.000Z", "product");
   const crawling = {
     ...createSessionItem(descriptor),
@@ -53,8 +53,8 @@ test("buildProductSignalReadinessById carries the backend job error for crawling
   ]);
 
   assert.equal(readiness["sig-crawling"]?.status, "crawling");
-  assert.equal(readiness["sig-crawling"]?.lastError, "BrowserType.launch: Executable doesn't exist");
-  assert.equal(readiness["sig-crawling"]?.lastErrorKind, "unexpected_runtime_error");
+  assert.equal(readiness["sig-crawling"]?.lastError, undefined);
+  assert.equal(readiness["sig-crawling"]?.lastErrorKind, undefined);
   assert.equal(readiness["sig-failed"]?.status, "failed");
   assert.equal(readiness["sig-failed"]?.lastError, "crawl exhausted retries");
   assert.equal(readiness["sig-failed"]?.lastErrorKind, "unexpected_runtime_error");

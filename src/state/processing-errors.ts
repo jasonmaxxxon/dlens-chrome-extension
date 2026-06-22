@@ -16,6 +16,10 @@ export function getProcessingFailureMessage(error: string | null | undefined): s
     return "Processing is already running.";
   }
 
+  if (isPlaywrightSetupError(message)) {
+    return "Backend browser setup is missing. Run Playwright browser install in ingest-core and retry.";
+  }
+
   return message.length > 180 ? `${message.slice(0, 177)}...` : message;
 }
 
@@ -39,6 +43,10 @@ export function getProcessingFailureUiMessage(error: string | null | undefined):
 
   if (/500\b|Internal Server Error/i.test(message)) {
     return "Backend 回傳錯誤。請查看 backend log 後再重試。";
+  }
+
+  if (isPlaywrightSetupError(message)) {
+    return "後端瀏覽器設定有問題。請在 ingest-core 安裝 Playwright Chromium 後再重試。";
   }
 
   const cleaned = message.replace(/\s+/g, " ").trim();

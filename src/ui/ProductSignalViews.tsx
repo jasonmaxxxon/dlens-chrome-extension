@@ -321,7 +321,7 @@ type ReadinessLabel = {
 function readinessLabel(readiness: SignalReadiness): ReadinessLabel {
   const processingError = describeProcessingError(readiness);
   if (processingError) {
-    if (processingError.isTerminal) {
+    if (readiness.status === "failed" && processingError.isTerminal) {
       return {
         label: processingError.label,
         detail: processingError.detail,
@@ -330,7 +330,7 @@ function readinessLabel(readiness: SignalReadiness): ReadinessLabel {
         errorClass: processingError.errorClass
       };
     }
-    if (readiness.status === "crawling") {
+    if (readiness.status === "crawling" && !processingError.isTerminal) {
       return {
         label: processingError.label,
         detail: processingError.detail,

@@ -35,9 +35,7 @@ export function buildSignalReadinessById(
           signal.id,
           {
             status: "crawling",
-            itemStatus: item.status,
-            lastErrorKind: item.lastErrorKind ?? null,
-            lastError: item.lastError ?? null
+            itemStatus: item.status
           }
         ] as const;
       }
