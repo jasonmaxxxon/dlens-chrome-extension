@@ -161,3 +161,35 @@ test("TopicsListView create action routes to collect triage", () => {
   assert.equal(opened, "topic-1");
   assert.equal(createCalls, 1);
 });
+
+test("TopicsListView exposes a topic remove action without opening the topic", () => {
+  let opened = "";
+  let deleted = "";
+  let propagationStopped = 0;
+  const card = topicsListViewTestables.TopicCard({
+    topic: topic("topic-1", "議題一"),
+    summary: { reportStatus: "ready", analyzedCount: 2, queuedCount: 1 },
+    onOpenTopic: (topicId) => {
+      opened = topicId;
+    },
+    onDeleteTopic: (topicId) => {
+      deleted = topicId;
+    }
+  });
+
+  const deleteButton = React.Children.toArray(card.props.children).find(
+    (child): child is React.ReactElement =>
+      React.isValidElement(child) && child.props["data-topic-delete-button"] === "true"
+  );
+
+  assert.ok(deleteButton, "topic card must render a delete affordance");
+  deleteButton.props.onClick({
+    stopPropagation: () => {
+      propagationStopped += 1;
+    }
+  });
+
+  assert.equal(deleted, "topic-1");
+  assert.equal(opened, "");
+  assert.equal(propagationStopped, 1);
+});

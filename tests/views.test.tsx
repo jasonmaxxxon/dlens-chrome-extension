@@ -2260,6 +2260,10 @@ test("ProductSignalView gives each product page a distinct information shape", (
   assert.match(classificationHtml, /data-product-classification-board="true"[^>]*padding-bottom:76px/);
   assert.match(classificationHtml, /系統挑出的內容/);
   assert.match(classificationHtml, /討論串內容/);
+  assert.match(classificationHtml, /data-product-classification-layout="responsive"[^>]*min-width:0/);
+  assert.match(classificationHtml, /data-product-selected-aside="true"[^>]*min-width:0/);
+  assert.match(classificationHtml, /overflow-wrap:anywhere/);
+  assert.doesNotMatch(classificationHtml, /grid-template-columns:minmax\(220px, 1\.1fr\) minmax\(240px, 1fr\)/);
   assert.match(classificationHtml, /data-scan-list="product-classification"/);
   assert.match(classificationHtml, /data-scan-row="true"/);
   assert.match(classificationHtml, /data-classification-row-indicator="true"/);
