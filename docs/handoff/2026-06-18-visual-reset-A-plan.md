@@ -13,7 +13,7 @@
 Date: 2026-06-18
 Depends on: `docs/architecture/dlens-current-architecture-map.md` (no 🔴 nodes; 6 walls 🟩), archived `design-system/DESIGN.md`, and `docs/mockups/references/2026-06-09-design-gallery-PROGRESS.md`.
 Product baseline: `origin/main` at `0.2.1` (889 passed / 5 skipped). Desktop checkout was fast-forwarded before PR 4d; six origin-missing audit / handoff scratchpads remain local-only.
-Status: PR 1 merged as design-source convergence; PR 2 merged as primitive foundation; PR 3 merged as shell interaction reset; PR 4a implemented as PR Evidence ledger surface; PR 4b implemented as Topic detail audit rhythm; PR 4c implemented as Compare hero surface; PR 4d implemented as Product action surface.
+Status: complete; LOC follow-up tracked separately (row-level primitive adoption not done).
 
 ## Current Truth
 
@@ -61,7 +61,7 @@ Visual Reset A is done when:
 3. Popup shell reads as native-feeling utility: multi-layer shell shadow visible, mode switch is a real segmented control with sliding thumb, status rail surfaces backend health + processing state, keyboard shortcut hints visible at idle.
 4. Compare hero, Product action cards, Topic detail header, PR Evidence ledger each have a defined billboard / reading / data / archive rhythm aligned with the two-layer language.
 5. Each PR ships with DOM-behavior sanity tests. No PR lands on visual feel alone.
-6. Architecture map updated: no new 🔴 / 🟡 introduced; if a UI surface is regression-locked by a new test, it is marked accordingly.
+6. [x] Architecture map updated: no new 🔴 / 🟡 introduced; if a UI surface is regression-locked by a new test, it is marked accordingly. Architecture map updated 2026-06-22; VIEW remains 🟢 with marquee-surface annotation.
 
 ## PR Sequence
 
@@ -161,3 +161,5 @@ None. This plan touches only `dlens-product-latest`. Backend and shared docs are
 - `docs/mockups/references/2026-06-09-design-gallery.html` — macOS utility shell reference, not active spec
 - `docs/handoff/2026-06-12-pipeline-spine-plan.md` — sibling structural milestone (not blocking)
 - `docs/memory/current-state.md` — current repo state and active design-source reminder
+
+Release note: `docs/handoff/2026-06-18-0.3.0-release-note.md`
