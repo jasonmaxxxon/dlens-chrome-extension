@@ -1,8 +1,25 @@
-# AGENTS.md — DLens Chrome Extension v0.2
+# AGENTS.md — DLens Chrome Extension v0.3
 
-> **Last updated:** 2026-06-18 (release 0.2.1 — Signal Packet export adds compact HTML density, citation refs, filed-reading lineage, source URL provenance, and Product reading-review provenance mirror as additive packet v3/read-model fields. Latest local verification: 889 passed / 5 skipped tests, typecheck, storage seam guard, boundary guard, `qa:harness:fixture`, build, and `git diff --check`. `BOUNDARY` is enforced by `npm run boundary:guard`, which runs View and ViewModel wall scanners in CI at zero allowlisted violations.)
+> **Last updated:** 2026-06-22 (release 0.3.0 — Visual Reset A ships the native-feeling popup shell plus PR Evidence ledger, Topic detail, Compare hero, and Product action marquee surfaces. Latest local verification: 909 passed / 5 skipped tests, typecheck, storage seam guard, migration fixture guard, boundary guard, `qa:harness:fixture`, build, and `git diff --check`. `BOUNDARY` is enforced by `npm run boundary:guard`, which runs View and ViewModel wall scanners in CI at zero allowlisted violations.)
 > **For:** any agent continuing work in this repo
 > **READ FIRST:** [`docs/architecture/dlens-current-architecture-map.md`](docs/architecture/dlens-current-architecture-map.md) — the status-colored handoff map (🟩 locked / 🟢 built / 🟡 partial / 🔴 not built). Don't treat 🟢 as 🟩; don't bypass ViewModel / typed command target / storage seam / pipeline trace; any async-path PR must handle requestId + invalidation + rehydrate; update the map's colors in your PR if status changes.
+
+## Recently Fixed (2026-06-22) — Visual Reset A and 0.3.0 release
+
+0.3.0 is a user-visible presentation release. It keeps storage, backend,
+ViewModel derivation, classifier logic, command targets, content-script capture,
+and Signal Packet contracts unchanged.
+
+- `src/ui/tokens.ts` remains the only live design source: warm-paper editorial
+  content language, with macOS utility shell patterns absorbed into existing
+  shadow / motion / effect tokens.
+- Popup shell now has a segmented mode switch, masthead status rail, idle key
+  hints, and the shared native-feeling shell elevation.
+- PR Evidence ledger, Topic detail, Compare hero, and Product action surfaces
+  use shared primitives and mode accents.
+- `VIEW` stays 🟢, not 🟩: the four marquee surfaces are DOM-test-locked, while
+  row-level primitive adoption / LOC reduction across the five large View files
+  remains follow-up work.
 
 ## Recently Fixed (2026-06-18) — Signal Packet export provenance and lineage
 
