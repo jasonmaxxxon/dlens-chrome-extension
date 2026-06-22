@@ -434,6 +434,7 @@ export function InPageCollectorPopup({ app }: { app: InPageCollectorAppModel }) 
                 )}
                 onOpenTopic={(topicId) => void app.onNavigateToTopic(topicId)}
                 onCreateTopic={() => void app.onNavigate("collect")}
+                onDeleteTopic={(topicId) => void app.onDeleteTopic(topicId)}
               />
             </WorkspaceSurface>
           ) : null}

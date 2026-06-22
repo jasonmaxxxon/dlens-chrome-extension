@@ -1038,6 +1038,8 @@ export function WorkspaceShell({
           alignItems: "center",
           justifyContent: "space-between",
           gap: 12,
+          minWidth: 0,
+          overflow: "hidden",
           padding: "10px 14px 8px",
           borderRadius: tokens.radius.card,
           border: `1px solid ${tokens.color.line}`,
@@ -1046,15 +1048,17 @@ export function WorkspaceShell({
           color: tokens.color.subInk
         }}
       >
-        <div style={{ display: "flex", alignItems: "center", gap: 8, minWidth: 0 }}>
-          <span data-dlens-wordmark="masthead" style={{ fontFamily: tokens.font.serif, fontSize: 20, lineHeight: 1, color: MODE_ACCENT, transition: tokens.motion.interactiveTransition }}>dlens</span>
+        <div style={{ display: "flex", alignItems: "center", gap: 8, minWidth: 0, flex: "1 1 auto", overflow: "hidden" }}>
+          <span data-dlens-wordmark="masthead" style={{ fontFamily: tokens.font.serif, fontSize: 20, lineHeight: 1, color: MODE_ACCENT, transition: tokens.motion.interactiveTransition, flexShrink: 0 }}>dlens</span>
           {showSwitcher ? (
-            <WorkspaceSwitcher
-              activeMode={switcherActiveMode}
-              modes={availableWorkspaceModes}
-              onChange={onSwitchWorkspace!}
-              pendingMode={switchingWorkspaceMode}
-            />
+            <span style={{ minWidth: 0, flex: "0 1 auto", overflow: "hidden" }}>
+              <WorkspaceSwitcher
+                activeMode={switcherActiveMode}
+                modes={availableWorkspaceModes}
+                onChange={onSwitchWorkspace!}
+                pendingMode={switchingWorkspaceMode}
+              />
+            </span>
           ) : modeBadge ? (
             <span
               data-mode-badge={modeBadge.label.toLowerCase()}
@@ -1075,21 +1079,21 @@ export function WorkspaceShell({
               {modeBadge.label} MODE
             </span>
           ) : null}
-          <span style={{ fontSize: 10, fontWeight: 700, letterSpacing: 0, color: tokens.color.softInk }}>
+          <span style={{ fontSize: 10, fontWeight: 700, letterSpacing: 0, color: tokens.color.softInk, minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", lineHeight: 1.2 }}>
             Annotated Field Guide
           </span>
         </div>
-        <div style={{ display: "flex", alignItems: "center", gap: 10, minWidth: 0 }}>
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "flex-end", gap: 8, minWidth: 0, flex: "0 1 360px", overflow: "hidden" }}>
           {statusRail ? (
-            <div data-shell-status-rail="masthead" style={{ minWidth: 150, maxWidth: 220, flex: "1 1 auto" }}>
+            <div data-shell-status-rail="masthead" style={{ minWidth: 0, maxWidth: 200, flex: "1 1 128px", overflow: "hidden" }}>
               {statusRail}
             </div>
           ) : null}
-          <div data-shell-key-hints="idle" style={{ display: "inline-flex", alignItems: "center", gap: 6, flexShrink: 0 }}>
+          <div data-shell-key-hints="idle" style={{ display: "inline-flex", alignItems: "center", gap: 6, minWidth: 0, flex: "0 1 172px", overflow: "hidden" }}>
             <KeyHint label="Mode" keys={["⌘", "1-3"]} />
             <KeyHint label="Command" keys={["⌘", "K"]} />
           </div>
-          <div style={{ display: "flex", alignItems: "center", gap: 10, fontFamily: tokens.font.sans, fontSize: 10, color: tokens.color.softInk, whiteSpace: "nowrap", flexShrink: 0 }}>
+          <div style={{ display: "flex", alignItems: "center", justifyContent: "flex-end", gap: 6, minWidth: 0, maxWidth: 44, overflow: "hidden", fontFamily: tokens.font.sans, fontSize: 10, color: tokens.color.softInk, whiteSpace: "nowrap", flex: "0 1 44px" }}>
             <span>VOL.1</span>
             <span>NO.{mode === "result" ? "04" : mode === "compare" ? "03" : mode === "collect" ? "02" : mode === "settings" ? "05" : "01"}</span>
             <span>{new Intl.DateTimeFormat("en-US", { month: "short", day: "numeric" }).format(new Date())}</span>

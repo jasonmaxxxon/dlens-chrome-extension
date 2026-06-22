@@ -2745,6 +2745,7 @@ export function useInPageCollectorAppState({ snapshot, tabId, sendAndSync }: Use
     onOpenCompareResult,
     onOpenSavedAnalysis,
     onOpenTopicPair: topicState.onOpenTopicPair,
+    onDeleteTopic: topicState.onDeleteTopic,
     onReturnToTopic: topicState.onReturnToTopic,
     onAttachActiveResultToTopic: topicState.onAttachActiveResultToTopic,
     onResetCompareSelection,

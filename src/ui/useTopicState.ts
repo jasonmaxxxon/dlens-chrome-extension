@@ -604,6 +604,31 @@ export function useTopicState({
     void sendAndSync({ type: "topic/set-collection-target", topicId });
   }
 
+  async function onDeleteTopic(topicId: string) {
+    const topic = topics.find((entry) => entry.id === topicId);
+    if (!topic) {
+      return;
+    }
+    if (!window.confirm(`移除議題「${topic.name}」？訊號會回到未分流狀態。`)) {
+      return;
+    }
+    const response = await sendAndSync<{ ok: true; topics?: Topic[] } | { ok: false; error: string }>({
+      type: "topic/delete",
+      id: topicId
+    });
+    if (!response.ok) {
+      throw new Error(response.error ?? "移除議題失敗");
+    }
+    setTopics(response.topics ?? topics.filter((entry) => entry.id !== topicId));
+    if (selectedTopicId === topicId) {
+      setSelectedTopicId(null);
+      setResultTopicContext(null);
+    }
+    if (collectionTopicId === topicId || selectedTopicId === topicId) {
+      await sendAndSync({ type: "topic/set-collection-target", topicId: null });
+    }
+  }
+
   async function onNavigateToTopic(topicId: string) {
     await navigateToTopicImmediately({
       topicId,
@@ -809,6 +834,7 @@ export function useTopicState({
     onSessionModeChange,
     onCreateTopic,
     onSelectTopicTarget,
+    onDeleteTopic,
     onNavigateToTopic,
     onBackFromTopicDetail,
     onUpdateTopic,

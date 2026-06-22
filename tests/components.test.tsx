@@ -28,6 +28,21 @@ import {
 } from "../src/ui/components.tsx";
 import { tokens } from "../src/ui/tokens.ts";
 
+function findTagWithAttribute(html: string, attribute: string): string {
+  const attributeIndex = html.indexOf(attribute);
+  assert.ok(attributeIndex >= 0, `${attribute} must exist`);
+  const tagStart = html.lastIndexOf("<", attributeIndex);
+  const tagEnd = html.indexOf(">", attributeIndex);
+  assert.ok(tagStart >= 0 && tagEnd >= 0, `${attribute} tag must close`);
+  return html.slice(tagStart, tagEnd + 1);
+}
+
+function styleFromTag(tag: string): string {
+  const match = tag.match(/\sstyle="([^"]*)"/);
+  assert.ok(match, `${tag} must include inline style`);
+  return match[1];
+}
+
 function makeDescriptor(overrides: Partial<TargetDescriptor> = {}): TargetDescriptor {
   return {
     target_type: "post",
@@ -426,6 +441,37 @@ test("WorkspaceShell can mount a masthead status rail", () => {
   assert.match(html, /data-status-rail="shared"/);
   assert.match(html, /data-backend-reachability="slow"/);
   assert.match(html, /1\/4 ready/);
+});
+
+test("WorkspaceShell masthead keeps status and hints inside the popup width", () => {
+  const html = renderToStaticMarkup(
+    React.createElement(
+      WorkspaceShell,
+      {
+        mode: "saved-signals",
+        folderMode: "product",
+        onSwitchWorkspace: () => {},
+        availableWorkspaceModes: ["topic", "product", "pr-evidence"] as const,
+        statusRail: React.createElement(StatusRail, {
+          backendReachability: "reachable",
+          backendWorkUiState: { kind: "idle" },
+          ready: 8,
+          total: 8
+        }),
+        header: React.createElement("div", null, "Header")
+      },
+      React.createElement("div", null, "Body")
+    )
+  );
+
+  const statusStyle = styleFromTag(findTagWithAttribute(html, `data-shell-status-rail="masthead"`));
+  const hintsStyle = styleFromTag(findTagWithAttribute(html, `data-shell-key-hints="idle"`));
+
+  assert.match(statusStyle, /min-width:0/);
+  assert.match(statusStyle, /overflow:hidden/);
+  assert.doesNotMatch(statusStyle, /min-width:150px/);
+  assert.match(hintsStyle, /min-width:0/);
+  assert.match(hintsStyle, /overflow:hidden/);
 });
 
 test("WorkspaceShell can reserve the processing strip only when requested", () => {

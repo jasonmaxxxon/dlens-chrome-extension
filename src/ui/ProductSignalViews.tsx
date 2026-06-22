@@ -1246,6 +1246,8 @@ function ClassificationSignalRow({
       data-scan-row="true"
       style={scanRowStyle({
         width: "100%",
+        minWidth: 0,
+        overflow: "hidden",
         display: "grid",
         gridTemplateColumns: "10px minmax(0, 1fr)",
         alignItems: "center",
@@ -1293,40 +1295,41 @@ function SelectedPostAside({
   const { lead, rest } = splitFirstSentence(fullText, 80);
   const typeMeta = SIGNAL_TYPE_META[analysis.signalType];
   const verdictMeta = VERDICT_META[analysis.verdict];
+  const wrapTextStyle: CSSProperties = { minWidth: 0, overflowWrap: "anywhere", wordBreak: "break-word" };
   return (
-    <aside style={cardStyle({ gap: 11 })}>
-      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 8 }}>
+    <aside data-product-selected-aside="true" style={cardStyle({ gap: 11, minWidth: 0, overflowWrap: "anywhere", wordBreak: "break-word" })}>
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 8, minWidth: 0 }}>
         <Kicker>系統挑出的內容</Kicker>
         <Stamp tone="neutral">{formatContentType(analysis.contentType)}</Stamp>
       </div>
-      <div style={mutedPanelStyle({ background: tokens.color.elevated, gap: 6 })}>
+      <div style={mutedPanelStyle({ background: tokens.color.elevated, gap: 6, minWidth: 0 })}>
         <div style={{ fontSize: 10.5, color: tokens.color.softInk, fontWeight: 750 }}>討論串內容</div>
-        <div style={{ fontSize: 13, lineHeight: 1.6, color: tokens.color.ink, fontWeight: 700 }}>{lead}</div>
+        <div style={{ fontSize: 13, lineHeight: 1.6, color: tokens.color.ink, fontWeight: 700, ...wrapTextStyle }}>{lead}</div>
         {rest ? (
           <SmoothDetails
             summary={<><span className="dlens-details-chevron" aria-hidden>▾</span> 展開全文</>}
             summaryStyle={{ cursor: "pointer", fontSize: 11, color: tokens.color.softInk, listStyle: "none", display: "flex", gap: 4, alignItems: "center", padding: 0 }}
           >
-            <div style={{ fontSize: 12, lineHeight: 1.6, color: tokens.color.subInk, marginTop: 6 }}>{rest}</div>
+            <div style={{ fontSize: 12, lineHeight: 1.6, color: tokens.color.subInk, marginTop: 6, ...wrapTextStyle }}>{rest}</div>
           </SmoothDetails>
         ) : null}
       </div>
       <div style={{ height: 1, background: tokens.color.line, opacity: 0.6 }} />
-      <dl style={{ display: "grid", gridTemplateColumns: "auto 1fr", gap: "5px 10px", margin: 0, fontSize: 12, lineHeight: 1.55 }}>
+      <dl style={{ display: "grid", gridTemplateColumns: "auto minmax(0, 1fr)", gap: "5px 10px", margin: 0, fontSize: 12, lineHeight: 1.55, minWidth: 0 }}>
         <dt style={{ color: tokens.color.softInk }}>AI 建議分類</dt>
-        <dd style={{ margin: 0 }}>
+        <dd style={{ margin: 0, minWidth: 0 }}>
           <ScorePill color={typeMeta.color} soft={typeMeta.soft}>{typeMeta.label}</ScorePill>
         </dd>
         <dt style={{ color: tokens.color.softInk }}>分類原因</dt>
-        <dd style={{ margin: 0, color: tokens.color.subInk }}>{excerpt(analysis.whyRelevant, 130)}</dd>
+        <dd style={{ margin: 0, color: tokens.color.subInk, ...wrapTextStyle }}>{excerpt(analysis.whyRelevant, 130)}</dd>
         <dt style={{ color: tokens.color.softInk }}>{referenceTypeLabel(analysis.referenceType)}</dt>
-        <dd style={{ margin: 0, color: tokens.color.subInk }}>{referenceLabel(analysis)}</dd>
+        <dd style={{ margin: 0, color: tokens.color.subInk, ...wrapTextStyle }}>{referenceLabel(analysis)}</dd>
         <dt style={{ color: tokens.color.softInk }}>可帶走</dt>
-        <dd style={{ margin: 0, color: tokens.color.subInk }}>{referenceTakeaway(analysis)}</dd>
+        <dd style={{ margin: 0, color: tokens.color.subInk, ...wrapTextStyle }}>{referenceTakeaway(analysis)}</dd>
         <dt style={{ color: tokens.color.softInk }}>相關脈絡</dt>
-        <dd style={{ margin: 0, color: tokens.color.subInk }}>{contextLabels(analysis.relevantTo)}</dd>
+        <dd style={{ margin: 0, color: tokens.color.subInk, ...wrapTextStyle }}>{contextLabels(analysis.relevantTo)}</dd>
         <dt style={{ color: tokens.color.softInk }}>後續判斷</dt>
-        <dd style={{ margin: 0 }}>
+        <dd style={{ margin: 0, minWidth: 0 }}>
           <ScorePill color={verdictMeta.color} soft={verdictMeta.soft}>{VERDICT_LABELS[analysis.verdict]}</ScorePill>
         </dd>
       </dl>
@@ -2868,7 +2871,7 @@ function ClassificationBoard({
   }
 
   return (
-    <div data-product-classification-board="true" style={{ display: "grid", gap: 12, paddingBottom: 76 }}>
+    <div data-product-classification-board="true" style={{ display: "grid", gap: 12, paddingBottom: 76, minWidth: 0, overflow: "hidden" }}>
       <section style={cardStyle({ gap: 10 })}>
         <div style={{ display: "flex", justifyContent: "space-between", gap: 10, alignItems: "baseline" }}>
           <Kicker>分類構成</Kicker>
@@ -2909,8 +2912,8 @@ function ClassificationBoard({
         </div>
       </section>
 
-      <div style={{ display: "grid", gridTemplateColumns: "minmax(220px, 1.1fr) minmax(240px, 1fr)", gap: 14, alignItems: "start" }}>
-        <section data-scan-list="product-classification" style={{ display: "grid" }}>
+      <div data-product-classification-layout="responsive" style={{ display: "grid", gridTemplateColumns: "minmax(0, 1.12fr) minmax(0, 0.88fr)", gap: 14, alignItems: "start", minWidth: 0 }}>
+        <section data-scan-list="product-classification" style={{ display: "grid", minWidth: 0, overflow: "hidden" }}>
           <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8 }}>
             <Kicker>{SIGNAL_TYPE_LABELS[selectedType]} · {selectedItems.length} 則</Kicker>
             {selectedItems.length > 1 ? (

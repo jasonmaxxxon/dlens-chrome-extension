@@ -1,4 +1,4 @@
-import type { CSSProperties } from "react";
+import type { CSSProperties, KeyboardEvent, MouseEvent } from "react";
 
 import { getItemReadinessStatus } from "../state/processing-state.ts";
 import type { SessionItem, Signal, Topic } from "../state/types.ts";
@@ -50,12 +50,14 @@ export function TopicCard({
   topic,
   summary,
   sourceSummary,
-  onOpenTopic
+  onOpenTopic,
+  onDeleteTopic
 }: {
   topic: Topic;
   summary: TopicAuditSummary;
   sourceSummary?: TopicSourceSummary;
   onOpenTopic: (topicId: string) => void;
+  onDeleteTopic?: (topicId: string) => void;
 }) {
   const signalCount = topic.signalIds.length;
   const source = sourceSummary ?? {
@@ -64,10 +66,24 @@ export function TopicCard({
     processing: 0,
     pending: signalCount
   };
+  const openTopic = () => onOpenTopic(topic.id);
+  const handleKeyDown = (event: KeyboardEvent<HTMLDivElement>) => {
+    if (event.key === "Enter" || event.key === " ") {
+      event.preventDefault();
+      openTopic();
+    }
+  };
+  const handleDelete = (event: MouseEvent<HTMLButtonElement>) => {
+    event.stopPropagation();
+    onDeleteTopic?.(topic.id);
+  };
   return (
-    <button
+    <div
+      role="button"
+      tabIndex={0}
       data-topic-card={topic.id}
-      onClick={() => onOpenTopic(topic.id)}
+      onClick={openTopic}
+      onKeyDown={handleKeyDown}
       style={{
         textAlign: "left",
         width: "100%",
@@ -76,6 +92,7 @@ export function TopicCard({
         background: tokens.color.elevated,
         boxShadow: tokens.shadow.topicCard,
         padding: "16px 18px",
+        position: "relative",
         cursor: "pointer",
         display: "grid",
         gap: 12,
@@ -84,8 +101,35 @@ export function TopicCard({
         transition: tokens.motion.preset.cardLift
       }}
     >
+      {onDeleteTopic ? (
+        <button
+          type="button"
+          data-topic-delete-button="true"
+          aria-label={`移除議題 ${topic.name}`}
+          onClick={handleDelete}
+          style={{
+            position: "absolute",
+            top: 12,
+            right: 12,
+            width: 28,
+            height: 28,
+            borderRadius: 999,
+            border: `1px solid ${tokens.color.line}`,
+            background: tokens.color.surface,
+            color: tokens.color.softInk,
+            cursor: "pointer",
+            fontFamily: tokens.font.sans,
+            fontSize: 16,
+            lineHeight: "24px",
+            display: "grid",
+            placeItems: "center"
+          }}
+        >
+          ×
+        </button>
+      ) : null}
       <span style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: 12 }}>
-        <span style={{ display: "grid", gap: 5, minWidth: 0 }}>
+        <span style={{ display: "grid", gap: 5, minWidth: 0, paddingRight: onDeleteTopic ? 28 : 0 }}>
           <span style={{ fontFamily: `${tokens.font.serifCjk}, ${tokens.font.serif}`, fontSize: 18, fontWeight: 900, lineHeight: 1.2 }}>
             {topic.name}
           </span>
@@ -114,7 +158,7 @@ export function TopicCard({
         <Stat value={source.pending} label="待處理" muted />
         <span style={{ marginLeft: "auto", fontSize: 12, fontWeight: 800, color: tokens.topicAccent.primary }}>打開 ›</span>
       </span>
-    </button>
+    </div>
   );
 }
 
@@ -149,7 +193,8 @@ export function TopicsListView({
   sessionItems = [],
   auditSummariesByTopicId = {},
   onOpenTopic,
-  onCreateTopic
+  onCreateTopic,
+  onDeleteTopic
 }: {
   topics: Topic[];
   signals?: Signal[];
@@ -157,6 +202,7 @@ export function TopicsListView({
   auditSummariesByTopicId?: Record<string, TopicAuditSummary>;
   onOpenTopic: (topicId: string) => void;
   onCreateTopic: () => void;
+  onDeleteTopic?: (topicId: string) => void;
 }) {
   const sourceSummariesByTopicId = buildTopicSourceSummaries(topics, signals, sessionItems);
   return (
@@ -175,6 +221,7 @@ export function TopicsListView({
             summary={auditSummariesByTopicId[topic.id] ?? defaultSummary(topic)}
             sourceSummary={sourceSummariesByTopicId[topic.id]}
             onOpenTopic={onOpenTopic}
+            onDeleteTopic={onDeleteTopic}
           />
         ))}
       </div>
