@@ -2,12 +2,12 @@
 
 DLens is a mode-aware MV3 Chrome extension for capturing Threads posts and turning them into research, product-signal, and PR evidence workflows.
 
-> Last updated: 2026-06-18
-> Current release: `0.2.1` · latest local full suite `889 passed / 5 skipped` · build clean
+> Last updated: 2026-06-22
+> Current release: `0.3.0` · latest local full suite `909 passed / 5 skipped` · build clean
 > Current engineering branch: `main`
 > Positioning (2026-06-18): local power-tool (self + small technical circle); two separate repos (extension public · ingest-core **private**), not monorepo; Visual Reset A contract is `src/ui/tokens.ts` warm editorial + macOS utility shell
 > Verified build: `output/chrome-mv3`
-> Stability note (0.2.1): `TRACE`, `SEAM_GUARD`, `RECONCILE`, `INVALIDATE`, `BOUNDARY`, and `MIGRATE` are locked in the live architecture map. Signal Packet export gained additive provenance and lineage fields without a storage migration or packet-version bump.
+> Stability note (0.3.0): `TRACE`, `SEAM_GUARD`, `RECONCILE`, `INVALIDATE`, `BOUNDARY`, and `MIGRATE` are locked in the live architecture map. Visual Reset A shipped the native-feeling shell plus PR Evidence, Topic, Compare, and Product marquee surfaces without changing storage, backend, ViewModel, command, or signal-packet contracts.
 
 ## What It Does
 
@@ -32,6 +32,7 @@ Current workspace modes:
 - Topic workflow: Casebook, Inbox, Topic Detail, signal triage, per-signal semantic tags/gists, optional-question TopicSignalReading, and attached compare pairs.
 - Product workflow: ProductContextCompiler, ProductSignalAnalyzer v17, Marginalia/Verdict card layouts, the restored Reading Review action UI, SignalReading packet/export support, and local feedback history. v17 stops asking the model for legacy action-recipe fields such as `copy_recipe_markdown` / `workflow_stack`; action cards also ignore those legacy fields if present and keep evidence as reusable patterns plus agent briefs, not tutorial recipes.
 - Signal Packet export: Product sessions can export `DLensSignalPacket` records as HTML, Markdown, or JSONL through `signal-packet/export`. The 0.2.1 surface adds compact HTML density, source/capture/item provenance, reading citation refs, filed-reading lineage, source URL provenance, and a Product reading-review provenance mirror. These fields are additive on packet v3; no storage migration is required.
+- Visual Reset A: the popup shell, PR Evidence ledger, Topic detail, Compare hero, and Product action surfaces now use the `src/ui/tokens.ts` warm-paper editorial contract with macOS utility shell affordances. VIEW remains 🟢, not 🟩: marquee surfaces are DOM-test-locked, while row-level primitive adoption / LOC reduction remains follow-up work.
 - PR Evidence workflow: one active campaign per session, brief upload, six editable criteria, evidence rows, criteria matching, CSV export, Markdown/DOCX audit summary.
 - Layout preferences remain persisted for existing records, but the visible Settings layout card is removed; workspace typography, rounded surfaces, and shadow treatment now follow the Topic card grammar across modes. Shared cards default to the 20px Topic-style radius.
 - Workspace mode switches reserve the processing-strip slot, reset scroll before paint, and crossfade the content frame so Topic/Product/PR data changes no longer produce a visible vertical jump.
@@ -64,14 +65,14 @@ npx tsx --test tests/*.test.ts tests/*.test.tsx
 npm run build
 ```
 
-Expected verified state for merged `main` `0.2.1`:
+Expected verified state for merged `main` `0.3.0`:
 
-- `889 passed / 5 skipped` in `npx tsx --test tests/*.test.ts tests/*.test.tsx`
+- `909 passed / 5 skipped` in `npx tsx --test tests/*.test.ts tests/*.test.tsx`
 - `npm run typecheck` passes
 - `npm run storage:seam-guard` reports zero allowlisted bypasses
 - `npm run boundary:guard` reports zero View / ViewModel wall violations and zero allowlisted bypasses
 - `npm run build` mirrors the unpacked MV3 build to `output/chrome-mv3`
-- `output/chrome-mv3/manifest.json` reports `version: "0.2.1"` and `name: "DLens v3"`
+- `output/chrome-mv3/manifest.json` reports `version: "0.3.0"` and `name: "DLens v3"`
 
 ## Second Mac Install
 

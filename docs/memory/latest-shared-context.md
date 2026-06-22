@@ -6,7 +6,7 @@ type: project
 
 # DLens Extension Shared Context
 
-Last updated: 2026-06-16
+Last updated: 2026-06-22
 
 This file is the current shared context. Keep this filename stable and update
 the contents in place whenever an automated or manual handoff refresh makes it
@@ -49,6 +49,8 @@ This note is the high-signal shared memory for Codex and Claude when working on 
 - `Settings` should behave like a narrow runtime utility drawer even while still page-backed.
 - `Product` mode is an insight-first workflow backed by `ProductContextCompiler` and `ProductSignalAnalyzer`.
 - `PR Evidence` mode is a compact campaign evidence workflow for agency / PR operators, backed by `PrCampaign` and `PrEvidenceRow`.
+- 0.3.0 is the Visual Reset A user-visible release: popup shell, PR Evidence ledger, Topic detail, Compare hero, and Product action marquee surfaces now follow the `src/ui/tokens.ts` warm-paper editorial contract plus native-feeling utility shell affordances. This did not change storage, backend, ViewModel, command target, classifier, content-script, or Signal Packet contracts.
+- `VIEW` remains 🟢, not 🟩. The four marquee surfaces are DOM-test-locked; row-level primitive adoption / large-view LOC reduction remains a follow-up `refactor(ui)` track.
 
 ## Layout Preference State As Of 2026-05-14
 
@@ -76,14 +78,14 @@ This note is the high-signal shared memory for Codex and Claude when working on 
 - Folder synthesis uses deterministic `v3.generic-keyword-lens` and renders as the Library Briefing card. Storage key: `dlens:v1:folder-synthesis`.
 - Compare result variants are Reading, Parallel, and Chapters; Parallel is default and uses sticky A/B columns.
 - Runtime tab targeting now treats the content-script sender tab as authoritative for `state/get-active-tab` and collect start/cancel; do not route those calls through another focused Chrome tab.
-- Latest merged-code verification through PR #25: `752/752` tests, typecheck, build, and diff check passed; `main` is synced to `8106c42`.
-- Current TRACE full-live branch verification: Jason-profile full live hover → save → queue → backend capture → direct Google LLM → Product analysis trace passes the full-phase harness at `docs/qa/assets/2026-06-13/full-live-backend-llm/live-trace-full-hover-save-queue-analysis.json`; full suite is now `766/766`, typecheck/build/diff-check pass locally. The full-phase fixture gate is wired into CI, so `TRACE` moves to 🟩 when PR #29 lands.
+- Latest 0.3.0 release verification: `909 passed / 5 skipped`, typecheck, storage seam guard, migration fixture guard, boundary guard, `qa:harness:fixture`, build, and diff check passed locally.
+- TRACE full-live verification is locked by `docs/qa/assets/2026-06-13/full-live-backend-llm/live-trace-full-hover-save-queue-analysis.json`; `npm run qa:harness:fixture` requires hover.detected → ui.ready, including backend.request and llm.call phases.
 - Verified build artifact was copied to `output/chrome-mv3`; the source checkout there may still be dirty.
 
-## Version Rule As Of 2026-06-12
+## Version Rule As Of 2026-06-22
 
-- Current extension version: `0.1.33`.
-- Latest merged-code verification through PR #25: `752/752` tests, typecheck, build, and diff check passed; `main` is synced to `8106c42`.
+- Current extension version: `0.3.0`.
+- Latest release verification: `909 passed / 5 skipped`, typecheck, storage seam guard, migration fixture guard, boundary guard, `qa:harness:fixture`, build, and diff check passed locally.
 - Current engineering branch: `main`.
 - `docs/ENGINEERING_PLAN.md` §2 N1-N5 is complete: React ErrorBoundary, Settings storage usage, `mutateSnapshot` seam, behavioral storage contracts, and code-review checklist.
 - §3 remains a deferred trigger pool, not a backlog drain queue.

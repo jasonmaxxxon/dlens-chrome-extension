@@ -1,6 +1,6 @@
 # Current State
 
-## System State As Of 2026-06-18
+## System State As Of 2026-06-22
 
 DLens is now best described as a **desktop-first Threads research, product-signal, and PR evidence extension**.
 
@@ -9,6 +9,14 @@ The architecture handoff source of truth is now
 live status contract: 🟢 means built, 🟩 means regression-locked, 🟡 means
 partial/risky, and 🔴 means not built or not trustworthy enough to rely on.
 `BOUNDARY` is 🟩 because View modules cannot import `sendExtensionMessage` / call `Date.now()` / `Math.random()` / `performance.now()` / `chrome.storage.local.*` / `chrome.runtime.sendMessage`, ViewModels cannot import `chrome.*` / `fetch` / DOM / `File` / `Blob` / `FormData` / React, and `npm run boundary:guard` enforces both walls in CI at zero allowlisted violations. `MIGRATE` is 🟩 because every storage shape change is recorded in `src/state/storage-schema.ts`, every migration entry has a legacy fixture that replays through the registry into the current shape, and `npm run storage:migrate-fixtures` enforces fixture coverage in CI at zero unregistered migrations. `API` / `JOBS` are now 🟢 (no longer 🟡) because `/worker/status` exposes pending-due / retry-scheduled / running / expired-running / dead jobs + pending/running/failed analysis counts + `earliest_retry_at` / `next_due_at` / `last_drain_error` / `last_drain_finished_at`, the extension projects them into a single `BackendWorkUiState` priority chain (`backend_error > expired_running > analysis_failed > retry_waiting > analysis_waiting > draining > idle`), `reconcileSessionItem` promotes failed analysis into the canonical item error path, and a five-case negative fixture set (`retry-scheduled-crawl` / `expired-running-lease` / `missing-analysis-after-crawl-success` / `failed-analysis-after-crawl-success` / `terminal-dead-crawl`) replays both layers offline with exact case-name set equality enforced in CI. They stay 🟢 (not 🟩) until a separate Phase D guard catches the visible recovery regression class against a live signal.
+
+0.3.0 is the Visual Reset A release. It ships the popup shell, PR Evidence ledger,
+Topic detail, Compare hero, and Product action marquee surfaces while keeping
+storage shape, backend contracts, content-script extraction, ViewModel
+derivation, classifier logic, command targets, and Signal Packet contracts
+unchanged. `VIEW` remains 🟢, not 🟩: the four marquee surfaces are
+DOM-test-locked, but row-level primitive adoption / large-view LOC reduction is
+still a follow-up `refactor(ui)` track.
 
 The current product split is:
 
@@ -88,23 +96,21 @@ The current product split is:
    - storage behavior contracts now dispatch real background handlers with mocked `chrome.storage`
    - PR template links `docs/CODE_REVIEW.md`
 
-The verified build in the active Phase B implementation worktree is:
+The verified build in the active main/release line is:
 
 - verification worktree: `dlens-product-latest`
-- current extension version: `0.2.1`
+- current extension version: `0.3.0`
 - active load-unpacked folder: `output/chrome-mv3`
-- note: `dlens-product-latest` source checkout may be dirty; do not infer clean source state from the copied build artifact
 - unpacked extension: `output/chrome-mv3`
 - backend stable entry: `../dlens-ingest-core`
 - backend physical checkout: `../dlens-ingest-core`
 - old versions and historical worktrees: `local dlens-old archive`
-- verification: `npm run typecheck`, `npx tsx --test tests/*.test.ts tests/*.test.tsx`, and `npm run build`
-- latest merged-code full test count after PR #25: `752 pass, 0 fail`
-- PR #25 merged as `8106c42`; PR #28 merged as `807cfb4`; PR #26 merged as `3faff1b`; PR #27 merged as `10404ed`; version remains `0.1.33`
+- verification: `npm run typecheck`, `npm run boundary:guard`, `npm run storage:seam-guard`, `npm run storage:migrate-fixtures`, `npm run qa:harness:fixture`, `npx tsx --test tests/*.test.ts tests/*.test.tsx`, `npm run build`, and `git diff --check`
+- latest full test count for 0.3.0: `909 passed / 5 skipped`
 - latest build output was mirrored to `output/chrome-mv3`
 - current engineering branch: `main`
 - live backend smoke from the prior product run: `GET http://127.0.0.1:8000/worker/status` returned `{"status":"idle"}`
-- extension manifest name is `DLens v3`; current extension version is `0.2.1`
+- extension manifest name is `DLens v3`; current extension version is `0.3.0`
 - version is locked across `package.json`, `package-lock.json`, `wxt.config.ts` `manifest.version`, and `src/ui/version.ts` `BUILD_VERSION`
 - runtime tab targeting fix: content-script `state/get-active-tab` and collect start/cancel must resolve to `sender.tab.id` before falling back to Chrome's focused tab, otherwise the popup can show collect mode off while the Threads content script is already in crosshair/overlay mode
 
@@ -240,7 +246,7 @@ Topic Detail now uses per-signal semantic tags as the primary scan layer. Topic 
 
 ## Version State
 
-- Current extension version: `0.2.1`.
+- Current extension version: `0.3.0`.
 - Chrome extension page version comes from `wxt.config.ts` `manifest.version` in the built manifest.
 - Popup masthead version comes from `src/ui/version.ts` `BUILD_VERSION`.
 - `package.json`, `package-lock.json`, `wxt.config.ts`, and `src/ui/version.ts` must stay in sync for every main-facing update unless explicitly skipped.
@@ -365,6 +371,7 @@ This repo currently covers:
 - compare remains limited to two posts for v1.x
 - `tokens.ts` is the sole design spec, and the active direction is now editorial warm paper / field guide
 - Visual Reset A keeps the `tokens.ts` warm-paper editorial content language and absorbs macOS utility shell patterns into existing shadow / motion / effect tokens; archived `DESIGN.md` and mockups are references only, not competing specs
+- Visual Reset A is complete for the four marquee surfaces; row-level primitive adoption across `ProductSignalViews.tsx`, `CompareView.tsx`, `TopicDetailView.tsx`, `PrEvidenceViews.tsx`, and `LibraryView.tsx` remains follow-up work
 
 ## Current Important Boundary
 
