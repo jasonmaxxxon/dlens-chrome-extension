@@ -328,6 +328,25 @@ test("CompareView hero keeps stance cells width-safe for 320 and 440 popup width
   }
 });
 
+test("CompareView body keeps parallel evidence rows width-safe without adding raised surfaces", () => {
+  const html = renderToStaticMarkup(
+    compareViewElement({
+      session: buildSession(),
+      settings: createDefaultSettings()
+    })
+  );
+
+  assert.equal(countOccurrences(html, `data-parallel-column="`), 2);
+  assert.equal(countOccurrences(html, `data-compare-evidence-row="dictionary"`), 2);
+  assert.equal(countOccurrences(html, `data-result-evidence-avatar="placeholder"`), 2);
+  assert.equal(countOccurrences(html, `box-shadow:${tokens.shadow.raised}`), 1);
+
+  const gridStyle = styleFromTag(findTagWithAttr(html, `data-parallel-grid="ab"`));
+  assert.match(gridStyle, /grid-template-columns:minmax\(0, 1fr\) minmax\(0, 1fr\)/);
+  assert.match(gridStyle, /min-width:0/);
+  assert.doesNotMatch(gridStyle, /min-width:(?:2\d\d|[3-9]\d\d)px/);
+});
+
 test("CompareView hero keeps async fetched brief divergence on the render-only path", () => {
   const settings = createDefaultSettings();
   settings.googleApiKey = "AIza-test";
