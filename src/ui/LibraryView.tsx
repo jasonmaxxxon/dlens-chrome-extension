@@ -1,16 +1,17 @@
-import { useState, type ReactNode } from "react";
+import { useState, type CSSProperties, type ReactNode } from "react";
 import type { TargetDescriptor } from "../contracts/target-descriptor";
 import {
   FOLDER_SYNTHESIS_MIN_ANALYZED,
   FOLDER_SYNTHESIS_MIN_TOPICS,
   folderSynthesisStaleReason
 } from "../compare/folder-synthesis";
-import { getLibraryItemUiState, type SessionProcessingSummary, type WorkerStatus } from "../state/processing-state";
+import type { SessionProcessingSummary, WorkerStatus } from "../state/processing-state";
 import type { FolderSynthesis, SavedAnalysisSnapshot, SessionItem, SessionRecord, TechniqueReadingSnapshot } from "../state/types";
 import { describeAiOutputProvenance, normalizeAiOutputProvenance } from "../state/ai-provenance";
 import { getSessionDisplayName } from "../state/store-helpers";
-import { Kicker, PrimaryButton, SCAN_ROW_HOVER_CSS, SecondaryButton, SideMark, Stamp, TOKENS, lineClamp, scanRowStyle, skeletonBlockStyle, viewRootStyle } from "./components";
-import { tokens } from "./tokens";
+import { Kicker, PrimaryButton, SCAN_ROW_HOVER_CSS, SecondaryButton, SectionHeader, SideMark, Stamp, SurfaceCard, TOKENS, lineClamp, viewRootStyle } from "./components";
+import { formatSavedAt, PostCard } from "./LibraryView.parts";
+import { textStyles, tokens } from "./tokens";
 
 // AR design tokens (matching Result page)
 const AR = {
@@ -26,6 +27,98 @@ const AR = {
   dimInk: tokens.color.softInk,
   line: tokens.color.line,
 } as const;
+
+type LibrarySectionState = "processing" | "pending" | "ready" | "empty" | "saved";
+
+const compactPrimaryActionStyle: CSSProperties = { padding: "7px 12px", fontSize: 11 };
+const compactSecondaryActionStyle: CSSProperties = { padding: "7px 10px", fontSize: 11 };
+
+function librarySectionState({
+  isProcessing,
+  hasPending,
+  readyCount,
+  itemCount
+}: {
+  isProcessing: boolean;
+  hasPending: boolean;
+  readyCount: number;
+  itemCount: number;
+}): LibrarySectionState {
+  if (itemCount === 0) return "empty";
+  if (isProcessing) return "processing";
+  if (hasPending) return "pending";
+  if (readyCount > 0) return "ready";
+  return "saved";
+}
+
+function readinessToneStyle(state: LibrarySectionState): Pick<CSSProperties, "background" | "border" | "color"> {
+  switch (state) {
+    case "processing":
+      return {
+        background: tokens.color.runningSoft,
+        border: `1px solid ${tokens.color.accentSoft}`,
+        color: tokens.color.ink
+      };
+    case "ready":
+      return {
+        background: tokens.color.successSoft,
+        border: `1px solid ${tokens.color.cyanSoft}`,
+        color: tokens.color.ink
+      };
+    case "pending":
+      return {
+        background: tokens.color.queuedSoft,
+        border: `1px solid rgba(161,106,23,0.18)`,
+        color: tokens.color.queued
+      };
+    default:
+      return {
+        background: tokens.color.elevated,
+        border: `1px solid ${tokens.color.cardEdge}`,
+        color: tokens.color.ink
+      };
+  }
+}
+
+function LibraryFrame({
+  children,
+  section,
+  state,
+  tone = "default",
+  style
+}: {
+  children: ReactNode;
+  section: string;
+  state?: LibrarySectionState;
+  tone?: "default" | "utility";
+  style?: CSSProperties;
+}) {
+  return (
+    <SurfaceCard
+      tone={tone}
+      dataAttrs={{
+        "data-library-section": section,
+        ...(state ? { "data-library-section-state": state } : {})
+      }}
+      style={{
+        display: "grid",
+        gap: 10,
+        padding: "12px 14px",
+        ...style
+      }}
+    >
+      {children}
+    </SurfaceCard>
+  );
+}
+
+function LibraryMetaKicker({ children, style }: { children: ReactNode; style?: CSSProperties }) {
+  return (
+    <div style={{ ...textStyles.label, color: AR.muteInk, letterSpacing: 0, textTransform: "none", ...style }}>
+      {children}
+    </div>
+  );
+}
 
 interface LibraryViewProps {
   activeFolder: SessionRecord | null;
@@ -63,223 +156,9 @@ interface LibraryViewProps {
   folderContributingTopicCount?: number;
 }
 
-function formatSavedAt(value: string, nowMs: number): string {
-  const date = new Date(value);
-  if (Number.isNaN(date.getTime())) return value;
-  const diffMs = nowMs - date.getTime();
-  if (!Number.isFinite(diffMs)) {
-    const formatter = new Intl.DateTimeFormat("zh-HK", { month: "short", day: "numeric" });
-    return formatter.format(date);
-  }
-  const diffDays = Math.floor(diffMs / 86400000);
-  if (diffDays <= 0) return "今天";
-  if (diffDays === 1) return "昨天";
-  if (diffDays < 7) return `${diffDays}天前`;
-  const formatter = new Intl.DateTimeFormat("zh-HK", { month: "short", day: "numeric" });
-  return formatter.format(date);
-}
-
-function statusAccentColor(phase: string): string {
-  switch (phase) {
-    case "ready": return AR.green;
-    case "analyzing": return AR.orange;
-    case "crawling": return AR.blue;
-    default: return "#8e8e93";
-  }
-}
-
-function statusLabelColor(phase: string): string {
-  switch (phase) {
-    case "ready": return AR.green;
-    case "analyzing": return AR.orange;
-    case "crawling": return AR.blue;
-    default: return "#636366";
-  }
-}
-
-function statusBg(phase: string): string {
-  switch (phase) {
-    case "ready": return "rgba(52,199,89,0.1)";
-    case "analyzing": return "rgba(255,149,0,0.1)";
-    case "crawling": return "rgba(0,113,227,0.09)";
-    default: return "rgba(142,142,147,0.1)";
-  }
-}
-
-function statusDotColor(phase: string): string {
-  switch (phase) {
-    case "ready": return tokens.color.success;
-    case "analyzing": return tokens.color.queued;
-    case "crawling": return tokens.color.accent;
-    case "failed": return tokens.color.failed;
-    default: return tokens.color.softInk;
-  }
-}
-
-function topClusterKeywords(item: SessionItem): string[] {
-  const clusters = item.latestCapture?.analysis?.clusters;
-  if (!clusters?.length) return [];
-  const sorted = [...clusters].sort((a, b) => (b.size_share || 0) - (a.size_share || 0));
-  return (sorted[0]?.keywords || []).slice(0, 3);
-}
-
-const KEYWORD_PILL_PALETTE = [
-  tokens.color.accent,
-  tokens.color.cyan,
-  tokens.color.teal,
-  tokens.color.product,
-  tokens.color.queued,
-] as const;
-
-function keywordPillColor(keyword: string): string {
-  let hash = 0;
-  for (let i = 0; i < keyword.length; i += 1) {
-    hash = (hash * 31 + keyword.charCodeAt(i)) >>> 0;
-  }
-  return KEYWORD_PILL_PALETTE[hash % KEYWORD_PILL_PALETTE.length];
-}
-
 function savedAnalysisStamp(briefSource: SavedAnalysisSnapshot["briefSource"]): { tone: "success" | "warning" | "neutral"; label: string } {
   const provenance = describeAiOutputProvenance(normalizeAiOutputProvenance(briefSource));
   return { tone: provenance.tone, label: provenance.label };
-}
-
-function PostCard({
-  item,
-  isSelected,
-  optimisticQueued,
-  ordinal,
-  nowMs,
-  onSelect,
-}: {
-  item: SessionItem;
-  isSelected: boolean;
-  optimisticQueued: boolean;
-  ordinal?: number;
-  nowMs: number;
-  onSelect: () => void;
-}) {
-  const uiState = getLibraryItemUiState(item, optimisticQueued);
-  const keywords = topClusterKeywords(item);
-  const accentColor = statusAccentColor(uiState.itemPhase);
-  const labelColor = statusLabelColor(uiState.itemPhase);
-  const bg = statusBg(uiState.itemPhase);
-  const snippet = item.descriptor.text_snippet || item.descriptor.post_url || item.descriptor.page_url || "—";
-  const showPendingSkeleton =
-    uiState.itemPhase === "queued" || uiState.itemPhase === "crawling" || uiState.itemPhase === "analyzing";
-
-  return (
-    <button
-      data-item-phase={uiState.itemPhase}
-      data-library-row="scan"
-      data-scan-row="true"
-      onClick={onSelect}
-      style={scanRowStyle({
-        textAlign: "left",
-        display: "grid",
-        gridTemplateColumns: "8px minmax(0, 1fr) auto",
-        alignItems: "start",
-        gap: 10,
-        background: isSelected ? tokens.color.contextSurface : "transparent",
-        border: "none",
-        cursor: "pointer",
-        transition: "background 140ms ease",
-        color: AR.ink,
-        padding: "10px 4px",
-      })}
-    >
-      <span
-        aria-hidden="true"
-        style={{
-          width: 8,
-          height: 8,
-          borderRadius: 999,
-          background: statusDotColor(uiState.itemPhase),
-          marginTop: 6
-        }}
-      />
-      <div style={{ display: "grid", gap: 6, minWidth: 0 }}>
-        <div style={{ display: "grid", gap: 3, minWidth: 0 }}>
-          <div style={{ fontSize: 13, fontWeight: 600, color: AR.ink, ...lineClamp(1) }}>
-            @{item.descriptor.author_hint || "Unknown"}
-          </div>
-          <div style={{ fontSize: 12, lineHeight: 1.45, color: AR.softInk, ...lineClamp(1) }}>
-            {snippet}
-          </div>
-        </div>
-
-        {showPendingSkeleton ? (
-          <div data-library-card-skeleton="visible" style={{ display: "grid", gap: 7 }}>
-            <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
-              {["30%", "22%", "28%"].map((width, skeletonIndex) => (
-                <span key={skeletonIndex} style={skeletonBlockStyle(width, 16, { borderRadius: 999 })} />
-              ))}
-            </div>
-            <div style={{ display: "grid", gap: 6 }}>
-              <span style={skeletonBlockStyle("92%", 10)} />
-              <span style={skeletonBlockStyle("84%", 10)} />
-              <span style={skeletonBlockStyle("58%", 10)} />
-            </div>
-          </div>
-        ) : null}
-
-        {!showPendingSkeleton && keywords.length > 0 ? (
-          <div style={{ display: "flex", flexWrap: "wrap", gap: 4 }}>
-            {keywords.map((kw, kwIndex) => {
-              const pillColor = uiState.itemPhase === "ready" ? keywordPillColor(kw) : accentColor;
-              return (
-                <span
-                  key={`${kw}-${kwIndex}`}
-                  style={{
-                    fontSize: 9.5,
-                    fontWeight: 700,
-                    color: pillColor,
-                    background: `${pillColor}12`,
-                    borderRadius: 6,
-                    padding: "2px 6px",
-                    letterSpacing: 0.2,
-                  }}
-                >
-                  {kw}
-                </span>
-              );
-            })}
-          </div>
-        ) : null}
-      </div>
-      <div style={{ display: "grid", gap: 4, justifyItems: "end", minWidth: 82 }}>
-        {typeof ordinal === "number" ? (
-          <span
-            aria-hidden="true"
-            style={{
-              fontSize: 9,
-              fontWeight: 700,
-              color: AR.muteInk,
-              letterSpacing: 0.6,
-              fontFamily: tokens.font.mono,
-            }}
-          >
-            NO.{String(ordinal).padStart(3, "0")}
-          </span>
-        ) : null}
-        <span style={{ fontSize: 9, fontWeight: 700, color: labelColor, background: bg, borderRadius: 6, padding: "2px 7px", whiteSpace: "nowrap" }}>
-          {uiState.statusLabel}
-        </span>
-        <span style={{ fontSize: 11, color: AR.dimInk, textAlign: "right" }}>
-          {item.latestCapture?.analysis?.source_comment_count
-            ? `${item.latestCapture.analysis.source_comment_count} 則留言`
-            : item.descriptor.time_token_hint || formatSavedAt(item.savedAt, nowMs)}
-        </span>
-        {uiState.itemPhase === "ready" ? (
-          <span style={{ fontSize: 10, fontWeight: 700, color: AR.blue }}>
-            可比較 →
-          </span>
-        ) : uiState.itemPhase === "analyzing" ? (
-          <span style={{ fontSize: 10, color: AR.orange }}>分析中…</span>
-        ) : null}
-      </div>
-    </button>
-  );
 }
 
 function snapshotReadings(analysis: SavedAnalysisSnapshot): Array<{ side: "A" | "B"; text: string }> {
@@ -734,16 +613,8 @@ export function LibraryView({
   if (!activeFolder) {
     return (
       <div style={{ display: "grid", gap: 10, padding: "4px 0" }}>
-        <div style={{
-          background: AR.card, borderRadius: tokens.radius.card, padding: "16px 16px 14px",
-          boxShadow: "0 1px 6px rgba(0,0,0,0.065)",
-        }}>
-          <div style={{
-            fontFamily: tokens.font.sans,
-            fontSize: 17, fontWeight: 700, color: AR.ink, marginBottom: 7,
-          }}>
-            還沒有資料夾
-          </div>
+        <LibraryFrame section="empty-folder" state="empty" style={{ padding: "16px" }}>
+          <SectionHeader title="還沒有資料夾" style={{ marginBottom: 0 }} />
           <p style={{ fontSize: 13, color: AR.softInk, lineHeight: 1.55, margin: "0 0 12px" }}>
             先建一個資料夾，再去 Collect 儲存貼文。
           </p>
@@ -752,7 +623,7 @@ export function LibraryView({
               開始收集
             </PrimaryButton>
           ) : null}
-        </div>
+        </LibraryFrame>
       </div>
     );
   }
@@ -762,11 +633,6 @@ export function LibraryView({
   const visibleItems = isTopicScopedLibrary
     ? activeFolder.items.filter((item) => topicSignalItemIdSet.has(item.id))
     : activeFolder.items;
-  const libraryEntries = visibleItems.map((item) => ({
-    item,
-    uiState: getLibraryItemUiState(item, optimisticQueuedIds.includes(item.id)),
-  }));
-
   const readyCount = processingSummary.ready;
   const pendingCount = processingSummary.pending;
   const hasPending = pendingCount > 0;
@@ -774,9 +640,16 @@ export function LibraryView({
   const isArchiveMode = activeFolder.mode === "archive";
 
   const isTopicMode = activeFolder.mode === "topic";
+  const sectionState = librarySectionState({
+    isProcessing,
+    hasPending,
+    readyCount,
+    itemCount: visibleItems.length
+  });
+  const readinessStyle = readinessToneStyle(sectionState);
 
   return (
-    <div style={viewRootStyle()}>
+    <div data-library-layout="surface-primitives" style={viewRootStyle()}>
       <style>{SCAN_ROW_HOVER_CSS}</style>
 
       {isTopicMode && onGenerateFolderSynthesis ? (
@@ -793,95 +666,88 @@ export function LibraryView({
 
       {/* ── Readiness context bar ── */}
       {isTopicScopedLibrary ? (
-        <div style={{
-          background: AR.card,
-          border: `1px solid ${tokens.color.line}`,
-          borderRadius: 12,
-          padding: "11px 14px",
-          boxShadow: "0 1px 6px rgba(0,0,0,0.065)",
-          display: "flex",
-          alignItems: "center",
-          gap: 10,
-          flexWrap: "wrap" as const,
-        }}>
+        <LibraryFrame
+          section="readiness"
+          state={sectionState}
+          style={{
+            padding: "11px 14px",
+            background: readinessStyle.background,
+            border: readinessStyle.border,
+            display: "flex",
+            alignItems: "center",
+            gap: 10,
+            flexWrap: "wrap",
+          }}
+        >
           <div style={{ flex: 1, minWidth: 0 }}>
-            <div style={{ fontSize: 10, fontWeight: 700, color: AR.muteInk, letterSpacing: 0.3, marginBottom: 2 }}>
+            <LibraryMetaKicker style={{ marginBottom: 2 }}>
               {getSessionDisplayName(activeFolder)}
-            </div>
-            <div style={{ fontSize: 12, fontWeight: 600, color: AR.ink }}>
+            </LibraryMetaKicker>
+            <div style={{ ...textStyles.meta, fontWeight: 600, color: AR.ink }}>
               {topicInboxCount} 未分流 · {topicCount} 主題
             </div>
           </div>
           {onGoToCollect ? (
-            <SecondaryButton onClick={onGoToCollect} style={{ padding: "7px 10px", fontSize: 11 }}>
+            <SecondaryButton onClick={onGoToCollect} style={compactSecondaryActionStyle}>
               + 採集
             </SecondaryButton>
           ) : null}
-        </div>
+        </LibraryFrame>
       ) : (
-      <div style={{
-        background: isProcessing
-          ? "rgba(0,113,227,0.05)"
-          : readyCount >= 2
-            ? "rgba(52,199,89,0.07)"
-            : hasPending
-              ? "rgba(255,149,0,0.07)"
-              : AR.card,
-        border: isProcessing
-          ? "1px solid rgba(0,113,227,0.12)"
-          : readyCount >= 2
-            ? "1px solid rgba(52,199,89,0.15)"
-            : hasPending
-              ? "1px solid rgba(255,149,0,0.18)"
-              : "1px solid transparent",
-        borderRadius: 12, padding: "11px 14px",
-        boxShadow: "0 1px 6px rgba(0,0,0,0.065)",
-        display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" as const,
-      }}>
-        <div style={{ flex: 1, minWidth: 0 }}>
-          <div style={{ fontSize: 10, fontWeight: 700, color: AR.muteInk, letterSpacing: 0.3, marginBottom: 2 }}>
-            {getSessionDisplayName(activeFolder)}
+        <LibraryFrame
+          section="readiness"
+          state={sectionState}
+          style={{
+            padding: "11px 14px",
+            background: readinessStyle.background,
+            border: readinessStyle.border,
+            display: "flex",
+            alignItems: "center",
+            gap: 10,
+            flexWrap: "wrap",
+          }}
+        >
+          <div style={{ flex: 1, minWidth: 0 }}>
+            <LibraryMetaKicker style={{ marginBottom: 2 }}>
+              {getSessionDisplayName(activeFolder)}
+            </LibraryMetaKicker>
+            <div style={{ ...textStyles.meta, fontWeight: 600, color: readinessStyle.color }}>
+              {isProcessing
+                ? "處理中…"
+                : readyCount > 0
+                  ? `${readyCount} 篇可以比較`
+                  : hasPending
+                    ? `${pendingCount} 篇等待處理`
+                    : `${activeFolder.items.length} 篇已儲存`}
+            </div>
           </div>
-          <div style={{ fontSize: 12, fontWeight: 600, color: hasPending && !isProcessing ? "#b06200" : AR.ink }}>
-            {isProcessing
-              ? "處理中…"
-              : readyCount > 0
-                ? `${readyCount} 篇可以比較`
-                : hasPending
-                  ? `${pendingCount} 篇等待處理`
-                  : `${activeFolder.items.length} 篇已儲存`}
+          <div style={{ display: "flex", gap: 7 }}>
+            {readyCount >= 2 && onGoToCompare ? (
+              <PrimaryButton onClick={onGoToCompare} style={compactPrimaryActionStyle}>
+                Compare →
+              </PrimaryButton>
+            ) : hasPending ? (
+              <PrimaryButton
+                onClick={onProcessAll}
+                disabled={isStartingProcessing || isProcessing}
+                style={compactPrimaryActionStyle}
+                dataAttrs={{ "data-library-process-all": "true" }}
+              >
+                {processAllLabel}
+              </PrimaryButton>
+            ) : null}
+            {onGoToCollect ? (
+              <SecondaryButton onClick={onGoToCollect} style={compactSecondaryActionStyle}>
+                + 收集
+              </SecondaryButton>
+            ) : null}
           </div>
-        </div>
-        <div style={{ display: "flex", gap: 7 }}>
-          {readyCount >= 2 && onGoToCompare ? (
-            <PrimaryButton onClick={onGoToCompare} style={{ padding: "7px 12px", fontSize: 11 }}>
-              Compare →
-            </PrimaryButton>
-          ) : hasPending ? (
-            <PrimaryButton
-              onClick={onProcessAll}
-              disabled={isStartingProcessing || isProcessing}
-              style={{ padding: "7px 12px", fontSize: 11 }}
-            >
-              {processAllLabel}
-            </PrimaryButton>
-          ) : null}
-          {onGoToCollect ? (
-            <SecondaryButton onClick={onGoToCollect} style={{ padding: "7px 10px", fontSize: 11 }}>
-              + 收集
-            </SecondaryButton>
-          ) : null}
-        </div>
-      </div>
+        </LibraryFrame>
       )}
 
       {/* ── Post cards ── */}
       {visibleItems.length === 0 ? (
-        <div style={{
-          background: AR.card, borderRadius: 12, padding: "20px 16px",
-          boxShadow: "0 1px 6px rgba(0,0,0,0.065)",
-          textAlign: "center" as const,
-        }}>
+        <LibraryFrame section="posts" state="empty" style={{ padding: "20px 16px", textAlign: "center" }}>
           <div
             aria-hidden="true"
             style={{
@@ -911,37 +777,47 @@ export function LibraryView({
           {onGoToCollect ? (
             <SecondaryButton onClick={onGoToCollect}>前往 Collect</SecondaryButton>
           ) : null}
-        </div>
+        </LibraryFrame>
       ) : isTopicMode ? (
-        <details
-          data-library-posts="folded"
-          style={{
-            border: `1px solid ${tokens.color.line}`,
-            borderRadius: tokens.radius.card,
-            background: tokens.color.surface,
-            padding: "10px 12px"
-          }}
-        >
-          <summary
-            style={{
-              cursor: "pointer",
-              listStyle: "none",
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "space-between",
-              gap: 10,
-              fontSize: 12,
-              fontWeight: 700,
-              color: tokens.color.subInk
-            }}
-          >
-            <span>訊號詳情</span>
-            <span style={{ fontSize: 11, color: tokens.color.softInk, fontWeight: 500 }}>
-              {visibleItems.length} 篇 · 點開展開
-            </span>
-          </summary>
-          <div data-scan-list="library" style={{ display: "grid", marginTop: 8 }}>
-            {libraryEntries.map(({ item }, index) => (
+        <LibraryFrame section="posts" state={sectionState} tone="utility" style={{ padding: "10px 12px" }}>
+          <details data-library-posts="folded">
+            <summary
+              style={{
+                cursor: "pointer",
+                listStyle: "none",
+                display: "grid",
+                gridTemplateColumns: "minmax(0, 1fr) auto",
+                gap: 10,
+                alignItems: "center",
+                minWidth: 0
+              }}
+            >
+              <SectionHeader
+                title="訊號詳情"
+                caption={`${visibleItems.length} 篇 · 點開展開`}
+                style={{ marginBottom: 0 }}
+              />
+            </summary>
+            <div data-scan-list="library" style={{ display: "grid", marginTop: 8 }}>
+              {visibleItems.map((item, index) => (
+                <PostCard
+                  key={item.id}
+                  item={item}
+                  isSelected={item.id === activeItem?.id}
+                  optimisticQueued={optimisticQueuedIds.includes(item.id)}
+                  ordinal={index + 1}
+                  nowMs={nowMs}
+                  onSelect={() => onSelectItem(item.id)}
+                />
+              ))}
+            </div>
+          </details>
+        </LibraryFrame>
+      ) : (
+        <LibraryFrame section="posts" state={sectionState} tone="utility" style={{ padding: "10px 12px" }}>
+          <SectionHeader title="儲存貼文" caption={`${visibleItems.length} 篇`} style={{ marginBottom: 0 }} />
+          <div data-scan-list="library" style={{ display: "grid" }}>
+            {visibleItems.map((item, index) => (
               <PostCard
                 key={item.id}
                 item={item}
@@ -953,58 +829,50 @@ export function LibraryView({
               />
             ))}
           </div>
-        </details>
-      ) : (
-        <div data-scan-list="library" style={{ display: "grid" }}>
-          {libraryEntries.map(({ item }, index) => (
-            <PostCard
-              key={item.id}
-              item={item}
-              isSelected={item.id === activeItem?.id}
-              optimisticQueued={optimisticQueuedIds.includes(item.id)}
-              ordinal={index + 1}
-              nowMs={nowMs}
-              onSelect={() => onSelectItem(item.id)}
-            />
-          ))}
-        </div>
+        </LibraryFrame>
       )}
 
       {/* ── Saved analyses ── */}
       {savedAnalyses.length > 0 ? (
-        <div>
-          <div style={{ fontSize: 10, fontWeight: 700, color: AR.muteInk, letterSpacing: 0.4, marginBottom: 8, padding: "0 2px" }}>
-            Casebook · Snapshot · {savedAnalyses.length} 份
-          </div>
+        <section data-library-section="saved-analyses" style={{ display: "grid", gap: 8, minWidth: 0 }}>
+          <SectionHeader title={`Casebook · Snapshot · ${savedAnalyses.length} 份`} style={{ marginBottom: 0 }} />
           <div style={{ display: "grid", gap: 8 }}>
             {savedAnalyses.slice(0, 3).map((analysis) => (
               <SavedAnalysisCard key={analysis.resultId} analysis={analysis} nowMs={nowMs} onOpen={onOpenSavedAnalysis ? () => onOpenSavedAnalysis(analysis.resultId) : undefined} />
             ))}
           </div>
-        </div>
+        </section>
       ) : null}
 
       {/* ── Casebook / technique readings ── */}
       {techniqueReadings.length > 0 ? (
-        <div>
-          <button
-            onClick={() => setShowCasebook((v) => !v)}
-            style={{
-              width: "100%", textAlign: "left", background: "none", border: "none",
-              cursor: "pointer", padding: "6px 2px", display: "flex", alignItems: "center",
-              justifyContent: "space-between", gap: 8,
-            }}
-          >
-            <span style={{ fontSize: 10, fontWeight: 700, color: AR.muteInk, letterSpacing: 0.4 }}>
-              Casebook · {techniqueReadings.length} 條筆記
-            </span>
-            <svg
-              width="11" height="7" viewBox="0 0 11 7" fill="none"
-              style={{ transform: showCasebook ? "rotate(180deg)" : "none", transition: "transform 0.2s" }}
-            >
-              <path d="M1 1L5.5 6L10 1" stroke={AR.muteInk} strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" />
-            </svg>
-          </button>
+        <section data-library-section="casebook" style={{ display: "grid", gap: 8, minWidth: 0 }}>
+          <SectionHeader
+            title={`Casebook · ${techniqueReadings.length} 條筆記`}
+            style={{ marginBottom: 0 }}
+            action={(
+              <button
+                aria-label="切換 Casebook"
+                onClick={() => setShowCasebook((v) => !v)}
+                style={{
+                  border: "none",
+                  background: "transparent",
+                  cursor: "pointer",
+                  padding: "6px 2px",
+                  display: "grid",
+                  placeItems: "center",
+                  color: AR.muteInk
+                }}
+              >
+                <svg
+                  width="11" height="7" viewBox="0 0 11 7" fill="none"
+                  style={{ transform: showCasebook ? "rotate(180deg)" : "none", transition: "transform 0.2s" }}
+                >
+                  <path d="M1 1L5.5 6L10 1" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" />
+                </svg>
+              </button>
+            )}
+          />
           {showCasebook ? (
             <div style={{ display: "grid", gap: 8 }}>
               {techniqueReadings.slice(0, 5).map((reading) => {
@@ -1055,7 +923,7 @@ export function LibraryView({
               })}
             </div>
           ) : null}
-        </div>
+        </section>
       ) : null}
     </div>
   );
