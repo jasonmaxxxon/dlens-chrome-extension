@@ -2134,10 +2134,28 @@ export const backgroundTestables = {
   tabStorageKey
 };
 
+function configureActionSidePanel(): void {
+  void chrome.sidePanel.setPanelBehavior({ openPanelOnActionClick: true }).catch(() => undefined);
+}
+
+function openSidePanelFromAction(tab: chrome.tabs.Tab): void {
+  if (typeof tab.id === "number") {
+    void chrome.sidePanel.open({ tabId: tab.id }).catch(() => {
+      if (typeof tab.windowId === "number") {
+        void chrome.sidePanel.open({ windowId: tab.windowId }).catch(() => undefined);
+      }
+    });
+    return;
+  }
+  if (typeof tab.windowId === "number") {
+    void chrome.sidePanel.open({ windowId: tab.windowId }).catch(() => undefined);
+  }
+}
+
 export default defineBackground(() => {
-  chrome.runtime.onInstalled.addListener(() => {
-    void chrome.sidePanel.setPanelBehavior({ openPanelOnActionClick: true }).catch(() => undefined);
-  });
+  configureActionSidePanel();
+  chrome.runtime.onInstalled.addListener(configureActionSidePanel);
+  chrome.action.onClicked.addListener(openSidePanelFromAction);
 
   // --- P1-A: MV3 wake recovery ---
   // When service worker restarts, reload global state eagerly so first message isn't slow.

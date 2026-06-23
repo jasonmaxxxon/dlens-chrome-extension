@@ -490,7 +490,10 @@ async function createHarness(
   const writes: string[][] = [];
   const tabMessages: ExtensionMessage[] = [];
   const tabMessageTargets: Array<{ tabId: number; message: ExtensionMessage }> = [];
+  const sidePanelBehaviorCalls: Array<{ openPanelOnActionClick?: boolean }> = [];
+  const sidePanelOpenCalls: Array<{ tabId?: number; windowId?: number }> = [];
   let listener: Parameters<typeof chrome.runtime.onMessage.addListener>[0] | null = null;
+  let actionClickListener: ((tab: chrome.tabs.Tab) => void) | null = null;
   const tabKey = backgroundTestables.tabStorageKey(TAB_ID);
   const activeTabId = options.activeTabId ?? TAB_ID;
   const senderTabId = options.senderTabId ?? TAB_ID;
@@ -524,8 +527,20 @@ async function createHarness(
         }
       }
     },
+    action: {
+      onClicked: {
+        addListener: (callback: (tab: chrome.tabs.Tab) => void) => {
+          actionClickListener = callback;
+        }
+      }
+    },
     sidePanel: {
-      setPanelBehavior: async () => undefined
+      open: async (options: { tabId?: number; windowId?: number }) => {
+        sidePanelOpenCalls.push({ ...options });
+      },
+      setPanelBehavior: async (options: { openPanelOnActionClick?: boolean }) => {
+        sidePanelBehaviorCalls.push({ ...options });
+      }
     },
     storage: {
       local: storageArea
@@ -571,6 +586,14 @@ async function createHarness(
     tabKey,
     tabMessages,
     tabMessageTargets,
+    sidePanelBehaviorCalls,
+    sidePanelOpenCalls,
+    clickAction: async (tab: chrome.tabs.Tab = { id: TAB_ID, windowId: 10 } as chrome.tabs.Tab) => {
+      assert.notEqual(actionClickListener, null, "background action click listener must be registered");
+      actionClickListener?.(tab);
+      await Promise.resolve();
+      await Promise.resolve();
+    },
     writes,
     writesFor: (key: string) => writes.filter((keys) => keys.includes(key))
   };
@@ -586,6 +609,20 @@ function assertStateUpdatedBroadcastOnce(harness: BackgroundHarness, tabId = TAB
   assert.equal(broadcasts[0]?.message.tabId, tabId);
   assert.ok(broadcasts[0]?.message.snapshot);
 }
+
+test("background wires extension action click to open the side panel on worker startup", async () => {
+  const harness = await createHarness({
+    [backgroundTestables.GLOBAL_STORAGE_KEY]: makeGlobal([makeSession("topic-session", "topic")], "topic-session"),
+    [backgroundTestables.ACTIVE_SESSION_ID_STORAGE_KEY]: "topic-session",
+    [backgroundTestables.tabStorageKey(TAB_ID)]: createEmptyTabState()
+  });
+
+  assert.deepEqual(harness.sidePanelBehaviorCalls, [{ openPanelOnActionClick: true }]);
+
+  await harness.clickAction({ id: TAB_ID, windowId: 10 } as chrome.tabs.Tab);
+
+  assert.deepEqual(harness.sidePanelOpenCalls, [{ tabId: TAB_ID }]);
+});
 
 test("session/set-mode existing target mode writes only active-session and tab keys", async () => {
   const topic = makeSession("topic-session", "topic");
