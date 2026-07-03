@@ -1,5 +1,15 @@
 # AGENTS.md — DLens Chrome Extension v0.3
 
+> **OPERATIVE RULES (added 2026-07-03):** `CLAUDE.md` at the repo root is the
+> current distilled rule file — reading order, verify gate, version lock,
+> design & UI contract, boundaries. Read it FIRST; where it conflicts with
+> older content in this file, `CLAUDE.md` wins. This file is history plus
+> detailed contracts — do NOT read it end-to-end; grep for the section you need.
+> **Codex / PR authors:** run the full verify gate from `CLAUDE.md` before
+> opening a PR, paste the gate results into the PR description, and name both
+> sides of one-in-one-out in the commit message. A separate reviewer re-runs
+> the gate before merge — a PR description alone is never accepted as proof.
+
 > **Last updated:** 2026-06-22 (release 0.3.0 — Visual Reset A ships the native-feeling popup shell plus PR Evidence ledger, Topic detail, Compare hero, and Product action marquee surfaces. Latest local verification: 909 passed / 5 skipped tests, typecheck, storage seam guard, migration fixture guard, boundary guard, `qa:harness:fixture`, build, and `git diff --check`. `BOUNDARY` is enforced by `npm run boundary:guard`, which runs View and ViewModel wall scanners in CI at zero allowlisted violations.)
 > **For:** any agent continuing work in this repo
 > **READ FIRST:** [`docs/architecture/dlens-current-architecture-map.md`](docs/architecture/dlens-current-architecture-map.md) — the status-colored handoff map (🟩 locked / 🟢 built / 🟡 partial / 🔴 not built). Don't treat 🟢 as 🟩; don't bypass ViewModel / typed command target / storage seam / pipeline trace; any async-path PR must handle requestId + invalidation + rehydrate; update the map's colors in your PR if status changes.
