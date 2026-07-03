@@ -7,9 +7,11 @@ import { renderToStaticMarkup } from "react-dom/server";
 import { TOPIC_SYNTHESIS_VERSION } from "../src/compare/topic-synthesis.ts";
 import { createSessionItem } from "../src/state/store-helpers.ts";
 import type { EvidencePacket } from "../src/compare/topic-audit.ts";
+import type { TopicAuditValidationFlag } from "../src/compare/topic-audit-validator.ts";
 import type { TopicAuditMemoBundle } from "../src/state/topic-audit-storage.ts";
 import type { SavedAnalysisSnapshot, SessionItem, Signal, SignalTagsRecord, Topic, TopicSignalReading, TopicSynthesis } from "../src/state/types.ts";
 import { TopicDetailView, topicDetailViewTestables } from "../src/ui/TopicDetailView.tsx";
+import { SignalDrawer } from "../src/ui/SignalDrawer.tsx";
 import { pickPrimaryJudgmentPair } from "../src/ui/useTopicState.ts";
 import {
   buildTopicDetailViewModel,
@@ -369,7 +371,7 @@ test("TopicDetailView exposes a remove action inside product signal rows", () =>
   assert.match(html, /aria-label="移除此訊號"/);
 });
 
-test("TopicDetailView renders audit overview, themes, lanes, and source list from displayHints", () => {
+test("TopicDetailView renders audit overview, themes, lanes, and representative quotes from displayHints", () => {
   const html = renderToStaticMarkup(
     topicDetailViewElement({
       topic,
@@ -391,11 +393,12 @@ test("TopicDetailView renders audit overview, themes, lanes, and source list fro
   assert.match(html, /航班/);
   assert.match(html, /data-topic-audit-block="lanes"/);
   assert.match(html, /客服補救失速/);
-  assert.match(html, /data-topic-audit-block="sources"/);
+  assert.match(html, /data-topic-newsroom-ladder="true"/);
   assert.match(html, /航班改動後等不到客服/);
+  assert.doesNotMatch(html, /data-topic-audit-block="sources"/);
 });
 
-test("TopicDetailView uses shared primitives and topic accent rhythm for audit mode surfaces", () => {
+test("TopicDetailView frames narrative lanes as newsroom signals and keeps source attribution", () => {
   const html = renderToStaticMarkup(
     topicDetailViewElement({
       topic,
@@ -404,6 +407,171 @@ test("TopicDetailView uses shared primitives and topic accent rhythm for audit m
       auditEvidence: [auditPacket],
       auditMemos,
       auditSummary: { reportStatus: "ready", analyzedCount: 1, queuedCount: 0 },
+      auditValidatorFlags: [],
+      onBack: () => undefined,
+      onOpenPair: () => undefined,
+      onUpdateTopic: () => undefined
+    })
+  );
+
+  // Narrative lanes are reframed as newsroom signals (main narrative / counter-signal).
+  assert.match(html, /data-topic-newsroom-signal="true"/);
+  assert.match(html, /主敘事|反向訊號|待驗證/);
+  // F4: the reshape must preserve real source attribution + original text, not erase it.
+  assert.match(html, /@alpha/);
+  assert.match(html, /航班改動後等不到客服/);
+});
+
+test("TopicDetailView renders a representative quote ladder from real audit sources", () => {
+  const html = renderToStaticMarkup(
+    topicDetailViewElement({
+      topic,
+      signals,
+      pairs: [],
+      auditEvidence: [auditPacket],
+      auditMemos,
+      auditSummary: { reportStatus: "ready", analyzedCount: 1, queuedCount: 0 },
+      auditValidatorFlags: [],
+      onBack: () => undefined,
+      onOpenPair: () => undefined,
+      onUpdateTopic: () => undefined
+    })
+  );
+
+  assert.match(html, /data-topic-newsroom-ladder="true"/);
+  assert.match(html, /data-topic-newsroom-ladder-detail="collapsed"/);
+  assert.match(html, /代表 quote/);
+  // Real original text + author attribution carried into the ladder.
+  assert.match(html, /航班改動後等不到客服/);
+  assert.match(html, /@alpha/);
+});
+
+test("TopicDetailView suppresses the duplicate source list when representative quotes cover the visible sources", () => {
+  const html = renderToStaticMarkup(
+    topicDetailViewElement({
+      topic,
+      signals,
+      pairs: [],
+      auditEvidence: [auditPacket],
+      auditMemos,
+      auditSummary: { reportStatus: "ready", analyzedCount: 1, queuedCount: 0 },
+      auditValidatorFlags: [],
+      onBack: () => undefined,
+      onOpenPair: () => undefined,
+      onUpdateTopic: () => undefined
+    })
+  );
+
+  assert.match(html, /data-topic-newsroom-ladder="true"/);
+  assert.match(html, /data-newsroom-ladder-quote="S1"/);
+  assert.doesNotMatch(html, /data-topic-audit-source-list-style="audit-report"/);
+  assert.doesNotMatch(html, /data-source-row="S1"/);
+});
+
+test("buildNewsroomLadder classifies counter quotes by low-consensus lane membership", async () => {
+  const { buildNewsroomLadder } = await import("../src/ui/topic-audit-components.tsx");
+  const ladder = buildNewsroomLadder(
+    [
+      { id: "lane-main", label: "主敘事", signalRefs: ["S1.OP", "S2.OP"], consensus: 0.8 },
+      { id: "lane-counter", label: "反向", signalRefs: ["S3.OP"], consensus: 0.3 }
+    ],
+    [
+      { shortCode: "S1", text: "主敘事原文 A", author: "op_a" },
+      { shortCode: "S2", text: "主敘事原文 B", author: "op_b" },
+      { shortCode: "S3", text: "反例原文 C", author: "op_c" }
+    ]
+  );
+
+  assert.equal(ladder.length, 3);
+  // Mains lead, a counter slot is reserved at the end.
+  assert.deepEqual(ladder.map((quote) => quote.ordinal), ["主", "主", "反"]);
+  assert.equal(ladder[2]?.shortCode, "S3");
+  assert.equal(ladder[2]?.author, "op_c");
+});
+
+test("TopicDetailView newsroom block surfaces an uncertainty line from validator flags", () => {
+  const weakFlag: TopicAuditValidationFlag = {
+    severity: "WEAK",
+    kind: "thin-evidence",
+    section: "§2",
+    claim: "客服補救是主線",
+    reason: "僅一篇來源支撐",
+    evidenceRefs: ["S1.OP"]
+  };
+  const html = renderToStaticMarkup(
+    topicDetailViewElement({
+      topic,
+      signals,
+      pairs: [],
+      auditEvidence: [auditPacket],
+      auditMemos,
+      auditSummary: { reportStatus: "ready", analyzedCount: 1, queuedCount: 0 },
+      auditValidatorFlags: [weakFlag],
+      onBack: () => undefined,
+      onOpenPair: () => undefined,
+      onUpdateTopic: () => undefined
+    })
+  );
+
+  assert.match(html, /data-topic-newsroom-uncertainty="true"/);
+  assert.match(html, /待驗證/);
+  assert.match(html, /證據偏薄/);
+});
+
+test("SignalDrawer drill-in keeps the OP original text above the P1 judgment", () => {
+  const html = renderToStaticMarkup(
+    React.createElement(SignalDrawer, {
+      packet: auditPacket,
+      reading: auditMemos.signalReadings[0]!,
+      topicName: topic.name,
+      onClose: () => undefined
+    })
+  );
+
+  assert.match(html, /@alpha/);
+  const opIndex = html.indexOf("data-signal-drawer-block=\"op-card\"");
+  const p1Index = html.indexOf("data-signal-drawer-block=\"p1\"");
+  assert.ok(opIndex >= 0, "original post card should render");
+  assert.ok(p1Index >= 0, "P1 judgment block should render");
+  assert.ok(opIndex < p1Index, "original text must come before the AI judgment");
+});
+
+test("SignalDrawer presents the original post as the highest-weight serif SourceHero (Frame 07)", () => {
+  const html = renderToStaticMarkup(
+    React.createElement(SignalDrawer, {
+      packet: auditPacket,
+      reading: auditMemos.signalReadings[0]!,
+      topicName: topic.name,
+      onClose: () => undefined
+    })
+  );
+
+  // Original post is marked + rendered as the source hero, above the AI reading.
+  assert.match(html, /data-signal-drawer-source-kicker="true"/);
+  assert.match(html, /原文 · 最高權重/);
+  // The original quote is the prominent serif hero (16px), not 13.5px sans.
+  assert.match(html, /font-size:16px;line-height:1.6;color:#1b1a17;white-space:pre-wrap/);
+  const kickerIndex = html.indexOf("data-signal-drawer-source-kicker");
+  const p1Index = html.indexOf("data-signal-drawer-block=\"p1\"");
+  assert.ok(kickerIndex >= 0 && kickerIndex < p1Index, "source hero leads the AI reading");
+});
+
+test("TopicDetailView uses shared primitives and topic accent rhythm for audit mode surfaces", () => {
+  const auditEvidence = Array.from({ length: 4 }, (_, index) => ({
+    ...auditPacket,
+    signalId: `audit-signal-${index + 1}`,
+    itemId: `audit-item-${index + 1}`,
+    shortCode: `S${index + 1}`,
+    opText: `audit source ${index + 1}`
+  }));
+  const html = renderToStaticMarkup(
+    topicDetailViewElement({
+      topic,
+      signals,
+      pairs: [],
+      auditEvidence,
+      auditMemos,
+      auditSummary: { reportStatus: "ready", analyzedCount: 4, queuedCount: 0 },
       auditValidatorFlags: [],
       onBack: () => undefined,
       onOpenPair: () => undefined,
@@ -476,6 +644,70 @@ test("TopicDetailView audit report CTA keeps command wiring after the surface re
     cta.dispatchEvent(new dom.window.MouseEvent("click", { bubbles: true }));
 
     assert.deepEqual(calls, [{ topicId: "topic-1" }]);
+  } finally {
+    flushSync(() => root.unmount());
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    Object.assign(globalThis, previous);
+  }
+});
+
+test("TopicDetailView reveals derived lane content (keywords, comments, voices) when a narrative lane is clicked", async () => {
+  const { JSDOM } = await import("jsdom");
+  const { createRoot } = await import("react-dom/client");
+  const { flushSync } = await import("react-dom");
+  const dom = new JSDOM("<div id=\"root\"></div>", { url: "https://dlens.test" });
+  const previous = {
+    window: globalThis.window,
+    document: globalThis.document,
+    HTMLElement: globalThis.HTMLElement,
+    Event: globalThis.Event,
+    MouseEvent: globalThis.MouseEvent
+  };
+  Object.assign(globalThis, {
+    window: dom.window,
+    document: dom.window.document,
+    HTMLElement: dom.window.HTMLElement,
+    Event: dom.window.Event,
+    MouseEvent: dom.window.MouseEvent
+  });
+  const rootElement = dom.window.document.getElementById("root");
+  assert.ok(rootElement);
+  const root = createRoot(rootElement);
+
+  try {
+    flushSync(() => {
+      root.render(
+        topicDetailViewElement({
+          topic,
+          signals,
+          pairs: [],
+          sessionMode: "topic",
+          auditEvidence: [auditPacket],
+          auditMemos,
+          auditSummary: { reportStatus: "ready", analyzedCount: 1, queuedCount: 0 },
+          auditValidatorFlags: [],
+          onBack: () => undefined,
+          onOpenPair: () => undefined,
+          onUpdateTopic: () => undefined
+        })
+      );
+    });
+
+    // Before clicking, no lane detail is revealed.
+    assert.equal(rootElement.querySelector("[data-narrative-lane-detail]"), null);
+
+    const laneButton = rootElement.querySelector<HTMLButtonElement>("button[data-narrative-lane=\"lane-1\"]");
+    assert.ok(laneButton, "narrative lane button should render");
+    flushSync(() => {
+      laneButton!.dispatchEvent(new dom.window.MouseEvent("click", { bubbles: true }));
+    });
+
+    const panel = rootElement.querySelector("[data-narrative-lane-detail=\"lane-1\"]");
+    assert.ok(panel, "clicking a lane reveals its detail panel");
+    // Real derived content, traceable to the captured packet — not decoration.
+    assert.ok(panel!.querySelector("[data-lane-keyword]"), "recurring wording chips render");
+    assert.match(panel!.textContent ?? "", /我也遇到/);
+    assert.match(panel!.textContent ?? "", /reader/);
   } finally {
     flushSync(() => root.unmount());
     await new Promise((resolve) => setTimeout(resolve, 0));
@@ -618,14 +850,14 @@ test("TopicDetailView keeps the B-14 audit count at 15/15 when a topic also has 
   assert.match(html, /15 訊號/);
   assert.match(html, /15\/15 已分析/);
   assert.match(html, /覆蓋 15\/15/);
-  assert.equal((html.match(/data-source-row="S\d+"/g) ?? []).length, 15);
+  assert.equal((html.match(/data-source-row="S\d+"/g) ?? []).length, 12);
   assert.doesNotMatch(html, /16 訊號/);
   assert.doesNotMatch(html, /15\/16 已分析/);
   assert.doesNotMatch(html, /覆蓋 15\/16/);
 });
 
-test("TopicDetailView derives audit header, coverage, and source rows from the same evidence list", () => {
-  const auditEvidence = Array.from({ length: 2 }, (_, index) => ({
+test("TopicDetailView derives audit header, coverage, and remaining source rows from the evidence list", () => {
+  const auditEvidence = Array.from({ length: 4 }, (_, index) => ({
     ...auditPacket,
     signalId: `audit-signal-${index + 1}`,
     itemId: `audit-item-${index + 1}`,
@@ -661,10 +893,14 @@ test("TopicDetailView derives audit header, coverage, and source rows from the s
     })
   );
 
-  assert.match(html, /2 訊號/);
-  assert.match(html, /1\/2 已分析/);
-  assert.match(html, /覆蓋 2\/2/);
-  assert.equal((html.match(/data-source-row="S\d+"/g) ?? []).length, 2);
+  assert.match(html, /4 訊號/);
+  assert.match(html, /1\/4 已分析/);
+  assert.match(html, /覆蓋 4\/4/);
+  assert.equal((html.match(/data-source-row="S\d+"/g) ?? []).length, 1);
+  assert.doesNotMatch(html, /data-source-row="S1"/);
+  assert.doesNotMatch(html, /data-source-row="S2"/);
+  assert.doesNotMatch(html, /data-source-row="S3"/);
+  assert.match(html, /data-source-row="S4"/);
   assert.doesNotMatch(html, /12 訊號/);
   assert.doesNotMatch(html, /5\/12 已分析/);
   assert.doesNotMatch(html, /覆蓋 5\/12/);

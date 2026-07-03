@@ -1,4 +1,4 @@
-import { useEffect, useLayoutEffect, useRef, useState } from "react";
+import { useEffect, useLayoutEffect, useRef, useState, type CSSProperties } from "react";
 import type { MainPage, PopupPage } from "../state/types";
 import { CasebookView } from "./CasebookView";
 import { CompareSetupView } from "./CompareSetupView";
@@ -32,6 +32,16 @@ import type { InPageCollectorAppModel } from "./useInPageCollectorAppState";
 const WORKSPACE_SWITCHER_MODES: ReadonlyArray<WorkspaceSwitcherMode> = IS_PR_ONLY_BUILD
   ? ["pr-evidence"]
   : ["topic", "product", "pr-evidence"];
+
+// Reserved breathing room below the last card. This MUST be a real scrollable
+// spacer element (see the bottom of the scroll viewport), NOT the container's
+// `padding-bottom`: Chrome will not scroll into the padding-bottom of a flex
+// column scroll container, so padding-bottom silently clips the last card /
+// action button in every mode. Do not "simplify" this back into padding-bottom.
+const POPUP_VIEWPORT_BOTTOM_PADDING = tokens.spacing.section + 48;
+const SETTINGS_WORKSPACE_SURFACE_STYLE: CSSProperties = {
+  overflow: "visible"
+};
 
 function shouldShowProcessingContextStrip(folderMode: string, page: PopupPage): boolean {
   if (folderMode === "product" || folderMode === "pr-evidence") {
@@ -335,7 +345,7 @@ export function InPageCollectorPopup({ app }: { app: InPageCollectorAppModel }) 
           overflowX: "hidden",
           borderRadius: tokens.radius.lg + 2,
           padding: `${tokens.spacing.section}px`,
-          paddingBottom: tokens.spacing.section + 8,
+          paddingBottom: 0,
           display: "flex",
           flexDirection: "column",
           gap: tokens.spacing.md,
@@ -553,7 +563,7 @@ export function InPageCollectorPopup({ app }: { app: InPageCollectorAppModel }) 
           ) : null}
 
           {guardedPage === "settings" ? (
-            <WorkspaceSurface tone="utility">
+            <WorkspaceSurface tone="utility" style={SETTINGS_WORKSPACE_SURFACE_STYLE}>
               <SettingsView
                 sessionMode={activeFolder?.mode ?? "topic"}
                 canEditSessionMode
@@ -593,11 +603,22 @@ export function InPageCollectorPopup({ app }: { app: InPageCollectorAppModel }) 
             <strong>Error:</strong> {getProcessingFailureMessage(snapshot.tab.error)}
           </div>
         ) : null}
+
+        {/* Scrollable bottom spacer — keeps the last card + action button fully
+            reachable. See POPUP_VIEWPORT_BOTTOM_PADDING for why this is an
+            element and not the scroll container's padding-bottom. */}
+        <div
+          data-workspace-popup-bottom-spacer="true"
+          aria-hidden="true"
+          style={{ height: POPUP_VIEWPORT_BOTTOM_PADDING, flexShrink: 0 }}
+        />
       </div>
     </div>
   );
 }
 
 export const inPageCollectorPopupTestables = {
-  shouldShowProcessingContextStrip
+  shouldShowProcessingContextStrip,
+  popupViewportBottomPadding: POPUP_VIEWPORT_BOTTOM_PADDING,
+  settingsWorkspaceSurfaceStyle: SETTINGS_WORKSPACE_SURFACE_STYLE
 };

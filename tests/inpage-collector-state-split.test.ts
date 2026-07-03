@@ -121,7 +121,26 @@ test("buildActiveResultFromCompareItems preserves the live result contract", () 
   assert.equal(result.viewedAt, viewedAt);
 });
 
-test("buildInitialPopupWorkspaceState derives compare mode only when the popup opens with a ready pair", () => {
+test("buildInitialPopupWorkspaceState starts from the persisted popup page when available", () => {
+  const summaryWithPair = {
+    total: 2,
+    ready: 2,
+    crawling: 0,
+    analyzing: 0,
+    pending: 0,
+    failed: 0,
+    hasReadyPair: true,
+    hasInflight: false
+  };
+
+  assert.deepEqual(buildInitialPopupWorkspaceState(summaryWithPair, true, "saved-signals"), {
+    currentMode: "saved-signals",
+    popupOpen: true,
+    modeLocked: true
+  });
+});
+
+test("buildInitialPopupWorkspaceState derives compare mode only when no persisted popup page exists", () => {
   const summaryWithPair = {
     total: 2,
     ready: 2,

@@ -1,8 +1,8 @@
-import { useEffect } from "react";
+import { useLayoutEffect } from "react";
 
 export function buildPopupKeyframeCss(): string {
   return `
-      @import url("https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=JetBrains+Mono:wght@400;500;700&family=Noto+Sans+TC:wght@400;500;600;700;900&family=Noto+Serif+TC:wght@400;500;700;900&display=swap");
+      @import url("https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=JetBrains+Mono:wght@400;600;700&family=Noto+Serif+TC:wght@400;600;700&display=swap");
 
       :root {
         --dlens-canvas-deep: #f7f4ec;
@@ -47,7 +47,11 @@ export function buildPopupKeyframeCss(): string {
 }
 
 export function usePopupKeyframes() {
-  useEffect(() => {
+  // useLayoutEffect (not useEffect) so the :root tokens, paper-grain, and
+  // keyframes land in the document head before the popup's first paint —
+  // otherwise the overlay paints one unstyled frame ("old UI" flash) while a
+  // post-paint effect catches up.
+  useLayoutEffect(() => {
     if (document.getElementById("__dlens_popup_keyframes__")) {
       return;
     }

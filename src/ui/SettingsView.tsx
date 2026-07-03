@@ -1,4 +1,4 @@
-import { useRef, useState, type ReactNode } from "react";
+import { useRef, useState, type CSSProperties, type ReactNode } from "react";
 
 import type { ExtensionSettings, FolderMode, LayoutPreferences, ProductContext, ProductProfile, ProductProfileContextFile } from "../state/types";
 import {
@@ -63,6 +63,32 @@ const MAX_CONTEXT_FILE_CHARS = 30000;
 const MAX_CONTEXT_TOTAL_CHARS = 60000;
 const KB = 1024;
 const MB = 1024 * 1024;
+
+const settingsSurfaceStyle: CSSProperties = {
+  display: "grid",
+  gap: tokens.spacing.md,
+  overflow: "visible"
+};
+
+const settingsDrawerStyle: CSSProperties = {
+  display: "grid",
+  gap: tokens.spacing.md,
+  overflow: "visible"
+};
+
+// Flows at the end of the form (not sticky) so the preceding card's bottom
+// border and button are never covered by a floating bar. The popup scroll
+// viewport reserves bottom padding, so the Save button stays fully reachable.
+const settingsSaveDockStyle: CSSProperties = {
+  display: "grid",
+  gap: 8,
+  marginTop: tokens.spacing.sm,
+  padding: tokens.spacing.sm,
+  borderRadius: tokens.radius.card,
+  border: `1px solid ${tokens.color.line}`,
+  background: tokens.color.contentSurface,
+  boxShadow: tokens.shadow.card
+};
 
 function formatCompactCount(count: number): string {
   if (count >= 1000) {
@@ -251,8 +277,8 @@ export function SettingsView({
         stamp={<Stamp tone="neutral">Workspace</Stamp>}
       />
 
-      <WorkspaceSurface tone="utility" style={{ display: "grid", gap: tokens.spacing.md }}>
-        <div data-settings-surface="drawer" style={{ display: "grid", gap: tokens.spacing.md }}>
+      <WorkspaceSurface tone="utility" style={settingsSurfaceStyle}>
+        <div data-settings-surface="drawer" style={settingsDrawerStyle}>
           <SettingsGroup name="folder" kicker="Folder">
             <div style={{ display: "grid", gap: 10 }}>
               <div style={{ fontSize: 12, fontWeight: 700, color: tokens.color.ink }}>資料夾類型</div>
@@ -548,25 +574,27 @@ export function SettingsView({
             </SettingsGroup>
           ) : null}
 
-          <PrimaryButton onClick={onSaveSettings} disabled={isSavingSettings} style={{ width: "100%" }}>
-            {isSavingSettings ? "Saving settings..." : "Save settings"}
-          </PrimaryButton>
-          {settingsSaveStatus ? (
-            <div
-              data-settings-save-status={settingsSaveStatus.kind}
-              style={{
-                fontSize: 11,
-                lineHeight: 1.55,
-                color: settingsSaveStatus.kind === "error" ? tokens.color.failed : tokens.color.success,
-                padding: "8px 10px",
-                borderRadius: tokens.radius.card,
-                border: `1px solid ${settingsSaveStatus.kind === "error" ? tokens.color.failedSoft : tokens.color.successSoft}`,
-                background: settingsSaveStatus.kind === "error" ? tokens.color.failedSoft : tokens.color.successSoft
-              }}
-            >
-              {settingsSaveStatus.message}
-            </div>
-          ) : null}
+          <div data-settings-save-dock="footer" style={settingsSaveDockStyle}>
+            <PrimaryButton onClick={onSaveSettings} disabled={isSavingSettings} style={{ width: "100%" }}>
+              {isSavingSettings ? "Saving settings..." : "Save settings"}
+            </PrimaryButton>
+            {settingsSaveStatus ? (
+              <div
+                data-settings-save-status={settingsSaveStatus.kind}
+                style={{
+                  fontSize: 11,
+                  lineHeight: 1.55,
+                  color: settingsSaveStatus.kind === "error" ? tokens.color.failed : tokens.color.success,
+                  padding: "8px 10px",
+                  borderRadius: tokens.radius.card,
+                  border: `1px solid ${settingsSaveStatus.kind === "error" ? tokens.color.failedSoft : tokens.color.successSoft}`,
+                  background: settingsSaveStatus.kind === "error" ? tokens.color.failedSoft : tokens.color.successSoft
+                }}
+              >
+                {settingsSaveStatus.message}
+              </div>
+            ) : null}
+          </div>
         </div>
       </WorkspaceSurface>
     </div>

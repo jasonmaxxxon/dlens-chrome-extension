@@ -572,6 +572,8 @@ test("StatusDot and StatusRail map backend reachability and work states to DOM h
   assert.match(railHtml, /data-backend-reachability="slow"/);
   assert.match(railHtml, /data-backend-work-kind="retry_waiting"/);
   assert.match(railHtml, /1\/3 ready/);
+  assert.match(railHtml, /title="Backend: Backend slow \| Work: Retry waiting · 2 tasks are backed off - Backend is waiting before retrying\. Not actively crawling\. \| Items: 1\/3 ready"/);
+  assert.match(railHtml, /aria-label="Backend: Backend slow \| Work: Retry waiting · 2 tasks are backed off - Backend is waiting before retrying\. Not actively crawling\. \| Items: 1\/3 ready"/);
 });
 
 test("QuoteBlock uses the editorial quote text style", () => {

@@ -504,6 +504,7 @@ export function useInPageCollectorAppState({ snapshot, tabId, sendAndSync }: Use
   const [settingsSaveStatus, setSettingsSaveStatus] = useState<{ kind: "success" | "error"; message: string } | null>(null);
   const [isSavingSettings, setIsSavingSettings] = useState(false);
   const [optimisticSessionMode, setOptimisticSessionMode] = useState<FolderMode | null>(null);
+  const [localPopupOpen, setLocalPopupOpen] = useState(false);
 
   const snapshotActiveFolder = useMemo(() => getActiveSession(snapshot), [snapshot]);
   const optimisticFolder = useMemo(
@@ -527,7 +528,13 @@ export function useInPageCollectorAppState({ snapshot, tabId, sendAndSync }: Use
   }, []);
   const activeItem = useMemo(() => getActiveItem(snapshot), [snapshot]);
   const activeFolderMode: FolderMode = activeFolder?.mode ?? "archive";
-  const popupOpen = Boolean(snapshot?.tab.popupOpen);
+  const persistedPopupOpen = Boolean(snapshot?.tab.popupOpen);
+  const popupOpen = persistedPopupOpen || localPopupOpen;
+  useEffect(() => {
+    if (persistedPopupOpen) {
+      setLocalPopupOpen(false);
+    }
+  }, [persistedPopupOpen]);
   const processingSummary = useMemo(
     () => summarizeSessionProcessing(activeFolder?.items || []),
     [activeFolder?.items]
@@ -1521,12 +1528,46 @@ export function useInPageCollectorAppState({ snapshot, tabId, sendAndSync }: Use
   }
 
   async function onOpenPopup() {
-    await sendAndSync({ type: "popup/open-active-tab" });
+    setLocalPopupOpen(true);
+    try {
+      const response = await sendAndSync({ type: "popup/open-active-tab" });
+      if (!response.ok) {
+        setDisplayToast({
+          id: `popup-open-failed-${Date.now()}`,
+          kind: "queued",
+          message: `DLens 已開啟，但暫時無法儲存開啟狀態：${response.error}`
+        });
+      }
+    } catch (error) {
+      setDisplayToast({
+        id: `popup-open-failed-${Date.now()}`,
+        kind: "queued",
+        message: `DLens 已開啟，但背景同步失敗：${error instanceof Error ? error.message : String(error)}`
+      });
+    }
   }
 
   async function onTogglePopup() {
-    if (snapshot?.tab.popupOpen && tabId) {
-      await sendAndSync({ type: "popup/close-tab", tabId });
+    if (popupOpen) {
+      setLocalPopupOpen(false);
+      if (persistedPopupOpen && tabId) {
+        try {
+          const response = await sendAndSync({ type: "popup/close-tab", tabId });
+          if (!response.ok) {
+            setDisplayToast({
+              id: `popup-close-failed-${Date.now()}`,
+              kind: "queued",
+              message: `DLens 已關閉，但暫時無法儲存關閉狀態：${response.error}`
+            });
+          }
+        } catch (error) {
+          setDisplayToast({
+            id: `popup-close-failed-${Date.now()}`,
+            kind: "queued",
+            message: `DLens 已關閉，但背景同步失敗：${error instanceof Error ? error.message : String(error)}`
+          });
+        }
+      }
       return;
     }
     await onOpenPopup();

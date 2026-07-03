@@ -28,7 +28,7 @@ test("page registry derives home pages and rail-visible pages", () => {
 
   assert.deepEqual(getRailPagesForMode("archive"), ["library", "collect"]);
   assert.deepEqual(getRailPagesForMode("topic"), ["collect", "topics"]);
-  assert.deepEqual(getRailPagesForMode("product"), ["saved-signals", "classification", "actionable-filter", "collect"]);
+  assert.deepEqual(getRailPagesForMode("product"), ["saved-signals", "actionable-filter", "collect"]);
   assert.deepEqual(getRailPagesForMode("pr-evidence"), ["pr-evidence", "collect"]);
 });
 

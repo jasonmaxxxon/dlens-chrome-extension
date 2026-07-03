@@ -7,6 +7,7 @@ import {
 } from "../compare/topic-synthesis.ts";
 import type { TopicAuditStageName } from "../compare/topic-audit.ts";
 import type { TopicAuditValidationFlag } from "../compare/topic-audit-validator.ts";
+import { buildNarrativeLaneDetail } from "../viewmodel/narrative-lane-detail.ts";
 import type {
   FolderMode,
   SavedAnalysisSnapshot,
@@ -29,8 +30,14 @@ import { SignalDrawer } from "./SignalDrawer.tsx";
 import type { BackendWorkUiState } from "../state/processing-state.ts";
 import { tokens } from "./tokens.ts";
 import {
+  buildNewsroomLadder,
+  countValidationFlags,
   GhostButton as AuditGhostButton,
   NarrativeLane,
+  NarrativeLaneDetailPanel,
+  NewsroomLadder,
+  NewsroomLane,
+  NewsroomUncertainty,
   PrimaryButton as AuditPrimaryButton,
   SectionLabel,
   SourceRow,
@@ -1349,6 +1356,11 @@ export function TopicDetailView({
     }
     return audit.sourceRows;
   }, [activeAuditLane, activeAuditTheme, audit.sourceRows, auditLanes]);
+  const activeLane = activeAuditLane ? auditLanes.find((entry) => entry.id === activeAuditLane) ?? null : null;
+  const activeLaneDetail = useMemo(() => {
+    if (!activeLane) return null;
+    return buildNarrativeLaneDetail({ lane: activeLane, packets: auditEvidence });
+  }, [activeLane, auditEvidence]);
   const openAuditRow = openAuditSignalId
     ? audit.sourceRows.find((row) => row.packet.signalId === openAuditSignalId || row.packet.shortCode === openAuditSignalId) ?? null
     : null;
@@ -1672,6 +1684,35 @@ export function TopicDetailView({
 
   if (sessionMode === "topic") {
     const showAuditPlaceholder = auditSummaryValue.reportStatus === "failed" || (auditThemes.length === 0 && auditLanes.length === 0 && auditEvidence.length === 0);
+    const newsroomUncertaintyText = (() => {
+      const counts = countValidationFlags(auditValidatorFlags);
+      const parts: string[] = [];
+      if (counts.fail > 0) parts.push(`${counts.fail} 項判讀未通過驗證`);
+      if (counts.weak > 0) parts.push(`${counts.weak} 項證據偏薄`);
+      if (parts.length === 0 && auditSummaryValue.queuedCount > 0) {
+        parts.push(`還有 ${auditSummaryValue.queuedCount} 篇尚未納入判讀`);
+      }
+      return parts.join("、");
+    })();
+    const newsroomLadder = auditLanes.length > 0
+      ? buildNewsroomLadder(
+        auditLanes,
+        audit.sourceRows.map((row) => ({
+          shortCode: row.packet.shortCode,
+          text: row.packet.opText || "",
+          author: row.packet.opAuthor || "unknown"
+        }))
+      )
+      : [];
+    const newsroomQuoteCodes = new Set(newsroomLadder.map((quote) => quote.shortCode));
+    const visibleAuditSourceRows = newsroomLadder.length > 0
+      ? filteredAuditRows.filter((row) => !newsroomQuoteCodes.has(row.packet.shortCode))
+      : filteredAuditRows;
+    const showAuditSourceList = auditEvidence.length > 0 && visibleAuditSourceRows.length > 0;
+    const auditSourceSectionTitle = newsroomLadder.length > 0 ? "其他資料來源" : "資料來源";
+    const auditSourceSectionCaption = newsroomLadder.length > 0
+      ? "代表 quote 以外　一行一篇"
+      : "一行一篇　點開看判讀與引用";
     return (
       <div style={viewRootStyle()} data-topic-load-state={loadState}>
         <Breadcrumb topicName={topic.name} onBack={handleBack} />
@@ -1741,7 +1782,7 @@ export function TopicDetailView({
             style={{ gap: 8 }}
           >
             {auditLanes.map((lane) => (
-              <NarrativeLane
+              <NewsroomLane
                 key={lane.id}
                 lane={lane}
                 active={activeAuditLane === lane.id}
@@ -1751,16 +1792,28 @@ export function TopicDetailView({
                 }}
               />
             ))}
+            <NewsroomUncertainty text={newsroomUncertaintyText} />
           </TopicDetailSection>
         ) : null}
 
+        {activeLane && activeLaneDetail ? (
+          <NarrativeLaneDetailPanel
+            detail={activeLaneDetail}
+            laneLabel={activeLane.label}
+            consensus={activeLane.consensus}
+            onOpenQuote={setOpenAuditSignalId}
+          />
+        ) : null}
+
+        {newsroomLadder.length > 0 ? <NewsroomLadder quotes={newsroomLadder} onOpenQuote={setOpenAuditSignalId} /> : null}
+
         {auditEvidence.length === 0 ? topicSourceFeed : null}
 
-        {auditEvidence.length > 0 ? (
+        {showAuditSourceList ? (
           <TopicDetailSection
             surface="sources"
-            title="資料來源"
-            caption="一行一篇　點開看判讀與引用"
+            title={auditSourceSectionTitle}
+            caption={auditSourceSectionCaption}
             action={activeAuditLane || activeAuditTheme ? (
               <AuditGhostButton
                 onClick={() => {
@@ -1774,7 +1827,7 @@ export function TopicDetailView({
             ) : null}
           >
             <div data-topic-audit-source-list-style="audit-report" style={{ display: "grid", gap: 2, borderRadius: tokens.radius.cardLg, background: tokens.color.elevated, boxShadow: tokens.shadow.topicCard, padding: 6 }}>
-              {filteredAuditRows.map((row) => (
+              {visibleAuditSourceRows.map((row) => (
                 <SourceRow
                   key={row.packet.signalId}
                   packet={row.packet}
@@ -1882,6 +1935,14 @@ export function TopicDetailView({
                 }}
               />
             ))}
+            {activeLane && activeLaneDetail ? (
+              <NarrativeLaneDetailPanel
+                detail={activeLaneDetail}
+                laneLabel={activeLane.label}
+                consensus={activeLane.consensus}
+                onOpenQuote={setOpenAuditSignalId}
+              />
+            ) : null}
           </section>
         ) : null}
 

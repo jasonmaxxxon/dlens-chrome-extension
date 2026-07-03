@@ -34,6 +34,8 @@ import { PrEvidenceView, prEvidenceViewTestables } from "../src/ui/PrEvidenceVie
 import { ProductSignalView, DLENS_MOTION_CSS, productSignalViewTestables } from "../src/ui/ProductSignalViews.tsx";
 import { SettingsView } from "../src/ui/SettingsView.tsx";
 import {
+  EvidenceSourceHero,
+  ReadingAnnotation,
   ModeRail,
   UtilityEdge,
   WorkspaceShell,
@@ -58,6 +60,30 @@ function productTestProfile() {
     ]
   };
 }
+
+test("shared evidence primitives keep source first and annotation secondary", () => {
+  const html = renderToStaticMarkup(
+    React.createElement(React.Fragment, null,
+      React.createElement(EvidenceSourceHero, {
+        author: "@op_studio",
+        meta: "threads.com/post/3JqL8K · 5h",
+        metrics: "♥ 142 · 回覆 31"
+      }, "用了 DLens 三週，最有感的是 PR 那邊 evidence ledger 真的可交付。"),
+      React.createElement(ReadingAnnotation, {
+        label: "判讀"
+      }, "作者把交付成本從 screenshot 重排轉成 CSV / MD / DOCX。")
+    )
+  );
+
+  assert.match(html, /data-evidence-source-hero="true"/);
+  assert.match(html, /data-evidence-source-quote="true"/);
+  assert.match(html, /用了 DLens 三週/);
+  assert.match(html, /data-reading-annotation="true"/);
+  assert.match(html, /作者把交付成本/);
+  assert.ok(html.indexOf("data-evidence-source-hero") < html.indexOf("data-reading-annotation"));
+  assert.doesNotMatch(html, /PRODUCT MODE|TOPIC MODE|PR MODE|SHARED\s*·\s*DRILL-IN TEMPLATE/);
+  assert.doesNotMatch(html, /\bwidth:720px|\bmin-width:720px/);
+});
 
 function itemStatusFromReadiness(readiness: any): SessionItem["status"] {
   if (readiness?.itemStatus) return readiness.itemStatus;
@@ -553,6 +579,11 @@ test("InPageCollectorPopup hides the global processing strip in Product and PR w
   assert.equal(shouldShow("topic", "casebook"), false);
   assert.equal(shouldShow("product", "saved-signals"), false);
   assert.equal(shouldShow("pr-evidence", "pr-evidence"), false);
+});
+
+test("InPageCollectorPopup keeps extra scroll padding below the last card", () => {
+  assert.ok(inPageCollectorPopupTestables.popupViewportBottomPadding >= tokens.spacing.section + 40);
+  assert.equal(inPageCollectorPopupTestables.settingsWorkspaceSurfaceStyle.overflow, "visible");
 });
 
 // Library now uses a compact readiness bar instead of the older readiness-table support copy.
@@ -1141,6 +1172,9 @@ test("PrEvidenceView renders campaign setup and compact evidence ledger", () => 
   assert.match(html, /data-pr-campaign-setup="true"/);
   assert.match(html, /data-pr-actions="true"/);
   assert.match(html, /data-pr-evidence-ledger="compact"/);
+  assert.match(html, /data-pr-match-summary="true"/);
+  assert.match(html, /data-pr-metrics-detail="collapsed"/);
+  assert.doesNotMatch(html, /data-pr-work-tab=/);
   assert.match(html, /批次判斷/);
   assert.match(html, /抓取進階指標/);
   assert.match(html, /匯出 CSV/);
@@ -1186,6 +1220,10 @@ test("PrEvidenceView renders PR campaign and rows from the shared resource state
   assert.match(html, /shared_author/);
   assert.match(html, /Shared row from app boundary/);
   assert.match(html, /1 列/);
+  assert.match(html, /data-pr-evidence-rows-detail="collapsed"/);
+  assert.match(html, /data-pr-criteria-health-detail="c1"/);
+  assert.match(html, /data-pr-criteria-health-matches="c1"/);
+  assert.match(html, /data-pr-criteria-health-match-row="true"/);
 });
 
 test("PrEvidenceView aligns the editorial PR structure to shared workspace tokens", () => {
@@ -1195,9 +1233,11 @@ test("PrEvidenceView aligns the editorial PR structure to shared workspace token
   assert.match(html, /data-mode-header="pr-evidence"/);
   assert.match(html, /data-workspace-surface="utility"/);
   assert.match(html, /data-pr-working-area="true"/);
-  assert.match(html, /證據帳本/);
   assert.match(html, /批次判斷/);
-  assert.match(html, /抓取指標/);
+  assert.match(html, /抓取進階指標/);
+  assert.match(html, /data-pr-match-summary="true"/);
+  assert.match(html, /data-pr-metrics-detail="collapsed"/);
+  assert.doesNotMatch(html, /data-pr-work-tab=/);
   assert.match(html, /border-radius:20px/);
   assert.match(html, /0 4px 14px -4px rgba\(27,26,23,0\.07\)/);
 });
@@ -1229,7 +1269,7 @@ test("PR Evidence ledger rows expose the original Threads post link", () => {
     collectedAt: "2026-05-26T00:00:00.000Z"
   };
   const { EvidenceLedger } = prEvidenceViewTestables as unknown as {
-    EvidenceLedger: (props: { rows: ReturnType<typeof buildPrEvidenceVm>["ledger"]["rows"] }) => React.ReactElement;
+    EvidenceLedger: (props: { rows: ReturnType<typeof buildPrEvidenceVm>["ledger"]["rows"]; caption: string }) => React.ReactElement;
   };
   const campaign: PrCampaign = {
     id: "campaign-1",
@@ -1253,10 +1293,12 @@ test("PR Evidence ledger rows expose the original Threads post link", () => {
   });
   const html = renderToStaticMarkup(
     React.createElement(EvidenceLedger, {
-      rows: vm.ledger.rows
+      rows: vm.ledger.rows,
+      caption: vm.workingArea.ledgerCaption
     })
   );
 
+  assert.match(html, /data-pr-evidence-rows-detail="collapsed"/);
   assert.match(html, /data-pr-evidence-source-link="true"/);
   assert.match(html, /href="https:\/\/www\.threads\.net\/@alpha\/post\/1"/);
   assert.match(html, /target="_blank"/);
@@ -1310,18 +1352,214 @@ test("PR Evidence ledger rows use audit numbering and editorial quote blocks", (
   });
   const html = renderToStaticMarkup(
     React.createElement(prEvidenceViewTestables.EvidenceLedger, {
-      rows: vm.ledger.rows
+      rows: vm.ledger.rows,
+      caption: vm.workingArea.ledgerCaption
     })
   );
 
   assert.match(html, /data-pr-evidence-ledger-style="audit"/);
+  assert.match(html, /data-pr-evidence-rows-detail="collapsed"/);
   assert.match(html, /data-pr-evidence-row="audit"/);
   assert.match(html, /data-pr-evidence-audit-number="01"/);
   assert.match(html, /data-pr-evidence-audit-number="02"/);
   assert.match(html, /data-quote-block="shared"/);
+  assert.match(html, /data-pr-match-indicator="true"/);
+  assert.match(html, /2\/6/);
+  assert.match(html, /1\/6/);
+  assert.doesNotMatch(html, />C1</);
+  assert.doesNotMatch(html, />C2</);
   assert.match(html, /font-style:italic/);
   assert.match(html, /grid-template-columns:34px minmax\(0, 1fr\)/);
   assert.doesNotMatch(html, /min-width:1320/);
+});
+
+test("PR criteria health surfaces real criterion labels and the systemic gap", () => {
+  const campaign: PrCampaign = {
+    id: "campaign-health",
+    sessionId: "session-pr",
+    name: "Launch",
+    briefText: "Brief",
+    criteria: [
+      { id: "c1", label: "活動名稱" },
+      { id: "c2", label: "Hashtag" },
+      { id: "c3", label: "核心訊息" },
+      { id: "c4", label: "場地" },
+      { id: "c5", label: "體驗主題" },
+      { id: "c6", label: "CTA / 報名動作" }
+    ],
+    createdAt: "2026-05-26T00:00:00.000Z",
+    updatedAt: "2026-05-26T00:00:00.000Z",
+    lastMatchedAt: "2026-05-26T02:00:00.000Z"
+  };
+  const rows: PrEvidenceRow[] = Array.from({ length: 4 }, (_, index) => ({
+    id: `row-health-${index}`,
+    campaignId: "campaign-health",
+    itemId: `item-health-${index}`,
+    postUrl: `https://www.threads.net/@health/post/${index}`,
+    authorHandle: `health_${index}`,
+    caption: `Health row ${index}`,
+    metrics: { likes: index, comments: 0, reposts: 0 },
+    criteriaMatches: {
+      c1: true,
+      c2: index < 2,
+      c3: index < 3,
+      c4: index < 1,
+      c5: index < 1,
+      c6: false
+    },
+    collectedAt: "2026-05-26T01:00:00.000Z"
+  }));
+  const vm = buildPrEvidenceVm({ campaign: prCampaignToDraft(campaign), rows });
+  const CriteriaHealth = (prEvidenceViewTestables as unknown as {
+    CriteriaHealth: (props: { health: typeof vm.criteriaHealth; rows: typeof vm.ledger.rows }) => React.ReactElement;
+  }).CriteriaHealth;
+  const html = renderToStaticMarkup(
+    React.createElement(CriteriaHealth, { health: vm.criteriaHealth, rows: vm.ledger.rows })
+  );
+
+  assert.match(html, /data-pr-criteria-health="true"/);
+  // Frame 10: KPI grid + score bars + systemic-gap callout.
+  assert.match(html, /data-pr-criteria-health-kpis="true"/);
+  assert.match(html, /Captured/);
+  assert.match(html, /Strong/);
+  assert.match(html, /Criteria 待補/);
+  // F1: the real criterion label stays primary; the C-id is only a secondary tag.
+  assert.match(html, /CTA \/ 報名動作/);
+  assert.match(html, /活動名稱/);
+  assert.match(html, /data-pr-criteria-id="c6"/);
+  assert.match(html, /系統性缺口/);
+  // C6 has zero coverage -> it is the GAP row, sorted to the bottom.
+  assert.match(html, /data-pr-criteria-health-strength="gap"/);
+  assert.match(html, /data-pr-criteria-health-detail="c1"/);
+  assert.match(html, /data-pr-criteria-health-matches="c1"/);
+  assert.match(html, /data-pr-criteria-health-match-row="true"/);
+  assert.match(html, /GAP/);
+});
+
+test("PrEvidenceView renders criteria health after matching and keeps the one-dot ledger", () => {
+  const campaign: PrCampaign = {
+    id: "campaign-health-view",
+    sessionId: "session-pr",
+    name: "Launch",
+    briefText: "Brief",
+    criteria: [
+      { id: "c1", label: "活動名稱" },
+      { id: "c2", label: "Hashtag" },
+      { id: "c3", label: "核心訊息" },
+      { id: "c4", label: "場地" },
+      { id: "c5", label: "體驗主題" },
+      { id: "c6", label: "CTA / 報名動作" }
+    ],
+    createdAt: "2026-05-26T00:00:00.000Z",
+    updatedAt: "2026-05-26T00:00:00.000Z",
+    lastMatchedAt: "2026-05-26T02:00:00.000Z"
+  };
+  const row: PrEvidenceRow = {
+    id: "row-health-view",
+    campaignId: "campaign-health-view",
+    itemId: "item-health-view",
+    postUrl: "https://www.threads.net/@health/post/1",
+    authorHandle: "health_view",
+    caption: "Matched evidence row",
+    metrics: { likes: 5, comments: 1, reposts: 0 },
+    criteriaMatches: { c1: true, c2: true, c3: false, c4: false, c5: false, c6: false },
+    collectedAt: "2026-05-26T01:00:00.000Z"
+  };
+  const html = renderPrEvidenceView({ campaign: prCampaignToDraft(campaign), rows: [row] });
+
+  assert.match(html, /data-pr-criteria-health="true"/);
+  assert.match(html, /data-pr-match-indicator="true"/);
+  assert.ok(
+    html.indexOf('data-pr-criteria-health="true"') < html.indexOf('data-pr-evidence-ledger="compact"'),
+    "criteria health should appear before the evidence ledger"
+  );
+  assert.doesNotMatch(html, /data-pr-work-tab=/);
+});
+
+test("PrEvidenceView hides criteria health until evidence has been matched", () => {
+  const html = renderPrEvidenceView();
+  assert.doesNotMatch(html, /data-pr-criteria-health="true"/);
+});
+
+function prFrameCampaign(overrides: Partial<PrCampaign> = {}): PrCampaign {
+  return {
+    id: "campaign-pr-frames",
+    sessionId: "session-pr",
+    name: "Launch",
+    briefText: "本季 PR brief：自由接案者把 evidence 變成可交付。",
+    criteria: [
+      { id: "c1", label: "活動名稱" },
+      { id: "c2", label: "Hashtag" },
+      { id: "c3", label: "核心訊息" },
+      { id: "c4", label: "場地" },
+      { id: "c5", label: "體驗主題" },
+      { id: "c6", label: "CTA / 報名動作" }
+    ],
+    createdAt: "2026-05-26T00:00:00.000Z",
+    updatedAt: "2026-05-26T00:00:00.000Z",
+    lastMatchedAt: "2026-05-26T02:00:00.000Z",
+    ...overrides
+  };
+}
+
+function prFrameRow(id: string, matches: number): PrEvidenceRow {
+  const ids = ["c1", "c2", "c3", "c4", "c5", "c6"] as const;
+  const criteriaMatches = Object.fromEntries(ids.map((cid, index) => [cid, index < matches])) as PrEvidenceRow["criteriaMatches"];
+  return {
+    id,
+    campaignId: "campaign-pr-frames",
+    itemId: `item-${id}`,
+    postUrl: `https://www.threads.net/@pr/post/${id}`,
+    authorHandle: `pr_${id}`,
+    caption: `PR caption ${id}`,
+    metrics: { likes: 5, comments: 1, reposts: 0 },
+    criteriaMatches,
+    collectedAt: "2026-05-26T01:00:00.000Z"
+  };
+}
+
+test("Frame 09 — ledger strip surfaces captured / strong / outlier from real match counts", () => {
+  const vm = buildPrEvidenceVm({
+    campaign: prCampaignToDraft(prFrameCampaign()),
+    rows: [prFrameRow("a", 5), prFrameRow("b", 2), prFrameRow("c", 3)]
+  });
+  const html = renderToStaticMarkup(
+    React.createElement(prEvidenceViewTestables.EvidenceLedger, { rows: vm.ledger.rows, caption: vm.workingArea.ledgerCaption })
+  );
+
+  assert.match(html, /data-pr-evidence-rows-detail="collapsed"/);
+  assert.match(html, /data-pr-ledger-strip="true"/);
+  assert.match(html, /captured/);
+  assert.match(html, /strong/);
+  assert.match(html, /outlier/);
+  // one strong (5 matches >= 4), one outlier (2 matches <= 2).
+  assert.match(html, /過 4 criteria 以上為 strong/);
+});
+
+test("Frame 11 — export preview shows ready card, format cards, and the systemic-gap note", () => {
+  const html = renderPrEvidenceView({
+    campaign: prCampaignToDraft(prFrameCampaign()),
+    rows: [prFrameRow("a", 1)]
+  });
+
+  assert.match(html, /data-pr-export-ready="true"/);
+  assert.match(html, /輸出 ready/);
+  assert.match(html, /data-pr-format-card="csv"/);
+  assert.match(html, /data-pr-format-card="md"/);
+  assert.match(html, /data-pr-format-card="docx"/);
+  // c2..c6 have zero matches -> a systemic gap note is written into the export.
+  assert.match(html, /data-pr-export-gap-note="true"/);
+});
+
+test("Frame 08 — criteria setup shows the AI-drafted banner when a brief is loaded", () => {
+  const html = renderPrEvidenceView({
+    campaign: prCampaignToDraft(prFrameCampaign()),
+    setupCollapsed: false
+  });
+
+  assert.match(html, /data-pr-criteria-ai-banner="true"/);
+  assert.match(html, /AI 已從 brief 抽出/);
+  assert.match(html, /6 條 criteria/);
 });
 
 test("PrEvidenceView keeps metrics actions prominent and avoids horizontal inspection tables", () => {
@@ -1365,8 +1603,10 @@ test("PrEvidenceView keeps metrics actions prominent and avoids horizontal inspe
 
   assert.match(html, /data-pr-metrics-action="toolbar"/);
   assert.match(html, /抓取進階指標/);
-  assert.match(html, /data-pr-work-tab="metrics"/);
-  assert.match(html, /data-pr-match-list="wrap"/);
+  assert.match(html, /data-pr-match-summary="true"/);
+  assert.match(html, /data-pr-metrics-detail="collapsed"/);
+  assert.doesNotMatch(html, /data-pr-work-tab=/);
+  assert.doesNotMatch(html, /data-pr-match-list="wrap"/);
   assert.match(html, /data-pr-metrics-list="wrap"/);
   assert.match(previewHtml, /data-pr-csv-preview-layout="wrap"/);
   assert.doesNotMatch(previewHtml, /min-width:1320/);
@@ -1412,7 +1652,8 @@ test("PR Evidence compact rows use shared typography tokens instead of fractiona
   });
   const ledgerHtml = renderToStaticMarkup(
     React.createElement(prEvidenceViewTestables.EvidenceLedger, {
-      rows: vm.ledger.rows
+      rows: vm.ledger.rows,
+      caption: vm.workingArea.ledgerCaption
     })
   );
   const previewHtml = renderToStaticMarkup(
@@ -1669,10 +1910,126 @@ test("SettingsView exposes Google provider and save action", () => {
   assert.match(html, /data-product-cache-reset="true"/);
   assert.match(html, /清除 Product cache/);
   assert.match(html, /只會移除 Product 分析、判讀與編譯脈絡/);
+  // Regression guard: the save dock must flow at the end of the form, never
+  // float over the preceding card. A bottom-anchored sticky bar clips the last
+  // card's border + button, which is the exact bug this replaces.
+  assert.match(html, /data-settings-save-dock="footer"/);
+  assert.doesNotMatch(html, /data-settings-save-dock="[^"]*"[^>]*position:sticky/);
   assert.match(html, /Save settings/);
   assert.match(html, /data-settings-save-status="success"/);
   assert.match(html, /ProductContext 已編譯/);
   assert.doesNotMatch(html, /Welcome|Get started/);
+});
+
+test("Frame 01 — saved-signals filter tabs surface unclassified / pending / classified", () => {
+  const html = renderToStaticMarkup(
+    productSignalViewElement({
+      kind: "saved-signals",
+      signals: [
+        { id: "s_ready", sessionId: "sess", itemId: "i1", source: "threads", inboxStatus: "unprocessed", capturedAt: "2026-04-27T00:00:00.000Z" },
+        { id: "s_pending", sessionId: "sess", itemId: "i2", source: "threads", inboxStatus: "unprocessed", capturedAt: "2026-04-27T00:00:00.000Z" },
+        { id: "s_err", sessionId: "sess", itemId: "i3", source: "threads", inboxStatus: "unprocessed", capturedAt: "2026-04-27T00:00:00.000Z" }
+      ],
+      productProfile: {
+        name: "DLens", category: "x", audience: "y", contextText: "z",
+        contextFiles: [{ id: "f", name: "README.md", kind: "readme", importedAt: "2026-04-27T00:00:00.000Z", charCount: 1 }]
+      },
+      analyses: [],
+      signalPreviewById: {},
+      signalReadinessById: {
+        s_ready: { status: "ready", itemStatus: "succeeded" },
+        s_pending: { status: "saved", itemStatus: "saved" },
+        s_err: { status: "failed", itemStatus: "failed" }
+      },
+      onAnalyze: () => undefined
+    })
+  );
+
+  assert.match(html, /data-product-saved-filter-tabs="true"/);
+  assert.match(html, /data-product-saved-filter="unclassified"/);
+  assert.match(html, /data-product-saved-filter="pending"/);
+  assert.match(html, /data-product-saved-filter="classified"/);
+  assert.match(html, /未分類/);
+  assert.match(html, /待處理/);
+  assert.match(html, /已分類/);
+  // The old read-only intake strip is replaced by functional filter tabs.
+  assert.doesNotMatch(html, /data-product-intake-strip/);
+});
+
+test("saved-signals filter tabs filter the list and the long list collapses", async () => {
+  const { JSDOM } = await import("jsdom");
+  const { createRoot } = await import("react-dom/client");
+  const { flushSync } = await import("react-dom");
+  const dom = new JSDOM("<div id=\"root\"></div>", { url: "https://dlens.test" });
+  const previous = {
+    window: globalThis.window,
+    document: globalThis.document,
+    HTMLElement: globalThis.HTMLElement,
+    HTMLButtonElement: globalThis.HTMLButtonElement,
+    MouseEvent: globalThis.MouseEvent
+  };
+  Object.assign(globalThis, {
+    window: dom.window,
+    document: dom.window.document,
+    HTMLElement: dom.window.HTMLElement,
+    HTMLButtonElement: dom.window.HTMLButtonElement,
+    MouseEvent: dom.window.MouseEvent
+  });
+  const rootElement = dom.window.document.getElementById("root");
+  assert.ok(rootElement);
+  const root = createRoot(rootElement);
+
+  const readyIds = ["r1", "r2", "r3"];
+  const pendingIds = ["p1", "p2", "p3", "p4", "p5", "p6", "p7", "p8"];
+  const signals = [...readyIds, ...pendingIds].map((id) => ({
+    id, sessionId: "sess", itemId: `i_${id}`, source: "threads", inboxStatus: "unprocessed", capturedAt: "2026-04-27T00:00:00.000Z"
+  }));
+  const signalReadinessById: Record<string, { status: string; itemStatus: string }> = {};
+  for (const id of readyIds) signalReadinessById[id] = { status: "ready", itemStatus: "succeeded" };
+  for (const id of pendingIds) signalReadinessById[id] = { status: "saved", itemStatus: "saved" };
+
+  const countRows = () => rootElement!.querySelectorAll('[data-saved-signal-row="compact"]').length;
+  const clickTab = (key: string) => {
+    const tab = rootElement!.querySelector(`[data-product-saved-filter="${key}"]`);
+    assert.ok(tab, `filter tab ${key} should render`);
+    flushSync(() => tab!.dispatchEvent(new dom.window.MouseEvent("click", { bubbles: true })));
+  };
+
+  try {
+    flushSync(() => {
+      root.render(
+        productSignalViewElement({
+          kind: "saved-signals",
+          signals,
+          analyses: [],
+          signalPreviewById: {},
+          signalReadinessById,
+          onAnalyze: () => undefined
+        })
+      );
+    });
+
+    // All 11 saved signals → bounded to 6 rows with a collapse toggle.
+    assert.equal(countRows(), 6);
+    assert.ok(rootElement.querySelector("[data-product-saved-list-toggle]"));
+
+    // 未分類 → exactly the 3 ready-but-unclassified signals, short enough to skip the toggle.
+    clickTab("unclassified");
+    assert.equal(countRows(), 3);
+    assert.equal(rootElement.querySelector("[data-product-saved-list-toggle]"), null);
+
+    // 待處理 → 8 pending, bounded to 6 until the toggle expands them.
+    clickTab("pending");
+    assert.equal(countRows(), 6);
+    const toggle = rootElement.querySelector("[data-product-saved-list-toggle]");
+    assert.ok(toggle);
+    flushSync(() => toggle!.dispatchEvent(new dom.window.MouseEvent("click", { bubbles: true })));
+    assert.equal(countRows(), 8);
+  } finally {
+    flushSync(() => root.unmount());
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    Object.assign(globalThis, previous);
+  }
 });
 
 test("ProductSignalView shows real readiness state without fake AI results", () => {
@@ -1724,11 +2081,11 @@ test("ProductSignalView shows real readiness state without fake AI results", () 
   assert.match(html, /ProductContext/);
   assert.match(html, /data-saved-signals-route="true"/);
   assert.match(html, /data-saved-signal-row="compact"/);
-  assert.match(html, /data-product-pending-card="topic-card"/);
-  assert.match(html, /data-product-pending-card="topic-card"[^>]*border:none/);
+  assert.match(html, /data-product-saved-pending-detail="collapsed"/);
+  assert.doesNotMatch(html, /data-product-pending-card="topic-card"/);
   assert.doesNotMatch(html, /data-saved-signals-batch-export="true"/);
   assert.match(html, /尚未抓取/);
-  assert.match(html, /按分析會先送出抓取請求/);
+  assert.match(html, /重新處理/);
   assert.doesNotMatch(html, /航班觀察|fixture|score/i);
 });
 
@@ -2036,7 +2393,8 @@ test("SavedSignalsBoard keeps saved rows scan-first with compact copy", () => {
   assert.match(html, /data-saved-signal-title="compact"/);
   assert.match(html, /列表需要更像營運 inbox。/);
   assert.doesNotMatch(html, /META_ROW_SHOULD_NOT_RENDER/);
-  assert.equal(countOccurrences(html, "學習資源"), 1);
+  assert.match(html, /data-product-merged-classification="true"/);
+  assert.match(html, /data-product-classification-bucket="learning"/);
   assert.doesNotMatch(html, /可分析 · 學習資源 · 保留觀察/);
 });
 
@@ -2294,7 +2652,7 @@ test("ProductSignalView ignores stale terminal job errors while signals are stil
   assert.doesNotMatch(html, /BrowserType\.launch|ms-playwright|\/Users\/tung/);
 });
 
-test("ProductSignalView shows a spinner for crawling pending signals", () => {
+test("ProductSignalView keeps crawling pending signals collapsed on saved-signals", () => {
   const html = renderToStaticMarkup(
     productSignalViewElement( {
       kind: "saved-signals",
@@ -2335,8 +2693,72 @@ test("ProductSignalView shows a spinner for crawling pending signals", () => {
   );
 
   assert.match(html, /抓取中/);
-  assert.match(html, /data-pending-signal-spinner="true"/);
-  assert.match(html, /animation:dlens-spin 0\.8s linear infinite/);
+  assert.match(html, /data-product-saved-pending-detail="collapsed"/);
+  assert.doesNotMatch(html, /data-pending-signal-spinner="true"/);
+  assert.doesNotMatch(html, /animation:dlens-spin 0\.8s linear infinite/);
+});
+
+test("Product action route collapses pending signals into a compact queue summary", () => {
+  const html = renderToStaticMarkup(
+    productSignalViewElement({
+      kind: "actionable-filter",
+      signals: [
+        {
+          id: "signal_done",
+          sessionId: "session_a",
+          itemId: "item_done",
+          source: "threads",
+          inboxStatus: "processed",
+          capturedAt: "2026-04-27T00:00:00.000Z"
+        },
+        {
+          id: "signal_pending",
+          sessionId: "session_a",
+          itemId: "item_pending",
+          source: "threads",
+          inboxStatus: "unprocessed",
+          capturedAt: "2026-04-27T00:02:00.000Z"
+        }
+      ],
+      analyses: [
+        {
+          signalId: "signal_done",
+          signalType: "demand",
+          signalSubtype: "share_intake",
+          contentType: "mixed",
+          contentSummary: "Users want a one-tap mobile save flow.",
+          relevance: 5,
+          relevantTo: ["coreWorkflows"],
+          whyRelevant: "It maps directly to DLens collect flow.",
+          verdict: "try",
+          reason: "The workflow is concrete enough for a small test.",
+          experimentHint: "Prototype a share URL intake.",
+          evidenceRefs: ["e1"],
+          productContextHash: "ctx_1",
+          promptVersion: "v1",
+          analyzedAt: "2026-04-27T01:00:00.000Z",
+          status: "complete"
+        }
+      ],
+      productProfile: productTestProfile(),
+      signalReadinessById: {
+        signal_done: { status: "ready", itemStatus: "succeeded" },
+        signal_pending: { status: "crawling", itemStatus: "running" }
+      },
+      signalPreviewById: {
+        signal_done: "Done signal preview",
+        signal_pending: "Pending signal should not become a big action card"
+      },
+      onAnalyze: () => undefined
+    })
+  );
+
+  assert.match(html, /data-product-action-queue-summary="true"/);
+  assert.match(html, /1 則訊號等待進入行動判讀/);
+  assert.match(html, /抓取\/分析中/);
+  assert.doesNotMatch(html, /data-product-pending-card="topic-card"/);
+  assert.doesNotMatch(html, /等待處理的 signals/);
+  assert.doesNotMatch(html, /Pending signal should not become a big action card/);
 });
 
 test("ProductSignalView gives each product page a distinct information shape", () => {
@@ -2412,12 +2834,28 @@ test("ProductSignalView gives each product page a distinct information shape", (
       kind: "classification"
     })
   );
+  const savedHtml = renderToStaticMarkup(
+    productSignalViewElement( {
+      ...baseProps,
+      kind: "saved-signals",
+      onGoToActionable: () => undefined
+    })
+  );
   const actionableHtml = renderToStaticMarkup(
     productSignalViewElement( {
       ...baseProps,
       kind: "actionable-filter"
     })
   );
+
+  assert.match(savedHtml, /data-product-merged-classification="true"/);
+  assert.match(savedHtml, /分類摘要/);
+  assert.match(savedHtml, /AI 已分類 1 \/ 1/);
+  assert.match(savedHtml, /data-product-classification-bucket="demand"/);
+  assert.match(savedHtml, /Threads post preview/);
+  assert.match(savedHtml, /需求/);
+  assert.doesNotMatch(savedHtml, /data-product-classification-layout="responsive"/);
+  assert.doesNotMatch(savedHtml, /data-product-selected-aside="true"/);
 
   assert.match(classificationHtml, /分類構成/);
   assert.match(classificationHtml, /data-product-classification-board="true"[^>]*padding-bottom:76px/);
@@ -2517,6 +2955,79 @@ test("ProductSignalView gives each product page a distinct information shape", (
     })
   );
   assert.match(classificationTwoHtml, /最新在前/);
+});
+
+test("Product action brief preserves the four-part macro strip labels", () => {
+  const fixture = buildActionableCardFixture();
+  const html = renderToStaticMarkup(
+    productSignalViewElement({
+      kind: "actionable-filter",
+      signals: [fixture.signal],
+      analyses: [fixture.analysis],
+      productProfile: fixture.productProfile,
+      evidenceBySignalId: fixture.evidenceBySignalId,
+      onAnalyze: () => undefined
+    })
+  );
+
+  assert.match(html, /data-product-macro-strip="true"/);
+  assert.match(html, /信號重試/);
+  assert.match(html, /噪音不符/);
+  assert.match(html, /資料不足/);
+  assert.match(html, /保留觀察/);
+  assert.doesNotMatch(html, /受眾\s*\/\s*主題\s*\/\s*情緒\s*\/\s*主張/);
+});
+
+test("light frames keep prototype caption bars and admin export copy out of the live popup", () => {
+  const fixture = buildActionableCardFixture();
+  const productHtml = renderToStaticMarkup(
+    productSignalViewElement({
+      kind: "actionable-filter",
+      signals: [fixture.signal],
+      analyses: [fixture.analysis],
+      productProfile: fixture.productProfile,
+      evidenceBySignalId: fixture.evidenceBySignalId,
+      onAnalyze: () => undefined
+    })
+  );
+
+  const campaign: PrCampaign = {
+    id: "campaign-light",
+    sessionId: "session-pr",
+    name: "Launch",
+    briefText: "Brief",
+    criteria: [
+      { id: "c1", label: "活動名稱" },
+      { id: "c2", label: "Hashtag" },
+      { id: "c3", label: "核心訊息" },
+      { id: "c4", label: "場地" },
+      { id: "c5", label: "體驗主題" },
+      { id: "c6", label: "CTA / 報名動作" }
+    ],
+    createdAt: "2026-05-26T00:00:00.000Z",
+    updatedAt: "2026-05-26T00:00:00.000Z"
+  };
+  const row: PrEvidenceRow = {
+    id: "row-light",
+    campaignId: "campaign-light",
+    itemId: "item-light",
+    postUrl: "https://www.threads.net/@light/post/1",
+    authorHandle: "light",
+    caption: "Evidence row that also renders the CSV export preview surface.",
+    metrics: { likes: 3, comments: 1, reposts: 0 },
+    criteriaMatches: { c1: true, c2: false, c3: false, c4: false, c5: false, c6: false },
+    collectedAt: "2026-05-26T01:00:00.000Z"
+  };
+  const prHtml = renderPrEvidenceView({ campaign: prCampaignToDraft(campaign), rows: [row] });
+
+  // Mockup-only caption bars must never leak into the live popup.
+  assert.doesNotMatch(productHtml, /PRODUCT MODE\s*·/);
+  assert.doesNotMatch(productHtml, /SHARED\s*·\s*DRILL-IN TEMPLATE/);
+  assert.doesNotMatch(prHtml, /PR MODE\s*·/);
+
+  // Export surfaces stay user-facing — no admin/debug/checksum internals.
+  assert.doesNotMatch(prHtml, /checksum/i);
+  assert.doesNotMatch(prHtml, /\bdebug\b/i);
 });
 
 function buildActionableCardFixture() {
@@ -2808,6 +3319,85 @@ test("ActionableItemCard renders noise and park verdicts as exclusion cards with
   assert.match(html, /暫無直接用途/);
   assert.doesNotMatch(html, /data-testid="marginalia-experiment"/);
   assert.doesNotMatch(html, /可借用 workflow|TASK ›|任務 ›|排入小實驗|保留觀察/);
+});
+
+test("ActionableItemCard leads with the original-post hero and faint analysis chips (Frame 03)", () => {
+  const fixture = buildActionableCardFixture();
+  const ActionableItemCard = (productSignalViewTestables as unknown as {
+    ActionableItemCard: React.ComponentType<{
+      analysis: typeof fixture.analysis;
+      index: number;
+      evidenceBySignalId: typeof fixture.evidenceBySignalId;
+      historicalAnalyses: typeof fixture.analysis[];
+      agentTaskFeedback: [];
+      sourceText?: string;
+      sourceUrl?: string;
+    }>;
+  }).ActionableItemCard;
+
+  const html = renderToStaticMarkup(
+    React.createElement(ActionableItemCard, {
+      analysis: fixture.analysis,
+      index: 0,
+      evidenceBySignalId: fixture.evidenceBySignalId,
+      historicalAnalyses: [fixture.analysis],
+      agentTaskFeedback: [],
+      sourceText: "原文：用了三週最有感的是 evidence ledger 可交付。",
+      sourceUrl: "https://www.threads.net/@op_studio/post/3JqL8K"
+    })
+  );
+
+  // Original post quote leads as the SourceHero, with author derived from the url.
+  assert.match(html, /data-product-action-lead="true"/);
+  assert.match(html, /data-evidence-source-hero="true"/);
+  assert.match(html, /原文：用了三週最有感的是 evidence ledger 可交付。/);
+  assert.match(html, /@op_studio/);
+  // Analysis is demoted to faint chips, not the hero.
+  assert.match(html, /data-product-action-faint-chips="true"/);
+  // Real features are kept below, not deleted.
+  assert.match(html, /data-testid="verdict-panel"/);
+});
+
+test("ActionableItemCard folds agent task and history into a collapsed secondary (Frame 03)", () => {
+  const html = renderActionableCardFixture();
+
+  // The verdict + relevance summary panel stays visible (the block to keep).
+  assert.match(html, /data-testid="verdict-panel"/);
+  assert.match(html, /data-relevance-bars="true"/);
+
+  // Agent task + history fold into a collapsed "更多分析" disclosure, not first-fold.
+  assert.match(html, /data-product-action-more="true"/);
+  assert.match(html, /更多分析/);
+  const moreIndex = html.indexOf("data-product-action-more-summary=\"true\"");
+  const taskIndex = html.indexOf("data-testid=\"task-slot\"");
+  assert.ok(moreIndex >= 0, "the more-disclosure should render");
+  assert.ok(taskIndex > moreIndex, "agent task slot should sit inside the folded disclosure");
+});
+
+test("ActionableItemCard omits the hero when no original source text is available", () => {
+  const fixture = buildActionableCardFixture();
+  const ActionableItemCard = (productSignalViewTestables as unknown as {
+    ActionableItemCard: React.ComponentType<{
+      analysis: typeof fixture.analysis;
+      index: number;
+      evidenceBySignalId: typeof fixture.evidenceBySignalId;
+      historicalAnalyses: typeof fixture.analysis[];
+      agentTaskFeedback: [];
+      sourceText?: string;
+    }>;
+  }).ActionableItemCard;
+
+  const html = renderToStaticMarkup(
+    React.createElement(ActionableItemCard, {
+      analysis: fixture.analysis,
+      index: 0,
+      evidenceBySignalId: fixture.evidenceBySignalId,
+      historicalAnalyses: [fixture.analysis],
+      agentTaskFeedback: []
+    })
+  );
+
+  assert.doesNotMatch(html, /data-product-action-lead="true"/);
 });
 
 test("ActionableItemCard defaults to verdict layout without layout prop", () => {
@@ -3633,6 +4223,7 @@ test("ProductSignalView restores the 0.1.15 reading review route when readings e
   assert.match(html, /data-action-verdict-filter="try"/);
   assert.match(html, /data-action-verdict-filter="watch"/);
   assert.match(html, /data-verdict-filter-tiles="true"/);
+  assert.match(html, /data-product-macro-strip="true"/);
   assert.match(html, /data-verdict-filter-plate="true"/);
   assert.match(html, /data-verdict-tile-count="true"/);
   assert.match(html, /data-signal-reading-review-list-filter="watch"/);
@@ -3645,7 +4236,9 @@ test("ProductSignalView restores the 0.1.15 reading review route when readings e
   assert.match(html, /引用留言 1 則/);
   assert.match(html, /對產品參考：這是一段完整顯示的長判斷，不能被截斷。/);
   assert.doesNotMatch(html, /source link/);
-  assert.match(html, /值得嘗試/);
+  assert.match(html, /信號重試/);
+  assert.match(html, /噪音不符/);
+  assert.match(html, /資料不足/);
   assert.match(html, /保留觀察/);
   assert.doesNotMatch(html, /data-signal-reading-brief-copy-bar="inline"/);
   assert.doesNotMatch(html, /data-signal-reading-brief-copy-status="idle"/);
@@ -3841,6 +4434,86 @@ test("ProductSignalView action route shows existing reading review content", () 
   assert.match(html, /item succeeded/);
   assert.match(html, /現有判讀內容/);
   assert.doesNotMatch(html, /data-actionable-insights-board="true"/);
+});
+
+test("reading-review card leads with original-post hero, keeps the judgment panel, folds provenance (Frame 03)", () => {
+  const html = renderToStaticMarkup(
+    productSignalViewElement({
+      kind: "actionable-filter",
+      signals: [
+        { id: "signal_f03", sessionId: "sess", itemId: "i1", source: "threads", inboxStatus: "unprocessed", capturedAt: "2026-05-18T00:00:00.000Z" }
+      ],
+      signalPreviewById: { signal_f03: "原文：多卡推理在 PCIe 頻寬限制下出現明顯瓶頸。" },
+      analyses: [
+        {
+          signalId: "signal_f03",
+          signalType: "marketing",
+          signalSubtype: "positioning_signal",
+          contentType: "mixed",
+          contentSummary: "多卡推理瓶頸討論",
+          relevance: 2,
+          relevantTo: ["productPromise"],
+          referenceType: "product_reference",
+          referenceLabel: "對產品參考",
+          referenceTakeaway: "用來判斷產品語氣。",
+          whyRelevant: "對產品語氣有參考價值。",
+          verdict: "park",
+          reason: "理由。",
+          evidenceRefs: ["e1"],
+          productContextHash: "ctx",
+          promptVersion: "v16",
+          analyzedAt: "2026-05-18T00:00:00.000Z",
+          status: "complete"
+        }
+      ],
+      productProfile: {
+        name: "DLens", category: "x", audience: "y", contextText: "z",
+        contextFiles: [{ id: "f", name: "README.md", kind: "readme", importedAt: "2026-05-18T00:00:00.000Z", charCount: 1 }]
+      },
+      signalReadings: [
+        {
+          signalId: "signal_f03",
+          cacheKey: "f03-key",
+          productContextHash: "ctx",
+          sourcePacketHash: "pkt-f03",
+          promptVersion: SIGNAL_READING_PROMPT_VERSION,
+          reading: "AI 判讀內容。第二段完整判讀不應在主卡直接展開。\n\n第三段保留完整脈絡給需要的人展開閱讀。",
+          generatedAt: "2026-05-18T01:00:00.000Z",
+          model: "google:test",
+          sourceRefs: ["e1"],
+          sourcePacket: { assembledContent: "source content", postUrl: "https://www.threads.net/@gpu_dev/post/f03", representativeComments: [], analysisPromptVersion: "v16" },
+          feedbackEvents: [],
+          reviewState: "pending"
+        }
+      ],
+      onAnalyze: () => undefined,
+      onSynthesizeSignalReading: async () => ({ ok: true, reading: "new reading" }),
+      onReviewSignalReading: async () => ({ ok: false, error: "missing" })
+    })
+  );
+
+  // Original post leads as the SourceHero (original ≫ AI reading).
+  assert.match(html, /data-evidence-source-hero="true"/);
+  assert.match(html, /原文：多卡推理在 PCIe 頻寬限制下出現明顯瓶頸。/);
+  // Judgment + relevance panel stays visible (the block to keep).
+  assert.match(html, /data-signal-reading-relevance-summary="true"/);
+  // The AI reading body is kept but secondary.
+  assert.match(html, /AI 判讀內容。/);
+  assert.match(html, /data-signal-reading-full="true"/);
+  assert.match(html, /data-signal-reading-full-summary="true"/);
+  assert.doesNotMatch(html, /<details[^>]*data-signal-reading-full="true"[^>]*open/);
+  assert.ok(
+    html.indexOf("data-signal-reading-full-summary=\"true\"") < html.indexOf("第二段完整判讀不應在主卡直接展開"),
+    "long reading body should sit behind the full-reading disclosure"
+  );
+  // Source/capture provenance + evidence drill-down fold into a collapsed disclosure.
+  assert.match(html, /data-signal-reading-more="true"/);
+  const moreIndex = html.indexOf("data-signal-reading-more-summary=\"true\"");
+  const captureIndex = html.indexOf("capture cap-signal_f03");
+  assert.ok(moreIndex >= 0, "the more-disclosure should render");
+  assert.ok(captureIndex > moreIndex, "provenance should sit inside the folded disclosure");
+  // Hero (original) appears before the AI reading body.
+  assert.ok(html.indexOf("data-evidence-source-hero") < html.indexOf("AI 判讀內容。"));
 });
 
 test("ProductSignalView marks signal readings with missing provenance explicitly", () => {

@@ -432,8 +432,8 @@ function OriginalPostCard({
       data-signal-drawer-block="op-card"
       data-highlight={highlighted ? "true" : "false"}
       style={{
-        background: tokens.color.elevated,
-        border: `1px solid ${highlighted ? tokens.topicAccent.warm : tokens.color.line}`,
+        background: highlighted ? tokens.color.elevated : `linear-gradient(180deg, ${tokens.color.elevated}, ${tokens.topicAccent.tintSage})`,
+        border: `1px solid ${highlighted ? tokens.topicAccent.warm : tokens.topicAccent.primaryGlow}`,
         borderRadius: 12,
         padding: "14px 16px",
         display: "grid",
@@ -461,6 +461,9 @@ function OriginalPostCard({
         {(fragment.author || "?").slice(0, 1).toUpperCase()}
       </span>
       <div style={{ minWidth: 0 }}>
+        <div data-signal-drawer-source-kicker="true" style={{ fontFamily: tokens.font.mono, fontSize: 10, fontWeight: 700, letterSpacing: "0.06em", textTransform: "uppercase", color: tokens.topicAccent.primary, marginBottom: 5 }}>
+          原文 · 最高權重
+        </div>
         <div style={{ display: "flex", gap: 8, alignItems: "baseline", flexWrap: "wrap" }}>
           <span style={{ fontSize: 13.5, fontWeight: 700, color: tokens.color.ink }}>@{fragment.author}</span>
           <span style={{ fontSize: 11, color: tokens.color.softInk }}>{displayDate}</span>
@@ -468,9 +471,10 @@ function OriginalPostCard({
         </div>
         <div
           style={{
-            marginTop: 6,
-            fontSize: 13.5,
-            lineHeight: 1.7,
+            marginTop: 7,
+            fontFamily: `${tokens.font.serifCjk}, ${tokens.font.serif}`,
+            fontSize: 16,
+            lineHeight: 1.6,
             color: tokens.color.ink,
             whiteSpace: "pre-wrap",
             wordBreak: "break-word"

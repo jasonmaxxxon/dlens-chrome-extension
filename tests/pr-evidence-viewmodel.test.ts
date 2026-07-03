@@ -67,11 +67,7 @@ test("PrEvidence VM composes rows, counters, actions, and exports from resource 
     "Campaign identity: Shared Launch Campaign",
     "Social tags / campaign handles: #SharedLaunch"
   ]);
-  assert.deepEqual(vm.workingArea.tabs.map((tab) => [tab.id, tab.count, tab.tone]), [
-    ["ledger", "1", "accent"],
-    ["match", "2/6", "success"],
-    ["metrics", "—", "neutral"]
-  ]);
+  assert.deepEqual(vm.workingArea.tabs, []);
   assert.equal(vm.workingArea.activePane, "match");
   assert.equal(vm.workingArea.match.caption, "約 1 次 AI call · 6 格");
   assert.equal(vm.ledger.rows[0]?.authorLabel, "shared_author");
@@ -106,6 +102,92 @@ test("PrEvidence VM composes rows, counters, actions, and exports from resource 
       criteria: campaign.criteria
     }
   });
+});
+
+test("buildPrEvidenceViewModel derives criteria health from matched rows with real labels", () => {
+  const healthRows: PrEvidenceRow[] = Array.from({ length: 10 }, (_, index) => ({
+    id: `row-health-${index}`,
+    campaignId: "campaign-shared",
+    itemId: `item-health-${index}`,
+    postUrl: `https://www.threads.net/@health/post/${index}`,
+    authorHandle: `health_${index}`,
+    caption: `Health row ${index}`,
+    metrics: { likes: index, comments: 0, reposts: 0 },
+    criteriaMatches: {
+      c1: true,
+      c2: index < 6,
+      c3: index < 5,
+      c4: index < 3,
+      c5: index < 1,
+      c6: false
+    },
+    collectedAt: "2026-05-26T01:00:00.000Z"
+  }));
+
+  const vm = buildPrEvidenceViewModel({
+    sessionId: "session-pr",
+    resource: {
+      campaign: prCampaignToDraft(campaign),
+      rows: healthRows,
+      summary: "",
+      notice: "",
+      uploadError: "",
+      setupCollapsed: true
+    },
+    uiState: idleUiState
+  });
+
+  assert.equal(vm.criteriaHealth.totalRows, 10);
+  // Rows matching >= 4 criteria are "strong": index 0 (5), index 1 (4), index 2 (4).
+  assert.equal(vm.criteriaHealth.strongRows, 3);
+  assert.equal(vm.criteriaHealth.criteria.length, 6);
+
+  // First criterion matched by every row -> strong; carries the real label, not "C1".
+  assert.equal(vm.criteriaHealth.criteria[0]?.matchedRows, 10);
+  assert.equal(vm.criteriaHealth.criteria[0]?.totalRows, 10);
+  assert.equal(vm.criteriaHealth.criteria[0]?.label, "Campaign");
+  assert.equal(vm.criteriaHealth.criteria[0]?.strength, "strong");
+
+  // Half coverage -> partial.
+  assert.equal(vm.criteriaHealth.criteria[2]?.matchedRows, 5);
+  assert.equal(vm.criteriaHealth.criteria[2]?.strength, "partial");
+
+  // Last criterion matched by nobody -> gap, and it is the systemic gap.
+  assert.equal(vm.criteriaHealth.criteria[5]?.matchedRows, 0);
+  assert.equal(vm.criteriaHealth.criteria[5]?.strength, "gap");
+  assert.equal(vm.criteriaHealth.systemicGap?.criterionId, "c6");
+  assert.equal(vm.criteriaHealth.systemicGap?.label, "CTA");
+  assert.equal(vm.criteriaHealth.systemicGap?.missingRows, 10);
+});
+
+test("buildPrEvidenceViewModel reports no systemic gap when every criterion has coverage", () => {
+  const row: PrEvidenceRow = {
+    id: "row-covered",
+    campaignId: "campaign-shared",
+    itemId: "item-covered",
+    postUrl: "https://www.threads.net/@covered/post/1",
+    authorHandle: "covered",
+    caption: "Covered row",
+    metrics: { likes: 1, comments: 0, reposts: 0 },
+    criteriaMatches: { c1: true, c2: true, c3: true, c4: true, c5: true, c6: true },
+    collectedAt: "2026-05-26T01:00:00.000Z"
+  };
+
+  const vm = buildPrEvidenceViewModel({
+    sessionId: "session-pr",
+    resource: {
+      campaign: prCampaignToDraft(campaign),
+      rows: [row],
+      summary: "",
+      notice: "",
+      uploadError: "",
+      setupCollapsed: true
+    },
+    uiState: idleUiState
+  });
+
+  assert.equal(vm.criteriaHealth.systemicGap, null);
+  assert.equal(vm.criteriaHealth.criteria.every((entry) => entry.strength === "strong"), true);
 });
 
 test("PrEvidence VM keeps unsaved draft commands free of id and timestamps", () => {

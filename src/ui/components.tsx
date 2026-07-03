@@ -389,6 +389,153 @@ export function SectionHeader({
   );
 }
 
+export function EvidenceSourceHero({
+  author,
+  meta,
+  metrics,
+  children,
+  tone = "default",
+  style
+}: {
+  author: ReactNode;
+  meta?: ReactNode;
+  metrics?: ReactNode;
+  children: ReactNode;
+  tone?: "default" | "topic" | "product" | "pr";
+  style?: CSSProperties;
+}) {
+  const accent = tone === "topic"
+    ? tokens.topicAccent.primary
+    : tone === "product"
+      ? tokens.color.product
+      : tone === "pr"
+        ? tokens.color.techniqueRose
+        : MODE_ACCENT;
+
+  return (
+    <figure
+      data-evidence-source-hero="true"
+      data-evidence-source-tone={tone}
+      style={{
+        margin: 0,
+        minWidth: 0,
+        display: "grid",
+        gap: 10,
+        padding: "14px 16px",
+        borderRadius: tokens.radius.card,
+        border: `1px solid ${tokens.color.line}`,
+        borderLeft: `3px solid ${accent}`,
+        background: tokens.color.elevated,
+        boxShadow: tokens.shadow.topicCard,
+        overflow: "hidden",
+        ...style
+      }}
+    >
+      <figcaption
+        data-evidence-source-meta="true"
+        style={{
+          display: "flex",
+          alignItems: "baseline",
+          gap: 8,
+          flexWrap: "wrap",
+          minWidth: 0,
+          ...textStyles.meta,
+          color: tokens.color.softInk
+        }}
+      >
+        <span style={{ color: tokens.color.ink, fontWeight: 850, minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+          {author}
+        </span>
+        {meta ? <span style={{ minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{meta}</span> : null}
+        {metrics ? (
+          <>
+            <span aria-hidden style={{ color: tokens.color.lineStrong }}>·</span>
+            <span style={{ color: tokens.color.subInk }}>{metrics}</span>
+          </>
+        ) : null}
+      </figcaption>
+      <blockquote
+        data-evidence-source-quote="true"
+        style={{
+          margin: 0,
+          minWidth: 0,
+          overflowWrap: "anywhere",
+          fontFamily: `${tokens.font.serifCjk}, ${tokens.font.serif}`,
+          fontSize: 16,
+          lineHeight: 1.75,
+          fontWeight: 500,
+          letterSpacing: 0,
+          color: tokens.color.ink
+        }}
+      >
+        {children}
+      </blockquote>
+    </figure>
+  );
+}
+
+export function ReadingAnnotation({
+  label = "判讀",
+  children,
+  tone = "default",
+  style
+}: {
+  label?: ReactNode;
+  children: ReactNode;
+  tone?: "default" | "topic" | "product" | "pr" | "warning";
+  style?: CSSProperties;
+}) {
+  const accent = tone === "topic"
+    ? tokens.topicAccent.primary
+    : tone === "product"
+      ? tokens.color.product
+      : tone === "pr"
+        ? tokens.color.techniqueRose
+        : tone === "warning"
+          ? tokens.color.queued
+          : MODE_ACCENT;
+
+  return (
+    <aside
+      data-reading-annotation="true"
+      data-reading-annotation-tone={tone}
+      style={{
+        minWidth: 0,
+        display: "grid",
+        gap: 6,
+        padding: "10px 12px",
+        borderRadius: tokens.radius.card,
+        borderLeft: `3px solid ${accent}`,
+        background: tokens.color.contextSurface,
+        color: tokens.color.subInk,
+        ...style
+      }}
+    >
+      <span
+        data-reading-annotation-label="true"
+        style={{
+          ...textStyles.label,
+          color: accent,
+          letterSpacing: 0,
+          textTransform: "none"
+        }}
+      >
+        {label}
+      </span>
+      <span
+        data-reading-annotation-body="true"
+        style={{
+          fontSize: 12.5,
+          lineHeight: 1.7,
+          overflowWrap: "anywhere"
+        }}
+      >
+        {children}
+      </span>
+    </aside>
+  );
+}
+
 export function EvidenceRow({
   leading,
   author,
@@ -517,6 +664,30 @@ function backendWorkStatus(state: BackendWorkUiState | null | undefined, workerS
   return { tone: "neutral", label: "idle" };
 }
 
+function buildStatusRailHoverLabel({
+  reachabilityLabel,
+  workLabel,
+  recoveryCopy,
+  countLabel
+}: {
+  reachabilityLabel: string;
+  workLabel: string;
+  recoveryCopy: ReturnType<typeof resolveBackendWorkCopy>;
+  countLabel: string | null;
+}): string {
+  const workDetail = recoveryCopy
+    ? `${recoveryCopy.headline}${recoveryCopy.hint ? ` - ${recoveryCopy.hint}` : ""}`
+    : workLabel;
+  const parts = [
+    `Backend: ${reachabilityLabel}`,
+    `Work: ${workDetail}`
+  ];
+  if (countLabel) {
+    parts.push(`Items: ${countLabel}`);
+  }
+  return parts.join(" | ");
+}
+
 export function StatusRail({
   backendReachability = "reachable",
   backendWorkUiState = null,
@@ -539,12 +710,20 @@ export function StatusRail({
   const recoveryCopy = resolveBackendWorkCopy(backendWorkUiState);
   const resolvedHint = hint ?? recoveryCopy?.headline ?? work.label;
   const countLabel = ready !== undefined && total !== undefined ? `${ready}/${total} ready` : null;
+  const hoverLabel = buildStatusRailHoverLabel({
+    reachabilityLabel: reachability.label,
+    workLabel: work.label,
+    recoveryCopy,
+    countLabel
+  });
 
   return (
     <div
       data-status-rail="shared"
       data-backend-reachability={backendReachability}
       data-backend-work-kind={backendWorkUiState?.kind ?? workerStatus ?? "idle"}
+      aria-label={hoverLabel}
+      title={hoverLabel}
       style={{
         display: "flex",
         alignItems: "center",

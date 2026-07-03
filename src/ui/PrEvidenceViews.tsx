@@ -1,4 +1,3 @@
-import type { ReactNode } from "react";
 import { memo, useEffect, useRef, useState } from "react";
 import { ExternalLink } from "lucide-react";
 
@@ -7,11 +6,11 @@ import {
   metricLine,
   PR_CRITERION_PLACEHOLDERS,
   summarizeAdvancedMetricsNotice,
+  type PrCriterionStrength,
   type PrEvidenceCommand,
   type PrEvidenceCsvPreviewViewModel,
   type PrEvidenceRowViewModel,
-  type PrEvidenceViewModel,
-  type PrWorkPane
+  type PrEvidenceViewModel
 } from "../viewmodel/pr-evidence.ts";
 import {
   Kicker,
@@ -19,14 +18,11 @@ import {
   PrimaryButton,
   QuoteBlock,
   SCAN_ROW_HOVER_CSS,
-  SectionHeader,
   SecondaryButton,
-  SegmentedTabs,
   Stamp,
   SurfaceCard,
   WorkspaceSurface,
-  viewRootStyle,
-  type SegmentedTabItem
+  viewRootStyle
 } from "./components.tsx";
 import { textStyles, tokens } from "./tokens.ts";
 
@@ -442,6 +438,17 @@ function CampaignEditor({
 
         {/* ── PR matching criteria ──────────────────────────────────── */}
         <div data-pr-section="criteria" style={{ display: "grid", gap: 9 }}>
+          {campaign.briefText.trim() ? (
+            <div
+              data-pr-criteria-ai-banner="true"
+              style={{ display: "flex", gap: 10, alignItems: "center", padding: "9px 12px", borderRadius: PR_RADIUS, border: "1px solid rgba(122,32,48,0.20)", background: `linear-gradient(180deg, ${tokens.color.surface}, rgba(122,32,48,0.045))` }}
+            >
+              <span aria-hidden style={{ width: 28, height: 28, borderRadius: 8, background: "rgba(122,32,48,0.10)", color: PR_ACCENT, display: "grid", placeItems: "center", fontSize: 14, flexShrink: 0 }}>✦</span>
+              <span style={{ ...prRowTextStyle, color: tokens.color.subInk, minWidth: 0 }}>
+                AI 已從 brief 抽出 <b style={{ color: PR_ACCENT, fontWeight: 600 }}>{campaign.criteria.length} 條 criteria</b> · 點任一條可改
+              </span>
+            </div>
+          ) : null}
           <div style={{ display: "flex", justifyContent: "space-between", gap: 10, alignItems: "center" }}>
             <span style={fieldLabelStyle}>
               PR 判斷條件
@@ -484,83 +491,145 @@ function CampaignEditor({
   );
 }
 
-function EvidenceLedger({ rows }: { rows: PrEvidenceRowViewModel[] }) {
+/* Frame 09 ledger strip — captured / strong / outlier, derived from real match counts. */
+function LedgerStrip({ rows }: { rows: PrEvidenceRowViewModel[] }) {
+  if (!rows.length) {
+    return null;
+  }
+  const strong = rows.filter((row) => row.matchedCount >= 4).length;
+  const outlier = rows.filter((row) => row.matchedCount <= 2).length;
+  const cell = (value: number, label: string, labelColor: string) => (
+    <span style={{ display: "grid", gap: 0, lineHeight: 1 }}>
+      <b style={{ fontFamily: `${tokens.font.serifCjk}, ${tokens.font.serif}`, fontSize: 18, fontWeight: 500, color: PR_ACCENT, lineHeight: 1.05 }}>{value}</b>
+      <span style={{ fontSize: 10, color: labelColor }}>{label}</span>
+    </span>
+  );
+  const divider = <span aria-hidden style={{ width: 1, height: 22, background: "rgba(122,32,48,0.20)" }} />;
+  return (
+    <div
+      data-pr-ledger-strip="true"
+      style={{ display: "flex", gap: 14, alignItems: "center", padding: "10px 13px", borderRadius: PR_RADIUS, border: "1px solid rgba(122,32,48,0.20)", background: "rgba(122,32,48,0.05)", marginBottom: 10 }}
+    >
+      {cell(rows.length, "captured", tokens.color.softInk)}
+      {divider}
+      {cell(strong, "strong", PR_MOSS)}
+      {divider}
+      {cell(outlier, "outlier", PR_ACCENT)}
+      <span style={{ marginLeft: "auto", ...prMonoMetaStyle, color: PR_ACCENT }}>過 4 criteria 以上為 strong</span>
+    </div>
+  );
+}
+
+function EvidenceLedger({ rows, caption }: { rows: PrEvidenceRowViewModel[]; caption: string }) {
+  const hasRows = rows.length > 0;
   return (
     <section data-pr-evidence-ledger="compact" data-pr-evidence-ledger-style="audit" style={{ display: "grid", minWidth: 0 }}>
       <style>{SCAN_ROW_HOVER_CSS}</style>
-      {rows.length ? (
-        <div data-scan-list="pr-evidence" style={{ display: "grid", borderTop: `1px solid ${PR_RULE}` }}>
-          {rows.map((row, index) => {
-            const auditNumber = formatAuditNumber(index);
-            return (
-              <article
-                key={row.id}
-                data-pr-evidence-row="audit"
-                data-scan-row="true"
-                style={{
-                  display: "grid",
-                  gridTemplateColumns: "34px minmax(0, 1fr)",
-                  gap: 12,
-                  padding: "14px 4px",
-                  borderBottom: `1px solid ${PR_RULE}`,
-                  background: "transparent",
-                  cursor: "default",
-                  transition: tokens.motion.interactiveTransitionFast,
-                  minWidth: 0
-                }}
-              >
-                <span
-                  data-pr-evidence-audit-number={auditNumber}
-                  style={{
-                    ...textStyles.metric,
-                    color: PR_ACCENT,
-                    fontWeight: 800,
-                    paddingTop: 2,
-                    textAlign: "center",
-                    letterSpacing: "0.02em"
-                  }}
-                >
-                  {auditNumber}
-                </span>
-                <div style={{ display: "grid", gap: 8, minWidth: 0 }}>
-                  <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap", minWidth: 0 }}>
-                    <span
-                      style={{
-                        ...prMonoMetaStyle,
-                        color: tokens.color.ink,
-                        maxWidth: 124,
-                        overflow: "hidden",
-                        textOverflow: "ellipsis",
-                        whiteSpace: "nowrap"
-                      }}
-                    >
-                      {row.authorLabel}
-                    </span>
-                    <span style={{ ...textStyles.metric, color: tokens.color.softInk }}>
-                      {row.metricLine}
-                    </span>
-                    <span style={{ flex: 1 }} />
-                    <SourceLinkIcon row={row} />
-                    <CriterionChips row={row} variant="compact" />
-                    <span style={{ ...prMonoMetaStyle, color: tokens.color.softInk }}>
-                      {row.collectedAtLabel}
-                    </span>
-                  </div>
-                  <QuoteBlock
-                    cite={<span>PR evidence row {auditNumber}</span>}
+      {hasRows ? (
+        <details
+          data-pr-evidence-rows-detail="collapsed"
+          style={{
+            borderTop: `1px solid ${PR_RULE}`,
+            paddingTop: 12,
+            borderRadius: PR_RADIUS,
+            minWidth: 0
+          }}
+        >
+          <summary
+            style={{
+              listStyle: "none",
+              cursor: "pointer",
+              display: "flex",
+              alignItems: "baseline",
+              gap: 8,
+              color: tokens.color.ink,
+              fontFamily: `${tokens.font.serifCjk}, ${tokens.font.serif}`,
+              fontSize: 15,
+              fontWeight: 700
+            }}
+          >
+            <span style={{ fontSize: 11, color: tokens.color.softInk }}>▸</span>
+            已儲存貼文
+            <span style={{ ...prMonoMetaStyle, marginLeft: "auto", color: tokens.color.softInk }}>
+              {caption}
+            </span>
+          </summary>
+          <div style={{ display: "grid", gap: 10, paddingTop: 10 }}>
+            <LedgerStrip rows={rows} />
+            <div data-scan-list="pr-evidence" style={{ display: "grid", borderTop: `1px solid ${PR_RULE}` }}>
+              {rows.map((row, index) => {
+                const auditNumber = formatAuditNumber(index);
+                return (
+                  <article
+                    key={row.id}
+                    data-pr-evidence-row="audit"
+                    data-scan-row="true"
                     style={{
-                      padding: "10px 12px",
-                      borderRadius: tokens.radius.card,
-                      background: tokens.color.surface
+                      display: "grid",
+                      gridTemplateColumns: "34px minmax(0, 1fr)",
+                      gap: 12,
+                      padding: "14px 4px",
+                      borderBottom: `1px solid ${PR_RULE}`,
+                      background: "transparent",
+                      cursor: "default",
+                      transition: tokens.motion.interactiveTransitionFast,
+                      minWidth: 0
                     }}
                   >
-                    {row.captionLabel}
-                  </QuoteBlock>
-                </div>
-              </article>
-            );
-          })}
-        </div>
+                    <span
+                      data-pr-evidence-audit-number={auditNumber}
+                      style={{
+                        ...textStyles.metric,
+                        color: PR_ACCENT,
+                        fontWeight: 800,
+                        paddingTop: 2,
+                        textAlign: "center",
+                        letterSpacing: "0.02em"
+                      }}
+                    >
+                      {auditNumber}
+                    </span>
+                    <div style={{ display: "grid", gap: 8, minWidth: 0 }}>
+                      <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap", minWidth: 0 }}>
+                        <span
+                          style={{
+                            ...prMonoMetaStyle,
+                            color: tokens.color.ink,
+                            maxWidth: 124,
+                            overflow: "hidden",
+                            textOverflow: "ellipsis",
+                            whiteSpace: "nowrap"
+                          }}
+                        >
+                          {row.authorLabel}
+                        </span>
+                        <span style={{ ...textStyles.metric, color: tokens.color.softInk }}>
+                          {row.metricLine}
+                        </span>
+                        <span style={{ flex: 1 }} />
+                        <SourceLinkIcon row={row} />
+                        <CriterionChips row={row} variant="compact" />
+                        <span style={{ ...prMonoMetaStyle, color: tokens.color.softInk }}>
+                          {row.collectedAtLabel}
+                        </span>
+                      </div>
+                      <QuoteBlock
+                        cite={<span>PR evidence row {auditNumber}</span>}
+                        style={{
+                          padding: "10px 12px",
+                          borderRadius: tokens.radius.card,
+                          background: tokens.color.surface
+                        }}
+                      >
+                        {row.captionLabel}
+                      </QuoteBlock>
+                    </div>
+                  </article>
+                );
+              })}
+            </div>
+          </div>
+        </details>
       ) : (
         <div style={{ padding: "16px 12px", borderRadius: PR_RADIUS, border: `1px solid ${PR_RULE}`, background: tokens.color.surface, fontSize: 12, color: tokens.color.subInk }}>
           尚未收集 evidence rows。先到 Collect 保存已打開的 Threads posts。
@@ -613,38 +682,36 @@ function SourceLinkIcon({ row }: { row: PrEvidenceRowViewModel }) {
 function CriterionChips({ row, variant }: { row: PrEvidenceRowViewModel; variant: "full" | "compact" }) {
   const matchedTotal = row.matchedCount;
   if (variant === "compact") {
-    if (matchedTotal === 0) {
-      return (
-        <span
-          aria-label="No criteria matched yet"
-          style={{
-            ...textStyles.metric,
-            color: tokens.color.softInk,
-            fontWeight: 700
-          }}
-        >
-          0 / 6
-        </span>
-      );
-    }
-    const matchedIds = row.criteria.filter((entry) => entry.matched);
+    const tone = matchedTotal >= 5 ? PR_MOSS : matchedTotal > 0 ? PR_ACCENT : tokens.color.softInk;
+    const soft = matchedTotal >= 5 ? tokens.color.successSoft : matchedTotal > 0 ? tokens.color.runningSoft : tokens.color.neutralSurfaceSoft;
     return (
       <span
-        aria-label={`${matchedTotal} of 6 criteria matched`}
-        title={row.matchedCriterionLabels.join(" · ")}
+        data-pr-match-indicator="true"
+        aria-label={matchedTotal === 0 ? "No criteria matched yet" : `${matchedTotal} of 6 criteria matched`}
+        title={matchedTotal === 0 ? "No criteria matched yet" : row.matchedCriterionLabels.join(" · ")}
         style={{
           display: "inline-flex",
-          gap: 5,
+          alignItems: "center",
+          gap: 6,
           flexWrap: "nowrap",
-          overflow: "hidden",
           ...textStyles.metric,
-          color: matchedTotal >= 5 ? PR_MOSS : PR_ACCENT,
-          justifyContent: "flex-end"
+          color: tone,
+          justifyContent: "flex-end",
+          whiteSpace: "nowrap"
         }}
       >
-        {matchedIds.map(({ id, index }) => (
-          <span key={id}>C{index + 1}</span>
-        ))}
+        <span
+          aria-hidden="true"
+          style={{
+            width: 7,
+            height: 7,
+            borderRadius: PR_ROUND,
+            background: tone,
+            boxShadow: `0 0 0 3px ${soft}`,
+            flexShrink: 0
+          }}
+        />
+        {matchedTotal}/6
       </span>
     );
   }
@@ -676,151 +743,332 @@ function CriterionChips({ row, variant }: { row: PrEvidenceRowViewModel; variant
   );
 }
 
+const PR_AMBER = "#a16a17";
+
+const CRITERIA_STRENGTH_META: Record<PrCriterionStrength, { accent: string; rowBg: string; rowBorder: string; status: string }> = {
+  strong: { accent: PR_MOSS, rowBg: tokens.color.surface, rowBorder: PR_RULE, status: "OK" },
+  partial: { accent: PR_AMBER, rowBg: "rgba(161,106,23,0.04)", rowBorder: "rgba(161,106,23,0.25)", status: "半弱" },
+  gap: { accent: PR_ACCENT, rowBg: "rgba(122,32,48,0.04)", rowBorder: "rgba(122,32,48,0.30)", status: "GAP" }
+};
+
+/* Frame 10 · PR Criteria Health — KPI grid + score-sorted criterion bars + systemic-gap callout. */
+const CRITERIA_HEALTH_DISCLOSURE_CSS = `
+[data-pr-criteria-health-detail] > summary::-webkit-details-marker {
+  display: none;
+}
+`;
+
+function CriteriaHealth({ health, rows }: { health: PrEvidenceViewModel["criteriaHealth"]; rows: PrEvidenceRowViewModel[] }) {
+  if (!health.totalRows) {
+    return null;
+  }
+  const gapCount = health.criteria.filter((entry) => entry.strength === "gap").length;
+  const rankedCriteria = [...health.criteria].sort((left, right) => right.matchedRows - left.matchedRows);
+  const monoStat = { fontFamily: tokens.font.mono, fontVariantNumeric: "tabular-nums" } as const;
+
+  return (
+    <SurfaceCard
+      tone="default"
+      dataAttrs={{ "data-pr-criteria-health": "true" }}
+      style={{ display: "grid", gap: 12, padding: "14px 16px", background: tokens.color.surface }}
+    >
+      <style>{CRITERIA_HEALTH_DISCLOSURE_CSS}</style>
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", gap: 10, flexWrap: "wrap" }}>
+        <Kicker>條件健康度</Kicker>
+        <span style={{ ...prMonoMetaStyle, color: tokens.color.softInk }}>
+          依 {health.totalRows} 列 evidence 反推
+        </span>
+      </div>
+
+      {/* KPI grid */}
+      <div data-pr-criteria-health-kpis="true" style={{ display: "grid", gridTemplateColumns: "repeat(3, minmax(0, 1fr))", gap: 7 }}>
+        <HealthKpi label="Captured" value={String(health.totalRows)} accent={PR_ACCENT} />
+        <HealthKpi label="Strong" value={String(health.strongRows)} suffix={`/ ${health.totalRows}`} accent={PR_MOSS} />
+        <HealthKpi label="Criteria 待補" value={String(gapCount)} suffix="/ 6" accent={PR_AMBER} />
+      </div>
+
+      {/* Per-criterion health rows, weakest sinks to the bottom */}
+      <div style={{ display: "grid", gap: 5 }}>
+        {rankedCriteria.map((entry) => {
+          const meta = CRITERIA_STRENGTH_META[entry.strength];
+          const pct = entry.totalRows ? Math.round((entry.matchedRows / entry.totalRows) * 100) : 0;
+          const matchedRows = rows.filter((row) =>
+            row.criteria.some((criterion) => criterion.id === entry.id && criterion.matched)
+          );
+          return (
+            <details
+              key={entry.id}
+              data-pr-criteria-health-detail={entry.id}
+              data-pr-criteria-health-strength={entry.strength}
+              style={{
+                borderRadius: tokens.radius.xs,
+                border: `1px solid ${meta.rowBorder}`,
+                background: meta.rowBg,
+                overflow: "hidden"
+              }}
+            >
+              <summary
+                style={{
+                  listStyle: "none",
+                  cursor: "pointer",
+                  display: "grid",
+                  gridTemplateColumns: "30px minmax(0, 1fr) auto auto",
+                  gap: 9,
+                  alignItems: "center",
+                  padding: "6px 11px"
+                }}
+              >
+                <span
+                  data-pr-criteria-id={entry.id}
+                  style={{
+                    ...monoStat,
+                    fontSize: 10,
+                    fontWeight: 700,
+                    color: PR_ACCENT,
+                    background: "var(--dlens-mode-accent-soft)",
+                    border: `1px solid ${PR_RULE}`,
+                    padding: "3px 0",
+                    borderRadius: 5,
+                    textAlign: "center"
+                  }}
+                >
+                  {entry.id.toUpperCase()}
+                </span>
+                <span style={{ display: "grid", gap: 3, minWidth: 0 }}>
+                  <span style={{ ...prRowTextStyle, color: tokens.color.ink, minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                    {entry.label}
+                  </span>
+                  <span aria-hidden style={{ height: 4, borderRadius: 3, background: "rgba(27,26,23,0.06)", overflow: "hidden" }}>
+                    <span style={{ display: "block", height: "100%", width: `${pct}%`, background: meta.accent, borderRadius: 3 }} />
+                  </span>
+                </span>
+                <span style={{ ...monoStat, fontSize: 13, fontWeight: 600, color: meta.accent, textAlign: "right" }}>
+                  {entry.matchedRows}<span style={{ fontSize: 9.5, color: tokens.color.softInk, fontWeight: 400 }}>/{entry.totalRows}</span>
+                </span>
+                <span style={{ ...monoStat, fontSize: 9.5, fontWeight: 600, color: meta.accent, textAlign: "right", minWidth: 30 }}>
+                  {meta.status}
+                </span>
+              </summary>
+              <div
+                data-pr-criteria-health-matches={entry.id}
+                style={{
+                  display: "grid",
+                  gap: 5,
+                  padding: "0 11px 10px 50px"
+                }}
+              >
+                {matchedRows.length ? matchedRows.map((row) => (
+                  <div
+                    key={row.id}
+                    data-pr-criteria-health-match-row="true"
+                    style={{
+                      display: "grid",
+                      gridTemplateColumns: "minmax(0, 98px) minmax(0, 1fr) auto",
+                      gap: 8,
+                      alignItems: "baseline",
+                      padding: "6px 0",
+                      borderTop: `1px solid ${tokens.color.line}`
+                    }}
+                  >
+                    <span style={{ ...prMonoMetaStyle, color: tokens.color.ink, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                      {row.authorLabel}
+                    </span>
+                    <span style={{ ...textStyles.caption, color: tokens.color.subInk, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                      {row.captionLabel}
+                    </span>
+                    <span style={{ ...prMonoMetaStyle, color: row.matchedCount >= 4 ? PR_MOSS : PR_ACCENT }}>
+                      {row.matchedCount}/6
+                    </span>
+                  </div>
+                )) : (
+                  <span style={{ ...textStyles.caption, color: tokens.color.softInk, paddingTop: 6 }}>
+                    沒有命中貼文。
+                  </span>
+                )}
+              </div>
+            </details>
+          );
+        })}
+      </div>
+
+      {health.systemicGap ? (
+        <div
+          data-pr-criteria-health-gap="true"
+          style={{
+            display: "grid",
+            gap: 5,
+            padding: "10px 13px",
+            borderRadius: PR_RADIUS,
+            background: "rgba(122,32,48,0.04)",
+            border: "1px solid rgba(122,32,48,0.22)",
+            minWidth: 0
+          }}
+        >
+          <span style={{ ...textStyles.label, fontFamily: tokens.font.sans, color: PR_ACCENT, letterSpacing: "0.04em", textTransform: "uppercase", fontWeight: 700 }}>
+            系統性缺口 · {health.systemicGap.label}
+          </span>
+          <span style={{ ...prRowTextStyle, color: tokens.color.subInk, minWidth: 0 }}>
+            {health.systemicGap.label} 在 {health.systemicGap.missingRows} 列 evidence 全無命中,屬結構性缺欄,需先補來源才補得起來。
+          </span>
+        </div>
+      ) : null}
+    </SurfaceCard>
+  );
+}
+
+function HealthKpi({ label, value, suffix, accent }: { label: string; value: string; suffix?: string; accent: string }) {
+  return (
+    <div style={{ display: "grid", gap: 1, padding: "9px 12px", borderRadius: tokens.radius.card, border: `1px solid ${PR_RULE}`, background: tokens.color.surface, minWidth: 0 }}>
+      <span style={{ ...textStyles.label, fontFamily: tokens.font.sans, color: tokens.color.softInk, letterSpacing: "0.05em", textTransform: "uppercase", fontWeight: 700 }}>
+        {label}
+      </span>
+      <span style={{ fontFamily: `${tokens.font.serifCjk}, ${tokens.font.serif}`, fontSize: 24, lineHeight: 1, fontWeight: 500, color: accent }}>
+        {value}
+        {suffix ? <span style={{ fontFamily: tokens.font.mono, fontSize: 11, color: tokens.color.softInk, fontWeight: 400 }}> {suffix}</span> : null}
+      </span>
+    </div>
+  );
+}
+
 function PrWorkingArea({
   viewModel,
-  onPaneChange,
   onCommand
 }: {
   viewModel: PrEvidenceViewModel;
-  onPaneChange: (pane: PrWorkPane) => void;
   onCommand: (command: PrEvidenceCommand) => void;
 }) {
   const rows = viewModel.rows;
-  const activePane = viewModel.workingArea.activePane;
-  const tabs: ReadonlyArray<SegmentedTabItem<PrWorkPane>> = viewModel.workingArea.tabs;
   const matchAction = viewModel.actions.find((action) => action.kind === "matchCriteria");
   const metricsAction = viewModel.actions.find((action) => action.kind === "fetchAdvancedMetrics");
   const exportCsvAction = viewModel.actions.find((action) => action.kind === "exportCsv");
-
-  const paneStyle = (pane: PrWorkPane) => ({
-    display: activePane === pane ? "block" : "none"
-  });
+  const hasMatchResult = Boolean(viewModel.campaign.lastMatchedAt || viewModel.workingArea.match.matchedCells > 0);
 
   return (
-    <section data-pr-working-area="true" data-pr-actions="true" style={{ display: "grid", gap: tokens.spacing.md, marginBottom: tokens.spacing.lg, minWidth: 0 }}>
+    <section
+      data-pr-working-area="true"
+      data-pr-actions="true"
+      data-pr-working-layout="single"
+      style={{ display: "grid", gap: tokens.spacing.md, marginBottom: tokens.spacing.lg, minWidth: 0 }}
+    >
       <div
+        data-pr-workflow-toolbar="true"
         style={{
           display: "flex",
-          alignItems: "stretch",
+          alignItems: "center",
           gap: tokens.spacing.sm,
           borderBottom: `1px solid ${PR_RULE}`,
+          paddingBottom: 8,
           flexWrap: "wrap"
         }}
       >
-          <SegmentedTabs
-            tabs={tabs}
-            activeId={activePane}
-          onChange={onPaneChange}
-          ariaLabel="PR 工作區分頁"
-          dataAttr={(id) => ({ "data-pr-work-tab": id })}
-        />
+        <Kicker>證據流程</Kicker>
         <span style={{ flex: 1 }} />
-        <div style={{ display: "flex", alignItems: "center", paddingBottom: 6 }}>
-          <PrimaryButton onClick={() => exportCsvAction ? onCommand(exportCsvAction) : undefined} disabled={!viewModel.workingArea.canExportCsv || !exportCsvAction} style={compactButtonStyle}>
-            匯出 CSV
-          </PrimaryButton>
-        </div>
+        <PrimaryButton
+          onClick={() => matchAction ? onCommand(matchAction) : undefined}
+          disabled={!viewModel.workingArea.canMatchCriteria || !matchAction}
+          style={compactButtonStyle}
+        >
+          {viewModel.ui.isMatching ? "判斷中..." : "批次判斷"}
+        </PrimaryButton>
+        <span data-pr-metrics-action="toolbar" title="抓取進階指標" style={{ display: "inline-flex" }}>
+          <SecondaryButton
+            onClick={() => metricsAction ? onCommand(metricsAction) : undefined}
+            disabled={!viewModel.workingArea.canFetchAdvancedMetrics || !metricsAction}
+            style={{ ...accentButtonStyle, ...compactButtonStyle }}
+          >
+            {viewModel.ui.isFetchingAdvancedMetrics ? "抓取中..." : "抓取進階指標"}
+          </SecondaryButton>
+        </span>
+        <PrimaryButton
+          onClick={() => exportCsvAction ? onCommand(exportCsvAction) : undefined}
+          disabled={!viewModel.workingArea.canExportCsv || !exportCsvAction}
+          style={compactButtonStyle}
+        >
+          匯出 CSV
+        </PrimaryButton>
       </div>
 
-      <div style={paneStyle("ledger")}>
-        <PaneHeader
-          title="已儲存貼文"
-          caption={viewModel.workingArea.ledgerCaption}
-        />
-        <EvidenceLedger rows={rows} />
-      </div>
+      {hasMatchResult ? <CriteriaHealth health={viewModel.criteriaHealth} rows={rows} /> : null}
 
-      <div style={paneStyle("match")}>
-        <PaneHeader
-          title="用 6 項條件逐篇判斷"
-          caption={viewModel.workingArea.match.caption}
-          action={
-            <PrimaryButton
-              onClick={() => matchAction ? onCommand(matchAction) : undefined}
-              disabled={!viewModel.workingArea.canMatchCriteria || !matchAction}
-              style={compactButtonStyle}
-            >
-              {viewModel.ui.isMatching ? "判斷中..." : "批次判斷"}
-            </PrimaryButton>
-          }
-        />
-        <div data-pr-match-list="wrap" style={{ display: "grid", borderTop: `1px solid ${PR_RULE}` }}>
-          {rows.length ? rows.map((row) => (
-            <div
-              key={row.id}
-              style={{
-                display: "grid",
-                gap: 6,
-                padding: "11px 4px",
-                borderBottom: `1px solid ${PR_RULE}`
-              }}
-            >
-              <div style={{ display: "flex", alignItems: "baseline", gap: 10, minWidth: 0 }}>
-                <span style={{ ...prMonoMetaStyle, color: tokens.color.ink, flex: "0 0 auto", minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", maxWidth: 124 }}>
-                  {row.authorLabel}
-                </span>
-                <span style={{ ...prRowTextStyle, flex: 1, minWidth: 0, color: tokens.color.subInk, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-                  {row.captionLabel}
-                </span>
-                <span style={{ ...textStyles.metric, color: row.matchedCount >= 5 ? PR_MOSS : row.matchedCount > 0 ? PR_ACCENT : tokens.color.softInk, flexShrink: 0 }}>
-                  {row.matchCountLabel}
-                </span>
-              </div>
-              <CriterionChips row={row} variant="full" />
-            </div>
-          )) : (
-            <div style={{ padding: "16px 8px", fontSize: 12, color: tokens.color.subInk }}>先收集貼文，再執行條件判斷。</div>
-          )}
-          {rows.length ? (
-            <div style={{ display: "flex", flexWrap: "wrap", gap: 14, alignItems: "center", padding: "10px 4px", borderTop: `1px solid ${PR_RULE}` }}>
-              <span style={{ ...textStyles.label, fontFamily: tokens.font.mono, color: tokens.color.softInk, letterSpacing: "0.06em" }}>
-                Σ 各條件
-              </span>
-              {viewModel.workingArea.match.criterionTotals.map((total, index) => (
-                <span
-                  key={index}
-                  style={{
-                    ...prMonoMetaStyle,
-                    color: total > 0 ? tokens.color.ink : tokens.color.softInk,
-                    fontWeight: total > 0 ? 700 : 400
-                  }}
-                >
-                  C{index + 1}:{total}
-                </span>
-              ))}
-              <span style={{ ...textStyles.metric, marginLeft: "auto", color: viewModel.workingArea.match.matchedCells ? PR_MOSS : tokens.color.softInk }}>
-                {viewModel.workingArea.match.matchedCells} / {viewModel.workingArea.match.totalCells}
-              </span>
-            </div>
-          ) : null}
-        </div>
-      </div>
+      <MatchSummary viewModel={viewModel} />
 
-      <div style={paneStyle("metrics")}>
-        <PaneHeader
-          title="進階指標"
-          caption={viewModel.workingArea.metricsCaption}
-          action={
-            <span data-pr-metrics-action="toolbar" title="抓取進階指標" style={{ display: "inline-flex" }}>
-              <PrimaryButton
-                onClick={() => metricsAction ? onCommand(metricsAction) : undefined}
-                disabled={!viewModel.workingArea.canFetchAdvancedMetrics || !metricsAction}
-                style={compactButtonStyle}
-              >
-                {viewModel.ui.isFetchingAdvancedMetrics ? "抓取中..." : "抓取進階指標"}
-              </PrimaryButton>
-            </span>
-          }
-        />
+      <EvidenceLedger rows={rows} caption={viewModel.workingArea.ledgerCaption} />
+
+      <details
+        data-pr-metrics-detail="collapsed"
+        style={{
+          borderTop: `1px solid ${PR_RULE}`,
+          paddingTop: 12,
+          borderRadius: PR_RADIUS
+        }}
+      >
+        <summary
+          style={{
+            listStyle: "none",
+            cursor: "pointer",
+            display: "flex",
+            alignItems: "baseline",
+            gap: 8,
+            color: tokens.color.ink,
+            fontFamily: `${tokens.font.serifCjk}, ${tokens.font.serif}`,
+            fontSize: 15,
+            fontWeight: 700
+          }}
+        >
+          <span style={{ fontSize: 11, color: tokens.color.softInk }}>▸</span>
+          進階指標
+          <span style={{ ...prMonoMetaStyle, marginLeft: "auto", color: tokens.color.softInk }}>
+            {viewModel.workingArea.metricsCaption}
+          </span>
+        </summary>
         <AdvancedMetricsPanel rows={rows} />
-      </div>
+      </details>
     </section>
   );
 }
 
-function PaneHeader({ title, caption, action }: { title: string; caption?: string; action?: ReactNode }) {
+function MatchSummary({ viewModel }: { viewModel: PrEvidenceViewModel }) {
+  const totals = viewModel.workingArea.match.criterionTotals;
+  const matchedCells = viewModel.workingArea.match.matchedCells;
+  const totalCells = viewModel.workingArea.match.totalCells;
   return (
-    <SectionHeader title={title} caption={caption} action={action} />
+    <div
+      data-pr-match-summary="true"
+      style={{
+        display: "flex",
+        alignItems: "center",
+        gap: 12,
+        flexWrap: "wrap",
+        padding: "10px 12px",
+        borderRadius: PR_RADIUS,
+        border: `1px solid ${PR_RULE}`,
+        background: tokens.color.neutralSurfaceSoft,
+        minWidth: 0
+      }}
+    >
+      <span style={{ ...textStyles.label, fontFamily: tokens.font.mono, color: tokens.color.softInk, letterSpacing: "0.04em" }}>
+        條件命中
+      </span>
+      <span style={{ ...prMonoMetaStyle, color: matchedCells ? PR_MOSS : tokens.color.softInk }}>
+        {matchedCells} / {totalCells}
+      </span>
+      <span style={{ ...prMonoMetaStyle, color: tokens.color.softInk }}>
+        {viewModel.workingArea.match.caption}
+      </span>
+      {totals.some((total) => total > 0) ? (
+        <span style={{ display: "flex", flexWrap: "wrap", gap: 10, marginLeft: "auto", minWidth: 0 }}>
+          {totals.map((total, index) => (
+            <span key={index} style={{ ...prMonoMetaStyle, color: total > 0 ? tokens.color.ink : tokens.color.softInk, fontWeight: total > 0 ? 700 : 400 }}>
+              C{index + 1}:{total}
+            </span>
+          ))}
+        </span>
+      ) : (
+        <span style={{ ...prRowTextStyle, color: tokens.color.subInk, marginLeft: "auto" }}>
+          先收集貼文，再執行條件判斷。
+        </span>
+      )}
+    </div>
   );
 }
 
@@ -1006,6 +1254,62 @@ function SummaryPanel({
   );
 }
 
+/* Frame 11 export preview — ready status + format cards + systemic-gap note, all from the VM. */
+function ExportReadyPanel({ viewModel }: { viewModel: PrEvidenceViewModel }) {
+  const rowCount = viewModel.ledger.rows.length;
+  if (!rowCount) {
+    return null;
+  }
+  const formats = [
+    { id: "csv", name: "CSV", desc: "agent-ready · 逐列", available: Boolean(viewModel.exports.csv) },
+    { id: "md", name: "MD", desc: "文章 · 含摘要", available: Boolean(viewModel.exports.summaryMarkdown) },
+    { id: "docx", name: "DOCX", desc: "客戶交付", available: Boolean(viewModel.exports.summaryDocx) }
+  ];
+  const gap = viewModel.criteriaHealth.systemicGap;
+  return (
+    <section data-pr-export-ready="true" style={{ display: "grid", gap: 8 }}>
+      <div
+        data-pr-export-ready-card="true"
+        style={{ display: "flex", gap: 13, alignItems: "center", padding: "14px 16px", borderRadius: tokens.radius.cardLg, border: "1px solid rgba(122,32,48,0.22)", background: `linear-gradient(180deg, ${tokens.color.surface}, rgba(122,32,48,0.045))` }}
+      >
+        <span aria-hidden style={{ width: 40, height: 40, borderRadius: 11, background: "rgba(122,32,48,0.10)", color: PR_ACCENT, display: "grid", placeItems: "center", fontSize: 20, flexShrink: 0 }}>✓</span>
+        <div style={{ display: "grid", gap: 2, minWidth: 0 }}>
+          <span style={{ fontFamily: `${tokens.font.serifCjk}, ${tokens.font.serif}`, fontSize: 15, fontWeight: 500, color: tokens.color.ink }}>輸出 ready · 含 {rowCount} rows</span>
+          <span style={{ ...textStyles.caption, color: tokens.color.softInk }}>
+            {viewModel.exports.summaryMarkdown ? "CSV / MD / DOCX 三格式都已備齊" : "CSV 已備 · MD / DOCX 待生成摘要"}
+          </span>
+        </div>
+        <span style={{ marginLeft: "auto", ...prMonoMetaStyle, color: PR_ACCENT, whiteSpace: "nowrap" }}>● ready</span>
+      </div>
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(3, minmax(0, 1fr))", gap: 8 }}>
+        {formats.map((format) => (
+          <div
+            key={format.id}
+            data-pr-format-card={format.id}
+            style={{ display: "flex", gap: 10, alignItems: "center", padding: "11px 13px", borderRadius: PR_RADIUS, border: `1px solid ${PR_RULE}`, background: tokens.color.surface, minWidth: 0 }}
+          >
+            <span style={{ display: "grid", gap: 1, minWidth: 0 }}>
+              <span style={{ fontSize: 12.5, fontWeight: 500, color: tokens.color.ink }}>{format.name}</span>
+              <span style={{ fontSize: 10, color: tokens.color.softInk, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{format.desc}</span>
+            </span>
+            <span style={{ marginLeft: "auto", ...textStyles.label, fontFamily: tokens.font.mono, color: format.available ? PR_MOSS : tokens.color.softInk, background: format.available ? tokens.color.successSoft : tokens.color.neutralSurfaceSoft, padding: "2px 7px", borderRadius: 4, whiteSpace: "nowrap" }}>
+              {format.available ? "可用" : "—"}
+            </span>
+          </div>
+        ))}
+      </div>
+      {gap ? (
+        <div
+          data-pr-export-gap-note="true"
+          style={{ ...prRowTextStyle, color: tokens.color.subInk, padding: "9px 12px", borderRadius: PR_RADIUS, border: "1px solid rgba(122,32,48,0.20)", background: "rgba(122,32,48,0.04)" }}
+        >
+          <b style={{ color: PR_ACCENT, fontWeight: 600 }}>{gap.label} gap note</b> 已寫進輸出:此條件 {gap.missingRows} 列全無命中,交付方已知此限制。
+        </div>
+      ) : null}
+    </section>
+  );
+}
+
 export interface PrEvidenceViewProps {
   viewModel: PrEvidenceViewModel;
   onCommand: (command: PrEvidenceCommand) => Promise<unknown> | unknown;
@@ -1071,11 +1375,12 @@ function PrEvidenceViewInner({ viewModel, onCommand }: PrEvidenceViewProps) {
 
         <PrWorkingArea
           viewModel={viewModel}
-          onPaneChange={(pane) => void dispatchCommand({ kind: "setPane", target: { sessionId: viewModel.sessionId }, pane })}
           onCommand={(command) => void dispatchCommand(command)}
         />
 
         <NoticeBar notice={viewModel.notice} />
+
+        <ExportReadyPanel viewModel={viewModel} />
 
         {viewModel.csvPreview ? <CsvPreview preview={viewModel.csvPreview} /> : null}
 
@@ -1140,5 +1445,6 @@ export const prEvidenceViewTestables = {
   metricLine,
   summarizeAdvancedMetricsNotice,
   CsvPreview,
-  EvidenceLedger
+  EvidenceLedger,
+  CriteriaHealth
 };

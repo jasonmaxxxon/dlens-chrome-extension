@@ -2,12 +2,13 @@
 
 DLens is a mode-aware MV3 Chrome extension for capturing Threads posts and turning them into research, product-signal, and PR evidence workflows.
 
-> Last updated: 2026-06-22
-> Current release: `0.3.2` · latest local full suite `915 passed / 5 skipped` · build clean
-> Current engineering branch: `main`
+> Last updated: 2026-07-03
+> Current source version: `0.3.7` · latest local full gate: `954 passed / 5 skipped`, typecheck, boundary guard, storage seam guard, build, and diff check passed
+> Current engineering branch: `main` with local post-`origin/main` 0.3.7 changes
 > Positioning (2026-06-18): local power-tool (self + small technical circle); two separate repos (extension public · ingest-core **private**), not monorepo; Visual Reset A contract is `src/ui/tokens.ts` warm editorial + macOS utility shell
-> Verified build: `output/chrome-mv3`
-> Stability note (0.3.0): `TRACE`, `SEAM_GUARD`, `RECONCILE`, `INVALIDATE`, `BOUNDARY`, and `MIGRATE` are locked in the live architecture map. Visual Reset A shipped the native-feeling shell plus PR Evidence, Topic, Compare, and Product marquee surfaces without changing storage, backend, ViewModel, command, or signal-packet contracts.
+> Load-unpacked build path: `output/chrome-mv3`
+> Stability note: `TRACE`, `SEAM_GUARD`, `RECONCILE`, `INVALIDATE`, `BOUNDARY`, and `MIGRATE` are locked in the live architecture map. Visual Reset A shipped the native-feeling shell plus PR Evidence, Topic, Compare, and Product marquee surfaces without changing storage, backend, ViewModel, command, or signal-packet contracts.
+> Runtime note (2026-07-03): Chrome reads `output/chrome-mv3`, not raw `src/`. If Product still shows a separate `分類` rail item, suspect stale bundled JS or an unreloaded unpacked extension before changing the source contract.
 
 ## What It Does
 
@@ -22,6 +23,19 @@ Current workspace modes:
 | `product` | Analyze saved signals against ProductContext, review free-text readings, export agent-readable packets | Working |
 | `pr-evidence` | Build PR evidence ledgers from already-found Threads posts, match criteria, export CSV/MD/DOCX | Working |
 
+## Recent Month Contract
+
+Recent PRs and local commits changed the shape more than the old README suggested:
+
+- PR #16-#20 moved Product, Topic, Compare, and PR Evidence views behind ViewModel/read boundaries.
+- PR #21-#29 locked the typed trace spine through a full live backend/direct-LLM fixture.
+- PR #30 and #38 locked storage writes behind seam guards; PR #40-#45 locked reconcile/invalidation terminal behavior.
+- PR #46-#51 locked View/ViewModel boundary guards and storage migration fixture coverage.
+- PR #53-#57 shipped Signal Packet HTML/source/lineage provenance and 0.2.1.
+- PR #58-#67 shipped Visual Reset A and release 0.3.0.
+- PR #68-#71 handled post-reset LOC/overflow fixes: Library/Compare split, popup clipping, topic removal, masthead containment.
+- Local 0.3.6/0.3.7 commits and worktree changes compact Product saved-signal rows, suppress stale backend errors, restore the extension action side panel, and move Product classification visibility into the Saved Signals surface.
+
 ## Current Features
 
 - Hover-to-preview and collect on Threads feeds/post pages. Hover uses a warm in-memory cache (no per-move storage read); saves carry the live hovered post and the popup's visible folder/topic so they always land where intended. Collect metrics use shared icon chips across the overlay and popup preview. Collect saves and refresh-all writes share the snapshot lock so Topic signals cannot be left without a usable backing saved item/descriptor; pre-existing orphan/corrupt signals are hidden from Topic counts/lists and queued for storage cleanup. Content scripts also rehydrate active collect mode after extension reload/page refresh (see AGENTS.md "Recently Fixed 2026-05-22").
@@ -30,7 +44,8 @@ Current workspace modes:
 - Popup backend health dot uses the lightweight backend `/health` endpoint for liveness, while `/worker/status` remains the slower work-truth projection for backlog / retry / analysis state. One failed health poll is suppressed, two mark the dot slow, and three mark it unreachable.
 - Compare setup and Result surfaces with backend read models plus extension-side compare brief v8, cluster summaries, evidence annotations, and saved analysis snapshots.
 - Topic workflow: Casebook, Inbox, Topic Detail, signal triage, per-signal semantic tags/gists, optional-question TopicSignalReading, and attached compare pairs.
-- Product workflow: ProductContextCompiler, ProductSignalAnalyzer v17, Marginalia/Verdict card layouts, the restored Reading Review action UI, SignalReading packet/export support, and local feedback history. v17 stops asking the model for legacy action-recipe fields such as `copy_recipe_markdown` / `workflow_stack`; action cards also ignore those legacy fields if present and keep evidence as reusable patterns plus agent briefs, not tutorial recipes.
+- Product workflow: ProductContextCompiler, ProductSignalAnalyzer v17, Marginalia/Verdict card layouts, Reading Review when matching `SignalReading` rows exist, Signal Packet export support, and local feedback history. v17 stops asking the model for legacy action-recipe fields such as `copy_recipe_markdown` / `workflow_stack`; action cards also ignore those legacy fields if present and keep evidence as reusable patterns plus agent briefs, not tutorial recipes.
+- Product Saved Signals is the current landing surface. It owns the scan-first saved rows, `全部 / 未分類 / 待處理 / 已分類` filters, the compact pending-signal drawer, and the merged classification summary. `classification` remains an allowed product page for internal/deep-link routing, but it is no longer a rail-visible primary Product page.
 - Signal Packet export: Product sessions can export `DLensSignalPacket` records as HTML, Markdown, or JSONL through `signal-packet/export`. The 0.2.1 surface adds compact HTML density, source/capture/item provenance, reading citation refs, filed-reading lineage, source URL provenance, and a Product reading-review provenance mirror. These fields are additive on packet v3; no storage migration is required.
 - Visual Reset A: the popup shell, PR Evidence ledger, Topic detail, Compare hero, and Product action surfaces now use the `src/ui/tokens.ts` warm-paper editorial contract with macOS utility shell affordances. VIEW remains 🟢, not 🟩: marquee surfaces are DOM-test-locked, while row-level primitive adoption / LOC reduction remains follow-up work.
 - PR Evidence workflow: one active campaign per session, brief upload, six editable criteria, evidence rows, criteria matching, CSV export, Markdown/DOCX audit summary.
@@ -38,6 +53,7 @@ Current workspace modes:
 - Workspace mode switches reserve the processing-strip slot, reset scroll before paint, and crossfade the content frame so Topic/Product/PR data changes no longer produce a visible vertical jump.
 - 0.3.2 UI fix: compact masthead now removes nonessential shortcut/issue chrome, keeps only status + version on the right, and Topic cards/buttons stay inside the content width with a non-overlapping remove action.
 - 0.3.1 UI fix: popup masthead status/key hints now shrink inside the 720px shell, Product classification detail text wraps instead of clipping, and Topic cards expose an explicit remove action.
+- 0.3.7 local UI fix: Product saved-signal classification is merged into Saved Signals instead of appearing as a separate rail stop; the source contract is guarded by `getModeRailPages("product") === ["saved-signals", "actionable-filter", "collect"]`.
 - Product Action route restores the 0.1.15 `READING REVIEW` UI only when the current saved signals have matching `SignalReading` rows. Review callbacks alone must not switch the Action route away from the Marginalia action cards. The old page-level batch export remains off the Action route; Saved Signals owns the `行動簡報匯出` selection/copy surface.
 - Product Settings includes a Product-only cache reset. It clears derived Product analysis, SignalReading, feedback, and compiled ProductContext storage without deleting saved signals, topics, archive folders, or PR evidence.
 - Popup runtime hardening: the React tree is wrapped in a top-level workspace ErrorBoundary, and the content-script runtime fallback remains separate.
@@ -67,14 +83,16 @@ npx tsx --test tests/*.test.ts tests/*.test.tsx
 npm run build
 ```
 
-Expected verified state for merged `main` `0.3.2`:
+Expected verification before handing off `main`:
 
-- `915 passed / 5 skipped` in `npx tsx --test tests/*.test.ts tests/*.test.tsx`
+- Source routing contract: `npx --yes tsx@4.22.5 --test tests/product-routing.test.ts tests/page-registry.test.ts tests/inpage-collector-state-split.test.ts` should pass with product rail pages `saved-signals / actionable-filter / collect`
+- Full suite: `npx tsx --test tests/*.test.ts tests/*.test.tsx`
 - `npm run typecheck` passes
 - `npm run storage:seam-guard` reports zero allowlisted bypasses
 - `npm run boundary:guard` reports zero View / ViewModel wall violations and zero allowlisted bypasses
 - `npm run build` mirrors the unpacked MV3 build to `output/chrome-mv3`
-- `output/chrome-mv3/manifest.json` reports `version: "0.3.2"` and `name: "DLens v3"`
+- `output/chrome-mv3/manifest.json` reports the same version as `package.json` and `name: "DLens v3"`
+- Bundle sanity check for Product 0.3.7: `output/chrome-mv3` should contain `data-product-saved-filter-tabs`, `data-product-merged-classification`, and should not render `classification` in the Product rail. Manifest version alone is not enough.
 
 ## Second Mac Install
 
@@ -118,4 +136,5 @@ Current state and open risks:
 - `src/ui/useInPageCollectorAppState.ts` is 2148 lines; continue extraction before adding more product/PR/export routes.
 - C-Backend read-model hardening is now 🟢: B1-B4 landed across backend and extension projection; future read-model changes must update the shared seven-case golden fixtures.
 - BOUNDARY is now 🟩: View / ViewModel wall guards are wired into CI through `npm run boundary:guard`.
-- Signal Packet HTML/JSONL needs the next semantic cleanup: HTML evidence density/provenance, `citedInReadingRefs`, latest vs superseded readings, and root `source.pageUrl` investigation.
+- VIEW remains 🟢, not 🟩: Visual Reset A marquee surfaces are locked, but row-level primitive adoption / large-view LOC reduction is still follow-up work.
+- Chrome QA must verify the rebuilt `output/chrome-mv3` in Jason's `Default` profile. A source fix plus a bumped manifest can still show stale UI if the bundle was not rebuilt or the unpacked extension was not reloaded.

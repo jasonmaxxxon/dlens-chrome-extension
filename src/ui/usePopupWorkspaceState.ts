@@ -13,10 +13,11 @@ type SendAndSync = <T extends ExtensionResponse = ExtensionResponse>(message: Ex
 
 export function buildInitialPopupWorkspaceState(
   processingSummary: SessionProcessingSummary,
-  popupOpen: boolean
+  popupOpen: boolean,
+  popupPage?: PopupPage | null
 ): PopupWorkspaceState {
   return {
-    currentMode: popupOpen ? resolveInitialPopupMode(processingSummary) : "library",
+    currentMode: popupOpen ? popupPage ?? resolveInitialPopupMode(processingSummary) : "library",
     popupOpen,
     modeLocked: popupOpen
   };
@@ -66,7 +67,7 @@ export function usePopupWorkspaceState({
   sendAndSync: SendAndSync;
 }) {
   const [workspaceState, setWorkspaceState] = useState<PopupWorkspaceState>(() =>
-    buildInitialPopupWorkspaceState(processingSummary, popupOpen)
+    buildInitialPopupWorkspaceState(processingSummary, popupOpen, popupPage)
   );
   const pendingNavigationRef = useRef<PopupPage | null>(null);
 
@@ -74,7 +75,7 @@ export function usePopupWorkspaceState({
     setWorkspaceState((currentState) => advancePopupWorkspaceState(processingSummary, currentState, popupOpen));
   }, [popupOpen, processingSummary]);
 
-  useEffect(() => {
+  useLayoutEffect(() => {
     pendingNavigationRef.current = resolvePendingNavigationAfterSnapshot(pendingNavigationRef.current, popupPage);
     setWorkspaceState((currentState) =>
       syncPopupWorkspaceStateFromSnapshot(currentState, popupPage, popupOpen, pendingNavigationRef.current)

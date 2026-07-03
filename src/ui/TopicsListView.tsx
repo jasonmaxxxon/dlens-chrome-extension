@@ -46,6 +46,70 @@ function Divider() {
   return <span aria-hidden="true" style={{ width: 1, height: 24, background: tokens.color.line, margin: "0 12px" }} />;
 }
 
+function TopicSourceProgress({ source }: { source: TopicSourceSummary }) {
+  const total = Math.max(1, source.total);
+  const readyPct = Math.min(100, Math.max(0, (source.ready / total) * 100));
+  const processingPct = Math.min(100 - readyPct, Math.max(0, (source.processing / total) * 100));
+  const queueState = source.pending > 0 ? "pending" : "clear";
+
+  return (
+    <span data-topic-source-progress="true" style={{ display: "flex", alignItems: "center", gap: 10, minWidth: 0 }}>
+      <span
+        aria-hidden="true"
+        style={{
+          position: "relative",
+          flex: 1,
+          minWidth: 80,
+          height: 6,
+          borderRadius: 999,
+          background: tokens.color.neutralSurface,
+          overflow: "hidden"
+        }}
+      >
+        <span
+          data-topic-source-progress-ready="true"
+          style={{
+            position: "absolute",
+            left: 0,
+            top: 0,
+            bottom: 0,
+            width: `${readyPct}%`,
+            background: tokens.topicAccent.primary
+          }}
+        />
+        <span
+          data-topic-source-progress-processing="true"
+          style={{
+            position: "absolute",
+            left: `${readyPct}%`,
+            top: 0,
+            bottom: 0,
+            width: `${processingPct}%`,
+            background: tokens.topicAccent.warm
+          }}
+        />
+      </span>
+      <span
+        data-topic-source-queue={queueState}
+        style={{
+          display: "inline-flex",
+          alignItems: "center",
+          gap: 5,
+          padding: "3px 8px",
+          borderRadius: 999,
+          background: queueState === "pending" ? "rgba(161,106,23,0.11)" : "rgba(63,90,59,0.10)",
+          color: queueState === "pending" ? tokens.topicAccent.warm : tokens.topicAccent.primary,
+          fontSize: 10.5,
+          fontWeight: 800,
+          whiteSpace: "nowrap"
+        }}
+      >
+        {source.pending > 0 ? `${source.pending} 待處理` : "queue clear"}
+      </span>
+    </span>
+  );
+}
+
 export function TopicCard({
   topic,
   summary,
@@ -67,6 +131,12 @@ export function TopicCard({
     pending: signalCount
   };
   const canDelete = typeof onDeleteTopic === "function";
+  // Frame 05 colour spine: sage = narrative ready, rose = failed/tension, amber = still building.
+  const spineColor = summary.reportStatus === "ready"
+    ? tokens.topicAccent.primary
+    : summary.reportStatus === "failed"
+      ? tokens.topicAccent.fail
+      : tokens.topicAccent.warm;
   const openTopic = () => onOpenTopic(topic.id);
   const handleKeyDown = (event: KeyboardEvent<HTMLDivElement>) => {
     if (event.key === "Enter" || event.key === " ") {
@@ -105,6 +175,7 @@ export function TopicCard({
         transition: tokens.motion.preset.cardLift
       }}
     >
+      <span aria-hidden data-topic-card-spine={summary.reportStatus} style={{ position: "absolute", left: 0, top: 0, bottom: 0, width: 4, background: spineColor }} />
       <span style={{ display: "grid", gridTemplateColumns: "minmax(0, 1fr) auto", alignItems: "flex-start", gap: 12, minWidth: 0 }}>
         <span style={{ display: "grid", gap: 5, minWidth: 0 }}>
           <span style={{ fontFamily: `${tokens.font.serifCjk}, ${tokens.font.serif}`, fontSize: 18, fontWeight: 900, lineHeight: 1.2 }}>
@@ -145,23 +216,25 @@ export function TopicCard({
       </span>
       <span
         style={{
-          display: "flex",
-          alignItems: "center",
-          gap: 0,
+          display: "grid",
+          gap: 8,
           minWidth: 0,
           borderRadius: tokens.radius.button,
           background: tokens.color.contextSurface,
           padding: "10px 14px"
         }}
       >
-        <Stat value={signalCount} label="訊號" />
-        <Divider />
-        <Stat value={`${source.ready}/${source.total}`} label="已完成" />
-        <Divider />
-        <Stat value={source.processing} label="處理中" muted={source.processing === 0} />
-        <Divider />
-        <Stat value={source.pending} label="待處理" muted />
-        <span style={{ marginLeft: "auto", fontSize: 12, fontWeight: 800, color: tokens.topicAccent.primary }}>打開 ›</span>
+        <span style={{ display: "flex", alignItems: "center", gap: 0, minWidth: 0 }}>
+          <Stat value={signalCount} label="訊號" />
+          <Divider />
+          <Stat value={`${source.ready}/${source.total}`} label="已完成" />
+          <Divider />
+          <Stat value={source.processing} label="處理中" muted={source.processing === 0} />
+          <Divider />
+          <Stat value={source.pending} label="待處理" muted />
+          <span style={{ marginLeft: "auto", fontSize: 12, fontWeight: 800, color: tokens.topicAccent.primary }}>打開 ›</span>
+        </span>
+        <TopicSourceProgress source={source} />
       </span>
     </div>
   );

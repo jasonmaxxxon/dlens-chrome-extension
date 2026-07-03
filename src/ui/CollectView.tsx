@@ -333,8 +333,6 @@ export function CollectView({
           <div
             data-topic-triage-action-bar="true"
             style={{
-              position: "sticky",
-              bottom: 0,
               display: "flex",
               alignItems: "center",
               justifyContent: "space-between",

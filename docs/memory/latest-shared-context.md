@@ -6,7 +6,7 @@ type: project
 
 # DLens Extension Shared Context
 
-Last updated: 2026-06-22
+Last updated: 2026-07-03
 
 This file is the current shared context. Keep this filename stable and update
 the contents in place whenever an automated or manual handoff refresh makes it
@@ -48,6 +48,7 @@ This note is the high-signal shared memory for Codex and Claude when working on 
 - `Collect` is a low-friction capture surface, not an analysis page.
 - `Settings` should behave like a narrow runtime utility drawer even while still page-backed.
 - `Product` mode is an insight-first workflow backed by `ProductContextCompiler` and `ProductSignalAnalyzer`.
+- Product Saved Signals is the current Product landing surface. Classification visibility is merged into Saved Signals through filter tabs and a compact classification summary; `classification` remains an allowed internal/deep-link product page, but is not rail-visible.
 - `PR Evidence` mode is a compact campaign evidence workflow for agency / PR operators, backed by `PrCampaign` and `PrEvidenceRow`.
 - 0.3.0 is the Visual Reset A user-visible release: popup shell, PR Evidence ledger, Topic detail, Compare hero, and Product action marquee surfaces now follow the `src/ui/tokens.ts` warm-paper editorial contract plus native-feeling utility shell affordances. This did not change storage, backend, ViewModel, command target, classifier, content-script, or Signal Packet contracts.
 - `VIEW` remains 🟢, not 🟩. The four marquee surfaces are DOM-test-locked; row-level primitive adoption / large-view LOC reduction remains a follow-up `refactor(ui)` track.
@@ -73,6 +74,7 @@ This note is the high-signal shared memory for Codex and Claude when working on 
 - Workspace mode switches reserve the ProcessingStrip slot, reset scroll with `useLayoutEffect`, and crossfade only the mode frame. This keeps Topic/Product/PR data-loaded transitions from jumping while avoiding extra animation on same-mode tabs.
 - Marginalia visual hierarchy is intentionally simplified: eyebrow has no verdict, FOOTNOTES header is hidden, bottom AI experiment/judgment detail blocks are not rendered, and workflow evidence rows are flat label-stacked sections with dotted dividers.
 - Product classification list rows no longer render relevance dots; `最新在前` only appears when the selected type group has at least two signals.
+- Product rail pages should be `saved-signals`, `actionable-filter`, and `collect`. If live Chrome still shows a separate `分類` rail item, check for stale `output/chrome-mv3` bundled JS or an unreloaded unpacked extension before changing source.
 - Product Agent Brief uses reviewable `SignalReading` records; active review cards keep a compact Marginalia signal strip with verdict, reference category, and relevance bars.
 - Topic synthesis uses deterministic `v3.generic-keyword-lens`; Stack is collapsible, Console is dense and always visible.
 - Folder synthesis uses deterministic `v3.generic-keyword-lens` and renders as the Library Briefing card. Storage key: `dlens:v1:folder-synthesis`.
@@ -82,10 +84,11 @@ This note is the high-signal shared memory for Codex and Claude when working on 
 - TRACE full-live verification is locked by `docs/qa/assets/2026-06-13/full-live-backend-llm/live-trace-full-hover-save-queue-analysis.json`; `npm run qa:harness:fixture` requires hover.detected → ui.ready, including backend.request and llm.call phases.
 - Verified build artifact was copied to `output/chrome-mv3`; the source checkout there may still be dirty.
 
-## Version Rule As Of 2026-06-22
+## Version Rule As Of 2026-07-03
 
-- Current extension version: `0.3.0`.
-- Latest release verification: `909 passed / 5 skipped`, typecheck, storage seam guard, migration fixture guard, boundary guard, `qa:harness:fixture`, build, and diff check passed locally.
+- Current source version in the active worktree: `0.3.7`.
+- Latest local verification: `npm run typecheck`, `npm run boundary:guard`, `npm run storage:seam-guard`, `npx tsx --test tests/*.test.ts tests/*.test.tsx` (`954 passed / 5 skipped`), `npm run build`, and `git diff --check` passed on 2026-07-03.
+- Built `output/chrome-mv3/manifest.json` reports `version: "0.3.7"` after the 2026-07-03 build.
 - Current engineering branch: `main`.
 - `docs/ENGINEERING_PLAN.md` §2 N1-N5 is complete: React ErrorBoundary, Settings storage usage, `mutateSnapshot` seam, behavioral storage contracts, and code-review checklist.
 - §3 remains a deferred trigger pool, not a backlog drain queue.
@@ -99,7 +102,7 @@ This note is the high-signal shared memory for Codex and Claude when working on 
 - Every user-visible update pushed to `main` should bump the version unless the user explicitly says not to.
 - `tests/manifest-config.test.ts` locks package / manifest / UI version consistency.
 - Product signal removal uses `signal/delete` and must persist to storage: remove from `dlens:v1:signals`, clear topic membership and affected topic synthesis, delete the matching product analysis, clear session folder synthesis, and refresh product state.
-- Product mode `classification` is a valid product signal page. Keep it in `ALLOWED_PAGES.product`, `PRODUCT_SIGNAL_PAGES`, product width handling, and product data-effect routing so it does not fall back to `saved-signals`.
+- Product mode `classification` is a valid product signal page for routing/data effects. Keep it in `ALLOWED_PAGES.product`, `PRODUCT_SIGNAL_PAGES`, product width handling, and product data-effect routing so deep links do not fall back to `saved-signals`; keep it out of the Product rail because classification is summarized inside Saved Signals.
 - Marginalia right rail should not duplicate main prose: `對到` shows only a short reference category, TASK shows `agentTaskSpec.taskTitle`, and `contentSummary` / `experimentHint` remain in the main column.
 
 ## Signal Packet Export As Of 2026-05-20

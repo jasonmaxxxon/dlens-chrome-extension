@@ -35,6 +35,7 @@ import {
 
 import type { EvidencePacket } from "../compare/topic-audit.ts";
 import type { TopicAuditValidationFlag } from "../compare/topic-audit-validator.ts";
+import type { NarrativeLaneDetail } from "../viewmodel/narrative-lane-detail.ts";
 import { tokens } from "./tokens";
 
 const NARRATIVE_ICON_COMPONENTS: Record<string, LucideIcon> = {
@@ -458,6 +459,393 @@ export function NarrativeLane({
         </span>
       </span>
     </button>
+  );
+}
+
+export type NewsroomRole = "main" | "counter";
+
+const NEWSROOM_ROLE_META: Record<NewsroomRole, { label: string; fg: string; bg: string }> = {
+  main: { label: "主敘事", fg: TOPIC.primaryDeep, bg: TOPIC.tintSage },
+  counter: { label: "反向訊號", fg: TOPIC.warm, bg: TOPIC.tintAmber }
+};
+
+export function newsroomRoleForLane(consensus: number): NewsroomRole {
+  return consensus >= 0.6 ? "main" : "counter";
+}
+
+/** Wraps a NarrativeLane with a newsroom role derived from the lane's real consensus value. */
+export function NewsroomLane({
+  lane,
+  active,
+  onClick
+}: {
+  lane: NarrativeLaneHint;
+  active?: boolean;
+  onClick?: () => void;
+}) {
+  const role = newsroomRoleForLane(lane.consensus);
+  const meta = NEWSROOM_ROLE_META[role];
+  return (
+    <div data-topic-newsroom-signal="true" data-newsroom-role={role} style={{ display: "grid", gap: 6 }}>
+      <span
+        data-newsroom-role-label="true"
+        style={{
+          justifySelf: "start",
+          display: "inline-flex",
+          alignItems: "center",
+          gap: 6,
+          padding: "2px 9px",
+          borderRadius: tokens.radius.round,
+          background: meta.bg,
+          color: meta.fg,
+          fontFamily: tokens.font.sans,
+          fontSize: 10.5,
+          fontWeight: 800,
+          letterSpacing: "0.04em"
+        }}
+      >
+        <Dot color={meta.fg} />
+        {meta.label}
+      </span>
+      <NarrativeLane lane={lane} active={active} onClick={onClick} />
+    </div>
+  );
+}
+
+export interface NewsroomLadderSource {
+  shortCode: string;
+  text: string;
+  author: string;
+}
+
+export interface NewsroomLadderQuote {
+  shortCode: string;
+  ordinal: "主" | "反";
+  text: string;
+  author: string;
+}
+
+/**
+ * Builds the representative quote ladder (Frame 06) from real audit sources.
+ * A source quote is "反" when it only belongs to a low-consensus (counter) lane;
+ * mains lead, a counter is reserved for the last slot when one exists. No invented text.
+ */
+export function buildNewsroomLadder(
+  lanes: NarrativeLaneHint[],
+  sources: NewsroomLadderSource[],
+  limit = 3
+): NewsroomLadderQuote[] {
+  const mainCodes = new Set<string>();
+  const counterCodes = new Set<string>();
+  for (const lane of lanes) {
+    const target = lane.consensus >= 0.6 ? mainCodes : counterCodes;
+    for (const ref of lane.signalRefs) {
+      const code = ref.split(".")[0];
+      if (code) target.add(code);
+    }
+  }
+  const classified = sources
+    .filter((source) => source.text.trim().length > 0)
+    .map((source) => ({
+      shortCode: source.shortCode,
+      text: source.text.trim(),
+      author: source.author || "unknown",
+      ordinal: (counterCodes.has(source.shortCode) && !mainCodes.has(source.shortCode) ? "反" : "主") as "主" | "反"
+    }));
+  const mains = classified.filter((quote) => quote.ordinal === "主");
+  const counters = classified.filter((quote) => quote.ordinal === "反");
+  const reserved = counters.length > 0 ? 1 : 0;
+  const ladder = mains.slice(0, Math.max(0, limit - reserved));
+  for (const counter of counters) {
+    if (ladder.length < limit) ladder.push(counter);
+  }
+  for (const main of mains.slice(Math.max(0, limit - reserved))) {
+    if (ladder.length < limit) ladder.push(main);
+  }
+  return ladder;
+}
+
+/** Frame 06 representative quote ladder — original text first, author attribution kept. */
+export function NewsroomLadder({ quotes, onOpenQuote }: { quotes: NewsroomLadderQuote[]; onOpenQuote?: (shortCode: string) => void }) {
+  if (!quotes.length) {
+    return null;
+  }
+  return (
+    <details
+      data-topic-newsroom-ladder="true"
+      data-topic-newsroom-ladder-detail="collapsed"
+      style={{
+        padding: "11px 14px",
+        borderRadius: tokens.radius.card,
+        border: `1px solid ${tokens.color.line}`,
+        background: tokens.color.surface,
+        display: "grid",
+        gap: 7,
+        fontFamily: tokens.font.sans
+      }}
+    >
+      <summary
+        style={{
+          cursor: "pointer",
+          listStyle: "none",
+          margin: 0,
+          fontSize: 10,
+          fontWeight: 700,
+          letterSpacing: "0.06em",
+          textTransform: "uppercase",
+          color: tokens.color.subInk,
+          display: "flex",
+          alignItems: "center",
+          gap: 6
+        }}
+      >
+        {quotes.length} 條代表 quote
+        <span style={{ fontFamily: tokens.font.mono, fontSize: 9, color: TOPIC.primary, background: TOPIC.tintSage, border: `1px solid ${TOPIC.primaryGlow}`, padding: "1px 6px", borderRadius: 5 }}>
+          representative
+        </span>
+      </summary>
+      <div style={{ display: "grid", gap: 7, marginTop: 8 }}>
+        {quotes.map((quote) => {
+          const isCounter = quote.ordinal === "反";
+          const canOpen = Boolean(onOpenQuote);
+          return (
+            <div
+              key={quote.shortCode}
+              role={canOpen ? "button" : undefined}
+              tabIndex={canOpen ? 0 : undefined}
+              data-newsroom-ladder-quote={quote.shortCode}
+              data-newsroom-ladder-ordinal={isCounter ? "counter" : "main"}
+              onClick={() => onOpenQuote?.(quote.shortCode)}
+              onKeyDown={(event) => {
+                if (!canOpen) return;
+                if (event.key === "Enter" || event.key === " ") {
+                  event.preventDefault();
+                  onOpenQuote?.(quote.shortCode);
+                }
+              }}
+              style={{
+                display: "flex",
+                gap: 9,
+                padding: "7px 9px",
+                borderRadius: tokens.radius.xs,
+                background: tokens.color.contextSurface,
+                borderLeft: `2px solid ${isCounter ? "rgba(122,32,48,0.30)" : TOPIC.primaryGlow}`,
+                cursor: canOpen ? "pointer" : "default"
+              }}
+            >
+              <span style={{ fontFamily: tokens.font.mono, fontSize: 10, fontWeight: 500, color: isCounter ? "#7a2030" : TOPIC.primary, flexShrink: 0, paddingTop: 1 }}>
+                {quote.ordinal}
+              </span>
+              <p style={{ margin: 0, flex: 1, minWidth: 0, fontFamily: `${tokens.font.serifCjk}, ${tokens.font.serif}`, fontSize: 12.5, lineHeight: 1.5, color: tokens.color.ink }}>
+                {quote.text}
+              </p>
+              <span style={{ fontSize: 10, color: tokens.color.softInk, alignSelf: "center", flexShrink: 0 }}>
+                @{quote.author}
+              </span>
+            </div>
+          );
+        })}
+      </div>
+    </details>
+  );
+}
+
+/** Single uncertainty line for the newsroom block; renders nothing when there is nothing to flag. */
+export function NewsroomUncertainty({ text }: { text: string }) {
+  if (!text) return null;
+  return (
+    <div
+      data-topic-newsroom-uncertainty="true"
+      style={{
+        display: "flex",
+        alignItems: "baseline",
+        gap: 8,
+        padding: "8px 12px",
+        borderRadius: tokens.radius.card,
+        background: TOPIC.tintAmber,
+        border: `1px solid ${tokens.color.line}`,
+        fontFamily: tokens.font.sans
+      }}
+    >
+      <span style={{ fontSize: 10.5, fontWeight: 800, color: TOPIC.warm, letterSpacing: "0.04em", flexShrink: 0 }}>
+        待驗證
+      </span>
+      <span style={{ fontSize: 12, lineHeight: 1.5, color: tokens.color.subInk }}>
+        {text}
+      </span>
+    </div>
+  );
+}
+
+/**
+ * Lane drill-down: when a narrative lane is opened, this reveals the substance
+ * derived from that lane's real posts — recurring wording, representative
+ * comments, and the loudest voices. No invented text; everything traces back to
+ * captured packets and can be opened via the source quote.
+ */
+export function NarrativeLaneDetailPanel({
+  detail,
+  laneLabel,
+  consensus,
+  onOpenQuote
+}: {
+  detail: NarrativeLaneDetail;
+  laneLabel: string;
+  consensus: number;
+  onOpenQuote?: (shortCode: string) => void;
+}) {
+  const blockLabelStyle = {
+    fontSize: 9.5,
+    fontWeight: 800,
+    letterSpacing: "0.07em",
+    textTransform: "uppercase" as const,
+    color: tokens.color.subInk
+  };
+  const statParts = [`${detail.postCount} 篇`];
+  if (detail.commentCount > 0) statParts.push(`${detail.commentCount} 留言`);
+  statParts.push(`共識 ${Math.round(consensus * 100)}%`);
+  return (
+    <section
+      data-narrative-lane-detail={detail.laneId}
+      style={{
+        display: "grid",
+        gap: 12,
+        padding: "13px 15px",
+        borderRadius: tokens.radius.card,
+        border: `1px solid ${TOPIC.primaryGlow}`,
+        background: TOPIC.tintSage,
+        boxShadow: tokens.shadow.topicCard,
+        fontFamily: tokens.font.sans
+      }}
+    >
+      <div style={{ display: "flex", alignItems: "baseline", gap: 8, flexWrap: "wrap" }}>
+        <span style={{ fontSize: 13, fontWeight: 800, color: tokens.color.ink, lineHeight: 1.3 }}>
+          {laneLabel}
+        </span>
+        <span style={{ fontSize: 10.5, fontWeight: 600, color: tokens.color.softInk }}>
+          {statParts.join("　·　")}
+        </span>
+      </div>
+
+      {detail.keywords.length > 0 ? (
+        <div style={{ display: "grid", gap: 5 }}>
+          <span style={blockLabelStyle}>
+            重複用字
+            {detail.keywordsAreSparse ? (
+              <span style={{ fontWeight: 600, textTransform: "none", letterSpacing: 0, color: tokens.color.softInk }}>
+                {"　樣本少 · 為高頻詞"}
+              </span>
+            ) : null}
+          </span>
+          <div style={{ display: "flex", gap: 5, flexWrap: "wrap" }}>
+            {detail.keywords.map((keyword) => (
+              <span
+                key={keyword.term}
+                data-lane-keyword={keyword.term}
+                style={{
+                  display: "inline-flex",
+                  alignItems: "baseline",
+                  gap: 4,
+                  padding: "3px 9px",
+                  borderRadius: tokens.radius.round,
+                  background: tokens.color.elevated,
+                  border: `1px solid ${TOPIC.primaryGlow}`,
+                  fontSize: 12,
+                  fontWeight: 700,
+                  color: TOPIC.primaryDeep
+                }}
+              >
+                {keyword.term}
+                <span style={{ fontFamily: tokens.font.mono, fontSize: 9.5, fontWeight: 500, color: tokens.color.softInk }}>
+                  {keyword.postCount > 1 ? `${keyword.postCount}篇` : `×${keyword.total}`}
+                </span>
+              </span>
+            ))}
+          </div>
+        </div>
+      ) : null}
+
+      {detail.comments.length > 0 ? (
+        <div style={{ display: "grid", gap: 6 }}>
+          <span style={blockLabelStyle}>{detail.commentCount > 0 ? "代表留言" : "代表原文"}</span>
+          <div style={{ display: "grid", gap: 6 }}>
+            {detail.comments.map((comment, index) => {
+              const canOpen = Boolean(onOpenQuote);
+              return (
+                <div
+                  key={`${comment.shortCode}-${index}`}
+                  data-lane-comment={comment.shortCode}
+                  data-lane-comment-kind={comment.kind}
+                  role={canOpen ? "button" : undefined}
+                  tabIndex={canOpen ? 0 : undefined}
+                  onClick={() => onOpenQuote?.(comment.shortCode)}
+                  onKeyDown={(event) => {
+                    if (!canOpen) return;
+                    if (event.key === "Enter" || event.key === " ") {
+                      event.preventDefault();
+                      onOpenQuote?.(comment.shortCode);
+                    }
+                  }}
+                  style={{
+                    display: "grid",
+                    gap: 4,
+                    padding: "8px 10px",
+                    borderRadius: tokens.radius.xs,
+                    background: tokens.color.elevated,
+                    borderLeft: `2px solid ${comment.kind === "reply" ? TOPIC.primaryGlow : "rgba(27,26,23,0.18)"}`,
+                    cursor: canOpen ? "pointer" : "default"
+                  }}
+                >
+                  <p style={{ margin: 0, fontFamily: `${tokens.font.serifCjk}, ${tokens.font.serif}`, fontSize: 12.5, lineHeight: 1.5, color: tokens.color.ink }}>
+                    {comment.text}
+                  </p>
+                  <span style={{ display: "flex", gap: 8, alignItems: "center", fontSize: 10, color: tokens.color.softInk }}>
+                    <span style={{ fontWeight: 700 }}>
+                      {comment.kind === "reply" ? "留言" : "原文"}
+                    </span>
+                    <span>@{comment.author}</span>
+                    {typeof comment.likes === "number" && comment.likes > 0 ? <span>♥ {comment.likes}</span> : null}
+                  </span>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      ) : null}
+
+      {detail.voices.length > 0 ? (
+        <div style={{ display: "grid", gap: 5 }}>
+          <span style={blockLabelStyle}>主要聲音</span>
+          <div style={{ display: "flex", gap: 5, flexWrap: "wrap" }}>
+            {detail.voices.map((voice) => {
+              const total = voice.posts + voice.comments;
+              return (
+                <span
+                  key={voice.handle}
+                  data-lane-voice={voice.handle}
+                  style={{
+                    display: "inline-flex",
+                    alignItems: "baseline",
+                    gap: 4,
+                    padding: "2px 8px",
+                    borderRadius: tokens.radius.round,
+                    background: tokens.color.surface,
+                    border: `1px solid ${tokens.color.line}`,
+                    fontSize: 11,
+                    color: tokens.color.subInk
+                  }}
+                >
+                  <span style={{ fontWeight: 700, color: tokens.color.ink }}>@{voice.handle}</span>
+                  {total > 1 ? (
+                    <span style={{ fontFamily: tokens.font.mono, fontSize: 9.5, color: tokens.color.softInk }}>×{total}</span>
+                  ) : null}
+                </span>
+              );
+            })}
+          </div>
+        </div>
+      ) : null}
+    </section>
   );
 }
 

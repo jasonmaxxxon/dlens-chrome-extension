@@ -47,6 +47,6 @@ test("mode switches land on the primary surface for each workspace", () => {
 test("mode rail pages are the build-aware visible subset of allowed pages", () => {
   assert.deepEqual(getModeRailPages("archive"), ["library", "collect"]);
   assert.deepEqual(getModeRailPages("topic"), ["collect", "topics"]);
-  assert.deepEqual(getModeRailPages("product"), ["saved-signals", "classification", "actionable-filter", "collect"]);
+  assert.deepEqual(getModeRailPages("product"), ["saved-signals", "actionable-filter", "collect"]);
   assert.deepEqual(getModeRailPages("pr-evidence"), ["pr-evidence", "collect"]);
 });

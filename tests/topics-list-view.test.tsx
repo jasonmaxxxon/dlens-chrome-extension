@@ -145,6 +145,28 @@ test("TopicsListView renders the five audit states with distinct status copy", (
   assert.doesNotMatch(html, />queued</);
 });
 
+test("Frame 05 — topic cards carry a colour spine derived from audit state", () => {
+  const topics = [topic("ready", "敘事穩"), topic("failed", "張力"), topic("none", "待補")];
+  const html = renderToStaticMarkup(
+    React.createElement(TopicsListView, {
+      topics,
+      auditSummariesByTopicId: {
+        ready: { reportStatus: "ready", analyzedCount: 3, queuedCount: 0 },
+        failed: { reportStatus: "failed", analyzedCount: 0, queuedCount: 1 },
+        none: { reportStatus: "none", analyzedCount: 0, queuedCount: 2 }
+      },
+      onOpenTopic: () => undefined,
+      onCreateTopic: () => undefined
+    })
+  );
+
+  assert.match(html, /data-topic-card-spine="ready"/);
+  assert.match(html, /data-topic-card-spine="failed"/);
+  assert.match(html, /data-topic-card-spine="none"/);
+  // sage for ready, rose for failed — distinct spine colours.
+  assert.match(html, /data-topic-card-spine="ready"[^>]*background:#3f5a3b/);
+});
+
 test("TopicsListView source metrics come from real session item readiness, not audit memo counts", () => {
   const currentTopic = topic("topic-1", "議題一");
   const html = renderToStaticMarkup(
@@ -168,6 +190,11 @@ test("TopicsListView source metrics come from real session item readiness, not a
   assert.match(html, /已完成/);
   assert.match(html, /處理中/);
   assert.match(html, /待處理/);
+  assert.match(html, /data-topic-source-progress="true"/);
+  assert.match(html, /data-topic-source-progress-ready="true"/);
+  assert.match(html, /data-topic-source-progress-processing="true"/);
+  assert.match(html, /data-topic-source-queue="pending"/);
+  assert.match(html, /1 待處理/);
   assert.match(html, /報告 失敗/);
 });
 

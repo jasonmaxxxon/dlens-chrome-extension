@@ -124,6 +124,23 @@ export interface PrEvidenceWorkingAreaViewModel {
   canFetchAdvancedMetrics: boolean;
 }
 
+export type PrCriterionStrength = "strong" | "partial" | "gap";
+
+export interface PrCriteriaHealthEntryViewModel {
+  id: PrCriterionId;
+  label: string;
+  matchedRows: number;
+  totalRows: number;
+  strength: PrCriterionStrength;
+}
+
+export interface PrCriteriaHealthViewModel {
+  totalRows: number;
+  strongRows: number;
+  criteria: PrCriteriaHealthEntryViewModel[];
+  systemicGap: { criterionId: PrCriterionId; label: string; missingRows: number } | null;
+}
+
 export interface PrEvidenceCsvPreviewViewModel {
   header: string[];
   rows: string[][];
@@ -137,6 +154,7 @@ export interface PrEvidenceViewModel {
   rows: PrEvidenceRowViewModel[];
   ledger: { rows: PrEvidenceRowViewModel[] };
   workingArea: PrEvidenceWorkingAreaViewModel;
+  criteriaHealth: PrCriteriaHealthViewModel;
   csvPreview: PrEvidenceCsvPreviewViewModel | null;
   summary: string;
   notice: string;
@@ -285,6 +303,41 @@ function buildRowViewModel(row: PrEvidenceRow, criteria: PrCriterion[]): PrEvide
   };
 }
 
+function classifyCriterionStrength(matchedRows: number, totalRows: number): PrCriterionStrength {
+  if (totalRows <= 0 || matchedRows <= 0) {
+    return "gap";
+  }
+  return matchedRows / totalRows >= 0.6 ? "strong" : "partial";
+}
+
+/** A caption counts as "strong" once it matches at least this many of the six criteria. */
+export const PR_STRONG_MATCH_THRESHOLD = 4;
+
+function buildCriteriaHealth(
+  criteria: PrCriterion[],
+  criterionTotals: number[],
+  totalRows: number,
+  strongRows: number
+): PrCriteriaHealthViewModel {
+  const entries: PrCriteriaHealthEntryViewModel[] = criteria.map((criterion, index) => {
+    const matchedRows = criterionTotals[index] ?? 0;
+    return {
+      id: criterion.id,
+      label: criterion.label || `C${index + 1}`,
+      matchedRows,
+      totalRows,
+      strength: classifyCriterionStrength(matchedRows, totalRows)
+    };
+  });
+  const systemicGap = totalRows > 0
+    ? entries
+      .filter((entry) => entry.matchedRows === 0)
+      .map((entry) => ({ criterionId: entry.id, label: entry.label, missingRows: entry.totalRows - entry.matchedRows }))
+      .sort((a, b) => b.missingRows - a.missingRows)[0] ?? null
+    : null;
+  return { totalRows, strongRows, criteria: entries, systemicGap };
+}
+
 function buildCsvPreview(campaign: PrCampaignDraft, rows: PrEvidenceRow[]): PrEvidenceCsvPreviewViewModel | null {
   if (!rows.length) {
     return null;
@@ -346,7 +399,8 @@ export function buildPrEvidenceViewModel({ sessionId, resource, uiState }: Build
   );
   const matchedCells = rows.reduce((total, row) => total + matchedCount(row.criteriaMatches), 0);
   const totalCells = rows.length * 6;
-  const hasFetchedMetrics = rows.some((row) => row.advancedMetricsFetchedAt);
+  const strongRows = rowViewModels.filter((row) => row.matchedCount >= PR_STRONG_MATCH_THRESHOLD).length;
+  const criteriaHealth = buildCriteriaHealth(campaign.criteria, criterionTotals, rows.length, strongRows);
   const csvPreview = buildCsvPreview(resource.campaign, rows);
   const csv = campaign.id && rows.length
     ? {
@@ -357,11 +411,7 @@ export function buildPrEvidenceViewModel({ sessionId, resource, uiState }: Build
     : null;
   const workingArea: PrEvidenceWorkingAreaViewModel = {
     activePane: uiState.activePane,
-    tabs: [
-      { id: "ledger", label: "證據帳本", count: String(rows.length), tone: rows.length ? "accent" : "neutral" },
-      { id: "match", label: "批次判斷", count: `${matchedCells}/${totalCells}`, tone: matchedCells ? "success" : "neutral" },
-      { id: "metrics", label: "抓取指標", count: hasFetchedMetrics ? "已完成" : "—", tone: hasFetchedMetrics ? "success" : "neutral" }
-    ],
+    tabs: [],
     ledgerCaption: `${rows.length} 列 · 點擊查看${campaign.lastMatchedAt ? ` · 已判斷 ${formatPrEvidenceTime(campaign.lastMatchedAt)}` : ""}`,
     match: {
       caption: `約 ${Math.max(0, Math.ceil(rows.length / 25))} 次 AI call · ${totalCells} 格`,
@@ -381,6 +431,7 @@ export function buildPrEvidenceViewModel({ sessionId, resource, uiState }: Build
     rows: rowViewModels,
     ledger: { rows: rowViewModels },
     workingArea,
+    criteriaHealth,
     csvPreview,
     summary: resource.summary,
     notice: resource.notice,

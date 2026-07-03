@@ -113,7 +113,7 @@ export const PAGE_REGISTRY: ReadonlyArray<PageRegistryEntry> = [
     key: "classification",
     mode: "product",
     width: PAGE_POPUP_WIDTH,
-    railVisible: true,
+    railVisible: false,
     componentKind: "product-signal",
     allowedFrom: ["product"],
     orderByMode: { product: 2 }
