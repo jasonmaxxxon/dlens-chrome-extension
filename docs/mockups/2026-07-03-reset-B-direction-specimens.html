@@ -1,0 +1,157 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+<meta charset="utf-8">
+<title>Visual Reset B — 方向樣本（reference-only, 2026-07-03）</title>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<style>
+  /* ── shared structure; direction = CSS variables on the wrapper ── */
+  * { margin:0; padding:0; box-sizing:border-box; }
+  body { background:#e8e6e1; font-family:'Noto Sans TC',-apple-system,system-ui,sans-serif; padding:28px 20px 60px; }
+  .intro { max-width:1480px; margin:0 auto 26px; color:#333; }
+  .intro h1 { font-size:20px; font-weight:800; margin-bottom:6px; }
+  .intro p { font-size:13px; line-height:1.7; max-width:72em; }
+  .grid { display:grid; grid-template-columns:repeat(auto-fit,minmax(420px,1fr)); gap:22px; max-width:1480px; margin:0 auto; }
+
+  .dir { background:var(--canvas); border-radius:14px; padding:22px 20px 26px; box-shadow:0 8px 28px rgba(0,0,0,.10); color:var(--ink); }
+  .dir-name { font-size:12px; font-weight:800; letter-spacing:.08em; text-transform:uppercase; color:var(--accent); margin-bottom:2px; }
+  .dir-tagline { font-size:13px; color:var(--sub); margin-bottom:16px; line-height:1.6; }
+
+  /* masthead */
+  .masthead { display:flex; align-items:center; gap:10px; padding:10px 14px; background:var(--card); border:1px solid var(--line); border-radius:var(--r); box-shadow:var(--shadow); margin-bottom:14px; }
+  .wordmark { font-family:var(--display); font-weight:700; font-size:15px; letter-spacing:.01em; }
+  .tabs { display:flex; gap:2px; margin-left:auto; }
+  .tab { font-size:11px; font-weight:600; padding:4px 10px; border-radius:calc(var(--r) - 4px); color:var(--sub); }
+  .tab.on { background:var(--accent-soft); color:var(--accent); }
+  .dot { width:7px; height:7px; border-radius:999px; background:var(--ok); margin-left:6px; }
+  .ver { font-family:ui-monospace,'JetBrains Mono',monospace; font-size:10px; color:var(--sub); }
+
+  /* product signal card */
+  .card { background:var(--card); border:1px solid var(--line); border-radius:var(--r); box-shadow:var(--shadow); padding:16px 16px 14px; margin-bottom:14px; }
+  .eyebrow { display:flex; gap:8px; align-items:baseline; font-size:10px; font-weight:700; letter-spacing:.06em; text-transform:uppercase; color:var(--accent); margin-bottom:8px; }
+  .eyebrow .rel { color:var(--sub); font-family:ui-monospace,monospace; letter-spacing:0; text-transform:none; }
+  .card h3 { font-family:var(--display); font-size:17px; font-weight:700; line-height:1.45; margin-bottom:10px; }
+  .quote { font-family:var(--quote-font); font-style:var(--quote-style); font-size:13.5px; line-height:1.7; color:var(--sub); border-inline-start:2px solid var(--accent); padding:2px 0 2px 12px; margin-bottom:12px; background:var(--quote-bg); }
+  .meta { display:flex; align-items:center; gap:14px; font-size:11px; color:var(--sub); }
+  .meta .m { font-family:ui-monospace,'JetBrains Mono',monospace; font-weight:700; font-variant-numeric:tabular-nums; color:var(--ink); }
+  .verdict { margin-left:auto; font-size:11px; font-weight:700; padding:3px 12px; border-radius:999px; background:var(--accent); color:var(--on-accent); }
+
+  /* topic row */
+  .row { display:flex; align-items:baseline; gap:10px; padding:11px 14px; background:var(--card); border:1px solid var(--line); border-radius:var(--r); box-shadow:var(--shadow); margin-bottom:14px; }
+  .row .gist { font-size:13px; font-weight:600; line-height:1.5; flex:1; }
+  .row .tag { font-size:10.5px; color:var(--accent); background:var(--accent-soft); padding:2px 8px; border-radius:999px; white-space:nowrap; }
+  .row .stance { font-size:10.5px; color:var(--sub); white-space:nowrap; }
+
+  /* status chips */
+  .chips { display:flex; gap:8px; margin-bottom:14px; }
+  .chip { font-size:10.5px; font-weight:600; padding:4px 11px; border-radius:999px; border:1px solid var(--line); background:var(--card); }
+  .chip i { display:inline-block; width:6px; height:6px; border-radius:999px; margin-right:5px; vertical-align:1px; }
+  .c-ok i{background:var(--ok)} .c-q i{background:var(--warn)} .c-f i{background:var(--bad)} .c-r i{background:var(--run)}
+
+  /* type ramp */
+  .ramp { background:var(--card); border:1px solid var(--line); border-radius:var(--r); box-shadow:var(--shadow); padding:14px 16px; display:flex; flex-direction:column; gap:7px; }
+  .ramp .display { font-family:var(--display); font-size:21px; font-weight:700; }
+  .ramp .body { font-size:13px; line-height:1.7; color:var(--sub); }
+  .ramp .label { font-size:10px; font-weight:700; letter-spacing:.07em; text-transform:uppercase; color:var(--accent); }
+  .ramp .metric { font-family:ui-monospace,'JetBrains Mono',monospace; font-weight:700; font-size:12px; font-variant-numeric:tabular-nums; }
+  .note { font-size:11px; color:var(--sub); margin-top:12px; line-height:1.65; }
+
+  /* ── A · 石墨儀器 Graphite Instrument ── */
+  .dir-a {
+    --canvas:#f3f4f6; --card:#ffffff; --ink:#16181d; --sub:#5c6270;
+    --line:rgba(22,24,29,.12); --r:10px; --shadow:none;
+    --accent:#2f4bd8; --accent-soft:rgba(47,75,216,.08); --on-accent:#fff;
+    --ok:#2e7d4f; --warn:#b07a1e; --bad:#b3382f; --run:#2f4bd8;
+    --display:'Noto Sans TC',-apple-system,sans-serif;
+    --quote-font:'Noto Sans TC',sans-serif; --quote-style:normal; --quote-bg:rgba(22,24,29,.03);
+  }
+  /* ── B · 畫廊白 Gallery White ── */
+  .dir-b {
+    --canvas:#fdfdfc; --card:#fdfdfc; --ink:#141311; --sub:#63605a;
+    --line:rgba(20,19,17,.14); --r:2px; --shadow:none;
+    --accent:#c2401f; --accent-soft:rgba(194,64,31,.07); --on-accent:#fff;
+    --ok:#3c6e47; --warn:#a1651a; --bad:#a03024; --run:#1f3a6e;
+    --display:'Noto Serif TC','Songti TC',Georgia,serif;
+    --quote-font:'Noto Serif TC',Georgia,serif; --quote-style:italic; --quote-bg:transparent;
+  }
+  .dir-b .masthead, .dir-b .card, .dir-b .row, .dir-b .ramp { border-width:0 0 1px 0; border-radius:0; padding-inline:4px; }
+  .dir-b .card h3 { font-size:19px; }
+  .dir-b .verdict { border-radius:0; }
+  /* ── C · 墨色暗房 Ink Darkroom ── */
+  .dir-c {
+    --canvas:#191814; --card:#232119; --ink:#ece7d8; --sub:#a49e8c;
+    --line:rgba(236,231,216,.10); --r:14px;
+    --shadow:0 2px 10px rgba(0,0,0,.30);
+    --accent:#9db881; --accent-soft:rgba(157,184,129,.13); --on-accent:#191814;
+    --ok:#8fae74; --warn:#c99a4e; --bad:#c96a5a; --run:#7fa3c9;
+    --display:'Noto Serif TC','Songti TC',Georgia,serif;
+    --quote-font:'Noto Serif TC',Georgia,serif; --quote-style:italic; --quote-bg:rgba(236,231,216,.04);
+  }
+</style>
+</head>
+<body>
+  <div class="intro">
+    <h1>Visual Reset B — 三個方向樣本（同元件、不同語言）</h1>
+    <p>Reference-only，不是 spec。每欄都是同樣五個元件：masthead、Product 訊號卡、Topic 列、狀態 chip、字級表。
+       請按 <code>docs/handoff/2026-07-03-visual-reset-B-plan.md</code> Phase 0 回答：選哪個方向（可混血），
+       以及每個主要頁面是 keep / repaint / rebuild。值都是樣本值，正式值最終只進 tokens.ts。</p>
+  </div>
+  <div class="grid">
+
+    <!-- ═══ A ═══ -->
+    <section class="dir dir-a">
+      <div class="dir-name">A · 石墨儀器 Graphite Instrument</div>
+      <div class="dir-tagline">冷灰瓷面＋髮絲線＋單一電光靛藍。精密 macOS 工具感（Linear／Instruments 一族），數據永遠是主角，裝飾為零。疲勞解法：把「暖」整個拿掉。</div>
+      <div class="masthead"><span class="wordmark">DLens</span><span class="ver">0.4.0</span>
+        <div class="tabs"><span class="tab on">訊號</span><span class="tab">行動</span><span class="tab">收集</span></div><span class="dot"></span></div>
+      <div class="card">
+        <div class="eyebrow">technical <span class="rel">參考度 4/5</span></div>
+        <h3>用瀏覽器自動化做循環資料抓取的可複用模式</h3>
+        <div class="quote">「我直接讓 agent 每天早上爬一次 Threads 關鍵字，存進 Notion 再叫它寫摘要，兩週沒斷過。」</div>
+        <div class="meta"><span>讚 <span class="m">132</span></span><span>回覆 <span class="m">45</span></span><span>轉發 <span class="m">12</span></span><span class="verdict">try</span></div>
+      </div>
+      <div class="row"><span class="gist">創作者用 MCP 串接工作流的三種路徑</span><span class="tag">#mcp</span><span class="tag">#自動化</span><span class="stance">支持・帶保留</span></div>
+      <div class="chips"><span class="chip c-ok"><i></i>已完成</span><span class="chip c-q"><i></i>排隊中</span><span class="chip c-f"><i></i>失敗</span><span class="chip c-r"><i></i>分析中</span></div>
+      <div class="ramp"><span class="display">今晚的討論在說什麼</span><span class="body">內文維持高行距、全 sans；證據引文不再用襯線，改以縮排＋左界線表達。</span><span class="label">Section Label</span><span class="metric">0134 · 87% · 4/6</span></div>
+      <div class="note">代價：最「工具」、最不「閱讀」。暖紙的讀書感會完全消失，serif 只剩引文可留可不留。</div>
+    </section>
+
+    <!-- ═══ B ═══ -->
+    <section class="dir dir-b">
+      <div class="dir-name">B · 畫廊白 Gallery White</div>
+      <div class="dir-tagline">高調白＋重墨＋大襯線標題＋硃紅書脊色。保留 editorial 的 DNA，但把米黃洗掉、對比拉滿；卡片退位，改用細規線分割（雜誌版式）。疲勞解法：同一個靈魂、更亮的房間。</div>
+      <div class="masthead"><span class="wordmark">DLens</span><span class="ver">0.4.0</span>
+        <div class="tabs"><span class="tab on">訊號</span><span class="tab">行動</span><span class="tab">收集</span></div><span class="dot"></span></div>
+      <div class="card">
+        <div class="eyebrow">technical <span class="rel">參考度 4/5</span></div>
+        <h3>用瀏覽器自動化做循環資料抓取的可複用模式</h3>
+        <div class="quote">「我直接讓 agent 每天早上爬一次 Threads 關鍵字，存進 Notion 再叫它寫摘要，兩週沒斷過。」</div>
+        <div class="meta"><span>讚 <span class="m">132</span></span><span>回覆 <span class="m">45</span></span><span>轉發 <span class="m">12</span></span><span class="verdict">try</span></div>
+      </div>
+      <div class="row"><span class="gist">創作者用 MCP 串接工作流的三種路徑</span><span class="tag">#mcp</span><span class="tag">#自動化</span><span class="stance">支持・帶保留</span></div>
+      <div class="chips"><span class="chip c-ok"><i></i>已完成</span><span class="chip c-q"><i></i>排隊中</span><span class="chip c-f"><i></i>失敗</span><span class="chip c-r"><i></i>分析中</span></div>
+      <div class="ramp"><span class="display">今晚的討論在說什麼</span><span class="body">內文 sans、標題與引文大襯線；區塊之間用細規線與留白，不用卡片陰影。</span><span class="label">Section Label</span><span class="metric">0134 · 87% · 4/6</span></div>
+      <div class="note">歷史警告：純白殼在 Threads 白底上曾因分離度不足被退過——正式版要靠外框陰影解，樣本刻意先不處理。</div>
+    </section>
+
+    <!-- ═══ C ═══ -->
+    <section class="dir dir-c">
+      <div class="dir-name">C · 墨色暗房 Ink Darkroom</div>
+      <div class="dir-tagline">深墨底＋紙色字＋植物染磷光 accent。整個隱喻反轉：不是紙上的墨，是暗房裡被照亮的證據。夜間長時間閱讀最不累。疲勞解法：換一個世界。</div>
+      <div class="masthead"><span class="wordmark">DLens</span><span class="ver">0.4.0</span>
+        <div class="tabs"><span class="tab on">訊號</span><span class="tab">行動</span><span class="tab">收集</span></div><span class="dot"></span></div>
+      <div class="card">
+        <div class="eyebrow">technical <span class="rel">參考度 4/5</span></div>
+        <h3>用瀏覽器自動化做循環資料抓取的可複用模式</h3>
+        <div class="quote">「我直接讓 agent 每天早上爬一次 Threads 關鍵字，存進 Notion 再叫它寫摘要，兩週沒斷過。」</div>
+        <div class="meta"><span>讚 <span class="m">132</span></span><span>回覆 <span class="m">45</span></span><span>轉發 <span class="m">12</span></span><span class="verdict">try</span></div>
+      </div>
+      <div class="row"><span class="gist">創作者用 MCP 串接工作流的三種路徑</span><span class="tag">#mcp</span><span class="tag">#自動化</span><span class="stance">支持・帶保留</span></div>
+      <div class="chips"><span class="chip c-ok"><i></i>已完成</span><span class="chip c-q"><i></i>排隊中</span><span class="chip c-f"><i></i>失敗</span><span class="chip c-r"><i></i>分析中</span></div>
+      <div class="ramp"><span class="display">今晚的討論在說什麼</span><span class="body">紙色字防止冷白刺眼；serif 標題保留 DLens 的閱讀性格；accent 壓低飽和避免霓虹感。</span><span class="label">Section Label</span><span class="metric">0134 · 87% · 4/6</span></div>
+      <div class="note">制度注意：這是「換掉」唯一調色盤，不是加第二套。選它＝warm paper 退役，或先明文修訂單調色盤規則。</div>
+    </section>
+
+  </div>
+</body>
+</html>

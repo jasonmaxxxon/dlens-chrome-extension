@@ -14,6 +14,12 @@
       "port": 8765
     },
     {
+      "name": "mockup-review",
+      "runtimeExecutable": "/Library/Frameworks/Python.framework/Versions/3.13/bin/python3",
+      "runtimeArgs": ["-m", "http.server", "--directory", "docs/mockups", "8790"],
+      "port": 8790
+    },
+    {
       "name": "belt-concept",
       "runtimeExecutable": "/opt/homebrew/bin/node",
       "runtimeArgs": ["-e", "require('http').createServer((q,r)=>{const f=require('path').join(process.cwd(),q.url==='/'?'belt-buckle-3d-preview.html':q.url.slice(1));require('fs').readFile(f,(e,d)=>{if(e){r.writeHead(404);r.end('Not found')}else{r.writeHead(200,{'Content-Type':'text/html'});r.end(d)}})}).listen(8080,()=>console.log('http://localhost:8080'))"],
