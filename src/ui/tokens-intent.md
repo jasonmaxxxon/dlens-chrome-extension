@@ -37,6 +37,10 @@ happens to contain text. Every visual decision below serves that sentence.
 - Edges are quiet: `color.line` separates, `color.cardEdge` barely exists —
   card definition comes from shadow, not from border weight. If a card needs a
   strong border to read as a card, the elevation tier is wrong, not the border.
+- Interaction washes, hover edges, and status borders live in named color roles
+  so view files never bake opacity decisions into component-local literals.
+- Inverse foreground and overlay roles are only for text, icons, and sheen on
+  filled accent panels; paper cards still use ink-on-paper roles.
 - Status colors (`color.success`, `color.queued`, `color.failed`,
   `color.running`) are natural dyes — sage, ochre, wine, indigo — deliberately
   below traffic-light saturation. Alarm is expressed by copy and placement,
@@ -65,6 +69,8 @@ happens to contain text. Every visual decision below serves that sentence.
   a tight contact shadow, a wide ambient (`shadow.card` → `shadow.shell` →
   `shadow.raised`, `shadow.popup` for the floating workspace). Colored glow is
   allowed only under accent CTAs (`shadow.topicCta`, `shadow.accentButton`).
+- Hover shadows remain part of that same elevation ladder; component files
+  choose the named tier instead of composing new blur stacks inline.
 - Prefer "definition by shadow" (`color.cardEdge` + a shadow tier) over strong
   borders — see the color section; the two rules are the same rule.
 

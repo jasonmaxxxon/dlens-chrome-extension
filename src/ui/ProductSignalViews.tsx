@@ -43,7 +43,7 @@ import {
   surfaceCardStyle,
   viewRootStyle
 } from "./components";
-import { tokens, textStyles } from "./tokens";
+import { modeThemes, tokens, textStyles } from "./tokens";
 
 export type ProductSignalPageKind = "saved-signals" | "classification" | "actionable-filter";
 
@@ -59,8 +59,8 @@ export const DLENS_MOTION_CSS = `
 [data-dlens-control="true"] .dlens-card-lift:hover,
 [data-dlens-control="true"] .dlens-card-lift:focus-within {
   transform: translateY(-4px);
-  box-shadow: 0 18px 40px rgba(27, 26, 23, 0.16), 0 3px 10px rgba(27, 26, 23, 0.07) !important;
-  border-color: rgba(27, 26, 23, 0.28) !important;
+  box-shadow: ${tokens.shadow.cardLiftHover} !important;
+  border-color: ${tokens.color.lineHover} !important;
 }
 [data-dlens-control="true"] .dlens-card-lift:active {
   transform: translateY(-2px) scale(0.994);
@@ -71,14 +71,14 @@ export const DLENS_MOTION_CSS = `
   border-radius: 6px;
 }
 [data-dlens-control="true"] .dlens-quote-row:hover {
-  background: rgba(27, 26, 23, 0.025);
+  background: ${tokens.color.inkWash};
 }
 [data-dlens-control="true"] .dlens-expand-trigger {
   transition: background 120ms ${tokens.motion.easing.standard}, border-color 120ms ${tokens.motion.easing.standard};
 }
 [data-dlens-control="true"] .dlens-details-summary:hover .dlens-expand-trigger {
-  background: rgba(27, 26, 23, 0.06);
-  border-color: rgba(27, 26, 23, 0.18);
+  background: ${tokens.color.inkWashStrong};
+  border-color: ${tokens.color.lineStrong};
 }
 [data-dlens-control="true"] .dlens-details-summary:hover [data-evidence-source-toggle="true"] {
   background: ${tokens.color.productSoft} !important;
@@ -91,7 +91,7 @@ export const DLENS_MOTION_CSS = `
   transition: color 140ms ${tokens.motion.easing.standard};
 }
 [data-dlens-control="true"] .dlens-details-summary:hover {
-  color: rgba(27, 26, 23, 0.85);
+  color: ${tokens.color.ink};
 }
 [data-dlens-control="true"] .dlens-details-chevron {
   display: inline-block;
@@ -206,7 +206,7 @@ const SIGNAL_TYPE_LABELS: Record<ProductSignalType, string> = {
 const SIGNAL_TYPE_META: Record<ProductSignalType, { label: string; color: string; soft: string }> = {
   demand: { label: "需求", color: tokens.color.success, soft: tokens.color.successSoft },
   technical: { label: "技術討論", color: tokens.color.running, soft: tokens.color.runningSoft },
-  competitor: { label: "競品分析", color: tokens.color.techniqueViolet, soft: "rgba(94,75,115,0.10)" },
+  competitor: { label: "競品分析", color: tokens.color.techniqueViolet, soft: tokens.color.techniqueVioletSoft },
   learning: { label: "學習資源", color: tokens.color.techniqueTeal, soft: tokens.color.cyanSoft },
   marketing: { label: "行銷素材", color: tokens.color.product, soft: tokens.color.productSoft },
   noise: { label: "噪音", color: tokens.color.neutralText, soft: tokens.color.neutralSurfaceSoft }
@@ -305,6 +305,7 @@ const PRODUCT_MODE_ACCENT = `var(--dlens-mode-accent, ${tokens.color.product})`;
 const PRODUCT_MODE_ACCENT_MID = `var(--dlens-mode-accent-mid, ${tokens.color.productMid})`;
 const PRODUCT_MODE_ACCENT_SOFT = `var(--dlens-mode-accent-soft, ${tokens.color.productSoft})`;
 const PRODUCT_MODE_ACCENT_GLOW = `var(--dlens-mode-accent-glow, ${tokens.color.productGlow})`;
+const PRODUCT_MODE_ACCENT_BUTTON_SHADOW = `var(--dlens-mode-accent-button-shadow, ${modeThemes.product.accentButtonShadow})`;
 const DEFAULT_PRODUCT_ACTION_READINESS: SignalReadiness = { status: "ready", itemStatus: "succeeded" };
 
 function analysisBySignalId(analyses: ProductSignalAnalysis[]): Map<string, ProductSignalAnalysis> {
@@ -362,8 +363,8 @@ function ProductReadinessChip({ readiness }: { readiness: SignalReadiness }) {
   const toneStyle = copy.tone === "success"
     ? { color: PRODUCT_MODE_ACCENT, background: PRODUCT_MODE_ACCENT_SOFT, borderColor: PRODUCT_MODE_ACCENT_GLOW }
     : copy.tone === "warning"
-      ? { color: tokens.color.queued, background: tokens.color.queuedSoft, borderColor: "rgba(161,106,23,0.24)" }
-      : { color: PRODUCT_MODE_ACCENT_MID, background: "rgba(35,79,122,0.07)", borderColor: PRODUCT_MODE_ACCENT_GLOW };
+      ? { color: tokens.color.queued, background: tokens.color.queuedSoft, borderColor: tokens.color.queuedBorder }
+      : { color: PRODUCT_MODE_ACCENT_MID, background: PRODUCT_MODE_ACCENT_SOFT, borderColor: PRODUCT_MODE_ACCENT_GLOW };
 
   return (
     <span
@@ -619,18 +620,18 @@ type WorkflowSectionTone = "copy" | "why" | "tradeoff";
 const WORKFLOW_SECTION_TONES: Record<WorkflowSectionTone, { accent: string; soft: string; border: string }> = {
   copy: {
     accent: tokens.color.success,
-    soft: "rgba(63,90,59,0.095)",
-    border: "rgba(63,90,59,0.28)"
+    soft: tokens.color.successSoft,
+    border: tokens.color.successBorder
   },
   why: {
     accent: tokens.color.accent,
-    soft: "rgba(26,46,79,0.085)",
-    border: "rgba(26,46,79,0.25)"
+    soft: tokens.color.runningSoft,
+    border: tokens.color.runningBorder
   },
   tradeoff: {
     accent: tokens.color.queued,
-    soft: "rgba(161,106,23,0.105)",
-    border: "rgba(161,106,23,0.30)"
+    soft: tokens.color.queuedSoft,
+    border: tokens.color.queuedBorderStrong
   }
 };
 
@@ -1040,9 +1041,9 @@ function ScorePill({ children, color, soft }: { children: string; color: string;
 }
 
 function RelevanceBars({ score, tone = "light" }: { score: ProductSignalAnalysis["relevance"]; tone?: "light" | "dark" }) {
-  const active = tone === "light" ? "rgba(255,255,255,0.92)" : tokens.color.teal;
-  const inactive = tone === "light" ? "rgba(255,255,255,0.24)" : tokens.color.lineStrong;
-  const labelColor = tone === "light" ? "rgba(255,255,255,0.92)" : tokens.color.softInk;
+  const active = tone === "light" ? tokens.color.inverseStrong : tokens.color.teal;
+  const inactive = tone === "light" ? tokens.color.inverseTrack : tokens.color.lineStrong;
+  const labelColor = tone === "light" ? tokens.color.inverseStrong : tokens.color.softInk;
 
   return (
     <div data-relevance-bars="true" style={{ display: "grid", gap: 6 }}>
@@ -1232,7 +1233,7 @@ function ProcessingErrorAggregateBanner({ summary }: { summary: ProcessingErrorA
         gap: 5,
         padding: "10px 12px",
         borderRadius: tokens.radius.sm,
-        border: `1px solid rgba(161,106,23,0.24)`,
+        border: `1px solid ${tokens.color.queuedBorder}`,
         background: tokens.color.queuedSoft,
         color: tokens.color.queued
       }}
@@ -1807,7 +1808,7 @@ function ButtonShimmer() {
       style={{
         position: "absolute",
         inset: 0,
-        background: "linear-gradient(100deg, transparent 35%, rgba(255,255,255,0.5) 50%, transparent 65%)",
+        background: `linear-gradient(100deg, transparent 35%, ${tokens.color.inverseShimmer} 50%, transparent 65%)`,
         backgroundSize: "220% 100%",
         animation: tokens.motion.keyframes.shimmer,
         pointerEvents: "none"
@@ -1963,7 +1964,7 @@ function SignalReadingMarginaliaPanel({
           gap: 9,
           padding: "13px 12px",
           borderLeft: `3px solid ${PRODUCT_MODE_ACCENT}`,
-          background: `linear-gradient(180deg, ${PRODUCT_MODE_ACCENT_SOFT}, rgba(255,255,255,0.20))`,
+          background: `linear-gradient(180deg, ${PRODUCT_MODE_ACCENT_SOFT}, ${tokens.color.inversePanel})`,
           minWidth: 0
         }}
       >
@@ -3244,8 +3245,8 @@ function SavedSignalsBatchExport({
               border: `1px solid ${briefMode === value ? tokens.color.product : tokens.color.line}`,
               borderRadius: tokens.radius.sm,
               background: briefMode === value ? tokens.color.product : tokens.color.surface,
-              boxShadow: briefMode === value ? "0 8px 18px rgba(35, 79, 122, 0.16)" : "none",
-              color: briefMode === value ? "#fff" : tokens.color.subInk,
+              boxShadow: briefMode === value ? PRODUCT_MODE_ACCENT_BUTTON_SHADOW : "none",
+              color: briefMode === value ? tokens.color.inverse : tokens.color.subInk,
               padding: "6px 9px",
               font: "inherit",
               fontSize: 12,
@@ -3447,7 +3448,7 @@ function VerdictFilterTiles({
           borderRadius: tokens.radius.card,
           background: active?.soft ?? tokens.color.surface,
           border: `1px solid ${active?.color ?? tokens.color.line}`,
-          boxShadow: "0 6px 16px rgba(27, 26, 23, 0.08)",
+          boxShadow: tokens.shadow.activeTab,
           pointerEvents: "none"
         }}
       />
@@ -3675,9 +3676,9 @@ function ActionableItemCard({
           gap: 14,
           padding: 18,
           minWidth: 0,
-          borderColor: cardHovered ? "rgba(27, 26, 23, 0.18)" : tokens.color.line,
+          borderColor: cardHovered ? tokens.color.lineStrong : tokens.color.line,
           boxShadow: cardHovered
-            ? "0 12px 28px rgba(27, 26, 23, 0.08), 0 2px 6px rgba(27, 26, 23, 0.04)"
+            ? tokens.shadow.productActionCardHover
             : baseActionCardShadow,
           overflow: "hidden",
           transform: cardHovered ? "translateY(-2px)" : undefined
@@ -3782,9 +3783,9 @@ function ActionableItemCard({
           gap: 0,
           padding: 0,
           minWidth: 0,
-          borderColor: cardHovered ? "rgba(27, 26, 23, 0.18)" : tokens.color.line,
+          borderColor: cardHovered ? tokens.color.lineStrong : tokens.color.line,
           boxShadow: cardHovered
-            ? "0 14px 32px rgba(27, 26, 23, 0.10), 0 2px 6px rgba(27, 26, 23, 0.04)"
+            ? tokens.shadow.productActionCardHoverStrong
             : baseActionCardShadow,
           overflow: "hidden",
           transform: cardHovered ? "translateY(-2px)" : undefined,
@@ -4106,9 +4107,9 @@ function ActionableItemCard({
         gap: 18,
         padding: 0,
         minWidth: 0,
-        borderColor: cardHovered ? "rgba(27, 26, 23, 0.18)" : tokens.color.line,
+        borderColor: cardHovered ? tokens.color.lineStrong : tokens.color.line,
         boxShadow: cardHovered
-          ? "0 14px 32px rgba(27, 26, 23, 0.10), 0 2px 6px rgba(27, 26, 23, 0.04)"
+          ? tokens.shadow.productActionCardHoverStrong
           : baseActionCardShadow,
         overflow: "hidden",
         transform: cardHovered ? "translateY(-2px)" : undefined,
@@ -4122,7 +4123,7 @@ function ActionableItemCard({
           data-testid="verdict-panel"
           style={{
             background: verdictPanelColor,
-            color: "#fff",
+            color: tokens.color.inverse,
             padding: "22px 18px",
             display: "grid",
             alignContent: "space-between",
@@ -4141,9 +4142,9 @@ function ActionableItemCard({
                 placeItems: "center",
                 fontSize: 28,
                 fontWeight: 500,
-                color: "rgba(255,255,255,0.94)",
-                background: "rgba(255,255,255,0.08)",
-                border: "1px solid rgba(255,255,255,0.44)",
+                color: tokens.color.inverseStrong,
+                background: tokens.color.inverseWash,
+                border: `1px solid ${tokens.color.inverseBorder}`,
                 fontFamily: tokens.font.serifCjk,
                 fontVariantNumeric: "tabular-nums"
               }}
@@ -4154,11 +4155,11 @@ function ActionableItemCard({
               <div
                 data-testid="verdict-label"
                 data-verdict-value={analysis.verdict}
-                style={{ fontSize: 22, lineHeight: 1.15, fontWeight: 850, color: "#fff", fontFamily: tokens.font.serifCjk }}
+                style={{ fontSize: 22, lineHeight: 1.15, fontWeight: 850, color: tokens.color.inverse, fontFamily: tokens.font.serifCjk }}
               >
                 {VERDICT_LABELS[analysis.verdict]}
               </div>
-              <div style={{ fontSize: 11, lineHeight: 1.35, color: "rgba(255,255,255,0.76)", fontWeight: 700 }}>
+              <div style={{ fontSize: 11, lineHeight: 1.35, color: tokens.color.inverseSoft, fontWeight: 700 }}>
                 {analysis.verdict === "try" ? "可排入小實驗" : "先不要推進成實驗"}
               </div>
             </div>
@@ -4166,10 +4167,10 @@ function ActionableItemCard({
           <div style={{ display: "grid", gap: 12 }}>
             <RelevanceBars score={analysis.relevance} />
             <div style={{ display: "grid", gap: 4 }}>
-              <span style={{ fontSize: 10.5, lineHeight: 1.2, textTransform: "uppercase", letterSpacing: "0.04em", color: "rgba(255,255,255,0.62)", fontWeight: 800 }}>
+              <span style={{ fontSize: 10.5, lineHeight: 1.2, textTransform: "uppercase", letterSpacing: "0.04em", color: tokens.color.inverseMuted, fontWeight: 800 }}>
                 訊號類型
               </span>
-              <span style={{ fontSize: 12, lineHeight: 1.3, color: "#fff", fontWeight: 800 }}>
+              <span style={{ fontSize: 12, lineHeight: 1.3, color: tokens.color.inverse, fontWeight: 800 }}>
                 {SIGNAL_TYPE_LABELS[analysis.signalType]}
               </span>
             </div>

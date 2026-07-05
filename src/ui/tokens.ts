@@ -37,8 +37,11 @@ export const tokens = {
     /* borders & dividers */
     line: "rgba(27,26,23,0.10)",
     lineStrong: "rgba(27,26,23,0.18)",
+    lineHover: "rgba(27,26,23,0.28)",
     /* near-invisible edge for elevated cards — definition comes from shadow */
     cardEdge: "rgba(27,26,23,0.055)",
+    inkWash: "rgba(27,26,23,0.025)",
+    inkWashStrong: "rgba(27,26,23,0.06)",
 
     /* shared workspace surfaces */
     canvas: "#f7f4ec",
@@ -50,6 +53,17 @@ export const tokens = {
     railSurface: "rgba(247,244,236,0.94)",
     contextSurface: "rgba(242,238,226,0.72)",
     utilitySurface: "rgba(253,251,246,0.96)",
+
+    /* inverse foregrounds & overlays — only for filled accent panels */
+    inverse: "#fff",
+    inverseStrong: "rgba(255,255,255,0.92)",
+    inverseSoft: "rgba(255,255,255,0.76)",
+    inverseMuted: "rgba(255,255,255,0.62)",
+    inverseTrack: "rgba(255,255,255,0.24)",
+    inverseShimmer: "rgba(255,255,255,0.5)",
+    inverseWash: "rgba(255,255,255,0.08)",
+    inverseBorder: "rgba(255,255,255,0.44)",
+    inversePanel: "rgba(255,255,255,0.20)",
 
     /* legacy alias */
     dark: "#1b1a17",
@@ -83,16 +97,21 @@ export const tokens = {
     techniqueTeal: "#3f5a3b",
     techniqueBlue: "#1a2e4f",
     techniqueViolet: "#5e4b73",
+    techniqueVioletSoft: "rgba(94,75,115,0.10)",
 
     /* status */
     success: "#3f5a3b",
     successSoft: "rgba(63,90,59,0.10)",
+    successBorder: "rgba(63,90,59,0.28)",
     queued: "#a16a17",
     queuedSoft: "rgba(161,106,23,0.11)",
+    queuedBorder: "rgba(161,106,23,0.24)",
+    queuedBorderStrong: "rgba(161,106,23,0.30)",
     failed: "#7a2030",
     failedSoft: "rgba(122,32,48,0.10)",
     running: "#1a2e4f",
     runningSoft: "rgba(26,46,79,0.08)",
+    runningBorder: "rgba(26,46,79,0.25)",
 
     /* shell aliases kept for existing callers */
     glassBg: "#fbf8f1",
@@ -144,8 +163,11 @@ export const tokens = {
     glass: "0 1px 0 rgba(27,26,23,0.035), 0 8px 18px -10px rgba(27,26,23,0.12), 0 1px 2px rgba(27,26,23,0.05)",
     focus: "0 1px 0 rgba(27,26,23,0.035), 0 8px 18px -10px rgba(27,26,23,0.12), 0 1px 2px rgba(27,26,23,0.05)",
     focusedSurface: "inset 0 1px 0 rgba(255,255,255,0.8), 0 2px 4px rgba(27,26,23,0.05), 0 12px 24px -8px rgba(27,26,23,0.12), 0 30px 54px -20px rgba(27,26,23,0.15)",
+    cardLiftHover: "0 18px 40px rgba(27,26,23,0.16), 0 3px 10px rgba(27,26,23,0.07)",
     accentButton: "0 8px 18px rgba(26,46,79,0.16)",
     activeTab: "0 6px 16px rgba(27,26,23,0.08)",
+    productActionCardHover: "0 12px 28px rgba(27,26,23,0.08), 0 2px 6px rgba(27,26,23,0.04)",
+    productActionCardHoverStrong: "0 14px 32px rgba(27,26,23,0.10), 0 2px 6px rgba(27,26,23,0.04)",
     previewAvatar: "0 4px 12px rgba(26,46,79,0.12)",
     hudGlow: "0 1px 0 rgba(27,26,23,0.04), 0 8px 16px rgba(27,26,23,0.06)",
     popup: "0 20px 56px rgba(27,26,23,0.16), 0 2px 8px rgba(27,26,23,0.08), 0 0 0 1px rgba(27,26,23,0.08)"
