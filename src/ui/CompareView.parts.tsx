@@ -38,7 +38,7 @@ function PartsChevron({ open }: { open: boolean }) {
   return (
     <svg width="11" height="7" viewBox="0 0 11 7" fill="none"
       style={{ transform: open ? "rotate(180deg)" : "none", transition: "transform 0.22s" }}>
-      <path d="M1 1L5.5 6L10 1" stroke="rgba(0,0,0,0.32)" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round"/>
+      <path d="M1 1L5.5 6L10 1" stroke={AR.muteInk} strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round"/>
     </svg>
   );
 }
@@ -48,8 +48,8 @@ function AnnotatedQuote({ text, marks, side }: {
   marks: { phrase: string; label: string }[];
   side: "A" | "B";
 }) {
-  const hlColor = side === "A" ? "rgba(0,113,227,0.13)" : "rgba(255,149,0,0.14)";
-  const tagColor = side === "A" ? AR.blue : "#c47300";
+  const hlColor = side === "A" ? tokens.color.accentSoft : tokens.color.queuedSoft;
+  const tagColor = side === "A" ? AR.blue : AR.orange;
   const parts: { text: string; highlight: boolean }[] = [];
   const sorted = [...marks].sort((a, b) => text.indexOf(a.phrase) - text.indexOf(b.phrase));
   let remaining = text;
@@ -75,8 +75,8 @@ function AnnotatedQuote({ text, marks, side }: {
           {sorted.map((mark, index) => (
             <div key={index} style={{ display: "flex", alignItems: "center", gap: 6 }}>
               <span style={{ fontSize: 10.5, fontWeight: 600, color: tagColor, fontFamily: "monospace" }}>「{mark.phrase}」</span>
-              <div style={{ flex: 1, borderTop: "1px dotted rgba(0,0,0,0.1)" }} />
-              <span style={{ fontSize: 9.5, fontWeight: 700, color: tagColor, background: side === "A" ? "rgba(0,113,227,0.09)" : "rgba(255,149,0,0.1)", borderRadius: 6, padding: "1.5px 7px" }}>{mark.label}</span>
+              <div style={{ flex: 1, borderTop: `1px dotted ${AR.line}` }} />
+              <span style={{ fontSize: 9.5, fontWeight: 700, color: tagColor, background: side === "A" ? tokens.color.accentSoft : tokens.color.queuedSoft, borderRadius: 6, padding: "1.5px 7px" }}>{mark.label}</span>
             </div>
           ))}
         </div>
@@ -95,13 +95,13 @@ function BlankUserAvatar({ size = 22, dataAttr }: { size?: number; dataAttr?: st
         width: size,
         height: size,
         borderRadius: "50%",
-        background: "linear-gradient(180deg,#eef1f5,#e5e7eb)",
-        border: "1px solid rgba(0,0,0,0.08)",
-        color: "rgba(0,0,0,0.34)",
+        background: `linear-gradient(180deg, ${tokens.color.elevated}, ${tokens.color.neutralSurface})`,
+        border: `1px solid ${tokens.color.idleBorder}`,
+        color: tokens.color.softInk,
         display: "inline-flex",
         alignItems: "center",
         justifyContent: "center",
-        boxShadow: "inset 0 1px 0 rgba(255,255,255,0.85)"
+        boxShadow: `inset 0 1px 0 ${tokens.color.inverseStrong}`
       }}
     >
       <svg width={Math.round(size * 0.7)} height={Math.round(size * 0.7)} viewBox="0 0 24 24" fill="none" aria-hidden="true">
@@ -133,8 +133,8 @@ export function DictionaryCard({ rank, handle, quote, likes, replies, side, mark
   effectiveness: { discussionFunction: string; relationToCluster: string; whyEffective: string } | null;
 }) {
   const [exp, setExp] = useState(false);
-  const cc = side === "A" ? AR.blue : "#c47300";
-  const cb = side === "A" ? "rgba(0,113,227,0.09)" : "rgba(255,149,0,0.1)";
+  const cc = side === "A" ? AR.blue : AR.orange;
+  const cb = side === "A" ? tokens.color.accentSoft : tokens.color.queuedSoft;
   const border = side === "A" ? AR.blue : AR.orange;
   const hasAnalysis = Boolean(analysis);
   const hasEffectiveness = effectiveness !== null
@@ -173,7 +173,7 @@ export function DictionaryCard({ rank, handle, quote, likes, replies, side, mark
       )}
       {hasEffectiveness && (
         <>
-          <button onClick={() => setExp((value) => !value)} style={{ width: "100%", background: "rgba(0,0,0,0.02)", border: "none", borderTop: `0.5px solid rgba(0,0,0,0.05)`, cursor: "pointer", padding: "8px 15px", display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+          <button onClick={() => setExp((value) => !value)} style={{ width: "100%", background: tokens.color.inkWash, border: "none", borderTop: `0.5px solid ${tokens.color.cardEdge}`, cursor: "pointer", padding: "8px 15px", display: "flex", alignItems: "center", justifyContent: "space-between" }}>
             <div style={{ display: "flex", alignItems: "center", gap: 5 }}>
               <PartsSparkle color={cc} size={9} />
               <span style={{ fontSize: 10.5, fontWeight: 700, color: cc }}>為什麼被挑出來</span>
@@ -181,7 +181,7 @@ export function DictionaryCard({ rank, handle, quote, likes, replies, side, mark
             <PartsChevron open={exp} />
           </button>
           {exp && effectiveness && (
-            <div style={{ padding: "9px 15px 13px", background: "rgba(0,0,0,0.018)", display: "grid", gap: 8 }}>
+            <div style={{ padding: "9px 15px 13px", background: tokens.color.inkWash, display: "grid", gap: 8 }}>
               <CompoundLine label="在討論中" text={effectiveness.discussionFunction} />
               {effectiveness.relationToCluster && (
                 <CompoundLine label="跟主群組" text={effectiveness.relationToCluster} />

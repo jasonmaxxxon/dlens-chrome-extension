@@ -600,13 +600,13 @@ export type StatusDotTone = "success" | "warning" | "danger" | "info" | "neutral
 function statusDotTheme(tone: StatusDotTone) {
   switch (tone) {
     case "success":
-      return { color: tokens.color.success, background: tokens.color.successSoft, border: "rgba(63,90,59,0.24)" };
+      return { color: tokens.color.success, background: tokens.color.successSoft, border: tokens.color.successBorder };
     case "warning":
-      return { color: tokens.color.queued, background: tokens.color.queuedSoft, border: "rgba(161,106,23,0.24)" };
+      return { color: tokens.color.queued, background: tokens.color.queuedSoft, border: tokens.color.queuedBorder };
     case "danger":
-      return { color: tokens.color.failed, background: tokens.color.failedSoft, border: "rgba(122,32,48,0.24)" };
+      return { color: tokens.color.failed, background: tokens.color.failedSoft, border: tokens.color.failedBorder };
     case "info":
-      return { color: MODE_ACCENT, background: MODE_ACCENT_SOFT, border: "rgba(26,46,79,0.24)" };
+      return { color: MODE_ACCENT, background: MODE_ACCENT_SOFT, border: tokens.color.runningBorder };
     default:
       return { color: tokens.color.softInk, background: tokens.color.neutralSurfaceSoft, border: tokens.color.lineStrong };
   }
@@ -805,7 +805,7 @@ export function scanRowStyle(extra?: CSSProperties): CSSProperties {
 /** Hover state for interactive scan rows */
 export const SCAN_ROW_HOVER_CSS = `
 [data-dlens-control="true"] [data-scan-list] [data-scan-row]:hover {
-  background: rgba(27, 26, 23, 0.028);
+  background: ${tokens.color.inkWash};
 }
 [data-dlens-control="true"] [data-scan-list] [data-scan-row]:last-child {
   border-bottom: 0;
@@ -829,7 +829,7 @@ export const DLENS_BUTTON_CSS = `
 }
 [data-dlens-control="true"] [data-dlens-button="primary"]:not(:disabled):hover {
   transform: translateY(-3px);
-  box-shadow: 0 12px 26px rgba(27, 26, 23, 0.22);
+  box-shadow: ${tokens.shadow.cardLiftHover};
   filter: brightness(1.05);
 }
 [data-dlens-control="true"] [data-dlens-button="primary"]:not(:disabled):active {
@@ -955,7 +955,7 @@ const WORKSPACE_SWITCHER_CSS = `
 }
 [data-dlens-control="true"] [data-workspace-switcher-motion="verdict"] [data-workspace-switcher-active="true"] {
   transform: scale(1.03);
-  box-shadow: 0 4px 10px rgba(27,26,23,0.10);
+  box-shadow: ${tokens.shadow.activeTab};
 }
 @media (prefers-reduced-motion: reduce) {
   [data-dlens-control="true"] [data-workspace-switcher-motion="verdict"] [data-workspace-switcher-mode],
@@ -1076,7 +1076,7 @@ export function WorkspaceSwitcher({
             borderRadius: 4,
             background: `${activeTint}14`,
             border: `1px solid ${activeTint}40`,
-            boxShadow: "0 4px 10px rgba(27,26,23,0.10)",
+            boxShadow: tokens.shadow.activeTab,
             transform: `translateX(${activeIndex * 100}%)`,
             pointerEvents: "none"
           }}
@@ -1187,7 +1187,7 @@ export function WorkspaceShell({
           borderRadius: tokens.radius.card,
           border: `1px solid ${tokens.color.line}`,
           background: `linear-gradient(180deg, ${tokens.color.elevated}, ${tokens.color.surface})`,
-          boxShadow: "0 1px 0 rgba(253,251,246,0.72), inset 0 1px 0 rgba(253,251,246,0.54)",
+          boxShadow: tokens.shadow.card,
           color: tokens.color.subInk
         }}
       >
@@ -1707,22 +1707,22 @@ export function processingTone(workerStatus: WorkerStatus | null, ready: number,
   if (total > 0 && ready >= 2 && ready === total) {
     return {
       background: tokens.color.successSoft,
-      border: "rgba(52,211,153,0.18)",
+      border: tokens.color.successBorder,
       text: tokens.color.success
     };
   }
   if (workerStatus === "draining") {
     return {
       background: tokens.color.runningSoft,
-      border: "rgba(96,165,250,0.18)",
+      border: tokens.color.runningBorder,
       text: tokens.color.running
     };
   }
   if (pending > 0) {
     return {
-      background: "rgba(255,149,0,0.07)",
-      border: "rgba(255,149,0,0.18)",
-      text: "#b06200"
+      background: tokens.color.queuedSoft,
+      border: tokens.color.queuedBorder,
+      text: tokens.color.queued
     };
   }
   return {
@@ -2017,7 +2017,7 @@ export function PreviewCard({
                   fontSize: 10,
                   fontWeight: 700,
                   letterSpacing: 0,
-                  border: isSaved ? "1px solid rgba(5,150,105,0.2)" : "1px solid transparent"
+                  border: isSaved ? `1px solid ${tokens.color.successBorder}` : "1px solid transparent"
                 }}
               >
                 {isSaved ? "Saved" : "Preview"}

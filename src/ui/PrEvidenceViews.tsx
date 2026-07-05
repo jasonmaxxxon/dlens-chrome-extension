@@ -39,7 +39,7 @@ const compactButtonStyle = {
 } as const;
 
 const exportButtonStyle = {
-  borderColor: "rgba(63,90,59,0.34)",
+  borderColor: tokens.color.successBorder,
   background: tokens.color.successSoft,
   color: tokens.color.success,
   fontWeight: 700
@@ -92,7 +92,7 @@ const CAMPAIGN_EDITOR_CSS = `
   outline: none !important;
 }
 [data-pr-section] + [data-pr-section] {
-  border-top: 1px solid var(--dlens-line, rgba(27,26,23,0.10));
+  border-top: 1px solid var(--dlens-line, ${tokens.color.line});
   padding-top: 14px;
 }
 `;
@@ -374,7 +374,7 @@ function CampaignEditor({
                   gap: 6,
                   padding: "7px 10px",
                   borderBottom: `1px solid ${tokens.color.line}`,
-                  background: "rgba(122,32,48,0.04)"
+                  background: tokens.color.failedWash
                 }}
               >
                 <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="var(--dlens-mode-accent)" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
@@ -441,9 +441,9 @@ function CampaignEditor({
           {campaign.briefText.trim() ? (
             <div
               data-pr-criteria-ai-banner="true"
-              style={{ display: "flex", gap: 10, alignItems: "center", padding: "9px 12px", borderRadius: PR_RADIUS, border: "1px solid rgba(122,32,48,0.20)", background: `linear-gradient(180deg, ${tokens.color.surface}, rgba(122,32,48,0.045))` }}
+              style={{ display: "flex", gap: 10, alignItems: "center", padding: "9px 12px", borderRadius: PR_RADIUS, border: `1px solid ${tokens.color.failedBorder}`, background: `linear-gradient(180deg, ${tokens.color.surface}, ${tokens.color.failedWash})` }}
             >
-              <span aria-hidden style={{ width: 28, height: 28, borderRadius: 8, background: "rgba(122,32,48,0.10)", color: PR_ACCENT, display: "grid", placeItems: "center", fontSize: 14, flexShrink: 0 }}>✦</span>
+              <span aria-hidden style={{ width: 28, height: 28, borderRadius: 8, background: tokens.color.failedSoft, color: PR_ACCENT, display: "grid", placeItems: "center", fontSize: 14, flexShrink: 0 }}>✦</span>
               <span style={{ ...prRowTextStyle, color: tokens.color.subInk, minWidth: 0 }}>
                 AI 已從 brief 抽出 <b style={{ color: PR_ACCENT, fontWeight: 600 }}>{campaign.criteria.length} 條 criteria</b> · 點任一條可改
               </span>
@@ -504,11 +504,11 @@ function LedgerStrip({ rows }: { rows: PrEvidenceRowViewModel[] }) {
       <span style={{ fontSize: 10, color: labelColor }}>{label}</span>
     </span>
   );
-  const divider = <span aria-hidden style={{ width: 1, height: 22, background: "rgba(122,32,48,0.20)" }} />;
+  const divider = <span aria-hidden style={{ width: 1, height: 22, background: tokens.color.failedBorder }} />;
   return (
     <div
       data-pr-ledger-strip="true"
-      style={{ display: "flex", gap: 14, alignItems: "center", padding: "10px 13px", borderRadius: PR_RADIUS, border: "1px solid rgba(122,32,48,0.20)", background: "rgba(122,32,48,0.05)", marginBottom: 10 }}
+      style={{ display: "flex", gap: 14, alignItems: "center", padding: "10px 13px", borderRadius: PR_RADIUS, border: `1px solid ${tokens.color.failedBorder}`, background: tokens.color.failedWash, marginBottom: 10 }}
     >
       {cell(rows.length, "captured", tokens.color.softInk)}
       {divider}
@@ -743,12 +743,12 @@ function CriterionChips({ row, variant }: { row: PrEvidenceRowViewModel; variant
   );
 }
 
-const PR_AMBER = "#a16a17";
+const PR_AMBER = tokens.color.queued;
 
 const CRITERIA_STRENGTH_META: Record<PrCriterionStrength, { accent: string; rowBg: string; rowBorder: string; status: string }> = {
   strong: { accent: PR_MOSS, rowBg: tokens.color.surface, rowBorder: PR_RULE, status: "OK" },
-  partial: { accent: PR_AMBER, rowBg: "rgba(161,106,23,0.04)", rowBorder: "rgba(161,106,23,0.25)", status: "半弱" },
-  gap: { accent: PR_ACCENT, rowBg: "rgba(122,32,48,0.04)", rowBorder: "rgba(122,32,48,0.30)", status: "GAP" }
+  partial: { accent: PR_AMBER, rowBg: tokens.color.queuedWash, rowBorder: tokens.color.queuedBorder, status: "半弱" },
+  gap: { accent: PR_ACCENT, rowBg: tokens.color.failedWash, rowBorder: tokens.color.failedBorderStrong, status: "GAP" }
 };
 
 /* Frame 10 · PR Criteria Health — KPI grid + score-sorted criterion bars + systemic-gap callout. */
@@ -838,7 +838,7 @@ function CriteriaHealth({ health, rows }: { health: PrEvidenceViewModel["criteri
                   <span style={{ ...prRowTextStyle, color: tokens.color.ink, minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
                     {entry.label}
                   </span>
-                  <span aria-hidden style={{ height: 4, borderRadius: 3, background: "rgba(27,26,23,0.06)", overflow: "hidden" }}>
+                  <span aria-hidden style={{ height: 4, borderRadius: 3, background: tokens.color.inkWashStrong, overflow: "hidden" }}>
                     <span style={{ display: "block", height: "100%", width: `${pct}%`, background: meta.accent, borderRadius: 3 }} />
                   </span>
                 </span>
@@ -899,8 +899,8 @@ function CriteriaHealth({ health, rows }: { health: PrEvidenceViewModel["criteri
             gap: 5,
             padding: "10px 13px",
             borderRadius: PR_RADIUS,
-            background: "rgba(122,32,48,0.04)",
-            border: "1px solid rgba(122,32,48,0.22)",
+            background: tokens.color.failedWash,
+            border: `1px solid ${tokens.color.failedBorder}`,
             minWidth: 0
           }}
         >
@@ -1270,9 +1270,9 @@ function ExportReadyPanel({ viewModel }: { viewModel: PrEvidenceViewModel }) {
     <section data-pr-export-ready="true" style={{ display: "grid", gap: 8 }}>
       <div
         data-pr-export-ready-card="true"
-        style={{ display: "flex", gap: 13, alignItems: "center", padding: "14px 16px", borderRadius: tokens.radius.cardLg, border: "1px solid rgba(122,32,48,0.22)", background: `linear-gradient(180deg, ${tokens.color.surface}, rgba(122,32,48,0.045))` }}
+        style={{ display: "flex", gap: 13, alignItems: "center", padding: "14px 16px", borderRadius: tokens.radius.cardLg, border: `1px solid ${tokens.color.failedBorder}`, background: `linear-gradient(180deg, ${tokens.color.surface}, ${tokens.color.failedWash})` }}
       >
-        <span aria-hidden style={{ width: 40, height: 40, borderRadius: 11, background: "rgba(122,32,48,0.10)", color: PR_ACCENT, display: "grid", placeItems: "center", fontSize: 20, flexShrink: 0 }}>✓</span>
+        <span aria-hidden style={{ width: 40, height: 40, borderRadius: 11, background: tokens.color.failedSoft, color: PR_ACCENT, display: "grid", placeItems: "center", fontSize: 20, flexShrink: 0 }}>✓</span>
         <div style={{ display: "grid", gap: 2, minWidth: 0 }}>
           <span style={{ fontFamily: `${tokens.font.serifCjk}, ${tokens.font.serif}`, fontSize: 15, fontWeight: 500, color: tokens.color.ink }}>輸出 ready · 含 {rowCount} rows</span>
           <span style={{ ...textStyles.caption, color: tokens.color.softInk }}>
@@ -1301,7 +1301,7 @@ function ExportReadyPanel({ viewModel }: { viewModel: PrEvidenceViewModel }) {
       {gap ? (
         <div
           data-pr-export-gap-note="true"
-          style={{ ...prRowTextStyle, color: tokens.color.subInk, padding: "9px 12px", borderRadius: PR_RADIUS, border: "1px solid rgba(122,32,48,0.20)", background: "rgba(122,32,48,0.04)" }}
+          style={{ ...prRowTextStyle, color: tokens.color.subInk, padding: "9px 12px", borderRadius: PR_RADIUS, border: `1px solid ${tokens.color.failedBorder}`, background: tokens.color.failedWash }}
         >
           <b style={{ color: PR_ACCENT, fontWeight: 600 }}>{gap.label} gap note</b> 已寫進輸出:此條件 {gap.missingRows} 列全無命中,交付方已知此限制。
         </div>

@@ -45,6 +45,8 @@ happens to contain text. Every visual decision below serves that sentence.
   `color.running`) are natural dyes — sage, ochre, wine, indigo — deliberately
   below traffic-light saturation. Alarm is expressed by copy and placement,
   not by shouting pigment.
+- Status washes and failed border roles cover low-emphasis status panels and
+  danger edges without view-local opacity choices.
 - `glassBg` / `glassBorder` are legacy aliases and `effect.glassBlur` is
   intentionally disabled. Do not revive glassmorphism; the paper is opaque.
 

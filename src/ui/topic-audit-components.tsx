@@ -36,7 +36,7 @@ import {
 import type { EvidencePacket } from "../compare/topic-audit.ts";
 import type { TopicAuditValidationFlag } from "../compare/topic-audit-validator.ts";
 import type { NarrativeLaneDetail } from "../viewmodel/narrative-lane-detail.ts";
-import { tokens } from "./tokens";
+import { modeThemes, tokens } from "./tokens";
 
 const NARRATIVE_ICON_COMPONENTS: Record<string, LucideIcon> = {
   heart: Heart,
@@ -324,11 +324,11 @@ export function SectionLabel({
 }
 
 const THEME_PALETTE = [
-  { fg: "#7a4d27", bg: "#fdf3e6", border: "#f0d4ad" },
-  { fg: "#5e3a76", bg: "#f4ebfa", border: "#dccaea" },
-  { fg: TOPIC.primaryDeep, bg: TOPIC.tintSage, border: "#c8d8be" },
-  { fg: "#8a3d3d", bg: "#fae6e3", border: "#ecc5c0" },
-  { fg: "#2c4d6b", bg: "#e6eef5", border: "#c4d6e6" }
+  { fg: TOPIC.warm, bg: TOPIC.tintAmber, border: tokens.color.queuedBorder },
+  { fg: tokens.color.techniqueViolet, bg: tokens.color.techniqueVioletSoft, border: tokens.color.lineStrong },
+  { fg: TOPIC.primaryDeep, bg: TOPIC.tintSage, border: tokens.color.successBorder },
+  { fg: TOPIC.fail, bg: TOPIC.failBg, border: tokens.color.failedBorder },
+  { fg: tokens.color.product, bg: tokens.color.productSoft, border: tokens.color.productGlow }
 ];
 
 function themePaletteIndex(label: string): number {
@@ -629,11 +629,11 @@ export function NewsroomLadder({ quotes, onOpenQuote }: { quotes: NewsroomLadder
                 padding: "7px 9px",
                 borderRadius: tokens.radius.xs,
                 background: tokens.color.contextSurface,
-                borderLeft: `2px solid ${isCounter ? "rgba(122,32,48,0.30)" : TOPIC.primaryGlow}`,
+                borderLeft: `2px solid ${isCounter ? tokens.color.failedBorderStrong : TOPIC.primaryGlow}`,
                 cursor: canOpen ? "pointer" : "default"
               }}
             >
-              <span style={{ fontFamily: tokens.font.mono, fontSize: 10, fontWeight: 500, color: isCounter ? "#7a2030" : TOPIC.primary, flexShrink: 0, paddingTop: 1 }}>
+              <span style={{ fontFamily: tokens.font.mono, fontSize: 10, fontWeight: 500, color: isCounter ? tokens.color.failed : TOPIC.primary, flexShrink: 0, paddingTop: 1 }}>
                 {quote.ordinal}
               </span>
               <p style={{ margin: 0, flex: 1, minWidth: 0, fontFamily: `${tokens.font.serifCjk}, ${tokens.font.serif}`, fontSize: 12.5, lineHeight: 1.5, color: tokens.color.ink }}>
@@ -792,7 +792,7 @@ export function NarrativeLaneDetailPanel({
                     padding: "8px 10px",
                     borderRadius: tokens.radius.xs,
                     background: tokens.color.elevated,
-                    borderLeft: `2px solid ${comment.kind === "reply" ? TOPIC.primaryGlow : "rgba(27,26,23,0.18)"}`,
+                    borderLeft: `2px solid ${comment.kind === "reply" ? TOPIC.primaryGlow : tokens.color.lineStrong}`,
                     cursor: canOpen ? "pointer" : "default"
                   }}
                 >
@@ -900,7 +900,7 @@ function StatusDot({ status }: { status: SourceRowReadingStatus }) {
           height: 7,
           borderRadius: tokens.radius.round,
           background: TOPIC.warm,
-          boxShadow: `0 0 0 3px rgba(160,106,23,0.20)`,
+          boxShadow: `0 0 0 3px ${tokens.color.queuedBorder}`,
           display: "inline-block",
           flexShrink: 0,
           animation: "dlens-source-row-pulse 1.4s ease-in-out infinite"
@@ -918,7 +918,7 @@ function StatusDot({ status }: { status: SourceRowReadingStatus }) {
           height: 7,
           borderRadius: tokens.radius.round,
           background: TOPIC.fail,
-          boxShadow: `0 0 0 3px rgba(168,70,46,0.18)`,
+          boxShadow: `0 0 0 3px ${tokens.color.failedBorder}`,
           display: "inline-block",
           flexShrink: 0
         }}
@@ -934,7 +934,7 @@ function StatusDot({ status }: { status: SourceRowReadingStatus }) {
         height: 7,
         borderRadius: tokens.radius.round,
         background: "transparent",
-        border: "1.5px solid #c9c4b8",
+        border: `1.5px solid ${tokens.color.lineStrong}`,
         display: "inline-block",
         flexShrink: 0,
         boxSizing: "border-box"
@@ -945,8 +945,8 @@ function StatusDot({ status }: { status: SourceRowReadingStatus }) {
 
 const SOURCE_ROW_CSS = `
 @keyframes dlens-source-row-pulse {
-  0%, 100% { box-shadow: 0 0 0 3px rgba(160,106,23,0.20); }
-  50%      { box-shadow: 0 0 0 6px rgba(160,106,23,0.06); }
+  0%, 100% { box-shadow: 0 0 0 3px ${tokens.color.queuedBorder}; }
+  50%      { box-shadow: 0 0 0 6px ${tokens.color.queuedWash}; }
 }
 `;
 
@@ -1004,7 +1004,7 @@ export function SourceRow({
         gap: 8,
         padding: "9px 13px 10px",
         borderRadius: tokens.radius.xs,
-        background: active ? "rgba(63,90,59,0.08)" : "transparent",
+        background: active ? tokens.color.cyanSoft : "transparent",
         fontFamily: tokens.font.sans,
         cursor: onOpen ? "pointer" : "default",
         transition: "background 140ms ease"
@@ -1055,7 +1055,7 @@ export function SourceRow({
                 fontWeight: 700,
                 letterSpacing: "0.06em",
                 color: TOPIC.warm,
-                background: "rgba(182,116,62,0.08)",
+                background: tokens.color.queuedSoft,
                 padding: "1px 6px",
                 borderRadius: 4
               }}
@@ -1074,7 +1074,7 @@ export function SourceRow({
                 fontWeight: 700,
                 letterSpacing: "0.06em",
                 color: TOPIC.fail,
-                background: "rgba(168,70,46,0.10)",
+                background: tokens.color.failedSoft,
                 padding: "1px 6px",
                 borderRadius: 4
               }}
@@ -1206,8 +1206,8 @@ export function SourceRow({
                   fontFamily: tokens.font.sans,
                   fontSize: 10,
                   fontWeight: 500,
-                  color: active ? TOPIC.primaryDeep : "#4e6849",
-                  background: active ? "rgba(63,90,59,0.10)" : "rgba(63,90,59,0.06)",
+                  color: active ? TOPIC.primaryDeep : tokens.color.tealMid,
+                  background: active ? tokens.color.cyanSoft : modeThemes.topic.hoverSurfaceStrong,
                   padding: "1.5px 7px",
                   borderRadius: 4,
                   lineHeight: 1.5,
