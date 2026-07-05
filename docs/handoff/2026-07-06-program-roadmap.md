@@ -23,26 +23,20 @@
 
 ## Queue
 
-### NOW — Phase 2 of the visual reset（mechanical, Codex）
+### DONE 2026-07-06 — Phase 2 of the visual reset
 
-Plan of record: `docs/handoff/2026-07-03-visual-reset-B-plan.md`.
-Done: slice 1 CompareView (54→0), slice 2 ProductSignalViews (38→0,
-+19 new-role tokens). Remaining:
+All four slices merged; `tests/color-literal-guard.test.ts` enforces zero
+color literals in `src/ui` outside `tokens.ts` with an empty allowlist
+(`usePopupKeyframes` resolved via token interpolation). 23 new-role tokens
+total. Gate 2 record lives in the reset-B plan file.
 
-- **Slice 3** (dispatched): `topic-audit-components.tsx` 18,
-  `PrEvidenceViews.tsx` 16, `components.tsx` 15, `CompareView.parts.tsx` 13.
-- **Slice 4**: the tail — `SignalDrawer.tsx` 11, `ProcessingStrip.tsx` 5,
-  `LibraryView.tsx` 5, `runtime-guard.ts` 4, `CompareSetupView.tsx` 3,
-  `TopicsListView/TopicDetailView/InPageCollectorPopup` 1 each,
-  `InPageCollectorOverlays.tsx` 17, plus the `usePopupKeyframes.ts` (9)
-  decision: allowlist ONLY if keyframe strings genuinely cannot cite tokens.
-- **Phase 2 exit**: add `tests/color-literal-guard.test.ts` (zero `#hex` /
-  `rgb(a)` / `hsl(a)` literals in `src/ui` outside `tokens.ts` + explicit
-  allowlist). Then ONE version bump (4-file lock) + runtime QA on the real
-  Chrome `Default` profile. Known automation gap: extension reload at
-  `chrome://extensions` needs one manual click from Jason; everything after
-  (real Threads page → in-page launcher → per-surface screenshots) is drivable
-  via the Claude-in-Chrome MCP.
+### NOW — Phase 2 exit（needs Jason）
+
+ONE version bump (4-file lock) + runtime QA on the real Chrome `Default`
+profile. Known automation gap: extension reload at `chrome://extensions`
+needs one manual click from Jason; everything after (real Threads page →
+in-page launcher → per-surface screenshots) is drivable via the
+Claude-in-Chrome MCP.
 
 ### GATED ON JASON — before Phase 3 can start
 

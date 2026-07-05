@@ -65,6 +65,13 @@ Migrate the 271 color literals to token references, file by file, worst-first.
   keyframe strings genuinely cannot cite tokens).
 - Good first Codex slices: CompareView.tsx (54), ProductSignalViews.tsx (38).
 **Gate 2: guard lands at zero violations; full verify gate green.**
+**Gate 2 PASSED 2026-07-06**: 271 literals → 0 across 4 Codex slices
+(CompareView 54 / ProductSignalViews 38 / topic-audit+PrEvidence+components+
+CompareView.parts 62 / tail 48 incl. usePopupKeyframes via token
+interpolation); `tests/color-literal-guard.test.ts` landed with an EMPTY
+allowlist; 23 new-role tokens total (kill criterion was >50); final gate
+964 tests / 959 pass / 0 fail / 5 skipped. Version bump + real-profile
+runtime QA deferred to the Phase 2 exit decision with the user.
 
 ## Phase 3 — The swap (1 PR + 1 QA session)
 
