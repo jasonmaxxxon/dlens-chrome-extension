@@ -78,6 +78,18 @@ all four modes. Rollback = revert one PR. Details in the reset-B plan.
 - **Backend API/JOBS guard** — stays 🟢 until a live-failure guard proves
   visible recovery against a real regression class (architecture-map note).
 
+## Known environment risk（2026-07-06 incident）
+
+The desktop checkout lives under a macOS File Provider domain
+(`/Users/tung/Desktop` carries `com.apple.file-provider-domain-id`): under
+heavy IO, paths can be TRANSIENTLY unavailable — observed as tsc TS6053
+"file not found" for existing files and a partial test run (816/962 with 9
+file-load failures) on a tree that was 957/0 in a worktree. Gate discipline:
+run gates through a pipefail script that keeps the full log and hard-asserts
+`# fail 0` + exit 0 (never pipe the test step to `tail`; never push on a
+sentinel echo). On a transient signature, rerun once sequentially; two reds
+= real regression.
+
 ## Standing rails (do not relitigate per slice)
 
 Full verify gate green in the verifier's own context before any merge;
