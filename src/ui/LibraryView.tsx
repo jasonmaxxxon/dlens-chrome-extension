@@ -11,7 +11,7 @@ import { describeAiOutputProvenance, normalizeAiOutputProvenance } from "../stat
 import { getSessionDisplayName } from "../state/store-helpers";
 import { Kicker, PrimaryButton, SCAN_ROW_HOVER_CSS, SecondaryButton, SectionHeader, SideMark, Stamp, SurfaceCard, TOKENS, lineClamp, viewRootStyle } from "./components";
 import { formatSavedAt, PostCard } from "./LibraryView.parts";
-import { textStyles, tokens } from "./tokens";
+import { modeThemes, textStyles, tokens } from "./tokens";
 
 // AR design tokens (matching Result page)
 const AR = {
@@ -68,7 +68,7 @@ function readinessToneStyle(state: LibrarySectionState): Pick<CSSProperties, "ba
     case "pending":
       return {
         background: tokens.color.queuedSoft,
-        border: `1px solid rgba(161,106,23,0.18)`,
+        border: `1px solid ${tokens.color.queuedBorder}`,
         color: tokens.color.queued
       };
     default:
@@ -227,8 +227,8 @@ function SavedAnalysisCard({
                 <span style={{
                   fontSize: 9,
                   fontWeight: 700,
-                  color: reading.side === "A" ? AR.blue : "#8c4a24",
-                  background: reading.side === "A" ? "rgba(0,113,227,0.09)" : "rgba(140,74,36,0.08)",
+                  color: reading.side === "A" ? AR.blue : AR.orange,
+                  background: reading.side === "A" ? tokens.color.accentSoft : tokens.color.queuedSoft,
                   borderRadius: 4,
                   padding: "1px 4px",
                   lineHeight: 1.4
@@ -256,7 +256,7 @@ function SavedAnalysisCard({
             gap: 4,
             padding: "8px 10px",
             borderRadius: tokens.radius.card,
-            background: "rgba(26,46,79,0.035)",
+            background: modeThemes.archive.hoverSurfaceStrong,
             border: `1px solid ${AR.line}`,
             minWidth: 0,
           }}
@@ -882,7 +882,7 @@ export function LibraryView({
                     key={reading.id}
                     style={{
                       background: AR.card, borderRadius: 12, overflow: "hidden",
-                      boxShadow: "0 1px 6px rgba(0,0,0,0.065)",
+                      boxShadow: tokens.shadow.card,
                     }}
                   >
                     <div style={{ display: "flex", alignItems: "center", gap: 7, padding: "10px 13px 8px" }}>

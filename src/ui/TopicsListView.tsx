@@ -97,7 +97,7 @@ function TopicSourceProgress({ source }: { source: TopicSourceSummary }) {
           gap: 5,
           padding: "3px 8px",
           borderRadius: 999,
-          background: queueState === "pending" ? "rgba(161,106,23,0.11)" : "rgba(63,90,59,0.10)",
+          background: queueState === "pending" ? tokens.color.queuedSoft : tokens.color.successSoft,
           color: queueState === "pending" ? tokens.topicAccent.warm : tokens.topicAccent.primary,
           fontSize: 10.5,
           fontWeight: 800,

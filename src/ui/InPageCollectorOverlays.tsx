@@ -1,12 +1,14 @@
 import { PrimaryButton, SecondaryButton, TOKENS, lineClamp, surfaceCardStyle } from "./components";
 import { flashPreviewAvatar, flashPreviewMetrics } from "./inpage-helpers";
+import { modeThemes, tokens } from "./tokens";
 import type { InPageCollectorAppModel } from "./useInPageCollectorAppState";
 
-const MODE_ACCENT = "var(--dlens-mode-accent, #1a2e4f)";
-const MODE_ACCENT_MID = "var(--dlens-mode-accent-mid, #2b4a80)";
-const MODE_ACCENT_SOFT = "var(--dlens-mode-accent-soft, rgba(26,46,79,0.09))";
-const MODE_ACCENT_GLOW = "var(--dlens-mode-accent-glow, rgba(26,46,79,0.18))";
-const MODE_HOVER_BORDER_SOFT = "var(--dlens-mode-hover-border-soft, rgba(26,46,79,0.26))";
+const ARCHIVE_MODE_THEME = modeThemes.archive;
+const MODE_ACCENT = `var(--dlens-mode-accent, ${ARCHIVE_MODE_THEME.accent})`;
+const MODE_ACCENT_MID = `var(--dlens-mode-accent-mid, ${ARCHIVE_MODE_THEME.accentMid})`;
+const MODE_ACCENT_SOFT = `var(--dlens-mode-accent-soft, ${ARCHIVE_MODE_THEME.accentSoft})`;
+const MODE_ACCENT_GLOW = `var(--dlens-mode-accent-glow, ${ARCHIVE_MODE_THEME.accentGlow})`;
+const MODE_HOVER_BORDER_SOFT = `var(--dlens-mode-hover-border-soft, ${ARCHIVE_MODE_THEME.hoverBorderSoft})`;
 
 export function InPageCollectorOverlays({ app }: { app: InPageCollectorAppModel }) {
   const { snapshot, tabId, hoverRect, hoverSaved, flashPreview, flashStyle, displayToast, preview, popupOpen } = app;
@@ -33,8 +35,8 @@ export function InPageCollectorOverlays({ app }: { app: InPageCollectorAppModel 
           WebkitBackdropFilter: TOKENS.glassBlur,
           boxShadow: popupOpen
             ? `0 8px 24px ${MODE_ACCENT_GLOW}`
-            : "0 4px 16px rgba(0,0,0,0.12)",
-          color: popupOpen ? "#fff" : MODE_ACCENT,
+            : TOKENS.glassShadow,
+          color: popupOpen ? tokens.color.inverse : MODE_ACCENT,
           fontSize: 22,
           fontWeight: 700,
           zIndex: 2147483640,
@@ -72,7 +74,7 @@ export function InPageCollectorOverlays({ app }: { app: InPageCollectorAppModel 
             background: `linear-gradient(135deg, ${MODE_ACCENT}, ${MODE_ACCENT_MID})`,
             backdropFilter: "blur(16px)",
             WebkitBackdropFilter: "blur(16px)",
-            color: "#fff",
+            color: tokens.color.inverse,
             fontSize: 12,
             fontWeight: 600,
             letterSpacing: "0.02em",
@@ -86,9 +88,9 @@ export function InPageCollectorOverlays({ app }: { app: InPageCollectorAppModel 
           <span style={{ width: 6, height: 6, borderRadius: 999, background: MODE_ACCENT_MID, display: "inline-block", animation: "dlens-pulse 2s ease-in-out infinite" }} />
           Hover to preview
           <span style={{ opacity: 0.4 }}>|</span>
-          <kbd style={{ padding: "1px 6px", borderRadius: 4, background: "rgba(255,255,255,0.15)", fontSize: 11 }}>S</kbd> save
+          <kbd style={{ padding: "1px 6px", borderRadius: 4, background: tokens.color.inversePanel, fontSize: 11 }}>S</kbd> save
           <span style={{ opacity: 0.4 }}>|</span>
-          <kbd style={{ padding: "1px 6px", borderRadius: 4, background: "rgba(255,255,255,0.15)", fontSize: 11 }}>Esc</kbd> exit
+          <kbd style={{ padding: "1px 6px", borderRadius: 4, background: tokens.color.inversePanel, fontSize: 11 }}>Esc</kbd> exit
         </div>
       ) : null}
 
@@ -102,14 +104,14 @@ export function InPageCollectorOverlays({ app }: { app: InPageCollectorAppModel 
             zIndex: 2147483646,
             padding: "4px 10px",
             borderRadius: 999,
-            background: hoverSaved ? "rgba(63,90,59,0.12)" : MODE_ACCENT_SOFT,
+            background: hoverSaved ? TOKENS.successSoft : MODE_ACCENT_SOFT,
             backdropFilter: "blur(12px)",
             WebkitBackdropFilter: "blur(12px)",
-            border: `1px solid ${hoverSaved ? "rgba(63,90,59,0.25)" : MODE_HOVER_BORDER_SOFT}`,
+            border: `1px solid ${hoverSaved ? tokens.color.successBorder : MODE_HOVER_BORDER_SOFT}`,
             color: hoverSaved ? TOKENS.success : MODE_ACCENT,
             fontSize: 11,
             fontWeight: 700,
-            boxShadow: "0 4px 16px rgba(15,23,42,0.08)",
+            boxShadow: TOKENS.hudGlow,
             pointerEvents: "auto",
             display: "flex",
             alignItems: "center",
@@ -136,7 +138,7 @@ export function InPageCollectorOverlays({ app }: { app: InPageCollectorAppModel 
                   height: 34,
                   borderRadius: 12,
                   background: `linear-gradient(135deg, ${MODE_ACCENT}, ${MODE_ACCENT_MID})`,
-                  color: "#fff",
+                  color: tokens.color.inverse,
                   display: "grid",
                   placeItems: "center",
                   fontWeight: 700,
@@ -183,16 +185,16 @@ export function InPageCollectorOverlays({ app }: { app: InPageCollectorAppModel 
             zIndex: 2147483647,
             padding: "10px 16px",
             borderRadius: TOKENS.pillRadius,
-            background: displayToast.kind === "queued" ? "rgba(217,119,6,0.1)" : "rgba(5,150,105,0.1)",
+            background: displayToast.kind === "queued" ? TOKENS.queuedSoft : TOKENS.successSoft,
             backdropFilter: "blur(12px)",
             WebkitBackdropFilter: "blur(12px)",
-            border: `1px solid ${displayToast.kind === "queued" ? "rgba(217,119,6,0.2)" : "rgba(5,150,105,0.2)"}`,
+            border: `1px solid ${displayToast.kind === "queued" ? tokens.color.queuedBorder : tokens.color.successBorder}`,
             color: displayToast.kind === "queued" ? TOKENS.queued : TOKENS.success,
             fontSize: 12,
             fontWeight: 700,
             lineHeight: 1.45,
             maxWidth: 360,
-            boxShadow: "0 8px 24px rgba(15,23,42,0.1)",
+            boxShadow: TOKENS.hudGlow,
             pointerEvents: "auto",
             display: "flex",
             alignItems: "center",

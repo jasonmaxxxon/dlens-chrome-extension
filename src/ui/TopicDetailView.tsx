@@ -1057,7 +1057,7 @@ function TopicSignalTagCloud({
               style={{
                 border: `1px solid ${active ? tokens.color.accentGlow : repeated ? tokens.color.success : tokens.color.line}`,
                 borderRadius: 999,
-                background: active ? tokens.color.accentSoft : repeated ? "rgba(63,90,59,0.10)" : tokens.color.surface,
+                background: active ? tokens.color.accentSoft : repeated ? tokens.color.successSoft : tokens.color.surface,
                 color: active ? tokens.color.accent : repeated ? tokens.color.success : tokens.color.subInk,
                 padding: "5px 9px",
                 fontSize: 11,

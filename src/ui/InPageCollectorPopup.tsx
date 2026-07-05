@@ -312,7 +312,7 @@ export function InPageCollectorPopup({ app }: { app: InPageCollectorAppModel }) 
         overflow: "hidden",
         borderRadius: tokens.radius.lg + 2,
         border: `1px solid ${tokens.color.glassBorder}`,
-        boxShadow: `${tokens.shadow.popup}, inset 0 1px 0 rgba(253,251,246,0.96)`,
+        boxShadow: `${tokens.shadow.popup}, inset 0 1px 0 ${tokens.color.shellSurface}`,
         zIndex: 2147483640,
         color: tokens.color.ink,
         fontFamily: tokens.font.sans,

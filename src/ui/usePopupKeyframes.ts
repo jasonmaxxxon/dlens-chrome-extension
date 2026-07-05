@@ -1,16 +1,18 @@
 import { useLayoutEffect } from "react";
 
+import { tokens } from "./tokens";
+
 export function buildPopupKeyframeCss(): string {
   return `
       @import url("https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=JetBrains+Mono:wght@400;600;700&family=Noto+Serif+TC:wght@400;600;700&display=swap");
 
       :root {
-        --dlens-canvas-deep: #f7f4ec;
-        --dlens-paper-raised: #fdfbf6;
-        --dlens-sunken: #f1ece0;
-        --dlens-line-hair: rgba(27,26,23,0.10);
-        --dlens-oxide: #7a2030;
-        --dlens-ink-blue: #1a2e4f;
+        --dlens-canvas-deep: ${tokens.color.canvas};
+        --dlens-paper-raised: ${tokens.color.elevated};
+        --dlens-sunken: ${tokens.color.neutralSurface};
+        --dlens-line-hair: ${tokens.color.line};
+        --dlens-oxide: ${tokens.color.failed};
+        --dlens-ink-blue: ${tokens.color.accent};
       }
 
       [data-paper-grain="true"]::before {
@@ -21,9 +23,9 @@ export function buildPopupKeyframeCss(): string {
         opacity: 0.12;
         mix-blend-mode: multiply;
         background-image:
-          radial-gradient(circle at 20% 20%, rgba(27,26,23,0.08) 0 0.6px, transparent 0.7px),
-          radial-gradient(circle at 80% 40%, rgba(27,26,23,0.05) 0 0.7px, transparent 0.8px),
-          radial-gradient(circle at 30% 70%, rgba(27,26,23,0.05) 0 0.5px, transparent 0.6px);
+          radial-gradient(circle at 20% 20%, ${tokens.color.idleBorder} 0 0.6px, transparent 0.7px),
+          radial-gradient(circle at 80% 40%, ${tokens.color.cardEdge} 0 0.7px, transparent 0.8px),
+          radial-gradient(circle at 30% 70%, ${tokens.color.cardEdge} 0 0.5px, transparent 0.6px);
         background-size: 18px 18px, 24px 24px, 20px 20px;
       }
 

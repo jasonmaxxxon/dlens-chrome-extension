@@ -50,7 +50,7 @@ function ProgressRing({
       style={{ width: size, height: size, display: "inline-flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}
     >
       <svg width={size} height={size} viewBox={`0 0 ${size} ${size}`} aria-hidden="true">
-        <circle cx={size / 2} cy={size / 2} r={radius} fill="none" stroke="rgba(15,23,42,0.09)" strokeWidth="2.5" />
+        <circle cx={size / 2} cy={size / 2} r={radius} fill="none" stroke={tokens.color.line} strokeWidth="2.5" />
         <circle
           cx={size / 2}
           cy={size / 2}
@@ -75,7 +75,7 @@ function SkeletonBar({ width }: { width: string }) {
         width,
         height: 5,
         borderRadius: tokens.radius.sm,
-        background: "linear-gradient(90deg, rgba(148,163,184,0.10) 0%, rgba(148,163,184,0.22) 50%, rgba(148,163,184,0.10) 100%)",
+        background: `linear-gradient(90deg, ${tokens.color.inkWash} 0%, ${tokens.color.inkWashStrong} 50%, ${tokens.color.inkWash} 100%)`,
         backgroundSize: "180% 100%",
         animation: "dlens-popup-shimmer 1.6s linear infinite",
         display: "block"
@@ -91,21 +91,21 @@ function backendReachabilityTone(reachability: BackendReachability): { label: st
         label: "Backend slow",
         color: tokens.color.queued,
         background: tokens.color.queuedSoft,
-        border: "rgba(161,106,23,0.24)"
+        border: tokens.color.queuedBorder
       };
     case "unreachable":
       return {
         label: "Backend unreachable",
         color: tokens.color.failed,
         background: tokens.color.failedSoft,
-        border: "rgba(122,32,48,0.24)"
+        border: tokens.color.failedBorder
       };
     default:
       return {
         label: "Backend reachable",
         color: tokens.color.success,
         background: tokens.color.successSoft,
-        border: "rgba(63,90,59,0.24)"
+        border: tokens.color.successBorder
       };
   }
 }

@@ -28,6 +28,13 @@ const CITATION_POPOVER_WIDTH = 320;
 const CITATION_POPOVER_HEIGHT = 156;
 const CITATION_POPOVER_MARGIN = 12;
 const CITATION_POPOVER_GAP = 10;
+const AVATAR_BACKGROUNDS = [
+  tokens.topicAccent.tintSageHi,
+  tokens.topicAccent.tintAmber,
+  tokens.color.accentSoft,
+  tokens.color.queuedSoft,
+  tokens.color.successSoft
+] as const;
 
 interface CitationPopoverRect {
   left: number;
@@ -158,7 +165,7 @@ function CitationChip({
   const showPopover = hover || pinned;
   const baseBg = pinned ? tokens.topicAccent.tintAmber : tokens.topicAccent.tintSage;
   const baseColor = pinned ? tokens.topicAccent.warm : tokens.topicAccent.primaryDeep;
-  const baseBorder = pinned ? "#e8c89b" : "#d3e0ca";
+  const baseBorder = pinned ? tokens.topicAccent.tintAmber : tokens.topicAccent.tintSageHi;
   const hoverBg = pinned ? tokens.topicAccent.tintAmber : tokens.topicAccent.primary;
   const hoverColor = pinned ? tokens.topicAccent.warm : tokens.color.elevated;
 
@@ -225,7 +232,7 @@ function CitationChip({
             width: popoverLayout.width,
             maxHeight: "min(240px, calc(100vh - 24px))",
             overflowY: "auto",
-            background: "#1f2620",
+            background: tokens.color.dark,
             color: tokens.color.elevated,
             borderRadius: 10,
             padding: "10px 12px",
@@ -235,18 +242,18 @@ function CitationChip({
             lineHeight: 1.6,
             letterSpacing: 0,
             zIndex: 2147483647,
-            boxShadow: "0 14px 28px rgba(0,0,0,0.28)",
+            boxShadow: tokens.shadow.topicDrawer,
             textAlign: "left",
             pointerEvents: "auto",
             whiteSpace: "normal"
           }}
         >
-          <span style={{ display: "flex", justifyContent: "space-between", fontFamily: tokens.font.mono, fontSize: 10, color: "rgba(250,247,238,0.6)", marginBottom: 6 }}>
+          <span style={{ display: "flex", justifyContent: "space-between", fontFamily: tokens.font.mono, fontSize: 10, color: tokens.color.inverseMuted, marginBottom: 6 }}>
             <span style={{ fontWeight: 700, color: tokens.color.elevated }}>@{fragment.author}</span>
             <span>♥ {fragment.likes ?? "?"}</span>
           </span>
           <span style={{ display: "block", color: tokens.color.elevated }}>{fragment.text}</span>
-          <span style={{ display: "block", marginTop: 6, fontFamily: tokens.font.mono, fontSize: 9.5, color: "rgba(250,247,238,0.5)", textTransform: "uppercase", letterSpacing: "0.05em" }}>
+          <span style={{ display: "block", marginTop: 6, fontFamily: tokens.font.mono, fontSize: 9.5, color: tokens.color.inverseShimmer, textTransform: "uppercase", letterSpacing: "0.05em" }}>
             {ROLE_LABEL[fragment.role] ?? fragment.role}
           </span>
           <span
@@ -260,8 +267,8 @@ function CitationChip({
               borderLeft: "6px solid transparent",
               borderRight: "6px solid transparent",
               ...(popoverLayout.placement === "top"
-                ? { top: "100%", borderTop: "6px solid #1f2620" }
-                : { bottom: "100%", borderBottom: "6px solid #1f2620" })
+                ? { top: "100%", borderTop: `6px solid ${tokens.color.dark}` }
+                : { bottom: "100%", borderBottom: `6px solid ${tokens.color.dark}` })
             }}
           />
         </span>,
@@ -322,8 +329,7 @@ function CitationChip({
 function avatarColor(seed: string): string {
   let hash = 0;
   for (let i = 0; i < seed.length; i += 1) hash = (hash * 31 + seed.charCodeAt(i)) >>> 0;
-  const hue = hash % 360;
-  return `hsl(${hue} 35% 78%)`;
+  return AVATAR_BACKGROUNDS[hash % AVATAR_BACKGROUNDS.length];
 }
 
 function ThreadsStyleFragment({
@@ -439,7 +445,7 @@ function OriginalPostCard({
         display: "grid",
         gridTemplateColumns: "38px minmax(0, 1fr)",
         gap: 11,
-        boxShadow: "0 2px 10px rgba(0,0,0,0.03)"
+        boxShadow: tokens.shadow.card
       }}
     >
       <span
@@ -498,7 +504,7 @@ function Caveats({ items }: { items: string[] }) {
       data-signal-drawer-caveats="true"
       style={{
         padding: "10px 14px 11px",
-        background: "rgba(182,116,62,0.06)",
+        background: tokens.color.queuedWash,
         borderLeft: `3px solid ${tokens.topicAccent.warm}`,
         borderRadius: "0 8px 8px 0",
         fontSize: 12,
@@ -655,7 +661,7 @@ export function SignalDrawer({
               border: `1px solid ${tokens.color.line}`,
               borderRadius: 12,
               padding: "16px 16px",
-              boxShadow: "0 2px 10px rgba(0,0,0,0.03)"
+              boxShadow: tokens.shadow.card
             }}
           >
             <div
