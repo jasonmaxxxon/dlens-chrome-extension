@@ -104,11 +104,18 @@ separately revertable.
   revertable as written. Standing constraint from the user: no per-new-model
   UI "redos" — the swap happens once, through `tokens.ts`, with Phase 2's
   literal sweep + color-literal guard as the anti-accretion prerequisite.
-  Specimen fields with no current derivation (per-post 參考度 score, per-post
-  stance qualifier like 支持·帶保留) must be derived for real or cut at
-  Phase 1 — never shipped decorative. Known B risk stays live: pure-white
-  shell on Threads' white ground needs border/shadow separation in the real
-  build (historical rejection noted in the specimen).
+  Specimen field audit (2026-07-05, verified against `src/state/types.ts`):
+  參考度 X/5 IS real (`ProductSignalAnalysis.relevance` and
+  `JudgmentResult.relevance`, both 1–5); verdict try/watch/park/
+  insufficient_data real; signalType (technical/learning/demand/competitor/
+  marketing/noise) real; tag chips + gist real (`SignalTagsRecord`); audit
+  coverage/themes/lanes real. Two corrections the winner mockup must carry:
+  (1) per-signal stance is TOPICAL (`TopicSignalStance` =
+  central/adjacent/off-topic), not opinion 支持·帶保留 — relabel; (2) 轉發
+  count has no field (`CapturedPostProjection` carries likes + commentCount
+  only) — cut. Known B risk stays live: pure-white shell on Threads' white
+  ground needs border/shadow separation in the real build (historical
+  rejection noted in the specimen).
 - Direction pick: B · Gallery White (working candidate; Gate 1 mockup
   sign-off still required before any code)
 - Product saved signals: keep / repaint / rebuild —

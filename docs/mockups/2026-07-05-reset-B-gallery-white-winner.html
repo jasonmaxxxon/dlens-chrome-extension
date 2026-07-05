@@ -1,0 +1,304 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+<meta charset="utf-8">
+<title>Visual Reset B — 畫廊白 winner mockup（Phase 1 · reference-only · 2026-07-05）</title>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<style>
+  /* ══ Gallery White token samples — 正式值最終只進 src/ui/tokens.ts ══ */
+  :root {
+    --canvas:#fdfdfc; --ink:#141311; --sub:#63605a;
+    --line:rgba(20,19,17,.14); --line-strong:rgba(20,19,17,.30);
+    --r:2px;
+    --accent:#c2401f; --accent-soft:rgba(194,64,31,.07); --on-accent:#fff;
+    --ok:#3c6e47; --warn:#a1651a; --bad:#a03024; --run:#1f3a6e;
+    --display:'Noto Serif TC','Songti TC',Georgia,serif;
+    --mono:ui-monospace,'JetBrains Mono',SFMono-Regular,Menlo,monospace;
+    --sans:'Noto Sans TC',-apple-system,system-ui,sans-serif;
+  }
+  * { margin:0; padding:0; box-sizing:border-box; }
+  /* 頁面底色 = Threads 純白（最壞情境），證明外框分離解法成立 */
+  body { background:#ffffff; font-family:var(--sans); color:var(--ink); padding:30px 22px 70px; }
+
+  .intro { max-width:1500px; margin:0 auto 24px; }
+  .intro h1 { font-family:var(--display); font-size:21px; font-weight:700; margin-bottom:6px; }
+  .intro p { font-size:12.5px; line-height:1.75; color:var(--sub); max-width:78em; }
+  .intro code { font-family:var(--mono); font-size:11px; }
+
+  .stage { display:grid; grid-template-columns:repeat(auto-fit,minmax(660px,1fr)); gap:26px; max-width:1500px; margin:0 auto; }
+
+  /* ── 殼：歷史退件的修正 —— 純白殼靠 1px 墨線 + 柔影和 Threads 白底分離 ── */
+  .frame {
+    background:var(--canvas); color:var(--ink);
+    border:1px solid rgba(20,19,17,.22); border-radius:6px;
+    box-shadow:0 14px 44px rgba(20,19,17,.13), 0 2px 8px rgba(20,19,17,.07);
+    padding:0 26px 22px; overflow:hidden;
+  }
+  .frame-tag { font-family:var(--mono); font-size:10px; letter-spacing:.08em; text-transform:uppercase; color:var(--sub); padding:10px 0 0; }
+
+  /* masthead */
+  .masthead { display:flex; align-items:center; gap:10px; padding:14px 0 12px; border-bottom:1px solid var(--line-strong); }
+  .wordmark { font-family:var(--display); font-weight:700; font-size:17px; }
+  .ver { font-family:var(--mono); font-size:10px; color:var(--sub); }
+  .tabs { display:flex; gap:2px; margin-left:auto; }
+  .tab { font-size:11px; font-weight:600; padding:4px 11px; border-radius:var(--r); color:var(--sub); }
+  .tab.on { background:var(--accent-soft); color:var(--accent); }
+  .dot { width:7px; height:7px; border-radius:999px; background:var(--ok); margin-left:6px; }
+
+  /* workspace 狀態列 */
+  .wsbar { display:flex; align-items:center; gap:14px; padding:12px 0; border-bottom:1px solid var(--line); }
+  .wsbar .m { font-family:var(--mono); font-size:11.5px; font-weight:700; font-variant-numeric:tabular-nums; }
+  .wsbar .exports { display:flex; gap:10px; margin-left:auto; font-family:var(--mono); font-size:10.5px; color:var(--sub); }
+  .btn { font-size:11.5px; font-weight:700; padding:6px 14px; border-radius:var(--r); border:1px solid transparent; cursor:pointer; font-family:var(--sans); }
+  .btn.primary { background:var(--accent); color:var(--on-accent); }
+  .btn.quiet { background:none; border-color:var(--line-strong); color:var(--ink); }
+  .wscopy { font-size:11px; color:var(--sub); padding:9px 0 0; line-height:1.6; }
+
+  /* 訊號卡（畫廊白：規線分割，不用卡片陰影） */
+  .sig { padding:16px 0 14px; border-bottom:1px solid var(--line); }
+  .eyebrow { display:flex; gap:12px; align-items:baseline; font-size:10px; font-weight:700; letter-spacing:.07em; text-transform:uppercase; color:var(--accent); margin-bottom:8px; }
+  .eyebrow .rel { font-family:var(--mono); letter-spacing:0; color:var(--ink); }
+  .eyebrow .prov { font-family:var(--mono); letter-spacing:0; text-transform:none; font-weight:400; color:var(--sub); }
+  .eyebrow .stale { font-family:var(--mono); letter-spacing:0; color:var(--warn); }
+  .sig h3 { font-family:var(--display); font-size:19px; font-weight:700; line-height:1.5; margin-bottom:9px; }
+  .sig.compact h3 { font-size:15px; margin-bottom:6px; }
+  .quote { font-family:var(--display); font-style:italic; font-size:13.5px; line-height:1.75; color:var(--sub); border-inline-start:2px solid var(--accent); padding:2px 0 2px 13px; margin-bottom:11px; }
+
+  .analysis { display:grid; grid-template-columns:auto 1fr; gap:5px 14px; margin-bottom:11px; }
+  .analysis .k { font-family:var(--mono); font-size:10px; letter-spacing:.06em; color:var(--sub); text-transform:uppercase; padding-top:2px; white-space:nowrap; }
+  .analysis .v { font-size:12.5px; line-height:1.65; }
+
+  .meta { display:flex; align-items:center; gap:14px; font-size:11px; color:var(--sub); }
+  .meta .m { font-family:var(--mono); font-weight:700; font-variant-numeric:tabular-nums; color:var(--ink); }
+  .st { display:inline-flex; align-items:center; gap:5px; font-size:10.5px; color:var(--sub); }
+  .st i { width:6px; height:6px; border-radius:999px; display:inline-block; }
+  .st.ok i{background:var(--ok)} .st.run i{background:var(--run)} .st.bad i{background:var(--bad)} .st.warn i{background:var(--warn)}
+  .verdict { margin-left:auto; font-family:var(--mono); font-size:11px; font-weight:700; padding:3px 13px; border-radius:var(--r); }
+  .verdict.try { background:var(--accent); color:var(--on-accent); }
+  .verdict.watch { border:1px solid var(--line-strong); color:var(--ink); }
+  .verdict.park { border:1px solid var(--line); color:var(--sub); }
+  .rowacts { display:flex; gap:14px; margin-top:9px; font-family:var(--mono); font-size:10.5px; color:var(--sub); }
+  .rowacts span { cursor:pointer; }
+  .rowacts .danger { color:var(--bad); }
+
+  /* ── Topic detail ── */
+  .tophead { padding:14px 0 12px; border-bottom:1px solid var(--line-strong); }
+  .back { font-family:var(--mono); font-size:10.5px; color:var(--sub); margin-bottom:7px; }
+  .tophead h2 { font-family:var(--display); font-size:23px; font-weight:700; line-height:1.35; }
+  .topmeta { display:flex; gap:12px; margin-top:7px; font-family:var(--mono); font-size:10.5px; color:var(--sub); }
+  .counts { display:flex; gap:16px; padding:11px 0; border-bottom:1px solid var(--line); font-family:var(--mono); font-size:11.5px; font-variant-numeric:tabular-nums; }
+  .counts b { font-weight:700; }
+  .counts .muted { color:var(--sub); font-weight:400; }
+
+  .judg { padding:16px 0 15px; border-bottom:1px solid var(--line); }
+  .judg .lab { font-size:10px; font-weight:700; letter-spacing:.07em; text-transform:uppercase; color:var(--accent); margin-bottom:8px; display:flex; gap:12px; align-items:baseline; }
+  .judg .lab .rel { font-family:var(--mono); letter-spacing:0; color:var(--ink); }
+  .state { font-family:var(--mono); font-size:10.5px; font-weight:700; padding:2px 10px; border-radius:var(--r); }
+  .state.act { background:var(--accent); color:var(--on-accent); }
+  .judg .why { font-family:var(--display); font-size:16.5px; font-weight:600; line-height:1.6; margin-bottom:9px; }
+  .judg .cue { display:grid; grid-template-columns:auto 1fr; gap:0 14px; }
+  .judg .cue .k { font-family:var(--mono); font-size:10px; letter-spacing:.06em; text-transform:uppercase; color:var(--sub); padding-top:2px; }
+  .judg .cue .v { font-size:12.5px; line-height:1.65; }
+
+  .tagbar { display:flex; gap:8px; flex-wrap:wrap; padding:12px 0; border-bottom:1px solid var(--line); }
+  .tagchip { font-family:var(--mono); font-size:10.5px; padding:3px 10px; border:1px solid var(--line-strong); border-radius:var(--r); color:var(--ink); cursor:pointer; }
+  .tagchip b { color:var(--accent); margin-left:5px; }
+  .tagnote { font-size:10.5px; color:var(--sub); align-self:center; margin-left:auto; }
+
+  .trow { display:flex; align-items:baseline; gap:10px; padding:10px 0; border-bottom:1px solid var(--line); }
+  .trow .gist { font-size:13px; font-weight:600; line-height:1.55; flex:1; }
+  .trow .tg { font-family:var(--mono); font-size:10px; color:var(--accent); white-space:nowrap; }
+  .stance { font-family:var(--mono); font-size:10px; padding:2px 8px; border:1px solid var(--line); border-radius:var(--r); color:var(--sub); white-space:nowrap; }
+  .stance.central { color:var(--ink); border-color:var(--line-strong); }
+
+  .audit { padding:15px 0 4px; }
+  .audit .lab { font-size:10px; font-weight:700; letter-spacing:.07em; text-transform:uppercase; color:var(--accent); display:flex; gap:12px; align-items:baseline; margin-bottom:9px; }
+  .audit .lab .cov { font-family:var(--mono); letter-spacing:0; color:var(--ink); }
+  .audit .lab .gen { font-family:var(--mono); letter-spacing:0; font-weight:400; text-transform:none; color:var(--sub); }
+  .themes { display:flex; gap:8px; flex-wrap:wrap; margin-bottom:10px; }
+  .theme { font-size:10.5px; padding:3px 10px; background:var(--accent-soft); color:var(--accent); border-radius:var(--r); }
+  .lane { display:flex; align-items:baseline; gap:12px; padding:8px 0; border-top:1px solid var(--line); }
+  .lane .t { font-family:var(--display); font-size:13.5px; font-weight:600; flex:1; line-height:1.5; }
+  .lane .c { font-family:var(--mono); font-size:11px; font-variant-numeric:tabular-nums; }
+  .lane .n { font-family:var(--mono); font-size:10.5px; color:var(--sub); }
+  .topacts { display:flex; gap:10px; padding:14px 0 2px; }
+
+  /* 真欄位對照 */
+  .legend { max-width:1500px; margin:30px auto 0; border-top:2px solid var(--ink); padding-top:14px; }
+  .legend h2 { font-family:var(--display); font-size:16px; margin-bottom:10px; }
+  .legend table { width:100%; border-collapse:collapse; font-size:11.5px; }
+  .legend td { padding:6px 14px 6px 0; border-bottom:1px solid var(--line); vertical-align:top; line-height:1.6; }
+  .legend td.f { font-family:var(--mono); font-size:10.5px; color:var(--sub); white-space:nowrap; }
+  .legend .cut { color:var(--bad); }
+  .legend p { font-size:11.5px; color:var(--sub); line-height:1.7; margin-top:12px; max-width:80em; }
+
+  @media (prefers-reduced-motion: no-preference) {
+    .btn, .tagchip, .verdict, .rowacts span { transition:opacity .12s ease; }
+    .btn:hover, .tagchip:hover, .rowacts span:hover { opacity:.72; }
+  }
+</style>
+</head>
+<body>
+
+<div class="intro">
+  <h1>Visual Reset B — 畫廊白 Winner Mockup</h1>
+  <p>Phase 1 · reference-only · 2026-07-05。兩個最高流量 surface 的全保真樣本；<b>每個元素都對應現行 contract 的真欄位</b>（底部有對照表），
+     文案為樣本值。頁面底色故意用 Threads 純白（歷史退件的最壞情境）——分離靠殼上的 1px 墨線＋柔影，這是修正方案本身。
+     所有值最終只進 <code>src/ui/tokens.ts</code>（Phase 3 同 PR 重寫 <code>tokens-intent.md</code>）。</p>
+</div>
+
+<div class="stage">
+
+  <!-- ═══ Frame 1 · Product saved signals ═══ -->
+  <section class="frame">
+    <div class="frame-tag">frame 1 · product mode · saved signals</div>
+    <div class="masthead">
+      <span class="wordmark">DLens</span><span class="ver">0.4.0</span>
+      <div class="tabs"><span class="tab on">訊號</span><span class="tab">行動</span><span class="tab">收集</span></div>
+      <span class="dot"></span>
+    </div>
+
+    <div class="wsbar">
+      <span class="m">6 訊號 · 4 已分析</span>
+      <button class="btn primary">分析收件匣</button>
+      <div class="exports"><span>匯出 html</span><span>匯出 jsonl</span></div>
+    </div>
+    <div class="wscopy">有 signal 尚未抓取。按分析收件匣會先送出抓取請求，完成後再分析。</div>
+
+    <!-- hero：展開態，分析欄位全上（substance） -->
+    <article class="sig">
+      <div class="eyebrow">technical <span class="rel">參考度 4/5</span> <span class="prov">AI · gemini</span></div>
+      <h3>用瀏覽器自動化做循環資料抓取的可複用模式</h3>
+      <div class="quote">「我直接讓 agent 每天早上爬一次 Threads 關鍵字，存進 Notion 再叫它寫摘要，兩週沒斷過。」</div>
+      <div class="analysis">
+        <span class="k">為何相關</span><span class="v">和 DLens 的 Threads 擷取管線同構——排程、關鍵字、產出摘要三段都對得上。</span>
+        <span class="k">現在為何</span><span class="v">兩週穩定運行是可複製的訊號，不是一次性 demo。</span>
+        <span class="k">實驗提示</span><span class="v">把每日爬取包成 crawl job 模板，先支援單一關鍵字。</span>
+        <span class="k">驗證指標</span><span class="v">連續 7 天成功率 ≥ 90%。</span>
+      </div>
+      <div class="meta">
+        <span>讚 <span class="m">132</span></span><span>回覆 <span class="m">45</span></span>
+        <span class="st ok"><i></i>ready</span>
+        <span class="verdict try">try</span>
+      </div>
+      <div class="rowacts"><span>產生 reading</span><span>重抓</span><span class="danger">移除</span></div>
+    </article>
+
+    <!-- 收合態 -->
+    <article class="sig compact">
+      <div class="eyebrow">demand <span class="rel">參考度 3/5</span> <span class="prov">AI · gemini</span></div>
+      <h3>想要「自動幫我把討論串變成內容日曆」的工具</h3>
+      <div class="meta">
+        <span>讚 <span class="m">88</span></span><span>回覆 <span class="m">31</span></span>
+        <span class="st ok"><i></i>ready</span>
+        <span class="verdict watch">watch</span>
+      </div>
+    </article>
+
+    <article class="sig compact">
+      <div class="eyebrow">learning <span class="rel">參考度 2/5</span> <span class="stale">過時</span></div>
+      <h3>三步驟教你用試算表管理靈感庫</h3>
+      <div class="meta">
+        <span>讚 <span class="m">54</span></span><span>回覆 <span class="m">9</span></span>
+        <span class="st ok"><i></i>ready</span>
+        <span class="verdict park">park</span>
+      </div>
+    </article>
+
+    <article class="sig compact">
+      <div class="eyebrow" style="color:var(--sub)">未分析</div>
+      <h3>小工具開發者的 Threads 廣告投放心得</h3>
+      <div class="meta">
+        <span class="st bad"><i></i>抓取失敗</span>
+      </div>
+      <div class="rowacts"><span>重抓</span><span class="danger">移除</span></div>
+    </article>
+
+    <article class="sig compact" style="border-bottom:none">
+      <div class="eyebrow" style="color:var(--sub)">未分析</div>
+      <h3>把 side project 當媒體在經營的一年回顧</h3>
+      <div class="meta">
+        <span class="st run"><i></i>分析中</span>
+      </div>
+    </article>
+  </section>
+
+  <!-- ═══ Frame 2 · Topic detail ═══ -->
+  <section class="frame">
+    <div class="frame-tag">frame 2 · topic mode · topic detail</div>
+    <div class="tophead">
+      <div class="back">← 返回主題列表</div>
+      <h2>MCP 自動化工作流</h2>
+      <div class="topmeta"><span>#mcp</span><span>#自動化</span><span>建立 06-28 · 更新 07-05</span></div>
+    </div>
+
+    <div class="counts">
+      <span><b>6</b> 來源</span>
+      <span><b>4</b> ready</span>
+      <span class="muted">1 處理中</span>
+      <span class="muted">1 失敗</span>
+    </div>
+
+    <div class="judg">
+      <div class="lab">主判讀 <span class="rel">參考度 4/5</span> <span class="state act">act</span></div>
+      <div class="why">這條線把「爬取 → 儲存 → 摘要」的自動化需求，接到 DLens 已有的 crawl job 能力上——是最短可驗證路徑。</div>
+      <div class="cue"><span class="k">行動提示</span><span class="v">從審查報告的三條敘事線各挑一篇代表貼文進 Compare，先驗證共識最高的那條。</span></div>
+    </div>
+
+    <div class="tagbar">
+      <span class="tagchip">#mcp<b>4</b></span>
+      <span class="tagchip">#自動化<b>3</b></span>
+      <span class="tagchip">#工作流<b>2</b></span>
+      <span class="tagchip">#notion<b>2</b></span>
+      <span class="tagnote">點 tag 過濾出產生它的來源列</span>
+    </div>
+
+    <div class="trow"><span class="gist">創作者用 MCP 串接工作流的三種路徑</span><span class="tg">#mcp #自動化</span><span class="stance central">核心</span><span class="st ok"><i></i></span></div>
+    <div class="trow"><span class="gist">每日自動爬 Threads 關鍵字存進 Notion 的實作</span><span class="tg">#mcp #notion</span><span class="stance central">核心</span><span class="st ok"><i></i></span></div>
+    <div class="trow"><span class="gist">用 agent 幫小店家自動回覆留言的兩週實測</span><span class="tg">#mcp #自動化</span><span class="stance">相鄰</span><span class="st ok"><i></i></span></div>
+    <div class="trow"><span class="gist">抱怨排程器半夜斷線、資料缺洞的討論串</span><span class="tg">#自動化 #工作流</span><span class="stance">相鄰</span><span class="st run"><i></i></span></div>
+    <div class="trow"><span class="gist">十個工程師才懂的 AI 迷因</span><span class="tg">—</span><span class="stance">離題</span><span class="st ok"><i></i></span></div>
+    <div class="trow"><span class="gist">（抓取失敗——只有連結，無內文快照）</span><span class="tg">—</span><span class="stance">—</span><span class="st bad"><i></i></span></div>
+
+    <div class="audit">
+      <div class="lab">審查 <span class="cov">覆蓋 4/6</span> <span class="gen">07-05 01:34 生成</span></div>
+      <div class="themes"><span class="theme">排程可靠性</span><span class="theme">資料落地 Notion</span><span class="theme">摘要品質</span></div>
+      <div class="lane"><span class="t">每日排程爬取是所有實作的共通骨幹</span><span class="c">共識 87%</span><span class="n">5 篇</span></div>
+      <div class="lane"><span class="t">落地到 Notion／表格才算「完成」</span><span class="c">共識 62%</span><span class="n">3 篇</span></div>
+      <div class="lane"><span class="t">斷線與反爬是最大痛點</span><span class="c">共識 55%</span><span class="n">3 篇</span></div>
+    </div>
+
+    <div class="topacts">
+      <button class="btn primary">執行審查</button>
+      <button class="btn quiet">產生綜合</button>
+      <button class="btn quiet">開始處理</button>
+      <button class="btn quiet">打開審查報告</button>
+    </div>
+  </section>
+
+</div>
+
+<!-- ═══ 真欄位對照（substance-over-decoration 稽核） ═══ -->
+<div class="legend">
+  <h2>真欄位對照 — 每個渲染元素的 contract 來源</h2>
+  <table>
+    <tr><td>參考度 X/5</td><td class="f">ProductSignalAnalysis.relevance ／ JudgmentResult.relevance（1–5，真欄位）</td></tr>
+    <tr><td>try / watch / park verdict 章</td><td class="f">ProductSignalAnalysis.verdict（"try"|"watch"|"park"|"insufficient_data"）</td></tr>
+    <tr><td>TECHNICAL / DEMAND / LEARNING eyebrow</td><td class="f">ProductSignalAnalysis.signalType（6 值 enum）</td></tr>
+    <tr><td>為何相關／現在為何／實驗提示／驗證指標</td><td class="f">whyRelevant / whyNow / experimentHint / validationMetric</td></tr>
+    <tr><td>AI · gemini 出處、「過時」標</td><td class="f">AiOutputProvenance ／ derived-record staleness（analysisState="stale"）</td></tr>
+    <tr><td>讚／回覆 數字</td><td class="f">CapturedPostProjection.likes / commentCount　<span class="cut">轉發：contract 無此欄位——已剪，不做裝飾數字</span></td></tr>
+    <tr><td>ready／分析中／抓取失敗 狀態點</td><td class="f">SignalReadiness ／ TopicItemAnalysisState</td></tr>
+    <tr><td>來源列 gist 與 tag</td><td class="f">SignalTagsRecord.signalGist / signalTags；tag chip 計數 = SignalTagSummary.count（點擊過濾到產生它的列）</td></tr>
+    <tr><td>核心／相鄰／離題 章</td><td class="f">TopicSignalReading.stance（"central"|"adjacent"|"off-topic"）　<span class="cut">方向樣本裡的「支持·帶保留」是主題相關性欄位的誤標——已改正</span></td></tr>
+    <tr><td>主判讀：act 章＋敘述＋行動提示</td><td class="f">JudgmentResult.recommendedState / whyThisMatters / actionCue（primaryJudgmentPair）</td></tr>
+    <tr><td>審查：覆蓋 4/6、主題 chips、敘事線共識%</td><td class="f">TopicAuditViewSummary.coverage / themeChips / narrativeLanes（label · consensus · signalRefs）</td></tr>
+    <tr><td>6 訊號 · 4 已分析、狀態文案</td><td class="f">signalCount / completedAnalysisCount / readinessCopy</td></tr>
+  </table>
+  <p>設計要點：高調白 <code>#fdfdfc</code>＋重墨＋大襯線標題（Noto Serif TC）＋硃紅 <code>#c2401f</code> 書脊色；卡片退位，區塊用細規線分割；
+     半徑收到 2px；數字一律 mono＋tabular。歷史退件修正：殼上 1px 墨線＋兩層柔影，在 Threads 純白底（本頁背景）上分離成立。
+     動效只有 hover 淡出且包在 <code>prefers-reduced-motion</code> guard 內。</p>
+</div>
+
+</body>
+</html>
