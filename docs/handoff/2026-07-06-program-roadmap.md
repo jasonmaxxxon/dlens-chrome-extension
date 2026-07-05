@@ -81,7 +81,7 @@ all four modes. Rollback = revert one PR. Details in the reset-B plan.
 ## Known environment risk（2026-07-06 incident）
 
 The desktop checkout lives under a macOS File Provider domain
-(`/Users/tung/Desktop` carries `com.apple.file-provider-domain-id`): under
+(the `~/Desktop` folder carries `com.apple.file-provider-domain-id`): under
 heavy IO, paths can be TRANSIENTLY unavailable — observed as tsc TS6053
 "file not found" for existing files and a partial test run (816/962 with 9
 file-load failures) on a tree that was 957/0 in a worktree. Gate discipline:
