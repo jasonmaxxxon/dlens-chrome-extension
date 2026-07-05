@@ -11,9 +11,9 @@ workflows). Extension-first: local storage owns state; optional private backend
 
 1. This file, then `README.md` header block (version + latest contract truth).
 2. Architecture work → `docs/architecture/dlens-current-architecture-map.md`.
-3. **AGENTS.md is huge (800+ lines) — never Read it whole.** `grep -n "<topic>" AGENTS.md`
-   and read only the matching section. Locked rules live under
-   "Process Rules (locked 2026-04-17)"; "Recently Fixed" entries are history.
+3. AGENTS.md is the compact agent contract (restructured 2026-07-03) — read
+   it normally. History lives in `docs/archive/agents-history-2026H1.md`:
+   grep that archive for past fixes/contract rationale, never read it whole.
 4. Truth hierarchy when docs disagree: code/git/built manifest > README header >
    architecture map > AGENTS.md locked rules > everything in `docs/handoff/`,
    `docs/product/`, MemPalace vault. Report conflicts; don't silently edit old docs.
@@ -50,9 +50,14 @@ Bump all four together — `package.json`, `package-lock.json`,
 
 ## Design & UI contract
 
-- `src/ui/tokens.ts` is the ONLY design spec (warm-paper editorial + macOS
-  utility shell). Never write a markdown design spec; never add a second
-  palette/font scale. Mockups in `docs/mockups/` are reference, not spec.
+- `src/ui/tokens.ts` is the ONLY source of design VALUES (warm-paper editorial
+  + macOS utility shell); never add a second palette/font scale. Design INTENT
+  lives in exactly one companion file, `src/ui/tokens-intent.md` — value-free
+  by guard (`tests/tokens-intent-guard.test.ts`), updated in the same PR as the
+  token change it explains. No other design markdown, ever (amended 2026-07-03
+  from the 2026-04-17 total ban, with the guard as the condition). Mockups in
+  `docs/mockups/` are reference, not spec. Conflicts resolve to `tokens.ts` +
+  the newest shipped surface.
 - **One-in-one-out:** a PR adding UI surface/copy/dependency must remove
   comparable weight; note both sides in the commit message.
 - Commit prefixes: exactly one of `bug fix` / `feature` / `removal` /
@@ -72,10 +77,8 @@ Bump all four together — `package.json`, `package-lock.json`,
   `tokens.ts` (new values go into `tokens.ts` in the same PR — the mockup
   stays reference-only).
 - **When unsure what "fits", imitate the newest shipped marquee surface**
-  (Topic detail, Compare hero, PR Evidence ledger) instead of inventing.
-  Recurring rejected patterns in this repo's history: dashboard KPI cards,
-  hero/stat blocks, decorative badges, English placeholder copy in
-  Chinese-first surfaces. When in doubt, denser and quieter wins.
+  (Topic detail, Compare hero, PR Evidence ledger) and check the refuse-list
+  in `src/ui/tokens-intent.md`. When in doubt, denser and quieter wins.
 
 ## Boundaries (CI-enforced, don't fight them)
 
