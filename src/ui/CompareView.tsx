@@ -53,8 +53,8 @@ import {
   surfacedEvidenceCount,
   visibleClusterCountLabel
 } from "../viewmodel/compare.ts";
-const ACCENT_BORDER = "rgba(99,102,241,0.18)";
-const QUEUED_BORDER = "rgba(217,119,6,0.18)";
+const ACCENT_BORDER = tokens.color.accentGlow;
+const QUEUED_BORDER = tokens.color.queuedSoft;
 const T = {
   ink: TOKENS.ink,
   sub: TOKENS.subInk,
@@ -78,6 +78,10 @@ const COMPARE_MODE_ACCENT = `var(--dlens-mode-accent, ${tokens.color.accent})`;
 const COMPARE_MODE_ACCENT_MID = `var(--dlens-mode-accent-mid, ${tokens.color.accentMid})`;
 const COMPARE_MODE_ACCENT_SOFT = `var(--dlens-mode-accent-soft, ${tokens.color.accentSoft})`;
 const COMPARE_MODE_ACCENT_GLOW = `var(--dlens-mode-accent-glow, ${tokens.color.accentGlow})`;
+const COMPARE_CARD_SHADOW = tokens.shadow.glass;
+const COMPARE_ACTIVE_CONTROL_SHADOW = tokens.shadow.activeTab;
+const COMPARE_PANEL_BACKGROUND = `linear-gradient(180deg, ${tokens.color.elevated}, ${tokens.color.contentSurface})`;
+const COMPARE_PANEL_INSET_BACKGROUND = `linear-gradient(180deg, ${tokens.color.focusedSurface}, ${tokens.color.contextSurface})`;
 
 interface CompareViewProps {
   viewModel: CompareViewModel;
@@ -224,16 +228,16 @@ function bubbleTone(node: ClusterMapNode, side: CompareSide) {
   // Tone steps: primary > supportive > cautious > minor (near-neutral).
   const palette = side === "left"
     ? {
-        primary:    { fill: "rgba(79,70,229,0.14)",  border: "rgba(79,70,229,0.50)",  text: "#4f46e5" },
-        supportive: { fill: "rgba(99,102,241,0.09)", border: "rgba(99,102,241,0.34)", text: "#6366f1" },
-        cautious:   { fill: "rgba(99,102,241,0.06)", border: "rgba(99,102,241,0.22)", text: "#818cf8" },
-        minor:      { fill: "rgba(15,23,42,0.04)",   border: T.line,                  text: T.soft }
+        primary:    { fill: tokens.color.accentSoft, border: tokens.color.accentGlow, text: tokens.color.accent },
+        supportive: { fill: tokens.color.runningSoft, border: tokens.color.accentGlow, text: tokens.color.running },
+        cautious:   { fill: tokens.color.neutralSurfaceSoft, border: tokens.color.lineStrong, text: tokens.color.softInk },
+        minor:      { fill: tokens.color.idleBg, border: T.line, text: T.soft }
       }
     : {
-        primary:    { fill: "rgba(217,119,6,0.13)",  border: "rgba(217,119,6,0.48)",  text: "#d97706" },
-        supportive: { fill: "rgba(245,158,11,0.09)", border: "rgba(245,158,11,0.34)", text: "#b45309" },
-        cautious:   { fill: "rgba(245,158,11,0.06)", border: "rgba(245,158,11,0.22)", text: "#ca8a04" },
-        minor:      { fill: "rgba(15,23,42,0.04)",   border: T.line,                  text: T.soft }
+        primary:    { fill: tokens.color.queuedSoft, border: tokens.color.queuedSoft, text: tokens.color.queued },
+        supportive: { fill: tokens.topicAccent.tintAmber, border: tokens.color.queuedSoft, text: tokens.color.queued },
+        cautious:   { fill: tokens.color.neutralSurfaceSoft, border: tokens.color.lineStrong, text: tokens.color.softInk },
+        minor:      { fill: tokens.color.idleBg, border: T.line, text: T.soft }
       };
   if (node.toneVariant === "minor") {
     return {
@@ -299,8 +303,8 @@ function ClusterBubbleMap({
         minHeight: 280,
         borderRadius: 12,
         border: `1px solid ${T.line}`,
-        background: "linear-gradient(180deg, rgba(255,255,255,0.98), rgba(255,255,255,0.92))",
-        boxShadow: tokens.shadow.glass,
+        background: COMPARE_PANEL_BACKGROUND,
+        boxShadow: COMPARE_CARD_SHADOW,
         overflow: "hidden"
       }}
     >
@@ -311,7 +315,7 @@ function ClusterBubbleMap({
       {hiddenLabel ? (
         <div style={{ padding: "0 14px 8px", fontSize: 10, color: T.soft, ...WRAP_ANYWHERE }}>{hiddenLabel}</div>
       ) : null}
-      <div style={{ position: "relative", height: 228, margin: "0 10px 10px", borderRadius: 12, background: "linear-gradient(180deg, rgba(255,255,255,0.88), rgba(248,250,252,0.72))" }}>
+      <div style={{ position: "relative", height: 228, margin: "0 10px 10px", borderRadius: 12, background: COMPARE_PANEL_INSET_BACKGROUND }}>
         {nodes.map((node) => {
           const key = compareSelectionKey(node.captureId, node.clusterKey);
           const selected = selectedKey === key;
@@ -359,7 +363,7 @@ function ClusterBubbleMap({
               borderRadius: tokens.radius.card,
               background: tokens.color.elevated,
               border: `1px solid ${T.line}`,
-              boxShadow: tokens.shadow.glass,
+              boxShadow: COMPARE_CARD_SHADOW,
               padding: "8px 10px",
               zIndex: 2
             }}
@@ -677,7 +681,7 @@ function CompareJudgmentSheet({
                     style={{
                       border: `1px solid ${focusedKeyword === keyword ? T.accentBorder : T.line}`,
                       borderRadius: tokens.radius.pill,
-                      background: focusedKeyword === keyword ? "rgba(79,70,229,0.06)" : "transparent",
+                      background: focusedKeyword === keyword ? T.accentSoft : "transparent",
                       color: focusedKeyword === keyword ? T.accent : T.sub,
                       padding: "4px 8px",
                       fontSize: 10,
@@ -1296,7 +1300,7 @@ function CompareUnavailableBridge({
           padding: "15px 15px 14px",
           borderRadius: 12,
           background: AR.card,
-          boxShadow: "0 2px 16px rgba(0,0,0,0.065)"
+          boxShadow: COMPARE_CARD_SHADOW
         }}
       >
         <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8 }}>
@@ -1386,7 +1390,7 @@ function ARChevron({ open }: { open: boolean }) {
   return (
     <svg width="11" height="7" viewBox="0 0 11 7" fill="none"
       style={{ transform: open ? "rotate(180deg)" : "none", transition: "transform 0.22s" }}>
-      <path d="M1 1L5.5 6L10 1" stroke="rgba(0,0,0,0.32)" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round"/>
+      <path d="M1 1L5.5 6L10 1" stroke={AR.dimInk} strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round"/>
     </svg>
   );
 }
@@ -1446,9 +1450,9 @@ const AR_BASE_DOTS: ARDot[] = [
 ];
 
 const AR_CLUSTER_COLORS: Record<string, string> = {
-  A: "rgba(0,113,227,0.6)",
-  B: "rgba(255,149,0,0.65)",
-  C: "rgba(52,199,89,0.55)",
+  A: AR.blue,
+  B: AR.orange,
+  C: AR.green,
 };
 
 function FlowingClusterViz() {
@@ -1541,22 +1545,22 @@ function FlowingClusterViz() {
             r={d.r}
             fill={AR_CLUSTER_COLORS[d.cluster] ?? AR_CLUSTER_COLORS["A"]!}
             style={{
-              filter: d.r > 3.4 ? "drop-shadow(0 0.6px 1.8px rgba(0,0,0,0.1))" : "none",
+              filter: d.r > 3.4 ? `drop-shadow(0 0.6px 1.8px ${tokens.color.lineStrong})` : "none",
               opacity: d.cluster === "C" ? 0.78 : 0.9
             }}
           />
         ))}
         <g transform="translate(11,94)">
-          <rect width="34" height="10" rx="5" fill="rgba(0,113,227,0.08)" />
-          <text x="17" y="7.1" textAnchor="middle" fontSize="7" fill="rgba(0,113,227,0.88)" fontWeight="700">群組 A</text>
+          <rect width="34" height="10" rx="5" fill={tokens.color.accentSoft} />
+          <text x="17" y="7.1" textAnchor="middle" fontSize="7" fill={AR.blue} fontWeight="700">群組 A</text>
         </g>
         <g transform="translate(103,94)">
-          <rect width="34" height="10" rx="5" fill="rgba(255,149,0,0.1)" />
-          <text x="17" y="7.1" textAnchor="middle" fontSize="7" fill="rgba(200,115,0,0.92)" fontWeight="700">群組 B</text>
+          <rect width="34" height="10" rx="5" fill={tokens.color.queuedSoft} />
+          <text x="17" y="7.1" textAnchor="middle" fontSize="7" fill={AR.orange} fontWeight="700">群組 B</text>
         </g>
         <g transform="translate(59,94)">
-          <rect width="22" height="10" rx="5" fill="rgba(52,199,89,0.1)" />
-          <text x="11" y="7.1" textAnchor="middle" fontSize="6.8" fill="rgba(36,144,64,0.88)" fontWeight="700">其他</text>
+          <rect width="22" height="10" rx="5" fill={tokens.color.successSoft} />
+          <text x="11" y="7.1" textAnchor="middle" fontSize="6.8" fill={AR.green} fontWeight="700">其他</text>
         </g>
       </svg>
       <p style={{ fontSize: 9.5, color: AR.dimInk, textAlign: "center", margin: "2px 0 0", letterSpacing: 0 }}>
@@ -1584,7 +1588,7 @@ function ResultHeroCard({
   briefProvenanceLabel: string;
 }) {
   if (!heroSummary) return null;
-  const briefBadgeColor = compareBriefState === "ready" ? COMPARE_MODE_ACCENT : compareBriefState === "loading" ? "#636366" : "#8e8e93";
+  const briefBadgeColor = compareBriefState === "ready" ? COMPARE_MODE_ACCENT : compareBriefState === "loading" ? T.running : T.soft;
   const confidenceLabel = brief?.confidence ? `CONF · ${String(brief.confidence).toUpperCase()}` : "CONF · MEDIUM";
   const briefLabel = compareBriefState === "loading" ? "生成中…" : `${briefProvenanceLabel} · ${confidenceLabel}`;
   const verdictLabel = heroSummary.audienceAlignmentLeft.badge === "Align" && heroSummary.audienceAlignmentRight.badge === "Align" ? "共鳴放大型"
@@ -1603,7 +1607,7 @@ function ResultHeroCard({
       post: postB,
       alignment: heroSummary.audienceAlignmentRight,
       accent: AR.orange,
-      surface: "rgba(161,106,23,0.11)"
+      surface: tokens.color.queuedSoft
     }
   ];
   return (
@@ -1685,7 +1689,7 @@ function ResultHeroCard({
             gap: 5,
             padding: "11px 12px",
             borderRadius: tokens.radius.card,
-            background: "rgba(253,251,246,0.72)",
+            background: tokens.color.contextSurface,
             border: `1px solid ${AR.line}`,
             minWidth: 0
           }}
@@ -1719,7 +1723,7 @@ function ResultHeroCard({
                 gap: 8,
                 alignItems: "start",
                 background: surface,
-                border: `1px solid ${side === "A" ? COMPARE_MODE_ACCENT_GLOW : "rgba(161,106,23,0.18)"}`,
+                border: `1px solid ${side === "A" ? COMPARE_MODE_ACCENT_GLOW : T.warnBorder}`,
                 borderLeft: `3px solid ${side === "A" ? COMPARE_MODE_ACCENT : AR.orange}`,
                 borderRadius: tokens.radius.card,
                 padding: "9px 10px",
@@ -1733,7 +1737,7 @@ function ResultHeroCard({
                   width: 30,
                   height: 30,
                   borderRadius: 9,
-                  background: `linear-gradient(135deg, ${accent}, ${side === "A" ? COMPARE_MODE_ACCENT_MID : "#ffcc00"})`,
+                  background: `linear-gradient(135deg, ${accent}, ${side === "A" ? COMPARE_MODE_ACCENT_MID : tokens.topicAccent.tintAmber})`,
                   display: "flex",
                   alignItems: "center",
                   justifyContent: "center",
@@ -1820,21 +1824,21 @@ function ResultBalanceCard({
   })();
 
   return (
-    <div style={{ background: AR.card, borderRadius: 12, overflow: "hidden", boxShadow: "0 2px 16px rgba(0,0,0,0.065)" }}>
+    <div style={{ background: AR.card, borderRadius: 12, overflow: "hidden", boxShadow: COMPARE_CARD_SHADOW }}>
       {/* Header + toggle */}
       <div style={{ padding: "11px 14px 9px", borderBottom: `0.5px solid ${AR.line}` }}>
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 8 }}>
           <span style={{ fontSize: 11, fontWeight: 700, color: AR.muteInk, letterSpacing: 0.22 }}>留言區聲量結構</span>
           <span style={{ fontSize: 10, color: AR.dimInk }}>{displayTotal} 則 · {activeSummaries.length} 群組</span>
         </div>
-        <div style={{ display: "flex", background: "rgba(0,0,0,0.05)", borderRadius: 7, padding: 2 }}>
+        <div style={{ display: "flex", background: tokens.color.neutralSurfaceSoft, borderRadius: 7, padding: 2 }}>
           {(["A", "B"] as const).map(t => (
             <button key={t} onClick={() => onTabChange(t)} style={{
               flex: 1, padding: "4px 0", borderRadius: 5, border: "none",
               background: activeTab === t ? AR.card : "transparent",
-              boxShadow: activeTab === t ? "0 1px 4px rgba(0,0,0,0.1)" : "none",
+              boxShadow: activeTab === t ? COMPARE_ACTIVE_CONTROL_SHADOW : "none",
               fontSize: 11, fontWeight: 600,
-              color: activeTab === t ? (t === "A" ? AR.blue : "#b06200") : AR.muteInk,
+              color: activeTab === t ? (t === "A" ? AR.blue : AR.orange) : AR.muteInk,
               cursor: "pointer",
             }}>
               貼 {t}
@@ -1913,7 +1917,7 @@ function ResultEvidenceSection({
       <div style={{ display: "flex", alignItems: "baseline", gap: 6, marginBottom: 12, padding: "0 2px" }}>
         <span style={{ fontFamily: tokens.font.sans, fontSize: 18, fontWeight: 700, color: AR.ink, letterSpacing: 0 }}>代表性原文</span>
       </div>
-      <div style={{ display: "flex", background: "rgba(0,0,0,0.06)", borderRadius: 8, padding: 3, marginBottom: 12 }}>
+      <div style={{ display: "flex", background: tokens.color.neutralSurfaceSoft, borderRadius: 8, padding: 3, marginBottom: 12 }}>
         {(["A", "B"] as const).map(t => (
           <button key={t} onClick={() => onTabChange(t)} style={{ flex: 1, padding: "6px 0", borderRadius: tokens.radius.sm, border: "none", background: tab === t ? AR.card : "transparent", boxShadow: tab === t ? tokens.shadow.glass : "none", fontSize: 12, fontWeight: 600, color: tab === t ? (t === "A" ? AR.blue : AR.orange) : AR.muteInk, cursor: "pointer", letterSpacing: 0 }}>
             {t === "A" ? `${topA?.title || "貼 A 主群組"}` : `${topB?.title || "貼 B 主群組"}`}
@@ -2019,34 +2023,34 @@ function ResultTrustStrip({
   const metricCardStyle = (tint: "neutral" | "blue" | "orange" | "green"): React.CSSProperties => {
     if (tint === "blue") {
       return {
-        background: "rgba(0,113,227,0.045)",
-        border: "1px solid rgba(0,113,227,0.05)",
-        boxShadow: "inset 0 2px 0 rgba(0,113,227,0.18)"
+        background: tokens.color.accentSoft,
+        border: `1px solid ${tokens.color.accentGlow}`,
+        boxShadow: `inset 0 2px 0 ${tokens.color.accentGlow}`
       };
     }
     if (tint === "orange") {
       return {
-        background: "rgba(255,149,0,0.055)",
-        border: "1px solid rgba(255,149,0,0.06)",
-        boxShadow: "inset 0 2px 0 rgba(255,149,0,0.2)"
+        background: tokens.color.queuedSoft,
+        border: `1px solid ${tokens.color.queuedSoft}`,
+        boxShadow: `inset 0 2px 0 ${tokens.color.queuedSoft}`
       };
     }
     if (tint === "green") {
       return {
-        background: "rgba(52,199,89,0.055)",
-        border: "1px solid rgba(52,199,89,0.06)",
-        boxShadow: "inset 0 2px 0 rgba(52,199,89,0.2)"
+        background: tokens.color.successSoft,
+        border: `1px solid ${tokens.color.successSoft}`,
+        boxShadow: `inset 0 2px 0 ${tokens.color.successSoft}`
       };
     }
     return {
-      background: "rgba(0,0,0,0.018)",
-      border: "1px solid rgba(0,0,0,0.035)",
-      boxShadow: "inset 0 2px 0 rgba(0,0,0,0.06)"
+      background: tokens.color.idleBg,
+      border: `1px solid ${tokens.color.idleBorder}`,
+      boxShadow: `inset 0 2px 0 ${tokens.color.line}`
     };
   };
 
   return (
-    <div style={{ background: AR.card, borderRadius: 12, overflow: "hidden", boxShadow: "0 2px 16px rgba(0,0,0,0.065)" }}>
+    <div style={{ background: AR.card, borderRadius: 12, overflow: "hidden", boxShadow: COMPARE_CARD_SHADOW }}>
       <div style={{ padding: "11px 15px", display: "flex", alignItems: "center", gap: 7, borderBottom: `0.5px solid ${AR.line}`, flexWrap: "wrap" as const }}>
         {badges.map(([icon, text]) => (
           <div key={text} style={{ display: "flex", alignItems: "center", gap: 4, background: AR.canvas, borderRadius: 6, padding: "4px 9px" }}>
@@ -2057,7 +2061,7 @@ function ResultTrustStrip({
       </div>
       <button onClick={() => setDrawer(d => !d)} style={{ width: "100%", background: "none", border: "none", cursor: "pointer", padding: "11px 15px", display: "flex", alignItems: "center", justifyContent: "space-between" }}>
         <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
-          <svg width="13" height="13" viewBox="0 0 13 13" fill="none"><rect x="0.5" y="0.5" width="5" height="5" rx="1.2" fill="rgba(0,0,0,0.22)"/><rect x="7.5" y="0.5" width="5" height="5" rx="1.2" fill="rgba(0,0,0,0.22)"/><rect x="0.5" y="7.5" width="5" height="5" rx="1.2" fill="rgba(0,0,0,0.22)"/><rect x="7.5" y="7.5" width="5" height="5" rx="1.2" fill="rgba(0,0,0,0.22)"/></svg>
+          <svg width="13" height="13" viewBox="0 0 13 13" fill="none"><rect x="0.5" y="0.5" width="5" height="5" rx="1.2" fill={AR.dimInk}/><rect x="7.5" y="0.5" width="5" height="5" rx="1.2" fill={AR.dimInk}/><rect x="0.5" y="7.5" width="5" height="5" rx="1.2" fill={AR.dimInk}/><rect x="7.5" y="7.5" width="5" height="5" rx="1.2" fill={AR.dimInk}/></svg>
           <span style={{ fontSize: 12, fontWeight: 600, color: AR.softInk }}>驗證數據</span>
           <span style={{ fontSize: 10, color: AR.dimInk, background: AR.canvas, borderRadius: 6, padding: "1px 6px" }}>叢集圖・方法論</span>
         </div>
@@ -2121,8 +2125,8 @@ function ResultParallelColumn({
 }) {
   const isA = side === "A";
   const accent = isA ? AR.blue : AR.orange;
-  const softBg = isA ? "rgba(0,113,227,0.045)" : "rgba(255,149,0,0.055)";
-  const border = isA ? "rgba(0,113,227,0.12)" : "rgba(255,149,0,0.16)";
+  const softBg = isA ? tokens.color.accentSoft : tokens.color.queuedSoft;
+  const border = isA ? tokens.color.accentGlow : tokens.color.queuedSoft;
   const evidences = surface?.audienceEvidence.slice(0, 2) ?? [];
   const clusterPct = summary ? Math.round(summary.cluster.size_share * 100) : null;
 
@@ -2290,8 +2294,8 @@ function ResultChapterPostSection({
 }) {
   const isA = side === "A";
   const accent = isA ? AR.blue : AR.orange;
-  const softBg = isA ? "rgba(0,113,227,0.045)" : "rgba(255,149,0,0.055)";
-  const border = isA ? "rgba(0,113,227,0.12)" : "rgba(255,149,0,0.16)";
+  const softBg = isA ? tokens.color.accentSoft : tokens.color.queuedSoft;
+  const border = isA ? tokens.color.accentGlow : tokens.color.queuedSoft;
   const clusterPct = summary ? Math.round(summary.cluster.size_share * 100) : null;
 
   return (
@@ -2561,7 +2565,7 @@ function ResultParallelBody({
           padding: "8px",
           borderRadius: 12,
           border: `1px solid ${AR.line}`,
-          background: "rgba(253,251,246,0.94)",
+          background: tokens.color.shellSurface,
           boxShadow: tokens.shadow.glass,
           backdropFilter: "blur(8px)",
           minWidth: 0
