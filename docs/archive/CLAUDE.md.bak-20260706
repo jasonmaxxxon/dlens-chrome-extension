@@ -44,11 +44,9 @@ git diff --check
 
 ## Version lock (user-visible changes to main)
 
-Bump all FIVE together — `package.json`, `package-lock.json`,
-`wxt.config.ts` `manifest.version`, `src/ui/version.ts` `BUILD_VERSION`,
-AND the hardcoded expected version string in `tests/manifest-config.test.ts`
-(the enforcing test pins the version, so it is itself a lock site — missed
-during the 0.3.8 bump, caught by the first clean-FS gate run).
+Bump all four together — `package.json`, `package-lock.json`,
+`wxt.config.ts` `manifest.version`, `src/ui/version.ts` `BUILD_VERSION`.
+`tests/manifest-config.test.ts` enforces consistency.
 
 ## Design & UI contract
 
