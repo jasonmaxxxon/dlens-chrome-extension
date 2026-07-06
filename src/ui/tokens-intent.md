@@ -26,7 +26,9 @@ happens to contain text. Every visual decision below serves that sentence.
   pressure, not by opacity tricks on random colors.
 - **Accents are a researcher's annotations ON the paper, never the paper
   itself.** One accent per workspace mode via `getModeTheme` (indigo archive,
-  sage topic, steel-blue product, rose pr-evidence). Two mode accents on one
+  sage topic, fusion D vermillion product, rose pr-evidence). Product's warmer
+  accent was chosen from the mockup gate on 2026-07-06 to make signal work feel
+  decisive without borrowing PR Evidence's wine tone. Two mode accents on one
   surface means the surface doesn't know what it is — split it or pick one.
 - **The shell is borrowed from macOS utility; the content stays editorial.**
   Elevation and motion may feel native; reading surfaces must feel printed.

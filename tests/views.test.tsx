@@ -526,7 +526,7 @@ test("mode themes keep topic and product visually separate", () => {
   assert.equal(topicStyle["--dlens-mode-accent"], tokens.color.cyan);
   assert.notEqual(productStyle["--dlens-mode-accent"], topicStyle["--dlens-mode-accent"]);
   assert.match(topicStyle["--dlens-mode-hover-border-strong"], /63,90,59/);
-  assert.match(productStyle["--dlens-mode-hover-border-strong"], /35,79,122/);
+  assert.match(productStyle["--dlens-mode-hover-border-strong"], /194,64,31/);
   assert.match(prStyle["--dlens-mode-hover-border-strong"], /122,32,48/);
 });
 
@@ -3227,8 +3227,8 @@ test("ActionableItemCard keeps Product Visual Reset A elevation and accent contr
   assert.equal(countOccurrences(html, `box-shadow:${tokens.shadow.raised}`), 1);
   assert.match(shellStyle, /min-width:0/);
   assert.match(shellStyle, /box-shadow:inset 0 1px 0 rgba\(255,255,255,0\.8\)/);
-  assert.match(railStyle, /border-left:3px solid var\(--dlens-mode-accent, #234f7a\)/);
-  assert.match(railStyle, /background:linear-gradient\(180deg, var\(--dlens-mode-accent-soft, rgba\(35,79,122,0\.10\)\), rgba\(242,238,226,0\.72\)\)/);
+  assert.match(railStyle, /border-left:3px solid var\(--dlens-mode-accent, #c2401f\)/);
+  assert.match(railStyle, /background:linear-gradient\(180deg, var\(--dlens-mode-accent-soft, rgba\(194,64,31,0\.10\)\), rgba\(242,238,226,0\.72\)\)/);
   assert.match(hoverBlock, /transform:\s*translateY\(-4px\)/);
   assert.doesNotMatch(hoverBlock, /\b(?:margin|padding|top|right|bottom|left)\s*:/);
 });
@@ -4229,7 +4229,7 @@ test("ProductSignalView restores the 0.1.15 reading review route when readings e
   assert.match(html, /data-signal-reading-review-list-filter="watch"/);
   assert.match(html, /data-signal-reading-marginalia="true"/);
   assert.match(html, /data-signal-reading-marginalia-rail="true"/);
-  assert.match(html, /border-left:3px solid var\(--dlens-mode-accent, #234f7a\)/);
+  assert.match(html, /border-left:3px solid var\(--dlens-mode-accent, #c2401f\)/);
   assert.match(html, /data-signal-reading-relevance-summary="true"/);
   assert.match(html, /data-signal-reading-provenance="true"/);
   assert.match(html, /data-signal-reading-evidence="true"/);

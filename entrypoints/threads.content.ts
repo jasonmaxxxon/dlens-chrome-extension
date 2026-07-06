@@ -68,14 +68,14 @@ const SELECTION_MODE_THEMES: Record<FolderMode, {
     shadowSoft: "rgba(63,90,59,0.08)"
   },
   product: {
-    accent: "#234f7a",
-    accentMid: "#2f6a96",
-    borderStrong: "rgba(35,79,122,0.58)",
-    borderSoft: "rgba(35,79,122,0.28)",
-    surfaceStrong: "rgba(35,79,122,0.045)",
-    surfaceSoft: "rgba(35,79,122,0.025)",
-    shadowStrong: "rgba(35,79,122,0.14)",
-    shadowSoft: "rgba(35,79,122,0.07)"
+    accent: "#c2401f",
+    accentMid: "#d65a36",
+    borderStrong: "rgba(194,64,31,0.58)",
+    borderSoft: "rgba(194,64,31,0.28)",
+    surfaceStrong: "rgba(194,64,31,0.045)",
+    surfaceSoft: "rgba(194,64,31,0.025)",
+    shadowStrong: "rgba(194,64,31,0.14)",
+    shadowSoft: "rgba(194,64,31,0.07)"
   },
   "pr-evidence": {
     accent: "#7a2030",

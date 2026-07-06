@@ -85,11 +85,11 @@ export const tokens = {
     tealSoft: "rgba(63,90,59,0.10)",
     tealGlow: "rgba(63,90,59,0.16)",
 
-    /* product accent — steel blue */
-    product: "#234f7a",
-    productMid: "#2f6a96",
-    productSoft: "rgba(35,79,122,0.10)",
-    productGlow: "rgba(35,79,122,0.18)",
+    /* product accent — vermillion */
+    product: "#c2401f",
+    productMid: "#d65a36",
+    productSoft: "rgba(194,64,31,0.10)",
+    productGlow: "rgba(194,64,31,0.18)",
 
     /* technique accents */
     techniqueRose: "#7a2030",
@@ -269,17 +269,17 @@ export const modeThemes = {
     hoverShadowSoft: "rgba(63,90,59,0.08)"
   },
   product: {
-    accent: "#234f7a",
-    accentMid: "#2f6a96",
-    accentSoft: "rgba(35,79,122,0.10)",
-    accentGlow: "rgba(35,79,122,0.18)",
-    accentButtonShadow: "0 8px 18px rgba(35,79,122,0.16)",
-    hoverBorderStrong: "rgba(35,79,122,0.58)",
-    hoverBorderSoft: "rgba(35,79,122,0.28)",
-    hoverSurfaceStrong: "rgba(35,79,122,0.045)",
-    hoverSurfaceSoft: "rgba(35,79,122,0.025)",
-    hoverShadowStrong: "rgba(35,79,122,0.14)",
-    hoverShadowSoft: "rgba(35,79,122,0.07)"
+    accent: "#c2401f",
+    accentMid: "#d65a36",
+    accentSoft: "rgba(194,64,31,0.10)",
+    accentGlow: "rgba(194,64,31,0.18)",
+    accentButtonShadow: "0 8px 18px rgba(194,64,31,0.16)",
+    hoverBorderStrong: "rgba(194,64,31,0.58)",
+    hoverBorderSoft: "rgba(194,64,31,0.28)",
+    hoverSurfaceStrong: "rgba(194,64,31,0.045)",
+    hoverSurfaceSoft: "rgba(194,64,31,0.025)",
+    hoverShadowStrong: "rgba(194,64,31,0.14)",
+    hoverShadowSoft: "rgba(194,64,31,0.07)"
   },
   "pr-evidence": {
     accent: tokens.color.techniqueRose,
