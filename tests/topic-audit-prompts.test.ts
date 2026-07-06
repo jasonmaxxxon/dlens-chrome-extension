@@ -113,6 +113,25 @@ test("P2-P6 prompts use prior prose memos but keep findings as probes instead of
   assert.deepEqual(findForbiddenFindingAssertions(p6), []);
 });
 
+test("P6 final report prompt requests distinct overall, scaleOrTime, and editorial prose fields", () => {
+  const prompt = buildP6FinalReportPrompt({
+    topicName: "love",
+    packets: [makePacket()],
+    signalReadings: [makeSignalReading()],
+    lensMemos: [
+      makeMemo("lexicon", "共同用字。"),
+      makeMemo("narrative", "敘事。"),
+      makeMemo("audience", "受眾反應。"),
+      makeMemo("absence", "缺席聲音。")
+    ]
+  });
+
+  assert.match(prompt, /"overall": "§1 整體判讀/);
+  assert.match(prompt, /"scaleOrTime": "§3 時間走向與討論規模判讀/);
+  assert.match(prompt, /"editorial": "§7 編輯視角/);
+  assert.match(prompt, /overall \/ scaleOrTime \/ editorial 必須使用議題原文語言/);
+});
+
 test("forbidden finding guard flags planted conclusions but allows negative instructions", () => {
   assert.deepEqual(
     findForbiddenFindingAssertions("不要預設沒有 future tense；必須從 evidence 重新長出。"),
@@ -163,6 +182,40 @@ test("parseAuditPromptEnvelopeResponse accepts prose JSON and filters unknown re
     }
   });
   assert.equal(parseAuditPromptEnvelopeResponse("{\"prose\":\"\",\"evidenceRefs\":[]}", new Set(["S1.OP"])), null);
+});
+
+test("parseAuditPromptEnvelopeResponse accepts final report section prose JSON", () => {
+  const parsed = parseAuditPromptEnvelopeResponse(
+    "{\"overall\":\"§1 整體判讀 [S1.OP]\",\"scaleOrTime\":\"§3 時間與規模判讀 [S1.OP]\",\"editorial\":\"§7 編輯視角 [S1.OP]\",\"evidenceRefs\":[\"S1.OP\",\"S9.R1\"],\"caveats\":[\"sample small\"],\"coverage\":\"1/1\"}",
+    new Set(["S1.OP"])
+  );
+
+  assert.deepEqual(parsed, {
+    prose: "§1 整體判讀 [S1.OP]",
+    overall: "§1 整體判讀 [S1.OP]",
+    scaleOrTime: "§3 時間與規模判讀 [S1.OP]",
+    editorial: "§7 編輯視角 [S1.OP]",
+    evidenceRefs: ["S1.OP"],
+    caveats: ["sample small"],
+    coverage: "1/1"
+  });
+});
+
+test("parseAuditPromptEnvelopeResponse maps legacy prose-only JSON to overall only", () => {
+  const parsed = parseAuditPromptEnvelopeResponse(
+    "{\"prose\":\"舊版單段 final prose [S1.OP]\",\"evidenceRefs\":[\"S1.OP\"],\"caveats\":[],\"coverage\":\"1/1\"}",
+    new Set(["S1.OP"])
+  );
+
+  assert.deepEqual(parsed, {
+    prose: "舊版單段 final prose [S1.OP]",
+    overall: "舊版單段 final prose [S1.OP]",
+    scaleOrTime: "",
+    editorial: "",
+    evidenceRefs: ["S1.OP"],
+    caveats: [],
+    coverage: "1/1"
+  });
 });
 
 test("parseAuditPromptEnvelopeResponse accepts memo aliases and snake_case display hints", () => {

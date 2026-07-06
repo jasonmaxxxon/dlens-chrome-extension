@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 
 import type { EvidencePacket, LensMemo, SignalReading } from "../src/compare/topic-audit.ts";
+import { TOPIC_AUDIT_PROMPT_VERSIONS } from "../src/compare/topic-audit-prompts.ts";
 import {
   CROSS_TOPIC_CALIBRATIONS_STORAGE_KEY,
   TOPIC_AUDIT_EVIDENCE_STORAGE_KEY,
@@ -180,6 +181,36 @@ test("buildTopicAuditCacheKey changes on item status, updatedAt, prompt version,
     promptVersion: "p2.v1",
     stageName: "narrative"
   }));
+});
+
+test("topic audit aggregate cache key changes when the final prompt version bumps", () => {
+  const itemStates = [
+    { itemId: "item-1", updatedAt: "2026-05-22T09:00:00.000Z", status: "succeeded" as const }
+  ];
+  const currentPromptVersion = Object.values(TOPIC_AUDIT_PROMPT_VERSIONS).join("|");
+  const legacyPromptVersion = Object.values({
+    ...TOPIC_AUDIT_PROMPT_VERSIONS,
+    p6: "topic-audit-p6.v1"
+  }).join("|");
+
+  assert.equal(TOPIC_AUDIT_PROMPT_VERSIONS.p6, "topic-audit-p6.v2");
+  assert.notEqual(currentPromptVersion, legacyPromptVersion);
+  assert.notEqual(
+    buildTopicAuditCacheKey({
+      topicId: "topic-1",
+      signalIds: ["signal-1"],
+      itemStates,
+      promptVersion: currentPromptVersion,
+      stageName: "all"
+    }),
+    buildTopicAuditCacheKey({
+      topicId: "topic-1",
+      signalIds: ["signal-1"],
+      itemStates,
+      promptVersion: legacyPromptVersion,
+      stageName: "all"
+    })
+  );
 });
 
 test("topic audit storage roundtrips reports and cross-topic calibrations", async () => {

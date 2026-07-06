@@ -294,6 +294,44 @@ test("topic audit run persists each stage and reuses cache on the same input", a
   assert.equal(second.auditReport?.inputHash, first.auditReport?.inputHash);
 });
 
+test("topic audit run persists distinct final envelope fields into report sections", async () => {
+  const storage = new MemoryStorage();
+  await seedTopic(storage);
+
+  const response = await handleTopicAuditMessage(storage, {
+    message: { type: "topic/audit/run", sessionId: "session-1", topicId: "topic-1" },
+    sessions: [makeSession()],
+    generateEnvelope: async (stageName) => {
+      if (stageName === "final") {
+        return {
+          prose: "legacy compatibility prose [S1.OP]",
+          overall: "§1 overall from final envelope [S1.OP]",
+          scaleOrTime: "§3 scale and timing from final envelope [S1.OP]",
+          editorial: "§7 editorial from final envelope [S1.OP]",
+          evidenceRefs: ["S1.OP"],
+          caveats: ["final caveat"],
+          coverage: "2/2"
+        };
+      }
+      return makeEnvelope(stageName);
+    },
+    model: "mock:model"
+  });
+
+  assert.equal(response.auditReport?.sections.overall, "§1 overall from final envelope [S1.OP]");
+  assert.equal(response.auditReport?.sections.scaleOrTime, "§3 scale and timing from final envelope [S1.OP]");
+  assert.equal(response.auditReport?.sections.editorial, "§7 editorial from final envelope [S1.OP]");
+  assert.equal(response.auditReport?.coveragePerSection.overall, "2/2");
+  assert.equal(response.auditReport?.coveragePerSection.scaleOrTime, "2/2");
+  assert.equal(response.auditReport?.coveragePerSection.editorial, "2/2");
+  assert.notEqual(response.auditReport?.sections.overall, response.auditReport?.sections.editorial);
+
+  const stored = await loadTopicAuditReport(storage, "topic-1");
+  assert.equal(stored?.sections.overall, "§1 overall from final envelope [S1.OP]");
+  assert.equal(stored?.sections.scaleOrTime, "§3 scale and timing from final envelope [S1.OP]");
+  assert.equal(stored?.sections.editorial, "§7 editorial from final envelope [S1.OP]");
+});
+
 test("topic audit run only generates P1 readings for ready signals", async () => {
   const storage = new MemoryStorage();
   await seedTopic(storage);

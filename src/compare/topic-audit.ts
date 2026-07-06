@@ -74,6 +74,19 @@ export interface LensMemo {
   generatedAt: string;
 }
 
+export interface TopicAuditFinalProses {
+  overall: string;
+  scaleOrTime: string;
+  editorial: string;
+}
+
+export interface TopicAuditReportSections extends TopicAuditFinalProses {
+  lexicon: string;
+  narratives: string;
+  audience: string;
+  absence: string;
+}
+
 export interface TopicAuditReport {
   auditRunId: string;
   inputHash: string;
@@ -81,15 +94,7 @@ export interface TopicAuditReport {
   topicName: string;
   generatedFrom: string[];
   coveragePerSection: Record<string, string>;
-  sections: {
-    overall: string;
-    lexicon: string;
-    scaleOrTime: string;
-    narratives: string;
-    audience: string;
-    absence: string;
-    editorial: string;
-  };
+  sections: TopicAuditReportSections;
   limitations: string[];
   promptVersion: string;
   model: string;

@@ -153,8 +153,12 @@ function allAllowedRefs(packets: EvidencePacket[]): Set<string> {
 }
 
 function normalizeEnvelope(envelope: AuditPromptEnvelope, allowedRefs: ReadonlySet<string>): AuditPromptEnvelope {
+  const prose = envelope.prose || envelope.overall || "";
   return {
-    prose: envelope.prose,
+    prose,
+    ...(envelope.overall !== undefined ? { overall: envelope.overall } : {}),
+    ...(envelope.scaleOrTime !== undefined ? { scaleOrTime: envelope.scaleOrTime } : {}),
+    ...(envelope.editorial !== undefined ? { editorial: envelope.editorial } : {}),
     evidenceRefs: envelope.evidenceRefs.filter((ref) => allowedRefs.has(ref)),
     caveats: envelope.caveats,
     ...(envelope.coverage ? { coverage: envelope.coverage } : {}),
@@ -244,6 +248,9 @@ function buildReportFromEnvelope(
   options: TopicAuditHandlerOptions
 ): TopicAuditReport {
   const memoByStage = new Map(lensMemos.map((memo) => [memo.stageName, memo]));
+  const overall = envelope.overall ?? envelope.prose;
+  const scaleOrTime = envelope.scaleOrTime ?? "";
+  const editorial = envelope.editorial ?? "";
   return {
     auditRunId,
     inputHash,
@@ -263,13 +270,13 @@ function buildReportFromEnvelope(
       editorial: envelope.coverage ?? "unknown"
     },
     sections: {
-      overall: envelope.prose,
+      overall,
       lexicon: memoByStage.get("lexicon")?.prose ?? "",
-      scaleOrTime: "",
+      scaleOrTime,
       narratives: memoByStage.get("narrative")?.prose ?? "",
       audience: memoByStage.get("audience")?.prose ?? "",
       absence: memoByStage.get("absence")?.prose ?? "",
-      editorial: envelope.prose
+      editorial
     },
     limitations: envelope.caveats,
     promptVersion: TOPIC_AUDIT_PROMPT_VERSIONS.p6,

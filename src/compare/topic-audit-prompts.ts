@@ -1,4 +1,4 @@
-import type { EvidencePacket, LensMemo, ReplyFragment, SignalReading } from "./topic-audit.ts";
+import type { EvidencePacket, LensMemo, ReplyFragment, SignalReading, TopicAuditFinalProses } from "./topic-audit.ts";
 
 export const TOPIC_AUDIT_PROMPT_VERSIONS = {
   p1: "topic-audit-p1.v2",
@@ -6,12 +6,12 @@ export const TOPIC_AUDIT_PROMPT_VERSIONS = {
   p3: "topic-audit-p3.v2",
   p4: "topic-audit-p4.v1",
   p5: "topic-audit-p5.v1",
-  p6: "topic-audit-p6.v1",
+  p6: "topic-audit-p6.v2",
   p7: "topic-audit-p7.v1",
   p8: "topic-audit-p8.v1"
 } as const;
 
-export interface AuditPromptEnvelope {
+export interface AuditPromptEnvelope extends Partial<TopicAuditFinalProses> {
   prose: string;
   evidenceRefs: string[];
   caveats: string[];
@@ -152,6 +152,34 @@ function readProse(parsed: Record<string, unknown>): string {
   );
 }
 
+function readFinalProses(parsed: Record<string, unknown>, legacyProse: string): TopicAuditFinalProses {
+  const overall = readTrimmedString(
+    parsed.overall
+      ?? parsed.overallProse
+      ?? parsed.overall_prose
+      ?? parsed.section1
+      ?? parsed.section_1
+  ) || legacyProse;
+  const scaleOrTime = readTrimmedString(
+    parsed.scaleOrTime
+      ?? parsed.scale_or_time
+      ?? parsed.scaleOrTimeProse
+      ?? parsed.scale_or_time_prose
+      ?? parsed.timeScale
+      ?? parsed.time_scale
+      ?? parsed.section3
+      ?? parsed.section_3
+  );
+  const editorial = readTrimmedString(
+    parsed.editorial
+      ?? parsed.editorialProse
+      ?? parsed.editorial_prose
+      ?? parsed.section7
+      ?? parsed.section_7
+  );
+  return { overall, scaleOrTime, editorial };
+}
+
 function readNarrativeLanes(value: unknown, allowedRefs?: ReadonlySet<string>): AuditPromptNarrativeLane[] {
   if (!Array.isArray(value)) {
     return [];
@@ -183,14 +211,25 @@ function readNarrativeLanes(value: unknown, allowedRefs?: ReadonlySet<string>): 
 
 export function parseAuditPromptEnvelopeResponse(
   raw: string,
-  allowedRefs?: ReadonlySet<string>
+  allowedRefs?: ReadonlySet<string>,
+  options: { finalSections?: boolean } = {}
 ): AuditPromptEnvelope | null {
   const parsed = parseJsonObject(raw);
   if (!parsed) {
     return null;
   }
 
-  const prose = readProse(parsed);
+  const legacyProse = readProse(parsed);
+  const hasFinalSectionFields = parsed.overall !== undefined
+    || parsed.scaleOrTime !== undefined
+    || parsed.scale_or_time !== undefined
+    || parsed.editorial !== undefined;
+  const hasDisplayHints = parsed.displayHints !== undefined || parsed.display_hints !== undefined;
+  const hasLegacyProseOnly = parsed.prose !== undefined && !hasFinalSectionFields && !hasDisplayHints;
+  const finalProses = hasFinalSectionFields || options.finalSections || hasLegacyProseOnly
+    ? readFinalProses(parsed, legacyProse)
+    : null;
+  const prose = legacyProse || finalProses?.overall || "";
   if (!prose) {
     return null;
   }
@@ -211,6 +250,13 @@ export function parseAuditPromptEnvelopeResponse(
 
   return {
     prose,
+    ...(finalProses
+      ? {
+          overall: finalProses.overall,
+          scaleOrTime: finalProses.scaleOrTime,
+          editorial: finalProses.editorial
+        }
+      : {}),
     evidenceRefs,
     caveats,
     ...(coverage ? { coverage } : {}),
@@ -265,7 +311,22 @@ const ENVELOPE_SCHEMA = `{
   }
 }`;
 
-const LANGUAGE_RULE = "語言：themeChips 與 narrativeLanes.label 必須使用議題原文語言（如議題是中文，必用中文；禁止英文 taxonomy 詞如 \"Dating Market Dynamics\"）。prose 同樣用議題原文語言。";
+const FINAL_REPORT_ENVELOPE_SCHEMA = `{
+  "overall": "§1 整體判讀：從 evidence + LensMemo 長出的總體判讀，不重複其他 section。",
+  "scaleOrTime": "§3 時間走向與討論規模判讀：討論何時起落、量級、是否仍在發酵。",
+  "editorial": "§7 編輯視角：取捨、可引用性、下一步編輯動作。",
+  "evidenceRefs": ["S1.OP", "S1.R1"],
+  "caveats": ["資料缺口或推論限制"],
+  "coverage": "x/n",
+  "displayHints": {
+    "themeChips": ["只放 broad themes，不放 fine tags"],
+    "narrativeLanes": [
+      { "id": "lane-1", "label": "敘事線名稱", "signalRefs": ["S1.OP"], "consensus": 0.6, "icon": "heart" }
+    ]
+  }
+}`;
+
+const LANGUAGE_RULE = "語言：themeChips 與 narrativeLanes.label 必須使用議題原文語言（如議題是中文，必用中文；禁止英文 taxonomy 詞如 \"Dating Market Dynamics\"）。prose / overall / scaleOrTime / editorial 必須使用議題原文語言。";
 
 const NARRATIVE_ICON_RULE = `narrativeLanes.icon 必選一個，從下列 whitelist 挑最貼合該敘事 mood 的：${NARRATIVE_LANE_ICONS.join(", ")}。冷僻就選 message-circle。`;
 
@@ -311,11 +372,13 @@ function renderLensMemos(memos: LensMemo[] = []): string {
     .join("\n\n");
 }
 
-function renderEnvelopeInstruction(options: { withNarrativeIcon?: boolean } = {}): string {
+function renderEnvelopeInstruction(options: { withNarrativeIcon?: boolean; finalReport?: boolean } = {}): string {
   return [
     "只回傳 JSON，不要 markdown fence。",
-    "JSON envelope 固定如下；prose 可以自由寫，但 envelope 要可 parse：",
-    ENVELOPE_SCHEMA,
+    options.finalReport
+      ? "JSON envelope 固定如下；overall / scaleOrTime / editorial 要各自獨立成段，不能互相複製："
+      : "JSON envelope 固定如下；prose 可以自由寫，但 envelope 要可 parse：",
+    options.finalReport ? FINAL_REPORT_ENVELOPE_SCHEMA : ENVELOPE_SCHEMA,
     LANGUAGE_RULE,
     ...(options.withNarrativeIcon ? [NARRATIVE_ICON_RULE] : [])
   ].join("\n");
@@ -441,7 +504,7 @@ export function buildP6FinalReportPrompt(input: TopicPromptInput): string {
     "[Lens memos]",
     renderLensMemos(input.lensMemos),
     "",
-    renderEnvelopeInstruction()
+    renderEnvelopeInstruction({ finalReport: true })
   ].join("\n");
 }
 
