@@ -1072,7 +1072,7 @@ test("LibraryView renders a saved analyses section on the home surface", () => {
   assert.doesNotMatch(html, />3 群組</);
 });
 
-test("CollectView keeps the preview card and collect toggle visible with current Chinese copy", () => {
+test("CollectView keeps the preview card and compact collect controls visible with current Chinese copy", () => {
   const html = renderToStaticMarkup(
     React.createElement(CollectView, {
       preview: buildDescriptor(),
@@ -1090,15 +1090,25 @@ test("CollectView keeps the preview card and collect toggle visible with current
   assert.match(html, /指向 Threads 貼文即可預覽，按下存入資料庫。/);
   assert.doesNotMatch(html, /decision surface/);
   assert.match(html, /Signals/);
-  assert.match(html, /預覽中/);
   assert.match(html, /儲存到資料庫/);
   assert.match(html, /data-archive-no-ai-notice="collect"/);
   assert.match(html, /儲存為原文記錄，不跑 AI 分析/);
-  assert.match(html, /收集模式：開啟/);
+  assert.match(html, /data-collector-panel-header="true"/);
+  assert.match(html, /data-collector-mode-toggle="true"/);
+  assert.match(html, /data-collector-key-hints="true"/);
+  assert.match(html, /採集中/);
   assert.match(html, /關閉/);
+  assert.doesNotMatch(html, /收集模式：開啟/);
 });
 
-test("CollectView renders captured engagement metrics in the hover preview", () => {
+test("CollectView renders saved-post metrics in recent captures instead of duplicating the hover preview", () => {
+  const recentItem = createSessionItem({
+    ...buildDescriptor(),
+    post_url: "https://www.threads.net/@alpha/post/recent",
+    text_snippet: "Saved post with real descriptor metrics."
+  }, "2026-03-24T07:23:21.000Z");
+  recentItem.id = "recent-metric-item";
+
   const html = renderToStaticMarkup(
     React.createElement(CollectView, {
       preview: buildDescriptor(),
@@ -1106,17 +1116,21 @@ test("CollectView renders captured engagement metrics in the hover preview", () 
       mode: "topic",
       isSaved: false,
       selectionMode: true,
+      recentItems: [recentItem],
       onSavePreview: () => undefined,
       onOpenPreview: () => undefined,
       onToggleCollectMode: () => undefined
     })
   );
 
-  assert.match(html, /data-collect-metric="likes"/);
-  assert.match(html, /data-collect-metric="comments"/);
-  assert.match(html, /data-collect-metric="reposts"/);
+  assert.match(html, /data-collector-recent-captures="true"/);
+  assert.match(html, /data-collector-metric-strip="recent-metric-item"/);
+  assert.match(html, /data-collector-metric="likes"/);
+  assert.match(html, /data-collector-metric="comments"/);
+  assert.match(html, /data-collector-metric="reposts"/);
   assert.match(html, />10</);
   assert.match(html, />5</);
+  assert.doesNotMatch(html, /data-collect-metric="likes"/);
   assert.doesNotMatch(html, />Like</);
   assert.doesNotMatch(html, />Reply</);
   assert.doesNotMatch(html, />Repost</);

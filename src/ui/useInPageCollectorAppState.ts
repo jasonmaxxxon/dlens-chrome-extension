@@ -462,6 +462,7 @@ export function useInPageCollectorAppState({ snapshot, tabId, sendAndSync }: Use
   const requestReconcilerRef = useRef(createRequestReconciler());
   const productHydrateInFlightKeyRef = useRef<string | null>(null);
   const productHydrateMountedRef = useRef(true);
+  const pendingSuccessDescriptorRef = useRef<TargetDescriptor | null>(null);
   usePopupKeyframes();
 
   const [showFolderPrompt, setShowFolderPrompt] = useState(false);
@@ -479,6 +480,7 @@ export function useInPageCollectorAppState({ snapshot, tabId, sendAndSync }: Use
   const [isInitializingProductProfile, setIsInitializingProductProfile] = useState(false);
   const [hoverRect, setHoverRect] = useState<HoverRect | null>(null);
   const [displayToast, setDisplayToast] = useState<{ id: string; kind: "saved" | "queued"; message: string } | null>(null);
+  const [successToastDescriptor, setSuccessToastDescriptor] = useState<TargetDescriptor | null>(null);
   const [optimisticSavedUrl, setOptimisticSavedUrl] = useState<string | null>(null);
   const [optimisticQueuedIds, setOptimisticQueuedIds] = useState<string[]>([]);
   const [bulkAnalyzingFolderId, setBulkAnalyzingFolderId] = useState<string | null>(null);
@@ -1232,7 +1234,11 @@ export function useInPageCollectorAppState({ snapshot, tabId, sendAndSync }: Use
 
   useEffect(() => {
     if (!displayToast) {
+      setSuccessToastDescriptor(null);
       return;
+    }
+    if (displayToast.kind !== "saved") {
+      setSuccessToastDescriptor(null);
     }
     const handle = window.setTimeout(() => {
       setDisplayToast((current) => (current?.id === displayToast.id ? null : current));
@@ -1263,6 +1269,7 @@ export function useInPageCollectorAppState({ snapshot, tabId, sendAndSync }: Use
       if (!normalized) {
         return;
       }
+      pendingSuccessDescriptorRef.current = descriptor;
       setOptimisticSavedUrl(normalized);
       const targetName = activeFolderMode === "topic" ? topicState.activeTopic?.name : activeFolder?.name;
       if (targetName) {
@@ -1274,10 +1281,25 @@ export function useInPageCollectorAppState({ snapshot, tabId, sendAndSync }: Use
       }
     };
     const onOptimisticConfirmed = () => {
+      const descriptor = pendingSuccessDescriptorRef.current;
+      pendingSuccessDescriptorRef.current = null;
+      if (descriptor) {
+        setSuccessToastDescriptor(descriptor);
+        const targetName = activeFolderMode === "topic" ? topicState.activeTopic?.name : activeFolder?.name;
+        if (targetName) {
+          setDisplayToast({
+            id: `saved-${Date.now()}`,
+            kind: "saved",
+            message: activeFolderMode === "topic" ? `已儲存到：${targetName}` : savedToastMessage(targetName)
+          });
+        }
+      }
       void sendAndSync({ type: "state/get-active-tab" });
     };
     const onOptimisticFailure = (event: Event) => {
       const failedUrl = normalizePostUrl(String((event as CustomEvent<string>).detail || ""));
+      pendingSuccessDescriptorRef.current = null;
+      setSuccessToastDescriptor(null);
       setOptimisticSavedUrl((current) => (current === failedUrl ? null : current));
     };
     window.addEventListener(OPTIMISTIC_SAVE_EVENT, onOptimisticSave as EventListener);
@@ -1353,6 +1375,19 @@ export function useInPageCollectorAppState({ snapshot, tabId, sendAndSync }: Use
               elapsedMs: Math.round((performance.now() - saveStartedAt) * 10) / 10
             }
           });
+          if (response.ok && message.descriptor) {
+            setSuccessToastDescriptor(message.descriptor);
+            const targetName = activeFolderMode === "topic" ? topicState.activeTopic?.name : activeFolder?.name;
+            if (targetName) {
+              setDisplayToast({
+                id: `saved-${Date.now()}`,
+                kind: "saved",
+                message: activeFolderMode === "topic" ? `已儲存到：${targetName}` : savedToastMessage(targetName)
+              });
+            }
+          } else if (!response.ok) {
+            setSuccessToastDescriptor(null);
+          }
         });
       }
 
@@ -1455,6 +1490,17 @@ export function useInPageCollectorAppState({ snapshot, tabId, sendAndSync }: Use
     });
     if (!response.ok && normalized) {
       setOptimisticSavedUrl((current) => (current === normalized ? null : current));
+      setSuccessToastDescriptor(null);
+    }
+    if (response.ok && message.descriptor) {
+      setSuccessToastDescriptor(message.descriptor);
+      if (activeFolder?.name) {
+        setDisplayToast({
+          id: `saved-${Date.now()}`,
+          kind: "saved",
+          message: savedToastMessage(activeFolder.name)
+        });
+      }
     }
   }
 
@@ -2714,6 +2760,7 @@ export function useInPageCollectorAppState({ snapshot, tabId, sendAndSync }: Use
     isInitializingProductProfile,
     hoverRect,
     displayToast,
+    successToastDescriptor,
     optimisticQueuedIds,
     bulkAnalyzingFolderId,
     isStartingProcessing,

@@ -488,6 +488,8 @@ export function InPageCollectorPopup({ app }: { app: InPageCollectorAppModel }) 
                 canSavePreview={collectCanSave}
                 disabledReason={collectDisabledReason}
                 selectionMode={Boolean(snapshot?.tab.selectionMode)}
+                recentItems={activeFolder?.items ?? []}
+                processingSummary={app.processingSummary}
                 untriagedSignals={app.signals}
                 signalPreviewById={app.signalPreviewById}
                 signalTagsByItemId={app.signalTagsByItemId}

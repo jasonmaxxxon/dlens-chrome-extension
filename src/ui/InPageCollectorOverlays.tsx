@@ -1,4 +1,5 @@
 import { PrimaryButton, SecondaryButton, TOKENS, lineClamp, surfaceCardStyle } from "./components";
+import { CollectorGist, CollectorMetricStrip, COLLECTOR_MOTION_CSS } from "./CollectorMetricStrip";
 import { flashPreviewAvatar, flashPreviewMetrics } from "./inpage-helpers";
 import { modeThemes, tokens } from "./tokens";
 import type { InPageCollectorAppModel } from "./useInPageCollectorAppState";
@@ -11,10 +12,22 @@ const MODE_ACCENT_GLOW = `var(--dlens-mode-accent-glow, ${ARCHIVE_MODE_THEME.acc
 const MODE_HOVER_BORDER_SOFT = `var(--dlens-mode-hover-border-soft, ${ARCHIVE_MODE_THEME.hoverBorderSoft})`;
 
 export function InPageCollectorOverlays({ app }: { app: InPageCollectorAppModel }) {
-  const { snapshot, tabId, hoverRect, hoverSaved, flashPreview, flashStyle, displayToast, preview, popupOpen } = app;
+  const {
+    snapshot,
+    tabId,
+    hoverRect,
+    hoverSaved,
+    flashPreview,
+    flashStyle,
+    displayToast,
+    successToastDescriptor,
+    preview,
+    popupOpen
+  } = app;
 
   return (
     <>
+      <style>{COLLECTOR_MOTION_CSS}</style>
       <button
         id="__dlens_extension_v0_launcher__"
         data-dlens-control="true"
@@ -175,7 +188,53 @@ export function InPageCollectorOverlays({ app }: { app: InPageCollectorAppModel 
         </div>
       ) : null}
 
-      {displayToast ? (
+      {displayToast && displayToast.kind === "saved" && successToastDescriptor ? (
+        <div
+          data-dlens-control="true"
+          data-collector-success-popup="true"
+          style={{
+            position: "fixed",
+            right: 24,
+            top: popupOpen ? 84 : 80,
+            zIndex: 2147483647,
+            width: 320,
+            maxWidth: "calc(100vw - 48px)",
+            padding: tokens.spacing.md,
+            borderRadius: tokens.radius.card,
+            background: `linear-gradient(180deg, ${tokens.color.elevated}, ${tokens.color.surface})`,
+            backdropFilter: tokens.effect.glassBlur,
+            WebkitBackdropFilter: tokens.effect.glassBlur,
+            border: `1px solid ${tokens.color.successBorder}`,
+            color: tokens.color.ink,
+            boxShadow: TOKENS.hudGlow,
+            pointerEvents: "auto",
+            display: "grid",
+            gap: tokens.spacing.sm
+          }}
+        >
+          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: tokens.spacing.sm }}>
+            <span style={{ display: "inline-flex", alignItems: "center", gap: tokens.spacing.xs, minWidth: 0 }}>
+              <span
+                data-collector-success-dot="true"
+                aria-hidden="true"
+                style={{
+                  width: tokens.spacing.sm,
+                  height: tokens.spacing.sm,
+                  borderRadius: tokens.radius.round,
+                  background: tokens.color.success,
+                  boxShadow: tokens.shadow.glass
+                }}
+              />
+              <span style={{ fontSize: 12, fontWeight: 800, color: tokens.color.success }}>{displayToast.message}</span>
+            </span>
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke={tokens.color.success} strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M20 6 9 17l-5-5" />
+            </svg>
+          </div>
+          <CollectorGist>{successToastDescriptor.text_snippet || "已保存的 Threads 貼文"}</CollectorGist>
+          <CollectorMetricStrip descriptor={successToastDescriptor} marker="success" />
+        </div>
+      ) : displayToast ? (
         <div
           data-dlens-control="true"
           style={{
