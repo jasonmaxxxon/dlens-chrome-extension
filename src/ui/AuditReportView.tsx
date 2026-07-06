@@ -15,6 +15,8 @@ const SECTION_META: Array<{ key: keyof TopicAuditReport["sections"]; number: str
   { key: "editorial", number: "§7", title: "編輯" }
 ];
 
+const EMPTY_SECTION_COPY = "等待訊號累積後生成";
+
 const SEVERITY_ORDER: Record<TopicAuditValidationSeverity, number> = {
   FAIL: 0,
   WEAK: 1,
@@ -22,6 +24,67 @@ const SEVERITY_ORDER: Record<TopicAuditValidationSeverity, number> = {
 };
 
 const REF_PATTERN = /(S\d+\.(?:OPC\d+|OP|R\d+|P\d+))/g;
+
+type ReportSection = (typeof SECTION_META)[number] & {
+  body: string;
+  empty: boolean;
+};
+
+function normalizeSectionBody(value: string | undefined): string {
+  return (value ?? "").replace(/\s+/g, " ").trim();
+}
+
+function isRawEmptySection(value: string | undefined): boolean {
+  const normalized = normalizeSectionBody(value);
+  return normalized.length === 0 || normalized === "尚未生成";
+}
+
+function buildReportSections(report: TopicAuditReport): ReportSection[] {
+  return SECTION_META.map((section) => {
+    const body = report.sections[section.key] ?? "";
+    const duplicateEditorial = section.key === "editorial"
+      && !isRawEmptySection(body)
+      && normalizeSectionBody(body) === normalizeSectionBody(report.sections.overall);
+    return {
+      ...section,
+      body,
+      empty: isRawEmptySection(body) || duplicateEditorial
+    };
+  });
+}
+
+function parseNumberedListItems(text: string): string[] | null {
+  const markers: Array<{ number: number; markerStart: number; contentStart: number }> = [];
+  const markerPattern = /(^|\s)(\d+)\.\s+/g;
+  for (const match of text.matchAll(markerPattern)) {
+    const leading = match[1] ?? "";
+    const number = Number(match[2]);
+    const markerStart = (match.index ?? 0) + leading.length;
+    markers.push({
+      number,
+      markerStart,
+      contentStart: (match.index ?? 0) + match[0].length
+    });
+  }
+
+  const leadingWhitespace = text.length - text.trimStart().length;
+  if (markers.length < 2 || markers[0]?.markerStart !== leadingWhitespace || markers[0]?.number !== 1) {
+    return null;
+  }
+
+  for (let index = 0; index < markers.length; index += 1) {
+    if (markers[index]?.number !== index + 1) {
+      return null;
+    }
+  }
+
+  const items = markers.map((marker, index) => {
+    const nextMarker = markers[index + 1];
+    return text.slice(marker.contentStart, nextMarker?.markerStart ?? text.length).trim();
+  }).filter(Boolean);
+
+  return items.length === markers.length ? items : null;
+}
 
 export function sortFlagsBySeverity(flags: TopicAuditValidationFlag[]): TopicAuditValidationFlag[] {
   return [...flags].sort((left, right) => {
@@ -32,7 +95,7 @@ export function sortFlagsBySeverity(flags: TopicAuditValidationFlag[]): TopicAud
 }
 
 export function serializeReportMarkdown(report: TopicAuditReport, flags: TopicAuditValidationFlag[] = []): string {
-  const sections = SECTION_META.map((section) => `${section.number} ${section.title}\n${report.sections[section.key] || "尚未生成"}`);
+  const sections = buildReportSections(report).map((section) => `${section.number} ${section.title}\n${section.empty ? EMPTY_SECTION_COPY : section.body}`);
   const quality = sortFlagsBySeverity(flags).map((flag) => `- ${flag.severity} ${flag.section}: ${flag.reason} ${flag.evidenceRefs.join(" ")}`.trim());
   return [
     `# ${report.topicName}`,
@@ -109,6 +172,56 @@ function severityStyle(severity: TopicAuditValidationSeverity) {
   return { color: tokens.topicAccent.primary, bg: tokens.topicAccent.tintSage };
 }
 
+function SectionBody({ section }: { section: ReportSection }) {
+  if (section.empty) {
+    return (
+      <div
+        data-audit-report-empty-state="true"
+        style={{
+          borderRadius: tokens.radius.card,
+          background: tokens.color.contextSurface,
+          color: tokens.color.softInk,
+          padding: "10px 12px",
+          fontSize: 13,
+          lineHeight: 1.6
+        }}
+      >
+        {EMPTY_SECTION_COPY}
+      </div>
+    );
+  }
+
+  const listItems = parseNumberedListItems(section.body);
+  if (listItems) {
+    return (
+      <ol
+        data-audit-report-ordered-list="true"
+        style={{
+          margin: 0,
+          paddingLeft: 22,
+          display: "grid",
+          gap: 8,
+          fontSize: 14,
+          lineHeight: 1.78,
+          color: tokens.color.subInk
+        }}
+      >
+        {listItems.map((item, index) => (
+          <li key={`${section.key}-${index}`} style={{ paddingLeft: 4 }}>
+            {renderCitations(item)}
+          </li>
+        ))}
+      </ol>
+    );
+  }
+
+  return (
+    <p style={{ margin: 0, fontSize: 14, lineHeight: 1.78, color: tokens.color.subInk }}>
+      {renderCitations(section.body)}
+    </p>
+  );
+}
+
 export function AuditReportView({
   topicId,
   report,
@@ -123,6 +236,7 @@ export function AuditReportView({
   onCopyMarkdown?: (markdown: string) => void;
 }) {
   const markdown = report ? serializeReportMarkdown(report, flags) : "";
+  const reportSections = report ? buildReportSections(report) : SECTION_META.map((section) => ({ ...section, body: "", empty: false }));
   return (
     <div
       data-audit-report-view="topic-audit"
@@ -139,8 +253,18 @@ export function AuditReportView({
       }}
     >
       <nav style={{ position: "sticky", top: 24, alignSelf: "start", display: "grid", gap: 8, fontSize: 12 }}>
-        {SECTION_META.map((section) => (
-          <a key={section.key} href={`#${section.key}`} style={{ color: tokens.color.subInk, textDecoration: "none", fontWeight: 700 }}>
+        {reportSections.map((section) => (
+          <a
+            key={section.key}
+            href={`#${section.key}`}
+            data-audit-report-toc-empty={section.empty ? "true" : undefined}
+            style={{
+              color: section.empty ? tokens.color.softInk : tokens.color.subInk,
+              opacity: section.empty ? 0.58 : 1,
+              textDecoration: "none",
+              fontWeight: 700
+            }}
+          >
             {section.number} {section.title}
           </a>
         ))}
@@ -180,7 +304,7 @@ export function AuditReportView({
           </div>
         </header>
 
-        {report ? SECTION_META.map((section) => (
+        {report ? reportSections.map((section) => (
           <section
             key={section.key}
             id={section.key}
@@ -195,9 +319,7 @@ export function AuditReportView({
             <h2 style={{ margin: 0, fontFamily: `${tokens.font.serifCjk}, ${tokens.font.serif}`, fontSize: 22 }}>
               {section.number} {section.title}
             </h2>
-            <p style={{ margin: 0, fontSize: 14, lineHeight: 1.78, color: tokens.color.subInk }}>
-              {renderCitations(report.sections[section.key] || "尚未生成")}
-            </p>
+            <SectionBody section={section} />
           </section>
         )) : (
           <section style={{ display: "grid", gap: 10 }}>
