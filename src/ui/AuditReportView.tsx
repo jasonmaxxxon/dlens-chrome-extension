@@ -2,8 +2,15 @@ import type { ReactNode } from "react";
 
 import type { EvidencePacket, TopicAuditReport } from "../compare/topic-audit.ts";
 import type { TopicAuditValidationFlag, TopicAuditValidationSeverity } from "../compare/topic-audit-validator.ts";
+import type { TopicAuditMemoBundle } from "../state/topic-audit-storage.ts";
 import { tokens } from "./tokens";
-import { GhostButton, PrimaryButton } from "./topic-audit-components.tsx";
+import {
+  AuditReportNarrativeLanes,
+  GhostButton,
+  PrimaryButton,
+  ThemeChip,
+  type NarrativeLaneHint
+} from "./topic-audit-components.tsx";
 
 const SECTION_META: Array<{ key: keyof TopicAuditReport["sections"]; number: string; title: string }> = [
   { key: "overall", number: "§1", title: "整體" },
@@ -30,6 +37,11 @@ type ReportSection = (typeof SECTION_META)[number] & {
   empty: boolean;
 };
 
+type AuditReportDisplayHints = {
+  themeChips: string[];
+  narrativeLanes: NarrativeLaneHint[];
+};
+
 function normalizeSectionBody(value: string | undefined): string {
   return (value ?? "").replace(/\s+/g, " ").trim();
 }
@@ -51,6 +63,44 @@ function buildReportSections(report: TopicAuditReport): ReportSection[] {
       empty: isRawEmptySection(body) || duplicateEditorial
     };
   });
+}
+
+function readAuditReportDisplayHints(auditMemos: TopicAuditMemoBundle | null | undefined): AuditReportDisplayHints {
+  const hints: AuditReportDisplayHints = { themeChips: [], narrativeLanes: [] };
+  for (const memo of auditMemos?.lensMemos ?? []) {
+    const displayHints = memo.displayHints;
+    if (!displayHints) continue;
+    if (!hints.themeChips.length && displayHints.themeChips?.length) {
+      hints.themeChips = displayHints.themeChips;
+    }
+    if (!hints.narrativeLanes.length && displayHints.narrativeLanes?.length) {
+      hints.narrativeLanes = displayHints.narrativeLanes;
+    }
+  }
+  return hints;
+}
+
+function normalizeCoverageLabel(value: string | undefined): string | null {
+  const normalized = (value ?? "").trim();
+  if (!normalized || normalized === "unknown") return null;
+  return normalized;
+}
+
+function readReportCoverageLabel(
+  report: TopicAuditReport,
+  auditMemos: TopicAuditMemoBundle | null | undefined
+): string | null {
+  const candidates = [
+    report.coveragePerSection.overall,
+    report.coveragePerSection.editorial,
+    report.coveragePerSection.narratives,
+    ...(auditMemos?.lensMemos ?? []).map((memo) => memo.coverage)
+  ];
+  for (const candidate of candidates) {
+    const normalized = normalizeCoverageLabel(candidate);
+    if (normalized) return normalized;
+  }
+  return null;
 }
 
 function parseNumberedListItems(text: string): string[] | null {
@@ -226,17 +276,21 @@ export function AuditReportView({
   topicId,
   report,
   packets = [],
+  auditMemos = null,
   flags = [],
   onCopyMarkdown
 }: {
   topicId: string;
   report: TopicAuditReport | null;
   packets?: EvidencePacket[];
+  auditMemos?: TopicAuditMemoBundle | null;
   flags?: TopicAuditValidationFlag[];
   onCopyMarkdown?: (markdown: string) => void;
 }) {
   const markdown = report ? serializeReportMarkdown(report, flags) : "";
   const reportSections = report ? buildReportSections(report) : SECTION_META.map((section) => ({ ...section, body: "", empty: false }));
+  const displayHints = readAuditReportDisplayHints(auditMemos);
+  const coverageLabel = report ? readReportCoverageLabel(report, auditMemos) : null;
   return (
     <div
       data-audit-report-view="topic-audit"
@@ -273,7 +327,34 @@ export function AuditReportView({
 
       <main style={{ display: "grid", gap: 22 }}>
         <header style={{ display: "grid", gap: 12 }}>
-          <span style={{ fontFamily: tokens.font.mono, fontSize: 11, color: tokens.topicAccent.primary }}>{topicId}</span>
+          <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
+            <span data-audit-report-topic-id={topicId} style={{ fontFamily: tokens.font.mono, fontSize: 11, color: tokens.topicAccent.primary }}>
+              {topicId}
+            </span>
+            {coverageLabel ? (
+              <span
+                data-audit-report-coverage={coverageLabel}
+                style={{
+                  display: "inline-flex",
+                  alignItems: "center",
+                  borderRadius: tokens.radius.round,
+                  background: tokens.topicAccent.tintSage,
+                  color: tokens.topicAccent.primaryDeep,
+                  padding: "2px 9px",
+                  fontFamily: tokens.font.mono,
+                  fontSize: 11,
+                  fontWeight: 800
+                }}
+              >
+                覆蓋 {coverageLabel}
+              </span>
+            ) : null}
+            {report ? (
+              <span style={{ fontFamily: tokens.font.mono, fontSize: 11, color: tokens.color.softInk }}>
+                {report.promptVersion} · {report.model}
+              </span>
+            ) : null}
+          </div>
           <h1 style={{ margin: 0, fontFamily: `${tokens.font.serifCjk}, ${tokens.font.serif}`, fontSize: 36, lineHeight: 1.05 }}>
             {report?.topicName ?? "審查報告生成中"}
           </h1>
@@ -302,6 +383,13 @@ export function AuditReportView({
               }}
             >列印 / 存 PDF</GhostButton>
           </div>
+          {displayHints.themeChips.length ? (
+            <div data-audit-report-theme-strip="true" style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
+              {displayHints.themeChips.map((theme) => (
+                <ThemeChip key={theme} label={theme} />
+              ))}
+            </div>
+          ) : null}
         </header>
 
         {report ? reportSections.map((section) => (
@@ -319,6 +407,9 @@ export function AuditReportView({
             <h2 style={{ margin: 0, fontFamily: `${tokens.font.serifCjk}, ${tokens.font.serif}`, fontSize: 22 }}>
               {section.number} {section.title}
             </h2>
+            {section.key === "narratives" && !section.empty ? (
+              <AuditReportNarrativeLanes lanes={displayHints.narrativeLanes} />
+            ) : null}
             <SectionBody section={section} />
           </section>
         )) : (

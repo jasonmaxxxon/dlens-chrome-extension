@@ -4,6 +4,7 @@ import ReactDOM from "react-dom/client";
 import type { EvidencePacket, TopicAuditReport } from "../compare/topic-audit.ts";
 import type { TopicAuditValidationFlag } from "../compare/topic-audit-validator.ts";
 import type { ExtensionResponse } from "../state/messages.ts";
+import type { TopicAuditMemoBundle } from "../state/topic-audit-storage.ts";
 import { AuditReportView, auditReportViewTestables } from "./AuditReportView.tsx";
 import { sendExtensionMessage } from "./controller.tsx";
 
@@ -15,6 +16,7 @@ function AuditReportPage() {
   const [topicId] = useState(readTopicId);
   const [report, setReport] = useState<TopicAuditReport | null>(null);
   const [packets, setPackets] = useState<EvidencePacket[]>([]);
+  const [auditMemos, setAuditMemos] = useState<TopicAuditMemoBundle | null>(null);
   const [flags, setFlags] = useState<TopicAuditValidationFlag[]>([]);
 
   useEffect(() => {
@@ -29,6 +31,7 @@ function AuditReportPage() {
         }
         setReport(response.auditReport ?? null);
         setPackets(response.auditEvidence ?? []);
+        setAuditMemos(response.auditMemos ?? null);
         if (response.auditReport) {
           const validateResponse = await sendExtensionMessage<ExtensionResponse>({ type: "topic/audit/validate", topicId });
           if (!cancelled && validateResponse.ok) {
@@ -47,6 +50,7 @@ function AuditReportPage() {
       topicId={topicId}
       report={report}
       packets={packets}
+      auditMemos={auditMemos}
       flags={flags}
       onCopyMarkdown={(markdown) => {
         void navigator.clipboard?.writeText(markdown || (report ? auditReportViewTestables.serializeReportMarkdown(report, flags) : ""));

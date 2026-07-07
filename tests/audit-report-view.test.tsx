@@ -6,6 +6,7 @@ import { renderToStaticMarkup } from "react-dom/server";
 
 import type { EvidencePacket, TopicAuditReport } from "../src/compare/topic-audit.ts";
 import type { TopicAuditValidationFlag } from "../src/compare/topic-audit-validator.ts";
+import type { TopicAuditMemoBundle } from "../src/state/topic-audit-storage.ts";
 import { AuditReportView, auditReportViewTestables } from "../src/ui/AuditReportView.tsx";
 
 const report: TopicAuditReport = {
@@ -14,7 +15,7 @@ const report: TopicAuditReport = {
   topicId: "topic-1",
   topicName: "航班爭議",
   generatedFrom: ["S1:p1"],
-  coveragePerSection: {},
+  coveragePerSection: { overall: "4/6", narratives: "4/6" },
   sections: {
     overall: "整體讀法 [S1.OP]",
     lexicon: "詞群讀法 [S1.OP]",
@@ -55,12 +56,41 @@ const flags: TopicAuditValidationFlag[] = [
   { severity: "WEAK", kind: "thin-evidence", section: "§2", claim: "weak", reason: "weak reason", evidenceRefs: ["S1.OP"] }
 ];
 
+const auditMemos: TopicAuditMemoBundle = {
+  auditRunId: "audit-1",
+  inputHash: "hash-1",
+  signalReadings: [],
+  lensMemos: [
+    {
+      auditRunId: "audit-1",
+      inputHash: "hash-1",
+      topicId: "topic-1",
+      stageName: "narrative",
+      prose: "敘事線 [S1.R1]",
+      evidenceRefs: ["S1.R1"],
+      caveats: [],
+      coverage: "4/6",
+      displayHints: {
+        themeChips: ["航班補救", "客服落差"],
+        narrativeLanes: [
+          { id: "lane-service", label: "客服補救失速", signalRefs: ["S1.OP", "S2.OP"], consensus: 0.87 },
+          { id: "lane-delay", label: "延誤說明不足", signalRefs: ["S1.R1"], consensus: 0.62 }
+        ]
+      },
+      promptVersion: "v3",
+      model: "mock",
+      generatedAt: "2026-05-23T00:00:00.000Z"
+    }
+  ]
+};
+
 test("AuditReportView renders seven report sections plus validator quality section", () => {
   const html = renderToStaticMarkup(
     React.createElement(AuditReportView, {
       topicId: "topic-1",
       report,
       packets: [packet],
+      auditMemos,
       flags,
       onCopyMarkdown: () => undefined
     })
@@ -78,6 +108,13 @@ test("AuditReportView renders seven report sections plus validator quality secti
   assert.equal((html.match(/data-audit-report-section=/g) ?? []).length, 8);
   assert.match(html, /data-ref="S1.OP"/);
   assert.match(html, /href="#source-S1.OP"/);
+  assert.match(html, /data-audit-report-coverage="4\/6"/);
+  assert.match(html, /覆蓋 4\/6/);
+  assert.match(html, /data-audit-report-theme-strip="true"/);
+  assert.match(html, /data-theme-chip="航班補救"/);
+  assert.match(html, /data-audit-report-narrative-lane="lane-service"/);
+  assert.match(html, /data-audit-report-lane-consensus-bar="lane-service"/);
+  assert.match(html, /共識 87% · 2 篇/);
 });
 
 test("AuditReportView sorts validator flags by severity", () => {

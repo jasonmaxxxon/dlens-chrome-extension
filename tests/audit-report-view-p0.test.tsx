@@ -6,6 +6,7 @@ import React from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 
 import type { TopicAuditReport } from "../src/compare/topic-audit.ts";
+import type { TopicAuditMemoBundle } from "../src/state/topic-audit-storage.ts";
 import { AuditReportView } from "../src/ui/AuditReportView.tsx";
 
 function buildReport(sections: Partial<TopicAuditReport["sections"]>): TopicAuditReport {
@@ -15,7 +16,7 @@ function buildReport(sections: Partial<TopicAuditReport["sections"]>): TopicAudi
     topicId: "topic-p0",
     topicName: "Topic P0",
     generatedFrom: ["S1:p1"],
-    coveragePerSection: {},
+    coveragePerSection: { overall: "2/3", narratives: "2/3" },
     sections: {
       overall: "整體預設內容 [S1.OP]",
       lexicon: "詞群預設內容 [S1.OP]",
@@ -44,6 +45,31 @@ function renderReport(report: TopicAuditReport): Document {
   );
   return new JSDOM(html).window.document;
 }
+
+const auditMemos: TopicAuditMemoBundle = {
+  auditRunId: "audit-p0",
+  inputHash: "hash-p0",
+  signalReadings: [],
+  lensMemos: [
+    {
+      auditRunId: "audit-p0",
+      inputHash: "hash-p0",
+      topicId: "topic-p0",
+      stageName: "narrative",
+      prose: "敘事預設內容 [S1.OP]",
+      evidenceRefs: ["S1.OP"],
+      caveats: [],
+      coverage: "2/3",
+      displayHints: {
+        themeChips: ["可靠性"],
+        narrativeLanes: [{ id: "lane-p0", label: "可靠性是主要讀法", signalRefs: ["S1.OP"], consensus: 0.7 }]
+      },
+      promptVersion: "v3",
+      model: "mock",
+      generatedAt: "2026-06-22T00:00:00.000Z"
+    }
+  ]
+};
 
 test("AuditReportView maps §1 and §7 to distinct section fields", () => {
   const doc = renderReport(buildReport({
@@ -95,4 +121,28 @@ test("AuditReportView renders numbered body prefixes as a semantic ordered list"
   assert.match(items[0]?.textContent ?? "", /第一點是總結/);
   assert.match(items[1]?.textContent ?? "", /第二點是補充/);
   assert.match(items[2]?.textContent ?? "", /第三點收束/);
+});
+
+test("AuditReportView density grammar keeps honest empty-section guards", () => {
+  const duplicateList = "1. 整體判讀 2. 共同用字 3. 風向/時間 4. Narrative Clusters 5. Audience Reaction 6. 缺席聲音/Outliers 7. Editorial Reading";
+  const html = renderToStaticMarkup(
+    React.createElement(AuditReportView, {
+      topicId: "topic-p0",
+      report: buildReport({
+        overall: duplicateList,
+        scaleOrTime: "尚未生成",
+        editorial: duplicateList
+      }),
+      auditMemos,
+      packets: [],
+      flags: []
+    })
+  );
+  const doc = new JSDOM(html).window.document;
+
+  assert.equal(doc.querySelector("[data-audit-report-coverage]")?.textContent, "覆蓋 2/3");
+  assert.match(doc.body.textContent ?? "", /可靠性是主要讀法/);
+  assert.match(doc.querySelector('[data-audit-report-section="scaleOrTime"]')?.textContent ?? "", /等待訊號累積後生成/);
+  assert.match(doc.querySelector('[data-audit-report-section="editorial"]')?.textContent ?? "", /等待訊號累積後生成/);
+  assert.equal(doc.querySelector('[data-audit-report-lane-signal-row]'), null);
 });

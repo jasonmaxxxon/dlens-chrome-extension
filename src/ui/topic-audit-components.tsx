@@ -367,40 +367,91 @@ export function ThemeChip({
   onClick?: () => void;
 }) {
   const palette = THEME_PALETTE[themePaletteIndex(label)];
+  const chipStyle: CSSProperties = {
+    border: `1px solid ${active ? palette.fg : palette.border}`,
+    borderRadius: 999,
+    background: palette.bg,
+    color: palette.fg,
+    padding: "6px 13px",
+    fontFamily: tokens.font.sans,
+    fontSize: 12.5,
+    fontWeight: 650,
+    cursor: onClick ? "pointer" : "default",
+    display: "inline-flex",
+    alignItems: "center",
+    gap: 6,
+    boxShadow: active ? `0 0 0 2px ${palette.bg}, 0 0 0 3px ${palette.fg}40` : "none"
+  };
+  const dot = (
+    <span
+      aria-hidden="true"
+      style={{
+        width: 7,
+        height: 7,
+        borderRadius: 999,
+        background: palette.fg,
+        opacity: 0.75
+      }}
+    />
+  );
+  if (!onClick) {
+    return (
+      <span data-theme-chip={label} data-active={active ? "true" : "false"} style={chipStyle}>
+        {dot}
+        {label}
+      </span>
+    );
+  }
   return (
     <button
+      type="button"
       data-theme-chip={label}
       data-active={active ? "true" : "false"}
       onClick={onClick}
+      style={chipStyle}
+    >
+      {dot}
+      {label}
+    </button>
+  );
+}
+
+function NarrativeLaneConsensusBar({
+  laneId,
+  percent,
+  reportMarker = false
+}: {
+  laneId: string;
+  percent: number;
+  reportMarker?: boolean;
+}) {
+  return (
+    <span
+      aria-hidden="true"
+      data-narrative-lane-consensus-bar={laneId}
+      data-audit-report-lane-consensus-bar={reportMarker ? laneId : undefined}
       style={{
-        border: `1px solid ${active ? palette.fg : palette.border}`,
-        borderRadius: 999,
-        background: palette.bg,
-        color: palette.fg,
-        padding: "6px 13px",
-        fontFamily: tokens.font.sans,
-        fontSize: 12.5,
-        fontWeight: 650,
-        cursor: "pointer",
-        display: "inline-flex",
-        alignItems: "center",
-        gap: 6,
-        boxShadow: active ? `0 0 0 2px ${palette.bg}, 0 0 0 3px ${palette.fg}40` : "none",
-        transition: "transform 120ms, box-shadow 120ms"
+        position: "relative",
+        height: 6,
+        width: "100%",
+        borderRadius: tokens.radius.round,
+        background: tokens.color.neutralSurface,
+        overflow: "hidden"
       }}
     >
       <span
-        aria-hidden="true"
+        data-narrative-lane-consensus-fill={laneId}
+        data-audit-report-lane-consensus-fill={reportMarker ? laneId : undefined}
         style={{
-          width: 7,
-          height: 7,
-          borderRadius: 999,
-          background: palette.fg,
-          opacity: 0.75
+          position: "absolute",
+          left: 0,
+          top: 0,
+          bottom: 0,
+          width: `${percent}%`,
+          background: percent >= 60 ? TOPIC.primary : TOPIC.warm
         }}
       />
-      {label}
-    </button>
+    </span>
   );
 }
 
@@ -461,30 +512,7 @@ export function NarrativeLane({
               共識 {percent}% · {signalCount} 篇
             </span>
           </span>
-          <span
-            aria-hidden="true"
-            data-narrative-lane-consensus-bar={lane.id}
-            style={{
-              position: "relative",
-              height: 6,
-              width: "100%",
-              borderRadius: tokens.radius.round,
-              background: tokens.color.neutralSurface,
-              overflow: "hidden"
-            }}
-          >
-            <span
-              data-narrative-lane-consensus-fill={lane.id}
-              style={{
-                position: "absolute",
-                left: 0,
-                top: 0,
-                bottom: 0,
-                width: `${percent}%`,
-                background: percent >= 60 ? TOPIC.primary : TOPIC.warm
-              }}
-            />
-          </span>
+          <NarrativeLaneConsensusBar laneId={lane.id} percent={percent} />
         </span>
         <span style={{ display: "flex", gap: 5, flexWrap: "wrap", alignItems: "center" }}>
           {lane.signalRefs.slice(0, 6).map((ref) => (
@@ -506,6 +534,50 @@ export function NarrativeLane({
         </span>
       </span>
     </button>
+  );
+}
+
+export function AuditReportNarrativeLanes({ lanes }: { lanes: NarrativeLaneHint[] }) {
+  if (!lanes.length) return null;
+  return (
+    <div
+      data-audit-report-narrative-lanes="true"
+      style={{
+        display: "grid",
+        gap: 0,
+        borderRadius: tokens.radius.card,
+        background: tokens.color.elevated,
+        boxShadow: tokens.shadow.topicCard,
+        overflow: "hidden"
+      }}
+    >
+      {lanes.map((lane, index) => {
+        const signalCount = countLaneSources(lane.signalRefs);
+        const percent = consensusPercent(lane.consensus);
+        return (
+          <div
+            key={lane.id}
+            data-audit-report-narrative-lane={lane.id}
+            style={{
+              display: "grid",
+              gridTemplateColumns: "minmax(180px, 0.46fr) minmax(120px, 1fr) auto",
+              gap: 12,
+              alignItems: "center",
+              padding: "10px 14px",
+              borderTop: index === 0 ? "none" : `1px solid ${tokens.color.line}`
+            }}
+          >
+            <span style={{ fontFamily: `${tokens.font.serifCjk}, ${tokens.font.serif}`, fontSize: 13.5, fontWeight: 600, lineHeight: 1.5, color: tokens.color.ink }}>
+              {lane.label}
+            </span>
+            <NarrativeLaneConsensusBar laneId={lane.id} percent={percent} reportMarker />
+            <span style={{ fontFamily: tokens.font.mono, fontSize: 11, color: tokens.color.subInk, whiteSpace: "nowrap" }}>
+              共識 {percent}% · {signalCount} 篇
+            </span>
+          </div>
+        );
+      })}
+    </div>
   );
 }
 
