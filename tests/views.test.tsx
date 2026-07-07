@@ -98,18 +98,21 @@ function buildProductTestItem(signal: any, props: any): SessionItem | null {
   const readiness = props.signalReadinessById?.[signal.id] ?? { status: "ready", itemStatus: "succeeded" };
   const preview = props.signalPreviewById?.[signal.id] || signal.id;
   const url = props.signalUrlById?.[signal.id] || `https://www.threads.net/@dlens/post/${signal.id}`;
+  const descriptorOverride = props.descriptorBySignalId?.[signal.id] ?? {};
+  const engagementOverride = descriptorOverride.engagement ?? {};
+  const engagementPresentOverride = descriptorOverride.engagement_present ?? {};
   const item = createSessionItem(
     {
       target_type: "post",
       page_url: url,
       post_url: url,
-      author_hint: "dlens",
+      author_hint: descriptorOverride.author_hint ?? "dlens",
       text_snippet: preview,
-      time_token_hint: "",
+      time_token_hint: descriptorOverride.time_token_hint ?? "",
       dom_anchor: signal.id,
-      engagement: { likes: 0, comments: 0, reposts: null, forwards: null, views: null },
-      engagement_present: { likes: false, comments: false, reposts: false, forwards: false, views: false },
-      captured_at: signal.capturedAt || "2026-04-27T00:00:00.000Z"
+      engagement: { likes: null, comments: null, reposts: null, forwards: null, views: null, ...engagementOverride },
+      engagement_present: { likes: false, comments: false, reposts: false, forwards: false, views: false, ...engagementPresentOverride },
+      captured_at: descriptorOverride.captured_at ?? signal.capturedAt ?? "2026-04-27T00:00:00.000Z"
     },
     signal.capturedAt || "2026-04-27T00:00:00.000Z"
   );
@@ -124,11 +127,11 @@ function buildProductTestItem(signal: any, props: any): SessionItem | null {
         source_page_url: url,
         source_post_url: url,
         canonical_target_url: url,
-        author_hint: "dlens",
+        author_hint: descriptorOverride.author_hint ?? "dlens",
         text_snippet: preview,
-        time_token_hint: "",
+        time_token_hint: descriptorOverride.time_token_hint ?? "",
         dom_anchor: signal.id,
-        engagement: {},
+        engagement: engagementOverride,
         client_context: {},
         raw_payload: {},
         ingestion_status: "succeeded",
@@ -138,7 +141,7 @@ function buildProductTestItem(signal: any, props: any): SessionItem | null {
         job: null,
         result: {
           threadReadModel: {
-            rootPost: { postId: signal.id, author: "dlens", text: preview, likeCount: 0 },
+            rootPost: { postId: signal.id, author: descriptorOverride.author_hint ?? "dlens", text: preview, likeCount: engagementOverride.likes ?? null },
             opContinuations: [],
             discussionReplies: (props.evidenceBySignalId?.[signal.id] ?? []).map((entry: any) => ({
               commentId: entry.id || entry.ref,
@@ -2452,6 +2455,85 @@ test("SavedSignalsBoard keeps saved rows scan-first with compact copy", () => {
   assert.doesNotMatch(html, /可分析 · 學習資源 · 保留觀察/);
 });
 
+test("ProductSignalView saved signals apply the signed fusion density grammar from real analysis fields", () => {
+  const html = renderToStaticMarkup(
+    productSignalViewElement({
+      kind: "saved-signals",
+      signals: [
+        {
+          id: "signal_fusion",
+          sessionId: "session_fusion",
+          itemId: "item_fusion",
+          source: "threads",
+          inboxStatus: "processed",
+          capturedAt: "2026-07-06T00:00:00.000Z"
+        }
+      ],
+      analyses: [
+        {
+          signalId: "signal_fusion",
+          signalType: "demand" as const,
+          signalSubtype: "pm_document_generation",
+          contentType: "discussion_starter" as const,
+          contentSummary: "把討論串轉成可派發給 agent 的產品任務。",
+          relevance: 4 as const,
+          relevantTo: ["coreWorkflows" as const],
+          referenceType: "workflow_pattern" as const,
+          referenceLabel: "討論轉 agent task",
+          referenceTakeaway: "用 Product mode 收斂成可執行的驗證任務。",
+          whyRelevant: "對應 Product mode 的收集到行動流程。",
+          whyNow: "已經有多則收集內容需要統一判讀。",
+          verdict: "try" as const,
+          reason: "輸入、判讀和交付物都清楚。",
+          experimentHint: "選三則 signal 產生 agent packet。",
+          validationMetric: "三則 signal 中至少兩則能轉成可執行 task。",
+          evidenceRefs: ["e1"],
+          productContextHash: "ctx_fusion",
+          promptVersion: "v17",
+          model: "gpt-4.1-mini",
+          analyzedAt: "2026-07-06T01:00:00.000Z",
+          status: "complete" as const
+        }
+      ],
+      productProfile: productTestProfile(),
+      signalPreviewById: {
+        signal_fusion: "原文提到需要把討論轉成 agent 可以接手的工作包。"
+      },
+      descriptorBySignalId: {
+        signal_fusion: {
+          author_hint: "pm_ops",
+          engagement: { likes: 42, comments: 7, reposts: null, forwards: null },
+          engagement_present: { likes: true, comments: true, reposts: false, forwards: false }
+        }
+      },
+      onAnalyze: () => undefined,
+      onGoToActionable: () => undefined
+    })
+  );
+
+  assert.match(html, /data-product-fusion-card="hero"/);
+  assert.match(html, /data-product-card-eyebrow="true"/);
+  assert.match(html, /需求/);
+  assert.match(html, /參考度 4\/5/);
+  assert.match(html, /AI 生成/);
+  assert.match(html, /討論開場/);
+  assert.match(html, /PM 文件產出/);
+  assert.match(html, /data-product-card-title="true"[^>]*>討論轉 agent task/);
+  assert.match(html, /data-product-card-quote="true"/);
+  assert.match(html, /原文提到需要把討論轉成 agent 可以接手的工作包。/);
+  assert.match(html, /data-product-kv-grid="signal"/);
+  assert.match(html, /data-product-kv="whyRelevant"/);
+  assert.match(html, /data-product-kv="whyNow"/);
+  assert.match(html, /data-product-kv="experimentHint"/);
+  assert.match(html, /data-product-kv="validationMetric"/);
+  assert.match(html, /data-collector-metric-strip="product-signal-signal_fusion"/);
+  assert.match(html, /data-collector-metric="likes"[^>]*>[\s\S]*42/);
+  assert.match(html, /data-collector-metric="comments"[^>]*>[\s\S]*7/);
+  assert.match(html, /data-collector-metric="reposts"[^>]*>[\s\S]*–/);
+  assert.match(html, /data-product-verdict-pill="try"[^>]*>值得嘗試/);
+  assert.doesNotMatch(html, /相關度 4\/5/);
+});
+
 test("ProductSignalView keeps Agent export off Product action pages", () => {
   const baseProps = {
     signals: [
@@ -2549,6 +2631,78 @@ test("ProductSignalView keeps Agent export off Product action pages", () => {
   assert.doesNotMatch(actionableHtml, /data-agent-brief-copy-status/);
   assert.doesNotMatch(actionableHtml, /data-batch-export-selection-row="true"/);
   assert.doesNotMatch(actionableHtml, /# Agent Brief/);
+});
+
+test("SavedSignalsBatchExport action brief packet card uses the signed frame 5 mono packet grammar", () => {
+  const fixture = buildActionableCardFixture();
+  const SavedSignalsBatchExport = (productSignalViewTestables as unknown as {
+    SavedSignalsBatchExport: React.ComponentType<{
+      signals: any[];
+      analyses: typeof fixture.analysis[];
+      activeFolderId?: string;
+      exportFolders?: [];
+      signalPreviewById: Record<string, string>;
+      signalUrlById: Record<string, string>;
+      selectedIds: string[];
+      briefMode: "original" | "decision";
+      onBriefModeChange: (mode: "original" | "decision") => void;
+      onToggleSignal: (signalId: string) => void;
+      evidenceBySignalId: typeof fixture.evidenceBySignalId;
+    }>;
+  }).SavedSignalsBatchExport;
+  const signal = {
+    signalId: fixture.signal.id,
+    sessionId: fixture.signal.sessionId,
+    itemId: fixture.signal.itemId,
+    captureId: "cap-verdict",
+    source: fixture.signal.source,
+    title: fixture.analysis.contentSummary,
+    sourcePreview: {
+      author: "pm",
+      text: "原文需要更清楚的 agent handoff。",
+      sourceUrl: "https://www.threads.net/@pm/post/packet",
+      likes: 9,
+      commentCount: 2,
+      assembledContent: "原文需要更清楚的 agent handoff。",
+      hasAssembledContent: true,
+      hasThreadReadModel: true,
+      opContinuations: [],
+      replies: [],
+      discussionReplies: [],
+      replyEdges: [],
+      orphanReplies: [],
+      displayText: "原文需要更清楚的 agent handoff。",
+      displayUrl: "https://www.threads.net/@pm/post/packet"
+    },
+    readiness: { status: "ready", itemStatus: "succeeded" },
+    analysisState: "ready",
+    provenance: "ai",
+    analysis: fixture.analysis,
+    evidence: fixture.evidenceBySignalId.signal_verdict,
+    actions: []
+  };
+
+  const html = renderToStaticMarkup(
+    React.createElement(SavedSignalsBatchExport, {
+      signals: [signal],
+      analyses: [fixture.analysis],
+      activeFolderId: fixture.signal.sessionId,
+      exportFolders: [],
+      signalPreviewById: { [fixture.signal.id]: signal.sourcePreview.displayText },
+      signalUrlById: { [fixture.signal.id]: signal.sourcePreview.displayUrl },
+      selectedIds: [fixture.signal.id],
+      briefMode: "original",
+      onBriefModeChange: () => undefined,
+      onToggleSignal: () => undefined,
+      evidenceBySignalId: fixture.evidenceBySignalId
+    })
+  );
+
+  assert.match(html, /data-product-agent-packet-card="ready"/);
+  assert.match(html, /data-product-agent-packet-block="true"/);
+  assert.match(html, /data-product-agent-packet-field="signals"[^>]*>signals: 1/);
+  assert.match(html, /data-product-agent-packet-field="buckets"[^>]*>buckets: 1/);
+  assert.match(html, /agent_packet.ready/);
 });
 
 test("SavedSignalsBatchExport collapses unanalyzed placeholders into one summary row", () => {

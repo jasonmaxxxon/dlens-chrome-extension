@@ -6,6 +6,7 @@ import {
   type ProductSignalEvidenceEntry
 } from "../compare/product-signal-analysis.ts";
 import type { SignalReading } from "../compare/signal-reading-storage.ts";
+import type { TargetDescriptor } from "../contracts/target-descriptor.ts";
 import { normalizeAiOutputProvenance, aiOutputProvenanceFromModel, type AiOutputProvenance } from "../state/ai-provenance.ts";
 import { projectCapturedPost, projectCapturedPostFromSources, type CapturedPostProjection } from "../state/captured-post.ts";
 import { deriveDerivedRecordStaleness } from "../state/derived-record.ts";
@@ -54,6 +55,7 @@ export interface ProductSignalViewModel {
   source: Signal["source"];
   title: string;
   sourcePreview: EvidencePreview;
+  sourceDescriptor?: TargetDescriptor;
   readiness: SignalReadiness;
   analysisState: AnalysisState;
   provenance: Provenance;
@@ -352,6 +354,7 @@ function buildSignalViewModels({
       source: signal.source,
       title,
       sourcePreview,
+      ...(item?.descriptor ? { sourceDescriptor: item.descriptor } : {}),
       readiness,
       analysisState: deriveAnalysisState(analysis, productContext),
       provenance: deriveProvenance(analysis),
