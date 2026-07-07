@@ -179,7 +179,7 @@ test("CasebookView shows topic cards with unassigned entry card", () => {
   assert.match(html, /機票促銷/);
   // Unassigned entry card
   assert.match(html, /data-topic-filter="unassigned"/);
-  assert.match(html, /未分配貼文/);
+  assert.match(html, /未分流/);
   // Signal previews are NOT shown at Level 1 (they appear after drilling into unassigned)
   assert.doesNotMatch(html, /AI 建議主題/);
 });
@@ -234,6 +234,38 @@ test("CasebookView lets real running status override optimistic queued rows", ()
 
   assert.match(html, /還沒有主題的貼文/);
   assert.match(html, /捕捉中/);
+});
+
+test("CasebookView renders untriaged lane row move and delete actions", () => {
+  const topics = buildTopics().map((topic) => (
+    topic.id === "topic-1" ? { ...topic, signalIds: ["signal-1"] } : topic
+  ));
+  const html = renderToStaticMarkup(
+    React.createElement(CasebookView, {
+      sessionId: "session-1",
+      initialTopics: topics,
+      signals: buildSignals(),
+      initialUnassignedOpen: true,
+      signalPreviewById: {
+        "signal-2": "還沒有主題的貼文"
+      },
+      pendingSignalCount: 1,
+      onNavigateToTopic: () => undefined,
+      onCreateTopic: () => undefined,
+      onSignalTriaged: () => undefined,
+      onSignalDeleted: () => undefined,
+      onCreateTopicFromSignals: () => undefined
+    })
+  );
+
+  assert.match(html, /data-casebook-untriaged-lane="true"/);
+  assert.match(html, /未分流/);
+  assert.match(html, /data-untriaged-move-signal-id="signal-2"/);
+  assert.match(html, /data-untriaged-delete-signal-id="signal-2"/);
+  assert.match(html, /移到議題/);
+  assert.match(html, /刪除/);
+  assert.match(html, /data-untriaged-bulk-create="true"/);
+  assert.match(html, /data-untriaged-bulk-move="true"/);
 });
 
 test("casebookViewTestables filters topics by status tab", () => {

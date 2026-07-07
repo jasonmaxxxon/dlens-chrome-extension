@@ -1,8 +1,12 @@
+import { useEffect, useState, type CSSProperties } from "react";
+
+import type { TargetDescriptor } from "../contracts/target-descriptor";
+import type { Signal, Topic } from "../state/types";
 import { PrimaryButton, SecondaryButton, TOKENS, surfaceCardStyle } from "./components";
 import { CollectorGist, CollectorMetricStrip, COLLECTOR_MOTION_CSS } from "./CollectorMetricStrip";
 import { flashPreviewAvatar } from "./inpage-helpers";
 import { modeThemes, tokens } from "./tokens";
-import type { InPageCollectorAppModel } from "./useInPageCollectorAppState";
+import type { InPageCollectorAppModel, PreviewSaveResult } from "./useInPageCollectorAppState";
 
 const ARCHIVE_MODE_THEME = modeThemes.archive;
 const MODE_ACCENT = `var(--dlens-mode-accent, ${ARCHIVE_MODE_THEME.accent})`;
@@ -10,6 +14,294 @@ const MODE_ACCENT_MID = `var(--dlens-mode-accent-mid, ${ARCHIVE_MODE_THEME.accen
 const MODE_ACCENT_SOFT = `var(--dlens-mode-accent-soft, ${ARCHIVE_MODE_THEME.accentSoft})`;
 const MODE_ACCENT_GLOW = `var(--dlens-mode-accent-glow, ${ARCHIVE_MODE_THEME.accentGlow})`;
 const MODE_HOVER_BORDER_SOFT = `var(--dlens-mode-hover-border-soft, ${ARCHIVE_MODE_THEME.hoverBorderSoft})`;
+
+type TopicDestination = Pick<Topic, "id" | "name" | "signalIds">;
+type SignalDestination = Pick<Signal, "id" | "inboxStatus" | "topicId">;
+type InlineSuccessState = {
+  descriptor: TargetDescriptor;
+  targetName: string;
+  detail: string;
+  style: CSSProperties;
+};
+type FlashPreviewCardProps = {
+  descriptor: TargetDescriptor;
+  hoverSaved: boolean;
+  mode: string;
+  topics: TopicDestination[];
+  signals: SignalDestination[];
+  selectedTopicId?: string | null;
+  collectionTopicId?: string | null;
+  success?: Pick<InlineSuccessState, "targetName" | "detail"> | null;
+  onSave: () => void;
+  onOpen: () => void;
+  onSelectTopicTarget: (topicId: string | null) => void;
+  onCreateTopic: () => void;
+};
+
+function topicName(topic: Pick<Topic, "name">): string {
+  return topic.name.trim() || "未命名議題";
+}
+
+function activeTopicId(selectedTopicId?: string | null, collectionTopicId?: string | null): string | null {
+  return selectedTopicId || collectionTopicId || null;
+}
+
+function countTopicSignals(topic: TopicDestination, signals: SignalDestination[]): number {
+  const owned = new Set(topic.signalIds);
+  for (const signal of signals) {
+    if (signal.topicId === topic.id) {
+      owned.add(signal.id);
+    }
+  }
+  return owned.size;
+}
+
+function untriagedSignalCount(signals: SignalDestination[]): number {
+  return signals.filter((signal) => signal.inboxStatus === "unprocessed").length;
+}
+
+function destinationLabel(topics: TopicDestination[], topicId: string | null): string {
+  if (!topicId) {
+    return "未分流";
+  }
+  const topic = topics.find((entry) => entry.id === topicId);
+  return topic ? topicName(topic) : "未命名議題";
+}
+
+function isPreviewSaveSuccess(result: PreviewSaveResult | void): result is Extract<PreviewSaveResult, { ok: true }> {
+  return Boolean(result && result.ok);
+}
+
+function fallbackSuccessStyle(popupOpen: boolean): CSSProperties {
+  return {
+    position: "fixed",
+    right: 24,
+    top: popupOpen ? 84 : 80,
+    width: 320,
+    maxWidth: "calc(100vw - 48px)"
+  };
+}
+
+function topicChipStyle(selected: boolean, dashed = false): CSSProperties {
+  return {
+    border: `1px ${dashed ? "dashed" : "solid"} ${selected ? MODE_ACCENT : tokens.color.line}`,
+    borderRadius: tokens.radius.pill,
+    background: selected ? MODE_ACCENT : tokens.color.elevated,
+    color: selected ? tokens.color.inverse : tokens.color.ink,
+    padding: "5px 9px",
+    fontSize: 11,
+    fontWeight: 700,
+    cursor: "pointer",
+    minHeight: 28,
+    display: "inline-flex",
+    alignItems: "center",
+    gap: 5,
+    maxWidth: "100%"
+  };
+}
+
+function TopicDestinationPicker({
+  topics,
+  signals,
+  selectedTopicId,
+  collectionTopicId,
+  onSelectTopicTarget,
+  onCreateTopic
+}: {
+  topics: TopicDestination[];
+  signals: SignalDestination[];
+  selectedTopicId?: string | null;
+  collectionTopicId?: string | null;
+  onSelectTopicTarget: (topicId: string | null) => void;
+  onCreateTopic: () => void;
+}) {
+  const activeId = activeTopicId(selectedTopicId, collectionTopicId);
+  const untriagedSelected = !activeId;
+  return (
+    <div data-collector-topic-picker="true" style={{ display: "grid", gap: 6, minWidth: 0 }}>
+      <div style={{ fontSize: 10, fontWeight: 800, color: tokens.color.softInk, letterSpacing: "0.04em", textTransform: "uppercase" }}>
+        存入議題
+      </div>
+      <div style={{ display: "flex", gap: 6, flexWrap: "wrap", minWidth: 0 }}>
+        <button
+          type="button"
+          data-collector-topic-chip="untriaged"
+          data-collector-topic-chip-selected={untriagedSelected ? "untriaged" : undefined}
+          onClick={() => onSelectTopicTarget(null)}
+          style={topicChipStyle(untriagedSelected)}
+        >
+          <span>未分流</span>
+          <span style={{ color: untriagedSelected ? tokens.color.inversePanel : tokens.color.softInk, fontFamily: tokens.font.mono }}>
+            {untriagedSignalCount(signals)}
+          </span>
+        </button>
+        {topics.map((topic) => {
+          const selected = activeId === topic.id;
+          return (
+            <button
+              key={topic.id}
+              type="button"
+              data-collector-topic-chip={topic.id}
+              data-collector-topic-chip-selected={selected ? topic.id : undefined}
+              onClick={() => onSelectTopicTarget(topic.id)}
+              style={topicChipStyle(selected)}
+            >
+              <span style={{ minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{topicName(topic)}</span>
+              <span style={{ color: selected ? tokens.color.inversePanel : tokens.color.softInk, fontFamily: tokens.font.mono }}>
+                {countTopicSignals(topic, signals)}
+              </span>
+            </button>
+          );
+        })}
+        <button
+          type="button"
+          data-collector-new-topic-chip="true"
+          onClick={onCreateTopic}
+          style={{ ...topicChipStyle(false, true), color: tokens.color.softInk }}
+        >
+          ＋新議題
+        </button>
+      </div>
+    </div>
+  );
+}
+
+export function FlashPreviewCard({
+  descriptor,
+  hoverSaved,
+  mode,
+  topics,
+  signals,
+  selectedTopicId,
+  collectionTopicId,
+  success = null,
+  onSave,
+  onOpen,
+  onSelectTopicTarget,
+  onCreateTopic
+}: FlashPreviewCardProps) {
+  const isTopicMode = mode === "topic";
+  const targetName = destinationLabel(topics, activeTopicId(selectedTopicId, collectionTopicId));
+  if (success) {
+    return (
+      <div
+        data-collector-success-flip="true"
+        style={surfaceCardStyle({
+          padding: tokens.spacing.md,
+          borderRadius: tokens.radius.card,
+          background: `linear-gradient(180deg, ${tokens.color.elevated}, ${tokens.color.surface})`,
+          border: `1px solid ${tokens.color.successBorder}`,
+          boxShadow: tokens.shadow.popup,
+          display: "grid",
+          gap: tokens.spacing.sm,
+          minWidth: 0
+        })}
+      >
+        <div style={{ display: "flex", alignItems: "center", gap: tokens.spacing.sm, minWidth: 0 }}>
+          <span
+            data-collector-success-dot="true"
+            aria-hidden="true"
+            style={{
+              width: 30,
+              height: 30,
+              borderRadius: tokens.radius.round,
+              background: tokens.color.success,
+              color: tokens.color.inverse,
+              display: "grid",
+              placeItems: "center",
+              fontSize: 15,
+              fontWeight: 900,
+              flexShrink: 0,
+              boxShadow: tokens.shadow.glass
+            }}
+          >
+            ✓
+          </span>
+          <div style={{ display: "grid", gap: 2, minWidth: 0 }}>
+            <div style={{ fontSize: 13, lineHeight: 1.3, fontWeight: 800, color: tokens.color.success }}>
+              ✓ 已存入 · {success.targetName}
+            </div>
+            <div style={{ fontSize: 11, color: tokens.color.softInk, lineHeight: 1.5 }}>
+              {success.detail}
+            </div>
+          </div>
+        </div>
+        <CollectorMetricStrip descriptor={descriptor} marker="success-inline" />
+      </div>
+    );
+  }
+
+  return (
+    <div
+      style={surfaceCardStyle({
+        padding: tokens.spacing.md,
+        borderRadius: tokens.radius.card,
+        background: `linear-gradient(180deg, ${tokens.color.elevated}, ${tokens.color.surface})`,
+        border: `1px solid ${tokens.color.cardEdge}`,
+        boxShadow: tokens.shadow.popup,
+        display: "grid",
+        gap: tokens.spacing.sm,
+        minWidth: 0
+      })}
+    >
+      <div style={{ display: "flex", alignItems: "flex-start", gap: tokens.spacing.sm, minWidth: 0 }}>
+        <div
+          style={{
+            width: 32,
+            height: 32,
+            borderRadius: tokens.radius.lg,
+            background: `linear-gradient(135deg, ${MODE_ACCENT}, ${MODE_ACCENT_MID})`,
+            color: tokens.color.inverse,
+            display: "grid",
+            placeItems: "center",
+            fontWeight: 700,
+            fontSize: 13,
+            flexShrink: 0,
+            boxShadow: tokens.shadow.previewAvatar
+          }}
+        >
+          {flashPreviewAvatar(descriptor.author_hint)}
+        </div>
+        <div style={{ display: "grid", gap: tokens.spacing.xs, minWidth: 0 }}>
+          <div
+            style={{
+              color: tokens.color.ink,
+              fontSize: 12,
+              fontWeight: 700,
+              lineHeight: 1.3,
+              minWidth: 0
+            }}
+          >
+            {descriptor.author_hint || "Unknown author"}
+          </div>
+          <CollectorGist lines={2}>{descriptor.text_snippet || "No snippet"}</CollectorGist>
+        </div>
+      </div>
+
+      <CollectorMetricStrip descriptor={descriptor} marker="hover-preview" />
+
+      {isTopicMode ? (
+        <TopicDestinationPicker
+          topics={topics}
+          signals={signals}
+          selectedTopicId={selectedTopicId}
+          collectionTopicId={collectionTopicId}
+          onSelectTopicTarget={onSelectTopicTarget}
+          onCreateTopic={onCreateTopic}
+        />
+      ) : null}
+
+      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8 }}>
+        <PrimaryButton onClick={onSave}>
+          {isTopicMode ? `${hoverSaved ? "已存入" : "存入"} · ${targetName}` : hoverSaved ? "Saved" : "Save"}
+        </PrimaryButton>
+        <SecondaryButton onClick={onOpen}>
+          Open
+        </SecondaryButton>
+      </div>
+    </div>
+  );
+}
 
 export function InPageCollectorOverlays({ app }: { app: InPageCollectorAppModel }) {
   const {
@@ -24,6 +316,39 @@ export function InPageCollectorOverlays({ app }: { app: InPageCollectorAppModel 
     preview,
     popupOpen
   } = app;
+  const [inlineSuccess, setInlineSuccess] = useState<InlineSuccessState | null>(null);
+
+  useEffect(() => {
+    if (!inlineSuccess) {
+      return;
+    }
+    const timer = window.setTimeout(() => setInlineSuccess(null), 1600);
+    return () => window.clearTimeout(timer);
+  }, [inlineSuccess]);
+
+  const activeMode = app.activeFolderMode ?? app.activeFolder?.mode ?? "archive";
+  const cardDescriptor = inlineSuccess?.descriptor ?? flashPreview ?? null;
+  const cardStyle = inlineSuccess?.style ?? flashStyle ?? null;
+  const shouldRenderPreviewCard = Boolean((snapshot?.tab.selectionMode || inlineSuccess) && cardDescriptor && cardStyle);
+
+  async function handleSavePreview() {
+    const descriptorForSuccess = flashPreview ?? preview ?? null;
+    const styleForSuccess = flashStyle ?? fallbackSuccessStyle(popupOpen);
+    const result = await app.onSavePreview();
+    if (!isPreviewSaveSuccess(result)) {
+      return;
+    }
+    const descriptor = result.descriptor ?? descriptorForSuccess;
+    if (!descriptor) {
+      return;
+    }
+    setInlineSuccess({
+      descriptor,
+      targetName: result.targetName,
+      detail: result.detail,
+      style: styleForSuccess
+    });
+  }
 
   return (
     <>
@@ -141,72 +466,27 @@ export function InPageCollectorOverlays({ app }: { app: InPageCollectorAppModel 
         </div>
       ) : null}
 
-      {snapshot?.tab.selectionMode && flashPreview && flashStyle ? (
-        <div data-dlens-control="true" style={{ ...flashStyle, pointerEvents: "auto" }}>
-          <div
-            style={surfaceCardStyle({
-              padding: tokens.spacing.md,
-              borderRadius: tokens.radius.card,
-              background: `linear-gradient(180deg, ${tokens.color.elevated}, ${tokens.color.surface})`,
-              border: `1px solid ${tokens.color.cardEdge}`,
-              boxShadow: tokens.shadow.popup,
-              display: "grid",
-              gap: tokens.spacing.sm,
-              minWidth: 0
-            })}
-          >
-            <div style={{ display: "flex", alignItems: "flex-start", gap: tokens.spacing.sm, minWidth: 0 }}>
-              <div
-                style={{
-                  width: 32,
-                  height: 32,
-                  borderRadius: tokens.radius.lg,
-                  background: `linear-gradient(135deg, ${MODE_ACCENT}, ${MODE_ACCENT_MID})`,
-                  color: tokens.color.inverse,
-                  display: "grid",
-                  placeItems: "center",
-                  fontWeight: 700,
-                  fontSize: 13,
-                  flexShrink: 0,
-                  boxShadow: tokens.shadow.previewAvatar
-                }}
-              >
-                {flashPreviewAvatar(flashPreview.author_hint)}
-              </div>
-              <div style={{ display: "grid", gap: tokens.spacing.xs, minWidth: 0 }}>
-                <div
-                  style={{
-                    color: tokens.color.ink,
-                    fontSize: 12,
-                    fontWeight: 700,
-                    lineHeight: 1.3,
-                    minWidth: 0
-                  }}
-                >
-                  {flashPreview.author_hint || "Unknown author"}
-                </div>
-                <CollectorGist lines={2}>{flashPreview.text_snippet || "No snippet"}</CollectorGist>
-              </div>
-            </div>
-
-            <CollectorMetricStrip descriptor={flashPreview} marker="hover-preview" />
-
-            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8 }}>
-              <PrimaryButton onClick={() => void app.onSavePreview()}>
-                {hoverSaved ? "Saved" : "Save"}
-              </PrimaryButton>
-              <SecondaryButton
-                onClick={() => {
-                  if (!flashPreview.post_url) {
-                    return;
-                  }
-                  window.open(flashPreview.post_url, "_blank", "noopener,noreferrer");
-                }}
-              >
-                Open
-              </SecondaryButton>
-            </div>
-          </div>
+      {shouldRenderPreviewCard && cardDescriptor && cardStyle ? (
+        <div data-dlens-control="true" style={{ ...cardStyle, pointerEvents: "auto" }}>
+          <FlashPreviewCard
+            descriptor={cardDescriptor}
+            hoverSaved={hoverSaved}
+            mode={activeMode}
+            topics={app.topics}
+            signals={app.signals}
+            selectedTopicId={app.selectedTopicId}
+            collectionTopicId={app.collectTargetTopicId}
+            success={inlineSuccess ? { targetName: inlineSuccess.targetName, detail: inlineSuccess.detail } : null}
+            onSave={() => void handleSavePreview()}
+            onOpen={() => {
+              if (!cardDescriptor.post_url) {
+                return;
+              }
+              window.open(cardDescriptor.post_url, "_blank", "noopener,noreferrer");
+            }}
+            onSelectTopicTarget={app.onSelectTopicTarget}
+            onCreateTopic={() => void app.onCreateTopic()}
+          />
         </div>
       ) : null}
 
@@ -292,3 +572,7 @@ export function InPageCollectorOverlays({ app }: { app: InPageCollectorAppModel 
     </>
   );
 }
+
+export const inPageCollectorOverlaysTestables = {
+  renderFlashPreviewCard: (props: FlashPreviewCardProps) => <FlashPreviewCard {...props} />
+};

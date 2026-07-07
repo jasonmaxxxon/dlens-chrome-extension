@@ -31,7 +31,9 @@ export function InPageCollectorFolderControls({ app }: { app: InPageCollectorApp
   }
 
   if (activeMode === "topic") {
-    const selectedTopicId = app.selectedTopicId || app.snapshot?.tab.collectionTopicId || "";
+    const selectedTopicId = Object.prototype.hasOwnProperty.call(app, "collectTargetTopicId")
+      ? app.collectTargetTopicId || ""
+      : app.selectedTopicId || app.snapshot?.tab.collectionTopicId || "";
     return (
       <div
         data-workspace-folder-strip="compact"

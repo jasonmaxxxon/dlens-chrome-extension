@@ -838,6 +838,33 @@ test("session/save-current-preview writes to the explicit target session instead
   assert.equal(harness.state[backgroundTestables.ACTIVE_SESSION_ID_STORAGE_KEY], product.id);
 });
 
+test("session/save-current-preview can save topic posts into the untriaged lane", async () => {
+  const topic = makeSession("topic-session", "topic");
+  const tabKey = backgroundTestables.tabStorageKey(TAB_ID);
+  const harness = await createHarness({
+    [backgroundTestables.GLOBAL_STORAGE_KEY]: makeGlobal([topic], topic.id),
+    [backgroundTestables.ACTIVE_SESSION_ID_STORAGE_KEY]: topic.id,
+    [tabKey]: createEmptyTabState(),
+    [TOPICS_STORAGE_KEY]: []
+  });
+
+  const response = await harness.dispatch({
+    type: "session/save-current-preview",
+    target: {
+      sessionId: topic.id,
+      topicId: null
+    },
+    descriptor: makeDescriptor("untriaged-topic-save")
+  } as unknown as ExtensionMessage);
+
+  const signals = harness.state[SIGNALS_STORAGE_KEY] as Signal[];
+  assert.equal(response.ok, true);
+  assert.equal(signals.length, 1);
+  assert.equal(signals[0]?.sessionId, topic.id);
+  assert.equal(signals[0]?.inboxStatus, "unprocessed");
+  assert.equal(signals[0]?.topicId, undefined);
+});
+
 test("session/save-current-preview emits signal.saved background boundary events with requestId", async () => {
   enablePipelineTraceForTest();
   try {

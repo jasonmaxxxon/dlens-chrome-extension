@@ -1690,10 +1690,6 @@ async function saveCurrentPreviewToSession(
       throw new Error("No current post preview to save.");
     }
 
-    if (session.mode === "topic" && !target.topicId) {
-      throw new Error("Choose a topic before saving.");
-    }
-
     const collectionTopicId = session.mode === "topic" ? target.topicId ?? undefined : undefined;
     const saved = saveDescriptorToSession(current.global, target.sessionId, current.tab.currentPreview);
     if (session.mode === "pr-evidence") {

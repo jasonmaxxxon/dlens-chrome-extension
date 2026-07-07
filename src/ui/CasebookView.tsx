@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 
 import { getItemReadinessStatus, type ItemReadinessStatus } from "../state/processing-state.ts";
 import type { SavedAnalysisSnapshot, SessionItem, Signal, SignalTagsRecord, Topic, TopicStatus, TriageAction } from "../state/types.ts";
-import { Kicker, SCAN_ROW_HOVER_CSS, SecondaryButton, Stamp, WorkspaceSurface, lineClamp, scanRowStyle, viewRootStyle } from "./components.tsx";
+import { Kicker, PrimaryButton, SCAN_ROW_HOVER_CSS, SecondaryButton, Stamp, WorkspaceSurface, lineClamp, scanRowStyle, viewRootStyle } from "./components.tsx";
 import { tokens } from "./tokens.ts";
 
 type CasebookFilter = "all" | TopicStatus;
@@ -23,6 +23,8 @@ interface CasebookViewProps {
   signalTagsByItemId?: Record<string, SignalTagsRecord>;
   pendingSignalCount?: number;
   onSignalTriaged?: (signalId: string, action: TriageAction) => void;
+  onSignalDeleted?: (signalId: string) => void;
+  onCreateTopicFromSignals?: (signalIds: string[]) => void;
   onQueueItemById?: (itemId: string) => void;
   optimisticQueuedItemIds?: ReadonlyArray<string>;
   onOpenAnalysis?: (resultId: string) => void;
@@ -44,7 +46,7 @@ function signalStatusLabel(signal: Signal): string {
     case "assigned": return "已分配";
     case "archived": return "已歸檔";
     case "rejected": return "已略過";
-    default: return "未分配";
+    default: return "未分流";
   }
 }
 
@@ -285,8 +287,8 @@ function UnassignedCard({
       }}
     >
       <div style={{ display: "grid", gap: 3 }}>
-        <div style={{ fontSize: 13, fontWeight: 700, color: tokens.color.ink }}>未分配貼文</div>
-        <div style={{ fontSize: 11, color: tokens.color.softInk }}>等待分配到主題</div>
+        <div style={{ fontSize: 13, fontWeight: 700, color: tokens.color.ink }}>未分流</div>
+        <div style={{ fontSize: 11, color: tokens.color.softInk }}>等待移到議題</div>
       </div>
       <Stamp tone="warning">{count} 則</Stamp>
     </button>
@@ -304,8 +306,7 @@ function TopicSignalRow({
   resultId,
   optimisticQueuedSet,
   onAssign,
-  onCreateTopic,
-  onArchive,
+  onDelete,
   onQueueItem,
   onOpenAnalysis,
   onAddToCompare
@@ -318,8 +319,7 @@ function TopicSignalRow({
   resultId?: string;
   optimisticQueuedSet?: Set<string>;
   onAssign?: (topicId: string) => void;
-  onCreateTopic?: (name: string) => void;
-  onArchive?: () => void;
+  onDelete?: () => void;
   onQueueItem?: () => void;
   onOpenAnalysis?: () => void;
   onAddToCompare?: () => void;
@@ -365,7 +365,7 @@ function TopicSignalRow({
 
         <div style={{ display: "flex", gap: 6, flexWrap: "wrap", alignItems: "center" }}>
           <Stamp tone={signalStatusTone(signal)}>{signalStatusLabel(signal)}</Stamp>
-          <Stamp tone={topic ? "accent" : "neutral"}>{topic?.name || "未分配主題"}</Stamp>
+          <Stamp tone={topic ? "accent" : "neutral"}>{topic?.name || "未分流"}</Stamp>
           {item ? (
             <Stamp tone={analysisStateTone(analysisStatus)}>{analysisStateLabel(analysisStatus)}</Stamp>
           ) : null}
@@ -374,9 +374,10 @@ function TopicSignalRow({
         {showAssignmentControls ? (
           <div style={{ display: "flex", gap: 8, flexWrap: "wrap", alignItems: "center" }}>
             <select
-              aria-label="選擇主題"
+              aria-label="選擇移入議題"
               value={selectedTopicId}
               onChange={(event) => setSelectedTopicId(event.target.value)}
+              disabled={!topics.length}
               style={{
                 minWidth: 154,
                 maxWidth: "100%",
@@ -392,14 +393,26 @@ function TopicSignalRow({
                 <option key={entry.id} value={entry.id}>{entry.name}</option>
               ))}
             </select>
-            <SecondaryButton onClick={() => selectedTopicId && onAssign?.(selectedTopicId)} disabled={!canAssign} style={{ padding: "6px 9px", fontSize: 10.5 }}>
-              併入主題
+            <SecondaryButton
+              dataAttrs={{ "data-untriaged-move-signal-id": signal.id }}
+              onClick={() => selectedTopicId && onAssign?.(selectedTopicId)}
+              disabled={!canAssign}
+              style={{ padding: "6px 9px", fontSize: 10.5 }}
+            >
+              移到議題
             </SecondaryButton>
-            <SecondaryButton onClick={() => onCreateTopic?.("新主題")} disabled={!onCreateTopic} style={{ padding: "6px 9px", fontSize: 10.5 }}>
-              建立主題
-            </SecondaryButton>
-            <SecondaryButton onClick={() => onArchive?.()} disabled={!onArchive} style={{ padding: "6px 9px", fontSize: 10.5 }}>
-              略過
+            <SecondaryButton
+              dataAttrs={{ "data-untriaged-delete-signal-id": signal.id }}
+              onClick={() => onDelete?.()}
+              disabled={!onDelete}
+              style={{
+                padding: "6px 9px",
+                fontSize: 10.5,
+                color: tokens.color.queued,
+                borderColor: tokens.color.queuedBorder
+              }}
+            >
+              刪除
             </SecondaryButton>
           </div>
         ) : item && !isProcessing ? (
@@ -449,6 +462,8 @@ export function CasebookView({
   signalTagsByItemId = {},
   pendingSignalCount = 0,
   onSignalTriaged,
+  onSignalDeleted,
+  onCreateTopicFromSignals,
   onQueueItemById,
   optimisticQueuedItemIds = [],
   onOpenAnalysis,
@@ -457,8 +472,16 @@ export function CasebookView({
   const [topics, setTopics] = useState<Topic[]>(initialTopics);
   const [loadedSignals, setLoadedSignals] = useState<Signal[]>(signals ?? []);
   const [unassignedOpen, setUnassignedOpen] = useState(initialUnassignedOpen);
+  const [bulkTopicId, setBulkTopicId] = useState(initialTopics[0]?.id || "");
 
   useEffect(() => { setTopics(initialTopics); }, [initialTopics]);
+
+  useEffect(() => {
+    if (bulkTopicId && topics.some((topic) => topic.id === bulkTopicId)) {
+      return;
+    }
+    setBulkTopicId(topics[0]?.id || "");
+  }, [bulkTopicId, topics]);
 
   useEffect(() => {
     if (signals !== undefined) setLoadedSignals(signals);
@@ -538,6 +561,10 @@ export function CasebookView({
     () => loadedSignals.filter((s) => s.inboxStatus === "unprocessed"),
     [loadedSignals]
   );
+  const unassignedSignalIds = useMemo(
+    () => unassignedSignals.map((signal) => signal.id),
+    [unassignedSignals]
+  );
 
   const hasSignals = signals !== undefined;
 
@@ -563,40 +590,104 @@ export function CasebookView({
             onClick={() => setUnassignedOpen(false)}
             style={{ border: "none", background: "none", padding: 0, cursor: "pointer", fontSize: 11, fontWeight: 700, color: tokens.color.subInk }}
           >
-            ← 主題
+            ← 議題
           </button>
-          <div style={{ fontSize: 13, fontWeight: 700, color: tokens.color.ink }}>未分配貼文</div>
+          <div style={{ fontSize: 13, fontWeight: 700, color: tokens.color.ink }}>未分流</div>
           <Stamp tone="warning">{unassignedSignals.length} 則</Stamp>
         </section>
 
-        <WorkspaceSurface tone="utility" style={{ display: "grid", gap: 0, padding: "4px 12px" }}>
+        <WorkspaceSurface
+          tone="utility"
+          dataAttrs={{ "data-casebook-untriaged-lane": "true" }}
+          style={{ display: "grid", gap: 0, padding: "4px 12px" }}
+        >
           <style>{SCAN_ROW_HOVER_CSS}</style>
           {unassignedSignals.length ? (
-            unassignedSignals.map((signal) => {
-              const linkedItem = signal.itemId ? itemByItemId.get(signal.itemId) : undefined;
-              const linkedResultId = linkedItem ? resultIdByItemId.get(linkedItem.id) : undefined;
-              return (
-                <TopicSignalRow
-                  key={signal.id}
-                  signal={signal}
-                  preview={previewText(signal.id, signalPreviewById)}
-                  topic={topicBySignalId.get(signal.id)}
-                  topics={topics}
-                  item={linkedItem}
-                  resultId={linkedResultId}
-                  optimisticQueuedSet={optimisticQueuedSet}
-                  onAssign={(topicId) => onSignalTriaged?.(signal.id, { kind: "assign", topicId })}
-                  onCreateTopic={(name) => onSignalTriaged?.(signal.id, { kind: "create-topic", name })}
-                  onArchive={() => onSignalTriaged?.(signal.id, { kind: "archive" })}
-                  onQueueItem={linkedItem && onQueueItemById ? () => onQueueItemById(linkedItem.id) : undefined}
-                  onOpenAnalysis={linkedResultId && onOpenAnalysis ? () => onOpenAnalysis(linkedResultId) : undefined}
-                  onAddToCompare={linkedItem && onAddToCompare ? () => onAddToCompare(linkedItem.id) : undefined}
-                />
-              );
-            })
+            <>
+              {unassignedSignals.map((signal) => {
+                const linkedItem = signal.itemId ? itemByItemId.get(signal.itemId) : undefined;
+                const linkedResultId = linkedItem ? resultIdByItemId.get(linkedItem.id) : undefined;
+                return (
+                  <TopicSignalRow
+                    key={signal.id}
+                    signal={signal}
+                    preview={previewText(signal.id, signalPreviewById)}
+                    topic={topicBySignalId.get(signal.id)}
+                    topics={topics}
+                    item={linkedItem}
+                    resultId={linkedResultId}
+                    optimisticQueuedSet={optimisticQueuedSet}
+                    onAssign={(topicId) => onSignalTriaged?.(signal.id, { kind: "assign", topicId })}
+                    onDelete={onSignalDeleted ? () => onSignalDeleted(signal.id) : undefined}
+                    onQueueItem={linkedItem && onQueueItemById ? () => onQueueItemById(linkedItem.id) : undefined}
+                    onOpenAnalysis={linkedResultId && onOpenAnalysis ? () => onOpenAnalysis(linkedResultId) : undefined}
+                    onAddToCompare={linkedItem && onAddToCompare ? () => onAddToCompare(linkedItem.id) : undefined}
+                  />
+                );
+              })}
+              <div
+                style={{
+                  display: "flex",
+                  gap: 8,
+                  flexWrap: "wrap",
+                  alignItems: "center",
+                  justifyContent: "space-between",
+                  padding: "11px 4px 8px",
+                  borderTop: `1px solid ${tokens.color.line}`
+                }}
+              >
+                <div style={{ display: "flex", gap: 8, flexWrap: "wrap", alignItems: "center" }}>
+                  <PrimaryButton
+                    dataAttrs={{ "data-untriaged-bulk-create": "true" }}
+                    onClick={() => onCreateTopicFromSignals?.(unassignedSignalIds)}
+                    disabled={!onCreateTopicFromSignals || unassignedSignalIds.length === 0}
+                    style={{ padding: "7px 11px", fontSize: 11 }}
+                  >
+                    全選 → 建立議題
+                  </PrimaryButton>
+                  <select
+                    data-untriaged-bulk-topic-select="true"
+                    aria-label="全選移到現有議題"
+                    value={bulkTopicId}
+                    onChange={(event) => setBulkTopicId(event.target.value)}
+                    disabled={!topics.length}
+                    style={{
+                      minWidth: 150,
+                      maxWidth: "100%",
+                      borderRadius: tokens.radius.pill,
+                      border: `1px solid ${tokens.color.line}`,
+                      background: tokens.color.surface,
+                      color: tokens.color.ink,
+                      padding: "7px 9px",
+                      fontSize: 11
+                    }}
+                  >
+                    {topics.map((topic) => (
+                      <option key={topic.id} value={topic.id}>{topic.name}</option>
+                    ))}
+                  </select>
+                  <SecondaryButton
+                    dataAttrs={{ "data-untriaged-bulk-move": "true" }}
+                    onClick={() => {
+                      if (!bulkTopicId) {
+                        return;
+                      }
+                      unassignedSignalIds.forEach((signalId) => onSignalTriaged?.(signalId, { kind: "assign", topicId: bulkTopicId }));
+                    }}
+                    disabled={!onSignalTriaged || !bulkTopicId || unassignedSignalIds.length === 0}
+                    style={{ padding: "7px 11px", fontSize: 11 }}
+                  >
+                    全選 → 移到現有議題
+                  </SecondaryButton>
+                </div>
+                <span style={{ fontSize: 10.5, color: tokens.color.softInk }}>
+                  {unassignedSignals.length} 篇待整理
+                </span>
+              </div>
+            </>
           ) : (
             <div style={{ padding: "18px 4px", fontSize: 12, color: tokens.color.subInk }}>
-              沒有未分配貼文
+              沒有未分流貼文
             </div>
           )}
         </WorkspaceSurface>
@@ -629,7 +720,7 @@ export function CasebookView({
         </div>
         <div style={{ display: "flex", gap: 6, alignItems: "center" }}>
           {hasSignals && pendingSignalCount > 0 ? (
-            <Stamp tone="warning">{pendingSignalCount} 未分配</Stamp>
+            <Stamp tone="warning">{pendingSignalCount} 未分流</Stamp>
           ) : null}
           <Stamp tone="accent">{topics.length} 主題</Stamp>
         </div>

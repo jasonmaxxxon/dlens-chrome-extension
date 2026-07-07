@@ -253,6 +253,7 @@ export function useTopicState({
   const [topics, setTopics] = useState<Topic[]>([]);
   const [signals, setSignals] = useState<Signal[]>([]);
   const [selectedTopicId, setSelectedTopicId] = useState<string | null>(null);
+  const [collectionTargetOverride, setCollectionTargetOverride] = useState<string | null | undefined>(undefined);
   const [resultTopicContext, setResultTopicContext] = useState<{ topicId: string; topicName: string } | null>(null);
   const [topicSignalReadingsBySignalId, setTopicSignalReadingsBySignalId] = useState<Record<string, TopicSignalReading>>({});
   const [signalTagsByItemId, setSignalTagsByItemId] = useState<Record<string, SignalTagsRecord>>({});
@@ -318,8 +319,10 @@ export function useTopicState({
     [displaySignals.length, isHydratingTopics, topicHydrationError, topics.length]
   );
   const collectionTargetId = useMemo(
-    () => resolveTopicCollectionTargetId(topics, selectedTopicId, collectionTopicId),
-    [collectionTopicId, selectedTopicId, topics]
+    () => collectionTargetOverride !== undefined
+      ? collectionTargetOverride
+      : resolveTopicCollectionTargetId(topics, selectedTopicId, collectionTopicId),
+    [collectionTargetOverride, collectionTopicId, selectedTopicId, topics]
   );
 
   useEffect(() => {
@@ -419,6 +422,15 @@ export function useTopicState({
       setSelectedTopicId(null);
     }
   }, [activeTopic, topics]);
+
+  useEffect(() => {
+    if (collectionTargetOverride === undefined) {
+      return;
+    }
+    if ((collectionTargetOverride ?? null) === (collectionTopicId ?? null)) {
+      setCollectionTargetOverride(undefined);
+    }
+  }, [collectionTargetOverride, collectionTopicId]);
 
   useEffect(() => {
     if (!collectionTargetId) {
@@ -599,9 +611,11 @@ export function useTopicState({
     }
   }
 
-  function onSelectTopicTarget(topicId: string) {
-    setSelectedTopicId(topicId);
-    void sendAndSync({ type: "topic/set-collection-target", topicId });
+  function onSelectTopicTarget(topicId: string | null) {
+    const nextTopicId = topicId?.trim() || null;
+    setCollectionTargetOverride(nextTopicId);
+    setSelectedTopicId(nextTopicId);
+    void sendAndSync({ type: "topic/set-collection-target", topicId: nextTopicId });
   }
 
   async function onDeleteTopic(topicId: string) {
@@ -817,6 +831,7 @@ export function useTopicState({
     topics,
     signals: displaySignals,
     selectedTopicId,
+    collectTargetTopicId: collectionTargetId,
     activeTopic,
     activeTopicSignals,
     activeTopicPairs,

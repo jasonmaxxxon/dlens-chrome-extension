@@ -5,7 +5,7 @@ import React from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 
 import type { TargetDescriptor } from "../src/contracts/target-descriptor.ts";
-import { InPageCollectorOverlays } from "../src/ui/InPageCollectorOverlays.tsx";
+import { InPageCollectorOverlays, inPageCollectorOverlaysTestables } from "../src/ui/InPageCollectorOverlays.tsx";
 
 function descriptor(overrides: Partial<TargetDescriptor> = {}): TargetDescriptor {
   return {
@@ -91,4 +91,161 @@ test("InPageCollectorOverlays renders the hover preview with the collector metri
   assert.match(html, /data-collector-metric="reposts"/);
   assert.match(html, /data-collector-metric="forwards"/);
   assert.match(html, /保存成功後應該顯示這篇貼文/);
+});
+
+test("InPageCollectorOverlays renders topic destination chips inside the hover preview", () => {
+  const html = renderToStaticMarkup(
+    React.createElement(InPageCollectorOverlays, {
+      app: {
+        snapshot: {
+          tab: {
+            selectionMode: true,
+            collectModeBannerVisible: false,
+            hoveredTargetStrength: "strong",
+            collectionTopicId: "topic-2"
+          }
+        },
+        tabId: 1,
+        activeFolderMode: "topic",
+        hoverRect: null,
+        hoverSaved: false,
+        flashPreview: descriptor(),
+        flashStyle: { position: "fixed", left: 24, top: 48, width: 320 },
+        displayToast: null,
+        successToastDescriptor: null,
+        preview: null,
+        popupOpen: false,
+        topics: [
+          { id: "topic-1", name: "航班爭議", signalIds: ["signal-1"] },
+          { id: "topic-2", name: "機票促銷", signalIds: ["signal-2", "signal-3"] }
+        ],
+        signals: [
+          { id: "signal-1", inboxStatus: "assigned", topicId: "topic-1" },
+          { id: "signal-2", inboxStatus: "assigned", topicId: "topic-2" },
+          { id: "signal-3", inboxStatus: "unprocessed" }
+        ],
+        selectedTopicId: null,
+        collectTargetTopicId: "topic-2",
+        onTogglePopup: () => undefined,
+        onSavePreview: () => undefined,
+        openPreview: () => undefined,
+        onSelectTopicTarget: () => undefined,
+        onCreateTopic: () => undefined
+      } as never
+    })
+  );
+
+  assert.match(html, /data-collector-topic-picker="true"/);
+  assert.match(html, /data-collector-topic-chip="untriaged"/);
+  assert.match(html, /data-collector-topic-chip="topic-1"/);
+  assert.match(html, /data-collector-topic-chip="topic-2"/);
+  assert.match(html, /data-collector-topic-chip-selected="topic-2"/);
+  assert.match(html, /存入 · 機票促銷/);
+  assert.match(html, /未分流/);
+  assert.match(html, /＋新議題/);
+});
+
+test("InPageCollectorOverlays does not render topic destination chips outside topic mode", () => {
+  const html = renderToStaticMarkup(
+    React.createElement(InPageCollectorOverlays, {
+      app: {
+        snapshot: {
+          tab: {
+            selectionMode: true,
+            collectModeBannerVisible: false,
+            hoveredTargetStrength: "strong"
+          }
+        },
+        tabId: 1,
+        activeFolderMode: "product",
+        hoverRect: null,
+        hoverSaved: false,
+        flashPreview: descriptor(),
+        flashStyle: { position: "fixed", left: 24, top: 48, width: 248 },
+        displayToast: null,
+        successToastDescriptor: null,
+        preview: null,
+        popupOpen: false,
+        topics: [{ id: "topic-1", name: "航班爭議", signalIds: ["signal-1"] }],
+        signals: [],
+        selectedTopicId: "topic-1",
+        collectTargetTopicId: "topic-1",
+        onTogglePopup: () => undefined,
+        onSavePreview: () => undefined,
+        openPreview: () => undefined,
+        onSelectTopicTarget: () => undefined,
+        onCreateTopic: () => undefined
+      } as never
+    })
+  );
+
+  assert.doesNotMatch(html, /data-collector-topic-picker="true"/);
+});
+
+test("InPageCollectorOverlays honors an explicit untriaged destination over a stale snapshot topic", () => {
+  const html = renderToStaticMarkup(
+    React.createElement(InPageCollectorOverlays, {
+      app: {
+        snapshot: {
+          tab: {
+            selectionMode: true,
+            collectModeBannerVisible: false,
+            hoveredTargetStrength: "strong",
+            collectionTopicId: "topic-2"
+          }
+        },
+        tabId: 1,
+        activeFolderMode: "topic",
+        hoverRect: null,
+        hoverSaved: false,
+        flashPreview: descriptor(),
+        flashStyle: { position: "fixed", left: 24, top: 48, width: 320 },
+        displayToast: null,
+        successToastDescriptor: null,
+        preview: null,
+        popupOpen: false,
+        topics: [{ id: "topic-2", name: "機票促銷", signalIds: [] }],
+        signals: [{ id: "signal-3", inboxStatus: "unprocessed" }],
+        selectedTopicId: null,
+        collectTargetTopicId: null,
+        onTogglePopup: () => undefined,
+        onSavePreview: () => undefined,
+        openPreview: () => undefined,
+        onSelectTopicTarget: () => undefined,
+        onCreateTopic: () => undefined
+      } as never
+    })
+  );
+
+  assert.match(html, /data-collector-topic-chip-selected="untriaged"/);
+  assert.match(html, /存入 · 未分流/);
+  assert.doesNotMatch(html, /data-collector-topic-chip-selected="topic-2"/);
+});
+
+test("InPageCollectorOverlays preview card can render the inline saved success state", () => {
+  const html = renderToStaticMarkup(
+    inPageCollectorOverlaysTestables.renderFlashPreviewCard({
+      descriptor: descriptor(),
+      hoverSaved: false,
+      mode: "topic",
+      topics: [{ id: "topic-1", name: "航班爭議", signalIds: ["signal-1"] }],
+      signals: [],
+      selectedTopicId: "topic-1",
+      collectionTopicId: null,
+      success: {
+        targetName: "航班爭議",
+        detail: "已加入議題，下一步可在 Casebook 排程分析。"
+      },
+      onSave: () => undefined,
+      onOpen: () => undefined,
+      onSelectTopicTarget: () => undefined,
+      onCreateTopic: () => undefined
+    })
+  );
+
+  assert.match(html, /data-collector-success-flip="true"/);
+  assert.match(html, /✓ 已存入 · 航班爭議/);
+  assert.match(html, /已加入議題/);
+  assert.match(html, /data-collector-metric-strip="success-inline"/);
+  assert.doesNotMatch(html, /data-collector-topic-picker="true"/);
 });

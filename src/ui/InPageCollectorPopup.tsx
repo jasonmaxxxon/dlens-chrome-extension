@@ -469,6 +469,8 @@ export function InPageCollectorPopup({ app }: { app: InPageCollectorAppModel }) 
                   onNavigateToTopic={(topicId) => void app.onNavigateToTopic(topicId)}
                   onCreateTopic={() => void app.onCreateTopic()}
                   onSignalTriaged={(signalId, action) => void app.onSignalTriaged(signalId, action)}
+                  onSignalDeleted={(signalId) => void app.onSignalDeleted(signalId)}
+                  onCreateTopicFromSignals={(signalIds) => void app.onCreateTopicFromSignals(signalIds)}
                   onQueueItemById={(itemId) => void app.onQueueItemById(itemId)}
                   optimisticQueuedItemIds={app.optimisticQueuedIds}
                   onOpenAnalysis={(resultId) => void app.onOpenSavedAnalysis(resultId)}

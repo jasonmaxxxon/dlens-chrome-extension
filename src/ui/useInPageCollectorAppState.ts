@@ -25,6 +25,7 @@ import {
   type SavedAnalysisSnapshot,
   type SessionRecord,
   type TechniqueReadingSnapshot,
+  type Topic,
 } from "../state/types";
 import { isDescriptorSavedInFolder } from "../state/ui-state";
 import type {
@@ -88,6 +89,18 @@ type UseInPageCollectorAppStateArgs = {
   sendAndSync: SendAndSync;
 };
 
+export type PreviewSaveResult =
+  | {
+      ok: true;
+      targetName: string;
+      detail: string;
+      descriptor?: TargetDescriptor;
+    }
+  | {
+      ok: false;
+      error?: string;
+    };
+
 const DEFAULT_PR_EVIDENCE_UI_STATE: PrEvidenceUiState = {
   activePane: "ledger",
   isSaving: false,
@@ -113,6 +126,22 @@ export function resolveOptimisticSession(
     return null;
   }
   return snapshot.global.sessions.find((session) => session.mode === optimisticMode) ?? null;
+}
+
+function topicDestinationName(topics: Topic[], topicId: string | null | undefined): string {
+  if (!topicId) {
+    return "未分流";
+  }
+  return topics.find((topic) => topic.id === topicId)?.name?.trim() || "未命名議題";
+}
+
+function previewSaveSuccessDetail(mode: FolderMode, topicId: string | null): string {
+  if (mode !== "topic") {
+    return "已保存 Threads 貼文。";
+  }
+  return topicId
+    ? "已加入議題，下一步可在 Casebook 排程分析。"
+    : "已存入未分流，可稍後在 Casebook 移到議題。";
 }
 
 export function buildSessionModeChangeMessage(
@@ -1329,7 +1358,7 @@ export function useInPageCollectorAppState({ snapshot, tabId, sendAndSync }: Use
           activeFolderMode,
           sessionId: activeFolder?.id,
           selectedTopicId: topicState.selectedTopicId,
-          collectionTopicId: snapshot?.tab.collectionTopicId,
+          collectionTopicId: topicState.collectTargetTopicId,
           preview: snapshot.tab.currentPreview
         });
         if (!message) {
@@ -1340,14 +1369,9 @@ export function useInPageCollectorAppState({ snapshot, tabId, sendAndSync }: Use
           });
           return;
         }
-        if (activeFolderMode === "topic" && !message.target.topicId) {
-          setDisplayToast({
-            id: `topic-required-${Date.now()}`,
-            kind: "saved",
-            message: "先選擇主題"
-          });
-          return;
-        }
+        const targetName = activeFolderMode === "topic"
+          ? topicDestinationName(topicState.topics, message.target.topicId)
+          : activeFolder?.name;
         const requestId = createPipelineRequestId("popup-collect-save");
         emitPipelineEvent({
           phase: "preview.confirmed",
@@ -1377,7 +1401,6 @@ export function useInPageCollectorAppState({ snapshot, tabId, sendAndSync }: Use
           });
           if (response.ok && message.descriptor) {
             setSuccessToastDescriptor(message.descriptor);
-            const targetName = activeFolderMode === "topic" ? topicState.activeTopic?.name : activeFolder?.name;
             if (targetName) {
               setDisplayToast({
                 id: `saved-${Date.now()}`,
@@ -1398,7 +1421,7 @@ export function useInPageCollectorAppState({ snapshot, tabId, sendAndSync }: Use
     };
     document.addEventListener("keydown", onKeyDown, true);
     return () => document.removeEventListener("keydown", onKeyDown, true);
-  }, [activeFolder?.id, activeFolderMode, sendAndSync, snapshot?.tab.collectionTopicId, snapshot?.tab.selectionMode, snapshot?.tab.currentPreview?.post_url, topicState.selectedTopicId]);
+  }, [activeFolder?.id, activeFolder?.name, activeFolderMode, sendAndSync, snapshot?.tab.selectionMode, snapshot?.tab.currentPreview, topicState.collectTargetTopicId, topicState.selectedTopicId, topicState.topics]);
 
   // Publish the folder/topic the popup is showing so the content-script click path
   // and keyboard save always target it, instead of the background's activeSessionId.
@@ -1407,10 +1430,10 @@ export function useInPageCollectorAppState({ snapshot, tabId, sendAndSync }: Use
       sessionId: activeFolder?.id ?? null,
       topicId:
         activeFolderMode === "topic"
-          ? topicState.selectedTopicId ?? snapshot?.tab.collectionTopicId ?? null
+          ? topicState.collectTargetTopicId
           : null
     });
-  }, [activeFolder?.id, activeFolderMode, snapshot?.tab.collectionTopicId, topicState.selectedTopicId]);
+  }, [activeFolder?.id, activeFolderMode, topicState.collectTargetTopicId]);
 
   const canPrev = Boolean(activeFolder && activeItem && activeFolder.items.findIndex((item) => item.id === activeItem.id) > 0);
   const canNext = Boolean(
@@ -1425,21 +1448,12 @@ export function useInPageCollectorAppState({ snapshot, tabId, sendAndSync }: Use
       : isStartingProcessing
         ? "Starting..."
         : "Process All";
-  async function onSavePreview() {
-    const targetTopicId = activeFolderMode === "topic" ? topicState.selectedTopicId || snapshot?.tab.collectionTopicId || "" : "";
-    if (activeFolderMode === "topic" && !targetTopicId) {
-      setDisplayToast({
-        id: `topic-required-${Date.now()}`,
-        kind: "saved",
-        message: "先選擇主題"
-      });
-      return;
-    }
+  async function onSavePreview(): Promise<PreviewSaveResult> {
     const message = buildPreviewSaveMessage({
       activeFolderMode,
       sessionId: activeFolder?.id,
       selectedTopicId: topicState.selectedTopicId,
-      collectionTopicId: snapshot?.tab.collectionTopicId,
+      collectionTopicId: topicState.collectTargetTopicId,
       preview
     });
     if (!message) {
@@ -1448,18 +1462,19 @@ export function useInPageCollectorAppState({ snapshot, tabId, sendAndSync }: Use
         kind: "saved",
         message: "先選擇資料夾"
       });
-      return;
+      return { ok: false, error: "先選擇資料夾" };
     }
+    const targetName = activeFolderMode === "topic"
+      ? topicDestinationName(topicState.topics, message.target.topicId)
+      : activeFolder?.name || "Signals";
     const normalized = normalizePostUrl(preview?.post_url || "");
     if (normalized) {
       setOptimisticSavedUrl(normalized);
-      if (activeFolder?.name) {
-        setDisplayToast({
-          id: `saved-${Date.now()}`,
-          kind: "saved",
-          message: savedToastMessage(activeFolder.name)
-        });
-      }
+      setDisplayToast({
+        id: `saved-${Date.now()}`,
+        kind: "saved",
+        message: activeFolderMode === "topic" ? `已儲存到：${targetName}` : savedToastMessage(targetName)
+      });
     }
     const requestId = createPipelineRequestId("popup-collect-save");
     emitPipelineEvent({
@@ -1491,17 +1506,29 @@ export function useInPageCollectorAppState({ snapshot, tabId, sendAndSync }: Use
     if (!response.ok && normalized) {
       setOptimisticSavedUrl((current) => (current === normalized ? null : current));
       setSuccessToastDescriptor(null);
+      return { ok: false, error: response.error };
     }
     if (response.ok && message.descriptor) {
       setSuccessToastDescriptor(message.descriptor);
-      if (activeFolder?.name) {
-        setDisplayToast({
-          id: `saved-${Date.now()}`,
-          kind: "saved",
-          message: savedToastMessage(activeFolder.name)
-        });
-      }
+      setDisplayToast({
+        id: `saved-${Date.now()}`,
+        kind: "saved",
+        message: activeFolderMode === "topic" ? `已儲存到：${targetName}` : savedToastMessage(targetName)
+      });
+      return {
+        ok: true,
+        targetName,
+        detail: previewSaveSuccessDetail(activeFolderMode, message.target.topicId),
+        descriptor: message.descriptor
+      };
     }
+    return response.ok
+      ? {
+          ok: true,
+          targetName,
+          detail: previewSaveSuccessDetail(activeFolderMode, message.target.topicId)
+        }
+      : { ok: false, error: response.error };
   }
 
   async function onCreateFolder(saveCurrentPreview = false) {
@@ -2788,6 +2815,7 @@ export function useInPageCollectorAppState({ snapshot, tabId, sendAndSync }: Use
     topics: topicState.topics,
     signals: topicState.signals,
     selectedTopicId: topicState.selectedTopicId,
+    collectTargetTopicId: topicState.collectTargetTopicId,
     activeTopic: topicState.activeTopic,
     activeTopicSignals: topicState.activeTopicSignals,
     activeTopicPairs: topicState.activeTopicPairs,

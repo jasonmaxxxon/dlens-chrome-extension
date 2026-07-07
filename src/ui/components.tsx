@@ -1530,11 +1530,13 @@ export function UtilityEdge({
 export function WorkspaceSurface({
   tone = "content",
   children,
-  style
+  style,
+  dataAttrs
 }: {
   tone?: "content" | "focused" | "utility";
   children: ReactNode;
   style?: CSSProperties;
+  dataAttrs?: Record<string, string>;
 }) {
   let background: string | undefined;
   let boxShadow: CSSProperties["boxShadow"] = tokens.shadow.shell;
@@ -1551,6 +1553,7 @@ export function WorkspaceSurface({
   return (
     <section
       data-workspace-surface={tone}
+      {...dataAttrs}
       style={surfaceCardStyle({
         padding: tokens.spacing.section,
         background,
