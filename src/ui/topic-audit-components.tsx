@@ -339,6 +339,24 @@ function themePaletteIndex(label: string): number {
   return hash % THEME_PALETTE.length;
 }
 
+function clampRatio(value: number): number {
+  if (!Number.isFinite(value)) return 0;
+  return Math.min(1, Math.max(0, value));
+}
+
+function consensusPercent(value: number): number {
+  return Math.round(clampRatio(value) * 100);
+}
+
+function countLaneSources(signalRefs: readonly string[]): number {
+  const sources = new Set<string>();
+  for (const ref of signalRefs) {
+    const code = ref.split(".")[0]?.trim();
+    if (code) sources.add(code);
+  }
+  return sources.size || signalRefs.length;
+}
+
 export function ThemeChip({
   label,
   active,
@@ -396,7 +414,8 @@ export function NarrativeLane({
   onClick?: () => void;
 }) {
   const Icon = resolveNarrativeIcon(lane.icon);
-  const signalCount = lane.signalRefs.length;
+  const signalCount = countLaneSources(lane.signalRefs);
+  const percent = consensusPercent(lane.consensus);
   return (
     <button
       data-narrative-lane={lane.id}
@@ -436,10 +455,38 @@ export function NarrativeLane({
         <span style={{ fontSize: 13.5, fontWeight: 800, color: tokens.color.ink, lineHeight: 1.35 }}>
           {lane.label}
         </span>
-        <span style={{ display: "flex", gap: 5, flexWrap: "wrap", alignItems: "center" }}>
-          <span style={{ fontSize: 10.5, fontWeight: 700, color: tokens.color.softInk }}>
-            {signalCount} 訊號
+        <span data-narrative-lane-consensus={lane.id} style={{ display: "grid", gap: 5, minWidth: 0 }}>
+          <span style={{ display: "flex", justifyContent: "space-between", gap: 8, alignItems: "baseline", minWidth: 0 }}>
+            <span style={{ fontSize: 10.5, fontWeight: 800, color: tokens.color.subInk }}>
+              共識 {percent}% · {signalCount} 篇
+            </span>
           </span>
+          <span
+            aria-hidden="true"
+            data-narrative-lane-consensus-bar={lane.id}
+            style={{
+              position: "relative",
+              height: 6,
+              width: "100%",
+              borderRadius: tokens.radius.round,
+              background: tokens.color.neutralSurface,
+              overflow: "hidden"
+            }}
+          >
+            <span
+              data-narrative-lane-consensus-fill={lane.id}
+              style={{
+                position: "absolute",
+                left: 0,
+                top: 0,
+                bottom: 0,
+                width: `${percent}%`,
+                background: percent >= 60 ? TOPIC.primary : TOPIC.warm
+              }}
+            />
+          </span>
+        </span>
+        <span style={{ display: "flex", gap: 5, flexWrap: "wrap", alignItems: "center" }}>
           {lane.signalRefs.slice(0, 6).map((ref) => (
             <span
               key={ref}

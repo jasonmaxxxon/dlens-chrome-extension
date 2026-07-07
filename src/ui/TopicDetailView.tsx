@@ -989,15 +989,21 @@ function TopicSynthesisCard({
   );
 }
 
-function StanceBadge({ stance }: { stance: TopicSignalStance }) {
+function StanceBadge({ stance, marker = "reading" }: { stance: TopicSignalStance; marker?: "reading" | "source" }) {
   const config: Record<TopicSignalStance, { label: string; bg: string; color: string }> = {
-    central: { label: "核心", bg: tokens.color.accentSoft, color: tokens.color.accent },
-    adjacent: { label: "相鄰", bg: tokens.color.neutralSurface, color: tokens.color.subInk },
-    "off-topic": { label: "偏離", bg: tokens.color.neutralSurface, color: tokens.color.softInk }
+    central: { label: "核心", bg: tokens.topicAccent.tintSage, color: tokens.topicAccent.primaryDeep },
+    adjacent: { label: "相鄰", bg: tokens.topicAccent.tintAmber, color: tokens.topicAccent.warm },
+    "off-topic": { label: "離題", bg: tokens.color.neutralSurface, color: tokens.color.softInk }
   };
   const { label, bg, color } = config[stance] ?? config.adjacent;
+  const markerAttrs = marker === "source"
+    ? { "data-topic-source-stance": stance }
+    : { "data-topic-signal-stance": stance };
   return (
-    <span style={{ fontSize: 10, fontWeight: 700, padding: "2px 7px", borderRadius: 999, background: bg, color }}>
+    <span
+      {...markerAttrs}
+      style={{ fontSize: 10, fontWeight: 700, padding: "2px 7px", borderRadius: 999, background: bg, color }}
+    >
       {label}
     </span>
   );
@@ -1558,6 +1564,7 @@ export function TopicDetailView({
           const status = signal.analysisState;
           const preview = signal.sourcePreview.displayText || signal.source || "資料不完整的 Threads 訊號";
           const tagRecord = signal.tagRecord;
+          const reading = signal.reading;
           const originalUrl = signal.sourcePreview.displayUrl;
           const openAnalysisAction = signal.actions.find((entry) => entry.kind === "openSignalAnalysis");
           const addToCompareAction = signal.actions.find((entry) => entry.kind === "addSignalToCompare");
@@ -1598,6 +1605,7 @@ export function TopicDetailView({
                 ) : null}
                 <div style={{ display: "flex", gap: 5, flexWrap: "wrap", alignItems: "center" }}>
                   <Stamp tone={analysisStateTone(status)}>{analysisStateLabel(status)}</Stamp>
+                  {reading ? <StanceBadge stance={reading.stance} marker="source" /> : null}
                   <span style={{ fontSize: 10.5, color: tokens.color.softInk }}>加入 {formatTopicDate(signal.capturedAt)}</span>
                   {originalUrl ? (
                     <a

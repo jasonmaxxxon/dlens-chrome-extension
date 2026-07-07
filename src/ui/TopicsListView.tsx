@@ -46,48 +46,109 @@ function Divider() {
   return <span aria-hidden="true" style={{ width: 1, height: 24, background: tokens.color.line, margin: "0 12px" }} />;
 }
 
-function TopicSourceProgress({ source }: { source: TopicSourceSummary }) {
-  const total = Math.max(1, source.total);
-  const readyPct = Math.min(100, Math.max(0, (source.ready / total) * 100));
-  const processingPct = Math.min(100 - readyPct, Math.max(0, (source.processing / total) * 100));
+function formatTopicCardDate(value: string): string {
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return "—";
+  const month = String(date.getMonth() + 1).padStart(2, "0");
+  const day = String(date.getDate()).padStart(2, "0");
+  return `${month}-${day}`;
+}
+
+function TopicTagRow({ tags }: { tags: string[] }) {
+  if (tags.length === 0) {
+    return null;
+  }
+  return (
+    <span style={{ display: "flex", gap: 6, flexWrap: "wrap", minWidth: 0 }}>
+      {tags.map((tag) => (
+        <span
+          key={tag}
+          data-topic-card-tag={tag}
+          style={{
+            display: "inline-flex",
+            alignItems: "center",
+            minHeight: 20,
+            padding: "0 8px",
+            borderRadius: tokens.radius.round,
+            border: `1px solid ${tokens.color.line}`,
+            background: tokens.color.surface,
+            color: tokens.color.subInk,
+            fontSize: 10.5,
+            fontWeight: 700,
+            lineHeight: 1
+          }}
+        >
+          #{tag}
+        </span>
+      ))}
+    </span>
+  );
+}
+
+function TopicSourceProgress({ source, updatedAt }: { source: TopicSourceSummary; updatedAt: string }) {
+  const safeTotal = Math.max(1, source.total);
+  const readyPct = source.total > 0 ? Math.min(100, Math.max(0, (source.ready / safeTotal) * 100)) : 0;
+  const processingPct = source.total > 0 ? Math.min(100 - readyPct, Math.max(0, (source.processing / safeTotal) * 100)) : 0;
   const queueState = source.pending > 0 ? "pending" : "clear";
 
   return (
-    <span data-topic-source-progress="true" style={{ display: "flex", alignItems: "center", gap: 10, minWidth: 0 }}>
-      <span
-        aria-hidden="true"
-        style={{
-          position: "relative",
-          flex: 1,
-          minWidth: 80,
-          height: 6,
-          borderRadius: 999,
-          background: tokens.color.neutralSurface,
-          overflow: "hidden"
-        }}
-      >
+    <span
+      data-topic-source-progress="true"
+      data-topic-completion-progress="true"
+      style={{
+        display: "grid",
+        gridTemplateColumns: "minmax(0, 1fr) auto",
+        alignItems: "center",
+        gap: 10,
+        minWidth: 0
+      }}
+    >
+      <span style={{ display: "grid", gap: 5, minWidth: 0 }}>
+        <span style={{ display: "flex", justifyContent: "space-between", gap: 10, alignItems: "baseline", minWidth: 0 }}>
+          <span data-topic-completion-label="true" style={{ fontSize: 11, fontWeight: 850, color: tokens.color.subInk }}>
+            已完成 {source.ready}/{source.total}
+          </span>
+          <span data-topic-card-updated-at="true" style={{ fontSize: 10.5, fontWeight: 700, color: tokens.color.softInk, whiteSpace: "nowrap" }}>
+            更新 {formatTopicCardDate(updatedAt)}
+          </span>
+        </span>
         <span
-          data-topic-source-progress-ready="true"
+          aria-hidden="true"
           style={{
-            position: "absolute",
-            left: 0,
-            top: 0,
-            bottom: 0,
-            width: `${readyPct}%`,
-            background: tokens.topicAccent.primary
+            position: "relative",
+            width: "100%",
+            minWidth: 80,
+            height: 7,
+            borderRadius: tokens.radius.round,
+            background: tokens.color.neutralSurface,
+            overflow: "hidden"
           }}
-        />
-        <span
-          data-topic-source-progress-processing="true"
-          style={{
-            position: "absolute",
-            left: `${readyPct}%`,
-            top: 0,
-            bottom: 0,
-            width: `${processingPct}%`,
-            background: tokens.topicAccent.warm
-          }}
-        />
+        >
+          <span
+            data-topic-completion-bar-fill="true"
+            data-topic-source-progress-ready="true"
+            style={{
+              position: "absolute",
+              left: 0,
+              top: 0,
+              bottom: 0,
+              width: `${readyPct}%`,
+              background: tokens.topicAccent.primary
+            }}
+          />
+          <span
+            data-topic-source-progress-processing="true"
+            style={{
+              position: "absolute",
+              left: `${readyPct}%`,
+              top: 0,
+              bottom: 0,
+              width: `${processingPct}%`,
+              background: tokens.topicAccent.warm,
+              opacity: 0.5
+            }}
+          />
+        </span>
       </span>
       <span
         data-topic-source-queue={queueState}
@@ -148,6 +209,7 @@ export function TopicCard({
     event.stopPropagation();
     onDeleteTopic?.(topic.id);
   };
+  const subtitle = topic.description || "採集批次待整理";
   return (
     <div
       role="button"
@@ -182,8 +244,9 @@ export function TopicCard({
             {topic.name}
           </span>
           <span style={{ fontSize: 11.5, color: tokens.color.softInk, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
-            {topic.description || topic.tags.join(" · ") || "採集批次待整理"}
+            {subtitle}
           </span>
+          <TopicTagRow tags={topic.tags} />
         </span>
         <span data-topic-card-actions="true" style={{ display: "inline-flex", alignItems: "center", justifyContent: "flex-end", gap: 8, minWidth: 0, maxWidth: "100%" }}>
           <TopicAuditStatusPill summary={summary} />
@@ -234,7 +297,7 @@ export function TopicCard({
           <Stat value={source.pending} label="待處理" muted />
           <span style={{ marginLeft: "auto", fontSize: 12, fontWeight: 800, color: tokens.topicAccent.primary }}>打開 ›</span>
         </span>
-        <TopicSourceProgress source={source} />
+        <TopicSourceProgress source={source} updatedAt={topic.updatedAt} />
       </span>
     </div>
   );

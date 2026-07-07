@@ -393,6 +393,10 @@ test("TopicDetailView renders audit overview, themes, lanes, and representative 
   assert.match(html, /航班/);
   assert.match(html, /data-topic-audit-block="lanes"/);
   assert.match(html, /客服補救失速/);
+  assert.match(html, /data-narrative-lane-consensus="lane-1"/);
+  assert.match(html, /data-narrative-lane-consensus-fill="lane-1"[^>]*width:70%/);
+  assert.match(html, /共識 70%/);
+  assert.match(html, /1 篇/);
   assert.match(html, /data-topic-newsroom-ladder="true"/);
   assert.match(html, /航班改動後等不到客服/);
   assert.doesNotMatch(html, /data-topic-audit-block="sources"/);
@@ -1003,6 +1007,40 @@ test("TopicDetailView signal row shows reading card when signalReadingsBySignalI
   assert.match(html, /這則帖子的核心是對自動化工具的信任問題/);
   assert.match(html, /留言普遍表達了類似的擔憂/);
   assert.match(html, /待驗證：樣本不足，需驗證/);
+});
+
+test("TopicDetailView source rows render stance chips from topic signal readings", () => {
+  const reading: TopicSignalReading = {
+    signalId: "signal-1",
+    topicId: "topic-1",
+    status: "complete",
+    stance: "central",
+    reading: "這則帖子的核心是對自動化工具的信任問題。",
+    audienceSignal: "留言普遍表達了類似的擔憂。",
+    evidenceRefs: ["e1", "e2"],
+    uncertainties: [],
+    promptVersion: "v1",
+    model: "gemini-1.5-flash",
+    generatedAt: "2026-05-01T00:00:00.000Z"
+  };
+
+  const html = renderToStaticMarkup(
+    topicDetailViewElement({
+      topic,
+      signals,
+      pairs: [],
+      sessionMode: "topic",
+      sessionItems: [buildSessionItem("item-1", "saved")],
+      signalReadingsBySignalId: { "signal-1": reading },
+      onBack: () => undefined,
+      onOpenPair: () => undefined,
+      onUpdateTopic: () => undefined
+    })
+  );
+
+  assert.match(html, /data-topic-source-row="signal-1"/);
+  assert.match(html, /data-topic-source-stance="central"/);
+  assert.match(html, /核心/);
 });
 
 test("TopicDetailView signal row shows generate button without requiring a research question", () => {

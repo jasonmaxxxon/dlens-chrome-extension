@@ -168,7 +168,10 @@ test("Frame 05 — topic cards carry a colour spine derived from audit state", (
 });
 
 test("TopicsListView source metrics come from real session item readiness, not audit memo counts", () => {
-  const currentTopic = topic("topic-1", "議題一");
+  const currentTopic = {
+    ...topic("topic-1", "議題一"),
+    tags: ["客服", "航班"]
+  };
   const html = renderToStaticMarkup(
     React.createElement(TopicsListView, {
       topics: [currentTopic],
@@ -193,6 +196,14 @@ test("TopicsListView source metrics come from real session item readiness, not a
   assert.match(html, /data-topic-source-progress="true"/);
   assert.match(html, /data-topic-source-progress-ready="true"/);
   assert.match(html, /data-topic-source-progress-processing="true"/);
+  assert.match(html, /data-topic-completion-progress="true"/);
+  assert.match(html, /data-topic-completion-label="true"/);
+  assert.match(html, /已完成 1\/3/);
+  assert.match(html, /data-topic-completion-bar-fill="true"[^>]*width:33\.33333333333333%/);
+  assert.match(html, /data-topic-card-updated-at="true"/);
+  assert.match(html, /更新 05-23/);
+  assert.match(html, /data-topic-card-tag="客服"/);
+  assert.match(html, /data-topic-card-tag="航班"/);
   assert.match(html, /data-topic-source-queue="pending"/);
   assert.match(html, /1 待處理/);
   assert.match(html, /報告 失敗/);
