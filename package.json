@@ -1,6 +1,6 @@
 {
   "name": "dlens-chrome-extension-v0",
-  "version": "0.3.11",
+  "version": "0.3.12",
   "private": true,
   "type": "module",
   "scripts": {
