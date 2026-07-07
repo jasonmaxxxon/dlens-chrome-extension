@@ -574,6 +574,9 @@ export function InPageCollectorPopup({ app }: { app: InPageCollectorAppModel }) 
                 draftOpenAiKey={app.draftOpenAiKey}
                 draftClaudeKey={app.draftClaudeKey}
                 draftGoogleKey={app.draftGoogleKey}
+                hasOpenAiKey={app.hasOpenAiKey}
+                hasClaudeKey={app.hasClaudeKey}
+                hasGoogleKey={app.hasGoogleKey}
                 draftLayoutPreferences={app.draftLayoutPreferences}
                 draftProductProfile={app.draftProductProfile}
                 compiledProductContext={app.compiledProductContext}

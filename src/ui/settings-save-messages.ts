@@ -50,7 +50,7 @@ export function normalizeProductProfileDraft(productProfile: ProductProfile | nu
       .filter((file): file is ProductProfileContextFile => Boolean(file))
   };
 
-  return normalized.name || normalized.category || normalized.audience
+  return normalized.name || normalized.category || normalized.audience || normalized.contextText || normalized.contextFiles.length > 0
     ? normalized
     : null;
 }

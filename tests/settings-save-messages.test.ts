@@ -101,6 +101,55 @@ test("buildSettingsSaveMessages upgrades old three-field product profiles with e
   });
 });
 
+test("buildSettingsSaveMessages preserves product context without profile metadata", () => {
+  const messages = buildSettingsSaveMessages({
+    draftBaseUrl: "http://127.0.0.1:8000",
+    draftProvider: "",
+    draftOpenAiKey: "",
+    draftClaudeKey: "",
+    draftGoogleKey: "",
+    draftLayoutPreferences: {
+      productSignalCardLayout: "marginalia",
+      topicSynthesisLayout: "console",
+      compareResultLayout: "parallel"
+    },
+    draftProductProfile: {
+      name: " ",
+      category: "",
+      audience: "   ",
+      contextText: "  README-only context  ",
+      contextFiles: [
+        {
+          id: " readme_file ",
+          name: " README.md ",
+          kind: "readme",
+          importedAt: " 2026-07-07T08:00:00.000Z ",
+          charCount: 42.8
+        }
+      ]
+    }
+  });
+
+  assert.deepEqual(messages[3], {
+    type: "settings/set-product-profile",
+    productProfile: {
+      name: "",
+      category: "",
+      audience: "",
+      contextText: "README-only context",
+      contextFiles: [
+        {
+          id: "readme_file",
+          name: "README.md",
+          kind: "readme",
+          importedAt: "2026-07-07T08:00:00.000Z",
+          charCount: 42
+        }
+      ]
+    }
+  });
+});
+
 test("buildSettingsSaveMessages collapses an empty product profile to null", () => {
   const messages = buildSettingsSaveMessages({
     draftBaseUrl: "http://127.0.0.1:8000",
@@ -117,7 +166,7 @@ test("buildSettingsSaveMessages collapses an empty product profile to null", () 
       name: " ",
       category: "",
       audience: "   ",
-      contextText: "docs only",
+      contextText: "   ",
       contextFiles: []
     }
   });

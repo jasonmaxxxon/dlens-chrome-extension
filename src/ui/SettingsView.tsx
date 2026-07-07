@@ -20,6 +20,9 @@ interface SettingsViewProps {
   draftOpenAiKey: string;
   draftClaudeKey: string;
   draftGoogleKey: string;
+  hasOpenAiKey?: boolean;
+  hasClaudeKey?: boolean;
+  hasGoogleKey?: boolean;
   draftLayoutPreferences: LayoutPreferences;
   draftProductProfile: ProductProfile;
   compiledProductContext?: ProductContext | null;
@@ -198,6 +201,18 @@ function ProductContextSourceCard({
   );
 }
 
+function SavedKeyStatus({ provider, visible }: { provider: "openai" | "claude" | "google"; visible: boolean }) {
+  if (!visible) {
+    return null;
+  }
+
+  return (
+    <span data-settings-key-status={provider}>
+      <Stamp tone="success">已設定</Stamp>
+    </span>
+  );
+}
+
 export function SettingsView({
   sessionMode,
   canEditSessionMode = false,
@@ -206,6 +221,9 @@ export function SettingsView({
   draftOpenAiKey,
   draftClaudeKey,
   draftGoogleKey,
+  hasOpenAiKey = false,
+  hasClaudeKey = false,
+  hasGoogleKey = false,
   draftLayoutPreferences,
   draftProductProfile,
   compiledProductContext = null,
@@ -234,6 +252,10 @@ export function SettingsView({
   const aiAgentsInputRef = useRef<HTMLInputElement | null>(null);
   const contextFiles = draftProductProfile.contextFiles ?? [];
   const fileByKind = new Map(contextFiles.map((file) => [file.kind, file]));
+  const showOpenAiSavedKey = hasOpenAiKey && !draftOpenAiKey.trim();
+  const showClaudeSavedKey = hasClaudeKey && !draftClaudeKey.trim();
+  const showGoogleSavedKey = hasGoogleKey && !draftGoogleKey.trim();
+  const savedKeyPlaceholder = "已儲存金鑰 · 輸入以覆寫";
 
   async function importContextFile(kind: ProductProfileContextFile["kind"], file: File | null) {
     if (!file) {
@@ -378,18 +400,27 @@ export function SettingsView({
 
           <SettingsGroup name="keys" kicker="API keys">
             <label style={{ display: "grid", gap: 6, fontSize: 11, color: tokens.color.subInk }}>
-              OpenAI
-              <input value={draftOpenAiKey} onChange={(event) => onDraftOpenAiKeyChange(event.target.value)} type="password" placeholder="sk-..." style={inputStyle} />
+              <span style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8 }}>
+                OpenAI
+                <SavedKeyStatus provider="openai" visible={showOpenAiSavedKey} />
+              </span>
+              <input value={draftOpenAiKey} onChange={(event) => onDraftOpenAiKeyChange(event.target.value)} type="password" placeholder={showOpenAiSavedKey ? savedKeyPlaceholder : "sk-..."} style={inputStyle} />
             </label>
 
             <label style={{ display: "grid", gap: 6, fontSize: 11, color: tokens.color.subInk }}>
-              Claude
-              <input value={draftClaudeKey} onChange={(event) => onDraftClaudeKeyChange(event.target.value)} type="password" placeholder="sk-ant-..." style={inputStyle} />
+              <span style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8 }}>
+                Claude
+                <SavedKeyStatus provider="claude" visible={showClaudeSavedKey} />
+              </span>
+              <input value={draftClaudeKey} onChange={(event) => onDraftClaudeKeyChange(event.target.value)} type="password" placeholder={showClaudeSavedKey ? savedKeyPlaceholder : "sk-ant-..."} style={inputStyle} />
             </label>
 
             <label style={{ display: "grid", gap: 6, fontSize: 11, color: tokens.color.subInk }}>
-              Google
-              <input value={draftGoogleKey} onChange={(event) => onDraftGoogleKeyChange(event.target.value)} type="password" placeholder="AIza..." style={inputStyle} />
+              <span style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8 }}>
+                Google
+                <SavedKeyStatus provider="google" visible={showGoogleSavedKey} />
+              </span>
+              <input value={draftGoogleKey} onChange={(event) => onDraftGoogleKeyChange(event.target.value)} type="password" placeholder={showGoogleSavedKey ? savedKeyPlaceholder : "AIza..."} style={inputStyle} />
             </label>
           </SettingsGroup>
 

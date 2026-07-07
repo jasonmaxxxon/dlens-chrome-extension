@@ -577,24 +577,24 @@ export function useInPageCollectorAppState({ snapshot, tabId, sendAndSync }: Use
     () => (activeFolder?.items || []).filter((item) => item.status === "succeeded" && item.latestCapture?.analysis?.status === "succeeded"),
     [activeFolder?.items]
   );
+  const hasGoogleKey = Boolean(snapshot?.global.settings.hasGoogleKey ?? snapshot?.global.settings.googleApiKey.trim());
+  const hasOpenAiKey = Boolean(snapshot?.global.settings.hasOpenAiKey ?? snapshot?.global.settings.openaiApiKey.trim());
+  const hasClaudeKey = Boolean(snapshot?.global.settings.hasClaudeKey ?? snapshot?.global.settings.claudeApiKey.trim());
   const productAiProviderReady = useMemo(() => {
     const settings = snapshot?.global.settings;
     if (!settings) {
       return false;
     }
     return Boolean(
-      (settings.oneLinerProvider === "google" && (settings.hasGoogleKey ?? Boolean(settings.googleApiKey.trim())))
-      || (settings.oneLinerProvider === "openai" && (settings.hasOpenAiKey ?? Boolean(settings.openaiApiKey.trim())))
-      || (settings.oneLinerProvider === "claude" && (settings.hasClaudeKey ?? Boolean(settings.claudeApiKey.trim())))
+      (settings.oneLinerProvider === "google" && hasGoogleKey)
+      || (settings.oneLinerProvider === "openai" && hasOpenAiKey)
+      || (settings.oneLinerProvider === "claude" && hasClaudeKey)
     );
   }, [
     snapshot?.global.settings.oneLinerProvider,
-    snapshot?.global.settings.hasGoogleKey,
-    snapshot?.global.settings.hasOpenAiKey,
-    snapshot?.global.settings.hasClaudeKey,
-    snapshot?.global.settings.googleApiKey,
-    snapshot?.global.settings.openaiApiKey,
-    snapshot?.global.settings.claudeApiKey
+    hasGoogleKey,
+    hasOpenAiKey,
+    hasClaudeKey
   ]);
 
   useEffect(() => {
@@ -2750,6 +2750,9 @@ export function useInPageCollectorAppState({ snapshot, tabId, sendAndSync }: Use
     draftOpenAiKey,
     draftClaudeKey,
     draftGoogleKey,
+    hasOpenAiKey,
+    hasClaudeKey,
+    hasGoogleKey,
     draftLayoutPreferences,
     draftProductProfile,
     compiledProductContext,

@@ -1935,6 +1935,46 @@ test("SettingsView exposes Google provider and save action", () => {
   assert.doesNotMatch(html, /Welcome|Get started/);
 });
 
+test("SettingsView shows saved key state when sanitized snapshot hides the raw key", () => {
+  const html = renderToStaticMarkup(
+    React.createElement(SettingsView, {
+      sessionMode: "product",
+      draftBaseUrl: "http://127.0.0.1:8000",
+      draftProvider: "openai",
+      draftOpenAiKey: "",
+      draftClaudeKey: "",
+      draftGoogleKey: "",
+      hasOpenAiKey: true,
+      draftLayoutPreferences: {
+        productSignalCardLayout: "marginalia",
+        topicSynthesisLayout: "console",
+        compareResultLayout: "chapters"
+      },
+      draftProductProfile: {
+        name: "",
+        category: "",
+        audience: "",
+        contextText: "",
+        contextFiles: []
+      },
+      onDraftBaseUrlChange: () => undefined,
+      onDraftProviderChange: () => undefined,
+      onDraftOpenAiKeyChange: () => undefined,
+      onDraftClaudeKeyChange: () => undefined,
+      onDraftGoogleKeyChange: () => undefined,
+      onDraftLayoutPreferencesChange: () => undefined,
+      onDraftProductProfileChange: () => undefined,
+      onSessionModeChange: () => undefined,
+      createContextFileId: (kind, name) => `ctx_${kind}_${name}`,
+      onSaveSettings: () => undefined
+    })
+  );
+
+  assert.match(html, /data-settings-key-status="openai"/);
+  assert.match(html, /已設定/);
+  assert.match(html, /已儲存金鑰 · 輸入以覆寫/);
+});
+
 test("Frame 01 — saved-signals filter tabs surface unclassified / pending / classified", () => {
   const html = renderToStaticMarkup(
     productSignalViewElement({
