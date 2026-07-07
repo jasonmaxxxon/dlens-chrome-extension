@@ -1238,7 +1238,18 @@ test("PrEvidenceView renders PR campaign and rows from the shared resource state
   assert.match(html, /Shared row from app boundary/);
   assert.match(html, /1 列/);
   assert.match(html, /data-pr-evidence-rows-detail="collapsed"/);
+  assert.match(html, /data-pr-evidence-gist="true"/);
+  assert.match(html, /data-collector-metric-strip="row-shared"/);
+  assert.match(html, /data-collector-metric="likes"/);
+  assert.match(html, /data-collector-metric="comments"/);
+  assert.match(html, /data-collector-metric="reposts"/);
+  assert.match(html, /data-collector-metric="forwards"/);
+  assert.match(html, /data-pr-evidence-strength-chip="partial"/);
   assert.match(html, /data-pr-criteria-health-detail="c1"/);
+  assert.match(html, /data-pr-criteria-coverage-row="c1"/);
+  assert.match(html, /data-pr-criteria-coverage-bar="c1"/);
+  assert.match(html, /data-pr-criteria-coverage-fill="c1"/);
+  assert.match(html, /data-pr-criteria-strength-dot="c1"/);
   assert.match(html, /data-pr-criteria-health-matches="c1"/);
   assert.match(html, /data-pr-criteria-health-match-row="true"/);
 });
@@ -1322,7 +1333,7 @@ test("PR Evidence ledger rows expose the original Threads post link", () => {
   assert.match(html, /Open original Threads post by alpha/);
 });
 
-test("PR Evidence ledger rows use audit numbering and editorial quote blocks", () => {
+test("PR Evidence ledger rows use audit numbering, gist, metric strip, and strength chips", () => {
   const campaign: PrCampaign = {
     id: "campaign-audit",
     sessionId: "session-pr",
@@ -1379,14 +1390,18 @@ test("PR Evidence ledger rows use audit numbering and editorial quote blocks", (
   assert.match(html, /data-pr-evidence-row="audit"/);
   assert.match(html, /data-pr-evidence-audit-number="01"/);
   assert.match(html, /data-pr-evidence-audit-number="02"/);
-  assert.match(html, /data-quote-block="shared"/);
+  assert.match(html, /data-pr-evidence-gist="true"/);
+  assert.match(html, /data-collector-metric-strip="row-audit-1"/);
+  assert.match(html, /data-collector-metric-strip="row-audit-2"/);
+  assert.match(html, /data-collector-metric="forwards"/);
+  assert.match(html, /data-pr-evidence-strength-chip="partial"/);
   assert.match(html, /data-pr-match-indicator="true"/);
   assert.match(html, /2\/6/);
   assert.match(html, /1\/6/);
   assert.doesNotMatch(html, />C1</);
   assert.doesNotMatch(html, />C2</);
-  assert.match(html, /font-style:italic/);
-  assert.match(html, /grid-template-columns:34px minmax\(0, 1fr\)/);
+  assert.doesNotMatch(html, /data-quote-block="shared"/);
+  assert.match(html, /grid-template-columns:26px minmax\(0, 1fr\) auto/);
   assert.doesNotMatch(html, /min-width:1320/);
 });
 
@@ -1435,17 +1450,24 @@ test("PR criteria health surfaces real criterion labels and the systemic gap", (
   );
 
   assert.match(html, /data-pr-criteria-health="true"/);
-  // Frame 10: KPI grid + score bars + systemic-gap callout.
+  // Frame 6: header stats + coverage bars + systemic-gap callout.
   assert.match(html, /data-pr-criteria-health-kpis="true"/);
   assert.match(html, /Captured/);
   assert.match(html, /Strong/);
   assert.match(html, /Criteria 待補/);
+  assert.match(html, /data-pr-criteria-coverage-row="c1"/);
+  assert.match(html, /data-pr-criteria-coverage-row="c6"/);
+  assert.match(html, /data-pr-criteria-coverage-bar="c1"/);
+  assert.match(html, /data-pr-criteria-coverage-fill="c1"/);
+  assert.match(html, /data-pr-criteria-coverage-count="c1"[^>]*>4\/4/);
+  assert.match(html, /data-pr-criteria-coverage-count="c6"[^>]*>0\/4/);
+  assert.match(html, /data-pr-criteria-strength-dot="c6"/);
   // F1: the real criterion label stays primary; the C-id is only a secondary tag.
   assert.match(html, /CTA \/ 報名動作/);
   assert.match(html, /活動名稱/);
   assert.match(html, /data-pr-criteria-id="c6"/);
   assert.match(html, /系統性缺口/);
-  // C6 has zero coverage -> it is the GAP row, sorted to the bottom.
+  // C6 has zero coverage -> it is a GAP row with a zero-width coverage lane.
   assert.match(html, /data-pr-criteria-health-strength="gap"/);
   assert.match(html, /data-pr-criteria-health-detail="c1"/);
   assert.match(html, /data-pr-criteria-health-matches="c1"/);
@@ -1535,22 +1557,28 @@ function prFrameRow(id: string, matches: number): PrEvidenceRow {
   };
 }
 
-test("Frame 09 — ledger strip surfaces captured / strong / outlier from real match counts", () => {
+test("Frame 6 — header stats surface captured / strong / criteria gaps from real match counts", () => {
   const vm = buildPrEvidenceVm({
     campaign: prCampaignToDraft(prFrameCampaign()),
     rows: [prFrameRow("a", 5), prFrameRow("b", 2), prFrameRow("c", 3)]
   });
   const html = renderToStaticMarkup(
-    React.createElement(prEvidenceViewTestables.EvidenceLedger, { rows: vm.ledger.rows, caption: vm.workingArea.ledgerCaption })
+    React.createElement(PrEvidenceView, {
+      viewModel: vm,
+      onCommand: () => undefined
+    })
   );
 
   assert.match(html, /data-pr-evidence-rows-detail="collapsed"/);
-  assert.match(html, /data-pr-ledger-strip="true"/);
-  assert.match(html, /captured/);
-  assert.match(html, /strong/);
-  assert.match(html, /outlier/);
-  // one strong (5 matches >= 4), one outlier (2 matches <= 2).
-  assert.match(html, /過 4 criteria 以上為 strong/);
+  assert.match(html, /data-pr-evidence-header-stats="true"/);
+  assert.match(html, /data-pr-evidence-header-stat="captured"/);
+  assert.match(html, /data-pr-evidence-header-stat="strong"/);
+  assert.match(html, /data-pr-evidence-header-stat="criteria-gap"/);
+  assert.match(html, /Captured/);
+  assert.match(html, /Strong/);
+  assert.match(html, /Criteria 待補/);
+  // one strong row (5 matches >= 4), three criteria have partial/gap coverage.
+  assert.doesNotMatch(html, /outlier/);
 });
 
 test("Frame 11 — export preview shows ready card, format cards, and the systemic-gap note", () => {
@@ -1566,6 +1594,24 @@ test("Frame 11 — export preview shows ready card, format cards, and the system
   assert.match(html, /data-pr-format-card="docx"/);
   // c2..c6 have zero matches -> a systemic gap note is written into the export.
   assert.match(html, /data-pr-export-gap-note="true"/);
+});
+
+test("Frame 7 — export action buttons keep commands and render download icon plus mono format tags", () => {
+  const html = renderPrEvidenceView({
+    campaign: prCampaignToDraft(prFrameCampaign()),
+    rows: [prFrameRow("a", 4)],
+    summary: "PR summary ready."
+  });
+
+  assert.match(html, /data-pr-export-button="csv"/);
+  assert.match(html, /data-pr-export-button="md"/);
+  assert.match(html, /data-pr-export-button="docx"/);
+  assert.match(html, /data-pr-export-download-icon="csv"/);
+  assert.match(html, /data-pr-export-download-icon="md"/);
+  assert.match(html, /data-pr-export-download-icon="docx"/);
+  assert.match(html, /data-pr-export-format-tag="csv"[^>]*>CSV/);
+  assert.match(html, /data-pr-export-format-tag="md"[^>]*>MD/);
+  assert.match(html, /data-pr-export-format-tag="docx"[^>]*>DOCX/);
 });
 
 test("Frame 08 — criteria setup shows the AI-drafted banner when a brief is loaded", () => {

@@ -1,5 +1,5 @@
 import { memo, useEffect, useRef, useState } from "react";
-import { ExternalLink } from "lucide-react";
+import { Download, ExternalLink } from "lucide-react";
 
 import type { PrCampaignSaveDraft } from "../state/pr-evidence-storage.ts";
 import {
@@ -16,7 +16,6 @@ import {
   Kicker,
   ModeHeader,
   PrimaryButton,
-  QuoteBlock,
   SCAN_ROW_HOVER_CSS,
   SecondaryButton,
   Stamp,
@@ -24,6 +23,7 @@ import {
   WorkspaceSurface,
   viewRootStyle
 } from "./components.tsx";
+import { CollectorGist, CollectorMetricStrip } from "./CollectorMetricStrip.tsx";
 import { textStyles, tokens } from "./tokens.ts";
 
 const accentButtonStyle = {
@@ -57,6 +57,29 @@ const prMonoMetaStyle = {
   lineHeight: textStyles.caption.lineHeight,
   fontWeight: 500
 } as const;
+
+function ExportButtonContent({ format, label = "匯出" }: { format: "csv" | "md" | "docx"; label?: string }) {
+  const upper = format.toUpperCase();
+  return (
+    <span style={{ display: "inline-flex", alignItems: "center", gap: 6, minWidth: 0 }}>
+      <Download data-pr-export-download-icon={format} size={13} strokeWidth={2} aria-hidden="true" />
+      <span style={{ fontSize: 11, fontWeight: 650 }}>{label}</span>
+      <span
+        data-pr-export-format-tag={format}
+        style={{
+          fontFamily: tokens.font.mono,
+          fontSize: 10.5,
+          fontWeight: 800,
+          fontVariantNumeric: "tabular-nums",
+          letterSpacing: 0,
+          lineHeight: 1
+        }}
+      >
+        {upper}
+      </span>
+    </span>
+  );
+}
 
 const prRowTextStyle = {
   ...textStyles.bodyTight,
@@ -491,32 +514,84 @@ function CampaignEditor({
   );
 }
 
-/* Frame 09 ledger strip — captured / strong / outlier, derived from real match counts. */
-function LedgerStrip({ rows }: { rows: PrEvidenceRowViewModel[] }) {
-  if (!rows.length) {
+/* Frame 6 header stats — captured / strong / criteria gaps, derived from criteria health. */
+function PrEvidenceHeaderStats({ health }: { health: PrEvidenceViewModel["criteriaHealth"] }) {
+  if (!health.totalRows) {
     return null;
   }
-  const strong = rows.filter((row) => row.matchedCount >= 4).length;
-  const outlier = rows.filter((row) => row.matchedCount <= 2).length;
-  const cell = (value: number, label: string, labelColor: string) => (
-    <span style={{ display: "grid", gap: 0, lineHeight: 1 }}>
-      <b style={{ fontFamily: `${tokens.font.serifCjk}, ${tokens.font.serif}`, fontSize: 18, fontWeight: 500, color: PR_ACCENT, lineHeight: 1.05 }}>{value}</b>
-      <span style={{ fontSize: 10, color: labelColor }}>{label}</span>
+  const needsWorkCount = health.criteria.filter((entry) => entry.strength !== "strong").length;
+  const cell = (id: "captured" | "strong" | "criteria-gap", value: string, label: string, tone: string) => (
+    <span
+      data-pr-evidence-header-stat={id}
+      style={{
+        display: "inline-flex",
+        alignItems: "baseline",
+        gap: 5,
+        minWidth: 0,
+        fontFamily: tokens.font.mono,
+        fontVariantNumeric: "tabular-nums",
+        whiteSpace: "nowrap"
+      }}
+    >
+      <b style={{ fontSize: 13, lineHeight: 1, fontWeight: 800, color: tone }}>{value}</b>
+      <span style={{ fontSize: 10.5, lineHeight: 1.2, color: tokens.color.softInk }}>{label}</span>
     </span>
   );
-  const divider = <span aria-hidden style={{ width: 1, height: 22, background: tokens.color.failedBorder }} />;
   return (
     <div
-      data-pr-ledger-strip="true"
-      style={{ display: "flex", gap: 14, alignItems: "center", padding: "10px 13px", borderRadius: PR_RADIUS, border: `1px solid ${tokens.color.failedBorder}`, background: tokens.color.failedWash, marginBottom: 10 }}
+      data-pr-evidence-header-stats="true"
+      data-pr-criteria-health-kpis="true"
+      style={{
+        display: "flex",
+        alignItems: "center",
+        gap: 12,
+        flexWrap: "wrap",
+        padding: "7px 0 3px",
+        minWidth: 0
+      }}
     >
-      {cell(rows.length, "captured", tokens.color.softInk)}
-      {divider}
-      {cell(strong, "strong", PR_MOSS)}
-      {divider}
-      {cell(outlier, "outlier", PR_ACCENT)}
-      <span style={{ marginLeft: "auto", ...prMonoMetaStyle, color: PR_ACCENT }}>過 4 criteria 以上為 strong</span>
+      {cell("captured", String(health.totalRows), "Captured", PR_ACCENT)}
+      {cell("strong", String(health.strongRows), "Strong", PR_MOSS)}
+      {cell("criteria-gap", `+${needsWorkCount}`, "Criteria 待補", PR_AMBER)}
     </div>
+  );
+}
+
+function rowEvidenceStrength(row: PrEvidenceRowViewModel): PrCriterionStrength {
+  if (row.matchedCount >= 4) return "strong";
+  if (row.matchedCount > 0) return "partial";
+  return "gap";
+}
+
+function EvidenceStrengthChip({ row }: { row: PrEvidenceRowViewModel }) {
+  const strength = rowEvidenceStrength(row);
+  const meta = CRITERIA_STRENGTH_META[strength];
+  return (
+    <span
+      data-pr-evidence-strength-chip={strength}
+      title={`${row.matchedCount}/6 criteria matched`}
+      style={{
+        display: "inline-flex",
+        alignItems: "center",
+        gap: 5,
+        justifySelf: "end",
+        alignSelf: "center",
+        padding: "4px 7px",
+        borderRadius: PR_ROUND,
+        border: `1px solid ${meta.rowBorder}`,
+        background: meta.rowBg,
+        color: meta.accent,
+        fontFamily: tokens.font.mono,
+        fontSize: 10,
+        fontWeight: 800,
+        fontVariantNumeric: "tabular-nums",
+        lineHeight: 1,
+        whiteSpace: "nowrap"
+      }}
+    >
+      <span aria-hidden style={{ width: 6, height: 6, borderRadius: PR_ROUND, background: meta.accent }} />
+      {strength}
+    </span>
   );
 }
 
@@ -555,7 +630,6 @@ function EvidenceLedger({ rows, caption }: { rows: PrEvidenceRowViewModel[]; cap
             </span>
           </summary>
           <div style={{ display: "grid", gap: 10, paddingTop: 10 }}>
-            <LedgerStrip rows={rows} />
             <div data-scan-list="pr-evidence" style={{ display: "grid", borderTop: `1px solid ${PR_RULE}` }}>
               {rows.map((row, index) => {
                 const auditNumber = formatAuditNumber(index);
@@ -566,9 +640,9 @@ function EvidenceLedger({ rows, caption }: { rows: PrEvidenceRowViewModel[]; cap
                     data-scan-row="true"
                     style={{
                       display: "grid",
-                      gridTemplateColumns: "34px minmax(0, 1fr)",
-                      gap: 12,
-                      padding: "14px 4px",
+                      gridTemplateColumns: "26px minmax(0, 1fr) auto",
+                      gap: 10,
+                      padding: "12px 4px",
                       borderBottom: `1px solid ${PR_RULE}`,
                       background: "transparent",
                       cursor: "default",
@@ -603,9 +677,6 @@ function EvidenceLedger({ rows, caption }: { rows: PrEvidenceRowViewModel[]; cap
                         >
                           {row.authorLabel}
                         </span>
-                        <span style={{ ...textStyles.metric, color: tokens.color.softInk }}>
-                          {row.metricLine}
-                        </span>
                         <span style={{ flex: 1 }} />
                         <SourceLinkIcon row={row} />
                         <CriterionChips row={row} variant="compact" />
@@ -613,17 +684,15 @@ function EvidenceLedger({ rows, caption }: { rows: PrEvidenceRowViewModel[]; cap
                           {row.collectedAtLabel}
                         </span>
                       </div>
-                      <QuoteBlock
-                        cite={<span>PR evidence row {auditNumber}</span>}
-                        style={{
-                          padding: "10px 12px",
-                          borderRadius: tokens.radius.card,
-                          background: tokens.color.surface
-                        }}
+                      <span
+                        data-pr-evidence-gist="true"
+                        style={{ display: "grid", minWidth: 0 }}
                       >
-                        {row.captionLabel}
-                      </QuoteBlock>
+                        <CollectorGist lines={2}>{row.captionLabel}</CollectorGist>
+                      </span>
+                      <CollectorMetricStrip descriptor={row.collectorDescriptor} marker={row.id} />
                     </div>
+                    <EvidenceStrengthChip row={row} />
                   </article>
                 );
               })}
@@ -751,7 +820,7 @@ const CRITERIA_STRENGTH_META: Record<PrCriterionStrength, { accent: string; rowB
   gap: { accent: PR_ACCENT, rowBg: tokens.color.failedWash, rowBorder: tokens.color.failedBorderStrong, status: "GAP" }
 };
 
-/* Frame 10 · PR Criteria Health — KPI grid + score-sorted criterion bars + systemic-gap callout. */
+/* Frame 6 · PR Criteria Health — header stats + criterion coverage lanes + systemic-gap callout. */
 const CRITERIA_HEALTH_DISCLOSURE_CSS = `
 [data-pr-criteria-health-detail] > summary::-webkit-details-marker {
   display: none;
@@ -762,8 +831,6 @@ function CriteriaHealth({ health, rows }: { health: PrEvidenceViewModel["criteri
   if (!health.totalRows) {
     return null;
   }
-  const gapCount = health.criteria.filter((entry) => entry.strength === "gap").length;
-  const rankedCriteria = [...health.criteria].sort((left, right) => right.matchedRows - left.matchedRows);
   const monoStat = { fontFamily: tokens.font.mono, fontVariantNumeric: "tabular-nums" } as const;
 
   return (
@@ -780,16 +847,10 @@ function CriteriaHealth({ health, rows }: { health: PrEvidenceViewModel["criteri
         </span>
       </div>
 
-      {/* KPI grid */}
-      <div data-pr-criteria-health-kpis="true" style={{ display: "grid", gridTemplateColumns: "repeat(3, minmax(0, 1fr))", gap: 7 }}>
-        <HealthKpi label="Captured" value={String(health.totalRows)} accent={PR_ACCENT} />
-        <HealthKpi label="Strong" value={String(health.strongRows)} suffix={`/ ${health.totalRows}`} accent={PR_MOSS} />
-        <HealthKpi label="Criteria 待補" value={String(gapCount)} suffix="/ 6" accent={PR_AMBER} />
-      </div>
+      <PrEvidenceHeaderStats health={health} />
 
-      {/* Per-criterion health rows, weakest sinks to the bottom */}
-      <div style={{ display: "grid", gap: 5 }}>
-        {rankedCriteria.map((entry) => {
+      <div style={{ display: "grid", gap: 6 }}>
+        {health.criteria.map((entry) => {
           const meta = CRITERIA_STRENGTH_META[entry.strength];
           const pct = entry.totalRows ? Math.round((entry.matchedRows / entry.totalRows) * 100) : 0;
           const matchedRows = rows.filter((row) =>
@@ -800,6 +861,8 @@ function CriteriaHealth({ health, rows }: { health: PrEvidenceViewModel["criteri
               key={entry.id}
               data-pr-criteria-health-detail={entry.id}
               data-pr-criteria-health-strength={entry.strength}
+              data-pr-criteria-coverage-row={entry.id}
+              data-pr-criteria-coverage-ratio={String(pct)}
               style={{
                 borderRadius: tokens.radius.xs,
                 border: `1px solid ${meta.rowBorder}`,
@@ -812,41 +875,74 @@ function CriteriaHealth({ health, rows }: { health: PrEvidenceViewModel["criteri
                   listStyle: "none",
                   cursor: "pointer",
                   display: "grid",
-                  gridTemplateColumns: "30px minmax(0, 1fr) auto auto",
-                  gap: 9,
+                  gridTemplateColumns: "minmax(0, 1fr) auto",
+                  gap: 10,
                   alignItems: "center",
-                  padding: "6px 11px"
+                  padding: "8px 11px"
                 }}
               >
-                <span
-                  data-pr-criteria-id={entry.id}
-                  style={{
-                    ...monoStat,
-                    fontSize: 10,
-                    fontWeight: 700,
-                    color: PR_ACCENT,
-                    background: "var(--dlens-mode-accent-soft)",
-                    border: `1px solid ${PR_RULE}`,
-                    padding: "3px 0",
-                    borderRadius: 5,
-                    textAlign: "center"
-                  }}
-                >
-                  {entry.id.toUpperCase()}
-                </span>
-                <span style={{ display: "grid", gap: 3, minWidth: 0 }}>
-                  <span style={{ ...prRowTextStyle, color: tokens.color.ink, minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-                    {entry.label}
+                <span style={{ display: "grid", gap: 6, minWidth: 0 }}>
+                  <span style={{ display: "flex", alignItems: "center", gap: 8, minWidth: 0 }}>
+                    <span
+                      data-pr-criteria-strength-dot={entry.id}
+                      aria-label={`${entry.strength} coverage`}
+                      style={{ width: 7, height: 7, borderRadius: PR_ROUND, background: meta.accent, flexShrink: 0 }}
+                    />
+                    <span
+                      data-pr-criteria-id={entry.id}
+                      style={{
+                        ...monoStat,
+                        fontSize: 10,
+                        fontWeight: 700,
+                        color: PR_ACCENT,
+                        background: "var(--dlens-mode-accent-soft)",
+                        border: `1px solid ${PR_RULE}`,
+                        padding: "2px 5px",
+                        borderRadius: 5,
+                        textAlign: "center"
+                      }}
+                    >
+                      {entry.id.toUpperCase()}
+                    </span>
+                    <span style={{ ...prRowTextStyle, color: tokens.color.ink, minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                      {entry.label}
+                    </span>
                   </span>
-                  <span aria-hidden style={{ height: 4, borderRadius: 3, background: tokens.color.inkWashStrong, overflow: "hidden" }}>
-                    <span style={{ display: "block", height: "100%", width: `${pct}%`, background: meta.accent, borderRadius: 3 }} />
+                  <span
+                    aria-hidden
+                    data-pr-criteria-coverage-bar={entry.id}
+                    style={{
+                      position: "relative",
+                      height: 6,
+                      width: "100%",
+                      borderRadius: PR_ROUND,
+                      background: tokens.color.neutralSurface,
+                      overflow: "hidden"
+                    }}
+                  >
+                    <span
+                      data-pr-criteria-coverage-fill={entry.id}
+                      style={{
+                        position: "absolute",
+                        left: 0,
+                        top: 0,
+                        bottom: 0,
+                        width: `${pct}%`,
+                        background: meta.accent
+                      }}
+                    />
                   </span>
                 </span>
-                <span style={{ ...monoStat, fontSize: 13, fontWeight: 600, color: meta.accent, textAlign: "right" }}>
-                  {entry.matchedRows}<span style={{ fontSize: 9.5, color: tokens.color.softInk, fontWeight: 400 }}>/{entry.totalRows}</span>
-                </span>
-                <span style={{ ...monoStat, fontSize: 9.5, fontWeight: 600, color: meta.accent, textAlign: "right", minWidth: 30 }}>
-                  {meta.status}
+                <span style={{ display: "grid", gap: 3, justifyItems: "end" }}>
+                  <span
+                    data-pr-criteria-coverage-count={entry.id}
+                    style={{ ...monoStat, fontSize: 13, fontWeight: 700, color: meta.accent, textAlign: "right", whiteSpace: "nowrap" }}
+                  >
+                    {entry.matchedRows}/{entry.totalRows}
+                  </span>
+                  <span style={{ ...monoStat, fontSize: 9.5, fontWeight: 700, color: meta.accent, textAlign: "right", minWidth: 30 }}>
+                    {meta.status}
+                  </span>
                 </span>
               </summary>
               <div
@@ -916,20 +1012,6 @@ function CriteriaHealth({ health, rows }: { health: PrEvidenceViewModel["criteri
   );
 }
 
-function HealthKpi({ label, value, suffix, accent }: { label: string; value: string; suffix?: string; accent: string }) {
-  return (
-    <div style={{ display: "grid", gap: 1, padding: "9px 12px", borderRadius: tokens.radius.card, border: `1px solid ${PR_RULE}`, background: tokens.color.surface, minWidth: 0 }}>
-      <span style={{ ...textStyles.label, fontFamily: tokens.font.sans, color: tokens.color.softInk, letterSpacing: "0.05em", textTransform: "uppercase", fontWeight: 700 }}>
-        {label}
-      </span>
-      <span style={{ fontFamily: `${tokens.font.serifCjk}, ${tokens.font.serif}`, fontSize: 24, lineHeight: 1, fontWeight: 500, color: accent }}>
-        {value}
-        {suffix ? <span style={{ fontFamily: tokens.font.mono, fontSize: 11, color: tokens.color.softInk, fontWeight: 400 }}> {suffix}</span> : null}
-      </span>
-    </div>
-  );
-}
-
 function PrWorkingArea({
   viewModel,
   onCommand
@@ -983,8 +1065,9 @@ function PrWorkingArea({
           onClick={() => exportCsvAction ? onCommand(exportCsvAction) : undefined}
           disabled={!viewModel.workingArea.canExportCsv || !exportCsvAction}
           style={compactButtonStyle}
+          dataAttrs={{ "data-pr-export-button": "csv", "aria-label": "匯出 CSV" }}
         >
-          匯出 CSV
+          <ExportButtonContent format="csv" />
         </PrimaryButton>
       </div>
 
@@ -1239,11 +1322,21 @@ function SummaryPanel({
       <div style={{ display: "flex", justifyContent: "space-between", gap: 10, alignItems: "center", flexWrap: "wrap" }}>
         <Kicker>PR 稽核摘要</Kicker>
         <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
-          <SecondaryButton onClick={() => markdownCommand ? onCommand(markdownCommand) : undefined} disabled={!markdownCommand} style={{ ...accentButtonStyle, ...compactButtonStyle }}>
-            匯出 MD
+          <SecondaryButton
+            onClick={() => markdownCommand ? onCommand(markdownCommand) : undefined}
+            disabled={!markdownCommand}
+            style={{ ...accentButtonStyle, ...compactButtonStyle }}
+            dataAttrs={{ "data-pr-export-button": "md", "aria-label": "匯出 MD" }}
+          >
+            <ExportButtonContent format="md" />
           </SecondaryButton>
-          <SecondaryButton onClick={() => docxCommand ? onCommand(docxCommand) : undefined} disabled={!docxCommand} style={{ ...exportButtonStyle, ...compactButtonStyle }}>
-            匯出 DOCX
+          <SecondaryButton
+            onClick={() => docxCommand ? onCommand(docxCommand) : undefined}
+            disabled={!docxCommand}
+            style={{ ...exportButtonStyle, ...compactButtonStyle }}
+            dataAttrs={{ "data-pr-export-button": "docx", "aria-label": "匯出 DOCX" }}
+          >
+            <ExportButtonContent format="docx" />
           </SecondaryButton>
         </div>
       </div>

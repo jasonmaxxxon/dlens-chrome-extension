@@ -10,6 +10,7 @@ import {
   sanitizePrFileBase,
   type PrFileExportDescriptor
 } from "../compare/pr-summary-export.ts";
+import type { TargetDescriptor } from "../contracts/target-descriptor.ts";
 import type {
   PrCampaign,
   PrCampaignDraft,
@@ -98,6 +99,7 @@ export interface PrEvidenceRowViewModel {
   matchedCriterionLabels: string[];
   criteria: PrEvidenceCriterionMatchViewModel[];
   metrics: PrEvidenceMetricCellViewModel[];
+  collectorDescriptor: TargetDescriptor;
   advancedMetricsError: string;
 }
 
@@ -191,6 +193,43 @@ function formatMetric(value: number | undefined): string {
     return `${(value / 1000).toFixed(value >= 10_000 ? 0 : 1).replace(/\.0$/, "")}k`;
   }
   return String(value);
+}
+
+function metricValue(value: number | undefined): number | null {
+  return typeof value === "number" && Number.isFinite(value) ? value : null;
+}
+
+function metricPresent(value: number | undefined): boolean {
+  return metricValue(value) !== null;
+}
+
+function buildCollectorDescriptor(row: PrEvidenceRow, views: number | undefined): TargetDescriptor {
+  return {
+    target_type: "post",
+    page_url: row.postUrl,
+    post_url: row.postUrl,
+    author_hint: row.authorHandle,
+    text_snippet: row.caption,
+    time_token_hint: "",
+    dom_anchor: "",
+    engagement: {
+      likes: metricValue(row.metrics.likes),
+      comments: metricValue(row.metrics.comments),
+      reposts: metricValue(row.metrics.reposts),
+      forwards: null,
+      views: metricValue(views),
+      followers: metricValue(row.metrics.followers)
+    },
+    engagement_present: {
+      likes: metricPresent(row.metrics.likes),
+      comments: metricPresent(row.metrics.comments),
+      reposts: metricPresent(row.metrics.reposts),
+      forwards: false,
+      views: metricPresent(views),
+      followers: metricPresent(row.metrics.followers)
+    },
+    captured_at: row.collectedAt
+  };
 }
 
 export function metricLine(row: PrEvidenceRow): string {
@@ -299,6 +338,7 @@ function buildRowViewModel(row: PrEvidenceRow, criteria: PrCriterion[]): PrEvide
       { label: "瀏覽", value: formatMetric(views), advanced: true },
       { label: "followers", value: formatMetric(row.metrics.followers), advanced: true }
     ],
+    collectorDescriptor: buildCollectorDescriptor(row, views),
     advancedMetricsError: row.advancedMetricsError || ""
   };
 }
