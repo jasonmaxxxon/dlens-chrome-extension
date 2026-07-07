@@ -6,7 +6,7 @@ type: project
 
 # DLens Extension Shared Context
 
-Last updated: 2026-07-03
+Last updated: 2026-07-07
 
 This file is the current shared context. Keep this filename stable and update
 the contents in place whenever an automated or manual handoff refresh makes it
@@ -51,6 +51,7 @@ This note is the high-signal shared memory for Codex and Claude when working on 
 - Product Saved Signals is the current Product landing surface. Classification visibility is merged into Saved Signals through filter tabs and a compact classification summary; `classification` remains an allowed internal/deep-link product page, but is not rail-visible.
 - `PR Evidence` mode is a compact campaign evidence workflow for agency / PR operators, backed by `PrCampaign` and `PrEvidenceRow`.
 - 0.3.0 is the Visual Reset A user-visible release: popup shell, PR Evidence ledger, Topic detail, Compare hero, and Product action marquee surfaces now follow the `src/ui/tokens.ts` warm-paper editorial contract plus native-feeling utility shell affordances. This did not change storage, backend, ViewModel, command target, classifier, content-script, or Signal Packet contracts.
+- 0.3.13 is a Collect / Topic chrome cleanup release: Topic Collect's 未分流 queue now has per-row and bulk delete controls wired to `signal/delete`, and the redundant Topic top selector strip is removed. Topic destination selection lives in the floating collect preview card, and topic creation stays in the 議題 page, so Topic/Product/PR top chrome is consistent.
 - `VIEW` remains 🟢, not 🟩. The four marquee surfaces are DOM-test-locked; row-level primitive adoption / large-view LOC reduction remains a follow-up `refactor(ui)` track.
 
 ## Layout Preference State As Of 2026-05-14
@@ -84,11 +85,11 @@ This note is the high-signal shared memory for Codex and Claude when working on 
 - TRACE full-live verification is locked by `docs/qa/assets/2026-06-13/full-live-backend-llm/live-trace-full-hover-save-queue-analysis.json`; `npm run qa:harness:fixture` requires hover.detected → ui.ready, including backend.request and llm.call phases.
 - Verified build artifact was copied to `output/chrome-mv3`; the source checkout there may still be dirty.
 
-## Version Rule As Of 2026-07-03
+## Version Rule As Of 2026-07-07
 
-- Current source version in the active worktree: `0.3.7`.
-- Latest local verification: `npm run typecheck`, `npm run boundary:guard`, `npm run storage:seam-guard`, `npx tsx --test tests/*.test.ts tests/*.test.tsx` (`954 passed / 5 skipped`), `npm run build`, and `git diff --check` passed on 2026-07-03.
-- Built `output/chrome-mv3/manifest.json` reports `version: "0.3.7"` after the 2026-07-03 build.
+- Current source version in the active worktree: `0.3.13`.
+- Latest local verification: `npm run typecheck`, `npm run boundary:guard`, `npm run storage:seam-guard`, `npx tsx --test tests/*.test.ts tests/*.test.tsx` (`983 passed / 5 skipped`), `npm run build`, and `git diff --check` passed on 2026-07-07.
+- Built `output/chrome-mv3/manifest.json` reports `version: "0.3.13"` after the 2026-07-07 build.
 - Current engineering branch: `main`.
 - `docs/ENGINEERING_PLAN.md` §2 N1-N5 is complete: React ErrorBoundary, Settings storage usage, `mutateSnapshot` seam, behavioral storage contracts, and code-review checklist.
 - §3 remains a deferred trigger pool, not a backlog drain queue.
@@ -97,11 +98,12 @@ This note is the high-signal shared memory for Codex and Claude when working on 
 - Signal Reading review text now uses a lighter lead-title + summary rhythm, and Product rail / candidate-action navigation can trigger on pointerdown to avoid live Chrome/Threads click swallowing.
 - SignalReading prompt version is now `v9`; representative comments cap at 15 and include analyzer refs plus top-liked replies.
 - Compare brief prompt version is now `v8`; `whyItMatters` should be one short consequence sentence, not a mini-essay.
-- Keep version synchronized across `package.json`, `package-lock.json`, `wxt.config.ts` `manifest.version`, and `src/ui/version.ts` `BUILD_VERSION`.
+- Keep version synchronized across `package.json`, `package-lock.json`, `wxt.config.ts` `manifest.version`, `src/ui/version.ts` `BUILD_VERSION`, and `tests/manifest-config.test.ts` expected version string.
 - Chrome's extension page shows the built manifest version; the popup masthead shows `BUILD_VERSION`.
 - Every user-visible update pushed to `main` should bump the version unless the user explicitly says not to.
 - `tests/manifest-config.test.ts` locks package / manifest / UI version consistency.
 - Product signal removal uses `signal/delete` and must persist to storage: remove from `dlens:v1:signals`, clear topic membership and affected topic synthesis, delete the matching product analysis, clear session folder synthesis, and refresh product state.
+- Topic Collect 未分流 deletion also uses `signal/delete`; row and bulk controls live in `CollectView` and should be visible only when `onSignalDeleted` is wired from the app shell.
 - Product mode `classification` is a valid product signal page for routing/data effects. Keep it in `ALLOWED_PAGES.product`, `PRODUCT_SIGNAL_PAGES`, product width handling, and product data-effect routing so deep links do not fall back to `saved-signals`; keep it out of the Product rail because classification is summarized inside Saved Signals.
 - Marginalia right rail should not duplicate main prose: `對到` shows only a short reference category, TASK shows `agentTaskSpec.taskTitle`, and `contentSummary` / `experimentHint` remain in the main column.
 
