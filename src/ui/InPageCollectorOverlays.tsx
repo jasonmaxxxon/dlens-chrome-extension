@@ -1,6 +1,6 @@
-import { PrimaryButton, SecondaryButton, TOKENS, lineClamp, surfaceCardStyle } from "./components";
+import { PrimaryButton, SecondaryButton, TOKENS, surfaceCardStyle } from "./components";
 import { CollectorGist, CollectorMetricStrip, COLLECTOR_MOTION_CSS } from "./CollectorMetricStrip";
-import { flashPreviewAvatar, flashPreviewMetrics } from "./inpage-helpers";
+import { flashPreviewAvatar } from "./inpage-helpers";
 import { modeThemes, tokens } from "./tokens";
 import type { InPageCollectorAppModel } from "./useInPageCollectorAppState";
 
@@ -143,31 +143,53 @@ export function InPageCollectorOverlays({ app }: { app: InPageCollectorAppModel 
 
       {snapshot?.tab.selectionMode && flashPreview && flashStyle ? (
         <div data-dlens-control="true" style={{ ...flashStyle, pointerEvents: "auto" }}>
-          <div style={surfaceCardStyle({ padding: 12, display: "grid", gap: 10 })}>
-            <div style={{ display: "flex", alignItems: "flex-start", gap: 10 }}>
+          <div
+            style={surfaceCardStyle({
+              padding: tokens.spacing.md,
+              borderRadius: tokens.radius.card,
+              background: `linear-gradient(180deg, ${tokens.color.elevated}, ${tokens.color.surface})`,
+              border: `1px solid ${tokens.color.cardEdge}`,
+              boxShadow: tokens.shadow.popup,
+              display: "grid",
+              gap: tokens.spacing.sm,
+              minWidth: 0
+            })}
+          >
+            <div style={{ display: "flex", alignItems: "flex-start", gap: tokens.spacing.sm, minWidth: 0 }}>
               <div
                 style={{
-                  width: 34,
-                  height: 34,
-                  borderRadius: 12,
+                  width: 32,
+                  height: 32,
+                  borderRadius: tokens.radius.lg,
                   background: `linear-gradient(135deg, ${MODE_ACCENT}, ${MODE_ACCENT_MID})`,
                   color: tokens.color.inverse,
                   display: "grid",
                   placeItems: "center",
                   fontWeight: 700,
-                  fontSize: 14,
-                  flexShrink: 0
+                  fontSize: 13,
+                  flexShrink: 0,
+                  boxShadow: tokens.shadow.previewAvatar
                 }}
               >
                 {flashPreviewAvatar(flashPreview.author_hint)}
               </div>
-              <div style={{ minWidth: 0 }}>
-                <div style={{ fontSize: 13, fontWeight: 800, marginBottom: 4 }}>{flashPreview.author_hint || "Unknown author"}</div>
-                <div style={{ fontSize: 12, color: TOKENS.subInk, ...lineClamp(2) }}>{flashPreview.text_snippet || "No snippet"}</div>
+              <div style={{ display: "grid", gap: tokens.spacing.xs, minWidth: 0 }}>
+                <div
+                  style={{
+                    color: tokens.color.ink,
+                    fontSize: 12,
+                    fontWeight: 700,
+                    lineHeight: 1.3,
+                    minWidth: 0
+                  }}
+                >
+                  {flashPreview.author_hint || "Unknown author"}
+                </div>
+                <CollectorGist lines={2}>{flashPreview.text_snippet || "No snippet"}</CollectorGist>
               </div>
             </div>
 
-            <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>{flashPreviewMetrics(flashPreview)}</div>
+            <CollectorMetricStrip descriptor={flashPreview} marker="hover-preview" />
 
             <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8 }}>
               <PrimaryButton onClick={() => void app.onSavePreview()}>

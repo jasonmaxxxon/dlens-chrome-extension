@@ -57,3 +57,38 @@ test("InPageCollectorOverlays renders a saved-post success popup with metric str
   assert.match(html, />–</);
   assert.match(html, /dlens-success-pulse/);
 });
+
+test("InPageCollectorOverlays renders the hover preview with the collector metric strip", () => {
+  const html = renderToStaticMarkup(
+    React.createElement(InPageCollectorOverlays, {
+      app: {
+        snapshot: {
+          tab: {
+            selectionMode: true,
+            collectModeBannerVisible: false,
+            hoveredTargetStrength: "strong"
+          }
+        },
+        tabId: 1,
+        hoverRect: null,
+        hoverSaved: false,
+        flashPreview: descriptor(),
+        flashStyle: { position: "fixed", left: 24, top: 48, width: 248 },
+        displayToast: null,
+        successToastDescriptor: null,
+        preview: null,
+        popupOpen: false,
+        onTogglePopup: () => undefined,
+        onSavePreview: () => undefined,
+        openPreview: () => undefined
+      } as never
+    })
+  );
+
+  assert.match(html, /data-collector-metric-strip="hover-preview"/);
+  assert.match(html, /data-collector-metric="likes"/);
+  assert.match(html, /data-collector-metric="comments"/);
+  assert.match(html, /data-collector-metric="reposts"/);
+  assert.match(html, /data-collector-metric="forwards"/);
+  assert.match(html, /保存成功後應該顯示這篇貼文/);
+});
