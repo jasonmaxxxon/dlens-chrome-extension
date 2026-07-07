@@ -1752,13 +1752,16 @@ test("PR Evidence advanced metrics notice includes the first failure reason", ()
   assert.match(notice, /第一個錯誤：404 Not Found/);
 });
 
-test("Product and PR Evidence modes render no folder strip", () => {
-  for (const activeFolderMode of ["product", "pr-evidence"] as const) {
+test("Product, PR Evidence, and Topic modes render no folder strip", () => {
+  // Topic selection moved into the floating preview card; the top strip is gone
+  // in topic mode too, so all three non-archive modes render nothing.
+  for (const activeFolderMode of ["product", "pr-evidence", "topic"] as const) {
     const html = renderToStaticMarkup(
       React.createElement(InPageCollectorFolderControls, {
         app: {
           activeFolderMode,
           activeFolder: { items: [] },
+          topics: [{ id: "topic-work", name: "work" }],
           signals: [],
           productSignalAnalyses: []
         } as any
@@ -1766,92 +1769,18 @@ test("Product and PR Evidence modes render no folder strip", () => {
     );
 
     assert.equal(html, "", `${activeFolderMode} mode should render nothing`);
-    assert.doesNotMatch(html, /Product workspace/);
     assert.doesNotMatch(html, /Select a folder/);
-    assert.doesNotMatch(html, /Rename folder/);
-    assert.doesNotMatch(html, /Create folder/);
+    assert.doesNotMatch(html, /新建主題/);
   }
-});
-
-test("Topic strip uses real topics instead of generated workspace sessions", () => {
-  const topicSession = {
-    ...buildSession(),
-    name: "work",
-    mode: "topic" as const
-  };
-  const legacySession = {
-    ...buildSession(),
-    id: "legacy-session",
-    name: "AI discussion",
-    mode: "topic" as const
-  };
-  const html = renderToStaticMarkup(
-    React.createElement(InPageCollectorFolderControls, {
-      app: {
-        activeFolderMode: "topic",
-        activeFolder: topicSession,
-        snapshot: {
-          global: {
-            sessions: [topicSession, legacySession],
-            activeSessionId: topicSession.id
-          }
-        },
-        topics: [
-          { id: "topic-work", sessionId: topicSession.id, name: "work", description: "", status: "watching", tags: [], signalIds: [], pairIds: [], createdAt: "", updatedAt: "" },
-          { id: "topic-love", sessionId: topicSession.id, name: "love", description: "", status: "pending", tags: [], signalIds: [], pairIds: [], createdAt: "", updatedAt: "" }
-        ],
-        selectedTopicId: "topic-love",
-        signals: [
-          { id: "signal-1", sessionId: topicSession.id, itemId: "item-1", source: "threads", inboxStatus: "unprocessed", capturedAt: "" },
-          { id: "signal-2", sessionId: topicSession.id, itemId: "item-2", source: "threads", inboxStatus: "assigned", capturedAt: "" }
-        ],
-        showFolderPrompt: false,
-        isRenamingFolder: false,
-        editingFolderName: "",
-        folderName: "",
-        setIsRenamingFolder: () => undefined,
-        setShowFolderPrompt: () => undefined,
-        setEditingFolderName: () => undefined,
-        setFolderName: () => undefined,
-        onSetActiveSession: () => undefined,
-        onSelectTopicTarget: () => undefined,
-        onCreateTopic: () => undefined,
-        onCreateFolder: () => undefined,
-        onRenameFolder: () => undefined,
-        onDeleteFolder: () => undefined
-      } as any
-    })
-  );
-
-  assert.match(html, /value="topic-work"/);
-  assert.match(html, /work/);
-  assert.match(html, /value="topic-love" selected="">love/);
-  assert.match(html, /1 未分流/);
-  assert.match(html, /2 主題/);
-  assert.doesNotMatch(html, /Product workspace/);
-  assert.doesNotMatch(html, /AI discussion/);
-  assert.doesNotMatch(html, /Topic workspace/);
-  assert.doesNotMatch(html, /42 saved/);
 });
 
 test("Topic folder strip counts inbox and topics instead of saved backing items", () => {
   const topicSession = { ...buildSession(), mode: "topic" as const };
   const archiveSession = { ...buildSession(), mode: "archive" as const, name: "Archive" };
-  const { formatWorkspaceOptionLabel, formatTopicOptionLabel, buildTopicStatusBadges } = inPageCollectorFolderControlsTestables;
+  const { formatWorkspaceOptionLabel } = inPageCollectorFolderControlsTestables;
 
   assert.equal(formatWorkspaceOptionLabel(topicSession), "Topic workspace");
-  assert.equal(formatTopicOptionLabel({ id: "topic-love", name: "love" } as any), "love");
   assert.equal(formatWorkspaceOptionLabel(archiveSession), "Archive (1)");
-  assert.deepEqual(
-    buildTopicStatusBadges({
-      topics: [{ id: "topic-work" }],
-      signals: [
-        { id: "signal-1", inboxStatus: "unprocessed" },
-        { id: "signal-2", inboxStatus: "assigned" }
-      ]
-    } as any),
-    ["1 未分流", "1 主題"]
-  );
 });
 
 test("SettingsView exposes Google provider and save action", () => {

@@ -65,6 +65,51 @@ test("CollectView shows topic triage rows for unprocessed signals", () => {
   assert.match(html, /建立議題需要 ≥ 3/);
 });
 
+test("CollectView renders per-row and bulk delete for untriaged signals when onSignalDeleted is provided", () => {
+  const html = renderToStaticMarkup(
+    React.createElement(CollectView, {
+      preview: null,
+      folderName: "Topics",
+      mode: "topic",
+      isSaved: false,
+      selectionMode: false,
+      untriagedSignals: signals,
+      signalPreviewById: { "signal-1": "航班改動後等不到客服" },
+      signalTagsByItemId: tagsByItemId,
+      onSavePreview: () => undefined,
+      onOpenPreview: () => undefined,
+      onToggleCollectMode: () => undefined,
+      onCreateTopicFromSignals: () => undefined,
+      onSignalDeleted: () => undefined
+    })
+  );
+
+  assert.match(html, /data-untriaged-delete="signal-1"/);
+  assert.match(html, /data-untriaged-delete-selected="true"/);
+});
+
+test("CollectView omits untriaged delete controls when onSignalDeleted is absent", () => {
+  const html = renderToStaticMarkup(
+    React.createElement(CollectView, {
+      preview: null,
+      folderName: "Topics",
+      mode: "topic",
+      isSaved: false,
+      selectionMode: false,
+      untriagedSignals: signals,
+      signalPreviewById: {},
+      signalTagsByItemId: tagsByItemId,
+      onSavePreview: () => undefined,
+      onOpenPreview: () => undefined,
+      onToggleCollectMode: () => undefined,
+      onCreateTopicFromSignals: () => undefined
+    })
+  );
+
+  assert.doesNotMatch(html, /data-untriaged-delete=/);
+  assert.doesNotMatch(html, /data-untriaged-delete-selected/);
+});
+
 test("CollectView folds collect mode controls into the collector panel header and footer", () => {
   const html = renderToStaticMarkup(
     React.createElement(CollectView, {

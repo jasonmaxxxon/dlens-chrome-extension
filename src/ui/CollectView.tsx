@@ -43,6 +43,7 @@ interface CollectViewProps {
   signalPreviewById?: Record<string, string>;
   signalTagsByItemId?: Record<string, SignalTagsRecord>;
   onCreateTopicFromSignals?: (signalIds: string[]) => void;
+  onSignalDeleted?: (signalId: string) => void;
 }
 
 function canCreateTopicFromSelection(signalIds: string[]): boolean {
@@ -70,7 +71,8 @@ export function CollectView({
   untriagedSignals = [],
   signalPreviewById = {},
   signalTagsByItemId = {},
-  onCreateTopicFromSignals
+  onCreateTopicFromSignals,
+  onSignalDeleted
 }: CollectViewProps) {
   const [selectedSignalIds, setSelectedSignalIds] = useState<string[]>([]);
   const hasPreview = Boolean(preview);
@@ -104,6 +106,14 @@ export function CollectView({
   };
   const selectAll = () => {
     setSelectedSignalIds(visibleUntriagedSignals.map((signal) => signal.id));
+  };
+  const deleteSignal = (signalId: string) => {
+    onSignalDeleted?.(signalId);
+    setSelectedSignalIds((current) => current.filter((id) => id !== signalId));
+  };
+  const deleteSelected = () => {
+    selectedSignalIds.forEach((signalId) => onSignalDeleted?.(signalId));
+    setSelectedSignalIds([]);
   };
 
   return (
@@ -427,7 +437,8 @@ export function CollectView({
                   data-untriaged-row={signal.id}
                   style={{
                     display: "grid",
-                    gridTemplateColumns: "auto minmax(0, 1fr)",
+                    gridTemplateColumns: "auto minmax(0, 1fr) auto",
+                    alignItems: "start",
                     gap: 10,
                     padding: "10px 0",
                     borderBottom: `1px solid ${tokens.color.line}`,
@@ -438,7 +449,7 @@ export function CollectView({
                     type="checkbox"
                     checked={checked}
                     onChange={() => toggleSignal(signal.id)}
-                    style={{ width: 16, height: 16, accentColor: tokens.topicAccent.primary }}
+                    style={{ width: 16, height: 16, marginTop: 2, accentColor: tokens.topicAccent.primary }}
                   />
                   <span style={{ display: "grid", gap: 5, minWidth: 0 }}>
                     <span style={{ fontSize: 12.5, lineHeight: 1.55, color: tokens.color.subInk, ...lineClamp(2) }}>
@@ -454,6 +465,36 @@ export function CollectView({
                       )}
                     </span>
                   </span>
+                  {onSignalDeleted ? (
+                    <button
+                      type="button"
+                      data-untriaged-delete={signal.id}
+                      aria-label="刪除此訊號"
+                      title="刪除"
+                      onClick={(event) => {
+                        event.preventDefault();
+                        event.stopPropagation();
+                        deleteSignal(signal.id);
+                      }}
+                      style={{
+                        display: "inline-grid",
+                        placeItems: "center",
+                        width: 22,
+                        height: 22,
+                        marginTop: 1,
+                        flexShrink: 0,
+                        borderRadius: tokens.radius.round,
+                        border: `1px solid ${tokens.color.line}`,
+                        background: "transparent",
+                        color: tokens.color.failed,
+                        cursor: "pointer"
+                      }}
+                    >
+                      <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+                        <path d="M6 6l12 12M18 6 6 18" />
+                      </svg>
+                    </button>
+                  ) : null}
                 </label>
               );
             })}
@@ -477,6 +518,16 @@ export function CollectView({
             </span>
             <span style={{ display: "flex", gap: 8 }}>
               <SecondaryButton onClick={selectAll} style={{ padding: "6px 10px", fontSize: 11 }}>全選</SecondaryButton>
+              {onSignalDeleted ? (
+                <SecondaryButton
+                  dataAttrs={{ "data-untriaged-delete-selected": "true" }}
+                  onClick={deleteSelected}
+                  disabled={selectedSignalIds.length === 0}
+                  style={{ padding: "6px 10px", fontSize: 11, color: tokens.color.failed, borderColor: tokens.color.failedBorder }}
+                >
+                  刪除
+                </SecondaryButton>
+              ) : null}
               <PrimaryButton
                 onClick={() => onCreateTopicFromSignals?.(selectedSignalIds)}
                 disabled={!canCreateTopic}

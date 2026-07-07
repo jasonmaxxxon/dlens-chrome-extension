@@ -496,6 +496,7 @@ export function InPageCollectorPopup({ app }: { app: InPageCollectorAppModel }) 
                 signalPreviewById={app.signalPreviewById}
                 signalTagsByItemId={app.signalTagsByItemId}
                 onCreateTopicFromSignals={(signalIds) => void app.onCreateTopicFromSignals(signalIds)}
+                onSignalDeleted={(signalId) => void app.onSignalDeleted(signalId)}
                 onSavePreview={() => void app.onSavePreview()}
                 onOpenPreview={app.openPreview}
                 onToggleCollectMode={() => void app.onToggleCollectMode()}
