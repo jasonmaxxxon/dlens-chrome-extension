@@ -1,4 +1,5 @@
 import type { EvidencePacket, LensMemo, SignalReading, TopicAuditStageName } from "../compare/topic-audit.ts";
+import { buildTopicEvidencePackets } from "../compare/topic-audit.ts";
 import type { TopicAuditValidationFlag } from "../compare/topic-audit-validator.ts";
 import { projectCapturedPost, projectCapturedPostFromSources, type CapturedPostProjection } from "../state/captured-post.ts";
 import type { LoadState } from "../state/load-state.ts";
@@ -170,6 +171,12 @@ export interface TopicDetailViewModel {
   primaryJudgmentPair: SavedAnalysisSnapshot | null;
   signals: TopicSignalViewModel[];
   signalRows: TopicSignalViewModel[];
+  /**
+   * EvidencePacket per crawled signal, derived locally (no AI) so the per-post
+   * drawer (OP 原文 + 留言 + 證據) is reachable right after the first crawl,
+   * before the topic audit runs. Keyed by signalId; only crawled signals appear.
+   */
+  packetsBySignalId: Record<string, EvidencePacket>;
   analysisCounts: TopicAnalysisCounts;
   sourcePendingCount: number;
   unanalyzedItemIds: string[];
@@ -717,6 +724,15 @@ export function buildTopicDetailViewModel({
     optimisticQueuedSet,
     capabilities: resolvedCapabilities
   });
+  const packetsBySignalId: Record<string, EvidencePacket> = {};
+  for (const packet of buildTopicEvidencePackets({
+    topic,
+    signals: safeArray(signals),
+    items: safeArray(sessionItems),
+    signalTagsByItemId
+  })) {
+    packetsBySignalId[packet.signalId] = packet;
+  }
   const analysisCounts = buildAnalysisCounts(signalRows);
   const unanalyzedItemIds = signalRows
     .filter((row) => row.itemId && (row.analysisState === "saved" || row.analysisState === "failed"))
@@ -745,6 +761,7 @@ export function buildTopicDetailViewModel({
     primaryJudgmentPair: pickPrimaryJudgmentPair(safeArray(pairs)),
     signals: signalRows,
     signalRows,
+    packetsBySignalId,
     analysisCounts,
     sourcePendingCount: analysisCounts.saved + analysisCounts.failed + analysisCounts.missing,
     unanalyzedItemIds,

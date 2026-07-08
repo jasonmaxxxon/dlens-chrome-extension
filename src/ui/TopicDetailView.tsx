@@ -5,7 +5,7 @@ import {
   TOPIC_SYNTHESIS_STALE_DELTA,
   topicSynthesisStaleReason
 } from "../compare/topic-synthesis.ts";
-import type { TopicAuditStageName } from "../compare/topic-audit.ts";
+import type { EvidencePacket, SignalReading, TopicAuditStageName } from "../compare/topic-audit.ts";
 import type { TopicAuditValidationFlag } from "../compare/topic-audit-validator.ts";
 import { buildNarrativeLaneDetail } from "../viewmodel/narrative-lane-detail.ts";
 import type {
@@ -13,6 +13,7 @@ import type {
   SavedAnalysisSnapshot,
   SignalTagsRecord,
   Topic,
+  TopicSignalReading,
   TopicSignalStance,
   TopicSynthesis,
   TopicSynthesisLayout
@@ -52,6 +53,34 @@ import { pickPrimaryJudgmentPair } from "./useTopicState.ts";
 
 const TOPIC_MODE_ACCENT = `var(--dlens-mode-accent, ${tokens.topicAccent.primary})`;
 const TOPIC_MODE_ACCENT_SOFT = `var(--dlens-mode-accent-soft, ${tokens.topicAccent.tintSage})`;
+
+/**
+ * Adapt a per-signal TopicSignalReading (cold-read stored per post) into the
+ * audit-shaped SignalReading the SignalDrawer renders. Lets an already-analyzed
+ * post show its claim + inline citations when drilled into before the full topic
+ * audit runs. Returns null when there is no usable reading.
+ */
+function adaptTopicSignalReadingForDrawer(
+  reading: TopicSignalReading | undefined,
+  packet: EvidencePacket | null
+): SignalReading | null {
+  if (!reading || reading.status !== "complete" || !packet) {
+    return null;
+  }
+  return {
+    auditRunId: packet.auditRunId,
+    inputHash: packet.inputHash,
+    topicId: reading.topicId,
+    signalId: reading.signalId,
+    shortCode: packet.shortCode,
+    reading: reading.reading,
+    evidenceRefs: reading.evidenceRefs,
+    watchNotes: reading.uncertainties,
+    promptVersion: reading.promptVersion,
+    model: reading.model,
+    generatedAt: reading.generatedAt
+  };
+}
 
 interface TopicDetailViewProps {
   viewModel: TopicDetailViewModel;
@@ -1370,8 +1399,16 @@ export function TopicDetailView({
   const openAuditRow = openAuditSignalId
     ? audit.sourceRows.find((row) => row.packet.signalId === openAuditSignalId || row.packet.shortCode === openAuditSignalId) ?? null
     : null;
-  const openAuditPacket = openAuditRow?.packet ?? null;
-  const openAuditReading = openAuditRow?.reading ?? null;
+  // Pre-audit fallback: when the topic audit has not run, source rows are empty,
+  // so open the drawer from the locally-derived packet (OP 原文 + 留言) and adapt
+  // any per-signal reading into the drawer's claim view.
+  const openAuditPacket = openAuditRow?.packet
+    ?? (openAuditSignalId ? viewModel.packetsBySignalId[openAuditSignalId] ?? null : null);
+  const openAuditReading = openAuditRow?.reading
+    ?? adaptTopicSignalReadingForDrawer(
+      openAuditSignalId ? signals.find((row) => row.signalId === openAuditSignalId)?.reading : undefined,
+      openAuditPacket
+    );
 
   useEffect(() => {
     if (selectedTag && !signalTagSummaries.some((summary) => summary.tag === selectedTag)) {
@@ -1566,22 +1603,26 @@ export function TopicDetailView({
           const tagRecord = signal.tagRecord;
           const reading = signal.reading;
           const originalUrl = signal.sourcePreview.displayUrl;
-          const openAnalysisAction = signal.actions.find((entry) => entry.kind === "openSignalAnalysis");
           const addToCompareAction = signal.actions.find((entry) => entry.kind === "addSignalToCompare");
           const analyzeAction = signal.actions.find((entry) => entry.kind === "analyzeItem" || entry.kind === "queueSignalItem");
           const deleteAction = signal.actions.find((entry) => entry.kind === "deleteSignal");
+          // Drill-in is meaningful only once the thread (原文 + 留言) has been
+          // crawled; a collection-only snippet has no comments to show yet.
+          const canOpenDrawer = viewModel.packetsBySignalId[signal.signalId]?.status === "succeeded";
 
           return (
             <div
               key={signal.signalId}
               data-topic-source-row={signal.signalId}
               data-scan-row="true"
+              onClick={canOpenDrawer ? () => setOpenAuditSignalId(signal.signalId) : undefined}
               style={scanRowStyle({
                 display: "grid",
                 gridTemplateColumns: deleteAction ? "5px minmax(0, 1fr) auto 42px" : "5px minmax(0, 1fr) auto",
                 gap: 10,
                 padding: "11px 0",
-                alignItems: "start"
+                alignItems: "start",
+                cursor: canOpenDrawer ? "pointer" : "default"
               })}
             >
               <span
@@ -1603,7 +1644,10 @@ export function TopicDetailView({
                     {preview}
                   </div>
                 ) : null}
-                <div style={{ display: "flex", gap: 5, flexWrap: "wrap", alignItems: "center" }}>
+                <div
+                  onClick={(event) => event.stopPropagation()}
+                  style={{ display: "flex", gap: 5, flexWrap: "wrap", alignItems: "center" }}
+                >
                   <Stamp tone={analysisStateTone(status)}>{analysisStateLabel(status)}</Stamp>
                   {reading ? <StanceBadge stance={reading.stance} marker="source" /> : null}
                   <span style={{ fontSize: 10.5, color: tokens.color.softInk }}>加入 {formatTopicDate(signal.capturedAt)}</span>
@@ -1629,18 +1673,11 @@ export function TopicDetailView({
                   ) : null}
                   {signal.itemId && !signal.isProcessing ? (
                     signal.isReady ? (
-                      <>
-                        {openAnalysisAction ? (
-                          <SecondaryButton onClick={() => dispatch(openAnalysisAction)} style={{ padding: "4px 8px", fontSize: 10.5 }}>
-                            查看分析
-                          </SecondaryButton>
-                        ) : null}
-                        {addToCompareAction ? (
-                          <SecondaryButton onClick={() => dispatch(addToCompareAction)} style={{ padding: "4px 8px", fontSize: 10.5 }}>
-                            加入比較
-                          </SecondaryButton>
-                        ) : null}
-                      </>
+                      addToCompareAction ? (
+                        <SecondaryButton onClick={() => dispatch(addToCompareAction)} style={{ padding: "4px 8px", fontSize: 10.5 }}>
+                          加入比較
+                        </SecondaryButton>
+                      ) : null
                     ) : analyzeAction ? (
                       <SecondaryButton
                         onClick={() => handleAnalyzeItem(signal)}

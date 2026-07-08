@@ -233,6 +233,34 @@ test("Topic detail VM composes source rows, audit state, and command targets", (
   }
 });
 
+test("Topic detail VM exposes local evidence packets per crawled signal for pre-audit drill-in", () => {
+  const vm = buildTopicDetailViewModel({
+    topic,
+    signals: [
+      buildSignal("signal-ready", "item-ready"),
+      buildSignal("signal-saved", "item-saved")
+    ],
+    pairs: [],
+    sessionItems: [
+      buildSessionItem("item-ready", "succeeded"),
+      buildSessionItem("item-saved", "saved")
+    ]
+    // No auditEvidence / auditMemos: this is the state right after the first crawl,
+    // before the topic audit runs.
+  });
+
+  // The audit has not run, yet the crawled signal already has a content-bearing
+  // packet so the per-post drawer (OP 原文 + 留言) is reachable.
+  assert.equal(vm.audit.evidence.length, 0);
+  const readyPacket = vm.packetsBySignalId["signal-ready"];
+  assert.ok(readyPacket, "crawled signal should have a locally-derived packet");
+  assert.equal(readyPacket?.signalId, "signal-ready");
+  assert.equal(readyPacket?.status, "succeeded");
+  assert.equal(readyPacket?.opText, "signal text item-ready");
+  // A not-yet-crawled signal is keyed but not "succeeded", so the drawer stays gated.
+  assert.notEqual(vm.packetsBySignalId["signal-saved"]?.status, "succeeded");
+});
+
 test("Topic detail VM keeps audit denominator on evidence when saved signals drift", () => {
   const auditEvidence = Array.from({ length: 15 }, (_, index) => buildAuditPacket(index + 1));
   const auditMemos = buildAuditMemos(auditEvidence);
