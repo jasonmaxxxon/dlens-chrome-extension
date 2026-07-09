@@ -1,11 +1,24 @@
-import type { EvidencePacket, LensMemo, ReactionCoverage, ReactionPattern, ReplyFragment, SignalReading } from "./topic-audit.ts";
+import {
+  getAudienceReplies,
+  mergeShardReadingsByPost,
+  type CommentShardReading,
+  type EvidencePacket,
+  type LensMemo,
+  type PostReactionObservation,
+  type ReactionCoverage,
+  type ReactionPattern,
+  type ReplyFragment,
+  type ShardPatternCandidate,
+  type SignalReading
+} from "./topic-audit.ts";
 
 export const TOPIC_AUDIT_PROMPT_VERSIONS = {
+  p0_5: "topic-audit-p0_5.v1",
   p1: "topic-audit-p1.v2",
-  p2: "topic-audit-p2.v2",
+  p2: "topic-audit-p2.v3",
   p3: "topic-audit-p3.v2",
-  p4: "topic-audit-p4.v1",
-  p5: "topic-audit-p5.v1",
+  p4: "topic-audit-p4.v2",
+  p5: "topic-audit-p5.v2",
   p6: "topic-audit-p6.v2",
   p7: "topic-audit-p7.v1",
   p8: "topic-audit-p8.v1"
@@ -16,6 +29,9 @@ export interface AuditPromptEnvelope {
   evidenceRefs: string[];
   caveats: string[];
   coverage?: string;
+  commentRefsInShard?: string[];
+  patternCandidates?: ShardPatternCandidate[];
+  lexiconCandidates?: string[];
   displayHints?: {
     themeChips?: string[];
     narrativeLanes?: AuditPromptNarrativeLane[];
@@ -219,6 +235,45 @@ function readRefArray(value: unknown, allowedRefs?: ReadonlySet<string>): string
   return readStringArray(value).filter((ref) => !allowedRefs || allowedRefs.has(ref));
 }
 
+function readShardPatternCandidates(value: unknown, allowedRefs?: ReadonlySet<string>): ShardPatternCandidate[] {
+  if (!Array.isArray(value)) {
+    return [];
+  }
+  const candidates: ShardPatternCandidate[] = [];
+  for (const entry of value) {
+    if (!entry || typeof entry !== "object" || Array.isArray(entry)) {
+      continue;
+    }
+    const raw = entry as Record<string, unknown>;
+    const label = readTrimmedString(raw.label ?? raw.title ?? raw.name);
+    const gist = readTrimmedString(raw.gist ?? raw.summary);
+    const dynamicImplication = readTrimmedString(raw.dynamicImplication ?? raw.dynamic_implication ?? raw.implication);
+    const nInShard = readNonNegativeInteger(raw.nInShard ?? raw.n_in_shard ?? raw.count);
+    if (!label || !gist || !dynamicImplication || nInShard === null) {
+      continue;
+    }
+    const supportRefs = readRefArray(raw.supportRefs ?? raw.support_refs ?? raw.evidenceRefs ?? raw.evidence_refs, allowedRefs);
+    const counterRefs = readRefArray(raw.counterRefs ?? raw.counter_refs, allowedRefs);
+    const representativeRefs = readRefArray(raw.representativeRefs ?? raw.representative_refs ?? raw.exampleRefs ?? raw.example_refs, allowedRefs);
+    const counterRepresentativeRefs = readRefArray(raw.counterRepresentativeRefs ?? raw.counter_representative_refs ?? raw.counterExampleRefs ?? raw.counter_example_refs, allowedRefs);
+    if ([...supportRefs, ...counterRefs, ...representativeRefs, ...counterRepresentativeRefs].length === 0) {
+      continue;
+    }
+    candidates.push({
+      label,
+      gist,
+      dynamicImplication,
+      supportRefs,
+      counterRefs,
+      representativeRefs,
+      counterRepresentativeRefs,
+      nInShard,
+      uncertainty: readTrimmedString(raw.uncertainty)
+    });
+  }
+  return candidates;
+}
+
 function readReactionPatterns(value: unknown, allowedRefs?: ReadonlySet<string>): ReactionPattern[] {
   if (!Array.isArray(value)) {
     return [];
@@ -279,6 +334,9 @@ export function parseAuditPromptEnvelopeResponse(
     .filter((ref) => !allowedRefs || allowedRefs.has(ref));
   const caveats = readStringArray(parsed.caveats);
   const coverage = readTrimmedString(parsed.coverage);
+  const commentRefsInShard = readRefArray(parsed.commentRefsInShard ?? parsed.comment_refs_in_shard, allowedRefs);
+  const patternCandidates = readShardPatternCandidates(parsed.patternCandidates ?? parsed.pattern_candidates, allowedRefs);
+  const lexiconCandidates = readStringArray(parsed.lexiconCandidates ?? parsed.lexicon_candidates);
   const rawDisplayHints = parsed.displayHints ?? parsed.display_hints;
   const displayHints: ParsedDisplayHints = rawDisplayHints && typeof rawDisplayHints === "object" && !Array.isArray(rawDisplayHints)
     ? {
@@ -300,6 +358,9 @@ export function parseAuditPromptEnvelopeResponse(
     evidenceRefs,
     caveats,
     ...(coverage ? { coverage } : {}),
+    ...(commentRefsInShard.length > 0 ? { commentRefsInShard } : {}),
+    ...(patternCandidates.length > 0 ? { patternCandidates } : {}),
+    ...(lexiconCandidates.length > 0 ? { lexiconCandidates } : {}),
     ...(displayHints.themeChips.length > 0 || displayHints.narrativeLanes.length > 0 || displayHints.reactionCoverage || displayHints.reactionPatterns.length > 0
       ? {
           displayHints: {
@@ -318,6 +379,7 @@ interface TopicPromptInput {
   packets: EvidencePacket[];
   signalReadings: SignalReading[];
   lensMemos?: LensMemo[];
+  shardReadings?: CommentShardReading[];
 }
 
 interface P3PromptInput extends TopicPromptInput {
@@ -353,6 +415,36 @@ const ENVELOPE_SCHEMA = `{
   }
 }`;
 
+const P4_REACTION_ENVELOPE_SCHEMA = `{
+  "prose": "P4 audience reading prose，必須引用 evidence refs",
+  "evidenceRefs": ["S1.R1"],
+  "caveats": ["資料缺口或推論限制"],
+  "coverage": "read audience comments / usable audience comments",
+  "displayHints": {
+    "reactionCoverage": {
+      "postCount": 2,
+      "capturedCommentCount": 240,
+      "readCommentCount": 180,
+      "usableAudienceCommentCount": 180
+    },
+    "reactionPatterns": [
+      {
+        "id": "reaction-1",
+        "label": "用議題原文語言命名反應型態",
+        "dynamicImplication": "此反應如何改變 topic momentum / conflict dynamic",
+        "nComments": 12,
+        "nAuthors": 9,
+        "coverageDenominator": 180,
+        "supportRefs": ["S1.R1"],
+        "counterRefs": ["S2.R3"],
+        "representativeRefs": ["S1.R1"],
+        "counterRepresentativeRefs": ["S2.R3"],
+        "icon": "message-circle"
+      }
+    ]
+  }
+}`;
+
 const LANGUAGE_RULE = "語言：themeChips 與 narrativeLanes.label 必須使用議題原文語言（如議題是中文，必用中文；禁止英文 taxonomy 詞如 \"Dating Market Dynamics\"）。prose 同樣用議題原文語言。";
 
 const NARRATIVE_ICON_RULE = `narrativeLanes.icon 必選一個，從下列 whitelist 挑最貼合該敘事 mood 的：${NARRATIVE_LANE_ICONS.join(", ")}。冷僻就選 message-circle。`;
@@ -379,6 +471,128 @@ function renderPacket(packet: EvidencePacket, includeGaps = true): string {
 
 function renderPackets(packets: EvidencePacket[]): string {
   return packets.map((packet) => renderPacket(packet)).join("\n\n");
+}
+
+function findFragmentByRef(packets: EvidencePacket[], ref: string): { packet: EvidencePacket; fragment: ReplyFragment | null } | null {
+  for (const packet of packets) {
+    if (ref === `${packet.shortCode}.OP`) {
+      return { packet, fragment: null };
+    }
+    const fragment = packet.replyFragments.find((entry) => entry.ref === ref);
+    if (fragment) {
+      return { packet, fragment };
+    }
+  }
+  return null;
+}
+
+function collectShardCandidateRefs(shardReadings: CommentShardReading[] = []): Set<string> {
+  return new Set(shardReadings.flatMap((reading) => reading.patternCandidates.flatMap((candidate) => [
+    ...candidate.supportRefs,
+    ...candidate.counterRefs,
+    ...candidate.representativeRefs,
+    ...candidate.counterRepresentativeRefs
+  ])));
+}
+
+function renderRefsAsQuotes(packets: EvidencePacket[], refs: Iterable<string>): string {
+  const lines: string[] = [];
+  const seen = new Set<string>();
+  for (const ref of refs) {
+    if (seen.has(ref)) {
+      continue;
+    }
+    seen.add(ref);
+    const match = findFragmentByRef(packets, ref);
+    if (!match) {
+      continue;
+    }
+    lines.push(match.fragment
+      ? renderFragment(match.fragment)
+      : `${match.packet.shortCode}.OP [♥${likesLabel(match.packet.opLikes)}] @${match.packet.opAuthor || "unknown"}: ${match.packet.opText || "（無 OP text）"}`);
+  }
+  return lines.length ? lines.join("\n") : "（尚無 cited shard quotes）";
+}
+
+function audienceCommentKey(packets: EvidencePacket[], ref: string): string | null {
+  const match = findFragmentByRef(packets, ref);
+  if (!match?.fragment || match.fragment.role !== "audience") {
+    return null;
+  }
+  return match.fragment.commentId ? `comment:${match.fragment.commentId}` : `ref:${ref}`;
+}
+
+function countDistinctAudienceRefs(packets: EvidencePacket[], refs: Iterable<string>): number {
+  const keys = new Set<string>();
+  for (const ref of refs) {
+    const key = audienceCommentKey(packets, ref);
+    if (key) {
+      keys.add(key);
+    }
+  }
+  return keys.size;
+}
+
+function renderShardLexiconCandidates(shardReadings: CommentShardReading[] = []): string {
+  if (!shardReadings.length) {
+    return "（尚無 shard lexicon candidates）";
+  }
+  return shardReadings
+    .map((reading) => `${reading.shortCode} shard ${reading.shardIndex + 1}/${reading.shardCount}: refs=${reading.commentRefsInShard.join(", ") || "none"}; lexicon=${reading.lexiconCandidates.join(" / ") || "none"}`)
+    .join("\n");
+}
+
+function renderPostReactionObservation(observation: PostReactionObservation): string {
+  return [
+    `- ${observation.label}: n=${observation.nComments}/${observation.coverageDenominator} comments; authors=${observation.nAuthors}`,
+    `  gist: ${observation.gist}`,
+    `  dynamicImplication: ${observation.dynamicImplication}`,
+    `  supportRefs: ${observation.supportRefs.join(", ") || "none"}`,
+    `  counterRefs: ${observation.counterRefs.join(", ") || "none"}`,
+    `  representativeRefs: ${observation.representativeRefs.join(", ") || "none"}`,
+    `  counterRepresentativeRefs: ${observation.counterRepresentativeRefs.join(", ") || "none"}`,
+    `  uncertainty: ${observation.uncertainty || "none"}`
+  ].join("\n");
+}
+
+function renderPostReactionObservations(input: TopicPromptInput): string {
+  const shardReadings = input.shardReadings ?? [];
+  const blocks = input.packets.flatMap((packet) => {
+    const observations = mergeShardReadingsByPost(packet, shardReadings);
+    if (!observations.length) {
+      return [];
+    }
+    const readRefs = shardReadings
+      .filter((reading) => reading.signalId === packet.signalId)
+      .flatMap((reading) => reading.commentRefsInShard);
+    const readCommentCount = countDistinctAudienceRefs([packet], readRefs);
+    const audienceCount = countDistinctAudienceRefs([packet], getAudienceReplies(packet).map((fragment) => fragment.ref));
+    return [`## ${packet.shortCode} (${packet.signalId}) coverage ${readCommentCount}/${audienceCount} audience comments\n${observations.map(renderPostReactionObservation).join("\n")}`];
+  });
+  return blocks.length ? blocks.join("\n\n") : "（尚無 post-level reaction observations）";
+}
+
+function renderShardCoverageDigest(input: TopicPromptInput): string {
+  const shardReadings = input.shardReadings ?? [];
+  if (!shardReadings.length) {
+    return "（尚無 shard coverage）";
+  }
+  return shardReadings
+    .map((reading) => `${reading.shortCode} shard ${reading.shardIndex + 1}/${reading.shardCount}: ${reading.commentRefsInShard.length} refs (${reading.commentRefsInShard.join(", ") || "none"})`)
+    .join("\n");
+}
+
+function renderShardCoverageTotals(input: TopicPromptInput): string {
+  const shardReadings = input.shardReadings ?? [];
+  const readRefs = shardReadings.flatMap((reading) => reading.commentRefsInShard);
+  const usableAudienceCommentCount = countDistinctAudienceRefs(input.packets, readRefs);
+  const capturedCommentCount = input.packets.reduce((sum, packet) => sum + (packet.commentCount ?? getAudienceReplies(packet).length), 0);
+  return [
+    `postCount=${input.packets.length}`,
+    `capturedCommentCount=${capturedCommentCount}`,
+    `readCommentCount=${usableAudienceCommentCount}`,
+    `usableAudienceCommentCount=${usableAudienceCommentCount}`
+  ].join("; ");
 }
 
 function collectCitedRefs(input: TopicPromptInput): Set<string> {
@@ -435,6 +649,53 @@ function renderEnvelopeInstruction(options: { withNarrativeIcon?: boolean } = {}
   ].join("\n");
 }
 
+function renderP4ReactionEnvelopeInstruction(): string {
+  return [
+    "只回傳 JSON，不要 markdown fence。",
+    "P4 必須回傳 extended envelope；不要用 shared schema 省略 reaction fields：",
+    P4_REACTION_ENVELOPE_SCHEMA,
+    LANGUAGE_RULE,
+    NARRATIVE_ICON_RULE,
+    "producer contract：displayHints.reactionCoverage 與 displayHints.reactionPatterns 必填；每個 reactionPattern 必須有真實 supportRefs 或 counterRefs 或 representativeRefs。",
+    "parser 會丟掉缺 label / dynamicImplication / nComments / coverageDenominator，或 refs 全 invalid 的 pattern；所以不要輸出沒有真 refs 的 pattern。",
+    "nComments 必須是 shard/post merge 後以 commentId dedup 的實數；coverageDenominator 必須等於 actually-read usable audience comments，不是 Threads 上報 commentCount。"
+  ].join("\n");
+}
+
+export function buildP0_5ShardReadingPrompt(packet: EvidencePacket, shardFragments: ReplyFragment[]): string {
+  const shardRefs = shardFragments.map((fragment) => fragment.ref);
+  const exampleRef = shardRefs[0] ?? "";
+  const examplePattern = exampleRef
+    ? `[{\"label\":\"反應型態\",\"gist\":\"一句定義 [${exampleRef}]\",\"dynamicImplication\":\"對 topic momentum / conflict dynamic 的意義 [${exampleRef}]\",\"supportRefs\":[\"${exampleRef}\"],\"counterRefs\":[],\"representativeRefs\":[\"${exampleRef}\"],\"counterRepresentativeRefs\":[],\"nInShard\":1,\"uncertainty\":\"讀不準之處\"}]`
+    : "[]";
+  return [
+    "你要 blank-read 一個 Threads audience comment shard。先不要套框架，也不要繼承任何既有 AI tags/gist。",
+    "目標：把本 shard 讀成可合併的 CommentShardReading；shard 不准宣稱 topic-level pattern。",
+    "",
+    "[OP context]",
+    `${packet.shortCode}.OP [♥${likesLabel(packet.opLikes)}] @${packet.opAuthor || "unknown"}: ${packet.opText || "（無 OP text）"}`,
+    "",
+    "[Shard audience comments]",
+    shardFragments.length ? shardFragments.map(renderFragment).join("\n") : "（此 shard 沒有 audience comments）",
+    "",
+    "紀律：",
+    "- 只引用本 shard refs；commentRefsInShard 必須逐字列出本 prompt 內的 refs。",
+    "- patternCandidates 是白紙讀出的反應型態；每個 candidate 的 supportRefs/counterRefs/representativeRefs/counterRepresentativeRefs 只可使用本 shard refs。",
+    "- 每個 candidate 的 gist / dynamicImplication / uncertainty 只要提到具體留言，就要 inline 標註 [S#.R#]。",
+    "- nInShard 必須等於 supportRefs 代表的實際留言數；不要用 likes 或 Threads 上報 commentCount 估算。",
+    "- lexiconCandidates 只放本 shard 真的出現的詞、phrase、register。",
+    "",
+    "Return JSON: {\"prose\":\"本 shard 白紙讀 memo\",\"evidenceRefs\":["
+      + (exampleRef ? `"${exampleRef}"` : "")
+      + "],\"caveats\":[],\"coverage\":\"x/y\",\"commentRefsInShard\":["
+      + shardRefs.map((ref) => `"${ref}"`).join(",")
+      + "],\"lexiconCandidates\":[\"詞或短語\"],\"patternCandidates\":"
+      + examplePattern
+      + "}",
+    LANGUAGE_RULE
+  ].join("\n");
+}
+
 export function buildP1SignalReadingPrompt(packet: EvidencePacket): string {
   return [
     "你要 cold-read 一則 Threads 訊號。先不要套框架，也不要繼承任何既有 AI tags/gist。",
@@ -460,7 +721,7 @@ export function buildP1SignalReadingPrompt(packet: EvidencePacket): string {
 export function buildP2LexiconPrompt(input: TopicPromptInput): string {
   return [
     `Topic: ${input.topicName}`,
-    "P2 Lexicon：從 P0 evidence + P1 readings 自由歸納詞彙層觀察。",
+    "P2 Lexicon：從 P0.5 shard lexicon candidates + P1 readings 自由歸納詞彙層觀察。",
     "focus 是 word/phrase/register，不是 narrative。",
     "",
     "PROBE（檢查，不預設結果）：",
@@ -471,8 +732,11 @@ export function buildP2LexiconPrompt(input: TopicPromptInput): string {
     "- 同一個詞有沒有反向用法？哪些詞 OP-coined、哪些 reader-coined？",
     "詞層缺席只能說「在 captured evidence 中缺席」，不能說整個 discourse 缺席。",
     "",
-    "[Evidence]",
-    renderPackets(input.packets),
+    "[Shard lexicon candidates]",
+    renderShardLexiconCandidates(input.shardReadings),
+    "",
+    "[Cited shard quotes]",
+    renderRefsAsQuotes(input.packets, collectShardCandidateRefs(input.shardReadings)),
     "",
     "[P1 readings]",
     renderSignalReadings(input.signalReadings),
@@ -504,14 +768,21 @@ export function buildP4AudiencePrompt(input: TopicPromptInput): string {
     "P4 Audience：觀察 reader 對 OP 做了什麼動作。see-then-write：看到才寫，沒看到不寫。",
     "可參考但不是必填：接住、共鳴、反駁、校正 OP 框架、升級為結構分析、漂移、bookmark、為對立價值辯護。",
     "排除 OP 自我接話（S#.OPC# / S#.OPR#）與 placeholder。top-3 reply 不等於整體議題共識。每個型態標 n；n=1~2 不可宣稱穩定 pattern。",
+    "你現在是 reactionPatterns producer：從 post-level observations 跨 post 合併成 topic-level displayHints.reactionPatterns。",
     "",
-    "[Evidence]",
-    renderPackets(input.packets),
+    "[Reaction coverage totals]",
+    renderShardCoverageTotals(input),
+    "",
+    "[Post-level merged observations]",
+    renderPostReactionObservations(input),
+    "",
+    "[Cited observation quotes]",
+    renderRefsAsQuotes(input.packets, collectShardCandidateRefs(input.shardReadings)),
     "",
     "[Prior memos]",
     renderLensMemos(input.lensMemos),
     "",
-    renderEnvelopeInstruction()
+    renderP4ReactionEnvelopeInstruction()
   ].join("\n");
 }
 
@@ -524,8 +795,8 @@ export function buildP5AbsencePrompt(input: TopicPromptInput): string {
     "不可把單 topic 觀察寫成 platform/culture 斷言；那是 P8 的事。",
     "可檢查但不可預設：中間層/collective scale、object-never-subject、escape ramp 是否被辯護或關閉。",
     "",
-    "[Evidence]",
-    renderPackets(input.packets),
+    "[Shard coverage digest]",
+    renderShardCoverageDigest(input),
     "",
     "[Prior readings]",
     renderSignalReadings(input.signalReadings),
@@ -611,7 +882,7 @@ function isNegativeInstruction(sentence: string): boolean {
 
 export function findForbiddenFindingAssertions(prompt: string): string[] {
   const flags: string[] = [];
-  const instructionBlock = prompt.split(/\n\[(?:Evidence|P0 evidence|P1 readings|Prior|Lens memos|Memos|Report markdown|Topic reports)\]/)[0] ?? prompt;
+  const instructionBlock = prompt.split(/\n\[(?:Evidence|P0 evidence|Shard lexicon candidates|Cited shard quotes|Reaction coverage totals|Post-level merged observations|Cited observation quotes|Shard coverage digest|P1 readings|Prior|Lens memos|Memos|Report markdown|Topic reports)\]/)[0] ?? prompt;
   const sentences = instructionBlock.split(/[。！？\n]/).map((part) => part.trim()).filter(Boolean);
   for (const sentence of sentences) {
     if (isNegativeInstruction(sentence)) {

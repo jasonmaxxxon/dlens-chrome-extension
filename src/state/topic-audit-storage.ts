@@ -1,4 +1,4 @@
-import type { EvidencePacket, LensMemo, SignalReading, TopicAuditReport, CrossTopicCalibration } from "../compare/topic-audit.ts";
+import type { CommentShardReading, EvidencePacket, LensMemo, SignalReading, TopicAuditReport, CrossTopicCalibration } from "../compare/topic-audit.ts";
 
 export const TOPIC_AUDIT_EVIDENCE_STORAGE_KEY = "dlens:v1:topic-audit-evidence";
 export const TOPIC_AUDIT_MEMOS_STORAGE_KEY = "dlens:v1:topic-audit-memos";
@@ -13,6 +13,7 @@ export interface StorageAreaLike {
 export interface TopicAuditMemoBundle {
   auditRunId: string;
   inputHash: string;
+  shardReadings?: CommentShardReading[];
   signalReadings: SignalReading[];
   lensMemos: LensMemo[];
 }

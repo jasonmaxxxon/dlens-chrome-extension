@@ -4,6 +4,7 @@ import test from "node:test";
 import type { EvidencePacket, LensMemo, SignalReading } from "../src/compare/topic-audit.ts";
 import {
   TOPIC_AUDIT_PROMPT_VERSIONS,
+  buildP0_5ShardReadingPrompt,
   buildP1SignalReadingPrompt,
   buildP2LexiconPrompt,
   buildP3NarrativePrompt,
@@ -30,11 +31,12 @@ function makePacket(): EvidencePacket {
     opAuthor: "op",
     opText: "靚女玩 app 會遇到市場錯配。",
     opLikes: 81,
-    commentCount: 4,
+    commentCount: 5,
     replyFragments: [
       { ref: "S1.OPC1", author: "op", text: "第一點：app 會放大選擇成本。", likes: 7, role: "op_continuation" },
-      { ref: "S1.R1", author: "reader", text: "我同老公就是 app 識的。", likes: null, role: "audience" },
-      { ref: "S1.R2", author: "reader2", text: "這條未被引用的 raw reply 不應該出現在 P6。", likes: 2, role: "audience" }
+      { ref: "S1.R1", commentId: "r1", author: "reader", text: "我同老公就是 app 識的。", likes: null, role: "audience" },
+      { ref: "S1.R2", commentId: "r2", author: "reader2", text: "這條 counter quote 可以在 shard distillate 中被引用。", likes: 2, role: "audience" },
+      { ref: "S1.R3", commentId: "r3", author: "reader3", text: "這條完全未被引用的 raw reply 不應該出現在上游 prompts。", likes: 1, role: "audience" }
     ],
     aiArtifacts: {
       gist: "這篇把交友 app 寫成選擇成本與價值錯配問題。",
@@ -42,6 +44,34 @@ function makePacket(): EvidencePacket {
     },
     gaps: [],
     notes: []
+  };
+}
+
+function makeShardReading() {
+  return {
+    auditRunId: "audit-run-1",
+    inputHash: "input-hash-1",
+    topicId: "topic-love",
+    signalId: "signal-1",
+    shortCode: "S1",
+    shardIndex: 0,
+    shardCount: 1,
+    commentRefsInShard: ["S1.R1", "S1.R2"],
+    patternCandidates: [{
+      label: "個人反例校正",
+      gist: "讀者用自身關係經驗限制 OP 的市場框架。",
+      dynamicImplication: "討論不只共鳴 OP，而是把抽象市場論拉回個人差異。",
+      supportRefs: ["S1.R1"],
+      counterRefs: ["S1.R2"],
+      representativeRefs: ["S1.R1"],
+      counterRepresentativeRefs: ["S1.R2"],
+      nInShard: 1,
+      uncertainty: "S1.R2 是弱反例。"
+    }],
+    lexiconCandidates: ["app 識", "市場錯配"],
+    promptVersion: "topic-audit-p0_5.v1",
+    model: "google:test",
+    generatedAt: "2026-05-22T09:09:00.000Z"
   };
 }
 
@@ -93,27 +123,53 @@ test("P1 prompt starts with a cold read and excludes existing AI tags/gist from 
   assert.match(prompt, /\[Sx\.OP\] \/ \[Sx\.R1\]/);
 });
 
+test("P0.5 shard prompt keeps a blank-read discipline and only renders the shard comments", () => {
+  const packet = makePacket();
+  const prompt = buildP0_5ShardReadingPrompt(packet, [packet.replyFragments[1]!]);
+
+  assert.match(prompt, /先不要套框架/);
+  assert.match(prompt, /commentRefsInShard/);
+  assert.match(prompt, /patternCandidates/);
+  assert.match(prompt, /lexiconCandidates/);
+  assert.match(prompt, /S1\.R1 \[♥unknown\] @reader: 我同老公就是 app 識的。/);
+  assert.doesNotMatch(prompt, /S1\.R2/);
+  assert.doesNotMatch(prompt, /未被引用的 raw reply/);
+  assert.equal(TOPIC_AUDIT_PROMPT_VERSIONS.p0_5, "topic-audit-p0_5.v1");
+});
+
 test("P2-P6 prompts use prior prose memos but keep findings as probes instead of planted conclusions", () => {
   const packet = makePacket();
   const reading = makeSignalReading();
+  const shardReading = makeShardReading();
   const lexicon = makeMemo("lexicon", "app、條件、選擇成本形成市場語彙。");
   const narrative = makeMemo("narrative", "一條敘事是 app 被寫成市場，但讀者以反例拉回個人經驗。");
   const audience = makeMemo("audience", "reader 不是同方向共鳴，而是直接校正 OP。");
   const absence = makeMemo("absence", "[中] 男性第一身聲音沒有出現在 captured evidence。");
 
-  assert.match(buildP2LexiconPrompt({ topicName: "love", packets: [packet], signalReadings: [reading] }), /有沒有 future-positive 詞/);
+  const p2 = buildP2LexiconPrompt({ topicName: "love", packets: [packet], signalReadings: [reading], shardReadings: [shardReading] });
+  assert.match(p2, /有沒有 future-positive 詞/);
+  assert.match(p2, /app 識/);
+  assert.doesNotMatch(p2, /完全未被引用的 raw reply/);
   assert.match(buildP3NarrativePrompt({ topicName: "love", packets: [packet], signalReadings: [reading], lexiconMemo: lexicon }), /自然長出敘事/);
-  assert.match(buildP4AudiencePrompt({ topicName: "love", packets: [packet], signalReadings: [reading], lensMemos: [lexicon, narrative] }), /看到才寫/);
-  const p5 = buildP5AbsencePrompt({ topicName: "love", packets: [packet], signalReadings: [reading], lensMemos: [lexicon, narrative, audience] });
+  const p4 = buildP4AudiencePrompt({ topicName: "love", packets: [packet], signalReadings: [reading], lensMemos: [lexicon, narrative], shardReadings: [shardReading] });
+  assert.match(p4, /看到才寫/);
+  assert.match(p4, /reactionPatterns/);
+  assert.match(p4, /coverageDenominator/);
+  assert.match(p4, /parser 會丟掉/);
+  assert.match(p4, /個人反例校正/);
+  assert.doesNotMatch(p4, /完全未被引用的 raw reply/);
+  const p5 = buildP5AbsencePrompt({ topicName: "love", packets: [packet], signalReadings: [reading], lensMemos: [lexicon, narrative, audience], shardReadings: [shardReading] });
   const p6 = buildP6FinalReportPrompt({ topicName: "love", packets: [packet], signalReadings: [reading], lensMemos: [lexicon, narrative, audience, absence] });
 
   assert.match(p5, /data gap 必須與真 absence 區分/);
+  assert.match(p5, /S1 shard 1\/1: 2 refs/);
+  assert.doesNotMatch(p5, /完全未被引用的 raw reply/);
   assert.match(p6, /7 節/);
   assert.match(p6, /editorial/);
   assert.match(p6, /S1\.OP \[♥81\] @op: 靚女玩 app 會遇到市場錯配。/);
   assert.match(p6, /S1\.R1 \[♥unknown\] @reader: 我同老公就是 app 識的。/);
   assert.doesNotMatch(p6, /S1\.R2/);
-  assert.doesNotMatch(p6, /未被引用的 raw reply/);
+  assert.doesNotMatch(p6, /完全未被引用的 raw reply/);
   assert.equal(TOPIC_AUDIT_PROMPT_VERSIONS.p6, "topic-audit-p6.v2");
   assert.deepEqual(findForbiddenFindingAssertions(p5), []);
   assert.deepEqual(findForbiddenFindingAssertions(p6), []);

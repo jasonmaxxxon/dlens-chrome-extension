@@ -1,6 +1,7 @@
 import type { AuditPromptEnvelope } from "../compare/topic-audit-prompts.ts";
 import {
   TOPIC_AUDIT_PROMPT_VERSIONS,
+  buildP0_5ShardReadingPrompt,
   buildP1SignalReadingPrompt,
   buildP2LexiconPrompt,
   buildP3NarrativePrompt,
@@ -11,9 +12,13 @@ import {
 } from "../compare/topic-audit-prompts.ts";
 import {
   buildTopicEvidencePackets,
+  splitPacketIntoCommentShards,
+  type CommentShardReading,
   type CrossTopicCalibration,
   type EvidencePacket,
   type LensMemo,
+  type ReplyFragment,
+  type ShardPatternCandidate,
   type SignalReading,
   type TopicAuditReport,
   type TopicAuditStageName
@@ -152,13 +157,48 @@ function allAllowedRefs(packets: EvidencePacket[]): Set<string> {
   return refs;
 }
 
+function normalizeReactionPatterns(
+  patterns: NonNullable<AuditPromptEnvelope["displayHints"]>["reactionPatterns"],
+  allowedRefs: ReadonlySet<string>
+) {
+  if (!Array.isArray(patterns)) {
+    return [];
+  }
+  return patterns.flatMap((pattern) => {
+    const supportRefs = filterRefs(pattern.supportRefs, allowedRefs);
+    const counterRefs = filterRefs(pattern.counterRefs, allowedRefs);
+    const representativeRefs = filterRefs(pattern.representativeRefs, allowedRefs);
+    const counterRepresentativeRefs = filterRefs(pattern.counterRepresentativeRefs, allowedRefs);
+    if ([...supportRefs, ...counterRefs, ...representativeRefs, ...counterRepresentativeRefs].length === 0) {
+      return [];
+    }
+    return [{
+      ...pattern,
+      supportRefs,
+      counterRefs,
+      representativeRefs,
+      counterRepresentativeRefs
+    }];
+  });
+}
+
 function normalizeEnvelope(envelope: AuditPromptEnvelope, allowedRefs: ReadonlySet<string>): AuditPromptEnvelope {
+  const reactionPatterns = normalizeReactionPatterns(envelope.displayHints?.reactionPatterns, allowedRefs);
+  const displayHints = envelope.displayHints
+    ? {
+        ...envelope.displayHints,
+        ...(envelope.displayHints.reactionPatterns ? { reactionPatterns } : {})
+      }
+    : undefined;
   return {
     prose: envelope.prose,
     evidenceRefs: envelope.evidenceRefs.filter((ref) => allowedRefs.has(ref)),
     caveats: envelope.caveats,
     ...(envelope.coverage ? { coverage: envelope.coverage } : {}),
-    ...(envelope.displayHints ? { displayHints: envelope.displayHints } : {})
+    ...(displayHints ? { displayHints } : {}),
+    ...(envelope.commentRefsInShard ? { commentRefsInShard: filterRefs(envelope.commentRefsInShard, allowedRefs) } : {}),
+    ...(envelope.patternCandidates ? { patternCandidates: sanitizeShardPatternCandidates(envelope.patternCandidates, allowedRefs) } : {}),
+    ...(envelope.lexiconCandidates ? { lexiconCandidates: uniqueTrimmedStrings(envelope.lexiconCandidates) } : {})
   };
 }
 
@@ -191,6 +231,89 @@ function signalReadingFromEnvelope(
     evidenceRefs: envelope.evidenceRefs,
     watchNotes: envelope.caveats,
     promptVersion: TOPIC_AUDIT_PROMPT_VERSIONS.p1,
+    model: options.model ?? "unknown",
+    generatedAt: nowIso(options)
+  };
+}
+
+function uniqueTrimmedStrings(values: readonly string[]): string[] {
+  const seen = new Set<string>();
+  const result: string[] = [];
+  for (const value of values) {
+    const trimmed = value.trim();
+    if (!trimmed || seen.has(trimmed)) {
+      continue;
+    }
+    seen.add(trimmed);
+    result.push(trimmed);
+  }
+  return result;
+}
+
+function filterRefs(values: readonly string[], allowedRefs: ReadonlySet<string>): string[] {
+  return uniqueTrimmedStrings(values).filter((ref) => allowedRefs.has(ref));
+}
+
+function sanitizeShardPatternCandidates(
+  candidates: readonly ShardPatternCandidate[] = [],
+  allowedRefs: ReadonlySet<string>
+): ShardPatternCandidate[] {
+  return candidates.flatMap((candidate) => {
+    const label = candidate.label.trim();
+    const gist = candidate.gist.trim();
+    const dynamicImplication = candidate.dynamicImplication.trim();
+    if (!label || !gist || !dynamicImplication) {
+      return [];
+    }
+    const supportRefs = filterRefs(candidate.supportRefs, allowedRefs);
+    const counterRefs = filterRefs(candidate.counterRefs, allowedRefs);
+    const representativeRefs = filterRefs(candidate.representativeRefs, allowedRefs);
+    const counterRepresentativeRefs = filterRefs(candidate.counterRepresentativeRefs, allowedRefs);
+    if ([...supportRefs, ...counterRefs, ...representativeRefs, ...counterRepresentativeRefs].length === 0) {
+      return [];
+    }
+    return [{
+      label,
+      gist,
+      dynamicImplication,
+      supportRefs,
+      counterRefs,
+      representativeRefs,
+      counterRepresentativeRefs,
+      nInShard: Math.max(0, Math.round(candidate.nInShard)),
+      uncertainty: candidate.uncertainty.trim()
+    }];
+  });
+}
+
+function shardReadingKey(signalId: string, shardIndex: number): string {
+  return `${signalId}::${shardIndex}`;
+}
+
+function shardReadingFromEnvelope(
+  packet: EvidencePacket,
+  shardIndex: number,
+  shardCount: number,
+  shardFragments: ReplyFragment[],
+  envelope: AuditPromptEnvelope,
+  options: TopicAuditHandlerOptions,
+  inputHash: string
+): CommentShardReading {
+  const shardRefs = shardFragments.map((fragment) => fragment.ref);
+  const allowedRefs = new Set(shardRefs);
+  const commentRefsInShard = filterRefs(envelope.commentRefsInShard ?? shardRefs, allowedRefs);
+  return {
+    auditRunId: packet.auditRunId,
+    inputHash,
+    topicId: packet.topicId,
+    signalId: packet.signalId,
+    shortCode: packet.shortCode,
+    shardIndex,
+    shardCount,
+    commentRefsInShard: commentRefsInShard.length ? commentRefsInShard : shardRefs,
+    patternCandidates: sanitizeShardPatternCandidates(envelope.patternCandidates, allowedRefs),
+    lexiconCandidates: uniqueTrimmedStrings(envelope.lexiconCandidates ?? []),
+    promptVersion: TOPIC_AUDIT_PROMPT_VERSIONS.p0_5,
     model: options.model ?? "unknown",
     generatedAt: nowIso(options)
   };
@@ -283,18 +406,21 @@ async function saveMemos(
   topicId: string,
   auditRunId: string,
   inputHash: string,
+  shardReadings: CommentShardReading[],
   signalReadings: SignalReading[],
   lensMemos: LensMemo[]
 ): Promise<void> {
   await saveTopicAuditMemos(storageArea, topicId, {
     auditRunId,
     inputHash,
+    shardReadings,
     signalReadings,
     lensMemos
   });
 }
 
 const AUDIT_STAGE_ORDER: TopicAuditStageName[] = [
+  "comment-shard-reading",
   "p1-signal-reading",
   "lexicon",
   "narrative",
@@ -337,8 +463,13 @@ async function runAuditPipeline(
   const allowedRefs = allAllowedRefs(evidence);
   const reusableMemos = existingMemos?.inputHash === inputHash ? existingMemos : null;
   const resumeIndex = fromStage ? auditStageIndex(fromStage) : 0;
+  const shardStageIndex = auditStageIndex("comment-shard-reading");
+  const p1StageIndex = auditStageIndex("p1-signal-reading");
+  const shardReadings: CommentShardReading[] = reusableMemos && (!fromStage || resumeIndex > shardStageIndex)
+    ? (reusableMemos.shardReadings ?? []).filter((reading) => evidence.some((packet) => packet.signalId === reading.signalId))
+    : [];
   const signalReadings: SignalReading[] = reusableMemos
-    ? (fromStage && resumeIndex > 0
+    ? (fromStage && resumeIndex > p1StageIndex
         ? [...reusableMemos.signalReadings]
         : reusableMemos.signalReadings.filter((reading) => evidence.some((packet) => packet.signalId === reading.signalId)))
     : [];
@@ -346,6 +477,34 @@ async function runAuditPipeline(
     ? reusableMemos.lensMemos.filter((memo) => auditStageIndex(memo.stageName) < resumeIndex)
     : [];
   const p1Failures: string[] = [];
+
+  const shardReadingByKey = new Map(shardReadings.map((reading) => [shardReadingKey(reading.signalId, reading.shardIndex), reading]));
+  const shardEligiblePackets = evidence.filter((packet) => readySignalIds.has(packet.signalId));
+  let generatedShardReading = false;
+  for (const packet of shardEligiblePackets) {
+    const shards = splitPacketIntoCommentShards(packet);
+    for (let shardIndex = 0; shardIndex < shards.length; shardIndex += 1) {
+      const key = shardReadingKey(packet.signalId, shardIndex);
+      if (shardReadingByKey.has(key)) {
+        continue;
+      }
+      const shardFragments = shards[shardIndex] ?? [];
+      const shardRefs = new Set(shardFragments.map((fragment) => fragment.ref));
+      const envelope = await generateOrParseEnvelope(
+        options.generateEnvelope,
+        "comment-shard-reading",
+        buildP0_5ShardReadingPrompt(packet, shardFragments),
+        shardRefs
+      );
+      const reading = shardReadingFromEnvelope(packet, shardIndex, shards.length, shardFragments, envelope, options, inputHash);
+      shardReadings.push(reading);
+      shardReadingByKey.set(key, reading);
+      generatedShardReading = true;
+    }
+  }
+  if (generatedShardReading) {
+    await saveMemos(storageArea, topic.id, auditRunId, inputHash, shardReadings, signalReadings, lensMemos);
+  }
 
   const readingBySignalId = new Map(signalReadings.map((reading) => [reading.signalId, reading]));
   const missingPackets = evidence.filter((packet) => readySignalIds.has(packet.signalId) && !readingBySignalId.has(packet.signalId));
@@ -363,7 +522,7 @@ async function runAuditPipeline(
         p1Failures.push(packet.shortCode);
       }
     }
-    await saveMemos(storageArea, topic.id, auditRunId, inputHash, signalReadings, lensMemos);
+    await saveMemos(storageArea, topic.id, auditRunId, inputHash, shardReadings, signalReadings, lensMemos);
   }
 
   let lexiconMemo = lensMemos.find((memo) => memo.stageName === "lexicon") ?? null;
@@ -371,7 +530,7 @@ async function runAuditPipeline(
     const lexiconEnvelope = await generateOrParseEnvelope(
       options.generateEnvelope,
       "lexicon",
-      buildP2LexiconPrompt({ topicName: topic.name, packets: evidence, signalReadings }),
+      buildP2LexiconPrompt({ topicName: topic.name, packets: evidence, signalReadings, shardReadings }),
       allowedRefs
     );
     if (p1Failures.length) {
@@ -379,7 +538,7 @@ async function runAuditPipeline(
     }
     lexiconMemo = lensMemoFromEnvelope(topic.id, auditRunId, inputHash, "lexicon", lexiconEnvelope, TOPIC_AUDIT_PROMPT_VERSIONS.p2, options);
     lensMemos.push(lexiconMemo);
-    await saveMemos(storageArea, topic.id, auditRunId, inputHash, signalReadings, lensMemos);
+    await saveMemos(storageArea, topic.id, auditRunId, inputHash, shardReadings, signalReadings, lensMemos);
   }
 
   if (!lensMemos.some((memo) => memo.stageName === "narrative")) {
@@ -398,7 +557,7 @@ async function runAuditPipeline(
       options
     );
     lensMemos.push(narrativeMemo);
-    await saveMemos(storageArea, topic.id, auditRunId, inputHash, signalReadings, lensMemos);
+    await saveMemos(storageArea, topic.id, auditRunId, inputHash, shardReadings, signalReadings, lensMemos);
   }
 
   if (!lensMemos.some((memo) => memo.stageName === "audience")) {
@@ -410,14 +569,14 @@ async function runAuditPipeline(
       await generateOrParseEnvelope(
         options.generateEnvelope,
         "audience",
-        buildP4AudiencePrompt({ topicName: topic.name, packets: evidence, signalReadings, lensMemos }),
+        buildP4AudiencePrompt({ topicName: topic.name, packets: evidence, signalReadings, lensMemos, shardReadings }),
         allowedRefs
       ),
       TOPIC_AUDIT_PROMPT_VERSIONS.p4,
       options
     );
     lensMemos.push(audienceMemo);
-    await saveMemos(storageArea, topic.id, auditRunId, inputHash, signalReadings, lensMemos);
+    await saveMemos(storageArea, topic.id, auditRunId, inputHash, shardReadings, signalReadings, lensMemos);
   }
 
   if (!lensMemos.some((memo) => memo.stageName === "absence")) {
@@ -429,14 +588,14 @@ async function runAuditPipeline(
       await generateOrParseEnvelope(
         options.generateEnvelope,
         "absence",
-        buildP5AbsencePrompt({ topicName: topic.name, packets: evidence, signalReadings, lensMemos }),
+        buildP5AbsencePrompt({ topicName: topic.name, packets: evidence, signalReadings, lensMemos, shardReadings }),
         allowedRefs
       ),
       TOPIC_AUDIT_PROMPT_VERSIONS.p5,
       options
     );
     lensMemos.push(absenceMemo);
-    await saveMemos(storageArea, topic.id, auditRunId, inputHash, signalReadings, lensMemos);
+    await saveMemos(storageArea, topic.id, auditRunId, inputHash, shardReadings, signalReadings, lensMemos);
   }
 
   const finalEnvelope = await generateOrParseEnvelope(
@@ -450,7 +609,7 @@ async function runAuditPipeline(
   const flags = validateTopicAuditDraft({ packets: evidence, reportMarkdown: reportMarkdown(report) });
   return {
     auditEvidence: evidence,
-    auditMemos: { auditRunId, inputHash, signalReadings, lensMemos },
+    auditMemos: { auditRunId, inputHash, shardReadings, signalReadings, lensMemos },
     auditReport: report,
     auditValidatorFlags: flags
   };
@@ -486,6 +645,9 @@ async function runP1ForSingleSignal(
     ? reusableMemos.signalReadings.filter((reading) => reading.signalId !== signalId
         && evidence.some((packet) => packet.signalId === reading.signalId))
     : [];
+  const shardReadings: CommentShardReading[] = reusableMemos
+    ? (reusableMemos.shardReadings ?? []).filter((reading) => evidence.some((packet) => packet.signalId === reading.signalId))
+    : [];
   const lensMemos: LensMemo[] = reusableMemos ? [...reusableMemos.lensMemos] : [];
 
   const envelope = await generateOrParseEnvelope(
@@ -495,11 +657,11 @@ async function runP1ForSingleSignal(
     allowedRefs
   );
   signalReadings.push(signalReadingFromEnvelope(targetPacket, envelope, options, inputHash));
-  await saveMemos(storageArea, topic.id, auditRunId, inputHash, signalReadings, lensMemos);
+  await saveMemos(storageArea, topic.id, auditRunId, inputHash, shardReadings, signalReadings, lensMemos);
 
   return {
     auditEvidence: evidence,
-    auditMemos: { auditRunId, inputHash, signalReadings, lensMemos }
+    auditMemos: { auditRunId, inputHash, shardReadings, signalReadings, lensMemos }
   };
 }
 

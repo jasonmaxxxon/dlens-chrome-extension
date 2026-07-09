@@ -268,6 +268,8 @@ test("topic audit run persists each stage and reuses cache on the same input", a
   });
 
   assert.deepEqual(calls, [
+    "comment-shard-reading",
+    "comment-shard-reading",
     "p1-signal-reading",
     "p1-signal-reading",
     "lexicon",
@@ -278,7 +280,9 @@ test("topic audit run persists each stage and reuses cache on the same input", a
   ]);
   assert.equal(first.auditReport?.topicId, "topic-1");
   assert.equal(first.auditValidatorFlags?.length, 0);
+  assert.equal(first.auditMemos?.shardReadings?.length, 2);
   assert.equal((await loadTopicAuditMemos(storage, "topic-1"))?.lensMemos.length, 4);
+  assert.equal((await loadTopicAuditMemos(storage, "topic-1"))?.shardReadings?.length, 2);
   assert.ok(await loadTopicAuditReport(storage, "topic-1"));
   assert.ok(storage.values[TOPIC_AUDIT_MEMOS_STORAGE_KEY]);
   assert.ok(storage.values[TOPIC_AUDIT_REPORTS_STORAGE_KEY]);
@@ -290,7 +294,7 @@ test("topic audit run persists each stage and reuses cache on the same input", a
     model: "mock:model"
   });
 
-  assert.equal(calls.length, 7);
+  assert.equal(calls.length, 9);
   assert.equal(second.auditReport?.inputHash, first.auditReport?.inputHash);
 });
 
@@ -309,7 +313,8 @@ test("topic audit run only generates P1 readings for ready signals", async () =>
     model: "mock:model"
   });
 
-  assert.deepEqual(calls, ["p1-signal-reading", "lexicon", "narrative", "audience", "absence", "final"]);
+  assert.deepEqual(calls, ["comment-shard-reading", "p1-signal-reading", "lexicon", "narrative", "audience", "absence", "final"]);
+  assert.equal(response.auditMemos?.shardReadings?.length, 1);
   assert.deepEqual(response.auditMemos?.signalReadings.map((reading) => reading.signalId), ["signal-1"]);
   assert.deepEqual(response.auditReport?.generatedFrom.filter((entry) => entry.endsWith(":p1")), ["S1:p1"]);
 });
@@ -362,9 +367,57 @@ test("topic audit run can resume from a later stage without rerunning completed 
   });
 
   assert.deepEqual(resumedCalls, ["narrative", "audience", "absence", "final"]);
+  assert.equal(response.auditMemos?.shardReadings?.length, 2);
   assert.equal(response.auditMemos?.signalReadings.length, 2);
   assert.equal(response.auditMemos?.lensMemos[0]?.stageName, "lexicon");
   assert.equal(response.auditMemos?.lensMemos[1]?.prose, "resumed-narrative prose");
+});
+
+test("topic audit audience stage stores structured reaction patterns from P4", async () => {
+  const storage = new MemoryStorage();
+  await seedTopic(storage);
+
+  const response = await handleTopicAuditMessage(storage, {
+    message: { type: "topic/audit/run", sessionId: "session-1", topicId: "topic-1" },
+    sessions: [makeSession()],
+    generateEnvelope: async (stageName) => {
+      if (stageName === "audience") {
+        return {
+          prose: "audience prose",
+          evidenceRefs: ["S1.R1"],
+          caveats: [],
+          coverage: "2/2",
+          displayHints: {
+            reactionCoverage: {
+              postCount: 2,
+              capturedCommentCount: 4,
+              readCommentCount: 2,
+              usableAudienceCommentCount: 2
+            },
+            reactionPatterns: [{
+              id: "reaction-personal-counter",
+              label: "個人反例校正",
+              dynamicImplication: "留言把 OP 的市場框架拉回個人差異。",
+              nComments: 1,
+              nAuthors: 1,
+              coverageDenominator: 2,
+              supportRefs: ["S1.R1"],
+              counterRefs: ["S2.R1"],
+              representativeRefs: ["S1.R1"],
+              counterRepresentativeRefs: ["S2.R1"]
+            }]
+          }
+        };
+      }
+      return makeEnvelope(stageName);
+    },
+    model: "mock:model"
+  });
+
+  const audienceMemo = response.auditMemos?.lensMemos.find((memo) => memo.stageName === "audience");
+  assert.equal(audienceMemo?.displayHints?.reactionCoverage?.usableAudienceCommentCount, 2);
+  assert.equal(audienceMemo?.displayHints?.reactionPatterns?.[0]?.label, "個人反例校正");
+  assert.deepEqual(audienceMemo?.displayHints?.reactionPatterns?.[0]?.supportRefs, ["S1.R1"]);
 });
 
 test("topic audit run keeps per-signal P1 failures isolated", async () => {

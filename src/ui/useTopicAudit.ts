@@ -92,6 +92,7 @@ export function applyTopicAuditP1Result(
 
 function stageNumber(stage: TopicAuditStageName): number {
   switch (stage) {
+    case "comment-shard-reading": return 0;
     case "p1-signal-reading": return 1;
     case "lexicon": return 2;
     case "narrative": return 3;

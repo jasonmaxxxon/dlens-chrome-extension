@@ -3,7 +3,7 @@ import type { SessionItem, Signal, SignalTagsRecord, Topic } from "../state/type
 
 export type TopicAuditStatus = "succeeded" | "queued" | "failed";
 export type ReplyFragmentRole = "op_continuation" | "op_reply" | "audience" | "placeholder";
-export type TopicAuditStageName = "p1-signal-reading" | "lexicon" | "narrative" | "audience" | "absence" | "final";
+export type TopicAuditStageName = "comment-shard-reading" | "p1-signal-reading" | "lexicon" | "narrative" | "audience" | "absence" | "final";
 
 export interface ReplyFragment {
   ref: string;
@@ -100,6 +100,55 @@ export interface ReactionPattern {
   representativeRefs: string[];
   counterRepresentativeRefs: string[];
   icon?: string;
+}
+
+export interface ShardPatternCandidate {
+  label: string;
+  gist: string;
+  dynamicImplication: string;
+  supportRefs: string[];
+  counterRefs: string[];
+  representativeRefs: string[];
+  counterRepresentativeRefs: string[];
+  nInShard: number;
+  uncertainty: string;
+}
+
+export interface CommentShardReading {
+  auditRunId: string;
+  inputHash: string;
+  topicId: string;
+  signalId: string;
+  shortCode: string;
+  shardIndex: number;
+  shardCount: number;
+  commentRefsInShard: string[];
+  patternCandidates: ShardPatternCandidate[];
+  lexiconCandidates: string[];
+  promptVersion: string;
+  model: string;
+  generatedAt: string;
+}
+
+export interface CommentShardSplitOptions {
+  targetCommentsPerShard?: number;
+  targetCharsPerShard?: number;
+}
+
+export interface PostReactionObservation {
+  signalId: string;
+  shortCode: string;
+  label: string;
+  gist: string;
+  dynamicImplication: string;
+  nComments: number;
+  nAuthors: number;
+  coverageDenominator: number;
+  supportRefs: string[];
+  counterRefs: string[];
+  representativeRefs: string[];
+  counterRepresentativeRefs: string[];
+  uncertainty: string;
 }
 
 export interface TopicAuditReport {
@@ -222,6 +271,148 @@ function buildAiArtifacts(record: SignalTagsRecord | undefined): EvidencePacket[
 
 export function getAudienceReplies(packet: EvidencePacket): ReplyFragment[] {
   return packet.replyFragments.filter((fragment) => fragment.role === "audience");
+}
+
+export function splitPacketIntoCommentShards(
+  packet: EvidencePacket,
+  options: CommentShardSplitOptions = {}
+): ReplyFragment[][] {
+  const audienceReplies = getAudienceReplies(packet);
+  const targetComments = Math.max(1, Math.round(options.targetCommentsPerShard ?? 120));
+  const targetChars = Math.max(1, Math.round(options.targetCharsPerShard ?? 18000));
+  const totalChars = audienceReplies.reduce((sum, fragment) => sum + fragment.text.length, 0);
+  if (audienceReplies.length <= targetComments && totalChars <= targetChars) {
+    return [audienceReplies];
+  }
+
+  const shards: ReplyFragment[][] = [];
+  let current: ReplyFragment[] = [];
+  let currentChars = 0;
+  for (const fragment of audienceReplies) {
+    const nextChars = currentChars + fragment.text.length;
+    const shouldCut = current.length > 0 && (current.length >= targetComments || nextChars > targetChars);
+    if (shouldCut) {
+      shards.push(current);
+      current = [];
+      currentChars = 0;
+    }
+    current.push(fragment);
+    currentChars += fragment.text.length;
+  }
+  if (current.length > 0) {
+    shards.push(current);
+  }
+  return shards.length ? shards : [[]];
+}
+
+function uniqueStrings(values: string[]): string[] {
+  const seen = new Set<string>();
+  const result: string[] = [];
+  for (const value of values) {
+    const trimmed = value.trim();
+    if (!trimmed || seen.has(trimmed)) {
+      continue;
+    }
+    seen.add(trimmed);
+    result.push(trimmed);
+  }
+  return result;
+}
+
+function reactionKey(label: string): string {
+  return label
+    .toLocaleLowerCase()
+    .replace(/[\s\p{P}\p{S}]+/gu, "");
+}
+
+function fragmentCountKey(fragment: ReplyFragment | undefined, ref: string): string {
+  return fragment?.commentId ? `comment:${fragment.commentId}` : `ref:${ref}`;
+}
+
+function distinctAudienceCommentCount(fragments: ReplyFragment[]): number {
+  return new Set(fragments.map((fragment) => fragmentCountKey(fragment, fragment.ref))).size;
+}
+
+export function mergeShardReadingsByPost(
+  packet: EvidencePacket,
+  shardReadings: CommentShardReading[]
+): PostReactionObservation[] {
+  const audienceReplies = getAudienceReplies(packet);
+  const fragmentByRef = new Map(packet.replyFragments.map((fragment) => [fragment.ref, fragment]));
+  const byKey = new Map<string, {
+    signalId: string;
+    shortCode: string;
+    label: string;
+    gist: string;
+    dynamicImplication: string;
+    supportRefs: string[];
+    counterRefs: string[];
+    representativeRefs: string[];
+    counterRepresentativeRefs: string[];
+    supportCommentKeys: Set<string>;
+    supportAuthors: Map<string, string>;
+    uncertainty: string[];
+  }>();
+
+  for (const reading of shardReadings.filter((entry) => entry.signalId === packet.signalId)) {
+    for (const candidate of reading.patternCandidates) {
+      const key = reactionKey(candidate.label);
+      if (!key) {
+        continue;
+      }
+      const existing = byKey.get(key) ?? {
+        signalId: packet.signalId,
+        shortCode: packet.shortCode,
+        label: candidate.label,
+        gist: candidate.gist,
+        dynamicImplication: candidate.dynamicImplication,
+        supportRefs: [],
+        counterRefs: [],
+        representativeRefs: [],
+        counterRepresentativeRefs: [],
+        supportCommentKeys: new Set<string>(),
+        supportAuthors: new Map<string, string>(),
+        uncertainty: []
+      };
+      existing.supportRefs.push(...candidate.supportRefs);
+      existing.counterRefs.push(...candidate.counterRefs);
+      existing.representativeRefs.push(...candidate.representativeRefs);
+      existing.counterRepresentativeRefs.push(...candidate.counterRepresentativeRefs);
+      if (candidate.uncertainty.trim()) {
+        existing.uncertainty.push(candidate.uncertainty);
+      }
+      for (const ref of candidate.supportRefs) {
+        const fragment = fragmentByRef.get(ref);
+        if (!fragment || fragment.role !== "audience") {
+          continue;
+        }
+        const commentKey = fragmentCountKey(fragment, ref);
+        existing.supportCommentKeys.add(commentKey);
+        if (!existing.supportAuthors.has(commentKey)) {
+          existing.supportAuthors.set(commentKey, fragment.author.trim() || commentKey);
+        }
+      }
+      byKey.set(key, existing);
+    }
+  }
+
+  return [...byKey.values()]
+    .map((entry) => ({
+      signalId: entry.signalId,
+      shortCode: entry.shortCode,
+      label: entry.label,
+      gist: entry.gist,
+      dynamicImplication: entry.dynamicImplication,
+      nComments: entry.supportCommentKeys.size,
+      nAuthors: new Set(entry.supportAuthors.values()).size,
+      coverageDenominator: distinctAudienceCommentCount(audienceReplies),
+      supportRefs: uniqueStrings(entry.supportRefs),
+      counterRefs: uniqueStrings(entry.counterRefs),
+      representativeRefs: uniqueStrings(entry.representativeRefs),
+      counterRepresentativeRefs: uniqueStrings(entry.counterRepresentativeRefs),
+      uncertainty: uniqueStrings(entry.uncertainty).join(" / ")
+    }))
+    .filter((entry) => entry.nComments > 0);
 }
 
 export function getOpContinuations(packet: EvidencePacket): ReplyFragment[] {

@@ -2,13 +2,13 @@
 
 DLens is a mode-aware MV3 Chrome extension for capturing Threads posts and turning them into research, product-signal, and PR evidence workflows.
 
-> Last updated: 2026-07-07
-> Current source version: `0.3.13` · latest local full gate: `983 passed / 5 skipped`, typecheck, boundary guard, storage seam guard, build, and diff check passed
-> Current engineering branch: `main` with local post-`origin/main` 0.3.13 changes
+> Last updated: 2026-07-09
+> Current source version: `0.3.16` · latest local full gate: `991 passed / 5 skipped` (996 tests), typecheck, boundary guard, storage seam guard, build, and diff check passed
+> Current engineering branch: `codex/comment-shard-phase2` from `main` @ `edcb2f0`
 > Positioning (2026-06-18): local power-tool (self + small technical circle); two separate repos (extension public · ingest-core **private**), not monorepo; Visual Reset A contract is `src/ui/tokens.ts` warm editorial + macOS utility shell
 > Load-unpacked build path: `output/chrome-mv3`
 > Stability note: `TRACE`, `SEAM_GUARD`, `RECONCILE`, `INVALIDATE`, `BOUNDARY`, and `MIGRATE` are locked in the live architecture map. Visual Reset A shipped the native-feeling shell plus PR Evidence, Topic, Compare, and Product marquee surfaces without changing storage, backend, ViewModel, command, or signal-packet contracts.
-> Runtime note (2026-07-07): Chrome reads `output/chrome-mv3`, not raw `src/`. If Topic Collect still lacks untriaged delete controls, or Product still shows a separate `分類` rail item, suspect stale bundled JS or an unreloaded unpacked extension before changing the source contract.
+> Runtime note (2026-07-09): Chrome reads `output/chrome-mv3`, not raw `src/`. Topic Audit now runs P0.5 comment-shard reading before P1 and P4 can populate structured `reactionPatterns`; if the 群眾反應 panel stays empty after rerun, check stale bundled JS / audit memo cache before changing the UI contract.
 
 ## What It Does
 

@@ -5,8 +5,11 @@ import {
   buildTopicEvidencePackets,
   getAudienceReplies,
   getOpContinuations,
-  getPlaceholderReplies
+  getPlaceholderReplies,
+  mergeShardReadingsByPost,
+  splitPacketIntoCommentShards
 } from "../src/compare/topic-audit.ts";
+import type { CommentShardReading, EvidencePacket } from "../src/compare/topic-audit.ts";
 import type { SessionItem, Signal, SignalTagsRecord, Topic } from "../src/state/types.ts";
 
 function makeTopic(): Topic {
@@ -222,4 +225,109 @@ test("buildTopicEvidencePackets keeps queued and unknown numeric fields as null 
   assert.equal(packet.commentCount, null);
   assert.deepEqual(packet.replyFragments, []);
   assert.match(packet.gaps.join(" "), /capture not completed/);
+});
+
+function makeAudienceFragment(index: number, commentId = `c-${index}`): EvidencePacket["replyFragments"][number] {
+  return {
+    ref: `S1.R${index}`,
+    commentId,
+    author: `reader-${index}`,
+    text: `reply ${index}`,
+    likes: index,
+    role: "audience"
+  };
+}
+
+function makePacketWithAudience(count: number): EvidencePacket {
+  return {
+    auditRunId: "audit-run-1",
+    inputHash: "input-hash-1",
+    topicId: "topic-love",
+    signalId: "signal-love",
+    itemId: "item-love",
+    shortCode: "S1",
+    sourceUrl: "https://www.threads.net/@op/post/love",
+    capturedAt: "2026-05-22T09:00:00.000Z",
+    status: "succeeded",
+    opAuthor: "op",
+    opText: "OP text",
+    opLikes: 1,
+    commentCount: count,
+    replyFragments: Array.from({ length: count }, (_, index) => makeAudienceFragment(index + 1)),
+    gaps: [],
+    notes: []
+  };
+}
+
+test("splitPacketIntoCommentShards returns exactly one shard under budget covering all audience refs", () => {
+  const packet = makePacketWithAudience(3);
+
+  const shards = splitPacketIntoCommentShards(packet, { targetCommentsPerShard: 120 });
+
+  assert.equal(shards.length, 1);
+  assert.deepEqual(shards[0]?.map((fragment) => fragment.ref), ["S1.R1", "S1.R2", "S1.R3"]);
+});
+
+test("mergeShardReadingsByPost dedupes repeated commentId across shards for post-level n", () => {
+  const packet = {
+    ...makePacketWithAudience(3),
+    replyFragments: [
+      makeAudienceFragment(1, "shared-c1"),
+      makeAudienceFragment(2, "shared-c1"),
+      makeAudienceFragment(3, "unique-c3")
+    ]
+  };
+  const shards = splitPacketIntoCommentShards(packet, { targetCommentsPerShard: 2 });
+  assert.equal(shards.length, 2);
+  const baseReading = {
+    auditRunId: "audit-run-1",
+    inputHash: "input-hash-1",
+    topicId: "topic-love",
+    signalId: "signal-love",
+    shortCode: "S1",
+    shardCount: 2,
+    lexiconCandidates: [],
+    promptVersion: "topic-audit-p0_5.v1",
+    model: "mock:model",
+    generatedAt: "2026-05-22T09:00:00.000Z"
+  } satisfies Omit<CommentShardReading, "shardIndex" | "commentRefsInShard" | "patternCandidates">;
+  const readings: CommentShardReading[] = [{
+    ...baseReading,
+    shardIndex: 0,
+    commentRefsInShard: ["S1.R1", "S1.R2"],
+    patternCandidates: [{
+      label: "身份防守",
+      gist: "留言以身份位置回應 OP。",
+      dynamicImplication: "討論被推向分配正義。",
+      supportRefs: ["S1.R1"],
+      counterRefs: [],
+      representativeRefs: ["S1.R1"],
+      counterRepresentativeRefs: [],
+      nInShard: 1,
+      uncertainty: ""
+    }]
+  }, {
+    ...baseReading,
+    shardIndex: 1,
+    commentRefsInShard: ["S1.R2", "S1.R3"],
+    patternCandidates: [{
+      label: "身份防守",
+      gist: "同一類身份位置反應。",
+      dynamicImplication: "討論被推向分配正義。",
+      supportRefs: ["S1.R2", "S1.R3"],
+      counterRefs: [],
+      representativeRefs: ["S1.R2"],
+      counterRepresentativeRefs: [],
+      nInShard: 2,
+      uncertainty: ""
+    }]
+  }];
+
+  const observations = mergeShardReadingsByPost(packet, readings);
+
+  assert.equal(observations.length, 1);
+  assert.equal(observations[0]?.nComments, 2);
+  assert.equal(observations[0]?.nAuthors, 2);
+  assert.equal(observations[0]?.coverageDenominator, 2);
+  assert.deepEqual(observations[0]?.supportRefs, ["S1.R1", "S1.R2", "S1.R3"]);
 });
