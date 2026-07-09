@@ -539,7 +539,7 @@ test("TopicDetailView renders ready audit actions without the duplicate overview
 
   assert.doesNotMatch(html, /data-topic-audit-block="overview"/);
   assert.match(html, /data-topic-audit-actions="ready"/);
-  assert.match(html, /開啟審查報告 ↗ 新分頁/);
+  assert.match(html, /審查報告 ↗/);
   assert.match(html, /重新生成/);
   assert.doesNotMatch(html, /報告 已生成/);
   assert.doesNotMatch(html, /覆蓋 /);
@@ -600,26 +600,24 @@ test("TopicDetailView renders the Signal Atlas L0 spine without raw audience com
   );
 
   const heroIndex = html.indexOf("data-signal-atlas-hero=\"true\"");
-  const mapIndex = html.indexOf("data-signal-atlas-map=\"true\"");
-  const reactionIndex = html.indexOf("data-topic-audit-block=\"reaction-patterns\"");
   const laneIndex = html.indexOf("data-topic-audit-block=\"lanes\"");
+  const mapIndex = html.indexOf("data-signal-atlas-map=\"true\"");
   const warnIndex = html.indexOf("data-topic-audit-block=\"reliability\"");
   const sourceIndex = html.indexOf("data-topic-audit-block=\"sources\"");
   assert.ok(heroIndex >= 0, "hero should render");
-  assert.ok(heroIndex < mapIndex, "hero should precede atlas map");
-  assert.ok(mapIndex < reactionIndex, "atlas map should precede reaction cards");
-  assert.ok(reactionIndex < laneIndex, "reaction cards should precede narrative lanes");
-  assert.ok(laneIndex < warnIndex, "narrative lanes should precede reliability strip");
+  assert.ok(heroIndex < laneIndex, "narrative ribbons live inside the hero, under the verdict");
+  assert.ok(laneIndex < mapIndex, "hero (with ribbons) should precede the compass panel");
+  assert.ok(mapIndex < warnIndex, "compass panel should precede reliability strip");
   assert.ok(warnIndex < sourceIndex, "reliability strip should precede source footer");
+  // the old reaction card wall stays removed: the compass legend is the only pattern text at L0
+  assert.doesNotMatch(html, /data-topic-audit-block="reaction-patterns"/);
 
   assert.match(html, /342/);
   assert.match(html, /\/318 可用留言/);
   assert.match(html, /1\/6 形狀/);
   assert.match(html, /1\/6 跨帖敘事/);
-  assert.match(html, /118\/342 留言/);
-  assert.match(html, /72 作者/);
-  assert.match(html, /♥58/);
-  assert.match(html, /1 反例/);
+  assert.match(html, /118\/342/);
+  assert.match(html, /反例 1/);
   assert.match(html, /data-evidence-ref-chip="S1.R1"/);
   assert.match(html, /跨 2\/6 篇/);
   assert.match(html, /data-narrative-strength-cell="lane-cross"/);
@@ -819,7 +817,7 @@ test("TopicDetailView uses shared primitives and topic accent rhythm for audit m
   assert.match(html, /data-topic-audit-block="lanes"/);
   assert.match(html, /data-topic-audit-block="sources"/);
   assert.match(html, /data-signal-atlas-ledger="true"/);
-  assert.match(html, /開啟審查報告 ↗ 新分頁/);
+  assert.match(html, /審查報告 ↗/);
   assert.match(html, /重新生成/);
   assert.match(html, /data-topic-audit-source-list-style="audit-report"/);
   assert.doesNotMatch(html, /min-width:1320/);
@@ -871,7 +869,7 @@ test("TopicDetailView audit report CTA keeps command wiring after the surface re
     });
 
     const cta = Array.from(rootElement.querySelectorAll("button"))
-      .find((button) => button.textContent?.includes("開啟審查報告"));
+      .find((button) => button.textContent?.includes("審查報告 ↗"));
     assert.ok(cta);
     cta.dispatchEvent(new dom.window.MouseEvent("click", { bubbles: true }));
 

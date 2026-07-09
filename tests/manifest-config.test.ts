@@ -19,7 +19,7 @@ test("manifest host permissions include Google Generative Language API for Gemin
 });
 
 test("extension version is synchronized across package, manifest, and UI", () => {
-  assert.equal(packageJson.version, "0.3.19");
+  assert.equal(packageJson.version, "0.3.20");
   assert.equal(config.manifest?.version, packageJson.version);
   assert.equal(BUILD_VERSION, packageJson.version);
 });

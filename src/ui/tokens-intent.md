@@ -95,13 +95,25 @@ happens to contain text. Every visual decision below serves that sentence.
   parent. Per-child margins are how vertical rhythm died before — the Result
   spacing contract exists because of it.
 
-### Atlas surface（2026-07-09 修憲）
+### Atlas surface（2026-07-09 修憲；同日玻璃修正）
 - Signal Atlas is one dense Audit evidence surface, not a new workspace grammar.
 - Its exceptions earn space only when they expose real denominators and real
   quotes, not decoration or empty emphasis.
 - `color.signal` highlights evidence edges; it does not replace mode accents.
-- `effect.atlasBlur` + `color.atlasPaper` are limited to the hero, one detail
-  drawer, and hover popovers for scroll performance.
+- Glass needs all three together: near-white warm ground (`color.atlasCanvas`),
+  colour washes BEHIND the panels (`color.atlasAura*` — blur needs something to
+  diffuse), and large-radius negative-spread low-opacity shadows
+  (`shadow.atlasGlass` / `atlasCard`). Hard mid-distance shadows and a paper
+  ground behind glass were the two 2026-07-09 faults — never reintroduce.
+- `effect.atlasBlur` + `color.atlasPaper` stay scoped to the atlas canvas, one
+  detail drawer, and hover popovers; outside the canvas is opaque paper.
+- 民情羅盤 is L0's protagonist: bubbles positioned by LLM-read valence/mode,
+  sized by comment count. Pattern count floats with the actual reading — never
+  force four quadrant clusters; same-quadrant crowding is a valid outcome. If
+  any pattern lacks scalars, fall back to the axis-free field so the axes
+  never claim unearned meaning.
+- The compass legend row is a pattern's only L0 text; the card wall it
+  replaced stays removed (no surface restates another surface's data).
 - Motion stays tokenized and behind `prefers-reduced-motion`.
 
 ## What this language refuses（拒絕清單 — 歷史上真實被移除過的模式）

@@ -10,6 +10,7 @@ import type { TopicAuditValidationFlag } from "../compare/topic-audit-validator.
 import { buildNarrativeLaneDetail, type NarrativeLaneDetail } from "../viewmodel/narrative-lane-detail.ts";
 import { buildReactionPatternFullList } from "../viewmodel/reaction-pattern-full-list.ts";
 import { buildReactionPatternDetail, type ReactionPatternDetail } from "../viewmodel/reaction-pattern-detail.ts";
+import { layoutSignalAtlasCompass } from "../viewmodel/signal-atlas-compass.ts";
 import type {
   FolderMode,
   SavedAnalysisSnapshot,
@@ -1606,12 +1607,12 @@ function TopicAuditOverview({
         style={{
           display: "flex",
           justifyContent: "flex-end",
-          gap: 8,
+          gap: 6,
           flexWrap: "wrap"
         }}
       >
-        <AuditGhostButton onClick={() => onOpenAuditReport?.(topic.id)}>開啟審查報告 ↗ 新分頁</AuditGhostButton>
-        <AuditGhostButton disabled={!canRunAudit} onClick={() => runAudit()}>重新生成</AuditGhostButton>
+        <AuditGhostButton onClick={() => onOpenAuditReport?.(topic.id)} style={{ padding: "4px 10px", fontSize: 10.5 }}>審查報告 ↗</AuditGhostButton>
+        <AuditGhostButton disabled={!canRunAudit} onClick={() => runAudit()} style={{ padding: "4px 10px", fontSize: 10.5 }}>⟳ 重新生成</AuditGhostButton>
       </div>
     );
   }
@@ -2194,18 +2195,6 @@ export function TopicDetailView({
       : null;
     const fullListOpen = Boolean(activeReactionPattern && expandedFullListId === activeReactionPattern.id);
     const sectionLabelStyle: CSSProperties = { display: "flex", justifyContent: "space-between", gap: 10, alignItems: "baseline", ...textStyles.label, color: tokens.color.subInk };
-    const cardStyle: CSSProperties = {
-      textAlign: "left",
-      border: `1px solid ${tokens.color.line}`,
-      borderRadius: tokens.radius.card,
-      background: tokens.color.elevated,
-      boxShadow: tokens.shadow.topicCard,
-      padding: "12px 14px",
-      display: "grid",
-      gap: 8,
-      cursor: "pointer",
-      fontFamily: tokens.font.sans
-    };
     const renderRefChips = (refs: ReadonlyArray<string>) => refs.slice(0, 3).map((ref) => (
       <EvidenceRefChip
         key={ref}
@@ -2216,23 +2205,47 @@ export function TopicDetailView({
         variant="atlas"
       />
     ));
+    const crossLanes = auditLanes.filter((lane) => !lane.isSinglePostObservation);
+    const singleLanes = auditLanes.filter((lane) => Boolean(lane.isSinglePostObservation));
+    const atlasPalette = [tokens.color.signal, tokens.color.techniqueViolet, tokens.color.queued, tokens.color.techniqueRose, tokens.color.accent];
+    const compassLayout = layoutSignalAtlasCompass(reactionPatterns);
+    const classifiedComments = reactionPatterns.reduce((sum, pattern) => sum + pattern.nComments, 0);
+    const compassDenominator = reactionPatterns[0]?.coverageDenominator ?? coverageNumbers.usable;
+    const atlasAxisLabelStyle: CSSProperties = { fontFamily: tokens.font.mono, fontSize: 8.5, fontWeight: 800, letterSpacing: "0.1em", fill: tokens.color.softInk };
+    const atlasGlassPanelStyle: CSSProperties = {
+      display: "grid",
+      gap: 8,
+      padding: "14px 14px 10px",
+      borderRadius: tokens.radius.cardLg,
+      border: `1px solid ${tokens.color.atlasEdge}`,
+      background: tokens.color.atlasPaper,
+      boxShadow: tokens.shadow.atlasCard,
+      backdropFilter: tokens.effect.atlasBlur,
+      WebkitBackdropFilter: tokens.effect.atlasBlur
+    };
+    const auditOverviewElement = (
+      <TopicAuditOverview
+        topic={topic}
+        signals={signals}
+        summary={auditSummaryValue}
+        flags={auditValidatorFlags}
+        canRunAudit={canRunAuditFromSources}
+        blockedReason={auditBlockedReason}
+        p1ReadyCount={p1ReadyCount}
+        p1TotalCount={p1TotalCount}
+        sourceTotalCount={auditSourceTotal}
+        onRunAudit={handleRunAudit}
+        onOpenAuditReport={handleOpenAuditReport}
+      />
+    );
     return (
       <div style={viewRootStyle()} data-topic-load-state={loadState}>
-        <Breadcrumb topicName={topic.name} onBack={handleBack} />
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8, flexWrap: "wrap" }}>
+          <Breadcrumb topicName={topic.name} onBack={handleBack} />
+          {auditSummaryValue.reportStatus === "ready" ? auditOverviewElement : null}
+        </div>
 
-        <TopicAuditOverview
-          topic={topic}
-          signals={signals}
-          summary={auditSummaryValue}
-          flags={auditValidatorFlags}
-          canRunAudit={canRunAuditFromSources}
-          blockedReason={auditBlockedReason}
-          p1ReadyCount={p1ReadyCount}
-          p1TotalCount={p1TotalCount}
-          sourceTotalCount={auditSourceTotal}
-          onRunAudit={handleRunAudit}
-          onOpenAuditReport={handleOpenAuditReport}
-        />
+        {auditSummaryValue.reportStatus !== "ready" ? auditOverviewElement : null}
 
         {showAuditPlaceholder ? (
           <div
@@ -2256,7 +2269,25 @@ export function TopicDetailView({
         ) : null}
 
         {!showAuditPlaceholder ? (
-          <div data-topic-audit-spine="signal-atlas-l0" style={{ display: "grid", gap: 14 }}>
+          <div
+            data-signal-atlas-canvas="true"
+            style={{ position: "relative", overflow: "hidden", borderRadius: tokens.radius.cardLg, background: tokens.color.atlasCanvas, padding: 12 }}
+          >
+            <style>{`
+              @media (prefers-reduced-motion: no-preference) {
+                [data-atlas-aura] { animation: dlens-atlas-aura-drift 18s ease-in-out infinite alternate; }
+                [data-atlas-aura="amber"] { animation-duration: 22s; animation-delay: -7s; }
+                [data-atlas-aura="violet"] { animation-duration: 26s; animation-delay: -13s; }
+              }
+              @keyframes dlens-atlas-aura-drift {
+                from { transform: translate(0, 0) scale(1); }
+                to { transform: translate(-18px, 14px) scale(1.08); }
+              }
+            `}</style>
+            <div aria-hidden="true" data-atlas-aura="teal" style={{ position: "absolute", top: -70, right: -60, width: 250, height: 250, borderRadius: "50%", background: tokens.color.atlasAuraTeal, filter: "blur(46px)", pointerEvents: "none" }} />
+            <div aria-hidden="true" data-atlas-aura="amber" style={{ position: "absolute", top: 330, left: -90, width: 220, height: 220, borderRadius: "50%", background: tokens.color.atlasAuraAmber, filter: "blur(46px)", pointerEvents: "none" }} />
+            <div aria-hidden="true" data-atlas-aura="violet" style={{ position: "absolute", bottom: -80, right: -40, width: 240, height: 240, borderRadius: "50%", background: tokens.color.atlasAuraViolet, filter: "blur(46px)", pointerEvents: "none" }} />
+          <div data-topic-audit-spine="signal-atlas-l0" style={{ position: "relative", zIndex: 1, display: "grid", gap: 12 }}>
             <section
               data-signal-atlas-hero="true"
               style={{
@@ -2275,12 +2306,12 @@ export function TopicDetailView({
               <h1 style={{ ...textStyles.h2, margin: 0, color: tokens.color.ink }}>{topic.name}</h1>
               <div data-signal-atlas-ledger="true" style={{ display: "grid", gridTemplateColumns: "repeat(3, minmax(0, 1fr))", gap: 8 }}>
                 {[
-                  [`${coverageNumbers.read}`, `/${coverageNumbers.usable} 可用留言`, "已讀留言"],
-                  [`${reactionPatterns.length}`, `/${postTotal} 形狀`, "反應形狀"],
-                  [`${narrativeCount}`, `/${postTotal} 跨帖敘事`, "跨帖敘事"]
-                ].map(([value, denominator, label]) => (
+                  { value: `${coverageNumbers.read}`, denominator: `/${coverageNumbers.usable} 可用留言`, label: "已讀留言", accent: tokens.color.signalDeep, glow: `0 0 16px ${tokens.color.signalGlow}` },
+                  { value: `${reactionPatterns.length}`, denominator: `/${postTotal} 形狀`, label: "反應形狀", accent: tokens.color.techniqueViolet, glow: undefined },
+                  { value: `${narrativeCount}`, denominator: `/${postTotal} 跨帖敘事`, label: "跨帖敘事", accent: tokens.color.queued, glow: undefined }
+                ].map(({ value, denominator, label, accent, glow }) => (
                   <div key={label} data-atlas-ledger-metric={`${value}${denominator}`} style={{ display: "grid", gap: 3, minWidth: 0 }}>
-                    <span style={{ ...textStyles.metricDisplay, color: tokens.color.ink }}>{value}</span>
+                    <span style={{ ...textStyles.metricDisplay, color: accent, textShadow: glow }}>{value}</span>
                     <span style={{ ...textStyles.caption, color: tokens.color.subInk }}>{denominator}</span>
                     <span style={{ ...textStyles.label, color: tokens.color.softInk }}>{label}</span>
                   </div>
@@ -2290,11 +2321,72 @@ export function TopicDetailView({
                 <EvidenceProse prose={headlineProse} fragmentLookup={auditFragmentLookup} pinnedRef={pinnedAuditRef} onPin={handlePinAuditRef} chipVariant="atlas" />
                 {headlineRefs.length > 0 ? <span> {renderRefChips(headlineRefs)}</span> : null}
               </p>
+              {auditLanes.length > 0 ? (
+                <div data-topic-audit-block="lanes" style={{ display: "grid", gap: 6 }}>
+                  {crossLanes.map((lane) => {
+                    const crossCount = lane.crossPostCount ?? lane.signalRefs.length;
+                    const laneDenominator = lane.postTotal ?? postTotal;
+                    return (
+                      <button
+                        key={lane.id}
+                        type="button"
+                        data-narrative-lane={lane.id}
+                        data-active={selectedLaneId === lane.id ? "true" : "false"}
+                        onClick={() => setActiveDetail({ kind: "narrative", id: lane.id })}
+                        style={{
+                          textAlign: "left",
+                          display: "grid",
+                          gap: 6,
+                          padding: "9px 12px",
+                          borderRadius: tokens.radius.card,
+                          border: `1px dashed ${tokens.color.queuedBorder}`,
+                          background: tokens.color.atlasPaperStrong,
+                          cursor: "pointer",
+                          fontFamily: tokens.font.sans
+                        }}
+                      >
+                        <span style={{ display: "flex", justifyContent: "space-between", gap: 10, alignItems: "baseline" }}>
+                          <span style={{ fontSize: 12, fontWeight: 750, color: tokens.color.ink, minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>跨帖敘事：{lane.label}</span>
+                          <span data-narrative-lane-metric={lane.id} style={{ ...textStyles.metric, color: tokens.color.queued, whiteSpace: "nowrap" }}>跨 {crossCount}/{laneDenominator} 篇</span>
+                        </span>
+                        <span aria-hidden="true" style={{ display: "grid", gridTemplateColumns: `repeat(${Math.max(1, laneDenominator)}, minmax(0, 1fr))`, gap: 3, height: 4 }}>
+                          {Array.from({ length: Math.max(1, laneDenominator) }, (_, index) => (
+                            <span
+                              key={`${lane.id}-${index}`}
+                              data-narrative-strength-cell={lane.id}
+                              data-filled={index < crossCount ? "true" : "false"}
+                              style={{ borderRadius: tokens.radius.round, background: index < crossCount ? tokens.color.queued : tokens.color.neutralSurface }}
+                            />
+                          ))}
+                        </span>
+                        <span style={{ display: "flex", gap: 5, flexWrap: "wrap", alignItems: "center" }}>{renderRefChips(lane.signalRefs)}</span>
+                      </button>
+                    );
+                  })}
+                  {singleLanes.map((lane) => (
+                    <button
+                      key={lane.id}
+                      type="button"
+                      data-narrative-lane={lane.id}
+                      data-active={selectedLaneId === lane.id ? "true" : "false"}
+                      onClick={() => setActiveDetail({ kind: "narrative", id: lane.id })}
+                      style={{ border: "none", background: "none", padding: "1px 2px", cursor: "pointer", display: "flex", gap: 8, alignItems: "baseline", textAlign: "left", fontFamily: tokens.font.sans, minWidth: 0 }}
+                    >
+                      <span data-narrative-lane-metric={lane.id} style={{ ...textStyles.caption, color: tokens.color.softInk, whiteSpace: "nowrap" }}>單帖觀察</span>
+                      <span style={{ fontSize: 11.5, color: tokens.color.subInk, minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{lane.label}</span>
+                      <span style={{ display: "inline-flex", gap: 5, alignItems: "center" }}>{renderRefChips(lane.signalRefs)}</span>
+                    </button>
+                  ))}
+                </div>
+              ) : null}
             </section>
 
             {reactionPatterns.length > 0 ? (
-              <section data-signal-atlas-map="true" style={{ display: "grid", gap: 8, padding: "12px 14px", borderRadius: tokens.radius.card, background: tokens.color.elevated, border: `1px solid ${tokens.color.line}` }}>
-                <div style={sectionLabelStyle}><span>民情形狀</span><span>{reactionPatterns.length}/{postTotal} patterns</span></div>
+              <section data-signal-atlas-map="true" data-signal-atlas-map-kind={compassLayout.kind} style={atlasGlassPanelStyle}>
+                <div style={sectionLabelStyle}>
+                  <span>{compassLayout.kind === "compass" ? "民情羅盤" : "民情形狀"}</span>
+                  <span>{reactionPatterns.length} patterns · {classifiedComments}/{compassDenominator} 已歸類</span>
+                </div>
                 <style>{`
                   @media (prefers-reduced-motion: no-preference) {
                     [data-signal-atlas-dot][data-top-dot="true"] { animation: dlens-atlas-dot-pulse ${tokens.motion.duration.slower} ${tokens.motion.easing.standard} infinite alternate; }
@@ -2304,81 +2396,87 @@ export function TopicDetailView({
                     to { opacity: 1; }
                   }
                 `}</style>
-                <svg viewBox="0 0 320 132" role="img" aria-label="Signal Atlas reaction pattern map" style={{ width: "100%", height: 132, display: "block" }}>
-                  {reactionPatterns.map((pattern, index) => {
-                    const max = Math.max(1, ...reactionPatterns.map((entry) => entry.nComments));
-                    const radius = 7 + Math.round((pattern.nComments / max) * 12);
-                    const x = 42 + (index % 5) * 58;
-                    const y = 38 + (index % 2) * 42;
-                    const palette = [tokens.color.signal, tokens.color.techniqueViolet, tokens.color.queued, tokens.color.techniqueRose, tokens.color.accent][index % 5];
+                <svg
+                  viewBox={`0 0 ${compassLayout.width} ${compassLayout.height}`}
+                  role="img"
+                  aria-label={compassLayout.kind === "compass"
+                    ? "民情羅盤：橫軸由質疑到支持，縱軸由行動導向到情緒共鳴，泡泡大小為留言數"
+                    : "反應形狀圖：泡泡大小為留言數"}
+                  style={{ width: "100%", height: "auto", display: "block" }}
+                >
+                  {compassLayout.kind === "compass" ? (
+                    <g aria-hidden="true">
+                      <line x1={compassLayout.width / 2} y1={16} x2={compassLayout.width / 2} y2={compassLayout.height - 26} stroke={tokens.color.line} strokeWidth={1} />
+                      <line x1={22} y1={compassLayout.height / 2} x2={compassLayout.width - 22} y2={compassLayout.height / 2} stroke={tokens.color.line} strokeWidth={1} />
+                      <text x={compassLayout.width / 2} y={11} textAnchor="middle" style={atlasAxisLabelStyle}>情緒共鳴</text>
+                      <text x={compassLayout.width / 2} y={compassLayout.height - 6} textAnchor="middle" style={atlasAxisLabelStyle}>行動導向</text>
+                      <text x={20} y={compassLayout.height / 2 - 7} textAnchor="start" style={atlasAxisLabelStyle}>質疑・悲觀</text>
+                      <text x={compassLayout.width - 20} y={compassLayout.height / 2 - 7} textAnchor="end" style={atlasAxisLabelStyle}>支持・正面</text>
+                    </g>
+                  ) : null}
+                  {compassLayout.bubbles.map((bubble, index) => {
+                    const fill = atlasPalette[index % atlasPalette.length]!;
+                    const bubbleLabel = bubble.label.length > 12 ? `${bubble.label.slice(0, 12)}…` : bubble.label;
                     return (
                       <g
-                        key={pattern.id}
-                        data-signal-atlas-dot={pattern.id}
+                        key={bubble.id}
+                        data-signal-atlas-dot={bubble.id}
                         data-top-dot={index === 0 ? "true" : "false"}
                         role="button"
                         tabIndex={0}
-                        onClick={() => setActiveDetail({ kind: "reaction", id: pattern.id })}
+                        onClick={() => setActiveDetail({ kind: "reaction", id: bubble.id })}
                         onKeyDown={(event) => {
                           if (event.key === "Enter" || event.key === " ") {
                             event.preventDefault();
-                            setActiveDetail({ kind: "reaction", id: pattern.id });
+                            setActiveDetail({ kind: "reaction", id: bubble.id });
                           }
                         }}
                         style={{ cursor: "pointer" }}
                       >
-                        <circle cx={x} cy={y} r={radius + 8} fill={tokens.color.signalFaint} />
-                        <circle cx={x} cy={y} r={radius} fill={palette} stroke={tokens.color.atlasEdge} strokeWidth="2" style={{ filter: `drop-shadow(0 0 10px ${tokens.color.signalGlow})` }} />
-                        <text x={x} y={y + radius + 17} textAnchor="middle" style={{ fontFamily: tokens.font.mono, fontSize: 10, fill: tokens.color.subInk }}>{pattern.nComments}/{pattern.coverageDenominator}</text>
+                        <circle cx={bubble.x} cy={bubble.y} r={bubble.r + 6} fill={fill} fillOpacity={0.22} />
+                        <circle cx={bubble.x} cy={bubble.y} r={bubble.r} fill={fill} stroke={tokens.color.atlasEdge} strokeWidth={1.5} />
+                        <text x={bubble.x} y={bubble.y + 4} textAnchor="middle" style={{ fontFamily: tokens.font.mono, fontSize: 12, fontWeight: 800, fill: tokens.color.atlasPaperStrong }}>{bubble.nComments}</text>
+                        <text x={bubble.x} y={bubble.y + bubble.r + 14} textAnchor="middle" style={{ fontFamily: tokens.font.sans, fontSize: 9.5, fontWeight: 700, fill: tokens.color.subInk }}>{bubbleLabel}</text>
                       </g>
                     );
                   })}
                 </svg>
+                <div style={{ display: "grid", borderTop: `1px solid ${tokens.color.line}` }}>
+                  {reactionPatterns.map((pattern, index) => (
+                    <button
+                      key={pattern.id}
+                      type="button"
+                      data-reaction-pattern={pattern.id}
+                      data-active={selectedReactionId === pattern.id ? "true" : "false"}
+                      onClick={() => setActiveDetail({ kind: "reaction", id: pattern.id })}
+                      style={{
+                        display: "flex",
+                        alignItems: "baseline",
+                        gap: 8,
+                        padding: "8px 2px",
+                        border: "none",
+                        borderBottom: index < reactionPatterns.length - 1 ? `1px solid ${tokens.color.line}` : "none",
+                        background: "none",
+                        cursor: "pointer",
+                        textAlign: "left",
+                        fontFamily: tokens.font.sans,
+                        minWidth: 0
+                      }}
+                    >
+                      <span aria-hidden="true" style={{ width: 8, height: 8, borderRadius: tokens.radius.round, background: atlasPalette[index % atlasPalette.length], alignSelf: "center", flexShrink: 0 }} />
+                      <span style={{ fontSize: 12, fontWeight: 750, color: tokens.color.ink, whiteSpace: "nowrap" }}>{pattern.label}</span>
+                      <span style={{ flex: 1, minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", fontSize: 11, color: tokens.color.softInk }}>{pattern.dynamicImplication}</span>
+                      <span style={{ ...textStyles.metric, color: tokens.color.subInk, whiteSpace: "nowrap" }}>
+                        {pattern.nComments}/{pattern.coverageDenominator}
+                        {pattern.counterRefs.length > 0 ? <span style={{ color: tokens.color.techniqueRose }}> · 反例 {pattern.counterRefs.length}</span> : null}
+                      </span>
+                    </button>
+                  ))}
+                </div>
               </section>
             ) : null}
 
-            {reactionPatterns.length > 0 ? (
-              <section data-topic-audit-block="reaction-patterns" style={{ display: "grid", gap: 8 }}>
-                <div style={sectionLabelStyle}><span>群眾反應</span><span>{reactionPatterns.length}/{postTotal} 形狀</span></div>
-                {reactionPatterns.map((pattern) => (
-                  <button
-                    key={pattern.id}
-                    type="button"
-                    data-reaction-pattern={pattern.id}
-                    data-active={selectedReactionId === pattern.id ? "true" : "false"}
-                    onClick={() => setActiveDetail({ kind: "reaction", id: pattern.id })}
-                    style={cardStyle}
-                  >
-                    <span style={{ display: "flex", justifyContent: "space-between", gap: 10 }}>
-                      <span style={{ ...textStyles.cardTitle, color: tokens.color.ink }}>{pattern.label}</span>
-                      <span style={{ ...textStyles.metric, color: tokens.color.subInk }}>{pattern.nComments}/{pattern.coverageDenominator}</span>
-                    </span>
-                    <span style={{ ...textStyles.bodyTight, color: tokens.color.subInk }}>{pattern.dynamicImplication}</span>
-                    <span style={{ ...textStyles.metric, color: tokens.color.softInk }}>{reactionPatternNumberRow(pattern, auditFragmentLookup)}</span>
-                    <span>{renderRefChips(pattern.representativeRefs.length ? pattern.representativeRefs : pattern.supportRefs)}</span>
-                  </button>
-                ))}
-              </section>
-            ) : null}
-
-            {auditLanes.length > 0 ? (
-              <section data-topic-audit-block="lanes" style={{ display: "grid", gap: 8 }}>
-                <div style={sectionLabelStyle}><span>跨帖敘事線</span><span>{narrativeCount}/{postTotal} narratives</span></div>
-                {auditLanes.map((lane) => (
-                  <NarrativeLane
-                    key={lane.id}
-                    lane={lane}
-                    active={selectedLaneId === lane.id}
-                    onClick={() => setActiveDetail({ kind: "narrative", id: lane.id })}
-                    fragmentLookup={auditFragmentLookup}
-                    pinnedRef={pinnedAuditRef}
-                    onPin={handlePinAuditRef}
-                  />
-                ))}
-              </section>
-            ) : null}
-
-            <section data-topic-audit-block="reliability" style={{ display: "grid", gap: 7, padding: "11px 13px", borderRadius: tokens.radius.card, background: tokens.color.queuedSoft, border: `1px solid ${tokens.color.queuedBorder}` }}>
+            <section data-topic-audit-block="reliability" style={{ display: "grid", gap: 7, padding: "11px 13px", borderRadius: tokens.radius.card, background: tokens.color.queuedSoft, border: `1px solid ${tokens.color.queuedBorder}`, boxShadow: tokens.shadow.atlasCard, backdropFilter: tokens.effect.atlasBlur, WebkitBackdropFilter: tokens.effect.atlasBlur }}>
               <span style={{ ...textStyles.label, color: tokens.color.queued }}>缺席與可靠性</span>
               <p style={{ margin: 0, ...textStyles.bodyTight, color: tokens.color.subInk }}>{audit.absenceProse || "沒有 P5 absence memo；先把這次讀法視為可用樣本內的形狀。"}</p>
               {audit.caveats.map((caveat) => <span key={caveat} style={{ ...textStyles.caption, color: tokens.color.softInk }}>{caveat}</span>)}
@@ -2386,7 +2484,7 @@ export function TopicDetailView({
 
             {auditEvidence.length > 0 ? (
               <section data-topic-audit-block="sources" style={{ display: "grid", gap: 8 }}>
-                <div style={sectionLabelStyle}><span>來源 footer</span><span>{postTotal}/{postTotal} 貼文 · {coverageNumbers.captured}/{coverageNumbers.usable} 留言</span></div>
+                <div style={sectionLabelStyle}><span>貼文 · 點入單帖</span><span>{postTotal}/{postTotal} 貼文 · {coverageNumbers.captured}/{coverageNumbers.usable} 留言</span></div>
                 <div data-topic-audit-source-list-style="audit-report" style={{ display: "grid", gap: 2, borderRadius: tokens.radius.cardLg, background: tokens.color.elevated, boxShadow: tokens.shadow.topicCard, padding: 6 }}>
                   {audit.sourceRows.map((row) => (
                     <SourceRow
@@ -2404,6 +2502,7 @@ export function TopicDetailView({
                 </div>
               </section>
             ) : null}
+          </div>
           </div>
         ) : null}
 

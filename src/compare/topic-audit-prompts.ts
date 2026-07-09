@@ -274,6 +274,14 @@ function readShardPatternCandidates(value: unknown, allowedRefs?: ReadonlySet<st
   return candidates;
 }
 
+function readCompassScalar(value: unknown): number | null {
+  const parsed = typeof value === "number" ? value : typeof value === "string" ? Number.parseFloat(value) : Number.NaN;
+  if (!Number.isFinite(parsed)) {
+    return null;
+  }
+  return Math.max(-1, Math.min(1, parsed));
+}
+
 function readReactionPatterns(value: unknown, allowedRefs?: ReadonlySet<string>): ReactionPattern[] {
   if (!Array.isArray(value)) {
     return [];
@@ -300,6 +308,8 @@ function readReactionPatterns(value: unknown, allowedRefs?: ReadonlySet<string>)
       continue;
     }
     const icon = readIcon(raw.icon);
+    const valence = readCompassScalar(raw.valence);
+    const mode = readCompassScalar(raw.mode);
     patterns.push({
       id: readTrimmedString(raw.id) || `reaction-${patterns.length + 1}`,
       label,
@@ -311,7 +321,8 @@ function readReactionPatterns(value: unknown, allowedRefs?: ReadonlySet<string>)
       counterRefs,
       representativeRefs,
       counterRepresentativeRefs,
-      ...(icon ? { icon } : {})
+      ...(icon ? { icon } : {}),
+      ...(valence !== null && mode !== null ? { valence, mode } : {})
     });
   }
   return patterns;
@@ -439,7 +450,9 @@ const P4_REACTION_ENVELOPE_SCHEMA = `{
         "counterRefs": ["S2.R3"],
         "representativeRefs": ["S1.R1"],
         "counterRepresentativeRefs": ["S2.R3"],
-        "icon": "message-circle"
+        "icon": "message-circle",
+        "valence": 0.6,
+        "mode": -0.2
       }
     ]
   }
@@ -658,7 +671,9 @@ function renderP4ReactionEnvelopeInstruction(): string {
     NARRATIVE_ICON_RULE,
     "producer contract：displayHints.reactionCoverage 與 displayHints.reactionPatterns 必填；每個 reactionPattern 必須有真實 supportRefs 或 counterRefs 或 representativeRefs。",
     "parser 會丟掉缺 label / dynamicImplication / nComments / coverageDenominator，或 refs 全 invalid 的 pattern；所以不要輸出沒有真 refs 的 pattern。",
-    "nComments 必須是 shard/post merge 後以 commentId dedup 的實數；coverageDenominator 必須等於 actually-read usable audience comments，不是 Threads 上報 commentCount。"
+    "nComments 必須是 shard/post merge 後以 commentId dedup 的實數；coverageDenominator 必須等於 actually-read usable audience comments，不是 Threads 上報 commentCount。",
+    "每個 reactionPattern 必填 valence 與 mode（-1~1 連續小數，不要只用 -1/0/1）：valence 讀留言對議題立場（-1 質疑/悲觀 → +1 支持/正面）；mode 讀表達方式（-1 行動導向/攻略 → +1 情緒共鳴/宣洩）。座標必須來自你實際讀到的留言語氣，不是 label 字面。",
+    "pattern 數量浮動：讀到幾多個就輸出幾多個（可以 2 個、可以 6+ 個），不要為填滿四個情緒方向而硬湊 cluster，也不要把兩個真形狀合併遷就座標；同一象限出現多個 pattern 是正常結果。"
   ].join("\n");
 }
 

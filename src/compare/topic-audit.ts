@@ -100,6 +100,10 @@ export interface ReactionPattern {
   representativeRefs: string[];
   counterRepresentativeRefs: string[];
   icon?: string;
+  /** LLM-read compass placement, -1 質疑/悲觀 → +1 支持/正面; absent on pre-0.3.20 audits */
+  valence?: number;
+  /** LLM-read compass placement, -1 行動導向 → +1 情緒共鳴; absent on pre-0.3.20 audits */
+  mode?: number;
 }
 
 export interface ShardPatternCandidate {
