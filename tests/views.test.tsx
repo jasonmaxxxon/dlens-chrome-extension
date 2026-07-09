@@ -716,6 +716,13 @@ test("InPageCollectorPopup topic create action opens the real create-topic flow"
     flushSync(() => {
       root.render(React.createElement(InPageCollectorPopup, { app: app as any }));
     });
+    const shell = rootElement.querySelector<HTMLElement>('[data-workspace-popup="shell"]');
+    assert.ok(shell, "popup shell should render as the non-scrolling extension frame");
+    assert.equal(shell.style.transform, "translateZ(0)");
+    assert.equal(shell.style.contain, "paint");
+    const scrollViewport = rootElement.querySelector<HTMLElement>('[data-workspace-popup-scroll="viewport"]');
+    assert.ok(scrollViewport, "popup scroll viewport should remain separate from the frame");
+    assert.equal(scrollViewport.style.transform, "");
     const button = rootElement.querySelector<HTMLButtonElement>('[data-new-topic-button="triage"]');
     assert.ok(button, "topics page must render the create-topic button");
     button.dispatchEvent(new dom.window.MouseEvent("click", { bubbles: true }));

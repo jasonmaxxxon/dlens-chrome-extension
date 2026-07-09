@@ -339,7 +339,7 @@ function AuditDetailDrawer({
           right: 18,
           bottom: 18,
           width: 390,
-          maxWidth: "calc(100vw - 36px)",
+          maxWidth: "calc(100% - 36px)",
           zIndex: 2147483640,
           transform: open ? "translateX(0)" : "translateX(calc(100% + 28px))",
           borderRadius: tokens.radius.cardLg,
@@ -1599,6 +1599,22 @@ function TopicAuditOverview({
     if (!canRunAudit) return;
     onRunAudit?.(topic.id, fromStage);
   };
+  if (summary.reportStatus === "ready") {
+    return (
+      <div
+        data-topic-audit-actions="ready"
+        style={{
+          display: "flex",
+          justifyContent: "flex-end",
+          gap: 8,
+          flexWrap: "wrap"
+        }}
+      >
+        <AuditGhostButton onClick={() => onOpenAuditReport?.(topic.id)}>開啟審查報告 ↗ 新分頁</AuditGhostButton>
+        <AuditGhostButton disabled={!canRunAudit} onClick={() => runAudit()}>重新生成</AuditGhostButton>
+      </div>
+    );
+  }
   return (
     <SurfaceCard
       tone="focused"
@@ -1630,12 +1646,7 @@ function TopicAuditOverview({
           </div>
         </div>
         <div style={{ display: "grid", gap: 8, minWidth: 160 }}>
-          {summary.reportStatus === "ready" ? (
-            <>
-              <AuditPrimaryButton onClick={() => onOpenAuditReport?.(topic.id)}>開啟審查報告 ↗ 新分頁</AuditPrimaryButton>
-              <AuditGhostButton disabled={!canRunAudit} onClick={() => runAudit()}>重新生成</AuditGhostButton>
-            </>
-          ) : summary.reportStatus === "running" ? (
+          {summary.reportStatus === "running" ? (
             <div style={{ display: "grid", gap: 8, borderRadius: tokens.radius.button, background: tokens.topicAccent.tintAmber, padding: 10, color: tokens.topicAccent.warm, fontSize: 11.5, fontWeight: 800 }}>
               <span>生成中 · P{summary.runningStage ?? 1}/6</span>
               <span style={{ display: "grid", gridTemplateColumns: "repeat(6, 1fr)", gap: 3 }}>
@@ -1669,7 +1680,7 @@ function TopicAuditOverview({
         <ValidatorChip
           topicId={topic.id}
           flags={flags}
-          state={summary.reportStatus === "ready" || summary.reportStatus === "stale" ? "validated" : "pending"}
+          state={summary.reportStatus === "stale" ? "validated" : "pending"}
           stale={summary.reportStatus === "stale"}
           onOpenReport={(topicId) => onOpenAuditReport?.(topicId)}
         />

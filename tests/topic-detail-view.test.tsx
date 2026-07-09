@@ -521,7 +521,7 @@ test("TopicDetailView exposes a remove action inside product signal rows", () =>
   assert.match(html, /aria-label="移除此訊號"/);
 });
 
-test("TopicDetailView renders audit overview and L0 narrative cards from displayHints", () => {
+test("TopicDetailView renders ready audit actions without the duplicate overview header", () => {
   const html = renderToStaticMarkup(
     topicDetailViewElement({
       topic,
@@ -537,8 +537,13 @@ test("TopicDetailView renders audit overview and L0 narrative cards from display
     })
   );
 
-  assert.match(html, /data-topic-audit-block="overview"/);
-  assert.match(html, /報告 已生成/);
+  assert.doesNotMatch(html, /data-topic-audit-block="overview"/);
+  assert.match(html, /data-topic-audit-actions="ready"/);
+  assert.match(html, /開啟審查報告 ↗ 新分頁/);
+  assert.match(html, /重新生成/);
+  assert.doesNotMatch(html, /報告 已生成/);
+  assert.doesNotMatch(html, /覆蓋 /);
+  assert.equal((html.match(/<h1/g) ?? []).length, 1);
   assert.match(html, /data-signal-atlas-hero="true"/);
   assert.match(html, /data-topic-audit-block="lanes"/);
   assert.match(html, /客服補救失速/);
@@ -549,6 +554,28 @@ test("TopicDetailView renders audit overview and L0 narrative cards from display
   assert.doesNotMatch(html, /data-topic-newsroom-ladder="true"/);
   assert.doesNotMatch(html, /我也遇到/);
   assert.match(html, /data-topic-audit-block="sources"/);
+});
+
+test("TopicDetailView keeps the audit overview header for non-ready states", () => {
+  const html = renderToStaticMarkup(
+    topicDetailViewElement({
+      topic,
+      signals,
+      pairs: [],
+      auditEvidence: [],
+      auditMemos: null,
+      auditSummary: { reportStatus: "running", analyzedCount: 1, queuedCount: 0, runningStage: 2 },
+      auditValidatorFlags: [],
+      onBack: () => undefined,
+      onOpenPair: () => undefined,
+      onUpdateTopic: () => undefined
+    })
+  );
+
+  assert.match(html, /data-topic-audit-block="overview"/);
+  assert.match(html, /生成中 · P2\/6/);
+  assert.match(html, /議題/);
+  assert.match(html, /航班爭議/);
 });
 
 test("TopicDetailView renders the Signal Atlas L0 spine without raw audience comments", () => {
@@ -786,14 +813,14 @@ test("TopicDetailView uses shared primitives and topic accent rhythm for audit m
     })
   );
 
-  assert.match(html, /data-topic-detail-surface="overview"/);
-  assert.match(html, /data-topic-detail-surface-style="audit-report"/);
+  assert.match(html, /data-topic-audit-actions="ready"/);
+  assert.doesNotMatch(html, /data-topic-detail-surface="overview"/);
   assert.match(html, /data-signal-atlas-hero="true"/);
   assert.match(html, /data-topic-audit-block="lanes"/);
   assert.match(html, /data-topic-audit-block="sources"/);
-  assert.match(html, /data-shared-surface-card="focused"/);
   assert.match(html, /data-signal-atlas-ledger="true"/);
-  assert.match(html, /var\(--dlens-mode-accent, #3f5a3b\)/);
+  assert.match(html, /開啟審查報告 ↗ 新分頁/);
+  assert.match(html, /重新生成/);
   assert.match(html, /data-topic-audit-source-list-style="audit-report"/);
   assert.doesNotMatch(html, /min-width:1320/);
 });
@@ -907,6 +934,9 @@ test("TopicDetailView routes reaction, narrative, atlas dot, and source row into
     assert.equal(drawers.length, 1, "the audit page owns exactly one right-side drawer container");
     const drawer = drawers[0]!;
     assert.equal(drawer.getAttribute("data-open"), "false");
+    assert.equal(drawer.style.position, "fixed");
+    assert.equal(drawer.style.maxWidth, "calc(100% - 36px)");
+    assert.equal(rootElement.querySelector<HTMLElement>("[data-audit-detail-scrim]")!.style.position, "fixed");
     assert.equal(rootElement.querySelector("[data-narrative-lane-detail]"), null);
     assert.equal(rootElement.querySelector("[data-reaction-pattern-detail]"), null);
     assert.equal(rootElement.querySelector("[data-signal-drawer]"), null);
@@ -995,9 +1025,11 @@ test("TopicDetailView uses audit evidence as the denominator when topic signal p
     })
   );
 
-  assert.match(html, /3 訊號/);
-  assert.match(html, /P1 判讀 3\/3/);
-  assert.match(html, /覆蓋 3\/3/);
+  assert.match(html, /data-topic-audit-actions="ready"/);
+  assert.match(html, /data-atlas-ledger-metric="15\/15 可用留言"/);
+  assert.equal((html.match(/data-source-row="S\d+"/g) ?? []).length, 3);
+  assert.doesNotMatch(html, /P1 判讀/);
+  assert.doesNotMatch(html, /覆蓋 /);
   assert.doesNotMatch(html, /P1 判讀 3\/0/);
   assert.doesNotMatch(html, /覆蓋 3\/0/);
 });
@@ -1040,9 +1072,10 @@ test("TopicDetailView ignores non-topic-scoped signals when audit sources are pr
     })
   );
 
-  assert.match(html, /15 訊號/);
-  assert.match(html, /P1 判讀 15\/15/);
-  assert.match(html, /覆蓋 15\/15/);
+  assert.match(html, /data-atlas-ledger-metric="75\/75 可用留言"/);
+  assert.equal((html.match(/data-source-row="S\d+"/g) ?? []).length, 15);
+  assert.doesNotMatch(html, /P1 判讀/);
+  assert.doesNotMatch(html, /覆蓋 /);
   assert.doesNotMatch(html, /30 訊號/);
   assert.doesNotMatch(html, /P1 判讀 15\/30/);
 });
@@ -1094,9 +1127,9 @@ test("TopicDetailView keeps the B-14 audit count at 15/15 when a topic also has 
     })
   );
 
-  assert.match(html, /15 訊號/);
-  assert.match(html, /P1 判讀 15\/15/);
-  assert.match(html, /覆蓋 15\/15/);
+  assert.match(html, /data-atlas-ledger-metric="75\/75 可用留言"/);
+  assert.doesNotMatch(html, /P1 判讀/);
+  assert.doesNotMatch(html, /覆蓋 /);
   assert.equal((html.match(/data-source-row="S\d+"/g) ?? []).length, 15);
   assert.doesNotMatch(html, /16 訊號/);
   assert.doesNotMatch(html, /P1 判讀 15\/16/);
@@ -1140,9 +1173,9 @@ test("TopicDetailView derives audit header, coverage, and remaining source rows 
     })
   );
 
-  assert.match(html, /4 訊號/);
-  assert.match(html, /P1 判讀 1\/4/);
-  assert.match(html, /覆蓋 4\/4/);
+  assert.match(html, /data-atlas-ledger-metric="20\/20 可用留言"/);
+  assert.doesNotMatch(html, /P1 判讀/);
+  assert.doesNotMatch(html, /覆蓋 /);
   assert.equal((html.match(/data-source-row="S\d+"/g) ?? []).length, 4);
   assert.match(html, /data-source-row="S1"/);
   assert.match(html, /data-source-row="S2"/);

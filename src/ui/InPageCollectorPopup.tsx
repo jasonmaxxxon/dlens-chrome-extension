@@ -319,7 +319,9 @@ export function InPageCollectorPopup({ app }: { app: InPageCollectorAppModel }) 
         animation: "dlens-slide-in 280ms cubic-bezier(0.16, 1, 0.3, 1)",
         transition: "width 200ms cubic-bezier(0.4, 0, 0.2, 1)",
         pointerEvents: "auto",
-        isolation: "isolate"
+        isolation: "isolate",
+        transform: "translateZ(0)",
+        contain: "paint"
       }}
       onClick={(event) => event.stopPropagation()}
       onMouseDown={(event) => event.stopPropagation()}

@@ -55,6 +55,7 @@ This note is the high-signal shared memory for Codex and Claude when working on 
 - 0.3.14 is a Topic / Product runtime repair release: the 議題 page create action now opens the real create-topic flow after the Topic top strip removal, WorkspaceShell hides stale mode bodies while mode switches are pending, and Settings save applies an immediate effective settings snapshot so Product analysis gating sees the just-saved provider, API-key presence, and ProductContext before the background snapshot catches up.
 - 0.3.16 is a Topic Audit producer release: `CommentShardReading` folds into the existing memo bundle, P0.5 shard reading runs through the existing LLM seam before P1, P2/P4/P5 consume shard distillate + cited quotes instead of full raw packets, and P4 now produces structured `reactionCoverage` / `reactionPatterns` for the already-shipped 群眾反應 UI.
 - 0.3.18 is a Topic Audit reader release: Signal Atlas L0 replaces the expanded audit dump with a glass hero, denominator-backed KPI ledger, reaction atlas, cross-post narrative strength, counts-only source footer, one unified right-side drawer, and L3 full-list expansion backed by persisted shard readings when possible.
+- 0.3.19 is a Signal Atlas L0 UI fix: ready-state Topic Audit now removes the duplicate overview header while keeping only `開啟審查報告 ↗ 新分頁` and `重新生成`; the audit detail drawer is frame-contained in the in-page extension shell instead of sizing against the Threads viewport.
 - `VIEW` remains 🟢, not 🟩. The four marquee surfaces are DOM-test-locked; row-level primitive adoption / large-view LOC reduction remains a follow-up `refactor(ui)` track.
 
 ## Layout Preference State As Of 2026-05-14
@@ -90,10 +91,10 @@ This note is the high-signal shared memory for Codex and Claude when working on 
 
 ## Version Rule As Of 2026-07-07
 
-- Current source version in the active worktree: `0.3.18`.
-- Latest local verification on 2026-07-09: `npm run typecheck`, `npm run boundary:guard`, `npm run storage:seam-guard`, `npx tsx --test tests/*.test.ts tests/*.test.tsx` (`993 passed / 5 skipped`, 998 tests), `npm run build`, and `git diff --check` passed.
-- Built `output/chrome-mv3/manifest.json` reports `version: "0.3.18"` after the 2026-07-09 build.
-- Current engineering branch: `codex/signal-atlas-l0`.
+- Current source version in the active worktree: `0.3.19`.
+- Latest local verification on 2026-07-09: `npm run typecheck`, `npm run boundary:guard`, `npm run storage:seam-guard`, `npx tsx --test tests/*.test.ts tests/*.test.tsx` (`994 passed / 5 skipped`, 999 tests), `npm run build`, and `git diff --check` passed.
+- Built `output/chrome-mv3/manifest.json` reports `version: "0.3.19"` after the 2026-07-09 build.
+- Current engineering branch: `codex/atlas-l0-polish`.
 - `docs/ENGINEERING_PLAN.md` §2 N1-N5 is complete: React ErrorBoundary, Settings storage usage, `mutateSnapshot` seam, behavioral storage contracts, and code-review checklist.
 - §3 remains a deferred trigger pool, not a backlog drain queue.
 - Motion Layer v2 is pure CSS/token-based and shared across modes; content-script CSS is scoped under `data-dlens-control="true"` and respects `prefers-reduced-motion`.

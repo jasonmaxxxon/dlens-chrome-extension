@@ -3,12 +3,12 @@
 DLens is a mode-aware MV3 Chrome extension for capturing Threads posts and turning them into research, product-signal, and PR evidence workflows.
 
 > Last updated: 2026-07-09
-> Current source version: `0.3.18` · latest local full gate: `993 passed / 5 skipped` (998 tests), typecheck, boundary guard, storage seam guard, build, and diff check passed
-> Current engineering branch: `codex/signal-atlas-l0` from `main`
+> Current source version: `0.3.19` · latest local full gate: `994 passed / 5 skipped` (999 tests), typecheck, boundary guard, storage seam guard, build, and diff check passed
+> Current engineering branch: `codex/atlas-l0-polish` from `main`
 > Positioning (2026-06-18): local power-tool (self + small technical circle); two separate repos (extension public · ingest-core **private**), not monorepo; Visual Reset A contract is `src/ui/tokens.ts` warm editorial + macOS utility shell
 > Load-unpacked build path: `output/chrome-mv3`
 > Stability note: `TRACE`, `SEAM_GUARD`, `RECONCILE`, `INVALIDATE`, `BOUNDARY`, and `MIGRATE` are locked in the live architecture map. Visual Reset A shipped the native-feeling shell plus PR Evidence, Topic, Compare, and Product marquee surfaces without changing storage, backend, ViewModel, command, or signal-packet contracts.
-> Runtime note (2026-07-09): Chrome reads `output/chrome-mv3`, not raw `src/`. Topic Audit now renders Signal Atlas L0: zero raw comments in the reading spine, denominator-backed KPIs, one right-side drawer, and L3 full-list expansion from persisted shard readings when available.
+> Runtime note (2026-07-09): Chrome reads `output/chrome-mv3`, not raw `src/`. Topic Audit now renders Signal Atlas L0 without the redundant ready-state overview header; the detail drawer is contained by the extension frame in the in-page shell and remains one right-side drawer.
 
 ## What It Does
 
@@ -56,6 +56,7 @@ Recent PRs and local commits changed the shape more than the old README suggeste
 - 0.3.7 local UI fix: Product saved-signal classification is merged into Saved Signals instead of appearing as a separate rail stop; the source contract is guarded by `getModeRailPages("product") === ["saved-signals", "actionable-filter", "collect"]`.
 - 0.3.13 local UI fix: Topic Collect's 未分流 queue exposes per-row and bulk delete through `signal/delete`, and Topic/Product/PR modes render no top folder/topic strip. Topic destination choice lives in the floating collect preview card; topic creation lives in the 議題 page.
 - 0.3.18 local UI update: Topic Audit renders the Signal Atlas L0 reading spine with shared evidence ref chips, cross-post narrative strength, counts-only source footer, one unified right-side drawer, and shard-backed full-list expansion.
+- 0.3.19 local UI fix: Topic Audit ready state drops the duplicate overview header and keeps only the report/regenerate action row; the L0 detail drawer is contained to the extension frame instead of the Threads viewport.
 - Product Action route restores the 0.1.15 `READING REVIEW` UI only when the current saved signals have matching `SignalReading` rows. Review callbacks alone must not switch the Action route away from the Marginalia action cards. The old page-level batch export remains off the Action route; Saved Signals owns the `行動簡報匯出` selection/copy surface.
 - Product Settings includes a Product-only cache reset. It clears derived Product analysis, SignalReading, feedback, and compiled ProductContext storage without deleting saved signals, topics, archive folders, or PR evidence.
 - Popup runtime hardening: the React tree is wrapped in a top-level workspace ErrorBoundary, and the content-script runtime fallback remains separate.
