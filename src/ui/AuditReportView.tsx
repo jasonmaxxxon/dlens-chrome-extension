@@ -1,11 +1,12 @@
 import type { ReactNode } from "react";
 
-import type { EvidencePacket, TopicAuditReport } from "../compare/topic-audit.ts";
+import type { EvidencePacket, ReactionCoverage, ReactionPattern, TopicAuditReport } from "../compare/topic-audit.ts";
 import type { TopicAuditValidationFlag, TopicAuditValidationSeverity } from "../compare/topic-audit-validator.ts";
 import type { TopicAuditMemoBundle } from "../state/topic-audit-storage.ts";
 import { tokens } from "./tokens";
 import {
   AuditReportNarrativeLanes,
+  AuditReportReactionPatterns,
   GhostButton,
   PrimaryButton,
   ThemeChip,
@@ -40,6 +41,8 @@ type ReportSection = (typeof SECTION_META)[number] & {
 type AuditReportDisplayHints = {
   themeChips: string[];
   narrativeLanes: NarrativeLaneHint[];
+  reactionCoverage?: ReactionCoverage;
+  reactionPatterns: ReactionPattern[];
 };
 
 function normalizeSectionBody(value: string | undefined): string {
@@ -66,7 +69,7 @@ function buildReportSections(report: TopicAuditReport): ReportSection[] {
 }
 
 function readAuditReportDisplayHints(auditMemos: TopicAuditMemoBundle | null | undefined): AuditReportDisplayHints {
-  const hints: AuditReportDisplayHints = { themeChips: [], narrativeLanes: [] };
+  const hints: AuditReportDisplayHints = { themeChips: [], narrativeLanes: [], reactionPatterns: [] };
   for (const memo of auditMemos?.lensMemos ?? []) {
     const displayHints = memo.displayHints;
     if (!displayHints) continue;
@@ -75,6 +78,12 @@ function readAuditReportDisplayHints(auditMemos: TopicAuditMemoBundle | null | u
     }
     if (!hints.narrativeLanes.length && displayHints.narrativeLanes?.length) {
       hints.narrativeLanes = displayHints.narrativeLanes;
+    }
+    if (!hints.reactionCoverage && displayHints.reactionCoverage) {
+      hints.reactionCoverage = displayHints.reactionCoverage;
+    }
+    if (!hints.reactionPatterns.length && displayHints.reactionPatterns?.length) {
+      hints.reactionPatterns = displayHints.reactionPatterns;
     }
   }
   return hints;
@@ -410,7 +419,14 @@ export function AuditReportView({
             {section.key === "narratives" && !section.empty ? (
               <AuditReportNarrativeLanes lanes={displayHints.narrativeLanes} />
             ) : null}
-            <SectionBody section={section} />
+            {section.key === "audience" && displayHints.reactionPatterns.length > 0 ? (
+              <AuditReportReactionPatterns
+                patterns={displayHints.reactionPatterns}
+                coverage={displayHints.reactionCoverage}
+              />
+            ) : (
+              <SectionBody section={section} />
+            )}
           </section>
         )) : (
           <section style={{ display: "grid", gap: 10 }}>

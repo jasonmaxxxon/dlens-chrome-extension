@@ -706,6 +706,25 @@ test("shouldAutoAnalyzeProductSignal only schedules ready product-mode captures"
       sessionMode: "product",
       itemStatus: "succeeded",
       capture: {
+        text_snippet: "Extension capture text can still seed a product judgment.",
+        result: {
+          thread_read_model: {
+            assembled_content: "",
+            discussion_replies: []
+          }
+        }
+      } as any,
+      existingAnalysis: null,
+      productContextHash: analyzerInput.productContextHash
+    }),
+    true
+  );
+
+  assert.equal(
+    shouldAutoAnalyzeProductSignal({
+      sessionMode: "product",
+      itemStatus: "succeeded",
+      capture: {
         result: {
           thread_read_model: {
             assembled_content: "",

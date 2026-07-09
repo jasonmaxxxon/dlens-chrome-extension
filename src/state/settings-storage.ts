@@ -14,10 +14,6 @@ export interface OneLinerSettingsPatch {
 
 export type LayoutPreferencesPatch = Partial<LayoutPreferences>;
 
-function validProductSignalCardLayout(value: unknown): value is LayoutPreferences["productSignalCardLayout"] {
-  return value === "verdict" || value === "marginalia";
-}
-
 function validTopicSynthesisLayout(value: unknown): value is LayoutPreferences["topicSynthesisLayout"] {
   return value === "stack" || value === "console";
 }
@@ -29,9 +25,6 @@ function validCompareResultLayout(value: unknown): value is LayoutPreferences["c
 export function normalizeLayoutPreferences(raw: LayoutPreferencesPatch | null | undefined): LayoutPreferences {
   const defaults = createDefaultLayoutPreferences();
   return {
-    productSignalCardLayout: validProductSignalCardLayout(raw?.productSignalCardLayout)
-      ? raw.productSignalCardLayout
-      : defaults.productSignalCardLayout,
     topicSynthesisLayout: validTopicSynthesisLayout(raw?.topicSynthesisLayout)
       ? raw.topicSynthesisLayout
       : defaults.topicSynthesisLayout,

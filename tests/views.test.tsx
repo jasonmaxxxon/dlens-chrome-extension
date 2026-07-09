@@ -27,7 +27,7 @@ import {
 } from "../src/viewmodel/pr-evidence.ts";
 import { CollectView } from "../src/ui/CollectView.tsx";
 import { InPageCollectorFolderControls, inPageCollectorFolderControlsTestables } from "../src/ui/InPageCollectorFolderControls.tsx";
-import { inPageCollectorPopupTestables } from "../src/ui/InPageCollectorPopup.tsx";
+import { InPageCollectorPopup, inPageCollectorPopupTestables } from "../src/ui/InPageCollectorPopup.tsx";
 import { LibraryView } from "../src/ui/LibraryView.tsx";
 import { createPrEvidenceResource } from "../src/ui/pr-evidence-resource.ts";
 import { PrEvidenceView, prEvidenceViewTestables } from "../src/ui/PrEvidenceViews.tsx";
@@ -587,6 +587,146 @@ test("InPageCollectorPopup hides the global processing strip in Product and PR w
 test("InPageCollectorPopup keeps extra scroll padding below the last card", () => {
   assert.ok(inPageCollectorPopupTestables.popupViewportBottomPadding >= tokens.spacing.section + 40);
   assert.equal(inPageCollectorPopupTestables.settingsWorkspaceSurfaceStyle.overflow, "visible");
+});
+
+test("InPageCollectorPopup topic create action opens the real create-topic flow", async () => {
+  const { JSDOM } = await import("jsdom");
+  const { createRoot } = await import("react-dom/client");
+  const { flushSync } = await import("react-dom");
+  const topicSession = buildSession();
+  topicSession.mode = "topic";
+  const dom = new JSDOM("<div id=\"root\"></div>", { url: "https://dlens.test" });
+  const previous = {
+    window: globalThis.window,
+    document: globalThis.document,
+    HTMLElement: globalThis.HTMLElement,
+    HTMLButtonElement: globalThis.HTMLButtonElement,
+    MouseEvent: globalThis.MouseEvent
+  };
+  const navCalls: string[] = [];
+  let createCalls = 0;
+
+  Object.assign(globalThis, {
+    window: dom.window,
+    document: dom.window.document,
+    HTMLElement: dom.window.HTMLElement,
+    HTMLButtonElement: dom.window.HTMLButtonElement,
+    MouseEvent: dom.window.MouseEvent
+  });
+
+  const rootElement = dom.window.document.getElementById("root");
+  assert.ok(rootElement);
+  const root = createRoot(rootElement);
+  const app = {
+    popupRef: { current: null },
+    snapshot: {
+      global: {
+        settings: createDefaultSettings(),
+        sessions: [topicSession],
+        activeSessionId: topicSession.id,
+        updatedAt: "2026-07-07T08:00:00.000Z"
+      },
+      tab: {
+        ...createEmptyTabState(),
+        popupOpen: true,
+        popupPage: "topics"
+      }
+    },
+    page: "topics",
+    popupOpen: true,
+    activeFolder: topicSession,
+    activeFolderMode: "topic",
+    activeTopic: null,
+    activeTopicSignals: [],
+    activeTopicPairs: [],
+    topicLoadState: "ready",
+    selectedTopicId: null,
+    activePrCampaign: null,
+    topics: [],
+    signals: [],
+    topicAuditByTopicId: {},
+    savedAnalyses: [],
+    productSignalAnalyses: [],
+    historicalProductSignalAnalyses: [],
+    productAgentTaskFeedback: [],
+    signalReadings: [],
+    compiledProductContext: null,
+    productAiProviderReady: false,
+    productBackendError: null,
+    productSignalAnalysisError: null,
+    productSignalAnalysisNotice: null,
+    isHydratingProductSignals: false,
+    isAnalyzingProductSignals: false,
+    activeTopicAudit: undefined,
+    topicAuditP1RunningBySignalId: {},
+    topicAuditP1ErrorBySignalId: {},
+    optimisticQueuedIds: [],
+    bulkAnalyzingFolderId: null,
+    isStartingProcessing: false,
+    workerStatus: "idle",
+    backendWorkUiState: null,
+    backendReachability: "unknown",
+    processingSummary: {
+      total: 0,
+      ready: 0,
+      crawling: 0,
+      analyzing: 0,
+      pending: 0,
+      failed: 0,
+      hasReadyPair: false,
+      hasInflight: false
+    },
+    readInteractionNowMs: () => 0,
+    readWallClockNowMs: () => Date.parse("2026-07-07T08:00:00.000Z"),
+    prEvidenceViewModel: buildPrEvidenceVm(),
+    resultItemA: null,
+    resultItemB: null,
+    activeSavedAnalysis: null,
+    signalPreviewById: {},
+    signalTagsByItemId: {},
+    renderMetrics: () => null,
+    canPrev: false,
+    canNext: false,
+    readyCompareItems: [],
+    selectedCompareA: "",
+    selectedCompareB: "",
+    compareTeaserState: "idle",
+    compareTeaser: null,
+    setSelectedCompareA: () => undefined,
+    setSelectedCompareB: () => undefined,
+    processAllLabel: "Process All",
+    techniqueReadings: [],
+    folderSynthesis: null,
+    isGeneratingFolderSynthesis: false,
+    folderSynthesisError: null,
+    folderAnalyzedCount: 0,
+    folderContributingTopicCount: 0,
+    onSessionModeChange: async () => ({ ok: true }),
+    onNavigate: async (page: string) => {
+      navCalls.push(page);
+    },
+    onNavigateToTopic: () => undefined,
+    onCreateTopic: () => {
+      createCalls += 1;
+    },
+    onDeleteTopic: () => undefined
+  };
+
+  try {
+    flushSync(() => {
+      root.render(React.createElement(InPageCollectorPopup, { app: app as any }));
+    });
+    const button = rootElement.querySelector<HTMLButtonElement>('[data-new-topic-button="triage"]');
+    assert.ok(button, "topics page must render the create-topic button");
+    button.dispatchEvent(new dom.window.MouseEvent("click", { bubbles: true }));
+
+    assert.equal(createCalls, 1);
+    assert.deepEqual(navCalls, []);
+  } finally {
+    flushSync(() => root.unmount());
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    Object.assign(globalThis, previous);
+  }
 });
 
 // Library now uses a compact readiness bar instead of the older readiness-table support copy.
@@ -2877,8 +3017,41 @@ test("ProductSignalView keeps crawling pending signals collapsed on saved-signal
 
   assert.match(html, /抓取中/);
   assert.match(html, /data-product-saved-pending-detail="collapsed"/);
+  assert.match(html, /data-product-crawl-sweep="true"/);
+  assert.match(html, /dlens-popup-indeterminate/);
   assert.doesNotMatch(html, /data-pending-signal-spinner="true"/);
   assert.doesNotMatch(html, /animation:dlens-spin 0\.8s linear infinite/);
+});
+
+test("ProductSignalView describes empty crawl output without implying crawler failure", () => {
+  const html = renderToStaticMarkup(
+    productSignalViewElement({
+      kind: "saved-signals",
+      signals: [
+        {
+          id: "signal_empty_model",
+          sessionId: "session_a",
+          itemId: "item_empty_model",
+          source: "threads",
+          inboxStatus: "unprocessed",
+          capturedAt: "2026-04-27T00:00:00.000Z"
+        }
+      ],
+      analyses: [],
+      productProfile: productTestProfile(),
+      signalReadinessById: {
+        signal_empty_model: {
+          status: "missing_content",
+          itemStatus: "succeeded"
+        }
+      },
+      onAnalyze: () => undefined
+    })
+  );
+
+  assert.match(html, /未抽到正文/);
+  assert.doesNotMatch(html, /內容不完整/);
+  assert.doesNotMatch(html, /抓取失敗/);
 });
 
 test("Product action route collapses pending signals into a compact queue summary", () => {
@@ -3074,7 +3247,7 @@ test("ProductSignalView gives each product page a distinct information shape", (
   assert.doesNotMatch(actionableHtml, /這個任務建議/);
   assert.doesNotMatch(actionableHtml, /\d+\s+likes/);
   assert.doesNotMatch(actionableHtml, /TRY experiment|relevance 5\/5|signal type/);
-  assert.match(actionableHtml, /排入小實驗/);
+  assert.match(actionableHtml, /實驗切入/);
   assert.match(actionableHtml, /相關度 5\/5/);
   assert.doesNotMatch(actionableHtml, /R5/);
   // Marginalia owns the experiment and judgment slots in its main column / rail.
@@ -3090,12 +3263,10 @@ test("ProductSignalView gives each product page a distinct information shape", (
   // Only className / data hooks need to exist in the HTML.
   assert.doesNotMatch(actionableHtml, /data-dlens-product-motion/);
   assert.match(actionableHtml, /class="dlens-card-lift"/);
-  assert.match(actionableHtml, /class="dlens-details-smooth"/);
   assert.match(actionableHtml, /data-verdict-filter-tiles="true"/);
   assert.match(actionableHtml, /data-verdict-filter-plate="true"/);
   assert.match(actionableHtml, /data-verdict-tile-count="true"/);
   assert.match(actionableHtml, /data-dlens-motion-card="true"/);
-  assert.match(actionableHtml, /data-dlens-smooth-details="true"/);
   // The exported CSS constant must include reduced-motion and grid-template-rows animation
   assert.ok(DLENS_MOTION_CSS.includes("prefers-reduced-motion"), "CSS must guard reduced-motion");
   assert.ok(DLENS_MOTION_CSS.includes("grid-template-rows"), "CSS must animate details panel");
@@ -3363,74 +3534,40 @@ function extractTestIdSection(html: string, testId: string, closeTag: string) {
   return html.slice(tagStart, closeIndex + closeTag.length);
 }
 
-test("ProductSignalView actionable cards expose marginalia layout slots", () => {
-  const fixture = buildActionableCardFixture();
-  const html = renderToStaticMarkup(
-    productSignalViewElement( {
-      kind: "actionable-filter",
-      signals: [fixture.signal],
-      analyses: [fixture.analysis],
-      productProfile: fixture.productProfile,
-      evidenceBySignalId: fixture.evidenceBySignalId,
-      onAnalyze: () => undefined
-    })
-  );
+test("ActionableItemCard renders the unified compact card for actionable verdicts", () => {
+  const html = renderActionableCardFixture();
 
-  assert.match(html, /data-marginalia-layout="true"/);
-  assert.match(html, /data-testid="marginalia-main"/);
-  assert.match(html, /data-testid="marginalia-rail"/);
-  assert.match(html, /data-testid="marginalia-headline"[^>]*>多來源討論轉交付文件/);
-  assert.match(html, /data-testid="marginalia-reason"/);
-  assert.match(html, /data-testid="marginalia-experiment"/);
-  assert.match(html, /data-testid="marginalia-footnotes"/);
-  assert.doesNotMatch(html, /FOOTNOTES/);
-  assert.match(html, /可以把 Slack 和 Jira 討論交給 agent 寫 release notes/);
-});
-
-test("ActionableItemCard marginalia rail contains verdict, relevance, and task slots", () => {
-  const html = renderActionableCardFixture("marginalia");
-
-  assert.match(html, /data-product-action-card="marginalia"/);
+  assert.match(html, /data-product-action-card="verdict"/);
+  assert.match(html, /data-testid="insight-headline"[^>]*>多來源討論轉交付文件/);
   assert.match(html, /data-product-readiness-chip="true"[^>]*data-product-readiness-status="ready"[^>]*>可分析/);
-  assert.match(html, /data-product-drawer-accent-rail="true"/);
-  assert.match(html, /data-testid="marginalia-rail"/);
-  assert.match(html, /data-testid="rail-verdict"[^>]*data-verdict-value="try"[^>]*>值得嘗試/);
-  assert.match(html, /data-testid="rail-relevance"/);
-  assert.match(html, /data-testid="rail-task"/);
-  assert.match(html, /任務 ›/);
+  assert.match(html, /實驗切入/);
+  assert.match(html, /子型：PM 文件產出/);
+  assert.match(html, /data-testid="task-slot"/);
+  assert.match(html, /下一步/);
   assert.match(html, /產出 release-note 草稿/);
+  // The old marginalia / verdict-panel / Frame-03 chrome is gone for good.
+  assert.doesNotMatch(html, /data-marginalia-layout/);
+  assert.doesNotMatch(html, /data-testid="verdict-panel"/);
+  assert.doesNotMatch(html, /data-product-action-lead/);
+  assert.doesNotMatch(html, /data-product-action-more/);
 });
 
-test("ActionableItemCard keeps Product Visual Reset A elevation and accent contract", () => {
-  const html = renderActionableCardFixture("marginalia");
-  const shellStyle = styleFromTag(findTagWithAttribute(html, `data-product-action-card="marginalia"`));
-  const railStyle = styleFromTag(findTagWithAttribute(html, `data-product-drawer-accent-rail="true"`));
-  const hoverBlock = cssRuleBlock(DLENS_MOTION_CSS, `.dlens-card-lift:hover`);
+test("ActionableItemCard keeps the primary-card raised elevation and stays min-width safe", () => {
+  const html = renderActionableCardFixture();
+  const shellStyle = styleFromTag(findTagWithAttribute(html, `data-product-action-card="verdict"`));
 
   assert.equal(countOccurrences(html, `box-shadow:${tokens.shadow.raised}`), 1);
   assert.match(shellStyle, /min-width:0/);
-  assert.match(shellStyle, /box-shadow:inset 0 1px 0 rgba\(255,255,255,0\.8\)/);
-  assert.match(railStyle, /border-left:3px solid var\(--dlens-mode-accent, #c2401f\)/);
-  assert.match(railStyle, /background:linear-gradient\(180deg, var\(--dlens-mode-accent-soft, rgba\(194,64,31,0\.10\)\), rgba\(242,238,226,0\.72\)\)/);
-  assert.match(hoverBlock, /transform:\s*translateY\(-4px\)/);
-  assert.doesNotMatch(hoverBlock, /\b(?:margin|padding|top|right|bottom|left)\s*:/);
 });
 
-test("ActionableItemCard keeps Product action layout width-safe at 320 and 440", () => {
-  const html = renderActionableCardFixture("marginalia");
-  const gridStyle = styleFromTag(findTagWithAttribute(html, `data-product-action-card-grid="responsive"`));
-  const mainStyle = styleFromTag(findTagWithAttribute(html, `data-testid="marginalia-main"`));
-  const railStyle = styleFromTag(findTagWithAttribute(html, `data-testid="marginalia-rail"`));
+test("ActionableItemCard stays width-safe as a single-column compact card", () => {
+  const html = renderActionableCardFixture();
 
-  assert.match(gridStyle, /grid-template-columns:minmax\(0, 1fr\) minmax\(132px, 168px\)/);
-  assert.match(gridStyle, /min-width:0/);
-  assert.match(mainStyle, /min-width:0/);
-  assert.match(railStyle, /min-width:0/);
   assert.doesNotMatch(html, /\bwidth:(?:320|440)px/);
   assert.doesNotMatch(html, /\bmin-width:[2-9]\d{2}px/);
 });
 
-test("ProductSignalView threads action readiness into Product action cards", () => {
+test("ProductSignalView threads action readiness into the compact cards", () => {
   const fixture = buildActionableCardFixture();
   const html = renderToStaticMarkup(
     productSignalViewElement({
@@ -3446,42 +3583,12 @@ test("ProductSignalView threads action readiness into Product action cards", () 
     })
   );
 
-  assert.match(html, /data-product-action-card="marginalia"/);
+  assert.match(html, /data-product-action-card="verdict"/);
   assert.match(html, /data-product-readiness-chip="true"[^>]*data-product-readiness-status="crawling"[^>]*>抓取中/);
 });
 
-test("ActionableItemCard marginalia rail does not duplicate main-column prose", () => {
-  const fixture = buildActionableCardFixture();
-  const html = renderActionableCardFixture("marginalia", { referenceLabel: "" });
-  const railHtml = extractTestIdSection(html, "marginalia-rail", "</aside>");
-  const taskHtml = extractTestIdSection(html, "rail-task", "</div>");
-
-  assert.ok(
-    !railHtml.includes(fixture.analysis.contentSummary),
-    "rail must not duplicate main-column drop-cap contentSummary"
-  );
-  assert.ok(
-    !railHtml.includes(fixture.analysis.experimentHint),
-    "rail TASK must not duplicate main-column TRY block"
-  );
-  assert.ok(taskHtml.includes(fixture.analysis.agentTaskSpec.taskTitle), "rail TASK must use taskTitle when available");
-});
-
-test("ActionableItemCard marginalia removes repeated support chrome", () => {
-  const html = renderActionableCardFixture("marginalia");
-  const mainHtml = extractTestIdSection(html, "marginalia-main", "</main>");
-
-  assert.doesNotMatch(mainHtml, /值得嘗試/);
-  assert.match(mainHtml, /需求/);
-  assert.doesNotMatch(html, /FOOTNOTES/);
-  assert.doesNotMatch(html, /data-product-panel="experiment"/);
-  assert.doesNotMatch(html, /AI 判斷依據（輔助）/);
-  assert.match(html, /data-workflow-card-layout="flat"/);
-  assert.match(html, /data-workflow-row-layout="stacked"/);
-});
-
-test("ActionableItemCard renders noise and park verdicts as exclusion cards without workflow task framing", () => {
-  const html = renderActionableCardFixture("marginalia", {
+test("ActionableItemCard renders noise and park verdicts as compact exclusion cards without task framing", () => {
+  const html = renderActionableCardFixture(undefined, {
     signalType: "noise",
     signalSubtype: "user_sentiment_reflection",
     verdict: "park",
@@ -3495,273 +3602,20 @@ test("ActionableItemCard renders noise and park verdicts as exclusion cards with
     agentTaskSpec: undefined
   });
 
+  assert.match(html, /data-product-action-card="exclusion"/);
   assert.match(html, /data-exclusion-card="true"/);
-  assert.match(html, /噪音 \/ 前提不符/);
+  assert.match(html, /不納入行動清單/);
   assert.match(html, /排除原因/);
   assert.match(html, /沒有可採用的產品需求或 workflow pattern/);
   assert.match(html, /暫無直接用途/);
-  assert.doesNotMatch(html, /data-testid="marginalia-experiment"/);
-  assert.doesNotMatch(html, /可借用 workflow|TASK ›|任務 ›|排入小實驗|保留觀察/);
+  // Excluded cards carry no "下一步" task framing.
+  assert.doesNotMatch(html, /data-testid="task-slot"/);
+  assert.doesNotMatch(html, /下一步|可借用 workflow|任務 ›|排入小實驗/);
 });
 
-test("ActionableItemCard leads with the original-post hero and faint analysis chips (Frame 03)", () => {
-  const fixture = buildActionableCardFixture();
-  const ActionableItemCard = (productSignalViewTestables as unknown as {
-    ActionableItemCard: React.ComponentType<{
-      analysis: typeof fixture.analysis;
-      index: number;
-      evidenceBySignalId: typeof fixture.evidenceBySignalId;
-      historicalAnalyses: typeof fixture.analysis[];
-      agentTaskFeedback: [];
-      sourceText?: string;
-      sourceUrl?: string;
-    }>;
-  }).ActionableItemCard;
-
-  const html = renderToStaticMarkup(
-    React.createElement(ActionableItemCard, {
-      analysis: fixture.analysis,
-      index: 0,
-      evidenceBySignalId: fixture.evidenceBySignalId,
-      historicalAnalyses: [fixture.analysis],
-      agentTaskFeedback: [],
-      sourceText: "原文：用了三週最有感的是 evidence ledger 可交付。",
-      sourceUrl: "https://www.threads.net/@op_studio/post/3JqL8K"
-    })
-  );
-
-  // Original post quote leads as the SourceHero, with author derived from the url.
-  assert.match(html, /data-product-action-lead="true"/);
-  assert.match(html, /data-evidence-source-hero="true"/);
-  assert.match(html, /原文：用了三週最有感的是 evidence ledger 可交付。/);
-  assert.match(html, /@op_studio/);
-  // Analysis is demoted to faint chips, not the hero.
-  assert.match(html, /data-product-action-faint-chips="true"/);
-  // Real features are kept below, not deleted.
-  assert.match(html, /data-testid="verdict-panel"/);
-});
-
-test("ActionableItemCard folds agent task and history into a collapsed secondary (Frame 03)", () => {
+test("ActionableItemCard renders no source hero (the compact card has no lead block)", () => {
   const html = renderActionableCardFixture();
-
-  // The verdict + relevance summary panel stays visible (the block to keep).
-  assert.match(html, /data-testid="verdict-panel"/);
-  assert.match(html, /data-relevance-bars="true"/);
-
-  // Agent task + history fold into a collapsed "更多分析" disclosure, not first-fold.
-  assert.match(html, /data-product-action-more="true"/);
-  assert.match(html, /更多分析/);
-  const moreIndex = html.indexOf("data-product-action-more-summary=\"true\"");
-  const taskIndex = html.indexOf("data-testid=\"task-slot\"");
-  assert.ok(moreIndex >= 0, "the more-disclosure should render");
-  assert.ok(taskIndex > moreIndex, "agent task slot should sit inside the folded disclosure");
-});
-
-test("ActionableItemCard omits the hero when no original source text is available", () => {
-  const fixture = buildActionableCardFixture();
-  const ActionableItemCard = (productSignalViewTestables as unknown as {
-    ActionableItemCard: React.ComponentType<{
-      analysis: typeof fixture.analysis;
-      index: number;
-      evidenceBySignalId: typeof fixture.evidenceBySignalId;
-      historicalAnalyses: typeof fixture.analysis[];
-      agentTaskFeedback: [];
-      sourceText?: string;
-    }>;
-  }).ActionableItemCard;
-
-  const html = renderToStaticMarkup(
-    React.createElement(ActionableItemCard, {
-      analysis: fixture.analysis,
-      index: 0,
-      evidenceBySignalId: fixture.evidenceBySignalId,
-      historicalAnalyses: [fixture.analysis],
-      agentTaskFeedback: []
-    })
-  );
-
   assert.doesNotMatch(html, /data-product-action-lead="true"/);
-});
-
-test("ActionableItemCard defaults to verdict layout without layout prop", () => {
-  const html = renderActionableCardFixture();
-
-  assert.match(html, /data-verdict-layout="true"/);
-  assert.match(html, /data-testid="verdict-panel"/);
-  assert.match(html, /data-testid="verdict-label"[^>]*data-verdict-value="try"[^>]*>值得嘗試/);
-  assert.match(html, /data-testid="insight-headline"[^>]*>多來源討論轉交付文件/);
-  assert.match(html, /data-testid="evidence-list"/);
-  assert.match(html, /data-testid="task-slot"/);
-  assert.match(html, /data-testid="metadata-strip"/);
-  assert.match(html, /data-relevance-bars="true"/);
-  assert.doesNotMatch(html, /data-product-panel="experiment"/);
-  assert.doesNotMatch(html, /AI 判斷依據（輔助）/);
-  assert.match(html, /data-workflow-card-layout="boxed"/);
-  assert.match(html, /可借用 workflow/);
-  assert.match(html, /5\/5/);
-  assert.match(html, /把討論轉成文件工作流/);
-  assert.match(html, /討論裡已經有明確的輸入、處理與輸出/);
-  assert.match(html, /1 則原文證據/);
-  assert.match(html, /產出 release-note 草稿/);
-  assert.match(html, /分類：需求/);
-  assert.match(html, /子型：PM 文件產出/);
-  assert.match(html, /Prompt：v16/);
-});
-
-test("ProductSignalView surfaces legacy optional fields when present", () => {
-  const v3Props = {
-    signals: [
-      {
-        id: "signal_v3",
-        sessionId: "session_v3",
-        itemId: "item_v3",
-        source: "threads" as const,
-        inboxStatus: "unprocessed" as const,
-        capturedAt: "2026-04-28T00:00:00.000Z"
-      }
-    ],
-    analyses: [
-      {
-        signalId: "signal_v3",
-        signalType: "demand" as const,
-        signalSubtype: "pm_document_generation",
-        contentType: "discussion_starter" as const,
-        contentSummary: "PM 想把 Threads 討論轉成可交付文件。",
-        relevance: 5 as const,
-        relevantTo: ["coreWorkflows" as const],
-        whyRelevant: "對應 product mode 的核心承諾。",
-        verdict: "try" as const,
-        reason: "高互動 reply 都在問可交付格式。",
-        experimentHint: "做一個 release note 模板。",
-        whyNow: "競品上週剛 ship，現在試最不會被搶先。",
-        validationMetric: "兩週內看是否有 3 位 PM 重複使用模板。",
-        blockers: ["缺 Confluence webhook", "需要授權"],
-        agentTaskSpec: {
-          targetAgent: "claude" as const,
-          taskTitle: "競品 Release 監控",
-          taskPrompt: "You are helping monitor competitor releases.",
-          requiredContext: ["RSS feed", "Notion target"]
-        },
-        evidenceRefs: ["e1"],
-        evidenceNotes: [
-          {
-            ref: "e1",
-            quoteSummary: "提到 Claude Skill 取代 Slack tickets。",
-            whyItMatters: "直接驗證 PM document workflow。",
-            reusablePattern: "多來源工作流轉文件",
-            whyItWorks: "把資料來源、處理邏輯和交付物分清楚。",
-            grounding: "model_inferred" as const,
-            copyableTemplate: "Slack/Jira -> Claude Skill -> Release note",
-            workflowStack: ["Claude Skill", "Slack", "Jira", "Metabase", "Confluence"],
-            copyRecipeMarkdown: "- 讀取 Slack thread 與 Jira tickets\n- 交給 Claude Skill 摘要\n- 輸出 Release Note / Confluence 文件",
-            tradeoff: "需要各工具授權與資料讀取權限。"
-          }
-        ],
-        productContextHash: "ctx_v3",
-        promptVersion: "v3",
-        analyzedAt: "2026-04-28T01:00:00.000Z",
-        status: "complete" as const
-      }
-    ],
-    productProfile: {
-      name: "DLens",
-      category: "Product intelligence",
-      audience: "Indie PMs",
-      contextText: "README context",
-      contextFiles: [
-        {
-          id: "file_readme",
-          name: "README.md",
-          kind: "readme" as const,
-          importedAt: "2026-04-28T00:00:00.000Z",
-          charCount: 14
-        }
-      ]
-    },
-    evidenceBySignalId: {
-      signal_v3: [
-        {
-          ref: "e1",
-          id: "reply_1",
-          author: "ikigai.hito",
-          text: "用 Claude Skill 讀 Slack 和 Jira tickets，寫 release note。",
-          likeCount: 3
-        }
-      ]
-    },
-    onAnalyze: () => undefined
-  };
-
-  const actionableHtml = renderToStaticMarkup(
-    productSignalViewElement( {
-      ...v3Props,
-      kind: "actionable-filter",
-      cardLayout: "verdict"
-    })
-  );
-
-  assert.match(actionableHtml, /可借用 workflow/);
-  assert.equal((actionableHtml.match(/可借用 workflow/g) ?? []).length, 1);
-  assert.match(actionableHtml, /data-actionable-title="workflow"[^>]*>多來源工作流轉文件/);
-  assert.doesNotMatch(actionableHtml, /data-actionable-title="workflow"[^>]*>用 Claude Skill 讀 Slack/);
-  assert.match(actionableHtml, /可借用模式/);
-  assert.doesNotMatch(actionableHtml, /如何照抄/);
-  assert.doesNotMatch(actionableHtml, /讀取 Slack thread/);
-  assert.doesNotMatch(actionableHtml, /Release Note \/ Confluence 文件/);
-  assert.doesNotMatch(actionableHtml, /Slack\/Jira -&gt; Claude Skill/);
-  assert.match(actionableHtml, /data-workflow-grounding="model_inferred"/);
-  assert.match(actionableHtml, /AI 推斷，請交叉驗證原文/);
-  assert.match(actionableHtml, /判讀依據/);
-  assert.match(actionableHtml, /data-workflow-section-tone="copy"[^>]*style="[^"]*border-left:4px solid #3f5a3b[^"]*"/);
-  assert.match(actionableHtml, /data-workflow-section-tone="why"[^>]*style="[^"]*border-left:4px solid #1a2e4f[^"]*"/);
-  assert.match(actionableHtml, /data-workflow-section-tone="tradeoff"[^>]*style="[^"]*border-left:4px solid #a16a17[^"]*"/);
-  assert.match(actionableHtml, /data-workflow-field-label="copy"[^>]*style="[^"]*font-weight:700[^"]*"/);
-  assert.match(actionableHtml, /data-workflow-field-label="why"[^>]*style="[^"]*font-weight:700[^"]*"/);
-  assert.match(actionableHtml, /data-workflow-field-label="tradeoff"[^>]*style="[^"]*font-weight:700[^"]*"/);
-  assert.doesNotMatch(actionableHtml, /data-workflow-field-label="(?:copy|why|tradeoff)"[^>]*style="[^"]*font-weight:8/);
-  assert.match(actionableHtml, /多來源工作流轉文件/);
-  assert.match(actionableHtml, /引用理由：直接驗證 PM document workflow/);
-  assert.doesNotMatch(actionableHtml, /AI 摘要：PM 想把 Threads 討論轉成可交付文件/);
-  assert.doesNotMatch(actionableHtml, /讀取 Slack thread 與 Jira tickets/);
-  assert.doesNotMatch(actionableHtml, /輸出 Release Note \/ Confluence 文件/);
-  assert.match(actionableHtml, /限制/);
-  assert.match(actionableHtml, /需要各工具授權與資料讀取權限/);
-  assert.match(actionableHtml, /把資料來源、處理邏輯和交付物分清楚/);
-  assert.doesNotMatch(actionableHtml, /Stack/);
-  assert.match(actionableHtml, /text-transform:uppercase/);
-  assert.doesNotMatch(actionableHtml, /可用做法（留言原文）/);
-  assert.doesNotMatch(actionableHtml, /AI 判斷依據/);
-  assert.doesNotMatch(actionableHtml, /data-ai-experiment-summary-label="true"/);
-  assert.doesNotMatch(actionableHtml, /競品上週剛 ship/);
-  assert.doesNotMatch(actionableHtml, /兩週內看是否有 3 位 PM 重複使用模板/);
-  assert.doesNotMatch(actionableHtml, /阻礙/);
-  assert.doesNotMatch(actionableHtml, /缺 Confluence webhook/);
-  assert.doesNotMatch(actionableHtml, /↳/);
-  assert.doesNotMatch(actionableHtml, /對應 核心流程/);
-  assert.doesNotMatch(actionableHtml, /<strong>產品比對<\/strong>/);
-
-  // Raw quote is no longer the visible hero; it lives behind the disclosure.
-  assert.match(actionableHtml, /查看原文與模型判讀\s*→/);
-  const sourceToggleStyle = actionableHtml.match(/data-evidence-source-toggle="true"[^>]*style="([^"]*)"/)?.[1] ?? "";
-  assert.ok(sourceToggleStyle.includes(`background:${tokens.color.productSoft}`));
-  assert.ok(sourceToggleStyle.includes(`color:${tokens.color.product}`));
-  assert.doesNotMatch(actionableHtml, /顯示原文與引用理由/);
-  assert.doesNotMatch(actionableHtml, /data-evidence-quote-body="true"/);
-  assert.doesNotMatch(actionableHtml, /inset 0 1px 0 rgba\(255,255,255,0\.55\)/);
-
-  // Hierarchy tokens (A-D) — lock the deliberate "subtraction" pass
-  // B: author renders in serifCjk italic + subInk + 13px (same voice as h3 title)
-  assert.match(actionableHtml, /data-evidence-quote-author="true"[^>]*style="[^"]*font-style:italic[^"]*"/);
-  assert.match(actionableHtml, /data-evidence-quote-author="true"[^>]*style="[^"]*font-size:13px[^"]*"/);
-  // C: Evidence section label drops weight 900 → 700 (still uppercase wayfinding, no longer competing as heading)
-  assert.match(actionableHtml, /data-evidence-section-label="true"[^>]*style="[^"]*font-weight:700[^"]*"/);
-  assert.doesNotMatch(actionableHtml, /data-evidence-section-label="true"[^>]*style="[^"]*font-weight:900[^"]*"/);
-  // C: details summary loses uppercase, becomes italic reading hint
-  assert.doesNotMatch(actionableHtml, /查看原文與模型判讀[^<]*<\/[^>]+>[^<]*text-transform:uppercase/);
-  // D: number badge softens — 1px border + lineStrong, weight 500, subInk fill (no longer ink+600+1.5px)
-  assert.match(actionableHtml, /data-dlens-number-badge="true"[^>]*style="[^"]*font-weight:500[^"]*"/);
-  assert.match(actionableHtml, /data-dlens-number-badge="true"[^>]*style="[^"]*border:1px solid/);
-  assert.doesNotMatch(actionableHtml, /data-dlens-number-badge="true"[^>]*style="[^"]*border:1\.5px/);
 });
 
 test("ProductSignalView keeps non-try verdicts behind clickable filters by default", () => {
@@ -3820,96 +3674,6 @@ test("ProductSignalView keeps non-try verdicts behind clickable filters by defau
   assert.match(html, /data-action-verdict-filter="watch"[^>]*aria-pressed="false"/);
   assert.match(html, /可直接試的 Agent 工作流/);
   assert.doesNotMatch(html, /只適合保留觀察的跨平台資料流/);
-});
-
-test("ProductSignalView shows feedback-backed similar history without inflating current readiness", () => {
-  const currentPrompt = "You are helping implement the current PM document workflow.";
-  const historyPrompt = "You are helping implement the historical PM document workflow.";
-  const baseAnalysis = {
-    signalType: "demand" as const,
-    signalSubtype: "pm_document_generation",
-    contentType: "discussion_starter" as const,
-    relevance: 5 as const,
-    relevantTo: ["coreWorkflows" as const],
-    whyRelevant: "對應 product mode 的核心承諾。",
-    verdict: "try" as const,
-    reason: "高互動 reply 都在問可交付格式。",
-    evidenceRefs: ["e1"],
-    productContextHash: "ctx_v3",
-    promptVersion: "v4",
-    analyzedAt: "2026-04-28T01:00:00.000Z",
-    status: "complete" as const
-  };
-
-  const currentAnalysis = {
-    ...baseAnalysis,
-    signalId: "signal_current",
-    contentSummary: "PM 想把 Threads 討論轉成可交付文件。",
-    agentTaskSpec: {
-      targetAgent: "codex" as const,
-      taskTitle: "文件生成",
-      taskPrompt: currentPrompt,
-      requiredContext: ["repo"]
-    }
-  };
-  const historicalAnalysis = {
-    ...baseAnalysis,
-    signalId: "signal_history",
-    contentSummary: "歷史上已試過把討論轉成 release note。",
-    agentTaskSpec: {
-      targetAgent: "codex" as const,
-      taskTitle: "歷史文件",
-      taskPrompt: historyPrompt,
-      requiredContext: ["repo"]
-    }
-  };
-  const noFeedbackAnalysis = {
-    ...baseAnalysis,
-    signalId: "signal_no_feedback",
-    contentSummary: "這筆相似但沒有回饋，不能顯示。",
-    agentTaskSpec: {
-      targetAgent: "codex" as const,
-      taskTitle: "無回饋",
-      taskPrompt: "You are helping without feedback.",
-      requiredContext: ["repo"]
-    }
-  };
-
-  const html = renderToStaticMarkup(
-    productSignalViewElement( {
-      kind: "actionable-filter",
-      signals: [
-        { id: "signal_current", sessionId: "sess", itemId: "i1", source: "threads", inboxStatus: "unprocessed", capturedAt: "2026-04-28T00:00:00.000Z" }
-      ] as any,
-      analyses: [currentAnalysis],
-      historicalAnalyses: [currentAnalysis, historicalAnalysis, noFeedbackAnalysis],
-      agentTaskFeedback: [
-        {
-          signalId: "signal_history",
-          taskPromptHash: buildProductAgentTaskPromptHash(historyPrompt),
-          feedback: "adopted",
-          createdAt: "2026-04-28T02:00:00.000Z"
-        }
-      ],
-      productProfile: {
-        name: "DLens",
-        category: "x",
-        audience: "y",
-        contextText: "z",
-        contextFiles: [{ id: "f", name: "README.md", kind: "readme", importedAt: "2026-04-28T00:00:00.000Z", charCount: 1 }]
-      } as any,
-      evidenceBySignalId: {
-        signal_current: [{ ref: "e1", id: "r1", author: "alpha", text: "需要 release note。", likeCount: 1 }]
-      },
-      onAnalyze: () => undefined
-    })
-  );
-
-  assert.match(html, /1 signals · 1 analyses/);
-  assert.match(html, /相似歷史 · 1 則（1 次採用）/);
-  assert.match(html, /歷史上已試過把討論轉成 release note/);
-  assert.match(html, /已採用/);
-  assert.doesNotMatch(html, /這筆相似但沒有回饋/);
 });
 
 test("merged candidate-action board keeps AI commentary collapsed on action route", () => {
@@ -4106,7 +3870,7 @@ test("citationsForAnalysis filters out refs missing both entry and note", () => 
   assert.match(html, /e1 摘錄。/);
   assert.match(html, /raw 2/);
   assert.match(html, /子型/);
-  assert.match(html, /2 則原文證據/);
+  assert.match(html, /原文證據 · 2 則/);
   assert.doesNotMatch(html, /e_dangling/);
 });
 
@@ -4159,7 +3923,7 @@ test("ProductSignalView tolerates legacy analysis records with missing optional 
   assert.match(html, /舊資料仍應可顯示/);
   assert.match(html, /這則訊號暫時沒有可顯示的原文證據/);
   assert.doesNotMatch(html, /Agent 任務（可複製）/);
-  assert.match(html, /data-testid="rail-task"/);
+  assert.match(html, /data-testid="task-slot"/);
   assert.match(html, /舊任務/);
   assert.doesNotMatch(html, /You are helping with a legacy task/);
 });

@@ -233,6 +233,102 @@ test("Topic detail VM composes source rows, audit state, and command targets", (
   }
 });
 
+test("Topic detail VM exposes evidence-bound reaction patterns from display hints", () => {
+  const auditEvidence = [
+    buildAuditPacket(1, {
+      commentCount: 342,
+      replyFragments: [
+        { ref: "S1.R1", author: "local-worker", text: "本地人已經好難搵工，仲要被壓價。", likes: 31, role: "audience" },
+        { ref: "S1.R2", author: "policy-reader", text: "重點不是外勞，是制度沒有保障底線。", likes: 18, role: "audience" },
+        { ref: "S1.R3", author: "employer", text: "有些工種真的請不到人，不能只說壓價。", likes: 9, role: "audience" }
+      ]
+    })
+  ];
+  const auditMemos = buildAuditMemos(auditEvidence);
+  auditMemos.lensMemos.push({
+    auditRunId: "audit-1",
+    inputHash: "hash-1",
+    topicId: "topic-1",
+    stageName: "audience",
+    prose: "legacy audience prose should not be the only UI contract.",
+    evidenceRefs: ["S1.R1", "S1.R3"],
+    caveats: [],
+    displayHints: {
+      reactionCoverage: {
+        postCount: 1,
+        capturedCommentCount: 342,
+        readCommentCount: 342,
+        usableAudienceCommentCount: 318
+      },
+      reactionPatterns: [{
+        id: "reaction-local-labor-defense",
+        label: "本地勞工身份防守",
+        dynamicImplication: "留言把政策爭議推向身份與分配正義，而不是單純效率討論。",
+        nComments: 118,
+        nAuthors: 72,
+        coverageDenominator: 342,
+        supportRefs: ["S1.R1", "S1.R2"],
+        counterRefs: ["S1.R3"],
+        representativeRefs: ["S1.R1"],
+        counterRepresentativeRefs: ["S1.R3"],
+        icon: "users"
+      }]
+    } as never,
+    promptVersion: "v1",
+    model: "mock",
+    generatedAt: "2026-05-23T00:00:00.000Z"
+  });
+
+  const vm = buildTopicDetailViewModel({
+    topic,
+    signals: [buildSignal("audit-signal-1", "audit-item-1")],
+    pairs: [],
+    auditEvidence,
+    auditMemos,
+    auditSummary: { reportStatus: "ready", analyzedCount: 1, queuedCount: 0 }
+  });
+  const audit = vm.audit as typeof vm.audit & {
+    reactionCoverage?: { readCommentCount: number; usableAudienceCommentCount: number };
+    reactionPatterns?: Array<{ label: string; dynamicImplication: string; nComments: number; representativeRefs: string[]; counterRepresentativeRefs: string[] }>;
+  };
+
+  assert.equal(audit.reactionCoverage?.readCommentCount, 342);
+  assert.equal(audit.reactionCoverage?.usableAudienceCommentCount, 318);
+  assert.equal(audit.reactionPatterns?.[0]?.label, "本地勞工身份防守");
+  assert.equal(audit.reactionPatterns?.[0]?.nComments, 118);
+  assert.equal(audit.reactionPatterns?.[0]?.dynamicImplication, "留言把政策爭議推向身份與分配正義，而不是單純效率討論。");
+  assert.deepEqual(audit.reactionPatterns?.[0]?.representativeRefs, ["S1.R1"]);
+  assert.deepEqual(audit.reactionPatterns?.[0]?.counterRepresentativeRefs, ["S1.R3"]);
+});
+
+test("Topic detail VM exposes local evidence packets per crawled signal for pre-audit drill-in", () => {
+  const vm = buildTopicDetailViewModel({
+    topic,
+    signals: [
+      buildSignal("signal-ready", "item-ready"),
+      buildSignal("signal-saved", "item-saved")
+    ],
+    pairs: [],
+    sessionItems: [
+      buildSessionItem("item-ready", "succeeded"),
+      buildSessionItem("item-saved", "saved")
+    ]
+    // No auditEvidence / auditMemos: this is the state right after the first crawl,
+    // before the topic audit runs.
+  });
+
+  // The audit has not run, yet the crawled signal already has a content-bearing
+  // packet so the per-post drawer (OP 原文 + 留言) is reachable.
+  assert.equal(vm.audit.evidence.length, 0);
+  const readyPacket = vm.packetsBySignalId["signal-ready"];
+  assert.ok(readyPacket, "crawled signal should have a locally-derived packet");
+  assert.equal(readyPacket?.signalId, "signal-ready");
+  assert.equal(readyPacket?.status, "succeeded");
+  assert.equal(readyPacket?.opText, "signal text item-ready");
+  // A not-yet-crawled signal is keyed but not "succeeded", so the drawer stays gated.
+  assert.notEqual(vm.packetsBySignalId["signal-saved"]?.status, "succeeded");
+});
+
 test("Topic detail VM keeps audit denominator on evidence when saved signals drift", () => {
   const auditEvidence = Array.from({ length: 15 }, (_, index) => buildAuditPacket(index + 1));
   const auditMemos = buildAuditMemos(auditEvidence);

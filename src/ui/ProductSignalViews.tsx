@@ -6,7 +6,6 @@ import type {
   ProductAgentTaskFeedbackValue,
   ProductProfile,
   ProductSignalAnalysis,
-  ProductSignalCardLayout,
   ProductSignalEvidenceNote,
   ProductSignalReferenceTarget,
   ProductSignalReferenceType,
@@ -14,7 +13,6 @@ import type {
   ProductSignalVerdict
 } from "../state/types";
 import { isProductContextSourceReady } from "../compare/product-context";
-import { findSimilarHistoricalSignals, type SimilarHistoricalSignal } from "../compare/product-signal-history";
 import type { ProductSignalEvidenceEntry } from "../compare/product-signal-analysis";
 import type { SignalPacketExportFormat, SignalPacketExportResult } from "../compare/signal-packet-export";
 import {
@@ -230,6 +228,13 @@ const VERDICT_META: Record<ProductSignalVerdict, { label: string; color: string;
   insufficient_data: { label: "資料不足", color: tokens.color.queued, soft: tokens.color.queuedSoft }
 };
 
+const REASON_PANEL_LABEL: Record<ProductSignalVerdict, string> = {
+  try: "實驗切入",
+  watch: "觀察原因",
+  park: "排除原因",
+  insufficient_data: "資料缺口"
+};
+
 const CONTENT_TYPE_LABELS: Record<ProductSignalAnalysis["contentType"], string> = {
   content: "內容片段",
   discussion_starter: "討論開場",
@@ -349,9 +354,9 @@ function readinessLabel(readiness: SignalReadiness): ReadinessLabel {
     case "crawling":
       return { label: "抓取中", detail: "等待 backend 完成 ThreadReadModel。", tone: "neutral" };
     case "ready":
-      return { label: "可分析", detail: "已有 assembled content，可以執行 ProductSignalAnalyzer。", tone: "success" };
+      return { label: "可分析", detail: "已有可用正文，可以執行 ProductSignalAnalyzer。", tone: "success" };
     case "missing_content":
-      return { label: "內容不完整", detail: "crawl 完成但缺少 assembled content，請重新處理該貼文。", tone: "warning" };
+      return { label: "未抽到正文", detail: "抓取完成但未抽到正文或留言。請重新處理，或回原貼確認 Threads 頁面是否可讀。", tone: "warning" };
     case "failed":
       return { label: "抓取失敗", detail: "請重新送出抓取後再分析。", tone: "warning", isTerminal: true };
     case "missing_item":
@@ -389,6 +394,37 @@ function ProductReadinessChip({ readiness }: { readiness: SignalReadiness }) {
       }}
     >
       {copy.label}
+    </span>
+  );
+}
+
+function ProductCrawlSweep() {
+  return (
+    <span
+      aria-hidden="true"
+      data-product-crawl-sweep="true"
+      style={{
+        display: "block",
+        width: "min(184px, 100%)",
+        height: 4,
+        borderRadius: tokens.radius.round,
+        overflow: "hidden",
+        background: tokens.color.neutralSurface,
+        border: `1px solid ${tokens.color.line}`,
+        boxSizing: "border-box"
+      }}
+    >
+      <span
+        data-product-crawl-sweep-fill="true"
+        style={{
+          display: "block",
+          width: "38%",
+          height: "100%",
+          borderRadius: tokens.radius.round,
+          background: `linear-gradient(90deg, transparent, ${PRODUCT_MODE_ACCENT}, transparent)`,
+          animation: tokens.motion.keyframes.indeterminate
+        }}
+      />
     </span>
   );
 }
@@ -1042,136 +1078,6 @@ function primaryWorkflowTitle(citations: EvidenceCitation[], fallback: string): 
     return excerpt(fallback, 110);
   }
   return excerpt(inferWorkflowPattern(primary).pattern, 110);
-}
-
-function EvidenceUseCaseList({
-  citations,
-  maxItems = 3
-}: {
-  citations: EvidenceCitation[];
-  maxItems?: number;
-}) {
-  if (!citations.length) {
-    return (
-      <div style={mutedPanelStyle({ fontSize: 11.5, lineHeight: 1.55, color: tokens.color.softInk })}>
-        這則訊號暫時沒有可顯示的原文證據；先不要把 AI 摘要當成可行動結論。
-      </div>
-    );
-  }
-
-  return (
-    <div data-testid="evidence-list" style={{ display: "grid", gap: 0, padding: "0 22px 4px" }}>
-      <div
-        data-evidence-section-label="true"
-        style={{
-          ...textStyles.label,
-          marginBottom: 14
-        }}
-      >
-        可借用 workflow
-      </div>
-      {citations.slice(0, maxItems).map((citation, idx) => (
-        <div
-          key={citation.ref}
-          data-evidence-quote="true"
-          className="dlens-quote-row"
-          style={{
-            position: "relative",
-            paddingLeft: 38,
-            paddingTop: idx > 0 ? 18 : 4,
-            paddingBottom: 4,
-            marginTop: idx > 0 ? 18 : 0,
-            borderTop: idx > 0 ? `1px solid ${tokens.color.line}` : undefined,
-            display: "grid",
-            gap: 12
-          }}
-        >
-          <div style={{ display: "flex", justifyContent: "space-between", gap: 8, alignItems: "baseline", flexWrap: "wrap" }}>
-            <span
-              data-evidence-quote-author="true"
-              style={{
-                fontStyle: "italic",
-                fontFamily: tokens.font.serifCjk,
-                fontSize: 13,
-                color: tokens.color.subInk,
-                letterSpacing: 0.1
-              }}
-            >
-              — {citation.entry?.author ?? citation.ref}
-            </span>
-            {citation.entry?.likeCount ? (
-              <span style={{ fontSize: 12, color: tokens.color.softInk }}>{citation.entry.likeCount} 按讚</span>
-            ) : null}
-          </div>
-          <WorkflowEvidenceCard citation={citation} />
-          {citation.entry?.text || citation.note?.whyItMatters ? (
-            <SmoothDetails
-              summary={
-                <span
-                  data-evidence-source-toggle="true"
-                  className="dlens-expand-trigger"
-                  style={{
-                    display: "inline-flex",
-                    alignItems: "center",
-                    gap: 4,
-                    padding: "3px 9px",
-                    borderRadius: 999,
-                    background: tokens.color.productSoft,
-                    border: `1px solid ${tokens.color.product}`,
-                    fontSize: 11.5,
-                    fontStyle: "italic",
-                    color: tokens.color.product,
-                    fontWeight: 700,
-                    letterSpacing: 0
-                  }}
-                >
-                  查看原文與模型判讀 →
-                </span>
-              }
-              summaryStyle={{ cursor: "pointer", padding: 0, letterSpacing: 0 }}
-            >
-              <div style={{ display: "grid", gap: 7, marginTop: 10, paddingBottom: 4 }}>
-                {citation.entry?.text ? (
-                  <div
-                    style={{
-                      background: tokens.color.contextSurface,
-                      borderLeft: `2px solid ${tokens.color.lineStrong}`,
-                      borderRadius: "0 4px 4px 0",
-                      padding: "9px 13px"
-                    }}
-                  >
-                    <div style={{ fontSize: 10, fontWeight: 750, color: tokens.color.softInk, letterSpacing: 0.6, textTransform: "uppercase", marginBottom: 5 }}>
-                      原文
-                    </div>
-                    <div style={{ fontSize: 12, lineHeight: 1.65, color: tokens.color.subInk }}>
-                      {citationText(citation, 260)}
-                    </div>
-                  </div>
-                ) : null}
-                {citation.note?.whyItMatters ? (
-                  <div
-                    style={{
-                      background: tokens.color.elevated,
-                      border: `1px solid ${tokens.color.line}`,
-                      borderRadius: tokens.radius.card,
-                      padding: "9px 13px"
-                    }}
-                  >
-                    <div style={{ fontSize: 10, fontWeight: 750, color: tokens.color.softInk, letterSpacing: 0.6, textTransform: "uppercase", marginBottom: 5 }}>
-                      模型判讀（輔助）
-                    </div>
-                    <div style={{ fontSize: 12, lineHeight: 1.65, color: tokens.color.subInk }}>
-                      {citation.note.whyItMatters}
-                    </div>
-                  </div>
-                ) : null}
-              </div>
-            </SmoothDetails>
-          ) : null}
-        </div>
-      ))}
-    </div>
-  );
 }
 
 function ScorePill({ children, color, soft }: { children: string; color: string; soft: string }) {
@@ -2576,6 +2482,7 @@ function SavedSignalsBoard({
             const rowMeta = savedRowMeta(readiness, analysis);
             const isFusionRow = Boolean(analysis);
             const isHeroRow = isFusionRow && index === 0;
+            const isCrawling = !analysis && signal.readiness.status === "crawling" && !readiness.isTerminal;
             return (
               <label
                 key={signal.signalId}
@@ -2638,7 +2545,7 @@ function SavedSignalsBoard({
                     </span>
                   </span>
                 ) : (
-                  <span style={{ minWidth: 0, display: "grid", gap: 3 }}>
+                  <span style={{ minWidth: 0, display: "grid", gap: isCrawling ? 5 : 3 }}>
                     <span
                       data-saved-signal-title="compact"
                       style={{ ...textStyles.bodyTight, color: tokens.color.ink, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}
@@ -2648,6 +2555,7 @@ function SavedSignalsBoard({
                     <span style={{ ...textStyles.meta, color: tokens.color.softInk }}>
                       {rowMeta}
                     </span>
+                    {isCrawling ? <ProductCrawlSweep /> : null}
                   </span>
                 )}
                 {!analysis ? (
@@ -3762,52 +3670,6 @@ function ActionStatCard({
   );
 }
 
-function SimilarHistoryBlock({ items }: { items: SimilarHistoricalSignal[] }) {
-  if (!items.length) {
-    return null;
-  }
-  const adoptedCount = items.filter((item) => item.feedback === "adopted").length;
-  return (
-    <SmoothDetails
-      dataAttributes={{ "data-similar-history": "true" }}
-      summary={`相似歷史 · ${items.length} 則（${adoptedCount} 次採用）`}
-      summaryStyle={{ ...detailSummaryStyle(), color: tokens.color.softInk }}
-      style={{
-        borderTop: `1px solid ${tokens.color.line}`,
-        paddingTop: 10,
-        marginTop: -4
-      }}
-    >
-      <div style={{ display: "grid", gap: 8, marginTop: 8, paddingLeft: 2 }}>
-        {items.slice(0, 3).map((item) => (
-          <div key={item.signalId} style={{ display: "grid", gridTemplateColumns: "14px minmax(0, 1fr)", gap: 7, alignItems: "start" }}>
-            <span
-              aria-hidden="true"
-              style={{
-                width: 7,
-                height: 7,
-                borderRadius: 999,
-                background: item.feedback === "adopted" ? tokens.color.success : tokens.color.queued,
-                marginTop: 6
-              }}
-            />
-            <div style={{ minWidth: 0, display: "grid", gap: 2 }}>
-              <div style={{ fontSize: 11.5, lineHeight: 1.45, color: tokens.color.ink, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-                {item.contentSummary}
-              </div>
-              <div style={{ fontSize: 10.5, lineHeight: 1.4, color: tokens.color.softInk }}>
-                {FEEDBACK_LABELS[item.feedback]} · {formatSubtype(item.signalSubtype)}
-              </div>
-            </div>
-          </div>
-        ))}
-      </div>
-    </SmoothDetails>
-  );
-}
-
-type ActionableItemCardLayout = "verdict" | "marginalia";
-
 function isExcludedActionSignal(analysis: ProductSignalAnalysis): boolean {
   return analysis.verdict === "park" || analysis.signalType === "noise";
 }
@@ -3817,48 +3679,6 @@ function productActionHandle(url: string | undefined): string {
   return match ? `@${match[1]}` : "原文";
 }
 
-/* Frame 03 lead — original post quote first (SourceHero), analysis demoted to faint chips. */
-function ProductActionBriefLead({
-  analysis,
-  sourceText,
-  sourceUrl
-}: {
-  analysis: ProductSignalAnalysis;
-  sourceText: string;
-  sourceUrl?: string;
-}) {
-  const chips: Array<{ label: string; value: string }> = [
-    { label: "分類", value: SIGNAL_TYPE_LABELS[analysis.signalType] }
-  ];
-  if (analysis.signalSubtype) {
-    chips.push({ label: "子型", value: formatSubtype(analysis.signalSubtype) });
-  }
-  const reference = analysis.referenceLabel?.trim() || referenceTypeLabel(analysis.referenceType);
-  if (reference) {
-    chips.push({ label: "對到", value: reference });
-  }
-  chips.push({ label: "相關度", value: formatRelevanceScore(analysis.relevance) });
-
-  return (
-    <div data-product-action-lead="true" style={{ display: "grid", gap: 10, padding: "16px 18px 0" }}>
-      <EvidenceSourceHero tone="product" author={productActionHandle(sourceUrl)} meta={sourceUrl || undefined}>
-        {sourceText}
-      </EvidenceSourceHero>
-      <div data-product-action-faint-chips="true" style={{ display: "flex", gap: 6, flexWrap: "wrap", alignItems: "center" }}>
-        <span style={{ fontSize: 8.5, fontWeight: 700, letterSpacing: "0.04em", textTransform: "uppercase", color: tokens.color.softInk }}>分析</span>
-        {chips.map((chip) => (
-          <span
-            key={chip.label}
-            style={{ fontSize: 10, color: tokens.color.softInk, padding: "1.5px 8px", borderRadius: 99, border: `1px solid ${tokens.color.line}`, background: tokens.color.neutralSurfaceSoft }}
-          >
-            {chip.label} <b style={{ color: tokens.color.subInk, fontWeight: 500 }}>{chip.value}</b>
-          </span>
-        ))}
-      </div>
-    </div>
-  );
-}
-
 function ActionableItemCard({
   analysis,
   index,
@@ -3866,7 +3686,6 @@ function ActionableItemCard({
   historicalAnalyses,
   agentTaskFeedback,
   onRemove,
-  layout = "verdict",
   readiness = DEFAULT_PRODUCT_ACTION_READINESS,
   sourceText,
   sourceUrl
@@ -3877,650 +3696,145 @@ function ActionableItemCard({
   historicalAnalyses: ProductSignalAnalysis[];
   agentTaskFeedback: ProductAgentTaskFeedback[];
   onRemove?: () => void;
-  layout?: ActionableItemCardLayout;
   readiness?: SignalReadiness;
   sourceText?: string;
   sourceUrl?: string;
 }) {
   const [cardHovered, setCardHovered] = useState(false);
-  const subtypeMeta = SIGNAL_TYPE_META[analysis.signalType];
   const verdictMeta = VERDICT_META[analysis.verdict];
-  const verdictPanelColor = analysis.signalType === "noise" ? tokens.color.neutralText : verdictMeta.color;
   const citations = citationsForAnalysis(analysis, evidenceBySignalId);
   const citationCount = citations.length;
   const title = primaryWorkflowTitle(citations, analysis.contentSummary);
-  const primaryEvidenceReason = excerpt(citations[0]?.note?.whyItMatters ?? "", 130);
-  const similarHistory = findSimilarHistoricalSignals(analysis, agentTaskFeedback, historicalAnalyses);
   const taskSlotCopy = analysis.agentTaskSpec?.taskTitle?.trim()
     || analysis.experimentHint?.trim()
     || "尚未有可派發任務；先保留為觀察。";
-  const railReferenceCopy = analysis.referenceLabel?.trim() || referenceTypeLabel(analysis.referenceType);
   const excluded = isExcludedActionSignal(analysis);
   const primaryActionCard = index === 0;
   const baseActionCardShadow = primaryActionCard ? tokens.shadow.raised : tokens.shadow.card;
-
-  if (excluded) {
-    return (
-      <article
-        className="dlens-card-lift"
-        data-dlens-motion-card="true"
-        data-product-action-card="exclusion"
-        data-product-action-card-primary={primaryActionCard ? "true" : "false"}
-        data-exclusion-card="true"
-        onMouseEnter={() => setCardHovered(true)}
-        onMouseLeave={() => setCardHovered(false)}
-        style={cardStyle({
-          gap: 14,
-          padding: 18,
-          minWidth: 0,
-          borderColor: cardHovered ? tokens.color.lineStrong : tokens.color.line,
-          boxShadow: cardHovered
-            ? tokens.shadow.productActionCardHover
-            : baseActionCardShadow,
-          overflow: "hidden",
-          transform: cardHovered ? "translateY(-2px)" : undefined
-        })}
-      >
-        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: 12 }}>
-          <div style={{ display: "grid", gap: 8, minWidth: 0 }}>
-            <div style={{ display: "flex", gap: 7, alignItems: "center", flexWrap: "wrap" }}>
-              <span
-                data-dlens-number-badge="true"
-                style={{
-                  width: 24,
-                  height: 24,
-                  borderRadius: 999,
-                  display: "inline-grid",
-                  placeItems: "center",
-                  fontSize: 12,
-                  fontWeight: 600,
-                  color: tokens.color.subInk,
-                  background: tokens.color.neutralSurface,
-                  border: `1px solid ${tokens.color.lineStrong}`,
-                  fontFamily: tokens.font.serifCjk,
-                  fontVariantNumeric: "tabular-nums"
-                }}
-              >
-                {index + 1}
-              </span>
-              <ScorePill color={tokens.color.neutralText} soft={tokens.color.neutralSurfaceSoft}>
-                {VERDICT_META[analysis.verdict]?.label ?? VERDICT_LABELS[analysis.verdict]}
-              </ScorePill>
-              <ProductReadinessChip readiness={readiness} />
-              <span style={{ fontSize: 11.5, color: tokens.color.softInk }}>{SIGNAL_TYPE_LABELS[analysis.signalType]}</span>
-              <span style={{ fontSize: 11.5, color: tokens.color.softInk }}>{formatRelevanceScore(analysis.relevance)}</span>
-            </div>
-            <h3 style={{ margin: 0, fontSize: 22, lineHeight: 1.25, color: tokens.color.ink, fontWeight: 760, fontFamily: tokens.font.serifCjk }}>
-              不納入行動清單
-            </h3>
-            <div style={{ fontSize: 13.5, lineHeight: 1.65, color: tokens.color.subInk }}>
-              {analysis.contentSummary}
-            </div>
-          </div>
-          {onRemove ? (
-            <button
-              type="button"
-              aria-label="移除此訊號"
-              onClick={onRemove}
-              style={{ background: "none", border: "none", cursor: "pointer", padding: "2px 4px", lineHeight: 1, color: tokens.color.softInk, fontSize: 16, borderRadius: 4, display: "flex", alignItems: "center", flexShrink: 0 }}
-            >×</button>
-          ) : null}
-        </div>
-
-        <div style={mutedPanelStyle({ gap: 7, background: tokens.color.neutralSurfaceSoft })}>
-          <div style={{ ...textStyles.label, color: tokens.color.softInk }}>排除原因</div>
-          <div style={{ fontSize: 13, lineHeight: 1.65, color: tokens.color.subInk }}>
-            {analysis.reason || referenceTakeaway(analysis)}
-          </div>
-        </div>
-
-        <div style={{ display: "grid", gap: 8 }}>
-          <div style={{ display: "grid", gap: 4 }}>
-            <span style={{ ...textStyles.fieldLabel, color: tokens.color.softInk }}>{referenceTypeLabel(analysis.referenceType)}</span>
-            <span style={{ fontSize: 13, lineHeight: 1.55, color: tokens.color.ink, fontWeight: 650 }}>{referenceLabel(analysis)}</span>
-            <span style={{ fontSize: 12.5, lineHeight: 1.55, color: tokens.color.subInk }}>{referenceTakeaway(analysis)}</span>
-          </div>
-          <div style={{ display: "flex", gap: 8, flexWrap: "wrap", fontSize: 11.5, color: tokens.color.softInk }}>
-            <span>子型：{formatSubtype(analysis.signalSubtype)}</span>
-            <span>證據：{citationCount} 則</span>
-            <span>Analyzed：{formatAnalyzedAt(analysis.analyzedAt)}</span>
-          </div>
-        </div>
-
-        {citations.length ? (
-          <div style={{ display: "grid", gap: 7 }}>
-            <span data-evidence-section-label="true" style={{ ...textStyles.label, color: tokens.color.softInk }}>
-              原文證據 · {citationCount} 則
-            </span>
-            {citations.slice(0, 3).map((citation) => (
-              <div key={citation.ref} style={{ display: "grid", gridTemplateColumns: "30px minmax(0, 1fr)", gap: 8, alignItems: "start" }}>
-                <span style={{ fontFamily: tokens.font.mono, fontSize: 11, color: tokens.color.softInk }}>{citation.ref}.</span>
-                <div style={{ fontSize: 12.5, lineHeight: 1.6, color: tokens.color.subInk }}>
-                  {citationText(citation, 220)}
-                </div>
-              </div>
-            ))}
-          </div>
-        ) : null}
-      </article>
-    );
-  }
-
-  if (layout === "marginalia") {
-    return (
-      <article
-        className="dlens-card-lift"
-        data-dlens-motion-card="true"
-        data-product-action-card="marginalia"
-        data-product-action-card-primary={primaryActionCard ? "true" : "false"}
-        data-marginalia-layout="true"
-        onMouseEnter={() => setCardHovered(true)}
-        onMouseLeave={() => setCardHovered(false)}
-        style={cardStyle({
-          gap: 0,
-          padding: 0,
-          minWidth: 0,
-          borderColor: cardHovered ? tokens.color.lineStrong : tokens.color.line,
-          boxShadow: cardHovered
-            ? tokens.shadow.productActionCardHoverStrong
-            : baseActionCardShadow,
-          overflow: "hidden",
-          transform: cardHovered ? "translateY(-2px)" : undefined,
-        })}
-      >
-        <div data-product-action-card-grid="responsive" style={{ display: "grid", gridTemplateColumns: "minmax(0, 1fr) minmax(132px, 168px)", minWidth: 0 }}>
-          <main
-            data-testid="marginalia-main"
-            style={{
-              display: "grid",
-              gap: 15,
-              padding: "22px 24px 20px",
-              minWidth: 0
-            }}
-          >
-            <div style={{ display: "flex", gap: 7, alignItems: "center", flexWrap: "wrap", fontSize: 10.5, fontWeight: 750, color: tokens.color.softInk }}>
-              <span
-                data-dlens-number-badge="true"
-                style={{
-                  width: 22,
-                  height: 22,
-                  borderRadius: 999,
-                  display: "inline-grid",
-                  placeItems: "center",
-                  fontSize: 12,
-                  fontWeight: 500,
-                  color: tokens.color.subInk,
-                  background: tokens.color.elevated,
-                  border: `1px solid ${tokens.color.lineStrong}`,
-                  fontFamily: tokens.font.serifCjk,
-                  fontVariantNumeric: "tabular-nums"
-                }}
-              >
-                {index + 1}
-              </span>
-              <span>{SIGNAL_TYPE_LABELS[analysis.signalType]}</span>
-              <span>·</span>
-              <span>{formatAnalyzedAt(analysis.analyzedAt)}</span>
-              <ProductReadinessChip readiness={readiness} />
-            </div>
-
-            <h3
-              data-actionable-title="workflow"
-              data-testid="marginalia-headline"
-              style={{ margin: 0, fontSize: 25, fontWeight: 720, lineHeight: 1.24, color: tokens.color.ink, letterSpacing: 0, wordBreak: "break-word", fontFamily: tokens.font.serifCjk }}
-            >
-              {title}
-            </h3>
-
-            <div
-              style={{
-                fontSize: 13.5,
-                lineHeight: 1.72,
-                color: tokens.color.subInk,
-                display: "block"
-              }}
-            >
-              <span
-                aria-hidden="true"
-                style={{
-                  float: "left",
-                  fontFamily: tokens.font.serifCjk,
-                  fontSize: 46,
-                  lineHeight: 0.86,
-                  paddingRight: 7,
-                  color: verdictPanelColor,
-                  fontWeight: 700
-                }}
-              >
-                {analysis.contentSummary.trim().charAt(0) || "訊"}
-              </span>
-              {analysis.contentSummary.trim().slice(1) || analysis.contentSummary}
-            </div>
-
-            {analysis.reason || primaryEvidenceReason ? (
-              <div data-testid="marginalia-reason" style={{ display: "grid", gap: 7 }}>
-                <div style={{ fontSize: 13, lineHeight: 1.65, color: tokens.color.subInk, fontStyle: "italic" }}>
-                  {analysis.reason || primaryEvidenceReason}
-                </div>
-                <div style={{ display: "flex", gap: 5, flexWrap: "wrap" }}>
-                  {citations.slice(0, 4).map((citation) => (
-                    <span
-                      key={citation.ref}
-                      style={{
-                        fontFamily: tokens.font.mono,
-                        fontSize: 10.5,
-                        color: tokens.color.product,
-                        background: tokens.color.productSoft,
-                        border: `1px solid ${tokens.color.product}`,
-                        borderRadius: 999,
-                        padding: "2px 6px"
-                      }}
-                    >
-                      {citation.ref}
-                    </span>
-                  ))}
-                </div>
-                {primaryEvidenceReason ? (
-                  <div style={{ fontSize: 12.5, lineHeight: 1.55, color: tokens.color.softInk }}>
-                    引用理由：{primaryEvidenceReason}
-                  </div>
-                ) : null}
-              </div>
-            ) : null}
-
-            <div
-              data-testid="marginalia-experiment"
-              style={{
-                borderTop: `1px solid ${tokens.color.line}`,
-                borderBottom: `1px solid ${tokens.color.line}`,
-                padding: "10px 0",
-                display: "flex",
-                gap: 9,
-                alignItems: "baseline",
-                color: analysis.verdict === "try" ? tokens.color.success : tokens.color.subInk
-              }}
-            >
-              <span style={{ fontSize: 16, lineHeight: 1 }}>→</span>
-              <span style={{ fontSize: 12.5, lineHeight: 1.5, fontWeight: 760 }}>
-                {formatActionCue(analysis.verdict)}
-              </span>
-              <span style={{ fontSize: 12.5, lineHeight: 1.5, color: tokens.color.subInk }}>
-                {taskSlotCopy}
-              </span>
-            </div>
-
-            <div data-testid="marginalia-footnotes" style={{ display: "grid", gap: 10 }}>
-              <div style={{ display: "flex", justifyContent: "space-between", gap: 8, alignItems: "baseline", borderBottom: `1px solid ${tokens.color.line}`, paddingBottom: 8 }}>
-                <span data-evidence-section-label="true" style={{ ...textStyles.label, color: tokens.color.softInk }}>
-                  原文證據 · {citationCount} 則
-                </span>
-                <span style={{ fontSize: 10.5, color: tokens.color.softInk }}>可借用 workflow</span>
-              </div>
-              {citations.length ? (
-                <div style={{ display: "grid", gap: 12 }}>
-                  {citations.slice(0, 3).map((citation, footnoteIndex) => (
-                    <div key={citation.ref} style={{ display: "grid", gap: 9 }}>
-                      <div style={{ display: "grid", gridTemplateColumns: "28px minmax(0, 1fr)", gap: 8, alignItems: "start" }}>
-                        <span style={{ fontFamily: tokens.font.mono, fontSize: 11, color: tokens.color.softInk }}>{citation.ref}.</span>
-                        <div style={{ display: "grid", gap: 3 }}>
-                          <div style={{ fontSize: 12.5, lineHeight: 1.6, color: tokens.color.subInk }}>
-                            {citationText(citation, 220)}
-                          </div>
-                          <div
-                            data-evidence-quote-author="true"
-                            style={{
-                              fontStyle: "italic",
-                              fontFamily: tokens.font.serifCjk,
-                              fontSize: 13,
-                              color: tokens.color.subInk,
-                              letterSpacing: 0.1
-                            }}
-                          >
-                            — {citation.entry?.author ?? citation.ref}{citation.entry?.likeCount ? ` ♡ ${citation.entry.likeCount}` : ""}
-                          </div>
-                        </div>
-                      </div>
-                      <WorkflowEvidenceCard citation={citation} layout="flat" />
-                      {citation.entry?.text || citation.note?.whyItMatters ? (
-                        <SmoothDetails
-                          summary={
-                            <span
-                              data-evidence-source-toggle="true"
-                              className="dlens-expand-trigger"
-                              style={{
-                                display: "inline-flex",
-                                alignItems: "center",
-                                gap: 4,
-                                padding: "3px 9px",
-                                borderRadius: 999,
-                                background: tokens.color.productSoft,
-                                border: `1px solid ${tokens.color.product}`,
-                                fontSize: 11.5,
-                                fontStyle: "italic",
-                                color: tokens.color.product,
-                                fontWeight: 700,
-                                letterSpacing: 0
-                              }}
-                            >
-                              查看原文與模型判讀 →
-                            </span>
-                          }
-                          summaryStyle={{ cursor: "pointer", padding: 0, letterSpacing: 0 }}
-                        >
-                          <div style={{ display: "grid", gap: 7, marginTop: 10, paddingBottom: footnoteIndex === citations.length - 1 ? 0 : 4 }}>
-                            {citation.entry?.text ? (
-                              <div
-                                style={{
-                                  background: tokens.color.contextSurface,
-                                  borderLeft: `2px solid ${tokens.color.lineStrong}`,
-                                  borderRadius: "0 4px 4px 0",
-                                  padding: "9px 13px"
-                                }}
-                              >
-                                <div style={{ fontSize: 10, fontWeight: 750, color: tokens.color.softInk, letterSpacing: 0.6, textTransform: "uppercase", marginBottom: 5 }}>
-                                  原文
-                                </div>
-                                <div style={{ fontSize: 12, lineHeight: 1.65, color: tokens.color.subInk }}>
-                                  {citationText(citation, 260)}
-                                </div>
-                              </div>
-                            ) : null}
-                            {citation.note?.whyItMatters ? (
-                              <div
-                                style={{
-                                  background: tokens.color.elevated,
-                                  border: `1px solid ${tokens.color.line}`,
-                                  borderRadius: tokens.radius.card,
-                                  padding: "9px 13px"
-                                }}
-                              >
-                                <div style={{ fontSize: 10, fontWeight: 750, color: tokens.color.softInk, letterSpacing: 0.6, textTransform: "uppercase", marginBottom: 5 }}>
-                                  模型判讀（輔助）
-                                </div>
-                                <div style={{ fontSize: 12, lineHeight: 1.65, color: tokens.color.subInk }}>
-                                  {citation.note.whyItMatters}
-                                </div>
-                              </div>
-                            ) : null}
-                          </div>
-                        </SmoothDetails>
-                      ) : null}
-                    </div>
-                  ))}
-                </div>
-              ) : (
-                <div style={mutedPanelStyle({ fontSize: 11.5, lineHeight: 1.55, color: tokens.color.softInk })}>
-                  這則訊號暫時沒有可顯示的原文證據。
-                </div>
-              )}
-            </div>
-          </main>
-
-          <aside
-            data-testid="marginalia-rail"
-            data-product-drawer-accent-rail="true"
-            style={{
-              background: `linear-gradient(180deg, ${PRODUCT_MODE_ACCENT_SOFT}, ${tokens.color.contextSurface})`,
-              borderLeft: `3px solid ${PRODUCT_MODE_ACCENT}`,
-              padding: "18px 14px",
-              display: "grid",
-              alignContent: "start",
-              gap: 13,
-              minWidth: 0
-            }}
-          >
-            <div style={{ display: "grid", gap: 4 }}>
-              <span style={{ fontSize: 10, fontWeight: 800, color: tokens.color.softInk, letterSpacing: "0.04em" }}>判讀</span>
-              <span
-                data-testid="rail-verdict"
-                data-verdict-value={analysis.verdict}
-                style={{ fontSize: 18, lineHeight: 1.12, color: verdictPanelColor, fontWeight: 850, fontFamily: tokens.font.serifCjk }}
-              >
-                {VERDICT_LABELS[analysis.verdict]}
-              </span>
-            </div>
-            <div data-testid="rail-relevance" style={{ display: "grid", gap: 6 }}>
-              <span style={{ fontSize: 10, fontWeight: 800, color: tokens.color.softInk, letterSpacing: "0.04em" }}>相關度</span>
-              <RelevanceBars score={analysis.relevance} tone="dark" />
-            </div>
-            <div style={{ display: "grid", gap: 8, fontSize: 11.5, lineHeight: 1.45 }}>
-              <div style={{ display: "grid", gap: 2 }}>
-                <span style={{ color: tokens.color.softInk }}>分類</span>
-                <span style={{ color: tokens.color.ink, fontWeight: 750 }}>{subtypeMeta.label}</span>
-              </div>
-              <div style={{ display: "grid", gap: 2 }}>
-                <span style={{ color: tokens.color.softInk }}>子型</span>
-                <span style={{ color: tokens.color.ink, fontWeight: 650 }}>{formatSubtype(analysis.signalSubtype)}</span>
-              </div>
-              <div style={{ display: "grid", gap: 2 }}>
-                <span style={{ color: tokens.color.softInk }}>對到</span>
-                <span style={{ color: tokens.color.ink, fontWeight: 650 }}>{railReferenceCopy}</span>
-              </div>
-              <div style={{ display: "grid", gap: 2 }}>
-                <span style={{ color: tokens.color.softInk }}>證據</span>
-                <span style={{ color: tokens.color.ink, fontWeight: 650 }}>{citationCount} 則</span>
-              </div>
-              <div style={{ display: "grid", gap: 2 }}>
-                <span style={{ color: tokens.color.softInk }}>待解</span>
-                <span style={{ color: tokens.color.ink, fontWeight: 650 }}>
-                  {Array.isArray(analysis.blockers) && analysis.blockers.length ? `${analysis.blockers.length} 項` : "無明確阻礙"}
-                </span>
-              </div>
-            </div>
-            <div
-              data-testid="rail-task"
-              style={{
-                marginTop: 4,
-                background: tokens.color.ink,
-                color: tokens.color.elevated,
-                borderRadius: tokens.radius.card,
-                padding: "11px 10px",
-                display: "grid",
-                gap: 6
-              }}
-            >
-              <span style={{ fontSize: 10, fontWeight: 850, letterSpacing: "0.06em" }}>任務 ›</span>
-              <span style={{ fontSize: 12, lineHeight: 1.45, fontWeight: 650 }}>{taskSlotCopy}</span>
-            </div>
-          </aside>
-        </div>
-        <div style={{ display: "grid", gap: 10, padding: "0 24px 20px" }}>
-          <SimilarHistoryBlock items={similarHistory} />
-        </div>
-      </article>
-    );
-  }
+  const headline = excluded ? "不納入行動清單" : title;
 
   return (
     <article
       className="dlens-card-lift"
       data-dlens-motion-card="true"
-      data-product-action-card="verdict"
+      data-product-action-card={excluded ? "exclusion" : "verdict"}
       data-product-action-card-primary={primaryActionCard ? "true" : "false"}
-      data-verdict-layout="true"
+      data-verdict-value={analysis.verdict}
+      data-exclusion-card={excluded ? "true" : "false"}
       onMouseEnter={() => setCardHovered(true)}
       onMouseLeave={() => setCardHovered(false)}
       style={cardStyle({
-        gap: 18,
-        padding: 0,
+        gap: 14,
+        padding: 18,
         minWidth: 0,
         borderColor: cardHovered ? tokens.color.lineStrong : tokens.color.line,
-        boxShadow: cardHovered
-          ? tokens.shadow.productActionCardHoverStrong
-          : baseActionCardShadow,
+        boxShadow: cardHovered ? tokens.shadow.productActionCardHover : baseActionCardShadow,
         overflow: "hidden",
-        transform: cardHovered ? "translateY(-2px)" : undefined,
+        transform: cardHovered ? "translateY(-2px)" : undefined
       })}
     >
-      {sourceText?.trim() ? (
-        <ProductActionBriefLead analysis={analysis} sourceText={sourceText.trim()} sourceUrl={sourceUrl} />
-      ) : null}
-      <div style={{ display: "grid", gridTemplateColumns: "minmax(140px, 0.95fr) minmax(0, 2fr)", alignItems: "stretch" }}>
-        <aside
-          data-testid="verdict-panel"
-          style={{
-            background: verdictPanelColor,
-            color: tokens.color.inverse,
-            padding: "22px 18px",
-            display: "grid",
-            alignContent: "space-between",
-            gap: 20,
-            minHeight: 230
-          }}
-        >
-          <div style={{ display: "grid", gap: 14 }}>
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: 12 }}>
+        <div style={{ display: "grid", gap: 8, minWidth: 0 }}>
+          <div style={{ display: "flex", gap: 7, alignItems: "center", flexWrap: "wrap" }}>
             <span
               data-dlens-number-badge="true"
               style={{
-                width: 52,
-                height: 52,
+                width: 24,
+                height: 24,
                 borderRadius: 999,
                 display: "inline-grid",
                 placeItems: "center",
-                fontSize: 28,
-                fontWeight: 500,
-                color: tokens.color.inverseStrong,
-                background: tokens.color.inverseWash,
-                border: `1px solid ${tokens.color.inverseBorder}`,
+                fontSize: 12,
+                fontWeight: 600,
+                color: tokens.color.subInk,
+                background: tokens.color.neutralSurface,
+                border: `1px solid ${tokens.color.lineStrong}`,
                 fontFamily: tokens.font.serifCjk,
                 fontVariantNumeric: "tabular-nums"
               }}
             >
               {index + 1}
             </span>
-            <div style={{ display: "grid", gap: 5 }}>
-              <div
-                data-testid="verdict-label"
-                data-verdict-value={analysis.verdict}
-                style={{ fontSize: 22, lineHeight: 1.15, fontWeight: 850, color: tokens.color.inverse, fontFamily: tokens.font.serifCjk }}
-              >
-                {VERDICT_LABELS[analysis.verdict]}
-              </div>
-              <div style={{ fontSize: 11, lineHeight: 1.35, color: tokens.color.inverseSoft, fontWeight: 700 }}>
-                {analysis.verdict === "try" ? "可排入小實驗" : "先不要推進成實驗"}
-              </div>
-            </div>
+            <ScorePill
+              color={excluded ? tokens.color.neutralText : verdictMeta.color}
+              soft={excluded ? tokens.color.neutralSurfaceSoft : verdictMeta.soft}
+            >
+              {verdictMeta?.label ?? VERDICT_LABELS[analysis.verdict]}
+            </ScorePill>
+            <ProductReadinessChip readiness={readiness} />
+            <span style={{ fontSize: 11.5, color: tokens.color.softInk }}>{SIGNAL_TYPE_LABELS[analysis.signalType]}</span>
+            <span style={{ fontSize: 11.5, color: tokens.color.softInk }}>{formatRelevanceScore(analysis.relevance)}</span>
           </div>
-          <div style={{ display: "grid", gap: 12 }}>
-            <RelevanceBars score={analysis.relevance} />
-            <div style={{ display: "grid", gap: 4 }}>
-              <span style={{ fontSize: 10.5, lineHeight: 1.2, textTransform: "uppercase", letterSpacing: "0.04em", color: tokens.color.inverseMuted, fontWeight: 800 }}>
-                訊號類型
-              </span>
-              <span style={{ fontSize: 12, lineHeight: 1.3, color: tokens.color.inverse, fontWeight: 800 }}>
-                {SIGNAL_TYPE_LABELS[analysis.signalType]}
-              </span>
-            </div>
-          </div>
-        </aside>
-        <div style={{ minWidth: 0, display: "grid", gap: 14, padding: "24px 22px 18px" }}>
-          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: 12 }}>
-            <div style={{ minWidth: 0, display: "grid", gap: 10 }}>
-              <ProductReadinessChip readiness={readiness} />
-              <h3
-                data-actionable-title="workflow"
-                data-testid="insight-headline"
-                style={{ margin: 0, fontSize: 24, fontWeight: 700, lineHeight: 1.28, color: tokens.color.ink, letterSpacing: 0, wordBreak: "break-word", fontFamily: tokens.font.serifCjk }}
-              >
-                {title}
-              </h3>
-              <div
-                data-product-reference-note="true"
-                style={{
-                  borderLeft: `3px solid ${tokens.color.product}`,
-                  background: tokens.color.productSoft,
-                  padding: "8px 10px",
-                  display: "grid",
-                  gap: 3
-                }}
-              >
-                <div style={{ fontSize: 11, fontWeight: 800, color: tokens.color.product }}>
-                  {referenceTypeLabel(analysis.referenceType)} · {referenceLabel(analysis)}
-                </div>
-                <div style={{ fontSize: 12, lineHeight: 1.5, color: tokens.color.subInk }}>
-                  {referenceTakeaway(analysis)}
-                </div>
-              </div>
-            </div>
-            {onRemove ? (
-              <button
-                type="button"
-                aria-label="移除此訊號"
-                onClick={onRemove}
-                style={{ background: "none", border: "none", cursor: "pointer", padding: "2px 4px", lineHeight: 1, color: tokens.color.softInk, fontSize: 16, borderRadius: 4, display: "flex", alignItems: "center", flexShrink: 0 }}
-              >×</button>
-            ) : null}
-          </div>
-          {analysis.reason ? (
-            <div style={{ fontSize: 13, lineHeight: 1.65, color: tokens.color.subInk, fontStyle: "italic" }}>
-              {analysis.reason}
-            </div>
-          ) : primaryEvidenceReason ? (
-            <div style={{ fontSize: 13, lineHeight: 1.65, color: tokens.color.softInk, fontStyle: "italic" }}>
-              {primaryEvidenceReason}
+          <h3
+            data-testid="insight-headline"
+            style={{ margin: 0, fontSize: 22, lineHeight: 1.25, color: tokens.color.ink, fontWeight: 760, fontFamily: tokens.font.serifCjk }}
+          >
+            {headline}
+          </h3>
+          {analysis.contentSummary && analysis.contentSummary !== headline ? (
+            <div style={{ fontSize: 13.5, lineHeight: 1.65, color: tokens.color.subInk }}>
+              {analysis.contentSummary}
             </div>
           ) : null}
-          {primaryEvidenceReason ? (
-            <div style={{ fontSize: 12.5, lineHeight: 1.55, color: tokens.color.softInk }}>
-              引用理由：{primaryEvidenceReason}
-            </div>
-          ) : null}
-          <div
-            style={{
-              borderRadius: tokens.radius.card,
-              border: `1px solid ${tokens.color.line}`,
-              background: tokens.color.elevated,
-              padding: "10px 11px",
-              display: "grid",
-              gap: 4
-            }}
-          >
-            <span style={textStyles.fieldLabel}>Evidence</span>
-            <span style={{ fontSize: 15, lineHeight: 1.2, color: tokens.color.ink, fontWeight: 800 }}>{citationCount} 則原文證據</span>
-          </div>
-          <div
-            data-testid="metadata-strip"
-            style={{
-              display: "flex",
-              alignItems: "center",
-              gap: 8,
-              flexWrap: "wrap",
-              paddingTop: 2,
-              color: tokens.color.softInk,
-              fontSize: 11.5,
-              lineHeight: 1.5
-            }}
-          >
-            <span>分類：{subtypeMeta.label}</span>
-            <span>·</span>
-            <span>子型：{formatSubtype(analysis.signalSubtype)}</span>
-            <span>·</span>
-            <span>Analyzed：{formatAnalyzedAt(analysis.analyzedAt)}</span>
-            <span>·</span>
-            <span>Prompt：{analysis.promptVersion}</span>
-          </div>
+        </div>
+        {onRemove ? (
+          <button
+            type="button"
+            aria-label="移除此訊號"
+            onClick={onRemove}
+            style={{ background: "none", border: "none", cursor: "pointer", padding: "2px 4px", lineHeight: 1, color: tokens.color.softInk, fontSize: 16, borderRadius: 4, display: "flex", alignItems: "center", flexShrink: 0 }}
+          >×</button>
+        ) : null}
+      </div>
+
+      <div style={mutedPanelStyle({ gap: 7, background: tokens.color.neutralSurfaceSoft })}>
+        <div style={{ ...textStyles.label, color: tokens.color.softInk }}>{excluded ? "排除原因" : REASON_PANEL_LABEL[analysis.verdict]}</div>
+        <div style={{ fontSize: 13, lineHeight: 1.65, color: tokens.color.subInk }}>
+          {analysis.reason || referenceTakeaway(analysis)}
         </div>
       </div>
-      <EvidenceUseCaseList citations={citations} />
-      <details data-product-action-more="true" style={{ margin: "0 22px 18px", borderTop: `1px solid ${tokens.color.line}`, paddingTop: 12 }}>
-        <summary
-          data-product-action-more-summary="true"
-          className="dlens-expand-trigger"
-          style={{ cursor: "pointer", listStyle: "none", display: "inline-flex", alignItems: "center", gap: 6, ...textStyles.fieldLabel, color: tokens.color.softInk }}
-        >
-          <span aria-hidden>▸</span>更多分析 · 任務與類似歷史
-        </summary>
-        <div style={{ display: "grid", gap: 10, marginTop: 12 }}>
-          <div
-            data-testid="task-slot"
-            style={{ borderRadius: tokens.radius.card, border: `1px solid ${tokens.color.product}`, background: tokens.color.productSoft, padding: "10px 11px", display: "grid", gap: 4 }}
-          >
-            <span style={{ ...textStyles.fieldLabel, color: tokens.color.product }}>Task</span>
-            <span style={{ fontSize: 13, lineHeight: 1.45, color: tokens.color.ink, fontWeight: 650 }}>{taskSlotCopy}</span>
-          </div>
-          <SimilarHistoryBlock items={similarHistory} />
+
+      <div style={{ display: "grid", gap: 8 }}>
+        <div style={{ display: "grid", gap: 4 }}>
+          <span style={{ ...textStyles.fieldLabel, color: tokens.color.softInk }}>{referenceTypeLabel(analysis.referenceType)}</span>
+          <span style={{ fontSize: 13, lineHeight: 1.55, color: tokens.color.ink, fontWeight: 650 }}>{referenceLabel(analysis)}</span>
+          <span style={{ fontSize: 12.5, lineHeight: 1.55, color: tokens.color.subInk }}>{referenceTakeaway(analysis)}</span>
         </div>
-      </details>
+        <div style={{ display: "flex", gap: 8, flexWrap: "wrap", fontSize: 11.5, color: tokens.color.softInk }}>
+          <span>子型：{formatSubtype(analysis.signalSubtype)}</span>
+          <span>證據：{citationCount} 則</span>
+          <span>Analyzed：{formatAnalyzedAt(analysis.analyzedAt)}</span>
+        </div>
+      </div>
+
+      {!excluded ? (
+        <div
+          data-testid="task-slot"
+          style={{ borderTop: `1px dashed ${tokens.color.line}`, paddingTop: 10, fontSize: 12, lineHeight: 1.5, color: tokens.color.softInk }}
+        >
+          下一步 · <span style={{ color: tokens.color.subInk, fontWeight: 600 }}>{taskSlotCopy}</span>
+        </div>
+      ) : null}
+
+      {citations.length ? (
+        <div style={{ display: "grid", gap: 7 }}>
+          <span data-evidence-section-label="true" style={{ ...textStyles.label, color: tokens.color.softInk }}>
+            原文證據 · {citationCount} 則
+          </span>
+          {citations.slice(0, 3).map((citation) => (
+            <div key={citation.ref} style={{ display: "grid", gridTemplateColumns: "30px minmax(0, 1fr)", gap: 8, alignItems: "start" }}>
+              <span style={{ fontFamily: tokens.font.mono, fontSize: 11, color: tokens.color.softInk }}>{citation.ref}.</span>
+              <div style={{ fontSize: 12.5, lineHeight: 1.6, color: tokens.color.subInk }}>
+                {citationText(citation, 220)}
+              </div>
+            </div>
+          ))}
+        </div>
+      ) : !excluded ? (
+        <div style={mutedPanelStyle({ background: tokens.color.neutralSurfaceSoft, fontSize: 12.5, color: tokens.color.softInk })}>
+          這則訊號暫時沒有可顯示的原文證據。
+        </div>
+      ) : null}
     </article>
   );
 }
@@ -4599,7 +3913,6 @@ function ActionableInsightsBoard({
   signalReadinessById,
   historicalAnalyses,
   agentTaskFeedback,
-  cardLayout,
   signalPreviewById,
   signalUrlById,
   onRemoveSignal
@@ -4610,7 +3923,6 @@ function ActionableInsightsBoard({
   signalReadinessById: Record<string, SignalReadiness>;
   historicalAnalyses: ProductSignalAnalysis[];
   agentTaskFeedback: ProductAgentTaskFeedback[];
-  cardLayout: ProductSignalCardLayout;
   signalPreviewById: Record<string, string>;
   signalUrlById: Record<string, string>;
   onRemoveSignal?: (signalId: string) => void;
@@ -4664,7 +3976,6 @@ function ActionableInsightsBoard({
             evidenceBySignalId={evidenceBySignalId}
             historicalAnalyses={historicalAnalyses}
             agentTaskFeedback={agentTaskFeedback}
-            layout={cardLayout}
             readiness={signalReadinessById[analysis.signalId] ?? DEFAULT_PRODUCT_ACTION_READINESS}
             sourceText={signalPreviewById[analysis.signalId]}
             sourceUrl={signalUrlById[analysis.signalId]}
@@ -4916,7 +4227,6 @@ export function ProductSignalView({
                 signalReadinessById={viewModel.signalReadinessById}
                 historicalAnalyses={historicalAnalyses}
                 agentTaskFeedback={agentTaskFeedback}
-                cardLayout={viewModel.cardLayout}
                 signalPreviewById={viewModel.signalPreviewById}
                 signalUrlById={viewModel.signalUrlById}
                 onRemoveSignal={signals.some((signal) => signal.actions.some((action) => action.kind === "remove")) ? handleRemoveSignal : undefined}

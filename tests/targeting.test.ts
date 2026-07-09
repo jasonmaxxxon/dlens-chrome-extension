@@ -1,8 +1,10 @@
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import test from "node:test";
+import { JSDOM } from "jsdom";
 
 import {
+  buildTargetDescriptor,
   classifyCandidateStrength,
   classifyMetric,
   inferThreadFollowersFromText,
@@ -204,4 +206,51 @@ test("findCardCandidate promotes depth-capped fragment wins to the enclosing pos
   const findStart = source.indexOf("export function findCardCandidate(");
   const findBlock = source.slice(findStart, source.indexOf("\nexport function findCardRoot", findStart));
   assert.match(findBlock, /return promoteCandidateToPostRoot\(best\);/);
+});
+
+test("buildTargetDescriptor marks feed post cards as posts beyond the first article", () => {
+  const dom = new JSDOM(`
+    <main>
+      <article>
+        <a href="/@alpha">alpha</a>
+        <a href="/@alpha/post/one">1h</a>
+        <svg aria-label="Like"></svg><span>1</span>
+        <p>first feed post</p>
+      </article>
+      <article id="second-post">
+        <a href="/@beta">beta</a>
+        <a href="/@beta/post/two">2h</a>
+        <svg aria-label="Like"></svg><span>2</span>
+        <p>second feed post</p>
+      </article>
+    </main>
+  `, { url: "https://www.threads.net/" });
+  const previous = {
+    window: globalThis.window,
+    document: globalThis.document,
+    HTMLElement: globalThis.HTMLElement,
+    Element: globalThis.Element,
+    Node: globalThis.Node,
+    SVGElement: globalThis.SVGElement
+  };
+  Object.assign(globalThis, {
+    window: dom.window,
+    document: dom.window.document,
+    HTMLElement: dom.window.HTMLElement,
+    Element: dom.window.Element,
+    Node: dom.window.Node,
+    SVGElement: dom.window.SVGElement
+  });
+
+  try {
+    const card = dom.window.document.getElementById("second-post");
+    assert.ok(card);
+    const descriptor = buildTargetDescriptor(card, "https://www.threads.net/");
+
+    assert.equal(descriptor?.post_url, "https://www.threads.net/@beta/post/two");
+    assert.equal(descriptor?.target_type, "post");
+  } finally {
+    Object.assign(globalThis, previous);
+    dom.window.close();
+  }
 });

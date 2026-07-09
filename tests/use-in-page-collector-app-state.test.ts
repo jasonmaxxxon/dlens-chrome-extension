@@ -13,8 +13,10 @@ import { createPrEvidenceResource } from "../src/ui/pr-evidence-resource.ts";
 import {
   applyPrGeneratedCriteriaSaveResult,
   applyPrGenerateSummaryResult,
+  buildEffectiveSettingsSnapshot,
   buildPreviewSaveMessage,
   buildInPageHydrateTraceTerminalSequence,
+  buildLocalSettingsOverride,
   buildSessionModeChangeMessage,
   planProductHydrateTransition,
   resolveOptimisticSession,
@@ -215,6 +217,64 @@ test("Product hydrate gate skips and clears loading when the active page is outs
     sessionId: "product-session",
     shouldClearHydrating: true
   });
+});
+
+test("saved settings become the immediate Product snapshot before background state catches up", () => {
+  const session = createSessionRecord("Product workspace", "2026-07-07T08:00:00.000Z", "product");
+  const snapshot: ExtensionSnapshot = {
+    global: {
+      version: 1,
+      sessions: [session],
+      activeSessionId: session.id,
+      settings: {
+        ingestBaseUrl: "http://127.0.0.1:8000",
+        oneLinerProvider: "google",
+        openaiApiKey: "",
+        claudeApiKey: "",
+        googleApiKey: "",
+        hasGoogleKey: false,
+        productProfile: null,
+        layoutPreferences: {
+          productSignalCardLayout: "marginalia",
+          topicSynthesisLayout: "console",
+          compareResultLayout: "parallel"
+        }
+      },
+      updatedAt: "2026-07-07T08:00:00.000Z"
+    },
+    tab: createEmptyTabState()
+  };
+
+  const override = buildLocalSettingsOverride({
+    currentSettings: snapshot.global.settings,
+    draftBaseUrl: "http://127.0.0.1:8000",
+    draftProvider: "google",
+    draftOpenAiKey: "",
+    draftClaudeKey: "",
+    draftGoogleKey: "AIza-live",
+    draftLayoutPreferences: snapshot.global.settings.layoutPreferences,
+    draftProductProfile: {
+      name: "DLens",
+      category: "Creator research",
+      audience: "Product builders",
+      contextText: "README context",
+      contextFiles: [
+        {
+          id: "readme",
+          name: "README.md",
+          kind: "readme",
+          importedAt: "2026-07-07T08:00:00.000Z",
+          charCount: 1200
+        }
+      ]
+    }
+  });
+  const effective = buildEffectiveSettingsSnapshot(snapshot, override);
+
+  assert.equal(effective?.global.settings.oneLinerProvider, "google");
+  assert.equal(effective?.global.settings.hasGoogleKey, true);
+  assert.equal(effective?.global.settings.productProfile?.name, "DLens");
+  assert.equal(effective?.global.settings.productProfile?.contextFiles?.length, 1);
 });
 
 test("popup.product.hydrate.request is always followed by exactly one terminal hydrate event", () => {

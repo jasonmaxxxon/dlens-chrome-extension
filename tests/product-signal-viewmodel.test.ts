@@ -231,6 +231,33 @@ test("Product VM composes capture preview, readiness, analysis state, provenance
   }
 });
 
+test("Product VM allows analysis when ProductContext is ready even if profile metadata is incomplete", () => {
+  const contextOnlyProfile: ProductProfile = {
+    name: "",
+    category: "",
+    audience: "",
+    contextText: profile.contextText,
+    contextFiles: profile.contextFiles
+  };
+  const snapshot = makeSnapshot();
+  snapshot.global.settings.productProfile = contextOnlyProfile;
+
+  const vm = buildProductSignalWorkspaceViewModel({
+    kind: "saved-signals",
+    snapshot,
+    signals: [makeSignal()],
+    analyses: [],
+    productContext,
+    aiProviderReady: true,
+    isHydrating: false,
+    isAnalyzing: false
+  });
+
+  assert.equal(vm.canAnalyze, true);
+  assert.doesNotMatch(vm.readinessCopy, /補產品名稱、類別和受眾/);
+  assert.equal(vm.readinessCopy, "已有 ready signal。按下分析收件匣後，這裡才會顯示真實 AI 結果。");
+});
+
 test("Product VM preserves recovered analyses when the signal inbox is empty", () => {
   const vm = buildProductSignalWorkspaceViewModel({
     kind: "actionable-filter",

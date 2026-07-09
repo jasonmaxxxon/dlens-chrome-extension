@@ -1,4 +1,4 @@
-import { projectCapturedPost } from "./captured-post";
+import { hasCapturedPostAnalyzableText, projectCapturedPost } from "./captured-post";
 import type { SessionItemStatus, SessionRecord, Signal } from "./types";
 
 export type SignalReadinessStatus =
@@ -53,7 +53,9 @@ export function buildSignalReadinessById(
       return [
         signal.id,
         {
-          status: projectCapturedPost(item).hasAssembledContent ? "ready" : "missing_content",
+          status: projectCapturedPost(item).hasAssembledContent || hasCapturedPostAnalyzableText(item.latestCapture)
+            ? "ready"
+            : "missing_content",
           itemStatus: item.status
         }
       ] as const;

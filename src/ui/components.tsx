@@ -938,6 +938,9 @@ const WORKSPACE_SWITCHER_OPTIONS: ReadonlyArray<{
   { key: "pr-evidence", label: "PR", tint: tokens.color.techniqueRose }
 ];
 
+const WORKSPACE_SWITCHER_GAP_PX = 2;
+const WORKSPACE_SWITCHER_HORIZONTAL_PADDING_PX = 4;
+
 const WORKSPACE_SWITCHER_CSS = `
 [data-dlens-control="true"] [data-workspace-switcher="segmented"]:focus-visible {
   outline: 2px solid var(--dlens-mode-accent, ${tokens.color.accent});
@@ -1014,6 +1017,12 @@ export function WorkspaceSwitcher({
   const activeKey = pendingMode ?? activeMode;
   const activeIndex = Math.max(0, options.findIndex((option) => option.key === activeKey));
   const activeTint = options[activeIndex]?.tint ?? tokens.color.accent;
+  const thumbExcludedWidth = WORKSPACE_SWITCHER_HORIZONTAL_PADDING_PX
+    + (WORKSPACE_SWITCHER_GAP_PX * (options.length - 1));
+  const thumbWidth = `calc((100% - ${thumbExcludedWidth}px) / ${options.length})`;
+  const thumbTranslate = activeIndex === 0
+    ? "translateX(0)"
+    : `translateX(calc(${activeIndex * 100}% + ${activeIndex * WORKSPACE_SWITCHER_GAP_PX}px))`;
   const moveFocus = (nextIndex: number) => {
     const next = options[nextIndex];
     if (!next || isBusy || next.key === activeMode) {
@@ -1054,8 +1063,9 @@ export function WorkspaceSwitcher({
         data-workspace-switcher-pending={pendingMode ?? undefined}
         data-workspace-switcher-active-index={String(activeIndex)}
         style={{
-          display: "inline-flex",
-          gap: 2,
+          display: "inline-grid",
+          gridTemplateColumns: `repeat(${options.length}, minmax(0, 1fr))`,
+          gap: WORKSPACE_SWITCHER_GAP_PX,
           padding: 2,
           borderRadius: 6,
           background: tokens.color.neutralSurfaceSoft,
@@ -1072,12 +1082,13 @@ export function WorkspaceSwitcher({
             top: 2,
             bottom: 2,
             left: 2,
-            width: `calc((100% - 4px) / ${options.length})`,
+            width: thumbWidth,
             borderRadius: 4,
             background: `${activeTint}14`,
             border: `1px solid ${activeTint}40`,
+            boxSizing: "border-box",
             boxShadow: tokens.shadow.activeTab,
-            transform: `translateX(${activeIndex * 100}%)`,
+            transform: thumbTranslate,
             pointerEvents: "none"
           }}
         />
@@ -1109,6 +1120,8 @@ export function WorkspaceSwitcher({
                 transition: tokens.motion.interactiveTransition,
                 whiteSpace: "nowrap",
                 lineHeight: 1.1,
+                width: "100%",
+                boxSizing: "border-box",
                 position: "relative",
                 zIndex: 1
               }}
@@ -1147,6 +1160,8 @@ export function WorkspaceShell({
 }) {
   const showSwitcher = typeof onSwitchWorkspace === "function";
   const renderContextStrip = Boolean(contextStrip) || reserveContextStrip;
+  const pendingWorkspaceMode = switchingWorkspaceMode ?? null;
+  const renderedWorkspaceMode = pendingWorkspaceMode ?? mode;
   const switcherActiveMode: WorkspaceSwitcherMode | "archive" | null = folderMode === "topic"
     || folderMode === "product"
     || folderMode === "pr-evidence"
@@ -1313,9 +1328,10 @@ export function WorkspaceShell({
 
           {/* Remount only across workspace modes so the crossfade does not replay on intra-mode tabs. */}
           <main
-            data-workspace-mode={mode}
+            data-workspace-mode={renderedWorkspaceMode}
             data-workspace-mode-frame="true"
-            key={folderMode ?? "_default"}
+            data-workspace-switching={pendingWorkspaceMode ?? undefined}
+            key={pendingWorkspaceMode ?? folderMode ?? "_default"}
             style={{
               display: "grid",
               minWidth: 0,
@@ -1324,7 +1340,21 @@ export function WorkspaceShell({
               animation: "dlens-mode-swap-in 160ms cubic-bezier(0.16, 1, 0.3, 1)"
             }}
           >
-            {children}
+            {pendingWorkspaceMode ? (
+              <div
+                role="status"
+                aria-label="切換工作區中"
+                data-workspace-switch-placeholder="true"
+                style={{
+                  minHeight: 360,
+                  borderRadius: tokens.radius.cardLg,
+                  border: `1px solid ${tokens.color.line}`,
+                  background: `linear-gradient(180deg, ${tokens.color.elevated}, ${tokens.color.surface})`,
+                  boxShadow: tokens.shadow.shell,
+                  opacity: 0.82
+                }}
+              />
+            ) : children}
           </main>
         </div>
       </div>

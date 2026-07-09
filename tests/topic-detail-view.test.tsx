@@ -163,6 +163,56 @@ const auditMemos: TopicAuditMemoBundle = {
   }]
 };
 
+const reactionAuditPacket: EvidencePacket = {
+  ...auditPacket,
+  commentCount: 342,
+  replyFragments: [
+    { ref: "S1.R1", author: "local-worker", text: "本地人已經好難搵工，仲要被壓價。", likes: 31, role: "audience" },
+    { ref: "S1.R2", author: "policy-reader", text: "重點不是外勞，是制度沒有保障底線。", likes: 18, role: "audience" },
+    { ref: "S1.R3", author: "employer", text: "有些工種真的請不到人，不能只說壓價。", likes: 9, role: "audience" }
+  ]
+};
+
+const reactionAuditMemos: TopicAuditMemoBundle = {
+  ...auditMemos,
+  lensMemos: [
+    ...auditMemos.lensMemos,
+    {
+      auditRunId: "audit-1",
+      inputHash: "hash-1",
+      topicId: "topic-1",
+      stageName: "audience",
+      prose: "legacy audience prose should be replaced by structured reaction patterns.",
+      evidenceRefs: ["S1.R1", "S1.R3"],
+      caveats: [],
+      displayHints: {
+        reactionCoverage: {
+          postCount: 1,
+          capturedCommentCount: 342,
+          readCommentCount: 342,
+          usableAudienceCommentCount: 318
+        },
+        reactionPatterns: [{
+          id: "reaction-local-labor-defense",
+          label: "本地勞工身份防守",
+          dynamicImplication: "留言把政策爭議推向身份與分配正義，而不是單純效率討論。",
+          nComments: 118,
+          nAuthors: 72,
+          coverageDenominator: 342,
+          supportRefs: ["S1.R1", "S1.R2"],
+          counterRefs: ["S1.R3"],
+          representativeRefs: ["S1.R1"],
+          counterRepresentativeRefs: ["S1.R3"],
+          icon: "users"
+        }]
+      } as never,
+      promptVersion: "v1",
+      model: "mock",
+      generatedAt: "2026-05-23T00:00:00.000Z"
+    }
+  ]
+};
+
 function buildSessionItem(id = "item-1", status: SessionItem["status"] = "saved"): SessionItem {
   const item = createSessionItem(
     {
@@ -712,6 +762,76 @@ test("TopicDetailView reveals derived lane content (keywords, comments, voices) 
     assert.ok(panel!.querySelector("[data-lane-keyword]"), "recurring wording chips render");
     assert.match(panel!.textContent ?? "", /我也遇到/);
     assert.match(panel!.textContent ?? "", /reader/);
+  } finally {
+    flushSync(() => root.unmount());
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    Object.assign(globalThis, previous);
+  }
+});
+
+test("TopicDetailView renders useful reaction patterns with counts, implication, representatives, and counters", async () => {
+  const { JSDOM } = await import("jsdom");
+  const { createRoot } = await import("react-dom/client");
+  const { flushSync } = await import("react-dom");
+  const dom = new JSDOM("<div id=\"root\"></div>", { url: "https://dlens.test" });
+  const previous = {
+    window: globalThis.window,
+    document: globalThis.document,
+    HTMLElement: globalThis.HTMLElement,
+    Event: globalThis.Event,
+    MouseEvent: globalThis.MouseEvent
+  };
+  Object.assign(globalThis, {
+    window: dom.window,
+    document: dom.window.document,
+    HTMLElement: dom.window.HTMLElement,
+    Event: dom.window.Event,
+    MouseEvent: dom.window.MouseEvent
+  });
+  const rootElement = dom.window.document.getElementById("root");
+  assert.ok(rootElement);
+  const root = createRoot(rootElement);
+
+  try {
+    flushSync(() => {
+      root.render(
+        topicDetailViewElement({
+          topic,
+          signals,
+          pairs: [],
+          sessionMode: "topic",
+          auditEvidence: [reactionAuditPacket],
+          auditMemos: reactionAuditMemos,
+          auditSummary: { reportStatus: "ready", analyzedCount: 1, queuedCount: 0 },
+          auditValidatorFlags: [],
+          onBack: () => undefined,
+          onOpenPair: () => undefined,
+          onUpdateTopic: () => undefined
+        })
+      );
+    });
+
+    const block = rootElement.querySelector("[data-topic-audit-block=\"reaction-patterns\"]");
+    assert.ok(block, "structured reaction pattern block should render");
+    assert.match(block!.textContent ?? "", /群眾反應/);
+    assert.match(block!.textContent ?? "", /本地勞工身份防守/);
+    assert.match(block!.textContent ?? "", /118\/342 留言/);
+    assert.match(block!.textContent ?? "", /72 作者/);
+    assert.match(block!.textContent ?? "", /留言把政策爭議推向身份與分配正義/);
+    assert.equal(rootElement.querySelector("[data-reaction-pattern-detail]"), null);
+
+    const patternButton = rootElement.querySelector<HTMLButtonElement>("button[data-reaction-pattern=\"reaction-local-labor-defense\"]");
+    assert.ok(patternButton, "reaction pattern should be clickable");
+    flushSync(() => {
+      patternButton!.dispatchEvent(new dom.window.MouseEvent("click", { bubbles: true }));
+    });
+
+    const panel = rootElement.querySelector("[data-reaction-pattern-detail=\"reaction-local-labor-defense\"]");
+    assert.ok(panel, "clicking a reaction pattern reveals evidence detail");
+    assert.match(panel!.textContent ?? "", /代表留言/);
+    assert.match(panel!.textContent ?? "", /本地人已經好難搵工/);
+    assert.match(panel!.textContent ?? "", /反例/);
+    assert.match(panel!.textContent ?? "", /有些工種真的請不到人/);
   } finally {
     flushSync(() => root.unmount());
     await new Promise((resolve) => setTimeout(resolve, 0));

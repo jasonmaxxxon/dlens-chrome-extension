@@ -144,6 +144,21 @@ function readAssembledContent(model: ThreadReadModelSnapshot | null): string {
   return readTextString(model?.assembledContent ?? model?.assembled_content);
 }
 
+function readCanonicalPostText(capture: CaptureSnapshot | null | undefined): string {
+  return readTextString(capture?.result?.canonical_post?.text);
+}
+
+export function readCapturedPostAnalyzableTextFromCapture(capture: CaptureSnapshot | null | undefined): string {
+  const projected = projectCapturedPostFromCapture(capture, { includeLegacyComments: true });
+  return projected.assembledContent
+    || readCanonicalPostText(capture)
+    || readTextString(capture?.text_snippet);
+}
+
+export function hasCapturedPostAnalyzableText(capture: CaptureSnapshot | null | undefined): boolean {
+  return Boolean(readCapturedPostAnalyzableTextFromCapture(capture));
+}
+
 function readPostId(post: ThreadReadModelPostSnapshot, fallbackId: string): string {
   return readTrimmedString(post.postId ?? post.post_id ?? post.commentId ?? post.comment_id) || fallbackId;
 }

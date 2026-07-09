@@ -71,6 +71,47 @@ const auditMemos: TopicAuditMemoBundle = {
   ]
 };
 
+const reactionAuditMemos: TopicAuditMemoBundle = {
+  ...auditMemos,
+  lensMemos: [
+    ...auditMemos.lensMemos,
+    {
+      auditRunId: "audit-p0",
+      inputHash: "hash-p0",
+      topicId: "topic-p0",
+      stageName: "audience",
+      prose: "legacy audience prose should be replaced when structured reaction patterns exist.",
+      evidenceRefs: ["S1.R1", "S1.R3"],
+      caveats: [],
+      coverage: "342/342",
+      displayHints: {
+        reactionCoverage: {
+          postCount: 1,
+          capturedCommentCount: 342,
+          readCommentCount: 342,
+          usableAudienceCommentCount: 318
+        },
+        reactionPatterns: [{
+          id: "reaction-local-labor-defense",
+          label: "本地勞工身份防守",
+          dynamicImplication: "留言把政策爭議推向身份與分配正義，而不是單純效率討論。",
+          nComments: 118,
+          nAuthors: 72,
+          coverageDenominator: 342,
+          supportRefs: ["S1.R1", "S1.R2"],
+          counterRefs: ["S1.R3"],
+          representativeRefs: ["S1.R1"],
+          counterRepresentativeRefs: ["S1.R3"],
+          icon: "users"
+        }]
+      } as never,
+      promptVersion: "v3",
+      model: "mock",
+      generatedAt: "2026-06-22T00:00:00.000Z"
+    }
+  ]
+};
+
 test("AuditReportView maps §1 and §7 to distinct section fields", () => {
   const doc = renderReport(buildReport({
     overall: "§1 只應顯示整體判讀",
@@ -145,4 +186,28 @@ test("AuditReportView density grammar keeps honest empty-section guards", () => 
   assert.match(doc.querySelector('[data-audit-report-section="scaleOrTime"]')?.textContent ?? "", /等待訊號累積後生成/);
   assert.match(doc.querySelector('[data-audit-report-section="editorial"]')?.textContent ?? "", /等待訊號累積後生成/);
   assert.equal(doc.querySelector('[data-audit-report-lane-signal-row]'), null);
+});
+
+test("AuditReportView replaces §5 audience prose when structured reaction patterns exist", () => {
+  const html = renderToStaticMarkup(
+    React.createElement(AuditReportView, {
+      topicId: "topic-p0",
+      report: buildReport({
+        audience: "legacy audience prose should not render beside the structured panel [S1.R1]"
+      }),
+      auditMemos: reactionAuditMemos,
+      packets: [],
+      flags: []
+    })
+  );
+  const doc = new JSDOM(html).window.document;
+  const audience = doc.querySelector('[data-audit-report-section="audience"]');
+
+  assert.ok(audience);
+  assert.match(audience!.textContent ?? "", /本地勞工身份防守/);
+  assert.match(audience!.textContent ?? "", /118\/342 留言/);
+  assert.match(audience!.textContent ?? "", /72 作者/);
+  assert.match(audience!.textContent ?? "", /留言把政策爭議推向身份與分配正義/);
+  assert.doesNotMatch(audience!.textContent ?? "", /legacy audience prose should not render/);
+  assert.ok(audience!.querySelector("[data-audit-report-reaction-pattern]"));
 });

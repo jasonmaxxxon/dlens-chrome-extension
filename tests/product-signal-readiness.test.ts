@@ -86,14 +86,24 @@ test("buildProductSignalReadinessById classifies the six saved signal readiness 
       result: { thread_read_model: { root_post: { author: "alpha", text: "" }, discussion_replies: [] } }
     } as unknown as ReturnType<typeof createSessionItem>["latestCapture"]
   };
+  const fallbackReady = {
+    ...createSessionItem(descriptor),
+    id: "item-fallback-ready",
+    status: "succeeded" as const,
+    latestCapture: {
+      text_snippet: "fallback snippet from extension capture",
+      result: { thread_read_model: { root_post: { author: "alpha", text: "" }, assembled_content: "", discussion_replies: [] } }
+    } as unknown as ReturnType<typeof createSessionItem>["latestCapture"]
+  };
   const failed = { ...createSessionItem(descriptor), id: "item-failed", status: "failed" as const };
-  folder.items = [saved, crawling, ready, missingContent, failed];
+  folder.items = [saved, crawling, ready, missingContent, fallbackReady, failed];
 
   const readiness = buildProductSignalReadinessById(folder, [
     makeSignal("sig-saved", "item-saved"),
     makeSignal("sig-crawling", "item-crawling"),
     makeSignal("sig-ready", "item-ready"),
     makeSignal("sig-missing-content", "item-missing-content"),
+    makeSignal("sig-fallback-ready", "item-fallback-ready"),
     makeSignal("sig-failed", "item-failed"),
     makeSignal("sig-missing-item", "item-missing-item")
   ]);
@@ -105,6 +115,7 @@ test("buildProductSignalReadinessById classifies the six saved signal readiness 
       "sig-crawling": "crawling",
       "sig-ready": "ready",
       "sig-missing-content": "missing_content",
+      "sig-fallback-ready": "ready",
       "sig-failed": "failed",
       "sig-missing-item": "missing_item"
     }

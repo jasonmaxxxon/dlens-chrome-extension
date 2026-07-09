@@ -19,7 +19,6 @@ import type {
   ProductContext,
   ProductProfile,
   ProductSignalAnalysis,
-  ProductSignalCardLayout,
   SessionItem,
   SessionRecord,
   Signal
@@ -68,7 +67,6 @@ export interface ProductSignalWorkspaceViewModel {
   kind: "saved-signals" | "classification" | "actionable-filter";
   sessionId: string | null;
   productProfile: ProductProfile | null;
-  cardLayout: ProductSignalCardLayout;
   signals: ProductSignalViewModel[];
   pendingSignals: ProductSignalViewModel[];
   scopedAnalyses: ProductSignalAnalysis[];
@@ -105,7 +103,6 @@ export interface BuildProductSignalWorkspaceViewModelInput {
   signalReadings?: SignalReading[];
   productContext?: ProductContext | null;
   aiProviderReady?: boolean;
-  cardLayout?: ProductSignalCardLayout;
   backendError?: string | null;
   analysisError?: string | null;
   analysisNotice?: string | null;
@@ -216,7 +213,6 @@ function canRunProductSignalAction({
 }): boolean {
   return signals.length > 0
     && aiProviderReady
-    && isProductProfileReady(productProfile)
     && isProductContextSourceReady(productProfile)
     && (hasQueueableSignals(signals) || hasAnalyzableSignals(signals));
 }
@@ -242,11 +238,10 @@ function readinessCopy({
   if (!aiProviderReady) {
     return "尚未設定 AI key。先到 Settings 設定 Google / OpenAI / Claude key。";
   }
-  if (!isProductProfileReady(productProfile)) {
-    return "先到 Settings 補產品名稱、類別和受眾。";
-  }
   if (!isProductContextSourceReady(productProfile)) {
-    return "先到 Settings 匯入 README / AGENTS / 產品文件，讓 ProductContext 可編譯。";
+    return isProductProfileReady(productProfile)
+      ? "先到 Settings 匯入 README / AGENTS / 產品文件，讓 ProductContext 可編譯。"
+      : "先到 Settings 補產品名稱、類別和受眾，並匯入 README / AGENTS / 產品文件。";
   }
   if (hasQueueableSignals(signals)) {
     return "有 signal 尚未抓取。按分析收件匣會先送出抓取請求，完成後再分析。";
@@ -257,7 +252,7 @@ function readinessCopy({
   if (!analyses.length) {
     return hasAnalyzableSignals(signals)
       ? "已有 ready signal。按下分析收件匣後，這裡才會顯示真實 AI 結果。"
-      : "目前沒有可分析的 ready signal。請先處理抓取失敗或內容不完整的項目。";
+      : "目前沒有可分析的 ready signal。請先重新處理未抽到正文的項目，或檢查真正的抓取錯誤。";
   }
   return "";
 }
@@ -390,7 +385,6 @@ export function buildProductSignalWorkspaceViewModel({
   signalReadings,
   productContext = null,
   aiProviderReady = true,
-  cardLayout,
   backendError = null,
   analysisError = null,
   analysisNotice = null,
@@ -446,7 +440,6 @@ export function buildProductSignalWorkspaceViewModel({
     kind,
     sessionId: activeFolder?.id ?? null,
     productProfile,
-    cardLayout: cardLayout ?? snapshot.global.settings.layoutPreferences.productSignalCardLayout,
     signals: rows,
     pendingSignals,
     scopedAnalyses,

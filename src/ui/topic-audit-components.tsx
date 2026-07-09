@@ -33,9 +33,10 @@ import {
   type LucideIcon
 } from "lucide-react";
 
-import type { EvidencePacket } from "../compare/topic-audit.ts";
+import type { EvidencePacket, ReactionCoverage, ReactionPattern } from "../compare/topic-audit.ts";
 import type { TopicAuditValidationFlag } from "../compare/topic-audit-validator.ts";
 import type { NarrativeLaneDetail } from "../viewmodel/narrative-lane-detail.ts";
+import type { ReactionPatternDetail } from "../viewmodel/reaction-pattern-detail.ts";
 import { modeThemes, tokens } from "./tokens";
 
 const NARRATIVE_ICON_COMPONENTS: Record<string, LucideIcon> = {
@@ -103,6 +104,8 @@ export interface NarrativeLaneHint {
   signalRefs: string[];
   consensus: number;
   icon?: string;
+  metricLabel?: string;
+  subtext?: string;
 }
 
 const TOPIC = tokens.topicAccent;
@@ -458,18 +461,22 @@ function NarrativeLaneConsensusBar({
 export function NarrativeLane({
   lane,
   active,
-  onClick
+  onClick,
+  kind = "narrative"
 }: {
   lane: NarrativeLaneHint;
   active?: boolean;
   onClick?: () => void;
+  kind?: "narrative" | "reaction";
 }) {
   const Icon = resolveNarrativeIcon(lane.icon);
   const signalCount = countLaneSources(lane.signalRefs);
   const percent = consensusPercent(lane.consensus);
+  const metricLabel = lane.metricLabel ?? `共識 ${percent}% · ${signalCount} 篇`;
   return (
     <button
       data-narrative-lane={lane.id}
+      data-reaction-pattern={kind === "reaction" ? lane.id : undefined}
       data-active={active ? "true" : "false"}
       onClick={onClick}
       style={{
@@ -506,10 +513,15 @@ export function NarrativeLane({
         <span style={{ fontSize: 13.5, fontWeight: 800, color: tokens.color.ink, lineHeight: 1.35 }}>
           {lane.label}
         </span>
+        {lane.subtext ? (
+          <span style={{ fontSize: 11.5, lineHeight: 1.45, color: tokens.color.subInk }}>
+            {lane.subtext}
+          </span>
+        ) : null}
         <span data-narrative-lane-consensus={lane.id} style={{ display: "grid", gap: 5, minWidth: 0 }}>
           <span style={{ display: "flex", justifyContent: "space-between", gap: 8, alignItems: "baseline", minWidth: 0 }}>
             <span style={{ fontSize: 10.5, fontWeight: 800, color: tokens.color.subInk }}>
-              共識 {percent}% · {signalCount} 篇
+              {metricLabel}
             </span>
           </span>
           <NarrativeLaneConsensusBar laneId={lane.id} percent={percent} />
@@ -534,6 +546,202 @@ export function NarrativeLane({
         </span>
       </span>
     </button>
+  );
+}
+
+function reactionPercent(pattern: ReactionPattern): number {
+  if (pattern.coverageDenominator <= 0) return 0;
+  return Math.max(0, Math.min(100, Math.round((pattern.nComments / pattern.coverageDenominator) * 100)));
+}
+
+function reactionMetricLabel(pattern: ReactionPattern): string {
+  const denominator = pattern.coverageDenominator > 0 ? pattern.coverageDenominator : 0;
+  const authorPart = pattern.nAuthors > 0 ? ` · ${pattern.nAuthors} 作者` : "";
+  return `${pattern.nComments}/${denominator} 留言${authorPart}`;
+}
+
+export function ReactionCoverageStrip({ coverage }: { coverage?: ReactionCoverage }) {
+  if (!coverage) return null;
+  const items = [
+    ["貼文", coverage.postCount],
+    ["捕捉留言", coverage.capturedCommentCount],
+    ["已讀留言", coverage.readCommentCount],
+    ["可用留言", coverage.usableAudienceCommentCount]
+  ] as const;
+  return (
+    <div
+      data-reaction-coverage-strip="true"
+      style={{
+        display: "grid",
+        gridTemplateColumns: "repeat(4, minmax(0, 1fr))",
+        gap: 6,
+        padding: "8px",
+        borderRadius: tokens.radius.card,
+        background: tokens.color.contextSurface,
+        border: `1px solid ${tokens.color.line}`
+      }}
+    >
+      {items.map(([label, value]) => (
+        <span key={label} style={{ display: "grid", gap: 2, minWidth: 0 }}>
+          <span style={{ fontSize: 9.5, fontWeight: 800, letterSpacing: "0.04em", color: tokens.color.softInk }}>
+            {label}
+          </span>
+          <span style={{ fontFamily: tokens.font.mono, fontSize: 12, fontWeight: 800, color: tokens.color.ink }}>
+            {value}
+          </span>
+        </span>
+      ))}
+    </div>
+  );
+}
+
+export function ReactionPatternLane({
+  pattern,
+  active,
+  onClick
+}: {
+  pattern: ReactionPattern;
+  active?: boolean;
+  onClick?: () => void;
+}) {
+  const lane: NarrativeLaneHint = {
+    id: pattern.id,
+    label: pattern.label,
+    signalRefs: [...pattern.supportRefs, ...pattern.counterRefs],
+    consensus: reactionPercent(pattern) / 100,
+    icon: pattern.icon ?? "message-circle",
+    metricLabel: reactionMetricLabel(pattern),
+    subtext: pattern.dynamicImplication
+  };
+  return <NarrativeLane lane={lane} active={active} onClick={onClick} kind="reaction" />;
+}
+
+function ReactionEvidenceList({
+  label,
+  comments
+}: {
+  label: string;
+  comments: ReactionPatternDetail["representativeComments"];
+}) {
+  if (!comments.length) return null;
+  return (
+    <div style={{ display: "grid", gap: 6 }}>
+      <span style={{ fontSize: 9.5, fontWeight: 800, letterSpacing: "0.07em", textTransform: "uppercase", color: tokens.color.subInk }}>
+        {label}
+      </span>
+      <div style={{ display: "grid", gap: 6 }}>
+        {comments.map((comment) => (
+          <div
+            key={comment.ref}
+            data-reaction-pattern-comment={comment.ref}
+            data-reaction-pattern-comment-kind={comment.kind}
+            style={{
+              display: "grid",
+              gap: 4,
+              padding: "8px 10px",
+              borderRadius: tokens.radius.xs,
+              background: tokens.color.elevated,
+              borderLeft: `2px solid ${comment.kind === "counter" ? tokens.color.failedBorderStrong : TOPIC.primaryGlow}`
+            }}
+          >
+            <p style={{ margin: 0, fontFamily: `${tokens.font.serifCjk}, ${tokens.font.serif}`, fontSize: 12.5, lineHeight: 1.5, color: tokens.color.ink }}>
+              {comment.text}
+            </p>
+            <span style={{ display: "flex", gap: 8, alignItems: "center", fontSize: 10, color: tokens.color.softInk, flexWrap: "wrap" }}>
+              <span style={{ fontFamily: tokens.font.mono, color: comment.kind === "counter" ? tokens.color.failed : TOPIC.primary }}>
+                {comment.ref}
+              </span>
+              <span>@{comment.author}</span>
+              {typeof comment.likes === "number" && comment.likes > 0 ? <span>♥ {comment.likes}</span> : null}
+            </span>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+export function ReactionPatternDetailPanel({
+  pattern,
+  detail
+}: {
+  pattern: ReactionPattern;
+  detail: ReactionPatternDetail;
+}) {
+  return (
+    <section
+      data-reaction-pattern-detail={pattern.id}
+      style={{
+        display: "grid",
+        gap: 12,
+        padding: "13px 15px",
+        borderRadius: tokens.radius.card,
+        border: `1px solid ${TOPIC.primaryGlow}`,
+        background: TOPIC.tintSage,
+        boxShadow: tokens.shadow.topicCard,
+        fontFamily: tokens.font.sans
+      }}
+    >
+      <div style={{ display: "flex", alignItems: "baseline", gap: 8, flexWrap: "wrap" }}>
+        <span style={{ fontSize: 13, fontWeight: 800, color: tokens.color.ink, lineHeight: 1.3 }}>
+          {pattern.label}
+        </span>
+        <span style={{ fontSize: 10.5, fontWeight: 700, color: tokens.color.softInk }}>
+          {reactionMetricLabel(pattern)}
+        </span>
+      </div>
+      <p style={{ margin: 0, fontSize: 12.5, lineHeight: 1.55, color: tokens.color.subInk }}>
+        {pattern.dynamicImplication}
+      </p>
+      <ReactionEvidenceList label="代表留言" comments={detail.representativeComments} />
+      <ReactionEvidenceList label="反例" comments={detail.counterComments} />
+      {detail.missingRefs.length > 0 ? (
+        <span style={{ fontSize: 10.5, color: tokens.color.softInk }}>
+          {detail.missingRefs.length} 個 evidence ref 暫時未能對回留言文字
+        </span>
+      ) : null}
+    </section>
+  );
+}
+
+export function AuditReportReactionPatterns({
+  patterns,
+  coverage
+}: {
+  patterns: ReactionPattern[];
+  coverage?: ReactionCoverage;
+}) {
+  if (!patterns.length) return null;
+  return (
+    <div data-audit-report-reaction-patterns="true" style={{ display: "grid", gap: 8 }}>
+      <ReactionCoverageStrip coverage={coverage} />
+      {patterns.map((pattern) => (
+        <div
+          key={pattern.id}
+          data-audit-report-reaction-pattern={pattern.id}
+          style={{
+            display: "grid",
+            gridTemplateColumns: "minmax(160px, 0.36fr) minmax(0, 1fr) auto",
+            gap: 12,
+            alignItems: "start",
+            padding: "10px 14px",
+            borderRadius: tokens.radius.card,
+            background: tokens.color.elevated,
+            boxShadow: tokens.shadow.topicCard
+          }}
+        >
+          <span style={{ fontFamily: `${tokens.font.serifCjk}, ${tokens.font.serif}`, fontSize: 13.5, fontWeight: 700, lineHeight: 1.45, color: tokens.color.ink }}>
+            {pattern.label}
+          </span>
+          <span style={{ fontSize: 12.5, lineHeight: 1.55, color: tokens.color.subInk }}>
+            {pattern.dynamicImplication}
+          </span>
+          <span style={{ fontFamily: tokens.font.mono, fontSize: 11, color: tokens.color.subInk, whiteSpace: "nowrap" }}>
+            {reactionMetricLabel(pattern)}
+          </span>
+        </div>
+      ))}
+    </div>
   );
 }
 

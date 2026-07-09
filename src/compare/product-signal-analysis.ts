@@ -1,6 +1,8 @@
 import type { CaptureSnapshot } from "../contracts/ingest.ts";
 import {
+  hasCapturedPostAnalyzableText,
   projectCapturedPostFromCapture,
+  readCapturedPostAnalyzableTextFromCapture,
   type CapturedPostFragment,
   type CapturedPostReplyRole
 } from "../state/captured-post.ts";
@@ -179,10 +181,6 @@ export function hasProductSignalAssembledContent(capture: CaptureSnapshot | null
   return projectCapturedPostFromCapture(capture).hasAssembledContent;
 }
 
-function readLegacyCanonicalContent(capture: CaptureSnapshot | null | undefined): string {
-  return readTrimmedString(capture?.result?.canonical_post?.text ?? capture?.text_snippet);
-}
-
 export function buildProductSignalAnalyzerInputFromCapture({
   signalId,
   source,
@@ -199,7 +197,7 @@ export function buildProductSignalAnalyzerInputFromCapture({
   feedbackExamples?: ProductSignalPreferenceExample[];
 }): ProductSignalAnalyzerInput | null {
   const capturedPost = projectCapturedPostFromCapture(capture, { includeLegacyComments: true });
-  const assembledContent = capturedPost.assembledContent || readLegacyCanonicalContent(capture);
+  const assembledContent = capturedPost.assembledContent || readCapturedPostAnalyzableTextFromCapture(capture);
   if (!assembledContent) {
     return null;
   }
@@ -235,7 +233,7 @@ export function shouldAutoAnalyzeProductSignal({
   if (sessionMode !== "product" || itemStatus !== "succeeded") {
     return false;
   }
-  if (!hasProductSignalAssembledContent(capture)) {
+  if (!hasCapturedPostAnalyzableText(capture)) {
     return false;
   }
   return !(

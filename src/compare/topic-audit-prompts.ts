@@ -1,4 +1,4 @@
-import type { EvidencePacket, LensMemo, ReplyFragment, SignalReading } from "./topic-audit.ts";
+import type { EvidencePacket, LensMemo, ReactionCoverage, ReactionPattern, ReplyFragment, SignalReading } from "./topic-audit.ts";
 
 export const TOPIC_AUDIT_PROMPT_VERSIONS = {
   p1: "topic-audit-p1.v2",
@@ -6,7 +6,7 @@ export const TOPIC_AUDIT_PROMPT_VERSIONS = {
   p3: "topic-audit-p3.v2",
   p4: "topic-audit-p4.v1",
   p5: "topic-audit-p5.v1",
-  p6: "topic-audit-p6.v1",
+  p6: "topic-audit-p6.v2",
   p7: "topic-audit-p7.v1",
   p8: "topic-audit-p8.v1"
 } as const;
@@ -19,6 +19,8 @@ export interface AuditPromptEnvelope {
   displayHints?: {
     themeChips?: string[];
     narrativeLanes?: AuditPromptNarrativeLane[];
+    reactionCoverage?: ReactionCoverage;
+    reactionPatterns?: ReactionPattern[];
   };
 }
 
@@ -70,6 +72,8 @@ interface AuditPromptNarrativeLane {
 interface ParsedDisplayHints {
   themeChips: string[];
   narrativeLanes: AuditPromptNarrativeLane[];
+  reactionCoverage?: ReactionCoverage;
+  reactionPatterns: ReactionPattern[];
 }
 
 const NARRATIVE_LANE_ICON_SET: ReadonlySet<string> = new Set(NARRATIVE_LANE_ICONS);
@@ -141,6 +145,11 @@ function readNumber(value: unknown): number | null {
   return null;
 }
 
+function readNonNegativeInteger(value: unknown): number | null {
+  const parsed = readNumber(value);
+  return parsed === null ? null : Math.max(0, Math.round(parsed));
+}
+
 function readProse(parsed: Record<string, unknown>): string {
   return readTrimmedString(
     parsed.prose
@@ -181,6 +190,78 @@ function readNarrativeLanes(value: unknown, allowedRefs?: ReadonlySet<string>): 
   return lanes;
 }
 
+function readReactionCoverage(value: unknown): ReactionCoverage | undefined {
+  if (!value || typeof value !== "object" || Array.isArray(value)) {
+    return undefined;
+  }
+  const raw = value as Record<string, unknown>;
+  const postCount = readNonNegativeInteger(raw.postCount ?? raw.post_count);
+  const capturedCommentCount = readNonNegativeInteger(raw.capturedCommentCount ?? raw.captured_comment_count);
+  const readCommentCount = readNonNegativeInteger(raw.readCommentCount ?? raw.read_comment_count);
+  const usableAudienceCommentCount = readNonNegativeInteger(raw.usableAudienceCommentCount ?? raw.usable_audience_comment_count);
+  if (
+    postCount === null
+    || capturedCommentCount === null
+    || readCommentCount === null
+    || usableAudienceCommentCount === null
+  ) {
+    return undefined;
+  }
+  return {
+    postCount,
+    capturedCommentCount,
+    readCommentCount,
+    usableAudienceCommentCount
+  };
+}
+
+function readRefArray(value: unknown, allowedRefs?: ReadonlySet<string>): string[] {
+  return readStringArray(value).filter((ref) => !allowedRefs || allowedRefs.has(ref));
+}
+
+function readReactionPatterns(value: unknown, allowedRefs?: ReadonlySet<string>): ReactionPattern[] {
+  if (!Array.isArray(value)) {
+    return [];
+  }
+  const patterns: ReactionPattern[] = [];
+  for (const entry of value) {
+    if (!entry || typeof entry !== "object" || Array.isArray(entry)) {
+      continue;
+    }
+    const raw = entry as Record<string, unknown>;
+    const label = readTrimmedString(raw.label ?? raw.title ?? raw.name);
+    const dynamicImplication = readTrimmedString(raw.dynamicImplication ?? raw.dynamic_implication ?? raw.implication);
+    const nComments = readNonNegativeInteger(raw.nComments ?? raw.n_comments ?? raw.commentCount ?? raw.comment_count);
+    const nAuthors = readNonNegativeInteger(raw.nAuthors ?? raw.n_authors ?? raw.authorCount ?? raw.author_count) ?? 0;
+    const coverageDenominator = readNonNegativeInteger(raw.coverageDenominator ?? raw.coverage_denominator ?? raw.denominator);
+    if (!label || !dynamicImplication || nComments === null || coverageDenominator === null) {
+      continue;
+    }
+    const supportRefs = readRefArray(raw.supportRefs ?? raw.support_refs ?? raw.evidenceRefs ?? raw.evidence_refs, allowedRefs);
+    const counterRefs = readRefArray(raw.counterRefs ?? raw.counter_refs, allowedRefs);
+    const representativeRefs = readRefArray(raw.representativeRefs ?? raw.representative_refs ?? raw.exampleRefs ?? raw.example_refs, allowedRefs);
+    const counterRepresentativeRefs = readRefArray(raw.counterRepresentativeRefs ?? raw.counter_representative_refs ?? raw.counterExampleRefs ?? raw.counter_example_refs, allowedRefs);
+    if ([...supportRefs, ...counterRefs, ...representativeRefs, ...counterRepresentativeRefs].length === 0) {
+      continue;
+    }
+    const icon = readIcon(raw.icon);
+    patterns.push({
+      id: readTrimmedString(raw.id) || `reaction-${patterns.length + 1}`,
+      label,
+      dynamicImplication,
+      nComments,
+      nAuthors,
+      coverageDenominator,
+      supportRefs,
+      counterRefs,
+      representativeRefs,
+      counterRepresentativeRefs,
+      ...(icon ? { icon } : {})
+    });
+  }
+  return patterns;
+}
+
 export function parseAuditPromptEnvelopeResponse(
   raw: string,
   allowedRefs?: ReadonlySet<string>
@@ -205,20 +286,27 @@ export function parseAuditPromptEnvelopeResponse(
         narrativeLanes: readNarrativeLanes(
           (rawDisplayHints as Record<string, unknown>).narrativeLanes ?? (rawDisplayHints as Record<string, unknown>).narrative_lanes,
           allowedRefs
+        ),
+        reactionCoverage: readReactionCoverage((rawDisplayHints as Record<string, unknown>).reactionCoverage ?? (rawDisplayHints as Record<string, unknown>).reaction_coverage),
+        reactionPatterns: readReactionPatterns(
+          (rawDisplayHints as Record<string, unknown>).reactionPatterns ?? (rawDisplayHints as Record<string, unknown>).reaction_patterns,
+          allowedRefs
         )
       }
-    : { themeChips: [], narrativeLanes: [] };
+    : { themeChips: [], narrativeLanes: [], reactionPatterns: [] };
 
   return {
     prose,
     evidenceRefs,
     caveats,
     ...(coverage ? { coverage } : {}),
-    ...(displayHints.themeChips.length > 0 || displayHints.narrativeLanes.length > 0
+    ...(displayHints.themeChips.length > 0 || displayHints.narrativeLanes.length > 0 || displayHints.reactionCoverage || displayHints.reactionPatterns.length > 0
       ? {
           displayHints: {
             ...(displayHints.themeChips.length > 0 ? { themeChips: displayHints.themeChips } : {}),
-            ...(displayHints.narrativeLanes.length > 0 ? { narrativeLanes: displayHints.narrativeLanes } : {})
+            ...(displayHints.narrativeLanes.length > 0 ? { narrativeLanes: displayHints.narrativeLanes } : {}),
+            ...(displayHints.reactionCoverage ? { reactionCoverage: displayHints.reactionCoverage } : {}),
+            ...(displayHints.reactionPatterns.length > 0 ? { reactionPatterns: displayHints.reactionPatterns } : {})
           }
         }
       : {})
@@ -291,6 +379,32 @@ function renderPacket(packet: EvidencePacket, includeGaps = true): string {
 
 function renderPackets(packets: EvidencePacket[]): string {
   return packets.map((packet) => renderPacket(packet)).join("\n\n");
+}
+
+function collectCitedRefs(input: TopicPromptInput): Set<string> {
+  return new Set([
+    ...input.signalReadings.flatMap((reading) => reading.evidenceRefs),
+    ...(input.lensMemos ?? []).flatMap((memo) => memo.evidenceRefs)
+  ]);
+}
+
+function renderCitedFragments(input: TopicPromptInput): string {
+  const citedRefs = collectCitedRefs(input);
+  return input.packets
+    .map((packet) => {
+      const lines = [
+        `## ${packet.shortCode} (${packet.signalId})`,
+        `${packet.shortCode}.OP [♥${likesLabel(packet.opLikes)}] @${packet.opAuthor || "unknown"}: ${packet.opText || "（無 OP text）"}`,
+        ...packet.replyFragments
+          .filter((fragment) => citedRefs.has(fragment.ref))
+          .map(renderFragment)
+      ];
+      if (packet.gaps.length > 0) {
+        lines.push(`GAPS: ${packet.gaps.join(" / ")}`);
+      }
+      return lines.join("\n");
+    })
+    .join("\n\n");
 }
 
 function renderSignalReadings(readings: SignalReading[]): string {
@@ -432,8 +546,8 @@ export function buildP6FinalReportPrompt(input: TopicPromptInput): string {
     "每節標 coverage。資料不足明說。不可宣稱 platform-level，最多說本 topic 內觀察到。",
     "不要預設任何在其他 topic 出現過的 finding；每個判讀都從本 topic evidence 長出。",
     "",
-    "[Evidence]",
-    renderPackets(input.packets),
+    "[Evidence digest: OP + cited comments only]",
+    renderCitedFragments(input),
     "",
     "[P1 readings]",
     renderSignalReadings(input.signalReadings),

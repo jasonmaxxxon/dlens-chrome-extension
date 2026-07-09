@@ -19,7 +19,6 @@ function buildSettings(): ExtensionSettings {
 test("createDefaultSettings has layoutPreferences defaults", () => {
   const settings = createDefaultSettings();
 
-  assert.equal(settings.layoutPreferences.productSignalCardLayout, "marginalia");
   assert.equal(settings.layoutPreferences.topicSynthesisLayout, "console");
   assert.equal(settings.layoutPreferences.compareResultLayout, "parallel");
 });
@@ -32,7 +31,6 @@ test("normalizeExtensionSettings preserves partial layoutPreferences and fills d
   });
 
   assert.equal(settings.layoutPreferences.compareResultLayout, "chapters");
-  assert.equal(settings.layoutPreferences.productSignalCardLayout, "marginalia");
   assert.equal(settings.layoutPreferences.topicSynthesisLayout, "console");
 });
 

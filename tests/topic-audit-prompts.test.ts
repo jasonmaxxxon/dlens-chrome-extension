@@ -33,7 +33,8 @@ function makePacket(): EvidencePacket {
     commentCount: 4,
     replyFragments: [
       { ref: "S1.OPC1", author: "op", text: "第一點：app 會放大選擇成本。", likes: 7, role: "op_continuation" },
-      { ref: "S1.R1", author: "reader", text: "我同老公就是 app 識的。", likes: null, role: "audience" }
+      { ref: "S1.R1", author: "reader", text: "我同老公就是 app 識的。", likes: null, role: "audience" },
+      { ref: "S1.R2", author: "reader2", text: "這條未被引用的 raw reply 不應該出現在 P6。", likes: 2, role: "audience" }
     ],
     aiArtifacts: {
       gist: "這篇把交友 app 寫成選擇成本與價值錯配問題。",
@@ -109,6 +110,11 @@ test("P2-P6 prompts use prior prose memos but keep findings as probes instead of
   assert.match(p5, /data gap 必須與真 absence 區分/);
   assert.match(p6, /7 節/);
   assert.match(p6, /editorial/);
+  assert.match(p6, /S1\.OP \[♥81\] @op: 靚女玩 app 會遇到市場錯配。/);
+  assert.match(p6, /S1\.R1 \[♥unknown\] @reader: 我同老公就是 app 識的。/);
+  assert.doesNotMatch(p6, /S1\.R2/);
+  assert.doesNotMatch(p6, /未被引用的 raw reply/);
+  assert.equal(TOPIC_AUDIT_PROMPT_VERSIONS.p6, "topic-audit-p6.v2");
   assert.deepEqual(findForbiddenFindingAssertions(p5), []);
   assert.deepEqual(findForbiddenFindingAssertions(p6), []);
 });
@@ -178,6 +184,76 @@ test("parseAuditPromptEnvelopeResponse accepts memo aliases and snake_case displ
     displayHints: {
       themeChips: ["戀愛市場"],
       narrativeLanes: [{ id: "lane-1", label: "條件交換焦慮", signalRefs: ["S1.OP"], consensus: 0.4 }]
+    }
+  });
+});
+
+test("parseAuditPromptEnvelopeResponse preserves structured reaction patterns and filters evidence refs", () => {
+  const parsed = parseAuditPromptEnvelopeResponse(
+    JSON.stringify({
+      prose: "P4 讀到身份防守與制度反駁兩種反應。",
+      evidenceRefs: ["S1.R1", "S9.R9"],
+      caveats: [],
+      display_hints: {
+        reaction_coverage: {
+          post_count: 1,
+          captured_comment_count: 342,
+          read_comment_count: 342,
+          usable_audience_comment_count: 318
+        },
+        reaction_patterns: [{
+          id: "reaction-local-labor-defense",
+          label: "本地勞工身份防守",
+          dynamic_implication: "留言把政策爭議推向身份與分配正義。",
+          n_comments: 118,
+          n_authors: 72,
+          coverage_denominator: 342,
+          support_refs: ["S1.R1", "S1.R2", "S9.R9"],
+          counter_refs: ["S1.R3"],
+          representative_refs: ["S1.R1"],
+          counter_representative_refs: ["S1.R3", "S9.R9"],
+          icon: "users"
+        }, {
+          id: "reaction-unbacked",
+          label: "無證據 pattern",
+          dynamic_implication: "這條不應該進 UI。",
+          n_comments: 9,
+          n_authors: 4,
+          coverage_denominator: 342,
+          support_refs: ["S9.R9"],
+          counter_refs: [],
+          representative_refs: ["S9.R9"],
+          counter_representative_refs: []
+        }]
+      }
+    }),
+    new Set(["S1.R1", "S1.R2", "S1.R3"])
+  );
+
+  assert.deepEqual(parsed, {
+    prose: "P4 讀到身份防守與制度反駁兩種反應。",
+    evidenceRefs: ["S1.R1"],
+    caveats: [],
+    displayHints: {
+      reactionCoverage: {
+        postCount: 1,
+        capturedCommentCount: 342,
+        readCommentCount: 342,
+        usableAudienceCommentCount: 318
+      },
+      reactionPatterns: [{
+        id: "reaction-local-labor-defense",
+        label: "本地勞工身份防守",
+        dynamicImplication: "留言把政策爭議推向身份與分配正義。",
+        nComments: 118,
+        nAuthors: 72,
+        coverageDenominator: 342,
+        supportRefs: ["S1.R1", "S1.R2"],
+        counterRefs: ["S1.R3"],
+        representativeRefs: ["S1.R1"],
+        counterRepresentativeRefs: ["S1.R3"],
+        icon: "users"
+      }]
     }
   });
 });

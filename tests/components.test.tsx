@@ -253,6 +253,31 @@ test("WorkspaceShell renders masthead WorkspaceSwitcher when onSwitchWorkspace i
   assert.doesNotMatch(html, /data-mode-badge="product"/);
 });
 
+test("WorkspaceSwitcher sizes the sliding thumb from the same equal tracks as the tabs", () => {
+  const html = renderToStaticMarkup(
+    React.createElement(WorkspaceSwitcher, {
+      activeMode: "product",
+      onChange: () => undefined
+    })
+  );
+
+  const switcherTag = html.match(/<div[^>]+data-workspace-switcher="segmented"[^>]*>/)?.[0];
+  const thumbTag = html.match(/<span[^>]+data-workspace-switcher-thumb="sliding"[^>]*>/)?.[0];
+  const productTag = html.match(/<button[^>]+data-workspace-switcher-mode="product"[^>]*>/)?.[0];
+  assert.ok(switcherTag);
+  assert.ok(thumbTag);
+  assert.ok(productTag);
+  const switcherStyle = styleFromTag(switcherTag);
+  const thumbStyle = styleFromTag(thumbTag);
+  const productStyle = styleFromTag(productTag);
+
+  assert.match(switcherStyle, /display:inline-grid/);
+  assert.match(switcherStyle, /grid-template-columns:repeat\(3, minmax\(0, 1fr\)\)/);
+  assert.match(thumbStyle, /width:calc\(\(100% - 8px\) \/ 3\)/);
+  assert.match(thumbStyle, /transform:translateX\(calc\(100% \+ 2px\)\)/);
+  assert.match(productStyle, /width:100%/);
+});
+
 test("WorkspaceSwitcher moves by keyboard arrow keys", async () => {
   const { JSDOM } = await import("jsdom");
   const { createRoot } = await import("react-dom/client");
@@ -299,6 +324,27 @@ test("WorkspaceSwitcher moves by keyboard arrow keys", async () => {
     await new Promise((resolve) => setTimeout(resolve, 0));
     Object.assign(globalThis, previous);
   }
+});
+
+test("WorkspaceShell hides the stale body while workspace mode is switching", () => {
+  const html = renderToStaticMarkup(
+    React.createElement(
+      WorkspaceShell,
+      {
+        mode: "pr-evidence",
+        folderMode: "pr-evidence",
+        onSwitchWorkspace: () => undefined,
+        switchingWorkspaceMode: "product",
+        availableWorkspaceModes: ["topic", "product", "pr-evidence"] as const,
+        header: React.createElement("div", null, "Header")
+      },
+      React.createElement("div", null, "Old PR Evidence body")
+    )
+  );
+
+  assert.match(html, /data-workspace-switching="product"/);
+  assert.match(html, /data-workspace-mode="product"/);
+  assert.doesNotMatch(html, /Old PR Evidence body/);
 });
 
 test("WorkspaceShell WorkspaceSwitcher active tabs use each mode accent", () => {

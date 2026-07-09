@@ -14,6 +14,7 @@ import { DEFAULT_SESSION_NAME_BY_MODE, normalizePostUrl } from "../state/store-h
 import {
   createDefaultLayoutPreferences,
   createDefaultSettings,
+  type ExtensionSettings,
   type ExtensionSnapshot,
   type FolderMode,
   type FolderSynthesis,
@@ -62,8 +63,11 @@ import {
 } from "./inpage-helpers";
 import {
   buildSettingsSaveMessages,
-  createEmptyProductProfile
+  createEmptyProductProfile,
+  normalizeProductProfileDraft,
+  type SettingsDraftValues
 } from "./settings-save-messages";
+import { mergeLayoutPreferences, mergeOneLinerSettings } from "../state/settings-storage";
 import { useCompareDraftState } from "./useCompareDraftState";
 import { usePopupKeyframes } from "./usePopupKeyframes";
 import { usePopupWorkspaceState } from "./usePopupWorkspaceState";
@@ -169,6 +173,57 @@ function readInteractionNowMs(): number {
 
 function readWallClockNowMs(): number {
   return Date.now();
+}
+
+type LocalSettingsOverrideInput = SettingsDraftValues & {
+  currentSettings: ExtensionSettings;
+};
+
+function hasDraftOrStoredKey(draftValue: string, storedPresence: boolean | undefined, storedValue: string): boolean {
+  return Boolean(draftValue.trim() || storedPresence || storedValue.trim());
+}
+
+export function buildLocalSettingsOverride({
+  currentSettings,
+  draftBaseUrl,
+  draftProvider,
+  draftOpenAiKey,
+  draftClaudeKey,
+  draftGoogleKey,
+  draftLayoutPreferences,
+  draftProductProfile
+}: LocalSettingsOverrideInput): ExtensionSettings {
+  const withProvider = mergeOneLinerSettings(currentSettings, {
+    provider: draftProvider || null,
+    openaiApiKey: draftOpenAiKey,
+    claudeApiKey: draftClaudeKey,
+    googleApiKey: draftGoogleKey
+  });
+  const withLayout = mergeLayoutPreferences(withProvider, draftLayoutPreferences);
+  return {
+    ...withLayout,
+    ingestBaseUrl: draftBaseUrl,
+    hasOpenAiKey: hasDraftOrStoredKey(draftOpenAiKey, currentSettings.hasOpenAiKey, currentSettings.openaiApiKey),
+    hasClaudeKey: hasDraftOrStoredKey(draftClaudeKey, currentSettings.hasClaudeKey, currentSettings.claudeApiKey),
+    hasGoogleKey: hasDraftOrStoredKey(draftGoogleKey, currentSettings.hasGoogleKey, currentSettings.googleApiKey),
+    productProfile: normalizeProductProfileDraft(draftProductProfile)
+  };
+}
+
+export function buildEffectiveSettingsSnapshot(
+  snapshot: ExtensionSnapshot | null,
+  settingsOverride: ExtensionSettings | null
+): ExtensionSnapshot | null {
+  if (!snapshot || !settingsOverride) {
+    return snapshot;
+  }
+  return {
+    ...snapshot,
+    global: {
+      ...snapshot.global,
+      settings: settingsOverride
+    }
+  };
 }
 
 function createContextFileId(kind: ProductProfileContextFile["kind"], name: string): string {
@@ -536,6 +591,12 @@ export function useInPageCollectorAppState({ snapshot, tabId, sendAndSync }: Use
   const [isSavingSettings, setIsSavingSettings] = useState(false);
   const [optimisticSessionMode, setOptimisticSessionMode] = useState<FolderMode | null>(null);
   const [localPopupOpen, setLocalPopupOpen] = useState(false);
+  const [localSettingsOverride, setLocalSettingsOverride] = useState<ExtensionSettings | null>(null);
+  const effectiveSnapshot = useMemo(
+    () => buildEffectiveSettingsSnapshot(snapshot, localSettingsOverride),
+    [localSettingsOverride, snapshot]
+  );
+  const effectiveSettings = effectiveSnapshot?.global.settings ?? null;
 
   const snapshotActiveFolder = useMemo(() => getActiveSession(snapshot), [snapshot]);
   const optimisticFolder = useMemo(
@@ -606,11 +667,11 @@ export function useInPageCollectorAppState({ snapshot, tabId, sendAndSync }: Use
     () => (activeFolder?.items || []).filter((item) => item.status === "succeeded" && item.latestCapture?.analysis?.status === "succeeded"),
     [activeFolder?.items]
   );
-  const hasGoogleKey = Boolean(snapshot?.global.settings.hasGoogleKey ?? snapshot?.global.settings.googleApiKey.trim());
-  const hasOpenAiKey = Boolean(snapshot?.global.settings.hasOpenAiKey ?? snapshot?.global.settings.openaiApiKey.trim());
-  const hasClaudeKey = Boolean(snapshot?.global.settings.hasClaudeKey ?? snapshot?.global.settings.claudeApiKey.trim());
+  const hasGoogleKey = Boolean(effectiveSettings?.hasGoogleKey ?? effectiveSettings?.googleApiKey.trim());
+  const hasOpenAiKey = Boolean(effectiveSettings?.hasOpenAiKey ?? effectiveSettings?.openaiApiKey.trim());
+  const hasClaudeKey = Boolean(effectiveSettings?.hasClaudeKey ?? effectiveSettings?.claudeApiKey.trim());
   const productAiProviderReady = useMemo(() => {
-    const settings = snapshot?.global.settings;
+    const settings = effectiveSettings;
     if (!settings) {
       return false;
     }
@@ -620,7 +681,7 @@ export function useInPageCollectorAppState({ snapshot, tabId, sendAndSync }: Use
       || (settings.oneLinerProvider === "claude" && hasClaudeKey)
     );
   }, [
-    snapshot?.global.settings.oneLinerProvider,
+    effectiveSettings?.oneLinerProvider,
     hasGoogleKey,
     hasOpenAiKey,
     hasClaudeKey
@@ -666,7 +727,7 @@ export function useInPageCollectorAppState({ snapshot, tabId, sendAndSync }: Use
     page,
     draft: snapshot?.tab.activeCompareDraft,
     readyCompareItems,
-    settings: snapshot?.global.settings
+    settings: effectiveSettings ?? undefined
   });
   const {
     resultSurface,
@@ -687,7 +748,7 @@ export function useInPageCollectorAppState({ snapshot, tabId, sendAndSync }: Use
     compareItemB,
     compareTeaser,
     compareTeaserState,
-    productProfile: snapshot?.global.settings.productProfile,
+    productProfile: effectiveSettings?.productProfile,
     savedAnalyses,
     sendAndSync,
     setSavedAnalyses,
@@ -1959,7 +2020,7 @@ export function useInPageCollectorAppState({ snapshot, tabId, sendAndSync }: Use
     }
   }
 
-  const compareViewSettings = snapshot?.global.settings || createDefaultSettings();
+  const compareViewSettings = effectiveSettings || createDefaultSettings();
 
   async function onSetActiveSession(sessionId: string) {
     await sendAndSync({
@@ -2115,6 +2176,16 @@ export function useInPageCollectorAppState({ snapshot, tabId, sendAndSync }: Use
           productContextError = response.productContextError ?? null;
         }
       }
+      setLocalSettingsOverride(buildLocalSettingsOverride({
+        currentSettings: snapshot?.global.settings ?? createDefaultSettings(),
+        draftBaseUrl,
+        draftProvider,
+        draftOpenAiKey,
+        draftClaudeKey,
+        draftGoogleKey,
+        draftLayoutPreferences,
+        draftProductProfile
+      }));
       if (latestProductContext !== undefined) {
         setCompiledProductContext(latestProductContext);
       }
@@ -2747,7 +2818,7 @@ export function useInPageCollectorAppState({ snapshot, tabId, sendAndSync }: Use
 
   return {
     popupRef,
-    snapshot,
+    snapshot: effectiveSnapshot,
     tabId,
     activeFolder,
     activeFolderMode,

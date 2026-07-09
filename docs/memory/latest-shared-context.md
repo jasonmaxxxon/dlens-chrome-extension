@@ -52,6 +52,7 @@ This note is the high-signal shared memory for Codex and Claude when working on 
 - `PR Evidence` mode is a compact campaign evidence workflow for agency / PR operators, backed by `PrCampaign` and `PrEvidenceRow`.
 - 0.3.0 is the Visual Reset A user-visible release: popup shell, PR Evidence ledger, Topic detail, Compare hero, and Product action marquee surfaces now follow the `src/ui/tokens.ts` warm-paper editorial contract plus native-feeling utility shell affordances. This did not change storage, backend, ViewModel, command target, classifier, content-script, or Signal Packet contracts.
 - 0.3.13 is a Collect / Topic chrome cleanup release: Topic Collect's 未分流 queue now has per-row and bulk delete controls wired to `signal/delete`, and the redundant Topic top selector strip is removed. Topic destination selection lives in the floating collect preview card, and topic creation stays in the 議題 page, so Topic/Product/PR top chrome is consistent.
+- 0.3.14 is a Topic / Product runtime repair release: the 議題 page create action now opens the real create-topic flow after the Topic top strip removal, WorkspaceShell hides stale mode bodies while mode switches are pending, and Settings save applies an immediate effective settings snapshot so Product analysis gating sees the just-saved provider, API-key presence, and ProductContext before the background snapshot catches up.
 - `VIEW` remains 🟢, not 🟩. The four marquee surfaces are DOM-test-locked; row-level primitive adoption / large-view LOC reduction remains a follow-up `refactor(ui)` track.
 
 ## Layout Preference State As Of 2026-05-14
@@ -87,9 +88,9 @@ This note is the high-signal shared memory for Codex and Claude when working on 
 
 ## Version Rule As Of 2026-07-07
 
-- Current source version in the active worktree: `0.3.13`.
-- Latest local verification: `npm run typecheck`, `npm run boundary:guard`, `npm run storage:seam-guard`, `npx tsx --test tests/*.test.ts tests/*.test.tsx` (`983 passed / 5 skipped`), `npm run build`, and `git diff --check` passed on 2026-07-07.
-- Built `output/chrome-mv3/manifest.json` reports `version: "0.3.13"` after the 2026-07-07 build.
+- Current source version in the active worktree: `0.3.14`.
+- Latest local verification: `npm run typecheck`, `npm run boundary:guard`, `npm run storage:seam-guard`, `npx tsx --test tests/*.test.ts tests/*.test.tsx` (`991 tests`, `986 passed / 5 skipped`), `npm run build`, and `git diff --check` passed on 2026-07-07.
+- Built `output/chrome-mv3/manifest.json` reports `version: "0.3.14"` after the 2026-07-07 build.
 - Current engineering branch: `main`.
 - `docs/ENGINEERING_PLAN.md` §2 N1-N5 is complete: React ErrorBoundary, Settings storage usage, `mutateSnapshot` seam, behavioral storage contracts, and code-review checklist.
 - §3 remains a deferred trigger pool, not a backlog drain queue.

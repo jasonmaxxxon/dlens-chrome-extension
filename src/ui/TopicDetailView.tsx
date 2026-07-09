@@ -5,14 +5,16 @@ import {
   TOPIC_SYNTHESIS_STALE_DELTA,
   topicSynthesisStaleReason
 } from "../compare/topic-synthesis.ts";
-import type { TopicAuditStageName } from "../compare/topic-audit.ts";
+import type { EvidencePacket, SignalReading, TopicAuditStageName } from "../compare/topic-audit.ts";
 import type { TopicAuditValidationFlag } from "../compare/topic-audit-validator.ts";
 import { buildNarrativeLaneDetail } from "../viewmodel/narrative-lane-detail.ts";
+import { buildReactionPatternDetail } from "../viewmodel/reaction-pattern-detail.ts";
 import type {
   FolderMode,
   SavedAnalysisSnapshot,
   SignalTagsRecord,
   Topic,
+  TopicSignalReading,
   TopicSignalStance,
   TopicSynthesis,
   TopicSynthesisLayout
@@ -39,6 +41,9 @@ import {
   NewsroomLane,
   NewsroomUncertainty,
   PrimaryButton as AuditPrimaryButton,
+  ReactionCoverageStrip,
+  ReactionPatternDetailPanel,
+  ReactionPatternLane,
   SectionLabel,
   SourceRow,
   ThemeChip,
@@ -52,6 +57,34 @@ import { pickPrimaryJudgmentPair } from "./useTopicState.ts";
 
 const TOPIC_MODE_ACCENT = `var(--dlens-mode-accent, ${tokens.topicAccent.primary})`;
 const TOPIC_MODE_ACCENT_SOFT = `var(--dlens-mode-accent-soft, ${tokens.topicAccent.tintSage})`;
+
+/**
+ * Adapt a per-signal TopicSignalReading (cold-read stored per post) into the
+ * audit-shaped SignalReading the SignalDrawer renders. Lets an already-analyzed
+ * post show its claim + inline citations when drilled into before the full topic
+ * audit runs. Returns null when there is no usable reading.
+ */
+function adaptTopicSignalReadingForDrawer(
+  reading: TopicSignalReading | undefined,
+  packet: EvidencePacket | null
+): SignalReading | null {
+  if (!reading || reading.status !== "complete" || !packet) {
+    return null;
+  }
+  return {
+    auditRunId: packet.auditRunId,
+    inputHash: packet.inputHash,
+    topicId: reading.topicId,
+    signalId: reading.signalId,
+    shortCode: packet.shortCode,
+    reading: reading.reading,
+    evidenceRefs: reading.evidenceRefs,
+    watchNotes: reading.uncertainties,
+    promptVersion: reading.promptVersion,
+    model: reading.model,
+    generatedAt: reading.generatedAt
+  };
+}
 
 interface TopicDetailViewProps {
   viewModel: TopicDetailViewModel;
@@ -1105,7 +1138,7 @@ function TopicDetailSection({
   children,
   style
 }: {
-  surface: "themes" | "lanes" | "sources";
+  surface: "themes" | "lanes" | "reaction-patterns" | "sources";
   title: string;
   caption?: ReactNode;
   action?: ReactNode;
@@ -1313,6 +1346,8 @@ export function TopicDetailView({
   const auditValidatorFlags = audit.validatorFlags;
   const auditThemes = audit.themes;
   const auditLanes = audit.lanes as NarrativeLaneHint[];
+  const reactionCoverage = audit.reactionCoverage;
+  const reactionPatterns = audit.reactionPatterns;
   const auditSourceTotal = audit.sourceTotal;
   const p1ReadyCount = audit.p1ReadyCount;
   const p1AllReady = audit.p1AllReady;
@@ -1333,6 +1368,7 @@ export function TopicDetailView({
   const [selectedTag, setSelectedTag] = useState<string | null>(null);
   const [activeAuditTheme, setActiveAuditTheme] = useState<string | null>(null);
   const [activeAuditLane, setActiveAuditLane] = useState<string | null>(null);
+  const [activeReactionPatternId, setActiveReactionPatternId] = useState<string | null>(null);
   const [openAuditSignalId, setOpenAuditSignalId] = useState<string | null>(null);
   const [manualJudgment, setManualJudgment] = useState<{
     resultId: string;
@@ -1352,6 +1388,15 @@ export function TopicDetailView({
     [selectedTag, signals]
   );
   const filteredAuditRows = useMemo(() => {
+    if (activeReactionPatternId) {
+      const pattern = reactionPatterns.find((entry) => entry.id === activeReactionPatternId);
+      const refs = new Set(
+        [...(pattern?.supportRefs ?? []), ...(pattern?.counterRefs ?? [])]
+          .map((ref) => ref.split(".")[0])
+          .filter(Boolean)
+      );
+      return audit.sourceRows.filter((row) => refs.has(row.packet.shortCode));
+    }
     if (activeAuditLane) {
       const lane = auditLanes.find((entry) => entry.id === activeAuditLane);
       const refs = new Set(lane?.signalRefs.map((ref) => ref.split(".")[0]) ?? []);
@@ -1361,17 +1406,32 @@ export function TopicDetailView({
       return audit.sourceRows.filter((row) => row.packet.aiArtifacts?.tags?.includes(activeAuditTheme));
     }
     return audit.sourceRows;
-  }, [activeAuditLane, activeAuditTheme, audit.sourceRows, auditLanes]);
+  }, [activeAuditLane, activeAuditTheme, activeReactionPatternId, audit.sourceRows, auditLanes, reactionPatterns]);
   const activeLane = activeAuditLane ? auditLanes.find((entry) => entry.id === activeAuditLane) ?? null : null;
   const activeLaneDetail = useMemo(() => {
     if (!activeLane) return null;
     return buildNarrativeLaneDetail({ lane: activeLane, packets: auditEvidence });
   }, [activeLane, auditEvidence]);
+  const activeReactionPattern = activeReactionPatternId
+    ? reactionPatterns.find((entry) => entry.id === activeReactionPatternId) ?? null
+    : null;
+  const activeReactionPatternDetail = useMemo(() => {
+    if (!activeReactionPattern) return null;
+    return buildReactionPatternDetail({ pattern: activeReactionPattern, packets: auditEvidence });
+  }, [activeReactionPattern, auditEvidence]);
   const openAuditRow = openAuditSignalId
     ? audit.sourceRows.find((row) => row.packet.signalId === openAuditSignalId || row.packet.shortCode === openAuditSignalId) ?? null
     : null;
-  const openAuditPacket = openAuditRow?.packet ?? null;
-  const openAuditReading = openAuditRow?.reading ?? null;
+  // Pre-audit fallback: when the topic audit has not run, source rows are empty,
+  // so open the drawer from the locally-derived packet (OP 原文 + 留言) and adapt
+  // any per-signal reading into the drawer's claim view.
+  const openAuditPacket = openAuditRow?.packet
+    ?? (openAuditSignalId ? viewModel.packetsBySignalId[openAuditSignalId] ?? null : null);
+  const openAuditReading = openAuditRow?.reading
+    ?? adaptTopicSignalReadingForDrawer(
+      openAuditSignalId ? signals.find((row) => row.signalId === openAuditSignalId)?.reading : undefined,
+      openAuditPacket
+    );
 
   useEffect(() => {
     if (selectedTag && !signalTagSummaries.some((summary) => summary.tag === selectedTag)) {
@@ -1566,22 +1626,26 @@ export function TopicDetailView({
           const tagRecord = signal.tagRecord;
           const reading = signal.reading;
           const originalUrl = signal.sourcePreview.displayUrl;
-          const openAnalysisAction = signal.actions.find((entry) => entry.kind === "openSignalAnalysis");
           const addToCompareAction = signal.actions.find((entry) => entry.kind === "addSignalToCompare");
           const analyzeAction = signal.actions.find((entry) => entry.kind === "analyzeItem" || entry.kind === "queueSignalItem");
           const deleteAction = signal.actions.find((entry) => entry.kind === "deleteSignal");
+          // Drill-in is meaningful only once the thread (原文 + 留言) has been
+          // crawled; a collection-only snippet has no comments to show yet.
+          const canOpenDrawer = viewModel.packetsBySignalId[signal.signalId]?.status === "succeeded";
 
           return (
             <div
               key={signal.signalId}
               data-topic-source-row={signal.signalId}
               data-scan-row="true"
+              onClick={canOpenDrawer ? () => setOpenAuditSignalId(signal.signalId) : undefined}
               style={scanRowStyle({
                 display: "grid",
                 gridTemplateColumns: deleteAction ? "5px minmax(0, 1fr) auto 42px" : "5px minmax(0, 1fr) auto",
                 gap: 10,
                 padding: "11px 0",
-                alignItems: "start"
+                alignItems: "start",
+                cursor: canOpenDrawer ? "pointer" : "default"
               })}
             >
               <span
@@ -1603,7 +1667,10 @@ export function TopicDetailView({
                     {preview}
                   </div>
                 ) : null}
-                <div style={{ display: "flex", gap: 5, flexWrap: "wrap", alignItems: "center" }}>
+                <div
+                  onClick={(event) => event.stopPropagation()}
+                  style={{ display: "flex", gap: 5, flexWrap: "wrap", alignItems: "center" }}
+                >
                   <Stamp tone={analysisStateTone(status)}>{analysisStateLabel(status)}</Stamp>
                   {reading ? <StanceBadge stance={reading.stance} marker="source" /> : null}
                   <span style={{ fontSize: 10.5, color: tokens.color.softInk }}>加入 {formatTopicDate(signal.capturedAt)}</span>
@@ -1629,18 +1696,11 @@ export function TopicDetailView({
                   ) : null}
                   {signal.itemId && !signal.isProcessing ? (
                     signal.isReady ? (
-                      <>
-                        {openAnalysisAction ? (
-                          <SecondaryButton onClick={() => dispatch(openAnalysisAction)} style={{ padding: "4px 8px", fontSize: 10.5 }}>
-                            查看分析
-                          </SecondaryButton>
-                        ) : null}
-                        {addToCompareAction ? (
-                          <SecondaryButton onClick={() => dispatch(addToCompareAction)} style={{ padding: "4px 8px", fontSize: 10.5 }}>
-                            加入比較
-                          </SecondaryButton>
-                        ) : null}
-                      </>
+                      addToCompareAction ? (
+                        <SecondaryButton onClick={() => dispatch(addToCompareAction)} style={{ padding: "4px 8px", fontSize: 10.5 }}>
+                          加入比較
+                        </SecondaryButton>
+                      ) : null
                     ) : analyzeAction ? (
                       <SecondaryButton
                         onClick={() => handleAnalyzeItem(signal)}
@@ -1691,7 +1751,7 @@ export function TopicDetailView({
   );
 
   if (sessionMode === "topic") {
-    const showAuditPlaceholder = auditSummaryValue.reportStatus === "failed" || (auditThemes.length === 0 && auditLanes.length === 0 && auditEvidence.length === 0);
+    const showAuditPlaceholder = auditSummaryValue.reportStatus === "failed" || (auditThemes.length === 0 && auditLanes.length === 0 && reactionPatterns.length === 0 && auditEvidence.length === 0);
     const newsroomUncertaintyText = (() => {
       const counts = countValidationFlags(auditValidatorFlags);
       const parts: string[] = [];
@@ -1775,6 +1835,7 @@ export function TopicDetailView({
                   onClick={() => {
                     setActiveAuditTheme(activeAuditTheme === theme ? null : theme);
                     setActiveAuditLane(null);
+                    setActiveReactionPatternId(null);
                   }}
                 />
               ))}
@@ -1797,6 +1858,7 @@ export function TopicDetailView({
                 onClick={() => {
                   setActiveAuditLane(activeAuditLane === lane.id ? null : lane.id);
                   setActiveAuditTheme(null);
+                  setActiveReactionPatternId(null);
                 }}
               />
             ))}
@@ -1813,6 +1875,35 @@ export function TopicDetailView({
           />
         ) : null}
 
+        {reactionPatterns.length > 0 ? (
+          <TopicDetailSection
+            surface="reaction-patterns"
+            title="群眾反應"
+            caption="真實留言母數　代表留言與反例"
+            style={{ gap: 8 }}
+          >
+            <ReactionCoverageStrip coverage={reactionCoverage} />
+            {reactionPatterns.map((pattern) => (
+              <ReactionPatternLane
+                key={pattern.id}
+                pattern={pattern}
+                active={activeReactionPatternId === pattern.id}
+                onClick={() => {
+                  setActiveReactionPatternId(activeReactionPatternId === pattern.id ? null : pattern.id);
+                  setActiveAuditLane(null);
+                  setActiveAuditTheme(null);
+                }}
+              />
+            ))}
+            {activeReactionPattern && activeReactionPatternDetail ? (
+              <ReactionPatternDetailPanel
+                pattern={activeReactionPattern}
+                detail={activeReactionPatternDetail}
+              />
+            ) : null}
+          </TopicDetailSection>
+        ) : null}
+
         {newsroomLadder.length > 0 ? <NewsroomLadder quotes={newsroomLadder} onOpenQuote={setOpenAuditSignalId} /> : null}
 
         {auditEvidence.length === 0 ? topicSourceFeed : null}
@@ -1822,11 +1913,12 @@ export function TopicDetailView({
             surface="sources"
             title={auditSourceSectionTitle}
             caption={auditSourceSectionCaption}
-            action={activeAuditLane || activeAuditTheme ? (
+            action={activeAuditLane || activeAuditTheme || activeReactionPatternId ? (
               <AuditGhostButton
                 onClick={() => {
                   setActiveAuditLane(null);
                   setActiveAuditTheme(null);
+                  setActiveReactionPatternId(null);
                 }}
                 style={{ padding: "5px 8px", fontSize: 10.5 }}
               >

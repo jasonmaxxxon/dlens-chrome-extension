@@ -7,6 +7,11 @@ export type TopicAuditStageName = "p1-signal-reading" | "lexicon" | "narrative" 
 
 export interface ReplyFragment {
   ref: string;
+  commentId?: string | null;
+  sourceId?: string | null;
+  parentId?: string | null;
+  replyCount?: number | null;
+  timeToken?: string | null;
   author: string;
   text: string;
   likes: number | null;
@@ -68,10 +73,33 @@ export interface LensMemo {
       consensus: number;
       icon?: string;
     }>;
+    reactionCoverage?: ReactionCoverage;
+    reactionPatterns?: ReactionPattern[];
   };
   promptVersion: string;
   model: string;
   generatedAt: string;
+}
+
+export interface ReactionCoverage {
+  postCount: number;
+  capturedCommentCount: number;
+  readCommentCount: number;
+  usableAudienceCommentCount: number;
+}
+
+export interface ReactionPattern {
+  id: string;
+  label: string;
+  dynamicImplication: string;
+  nComments: number;
+  nAuthors: number;
+  coverageDenominator: number;
+  supportRefs: string[];
+  counterRefs: string[];
+  representativeRefs: string[];
+  counterRepresentativeRefs: string[];
+  icon?: string;
 }
 
 export interface TopicAuditReport {
@@ -162,6 +190,11 @@ function buildReplyFragments(shortCode: string, capturedPost: CapturedPostProjec
           : ++audienceIndex;
     fragments.push({
       ref: makeFragmentRef(shortCode, role, index),
+      commentId: fragment.id,
+      sourceId: fragment.sourceId,
+      parentId: fragment.parentId,
+      replyCount: fragment.replyCount,
+      timeToken: fragment.timeToken,
       author: fragment.author,
       text: fragment.text,
       likes: fragment.likes,

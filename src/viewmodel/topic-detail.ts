@@ -1,4 +1,5 @@
-import type { EvidencePacket, LensMemo, SignalReading, TopicAuditStageName } from "../compare/topic-audit.ts";
+import type { EvidencePacket, LensMemo, ReactionCoverage, ReactionPattern, SignalReading, TopicAuditStageName } from "../compare/topic-audit.ts";
+import { buildTopicEvidencePackets } from "../compare/topic-audit.ts";
 import type { TopicAuditValidationFlag } from "../compare/topic-audit-validator.ts";
 import { projectCapturedPost, projectCapturedPostFromSources, type CapturedPostProjection } from "../state/captured-post.ts";
 import type { LoadState } from "../state/load-state.ts";
@@ -144,6 +145,8 @@ export interface TopicAuditViewModel {
   p1AllReady: boolean;
   themes: string[];
   lanes: TopicAuditNarrativeLaneHint[];
+  reactionCoverage?: ReactionCoverage;
+  reactionPatterns: ReactionPattern[];
   canRunAudit: boolean;
   blockedReason?: string;
 }
@@ -170,6 +173,12 @@ export interface TopicDetailViewModel {
   primaryJudgmentPair: SavedAnalysisSnapshot | null;
   signals: TopicSignalViewModel[];
   signalRows: TopicSignalViewModel[];
+  /**
+   * EvidencePacket per crawled signal, derived locally (no AI) so the per-post
+   * drawer (OP 原文 + 留言 + 證據) is reachable right after the first crawl,
+   * before the topic audit runs. Keyed by signalId; only crawled signals appear.
+   */
+  packetsBySignalId: Record<string, EvidencePacket>;
   analysisCounts: TopicAnalysisCounts;
   sourcePendingCount: number;
   unanalyzedItemIds: string[];
@@ -427,6 +436,8 @@ function buildAnalysisCounts(rows: TopicSignalViewModel[]): TopicAnalysisCounts 
 type AuditDisplayHints = {
   themeChips?: string[];
   narrativeLanes?: TopicAuditNarrativeLaneHint[];
+  reactionCoverage?: ReactionCoverage;
+  reactionPatterns?: ReactionPattern[];
 };
 
 function readAuditDisplayHints(memos: LensMemo[]): AuditDisplayHints {
@@ -439,6 +450,12 @@ function readAuditDisplayHints(memos: LensMemo[]): AuditDisplayHints {
     }
     if (!merged.narrativeLanes && hints.narrativeLanes?.length) {
       merged.narrativeLanes = hints.narrativeLanes;
+    }
+    if (!merged.reactionCoverage && hints.reactionCoverage) {
+      merged.reactionCoverage = hints.reactionCoverage;
+    }
+    if (!merged.reactionPatterns && hints.reactionPatterns?.length) {
+      merged.reactionPatterns = hints.reactionPatterns;
     }
   }
   return merged;
@@ -641,6 +658,8 @@ function buildAuditViewModel({
     p1AllReady: auditEvidence.length > 0 && p1ReadyCount === auditEvidence.length,
     themes: hints.themeChips ?? [],
     lanes: hints.narrativeLanes ?? [],
+    reactionCoverage: hints.reactionCoverage,
+    reactionPatterns: hints.reactionPatterns ?? [],
     canRunAudit,
     blockedReason: canRunAudit
       ? undefined
@@ -717,6 +736,15 @@ export function buildTopicDetailViewModel({
     optimisticQueuedSet,
     capabilities: resolvedCapabilities
   });
+  const packetsBySignalId: Record<string, EvidencePacket> = {};
+  for (const packet of buildTopicEvidencePackets({
+    topic,
+    signals: safeArray(signals),
+    items: safeArray(sessionItems),
+    signalTagsByItemId
+  })) {
+    packetsBySignalId[packet.signalId] = packet;
+  }
   const analysisCounts = buildAnalysisCounts(signalRows);
   const unanalyzedItemIds = signalRows
     .filter((row) => row.itemId && (row.analysisState === "saved" || row.analysisState === "failed"))
@@ -745,6 +773,7 @@ export function buildTopicDetailViewModel({
     primaryJudgmentPair: pickPrimaryJudgmentPair(safeArray(pairs)),
     signals: signalRows,
     signalRows,
+    packetsBySignalId,
     analysisCounts,
     sourcePendingCount: analysisCounts.saved + analysisCounts.failed + analysisCounts.missing,
     unanalyzedItemIds,

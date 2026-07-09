@@ -84,7 +84,6 @@ export function InPageCollectorPopup({ app }: { app: InPageCollectorAppModel }) 
         signalReadings: app.signalReadings,
         productContext: app.compiledProductContext,
         aiProviderReady: app.productAiProviderReady,
-        cardLayout: snapshot.global.settings.layoutPreferences.productSignalCardLayout,
         backendError: app.productBackendError,
         analysisError: app.productSignalAnalysisError,
         analysisNotice: app.productSignalAnalysisNotice,
@@ -443,7 +442,7 @@ export function InPageCollectorPopup({ app }: { app: InPageCollectorAppModel }) 
                   Object.entries(app.topicAuditByTopicId).map(([topicId, audit]) => [topicId, audit.summary])
                 )}
                 onOpenTopic={(topicId) => void app.onNavigateToTopic(topicId)}
-                onCreateTopic={() => void app.onNavigate("collect")}
+                onCreateTopic={() => void app.onCreateTopic()}
                 onDeleteTopic={(topicId) => void app.onDeleteTopic(topicId)}
               />
             </WorkspaceSurface>

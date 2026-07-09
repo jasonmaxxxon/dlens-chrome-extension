@@ -423,9 +423,13 @@ function buildDomAnchor(card: HTMLElement): string {
 function classifyTargetType(card: HTMLElement, pageUrl: string, permalink: string): TargetType {
   const normalizedPage = normalizeUrl(pageUrl);
   const normalizedPermalink = normalizeUrl(permalink);
+  const surface = inferSurfaceFromLocation(normalizedPage);
   const pagePostId = extractPostId(normalizedPage);
   const permalinkPostId = extractPostId(normalizedPermalink);
 
+  if (surface === "feed" && permalinkPostId) {
+    return "post";
+  }
   if (normalizedPermalink && normalizedPage && normalizedPermalink === normalizedPage) {
     return "post";
   }

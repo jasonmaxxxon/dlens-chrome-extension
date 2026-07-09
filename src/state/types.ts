@@ -30,12 +30,10 @@ export type SessionItemStatus = "saved" | "queued" | "running" | "succeeded" | "
 export type InlineToastKind = "saved" | "queued";
 export type HoverCandidateStrength = "soft" | "hard";
 export type CompareTeaserState = "idle" | "loading" | "ready";
-export type ProductSignalCardLayout = "verdict" | "marginalia";
 export type TopicSynthesisLayout = "stack" | "console";
 export type CompareResultLayout = "reading" | "parallel" | "chapters";
 
 export interface LayoutPreferences {
-  productSignalCardLayout: ProductSignalCardLayout;
   topicSynthesisLayout: TopicSynthesisLayout;
   compareResultLayout: CompareResultLayout;
 }
@@ -490,7 +488,6 @@ export function createDefaultSettings(): ExtensionSettings {
 
 export function createDefaultLayoutPreferences(): LayoutPreferences {
   return {
-    productSignalCardLayout: "marginalia",
     topicSynthesisLayout: "console",
     compareResultLayout: "parallel"
   };

@@ -95,12 +95,12 @@ function makeItem(): SessionItem {
             like_count: 81
           },
           op_continuations: [
-            { comment_id: "op-c1", author: "op", text: "第一點：app 會放大選擇成本。", like_count: 7 }
+            { comment_id: "op-c1", source_comment_id: "src-op-c1", author: "op", text: "第一點：app 會放大選擇成本。", time_token: "1h", like_count: 7, reply_count: 1 }
           ],
           discussion_replies: [
-            { comment_id: "r1", author: "reader", text: "我同老公就是 app 識的。", like_count: null },
-            { comment_id: "op-c2", author: "op", text: "補充：這不是叫人不要拍拖。", like_count: 3 },
-            { comment_id: "p1", author: "", text: "bookmark", like_count: undefined }
+            { comment_id: "r1", source_comment_id: "src-r1", parent_comment_id: "root", author: "reader", text: "我同老公就是 app 識的。", time_token: "58m", like_count: null, reply_count: 2 },
+            { comment_id: "op-c2", source_comment_id: "src-op-c2", parent_comment_id: "r1", author: "op", text: "補充：這不是叫人不要拍拖。", time_token: "55m", like_count: 3, reply_count: 0 },
+            { comment_id: "p1", author: "", text: "bookmark", time_token: "50m", like_count: undefined, reply_count: 0 }
           ]
         },
         crawl_meta: {},
@@ -164,6 +164,19 @@ test("buildTopicEvidencePackets separates OP continuations, OP replies, audience
     ["S1.R1", "audience", "reader", null],
     ["S1.OPR1", "op_reply", "op", 3],
     ["S1.P1", "placeholder", "", null]
+  ]);
+  assert.deepEqual(packet.replyFragments.map((fragment) => [
+    fragment.ref,
+    fragment.commentId,
+    fragment.sourceId,
+    fragment.parentId,
+    fragment.replyCount,
+    fragment.timeToken
+  ]), [
+    ["S1.OPC1", "op-c1", "src-op-c1", null, 1, "1h"],
+    ["S1.R1", "r1", "src-r1", "root", 2, "58m"],
+    ["S1.OPR1", "op-c2", "src-op-c2", "r1", 0, "55m"],
+    ["S1.P1", "p1", null, null, 0, "50m"]
   ]);
   assert.deepEqual(getOpContinuations(packet).map((fragment) => fragment.text), [
     "第一點：app 會放大選擇成本。"

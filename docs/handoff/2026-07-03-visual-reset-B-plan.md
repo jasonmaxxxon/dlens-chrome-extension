@@ -123,8 +123,41 @@ separately revertable.
   only) — cut. Known B risk stays live: pure-white shell on Threads' white
   ground needs border/shadow separation in the real build (historical
   rejection noted in the specimen).
-- Direction pick: B · Gallery White (working candidate; Gate 1 mockup
-  sign-off still required before any code)
+- 2026-07-06 Gate 1 verdict: **NOT signed.** Reviewing the gallery-white
+  winner mockup against the running build, the user finds the current
+  warm-paper extension more beautiful — the white version reads 太過單一
+  (too monotone). Phase 3 stays closed. Phase 2 output (token convergence +
+  `tests/color-literal-guard.test.ts`) is kept as direction-agnostic
+  anti-regression groundwork; it is not an argument for the swap.
+  New exploration lane (mockup-only, NOT implementation): fuse the current
+  extension's strengths — rounded curves, mode icons, the sliding
+  verdict-tile animation (`VerdictFilterTiles`), the 值得嘗試/保留觀察/噪音
+  verdict toggles, whole-block cards — with the winner's density and
+  real-field discipline. Candidates:
+  `docs/mockups/2026-07-06-reset-B-warm-fusion-variants.html`.
+- Direction pick: warm-paper fusion (hybrid — current editorial base +
+  selective Gallery White density). Pure Gallery White declined at Gate 1
+  on 2026-07-06; fusion variants await user pick before any code.
+- 2026-07-06 (later) **Gate 1 SIGNED for the values layer**: after the live
+  4-theme fusion demo (`docs/mockups/2026-07-06-reset-B-warm-fusion-live.html`),
+  user picks **D 硃紅系** — per-mode palette stays (archive indigo / topic
+  green / pr-evidence burgundy), product accent moves steel blue #234f7a →
+  vermillion #c2401f — and authorizes implementation. Slice 1 (values-only,
+  Phase 3 discipline; grammar/density layer stays mockup-only for Phase 4):
+  tokens.ts product accent family + tokens-intent.md rewrite + affected DOM
+  test expectations + version bump. User asked for "0.3.8a"; Chrome manifest
+  and npm semver both reject letter suffixes and the five-site lock requires
+  one identical string, so the bump is 0.3.9. Mockup polish continues in
+  parallel (metrics+icons on 採集/popup/收件匣 frames, further text→icon
+  reduction).
+- 2026-07-06 correction (user caught it): the 07-05 field-audit claim "轉發
+  count has no field" is WRONG as a general statement. The capture contract
+  `EngagementMetrics` (src/contracts/target-descriptor.ts:4) carries
+  likes/comments/reposts/forwards/views and the hover extraction
+  (src/targeting/threads.ts) reads all of them; only the narrower
+  `CapturedPostProjection` projection omits reposts/forwards. Collector/hover
+  surfaces CAN render four metrics from real fields; extending the projection
+  is trivial if a sidepanel surface needs them.
 - Product saved signals: keep / repaint / rebuild —
 - Topic detail: keep / repaint / rebuild —
 - Compare: keep / repaint / rebuild —
