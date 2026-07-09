@@ -37,6 +37,7 @@ import type { EvidencePacket, ReactionCoverage, ReactionPattern } from "../compa
 import type { TopicAuditValidationFlag } from "../compare/topic-audit-validator.ts";
 import type { NarrativeLaneDetail } from "../viewmodel/narrative-lane-detail.ts";
 import type { ReactionPatternDetail } from "../viewmodel/reaction-pattern-detail.ts";
+import { EvidenceRefChip, type EvidenceFragmentLookup } from "./EvidenceRefChip.tsx";
 import { modeThemes, tokens } from "./tokens";
 
 const NARRATIVE_ICON_COMPONENTS: Record<string, LucideIcon> = {
@@ -106,6 +107,9 @@ export interface NarrativeLaneHint {
   icon?: string;
   metricLabel?: string;
   subtext?: string;
+  crossPostCount?: number;
+  postTotal?: number;
+  isSinglePostObservation?: boolean;
 }
 
 const TOPIC = tokens.topicAccent;
@@ -347,10 +351,6 @@ function clampRatio(value: number): number {
   return Math.min(1, Math.max(0, value));
 }
 
-function consensusPercent(value: number): number {
-  return Math.round(clampRatio(value) * 100);
-}
-
 function countLaneSources(signalRefs: readonly string[]): number {
   const sources = new Set<string>();
   for (const ref of signalRefs) {
@@ -358,6 +358,21 @@ function countLaneSources(signalRefs: readonly string[]): number {
     if (code) sources.add(code);
   }
   return sources.size || signalRefs.length;
+}
+
+function lanePostTotal(lane: NarrativeLaneHint): number {
+  return Math.max(1, lane.postTotal ?? countLaneSources(lane.signalRefs));
+}
+
+function laneCrossPostCount(lane: NarrativeLaneHint): number {
+  return Math.max(0, Math.min(lanePostTotal(lane), lane.crossPostCount ?? countLaneSources(lane.signalRefs)));
+}
+
+function laneMetricLabel(lane: NarrativeLaneHint): string {
+  if (lane.metricLabel) return lane.metricLabel;
+  const count = laneCrossPostCount(lane);
+  const total = lanePostTotal(lane);
+  return count <= 1 ? `單帖觀察 · ${count}/${total} 篇` : `跨 ${count}/${total} 篇`;
 }
 
 export function ThemeChip({
@@ -419,41 +434,44 @@ export function ThemeChip({
   );
 }
 
-function NarrativeLaneConsensusBar({
+function NarrativeLaneStrengthBar({
   laneId,
-  percent,
+  filled,
+  total,
   reportMarker = false
 }: {
   laneId: string;
-  percent: number;
+  filled: number;
+  total: number;
   reportMarker?: boolean;
 }) {
+  const cellCount = Math.max(1, total);
   return (
     <span
       aria-hidden="true"
-      data-narrative-lane-consensus-bar={laneId}
-      data-audit-report-lane-consensus-bar={reportMarker ? laneId : undefined}
+      data-narrative-lane-strength={laneId}
+      data-audit-report-lane-strength={reportMarker ? laneId : undefined}
       style={{
-        position: "relative",
+        display: "grid",
+        gridTemplateColumns: `repeat(${cellCount}, minmax(0, 1fr))`,
+        gap: 3,
         height: 6,
         width: "100%",
-        borderRadius: tokens.radius.round,
-        background: tokens.color.neutralSurface,
-        overflow: "hidden"
+        maxWidth: 164
       }}
     >
-      <span
-        data-narrative-lane-consensus-fill={laneId}
-        data-audit-report-lane-consensus-fill={reportMarker ? laneId : undefined}
-        style={{
-          position: "absolute",
-          left: 0,
-          top: 0,
-          bottom: 0,
-          width: `${percent}%`,
-          background: percent >= 60 ? TOPIC.primary : TOPIC.warm
-        }}
-      />
+      {Array.from({ length: cellCount }, (_, index) => (
+        <span
+          key={`${laneId}-${index}`}
+          data-narrative-strength-cell={laneId}
+          data-filled={index < filled ? "true" : "false"}
+          style={{
+            borderRadius: tokens.radius.round,
+            background: index < filled ? tokens.color.signal : tokens.color.neutralSurface,
+            boxShadow: index < filled ? `0 0 0 1px ${tokens.color.signalGlow}` : undefined
+          }}
+        />
+      ))}
     </span>
   );
 }
@@ -462,17 +480,25 @@ export function NarrativeLane({
   lane,
   active,
   onClick,
+  fragmentLookup,
+  pinnedRef,
+  onPin,
   kind = "narrative"
 }: {
   lane: NarrativeLaneHint;
   active?: boolean;
   onClick?: () => void;
+  fragmentLookup?: Map<string, EvidenceFragmentLookup>;
+  pinnedRef?: string | null;
+  onPin?: (ref: string) => void;
   kind?: "narrative" | "reaction";
 }) {
   const Icon = resolveNarrativeIcon(lane.icon);
-  const signalCount = countLaneSources(lane.signalRefs);
-  const percent = consensusPercent(lane.consensus);
-  const metricLabel = lane.metricLabel ?? `共識 ${percent}% · ${signalCount} 篇`;
+  const crossPostCount = laneCrossPostCount(lane);
+  const postTotal = lanePostTotal(lane);
+  const metricLabel = laneMetricLabel(lane);
+  const isSinglePostObservation = lane.isSinglePostObservation ?? crossPostCount <= 1;
+  const showStrength = kind === "narrative" && !isSinglePostObservation;
   return (
     <button
       data-narrative-lane={lane.id}
@@ -518,40 +544,48 @@ export function NarrativeLane({
             {lane.subtext}
           </span>
         ) : null}
-        <span data-narrative-lane-consensus={lane.id} style={{ display: "grid", gap: 5, minWidth: 0 }}>
+        <span data-narrative-lane-metric={lane.id} style={{ display: "grid", gap: 5, minWidth: 0 }}>
           <span style={{ display: "flex", justifyContent: "space-between", gap: 8, alignItems: "baseline", minWidth: 0 }}>
             <span style={{ fontSize: 10.5, fontWeight: 800, color: tokens.color.subInk }}>
               {metricLabel}
             </span>
           </span>
-          <NarrativeLaneConsensusBar laneId={lane.id} percent={percent} />
+          {showStrength ? (
+            <NarrativeLaneStrengthBar laneId={lane.id} filled={crossPostCount} total={postTotal} />
+          ) : null}
         </span>
         <span style={{ display: "flex", gap: 5, flexWrap: "wrap", alignItems: "center" }}>
           {lane.signalRefs.slice(0, 6).map((ref) => (
-            <span
-              key={ref}
-              style={{
-                fontFamily: tokens.font.mono,
-                fontSize: 10,
-                color: TOPIC.primary,
-                background: tokens.color.surface,
-                border: `1px solid ${tokens.color.line}`,
-                borderRadius: tokens.radius.round,
-                padding: "1px 6px"
-              }}
-            >
-              {ref}
-            </span>
+            fragmentLookup && onPin ? (
+              <EvidenceRefChip
+                key={ref}
+                refId={ref}
+                fragment={fragmentLookup.get(ref)}
+                pinned={pinnedRef === ref}
+                onPin={onPin}
+                variant="atlas"
+              />
+            ) : (
+              <span
+                key={ref}
+                style={{
+                  fontFamily: tokens.font.mono,
+                  fontSize: 10,
+                  color: TOPIC.primary,
+                  background: tokens.color.surface,
+                  border: `1px solid ${tokens.color.line}`,
+                  borderRadius: tokens.radius.round,
+                  padding: "1px 6px"
+                }}
+              >
+                {ref}
+              </span>
+            )
           ))}
         </span>
       </span>
     </button>
   );
-}
-
-function reactionPercent(pattern: ReactionPattern): number {
-  if (pattern.coverageDenominator <= 0) return 0;
-  return Math.max(0, Math.min(100, Math.round((pattern.nComments / pattern.coverageDenominator) * 100)));
 }
 
 function reactionMetricLabel(pattern: ReactionPattern): string {
@@ -608,7 +642,7 @@ export function ReactionPatternLane({
     id: pattern.id,
     label: pattern.label,
     signalRefs: [...pattern.supportRefs, ...pattern.counterRefs],
-    consensus: reactionPercent(pattern) / 100,
+    consensus: 0,
     icon: pattern.icon ?? "message-circle",
     metricLabel: reactionMetricLabel(pattern),
     subtext: pattern.dynamicImplication
@@ -760,8 +794,9 @@ export function AuditReportNarrativeLanes({ lanes }: { lanes: NarrativeLaneHint[
       }}
     >
       {lanes.map((lane, index) => {
-        const signalCount = countLaneSources(lane.signalRefs);
-        const percent = consensusPercent(lane.consensus);
+        const crossPostCount = laneCrossPostCount(lane);
+        const postTotal = lanePostTotal(lane);
+        const isSinglePostObservation = lane.isSinglePostObservation ?? crossPostCount <= 1;
         return (
           <div
             key={lane.id}
@@ -778,9 +813,15 @@ export function AuditReportNarrativeLanes({ lanes }: { lanes: NarrativeLaneHint[
             <span style={{ fontFamily: `${tokens.font.serifCjk}, ${tokens.font.serif}`, fontSize: 13.5, fontWeight: 600, lineHeight: 1.5, color: tokens.color.ink }}>
               {lane.label}
             </span>
-            <NarrativeLaneConsensusBar laneId={lane.id} percent={percent} reportMarker />
+            {isSinglePostObservation ? (
+              <span data-audit-report-lane-single={lane.id} style={{ fontSize: 11, fontWeight: 800, color: tokens.color.queued }}>
+                單帖觀察
+              </span>
+            ) : (
+              <NarrativeLaneStrengthBar laneId={lane.id} filled={crossPostCount} total={postTotal} reportMarker />
+            )}
             <span style={{ fontFamily: tokens.font.mono, fontSize: 11, color: tokens.color.subInk, whiteSpace: "nowrap" }}>
-              共識 {percent}% · {signalCount} 篇
+              {laneMetricLabel(lane)}
             </span>
           </div>
         );
@@ -1013,12 +1054,10 @@ export function NewsroomUncertainty({ text }: { text: string }) {
 export function NarrativeLaneDetailPanel({
   detail,
   laneLabel,
-  consensus,
   onOpenQuote
 }: {
   detail: NarrativeLaneDetail;
   laneLabel: string;
-  consensus: number;
   onOpenQuote?: (shortCode: string) => void;
 }) {
   const blockLabelStyle = {
@@ -1030,7 +1069,6 @@ export function NarrativeLaneDetailPanel({
   };
   const statParts = [`${detail.postCount} 篇`];
   if (detail.commentCount > 0) statParts.push(`${detail.commentCount} 留言`);
-  statParts.push(`共識 ${Math.round(consensus * 100)}%`);
   return (
     <section
       data-narrative-lane-detail={detail.laneId}
@@ -1053,44 +1091,6 @@ export function NarrativeLaneDetailPanel({
           {statParts.join("　·　")}
         </span>
       </div>
-
-      {detail.keywords.length > 0 ? (
-        <div style={{ display: "grid", gap: 5 }}>
-          <span style={blockLabelStyle}>
-            重複用字
-            {detail.keywordsAreSparse ? (
-              <span style={{ fontWeight: 600, textTransform: "none", letterSpacing: 0, color: tokens.color.softInk }}>
-                {"　樣本少 · 為高頻詞"}
-              </span>
-            ) : null}
-          </span>
-          <div style={{ display: "flex", gap: 5, flexWrap: "wrap" }}>
-            {detail.keywords.map((keyword) => (
-              <span
-                key={keyword.term}
-                data-lane-keyword={keyword.term}
-                style={{
-                  display: "inline-flex",
-                  alignItems: "baseline",
-                  gap: 4,
-                  padding: "3px 9px",
-                  borderRadius: tokens.radius.round,
-                  background: tokens.color.elevated,
-                  border: `1px solid ${TOPIC.primaryGlow}`,
-                  fontSize: 12,
-                  fontWeight: 700,
-                  color: TOPIC.primaryDeep
-                }}
-              >
-                {keyword.term}
-                <span style={{ fontFamily: tokens.font.mono, fontSize: 9.5, fontWeight: 500, color: tokens.color.softInk }}>
-                  {keyword.postCount > 1 ? `${keyword.postCount}篇` : `×${keyword.total}`}
-                </span>
-              </span>
-            ))}
-          </div>
-        </div>
-      ) : null}
 
       {detail.comments.length > 0 ? (
         <div style={{ display: "grid", gap: 6 }}>
@@ -1286,6 +1286,7 @@ export function SourceRow({
   active,
   readingStatus,
   tags,
+  showPreview = true,
   onOpen,
   onRunP1,
   isRunningP1
@@ -1294,6 +1295,7 @@ export function SourceRow({
   active?: boolean;
   readingStatus: SourceRowReadingStatus;
   tags?: readonly string[];
+  showPreview?: boolean;
   onOpen?: () => void;
   onRunP1?: () => void;
   isRunningP1?: boolean;
@@ -1501,19 +1503,21 @@ export function SourceRow({
             </button>
           ) : null}
         </div>
-        <div
-          style={{
-            fontFamily: `${tokens.font.serifCjk}, ${tokens.font.serif}`,
-            fontSize: 13,
-            lineHeight: 1.55,
-            color: previewColor,
-            opacity: previewOpacity,
-            letterSpacing: "0.005em",
-            ...lineClamp(2)
-          }}
-        >
-          {opSnippet}
-        </div>
+        {showPreview ? (
+          <div
+            style={{
+              fontFamily: `${tokens.font.serifCjk}, ${tokens.font.serif}`,
+              fontSize: 13,
+              lineHeight: 1.55,
+              color: previewColor,
+              opacity: previewOpacity,
+              letterSpacing: "0.005em",
+              ...lineClamp(2)
+            }}
+          >
+            {opSnippet}
+          </div>
+        ) : null}
         {displayedTags.length > 0 || showOverflow ? (
           <div
             data-source-row-tags="true"

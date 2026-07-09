@@ -1,4 +1,4 @@
-import type { EvidencePacket, LensMemo, ReactionCoverage, ReactionPattern, SignalReading, TopicAuditStageName } from "../compare/topic-audit.ts";
+import type { CommentShardReading, EvidencePacket, LensMemo, ReactionCoverage, ReactionPattern, SignalReading, TopicAuditReport, TopicAuditStageName } from "../compare/topic-audit.ts";
 import { buildTopicEvidencePackets } from "../compare/topic-audit.ts";
 import type { TopicAuditValidationFlag } from "../compare/topic-audit-validator.ts";
 import { projectCapturedPost, projectCapturedPostFromSources, type CapturedPostProjection } from "../state/captured-post.ts";
@@ -99,6 +99,10 @@ export interface TopicAuditNarrativeLaneHint {
   signalRefs: string[];
   consensus: number;
   icon?: string;
+  metricLabel?: string;
+  crossPostCount?: number;
+  postTotal?: number;
+  isSinglePostObservation?: boolean;
 }
 
 export type TopicAuditSourceReadingStatus = "ready" | "running" | "failed" | "pending" | "not_ready";
@@ -147,6 +151,11 @@ export interface TopicAuditViewModel {
   lanes: TopicAuditNarrativeLaneHint[];
   reactionCoverage?: ReactionCoverage;
   reactionPatterns: ReactionPattern[];
+  headlineProse: string;
+  headlineRefs: string[];
+  absenceProse: string;
+  caveats: string[];
+  shardReadings: CommentShardReading[];
   canRunAudit: boolean;
   blockedReason?: string;
 }
@@ -205,6 +214,7 @@ export interface BuildTopicDetailViewModelInput {
   synthLayout?: TopicSynthesisLayout;
   auditEvidence?: EvidencePacket[];
   auditMemos?: TopicAuditMemoBundle | null;
+  auditReport?: TopicAuditReport | null;
   auditSummary?: TopicAuditViewSummary;
   auditValidatorFlags?: TopicAuditValidationFlag[];
   p1RunningSignalIds?: ReadonlyArray<string>;
@@ -461,6 +471,93 @@ function readAuditDisplayHints(memos: LensMemo[]): AuditDisplayHints {
   return merged;
 }
 
+const CITATION_REF_PATTERN = /S\d+\.(?:OPC\d+|OPR\d+|OP|R\d+|P\d+)/g;
+
+function orderedUnique(values: ReadonlyArray<string>): string[] {
+  const seen = new Set<string>();
+  const out: string[] = [];
+  for (const value of values) {
+    if (!value || seen.has(value)) continue;
+    seen.add(value);
+    out.push(value);
+  }
+  return out;
+}
+
+function shortCodeFromRef(ref: string): string {
+  return ref.split(".")[0]?.trim() ?? "";
+}
+
+function refsFromProse(prose: string): string[] {
+  return orderedUnique([...prose.matchAll(CITATION_REF_PATTERN)].map((match) => match[0]));
+}
+
+function firstTwoSentences(prose: string): string {
+  const text = prose.replace(/\s+/g, " ").trim();
+  if (!text) return "";
+  const matches = text.match(/[^。！？.!?]+[。！？.!?]?/g) ?? [text];
+  return matches.slice(0, 2).join("").trim();
+}
+
+function derivePostTotal(auditEvidence: EvidencePacket[], lanes: ReadonlyArray<TopicAuditNarrativeLaneHint>): number {
+  const evidenceTotal = new Set(auditEvidence.map((packet) => packet.shortCode).filter(Boolean)).size;
+  if (evidenceTotal > 0) return evidenceTotal;
+  const laneTotal = new Set(lanes.flatMap((lane) => lane.signalRefs.map(shortCodeFromRef)).filter(Boolean)).size;
+  return Math.max(1, laneTotal);
+}
+
+function withNarrativeStrength(
+  lanes: ReadonlyArray<TopicAuditNarrativeLaneHint>,
+  postTotal: number
+): TopicAuditNarrativeLaneHint[] {
+  return lanes.map((lane) => {
+    const crossPostCount = new Set(lane.signalRefs.map(shortCodeFromRef).filter(Boolean)).size || lane.signalRefs.length;
+    const normalizedCount = Math.max(0, Math.min(postTotal, crossPostCount));
+    const isSinglePostObservation = normalizedCount <= 1;
+    return {
+      ...lane,
+      crossPostCount: normalizedCount,
+      postTotal,
+      isSinglePostObservation,
+      metricLabel: isSinglePostObservation ? `單帖觀察 · ${normalizedCount}/${postTotal} 篇` : `跨 ${normalizedCount}/${postTotal} 篇`
+    };
+  });
+}
+
+function memoForStage(memos: LensMemo[], stage: TopicAuditStageName): LensMemo | undefined {
+  return memos.find((memo) => memo.stageName === stage);
+}
+
+function buildAuditHeadline({
+  auditReport,
+  memos
+}: {
+  auditReport: TopicAuditReport | null | undefined;
+  memos: LensMemo[];
+}): { prose: string; refs: string[] } {
+  const finalMemo = memoForStage(memos, "final");
+  const prose = firstTwoSentences(finalMemo?.prose || auditReport?.sections.editorial || auditReport?.sections.overall || "");
+  return {
+    prose,
+    refs: orderedUnique([...(finalMemo?.evidenceRefs ?? []), ...refsFromProse(prose)]).slice(0, 4)
+  };
+}
+
+function buildAuditAbsence({
+  auditReport,
+  memos
+}: {
+  auditReport: TopicAuditReport | null | undefined;
+  memos: LensMemo[];
+}): { prose: string; caveats: string[] } {
+  const absenceMemo = memoForStage(memos, "absence");
+  const prose = firstTwoSentences(absenceMemo?.prose || auditReport?.sections.absence || "");
+  return {
+    prose,
+    caveats: orderedUnique([...(absenceMemo?.caveats ?? []), ...(auditReport?.limitations ?? [])]).slice(0, 3)
+  };
+}
+
 function topicAuditSourceTotal({
   signalCount,
   auditEvidence,
@@ -603,6 +700,7 @@ function buildAuditViewModel({
   signalRows,
   auditEvidence,
   auditMemos,
+  auditReport,
   auditSummary,
   auditValidatorFlags,
   signalTagsByItemId,
@@ -615,6 +713,7 @@ function buildAuditViewModel({
   signalRows: TopicSignalViewModel[];
   auditEvidence: EvidencePacket[];
   auditMemos: TopicAuditMemoBundle | null | undefined;
+  auditReport: TopicAuditReport | null | undefined;
   auditSummary?: TopicAuditViewSummary;
   auditValidatorFlags: TopicAuditValidationFlag[];
   signalTagsByItemId: Record<string, SignalTagsRecord>;
@@ -636,6 +735,10 @@ function buildAuditViewModel({
     auditSummary
   });
   const hints = readAuditDisplayHints(auditMemos?.lensMemos ?? []);
+  const postTotal = derivePostTotal(auditEvidence, hints.narrativeLanes ?? []);
+  const lanes = withNarrativeStrength(hints.narrativeLanes ?? [], postTotal);
+  const headline = buildAuditHeadline({ auditReport, memos: auditMemos?.lensMemos ?? [] });
+  const absence = buildAuditAbsence({ auditReport, memos: auditMemos?.lensMemos ?? [] });
   const sourceRows = buildAuditSourceRows({
     topic,
     auditEvidence,
@@ -657,9 +760,14 @@ function buildAuditViewModel({
     p1TotalCount: auditEvidence.length,
     p1AllReady: auditEvidence.length > 0 && p1ReadyCount === auditEvidence.length,
     themes: hints.themeChips ?? [],
-    lanes: hints.narrativeLanes ?? [],
+    lanes,
     reactionCoverage: hints.reactionCoverage,
     reactionPatterns: hints.reactionPatterns ?? [],
+    headlineProse: headline.prose,
+    headlineRefs: headline.refs,
+    absenceProse: absence.prose,
+    caveats: absence.caveats,
+    shardReadings: auditMemos?.shardReadings ?? [],
     canRunAudit,
     blockedReason: canRunAudit
       ? undefined
@@ -713,6 +821,7 @@ export function buildTopicDetailViewModel({
   synthLayout = "console",
   auditEvidence = [],
   auditMemos = null,
+  auditReport = null,
   auditSummary,
   auditValidatorFlags = [],
   p1RunningSignalIds = [],
@@ -755,6 +864,7 @@ export function buildTopicDetailViewModel({
     signalRows,
     auditEvidence: safeArray(auditEvidence),
     auditMemos,
+    auditReport,
     auditSummary,
     auditValidatorFlags: safeArray(auditValidatorFlags),
     signalTagsByItemId,

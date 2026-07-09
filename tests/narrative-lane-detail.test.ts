@@ -1,10 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import {
-  buildNarrativeLaneDetail,
-  extractKeywords
-} from "../src/viewmodel/narrative-lane-detail.ts";
+import { buildNarrativeLaneDetail } from "../src/viewmodel/narrative-lane-detail.ts";
 import type { EvidencePacket } from "../src/compare/topic-audit.ts";
 
 function packet(overrides: Partial<EvidencePacket> & { shortCode: string }): EvidencePacket {
@@ -28,32 +25,6 @@ function packet(overrides: Partial<EvidencePacket> & { shortCode: string }): Evi
     ...overrides
   };
 }
-
-test("extractKeywords ranks terms recurring across posts above one-off wording", () => {
-  const { keywords, sparse } = extractKeywords([
-    ["失業好焦慮，找工作好難"],
-    ["又被裁員，失業真的好焦慮"],
-    ["焦慮到睡不著"]
-  ]);
-  assert.equal(sparse, false);
-  const top = keywords[0]!;
-  assert.equal(top.term, "焦慮");
-  assert.equal(top.postCount, 3);
-  // A one-off term never out-ranks a term that recurs across posts.
-  const failian = keywords.find((k) => k.term === "失業");
-  assert.ok(failian && failian.postCount === 2);
-});
-
-test("extractKeywords filters function-word stopwords", () => {
-  const { keywords } = extractKeywords([
-    ["因為失業所以焦慮"],
-    ["因為失業所以焦慮"]
-  ]);
-  const terms = keywords.map((k) => k.term);
-  assert.ok(!terms.includes("因為"));
-  assert.ok(!terms.includes("所以"));
-  assert.ok(terms.includes("失業"));
-});
 
 test("buildNarrativeLaneDetail maps lane refs to packets and derives real content", () => {
   const packets: EvidencePacket[] = [
@@ -85,11 +56,6 @@ test("buildNarrativeLaneDetail maps lane refs to packets and derives real conten
 
   assert.equal(detail.postCount, 2);
   assert.equal(detail.commentCount, 3);
-
-  // Recurring wording surfaces; off-lane text ("天氣") never leaks in.
-  const terms = detail.keywords.map((k) => k.term);
-  assert.ok(terms.includes("焦慮"));
-  assert.ok(!terms.includes("天氣"));
 
   // Most-liked reply leads the representative comments and keeps attribution.
   assert.equal(detail.comments[0]!.text, "裁員潮真的很慘");

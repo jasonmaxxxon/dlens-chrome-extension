@@ -301,6 +301,44 @@ test("Topic detail VM exposes evidence-bound reaction patterns from display hint
   assert.deepEqual(audit.reactionPatterns?.[0]?.counterRepresentativeRefs, ["S1.R3"]);
 });
 
+test("Topic detail VM derives narrative cross-post strength from evidence refs", () => {
+  const auditEvidence = Array.from({ length: 6 }, (_, index) => buildAuditPacket(index + 1));
+  const auditMemos = buildAuditMemos(auditEvidence);
+  auditMemos.lensMemos[0] = {
+    ...auditMemos.lensMemos[0]!,
+    displayHints: {
+      narrativeLanes: [
+        { id: "lane-cross", label: "跨帖敘事", signalRefs: ["S1.OP", "S2.R1", "S5.OP"], consensus: 0.82 },
+        { id: "lane-single", label: "單帖苗頭", signalRefs: ["S4.R1"], consensus: 0.74 }
+      ]
+    }
+  } as never;
+
+  const vm = buildTopicDetailViewModel({
+    topic,
+    signals: auditEvidence.map((packet) => buildSignal(packet.signalId, packet.itemId)),
+    pairs: [],
+    auditEvidence,
+    auditMemos,
+    auditSummary: { reportStatus: "ready", analyzedCount: 6, queuedCount: 0 }
+  });
+
+  const lanes = vm.audit.lanes as Array<{
+    id: string;
+    metricLabel?: string;
+    crossPostCount?: number;
+    postTotal?: number;
+    isSinglePostObservation?: boolean;
+  }>;
+  assert.equal(lanes[0]?.crossPostCount, 3);
+  assert.equal(lanes[0]?.postTotal, 6);
+  assert.equal(lanes[0]?.metricLabel, "跨 3/6 篇");
+  assert.equal(lanes[0]?.isSinglePostObservation, false);
+  assert.equal(lanes[1]?.crossPostCount, 1);
+  assert.equal(lanes[1]?.metricLabel, "單帖觀察 · 1/6 篇");
+  assert.equal(lanes[1]?.isSinglePostObservation, true);
+});
+
 test("Topic detail VM exposes local evidence packets per crawled signal for pre-audit drill-in", () => {
   const vm = buildTopicDetailViewModel({
     topic,

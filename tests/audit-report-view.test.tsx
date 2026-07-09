@@ -113,8 +113,9 @@ test("AuditReportView renders seven report sections plus validator quality secti
   assert.match(html, /data-audit-report-theme-strip="true"/);
   assert.match(html, /data-theme-chip="航班補救"/);
   assert.match(html, /data-audit-report-narrative-lane="lane-service"/);
-  assert.match(html, /data-audit-report-lane-consensus-bar="lane-service"/);
-  assert.match(html, /共識 87% · 2 篇/);
+  assert.match(html, /data-audit-report-lane-strength="lane-service"/);
+  assert.match(html, /跨 2\/2 篇/);
+  assert.doesNotMatch(html, /共識\s*\d+%/);
 });
 
 test("AuditReportView sorts validator flags by severity", () => {

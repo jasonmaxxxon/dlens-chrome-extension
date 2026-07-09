@@ -5,10 +5,11 @@ import {
   TOPIC_SYNTHESIS_STALE_DELTA,
   topicSynthesisStaleReason
 } from "../compare/topic-synthesis.ts";
-import type { EvidencePacket, SignalReading, TopicAuditStageName } from "../compare/topic-audit.ts";
+import type { EvidencePacket, ReactionPattern, SignalReading, TopicAuditStageName } from "../compare/topic-audit.ts";
 import type { TopicAuditValidationFlag } from "../compare/topic-audit-validator.ts";
-import { buildNarrativeLaneDetail } from "../viewmodel/narrative-lane-detail.ts";
-import { buildReactionPatternDetail } from "../viewmodel/reaction-pattern-detail.ts";
+import { buildNarrativeLaneDetail, type NarrativeLaneDetail } from "../viewmodel/narrative-lane-detail.ts";
+import { buildReactionPatternFullList } from "../viewmodel/reaction-pattern-full-list.ts";
+import { buildReactionPatternDetail, type ReactionPatternDetail } from "../viewmodel/reaction-pattern-detail.ts";
 import type {
   FolderMode,
   SavedAnalysisSnapshot,
@@ -30,19 +31,18 @@ import type {
 import { Kicker, PrimaryButton, SCAN_ROW_HOVER_CSS, SecondaryButton, SectionHeader, Stamp, SurfaceCard, WorkspaceSurface, lineClamp, scanRowStyle, viewRootStyle } from "./components.tsx";
 import { SignalDrawer } from "./SignalDrawer.tsx";
 import type { BackendWorkUiState } from "../state/processing-state.ts";
-import { tokens } from "./tokens.ts";
 import {
-  buildNewsroomLadder,
+  buildEvidenceFragmentLookup,
+  EvidenceProse,
+  EvidenceRefChip,
+  type EvidenceFragmentLookup
+} from "./EvidenceRefChip.tsx";
+import { textStyles, tokens } from "./tokens.ts";
+import {
   countValidationFlags,
   GhostButton as AuditGhostButton,
   NarrativeLane,
-  NarrativeLaneDetailPanel,
-  NewsroomLadder,
-  NewsroomLane,
-  NewsroomUncertainty,
   PrimaryButton as AuditPrimaryButton,
-  ReactionCoverageStrip,
-  ReactionPatternDetailPanel,
   ReactionPatternLane,
   SectionLabel,
   SourceRow,
@@ -57,6 +57,12 @@ import { pickPrimaryJudgmentPair } from "./useTopicState.ts";
 
 const TOPIC_MODE_ACCENT = `var(--dlens-mode-accent, ${tokens.topicAccent.primary})`;
 const TOPIC_MODE_ACCENT_SOFT = `var(--dlens-mode-accent-soft, ${tokens.topicAccent.tintSage})`;
+
+type AuditDetailState =
+  | { kind: "reaction"; id: string }
+  | { kind: "narrative"; id: string }
+  | { kind: "source"; id: string }
+  | null;
 
 /**
  * Adapt a per-signal TopicSignalReading (cold-read stored per post) into the
@@ -84,6 +90,380 @@ function adaptTopicSignalReadingForDrawer(
     model: reading.model,
     generatedAt: reading.generatedAt
   };
+}
+
+function shortCodeFromRef(ref: string): string {
+  return ref.split(".")[0]?.trim() ?? "";
+}
+
+function orderedUnique(values: ReadonlyArray<string>): string[] {
+  const seen = new Set<string>();
+  const out: string[] = [];
+  for (const value of values) {
+    if (!value || seen.has(value)) continue;
+    seen.add(value);
+    out.push(value);
+  }
+  return out;
+}
+
+function refsForPattern(pattern: { supportRefs: string[]; counterRefs: string[]; representativeRefs: string[]; counterRepresentativeRefs: string[] }): string[] {
+  return orderedUnique([
+    ...pattern.representativeRefs,
+    ...pattern.supportRefs,
+    ...pattern.counterRepresentativeRefs,
+    ...pattern.counterRefs
+  ]);
+}
+
+function sumLikesForRefs(refs: ReadonlyArray<string>, fragmentLookup: Map<string, EvidenceFragmentLookup>): number {
+  return refs.reduce((sum, ref) => {
+    const likes = fragmentLookup.get(ref)?.likes;
+    return sum + (typeof likes === "number" ? likes : 0);
+  }, 0);
+}
+
+function reactionPatternNumberRow(pattern: {
+  nComments: number;
+  nAuthors: number;
+  coverageDenominator: number;
+  counterRefs: string[];
+  supportRefs: string[];
+  representativeRefs: string[];
+  counterRepresentativeRefs: string[];
+}, fragmentLookup: Map<string, EvidenceFragmentLookup>): string {
+  const denominator = Math.max(0, pattern.coverageDenominator);
+  const likeSum = sumLikesForRefs(refsForPattern(pattern), fragmentLookup);
+  const counterCount = orderedUnique(pattern.counterRefs).length;
+  return `${pattern.nComments}/${denominator} 留言 · ${pattern.nAuthors} 作者 · ♥${likeSum} · ${counterCount} 反例`;
+}
+
+function postTotalFromEvidence(packets: ReadonlyArray<EvidencePacket>): number {
+  return Math.max(1, new Set(packets.map((packet) => packet.shortCode).filter(Boolean)).size);
+}
+
+function readCommentCoverage({
+  coverage,
+  packets
+}: {
+  coverage: { readCommentCount: number; usableAudienceCommentCount: number; capturedCommentCount: number } | undefined;
+  packets: ReadonlyArray<EvidencePacket>;
+}): { read: number; usable: number; captured: number } {
+  const captured = coverage?.capturedCommentCount ?? packets.reduce((sum, packet) => sum + (packet.commentCount ?? packet.replyFragments.length), 0);
+  const usable = coverage?.usableAudienceCommentCount ?? captured;
+  const read = coverage?.readCommentCount ?? usable;
+  return { read, usable, captured };
+}
+
+function DetailCommentCard({
+  refId,
+  author,
+  text,
+  likes,
+  kind
+}: {
+  refId: string;
+  author: string;
+  text: string;
+  likes: number | null;
+  kind: "representative" | "counter";
+}) {
+  return (
+    <div
+      data-audit-detail-comment={refId}
+      data-audit-detail-comment-kind={kind}
+      style={{
+        display: "grid",
+        gap: 4,
+        padding: "9px 11px",
+        borderRadius: tokens.radius.xs,
+        background: tokens.color.elevated,
+        borderLeft: `2px solid ${kind === "counter" ? tokens.color.failedBorderStrong : tokens.color.signalGlow}`
+      }}
+    >
+      <p style={{ margin: 0, fontFamily: `${tokens.font.serifCjk}, ${tokens.font.serif}`, fontSize: 12.5, lineHeight: 1.55, color: tokens.color.ink, ...lineClamp(3) }}>
+        {text}
+      </p>
+      <span style={{ display: "flex", gap: 8, flexWrap: "wrap", fontSize: 10.5, color: tokens.color.softInk }}>
+        <span style={{ fontFamily: tokens.font.mono, color: kind === "counter" ? tokens.color.failed : tokens.color.signalDeep }}>{refId}</span>
+        <span>@{author}</span>
+        {typeof likes === "number" ? <span>♥ {likes}</span> : null}
+      </span>
+    </div>
+  );
+}
+
+function SourceDetailContent({
+  packet,
+  reading,
+  fragmentLookup,
+  pinnedRef,
+  onPin
+}: {
+  packet: EvidencePacket;
+  reading: SignalReading | null | undefined;
+  fragmentLookup: Map<string, EvidenceFragmentLookup>;
+  pinnedRef: string | null;
+  onPin: (ref: string) => void;
+}) {
+  const [rawOpen, setRawOpen] = useState(false);
+  const replyCount = packet.replyFragments.length;
+  return (
+    <div data-audit-source-detail={packet.shortCode} style={{ display: "grid", gap: 12 }}>
+      <section data-signal-drawer-block="op-card" style={{ display: "grid", gap: 7, padding: "11px 12px", borderRadius: tokens.radius.card, background: tokens.color.elevated, border: `1px solid ${tokens.color.line}` }}>
+        <span style={{ fontFamily: tokens.font.mono, fontSize: 10.5, fontWeight: 800, color: tokens.color.signalDeep }}>來源 {packet.shortCode} · 原帖</span>
+        <p style={{ margin: 0, fontFamily: `${tokens.font.serifCjk}, ${tokens.font.serif}`, fontSize: 13.5, lineHeight: 1.55, color: tokens.color.ink }}>
+          {packet.opText || "原帖內容不可得"}
+        </p>
+        <span style={{ fontSize: 10.5, color: tokens.color.softInk }}>@{packet.opAuthor || "unknown"} · ♥ {packet.opLikes ?? "?"} · {packet.commentCount ?? replyCount} 留言</span>
+      </section>
+      {reading ? (
+        <section data-signal-drawer-block="p1" style={{ display: "grid", gap: 8, padding: "11px 12px", borderRadius: tokens.radius.card, background: tokens.color.elevated, border: `1px solid ${tokens.color.line}` }}>
+          <span style={{ fontFamily: tokens.font.mono, fontSize: 10, fontWeight: 800, color: tokens.color.signalDeep }}>P1 判讀</span>
+          <p style={{ margin: 0, fontFamily: `${tokens.font.serifCjk}, ${tokens.font.serif}`, fontSize: 13, lineHeight: 1.75, color: tokens.color.ink }}>
+            <EvidenceProse prose={reading.reading} fragmentLookup={fragmentLookup} pinnedRef={pinnedRef} onPin={onPin} chipVariant="drawer" />
+          </p>
+        </section>
+      ) : null}
+      {replyCount > 0 ? (
+        <section data-signal-drawer-block="raw" style={{ display: "grid", gap: 8 }}>
+          <button
+            type="button"
+            data-raw-toggle="true"
+            onClick={() => setRawOpen((current) => !current)}
+            style={{
+              width: "100%",
+              border: `1px dashed ${tokens.color.lineStrong}`,
+              borderRadius: tokens.radius.button,
+              background: tokens.color.surface,
+              color: tokens.color.softInk,
+              fontFamily: tokens.font.mono,
+              fontSize: 11,
+              fontWeight: 700,
+              padding: "8px 10px",
+              cursor: "pointer",
+              display: "flex",
+              justifyContent: "space-between"
+            }}
+          >
+            <span>留言串（{replyCount} 則）</span>
+            <span aria-hidden="true">{rawOpen ? "收起" : "展開"}</span>
+          </button>
+          {rawOpen ? (
+            <div data-raw-body="open" style={{ display: "grid", gap: 8, maxHeight: 280, overflowY: "auto" }}>
+              {packet.replyFragments.map((fragment) => (
+                <DetailCommentCard
+                  key={fragment.ref}
+                  refId={fragment.ref}
+                  author={fragment.author || "unknown"}
+                  text={fragment.text}
+                  likes={fragment.likes}
+                  kind="representative"
+                />
+              ))}
+            </div>
+          ) : null}
+        </section>
+      ) : null}
+    </div>
+  );
+}
+
+function AuditDetailDrawer({
+  activeDetail,
+  reactionPattern,
+  reactionDetail,
+  narrativeLane,
+  narrativeDetail,
+  sourcePacket,
+  sourceReading,
+  fragmentLookup,
+  pinnedRef,
+  onPin,
+  onClose,
+  fullList,
+  fullListOpen,
+  onToggleFullList
+}: {
+  activeDetail: AuditDetailState;
+  reactionPattern: ReactionPattern | null;
+  reactionDetail: ReactionPatternDetail | null;
+  narrativeLane: NarrativeLaneHint | null;
+  narrativeDetail: NarrativeLaneDetail | null;
+  sourcePacket: EvidencePacket | null;
+  sourceReading: SignalReading | null | undefined;
+  fragmentLookup: Map<string, EvidenceFragmentLookup>;
+  pinnedRef: string | null;
+  onPin: (ref: string) => void;
+  onClose: () => void;
+  fullList: ReturnType<typeof buildReactionPatternFullList> | null;
+  fullListOpen: boolean;
+  onToggleFullList: () => void;
+}) {
+  const open = Boolean(activeDetail);
+  const kind = activeDetail?.kind ?? "none";
+  const title = reactionPattern?.label ?? narrativeLane?.label ?? (sourcePacket ? `來源 ${sourcePacket.shortCode}` : "詳情");
+  const reactionNumberRow = reactionPattern ? reactionPatternNumberRow(reactionPattern, fragmentLookup) : "";
+  return (
+    <>
+      <style>{`
+        @media (prefers-reduced-motion: no-preference) {
+          [data-audit-detail-drawer] { transition: transform ${tokens.motion.duration.slow} ${tokens.motion.easing.entrance}; }
+          [data-audit-detail-scrim] { transition: opacity ${tokens.motion.duration.slow} ${tokens.motion.easing.standard}; }
+        }
+      `}</style>
+      <div
+        data-audit-detail-scrim="true"
+        data-open={open ? "true" : "false"}
+        onMouseDown={onClose}
+        onClick={onClose}
+        style={{
+          position: "fixed",
+          inset: 0,
+          zIndex: 2147483639,
+          background: open ? tokens.color.inkWashStrong : "transparent",
+          opacity: open ? 1 : 0,
+          pointerEvents: open ? "auto" : "none"
+        }}
+      />
+      <aside
+        data-audit-detail-drawer="true"
+        data-open={open ? "true" : "false"}
+        data-detail-kind={kind}
+        role="dialog"
+        aria-modal="true"
+        aria-hidden={open ? "false" : "true"}
+        style={{
+          position: "fixed",
+          top: 72,
+          right: 18,
+          bottom: 18,
+          width: 390,
+          maxWidth: "calc(100vw - 36px)",
+          zIndex: 2147483640,
+          transform: open ? "translateX(0)" : "translateX(calc(100% + 28px))",
+          borderRadius: tokens.radius.cardLg,
+          border: `1px solid ${tokens.color.atlasEdge}`,
+          background: tokens.color.atlasPaperStrong,
+          boxShadow: tokens.shadow.atlasGlass,
+          backdropFilter: tokens.effect.atlasBlur,
+          WebkitBackdropFilter: tokens.effect.atlasBlur,
+          color: tokens.color.ink,
+          fontFamily: tokens.font.sans,
+          display: "flex",
+          flexDirection: "column",
+          overflow: "hidden",
+          pointerEvents: open ? "auto" : "none"
+        }}
+      >
+        <header style={{ display: "flex", gap: 10, justifyContent: "space-between", alignItems: "flex-start", padding: "14px 16px 11px", borderBottom: `1px solid ${tokens.color.line}` }}>
+          <div style={{ display: "grid", gap: 4, minWidth: 0 }}>
+            <span style={{ ...textStyles.label, color: tokens.color.signalDeep }}>Signal Atlas · {kind}</span>
+            <h2 style={{ ...textStyles.h3, margin: 0, color: tokens.color.ink }}>{title}</h2>
+            {reactionNumberRow ? <span style={{ ...textStyles.metric, color: tokens.color.subInk }}>{reactionNumberRow}</span> : null}
+            {narrativeLane?.metricLabel ? <span style={{ ...textStyles.metric, color: tokens.color.subInk }}>{narrativeLane.metricLabel}</span> : null}
+          </div>
+          <button
+            type="button"
+            onClick={onClose}
+            aria-label="關閉詳情"
+            style={{
+              border: `1px solid ${tokens.color.line}`,
+              borderRadius: tokens.radius.button,
+              background: tokens.color.surface,
+              color: tokens.color.subInk,
+              fontSize: 12,
+              fontWeight: 800,
+              width: 30,
+              height: 30,
+              cursor: "pointer"
+            }}
+          >
+            ×
+          </button>
+        </header>
+        <div style={{ flex: 1, overflowY: "auto", padding: 16, display: "grid", gap: 14, alignContent: "start" }}>
+          {reactionPattern && reactionDetail ? (
+            <>
+              <section style={{ display: "grid", gap: 7 }}>
+                <span style={{ ...textStyles.label, color: tokens.color.subInk }}>數字明細</span>
+                <p style={{ margin: 0, ...textStyles.bodyTight, color: tokens.color.subInk }}>{reactionPattern.dynamicImplication}</p>
+              </section>
+              <section style={{ display: "grid", gap: 7 }}>
+                <span style={{ ...textStyles.label, color: tokens.color.subInk }}>代表留言</span>
+                {reactionDetail.representativeComments.map((comment) => (
+                  <DetailCommentCard key={comment.ref} refId={comment.ref} author={comment.author} text={comment.text} likes={comment.likes} kind="representative" />
+                ))}
+              </section>
+              <section style={{ display: "grid", gap: 7 }}>
+                <span style={{ ...textStyles.label, color: tokens.color.subInk }}>反例</span>
+                {reactionDetail.counterComments.length ? reactionDetail.counterComments.map((comment) => (
+                  <DetailCommentCard key={comment.ref} refId={comment.ref} author={comment.author} text={comment.text} likes={comment.likes} kind="counter" />
+                )) : <span style={{ ...textStyles.caption, color: tokens.color.softInk }}>沒有可解析反例</span>}
+              </section>
+              {fullList ? (
+                <section style={{ display: "grid", gap: 8 }}>
+                  <button
+                    type="button"
+                    data-audit-full-list-toggle={reactionPattern.id}
+                    onClick={onToggleFullList}
+                    style={{
+                      border: `1px solid ${tokens.color.line}`,
+                      borderRadius: tokens.radius.button,
+                      background: tokens.color.surface,
+                      color: tokens.color.signalDeep,
+                      fontFamily: tokens.font.sans,
+                      fontSize: 12,
+                      fontWeight: 800,
+                      padding: "8px 10px",
+                      cursor: "pointer"
+                    }}
+                  >
+                    查看全部 {reactionPattern.nComments} 條 · {fullList.traceLabel}
+                  </button>
+                  {fullListOpen ? (
+                    <div data-audit-full-list={fullList.path} style={{ display: "grid", gap: 10 }}>
+                      {fullList.groups.map((group) => (
+                        <div key={group.shortCode} data-audit-full-list-group={group.shortCode} style={{ display: "grid", gap: 6 }}>
+                          <span style={{ ...textStyles.metric, color: tokens.color.subInk }}>{group.shortCode} · {group.comments.length} 條</span>
+                          {group.comments.map((comment) => (
+                            <DetailCommentCard key={comment.ref} refId={comment.ref} author={comment.author} text={comment.text} likes={comment.likes} kind="representative" />
+                          ))}
+                        </div>
+                      ))}
+                    </div>
+                  ) : null}
+                </section>
+              ) : null}
+            </>
+          ) : null}
+          {narrativeLane && narrativeDetail ? (
+            <>
+              <section style={{ display: "grid", gap: 7 }}>
+                <span style={{ ...textStyles.label, color: tokens.color.subInk }}>數字明細</span>
+                <p style={{ margin: 0, ...textStyles.bodyTight, color: tokens.color.subInk }}>
+                  {narrativeLane.metricLabel} · {narrativeDetail.commentCount} 則可解析留言
+                </p>
+              </section>
+              <section style={{ display: "grid", gap: 7 }}>
+                <span style={{ ...textStyles.label, color: tokens.color.subInk }}>代表留言</span>
+                {narrativeDetail.comments.slice(0, 3).map((comment) => (
+                  <DetailCommentCard key={`${comment.shortCode}-${comment.text}`} refId={comment.shortCode} author={comment.author} text={comment.text} likes={comment.likes} kind="representative" />
+                ))}
+              </section>
+              <section style={{ display: "grid", gap: 7 }}>
+                <span style={{ ...textStyles.label, color: tokens.color.subInk }}>反例</span>
+                <span style={{ ...textStyles.caption, color: tokens.color.softInk }}>敘事線反例目前由低跨帖或反向 pattern 承接。</span>
+              </section>
+            </>
+          ) : null}
+          {sourcePacket ? (
+            <SourceDetailContent packet={sourcePacket} reading={sourceReading} fragmentLookup={fragmentLookup} pinnedRef={pinnedRef} onPin={onPin} />
+          ) : null}
+        </div>
+      </aside>
+    </>
+  );
 }
 
 interface TopicDetailViewProps {
@@ -1366,10 +1746,8 @@ export function TopicDetailView({
   const [deletingSignalId, setDeletingSignalId] = useState<string | null>(null);
   const [deleteError, setDeleteError] = useState<string | null>(null);
   const [selectedTag, setSelectedTag] = useState<string | null>(null);
-  const [activeAuditTheme, setActiveAuditTheme] = useState<string | null>(null);
-  const [activeAuditLane, setActiveAuditLane] = useState<string | null>(null);
-  const [activeReactionPatternId, setActiveReactionPatternId] = useState<string | null>(null);
-  const [openAuditSignalId, setOpenAuditSignalId] = useState<string | null>(null);
+  const [activeDetail, setActiveDetail] = useState<AuditDetailState>(null);
+  const [expandedFullListId, setExpandedFullListId] = useState<string | null>(null);
   const [manualJudgment, setManualJudgment] = useState<{
     resultId: string;
     relevance: 1 | 2 | 3 | 4 | 5;
@@ -1387,9 +1765,12 @@ export function TopicDetailView({
     ),
     [selectedTag, signals]
   );
+  const selectedLaneId = activeDetail?.kind === "narrative" ? activeDetail.id : null;
+  const selectedReactionId = activeDetail?.kind === "reaction" ? activeDetail.id : null;
+  const selectedSourceId = activeDetail?.kind === "source" ? activeDetail.id : null;
   const filteredAuditRows = useMemo(() => {
-    if (activeReactionPatternId) {
-      const pattern = reactionPatterns.find((entry) => entry.id === activeReactionPatternId);
+    if (selectedReactionId) {
+      const pattern = reactionPatterns.find((entry) => entry.id === selectedReactionId);
       const refs = new Set(
         [...(pattern?.supportRefs ?? []), ...(pattern?.counterRefs ?? [])]
           .map((ref) => ref.split(".")[0])
@@ -1397,39 +1778,41 @@ export function TopicDetailView({
       );
       return audit.sourceRows.filter((row) => refs.has(row.packet.shortCode));
     }
-    if (activeAuditLane) {
-      const lane = auditLanes.find((entry) => entry.id === activeAuditLane);
+    if (selectedLaneId) {
+      const lane = auditLanes.find((entry) => entry.id === selectedLaneId);
       const refs = new Set(lane?.signalRefs.map((ref) => ref.split(".")[0]) ?? []);
       return audit.sourceRows.filter((row) => refs.has(row.packet.shortCode));
     }
-    if (activeAuditTheme) {
-      return audit.sourceRows.filter((row) => row.packet.aiArtifacts?.tags?.includes(activeAuditTheme));
-    }
     return audit.sourceRows;
-  }, [activeAuditLane, activeAuditTheme, activeReactionPatternId, audit.sourceRows, auditLanes, reactionPatterns]);
-  const activeLane = activeAuditLane ? auditLanes.find((entry) => entry.id === activeAuditLane) ?? null : null;
+  }, [selectedLaneId, selectedReactionId, audit.sourceRows, auditLanes, reactionPatterns]);
+  const activeLane = selectedLaneId ? auditLanes.find((entry) => entry.id === selectedLaneId) ?? null : null;
   const activeLaneDetail = useMemo(() => {
     if (!activeLane) return null;
     return buildNarrativeLaneDetail({ lane: activeLane, packets: auditEvidence });
   }, [activeLane, auditEvidence]);
-  const activeReactionPattern = activeReactionPatternId
-    ? reactionPatterns.find((entry) => entry.id === activeReactionPatternId) ?? null
+  const activeReactionPattern = selectedReactionId
+    ? reactionPatterns.find((entry) => entry.id === selectedReactionId) ?? null
     : null;
   const activeReactionPatternDetail = useMemo(() => {
     if (!activeReactionPattern) return null;
     return buildReactionPatternDetail({ pattern: activeReactionPattern, packets: auditEvidence });
   }, [activeReactionPattern, auditEvidence]);
-  const openAuditRow = openAuditSignalId
-    ? audit.sourceRows.find((row) => row.packet.signalId === openAuditSignalId || row.packet.shortCode === openAuditSignalId) ?? null
+  const auditFragmentLookup = useMemo(() => buildEvidenceFragmentLookup(auditEvidence), [auditEvidence]);
+  const [pinnedAuditRef, setPinnedAuditRef] = useState<string | null>(null);
+  const handlePinAuditRef = (ref: string) => {
+    setPinnedAuditRef((current) => current === ref ? null : ref);
+  };
+  const openAuditRow = selectedSourceId
+    ? audit.sourceRows.find((row) => row.packet.signalId === selectedSourceId || row.packet.shortCode === selectedSourceId) ?? null
     : null;
   // Pre-audit fallback: when the topic audit has not run, source rows are empty,
   // so open the drawer from the locally-derived packet (OP 原文 + 留言) and adapt
   // any per-signal reading into the drawer's claim view.
   const openAuditPacket = openAuditRow?.packet
-    ?? (openAuditSignalId ? viewModel.packetsBySignalId[openAuditSignalId] ?? null : null);
+    ?? (selectedSourceId ? viewModel.packetsBySignalId[selectedSourceId] ?? null : null);
   const openAuditReading = openAuditRow?.reading
     ?? adaptTopicSignalReadingForDrawer(
-      openAuditSignalId ? signals.find((row) => row.signalId === openAuditSignalId)?.reading : undefined,
+      selectedSourceId ? signals.find((row) => row.signalId === selectedSourceId)?.reading : undefined,
       openAuditPacket
     );
 
@@ -1438,6 +1821,23 @@ export function TopicDetailView({
       setSelectedTag(null);
     }
   }, [selectedTag, signalTagSummaries]);
+
+  useEffect(() => {
+    setExpandedFullListId(null);
+  }, [activeDetail?.kind, activeDetail?.id]);
+
+  useEffect(() => {
+    if (typeof document === "undefined") {
+      return undefined;
+    }
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key === "Escape") {
+        setActiveDetail(null);
+      }
+    };
+    document.addEventListener("keydown", onKeyDown);
+    return () => document.removeEventListener("keydown", onKeyDown);
+  }, []);
 
   const handleAnalyzeUnanalyzedItems = () => {
     const action = viewModel.actions.find((entry) => entry.kind === "analyzeItems");
@@ -1638,7 +2038,7 @@ export function TopicDetailView({
               key={signal.signalId}
               data-topic-source-row={signal.signalId}
               data-scan-row="true"
-              onClick={canOpenDrawer ? () => setOpenAuditSignalId(signal.signalId) : undefined}
+              onClick={canOpenDrawer ? () => setActiveDetail({ kind: "source", id: signal.signalId }) : undefined}
               style={scanRowStyle({
                 display: "grid",
                 gridTemplateColumns: deleteAction ? "5px minmax(0, 1fr) auto 42px" : "5px minmax(0, 1fr) auto",
@@ -1698,7 +2098,7 @@ export function TopicDetailView({
                     <button
                       type="button"
                       data-topic-source-row-detail={signal.signalId}
-                      onClick={() => setOpenAuditSignalId(signal.signalId)}
+                      onClick={() => setActiveDetail({ kind: "source", id: signal.signalId })}
                       style={{
                         padding: "4px 8px",
                         fontSize: 10.5,
@@ -1773,35 +2173,38 @@ export function TopicDetailView({
 
   if (sessionMode === "topic") {
     const showAuditPlaceholder = auditSummaryValue.reportStatus === "failed" || (auditThemes.length === 0 && auditLanes.length === 0 && reactionPatterns.length === 0 && auditEvidence.length === 0);
-    const newsroomUncertaintyText = (() => {
-      const counts = countValidationFlags(auditValidatorFlags);
-      const parts: string[] = [];
-      if (counts.fail > 0) parts.push(`${counts.fail} 項判讀未通過驗證`);
-      if (counts.weak > 0) parts.push(`${counts.weak} 項證據偏薄`);
-      if (parts.length === 0 && auditSummaryValue.queuedCount > 0) {
-        parts.push(`還有 ${auditSummaryValue.queuedCount} 篇尚未納入判讀`);
-      }
-      return parts.join("、");
-    })();
-    const newsroomLadder = auditLanes.length > 0
-      ? buildNewsroomLadder(
-        auditLanes,
-        audit.sourceRows.map((row) => ({
-          shortCode: row.packet.shortCode,
-          text: row.packet.opText || "",
-          author: row.packet.opAuthor || "unknown"
-        }))
-      )
-      : [];
-    const newsroomQuoteCodes = new Set(newsroomLadder.map((quote) => quote.shortCode));
-    const visibleAuditSourceRows = newsroomLadder.length > 0
-      ? filteredAuditRows.filter((row) => !newsroomQuoteCodes.has(row.packet.shortCode))
-      : filteredAuditRows;
-    const showAuditSourceList = auditEvidence.length > 0 && visibleAuditSourceRows.length > 0;
-    const auditSourceSectionTitle = newsroomLadder.length > 0 ? "其他資料來源" : "資料來源";
-    const auditSourceSectionCaption = newsroomLadder.length > 0
-      ? "代表 quote 以外　一行一篇"
-      : "一行一篇　點開看判讀與引用";
+    const postTotal = postTotalFromEvidence(auditEvidence);
+    const coverageNumbers = readCommentCoverage({ coverage: reactionCoverage, packets: auditEvidence });
+    const narrativeCount = auditLanes.filter((lane) => !lane.isSinglePostObservation).length;
+    const headlineProse = audit.headlineProse || "完成 P6 後，這裡會顯示兩句 headline verdict。";
+    const headlineRefs = audit.headlineRefs.length ? audit.headlineRefs : reactionPatterns.flatMap((pattern) => pattern.representativeRefs).slice(0, 3);
+    const fullList = activeReactionPattern
+      ? buildReactionPatternFullList({ pattern: activeReactionPattern, packets: auditEvidence, shardReadings: audit.shardReadings })
+      : null;
+    const fullListOpen = Boolean(activeReactionPattern && expandedFullListId === activeReactionPattern.id);
+    const sectionLabelStyle: CSSProperties = { display: "flex", justifyContent: "space-between", gap: 10, alignItems: "baseline", ...textStyles.label, color: tokens.color.subInk };
+    const cardStyle: CSSProperties = {
+      textAlign: "left",
+      border: `1px solid ${tokens.color.line}`,
+      borderRadius: tokens.radius.card,
+      background: tokens.color.elevated,
+      boxShadow: tokens.shadow.topicCard,
+      padding: "12px 14px",
+      display: "grid",
+      gap: 8,
+      cursor: "pointer",
+      fontFamily: tokens.font.sans
+    };
+    const renderRefChips = (refs: ReadonlyArray<string>) => refs.slice(0, 3).map((ref) => (
+      <EvidenceRefChip
+        key={ref}
+        refId={ref}
+        fragment={auditFragmentLookup.get(ref)}
+        pinned={pinnedAuditRef === ref}
+        onPin={handlePinAuditRef}
+        variant="atlas"
+      />
+    ));
     return (
       <div style={viewRootStyle()} data-topic-load-state={loadState}>
         <Breadcrumb topicName={topic.name} onBack={handleBack} />
@@ -1841,141 +2244,179 @@ export function TopicDetailView({
           </div>
         ) : null}
 
-        {auditThemes.length > 0 ? (
-          <TopicDetailSection
-            surface="themes"
-            title="主題"
-            caption={auditSummaryValue.reportStatus === "stale" ? "基於舊版報告" : "廣議題層　非細粒標籤"}
-          >
-            <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
-              {auditThemes.map((theme) => (
-                <ThemeChip
-                  key={theme}
-                  label={theme}
-                  active={activeAuditTheme === theme}
-                  onClick={() => {
-                    setActiveAuditTheme(activeAuditTheme === theme ? null : theme);
-                    setActiveAuditLane(null);
-                    setActiveReactionPatternId(null);
-                  }}
-                />
-              ))}
-            </div>
-          </TopicDetailSection>
-        ) : null}
+        {!showAuditPlaceholder ? (
+          <div data-topic-audit-spine="signal-atlas-l0" style={{ display: "grid", gap: 14 }}>
+            <section
+              data-signal-atlas-hero="true"
+              style={{
+                display: "grid",
+                gap: 14,
+                padding: "18px 20px",
+                borderRadius: tokens.radius.cardLg,
+                border: `1px solid ${tokens.color.atlasEdge}`,
+                background: tokens.color.atlasPaper,
+                boxShadow: tokens.shadow.atlasGlass,
+                backdropFilter: tokens.effect.atlasBlur,
+                WebkitBackdropFilter: tokens.effect.atlasBlur
+              }}
+            >
+              <span style={{ ...textStyles.label, color: tokens.color.signalDeep }}>Signal Atlas · Topic Audit · L0</span>
+              <h1 style={{ ...textStyles.h2, margin: 0, color: tokens.color.ink }}>{topic.name}</h1>
+              <div data-signal-atlas-ledger="true" style={{ display: "grid", gridTemplateColumns: "repeat(3, minmax(0, 1fr))", gap: 8 }}>
+                {[
+                  [`${coverageNumbers.read}`, `/${coverageNumbers.usable} 可用留言`, "已讀留言"],
+                  [`${reactionPatterns.length}`, `/${postTotal} 形狀`, "反應形狀"],
+                  [`${narrativeCount}`, `/${postTotal} 跨帖敘事`, "跨帖敘事"]
+                ].map(([value, denominator, label]) => (
+                  <div key={label} data-atlas-ledger-metric={`${value}${denominator}`} style={{ display: "grid", gap: 3, minWidth: 0 }}>
+                    <span style={{ ...textStyles.metricDisplay, color: tokens.color.ink }}>{value}</span>
+                    <span style={{ ...textStyles.caption, color: tokens.color.subInk }}>{denominator}</span>
+                    <span style={{ ...textStyles.label, color: tokens.color.softInk }}>{label}</span>
+                  </div>
+                ))}
+              </div>
+              <p style={{ margin: 0, fontFamily: `${tokens.font.serifCjk}, ${tokens.font.serif}`, fontSize: 17, lineHeight: 1.62, color: tokens.color.ink }}>
+                <EvidenceProse prose={headlineProse} fragmentLookup={auditFragmentLookup} pinnedRef={pinnedAuditRef} onPin={handlePinAuditRef} chipVariant="atlas" />
+                {headlineRefs.length > 0 ? <span> {renderRefChips(headlineRefs)}</span> : null}
+              </p>
+            </section>
 
-        {auditLanes.length > 0 ? (
-          <TopicDetailSection
-            surface="lanes"
-            title="敘事線"
-            caption={auditSummaryValue.reportStatus === "stale" ? "基於舊版　新訊號未納入" : "從訊號自然長出的故事線"}
-            style={{ gap: 8 }}
-          >
-            {auditLanes.map((lane) => (
-              <NewsroomLane
-                key={lane.id}
-                lane={lane}
-                active={activeAuditLane === lane.id}
-                onClick={() => {
-                  setActiveAuditLane(activeAuditLane === lane.id ? null : lane.id);
-                  setActiveAuditTheme(null);
-                  setActiveReactionPatternId(null);
-                }}
-              />
-            ))}
-            <NewsroomUncertainty text={newsroomUncertaintyText} />
-          </TopicDetailSection>
-        ) : null}
-
-        {activeLane && activeLaneDetail ? (
-          <NarrativeLaneDetailPanel
-            detail={activeLaneDetail}
-            laneLabel={activeLane.label}
-            consensus={activeLane.consensus}
-            onOpenQuote={setOpenAuditSignalId}
-          />
-        ) : null}
-
-        {reactionPatterns.length > 0 ? (
-          <TopicDetailSection
-            surface="reaction-patterns"
-            title="群眾反應"
-            caption="真實留言母數　代表留言與反例"
-            style={{ gap: 8 }}
-          >
-            <ReactionCoverageStrip coverage={reactionCoverage} />
-            {reactionPatterns.map((pattern) => (
-              <ReactionPatternLane
-                key={pattern.id}
-                pattern={pattern}
-                active={activeReactionPatternId === pattern.id}
-                onClick={() => {
-                  setActiveReactionPatternId(activeReactionPatternId === pattern.id ? null : pattern.id);
-                  setActiveAuditLane(null);
-                  setActiveAuditTheme(null);
-                }}
-              />
-            ))}
-            {activeReactionPattern && activeReactionPatternDetail ? (
-              <ReactionPatternDetailPanel
-                pattern={activeReactionPattern}
-                detail={activeReactionPatternDetail}
-              />
+            {reactionPatterns.length > 0 ? (
+              <section data-signal-atlas-map="true" style={{ display: "grid", gap: 8, padding: "12px 14px", borderRadius: tokens.radius.card, background: tokens.color.elevated, border: `1px solid ${tokens.color.line}` }}>
+                <div style={sectionLabelStyle}><span>民情形狀</span><span>{reactionPatterns.length}/{postTotal} patterns</span></div>
+                <style>{`
+                  @media (prefers-reduced-motion: no-preference) {
+                    [data-signal-atlas-dot][data-top-dot="true"] { animation: dlens-atlas-dot-pulse ${tokens.motion.duration.slower} ${tokens.motion.easing.standard} infinite alternate; }
+                  }
+                  @keyframes dlens-atlas-dot-pulse {
+                    from { opacity: 0.72; }
+                    to { opacity: 1; }
+                  }
+                `}</style>
+                <svg viewBox="0 0 320 132" role="img" aria-label="Signal Atlas reaction pattern map" style={{ width: "100%", height: 132, display: "block" }}>
+                  {reactionPatterns.map((pattern, index) => {
+                    const max = Math.max(1, ...reactionPatterns.map((entry) => entry.nComments));
+                    const radius = 7 + Math.round((pattern.nComments / max) * 12);
+                    const x = 42 + (index % 5) * 58;
+                    const y = 38 + (index % 2) * 42;
+                    const palette = [tokens.color.signal, tokens.color.techniqueViolet, tokens.color.queued, tokens.color.techniqueRose, tokens.color.accent][index % 5];
+                    return (
+                      <g
+                        key={pattern.id}
+                        data-signal-atlas-dot={pattern.id}
+                        data-top-dot={index === 0 ? "true" : "false"}
+                        role="button"
+                        tabIndex={0}
+                        onClick={() => setActiveDetail({ kind: "reaction", id: pattern.id })}
+                        onKeyDown={(event) => {
+                          if (event.key === "Enter" || event.key === " ") {
+                            event.preventDefault();
+                            setActiveDetail({ kind: "reaction", id: pattern.id });
+                          }
+                        }}
+                        style={{ cursor: "pointer" }}
+                      >
+                        <circle cx={x} cy={y} r={radius + 8} fill={tokens.color.signalFaint} />
+                        <circle cx={x} cy={y} r={radius} fill={palette} stroke={tokens.color.atlasEdge} strokeWidth="2" style={{ filter: `drop-shadow(0 0 10px ${tokens.color.signalGlow})` }} />
+                        <text x={x} y={y + radius + 17} textAnchor="middle" style={{ fontFamily: tokens.font.mono, fontSize: 10, fill: tokens.color.subInk }}>{pattern.nComments}/{pattern.coverageDenominator}</text>
+                      </g>
+                    );
+                  })}
+                </svg>
+              </section>
             ) : null}
-          </TopicDetailSection>
-        ) : null}
 
-        {newsroomLadder.length > 0 ? <NewsroomLadder quotes={newsroomLadder} onOpenQuote={setOpenAuditSignalId} /> : null}
+            {reactionPatterns.length > 0 ? (
+              <section data-topic-audit-block="reaction-patterns" style={{ display: "grid", gap: 8 }}>
+                <div style={sectionLabelStyle}><span>群眾反應</span><span>{reactionPatterns.length}/{postTotal} 形狀</span></div>
+                {reactionPatterns.map((pattern) => (
+                  <button
+                    key={pattern.id}
+                    type="button"
+                    data-reaction-pattern={pattern.id}
+                    data-active={selectedReactionId === pattern.id ? "true" : "false"}
+                    onClick={() => setActiveDetail({ kind: "reaction", id: pattern.id })}
+                    style={cardStyle}
+                  >
+                    <span style={{ display: "flex", justifyContent: "space-between", gap: 10 }}>
+                      <span style={{ ...textStyles.cardTitle, color: tokens.color.ink }}>{pattern.label}</span>
+                      <span style={{ ...textStyles.metric, color: tokens.color.subInk }}>{pattern.nComments}/{pattern.coverageDenominator}</span>
+                    </span>
+                    <span style={{ ...textStyles.bodyTight, color: tokens.color.subInk }}>{pattern.dynamicImplication}</span>
+                    <span style={{ ...textStyles.metric, color: tokens.color.softInk }}>{reactionPatternNumberRow(pattern, auditFragmentLookup)}</span>
+                    <span>{renderRefChips(pattern.representativeRefs.length ? pattern.representativeRefs : pattern.supportRefs)}</span>
+                  </button>
+                ))}
+              </section>
+            ) : null}
+
+            {auditLanes.length > 0 ? (
+              <section data-topic-audit-block="lanes" style={{ display: "grid", gap: 8 }}>
+                <div style={sectionLabelStyle}><span>跨帖敘事線</span><span>{narrativeCount}/{postTotal} narratives</span></div>
+                {auditLanes.map((lane) => (
+                  <NarrativeLane
+                    key={lane.id}
+                    lane={lane}
+                    active={selectedLaneId === lane.id}
+                    onClick={() => setActiveDetail({ kind: "narrative", id: lane.id })}
+                    fragmentLookup={auditFragmentLookup}
+                    pinnedRef={pinnedAuditRef}
+                    onPin={handlePinAuditRef}
+                  />
+                ))}
+              </section>
+            ) : null}
+
+            <section data-topic-audit-block="reliability" style={{ display: "grid", gap: 7, padding: "11px 13px", borderRadius: tokens.radius.card, background: tokens.color.queuedSoft, border: `1px solid ${tokens.color.queuedBorder}` }}>
+              <span style={{ ...textStyles.label, color: tokens.color.queued }}>缺席與可靠性</span>
+              <p style={{ margin: 0, ...textStyles.bodyTight, color: tokens.color.subInk }}>{audit.absenceProse || "沒有 P5 absence memo；先把這次讀法視為可用樣本內的形狀。"}</p>
+              {audit.caveats.map((caveat) => <span key={caveat} style={{ ...textStyles.caption, color: tokens.color.softInk }}>{caveat}</span>)}
+            </section>
+
+            {auditEvidence.length > 0 ? (
+              <section data-topic-audit-block="sources" style={{ display: "grid", gap: 8 }}>
+                <div style={sectionLabelStyle}><span>來源 footer</span><span>{postTotal}/{postTotal} 貼文 · {coverageNumbers.captured}/{coverageNumbers.usable} 留言</span></div>
+                <div data-topic-audit-source-list-style="audit-report" style={{ display: "grid", gap: 2, borderRadius: tokens.radius.cardLg, background: tokens.color.elevated, boxShadow: tokens.shadow.topicCard, padding: 6 }}>
+                  {audit.sourceRows.map((row) => (
+                    <SourceRow
+                      key={row.packet.signalId}
+                      packet={row.packet}
+                      active={selectedSourceId === row.packet.signalId}
+                      readingStatus={row.readingStatus}
+                      tags={row.tags}
+                      showPreview={false}
+                      onOpen={() => setActiveDetail({ kind: "source", id: row.packet.signalId })}
+                      onRunP1={row.actions.some((entry) => entry.kind === "runAuditP1") ? () => handleRunAuditP1(topic.id, row.packet.signalId) : undefined}
+                      isRunningP1={row.isRunningP1}
+                    />
+                  ))}
+                </div>
+              </section>
+            ) : null}
+          </div>
+        ) : null}
 
         {auditEvidence.length === 0 ? topicSourceFeed : null}
 
-        {showAuditSourceList ? (
-          <TopicDetailSection
-            surface="sources"
-            title={auditSourceSectionTitle}
-            caption={auditSourceSectionCaption}
-            action={activeAuditLane || activeAuditTheme || activeReactionPatternId ? (
-              <AuditGhostButton
-                onClick={() => {
-                  setActiveAuditLane(null);
-                  setActiveAuditTheme(null);
-                  setActiveReactionPatternId(null);
-                }}
-                style={{ padding: "5px 8px", fontSize: 10.5 }}
-              >
-                清除篩選
-              </AuditGhostButton>
-            ) : null}
-          >
-            <div data-topic-audit-source-list-style="audit-report" style={{ display: "grid", gap: 2, borderRadius: tokens.radius.cardLg, background: tokens.color.elevated, boxShadow: tokens.shadow.topicCard, padding: 6 }}>
-              {visibleAuditSourceRows.map((row) => (
-                <SourceRow
-                  key={row.packet.signalId}
-                  packet={row.packet}
-                  active={openAuditSignalId === row.packet.signalId}
-                  readingStatus={row.readingStatus}
-                  tags={row.tags}
-                  onOpen={() => setOpenAuditSignalId(row.packet.signalId)}
-                  onRunP1={row.actions.some((entry) => entry.kind === "runAuditP1") ? () => handleRunAuditP1(topic.id, row.packet.signalId) : undefined}
-                  isRunningP1={row.isRunningP1}
-                />
-              ))}
-            </div>
-          </TopicDetailSection>
-        ) : null}
-
-        {openAuditPacket ? (
-          <SignalDrawer
-            packet={openAuditPacket}
-            reading={openAuditReading}
-            topicName={topic.name}
-            onClose={() => setOpenAuditSignalId(null)}
-            onGenerateReading={openAuditRow?.actions.some((entry) => entry.kind === "runAuditP1")
-              ? () => handleRunAuditP1(topic.id, openAuditPacket.signalId)
-              : undefined}
-            readingPending={openAuditRow?.readingStatus === "running"}
-          />
-        ) : null}
+        <AuditDetailDrawer
+          activeDetail={activeDetail}
+          reactionPattern={activeReactionPattern}
+          reactionDetail={activeReactionPatternDetail}
+          narrativeLane={activeLane}
+          narrativeDetail={activeLaneDetail}
+          sourcePacket={openAuditPacket}
+          sourceReading={openAuditReading}
+          fragmentLookup={auditFragmentLookup}
+          pinnedRef={pinnedAuditRef}
+          onPin={handlePinAuditRef}
+          onClose={() => setActiveDetail(null)}
+          fullList={fullList}
+          fullListOpen={fullListOpen}
+          onToggleFullList={() => {
+            if (!activeReactionPattern) return;
+            setExpandedFullListId((current) => current === activeReactionPattern.id ? null : activeReactionPattern.id);
+          }}
+        />
       </div>
     );
   }
@@ -2035,11 +2476,8 @@ export function TopicDetailView({
                 <ThemeChip
                   key={theme}
                   label={theme}
-                  active={activeAuditTheme === theme}
-                  onClick={() => {
-                    setActiveAuditTheme(activeAuditTheme === theme ? null : theme);
-                    setActiveAuditLane(null);
-                  }}
+                  active={false}
+                  onClick={() => setActiveDetail(null)}
                 />
               ))}
             </div>
@@ -2055,21 +2493,10 @@ export function TopicDetailView({
               <NarrativeLane
                 key={lane.id}
                 lane={lane}
-                active={activeAuditLane === lane.id}
-                onClick={() => {
-                  setActiveAuditLane(activeAuditLane === lane.id ? null : lane.id);
-                  setActiveAuditTheme(null);
-                }}
+                active={selectedLaneId === lane.id}
+                onClick={() => setActiveDetail({ kind: "narrative", id: lane.id })}
               />
             ))}
-            {activeLane && activeLaneDetail ? (
-              <NarrativeLaneDetailPanel
-                detail={activeLaneDetail}
-                laneLabel={activeLane.label}
-                consensus={activeLane.consensus}
-                onOpenQuote={setOpenAuditSignalId}
-              />
-            ) : null}
           </section>
         ) : null}
 
@@ -2079,12 +2506,9 @@ export function TopicDetailView({
               <SectionLabel hint="一行一篇　點開看判讀與引用">
                 資料來源
               </SectionLabel>
-              {activeAuditLane || activeAuditTheme ? (
+              {selectedLaneId ? (
                 <AuditGhostButton
-                  onClick={() => {
-                    setActiveAuditLane(null);
-                    setActiveAuditTheme(null);
-                  }}
+                  onClick={() => setActiveDetail(null)}
                   style={{ padding: "5px 8px", fontSize: 10.5 }}
                 >
                   清除篩選
@@ -2096,10 +2520,10 @@ export function TopicDetailView({
                 <SourceRow
                   key={row.packet.signalId}
                   packet={row.packet}
-                  active={openAuditSignalId === row.packet.signalId}
+                  active={selectedSourceId === row.packet.signalId}
                   readingStatus={row.readingStatus}
                   tags={row.tags}
-                  onOpen={() => setOpenAuditSignalId(row.packet.signalId)}
+                  onOpen={() => setActiveDetail({ kind: "source", id: row.packet.signalId })}
                   onRunP1={row.actions.some((entry) => entry.kind === "runAuditP1") ? () => handleRunAuditP1(topic.id, row.packet.signalId) : undefined}
                   isRunningP1={row.isRunningP1}
                 />
@@ -2114,7 +2538,7 @@ export function TopicDetailView({
           packet={openAuditPacket}
           reading={openAuditReading}
           topicName={topic.name}
-          onClose={() => setOpenAuditSignalId(null)}
+          onClose={() => setActiveDetail(null)}
           onGenerateReading={openAuditRow?.actions.some((entry) => entry.kind === "runAuditP1")
             ? () => handleRunAuditP1(topic.id, openAuditPacket.signalId)
             : undefined}

@@ -105,6 +105,7 @@ export function InPageCollectorPopup({ app }: { app: InPageCollectorAppModel }) 
         synthLayout: snapshot?.global.settings.layoutPreferences.topicSynthesisLayout,
         auditEvidence: app.activeTopicAudit?.auditEvidence,
         auditMemos: app.activeTopicAudit?.auditMemos,
+        auditReport: app.activeTopicAudit?.auditReport,
         auditSummary: app.activeTopicAudit?.summary,
         auditValidatorFlags: app.activeTopicAudit?.auditValidatorFlags,
         p1RunningSignalIds: app.activeTopic && app.topicAuditP1RunningBySignalId[app.activeTopic.id]
