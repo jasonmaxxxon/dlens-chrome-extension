@@ -79,6 +79,17 @@ export const tokens = {
     cyanSoft: "rgba(63,90,59,0.10)",
     cyanGlow: "rgba(63,90,59,0.16)",
 
+    /* signal — electric-cyan evidence highlight, scoped to the Audit atlas surface */
+    signal: "#43d6c8",
+    signalDeep: "#118c80",
+    signalGlow: "rgba(67,214,200,0.36)",
+    signalFaint: "rgba(67,214,200,0.12)",
+
+    /* atlas glass — translucent paper, ONLY for atlas hero / drawer / popover */
+    atlasPaper: "rgba(255,252,244,0.72)",
+    atlasPaperStrong: "rgba(255,253,248,0.86)",
+    atlasEdge: "rgba(255,255,255,0.58)",
+
     /* teal — named alias for design system alignment */
     teal: "#3f5a3b",
     tealMid: "#527648",
@@ -174,11 +185,13 @@ export const tokens = {
     productActionCardHoverStrong: "0 14px 32px rgba(27,26,23,0.10), 0 2px 6px rgba(27,26,23,0.04)",
     previewAvatar: "0 4px 12px rgba(26,46,79,0.12)",
     hudGlow: "0 1px 0 rgba(27,26,23,0.04), 0 8px 16px rgba(27,26,23,0.06)",
-    popup: "0 20px 56px rgba(27,26,23,0.16), 0 2px 8px rgba(27,26,23,0.08), 0 0 0 1px rgba(27,26,23,0.08)"
+    popup: "0 20px 56px rgba(27,26,23,0.16), 0 2px 8px rgba(27,26,23,0.08), 0 0 0 1px rgba(27,26,23,0.08)",
+    atlasGlass: "0 24px 60px rgba(37,34,24,0.18), 0 6px 18px rgba(37,34,24,0.08), inset 0 1px 0 rgba(255,255,255,0.62)"
   },
 
   effect: {
-    glassBlur: "none"
+    glassBlur: "none",
+    atlasBlur: "blur(18px) saturate(1.35)"
   },
 
   motion: {
@@ -350,6 +363,8 @@ export const textStyles = {
   mono: { fontFamily: tokens.font.mono, fontVariantNumeric: "tabular-nums" as const } as const,
   /** Monospace metric — compact counts, scores, and ledger numbers */
   metric: { fontFamily: tokens.font.mono, fontWeight: 700, fontSize: 11, lineHeight: 1.4, fontVariantNumeric: "tabular-nums" as const } as const,
+  /** Mono display numeral — atlas coverage-ledger KPI counts */
+  metricDisplay: { fontFamily: tokens.font.mono, fontWeight: 800, fontSize: 27, lineHeight: 1, fontVariantNumeric: "tabular-nums" as const } as const,
   /** Serif CJK italic pull quote — inside evidence cards */
   quote: { fontFamily: `${tokens.font.serifCjk}, ${tokens.font.serif}`, fontStyle: "italic" as const, fontWeight: 500, fontSize: 15, lineHeight: 1.65 } as const,
 } as const;
@@ -373,6 +388,13 @@ export const TOKENS = {
   cyan: tokens.color.cyan,
   cyanSoft: tokens.color.cyanSoft,
   cyanGlow: tokens.color.cyanGlow,
+  signal: tokens.color.signal,
+  signalDeep: tokens.color.signalDeep,
+  signalGlow: tokens.color.signalGlow,
+  signalFaint: tokens.color.signalFaint,
+  atlasPaper: tokens.color.atlasPaper,
+  atlasPaperStrong: tokens.color.atlasPaperStrong,
+  atlasEdge: tokens.color.atlasEdge,
   teal: tokens.color.teal,
   tealMid: tokens.color.tealMid,
   tealSoft: tokens.color.tealSoft,
@@ -393,6 +415,8 @@ export const TOKENS = {
   glassBorder: tokens.color.glassBorder,
   glassShadow: tokens.shadow.glass,
   glassBlur: tokens.effect.glassBlur,
+  atlasBlur: tokens.effect.atlasBlur,
+  atlasGlass: tokens.shadow.atlasGlass,
   hudGlow: tokens.shadow.hudGlow,
   cardRadius: tokens.radius.card,
   lgRadius: tokens.radius.lg,

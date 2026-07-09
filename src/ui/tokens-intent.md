@@ -95,20 +95,39 @@ happens to contain text. Every visual decision below serves that sentence.
   parent. Per-child margins are how vertical rhythm died before — the Result
   spacing contract exists because of it.
 
+### Atlas surface（2026-07-09 修憲）
+- Signal Atlas is one dense Audit evidence surface, not a new workspace grammar.
+- Its exceptions earn space only when they expose real denominators and real
+  quotes, not decoration or empty emphasis.
+- `color.signal` highlights evidence edges; it does not replace mode accents.
+- `effect.atlasBlur` + `color.atlasPaper` are limited to the hero, one detail
+  drawer, and hover popovers for scroll performance.
+- Motion stays tokenized and behind `prefers-reduced-motion`.
+
 ## What this language refuses（拒絕清單 — 歷史上真實被移除過的模式）
 
 1. **Dashboard grammar** — KPI tiles, hero stat blocks, big-number flexing,
-   progress theater. DLens shows evidence, not vanity metrics. (Removed:
-   workspace overview hero, six neutral stat tiles, dot-only waiting states.)
+   progress theater stay banned. Audit atlas may show KPI/stat numbers only as
+   a coverage ledger through `textStyles.metricDisplay`, where every number has
+   a real denominator tied to the read-comment total. Denominator-free vanity
+   metrics stay banned.
 2. **Decorative affordances** — badges/expanders that restate data already
    visible. Substance over decoration (see repo CLAUDE.md): a click that
    reveals nothing new is a regression, not a zero.
 3. **A second palette, font stack, or scale** — the 2026-04 three-spec fork is
    why this file is value-free and why `tokens.ts` is the only law.
+   `color.signal` is a scoped evidence-highlight accent added into the same
+   token source for Audit atlas; it coexists with, and never replaces, the
+   per-mode accent returned by `getModeTheme`. `color-literal-guard` remains
+   the condition that keeps it from forking into a parallel palette.
 4. **Traffic-light alarm colors** — saturated red/green/yellow status.
 5. **English placeholder copy** in Chinese-first product surfaces.
 6. **Pure white cards / pure black text / cold grays** — they break the paper.
-7. **Glassmorphism revival** — translucency stacks; the aliases are legacy.
+7. **Glassmorphism revival** — translucency stacks remain banned by default.
+   Atlas glass is allowed only through `effect.atlasBlur` + `color.atlasPaper`
+   on the atlas hero, the single detail drawer, and hover popovers. Reading
+   cards and list rows stay opaque paper; shared `effect.glassBlur` stays
+   disabled.
 8. **All-caps chrome outside `textStyles.label`** — locked since the Compare
    label-casing decision.
 
