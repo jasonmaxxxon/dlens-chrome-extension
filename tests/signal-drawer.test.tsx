@@ -168,3 +168,28 @@ test("SignalDrawer surfaces data-gap note and P1-missing placeholder when readin
   assert.match(html, /long-tail commentCount = 9/);
   assert.match(html, /留言串（1 則）/);
 });
+
+test("SignalDrawer P1-missing state offers generate button, pending copy, and honest fallback", () => {
+  const base = { packet, topicName: "航班爭議", onClose: () => undefined };
+
+  const withGenerate = renderToStaticMarkup(
+    React.createElement(SignalDrawer, { ...base, onGenerateReading: () => undefined })
+  );
+  assert.match(withGenerate, /data-signal-drawer-run-p1="S1"/);
+  assert.match(withGenerate, /生成 P1 判讀/);
+  assert.doesNotMatch(withGenerate, /分析此篇/);
+
+  const pending = renderToStaticMarkup(
+    React.createElement(SignalDrawer, { ...base, onGenerateReading: () => undefined, readingPending: true })
+  );
+  assert.match(pending, /P1 判讀生成中/);
+  assert.doesNotMatch(pending, /data-signal-drawer-run-p1/);
+
+  const fallback = renderToStaticMarkup(React.createElement(SignalDrawer, base));
+  assert.doesNotMatch(fallback, /data-signal-drawer-run-p1/);
+  assert.match(fallback, /暫時無法生成判讀/);
+
+  // Humanized header: source label + OP text as title, no raw "S1.OP" eyebrow.
+  assert.match(withGenerate, /來源 S1 · 原帖/);
+  assert.match(withGenerate, /OP 原文/);
+});

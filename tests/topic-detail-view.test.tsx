@@ -373,7 +373,7 @@ test("TopicDetailView mirrors the audit popup surface in topic mode without lega
   assert.doesNotMatch(html, /AI 語意標籤/);
   assert.doesNotMatch(html, /全部訊號篇目/);
   assert.doesNotMatch(html, /關鍵詞統計/);
-  assert.match(html, /0\/1 已分析/);
+  assert.match(html, /P1 判讀 0\/1/);
   // Tab switcher is gone
   assert.doesNotMatch(html, /討論訊號/);
 });
@@ -873,9 +873,9 @@ test("TopicDetailView uses audit evidence as the denominator when topic signal p
   );
 
   assert.match(html, /3 訊號/);
-  assert.match(html, /3\/3 已分析/);
+  assert.match(html, /P1 判讀 3\/3/);
   assert.match(html, /覆蓋 3\/3/);
-  assert.doesNotMatch(html, /3\/0 已分析/);
+  assert.doesNotMatch(html, /P1 判讀 3\/0/);
   assert.doesNotMatch(html, /覆蓋 3\/0/);
 });
 
@@ -918,10 +918,10 @@ test("TopicDetailView ignores non-topic-scoped signals when audit sources are pr
   );
 
   assert.match(html, /15 訊號/);
-  assert.match(html, /15\/15 已分析/);
+  assert.match(html, /P1 判讀 15\/15/);
   assert.match(html, /覆蓋 15\/15/);
   assert.doesNotMatch(html, /30 訊號/);
-  assert.doesNotMatch(html, /15\/30 已分析/);
+  assert.doesNotMatch(html, /P1 判讀 15\/30/);
 });
 
 test("TopicDetailView keeps the B-14 audit count at 15/15 when a topic also has an uncrawled saved signal", () => {
@@ -972,11 +972,11 @@ test("TopicDetailView keeps the B-14 audit count at 15/15 when a topic also has 
   );
 
   assert.match(html, /15 訊號/);
-  assert.match(html, /15\/15 已分析/);
+  assert.match(html, /P1 判讀 15\/15/);
   assert.match(html, /覆蓋 15\/15/);
   assert.equal((html.match(/data-source-row="S\d+"/g) ?? []).length, 12);
   assert.doesNotMatch(html, /16 訊號/);
-  assert.doesNotMatch(html, /15\/16 已分析/);
+  assert.doesNotMatch(html, /P1 判讀 15\/16/);
   assert.doesNotMatch(html, /覆蓋 15\/16/);
 });
 
@@ -1018,7 +1018,7 @@ test("TopicDetailView derives audit header, coverage, and remaining source rows 
   );
 
   assert.match(html, /4 訊號/);
-  assert.match(html, /1\/4 已分析/);
+  assert.match(html, /P1 判讀 1\/4/);
   assert.match(html, /覆蓋 4\/4/);
   assert.equal((html.match(/data-source-row="S\d+"/g) ?? []).length, 1);
   assert.doesNotMatch(html, /data-source-row="S1"/);
@@ -1026,7 +1026,7 @@ test("TopicDetailView derives audit header, coverage, and remaining source rows 
   assert.doesNotMatch(html, /data-source-row="S3"/);
   assert.match(html, /data-source-row="S4"/);
   assert.doesNotMatch(html, /12 訊號/);
-  assert.doesNotMatch(html, /5\/12 已分析/);
+  assert.doesNotMatch(html, /P1 判讀 5\/12/);
   assert.doesNotMatch(html, /覆蓋 5\/12/);
 });
 

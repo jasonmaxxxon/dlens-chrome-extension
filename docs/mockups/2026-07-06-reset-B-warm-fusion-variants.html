@@ -1,0 +1,831 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+<meta charset="utf-8">
+<title>Visual Reset B — 暖紙融合變體（Gate 1 迭代 · reference-only · 2026-07-06）</title>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<style>
+  /* ══ 融合變體 — 現行 tokens.ts 值為基底；候選值標記於底部說明，正式值最終只進 src/ui/tokens.ts ══ */
+  * { margin:0; padding:0; box-sizing:border-box; }
+  /* 頁面底色 = Threads 純白（沿用 winner mockup 的最壞情境分離測試） */
+  body { background:#ffffff; color:#1b1a17; padding:30px 22px 70px;
+         font-family:'Noto Sans TC',-apple-system,system-ui,sans-serif; }
+
+  .intro { max-width:2000px; margin:0 auto 24px; }
+  .intro h1 { font-family:'Noto Serif TC','Songti TC',Georgia,serif; font-size:21px; font-weight:700; margin-bottom:6px; }
+  .intro p { font-size:12.5px; line-height:1.75; color:#3d3b35; max-width:82em; }
+  .intro code { font-family:'JetBrains Mono',ui-monospace,Menlo,monospace; font-size:11px; }
+
+  .stage { display:grid; grid-template-columns:repeat(auto-fit,minmax(600px,1fr)); gap:26px; max-width:2000px; margin:0 auto; }
+
+  /* ── 變體變數層：A = 現行 tokens 值；B/C 的差異值 = 候選 ── */
+  .vA {
+    --canvas:#f7f4ec; --card:#fdfbf6; --ink:#1b1a17; --sub:#3d3b35; --soft:#6c695e;
+    --line:rgba(27,26,23,.10); --line-strong:rgba(27,26,23,.18); --card-edge:rgba(27,26,23,.055);
+    --accent:#234f7a; --accent-soft:rgba(35,79,122,.10); --accent-btn-shadow:0 8px 18px rgba(35,79,122,.16);
+    --taccent:#3f5a3b; --taccent-soft:rgba(63,90,59,.10); --taccent-shadow:0 8px 18px rgba(63,90,59,.18);
+    --aaccent:#1a2e4f; --aaccent-soft:rgba(26,46,79,.09); --aaccent-shadow:0 8px 18px rgba(26,46,79,.16);
+    --raccent:#7a2030; --raccent-soft:rgba(122,32,48,.10); --raccent-shadow:0 8px 18px rgba(122,32,48,.14);
+    --r-frame:20px; --r-card:12px; --r-chip:14px; --r-btn:12px;
+    --shadow-card:inset 0 1px 0 rgba(255,255,255,.6), 0 1px 2px rgba(27,26,23,.04), 0 4px 10px -4px rgba(27,26,23,.06);
+    --shadow-shell:inset 0 1px 0 rgba(255,255,255,.7), 0 1px 2px rgba(27,26,23,.045), 0 8px 16px -6px rgba(27,26,23,.08), 0 20px 38px -16px rgba(27,26,23,.11);
+    --shadow-plate:0 6px 16px rgba(27,26,23,.08);
+    --h3:19px; --row-pad:10px;
+  }
+  .vB {
+    --canvas:#fbf8f1; --card:#fdfcf8; --ink:#1b1a17; --sub:#3d3b35; --soft:#6c695e;
+    --line:rgba(27,26,23,.13); --line-strong:rgba(27,26,23,.22); --card-edge:rgba(27,26,23,.08);
+    --accent:#234f7a; --accent-soft:rgba(35,79,122,.10); --accent-btn-shadow:0 8px 18px rgba(35,79,122,.16);
+    --taccent:#3f5a3b; --taccent-soft:rgba(63,90,59,.10); --taccent-shadow:0 8px 18px rgba(63,90,59,.18);
+    --r-frame:14px; --r-card:10px; --r-chip:10px; --r-btn:10px;
+    --shadow-card:0 1px 2px rgba(27,26,23,.04), 0 6px 16px -8px rgba(27,26,23,.07);
+    --shadow-shell:0 1px 2px rgba(27,26,23,.05), 0 10px 26px -10px rgba(27,26,23,.10), 0 22px 44px -20px rgba(27,26,23,.12);
+    --shadow-plate:0 6px 16px rgba(27,26,23,.08);
+    --h3:20.5px; --row-pad:13px;
+  }
+  .vC {
+    --canvas:#f7f4ec; --card:#fdfbf6; --ink:#1b1a17; --sub:#3d3b35; --soft:#6c695e;
+    --line:rgba(27,26,23,.10); --line-strong:rgba(27,26,23,.18); --card-edge:rgba(27,26,23,.055);
+    --accent:#c2401f; --accent-soft:rgba(194,64,31,.08); --accent-btn-shadow:0 8px 18px rgba(194,64,31,.18);
+    --taccent:#c2401f; --taccent-soft:rgba(194,64,31,.08); --taccent-shadow:0 8px 18px rgba(194,64,31,.18);
+    --r-frame:20px; --r-card:12px; --r-chip:14px; --r-btn:12px;
+    --shadow-card:inset 0 1px 0 rgba(255,255,255,.6), 0 1px 2px rgba(27,26,23,.04), 0 4px 10px -4px rgba(27,26,23,.06);
+    --shadow-shell:inset 0 1px 0 rgba(255,255,255,.7), 0 1px 2px rgba(27,26,23,.045), 0 8px 16px -6px rgba(27,26,23,.08), 0 20px 38px -16px rgba(27,26,23,.11);
+    --shadow-plate:0 6px 16px rgba(27,26,23,.08);
+    --h3:19px; --row-pad:10px;
+  }
+
+  /* ── 殼：圓角 + 分層陰影（現行 shell 語言），在純白底上靠 card-edge + 柔影分離 ── */
+  .frame {
+    background:var(--canvas); color:var(--ink);
+    border:1px solid var(--line-strong); border-radius:var(--r-frame);
+    box-shadow:var(--shadow-shell);
+    padding:0 20px 20px; overflow:hidden;
+  }
+  .frame-tag { font-family:'JetBrains Mono',ui-monospace,monospace; font-size:10px; letter-spacing:.08em; text-transform:uppercase; color:var(--soft); padding:12px 0 0; }
+
+  /* masthead — 現行：icon 分頁 + 圓角 chip */
+  .masthead { display:flex; align-items:center; gap:10px; padding:13px 0 12px; border-bottom:1px solid var(--line); }
+  .wordmark { font-family:'Noto Serif TC','Songti TC',Georgia,serif; font-weight:700; font-size:17px; }
+  .ver { font-family:'JetBrains Mono',ui-monospace,monospace; font-size:10px; color:var(--soft); }
+  .tabs { display:flex; gap:4px; margin-left:auto; }
+  .tab { display:inline-flex; align-items:center; gap:5px; font-size:11px; font-weight:600; padding:5px 11px; border-radius:var(--r-chip); color:var(--soft); }
+  .tab svg { width:13px; height:13px; stroke:currentColor; stroke-width:1.8; fill:none; stroke-linecap:round; stroke-linejoin:round; }
+  .tab.on { background:var(--accent-soft); color:var(--accent); }
+  .dot { width:7px; height:7px; border-radius:999px; background:#3f5a3b; margin-left:4px; }
+
+  /* workspace 狀態列 */
+  .wsbar { display:flex; align-items:center; gap:14px; padding:12px 0; }
+  .wsbar .m { font-family:'JetBrains Mono',ui-monospace,monospace; font-size:11.5px; font-weight:700; font-variant-numeric:tabular-nums; }
+  .wsbar .exports { display:flex; gap:10px; margin-left:auto; font-family:'JetBrains Mono',ui-monospace,monospace; font-size:10.5px; color:var(--soft); }
+  .btn { font-size:11.5px; font-weight:700; padding:7px 15px; border-radius:var(--r-btn); border:1px solid transparent; cursor:pointer; font-family:inherit; }
+  .btn.primary { background:var(--accent); color:#fff; box-shadow:var(--accent-btn-shadow); }
+  .btn.quiet { background:none; border-color:var(--line-strong); color:var(--ink); }
+  .wscopy { font-size:11px; color:var(--soft); padding:0 0 10px; line-height:1.6; }
+
+  /* ── 狀態欄切換：VerdictFilterTiles — 共用滑動選取板（保留現行動畫） ── */
+  .tiles { position:relative; display:grid; grid-template-columns:repeat(4,minmax(0,1fr)); gap:8px; margin-bottom:14px; }
+  .plate { position:absolute; top:0; bottom:0; left:0; width:calc((100% - 24px)/4);
+           border-radius:var(--r-card); border:1px solid; box-shadow:var(--shadow-plate); pointer-events:none; }
+  .tile { position:relative; background:transparent; border:1px solid var(--line); border-radius:var(--r-card);
+          padding:9px 6px 8px; text-align:center; cursor:pointer; font-family:inherit; color:var(--ink); }
+  .tile.on { border-color:transparent; }
+  .tile b { display:block; font-family:'JetBrains Mono',ui-monospace,monospace; font-size:16px; font-weight:700; font-variant-numeric:tabular-nums; line-height:1.2; }
+  .tile span { font-size:10.5px; font-weight:600; color:var(--sub); }
+
+  /* ── 整塊卡片（現行語言）× winner 的內部密度 ── */
+  .card { background:var(--card); border:1px solid var(--card-edge); border-radius:var(--r-card);
+          box-shadow:var(--shadow-card); padding:15px 16px 13px; margin-bottom:12px; }
+  .eyebrow { display:flex; gap:12px; align-items:baseline; font-size:10px; font-weight:700; letter-spacing:.07em; text-transform:uppercase; margin-bottom:8px; }
+  .eyebrow .type { color:#1a2e4f; }
+  .eyebrow .type.demand { color:#3f5a3b; }
+  .eyebrow .type.learning { color:#3f5a3b; }
+  .eyebrow .type.none { color:var(--soft); }
+  .eyebrow .rel { font-family:'JetBrains Mono',ui-monospace,monospace; letter-spacing:0; color:var(--ink); }
+  .eyebrow .prov { font-family:'JetBrains Mono',ui-monospace,monospace; letter-spacing:0; text-transform:none; font-weight:400; color:var(--soft); }
+  .eyebrow .stale { font-family:'JetBrains Mono',ui-monospace,monospace; letter-spacing:0; color:#a16a17; }
+  .card h3 { font-family:'Noto Serif TC','Songti TC',Georgia,serif; font-size:var(--h3); font-weight:700; line-height:1.5; margin-bottom:9px; }
+  .quote { font-family:'Noto Serif TC','Songti TC',Georgia,serif; font-style:italic; font-size:13.5px; line-height:1.75; color:var(--sub);
+           border-inline-start:2px solid var(--accent); padding:2px 0 2px 13px; margin-bottom:11px; }
+  .analysis { display:grid; grid-template-columns:auto 1fr; gap:5px 14px; margin-bottom:11px; }
+  .analysis .k { font-family:'JetBrains Mono',ui-monospace,monospace; font-size:10px; letter-spacing:.06em; color:var(--soft); text-transform:uppercase; padding-top:2px; white-space:nowrap; }
+  .analysis .v { font-size:12.5px; line-height:1.65; }
+  .meta { display:flex; align-items:center; gap:14px; font-size:11px; color:var(--soft); }
+  .meta .m { font-family:'JetBrains Mono',ui-monospace,monospace; font-weight:700; font-variant-numeric:tabular-nums; color:var(--ink); }
+  .st { display:inline-flex; align-items:center; gap:5px; font-size:10.5px; color:var(--soft); }
+  .st i { width:6px; height:6px; border-radius:999px; display:inline-block; }
+  .st.ok i{background:#3f5a3b} .st.run i{background:#1a2e4f} .st.bad i{background:#7a2030}
+  /* verdict 章：現行 soft-pill 語言（圓角、軟底），非 winner 的方角實心 */
+  .verdict { margin-left:auto; font-size:10.5px; font-weight:700; padding:3px 11px; border-radius:var(--r-chip); }
+  .verdict.try { background:rgba(63,90,59,.10); color:#3f5a3b; }
+  .verdict.watch { background:rgba(26,46,79,.08); color:#1a2e4f; }
+  .verdict.park { background:rgba(241,236,224,.78); color:#6c695e; }
+  .rowacts { display:flex; gap:14px; margin-top:9px; font-family:'JetBrains Mono',ui-monospace,monospace; font-size:10.5px; color:var(--soft); }
+  .rowacts span { cursor:pointer; }
+  .rowacts .danger { color:#7a2030; }
+
+  /* 收件匣整塊卡片：一塊卡、規線分行（winner 密度內化進卡片） */
+  .inbox { background:var(--card); border:1px solid var(--card-edge); border-radius:var(--r-card);
+           box-shadow:var(--shadow-card); padding:4px 16px; }
+  .row { padding:var(--row-pad) 0; border-bottom:1px solid var(--line); }
+  .row:last-child { border-bottom:none; }
+  .row .head { display:flex; gap:12px; align-items:baseline; margin-bottom:4px; }
+  .row h4 { font-family:'Noto Serif TC','Songti TC',Georgia,serif; font-size:14px; font-weight:700; line-height:1.5; flex:1; }
+  .row .meta { margin-top:3px; }
+
+  /* ── topic detail（融合：主判讀/審查進整塊卡片，來源列規線分行） ── */
+  .surface-label { max-width:2000px; margin:0 auto 12px; font-family:'JetBrains Mono',ui-monospace,monospace; font-size:11px; font-weight:700; letter-spacing:.1em; text-transform:uppercase; color:#6c695e; }
+  .surface-label.later { margin-top:36px; }
+  .tophead { padding:13px 0 10px; }
+  .back { font-family:'JetBrains Mono',ui-monospace,monospace; font-size:10.5px; color:var(--soft); margin-bottom:7px; cursor:pointer; }
+  .tophead h2 { font-family:'Noto Serif TC','Songti TC',Georgia,serif; font-size:22px; font-weight:700; line-height:1.35; }
+  .topmeta { display:flex; gap:12px; margin-top:7px; font-family:'JetBrains Mono',ui-monospace,monospace; font-size:10.5px; color:var(--soft); }
+  .counts { display:flex; gap:16px; padding:10px 0 12px; font-family:'JetBrains Mono',ui-monospace,monospace; font-size:11.5px; font-variant-numeric:tabular-nums; }
+  .counts b { font-weight:700; }
+  .counts .muted { color:var(--soft); font-weight:400; }
+  .judg-lab { display:flex; gap:12px; align-items:baseline; font-size:10px; font-weight:700; letter-spacing:.07em; text-transform:uppercase; margin-bottom:8px; }
+  .judg-lab .kick { color:var(--taccent); }
+  .judg-lab .rel { font-family:'JetBrains Mono',ui-monospace,monospace; letter-spacing:0; color:var(--ink); }
+  .judg-lab .gen { font-family:'JetBrains Mono',ui-monospace,monospace; letter-spacing:0; font-weight:400; text-transform:none; color:var(--soft); }
+  .state { font-family:'JetBrains Mono',ui-monospace,monospace; font-size:10.5px; font-weight:700; padding:2px 10px; border-radius:var(--r-chip); }
+  .state.act { background:var(--taccent); color:#fff; }
+  .why { font-family:'Noto Serif TC','Songti TC',Georgia,serif; font-size:16px; font-weight:600; line-height:1.6; margin-bottom:9px; }
+  .tagbar { display:flex; gap:8px; flex-wrap:wrap; padding:0 0 12px; }
+  .tagchip { font-family:'JetBrains Mono',ui-monospace,monospace; font-size:10.5px; padding:4px 11px; border:1px solid var(--line-strong); border-radius:var(--r-chip); color:var(--ink); cursor:pointer; background:var(--card); }
+  .tagchip b { color:var(--taccent); margin-left:5px; }
+  .tagnote { font-size:10.5px; color:var(--soft); align-self:center; margin-left:auto; }
+  .trow { display:flex; align-items:baseline; gap:10px; padding:var(--row-pad) 0; border-bottom:1px solid var(--line); }
+  .trow:last-child { border-bottom:none; }
+  .trow .gist { font-size:13px; font-weight:600; line-height:1.55; flex:1; }
+  .trow .tg { font-family:'JetBrains Mono',ui-monospace,monospace; font-size:10px; color:var(--taccent); white-space:nowrap; }
+  .stance { font-family:'JetBrains Mono',ui-monospace,monospace; font-size:10px; padding:2px 9px; border:1px solid var(--line); border-radius:var(--r-chip); color:var(--soft); white-space:nowrap; }
+  .stance.central { color:var(--ink); border-color:var(--line-strong); }
+  .themes { display:flex; gap:8px; flex-wrap:wrap; margin-bottom:10px; }
+  .theme { font-size:10.5px; padding:3px 10px; background:var(--taccent-soft); color:var(--taccent); border-radius:var(--r-chip); }
+  .lane { display:flex; align-items:baseline; gap:12px; padding:8px 0; border-top:1px solid var(--line); }
+  .lane .t { font-family:'Noto Serif TC','Songti TC',Georgia,serif; font-size:13.5px; font-weight:600; flex:1; line-height:1.5; }
+  .lane .c { font-family:'JetBrains Mono',ui-monospace,monospace; font-size:11px; font-variant-numeric:tabular-nums; }
+  .lane .n { font-family:'JetBrains Mono',ui-monospace,monospace; font-size:10.5px; color:var(--soft); }
+  .topacts { display:flex; gap:10px; padding:2px 0 0; }
+  .btn.tprimary { background:var(--taccent); color:#fff; box-shadow:var(--taccent-shadow); }
+
+  /* ── surface 3：其餘 journey 步驟（融合基底 = 變體 A 值） ── */
+  .frame.threads { background:#fff; }
+  .skel { display:flex; gap:10px; padding:14px 0; border-bottom:1px solid rgba(20,19,17,.07); }
+  .skel .av { width:34px; height:34px; border-radius:999px; background:rgba(20,19,17,.08); flex:none; }
+  .skel .ln { height:9px; border-radius:999px; background:rgba(20,19,17,.07); margin-bottom:8px; }
+  .collector-wrap { position:relative; padding:6px 0 12px; }
+  .collector-panel { width:min(360px,92%); margin:14px 0 0 auto; background:var(--canvas); border:1px solid var(--line-strong);
+    border-radius:16px; padding:13px 15px 13px;
+    box-shadow:inset 0 1px 0 rgba(255,255,255,.8), 0 2px 4px rgba(27,26,23,.05), 0 12px 24px -8px rgba(27,26,23,.12), 0 30px 54px -20px rgba(27,26,23,.15); }
+  .collector-panel .head { display:flex; align-items:center; gap:8px; margin-bottom:10px; }
+  .collector-panel .head .wordmark { font-size:14px; }
+  .folderchip { font-family:'JetBrains Mono',ui-monospace,monospace; font-size:10px; padding:3px 9px; border:1px solid var(--line-strong); border-radius:var(--r-chip); color:var(--ink); margin-left:auto; }
+  .launcher { display:inline-flex; align-items:center; gap:6px; background:var(--aaccent); color:#fff; border:none; cursor:pointer;
+    border-radius:999px; padding:8px 15px; font-size:11.5px; font-weight:700; font-family:inherit; box-shadow:var(--aaccent-shadow); float:right; margin-top:12px; }
+  .launcher svg { width:12px; height:12px; stroke:currentColor; stroke-width:2; fill:none; stroke-linecap:round; }
+  .caprow { display:flex; align-items:baseline; gap:8px; padding:8px 0; border-top:1px solid var(--line); font-size:12px; }
+  .caprow .g { flex:1; font-weight:600; line-height:1.5; }
+  .strip { margin-top:10px; }
+  .strip .lab { display:flex; justify-content:space-between; font-family:'JetBrains Mono',ui-monospace,monospace; font-size:10px; color:var(--soft); margin-bottom:5px; }
+  .strip .bar { height:6px; border-radius:999px; background:var(--line); overflow:hidden; }
+  .strip .bar i { display:block; width:38%; height:100%; border-radius:999px; background:var(--aaccent); }
+  .duo { display:grid; grid-template-columns:1fr 1fr; gap:12px; margin-bottom:12px; }
+  .postlab { font-size:10px; font-weight:700; letter-spacing:.07em; text-transform:uppercase; color:var(--taccent); }
+  .compbar { display:flex; gap:16px; padding:10px 0 12px; font-family:'JetBrains Mono',ui-monospace,monospace; font-size:11.5px; font-variant-numeric:tabular-nums; }
+  .compbar b { font-weight:700; }
+  .compbar .muted { color:var(--soft); font-weight:400; }
+  .packet { background:var(--card); border:1px solid var(--card-edge); border-radius:var(--r-card); box-shadow:var(--shadow-card); padding:13px 15px; }
+  .packet pre { font-family:'JetBrains Mono',ui-monospace,monospace; font-size:10.5px; line-height:1.8; color:var(--sub); white-space:pre-wrap;
+    background:rgba(27,26,23,.025); border:1px solid var(--line); border-radius:8px; padding:10px 12px; margin:9px 0 11px; }
+  .st.warn i { background:#a16a17; }
+  .btn.aprimary { background:var(--aaccent); color:#fff; box-shadow:var(--aaccent-shadow); }
+  .btn.rprimary { background:var(--raccent); color:#fff; box-shadow:var(--raccent-shadow); }
+  .kick.r { color:var(--raccent); }
+  .theme.r { background:var(--raccent-soft); color:var(--raccent); }
+
+  @media (prefers-reduced-motion: no-preference) {
+    .strip .bar i { animation:strip-slide 1100ms cubic-bezier(0.4,0,0.2,1) infinite; }
+    @keyframes strip-slide { from { transform:translateX(-110%); } to { transform:translateX(290%); } }
+  }
+
+  /* 底部說明 */
+  .legend { max-width:2000px; margin:30px auto 0; border-top:2px solid #1b1a17; padding-top:14px; }
+  .legend h2 { font-family:'Noto Serif TC','Songti TC',Georgia,serif; font-size:16px; margin-bottom:10px; }
+  .legend table { width:100%; border-collapse:collapse; font-size:11.5px; }
+  .legend td { padding:6px 14px 6px 0; border-bottom:1px solid rgba(27,26,23,.10); vertical-align:top; line-height:1.65; }
+  .legend td.f { font-family:'JetBrains Mono',ui-monospace,monospace; font-size:10.5px; color:#3d3b35; white-space:nowrap; }
+  .legend p { font-size:11.5px; color:#3d3b35; line-height:1.7; margin-top:12px; max-width:84em; }
+
+  /* 動效：只在允許時啟用（現行規範 prefers-reduced-motion guard） */
+  @media (prefers-reduced-motion: no-preference) {
+    .plate { transition:transform 220ms cubic-bezier(0.22,1.12,0.36,1), background-color 180ms cubic-bezier(0.4,0,0.2,1), border-color 180ms cubic-bezier(0.4,0,0.2,1); }
+    .tile, .btn, .rowacts span { transition:opacity .14s ease, transform 160ms cubic-bezier(0.34,1.56,0.64,1), box-shadow 160ms cubic-bezier(0.4,0,0.2,1); }
+    .btn.primary:hover { transform:translateY(-1px); }
+    .tile:hover, .rowacts span:hover { opacity:.75; }
+  }
+</style>
+</head>
+<body>
+
+<div class="intro">
+  <h1>Visual Reset B — 暖紙融合變體（Gate 1 迭代）</h1>
+  <p>2026-07-06 · reference-only · <b>脈絡：畫廊白 winner 在 Gate 1 被退回</b>（現版更美觀、白底太單一）。
+     本頁是融合探索：保留現行 extension 的<b>圓角曲線、mode icon、滑動選取板動畫（VerdictFilterTiles，可實際點擊試玩）、
+     值得嘗試／保留觀察／噪音切換、整塊卡片</b>；吸收 winner 的<b>密度紀律</b>（eyebrow 欄位列、襯線標題、mono 數字、
+     為何相關 k/v 格、規線分行）。三個變體用同一組樣本資料，差異只在視覺參數。
+     Surface 1–2（訊號收件匣＋主題詳情）出三變體可比；surface 3 把其餘 journey 步驟——採集、議題列表、
+     Compare、行動簡報、PR Evidence——用融合基底各出一格。
+     真欄位對照與 2026-07-05 winner mockup 完全相同（同一組 contract 欄位）。所有值最終只進 <code>src/ui/tokens.ts</code>。</p>
+</div>
+
+<div class="surface-label">surface 1 · product mode · saved signals（verdict 磚可點擊看滑板動畫）</div>
+<div class="stage">
+
+  <!-- ═══ 融合 A · 暖紙規線 ═══ -->
+  <section class="frame vA">
+    <div class="frame-tag">融合 A · 暖紙規線 — 全部沿用現行 tokens 值，只內化 winner 密度</div>
+    <div class="masthead">
+      <span class="wordmark">DLens</span><span class="ver">0.3.8</span>
+      <div class="tabs">
+        <span class="tab on"><svg viewBox="0 0 24 24"><path d="M3 12h4l2.5-6 4 12 2.5-6h5"/></svg>訊號</span>
+        <span class="tab"><svg viewBox="0 0 24 24"><path d="M21 4 10 15"/><path d="m21 4-7 16-4-5-5-4 16-7Z"/></svg>行動</span>
+        <span class="tab"><svg viewBox="0 0 24 24"><path d="M4 9.5 12 4l8 5.5V19a1.5 1.5 0 0 1-1.5 1.5h-13A1.5 1.5 0 0 1 4 19Z"/><path d="M4 13h5c0 1.6 1.3 2.6 3 2.6s3-1 3-2.6h5"/></svg>收集</span>
+      </div>
+      <span class="dot"></span>
+    </div>
+
+    <div class="wsbar">
+      <span class="m">6 訊號 · 4 已分析</span>
+      <button class="btn primary">分析收件匣</button>
+      <div class="exports"><span>匯出 html</span><span>匯出 jsonl</span></div>
+    </div>
+    <div class="wscopy">有 signal 尚未抓取。按分析收件匣會先送出抓取請求，完成後再分析。</div>
+
+    <div class="tiles" data-tiles>
+      <div class="plate" data-plate></div>
+      <button class="tile" data-color="#3f5a3b" data-soft="rgba(63,90,59,0.10)"><b>1</b><span>值得嘗試</span></button>
+      <button class="tile" data-color="#1a2e4f" data-soft="rgba(26,46,79,0.08)"><b>1</b><span>保留觀察</span></button>
+      <button class="tile" data-color="#6c695e" data-soft="rgba(241,236,224,0.78)"><b>1</b><span>噪音不符</span></button>
+      <button class="tile" data-color="#a16a17" data-soft="rgba(161,106,23,0.11)"><b>0</b><span>資料不足</span></button>
+    </div>
+
+    <!-- hero：展開態整塊卡片，分析欄位全上 -->
+    <article class="card">
+      <div class="eyebrow"><span class="type">technical</span> <span class="rel">參考度 4/5</span> <span class="prov">AI · gemini</span></div>
+      <h3>用瀏覽器自動化做循環資料抓取的可複用模式</h3>
+      <div class="quote">「我直接讓 agent 每天早上爬一次 Threads 關鍵字，存進 Notion 再叫它寫摘要，兩週沒斷過。」</div>
+      <div class="analysis">
+        <span class="k">為何相關</span><span class="v">和 DLens 的 Threads 擷取管線同構——排程、關鍵字、產出摘要三段都對得上。</span>
+        <span class="k">現在為何</span><span class="v">兩週穩定運行是可複製的訊號，不是一次性 demo。</span>
+        <span class="k">實驗提示</span><span class="v">把每日爬取包成 crawl job 模板，先支援單一關鍵字。</span>
+        <span class="k">驗證指標</span><span class="v">連續 7 天成功率 ≥ 90%。</span>
+      </div>
+      <div class="meta">
+        <span>讚 <span class="m">132</span></span><span>回覆 <span class="m">45</span></span>
+        <span class="st ok"><i></i>ready</span>
+        <span class="verdict try">值得嘗試</span>
+      </div>
+      <div class="rowacts"><span>產生 reading</span><span>重抓</span><span class="danger">移除</span></div>
+    </article>
+
+    <!-- 收件匣：一塊卡、規線分行 -->
+    <div class="inbox">
+      <div class="row">
+        <div class="head"><span class="eyebrow" style="margin:0"><span class="type demand">demand</span> <span class="rel">參考度 3/5</span></span></div>
+        <h4>想要「自動幫我把討論串變成內容日曆」的工具</h4>
+        <div class="meta"><span>讚 <span class="m">88</span></span><span>回覆 <span class="m">31</span></span><span class="st ok"><i></i>ready</span><span class="verdict watch">保留觀察</span></div>
+      </div>
+      <div class="row">
+        <div class="head"><span class="eyebrow" style="margin:0"><span class="type learning">learning</span> <span class="rel">參考度 2/5</span> <span class="stale">過時</span></span></div>
+        <h4>三步驟教你用試算表管理靈感庫</h4>
+        <div class="meta"><span>讚 <span class="m">54</span></span><span>回覆 <span class="m">9</span></span><span class="st ok"><i></i>ready</span><span class="verdict park">噪音 / 前提不符</span></div>
+      </div>
+      <div class="row">
+        <div class="head"><span class="eyebrow" style="margin:0"><span class="type none">未分析</span></span></div>
+        <h4>小工具開發者的 Threads 廣告投放心得</h4>
+        <div class="meta"><span class="st bad"><i></i>抓取失敗</span><span class="rowacts" style="margin:0"><span>重抓</span><span class="danger">移除</span></span></div>
+      </div>
+      <div class="row">
+        <div class="head"><span class="eyebrow" style="margin:0"><span class="type none">未分析</span></span></div>
+        <h4>把 side project 當媒體在經營的一年回顧</h4>
+        <div class="meta"><span class="st run"><i></i>分析中</span></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ═══ 融合 B · 亮暖畫廊 ═══ -->
+  <section class="frame vB">
+    <div class="frame-tag">融合 B · 亮暖畫廊 — 底色提亮一級（仍是暖白，非冷白）、規線加重、半徑收斂到 10px</div>
+    <div class="masthead">
+      <span class="wordmark">DLens</span><span class="ver">0.3.8</span>
+      <div class="tabs">
+        <span class="tab on"><svg viewBox="0 0 24 24"><path d="M3 12h4l2.5-6 4 12 2.5-6h5"/></svg>訊號</span>
+        <span class="tab"><svg viewBox="0 0 24 24"><path d="M21 4 10 15"/><path d="m21 4-7 16-4-5-5-4 16-7Z"/></svg>行動</span>
+        <span class="tab"><svg viewBox="0 0 24 24"><path d="M4 9.5 12 4l8 5.5V19a1.5 1.5 0 0 1-1.5 1.5h-13A1.5 1.5 0 0 1 4 19Z"/><path d="M4 13h5c0 1.6 1.3 2.6 3 2.6s3-1 3-2.6h5"/></svg>收集</span>
+      </div>
+      <span class="dot"></span>
+    </div>
+
+    <div class="wsbar">
+      <span class="m">6 訊號 · 4 已分析</span>
+      <button class="btn primary">分析收件匣</button>
+      <div class="exports"><span>匯出 html</span><span>匯出 jsonl</span></div>
+    </div>
+    <div class="wscopy">有 signal 尚未抓取。按分析收件匣會先送出抓取請求，完成後再分析。</div>
+
+    <div class="tiles" data-tiles>
+      <div class="plate" data-plate></div>
+      <button class="tile" data-color="#3f5a3b" data-soft="rgba(63,90,59,0.10)"><b>1</b><span>值得嘗試</span></button>
+      <button class="tile" data-color="#1a2e4f" data-soft="rgba(26,46,79,0.08)"><b>1</b><span>保留觀察</span></button>
+      <button class="tile" data-color="#6c695e" data-soft="rgba(241,236,224,0.78)"><b>1</b><span>噪音不符</span></button>
+      <button class="tile" data-color="#a16a17" data-soft="rgba(161,106,23,0.11)"><b>0</b><span>資料不足</span></button>
+    </div>
+
+    <article class="card">
+      <div class="eyebrow"><span class="type">technical</span> <span class="rel">參考度 4/5</span> <span class="prov">AI · gemini</span></div>
+      <h3>用瀏覽器自動化做循環資料抓取的可複用模式</h3>
+      <div class="quote">「我直接讓 agent 每天早上爬一次 Threads 關鍵字，存進 Notion 再叫它寫摘要，兩週沒斷過。」</div>
+      <div class="analysis">
+        <span class="k">為何相關</span><span class="v">和 DLens 的 Threads 擷取管線同構——排程、關鍵字、產出摘要三段都對得上。</span>
+        <span class="k">現在為何</span><span class="v">兩週穩定運行是可複製的訊號，不是一次性 demo。</span>
+        <span class="k">實驗提示</span><span class="v">把每日爬取包成 crawl job 模板，先支援單一關鍵字。</span>
+        <span class="k">驗證指標</span><span class="v">連續 7 天成功率 ≥ 90%。</span>
+      </div>
+      <div class="meta">
+        <span>讚 <span class="m">132</span></span><span>回覆 <span class="m">45</span></span>
+        <span class="st ok"><i></i>ready</span>
+        <span class="verdict try">值得嘗試</span>
+      </div>
+      <div class="rowacts"><span>產生 reading</span><span>重抓</span><span class="danger">移除</span></div>
+    </article>
+
+    <div class="inbox">
+      <div class="row">
+        <div class="head"><span class="eyebrow" style="margin:0"><span class="type demand">demand</span> <span class="rel">參考度 3/5</span></span></div>
+        <h4>想要「自動幫我把討論串變成內容日曆」的工具</h4>
+        <div class="meta"><span>讚 <span class="m">88</span></span><span>回覆 <span class="m">31</span></span><span class="st ok"><i></i>ready</span><span class="verdict watch">保留觀察</span></div>
+      </div>
+      <div class="row">
+        <div class="head"><span class="eyebrow" style="margin:0"><span class="type learning">learning</span> <span class="rel">參考度 2/5</span> <span class="stale">過時</span></span></div>
+        <h4>三步驟教你用試算表管理靈感庫</h4>
+        <div class="meta"><span>讚 <span class="m">54</span></span><span>回覆 <span class="m">9</span></span><span class="st ok"><i></i>ready</span><span class="verdict park">噪音 / 前提不符</span></div>
+      </div>
+      <div class="row">
+        <div class="head"><span class="eyebrow" style="margin:0"><span class="type none">未分析</span></span></div>
+        <h4>小工具開發者的 Threads 廣告投放心得</h4>
+        <div class="meta"><span class="st bad"><i></i>抓取失敗</span><span class="rowacts" style="margin:0"><span>重抓</span><span class="danger">移除</span></span></div>
+      </div>
+      <div class="row">
+        <div class="head"><span class="eyebrow" style="margin:0"><span class="type none">未分析</span></span></div>
+        <h4>把 side project 當媒體在經營的一年回顧</h4>
+        <div class="meta"><span class="st run"><i></i>分析中</span></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ═══ 融合 C · 硃紅書脊 ═══ -->
+  <section class="frame vC">
+    <div class="frame-tag">融合 C · 硃紅書脊 — 同 A 的基底，只把 mode accent 換成 winner 的硃紅（測單一色註能否活在暖紙上）</div>
+    <div class="masthead">
+      <span class="wordmark">DLens</span><span class="ver">0.3.8</span>
+      <div class="tabs">
+        <span class="tab on"><svg viewBox="0 0 24 24"><path d="M3 12h4l2.5-6 4 12 2.5-6h5"/></svg>訊號</span>
+        <span class="tab"><svg viewBox="0 0 24 24"><path d="M21 4 10 15"/><path d="m21 4-7 16-4-5-5-4 16-7Z"/></svg>行動</span>
+        <span class="tab"><svg viewBox="0 0 24 24"><path d="M4 9.5 12 4l8 5.5V19a1.5 1.5 0 0 1-1.5 1.5h-13A1.5 1.5 0 0 1 4 19Z"/><path d="M4 13h5c0 1.6 1.3 2.6 3 2.6s3-1 3-2.6h5"/></svg>收集</span>
+      </div>
+      <span class="dot"></span>
+    </div>
+
+    <div class="wsbar">
+      <span class="m">6 訊號 · 4 已分析</span>
+      <button class="btn primary">分析收件匣</button>
+      <div class="exports"><span>匯出 html</span><span>匯出 jsonl</span></div>
+    </div>
+    <div class="wscopy">有 signal 尚未抓取。按分析收件匣會先送出抓取請求，完成後再分析。</div>
+
+    <div class="tiles" data-tiles>
+      <div class="plate" data-plate></div>
+      <button class="tile" data-color="#3f5a3b" data-soft="rgba(63,90,59,0.10)"><b>1</b><span>值得嘗試</span></button>
+      <button class="tile" data-color="#1a2e4f" data-soft="rgba(26,46,79,0.08)"><b>1</b><span>保留觀察</span></button>
+      <button class="tile" data-color="#6c695e" data-soft="rgba(241,236,224,0.78)"><b>1</b><span>噪音不符</span></button>
+      <button class="tile" data-color="#a16a17" data-soft="rgba(161,106,23,0.11)"><b>0</b><span>資料不足</span></button>
+    </div>
+
+    <article class="card">
+      <div class="eyebrow"><span class="type" style="color:var(--accent)">technical</span> <span class="rel">參考度 4/5</span> <span class="prov">AI · gemini</span></div>
+      <h3>用瀏覽器自動化做循環資料抓取的可複用模式</h3>
+      <div class="quote">「我直接讓 agent 每天早上爬一次 Threads 關鍵字，存進 Notion 再叫它寫摘要，兩週沒斷過。」</div>
+      <div class="analysis">
+        <span class="k">為何相關</span><span class="v">和 DLens 的 Threads 擷取管線同構——排程、關鍵字、產出摘要三段都對得上。</span>
+        <span class="k">現在為何</span><span class="v">兩週穩定運行是可複製的訊號，不是一次性 demo。</span>
+        <span class="k">實驗提示</span><span class="v">把每日爬取包成 crawl job 模板，先支援單一關鍵字。</span>
+        <span class="k">驗證指標</span><span class="v">連續 7 天成功率 ≥ 90%。</span>
+      </div>
+      <div class="meta">
+        <span>讚 <span class="m">132</span></span><span>回覆 <span class="m">45</span></span>
+        <span class="st ok"><i></i>ready</span>
+        <span class="verdict try">值得嘗試</span>
+      </div>
+      <div class="rowacts"><span>產生 reading</span><span>重抓</span><span class="danger">移除</span></div>
+    </article>
+
+    <div class="inbox">
+      <div class="row">
+        <div class="head"><span class="eyebrow" style="margin:0"><span class="type demand">demand</span> <span class="rel">參考度 3/5</span></span></div>
+        <h4>想要「自動幫我把討論串變成內容日曆」的工具</h4>
+        <div class="meta"><span>讚 <span class="m">88</span></span><span>回覆 <span class="m">31</span></span><span class="st ok"><i></i>ready</span><span class="verdict watch">保留觀察</span></div>
+      </div>
+      <div class="row">
+        <div class="head"><span class="eyebrow" style="margin:0"><span class="type learning">learning</span> <span class="rel">參考度 2/5</span> <span class="stale">過時</span></span></div>
+        <h4>三步驟教你用試算表管理靈感庫</h4>
+        <div class="meta"><span>讚 <span class="m">54</span></span><span>回覆 <span class="m">9</span></span><span class="st ok"><i></i>ready</span><span class="verdict park">噪音 / 前提不符</span></div>
+      </div>
+      <div class="row">
+        <div class="head"><span class="eyebrow" style="margin:0"><span class="type none">未分析</span></span></div>
+        <h4>小工具開發者的 Threads 廣告投放心得</h4>
+        <div class="meta"><span class="st bad"><i></i>抓取失敗</span><span class="rowacts" style="margin:0"><span>重抓</span><span class="danger">移除</span></span></div>
+      </div>
+      <div class="row">
+        <div class="head"><span class="eyebrow" style="margin:0"><span class="type none">未分析</span></span></div>
+        <h4>把 side project 當媒體在經營的一年回顧</h4>
+        <div class="meta"><span class="st run"><i></i>分析中</span></div>
+      </div>
+    </div>
+  </section>
+
+</div>
+
+<div class="surface-label later">surface 2 · topic mode · topic detail（A/B 保留 per-mode 綠 accent，C 測 winner 的單一硃紅跨 mode）</div>
+<div class="stage">
+
+  <!-- ═══ 融合 A · topic detail ═══ -->
+  <section class="frame vA">
+    <div class="frame-tag">融合 A · topic detail — topic mode 沿用現行綠 accent（per-mode 色是現版強項）</div>
+    <div class="tophead">
+      <div class="back">← 返回主題列表</div>
+      <h2>MCP 自動化工作流</h2>
+      <div class="topmeta"><span>#mcp</span><span>#自動化</span><span>建立 06-28 · 更新 07-05</span></div>
+    </div>
+    <div class="counts"><span><b>6</b> 來源</span><span><b>4</b> ready</span><span class="muted">1 處理中</span><span class="muted">1 失敗</span></div>
+
+    <article class="card">
+      <div class="judg-lab"><span class="kick">主判讀</span> <span class="rel">參考度 4/5</span> <span class="state act">act</span></div>
+      <div class="why">這條線把「爬取 → 儲存 → 摘要」的自動化需求，接到 DLens 已有的 crawl job 能力上——是最短可驗證路徑。</div>
+      <div class="analysis" style="margin-bottom:0"><span class="k">行動提示</span><span class="v">從審查報告的三條敘事線各挑一篇代表貼文進 Compare，先驗證共識最高的那條。</span></div>
+    </article>
+
+    <div class="tagbar">
+      <span class="tagchip">#mcp<b>4</b></span>
+      <span class="tagchip">#自動化<b>3</b></span>
+      <span class="tagchip">#工作流<b>2</b></span>
+      <span class="tagchip">#notion<b>2</b></span>
+      <span class="tagnote">點 tag 過濾出產生它的來源列</span>
+    </div>
+
+    <div class="inbox" style="margin-bottom:12px">
+      <div class="trow"><span class="gist">創作者用 MCP 串接工作流的三種路徑</span><span class="tg">#mcp #自動化</span><span class="stance central">核心</span><span class="st ok"><i></i></span></div>
+      <div class="trow"><span class="gist">每日自動爬 Threads 關鍵字存進 Notion 的實作</span><span class="tg">#mcp #notion</span><span class="stance central">核心</span><span class="st ok"><i></i></span></div>
+      <div class="trow"><span class="gist">用 agent 幫小店家自動回覆留言的兩週實測</span><span class="tg">#mcp #自動化</span><span class="stance">相鄰</span><span class="st ok"><i></i></span></div>
+      <div class="trow"><span class="gist">抱怨排程器半夜斷線、資料缺洞的討論串</span><span class="tg">#自動化 #工作流</span><span class="stance">相鄰</span><span class="st run"><i></i></span></div>
+      <div class="trow"><span class="gist">十個工程師才懂的 AI 迷因</span><span class="tg">—</span><span class="stance">離題</span><span class="st ok"><i></i></span></div>
+      <div class="trow"><span class="gist">（抓取失敗——只有連結，無內文快照）</span><span class="tg">—</span><span class="stance">—</span><span class="st bad"><i></i></span></div>
+    </div>
+
+    <article class="card">
+      <div class="judg-lab"><span class="kick">審查</span> <span class="rel">覆蓋 4/6</span> <span class="gen">07-05 01:34 生成</span></div>
+      <div class="themes"><span class="theme">排程可靠性</span><span class="theme">資料落地 Notion</span><span class="theme">摘要品質</span></div>
+      <div class="lane"><span class="t">每日排程爬取是所有實作的共通骨幹</span><span class="c">共識 87%</span><span class="n">5 篇</span></div>
+      <div class="lane"><span class="t">落地到 Notion／表格才算「完成」</span><span class="c">共識 62%</span><span class="n">3 篇</span></div>
+      <div class="lane"><span class="t">斷線與反爬是最大痛點</span><span class="c">共識 55%</span><span class="n">3 篇</span></div>
+    </article>
+
+    <div class="topacts">
+      <button class="btn tprimary">執行審查</button>
+      <button class="btn quiet">產生綜合</button>
+      <button class="btn quiet">開始處理</button>
+      <button class="btn quiet">打開審查報告</button>
+    </div>
+  </section>
+
+  <!-- ═══ 融合 B · topic detail ═══ -->
+  <section class="frame vB">
+    <div class="frame-tag">融合 B · topic detail — 亮暖底＋規線加重，topic 綠不變</div>
+    <div class="tophead">
+      <div class="back">← 返回主題列表</div>
+      <h2>MCP 自動化工作流</h2>
+      <div class="topmeta"><span>#mcp</span><span>#自動化</span><span>建立 06-28 · 更新 07-05</span></div>
+    </div>
+    <div class="counts"><span><b>6</b> 來源</span><span><b>4</b> ready</span><span class="muted">1 處理中</span><span class="muted">1 失敗</span></div>
+
+    <article class="card">
+      <div class="judg-lab"><span class="kick">主判讀</span> <span class="rel">參考度 4/5</span> <span class="state act">act</span></div>
+      <div class="why">這條線把「爬取 → 儲存 → 摘要」的自動化需求，接到 DLens 已有的 crawl job 能力上——是最短可驗證路徑。</div>
+      <div class="analysis" style="margin-bottom:0"><span class="k">行動提示</span><span class="v">從審查報告的三條敘事線各挑一篇代表貼文進 Compare，先驗證共識最高的那條。</span></div>
+    </article>
+
+    <div class="tagbar">
+      <span class="tagchip">#mcp<b>4</b></span>
+      <span class="tagchip">#自動化<b>3</b></span>
+      <span class="tagchip">#工作流<b>2</b></span>
+      <span class="tagchip">#notion<b>2</b></span>
+      <span class="tagnote">點 tag 過濾出產生它的來源列</span>
+    </div>
+
+    <div class="inbox" style="margin-bottom:12px">
+      <div class="trow"><span class="gist">創作者用 MCP 串接工作流的三種路徑</span><span class="tg">#mcp #自動化</span><span class="stance central">核心</span><span class="st ok"><i></i></span></div>
+      <div class="trow"><span class="gist">每日自動爬 Threads 關鍵字存進 Notion 的實作</span><span class="tg">#mcp #notion</span><span class="stance central">核心</span><span class="st ok"><i></i></span></div>
+      <div class="trow"><span class="gist">用 agent 幫小店家自動回覆留言的兩週實測</span><span class="tg">#mcp #自動化</span><span class="stance">相鄰</span><span class="st ok"><i></i></span></div>
+      <div class="trow"><span class="gist">抱怨排程器半夜斷線、資料缺洞的討論串</span><span class="tg">#自動化 #工作流</span><span class="stance">相鄰</span><span class="st run"><i></i></span></div>
+      <div class="trow"><span class="gist">十個工程師才懂的 AI 迷因</span><span class="tg">—</span><span class="stance">離題</span><span class="st ok"><i></i></span></div>
+      <div class="trow"><span class="gist">（抓取失敗——只有連結，無內文快照）</span><span class="tg">—</span><span class="stance">—</span><span class="st bad"><i></i></span></div>
+    </div>
+
+    <article class="card">
+      <div class="judg-lab"><span class="kick">審查</span> <span class="rel">覆蓋 4/6</span> <span class="gen">07-05 01:34 生成</span></div>
+      <div class="themes"><span class="theme">排程可靠性</span><span class="theme">資料落地 Notion</span><span class="theme">摘要品質</span></div>
+      <div class="lane"><span class="t">每日排程爬取是所有實作的共通骨幹</span><span class="c">共識 87%</span><span class="n">5 篇</span></div>
+      <div class="lane"><span class="t">落地到 Notion／表格才算「完成」</span><span class="c">共識 62%</span><span class="n">3 篇</span></div>
+      <div class="lane"><span class="t">斷線與反爬是最大痛點</span><span class="c">共識 55%</span><span class="n">3 篇</span></div>
+    </article>
+
+    <div class="topacts">
+      <button class="btn tprimary">執行審查</button>
+      <button class="btn quiet">產生綜合</button>
+      <button class="btn quiet">開始處理</button>
+      <button class="btn quiet">打開審查報告</button>
+    </div>
+  </section>
+
+  <!-- ═══ 融合 C · topic detail ═══ -->
+  <section class="frame vC">
+    <div class="frame-tag">融合 C · topic detail — 單一硃紅跨 mode（winner 的一色書脊邏輯，取代現行 per-mode 色）</div>
+    <div class="tophead">
+      <div class="back">← 返回主題列表</div>
+      <h2>MCP 自動化工作流</h2>
+      <div class="topmeta"><span>#mcp</span><span>#自動化</span><span>建立 06-28 · 更新 07-05</span></div>
+    </div>
+    <div class="counts"><span><b>6</b> 來源</span><span><b>4</b> ready</span><span class="muted">1 處理中</span><span class="muted">1 失敗</span></div>
+
+    <article class="card">
+      <div class="judg-lab"><span class="kick">主判讀</span> <span class="rel">參考度 4/5</span> <span class="state act">act</span></div>
+      <div class="why">這條線把「爬取 → 儲存 → 摘要」的自動化需求，接到 DLens 已有的 crawl job 能力上——是最短可驗證路徑。</div>
+      <div class="analysis" style="margin-bottom:0"><span class="k">行動提示</span><span class="v">從審查報告的三條敘事線各挑一篇代表貼文進 Compare，先驗證共識最高的那條。</span></div>
+    </article>
+
+    <div class="tagbar">
+      <span class="tagchip">#mcp<b>4</b></span>
+      <span class="tagchip">#自動化<b>3</b></span>
+      <span class="tagchip">#工作流<b>2</b></span>
+      <span class="tagchip">#notion<b>2</b></span>
+      <span class="tagnote">點 tag 過濾出產生它的來源列</span>
+    </div>
+
+    <div class="inbox" style="margin-bottom:12px">
+      <div class="trow"><span class="gist">創作者用 MCP 串接工作流的三種路徑</span><span class="tg">#mcp #自動化</span><span class="stance central">核心</span><span class="st ok"><i></i></span></div>
+      <div class="trow"><span class="gist">每日自動爬 Threads 關鍵字存進 Notion 的實作</span><span class="tg">#mcp #notion</span><span class="stance central">核心</span><span class="st ok"><i></i></span></div>
+      <div class="trow"><span class="gist">用 agent 幫小店家自動回覆留言的兩週實測</span><span class="tg">#mcp #自動化</span><span class="stance">相鄰</span><span class="st ok"><i></i></span></div>
+      <div class="trow"><span class="gist">抱怨排程器半夜斷線、資料缺洞的討論串</span><span class="tg">#自動化 #工作流</span><span class="stance">相鄰</span><span class="st run"><i></i></span></div>
+      <div class="trow"><span class="gist">十個工程師才懂的 AI 迷因</span><span class="tg">—</span><span class="stance">離題</span><span class="st ok"><i></i></span></div>
+      <div class="trow"><span class="gist">（抓取失敗——只有連結，無內文快照）</span><span class="tg">—</span><span class="stance">—</span><span class="st bad"><i></i></span></div>
+    </div>
+
+    <article class="card">
+      <div class="judg-lab"><span class="kick">審查</span> <span class="rel">覆蓋 4/6</span> <span class="gen">07-05 01:34 生成</span></div>
+      <div class="themes"><span class="theme">排程可靠性</span><span class="theme">資料落地 Notion</span><span class="theme">摘要品質</span></div>
+      <div class="lane"><span class="t">每日排程爬取是所有實作的共通骨幹</span><span class="c">共識 87%</span><span class="n">5 篇</span></div>
+      <div class="lane"><span class="t">落地到 Notion／表格才算「完成」</span><span class="c">共識 62%</span><span class="n">3 篇</span></div>
+      <div class="lane"><span class="t">斷線與反爬是最大痛點</span><span class="c">共識 55%</span><span class="n">3 篇</span></div>
+    </article>
+
+    <div class="topacts">
+      <button class="btn tprimary">執行審查</button>
+      <button class="btn quiet">產生綜合</button>
+      <button class="btn quiet">開始處理</button>
+      <button class="btn quiet">打開審查報告</button>
+    </div>
+  </section>
+
+</div>
+
+<div class="surface-label later">surface 3 · 其餘 journey 步驟（融合基底＝變體 A 的值；B/C 差異是參數級，套任何 surface 都一樣，看 surface 1–2 即可比）</div>
+<div class="stage">
+
+  <!-- ═══ Journey 0 · 採集（Threads 頁上） ═══ -->
+  <section class="frame vA threads">
+    <div class="frame-tag">journey 0 · 採集 — in-page collector 浮在 Threads 純白頁上（archive 靛藍 accent），分離靠殼線＋柔影</div>
+    <div class="skel"><span class="av"></span><div style="flex:1"><div class="ln" style="width:34%"></div><div class="ln" style="width:88%"></div><div class="ln" style="width:71%"></div></div></div>
+    <div class="skel" style="border-bottom:none"><span class="av"></span><div style="flex:1"><div class="ln" style="width:28%"></div><div class="ln" style="width:80%"></div></div></div>
+
+    <div class="collector-wrap">
+      <div class="collector-panel">
+        <div class="head">
+          <span class="wordmark">DLens</span>
+          <span class="st ok"><i></i>採集中</span>
+          <span class="folderchip">#mcp 收集夾</span>
+        </div>
+        <button class="btn aprimary" style="width:100%">收下這篇（讚 132 · 回覆 45）</button>
+        <div class="caprow" style="border-top:none; padding-top:10px"><span class="g">創作者用 MCP 串接工作流的三種路徑</span><span class="st ok"><i></i>已收</span></div>
+        <div class="caprow"><span class="g">每日自動爬 Threads 關鍵字存進 Notion 的實作</span><span class="st ok"><i></i>已收</span></div>
+        <div class="strip">
+          <div class="lab"><span>背景處理</span><span>2/6</span></div>
+          <div class="bar"><i></i></div>
+        </div>
+      </div>
+      <button class="launcher"><svg viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg>DLens</button>
+      <div style="clear:both"></div>
+    </div>
+  </section>
+
+  <!-- ═══ Journey 1 · 議題列表 ═══ -->
+  <section class="frame vA">
+    <div class="frame-tag">journey 1 · 議題列表（topic mode 綠）— 每個 topic 一塊卡，點卡進 topic detail（surface 2）</div>
+    <div class="tophead">
+      <h2>議題</h2>
+      <div class="topmeta"><span>3 個 topic</span><span>最近更新 07-05</span></div>
+    </div>
+
+    <article class="card">
+      <div class="judg-lab"><span class="kick">topic</span> <span class="rel">6 訊號</span> <span class="state act">審查 ready</span></div>
+      <h3 style="margin-bottom:6px">MCP 自動化工作流</h3>
+      <div class="meta"><span class="tg" style="font-family:'JetBrains Mono',ui-monospace,monospace; font-size:10px; color:var(--taccent)">#mcp #自動化</span>
+        <span>已完成 <span class="m">4</span></span><span>處理中 <span class="m">1</span></span><span>失敗 <span class="m">1</span></span>
+        <span style="margin-left:auto; font-family:'JetBrains Mono',ui-monospace,monospace; font-size:10px">更新 07-05</span></div>
+    </article>
+
+    <article class="card">
+      <div class="judg-lab"><span class="kick">topic</span> <span class="rel">9 訊號</span></div>
+      <h3 style="margin-bottom:6px">AI 陪伴應用的社會反應</h3>
+      <div class="meta"><span class="tg" style="font-family:'JetBrains Mono',ui-monospace,monospace; font-size:10px; color:var(--taccent)">#ai #陪伴</span>
+        <span>已完成 <span class="m">9</span></span>
+        <span style="margin-left:auto; font-family:'JetBrains Mono',ui-monospace,monospace; font-size:10px">更新 07-02</span></div>
+    </article>
+
+    <article class="card">
+      <div class="judg-lab"><span class="kick" style="color:var(--soft)">topic</span> <span class="rel">3 訊號</span></div>
+      <h3 style="margin-bottom:6px">小店家數位轉型</h3>
+      <div class="meta"><span class="tg" style="font-family:'JetBrains Mono',ui-monospace,monospace; font-size:10px; color:var(--soft)">尚無 tag</span>
+        <span>待處理 <span class="m">2</span></span><span class="st run"><i></i>處理中</span>
+        <span style="margin-left:auto; font-family:'JetBrains Mono',ui-monospace,monospace; font-size:10px">更新 06-30</span></div>
+    </article>
+  </section>
+
+  <!-- ═══ Journey 2 · Compare ═══ -->
+  <section class="frame vA">
+    <div class="frame-tag">journey 2 · compare hero（topic mode 綠）— 兩貼文對照卡＋判讀，marquee surface</div>
+    <div class="tophead">
+      <div class="back">← 返回 topic detail</div>
+      <h2>排程可靠性 · 兩篇代表貼文對照</h2>
+    </div>
+    <div class="compbar"><span><b>A 主導率</b> 62%</span><span><b>總留言</b> 106</span><span class="muted">修辭效果：經驗敘事 vs 條列教學</span></div>
+
+    <div class="duo">
+      <article class="card" style="margin-bottom:0">
+        <div class="eyebrow"><span class="postlab">Post A · A 群組</span> <span class="prov">排程可靠性</span></div>
+        <h3 style="font-size:15px">每日自動爬 Threads 關鍵字存進 Notion 的實作</h3>
+        <div class="meta"><span>讚 <span class="m">132</span></span><span>回覆 <span class="m">45</span></span><span>轉發 <span class="m">12</span></span></div>
+      </article>
+      <article class="card" style="margin-bottom:0">
+        <div class="eyebrow"><span class="postlab">Post B · B 群組</span> <span class="prov">反爬痛點</span></div>
+        <h3 style="font-size:15px">爬蟲半夜斷線之後，我改用官方 API 的心得</h3>
+        <div class="meta"><span>讚 <span class="m">89</span></span><span>回覆 <span class="m">61</span></span><span>轉發 <span class="m">8</span></span></div>
+      </article>
+    </div>
+
+    <article class="card">
+      <div class="judg-lab"><span class="kick">relation</span> <span class="rel">對照 · 互補</span></div>
+      <div class="why">A 證明排程可行，B 標出排程最大的失敗模式——兩篇合起來才是完整的可靠性圖像。</div>
+      <div class="analysis" style="margin-bottom:0">
+        <span class="k">why matters</span><span class="v">做 crawl job 模板時，B 的斷線案例就是驗收清單的反例來源。</span>
+        <span class="k">原文證據</span><span class="v" style="font-family:'JetBrains Mono',ui-monospace,monospace; font-size:11px">threads.net/@maker_daily/post/C8… · threads.net/@dev_note/post/C9…</span>
+      </div>
+    </article>
+  </section>
+
+  <!-- ═══ Journey 3 · 行動簡報 ═══ -->
+  <section class="frame vA">
+    <div class="frame-tag">journey 3 · 行動簡報（product mode 鋼藍）— 同一組 verdict 磚（可點），已收錄 reading → agent packet</div>
+    <div class="tophead">
+      <h2>行動簡報</h2>
+      <div class="topmeta"><span>先審視模型判讀，再把已收錄 reading 組成可貼給 coding agent 的 brief。</span></div>
+    </div>
+
+    <div class="tiles" data-tiles style="margin-top:4px">
+      <div class="plate" data-plate></div>
+      <button class="tile" data-color="#3f5a3b" data-soft="rgba(63,90,59,0.10)"><b>1</b><span>值得嘗試</span></button>
+      <button class="tile" data-color="#1a2e4f" data-soft="rgba(26,46,79,0.08)"><b>1</b><span>保留觀察</span></button>
+      <button class="tile" data-color="#6c695e" data-soft="rgba(241,236,224,0.78)"><b>1</b><span>噪音不符</span></button>
+      <button class="tile" data-color="#a16a17" data-soft="rgba(161,106,23,0.11)"><b>0</b><span>資料不足</span></button>
+    </div>
+
+    <div class="inbox" style="margin-bottom:12px">
+      <div class="trow"><span class="gist">把每日爬取包成 crawl job 模板，先支援單一關鍵字</span><span class="verdict try">值得嘗試</span><span class="st ok"><i></i>已收錄</span></div>
+      <div class="trow"><span class="gist">討論串自動變內容日曆的需求驗證</span><span class="verdict watch">保留觀察</span><span class="st ok"><i></i>已收錄</span></div>
+    </div>
+
+    <div class="packet">
+      <div class="judg-lab"><span class="kick" style="color:var(--accent)">agent packet</span> <span class="gen">2 readings · 07-06 組成</span></div>
+<pre>## Experiment: crawl job 模板
+- 為何相關：與 Threads 擷取管線同構（排程/關鍵字/摘要）
+- 實驗提示：先支援單一關鍵字
+- 驗證指標：連續 7 天成功率 ≥ 90%</pre>
+      <div style="display:flex; gap:10px; align-items:center">
+        <button class="btn primary">複製給 agent</button>
+        <span style="font-size:10.5px; color:var(--soft)">已收錄到本機判讀庫，會保留在 Signal Packet。</span>
+      </div>
+    </div>
+  </section>
+
+  <!-- ═══ Journey 4 · PR Evidence ledger ═══ -->
+  <section class="frame vA">
+    <div class="frame-tag">journey 4 · pr evidence ledger（pr-evidence mode 玫紅）— criteria 覆蓋帳本 → CSV 交付，marquee surface</div>
+    <div class="tophead">
+      <h2>PR Evidence</h2>
+      <div class="topmeta"><span>把已找到的 Threads 貼文整理成 PR evidence CSV</span></div>
+    </div>
+    <div class="compbar"><span><b>Captured</b> 8</span><span><b>Strong</b> 5</span><span class="muted">Criteria 待補 2</span></div>
+
+    <article class="card">
+      <div class="judg-lab"><span class="kick r">criteria 覆蓋</span> <span class="rel">5/8 strong</span></div>
+      <div class="lane" style="border-top:none"><span class="t">提到品牌名稱與產品場景</span><span class="c">覆蓋 5/8</span><span class="st ok"><i></i></span></div>
+      <div class="lane"><span class="t">附上實際使用截圖或連結</span><span class="c">覆蓋 3/8</span><span class="st warn"><i></i></span></div>
+      <div class="lane"><span class="t">明確標註合作或自發推薦</span><span class="c">覆蓋 0/8</span><span class="st bad"><i></i></span></div>
+    </article>
+
+    <div class="inbox" style="margin-bottom:12px">
+      <div class="trow"><span class="gist">「用了兩週，排程沒斷過」— @maker_daily</span><span class="tg" style="color:var(--raccent)">讚 132 · 回覆 45 · 轉發 12</span><span class="stance central">strong</span></div>
+      <div class="trow"><span class="gist">「這工具救了我的內容排程」— @content_lin</span><span class="tg" style="color:var(--raccent)">讚 67 · 回覆 18 · 轉發 5</span><span class="stance central">strong</span></div>
+      <div class="trow"><span class="gist">「有人用過類似的嗎？」— @curious_pm</span><span class="tg" style="color:var(--raccent)">讚 21 · 回覆 33 · 轉發 1</span><span class="stance">weak</span></div>
+    </div>
+
+    <div class="topacts">
+      <button class="btn rprimary">匯出 CSV</button>
+      <button class="btn quiet">抓取進階指標</button>
+      <button class="btn quiet">補 criteria</button>
+    </div>
+  </section>
+
+</div>
+
+<div class="legend">
+  <h2>變體差異表 — 保留什麼、吸收什麼、改了什麼</h2>
+  <table>
+    <tr>
+      <td><b>三個變體共同保留（現行 extension）</b></td>
+      <td class="f" style="white-space:normal">圓角曲線（frame/card/chip 半徑）、mode icon 分頁、VerdictFilterTiles 滑動選取板動畫（220ms springSoft，可點擊試玩）、值得嘗試/保留觀察/噪音/資料不足 切換、整塊卡片＋分層陰影、soft-pill verdict 章、prefers-reduced-motion guard</td>
+    </tr>
+    <tr>
+      <td><b>三個變體共同吸收（winner mockup）</b></td>
+      <td class="f" style="white-space:normal">eyebrow 欄位列（signalType＋參考度＋AI 出處）、襯線標題（Noto Serif TC）、mono＋tabular 數字、引文書脊線、為何相關/現在為何/實驗提示/驗證指標 k/v 格、收件匣規線分行（密度內化進一塊卡）</td>
+    </tr>
+    <tr>
+      <td><b>融合 A · 暖紙規線</b></td>
+      <td class="f" style="white-space:normal">零新色值——canvas #f7f4ec / card #fdfbf6 / 半徑 12·14·20 / 陰影全部是現行 tokens.ts 的值。純粹測「密度內化」本身夠不夠</td>
+    </tr>
+    <tr>
+      <td><b>融合 B · 亮暖畫廊</b></td>
+      <td class="f" style="white-space:normal">候選值：canvas #fbf8f1（現 surface 值升級當底）、card #fdfcf8（暖白，非 winner 的冷白 #fdfdfc）、規線 .13/.22、半徑收斂 10px、陰影更平靜。往畫廊亮度靠但不離開暖紙</td>
+    </tr>
+    <tr>
+      <td><b>融合 C · 硃紅書脊</b></td>
+      <td class="f" style="white-space:normal">同 A 基底＋一個候選色：mode accent #234f7a → 硃紅 #c2401f（winner 的書脊色），只落在 active tab／主按鈕／引文書脊／eyebrow。verdict 色組不動。測 winner 最有記憶點的色註能否活在暖紙上</td>
+    </tr>
+    <tr>
+      <td><b>Mode accent 取捨（topic detail 看得最清楚）</b></td>
+      <td class="f" style="white-space:normal">現版每個 mode 有自己的 accent（archive 靛藍 / topic 綠 / product 鋼藍 / pr-evidence 玫紅）——A/B 保留這個系統，topic detail 用綠。winner 是單一硃紅跨全 mode——C 照做。選 C 等於放棄 per-mode 色語言；選 A/B 等於硃紅只能當第五個 mode 色或不進來</td>
+    </tr>
+    <tr>
+      <td><b>Surface 3 · 其餘 journey 步驟</b></td>
+      <td class="f" style="white-space:normal">採集（Threads 頁上的 collector＋launcher＋背景處理 strip）→ 議題列表 → compare hero → 行動簡報（同一組 verdict 磚＋agent packet）→ PR evidence ledger（criteria 覆蓋帳本→CSV）。全部用變體 A 的值出一格：值層（色/半徑/影/動）B 或 C 中選後由 tokens.ts 一次換掉，這些頁自動跟上；文法層（eyebrow 列、規線分行、k/v 格、整塊卡片）是逐 surface 的落地，本 stage 就是每一步的文法對照</td>
+    </tr>
+  </table>
+  <p>真欄位對照：與 <code>docs/mockups/2026-07-05-reset-B-gallery-white-winner.html</code> 底部的表完全相同（同一組 contract 欄位，
+     含 07-05 的兩個修正：stance＝核心/相鄰/離題、轉發已剪）。本頁背景維持 Threads 純白最壞情境——三個殼都靠現行的
+     card-edge＋分層柔影分離，不需要 winner 的 1px 墨線方案。範圍：surface 1–2 出三變體可比（值層差異在此比較）；
+     surface 3 用融合基底把其餘 journey 步驟各出一格（文法層對照）。
+     狀態：Gate 1（純畫廊白）已退回，本頁是融合候選，reference-only，未進 implementation lane；
+     使用者選定後，新值才進 <code>src/ui/tokens.ts</code>（同 PR 更新 <code>tokens-intent.md</code>）。</p>
+</div>
+
+<script>
+  /* VerdictFilterTiles 滑動選取板 — 對應 src/ui/ProductSignalViews.tsx 的 plate translateX 行為 */
+  document.querySelectorAll('[data-tiles]').forEach(function (group) {
+    var plate = group.querySelector('[data-plate]');
+    var tiles = Array.prototype.slice.call(group.querySelectorAll('.tile'));
+    function move(i) {
+      var t = tiles[i];
+      plate.style.transform = 'translateX(calc((100% + 8px) * ' + i + '))';
+      plate.style.background = t.dataset.soft;
+      plate.style.borderColor = t.dataset.color;
+      tiles.forEach(function (el, j) {
+        el.classList.toggle('on', j === i);
+        el.querySelector('b').style.color = j === i ? el.dataset.color : '';
+      });
+    }
+    tiles.forEach(function (t, i) { t.addEventListener('click', function () { move(i); }); });
+    move(0);
+  });
+</script>
+
+</body>
+</html>

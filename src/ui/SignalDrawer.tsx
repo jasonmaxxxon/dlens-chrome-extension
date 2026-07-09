@@ -528,17 +528,30 @@ export function SignalDrawer({
   packet,
   reading,
   topicName,
-  onClose
+  onClose,
+  onGenerateReading,
+  readingPending = false
 }: {
   packet: EvidencePacket;
   reading?: SignalReading | null;
   topicName: string;
   onClose: () => void;
+  onGenerateReading?: () => void;
+  readingPending?: boolean;
 }) {
   const fragmentLookup = useMemo(() => buildFragmentLookup(packet), [packet]);
   const allFragments = useMemo<FragmentLookup[]>(() => [...fragmentLookup.values()], [fragmentLookup]);
   const [pinnedRef, setPinnedRef] = useState<string | null>(null);
   const [rawOpen, setRawOpen] = useState(false);
+  // Auto-generate the P1 reading once per opened signal so the drawer is not a
+  // dead end; a failed attempt falls back to the manual button (no retry loop).
+  const autoGenAttemptedRef = useRef<string | null>(null);
+  useEffect(() => {
+    if (reading || readingPending || !onGenerateReading) return;
+    if (autoGenAttemptedRef.current === packet.signalId) return;
+    autoGenAttemptedRef.current = packet.signalId;
+    onGenerateReading();
+  }, [packet.signalId, reading, readingPending, onGenerateReading]);
 
   const handlePin = (ref: string) => {
     setPinnedRef((current) => {
@@ -604,7 +617,7 @@ export function SignalDrawer({
       >
         <div style={{ display: "grid", gap: 5, minWidth: 0 }}>
           <span style={{ fontFamily: tokens.font.mono, color: tokens.topicAccent.primary, fontSize: 11, fontWeight: 700, letterSpacing: "0.04em" }}>
-            {packet.shortCode}.OP
+            來源 {packet.shortCode} · 原帖
           </span>
           <h2
             style={{
@@ -612,10 +625,13 @@ export function SignalDrawer({
               fontFamily: `${tokens.font.serifCjk}, ${tokens.font.serif}`,
               fontSize: 20,
               lineHeight: 1.25,
-              fontWeight: 500
+              fontWeight: 500,
+              overflow: "hidden",
+              textOverflow: "ellipsis",
+              whiteSpace: "nowrap"
             }}
           >
-            Signal
+            {packet.opText ? packet.opText.replace(/\s+/g, " ").trim().slice(0, 42) : "原帖"}
           </h2>
           <div style={{ display: "flex", gap: 8, flexWrap: "wrap", fontSize: 11, color: tokens.color.softInk, alignItems: "center" }}>
             <span style={{ color: tokens.color.subInk, fontWeight: 650 }}>@{packet.opAuthor || "unknown"}</span>
@@ -742,12 +758,46 @@ export function SignalDrawer({
               padding: "18px 20px",
               fontSize: 12.5,
               lineHeight: 1.65,
-              color: tokens.color.subInk
+              color: tokens.color.subInk,
+              display: "grid",
+              gap: 10,
+              justifyItems: "start"
             }}
           >
-            <strong style={{ color: tokens.color.ink }}>尚未生成 P1 判讀</strong>
-            <br />
-            點擊資料來源該行的「分析此篇」可生成。生成後此處會顯示帶有 inline citation 的判讀 prose。
+            {readingPending ? (
+              <>
+                <strong style={{ color: tokens.color.ink }}>P1 判讀生成中…</strong>
+                <span>正在白紙閱讀本篇原文與 {replyCount} 則留言，完成後此處會顯示帶 inline 引用的判讀 prose。</span>
+              </>
+            ) : onGenerateReading ? (
+              <>
+                <strong style={{ color: tokens.color.ink }}>尚未生成 P1 判讀</strong>
+                <span>P1 會白紙閱讀本篇原文與留言，產出可 hover 查證的判讀。開啟本頁時已自動嘗試；若未開始可手動生成。</span>
+                <button
+                  type="button"
+                  data-signal-drawer-run-p1={packet.shortCode}
+                  onClick={onGenerateReading}
+                  style={{
+                    border: `1px solid ${tokens.color.line}`,
+                    borderRadius: tokens.radius.button,
+                    background: tokens.color.surface,
+                    color: tokens.topicAccent.primary,
+                    padding: "7px 14px",
+                    fontSize: 12,
+                    fontWeight: 700,
+                    cursor: "pointer",
+                    fontFamily: tokens.font.sans
+                  }}
+                >
+                  生成 P1 判讀
+                </button>
+              </>
+            ) : (
+              <>
+                <strong style={{ color: tokens.color.ink }}>尚未生成 P1 判讀</strong>
+                <span>本篇尚未完成爬取或未設定 AI provider，暫時無法生成判讀。</span>
+              </>
+            )}
           </section>
         )}
 

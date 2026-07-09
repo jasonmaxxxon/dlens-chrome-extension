@@ -1213,7 +1213,7 @@ function TopicAuditOverview({
     ? p1All
       ? null
       : `P1 ${p1ReadyCount ?? 0}/${p1TotalCount}：未分析的篇章會在此次 run 一併處理`
-    : null;
+    : "首次生成會自動跑完整 pipeline：留言分流 → 逐篇 P1 判讀 → 詞彙／敘事／群眾反應 → 審查報告";
   const failedStage = summary.failedStage ?? 1;
   const runAudit = (fromStage?: TopicAuditStageName) => {
     if (!canRunAudit) return;
@@ -1245,14 +1245,14 @@ function TopicAuditOverview({
           </h1>
           <div style={{ display: "flex", gap: 8, flexWrap: "wrap", alignItems: "center", fontSize: 12, color: tokens.color.subInk }}>
             <span>{displaySourceTotal} 訊號</span>
-            <span>{summary.analyzedCount}/{displaySourceTotal} 已分析</span>
+            <span>P1 判讀 {summary.analyzedCount}/{displaySourceTotal}</span>
             <TopicAuditStatusPill summary={summary} />
           </div>
         </div>
         <div style={{ display: "grid", gap: 8, minWidth: 160 }}>
           {summary.reportStatus === "ready" ? (
             <>
-              <AuditPrimaryButton onClick={() => onOpenAuditReport?.(topic.id)}>開啟審查報告 ↗</AuditPrimaryButton>
+              <AuditPrimaryButton onClick={() => onOpenAuditReport?.(topic.id)}>開啟審查報告 ↗ 新分頁</AuditPrimaryButton>
               <AuditGhostButton disabled={!canRunAudit} onClick={() => runAudit()}>重新生成</AuditGhostButton>
             </>
           ) : summary.reportStatus === "running" ? (
@@ -1276,7 +1276,7 @@ function TopicAuditOverview({
             </>
           ) : (
             <>
-              <AuditPrimaryButton disabled={!canRunAudit || p1NoneReady && (p1TotalCount ?? 0) === 0} onClick={() => runAudit()}>{generateCtaLabel}</AuditPrimaryButton>
+              <AuditPrimaryButton disabled={!canRunAudit} onClick={() => runAudit()}>{generateCtaLabel}</AuditPrimaryButton>
               {generateCtaHint ? (
                 <span style={{ fontSize: 10.5, color: tokens.color.softInk, lineHeight: 1.45 }}>{generateCtaHint}</span>
               ) : null}
@@ -1562,7 +1562,7 @@ export function TopicDetailView({
           <TopicInventoryStat value={topicAnalysisCounts.processing} label="處理中" tone={topicAnalysisCounts.processing ? "accent" : "neutral"} />
           <TopicInventoryStat value={sourcePendingCount} label="待處理" tone={sourcePendingCount ? "warning" : "neutral"} />
           <span style={{ marginLeft: "auto", fontSize: 11, color: tokens.color.softInk, whiteSpace: "nowrap" }}>
-            報告素材 {auditSummaryValue.analyzedCount}/{signals.length}
+            P1 判讀 {auditSummaryValue.analyzedCount}/{signals.length}
           </span>
         </div>
       </div>
@@ -1693,6 +1693,27 @@ export function TopicDetailView({
                     >
                       原文 ↗
                     </a>
+                  ) : null}
+                  {canOpenDrawer ? (
+                    <button
+                      type="button"
+                      data-topic-source-row-detail={signal.signalId}
+                      onClick={() => setOpenAuditSignalId(signal.signalId)}
+                      style={{
+                        padding: "4px 8px",
+                        fontSize: 10.5,
+                        borderRadius: 6,
+                        border: `1px solid ${tokens.color.line}`,
+                        background: tokens.color.surface,
+                        color: tokens.topicAccent.primary,
+                        fontWeight: 700,
+                        cursor: "pointer",
+                        lineHeight: 1,
+                        fontFamily: tokens.font.sans
+                      }}
+                    >
+                      詳情 →
+                    </button>
                   ) : null}
                   {signal.itemId && !signal.isProcessing ? (
                     signal.isReady ? (
@@ -1949,6 +1970,10 @@ export function TopicDetailView({
             reading={openAuditReading}
             topicName={topic.name}
             onClose={() => setOpenAuditSignalId(null)}
+            onGenerateReading={openAuditRow?.actions.some((entry) => entry.kind === "runAuditP1")
+              ? () => handleRunAuditP1(topic.id, openAuditPacket.signalId)
+              : undefined}
+            readingPending={openAuditRow?.readingStatus === "running"}
           />
         ) : null}
       </div>
@@ -1972,6 +1997,8 @@ export function TopicDetailView({
         signals={signals}
         summary={auditSummaryValue}
         flags={auditValidatorFlags}
+        canRunAudit={canRunAuditFromSources}
+        blockedReason={audit.blockedReason}
         p1ReadyCount={p1ReadyCount}
         p1TotalCount={p1TotalCount}
         sourceTotalCount={auditSourceTotal}
@@ -2088,6 +2115,10 @@ export function TopicDetailView({
           reading={openAuditReading}
           topicName={topic.name}
           onClose={() => setOpenAuditSignalId(null)}
+          onGenerateReading={openAuditRow?.actions.some((entry) => entry.kind === "runAuditP1")
+            ? () => handleRunAuditP1(topic.id, openAuditPacket.signalId)
+            : undefined}
+          readingPending={openAuditRow?.readingStatus === "running"}
         />
       ) : null}
 

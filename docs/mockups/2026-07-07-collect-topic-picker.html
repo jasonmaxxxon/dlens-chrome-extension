@@ -1,0 +1,192 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+<meta charset="utf-8">
+<title>Collect 動線重設計 — 浮格內選議題 + 未分流 triage（提案 · 2026-07-07）</title>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<style>
+  :root{
+    --canvas:#f7f4ec; --card:#fdfbf6; --ink:#1b1a17; --sub:#3d3b35; --soft:#6c695e;
+    --line:rgba(27,26,23,.10); --line-strong:rgba(27,26,23,.18); --edge:rgba(27,26,23,.055);
+    --acc:#3f5a3b; --acc-soft:rgba(63,90,59,.10); --ok:#3f5a3b; --bad:#7a2030; --warn:#a16a17;
+    --rf:20px; --rc:12px; --rp:14px;
+    --serif:'Noto Serif TC','Songti TC',Georgia,serif; --sans:'Noto Sans TC',-apple-system,system-ui,sans-serif;
+    --mono:'JetBrains Mono',ui-monospace,Menlo,monospace;
+  }
+  *{margin:0;padding:0;box-sizing:border-box}
+  body{background:#fff;color:var(--ink);font-family:var(--sans);padding:28px 20px 70px}
+  .intro{max-width:1180px;margin:0 auto 22px}
+  .intro h1{font-family:var(--serif);font-size:20px;font-weight:700;margin-bottom:6px}
+  .intro p{font-size:12.5px;line-height:1.75;color:var(--sub);max-width:80em}
+  .intro code{font-family:var(--mono);font-size:11px}
+  .stage{display:grid;grid-template-columns:repeat(auto-fit,minmax(340px,1fr));gap:24px;max-width:1180px;margin:0 auto;align-items:start}
+  .col{display:flex;flex-direction:column;gap:10px}
+  .step{font-family:var(--mono);font-size:10px;letter-spacing:.14em;text-transform:uppercase;color:var(--soft);display:flex;gap:10px;align-items:center}
+  .step::after{content:"";flex:1;height:1px;background:var(--line-strong)}
+
+  /* 浮動預覽格 */
+  .pop{background:var(--card);border:1px solid var(--line-strong);border-radius:16px;
+    box-shadow:0 2px 4px rgba(27,26,23,.05),0 12px 24px -8px rgba(27,26,23,.12),0 30px 54px -20px rgba(27,26,23,.15);
+    padding:13px 15px;width:100%}
+  .head{display:flex;align-items:center;gap:9px;margin-bottom:9px}
+  .av{width:30px;height:30px;border-radius:999px;background:color-mix(in srgb,var(--acc) 16%,var(--canvas));
+    color:var(--acc);font-weight:700;font-size:12px;display:grid;place-items:center;flex:none}
+  .who{font-weight:700;font-size:13px}
+  .who small{display:block;font-weight:400;font-size:10px;color:var(--soft)}
+  .snippet{font-size:12.5px;line-height:1.6;color:var(--sub);margin-bottom:9px}
+  .metrics{display:flex;gap:13px;margin-bottom:11px}
+  .metric{display:inline-flex;align-items:center;gap:4px;font-family:var(--mono);font-size:11px;color:var(--ink);font-variant-numeric:tabular-nums}
+  .metric svg{width:13px;height:13px;stroke:var(--soft);stroke-width:1.8;fill:none;stroke-linecap:round;stroke-linejoin:round}
+
+  /* 新增：議題選擇器 */
+  .pick-lab{font-family:var(--mono);font-size:9.5px;letter-spacing:.08em;text-transform:uppercase;color:var(--soft);margin-bottom:6px}
+  .picks{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:11px}
+  .pick{font-size:11.5px;font-weight:600;padding:5px 11px;border-radius:var(--rp);border:1px solid var(--line-strong);
+    background:var(--card);color:var(--ink);cursor:pointer;transition:all .14s ease}
+  .pick .n{font-family:var(--mono);font-size:9.5px;color:var(--soft);margin-left:5px}
+  .pick.on{background:var(--acc);border-color:var(--acc);color:#fff}
+  .pick.on .n{color:rgba(255,255,255,.72)}
+  .pick.new{border-style:dashed;color:var(--soft)}
+  .row-btn{display:grid;grid-template-columns:1fr auto;gap:8px}
+  .btn{font-size:12px;font-weight:700;padding:9px 14px;border-radius:var(--rc);border:1px solid transparent;cursor:pointer;font-family:inherit}
+  .btn.acc{background:var(--acc);color:#fff;box-shadow:0 8px 18px var(--acc-soft)}
+  .btn.quiet{background:none;border-color:var(--line-strong);color:var(--ink)}
+  .btn:disabled{opacity:.5;cursor:not-allowed}
+
+  /* 成功態（同一格翻面） */
+  .ok-state{display:none;align-items:center;gap:10px;padding:6px 2px}
+  .ok-dot{width:30px;height:30px;border-radius:999px;background:var(--acc);color:#fff;display:grid;place-items:center;flex:none}
+  .ok-dot svg{width:16px;height:16px;stroke:currentColor;stroke-width:2.4;fill:none;stroke-linecap:round;stroke-linejoin:round}
+  .ok-txt b{font-family:var(--serif);font-size:14px}
+  .ok-txt small{display:block;font-size:10.5px;color:var(--soft);margin-top:1px}
+  .pop.done .live-state{display:none}
+  .pop.done .ok-state{display:flex}
+
+  /* 未分流 triage lane */
+  .lane{background:var(--card);border:1px solid var(--edge);border-radius:var(--rc);box-shadow:0 1px 2px rgba(27,26,23,.04),0 4px 10px -4px rgba(27,26,23,.06);padding:4px 15px}
+  .lane-head{display:flex;align-items:baseline;gap:8px;padding:11px 0 9px;border-bottom:1px solid var(--line)}
+  .lane-head .t{font-family:var(--serif);font-size:15px;font-weight:700}
+  .lane-head .c{font-family:var(--mono);font-size:10.5px;color:var(--soft);margin-left:auto}
+  .trow{display:grid;grid-template-columns:auto 1fr auto;gap:10px;align-items:center;padding:10px 0;border-bottom:1px solid var(--line)}
+  .trow:last-child{border-bottom:none}
+  .ck{width:16px;height:16px;border-radius:5px;border:1.5px solid var(--line-strong);flex:none}
+  .gist{font-size:12.5px;font-weight:600;line-height:1.5}
+  .tags{margin-top:3px;display:flex;gap:5px}
+  .tag{font-family:var(--mono);font-size:9.5px;padding:2px 7px;border-radius:var(--rp);background:var(--acc-soft);color:var(--acc)}
+  .rowacts{display:flex;gap:6px}
+  .mini{font-size:10.5px;font-weight:700;padding:4px 9px;border-radius:var(--rp);border:1px solid var(--line-strong);background:var(--card);color:var(--ink);cursor:pointer;display:inline-flex;align-items:center;gap:4px}
+  .mini.danger{color:var(--bad);border-color:rgba(122,32,48,.28)}
+  .mini svg{width:11px;height:11px;stroke:currentColor;stroke-width:1.8;fill:none;stroke-linecap:round;stroke-linejoin:round}
+  .lane-foot{display:flex;gap:8px;padding:11px 0}
+  .note{font-size:11px;color:var(--soft);line-height:1.6;margin-top:4px}
+  @media (prefers-reduced-motion:no-preference){
+    .pick:hover{transform:translateY(-1px)}
+    .btn.acc:hover{transform:translateY(-1px)}
+    .ok-dot{animation:pop .45s cubic-bezier(.34,1.56,.64,1) both}
+    @keyframes pop{from{transform:scale(.5);opacity:0}to{transform:scale(1);opacity:1}}
+  }
+</style>
+</head>
+<body>
+<div class="intro">
+  <h1>Collect 動線重設計 — 在浮格內選議題，不再靠頂部下拉</h1>
+  <p>提案 · reference-only · 2026-07-07。<b>問題</b>：現在要先在頂部下拉選好主題，再 hover、再存；沒選就掉進「未分流」，3 個議題時完全混亂。
+     <b>解法</b>：把「存進哪個議題」的決定移進浮動預覽格本身——你 hover 到貼文、當場點議題、按存入，一步到位。存檔後同一格翻成成功態（修掉現在「採集成功浮格不出現」的 bug）。未分流變成真正的 triage lane：每列可直接改派或刪除。所有值仍只進 <code>src/ui/tokens.ts</code>。</p>
+</div>
+
+<div class="stage">
+
+  <!-- A. 浮格內選議題 -->
+  <div class="col">
+    <div class="step">A · 浮動預覽格（hover 時）· 當場選議題</div>
+    <div class="pop" id="popA">
+      <div class="live-state">
+        <div class="head">
+          <span class="av">T</span>
+          <span class="who">theresa_lifestyle<small>Threads · 4h</small></span>
+        </div>
+        <div class="snippet">有冇人明 見到就莫名燥底☺️</div>
+        <div class="metrics">
+          <span class="metric"><svg viewBox="0 0 24 24"><path d="M12 20.5s-6.5-4.35-8.5-7.05C1.1 10.17 2.18 6.5 5.82 6.5c1.92 0 3.1.95 4.02 2.2C10.76 7.45 11.94 6.5 13.86 6.5 17.5 6.5 18.58 10.17 20.5 13.45 18.5 16.15 12 20.5 12 20.5Z"/></svg>280</span>
+          <span class="metric"><svg viewBox="0 0 24 24"><path d="M7 17.5h6l4 3v-3h.5A2.5 2.5 0 0 0 20 15V7a2.5 2.5 0 0 0-2.5-2.5h-11A2.5 2.5 0 0 0 4 7v8A2.5 2.5 0 0 0 6.5 17.5H7Z"/></svg>31</span>
+          <span class="metric"><svg viewBox="0 0 24 24"><path d="M7 7h10l-2.5-2.5"/><path d="M17 17H7l2.5 2.5"/></svg>–</span>
+          <span class="metric"><svg viewBox="0 0 24 24"><path d="M21 4 10 15"/><path d="m21 4-7 16-4-5-5-4 16-7Z"/></svg>4</span>
+        </div>
+        <div class="pick-lab">存入議題</div>
+        <div class="picks" id="picks">
+          <button class="pick on">AI 陪伴反應<span class="n">9</span></button>
+          <button class="pick">小店家轉型<span class="n">3</span></button>
+          <button class="pick">MCP 工作流<span class="n">6</span></button>
+          <button class="pick new">＋ 新議題</button>
+        </div>
+        <div class="row-btn">
+          <button class="btn acc" id="saveBtn">存入 · AI 陪伴反應</button>
+          <button class="btn quiet">在 Threads 開啟</button>
+        </div>
+      </div>
+      <div class="ok-state">
+        <span class="ok-dot"><svg viewBox="0 0 24 24"><path d="M20 6 9 17l-5-5"/></svg></span>
+        <span class="ok-txt"><b>已存入 · AI 陪伴反應</b><small>該議題現在 10 篇 · 可到議題頁排程分析</small></span>
+      </div>
+    </div>
+    <div class="note">按「存入」→ 同一格翻成成功態（上圖），1.5 秒後自動翻回預覽等你收下一篇。頂部下拉降級成「目前檢視的議題」濾鏡，不再是存檔目標，所以不會再「以為存 A 其實掉進未分流」。（點磚可試玩）</div>
+  </div>
+
+  <!-- B. 未分流 triage lane -->
+  <div class="col">
+    <div class="step">B · 未分流 triage lane · 每列可改派/刪除</div>
+    <div class="lane">
+      <div class="lane-head"><span class="t">未分流</span><span class="c">3 篇 · 待整理</span></div>
+      <div class="trow">
+        <span class="ck"></span>
+        <span><span class="gist">其實我覺得會長時間同AI傾偈嘅人真係好red flag</span><span class="tags"><span class="tag">AI社交</span><span class="tag">人際關係</span></span></span>
+        <span class="rowacts">
+          <button class="mini"><svg viewBox="0 0 24 24"><path d="M5 12h14M13 5l7 7-7 7"/></svg>移到議題</button>
+          <button class="mini danger"><svg viewBox="0 0 24 24"><path d="M4 7h16M9 7V5h6v2M6 7l1 13h10l1-13"/></svg>刪除</button>
+        </span>
+      </div>
+      <div class="trow">
+        <span class="ck"></span>
+        <span><span class="gist">其實sanrio都幾勁 由我媽嗰代買到我呢代 我嘅下一代都仲買緊</span><span class="tags"><span class="tag">品牌長青</span><span class="tag">IP行銷</span></span></span>
+        <span class="rowacts">
+          <button class="mini"><svg viewBox="0 0 24 24"><path d="M5 12h14M13 5l7 7-7 7"/></svg>移到議題</button>
+          <button class="mini danger"><svg viewBox="0 0 24 24"><path d="M4 7h16M9 7V5h6v2M6 7l1 13h10l1-13"/></svg>刪除</button>
+        </span>
+      </div>
+      <div class="trow">
+        <span class="ck"></span>
+        <span><span class="gist">最近刷到Vibe coding的頻率降低很多…</span><span class="tags"><span class="tag">Vibe Coding</span><span class="tag">AI 軟體開發</span></span></span>
+        <span class="rowacts">
+          <button class="mini"><svg viewBox="0 0 24 24"><path d="M5 12h14M13 5l7 7-7 7"/></svg>移到議題</button>
+          <button class="mini danger"><svg viewBox="0 0 24 24"><path d="M4 7h16M9 7V5h6v2M6 7l1 13h10l1-13"/></svg>刪除</button>
+        </span>
+      </div>
+      <div class="lane-foot">
+        <button class="btn acc" style="font-size:11.5px;padding:7px 13px">全選 → 建立新議題</button>
+        <button class="btn quiet" style="font-size:11.5px;padding:7px 13px">全選 → 移到現有議題</button>
+      </div>
+    </div>
+    <div class="note">新增每列「刪除」與「移到議題」（你點名要的刪除鍵）。未分流只放「存檔時沒指定議題」的貼文——因為 A 讓你當場就選好，未分流會自然變少、只當備援。</div>
+  </div>
+
+</div>
+
+<script>
+  var picks=document.getElementById('picks');
+  var saveBtn=document.getElementById('saveBtn');
+  picks.addEventListener('click',function(e){
+    var b=e.target.closest('.pick'); if(!b||b.classList.contains('new'))return;
+    picks.querySelectorAll('.pick').forEach(function(x){x.classList.remove('on')});
+    b.classList.add('on');
+    saveBtn.textContent='存入 · '+b.childNodes[0].textContent.trim();
+  });
+  saveBtn.addEventListener('click',function(){
+    var pop=document.getElementById('popA');
+    var name=picks.querySelector('.pick.on').childNodes[0].textContent.trim();
+    pop.querySelector('.ok-txt b').textContent='已存入 · '+name;
+    pop.classList.add('done');
+    setTimeout(function(){pop.classList.remove('done')},1600);
+  });
+</script>
+</body>
+</html>

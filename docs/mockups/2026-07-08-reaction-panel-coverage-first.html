@@ -1,0 +1,251 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+<meta charset="utf-8">
+<title>DLens · Reaction Panel D1 Variant C · Coverage First</title>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<style>
+  * { margin:0; padding:0; box-sizing:border-box; }
+  body {
+    --canvas:#f7f4ec; --card:#fdfbf6;
+    --ink:#1b1a17; --sub:#3d3b35; --soft:#6c695e;
+    --line:rgba(27,26,23,.10); --line-strong:rgba(27,26,23,.18); --edge:rgba(27,26,23,.055);
+    --rf:20px; --rc:12px; --rp:14px;
+    --m-a:#1a2e4f; --m-t:#3f5a3b; --m-p:#234f7a; --m-r:#7a2030;
+    --ok:#3f5a3b; --run:#1a2e4f; --bad:#7a2030; --warn:#a16a17; --neut:#6c695e;
+    --sh-card:inset 0 1px 0 rgba(255,255,255,.6), 0 1px 2px rgba(27,26,23,.04), 0 4px 10px -4px rgba(27,26,23,.06);
+    --sh-shell:inset 0 1px 0 rgba(255,255,255,.7), 0 1px 2px rgba(27,26,23,.045), 0 8px 16px -6px rgba(27,26,23,.08), 0 20px 38px -16px rgba(27,26,23,.11);
+    background:#fff; color:var(--ink);
+    font-family:'Noto Sans TC',-apple-system,system-ui,sans-serif;
+    padding:42px 18px 52px;
+  }
+  .m-t { --acc:var(--m-t); }
+  .rail { max-width:760px; margin:0 auto; display:flex; flex-direction:column; gap:16px; }
+  .step {
+    font-family:'JetBrains Mono',ui-monospace,monospace; font-size:10px; letter-spacing:.14em;
+    text-transform:uppercase; color:var(--soft); display:flex; align-items:center; gap:10px;
+  }
+  .step::after { content:""; flex:1; height:1px; background:var(--line-strong); }
+  .frame {
+    background:var(--canvas); border:1px solid var(--line-strong); border-radius:var(--rf);
+    box-shadow:var(--sh-shell); padding:18px 22px 20px; overflow:hidden;
+  }
+  h1, h2, h3 { font-family:'Noto Serif TC','Songti TC',serif; font-weight:700; line-height:1.35; }
+  h1 { font-size:23px; margin-bottom:7px; }
+  h2 { font-size:18px; margin-bottom:8px; }
+  h3 { font-size:15px; margin-bottom:6px; }
+  p { font-size:12.5px; line-height:1.75; color:var(--sub); }
+  .mono { font-family:'JetBrains Mono',ui-monospace,monospace; font-variant-numeric:tabular-nums; }
+  .meta { display:flex; align-items:center; gap:12px; flex-wrap:wrap; font-size:11px; color:var(--soft); }
+  .card {
+    background:var(--card); border:1px solid var(--edge); border-radius:var(--rc);
+    box-shadow:var(--sh-card); padding:15px 16px 13px; margin-bottom:12px;
+  }
+  .card:last-child { margin-bottom:0; }
+  .eyebrow {
+    display:flex; gap:12px; align-items:baseline; flex-wrap:wrap;
+    font-size:10px; font-weight:700; letter-spacing:.07em; text-transform:uppercase;
+    color:var(--acc); margin-bottom:8px;
+  }
+  .eyebrow .rel {
+    font-family:'JetBrains Mono',ui-monospace,monospace; letter-spacing:0; color:var(--ink);
+  }
+  .eyebrow .prov {
+    font-family:'JetBrains Mono',ui-monospace,monospace; letter-spacing:0; text-transform:none;
+    font-weight:400; color:var(--soft);
+  }
+  .chip {
+    font-family:'JetBrains Mono',ui-monospace,monospace; font-size:10px; padding:2px 9px;
+    border:1px solid var(--line); border-radius:var(--rp); color:var(--soft); white-space:nowrap;
+  }
+  .chip.hi { color:var(--ink); border-color:var(--line-strong); }
+  .chip.warn { color:var(--warn); border-color:rgba(161,106,23,.34); background:rgba(161,106,23,.06); }
+  .coverage {
+    display:grid; grid-template-columns:repeat(4,1fr); gap:8px; margin-top:12px;
+  }
+  .metric-tile {
+    border:1px solid var(--line); border-radius:var(--rc); padding:9px 10px;
+    background:rgba(255,255,255,.28);
+  }
+  .metric-tile b {
+    display:block; font-family:'JetBrains Mono',ui-monospace,monospace; font-size:20px;
+    font-variant-numeric:tabular-nums; line-height:1.1;
+  }
+  .metric-tile span {
+    display:block; margin-top:4px; font-size:10.5px; color:var(--soft); line-height:1.35;
+  }
+  .strip { margin-top:12px; }
+  .strip .lab {
+    display:flex; justify-content:space-between; gap:12px; font-family:'JetBrains Mono',ui-monospace,monospace;
+    font-size:10px; color:var(--soft); margin-bottom:5px;
+  }
+  .bar { height:6px; border-radius:999px; background:var(--line); overflow:hidden; flex:1; }
+  .bar i { display:block; height:100%; border-radius:999px; background:var(--acc); width:0; }
+  .bar.ok i { background:var(--ok); }
+  .bar.warn i { background:var(--warn); }
+  .bar.bad i { background:var(--bad); }
+  .bar.soft i { background:rgba(161,106,23,.56); }
+  .lane { display:flex; align-items:center; gap:12px; padding:10px 0; border-top:1px solid var(--line); }
+  .lane:first-of-type { border-top:none; }
+  .lane .t {
+    font-family:'Noto Serif TC','Songti TC',serif; font-size:13.5px; font-weight:600;
+    width:34%; line-height:1.5;
+  }
+  .lane .c {
+    font-family:'JetBrains Mono',ui-monospace,monospace; font-size:11px; white-space:nowrap;
+    color:var(--sub);
+  }
+  .lane.weak .t, .lane.weak .c { color:var(--soft); }
+  .rows {
+    background:var(--card); border:1px solid var(--edge); border-radius:var(--rc);
+    box-shadow:var(--sh-card); padding:4px 16px; margin-bottom:12px;
+  }
+  .row {
+    display:flex; align-items:baseline; gap:10px; padding:10px 0;
+    border-bottom:1px solid var(--line); font-size:13px;
+  }
+  .row:last-child { border-bottom:none; }
+  .row .g { flex:1; font-weight:600; line-height:1.55; }
+  .row .tg { font-family:'JetBrains Mono',ui-monospace,monospace; font-size:10px; color:var(--acc); white-space:nowrap; }
+  .pattern-note {
+    margin:-2px 0 10px; padding-left:calc(34% + 12px); color:var(--soft);
+    font-size:11.5px; line-height:1.65;
+  }
+  .quote {
+    font-family:'Noto Serif TC','Songti TC',serif; font-style:italic; font-size:13px; line-height:1.75;
+    color:var(--sub); border-inline-start:2px solid var(--acc); padding:2px 0 2px 13px;
+  }
+  .quote.counter { border-inline-start-color:var(--warn); color:var(--soft); margin-top:7px; }
+  .caveat {
+    border:1px solid rgba(161,106,23,.28); background:rgba(161,106,23,.055);
+  }
+  table { width:100%; border-collapse:collapse; font-size:12.5px; line-height:1.55; }
+  th, td { text-align:left; border-bottom:1px solid var(--line); padding:9px 8px; vertical-align:top; }
+  th { font-family:'JetBrains Mono',ui-monospace,monospace; font-size:10px; color:var(--soft); text-transform:uppercase; letter-spacing:.06em; }
+  tr:last-child td { border-bottom:none; }
+  .foot {
+    text-align:center; font-family:'JetBrains Mono',ui-monospace,monospace; font-size:10px;
+    color:#6c695e; margin-top:8px; letter-spacing:.06em;
+  }
+  @media (max-width:620px) {
+    body { padding:22px 10px 40px; }
+    .frame { padding:15px 12px 17px; }
+    .coverage { grid-template-columns:repeat(2,1fr); }
+    .meta, .row, .lane { flex-wrap:wrap; }
+    .lane .t { width:100%; }
+    .pattern-note { padding-left:0; }
+  }
+  @media (prefers-reduced-motion: no-preference) {
+    .bar i { transition:width 900ms cubic-bezier(.22,1,.36,1); }
+  }
+</style>
+</head>
+<body>
+<div class="rail">
+  <div class="step">D1 · Variant C · Coverage First</div>
+  <section class="frame m-t">
+    <div class="meta" style="margin-bottom:8px">
+      <span class="chip hi">sample data</span>
+      <span class="mono">Topic detail reaction/audience panel replacement</span>
+    </div>
+    <h1>中港矛盾 · 群眾反應模式</h1>
+    <p>這是 D1 Variant C 的靜態 mockup，只示範 P4 audience prose 被結構化 reaction panel 取代後的資訊層級；所有數字與引文皆為 sample data，不代表 live data。</p>
+
+    <article class="card">
+      <div class="eyebrow">coverage first <span class="rel">6 posts / 684 captured / 612 read / 534 usable</span><span class="prov">sample only</span></div>
+      <div class="coverage" aria-label="Sample coverage strip">
+        <div class="metric-tile"><b>6</b><span>posts sampled</span></div>
+        <div class="metric-tile"><b>684</b><span>captured comments</span></div>
+        <div class="metric-tile"><b>612</b><span>comments read</span></div>
+        <div class="metric-tile"><b>534</b><span>usable audience comments</span></div>
+      </div>
+      <div class="strip">
+        <div class="lab"><span>read / captured</span><span>612 / 684</span></div>
+        <div class="bar ok"><i data-w="89"></i></div>
+      </div>
+      <div class="strip">
+        <div class="lab"><span>usable / read</span><span>534 / 612</span></div>
+        <div class="bar"><i data-w="87"></i></div>
+      </div>
+    </article>
+
+    <article class="card">
+      <div class="eyebrow">reaction lanes <span class="rel">denominator = 534 usable comments</span><span class="prov">dedup by commentId</span></div>
+      <div class="lane">
+        <span class="t">身份邊界防守</span>
+        <div class="bar"><i data-w="16"></i></div>
+        <span class="c">84 / 534 · 67 authors</span>
+        <span class="chip hi">stronger signal</span>
+      </div>
+      <div class="pattern-note">Support refs: S1.R14, S2.R8, S4.R33 · Counter refs: S3.R21, S5.R9 · Likes sample sum: 1284</div>
+      <div class="rows" aria-label="身份邊界防守 representative evidence">
+        <div class="row"><span class="tg">rep</span><span class="g quote">「講到最後都係身份安全感問題，唔係一兩句融合可以解決。」</span></div>
+        <div class="row"><span class="tg">counter</span><span class="g quote counter">「我覺得日常相處其實冇咁嚴重，網上聲量放大咗。」</span></div>
+      </div>
+
+      <div class="lane">
+        <span class="t">資源競爭轉譯</span>
+        <div class="bar"><i data-w="11"></i></div>
+        <span class="c">57 / 534 · 45 authors</span>
+        <span class="chip hi">bounded signal</span>
+      </div>
+      <div class="pattern-note">Support refs: S1.R31, S3.R5, S6.R12 · Counter refs: S2.R19 · Likes sample sum: 731</div>
+      <div class="rows" aria-label="資源競爭轉譯 representative evidence">
+        <div class="row"><span class="tg">rep</span><span class="g quote">「房屋、學位、醫療一擺出嚟，大家就唔再講文化，只講分配。」</span></div>
+        <div class="row"><span class="tg">counter</span><span class="g quote counter">「把所有生活壓力都推去外來人，會遮住本地制度問題。」</span></div>
+      </div>
+
+      <div class="lane weak">
+        <span class="t">降溫／日常共處</span>
+        <div class="bar soft"><i data-w="4"></i></div>
+        <span class="c">23 / 534 · 21 authors</span>
+        <span class="chip warn">low n · weak signal</span>
+      </div>
+      <div class="pattern-note">Support refs: S2.R44, S5.R18 · Counter refs: S1.R9, S4.R40 · Likes sample sum: 204 · 不升級為穩定 pattern</div>
+      <div class="rows" aria-label="降溫日常共處 representative evidence">
+        <div class="row"><span class="tg">rep</span><span class="g quote">「返工同街坊相處其實冇咁戲劇化，最怕係網上先互相標籤。」</span></div>
+        <div class="row"><span class="tg">counter</span><span class="g quote counter">「講日常可以共處，唔代表結構矛盾不存在。」</span></div>
+      </div>
+    </article>
+
+    <article class="card caveat">
+      <div class="eyebrow">uncertainty / caveat <span class="rel">coverage before pattern counts</span></div>
+      <p>這個 panel 先呈現 sample coverage，再呈現 pattern counts。pattern 分母只使用 534 則 usable audience comments；同一留言以 commentId dedup 後計算，support / counter refs 只作為 drill-down 錨點。低 n pattern，例如 23 / 534 的「降溫／日常共處」，只能標為弱訊號，不應升級成穩定群眾模式。</p>
+    </article>
+
+    <article class="card">
+      <div class="eyebrow">Schema back-pressure <span class="prov">fields this variant actually requires</span></div>
+      <table>
+        <thead>
+          <tr><th>UI need</th><th>Schema field</th></tr>
+        </thead>
+        <tbody>
+          <tr><td>Topic title shown in panel</td><td><span class="mono">topic.title</span></td></tr>
+          <tr><td>Sample post denominator</td><td><span class="mono">reactionCoverage.postCount</span></td></tr>
+          <tr><td>Captured comment denominator</td><td><span class="mono">reactionCoverage.capturedCommentCount</span></td></tr>
+          <tr><td>Read comment denominator</td><td><span class="mono">reactionCoverage.readCommentCount</span></td></tr>
+          <tr><td>Usable audience denominator</td><td><span class="mono">reactionCoverage.usableAudienceCommentCount</span></td></tr>
+          <tr><td>Dedup basis for counts</td><td><span class="mono">reactionCoverage.dedupKey = commentId</span></td></tr>
+          <tr><td>Pattern label in topic language</td><td><span class="mono">reactionPatterns[].label</span></td></tr>
+          <tr><td>True pattern count</td><td><span class="mono">reactionPatterns[].nComments</span></td></tr>
+          <tr><td>Author diversity count</td><td><span class="mono">reactionPatterns[].nAuthors</span></td></tr>
+          <tr><td>Engagement context without ranking by precision</td><td><span class="mono">reactionPatterns[].likeSum</span></td></tr>
+          <tr><td>Support drill-down anchors</td><td><span class="mono">reactionPatterns[].supportRefs[]</span></td></tr>
+          <tr><td>Counter-evidence drill-down anchors</td><td><span class="mono">reactionPatterns[].counterRefs[]</span></td></tr>
+          <tr><td>Representative audience quote</td><td><span class="mono">reactionPatterns[].representativeComment.text</span></td></tr>
+          <tr><td>Counterexample quote</td><td><span class="mono">reactionPatterns[].counterComment.text</span></td></tr>
+          <tr><td>Low-n conservative styling</td><td><span class="mono">reactionPatterns[].confidenceTier</span></td></tr>
+        </tbody>
+      </table>
+    </article>
+  </section>
+  <div class="foot">reference-only · sample data · replaces P4 audience prose</div>
+</div>
+
+<script>
+  document.querySelectorAll('[data-w]').forEach(function (bar) {
+    bar.style.width = bar.dataset.w + '%';
+  });
+</script>
+</body>
+</html>

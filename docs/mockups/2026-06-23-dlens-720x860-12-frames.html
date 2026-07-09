@@ -1,0 +1,1127 @@
+<!doctype html>
+<html lang="zh-Hant">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>DLens · 720×860 · 12-frame design review · 2026-06-23</title>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/tabler-icons/3.34.0/tabler-icons.min.css">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;500;700&family=Noto+Serif+TC:wght@400;500&family=Instrument+Serif:wght@400&family=JetBrains+Mono:wght@400;500&display=swap">
+<style>
+*{box-sizing:border-box}
+html,body{margin:0;padding:0;background:#1a1a18;color:#d6d3c8;font-family:'Noto Sans TC',-apple-system,BlinkMacSystemFont,sans-serif;-webkit-font-smoothing:antialiased}
+.deck{max-width:1080px;margin:0 auto;padding:48px 32px 80px;display:grid;gap:64px}
+.deck-h{display:grid;gap:14px;border-bottom:1px solid rgba(214,211,200,.14);padding-bottom:28px;margin-bottom:8px}
+.deck-h h1{font-family:'Instrument Serif',Georgia,serif;font-size:44px;font-weight:400;color:#f7f4ec;margin:0;line-height:1.05;letter-spacing:-.01em}
+.deck-h h1 .sub{font-family:'Noto Serif TC',serif;font-size:20px;color:#c8b48a;display:block;margin-top:8px}
+.deck-h .meta{font:500 11px 'JetBrains Mono',monospace;color:#8a857a;letter-spacing:1.2px;display:flex;gap:18px;flex-wrap:wrap}
+.deck-h .meta b{color:#d6d3c8;font-weight:500}
+.deck-h .intro{font:400 14px/1.7 'Noto Sans TC',sans-serif;color:#aaa39a;max-width:760px;margin:0}
+.deck-h .intro b{color:#f7f4ec;font-weight:500}
+.toc{display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:8px;padding:14px;border:1px solid rgba(214,211,200,.10);border-radius:12px;background:rgba(214,211,200,.03)}
+.toc a{font:400 12.5px/1.5 'Noto Sans TC',sans-serif;color:#aaa39a;text-decoration:none;padding:6px 10px;border-radius:6px;display:flex;gap:8px;align-items:baseline}
+.toc a:hover{background:rgba(214,211,200,.06);color:#f7f4ec}
+.toc a .n{font:700 10px 'JetBrains Mono',mono;color:#c8b48a;letter-spacing:.6px;flex-shrink:0;min-width:34px}
+.toc a .nm{flex:1}
+.toc a .core{font:700 9px 'JetBrains Mono',mono;color:#7a2030;background:rgba(122,32,48,.15);padding:1px 5px;border-radius:3px;letter-spacing:.8px}
+.frame-sec{display:grid;gap:14px;align-items:center;justify-items:center;scroll-margin-top:24px}
+.frame-sec .sec-h{display:flex;align-items:baseline;gap:14px;width:100%;max-width:720px;padding:0 4px}
+.frame-sec .sec-h .n{font:500 11px 'JetBrains Mono',mono;color:#c8b48a;letter-spacing:1.2px;flex-shrink:0}
+.frame-sec .sec-h .ttl{font:500 16px 'Noto Sans TC',sans-serif;color:#f7f4ec;flex:1}
+.frame-sec .sec-h .core{font:700 9px 'JetBrains Mono',mono;color:#fbe2d4;background:#7a2030;padding:2px 7px;border-radius:4px;letter-spacing:.8px}
+.dl-stage{background:#2a2a28;padding:18px;border-radius:14px;display:flex;flex-direction:column;gap:16px;align-items:center;font-family:'Noto Sans TC',-apple-system,sans-serif;width:100%;max-width:760px}
+.dl-frame{width:720px;max-width:720px;height:860px;background:linear-gradient(180deg,#fdfbf6,#f7f4ec);border:1px solid rgba(27,26,23,.10);border-radius:14px;box-shadow:0 20px 56px rgba(27,26,23,.32),0 2px 8px rgba(27,26,23,.16),0 0 0 1px rgba(27,26,23,.08);overflow:hidden;color:#1b1a17;padding:16px;display:flex;flex-direction:column;gap:12px}
+.dl-mast{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:10px 14px 8px;border-radius:12px;border:1px solid rgba(27,26,23,.10);background:linear-gradient(180deg,#fdfbf6,#fbf8f1);flex-shrink:0}
+.dl-mast-l{display:flex;align-items:center;gap:10px;min-width:0}
+.dl-wm{font-family:'Instrument Serif',Georgia,serif;font-size:20px;line-height:1}
+.dl-wm.topic{color:#3f5a3b}.dl-wm.product{color:#234f7a}.dl-wm.pr{color:#7a2030}.dl-wm.shared{color:#1a2e4f}
+.dl-sw{display:inline-flex;border:1px solid rgba(27,26,23,.10);border-radius:8px;padding:2px;background:rgba(247,244,236,.84);gap:2px}
+.dl-sw button{font:500 11px 'Noto Sans TC',sans-serif;color:#6c695e;border:0;background:transparent;padding:4px 10px;border-radius:6px;cursor:pointer}
+.dl-sw button[aria-selected="true"]{background:#fdfbf6;color:#1b1a17;box-shadow:0 1px 0 rgba(27,26,23,.04),0 1px 2px rgba(27,26,23,.06);font-weight:700}
+.dl-mast-r{display:flex;align-items:center;gap:8px}
+.dl-pill{display:flex;align-items:center;gap:7px;padding:5px 10px;border-radius:8px;border:1px solid rgba(27,26,23,.10);background:rgba(242,238,226,.72);font:400 11px 'Noto Sans TC',sans-serif;color:#3d3b35;white-space:nowrap}
+.dot{width:7px;height:7px;border-radius:999px;background:#3f5a3b;box-shadow:0 0 0 2px rgba(63,90,59,.16)}
+.dot.amb{background:#a16a17;box-shadow:0 0 0 2px rgba(161,106,23,.16)}
+.dl-v{font:500 10px 'JetBrains Mono',monospace;color:#6c695e}
+.dl-body{display:grid;grid-template-columns:72px 1fr;gap:12px;flex:1;min-height:0}
+.dl-rail{display:grid;gap:10px;padding:10px 8px 12px;border-radius:12px;border:1px solid rgba(27,26,23,.10);background:linear-gradient(180deg,#fbf8f1,rgba(242,238,226,.72));align-content:start}
+.dl-av{width:34px;height:34px;border-radius:999px;color:#fdfbf6;display:grid;place-items:center;font-family:'Instrument Serif',serif;font-size:21px;line-height:1;margin:0 auto}
+.dl-av.topic{background:#3f5a3b;box-shadow:0 8px 18px rgba(63,90,59,.18)}
+.dl-av.product{background:#234f7a;box-shadow:0 8px 18px rgba(35,79,122,.18)}
+.dl-av.pr{background:#7a2030;box-shadow:0 8px 18px rgba(122,32,48,.18)}
+.dl-av.shared{background:#1a2e4f;box-shadow:0 8px 18px rgba(26,46,79,.18)}
+.dl-rb{display:grid;place-items:center;gap:5px;min-height:58px;padding:8px 6px;border-radius:12px;border:1px solid transparent;background:transparent;color:#3d3b35;font:700 9px 'Noto Sans TC',sans-serif;letter-spacing:.5px;cursor:pointer;position:relative}
+.dl-rb[aria-current="true"]{background:#fdfbf6;border-color:rgba(27,26,23,.18);color:#1b1a17;box-shadow:0 6px 16px rgba(27,26,23,.08)}
+.dl-rb.topic[aria-current="true"] i{color:#3f5a3b}
+.dl-rb.product[aria-current="true"] i{color:#234f7a}
+.dl-rb.pr[aria-current="true"] i{color:#7a2030}
+.dl-rb.shared[aria-current="true"] i{color:#1a2e4f}
+.dl-rb i{font-size:16px;color:#3d3b35}
+.dl-rb .bd{position:absolute;top:4px;right:4px;min-width:14px;height:14px;padding:0 4px;border-radius:999px;color:#fdfbf6;font-size:8px;font-weight:700;display:inline-flex;align-items:center;justify-content:center;box-shadow:0 0 0 1.5px #f7f4ec}
+.dl-rb.topic .bd{background:#3f5a3b}.dl-rb.product .bd{background:#1a2e4f}.dl-rb.pr .bd{background:#7a2030}
+.dl-rd{width:28px;height:1px;background:rgba(27,26,23,.10);margin:2px auto}
+.dl-ru{display:grid;place-items:center;gap:5px;min-height:58px;padding:8px 6px;border-radius:12px;border:1px solid rgba(27,26,23,.10);background:rgba(253,251,246,.96);color:#3d3b35;font:700 9px 'Noto Sans TC',sans-serif;letter-spacing:.5px}
+.dl-main{display:grid;gap:10px;min-width:0;align-content:start;overflow:hidden}
+.h1{font-family:'Noto Serif TC',serif;font-size:21px;font-weight:500;line-height:1.25;color:#1b1a17;margin:0}
+.sub{font:400 11px 'Noto Sans TC',sans-serif;color:#6c695e;margin:0}
+.cta{display:flex;gap:8px;padding:8px 0 2px;margin-top:auto;align-items:center;flex-wrap:wrap}
+.btn{font:500 12px 'Noto Sans TC',sans-serif;padding:8px 14px;border-radius:8px;border:1px solid rgba(27,26,23,.12);background:#fdfbf6;color:#1b1a17;cursor:pointer}
+.btn.p.topic{background:#3f5a3b;color:#fdfbf6;border-color:transparent;box-shadow:0 8px 18px rgba(63,90,59,.18)}
+.btn.p.product{background:#234f7a;color:#fdfbf6;border-color:transparent;box-shadow:0 8px 18px rgba(35,79,122,.18)}
+.btn.p.pr{background:#7a2030;color:#fdfbf6;border-color:transparent;box-shadow:0 8px 18px rgba(122,32,48,.18)}
+.btn.p.shared{background:#1a2e4f;color:#fdfbf6;border-color:transparent;box-shadow:0 8px 18px rgba(26,46,79,.18)}
+.btn.p2{background:#fdfbf6;border:1px solid;font-weight:500}
+.btn.p2.product{color:#234f7a;border-color:rgba(35,79,122,.30)}
+.btn.s{background:transparent;color:#6c695e;border-color:rgba(27,26,23,.10);font-weight:400}
+.btn.d{color:#7a2030;border-color:rgba(122,32,48,.20)}
+.cnt{margin-left:auto;font:400 11px 'Noto Sans TC',sans-serif;color:#6c695e}
+.note{background:#1b1a17;color:#d6d3c8;padding:14px 18px;border-radius:12px;font:400 12px/1.6 'Noto Sans TC',sans-serif;width:100%;box-sizing:border-box;max-width:720px}
+.note h3{font:700 11px 'Noto Sans TC',sans-serif;letter-spacing:.8px;color:#f7f4ec;margin:0 0 8px;text-transform:uppercase}
+.note ul{margin:0;padding-left:18px}
+.note li{margin:3px 0}
+.note .k{color:#c8b48a;font-weight:500}
+.note .core-tag{display:inline-block;padding:2px 6px;border-radius:4px;background:rgba(200,180,138,.16);color:#c8b48a;font:700 9px 'JetBrains Mono',mono;letter-spacing:.8px;margin-left:6px}
+.cap-mono{font:500 10px 'JetBrains Mono',mono;color:#aaa39a;letter-spacing:1px}
+
+/* ─── per-page content styles ─── */
+
+/* Intake */
+.in-strip{display:flex;gap:12px;padding:10px 12px;border-radius:10px;border:1px solid rgba(35,79,122,.20);background:rgba(35,79,122,.06);align-items:center;font:400 11px 'Noto Sans TC',sans-serif;color:#1b1a17}
+.in-strip b{font-family:'Instrument Serif',serif;font-size:17px;color:#234f7a;font-weight:400;line-height:1}
+.in-strip .sep{width:1px;height:18px;background:rgba(35,79,122,.20)}
+.in-strip .gap{margin-left:auto;color:#7a2030;font-weight:500}
+.in-row{display:flex;gap:10px;padding:10px 12px;border-radius:10px;border:1px solid rgba(27,26,23,.08);background:#fdfbf6;align-items:flex-start;box-shadow:0 1px 2px rgba(27,26,23,.03)}
+.in-row.inc{border-color:rgba(122,32,48,.25);background:rgba(251,226,212,.50)}
+.in-row .num{font:500 11px 'JetBrains Mono',mono;color:#6c695e;min-width:24px;padding-top:1px}
+.in-row .body{flex:1;min-width:0;display:grid;gap:4px}
+.in-row .ttl{font:500 13px 'Noto Sans TC',sans-serif;color:#1b1a17;line-height:1.35}
+.in-row .met{font:400 10.5px 'Noto Sans TC',sans-serif;color:#6c695e;display:flex;gap:8px;flex-wrap:wrap}
+.in-row .met .sep{color:rgba(27,26,23,.20)}
+.in-row .tag{font:500 10px 'Noto Sans TC',sans-serif;padding:1px 6px;border-radius:4px;background:rgba(63,90,59,.10);color:#3f5a3b;border:1px solid rgba(63,90,59,.20)}
+.in-row .tag.r{background:rgba(122,32,48,.10);color:#7a2030;border-color:rgba(122,32,48,.20)}
+.in-row .tag.a{background:rgba(161,106,23,.10);color:#a16a17;border-color:rgba(161,106,23,.20)}
+.in-row .act{display:flex;align-self:center;gap:4px;flex-shrink:0}
+.in-row .act button{font:500 11px 'Noto Sans TC',sans-serif;border:1px solid rgba(27,26,23,.12);background:#fdfbf6;color:#3d3b35;padding:4px 8px;border-radius:6px;cursor:pointer}
+
+/* Classification */
+.bkt{padding:12px 14px;border-radius:12px;border:1px solid rgba(27,26,23,.10);background:#fdfbf6;display:grid;gap:8px;box-shadow:0 1px 2px rgba(27,26,23,.03)}
+.bkt-h{display:flex;align-items:center;gap:8px}
+.bkt-h .nm{font:500 14px 'Noto Sans TC',sans-serif;color:#1b1a17}
+.bkt-h .ct{font:700 10px 'JetBrains Mono',mono;color:#234f7a;background:rgba(35,79,122,.10);padding:2px 7px;border-radius:6px;border:1px solid rgba(35,79,122,.18)}
+.bkt-h .ml{margin-left:auto;font:400 10.5px 'Noto Sans TC',sans-serif;color:#6c695e;display:flex;gap:8px;align-items:center}
+.bkt-h .ml a{color:#234f7a;text-decoration:none;font-weight:500;cursor:pointer}
+.qb{padding:9px 12px;border-radius:10px;border-left:3px solid rgba(35,79,122,.35);background:rgba(242,238,226,.55);font-family:'Noto Serif TC',serif;font-size:13px;line-height:1.55;color:#1b1a17;font-weight:400}
+.qm{font:400 10.5px 'Noto Sans TC',sans-serif;color:#6c695e;display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+.qm .tag{font:500 10px 'Noto Sans TC',sans-serif;padding:1px 6px;border-radius:4px;background:rgba(63,90,59,.10);color:#3f5a3b;border:1px solid rgba(63,90,59,.20)}
+.qm .tag.a{background:rgba(161,106,23,.10);color:#a16a17;border-color:rgba(161,106,23,.20)}
+
+/* Action Brief */
+.hero{padding:13px 16px;border-radius:12px;border:1px solid rgba(35,79,122,.18);background:linear-gradient(180deg,#fdfbf6,rgba(35,79,122,.04));display:grid;gap:8px}
+.hero .src{font:400 10.5px 'Noto Sans TC',sans-serif;color:#234f7a;display:flex;gap:8px;align-items:center}
+.hero .src .av{width:18px;height:18px;border-radius:999px;background:#234f7a;color:#fdfbf6;display:inline-grid;place-items:center;font:700 9px 'Noto Sans TC',sans-serif}
+.hero .src .sp{color:rgba(27,26,23,.20)}
+.hero .qt{font-family:'Noto Serif TC',serif;font-size:16px;font-weight:400;line-height:1.55;color:#1b1a17;margin:0}
+.hero .qt::before{content:"“";color:rgba(35,79,122,.40);font-size:22px;line-height:0}
+.hero .qt::after{content:"”";color:rgba(35,79,122,.40);font-size:22px;line-height:0}
+.hero .met{font:400 11px 'Noto Sans TC',sans-serif;color:#6c695e;display:flex;gap:10px;align-items:center}
+.hero .met b{color:#1b1a17;font-weight:500;font-family:'JetBrains Mono',mono;font-size:11.5px}
+.macro{display:grid;grid-template-columns:repeat(4,1fr);gap:8px}
+.mc{padding:9px 11px;border-radius:10px;border:1px solid rgba(27,26,23,.08);background:#fdfbf6;display:grid;gap:2px}
+.mc .lb{font:700 9px 'Noto Sans TC',sans-serif;letter-spacing:.5px;color:#6c695e;text-transform:uppercase}
+.mc .vl{font:500 13px 'Noto Sans TC',sans-serif;color:#1b1a17}
+.mc .vl.s{font-family:'Instrument Serif',serif;font-weight:400;font-size:18px;color:#234f7a;line-height:1}
+.card{padding:11px 14px;border-radius:12px;border:1px solid rgba(27,26,23,.10);background:#fdfbf6;display:grid;gap:8px}
+.card h4{font:700 10px 'Noto Sans TC',sans-serif;letter-spacing:.6px;color:#3d3b35;margin:0;text-transform:uppercase}
+.card .ev{font:400 12.5px 'Noto Sans TC',sans-serif;color:#1b1a17;line-height:1.55}
+.card .ev b{color:#234f7a;font-weight:500}
+.gap-card{padding:11px 14px;border-radius:12px;border:1px solid rgba(161,106,23,.30);background:rgba(251,233,200,.50);display:grid;gap:6px}
+.gap-card .ttl{font:500 12px 'Noto Sans TC',sans-serif;color:#a16a17;display:flex;gap:6px;align-items:center}
+.gap-card .ttl b{font-family:'JetBrains Mono',mono;font-weight:500;color:#7a2030}
+.gap-card .desc{font:400 12px 'Noto Sans TC',sans-serif;color:#3d3b35;line-height:1.5}
+
+/* Packet Export */
+.tab{display:flex;gap:6px;padding:4px;background:rgba(247,244,236,.84);border:1px solid rgba(27,26,23,.10);border-radius:8px;width:fit-content}
+.tab button{font:500 11.5px 'Noto Sans TC',sans-serif;border:0;background:transparent;color:#6c695e;padding:6px 12px;border-radius:6px;cursor:pointer;display:flex;align-items:center;gap:5px}
+.tab button[aria-selected="true"]{background:#fdfbf6;color:#1b1a17;box-shadow:0 1px 2px rgba(27,26,23,.06);font-weight:600}
+.tab i{font-size:14px}
+.preview{padding:14px 16px;border-radius:12px;border:1px solid rgba(27,26,23,.10);background:#fdfbf6;flex:1;min-height:0;overflow:hidden;display:grid;gap:9px;position:relative;box-shadow:inset 0 1px 0 rgba(255,255,255,.6),0 1px 2px rgba(27,26,23,.04)}
+.preview.pr-corner .corner{background:#7a2030}
+.preview .corner{position:absolute;top:0;right:0;background:#234f7a;color:#fdfbf6;font:700 9px 'JetBrains Mono',mono;letter-spacing:.6px;padding:3px 9px 4px;border-radius:0 12px 0 8px}
+.pv-meta{font:400 11px 'Noto Sans TC',sans-serif;color:#6c695e;display:flex;gap:8px;padding-bottom:6px;border-bottom:1px solid rgba(27,26,23,.08);align-items:center}
+.pv-meta b{color:#1b1a17;font-weight:500}
+.pv-meta .sep{color:rgba(27,26,23,.20)}
+.pv-h2{font-family:'Noto Serif TC',serif;font-size:14px;font-weight:500;color:#1b1a17;margin:4px 0 0;display:flex;align-items:center;gap:6px}
+.pv-h2 .n{font:700 9px 'JetBrains Mono',mono;color:#234f7a;background:rgba(35,79,122,.10);padding:2px 6px;border-radius:4px}
+.pv-q{font-family:'Noto Serif TC',serif;font-size:12.5px;line-height:1.55;color:#1b1a17;padding:7px 10px;border-left:2.5px solid rgba(35,79,122,.30);background:rgba(242,238,226,.45);border-radius:0 8px 8px 0;margin:0}
+.pv-line{font:400 11.5px 'Noto Sans TC',sans-serif;color:#3d3b35;line-height:1.5}
+.pv-line b{color:#234f7a;font-weight:500}
+.pv-tags{display:flex;gap:5px;flex-wrap:wrap;font-size:10px}
+.pv-tags .t{padding:1.5px 6px;border-radius:4px;background:rgba(63,90,59,.10);color:#3f5a3b;border:1px solid rgba(63,90,59,.20)}
+.exp-targets{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;flex-shrink:0}
+.tg{padding:9px 11px;border-radius:10px;border:1px solid rgba(27,26,23,.10);background:rgba(253,251,246,.80);display:flex;align-items:center;gap:8px;cursor:pointer}
+.tg i{font-size:18px;color:#234f7a}
+.tg .l{display:grid;gap:1px}
+.tg .l .nm{font:500 11.5px 'Noto Sans TC',sans-serif;color:#1b1a17}
+.tg .l .sz{font:400 10px 'Noto Sans TC',sans-serif;color:#6c695e}
+.scroll-zone{overflow-y:auto;flex:1;min-height:0;padding-right:4px;display:grid;gap:9px}
+.scroll-zone::-webkit-scrollbar{width:6px;height:6px}
+.scroll-zone::-webkit-scrollbar-thumb{background:rgba(27,26,23,.15);border-radius:99px}
+
+/* Topic List */
+.tcrd{padding:13px 16px;border-radius:12px;border:1px solid rgba(27,26,23,.10);background:#fdfbf6;display:grid;gap:8px;box-shadow:0 1px 2px rgba(27,26,23,.03),0 4px 14px -4px rgba(27,26,23,.07);cursor:pointer}
+.tcrd.sage{border-left:3px solid #3f5a3b}
+.tcrd.amber{border-left:3px solid #a16a17}
+.tcrd.rose{border-left:3px solid #7a2030}
+.tc-h{display:flex;justify-content:space-between;gap:10px;align-items:flex-start}
+.tc-h .ttl{font-family:'Noto Serif TC',serif;font-size:15.5px;font-weight:500;color:#1b1a17;line-height:1.4;margin:0}
+.tc-h .st{display:flex;gap:6px;align-items:center;font:500 10px 'Noto Sans TC',sans-serif;color:#6c695e;flex-shrink:0}
+.tc-h .st .stat{padding:2px 7px;border-radius:6px;background:rgba(63,90,59,.10);color:#3f5a3b;border:1px solid rgba(63,90,59,.20);font-weight:500;font-family:'JetBrains Mono',mono;font-size:9.5px;letter-spacing:.4px}
+.tc-h .st .stat.a{background:rgba(161,106,23,.10);color:#a16a17;border-color:rgba(161,106,23,.20)}
+.tc-h .st .stat.r{background:rgba(122,32,48,.10);color:#7a2030;border-color:rgba(122,32,48,.20)}
+.tc-said{font-family:'Noto Serif TC',serif;font-size:13px;line-height:1.55;color:#3d3b35;padding-left:12px;border-left:2px solid rgba(63,90,59,.25);font-style:italic}
+.tc-met{font:400 10.5px 'Noto Sans TC',sans-serif;color:#6c695e;display:flex;gap:10px;flex-wrap:wrap;align-items:center}
+.tc-met b{font-family:'JetBrains Mono',mono;color:#1b1a17;font-weight:500;font-size:10.5px}
+.tc-met .sp{color:rgba(27,26,23,.20)}
+.tc-met .ml{margin-left:auto;color:#3f5a3b;font-weight:500}
+
+/* Topic Detail */
+.signal{padding:11px 14px;border-radius:12px;border:1px solid rgba(63,90,59,.22);background:linear-gradient(180deg,#fdfbf6,rgba(63,90,59,.05));display:grid;gap:7px}
+.signal .lb{font:700 10px 'Noto Sans TC',sans-serif;letter-spacing:.6px;color:#3f5a3b;text-transform:uppercase;display:flex;gap:6px;align-items:center}
+.signal .qt{font-family:'Noto Serif TC',serif;font-size:14.5px;font-weight:500;line-height:1.5;color:#1b1a17;margin:0}
+.signal .met{font:400 11px 'Noto Sans TC',sans-serif;color:#6c695e;display:flex;gap:8px;flex-wrap:wrap}
+.signal .met b{font-family:'JetBrains Mono',mono;font-weight:500;color:#1b1a17;font-size:11px}
+.signal .met .sp{color:rgba(27,26,23,.20)}
+.row2{display:grid;grid-template-columns:1fr 1fr;gap:9px}
+.minicard{padding:10px 12px;border-radius:10px;border:1px solid rgba(27,26,23,.10);background:#fdfbf6;display:grid;gap:5px}
+.minicard h4{font:700 9.5px 'Noto Sans TC',sans-serif;letter-spacing:.6px;color:#6c695e;margin:0;text-transform:uppercase}
+.minicard p{font:400 12px 'Noto Sans TC',sans-serif;color:#1b1a17;line-height:1.5;margin:0}
+.minicard p b{color:#3f5a3b;font-weight:500}
+.ladder{padding:11px 14px;border-radius:12px;border:1px solid rgba(27,26,23,.10);background:#fdfbf6;display:grid;gap:7px}
+.ladder h4{font:700 10px 'Noto Sans TC',sans-serif;letter-spacing:.6px;color:#3d3b35;margin:0;display:flex;align-items:center;gap:6px;text-transform:uppercase}
+.ladder h4 .cnt{font-family:'JetBrains Mono',mono;background:rgba(63,90,59,.10);color:#3f5a3b;padding:1px 6px;border-radius:5px;font-size:9px;border:1px solid rgba(63,90,59,.20)}
+.qline{display:flex;gap:9px;padding:7px 9px;border-radius:8px;background:rgba(242,238,226,.50);border-left:2px solid rgba(63,90,59,.30)}
+.qline .ord{font:500 10px 'JetBrains Mono',mono;color:#6c695e;flex-shrink:0;padding-top:1px}
+.qline .qt{font-family:'Noto Serif TC',serif;font-size:12.5px;line-height:1.5;color:#1b1a17;margin:0;flex:1}
+.qline .nm{font:400 10px 'Noto Sans TC',sans-serif;color:#6c695e;align-self:center;flex-shrink:0}
+.tension{padding:10px 14px;border-radius:10px;background:rgba(161,106,23,.08);border:1px solid rgba(161,106,23,.22);display:flex;gap:8px;align-items:flex-start}
+.tension i{font-size:16px;color:#a16a17;flex-shrink:0;padding-top:2px}
+.tension .body{display:grid;gap:2px}
+.tension .ttl{font:500 11.5px 'Noto Sans TC',sans-serif;color:#a16a17}
+.tension .desc{font:400 11.5px 'Noto Sans TC',sans-serif;color:#3d3b35;line-height:1.5}
+
+/* Topic Drill-in */
+.src-c{padding:13px 16px;border-radius:12px;border:1px solid rgba(63,90,59,.30);background:linear-gradient(180deg,#fdfbf6,rgba(63,90,59,.05));display:grid;gap:10px;box-shadow:inset 0 1px 0 rgba(255,255,255,.7),0 1px 2px rgba(27,26,23,.05),0 8px 20px -10px rgba(63,90,59,.18)}
+.src-h{display:flex;justify-content:space-between;align-items:center;gap:8px;font:400 11px 'Noto Sans TC',sans-serif;color:#3d3b35}
+.src-h .who{display:flex;align-items:center;gap:8px}
+.src-h .av{width:24px;height:24px;border-radius:999px;background:#3f5a3b;color:#fdfbf6;display:inline-grid;place-items:center;font:700 11px 'Noto Sans TC',sans-serif}
+.src-h .who b{color:#1b1a17;font-weight:600;font-size:12px}
+.src-h .who span{color:#6c695e;font-size:10.5px}
+.src-h .lk{font:500 10.5px 'JetBrains Mono',mono;color:#3f5a3b;background:rgba(63,90,59,.08);padding:3px 8px;border-radius:6px;border:1px solid rgba(63,90,59,.20);display:flex;gap:4px;align-items:center}
+.src-h .lk i{font-size:13px}
+.src-c .qt-main{font-family:'Noto Serif TC',serif;font-size:16.5px;line-height:1.65;color:#1b1a17;margin:0;font-weight:400}
+.src-c .qt-main::before{content:"「";color:rgba(63,90,59,.40);font-family:'Noto Serif TC',serif;font-size:20px;line-height:0;margin-right:-2px}
+.src-c .qt-main::after{content:"」";color:rgba(63,90,59,.40);font-family:'Noto Serif TC',serif;font-size:20px;line-height:0;margin-left:-2px}
+.src-c .met{font:400 11px 'Noto Sans TC',sans-serif;color:#6c695e;display:flex;gap:12px;border-top:1px solid rgba(63,90,59,.15);padding-top:8px;align-items:center}
+.src-c .met b{font-family:'JetBrains Mono',mono;color:#1b1a17;font-weight:500;font-size:11.5px}
+.src-c .met .sp{color:rgba(27,26,23,.20)}
+.src-c .met .ml{margin-left:auto;color:#3f5a3b;font-weight:500}
+.ai{padding:11px 14px;border-radius:12px;border:1px solid rgba(27,26,23,.10);background:rgba(253,251,246,.85);display:grid;gap:7px}
+.ai .lb{font:700 9.5px 'Noto Sans TC',sans-serif;letter-spacing:.6px;color:#6c695e;text-transform:uppercase;display:flex;gap:6px;align-items:center}
+.ai .lb i{font-size:13px;color:#6c695e}
+.ai .read{font:400 12.5px 'Noto Sans TC',sans-serif;line-height:1.55;color:#3d3b35;margin:0}
+.ai .read b{color:#1b1a17;font-weight:500}
+.ai .tags{display:flex;gap:5px;flex-wrap:wrap}
+.ai .tags .t{font:500 10px 'Noto Sans TC',sans-serif;padding:2px 7px;border-radius:5px;background:rgba(63,90,59,.08);color:#3f5a3b;border:1px solid rgba(63,90,59,.16)}
+.unc{padding:10px 14px;border-radius:10px;background:rgba(161,106,23,.06);border:1px solid rgba(161,106,23,.20);display:grid;gap:5px}
+.unc h4{font:700 9.5px 'Noto Sans TC',sans-serif;letter-spacing:.6px;color:#a16a17;margin:0;text-transform:uppercase;display:flex;align-items:center;gap:6px}
+.unc h4 i{font-size:13px}
+.unc ul{margin:0;padding-left:18px;font:400 11.5px 'Noto Sans TC',sans-serif;line-height:1.55;color:#3d3b35}
+.unc ul li{margin:2px 0}
+.unc ul b{color:#a16a17;font-weight:500}
+
+/* PR Setup */
+.brief{padding:11px 14px;border-radius:12px;border:1px solid rgba(27,26,23,.10);background:#fdfbf6;display:grid;gap:8px}
+.brief-h{display:flex;justify-content:space-between;align-items:center;gap:8px}
+.brief-h .l{display:flex;align-items:center;gap:8px}
+.brief-h .l i{font-size:18px;color:#7a2030}
+.brief-h .l .nm{font:500 12.5px 'Noto Sans TC',sans-serif;color:#1b1a17}
+.brief-h .l .meta{font:400 10.5px 'Noto Sans TC',sans-serif;color:#6c695e}
+.brief-h .l .meta b{font-family:'JetBrains Mono',mono;color:#1b1a17;font-weight:500}
+.brief-h .upload{font:500 11px 'Noto Sans TC',sans-serif;color:#7a2030;background:rgba(122,32,48,.05);padding:4px 10px;border:1px dashed rgba(122,32,48,.30);border-radius:6px;cursor:pointer;display:flex;gap:4px;align-items:center}
+.brief-h .upload i{font-size:13px}
+.brief .ext{padding:9px 11px;border-radius:8px;border-left:3px solid rgba(122,32,48,.25);background:rgba(242,238,226,.45);font-family:'Noto Serif TC',serif;font-size:12.5px;line-height:1.55;color:#1b1a17}
+.brief .ext b{color:#7a2030;font-weight:500}
+.crit-h{display:flex;justify-content:space-between;align-items:center;padding-top:2px}
+.crit-h .lb{font:700 9.5px 'Noto Sans TC',sans-serif;letter-spacing:.6px;color:#3d3b35;text-transform:uppercase;display:flex;gap:6px;align-items:center}
+.crit-h .lb i{font-size:13px;color:#7a2030}
+.crit-h .cnt{font:400 10.5px 'Noto Sans TC',sans-serif;color:#6c695e;display:flex;gap:8px;align-items:center}
+.crit-h .cnt a{color:#7a2030;text-decoration:none;font-weight:500;cursor:pointer}
+.crit{display:grid;gap:5px}
+.cr{display:grid;grid-template-columns:32px 1fr auto auto;gap:9px;padding:8px 11px;border-radius:9px;border:1px solid rgba(27,26,23,.08);background:#fdfbf6;align-items:center}
+.cr.editing{border-color:rgba(122,32,48,.30);background:rgba(122,32,48,.04)}
+.cr .id{font:700 10px 'JetBrains Mono',mono;color:#7a2030;background:rgba(122,32,48,.08);padding:3px 6px;border-radius:5px;border:1px solid rgba(122,32,48,.18);text-align:center}
+.cr .txt{font:400 12px 'Noto Sans TC',sans-serif;color:#1b1a17;line-height:1.45;min-width:0}
+.cr.editing .txt input{font:400 12px 'Noto Sans TC',sans-serif;color:#1b1a17;width:100%;border:0;background:transparent;outline:none;border-bottom:1px dashed rgba(122,32,48,.40)}
+.cr .wt{font:500 10px 'Noto Sans TC',sans-serif;padding:2px 7px;border-radius:5px;background:rgba(27,26,23,.06);color:#3d3b35}
+.cr .act{display:flex;gap:4px}
+.cr .act i{font-size:14px;color:#6c695e;cursor:pointer;padding:4px;border-radius:4px}
+.addcr{font:500 11px 'Noto Sans TC',sans-serif;color:#7a2030;border:1px dashed rgba(122,32,48,.30);padding:7px;border-radius:8px;text-align:center;cursor:pointer;background:transparent;display:flex;gap:5px;align-items:center;justify-content:center}
+.addcr i{font-size:13px}
+
+/* Evidence Ledger */
+.strip-pr{display:flex;gap:14px;padding:10px 13px;border-radius:10px;border:1px solid rgba(122,32,48,.20);background:rgba(122,32,48,.05);align-items:center;font:400 11px 'Noto Sans TC',sans-serif;color:#3d3b35}
+.strip-pr span.k{display:grid;gap:0;line-height:1}
+.strip-pr b{font-family:'Instrument Serif',serif;font-size:18px;color:#7a2030;font-weight:400;line-height:1.05}
+.strip-pr .sep{width:1px;height:22px;background:rgba(122,32,48,.20)}
+.strip-pr .ml{margin-left:auto;font:500 11px 'Noto Sans TC',sans-serif;color:#7a2030}
+.filter{display:flex;gap:6px;align-items:center;padding:6px 8px;border-radius:8px;border:1px solid rgba(27,26,23,.10);background:rgba(253,251,246,.85);font:400 11px 'Noto Sans TC',sans-serif;color:#3d3b35;flex-wrap:wrap}
+.filter .ch{font:500 10.5px 'Noto Sans TC',sans-serif;padding:3px 8px;border-radius:5px;background:#fdfbf6;border:1px solid rgba(27,26,23,.10);color:#3d3b35;cursor:pointer}
+.filter .ch.on{background:rgba(122,32,48,.08);color:#7a2030;border-color:rgba(122,32,48,.25)}
+.filter input{font:400 11px 'Noto Sans TC',sans-serif;border:0;background:transparent;outline:none;padding:2px 4px;color:#3d3b35;min-width:80px}
+.filter .ml{margin-left:auto;font:500 11px 'Noto Sans TC',sans-serif;color:#6c695e}
+.ledger{display:grid;gap:6px;overflow:hidden}
+.lr{display:grid;grid-template-columns:30px auto 1fr auto auto auto;gap:9px;padding:9px 11px;border-radius:10px;border:1px solid rgba(27,26,23,.08);background:#fdfbf6;align-items:center;box-shadow:0 1px 2px rgba(27,26,23,.03)}
+.lr .check{width:14px;height:14px;border:1px solid rgba(27,26,23,.20);border-radius:3px;background:#fdfbf6}
+.lr .check.on{background:#7a2030;border-color:#7a2030;position:relative}
+.lr .check.on::after{content:"✓";position:absolute;top:-3px;left:1.5px;color:#fdfbf6;font-size:10px}
+.lr .who{display:flex;align-items:center;gap:6px;min-width:0}
+.lr .who .av{width:22px;height:22px;border-radius:999px;background:#7a2030;color:#fdfbf6;display:inline-grid;place-items:center;font:700 10px 'Noto Sans TC',sans-serif;flex-shrink:0}
+.lr .who span{font:500 11.5px 'Noto Sans TC',sans-serif;color:#1b1a17;white-space:nowrap}
+.lr .cap{font-family:'Noto Serif TC',serif;font-size:12px;line-height:1.45;color:#1b1a17;overflow:hidden;text-overflow:ellipsis;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;min-width:0}
+.lr .cmatch{display:flex;gap:2px;flex-shrink:0}
+.lr .cmatch .c{width:18px;height:18px;border-radius:4px;background:rgba(27,26,23,.06);color:#6c695e;font:700 9px 'JetBrains Mono',mono;display:inline-grid;place-items:center;border:1px solid rgba(27,26,23,.08)}
+.lr .cmatch .c.on{background:rgba(122,32,48,.10);color:#7a2030;border-color:rgba(122,32,48,.25);font-weight:700}
+.lr .ts{font:500 10.5px 'JetBrains Mono',mono;color:#6c695e;text-align:right;line-height:1.2;flex-shrink:0;white-space:nowrap}
+.lr .ts .e{display:block;color:#1b1a17;font-weight:500;font-size:10px;margin-top:1px}
+.lr .actic{font-size:14px;color:#6c695e;cursor:pointer;padding:4px;border-radius:4px}
+
+/* Criteria Health */
+.hgrid{display:grid;grid-template-columns:repeat(3,1fr);gap:7px}
+.kpi{padding:9px 12px;border-radius:10px;border:1px solid rgba(27,26,23,.10);background:#fdfbf6;display:grid;gap:1px}
+.kpi .lb{font:700 9px 'Noto Sans TC',sans-serif;letter-spacing:.5px;color:#6c695e;text-transform:uppercase}
+.kpi .vl{font-family:'Instrument Serif',serif;font-size:24px;color:#7a2030;font-weight:400;line-height:1}
+.kpi .vl small{font-family:'JetBrains Mono',mono;font-size:11px;color:#6c695e}
+.kpi.g .vl{color:#3f5a3b}
+.kpi.a .vl{color:#a16a17}
+.ch-list{display:grid;gap:5px}
+.crh{display:grid;grid-template-columns:32px 1fr 46px 64px;gap:9px;padding:6px 11px;border-radius:8px;border:1px solid rgba(27,26,23,.08);background:#fdfbf6;align-items:center}
+.crh.fail{border-color:rgba(122,32,48,.30);background:rgba(122,32,48,.04)}
+.crh.warn{border-color:rgba(161,106,23,.25);background:rgba(161,106,23,.04)}
+.crh .id{font:700 10px 'JetBrains Mono',mono;color:#7a2030;background:rgba(122,32,48,.08);padding:3px 6px;border-radius:5px;border:1px solid rgba(122,32,48,.18);text-align:center}
+.crh .nm{font:400 12px 'Noto Sans TC',sans-serif;color:#1b1a17;line-height:1.4;display:grid;gap:2px}
+.crh .nm b{color:#7a2030;font-weight:500;font-family:'JetBrains Mono',mono;font-size:10px}
+.crh .sc{font-family:'JetBrains Mono',mono;font-size:14px;font-weight:600;color:#3f5a3b;text-align:right;line-height:1}
+.crh .sc small{font-family:'JetBrains Mono',mono;font-size:9.5px;color:#8a857a;font-weight:400}
+.crh.fail .sc{color:#7a2030}
+.crh.warn .sc{color:#a16a17}
+.crh .bar{height:4px;border-radius:3px;background:rgba(27,26,23,.06);overflow:hidden;position:relative}
+.crh .bar > span{display:block;height:100%;background:#3f5a3b;border-radius:3px}
+.crh.fail .bar > span{background:#7a2030}
+.crh.warn .bar > span{background:#a16a17}
+.callout{padding:10px 13px;border-radius:10px;border:1px solid rgba(122,32,48,.22);background:rgba(122,32,48,.04);display:grid;gap:5px}
+.callout.amber{border-color:rgba(161,106,23,.25);background:rgba(161,106,23,.05)}
+.callout h4{font:700 9.5px 'Noto Sans TC',sans-serif;letter-spacing:.6px;color:#7a2030;margin:0;text-transform:uppercase;display:flex;align-items:center;gap:6px}
+.callout.amber h4{color:#a16a17}
+.callout h4 i{font-size:13px}
+.callout p{font:400 11.5px 'Noto Sans TC',sans-serif;line-height:1.5;color:#3d3b35;margin:0}
+.callout p b{color:#1b1a17;font-weight:500}
+.exp{display:flex;gap:8px;padding:9px 12px;border-radius:10px;border:1px solid rgba(27,26,23,.10);background:rgba(253,251,246,.85);align-items:center}
+.exp .lb{font:700 9.5px 'Noto Sans TC',sans-serif;letter-spacing:.6px;color:#3d3b35;text-transform:uppercase;margin-right:auto;display:flex;gap:6px;align-items:center}
+.exp .lb i{font-size:14px;color:#7a2030}
+.exp .info{font:400 11px 'Noto Sans TC',sans-serif;color:#3d3b35;display:flex;gap:8px;align-items:center}
+.exp .info b{font-family:'JetBrains Mono',mono;color:#1b1a17;font-weight:500;font-size:11px}
+.exp .info .sp{color:rgba(27,26,23,.20)}
+.exp .ml{margin-left:auto;font:500 11px 'Noto Sans TC',sans-serif;color:#3f5a3b;display:flex;align-items:center;gap:4px}
+.exp .ml i{font-size:13px}
+.exp .fmt{font:500 11px 'Noto Sans TC',sans-serif;color:#3d3b35;background:#fdfbf6;border:1px solid rgba(27,26,23,.12);padding:5px 10px;border-radius:6px;cursor:pointer;display:flex;gap:4px;align-items:center}
+.exp .fmt i{font-size:13px;color:#7a2030}
+
+/* Export Preview CSV table */
+.csv-wrap{overflow:auto;flex:1;min-height:0;padding-right:6px;padding-bottom:2px}
+.csv-wrap::-webkit-scrollbar{width:6px;height:6px}
+.csv-wrap::-webkit-scrollbar-thumb{background:rgba(27,26,23,.15);border-radius:99px}
+.csv-table{font-family:'JetBrains Mono',monospace;font-size:10.5px;color:#3d3b35;border-collapse:collapse;display:block;overflow-x:auto;white-space:nowrap}
+.csv-table th,.csv-table td{padding:5px 9px;border-bottom:1px solid rgba(27,26,23,.06);text-align:left;vertical-align:top}
+.csv-table th{background:rgba(122,32,48,.05);color:#7a2030;font-weight:700;font-size:9.5px;letter-spacing:.4px;position:sticky;top:0}
+.csv-table tr:nth-child(odd) td{background:rgba(242,238,226,.30)}
+.csv-table td.cm{color:#3f5a3b;font-weight:500}
+.csv-table td.no{color:#7a2030}
+.csv-table td.txt{font-family:'Noto Sans TC',sans-serif;font-size:11px;max-width:220px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+
+/* Shared drill-in */
+.tpl-shell{display:grid;gap:6px;padding:5px 0;flex:1;min-height:0;overflow:hidden;position:relative}
+.tpl-sec{display:grid;grid-template-columns:24px 1fr;gap:9px;align-items:start}
+.tpl-sec .num{width:22px;height:22px;border-radius:999px;background:#1a2e4f;color:#fdfbf6;font:700 10px 'JetBrains Mono',mono;display:grid;place-items:center;line-height:1;margin-top:2px}
+.tpl-sec .body{display:grid;gap:4px;min-width:0}
+.tpl-sec .lbl{font:700 9.5px 'Noto Sans TC',sans-serif;letter-spacing:.6px;color:#1a2e4f;text-transform:uppercase;display:flex;gap:8px;align-items:center}
+.tpl-sec .lbl .tag{font:500 9px 'Noto Sans TC',sans-serif;padding:1px 5px;border-radius:4px;background:rgba(27,26,23,.06);color:#6c695e;border:1px solid rgba(27,26,23,.10);text-transform:none;letter-spacing:0;font-weight:500}
+.tpl-sec .lbl .tag.req{color:#7a2030;background:rgba(122,32,48,.08);border-color:rgba(122,32,48,.18)}
+.tpl-sec .lbl .tag.opt{color:#3f5a3b;background:rgba(63,90,59,.08);border-color:rgba(63,90,59,.18)}
+.demo{padding:9px 12px;border-radius:9px;border:1px solid rgba(27,26,23,.10);background:#fdfbf6;display:grid;gap:5px}
+.demo.src-l{border-left:3px solid #1a2e4f}
+.demo.ai-l{background:rgba(253,251,246,.85)}
+.demo.unc-l{background:rgba(161,106,23,.05);border-color:rgba(161,106,23,.20)}
+.demo.cr-l{background:rgba(122,32,48,.03);border-color:rgba(122,32,48,.15)}
+.demo .author{font:400 11px 'Noto Sans TC',sans-serif;color:#1a2e4f;display:flex;gap:6px;align-items:center}
+.demo .author .av{width:18px;height:18px;border-radius:999px;background:#1a2e4f;color:#fdfbf6;font:700 9px 'Noto Sans TC',sans-serif;display:inline-grid;place-items:center}
+.demo .qt{font-family:'Noto Serif TC',serif;font-size:13px;line-height:1.55;color:#1b1a17;margin:0}
+.demo .meta{font:400 10.5px 'Noto Sans TC',sans-serif;color:#6c695e;display:flex;gap:8px;align-items:center}
+.demo .meta b{font-family:'JetBrains Mono',mono;color:#1b1a17;font-weight:500;font-size:10.5px}
+.demo .reading{font:400 11.5px 'Noto Sans TC',sans-serif;line-height:1.5;color:#3d3b35;margin:0}
+.demo .reading b{color:#1a2e4f;font-weight:500}
+.demo .cmatch{display:flex;gap:3px;align-items:center;font:500 10px 'Noto Sans TC',sans-serif;color:#3d3b35}
+.demo .cmatch .c{width:18px;height:18px;border-radius:4px;background:rgba(27,26,23,.06);color:#6c695e;font:700 9px 'JetBrains Mono',mono;display:inline-grid;place-items:center;border:1px solid rgba(27,26,23,.08)}
+.demo .cmatch .c.on{background:rgba(122,32,48,.10);color:#7a2030;border-color:rgba(122,32,48,.25)}
+.demo .cmatch .lab{margin-left:6px;font:400 10.5px 'Noto Sans TC',sans-serif;color:#6c695e}
+.demo .cmatch .lab b{color:#7a2030;font-weight:500;font-family:'JetBrains Mono',mono;font-size:10.5px}
+.demo .ul-l{font:400 11px 'Noto Sans TC',sans-serif;color:#3d3b35;margin:0;padding-left:18px;line-height:1.5}
+.demo .ul-l li{margin:1.5px 0}
+.demo .ul-l b{color:#a16a17;font-weight:500}
+.demo .acts{display:flex;gap:5px;flex-wrap:wrap;align-items:center}
+.demo .bt{font:500 11px 'Noto Sans TC',sans-serif;padding:4px 10px;border-radius:6px;border:1px solid rgba(27,26,23,.12);background:#fdfbf6;color:#3d3b35}
+.demo .bt.p.t-acc{background:#3f5a3b;color:#fdfbf6;border-color:transparent}
+.swap{display:flex;gap:6px;align-items:center;padding:6px 10px;border-radius:8px;border:1px dashed rgba(26,46,79,.30);background:rgba(26,46,79,.04);font:400 11px 'Noto Sans TC',sans-serif;color:#3d3b35;flex-wrap:wrap}
+.swap .lb{font:700 9.5px 'Noto Sans TC',sans-serif;letter-spacing:.6px;color:#1a2e4f;text-transform:uppercase;margin-right:6px}
+.swap .pl{font:500 11px 'Noto Sans TC',sans-serif;padding:3px 10px;border-radius:6px;background:#fdfbf6;border:1px solid rgba(27,26,23,.10);color:#3d3b35;cursor:pointer}
+.swap .pl.topic.on{background:#3f5a3b;color:#fdfbf6;border-color:transparent}
+.swap .pl.product-acc.on{background:#234f7a;color:#fdfbf6;border-color:transparent}
+.swap .pl.pr-acc.on{background:#7a2030;color:#fdfbf6;border-color:transparent}
+
+/* ─── weight badges (rhythm) ─── */
+.frame-sec .sec-h .wt{font:700 9px 'JetBrains Mono',mono;padding:2px 7px;border-radius:4px;letter-spacing:.8px}
+.frame-sec .sec-h .wt.lt{color:#d6efce;background:#3f5a3b}
+.frame-sec .sec-h .wt.md{color:#fbeccb;background:#a16a17}
+.frame-sec .sec-h .wt.ax{color:#cdd8ec;background:#1a2e4f}
+.toc a .wt{font:700 8px 'JetBrains Mono',mono;padding:1px 5px;border-radius:3px;letter-spacing:.6px;flex-shrink:0}
+.toc a .wt.lt{color:#8fae89;background:rgba(63,90,59,.20)}
+.toc a .wt.md{color:#c89a4f;background:rgba(161,106,23,.18)}
+.toc a .wt.ax{color:#9aa9c4;background:rgba(26,46,79,.30)}
+
+/* ─── F01 compact incomplete notice ─── */
+.notice{display:flex;gap:9px;align-items:center;padding:9px 13px;border-radius:10px;border:1px solid rgba(161,106,23,.28);background:rgba(251,233,200,.42);font:400 11.5px 'Noto Sans TC',sans-serif;color:#3d3b35}
+.notice i{font-size:16px;color:#a16a17;flex-shrink:0}
+.notice b{color:#a16a17;font-weight:500}
+.notice .ml{margin-left:auto;font:500 11px 'Noto Sans TC',sans-serif;color:#a16a17;cursor:pointer;white-space:nowrap;display:flex;gap:3px;align-items:center}
+.notice .ml i{font-size:13px}
+
+/* ─── F03 slim macro + faint chips ─── */
+.macro-slim{display:flex;border-radius:10px;border:1px solid rgba(27,26,23,.10);background:#fdfbf6;overflow:hidden}
+.macro-slim .ms{flex:1;padding:7px 11px;display:flex;flex-direction:column;gap:1px;border-right:1px solid rgba(27,26,23,.07)}
+.macro-slim .ms:last-child{border-right:0}
+.macro-slim .ms .lb{font:700 8.5px 'Noto Sans TC',sans-serif;letter-spacing:.3px;color:#6c695e;text-transform:uppercase;white-space:nowrap}
+.macro-slim .ms .vl{font-family:'JetBrains Mono',mono;font-size:15px;font-weight:500;color:#1b1a17;line-height:1.15}
+.macro-slim .ms.hot .vl{color:#a16a17}
+.faint-chips{display:flex;gap:6px;flex-wrap:wrap;align-items:center}
+.faint-chips .lead{font:700 8.5px 'Noto Sans TC',sans-serif;letter-spacing:.4px;color:#aaa39a;text-transform:uppercase}
+.faint-chips .fc{font:400 10px 'Noto Sans TC',sans-serif;color:#8a857a;padding:1.5px 8px;border-radius:99px;border:1px solid rgba(27,26,23,.08);background:rgba(242,238,226,.40)}
+.faint-chips .fc b{color:#6c695e;font-weight:500}
+
+/* ─── F04 / F11 packet-ready summary + format cards + drawer ─── */
+.pk-ready{display:flex;gap:13px;align-items:center;padding:14px 16px;border-radius:12px;border:1px solid rgba(63,90,59,.25);background:linear-gradient(180deg,#fdfbf6,rgba(63,90,59,.055))}
+.pk-ready.pr{border-color:rgba(122,32,48,.22);background:linear-gradient(180deg,#fdfbf6,rgba(122,32,48,.045))}
+.pk-ready .ic{width:40px;height:40px;border-radius:11px;background:rgba(63,90,59,.12);color:#3f5a3b;display:grid;place-items:center;font-size:21px;flex-shrink:0}
+.pk-ready.pr .ic{background:rgba(122,32,48,.10);color:#7a2030}
+.pk-ready .tx{display:grid;gap:2px;min-width:0}
+.pk-ready .tx .t{font-family:'Noto Serif TC',serif;font-size:15px;font-weight:500;color:#1b1a17}
+.pk-ready .tx .s{font:400 11px 'Noto Sans TC',sans-serif;color:#6c695e}
+.pk-ready .ml{margin-left:auto;font:500 11px 'JetBrains Mono',mono;color:#3f5a3b;display:flex;align-items:center;gap:5px;white-space:nowrap}
+.pk-ready.pr .ml{color:#7a2030}
+.pk-ready .ml i{font-size:15px}
+.pk-fmt{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.fmtcard{display:flex;gap:10px;align-items:center;padding:11px 13px;border-radius:10px;border:1px solid rgba(27,26,23,.10);background:#fdfbf6}
+.fmtcard i{font-size:21px;color:#234f7a;flex-shrink:0}
+.fmtcard.pr i{color:#7a2030}
+.fmtcard .l{display:grid;gap:1px;min-width:0}
+.fmtcard .l .nm{font:500 12.5px 'Noto Sans TC',sans-serif;color:#1b1a17}
+.fmtcard .l .sz{font:400 10px 'Noto Sans TC',sans-serif;color:#6c695e}
+.fmtcard .rd{margin-left:auto;font:700 9px 'JetBrains Mono',mono;color:#3f5a3b;background:rgba(63,90,59,.10);padding:2px 7px;border-radius:4px;white-space:nowrap}
+.drawer{border:1px solid rgba(27,26,23,.10);border-radius:10px;background:rgba(253,251,246,.65)}
+.drawer .dh{display:flex;gap:9px;align-items:center;padding:11px 13px;cursor:pointer;font:500 12px 'Noto Sans TC',sans-serif;color:#3d3b35}
+.drawer .dh > i{font-size:16px;color:#6c695e}
+.drawer .dh .chev{margin-left:auto;font-size:15px;color:#6c695e}
+.drawer .dh .ct{font:400 10.5px 'Noto Sans TC',sans-serif;color:#6c695e}
+.dlv-notes{display:grid;gap:6px}
+.dlv-note{display:flex;gap:9px;align-items:flex-start;padding:9px 13px;border-radius:9px;font:400 11.5px/1.5 'Noto Sans TC',sans-serif;color:#3d3b35;border:1px solid rgba(27,26,23,.08);background:rgba(253,251,246,.7)}
+.dlv-note i{font-size:15px;flex-shrink:0;margin-top:1px;color:#6c695e}
+.dlv-note.amber{border-color:rgba(161,106,23,.25);background:rgba(161,106,23,.05)}.dlv-note.amber i{color:#a16a17}
+.dlv-note.rose{border-color:rgba(122,32,48,.22);background:rgba(122,32,48,.04)}.dlv-note.rose i{color:#7a2030}
+.dlv-note b{color:#1b1a17;font-weight:500}
+
+/* ─── F06 newsroom counter-narrative + social ─── */
+.counter{padding:11px 14px;border-radius:12px;border:1px solid rgba(122,32,48,.20);background:linear-gradient(180deg,#fdfbf6,rgba(122,32,48,.045));display:grid;gap:6px}
+.counter .lb{font:700 10px 'Noto Sans TC',sans-serif;letter-spacing:.6px;color:#7a2030;text-transform:uppercase;display:flex;gap:6px;align-items:center}
+.counter .lb i{font-size:13px}
+.counter .qt{font-family:'Noto Serif TC',serif;font-size:13.5px;font-weight:400;line-height:1.5;color:#1b1a17;margin:0}
+.counter .met{font:400 10px 'Noto Sans TC',sans-serif;color:#6c695e}
+.social{padding:11px 14px;border-radius:12px;border:1px solid rgba(161,106,23,.22);background:rgba(161,106,23,.05);display:grid;gap:6px}
+.social .lb{font:700 10px 'Noto Sans TC',sans-serif;letter-spacing:.6px;color:#a16a17;text-transform:uppercase;display:flex;gap:6px;align-items:center}
+.social .lb i{font-size:13px}
+.social p{font:400 12px/1.5 'Noto Sans TC',sans-serif;color:#3d3b35;margin:0}
+.social p b{color:#1b1a17;font-weight:500}
+
+/* ─── F08 AI-assisted banner + criteria confidence ─── */
+.ai-banner{display:flex;gap:11px;align-items:center;padding:11px 15px;border-radius:12px;border:1px solid rgba(122,32,48,.20);background:linear-gradient(180deg,#fdfbf6,rgba(122,32,48,.045))}
+.ai-banner .ic{width:36px;height:36px;border-radius:10px;background:rgba(122,32,48,.10);color:#7a2030;display:grid;place-items:center;font-size:18px;flex-shrink:0}
+.ai-banner .tx{display:grid;gap:1px;min-width:0}
+.ai-banner .tx .t{font:500 13px 'Noto Sans TC',sans-serif;color:#1b1a17}
+.ai-banner .tx .t b{color:#7a2030;font-weight:600}
+.ai-banner .tx .s{font:400 10.5px 'Noto Sans TC',sans-serif;color:#6c695e}
+.ai-banner .prog{margin-left:auto;display:grid;gap:4px;justify-items:end;flex-shrink:0}
+.ai-banner .prog .pct{font-family:'Instrument Serif',serif;font-size:23px;color:#7a2030;line-height:.9}
+.ai-banner .prog .bar{width:96px;height:5px;border-radius:3px;background:rgba(122,32,48,.10);overflow:hidden}
+.ai-banner .prog .bar>span{display:block;height:100%;width:80%;background:#7a2030;border-radius:3px}
+.crit2{display:grid;gap:6px}
+.cr2{display:flex;gap:11px;padding:9px 13px;border-radius:10px;border:1px solid rgba(27,26,23,.08);background:#fdfbf6;align-items:center}
+.cr2.review{border-color:rgba(161,106,23,.38);background:rgba(161,106,23,.05)}
+.cr2 .id{font:700 10px 'JetBrains Mono',mono;color:#7a2030;background:rgba(122,32,48,.08);padding:3px 6px;border-radius:5px;border:1px solid rgba(122,32,48,.18);flex-shrink:0;align-self:flex-start;margin-top:1px}
+.cr2 .txt{flex:1;font:400 12px/1.45 'Noto Sans TC',sans-serif;color:#1b1a17;min-width:0}
+.cr2 .txt b{color:#7a2030;font-weight:500}
+.cr2 .txt .w{color:#aaa39a;font-weight:500;font-family:'JetBrains Mono',mono;font-size:9.5px;margin-left:5px}
+.cr2 .cf{display:flex;gap:5px;align-items:center;font:600 9.5px 'JetBrains Mono',mono;flex-shrink:0;white-space:nowrap}
+.cr2 .cf .d{width:7px;height:7px;border-radius:99px}
+.cr2 .cf.hi{color:#3f5a3b}.cr2 .cf.hi .d{background:#3f5a3b}
+.cr2 .cf.lo{color:#a16a17}.cr2 .cf.lo .d{background:#a16a17}
+.cr2 .ed{font-size:14px;color:#9a958a;cursor:pointer;flex-shrink:0}
+.cr2.review .ed{color:#a16a17}
+
+/* ─── F09 single match indicator ─── */
+.mind{display:flex;gap:5px;align-items:center;font:600 10.5px 'JetBrains Mono',mono;flex-shrink:0;white-space:nowrap;justify-content:flex-end}
+.mind .d{width:8px;height:8px;border-radius:99px;flex-shrink:0}
+.mind.strong{color:#3f5a3b}.mind.strong .d{background:#3f5a3b}
+.mind.soft{color:#a16a17}.mind.soft .d{background:#a16a17}
+.mind.out{color:#7a2030}.mind.out .d{background:#7a2030}
+.lr2{display:grid;grid-template-columns:auto 1fr auto auto;gap:11px;padding:7px 12px;border-radius:9px;border:1px solid rgba(27,26,23,.07);background:#fdfbf6;align-items:center}
+.lr2 .who{display:flex;align-items:center;gap:7px;min-width:108px}
+.lr2 .who .av{width:22px;height:22px;border-radius:999px;background:#7a2030;color:#fdfbf6;display:inline-grid;place-items:center;font:700 10px 'Noto Sans TC',sans-serif;flex-shrink:0}
+.lr2 .who span{font:500 11.5px 'Noto Sans TC',sans-serif;color:#1b1a17;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.lr2 .cap{font-family:'Noto Serif TC',serif;font-size:12px;line-height:1.4;color:#3d3b35;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;min-width:0}
+.lr2 .ts{font:500 10px 'JetBrains Mono',mono;color:#8a857a;text-align:right;flex-shrink:0;white-space:nowrap}
+
+/* ─── F12 appendix (no app shell) ─── */
+.appx{display:flex;flex-direction:column;gap:13px;height:100%}
+.appx-h{display:flex;align-items:baseline;gap:12px;padding-bottom:11px;border-bottom:1px solid rgba(27,26,23,.12)}
+.appx-h .wm{font-family:'Instrument Serif',serif;font-size:24px;color:#1a2e4f;line-height:1}
+.appx-h .ttl{font:500 14px 'Noto Sans TC',sans-serif;color:#1b1a17}
+.appx-h .sub2{font:400 11px 'Noto Sans TC',sans-serif;color:#6c695e}
+.appx-h .ml{margin-left:auto;font:500 10px 'JetBrains Mono',mono;color:#8a857a;letter-spacing:.6px}
+
+footer.deck-f{display:grid;gap:8px;border-top:1px solid rgba(214,211,200,.14);padding-top:24px;margin-top:32px;font:400 12px/1.6 'Noto Sans TC',sans-serif;color:#8a857a}
+footer.deck-f b{color:#d6d3c8;font-weight:500}
+</style>
+</head>
+<body>
+<main class="deck">
+
+<header class="deck-h">
+  <h1>DLens · 720 × 860 · 12 frames<span class="sub">本輪修訂：12 frames 不變，重定每頁的「資訊重量」</span></h1>
+  <div class="meta"><span>VERSION <b>0.3.0</b></span><span>DATE <b>2026-06-23</b></span><span>POPUP <b>720 × min(86vh, 860px)</b></span><span>SHELL <b>InPageCollectorPopup.tsx</b></span></div>
+  <p class="intro">完整 user journey 保留 12 frame，但每頁節奏不同：<b>入口頁輕</b>（triage）、<b>分類頁中</b>、<b>CORE 頁重但聚焦</b>、<b>export 頁輕</b>、<b>appendix 不當產品頁</b>。每頁 first fold 只回答一個主問題、最多 1 primary + 2 secondary action；原文 / evidence 永遠高於 AI reading。</p>
+  <nav class="toc">
+    <a href="#f01"><span class="n">01</span><span class="nm">Product · Intake · 已存訊號</span><span class="wt lt">LIGHT</span></a>
+    <a href="#f02"><span class="n">02</span><span class="nm">Product · Classification · 分類整理</span><span class="wt md">MED</span></a>
+    <a href="#f03"><span class="n">03</span><span class="nm">Product · Action Brief · 行動簡報</span><span class="core">CORE</span></a>
+    <a href="#f04"><span class="n">04</span><span class="nm">Product · Packet Export</span><span class="wt lt">LIGHT</span></a>
+    <a href="#f05"><span class="n">05</span><span class="nm">Topic · List · 議題列表</span><span class="wt md">MED</span></a>
+    <a href="#f06"><span class="n">06</span><span class="nm">Topic · Detail · Newsroom Signal</span><span class="core">CORE</span></a>
+    <a href="#f07"><span class="n">07</span><span class="nm">Topic · Drill-in · 原文 + 註讀</span><span class="core">CORE</span></a>
+    <a href="#f08"><span class="n">08</span><span class="nm">PR · Setup · Brief + Criteria</span><span class="wt md">MED</span></a>
+    <a href="#f09"><span class="n">09</span><span class="nm">PR · Evidence Ledger</span><span class="wt md">MED</span></a>
+    <a href="#f10"><span class="n">10</span><span class="nm">PR · Criteria Health</span><span class="core">CORE</span></a>
+    <a href="#f11"><span class="n">11</span><span class="nm">PR · Export Preview</span><span class="wt lt">LIGHT</span></a>
+    <a href="#f12"><span class="n">12</span><span class="nm">Shared · Drill-in Appendix</span><span class="wt ax">APPX</span></a>
+  </nav>
+</header>
+
+<!-- 01 PRODUCT INTAKE -->
+<section class="frame-sec" id="f01">
+  <div class="sec-h"><span class="n">FRAME 01</span><span class="ttl">Product · Intake · 已存訊號</span><span class="wt lt">LIGHT · 入口 triage</span></div>
+  <div class="dl-stage">
+    <div class="cap-mono">DLENS POPUP · 720 × 860 · PRODUCT INTAKE</div>
+    <div class="dl-frame">
+      <div class="dl-mast">
+        <div class="dl-mast-l"><span class="dl-wm product">dlens</span><span class="dl-sw"><button>Topic</button><button aria-selected="true">Product</button><button>PR</button></span></div>
+        <div class="dl-mast-r"><span class="dl-pill"><span class="dot"></span><span class="dot amb"></span>2 ready · 1 analyzing<span style="color:#6c695e;margin-left:6px">12/18 ready</span></span><span class="dl-v">v.0.3.0</span></div>
+      </div>
+      <div class="dl-body">
+        <aside class="dl-rail">
+          <div class="dl-av product">d</div>
+          <button class="dl-rb product" aria-current="true"><i class="ti ti-archive"></i><span>Signals</span><span class="bd">18</span></button>
+          <button class="dl-rb product"><i class="ti ti-file-text"></i><span>Action</span></button>
+          <button class="dl-rb product"><i class="ti ti-plus"></i><span>Collect</span></button>
+          <span class="dl-rd"></span>
+          <span class="dl-ru"><i class="ti ti-settings" style="font-size:13px"></i><span>設定</span></span>
+        </aside>
+        <main class="dl-main">
+          <div style="display:grid;gap:2px"><h1 class="h1">哪些訊號可進下一步？</h1><p class="sub">DLens bundled product vision · 18 已收 · 15 可進分類 · 3 待補爬</p></div>
+          <div class="in-strip">
+            <span><b>15</b><br><span style="font-size:10px;color:#3f5a3b">可進分類</span></span><span class="sep"></span>
+            <span><b>3</b><br><span style="font-size:10px;color:#a16a17">待補爬</span></span><span class="sep"></span>
+            <span><b>0</b><br><span style="font-size:10px;color:#6c695e">errored</span></span>
+            <span class="gap" style="color:#3f5a3b">多數已就緒，可直接分類</span>
+          </div>
+          <div style="display:grid;gap:6px;overflow:hidden">
+            <div class="in-row"><span class="num">01</span><div class="body"><div class="ttl">「用了 DLens 三週，最有感的是 PR 那邊 evidence ledger 真的可交付」</div><div class="met"><span>@op_studio · 5h</span><span class="sep">·</span><span>♥ 142 · 💬 31</span><span class="sep">·</span><span class="tag">match · strong</span></div></div><div class="act"><button>全文</button></div></div>
+            <div class="in-row"><span class="num">02</span><div class="body"><div class="ttl">「extension 一啟動就 720 寬，比預期窄但意外好讀」</div><div class="met"><span>@h_chen · 9h</span><span class="sep">·</span><span>♥ 58 · 💬 12</span><span class="sep">·</span><span class="tag a">match · soft</span></div></div><div class="act"><button>全文</button></div></div>
+            <div class="in-row"><span class="num">03</span><div class="body"><div class="ttl">「想看到 cross-folder 的 saved-signal counter，每個 workspace 都要各自查」</div><div class="met"><span>@dev_jay · 1d</span><span class="sep">·</span><span>♥ 91 · 💬 18</span><span class="sep">·</span><span class="tag">feature request</span></div></div><div class="act"><button>全文</button></div></div>
+            <div class="in-row"><span class="num">04</span><div class="body"><div class="ttl">「3 週前換成 0.3.0 的人，會覺得 marquee row 比之前 dashboard 安靜」</div><div class="met"><span>@op_studio · 1d</span><span class="sep">·</span><span>♥ 76 · 💬 9</span><span class="sep">·</span><span class="tag">design feedback</span></div></div><div class="act"><button>全文</button></div></div>
+          </div>
+          <div class="notice"><i class="ti ti-alert-circle"></i><span><b>3 條 incomplete</b> 缺留言全文 / 作者 profile，暫不進分類</span><span class="ml">重新分析 3 條<i class="ti ti-chevron-right"></i></span></div>
+          <div class="cta">
+            <button class="btn p product">進入分類整理（15 條）</button>
+            <button class="btn s">重新分析 incomplete</button>
+            <span class="cnt">15 ready · 3 待補</span>
+          </div>
+        </main>
+      </div>
+    </div>
+    <div class="note"><h3>NOTES · Product Intake <span class="core-tag">LIGHT</span></h3><ul>
+      <li><span class="k">First fold 問題（單一）</span>：哪些 signal 可進下一步、哪些要補爬？只回答這一題。</li>
+      <li><span class="k">降密度</span>：row 從 6 → 4，incomplete 不再各自佔 row，收進一條 compact notice；strip 從 4 數字 → 3。</li>
+      <li><span class="k">CTA 收斂</span>：primary = 進入分類整理，secondary = 重新分析 incomplete；移除「退回全部」danger，triage 頁不需要。</li>
+      <li><span class="k">不像 dashboard</span>：每行只留 1 顆「全文」，meta 砍到 author + 互動 + 1 tag。</li>
+    </ul></div>
+  </div>
+</section>
+
+<!-- 02 PRODUCT CLASSIFICATION -->
+<section class="frame-sec" id="f02">
+  <div class="sec-h"><span class="n">FRAME 02</span><span class="ttl">Product · Classification · 分類整理</span><span class="wt md">MEDIUM · 分流</span></div>
+  <div class="dl-stage">
+    <div class="cap-mono">DLENS POPUP · 720 × 860 · PRODUCT CLASSIFICATION</div>
+    <div class="dl-frame">
+      <div class="dl-mast">
+        <div class="dl-mast-l"><span class="dl-wm product">dlens</span><span class="dl-sw"><button>Topic</button><button aria-selected="true">Product</button><button>PR</button></span></div>
+        <div class="dl-mast-r"><span class="dl-pill"><span class="dot"></span>12 analyzed · 6 buckets<span style="color:#6c695e;margin-left:6px">12/12 ready</span></span><span class="dl-v">v.0.3.0</span></div>
+      </div>
+      <div class="dl-body">
+        <aside class="dl-rail">
+          <div class="dl-av product">d</div>
+          <button class="dl-rb product" aria-current="true"><i class="ti ti-archive"></i><span>Signals</span><span class="bd">18</span></button>
+          <button class="dl-rb product"><i class="ti ti-file-text"></i><span>Action</span></button>
+          <button class="dl-rb product"><i class="ti ti-plus"></i><span>Collect</span></button>
+          <span class="dl-rd"></span>
+          <span class="dl-ru"><i class="ti ti-settings" style="font-size:13px"></i><span>設定</span></span>
+        </aside>
+        <main class="dl-main">
+          <div style="display:grid;gap:2px"><h1 class="h1">哪一桶值得進行動簡報？</h1><p class="sub">DLens bundled product vision · 15 條分 5 桶 · 每桶 1 條代表 quote</p></div>
+          <div class="bkt"><div class="bkt-h"><i class="ti ti-search" style="font-size:14px;color:#234f7a"></i><span class="nm">找夥伴 / 對作分析</span><span class="ct">4</span><span class="ml">最新 5h · <a>展開</a></span></div><div class="qb">「用了 DLens 三週，最有感的是 PR 那邊 evidence ledger 真的可交付」</div><div class="qm"><span>@op_studio · ♥ 142</span><span class="tag">match · strong</span></div></div>
+          <div class="bkt"><div class="bkt-h"><i class="ti ti-alert-triangle" style="font-size:14px;color:#a16a17"></i><span class="nm">痛點分析</span><span class="ct">3</span><span class="ml">最新 9h · <a>展開</a></span></div><div class="qb">「PR mode 那塊我還在試，criteria 設定步驟比想像多，第一次配卡住兩次」</div><div class="qm"><span>@miuwu · ♥ 24</span><span class="tag a">setup friction</span></div></div>
+          <div class="bkt" style="display:flex;align-items:center;gap:10px;padding:10px 14px"><i class="ti ti-route" style="font-size:14px;color:#3f5a3b"></i><span class="nm">學習路徑</span><span class="ct">2</span><span class="ml" style="margin-left:auto">代表 @h_chen · <a>展開</a></span></div>
+          <div class="bkt" style="display:flex;align-items:center;gap:10px;padding:10px 14px"><i class="ti ti-bulb" style="font-size:14px;color:#234f7a"></i><span class="nm">Feature request</span><span class="ct">2</span><span class="ml" style="margin-left:auto">代表 @dev_jay · <a>展開</a></span></div>
+          <div class="bkt" style="display:flex;align-items:center;gap:10px;padding:10px 14px"><i class="ti ti-message-circle" style="font-size:14px;color:#5e4b73"></i><span class="nm">Design feedback</span><span class="ct">1</span><span class="ml" style="margin-left:auto">代表 @op_studio · <a>展開</a></span></div>
+          <div class="cta">
+            <button class="btn p product">選代表進行動簡報</button>
+            <button class="btn">合併兩桶</button>
+            <span class="cnt">5 桶 · 0 未分</span>
+          </div>
+        </main>
+      </div>
+    </div>
+    <div class="note"><h3>NOTES · Product Classification <span class="core-tag">MEDIUM</span></h3><ul>
+      <li><span class="k">First fold 問題（單一）</span>：signal 被分到哪些桶？哪一桶值得進 Action？</li>
+      <li><span class="k">不是每桶都重卡</span>：高量桶（4/3 條）露出代表 quote，低量桶（2/2/1 條）收成 compact header row — 頁內自己有輕重節奏。</li>
+      <li><span class="k">每桶只 1 條代表</span>：不展開全部，避免回到 admin list。</li>
+      <li><span class="k">CTA</span>：primary = 選代表進行動簡報，把分流 → CORE（Frame 03）的下一步明示。</li>
+    </ul></div>
+  </div>
+</section>
+
+<!-- 03 PRODUCT ACTION BRIEF (CORE) -->
+<section class="frame-sec" id="f03">
+  <div class="sec-h"><span class="n">FRAME 03</span><span class="ttl">Product · Action Brief · 行動簡報</span><span class="core">CORE 1/4</span></div>
+  <div class="dl-stage">
+    <div class="cap-mono">DLENS POPUP · 720 × 860 · PRODUCT ACTION BRIEF · CORE</div>
+    <div class="dl-frame">
+      <div class="dl-mast">
+        <div class="dl-mast-l"><span class="dl-wm product">dlens</span><span class="dl-sw"><button>Topic</button><button aria-selected="true">Product</button><button>PR</button></span></div>
+        <div class="dl-mast-r"><span class="dl-pill"><span class="dot"></span>Reading Review · signal-027<span style="color:#6c695e;margin-left:6px">12/18 ready</span></span><span class="dl-v">v.0.3.0</span></div>
+      </div>
+      <div class="dl-body">
+        <aside class="dl-rail">
+          <div class="dl-av product">d</div>
+          <button class="dl-rb product"><i class="ti ti-archive"></i><span>Signals</span></button>
+          <button class="dl-rb product" aria-current="true"><i class="ti ti-file-text"></i><span>Action</span></button>
+          <button class="dl-rb product"><i class="ti ti-plus"></i><span>Collect</span></button>
+          <span class="dl-rd"></span>
+          <span class="dl-ru"><i class="ti ti-settings" style="font-size:13px"></i><span>設定</span></span>
+        </aside>
+        <main class="dl-main">
+          <div style="display:grid;gap:2px"><h1 class="h1">這條值不值得收入行動簡報？</h1><p class="sub">signal-027 · @op_studio · 5h 前 · threads.com/post/3JqL8K</p></div>
+          <div class="hero">
+            <p class="qt">用了 DLens 三週，最有感的是 PR 那邊 evidence ledger 真的可交付。之前用 Notion + screenshot 拼，每次給客戶都要重排，現在直接 CSV / MD / DOCX 三個格式選一個就好。</p>
+            <div class="met"><b>♥ 142</b><span style="color:rgba(27,26,23,.20)">·</span><b>💬 31</b><span style="color:rgba(27,26,23,.20)">·</span><b>🔁 24</b><span style="margin-left:auto;color:#234f7a;font-weight:500">3 週 DLens user · 自由接案</span></div>
+          </div>
+          <div class="faint-chips"><span class="lead">分析</span><span class="fc">受眾 <b>SMB / 接案 PM</b></span><span class="fc">主題 <b>PR deliverable</b></span><span class="fc">情緒 <b>+ 強正向</b></span><span class="fc">主張 <b>Export 是價值點</b></span></div>
+          <div class="macro-slim">
+            <div class="ms"><span class="lb">信號重試</span><span class="vl">0</span></div>
+            <div class="ms hot"><span class="lb">噪音不符</span><span class="vl">4</span></div>
+            <div class="ms"><span class="lb">資料不足</span><span class="vl">0</span></div>
+            <div class="ms"><span class="lb">保留觀察</span><span class="vl">6</span></div>
+          </div>
+          <div class="card"><h4>判讀 · 為什麼值得收</h4><div class="ev">作者是 <b>3 週實際使用者</b>，明確做出「以前 Notion + screenshot 拼，現在 CSV/MD/DOCX 直出」的對比，是 <b>PR deliverable 已被使用者驗證</b>的高品質佐證。</div></div>
+          <div class="gap-card"><div class="ttl"><i class="ti ti-alert-circle"></i>缺口 · <b>N=10 留言</b> · 無 product user 樣本</div><div class="desc">31 則 reply 只爬到 10 則且皆為一般 user，<b>無已知 product user 留言</b>。建議補爬剩 21 則再升「強引用」。</div></div>
+          <div class="cta">
+            <button class="btn p product">收錄到行動簡報</button>
+            <button class="btn p2 product">保留觀察</button>
+            <button class="btn s">退回</button>
+          </div>
+        </main>
+      </div>
+    </div>
+    <div class="note"><h3>NOTES · Product Action Brief <span class="core-tag">CORE 1/4</span></h3><ul>
+      <li><span class="k">First fold 問題（單一）</span>：這條 signal 值不值得收入行動簡報？</li>
+      <li><span class="k">原文 ≫ 其他</span>：quote hero 拉到最前、serif 高權重；macro 縮成一條 slim row（信號重試 0 / 噪音不符 4 / 資料不足 0 / 保留觀察 6）。</li>
+      <li><span class="k">meta 降級</span>：受眾 / 主題 / 情緒 / 主張 退成很淡的 faint chips；hero meta 砍掉 likes/replies 字樣 ≈ 25% 非必要 meta。</li>
+      <li><span class="k">action 收斂</span>：1 primary（收錄）+ 2 secondary（保留觀察 / 退回）。</li>
+    </ul></div>
+  </div>
+</section>
+
+<!-- 04 PRODUCT PACKET EXPORT -->
+<section class="frame-sec" id="f04">
+  <div class="sec-h"><span class="n">FRAME 04</span><span class="ttl">Product · Packet Export · 行動簡報打包</span><span class="wt lt">LIGHT · 交付</span></div>
+  <div class="dl-stage">
+    <div class="cap-mono">DLENS POPUP · 720 × 860 · READING REVIEW PACKET EXPORT</div>
+    <div class="dl-frame">
+      <div class="dl-mast">
+        <div class="dl-mast-l"><span class="dl-wm product">dlens</span><span class="dl-sw"><button>Topic</button><button aria-selected="true">Product</button><button>PR</button></span></div>
+        <div class="dl-mast-r"><span class="dl-pill"><span class="dot"></span>Reading Review · 5 signals packed<span style="color:#6c695e;margin-left:6px">ready to export</span></span><span class="dl-v">v.0.3.0</span></div>
+      </div>
+      <div class="dl-body">
+        <aside class="dl-rail">
+          <div class="dl-av product">d</div>
+          <button class="dl-rb product"><i class="ti ti-archive"></i><span>Signals</span></button>
+          <button class="dl-rb product" aria-current="true"><i class="ti ti-file-text"></i><span>Action</span></button>
+          <button class="dl-rb product"><i class="ti ti-plus"></i><span>Collect</span></button>
+          <span class="dl-rd"></span>
+          <span class="dl-ru"><i class="ti ti-settings" style="font-size:13px"></i><span>設定</span></span>
+        </aside>
+        <main class="dl-main">
+          <div style="display:grid;gap:2px"><h1 class="h1">packet 可以交給 agent 了嗎？</h1><p class="sub">DLens bundled product vision · 行動簡報打包</p></div>
+          <div class="pk-ready"><span class="ic"><i class="ti ti-package"></i></span><div class="tx"><span class="t">5 signals ready · 3 buckets</span><span class="s">最後一條缺口已標註，其餘可直接交付</span></div><span class="ml"><i class="ti ti-circle-check"></i>ready</span></div>
+          <div class="pk-fmt">
+            <div class="fmtcard"><i class="ti ti-file-text"></i><div class="l"><span class="nm">HTML Reading</span><span class="sz">人讀 · 含 quote ladder</span></div><span class="rd">可用</span></div>
+            <div class="fmtcard"><i class="ti ti-braces"></i><div class="l"><span class="nm">JSONL Packet</span><span class="sz">agent handoff · 逐行</span></div><span class="rd">可用</span></div>
+          </div>
+          <div class="dlv-notes">
+            <div class="dlv-note amber"><i class="ti ti-alert-circle"></i><span>最後缺口：signal-027 的 21 則 reply 未補爬，packet 內已標 <b>「弱引用 · 待補」</b>，不影響交付。</span></div>
+          </div>
+          <div class="drawer"><div class="dh"><i class="ti ti-eye"></i>展開 packet 預覽（5 signals）<span class="chev"><i class="ti ti-chevron-down"></i></span></div></div>
+          <div class="cta">
+            <button class="btn p product">下載 packet</button>
+            <button class="btn">傳給 agent</button>
+            <button class="btn">複製到剪貼簿</button>
+            <span class="cnt">5 signals · HTML / JSONL</span>
+          </div>
+        </main>
+      </div>
+    </div>
+    <div class="note"><h3>NOTES · Packet Export <span class="core-tag">LIGHT</span></h3><ul>
+      <li><span class="k">First fold 問題（單一）</span>：packet 是否 ready，可以交給 agent 嗎？</li>
+      <li><span class="k">不再大 preview</span>：大 scroll 預覽收進 collapsed drawer；首屏只剩「5 signals ready」狀態卡 + HTML / JSONL 兩格 + 最後缺口。</li>
+      <li><span class="k">去 admin 感</span>：移除 checksum / schema / 時間戳那種交付後台字樣，只保留交付者要知道的事。</li>
+      <li><span class="k">action</span>：1 primary（下載 packet）+ 2 secondary（傳 agent / 複製）。</li>
+    </ul></div>
+  </div>
+</section>
+
+<!-- 05 TOPIC LIST -->
+<section class="frame-sec" id="f05">
+  <div class="sec-h"><span class="n">FRAME 05</span><span class="ttl">Topic · List · 議題列表</span><span class="wt md">MEDIUM · 選題</span></div>
+  <div class="dl-stage">
+    <div class="cap-mono">DLENS POPUP · 720 × 860 · TOPIC LIST</div>
+    <div class="dl-frame">
+      <div class="dl-mast">
+        <div class="dl-mast-l"><span class="dl-wm topic">dlens</span><span class="dl-sw"><button aria-selected="true">Topic</button><button>Product</button><button>PR</button></span></div>
+        <div class="dl-mast-r"><span class="dl-pill"><span class="dot"></span>4 topics · 2 ready · 1 analyzing<span style="color:#6c695e;margin-left:6px">36/42 ready</span></span><span class="dl-v">v.0.3.0</span></div>
+      </div>
+      <div class="dl-body">
+        <aside class="dl-rail">
+          <div class="dl-av topic">d</div>
+          <button class="dl-rb topic" aria-current="true"><i class="ti ti-stack-2"></i><span>Topics</span><span class="bd">4</span></button>
+          <button class="dl-rb topic"><i class="ti ti-arrows-left-right"></i><span>Compare</span></button>
+          <button class="dl-rb topic"><i class="ti ti-plus"></i><span>Collect</span></button>
+          <span class="dl-rd"></span>
+          <span class="dl-ru"><i class="ti ti-settings" style="font-size:13px"></i><span>設定</span></span>
+        </aside>
+        <main class="dl-main">
+          <div style="display:grid;gap:2px"><h1 class="h1">議題列表 · 哪個 topic 已經能講出話？</h1><p class="sub">workspace · Real Chrome QA · 42 訊號 · 4 議題進行中</p></div>
+          <div class="tcrd sage"><div class="tc-h"><h3 class="ttl">work · 議題狀態</h3><div class="st"><span class="stat">2 主敘事</span><span class="stat">12 引用</span><span class="stat">CSV 已備</span></div></div><p class="tc-said">「能講出話了 — 自由接案 3 個月內換 toolset 的人，主要痛點是 evidence 重排，不是 AI 太貴」</p><div class="tc-met"><span><b>12</b> signals · <b>9</b> analyzed</span><span class="sp">·</span><span>最新引用 5h 前</span><span class="sp">·</span><span style="color:#3f5a3b">敘事穩</span><span class="ml">打開審報節 →</span></div></div>
+          <div class="tcrd sage"><div class="tc-h"><h3 class="ttl">love · 接案者親密關係 vs 工作密度</h3><div class="st"><span class="stat">1 主敘事</span><span class="stat">8 引用</span></div></div><p class="tc-said">「能講出話了 — 高密度接案者的對象期待是『預警』而不是『更多陪伴時間』」</p><div class="tc-met"><span><b>8</b> signals · <b>7</b> analyzed</span><span class="sp">·</span><span>最新引用 1d 前</span><span class="sp">·</span><span style="color:#3f5a3b">敘事中</span><span class="ml">打開審報節 →</span></div></div>
+          <div class="tcrd amber"><div class="tc-h"><h3 class="ttl">freelance pricing · 報價 anchor</h3><div class="st"><span class="stat a">敘事弱</span><span class="stat">6 引用</span><span class="stat a">待補爬</span></div></div><p class="tc-said">「目前還說不準 — 6 條引用裡只有 2 條給出實際數字，其他多停在『大概』」</p><div class="tc-met"><span><b>6</b> signals · <b>4</b> analyzed</span><span class="sp">·</span><span>最新引用 3d 前</span><span class="sp">·</span><span style="color:#a16a17">缺數字樣本</span><span class="ml">補爬 →</span></div></div>
+          <div class="tcrd rose"><div class="tc-h"><h3 class="ttl">AI tooling fatigue</h3><div class="st"><span class="stat r">分歧</span><span class="stat">16 引用</span><span class="stat">敘事張力</span></div></div><p class="tc-said">「兩派並存 — 一派『換工具是浪費』、一派『不換 = 落後』；不要強行收束」</p><div class="tc-met"><span><b>16</b> signals · <b>16</b> analyzed</span><span class="sp">·</span><span>最新引用 2h 前</span><span class="sp">·</span><span style="color:#7a2030">張力需保留</span><span class="ml">打開審報節 →</span></div></div>
+          <div class="cta">
+            <button class="btn p topic">建立新議題</button>
+            <button class="btn">Compare 兩個 topic</button>
+            <span class="cnt">4 topic · 2 ready · 1 補爬 · 1 張力中</span>
+          </div>
+        </main>
+      </div>
+    </div>
+    <div class="note"><h3>NOTES · Topic List</h3><ul>
+      <li><span class="k">First fold 問題</span>：哪個 topic 已經能講出話？哪個還欠缺什麼？</li>
+      <li><span class="k">改 row → editorial card</span>：每張卡都有 1 句「目前能講出什麼」，不再只有 ready / queued tag。</li>
+      <li><span class="k">colour spine</span>：sage = 敘事穩、amber = 待補、rose = 張力（不該強收）。</li>
+      <li><span class="k">workflow 提示</span>：right-side meta 直接寫「打開審報節 →」「補爬 →」對應正確下一步。</li>
+    </ul></div>
+  </div>
+</section>
+
+<!-- 06 TOPIC DETAIL -->
+<section class="frame-sec" id="f06">
+  <div class="sec-h"><span class="n">FRAME 06</span><span class="ttl">Topic · Detail · Newsroom Signal</span><span class="core">CORE 2/4</span></div>
+  <div class="dl-stage">
+    <div class="cap-mono">DLENS POPUP · 720 × 860 · TOPIC DETAIL · WORK</div>
+    <div class="dl-frame">
+      <div class="dl-mast">
+        <div class="dl-mast-l"><span class="dl-wm topic">dlens</span><span class="dl-sw"><button aria-selected="true">Topic</button><button>Product</button><button>PR</button></span></div>
+        <div class="dl-mast-r"><span class="dl-pill"><span class="dot"></span>work · 12 引用 · 敘事穩<span style="color:#6c695e;margin-left:6px">12/12 ready</span></span><span class="dl-v">v.0.3.0</span></div>
+      </div>
+      <div class="dl-body">
+        <aside class="dl-rail">
+          <div class="dl-av topic">d</div>
+          <button class="dl-rb topic" aria-current="true"><i class="ti ti-stack-2"></i><span>Topics</span></button>
+          <button class="dl-rb topic"><i class="ti ti-arrows-left-right"></i><span>Compare</span></button>
+          <button class="dl-rb topic"><i class="ti ti-plus"></i><span>Collect</span></button>
+          <span class="dl-rd"></span>
+          <span class="dl-ru"><i class="ti ti-settings" style="font-size:13px"></i><span>設定</span></span>
+        </aside>
+        <main class="dl-main">
+          <div style="display:grid;gap:2px"><h1 class="h1">這個 topic 現在能講出什麼社會觀察？</h1><p class="sub">自由接案 3 個月內換 toolset 的人 · 12 引用 · 4 來源</p></div>
+          <div class="signal"><div class="lb"><i class="ti ti-quote" style="font-size:14px"></i>主敘事</div><p class="qt">「3 個月內換 toolset 的接案者，最大痛點不是 AI 太貴，而是 evidence 在交付時要重排第三次。」</p><div class="met"><span><b>7/12</b> 引用支持</span><span class="sp">·</span><span>跨 <b>4</b> 作者</span><span style="color:#3f5a3b;margin-left:auto">敘事穩 · 可進 export</span></div></div>
+          <div class="row2">
+            <div class="counter"><div class="lb"><i class="ti ti-arrow-back-up"></i>反敘事 / 張力</div><p class="qt">「有自建 template 的人根本不覺得是工具問題 — 痛點在客戶來回。」</p><div class="met">2 條反例 · @kai_tw / @nin_design</div></div>
+            <div class="social"><div class="lb"><i class="ti ti-world"></i>社會張力</div><p>接案者把「<b>換工具</b>」當成生產力焦慮的出口，但真正消耗的是<b>交付端的重工</b>；工具市場在賣前者、痛點在後者。</p></div>
+          </div>
+          <div class="ladder"><h4><i class="ti ti-stack"></i>3 條代表 quote<span class="cnt">representative</span></h4>
+            <div class="qline"><span class="ord">主</span><p class="qt">「PR 那邊 evidence ledger 真的可交付。之前用 Notion + screenshot 拼。」</p><span class="nm">@op_studio · 5h</span></div>
+            <div class="qline"><span class="ord">主</span><p class="qt">「每次給客戶都要把 screenshot 重排第三次，不是工具不夠多，是組合方式不對。」</p><span class="nm">@h_chen · 9h</span></div>
+            <div class="qline" style="border-left-color:rgba(122,32,48,.30)"><span class="ord">反</span><p class="qt">「我用自己 template，所以工具一直沒換 — 痛點在客戶不在我這邊。」</p><span class="nm">@kai_tw · 2d</span></div>
+          </div>
+          <div class="gap-card"><div class="ttl"><i class="ti ti-alert-circle"></i>待驗證缺口</div><div class="desc">反例只 2 條、皆 template 自建者；「客戶來回」這條反敘事 <b>樣本不足以單獨成立</b>。建議補爬 agency 端，避免主敘事被過度收束。</div></div>
+          <div class="cta">
+            <button class="btn p topic">產出 Topic 報告</button>
+            <button class="btn">展開全部 12 引用</button>
+            <button class="btn">補爬反例樣本</button>
+            <span class="cnt">12 引用 · 4 作者</span>
+          </div>
+        </main>
+      </div>
+    </div>
+    <div class="note"><h3>NOTES · Topic Detail <span class="core-tag">CORE 2/4</span></h3><ul>
+      <li><span class="k">First fold 問題（單一）</span>：這個 topic 現在能講出什麼社會觀察？</li>
+      <li><span class="k">做成 newsroom</span>：主敘事一句 → 反敘事一句 → 社會張力 → 3 條代表 quote → 待驗證缺口；不再只是 source ladder。</li>
+      <li><span class="k">張力不收束</span>：反敘事用 rose、社會張力用 amber，明確並陳；ladder 只留 3 條代表（2 主 1 反），不再列 5 條。</li>
+      <li><span class="k">缺口是收尾</span>：明說反例樣本不足、要補 agency 端，避免主敘事被假性坐實。</li>
+    </ul></div>
+  </div>
+</section>
+
+<!-- 07 TOPIC DRILL-IN (CORE) -->
+<section class="frame-sec" id="f07">
+  <div class="sec-h"><span class="n">FRAME 07</span><span class="ttl">Topic · Evidence Drill-in · 原文 + 註讀</span><span class="core">CORE 3/4</span></div>
+  <div class="dl-stage">
+    <div class="cap-mono">DLENS POPUP · 720 × 860 · TOPIC DRILL-IN · CORE</div>
+    <div class="dl-frame">
+      <div class="dl-mast">
+        <div class="dl-mast-l"><span class="dl-wm topic">dlens</span><span class="dl-sw"><button aria-selected="true">Topic</button><button>Product</button><button>PR</button></span></div>
+        <div class="dl-mast-r"><span class="dl-pill"><span class="dot"></span>work · signal A1 / 12<span style="color:#6c695e;margin-left:6px">analyzed</span></span><span class="dl-v">v.0.3.0</span></div>
+      </div>
+      <div class="dl-body">
+        <aside class="dl-rail">
+          <div class="dl-av topic">d</div>
+          <button class="dl-rb topic" aria-current="true"><i class="ti ti-stack-2"></i><span>Topics</span></button>
+          <button class="dl-rb topic"><i class="ti ti-arrows-left-right"></i><span>Compare</span></button>
+          <button class="dl-rb topic"><i class="ti ti-plus"></i><span>Collect</span></button>
+          <span class="dl-rd"></span>
+          <span class="dl-ru"><i class="ti ti-settings" style="font-size:13px"></i><span>設定</span></span>
+        </aside>
+        <main class="dl-main">
+          <div style="display:grid;gap:2px"><h1 class="h1">原文：作者實際說了什麼？</h1><p class="sub">A1 主敘事 quote · 來自 @op_studio · 5h 前 · threads.com/post/3JqL8K</p></div>
+          <div class="src-c">
+            <div class="src-h"><div class="who"><span class="av">O</span><div style="display:grid;gap:0"><b>@op_studio</b><span>自由接案 · DLens 3 週實際用戶 · 11.4k followers</span></div></div><a class="lk"><i class="ti ti-external-link"></i>看原貼</a></div>
+            <p class="qt-main">用了 DLens 三週，最有感的是 PR 那邊 evidence ledger 真的可交付。之前我用 Notion + screenshot 拼，每次給客戶都要把同一份內容重排第三次。CSV / MD / DOCX 三個格式直接出，DOCX 還能塞 logo，這對 freelancer 是非常實際的時間差。</p>
+            <div class="met"><b>♥ 142</b><span class="sp">·</span><b>💬 31</b><span class="sp">·</span><b>🔁 24</b><span class="sp">·</span><span>2026-06-23 09:14</span><span class="ml">A1 · 主敘事 quote</span></div>
+          </div>
+          <div class="ai"><div class="lb"><i class="ti ti-sparkles"></i>AI reading · 次級註讀</div><p class="read">痛點是 <b>同一份內容重排第三次</b>，主訴求是時間差不是價格。</p><div class="tags"><span class="t">deliverable workflow</span><span class="t">format-as-pain</span></div></div>
+          <div class="unc"><h4><i class="ti ti-alert-triangle"></i>Uncertainty · 還沒驗證</h4><ul>
+            <li><b>樣本</b>：31 則 reply 只爬到 10 則，剩 21 則未知 — 主敘事可能被弱化或被張力反例蓋過</li>
+            <li><b>作者代表性</b>：@op_studio 是 freelancer，是否能代表 agency PM 仍未驗證（agency 樣本為 0）</li>
+            <li><b>時間範圍</b>：「使用 3 週」尚未跨過 client review cycle，無法判斷長期粘性</li>
+          </ul></div>
+          <div class="cta">
+            <button class="btn p topic">標為主敘事 quote</button>
+            <button class="btn">補爬 21 則 reply</button>
+            <button class="btn">看 A2 / B1 / B2</button>
+            <span class="cnt">A1 · ladder rank 1 of 12 · 未補爬</span>
+          </div>
+        </main>
+      </div>
+    </div>
+    <div class="note"><h3>NOTES · Topic Drill-in <span class="core-tag">CORE 3/4</span></h3><ul>
+      <li><span class="k">First fold 問題（單一）</span>：原文作者實際說了什麼？我能不能引用？</li>
+      <li><span class="k">原文最高權重</span>：hero serif 16.5px + sage border + 強陰影；AI reading 砍到一句、tag 從 4 → 2，徹底退到次級。</li>
+      <li><span class="k">uncertainty 殿後</span>：amber tone 列「樣本 / 代表性 / 時間」三層，evidence 永遠在 reading 之上。</li>
+      <li><span class="k">CTA 對齊決策</span>：標為主敘事 quote / 補爬 / 看 ladder 鄰居。</li>
+    </ul></div>
+  </div>
+</section>
+
+<!-- 08 PR SETUP -->
+<section class="frame-sec" id="f08">
+  <div class="sec-h"><span class="n">FRAME 08</span><span class="ttl">PR · Setup · Brief + Criteria</span><span class="wt md">MEDIUM · 設定 + AI 審</span></div>
+  <div class="dl-stage">
+    <div class="cap-mono">DLENS POPUP · 720 × 860 · PR SETUP · cp280924</div>
+    <div class="dl-frame">
+      <div class="dl-mast">
+        <div class="dl-mast-l"><span class="dl-wm pr">dlens</span><span class="dl-sw"><button>Topic</button><button>Product</button><button aria-selected="true">PR</button></span></div>
+        <div class="dl-mast-r"><span class="dl-pill"><span class="dot"></span>cp280924 · brief loaded · 6 criteria<span style="color:#6c695e;margin-left:6px">setup OK</span></span><span class="dl-v">v.0.3.0</span></div>
+      </div>
+      <div class="dl-body">
+        <aside class="dl-rail">
+          <div class="dl-av pr">d</div>
+          <button class="dl-rb pr" aria-current="true"><i class="ti ti-file-settings"></i><span>Setup</span></button>
+          <button class="dl-rb pr"><i class="ti ti-target"></i><span>Match</span></button>
+          <button class="dl-rb pr"><i class="ti ti-plus"></i><span>Collect</span></button>
+          <span class="dl-rd"></span>
+          <span class="dl-ru"><i class="ti ti-settings" style="font-size:13px"></i><span>設定</span></span>
+        </aside>
+        <main class="dl-main">
+          <div style="display:grid;gap:2px"><h1 class="h1">AI 已從 brief 抽好 criteria，我要改哪裡？</h1><p class="sub">cp280924 · 標準 BoostUP · 上線 2026-06-28</p></div>
+          <div class="ai-banner"><span class="ic"><i class="ti ti-sparkles"></i></span><div class="tx"><span class="t">AI 已從 brief 抽出 <b>6 條 criteria</b></span><span class="s">4 條高信心可直接用 · 2 條需你確認</span></div><div class="prog"><span class="pct">80%</span><div class="bar"><span></span></div></div></div>
+          <div class="brief">
+            <div class="brief-h">
+              <div class="l"><i class="ti ti-file-type-pdf"></i><div style="display:grid;gap:0"><span class="nm">BoostUP_2026Q3_campaign_brief.pdf</span><span class="meta"><b>6 頁</b> · 解析完成 · AI 已讀</span></div></div>
+              <button class="upload"><i class="ti ti-upload"></i>換 brief</button>
+            </div>
+            <p class="ext">本季溝通 <b>「自由接案者把 evidence 變成可交付」</b>：① 同一份內容直出 CSV / MD / DOCX；② DOCX 可塞客戶 logo；③ 跨 workspace 引用不丟。KPI <b>≥ 80 caption</b>。</p>
+          </div>
+          <div class="crit-h"><div class="lb"><i class="ti ti-list-check"></i>AI 抽出的 criteria（點任一條可改）</div><div class="cnt"><a>重新從 brief 抽</a></div></div>
+          <div class="crit2">
+            <div class="cr2"><span class="id">C1</span><div class="txt">引用者為 <b>自由接案 / 微型工作室</b> 屬性<span class="w">w20</span></div><span class="cf hi"><span class="d"></span>高信心</span><i class="ti ti-pencil ed"></i></div>
+            <div class="cr2 review"><span class="id">C2</span><div class="txt">提到「同一份內容做 CSV / MD / DOCX」或同義表述<span class="w">w20</span></div><span class="cf lo"><span class="d"></span>需確認</span><i class="ti ti-pencil ed"></i></div>
+            <div class="cr2"><span class="id">C4</span><div class="txt">提到「以前用 Notion / screenshot 拼」對比語<span class="w">w15</span></div><span class="cf hi"><span class="d"></span>高信心</span><i class="ti ti-pencil ed"></i></div>
+            <div class="cr2"><span class="id">C5</span><div class="txt">情緒 <b>+ 強正向</b>，可作 testimonial<span class="w">w20</span></div><span class="cf hi"><span class="d"></span>高信心</span><i class="ti ti-pencil ed"></i></div>
+            <div class="cr2 review"><span class="id">C6</span><div class="txt">作者已使用 <b>≥ 3 週</b>（時間驗證 · brief 未明說）<span class="w">w10</span></div><span class="cf lo"><span class="d"></span>需確認</span><i class="ti ti-pencil ed"></i></div>
+          </div>
+          <div class="cta">
+            <button class="btn p pr">確認 2 條並開始 Match</button>
+            <button class="btn">新增 criteria</button>
+            <button class="btn">儲存 setup</button>
+            <span class="cnt">6 條 · 4 高信心 · 2 待確認</span>
+          </div>
+        </main>
+      </div>
+    </div>
+    <div class="note"><h3>NOTES · PR Setup <span class="core-tag">MEDIUM</span></h3><ul>
+      <li><span class="k">First fold 問題（單一）</span>：AI 已從 brief 幫我抽好 criteria 嗎？我需要改哪裡？</li>
+      <li><span class="k">AI 80% / 你審 20%</span>：頂部 banner 直接給「6 條已抽、4 高信心、2 待確認、80%」進度，不再只是 6 條清單。</li>
+      <li><span class="k">confidence 可掃</span>：每條 criteria 帶高信心 / 需確認的點 + 色；2 條 review 用琥珀底浮出來，primary 也只叫你「確認 2 條」。</li>
+      <li><span class="k">不像表格</span>：criteria 改成 flex 卡片列，權重縮成內嵌 w20 灰字，鉛筆是 edit affordance。</li>
+    </ul></div>
+  </div>
+</section>
+
+<!-- 09 PR EVIDENCE LEDGER -->
+<section class="frame-sec" id="f09">
+  <div class="sec-h"><span class="n">FRAME 09</span><span class="ttl">PR · Evidence Ledger</span><span class="wt md">MEDIUM · 掃描</span></div>
+  <div class="dl-stage">
+    <div class="cap-mono">DLENS POPUP · 720 × 860 · PR EVIDENCE LEDGER</div>
+    <div class="dl-frame">
+      <div class="dl-mast">
+        <div class="dl-mast-l"><span class="dl-wm pr">dlens</span><span class="dl-sw"><button>Topic</button><button>Product</button><button aria-selected="true">PR</button></span></div>
+        <div class="dl-mast-r"><span class="dl-pill"><span class="dot"></span>cp280924 · 14 captured · 8 strong<span style="color:#6c695e;margin-left:6px">target 80</span></span><span class="dl-v">v.0.3.0</span></div>
+      </div>
+      <div class="dl-body">
+        <aside class="dl-rail">
+          <div class="dl-av pr">d</div>
+          <button class="dl-rb pr"><i class="ti ti-file-settings"></i><span>Setup</span></button>
+          <button class="dl-rb pr" aria-current="true"><i class="ti ti-target"></i><span>Match</span><span class="bd">14</span></button>
+          <button class="dl-rb pr"><i class="ti ti-plus"></i><span>Collect</span></button>
+          <span class="dl-rd"></span>
+          <span class="dl-ru"><i class="ti ti-settings" style="font-size:13px"></i><span>設定</span></span>
+        </aside>
+        <main class="dl-main">
+          <div style="display:grid;gap:2px"><h1 class="h1">哪些 caption 已收？match 強弱如何？</h1><p class="sub">標準 BoostUP · 過 4 criteria 以上為 strong · 對齊 KPI 80 caption</p></div>
+          <div class="strip-pr">
+            <span class="k"><b>14</b><span style="font-size:10px;color:#6c695e">captured</span></span><span class="sep"></span>
+            <span class="k"><b>8</b><span style="font-size:10px;color:#3f5a3b">strong</span></span><span class="sep"></span>
+            <span class="k"><b>2</b><span style="font-size:10px;color:#7a2030">outlier</span></span>
+            <span class="ml">14 / 80 KPI · 18%</span>
+          </div>
+          <div class="filter">
+            <span>🔍</span><input value="搜尋 caption 或 author…" />
+            <span class="ml">依 match 強弱排序</span>
+          </div>
+          <div class="ledger">
+            <div class="lr2"><span class="who"><span class="av">O</span><span>@op_studio</span></span><span class="cap">PR 那邊 evidence ledger 真的可交付。CSV / MD / DOCX 三個直出，DOCX 還能塞 logo。</span><span class="mind strong"><span class="d"></span>6/6 strong</span><span class="ts">5h</span></div>
+            <div class="lr2"><span class="who"><span class="av">H</span><span>@h_chen</span></span><span class="cap">同一份內容做三份格式，DLens 壓成一鍵。以前用 Notion + screenshot 拼。</span><span class="mind strong"><span class="d"></span>5/6 strong</span><span class="ts">9h</span></div>
+            <div class="lr2"><span class="who"><span class="av">O</span><span>@op_studio</span></span><span class="cap">過去用 Notion + screenshot 拼，現在 CSV 直出，交付時間差很實際。</span><span class="mind strong"><span class="d"></span>5/6 strong</span><span class="ts">1d</span></div>
+            <div class="lr2"><span class="who"><span class="av">H</span><span>@h_chen</span></span><span class="cap">DOCX export 跟我自己 template 對齊度很高，客戶端不用再排版。</span><span class="mind strong"><span class="d"></span>5/6 strong</span><span class="ts">1d</span></div>
+            <div class="lr2"><span class="who"><span class="av">D</span><span>@dev_jay</span></span><span class="cap">自由接案的工具預算其實夠，瓶頸是同一份要做三份格式。</span><span class="mind strong"><span class="d"></span>4/6 strong</span><span class="ts">1d</span></div>
+            <div class="lr2"><span class="who"><span class="av">D</span><span>@dev_jay</span></span><span class="cap">用 freelance 帳號跑 cross-folder counter，引用不丟很關鍵。</span><span class="mind strong"><span class="d"></span>4/6 strong</span><span class="ts">1d</span></div>
+            <div class="lr2"><span class="who"><span class="av">M</span><span>@miuwu</span></span><span class="cap">DOCX 能不能自帶 logo？這是我留下來的唯一原因。</span><span class="mind soft"><span class="d"></span>3/6 soft</span><span class="ts">1d</span></div>
+            <div class="lr2"><span class="who"><span class="av">K</span><span>@kai_tw</span></span><span class="cap">3 週前換 0.3.0 的人會覺得 marquee row 比 dashboard 安靜。</span><span class="mind soft"><span class="d"></span>3/6 soft</span><span class="ts">2d</span></div>
+            <div class="lr2"><span class="who"><span class="av">M</span><span>@miuwu</span></span><span class="cap">criteria 設定卡了兩次，第三次才抓到 export 那層。</span><span class="mind out"><span class="d"></span>2/6 outlier</span><span class="ts">2d</span></div>
+            <div class="lr2"><span class="who"><span class="av">N</span><span>@nin_design</span></span><span class="cap">我用自己 template，痛點在客戶不在我這邊。</span><span class="mind out"><span class="d"></span>2/6 outlier</span><span class="ts">2d</span></div>
+          </div>
+          <div class="cta">
+            <button class="btn p pr">看 Criteria Health</button>
+            <button class="btn">先出 CSV</button>
+            <button class="btn">補爬剩 caption</button>
+            <span class="cnt">14 / 80 · 顯示 10</span>
+          </div>
+        </main>
+      </div>
+    </div>
+    <div class="note"><h3>NOTES · Evidence Ledger <span class="core-tag">MEDIUM</span></h3><ul>
+      <li><span class="k">First fold 問題（單一）</span>：哪些 caption 已收、match 強弱如何？一行一條快速掃。</li>
+      <li><span class="k">單一 match indicator</span>：每行只剩 <b>● 5/6 strong</b> 一個點 + 數字，移除 C1-C6 六 chip 與 checkbox，row 變窄、放得下 10 條。</li>
+      <li><span class="k">filter 收斂</span>：拿掉 C1-C6 toggle 與 strip 的 soft 一欄；只留搜尋 + 排序，不像 admin。</li>
+      <li><span class="k">action</span>：primary = 看 Criteria Health（CORE）；secondary = 先出 CSV / 補爬。</li>
+    </ul></div>
+  </div>
+</section>
+
+<!-- 10 PR CRITERIA HEALTH (CORE) -->
+<section class="frame-sec" id="f10">
+  <div class="sec-h"><span class="n">FRAME 10</span><span class="ttl">PR · Criteria Health · cp280924</span><span class="core">CORE 4/4</span></div>
+  <div class="dl-stage">
+    <div class="cap-mono">DLENS POPUP · 720 × 860 · PR CRITERIA HEALTH · CORE</div>
+    <div class="dl-frame">
+      <div class="dl-mast">
+        <div class="dl-mast-l"><span class="dl-wm pr">dlens</span><span class="dl-sw"><button>Topic</button><button>Product</button><button aria-selected="true">PR</button></span></div>
+        <div class="dl-mast-r"><span class="dl-pill"><span class="dot"></span>cp280924 · health 8/10 strong · 2 gaps<span style="color:#6c695e;margin-left:6px">14 captured</span></span><span class="dl-v">v.0.3.0</span></div>
+      </div>
+      <div class="dl-body">
+        <aside class="dl-rail">
+          <div class="dl-av pr">d</div>
+          <button class="dl-rb pr"><i class="ti ti-file-settings"></i><span>Setup</span></button>
+          <button class="dl-rb pr" aria-current="true"><i class="ti ti-target"></i><span>Match</span></button>
+          <button class="dl-rb pr"><i class="ti ti-plus"></i><span>Collect</span></button>
+          <span class="dl-rd"></span>
+          <span class="dl-ru"><i class="ti ti-settings" style="font-size:13px"></i><span>設定</span></span>
+        </aside>
+        <main class="dl-main">
+          <div style="display:grid;gap:2px"><h1 class="h1">這批 evidence 能不能交付？缺哪條？</h1><p class="sub">標準 BoostUP · 14 captured · 8 strong · 2 criteria 待補</p></div>
+          <div class="hgrid">
+            <div class="kpi"><span class="lb">Captured</span><span class="vl">14<small> / 80</small></span></div>
+            <div class="kpi g"><span class="lb">Strong</span><span class="vl">8<small> / 14</small></span></div>
+            <div class="kpi a"><span class="lb">Criteria 待補</span><span class="vl">2<small> / 6</small></span></div>
+          </div>
+          <div class="ch-list">
+            <div class="crh"><span class="id">C1</span><div class="nm">自由接案 / 微型工作室屬性<div class="bar"><span style="width:100%"></span></div></div><span class="sc">10<small>/10</small></span><span style="font:600 9.5px 'JetBrains Mono',mono;color:#3f5a3b;text-align:right">OK</span></div>
+            <div class="crh"><span class="id">C2</span><div class="nm">提到 CSV / MD / DOCX 直出<div class="bar"><span style="width:80%"></span></div></div><span class="sc">8<small>/10</small></span><span style="font:600 9.5px 'JetBrains Mono',mono;color:#3f5a3b;text-align:right">OK</span></div>
+            <div class="crh warn"><span class="id">C4</span><div class="nm">Notion / screenshot 對比語<div class="bar"><span style="width:70%"></span></div></div><span class="sc">7<small>/10</small></span><span style="font:600 9.5px 'JetBrains Mono',mono;color:#a16a17;text-align:right">半弱</span></div>
+            <div class="crh warn"><span class="id">C5</span><div class="nm">情緒 + 強正向（testimonial）<div class="bar"><span style="width:65%"></span></div></div><span class="sc">6<small>/10</small></span><span style="font:600 9.5px 'JetBrains Mono',mono;color:#a16a17;text-align:right">半弱</span></div>
+            <div class="crh warn"><span class="id">C3</span><div class="nm">提到 DOCX + logo<div class="bar"><span style="width:40%"></span></div></div><span class="sc">4<small>/10</small></span><span style="font:600 9.5px 'JetBrains Mono',mono;color:#a16a17;text-align:right">半弱</span></div>
+            <div class="crh fail"><span class="id">C6</span><div class="nm">作者已使用 ≥ 3 週（系統性缺）<div class="bar"><span style="width:0%"></span></div></div><span class="sc">0<small>/10</small></span><span style="font:600 9.5px 'JetBrains Mono',mono;color:#7a2030;text-align:right">GAP</span></div>
+          </div>
+          <div class="callout"><h4><i class="ti ti-alert-triangle"></i>系統性缺口 · C6 完全沒樣本</h4><p><b>C6（≥ 3 週）0/10</b> — 沒有任何 caption 帶 author tenure，這是 ledger <b>結構性缺一個欄位</b>，不是補幾條就好。先標 tenure 才補得起來；<b>C4 / C5 半弱</b>可靠補爬拉滿。</p></div>
+          <div class="exp" style="opacity:.85">
+            <span class="lb" style="font-weight:500;color:#6c695e"><i class="ti ti-download" style="color:#9a958a"></i>補完 C6 後可 export</span>
+            <span class="ml" style="color:#6c695e">CSV / MD / DOCX · 含 outlier section</span>
+          </div>
+          <div class="cta">
+            <button class="btn p pr">補爬 C6 author tenure</button>
+            <button class="btn">補爬 C3 / C4 / C5</button>
+            <span class="cnt">8/10 strong · 1 GAP · 3 半弱</span>
+          </div>
+        </main>
+      </div>
+    </div>
+    <div class="note"><h3>NOTES · Criteria Health <span class="core-tag">CORE 4/4</span></h3><ul>
+      <li><span class="k">First fold 問題（單一）</span>：這批 PR evidence 能不能交付？缺哪條？</li>
+      <li><span class="k">gap 是主角</span>：6 條依分數排序、C6 系統性缺口沉到底並單獨拉出一張 callout；C3/C4/C5 標「半弱」。row 更瘦、bar 4px、分數改 mono 工具化。</li>
+      <li><span class="k">export footer 安靜</span>：不再放三顆 CSV/MD/DOCX 大鍵，收成一條灰字「補完 C6 後可 export」。</li>
+      <li><span class="k">action 對齊缺口</span>：primary = 補爬 C6 author tenure（補結構欄位），不是直接下載。</li>
+    </ul></div>
+  </div>
+</section>
+
+<!-- 11 PR EXPORT PREVIEW -->
+<section class="frame-sec" id="f11">
+  <div class="sec-h"><span class="n">FRAME 11</span><span class="ttl">PR · Export Preview · 交付確認</span><span class="wt lt">LIGHT · 交付</span></div>
+  <div class="dl-stage">
+    <div class="cap-mono">DLENS POPUP · 720 × 860 · PR EXPORT PREVIEW</div>
+    <div class="dl-frame">
+      <div class="dl-mast">
+        <div class="dl-mast-l"><span class="dl-wm pr">dlens</span><span class="dl-sw"><button>Topic</button><button>Product</button><button aria-selected="true">PR</button></span></div>
+        <div class="dl-mast-r"><span class="dl-pill"><span class="dot"></span>cp280924 · 14 captured · ready to ship<span style="color:#6c695e;margin-left:6px">checksum OK</span></span><span class="dl-v">v.0.3.0</span></div>
+      </div>
+      <div class="dl-body">
+        <aside class="dl-rail">
+          <div class="dl-av pr">d</div>
+          <button class="dl-rb pr"><i class="ti ti-file-settings"></i><span>Setup</span></button>
+          <button class="dl-rb pr" aria-current="true"><i class="ti ti-target"></i><span>Match</span></button>
+          <button class="dl-rb pr"><i class="ti ti-plus"></i><span>Collect</span></button>
+          <span class="dl-rd"></span>
+          <span class="dl-ru"><i class="ti ti-settings" style="font-size:13px"></i><span>設定</span></span>
+        </aside>
+        <main class="dl-main">
+          <div style="display:grid;gap:2px"><h1 class="h1">輸出 ready 了嗎，可以交付嗎？</h1><p class="sub">cp280924 · 標準 BoostUP · 三格式同一份 evidence</p></div>
+          <div class="pk-ready pr"><span class="ic"><i class="ti ti-file-check"></i></span><div class="tx"><span class="t">輸出 ready · 含 10 rows + outlier section</span><span class="s">CSV / MD / DOCX 三格式都已備齊</span></div><span class="ml"><i class="ti ti-circle-check"></i>ready</span></div>
+          <div class="pk-fmt">
+            <div class="fmtcard pr"><i class="ti ti-file-type-csv"></i><div class="l"><span class="nm">CSV</span><span class="sz">agent-ready · 10 rows</span></div><span class="rd">可用</span></div>
+            <div class="fmtcard pr"><i class="ti ti-markdown"></i><div class="l"><span class="nm">MD</span><span class="sz">文章 · 含 outlier 節</span></div><span class="rd">可用</span></div>
+          </div>
+          <div class="pk-fmt">
+            <div class="fmtcard pr"><i class="ti ti-file-type-doc"></i><div class="l"><span class="nm">DOCX</span><span class="sz">客戶交付 · 含 logo</span></div><span class="rd">可用</span></div>
+            <div class="dlv-note rose" style="margin:0"><i class="ti ti-alert-circle"></i><span><b>C6 gap note</b> 已寫進輸出：tenure 欄位 0 樣本，交付方已知此限制。</span></div>
+          </div>
+          <div class="drawer"><div class="dh"><i class="ti ti-table"></i>展開 CSV 詳細預覽（advanced）<span class="ct" style="margin-left:6px">10 rows · 13 欄</span><span class="chev"><i class="ti ti-chevron-down"></i></span></div></div>
+          <div class="cta">
+            <button class="btn p pr">下載三格式</button>
+            <button class="btn">傳給 agent / 客戶</button>
+            <button class="btn">複製連結（讀一次）</button>
+            <span class="cnt">10 rows · outlier section · C6 gap noted</span>
+          </div>
+        </main>
+      </div>
+    </div>
+    <div class="note"><h3>NOTES · Export Preview <span class="core-tag">LIGHT</span></h3><ul>
+      <li><span class="k">First fold 問題（單一）</span>：輸出是否 ready，可以交付嗎？</li>
+      <li><span class="k">寬表不當首屏</span>：移除雙軸 scroll 大 CSV table；首屏只剩「ready」狀態卡 + 三格式卡 + C6 gap note。</li>
+      <li><span class="k">CSV 收進 advanced</span>：13 欄詳表收進 collapsed drawer，要看細節才展開，不壓爆 720。</li>
+      <li><span class="k">摘要即綠燈</span>：10 rows + outlier section + C6 gap noted 一行講完交付狀態。</li>
+    </ul></div>
+  </div>
+</section>
+
+<!-- 12 SHARED DRILL-IN TEMPLATE -->
+<section class="frame-sec" id="f12">
+  <div class="sec-h"><span class="n">FRAME 12</span><span class="ttl">Shared · Evidence Drill-in Appendix</span><span class="wt ax">APPENDIX · 非產品頁</span></div>
+  <div class="dl-stage">
+    <div class="cap-mono">DLENS · COMPONENT ANATOMY · 不是 app screen</div>
+    <div class="dl-frame">
+      <div class="appx">
+        <div class="appx-h"><span class="wm">dlens</span><span class="ttl">Evidence Drill-in · Component Anatomy</span><span class="ml">SHARED · v3 SPEC</span></div>
+        <div class="tpl-shell">
+          <div class="tpl-sec"><span class="num">1</span><div class="body"><span class="lbl">SourceHero · 原文（最高權重）<span class="tag req">REQUIRED</span></span><div class="demo src-l"><div class="author"><span class="av">O</span>@op_studio · threads.com/post/3JqL8K · 5h 前</div><p class="qt">「用了 DLens 三週，最有感的是 PR 那邊 evidence ledger 真的可交付。」</p><div class="meta"><b>♥ 142</b><span style="color:rgba(27,26,23,.20)">·</span><b>💬 31</b><span style="color:rgba(27,26,23,.20)">·</span><span>2026-06-23 09:14</span></div></div></div></div>
+          <div class="tpl-sec"><span class="num">2</span><div class="body"><span class="lbl">Annotation · AI 註讀（次級）<span class="tag req">REQUIRED</span></span><div class="demo ai-l"><p class="reading">痛點是「<b>同一份內容重排第三次</b>」，主訴求是時間差。</p></div></div></div>
+          <div class="tpl-sec"><span class="num">3</span><div class="body"><span class="lbl">MatchIndicator · 命中<span class="tag opt">PR-ONLY</span></span><div class="demo cr-l"><div style="display:flex;gap:16px;align-items:center;flex-wrap:wrap"><span class="mind strong"><span class="d"></span>6/6 strong</span><span class="mind soft"><span class="d"></span>3/6 soft</span><span class="mind out"><span class="d"></span>2/6 outlier</span></div></div></div></div>
+          <div class="tpl-sec"><span class="num">4</span><div class="body"><span class="lbl">UncertaintyLine · 不確定（殿後）<span class="tag req">REQUIRED</span></span><div class="demo unc-l"><ul class="ul-l"><li><b>樣本</b>：31 reply 只爬到 10 — 主敘事可能弱化</li><li><b>代表性</b>：agency PM 樣本為 0</li></ul></div></div></div>
+          <div class="tpl-sec"><span class="num">5</span><div class="body"><span class="lbl">ActionRow · 動作（accent 隨 mode）<span class="tag req">REQUIRED</span></span><div class="demo"><div class="acts"><button class="bt p t-acc">標為主敘事 quote</button><button class="bt">補爬</button><button class="bt">看 ladder</button><span style="font:400 10px 'JetBrains Mono',mono;color:#6c695e;align-self:center;margin-left:auto">1 primary + ≤2 secondary</span></div></div></div></div>
+        </div>
+        <div style="margin-top:auto;padding-top:6px;border-top:1px solid rgba(27,26,23,.10);font:400 10.5px 'JetBrains Mono',mono;color:#8a857a;display:flex;gap:10px;flex-wrap:wrap"><span>v3 spec · 5 components</span><span style="color:rgba(27,26,23,.20)">·</span><span>SourceHero ≫ Annotation</span><span style="color:rgba(27,26,23,.20)">·</span><span>MatchIndicator = PR only</span></div>
+      </div>
+    </div>
+    <div class="note"><h3>NOTES · Shared Drill-in Appendix <span class="core-tag">APPENDIX</span></h3><ul>
+      <li><span class="k">不是產品頁</span>：移除 app shell（mast switcher / 左 rail）與 mode switch，只剩 5 個 component 的 anatomy；保留 720 × 860 框但不偽裝成 app screen。</li>
+      <li><span class="k">5 components 固定順序</span>：① SourceHero ② Annotation ③ MatchIndicator (PR-only) ④ UncertaintyLine ⑤ ActionRow — <b>原文永遠最上、AI 退次級、不確定殿後</b>。</li>
+      <li><span class="k">MatchIndicator 已收斂</span>：對齊 Frame 09，單一 ● n/6 指示三態（strong / soft / outlier），不再六 chip。</li>
+      <li><span class="k">ActionRow 限額</span>：1 primary + ≤ 2 secondary，跨三模式共用、accent 隨 mode。</li>
+    </ul></div>
+  </div>
+</section>
+
+<footer class="deck-f">
+  <div><b>DLens · 12-frame design review · 2026-06-23</b></div>
+  <div>本檔為單一 HTML，含 Google Fonts（Noto Sans TC / Noto Serif TC / Instrument Serif / JetBrains Mono）與 Tabler outline icon CDN。離線無網路時 fallback 到 system font。</div>
+  <div>本輪重點是<b>節奏</b>：入口頁輕（01 / 04 / 11 LIGHT）、分流與選題中（02 / 05 / 08 / 09 MEDIUM）、判讀頁重但聚焦（<b>03 / 06 / 07 / 10 CORE</b>）、12 為 component appendix 不當產品頁。下一輪先把四個 CORE 落到實際 React component。</div>
+</footer>
+
+</main>
+</body>
+</html>
