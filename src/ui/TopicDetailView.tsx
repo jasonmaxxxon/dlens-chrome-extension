@@ -2504,7 +2504,7 @@ export function TopicDetailView({
 
         <div
           data-signal-atlas-canvas="true"
-          style={{ position: "relative", overflow: "hidden", borderRadius: tokens.radius.cardLg, background: tokens.color.atlasCanvas, padding: 12 }}
+          style={{ position: "relative", overflow: "hidden", borderRadius: tokens.radius.cardLg, background: tokens.color.atlasCanvas, padding: "12px 12px 24px" }}
         >
             <style>{`
               @media (prefers-reduced-motion: no-preference) {
@@ -2765,8 +2765,8 @@ export function TopicDetailView({
               data-topic-audit-block="reliability"
               style={{
                 display: "grid",
-                gap: 10,
-                padding: "14px 16px 13px",
+                gap: 11,
+                padding: "15px 17px",
                 borderRadius: tokens.radius.cardLg,
                 background: tokens.color.atlasWarnPaper,
                 border: `1px solid ${tokens.color.queuedBorder}`,
@@ -2775,24 +2775,40 @@ export function TopicDetailView({
                 WebkitBackdropFilter: tokens.effect.atlasBlur
               }}
             >
-              <span style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", gap: 10 }}>
-                <span style={{ ...textStyles.label, color: tokens.color.queued }}>缺席與可靠性</span>
-                {audit.caveats.length > 0 ? (
-                  <span style={{ ...textStyles.metric, color: tokens.color.queued }}>{audit.caveats.length} 項限制</span>
-                ) : null}
-              </span>
-              <p style={{ margin: 0, fontFamily: `${tokens.font.serifCjk}, ${tokens.font.serif}`, fontSize: 14, lineHeight: 1.7, color: tokens.color.ink }}>
-                {audit.absenceProse || "尚無缺席分析；先把這次讀法視為可用樣本內的形狀。"}
-              </p>
-              {audit.caveats.length > 0 ? (
-                <span style={{ display: "grid", gap: 5, paddingTop: 9, borderTop: `1px solid ${tokens.color.queuedBorder}` }}>
-                  {audit.caveats.map((caveat) => (
-                    <span key={caveat} style={{ display: "flex", gap: 8, alignItems: "baseline" }}>
-                      <span aria-hidden="true" style={{ width: 5, height: 5, borderRadius: tokens.radius.round, background: tokens.color.queued, flexShrink: 0, alignSelf: "center" }} />
-                      <span style={{ fontSize: 12, lineHeight: 1.55, color: tokens.color.subInk }}>{caveat}</span>
-                    </span>
-                  ))}
+              <div data-reliability-zone="absence" style={{ display: "grid", gap: 7 }}>
+                <span style={{ display: "flex", alignItems: "center", gap: 7 }}>
+                  <svg aria-hidden="true" viewBox="0 0 24 24" width={16} height={16} fill="none" stroke={tokens.color.queued} strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" style={{ flexShrink: 0 }}>
+                    <circle cx="11" cy="11" r="7" />
+                    <path d="M8.5 11h5" />
+                  </svg>
+                  <span style={{ fontSize: 11, fontWeight: 800, color: tokens.color.queuedDeep }}>缺席的聲音</span>
+                  <span style={{ flex: 1, textAlign: "right", ...textStyles.caption, color: tokens.color.softInk }}>discourse gap</span>
                 </span>
+                <p style={{ margin: 0, paddingLeft: 23, fontFamily: `${tokens.font.serifCjk}, ${tokens.font.serif}`, fontSize: 14, lineHeight: 1.72, color: tokens.color.ink }}>
+                  {audit.absenceProse || "尚無缺席分析；先把這次讀法視為可用樣本內的形狀。"}
+                </p>
+              </div>
+              {audit.caveats.length > 0 ? (
+                <>
+                  <div aria-hidden="true" style={{ height: 1, background: tokens.color.queuedBorder }} />
+                  <div data-reliability-zone="caveats" style={{ display: "grid", gap: 7 }}>
+                    <span style={{ display: "flex", alignItems: "center", gap: 7 }}>
+                      <svg aria-hidden="true" viewBox="0 0 24 24" width={16} height={16} fill="none" stroke={tokens.color.queued} strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" style={{ flexShrink: 0 }}>
+                        <path d="M12 3l8 3v6c0 4.5-3.2 7.5-8 9-4.8-1.5-8-4.5-8-9V6z" />
+                      </svg>
+                      <span style={{ fontSize: 11, fontWeight: 800, color: tokens.color.queuedDeep }}>可靠性限制</span>
+                      <span style={{ flex: 1, textAlign: "right", ...textStyles.metric, color: tokens.color.queued }}>{audit.caveats.length} 項</span>
+                    </span>
+                    <div style={{ display: "grid", gap: 7, paddingLeft: 23 }}>
+                      {audit.caveats.map((caveat) => (
+                        <span key={caveat} style={{ display: "grid", gridTemplateColumns: "auto 1fr", gap: 9, alignItems: "baseline" }}>
+                          <span aria-hidden="true" style={{ width: 6, height: 6, background: tokens.color.queued, transform: "rotate(45deg)", alignSelf: "center", flexShrink: 0 }} />
+                          <span style={{ fontSize: 12, lineHeight: 1.55, color: tokens.color.subInk }}>{caveat}</span>
+                        </span>
+                      ))}
+                    </div>
+                  </div>
+                </>
               ) : null}
             </section>
               </>

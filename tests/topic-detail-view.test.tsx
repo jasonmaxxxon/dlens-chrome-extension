@@ -1064,7 +1064,11 @@ test("TopicDetailView surfaces P5 absence and caveats in the reliability strip",
   );
 
   assert.match(html, /data-topic-audit-block="reliability"/);
-  assert.match(html, /缺席與可靠性/);
+  // variant B splits the section into two labeled zones instead of one combined title
+  assert.match(html, /data-reliability-zone="absence"/);
+  assert.match(html, /缺席的聲音/);
+  assert.match(html, /data-reliability-zone="caveats"/);
+  assert.match(html, /可靠性限制/);
   assert.match(html, /觀望者聲音偏少，可靠性要標成行動派樣本。/);
   assert.match(html, /342\/318 的 captured\/read 母數存在口徑差。/);
   assert.doesNotMatch(html, /data-topic-newsroom-uncertainty="true"/);

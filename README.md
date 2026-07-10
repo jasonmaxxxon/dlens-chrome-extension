@@ -3,7 +3,7 @@
 DLens is a mode-aware MV3 Chrome extension for capturing Threads posts and turning them into research, product-signal, and PR evidence workflows.
 
 > Last updated: 2026-07-10
-> Current source version: `0.3.24` · latest local full gate: `1011 passed / 5 skipped` (1016 tests), typecheck, boundary guard, storage seam guard, build, and diff check passed
+> Current source version: `0.3.25` · latest local full gate: `1011 passed / 5 skipped` (1016 tests), typecheck, boundary guard, storage seam guard, build, and diff check passed
 > Current engineering branch: `main`
 > Positioning (2026-06-18): local power-tool (self + small technical circle); two separate repos (extension public · ingest-core **private**), not monorepo; Visual Reset A contract is `src/ui/tokens.ts` warm editorial + macOS utility shell
 > Load-unpacked build path: `output/chrome-mv3`
@@ -60,6 +60,7 @@ Recent PRs and local commits changed the shape more than the old README suggeste
 - 0.3.22 local UI update: Topic/Product/PR use one Variant-D-derived glass shell across the popup canvas, masthead, rail, and main frame. Topic regeneration keeps the last Atlas visible inside the same glass frame; first-run/failed/stale states no longer reintroduce the legacy overview or memo-derived stage progress. Atlas counts now distinguish captured/read/usable comments from overlapping pattern assignments.
 - 0.3.23 local UI fix: the L0 detail drawer re-anchors to the user's current viewport sightline when it opens (and tracks scroll/resize), instead of sitting at the top of the tall frame-contained shell; the 缺席與可靠性 strip is redesigned as an amber glass card with a serif reading voice, a caveat count, and bulleted limits.
 - 0.3.24 local UI fix: clicking a 民情羅盤 bubble no longer draws the browser's default rectangular focus box; the SVG bubble suppresses the mouse-focus outline and shows a circular signal-coloured focus ring only on keyboard `:focus-visible`.
+- 0.3.25 local UI update: the 缺席與可靠性 strip is rebuilt as two labeled epistemic zones (`data-reliability-zone` 缺席的聲音 / 可靠性限制) that separate what the discourse omits from the reading's own caveats, each with an icon header; the atlas canvas gains bottom breathing room so the last card no longer sits flush against the frame edge. New token `color.queuedDeep`.
 - Product Action route restores the 0.1.15 `READING REVIEW` UI only when the current saved signals have matching `SignalReading` rows. Review callbacks alone must not switch the Action route away from the Marginalia action cards. The old page-level batch export remains off the Action route; Saved Signals owns the `行動簡報匯出` selection/copy surface.
 - Product Settings includes a Product-only cache reset. It clears derived Product analysis, SignalReading, feedback, and compiled ProductContext storage without deleting saved signals, topics, archive folders, or PR evidence.
 - Popup runtime hardening: the React tree is wrapped in a top-level workspace ErrorBoundary, and the content-script runtime fallback remains separate.
