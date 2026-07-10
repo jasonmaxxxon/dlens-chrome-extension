@@ -155,3 +155,19 @@ test("SourceRow formats missing metrics as em dash without crashing", () => {
   assert.match(html, /data-source-row-metric="comments"/);
   assert.match(html, /—/);
 });
+
+test("SourceRow names the atlas mix as evidence assignments instead of classified comments", () => {
+  const html = renderToStaticMarkup(
+    React.createElement(SourceRow, {
+      packet: basePacket,
+      readingStatus: "ready",
+      reactionMix: [
+        { color: "#0d9488", count: 2 },
+        { color: "#7c3aed", count: 1 }
+      ]
+    })
+  );
+
+  assert.match(html, /此篇 3 次證據引用歸屬，按形狀分佈/);
+  assert.doesNotMatch(html, /已歸類留言|反應構成/);
+});

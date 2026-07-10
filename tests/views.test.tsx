@@ -584,6 +584,17 @@ test("InPageCollectorPopup hides the global processing strip in Product and PR w
   assert.equal(shouldShow("pr-evidence", "pr-evidence"), false);
 });
 
+test("InPageCollectorPopup selects the shared glass shell for Topic, Product, and PR", () => {
+  const materialFor = (inPageCollectorPopupTestables as unknown as {
+    workspaceMaterialForFolderMode?: (folderMode: string) => string;
+  }).workspaceMaterialForFolderMode;
+  assert.equal(typeof materialFor, "function");
+  assert.equal(materialFor?.("topic"), "glass");
+  assert.equal(materialFor?.("product"), "glass");
+  assert.equal(materialFor?.("pr-evidence"), "glass");
+  assert.equal(materialFor?.("archive"), "paper");
+});
+
 test("InPageCollectorPopup keeps extra scroll padding below the last card", () => {
   assert.ok(inPageCollectorPopupTestables.popupViewportBottomPadding >= tokens.spacing.section + 40);
   assert.equal(inPageCollectorPopupTestables.settingsWorkspaceSurfaceStyle.overflow, "visible");
@@ -718,8 +729,10 @@ test("InPageCollectorPopup topic create action opens the real create-topic flow"
     });
     const shell = rootElement.querySelector<HTMLElement>('[data-workspace-popup="shell"]');
     assert.ok(shell, "popup shell should render as the non-scrolling extension frame");
+    assert.equal(shell.getAttribute("data-workspace-popup-material"), "glass");
     assert.equal(shell.style.transform, "translateZ(0)");
     assert.equal(shell.style.contain, "paint");
+    assert.ok(rootElement.querySelector<HTMLElement>('[data-workspace-material="glass"]'), "topic popup must pass glass into WorkspaceShell");
     const scrollViewport = rootElement.querySelector<HTMLElement>('[data-workspace-popup-scroll="viewport"]');
     assert.ok(scrollViewport, "popup scroll viewport should remain separate from the frame");
     assert.equal(scrollViewport.style.transform, "");

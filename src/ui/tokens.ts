@@ -14,7 +14,24 @@
  * Some callers still use legacy alias names such as glass*.
  */
 
+const WORKSPACE_GLASS = {
+  canvas: "linear-gradient(172deg, #ffffff 0%, #f8fbf8 55%, #f2f7f3 100%)",
+  panel: "linear-gradient(168deg, rgba(255,255,255,0.84), rgba(255,255,255,0.50))",
+  panelStrong: "rgba(255,255,255,0.90)",
+  edge: "rgba(255,255,255,0.82)",
+  auraTeal: "rgba(67,214,200,0.30)",
+  auraAmber: "rgba(233,181,88,0.22)",
+  auraViolet: "rgba(111,90,167,0.16)",
+  blur: "blur(18px) saturate(1.35)",
+  heroShadow: "0 1px 2px rgba(31,38,33,0.03), 0 30px 70px -34px rgba(31,38,33,0.30), inset 0 1px 0 rgba(255,255,255,0.95)",
+  panelShadow: "0 1px 2px rgba(31,38,33,0.03), 0 18px 44px -26px rgba(31,38,33,0.24), inset 0 1px 0 rgba(255,255,255,0.92)"
+} as const;
+
 export const tokens = {
+  material: {
+    workspaceGlass: WORKSPACE_GLASS
+  },
+
   topicAccent: {
     primary: "#3f5a3b",
     primaryDeep: "#324a30",
@@ -85,15 +102,15 @@ export const tokens = {
     signalGlow: "rgba(67,214,200,0.36)",
     signalFaint: "rgba(67,214,200,0.12)",
 
-    /* atlas glass — frosted white over warm-tinted near-white, ONLY for atlas hero / panels / drawer / popover */
-    atlasPaper: "linear-gradient(168deg, rgba(255,255,255,0.84), rgba(255,255,255,0.50))",
-    atlasPaperStrong: "rgba(255,255,255,0.90)",
-    atlasEdge: "rgba(255,255,255,0.82)",
-    /* atlas canvas + aura — the near-white ground and colour washes the glass blurs; without these backdrop-filter reads as flat translucency */
-    atlasCanvas: "linear-gradient(172deg, #ffffff 0%, #f8fbf8 55%, #f2f7f3 100%)",
-    atlasAuraTeal: "rgba(67,214,200,0.30)",
-    atlasAuraAmber: "rgba(233,181,88,0.22)",
-    atlasAuraViolet: "rgba(111,90,167,0.16)",
+    /* compatibility aliases for the shared workspace glass material */
+    atlasPaper: WORKSPACE_GLASS.panel,
+    atlasPaperStrong: WORKSPACE_GLASS.panelStrong,
+    atlasEdge: WORKSPACE_GLASS.edge,
+    /* Atlas aliases keep existing feature code on the same shared canvas and aura values. */
+    atlasCanvas: WORKSPACE_GLASS.canvas,
+    atlasAuraTeal: WORKSPACE_GLASS.auraTeal,
+    atlasAuraAmber: WORKSPACE_GLASS.auraAmber,
+    atlasAuraViolet: WORKSPACE_GLASS.auraViolet,
 
     /* teal — named alias for design system alignment */
     teal: "#3f5a3b",
@@ -191,13 +208,13 @@ export const tokens = {
     previewAvatar: "0 4px 12px rgba(26,46,79,0.12)",
     hudGlow: "0 1px 0 rgba(27,26,23,0.04), 0 8px 16px rgba(27,26,23,0.06)",
     popup: "0 20px 56px rgba(27,26,23,0.16), 0 2px 8px rgba(27,26,23,0.08), 0 0 0 1px rgba(27,26,23,0.08)",
-    atlasGlass: "0 1px 2px rgba(31,38,33,0.03), 0 30px 70px -34px rgba(31,38,33,0.30), inset 0 1px 0 rgba(255,255,255,0.95)",
-    atlasCard: "0 1px 2px rgba(31,38,33,0.03), 0 18px 44px -26px rgba(31,38,33,0.24), inset 0 1px 0 rgba(255,255,255,0.92)"
+    atlasGlass: WORKSPACE_GLASS.heroShadow,
+    atlasCard: WORKSPACE_GLASS.panelShadow
   },
 
   effect: {
     glassBlur: "none",
-    atlasBlur: "blur(18px) saturate(1.35)"
+    atlasBlur: WORKSPACE_GLASS.blur
   },
 
   motion: {

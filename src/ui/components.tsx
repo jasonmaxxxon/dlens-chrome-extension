@@ -927,6 +927,7 @@ function railIcon(mode: PrimaryWorkspaceMode) {
 }
 
 export type WorkspaceSwitcherMode = "topic" | "product" | "pr-evidence";
+export type WorkspaceMaterial = "paper" | "glass";
 
 const WORKSPACE_SWITCHER_OPTIONS: ReadonlyArray<{
   key: WorkspaceSwitcherMode;
@@ -1138,6 +1139,7 @@ export function WorkspaceSwitcher({
 export function WorkspaceShell({
   mode,
   folderMode,
+  material = "paper",
   header,
   contextStrip,
   children,
@@ -1149,6 +1151,7 @@ export function WorkspaceShell({
 }: {
   mode: WorkspaceMode | "settings";
   folderMode?: "topic" | "product" | "archive" | "pr-evidence";
+  material?: WorkspaceMaterial;
   header: ReactNode;
   contextStrip?: ReactNode;
   children: ReactNode;
@@ -1159,6 +1162,8 @@ export function WorkspaceShell({
   reserveContextStrip?: boolean;
 }) {
   const showSwitcher = typeof onSwitchWorkspace === "function";
+  const useGlassMaterial = material === "glass";
+  const glass = tokens.material.workspaceGlass;
   const renderContextStrip = Boolean(contextStrip) || reserveContextStrip;
   const pendingWorkspaceMode = switchingWorkspaceMode ?? null;
   const renderedWorkspaceMode = pendingWorkspaceMode ?? mode;
@@ -1180,6 +1185,7 @@ export function WorkspaceShell({
   return (
     <div
       data-workspace-shell="compare-first"
+      data-workspace-material={material}
       style={{
         display: "grid",
         gridTemplateRows: "auto minmax(0, 1fr)",
@@ -1191,6 +1197,7 @@ export function WorkspaceShell({
     >
       <div
         data-shell-masthead="editorial"
+        data-shell-masthead-material={material}
         style={{
           display: "flex",
           alignItems: "center",
@@ -1200,9 +1207,11 @@ export function WorkspaceShell({
           overflow: "hidden",
           padding: "10px 14px 8px",
           borderRadius: tokens.radius.card,
-          border: `1px solid ${tokens.color.line}`,
-          background: `linear-gradient(180deg, ${tokens.color.elevated}, ${tokens.color.surface})`,
-          boxShadow: tokens.shadow.card,
+          border: `1px solid ${useGlassMaterial ? glass.edge : tokens.color.line}`,
+          background: useGlassMaterial ? glass.panel : `linear-gradient(180deg, ${tokens.color.elevated}, ${tokens.color.surface})`,
+          boxShadow: useGlassMaterial ? glass.panelShadow : tokens.shadow.card,
+          backdropFilter: useGlassMaterial ? glass.blur : undefined,
+          WebkitBackdropFilter: useGlassMaterial ? glass.blur : undefined,
           color: tokens.color.subInk
         }}
       >
@@ -1273,15 +1282,18 @@ export function WorkspaceShell({
       >
         <header
           data-shell-header="workspace"
+          data-shell-rail-material={material}
           style={{
             display: "grid",
             gap: 10,
             alignContent: "start",
             padding: "10px 8px 12px",
             borderRadius: tokens.radius.card,
-            border: `1px solid ${tokens.color.line}`,
-            background: `linear-gradient(180deg, ${tokens.color.surface}, ${tokens.color.contextSurface})`,
-            boxShadow: tokens.shadow.glass,
+            border: `1px solid ${useGlassMaterial ? glass.edge : tokens.color.line}`,
+            background: useGlassMaterial ? glass.panel : `linear-gradient(180deg, ${tokens.color.surface}, ${tokens.color.contextSurface})`,
+            boxShadow: useGlassMaterial ? glass.panelShadow : tokens.shadow.glass,
+            backdropFilter: useGlassMaterial ? glass.blur : undefined,
+            WebkitBackdropFilter: useGlassMaterial ? glass.blur : undefined,
             alignSelf: "start"
           }}
         >
@@ -1330,6 +1342,7 @@ export function WorkspaceShell({
           <main
             data-workspace-mode={renderedWorkspaceMode}
             data-workspace-mode-frame="true"
+            data-shell-main-material={material}
             data-workspace-switching={pendingWorkspaceMode ?? undefined}
             key={pendingWorkspaceMode ?? folderMode ?? "_default"}
             style={{
@@ -1337,6 +1350,11 @@ export function WorkspaceShell({
               minWidth: 0,
               minHeight: 480,
               alignContent: "start",
+              padding: useGlassMaterial ? 10 : undefined,
+              borderRadius: useGlassMaterial ? tokens.radius.cardLg : undefined,
+              border: useGlassMaterial ? `1px solid ${glass.edge}` : undefined,
+              background: useGlassMaterial ? glass.panel : undefined,
+              boxShadow: useGlassMaterial ? glass.heroShadow : undefined,
               animation: "dlens-mode-swap-in 160ms cubic-bezier(0.16, 1, 0.3, 1)"
             }}
           >
@@ -1563,7 +1581,7 @@ export function WorkspaceSurface({
   style,
   dataAttrs
 }: {
-  tone?: "content" | "focused" | "utility";
+  tone?: "content" | "focused" | "utility" | "glass";
   children: ReactNode;
   style?: CSSProperties;
   dataAttrs?: Record<string, string>;
@@ -1580,6 +1598,11 @@ export function WorkspaceSurface({
     boxShadow = tokens.shadow.focusedSurface;
   }
 
+  if (tone === "glass") {
+    background = tokens.material.workspaceGlass.panel;
+    boxShadow = tokens.material.workspaceGlass.panelShadow;
+  }
+
   return (
     <section
       data-workspace-surface={tone}
@@ -1588,6 +1611,11 @@ export function WorkspaceSurface({
         padding: tokens.spacing.section,
         background,
         boxShadow,
+        ...(tone === "glass" ? {
+          border: `1px solid ${tokens.material.workspaceGlass.edge}`,
+          backdropFilter: tokens.material.workspaceGlass.blur,
+          WebkitBackdropFilter: tokens.material.workspaceGlass.blur
+        } : {}),
         minWidth: 0,
         ...style
       })}

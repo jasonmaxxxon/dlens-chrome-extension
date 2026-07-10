@@ -166,8 +166,6 @@ export function TopicAuditStatusPill({ summary }: { summary: TopicAuditSummary }
     >
       <Dot color={status.dot} />
       {status.label}
-      {summary.reportStatus === "running" && summary.runningStage ? <span>P{summary.runningStage}</span> : null}
-      {summary.reportStatus === "failed" && summary.failedStage ? <span>P{summary.failedStage}</span> : null}
       {summary.reportStatus === "stale" && summary.staleDelta ? <span>+{summary.staleDelta.added}</span> : null}
     </span>
   );
@@ -177,25 +175,32 @@ export function PrimaryButton({
   children,
   onClick,
   disabled,
+  ariaDisabled,
+  dataAction,
   style
 }: {
   children: ReactNode;
   onClick?: () => void;
   disabled?: boolean;
+  ariaDisabled?: boolean;
+  dataAction?: string;
   style?: CSSProperties;
 }) {
+  const unavailable = Boolean(disabled || ariaDisabled);
   return (
     <button
       data-topic-audit-button="primary"
-      onClick={onClick}
+      data-topic-audit-action={dataAction}
+      onClick={ariaDisabled ? undefined : onClick}
       disabled={disabled}
+      aria-disabled={ariaDisabled ? "true" : undefined}
       style={{
         border: "none",
         borderRadius: tokens.radius.button,
-        background: disabled ? tokens.color.disabledPrimary : TOPIC.primary,
+        background: unavailable ? tokens.color.disabledPrimary : TOPIC.primary,
         color: tokens.color.elevated,
-        boxShadow: disabled ? "none" : tokens.shadow.topicCta,
-        cursor: disabled ? "not-allowed" : "pointer",
+        boxShadow: unavailable ? "none" : tokens.shadow.topicCta,
+        cursor: unavailable ? "not-allowed" : "pointer",
         fontFamily: tokens.font.sans,
         fontSize: 12,
         fontWeight: 800,
@@ -217,24 +222,31 @@ export function GhostButton({
   children,
   onClick,
   disabled,
+  ariaDisabled,
+  dataAction,
   style
 }: {
   children: ReactNode;
   onClick?: () => void;
   disabled?: boolean;
+  ariaDisabled?: boolean;
+  dataAction?: string;
   style?: CSSProperties;
 }) {
+  const unavailable = Boolean(disabled || ariaDisabled);
   return (
     <button
       data-topic-audit-button="ghost"
-      onClick={onClick}
+      data-topic-audit-action={dataAction}
+      onClick={ariaDisabled ? undefined : onClick}
       disabled={disabled}
+      aria-disabled={ariaDisabled ? "true" : undefined}
       style={{
         border: `1px solid ${tokens.color.line}`,
         borderRadius: tokens.radius.button,
         background: tokens.color.surface,
-        color: disabled ? tokens.color.softInk : TOPIC.primary,
-        cursor: disabled ? "not-allowed" : "pointer",
+        color: unavailable ? tokens.color.softInk : TOPIC.primary,
+        cursor: unavailable ? "not-allowed" : "pointer",
         fontFamily: tokens.font.sans,
         fontSize: 12,
         fontWeight: 700,
@@ -1526,7 +1538,7 @@ export function SourceRow({
         {mixTotal > 0 ? (
           <div
             data-source-row-reaction-mix={packet.shortCode}
-            aria-label={`此篇 ${mixTotal} 條已歸類留言的反應構成`}
+            aria-label={`此篇 ${mixTotal} 次證據引用歸屬，按形狀分佈`}
             style={{ display: "flex", height: 4, borderRadius: tokens.radius.round, overflow: "hidden", marginTop: 7, background: tokens.color.neutralSurface }}
           >
             {mixSlices.map((slice, index) => (

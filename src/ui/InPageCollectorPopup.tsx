@@ -3,7 +3,7 @@ import type { MainPage, PopupPage } from "../state/types";
 import { CasebookView } from "./CasebookView";
 import { CompareSetupView } from "./CompareSetupView";
 import { CollectView } from "./CollectView";
-import { DLENS_BUTTON_CSS, StatusRail, WorkspaceShell, WorkspaceSurface, ModeRail, UtilityEdge, type WorkspaceSwitcherMode } from "./components";
+import { DLENS_BUTTON_CSS, StatusRail, WorkspaceShell, WorkspaceSurface, ModeRail, UtilityEdge, type WorkspaceMaterial, type WorkspaceSwitcherMode } from "./components";
 import { getModeHomePage, getModeRailPages } from "../state/processing-state";
 import { getPageComponentKind, getPageWidth } from "../state/page-registry";
 import { IS_PR_ONLY_BUILD } from "../build-variant";
@@ -53,6 +53,12 @@ function shouldShowProcessingContextStrip(folderMode: string, page: PopupPage): 
   return page === "library" || page === "compare" || page === "result";
 }
 
+function workspaceMaterialForFolderMode(folderMode: string): WorkspaceMaterial {
+  return folderMode === "topic" || folderMode === "product" || folderMode === "pr-evidence"
+    ? "glass"
+    : "paper";
+}
+
 type RailMode = Exclude<MainPage, "result" | "topic-detail">;
 
 function isRailMode(page: PopupPage): page is RailMode {
@@ -66,6 +72,8 @@ function isProductSignalPageKind(page: PopupPage): page is ProductSignalPageKind
 export function InPageCollectorPopup({ app }: { app: InPageCollectorAppModel }) {
   const { snapshot, page, popupOpen, activeFolder, resultItemA, resultItemB } = app;
   const activeFolderMode = activeFolder?.mode ?? "archive";
+  const workspaceMaterial = workspaceMaterialForFolderMode(activeFolderMode);
+  const workspaceGlass = tokens.material.workspaceGlass;
   const productExportFolders = (snapshot?.global.sessions ?? [])
     .filter((session) => session.mode === "product")
     .map((session) => ({
@@ -301,6 +309,7 @@ export function InPageCollectorPopup({ app }: { app: InPageCollectorAppModel }) 
       ref={app.popupRef}
       data-dlens-control="true"
       data-workspace-popup="shell"
+      data-workspace-popup-material={workspaceMaterial}
       data-paper-grain="true"
       style={{
         position: "fixed",
@@ -311,7 +320,7 @@ export function InPageCollectorPopup({ app }: { app: InPageCollectorAppModel }) 
         maxHeight: "min(86vh, 860px)",
         overflow: "hidden",
         borderRadius: tokens.radius.lg + 2,
-        border: `1px solid ${tokens.color.glassBorder}`,
+        border: `1px solid ${workspaceMaterial === "glass" ? workspaceGlass.edge : tokens.color.glassBorder}`,
         boxShadow: `${tokens.shadow.popup}, inset 0 1px 0 ${tokens.color.shellSurface}`,
         zIndex: 2147483640,
         color: tokens.color.ink,
@@ -331,10 +340,19 @@ export function InPageCollectorPopup({ app }: { app: InPageCollectorAppModel }) 
         position: "absolute",
         inset: 0,
         borderRadius: tokens.radius.lg + 2,
-        background: `linear-gradient(180deg, ${tokens.color.elevated}, ${tokens.color.canvas})`,
+        background: workspaceMaterial === "glass"
+          ? workspaceGlass.canvas
+          : `linear-gradient(180deg, ${tokens.color.elevated}, ${tokens.color.canvas})`,
         zIndex: 0,
         pointerEvents: "none"
       }} />
+      {workspaceMaterial === "glass" ? (
+        <>
+          <div aria-hidden="true" data-workspace-aura="teal" style={{ position: "absolute", zIndex: 0, width: 320, height: 320, top: -120, right: -90, borderRadius: tokens.radius.round, background: workspaceGlass.auraTeal, filter: "blur(64px)", opacity: 0.55, pointerEvents: "none" }} />
+          <div aria-hidden="true" data-workspace-aura="amber" style={{ position: "absolute", zIndex: 0, width: 280, height: 280, top: "38%", left: -130, borderRadius: tokens.radius.round, background: workspaceGlass.auraAmber, filter: "blur(68px)", opacity: 0.48, pointerEvents: "none" }} />
+          <div aria-hidden="true" data-workspace-aura="violet" style={{ position: "absolute", zIndex: 0, width: 300, height: 300, bottom: -120, right: -80, borderRadius: tokens.radius.round, background: workspaceGlass.auraViolet, filter: "blur(70px)", opacity: 0.46, pointerEvents: "none" }} />
+        </>
+      ) : null}
       <div
         ref={scrollRef}
         data-workspace-popup-scroll="viewport"
@@ -359,6 +377,7 @@ export function InPageCollectorPopup({ app }: { app: InPageCollectorAppModel }) 
         <WorkspaceShell
           mode={guardedPage === "audit-report" ? "topics" : guardedPage}
           folderMode={activeFolderMode}
+          material={workspaceMaterial}
           onSwitchWorkspace={(mode) => void handleSwitchWorkspace(mode)}
           availableWorkspaceModes={WORKSPACE_SWITCHER_MODES}
           switchingWorkspaceMode={switchingWorkspaceMode}
@@ -452,7 +471,7 @@ export function InPageCollectorPopup({ app }: { app: InPageCollectorAppModel }) 
           ) : null}
 
           {guardedPage === "topic-detail" || guardedPage === "casebook" ? (
-            <WorkspaceSurface tone="utility">
+            <WorkspaceSurface style={{ padding: 0, background: "transparent", boxShadow: "none", border: "none", overflow: "visible" }}>
               {topicDetailViewModel ? (
                 <TopicDetailView
                   viewModel={topicDetailViewModel}
@@ -629,6 +648,7 @@ export function InPageCollectorPopup({ app }: { app: InPageCollectorAppModel }) 
 
 export const inPageCollectorPopupTestables = {
   shouldShowProcessingContextStrip,
+  workspaceMaterialForFolderMode,
   popupViewportBottomPadding: POPUP_VIEWPORT_BOTTOM_PADDING,
   settingsWorkspaceSurfaceStyle: SETTINGS_WORKSPACE_SURFACE_STYLE
 };

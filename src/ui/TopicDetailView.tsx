@@ -1710,6 +1710,207 @@ function TopicAuditOverview({
   );
 }
 
+function TopicAuditAtlasToolbar({
+  topic,
+  summary,
+  hasAtlasData,
+  canRunAudit,
+  onRunAudit,
+  onOpenAuditReport
+}: {
+  topic: Topic;
+  summary: TopicAuditSummary;
+  hasAtlasData: boolean;
+  canRunAudit: boolean;
+  onRunAudit?: (topicId: string, fromStage?: TopicAuditStageName, force?: boolean) => void;
+  onOpenAuditReport?: (topicId: string, stale?: boolean) => void;
+}) {
+  if (!hasAtlasData || summary.reportStatus === "none") return null;
+  const isRunning = summary.reportStatus === "running";
+  const runAudit = () => {
+    if (!canRunAudit || isRunning) return;
+    onRunAudit?.(topic.id, undefined, true);
+  };
+
+  return (
+    <div
+      data-topic-audit-actions={summary.reportStatus}
+      style={{ display: "flex", justifyContent: "flex-end", gap: 6, flexWrap: "wrap" }}
+    >
+      <AuditGhostButton
+        onClick={() => onOpenAuditReport?.(topic.id, summary.reportStatus === "stale" ? true : undefined)}
+        style={{ padding: "4px 10px", fontSize: 10.5 }}
+      >
+        審查報告 ↗
+      </AuditGhostButton>
+      <AuditGhostButton
+        dataAction="regenerate"
+        disabled={!canRunAudit}
+        ariaDisabled={isRunning}
+        onClick={runAudit}
+        style={{ padding: "4px 10px", fontSize: 10.5 }}
+      >
+        {isRunning ? "⟳ 重新生成中" : "⟳ 重新生成"}
+      </AuditGhostButton>
+    </div>
+  );
+}
+
+function atlasBubbleUsesDarkText(index: number, paletteSize: number): boolean {
+  if (paletteSize <= 0) return false;
+  const paletteIndex = ((index % paletteSize) + paletteSize) % paletteSize;
+  return paletteIndex === 0 || paletteIndex === 2;
+}
+
+function TopicAuditAtlasStatus({
+  topic,
+  summary,
+  hasAtlasData,
+  canRunAudit,
+  blockedReason,
+  onRunAudit,
+  onOpenAuditReport
+}: {
+  topic: Topic;
+  summary: TopicAuditSummary;
+  hasAtlasData: boolean;
+  canRunAudit: boolean;
+  blockedReason?: string;
+  onRunAudit?: (topicId: string, fromStage?: TopicAuditStageName, force?: boolean) => void;
+  onOpenAuditReport?: (topicId: string, stale?: boolean) => void;
+}) {
+  const content = summary.reportStatus === "ready"
+    ? {
+        title: "Atlas 已更新",
+        detail: "最新判讀已在原位顯示。",
+        tone: tokens.color.signalDeep,
+        wash: tokens.color.cyanSoft,
+        border: tokens.color.atlasEdge
+      }
+    : summary.reportStatus === "running"
+    ? {
+        title: hasAtlasData ? "重新生成中" : "判讀生成中",
+        detail: hasAtlasData ? "目前保留上一版 Atlas；完成後會原位更新。" : "Atlas 會在讀取完成後原位展開。",
+        tone: tokens.color.queued,
+        wash: tokens.color.queuedSoft,
+        border: tokens.color.queuedBorder
+      }
+    : summary.reportStatus === "failed"
+      ? {
+          title: "生成未完成",
+          detail: hasAtlasData ? "上一版 Atlas 已保留；可重新生成。" : "目前沒有可顯示的完成版 Atlas。",
+          tone: tokens.topicAccent.fail,
+          wash: tokens.topicAccent.failBg,
+          border: tokens.color.failedBorder
+        }
+      : summary.reportStatus === "stale"
+        ? {
+            title: "目前顯示上一版",
+            detail: "來源已有變動；重新生成後會在同一位置更新。",
+            tone: tokens.topicAccent.warm,
+            wash: tokens.topicAccent.tintAmber,
+            border: tokens.color.queuedBorder
+          }
+        : {
+            title: "尚未生成 Atlas",
+            detail: "完成議題審查後，民情形狀、跨帖敘事與來源會在這裡展開。",
+            tone: tokens.color.signalDeep,
+            wash: tokens.color.cyanSoft,
+            border: tokens.color.atlasEdge
+          };
+
+  const runAudit = (fromStage?: TopicAuditStageName, force?: boolean) => {
+    if (!canRunAudit) return;
+    onRunAudit?.(topic.id, fromStage, force);
+  };
+
+  return (
+    <>
+      <span
+        data-topic-audit-live="true"
+        role="status"
+        aria-live="polite"
+        aria-atomic="true"
+        style={{
+          position: "absolute",
+          width: 1,
+          height: 1,
+          padding: 0,
+          margin: -1,
+          overflow: "hidden",
+          clip: "rect(0, 0, 0, 0)",
+          whiteSpace: "nowrap",
+          border: 0
+        }}
+      >
+        {content.title}。{content.detail}
+      </span>
+      {summary.reportStatus === "ready" ? null : <section
+      data-topic-audit-status={summary.reportStatus}
+      data-topic-audit-status-has-atlas={hasAtlasData ? "true" : "false"}
+      style={{
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "space-between",
+        gap: 12,
+        flexWrap: "wrap",
+        padding: "10px 12px",
+        borderRadius: tokens.radius.card,
+        border: `1px solid ${content.border}`,
+        background: content.wash,
+        boxShadow: tokens.shadow.atlasCard
+      }}
+    >
+      <span style={{ display: "grid", gap: 2, minWidth: 0 }}>
+        <span data-topic-audit-status-title="true" style={{ display: "inline-flex", alignItems: "center", gap: 7, fontSize: 11.5, fontWeight: 800, color: tokens.color.ink }}>
+          <span aria-hidden="true" style={{ width: 7, height: 7, borderRadius: tokens.radius.round, background: content.tone, flexShrink: 0 }} />
+          {content.title}
+        </span>
+        <span style={{ paddingLeft: 14, ...textStyles.caption, color: tokens.color.subInk }}>{content.detail}</span>
+        {summary.reportStatus === "failed" && summary.failedReason ? (
+          <span data-topic-audit-failure-reason="true" style={{ paddingLeft: 14, ...textStyles.caption, color: tokens.topicAccent.fail }}>
+            {summary.failedReason}
+          </span>
+        ) : null}
+        {!canRunAudit && blockedReason ? (
+          <span data-topic-audit-blocked="true" style={{ paddingLeft: 14, ...textStyles.caption, color: tokens.color.subInk }}>
+            {blockedReason}
+          </span>
+        ) : null}
+      </span>
+      <span style={{ display: "inline-flex", gap: 6, flexWrap: "wrap", alignItems: "center" }}>
+        {!hasAtlasData ? (
+          <AuditPrimaryButton
+            dataAction="generate"
+            disabled={!canRunAudit}
+            ariaDisabled={summary.reportStatus === "running"}
+            onClick={() => runAudit(undefined, summary.reportStatus === "none" ? undefined : true)}
+            style={{ padding: "6px 10px", fontSize: 10.5 }}
+          >
+            {summary.reportStatus === "running"
+              ? "生成中"
+              : summary.reportStatus === "none"
+                ? "生成審查報告"
+                : "重新生成"}
+          </AuditPrimaryButton>
+        ) : null}
+        {!hasAtlasData && summary.reportStatus === "failed" ? (
+          <>
+            <AuditGhostButton onClick={() => onOpenAuditReport?.(topic.id)} style={{ padding: "6px 10px", fontSize: 10.5 }}>
+              錯誤詳情 ↗
+            </AuditGhostButton>
+          </>
+        ) : !hasAtlasData && summary.reportStatus === "stale" ? (
+          <AuditGhostButton onClick={() => onOpenAuditReport?.(topic.id, true)} style={{ padding: "6px 10px", fontSize: 10.5 }}>
+            查看上一版 ↗
+          </AuditGhostButton>
+        ) : null}
+      </span>
+    </section>}
+    </>
+  );
+}
+
 export function TopicDetailView({
   viewModel,
   onCommand
@@ -2184,11 +2385,15 @@ export function TopicDetailView({
   );
 
   if (sessionMode === "topic") {
-    const showAuditPlaceholder = auditSummaryValue.reportStatus === "failed" || (auditThemes.length === 0 && auditLanes.length === 0 && reactionPatterns.length === 0 && auditEvidence.length === 0);
+    const hasAtlasData = auditThemes.length > 0
+      || auditLanes.length > 0
+      || reactionPatterns.length > 0
+      || auditEvidence.length > 0
+      || Boolean(audit.headlineProse || audit.absenceProse || audit.caveats.length);
     const postTotal = postTotalFromEvidence(auditEvidence);
     const coverageNumbers = readCommentCoverage({ coverage: reactionCoverage, packets: auditEvidence });
     const narrativeCount = auditLanes.filter((lane) => !lane.isSinglePostObservation).length;
-    const headlineProse = audit.headlineProse || "完成 P6 後，這裡會顯示兩句 headline verdict。";
+    const headlineProse = audit.headlineProse || "判讀完成後，這裡會顯示兩句總結。";
     const headlineRefs = audit.headlineRefs.length ? audit.headlineRefs : reactionPatterns.flatMap((pattern) => pattern.representativeRefs).slice(0, 3);
     const fullList = activeReactionPattern
       ? buildReactionPatternFullList({ pattern: activeReactionPattern, packets: auditEvidence, shardReadings: audit.shardReadings })
@@ -2210,8 +2415,8 @@ export function TopicDetailView({
     const atlasPalette = [tokens.color.signal, tokens.color.techniqueViolet, tokens.color.queued, tokens.color.techniqueRose, tokens.color.accent];
     const compassLayout = layoutSignalAtlasCompass(reactionPatterns);
     const reactionMixByShortCode = postReactionMixByShortCode(reactionPatterns);
-    const classifiedComments = reactionPatterns.reduce((sum, pattern) => sum + pattern.nComments, 0);
-    const compassDenominator = reactionPatterns[0]?.coverageDenominator ?? coverageNumbers.usable;
+    const patternAssignmentCount = reactionPatterns.reduce((sum, pattern) => sum + pattern.nComments, 0);
+    const compassDenominator = coverageNumbers.usable || reactionPatterns[0]?.coverageDenominator || 0;
     const atlasAxisLabelStyle: CSSProperties = { fontFamily: tokens.font.mono, fontSize: 8.5, fontWeight: 800, letterSpacing: "0.1em", fill: tokens.color.softInk };
     const atlasGlassPanelStyle: CSSProperties = {
       display: "grid",
@@ -2224,17 +2429,12 @@ export function TopicDetailView({
       backdropFilter: tokens.effect.atlasBlur,
       WebkitBackdropFilter: tokens.effect.atlasBlur
     };
-    const auditOverviewElement = (
-      <TopicAuditOverview
+    const auditToolbarElement = (
+      <TopicAuditAtlasToolbar
         topic={topic}
-        signals={signals}
         summary={auditSummaryValue}
-        flags={auditValidatorFlags}
+        hasAtlasData={hasAtlasData}
         canRunAudit={canRunAuditFromSources}
-        blockedReason={auditBlockedReason}
-        p1ReadyCount={p1ReadyCount}
-        p1TotalCount={p1TotalCount}
-        sourceTotalCount={auditSourceTotal}
         onRunAudit={handleRunAudit}
         onOpenAuditReport={handleOpenAuditReport}
       />
@@ -2243,37 +2443,13 @@ export function TopicDetailView({
       <div style={viewRootStyle()} data-topic-load-state={loadState}>
         <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8, flexWrap: "wrap" }}>
           <Breadcrumb topicName={topic.name} onBack={handleBack} />
-          {auditSummaryValue.reportStatus === "ready" ? auditOverviewElement : null}
+          {auditToolbarElement}
         </div>
 
-        {auditSummaryValue.reportStatus !== "ready" ? auditOverviewElement : null}
-
-        {showAuditPlaceholder ? (
-          <div
-            data-topic-audit-placeholder="empty"
-            style={{
-              borderRadius: tokens.radius.cardLg,
-              background: tokens.color.contextSurface,
-              padding: "18px 20px",
-              fontSize: 12.5,
-              lineHeight: 1.65,
-              color: tokens.color.subInk,
-              boxShadow: tokens.shadow.topicCard
-            }}
-          >
-            <strong style={{ color: tokens.color.ink }}>主題與敘事尚未產出</strong>
-            <br />
-            {auditSummaryValue.reportStatus === "failed"
-              ? `報告於 P${auditSummaryValue.failedStage ?? 1} 失敗；可從失敗點續跑，已完成的 memo 會保留。`
-              : "生成議題審查報告後，這裡會顯示主題、敘事線與源清單。"}
-          </div>
-        ) : null}
-
-        {!showAuditPlaceholder ? (
-          <div
-            data-signal-atlas-canvas="true"
-            style={{ position: "relative", overflow: "hidden", borderRadius: tokens.radius.cardLg, background: tokens.color.atlasCanvas, padding: 12 }}
-          >
+        <div
+          data-signal-atlas-canvas="true"
+          style={{ position: "relative", overflow: "hidden", borderRadius: tokens.radius.cardLg, background: tokens.color.atlasCanvas, padding: 12 }}
+        >
             <style>{`
               @media (prefers-reduced-motion: no-preference) {
                 [data-atlas-aura] { animation: dlens-atlas-aura-drift 18s ease-in-out infinite alternate; }
@@ -2289,6 +2465,22 @@ export function TopicDetailView({
             <div aria-hidden="true" data-atlas-aura="amber" style={{ position: "absolute", top: 330, left: -90, width: 220, height: 220, borderRadius: "50%", background: tokens.color.atlasAuraAmber, filter: "blur(46px)", pointerEvents: "none" }} />
             <div aria-hidden="true" data-atlas-aura="violet" style={{ position: "absolute", bottom: -80, right: -40, width: 240, height: 240, borderRadius: "50%", background: tokens.color.atlasAuraViolet, filter: "blur(46px)", pointerEvents: "none" }} />
           <div data-topic-audit-spine="signal-atlas-l0" style={{ position: "relative", zIndex: 1, display: "grid", gap: 12 }}>
+            <TopicAuditAtlasStatus
+              topic={topic}
+              summary={auditSummaryValue}
+              hasAtlasData={hasAtlasData}
+              canRunAudit={canRunAuditFromSources}
+              blockedReason={auditBlockedReason}
+              onRunAudit={handleRunAudit}
+              onOpenAuditReport={handleOpenAuditReport}
+            />
+            <div
+              data-signal-atlas-content="true"
+              aria-busy={auditSummaryValue.reportStatus === "running" ? "true" : undefined}
+              style={{ display: "grid", gap: 12 }}
+            >
+            {hasAtlasData ? (
+              <>
             <section
               data-signal-atlas-hero="true"
               style={{
@@ -2307,11 +2499,11 @@ export function TopicDetailView({
               <h1 style={{ ...textStyles.h2, margin: 0, color: tokens.color.ink }}>{topic.name}</h1>
               <div data-signal-atlas-ledger="true" style={{ display: "grid", gridTemplateColumns: "repeat(3, minmax(0, 1fr))", gap: 8 }}>
                 {[
-                  { value: `${coverageNumbers.read}`, denominator: `/${coverageNumbers.usable} 可用留言`, label: "已讀留言", accent: tokens.color.signalDeep, glow: `0 0 16px ${tokens.color.signalGlow}` },
-                  { value: `${reactionPatterns.length}`, denominator: `/${postTotal} 形狀`, label: "反應形狀", accent: tokens.color.techniqueViolet, glow: undefined },
-                  { value: `${narrativeCount}`, denominator: `/${postTotal} 跨帖敘事`, label: "跨帖敘事", accent: tokens.color.queued, glow: undefined }
-                ].map(({ value, denominator, label, accent, glow }) => (
-                  <div key={label} data-atlas-ledger-metric={`${value}${denominator}`} style={{ display: "grid", gap: 3, minWidth: 0 }}>
+                  { value: `${coverageNumbers.read}`, denominator: `可用 ${coverageNumbers.usable}`, label: "已讀留言", metric: `已讀 ${coverageNumbers.read} · 可用 ${coverageNumbers.usable}`, accent: tokens.color.signalDeep, glow: `0 0 16px ${tokens.color.signalGlow}` },
+                  { value: `${reactionPatterns.length}`, denominator: `${postTotal} 篇來源`, label: "反應形狀", metric: `${reactionPatterns.length} 個形狀 · ${postTotal} 篇來源`, accent: tokens.color.techniqueViolet, glow: undefined },
+                  { value: `${narrativeCount}`, denominator: `${postTotal} 篇來源`, label: "跨帖敘事", metric: `${narrativeCount} 條跨帖敘事 · ${postTotal} 篇來源`, accent: tokens.color.queued, glow: undefined }
+                ].map(({ value, denominator, label, metric, accent, glow }) => (
+                  <div key={label} data-atlas-ledger-metric={metric} style={{ display: "grid", gap: 3, minWidth: 0 }}>
                     <span style={{ ...textStyles.metricDisplay, color: accent, textShadow: glow }}>{value}</span>
                     <span style={{ ...textStyles.caption, color: tokens.color.subInk }}>{denominator}</span>
                     <span style={{ ...textStyles.label, color: tokens.color.softInk }}>{label}</span>
@@ -2386,7 +2578,7 @@ export function TopicDetailView({
               <section data-signal-atlas-map="true" data-signal-atlas-map-kind={compassLayout.kind} style={atlasGlassPanelStyle}>
                 <div style={sectionLabelStyle}>
                   <span>{compassLayout.kind === "compass" ? "民情羅盤" : "民情形狀"}</span>
-                  <span>{reactionPatterns.length} patterns · {classifiedComments}/{compassDenominator} 已歸類</span>
+                  <span>{reactionPatterns.length} 個形狀 · {patternAssignmentCount} 次留言歸屬 · 可用 {compassDenominator} 則</span>
                 </div>
                 <style>{`
                   @media (prefers-reduced-motion: no-preference) {
@@ -2411,12 +2603,13 @@ export function TopicDetailView({
                       <line x1={22} y1={compassLayout.height / 2} x2={compassLayout.width - 22} y2={compassLayout.height / 2} stroke={tokens.color.line} strokeWidth={1} />
                       <text x={compassLayout.width / 2} y={11} textAnchor="middle" style={atlasAxisLabelStyle}>情緒共鳴</text>
                       <text x={compassLayout.width / 2} y={compassLayout.height - 6} textAnchor="middle" style={atlasAxisLabelStyle}>行動導向</text>
-                      <text x={20} y={compassLayout.height / 2 - 7} textAnchor="start" style={atlasAxisLabelStyle}>質疑・悲觀</text>
-                      <text x={compassLayout.width - 20} y={compassLayout.height / 2 - 7} textAnchor="end" style={atlasAxisLabelStyle}>支持・正面</text>
+                      <text x={20} y={compassLayout.height / 2 - 7} textAnchor="start" style={atlasAxisLabelStyle}>質疑</text>
+                      <text x={compassLayout.width - 20} y={compassLayout.height / 2 - 7} textAnchor="end" style={atlasAxisLabelStyle}>支持</text>
                     </g>
                   ) : null}
                   {compassLayout.bubbles.map((bubble, index) => {
-                    const fill = atlasPalette[index % atlasPalette.length]!;
+                    const paletteIndex = index % atlasPalette.length;
+                    const fill = atlasPalette[paletteIndex]!;
                     const bubbleLabel = bubble.label.length > 12 ? `${bubble.label.slice(0, 12)}…` : bubble.label;
                     return (
                       <g
@@ -2436,7 +2629,7 @@ export function TopicDetailView({
                       >
                         <circle cx={bubble.x} cy={bubble.y} r={bubble.r + 6} fill={fill} fillOpacity={0.22} />
                         <circle cx={bubble.x} cy={bubble.y} r={bubble.r} fill={fill} stroke={tokens.color.atlasEdge} strokeWidth={1.5} />
-                        <text x={bubble.x} y={bubble.y + 4} textAnchor="middle" style={{ fontFamily: tokens.font.mono, fontSize: 12, fontWeight: 800, fill: tokens.color.atlasPaperStrong }}>{bubble.nComments}</text>
+                        <text x={bubble.x} y={bubble.y + 4} textAnchor="middle" style={{ fontFamily: tokens.font.mono, fontSize: 12, fontWeight: 800, fill: atlasBubbleUsesDarkText(index, atlasPalette.length) ? tokens.color.ink : tokens.color.atlasPaperStrong }}>{bubble.nComments}</text>
                         <text x={bubble.x} y={bubble.y + bubble.r + 14} textAnchor="middle" style={{ fontFamily: tokens.font.sans, fontSize: 9.5, fontWeight: 700, fill: tokens.color.subInk }}>{bubbleLabel}</text>
                       </g>
                     );
@@ -2473,7 +2666,7 @@ export function TopicDetailView({
                       <span style={{ fontSize: 12, fontWeight: 750, color: tokens.color.ink, whiteSpace: "nowrap" }}>{pattern.label}</span>
                       <span style={{ flex: 1, minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", fontSize: 11, color: tokens.color.softInk }}>{pattern.dynamicImplication}</span>
                       <span style={{ ...textStyles.metric, color: tokens.color.subInk, whiteSpace: "nowrap" }}>
-                        {pattern.nComments}/{pattern.coverageDenominator}
+                        {pattern.nComments} 次歸屬
                         {pattern.counterRefs.length > 0 ? <span style={{ color: tokens.color.techniqueRose }}> · 反例 {pattern.counterRefs.length}</span> : null}
                       </span>
                     </button>
@@ -2484,7 +2677,7 @@ export function TopicDetailView({
 
             {auditEvidence.length > 0 ? (
               <section data-topic-audit-block="sources" style={{ display: "grid", gap: 8 }}>
-                <div style={sectionLabelStyle}><span>貼文 · 點入單帖</span><span>{postTotal}/{postTotal} 貼文 · {coverageNumbers.captured}/{coverageNumbers.usable} 留言</span></div>
+                <div style={sectionLabelStyle}><span>貼文 · 點入單帖</span><span>{postTotal} 篇貼文 · 擷取 {coverageNumbers.captured} · 可用 {coverageNumbers.usable} 則</span></div>
                 <div data-topic-audit-source-list-style="audit-report" style={{ display: "grid", gap: 2, borderRadius: tokens.radius.cardLg, background: tokens.color.elevated, boxShadow: tokens.shadow.topicCard, padding: 6 }}>
                   {audit.sourceRows.map((row) => (
                     <SourceRow
@@ -2509,12 +2702,42 @@ export function TopicDetailView({
 
             <section data-topic-audit-block="reliability" style={{ display: "grid", gap: 7, padding: "11px 13px", borderRadius: tokens.radius.card, background: tokens.color.queuedSoft, border: `1px solid ${tokens.color.queuedBorder}`, boxShadow: tokens.shadow.atlasCard, backdropFilter: tokens.effect.atlasBlur, WebkitBackdropFilter: tokens.effect.atlasBlur }}>
               <span style={{ ...textStyles.label, color: tokens.color.queued }}>缺席與可靠性</span>
-              <p style={{ margin: 0, ...textStyles.bodyTight, color: tokens.color.subInk }}>{audit.absenceProse || "沒有 P5 absence memo；先把這次讀法視為可用樣本內的形狀。"}</p>
+              <p style={{ margin: 0, ...textStyles.bodyTight, color: tokens.color.subInk }}>{audit.absenceProse || "尚無缺席分析；先把這次讀法視為可用樣本內的形狀。"}</p>
               {audit.caveats.map((caveat) => <span key={caveat} style={{ ...textStyles.caption, color: tokens.color.softInk }}>{caveat}</span>)}
             </section>
+              </>
+            ) : (
+              <section
+                data-signal-atlas-empty-state="true"
+                style={{
+                  display: "grid",
+                  gap: 10,
+                  minHeight: 180,
+                  alignContent: "center",
+                  justifyItems: "start",
+                  padding: "22px 20px",
+                  borderRadius: tokens.radius.cardLg,
+                  border: `1px solid ${tokens.color.atlasEdge}`,
+                  background: tokens.color.atlasPaper,
+                  boxShadow: tokens.shadow.atlasGlass,
+                  backdropFilter: tokens.effect.atlasBlur,
+                  WebkitBackdropFilter: tokens.effect.atlasBlur
+                }}
+              >
+                <span style={{ ...textStyles.label, color: tokens.color.signalDeep }}>Signal Atlas · Topic Audit · L0</span>
+                <h1 style={{ ...textStyles.h2, margin: 0, color: tokens.color.ink }}>{topic.name}</h1>
+                <p style={{ margin: 0, ...textStyles.bodyTight, maxWidth: 520, color: tokens.color.subInk }}>
+                  {auditSummaryValue.reportStatus === "running"
+                    ? "正在逐篇讀取來源；民情形狀、跨帖敘事與可靠性會在完成後原位展開。"
+                    : auditSummaryValue.reportStatus === "failed"
+                      ? "這次生成未完成；既有來源仍保留，可重新生成後在此更新。"
+                      : "生成議題審查後，民情形狀、跨帖敘事與來源會在此展開。"}
+                </p>
+              </section>
+            )}
+            </div>
           </div>
           </div>
-        ) : null}
 
         {auditEvidence.length === 0 ? topicSourceFeed : null}
 
@@ -3180,6 +3403,7 @@ export const topicDetailViewTestables = {
   BulkAnalyzeCta,
   SynthesisStackSection,
   TopicProcessingStatus,
+  atlasBubbleUsesDarkText,
   singleAnalyzeActionLabel,
   runSingleAnalyzeAction,
   pickPrimaryJudgmentPair

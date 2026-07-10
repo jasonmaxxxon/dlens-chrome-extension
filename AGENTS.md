@@ -88,6 +88,12 @@ git diff --check
 
 ## Mode contracts (current; history and rationale in the archive)
 
+- **Shared workspace shell**: Topic, Product, and PR Evidence use
+  `tokens.material.workspaceGlass` across the popup canvas, masthead, rail,
+  and main frame; Archive remains paper. Topic Audit keeps one stable Atlas
+  canvas through `none / running / ready / stale / failed`, preserves the last
+  Atlas during regeneration, and must not present memo-derived `Pn/6` as live
+  progress.
 - **Product** mode is insight / evidence / task-first: cited evidence,
   verdicts, experiment hints, agent task prompts. Backend clusters are support
   data, never the user-facing abstraction. Product rail contract:

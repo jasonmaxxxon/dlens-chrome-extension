@@ -12,6 +12,7 @@ import type { TopicAuditMemoBundle } from "../src/state/topic-audit-storage.ts";
 import type { SavedAnalysisSnapshot, SessionItem, Signal, SignalTagsRecord, Topic, TopicSignalReading, TopicSynthesis } from "../src/state/types.ts";
 import { TopicDetailView, topicDetailViewTestables } from "../src/ui/TopicDetailView.tsx";
 import { SignalDrawer } from "../src/ui/SignalDrawer.tsx";
+import { tokens } from "../src/ui/tokens.ts";
 import { pickPrimaryJudgmentPair } from "../src/ui/useTopicState.ts";
 import {
   buildTopicDetailViewModel,
@@ -203,6 +204,8 @@ const reactionAuditMemos: TopicAuditMemoBundle = {
           counterRefs: ["S1.R3"],
           representativeRefs: ["S1.R1"],
           counterRepresentativeRefs: ["S1.R3"],
+          valence: 0.55,
+          mode: 0.45,
           icon: "users"
         }]
       } as never,
@@ -279,6 +282,8 @@ const signalAtlasMemos: TopicAuditMemoBundle = {
           counterRefs: ["S1.R3"],
           representativeRefs: ["S1.R1"],
           counterRepresentativeRefs: ["S1.R3"],
+          valence: 0.55,
+          mode: 0.45,
           icon: "users"
         }]
       } as never,
@@ -348,7 +353,11 @@ type LegacyTopicDetailViewProps = BuildTopicDetailViewModelInput & {
   onGenerateSynthesis?: (topicId: string) => Promise<{ ok: boolean; error?: string }>;
   onGenerateSignalReading?: (signalId: string, topicId: string) => Promise<{ ok: boolean; error?: string }>;
   onSignalDeleted?: (signalId: string) => Promise<void>;
-  onRunAudit?: (topicId: string, fromStage?: TopicDetailCommand extends { fromStage?: infer Stage } ? Stage : never) => void;
+  onRunAudit?: (
+    topicId: string,
+    fromStage?: TopicDetailCommand extends { fromStage?: infer Stage } ? Stage : never,
+    force?: boolean
+  ) => void;
   onRunAuditP1?: (topicId: string, signalId: string) => void;
   onOpenAuditReport?: (topicId: string, stale?: boolean) => void;
 };
@@ -431,7 +440,7 @@ function topicDetailViewElement({
       case "deleteSignal":
         return onSignalDeleted?.(command.target.signalId);
       case "runAudit":
-        return onRunAudit?.(command.target.topicId, command.fromStage as never);
+        return onRunAudit?.(command.target.topicId, command.fromStage as never, command.force);
       case "runAuditP1":
         return onRunAuditP1?.(command.target.topicId, command.target.signalId);
       case "openAuditReport":
@@ -459,13 +468,16 @@ test("TopicDetailView mirrors the audit popup surface in topic mode without lega
 
   assert.match(html, /← 主題/);
   assert.match(html, /航班爭議/);
-  assert.match(html, /data-topic-audit-block="overview"/);
+  assert.doesNotMatch(html, /data-topic-audit-block="overview"/);
+  assert.match(html, /data-signal-atlas-canvas="true"/);
+  assert.match(html, /data-signal-atlas-empty-state="true"/);
+  assert.match(html, /data-topic-audit-status="none"/);
   assert.match(html, /data-topic-audit-block="sources"/);
   assert.match(html, /data-topic-source-row="signal-1"/);
   assert.match(html, /signal text item-1/);
   assert.doesNotMatch(html, /data-topic-signal-inventory="true"/);
   assert.doesNotMatch(html, /已採集貼文/);
-  assert.match(html, /主題與敘事尚未產出/);
+  assert.match(html, /尚未生成 Atlas/);
   assert.doesNotMatch(html, /Topic detail/);
   assert.doesNotMatch(html, /補充描述/);
   assert.doesNotMatch(html, /研究問題/);
@@ -545,6 +557,8 @@ test("TopicDetailView renders ready audit actions without the duplicate overview
   assert.doesNotMatch(html, /覆蓋 /);
   assert.equal((html.match(/<h1/g) ?? []).length, 1);
   assert.match(html, /data-signal-atlas-hero="true"/);
+  assert.match(html, /data-topic-audit-live="true"/);
+  assert.match(html, /Atlas 已更新/);
   assert.match(html, /data-topic-audit-block="lanes"/);
   assert.match(html, /客服補救失速/);
   assert.match(html, /data-narrative-lane-metric="lane-1"/);
@@ -556,7 +570,44 @@ test("TopicDetailView renders ready audit actions without the duplicate overview
   assert.match(html, /data-topic-audit-block="sources"/);
 });
 
-test("TopicDetailView keeps the audit overview header for non-ready states", () => {
+test("TopicDetailView keeps the current Atlas visible while regeneration runs", () => {
+  const html = renderToStaticMarkup(
+    topicDetailViewElement({
+      topic,
+      signals: signalAtlasEvidence.map((packet) => ({
+        ...signals[0]!,
+        id: packet.signalId,
+        itemId: packet.itemId,
+        capturedAt: packet.capturedAt
+      })),
+      pairs: [],
+      auditEvidence: signalAtlasEvidence,
+      auditMemos: signalAtlasMemos,
+      auditSummary: { reportStatus: "running", analyzedCount: 6, queuedCount: 0, runningStage: 2 },
+      auditValidatorFlags: [],
+      onBack: () => undefined,
+      onOpenPair: () => undefined,
+      onUpdateTopic: () => undefined
+    })
+  );
+
+  assert.match(html, /data-signal-atlas-canvas="true"/);
+  assert.match(html, /data-signal-atlas-hero="true"/);
+  assert.match(html, /data-topic-audit-status="running"/);
+  assert.match(html, /重新生成中/);
+  assert.match(html, /data-topic-audit-actions="running"/);
+  assert.match(html, /aria-disabled="true"/);
+  assert.match(html, /data-topic-audit-live="true"/);
+  assert.match(html, /目前保留上一版 Atlas；完成後會原位更新。/);
+  assert.match(html, /data-atlas-ledger-metric="已讀 342 · 可用 318"/);
+  assert.doesNotMatch(html, /data-signal-atlas-empty-state/);
+  assert.doesNotMatch(html, /data-topic-audit-block="overview"/);
+  assert.doesNotMatch(html, /data-topic-detail-surface="overview"/);
+  assert.doesNotMatch(html, /生成中 · P\d+\/6/);
+  assert.equal((html.match(/<h1/g) ?? []).length, 1);
+});
+
+test("TopicDetailView uses the same Atlas glass frame for the first audit run", () => {
   const html = renderToStaticMarkup(
     topicDetailViewElement({
       topic,
@@ -572,10 +623,272 @@ test("TopicDetailView keeps the audit overview header for non-ready states", () 
     })
   );
 
-  assert.match(html, /data-topic-audit-block="overview"/);
-  assert.match(html, /生成中 · P2\/6/);
-  assert.match(html, /議題/);
-  assert.match(html, /航班爭議/);
+  assert.match(html, /data-signal-atlas-canvas="true"/);
+  assert.doesNotMatch(html, /data-signal-atlas-canvas="true" aria-busy=/);
+  assert.match(html, /data-signal-atlas-content="true" aria-busy="true"/);
+  assert.match(html, /data-signal-atlas-empty-state="true"/);
+  assert.match(html, /data-topic-audit-status="running"/);
+  assert.match(html, /判讀生成中/);
+  assert.doesNotMatch(html, /data-topic-audit-block="overview"/);
+  assert.doesNotMatch(html, /data-topic-audit-placeholder="empty"/);
+  assert.doesNotMatch(html, /data-signal-atlas-hero/);
+  assert.doesNotMatch(html, /生成中 · P\d+\/6/);
+});
+
+test("TopicDetailView retains the previous Atlas for stale and failed states", () => {
+  const atlasSignals = signalAtlasEvidence.map((packet) => ({
+    ...signals[0]!,
+    id: packet.signalId,
+    itemId: packet.itemId,
+    capturedAt: packet.capturedAt
+  }));
+  const staleHtml = renderToStaticMarkup(
+    topicDetailViewElement({
+      topic,
+      signals: atlasSignals,
+      pairs: [],
+      auditEvidence: signalAtlasEvidence,
+      auditMemos: signalAtlasMemos,
+      auditSummary: { reportStatus: "stale", analyzedCount: 6, queuedCount: 0, staleDelta: { added: 1, removed: 0 } },
+      auditValidatorFlags: [],
+      onBack: () => undefined,
+      onOpenPair: () => undefined,
+      onUpdateTopic: () => undefined
+    })
+  );
+  const failedHtml = renderToStaticMarkup(
+    topicDetailViewElement({
+      topic,
+      signals: atlasSignals,
+      pairs: [],
+      auditEvidence: signalAtlasEvidence,
+      auditMemos: signalAtlasMemos,
+      auditSummary: { reportStatus: "failed", analyzedCount: 6, queuedCount: 0, failedStage: 4, failedReason: "provider timeout" },
+      auditValidatorFlags: [],
+      onBack: () => undefined,
+      onOpenPair: () => undefined,
+      onUpdateTopic: () => undefined
+    })
+  );
+
+  assert.match(staleHtml, /data-topic-audit-status="stale"/);
+  assert.match(staleHtml, /目前顯示上一版/);
+  assert.match(staleHtml, new RegExp(`data-topic-audit-status-title="true"[^>]*color:${tokens.color.ink.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}`));
+  assert.match(staleHtml, /data-signal-atlas-hero="true"/);
+  assert.match(staleHtml, /data-atlas-ledger-metric="已讀 342 · 可用 318"/);
+  assert.doesNotMatch(staleHtml, /data-signal-atlas-empty-state/);
+  assert.doesNotMatch(staleHtml, /data-topic-audit-block="overview"/);
+
+  assert.match(failedHtml, /data-topic-audit-status="failed"/);
+  assert.match(failedHtml, /provider timeout/);
+  assert.match(failedHtml, /上一版 Atlas 已保留；可重新生成。/);
+  assert.match(failedHtml, /data-signal-atlas-hero="true"/);
+  assert.match(failedHtml, /data-atlas-ledger-metric="已讀 342 · 可用 318"/);
+  assert.doesNotMatch(failedHtml, /data-signal-atlas-empty-state/);
+  assert.doesNotMatch(failedHtml, /data-topic-audit-block="overview"/);
+  assert.doesNotMatch(failedHtml, /從 P\d|失敗於 P\d/);
+});
+
+test("TopicDetailView keeps regenerate focus and dispatches one forced rerun while status changes", async () => {
+  const { JSDOM } = await import("jsdom");
+  const { createRoot } = await import("react-dom/client");
+  const { flushSync } = await import("react-dom");
+  const dom = new JSDOM("<div id=\"root\"></div>", { url: "https://dlens.test" });
+  const previous = {
+    window: globalThis.window,
+    document: globalThis.document,
+    HTMLElement: globalThis.HTMLElement,
+    HTMLButtonElement: globalThis.HTMLButtonElement,
+    Event: globalThis.Event,
+    MouseEvent: globalThis.MouseEvent
+  };
+  const calls: Array<{ topicId: string; fromStage?: unknown; force?: boolean }> = [];
+
+  Object.assign(globalThis, {
+    window: dom.window,
+    document: dom.window.document,
+    HTMLElement: dom.window.HTMLElement,
+    HTMLButtonElement: dom.window.HTMLButtonElement,
+    Event: dom.window.Event,
+    MouseEvent: dom.window.MouseEvent
+  });
+
+  const rootElement = dom.window.document.getElementById("root");
+  assert.ok(rootElement);
+  const root = createRoot(rootElement);
+  const atlasSignals = signalAtlasEvidence.map((packet) => ({
+    ...signals[0]!,
+    id: packet.signalId,
+    itemId: packet.itemId,
+    capturedAt: packet.capturedAt
+  }));
+  const renderStatus = (reportStatus: "ready" | "running") => topicDetailViewElement({
+    topic,
+    signals: atlasSignals,
+    pairs: [],
+    auditEvidence: signalAtlasEvidence,
+    auditMemos: signalAtlasMemos,
+    auditSummary: { reportStatus, analyzedCount: 6, queuedCount: 0, ...(reportStatus === "running" ? { runningStage: 2 } : {}) },
+    auditValidatorFlags: [],
+    onBack: () => undefined,
+    onOpenPair: () => undefined,
+    onUpdateTopic: () => undefined,
+    onRunAudit: (topicId, fromStage, force) => calls.push({ topicId, ...(fromStage ? { fromStage } : {}), ...(typeof force === "boolean" ? { force } : {}) })
+  });
+
+  try {
+    flushSync(() => root.render(renderStatus("ready")));
+    const regenerate = rootElement.querySelector<HTMLButtonElement>('[data-topic-audit-action="regenerate"]');
+    assert.ok(regenerate);
+    regenerate.focus();
+    regenerate.dispatchEvent(new dom.window.MouseEvent("click", { bubbles: true }));
+    assert.deepEqual(calls, [{ topicId: "topic-1", force: true }]);
+
+    flushSync(() => root.render(renderStatus("running")));
+    const runningRegenerate = rootElement.querySelector<HTMLButtonElement>('[data-topic-audit-action="regenerate"]');
+    assert.equal(runningRegenerate, regenerate, "the same action node must survive the ready-to-running rerender");
+    assert.equal(dom.window.document.activeElement, regenerate);
+    assert.equal(runningRegenerate?.getAttribute("aria-disabled"), "true");
+    runningRegenerate?.dispatchEvent(new dom.window.MouseEvent("click", { bubbles: true }));
+    assert.equal(calls.length, 1, "the in-flight action must not queue a second run");
+  } finally {
+    flushSync(() => root.unmount());
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    Object.assign(globalThis, previous);
+  }
+});
+
+test("TopicDetailView forces a clean rerun after failure instead of pretending to resume a stale stage", async () => {
+  const { JSDOM } = await import("jsdom");
+  const { createRoot } = await import("react-dom/client");
+  const { flushSync } = await import("react-dom");
+  const dom = new JSDOM("<div id=\"root\"></div>", { url: "https://dlens.test" });
+  const previous = {
+    window: globalThis.window,
+    document: globalThis.document,
+    HTMLElement: globalThis.HTMLElement,
+    HTMLButtonElement: globalThis.HTMLButtonElement,
+    Event: globalThis.Event,
+    MouseEvent: globalThis.MouseEvent
+  };
+  const calls: Array<{ topicId: string; fromStage?: unknown; force?: boolean }> = [];
+  Object.assign(globalThis, {
+    window: dom.window,
+    document: dom.window.document,
+    HTMLElement: dom.window.HTMLElement,
+    HTMLButtonElement: dom.window.HTMLButtonElement,
+    Event: dom.window.Event,
+    MouseEvent: dom.window.MouseEvent
+  });
+  const rootElement = dom.window.document.getElementById("root");
+  assert.ok(rootElement);
+  const root = createRoot(rootElement);
+
+  try {
+    flushSync(() => root.render(topicDetailViewElement({
+      topic,
+      signals: signalAtlasEvidence.map((packet) => ({ ...signals[0]!, id: packet.signalId, itemId: packet.itemId, capturedAt: packet.capturedAt })),
+      pairs: [],
+      auditEvidence: signalAtlasEvidence,
+      auditMemos: signalAtlasMemos,
+      auditSummary: { reportStatus: "failed", analyzedCount: 6, queuedCount: 0, failedStage: 4, failedReason: "provider timeout" },
+      auditValidatorFlags: [],
+      onBack: () => undefined,
+      onOpenPair: () => undefined,
+      onUpdateTopic: () => undefined,
+      onRunAudit: (topicId, fromStage, force) => calls.push({ topicId, ...(fromStage ? { fromStage } : {}), ...(typeof force === "boolean" ? { force } : {}) })
+    })));
+    const regenerate = rootElement.querySelector<HTMLButtonElement>('[data-topic-audit-action="regenerate"]');
+    assert.ok(regenerate);
+    regenerate.dispatchEvent(new dom.window.MouseEvent("click", { bubbles: true }));
+    assert.deepEqual(calls, [{ topicId: "topic-1", force: true }]);
+  } finally {
+    flushSync(() => root.unmount());
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    Object.assign(globalThis, previous);
+  }
+});
+
+test("TopicDetailView keeps first-run focus while an empty Atlas starts generating", async () => {
+  const { JSDOM } = await import("jsdom");
+  const { createRoot } = await import("react-dom/client");
+  const { flushSync } = await import("react-dom");
+  const dom = new JSDOM("<div id=\"root\"></div>", { url: "https://dlens.test" });
+  const previous = {
+    window: globalThis.window,
+    document: globalThis.document,
+    HTMLElement: globalThis.HTMLElement,
+    HTMLButtonElement: globalThis.HTMLButtonElement,
+    Event: globalThis.Event,
+    MouseEvent: globalThis.MouseEvent
+  };
+  const calls: Array<{ topicId: string; force?: boolean }> = [];
+  Object.assign(globalThis, {
+    window: dom.window,
+    document: dom.window.document,
+    HTMLElement: dom.window.HTMLElement,
+    HTMLButtonElement: dom.window.HTMLButtonElement,
+    Event: dom.window.Event,
+    MouseEvent: dom.window.MouseEvent
+  });
+  const rootElement = dom.window.document.getElementById("root");
+  assert.ok(rootElement);
+  const root = createRoot(rootElement);
+  // a crawled-ready signal makes canRunAudit true while the Atlas itself stays empty
+  const readyItem = buildSessionItem("item-1", "succeeded");
+  readyItem.latestCapture = {
+    analysis: {
+      id: "analysis-1",
+      capture_id: "capture-item-1",
+      status: "succeeded",
+      stage: "final",
+      analysis_version: "v1",
+      source_comment_count: 5,
+      clusters: [],
+      evidence: [],
+      metrics: {},
+      generated_at: "2026-05-01T00:00:00.000Z",
+      last_error: null,
+      created_at: "2026-05-01T00:00:00.000Z",
+      updated_at: "2026-05-01T00:00:00.000Z"
+    }
+  } as SessionItem["latestCapture"];
+  const renderStatus = (reportStatus: "none" | "running") => topicDetailViewElement({
+    topic,
+    signals,
+    pairs: [],
+    sessionItems: [readyItem],
+    auditEvidence: [],
+    auditMemos: null,
+    auditSummary: { reportStatus, analyzedCount: reportStatus === "running" ? 1 : 0, queuedCount: 0, ...(reportStatus === "running" ? { runningStage: 1 } : {}) },
+    auditValidatorFlags: [],
+    onBack: () => undefined,
+    onOpenPair: () => undefined,
+    onUpdateTopic: () => undefined,
+    onRunAudit: (topicId, _fromStage, force) => calls.push({ topicId, ...(typeof force === "boolean" ? { force } : {}) })
+  });
+
+  try {
+    flushSync(() => root.render(renderStatus("none")));
+    const generate = rootElement.querySelector<HTMLButtonElement>('[data-topic-audit-action="generate"]');
+    assert.ok(generate);
+    generate.focus();
+    generate.dispatchEvent(new dom.window.MouseEvent("click", { bubbles: true }));
+    assert.deepEqual(calls, [{ topicId: "topic-1" }]);
+
+    flushSync(() => root.render(renderStatus("running")));
+    const runningGenerate = rootElement.querySelector<HTMLButtonElement>('[data-topic-audit-action="generate"]');
+    assert.equal(runningGenerate, generate);
+    assert.equal(dom.window.document.activeElement, generate);
+    assert.equal(runningGenerate?.getAttribute("aria-disabled"), "true");
+    assert.match(runningGenerate?.textContent ?? "", /生成中/);
+    runningGenerate?.dispatchEvent(new dom.window.MouseEvent("click", { bubbles: true }));
+    assert.equal(calls.length, 1);
+  } finally {
+    flushSync(() => root.unmount());
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    Object.assign(globalThis, previous);
+  }
 });
 
 test("TopicDetailView renders the Signal Atlas L0 spine without raw audience comments", () => {
@@ -613,11 +926,18 @@ test("TopicDetailView renders the Signal Atlas L0 spine without raw audience com
   assert.doesNotMatch(html, /data-topic-audit-block="reaction-patterns"/);
 
   assert.match(html, /342/);
-  assert.match(html, /\/318 可用留言/);
-  assert.match(html, /1\/6 形狀/);
-  assert.match(html, /1\/6 跨帖敘事/);
-  assert.match(html, /118\/342/);
+  assert.match(html, /data-atlas-ledger-metric="已讀 342 · 可用 318"/);
+  assert.match(html, /1 個形狀 · 118 次留言歸屬 · 可用 318 則/);
+  assert.match(html, /6 篇貼文 · 擷取 342 · 可用 318 則/);
+  assert.match(html, /data-atlas-ledger-metric="1 個形狀 · 6 篇來源"/);
+  assert.match(html, /data-atlas-ledger-metric="1 條跨帖敘事 · 6 篇來源"/);
+  assert.match(html, /118 次歸屬/);
+  assert.match(html, /此篇 2 次證據引用歸屬，按形狀分佈/);
+  assert.doesNotMatch(html, /data-atlas-ledger-metric="342\/318|118\/342|已歸類留言|反應構成/);
   assert.match(html, /反例 1/);
+  assert.match(html, />質疑</);
+  assert.match(html, />支持</);
+  assert.doesNotMatch(html, /質疑・悲觀|支持・正面/);
   assert.match(html, /data-evidence-ref-chip="S1.R1"/);
   assert.match(html, /跨 2\/6 篇/);
   assert.match(html, /data-narrative-strength-cell="lane-cross"/);
@@ -1024,7 +1344,7 @@ test("TopicDetailView uses audit evidence as the denominator when topic signal p
   );
 
   assert.match(html, /data-topic-audit-actions="ready"/);
-  assert.match(html, /data-atlas-ledger-metric="15\/15 可用留言"/);
+  assert.match(html, /data-atlas-ledger-metric="已讀 15 · 可用 15"/);
   assert.equal((html.match(/data-source-row="S\d+"/g) ?? []).length, 3);
   assert.doesNotMatch(html, /P1 判讀/);
   assert.doesNotMatch(html, /覆蓋 /);
@@ -1070,7 +1390,7 @@ test("TopicDetailView ignores non-topic-scoped signals when audit sources are pr
     })
   );
 
-  assert.match(html, /data-atlas-ledger-metric="75\/75 可用留言"/);
+  assert.match(html, /data-atlas-ledger-metric="已讀 75 · 可用 75"/);
   assert.equal((html.match(/data-source-row="S\d+"/g) ?? []).length, 15);
   assert.doesNotMatch(html, /P1 判讀/);
   assert.doesNotMatch(html, /覆蓋 /);
@@ -1125,7 +1445,7 @@ test("TopicDetailView keeps the B-14 audit count at 15/15 when a topic also has 
     })
   );
 
-  assert.match(html, /data-atlas-ledger-metric="75\/75 可用留言"/);
+  assert.match(html, /data-atlas-ledger-metric="已讀 75 · 可用 75"/);
   assert.doesNotMatch(html, /P1 判讀/);
   assert.doesNotMatch(html, /覆蓋 /);
   assert.equal((html.match(/data-source-row="S\d+"/g) ?? []).length, 15);
@@ -1171,7 +1491,7 @@ test("TopicDetailView derives audit header, coverage, and remaining source rows 
     })
   );
 
-  assert.match(html, /data-atlas-ledger-metric="20\/20 可用留言"/);
+  assert.match(html, /data-atlas-ledger-metric="已讀 20 · 可用 20"/);
   assert.doesNotMatch(html, /P1 判讀/);
   assert.doesNotMatch(html, /覆蓋 /);
   assert.equal((html.match(/data-source-row="S\d+"/g) ?? []).length, 4);
@@ -1184,7 +1504,7 @@ test("TopicDetailView derives audit header, coverage, and remaining source rows 
   assert.doesNotMatch(html, /覆蓋 5\/12/);
 });
 
-test("TopicDetailView failed audit state shows resume copy and failed reason", () => {
+test("TopicDetailView failed audit state stays in the Atlas frame and shows the reason", () => {
   const html = renderToStaticMarkup(
     topicDetailViewElement({
       topic,
@@ -1200,10 +1520,14 @@ test("TopicDetailView failed audit state shows resume copy and failed reason", (
     })
   );
 
-  assert.match(html, /報告 失敗/);
-  assert.match(html, /從 P3 續跑/);
+  assert.match(html, /data-signal-atlas-canvas="true"/);
+  assert.match(html, /data-signal-atlas-empty-state="true"/);
+  assert.match(html, /data-topic-audit-status="failed"/);
+  assert.match(html, /生成未完成/);
+  assert.match(html, /重新生成/);
   assert.match(html, /provider timeout/);
-  assert.match(html, /主題與敘事尚未產出/);
+  assert.doesNotMatch(html, /data-topic-audit-block="overview"/);
+  assert.doesNotMatch(html, /從 P3 續跑|失敗於 P3/);
 });
 
 test("TopicDetailView exposes the explicit Topic load state", () => {
@@ -1417,6 +1741,20 @@ test("TopicSynthesisCard Stack layout observation section expands when open", ()
   assert.match(openHtml, /aria-expanded="true"/);
   assert.match(openHtml, /data-testid="synthesis-observations-body"/);
   assert.match(openHtml, /旅客把流程缺口讀成制度責任/);
+});
+
+test("Signal Atlas bubble labels follow the wrapped palette contrast", () => {
+  const usesDarkText = (topicDetailViewTestables as typeof topicDetailViewTestables & {
+    atlasBubbleUsesDarkText: (index: number, paletteSize: number) => boolean;
+  }).atlasBubbleUsesDarkText;
+
+  assert.equal(usesDarkText(0, 5), true);
+  assert.equal(usesDarkText(2, 5), true);
+  assert.equal(usesDarkText(5, 5), true);
+  assert.equal(usesDarkText(7, 5), true);
+  assert.equal(usesDarkText(1, 5), false);
+  assert.equal(usesDarkText(6, 5), false);
+  assert.equal(usesDarkText(0, 0), false);
 });
 
 test("TopicDetailView empty pairs folds the compare-results section away", () => {

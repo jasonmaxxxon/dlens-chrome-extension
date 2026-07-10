@@ -162,6 +162,17 @@ test("WorkspaceSurface clips inner content so rounded cards stay rounded", () =>
 
   assert.match(html, /data-workspace-surface="content"/);
   assert.match(html, /overflow:hidden/);
+  assert.match(styleFromTag(findTagWithAttribute(html, `data-workspace-surface="content"`)), new RegExp(`border:1px solid ${tokens.color.cardEdge.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}`));
+});
+
+test("WorkspaceSurface paper tones retain the shared card edge", () => {
+  for (const tone of ["utility", "focused"] as const) {
+    const html = renderToStaticMarkup(
+      React.createElement(WorkspaceSurface, { tone }, React.createElement("div", null, tone))
+    );
+    const style = styleFromTag(findTagWithAttribute(html, `data-workspace-surface="${tone}"`));
+    assert.match(style, new RegExp(`border:1px solid ${tokens.color.cardEdge.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}`));
+  }
 });
 
 test("scan row primitive stays flat and line-separated", () => {
@@ -382,6 +393,54 @@ test("WorkspaceShell WorkspaceSwitcher active tabs use each mode accent", () => 
   assert.ok(activePrTab);
   assert.match(activeTopicTab, new RegExp(`color:${tokens.color.cyan};background:${tokens.color.cyan}14;border:1px solid ${tokens.color.cyan}40`));
   assert.match(activePrTab, new RegExp(`color:${tokens.color.techniqueRose};background:${tokens.color.techniqueRose}14;border:1px solid ${tokens.color.techniqueRose}40`));
+});
+
+test("WorkspaceShell exposes one shared glass material across masthead, rail, and main frame", () => {
+  const glass = (tokens as unknown as {
+    material?: { workspaceGlass?: { panel?: string; blur?: string } };
+  }).material?.workspaceGlass;
+  assert.ok(glass?.panel, "workspace glass panel token must exist");
+  assert.ok(glass?.blur, "workspace glass blur token must exist");
+
+  const html = renderToStaticMarkup(
+    React.createElement(WorkspaceShell as unknown as React.ComponentType<Record<string, unknown>>, {
+      mode: "topics",
+      folderMode: "topic",
+      material: "glass",
+      header: React.createElement("div", null, "Topic rail"),
+      children: React.createElement("div", null, "Topic body")
+    })
+  );
+
+  assert.match(html, /data-workspace-material="glass"/);
+  assert.match(html, /data-shell-masthead-material="glass"/);
+  assert.match(html, /data-shell-rail-material="glass"/);
+  assert.match(html, /data-shell-main-material="glass"/);
+  assert.match(styleFromTag(findTagWithAttribute(html, `data-shell-masthead-material="glass"`)), /backdrop-filter:/);
+  const mainStyle = styleFromTag(findTagWithAttribute(html, `data-shell-main-material="glass"`));
+  assert.ok(mainStyle.includes(glass.panel), "main frame must keep the shared glass panel colour");
+  assert.doesNotMatch(mainStyle, /backdrop-filter:/, "main must not create a containing block for fixed drawers");
+});
+
+test("WorkspaceSurface glass tone uses the shared material instead of the utility paper gradient", () => {
+  const glass = (tokens as unknown as {
+    material?: { workspaceGlass?: { panel?: string; blur?: string } };
+  }).material?.workspaceGlass;
+  assert.ok(glass?.panel, "workspace glass panel token must exist");
+  assert.ok(glass.blur, "workspace glass blur token must exist");
+
+  const html = renderToStaticMarkup(
+    React.createElement(WorkspaceSurface as unknown as React.ComponentType<Record<string, unknown>>, {
+      tone: "glass",
+      children: React.createElement("div", null, "Glass content")
+    })
+  );
+
+  const style = styleFromTag(findTagWithAttribute(html, `data-workspace-surface="glass"`));
+  assert.match(style, /backdrop-filter:/);
+  assert.ok(style.includes(glass.panel), "glass surface must use the shared panel material");
+  assert.ok(style.includes(glass.blur), "glass surface must use the shared blur material");
+  assert.doesNotMatch(style, new RegExp(tokens.color.utilitySurface.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")));
 });
 
 test("WorkspaceShell marks a pending workspace switch immediately", () => {

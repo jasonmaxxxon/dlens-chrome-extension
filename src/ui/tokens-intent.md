@@ -49,8 +49,9 @@ happens to contain text. Every visual decision below serves that sentence.
   not by shouting pigment.
 - Status washes and failed border roles cover low-emphasis status panels and
   danger edges without view-local opacity choices.
-- `glassBg` / `glassBorder` are legacy aliases and `effect.glassBlur` is
-  intentionally disabled. Do not revive glassmorphism; the paper is opaque.
+- `glassBg` / `glassBorder` are legacy aliases and `effect.glassBlur` remains
+  disabled for ordinary paper cards. Shared shell glass uses the single
+  `material.workspaceGlass` family instead of reviving component-local blur.
 
 ### type (`textStyles`)
 - **Weight carries hierarchy, size stays close.** 400 body, 500 field labels,
@@ -95,18 +96,20 @@ happens to contain text. Every visual decision below serves that sentence.
   parent. Per-child margins are how vertical rhythm died before — the Result
   spacing contract exists because of it.
 
-### Atlas surface（2026-07-09 修憲；同日玻璃修正）
-- Signal Atlas is one dense Audit evidence surface, not a new workspace grammar.
+### Shared glass shell + Atlas surface（2026-07-10 修憲）
+- Variant D glass is now the shared Topic / Product / PR shell grammar. The
+  popup canvas owns the aura field; masthead, rail, main frame, marquee heroes,
+  one detail drawer, and hover popovers may use `material.workspaceGlass`.
+- Signal Atlas remains one dense Audit evidence surface inside that grammar.
 - Its exceptions earn space only when they expose real denominators and real
   quotes, not decoration or empty emphasis.
 - `color.signal` highlights evidence edges; it does not replace mode accents.
-- Glass needs all three together: near-white warm ground (`color.atlasCanvas`),
-  colour washes BEHIND the panels (`color.atlasAura*` — blur needs something to
-  diffuse), and large-radius negative-spread low-opacity shadows
-  (`shadow.atlasGlass` / `atlasCard`). Hard mid-distance shadows and a paper
-  ground behind glass were the two 2026-07-09 faults — never reintroduce.
-- `effect.atlasBlur` + `color.atlasPaper` stay scoped to the atlas canvas, one
-  detail drawer, and hover popovers; outside the canvas is opaque paper.
+- Glass needs all three together: a near-white ground, colour washes behind the
+  panels, and large-radius negative-spread low-opacity shadows. Existing
+  `color.atlas*`, `shadow.atlas*`, and `effect.atlasBlur` names remain
+  compatibility aliases while callers move to `material.workspaceGlass`.
+- Dense lists, tables, evidence rows, form controls, and long reading cards stay
+  opaque paper. This prevents glass-on-glass layering and protects contrast.
 - 民情羅盤 is L0's protagonist: bubbles positioned by LLM-read valence/mode,
   sized by comment count. Pattern count floats with the actual reading — never
   force four quadrant clusters; same-quadrant crowding is a valid outcome. If
@@ -135,11 +138,9 @@ happens to contain text. Every visual decision below serves that sentence.
 4. **Traffic-light alarm colors** — saturated red/green/yellow status.
 5. **English placeholder copy** in Chinese-first product surfaces.
 6. **Pure white cards / pure black text / cold grays** — they break the paper.
-7. **Glassmorphism revival** — translucency stacks remain banned by default.
-   Atlas glass is allowed only through `effect.atlasBlur` + `color.atlasPaper`
-   on the atlas hero, the single detail drawer, and hover popovers. Reading
-   cards and list rows stay opaque paper; shared `effect.glassBlur` stays
-   disabled.
+7. **Unscoped glassmorphism** — translucency stacks remain banned by default.
+   Shared shell glass comes only from `material.workspaceGlass`; reading cards
+   and list rows stay opaque paper, and `effect.glassBlur` stays disabled.
 8. **All-caps chrome outside `textStyles.label`** — locked since the Compare
    label-casing decision.
 

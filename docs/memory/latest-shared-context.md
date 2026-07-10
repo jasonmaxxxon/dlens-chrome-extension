@@ -6,7 +6,7 @@ type: project
 
 # DLens Extension Shared Context
 
-Last updated: 2026-07-09
+Last updated: 2026-07-10
 
 This file is the current shared context. Keep this filename stable and update
 the contents in place whenever an automated or manual handoff refresh makes it
@@ -56,6 +56,7 @@ This note is the high-signal shared memory for Codex and Claude when working on 
 - 0.3.16 is a Topic Audit producer release: `CommentShardReading` folds into the existing memo bundle, P0.5 shard reading runs through the existing LLM seam before P1, P2/P4/P5 consume shard distillate + cited quotes instead of full raw packets, and P4 now produces structured `reactionCoverage` / `reactionPatterns` for the already-shipped 群眾反應 UI.
 - 0.3.18 is a Topic Audit reader release: Signal Atlas L0 replaces the expanded audit dump with a glass hero, denominator-backed KPI ledger, reaction atlas, cross-post narrative strength, counts-only source footer, one unified right-side drawer, and L3 full-list expansion backed by persisted shard readings when possible.
 - 0.3.19 is a Signal Atlas L0 UI fix: ready-state Topic Audit now removes the duplicate overview header while keeping only `開啟審查報告 ↗ 新分頁` and `重新生成`; the audit detail drawer is frame-contained in the in-page extension shell instead of sizing against the Threads viewport.
+- 0.3.22 makes the Variant-D-derived glass material the shared Topic/Product/PR workspace shell across popup canvas, masthead, rail, and main frame. Topic Audit now keeps the last Atlas mounted through running/stale/failed transitions, uses the same glass frame for the first run, removes memo-derived `Pn/6` progress from detail and list surfaces, and names captured/read/usable counts separately from overlapping pattern assignments.
 - `VIEW` remains 🟢, not 🟩. The four marquee surfaces are DOM-test-locked; row-level primitive adoption / large-view LOC reduction remains a follow-up `refactor(ui)` track.
 
 ## Layout Preference State As Of 2026-05-14
@@ -89,12 +90,12 @@ This note is the high-signal shared memory for Codex and Claude when working on 
 - TRACE full-live verification is locked by `docs/qa/assets/2026-06-13/full-live-backend-llm/live-trace-full-hover-save-queue-analysis.json`; `npm run qa:harness:fixture` requires hover.detected → ui.ready, including backend.request and llm.call phases.
 - Verified build artifact was copied to `output/chrome-mv3`; the source checkout there may still be dirty.
 
-## Version Rule As Of 2026-07-07
+## Version Rule As Of 2026-07-10
 
-- Current source version in the active worktree: `0.3.19`.
-- Latest local verification on 2026-07-09: `npm run typecheck`, `npm run boundary:guard`, `npm run storage:seam-guard`, `npx tsx --test tests/*.test.ts tests/*.test.tsx` (`994 passed / 5 skipped`, 999 tests), `npm run build`, and `git diff --check` passed.
-- Built `output/chrome-mv3/manifest.json` reports `version: "0.3.19"` after the 2026-07-09 build.
-- Current engineering branch: `codex/atlas-l0-polish`.
+- Current source version in the active worktree: `0.3.22`.
+- Latest local verification on 2026-07-10: `npm run typecheck`, `npm run boundary:guard`, `npm run storage:seam-guard`, `npx tsx --test tests/*.test.ts tests/*.test.tsx` (`1006 passed / 5 skipped`, 1011 tests), `npm run build`, and `git diff --check` passed.
+- Built `output/chrome-mv3/manifest.json` reports `version: "0.3.22"` after the 2026-07-10 build.
+- Current engineering branch: `main`.
 - `docs/ENGINEERING_PLAN.md` §2 N1-N5 is complete: React ErrorBoundary, Settings storage usage, `mutateSnapshot` seam, behavioral storage contracts, and code-review checklist.
 - §3 remains a deferred trigger pool, not a backlog drain queue.
 - Motion Layer v2 is pure CSS/token-based and shared across modes; content-script CSS is scoped under `data-dlens-control="true"` and respects `prefers-reduced-motion`.

@@ -135,10 +135,10 @@ test("TopicsListView renders the five audit states with distinct status copy", (
   assert.match(html, /padding:10px 4px 0/);
   assert.match(html, /報告 已生成/);
   assert.match(html, /報告 生成中/);
-  assert.match(html, /P3/);
+  assert.doesNotMatch(html, /P3/);
   assert.match(html, /報告 未生成/);
   assert.match(html, /報告 失敗/);
-  assert.match(html, /P4/);
+  assert.doesNotMatch(html, /P4/);
   assert.match(html, /報告 過期/);
   assert.match(html, /\+2/);
   assert.match(html, /待處理/);
