@@ -2644,6 +2644,9 @@ export function TopicDetailView({
                     from { opacity: 0.72; }
                     to { opacity: 1; }
                   }
+                  [data-signal-atlas-dot] { outline: none; }
+                  [data-signal-atlas-dot] .dlens-atlas-focus-ring { opacity: 0; transition: opacity ${tokens.motion.duration.fast} ${tokens.motion.easing.standard}; }
+                  [data-signal-atlas-dot]:focus-visible .dlens-atlas-focus-ring { opacity: 1; }
                 `}</style>
                 <svg
                   viewBox={`0 0 ${compassLayout.width} ${compassLayout.height}`}
@@ -2687,6 +2690,8 @@ export function TopicDetailView({
                         <circle cx={bubble.x} cy={bubble.y} r={bubble.r} fill={fill} stroke={tokens.color.atlasEdge} strokeWidth={1.5} />
                         <text x={bubble.x} y={bubble.y + 4} textAnchor="middle" style={{ fontFamily: tokens.font.mono, fontSize: 12, fontWeight: 800, fill: atlasBubbleUsesDarkText(index, atlasPalette.length) ? tokens.color.ink : tokens.color.atlasPaperStrong }}>{bubble.nComments}</text>
                         <text x={bubble.x} y={bubble.y + bubble.r + 14} textAnchor="middle" style={{ fontFamily: tokens.font.sans, fontSize: 9.5, fontWeight: 700, fill: tokens.color.subInk }}>{bubbleLabel}</text>
+                        <circle className="dlens-atlas-focus-ring" cx={bubble.x} cy={bubble.y} r={bubble.r + 3} fill="none" stroke={tokens.color.signalDeep} strokeWidth={2} />
+                        <circle className="dlens-atlas-focus-ring" cx={bubble.x} cy={bubble.y} r={bubble.r + 5} fill="none" stroke={tokens.color.atlasPaperStrong} strokeWidth={1} />
                       </g>
                     );
                   })}
