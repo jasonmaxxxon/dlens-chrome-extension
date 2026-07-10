@@ -2504,7 +2504,7 @@ export function TopicDetailView({
 
         <div
           data-signal-atlas-canvas="true"
-          style={{ position: "relative", overflow: "hidden", borderRadius: tokens.radius.cardLg, background: tokens.color.atlasCanvas, padding: "12px 12px 24px" }}
+          style={{ position: "relative", overflow: "hidden", borderRadius: tokens.radius.cardLg, background: tokens.color.atlasCanvas, padding: "12px 12px 48px" }}
         >
             <style>{`
               @media (prefers-reduced-motion: no-preference) {
