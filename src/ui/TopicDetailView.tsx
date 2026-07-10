@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState, type CSSProperties, type ReactNode } from "react";
+import { useEffect, useLayoutEffect, useMemo, useRef, useState, type CSSProperties, type ReactNode } from "react";
 
 import {
   TOPIC_SYNTHESIS_MIN_ANALYZED,
@@ -305,6 +305,61 @@ function AuditDetailDrawer({
   const kind = activeDetail?.kind ?? "none";
   const title = reactionPattern?.label ?? narrativeLane?.label ?? (sourcePacket ? `來源 ${sourcePacket.shortCode}` : "詳情");
   const reactionNumberRow = reactionPattern ? reactionPatternNumberRow(reactionPattern, fragmentLookup) : "";
+  const panelRef = useRef<HTMLElement | null>(null);
+  const [sightline, setSightline] = useState<{ top: number; height: number } | null>(null);
+  useLayoutEffect(() => {
+    if (!open) {
+      setSightline(null);
+      return;
+    }
+    const panel = panelRef.current;
+    if (!panel) return;
+    // position:fixed resolves against the transformed in-page shell (0.3.19 frame
+    // containment), so "top: 72" anchors to the tall frame's top — off-screen once the
+    // host page has scrolled. Probe where the frame sits in the real viewport and
+    // re-anchor the panel to the user's current sightline.
+    const probeFrame = () => {
+      const previous = { top: panel.style.top, bottom: panel.style.bottom, height: panel.style.height };
+      panel.style.top = "0px";
+      panel.style.bottom = "auto";
+      panel.style.height = "0px";
+      const frameTop = panel.getBoundingClientRect().top;
+      panel.style.top = "auto";
+      panel.style.bottom = "0px";
+      const frameBottom = panel.getBoundingClientRect().bottom;
+      panel.style.top = previous.top;
+      panel.style.bottom = previous.bottom;
+      panel.style.height = previous.height;
+      return { frameTop, frameBottom };
+    };
+    let frame = probeFrame();
+    let baseScrollY = window.scrollY;
+    const align = () => {
+      const scrollDelta = window.scrollY - baseScrollY;
+      const frameTop = frame.frameTop - scrollDelta;
+      const frameBottom = frame.frameBottom - scrollDelta;
+      const margin = 18;
+      const viewTop = Math.max(margin, frameTop + 12);
+      const viewBottom = Math.min(window.innerHeight - margin, frameBottom - 12);
+      if (viewBottom - viewTop < 240) {
+        setSightline(null);
+        return;
+      }
+      setSightline({ top: viewTop - frameTop, height: viewBottom - viewTop });
+    };
+    const reprobe = () => {
+      frame = probeFrame();
+      baseScrollY = window.scrollY;
+      align();
+    };
+    align();
+    window.addEventListener("scroll", align, { passive: true });
+    window.addEventListener("resize", reprobe);
+    return () => {
+      window.removeEventListener("scroll", align);
+      window.removeEventListener("resize", reprobe);
+    };
+  }, [open]);
   return (
     <>
       <style>{`
@@ -328,6 +383,7 @@ function AuditDetailDrawer({
         }}
       />
       <aside
+        ref={(node) => { panelRef.current = node; }}
         data-audit-detail-drawer="true"
         data-open={open ? "true" : "false"}
         data-detail-kind={kind}
@@ -336,9 +392,9 @@ function AuditDetailDrawer({
         aria-hidden={open ? "false" : "true"}
         style={{
           position: "fixed",
-          top: 72,
+          top: sightline ? sightline.top : 72,
           right: 18,
-          bottom: 18,
+          ...(sightline ? { height: sightline.height } : { bottom: 18 }),
           width: 390,
           maxWidth: "calc(100% - 36px)",
           zIndex: 2147483640,
@@ -2700,10 +2756,39 @@ export function TopicDetailView({
               </section>
             ) : null}
 
-            <section data-topic-audit-block="reliability" style={{ display: "grid", gap: 7, padding: "11px 13px", borderRadius: tokens.radius.card, background: tokens.color.queuedSoft, border: `1px solid ${tokens.color.queuedBorder}`, boxShadow: tokens.shadow.atlasCard, backdropFilter: tokens.effect.atlasBlur, WebkitBackdropFilter: tokens.effect.atlasBlur }}>
-              <span style={{ ...textStyles.label, color: tokens.color.queued }}>缺席與可靠性</span>
-              <p style={{ margin: 0, ...textStyles.bodyTight, color: tokens.color.subInk }}>{audit.absenceProse || "尚無缺席分析；先把這次讀法視為可用樣本內的形狀。"}</p>
-              {audit.caveats.map((caveat) => <span key={caveat} style={{ ...textStyles.caption, color: tokens.color.softInk }}>{caveat}</span>)}
+            <section
+              data-topic-audit-block="reliability"
+              style={{
+                display: "grid",
+                gap: 10,
+                padding: "14px 16px 13px",
+                borderRadius: tokens.radius.cardLg,
+                background: tokens.color.atlasWarnPaper,
+                border: `1px solid ${tokens.color.queuedBorder}`,
+                boxShadow: tokens.shadow.atlasCard,
+                backdropFilter: tokens.effect.atlasBlur,
+                WebkitBackdropFilter: tokens.effect.atlasBlur
+              }}
+            >
+              <span style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", gap: 10 }}>
+                <span style={{ ...textStyles.label, color: tokens.color.queued }}>缺席與可靠性</span>
+                {audit.caveats.length > 0 ? (
+                  <span style={{ ...textStyles.metric, color: tokens.color.queued }}>{audit.caveats.length} 項限制</span>
+                ) : null}
+              </span>
+              <p style={{ margin: 0, fontFamily: `${tokens.font.serifCjk}, ${tokens.font.serif}`, fontSize: 14, lineHeight: 1.7, color: tokens.color.ink }}>
+                {audit.absenceProse || "尚無缺席分析；先把這次讀法視為可用樣本內的形狀。"}
+              </p>
+              {audit.caveats.length > 0 ? (
+                <span style={{ display: "grid", gap: 5, paddingTop: 9, borderTop: `1px solid ${tokens.color.queuedBorder}` }}>
+                  {audit.caveats.map((caveat) => (
+                    <span key={caveat} style={{ display: "flex", gap: 8, alignItems: "baseline" }}>
+                      <span aria-hidden="true" style={{ width: 5, height: 5, borderRadius: tokens.radius.round, background: tokens.color.queued, flexShrink: 0, alignSelf: "center" }} />
+                      <span style={{ fontSize: 12, lineHeight: 1.55, color: tokens.color.subInk }}>{caveat}</span>
+                    </span>
+                  ))}
+                </span>
+              ) : null}
             </section>
               </>
             ) : (

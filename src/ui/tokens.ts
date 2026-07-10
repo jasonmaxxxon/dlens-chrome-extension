@@ -111,6 +111,8 @@ export const tokens = {
     atlasAuraTeal: WORKSPACE_GLASS.auraTeal,
     atlasAuraAmber: WORKSPACE_GLASS.auraAmber,
     atlasAuraViolet: WORKSPACE_GLASS.auraViolet,
+    /* amber-tinted glass for the reliability / absence strip on the atlas canvas */
+    atlasWarnPaper: "linear-gradient(165deg, rgba(255,246,224,0.85), rgba(255,246,224,0.48))",
 
     /* teal — named alias for design system alignment */
     teal: "#3f5a3b",
