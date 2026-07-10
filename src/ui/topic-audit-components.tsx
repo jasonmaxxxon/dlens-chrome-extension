@@ -1289,7 +1289,8 @@ export function SourceRow({
   showPreview = true,
   onOpen,
   onRunP1,
-  isRunningP1
+  isRunningP1,
+  reactionMix
 }: {
   packet: EvidencePacket;
   active?: boolean;
@@ -1299,8 +1300,12 @@ export function SourceRow({
   onOpen?: () => void;
   onRunP1?: () => void;
   isRunningP1?: boolean;
+  /** per-pattern comment counts for this post, pre-coloured by the atlas palette */
+  reactionMix?: ReadonlyArray<{ color: string; count: number }>;
 }) {
   const opSnippet = (packet.opText || "資料不完整").replace(/\s+/g, " ").trim();
+  const mixSlices = (reactionMix ?? []).filter((slice) => slice.count > 0);
+  const mixTotal = mixSlices.reduce((sum, slice) => sum + slice.count, 0);
   const author = packet.opAuthor || "unknown";
   const canRunP1 = (readingStatus === "pending" || readingStatus === "failed") && Boolean(onRunP1);
   const isPending = readingStatus === "pending";
@@ -1516,6 +1521,17 @@ export function SourceRow({
             }}
           >
             {opSnippet}
+          </div>
+        ) : null}
+        {mixTotal > 0 ? (
+          <div
+            data-source-row-reaction-mix={packet.shortCode}
+            aria-label={`此篇 ${mixTotal} 條已歸類留言的反應構成`}
+            style={{ display: "flex", height: 4, borderRadius: tokens.radius.round, overflow: "hidden", marginTop: 7, background: tokens.color.neutralSurface }}
+          >
+            {mixSlices.map((slice, index) => (
+              <span key={index} style={{ flex: slice.count, background: slice.color }} />
+            ))}
           </div>
         ) : null}
         {displayedTags.length > 0 || showOverflow ? (

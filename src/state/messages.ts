@@ -93,7 +93,7 @@ export type ExtensionMessagePayload =
   | { type: "topic/synthesis/generate"; topicId: string }
   | { type: "topic/synthesis/clear"; topicId: string }
   | { type: "topic/audit/build-evidence"; sessionId: string; topicId: string }
-  | { type: "topic/audit/run"; sessionId: string; topicId: string; fromStage?: TopicAuditStageName }
+  | { type: "topic/audit/run"; sessionId: string; topicId: string; fromStage?: TopicAuditStageName; force?: boolean }
   | { type: "topic/audit/p1-signal"; sessionId: string; topicId: string; signalId: string }
   | { type: "extension/open-page"; path: string }
   | { type: "topic/audit/get"; topicId: string }

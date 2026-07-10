@@ -173,7 +173,7 @@ export function InPageCollectorPopup({ app }: { app: InPageCollectorAppModel }) 
       case "deleteSignal":
         return app.onSignalDeleted(command.target.signalId);
       case "runAudit":
-        return app.onRunTopicAudit(command.target.topicId, command.fromStage);
+        return app.onRunTopicAudit(command.target.topicId, command.fromStage, command.force);
       case "runAuditP1":
         return app.onRunTopicAuditP1(command.target.topicId, command.target.signalId);
       case "openAuditReport":

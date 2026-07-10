@@ -607,8 +607,8 @@ test("TopicDetailView renders the Signal Atlas L0 spine without raw audience com
   assert.ok(heroIndex >= 0, "hero should render");
   assert.ok(heroIndex < laneIndex, "narrative ribbons live inside the hero, under the verdict");
   assert.ok(laneIndex < mapIndex, "hero (with ribbons) should precede the compass panel");
-  assert.ok(mapIndex < warnIndex, "compass panel should precede reliability strip");
-  assert.ok(warnIndex < sourceIndex, "reliability strip should precede source footer");
+  assert.ok(mapIndex < sourceIndex, "compass panel should precede the posts rail");
+  assert.ok(sourceIndex < warnIndex, "posts rail should precede the reliability strip");
   // the old reaction card wall stays removed: the compass legend is the only pattern text at L0
   assert.doesNotMatch(html, /data-topic-audit-block="reaction-patterns"/);
 

@@ -46,7 +46,7 @@ import type { SessionRecord, SessionItem, Signal, Topic } from "./types.ts";
 
 export type TopicAuditHandlerMessage =
   | { type: "topic/audit/build-evidence"; sessionId: string; topicId: string }
-  | { type: "topic/audit/run"; sessionId: string; topicId: string; fromStage?: TopicAuditStageName }
+  | { type: "topic/audit/run"; sessionId: string; topicId: string; fromStage?: TopicAuditStageName; force?: boolean }
   | { type: "topic/audit/p1-signal"; sessionId: string; topicId: string; signalId: string }
   | { type: "topic/audit/get"; topicId: string }
   | { type: "topic/audit/validate"; topicId: string }
@@ -438,7 +438,8 @@ async function runAuditPipeline(
   session: SessionRecord,
   topic: Topic,
   options: TopicAuditHandlerOptions,
-  fromStage?: TopicAuditStageName
+  fromStage?: TopicAuditStageName,
+  force?: boolean
 ): Promise<TopicAuditHandlerResult> {
   const signals = await loadSignals(storageArea, session.id);
   const itemsById = new Map(session.items.map((item) => [item.id, item]));
@@ -447,7 +448,9 @@ async function runAuditPipeline(
   const auditRunId = `audit_${inputHash.replace(/^topic-audit:/, "")}`;
   const existingReport = await loadTopicAuditReport(storageArea, topic.id);
   const existingMemos = await loadTopicAuditMemos(storageArea, topic.id);
-  if (!fromStage && existingReport?.inputHash === inputHash && existingMemos?.inputHash === inputHash) {
+  // force = explicit 重新生成 on unchanged sources: reuse P0.5/P1 memos below but re-run the lens stages,
+  // otherwise a prompt change (e.g. P4 compass scalars) can never reach an already-audited topic
+  if (!fromStage && !force && existingReport?.inputHash === inputHash && existingMemos?.inputHash === inputHash) {
     return {
       auditReport: existingReport,
       auditMemos: existingMemos,
@@ -692,7 +695,7 @@ export async function handleTopicAuditMessage(
     case "topic/audit/run": {
       const session = findSession(options.sessions, message.sessionId);
       const topic = await findTopic(storageArea, message.sessionId, message.topicId);
-      return runAuditPipeline(storageArea, session, topic, options, message.fromStage);
+      return runAuditPipeline(storageArea, session, topic, options, message.fromStage, message.force);
     }
     case "topic/audit/p1-signal": {
       const session = findSession(options.sessions, message.sessionId);

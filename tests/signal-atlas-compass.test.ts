@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 
 import type { ReactionPattern } from "../src/compare/topic-audit.ts";
-import { layoutSignalAtlasCompass } from "../src/viewmodel/signal-atlas-compass.ts";
+import { layoutSignalAtlasCompass, postReactionMixByShortCode } from "../src/viewmodel/signal-atlas-compass.ts";
 
 function pattern(overrides: Partial<ReactionPattern> & { id: string; nComments: number }): ReactionPattern {
   return {
@@ -74,6 +74,18 @@ test("layoutSignalAtlasCompass separates bubbles dropped on the same coordinates
     }
   }
   assert.deepEqual(first, second, "layout must be deterministic");
+});
+
+test("postReactionMixByShortCode counts deduped evidence refs per post, aligned with pattern order", () => {
+  const mix = postReactionMixByShortCode([
+    pattern({ id: "p1", nComments: 3, supportRefs: ["S1.R1", "S1.R2", "S2.R1"], representativeRefs: ["S1.R1"] }),
+    pattern({ id: "p2", nComments: 2, supportRefs: ["S2.R3"], representativeRefs: ["S2.R3", "S1.R9"] })
+  ]);
+
+  // S1.R1 appears in both supportRefs and representativeRefs of p1 → counted once
+  assert.deepEqual(mix.get("S1"), [2, 1]);
+  assert.deepEqual(mix.get("S2"), [1, 1]);
+  assert.equal(mix.get("S9"), undefined);
 });
 
 test("layoutSignalAtlasCompass keeps every bubble inside the viewbox", () => {

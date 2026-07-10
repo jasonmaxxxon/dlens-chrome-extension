@@ -325,7 +325,7 @@ export function useTopicAudit({
     setLoadedByTopicId((current) => ({ ...current, [topicId]: loaded }));
   }
 
-  async function runTopicAudit(topicId: string, fromStage?: TopicAuditStageName) {
+  async function runTopicAudit(topicId: string, fromStage?: TopicAuditStageName, force?: boolean) {
     if (!activeFolder?.id) {
       return;
     }
@@ -344,7 +344,8 @@ export function useTopicAudit({
         requestId,
         sessionId: activeFolder.id,
         topicId,
-        ...(fromStage ? { fromStage } : {})
+        ...(fromStage ? { fromStage } : {}),
+        ...(force ? { force: true } : {})
       });
       settled = settleTopicAuditResponse(token, { sessionId: activeFolderIdRef.current, topicId });
       if (!settled.accepted) {

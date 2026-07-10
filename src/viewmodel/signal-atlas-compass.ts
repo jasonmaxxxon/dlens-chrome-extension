@@ -18,14 +18,15 @@ export interface SignalAtlasCompassLayout {
   bubbles: CompassBubble[];
 }
 
+// The compass is the L0 protagonist: generous whitespace, bubbles never crowd or kiss edges.
 const COMPASS_WIDTH = 360;
-const COMPASS_HEIGHT = 320;
-const FIELD_HEIGHT = 172;
-const RADIUS_MIN = 13;
-const RADIUS_MAX = 32;
-const EDGE_PADDING = 10;
-const LABEL_CLEARANCE = 22;
-const SEPARATION_GAP = 6;
+const COMPASS_HEIGHT = 400;
+const FIELD_HEIGHT = 248;
+const RADIUS_MIN = 14;
+const RADIUS_MAX = 30;
+const EDGE_PADDING = 18;
+const LABEL_CLEARANCE = 34;
+const SEPARATION_GAP = 18;
 const RELAX_ITERATIONS = 48;
 
 function radiusFor(nComments: number, maxComments: number): number {
@@ -105,13 +106,14 @@ export function layoutSignalAtlasCompass(patterns: ReadonlyArray<ReactionPattern
   const height = FIELD_HEIGHT;
   const slot = width / Math.max(1, patterns.length);
   const bubbles = patterns.map((pattern, index) => {
+    // Two staggered rows so horizontally adjacent labels never share a baseline.
     const bubble: CompassBubble = {
       id: pattern.id,
       label: pattern.label,
       nComments: pattern.nComments,
       counterCount: pattern.counterRefs.length,
       x: slot * (index + 0.5),
-      y: index % 2 === 0 ? 62 : 96,
+      y: index % 2 === 0 ? 78 : 168,
       r: radiusFor(pattern.nComments, maxComments)
     };
     clampBubble(bubble, width, height);
@@ -119,4 +121,27 @@ export function layoutSignalAtlasCompass(patterns: ReadonlyArray<ReactionPattern
   });
   separateBubbles(bubbles, width, height);
   return { kind: "field", width, height, bubbles };
+}
+
+/**
+ * Per-post reaction composition, counted from the patterns' evidence-bound refs
+ * (real LLM assignments, not an estimate). Returns shortCode → counts aligned
+ * with the incoming pattern order, so callers can colour by the same palette index.
+ */
+export function postReactionMixByShortCode(patterns: ReadonlyArray<ReactionPattern>): Map<string, number[]> {
+  const mix = new Map<string, number[]>();
+  patterns.forEach((pattern, patternIndex) => {
+    const refs = new Set([...pattern.supportRefs, ...pattern.representativeRefs]);
+    for (const ref of refs) {
+      const dot = ref.indexOf(".");
+      if (dot <= 0) {
+        continue;
+      }
+      const shortCode = ref.slice(0, dot);
+      const counts = mix.get(shortCode) ?? new Array<number>(patterns.length).fill(0);
+      counts[patternIndex] = (counts[patternIndex] ?? 0) + 1;
+      mix.set(shortCode, counts);
+    }
+  });
+  return mix;
 }

@@ -44,7 +44,7 @@ export type TopicDetailCommand =
   | { kind: "generateSynthesis"; target: { sessionId: string; topicId: string } }
   | { kind: "generateSignalReading"; target: { sessionId: string; topicId: string; signalId: string } }
   | { kind: "deleteSignal"; target: { sessionId: string; topicId: string; signalId: string } }
-  | { kind: "runAudit"; target: { sessionId: string; topicId: string }; fromStage?: TopicAuditStageName }
+  | { kind: "runAudit"; target: { sessionId: string; topicId: string }; fromStage?: TopicAuditStageName; force?: boolean }
   | { kind: "runAuditP1"; target: { sessionId: string; topicId: string; signalId: string } }
   | { kind: "openAuditReport"; target: { sessionId: string; topicId: string }; stale?: boolean };
 

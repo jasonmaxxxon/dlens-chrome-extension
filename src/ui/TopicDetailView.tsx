@@ -10,7 +10,7 @@ import type { TopicAuditValidationFlag } from "../compare/topic-audit-validator.
 import { buildNarrativeLaneDetail, type NarrativeLaneDetail } from "../viewmodel/narrative-lane-detail.ts";
 import { buildReactionPatternFullList } from "../viewmodel/reaction-pattern-full-list.ts";
 import { buildReactionPatternDetail, type ReactionPatternDetail } from "../viewmodel/reaction-pattern-detail.ts";
-import { layoutSignalAtlasCompass } from "../viewmodel/signal-atlas-compass.ts";
+import { layoutSignalAtlasCompass, postReactionMixByShortCode } from "../viewmodel/signal-atlas-compass.ts";
 import type {
   FolderMode,
   SavedAnalysisSnapshot,
@@ -1582,7 +1582,7 @@ function TopicAuditOverview({
   p1ReadyCount?: number;
   p1TotalCount?: number;
   sourceTotalCount?: number;
-  onRunAudit?: (topicId: string, fromStage?: TopicAuditStageName) => void;
+  onRunAudit?: (topicId: string, fromStage?: TopicAuditStageName, force?: boolean) => void;
   onOpenAuditReport?: (topicId: string, stale?: boolean) => void;
 }) {
   const displaySourceTotal = sourceTotalCount ?? summary.analyzedCount + summary.queuedCount;
@@ -1596,9 +1596,9 @@ function TopicAuditOverview({
       : `P1 ${p1ReadyCount ?? 0}/${p1TotalCount}：未分析的篇章會在此次 run 一併處理`
     : "首次生成會自動跑完整 pipeline：留言分流 → 逐篇 P1 判讀 → 詞彙／敘事／群眾反應 → 審查報告";
   const failedStage = summary.failedStage ?? 1;
-  const runAudit = (fromStage?: TopicAuditStageName) => {
+  const runAudit = (fromStage?: TopicAuditStageName, force?: boolean) => {
     if (!canRunAudit) return;
-    onRunAudit?.(topic.id, fromStage);
+    onRunAudit?.(topic.id, fromStage, force);
   };
   if (summary.reportStatus === "ready") {
     return (
@@ -1612,7 +1612,7 @@ function TopicAuditOverview({
         }}
       >
         <AuditGhostButton onClick={() => onOpenAuditReport?.(topic.id)} style={{ padding: "4px 10px", fontSize: 10.5 }}>審查報告 ↗</AuditGhostButton>
-        <AuditGhostButton disabled={!canRunAudit} onClick={() => runAudit()} style={{ padding: "4px 10px", fontSize: 10.5 }}>⟳ 重新生成</AuditGhostButton>
+        <AuditGhostButton disabled={!canRunAudit} onClick={() => runAudit(undefined, true)} style={{ padding: "4px 10px", fontSize: 10.5 }}>⟳ 重新生成</AuditGhostButton>
       </div>
     );
   }
@@ -1663,7 +1663,7 @@ function TopicAuditOverview({
             </>
           ) : summary.reportStatus === "stale" ? (
             <>
-              <AuditPrimaryButton disabled={!canRunAudit} onClick={() => runAudit()}>重新生成</AuditPrimaryButton>
+              <AuditPrimaryButton disabled={!canRunAudit} onClick={() => runAudit(undefined, true)}>重新生成</AuditPrimaryButton>
               <AuditGhostButton onClick={() => onOpenAuditReport?.(topic.id, true)}>先看舊版 ↗</AuditGhostButton>
             </>
           ) : (
@@ -1929,7 +1929,7 @@ export function TopicDetailView({
   const handleOpenPair = (resultId: string) => dispatch({ kind: "openPair", target: { ...commandTarget, resultId } });
   const handleOpenAnalysis = (resultId: string) => dispatch({ kind: "openAnalysis", target: { ...commandTarget, resultId } });
   const handleAddToCompare = (itemId: string) => dispatch({ kind: "addToCompare", target: { ...commandTarget, itemId } });
-  const handleRunAudit = (_topicId: string, fromStage?: TopicAuditStageName) => dispatch({ kind: "runAudit", target: commandTarget, fromStage });
+  const handleRunAudit = (_topicId: string, fromStage?: TopicAuditStageName, force?: boolean) => dispatch({ kind: "runAudit", target: commandTarget, fromStage, force });
   const handleRunAuditP1 = (_topicId: string, signalId: string) => dispatch({ kind: "runAuditP1", target: { ...commandTarget, signalId } });
   const handleOpenAuditReport = (_topicId: string, stale?: boolean) => dispatch({ kind: "openAuditReport", target: commandTarget, stale });
   const handleSaveJudgmentOverride = (
@@ -2209,13 +2209,14 @@ export function TopicDetailView({
     const singleLanes = auditLanes.filter((lane) => Boolean(lane.isSinglePostObservation));
     const atlasPalette = [tokens.color.signal, tokens.color.techniqueViolet, tokens.color.queued, tokens.color.techniqueRose, tokens.color.accent];
     const compassLayout = layoutSignalAtlasCompass(reactionPatterns);
+    const reactionMixByShortCode = postReactionMixByShortCode(reactionPatterns);
     const classifiedComments = reactionPatterns.reduce((sum, pattern) => sum + pattern.nComments, 0);
     const compassDenominator = reactionPatterns[0]?.coverageDenominator ?? coverageNumbers.usable;
     const atlasAxisLabelStyle: CSSProperties = { fontFamily: tokens.font.mono, fontSize: 8.5, fontWeight: 800, letterSpacing: "0.1em", fill: tokens.color.softInk };
     const atlasGlassPanelStyle: CSSProperties = {
       display: "grid",
-      gap: 8,
-      padding: "14px 14px 10px",
+      gap: 10,
+      padding: "16px 16px 12px",
       borderRadius: tokens.radius.cardLg,
       border: `1px solid ${tokens.color.atlasEdge}`,
       background: tokens.color.atlasPaper,
@@ -2441,6 +2442,11 @@ export function TopicDetailView({
                     );
                   })}
                 </svg>
+                {compassLayout.kind === "field" ? (
+                  <span data-signal-atlas-compass-hint="true" style={{ ...textStyles.caption, color: tokens.color.softInk }}>
+                    此審計早於羅盤座標——按「⟳ 重新生成」重讀後，泡泡會依 質疑↔支持 × 情緒↔行動 定位。
+                  </span>
+                ) : null}
                 <div style={{ display: "grid", borderTop: `1px solid ${tokens.color.line}` }}>
                   {reactionPatterns.map((pattern, index) => (
                     <button
@@ -2476,12 +2482,6 @@ export function TopicDetailView({
               </section>
             ) : null}
 
-            <section data-topic-audit-block="reliability" style={{ display: "grid", gap: 7, padding: "11px 13px", borderRadius: tokens.radius.card, background: tokens.color.queuedSoft, border: `1px solid ${tokens.color.queuedBorder}`, boxShadow: tokens.shadow.atlasCard, backdropFilter: tokens.effect.atlasBlur, WebkitBackdropFilter: tokens.effect.atlasBlur }}>
-              <span style={{ ...textStyles.label, color: tokens.color.queued }}>缺席與可靠性</span>
-              <p style={{ margin: 0, ...textStyles.bodyTight, color: tokens.color.subInk }}>{audit.absenceProse || "沒有 P5 absence memo；先把這次讀法視為可用樣本內的形狀。"}</p>
-              {audit.caveats.map((caveat) => <span key={caveat} style={{ ...textStyles.caption, color: tokens.color.softInk }}>{caveat}</span>)}
-            </section>
-
             {auditEvidence.length > 0 ? (
               <section data-topic-audit-block="sources" style={{ display: "grid", gap: 8 }}>
                 <div style={sectionLabelStyle}><span>貼文 · 點入單帖</span><span>{postTotal}/{postTotal} 貼文 · {coverageNumbers.captured}/{coverageNumbers.usable} 留言</span></div>
@@ -2497,11 +2497,21 @@ export function TopicDetailView({
                       onOpen={() => setActiveDetail({ kind: "source", id: row.packet.signalId })}
                       onRunP1={row.actions.some((entry) => entry.kind === "runAuditP1") ? () => handleRunAuditP1(topic.id, row.packet.signalId) : undefined}
                       isRunningP1={row.isRunningP1}
+                      reactionMix={(reactionMixByShortCode.get(row.packet.shortCode) ?? []).map((count, index) => ({
+                        color: atlasPalette[index % atlasPalette.length]!,
+                        count
+                      }))}
                     />
                   ))}
                 </div>
               </section>
             ) : null}
+
+            <section data-topic-audit-block="reliability" style={{ display: "grid", gap: 7, padding: "11px 13px", borderRadius: tokens.radius.card, background: tokens.color.queuedSoft, border: `1px solid ${tokens.color.queuedBorder}`, boxShadow: tokens.shadow.atlasCard, backdropFilter: tokens.effect.atlasBlur, WebkitBackdropFilter: tokens.effect.atlasBlur }}>
+              <span style={{ ...textStyles.label, color: tokens.color.queued }}>缺席與可靠性</span>
+              <p style={{ margin: 0, ...textStyles.bodyTight, color: tokens.color.subInk }}>{audit.absenceProse || "沒有 P5 absence memo；先把這次讀法視為可用樣本內的形狀。"}</p>
+              {audit.caveats.map((caveat) => <span key={caveat} style={{ ...textStyles.caption, color: tokens.color.softInk }}>{caveat}</span>)}
+            </section>
           </div>
           </div>
         ) : null}

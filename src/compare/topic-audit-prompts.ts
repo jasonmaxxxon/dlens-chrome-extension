@@ -17,7 +17,7 @@ export const TOPIC_AUDIT_PROMPT_VERSIONS = {
   p1: "topic-audit-p1.v2",
   p2: "topic-audit-p2.v3",
   p3: "topic-audit-p3.v2",
-  p4: "topic-audit-p4.v2",
+  p4: "topic-audit-p4.v3",
   p5: "topic-audit-p5.v2",
   p6: "topic-audit-p6.v2",
   p7: "topic-audit-p7.v1",
