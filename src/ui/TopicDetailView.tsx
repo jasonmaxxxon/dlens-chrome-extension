@@ -5,7 +5,7 @@ import {
   TOPIC_SYNTHESIS_STALE_DELTA,
   topicSynthesisStaleReason
 } from "../compare/topic-synthesis.ts";
-import type { EvidencePacket, ReactionPattern, SignalReading, TopicAuditStageName } from "../compare/topic-audit.ts";
+import type { EvidencePacket, ReactionPattern, SignalReading, TopicAuditEpisode, TopicAuditStageName } from "../compare/topic-audit.ts";
 import type { TopicAuditValidationFlag } from "../compare/topic-audit-validator.ts";
 import { buildNarrativeLaneDetail, type NarrativeLaneDetail } from "../viewmodel/narrative-lane-detail.ts";
 import { buildReactionPatternFullList } from "../viewmodel/reaction-pattern-full-list.ts";
@@ -333,11 +333,9 @@ function AuditDetailDrawer({
       return { frameTop, frameBottom };
     };
     let frame = probeFrame();
-    let baseScrollY = window.scrollY;
     const align = () => {
-      const scrollDelta = window.scrollY - baseScrollY;
-      const frameTop = frame.frameTop - scrollDelta;
-      const frameBottom = frame.frameBottom - scrollDelta;
+      const frameTop = frame.frameTop;
+      const frameBottom = frame.frameBottom;
       const margin = 18;
       const viewTop = Math.max(margin, frameTop + 12);
       const viewBottom = Math.min(window.innerHeight - margin, frameBottom - 12);
@@ -349,14 +347,13 @@ function AuditDetailDrawer({
     };
     const reprobe = () => {
       frame = probeFrame();
-      baseScrollY = window.scrollY;
       align();
     };
     align();
-    window.addEventListener("scroll", align, { passive: true });
+    window.addEventListener("scroll", reprobe, { passive: true });
     window.addEventListener("resize", reprobe);
     return () => {
-      window.removeEventListener("scroll", align);
+      window.removeEventListener("scroll", reprobe);
       window.removeEventListener("resize", reprobe);
     };
   }, [open]);
@@ -541,6 +538,105 @@ function readCommandResult(value: unknown): { ok: boolean; error?: string } | nu
 
 function formatTopicDate(value: string): string {
   return new Intl.DateTimeFormat("zh-HK", { month: "numeric", day: "numeric" }).format(new Date(value));
+}
+
+function TopicEpisodeDeltaStrip({
+  episode,
+  fragmentLookup,
+  pinnedRef,
+  onPin
+}: {
+  episode: TopicAuditEpisode;
+  fragmentLookup: Map<string, EvidenceFragmentLookup>;
+  pinnedRef: string | null;
+  onPin: (ref: string) => void;
+}) {
+  const counts = episode.delta.reduce<Record<string, number>>((result, entry) => {
+    result[entry.trajectory] = (result[entry.trajectory] ?? 0) + 1;
+    return result;
+  }, {});
+  const range = episode.capturedRange
+    ? episode.capturedRange.from === episode.capturedRange.to
+      ? formatTopicDate(episode.capturedRange.from)
+      : `${formatTopicDate(episode.capturedRange.from)}–${formatTopicDate(episode.capturedRange.to)}`
+    : formatTopicDate(episode.generatedAt);
+  const transitionCopy = episode.transition === "first"
+    ? `首次基線 · ${episode.stateSnapshot.claims.length} 條命題`
+    : episode.transition === "rebase"
+      ? "基準已重設 · 不當作一般敘事升降"
+      : [
+          `新出現 ${counts.new ?? 0}`,
+          `強化 ${counts.strengthened ?? 0}`,
+          `減弱 ${counts.weakened ?? 0}`,
+          `退場 ${counts.retired ?? 0}`
+        ].join(" · ");
+  const trajectoryLabel: Record<TopicAuditEpisode["delta"][number]["trajectory"], string> = {
+    new: "新出現",
+    strengthened: "強化",
+    weakened: "減弱",
+    retired: "退場"
+  };
+  const trajectoryColor: Record<TopicAuditEpisode["delta"][number]["trajectory"], string> = {
+    new: tokens.color.signalDeep,
+    strengthened: tokens.topicAccent.primary,
+    weakened: tokens.color.queued,
+    retired: tokens.color.techniqueRose
+  };
+  return (
+    <section
+      data-topic-episode-strip={episode.transition}
+      style={{
+        display: "grid",
+        gap: 8,
+        padding: "10px 12px",
+        borderRadius: tokens.radius.card,
+        border: `1px solid ${tokens.color.atlasEdge}`,
+        background: tokens.color.atlasPaperStrong,
+        boxShadow: tokens.shadow.atlasCard
+      }}
+    >
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(2, minmax(0, 1fr))", gap: 10 }}>
+        <div style={{ display: "grid", gap: 3, minWidth: 0 }}>
+          <span style={{ ...textStyles.label, color: tokens.color.signalDeep }}>本次</span>
+          <span style={{ ...textStyles.metric, color: tokens.color.ink }}>{range} · {episode.sourceCount} 篇來源</span>
+        </div>
+        <div style={{ display: "grid", gap: 3, minWidth: 0, paddingLeft: 10, borderLeft: `1px solid ${tokens.color.line}` }}>
+          <span style={{ ...textStyles.label, color: episode.transition === "rebase" ? tokens.color.queued : tokens.topicAccent.primary }}>自上次</span>
+          <span style={{ ...textStyles.caption, color: tokens.color.subInk }}>{transitionCopy}</span>
+        </div>
+      </div>
+      {episode.transition !== "rebase" && episode.delta.length > 0 ? (
+        <details data-topic-episode-delta-details="true" style={{ borderTop: `1px solid ${tokens.color.line}`, paddingTop: 7 }}>
+          <summary style={{ ...textStyles.caption, color: tokens.color.signalDeep, cursor: "pointer", fontWeight: 750 }}>
+            {episode.transition === "first" ? "查看基線命題" : `查看 ${episode.delta.length} 條發展`}
+          </summary>
+          <div style={{ display: "grid", gap: 8, paddingTop: 8 }}>
+            {episode.delta.map((entry) => (
+              <div key={`${entry.claimId}:${entry.trajectory}`} data-topic-episode-delta={entry.trajectory} style={{ display: "grid", gap: 4, paddingLeft: 9, borderLeft: `2px solid ${trajectoryColor[entry.trajectory]}` }}>
+                <span style={{ ...textStyles.label, color: trajectoryColor[entry.trajectory] }}>{trajectoryLabel[entry.trajectory]}</span>
+                <span style={{ fontSize: 12, lineHeight: 1.5, fontWeight: 750, color: tokens.color.ink }}>{entry.statement}</span>
+                <span style={{ ...textStyles.caption, color: tokens.color.subInk }}>{entry.rationale}</span>
+                {entry.evidence.length > 0 ? (
+                  <span style={{ display: "flex", gap: 4, flexWrap: "wrap" }}>
+                    {entry.evidence.map((anchor) => (
+                      <EvidenceRefChip
+                        key={`${entry.claimId}:${anchor.anchorId}`}
+                        refId={anchor.displayRef}
+                        fragment={fragmentLookup.get(anchor.displayRef)}
+                        pinned={pinnedRef === anchor.displayRef}
+                        onPin={onPin}
+                        variant="atlas"
+                      />
+                    ))}
+                  </span>
+                ) : null}
+              </div>
+            ))}
+          </div>
+        </details>
+      ) : null}
+    </section>
+  );
 }
 
 function singleAnalyzeActionLabel(canStartProcessing: boolean): string {
@@ -1770,6 +1866,7 @@ function TopicAuditAtlasToolbar({
   topic,
   summary,
   hasAtlasData,
+  hasAuditReport,
   canRunAudit,
   onRunAudit,
   onOpenAuditReport
@@ -1777,11 +1874,12 @@ function TopicAuditAtlasToolbar({
   topic: Topic;
   summary: TopicAuditSummary;
   hasAtlasData: boolean;
+  hasAuditReport: boolean;
   canRunAudit: boolean;
   onRunAudit?: (topicId: string, fromStage?: TopicAuditStageName, force?: boolean) => void;
   onOpenAuditReport?: (topicId: string, stale?: boolean) => void;
 }) {
-  if (!hasAtlasData || summary.reportStatus === "none") return null;
+  if (!hasAtlasData) return null;
   const isRunning = summary.reportStatus === "running";
   const runAudit = () => {
     if (!canRunAudit || isRunning) return;
@@ -1793,12 +1891,14 @@ function TopicAuditAtlasToolbar({
       data-topic-audit-actions={summary.reportStatus}
       style={{ display: "flex", justifyContent: "flex-end", gap: 6, flexWrap: "wrap" }}
     >
-      <AuditGhostButton
-        onClick={() => onOpenAuditReport?.(topic.id, summary.reportStatus === "stale" ? true : undefined)}
-        style={{ padding: "4px 10px", fontSize: 10.5 }}
-      >
-        審查報告 ↗
-      </AuditGhostButton>
+      {!hasAuditReport ? null : (
+        <AuditGhostButton
+          onClick={() => onOpenAuditReport?.(topic.id, summary.reportStatus === "stale" ? true : undefined)}
+          style={{ padding: "4px 10px", fontSize: 10.5 }}
+        >
+          審查報告 ↗
+        </AuditGhostButton>
+      )}
       <AuditGhostButton
         dataAction="regenerate"
         disabled={!canRunAudit}
@@ -1806,7 +1906,7 @@ function TopicAuditAtlasToolbar({
         onClick={runAudit}
         style={{ padding: "4px 10px", fontSize: 10.5 }}
       >
-        {isRunning ? "⟳ 重新生成中" : "⟳ 重新生成"}
+        {isRunning ? "⟳ 重新生成中" : summary.reportStatus === "none" ? "⟳ 生成審查報告" : "⟳ 重新生成"}
       </AuditGhostButton>
     </div>
   );
@@ -1950,13 +2050,7 @@ function TopicAuditAtlasStatus({
                 : "重新生成"}
           </AuditPrimaryButton>
         ) : null}
-        {!hasAtlasData && summary.reportStatus === "failed" ? (
-          <>
-            <AuditGhostButton onClick={() => onOpenAuditReport?.(topic.id)} style={{ padding: "6px 10px", fontSize: 10.5 }}>
-              錯誤詳情 ↗
-            </AuditGhostButton>
-          </>
-        ) : !hasAtlasData && summary.reportStatus === "stale" ? (
+        {!hasAtlasData && summary.reportStatus === "stale" ? (
           <AuditGhostButton onClick={() => onOpenAuditReport?.(topic.id, true)} style={{ padding: "6px 10px", fontSize: 10.5 }}>
             查看上一版 ↗
           </AuditGhostButton>
@@ -2002,6 +2096,7 @@ export function TopicDetailView({
   const p1AllReady = audit.p1AllReady;
   const p1TotalCount = audit.p1TotalCount;
   const canRunAuditFromSources = audit.canRunAudit;
+  const hasAuditReport = audit.hasAuditReport;
   const auditBlockedReason = audit.blockedReason;
   const commandTarget = { sessionId: viewModel.sessionId, topicId: topic.id };
   const dispatch = (command: TopicDetailCommand) => {
@@ -2490,6 +2585,7 @@ export function TopicDetailView({
         topic={topic}
         summary={auditSummaryValue}
         hasAtlasData={hasAtlasData}
+        hasAuditReport={hasAuditReport}
         canRunAudit={canRunAuditFromSources}
         onRunAudit={handleRunAudit}
         onOpenAuditReport={handleOpenAuditReport}
@@ -2511,10 +2607,6 @@ export function TopicDetailView({
                 [data-atlas-aura] { animation: dlens-atlas-aura-drift 18s ease-in-out infinite alternate; }
                 [data-atlas-aura="amber"] { animation-duration: 22s; animation-delay: -7s; }
                 [data-atlas-aura="violet"] { animation-duration: 26s; animation-delay: -13s; }
-              }
-              @keyframes dlens-atlas-aura-drift {
-                from { transform: translate(0, 0) scale(1); }
-                to { transform: translate(-18px, 14px) scale(1.08); }
               }
             `}</style>
             <div aria-hidden="true" data-atlas-aura="teal" style={{ position: "absolute", top: -70, right: -60, width: 250, height: 250, borderRadius: "50%", background: tokens.color.atlasAuraTeal, filter: "blur(46px)", pointerEvents: "none" }} />
@@ -2566,6 +2658,14 @@ export function TopicDetailView({
                   </div>
                 ))}
               </div>
+              {audit.latestEpisode ? (
+                <TopicEpisodeDeltaStrip
+                  episode={audit.latestEpisode}
+                  fragmentLookup={auditFragmentLookup}
+                  pinnedRef={pinnedAuditRef}
+                  onPin={handlePinAuditRef}
+                />
+              ) : null}
               <p style={{ margin: 0, fontFamily: `${tokens.font.serifCjk}, ${tokens.font.serif}`, fontSize: 17, lineHeight: 1.62, color: tokens.color.ink }}>
                 <EvidenceProse prose={headlineProse} fragmentLookup={auditFragmentLookup} pinnedRef={pinnedAuditRef} onPin={handlePinAuditRef} chipVariant="atlas" />
                 {headlineRefs.length > 0 ? <span> {renderRefChips(headlineRefs)}</span> : null}
@@ -2640,17 +2740,13 @@ export function TopicDetailView({
                   @media (prefers-reduced-motion: no-preference) {
                     [data-signal-atlas-dot][data-top-dot="true"] { animation: dlens-atlas-dot-pulse ${tokens.motion.duration.slower} ${tokens.motion.easing.standard} infinite alternate; }
                   }
-                  @keyframes dlens-atlas-dot-pulse {
-                    from { opacity: 0.72; }
-                    to { opacity: 1; }
-                  }
                   [data-signal-atlas-dot] { outline: none; }
                   [data-signal-atlas-dot] .dlens-atlas-focus-ring { opacity: 0; transition: opacity ${tokens.motion.duration.fast} ${tokens.motion.easing.standard}; }
                   [data-signal-atlas-dot]:focus-visible .dlens-atlas-focus-ring { opacity: 1; }
                 `}</style>
                 <svg
                   viewBox={`0 0 ${compassLayout.width} ${compassLayout.height}`}
-                  role="img"
+                  role="group"
                   aria-label={compassLayout.kind === "compass"
                     ? "民情羅盤：橫軸由質疑到支持，縱軸由行動導向到情緒共鳴，泡泡大小為留言數"
                     : "反應形狀圖：泡泡大小為留言數"}
@@ -2676,6 +2772,7 @@ export function TopicDetailView({
                         data-signal-atlas-dot={bubble.id}
                         data-top-dot={index === 0 ? "true" : "false"}
                         role="button"
+                        aria-label={`${bubble.label}，${bubble.nComments} 次留言歸屬，按 Enter 開啟詳情`}
                         tabIndex={0}
                         onClick={() => setActiveDetail({ kind: "reaction", id: bubble.id })}
                         onKeyDown={(event) => {

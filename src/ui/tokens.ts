@@ -1,16 +1,17 @@
-/* ─── DLens Editorial Field Guide Theme ───
+/* ─── DLens Glass Workspace Theme ───
  *
- * Active design contract (Visual Reset A, 2026-06-18):
- *   DLens 的內容語言維持 `tokens.ts` 的暖紙 editorial；
- *   外框與互動語言吸收 macOS utility，但不另開第二套設計系統。
+ * Active design contract (Glass unification, 2026-07-10):
+ *   全部 surface 收斂到 `material.workspaceGlass` 的白綠玻璃地面；
+ *   editorial 的暖墨（ink）與 serif 標題聲音保留，暖紙 cream 面全面退役。
  *
  * English shorthand:
- *   Editorial reader inside a native-feeling utility shell.
+ *   Editorial voice on a shared glass workspace.
  *
- * Design direction: warm paper workspace, deep editorial ink, specimen-style accents.
- * `tokens.ts` is the single active design source. macOS utility patterns extend
- * existing token slots such as shadow.popup, shadow.shell, motion.preset.*,
- * and effect.*; they do not introduce a parallel palette, font stack, or scale.
+ * `tokens.ts` is the single active design source. The surface family below is
+ * derived from WORKSPACE_GLASS's canvas stops so opaque cards and the glass
+ * shell read as one material. macOS utility patterns extend existing token
+ * slots such as shadow.popup, shadow.shell, motion.preset.*, and effect.*;
+ * they do not introduce a parallel palette, font stack, or scale.
  * Some callers still use legacy alias names such as glass*.
  */
 
@@ -60,16 +61,17 @@ export const tokens = {
     inkWash: "rgba(27,26,23,0.025)",
     inkWashStrong: "rgba(27,26,23,0.06)",
 
-    /* shared workspace surfaces */
-    canvas: "#f7f4ec",
-    surface: "#fbf8f1",
-    elevated: "#fdfbf6",
-    shellSurface: "rgba(253,251,246,0.96)",
-    contentSurface: "#fbf8f1",
-    focusedSurface: "#fdfbf6",
-    railSurface: "rgba(247,244,236,0.94)",
-    contextSurface: "rgba(242,238,226,0.72)",
-    utilitySurface: "rgba(253,251,246,0.96)",
+    /* shared workspace surfaces — glass-white family, derived from
+     * WORKSPACE_GLASS.canvas stops (#ffffff → #f8fbf8 → #f2f7f3) */
+    canvas: "#f2f7f3",
+    surface: "#f8fbf8",
+    elevated: "#ffffff",
+    shellSurface: "rgba(255,255,255,0.96)",
+    contentSurface: "#f8fbf8",
+    focusedSurface: "#ffffff",
+    railSurface: "rgba(248,251,248,0.94)",
+    contextSurface: "rgba(242,247,243,0.72)",
+    utilitySurface: "rgba(255,255,255,0.96)",
 
     /* inverse foregrounds & overlays — only for filled accent panels */
     inverse: "#fff",
@@ -138,6 +140,8 @@ export const tokens = {
     success: "#3f5a3b",
     successSoft: "rgba(63,90,59,0.10)",
     successBorder: "rgba(63,90,59,0.28)",
+    successFlashStrong: "rgba(63,90,59,0.26)",
+    successFlashSoft: "rgba(63,90,59,0.18)",
     queued: "#a16a17",
     queuedDeep: "#7c4f10",
     queuedWash: "rgba(161,106,23,0.04)",
@@ -154,21 +158,21 @@ export const tokens = {
     runningBorder: "rgba(26,46,79,0.25)",
 
     /* shell aliases kept for existing callers */
-    glassBg: "#fbf8f1",
+    glassBg: "#f8fbf8",
     glassBorder: "rgba(27,26,23,0.10)",
 
     /* idle / neutral */
-    idleBg: "rgba(247,244,236,0.84)",
+    idleBg: "rgba(248,251,248,0.84)",
     idleBorder: "rgba(27,26,23,0.08)",
 
     /* neutral surface — chips, inactive tabs */
-    neutralSurface: "#f1ece0",
-    neutralSurfaceSoft: "rgba(241,236,224,0.78)",
+    neutralSurface: "#edf2ee",
+    neutralSurfaceSoft: "rgba(237,242,238,0.78)",
     neutralText: "#6c695e",
 
     /* disabled */
-    disabledPrimary: "rgba(149,145,127,0.55)",
-    disabledSecondary: "rgba(227,220,204,0.60)"
+    disabledPrimary: "rgba(139,150,141,0.55)",
+    disabledSecondary: "rgba(223,231,225,0.60)"
   },
 
   radius: {
@@ -250,14 +254,15 @@ export const tokens = {
       surfaceFade: "opacity 280ms cubic-bezier(0.16, 1, 0.3, 1), transform 280ms cubic-bezier(0.16, 1, 0.3, 1)"
     },
     /* Loading + one-shot feedback: shorthands for keyframes injected at runtime
-     * (usePopupKeyframes + the threads content-script keyframe block). */
+     * from the single DLENS_KEYFRAMES_CSS registry (src/ui/motion.ts). */
     keyframes: {
       shimmer: "dlens-popup-shimmer 1400ms linear infinite",
       pulse: "dlens-popup-pulse 1600ms cubic-bezier(0.4, 0, 0.6, 1) infinite",
       indeterminate: "dlens-popup-indeterminate 1100ms cubic-bezier(0.4, 0, 0.2, 1) infinite",
       spin: "dlens-spin 900ms linear infinite",
       bump: "dlens-bump 440ms cubic-bezier(0.34, 1.56, 0.64, 1)",
-      successPulse: "dlens-success-pulse 900ms cubic-bezier(0.4, 0, 0.6, 1)"
+      successRing: "dlens-success-ring 900ms cubic-bezier(0.4, 0, 0.6, 1)",
+      successPop: "dlens-success-pop 900ms cubic-bezier(0.4, 0, 0.6, 1)"
     }
   },
 

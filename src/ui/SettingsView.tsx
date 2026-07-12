@@ -2,15 +2,17 @@ import { useRef, useState, type CSSProperties, type ReactNode } from "react";
 
 import type { ExtensionSettings, FolderMode, LayoutPreferences, ProductContext, ProductProfile, ProductProfileContextFile } from "../state/types";
 import {
-  Kicker,
   ModeHeader,
   PrimaryButton,
   SecondaryButton,
+  SectionHeader,
   Stamp,
-  WorkspaceSurface,
   viewRootStyle
 } from "./components";
 import { tokens } from "./tokens";
+
+const MODE_ACCENT = `var(--dlens-mode-accent, ${tokens.color.accent})`;
+const MODE_ACCENT_SOFT = `var(--dlens-mode-accent-soft, ${tokens.color.accentSoft})`;
 
 interface SettingsViewProps {
   sessionMode: FolderMode;
@@ -47,10 +49,10 @@ interface SettingsViewProps {
 }
 
 const inputStyle = {
-  borderRadius: 10,
+  borderRadius: tokens.radius.lg,
   border: `1px solid ${tokens.color.line}`,
   padding: "10px 12px",
-  background: tokens.color.elevated,
+  background: tokens.color.surface,
   color: tokens.color.ink,
   fontSize: 12,
   outline: "none",
@@ -67,12 +69,6 @@ const MAX_CONTEXT_TOTAL_CHARS = 60000;
 const KB = 1024;
 const MB = 1024 * 1024;
 
-const settingsSurfaceStyle: CSSProperties = {
-  display: "grid",
-  gap: tokens.spacing.md,
-  overflow: "visible"
-};
-
 const settingsDrawerStyle: CSSProperties = {
   display: "grid",
   gap: tokens.spacing.md,
@@ -88,8 +84,8 @@ const settingsSaveDockStyle: CSSProperties = {
   marginTop: tokens.spacing.sm,
   padding: tokens.spacing.sm,
   borderRadius: tokens.radius.card,
-  border: `1px solid ${tokens.color.line}`,
-  background: tokens.color.contentSurface,
+  border: `1px solid ${tokens.color.cardEdge}`,
+  background: tokens.color.elevated,
   boxShadow: tokens.shadow.card
 };
 
@@ -117,28 +113,21 @@ function formatStorageUsage(storageUsage: NonNullable<SettingsViewProps["storage
 
 function SettingsGroup({
   name,
-  kicker,
+  title,
+  caption,
   children
 }: {
   name: "folder" | "layout" | "connection" | "keys" | "product";
-  kicker: string;
+  title: string;
+  caption: string;
   children: ReactNode;
 }) {
-  const stampByGroup = {
-    folder: { tone: "accent" as const, label: "Folder" },
-    layout: { tone: "neutral" as const, label: "Layout" },
-    connection: { tone: "accent" as const, label: "Live" },
-    keys: { tone: "neutral" as const, label: "Local only" },
-    product: { tone: "neutral" as const, label: "Product" }
-  };
-  const stamp = stampByGroup[name];
-
   return (
     <div
       data-settings-group={name}
       style={{
         display: "grid",
-        gap: 14,
+        gap: 12,
         padding: "14px 16px",
         borderRadius: tokens.radius.cardLg,
         border: `1px solid ${tokens.color.cardEdge}`,
@@ -146,10 +135,7 @@ function SettingsGroup({
         boxShadow: tokens.shadow.topicCard
       }}
     >
-      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10 }}>
-        <Kicker>{kicker}</Kicker>
-        <Stamp tone={stamp.tone}>{stamp.label}</Stamp>
-      </div>
+      <SectionHeader title={title} caption={caption} style={{ marginBottom: 0 }} />
       {children}
     </div>
   );
@@ -174,29 +160,26 @@ function ProductContextSourceCard({
       data-product-context-source-card={sourceKey}
       style={{
         display: "grid",
+        gridTemplateColumns: "minmax(0, 1fr) auto",
+        alignItems: "center",
         gap: 8,
         padding: "10px 11px",
         borderRadius: tokens.radius.card,
-        border: `1px solid ${loaded ? tokens.color.lineStrong : tokens.color.line}`,
-        background: loaded ? tokens.color.contextSurface : tokens.color.surface
+        border: `1px solid ${loaded ? tokens.color.successBorder : tokens.color.cardEdge}`,
+        background: loaded ? tokens.color.successSoft : tokens.color.surface
       }}
     >
-      <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: 8 }}>
-        <span style={{ minWidth: 0, display: "grid", gap: 2 }}>
-          <span style={{ fontSize: 12, fontWeight: 800, color: tokens.color.ink, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-            {title} {loaded ? "已載入" : "尚未載入"}
-          </span>
-          <span style={{ fontSize: 10.5, color: tokens.color.softInk, lineHeight: 1.45 }}>
-            {loaded && file ? `${file.kind} · ${formatCompactCount(file.charCount)} chars` : description}
-          </span>
+      <span style={{ minWidth: 0, display: "grid", gap: 2 }}>
+        <span style={{ fontSize: 12, fontWeight: 800, color: loaded ? tokens.color.success : tokens.color.ink, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+          {title} {loaded ? "已載入" : "尚未載入"}
         </span>
-        <Stamp tone={loaded ? "success" : "neutral"}>{loaded ? "Loaded" : "Ready"}</Stamp>
-      </div>
-      <div>
-        <SecondaryButton onClick={onImport}>
-          匯入 {title}
-        </SecondaryButton>
-      </div>
+        <span style={{ fontSize: 10.5, color: loaded ? tokens.color.subInk : tokens.color.softInk, lineHeight: 1.45, fontFamily: loaded ? tokens.font.mono : tokens.font.sans }}>
+          {loaded && file ? `${file.kind} · ${formatCompactCount(file.charCount)} chars` : description}
+        </span>
+      </span>
+      <SecondaryButton onClick={onImport} style={{ padding: "6px 10px", fontSize: 11, flexShrink: 0 }}>
+        匯入 {title}
+      </SecondaryButton>
     </div>
   );
 }
@@ -296,14 +279,11 @@ export function SettingsView({
         kicker="Runtime settings"
         title="調整連線與模型入口"
         deck="連線設定與 API 金鑰存於本機，不會上傳。"
-        stamp={<Stamp tone="neutral">Workspace</Stamp>}
       />
 
-      <WorkspaceSurface tone="utility" style={settingsSurfaceStyle}>
-        <div data-settings-surface="drawer" style={settingsDrawerStyle}>
-          <SettingsGroup name="folder" kicker="Folder">
+      <div data-settings-surface="drawer" style={settingsDrawerStyle}>
+          <SettingsGroup name="folder" title="資料夾類型" caption="Folder">
             <div style={{ display: "grid", gap: 10 }}>
-              <div style={{ fontSize: 12, fontWeight: 700, color: tokens.color.ink }}>資料夾類型</div>
               <div style={{ display: "grid", gap: 8 }}>
                 {[
                   {
@@ -338,9 +318,12 @@ export function SettingsView({
                         alignItems: "start",
                         padding: "10px 12px",
                         borderRadius: tokens.radius.card,
-                        border: `1px solid ${active ? tokens.color.lineStrong : tokens.color.line}`,
-                        background: active ? tokens.color.elevated : tokens.color.surface,
-                        opacity: canEditSessionMode ? 1 : 0.55
+                        border: `1px solid ${active ? MODE_ACCENT : tokens.color.cardEdge}`,
+                        background: active ? MODE_ACCENT_SOFT : tokens.color.surface,
+                        boxShadow: active ? tokens.shadow.card : "none",
+                        opacity: canEditSessionMode ? 1 : 0.55,
+                        cursor: canEditSessionMode ? "pointer" : "default",
+                        transition: tokens.motion.interactiveTransitionFast
                       }}
                     >
                       <input
@@ -350,6 +333,7 @@ export function SettingsView({
                         checked={active}
                         disabled={!canEditSessionMode}
                         onChange={() => onSessionModeChange(option.mode)}
+                        style={{ accentColor: MODE_ACCENT, marginTop: 1 }}
                       />
                       <span style={{ display: "grid", gap: 4 }}>
                         <span style={{ fontSize: 12, fontWeight: 700, color: tokens.color.ink }}>{option.title}</span>
@@ -362,7 +346,7 @@ export function SettingsView({
             </div>
           </SettingsGroup>
 
-          <SettingsGroup name="connection" kicker="Connection">
+          <SettingsGroup name="connection" title="連線" caption="Connection">
             <label style={{ display: "grid", gap: 6, fontSize: 11, color: tokens.color.subInk }}>
               Ingest base URL
               <input value={draftBaseUrl} onChange={(event) => onDraftBaseUrlChange(event.target.value)} style={inputStyle} />
@@ -374,10 +358,7 @@ export function SettingsView({
                 fontSize: 11,
                 lineHeight: 1.5,
                 color: tokens.color.softInk,
-                padding: "7px 9px",
-                borderRadius: tokens.radius.card,
-                border: `1px solid ${tokens.color.line}`,
-                background: tokens.color.contextSurface
+                fontVariantNumeric: "tabular-nums"
               }}
             >
               Storage 用量：{storageUsage ? formatStorageUsage(storageUsage) : "讀取中"}
@@ -398,7 +379,7 @@ export function SettingsView({
             </label>
           </SettingsGroup>
 
-          <SettingsGroup name="keys" kicker="API keys">
+          <SettingsGroup name="keys" title="API 金鑰" caption="API keys">
             <label style={{ display: "grid", gap: 6, fontSize: 11, color: tokens.color.subInk }}>
               <span style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8 }}>
                 OpenAI
@@ -425,7 +406,7 @@ export function SettingsView({
           </SettingsGroup>
 
           {sessionMode === "product" ? (
-            <SettingsGroup name="product" kicker="產品脈絡">
+            <SettingsGroup name="product" title="產品脈絡" caption="Product">
               <label style={{ display: "grid", gap: 6, fontSize: 11, color: tokens.color.subInk }}>
                 產品名稱
                 <input
@@ -626,8 +607,7 @@ export function SettingsView({
               </div>
             ) : null}
           </div>
-        </div>
-      </WorkspaceSurface>
+      </div>
     </div>
   );
 }

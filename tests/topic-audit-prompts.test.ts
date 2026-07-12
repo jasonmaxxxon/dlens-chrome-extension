@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import type { EvidencePacket, LensMemo, SignalReading } from "../src/compare/topic-audit.ts";
+import type { EvidencePacket, LensMemo, SignalReading, TopicNarrativeState } from "../src/compare/topic-audit.ts";
 import {
   TOPIC_AUDIT_PROMPT_VERSIONS,
   buildP0_5ShardReadingPrompt,
@@ -56,6 +56,7 @@ function makeShardReading() {
     shortCode: "S1",
     shardIndex: 0,
     shardCount: 1,
+    reading: "P0.5 白紙讀：讀者以自身經驗限制 OP 的市場論，另有弱反例提醒樣本差異 [S1.R1] [S1.R2]。",
     commentRefsInShard: ["S1.R1", "S1.R2"],
     patternCandidates: [{
       label: "個人反例校正",
@@ -107,20 +108,81 @@ function makeMemo(stageName: LensMemo["stageName"], prose: string): LensMemo {
   };
 }
 
-test("P1 prompt starts with a cold read and excludes existing AI tags/gist from the evidence block", () => {
-  const prompt = buildP1SignalReadingPrompt(makePacket());
+function makeNarrativeState(): TopicNarrativeState {
+  return {
+    version: "topic-narrative-state.v1",
+    topicId: "topic-love",
+    auditRunId: "audit-run-0",
+    fingerprints: { evidence: "e0", definition: "d0", pipeline: "p0" },
+    nextIds: { claim: 2, voice: 1, question: 1 },
+    claims: [{
+      id: "claim-1",
+      statement: "讀者以個人反例收窄 OP 的市場論",
+      rationale: "前次 evidence 支持",
+      trajectory: "new",
+      evidence: [{ anchorId: "a_1234567890abcdef", displayRef: "S1.R1", stability: "stable" }]
+    }],
+    voices: [],
+    openQuestions: [],
+    updatedAt: "2026-05-21T09:00:00.000Z"
+  };
+}
 
-  assert.match(prompt, /你看到什麼？這篇在發生什麼？/);
+test("P1 prompt reduces persisted P0.5 readings without re-rendering raw audience replies", () => {
+  const packet = { ...makePacket(), gaps: ["只擷取 3/5 則留言"] };
+  const prompt = buildP1SignalReadingPrompt(packet, [makeShardReading()]);
+
+  assert.match(prompt, /P1 Post synthesis/);
   assert.match(prompt, /S1\.OP \[♥81\] @op: 靚女玩 app 會遇到市場錯配。/);
   assert.match(prompt, /S1\.OPC1 \[♥7\] @op: 第一點：app 會放大選擇成本。/);
-  assert.match(prompt, /S1\.R1 \[♥unknown\] @reader: 我同老公就是 app 識的。/);
+  assert.match(prompt, /只擷取 3\/5 則留言/);
+  assert.match(prompt, /P0\.5 白紙讀：讀者以自身經驗限制 OP 的市場論/);
+  assert.match(prompt, /個人反例校正/);
+  assert.match(prompt, /dynamic: 討論不只共鳴 OP/);
+  assert.match(prompt, /lexicon: app 識 \/ 市場錯配/);
+  assert.match(prompt, /shard 1\/1/);
+  assert.doesNotMatch(prompt, /@reader: 我同老公就是 app 識的。/);
+  assert.doesNotMatch(prompt, /完全未被引用的 raw reply/);
   assert.match(prompt, /optional lens/);
   assert.match(prompt, /"prose"/);
   assert.match(prompt, /"evidenceRefs"/);
   assert.doesNotMatch(prompt, /這篇把交友 app 寫成選擇成本/);
   assert.doesNotMatch(prompt, /戀愛市場/);
-  assert.equal(TOPIC_AUDIT_PROMPT_VERSIONS.p1, "topic-audit-p1.v2");
+  assert.equal(TOPIC_AUDIT_PROMPT_VERSIONS.p0_5, "topic-audit-p0_5.v2");
+  assert.equal(TOPIC_AUDIT_PROMPT_VERSIONS.p1, "topic-audit-p1.v3");
   assert.match(prompt, /\[Sx\.OP\] \/ \[Sx\.R1\]/);
+});
+
+test("P1 prompt stays under 24k chars for a 1,000-comment post while spanning the first and last shard", () => {
+  const replyFragments: EvidencePacket["replyFragments"] = Array.from({ length: 1_000 }, (_, index) => ({
+    ref: `S1.R${index + 1}`,
+    commentId: `comment-${index + 1}`,
+    author: `reader-${index + 1}`,
+    text: `RAW_REPLY_${index + 1}_${"x".repeat(96)}`,
+    likes: index,
+    role: "audience"
+  }));
+  const packet: EvidencePacket = {
+    ...makePacket(),
+    opText: `很長的 OP ${"主張".repeat(4_000)}`,
+    commentCount: replyFragments.length,
+    replyFragments
+  };
+  const shardReadings = Array.from({ length: 10 }, (_, shardIndex) => ({
+    ...makeShardReading(),
+    shardIndex,
+    shardCount: 10,
+    reading: `DISTILLATE_${shardIndex + 1} ${"獨立白紙閱讀摘要".repeat(280)} [S1.R${shardIndex * 100 + 1}]`,
+    commentRefsInShard: Array.from({ length: 100 }, (_, offset) => `S1.R${shardIndex * 100 + offset + 1}`)
+  }));
+
+  const prompt = buildP1SignalReadingPrompt(packet, shardReadings);
+
+  assert.ok(prompt.length <= 24_000, `P1 prompt length ${prompt.length} exceeded 24,000 chars`);
+  assert.match(prompt, /DISTILLATE_1\b/);
+  assert.match(prompt, /DISTILLATE_10\b/);
+  assert.doesNotMatch(prompt, /RAW_REPLY_/);
+  assert.match(prompt, /只回傳 JSON，不要 markdown fence/);
 });
 
 test("P0.5 shard prompt keeps a blank-read discipline and only renders the shard comments", () => {
@@ -134,7 +196,7 @@ test("P0.5 shard prompt keeps a blank-read discipline and only renders the shard
   assert.match(prompt, /S1\.R1 \[♥unknown\] @reader: 我同老公就是 app 識的。/);
   assert.doesNotMatch(prompt, /S1\.R2/);
   assert.doesNotMatch(prompt, /未被引用的 raw reply/);
-  assert.equal(TOPIC_AUDIT_PROMPT_VERSIONS.p0_5, "topic-audit-p0_5.v1");
+  assert.equal(TOPIC_AUDIT_PROMPT_VERSIONS.p0_5, "topic-audit-p0_5.v2");
 });
 
 test("P2-P6 prompts use prior prose memos but keep findings as probes instead of planted conclusions", () => {
@@ -170,9 +232,49 @@ test("P2-P6 prompts use prior prose memos but keep findings as probes instead of
   assert.match(p6, /S1\.R1 \[♥unknown\] @reader: 我同老公就是 app 識的。/);
   assert.doesNotMatch(p6, /S1\.R2/);
   assert.doesNotMatch(p6, /完全未被引用的 raw reply/);
-  assert.equal(TOPIC_AUDIT_PROMPT_VERSIONS.p6, "topic-audit-p6.v2");
+  assert.equal(TOPIC_AUDIT_PROMPT_VERSIONS.p6, "topic-audit-p6.v3");
   assert.deepEqual(findForbiddenFindingAssertions(p5), []);
   assert.deepEqual(findForbiddenFindingAssertions(p6), []);
+});
+
+test("P3 P4 and P6 read current evidence before treating prior narrative state as hypotheses", () => {
+  const packet = makePacket();
+  const reading = makeSignalReading();
+  const shardReading = makeShardReading();
+  const lexicon = makeMemo("lexicon", "當次詞彙 memo");
+  const priorNarrativeState = makeNarrativeState();
+  const p3 = buildP3NarrativePrompt({
+    topicName: "love",
+    packets: [packet],
+    signalReadings: [reading],
+    lexiconMemo: lexicon,
+    priorNarrativeState
+  });
+  const p4 = buildP4AudiencePrompt({
+    topicName: "love",
+    packets: [packet],
+    signalReadings: [reading],
+    lensMemos: [lexicon],
+    shardReadings: [shardReading],
+    priorNarrativeState
+  });
+  const p6 = buildP6FinalReportPrompt({
+    topicName: "love",
+    packets: [packet],
+    signalReadings: [reading],
+    lensMemos: [lexicon],
+    priorNarrativeState
+  });
+
+  for (const prompt of [p3, p4, p6]) {
+    assert.match(prompt, /歷史假說，不是 evidence/);
+    assert.match(prompt, /claim-1/);
+  }
+  assert.ok(p3.indexOf("[P1 readings]") < p3.indexOf("[Prior narrative state"));
+  assert.ok(p4.indexOf("[Post-level merged observations]") < p4.indexOf("[Prior narrative state"));
+  assert.ok(p6.indexOf("[Evidence digest") < p6.indexOf("[Prior narrative state"));
+  assert.match(p6, /每個 active prior claim ID 恰好一次/);
+  assert.match(p6, /continuityReview/);
 });
 
 test("forbidden finding guard flags planted conclusions but allows negative instructions", () => {
@@ -312,4 +414,30 @@ test("parseAuditPromptEnvelopeResponse preserves structured reaction patterns an
       }]
     }
   });
+});
+
+test("parseAuditPromptEnvelopeResponse preserves a compact continuity review", () => {
+  const parsed = parseAuditPromptEnvelopeResponse(JSON.stringify({
+    prose: "本次 report",
+    evidenceRefs: ["S1.OP"],
+    caveats: [],
+    continuityReview: {
+      carriedClaims: [{
+        claimId: "claim-1",
+        outcome: "weakened",
+        statement: "舊命題已收窄",
+        rationale: "新反例出現",
+        evidenceRefs: ["S1.R1"]
+      }],
+      newClaims: [{ statement: "新命題", rationale: "新訊號", evidenceRefs: ["S1.OP"] }],
+      voices: [{ label: "反例者", position: "收窄命題", evidenceRefs: ["S1.R1"] }],
+      openQuestions: ["反例會否持續？"]
+    }
+  }), new Set(["S1.OP", "S1.R1"]));
+
+  assert.equal(parsed?.continuityReview?.carriedClaims[0]?.claimId, "claim-1");
+  assert.equal(parsed?.continuityReview?.carriedClaims[0]?.outcome, "weakened");
+  assert.deepEqual(parsed?.continuityReview?.newClaims[0]?.evidenceRefs, ["S1.OP"]);
+  assert.equal(parsed?.continuityReview?.voices[0]?.label, "反例者");
+  assert.deepEqual(parsed?.continuityReview?.openQuestions, ["反例會否持續？"]);
 });

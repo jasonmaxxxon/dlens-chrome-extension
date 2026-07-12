@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import type { EvidencePacket } from "../src/compare/topic-audit.ts";
+import type { EvidencePacket, TopicAuditEpisode, TopicAuditReport } from "../src/compare/topic-audit.ts";
 import type { TopicAuditMemoBundle } from "../src/state/topic-audit-storage.ts";
 import { createSessionItem } from "../src/state/store-helpers.ts";
 import type { SavedAnalysisSnapshot, SessionItem, Signal, SignalTagsRecord, Topic } from "../src/state/types.ts";
@@ -182,6 +182,15 @@ test("Topic detail VM composes source rows, audit state, and command targets", (
     signalTagsByItemId,
     auditEvidence,
     auditMemos,
+    auditReport: {
+      auditRunId: "audit-1",
+      inputHash: "hash-1",
+      sections: { overall: "現行 report", absence: "" }
+    } as TopicAuditReport,
+    auditEpisodes: [
+      { id: "episode-1", auditRunId: "audit-1", inputHash: "hash-1", transition: "first" } as TopicAuditEpisode,
+      { id: "episode-2", auditRunId: "audit-1", inputHash: "hash-1", transition: "advance" } as TopicAuditEpisode
+    ],
     auditSummary: { reportStatus: "ready", analyzedCount: 9, queuedCount: 9, coverage: "9/18" },
     p1RunningSignalIds: ["audit-signal-2"]
   });
@@ -218,6 +227,8 @@ test("Topic detail VM composes source rows, audit state, and command targets", (
   assert.equal(vm.audit.sourceRows[1]?.readingStatus, "running");
   assert.deepEqual(vm.audit.themes, ["航班", "客服"]);
   assert.equal(vm.audit.lanes[0]?.label, "客服補救失速");
+  assert.deepEqual(vm.audit.episodes.map((episode) => episode.id), ["episode-1", "episode-2"]);
+  assert.equal(vm.audit.latestEpisode?.id, "episode-2");
 
   const bulkAction = vm.actions.find((action) => action.kind === "analyzeItems");
   assert.deepEqual(bulkAction, {
@@ -231,6 +242,30 @@ test("Topic detail VM composes source rows, audit state, and command targets", (
       assert.equal(action.target.signalId, row.signalId);
     }
   }
+});
+
+test("Topic detail VM does not mix a published report episode with a different memo input", () => {
+  const packet = buildAuditPacket(1);
+  const memos = buildAuditMemos([packet]);
+  const report = {
+    auditRunId: "audit-older",
+    inputHash: "hash-1",
+    sections: { overall: "舊 report", absence: "舊 absence" }
+  } as TopicAuditReport;
+  const episode = { id: "episode-old", auditRunId: "audit-older", inputHash: "hash-1" } as TopicAuditEpisode;
+  const vm = buildTopicDetailViewModel({
+    topic,
+    signals: [],
+    pairs: [],
+    auditEvidence: [packet],
+    auditMemos: memos,
+    auditReport: report,
+    auditEpisodes: [episode]
+  });
+
+  assert.equal(vm.audit.hasAuditReport, false);
+  assert.equal(vm.audit.latestEpisode, undefined);
+  assert.doesNotMatch(vm.audit.headlineProse, /舊 report/);
 });
 
 test("Topic detail VM exposes evidence-bound reaction patterns from display hints", () => {

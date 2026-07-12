@@ -1,17 +1,18 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import { buildPopupKeyframeCss } from "../src/ui/usePopupKeyframes.ts";
+import { buildPopupTokenCss } from "../src/ui/usePopupKeyframes.ts";
 
-test("buildPopupKeyframeCss keeps the warm-paper variables and popup animation tokens together", () => {
-  const css = buildPopupKeyframeCss();
+test("buildPopupTokenCss carries the popup's fonts and :root token bridge", () => {
+  const css = buildPopupTokenCss();
 
   assert.match(css, /--dlens-canvas-deep/);
   // The popup's display + mono fonts must load, or headings fall back to Times.
   assert.match(css, /@import url\("https:\/\/fonts\.googleapis\.com.*Instrument\+Serif/);
-  assert.match(css, /@keyframes dlens-popup-pulse/);
-  assert.match(css, /@keyframes dlens-popup-shimmer/);
-  assert.match(css, /@keyframes dlens-popup-indeterminate/);
-  assert.match(css, /@keyframes dlens-spin/);
-  assert.match(css, /@keyframes dlens-success-pulse/);
+});
+
+test("buildPopupTokenCss no longer bundles keyframes — the shared registry owns them", () => {
+  // Keyframes now come from ensureDlensKeyframes so the Threads document holds one copy,
+  // not one from the content script and one from the popup hook.
+  assert.doesNotMatch(buildPopupTokenCss(), /@keyframes/);
 });

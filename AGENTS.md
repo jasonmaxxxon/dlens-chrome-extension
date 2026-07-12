@@ -52,9 +52,10 @@ Supabase directly and never sends user LLM keys to the backend.
 
 ## Version lock (locked 2026-05-14)
 
-User-visible `main` updates bump all four together: `package.json`,
+User-visible `main` updates bump all FIVE together: `package.json`,
 `package-lock.json`, `wxt.config.ts` `manifest.version`,
-`src/ui/version.ts` `BUILD_VERSION`. `tests/manifest-config.test.ts` enforces.
+`src/ui/version.ts` `BUILD_VERSION`, and the expected version string in
+`tests/manifest-config.test.ts` (the enforcing test is itself a lock site).
 
 ## Verify gate (run ALL before calling any change done)
 
@@ -90,7 +91,12 @@ git diff --check
 
 - **Shared workspace shell**: Topic, Product, and PR Evidence use
   `tokens.material.workspaceGlass` across the popup canvas, masthead, rail,
-  and main frame; Archive remains paper. Topic Audit keeps one stable Atlas
+  and main frame; Archive keeps the non-blurred material variant. As of
+  0.3.28 the whole surface token family (`color.canvas/surface/elevated` +
+  shell/rail/neutral/idle/disabled roles) is glass-white derived from the
+  `workspaceGlass` canvas stops — the warm-paper cream values and the
+  `data-paper-grain` overlay are retired; warm ink, serif voice, and mode
+  accents carry the editorial identity. Topic Audit keeps one stable Atlas
   canvas through `none / running / ready / stale / failed`, preserves the last
   Atlas during regeneration, and must not present memo-derived `Pn/6` as live
   progress.

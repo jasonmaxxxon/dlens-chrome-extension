@@ -1,0 +1,1013 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Signal Atlas — 變體 C · Glass L0 Spine</title>
+<!--
+  MOCKUP · reference only · 2026-07-09
+  使用者明確要求:忽略 Claude 對 DLens 現行 design contract 的三個限制。
+
+  這一版故意開放:
+    - glassmorphism:半透明卡 + backdrop-filter blur。
+    - electric cyan:#43D6C8 作為主訊號色。
+    - big KPI:第一屏放大數字,但語意仍是 ledger / coverage。
+
+  但保留 Codex review 的產品判斷:
+    - L0 是閱讀脊柱,不是 showreel:頭條判讀 → 民情形狀 → pattern → narrative → caveat → source。
+    - L0 不顯示原始留言全文;證據只在 L1 hover/ref chip 或 L2 drawer 出現。
+    - 星圖回答「民情形狀」,不取代 pattern / narrative 的文字判讀。
+    - 實作形態仍是 MV3 sidepanel 可承受的 SVG + CSS + small JS,不用 Three.js。
+-->
+<style>
+  :root {
+    --canvas: #f6f2e9;
+    --paper: rgba(255, 252, 244, 0.72);
+    --paper-strong: rgba(255, 253, 248, 0.86);
+    --ink: #171a17;
+    --sub: #3c423d;
+    --muted: #747a72;
+    --line: rgba(23, 26, 23, 0.12);
+    --line-strong: rgba(23, 26, 23, 0.22);
+    --cyan: #43d6c8;
+    --cyan-deep: #118c80;
+    --cyan-glow: rgba(67, 214, 200, 0.36);
+    --cyan-faint: rgba(67, 214, 200, 0.12);
+    --violet: #6f5aa7;
+    --amber: #b87b1b;
+    --rose: #8b2542;
+    --indigo: #193a68;
+    --shadow-glass: 0 24px 60px rgba(37, 34, 24, 0.18), 0 6px 18px rgba(37, 34, 24, 0.08), inset 0 1px 0 rgba(255,255,255,0.62);
+    --shadow-soft: 0 12px 30px rgba(37, 34, 24, 0.12), inset 0 1px 0 rgba(255,255,255,0.55);
+    --sans: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Noto Sans TC", system-ui, sans-serif;
+    --serif: "Noto Serif TC", "Songti TC", Georgia, serif;
+    --mono: "SF Mono", "JetBrains Mono", ui-monospace, monospace;
+    --ease: cubic-bezier(0.16, 1, 0.3, 1);
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    min-height: 100vh;
+    display: flex;
+    justify-content: center;
+    padding: 32px 12px 80px;
+    font-family: var(--sans);
+    color: var(--ink);
+    background:
+      linear-gradient(90deg, rgba(23,26,23,0.035) 1px, transparent 1px) 0 0/28px 28px,
+      linear-gradient(180deg, rgba(23,26,23,0.028) 1px, transparent 1px) 0 0/28px 28px,
+      linear-gradient(135deg, #eee8d9 0%, #f8f6ef 48%, #e8eee9 100%);
+  }
+
+  .frame {
+    position: relative;
+    width: 400px;
+    height: 760px;
+    overflow: hidden;
+    border-radius: 28px;
+    background: rgba(246, 242, 233, 0.78);
+    box-shadow: 0 28px 80px rgba(28, 24, 16, 0.22), 0 2px 8px rgba(28, 24, 16, 0.08);
+    border: 1px solid rgba(255,255,255,0.62);
+  }
+
+  .spine {
+    height: 100%;
+    overflow-y: auto;
+    padding-bottom: 24px;
+    scrollbar-width: thin;
+  }
+
+  .glass {
+    background: var(--paper);
+    border: 1px solid rgba(255,255,255,0.58);
+    box-shadow: var(--shadow-soft);
+    backdrop-filter: blur(18px) saturate(1.35);
+    -webkit-backdrop-filter: blur(18px) saturate(1.35);
+  }
+
+  .hero {
+    margin: 14px;
+    padding: 16px 16px 14px;
+    border-radius: 22px;
+    background:
+      linear-gradient(180deg, rgba(255,255,255,0.52), rgba(255,255,255,0.18)),
+      rgba(255, 252, 244, 0.64);
+    border: 1px solid rgba(255,255,255,0.66);
+    box-shadow: var(--shadow-glass);
+    backdrop-filter: blur(22px) saturate(1.35);
+    -webkit-backdrop-filter: blur(22px) saturate(1.35);
+  }
+
+  .kicker {
+    font-family: var(--mono);
+    font-size: 9px;
+    letter-spacing: 0.18em;
+    text-transform: uppercase;
+    color: var(--muted);
+    font-weight: 800;
+  }
+
+  .title-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    gap: 14px;
+    margin-top: 6px;
+  }
+
+  .title {
+    font-family: var(--serif);
+    font-size: 24px;
+    line-height: 1.22;
+    font-weight: 700;
+    letter-spacing: 0;
+  }
+
+  .trust {
+    display: grid;
+    gap: 3px;
+    text-align: right;
+    font-family: var(--mono);
+    font-size: 9px;
+    color: var(--muted);
+    font-weight: 800;
+    line-height: 1.25;
+  }
+
+  .trust b { color: var(--cyan-deep); font-size: 13px; }
+
+  .kpis {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 8px;
+    margin-top: 15px;
+  }
+
+  .kpi {
+    padding: 10px 9px 9px;
+    border-radius: 16px;
+    background: rgba(255,255,255,0.42);
+    border: 1px solid rgba(255,255,255,0.55);
+    box-shadow: inset 0 1px 0 rgba(255,255,255,0.6), 0 8px 18px rgba(37,34,24,0.05);
+  }
+
+  .kpi .num {
+    font-family: var(--mono);
+    font-size: 27px;
+    line-height: 1;
+    font-weight: 850;
+    font-variant-numeric: tabular-nums;
+  }
+
+  .kpi.hot .num { color: var(--cyan-deep); text-shadow: 0 0 16px var(--cyan-glow); }
+  .kpi .lab {
+    display: block;
+    margin-top: 5px;
+    font-family: var(--mono);
+    font-size: 8.5px;
+    letter-spacing: 0.08em;
+    color: var(--muted);
+    font-weight: 800;
+    text-transform: uppercase;
+  }
+
+  .verdict {
+    margin-top: 14px;
+    padding: 12px 13px;
+    border-radius: 16px;
+    background: rgba(255,255,255,0.48);
+    border: 1px solid rgba(255,255,255,0.62);
+  }
+
+  .verdict p {
+    font-family: var(--serif);
+    font-size: 15px;
+    line-height: 1.7;
+    color: var(--ink);
+  }
+
+  .ref {
+    appearance: none;
+    -webkit-appearance: none;
+    display: inline-block;
+    margin: 0 2px;
+    padding: 1px 6px 2px;
+    vertical-align: 1px;
+    border-radius: 999px;
+    font-family: var(--mono);
+    font-size: 9px;
+    font-weight: 850;
+    line-height: 1.2;
+    color: var(--cyan-deep);
+    background: var(--cyan-faint);
+    border: 1px solid rgba(67,214,200,0.28);
+    cursor: pointer;
+  }
+
+  .ref:hover, .ref.pin { color: var(--ink); border-color: var(--cyan); background: rgba(67,214,200,0.20); }
+
+  .atlas {
+    position: relative;
+    margin-top: 12px;
+    padding: 2px 0 0;
+  }
+
+  .atlas-caption {
+    position: absolute;
+    top: 8px;
+    right: 2px;
+    font-family: var(--mono);
+    font-size: 8.5px;
+    color: var(--muted);
+    font-weight: 800;
+  }
+
+  .shape-line {
+    display: grid;
+    grid-template-columns: 1fr auto;
+    gap: 8px;
+    align-items: center;
+    margin-top: 8px;
+    font-family: var(--mono);
+    font-size: 10px;
+    color: var(--muted);
+    font-weight: 800;
+  }
+
+  .shape-line b { color: var(--cyan-deep); }
+
+  svg .ring { fill: none; stroke: rgba(23,26,23,0.075); stroke-width: 1; }
+  svg .axis { stroke: rgba(23,26,23,0.12); stroke-width: 1; }
+  svg .ray { stroke: rgba(67,214,200,0.22); stroke-width: 1; stroke-dasharray: 3 5; }
+  svg .label {
+    font-family: var(--mono);
+    font-size: 8.5px;
+    font-weight: 850;
+    letter-spacing: 0.08em;
+    fill: var(--muted);
+  }
+  svg .dot { cursor: pointer; }
+  svg .core { fill: var(--cyan); filter: drop-shadow(0 0 8px rgba(67,214,200,0.72)); }
+  svg .dot.violet .core { fill: var(--violet); filter: drop-shadow(0 0 8px rgba(111,90,167,0.42)); }
+  svg .dot.amber .core { fill: var(--amber); filter: drop-shadow(0 0 8px rgba(184,123,27,0.38)); }
+  svg .halo { fill: var(--cyan-glow); transform-box: fill-box; transform-origin: center; }
+  svg .dot.violet .halo { fill: rgba(111,90,167,0.22); }
+  svg .dot.amber .halo { fill: rgba(184,123,27,0.22); }
+  svg .dot.sel .core { stroke: var(--ink); stroke-width: 1.5; }
+
+  @media (prefers-reduced-motion: no-preference) {
+    svg .dot.top .halo { animation: pulse 3.4s var(--ease) infinite; }
+    svg .cluster { animation: float 8s ease-in-out infinite alternate; }
+    svg .cluster:nth-of-type(2n) { animation-delay: -3s; animation-duration: 10s; }
+  }
+
+  @keyframes pulse {
+    from { opacity: .5; transform: scale(1); }
+    to { opacity: 0; transform: scale(3.2); }
+  }
+  @keyframes float {
+    from { transform: translateY(0); }
+    to { transform: translateY(3px); }
+  }
+
+  .sec-label {
+    display: flex;
+    justify-content: space-between;
+    align-items: baseline;
+    padding: 18px 18px 8px;
+    font-family: var(--mono);
+    font-size: 10px;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    font-weight: 850;
+    color: var(--muted);
+  }
+
+  .sec-label span:last-child {
+    letter-spacing: 0;
+    text-transform: none;
+    color: var(--cyan-deep);
+  }
+
+  .cards {
+    display: flex;
+    flex-direction: column;
+    gap: 9px;
+    padding: 0 14px;
+  }
+
+  .card {
+    border-radius: 18px;
+    padding: 13px 14px;
+    cursor: pointer;
+  }
+
+  .card:hover { border-color: rgba(67,214,200,0.44); }
+
+  .card .top {
+    display: flex;
+    justify-content: space-between;
+    gap: 10px;
+    align-items: baseline;
+  }
+
+  .card .t {
+    font-size: 14px;
+    line-height: 1.35;
+    font-weight: 800;
+  }
+
+  .metric {
+    font-family: var(--mono);
+    font-size: 10.5px;
+    font-weight: 850;
+    color: var(--muted);
+    white-space: nowrap;
+    font-variant-numeric: tabular-nums;
+  }
+  .metric b { color: var(--cyan-deep); }
+  .metric .bad { color: var(--rose); }
+
+  .imp {
+    margin-top: 6px;
+    color: var(--sub);
+    font-size: 12.5px;
+    line-height: 1.55;
+  }
+
+  .foot {
+    display: flex;
+    justify-content: space-between;
+    gap: 8px;
+    align-items: center;
+    margin-top: 9px;
+  }
+
+  .arrow { color: var(--cyan-deep); }
+
+  .lane-bar {
+    display: flex;
+    gap: 3px;
+    margin-top: 9px;
+  }
+  .lane-bar i {
+    height: 5px;
+    flex: 1;
+    border-radius: 99px;
+    background: rgba(23,26,23,0.08);
+  }
+  .lane-bar i.on {
+    background: var(--cyan);
+    box-shadow: 0 0 10px var(--cyan-glow);
+  }
+
+  .single {
+    border-style: dashed;
+    background: rgba(255,255,255,0.34);
+  }
+
+  .badge {
+    display: inline-flex;
+    border-radius: 999px;
+    padding: 2px 7px;
+    font-family: var(--mono);
+    font-size: 8.5px;
+    font-weight: 850;
+    color: var(--muted);
+    background: rgba(23,26,23,0.06);
+    white-space: nowrap;
+  }
+
+  .warn {
+    margin: 4px 14px 0;
+    border-radius: 18px;
+    padding: 12px 14px;
+    background: rgba(255, 244, 218, 0.64);
+    border: 1px solid rgba(184,123,27,0.25);
+    box-shadow: var(--shadow-soft);
+    backdrop-filter: blur(14px);
+    -webkit-backdrop-filter: blur(14px);
+  }
+  .warn .w-label {
+    font-family: var(--mono);
+    font-size: 10px;
+    font-weight: 850;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--amber);
+    margin-bottom: 7px;
+  }
+  .warn ul { list-style: none; display: grid; gap: 5px; }
+  .warn li { color: var(--sub); font-size: 12px; line-height: 1.5; display: flex; gap: 7px; }
+  .warn li:before { content: "·"; color: var(--amber); font-weight: 900; }
+
+  .src {
+    margin: 4px 14px 0;
+    padding: 12px 0 0;
+    border-top: 1px solid var(--line);
+  }
+  .cov {
+    display: grid;
+    grid-template-columns: repeat(4,1fr);
+    gap: 7px;
+  }
+  .cov .c {
+    padding: 8px 7px;
+    border-radius: 14px;
+    background: rgba(255,255,255,0.36);
+    border: 1px solid rgba(255,255,255,0.46);
+  }
+  .cov .cn { font-family: var(--mono); font-size: 15px; font-weight: 850; font-variant-numeric: tabular-nums; }
+  .cov .cl { display: block; margin-top: 1px; font-size: 9px; color: var(--muted); font-weight: 600; }
+  .posts { display: grid; gap: 4px; margin-top: 10px; }
+  .post-row { display: flex; gap: 8px; align-items: baseline; font-size: 11.5px; color: var(--sub); }
+  .post-row .sid { font-family: var(--mono); color: var(--cyan-deep); font-size: 9.5px; font-weight: 850; }
+  .post-row .pt { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .post-row .pn { font-family: var(--mono); color: var(--muted); font-size: 9.5px; font-weight: 850; }
+  .stamp { margin-top: 10px; font-family: var(--mono); font-size: 8.5px; font-weight: 850; color: var(--muted); }
+
+  .pop {
+    position: absolute;
+    z-index: 40;
+    width: 282px;
+    padding: 12px 13px;
+    border-radius: 16px;
+    opacity: 0;
+    pointer-events: none;
+    transform: translateY(4px);
+  }
+  .pop.show { opacity: 1; pointer-events: auto; transform: translateY(0); }
+  @media (prefers-reduced-motion: no-preference) {
+    .pop { transition: opacity 180ms var(--ease), transform 180ms var(--ease); }
+  }
+  .pop .pq { font-family: var(--serif); font-size: 13px; line-height: 1.6; color: var(--ink); }
+  .pop .pm {
+    display: flex;
+    gap: 10px;
+    margin-top: 7px;
+    font-family: var(--mono);
+    font-size: 10px;
+    color: var(--muted);
+    font-weight: 850;
+    font-variant-numeric: tabular-nums;
+  }
+  .pop .pid { color: var(--cyan-deep); }
+
+  .scrim {
+    position: absolute;
+    inset: 0;
+    z-index: 50;
+    background: rgba(12, 18, 18, 0.24);
+    opacity: 0;
+    pointer-events: none;
+    backdrop-filter: blur(1px);
+  }
+  .drawer {
+    position: absolute;
+    top: 0;
+    right: 0;
+    bottom: 0;
+    z-index: 60;
+    width: 350px;
+    border-left: 1px solid rgba(255,255,255,0.55);
+    transform: translateX(106%);
+    display: flex;
+    flex-direction: column;
+    background: rgba(255,252,244,0.78);
+    box-shadow: -22px 0 52px rgba(29, 31, 24, 0.18);
+    backdrop-filter: blur(22px) saturate(1.25);
+    -webkit-backdrop-filter: blur(22px) saturate(1.25);
+  }
+  @media (prefers-reduced-motion: no-preference) {
+    .drawer { transition: transform 280ms var(--ease); }
+    .scrim { transition: opacity 280ms var(--ease); }
+  }
+  .frame.open .drawer { transform: translateX(0); }
+  .frame.open .scrim { opacity: 1; pointer-events: auto; }
+
+  .d-head {
+    display: flex;
+    gap: 10px;
+    align-items: flex-start;
+    padding: 15px 16px 11px;
+    border-bottom: 1px solid var(--line);
+  }
+  .d-title { flex: 1; font-weight: 850; font-size: 14px; line-height: 1.35; }
+  .d-num { margin-top: 4px; font-family: var(--mono); color: var(--muted); font-size: 10px; font-weight: 850; font-variant-numeric: tabular-nums; }
+  .d-num b { color: var(--cyan-deep); }
+  .d-close {
+    border: 1px solid rgba(255,255,255,0.55);
+    background: rgba(255,255,255,0.50);
+    width: 26px;
+    height: 26px;
+    border-radius: 999px;
+    cursor: pointer;
+    color: var(--muted);
+  }
+  .d-body { flex: 1; overflow-y: auto; padding: 13px 16px 17px; }
+  .d-label {
+    margin: 10px 0 7px;
+    font-family: var(--mono);
+    font-size: 9.5px;
+    font-weight: 850;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--muted);
+  }
+  .d-label:first-child { margin-top: 0; }
+  .d-stats {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px 12px;
+    padding: 9px 11px;
+    border-radius: 14px;
+    font-family: var(--mono);
+    font-size: 10px;
+    color: var(--muted);
+    font-weight: 850;
+  }
+  .d-stats b { color: var(--ink); }
+  .ev {
+    padding: 10px 11px;
+    margin-bottom: 8px;
+    border-radius: 14px;
+  }
+  .ev.counter { border-left: 3px solid var(--rose); }
+  .ev-q { color: var(--sub); font-size: 12.5px; line-height: 1.58; }
+  .ev-q.clamp { display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden; }
+  .ev-m {
+    display: flex;
+    gap: 9px;
+    align-items: baseline;
+    margin-top: 6px;
+    font-family: var(--mono);
+    font-size: 9.5px;
+    color: var(--muted);
+    font-weight: 850;
+  }
+  .ev-m .pid { color: var(--cyan-deep); }
+  .ev.counter .pid { color: var(--rose); }
+  .more, .d-back {
+    border: none;
+    background: none;
+    color: var(--cyan-deep);
+    font-size: 11px;
+    font-weight: 700;
+    cursor: pointer;
+    padding: 4px 0 0;
+  }
+  .more { display: none; }
+  .more.avail { display: inline-block; }
+  .d-all {
+    width: 100%;
+    margin-top: 10px;
+    padding: 10px 0;
+    border-radius: 14px;
+    border: 1px solid rgba(67,214,200,0.35);
+    background: rgba(67,214,200,0.12);
+    color: var(--ink);
+    font-weight: 750;
+    cursor: pointer;
+  }
+  .grp { margin-bottom: 12px; }
+  .grp-h { display: flex; align-items: baseline; gap: 8px; margin-bottom: 6px; }
+  .grp-h .sid { font-family: var(--mono); font-size: 10px; color: var(--cyan-deep); font-weight: 850; }
+  .grp-h .gt { flex: 1; color: var(--sub); font-size: 11px; font-weight: 650; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .grp-h .gn { font-family: var(--mono); color: var(--muted); font-size: 9.5px; font-weight: 850; }
+  .cm { display: flex; gap: 8px; padding: 7px 0; border-bottom: 1px solid var(--line); font-size: 12px; }
+  .cm:last-child { border-bottom: none; }
+  .cm .ca { font-family: var(--mono); color: var(--muted); font-size: 10px; font-weight: 850; max-width: 90px; overflow: hidden; text-overflow: ellipsis; flex: none; }
+  .cm .cx { flex: 1; line-height: 1.5; color: var(--sub); }
+  .cm .cl { font-family: var(--mono); color: var(--muted); font-size: 9.5px; font-weight: 850; }
+  .dedup {
+    display: inline-flex;
+    margin-left: 4px;
+    padding: 1px 5px;
+    border-radius: 6px;
+    background: rgba(184,123,27,0.13);
+    color: var(--amber);
+    font-family: var(--mono);
+    font-size: 8.5px;
+    font-weight: 850;
+  }
+</style>
+</head>
+<body>
+<div class="frame" id="frame">
+  <div class="spine" id="spine">
+    <section class="hero">
+      <div class="kicker">Signal Atlas · Topic Audit · L0</div>
+      <div class="title-row">
+        <div>
+          <h1 class="title">香港人移加拿大新生活</h1>
+        </div>
+        <div class="trust"><b>100%</b><span>引用鏈可追</span><span>2026-07-09</span></div>
+      </div>
+
+      <div class="kpis" aria-label="coverage ledger">
+        <div class="kpi"><span class="num">126</span><span class="lab">已讀留言</span></div>
+        <div class="kpi hot"><span class="num">5</span><span class="lab">反應形狀</span></div>
+        <div class="kpi"><span class="num">3</span><span class="lab">跨帖敘事</span></div>
+      </div>
+
+      <div class="verdict">
+        <p>民情主調係「羨慕＋追攻略」,唔係質疑可行性<button class="ref" type="button" data-r="S1.R3">S1.R3</button><button class="ref" type="button" data-r="S4.R12">S4.R12</button>。真正分歧在時機——「幾時走先算遲」先係跨帖重複嘅拉鋸位<button class="ref" type="button" data-r="S2.R7">S2.R7</button><button class="ref" type="button" data-r="S5.R2">S5.R2</button>。</p>
+      </div>
+
+      <div class="atlas" aria-label="民情形狀星圖">
+        <div class="atlas-caption">hover refs · click cards</div>
+        <svg viewBox="0 0 368 266" width="100%" role="img" aria-label="五個反應群的星圖">
+          <circle class="ring" cx="184" cy="135" r="112"/>
+          <circle class="ring" cx="184" cy="135" r="78"/>
+          <circle class="ring" cx="184" cy="135" r="44"/>
+          <line class="axis" x1="184" y1="16" x2="184" y2="254"/>
+          <line class="axis" x1="62" y1="135" x2="306" y2="135"/>
+          <line class="ray" x1="184" y1="135" x2="116" y2="72"/>
+          <line class="ray" x1="184" y1="135" x2="258" y2="78"/>
+          <line class="ray" x1="184" y1="135" x2="106" y2="196"/>
+          <line class="ray" x1="184" y1="135" x2="266" y2="198"/>
+          <line class="ray" x1="184" y1="135" x2="184" y2="224"/>
+
+          <g class="cluster">
+            <text class="label" x="76" y="58">同路人打氣 · 33</text>
+            <g class="dot top" data-d="p1"><circle class="halo" cx="116" cy="82" r="7"/><circle class="core" cx="116" cy="82" r="4.8"/></g>
+            <g class="dot" data-d="p1"><circle class="halo" cx="93" cy="98" r="5"/><circle class="core" cx="93" cy="98" r="3.2"/></g>
+            <g class="dot" data-d="p1"><circle class="halo" cx="136" cy="100" r="5"/><circle class="core" cx="136" cy="100" r="3.5"/></g>
+          </g>
+
+          <g class="cluster">
+            <text class="label" x="226" y="68">追問步驟 · 21</text>
+            <g class="dot top" data-d="p2"><circle class="halo" cx="257" cy="91" r="7"/><circle class="core" cx="257" cy="91" r="4.4"/></g>
+            <g class="dot" data-d="p2"><circle class="halo" cx="278" cy="112" r="5"/><circle class="core" cx="278" cy="112" r="3"/></g>
+          </g>
+
+          <g class="cluster">
+            <text class="label" x="58" y="186">懷疑軟推 · 18</text>
+            <g class="dot amber top" data-d="p3"><circle class="halo" cx="104" cy="203" r="7"/><circle class="core" cx="104" cy="203" r="4.3"/></g>
+            <g class="dot amber" data-d="p3"><circle class="halo" cx="130" cy="218" r="5"/><circle class="core" cx="130" cy="218" r="3"/></g>
+          </g>
+
+          <g class="cluster">
+            <text class="label" x="230" y="187">分享版本 · 14</text>
+            <g class="dot violet top" data-d="p4"><circle class="halo" cx="259" cy="203" r="6"/><circle class="core" cx="259" cy="203" r="3.9"/></g>
+            <g class="dot violet" data-d="p4"><circle class="halo" cx="286" cy="216" r="5"/><circle class="core" cx="286" cy="216" r="3"/></g>
+          </g>
+
+          <g class="cluster">
+            <text class="label" x="151" y="242">質疑時機 · 9</text>
+            <g class="dot amber" data-d="p5"><circle class="halo" cx="184" cy="219" r="5"/><circle class="core" cx="184" cy="219" r="3.1"/></g>
+          </g>
+        </svg>
+        <div class="shape-line"><span>形狀判讀: <b>支持偏強</b>,質疑集中喺時機與可信度</span><span>126 n</span></div>
+      </div>
+    </section>
+
+    <div class="sec-label"><span>群眾反應</span><span>5 patterns</span></div>
+    <div class="cards">
+      <article class="card glass" data-d="p1">
+        <div class="top"><span class="t">同路人打氣</span><span class="metric"><b>33</b>/126 · 29 作者</span></div>
+        <p class="imp">情緒主調係認同而非爭論,內容可以直接行動化,唔使再鋪墊。</p>
+        <div class="foot"><span><button class="ref" type="button" data-r="S1.R2">S1.R2</button><button class="ref" type="button" data-r="S3.R9">S3.R9</button><button class="ref" type="button" data-r="S5.R4">S5.R4</button></span><span class="metric">♥604 · 無反例 <span class="arrow">→</span></span></div>
+      </article>
+      <article class="card glass" data-d="p2">
+        <div class="top"><span class="t">追問實際步驟</span><span class="metric"><b>21</b>/126 · 15 作者</span></div>
+        <p class="imp">群眾唔係質疑可行性,係等一份 step-by-step——攻略型內容有現成需求。</p>
+        <div class="foot"><span><button class="ref" type="button" data-r="S2.R14">S2.R14</button><button class="ref" type="button" data-r="S4.R3">S4.R3</button><button class="ref" type="button" data-r="S6.R6">S6.R6</button></span><span class="metric">♥312 · <span class="bad">3 反例</span> <span class="arrow">→</span></span></div>
+      </article>
+      <article class="card glass" data-d="p3">
+        <div class="top"><span class="t">懷疑廣告／軟推銷</span><span class="metric"><b>18</b>/126 · 12 作者</span></div>
+        <p class="imp">「太順利」嘅敘事會觸發防禦,證據同開支明細要前置先入到耳。</p>
+        <div class="foot"><span><button class="ref" type="button" data-r="S3.R11">S3.R11</button><button class="ref" type="button" data-r="S4.R8">S4.R8</button><button class="ref" type="button" data-r="S6.R2">S6.R2</button></span><span class="metric">♥187 · <span class="bad">2 反例</span> <span class="arrow">→</span></span></div>
+      </article>
+      <article class="card glass" data-d="p4">
+        <div class="top"><span class="t">分享自己版本</span><span class="metric"><b>14</b>/126 · 9 作者</span></div>
+        <p class="imp">有一批現成嘅 UGC 供應者,收編做系列訪談成本極低。</p>
+        <div class="foot"><span><button class="ref" type="button" data-r="S1.R7">S1.R7</button><button class="ref" type="button" data-r="S2.R5">S2.R5</button><button class="ref" type="button" data-r="S5.R9">S5.R9</button></span><span class="metric">♥228 · <span class="bad">1 反例</span> <span class="arrow">→</span></span></div>
+      </article>
+      <article class="card glass" data-d="p5">
+        <div class="top"><span class="t">質疑年齡／時機</span><span class="metric"><b>9</b>/126 · 8 作者</span></div>
+        <p class="imp">「幾時走先算遲」係下一篇內容嘅現成命題,反方聲音都集中喺度。</p>
+        <div class="foot"><span><button class="ref" type="button" data-r="S2.R7">S2.R7</button><button class="ref" type="button" data-r="S5.R2">S5.R2</button><button class="ref" type="button" data-r="S4.R15">S4.R15</button></span><span class="metric">♥96 · <span class="bad">2 反例</span> <span class="arrow">→</span></span></div>
+      </article>
+    </div>
+
+    <div class="sec-label"><span>跨帖敘事線</span><span>n/6 posts</span></div>
+    <div class="cards">
+      <article class="card glass" data-d="l1">
+        <div class="top"><span class="t">肯搏就有出路</span><span class="metric"><b>5</b>/6 篇</span></div>
+        <p class="imp">品牌敘事嘅順風位——群眾自己會幫手推呢條線。</p>
+        <div class="lane-bar"><i class="on"></i><i class="on"></i><i class="on"></i><i class="on"></i><i class="on"></i><i></i></div>
+        <div class="foot"><span><button class="ref" type="button" data-r="S1.R2">S1.R2</button><button class="ref" type="button" data-r="S3.R4">S3.R4</button><button class="ref" type="button" data-r="S5.R4">S5.R4</button></span><span class="metric">@ultraman0707 +2 <span class="arrow">→</span></span></div>
+      </article>
+      <article class="card glass" data-d="l2">
+        <div class="top"><span class="t">香港冇得留戀</span><span class="metric"><b>3</b>/6 篇</span></div>
+        <p class="imp">情緒濃度最高但最易引戰,借力要避免自己落場。</p>
+        <div class="lane-bar"><i class="on"></i><i class="on"></i><i class="on"></i><i></i><i></i><i></i></div>
+        <div class="foot"><span><button class="ref" type="button" data-r="S2.R11">S2.R11</button><button class="ref" type="button" data-r="S3.R6">S3.R6</button><button class="ref" type="button" data-r="S6.R9">S6.R9</button></span><span class="metric">2 跨帖作者 <span class="arrow">→</span></span></div>
+      </article>
+      <article class="card glass" data-d="l3">
+        <div class="top"><span class="t">加拿大搵工難過想像</span><span class="metric"><b>2</b>/6 篇</span></div>
+        <p class="imp">主線嘅反敘事——內容唔正面回應,佢就會喺留言區代答。</p>
+        <div class="lane-bar"><i class="on"></i><i class="on"></i><i></i><i></i><i></i><i></i></div>
+        <div class="foot"><span><button class="ref" type="button" data-r="S4.R6">S4.R6</button><button class="ref" type="button" data-r="S6.R2">S6.R2</button></span><span class="metric">2 跨帖作者 <span class="arrow">→</span></span></div>
+      </article>
+      <article class="card single glass" data-d="l4">
+        <div class="top"><span class="t">僱主擔保係伏</span><span class="badge">單帖觀察 · 1 篇</span></div>
+        <p class="imp">只喺 S4 出現,未夠料叫敘事——觀察住,下次審計再判。</p>
+        <div class="foot"><span><button class="ref" type="button" data-r="S4.R9">S4.R9</button></span><span class="metric"><span class="arrow">→</span></span></div>
+      </article>
+    </div>
+
+    <section class="warn">
+      <div class="w-label">缺席與可靠性</div>
+      <ul>
+        <li>觀望未行動者幾乎無發聲——126 條中僅 2 條自述「仲諗緊」,民情形狀偏行動派。</li>
+        <li>87% 留言集中喺發帖後 48 小時,之後嘅風向未被捕捉。</li>
+        <li>7 組「Reply to…」變體未去重,pattern 計數可能輕微偏高。</li>
+      </ul>
+    </section>
+
+    <footer class="src">
+      <div class="cov">
+        <div class="c"><span class="cn">6</span><span class="cl">貼文</span></div>
+        <div class="c"><span class="cn">175</span><span class="cl">捕捉留言</span></div>
+        <div class="c"><span class="cn">126</span><span class="cl">已讀留言</span></div>
+        <div class="c"><span class="cn">126</span><span class="cl">可用留言</span></div>
+      </div>
+      <div class="posts">
+        <div class="post-row"><span class="sid">S1</span><span class="pt">裸辭去加拿大,點解越嚟越多人</span><span class="pn">42</span></div>
+        <div class="post-row"><span class="sid">S2</span><span class="pt">40 歲先走會唔會太遲</span><span class="pn">28</span></div>
+        <div class="post-row"><span class="sid">S3</span><span class="pt">喺多倫多開 cafe 一年,數字全公開</span><span class="pn">19</span></div>
+        <div class="post-row"><span class="sid">S4</span><span class="pt">僱主擔保 LMIA 全過程</span><span class="pn">17</span></div>
+        <div class="post-row"><span class="sid">S5</span><span class="pt">帶住兩個小朋友移民嘅第一個冬天</span><span class="pn">12</span></div>
+        <div class="post-row"><span class="sid">S6</span><span class="pt">回流定留低?三年後嘅答案</span><span class="pn">8</span></div>
+      </div>
+      <div class="stamp">AUDIT 2026-07-09 11:42 · source-linked mock data</div>
+    </footer>
+  </div>
+
+  <div class="pop glass" id="pop" role="tooltip" aria-hidden="true">
+    <div class="pq" id="pop-q"></div>
+    <div class="pm"><span class="pid" id="pop-id"></span><span id="pop-a"></span><span id="pop-l"></span></div>
+  </div>
+
+  <div class="scrim" id="scrim"></div>
+  <aside class="drawer" id="drawer" role="dialog" aria-modal="true" aria-labelledby="d-title" aria-hidden="true">
+    <div class="d-head">
+      <div style="flex:1">
+        <div class="d-title" id="d-title"></div>
+        <div class="d-num" id="d-nums"></div>
+      </div>
+      <button class="d-close" id="d-close" aria-label="close detail">×</button>
+    </div>
+    <div class="d-body" id="d-body"></div>
+  </aside>
+</div>
+
+<script>
+var REFS = {
+  "S1.R3":  { a: "@wing.c.leung",    l: 41, q: "唔係得你一個咁諗,我都係睇你啲 post 先決定報 IELTS" },
+  "S4.R12": { a: "@feli.in.yvr",     l: 33, q: "多謝你寫得咁細,終於有人講清楚成個流程" },
+  "S2.R7":  { a: "@ken_midlife",     l: 58, q: "42 歲,日日諗緊仲趕唔趕得切,睇完你篇嘢決定今年內行動" },
+  "S5.R2":  { a: "@carrie.hkmama",   l: 26, q: "我哋係細路升中一前走,再遲佢哋適應唔到" },
+  "S1.R2":  { a: "@ultraman0707",    l: 87, q: "香港人去到邊都係打不死,呢條路我行咗三年,肯搏真係有出路" },
+  "S3.R9":  { a: "@jojo.toronto",    l: 45, q: "睇到喊,我啱啱都係咁捱過嚟,加油" },
+  "S5.R4":  { a: "@daniel.yyz",      l: 39, q: "同路人幫到就幫,呢個 community 先係最大資產" },
+  "S2.R14": { a: "@ivan.next.step",  l: 52, q: "可唔可以出一篇講下由遞表到落地嘅 timeline?" },
+  "S4.R3":  { a: "@mandy.2026",      l: 31, q: "想問 LMIA 中介費大約幾錢先合理,驚畀人呃" },
+  "S6.R6":  { a: "@john.new.journey",l: 29, q: "三年前睇你第一篇 post 開始準備……(長文,已抽 key sentence)" },
+  "S3.R11": { a: "@cynical.cat",     l: 24, q: "又係開 cafe 又係全公開,下一步係咪賣 course?" },
+  "S4.R8":  { a: "@waiman.hk",       l: 19, q: "利申:呢類「乜都好順利」嘅帖我一律當廣告先" },
+  "S6.R2":  { a: "@leo.backhome",    l: 44, q: "唔好淨係聽好嘅,我識嘅人有一半頭兩年搵唔到本行工" },
+  "S1.R7":  { a: "@mrs.wong.van",    l: 36, q: "我版本係 45 歲護士轉 PSW,有人想聽可以開 thread" },
+  "S2.R5":  { a: "@gary.calgary",    l: 22, q: "我係技術移民路線,同你少少唔同,分享下我條 timeline" },
+  "S5.R9":  { a: "@auntie.snow",     l: 18, q: "我哋一家四口第一個冬天嘅開支表,有需要留言" },
+  "S4.R15": { a: "@old.seafood",     l: 15, q: "後生咪走囉,過咗 45 真係要諗清楚醫療同退休" },
+  "S3.R4":  { a: "@ultraman0707",    l: 63, q: "數字唔靚都敢公開,呢種先叫真分享——肯搏嘅人唔怕醜" },
+  "S2.R11": { a: "@no.turning.back", l: 49, q: "留喺度先係最大風險,呢句我同意到唔能夠再同意" },
+  "S3.R6":  { a: "@hker.everywhere", l: 27, q: "而家返去一次傷心一次,不如向前望" },
+  "S6.R9":  { a: "@moving.on.2023",  l: 21, q: "回流呢個選項喺我心入面已經刪除咗" },
+  "S4.R6":  { a: "@leo.backhome",    l: 38, q: "本行搵工真係難過想像,心理準備要做足一年" },
+  "S4.R9":  { a: "@insider.tips",    l: 12, q: "僱主擔保呢條路水好深,我見過畀人食咗成年人工" }
+};
+
+var DETAILS = {
+  p1: {
+    t: "同路人打氣", n: "33/126 留言 · 29 作者 · ♥604 · 無反例",
+    reps: ["S1.R2","S3.R9","S5.R4"], counters: [],
+    stats: ["<b>33</b>/126 留言","<b>29</b> 作者","♥ <b>604</b> 合計","<b>0</b> 反例","分佈 S1×11 S2×5 S3×8 S5×6 S6×3"],
+    all: [
+      { s:"S1", t:"裸辭去加拿大,點解越嚟越多人", rows:[["@ultraman0707","香港人去到邊都係打不死,呢條路我行咗三年,肯搏真係有出路",87],["@jenny.leaf","支持你,已 share 畀屋企人睇",12],["@hk.forever.09","睇到有希望,多謝分享",9]] },
+      { s:"S3", t:"喺多倫多開 cafe 一年,數字全公開", rows:[["@jojo.toronto","睇到喊,我啱啱都係咁捱過嚟,加油",45],["@small.shop.dream","你盤數畀咗我好大信心",16]] },
+      { s:"S5", t:"帶住兩個小朋友移民嘅第一個冬天", rows:[["@daniel.yyz","同路人幫到就幫,呢個 community 先係最大資產",39]] }
+    ],
+    truncated: "……(mockup 截斷:實作為全部 33 條,已去重)"
+  },
+  p2: {
+    t: "追問實際步驟", n: "21/126 留言 · 15 作者 · ♥312 · 3 反例",
+    reps: ["S2.R14","S4.R3","S6.R6"], counters: ["S3.R11","S6.R2"],
+    stats: ["<b>21</b>/126 留言","<b>15</b> 作者","♥ <b>312</b> 合計","<b>3</b> 反例","分佈 S2×8 S4×6 S6×7"],
+    all: [
+      { s:"S2", t:"40 歲先走會唔會太遲", rows:[["@ivan.next.step","可唔可以出一篇講下由遞表到落地嘅 timeline?",52],["@planning.mode","IELTS 定 CELPIP?求個懶人包",23],["@mid.age.dream","洗費方面有冇一個實數參考?",19]] },
+      { s:"S4", t:"僱主擔保 LMIA 全過程", rows:[["@mandy.2026","想問 LMIA 中介費大約幾錢先合理,驚畀人呃",31],["@fresh.start.44","邊間中介可信?可以 DM 我嗎",14]] },
+      { s:"S6", t:"回流定留低?三年後嘅答案", rows:[["@john.new.journey","三年前睇你第一篇 post 開始準備,而家輪到我教人——想問埋稅務點安排",29,"已合併變體 ×2"],["@ready.to.go","下一篇可唔可以寫報稅?",8]] }
+    ],
+    truncated: "……(mockup 截斷:實作為全部 21 條,已去重)"
+  },
+  p3: {
+    t: "懷疑廣告／軟推銷", n: "18/126 留言 · 12 作者 · ♥187 · 2 反例",
+    reps: ["S3.R11","S4.R8"], counters: ["S4.R12"],
+    stats: ["<b>18</b>/126 留言","<b>12</b> 作者","♥ <b>187</b> 合計","<b>2</b> 反例","分佈 S3×9 S4×5 S6×4"],
+    all: [
+      { s:"S3", t:"喺多倫多開 cafe 一年,數字全公開", rows:[["@cynical.cat","又係開 cafe 又係全公開,下一步係咪賣 course?",24],["@show.me.receipts","公開嘅數同報稅數係咪同一份?",13]] },
+      { s:"S4", t:"僱主擔保 LMIA 全過程", rows:[["@waiman.hk","利申:呢類「乜都好順利」嘅帖我一律當廣告先",19]] }
+    ],
+    truncated: "……(mockup 截斷:實作為全部 18 條,已去重)"
+  },
+  p4: {
+    t: "分享自己版本", n: "14/126 留言 · 9 作者 · ♥228 · 1 反例",
+    reps: ["S1.R7","S2.R5","S5.R9"], counters: [],
+    stats: ["<b>14</b>/126 留言","<b>9</b> 作者","♥ <b>228</b> 合計","<b>1</b> 反例","分佈 S1×5 S2×4 S5×5"],
+    all: [
+      { s:"S1", t:"裸辭去加拿大,點解越嚟越多人", rows:[["@mrs.wong.van","我版本係 45 歲護士轉 PSW,有人想聽可以開 thread",36]] },
+      { s:"S2", t:"40 歲先走會唔會太遲", rows:[["@gary.calgary","我係技術移民路線,同你少少唔同,分享下我條 timeline",22]] },
+      { s:"S5", t:"帶住兩個小朋友移民嘅第一個冬天", rows:[["@auntie.snow","我哋一家四口第一個冬天嘅開支表,有需要留言",18]] }
+    ],
+    truncated: "……(mockup 截斷:實作為全部 14 條,已去重)"
+  },
+  p5: {
+    t: "質疑年齡／時機", n: "9/126 留言 · 8 作者 · ♥96 · 2 反例",
+    reps: ["S2.R7","S4.R15"], counters: ["S5.R2"],
+    stats: ["<b>9</b>/126 留言","<b>8</b> 作者","♥ <b>96</b> 合計","<b>2</b> 反例","分佈 S2×5 S4×2 S5×2"],
+    all: [
+      { s:"S2", t:"40 歲先走會唔會太遲", rows:[["@ken_midlife","42 歲,日日諗緊仲趕唔趕得切,睇完你篇嘢決定今年內行動",58],["@old.seafood","後生咪走囉,過咗 45 真係要諗清楚醫療同退休",15]] }
+    ],
+    truncated: "……(mockup 截斷:實作為全部 9 條,已去重)"
+  },
+  l1: {
+    t: "敘事線:肯搏就有出路", n: "跨 5/6 篇 · 主要聲音 @ultraman0707 · @jojo.toronto · @daniel.yyz",
+    reps: ["S1.R2","S3.R4","S5.R4"], counters: ["S4.R6"],
+    stats: ["跨 <b>5</b>/6 篇","<b>3</b> 位跨帖作者","缺席於 <b>S4</b>(擔保帖)"],
+    all: [
+      { s:"S1", t:"裸辭去加拿大,點解越嚟越多人", rows:[["@ultraman0707","香港人去到邊都係打不死,呢條路我行咗三年,肯搏真係有出路",87]] },
+      { s:"S3", t:"喺多倫多開 cafe 一年,數字全公開", rows:[["@ultraman0707","數字唔靚都敢公開,呢種先叫真分享——肯搏嘅人唔怕醜",63]] }
+    ],
+    truncated: "……(mockup 截斷:實作為 5 篇各自嘅支持留言)"
+  },
+  l2: {
+    t: "敘事線:香港冇得留戀", n: "跨 3/6 篇 · 2 位跨帖作者",
+    reps: ["S2.R11","S3.R6","S6.R9"], counters: [],
+    stats: ["跨 <b>3</b>/6 篇","<b>2</b> 位跨帖作者"],
+    all: [{ s:"S2", t:"40 歲先走會唔會太遲", rows:[["@no.turning.back","留喺度先係最大風險,呢句我同意到唔能夠再同意",49]] }],
+    truncated: "……(mockup 截斷)"
+  },
+  l3: {
+    t: "敘事線:加拿大搵工難過想像", n: "跨 2/6 篇 · 2 位跨帖作者",
+    reps: ["S4.R6","S6.R2"], counters: ["S1.R2"],
+    stats: ["跨 <b>2</b>/6 篇","<b>2</b> 位跨帖作者","集中於 S4 / S6"],
+    all: [{ s:"S4", t:"僱主擔保 LMIA 全過程", rows:[["@leo.backhome","本行搵工真係難過想像,心理準備要做足一年",38]] }],
+    truncated: "……(mockup 截斷)"
+  },
+  l4: {
+    t: "單帖觀察:僱主擔保係伏", n: "僅 S4 · 未達敘事門檻(需 ≥2 篇)",
+    reps: ["S4.R9"], counters: [],
+    stats: ["<b>1</b> 篇(S4)","下次審計自動重判"],
+    all: [{ s:"S4", t:"僱主擔保 LMIA 全過程", rows:[["@insider.tips","僱主擔保呢條路水好深,我見過畀人食咗成年人工",12]] }],
+    truncated: ""
+  }
+};
+
+var frame = document.getElementById("frame");
+var pop = document.getElementById("pop");
+var drawer = document.getElementById("drawer");
+var pinned = null;
+
+function showPop(chip) {
+  var d = REFS[chip.dataset.r];
+  if (!d) return;
+  document.getElementById("pop-q").textContent = "「" + d.q + "」";
+  document.getElementById("pop-id").textContent = chip.dataset.r;
+  document.getElementById("pop-a").textContent = d.a;
+  document.getElementById("pop-l").textContent = "♥" + d.l;
+  var fr = frame.getBoundingClientRect();
+  var cr = chip.getBoundingClientRect();
+  var x = Math.min(Math.max(cr.left - fr.left - 8, 10), 400 - 292);
+  var y = cr.bottom - fr.top + 6;
+  if (y > 638) y = cr.top - fr.top - 6 - 98;
+  pop.style.left = x + "px";
+  pop.style.top = Math.max(10, y) + "px";
+  pop.classList.add("show");
+  pop.setAttribute("aria-hidden", "false");
+}
+
+function hidePop() {
+  if (!pinned) {
+    pop.classList.remove("show");
+    pop.setAttribute("aria-hidden", "true");
+  }
+}
+
+function bindRefs(root) {
+  root.querySelectorAll(".ref").forEach(function(chip) {
+    chip.addEventListener("mouseenter", function(){ showPop(chip); });
+    chip.addEventListener("mouseleave", hidePop);
+    chip.addEventListener("click", function(e) {
+      e.stopPropagation();
+      if (pinned === chip.dataset.r) {
+        pinned = null;
+        chip.classList.remove("pin");
+        pop.classList.remove("show");
+        pop.setAttribute("aria-hidden", "true");
+      } else {
+        document.querySelectorAll(".ref.pin").forEach(function(x){ x.classList.remove("pin"); });
+        pinned = chip.dataset.r;
+        chip.classList.add("pin");
+        showPop(chip);
+      }
+    });
+  });
+}
+
+bindRefs(document);
+
+document.getElementById("spine").addEventListener("scroll", function() {
+  if (!pinned) pop.classList.remove("show");
+  if (!pinned) pop.setAttribute("aria-hidden", "true");
+});
+
+function evidenceBlock(ref, kind) {
+  var d = REFS[ref];
+  if (!d) return "";
+  return '<div class="ev glass ' + (kind === "counter" ? "counter" : "") + '">' +
+    '<div class="ev-q clamp">' + d.q + '</div>' +
+    '<button class="more avail" type="button">展開</button>' +
+    '<div class="ev-m"><span class="pid">' + ref + '</span><span>' + d.a + '</span><span>♥' + d.l + '</span></div>' +
+  '</div>';
+}
+
+function allView(d) {
+  var html = '<button class="d-back" type="button">← 返回摘要</button>';
+  d.all.forEach(function(group) {
+    html += '<div class="grp"><div class="grp-h"><span class="sid">' + group.s + '</span><span class="gt">' + group.t + '</span><span class="gn">' + group.rows.length + ' 條</span></div>';
+    group.rows.forEach(function(row) {
+      html += '<div class="cm"><span class="ca">' + row[0] + '</span><span class="cx">' + row[1] + (row[3] ? '<span class="dedup">' + row[3] + '</span>' : '') + '</span><span class="cl">♥' + row[2] + '</span></div>';
+    });
+    html += '</div>';
+  });
+  if (d.truncated) html += '<div class="stamp">' + d.truncated + '</div>';
+  return html;
+}
+
+function summaryView(d) {
+  var html = '<div class="d-label">數字明細</div><div class="d-stats glass">' + d.stats.map(function(s){ return '<span>' + s + '</span>'; }).join("") + '</div>';
+  html += '<div class="d-label">代表留言</div>' + d.reps.map(function(r){ return evidenceBlock(r, "rep"); }).join("");
+  if (d.counters && d.counters.length) {
+    html += '<div class="d-label">反例</div>' + d.counters.map(function(r){ return evidenceBlock(r, "counter"); }).join("");
+  }
+  html += '<button class="d-all" type="button">查看全部 ' + d.n.split(" ")[0] + '</button>';
+  return html;
+}
+
+function openDetail(id) {
+  var d = DETAILS[id];
+  if (!d) return;
+  document.getElementById("d-title").textContent = d.t;
+  document.getElementById("d-nums").innerHTML = d.n.replace(/(\d+\/\d+|\d\/\d+|\d+)/, "<b>$1</b>");
+  var body = document.getElementById("d-body");
+  body.innerHTML = summaryView(d);
+  body.querySelectorAll(".more").forEach(function(btn) {
+    btn.addEventListener("click", function() {
+      var q = btn.previousElementSibling;
+      q.classList.toggle("clamp");
+      btn.textContent = q.classList.contains("clamp") ? "展開" : "收起";
+    });
+  });
+  body.querySelector(".d-all").addEventListener("click", function() {
+    body.innerHTML = allView(d);
+    body.querySelector(".d-back").addEventListener("click", function(){ openDetail(id); });
+  });
+  frame.classList.add("open");
+  drawer.setAttribute("aria-hidden", "false");
+  pinned = null;
+  pop.classList.remove("show");
+  pop.setAttribute("aria-hidden", "true");
+}
+
+function closeDetail() {
+  frame.classList.remove("open");
+  drawer.setAttribute("aria-hidden", "true");
+}
+
+document.querySelectorAll(".card[data-d], .dot[data-d]").forEach(function(el) {
+  el.addEventListener("click", function() {
+    document.querySelectorAll(".dot.sel").forEach(function(x){ x.classList.remove("sel"); });
+    if (el.classList.contains("dot")) el.classList.add("sel");
+    openDetail(el.dataset.d);
+  });
+});
+
+document.getElementById("d-close").addEventListener("click", closeDetail);
+document.getElementById("scrim").addEventListener("click", closeDetail);
+</script>
+</body>
+</html>

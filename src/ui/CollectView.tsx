@@ -8,9 +8,9 @@ import {
   ModeHeader,
   PrimaryButton,
   SecondaryButton,
-  SideMark,
-  Stamp,
+  SectionHeader,
   lineClamp,
+  surfaceCardStyle,
   viewRootStyle
 } from "./components";
 import { CollectorGist, CollectorMetricStrip, COLLECTOR_MOTION_CSS } from "./CollectorMetricStrip";
@@ -19,6 +19,18 @@ import { tokens } from "./tokens";
 const MODE_ACCENT = `var(--dlens-mode-accent, ${tokens.color.accent})`;
 const MODE_ACCENT_MID = `var(--dlens-mode-accent-mid, ${tokens.color.accentMid})`;
 const MODE_ACCENT_BUTTON_SHADOW = `var(--dlens-mode-accent-button-shadow, ${tokens.shadow.previewAvatar})`;
+
+const kbdChipStyle = {
+  fontFamily: tokens.font.mono,
+  fontSize: 10,
+  fontWeight: 700,
+  lineHeight: 1.4,
+  color: tokens.color.subInk,
+  padding: "2px 6px",
+  borderRadius: tokens.radius.sm,
+  border: `1px solid ${tokens.color.line}`,
+  background: tokens.color.elevated
+} as const;
 
 function avatarInitial(author: string | undefined): string {
   if (!author) return "?";
@@ -121,24 +133,23 @@ export function CollectView({
       <style>{COLLECTOR_MOTION_CSS}</style>
       <ModeHeader
         mode="collect"
-        kicker={selectionMode ? "Collect mode live" : "Collect"}
+        kicker="Collect"
         title={title}
         deck={deck}
-        stamp={<Stamp tone={selectionMode ? "accent" : "neutral"}>{selectionMode ? "Active" : "Idle"}</Stamp>}
       />
 
       <section
-        data-paper-grain="true"
+        data-collector-stage="hero"
         style={{
-          position: "relative",
-          overflow: "hidden",
           display: "grid",
           gap: 12,
           padding: "14px 16px",
-          borderRadius: tokens.radius.card,
-          border: `1px solid ${tokens.color.line}`,
-          background: `linear-gradient(180deg, ${tokens.color.elevated}, ${tokens.color.surface})`,
-          boxShadow: tokens.shadow.shell
+          borderRadius: tokens.radius.cardLg,
+          border: `1px solid ${tokens.color.atlasEdge}`,
+          background: tokens.color.atlasPaper,
+          boxShadow: tokens.shadow.atlasCard,
+          backdropFilter: tokens.effect.atlasBlur,
+          WebkitBackdropFilter: tokens.effect.atlasBlur
         }}
       >
         <div
@@ -152,19 +163,17 @@ export function CollectView({
           }}
         >
           <div style={{ display: "inline-flex", alignItems: "center", gap: tokens.spacing.sm, minWidth: 0 }}>
-            <span style={{ fontFamily: tokens.font.serif, fontSize: 22, lineHeight: 1, color: MODE_ACCENT, flexShrink: 0 }}>
-              DLens
-            </span>
             <span
               data-collector-status={selectionMode ? "capturing" : "idle"}
               style={{
                 display: "inline-flex",
                 alignItems: "center",
-                gap: tokens.spacing.xs,
+                gap: tokens.spacing.xs + 2,
                 minWidth: 0,
                 color: selectionMode ? MODE_ACCENT : tokens.color.softInk,
                 fontSize: 11,
-                fontWeight: 800
+                fontWeight: 800,
+                flexShrink: 0
               }}
             >
               <span
@@ -173,195 +182,179 @@ export function CollectView({
                   width: tokens.spacing.xs + 2,
                   height: tokens.spacing.xs + 2,
                   borderRadius: tokens.radius.round,
-                  background: selectionMode ? MODE_ACCENT : tokens.color.glassBorder,
-                  boxShadow: selectionMode ? MODE_ACCENT_BUTTON_SHADOW : tokens.shadow.glass
+                  background: selectionMode ? MODE_ACCENT : tokens.color.lineStrong,
+                  boxShadow: selectionMode ? MODE_ACCENT_BUTTON_SHADOW : "none"
                 }}
               />
               {selectionMode ? "採集中" : "待命"}
             </span>
+            <span aria-hidden="true" style={{ width: 1, height: 14, background: tokens.color.line, flexShrink: 0 }} />
             <span
               data-collector-target-chip="true"
+              title={`${targetLabel} · ${folderName}`}
               style={{
                 minWidth: 0,
-                maxWidth: 170,
+                maxWidth: 220,
                 overflow: "hidden",
                 textOverflow: "ellipsis",
                 whiteSpace: "nowrap",
-                padding: `${tokens.spacing.xs}px ${tokens.spacing.sm}px`,
-                borderRadius: tokens.radius.pill,
-                border: `1px solid ${tokens.color.cardEdge}`,
-                background: tokens.color.contextSurface,
                 color: tokens.color.subInk,
                 fontSize: 11,
                 fontWeight: 700
               }}
             >
+              <span style={{ color: tokens.color.softInk, fontWeight: 500 }}>{targetLabel} · </span>
               {folderName}
             </span>
           </div>
-          <SecondaryButton
-            dataAttrs={{ "data-collector-mode-toggle": "true" }}
-            onClick={onToggleCollectMode}
-            style={{ padding: `${tokens.spacing.xs + 2}px ${tokens.spacing.sm}px`, fontSize: 11, flexShrink: 0 }}
-          >
-            {selectionMode ? "關閉" : "開啟"}
-          </SecondaryButton>
+          {selectionMode ? (
+            <SecondaryButton
+              dataAttrs={{ "data-collector-mode-toggle": "true" }}
+              onClick={onToggleCollectMode}
+              style={{ padding: `${tokens.spacing.xs + 2}px ${tokens.spacing.md}px`, fontSize: 11, flexShrink: 0 }}
+            >
+              關閉採集
+            </SecondaryButton>
+          ) : (
+            <PrimaryButton
+              dataAttrs={{ "data-collector-mode-toggle": "true" }}
+              onClick={onToggleCollectMode}
+              style={{ padding: `${tokens.spacing.xs + 2}px ${tokens.spacing.md}px`, fontSize: 11, flexShrink: 0 }}
+            >
+              開啟採集
+            </PrimaryButton>
+          )}
         </div>
 
-        <div style={{ display: "grid", gridTemplateColumns: "3px minmax(0, 1fr)", gap: 12 }}>
-          <SideMark tone={hasPreview ? "accent" : "muted"} />
-          <div style={{ display: "grid", gap: 10, minWidth: 0 }}>
-            <div style={{ display: "flex", alignItems: "flex-start", gap: 10 }}>
+        {hasPreview ? (
+          <div
+            data-collector-viewfinder="preview"
+            style={{
+              display: "grid",
+              gap: 8,
+              minWidth: 0,
+              padding: "12px 14px",
+              borderRadius: tokens.radius.card,
+              border: `1px solid ${tokens.color.cardEdge}`,
+              background: tokens.color.elevated,
+              boxShadow: tokens.shadow.card
+            }}
+          >
+            <div style={{ display: "flex", alignItems: "center", gap: 10, minWidth: 0 }}>
               <div
+                aria-hidden="true"
                 style={{
-                  width: 40,
-                  height: 40,
+                  width: 32,
+                  height: 32,
                   borderRadius: tokens.radius.card,
-                  background: hasPreview
-                    ? `linear-gradient(135deg, ${MODE_ACCENT}, ${MODE_ACCENT_MID})`
-                    : tokens.color.neutralSurface,
-                  color: hasPreview ? tokens.color.elevated : tokens.color.softInk,
+                  background: `linear-gradient(135deg, ${MODE_ACCENT}, ${MODE_ACCENT_MID})`,
+                  color: tokens.color.elevated,
                   display: "grid",
                   placeItems: "center",
                   fontFamily: tokens.font.sans,
-                  fontSize: 13,
+                  fontSize: 12,
                   fontWeight: 700,
                   flexShrink: 0,
-                  boxShadow: hasPreview ? MODE_ACCENT_BUTTON_SHADOW : tokens.shadow.previewAvatar
+                  boxShadow: MODE_ACCENT_BUTTON_SHADOW
                 }}
               >
-                {hasPreview ? avatarInitial(preview?.author_hint) : "·"}
+                {avatarInitial(preview?.author_hint)}
               </div>
-
-              <div style={{ display: "grid", gap: 4, minWidth: 0, flex: 1 }}>
-                <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8 }}>
-                  <div style={{ minWidth: 0 }}>
-                    <div style={{ fontSize: 13, fontWeight: 700, color: tokens.color.ink, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-                      {preview?.author_hint || "尚無預覽"}
-                    </div>
-                    <div style={{ fontSize: 10, color: tokens.color.softInk }}>
-                      {targetLabel} · <span style={{ color: tokens.color.subInk }}>{isProductMode ? "Product mode" : isPrEvidenceMode ? "PR Evidence mode" : folderName}</span>
-                    </div>
+              <div style={{ display: "grid", gap: 1, minWidth: 0, flex: 1 }}>
+                <div style={{ fontSize: 13, fontWeight: 700, color: tokens.color.ink, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                  {preview?.author_hint || "未知作者"}
+                </div>
+                {preview?.time_token_hint ? (
+                  <div style={{ fontFamily: tokens.font.mono, fontSize: 10, color: tokens.color.softInk }}>
+                    {preview.time_token_hint}
                   </div>
-                  {hasPreview ? (
-                    <SecondaryButton onClick={onOpenPreview} disabled={!preview?.post_url} style={{ padding: "6px 10px", fontSize: 11 }}>
-                      在 Threads 開啟
-                    </SecondaryButton>
-                  ) : null}
-                </div>
-
-                <div style={{ fontSize: 12, lineHeight: 1.65, color: tokens.color.subInk, ...lineClamp(3) }}>
-                  {preview?.text_snippet || "將游標移到 Threads 貼文上，這裡會顯示快速預覽。"}
-                </div>
+                ) : null}
               </div>
+              <SecondaryButton onClick={onOpenPreview} disabled={!preview?.post_url} style={{ padding: "6px 10px", fontSize: 11, flexShrink: 0 }}>
+                在 Threads 開啟
+              </SecondaryButton>
             </div>
-
-            <PrimaryButton onClick={onSavePreview} disabled={!hasPreview || isSaved || !canSavePreview} activateOnPointerDown style={{ width: "100%" }}>
-              {isSaved ? savedCopy : saveCopy}
-            </PrimaryButton>
-            {disabledReason ? (
-              <div
-                data-collect-disabled-reason="true"
-                style={{
-                  fontSize: 11,
-                  lineHeight: 1.55,
-                  color: tokens.color.softInk,
-                  padding: "8px 10px",
-                  borderRadius: tokens.radius.sm,
-                  border: `1px solid ${tokens.color.line}`,
-                  background: tokens.color.contextSurface
-                }}
-              >
-                {disabledReason}
-              </div>
-            ) : null}
-            {isArchiveMode ? (
-              <div
-                data-archive-no-ai-notice="collect"
-                style={{
-                  fontSize: 11,
-                  lineHeight: 1.55,
-                  color: tokens.color.softInk,
-                  padding: "8px 10px",
-                  borderRadius: tokens.radius.sm,
-                  border: `1px solid ${tokens.color.line}`,
-                  background: tokens.color.contextSurface
-                }}
-              >
-                儲存為原文記錄，不跑 AI 分析。要分析請切換到 Topic 或 Product 模式。
-              </div>
-            ) : null}
+            <div style={{ fontSize: 12, lineHeight: 1.65, color: tokens.color.subInk, ...lineClamp(3) }}>
+              {preview?.text_snippet || "（無文字內容）"}
+            </div>
           </div>
-        </div>
-
-        {recentCaptures.length ? (
+        ) : (
           <div
-            data-collector-recent-captures="true"
+            data-collector-viewfinder="empty"
             style={{
               display: "grid",
-              gap: 0,
-              borderTop: `1px solid ${tokens.color.line}`
+              placeItems: "center",
+              minHeight: 88,
+              padding: "16px 14px",
+              borderRadius: tokens.radius.card,
+              border: `1px dashed ${tokens.color.lineStrong}`,
+              color: tokens.color.softInk,
+              fontSize: 12,
+              lineHeight: 1.65,
+              textAlign: "center"
             }}
           >
-            {recentCaptures.map((item) => (
-              <div
-                key={item.id}
-                data-collector-recent-row={item.id}
-                style={{
-                  display: "grid",
-                  gridTemplateColumns: "minmax(0, 1fr) auto",
-                  gap: tokens.spacing.sm,
-                  alignItems: "center",
-                  padding: `${tokens.spacing.sm}px 0`,
-                  borderBottom: `1px solid ${tokens.color.line}`
-                }}
-              >
-                <span style={{ display: "grid", gap: tokens.spacing.xs, minWidth: 0 }}>
-                  <CollectorGist>{item.descriptor.text_snippet || "已保存的 Threads 貼文"}</CollectorGist>
-                  <CollectorMetricStrip descriptor={item.descriptor} marker={item.id} />
-                </span>
-                <span
-                  aria-label="已收"
-                  title="已收"
-                  style={{
-                    display: "inline-grid",
-                    placeItems: "center",
-                    width: 22,
-                    height: 22,
-                    borderRadius: tokens.radius.round,
-                    border: `1px solid ${tokens.color.successBorder}`,
-                    background: tokens.color.successSoft,
-                    color: tokens.color.success,
-                    flexShrink: 0
-                  }}
-                >
-                  <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round">
-                    <path d="M20 6 9 17l-5-5" />
-                  </svg>
-                </span>
-              </div>
-            ))}
+            {selectionMode ? "將游標移到 Threads 貼文上，這裡會顯示快速預覽。" : "開啟採集後，滑過 Threads 貼文即可在這裡預覽。"}
+          </div>
+        )}
+
+        {hasPreview ? (
+          <PrimaryButton onClick={onSavePreview} disabled={isSaved || !canSavePreview} activateOnPointerDown style={{ width: "100%" }}>
+            {isSaved ? savedCopy : saveCopy}
+          </PrimaryButton>
+        ) : null}
+        {disabledReason ? (
+          <div
+            data-collect-disabled-reason="true"
+            style={{
+              fontSize: 11,
+              lineHeight: 1.55,
+              color: tokens.color.softInk,
+              padding: "8px 10px",
+              borderRadius: tokens.radius.sm,
+              border: `1px solid ${tokens.color.line}`,
+              background: tokens.color.contextSurface
+            }}
+          >
+            {disabledReason}
+          </div>
+        ) : null}
+        {isArchiveMode ? (
+          <div
+            data-archive-no-ai-notice="collect"
+            style={{
+              fontSize: 11,
+              lineHeight: 1.55,
+              color: tokens.color.softInk,
+              padding: "8px 10px",
+              borderRadius: tokens.radius.sm,
+              border: `1px solid ${tokens.color.line}`,
+              background: tokens.color.contextSurface
+            }}
+          >
+            儲存為原文記錄，不跑 AI 分析。要分析請切換到 Topic 或 Product 模式。
           </div>
         ) : null}
 
-        <div
-          data-collector-key-hints="true"
-          style={{
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "space-between",
-            gap: tokens.spacing.sm,
-            flexWrap: "wrap"
-          }}
-        >
-          <span style={{ display: "inline-flex", gap: tokens.spacing.xs, flexWrap: "wrap" }}>
-            <Stamp tone="neutral">S · 儲存</Stamp>
-            <Stamp tone="neutral">Esc · 離開</Stamp>
-          </span>
-          <span style={{ fontSize: 11, color: tokens.color.softInk }}>
-            {selectionMode ? "滑過貼文即可預覽" : "開啟後滑過貼文"}
-          </span>
-        </div>
+        {selectionMode ? (
+          <div
+            data-collector-key-hints="true"
+            style={{
+              display: "flex",
+              alignItems: "center",
+              gap: tokens.spacing.sm,
+              flexWrap: "wrap",
+              color: tokens.color.softInk,
+              fontSize: 11
+            }}
+          >
+            <span style={kbdChipStyle}>S</span>
+            <span>儲存</span>
+            <span aria-hidden="true" style={{ color: tokens.color.lineStrong }}>·</span>
+            <span style={kbdChipStyle}>Esc</span>
+            <span>離開</span>
+          </div>
+        ) : null}
 
         {showProcessingStrip && processingSummary ? (
           <div
@@ -405,6 +398,55 @@ export function CollectView({
           </div>
         ) : null}
       </section>
+
+      {recentCaptures.length ? (
+        <section
+          data-collector-recent-captures="true"
+          style={surfaceCardStyle({ padding: "14px 16px 6px" })}
+        >
+          <SectionHeader title="最近採集" caption={`${recentCaptures.length} 篇`} style={{ marginBottom: 2 }} />
+          <div style={{ display: "grid" }}>
+            {recentCaptures.map((item, index) => (
+              <div
+                key={item.id}
+                data-collector-recent-row={item.id}
+                style={{
+                  display: "grid",
+                  gridTemplateColumns: "minmax(0, 1fr) auto",
+                  gap: tokens.spacing.sm,
+                  alignItems: "center",
+                  padding: `${tokens.spacing.sm + 2}px 0`,
+                  borderBottom: index === recentCaptures.length - 1 ? "none" : `1px solid ${tokens.color.line}`
+                }}
+              >
+                <span style={{ display: "grid", gap: tokens.spacing.xs, minWidth: 0 }}>
+                  <CollectorGist>{item.descriptor.text_snippet || "已保存的 Threads 貼文"}</CollectorGist>
+                  <CollectorMetricStrip descriptor={item.descriptor} marker={item.id} />
+                </span>
+                <span
+                  aria-label="已收"
+                  title="已收"
+                  style={{
+                    display: "inline-grid",
+                    placeItems: "center",
+                    width: 22,
+                    height: 22,
+                    borderRadius: tokens.radius.round,
+                    border: `1px solid ${tokens.color.successBorder}`,
+                    background: tokens.color.successSoft,
+                    color: tokens.color.success,
+                    flexShrink: 0
+                  }}
+                >
+                  <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round">
+                    <path d="M20 6 9 17l-5-5" />
+                  </svg>
+                </span>
+              </div>
+            ))}
+          </div>
+        </section>
+      ) : null}
 
       {isTopicMode && visibleUntriagedSignals.length ? (
         <section

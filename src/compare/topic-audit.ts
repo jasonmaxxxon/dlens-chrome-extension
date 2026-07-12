@@ -5,9 +5,124 @@ export type TopicAuditStatus = "succeeded" | "queued" | "failed";
 export type ReplyFragmentRole = "op_continuation" | "op_reply" | "audience" | "placeholder";
 export type TopicAuditStageName = "comment-shard-reading" | "p1-signal-reading" | "lexicon" | "narrative" | "audience" | "absence" | "final";
 
+export interface TopicAuditSignalIdentity {
+  version: "topic-audit-signal.v1";
+  contentHash: string;
+  referenceHash: string;
+}
+
+export interface TopicAuditArtifactIdentity extends TopicAuditSignalIdentity {
+  producerKey: string;
+  upstreamHash?: string;
+}
+
+export type NarrativeTrajectory = "new" | "stable" | "strengthened" | "weakened" | "retired";
+
+export interface NarrativeAnchorRef {
+  anchorId: string;
+  displayRef: string;
+  stability: "stable" | "synthetic";
+}
+
+export interface NarrativeClaim {
+  id: string;
+  statement: string;
+  rationale: string;
+  trajectory: NarrativeTrajectory;
+  evidence: NarrativeAnchorRef[];
+}
+
+export interface NarrativeVoice {
+  id: string;
+  label: string;
+  position: string;
+  evidence: NarrativeAnchorRef[];
+}
+
+export interface NarrativeOpenQuestion {
+  id: string;
+  question: string;
+}
+
+export interface TopicAuditFingerprints {
+  evidence: string;
+  definition: string;
+  pipeline: string;
+}
+
+export interface TopicNarrativeState {
+  version: "topic-narrative-state.v1";
+  topicId: string;
+  auditRunId: string;
+  previousAuditRunId?: string;
+  fingerprints: TopicAuditFingerprints;
+  nextIds: { claim: number; voice: number; question: number };
+  claims: NarrativeClaim[];
+  voices: NarrativeVoice[];
+  openQuestions: NarrativeOpenQuestion[];
+  updatedAt: string;
+}
+
+export interface TopicAuditEpisodeDelta {
+  claimId: string;
+  trajectory: Exclude<NarrativeTrajectory, "stable">;
+  statement: string;
+  rationale: string;
+  evidence: NarrativeAnchorRef[];
+}
+
+export interface TopicAuditEpisode {
+  version: "topic-audit-episode.v1";
+  id: string;
+  topicId: string;
+  auditRunId: string;
+  inputHash: string;
+  generatedAt: string;
+  transition: "first" | "advance" | "rebase";
+  previousEpisodeId?: string;
+  fingerprints: TopicAuditFingerprints;
+  sourceCount: number;
+  capturedRange?: { from: string; to: string };
+  stateSnapshot: TopicNarrativeState;
+  delta: TopicAuditEpisodeDelta[];
+  reactionSnapshot: {
+    coverage?: ReactionCoverage;
+    patterns: Array<{
+      id: string;
+      label: string;
+      nComments: number;
+      nAuthors: number;
+      coverageDenominator: number;
+    }>;
+  };
+}
+
+export interface NarrativeContinuityReview {
+  carriedClaims: Array<{
+    claimId: string;
+    outcome: Exclude<NarrativeTrajectory, "new">;
+    statement: string;
+    rationale: string;
+    evidenceRefs: string[];
+    notReobserved?: boolean;
+  }>;
+  newClaims: Array<{
+    statement: string;
+    rationale: string;
+    evidenceRefs: string[];
+  }>;
+  voices: Array<{
+    label: string;
+    position: string;
+    evidenceRefs: string[];
+  }>;
+  openQuestions: string[];
+}
+
 export interface ReplyFragment {
   ref: string;
   commentId?: string | null;
+  commentIdSource?: "captured" | "fallback";
   sourceId?: string | null;
   parentId?: string | null;
   replyCount?: number | null;
@@ -39,6 +154,7 @@ export interface EvidencePacket {
   };
   gaps: string[];
   notes: string[];
+  signalIdentity?: TopicAuditSignalIdentity;
 }
 
 export interface SignalReading {
@@ -53,6 +169,7 @@ export interface SignalReading {
   promptVersion: string;
   model: string;
   generatedAt: string;
+  cacheIdentity?: TopicAuditArtifactIdentity;
 }
 
 export interface LensMemo {
@@ -126,12 +243,15 @@ export interface CommentShardReading {
   shortCode: string;
   shardIndex: number;
   shardCount: number;
+  /** Persisted P0.5 blank-read prose; optional for pre-0.3.34 memo compatibility. */
+  reading?: string;
   commentRefsInShard: string[];
   patternCandidates: ShardPatternCandidate[];
   lexiconCandidates: string[];
   promptVersion: string;
   model: string;
   generatedAt: string;
+  cacheIdentity?: TopicAuditArtifactIdentity;
 }
 
 export interface CommentShardSplitOptions {
@@ -172,6 +292,7 @@ export interface TopicAuditReport {
     editorial: string;
   };
   limitations: string[];
+  narrativeState?: TopicNarrativeState;
   promptVersion: string;
   model: string;
   generatedAt: string;
@@ -244,6 +365,7 @@ function buildReplyFragments(shortCode: string, capturedPost: CapturedPostProjec
     fragments.push({
       ref: makeFragmentRef(shortCode, role, index),
       commentId: fragment.id,
+      commentIdSource: fragment.idSource,
       sourceId: fragment.sourceId,
       parentId: fragment.parentId,
       replyCount: fragment.replyCount,

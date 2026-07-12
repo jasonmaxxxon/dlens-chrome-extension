@@ -1,0 +1,975 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Signal Atlas — 變體 E · Glass Field(保守版)</title>
+<!--
+  MOCKUP · reference only · 2026-07-09
+  同變體 D 共用全部結構修正(玻璃底 + 軟陰影、L0 置頂、actions 入
+  toolbar、KPI 上色、群眾反應卡牆併入 legend、敘事降格入 hero、
+  貼文 rail 做單帖入口)。
+
+  唯一分別:民情形狀圖 —— 唔賭象限語意,只做 bubble size ∝ √留言數
+  + 顏色 + 名稱標籤。如果 distiller 出唔到穩定嘅 valence/mode scalar,
+  或者用家覺得四象限過度詮釋,呢個係 fallback。
+
+  對照睇法:D 一張圖講「民情向邊」,E 一張圖講「民情有幾多、幾大舊」。
+-->
+<style>
+  :root {
+    --ink: #171a17;
+    --sub: #3c423d;
+    --muted: #79806f;
+    --line: rgba(23, 26, 23, 0.10);
+    --teal: #43d6c8;
+    --teal-deep: #0f8c80;
+    --teal-glow: rgba(67, 214, 200, 0.34);
+    --teal-faint: rgba(67, 214, 200, 0.12);
+    --violet: #6f5aa7;
+    --amber: #b87b1b;
+    --rose: #8b2542;
+    --glass-hi: rgba(255, 255, 255, 0.80);
+    --glass-lo: rgba(255, 255, 255, 0.42);
+    --hairline: rgba(255, 255, 255, 0.75);
+    --shadow-card:
+      0 1px 2px rgba(31, 38, 33, 0.03),
+      0 18px 44px -26px rgba(31, 38, 33, 0.24),
+      inset 0 1px 0 rgba(255, 255, 255, 0.92);
+    --shadow-hero:
+      0 1px 2px rgba(31, 38, 33, 0.03),
+      0 30px 70px -34px rgba(31, 38, 33, 0.30),
+      inset 0 1px 0 rgba(255, 255, 255, 0.95);
+    --sans: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Noto Sans TC", system-ui, sans-serif;
+    --serif: "Noto Serif TC", "Songti TC", Georgia, serif;
+    --mono: "SF Mono", "JetBrains Mono", ui-monospace, monospace;
+    --ease: cubic-bezier(0.16, 1, 0.3, 1);
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    min-height: 100vh;
+    display: flex;
+    justify-content: center;
+    padding: 32px 12px 80px;
+    font-family: var(--sans);
+    color: var(--ink);
+    background:
+      radial-gradient(900px 620px at 88% -6%, rgba(67, 214, 200, 0.13), transparent 62%),
+      radial-gradient(760px 560px at -8% 30%, rgba(233, 181, 88, 0.10), transparent 58%),
+      linear-gradient(160deg, #fdfdfb 0%, #f5f7f3 52%, #eff4f0 100%);
+  }
+
+  .frame {
+    position: relative;
+    width: 400px;
+    height: 760px;
+    overflow: hidden;
+    border-radius: 28px;
+    border: 1px solid rgba(255, 255, 255, 0.85);
+    background: linear-gradient(172deg, #ffffff 0%, #f8fbf8 55%, #f2f7f3 100%);
+    box-shadow:
+      0 40px 110px -42px rgba(28, 32, 26, 0.34),
+      0 2px 10px rgba(28, 32, 26, 0.05);
+  }
+
+  .blob {
+    position: absolute;
+    z-index: 0;
+    border-radius: 50%;
+    filter: blur(46px);
+    pointer-events: none;
+  }
+  .blob.b1 { width: 260px; height: 260px; top: -60px; right: -50px; background: rgba(67, 214, 200, 0.30); }
+  .blob.b2 { width: 220px; height: 220px; top: 300px; left: -80px; background: rgba(233, 181, 88, 0.22); }
+  .blob.b3 { width: 240px; height: 240px; bottom: -70px; right: -30px; background: rgba(111, 90, 167, 0.16); }
+
+  @media (prefers-reduced-motion: no-preference) {
+    .blob { animation: drift 16s ease-in-out infinite alternate; }
+    .blob.b2 { animation-duration: 20s; animation-delay: -6s; }
+    .blob.b3 { animation-duration: 24s; animation-delay: -12s; }
+  }
+  @keyframes drift {
+    from { transform: translate(0, 0) scale(1); }
+    to { transform: translate(-18px, 14px) scale(1.08); }
+  }
+
+  .spine {
+    position: relative;
+    z-index: 1;
+    height: 100%;
+    overflow-y: auto;
+    padding-bottom: 24px;
+    scrollbar-width: thin;
+  }
+
+  .glass {
+    background: linear-gradient(165deg, var(--glass-hi), var(--glass-lo));
+    border: 1px solid var(--hairline);
+    box-shadow: var(--shadow-card);
+    backdrop-filter: blur(20px) saturate(1.3);
+    -webkit-backdrop-filter: blur(20px) saturate(1.3);
+  }
+
+  .toolbar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+    padding: 14px 16px 4px;
+  }
+  .crumb {
+    display: inline-flex;
+    align-items: baseline;
+    gap: 7px;
+    font-size: 12px;
+    color: var(--muted);
+    font-weight: 650;
+  }
+  .crumb b { color: var(--ink); font-weight: 800; }
+  .actions { display: inline-flex; gap: 6px; }
+  .act {
+    appearance: none;
+    border: 1px solid var(--hairline);
+    background: rgba(255, 255, 255, 0.55);
+    border-radius: 999px;
+    padding: 4px 10px;
+    font-family: var(--mono);
+    font-size: 9.5px;
+    font-weight: 850;
+    color: var(--sub);
+    cursor: pointer;
+    box-shadow: 0 6px 16px -10px rgba(31, 38, 33, 0.25);
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
+  }
+  .act:hover { color: var(--teal-deep); border-color: rgba(67, 214, 200, 0.45); }
+
+  .hero {
+    margin: 8px 14px 0;
+    padding: 16px 16px 14px;
+    border-radius: 22px;
+    background: linear-gradient(168deg, rgba(255, 255, 255, 0.84), rgba(255, 255, 255, 0.48));
+    border: 1px solid rgba(255, 255, 255, 0.85);
+    box-shadow: var(--shadow-hero);
+    backdrop-filter: blur(24px) saturate(1.3);
+    -webkit-backdrop-filter: blur(24px) saturate(1.3);
+  }
+
+  .kicker {
+    font-family: var(--mono);
+    font-size: 9px;
+    letter-spacing: 0.18em;
+    text-transform: uppercase;
+    color: var(--teal-deep);
+    font-weight: 800;
+  }
+
+  .title-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    gap: 14px;
+    margin-top: 6px;
+  }
+  .title { font-family: var(--serif); font-size: 26px; line-height: 1.2; font-weight: 700; }
+  .trust {
+    display: grid;
+    gap: 3px;
+    text-align: right;
+    font-family: var(--mono);
+    font-size: 9px;
+    color: var(--muted);
+    font-weight: 800;
+    line-height: 1.25;
+  }
+  .trust b { color: var(--teal-deep); font-size: 13px; }
+
+  .kpis { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin-top: 14px; }
+  .kpi {
+    padding: 10px 9px 9px;
+    border-radius: 16px;
+    background: rgba(255, 255, 255, 0.46);
+    border: 1px solid rgba(255, 255, 255, 0.65);
+    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.7), 0 10px 24px -18px rgba(31, 38, 33, 0.20);
+  }
+  .kpi .num {
+    font-family: var(--mono);
+    font-size: 27px;
+    line-height: 1;
+    font-weight: 850;
+    font-variant-numeric: tabular-nums;
+  }
+  .kpi .den { font-family: var(--mono); font-size: 11px; font-weight: 850; color: var(--muted); }
+  .kpi.k-read .num { color: var(--teal-deep); text-shadow: 0 0 16px var(--teal-glow); }
+  .kpi.k-shape .num { color: var(--violet); }
+  .kpi.k-narr .num { color: var(--amber); }
+  .kpi .lab {
+    display: block;
+    margin-top: 5px;
+    font-family: var(--mono);
+    font-size: 8.5px;
+    letter-spacing: 0.08em;
+    color: var(--muted);
+    font-weight: 800;
+    text-transform: uppercase;
+  }
+
+  .verdict {
+    margin-top: 13px;
+    padding: 12px 13px;
+    border-radius: 16px;
+    background: rgba(255, 255, 255, 0.52);
+    border: 1px solid rgba(255, 255, 255, 0.70);
+  }
+  .verdict .v-label {
+    font-family: var(--mono);
+    font-size: 9px;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: var(--muted);
+    font-weight: 850;
+    margin-bottom: 6px;
+  }
+  .verdict p { font-family: var(--serif); font-size: 14.5px; line-height: 1.7; color: var(--ink); }
+
+  .ref {
+    appearance: none;
+    display: inline-block;
+    margin: 0 2px;
+    padding: 1px 6px 2px;
+    vertical-align: 1px;
+    border-radius: 999px;
+    font-family: var(--mono);
+    font-size: 9px;
+    font-weight: 850;
+    line-height: 1.2;
+    color: var(--teal-deep);
+    background: var(--teal-faint);
+    border: 1px solid rgba(67, 214, 200, 0.28);
+    cursor: pointer;
+  }
+  .ref:hover, .ref.pin { color: var(--ink); border-color: var(--teal); background: rgba(67, 214, 200, 0.20); }
+
+  .narr {
+    display: grid;
+    grid-template-columns: 1fr auto;
+    gap: 4px 10px;
+    align-items: center;
+    margin-top: 9px;
+    padding: 9px 12px;
+    border-radius: 14px;
+    background: rgba(255, 255, 255, 0.42);
+    border: 1px dashed rgba(184, 123, 27, 0.35);
+    cursor: pointer;
+  }
+  .narr:hover { border-color: var(--amber); }
+  .narr .n-t { font-size: 12px; font-weight: 750; color: var(--ink); }
+  .narr .n-m { font-family: var(--mono); font-size: 9.5px; font-weight: 850; color: var(--amber); white-space: nowrap; }
+  .narr .lane { grid-column: 1 / -1; display: flex; gap: 3px; }
+  .narr .lane i { height: 4px; flex: 1; border-radius: 99px; background: rgba(23, 26, 23, 0.08); }
+  .narr .lane i.on { background: var(--amber); box-shadow: 0 0 8px rgba(184, 123, 27, 0.4); }
+  .narr-more {
+    border: none;
+    background: none;
+    margin: 7px 2px 0;
+    padding: 0;
+    font-size: 10.5px;
+    font-weight: 700;
+    color: var(--muted);
+    cursor: pointer;
+  }
+  .narr-more:hover { color: var(--amber); }
+
+  .panel { margin: 12px 14px 0; padding: 14px 14px 12px; border-radius: 20px; }
+  .panel-head {
+    display: flex;
+    justify-content: space-between;
+    align-items: baseline;
+    margin-bottom: 4px;
+    font-family: var(--mono);
+    font-size: 10px;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    font-weight: 850;
+    color: var(--muted);
+  }
+  .panel-head span:last-child { letter-spacing: 0; text-transform: none; color: var(--teal-deep); }
+
+  svg .base { stroke: rgba(23, 26, 23, 0.08); stroke-width: 1; stroke-dasharray: 2 5; }
+  svg .bub { cursor: pointer; }
+  svg .bub circle.body { stroke: rgba(255, 255, 255, 0.9); stroke-width: 1.5; }
+  svg .bub.sel circle.body { stroke: var(--ink); }
+  svg .bub .halo { transform-box: fill-box; transform-origin: center; }
+  svg .bub .n {
+    font-family: var(--mono);
+    font-size: 12px;
+    font-weight: 850;
+    fill: #fff;
+    text-anchor: middle;
+  }
+  svg .bub .name {
+    font-family: var(--sans);
+    font-size: 9.5px;
+    font-weight: 800;
+    fill: var(--sub);
+  }
+
+  @media (prefers-reduced-motion: no-preference) {
+    svg .bub.top .halo { animation: pulse 3.6s var(--ease) infinite; }
+  }
+  @keyframes pulse {
+    from { opacity: 0.45; transform: scale(1); }
+    to { opacity: 0; transform: scale(1.55); }
+  }
+
+  .compass-note {
+    display: flex;
+    justify-content: space-between;
+    margin-top: 4px;
+    font-family: var(--mono);
+    font-size: 9px;
+    color: var(--muted);
+    font-weight: 800;
+  }
+  .compass-note b { color: var(--teal-deep); }
+
+  .legend { margin-top: 10px; border-top: 1px solid var(--line); }
+  .lrow {
+    display: flex;
+    align-items: baseline;
+    gap: 8px;
+    padding: 8px 2px;
+    border-bottom: 1px solid var(--line);
+    cursor: pointer;
+  }
+  .lrow:last-child { border-bottom: none; }
+  .lrow:hover .lt { color: var(--teal-deep); }
+  .lrow .dot { flex: none; width: 8px; height: 8px; border-radius: 50%; align-self: center; }
+  .lrow .lt { font-size: 12px; font-weight: 750; white-space: nowrap; }
+  .lrow .li {
+    flex: 1;
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    font-size: 11px;
+    color: var(--muted);
+  }
+  .lrow .ln {
+    font-family: var(--mono);
+    font-size: 10px;
+    font-weight: 850;
+    color: var(--sub);
+    font-variant-numeric: tabular-nums;
+    white-space: nowrap;
+  }
+  .lrow .ln .bad { color: var(--rose); }
+
+  .posts { display: grid; gap: 5px; margin-top: 2px; }
+  .prow {
+    display: grid;
+    grid-template-columns: auto 1fr auto;
+    gap: 3px 9px;
+    align-items: baseline;
+    padding: 8px 10px;
+    border-radius: 13px;
+    background: rgba(255, 255, 255, 0.40);
+    border: 1px solid rgba(255, 255, 255, 0.55);
+    cursor: pointer;
+  }
+  .prow:hover { border-color: rgba(67, 214, 200, 0.45); }
+  .prow .sid { font-family: var(--mono); font-size: 9.5px; font-weight: 850; color: var(--teal-deep); }
+  .prow .pt {
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    font-size: 11.5px;
+    color: var(--sub);
+    font-weight: 650;
+  }
+  .prow .pn { font-family: var(--mono); font-size: 9.5px; font-weight: 850; color: var(--muted); }
+  .prow .mix { grid-column: 2 / -1; display: flex; height: 4px; border-radius: 99px; overflow: hidden; background: rgba(23, 26, 23, 0.05); }
+  .prow .mix i { height: 100%; }
+
+  .warn {
+    margin: 12px 14px 0;
+    border-radius: 18px;
+    padding: 12px 14px;
+    background: linear-gradient(165deg, rgba(255, 246, 224, 0.80), rgba(255, 246, 224, 0.45));
+    border: 1px solid rgba(184, 123, 27, 0.28);
+    box-shadow: var(--shadow-card);
+    backdrop-filter: blur(16px);
+    -webkit-backdrop-filter: blur(16px);
+  }
+  .warn .w-label {
+    font-family: var(--mono);
+    font-size: 10px;
+    font-weight: 850;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--amber);
+    margin-bottom: 7px;
+  }
+  .warn ul { list-style: none; display: grid; gap: 5px; }
+  .warn li { color: var(--sub); font-size: 12px; line-height: 1.5; display: flex; gap: 7px; }
+  .warn li:before { content: "·"; color: var(--amber); font-weight: 900; }
+
+  .stamp { margin: 12px 18px 0; font-family: var(--mono); font-size: 8.5px; font-weight: 850; color: var(--muted); }
+
+  .pop {
+    position: absolute;
+    z-index: 40;
+    width: 282px;
+    padding: 12px 13px;
+    border-radius: 16px;
+    opacity: 0;
+    pointer-events: none;
+    transform: translateY(4px);
+  }
+  .pop.show { opacity: 1; pointer-events: auto; transform: translateY(0); }
+  @media (prefers-reduced-motion: no-preference) {
+    .pop { transition: opacity 180ms var(--ease), transform 180ms var(--ease); }
+  }
+  .pop .pq { font-family: var(--serif); font-size: 13px; line-height: 1.6; color: var(--ink); }
+  .pop .pm {
+    display: flex;
+    gap: 10px;
+    margin-top: 7px;
+    font-family: var(--mono);
+    font-size: 10px;
+    color: var(--muted);
+    font-weight: 850;
+    font-variant-numeric: tabular-nums;
+  }
+  .pop .pid { color: var(--teal-deep); }
+
+  .scrim {
+    position: absolute;
+    inset: 0;
+    z-index: 50;
+    background: rgba(18, 24, 22, 0.18);
+    opacity: 0;
+    pointer-events: none;
+    backdrop-filter: blur(2px);
+    -webkit-backdrop-filter: blur(2px);
+  }
+  .drawer {
+    position: absolute;
+    top: 0;
+    right: 0;
+    bottom: 0;
+    z-index: 60;
+    width: 350px;
+    border-left: 1px solid rgba(255, 255, 255, 0.8);
+    transform: translateX(106%);
+    display: flex;
+    flex-direction: column;
+    background: linear-gradient(170deg, rgba(255, 255, 255, 0.88), rgba(255, 255, 255, 0.66));
+    box-shadow: -30px 0 70px -30px rgba(29, 34, 28, 0.30);
+    backdrop-filter: blur(26px) saturate(1.25);
+    -webkit-backdrop-filter: blur(26px) saturate(1.25);
+  }
+  @media (prefers-reduced-motion: no-preference) {
+    .drawer { transition: transform 280ms var(--ease); }
+    .scrim { transition: opacity 280ms var(--ease); }
+  }
+  .frame.open .drawer { transform: translateX(0); }
+  .frame.open .scrim { opacity: 1; pointer-events: auto; }
+
+  .d-head { display: flex; gap: 10px; align-items: flex-start; padding: 15px 16px 11px; border-bottom: 1px solid var(--line); }
+  .d-title { flex: 1; font-weight: 850; font-size: 14px; line-height: 1.35; }
+  .d-num { margin-top: 4px; font-family: var(--mono); color: var(--muted); font-size: 10px; font-weight: 850; font-variant-numeric: tabular-nums; }
+  .d-num b { color: var(--teal-deep); }
+  .d-close {
+    border: 1px solid rgba(255, 255, 255, 0.7);
+    background: rgba(255, 255, 255, 0.6);
+    width: 26px;
+    height: 26px;
+    border-radius: 999px;
+    cursor: pointer;
+    color: var(--muted);
+  }
+  .d-body { flex: 1; overflow-y: auto; padding: 13px 16px 17px; }
+  .d-label {
+    margin: 10px 0 7px;
+    font-family: var(--mono);
+    font-size: 9.5px;
+    font-weight: 850;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--muted);
+  }
+  .d-label:first-child { margin-top: 0; }
+  .d-stats {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px 12px;
+    padding: 9px 11px;
+    border-radius: 14px;
+    font-family: var(--mono);
+    font-size: 10px;
+    color: var(--muted);
+    font-weight: 850;
+  }
+  .d-stats b { color: var(--ink); }
+  .d-mix { display: grid; gap: 5px; }
+  .d-mix .mrow { display: grid; grid-template-columns: 8px 1fr auto; gap: 8px; align-items: center; font-size: 11px; color: var(--sub); }
+  .d-mix .mrow .md { width: 8px; height: 8px; border-radius: 50%; }
+  .d-mix .mrow .mn { font-family: var(--mono); font-size: 9.5px; font-weight: 850; color: var(--muted); }
+  .ev { padding: 10px 11px; margin-bottom: 8px; border-radius: 14px; }
+  .ev.counter { border-left: 3px solid var(--rose); }
+  .ev-q { color: var(--sub); font-size: 12.5px; line-height: 1.58; }
+  .ev-q.clamp { display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden; }
+  .ev-m { display: flex; gap: 9px; align-items: baseline; margin-top: 6px; font-family: var(--mono); font-size: 9.5px; color: var(--muted); font-weight: 850; }
+  .ev-m .pid { color: var(--teal-deep); }
+  .ev.counter .pid { color: var(--rose); }
+  .more, .d-back { border: none; background: none; color: var(--teal-deep); font-size: 11px; font-weight: 700; cursor: pointer; padding: 4px 0 0; }
+  .more { display: none; }
+  .more.avail { display: inline-block; }
+  .d-all {
+    width: 100%;
+    margin-top: 10px;
+    padding: 10px 0;
+    border-radius: 14px;
+    border: 1px solid rgba(67, 214, 200, 0.35);
+    background: rgba(67, 214, 200, 0.12);
+    color: var(--ink);
+    font-weight: 750;
+    cursor: pointer;
+  }
+  .grp { margin-bottom: 12px; }
+  .grp-h { display: flex; align-items: baseline; gap: 8px; margin-bottom: 6px; }
+  .grp-h .sid { font-family: var(--mono); font-size: 10px; color: var(--teal-deep); font-weight: 850; }
+  .grp-h .gt { flex: 1; color: var(--sub); font-size: 11px; font-weight: 650; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .grp-h .gn { font-family: var(--mono); color: var(--muted); font-size: 9.5px; font-weight: 850; }
+  .cm { display: flex; gap: 8px; padding: 7px 0; border-bottom: 1px solid var(--line); font-size: 12px; }
+  .cm:last-child { border-bottom: none; }
+  .cm .ca { font-family: var(--mono); color: var(--muted); font-size: 10px; font-weight: 850; max-width: 90px; overflow: hidden; text-overflow: ellipsis; flex: none; }
+  .cm .cx { flex: 1; line-height: 1.5; color: var(--sub); }
+  .cm .cl { font-family: var(--mono); color: var(--muted); font-size: 9.5px; font-weight: 850; }
+</style>
+</head>
+<body>
+<div class="frame" id="frame">
+  <div class="blob b1"></div>
+  <div class="blob b2"></div>
+  <div class="blob b3"></div>
+
+  <div class="spine" id="spine">
+    <div class="toolbar">
+      <span class="crumb">← 主題 <b>失業</b></span>
+      <span class="actions">
+        <button class="act" type="button">審查報告 ↗</button>
+        <button class="act" type="button">⟳ 重新生成</button>
+      </span>
+    </div>
+
+    <section class="hero">
+      <div class="kicker">Signal Atlas · Topic Audit · L0</div>
+      <div class="title-row">
+        <h1 class="title">失業</h1>
+        <div class="trust"><b>100%</b><span>引用鏈可追</span><span>2026-07-09</span></div>
+      </div>
+
+      <div class="kpis" aria-label="coverage ledger">
+        <div class="kpi k-read"><span class="num">126</span><span class="den">/126</span><span class="lab">已讀留言</span></div>
+        <div class="kpi k-shape"><span class="num">4</span><span class="den">/6</span><span class="lab">反應形狀</span></div>
+        <div class="kpi k-narr"><span class="num">1</span><span class="den">/6</span><span class="lab">跨帖敘事</span></div>
+      </div>
+
+      <div class="verdict">
+        <div class="v-label">整體判讀</div>
+        <p>失業議題在本次觀測中呈現出強烈的世代與階級分歧,社群已演化為一套非正式的求職支持系統,用以緩解結構性市場門檻帶來的集體焦慮。<button class="ref" type="button" data-r="S2.R1">S2.R1</button><button class="ref" type="button" data-r="S5.R4">S5.R4</button><button class="ref" type="button" data-r="S1.R5">S1.R5</button></p>
+        <div class="narr" data-d="l1" role="button" tabindex="0">
+          <span class="n-t">跨帖敘事:應屆畢業生的市場門檻與焦慮</span>
+          <span class="n-m">跨 2/6 篇</span>
+          <div class="lane"><i class="on"></i><i class="on"></i><i></i><i></i><i></i><i></i></div>
+        </div>
+        <button class="narr-more" type="button" data-d="l-singles">另有 3 條單帖觀察,未達跨帖門檻 →</button>
+      </div>
+    </section>
+
+    <section class="panel glass">
+      <div class="panel-head"><span>民情形狀</span><span>4/6 patterns · 91/126 已歸類</span></div>
+      <svg viewBox="0 0 368 165" width="100%" role="img" aria-label="四個反應形狀,泡泡大小為留言數">
+        <line class="base" x1="16" y1="92" x2="352" y2="92"/>
+
+        <!-- r ∝ √n:31→30 · 21→25 · 18→23 -->
+        <g class="bub top" data-d="p1">
+          <circle class="halo" cx="62" cy="74" r="30" fill="rgba(67,214,200,0.28)"/>
+          <circle class="body" cx="62" cy="74" r="30" fill="#3bbfb2"/>
+          <text class="n" x="62" y="79">31</text>
+          <text class="name" x="62" y="118" text-anchor="middle">同儕互助與情緒共鳴</text>
+        </g>
+        <g class="bub" data-d="p2">
+          <circle class="halo" cx="150" cy="108" r="25" fill="rgba(139,37,66,0.20)"/>
+          <circle class="body" cx="150" cy="108" r="25" fill="#8b2542"/>
+          <text class="n" x="150" y="113">21</text>
+          <text class="name" x="150" y="147" text-anchor="middle">市場悲觀與結構性焦慮</text>
+        </g>
+        <g class="bub" data-d="p4">
+          <circle class="halo" cx="240" cy="74" r="25" fill="rgba(111,90,167,0.20)"/>
+          <circle class="body" cx="240" cy="74" r="25" fill="#6f5aa7"/>
+          <text class="n" x="240" y="79">21</text>
+          <text class="name" x="240" y="112" text-anchor="middle">實用主義與行動導向</text>
+        </g>
+        <g class="bub" data-d="p3">
+          <circle class="halo" cx="322" cy="108" r="23" fill="rgba(184,123,27,0.20)"/>
+          <circle class="body" cx="322" cy="108" r="23" fill="#b87b1b"/>
+          <text class="n" x="322" y="113">18</text>
+          <text class="name" x="322" y="145" text-anchor="middle">長期失業者的標籤化</text>
+        </g>
+      </svg>
+      <div class="compass-note"><span>bubble 大小 ∝ 留言數 · 點入睇證據</span><span>n=126</span></div>
+
+      <div class="legend">
+        <div class="lrow" data-d="p1"><span class="dot" style="background:#3bbfb2"></span><span class="lt">同儕互助與情緒共鳴</span><span class="li">將個人挫折轉化為群體支持</span><span class="ln">31/126</span></div>
+        <div class="lrow" data-d="p2"><span class="dot" style="background:#8b2542"></span><span class="lt">市場悲觀與結構性焦慮</span><span class="li">求職困難歸因於結構性因素</span><span class="ln">21/126</span></div>
+        <div class="lrow" data-d="p3"><span class="dot" style="background:#b87b1b"></span><span class="lt">長期失業者的標籤化</span><span class="li">將長期失業解讀為特權選擇</span><span class="ln">18/126</span></div>
+        <div class="lrow" data-d="p4"><span class="dot" style="background:#6f5aa7"></span><span class="lt">實用主義與行動導向</span><span class="li">去情緒化,轉向可控行動指標</span><span class="ln">21/126 · <span class="bad">1 反例</span></span></div>
+      </div>
+    </section>
+
+    <section class="panel glass">
+      <div class="panel-head"><span>貼文</span><span>6 posts · 點入單帖反應</span></div>
+      <div class="posts">
+        <div class="prow" data-d="s1">
+          <span class="sid">S1</span><span class="pt">應屆畢業生,投咗 100 份 CV 零回音</span><span class="pn">34</span>
+          <span class="mix"><i style="flex:10;background:#3bbfb2"></i><i style="flex:8;background:#8b2542"></i><i style="flex:7;background:#b87b1b"></i><i style="flex:9;background:#6f5aa7"></i></span>
+        </div>
+        <div class="prow" data-d="s2">
+          <span class="sid">S2</span><span class="pt">40 歲被裁,轉行定死守?</span><span class="pn">26</span>
+          <span class="mix"><i style="flex:8;background:#3bbfb2"></i><i style="flex:9;background:#8b2542"></i><i style="flex:3;background:#b87b1b"></i><i style="flex:6;background:#6f5aa7"></i></span>
+        </div>
+        <div class="prow" data-d="s3">
+          <span class="sid">S3</span><span class="pt">面試等咗三個鐘,係咪社死?</span><span class="pn">15</span>
+          <span class="mix"><i style="flex:4;background:#3bbfb2"></i><i style="flex:5;background:#8b2542"></i><i style="flex:2;background:#b87b1b"></i><i style="flex:4;background:#6f5aa7"></i></span>
+        </div>
+        <div class="prow" data-d="s4">
+          <span class="sid">S4</span><span class="pt">失業一年,躺平有罪?</span><span class="pn">22</span>
+          <span class="mix"><i style="flex:3;background:#3bbfb2"></i><i style="flex:4;background:#8b2542"></i><i style="flex:12;background:#b87b1b"></i><i style="flex:3;background:#6f5aa7"></i></span>
+        </div>
+        <div class="prow" data-d="s5">
+          <span class="sid">S5</span><span class="pt">無業第四個月,開始接 freelance</span><span class="pn">13</span>
+          <span class="mix"><i style="flex:6;background:#3bbfb2"></i><i style="flex:2;background:#8b2542"></i><i style="flex:1;background:#b87b1b"></i><i style="flex:4;background:#6f5aa7"></i></span>
+        </div>
+        <div class="prow" data-d="s6">
+          <span class="sid">S6</span><span class="pt">應屆搵工三個月實錄</span><span class="pn">16</span>
+          <span class="mix"><i style="flex:5;background:#3bbfb2"></i><i style="flex:4;background:#8b2542"></i><i style="flex:1;background:#b87b1b"></i><i style="flex:6;background:#6f5aa7"></i></span>
+        </div>
+      </div>
+    </section>
+
+    <section class="warn">
+      <div class="w-label">缺席與可靠性</div>
+      <ul>
+        <li>本次失業議題的討論中,顯著缺席的是「勞動政策與社會安全網」的討論,佢應該係頻繁交鋒位。</li>
+        <li>35/126 留言未落入任何形狀——以碎片式吐槽為主,未成 pattern。</li>
+        <li>反例極少(僅 1 條),支持面可能被同溫層放大。</li>
+      </ul>
+    </section>
+
+    <div class="stamp">AUDIT 2026-07-09 · 變體 E · 真實 0.3.19 輸出 + mock 補位(貼文標題/反例為示意)</div>
+  </div>
+
+  <div class="pop glass" id="pop" role="tooltip" aria-hidden="true">
+    <div class="pq" id="pop-q"></div>
+    <div class="pm"><span class="pid" id="pop-id"></span><span id="pop-a"></span><span id="pop-l"></span></div>
+  </div>
+
+  <div class="scrim" id="scrim"></div>
+  <aside class="drawer" id="drawer" role="dialog" aria-modal="true" aria-labelledby="d-title" aria-hidden="true">
+    <div class="d-head">
+      <div style="flex:1">
+        <div class="d-title" id="d-title"></div>
+        <div class="d-num" id="d-nums"></div>
+      </div>
+      <button class="d-close" id="d-close" aria-label="close detail">×</button>
+    </div>
+    <div class="d-body" id="d-body"></div>
+  </aside>
+</div>
+
+<script>
+var REFS = {
+  "S1.R5":  { a: "@_myweelr",       l: 0,   q: "自從開始搵工 就未聽過個市好過😮‍💨姐姐加油!!! 依家搵工好睇緣份 我就嘗試緊轉工架" },
+  "S2.R6":  { a: "@singabcd",       l: 1,   q: "唉~ 你40+都咁 何況我呢 試咗幾個fb炒散同threads(疑似呃人)嘅jobs 先唔講沖咗落廁所冇0覆嗰啲 wsp會覆嗰啲一報完歲數一樣即隱形" },
+  "S2.R1":  { a: "@same.boat.hk",   l: 3,   q: "大家都係咁,唔好收埋自己,有需要出嚟傾,呢度好多同路人" },
+  "S5.R4":  { a: "@slasher.life",   l: 2,   q: "freelance 都係一條路,我由炒散做到而家穩定,慢慢嚟唔使急" },
+  "S1.R9":  { a: "@fresh.grad.26",  l: 2,   q: "100 份係基本,我同學派咗 200 幾份先有一個 offer,唔係你問題" },
+  "S4.R5":  { a: "@keyboard.judge", l: 171, q: "失業一年仲可以日日行山?屋企有礦真係唔同" },
+  "S4.R42": { a: "@quiet.reader",   l: 12,  q: "唔好咁快 judge 人,你唔知人哋經歷咗咩先行到呢一步" },
+  "S6.R6":  { a: "@action.list",    l: 1,   q: "我開咗個 spreadsheet track 晒每個 apply 嘅狀態,行動先會踏實" },
+  "S6.R8":  { a: "@cv.doctor",      l: 0,   q: "將 CV 改做 skill-based 之後,回音率高咗少少,可以試下" },
+  "S3.R1":  { a: "@interview.ptsd", l: 5,   q: "等三個鐘已經係答案,呢啲公司唔去都罷" },
+  "S2.R15": { a: "@midlife.pivot",  l: 1,   q: "40+ 轉行唔係死路,但要接受頭一年人工腰斬,心理關口先係最難" },
+  "S1.OP":  { a: "S1 原帖",          l: 40,  q: "應屆畢業生,投咗 100 份 CV 零回音,開始懷疑自己讀嗰四年為咗乜" },
+  "S6.OP":  { a: "S6 原帖",          l: 22,  q: "應屆搵工三個月實錄:由亂投到有系統,呢篇係我嘅覆盤" }
+};
+
+var DOTS = { p1: "#3bbfb2", p2: "#8b2542", p3: "#b87b1b", p4: "#6f5aa7" };
+var PNAMES = { p1: "同儕互助與情緒共鳴", p2: "市場悲觀與結構性焦慮", p3: "長期失業者的標籤化", p4: "實用主義與行動導向" };
+
+var DETAILS = {
+  p1: {
+    t: "同儕互助與情緒共鳴", n: "31/126 留言 · 25 作者 · ♥4 · 0 反例",
+    reps: ["S1.R5", "S2.R1"], counters: [],
+    stats: ["<b>31</b>/126 留言", "<b>25</b> 作者", "♥ <b>4</b> 合計", "<b>0</b> 反例", "分佈 S1×10 S2×8 S3×4 S5×6 S6×3"],
+    all: [
+      { s: "S1", t: "應屆畢業生,投咗 100 份 CV 零回音", rows: [["@_myweelr", "自從開始搵工 就未聽過個市好過😮‍💨姐姐加油!!! 依家搵工好睇緣份 我就嘗試緊轉工架", 0], ["@hold.on.hk", "唔係你唔得,係個市唔得,唔好質疑自己", 1]] },
+      { s: "S2", t: "40 歲被裁,轉行定死守?", rows: [["@same.boat.hk", "大家都係咁,唔好收埋自己,有需要出嚟傾,呢度好多同路人", 3]] },
+      { s: "S5", t: "無業第四個月,開始接 freelance", rows: [["@slasher.life", "freelance 都係一條路,我由炒散做到而家穩定,慢慢嚟唔使急", 2]] }
+    ],
+    truncated: "……(mockup 截斷:實作為全部 31 條,已去重)"
+  },
+  p2: {
+    t: "市場悲觀與結構性焦慮", n: "21/126 留言 · 12 作者 · ♥2 · 0 反例",
+    reps: ["S1.R5", "S2.R6"], counters: [],
+    stats: ["<b>21</b>/126 留言", "<b>12</b> 作者", "♥ <b>2</b> 合計", "<b>0</b> 反例", "分佈 S1×8 S2×9 S3×4"],
+    all: [
+      { s: "S2", t: "40 歲被裁,轉行定死守?", rows: [["@singabcd", "唉~ 你40+都咁 何況我呢 試咗幾個fb炒散同threads(疑似呃人)嘅jobs 先唔講沖咗落廁所冇0覆嗰啲 wsp會覆嗰啲一報完歲數一樣即隱形", 1]] },
+      { s: "S1", t: "應屆畢業生,投咗 100 份 CV 零回音", rows: [["@fresh.grad.26", "100 份係基本,我同學派咗 200 幾份先有一個 offer,唔係你問題", 2]] }
+    ],
+    truncated: "……(mockup 截斷:實作為全部 21 條,已去重)"
+  },
+  p3: {
+    t: "長期失業者的標籤化", n: "18/126 留言 · 14 作者 · ♥171 · 0 反例",
+    reps: ["S4.R5", "S4.R42"], counters: [],
+    stats: ["<b>18</b>/126 留言", "<b>14</b> 作者", "♥ <b>171</b> 合計", "<b>0</b> 反例", "分佈 S4×12 S2×3 S3×3"],
+    all: [
+      { s: "S4", t: "失業一年,躺平有罪?", rows: [["@keyboard.judge", "失業一年仲可以日日行山?屋企有礦真係唔同", 171], ["@quiet.reader", "唔好咁快 judge 人,你唔知人哋經歷咗咩先行到呢一步", 12]] }
+    ],
+    truncated: "……(mockup 截斷:實作為全部 18 條,已去重)"
+  },
+  p4: {
+    t: "實用主義與行動導向", n: "21/126 留言 · 15 作者 · ♥2 · 1 反例(示意)",
+    reps: ["S6.R6", "S6.R8"], counters: ["S2.R6"],
+    stats: ["<b>21</b>/126 留言", "<b>15</b> 作者", "♥ <b>2</b> 合計", "<b>1</b> 反例", "分佈 S5×4 S6×6 S1×9 S2×2"],
+    all: [
+      { s: "S6", t: "應屆搵工三個月實錄", rows: [["@action.list", "我開咗個 spreadsheet track 晒每個 apply 嘅狀態,行動先會踏實", 1], ["@cv.doctor", "將 CV 改做 skill-based 之後,回音率高咗少少,可以試下", 0]] }
+    ],
+    truncated: "……(mockup 截斷:實作為全部 21 條,已去重)"
+  },
+  l1: {
+    t: "跨帖敘事:應屆畢業生的市場門檻與焦慮", n: "跨 2/6 篇(S1 · S6)",
+    reps: ["S1.OP", "S6.OP", "S1.R9"], counters: [],
+    stats: ["跨 <b>2</b>/6 篇", "集中於 S1 / S6", "同一敘事:市場門檻高於個人努力"],
+    all: [
+      { s: "S1", t: "應屆畢業生,投咗 100 份 CV 零回音", rows: [["@fresh.grad.26", "100 份係基本,我同學派咗 200 幾份先有一個 offer,唔係你問題", 2]] },
+      { s: "S6", t: "應屆搵工三個月實錄", rows: [["@action.list", "我開咗個 spreadsheet track 晒每個 apply 嘅狀態,行動先會踏實", 1]] }
+    ],
+    truncated: "……(mockup 截斷)"
+  },
+  "l-singles": {
+    t: "單帖觀察(未達跨帖門檻)", n: "3 條 · 下次審計自動重判",
+    reps: ["S2.R15", "S3.R1", "S4.R5"], counters: [],
+    stats: ["中年轉職的結構性困境 · 僅 S2", "面試作為表演與社死 · 僅 S3", "長期失業與躺平標籤 · 僅 S4"],
+    all: [
+      { s: "S2", t: "40 歲被裁,轉行定死守?", rows: [["@midlife.pivot", "40+ 轉行唔係死路,但要接受頭一年人工腰斬,心理關口先係最難", 1]] },
+      { s: "S3", t: "面試等咗三個鐘,係咪社死?", rows: [["@interview.ptsd", "等三個鐘已經係答案,呢啲公司唔去都罷", 5]] },
+      { s: "S4", t: "失業一年,躺平有罪?", rows: [["@keyboard.judge", "失業一年仲可以日日行山?屋企有礦真係唔同", 171]] }
+    ],
+    truncated: ""
+  },
+  s1: {
+    t: "S1 · 應屆畢業生,投咗 100 份 CV 零回音", n: "34 留言 · 21 作者 · ♥9",
+    mix: [["p1", 10], ["p2", 8], ["p3", 7], ["p4", 9]],
+    reps: ["S1.R5", "S1.R9"], counters: [],
+    stats: ["<b>34</b> 留言", "<b>21</b> 作者", "♥ <b>9</b> 合計", "跨帖敘事 <b>1</b> 條經過"],
+    all: [
+      { s: "S1", t: "全部留言(按形狀分組)", rows: [["@_myweelr", "自從開始搵工 就未聽過個市好過😮‍💨姐姐加油!!! 依家搵工好睇緣份 我就嘗試緊轉工架", 0], ["@fresh.grad.26", "100 份係基本,我同學派咗 200 幾份先有一個 offer,唔係你問題", 2], ["@hold.on.hk", "唔係你唔得,係個市唔得,唔好質疑自己", 1]] }
+    ],
+    truncated: "……(mockup 截斷:實作為全部 34 條,已去重)"
+  },
+  s2: {
+    t: "S2 · 40 歲被裁,轉行定死守?", n: "26 留言 · 18 作者 · ♥8",
+    mix: [["p1", 8], ["p2", 9], ["p3", 3], ["p4", 6]],
+    reps: ["S2.R6", "S2.R1", "S2.R15"], counters: [],
+    stats: ["<b>26</b> 留言", "<b>18</b> 作者", "♥ <b>8</b> 合計", "單帖觀察 <b>1</b> 條"],
+    all: [
+      { s: "S2", t: "全部留言(按形狀分組)", rows: [["@singabcd", "唉~ 你40+都咁 何況我呢 試咗幾個fb炒散同threads(疑似呃人)嘅jobs……", 1], ["@same.boat.hk", "大家都係咁,唔好收埋自己,有需要出嚟傾,呢度好多同路人", 3], ["@midlife.pivot", "40+ 轉行唔係死路,但要接受頭一年人工腰斬,心理關口先係最難", 1]] }
+    ],
+    truncated: "……(mockup 截斷:實作為全部 26 條,已去重)"
+  },
+  s3: {
+    t: "S3 · 面試等咗三個鐘,係咪社死?", n: "15 留言 · 12 作者 · ♥11",
+    mix: [["p1", 4], ["p2", 5], ["p3", 2], ["p4", 4]],
+    reps: ["S3.R1"], counters: [],
+    stats: ["<b>15</b> 留言", "<b>12</b> 作者", "♥ <b>11</b> 合計"],
+    all: [{ s: "S3", t: "全部留言(按形狀分組)", rows: [["@interview.ptsd", "等三個鐘已經係答案,呢啲公司唔去都罷", 5]] }],
+    truncated: "……(mockup 截斷)"
+  },
+  s4: {
+    t: "S4 · 失業一年,躺平有罪?", n: "22 留言 · 17 作者 · ♥196",
+    mix: [["p1", 3], ["p2", 4], ["p3", 12], ["p4", 3]],
+    reps: ["S4.R5", "S4.R42"], counters: [],
+    stats: ["<b>22</b> 留言", "<b>17</b> 作者", "♥ <b>196</b> 合計", "標籤化形狀集中地"],
+    all: [{ s: "S4", t: "全部留言(按形狀分組)", rows: [["@keyboard.judge", "失業一年仲可以日日行山?屋企有礦真係唔同", 171], ["@quiet.reader", "唔好咁快 judge 人,你唔知人哋經歷咗咩先行到呢一步", 12]] }],
+    truncated: "……(mockup 截斷)"
+  },
+  s5: {
+    t: "S5 · 無業第四個月,開始接 freelance", n: "13 留言 · 10 作者 · ♥6",
+    mix: [["p1", 6], ["p2", 2], ["p3", 1], ["p4", 4]],
+    reps: ["S5.R4"], counters: [],
+    stats: ["<b>13</b> 留言", "<b>10</b> 作者", "♥ <b>6</b> 合計"],
+    all: [{ s: "S5", t: "全部留言(按形狀分組)", rows: [["@slasher.life", "freelance 都係一條路,我由炒散做到而家穩定,慢慢嚟唔使急", 2]] }],
+    truncated: "……(mockup 截斷)"
+  },
+  s6: {
+    t: "S6 · 應屆搵工三個月實錄", n: "16 留言 · 13 作者 · ♥4",
+    mix: [["p1", 5], ["p2", 4], ["p3", 1], ["p4", 6]],
+    reps: ["S6.R6", "S6.R8"], counters: [],
+    stats: ["<b>16</b> 留言", "<b>13</b> 作者", "♥ <b>4</b> 合計", "跨帖敘事 <b>1</b> 條經過"],
+    all: [{ s: "S6", t: "全部留言(按形狀分組)", rows: [["@action.list", "我開咗個 spreadsheet track 晒每個 apply 嘅狀態,行動先會踏實", 1], ["@cv.doctor", "將 CV 改做 skill-based 之後,回音率高咗少少,可以試下", 0]] }],
+    truncated: "……(mockup 截斷)"
+  }
+};
+
+var frame = document.getElementById("frame");
+var pop = document.getElementById("pop");
+var drawer = document.getElementById("drawer");
+var pinned = null;
+
+function showPop(chip) {
+  var d = REFS[chip.dataset.r];
+  if (!d) return;
+  document.getElementById("pop-q").textContent = "「" + d.q + "」";
+  document.getElementById("pop-id").textContent = chip.dataset.r;
+  document.getElementById("pop-a").textContent = d.a;
+  document.getElementById("pop-l").textContent = "♥" + d.l;
+  var fr = frame.getBoundingClientRect();
+  var cr = chip.getBoundingClientRect();
+  var x = Math.min(Math.max(cr.left - fr.left - 8, 10), 400 - 292);
+  var y = cr.bottom - fr.top + 6;
+  if (y > 638) y = cr.top - fr.top - 6 - 98;
+  pop.style.left = x + "px";
+  pop.style.top = Math.max(10, y) + "px";
+  pop.classList.add("show");
+  pop.setAttribute("aria-hidden", "false");
+}
+
+function hidePop() {
+  if (!pinned) {
+    pop.classList.remove("show");
+    pop.setAttribute("aria-hidden", "true");
+  }
+}
+
+function bindRefs(root) {
+  root.querySelectorAll(".ref").forEach(function(chip) {
+    chip.addEventListener("mouseenter", function(){ showPop(chip); });
+    chip.addEventListener("mouseleave", hidePop);
+    chip.addEventListener("click", function(e) {
+      e.stopPropagation();
+      if (pinned === chip.dataset.r) {
+        pinned = null;
+        chip.classList.remove("pin");
+        pop.classList.remove("show");
+        pop.setAttribute("aria-hidden", "true");
+      } else {
+        document.querySelectorAll(".ref.pin").forEach(function(x){ x.classList.remove("pin"); });
+        pinned = chip.dataset.r;
+        chip.classList.add("pin");
+        showPop(chip);
+      }
+    });
+  });
+}
+
+bindRefs(document);
+
+document.getElementById("spine").addEventListener("scroll", function() {
+  if (!pinned) {
+    pop.classList.remove("show");
+    pop.setAttribute("aria-hidden", "true");
+  }
+});
+
+function evidenceBlock(ref, kind) {
+  var d = REFS[ref];
+  if (!d) return "";
+  return '<div class="ev glass ' + (kind === "counter" ? "counter" : "") + '">' +
+    '<div class="ev-q clamp">' + d.q + '</div>' +
+    '<button class="more avail" type="button">展開</button>' +
+    '<div class="ev-m"><span class="pid">' + ref + '</span><span>' + d.a + '</span><span>♥' + d.l + '</span></div>' +
+  '</div>';
+}
+
+function mixBlock(mix) {
+  var total = mix.reduce(function(s, m){ return s + m[1]; }, 0);
+  var html = '<div class="d-label">反應構成</div><div class="d-mix">';
+  mix.forEach(function(m) {
+    html += '<div class="mrow"><span class="md" style="background:' + DOTS[m[0]] + '"></span><span>' + PNAMES[m[0]] + '</span><span class="mn">' + m[1] + '/' + total + '</span></div>';
+  });
+  return html + '</div>';
+}
+
+function allView(d) {
+  var html = '<button class="d-back" type="button">← 返回摘要</button>';
+  d.all.forEach(function(group) {
+    html += '<div class="grp"><div class="grp-h"><span class="sid">' + group.s + '</span><span class="gt">' + group.t + '</span><span class="gn">' + group.rows.length + ' 條</span></div>';
+    group.rows.forEach(function(row) {
+      html += '<div class="cm"><span class="ca">' + row[0] + '</span><span class="cx">' + row[1] + '</span><span class="cl">♥' + row[2] + '</span></div>';
+    });
+    html += '</div>';
+  });
+  if (d.truncated) html += '<div class="stamp" style="margin:8px 2px 0">' + d.truncated + '</div>';
+  return html;
+}
+
+function summaryView(d) {
+  var html = '<div class="d-label">數字明細</div><div class="d-stats glass">' + d.stats.map(function(s){ return '<span>' + s + '</span>'; }).join("") + '</div>';
+  if (d.mix) html += mixBlock(d.mix);
+  html += '<div class="d-label">代表留言</div>' + d.reps.map(function(r){ return evidenceBlock(r, "rep"); }).join("");
+  if (d.counters && d.counters.length) {
+    html += '<div class="d-label">反例</div>' + d.counters.map(function(r){ return evidenceBlock(r, "counter"); }).join("");
+  }
+  html += '<button class="d-all" type="button">查看全部</button>';
+  return html;
+}
+
+function openDetail(id) {
+  var d = DETAILS[id];
+  if (!d) return;
+  document.getElementById("d-title").textContent = d.t;
+  document.getElementById("d-nums").innerHTML = d.n.replace(/(\d+\/\d+|\d+)/, "<b>$1</b>");
+  var body = document.getElementById("d-body");
+  body.innerHTML = summaryView(d);
+  body.querySelectorAll(".more").forEach(function(btn) {
+    btn.addEventListener("click", function() {
+      var q = btn.previousElementSibling;
+      q.classList.toggle("clamp");
+      btn.textContent = q.classList.contains("clamp") ? "展開" : "收起";
+    });
+  });
+  body.querySelector(".d-all").addEventListener("click", function() {
+    body.innerHTML = allView(d);
+    body.querySelector(".d-back").addEventListener("click", function(){ openDetail(id); });
+  });
+  frame.classList.add("open");
+  drawer.setAttribute("aria-hidden", "false");
+  pinned = null;
+  pop.classList.remove("show");
+  pop.setAttribute("aria-hidden", "true");
+}
+
+function closeDetail() {
+  frame.classList.remove("open");
+  drawer.setAttribute("aria-hidden", "true");
+}
+
+document.querySelectorAll("[data-d]").forEach(function(el) {
+  el.addEventListener("click", function() {
+    document.querySelectorAll(".bub.sel").forEach(function(x){ x.classList.remove("sel"); });
+    if (el.classList.contains("bub")) el.classList.add("sel");
+    openDetail(el.dataset.d);
+  });
+});
+
+document.getElementById("d-close").addEventListener("click", closeDetail);
+document.getElementById("scrim").addEventListener("click", closeDetail);
+</script>
+</body>
+</html>

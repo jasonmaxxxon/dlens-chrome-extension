@@ -165,7 +165,7 @@ test("WorkspaceSurface clips inner content so rounded cards stay rounded", () =>
   assert.match(styleFromTag(findTagWithAttribute(html, `data-workspace-surface="content"`)), new RegExp(`border:1px solid ${tokens.color.cardEdge.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}`));
 });
 
-test("WorkspaceSurface paper tones retain the shared card edge", () => {
+test("WorkspaceSurface opaque tones retain the shared card edge", () => {
   for (const tone of ["utility", "focused"] as const) {
     const html = renderToStaticMarkup(
       React.createElement(WorkspaceSurface, { tone }, React.createElement("div", null, tone))

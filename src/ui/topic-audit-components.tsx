@@ -91,6 +91,8 @@ export interface TopicAuditSummary {
   generatedAt?: string;
   coverage?: string;
   flags?: TopicAuditValidationFlag[];
+  /** First sentence of the audit report's overall section — the topic card's editorial gist. */
+  headline?: string;
 }
 
 export interface ValidationCounts {
@@ -1282,13 +1284,6 @@ function StatusDot({ status }: { status: SourceRowReadingStatus }) {
   );
 }
 
-const SOURCE_ROW_CSS = `
-@keyframes dlens-source-row-pulse {
-  0%, 100% { box-shadow: 0 0 0 3px ${tokens.color.queuedBorder}; }
-  50%      { box-shadow: 0 0 0 6px ${tokens.color.queuedWash}; }
-}
-`;
-
 const Sep = () => (
   <span aria-hidden="true" style={{ color: tokens.color.lineStrong, fontWeight: 700 }}>·</span>
 );
@@ -1357,7 +1352,6 @@ export function SourceRow({
       }}
       onClick={onOpen}
     >
-      <style>{SOURCE_ROW_CSS}</style>
       {active ? (
         <span
           aria-hidden="true"

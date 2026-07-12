@@ -30,7 +30,7 @@ import type { BackendWorkUiState, WorkerStatus } from "./processing-state";
 import type { PrCampaign, PrCampaignSaveDraft, PrCriterion, PrEvidenceRow } from "./pr-evidence-storage";
 import type { DLensSignalPacket, SignalPacketIndexFilter } from "../compare/signal-packet";
 import type { SignalPacketExportFormat, SignalPacketExportResult } from "../compare/signal-packet-export";
-import type { CrossTopicCalibration, EvidencePacket, TopicAuditReport, TopicAuditStageName } from "../compare/topic-audit";
+import type { CrossTopicCalibration, EvidencePacket, TopicAuditEpisode, TopicAuditReport, TopicAuditStageName } from "../compare/topic-audit";
 import type { TopicAuditValidationFlag } from "../compare/topic-audit-validator";
 import type { TopicAuditMemoBundle } from "./topic-audit-storage";
 import type { SaveCurrentPreviewActionTarget, SessionActionTarget, SessionItemActionTarget } from "./action-target";
@@ -208,6 +208,7 @@ export type ExtensionSuccessResponse = {
   auditEvidence?: EvidencePacket[];
   auditReport?: TopicAuditReport | null;
   auditMemos?: TopicAuditMemoBundle | null;
+  auditEpisodes?: TopicAuditEpisode[];
   auditValidatorFlags?: TopicAuditValidationFlag[];
   crossTopicCalibration?: CrossTopicCalibration | null;
   /** Optional server-side wall-clock for the handler (ms). Used by popup

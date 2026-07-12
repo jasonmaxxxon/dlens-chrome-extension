@@ -60,6 +60,18 @@ test("content selection overlay uses the vermillion product theme", () => {
   assert.doesNotMatch(block, /#234f7a|#2f6a96|35,79,122/);
 });
 
+test("content selection overlay joins the scoped reduced-motion safety net", () => {
+  const source = readFileSync(new URL("../entrypoints/threads.content.ts", import.meta.url), "utf8");
+  const start = source.indexOf("function ensureOverlay()");
+  assert.notEqual(start, -1);
+  const end = source.indexOf("\nfunction ensureRoot()", start);
+  assert.notEqual(end, -1);
+  const block = source.slice(start, end);
+
+  assert.match(block, /overlay\.setAttribute\("data-dlens-control", "true"\);/);
+  assert.match(block, /overlay\.style\.transition = "[^"]*120ms[^"]*";/);
+});
+
 test("launcher and popup surfaces opt back into pointer events inside the inert root host", () => {
   const overlaySource = readFileSync(new URL("../src/ui/InPageCollectorOverlays.tsx", import.meta.url), "utf8");
   const popupSource = readFileSync(new URL("../src/ui/InPageCollectorPopup.tsx", import.meta.url), "utf8");

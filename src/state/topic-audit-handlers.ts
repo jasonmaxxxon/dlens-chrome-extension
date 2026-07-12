@@ -1,4 +1,18 @@
 import type { AuditPromptEnvelope } from "../compare/topic-audit-prompts.ts";
+import { extractTopicEvidenceRefs } from "../compare/topic-audit-evidence.ts";
+import {
+  buildTopicAuditFingerprints,
+  buildTopicAuditRunId,
+  evolveTopicAuditEpisodes,
+  materializeNarrativeState
+} from "../compare/topic-audit-continuity.ts";
+import {
+  TOPIC_AUDIT_SHARD_POLICY_VERSION,
+  buildTopicAuditArtifactProducerKey,
+  buildTopicAuditShardSetHash,
+  buildTopicAuditSignalIdentity,
+  isTopicAuditArtifactReusable
+} from "../compare/topic-audit-cache.ts";
 import {
   TOPIC_AUDIT_PROMPT_VERSIONS,
   buildP0_5ShardReadingPrompt,
@@ -17,24 +31,32 @@ import {
   type CrossTopicCalibration,
   type EvidencePacket,
   type LensMemo,
+  type NarrativeContinuityReview,
   type ReplyFragment,
   type ShardPatternCandidate,
   type SignalReading,
+  type TopicAuditArtifactIdentity,
+  type TopicAuditEpisode,
+  type TopicAuditFingerprints,
   type TopicAuditReport,
+  type TopicNarrativeState,
   type TopicAuditStageName
 } from "../compare/topic-audit.ts";
 import {
   TOPIC_AUDIT_EVIDENCE_STORAGE_KEY,
+  TOPIC_AUDIT_EPISODES_STORAGE_KEY,
   TOPIC_AUDIT_MEMOS_STORAGE_KEY,
   TOPIC_AUDIT_REPORTS_STORAGE_KEY,
   buildTopicAuditCacheKey,
   loadTopicAuditEvidence,
+  loadTopicAuditEpisodes,
   loadTopicAuditMemos,
   loadTopicAuditReport,
+  isTopicAuditPublicationCompatible,
+  publishTopicAuditReportAndEpisodes,
   saveCrossTopicCalibration,
   saveTopicAuditEvidence,
   saveTopicAuditMemos,
-  saveTopicAuditReport,
   type StorageAreaLike,
   type TopicAuditMemoBundle
 } from "./topic-audit-storage.ts";
@@ -57,6 +79,7 @@ export interface TopicAuditHandlerResult {
   auditEvidence?: EvidencePacket[];
   auditReport?: TopicAuditReport | null;
   auditMemos?: TopicAuditMemoBundle | null;
+  auditEpisodes?: TopicAuditEpisode[];
   auditValidatorFlags?: TopicAuditValidationFlag[];
   crossTopicCalibration?: CrossTopicCalibration | null;
 }
@@ -71,6 +94,13 @@ export interface TopicAuditHandlerOptions {
 
 function nowIso(options: TopicAuditHandlerOptions): string {
   return options.now?.() ?? new Date().toISOString();
+}
+
+let auditRunSequence = 0;
+
+function nextAuditRunNonce(options: TopicAuditHandlerOptions): string {
+  auditRunSequence += 1;
+  return `${nowIso(options)}:${auditRunSequence}`;
 }
 
 function findSession(sessions: SessionRecord[], sessionId: string): SessionRecord {
@@ -104,13 +134,21 @@ function itemStatesForTopic(topic: Topic, signals: Signal[], itemsById: Map<stri
   });
 }
 
-function buildInputHash(topic: Topic, signals: Signal[], itemsById: Map<string, SessionItem>): string {
+function buildInputHash(
+  topic: Topic,
+  signals: Signal[],
+  itemsById: Map<string, SessionItem>,
+  modelKey = "unknown"
+): string {
   return buildTopicAuditCacheKey({
     topicId: topic.id,
+    topicName: topic.name,
     signalIds: topic.signalIds,
     itemStates: itemStatesForTopic(topic, signals, itemsById),
     promptVersion: Object.values(TOPIC_AUDIT_PROMPT_VERSIONS).join("|"),
-    stageName: "all"
+    stageName: "all",
+    modelKey,
+    shardPolicyVersion: TOPIC_AUDIT_SHARD_POLICY_VERSION
   });
 }
 
@@ -123,7 +161,7 @@ function auditReadySignalIds(session: SessionRecord, signals: Signal[]): Set<str
   );
 }
 
-async function buildAndSaveEvidence(
+async function buildEvidence(
   storageArea: StorageAreaLike,
   session: SessionRecord,
   topic: Topic,
@@ -142,8 +180,23 @@ async function buildAndSaveEvidence(
     auditRunId,
     inputHash
   });
-  await saveTopicAuditEvidence(storageArea, topic.id, packets);
-  return packets;
+  const identifiedPackets = await Promise.all(packets.map(async (packet) => ({
+    ...packet,
+    signalIdentity: await buildTopicAuditSignalIdentity(packet)
+  })));
+  return identifiedPackets;
+}
+
+async function buildAndSaveEvidence(
+  storageArea: StorageAreaLike,
+  session: SessionRecord,
+  topic: Topic,
+  auditRunId: string,
+  inputHash: string
+): Promise<EvidencePacket[]> {
+  const identifiedPackets = await buildEvidence(storageArea, session, topic, auditRunId, inputHash);
+  await saveTopicAuditEvidence(storageArea, topic.id, identifiedPackets);
+  return identifiedPackets;
 }
 
 function allAllowedRefs(packets: EvidencePacket[]): Set<string> {
@@ -155,6 +208,256 @@ function allAllowedRefs(packets: EvidencePacket[]): Set<string> {
     }
   }
   return refs;
+}
+
+function modelKey(options: TopicAuditHandlerOptions): string {
+  return options.model ?? "unknown";
+}
+
+function artifactIdentity(
+  packet: EvidencePacket,
+  producerKey: string,
+  upstreamHash?: string
+): TopicAuditArtifactIdentity {
+  if (!packet.signalIdentity) {
+    throw new Error(`Missing signal cache identity for ${packet.signalId}`);
+  }
+  return {
+    ...packet.signalIdentity,
+    producerKey,
+    ...(upstreamHash ? { upstreamHash } : {})
+  };
+}
+
+function expectedShardIdentity(
+  packet: EvidencePacket,
+  shardIndex: number,
+  shardCount: number,
+  options: TopicAuditHandlerOptions
+): TopicAuditArtifactIdentity {
+  return artifactIdentity(packet, buildTopicAuditArtifactProducerKey({
+    stage: "comment-shard-reading",
+    promptVersion: TOPIC_AUDIT_PROMPT_VERSIONS.p0_5,
+    modelKey: modelKey(options),
+    partitionKey: `${shardIndex + 1}/${shardCount}`
+  }));
+}
+
+async function expectedSignalReadingIdentity(
+  packet: EvidencePacket,
+  shardReadings: readonly CommentShardReading[],
+  options: TopicAuditHandlerOptions
+): Promise<TopicAuditArtifactIdentity> {
+  return artifactIdentity(
+    packet,
+    buildTopicAuditArtifactProducerKey({
+      stage: "p1-signal-reading",
+      promptVersion: TOPIC_AUDIT_PROMPT_VERSIONS.p1,
+      modelKey: modelKey(options)
+    }),
+    await buildTopicAuditShardSetHash(shardReadings)
+  );
+}
+
+function replayTextRefsAreAllowed(texts: readonly string[], allowedRefs: ReadonlySet<string>): boolean {
+  return texts
+    .flatMap(extractTopicEvidenceRefs)
+    .every((ref) => allowedRefs.has(ref));
+}
+
+function storedShardReadingIsSafe(
+  reading: CommentShardReading,
+  allowedRefs: ReadonlySet<string>
+): boolean {
+  const candidates = reading.patternCandidates ?? [];
+  const structuredRefs = [
+    ...(reading.commentRefsInShard ?? []),
+    ...candidates.flatMap((candidate) => [
+      ...candidate.supportRefs,
+      ...candidate.counterRefs,
+      ...candidate.representativeRefs,
+      ...candidate.counterRepresentativeRefs
+    ])
+  ];
+  return structuredRefs.every((ref) => allowedRefs.has(ref))
+    && replayTextRefsAreAllowed([
+      reading.reading ?? "",
+      ...(reading.lexiconCandidates ?? []),
+      ...candidates.flatMap((candidate) => [
+        candidate.label,
+        candidate.gist,
+        candidate.dynamicImplication,
+        candidate.uncertainty
+      ])
+    ], allowedRefs);
+}
+
+function storedSignalReadingIsSafe(reading: SignalReading, allowedRefs: ReadonlySet<string>): boolean {
+  return reading.evidenceRefs.every((ref) => allowedRefs.has(ref))
+    && replayTextRefsAreAllowed([reading.reading, ...reading.watchNotes], allowedRefs);
+}
+
+function storedLensMemoIsSafe(memo: LensMemo, allowedRefs: ReadonlySet<string>): boolean {
+  const lanes = memo.displayHints?.narrativeLanes ?? [];
+  const patterns = memo.displayHints?.reactionPatterns ?? [];
+  const structuredRefs = [
+    ...memo.evidenceRefs,
+    ...lanes.flatMap((lane) => lane.signalRefs),
+    ...patterns.flatMap((pattern) => [
+      ...pattern.supportRefs,
+      ...pattern.counterRefs,
+      ...pattern.representativeRefs,
+      ...pattern.counterRepresentativeRefs
+    ])
+  ];
+  return structuredRefs.every((ref) => allowedRefs.has(ref))
+    && replayTextRefsAreAllowed([
+      memo.prose,
+      ...memo.caveats,
+      memo.coverage ?? "",
+      ...(memo.displayHints?.themeChips ?? []),
+      ...lanes.map((lane) => lane.label),
+      ...patterns.flatMap((pattern) => [pattern.label, pattern.dynamicImplication])
+    ], allowedRefs);
+}
+
+function storedReportIsSafe(report: TopicAuditReport, allowedRefs: ReadonlySet<string>): boolean {
+  return replayTextRefsAreAllowed([
+    ...Object.values(report.sections),
+    ...report.limitations
+  ], allowedRefs);
+}
+
+function collectReusableShardReadings(
+  packets: readonly EvidencePacket[],
+  existingReadings: readonly CommentShardReading[],
+  readySignalIds: ReadonlySet<string>,
+  options: TopicAuditHandlerOptions
+): CommentShardReading[] {
+  const reusable: CommentShardReading[] = [];
+  for (const packet of packets) {
+    if (!readySignalIds.has(packet.signalId)) {
+      continue;
+    }
+    const shards = splitPacketIntoCommentShards(packet);
+    for (let shardIndex = 0; shardIndex < shards.length; shardIndex += 1) {
+      const allowedRefs = new Set((shards[shardIndex] ?? []).map((fragment) => fragment.ref));
+      const expected = expectedShardIdentity(packet, shardIndex, shards.length, options);
+      const reading = existingReadings.find((candidate) => (
+        candidate.signalId === packet.signalId
+        && candidate.shardIndex === shardIndex
+        && candidate.shardCount === shards.length
+        && isTopicAuditArtifactReusable(candidate.cacheIdentity, expected)
+        && storedShardReadingIsSafe(candidate, allowedRefs)
+      ));
+      if (reading) {
+        reusable.push(reading);
+      }
+    }
+  }
+  return reusable;
+}
+
+async function collectReusableSignalReadings(
+  packets: readonly EvidencePacket[],
+  existingReadings: readonly SignalReading[],
+  shardReadings: readonly CommentShardReading[],
+  readySignalIds: ReadonlySet<string>,
+  options: TopicAuditHandlerOptions
+): Promise<SignalReading[]> {
+  const reusable: SignalReading[] = [];
+  for (const packet of packets) {
+    if (!readySignalIds.has(packet.signalId)) {
+      continue;
+    }
+    const packetShards = shardReadings.filter((reading) => reading.signalId === packet.signalId);
+    const expectedShardCount = splitPacketIntoCommentShards(packet).length;
+    if (packetShards.length !== expectedShardCount) {
+      continue;
+    }
+    const expected = await expectedSignalReadingIdentity(packet, packetShards, options);
+    const allowedRefs = allAllowedRefs([packet]);
+    const reading = existingReadings.find((candidate) => (
+      candidate.signalId === packet.signalId
+      && isTopicAuditArtifactReusable(candidate.cacheIdentity, expected)
+      && storedSignalReadingIsSafe(candidate, allowedRefs)
+    ));
+    if (reading) {
+      reusable.push(reading);
+    }
+  }
+  return reusable;
+}
+
+async function canFastReturnAudit(input: {
+  report: TopicAuditReport | null;
+  memos: TopicAuditMemoBundle | null;
+  episodes: readonly TopicAuditEpisode[];
+  fingerprints: TopicAuditFingerprints;
+  inputHash: string;
+  packets: EvidencePacket[];
+  readySignalIds: ReadonlySet<string>;
+  options: TopicAuditHandlerOptions;
+}): Promise<boolean> {
+  const { report, memos, episodes, fingerprints, inputHash, packets, readySignalIds, options } = input;
+  if (
+    !report
+    || !memos
+    || report.inputHash !== inputHash
+    || memos.inputHash !== inputHash
+    || report.auditRunId !== memos.auditRunId
+  ) {
+    return false;
+  }
+  const stateFingerprints = report.narrativeState?.fingerprints;
+  const latestEpisode = episodes.at(-1);
+  if (
+    !stateFingerprints
+    || stateFingerprints.evidence !== fingerprints.evidence
+    || stateFingerprints.definition !== fingerprints.definition
+    || stateFingerprints.pipeline !== fingerprints.pipeline
+    || !latestEpisode
+    || latestEpisode.inputHash !== report.inputHash
+    || latestEpisode.auditRunId !== report.auditRunId
+    || latestEpisode.fingerprints.evidence !== fingerprints.evidence
+    || latestEpisode.fingerprints.definition !== fingerprints.definition
+    || latestEpisode.fingerprints.pipeline !== fingerprints.pipeline
+  ) {
+    return false;
+  }
+  const allowedRefs = allAllowedRefs(packets);
+  if (!storedReportIsSafe(report, allowedRefs)) {
+    return false;
+  }
+  const shardReadings = collectReusableShardReadings(
+    packets,
+    memos.shardReadings ?? [],
+    readySignalIds,
+    options
+  );
+  const expectedShardCount = packets
+    .filter((packet) => readySignalIds.has(packet.signalId))
+    .reduce((count, packet) => count + splitPacketIntoCommentShards(packet).length, 0);
+  if (shardReadings.length !== expectedShardCount) {
+    return false;
+  }
+  const signalReadings = await collectReusableSignalReadings(
+    packets,
+    memos.signalReadings,
+    shardReadings,
+    readySignalIds,
+    options
+  );
+  if (signalReadings.length !== packets.filter((packet) => readySignalIds.has(packet.signalId)).length) {
+    return false;
+  }
+  const requiredLensStages = new Set<TopicAuditStageName>(["lexicon", "narrative", "audience", "absence"]);
+  const safeLensStages = new Set(
+    memos.lensMemos
+      .filter((memo) => storedLensMemoIsSafe(memo, allowedRefs))
+      .map((memo) => memo.stageName)
+  );
+  return [...requiredLensStages].every((stageName) => safeLensStages.has(stageName));
 }
 
 function normalizeReactionPatterns(
@@ -182,23 +485,116 @@ function normalizeReactionPatterns(
   });
 }
 
-function normalizeEnvelope(envelope: AuditPromptEnvelope, allowedRefs: ReadonlySet<string>): AuditPromptEnvelope {
+function normalizeNarrativeLanes(
+  lanes: NonNullable<AuditPromptEnvelope["displayHints"]>["narrativeLanes"],
+  allowedRefs: ReadonlySet<string>
+) {
+  if (!Array.isArray(lanes)) {
+    return [];
+  }
+  return lanes.flatMap((lane) => {
+    const signalRefs = filterRefs(lane.signalRefs, allowedRefs);
+    return signalRefs.length > 0 ? [{ ...lane, signalRefs }] : [];
+  });
+}
+
+function normalizeContinuityRefs(
+  refs: readonly string[],
+  allowedRefs: ReadonlySet<string>
+): string[] {
+  const normalized = uniqueTrimmedStrings(refs);
+  const unknownRef = normalized.find((ref) => !allowedRefs.has(ref));
+  if (unknownRef) {
+    throw new Error(`Unknown continuity evidence ref: ${unknownRef}`);
+  }
+  return normalized;
+}
+
+function normalizeContinuityReview(
+  review: NarrativeContinuityReview | undefined,
+  allowedRefs: ReadonlySet<string>
+): NarrativeContinuityReview | undefined {
+  if (!review) {
+    return undefined;
+  }
+  return {
+    carriedClaims: review.carriedClaims.map((claim) => ({
+      ...claim,
+      evidenceRefs: normalizeContinuityRefs(claim.evidenceRefs, allowedRefs)
+    })),
+    newClaims: review.newClaims.map((claim) => ({
+      ...claim,
+      evidenceRefs: normalizeContinuityRefs(claim.evidenceRefs, allowedRefs)
+    })),
+    voices: review.voices.map((voice) => ({
+      ...voice,
+      evidenceRefs: normalizeContinuityRefs(voice.evidenceRefs, allowedRefs)
+    })),
+    openQuestions: uniqueTrimmedStrings(review.openQuestions)
+  };
+}
+
+function envelopeReplayText(envelope: AuditPromptEnvelope): string[] {
+  const continuityReview = envelope.continuityReview;
+  return [
+    envelope.prose,
+    ...envelope.caveats,
+    envelope.coverage ?? "",
+    ...(envelope.lexiconCandidates ?? []),
+    ...(envelope.patternCandidates ?? []).flatMap((candidate) => [
+      candidate.label,
+      candidate.gist,
+      candidate.dynamicImplication,
+      candidate.uncertainty
+    ]),
+    ...(envelope.displayHints?.themeChips ?? []),
+    ...(envelope.displayHints?.narrativeLanes ?? []).map((lane) => lane.label),
+    ...(envelope.displayHints?.reactionPatterns ?? []).flatMap((pattern) => [
+      pattern.label,
+      pattern.dynamicImplication
+    ]),
+    ...(continuityReview?.carriedClaims ?? []).flatMap((claim) => [claim.statement, claim.rationale]),
+    ...(continuityReview?.newClaims ?? []).flatMap((claim) => [claim.statement, claim.rationale]),
+    ...(continuityReview?.voices ?? []).flatMap((voice) => [voice.label, voice.position]),
+    ...(continuityReview?.openQuestions ?? [])
+  ];
+}
+
+function normalizeEnvelope(
+  envelope: AuditPromptEnvelope,
+  allowedRefs: ReadonlySet<string>,
+  strictInlineRefs = true
+): AuditPromptEnvelope {
   const reactionPatterns = normalizeReactionPatterns(envelope.displayHints?.reactionPatterns, allowedRefs);
+  const narrativeLanes = normalizeNarrativeLanes(envelope.displayHints?.narrativeLanes, allowedRefs);
+  const continuityReview = normalizeContinuityReview(envelope.continuityReview, allowedRefs);
+  const inlineRefs = uniqueTrimmedStrings(envelopeReplayText(envelope).flatMap(extractTopicEvidenceRefs));
+  if (strictInlineRefs) {
+    const unknownInlineRef = inlineRefs.find((ref) => !allowedRefs.has(ref));
+    if (unknownInlineRef) {
+      throw new Error(`Unknown inline evidence ref: ${unknownInlineRef}`);
+    }
+  }
   const displayHints = envelope.displayHints
     ? {
         ...envelope.displayHints,
+        ...(envelope.displayHints.narrativeLanes ? { narrativeLanes } : {}),
         ...(envelope.displayHints.reactionPatterns ? { reactionPatterns } : {})
       }
     : undefined;
   return {
     prose: envelope.prose,
-    evidenceRefs: envelope.evidenceRefs.filter((ref) => allowedRefs.has(ref)),
+    evidenceRefs: uniqueTrimmedStrings([
+      ...envelope.evidenceRefs.filter((ref) => allowedRefs.has(ref)),
+      ...(strictInlineRefs ? inlineRefs : [])
+    ]),
     caveats: envelope.caveats,
     ...(envelope.coverage ? { coverage: envelope.coverage } : {}),
     ...(displayHints ? { displayHints } : {}),
     ...(envelope.commentRefsInShard ? { commentRefsInShard: filterRefs(envelope.commentRefsInShard, allowedRefs) } : {}),
     ...(envelope.patternCandidates ? { patternCandidates: sanitizeShardPatternCandidates(envelope.patternCandidates, allowedRefs) } : {}),
-    ...(envelope.lexiconCandidates ? { lexiconCandidates: uniqueTrimmedStrings(envelope.lexiconCandidates) } : {})
+    ...(envelope.lexiconCandidates ? { lexiconCandidates: uniqueTrimmedStrings(envelope.lexiconCandidates) } : {}),
+    ...(continuityReview ? { continuityReview } : {})
   };
 }
 
@@ -206,20 +602,22 @@ async function generateOrParseEnvelope(
   generateEnvelope: TopicAuditHandlerOptions["generateEnvelope"],
   stageName: TopicAuditStageName,
   prompt: string,
-  allowedRefs: ReadonlySet<string>
+  allowedRefs: ReadonlySet<string>,
+  strictInlineRefs = true
 ): Promise<AuditPromptEnvelope> {
   if (!generateEnvelope) {
     throw new Error("Audit LLM generator unavailable");
   }
   const raw = await generateEnvelope(stageName, prompt);
-  return normalizeEnvelope(raw, allowedRefs);
+  return normalizeEnvelope(raw, allowedRefs, strictInlineRefs);
 }
 
 function signalReadingFromEnvelope(
   packet: EvidencePacket,
   envelope: AuditPromptEnvelope,
   options: TopicAuditHandlerOptions,
-  inputHash: string
+  inputHash: string,
+  cacheIdentity: TopicAuditArtifactIdentity
 ): SignalReading {
   return {
     auditRunId: packet.auditRunId,
@@ -232,7 +630,8 @@ function signalReadingFromEnvelope(
     watchNotes: envelope.caveats,
     promptVersion: TOPIC_AUDIT_PROMPT_VERSIONS.p1,
     model: options.model ?? "unknown",
-    generatedAt: nowIso(options)
+    generatedAt: nowIso(options),
+    cacheIdentity
   };
 }
 
@@ -286,10 +685,6 @@ function sanitizeShardPatternCandidates(
   });
 }
 
-function shardReadingKey(signalId: string, shardIndex: number): string {
-  return `${signalId}::${shardIndex}`;
-}
-
 function shardReadingFromEnvelope(
   packet: EvidencePacket,
   shardIndex: number,
@@ -297,7 +692,8 @@ function shardReadingFromEnvelope(
   shardFragments: ReplyFragment[],
   envelope: AuditPromptEnvelope,
   options: TopicAuditHandlerOptions,
-  inputHash: string
+  inputHash: string,
+  cacheIdentity: TopicAuditArtifactIdentity
 ): CommentShardReading {
   const shardRefs = shardFragments.map((fragment) => fragment.ref);
   const allowedRefs = new Set(shardRefs);
@@ -310,12 +706,14 @@ function shardReadingFromEnvelope(
     shortCode: packet.shortCode,
     shardIndex,
     shardCount,
+    reading: envelope.prose,
     commentRefsInShard: commentRefsInShard.length ? commentRefsInShard : shardRefs,
     patternCandidates: sanitizeShardPatternCandidates(envelope.patternCandidates, allowedRefs),
     lexiconCandidates: uniqueTrimmedStrings(envelope.lexiconCandidates ?? []),
     promptVersion: TOPIC_AUDIT_PROMPT_VERSIONS.p0_5,
     model: options.model ?? "unknown",
-    generatedAt: nowIso(options)
+    generatedAt: nowIso(options),
+    cacheIdentity
   };
 }
 
@@ -364,7 +762,9 @@ function buildReportFromEnvelope(
   envelope: AuditPromptEnvelope,
   signalReadings: SignalReading[],
   lensMemos: LensMemo[],
-  options: TopicAuditHandlerOptions
+  options: TopicAuditHandlerOptions,
+  narrativeState: TopicNarrativeState,
+  generatedAt: string
 ): TopicAuditReport {
   const memoByStage = new Map(lensMemos.map((memo) => [memo.stageName, memo]));
   return {
@@ -395,9 +795,10 @@ function buildReportFromEnvelope(
       editorial: envelope.prose
     },
     limitations: envelope.caveats,
+    narrativeState,
     promptVersion: TOPIC_AUDIT_PROMPT_VERSIONS.p6,
     model: options.model ?? "unknown",
-    generatedAt: nowIso(options)
+    generatedAt
   };
 }
 
@@ -417,6 +818,49 @@ async function saveMemos(
     signalReadings,
     lensMemos
   });
+}
+
+async function generateMissingShardReadingsForPacket(
+  packet: EvidencePacket,
+  existingReadings: readonly CommentShardReading[],
+  options: TopicAuditHandlerOptions,
+  inputHash: string,
+  onCheckpoint?: (generatedReadings: readonly CommentShardReading[]) => Promise<void>
+): Promise<CommentShardReading[]> {
+  const shards = splitPacketIntoCommentShards(packet);
+  const generated: CommentShardReading[] = [];
+  for (let shardIndex = 0; shardIndex < shards.length; shardIndex += 1) {
+    const expectedIdentity = expectedShardIdentity(packet, shardIndex, shards.length, options);
+    const existing = existingReadings.find((reading) => (
+      reading.signalId === packet.signalId
+      && reading.shardIndex === shardIndex
+      && reading.shardCount === shards.length
+      && isTopicAuditArtifactReusable(reading.cacheIdentity, expectedIdentity)
+    ));
+    if (existing) {
+      continue;
+    }
+    const shardFragments = shards[shardIndex] ?? [];
+    const shardRefs = new Set(shardFragments.map((fragment) => fragment.ref));
+    const envelope = await generateOrParseEnvelope(
+      options.generateEnvelope,
+      "comment-shard-reading",
+      buildP0_5ShardReadingPrompt(packet, shardFragments),
+      shardRefs
+    );
+    generated.push(shardReadingFromEnvelope(
+      packet,
+      shardIndex,
+      shards.length,
+      shardFragments,
+      envelope,
+      options,
+      inputHash,
+      expectedIdentity
+    ));
+    await onCheckpoint?.(generated);
+  }
+  return generated;
 }
 
 const AUDIT_STAGE_ORDER: TopicAuditStageName[] = [
@@ -444,88 +888,153 @@ async function runAuditPipeline(
   const signals = await loadSignals(storageArea, session.id);
   const itemsById = new Map(session.items.map((item) => [item.id, item]));
   const readySignalIds = auditReadySignalIds(session, signals);
-  const inputHash = buildInputHash(topic, signals, itemsById);
-  const auditRunId = `audit_${inputHash.replace(/^topic-audit:/, "")}`;
+  const inputHash = buildInputHash(topic, signals, itemsById, modelKey(options));
+  const provisionalAuditRunId = `audit_cache_${inputHash.replace(/^topic-audit:/, "")}`;
   const existingReport = await loadTopicAuditReport(storageArea, topic.id);
   const existingMemos = await loadTopicAuditMemos(storageArea, topic.id);
+  const existingEpisodes = await loadTopicAuditEpisodes(storageArea, topic.id);
+  let evidence = await buildEvidence(storageArea, session, topic, provisionalAuditRunId, inputHash);
+  const validPriorNarrativeState = (candidate: TopicNarrativeState | undefined): TopicNarrativeState | null =>
+    candidate?.version === "topic-narrative-state.v1" && candidate.topicId === topic.id ? candidate : null;
+  // Report is deleted (not episodes) when a single signal's P1 is regenerated, so fall back to the
+  // latest episode's snapshot — otherwise claim ids restart at claim-1 and Episode Explorer would draw
+  // two unrelated narratives as one trajectory.
+  const previousNarrativeState = validPriorNarrativeState(existingReport?.narrativeState)
+    ?? validPriorNarrativeState(existingEpisodes[existingEpisodes.length - 1]?.stateSnapshot)
+    ?? null;
+  const fingerprints = await buildTopicAuditFingerprints({
+    topic,
+    packets: evidence,
+    pipelineInputHash: inputHash,
+    modelKey: modelKey(options),
+    promptVersions: TOPIC_AUDIT_PROMPT_VERSIONS,
+    shardPolicyVersion: TOPIC_AUDIT_SHARD_POLICY_VERSION
+  });
   // force = explicit 重新生成 on unchanged sources: reuse P0.5/P1 memos below but re-run the lens stages,
   // otherwise a prompt change (e.g. P4 compass scalars) can never reach an already-audited topic
-  if (!fromStage && !force && existingReport?.inputHash === inputHash && existingMemos?.inputHash === inputHash) {
+  if (!fromStage && !force && await canFastReturnAudit({
+    report: existingReport,
+    memos: existingMemos,
+    episodes: existingEpisodes,
+    fingerprints,
+    inputHash,
+    packets: evidence,
+    readySignalIds,
+    options
+  })) {
+    evidence = evidence.map((packet) => ({ ...packet, auditRunId: existingReport!.auditRunId }));
     return {
+      auditEvidence: evidence,
       auditReport: existingReport,
       auditMemos: existingMemos,
+      auditEpisodes: existingEpisodes,
       auditValidatorFlags: validateTopicAuditDraft({
-        packets: await loadTopicAuditEvidence(storageArea, topic.id),
-        reportMarkdown: reportMarkdown(existingReport)
+        packets: evidence,
+        reportMarkdown: reportMarkdown(existingReport!)
       })
     };
   }
 
-  const packets = (await loadTopicAuditEvidence(storageArea, topic.id)).filter((packet) => packet.inputHash === inputHash);
-  const evidence = packets.length ? packets : await buildAndSaveEvidence(storageArea, session, topic, auditRunId, inputHash);
+  const auditRunId = buildTopicAuditRunId(fingerprints, nextAuditRunNonce(options));
+  evidence = evidence.map((packet) => ({ ...packet, auditRunId }));
+  await saveTopicAuditEvidence(storageArea, topic.id, evidence);
+
   const allowedRefs = allAllowedRefs(evidence);
-  const reusableMemos = existingMemos?.inputHash === inputHash ? existingMemos : null;
   const resumeIndex = fromStage ? auditStageIndex(fromStage) : 0;
   const shardStageIndex = auditStageIndex("comment-shard-reading");
-  const p1StageIndex = auditStageIndex("p1-signal-reading");
-  const shardReadings: CommentShardReading[] = reusableMemos && (!fromStage || resumeIndex > shardStageIndex)
-    ? (reusableMemos.shardReadings ?? []).filter((reading) => evidence.some((packet) => packet.signalId === reading.signalId))
+  const shardReadings: CommentShardReading[] = existingMemos && (!fromStage || resumeIndex > shardStageIndex)
+    ? collectReusableShardReadings(
+        evidence,
+        existingMemos.shardReadings ?? [],
+        readySignalIds,
+        options
+      )
     : [];
-  const signalReadings: SignalReading[] = reusableMemos
-    ? (fromStage && resumeIndex > p1StageIndex
-        ? [...reusableMemos.signalReadings]
-        : reusableMemos.signalReadings.filter((reading) => evidence.some((packet) => packet.signalId === reading.signalId)))
+  const signalReadings: SignalReading[] = existingMemos
+    ? await collectReusableSignalReadings(
+        evidence,
+        existingMemos.signalReadings,
+        shardReadings,
+        readySignalIds,
+        options
+      )
     : [];
-  const lensMemos: LensMemo[] = fromStage && reusableMemos
-    ? reusableMemos.lensMemos.filter((memo) => auditStageIndex(memo.stageName) < resumeIndex)
+  const lensMemos: LensMemo[] = fromStage && existingMemos?.inputHash === inputHash
+    ? existingMemos.lensMemos.filter((memo) => (
+        auditStageIndex(memo.stageName) < resumeIndex
+        && storedLensMemoIsSafe(memo, allowedRefs)
+      ))
     : [];
   const p1Failures: string[] = [];
 
-  const shardReadingByKey = new Map(shardReadings.map((reading) => [shardReadingKey(reading.signalId, reading.shardIndex), reading]));
   const shardEligiblePackets = evidence.filter((packet) => readySignalIds.has(packet.signalId));
-  let generatedShardReading = false;
+  let upstreamChanged = false;
   for (const packet of shardEligiblePackets) {
-    const shards = splitPacketIntoCommentShards(packet);
-    for (let shardIndex = 0; shardIndex < shards.length; shardIndex += 1) {
-      const key = shardReadingKey(packet.signalId, shardIndex);
-      if (shardReadingByKey.has(key)) {
-        continue;
-      }
-      const shardFragments = shards[shardIndex] ?? [];
-      const shardRefs = new Set(shardFragments.map((fragment) => fragment.ref));
-      const envelope = await generateOrParseEnvelope(
-        options.generateEnvelope,
-        "comment-shard-reading",
-        buildP0_5ShardReadingPrompt(packet, shardFragments),
-        shardRefs
-      );
-      const reading = shardReadingFromEnvelope(packet, shardIndex, shards.length, shardFragments, envelope, options, inputHash);
-      shardReadings.push(reading);
-      shardReadingByKey.set(key, reading);
-      generatedShardReading = true;
+    const generated = await generateMissingShardReadingsForPacket(
+      packet,
+      shardReadings,
+      options,
+      inputHash,
+      async (checkpoint) => saveMemos(
+        storageArea,
+        topic.id,
+        auditRunId,
+        inputHash,
+        [...shardReadings, ...checkpoint],
+        signalReadings,
+        lensMemos
+      )
+    );
+    if (generated.length > 0) {
+      shardReadings.push(...generated);
+      upstreamChanged = true;
     }
   }
-  if (generatedShardReading) {
-    await saveMemos(storageArea, topic.id, auditRunId, inputHash, shardReadings, signalReadings, lensMemos);
+
+  if (existingMemos) {
+    const additionallyReusable = await collectReusableSignalReadings(
+      evidence,
+      existingMemos.signalReadings,
+      shardReadings,
+      readySignalIds,
+      options
+    );
+    const existingSignalIds = new Set(signalReadings.map((reading) => reading.signalId));
+    signalReadings.push(...additionallyReusable.filter((reading) => !existingSignalIds.has(reading.signalId)));
   }
 
   const readingBySignalId = new Map(signalReadings.map((reading) => [reading.signalId, reading]));
   const missingPackets = evidence.filter((packet) => readySignalIds.has(packet.signalId) && !readingBySignalId.has(packet.signalId));
   if (missingPackets.length > 0) {
+    upstreamChanged = true;
     for (const packet of missingPackets) {
       try {
         const envelope = await generateOrParseEnvelope(
           options.generateEnvelope,
           "p1-signal-reading",
-          buildP1SignalReadingPrompt(packet),
-          allowedRefs
+          buildP1SignalReadingPrompt(
+            packet,
+            shardReadings.filter((reading) => reading.signalId === packet.signalId)
+          ),
+          allAllowedRefs([packet])
         );
-        signalReadings.push(signalReadingFromEnvelope(packet, envelope, options, inputHash));
+        const packetShardReadings = shardReadings.filter((reading) => reading.signalId === packet.signalId);
+        signalReadings.push(signalReadingFromEnvelope(
+          packet,
+          envelope,
+          options,
+          inputHash,
+          await expectedSignalReadingIdentity(packet, packetShardReadings, options)
+        ));
       } catch {
         p1Failures.push(packet.shortCode);
       }
     }
     await saveMemos(storageArea, topic.id, auditRunId, inputHash, shardReadings, signalReadings, lensMemos);
+  }
+
+  if (upstreamChanged) {
+    lensMemos.splice(0, lensMemos.length);
   }
 
   let lexiconMemo = lensMemos.find((memo) => memo.stageName === "lexicon") ?? null;
@@ -553,7 +1062,13 @@ async function runAuditPipeline(
       await generateOrParseEnvelope(
         options.generateEnvelope,
         "narrative",
-        buildP3NarrativePrompt({ topicName: topic.name, packets: evidence, signalReadings, lexiconMemo }),
+        buildP3NarrativePrompt({
+          topicName: topic.name,
+          packets: evidence,
+          signalReadings,
+          lexiconMemo,
+          priorNarrativeState: previousNarrativeState
+        }),
         allowedRefs
       ),
       TOPIC_AUDIT_PROMPT_VERSIONS.p3,
@@ -572,7 +1087,14 @@ async function runAuditPipeline(
       await generateOrParseEnvelope(
         options.generateEnvelope,
         "audience",
-        buildP4AudiencePrompt({ topicName: topic.name, packets: evidence, signalReadings, lensMemos, shardReadings }),
+        buildP4AudiencePrompt({
+          topicName: topic.name,
+          packets: evidence,
+          signalReadings,
+          lensMemos,
+          shardReadings,
+          priorNarrativeState: previousNarrativeState
+        }),
         allowedRefs
       ),
       TOPIC_AUDIT_PROMPT_VERSIONS.p4,
@@ -604,16 +1126,52 @@ async function runAuditPipeline(
   const finalEnvelope = await generateOrParseEnvelope(
     options.generateEnvelope,
     "final",
-    buildP6FinalReportPrompt({ topicName: topic.name, packets: evidence, signalReadings, lensMemos }),
+    buildP6FinalReportPrompt({
+      topicName: topic.name,
+      packets: evidence,
+      signalReadings,
+      lensMemos,
+      priorNarrativeState: previousNarrativeState
+    }),
     allowedRefs
   );
-  const report = buildReportFromEnvelope(topic, auditRunId, inputHash, finalEnvelope, signalReadings, lensMemos, options);
-  await saveTopicAuditReport(storageArea, report);
+  const generatedAt = nowIso(options);
+  const narrativeState = materializeNarrativeState({
+    topicId: topic.id,
+    auditRunId,
+    packets: evidence,
+    fingerprints,
+    generatedAt,
+    previousState: previousNarrativeState,
+    review: finalEnvelope.continuityReview
+  });
+  const report = buildReportFromEnvelope(
+    topic,
+    auditRunId,
+    inputHash,
+    finalEnvelope,
+    signalReadings,
+    lensMemos,
+    options,
+    narrativeState,
+    generatedAt
+  );
   const flags = validateTopicAuditDraft({ packets: evidence, reportMarkdown: reportMarkdown(report) });
+  const auditEpisodes = evolveTopicAuditEpisodes(existingEpisodes, {
+    topicId: topic.id,
+    auditRunId,
+    inputHash,
+    generatedAt,
+    state: narrativeState,
+    packets: evidence,
+    audienceMemo: lensMemos.find((memo) => memo.stageName === "audience") ?? null
+  });
+  await publishTopicAuditReportAndEpisodes(storageArea, report, auditEpisodes);
   return {
     auditEvidence: evidence,
     auditMemos: { auditRunId, inputHash, shardReadings, signalReadings, lensMemos },
     auditReport: report,
+    auditEpisodes,
     auditValidatorFlags: flags
   };
 }
@@ -628,11 +1186,10 @@ async function runP1ForSingleSignal(
   const signals = await loadSignals(storageArea, session.id);
   const itemsById = new Map(session.items.map((item) => [item.id, item]));
   const readySignalIds = auditReadySignalIds(session, signals);
-  const inputHash = buildInputHash(topic, signals, itemsById);
+  const inputHash = buildInputHash(topic, signals, itemsById, modelKey(options));
   const auditRunId = `audit_${inputHash.replace(/^topic-audit:/, "")}`;
 
-  const existingPackets = (await loadTopicAuditEvidence(storageArea, topic.id)).filter((packet) => packet.inputHash === inputHash);
-  const evidence = existingPackets.length ? existingPackets : await buildAndSaveEvidence(storageArea, session, topic, auditRunId, inputHash);
+  const evidence = await buildAndSaveEvidence(storageArea, session, topic, auditRunId, inputHash);
   const targetPacket = evidence.find((packet) => packet.signalId === signalId);
   if (!targetPacket) {
     throw new Error("Signal not found in evidence for this topic");
@@ -640,31 +1197,71 @@ async function runP1ForSingleSignal(
   if (!readySignalIds.has(targetPacket.signalId)) {
     throw new Error("Signal is not ready for audit; crawl it before generating a reading");
   }
-  const allowedRefs = allAllowedRefs(evidence);
-
   const existingMemos = await loadTopicAuditMemos(storageArea, topic.id);
-  const reusableMemos = existingMemos?.inputHash === inputHash ? existingMemos : null;
-  const signalReadings: SignalReading[] = reusableMemos
-    ? reusableMemos.signalReadings.filter((reading) => reading.signalId !== signalId
-        && evidence.some((packet) => packet.signalId === reading.signalId))
+  const shardReadings: CommentShardReading[] = existingMemos
+    ? collectReusableShardReadings(
+        evidence,
+        existingMemos.shardReadings ?? [],
+        readySignalIds,
+        options
+      )
     : [];
-  const shardReadings: CommentShardReading[] = reusableMemos
-    ? (reusableMemos.shardReadings ?? []).filter((reading) => evidence.some((packet) => packet.signalId === reading.signalId))
+  const signalReadings: SignalReading[] = existingMemos
+    ? (await collectReusableSignalReadings(
+        evidence,
+        existingMemos.signalReadings,
+        shardReadings,
+        readySignalIds,
+        options
+      )).filter((reading) => reading.signalId !== signalId)
     : [];
-  const lensMemos: LensMemo[] = reusableMemos ? [...reusableMemos.lensMemos] : [];
+  const lensMemos: LensMemo[] = [];
+
+  await deleteMapEntry(storageArea, TOPIC_AUDIT_REPORTS_STORAGE_KEY, topic.id);
+
+  const generatedShardReadings = await generateMissingShardReadingsForPacket(
+    targetPacket,
+    shardReadings,
+    options,
+    inputHash,
+    async (checkpoint) => saveMemos(
+      storageArea,
+      topic.id,
+      auditRunId,
+      inputHash,
+      [...shardReadings, ...checkpoint],
+      signalReadings,
+      lensMemos
+    )
+  );
+  if (generatedShardReadings.length > 0) {
+    shardReadings.push(...generatedShardReadings);
+  }
 
   const envelope = await generateOrParseEnvelope(
     options.generateEnvelope,
     "p1-signal-reading",
-    buildP1SignalReadingPrompt(targetPacket),
-    allowedRefs
+    buildP1SignalReadingPrompt(
+      targetPacket,
+      shardReadings.filter((reading) => reading.signalId === targetPacket.signalId)
+    ),
+    allAllowedRefs([targetPacket])
   );
-  signalReadings.push(signalReadingFromEnvelope(targetPacket, envelope, options, inputHash));
+  const packetShardReadings = shardReadings.filter((reading) => reading.signalId === targetPacket.signalId);
+  signalReadings.push(signalReadingFromEnvelope(
+    targetPacket,
+    envelope,
+    options,
+    inputHash,
+    await expectedSignalReadingIdentity(targetPacket, packetShardReadings, options)
+  ));
   await saveMemos(storageArea, topic.id, auditRunId, inputHash, shardReadings, signalReadings, lensMemos);
+  await deleteMapEntry(storageArea, TOPIC_AUDIT_REPORTS_STORAGE_KEY, topic.id);
 
   return {
     auditEvidence: evidence,
-    auditMemos: { auditRunId, inputHash, shardReadings, signalReadings, lensMemos }
+    auditMemos: { auditRunId, inputHash, shardReadings, signalReadings, lensMemos },
+    auditReport: null
   };
 }
 
@@ -702,24 +1299,41 @@ export async function handleTopicAuditMessage(
       const topic = await findTopic(storageArea, message.sessionId, message.topicId);
       return runP1ForSingleSignal(storageArea, session, topic, message.signalId, options);
     }
-    case "topic/audit/get":
+    case "topic/audit/get": {
+      const [auditEvidence, auditMemos, auditReport, auditEpisodes] = await Promise.all([
+        loadTopicAuditEvidence(storageArea, message.topicId),
+        loadTopicAuditMemos(storageArea, message.topicId),
+        loadTopicAuditReport(storageArea, message.topicId),
+        loadTopicAuditEpisodes(storageArea, message.topicId)
+      ]);
       return {
-        auditEvidence: await loadTopicAuditEvidence(storageArea, message.topicId),
-        auditMemos: await loadTopicAuditMemos(storageArea, message.topicId),
-        auditReport: await loadTopicAuditReport(storageArea, message.topicId)
+        auditEvidence,
+        auditMemos,
+        auditReport,
+        auditEpisodes,
+        auditValidatorFlags: isTopicAuditPublicationCompatible(auditReport, auditMemos, auditEvidence)
+          ? validateTopicAuditDraft({ packets: auditEvidence, reportMarkdown: reportMarkdown(auditReport!) })
+          : []
       };
+    }
     case "topic/audit/validate": {
-      const report = await loadTopicAuditReport(storageArea, message.topicId);
-      const packets = await loadTopicAuditEvidence(storageArea, message.topicId);
+      const [report, memos, packets] = await Promise.all([
+        loadTopicAuditReport(storageArea, message.topicId),
+        loadTopicAuditMemos(storageArea, message.topicId),
+        loadTopicAuditEvidence(storageArea, message.topicId)
+      ]);
       return {
-        auditValidatorFlags: report ? validateTopicAuditDraft({ packets, reportMarkdown: reportMarkdown(report) }) : []
+        auditValidatorFlags: isTopicAuditPublicationCompatible(report, memos, packets)
+          ? validateTopicAuditDraft({ packets, reportMarkdown: reportMarkdown(report!) })
+          : []
       };
     }
     case "topic/audit/clear":
       await deleteMapEntry(storageArea, TOPIC_AUDIT_EVIDENCE_STORAGE_KEY, message.topicId);
       await deleteMapEntry(storageArea, TOPIC_AUDIT_MEMOS_STORAGE_KEY, message.topicId);
       await deleteMapEntry(storageArea, TOPIC_AUDIT_REPORTS_STORAGE_KEY, message.topicId);
-      return { auditEvidence: [], auditMemos: null, auditReport: null };
+      await deleteMapEntry(storageArea, TOPIC_AUDIT_EPISODES_STORAGE_KEY, message.topicId);
+      return { auditEvidence: [], auditMemos: null, auditReport: null, auditEpisodes: [] };
     case "cross-topic/calibrate": {
       if (message.topicIds.length < 2) {
         throw new Error("Need at least 2 topics for cross-topic calibration");
@@ -739,7 +1353,7 @@ export async function handleTopicAuditMessage(
         };
       }));
       const prompt = buildP8CrossTopicCalibrationPrompt({ topicReports: reports });
-      const envelope = await generateOrParseEnvelope(options.generateEnvelope, "final", prompt, new Set());
+      const envelope = await generateOrParseEnvelope(options.generateEnvelope, "final", prompt, new Set(), false);
       const calibration: CrossTopicCalibration = {
         id: `calibration_${Date.now().toString(36)}`,
         topicIds: message.topicIds,

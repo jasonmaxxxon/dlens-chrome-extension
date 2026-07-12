@@ -4,9 +4,10 @@ import ReactDOM from "react-dom/client";
 import type { EvidencePacket, TopicAuditReport } from "../compare/topic-audit.ts";
 import type { TopicAuditValidationFlag } from "../compare/topic-audit-validator.ts";
 import type { ExtensionResponse } from "../state/messages.ts";
-import type { TopicAuditMemoBundle } from "../state/topic-audit-storage.ts";
+import { isTopicAuditPublicationCompatible, type TopicAuditMemoBundle } from "../state/topic-audit-storage.ts";
 import { AuditReportView, auditReportViewTestables } from "./AuditReportView.tsx";
 import { sendExtensionMessage } from "./controller.tsx";
+import { ensureDlensKeyframes } from "./motion.ts";
 
 function readTopicId(): string {
   return new URLSearchParams(window.location.search).get("topicId") || "";
@@ -25,19 +26,18 @@ function AuditReportPage() {
     }
     let cancelled = false;
     void sendExtensionMessage<ExtensionResponse>({ type: "topic/audit/get", topicId })
-      .then(async (response) => {
+      .then((response) => {
         if (cancelled || !response.ok) {
           return;
         }
-        setReport(response.auditReport ?? null);
-        setPackets(response.auditEvidence ?? []);
-        setAuditMemos(response.auditMemos ?? null);
-        if (response.auditReport) {
-          const validateResponse = await sendExtensionMessage<ExtensionResponse>({ type: "topic/audit/validate", topicId });
-          if (!cancelled && validateResponse.ok) {
-            setFlags(validateResponse.auditValidatorFlags ?? []);
-          }
-        }
+        const nextPackets = response.auditEvidence ?? [];
+        const nextMemos = response.auditMemos ?? null;
+        const nextReport = response.auditReport ?? null;
+        const compatible = isTopicAuditPublicationCompatible(nextReport, nextMemos, nextPackets);
+        setReport(compatible ? nextReport : null);
+        setPackets(nextPackets);
+        setAuditMemos(nextMemos);
+        setFlags(compatible ? response.auditValidatorFlags ?? [] : []);
       })
       .catch(() => undefined);
     return () => {
@@ -58,6 +58,8 @@ function AuditReportPage() {
     />
   );
 }
+
+ensureDlensKeyframes(document);
 
 const root = document.getElementById("root");
 if (!root) {

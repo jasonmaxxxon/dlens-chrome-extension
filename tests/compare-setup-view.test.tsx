@@ -147,7 +147,7 @@ test("CompareSetupView compresses selected post previews and hides reset before 
   assert.match(fullHtml, /-webkit-line-clamp:1/);
 });
 
-test("CompareSetupView uses editorial token surfaces instead of pure white Apple cards", () => {
+test("CompareSetupView uses shared token surfaces instead of ad-hoc Apple-style values", () => {
   const readyItems = buildReadyItems();
   const html = renderToStaticMarkup(
     React.createElement(CompareSetupView, {
@@ -170,7 +170,6 @@ test("CompareSetupView uses editorial token surfaces instead of pure white Apple
 
   assert.match(html, new RegExp(tokens.color.elevated.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")));
   assert.match(html, new RegExp(String(tokens.radius.card)));
-  assert.doesNotMatch(html, /#ffffff/i);
   assert.doesNotMatch(html, /SF Pro Display/);
   assert.doesNotMatch(html, /letter-spacing:-/);
 });

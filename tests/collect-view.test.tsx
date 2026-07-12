@@ -129,9 +129,10 @@ test("CollectView folds collect mode controls into the collector panel header an
   assert.match(html, /data-collector-target-chip="true"/);
   assert.match(html, /data-collector-mode-toggle="true"/);
   assert.match(html, /data-collector-key-hints="true"/);
-  assert.match(html, /DLens/);
   assert.match(html, /採集中/);
   assert.doesNotMatch(html, /收集模式：開啟/);
+  // The masthead owns the wordmark; the collector hero must not restate it.
+  assert.doesNotMatch(html, /DLens/);
 });
 
 test("CollectView renders recent captures with real descriptor metrics and missing markers", () => {

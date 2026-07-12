@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 
-import type { EvidencePacket, TopicAuditReport, TopicAuditStageName } from "../compare/topic-audit.ts";
+import type { EvidencePacket, TopicAuditEpisode, TopicAuditReport, TopicAuditStageName } from "../compare/topic-audit.ts";
 import type { TopicAuditValidationFlag } from "../compare/topic-audit-validator.ts";
 import type { ExtensionMessage, ExtensionResponse } from "../state/messages.ts";
 import { createPipelineRequestId, emitPipelineEvent } from "../state/pipeline-trace.ts";
@@ -13,7 +13,7 @@ import {
 } from "../state/request-reconcile.ts";
 import { deriveDerivedRecordStaleness } from "../state/derived-record.ts";
 import type { SessionRecord, Topic } from "../state/types.ts";
-import type { TopicAuditMemoBundle } from "../state/topic-audit-storage.ts";
+import { isTopicAuditPublicationCompatible, type TopicAuditMemoBundle } from "../state/topic-audit-storage.ts";
 import { sendExtensionMessage } from "./controller.tsx";
 import type { TopicAuditSummary } from "./topic-audit-components.tsx";
 
@@ -23,6 +23,7 @@ export interface TopicAuditUiState {
   auditEvidence: EvidencePacket[];
   auditMemos: TopicAuditMemoBundle | null;
   auditReport: TopicAuditReport | null;
+  auditEpisodes: TopicAuditEpisode[];
   auditValidatorFlags: TopicAuditValidationFlag[];
   summary: TopicAuditSummary;
 }
@@ -31,6 +32,7 @@ export interface LoadedTopicAuditState {
   evidence: EvidencePacket[];
   memos: TopicAuditMemoBundle | null;
   report: TopicAuditReport | null;
+  episodes: TopicAuditEpisode[];
   flags: TopicAuditValidationFlag[];
 }
 
@@ -65,6 +67,7 @@ export function applyTopicAuditRunResult(
       evidence: response.auditEvidence ?? current[topicId]?.evidence ?? [],
       memos: response.auditMemos ?? current[topicId]?.memos ?? null,
       report: response.auditReport ?? current[topicId]?.report ?? null,
+      episodes: response.auditEpisodes ?? current[topicId]?.episodes ?? [],
       flags: response.auditValidatorFlags ?? current[topicId]?.flags ?? []
     }
   };
@@ -84,8 +87,27 @@ export function applyTopicAuditP1Result(
     [topicId]: {
       evidence: response.auditEvidence ?? current[topicId]?.evidence ?? [],
       memos: response.auditMemos ?? current[topicId]?.memos ?? null,
-      report: current[topicId]?.report ?? null,
-      flags: current[topicId]?.flags ?? []
+      report: null,
+      episodes: current[topicId]?.episodes ?? [],
+      flags: []
+    }
+  };
+}
+
+export function invalidateTopicAuditPublication(
+  current: LoadedTopicAuditByTopicId,
+  topicId: string
+): LoadedTopicAuditByTopicId {
+  const loaded = current[topicId];
+  if (!loaded) {
+    return current;
+  }
+  return {
+    ...current,
+    [topicId]: {
+      ...loaded,
+      report: null,
+      flags: []
     }
   };
 }
@@ -154,6 +176,21 @@ function topicAuditCoverageLabel(evidence: EvidencePacket[], sourceTotal: number
   return evidence.length > 0 ? `${evidence.length}/${sourceTotal}` : undefined;
 }
 
+/** First sentence of the report's overall section, markdown-stripped — the topic card gist. */
+function topicAuditHeadline(report: TopicAuditReport | null): string | undefined {
+  const overall = report?.sections.overall;
+  if (!overall) return undefined;
+  const plain = overall
+    .replace(/^[#>\-*\s]+/gm, "")
+    .replace(/\*\*/g, "")
+    .trim();
+  if (!plain) return undefined;
+  const firstLine = plain.split("\n")[0]?.trim() ?? "";
+  const sentence = firstLine.match(/^[^。！？]{2,}[。！？]/)?.[0] ?? firstLine;
+  if (!sentence) return undefined;
+  return sentence.length > 64 ? `${sentence.slice(0, 63)}…` : sentence;
+}
+
 function makeSummary({
   topic,
   evidence,
@@ -193,7 +230,11 @@ function makeSummary({
       flags
     };
   }
-  if (report && memos) {
+  if (
+    isTopicAuditPublicationCompatible(report, memos, evidence)
+    && report
+    && memos
+  ) {
     const generatedSignals = topicAuditAnalyzedCount({ evidence, memos, report });
     const added = sourceTotal > generatedSignals ? sourceTotal - generatedSignals : 0;
     const removed = generatedSignals > sourceTotal ? generatedSignals - sourceTotal : 0;
@@ -215,7 +256,8 @@ function makeSummary({
       staleDelta: isStale ? { added, removed } : undefined,
       generatedAt: report.generatedAt,
       coverage,
-      flags
+      flags,
+      headline: topicAuditHeadline(report)
     };
   }
   return {
@@ -231,22 +273,19 @@ async function loadAuditState(topicId: string): Promise<{
   evidence: EvidencePacket[];
   memos: TopicAuditMemoBundle | null;
   report: TopicAuditReport | null;
+  episodes: TopicAuditEpisode[];
   flags: TopicAuditValidationFlag[];
 }> {
   const getResponse = await sendExtensionMessage<ExtensionResponse>({ type: "topic/audit/get", topicId });
   if (!getResponse.ok) {
     throw new Error(getResponse.error);
   }
-  let flags: TopicAuditValidationFlag[] = [];
-  if (getResponse.auditReport) {
-    const validateResponse = await sendExtensionMessage<ExtensionResponse>({ type: "topic/audit/validate", topicId });
-    flags = validateResponse.ok ? validateResponse.auditValidatorFlags ?? [] : [];
-  }
   return {
     evidence: getResponse.auditEvidence ?? [],
     memos: getResponse.auditMemos ?? null,
     report: getResponse.auditReport ?? null,
-    flags
+    episodes: getResponse.auditEpisodes ?? [],
+    flags: getResponse.auditValidatorFlags ?? []
   };
 }
 
@@ -301,11 +340,12 @@ export function useTopicAudit({
   const auditByTopicId = useMemo(() => {
     const next: Record<string, TopicAuditUiState> = {};
     for (const topic of topics) {
-      const loaded = loadedByTopicId[topic.id] ?? { evidence: [], memos: null, report: null, flags: [] };
+      const loaded = loadedByTopicId[topic.id] ?? { evidence: [], memos: null, report: null, episodes: [], flags: [] };
       next[topic.id] = {
         auditEvidence: loaded.evidence,
         auditMemos: loaded.memos,
         auditReport: loaded.report,
+        auditEpisodes: loaded.episodes,
         auditValidatorFlags: loaded.flags,
         summary: makeSummary({
           topic,
@@ -432,6 +472,7 @@ export function useTopicAudit({
         return { ok: true as const };
       }
       const message = error instanceof Error ? error.message : String(error);
+      setLoadedByTopicId((current) => invalidateTopicAuditPublication(current, topicId));
       setP1ErrorByKey((current) => ({ ...current, [key]: message }));
       return { ok: false as const, error: message };
     } finally {

@@ -840,10 +840,6 @@ export const DLENS_BUTTON_CSS = `
   background: var(--dlens-mode-accent-soft, ${tokens.color.accentSoft});
   border-color: var(--dlens-mode-hover-border-soft, ${tokens.color.lineStrong});
 }
-@keyframes dlens-mode-swap-in {
-  0% { opacity: 0.45; transform: translateY(2px); }
-  100% { opacity: 1; transform: translateY(0); }
-}
 @media (prefers-reduced-motion: reduce) {
   [data-dlens-control="true"] [data-dlens-button],
   [data-dlens-control="true"] [data-dlens-button]:not(:disabled):active {

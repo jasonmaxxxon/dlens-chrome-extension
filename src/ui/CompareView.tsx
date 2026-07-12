@@ -17,6 +17,7 @@ import {
   SectionLabel
 } from "./CompareView.parts.tsx";
 import { TechniqueView } from "./TechniqueView.tsx";
+import { resolveMotionScrollBehavior, scrollWorkspaceViewportToTop } from "./motion.ts";
 import type { EvidenceAnnotation, EvidenceAnnotationRequest } from "../compare/evidence-annotation.ts";
 import type {
   CompareCommand,
@@ -82,6 +83,13 @@ const COMPARE_CARD_SHADOW = tokens.shadow.glass;
 const COMPARE_ACTIVE_CONTROL_SHADOW = tokens.shadow.activeTab;
 const COMPARE_PANEL_BACKGROUND = `linear-gradient(180deg, ${tokens.color.elevated}, ${tokens.color.contentSurface})`;
 const COMPARE_PANEL_INSET_BACKGROUND = `linear-gradient(180deg, ${tokens.color.focusedSurface}, ${tokens.color.contextSurface})`;
+
+function currentMotionScrollBehavior(): ScrollBehavior {
+  const matchMedia = typeof window !== "undefined" && typeof window.matchMedia === "function"
+    ? window.matchMedia.bind(window)
+    : undefined;
+  return resolveMotionScrollBehavior(matchMedia);
+}
 
 interface CompareViewProps {
   viewModel: CompareViewModel;
@@ -950,7 +958,7 @@ function AudienceDetailPanel({
       <div>
         <SectionLabel>Audience evidence</SectionLabel>
         <div style={{ marginTop: 8, display: "grid", gap: 8 }}>
-          <TopEvidenceStrip sideLabel={sideLabel} detail={detail} onJump={() => detailRef?.current?.scrollIntoView({ behavior: "smooth", block: "start" })} />
+          <TopEvidenceStrip sideLabel={sideLabel} detail={detail} onJump={() => detailRef?.current?.scrollIntoView({ behavior: currentMotionScrollBehavior(), block: "start" })} />
           {detail.audienceEvidence.length > 1 ? detail.audienceEvidence.slice(1, 4).map((evidence, index) => (
             (() => {
               const evidenceKey = `${sideLabel}:${evidence.commentId || index + 1}`;
@@ -2924,15 +2932,15 @@ export function CompareView({
 
   useEffect(() => {
     if (selectedDetailSide === "A") {
-      detailPageRefA.current?.scrollIntoView({ behavior: "smooth", block: "nearest", inline: "start" });
+      detailPageRefA.current?.scrollIntoView({ behavior: currentMotionScrollBehavior(), block: "nearest", inline: "start" });
       return;
     }
-    detailPageRefB.current?.scrollIntoView({ behavior: "smooth", block: "nearest", inline: "start" });
+    detailPageRefB.current?.scrollIntoView({ behavior: currentMotionScrollBehavior(), block: "nearest", inline: "start" });
   }, [selectedDetailSide]);
 
   const scrollToRef = (ref: React.RefObject<HTMLDivElement | null>) => {
     window.requestAnimationFrame(() => {
-      ref.current?.scrollIntoView({ behavior: "smooth", block: "start" });
+      ref.current?.scrollIntoView({ behavior: currentMotionScrollBehavior(), block: "start" });
     });
   };
 
@@ -2945,8 +2953,8 @@ export function CompareView({
       setTechniqueSaveState("idle");
       setHighlightedClusterPanel("A");
       window.requestAnimationFrame(() => {
-        detailPageRefA.current?.scrollIntoView({ behavior: "smooth", block: "nearest", inline: "start" });
-        detailRefA.current?.scrollIntoView({ behavior: "smooth", block: "start" });
+        detailPageRefA.current?.scrollIntoView({ behavior: currentMotionScrollBehavior(), block: "nearest", inline: "start" });
+        detailRefA.current?.scrollIntoView({ behavior: currentMotionScrollBehavior(), block: "start" });
       });
       return;
     }
@@ -2957,8 +2965,8 @@ export function CompareView({
     setSelectedClusterB({ key });
     setHighlightedClusterPanel("B");
     window.requestAnimationFrame(() => {
-      detailPageRefB.current?.scrollIntoView({ behavior: "smooth", block: "nearest", inline: "start" });
-      detailRefB.current?.scrollIntoView({ behavior: "smooth", block: "start" });
+      detailPageRefB.current?.scrollIntoView({ behavior: currentMotionScrollBehavior(), block: "nearest", inline: "start" });
+      detailRefB.current?.scrollIntoView({ behavior: currentMotionScrollBehavior(), block: "start" });
     });
   };
 
@@ -2966,7 +2974,9 @@ export function CompareView({
     setTechniqueSide(side);
     setTechniqueSaveState("idle");
     setComparePage("technique");
-    window.requestAnimationFrame(() => window.scrollTo({ top: 0, behavior: "smooth" }));
+    window.requestAnimationFrame(() => {
+      scrollWorkspaceViewportToTop(document, window, currentMotionScrollBehavior());
+    });
   };
 
   const jumpBackToCluster = () => {

@@ -1,13 +1,23 @@
-import type { CSSProperties, KeyboardEvent, MouseEvent } from "react";
+import type { KeyboardEvent, MouseEvent } from "react";
 
 import { getItemReadinessStatus } from "../state/processing-state.ts";
 import type { SessionItem, Signal, Topic } from "../state/types.ts";
 import { tokens } from "./tokens";
 import { ModeHeader } from "./components.tsx";
 import {
-  TopicAuditStatusPill,
+  type TopicAuditReportStatus,
   type TopicAuditSummary
 } from "./topic-audit-components.tsx";
+
+/* Status-led card kicker — same mono status voice as the masthead StatusRail
+ * (idle · n/n ready). One token per audit state; the five states stay distinct. */
+const AUDIT_STATUS_TOKEN: Record<TopicAuditReportStatus, { label: string; color: string }> = {
+  ready: { label: "READY", color: tokens.topicAccent.primary },
+  running: { label: "BUILDING", color: tokens.topicAccent.warm },
+  none: { label: "QUEUED", color: tokens.color.softInk },
+  failed: { label: "FAILED", color: tokens.topicAccent.fail },
+  stale: { label: "STALE", color: tokens.topicAccent.warm }
+};
 
 export interface TopicSourceSummary {
   total: number;
@@ -22,28 +32,6 @@ function defaultSummary(topic: Topic): TopicAuditSummary {
     analyzedCount: 0,
     queuedCount: topic.signalIds.length
   };
-}
-
-function statStyle(muted = false): CSSProperties {
-  return {
-    display: "grid",
-    gap: 4,
-    minWidth: 54,
-    color: muted ? tokens.color.softInk : tokens.color.ink
-  };
-}
-
-function Stat({ value, label, muted }: { value: string | number; label: string; muted?: boolean }) {
-  return (
-    <span style={statStyle(muted)}>
-      <span style={{ fontSize: 17, fontWeight: 800, lineHeight: 1, fontVariantNumeric: "tabular-nums" }}>{value}</span>
-      <span style={{ fontSize: 10.5, color: tokens.color.softInk, fontWeight: 700 }}>{label}</span>
-    </span>
-  );
-}
-
-function Divider() {
-  return <span aria-hidden="true" style={{ width: 1, height: 24, background: tokens.color.line, margin: "0 12px" }} />;
 }
 
 function formatTopicCardDate(value: string): string {
@@ -85,40 +73,63 @@ function TopicTagRow({ tags }: { tags: string[] }) {
   );
 }
 
-function TopicSourceProgress({ source, updatedAt }: { source: TopicSourceSummary; updatedAt: string }) {
+/* One quiet evidence line with real denominators, plus a slim two-tone
+ * coverage bar once any source is actually ready (an empty track carries no
+ * information; a partial bar is honest coverage, not progress theater). */
+function TopicSourceProgress({ source }: { source: TopicSourceSummary }) {
   const safeTotal = Math.max(1, source.total);
   const readyPct = source.total > 0 ? Math.min(100, Math.max(0, (source.ready / safeTotal) * 100)) : 0;
   const processingPct = source.total > 0 ? Math.min(100 - readyPct, Math.max(0, (source.processing / safeTotal) * 100)) : 0;
-  const queueState = source.pending > 0 ? "pending" : "clear";
+  const inFlight = source.processing > 0 || source.pending > 0;
 
   return (
     <span
       data-topic-source-progress="true"
       data-topic-completion-progress="true"
+      data-topic-source-state={inFlight ? "working" : "settled"}
       style={{
         display: "grid",
-        gridTemplateColumns: "minmax(0, 1fr) auto",
-        alignItems: "center",
-        gap: 10,
-        minWidth: 0
+        gap: 6,
+        minWidth: 0,
+        borderTop: `1px solid ${tokens.color.line}`,
+        paddingTop: 10
       }}
     >
-      <span style={{ display: "grid", gap: 5, minWidth: 0 }}>
-        <span style={{ display: "flex", justifyContent: "space-between", gap: 10, alignItems: "baseline", minWidth: 0 }}>
-          <span data-topic-completion-label="true" style={{ fontSize: 11, fontWeight: 850, color: tokens.color.subInk }}>
-            已完成 {source.ready}/{source.total}
-          </span>
-          <span data-topic-card-updated-at="true" style={{ fontSize: 10.5, fontWeight: 700, color: tokens.color.softInk, whiteSpace: "nowrap" }}>
-            更新 {formatTopicCardDate(updatedAt)}
-          </span>
+      <span
+        style={{
+          display: "flex",
+          alignItems: "baseline",
+          gap: 10,
+          flexWrap: "wrap",
+          minWidth: 0,
+          fontFamily: tokens.font.mono,
+          fontSize: 11,
+          fontWeight: 700,
+          fontVariantNumeric: "tabular-nums"
+        }}
+      >
+        <span data-topic-completion-label="true" style={{ color: tokens.color.subInk }}>
+          已完成 {source.ready}/{source.total}
         </span>
+        {source.processing > 0 ? (
+          <span data-topic-source-processing-count="true" style={{ color: tokens.topicAccent.warm }}>
+            處理中 {source.processing}
+          </span>
+        ) : null}
+        {source.pending > 0 ? (
+          <span data-topic-source-queue="pending" style={{ color: tokens.topicAccent.warm }}>
+            {source.pending} 待處理
+          </span>
+        ) : null}
+      </span>
+      {source.ready > 0 ? (
         <span
           aria-hidden="true"
           style={{
             position: "relative",
             width: "100%",
             minWidth: 80,
-            height: 7,
+            height: 4,
             borderRadius: tokens.radius.round,
             background: tokens.color.neutralSurface,
             overflow: "hidden"
@@ -149,24 +160,7 @@ function TopicSourceProgress({ source, updatedAt }: { source: TopicSourceSummary
             }}
           />
         </span>
-      </span>
-      <span
-        data-topic-source-queue={queueState}
-        style={{
-          display: "inline-flex",
-          alignItems: "center",
-          gap: 5,
-          padding: "3px 8px",
-          borderRadius: 999,
-          background: queueState === "pending" ? tokens.color.queuedSoft : tokens.color.successSoft,
-          color: queueState === "pending" ? tokens.topicAccent.warm : tokens.topicAccent.primary,
-          fontSize: 10.5,
-          fontWeight: 800,
-          whiteSpace: "nowrap"
-        }}
-      >
-        {source.pending > 0 ? `${source.pending} 待處理` : "queue clear"}
-      </span>
+      ) : null}
     </span>
   );
 }
@@ -209,7 +203,8 @@ export function TopicCard({
     event.stopPropagation();
     onDeleteTopic?.(topic.id);
   };
-  const subtitle = topic.description || "採集批次待整理";
+  const statusToken = AUDIT_STATUS_TOKEN[summary.reportStatus];
+  const gist = summary.headline || topic.description || "採集批次待整理";
   return (
     <div
       role="button"
@@ -238,18 +233,45 @@ export function TopicCard({
       }}
     >
       <span aria-hidden data-topic-card-spine={summary.reportStatus} style={{ position: "absolute", left: 0, top: 0, bottom: 0, width: 4, background: spineColor }} />
-      <span style={{ display: "grid", gridTemplateColumns: "minmax(0, 1fr) auto", alignItems: "flex-start", gap: 12, minWidth: 0 }}>
-        <span style={{ display: "grid", gap: 5, minWidth: 0 }}>
-          <span style={{ fontFamily: `${tokens.font.serifCjk}, ${tokens.font.serif}`, fontSize: 18, fontWeight: 900, lineHeight: 1.2 }}>
-            {topic.name}
-          </span>
-          <span style={{ fontSize: 11.5, color: tokens.color.softInk, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
-            {subtitle}
-          </span>
-          <TopicTagRow tags={topic.tags} />
+      <span style={{ display: "flex", alignItems: "center", gap: 8, minWidth: 0 }}>
+        <span
+          data-audit-status={summary.reportStatus}
+          style={{
+            fontFamily: tokens.font.mono,
+            fontSize: 10,
+            fontWeight: 800,
+            letterSpacing: "0.08em",
+            color: statusToken.color,
+            whiteSpace: "nowrap",
+            flexShrink: 0
+          }}
+        >
+          {statusToken.label}
         </span>
-        <span data-topic-card-actions="true" style={{ display: "inline-flex", alignItems: "center", justifyContent: "flex-end", gap: 8, minWidth: 0, maxWidth: "100%" }}>
-          <TopicAuditStatusPill summary={summary} />
+        <span style={{ fontFamily: tokens.font.mono, fontSize: 10, fontWeight: 700, color: tokens.color.softInk, whiteSpace: "nowrap", fontVariantNumeric: "tabular-nums" }}>
+          · {source.total} 訊號
+        </span>
+        {summary.reportStatus === "stale" && summary.staleDelta?.added ? (
+          <span
+            data-topic-stale-delta="true"
+            style={{
+              fontFamily: tokens.font.mono,
+              fontSize: 10,
+              fontWeight: 800,
+              color: tokens.topicAccent.warm,
+              background: tokens.color.queuedSoft,
+              borderRadius: tokens.radius.pill,
+              padding: "1px 6px",
+              fontVariantNumeric: "tabular-nums"
+            }}
+          >
+            +{summary.staleDelta.added}
+          </span>
+        ) : null}
+        <span data-topic-card-actions="true" style={{ display: "inline-flex", alignItems: "center", justifyContent: "flex-end", gap: 8, minWidth: 0, maxWidth: "100%", marginLeft: "auto" }}>
+          <span data-topic-card-updated-at="true" style={{ fontFamily: tokens.font.mono, fontSize: 10.5, fontWeight: 500, color: tokens.color.softInk, whiteSpace: "nowrap" }}>
+            更新 {formatTopicCardDate(topic.updatedAt)}
+          </span>
           {canDelete ? (
             <button
               type="button"
@@ -257,17 +279,17 @@ export function TopicCard({
               aria-label={`移除議題 ${topic.name}`}
               onClick={handleDelete}
               style={{
-                flex: "0 0 28px",
-                width: 28,
-                height: 28,
+                flex: "0 0 24px",
+                width: 24,
+                height: 24,
                 borderRadius: 999,
                 border: `1px solid ${tokens.color.line}`,
                 background: tokens.color.surface,
                 color: tokens.color.softInk,
                 cursor: "pointer",
                 fontFamily: tokens.font.sans,
-                fontSize: 16,
-                lineHeight: "24px",
+                fontSize: 14,
+                lineHeight: "20px",
                 display: "grid",
                 placeItems: "center"
               }}
@@ -277,28 +299,16 @@ export function TopicCard({
           ) : null}
         </span>
       </span>
-      <span
-        style={{
-          display: "grid",
-          gap: 8,
-          minWidth: 0,
-          borderRadius: tokens.radius.button,
-          background: tokens.color.contextSurface,
-          padding: "10px 14px"
-        }}
-      >
-        <span style={{ display: "flex", alignItems: "center", gap: 0, minWidth: 0 }}>
-          <Stat value={signalCount} label="訊號" />
-          <Divider />
-          <Stat value={`${source.ready}/${source.total}`} label="已完成" />
-          <Divider />
-          <Stat value={source.processing} label="處理中" muted={source.processing === 0} />
-          <Divider />
-          <Stat value={source.pending} label="待處理" muted />
-          <span style={{ marginLeft: "auto", fontSize: 12, fontWeight: 800, color: tokens.topicAccent.primary }}>打開 ›</span>
+      <span style={{ display: "grid", gap: 6, minWidth: 0 }}>
+        <span style={{ fontFamily: `${tokens.font.serifCjk}, ${tokens.font.serif}`, fontSize: 22, fontWeight: 900, lineHeight: 1.25 }}>
+          {topic.name}
         </span>
-        <TopicSourceProgress source={source} updatedAt={topic.updatedAt} />
+        <span data-topic-card-gist="true" style={{ fontSize: 12, lineHeight: 1.6, color: tokens.color.subInk, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
+          {gist}
+        </span>
+        <TopicTagRow tags={topic.tags} />
       </span>
+      <TopicSourceProgress source={source} />
     </div>
   );
 }

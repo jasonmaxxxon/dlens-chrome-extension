@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 import test from "node:test";
 
-import type { CrossTopicCalibration, EvidencePacket, TopicAuditReport } from "../src/compare/topic-audit.ts";
+import type { CrossTopicCalibration, EvidencePacket, TopicAuditEpisode, TopicAuditReport } from "../src/compare/topic-audit.ts";
 import type { TopicAuditValidationFlag } from "../src/compare/topic-audit-validator.ts";
 import type { ExtensionMessage, ExtensionSuccessResponse } from "../src/state/messages.ts";
 import type { TopicAuditMemoBundle } from "../src/state/topic-audit-storage.ts";
@@ -33,12 +33,14 @@ test("ExtensionSuccessResponse carries topic audit payloads", () => {
     auditEvidence: [] as EvidencePacket[],
     auditReport: null as TopicAuditReport | null,
     auditMemos: null as TopicAuditMemoBundle | null,
+    auditEpisodes: [] as TopicAuditEpisode[],
     auditValidatorFlags: [] as TopicAuditValidationFlag[],
     crossTopicCalibration: null as CrossTopicCalibration | null
   } satisfies ExtensionSuccessResponse;
 
   assert.equal(response.ok, true);
   assert.equal(response.auditReport, null);
+  assert.deepEqual(response.auditEpisodes, []);
 });
 
 test("background routes topic audit messages through the audit handler", async () => {

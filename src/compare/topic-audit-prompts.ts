@@ -4,25 +4,29 @@ import {
   type CommentShardReading,
   type EvidencePacket,
   type LensMemo,
+  type NarrativeContinuityReview,
   type PostReactionObservation,
   type ReactionCoverage,
   type ReactionPattern,
   type ReplyFragment,
   type ShardPatternCandidate,
-  type SignalReading
+  type SignalReading,
+  type TopicNarrativeState
 } from "./topic-audit.ts";
 
 export const TOPIC_AUDIT_PROMPT_VERSIONS = {
-  p0_5: "topic-audit-p0_5.v1",
-  p1: "topic-audit-p1.v2",
+  p0_5: "topic-audit-p0_5.v2",
+  p1: "topic-audit-p1.v3",
   p2: "topic-audit-p2.v3",
-  p3: "topic-audit-p3.v2",
-  p4: "topic-audit-p4.v3",
+  p3: "topic-audit-p3.v3",
+  p4: "topic-audit-p4.v4",
   p5: "topic-audit-p5.v2",
-  p6: "topic-audit-p6.v2",
+  p6: "topic-audit-p6.v3",
   p7: "topic-audit-p7.v1",
   p8: "topic-audit-p8.v1"
 } as const;
+
+export const TOPIC_AUDIT_P1_PROMPT_MAX_CHARS = 24_000;
 
 export interface AuditPromptEnvelope {
   prose: string;
@@ -32,6 +36,7 @@ export interface AuditPromptEnvelope {
   commentRefsInShard?: string[];
   patternCandidates?: ShardPatternCandidate[];
   lexiconCandidates?: string[];
+  continuityReview?: NarrativeContinuityReview;
   displayHints?: {
     themeChips?: string[];
     narrativeLanes?: AuditPromptNarrativeLane[];
@@ -328,6 +333,58 @@ function readReactionPatterns(value: unknown, allowedRefs?: ReadonlySet<string>)
   return patterns;
 }
 
+function readContinuityReview(
+  value: unknown,
+  allowedRefs?: ReadonlySet<string>
+): NarrativeContinuityReview | undefined {
+  if (!value || typeof value !== "object" || Array.isArray(value)) {
+    return undefined;
+  }
+  const raw = value as Record<string, unknown>;
+  const rawCarriedClaims = raw.carriedClaims ?? raw.carried_claims;
+  const rawNewClaims = raw.newClaims ?? raw.new_claims;
+  const carriedClaims = Array.isArray(rawCarriedClaims) ? rawCarriedClaims : [];
+  const newClaims = Array.isArray(rawNewClaims) ? rawNewClaims : [];
+  const voices = Array.isArray(raw.voices) ? raw.voices : [];
+  const allowedOutcomes = new Set(["stable", "strengthened", "weakened", "retired"]);
+  return {
+    carriedClaims: (carriedClaims as unknown[]).flatMap((entry) => {
+      if (!entry || typeof entry !== "object" || Array.isArray(entry)) return [];
+      const item = entry as Record<string, unknown>;
+      const claimId = readTrimmedString(item.claimId ?? item.claim_id ?? item.id);
+      const outcome = readTrimmedString(item.outcome ?? item.disposition);
+      if (!claimId || !allowedOutcomes.has(outcome)) return [];
+      return [{
+        claimId,
+        outcome: outcome as NarrativeContinuityReview["carriedClaims"][number]["outcome"],
+        statement: readTrimmedString(item.statement ?? item.text),
+        rationale: readTrimmedString(item.rationale ?? item.reason),
+        evidenceRefs: readRefArray(item.evidenceRefs ?? item.evidence_refs ?? item.refs, allowedRefs),
+        ...(item.notReobserved === true || item.not_reobserved === true ? { notReobserved: true } : {})
+      }];
+    }),
+    newClaims: (newClaims as unknown[]).flatMap((entry) => {
+      if (!entry || typeof entry !== "object" || Array.isArray(entry)) return [];
+      const item = entry as Record<string, unknown>;
+      return [{
+        statement: readTrimmedString(item.statement ?? item.text),
+        rationale: readTrimmedString(item.rationale ?? item.reason),
+        evidenceRefs: readRefArray(item.evidenceRefs ?? item.evidence_refs ?? item.refs, allowedRefs)
+      }];
+    }),
+    voices: voices.flatMap((entry) => {
+      if (!entry || typeof entry !== "object" || Array.isArray(entry)) return [];
+      const item = entry as Record<string, unknown>;
+      return [{
+        label: readTrimmedString(item.label ?? item.name),
+        position: readTrimmedString(item.position ?? item.statement),
+        evidenceRefs: readRefArray(item.evidenceRefs ?? item.evidence_refs ?? item.refs, allowedRefs)
+      }];
+    }),
+    openQuestions: readStringArray(raw.openQuestions ?? raw.open_questions)
+  };
+}
+
 export function parseAuditPromptEnvelopeResponse(
   raw: string,
   allowedRefs?: ReadonlySet<string>
@@ -348,6 +405,7 @@ export function parseAuditPromptEnvelopeResponse(
   const commentRefsInShard = readRefArray(parsed.commentRefsInShard ?? parsed.comment_refs_in_shard, allowedRefs);
   const patternCandidates = readShardPatternCandidates(parsed.patternCandidates ?? parsed.pattern_candidates, allowedRefs);
   const lexiconCandidates = readStringArray(parsed.lexiconCandidates ?? parsed.lexicon_candidates);
+  const continuityReview = readContinuityReview(parsed.continuityReview ?? parsed.continuity_review, allowedRefs);
   const rawDisplayHints = parsed.displayHints ?? parsed.display_hints;
   const displayHints: ParsedDisplayHints = rawDisplayHints && typeof rawDisplayHints === "object" && !Array.isArray(rawDisplayHints)
     ? {
@@ -372,6 +430,7 @@ export function parseAuditPromptEnvelopeResponse(
     ...(commentRefsInShard.length > 0 ? { commentRefsInShard } : {}),
     ...(patternCandidates.length > 0 ? { patternCandidates } : {}),
     ...(lexiconCandidates.length > 0 ? { lexiconCandidates } : {}),
+    ...(continuityReview ? { continuityReview } : {}),
     ...(displayHints.themeChips.length > 0 || displayHints.narrativeLanes.length > 0 || displayHints.reactionCoverage || displayHints.reactionPatterns.length > 0
       ? {
           displayHints: {
@@ -391,6 +450,7 @@ interface TopicPromptInput {
   signalReadings: SignalReading[];
   lensMemos?: LensMemo[];
   shardReadings?: CommentShardReading[];
+  priorNarrativeState?: TopicNarrativeState | null;
 }
 
 interface P3PromptInput extends TopicPromptInput {
@@ -455,6 +515,34 @@ const P4_REACTION_ENVELOPE_SCHEMA = `{
         "mode": -0.2
       }
     ]
+  }
+}`;
+
+const P6_CONTINUITY_ENVELOPE_SCHEMA = `{
+  "prose": "最終 report prose",
+  "evidenceRefs": ["S1.OP", "S1.R1"],
+  "caveats": [],
+  "coverage": "x/n",
+  "continuityReview": {
+    "carriedClaims": [{
+      "claimId": "claim-1",
+      "outcome": "stable|strengthened|weakened|retired",
+      "statement": "不含 S#.R# alias 的短命題",
+      "rationale": "本次 evidence 下的理由",
+      "evidenceRefs": ["S1.R1"],
+      "notReobserved": false
+    }],
+    "newClaims": [{
+      "statement": "不含 alias 的新命題",
+      "rationale": "為何是新發展",
+      "evidenceRefs": ["S2.OP"]
+    }],
+    "voices": [{
+      "label": "關鍵聲音",
+      "position": "本次立場",
+      "evidenceRefs": ["S1.R1"]
+    }],
+    "openQuestions": ["仍未決的 evidence gap"]
   }
 }`;
 
@@ -677,6 +765,26 @@ function renderP4ReactionEnvelopeInstruction(): string {
   ].join("\n");
 }
 
+function renderPriorNarrativeState(state: TopicNarrativeState | null | undefined): string {
+  return state ? JSON.stringify(state) : "（首次 audit，沒有 prior state。）";
+}
+
+function renderP6ContinuityEnvelopeInstruction(priorState: TopicNarrativeState | null | undefined): string {
+  const activeClaimIds = (priorState?.claims ?? [])
+    .filter((claim) => claim.trajectory !== "retired")
+    .map((claim) => claim.id);
+  return [
+    "只回傳 JSON，不要 markdown fence。P6 必須使用 extended envelope：",
+    P6_CONTINUITY_ENVELOPE_SCHEMA,
+    `active prior claim IDs: ${activeClaimIds.length ? activeClaimIds.join(", ") : "none"}`,
+    "連續性契約：每個 active prior claim ID 恰好一次出現在 carriedClaims；不得漏掉、重複或捏造 ID。",
+    "stable 必須有本次 current evidence 且 statement 原樣保留；strengthened 必須有前態沒有的新錨點；weakened 必須有收窄理由；retired 必須有理由，只有 notReobserved=true 才可沒有 refs。",
+    "newClaims 與 voices 必須有本次 refs。statement/rationale/position 不可內嵌 S#.R# alias，引用只放 evidenceRefs。",
+    "上限：carriedClaims + newClaims ≤ 6、voices ≤ 4、openQuestions ≤ 4、每項 evidenceRefs ≤ 3。",
+    LANGUAGE_RULE
+  ].join("\n");
+}
+
 export function buildP0_5ShardReadingPrompt(packet: EvidencePacket, shardFragments: ReplyFragment[]): string {
   const shardRefs = shardFragments.map((fragment) => fragment.ref);
   const exampleRef = shardRefs[0] ?? "";
@@ -711,26 +819,159 @@ export function buildP0_5ShardReadingPrompt(packet: EvidencePacket, shardFragmen
   ].join("\n");
 }
 
-export function buildP1SignalReadingPrompt(packet: EvidencePacket): string {
+const P1_TRUNCATION_MARKER = "\n…[truncated to P1 prompt budget]";
+
+function truncateForP1(value: string, maxChars: number): string {
+  if (maxChars <= 0) {
+    return "";
+  }
+  if (value.length <= maxChars) {
+    return value;
+  }
+  if (maxChars <= P1_TRUNCATION_MARKER.length) {
+    return P1_TRUNCATION_MARKER.slice(0, maxChars);
+  }
+  return `${value.slice(0, maxChars - P1_TRUNCATION_MARKER.length)}${P1_TRUNCATION_MARKER}`;
+}
+
+function evenlySpacedIndexes(length: number, count: number): number[] {
+  if (length <= 0 || count <= 0) {
+    return [];
+  }
+  if (count >= length) {
+    return Array.from({ length }, (_, index) => index);
+  }
+  if (count === 1) {
+    return [0];
+  }
+  return Array.from(
+    new Set(Array.from({ length: count }, (_, index) => Math.round((index * (length - 1)) / (count - 1))))
+  );
+}
+
+function renderBlocksWithinP1Budget(blocks: string[], maxChars: number, omittedLabel: string): string {
+  if (!blocks.length) {
+    return "（無）";
+  }
+  const full = blocks.join("\n\n");
+  if (full.length <= maxChars) {
+    return full;
+  }
+
+  const minimumBlockChars = 180;
+  const noticeReserve = 96;
+  const visibleCount = Math.min(
+    blocks.length,
+    Math.max(1, Math.floor(Math.max(1, maxChars - noticeReserve) / minimumBlockChars))
+  );
+  const indexes = evenlySpacedIndexes(blocks.length, visibleCount);
+  const omittedCount = blocks.length - indexes.length;
+  const notice = omittedCount > 0
+    ? `（${omittedLabel}：共 ${blocks.length} 段，因 P1 budget 均勻保留 ${indexes.length} 段，省略 ${omittedCount} 段。其餘段未提供給本 P1；不可替省略段下結論，必須列為 caveat。）\n\n`
+    : "";
+  const separatorChars = Math.max(0, indexes.length - 1) * 2;
+  const charsPerBlock = Math.max(
+    1,
+    Math.floor((maxChars - notice.length - separatorChars) / Math.max(1, indexes.length))
+  );
+  const rendered = `${notice}${indexes.map((index) => truncateForP1(blocks[index] ?? "", charsPerBlock)).join("\n\n")}`;
+  return truncateForP1(rendered, maxChars);
+}
+
+function renderP1AuthorContext(packet: EvidencePacket): string[] {
+  return packet.replyFragments
+    .filter((fragment) => fragment.role === "op_continuation" || fragment.role === "op_reply")
+    .map(renderFragment);
+}
+
+function renderP1ShardStructuredHints(reading: CommentShardReading): string {
+  const patterns = reading.patternCandidates.map((candidate) => {
+    const refs = [
+      ...candidate.supportRefs,
+      ...candidate.counterRefs,
+      ...candidate.representativeRefs,
+      ...candidate.counterRepresentativeRefs
+    ].filter((ref, index, values) => values.indexOf(ref) === index);
+    return [
+      `${candidate.label}: ${candidate.gist}`,
+      `dynamic: ${candidate.dynamicImplication}`,
+      `nInShard=${candidate.nInShard}`,
+      refs.length ? `refs=${refs.join(", ")}` : "refs=none",
+      candidate.uncertainty ? `uncertainty=${candidate.uncertainty}` : ""
+    ].filter(Boolean).join(" | ");
+  });
+  const lexicon = reading.lexiconCandidates.length
+    ? `lexicon: ${reading.lexiconCandidates.join(" / ")}`
+    : "";
+  return [...patterns, lexicon].filter(Boolean).join("\n");
+}
+
+function renderP1ShardReading(reading: CommentShardReading): string {
+  const structuredHints = renderP1ShardStructuredHints(reading);
   return [
-    "你要 cold-read 一則 Threads 訊號。先不要套框架，也不要繼承任何既有 AI tags/gist。",
-    "第一反應先回答：你看到什麼？這篇在發生什麼？",
+    `## ${reading.shortCode} shard ${reading.shardIndex + 1}/${reading.shardCount}`,
+    `coverage: ${reading.commentRefsInShard.length} audience refs`,
+    structuredHints || "（沒有 structured pattern / lexicon hints。）",
+    reading.reading?.trim() || "（舊版 shard reading 沒有 prose。）"
+  ].join("\n");
+}
+
+export function buildP1SignalReadingPrompt(
+  packet: EvidencePacket,
+  shardReadings: readonly CommentShardReading[]
+): string {
+  const relevantShardReadings = shardReadings
+    .filter((reading) => reading.signalId === packet.signalId)
+    .sort((left, right) => left.shardIndex - right.shardIndex);
+  const opContext = truncateForP1(
+    `${packet.shortCode}.OP [♥${likesLabel(packet.opLikes)}] @${packet.opAuthor || "unknown"}: ${packet.opText || "（無 OP text）"}`,
+    6_000
+  );
+  const authorContext = renderBlocksWithinP1Budget(renderP1AuthorContext(packet), 3_000, "OP-authored context");
+  const captureGaps = renderBlocksWithinP1Budget(packet.gaps, 1_500, "capture gaps");
+  const prefix = [
+    "P1 Post synthesis：先讀 OP，再整合 P0.5 已完成的獨立 blank reads。不要重讀或假裝看見未提供的 raw audience replies。",
+    "先回答：這篇在發生什麼？OP 如何立題？P0.5 讀到的 audience 如何接住、反駁、漂移或改寫它？",
+    "不要繼承既有 AI tags/gist；P0.5 prose 是本次 evidence pipeline 產生的讀法，不是舊分類。",
     "",
-    "[Evidence]",
-    renderPacket(packet, true),
+    "[OP context]",
+    opContext,
+    "",
+    "[OP-authored continuations / replies]",
+    authorContext,
+    "",
+    "[Capture gaps]",
+    captureGaps,
+    "",
+    "[P0.5 shard readings]"
+  ].join("\n");
+  const suffix = [
     "",
     "optional lens（如果有用才參考，不是必填分類）：",
     "- OP 在做什麼動作？例如求助、立論、訴苦、戲謔、元披露、issue prescription。",
-    "- reply 對 OP 做什麼動作？例如共鳴、反駁、校正框架、升級、漂移、否決出路。",
+    "- reply 對 OP 做什麼動作？例如共鳴、反駁、校正 OP 框架、升級、漂移、否決出路。",
     "",
     "紀律：",
-    "- 只引用本訊號 refs：S#.OP / S#.OPC# / S#.OPR# / S#.R# / S#.P#。",
+    "- 只引用本 prompt 區塊實際顯示的 refs：S#.OP / S#.OPC# / S#.OPR# / S#.R# / S#.P#；不可猜測未顯示 shard 的 refs。",
     "- **每次在 prose 中提到 OP / 留言 / 接話的具體行為時，必須在該句末或該短語後 inline 標註對應 ref，用 [Sx.OP] / [Sx.R1] 方括號格式**。例如：「OP 表達困惑 [S1.OP]，讀者建議退出 [S1.R2]。」這些 refs 之後會被 UI 包裝成可 hover 看原文的 chip。",
     "- 不 cluster、不命名 narrative、不抽 lexicon、不打 enum。",
     "- watchNotes 是 hook，不是結論。",
+    "- coverage 必須說明本 post 有多少 shard reading 被呈現；若 prompt 明示省略 distillate，必須列為 caveat。",
     "",
     renderEnvelopeInstruction()
   ].join("\n");
+  const shardBudget = TOPIC_AUDIT_P1_PROMPT_MAX_CHARS - prefix.length - suffix.length - 2;
+  if (shardBudget <= 0) {
+    throw new Error("P1 fixed prompt instructions exceed the configured prompt budget");
+  }
+  const shardSection = relevantShardReadings.length
+    ? renderBlocksWithinP1Budget(relevantShardReadings.map(renderP1ShardReading), shardBudget, "P0.5 shard distillates")
+    : "（沒有可用的 P0.5 shard reading；只可判讀 OP，不可推論 audience pattern。）";
+  const prompt = `${prefix}\n${shardSection}\n${suffix}`;
+  if (prompt.length > TOPIC_AUDIT_P1_PROMPT_MAX_CHARS) {
+    throw new Error(`P1 prompt exceeded ${TOPIC_AUDIT_P1_PROMPT_MAX_CHARS} chars`);
+  }
+  return prompt;
 }
 
 export function buildP2LexiconPrompt(input: TopicPromptInput): string {
@@ -764,6 +1005,7 @@ export function buildP3NarrativePrompt(input: P3PromptInput): string {
   return [
     `Topic: ${input.topicName}`,
     "P3 Narrative：從 readings + lexicon 自然長出敘事。自然幾條就幾條，不強制數量。",
+    "先讀本次 current evidence，再看前態；前態是歷史假說，不是 evidence，也沒有存續特權。",
     "每條敘事 = story shape（setup → tension → outcome）+ evidence + boundary/反例/inversion。",
     "敘事是 story shape，不是 proposition、不是 posture；不要繼承其他 topic 的 narrative 名稱。",
     "",
@@ -773,6 +1015,9 @@ export function buildP3NarrativePrompt(input: P3PromptInput): string {
     "[P2 lexicon memo]",
     input.lexiconMemo.prose,
     "",
+    "[Prior narrative state: hypotheses only]",
+    renderPriorNarrativeState(input.priorNarrativeState),
+    "",
     renderEnvelopeInstruction({ withNarrativeIcon: true })
   ].join("\n");
 }
@@ -781,6 +1026,7 @@ export function buildP4AudiencePrompt(input: TopicPromptInput): string {
   return [
     `Topic: ${input.topicName}`,
     "P4 Audience：觀察 reader 對 OP 做了什麼動作。see-then-write：看到才寫，沒看到不寫。",
+    "先讀本次 current audience evidence；前態聲音只是歷史假說，不是 evidence。",
     "可參考但不是必填：接住、共鳴、反駁、校正 OP 框架、升級為結構分析、漂移、bookmark、為對立價值辯護。",
     "排除 OP 自我接話（S#.OPC# / S#.OPR#）與 placeholder。top-3 reply 不等於整體議題共識。每個型態標 n；n=1~2 不可宣稱穩定 pattern。",
     "你現在是 reactionPatterns producer：從 post-level observations 跨 post 合併成 topic-level displayHints.reactionPatterns。",
@@ -796,6 +1042,9 @@ export function buildP4AudiencePrompt(input: TopicPromptInput): string {
     "",
     "[Prior memos]",
     renderLensMemos(input.lensMemos),
+    "",
+    "[Prior narrative state: hypotheses only]",
+    renderPriorNarrativeState(input.priorNarrativeState),
     "",
     renderP4ReactionEnvelopeInstruction()
   ].join("\n");
@@ -841,7 +1090,11 @@ export function buildP6FinalReportPrompt(input: TopicPromptInput): string {
     "[Lens memos]",
     renderLensMemos(input.lensMemos),
     "",
-    renderEnvelopeInstruction()
+    "[Prior narrative state: hypotheses only]",
+    "以下是歷史假說，不是 evidence；必須用本次 refs 重新錨定。",
+    renderPriorNarrativeState(input.priorNarrativeState),
+    "",
+    renderP6ContinuityEnvelopeInstruction(input.priorNarrativeState)
   ].join("\n");
 }
 

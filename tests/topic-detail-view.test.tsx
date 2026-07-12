@@ -6,7 +6,7 @@ import { renderToStaticMarkup } from "react-dom/server";
 
 import { TOPIC_SYNTHESIS_VERSION } from "../src/compare/topic-synthesis.ts";
 import { createSessionItem } from "../src/state/store-helpers.ts";
-import type { EvidencePacket } from "../src/compare/topic-audit.ts";
+import type { EvidencePacket, TopicAuditEpisode, TopicAuditReport } from "../src/compare/topic-audit.ts";
 import type { TopicAuditValidationFlag } from "../src/compare/topic-audit-validator.ts";
 import type { TopicAuditMemoBundle } from "../src/state/topic-audit-storage.ts";
 import type { SavedAnalysisSnapshot, SessionItem, Signal, SignalTagsRecord, Topic, TopicSignalReading, TopicSynthesis } from "../src/state/types.ts";
@@ -129,6 +129,75 @@ const auditPacket: EvidencePacket = {
   gaps: [],
   notes: []
 };
+
+const completedAuditReport: TopicAuditReport = {
+  auditRunId: "audit-1",
+  inputHash: "hash-1",
+  topicId: "topic-1",
+  topicName: "航班爭議",
+  generatedFrom: ["signal-1"],
+  coveragePerSection: {},
+  sections: {
+    overall: "整體判讀",
+    lexicon: "詞彙",
+    scaleOrTime: "尺度",
+    narratives: "敘事",
+    audience: "群眾反應",
+    absence: "缺席",
+    editorial: "總結"
+  },
+  limitations: [],
+  promptVersion: "v1",
+  model: "mock",
+  generatedAt: "2026-05-23T00:00:00.000Z"
+};
+
+function buildAuditEpisode(transition: TopicAuditEpisode["transition"]): TopicAuditEpisode {
+  const fingerprints = { evidence: "e-1", definition: "d-1", pipeline: "p-1" };
+  const evidence = [{ anchorId: "a_1234567890abcdef", displayRef: "S1.R1", stability: "stable" as const }];
+  const claims = transition === "rebase"
+    ? []
+    : [{
+        id: "claim-1",
+        statement: "讀者開始用個人反例收窄市場論",
+        rationale: "本次新增可追蹤證據",
+        trajectory: "new" as const,
+        evidence
+      }];
+  return {
+    version: "topic-audit-episode.v1",
+    id: `episode-${transition}`,
+    topicId: "topic-1",
+    auditRunId: "audit-1",
+    inputHash: "hash-1",
+    generatedAt: "2026-07-11T10:00:00.000Z",
+    transition,
+    fingerprints,
+    sourceCount: 6,
+    capturedRange: { from: "2026-07-01T00:00:00.000Z", to: "2026-07-11T00:00:00.000Z" },
+    stateSnapshot: {
+      version: "topic-narrative-state.v1",
+      topicId: "topic-1",
+      auditRunId: "audit-1",
+      fingerprints,
+      nextIds: { claim: 2, voice: 1, question: 1 },
+      claims,
+      voices: [],
+      openQuestions: [],
+      updatedAt: "2026-07-11T10:00:00.000Z"
+    },
+    delta: transition === "rebase"
+      ? []
+      : claims.map((claim) => ({
+          claimId: claim.id,
+          trajectory: claim.trajectory,
+          statement: claim.statement,
+          rationale: claim.rationale,
+          evidence: claim.evidence
+        })),
+    reactionSnapshot: { patterns: [] }
+  };
+}
 
 const auditMemos: TopicAuditMemoBundle = {
   auditRunId: "audit-1",
@@ -541,6 +610,7 @@ test("TopicDetailView renders ready audit actions without the duplicate overview
       pairs: [],
       auditEvidence: [auditPacket],
       auditMemos,
+      auditReport: completedAuditReport,
       auditSummary: { reportStatus: "ready", analyzedCount: 1, queuedCount: 0 },
       auditValidatorFlags: [],
       onBack: () => undefined,
@@ -809,6 +879,73 @@ test("TopicDetailView forces a clean rerun after failure instead of pretending t
   }
 });
 
+test("TopicDetailView can restart when a partial first run left evidence without an Atlas", async () => {
+  const { JSDOM } = await import("jsdom");
+  const { createRoot } = await import("react-dom/client");
+  const { flushSync } = await import("react-dom");
+  const dom = new JSDOM("<div id=\"root\"></div>", { url: "https://dlens.test" });
+  const previous = {
+    window: globalThis.window,
+    document: globalThis.document,
+    HTMLElement: globalThis.HTMLElement,
+    HTMLButtonElement: globalThis.HTMLButtonElement,
+    Event: globalThis.Event,
+    MouseEvent: globalThis.MouseEvent
+  };
+  const calls: Array<{ topicId: string; fromStage?: unknown; force?: boolean }> = [];
+  Object.assign(globalThis, {
+    window: dom.window,
+    document: dom.window.document,
+    HTMLElement: dom.window.HTMLElement,
+    HTMLButtonElement: dom.window.HTMLButtonElement,
+    Event: dom.window.Event,
+    MouseEvent: dom.window.MouseEvent
+  });
+  const rootElement = dom.window.document.getElementById("root");
+  assert.ok(rootElement);
+  const root = createRoot(rootElement);
+  const renderStatus = (reportStatus: "none" | "running" | "failed") => topicDetailViewElement({
+    topic,
+    signals,
+    pairs: [],
+    auditEvidence: [auditPacket],
+    auditMemos: null,
+    auditSummary: {
+      reportStatus,
+      analyzedCount: 0,
+      queuedCount: 0,
+      ...(reportStatus === "running" ? { runningStage: 1 } : {}),
+      ...(reportStatus === "failed" ? { failedStage: 1, failedReason: "provider timeout" } : {})
+    },
+    auditValidatorFlags: [],
+    onBack: () => undefined,
+    onOpenPair: () => undefined,
+    onUpdateTopic: () => undefined,
+    onRunAudit: (topicId, fromStage, force) => calls.push({ topicId, ...(fromStage ? { fromStage } : {}), ...(typeof force === "boolean" ? { force } : {}) })
+  });
+
+  try {
+    flushSync(() => root.render(renderStatus("none")));
+    const regenerate = rootElement.querySelector<HTMLButtonElement>('[data-topic-audit-action="regenerate"]');
+    assert.ok(regenerate, "partial evidence must never strand the Topic without a recovery action");
+    assert.match(regenerate.textContent ?? "", /生成審查報告/);
+    regenerate.dispatchEvent(new dom.window.MouseEvent("click", { bubbles: true }));
+    assert.deepEqual(calls, [{ topicId: "topic-1", force: true }]);
+    for (const reportStatus of ["running", "failed"] as const) {
+      flushSync(() => root.render(renderStatus(reportStatus)));
+      assert.equal(
+        Array.from(rootElement.querySelectorAll("button")).some((button) => button.textContent?.includes("審查報告 ↗")),
+        false,
+        `${reportStatus} partial recovery must not expose a report that does not exist`
+      );
+    }
+  } finally {
+    flushSync(() => root.unmount());
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    Object.assign(globalThis, previous);
+  }
+});
+
 test("TopicDetailView keeps first-run focus while an empty Atlas starts generating", async () => {
   const { JSDOM } = await import("jsdom");
   const { createRoot } = await import("react-dom/client");
@@ -935,6 +1072,8 @@ test("TopicDetailView renders the Signal Atlas L0 spine without raw audience com
   assert.match(html, /此篇 2 次證據引用歸屬，按形狀分佈/);
   assert.doesNotMatch(html, /data-atlas-ledger-metric="342\/318|118\/342|已歸類留言|反應構成/);
   assert.match(html, /反例 1/);
+  assert.match(html, /<svg[^>]+role="group"[^>]+aria-label="民情羅盤/);
+  assert.match(html, /data-signal-atlas-dot="reaction-local-labor-defense"[^>]+role="button"[^>]+aria-label="本地勞工身份防守，118 次留言歸屬，按 Enter 開啟詳情"/);
   assert.match(html, />質疑</);
   assert.match(html, />支持</);
   assert.doesNotMatch(html, /質疑・悲觀|支持・正面/);
@@ -947,6 +1086,72 @@ test("TopicDetailView renders the Signal Atlas L0 spine without raw audience com
   assert.doesNotMatch(html, /本地人已經好難搵工/);
   assert.doesNotMatch(html, /有些工種真的請不到人/);
   assert.doesNotMatch(html, /raw audience comment/);
+  assert.doesNotMatch(html, /data-topic-episode-strip=/);
+});
+
+test("TopicDetailView places the episode delta strip between the Atlas ledger and verdict", () => {
+  const html = renderToStaticMarkup(
+    topicDetailViewElement({
+      topic,
+      signals: signalAtlasEvidence.map((packet) => ({
+        ...signals[0]!,
+        id: packet.signalId,
+        itemId: packet.itemId,
+        capturedAt: packet.capturedAt
+      })),
+      pairs: [],
+      auditEvidence: signalAtlasEvidence,
+      auditMemos: signalAtlasMemos,
+      auditReport: completedAuditReport,
+      auditEpisodes: [buildAuditEpisode("advance")],
+      auditSummary: { reportStatus: "ready", analyzedCount: 6, queuedCount: 0 },
+      auditValidatorFlags: [],
+      onBack: () => undefined,
+      onOpenPair: () => undefined,
+      onUpdateTopic: () => undefined
+    })
+  );
+
+  const ledgerIndex = html.indexOf("data-signal-atlas-ledger=\"true\"");
+  const episodeIndex = html.indexOf("data-topic-episode-strip=\"advance\"");
+  const lanesIndex = html.indexOf("data-topic-audit-block=\"lanes\"");
+  assert.ok(ledgerIndex >= 0 && ledgerIndex < episodeIndex);
+  assert.ok(episodeIndex < lanesIndex);
+  assert.match(html, />本次</);
+  assert.match(html, />自上次</);
+  assert.match(html, /新出現 1/);
+  assert.match(html, /data-topic-episode-delta-details="true"/);
+  assert.match(html, /讀者開始用個人反例收窄市場論/);
+  assert.match(html, /data-evidence-ref-chip="S1.R1"/);
+  assert.doesNotMatch(html, /本地人已經好難搵工/);
+});
+
+test("TopicDetailView labels first and rebase episodes without inventing ordinary delta", () => {
+  const renderEpisode = (transition: TopicAuditEpisode["transition"]) => renderToStaticMarkup(
+    topicDetailViewElement({
+      topic,
+      signals,
+      pairs: [],
+      auditEvidence: [auditPacket],
+      auditMemos,
+      auditReport: completedAuditReport,
+      auditEpisodes: [buildAuditEpisode(transition)],
+      auditSummary: { reportStatus: "ready", analyzedCount: 1, queuedCount: 0 },
+      auditValidatorFlags: [],
+      onBack: () => undefined,
+      onOpenPair: () => undefined,
+      onUpdateTopic: () => undefined
+    })
+  );
+
+  const first = renderEpisode("first");
+  assert.match(first, /data-topic-episode-strip="first"/);
+  assert.match(first, /首次基線/);
+
+  const rebase = renderEpisode("rebase");
+  assert.match(rebase, /data-topic-episode-strip="rebase"/);
+  assert.match(rebase, /基準已重設/);
+  assert.doesNotMatch(rebase, /新出現 1/);
 });
 
 test("TopicDetailView frames narrative lanes as L0 atlas cards and keeps source attribution", () => {
@@ -1127,6 +1332,7 @@ test("TopicDetailView uses shared primitives and topic accent rhythm for audit m
       pairs: [],
       auditEvidence,
       auditMemos,
+      auditReport: completedAuditReport,
       auditSummary: { reportStatus: "ready", analyzedCount: 4, queuedCount: 0 },
       auditValidatorFlags: [],
       onBack: () => undefined,
@@ -1182,6 +1388,7 @@ test("TopicDetailView audit report CTA keeps command wiring after the surface re
           pairs: [],
           auditEvidence: [auditPacket],
           auditMemos,
+          auditReport: completedAuditReport,
           auditSummary: { reportStatus: "ready", analyzedCount: 1, queuedCount: 0 },
           auditValidatorFlags: [],
           onBack: () => undefined,
@@ -1227,6 +1434,27 @@ test("TopicDetailView routes reaction, narrative, atlas dot, and source row into
   const rootElement = dom.window.document.getElementById("root");
   assert.ok(rootElement);
   const root = createRoot(rootElement);
+  const originalGetBoundingClientRect = dom.window.HTMLElement.prototype.getBoundingClientRect;
+  let drawerProbeCount = 0;
+  dom.window.HTMLElement.prototype.getBoundingClientRect = function getBoundingClientRect() {
+    if (this.hasAttribute("data-audit-detail-drawer")) {
+      drawerProbeCount += 1;
+      const top = this.style.top === "0px" ? 82 : this.style.bottom === "0px" ? 800 : 154;
+      const height = this.style.top === "0px" || this.style.bottom === "0px" ? 0 : 600;
+      return {
+        x: 0,
+        y: top,
+        top,
+        right: 390,
+        bottom: top + height,
+        left: 0,
+        width: 390,
+        height,
+        toJSON: () => ({})
+      } as DOMRect;
+    }
+    return originalGetBoundingClientRect.call(this);
+  };
 
   try {
     flushSync(() => {
@@ -1272,6 +1500,13 @@ test("TopicDetailView routes reaction, narrative, atlas dot, and source row into
     assert.equal(drawer.getAttribute("data-detail-kind"), "reaction");
     assert.match(drawer.textContent ?? "", /本地勞工身份防守/);
     assert.match(drawer.textContent ?? "", /代表留言/);
+    const probesAfterOpen = drawerProbeCount;
+    const drawerTopBeforeHostScroll = drawer.style.top;
+    flushSync(() => {
+      dom.window.dispatchEvent(new dom.window.Event("scroll"));
+    });
+    assert.equal(drawerProbeCount, probesAfterOpen + 2, "host scroll must re-read the fixed shell bounds");
+    assert.equal(drawer.style.top, drawerTopBeforeHostScroll, "a fixed popup must not drift when Threads scrolls");
 
     const laneButton = rootElement.querySelector<HTMLButtonElement>("button[data-narrative-lane=\"lane-cross\"]");
     assert.ok(laneButton, "narrative lane button should render");
@@ -1309,6 +1544,7 @@ test("TopicDetailView routes reaction, narrative, atlas dot, and source row into
     assert.equal(drawer.getAttribute("data-open"), "false");
   } finally {
     flushSync(() => root.unmount());
+    dom.window.HTMLElement.prototype.getBoundingClientRect = originalGetBoundingClientRect;
     await new Promise((resolve) => setTimeout(resolve, 0));
     Object.assign(globalThis, previous);
   }
@@ -1530,6 +1766,7 @@ test("TopicDetailView failed audit state stays in the Atlas frame and shows the 
   assert.match(html, /生成未完成/);
   assert.match(html, /重新生成/);
   assert.match(html, /provider timeout/);
+  assert.doesNotMatch(html, /錯誤詳情/);
   assert.doesNotMatch(html, /data-topic-audit-block="overview"/);
   assert.doesNotMatch(html, /從 P3 續跑|失敗於 P3/);
 });

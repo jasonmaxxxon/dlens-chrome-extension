@@ -1,4 +1,4 @@
-import type { CommentShardReading, EvidencePacket, LensMemo, ReactionCoverage, ReactionPattern, SignalReading, TopicAuditReport, TopicAuditStageName } from "../compare/topic-audit.ts";
+import type { CommentShardReading, EvidencePacket, LensMemo, ReactionCoverage, ReactionPattern, SignalReading, TopicAuditEpisode, TopicAuditReport, TopicAuditStageName } from "../compare/topic-audit.ts";
 import { buildTopicEvidencePackets } from "../compare/topic-audit.ts";
 import type { TopicAuditValidationFlag } from "../compare/topic-audit-validator.ts";
 import { projectCapturedPost, projectCapturedPostFromSources, type CapturedPostProjection } from "../state/captured-post.ts";
@@ -10,6 +10,7 @@ import {
   type WorkerStatus
 } from "../state/processing-state.ts";
 import type { TopicAuditMemoBundle } from "../state/topic-audit-storage.ts";
+import { isTopicAuditPublicationCompatible } from "../state/topic-audit-storage.ts";
 import type {
   FolderMode,
   SavedAnalysisSnapshot,
@@ -140,6 +141,8 @@ export interface TopicAuditSourceViewModel {
 
 export interface TopicAuditViewModel {
   evidence: EvidencePacket[];
+  episodes: TopicAuditEpisode[];
+  latestEpisode?: TopicAuditEpisode;
   sourceRows: TopicAuditSourceViewModel[];
   summary: TopicAuditViewSummary;
   validatorFlags: TopicAuditValidationFlag[];
@@ -156,6 +159,7 @@ export interface TopicAuditViewModel {
   absenceProse: string;
   caveats: string[];
   shardReadings: CommentShardReading[];
+  hasAuditReport: boolean;
   canRunAudit: boolean;
   blockedReason?: string;
 }
@@ -215,6 +219,7 @@ export interface BuildTopicDetailViewModelInput {
   auditEvidence?: EvidencePacket[];
   auditMemos?: TopicAuditMemoBundle | null;
   auditReport?: TopicAuditReport | null;
+  auditEpisodes?: TopicAuditEpisode[];
   auditSummary?: TopicAuditViewSummary;
   auditValidatorFlags?: TopicAuditValidationFlag[];
   p1RunningSignalIds?: ReadonlyArray<string>;
@@ -701,6 +706,7 @@ function buildAuditViewModel({
   auditEvidence,
   auditMemos,
   auditReport,
+  auditEpisodes,
   auditSummary,
   auditValidatorFlags,
   signalTagsByItemId,
@@ -714,6 +720,7 @@ function buildAuditViewModel({
   auditEvidence: EvidencePacket[];
   auditMemos: TopicAuditMemoBundle | null | undefined;
   auditReport: TopicAuditReport | null | undefined;
+  auditEpisodes: TopicAuditEpisode[];
   auditSummary?: TopicAuditViewSummary;
   auditValidatorFlags: TopicAuditValidationFlag[];
   signalTagsByItemId: Record<string, SignalTagsRecord>;
@@ -737,8 +744,17 @@ function buildAuditViewModel({
   const hints = readAuditDisplayHints(auditMemos?.lensMemos ?? []);
   const postTotal = derivePostTotal(auditEvidence, hints.narrativeLanes ?? []);
   const lanes = withNarrativeStrength(hints.narrativeLanes ?? [], postTotal);
-  const headline = buildAuditHeadline({ auditReport, memos: auditMemos?.lensMemos ?? [] });
-  const absence = buildAuditAbsence({ auditReport, memos: auditMemos?.lensMemos ?? [] });
+  const compatibleReport = isTopicAuditPublicationCompatible(auditReport, auditMemos, auditEvidence)
+    ? auditReport
+    : null;
+  const compatibleEpisode = compatibleReport
+    ? [...auditEpisodes].reverse().find((episode) => (
+        episode.inputHash === compatibleReport.inputHash
+        && episode.auditRunId === compatibleReport.auditRunId
+      ))
+    : undefined;
+  const headline = buildAuditHeadline({ auditReport: compatibleReport, memos: auditMemos?.lensMemos ?? [] });
+  const absence = buildAuditAbsence({ auditReport: compatibleReport, memos: auditMemos?.lensMemos ?? [] });
   const sourceRows = buildAuditSourceRows({
     topic,
     auditEvidence,
@@ -752,6 +768,8 @@ function buildAuditViewModel({
   const canRunAudit = capabilities.runAudit && (analysisCounts.ready > 0 || auditEvidence.length > 0);
   return {
     evidence: auditEvidence,
+    episodes: auditEpisodes,
+    latestEpisode: compatibleEpisode,
     sourceRows,
     summary,
     validatorFlags: auditValidatorFlags,
@@ -768,6 +786,7 @@ function buildAuditViewModel({
     absenceProse: absence.prose,
     caveats: absence.caveats,
     shardReadings: auditMemos?.shardReadings ?? [],
+    hasAuditReport: Boolean(compatibleReport),
     canRunAudit,
     blockedReason: canRunAudit
       ? undefined
@@ -822,6 +841,7 @@ export function buildTopicDetailViewModel({
   auditEvidence = [],
   auditMemos = null,
   auditReport = null,
+  auditEpisodes = [],
   auditSummary,
   auditValidatorFlags = [],
   p1RunningSignalIds = [],
@@ -865,6 +885,7 @@ export function buildTopicDetailViewModel({
     auditEvidence: safeArray(auditEvidence),
     auditMemos,
     auditReport,
+    auditEpisodes: safeArray(auditEpisodes),
     auditSummary,
     auditValidatorFlags: safeArray(auditValidatorFlags),
     signalTagsByItemId,

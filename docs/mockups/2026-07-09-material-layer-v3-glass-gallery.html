@@ -1,0 +1,1117 @@
+<!doctype html>
+<html lang="zh-Hant">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>DLens Material Layer v3 · Glass Skin Gallery</title>
+<!--
+  MOCKUP · reference only · 2026-07-09
+
+  Goal:
+    Test glassmorphism / glow as a cross-mode material layer while keeping the
+    current DLens surface shapes conservative. This file intentionally ignores
+    the current tokens-intent refusal against glassmorphism. Production values,
+    if approved, should still be centralized in src/ui/tokens.ts.
+
+  Constraints used here:
+    - Existing mode colors are preserved.
+    - The same surfaces keep the same grammar: masthead, side rail, rows,
+      topic reaction blocks, drawer, compare columns, product marginalia,
+      PR ledger, and settings drawer.
+    - This is not a new information architecture.
+-->
+<style>
+  :root {
+    --canvas: #f7f4ec;
+    --paper: #fdfbf6;
+    --paper-2: #fbf8f1;
+    --ink: #1b1a17;
+    --sub: #3d3b35;
+    --soft: #6c695e;
+    --line: rgba(27,26,23,.10);
+    --line-strong: rgba(27,26,23,.18);
+    --glass: rgba(255,252,244,.62);
+    --glass-strong: rgba(255,253,248,.82);
+    --glass-faint: rgba(255,255,255,.30);
+    --blur: 18px;
+    --sat: 1.35;
+    --radius-shell: 22px;
+    --radius-card: 14px;
+    --radius-row: 10px;
+    --shadow-shell: 0 28px 70px rgba(37,34,24,.18), 0 4px 12px rgba(37,34,24,.08), inset 0 1px 0 rgba(255,255,255,.66);
+    --shadow-card: 0 12px 30px rgba(37,34,24,.10), 0 2px 7px rgba(37,34,24,.05), inset 0 1px 0 rgba(255,255,255,.58);
+    --shadow-pop: 0 20px 55px rgba(37,34,24,.20), 0 6px 20px rgba(37,34,24,.10), inset 0 1px 0 rgba(255,255,255,.65);
+    --font-sans: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Noto Sans TC", system-ui, sans-serif;
+    --font-serif: "Noto Serif TC", "Songti TC", Georgia, serif;
+    --font-mono: "SF Mono", "JetBrains Mono", ui-monospace, monospace;
+  }
+
+  body[data-skin="paper"] {
+    --glass: #fbf8f1;
+    --glass-strong: #fdfbf6;
+    --glass-faint: rgba(242,238,226,.72);
+    --blur: 0px;
+    --sat: 1;
+    --shadow-shell: inset 0 1px 0 rgba(255,255,255,.7), 0 1px 2px rgba(27,26,23,.045), 0 8px 16px -6px rgba(27,26,23,.08), 0 20px 38px -16px rgba(27,26,23,.11);
+    --shadow-card: inset 0 1px 0 rgba(255,255,255,.6), 0 1px 2px rgba(27,26,23,.04), 0 4px 10px -4px rgba(27,26,23,.06);
+  }
+
+  body[data-skin="strong"] {
+    --glass: rgba(255,255,255,.46);
+    --glass-strong: rgba(255,255,255,.72);
+    --glass-faint: rgba(255,255,255,.20);
+    --blur: 30px;
+    --sat: 1.65;
+    --shadow-shell: 0 36px 90px rgba(37,34,24,.22), 0 8px 28px rgba(37,34,24,.10), inset 0 1px 0 rgba(255,255,255,.80);
+    --shadow-card: 0 18px 45px rgba(37,34,24,.13), 0 4px 14px rgba(37,34,24,.07), inset 0 1px 0 rgba(255,255,255,.72);
+  }
+
+  * { box-sizing: border-box; }
+  html { scroll-behavior: smooth; }
+  body {
+    margin: 0;
+    min-height: 100vh;
+    color: var(--ink);
+    font-family: var(--font-sans);
+    background:
+      radial-gradient(circle at 16% 0%, rgba(67,214,200,.13), transparent 28%),
+      radial-gradient(circle at 88% 9%, rgba(194,64,31,.11), transparent 30%),
+      radial-gradient(circle at 52% 52%, rgba(63,90,59,.08), transparent 36%),
+      linear-gradient(90deg, rgba(27,26,23,.035) 1px, transparent 1px) 0 0/28px 28px,
+      linear-gradient(180deg, rgba(27,26,23,.028) 1px, transparent 1px) 0 0/28px 28px,
+      linear-gradient(135deg, #eee8d9 0%, #f8f6ef 50%, #e8eee9 100%);
+    padding: 28px 18px 80px;
+  }
+
+  body::before {
+    content: "";
+    position: fixed;
+    inset: 0;
+    pointer-events: none;
+    background:
+      linear-gradient(115deg, transparent 0%, rgba(255,255,255,.34) 44%, transparent 58%),
+      radial-gradient(circle at 50% 18%, rgba(255,255,255,.36), transparent 36%);
+    mix-blend-mode: screen;
+    opacity: .62;
+  }
+
+  .glass {
+    background: var(--glass);
+    border: 1px solid rgba(255,255,255,.58);
+    box-shadow: var(--shadow-card);
+    backdrop-filter: blur(var(--blur)) saturate(var(--sat));
+    -webkit-backdrop-filter: blur(var(--blur)) saturate(var(--sat));
+  }
+
+  .mode-archive { --accent: #1a2e4f; --accent-mid: #2b4a80; --accent-soft: rgba(26,46,79,.10); --accent-glow: rgba(26,46,79,.26); --mode-label: "Archive"; }
+  .mode-topic { --accent: #3f5a3b; --accent-mid: #527648; --accent-soft: rgba(63,90,59,.10); --accent-glow: rgba(67,214,200,.32); --mode-label: "Topic"; }
+  .mode-product { --accent: #c2401f; --accent-mid: #d65a36; --accent-soft: rgba(194,64,31,.10); --accent-glow: rgba(194,64,31,.28); --mode-label: "Product"; }
+  .mode-pr { --accent: #7a2030; --accent-mid: #a8462e; --accent-soft: rgba(122,32,48,.10); --accent-glow: rgba(122,32,48,.28); --mode-label: "PR Evidence"; }
+  .mode-settings { --accent: #6c695e; --accent-mid: #8a857a; --accent-soft: rgba(108,105,94,.12); --accent-glow: rgba(108,105,94,.20); --mode-label: "Settings"; }
+
+  .deck {
+    position: relative;
+    z-index: 1;
+    max-width: 1540px;
+    margin: 0 auto;
+    display: grid;
+    gap: 26px;
+  }
+
+  .hero {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    gap: 18px;
+    align-items: end;
+    padding: 22px 24px;
+    border-radius: 24px;
+    background: rgba(255,252,244,.58);
+    border: 1px solid rgba(255,255,255,.60);
+    box-shadow: var(--shadow-shell);
+    backdrop-filter: blur(24px) saturate(1.32);
+    -webkit-backdrop-filter: blur(24px) saturate(1.32);
+  }
+
+  h1, h2, h3, p { margin: 0; }
+  .kicker {
+    font-family: var(--font-mono);
+    font-size: 10px;
+    line-height: 1.4;
+    letter-spacing: .14em;
+    text-transform: uppercase;
+    color: var(--soft);
+    font-weight: 800;
+  }
+  .hero h1 {
+    margin-top: 7px;
+    font-family: var(--font-serif);
+    font-size: clamp(30px, 4vw, 54px);
+    line-height: 1.02;
+    letter-spacing: 0;
+    font-weight: 700;
+  }
+  .hero p {
+    max-width: 900px;
+    margin-top: 12px;
+    color: var(--sub);
+    font-size: 14px;
+    line-height: 1.7;
+  }
+
+  .skin-switch {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+    justify-content: flex-end;
+  }
+  .skin-switch button {
+    appearance: none;
+    border: 1px solid rgba(27,26,23,.13);
+    border-radius: 999px;
+    background: rgba(255,255,255,.42);
+    color: var(--soft);
+    padding: 8px 12px;
+    font-family: var(--font-mono);
+    font-size: 10px;
+    font-weight: 850;
+    cursor: pointer;
+  }
+  .skin-switch button[aria-pressed="true"] {
+    color: var(--ink);
+    border-color: rgba(27,26,23,.32);
+    background: rgba(255,255,255,.72);
+    box-shadow: inset 0 1px 0 rgba(255,255,255,.70), 0 8px 18px rgba(37,34,24,.08);
+  }
+
+  .toc {
+    display: flex;
+    gap: 8px;
+    overflow-x: auto;
+    padding: 10px;
+    border-radius: 18px;
+    background: rgba(255,252,244,.44);
+    border: 1px solid rgba(255,255,255,.48);
+    backdrop-filter: blur(18px) saturate(1.2);
+    -webkit-backdrop-filter: blur(18px) saturate(1.2);
+  }
+  .toc a {
+    flex: 0 0 auto;
+    display: grid;
+    gap: 2px;
+    min-width: 118px;
+    text-decoration: none;
+    color: var(--sub);
+    padding: 9px 11px;
+    border-radius: 12px;
+    background: rgba(255,255,255,.30);
+    border: 1px solid rgba(255,255,255,.40);
+  }
+  .toc .n { font-family: var(--font-mono); font-size: 9px; color: var(--soft); font-weight: 850; }
+  .toc .t { font-size: 11px; font-weight: 750; white-space: nowrap; }
+
+  .gallery {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(420px, 1fr));
+    gap: 28px;
+    align-items: start;
+  }
+
+  .frame-wrap {
+    display: grid;
+    gap: 10px;
+    scroll-margin-top: 16px;
+  }
+  .frame-head {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: 12px;
+    padding: 0 4px;
+  }
+  .frame-head h2 {
+    font-family: var(--font-serif);
+    font-size: 18px;
+    font-weight: 700;
+    line-height: 1.25;
+  }
+  .frame-head span {
+    color: var(--soft);
+    font-family: var(--font-mono);
+    font-size: 10px;
+    font-weight: 850;
+  }
+
+  .screen {
+    width: min(100%, 420px);
+    min-height: 760px;
+    margin: 0 auto;
+    position: relative;
+    overflow: hidden;
+    border-radius: 28px;
+    background:
+      radial-gradient(circle at 85% 0%, color-mix(in srgb, var(--accent) 18%, transparent), transparent 32%),
+      radial-gradient(circle at 18% 18%, rgba(255,255,255,.58), transparent 38%),
+      rgba(246,242,233,.66);
+    border: 1px solid rgba(255,255,255,.64);
+    box-shadow: var(--shadow-shell), 0 0 0 1px rgba(27,26,23,.05);
+    backdrop-filter: blur(22px) saturate(1.30);
+    -webkit-backdrop-filter: blur(22px) saturate(1.30);
+  }
+  .screen::after {
+    content: "";
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+    box-shadow: inset 0 0 0 1px rgba(255,255,255,.25), inset 0 1px 0 rgba(255,255,255,.70);
+    border-radius: 28px;
+  }
+
+  .app {
+    position: relative;
+    z-index: 1;
+    min-height: 760px;
+    display: grid;
+    grid-template-rows: auto 1fr;
+    gap: 10px;
+    padding: 12px;
+  }
+
+  .topbar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 9px;
+    min-height: 52px;
+    padding: 10px 12px;
+    border-radius: 18px;
+    background: var(--glass-strong);
+    border: 1px solid rgba(255,255,255,.58);
+    box-shadow: var(--shadow-card);
+    backdrop-filter: blur(var(--blur)) saturate(var(--sat));
+    -webkit-backdrop-filter: blur(var(--blur)) saturate(var(--sat));
+  }
+  .brand {
+    display: flex;
+    align-items: baseline;
+    gap: 8px;
+    min-width: 0;
+  }
+  .brand b {
+    font-family: var(--font-serif);
+    font-size: 19px;
+    line-height: 1;
+    color: var(--accent);
+  }
+  .brand span {
+    font-family: var(--font-mono);
+    font-size: 9px;
+    color: var(--soft);
+    font-weight: 800;
+    letter-spacing: .08em;
+  }
+  .mode-pill {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 5px 8px;
+    border-radius: 999px;
+    background: var(--accent-soft);
+    color: var(--accent);
+    font-family: var(--font-mono);
+    font-size: 9px;
+    font-weight: 850;
+    white-space: nowrap;
+  }
+  .mode-pill i {
+    width: 7px;
+    height: 7px;
+    border-radius: 999px;
+    background: var(--accent);
+    box-shadow: 0 0 0 4px var(--accent-soft), 0 0 14px var(--accent-glow);
+  }
+
+  .workspace {
+    display: grid;
+    grid-template-columns: 58px minmax(0, 1fr);
+    gap: 10px;
+    min-height: 0;
+  }
+  .rail {
+    display: grid;
+    align-content: start;
+    gap: 8px;
+    padding: 9px 6px;
+    border-radius: 18px;
+    background: rgba(255,252,244,.45);
+    border: 1px solid rgba(255,255,255,.48);
+    box-shadow: var(--shadow-card);
+    backdrop-filter: blur(var(--blur)) saturate(var(--sat));
+    -webkit-backdrop-filter: blur(var(--blur)) saturate(var(--sat));
+  }
+  .avatar {
+    width: 34px;
+    height: 34px;
+    border-radius: 14px;
+    display: grid;
+    place-items: center;
+    margin: 2px auto 4px;
+    background: linear-gradient(135deg, var(--accent), var(--accent-mid));
+    color: white;
+    box-shadow: 0 12px 24px var(--accent-glow), inset 0 1px 0 rgba(255,255,255,.26);
+    font-family: var(--font-serif);
+    font-size: 19px;
+  }
+  .rail button, .rail .gear {
+    appearance: none;
+    min-height: 49px;
+    display: grid;
+    place-items: center;
+    gap: 3px;
+    border: 1px solid transparent;
+    border-radius: 14px;
+    background: transparent;
+    color: var(--soft);
+    font-size: 9px;
+    font-weight: 760;
+    cursor: pointer;
+  }
+  .rail button b, .rail .gear b { font-size: 15px; line-height: 1; font-weight: 900; }
+  .rail button.active {
+    color: var(--accent);
+    background: rgba(255,255,255,.46);
+    border-color: rgba(255,255,255,.56);
+    box-shadow: 0 10px 22px rgba(37,34,24,.07), 0 0 18px var(--accent-glow);
+  }
+  .rail .sep { height: 1px; background: var(--line); margin: 2px 8px; }
+  .rail .gear {
+    border-color: rgba(255,255,255,.38);
+    background: rgba(255,255,255,.28);
+  }
+
+  .content {
+    min-width: 0;
+    height: 676px;
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    padding-bottom: 2px;
+  }
+  .content.scroll { overflow-y: auto; padding-right: 2px; }
+  .content::-webkit-scrollbar { width: 6px; }
+  .content::-webkit-scrollbar-thumb { background: rgba(27,26,23,.14); border-radius: 999px; }
+
+  .title-block {
+    display: grid;
+    gap: 5px;
+    padding: 2px 2px 0;
+  }
+  .title-block h3 {
+    font-family: var(--font-serif);
+    font-size: 23px;
+    line-height: 1.22;
+    font-weight: 700;
+  }
+  .title-block p {
+    color: var(--soft);
+    font-size: 11.5px;
+    line-height: 1.5;
+  }
+
+  .panel, .card, .rows, .notice, .drawer-panel, .sheet {
+    border-radius: var(--radius-card);
+    background: var(--glass);
+    border: 1px solid rgba(255,255,255,.52);
+    box-shadow: var(--shadow-card);
+    backdrop-filter: blur(var(--blur)) saturate(var(--sat));
+    -webkit-backdrop-filter: blur(var(--blur)) saturate(var(--sat));
+  }
+  .panel { padding: 12px; display: grid; gap: 9px; }
+  .card { padding: 12px; display: grid; gap: 8px; }
+  .rows { display: grid; overflow: hidden; }
+  .row {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    min-height: 46px;
+    padding: 9px 10px;
+    border-bottom: 1px solid rgba(27,26,23,.08);
+    color: var(--sub);
+    font-size: 12px;
+    line-height: 1.42;
+  }
+  .row:last-child { border-bottom: 0; }
+  .row .main { flex: 1; min-width: 0; font-weight: 650; color: var(--ink); }
+  .row .sub { display: block; margin-top: 2px; color: var(--soft); font-weight: 500; font-size: 10.5px; }
+  .row .mono, .mono {
+    font-family: var(--font-mono);
+    font-variant-numeric: tabular-nums;
+  }
+
+  .eyebrow {
+    display: flex;
+    align-items: center;
+    gap: 7px;
+    color: var(--accent);
+    font-family: var(--font-mono);
+    font-size: 9.5px;
+    font-weight: 850;
+    letter-spacing: .08em;
+    text-transform: uppercase;
+  }
+  .eyebrow .soft { color: var(--soft); letter-spacing: 0; text-transform: none; font-weight: 700; }
+  .card h4 {
+    font-family: var(--font-serif);
+    font-size: 16px;
+    line-height: 1.35;
+    font-weight: 700;
+  }
+  .card p {
+    color: var(--sub);
+    font-size: 12px;
+    line-height: 1.55;
+  }
+  .quote {
+    border-left: 2px solid var(--accent);
+    padding-left: 10px;
+    color: var(--sub);
+    font-family: var(--font-serif);
+    font-size: 13px;
+    line-height: 1.62;
+  }
+
+  .chips { display: flex; flex-wrap: wrap; gap: 5px; }
+  .chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    min-height: 21px;
+    padding: 2px 7px;
+    border-radius: 999px;
+    background: rgba(255,255,255,.38);
+    border: 1px solid rgba(255,255,255,.48);
+    color: var(--soft);
+    font-family: var(--font-mono);
+    font-size: 9.5px;
+    font-weight: 800;
+    white-space: nowrap;
+  }
+  .chip.hot {
+    color: var(--accent);
+    background: var(--accent-soft);
+    border-color: color-mix(in srgb, var(--accent) 22%, transparent);
+    box-shadow: 0 0 12px var(--accent-glow);
+  }
+  .chip.bad { color: #7a2030; background: rgba(122,32,48,.09); border-color: rgba(122,32,48,.18); }
+  .chip.warn { color: #a16a17; background: rgba(161,106,23,.10); border-color: rgba(161,106,23,.22); }
+
+  .metrics {
+    display: grid;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: 6px;
+  }
+  .metric-card {
+    display: grid;
+    gap: 2px;
+    padding: 8px;
+    border-radius: 12px;
+    background: rgba(255,255,255,.38);
+    border: 1px solid rgba(255,255,255,.42);
+  }
+  .metric-card b { font-family: var(--font-mono); font-size: 16px; line-height: 1; }
+  .metric-card span { color: var(--soft); font-size: 9px; font-weight: 760; }
+
+  .button-row { display: flex; gap: 8px; flex-wrap: wrap; margin-top: auto; }
+  .btn {
+    appearance: none;
+    border: 1px solid rgba(27,26,23,.12);
+    border-radius: 12px;
+    min-height: 33px;
+    padding: 7px 11px;
+    background: rgba(255,255,255,.42);
+    color: var(--ink);
+    font-size: 11.5px;
+    font-weight: 780;
+    cursor: pointer;
+  }
+  .btn.primary {
+    background: linear-gradient(135deg, var(--accent), var(--accent-mid));
+    color: #fff;
+    border-color: transparent;
+    box-shadow: 0 12px 22px var(--accent-glow), inset 0 1px 0 rgba(255,255,255,.25);
+  }
+
+  .bar {
+    height: 7px;
+    background: rgba(27,26,23,.08);
+    border-radius: 999px;
+    overflow: hidden;
+  }
+  .bar i {
+    display: block;
+    height: 100%;
+    width: var(--w, 50%);
+    background: linear-gradient(90deg, var(--accent), color-mix(in srgb, var(--accent) 70%, #43d6c8));
+    border-radius: 999px;
+    box-shadow: 0 0 14px var(--accent-glow);
+  }
+
+  .two-col { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+  .split { display: grid; grid-template-columns: minmax(0, 1fr) 96px; gap: 8px; align-items: start; }
+
+  .threads-bg {
+    position: absolute;
+    inset: 0;
+    padding: 18px;
+    display: grid;
+    gap: 13px;
+    align-content: start;
+    background: rgba(255,255,255,.58);
+  }
+  .fake-post {
+    display: grid;
+    grid-template-columns: 32px 1fr;
+    gap: 9px;
+    padding: 12px 4px;
+    border-bottom: 1px solid rgba(27,26,23,.08);
+  }
+  .fake-avatar { width: 32px; height: 32px; border-radius: 999px; background: rgba(27,26,23,.10); }
+  .fake-lines span { display: block; height: 8px; background: rgba(27,26,23,.08); border-radius: 999px; margin: 7px 0; }
+  .collect-pop {
+    position: absolute;
+    right: 16px;
+    bottom: 84px;
+    width: 316px;
+    z-index: 2;
+    padding: 13px;
+    border-radius: 20px;
+    background: rgba(255,252,244,.64);
+    border: 1px solid rgba(255,255,255,.62);
+    box-shadow: var(--shadow-pop), 0 0 34px var(--accent-glow);
+    backdrop-filter: blur(var(--blur)) saturate(var(--sat));
+    -webkit-backdrop-filter: blur(var(--blur)) saturate(var(--sat));
+    display: grid;
+    gap: 9px;
+  }
+  .launcher {
+    position: absolute;
+    right: 18px;
+    bottom: 24px;
+    z-index: 2;
+    border: 0;
+    border-radius: 999px;
+    padding: 10px 16px;
+    background: linear-gradient(135deg, var(--accent), var(--accent-mid));
+    color: white;
+    font-weight: 850;
+    box-shadow: 0 14px 28px var(--accent-glow);
+  }
+
+  .drawer-visual {
+    position: absolute;
+    inset: 0 0 0 auto;
+    width: 338px;
+    z-index: 3;
+    padding: 12px;
+    background: rgba(246,242,233,.30);
+    backdrop-filter: blur(5px);
+    -webkit-backdrop-filter: blur(5px);
+  }
+  .drawer-panel {
+    height: 100%;
+    padding: 13px;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    background: rgba(255,252,244,.70);
+    box-shadow: var(--shadow-pop), -18px 0 50px rgba(37,34,24,.10);
+  }
+
+  .table {
+    display: grid;
+    gap: 6px;
+  }
+  .table-row {
+    display: grid;
+    grid-template-columns: 24px minmax(0, 1fr) auto;
+    gap: 8px;
+    align-items: center;
+    padding: 8px 9px;
+    border-radius: 10px;
+    background: rgba(255,255,255,.34);
+    border: 1px solid rgba(255,255,255,.42);
+    font-size: 11px;
+  }
+  .table-row .cap {
+    overflow: hidden;
+    white-space: nowrap;
+    text-overflow: ellipsis;
+    color: var(--sub);
+  }
+
+  .settings-shell {
+    display: grid;
+    gap: 10px;
+    min-height: 736px;
+    padding: 12px;
+  }
+
+  @media (prefers-reduced-motion: no-preference) {
+    .btn, .card, .row, .chip, .rail button, .skin-switch button {
+      transition: transform 160ms cubic-bezier(.34,1.56,.64,1), box-shadow 180ms ease, border-color 180ms ease, background-color 180ms ease;
+    }
+    .btn:hover, .card:hover, .row:hover, .rail button:hover { transform: translateY(-1px); }
+    .screen {
+      transition: box-shadow 280ms ease, background 280ms ease;
+    }
+  }
+
+  @media (max-width: 900px) {
+    body { padding: 14px 10px 60px; }
+    .hero { grid-template-columns: 1fr; }
+    .skin-switch { justify-content: start; }
+    .gallery { grid-template-columns: 1fr; }
+    .screen { width: min(100%, 420px); }
+  }
+</style>
+</head>
+<body data-skin="soft">
+<main class="deck">
+  <header class="hero">
+    <div>
+      <div class="kicker">DLens · Material Layer v3 · reference-only</div>
+      <h1>Glass Skin Gallery</h1>
+      <p>13 個現有 surface 的最保守材質測試。形狀、資訊密度、mode 色都維持現時 DLens 語法；只測半透明暖紙、blur、glow、hover elevation 能不能全局成立。Production 若要落地，再把 `tokens-intent.md` 的拒絕清單改成新的 material rule。</p>
+    </div>
+    <div class="skin-switch" aria-label="material skin switcher">
+      <button type="button" data-skin="soft" aria-pressed="true">soft glass</button>
+      <button type="button" data-skin="strong" aria-pressed="false">strong glass</button>
+      <button type="button" data-skin="paper" aria-pressed="false">paper fallback</button>
+    </div>
+  </header>
+
+  <nav class="toc" aria-label="gallery navigation">
+    <a href="#collect"><span class="n">01</span><span class="t">Collect</span></a>
+    <a href="#library"><span class="n">02</span><span class="t">Library</span></a>
+    <a href="#topic-list"><span class="n">03</span><span class="t">Topic List</span></a>
+    <a href="#topic-detail"><span class="n">04</span><span class="t">Topic Detail</span></a>
+    <a href="#topic-audit"><span class="n">05</span><span class="t">Topic Audit</span></a>
+    <a href="#signal-drawer"><span class="n">06</span><span class="t">Signal Drawer</span></a>
+    <a href="#compare-setup"><span class="n">07</span><span class="t">Compare Setup</span></a>
+    <a href="#compare-result"><span class="n">08</span><span class="t">Compare Result</span></a>
+    <a href="#product-saved"><span class="n">09</span><span class="t">Product Saved</span></a>
+    <a href="#product-action"><span class="n">10</span><span class="t">Product Action</span></a>
+    <a href="#pr-setup"><span class="n">11</span><span class="t">PR Setup</span></a>
+    <a href="#pr-ledger"><span class="n">12</span><span class="t">PR Ledger</span></a>
+    <a href="#settings"><span class="n">13</span><span class="t">Settings</span></a>
+  </nav>
+
+  <section class="gallery">
+    <article class="frame-wrap mode-archive" id="collect">
+      <div class="frame-head"><h2>01 · Collect Overlay</h2><span>shared · archive accent</span></div>
+      <div class="screen">
+        <div class="threads-bg">
+          <div class="fake-post"><span class="fake-avatar"></span><div class="fake-lines"><span style="width:40%"></span><span style="width:88%"></span><span style="width:72%"></span></div></div>
+          <div class="fake-post"><span class="fake-avatar"></span><div class="fake-lines"><span style="width:32%"></span><span style="width:96%"></span><span style="width:66%"></span></div></div>
+          <div class="fake-post"><span class="fake-avatar"></span><div class="fake-lines"><span style="width:48%"></span><span style="width:78%"></span><span style="width:52%"></span></div></div>
+        </div>
+        <div class="collect-pop">
+          <div class="eyebrow">DLens collect <span class="soft">hover preview</span></div>
+          <div class="quote">「用瀏覽器自動化做循環資料抓取，最難不是摘要，是每天穩定跑。」</div>
+          <div class="metrics">
+            <span class="metric-card"><b>132</b><span>likes</span></span>
+            <span class="metric-card"><b>45</b><span>comments</span></span>
+            <span class="metric-card"><b>12</b><span>reposts</span></span>
+            <span class="metric-card"><b>4</b><span>forwards</span></span>
+          </div>
+          <div class="chips"><span class="chip hot">#mcp 收集夾</span><span class="chip">Topic ready</span><span class="chip">Product signal</span></div>
+          <button class="btn primary">收下這篇</button>
+        </div>
+        <button class="launcher">+ DLens</button>
+      </div>
+    </article>
+
+    <article class="frame-wrap mode-archive" id="library">
+      <div class="frame-head"><h2>02 · Library</h2><span>archive · casebook</span></div>
+      <div class="screen">
+        <div class="app">
+          <header class="topbar"><div class="brand"><b>dlens</b><span>0.3.16</span></div><span class="mode-pill"><i></i>Archive</span></header>
+          <div class="workspace">
+            <nav class="rail"><span class="avatar">d</span><button class="active"><b>□</b><span>Library</span></button><button><b>＋</b><span>Collect</span></button><span class="sep"></span><span class="gear"><b>⚙</b><span>設定</span></span></nav>
+            <main class="content">
+              <div class="title-block"><h3>資料庫</h3><p>保存的 Threads source，不跑 AI 的 archive 仍保持安靜。</p></div>
+              <div class="panel">
+                <div class="eyebrow">folders <span class="soft">4 active</span></div>
+                <div class="chips"><span class="chip hot">#mcp 收集夾 6</span><span class="chip">#notion 2</span><span class="chip">Archive 18</span></div>
+              </div>
+              <div class="rows">
+                <div class="row"><span class="main">創作者用 MCP 串接工作流的三種路徑<span class="sub">@maker_daily · ♥132 · 45 comments</span></span><span class="chip hot">ready</span></div>
+                <div class="row"><span class="main">每日自動爬 Threads 存進 Notion 的實作<span class="sub">@builder.hk · ♥89 · 61 comments</span></span><span class="chip">saved</span></div>
+                <div class="row"><span class="main">抱怨排程器半夜斷線的討論串<span class="sub">@pm_notes · ♥54 · 22 comments</span></span><span class="chip warn">queued</span></div>
+                <div class="row"><span class="main">agent 幫小店家自動回覆留言的實測<span class="sub">@shopops · ♥41 · 19 comments</span></span><span class="chip">saved</span></div>
+              </div>
+              <div class="button-row"><button class="btn primary">+ 收集</button><button class="btn">移到 Topic</button></div>
+            </main>
+          </div>
+        </div>
+      </div>
+    </article>
+
+    <article class="frame-wrap mode-topic" id="topic-list">
+      <div class="frame-head"><h2>03 · Topic List</h2><span>topic · list</span></div>
+      <div class="screen">
+        <div class="app">
+          <header class="topbar"><div class="brand"><b>dlens</b><span>topic</span></div><span class="mode-pill"><i></i>Topic</span></header>
+          <div class="workspace">
+            <nav class="rail"><span class="avatar">t</span><button class="active"><b>≡</b><span>Topics</span></button><button><b>⚖</b><span>Compare</span></button><button><b>＋</b><span>Collect</span></button><span class="sep"></span><span class="gear"><b>⚙</b><span>設定</span></span></nav>
+            <main class="content">
+              <div class="title-block"><h3>議題</h3><p>Casebook first，使用者先選 topic，不在首頁塞 dashboard。</p></div>
+              <article class="card">
+                <div class="eyebrow">ready <span class="soft">6 signals</span></div>
+                <h4>MCP 自動化工作流</h4>
+                <p>主線已成形：排程穩定性、Notion 落地、反爬風險。</p>
+                <div class="bar"><i style="--w: 82%"></i></div>
+                <div class="chips"><span class="chip hot">audit ready</span><span class="chip">4/6 crawled</span></div>
+              </article>
+              <article class="card">
+                <div class="eyebrow">building <span class="soft">9 signals</span></div>
+                <h4>AI 陪伴應用的社會反應</h4>
+                <p>支持與防禦並存，缺少反方代表留言。</p>
+                <div class="bar"><i style="--w: 58%"></i></div>
+              </article>
+              <article class="card">
+                <div class="eyebrow">queued <span class="soft">3 signals</span></div>
+                <h4>小店家數位轉型</h4>
+                <p>素材仍不足，只能保存為觀察。</p>
+              </article>
+              <div class="button-row"><button class="btn primary">新議題</button><button class="btn">重新整理</button></div>
+            </main>
+          </div>
+        </div>
+      </div>
+    </article>
+
+    <article class="frame-wrap mode-topic" id="topic-detail">
+      <div class="frame-head"><h2>04 · Topic Detail</h2><span>topic · casebook</span></div>
+      <div class="screen">
+        <div class="app">
+          <header class="topbar"><div class="brand"><b>dlens</b><span>casebook</span></div><span class="mode-pill"><i></i>Topic</span></header>
+          <div class="workspace">
+            <nav class="rail"><span class="avatar">t</span><button class="active"><b>≡</b><span>Topic</span></button><button><b>⚖</b><span>Compare</span></button><button><b>＋</b><span>Collect</span></button><span class="sep"></span><span class="gear"><b>⚙</b><span>設定</span></span></nav>
+            <main class="content scroll">
+              <div class="title-block"><h3>MCP 自動化工作流</h3><p>6 source · 4 P1 ready · audit memo 07-09</p></div>
+              <article class="card">
+                <div class="eyebrow">主判讀 <span class="soft">editorial read</span></div>
+                <p style="font-family:var(--font-serif);font-size:15px;color:var(--ink);">這條線把「爬取 → 儲存 → 摘要」接到 DLens 已有 crawl job 能力上，是最短可驗證路徑。</p>
+              </article>
+              <div class="chips"><span class="chip hot">#mcp 4</span><span class="chip hot">#自動化 3</span><span class="chip">#notion 2</span></div>
+              <div class="rows">
+                <div class="row"><span class="main">每日排程爬取是共通骨幹<span class="sub">S1 · S2 · S4</span></span><span class="chip hot">87%</span></div>
+                <div class="row"><span class="main">落地 Notion／表格才算完成<span class="sub">S1 · S3</span></span><span class="chip">62%</span></div>
+                <div class="row"><span class="main">反爬與斷線是最大痛點<span class="sub">S2 · S6</span></span><span class="chip warn">55%</span></div>
+              </div>
+              <div class="panel">
+                <div class="eyebrow">sources <span class="soft">open drawer</span></div>
+                <div class="row" style="padding-inline:0;"><span class="main">創作者用 MCP 串接工作流</span><span class="chip hot">open</span></div>
+                <div class="row" style="padding-inline:0;"><span class="main">爬蟲斷線後改用 API 的心得</span><span class="chip">open</span></div>
+              </div>
+            </main>
+          </div>
+        </div>
+      </div>
+    </article>
+
+    <article class="frame-wrap mode-topic" id="topic-audit">
+      <div class="frame-head"><h2>05 · Topic Audit</h2><span>topic · reaction patterns</span></div>
+      <div class="screen">
+        <div class="app">
+          <header class="topbar"><div class="brand"><b>dlens</b><span>audit</span></div><span class="mode-pill"><i></i>Topic</span></header>
+          <div class="workspace">
+            <nav class="rail"><span class="avatar">t</span><button class="active"><b>§</b><span>Audit</span></button><button><b>≡</b><span>Topic</span></button><button><b>＋</b><span>Collect</span></button><span class="sep"></span><span class="gear"><b>⚙</b><span>設定</span></span></nav>
+            <main class="content scroll">
+              <div class="title-block"><h3>民情現在是什麼形狀？</h3><p>L0 僅讀脊柱：判讀、patterns、敘事、警示、來源。</p></div>
+              <div class="metrics">
+                <span class="metric-card"><b>6</b><span>posts</span></span>
+                <span class="metric-card"><b>175</b><span>captured</span></span>
+                <span class="metric-card"><b>126</b><span>read</span></span>
+                <span class="metric-card"><b>126</b><span>usable</span></span>
+              </div>
+              <article class="card">
+                <div class="eyebrow">headline</div>
+                <p style="font-family:var(--font-serif);font-size:15px;color:var(--ink);">主調是「羨慕＋追攻略」，真正分歧在時機與可信度。</p>
+                <div class="chips"><span class="chip hot">S1.R3</span><span class="chip hot">S4.R12</span><span class="chip">S2.R7</span></div>
+              </article>
+              <div class="rows">
+                <div class="row"><span class="main">同路人打氣<span class="sub">情緒主調係認同而非爭論。</span></span><span class="chip hot">33/126</span></div>
+                <div class="row"><span class="main">追問實際步驟<span class="sub">攻略型內容有現成需求。</span></span><span class="chip hot">21/126</span></div>
+                <div class="row"><span class="main">懷疑廣告／軟推銷<span class="sub">開支明細要前置。</span></span><span class="chip warn">18/126</span></div>
+              </div>
+              <div class="notice panel">
+                <div class="eyebrow">缺席與可靠性</div>
+                <p>觀望者幾乎無發聲；87% 留言集中於 48 小時內；7 組 Reply to 變體仍需 dedup。</p>
+              </div>
+            </main>
+          </div>
+        </div>
+      </div>
+    </article>
+
+    <article class="frame-wrap mode-topic" id="signal-drawer">
+      <div class="frame-head"><h2>06 · Signal Drawer</h2><span>topic · source drill-in</span></div>
+      <div class="screen">
+        <div class="app">
+          <header class="topbar"><div class="brand"><b>dlens</b><span>source</span></div><span class="mode-pill"><i></i>Topic</span></header>
+          <div class="workspace">
+            <nav class="rail"><span class="avatar">t</span><button><b>≡</b><span>Topic</span></button><button class="active"><b>↗</b><span>Drawer</span></button><button><b>＋</b><span>Collect</span></button><span class="sep"></span><span class="gear"><b>⚙</b><span>設定</span></span></nav>
+            <main class="content">
+              <div class="title-block"><h3>Topic Detail</h3><p>背景仍可見，但 focus 在右側 drawer。</p></div>
+              <div class="rows" style="opacity:.68;">
+                <div class="row"><span class="main">S1 · 每日自動爬 Threads 存進 Notion</span><span class="chip hot">open</span></div>
+                <div class="row"><span class="main">S2 · 反爬風險與重試</span><span class="chip">open</span></div>
+              </div>
+            </main>
+          </div>
+        </div>
+        <aside class="drawer-visual">
+          <div class="drawer-panel">
+            <div class="eyebrow">S1.OP <span class="soft">source hero</span></div>
+            <article class="card">
+              <div class="eyebrow">OP 原文</div>
+              <p style="font-family:var(--font-serif);font-size:15px;color:var(--ink);">我每天早上讓 agent 抓 Threads 關鍵字，存進 Notion 再生成摘要，兩週沒斷。</p>
+              <div class="chips"><span class="chip hot">@maker_daily</span><span class="chip">♥132</span></div>
+            </article>
+            <article class="card">
+              <div class="eyebrow">P1 reading</div>
+              <p>這條留言把可行性轉成「每日工作流」，比單次 demo 更接近 DLens 的持續監測價值。</p>
+              <div class="chips"><span class="chip hot">S1.R2</span><span class="chip">S1.R5</span></div>
+            </article>
+            <div class="rows">
+              <div class="row"><span class="main">代表留言：求 timeline</span><span class="chip">♥45</span></div>
+              <div class="row"><span class="main">反例：擔心反爬風險</span><span class="chip warn">♥18</span></div>
+            </div>
+          </div>
+        </aside>
+      </div>
+    </article>
+
+    <article class="frame-wrap mode-topic" id="compare-setup">
+      <div class="frame-head"><h2>07 · Compare Setup</h2><span>topic · compare</span></div>
+      <div class="screen">
+        <div class="app">
+          <header class="topbar"><div class="brand"><b>dlens</b><span>compare</span></div><span class="mode-pill"><i></i>Topic</span></header>
+          <div class="workspace">
+            <nav class="rail"><span class="avatar">t</span><button><b>≡</b><span>Topic</span></button><button class="active"><b>⚖</b><span>Compare</span></button><button><b>＋</b><span>Collect</span></button><span class="sep"></span><span class="gear"><b>⚙</b><span>設定</span></span></nav>
+            <main class="content">
+              <div class="title-block"><h3>選擇兩篇貼文</h3><p>先確認 A/B，再進完整分析。</p></div>
+              <div class="two-col">
+                <article class="card"><div class="eyebrow">post A</div><h4>每日自動爬 Threads 存進 Notion</h4><div class="chips"><span class="chip hot">selected</span><span class="chip">45 comments</span></div></article>
+                <article class="card"><div class="eyebrow">post B</div><h4>爬蟲斷線後改用 API 的心得</h4><div class="chips"><span class="chip hot">selected</span><span class="chip">61 comments</span></div></article>
+              </div>
+              <div class="rows">
+                <div class="row"><span class="chip hot">A</span><span class="main">每日自動爬 Threads 存進 Notion</span><span class="chip hot">●</span></div>
+                <div class="row"><span class="chip hot">B</span><span class="main">爬蟲斷線後改用官方 API</span><span class="chip hot">●</span></div>
+                <div class="row"><span class="chip">C</span><span class="main">小店家自動回覆留言實測</span><span class="chip">○</span></div>
+              </div>
+              <div class="button-row"><button class="btn primary">開始比較</button><button class="btn">清除選擇</button></div>
+            </main>
+          </div>
+        </div>
+      </div>
+    </article>
+
+    <article class="frame-wrap mode-topic" id="compare-result">
+      <div class="frame-head"><h2>08 · Compare Result</h2><span>topic · result</span></div>
+      <div class="screen">
+        <div class="app">
+          <header class="topbar"><div class="brand"><b>dlens</b><span>result</span></div><span class="mode-pill"><i></i>Topic</span></header>
+          <div class="workspace">
+            <nav class="rail"><span class="avatar">t</span><button><b>≡</b><span>Topic</span></button><button class="active"><b>⚖</b><span>Compare</span></button><button><b>＋</b><span>Collect</span></button><span class="sep"></span><span class="gear"><b>⚙</b><span>設定</span></span></nav>
+            <main class="content scroll">
+              <div class="title-block"><h3>排程可靠性 · 兩篇對照</h3><p>A 證明可行，B 標出失敗模式。</p></div>
+              <div class="panel">
+                <div class="eyebrow">dominance <span class="soft">A 62 · B 38</span></div>
+                <div class="bar"><i style="--w: 62%"></i></div>
+              </div>
+              <div class="two-col">
+                <article class="card"><div class="eyebrow">A</div><h4>排程可行</h4><p>兩週不中斷，將技術可信度轉成日常 workflow。</p></article>
+                <article class="card"><div class="eyebrow">B</div><h4>反爬痛點</h4><p>把最大失敗模式講清楚，補足風險視角。</p></article>
+              </div>
+              <article class="card">
+                <div class="eyebrow">relation <span class="soft">互補</span></div>
+                <p style="font-family:var(--font-serif);font-size:15px;color:var(--ink);">合起來才是完整可靠性圖像：A 是 promise，B 是 caveat。</p>
+                <div class="chips"><span class="chip hot">S1.R2</span><span class="chip hot">S2.R1</span><span class="chip">S2.R7</span></div>
+              </article>
+            </main>
+          </div>
+        </div>
+      </div>
+    </article>
+
+    <article class="frame-wrap mode-product" id="product-saved">
+      <div class="frame-head"><h2>09 · Product Saved Signals</h2><span>product · saved</span></div>
+      <div class="screen">
+        <div class="app">
+          <header class="topbar"><div class="brand"><b>dlens</b><span>product</span></div><span class="mode-pill"><i></i>Product</span></header>
+          <div class="workspace">
+            <nav class="rail"><span class="avatar">p</span><button class="active"><b>◆</b><span>Signals</span></button><button><b>→</b><span>Action</span></button><button><b>＋</b><span>Collect</span></button><span class="sep"></span><span class="gear"><b>⚙</b><span>設定</span></span></nav>
+            <main class="content scroll">
+              <div class="title-block"><h3>Saved Signals</h3><p>分類 summary 併入 saved list，不另開 dashboard。</p></div>
+              <div class="metrics">
+                <span class="metric-card"><b>1</b><span>try</span></span>
+                <span class="metric-card"><b>1</b><span>watch</span></span>
+                <span class="metric-card"><b>1</b><span>noise</span></span>
+                <span class="metric-card"><b>0</b><span>blocked</span></span>
+              </div>
+              <article class="card">
+                <div class="eyebrow">technical <span class="soft">參考度 4/5</span></div>
+                <h4>循環資料抓取的可複用模式</h4>
+                <div class="quote">「每天早上爬關鍵字，存進 Notion 再叫它寫摘要。」</div>
+                <p>與 DLens 的 Threads 擷取管線同構：排程、關鍵字、摘要三段都對得上。</p>
+                <div class="chips"><span class="chip hot">嘗試</span><span class="chip">ProductContext</span></div>
+              </article>
+              <div class="rows">
+                <div class="row"><span class="main">討論串自動變內容日曆<span class="sub">agent task ready</span></span><span class="chip hot">觀察</span></div>
+                <div class="row"><span class="main">試算表管理靈感庫<span class="sub">low relevance</span></span><span class="chip">噪音</span></div>
+              </div>
+            </main>
+          </div>
+        </div>
+      </div>
+    </article>
+
+    <article class="frame-wrap mode-product" id="product-action">
+      <div class="frame-head"><h2>10 · Product Action</h2><span>product · marginalia</span></div>
+      <div class="screen">
+        <div class="app">
+          <header class="topbar"><div class="brand"><b>dlens</b><span>action</span></div><span class="mode-pill"><i></i>Product</span></header>
+          <div class="workspace">
+            <nav class="rail"><span class="avatar">p</span><button><b>◆</b><span>Signals</span></button><button class="active"><b>→</b><span>Action</span></button><button><b>＋</b><span>Collect</span></button><span class="sep"></span><span class="gear"><b>⚙</b><span>設定</span></span></nav>
+            <main class="content scroll">
+              <div class="title-block"><h3>Action Brief</h3><p>Marginalia rhythm：main signal + right task rail 的縮影。</p></div>
+              <div class="split">
+                <article class="card">
+                  <div class="eyebrow">§ 1 <span class="soft">experiment</span></div>
+                  <h4>crawl-job 模板</h4>
+                  <p>先支援單一關鍵字，每日一次，失敗重試，連續 7 天成功率 ≥ 90%。</p>
+                  <div class="quote">「兩週沒斷過」比 demo 更像產品 promise。</div>
+                </article>
+                <aside class="panel">
+                  <div class="eyebrow">TASK</div>
+                  <p>改寫成 crawl-job 實驗 brief</p>
+                  <span class="chip hot">copy</span>
+                  <span class="chip">review</span>
+                </aside>
+              </div>
+              <article class="card">
+                <div class="eyebrow">agent packet</div>
+                <p class="mono" style="font-size:11px;">signals: 2 · buckets: 1 · mode: html,jsonl · payload_chars: 2840</p>
+              </article>
+              <div class="button-row"><button class="btn primary">複製給 agent</button><button class="btn">JSONL</button></div>
+            </main>
+          </div>
+        </div>
+      </div>
+    </article>
+
+    <article class="frame-wrap mode-pr" id="pr-setup">
+      <div class="frame-head"><h2>11 · PR Criteria Setup</h2><span>pr-evidence · setup</span></div>
+      <div class="screen">
+        <div class="app">
+          <header class="topbar"><div class="brand"><b>dlens</b><span>pr</span></div><span class="mode-pill"><i></i>PR Evidence</span></header>
+          <div class="workspace">
+            <nav class="rail"><span class="avatar">r</span><button class="active"><b>▦</b><span>PR</span></button><button><b>⇣</b><span>Export</span></button><button><b>＋</b><span>Collect</span></button><span class="sep"></span><span class="gear"><b>⚙</b><span>設定</span></span></nav>
+            <main class="content scroll">
+              <div class="title-block"><h3>PR 判斷條件</h3><p>Brief → criteria → batch match，仍是 ledger workflow。</p></div>
+              <article class="card">
+                <div class="eyebrow">brief</div>
+                <p>採集先儲存貼文，PR 頁再批次判斷與匯出 CSV；V1 不在採集時跑 AI。</p>
+              </article>
+              <div class="rows">
+                <div class="row"><span class="chip hot">c1</span><span class="main">提到品牌名稱與場景</span><span class="chip">edit</span></div>
+                <div class="row"><span class="chip hot">c2</span><span class="main">附上實際使用截圖</span><span class="chip">edit</span></div>
+                <div class="row"><span class="chip warn">c3</span><span class="main">說明排程可靠度結果</span><span class="chip hot">user</span></div>
+                <div class="row"><span class="chip hot">c4</span><span class="main">明確標註合作／自發</span><span class="chip">edit</span></div>
+              </div>
+              <div class="button-row"><button class="btn primary">Match criteria</button><button class="btn">新增 criteria</button></div>
+            </main>
+          </div>
+        </div>
+      </div>
+    </article>
+
+    <article class="frame-wrap mode-pr" id="pr-ledger">
+      <div class="frame-head"><h2>12 · PR Ledger / Export</h2><span>pr-evidence · ledger</span></div>
+      <div class="screen">
+        <div class="app">
+          <header class="topbar"><div class="brand"><b>dlens</b><span>ledger</span></div><span class="mode-pill"><i></i>PR Evidence</span></header>
+          <div class="workspace">
+            <nav class="rail"><span class="avatar">r</span><button class="active"><b>▦</b><span>PR</span></button><button><b>⇣</b><span>Export</span></button><button><b>＋</b><span>Collect</span></button><span class="sep"></span><span class="gear"><b>⚙</b><span>設定</span></span></nav>
+            <main class="content scroll">
+              <div class="title-block"><h3>Campaign Evidence Ledger</h3><p>Rows first，CSV primary，summary secondary。</p></div>
+              <div class="metrics">
+                <span class="metric-card"><b>8</b><span>rows</span></span>
+                <span class="metric-card"><b>5</b><span>strong</span></span>
+                <span class="metric-card"><b>3</b><span>weak</span></span>
+                <span class="metric-card"><b>0</b><span>failed</span></span>
+              </div>
+              <div class="table">
+                <div class="table-row"><span class="chip hot">✓</span><span class="cap">@maker_daily · 用了兩週，排程沒斷過</span><span class="mono">5/6</span></div>
+                <div class="table-row"><span class="chip hot">✓</span><span class="cap">@creator_lab · 這工具救了內容排程</span><span class="mono">4/6</span></div>
+                <div class="table-row"><span class="chip">○</span><span class="cap">@pm_notes · 有人用過類似的嗎？</span><span class="mono">2/6</span></div>
+                <div class="table-row"><span class="chip warn">!</span><span class="cap">@agency_ops · 只提活動沒提品牌</span><span class="mono">1/6</span></div>
+              </div>
+              <article class="card">
+                <div class="eyebrow">export preview</div>
+                <p class="mono" style="font-size:10.5px;">post_url | author | likes | comments | c1 | c2 | c3 | c4 | notes</p>
+              </article>
+              <div class="button-row"><button class="btn primary">CSV</button><button class="btn">MD</button><button class="btn">DOCX</button></div>
+            </main>
+          </div>
+        </div>
+      </div>
+    </article>
+
+    <article class="frame-wrap mode-settings" id="settings">
+      <div class="frame-head"><h2>13 · Settings Drawer</h2><span>neutral · utility</span></div>
+      <div class="screen">
+        <div class="settings-shell">
+          <header class="topbar"><div class="brand"><b style="color:var(--ink)">dlens</b><span>settings</span></div><span class="mode-pill"><i></i>Utility</span></header>
+          <section class="sheet glass" style="padding:14px;display:grid;gap:12px;min-height:650px;">
+            <div class="title-block"><h3>設定</h3><p>窄 runtime utility drawer，避免變成另一個工作頁。</p></div>
+            <article class="card">
+              <div class="eyebrow">folder mode</div>
+              <div class="chips"><span class="chip hot">Topic</span><span class="chip">Product</span><span class="chip">PR Evidence</span><span class="chip">Archive</span></div>
+            </article>
+            <article class="card">
+              <div class="eyebrow">connection</div>
+              <p>Backend health: ok · worker idle · last sync 2026-07-09 11:42</p>
+              <div class="bar"><i style="--w: 78%"></i></div>
+            </article>
+            <article class="card">
+              <div class="eyebrow">storage</div>
+              <p>Storage 用量：4.2 MB / 10 MB。Product cache reset 不刪 saved signals。</p>
+            </article>
+            <article class="card">
+              <div class="eyebrow">product profile</div>
+              <p>Promise、audience、category 已填；ProductContext 可生成。</p>
+            </article>
+            <div class="button-row"><button class="btn primary">保存</button><button class="btn">清 Product cache</button></div>
+          </section>
+        </div>
+      </div>
+    </article>
+  </section>
+</main>
+
+<script>
+  document.querySelectorAll("[data-skin]").forEach(function(button) {
+    button.addEventListener("click", function() {
+      document.body.dataset.skin = button.dataset.skin;
+      document.querySelectorAll("[data-skin]").forEach(function(candidate) {
+        candidate.setAttribute("aria-pressed", candidate === button ? "true" : "false");
+      });
+    });
+  });
+</script>
+</body>
+</html>

@@ -133,13 +133,13 @@ test("TopicsListView renders the five audit states with distinct status copy", (
   assert.match(html, /data-mode-header="topics"/);
   assert.match(html, /data-mode-intro="topic"/);
   assert.match(html, /padding:10px 4px 0/);
-  assert.match(html, /報告 已生成/);
-  assert.match(html, /報告 生成中/);
+  assert.match(html, /READY/);
+  assert.match(html, /BUILDING/);
   assert.doesNotMatch(html, /P3/);
-  assert.match(html, /報告 未生成/);
-  assert.match(html, /報告 失敗/);
+  assert.match(html, /QUEUED/);
+  assert.match(html, /FAILED/);
   assert.doesNotMatch(html, /P4/);
-  assert.match(html, /報告 過期/);
+  assert.match(html, /STALE/);
   assert.match(html, /\+2/);
   assert.match(html, /待處理/);
   assert.doesNotMatch(html, />queued</);
@@ -206,7 +206,7 @@ test("TopicsListView source metrics come from real session item readiness, not a
   assert.match(html, /data-topic-card-tag="航班"/);
   assert.match(html, /data-topic-source-queue="pending"/);
   assert.match(html, /1 待處理/);
-  assert.match(html, /報告 失敗/);
+  assert.match(html, /FAILED/);
 });
 
 test("TopicsListView create action routes to collect triage", () => {

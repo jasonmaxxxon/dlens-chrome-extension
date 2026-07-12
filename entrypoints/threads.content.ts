@@ -13,7 +13,7 @@ import {
 } from "../src/state/selection-mode-messages";
 import { InPageCollectorApp } from "../src/ui/InPageCollectorApp";
 import { buildWorkspaceCrashMarkup, getWorkspaceCrashMessage, isExtensionRuntimeError } from "../src/ui/runtime-guard";
-import { DLENS_MOTION_CSS } from "../src/ui/ProductSignalViews";
+import { DLENS_MOTION_CSS, ensureDlensKeyframes } from "../src/ui/motion";
 import {
   getLiveCollectionTarget,
   HOVER_RECT_EVENT,
@@ -104,6 +104,7 @@ function ensureOverlay(): HTMLDivElement {
     const theme = selectionTheme();
     overlay = document.createElement("div");
     overlay.id = OVERLAY_ID;
+    overlay.setAttribute("data-dlens-control", "true");
     overlay.style.position = "fixed";
     overlay.style.pointerEvents = "none";
     overlay.style.border = `1.5px solid ${theme.borderStrong}`;
@@ -140,43 +141,9 @@ function ensureRoot(): HTMLDivElement {
     motionStyle.textContent = DLENS_MOTION_CSS;
     document.head.appendChild(motionStyle);
   }
-  // Inject animation keyframes once
-  if (!document.getElementById("__dlens_keyframes__")) {
-    const style = document.createElement("style");
-    style.id = "__dlens_keyframes__";
-    style.textContent = `
-      @keyframes dlens-slide-in {
-        from { opacity: 0; transform: translateY(-8px) scale(0.97); }
-        to { opacity: 1; transform: translateY(0) scale(1); }
-      }
-      @keyframes dlens-pulse {
-        0%, 100% { opacity: 1; }
-        50% { opacity: 0.35; }
-      }
-      @keyframes dlens-glow-border {
-        0%, 100% { border-color: rgba(63,90,59,0.18); }
-        50% { border-color: rgba(63,90,59,0.35); }
-      }
-      @keyframes dlens-scan {
-        0% { background-position: 0% 0%; }
-        100% { background-position: 0% 100%; }
-      }
-      @keyframes dlens-bump {
-        0% { transform: scale(1); }
-        32% { transform: scale(1.34); }
-        62% { transform: scale(0.94); }
-        100% { transform: scale(1); }
-      }
-      @keyframes dlens-success-pulse {
-        0% { box-shadow: 0 0 0 0 rgba(63,90,59,0); }
-        16% { box-shadow: 0 0 0 6px rgba(63,90,59,0.26); }
-        40% { box-shadow: 0 0 0 0 rgba(63,90,59,0); }
-        58% { box-shadow: 0 0 0 5px rgba(63,90,59,0.18); }
-        100% { box-shadow: 0 0 0 0 rgba(63,90,59,0); }
-      }
-    `;
-    document.head.appendChild(style);
-  }
+  // Inject the single keyframe registry + reduced-motion safety net once (idempotent,
+  // shared guard id across every mount context).
+  ensureDlensKeyframes(document);
   return root;
 }
 

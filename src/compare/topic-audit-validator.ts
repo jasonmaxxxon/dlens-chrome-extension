@@ -1,4 +1,5 @@
 import type { EvidencePacket, ReplyFragment } from "./topic-audit.ts";
+import { extractTopicEvidenceRefs } from "./topic-audit-evidence.ts";
 
 export type TopicAuditValidationSeverity = "FAIL" | "WEAK" | "SCOPE";
 export type TopicAuditValidationKind =
@@ -29,15 +30,13 @@ export interface CrossTopicCalibrationValidationInput {
   calibrationMarkdown: string;
 }
 
-const REF_PATTERN = /S\d+\.(?:OPC\d+|OP|R\d+|P\d+)/g;
-
 function lineSection(line: string): string {
   const match = line.match(/^(§\d+)/);
   return match?.[1] ?? "unknown";
 }
 
 function collectRefs(line: string): string[] {
-  return [...line.matchAll(REF_PATTERN)].map((match) => match[0]);
+  return extractTopicEvidenceRefs(line);
 }
 
 function buildRefIndex(packets: EvidencePacket[]): Map<string, { likes: number | null; text: string }> {

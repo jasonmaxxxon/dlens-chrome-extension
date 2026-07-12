@@ -48,6 +48,17 @@ test("validateTopicAuditDraft flags missing and unknown citations without rewrit
   assert.equal(flags.some((flag) => /改寫/.test(flag.reason)), false);
 });
 
+test("validateTopicAuditDraft treats an unknown OPR ref as the full token instead of truncating it to OP", () => {
+  const flags = validateTopicAuditDraft({
+    packets: [makePacket()],
+    reportMarkdown: "§4 OP 回覆建立了新的限制條件 [S1.OPR9]。"
+  });
+
+  assert.deepEqual(flags.map((flag) => flag.kind), ["unknown-ref"]);
+  assert.deepEqual(flags[0]?.evidenceRefs, ["S1.OPR9"]);
+  assert.match(flags[0]?.reason ?? "", /S1\.OPR9/);
+});
+
 test("validateTopicAuditDraft flags likes mismatches and queued-as-zero arithmetic", () => {
   const flags = validateTopicAuditDraft({
     packets: [

@@ -26,6 +26,7 @@ export interface CapturedPostOrphanReply {
 
 export interface CapturedPostFragment {
   id: string;
+  idSource?: "captured" | "fallback";
   sourceId: string | null;
   parentId: string | null;
   parentSourceId: string | null;
@@ -159,8 +160,11 @@ export function hasCapturedPostAnalyzableText(capture: CaptureSnapshot | null | 
   return Boolean(readCapturedPostAnalyzableTextFromCapture(capture));
 }
 
-function readPostId(post: ThreadReadModelPostSnapshot, fallbackId: string): string {
-  return readTrimmedString(post.postId ?? post.post_id ?? post.commentId ?? post.comment_id) || fallbackId;
+function readPostIdentity(post: ThreadReadModelPostSnapshot, fallbackId: string): { id: string; source: "captured" | "fallback" } {
+  const captured = readTrimmedString(post.postId ?? post.post_id ?? post.commentId ?? post.comment_id);
+  return captured
+    ? { id: captured, source: "captured" }
+    : { id: fallbackId, source: "fallback" };
 }
 
 function readPostSourceId(post: ThreadReadModelPostSnapshot): string | null {
@@ -221,13 +225,15 @@ function normalizeFragment(
   if (!text) {
     return null;
   }
-  const id = readPostId(post, fallbackId);
+  const identity = readPostIdentity(post, fallbackId);
+  const id = identity.id;
   const sourceId = readPostSourceId(post);
   const identityKeys = sourceId && sourceId !== id ? [id, sourceId] : [id];
   const orphan = identityKeys.map((key) => relationships.orphanById.get(key)).find((entry): entry is CapturedPostOrphanReply => Boolean(entry));
   const resolvedParentId = identityKeys.map((key) => relationships.resolvedParentById.get(key)).find((entry): entry is string => Boolean(entry)) ?? null;
   return {
     id,
+    idSource: identity.source,
     sourceId,
     parentId: readPostParentId(post),
     parentSourceId: readPostParentSourceId(post),

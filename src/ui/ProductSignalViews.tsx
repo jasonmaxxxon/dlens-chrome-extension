@@ -36,8 +36,8 @@ import {
   PrimaryButton,
   SCAN_ROW_HOVER_CSS,
   SecondaryButton,
+  SectionHeader,
   Stamp,
-  WorkspaceSurface,
   lineClamp,
   scanRowStyle,
   surfaceCardStyle,
@@ -47,137 +47,9 @@ import { modeThemes, tokens, textStyles } from "./tokens";
 
 export type ProductSignalPageKind = "saved-signals" | "classification" | "actionable-filter";
 
-/* Shared motion layer — injected globally by the threads content script.
- * Applies across every workspace mode; classes are opt-in so unstyled
- * elements are unaffected. `prefers-reduced-motion` neutralises all of it. */
-export const DLENS_MOTION_CSS = `
-[data-dlens-control="true"] .dlens-card-lift {
-  transition: ${tokens.motion.preset.cardLift};
-  will-change: transform;
-  transform: translateY(0);
-}
-[data-dlens-control="true"] .dlens-card-lift:hover,
-[data-dlens-control="true"] .dlens-card-lift:focus-within {
-  transform: translateY(-4px);
-  box-shadow: ${tokens.shadow.cardLiftHover} !important;
-  border-color: ${tokens.color.lineHover} !important;
-}
-[data-dlens-control="true"] .dlens-card-lift:active {
-  transform: translateY(-2px) scale(0.994);
-  transition: transform 90ms ${tokens.motion.easing.standard};
-}
-[data-dlens-control="true"] .dlens-quote-row {
-  transition: background 200ms ${tokens.motion.easing.standard};
-  border-radius: 6px;
-}
-[data-dlens-control="true"] .dlens-quote-row:hover {
-  background: ${tokens.color.inkWash};
-}
-[data-dlens-control="true"] .dlens-expand-trigger {
-  transition: background 120ms ${tokens.motion.easing.standard}, border-color 120ms ${tokens.motion.easing.standard};
-}
-[data-dlens-control="true"] .dlens-details-summary:hover .dlens-expand-trigger {
-  background: ${tokens.color.inkWashStrong};
-  border-color: ${tokens.color.lineStrong};
-}
-[data-dlens-control="true"] .dlens-details-summary:hover [data-evidence-source-toggle="true"] {
-  background: ${tokens.color.productSoft} !important;
-  border-color: ${tokens.color.product} !important;
-}
-[data-dlens-control="true"] .dlens-details-smooth {
-  display: grid;
-}
-[data-dlens-control="true"] .dlens-details-summary {
-  transition: color 140ms ${tokens.motion.easing.standard};
-}
-[data-dlens-control="true"] .dlens-details-summary:hover {
-  color: ${tokens.color.ink};
-}
-[data-dlens-control="true"] .dlens-details-chevron {
-  display: inline-block;
-  transition: transform 220ms ${tokens.motion.easing.spring};
-}
-[data-dlens-control="true"] [data-dlens-details-open="true"] > .dlens-details-summary .dlens-details-chevron {
-  transform: rotate(180deg);
-}
-[data-dlens-control="true"] .dlens-details-panel {
-  display: grid;
-  grid-template-rows: 0fr;
-  opacity: 0;
-  overflow: hidden;
-  transition: grid-template-rows 240ms ${tokens.motion.easing.entrance}, opacity 160ms ${tokens.motion.easing.standard};
-}
-[data-dlens-control="true"] [data-dlens-details-open="true"] > .dlens-details-panel {
-  grid-template-rows: 1fr;
-  opacity: 1;
-}
-[data-dlens-control="true"] .dlens-details-panel-inner {
-  min-height: 0;
-  overflow: hidden;
-}
-[data-dlens-control="true"] [data-rail-icon] {
-  transition: transform 220ms ${tokens.motion.easing.springSoft};
-  will-change: transform;
-}
-[data-dlens-control="true"] [data-mode-style="rail"]:hover [data-rail-icon] {
-  transform: translateY(-2px);
-}
-[data-dlens-control="true"] [data-mode-style="rail"]:active [data-rail-icon] {
-  transform: translateY(0) scale(0.86);
-  transition: transform 90ms ${tokens.motion.easing.standard};
-}
-[data-dlens-control="true"] [data-verdict-filter-plate] {
-  transition: transform 280ms ${tokens.motion.easing.spring}, background-color 220ms ${tokens.motion.easing.standard}, border-color 220ms ${tokens.motion.easing.standard};
-}
-[data-dlens-control="true"] [data-verdict-tile-count],
-[data-dlens-control="true"] [data-verdict-tile-bar] {
-  transition: transform 200ms ${tokens.motion.easing.springSoft}, background-color 220ms ${tokens.motion.easing.standard} 40ms;
-}
-[data-dlens-control="true"] [data-verdict-tile]:hover [data-verdict-tile-count] {
-  transform: scale(1.1);
-}
-[data-dlens-control="true"] [data-verdict-tile]:active [data-verdict-tile-count] {
-  transform: scale(0.96);
-  transition: transform 90ms ${tokens.motion.easing.standard};
-}
-@media (prefers-reduced-motion: reduce) {
-  [data-dlens-control="true"] [data-verdict-filter-plate],
-  [data-dlens-control="true"] [data-verdict-tile-count],
-  [data-dlens-control="true"] [data-verdict-tile-bar] {
-    transition: none !important;
-  }
-  [data-dlens-control="true"] [data-verdict-tile]:hover [data-verdict-tile-count],
-  [data-dlens-control="true"] [data-verdict-tile]:active [data-verdict-tile-count] {
-    transform: none !important;
-  }
-  [data-dlens-control="true"] .dlens-card-lift,
-  [data-dlens-control="true"] .dlens-quote-row,
-  [data-dlens-control="true"] .dlens-details-summary,
-  [data-dlens-control="true"] .dlens-details-chevron,
-  [data-dlens-control="true"] .dlens-details-panel,
-  [data-dlens-control="true"] .dlens-expand-trigger,
-  [data-dlens-control="true"] [data-rail-icon] {
-    transition: none !important;
-  }
-  [data-dlens-control="true"] .dlens-card-lift:hover,
-  [data-dlens-control="true"] .dlens-card-lift:focus-within,
-  [data-dlens-control="true"] .dlens-card-lift:active,
-  [data-dlens-control="true"] .dlens-details-summary:hover,
-  [data-dlens-control="true"] [data-mode-style="rail"]:hover [data-rail-icon],
-  [data-dlens-control="true"] [data-mode-style="rail"]:active [data-rail-icon] {
-    transform: none !important;
-  }
-  [data-dlens-control="true"] [data-bump-number="true"],
-  [data-dlens-control="true"] [data-signal-reading-filed-flash="true"],
-  [data-dlens-control="true"] [data-signal-reading-compose-flash="true"] {
-    animation: none !important;
-  }
-  [data-dlens-control="true"] [data-button-shimmer="true"] {
-    animation: none !important;
-    opacity: 0 !important;
-  }
-}
-`;
+/* DLENS_MOTION_CSS now lives in ./motion (the single motion owner). Re-exported
+ * here so the threads content script and existing imports/tests keep working. */
+export { DLENS_MOTION_CSS } from "./motion";
 
 const PAGE_COPY: Record<ProductSignalPageKind, { title: string; deck: string }> = {
   "saved-signals": {
@@ -693,6 +565,22 @@ function mutedPanelStyle(extra?: CSSProperties): CSSProperties {
     boxShadow: tokens.shadow.topicCard,
     ...extra
   });
+}
+
+/** Marquee readiness strip — the same workspaceGlass hero material as the Collect capture stage. */
+function heroPanelStyle(extra?: CSSProperties): CSSProperties {
+  return {
+    display: "grid",
+    gap: 9,
+    padding: "12px 14px",
+    borderRadius: tokens.radius.cardLg,
+    border: `1px solid ${tokens.color.atlasEdge}`,
+    background: tokens.color.atlasPaper,
+    boxShadow: tokens.shadow.atlasCard,
+    backdropFilter: tokens.effect.atlasBlur,
+    WebkitBackdropFilter: tokens.effect.atlasBlur,
+    ...extra
+  };
 }
 
 type InsightTone = "relevance" | "timing" | "experiment" | "validation";
@@ -1326,8 +1214,7 @@ function ReadinessPanel({
     return (
       <div
         data-product-hydrating="true"
-        style={mutedPanelStyle({
-          display: "grid",
+        style={heroPanelStyle({
           gap: 9,
           padding: "10px 12px"
         })}
@@ -1348,7 +1235,7 @@ function ReadinessPanel({
     return (
       <div
         className="dlens-card-lift"
-        style={mutedPanelStyle({
+        style={heroPanelStyle({
           display: "flex",
           alignItems: "center",
           gap: 10,
@@ -1368,7 +1255,7 @@ function ReadinessPanel({
   }
 
   return (
-    <div style={mutedPanelStyle({ gap: hasResults ? 8 : 10 })}>
+    <div style={heroPanelStyle({ gap: hasResults ? 8 : 10 })}>
       <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10, flexWrap: "wrap" }}>
         <Kicker>{hasResults ? "分析狀態" : "真實狀態"}</Kicker>
         <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
@@ -2393,10 +2280,7 @@ function SavedSignalsBoard({
   return (
     <section data-saved-signals-route="true" style={{ display: "grid", gap: 12 }}>
       <div style={cardStyle({ gap: 10 })}>
-        <div style={{ display: "flex", justifyContent: "space-between", gap: 10, alignItems: "baseline" }}>
-          <Kicker>已存訊號</Kicker>
-          <span style={{ ...textStyles.meta, color: tokens.color.softInk }}>{signals.length}</span>
-        </div>
+        <SectionHeader title="訊號清單" caption={`${signals.length} 則`} style={{ marginBottom: 0 }} />
         <div data-product-saved-filter-tabs="true" role="tablist" aria-label="已存訊號篩選" style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
           {SAVED_FILTER_TABS.map((tab) => {
             const active = activeFilter === tab.key;
@@ -2417,7 +2301,7 @@ function SavedSignalsBoard({
                   alignItems: "center",
                   gap: 6,
                   padding: "5px 11px",
-                  borderRadius: tokens.radius.round,
+                  borderRadius: tokens.radius.pill,
                   border: `1px solid ${active ? tokens.color.product : tokens.color.line}`,
                   background: active ? tokens.color.productSoft : tokens.color.surface,
                   color: disabled ? tokens.color.softInk : active ? tokens.color.product : tokens.color.subInk,
@@ -3030,7 +2914,7 @@ function SignalReadingReviewWorkspace({
                   boxShadow: isActive ? tokens.shadow.raised : tokens.shadow.card,
                   overflow: "hidden",
                   transition: tokens.motion.preset.cardLift,
-                  animation: recentlyFiledSignalId === signal.signalId ? tokens.motion.keyframes.successPulse : undefined
+                  animation: recentlyFiledSignalId === signal.signalId ? tokens.motion.keyframes.successRing : undefined
                 }}
               >
                 <button
@@ -4109,7 +3993,7 @@ export function ProductSignalView({
               </Stamp>
         }
       />
-      <WorkspaceSurface tone="utility" style={{ display: "grid", gap: tokens.spacing.md, overflow: "visible" }}>
+      <div data-product-signal-frame="true" style={{ display: "grid", gap: tokens.spacing.md, overflow: "visible", minWidth: 0 }}>
         <ReadinessPanel
           viewModel={viewModel}
           onAnalyze={handleAnalyze}
@@ -4248,7 +4132,7 @@ export function ProductSignalView({
             </div>
           </div>
         )}
-      </WorkspaceSurface>
+      </div>
     </div>
   );
 }

@@ -39,7 +39,14 @@ const WORKSPACE_SWITCHER_MODES: ReadonlyArray<WorkspaceSwitcherMode> = IS_PR_ONL
 // column scroll container, so padding-bottom silently clips the last card /
 // action button in every mode. Do not "simplify" this back into padding-bottom.
 const POPUP_VIEWPORT_BOTTOM_PADDING = tokens.spacing.section + 48;
+// Variant D's 28px frame radius is part of the glass silhouette. Keeping the
+// scroll viewport on the same radius makes the bottom curve remain visible.
+const POPUP_FRAME_RADIUS = 28;
 const SETTINGS_WORKSPACE_SURFACE_STYLE: CSSProperties = {
+  padding: 0,
+  background: "transparent",
+  boxShadow: "none",
+  border: "none",
   overflow: "visible"
 };
 
@@ -114,6 +121,7 @@ export function InPageCollectorPopup({ app }: { app: InPageCollectorAppModel }) 
         auditEvidence: app.activeTopicAudit?.auditEvidence,
         auditMemos: app.activeTopicAudit?.auditMemos,
         auditReport: app.activeTopicAudit?.auditReport,
+        auditEpisodes: app.activeTopicAudit?.auditEpisodes,
         auditSummary: app.activeTopicAudit?.summary,
         auditValidatorFlags: app.activeTopicAudit?.auditValidatorFlags,
         p1RunningSignalIds: app.activeTopic && app.topicAuditP1RunningBySignalId[app.activeTopic.id]
@@ -310,16 +318,16 @@ export function InPageCollectorPopup({ app }: { app: InPageCollectorAppModel }) 
       data-dlens-control="true"
       data-workspace-popup="shell"
       data-workspace-popup-material={workspaceMaterial}
-      data-paper-grain="true"
       style={{
         position: "fixed",
-        right: 24,
+        right: 12,
         top: 82,
         width: getPageWidth(guardedPage),
+        maxWidth: "calc(100vw - 24px)",
         height: "min(86vh, 860px)",
-        maxHeight: "min(86vh, 860px)",
+        maxHeight: "calc(100vh - 94px)",
         overflow: "hidden",
-        borderRadius: tokens.radius.lg + 2,
+        borderRadius: POPUP_FRAME_RADIUS,
         border: `1px solid ${workspaceMaterial === "glass" ? workspaceGlass.edge : tokens.color.glassBorder}`,
         boxShadow: `${tokens.shadow.popup}, inset 0 1px 0 ${tokens.color.shellSurface}`,
         zIndex: 2147483640,
@@ -339,7 +347,7 @@ export function InPageCollectorPopup({ app }: { app: InPageCollectorAppModel }) 
       <div aria-hidden style={{
         position: "absolute",
         inset: 0,
-        borderRadius: tokens.radius.lg + 2,
+        borderRadius: POPUP_FRAME_RADIUS,
         background: workspaceMaterial === "glass"
           ? workspaceGlass.canvas
           : `linear-gradient(180deg, ${tokens.color.elevated}, ${tokens.color.canvas})`,
@@ -359,11 +367,12 @@ export function InPageCollectorPopup({ app }: { app: InPageCollectorAppModel }) 
         style={{
           position: "relative",
           zIndex: 1,
+          boxSizing: "border-box",
           height: "100%",
           maxHeight: "min(86vh, 860px)",
           overflowY: "auto",
           overflowX: "hidden",
-          borderRadius: tokens.radius.lg + 2,
+          borderRadius: POPUP_FRAME_RADIUS,
           padding: `${tokens.spacing.section}px`,
           paddingBottom: 0,
           display: "flex",
@@ -589,7 +598,7 @@ export function InPageCollectorPopup({ app }: { app: InPageCollectorAppModel }) 
           ) : null}
 
           {guardedPage === "settings" ? (
-            <WorkspaceSurface tone="utility" style={SETTINGS_WORKSPACE_SURFACE_STYLE}>
+            <WorkspaceSurface style={SETTINGS_WORKSPACE_SURFACE_STYLE}>
               <SettingsView
                 sessionMode={activeFolder?.mode ?? "topic"}
                 canEditSessionMode
@@ -650,5 +659,6 @@ export const inPageCollectorPopupTestables = {
   shouldShowProcessingContextStrip,
   workspaceMaterialForFolderMode,
   popupViewportBottomPadding: POPUP_VIEWPORT_BOTTOM_PADDING,
+  popupFrameRadius: POPUP_FRAME_RADIUS,
   settingsWorkspaceSurfaceStyle: SETTINGS_WORKSPACE_SURFACE_STYLE
 };

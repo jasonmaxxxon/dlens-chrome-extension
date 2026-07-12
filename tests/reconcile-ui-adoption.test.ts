@@ -4,7 +4,7 @@ import test from "node:test";
 import type { CompareBrief } from "../src/compare/brief.ts";
 import type { ClusterInterpretation } from "../src/compare/cluster-interpretation.ts";
 import type { EvidenceAnnotation } from "../src/compare/evidence-annotation.ts";
-import type { EvidencePacket, TopicAuditReport } from "../src/compare/topic-audit.ts";
+import type { EvidencePacket, TopicAuditEpisode, TopicAuditReport } from "../src/compare/topic-audit.ts";
 import type { ExtensionResponse } from "../src/state/messages.ts";
 import { createRequestReconciler, type RequestReconcileTarget } from "../src/state/request-reconcile.ts";
 import type { SavedAnalysisSnapshot } from "../src/state/types.ts";
@@ -22,6 +22,7 @@ import {
 import {
   applyTopicAuditP1Result,
   applyTopicAuditRunResult,
+  invalidateTopicAuditPublication,
   shouldClearTopicAuditP1Running,
   shouldClearTopicAuditRunState
 } from "../src/ui/useTopicAudit.ts";
@@ -56,7 +57,8 @@ function makeAuditLoaded(signalId: string) {
   return {
     evidence: [{ signalId } as EvidencePacket],
     memos: null,
-    report: null,
+    report: { generatedFrom: [`${signalId}:p1`] } as TopicAuditReport,
+    episodes: [{ id: `episode-${signalId}` } as TopicAuditEpisode],
     flags: []
   };
 }
@@ -67,6 +69,7 @@ function makeAuditResponse(signalId: string): ExtensionResponse {
     auditEvidence: [{ signalId } as EvidencePacket],
     auditMemos: { signalReadings: [{ signalId }], lensMemos: [] } as TopicAuditMemoBundle,
     auditReport: { generatedFrom: [`${signalId}:p1`] } as TopicAuditReport,
+    auditEpisodes: [{ id: `episode-${signalId}` } as TopicAuditEpisode],
     auditValidatorFlags: [{ id: `${signalId}-flag` } as TopicAuditValidationFlag]
   } as ExtensionResponse;
 }
@@ -153,6 +156,22 @@ test("topic audit stale run and P1 responses do not adopt old audit state or cle
   const accepted = acceptedDecision("topic.audit.run:topic-old", { sessionId: "session-1", topicId: "topic-old" });
   const acceptedNext = applyTopicAuditRunResult(current, "topic-old", makeAuditResponse("accepted-run"), accepted);
   assert.equal(acceptedNext["topic-old"]?.evidence[0]?.signalId, "accepted-run");
+  assert.equal(acceptedNext["topic-old"]?.episodes[0]?.id, "episode-accepted-run");
+
+  const acceptedP1 = acceptedDecision("topic.audit.p1:topic-old:signal-1", {
+    sessionId: "session-1",
+    topicId: "topic-old",
+    signalId: "signal-1"
+  });
+  const p1Next = applyTopicAuditP1Result(current, "topic-old", makeAuditResponse("accepted-p1"), acceptedP1);
+  assert.equal(p1Next["topic-old"]?.episodes[0]?.id, "episode-previous");
+  assert.equal(p1Next["topic-old"]?.report, null);
+  assert.deepEqual(p1Next["topic-old"]?.flags, []);
+
+  const failedP1Next = invalidateTopicAuditPublication(current, "topic-old");
+  assert.equal(failedP1Next["topic-old"]?.report, null);
+  assert.equal(failedP1Next["topic-old"]?.episodes[0]?.id, "episode-previous");
+  assert.deepEqual(failedP1Next["topic-old"]?.flags, []);
 });
 
 test("judgment stale responses do not adopt old saved analyses or clear newer loading", () => {

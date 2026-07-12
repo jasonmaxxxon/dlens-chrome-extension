@@ -1,0 +1,396 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Signal Atlas — 變體 A · 星圖(較亮候選 accent)</title>
+<!--
+  MOCKUP · reference only · 2026-07-09
+  來源:使用者提供的 Obsidian「Travel Atlas」錄影(暖白底 + 中央主視覺 + 發光資料點 + 分佈卡)。
+  借它的構圖文法,不借它的配色:
+    - 影片的 #43D6C8 電光青 → 換成「候選」訊號綠 #2f7a5e(比現有 sage 亮一級,仍是 natural-dye)。
+      ★ 此值不存在於 tokens.ts。若選 A,需在實作 PR 同時把它加進 tokens.ts(建議名 atlasSignal)。
+    - 影片的玻璃半透明卡 → 不透明暖紙卡 + shadow.card(glassmorphism 在拒絕清單上,不復活)。
+    - 影片的 KPI 大數字 → mono ledger 數字列(tabular,28px 以下,不做 stat tiles)。
+  其餘全部對應現有 tokens.ts 值(canvas/surface/elevated/ink/line/amber/motion)。
+  寬度以 sidepanel ~400px 為準。
+-->
+<style>
+  :root {
+    /* ── tokens.ts 現值 ── */
+    --canvas: #f7f4ec;          /* color.canvas */
+    --surface: #fbf8f1;         /* color.surface */
+    --elevated: #fdfbf6;        /* color.elevated */
+    --ink: #1b1a17;             /* color.ink */
+    --sub-ink: #3d3b35;         /* color.subInk */
+    --soft-ink: #6c695e;        /* color.softInk */
+    --line: rgba(27,26,23,0.10);      /* color.line */
+    --card-edge: rgba(27,26,23,0.055);/* color.cardEdge */
+    --sage: #3f5a3b;            /* color.teal / topic accent */
+    --sage-mid: #527648;        /* color.tealMid */
+    --sage-glow: rgba(63,90,59,0.16); /* color.tealGlow */
+    --amber: #a16a17;           /* color.queued */
+    --amber-soft: rgba(161,106,23,0.11); /* color.queuedSoft */
+    --indigo: #1a2e4f;          /* color.accent */
+    --rose: #7a2030;            /* techniqueRose */
+    --neutral-chip: #f1ece0;    /* neutralSurface */
+    --shadow-card: inset 0 1px 0 rgba(255,255,255,0.6), 0 1px 2px rgba(27,26,23,0.04), 0 4px 10px -4px rgba(27,26,23,0.06);
+    --shadow-glass: 0 1px 0 rgba(27,26,23,0.035), 0 8px 18px -10px rgba(27,26,23,0.12), 0 1px 2px rgba(27,26,23,0.05);
+    --r-card: 12px;             /* radius.card */
+    --r-card-lg: 20px;          /* radius.cardLg */
+    --r-chip: 14px;             /* radius.chip */
+    --sans: 'Noto Sans TC', -apple-system, BlinkMacSystemFont, 'SF Pro Text', system-ui, sans-serif;
+    --serif: 'Noto Serif TC', 'Songti TC', serif;
+    --mono: 'JetBrains Mono', 'SF Mono', ui-monospace, monospace;
+    --ease-entrance: cubic-bezier(0.16, 1, 0.3, 1);
+
+    /* ── ★ 候選值(未入 tokens.ts)── */
+    --atlas-signal: #2f7a5e;               /* 候選 atlasSignal:亮一級的訊號綠 */
+    --atlas-signal-glow: rgba(47,122,94,0.32);
+    --atlas-signal-faint: rgba(47,122,94,0.10);
+  }
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    background: #e9e5da; /* mockup 舞台底,非產品面 */
+    font-family: var(--sans);
+    color: var(--ink);
+    display: flex;
+    justify-content: center;
+    padding: 32px 12px 80px;
+  }
+  .panel {
+    width: 400px;
+    background: var(--canvas);
+    border-radius: var(--r-card-lg);
+    box-shadow: 0 20px 56px rgba(27,26,23,0.16), 0 2px 8px rgba(27,26,23,0.08);
+    overflow: hidden;
+  }
+
+  /* ── header:kicker + serif 標題 + mono ledger 數字列 ── */
+  .head { padding: 20px 20px 8px; }
+  .kicker {
+    font-size: 10px; font-weight: 700; letter-spacing: 0.14em; /* ★ 候選:比 label 的 0.06em 寬 */
+    text-transform: uppercase; color: var(--soft-ink); font-family: var(--mono);
+  }
+  .title-row { display: flex; align-items: baseline; gap: 10px; margin-top: 6px; }
+  .title { font-family: var(--serif); font-weight: 700; font-size: 24px; line-height: 1.25; }
+  .title-meta { font-size: 12px; font-weight: 500; color: var(--soft-ink); }
+  .ledger {
+    display: flex; gap: 22px; margin-top: 14px; padding-bottom: 14px;
+    border-bottom: 1px solid var(--line);
+  }
+  .ledger .cell { display: flex; flex-direction: column; gap: 2px; }
+  .ledger .num {
+    font-family: var(--mono); font-weight: 700; font-size: 26px;
+    font-variant-numeric: tabular-nums; line-height: 1.1;
+  }
+  .ledger .cell:last-child .num { color: var(--atlas-signal); }
+  .ledger .lab {
+    font-family: var(--mono); font-size: 9px; font-weight: 700;
+    letter-spacing: 0.10em; text-transform: uppercase; color: var(--soft-ink);
+  }
+
+  /* ── atlas 主視覺 ── */
+  .atlas-wrap { position: relative; padding: 4px 8px 0; }
+  .atlas-hint {
+    position: absolute; top: 12px; right: 20px;
+    font-size: 10px; font-weight: 500; color: var(--soft-ink);
+  }
+  svg .ring { fill: none; stroke: rgba(27,26,23,0.07); stroke-width: 1; }
+  svg .tick { stroke: rgba(27,26,23,0.12); stroke-width: 1; }
+  svg .cluster-label {
+    font-family: var(--mono); font-size: 8.5px; font-weight: 700;
+    letter-spacing: 0.08em; fill: var(--soft-ink); text-transform: uppercase;
+  }
+  svg .dot { cursor: pointer; }
+  svg .dot circle.core { fill: var(--atlas-signal); opacity: 0.55; }
+  svg .dot.hi circle.core { opacity: 1; }
+  svg .dot circle.halo { fill: var(--atlas-signal-glow); transform-box: fill-box; transform-origin: center; }
+  svg .dot.sel circle.core { stroke: var(--ink); stroke-width: 1.5; }
+  @media (prefers-reduced-motion: no-preference) {
+    svg .dot.hi circle.halo { animation: atlasPulse 3.2s var(--ease-entrance) infinite; }
+    svg g.drift { animation: drift 9s ease-in-out infinite alternate; }
+    svg g.drift:nth-of-type(2n) { animation-duration: 11s; animation-delay: -4s; }
+  }
+  @keyframes atlasPulse {
+    0% { transform: scale(1); opacity: 0.5; }
+    100% { transform: scale(3.0); opacity: 0; }
+  }
+  @keyframes drift {
+    from { transform: translateY(0); }
+    to { transform: translateY(3px); }
+  }
+
+  /* ── 選中留言(點 dot 才有東西 — substance over decoration)── */
+  .selected {
+    margin: 0 16px 14px; padding: 12px 14px;
+    background: var(--elevated); border: 1px solid var(--card-edge);
+    border-radius: var(--r-card); box-shadow: var(--shadow-card);
+  }
+  .selected .q {
+    font-family: var(--serif); font-style: italic; font-weight: 500;
+    font-size: 14px; line-height: 1.6; color: var(--sub-ink);
+  }
+  .selected .m {
+    display: flex; gap: 10px; margin-top: 8px;
+    font-family: var(--mono); font-size: 10px; font-weight: 700;
+    font-variant-numeric: tabular-nums; color: var(--soft-ink);
+  }
+  .selected .m .k { color: var(--atlas-signal); }
+
+  /* ── 分佈卡 ── */
+  .card {
+    margin: 0 16px 14px; padding: 16px;
+    background: var(--elevated); border: 1px solid var(--card-edge);
+    border-radius: var(--r-card); box-shadow: var(--shadow-glass);
+  }
+  .card-head { display: flex; justify-content: space-between; margin-bottom: 12px; }
+  .card-head span {
+    font-family: var(--mono); font-size: 9px; font-weight: 700;
+    letter-spacing: 0.10em; text-transform: uppercase; color: var(--soft-ink);
+  }
+  .dist { display: flex; gap: 18px; align-items: center; }
+  .donut-wrap { position: relative; width: 108px; height: 108px; flex: none; }
+  .donut-center {
+    position: absolute; inset: 0; display: flex; flex-direction: column;
+    align-items: center; justify-content: center;
+  }
+  .donut-center .n { font-family: var(--mono); font-weight: 700; font-size: 22px; font-variant-numeric: tabular-nums; }
+  .donut-center .l { font-family: var(--mono); font-size: 8px; font-weight: 700; letter-spacing: 0.10em; color: var(--soft-ink); }
+  .dist-rows { flex: 1; display: flex; flex-direction: column; gap: 7px; }
+  .dist-row { display: flex; align-items: center; gap: 8px; font-size: 12px; font-weight: 500; }
+  .dist-row .swatch { width: 7px; height: 7px; border-radius: 999px; flex: none; }
+  .dist-row .name { flex: 1; color: var(--sub-ink); }
+  .dist-row .n { font-family: var(--mono); font-weight: 700; font-size: 12px; font-variant-numeric: tabular-nums; }
+
+  /* ── 每週足跡 ── */
+  .weeks { display: flex; justify-content: space-between; align-items: flex-end; height: 64px; padding: 4px 2px 0; }
+  .wk { display: flex; flex-direction: column; align-items: center; gap: 6px; flex: 1; }
+  .wk .bar { width: 7px; border-radius: 4px; background: var(--sage-glow); }
+  .wk.hot .bar { background: var(--amber); }
+  .wk .wl { font-family: var(--mono); font-size: 8px; font-weight: 700; color: var(--soft-ink); font-variant-numeric: tabular-nums; }
+  .wk.hot .wl { color: var(--amber); }
+
+  /* ── chips + 留言列表(chips 真的會過濾)── */
+  .chips { display: flex; flex-wrap: wrap; gap: 6px; padding: 2px 16px 12px; }
+  .chip {
+    font-size: 11px; font-weight: 600; padding: 5px 11px;
+    border-radius: var(--r-chip); border: 1px solid transparent;
+    background: var(--neutral-chip); color: var(--soft-ink); cursor: pointer;
+    transition: all 180ms cubic-bezier(0.4, 0, 0.2, 1);
+  }
+  .chip.on { background: var(--ink); color: #fff; }
+  .rows { padding: 0 16px 20px; display: flex; flex-direction: column; gap: 8px; }
+  .row {
+    display: flex; align-items: center; gap: 10px; padding: 11px 12px;
+    background: var(--surface); border: 1px solid var(--card-edge);
+    border-radius: var(--r-card); box-shadow: var(--shadow-card);
+  }
+  .row.hidden { display: none; }
+  .row .vt {
+    font-family: var(--mono); font-size: 9px; font-weight: 700; letter-spacing: 0.06em;
+    padding: 3px 7px; border-radius: 8px; flex: none;
+  }
+  .vt.support { background: var(--atlas-signal-faint); color: var(--atlas-signal); }
+  .vt.doubt { background: var(--amber-soft); color: var(--amber); }
+  .vt.price { background: rgba(122,32,48,0.10); color: var(--rose); }
+  .row .tx { flex: 1; font-size: 12px; line-height: 1.5; color: var(--sub-ink); }
+  .row .ct { font-family: var(--mono); font-size: 11px; font-weight: 700; color: var(--soft-ink); font-variant-numeric: tabular-nums; }
+</style>
+</head>
+<body>
+<div class="panel">
+
+  <div class="head">
+    <div class="kicker">Signal Atlas · 主題模式 · 礦物防曬</div>
+    <div class="title-row">
+      <div class="title">訊號星圖</div>
+      <div class="title-meta">最近 12 天擷取</div>
+    </div>
+    <div class="ledger">
+      <div class="cell"><span class="num">132</span><span class="lab">則留言</span></div>
+      <div class="cell"><span class="num">5</span><span class="lab">訊號群</span></div>
+      <div class="cell"><span class="num">27</span><span class="lab">高訊號</span></div>
+    </div>
+  </div>
+
+  <div class="atlas-wrap">
+    <div class="atlas-hint">點亮點看原始留言 ↓</div>
+    <svg viewBox="0 0 384 300" width="100%" xmlns="http://www.w3.org/2000/svg">
+      <!-- radial guides:細線 + tick,影片文法裡唯一保留的裝飾 -->
+      <circle class="ring" cx="192" cy="150" r="132"/>
+      <circle class="ring" cx="192" cy="150" r="92"/>
+      <circle class="ring" cx="192" cy="150" r="52"/>
+      <line class="tick" x1="192" y1="12" x2="192" y2="20"/>
+      <line class="tick" x1="192" y1="280" x2="192" y2="288"/>
+      <line class="tick" x1="54" y1="150" x2="62" y2="150"/>
+      <line class="tick" x1="322" y1="150" x2="330" y2="150"/>
+
+      <!-- cluster 1 支持實測 (46) -->
+      <g class="drift">
+        <text class="cluster-label" x="96" y="66">支持實測 · 46</text>
+        <g class="dot hi" data-c="support" data-q="實測兩個月,通勤+午休走路都沒黑,泛白大概十分鐘就消了" data-n="18" data-cl="支持實測">
+          <circle class="halo" cx="118" cy="92" r="6"/><circle class="core" cx="118" cy="92" r="4.5"/>
+        </g>
+        <g class="dot hi" data-c="support" data-q="敏感肌換這條之後眼睛終於不流淚,以前化學防曬都刺" data-n="14" data-cl="支持實測">
+          <circle class="halo" cx="146" cy="76" r="6"/><circle class="core" cx="146" cy="76" r="4"/>
+        </g>
+        <g class="dot" data-c="support" data-q="補擦方便,上妝前用也不搓泥" data-n="6" data-cl="支持實測">
+          <circle class="halo" cx="102" cy="104" r="5"/><circle class="core" cx="102" cy="104" r="3"/>
+        </g>
+        <g class="dot" data-c="support" data-q="海邊回來沒曬傷,同行的都紅了" data-n="5" data-cl="支持實測">
+          <circle class="halo" cx="132" cy="112" r="5"/><circle class="core" cx="132" cy="112" r="3"/>
+        </g>
+        <g class="dot" data-c="support" data-q="長痘期間用也沒悶痘" data-n="3" data-cl="支持實測">
+          <circle class="halo" cx="158" cy="98" r="5"/><circle class="core" cx="158" cy="98" r="2.5"/>
+        </g>
+      </g>
+
+      <!-- cluster 2 使用心得 (31) -->
+      <g class="drift">
+        <text class="cluster-label" x="252" y="84">使用心得 · 31</text>
+        <g class="dot hi" data-c="support" data-q="質地比想像中好推,但要等一下才不黏,趕時間會嫌慢" data-n="11" data-cl="使用心得">
+          <circle class="halo" cx="268" cy="108" r="6"/><circle class="core" cx="268" cy="108" r="4"/>
+        </g>
+        <g class="dot" data-c="support" data-q="深膚色會有一點灰感,要混飾底" data-n="7" data-cl="使用心得">
+          <circle class="halo" cx="292" cy="96" r="5"/><circle class="core" cx="292" cy="96" r="3"/>
+        </g>
+        <g class="dot" data-c="support" data-q="卸妝用一般洗面乳就乾淨,加分" data-n="5" data-cl="使用心得">
+          <circle class="halo" cx="246" cy="120" r="5"/><circle class="core" cx="246" cy="120" r="3"/>
+        </g>
+      </g>
+
+      <!-- cluster 3 質疑成分 (24) -->
+      <g class="drift">
+        <text class="cluster-label" x="66" y="196">質疑成分 · 24</text>
+        <g class="dot hi" data-c="doubt" data-q="說是純物理但成分表有 OMC?求解,不會又是行銷話術吧" data-n="16" data-cl="質疑成分">
+          <circle class="halo" cx="104" cy="214" r="6"/><circle class="core" cx="104" cy="214" r="4.5"/>
+        </g>
+        <g class="dot" data-c="doubt" data-q="奈米二氧化鈦到底安不安全,有沒有人有資料" data-n="5" data-cl="質疑成分">
+          <circle class="halo" cx="130" cy="228" r="5"/><circle class="core" cx="130" cy="228" r="3"/>
+        </g>
+        <g class="dot" data-c="doubt" data-q="SPF50 是實驗室數字吧,實際用量根本達不到" data-n="3" data-cl="質疑成分">
+          <circle class="halo" cx="88" cy="234" r="5"/><circle class="core" cx="88" cy="234" r="2.5"/>
+        </g>
+      </g>
+
+      <!-- cluster 4 價格抱怨 (19) -->
+      <g class="drift">
+        <text class="cluster-label" x="256" y="196">價格抱怨 · 19</text>
+        <g class="dot hi" data-c="price" data-q="30ml 賣這個價,一夏天要三條,真的下不了手" data-n="12" data-cl="價格抱怨">
+          <circle class="halo" cx="276" cy="216" r="6"/><circle class="core" cx="276" cy="216" r="4"/>
+        </g>
+        <g class="dot" data-c="price" data-q="週年慶再入,原價勸退" data-n="4" data-cl="價格抱怨">
+          <circle class="halo" cx="298" cy="228" r="5"/><circle class="core" cx="298" cy="228" r="3"/>
+        </g>
+      </g>
+
+      <!-- cluster 5 購買意願 (12) -->
+      <g class="drift">
+        <text class="cluster-label" x="172" y="252">購買意願 · 12</text>
+        <g class="dot" data-c="support" data-q="被你們燒到了,連結求一個" data-n="5" data-cl="購買意願">
+          <circle class="halo" cx="192" cy="230" r="5"/><circle class="core" cx="192" cy="230" r="3"/>
+        </g>
+        <g class="dot" data-c="support" data-q="等特價中,有折扣碼嗎" data-n="4" data-cl="購買意願">
+          <circle class="halo" cx="212" cy="240" r="5"/><circle class="core" cx="212" cy="240" r="3"/>
+        </g>
+      </g>
+    </svg>
+  </div>
+
+  <div class="selected" id="selected">
+    <div class="q" id="sel-q">「實測兩個月,通勤+午休走路都沒黑,泛白大概十分鐘就消了」</div>
+    <div class="m"><span class="k" id="sel-cl">支持實測</span><span id="sel-n">共鳴 ×18</span><span>高訊號</span></div>
+  </div>
+
+  <div class="card">
+    <div class="card-head"><span>訊號群</span><span>分佈</span></div>
+    <div class="dist">
+      <div class="donut-wrap">
+        <svg viewBox="0 0 108 108" width="108" height="108">
+          <!-- 132 total → 支持46 心得31 質疑24 價格19 意願12;r=46 周長≈289 -->
+          <circle cx="54" cy="54" r="46" fill="none" stroke="#f1ece0" stroke-width="9"/>
+          <circle cx="54" cy="54" r="46" fill="none" stroke="var(--atlas-signal)" stroke-width="9"
+                  stroke-dasharray="100.7 188.3" stroke-dashoffset="0" transform="rotate(-90 54 54)" stroke-linecap="butt"/>
+          <circle cx="54" cy="54" r="46" fill="none" stroke="var(--sage-mid)" stroke-width="9"
+                  stroke-dasharray="67.8 221.2" stroke-dashoffset="-100.7" transform="rotate(-90 54 54)"/>
+          <circle cx="54" cy="54" r="46" fill="none" stroke="var(--amber)" stroke-width="9"
+                  stroke-dasharray="52.5 236.5" stroke-dashoffset="-168.5" transform="rotate(-90 54 54)"/>
+          <circle cx="54" cy="54" r="46" fill="none" stroke="var(--rose)" stroke-width="9"
+                  stroke-dasharray="41.6 247.4" stroke-dashoffset="-221" transform="rotate(-90 54 54)"/>
+          <circle cx="54" cy="54" r="46" fill="none" stroke="var(--indigo)" stroke-width="9"
+                  stroke-dasharray="26.2 262.8" stroke-dashoffset="-262.6" transform="rotate(-90 54 54)"/>
+        </svg>
+        <div class="donut-center"><span class="n">132</span><span class="l">留言</span></div>
+      </div>
+      <div class="dist-rows">
+        <div class="dist-row"><span class="swatch" style="background:var(--atlas-signal)"></span><span class="name">支持實測</span><span class="n">46</span></div>
+        <div class="dist-row"><span class="swatch" style="background:var(--sage-mid)"></span><span class="name">使用心得</span><span class="n">31</span></div>
+        <div class="dist-row"><span class="swatch" style="background:var(--amber)"></span><span class="name">質疑成分</span><span class="n">24</span></div>
+        <div class="dist-row"><span class="swatch" style="background:var(--rose)"></span><span class="name">價格抱怨</span><span class="n">19</span></div>
+        <div class="dist-row"><span class="swatch" style="background:var(--indigo)"></span><span class="name">購買意願</span><span class="n">12</span></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="card-head"><span>每週足跡</span><span>5/4 – 7/9</span></div>
+    <div class="weeks">
+      <div class="wk"><div class="bar" style="height:10px"></div><span class="wl">5/4</span></div>
+      <div class="wk"><div class="bar" style="height:16px"></div><span class="wl">5/11</span></div>
+      <div class="wk"><div class="bar" style="height:13px"></div><span class="wl">5/18</span></div>
+      <div class="wk"><div class="bar" style="height:24px"></div><span class="wl">5/25</span></div>
+      <div class="wk"><div class="bar" style="height:20px"></div><span class="wl">6/1</span></div>
+      <div class="wk"><div class="bar" style="height:34px"></div><span class="wl">6/8</span></div>
+      <div class="wk"><div class="bar" style="height:28px"></div><span class="wl">6/22</span></div>
+      <div class="wk hot"><div class="bar" style="height:48px"></div><span class="wl">7/6</span></div>
+      <div class="wk"><div class="bar" style="height:18px"></div><span class="wl">7/9</span></div>
+    </div>
+  </div>
+
+  <div class="chips" id="chips">
+    <button class="chip on" data-f="all">全部</button>
+    <button class="chip" data-f="支持實測">支持實測</button>
+    <button class="chip" data-f="使用心得">使用心得</button>
+    <button class="chip" data-f="質疑成分">質疑成分</button>
+    <button class="chip" data-f="價格抱怨">價格抱怨</button>
+    <button class="chip" data-f="購買意願">購買意願</button>
+  </div>
+
+  <div class="rows" id="rows">
+    <div class="row" data-cl="支持實測"><span class="vt support">支持</span><span class="tx">實測兩個月,通勤+午休走路都沒黑,泛白大概十分鐘就消了</span><span class="ct">×18</span></div>
+    <div class="row" data-cl="質疑成分"><span class="vt doubt">質疑</span><span class="tx">說是純物理但成分表有 OMC?求解,不會又是行銷話術吧</span><span class="ct">×16</span></div>
+    <div class="row" data-cl="支持實測"><span class="vt support">支持</span><span class="tx">敏感肌換這條之後眼睛終於不流淚,以前化學防曬都刺</span><span class="ct">×14</span></div>
+    <div class="row" data-cl="價格抱怨"><span class="vt price">價格</span><span class="tx">30ml 賣這個價,一夏天要三條,真的下不了手</span><span class="ct">×12</span></div>
+    <div class="row" data-cl="使用心得"><span class="vt support">心得</span><span class="tx">質地比想像中好推,但要等一下才不黏,趕時間會嫌慢</span><span class="ct">×11</span></div>
+    <div class="row" data-cl="使用心得"><span class="vt support">心得</span><span class="tx">深膚色會有一點灰感,要混飾底</span><span class="ct">×7</span></div>
+    <div class="row" data-cl="購買意願"><span class="vt support">意願</span><span class="tx">被你們燒到了,連結求一個</span><span class="ct">×5</span></div>
+  </div>
+
+</div>
+
+<script>
+  // dot 點擊 → 顯示原始留言(每個可點元素都揭露真實衍生資料)
+  document.querySelectorAll('.dot').forEach(function (d) {
+    d.addEventListener('click', function () {
+      document.querySelectorAll('.dot.sel').forEach(function (s) { s.classList.remove('sel'); });
+      d.classList.add('sel');
+      document.getElementById('sel-q').textContent = '「' + d.dataset.q + '」';
+      document.getElementById('sel-cl').textContent = d.dataset.cl;
+      document.getElementById('sel-n').textContent = '共鳴 ×' + d.dataset.n;
+    });
+  });
+  // chip → 過濾留言列表
+  document.querySelectorAll('.chip').forEach(function (c) {
+    c.addEventListener('click', function () {
+      document.querySelectorAll('.chip').forEach(function (x) { x.classList.remove('on'); });
+      c.classList.add('on');
+      var f = c.dataset.f;
+      document.querySelectorAll('.row').forEach(function (r) {
+        r.classList.toggle('hidden', f !== 'all' && r.dataset.cl !== f);
+      });
+    });
+  });
+</script>
+</body>
+</html>

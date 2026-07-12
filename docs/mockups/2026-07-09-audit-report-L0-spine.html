@@ -1,0 +1,651 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>民情審計 — L0 閱讀脊柱 · 2026-07-09</title>
+<!--
+  MOCKUP · reference only · 2026-07-09
+  基於現行 AuditReportView(§1–§7 直落展開)的重組,落實三層紀律:
+
+    L0 閱讀脊柱(唯一卷動):頭條判讀 2 句 → 反應 pattern 卡 → 敘事線卡 → 警示 strip → 來源 footer
+        每卡 = 標題 + 一句 implication + 數字行 + 3 個 ref chips。L0 零原文。
+    L1 hover/點 ref chip → popover:1 條 quote + ♥ + 作者(CitationChip 語法)
+    L2 點卡 → 右側 drawer(全 app 唯一):代表留言 ×3(3 行 clamp 可展開)+ 反例 + 數字明細
+    L3 drawer 內「查看全部 N 條」→ 按帖分組、已去重完整清單(合併變體有標記)
+
+  處決清單(現行頁有、此稿沒有):
+    ✗「重複用字」高頻詞 chips block(deterministic 分詞垃圾,整塊移除)
+    ✗ 敘事線「共識 %」(LLM 假精度)→ 換跨帖出現數 X/6 篇;1 篇自動降級「單帖觀察」,不配 bar
+    ✗ L0 任何留言原文(全文只活在 L3,且用戶主動要求先出現)
+    ✗ 第二個 slide panel / 3D / 翻轉動畫
+
+  新增的誠實數字(全部有真母數):n/126 留言 · 作者數 · ♥ 合計 · 反例 n · 跨帖 X/6 篇
+  顏色/字距/動態全部 tokens.ts 現值(topic 模式 sage accent),無候選值。寬度 sidepanel 400px。
+-->
+<style>
+  :root {
+    --canvas: #f7f4ec;          /* color.canvas */
+    --surface: #fbf8f1;         /* color.surface */
+    --elevated: #fdfbf6;        /* color.elevated */
+    --ink: #1b1a17;             /* color.ink */
+    --sub-ink: #3d3b35;         /* color.subInk */
+    --soft-ink: #6c695e;        /* color.softInk */
+    --line: rgba(27,26,23,0.10);
+    --line-strong: rgba(27,26,23,0.18);
+    --card-edge: rgba(27,26,23,0.055);
+    --sage: #3f5a3b;            /* topic accent */
+    --sage-mid: #527648;
+    --sage-soft: rgba(63,90,59,0.10);
+    --sage-glow: rgba(63,90,59,0.16);
+    --amber: #a16a17;           /* color.queued */
+    --amber-soft: rgba(161,106,23,0.11);
+    --amber-wash: rgba(161,106,23,0.04);
+    --amber-border: rgba(161,106,23,0.24);
+    --rose: #7a2030;            /* failed / counter */
+    --rose-soft: rgba(122,32,48,0.10);
+    --neutral-chip: #f1ece0;
+    --shadow-card: inset 0 1px 0 rgba(255,255,255,0.6), 0 1px 2px rgba(27,26,23,0.04), 0 4px 10px -4px rgba(27,26,23,0.06);
+    --shadow-drawer: 0 12px 32px -8px rgba(27,26,23,0.14);
+    --shadow-popup: 0 20px 56px rgba(27,26,23,0.16), 0 2px 8px rgba(27,26,23,0.08), 0 0 0 1px rgba(27,26,23,0.08);
+    --r-card: 12px;
+    --r-chip: 14px;
+    --sans: 'Noto Sans TC', -apple-system, BlinkMacSystemFont, 'SF Pro Text', system-ui, sans-serif;
+    --serif: 'Noto Serif TC', 'Songti TC', serif;
+    --mono: 'JetBrains Mono', 'SF Mono', ui-monospace, monospace;
+    --ease-entrance: cubic-bezier(0.16, 1, 0.3, 1);
+  }
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    background: #e9e5da;
+    font-family: var(--sans); color: var(--ink);
+    display: flex; justify-content: center; padding: 32px 12px 80px;
+  }
+
+  /* sidepanel 視窗:固定高度,L0 是唯一卷動層,drawer 疊在同一視窗內 */
+  .frame {
+    position: relative; width: 400px; height: 760px;
+    background: var(--canvas); border-radius: 20px; overflow: hidden;
+    box-shadow: 0 20px 56px rgba(27,26,23,0.16), 0 2px 8px rgba(27,26,23,0.08);
+  }
+  .spine { height: 100%; overflow-y: auto; padding-bottom: 24px; }
+
+  /* ── header ── */
+  .head { padding: 18px 18px 12px; border-bottom: 1px solid var(--line); }
+  .kicker {
+    font-size: 10px; font-weight: 700; letter-spacing: 0.06em;
+    text-transform: uppercase; color: var(--soft-ink);
+  }
+  .title { font-family: var(--serif); font-weight: 700; font-size: 22px; line-height: 1.3; margin-top: 4px; }
+  .head-meta { font-size: 11px; font-weight: 500; color: var(--soft-ink); margin-top: 3px; }
+
+  /* ── 頭條判讀(P6,L0 唯一 serif 大聲量)── */
+  .verdict { padding: 16px 18px 6px; }
+  .verdict .q {
+    font-family: var(--serif); font-weight: 500; font-size: 16px;
+    line-height: 1.75; color: var(--ink);
+  }
+  .sec-label {
+    font-size: 10px; font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase;
+    color: var(--soft-ink); padding: 18px 18px 8px;
+  }
+
+  /* ── ref chip(L1 入口)── */
+  .ref {
+    display: inline-block; font-family: var(--mono); font-size: 9.5px; font-weight: 700;
+    padding: 1px 6px; margin: 0 2px; border-radius: 8px; vertical-align: 1px;
+    background: var(--sage-soft); color: var(--sage); cursor: pointer;
+    border: 1px solid transparent;
+    transition: border-color 140ms cubic-bezier(0.4,0,0.2,1);
+  }
+  .ref:hover, .ref.pin { border-color: var(--sage-mid); }
+
+  /* ── pattern / lane 卡:標題+implication+數字行+refs,到此為止 ── */
+  .cards { display: flex; flex-direction: column; gap: 8px; padding: 0 14px; }
+  .card {
+    background: var(--elevated); border: 1px solid var(--card-edge);
+    border-radius: var(--r-card); box-shadow: var(--shadow-card);
+    padding: 12px 14px; cursor: pointer;
+    transition: transform 200ms cubic-bezier(0.22,1.12,0.36,1), box-shadow 200ms cubic-bezier(0.22,1.12,0.36,1);
+  }
+  .card:hover { box-shadow: 0 1px 2px rgba(27,26,23,0.05), 0 8px 22px -6px rgba(27,26,23,0.10); }
+  .card .t-row { display: flex; align-items: baseline; justify-content: space-between; gap: 8px; }
+  .card .t { font-weight: 700; font-size: 14px; line-height: 1.35; }
+  .card .n-row {
+    font-family: var(--mono); font-size: 10.5px; font-weight: 700;
+    font-variant-numeric: tabular-nums; color: var(--soft-ink); white-space: nowrap;
+  }
+  .card .n-row b { color: var(--sage); font-weight: 700; }
+  .card .n-row .counter { color: var(--rose); }
+  .card .imp { font-size: 12.5px; line-height: 1.55; color: var(--sub-ink); margin-top: 5px; }
+  .card .foot { display: flex; align-items: center; justify-content: space-between; margin-top: 8px; }
+  .card .arrow { font-size: 11px; color: var(--soft-ink); }
+
+  /* 敘事線:跨帖 bar(6 格,X 格實)取代共識% */
+  .lane-bar { display: flex; gap: 3px; margin-top: 8px; }
+  .lane-bar i { height: 5px; flex: 1; border-radius: 3px; background: var(--neutral-chip); }
+  .lane-bar i.on { background: var(--sage); }
+  .lane-meta {
+    font-family: var(--mono); font-size: 10px; font-weight: 700;
+    color: var(--soft-ink); margin-top: 6px; font-variant-numeric: tabular-nums;
+  }
+  .card.single { background: var(--surface); box-shadow: none; border: 1px dashed var(--line-strong); }
+  .single-badge {
+    font-family: var(--mono); font-size: 9px; font-weight: 700; letter-spacing: 0.06em;
+    padding: 2px 7px; border-radius: 8px; background: var(--neutral-chip); color: var(--soft-ink);
+    white-space: nowrap;
+  }
+
+  /* ── 警示 strip(P5 缺席 + caveats)── */
+  .warn {
+    margin: 4px 14px 0; padding: 11px 13px;
+    background: var(--amber-wash); border: 1px solid var(--amber-border);
+    border-radius: var(--r-card);
+  }
+  .warn .w-label {
+    font-size: 10px; font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase;
+    color: var(--amber); margin-bottom: 6px;
+  }
+  .warn ul { list-style: none; display: flex; flex-direction: column; gap: 5px; }
+  .warn li { font-size: 12px; line-height: 1.5; color: var(--sub-ink); display: flex; gap: 7px; }
+  .warn li::before { content: "·"; color: var(--amber); font-weight: 700; }
+
+  /* ── 來源 footer(coverage 真母數 + 貼文清單)── */
+  .src { margin: 4px 14px 0; padding: 12px 14px; border-top: 1px solid var(--line); }
+  .cov { display: flex; gap: 16px; margin-bottom: 10px; }
+  .cov .c { display: flex; flex-direction: column; gap: 1px; }
+  .cov .cn { font-family: var(--mono); font-weight: 700; font-size: 15px; font-variant-numeric: tabular-nums; }
+  .cov .cl { font-size: 9px; font-weight: 500; color: var(--soft-ink); }
+  .posts { display: flex; flex-direction: column; gap: 4px; }
+  .post-row { display: flex; align-items: baseline; gap: 8px; font-size: 11.5px; color: var(--sub-ink); }
+  .post-row .sid { font-family: var(--mono); font-size: 9.5px; font-weight: 700; color: var(--sage); flex: none; }
+  .post-row .pt { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .post-row .pn { font-family: var(--mono); font-size: 10px; font-weight: 700; color: var(--soft-ink); font-variant-numeric: tabular-nums; }
+  .stamp { font-family: var(--mono); font-size: 9px; font-weight: 700; color: var(--soft-ink); margin-top: 10px; }
+
+  /* ── L1 popover ── */
+  .pop {
+    position: absolute; z-index: 40; width: 280px;
+    background: var(--elevated); border-radius: var(--r-card);
+    box-shadow: var(--shadow-popup); padding: 11px 13px;
+    opacity: 0; pointer-events: none; transform: translateY(4px);
+  }
+  .pop.show { opacity: 1; pointer-events: auto; transform: translateY(0); }
+  @media (prefers-reduced-motion: no-preference) {
+    .pop { transition: opacity 180ms var(--ease-entrance), transform 180ms var(--ease-entrance); }
+  }
+  .pop .pq {
+    font-family: var(--serif); font-style: italic; font-weight: 500;
+    font-size: 13px; line-height: 1.6; color: var(--sub-ink);
+  }
+  .pop .pm {
+    display: flex; gap: 10px; margin-top: 7px; align-items: baseline;
+    font-family: var(--mono); font-size: 10px; font-weight: 700;
+    font-variant-numeric: tabular-nums; color: var(--soft-ink);
+  }
+  .pop .pm .pid { color: var(--sage); }
+
+  /* ── L2/L3 drawer(全 app 唯一)── */
+  .scrim {
+    position: absolute; inset: 0; z-index: 50; background: rgba(27,26,23,0.18);
+    opacity: 0; pointer-events: none;
+  }
+  .drawer {
+    position: absolute; top: 0; right: 0; bottom: 0; z-index: 60; width: 344px;
+    background: var(--surface); box-shadow: var(--shadow-drawer);
+    border-left: 1px solid var(--line);
+    display: flex; flex-direction: column;
+    transform: translateX(105%);
+  }
+  @media (prefers-reduced-motion: no-preference) {
+    .drawer { transition: transform 280ms var(--ease-entrance); }
+    .scrim { transition: opacity 280ms var(--ease-entrance); }
+  }
+  .frame.open .drawer { transform: translateX(0); }
+  .frame.open .scrim { opacity: 1; pointer-events: auto; }
+  .d-head { padding: 14px 16px 10px; border-bottom: 1px solid var(--line); display: flex; gap: 10px; align-items: flex-start; }
+  .d-head .d-t { flex: 1; font-weight: 700; font-size: 14px; line-height: 1.35; }
+  .d-head .d-n {
+    font-family: var(--mono); font-size: 10px; font-weight: 700;
+    color: var(--soft-ink); margin-top: 3px; font-variant-numeric: tabular-nums;
+  }
+  .d-head .d-n b { color: var(--sage); }
+  .d-close {
+    border: none; background: var(--neutral-chip); color: var(--soft-ink);
+    width: 24px; height: 24px; border-radius: 8px; cursor: pointer; font-size: 12px; flex: none;
+  }
+  .d-body { flex: 1; overflow-y: auto; padding: 12px 16px 16px; }
+  .d-label {
+    font-size: 10px; font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase;
+    color: var(--soft-ink); margin: 10px 0 7px;
+  }
+  .d-label:first-child { margin-top: 0; }
+  .ev {
+    background: var(--elevated); border: 1px solid var(--card-edge); border-radius: var(--r-card);
+    box-shadow: var(--shadow-card); padding: 10px 12px; margin-bottom: 7px;
+  }
+  .ev .ev-q { font-size: 12.5px; line-height: 1.6; color: var(--sub-ink); }
+  .ev .ev-q.clamp { display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden; }
+  .ev .more {
+    border: none; background: none; color: var(--sage); font-size: 11px; font-weight: 600;
+    cursor: pointer; padding: 3px 0 0; display: none;
+  }
+  .ev .more.avail { display: inline-block; }
+  .ev .ev-m {
+    display: flex; gap: 9px; margin-top: 6px; align-items: baseline;
+    font-family: var(--mono); font-size: 9.5px; font-weight: 700;
+    font-variant-numeric: tabular-nums; color: var(--soft-ink);
+  }
+  .ev .ev-m .pid { color: var(--sage); }
+  .ev.counter { border-left: 3px solid var(--rose); }
+  .ev.counter .pid { color: var(--rose); }
+  .d-stats {
+    display: flex; flex-wrap: wrap; gap: 6px 14px; padding: 9px 12px; margin-bottom: 4px;
+    background: var(--elevated); border: 1px solid var(--card-edge); border-radius: var(--r-card);
+    font-family: var(--mono); font-size: 10.5px; font-weight: 700;
+    font-variant-numeric: tabular-nums; color: var(--soft-ink);
+  }
+  .d-stats b { color: var(--ink); }
+  .d-all {
+    width: 100%; margin-top: 10px; padding: 9px 0;
+    border: 1px solid var(--line-strong); border-radius: var(--r-card);
+    background: none; color: var(--ink); font-size: 12px; font-weight: 600; cursor: pointer;
+    transition: background-color 180ms cubic-bezier(0.4,0,0.2,1);
+  }
+  .d-all:hover { background: var(--sage-soft); }
+  /* L3 */
+  .d-back {
+    border: none; background: none; color: var(--sage); font-size: 12px; font-weight: 600;
+    cursor: pointer; padding: 0; margin-bottom: 8px;
+  }
+  .grp { margin-bottom: 12px; }
+  .grp-h { display: flex; align-items: baseline; gap: 8px; margin-bottom: 6px; }
+  .grp-h .sid { font-family: var(--mono); font-size: 10px; font-weight: 700; color: var(--sage); }
+  .grp-h .gt { flex: 1; font-size: 11px; font-weight: 600; color: var(--sub-ink); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .grp-h .gn { font-family: var(--mono); font-size: 9.5px; font-weight: 700; color: var(--soft-ink); }
+  .cm { display: flex; gap: 8px; padding: 6px 0; border-bottom: 1px solid var(--line); font-size: 12px; }
+  .cm:last-child { border-bottom: none; }
+  .cm .ca { font-family: var(--mono); font-size: 10px; font-weight: 700; color: var(--soft-ink); flex: none; max-width: 96px; overflow: hidden; text-overflow: ellipsis; }
+  .cm .cx { flex: 1; line-height: 1.5; color: var(--sub-ink); }
+  .cm .cl { font-family: var(--mono); font-size: 10px; font-weight: 700; color: var(--soft-ink); font-variant-numeric: tabular-nums; }
+  .dedup {
+    font-family: var(--mono); font-size: 8.5px; font-weight: 700;
+    padding: 1px 5px; border-radius: 6px; background: var(--amber-soft); color: var(--amber);
+    white-space: nowrap;
+  }
+</style>
+</head>
+<body>
+<div class="frame" id="frame">
+  <div class="spine" id="spine">
+
+    <div class="head">
+      <div class="kicker">民情審計 · 主題模式</div>
+      <div class="title">香港人移加拿大新生活</div>
+      <div class="head-meta">6 篇貼文 · 126 可用留言 · 最後更新 2026-07-09 11:42</div>
+    </div>
+
+    <!-- L0 §1 頭條判讀:P6 editorial 提到頂,兩句到此為止,ref 可 hover -->
+    <div class="verdict">
+      <div class="q">民情主調係「羨慕＋追攻略」,唔係質疑可行性<span class="ref" data-r="S1.R3">S1.R3</span><span class="ref" data-r="S4.R12">S4.R12</span>。真正分歧在時機——「幾時走先算遲」先係跨帖重複嘅拉鋸位<span class="ref" data-r="S2.R7">S2.R7</span><span class="ref" data-r="S5.R2">S5.R2</span>。</div>
+    </div>
+
+    <!-- L0 §2 反應 pattern:標題+implication+數字行(全部真母數)+3 refs -->
+    <div class="sec-label">群眾反應 · 5 個 pattern</div>
+    <div class="cards" id="patterns">
+      <div class="card" data-d="p1">
+        <div class="t-row"><span class="t">同路人打氣</span><span class="n-row"><b>33</b>/126 · 29 作者</span></div>
+        <div class="imp">情緒主調係認同而非爭論,內容可以直接行動化,唔使再鋪墊。</div>
+        <div class="foot">
+          <span><span class="ref" data-r="S1.R2">S1.R2</span><span class="ref" data-r="S3.R9">S3.R9</span><span class="ref" data-r="S5.R4">S5.R4</span></span>
+          <span class="n-row">♥604 · 無反例 <span class="arrow">→</span></span>
+        </div>
+      </div>
+      <div class="card" data-d="p2">
+        <div class="t-row"><span class="t">追問實際步驟</span><span class="n-row"><b>21</b>/126 · 15 作者</span></div>
+        <div class="imp">群眾唔係質疑可行性,係等一份 step-by-step——攻略型內容有現成需求。</div>
+        <div class="foot">
+          <span><span class="ref" data-r="S2.R14">S2.R14</span><span class="ref" data-r="S4.R3">S4.R3</span><span class="ref" data-r="S6.R6">S6.R6</span></span>
+          <span class="n-row">♥312 · <span class="counter">3 反例</span> <span class="arrow">→</span></span>
+        </div>
+      </div>
+      <div class="card" data-d="p3">
+        <div class="t-row"><span class="t">懷疑廣告／軟推銷</span><span class="n-row"><b>18</b>/126 · 12 作者</span></div>
+        <div class="imp">「太順利」嘅敘事會觸發防禦,證據同開支明細要前置先入到耳。</div>
+        <div class="foot">
+          <span><span class="ref" data-r="S3.R11">S3.R11</span><span class="ref" data-r="S4.R8">S4.R8</span><span class="ref" data-r="S6.R2">S6.R2</span></span>
+          <span class="n-row">♥187 · <span class="counter">2 反例</span> <span class="arrow">→</span></span>
+        </div>
+      </div>
+      <div class="card" data-d="p4">
+        <div class="t-row"><span class="t">分享自己版本</span><span class="n-row"><b>14</b>/126 · 9 作者</span></div>
+        <div class="imp">有一批現成嘅 UGC 供應者,收編做系列訪談成本極低。</div>
+        <div class="foot">
+          <span><span class="ref" data-r="S1.R7">S1.R7</span><span class="ref" data-r="S2.R5">S2.R5</span><span class="ref" data-r="S5.R9">S5.R9</span></span>
+          <span class="n-row">♥228 · <span class="counter">1 反例</span> <span class="arrow">→</span></span>
+        </div>
+      </div>
+      <div class="card" data-d="p5">
+        <div class="t-row"><span class="t">質疑年齡／時機</span><span class="n-row"><b>9</b>/126 · 8 作者</span></div>
+        <div class="imp">「幾時走先算遲」係下一篇內容嘅現成命題,反方聲音都集中喺度。</div>
+        <div class="foot">
+          <span><span class="ref" data-r="S2.R7">S2.R7</span><span class="ref" data-r="S5.R2">S5.R2</span><span class="ref" data-r="S4.R15">S4.R15</span></span>
+          <span class="n-row">♥96 · <span class="counter">2 反例</span> <span class="arrow">→</span></span>
+        </div>
+      </div>
+    </div>
+
+    <!-- L0 §3 敘事線:強度 = 跨帖出現數(X/6 篇)。共識% 已處決;1 篇自動降級 -->
+    <div class="sec-label">跨帖敘事線 · 3 條 + 1 單帖觀察</div>
+    <div class="cards" id="lanes">
+      <div class="card" data-d="l1">
+        <div class="t-row"><span class="t">肯搏就有出路</span><span class="n-row"><b>5</b>/6 篇</span></div>
+        <div class="imp">品牌敘事嘅順風位——群眾自己會幫手推呢條線。</div>
+        <div class="lane-bar"><i class="on"></i><i class="on"></i><i class="on"></i><i class="on"></i><i class="on"></i><i></i></div>
+        <div class="foot">
+          <span><span class="ref" data-r="S1.R2">S1.R2</span><span class="ref" data-r="S3.R4">S3.R4</span><span class="ref" data-r="S5.R4">S5.R4</span></span>
+          <span class="lane-meta">主要聲音 @ultraman0707 +2 跨帖 <span class="arrow">→</span></span>
+        </div>
+      </div>
+      <div class="card" data-d="l2">
+        <div class="t-row"><span class="t">香港冇得留戀</span><span class="n-row"><b>3</b>/6 篇</span></div>
+        <div class="imp">情緒濃度最高但最易引戰,借力要避免自己落場。</div>
+        <div class="lane-bar"><i class="on"></i><i class="on"></i><i class="on"></i><i></i><i></i><i></i></div>
+        <div class="foot">
+          <span><span class="ref" data-r="S2.R11">S2.R11</span><span class="ref" data-r="S3.R6">S3.R6</span><span class="ref" data-r="S6.R9">S6.R9</span></span>
+          <span class="lane-meta">2 位跨帖作者 <span class="arrow">→</span></span>
+        </div>
+      </div>
+      <div class="card" data-d="l3">
+        <div class="t-row"><span class="t">加拿大搵工難過想像</span><span class="n-row"><b>2</b>/6 篇</span></div>
+        <div class="imp">主線嘅反敘事——內容唔正面回應,佢就會喺留言區代答。</div>
+        <div class="lane-bar"><i class="on"></i><i class="on"></i><i></i><i></i><i></i><i></i></div>
+        <div class="foot">
+          <span><span class="ref" data-r="S4.R6">S4.R6</span><span class="ref" data-r="S6.R2">S6.R2</span></span>
+          <span class="lane-meta">2 位跨帖作者 <span class="arrow">→</span></span>
+        </div>
+      </div>
+      <div class="card single" data-d="l4">
+        <div class="t-row"><span class="t">僱主擔保係伏</span><span class="single-badge">單帖觀察 · 1 篇</span></div>
+        <div class="imp">只喺 S4 出現,未夠料叫敘事——觀察住,下次審計再判。</div>
+        <div class="foot">
+          <span><span class="ref" data-r="S4.R9">S4.R9</span></span>
+          <span class="lane-meta"><span class="arrow">→</span></span>
+        </div>
+      </div>
+    </div>
+
+    <!-- ✗ 原「重複用字」chips block 在此位置 — 整塊處決,唔係收埋 -->
+
+    <!-- L0 §4 警示 strip:P5 缺席 + caveats,一條講晒 -->
+    <div class="warn">
+      <div class="w-label">缺席與可靠性</div>
+      <ul>
+        <li>觀望未行動者幾乎無發聲——126 條中僅 2 條自述「仲諗緊」,民情形狀偏行動派。</li>
+        <li>87% 留言集中喺發帖後 48 小時,之後嘅風向未被捕捉。</li>
+        <li>7 組「Reply to…」變體未去重,pattern 計數可能輕微偏高。</li>
+      </ul>
+    </div>
+
+    <!-- L0 §5 來源 footer:coverage 真母數 + 貼文清單 -->
+    <div class="src">
+      <div class="cov">
+        <div class="c"><span class="cn">6</span><span class="cl">貼文</span></div>
+        <div class="c"><span class="cn">175</span><span class="cl">捕捉留言</span></div>
+        <div class="c"><span class="cn">126</span><span class="cl">已讀留言</span></div>
+        <div class="c"><span class="cn">126</span><span class="cl">可用留言</span></div>
+      </div>
+      <div class="posts">
+        <div class="post-row"><span class="sid">S1</span><span class="pt">裸辭去加拿大,點解越嚟越多人</span><span class="pn">42 留言</span></div>
+        <div class="post-row"><span class="sid">S2</span><span class="pt">40 歲先走會唔會太遲</span><span class="pn">28 留言</span></div>
+        <div class="post-row"><span class="sid">S3</span><span class="pt">喺多倫多開 cafe 一年,數字全公開</span><span class="pn">19 留言</span></div>
+        <div class="post-row"><span class="sid">S4</span><span class="pt">僱主擔保 LMIA 全過程</span><span class="pn">17 留言</span></div>
+        <div class="post-row"><span class="sid">S5</span><span class="pt">帶住兩個小朋友移民嘅第一個冬天</span><span class="pn">12 留言</span></div>
+        <div class="post-row"><span class="sid">S6</span><span class="pt">回流定留低?三年後嘅答案</span><span class="pn">8 留言</span></div>
+      </div>
+      <div class="stamp">AUDIT 2026-07-09 11:42 · 引用鏈 100% 可追</div>
+    </div>
+
+  </div>
+
+  <!-- L1 popover(hover 即出,click pin)-->
+  <div class="pop" id="pop">
+    <div class="pq" id="pop-q"></div>
+    <div class="pm"><span class="pid" id="pop-id"></span><span id="pop-a"></span><span id="pop-l"></span></div>
+  </div>
+
+  <!-- L2/L3:全 app 唯一 drawer -->
+  <div class="scrim" id="scrim"></div>
+  <div class="drawer" id="drawer">
+    <div class="d-head">
+      <div style="flex:1">
+        <div class="d-t" id="d-title"></div>
+        <div class="d-n" id="d-nums"></div>
+      </div>
+      <button class="d-close" id="d-close">✕</button>
+    </div>
+    <div class="d-body" id="d-body"></div>
+  </div>
+</div>
+
+<script>
+// ── L1:ref → quote(≤100 字)+ ♥ + 作者 ──
+var REFS = {
+  "S1.R3":  { a: "@wing.c.leung",    l: 41, q: "唔係得你一個咁諗,我都係睇你啲 post 先決定報 IELTS" },
+  "S4.R12": { a: "@feli.in.yvr",     l: 33, q: "多謝你寫得咁細,終於有人講清楚成個流程" },
+  "S2.R7":  { a: "@ken_midlife",     l: 58, q: "42 歲,日日諗緊仲趕唔趕得切,睇完你篇嘢決定今年內行動" },
+  "S5.R2":  { a: "@carrie.hkmama",   l: 26, q: "我哋係細路升中一前走,再遲佢哋適應唔到" },
+  "S1.R2":  { a: "@ultraman0707",    l: 87, q: "香港人去到邊都係打不死,呢條路我行咗三年,肯搏真係有出路" },
+  "S3.R9":  { a: "@jojo.toronto",    l: 45, q: "睇到喊,我啱啱都係咁捱過嚟,加油" },
+  "S5.R4":  { a: "@daniel.yyz",      l: 39, q: "同路人幫到就幫,呢個 community 先係最大資產" },
+  "S2.R14": { a: "@ivan.next.step",  l: 52, q: "可唔可以出一篇講下由遞表到落地嘅 timeline?" },
+  "S4.R3":  { a: "@mandy.2026",      l: 31, q: "想問 LMIA 中介費大約幾錢先合理,驚畀人呃" },
+  "S6.R6":  { a: "@john.new.journey",l: 29, q: "三年前睇你第一篇 post 開始準備……(長文,已抽 key sentence)" },
+  "S3.R11": { a: "@cynical.cat",     l: 24, q: "又係開 cafe 又係全公開,下一步係咪賣 course?" },
+  "S4.R8":  { a: "@waiman.hk",       l: 19, q: "利申:呢類「乜都好順利」嘅帖我一律當廣告先" },
+  "S6.R2":  { a: "@leo.backhome",    l: 44, q: "唔好淨係聽好嘅,我識嘅人有一半頭兩年搵唔到本行工" },
+  "S1.R7":  { a: "@mrs.wong.van",    l: 36, q: "我版本係 45 歲護士轉 PSW,有人想聽可以開 thread" },
+  "S2.R5":  { a: "@gary.calgary",    l: 22, q: "我係技術移民路線,同你少少唔同,分享下我條 timeline" },
+  "S5.R9":  { a: "@auntie.snow",     l: 18, q: "我哋一家四口第一個冬天嘅開支表,有需要留言" },
+  "S4.R15": { a: "@old.seafood",     l: 15, q: "後生咪走囉,過咗 45 真係要諗清楚醫療同退休" },
+  "S3.R4":  { a: "@ultraman0707",    l: 63, q: "數字唔靚都敢公開,呢種先叫真分享——肯搏嘅人唔怕醜" },
+  "S2.R11": { a: "@no.turning.back", l: 49, q: "留喺度先係最大風險,呢句我同意到唔能夠再同意" },
+  "S3.R6":  { a: "@hker.everywhere", l: 27, q: "而家返去一次傷心一次,不如向前望" },
+  "S6.R9":  { a: "@moving.on.2023",  l: 21, q: "回流呢個選項喺我心入面已經刪除咗" },
+  "S4.R6":  { a: "@leo.backhome",    l: 38, q: "本行搵工真係難過想像,心理準備要做足一年" },
+  "S4.R9":  { a: "@insider.tips",    l: 12, q: "僱主擔保呢條路水好深,我見過畀人食咗成年人工" }
+};
+
+// ── L2/L3 data:代表留言(≤100 字或已 clamp)+ 反例 + 真母數明細 + 按帖分組全清單 ──
+var DETAILS = {
+  p1: {
+    t: "同路人打氣", n: "33/126 留言 · 29 作者 · ♥604 · 無反例",
+    reps: ["S1.R2", "S3.R9", "S5.R4"], counters: [],
+    stats: ["<b>33</b>/126 留言", "<b>29</b> 作者", "♥ <b>604</b> 合計", "<b>0</b> 反例", "分佈 S1×11 S2×5 S3×8 S5×6 S6×3"],
+    all: [
+      { s: "S1", t: "裸辭去加拿大,點解越嚟越多人", rows: [["@ultraman0707","香港人去到邊都係打不死,呢條路我行咗三年,肯搏真係有出路",87],["@jenny.leaf","支持你,已 share 畀屋企人睇",12],["@hk.forever.09","睇到有希望,多謝分享",9]] },
+      { s: "S3", t: "喺多倫多開 cafe 一年,數字全公開", rows: [["@jojo.toronto","睇到喊,我啱啱都係咁捱過嚟,加油",45],["@small.shop.dream","你盤數畀咗我好大信心",16]] },
+      { s: "S5", t: "帶住兩個小朋友移民嘅第一個冬天", rows: [["@daniel.yyz","同路人幫到就幫,呢個 community 先係最大資產",39]] }
+    ], truncated: "……(mockup 截斷:實作為全部 33 條,已去重)"
+  },
+  p2: {
+    t: "追問實際步驟", n: "21/126 留言 · 15 作者 · ♥312 · 3 反例",
+    reps: ["S2.R14", "S4.R3", "S6.R6"], counters: ["S3.R11", "S6.R2"],
+    stats: ["<b>21</b>/126 留言", "<b>15</b> 作者", "♥ <b>312</b> 合計", "<b>3</b> 反例", "分佈 S2×8 S4×6 S6×7"],
+    all: [
+      { s: "S2", t: "40 歲先走會唔會太遲", rows: [["@ivan.next.step","可唔可以出一篇講下由遞表到落地嘅 timeline?",52],["@planning.mode","IELTS 定 CELPIP?求個懶人包",23],["@mid.age.dream","洗費方面有冇一個實數參考?",19],["@hk.dad.2kids","小朋友插班嗰part可以講多啲嗎",17]] },
+      { s: "S4", t: "僱主擔保 LMIA 全過程", rows: [["@mandy.2026","想問 LMIA 中介費大約幾錢先合理,驚畀人呃",31],["@fresh.start.44","邊間中介可信?可以 DM 我嗎",14],["@slow.and.steady","體檢同無犯罪紀錄嗰步等咗幾耐?",11]] },
+      { s: "S6", t: "回流定留低?三年後嘅答案", rows: [["@john.new.journey","三年前睇你第一篇 post 開始準備,而家輪到我教人——想問埋稅務點安排(已抽 key sentence)",29,"已合併變體 ×2"],["@ready.to.go","下一篇可唔可以寫報稅?",8]] }
+    ], truncated: "……(mockup 截斷:實作為全部 21 條,已去重)"
+  },
+  p3: {
+    t: "懷疑廣告／軟推銷", n: "18/126 留言 · 12 作者 · ♥187 · 2 反例",
+    reps: ["S3.R11", "S4.R8"], counters: ["S4.R12"],
+    stats: ["<b>18</b>/126 留言", "<b>12</b> 作者", "♥ <b>187</b> 合計", "<b>2</b> 反例", "分佈 S3×9 S4×5 S6×4"],
+    all: [
+      { s: "S3", t: "喺多倫多開 cafe 一年,數字全公開", rows: [["@cynical.cat","又係開 cafe 又係全公開,下一步係咪賣 course?",24],["@show.me.receipts","公開嘅數同報稅數係咪同一份?",13]] },
+      { s: "S4", t: "僱主擔保 LMIA 全過程", rows: [["@waiman.hk","利申:呢類「乜都好順利」嘅帖我一律當廣告先",19]] }
+    ], truncated: "……(mockup 截斷:實作為全部 18 條,已去重)"
+  },
+  p4: {
+    t: "分享自己版本", n: "14/126 留言 · 9 作者 · ♥228 · 1 反例",
+    reps: ["S1.R7", "S2.R5", "S5.R9"], counters: [],
+    stats: ["<b>14</b>/126 留言", "<b>9</b> 作者", "♥ <b>228</b> 合計", "<b>1</b> 反例", "分佈 S1×5 S2×4 S5×5"],
+    all: [
+      { s: "S1", t: "裸辭去加拿大,點解越嚟越多人", rows: [["@mrs.wong.van","我版本係 45 歲護士轉 PSW,有人想聽可以開 thread",36]] },
+      { s: "S2", t: "40 歲先走會唔會太遲", rows: [["@gary.calgary","我係技術移民路線,同你少少唔同,分享下我條 timeline",22]] },
+      { s: "S5", t: "帶住兩個小朋友移民嘅第一個冬天", rows: [["@auntie.snow","我哋一家四口第一個冬天嘅開支表,有需要留言",18]] }
+    ], truncated: "……(mockup 截斷:實作為全部 14 條,已去重)"
+  },
+  p5: {
+    t: "質疑年齡／時機", n: "9/126 留言 · 8 作者 · ♥96 · 2 反例",
+    reps: ["S2.R7", "S4.R15"], counters: ["S5.R2"],
+    stats: ["<b>9</b>/126 留言", "<b>8</b> 作者", "♥ <b>96</b> 合計", "<b>2</b> 反例", "分佈 S2×5 S4×2 S5×2"],
+    all: [
+      { s: "S2", t: "40 歲先走會唔會太遲", rows: [["@ken_midlife","42 歲,日日諗緊仲趕唔趕得切,睇完你篇嘢決定今年內行動",58],["@old.seafood","後生咪走囉,過咗 45 真係要諗清楚醫療同退休",15]] }
+    ], truncated: "……(mockup 截斷:實作為全部 9 條,已去重)"
+  },
+  l1: {
+    t: "敘事線:肯搏就有出路", n: "跨 5/6 篇 · 主要聲音 @ultraman0707 · @jojo.toronto · @daniel.yyz",
+    reps: ["S1.R2", "S3.R4", "S5.R4"], counters: ["S4.R6"],
+    stats: ["跨 <b>5</b>/6 篇", "<b>3</b> 位跨帖作者", "缺席於 <b>S4</b>(擔保帖)"],
+    all: [
+      { s: "S1", t: "裸辭去加拿大,點解越嚟越多人", rows: [["@ultraman0707","香港人去到邊都係打不死,呢條路我行咗三年,肯搏真係有出路",87]] },
+      { s: "S3", t: "喺多倫多開 cafe 一年,數字全公開", rows: [["@ultraman0707","數字唔靚都敢公開,呢種先叫真分享——肯搏嘅人唔怕醜",63]] }
+    ], truncated: "……(mockup 截斷:實作為 5 篇各自嘅支持留言)"
+  },
+  l2: {
+    t: "敘事線:香港冇得留戀", n: "跨 3/6 篇 · 2 位跨帖作者",
+    reps: ["S2.R11", "S3.R6", "S6.R9"], counters: [],
+    stats: ["跨 <b>3</b>/6 篇", "<b>2</b> 位跨帖作者"],
+    all: [
+      { s: "S2", t: "40 歲先走會唔會太遲", rows: [["@no.turning.back","留喺度先係最大風險,呢句我同意到唔能夠再同意",49]] }
+    ], truncated: "……(mockup 截斷)"
+  },
+  l3: {
+    t: "敘事線:加拿大搵工難過想像", n: "跨 2/6 篇 · 2 位跨帖作者",
+    reps: ["S4.R6", "S6.R2"], counters: ["S1.R2"],
+    stats: ["跨 <b>2</b>/6 篇", "<b>2</b> 位跨帖作者", "集中於 S4 / S6"],
+    all: [
+      { s: "S4", t: "僱主擔保 LMIA 全過程", rows: [["@leo.backhome","本行搵工真係難過想像,心理準備要做足一年",38]] }
+    ], truncated: "……(mockup 截斷)"
+  },
+  l4: {
+    t: "單帖觀察:僱主擔保係伏", n: "僅 S4 · 未達敘事門檻(需 ≥2 篇)",
+    reps: ["S4.R9"], counters: [],
+    stats: ["<b>1</b> 篇(S4)", "下次審計自動重判"],
+    all: [
+      { s: "S4", t: "僱主擔保 LMIA 全過程", rows: [["@insider.tips","僱主擔保呢條路水好深,我見過畀人食咗成年人工",12]] }
+    ], truncated: ""
+  }
+};
+
+var frame = document.getElementById("frame");
+var pop = document.getElementById("pop");
+var pinned = null;
+
+// L1 popover:hover 即出,click pin,離開即收
+function showPop(chip) {
+  var d = REFS[chip.dataset.r];
+  if (!d) return;
+  document.getElementById("pop-q").textContent = "「" + d.q + "」";
+  document.getElementById("pop-id").textContent = chip.dataset.r;
+  document.getElementById("pop-a").textContent = d.a;
+  document.getElementById("pop-l").textContent = "♥" + d.l;
+  var fr = frame.getBoundingClientRect();
+  var cr = chip.getBoundingClientRect();
+  var x = Math.min(Math.max(cr.left - fr.left - 8, 10), 400 - 290);
+  var y = cr.bottom - fr.top + 6;
+  if (y > 640) y = cr.top - fr.top - 6 - 96;
+  pop.style.left = x + "px";
+  pop.style.top = y + "px";
+  pop.classList.add("show");
+}
+function hidePop() { if (!pinned) pop.classList.remove("show"); }
+document.querySelectorAll(".ref").forEach(function (c) {
+  c.addEventListener("mouseenter", function () { if (!pinned) showPop(c); });
+  c.addEventListener("mouseleave", hidePop);
+  c.addEventListener("click", function (e) {
+    e.stopPropagation();
+    if (pinned === c) { pinned = null; c.classList.remove("pin"); pop.classList.remove("show"); return; }
+    if (pinned) pinned.classList.remove("pin");
+    pinned = c; c.classList.add("pin"); showPop(c);
+  });
+});
+document.addEventListener("click", function () {
+  if (pinned) { pinned.classList.remove("pin"); pinned = null; pop.classList.remove("show"); }
+});
+
+// L2 drawer(唯一詳細版容器)
+var drawer = document.getElementById("drawer");
+var dBody = document.getElementById("d-body");
+var current = null;
+
+function evCard(ref, isCounter) {
+  var d = REFS[ref];
+  var long = d.q.length > 46;
+  return '<div class="ev' + (isCounter ? " counter" : "") + '">'
+    + '<div class="ev-q' + (long ? " clamp" : "") + '">' + d.q + '</div>'
+    + (long ? '<button class="more avail">展開全文</button>' : "")
+    + '<div class="ev-m"><span class="pid">' + ref + '</span><span>' + d.a + '</span><span>♥' + d.l + '</span></div>'
+    + '</div>';
+}
+function renderL2(key) {
+  var d = DETAILS[key];
+  current = key;
+  document.getElementById("d-title").textContent = d.t;
+  document.getElementById("d-nums").innerHTML = d.n;
+  var h = '<div class="d-label">代表留言</div>' + d.reps.map(function (r) { return evCard(r, false); }).join("");
+  if (d.counters.length) {
+    h += '<div class="d-label">反例</div>' + d.counters.map(function (r) { return evCard(r, true); }).join("");
+  } else {
+    h += '<div class="d-label">反例</div><div class="ev"><div class="ev-q" style="color:var(--soft-ink)">此 pattern 無反例——本身就係可信度訊號。</div></div>';
+  }
+  h += '<div class="d-label">數字明細</div><div class="d-stats">' + d.stats.map(function (s) { return "<span>" + s + "</span>"; }).join("") + '</div>';
+  var total = d.n.match(/^(\d+)/);
+  h += '<button class="d-all" id="d-all-btn">查看全部 ' + (total ? total[1] : "") + ' 條(按帖分組 · 已去重)</button>';
+  dBody.innerHTML = h;
+  dBody.scrollTop = 0;
+  bindDrawer();
+  frame.classList.add("open");
+}
+function renderL3(key) {
+  var d = DETAILS[key];
+  var h = '<button class="d-back" id="d-back-btn">← 返回摘要</button>';
+  d.all.forEach(function (g) {
+    h += '<div class="grp"><div class="grp-h"><span class="sid">' + g.s + '</span><span class="gt">' + g.t + '</span><span class="gn">' + g.rows.length + ' 條</span></div>';
+    g.rows.forEach(function (r) {
+      h += '<div class="cm"><span class="ca">' + r[0] + '</span><span class="cx">' + r[1]
+        + (r[3] ? ' <span class="dedup">' + r[3] + '</span>' : "")
+        + '</span><span class="cl">♥' + r[2] + '</span></div>';
+    });
+    h += '</div>';
+  });
+  if (d.truncated) h += '<div style="font-size:11px;color:var(--soft-ink);padding:4px 0">' + d.truncated + '</div>';
+  dBody.innerHTML = h;
+  dBody.scrollTop = 0;
+  bindDrawer();
+}
+function bindDrawer() {
+  var allBtn = document.getElementById("d-all-btn");
+  if (allBtn) allBtn.addEventListener("click", function () { renderL3(current); });
+  var backBtn = document.getElementById("d-back-btn");
+  if (backBtn) backBtn.addEventListener("click", function () { renderL2(current); });
+  dBody.querySelectorAll(".more").forEach(function (b) {
+    b.addEventListener("click", function () {
+      var q = b.previousElementSibling;
+      var open = q.classList.toggle("clamp");
+      b.textContent = open ? "展開全文" : "收起";
+    });
+  });
+}
+document.querySelectorAll(".card").forEach(function (c) {
+  c.addEventListener("click", function () { renderL2(c.dataset.d); });
+});
+function closeDrawer() { frame.classList.remove("open"); }
+document.getElementById("d-close").addEventListener("click", closeDrawer);
+document.getElementById("scrim").addEventListener("click", closeDrawer);
+document.addEventListener("keydown", function (e) { if (e.key === "Escape") closeDrawer(); });
+</script>
+</body>
+</html>

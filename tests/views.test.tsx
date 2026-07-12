@@ -498,7 +498,7 @@ function renderLibraryViewHtml(
   );
 }
 
-test("surfaceCardStyle uses the editorial paper defaults", () => {
+test("surfaceCardStyle uses the shared glass-ground defaults", () => {
   const style = surfaceCardStyle();
 
   assert.equal(
@@ -514,9 +514,9 @@ test("tokens keep the design-system UI and editorial type split", () => {
   assert.match(tokens.font.sans, /Noto Sans TC/);
   assert.doesNotMatch(tokens.font.sans, /Noto Serif TC|Songti TC/);
   assert.match(tokens.font.serifCjk, /Noto Serif TC|Songti TC/);
-  assert.equal(tokens.color.canvas, "#f7f4ec");
-  assert.equal(tokens.color.surface, "#fbf8f1");
-  assert.equal(tokens.color.elevated, "#fdfbf6");
+  assert.equal(tokens.color.canvas, "#f2f7f3");
+  assert.equal(tokens.color.surface, "#f8fbf8");
+  assert.equal(tokens.color.elevated, "#ffffff");
   assert.equal(tokens.radius.card, 12);
   assert.equal(tokens.radius.lg, 12);
 });
@@ -730,11 +730,19 @@ test("InPageCollectorPopup topic create action opens the real create-topic flow"
     const shell = rootElement.querySelector<HTMLElement>('[data-workspace-popup="shell"]');
     assert.ok(shell, "popup shell should render as the non-scrolling extension frame");
     assert.equal(shell.getAttribute("data-workspace-popup-material"), "glass");
+    assert.ok(inPageCollectorPopupTestables.popupFrameRadius >= 24, "the outer popup must retain the pronounced Variant D curve");
+    assert.equal(shell.style.borderRadius, `${inPageCollectorPopupTestables.popupFrameRadius}px`);
+    assert.equal(shell.style.maxWidth, "calc(100vw - 24px)");
+    assert.equal(shell.style.right, "12px");
+    assert.equal(shell.style.top, "82px");
+    assert.equal(shell.style.maxHeight, "calc(100vh - 94px)");
     assert.equal(shell.style.transform, "translateZ(0)");
     assert.equal(shell.style.contain, "paint");
     assert.ok(rootElement.querySelector<HTMLElement>('[data-workspace-material="glass"]'), "topic popup must pass glass into WorkspaceShell");
     const scrollViewport = rootElement.querySelector<HTMLElement>('[data-workspace-popup-scroll="viewport"]');
     assert.ok(scrollViewport, "popup scroll viewport should remain separate from the frame");
+    assert.equal(scrollViewport.style.borderRadius, `${inPageCollectorPopupTestables.popupFrameRadius}px`);
+    assert.equal(scrollViewport.style.boxSizing, "border-box");
     assert.equal(scrollViewport.style.transform, "");
     const button = rootElement.querySelector<HTMLButtonElement>('[data-new-topic-button="triage"]');
     assert.ok(button, "topics page must render the create-topic button");

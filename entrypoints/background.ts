@@ -92,6 +92,9 @@ import {
   COMPARE_BRIEF_PROMPT_VERSION,
   COMPARE_ONE_LINER_PROMPT_VERSION,
   COMPARE_EVIDENCE_ANNOTATION_PROMPT_VERSION,
+  OPENAI_COMPARE_MODEL,
+  CLAUDE_COMPARE_MODEL,
+  GOOGLE_COMPARE_MODEL,
   generateCompareBrief,
   generateCompareClusterSummaries,
   generateCompareOneLiner,
@@ -2825,12 +2828,17 @@ export default defineBackground(() => {
             const result = await handleTopicAuditMessage(chrome.storage.local, {
               message,
               sessions: current.global.sessions,
-              generateEnvelope: async (_stageName, prompt) => generateTopicAuditEnvelope(
+              generateEnvelope: async (stageName, prompt) => generateTopicAuditEnvelope(
                 providerConfig.provider,
                 providerConfig.apiKey,
-                prompt
+                prompt,
+                stageName === "final" ? 3200 : 2200
               ),
-              model: providerConfig.provider
+              model: providerConfig.provider === "openai"
+                ? `openai:${OPENAI_COMPARE_MODEL}`
+                : providerConfig.provider === "claude"
+                  ? `claude:${CLAUDE_COMPARE_MODEL}`
+                  : `google:${GOOGLE_COMPARE_MODEL}`
             });
             sendResponse({
               ok: true,

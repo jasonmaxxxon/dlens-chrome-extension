@@ -55,7 +55,7 @@ test("InPageCollectorOverlays renders a saved-post success popup with metric str
   assert.match(html, />18</);
   assert.match(html, />4</);
   assert.match(html, />–</);
-  assert.match(html, /dlens-success-pulse/);
+  assert.match(html, /dlens-success-pop/);
 });
 
 test("InPageCollectorOverlays renders the hover preview with the collector metric strip", () => {

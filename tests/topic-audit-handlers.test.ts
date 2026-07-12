@@ -5,9 +5,11 @@ import type { AuditPromptEnvelope } from "../src/compare/topic-audit-prompts.ts"
 import { TOPIC_SIGNAL_READINGS_STORAGE_KEY } from "../src/compare/topic-signal-reading-storage.ts";
 import {
   TOPIC_AUDIT_EVIDENCE_STORAGE_KEY,
+  TOPIC_AUDIT_EPISODES_STORAGE_KEY,
   TOPIC_AUDIT_MEMOS_STORAGE_KEY,
   TOPIC_AUDIT_REPORTS_STORAGE_KEY,
   loadTopicAuditEvidence,
+  loadTopicAuditEpisodes,
   loadTopicAuditMemos,
   loadTopicAuditReport,
   saveTopicAuditMemos,
@@ -255,8 +257,12 @@ test("topic audit run persists each stage and reuses cache on the same input", a
   const storage = new MemoryStorage();
   await seedTopic(storage);
   const calls: string[] = [];
-  const generator = async (stageName: string): Promise<AuditPromptEnvelope> => {
+  const p1Prompts: string[] = [];
+  const generator = async (stageName: string, prompt: string): Promise<AuditPromptEnvelope> => {
     calls.push(stageName);
+    if (stageName === "p1-signal-reading") {
+      p1Prompts.push(prompt);
+    }
     return makeEnvelope(stageName);
   };
 
@@ -281,6 +287,9 @@ test("topic audit run persists each stage and reuses cache on the same input", a
   assert.equal(first.auditReport?.topicId, "topic-1");
   assert.equal(first.auditValidatorFlags?.length, 0);
   assert.equal(first.auditMemos?.shardReadings?.length, 2);
+  assert.equal(first.auditMemos?.shardReadings?.[0]?.reading, "comment-shard-reading prose");
+  assert.match(p1Prompts[0] ?? "", /comment-shard-reading prose/);
+  assert.doesNotMatch(p1Prompts[0] ?? "", /我同老公就是 app 識的。/);
   assert.equal((await loadTopicAuditMemos(storage, "topic-1"))?.lensMemos.length, 4);
   assert.equal((await loadTopicAuditMemos(storage, "topic-1"))?.shardReadings?.length, 2);
   assert.ok(await loadTopicAuditReport(storage, "topic-1"));
@@ -341,11 +350,176 @@ test("topic audit single P1 refuses saved signals before generating an OP-only r
   assert.equal((await loadTopicAuditMemos(storage, "topic-1"))?.signalReadings.length ?? 0, 0);
 });
 
+test("topic audit single P1 generates missing P0.5 shard readings before bounded post synthesis", async () => {
+  const storage = new MemoryStorage();
+  await seedTopic(storage);
+  const calls: string[] = [];
+  const prompts: string[] = [];
+
+  const response = await handleTopicAuditMessage(storage, {
+    message: { type: "topic/audit/p1-signal", sessionId: "session-1", topicId: "topic-1", signalId: "signal-1" },
+    sessions: [makeSession()],
+    generateEnvelope: async (stageName, prompt) => {
+      calls.push(stageName);
+      prompts.push(prompt);
+      return makeEnvelope(stageName);
+    },
+    model: "mock:model"
+  });
+
+  assert.deepEqual(calls, ["comment-shard-reading", "p1-signal-reading"]);
+  assert.equal(response.auditMemos?.shardReadings?.length, 1);
+  assert.equal(response.auditMemos?.shardReadings?.[0]?.reading, "comment-shard-reading prose");
+  assert.match(prompts[1] ?? "", /comment-shard-reading prose/);
+  assert.doesNotMatch(prompts[1] ?? "", /我同老公就是 app 識的。/);
+});
+
+test("topic audit single P1 keeps the P0.5 checkpoint when post synthesis fails", async () => {
+  const storage = new MemoryStorage();
+  await seedTopic(storage);
+
+  await assert.rejects(
+    () => handleTopicAuditMessage(storage, {
+      message: { type: "topic/audit/p1-signal", sessionId: "session-1", topicId: "topic-1", signalId: "signal-1" },
+      sessions: [makeSession()],
+      generateEnvelope: async (stageName) => {
+        if (stageName === "p1-signal-reading") {
+          throw new Error("post synthesis timeout");
+        }
+        return makeEnvelope(stageName);
+      },
+      model: "mock:model"
+    }),
+    /post synthesis timeout/
+  );
+
+  const memos = await loadTopicAuditMemos(storage, "topic-1");
+  assert.equal(memos?.shardReadings?.length, 1);
+  assert.equal(memos?.shardReadings?.[0]?.reading, "comment-shard-reading prose");
+  assert.equal(memos?.signalReadings.length, 0);
+});
+
+test("topic audit rejects unknown inline evidence refs before persisting or replaying prose", async () => {
+  const storage = new MemoryStorage();
+  await seedTopic(storage);
+
+  await assert.rejects(
+    () => handleTopicAuditMessage(storage, {
+      message: { type: "topic/audit/p1-signal", sessionId: "session-1", topicId: "topic-1", signalId: "signal-1" },
+      sessions: [makeSession()],
+      generateEnvelope: async (stageName) => stageName === "comment-shard-reading"
+        ? { prose: "不存在的留言 [S9.R9]。", evidenceRefs: [], caveats: [] }
+        : makeEnvelope(stageName),
+      model: "mock:model"
+    }),
+    /Unknown inline evidence ref: S9\.R9/
+  );
+
+  assert.equal(await loadTopicAuditMemos(storage, "topic-1"), null);
+});
+
+test("topic audit keeps inline-ref validation strict for an empty audience shard", async () => {
+  const storage = new MemoryStorage();
+  await saveTopic(storage, { ...makeTopic(), signalIds: ["signal-1"] });
+  await storage.set({ "dlens:v1:signals": [makeSignal("signal-1", "item-1")] });
+  const session = makeSession();
+  const emptyItem = {
+    ...session.items[0]!,
+    latestCapture: {
+      ...session.items[0]!.latestCapture!,
+      result: {
+        ...session.items[0]!.latestCapture!.result!,
+        thread_read_model: {
+          ...session.items[0]!.latestCapture!.result!.thread_read_model!,
+          discussion_replies: []
+        }
+      }
+    }
+  };
+
+  await assert.rejects(
+    () => handleTopicAuditMessage(storage, {
+      message: { type: "topic/audit/p1-signal", sessionId: "session-1", topicId: "topic-1", signalId: "signal-1" },
+      sessions: [{ ...session, items: [emptyItem] }],
+      generateEnvelope: async (stageName) => stageName === "comment-shard-reading"
+        ? { prose: "空 shard 不應憑空引用 [S9.R9]。", evidenceRefs: [], caveats: [] }
+        : makeEnvelope(stageName),
+      model: "mock:model"
+    }),
+    /Unknown inline evidence ref: S9\.R9/
+  );
+});
+
+test("topic audit merges valid inline prose refs into the structured evidenceRefs", async () => {
+  const storage = new MemoryStorage();
+  await seedTopic(storage);
+
+  const response = await handleTopicAuditMessage(storage, {
+    message: { type: "topic/audit/p1-signal", sessionId: "session-1", topicId: "topic-1", signalId: "signal-1" },
+    sessions: [makeSession()],
+    generateEnvelope: async (stageName) => stageName === "p1-signal-reading"
+      ? { prose: "讀者以自身經驗校正 OP [S1.R1]。", evidenceRefs: [], caveats: [] }
+      : makeEnvelope(stageName),
+    model: "mock:model"
+  });
+
+  assert.deepEqual(response.auditMemos?.signalReadings[0]?.evidenceRefs, ["S1.R1"]);
+});
+
+test("topic audit rejects unknown inline refs hidden in display theme chips", async () => {
+  const storage = new MemoryStorage();
+  await seedTopic(storage);
+
+  await assert.rejects(
+    () => handleTopicAuditMessage(storage, {
+      message: { type: "topic/audit/run", sessionId: "session-1", topicId: "topic-1" },
+      sessions: [makeSession()],
+      generateEnvelope: async (stageName) => stageName === "lexicon"
+        ? {
+            ...makeEnvelope(stageName),
+            displayHints: { themeChips: ["虛構來源 [S9.R9]"] }
+          }
+        : makeEnvelope(stageName),
+      model: "mock:model"
+    }),
+    /Unknown inline evidence ref: S9\.R9/
+  );
+
+  assert.equal(
+    (await loadTopicAuditMemos(storage, "topic-1"))?.lensMemos.some((memo) => memo.stageName === "lexicon"),
+    false
+  );
+});
+
+test("topic audit drops narrative lanes that have no valid structured refs", async () => {
+  const storage = new MemoryStorage();
+  await seedTopic(storage);
+
+  const response = await handleTopicAuditMessage(storage, {
+    message: { type: "topic/audit/run", sessionId: "session-1", topicId: "topic-1" },
+    sessions: [makeSession()],
+    generateEnvelope: async (stageName) => stageName === "narrative"
+      ? {
+          ...makeEnvelope(stageName),
+          displayHints: {
+            narrativeLanes: [{ id: "fake", label: "沒有證據", signalRefs: ["S9.R9"], consensus: 0.8 }]
+          }
+        }
+      : makeEnvelope(stageName),
+    model: "mock:model"
+  });
+
+  assert.deepEqual(
+    response.auditMemos?.lensMemos.find((memo) => memo.stageName === "narrative")?.displayHints?.narrativeLanes,
+    []
+  );
+});
+
 test("topic audit run can resume from a later stage without rerunning completed stages", async () => {
   const storage = new MemoryStorage();
   await seedTopic(storage);
   const firstCalls: string[] = [];
-  await handleTopicAuditMessage(storage, {
+  const first = await handleTopicAuditMessage(storage, {
     message: { type: "topic/audit/run", sessionId: "session-1", topicId: "topic-1" },
     sessions: [makeSession()],
     generateEnvelope: async (stageName) => {
@@ -420,6 +594,201 @@ test("topic audit audience stage stores structured reaction patterns from P4", a
   assert.deepEqual(audienceMemo?.displayHints?.reactionPatterns?.[0]?.supportRefs, ["S1.R1"]);
 });
 
+test("topic audit publishes a bounded narrative state and carries claim ids across runs", async () => {
+  const storage = new MemoryStorage();
+  await seedTopic(storage);
+  const first = await handleTopicAuditMessage(storage, {
+    message: { type: "topic/audit/run", sessionId: "session-1", topicId: "topic-1" },
+    sessions: [makeSession()],
+    generateEnvelope: async (stageName) => stageName === "final"
+      ? {
+          ...makeEnvelope(stageName),
+          continuityReview: {
+            carriedClaims: [],
+            newClaims: [{
+              statement: "讀者用個人反例收窄市場論",
+              rationale: "首次建立可追蹤命題",
+              evidenceRefs: ["S1.R1"]
+            }],
+            voices: [{ label: "反例者", position: "要求保留個人差異", evidenceRefs: ["S1.R1"] }],
+            openQuestions: ["反例是否會跨貼文持續？"]
+          }
+        }
+      : makeEnvelope(stageName),
+    model: "mock:model"
+  });
+  assert.equal(first.auditReport?.narrativeState?.claims[0]?.id, "claim-1");
+  assert.equal(first.auditReport?.narrativeState?.claims[0]?.trajectory, "new");
+  assert.ok(JSON.stringify(first.auditReport?.narrativeState).length <= 4096);
+  assert.equal(first.auditEpisodes?.length, 1);
+  assert.equal(first.auditEpisodes?.[0]?.transition, "first");
+
+  const prompts: string[] = [];
+  const second = await handleTopicAuditMessage(storage, {
+    message: { type: "topic/audit/run", sessionId: "session-1", topicId: "topic-1", force: true },
+    sessions: [makeSession()],
+    generateEnvelope: async (stageName, prompt) => {
+      prompts.push(prompt);
+      return stageName === "final"
+        ? {
+            ...makeEnvelope(stageName),
+            continuityReview: {
+              carriedClaims: [{
+                claimId: "claim-1",
+                outcome: "stable",
+                statement: "讀者用個人反例收窄市場論",
+                rationale: "本次仍有同一證據",
+                evidenceRefs: ["S1.R1"]
+              }],
+              newClaims: [],
+              voices: [],
+              openQuestions: []
+            }
+          }
+        : makeEnvelope(stageName);
+    },
+    model: "mock:model"
+  });
+
+  assert.equal(second.auditReport?.narrativeState?.claims[0]?.id, "claim-1");
+  assert.equal(second.auditReport?.narrativeState?.claims[0]?.trajectory, "stable");
+  assert.notEqual(second.auditReport?.auditRunId, first.auditReport?.auditRunId);
+  assert.equal(second.auditMemos?.auditRunId, second.auditReport?.auditRunId);
+  assert.equal(second.auditEpisodes?.length, 1);
+  assert.equal(second.auditEpisodes?.[0]?.transition, "first");
+  assert.equal(second.auditEpisodes?.[0]?.auditRunId, second.auditReport?.auditRunId);
+  assert.ok(prompts.filter((prompt) => prompt.includes("claim-1")).length >= 3);
+});
+
+test("topic audit carries claim ids across a single-signal P1 regeneration that deletes the report", async () => {
+  const storage = new MemoryStorage();
+  await seedTopic(storage);
+  await handleTopicAuditMessage(storage, {
+    message: { type: "topic/audit/run", sessionId: "session-1", topicId: "topic-1" },
+    sessions: [makeSession()],
+    generateEnvelope: async (stageName) => stageName === "final"
+      ? {
+          ...makeEnvelope(stageName),
+          continuityReview: {
+            carriedClaims: [],
+            newClaims: [{
+              statement: "讀者用個人反例收窄市場論",
+              rationale: "首次建立可追蹤命題",
+              evidenceRefs: ["S1.R1"]
+            }],
+            voices: [],
+            openQuestions: []
+          }
+        }
+      : makeEnvelope(stageName),
+    model: "mock:model"
+  });
+  assert.equal((await loadTopicAuditReport(storage, "topic-1"))?.narrativeState?.claims[0]?.id, "claim-1");
+
+  // Regenerating one signal's P1 deletes the report but keeps the episodes.
+  await handleTopicAuditMessage(storage, {
+    message: { type: "topic/audit/p1-signal", sessionId: "session-1", topicId: "topic-1", signalId: "signal-1" },
+    sessions: [makeSession()],
+    generateEnvelope: async (stageName) => makeEnvelope(stageName),
+    model: "mock:model"
+  });
+  assert.equal(await loadTopicAuditReport(storage, "topic-1"), null);
+  assert.equal((await loadTopicAuditEpisodes(storage, "topic-1")).length, 1);
+
+  // The next full audit must recover the prior state from the surviving episode: claim-1 stays the
+  // same proposition and the new proposition gets claim-2 — claim-1 is never reused for another claim.
+  const prompts: string[] = [];
+  const third = await handleTopicAuditMessage(storage, {
+    message: { type: "topic/audit/run", sessionId: "session-1", topicId: "topic-1", force: true },
+    sessions: [makeSession()],
+    generateEnvelope: async (stageName, prompt) => {
+      prompts.push(prompt);
+      return stageName === "final"
+        ? {
+            ...makeEnvelope(stageName),
+            continuityReview: {
+              carriedClaims: [{
+                claimId: "claim-1",
+                outcome: "stable",
+                statement: "讀者用個人反例收窄市場論",
+                rationale: "本次仍有同一證據",
+                evidenceRefs: ["S1.R1"]
+              }],
+              newClaims: [{
+                statement: "第二個獨立命題",
+                rationale: "新觀察",
+                evidenceRefs: ["S1.R1"]
+              }],
+              voices: [],
+              openQuestions: []
+            }
+          }
+        : makeEnvelope(stageName);
+    },
+    model: "mock:model"
+  });
+
+  const carried = third.auditReport?.narrativeState?.claims.find((claim) => claim.id === "claim-1");
+  const fresh = third.auditReport?.narrativeState?.claims.find((claim) => claim.id === "claim-2");
+  assert.equal(carried?.statement, "讀者用個人反例收窄市場論");
+  assert.equal(carried?.trajectory, "stable");
+  assert.equal(fresh?.statement, "第二個獨立命題");
+  assert.equal(fresh?.trajectory, "new");
+  assert.deepEqual(
+    third.auditEpisodes?.[0]?.delta.map((entry) => ({
+      claimId: entry.claimId,
+      trajectory: entry.trajectory
+    })),
+    [
+      { claimId: "claim-1", trajectory: "new" },
+      { claimId: "claim-2", trajectory: "new" }
+    ]
+  );
+  assert.ok(prompts.some((prompt) => prompt.includes("claim-1")));
+});
+
+test("topic audit does not replace the published report when continuity accounting is invalid", async () => {
+  const storage = new MemoryStorage();
+  await seedTopic(storage);
+  await handleTopicAuditMessage(storage, {
+    message: { type: "topic/audit/run", sessionId: "session-1", topicId: "topic-1" },
+    sessions: [makeSession()],
+    generateEnvelope: async (stageName) => stageName === "final"
+      ? {
+          ...makeEnvelope(stageName),
+          continuityReview: {
+            carriedClaims: [],
+            newClaims: [{ statement: "可追蹤命題", rationale: "首次建立", evidenceRefs: ["S1.R1"] }],
+            voices: [],
+            openQuestions: []
+          }
+        }
+      : makeEnvelope(stageName),
+    model: "mock:model"
+  });
+  const published = await loadTopicAuditReport(storage, "topic-1");
+  const publishedEpisodes = await loadTopicAuditEpisodes(storage, "topic-1");
+  assert.equal(published?.narrativeState?.claims[0]?.id, "claim-1");
+
+  await assert.rejects(
+    () => handleTopicAuditMessage(storage, {
+      message: { type: "topic/audit/run", sessionId: "session-1", topicId: "topic-1", force: true },
+      sessions: [makeSession()],
+      generateEnvelope: async (stageName) => stageName === "final"
+        ? {
+            ...makeEnvelope(stageName),
+            continuityReview: { carriedClaims: [], newClaims: [], voices: [], openQuestions: [] }
+          }
+        : makeEnvelope(stageName),
+      model: "mock:model"
+    }),
+    /account for every active prior claim/
+  );
+
+  assert.deepEqual(await loadTopicAuditReport(storage, "topic-1"), published);
+  assert.deepEqual(await loadTopicAuditEpisodes(storage, "topic-1"), publishedEpisodes);
+});
+
 test("topic audit run keeps per-signal P1 failures isolated", async () => {
   const storage = new MemoryStorage();
   await seedTopic(storage);
@@ -447,6 +816,356 @@ test("topic audit run keeps per-signal P1 failures isolated", async () => {
   assert.match(memos?.lensMemos[0]?.caveats.join(" ") ?? "", /P1 failures: S1/);
 });
 
+test("topic audit append reuses unchanged per-signal P0.5 and P1 artifacts while rerunning topic lenses", async () => {
+  const storage = new MemoryStorage();
+  await saveTopic(storage, { ...makeTopic(), signalIds: ["signal-1"] });
+  await storage.set({
+    "dlens:v1:signals": [makeSignal("signal-1", "item-1"), makeSignal("signal-2", "item-2")]
+  });
+  const firstSession = makeSession();
+  const firstCalls: string[] = [];
+  const first = await handleTopicAuditMessage(storage, {
+    message: { type: "topic/audit/run", sessionId: "session-1", topicId: "topic-1" },
+    sessions: [{ ...firstSession, items: [firstSession.items[0]!] }],
+    generateEnvelope: async (stageName) => {
+      firstCalls.push(stageName);
+      return makeEnvelope(stageName);
+    },
+    model: "mock:model"
+  });
+  const originalS1 = first.auditMemos?.signalReadings.find((reading) => reading.signalId === "signal-1");
+  assert.ok(originalS1);
+
+  await saveTopic(storage, makeTopic());
+  const secondCalls: string[] = [];
+  const second = await handleTopicAuditMessage(storage, {
+    message: { type: "topic/audit/run", sessionId: "session-1", topicId: "topic-1" },
+    sessions: [makeSession()],
+    generateEnvelope: async (stageName) => {
+      secondCalls.push(stageName);
+      return makeEnvelope(stageName);
+    },
+    model: "mock:model"
+  });
+
+  assert.deepEqual(firstCalls, ["comment-shard-reading", "p1-signal-reading", "lexicon", "narrative", "audience", "absence", "final"]);
+  assert.deepEqual(secondCalls, ["comment-shard-reading", "p1-signal-reading", "lexicon", "narrative", "audience", "absence", "final"]);
+  assert.equal(
+    second.auditMemos?.signalReadings.find((reading) => reading.signalId === "signal-1")?.generatedAt,
+    originalS1.generatedAt
+  );
+  assert.equal(second.auditEpisodes?.length, 2);
+  assert.equal(second.auditEpisodes?.[1]?.transition, "advance");
+});
+
+test("topic audit topic-definition changes bypass fast return and publish a rebase episode", async () => {
+  const storage = new MemoryStorage();
+  await seedTopic(storage);
+  await handleTopicAuditMessage(storage, {
+    message: { type: "topic/audit/run", sessionId: "session-1", topicId: "topic-1" },
+    sessions: [makeSession()],
+    generateEnvelope: async (stageName) => makeEnvelope(stageName),
+    model: "mock:model"
+  });
+  await saveTopic(storage, {
+    ...makeTopic(),
+    description: "新的研究定義",
+    context: { researchQuestion: "這個敘事如何改變？" }
+  });
+
+  const calls: string[] = [];
+  const result = await handleTopicAuditMessage(storage, {
+    message: { type: "topic/audit/run", sessionId: "session-1", topicId: "topic-1" },
+    sessions: [makeSession()],
+    generateEnvelope: async (stageName) => {
+      calls.push(stageName);
+      return makeEnvelope(stageName);
+    },
+    model: "mock:model"
+  });
+
+  assert.deepEqual(calls, ["lexicon", "narrative", "audience", "absence", "final"]);
+  assert.equal(result.auditEpisodes?.length, 2);
+  assert.equal(result.auditEpisodes?.[1]?.transition, "rebase");
+});
+
+test("topic audit retries a missing P1 on the same input instead of fast-returning an incomplete report", async () => {
+  const storage = new MemoryStorage();
+  await seedTopic(storage);
+  let p1Calls = 0;
+  await handleTopicAuditMessage(storage, {
+    message: { type: "topic/audit/run", sessionId: "session-1", topicId: "topic-1" },
+    sessions: [makeSession()],
+    generateEnvelope: async (stageName) => {
+      if (stageName === "p1-signal-reading") {
+        p1Calls += 1;
+        if (p1Calls === 1) throw new Error("first P1 timeout");
+      }
+      return makeEnvelope(stageName);
+    },
+    model: "mock:model"
+  });
+
+  const retryCalls: string[] = [];
+  const retried = await handleTopicAuditMessage(storage, {
+    message: { type: "topic/audit/run", sessionId: "session-1", topicId: "topic-1" },
+    sessions: [makeSession()],
+    generateEnvelope: async (stageName) => {
+      retryCalls.push(stageName);
+      return makeEnvelope(stageName);
+    },
+    model: "mock:model"
+  });
+
+  assert.deepEqual(retryCalls, ["p1-signal-reading", "lexicon", "narrative", "audience", "absence", "final"]);
+  assert.deepEqual(retried.auditMemos?.signalReadings.map((reading) => reading.signalId).sort(), ["signal-1", "signal-2"]);
+});
+
+test("topic audit restarts aggregate lenses when resume fills a previously missing P1", async () => {
+  const storage = new MemoryStorage();
+  await seedTopic(storage);
+  let p1Calls = 0;
+  await handleTopicAuditMessage(storage, {
+    message: { type: "topic/audit/run", sessionId: "session-1", topicId: "topic-1" },
+    sessions: [makeSession()],
+    generateEnvelope: async (stageName) => {
+      if (stageName === "p1-signal-reading" && ++p1Calls === 1) {
+        throw new Error("first P1 timeout");
+      }
+      return makeEnvelope(stageName);
+    },
+    model: "mock:model"
+  });
+
+  const calls: string[] = [];
+  await handleTopicAuditMessage(storage, {
+    message: { type: "topic/audit/run", sessionId: "session-1", topicId: "topic-1", fromStage: "narrative" },
+    sessions: [makeSession()],
+    generateEnvelope: async (stageName) => {
+      calls.push(stageName);
+      return makeEnvelope(stageName);
+    },
+    model: "mock:model"
+  });
+
+  assert.deepEqual(calls, ["p1-signal-reading", "lexicon", "narrative", "audience", "absence", "final"]);
+});
+
+test("topic audit invalidates only the signal whose captured content changed", async () => {
+  const storage = new MemoryStorage();
+  await seedTopic(storage);
+  const first = await handleTopicAuditMessage(storage, {
+    message: { type: "topic/audit/run", sessionId: "session-1", topicId: "topic-1" },
+    sessions: [makeSession()],
+    generateEnvelope: async (stageName) => makeEnvelope(stageName),
+    model: "mock:model"
+  });
+
+  const changedSession = makeSession();
+  const item = changedSession.items[1]!;
+  const capture = item.latestCapture!;
+  const result = capture.result!;
+  const thread = result.thread_read_model!;
+  changedSession.items[1] = {
+    ...item,
+    latestCapture: {
+      ...capture,
+      result: {
+        ...result,
+        thread_read_model: {
+          ...thread,
+          discussion_replies: [{
+            ...thread.discussion_replies[0]!,
+            text: "第二個訊號的留言內容已經改變。"
+          }]
+        }
+      }
+    }
+  };
+  const calls: Array<{ stageName: string; prompt: string }> = [];
+  const changed = await handleTopicAuditMessage(storage, {
+    message: { type: "topic/audit/run", sessionId: "session-1", topicId: "topic-1" },
+    sessions: [changedSession],
+    generateEnvelope: async (stageName, prompt) => {
+      calls.push({ stageName, prompt });
+      return makeEnvelope(stageName);
+    },
+    model: "mock:model"
+  });
+
+  assert.deepEqual(calls.map((call) => call.stageName), [
+    "comment-shard-reading",
+    "p1-signal-reading",
+    "lexicon",
+    "narrative",
+    "audience",
+    "absence",
+    "final"
+  ]);
+  assert.match(calls[0]?.prompt ?? "", /S2\.OP/);
+  assert.match(calls[1]?.prompt ?? "", /S2\.OP/);
+  assert.notEqual(first.auditReport?.auditRunId, changed.auditReport?.auditRunId);
+});
+
+test("topic audit invalidates per-signal artifacts when signal order moves their evidence aliases", async () => {
+  const storage = new MemoryStorage();
+  await seedTopic(storage);
+  await handleTopicAuditMessage(storage, {
+    message: { type: "topic/audit/run", sessionId: "session-1", topicId: "topic-1" },
+    sessions: [makeSession()],
+    generateEnvelope: async (stageName) => makeEnvelope(stageName),
+    model: "mock:model"
+  });
+
+  await saveTopic(storage, { ...makeTopic(), signalIds: ["signal-2", "signal-1"] });
+  const calls: string[] = [];
+  await handleTopicAuditMessage(storage, {
+    message: { type: "topic/audit/run", sessionId: "session-1", topicId: "topic-1" },
+    sessions: [makeSession()],
+    generateEnvelope: async (stageName) => {
+      calls.push(stageName);
+      return makeEnvelope(stageName);
+    },
+    model: "mock:model"
+  });
+
+  assert.equal(calls.filter((stageName) => stageName === "comment-shard-reading").length, 2);
+  assert.equal(calls.filter((stageName) => stageName === "p1-signal-reading").length, 2);
+});
+
+test("topic audit refuses to replay a cache-valid memo containing an unknown inline ref", async () => {
+  const storage = new MemoryStorage();
+  await seedTopic(storage);
+  await handleTopicAuditMessage(storage, {
+    message: { type: "topic/audit/run", sessionId: "session-1", topicId: "topic-1" },
+    sessions: [makeSession()],
+    generateEnvelope: async (stageName) => makeEnvelope(stageName),
+    model: "mock:model"
+  });
+  const bundle = await loadTopicAuditMemos(storage, "topic-1");
+  assert.ok(bundle);
+  if (!bundle) return;
+  await saveTopicAuditMemos(storage, "topic-1", {
+    ...bundle,
+    signalReadings: bundle.signalReadings.map((reading) => reading.signalId === "signal-1"
+      ? { ...reading, reading: "竄改的舊 memo [S9.R9]" }
+      : reading)
+  });
+
+  const calls: string[] = [];
+  await handleTopicAuditMessage(storage, {
+    message: { type: "topic/audit/run", sessionId: "session-1", topicId: "topic-1" },
+    sessions: [makeSession()],
+    generateEnvelope: async (stageName) => {
+      calls.push(stageName);
+      return makeEnvelope(stageName);
+    },
+    model: "mock:model"
+  });
+
+  assert.deepEqual(calls, ["p1-signal-reading", "lexicon", "narrative", "audience", "absence", "final"]);
+});
+
+test("topic audit checkpoints each completed shard before a later shard fails", async () => {
+  const storage = new MemoryStorage();
+  await saveTopic(storage, { ...makeTopic(), signalIds: ["signal-1"] });
+  await storage.set({ "dlens:v1:signals": [makeSignal("signal-1", "item-1")] });
+  const session = makeSession();
+  const item = session.items[0]!;
+  const capture = item.latestCapture!;
+  const result = capture.result!;
+  const thread = result.thread_read_model!;
+  session.items = [{
+    ...item,
+    latestCapture: {
+      ...capture,
+      result: {
+        ...result,
+        thread_read_model: {
+          ...thread,
+          discussion_replies: [
+            { comment_id: "long-1", author: "reader-1", text: "甲".repeat(10_000), like_count: 1 },
+            { comment_id: "long-2", author: "reader-2", text: "乙".repeat(10_000), like_count: 1 }
+          ]
+        }
+      }
+    }
+  }];
+  let shardCalls = 0;
+
+  await assert.rejects(
+    () => handleTopicAuditMessage(storage, {
+      message: { type: "topic/audit/p1-signal", sessionId: "session-1", topicId: "topic-1", signalId: "signal-1" },
+      sessions: [session],
+      generateEnvelope: async (stageName) => {
+        if (stageName === "comment-shard-reading" && ++shardCalls === 2) {
+          throw new Error("second shard timeout");
+        }
+        return makeEnvelope(stageName);
+      },
+      model: "mock:model"
+    }),
+    /second shard timeout/
+  );
+
+  const checkpoint = await loadTopicAuditMemos(storage, "topic-1");
+  assert.equal(checkpoint?.shardReadings?.length, 1);
+  assert.equal(checkpoint?.shardReadings?.[0]?.shardIndex, 0);
+});
+
+test("topic audit hides the published report before a single-P1 checkpoint can diverge", async () => {
+  const storage = new MemoryStorage();
+  await saveTopic(storage, { ...makeTopic(), signalIds: ["signal-1"] });
+  await storage.set({ "dlens:v1:signals": [makeSignal("signal-1", "item-1")] });
+  const originalSession = makeSession();
+  await handleTopicAuditMessage(storage, {
+    message: { type: "topic/audit/run", sessionId: "session-1", topicId: "topic-1" },
+    sessions: [{ ...originalSession, items: [originalSession.items[0]!] }],
+    generateEnvelope: async (stageName) => makeEnvelope(stageName),
+    model: "mock:model"
+  });
+  assert.ok(await loadTopicAuditReport(storage, "topic-1"));
+
+  const changedSession = makeSession();
+  const item = changedSession.items[0]!;
+  const capture = item.latestCapture!;
+  const result = capture.result!;
+  const thread = result.thread_read_model!;
+  changedSession.items = [{
+    ...item,
+    latestCapture: {
+      ...capture,
+      result: {
+        ...result,
+        thread_read_model: {
+          ...thread,
+          discussion_replies: [
+            { comment_id: "new-long-1", author: "reader-1", text: "甲".repeat(10_000), like_count: 1 },
+            { comment_id: "new-long-2", author: "reader-2", text: "乙".repeat(10_000), like_count: 1 }
+          ]
+        }
+      }
+    }
+  }];
+  let shardCalls = 0;
+  await assert.rejects(
+    () => handleTopicAuditMessage(storage, {
+      message: { type: "topic/audit/p1-signal", sessionId: "session-1", topicId: "topic-1", signalId: "signal-1" },
+      sessions: [changedSession],
+      generateEnvelope: async (stageName) => {
+        if (stageName === "comment-shard-reading" && ++shardCalls === 2) {
+          throw new Error("second shard timeout");
+        }
+        return makeEnvelope(stageName);
+      },
+      model: "mock:model"
+    }),
+    /second shard timeout/
+  );
+
+  assert.equal(await loadTopicAuditReport(storage, "topic-1"), null);
+});
+
 test("topic audit get, validate, and clear do not touch synthesis or topic signal reading keys", async () => {
   const storage = new MemoryStorage();
   await seedTopic(storage);
@@ -464,6 +1183,7 @@ test("topic audit get, validate, and clear do not touch synthesis or topic signa
     sessions: [makeSession()]
   });
   assert.ok(getResponse.auditReport);
+  assert.equal(getResponse.auditEpisodes?.length, 1);
 
   const validateResponse = await handleTopicAuditMessage(storage, {
     message: { type: "topic/audit/validate", topicId: "topic-1" },
@@ -478,6 +1198,8 @@ test("topic audit get, validate, and clear do not touch synthesis or topic signa
 
   assert.deepEqual(await loadTopicAuditEvidence(storage, "topic-1"), []);
   assert.equal(await loadTopicAuditReport(storage, "topic-1"), null);
+  assert.deepEqual(await loadTopicAuditEpisodes(storage, "topic-1"), []);
+  assert.ok(storage.values[TOPIC_AUDIT_EPISODES_STORAGE_KEY]);
   assert.deepEqual(storage.values[TOPIC_SYNTHESIS_STORAGE_KEY], { "topic-1": { untouched: true } });
   assert.deepEqual(storage.values[TOPIC_SIGNAL_READINGS_STORAGE_KEY], { "topic-1::signal-1": { untouched: true } });
 });

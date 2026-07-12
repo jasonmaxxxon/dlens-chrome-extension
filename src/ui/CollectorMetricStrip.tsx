@@ -12,7 +12,7 @@ export const COLLECTOR_MOTION_CSS = `
   }
 
   [data-collector-success-dot="true"] {
-    animation: ${tokens.motion.keyframes.successPulse};
+    animation: ${tokens.motion.keyframes.successPop};
   }
 
   @media (prefers-reduced-motion: reduce) {
