@@ -384,6 +384,7 @@ function AuditDetailDrawer({
         data-audit-detail-drawer="true"
         data-open={open ? "true" : "false"}
         data-detail-kind={kind}
+        data-detail-id={activeDetail?.id ?? "none"}
         role="dialog"
         aria-modal="true"
         aria-hidden={open ? "false" : "true"}
@@ -2402,14 +2403,13 @@ export function TopicDetailView({
               key={signal.signalId}
               data-topic-source-row={signal.signalId}
               data-scan-row="true"
-              onClick={canOpenDrawer ? () => setActiveDetail({ kind: "source", id: signal.signalId }) : undefined}
               style={scanRowStyle({
                 display: "grid",
                 gridTemplateColumns: deleteAction ? "5px minmax(0, 1fr) auto 42px" : "5px minmax(0, 1fr) auto",
                 gap: 10,
                 padding: "11px 0",
                 alignItems: "start",
-                cursor: canOpenDrawer ? "pointer" : "default"
+                cursor: "default"
               })}
             >
               <span
@@ -2462,6 +2462,7 @@ export function TopicDetailView({
                     <button
                       type="button"
                       data-topic-source-row-detail={signal.signalId}
+                      data-dlens-button="secondary"
                       onClick={() => setActiveDetail({ kind: "source", id: signal.signalId })}
                       style={{
                         padding: "4px 8px",
@@ -2681,6 +2682,7 @@ export function TopicDetailView({
                         type="button"
                         data-narrative-lane={lane.id}
                         data-active={selectedLaneId === lane.id ? "true" : "false"}
+                        className="dlens-card-lift"
                         onClick={() => setActiveDetail({ kind: "narrative", id: lane.id })}
                         style={{
                           textAlign: "left",
@@ -2718,6 +2720,7 @@ export function TopicDetailView({
                       type="button"
                       data-narrative-lane={lane.id}
                       data-active={selectedLaneId === lane.id ? "true" : "false"}
+                      className="dlens-tactile-row"
                       onClick={() => setActiveDetail({ kind: "narrative", id: lane.id })}
                       style={{ border: "none", background: "none", padding: "1px 2px", cursor: "pointer", display: "flex", gap: 8, alignItems: "baseline", textAlign: "left", fontFamily: tokens.font.sans, minWidth: 0 }}
                     >
@@ -2741,8 +2744,14 @@ export function TopicDetailView({
                     [data-signal-atlas-dot][data-top-dot="true"] { animation: dlens-atlas-dot-pulse ${tokens.motion.duration.slower} ${tokens.motion.easing.standard} infinite alternate; }
                   }
                   [data-signal-atlas-dot] { outline: none; }
+                  [data-signal-atlas-dot] { transform-box: fill-box; transform-origin: center; transition: transform ${tokens.motion.duration.base} ${tokens.motion.easing.springSoft}; }
+                  [data-signal-atlas-dot]:hover { transform: ${tokens.motion.transform.atlasHover}; }
+                  [data-signal-atlas-dot]:active { transform: ${tokens.motion.transform.atlasPress}; }
                   [data-signal-atlas-dot] .dlens-atlas-focus-ring { opacity: 0; transition: opacity ${tokens.motion.duration.fast} ${tokens.motion.easing.standard}; }
                   [data-signal-atlas-dot]:focus-visible .dlens-atlas-focus-ring { opacity: 1; }
+                  @media (prefers-reduced-motion: reduce) {
+                    [data-signal-atlas-dot]:hover, [data-signal-atlas-dot]:active { transform: none !important; }
+                  }
                 `}</style>
                 <svg
                   viewBox={`0 0 ${compassLayout.width} ${compassLayout.height}`}
@@ -2771,6 +2780,7 @@ export function TopicDetailView({
                         key={bubble.id}
                         data-signal-atlas-dot={bubble.id}
                         data-top-dot={index === 0 ? "true" : "false"}
+                        data-active={selectedReactionId === bubble.id ? "true" : "false"}
                         role="button"
                         aria-label={`${bubble.label}，${bubble.nComments} 次留言歸屬，按 Enter 開啟詳情`}
                         tabIndex={0}
@@ -2805,6 +2815,7 @@ export function TopicDetailView({
                       type="button"
                       data-reaction-pattern={pattern.id}
                       data-active={selectedReactionId === pattern.id ? "true" : "false"}
+                      className="dlens-tactile-row"
                       onClick={() => setActiveDetail({ kind: "reaction", id: pattern.id })}
                       style={{
                         display: "flex",

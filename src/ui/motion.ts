@@ -157,23 +157,87 @@ export function scrollWorkspaceViewportToTop(
   return "fallback";
 }
 
+export interface MotionLayoutPoint {
+  left: number;
+  top: number;
+}
+
+export interface CausalListTransition {
+  key: string;
+  kind: "move" | "enter";
+  deltaX: number;
+  deltaY: number;
+}
+
+/**
+ * Build a FLIP-style transition plan from two derived list layouts.
+ *
+ * Retained rows move from their old coordinates and newly-derived rows receive
+ * a short state-change entrance. First-paint suppression belongs to the hook,
+ * because an empty previous layout can also be a real filter result. This is
+ * deliberately driven by list state, never by viewport intersection or scrolling.
+ */
+export function planCausalListTransitions(
+  previous: ReadonlyMap<string, MotionLayoutPoint>,
+  current: ReadonlyMap<string, MotionLayoutPoint>
+): CausalListTransition[] {
+  const transitions: CausalListTransition[] = [];
+  for (const [key, point] of current) {
+    const prior = previous.get(key);
+    if (!prior) {
+      transitions.push({ key, kind: "enter", deltaX: 0, deltaY: 0 });
+      continue;
+    }
+    const deltaX = prior.left - point.left;
+    const deltaY = prior.top - point.top;
+    if (deltaX !== 0 || deltaY !== 0) {
+      transitions.push({ key, kind: "move", deltaX, deltaY });
+    }
+  }
+  return transitions;
+}
+
 /* Shared motion layer — injected globally by the threads content script.
  * Applies across every workspace mode; classes are opt-in so unstyled
  * elements are unaffected. `prefers-reduced-motion` neutralises all of it. */
 export const DLENS_MOTION_CSS = `
+[data-dlens-control="true"][data-workspace-popup-material] [data-shell-masthead="editorial"] {
+  animation: dlens-mode-swap-in ${tokens.motion.duration.slow} ${tokens.motion.easing.entrance} backwards;
+  animation-delay: ${tokens.motion.cascadeDelay.masthead};
+}
+[data-dlens-control="true"][data-workspace-popup-material] [data-shell-header="workspace"] {
+  animation: dlens-mode-swap-in ${tokens.motion.duration.slow} ${tokens.motion.easing.entrance} backwards;
+  animation-delay: ${tokens.motion.cascadeDelay.rail};
+}
+[data-dlens-control="true"][data-workspace-popup-material] [data-shell-main="workspace"] {
+  animation: dlens-mode-swap-in ${tokens.motion.duration.slow} ${tokens.motion.easing.entrance} backwards;
+  animation-delay: ${tokens.motion.cascadeDelay.main};
+}
 [data-dlens-control="true"] .dlens-card-lift {
   transition: ${tokens.motion.preset.cardLift};
   will-change: transform;
-  transform: translateY(0);
+  transform: ${tokens.motion.transform.cardRest};
 }
 [data-dlens-control="true"] .dlens-card-lift:hover,
 [data-dlens-control="true"] .dlens-card-lift:focus-within {
-  transform: translateY(-4px);
+  transform: ${tokens.motion.transform.cardHover};
   box-shadow: ${tokens.shadow.cardLiftHover} !important;
   border-color: ${tokens.color.lineHover} !important;
 }
 [data-dlens-control="true"] .dlens-card-lift:active {
-  transform: translateY(-2px) scale(0.994);
+  transform: ${tokens.motion.transform.cardPress};
+  transition: transform 90ms ${tokens.motion.easing.standard};
+}
+[data-dlens-control="true"] .dlens-tactile-row {
+  transform: ${tokens.motion.transform.rowRest};
+  transition: transform ${tokens.motion.duration.base} ${tokens.motion.easing.springSoft}, background-color ${tokens.motion.duration.fast} ${tokens.motion.easing.standard};
+}
+[data-dlens-control="true"] .dlens-tactile-row:hover,
+[data-dlens-control="true"] .dlens-tactile-row:focus-visible {
+  transform: ${tokens.motion.transform.rowHover};
+}
+[data-dlens-control="true"] .dlens-tactile-row:active {
+  transform: ${tokens.motion.transform.rowPress};
   transition: transform 90ms ${tokens.motion.easing.standard};
 }
 [data-dlens-control="true"] .dlens-quote-row {
@@ -261,6 +325,7 @@ export const DLENS_MOTION_CSS = `
     transform: none !important;
   }
   [data-dlens-control="true"] .dlens-card-lift,
+  [data-dlens-control="true"] .dlens-tactile-row,
   [data-dlens-control="true"] .dlens-quote-row,
   [data-dlens-control="true"] .dlens-details-summary,
   [data-dlens-control="true"] .dlens-details-chevron,
@@ -272,6 +337,9 @@ export const DLENS_MOTION_CSS = `
   [data-dlens-control="true"] .dlens-card-lift:hover,
   [data-dlens-control="true"] .dlens-card-lift:focus-within,
   [data-dlens-control="true"] .dlens-card-lift:active,
+  [data-dlens-control="true"] .dlens-tactile-row:hover,
+  [data-dlens-control="true"] .dlens-tactile-row:focus-visible,
+  [data-dlens-control="true"] .dlens-tactile-row:active,
   [data-dlens-control="true"] .dlens-details-summary:hover,
   [data-dlens-control="true"] [data-mode-style="rail"]:hover [data-rail-icon],
   [data-dlens-control="true"] [data-mode-style="rail"]:active [data-rail-icon] {

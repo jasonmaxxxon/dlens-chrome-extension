@@ -477,6 +477,7 @@ export function CollectView({
                 <label
                   key={signal.id}
                   data-untriaged-row={signal.id}
+                  className="dlens-card-lift"
                   style={{
                     display: "grid",
                     gridTemplateColumns: "auto minmax(0, 1fr) auto",

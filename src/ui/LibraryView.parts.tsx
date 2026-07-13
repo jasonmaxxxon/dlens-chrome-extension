@@ -237,6 +237,7 @@ export function PostCard({
       data-item-phase={uiState.itemPhase}
       data-library-row="scan"
       data-scan-row="true"
+      data-scan-action="true"
       onClick={onSelect}
       style={rowBaseStyle(isSelected)}
     >

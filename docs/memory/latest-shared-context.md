@@ -6,7 +6,7 @@ type: project
 
 # DLens Extension Shared Context
 
-Last updated: 2026-07-12
+Last updated: 2026-07-13
 
 This file is the current shared context. Keep this filename stable and update
 the contents in place whenever an automated or manual handoff refresh makes it
@@ -61,6 +61,7 @@ This note is the high-signal shared memory for Codex and Claude when working on 
 - 0.3.34 makes Topic Audit P1 a bounded post reducer. P0.5 persists optional shard prose; full and single-signal paths checkpoint missing shard reads before P1; P1 sees capped OP/author/gap context plus shard prose and structured hints, never the raw audience pool, and hard-fails above 24,000 characters. This is not cross-run incremental caching or NarrativeState, and the hard ceiling does not yet cover P0.5/P2-P6.
 - 0.3.35 adds the longitudinal Topic layer: stable evidence anchors; per-signal content/reference cache identity; append-only P0.5/P1 reuse; a bounded 4096-character `NarrativeState`; and a 24-episode first/advance/rebase ledger rendered as the in-Atlas `本次 / 自上次` delta strip. Report/memo/evidence/episode revision guards and serialized report+episode publication prevent mixed reads and lost updates. P2-P6 still rerun over the distilled signal set; P7 is still not wired. Do not render the reaction counts as a donut until one comment has one explicit mutually exclusive group assignment.
 - 0.3.36 is motion-foundation + Topic Audit continuity hardening — no new surface, no default-user visual change. Motion: one keyframe owner (`src/ui/motion.ts`, Atlas drift/pulse folded in), an idempotent single-guard-id injector (`ensureDlensKeyframes`) that ends the popup's duplicate registry copy, and a `prefers-reduced-motion` safety net that travels with the registry (scoped to `[data-dlens-control]`) so every `animation:` callsite is neutralised without per-callsite media queries. Compare technique-view switching scrolls the DLens workspace viewport, not the host Threads page, and honours the shared reduced-motion scroll preference. Backend continuity: the P0 claim-lineage fix — full audit falls back to the latest episode's `stateSnapshot` when a single-signal P1 has deleted the report, so claim ids never restart at `claim-1` for a different proposition — plus retained retired-claim deltas on same-fingerprint episode revisions. Gate at commit: 1077 tests / 1072 pass / 0 fail / 5 skipped; typecheck / boundary / storage / build green. Runtime QA in real Chrome (逐頁動畫手感 + audit continuity) still pending; Episode Explorer / semantic motion primitives (lift/press/presence) not started.
+- 0.3.37 is the first visible causal-motion slice. Popup presence is one masthead → rail → main cascade; card/row motion is reserved for actionable targets; Product and Topic lists animate only real filter, expansion, or reorder changes through `useCausalListMotion`, with initial paint still and an explicit JS reduced-motion check. Topic cards remove the redundant status-colour spine; the existing mono status kicker remains the single state encoding. Static scan rows no longer receive hover colour, and Atlas/detail triggers retain active-source identity while the one drawer opens. No per-card scroll reveal, viewport observer, storage change, backend change, or new surface. Gate: 1083 tests / 1078 pass / 0 fail / 5 skipped; typecheck / boundary / storage / migrations / fixture / build green; mirrored `output/chrome-mv3` manifest is 0.3.37.
 - `VIEW` remains 🟢, not 🟩. The four marquee surfaces are DOM-test-locked; row-level primitive adoption / large-view LOC reduction remains a follow-up `refactor(ui)` track.
 
 ## Layout Preference State As Of 2026-05-14
@@ -97,7 +98,7 @@ This note is the high-signal shared memory for Codex and Claude when working on 
 ## Version Rule As Of 2026-07-12
 
 - Current source version in the active worktree: `0.3.35`.
-- Latest local verification on 2026-07-12: `npm run typecheck`, `npm run boundary:guard`, `npm run storage:seam-guard`, `npm run storage:migrate-fixtures`, `npx tsx --test tests/*.test.ts tests/*.test.tsx` (`1056 passed / 5 skipped`, 1061 tests), `npm run build`, and `git diff --check` passed.
+- Latest local verification on 2026-07-13: `npm run typecheck`, `npm run boundary:guard`, `npm run storage:seam-guard`, `npm run storage:migrate-fixtures`, `npm run qa:harness:fixture`, `npx tsx --test tests/*.test.ts tests/*.test.tsx` (`1078 passed / 5 skipped`, 1083 tests), `npm run build`, bundle manifest/selector inspection, and `git diff --check` passed.
 - Built `output/chrome-mv3/manifest.json` reports `version: "0.3.35"` after the 2026-07-12 build.
 - Current engineering branch: `main`.
 - `docs/ENGINEERING_PLAN.md` §2 N1-N5 is complete: React ErrorBoundary, Settings storage usage, `mutateSnapshot` seam, behavioral storage contracts, and code-review checklist.

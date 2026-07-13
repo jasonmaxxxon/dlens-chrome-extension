@@ -173,7 +173,7 @@ export function DictionaryCard({ rank, handle, quote, likes, replies, side, mark
       )}
       {hasEffectiveness && (
         <>
-          <button onClick={() => setExp((value) => !value)} style={{ width: "100%", background: tokens.color.inkWash, border: "none", borderTop: `0.5px solid ${tokens.color.cardEdge}`, cursor: "pointer", padding: "8px 15px", display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+          <button className="dlens-tactile-row" onClick={() => setExp((value) => !value)} style={{ width: "100%", background: tokens.color.inkWash, border: "none", borderTop: `0.5px solid ${tokens.color.cardEdge}`, cursor: "pointer", padding: "8px 15px", display: "flex", alignItems: "center", justifyContent: "space-between" }}>
             <div style={{ display: "flex", alignItems: "center", gap: 5 }}>
               <PartsSparkle color={cc} size={9} />
               <span style={{ fontSize: 10.5, fontWeight: 700, color: cc }}>為什麼被挑出來</span>

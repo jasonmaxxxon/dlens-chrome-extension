@@ -196,6 +196,7 @@ function TopicCard({
       type="button"
       data-casebook-topic-id={topic.id}
       data-scan-row="true"
+      data-scan-action="true"
       className="dlens-card-lift"
       onClick={() => onSelect(topic.id)}
       style={{

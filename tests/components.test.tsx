@@ -183,7 +183,8 @@ test("scan row primitive stays flat and line-separated", () => {
   assert.equal(style.boxShadow, undefined);
   assert.equal(style.borderRadius, undefined);
   assert.equal(style.padding, "12px 4px");
-  assert.match(SCAN_ROW_HOVER_CSS, /\[data-dlens-control="true"\] \[data-scan-list\] \[data-scan-row\]:hover/);
+  assert.match(SCAN_ROW_HOVER_CSS, /\[data-dlens-control="true"\] \[data-scan-list\] \[data-scan-row\]\[data-scan-action="true"\]:hover/);
+  assert.doesNotMatch(SCAN_ROW_HOVER_CSS, /\[data-scan-row\]:hover/);
   assert.doesNotMatch(SCAN_ROW_HOVER_CSS, /^\[data-scan-list\]/m);
 });
 

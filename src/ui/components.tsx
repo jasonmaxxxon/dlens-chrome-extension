@@ -804,7 +804,7 @@ export function scanRowStyle(extra?: CSSProperties): CSSProperties {
 
 /** Hover state for interactive scan rows */
 export const SCAN_ROW_HOVER_CSS = `
-[data-dlens-control="true"] [data-scan-list] [data-scan-row]:hover {
+[data-dlens-control="true"] [data-scan-list] [data-scan-row][data-scan-action="true"]:hover {
   background: ${tokens.color.inkWash};
 }
 [data-dlens-control="true"] [data-scan-list] [data-scan-row]:last-child {

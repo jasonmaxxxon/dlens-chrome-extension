@@ -145,7 +145,7 @@ test("TopicsListView renders the five audit states with distinct status copy", (
   assert.doesNotMatch(html, />queued</);
 });
 
-test("Frame 05 — topic cards carry a colour spine derived from audit state", () => {
+test("topic cards use one status slot and expose tactile/list motion hooks", () => {
   const topics = [topic("ready", "敘事穩"), topic("failed", "張力"), topic("none", "待補")];
   const html = renderToStaticMarkup(
     React.createElement(TopicsListView, {
@@ -160,11 +160,10 @@ test("Frame 05 — topic cards carry a colour spine derived from audit state", (
     })
   );
 
-  assert.match(html, /data-topic-card-spine="ready"/);
-  assert.match(html, /data-topic-card-spine="failed"/);
-  assert.match(html, /data-topic-card-spine="none"/);
-  // sage for ready, rose for failed — distinct spine colours.
-  assert.match(html, /data-topic-card-spine="ready"[^>]*background:#3f5a3b/);
+  assert.doesNotMatch(html, /data-topic-card-spine=/);
+  assert.match(html, /data-topic-list-motion="causal"/);
+  assert.match(html, /data-dlens-list-key="ready"/);
+  assert.match(html, /data-topic-card="ready"[^>]*class="dlens-card-lift"/);
 });
 
 test("TopicsListView source metrics come from real session item readiness, not audit memo counts", () => {

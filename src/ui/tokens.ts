@@ -242,6 +242,21 @@ export const tokens = {
       spring: "cubic-bezier(0.34, 1.56, 0.64, 1)",
       springSoft: "cubic-bezier(0.22, 1.12, 0.36, 1)"
     },
+    transform: {
+      cardRest: "translateY(0)",
+      cardHover: "translateY(-4px)",
+      cardPress: "translateY(1px) scale(0.994)",
+      rowRest: "translateY(0)",
+      rowHover: "translateY(-2px)",
+      rowPress: "translateY(1px) scale(0.995)",
+      atlasHover: "scale(1.025)",
+      atlasPress: "scale(0.985)"
+    },
+    cascadeDelay: {
+      masthead: "0ms",
+      rail: "35ms",
+      main: "70ms"
+    },
     transition: "all 180ms cubic-bezier(0.4, 0, 0.2, 1)",
     transitionFast: "all 100ms cubic-bezier(0.4, 0, 0.2, 1)",
     interactiveTransition: "background-color 180ms cubic-bezier(0.4, 0, 0.2, 1), border-color 180ms cubic-bezier(0.4, 0, 0.2, 1), color 180ms cubic-bezier(0.4, 0, 0.2, 1), box-shadow 180ms cubic-bezier(0.4, 0, 0.2, 1), opacity 180ms cubic-bezier(0.4, 0, 0.2, 1), transform 180ms cubic-bezier(0.4, 0, 0.2, 1)",

@@ -311,6 +311,8 @@ export function SettingsView({
                   return (
                     <label
                       key={option.mode}
+                      data-settings-mode-option={option.mode}
+                      className={canEditSessionMode ? "dlens-card-lift" : undefined}
                       style={{
                         display: "grid",
                         gridTemplateColumns: "16px minmax(0, 1fr)",

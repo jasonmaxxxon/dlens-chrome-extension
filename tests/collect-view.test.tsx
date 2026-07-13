@@ -59,6 +59,7 @@ test("CollectView shows topic triage rows for unprocessed signals", () => {
   );
 
   assert.match(html, /data-topic-triage="untriaged"/);
+  assert.match(html, /data-untriaged-row="signal-1"[^>]*class="dlens-card-lift"/);
   assert.match(html, /未分流/);
   assert.match(html, /航班改動後等不到客服/);
   assert.match(html, /航班/);

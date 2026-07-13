@@ -1498,6 +1498,9 @@ test("TopicDetailView routes reaction, narrative, atlas dot, and source row into
     });
     assert.equal(drawer.getAttribute("data-open"), "true");
     assert.equal(drawer.getAttribute("data-detail-kind"), "reaction");
+    assert.equal(drawer.getAttribute("data-detail-id"), "reaction-local-labor-defense");
+    assert.equal(patternButton!.getAttribute("data-active"), "true");
+    assert.equal(rootElement.querySelector('[data-signal-atlas-dot="reaction-local-labor-defense"]')?.getAttribute("data-active"), "true");
     assert.match(drawer.textContent ?? "", /本地勞工身份防守/);
     assert.match(drawer.textContent ?? "", /代表留言/);
     const probesAfterOpen = drawerProbeCount;
@@ -1514,6 +1517,8 @@ test("TopicDetailView routes reaction, narrative, atlas dot, and source row into
       laneButton!.dispatchEvent(new dom.window.MouseEvent("click", { bubbles: true }));
     });
     assert.equal(drawer.getAttribute("data-detail-kind"), "narrative");
+    assert.equal(drawer.getAttribute("data-detail-id"), "lane-cross");
+    assert.equal(laneButton!.getAttribute("data-active"), "true");
     assert.match(drawer.textContent ?? "", /跨帖服務焦慮/);
     assert.match(drawer.textContent ?? "", /跨 2\/6 篇/);
 
@@ -1525,11 +1530,17 @@ test("TopicDetailView routes reaction, narrative, atlas dot, and source row into
     assert.equal(drawer.getAttribute("data-detail-kind"), "reaction");
 
     const sourceRow = rootElement.querySelector<HTMLElement>("[data-source-row=\"S1\"]");
-    assert.ok(sourceRow, "source row should be clickable");
+    const sourceOpen = rootElement.querySelector<HTMLButtonElement>("[data-source-row-open=\"S1\"]");
+    assert.ok(sourceRow, "source row should remain the active identity container");
+    assert.ok(sourceOpen, "source detail should have one dedicated trigger");
+    assert.equal(sourceRow.getAttribute("role"), null);
+    assert.equal(sourceRow.classList.contains("dlens-tactile-row"), false);
     flushSync(() => {
-      sourceRow!.dispatchEvent(new dom.window.MouseEvent("click", { bubbles: true }));
+      sourceOpen!.dispatchEvent(new dom.window.MouseEvent("click", { bubbles: true }));
     });
     assert.equal(drawer.getAttribute("data-detail-kind"), "source");
+    assert.equal(drawer.getAttribute("data-detail-id"), "signal-1");
+    assert.equal(sourceRow!.getAttribute("data-active"), "true");
     assert.match(drawer.textContent ?? "", /來源 S1/);
     assert.match(drawer.textContent ?? "", /留言串/);
 

@@ -611,6 +611,7 @@ function EvidenceLedger({ rows, caption }: { rows: PrEvidenceRowViewModel[]; cap
           }}
         >
           <summary
+            className="dlens-tactile-row"
             style={{
               listStyle: "none",
               cursor: "pointer",
@@ -871,6 +872,7 @@ function CriteriaHealth({ health, rows }: { health: PrEvidenceViewModel["criteri
               }}
             >
               <summary
+                className="dlens-tactile-row"
                 style={{
                   listStyle: "none",
                   cursor: "pointer",
@@ -1086,6 +1088,7 @@ function PrWorkingArea({
         }}
       >
         <summary
+          className="dlens-tactile-row"
           style={{
             listStyle: "none",
             cursor: "pointer",
@@ -1230,7 +1233,7 @@ function CsvPreview({ preview }: { preview: PrEvidenceCsvPreviewViewModel }) {
   const body = preview.rows;
   return (
     <details data-pr-csv-preview="true" style={{ marginTop: 4, borderTop: `1px solid ${PR_RULE}`, paddingTop: 18, borderRadius: PR_RADIUS }}>
-      <summary style={{ listStyle: "none", cursor: "pointer", display: "flex", alignItems: "baseline", gap: 8, fontFamily: `${tokens.font.serifCjk}, ${tokens.font.serif}`, fontSize: 16, fontWeight: 600, color: tokens.color.ink }}>
+      <summary className="dlens-tactile-row" style={{ listStyle: "none", cursor: "pointer", display: "flex", alignItems: "baseline", gap: 8, fontFamily: `${tokens.font.serifCjk}, ${tokens.font.serif}`, fontSize: 16, fontWeight: 600, color: tokens.color.ink }}>
         <span style={{ fontSize: 11, color: tokens.color.softInk }}>▸</span>
         CSV 預覽
         <span style={{ ...prMonoMetaStyle, marginLeft: "auto", color: tokens.color.softInk, fontWeight: 500 }}>

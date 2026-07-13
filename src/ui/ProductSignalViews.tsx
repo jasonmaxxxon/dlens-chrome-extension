@@ -44,6 +44,7 @@ import {
   viewRootStyle
 } from "./components";
 import { modeThemes, tokens, textStyles } from "./tokens";
+import { useCausalListMotion } from "./useCausalListMotion";
 
 export type ProductSignalPageKind = "saved-signals" | "classification" | "actionable-filter";
 
@@ -1044,7 +1045,6 @@ function PendingSignalCard({
   );
   return (
     <div
-      className="dlens-card-lift"
       data-product-pending-card="topic-card"
       style={cardStyle({
         padding: "14px 16px",
@@ -1234,7 +1234,6 @@ function ReadinessPanel({
   if (viewModel.allGreen && !viewModel.isAnalyzing && !visibleError) {
     return (
       <div
-        className="dlens-card-lift"
         style={heroPanelStyle({
           display: "flex",
           alignItems: "center",
@@ -1329,6 +1328,9 @@ function ClassificationSignalRow({
       onClick={onSelect}
       aria-pressed={selected}
       data-scan-row="true"
+      data-scan-action="true"
+      data-dlens-list-key={analysis.signalId}
+      className="dlens-tactile-row"
       style={scanRowStyle({
         width: "100%",
         minWidth: 0,
@@ -2239,6 +2241,9 @@ function SavedSignalsBoard({
 }) {
   const [activeFilter, setActiveFilter] = useState<"all" | SavedSignalCategory>("all");
   const [showAll, setShowAll] = useState(false);
+  const listMotionRef = useCausalListMotion(
+    `${activeFilter}:${showAll ? "all" : "bounded"}:${signals.map((signal) => signal.signalId).join("|")}`
+  );
 
   if (!signals.length) {
     return null;
@@ -2357,7 +2362,7 @@ function SavedSignalsBoard({
             </div>
           </details>
         ) : null}
-        <div data-scan-list="saved-signals" style={{ display: "grid" }}>
+        <div ref={listMotionRef} data-scan-list="saved-signals" data-product-list-motion="saved-signals" style={{ display: "grid" }}>
           {visibleSignals.map((signal, index) => {
             const analysis = signal.analysis;
             const readiness = readinessLabel(signal.readiness);
@@ -2371,8 +2376,11 @@ function SavedSignalsBoard({
               <label
                 key={signal.signalId}
                 data-saved-signal-row="compact"
+                data-dlens-list-key={signal.signalId}
                 data-product-fusion-card={isFusionRow ? isHeroRow ? "hero" : "row" : undefined}
                 data-scan-row="true"
+                data-scan-action="true"
+                className="dlens-card-lift"
                 style={scanRowStyle({
                   display: "grid",
                   gridTemplateColumns: `18px minmax(0, 1fr)${!analysis ? " auto" : ""}${onRemoveSignal ? " 20px" : ""}`,
@@ -2780,6 +2788,9 @@ function SignalReadingReviewWorkspace({
     const analysis = analysesBySignal.get(signal.signalId);
     return analysis ? verdictFilterKeyForAnalysis(analysis) === selectedReviewFilter : false;
   });
+  const reviewListMotionRef = useCausalListMotion(
+    `${selectedReviewFilter}:${activeSignalId ?? "none"}:${visibleReviewSignals.map((signal) => signal.signalId).join("|")}`
+  );
   const reviewNoticeForDecision = (decision: SignalReadingReviewDecision) => {
     if (decision === "filed") {
       return "已收錄到本機判讀庫，會保留在 Signal Packet。";
@@ -2884,7 +2895,12 @@ function SignalReadingReviewWorkspace({
             {reviewNotice}
           </div>
         ) : null}
-        <div data-signal-reading-review-list-filter={selectedReviewFilter} style={{ display: "grid", gap: 10 }}>
+        <div
+          ref={reviewListMotionRef}
+          data-signal-reading-review-list-filter={selectedReviewFilter}
+          data-product-list-motion="reading-review"
+          style={{ display: "grid", gap: 10 }}
+        >
           {visibleReviewSignals.length ? visibleReviewSignals.map((signal, index) => {
             const analysis = analysesBySignal.get(signal.signalId);
             const reading = readingsBySignal.get(signal.signalId);
@@ -2905,8 +2921,9 @@ function SignalReadingReviewWorkspace({
               <article
                 key={signal.signalId}
                 data-signal-reading-review-row="true"
+                data-dlens-list-key={signal.signalId}
                 data-signal-reading-filed-flash={recentlyFiledSignalId === signal.signalId ? "true" : undefined}
-                className="dlens-card-lift"
+                className={isActive ? undefined : "dlens-card-lift"}
                 style={{
                   border: `1px solid ${tokens.color.cardEdge}`,
                   borderRadius: tokens.radius.card,
@@ -3203,6 +3220,8 @@ function SavedSignalsBatchExport({
               <label
                 data-batch-export-selection-row="true"
                 data-scan-row="true"
+                data-scan-action="true"
+                className="dlens-tactile-row"
                 style={scanRowStyle({
                   display: "grid",
                   gridTemplateColumns: "18px minmax(0, 1fr) auto",
@@ -3336,6 +3355,9 @@ function ClassificationBoard({
   const [selectedType, setSelectedType] = useState<ProductSignalType>(initialType);
   const [selectedSignalId, setSelectedSignalId] = useState<string | null>(categoryRows[0]?.items[0]?.signalId ?? null);
   const selectedItems = analyses.filter((analysis) => analysis.signalType === selectedType);
+  const classificationListMotionRef = useCausalListMotion(
+    `${selectedType}:${selectedItems.map((analysis) => analysis.signalId).join("|")}`
+  );
   const selectedAnalysis = selectedItems.find((analysis) => analysis.signalId === selectedSignalId)
     ?? selectedItems[0]
     ?? categoryRows[0]?.items[0]
@@ -3389,7 +3411,12 @@ function ClassificationBoard({
       </section>
 
       <div data-product-classification-layout="responsive" style={{ display: "grid", gridTemplateColumns: "minmax(0, 1.12fr) minmax(0, 0.88fr)", gap: 14, alignItems: "start", minWidth: 0 }}>
-        <section data-scan-list="product-classification" style={{ display: "grid", minWidth: 0, overflow: "hidden" }}>
+        <section
+          ref={classificationListMotionRef}
+          data-scan-list="product-classification"
+          data-product-list-motion="classification"
+          style={{ display: "grid", minWidth: 0, overflow: "hidden" }}
+        >
           <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8 }}>
             <Kicker>{SIGNAL_TYPE_LABELS[selectedType]} · {selectedItems.length} 則</Kicker>
             {selectedItems.length > 1 ? (
@@ -3584,7 +3611,6 @@ function ActionableItemCard({
   sourceText?: string;
   sourceUrl?: string;
 }) {
-  const [cardHovered, setCardHovered] = useState(false);
   const verdictMeta = VERDICT_META[analysis.verdict];
   const citations = citationsForAnalysis(analysis, evidenceBySignalId);
   const citationCount = citations.length;
@@ -3599,22 +3625,17 @@ function ActionableItemCard({
 
   return (
     <article
-      className="dlens-card-lift"
-      data-dlens-motion-card="true"
       data-product-action-card={excluded ? "exclusion" : "verdict"}
       data-product-action-card-primary={primaryActionCard ? "true" : "false"}
       data-verdict-value={analysis.verdict}
       data-exclusion-card={excluded ? "true" : "false"}
-      onMouseEnter={() => setCardHovered(true)}
-      onMouseLeave={() => setCardHovered(false)}
       style={cardStyle({
         gap: 14,
         padding: 18,
         minWidth: 0,
-        borderColor: cardHovered ? tokens.color.lineStrong : tokens.color.line,
-        boxShadow: cardHovered ? tokens.shadow.productActionCardHover : baseActionCardShadow,
+        borderColor: tokens.color.line,
+        boxShadow: baseActionCardShadow,
         overflow: "hidden",
-        transform: cardHovered ? "translateY(-2px)" : undefined
       })}
     >
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: 12 }}>
@@ -3824,6 +3845,9 @@ function ActionableInsightsBoard({
     watch: watchItems
   };
   const selectedItems = itemsByFilter[selectedFilter];
+  const actionListMotionRef = useCausalListMotion(
+    `${selectedFilter}:${selectedItems.map((analysis) => analysis.signalId).join("|")}`
+  );
   const selectedStat = stats.find((stat) => stat.key === selectedFilter) ?? stats[0];
   const selectedSectionTitle = selectedFilter === "try" ? "可直接試的做法" : selectedStat.label;
   const emptyCopyByFilter: Record<ActionVerdictFilter, string> = {
@@ -3850,21 +3874,22 @@ function ActionableInsightsBoard({
         />
       </section>
       <SavedExperimentsPanel feedback={agentTaskFeedback} analyses={analyses} />
-      <section style={{ display: "grid", gap: 10 }}>
+      <section ref={actionListMotionRef} data-product-list-motion="actionable" style={{ display: "grid", gap: 10 }}>
         <Kicker>{selectedSectionTitle}</Kicker>
         {selectedItems.length ? selectedItems.map((analysis, index) => (
-          <ActionableItemCard
-            key={analysis.signalId}
-            analysis={analysis}
-            index={index}
-            evidenceBySignalId={evidenceBySignalId}
-            historicalAnalyses={historicalAnalyses}
-            agentTaskFeedback={agentTaskFeedback}
-            readiness={signalReadinessById[analysis.signalId] ?? DEFAULT_PRODUCT_ACTION_READINESS}
-            sourceText={signalPreviewById[analysis.signalId]}
-            sourceUrl={signalUrlById[analysis.signalId]}
-            onRemove={onRemoveSignal ? () => onRemoveSignal(analysis.signalId) : undefined}
-          />
+          <div key={analysis.signalId} data-dlens-list-key={analysis.signalId} style={{ minWidth: 0 }}>
+            <ActionableItemCard
+              analysis={analysis}
+              index={index}
+              evidenceBySignalId={evidenceBySignalId}
+              historicalAnalyses={historicalAnalyses}
+              agentTaskFeedback={agentTaskFeedback}
+              readiness={signalReadinessById[analysis.signalId] ?? DEFAULT_PRODUCT_ACTION_READINESS}
+              sourceText={signalPreviewById[analysis.signalId]}
+              sourceUrl={signalUrlById[analysis.signalId]}
+              onRemove={onRemoveSignal ? () => onRemoveSignal(analysis.signalId) : undefined}
+            />
+          </div>
         )) : (
           <div style={mutedPanelStyle({ fontSize: 12.5, color: tokens.color.subInk })}>{emptyCopyByFilter[selectedFilter]}</div>
         )}

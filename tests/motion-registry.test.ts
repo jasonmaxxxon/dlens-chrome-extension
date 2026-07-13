@@ -9,6 +9,7 @@ import { tokens } from "../src/ui/tokens.ts";
 const {
   DLENS_KEYFRAMES_CSS,
   DLENS_REDUCED_MOTION_CSS,
+  DLENS_MOTION_CSS,
   DLENS_KEYFRAMES_STYLE_ID,
   ensureDlensKeyframes
 } = motionModule;
@@ -19,6 +20,10 @@ const motionTestables = motionModule as unknown as {
     fallbackTarget: { scrollTo: (options: ScrollToOptions) => void },
     behavior: ScrollBehavior
   ) => "workspace" | "fallback";
+  planCausalListTransitions: (
+    previous: ReadonlyMap<string, { left: number; top: number }>,
+    current: ReadonlyMap<string, { left: number; top: number }>
+  ) => Array<{ key: string; kind: "move" | "enter"; deltaX: number; deltaY: number }>;
 };
 
 const MOTION_PATH = fileURLToPath(new URL("../src/ui/motion.ts", import.meta.url));
@@ -86,6 +91,59 @@ test("reduced-motion safety net is scoped to DLens roots and neutralises animati
   assert.match(DLENS_REDUCED_MOTION_CSS, /\[data-dlens-control="true"\]/);
   assert.match(DLENS_REDUCED_MOTION_CSS, /animation-duration:\s*0\.01ms\s*!important/);
   assert.match(DLENS_REDUCED_MOTION_CSS, /animation-iteration-count:\s*1\s*!important/);
+});
+
+test("tactile cards lift on intent, press below rest, and release through the shared spring", () => {
+  assert.match(DLENS_MOTION_CSS, /\.dlens-card-lift:hover[\s\S]*translateY\(-4px\)/);
+  assert.match(DLENS_MOTION_CSS, /\.dlens-card-lift:active[\s\S]*translateY\(1px\) scale\(0\.994\)/);
+  assert.match(DLENS_MOTION_CSS, /prefers-reduced-motion:\s*reduce[\s\S]*\.dlens-card-lift:active[\s\S]*transform:\s*none\s*!important/);
+});
+
+test("dense actionable rows acknowledge hover and press without card shadow", () => {
+  assert.match(DLENS_MOTION_CSS, /\.dlens-tactile-row:hover[\s\S]*translateY\(-2px\)/);
+  assert.match(DLENS_MOTION_CSS, /\.dlens-tactile-row:active[\s\S]*translateY\(1px\) scale\(0\.995\)/);
+  assert.match(DLENS_MOTION_CSS, /prefers-reduced-motion:\s*reduce[\s\S]*\.dlens-tactile-row:active[\s\S]*transform:\s*none\s*!important/);
+});
+
+test("popup opening wakes masthead, rail, then main exactly once without per-card scroll reveal", () => {
+  const popupRoot = '[data-dlens-control="true"][data-workspace-popup-material]';
+  const masthead = DLENS_MOTION_CSS.indexOf(`${popupRoot} [data-shell-masthead="editorial"]`);
+  const rail = DLENS_MOTION_CSS.indexOf(`${popupRoot} [data-shell-header="workspace"]`);
+  const main = DLENS_MOTION_CSS.indexOf(`${popupRoot} [data-shell-main="workspace"]`);
+
+  assert.ok(masthead >= 0);
+  assert.ok(rail > masthead);
+  assert.ok(main > rail);
+  assert.match(DLENS_MOTION_CSS, /animation-delay:\s*0ms/);
+  assert.match(DLENS_MOTION_CSS, /animation-delay:\s*35ms/);
+  assert.match(DLENS_MOTION_CSS, /animation-delay:\s*70ms/);
+  assert.doesNotMatch(DLENS_MOTION_CSS, /\[data-dlens-control="true"\]\s+\[data-workspace-popup-material\]/);
+  assert.doesNotMatch(DLENS_MOTION_CSS, /scroll-reveal|intersection-observer/i);
+});
+
+test("causal list planner moves retained rows and only enters rows created by a state change", () => {
+  const plan = motionTestables.planCausalListTransitions;
+  assert.equal(typeof plan, "function");
+
+  const transitions = plan(
+    new Map([
+      ["a", { left: 12, top: 40 }],
+      ["b", { left: 12, top: 92 }]
+    ]),
+    new Map([
+      ["b", { left: 12, top: 40 }],
+      ["c", { left: 12, top: 92 }]
+    ])
+  );
+
+  assert.deepEqual(transitions, [
+    { key: "b", kind: "move", deltaX: 0, deltaY: 52 },
+    { key: "c", kind: "enter", deltaX: 0, deltaY: 0 }
+  ]);
+  assert.deepEqual(plan(new Map(), new Map([["a", { left: 0, top: 0 }]])), [
+    { key: "a", kind: "enter", deltaX: 0, deltaY: 0 }
+  ]);
+  assert.deepEqual(plan(new Map([["a", { left: 0, top: 0 }]]), new Map([["a", { left: 0, top: 0 }]])), []);
 });
 
 test("ensureDlensKeyframes injects the registry + reduced-motion exactly once per document", () => {

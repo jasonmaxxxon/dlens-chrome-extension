@@ -46,6 +46,26 @@ test("SourceRow renders ledger row with dot, metrics, and DD/MM/YYYY date", () =
   assert.match(html, />64</);
 });
 
+test("SourceRow exposes a dedicated detail trigger without turning the composite row into a button", () => {
+  const actionable = renderToStaticMarkup(
+    React.createElement(SourceRow, {
+      packet: basePacket,
+      readingStatus: "ready",
+      onOpen: () => undefined
+    })
+  );
+  const staticRow = renderToStaticMarkup(
+    React.createElement(SourceRow, {
+      packet: basePacket,
+      readingStatus: "ready"
+    })
+  );
+
+  assert.doesNotMatch(actionable, /data-source-row="S2"[^>]*(role="button"|tabindex="0"|class="dlens-tactile-row")/);
+  assert.match(actionable, /data-source-row-open="S2"[^>]*data-dlens-button="secondary"/);
+  assert.doesNotMatch(staticRow, /data-source-row-open=/);
+});
+
 test("SourceRow shows hollow pending dot and dimmed preview with no run hook", () => {
   const html = renderToStaticMarkup(
     React.createElement(SourceRow, {

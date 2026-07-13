@@ -4,6 +4,7 @@ import { getItemReadinessStatus } from "../state/processing-state.ts";
 import type { SessionItem, Signal, Topic } from "../state/types.ts";
 import { tokens } from "./tokens";
 import { ModeHeader } from "./components.tsx";
+import { useCausalListMotion } from "./useCausalListMotion.ts";
 import {
   type TopicAuditReportStatus,
   type TopicAuditSummary
@@ -186,12 +187,6 @@ export function TopicCard({
     pending: signalCount
   };
   const canDelete = typeof onDeleteTopic === "function";
-  // Frame 05 colour spine: sage = narrative ready, rose = failed/tension, amber = still building.
-  const spineColor = summary.reportStatus === "ready"
-    ? tokens.topicAccent.primary
-    : summary.reportStatus === "failed"
-      ? tokens.topicAccent.fail
-      : tokens.topicAccent.warm;
   const openTopic = () => onOpenTopic(topic.id);
   const handleKeyDown = (event: KeyboardEvent<HTMLDivElement>) => {
     if (event.key === "Enter" || event.key === " ") {
@@ -210,6 +205,8 @@ export function TopicCard({
       role="button"
       tabIndex={0}
       data-topic-card={topic.id}
+      data-dlens-list-key={topic.id}
+      className="dlens-card-lift"
       onClick={openTopic}
       onKeyDown={handleKeyDown}
       style={{
@@ -232,7 +229,6 @@ export function TopicCard({
         transition: tokens.motion.preset.cardLift
       }}
     >
-      <span aria-hidden data-topic-card-spine={summary.reportStatus} style={{ position: "absolute", left: 0, top: 0, bottom: 0, width: 4, background: spineColor }} />
       <span style={{ display: "flex", alignItems: "center", gap: 8, minWidth: 0 }}>
         <span
           data-audit-status={summary.reportStatus}
@@ -317,6 +313,7 @@ export function NewTopicButton({ onCreateTopic }: { onCreateTopic: () => void })
   return (
     <button
       data-new-topic-button="triage"
+      data-dlens-button="secondary"
       onClick={onCreateTopic}
       style={{
         width: "100%",
@@ -358,6 +355,7 @@ export function TopicsListView({
   onDeleteTopic?: (topicId: string) => void;
 }) {
   const sourceSummariesByTopicId = buildTopicSourceSummaries(topics, signals, sessionItems);
+  const listMotionRef = useCausalListMotion(topics.map((topic) => topic.id).join("|"));
   return (
     <div data-topics-list="audit" style={{ display: "grid", gap: 14 }}>
       <ModeHeader
@@ -366,7 +364,7 @@ export function TopicsListView({
         deck="每個議題收一批 Threads 訊號；點進去看詞群、敘事與源清單。"
         stamp={<span style={{ fontSize: 11, color: tokens.color.softInk, whiteSpace: "nowrap" }}>{topics.length} 個議題</span>}
       />
-      <div style={{ display: "grid", gap: 12 }}>
+      <div ref={listMotionRef} data-topic-list-motion="causal" style={{ display: "grid", gap: 12 }}>
         {topics.map((topic) => (
           <TopicCard
             key={topic.id}

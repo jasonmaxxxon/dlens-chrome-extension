@@ -85,14 +85,13 @@ happens to contain text. Every visual decision below serves that sentence.
   borders — see the color section; the two rules are the same rule.
 
 ### motion
-- **Motion confirms, never entertains.** The vocabulary is three semantic
-  presets: `motion.preset.buttonPress` (tactile ack), `motion.preset.cardLift`
-  (soft settle on hover/focus), `motion.preset.surfaceFade` (content arrival).
-  New components compose these; new one-off transitions need a reason a preset
-  can't cover.
-- Springs overshoot subtly and only for direct-manipulation feedback. Ambient
-  loops (`motion.keyframes.shimmer`, `motion.keyframes.pulse`) mean "work is
-  happening", never decoration.
+- **Motion confirms, never entertains.** Use `motion.preset.buttonPress` for
+  tactile ack, `motion.preset.cardLift` for hover/focus settle, and
+  `motion.preset.surfaceFade` for content arrival; one-offs need a reason.
+- Springs only acknowledge direct manipulation; elevated cards, dense rows,
+  and Atlas bubbles have separate roles. Popup presence is one shell cascade;
+  lists move only for real filter, reorder, or disclosure state changes.
+  Ambient shimmer/pulse means work is happening, never decoration.
 - Every animation sits behind a `prefers-reduced-motion` guard (repo contract).
 
 ### spacing

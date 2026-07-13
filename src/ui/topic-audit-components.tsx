@@ -518,6 +518,7 @@ export function NarrativeLane({
       data-narrative-lane={lane.id}
       data-reaction-pattern={kind === "reaction" ? lane.id : undefined}
       data-active={active ? "true" : "false"}
+      className="dlens-card-lift"
       onClick={onClick}
       style={{
         textAlign: "left",
@@ -1332,7 +1333,6 @@ export function SourceRow({
   const authorColor = isPending || isNotReady ? tokens.color.softInk : tokens.color.subInk;
   const previewColor = isPending || isNotReady ? tokens.color.softInk : tokens.color.subInk;
   const previewOpacity = isPending || isNotReady ? 0.72 : 1;
-
   return (
     <div
       data-source-row={packet.shortCode}
@@ -1347,10 +1347,9 @@ export function SourceRow({
         borderRadius: tokens.radius.xs,
         background: active ? tokens.color.cyanSoft : "transparent",
         fontFamily: tokens.font.sans,
-        cursor: onOpen ? "pointer" : "default",
+        cursor: "default",
         transition: "background 140ms ease"
       }}
-      onClick={onOpen}
     >
       {active ? (
         <span
@@ -1511,6 +1510,28 @@ export function SourceRow({
               }}
             >
               {isRunningP1 ? "處理中…" : "分析此篇"}
+            </button>
+          ) : null}
+          {onOpen ? (
+            <button
+              type="button"
+              data-source-row-open={packet.shortCode}
+              data-dlens-button="secondary"
+              onClick={onOpen}
+              style={{
+                marginLeft: canRunP1 ? 0 : "auto",
+                border: `1px solid ${tokens.color.line}`,
+                borderRadius: tokens.radius.button,
+                background: tokens.color.surface,
+                color: TOPIC.primary,
+                padding: "2px 8px",
+                fontSize: 10.5,
+                fontWeight: 700,
+                cursor: "pointer",
+                fontFamily: tokens.font.sans
+              }}
+            >
+              詳情 →
             </button>
           ) : null}
         </div>

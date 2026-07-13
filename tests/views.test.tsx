@@ -2025,6 +2025,7 @@ test("SettingsView exposes Google provider and save action", () => {
   assert.doesNotMatch(html, /field drawer/);
   assert.match(html, /data-settings-surface="drawer"/);
   assert.match(html, /data-settings-group="folder"/);
+  assert.match(html, /data-settings-mode-option="product"[^>]*class="dlens-card-lift"/);
   assert.doesNotMatch(html, /data-settings-group="layout"/);
   assert.match(html, /data-settings-group="connection"/);
   assert.match(html, /data-settings-group="keys"/);
@@ -2149,6 +2150,9 @@ test("Frame 01 — saved-signals filter tabs surface unclassified / pending / cl
   assert.match(html, /data-product-saved-filter="unclassified"/);
   assert.match(html, /data-product-saved-filter="pending"/);
   assert.match(html, /data-product-saved-filter="classified"/);
+  assert.match(html, /data-product-list-motion="saved-signals"/);
+  assert.match(html, /data-dlens-list-key="s_ready"/);
+  assert.match(html, /data-saved-signal-row="compact"[^>]*class="dlens-card-lift"/);
   assert.match(html, /未分類/);
   assert.match(html, /待處理/);
   assert.match(html, /已分類/);
@@ -2496,6 +2500,7 @@ test("ProductSignalView action route uses recovered analyses when signal inbox i
   );
 
   assert.match(html, /data-actionable-insights-board="true"/);
+  assert.match(html, /data-product-list-motion="actionable"/);
   assert.match(html, /團隊想把討論整理成可交付的 agent brief。/);
   assert.doesNotMatch(html, /data-signal-reading-review-workspace/);
   assert.doesNotMatch(html, /0 則訊號已評估/);
@@ -2910,6 +2915,7 @@ test("SavedSignalsBatchExport collapses unanalyzed placeholders into one summary
   assert.match(html, /data-batch-export-unanalysed-summary="true"/);
   assert.match(html, /4 個 signal 待分析後可生成 brief/);
   assert.equal(countOccurrences(html, 'data-batch-export-selection-row="true"'), 1);
+  assert.match(html, /data-batch-export-selection-row="true"[^>]*class="dlens-tactile-row"/);
 });
 
 test("ProductSignalView aggregates terminal crawler setup errors without raw backend details", () => {
@@ -3250,8 +3256,10 @@ test("ProductSignalView gives each product page a distinct information shape", (
   assert.match(classificationHtml, /overflow-wrap:anywhere/);
   assert.doesNotMatch(classificationHtml, /grid-template-columns:minmax\(220px, 1\.1fr\) minmax\(240px, 1fr\)/);
   assert.match(classificationHtml, /data-scan-list="product-classification"/);
+  assert.match(classificationHtml, /data-product-list-motion="classification"/);
   assert.match(classificationHtml, /data-scan-row="true"/);
   assert.match(classificationHtml, /data-classification-row-indicator="true"/);
+  assert.match(classificationHtml, /data-scan-row="true"[^>]*class="dlens-tactile-row"/);
   assert.match(classificationHtml, /Users want a one-tap mobile save flow/);
   assert.doesNotMatch(classificationHtml, /relevance 5 of 5/);
   assert.doesNotMatch(classificationHtml, /collected posts|mobile share extension|mixed/);
@@ -3287,14 +3295,14 @@ test("ProductSignalView gives each product page a distinct information shape", (
   // source quotes intentionally keeps no badge
   assert.doesNotMatch(actionableHtml, /data-product-panel-badge="source-quotes"/);
   assert.doesNotMatch(actionableHtml, /data-agent-task-feedback-row="true"/);
-  // Motion: CSS injected via document.head in content script, NOT as React-rendered <style>.
-  // Only className / data hooks need to exist in the HTML.
+  // Motion is state-causal: verdict controls and list choreography move; the
+  // read-only action card itself must not advertise a click affordance.
   assert.doesNotMatch(actionableHtml, /data-dlens-product-motion/);
-  assert.match(actionableHtml, /class="dlens-card-lift"/);
+  assert.match(actionableHtml, /data-product-list-motion="actionable"/);
   assert.match(actionableHtml, /data-verdict-filter-tiles="true"/);
   assert.match(actionableHtml, /data-verdict-filter-plate="true"/);
   assert.match(actionableHtml, /data-verdict-tile-count="true"/);
-  assert.match(actionableHtml, /data-dlens-motion-card="true"/);
+  assert.doesNotMatch(actionableHtml, /data-dlens-motion-card="true"/);
   // The exported CSS constant must include reduced-motion and grid-template-rows animation
   assert.ok(DLENS_MOTION_CSS.includes("prefers-reduced-motion"), "CSS must guard reduced-motion");
   assert.ok(DLENS_MOTION_CSS.includes("grid-template-rows"), "CSS must animate details panel");
@@ -4202,6 +4210,7 @@ test("ProductSignalView restores the 0.1.15 reading review route when readings e
   assert.match(html, /data-verdict-filter-plate="true"/);
   assert.match(html, /data-verdict-tile-count="true"/);
   assert.match(html, /data-signal-reading-review-list-filter="watch"/);
+  assert.match(html, /data-product-list-motion="reading-review"/);
   assert.match(html, /data-signal-reading-marginalia="true"/);
   assert.match(html, /data-signal-reading-marginalia-rail="true"/);
   assert.match(html, /border-left:3px solid var\(--dlens-mode-accent, #c2401f\)/);

@@ -969,6 +969,7 @@ function AudienceDetailPanel({
                   type="button"
                   onClick={() => onToggleEvidence(evidenceKey)}
                   data-evidence-card-layout="field-rows"
+                  className="dlens-card-lift"
                   style={{
                     borderRadius: 12,
                     background: tokens.color.neutralSurfaceSoft,
@@ -1149,6 +1150,7 @@ function TopEvidenceStrip({
       data-top-evidence={`post-${sideLabel.toLowerCase()}`}
       data-top-evidence-section="visible"
       data-evidence-card-layout="field-rows"
+      className="dlens-card-lift"
       style={{
         borderRadius: 12,
         border: `1px solid ${T.line}`,
@@ -2067,7 +2069,7 @@ function ResultTrustStrip({
           </div>
         ))}
       </div>
-      <button onClick={() => setDrawer(d => !d)} style={{ width: "100%", background: "none", border: "none", cursor: "pointer", padding: "11px 15px", display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+      <button className="dlens-tactile-row" onClick={() => setDrawer(d => !d)} style={{ width: "100%", background: "none", border: "none", cursor: "pointer", padding: "11px 15px", display: "flex", alignItems: "center", justifyContent: "space-between" }}>
         <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
           <svg width="13" height="13" viewBox="0 0 13 13" fill="none"><rect x="0.5" y="0.5" width="5" height="5" rx="1.2" fill={AR.dimInk}/><rect x="7.5" y="0.5" width="5" height="5" rx="1.2" fill={AR.dimInk}/><rect x="0.5" y="7.5" width="5" height="5" rx="1.2" fill={AR.dimInk}/><rect x="7.5" y="7.5" width="5" height="5" rx="1.2" fill={AR.dimInk}/></svg>
           <span style={{ fontSize: 12, fontWeight: 600, color: AR.softInk }}>驗證數據</span>
