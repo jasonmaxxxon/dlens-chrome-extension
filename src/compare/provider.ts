@@ -40,10 +40,16 @@ import {
   type PrSummaryFacts
 } from "./pr-evidence.ts";
 import {
+  buildPrNarrativeRepairPrompt,
   buildPrNarrativeSynthesisPrompt,
+  collectPrNarrativePostReadingSoftFlags,
+  collectPrNarrativeSynthesisSoftFlags,
   parsePrNarrativePostReadResponse,
+  parsePrNarrativeStageWithRepair,
   parsePrNarrativeSynthesisResponse,
   type PrNarrativePostReading,
+  type PrNarrativeProseViolation,
+  type PrNarrativeRepairOutcome,
   type PrNarrativeSynthesisDraft
 } from "./pr-narrative.ts";
 import {
@@ -960,11 +966,13 @@ async function generateJsonText(
   apiKey: string,
   prompt: string,
   system: string,
-  maxOutputTokens: number
+  maxOutputTokens: number,
+  traceLabel?: string
 ): Promise<string> {
+  const label = (base: string) => (traceLabel ? `${base}.${traceLabel}` : base);
   if (provider === "google") {
     const response = await fetchWithRetry(
-      "Google",
+      label("Google"),
       `https://generativelanguage.googleapis.com/v1beta/models/${GOOGLE_COMPARE_MODEL}:generateContent?key=${apiKey}`,
       {
         method: "POST",
@@ -983,7 +991,7 @@ async function generateJsonText(
   }
 
   if (provider === "openai") {
-    const response = await fetchWithRetry("OpenAI", "https://api.openai.com/v1/chat/completions", {
+    const response = await fetchWithRetry(label("OpenAI"), "https://api.openai.com/v1/chat/completions", {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
@@ -1005,7 +1013,7 @@ async function generateJsonText(
     return readOpenAiContent(await response.json());
   }
 
-  const response = await fetchWithRetry("Claude", "https://api.anthropic.com/v1/messages", {
+  const response = await fetchWithRetry(label("Claude"), "https://api.anthropic.com/v1/messages", {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
@@ -1057,36 +1065,102 @@ export async function generatePrCriteriaSuggestions(
   return (await generatePrCampaignSetupSuggestion(provider, apiKey, campaignName, briefText)).criteria;
 }
 
+function compactProseViolations(violations: readonly PrNarrativeProseViolation[]): unknown[] {
+  return violations.map(({ context, kind, severity, sentence, matched }) => ({ context, kind, severity, sentence, matched }));
+}
+
+function emitPrNarrativeRepairOutcome(traceLabel: string, outcome: PrNarrativeRepairOutcome<unknown>): void {
+  if (!outcome.repaired) {
+    return;
+  }
+  emitPipelineEvent({
+    phase: "llm.call",
+    step: `${traceLabel}.repair.result`,
+    target: {},
+    result: "ok",
+    detail: {
+      violationsBeforeRepair: compactProseViolations(outcome.violationsBeforeRepair),
+      keptSoftFlags: compactProseViolations(outcome.keptSoftFlags)
+    }
+  });
+}
+
 export async function generatePrNarrativePostReadings(
   provider: "openai" | "claude" | "google",
   apiKey: string,
   prompt: string,
-  expectedRefs: string[]
+  expectedRefs: string[],
+  traceLabel = "pr-narrative.stageA"
 ): Promise<PrNarrativePostReading[]> {
-  const raw = await generateJsonText(
-    provider,
-    apiKey,
-    prompt,
-    "Read only supplied PR posts and return JSON only.",
-    2600
-  );
-  return parsePrNarrativePostReadResponse(raw, expectedRefs);
+  const system = "Read only supplied PR posts and return JSON only.";
+  const raw = await generateJsonText(provider, apiKey, prompt, system, 2600, traceLabel);
+  const outcome = await parsePrNarrativeStageWithRepair({
+    raw,
+    parse: (value) => parsePrNarrativePostReadResponse(value, expectedRefs),
+    collectSoftFlags: collectPrNarrativePostReadingSoftFlags,
+    repair: async ({ originalRaw, violations }) => {
+      emitPipelineEvent({
+        phase: "llm.call",
+        step: `${traceLabel}.repair.request`,
+        target: {},
+        result: "pending",
+        detail: { violations: compactProseViolations(violations) }
+      });
+      return generateJsonText(
+        provider,
+        apiKey,
+        buildPrNarrativeRepairPrompt({ stage: "postRead", originalRaw, violations }),
+        system,
+        2600,
+        `${traceLabel}.repair`
+      );
+    }
+  });
+  emitPrNarrativeRepairOutcome(traceLabel, outcome);
+  return outcome.value;
 }
 
 export async function generatePrNarrativeSynthesis(
   provider: "openai" | "claude" | "google",
   apiKey: string,
   readings: PrNarrativePostReading[],
-  campaign: PrCampaign
+  campaign: PrCampaign,
+  traceLabel = "pr-narrative.stageB"
 ): Promise<PrNarrativeSynthesisDraft> {
+  const system = "Synthesize only validated PR post readings and return JSON only.";
+  const allowedRefs = readings.map((reading) => reading.ref);
   const raw = await generateJsonText(
     provider,
     apiKey,
     buildPrNarrativeSynthesisPrompt(campaign, readings),
-    "Synthesize only validated PR post readings and return JSON only.",
-    2200
+    system,
+    2200,
+    traceLabel
   );
-  return parsePrNarrativeSynthesisResponse(raw, readings.map((reading) => reading.ref));
+  const outcome = await parsePrNarrativeStageWithRepair({
+    raw,
+    parse: (value) => parsePrNarrativeSynthesisResponse(value, allowedRefs),
+    collectSoftFlags: collectPrNarrativeSynthesisSoftFlags,
+    repair: async ({ originalRaw, violations }) => {
+      emitPipelineEvent({
+        phase: "llm.call",
+        step: `${traceLabel}.repair.request`,
+        target: {},
+        result: "pending",
+        detail: { violations: compactProseViolations(violations) }
+      });
+      return generateJsonText(
+        provider,
+        apiKey,
+        buildPrNarrativeRepairPrompt({ stage: "synthesis", originalRaw, violations }),
+        system,
+        2200,
+        `${traceLabel}.repair`
+      );
+    }
+  });
+  emitPrNarrativeRepairOutcome(traceLabel, outcome);
+  return outcome.value;
 }
 
 export async function generatePrCriteriaMatches(

@@ -3230,7 +3230,8 @@ export default defineBackground(() => {
                   });
                   return latestNarrative.currentSourceHash === sourceHash;
                 },
-                now: new Date().toISOString()
+                now: new Date().toISOString(),
+                requestId
               });
             } catch (error) {
               if (error instanceof PrNarrativeSourceChangedError) {

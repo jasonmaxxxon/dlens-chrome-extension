@@ -3,10 +3,13 @@ import {
   buildPrNarrativeSnapshot,
   chunkPrNarrativeSources,
   materializePrNarrativeRead,
+  PrNarrativeValidationError,
   type PrNarrativePostReading,
   type PrNarrativeRead,
+  type PrNarrativeSnapshot,
   type PrNarrativeSynthesisDraft
 } from "../compare/pr-narrative.ts";
+import { emitPipelineEvent } from "./pipeline-trace.ts";
 import type { PrCampaign, PrEvidenceRow, PrNarrativeSettings } from "./pr-evidence-storage.ts";
 import { normalizePrNarrativeSettings } from "./pr-evidence-storage.ts";
 import { loadPrNarrativeRead, savePrNarrativeRead } from "./pr-narrative-storage.ts";
@@ -19,14 +22,16 @@ export type GeneratePrNarrativePostReadings = (
   provider: PrNarrativeProvider,
   apiKey: string,
   prompt: string,
-  expectedRefs: string[]
+  expectedRefs: string[],
+  traceLabel?: string
 ) => Promise<PrNarrativePostReading[]>;
 
 export type GeneratePrNarrativeSynthesis = (
   provider: PrNarrativeProvider,
   apiKey: string,
   readings: PrNarrativePostReading[],
-  campaign: PrCampaign
+  campaign: PrCampaign,
+  traceLabel?: string
 ) => Promise<PrNarrativeSynthesisDraft>;
 
 export type VerifyPrNarrativeSourceHash = (sourceHash: string) => Promise<boolean>;
@@ -63,6 +68,26 @@ export async function getPrNarrativeReadState({
   };
 }
 
+// When a stage fails validation, name the exact posts behind each flagged ref so
+// the surfaced error says which article (author + URL) and which sentence broke.
+function enrichValidationError(error: unknown, snapshot: PrNarrativeSnapshot): unknown {
+  if (!(error instanceof PrNarrativeValidationError)) {
+    return error;
+  }
+  const sourceByRef = new Map(snapshot.sources.map((source) => [source.ref, source]));
+  const refs = [...new Set(
+    error.violations.flatMap((violation) => violation.context.match(/\bP\d{2,}\b/g) ?? [])
+  )];
+  const refLines = refs
+    .map((ref) => sourceByRef.get(ref))
+    .filter((source): source is NonNullable<typeof source> => Boolean(source))
+    .map((source) => `${source.ref} = @${source.authorHandle.replace(/^@/, "")} ${source.sourceUrl}`);
+  if (!refLines.length) {
+    return error;
+  }
+  return new PrNarrativeValidationError(error.violations, `${error.message}\n${refLines.join("\n")}`);
+}
+
 export async function runPrNarrativeRead({
   storageArea,
   campaign,
@@ -74,7 +99,8 @@ export async function runPrNarrativeRead({
   generatePostReadings,
   generateSynthesis,
   verifyCurrentSourceHash,
-  now
+  now,
+  requestId
 }: {
   storageArea: StorageAreaLike;
   campaign: PrCampaign;
@@ -87,6 +113,7 @@ export async function runPrNarrativeRead({
   generateSynthesis: GeneratePrNarrativeSynthesis;
   verifyCurrentSourceHash: VerifyPrNarrativeSourceHash;
   now: string;
+  requestId?: string;
 }): Promise<PrNarrativeRead> {
   const normalizedApiKey = apiKey.trim();
   const normalizedModel = model.trim();
@@ -103,26 +130,81 @@ export async function runPrNarrativeRead({
     throw new Error("No readable collected Threads posts are available for narrative reading.");
   }
 
-  const postReadings: PrNarrativePostReading[] = [];
-  for (const sources of chunkPrNarrativeSources(snapshot.sources)) {
-    const expectedRefs = sources.map((source) => source.ref);
-    const prompt = buildPrNarrativePostReadPrompt(campaign, sources);
-    const readings = await generatePostReadings(provider, normalizedApiKey, prompt, expectedRefs);
-    postReadings.push(...readings);
-  }
-
-  const synthesis = await generateSynthesis(provider, normalizedApiKey, postReadings, campaign);
-  const read = materializePrNarrativeRead({
-    snapshot,
-    postReadings,
-    synthesis,
-    generatedAt,
-    provider,
-    model: normalizedModel
-  });
-  return savePrNarrativeRead(storageArea, read, async () => {
-    if (!(await verifyCurrentSourceHash(snapshot.sourceHash))) {
-      throw new PrNarrativeSourceChangedError();
+  const target = { sessionId: campaign.sessionId };
+  const chunks = chunkPrNarrativeSources(snapshot.sources);
+  emitPipelineEvent({
+    phase: "llm.call",
+    step: "pr-narrative.run.start",
+    target,
+    result: "pending",
+    requestId,
+    detail: {
+      campaignId: campaign.id,
+      sourceCount: snapshot.sources.length,
+      stageAChunkCount: chunks.length,
+      chunkRefs: chunks.map((sources) => sources.map((source) => source.ref))
     }
   });
+
+  try {
+    const postReadings: PrNarrativePostReading[] = [];
+    for (const [chunkIndex, sources] of chunks.entries()) {
+      const expectedRefs = sources.map((source) => source.ref);
+      const prompt = buildPrNarrativePostReadPrompt(campaign, sources);
+      const traceLabel = `pr-narrative.stageA.${chunkIndex + 1}of${chunks.length}`;
+      const readings = await generatePostReadings(provider, normalizedApiKey, prompt, expectedRefs, traceLabel);
+      postReadings.push(...readings);
+      emitPipelineEvent({
+        phase: "llm.call",
+        step: `${traceLabel}.done`,
+        target,
+        result: "ok",
+        requestId,
+        detail: { refs: expectedRefs }
+      });
+    }
+
+    const synthesis = await generateSynthesis(provider, normalizedApiKey, postReadings, campaign, "pr-narrative.stageB");
+    const read = materializePrNarrativeRead({
+      snapshot,
+      postReadings,
+      synthesis,
+      generatedAt,
+      provider,
+      model: normalizedModel
+    });
+    const saved = await savePrNarrativeRead(storageArea, read, async () => {
+      if (!(await verifyCurrentSourceHash(snapshot.sourceHash))) {
+        throw new PrNarrativeSourceChangedError();
+      }
+    });
+    emitPipelineEvent({
+      phase: "llm.call",
+      step: "pr-narrative.run.complete",
+      target,
+      result: "ok",
+      requestId,
+      detail: {
+        campaignId: campaign.id,
+        stageACallCount: chunks.length,
+        stageBCallCount: 1,
+        status: saved.status
+      }
+    });
+    return saved;
+  } catch (error) {
+    const enriched = enrichValidationError(error, snapshot);
+    emitPipelineEvent({
+      phase: "llm.call",
+      step: "pr-narrative.run.error",
+      target,
+      result: "error",
+      requestId,
+      detail: {
+        campaignId: campaign.id,
+        error: enriched instanceof Error ? enriched.message : String(enriched)
+      }
+    });
+    throw enriched;
+  }
 }

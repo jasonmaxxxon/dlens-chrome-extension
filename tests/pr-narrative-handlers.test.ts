@@ -1,10 +1,12 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import type {
-  PrNarrativePostReading,
-  PrNarrativeSynthesisDraft
+import {
+  PrNarrativeValidationError,
+  type PrNarrativePostReading,
+  type PrNarrativeSynthesisDraft
 } from "../src/compare/pr-narrative.ts";
+import { readPipelineTrace } from "../src/state/pipeline-trace.ts";
 import {
   getPrNarrativeReadState,
   runPrNarrativeRead,
@@ -335,4 +337,81 @@ test("get state returns stored read, current source hash, and normalized setting
   assert.deepEqual(state.read, generated);
   assert.equal(state.currentSourceHash, generated.sourceHash);
   assert.deepEqual(state.settings, campaign.narrativeSettings);
+});
+
+test("run emits stage-level trace events with chunk labels and call counts", async () => {
+  const host = globalThis as { __DLENS_QA_TRACE_ENABLED__?: boolean; __DLENS_QA_TRACE__?: unknown[] };
+  host.__DLENS_QA_TRACE_ENABLED__ = true;
+  const traceStart = readPipelineTrace().length;
+  try {
+    const storageArea = createMemoryStorage();
+    const { rows, session } = makeInputs(32);
+    const stageALabels: Array<string | undefined> = [];
+    await runPrNarrativeRead({
+      storageArea,
+      campaign,
+      rows,
+      session,
+      provider: "openai",
+      apiKey: "test-key",
+      model: "gpt-4.1-mini",
+      generatePostReadings: async (_provider, _key, _prompt, refs, traceLabel) => {
+        stageALabels.push(traceLabel);
+        return refs.map(makeReading);
+      },
+      generateSynthesis: async (_provider, _key, readings) => makeCompleteSynthesis(readings.map((reading) => reading.ref)),
+      verifyCurrentSourceHash: acceptCurrentSourceHash,
+      now: NOW,
+      requestId: "trace-test-run"
+    });
+
+    assert.deepEqual(stageALabels, ["pr-narrative.stageA.1of2", "pr-narrative.stageA.2of2"]);
+    const events = readPipelineTrace().slice(traceStart).filter((entry) => entry.requestId === "trace-test-run");
+    const steps = events.map((entry) => entry.step);
+    assert.ok(steps.includes("pr-narrative.run.start"));
+    assert.ok(steps.includes("pr-narrative.stageA.1of2.done"));
+    assert.ok(steps.includes("pr-narrative.stageA.2of2.done"));
+    assert.ok(steps.includes("pr-narrative.run.complete"));
+    const complete = events.find((entry) => entry.step === "pr-narrative.run.complete");
+    assert.deepEqual(
+      (complete?.detail as { stageACallCount?: number; stageBCallCount?: number }) ?? {},
+      { campaignId: campaign.id, stageACallCount: 2, stageBCallCount: 1, status: "complete" }
+    );
+  } finally {
+    delete host.__DLENS_QA_TRACE_ENABLED__;
+  }
+});
+
+test("a stage validation failure names the offending post's author and URL", async () => {
+  const storageArea = createMemoryStorage();
+  const { rows, session } = makeInputs(3);
+  await assert.rejects(runPrNarrativeRead({
+    storageArea,
+    campaign,
+    rows,
+    session,
+    provider: "openai",
+    apiKey: "test-key",
+    model: "gpt-4.1-mini",
+    generatePostReadings: async () => {
+      throw new PrNarrativeValidationError([{
+        context: "post reading P02",
+        kind: "temporal",
+        severity: "hard",
+        sentence: "Support grew over time.",
+        matched: "over time"
+      }]);
+    },
+    generateSynthesis: async () => {
+      throw new Error("unreachable");
+    },
+    verifyCurrentSourceHash: acceptCurrentSourceHash,
+    now: NOW
+  }), (error: unknown) => {
+    assert.ok(error instanceof PrNarrativeValidationError);
+    assert.match(error.message, /post reading P02/);
+    assert.match(error.message, /Support grew over time/);
+    assert.match(error.message, /P02 = @author2 https:\/\/www\.threads\.net\/@author\/post\/2/);
+    return true;
+  });
 });

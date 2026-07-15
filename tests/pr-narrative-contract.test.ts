@@ -3,12 +3,17 @@ import test from "node:test";
 
 import {
   buildPrNarrativePostReadPrompt,
+  buildPrNarrativeRepairPrompt,
   buildPrNarrativeSnapshot,
   buildPrNarrativeSynthesisPrompt,
   chunkPrNarrativeSources,
+  collectPrNarrativePostReadingSoftFlags,
+  collectPrNarrativeSynthesisSoftFlags,
   materializePrNarrativeRead,
   parsePrNarrativePostReadResponse,
+  parsePrNarrativeStageWithRepair,
   parsePrNarrativeSynthesisResponse,
+  PrNarrativeValidationError,
   type PrNarrativePostReading,
   type PrNarrativeSnapshot,
   type PrNarrativeSource
@@ -282,19 +287,24 @@ test("Stage A reading prose may cite only its own ref", () => {
   }), ["P01", "P02"]));
 });
 
-test("Stage A rejects comparative-change summaries without rejecting static comparisons", () => {
+test("Stage A hard-rejects corpus-delta language and names the ref, sentence, and match", () => {
   for (const evidenceSummary of [
     "Support grew over time.",
-    "Criticism declined recently.",
     "The narrative shifted after the previous reading.",
-    "質疑聲音越來越多。",
-    "支持明顯減少。"
+    "Criticism is stronger than before.",
+    "較上次閱讀質疑更多。"
   ]) {
     const reading = { ...rawReading(makeReading("P01")), evidenceSummary };
     assert.throws(() => parsePrNarrativePostReadResponse(
       JSON.stringify({ readings: [reading] }),
       ["P01"]
-    ), /temporal|delta/i);
+    ), (error: unknown) => {
+      assert.ok(error instanceof PrNarrativeValidationError);
+      assert.match(error.message, /temporal|delta/i);
+      assert.match(error.message, /post reading P01/);
+      assert.ok(error.message.includes(evidenceSummary.slice(0, 12)), `sentence missing from: ${error.message}`);
+      return true;
+    });
   }
 
   for (const evidenceSummary of [
@@ -308,6 +318,32 @@ test("Stage A rejects comparative-change summaries without rejecting static comp
       ["P01"]
     ));
   }
+});
+
+test("Stage A soft-flags bare change verbs for semantic adjudication instead of hard-failing", () => {
+  for (const evidenceSummary of [
+    "Criticism declined recently.",
+    "質疑聲音越來越多。",
+    "支持明顯減少。"
+  ]) {
+    const reading = { ...rawReading(makeReading("P01")), evidenceSummary };
+    const readings = parsePrNarrativePostReadResponse(
+      JSON.stringify({ readings: [reading] }),
+      ["P01"]
+    );
+    const flags = collectPrNarrativePostReadingSoftFlags(readings);
+    assert.equal(flags.length, 1);
+    assert.equal(flags[0]?.severity, "soft");
+    assert.equal(flags[0]?.kind, "temporal");
+    assert.match(flags[0]?.context ?? "", /post reading P01/);
+    assert.ok(flags[0]?.sentence.includes(evidenceSummary.slice(0, 8)));
+  }
+
+  const clean = parsePrNarrativePostReadResponse(
+    JSON.stringify({ readings: [rawReading(makeReading("P01"))] }),
+    ["P01"]
+  );
+  assert.deepEqual(collectPrNarrativePostReadingSoftFlags(clean), []);
 });
 
 test("Stage A rejects aggregate/count/distribution prose and momentum delta", () => {
@@ -443,8 +479,28 @@ test("Stage B parser rejects unknown refs, overlap, multiple priority signals, c
   assert.throws(() => parsePrNarrativeSynthesisResponse(JSON.stringify(inlineUnknown), ["P01", "P02", "P03"]), /P99|unknown/i);
 
   const temporal = validSynthesisPayload();
-  (temporal.claims as Array<Record<string, unknown>>)[0]!.statement = "Criticism increased over the last 12 days.";
-  assert.throws(() => parsePrNarrativeSynthesisResponse(JSON.stringify(temporal), ["P01", "P02", "P03"]), /temporal|delta/i);
+  (temporal.claims as Array<Record<string, unknown>>)[0]!.statement = "Criticism increased compared to the previous reading.";
+  assert.throws(() => parsePrNarrativeSynthesisResponse(JSON.stringify(temporal), ["P01", "P02", "P03"]), (error: unknown) => {
+    assert.ok(error instanceof PrNarrativeValidationError);
+    assert.match(error.message, /temporal|delta/i);
+    assert.match(error.message, /claim claim-1 \(refs P01, P02, P03\)/);
+    assert.match(error.message, /Criticism increased compared to the previous reading/);
+    return true;
+  });
+});
+
+test("Stage B soft-flags bare change verbs for semantic adjudication instead of hard-failing", () => {
+  const payload = validSynthesisPayload();
+  (payload.claims as Array<Record<string, unknown>>)[0]!.statement = "Criticism increased over the last 12 days.";
+  const draft = parsePrNarrativeSynthesisResponse(JSON.stringify(payload), ["P01", "P02", "P03"]);
+  const flags = collectPrNarrativeSynthesisSoftFlags(draft);
+  assert.equal(flags.length, 1);
+  assert.equal(flags[0]?.severity, "soft");
+  assert.match(flags[0]?.context ?? "", /claim claim-1/);
+  assert.match(flags[0]?.sentence ?? "", /Criticism increased/);
+
+  const clean = parsePrNarrativeSynthesisResponse(JSON.stringify(validSynthesisPayload()), ["P01", "P02", "P03"]);
+  assert.deepEqual(collectPrNarrativeSynthesisSoftFlags(clean), []);
 });
 
 test("Stage B rejects aggregate/count/distribution prose and momentum delta", () => {
@@ -537,7 +593,7 @@ test("materializer revalidates unparsed readings and synthesis at the publicatio
   assert.throws(() => materialize(validReadings, {
     ...validSynthesis,
     claims: validSynthesis.claims.map((claim, index) => index === 0
-      ? { ...claim, statement: "Support increased over the last week." }
+      ? { ...claim, statement: "Support is higher than before." }
       : claim)
   }), /temporal|delta/i);
 
@@ -566,4 +622,104 @@ test("materializer revalidates unparsed readings and synthesis at the publicatio
       ? { ...claim, counterRefs: [claim.supportRefs[0]!] }
       : claim)
   }), /overlap/i);
+});
+
+function stageARaw(evidenceSummary: string): string {
+  return JSON.stringify({ readings: [{ ...rawReading(makeReading("P01")), evidenceSummary }] });
+}
+
+const parseStageA = (raw: string) => parsePrNarrativePostReadResponse(raw, ["P01"]);
+
+test("repair prompt names each violation and restates the stage schema", () => {
+  const prompt = buildPrNarrativeRepairPrompt({
+    stage: "postRead",
+    originalRaw: stageARaw("Support grew over time."),
+    violations: [{
+      context: "post reading P01",
+      kind: "temporal",
+      severity: "hard",
+      sentence: "Support grew over time.",
+      matched: "over time"
+    }]
+  });
+  assert.match(prompt, /post reading P01/);
+  assert.match(prompt, /Support grew over time\./);
+  assert.match(prompt, /"readings"/);
+  assert.match(prompt, /keep it as is/i);
+});
+
+test("semantic repair runs once on a hard violation and accepts the corrected output", async () => {
+  const repairCalls: string[] = [];
+  const outcome = await parsePrNarrativeStageWithRepair({
+    raw: stageARaw("Support grew over time."),
+    parse: parseStageA,
+    collectSoftFlags: collectPrNarrativePostReadingSoftFlags,
+    repair: async ({ violations }) => {
+      repairCalls.push(violations[0]?.sentence ?? "");
+      return stageARaw("Support is present in this post.");
+    }
+  });
+  assert.equal(repairCalls.length, 1);
+  assert.equal(repairCalls[0], "Support grew over time.");
+  assert.equal(outcome.repaired, true);
+  assert.equal(outcome.value[0]?.evidenceSummary, "Support is present in this post.");
+  assert.equal(outcome.violationsBeforeRepair[0]?.severity, "hard");
+});
+
+test("semantic repair adjudicates soft flags: a kept sentence is accepted and reported", async () => {
+  const original = stageARaw("作者提到最近三個月銷量增加。");
+  const outcome = await parsePrNarrativeStageWithRepair({
+    raw: original,
+    parse: parseStageA,
+    collectSoftFlags: collectPrNarrativePostReadingSoftFlags,
+    repair: async () => original
+  });
+  assert.equal(outcome.repaired, true);
+  assert.equal(outcome.keptSoftFlags.length, 1);
+  assert.equal(outcome.keptSoftFlags[0]?.severity, "soft");
+});
+
+test("clean output triggers no repair call", async () => {
+  let repairCalls = 0;
+  const outcome = await parsePrNarrativeStageWithRepair({
+    raw: stageARaw("The post states a clear registration ask."),
+    parse: parseStageA,
+    collectSoftFlags: collectPrNarrativePostReadingSoftFlags,
+    repair: async () => {
+      repairCalls += 1;
+      return "";
+    }
+  });
+  assert.equal(repairCalls, 0);
+  assert.equal(outcome.repaired, false);
+});
+
+test("output that stays hard-invalid after repair fails with the precise sentence", async () => {
+  await assert.rejects(parsePrNarrativeStageWithRepair({
+    raw: stageARaw("Support grew over time."),
+    parse: parseStageA,
+    collectSoftFlags: collectPrNarrativePostReadingSoftFlags,
+    repair: async () => stageARaw("Criticism is weaker than before.")
+  }), (error: unknown) => {
+    assert.ok(error instanceof PrNarrativeValidationError);
+    assert.match(error.message, /post reading P01/);
+    assert.match(error.message, /Criticism is weaker than before/);
+    return true;
+  });
+});
+
+test("a failed repair generation surfaces the original violations", async () => {
+  await assert.rejects(parsePrNarrativeStageWithRepair({
+    raw: stageARaw("Support grew over time."),
+    parse: parseStageA,
+    collectSoftFlags: collectPrNarrativePostReadingSoftFlags,
+    repair: async () => {
+      throw new Error("provider unavailable");
+    }
+  }), (error: unknown) => {
+    assert.ok(error instanceof PrNarrativeValidationError);
+    assert.match(error.message, /Support grew over time/);
+    assert.match(error.message, /semantic repair attempt failed: provider unavailable/);
+    return true;
+  });
 });

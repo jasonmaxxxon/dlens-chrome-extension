@@ -91,6 +91,31 @@ export interface PrNarrativeChunkOptions {
   maxChars?: number;
 }
 
+export interface PrNarrativeProseViolation {
+  context: string;
+  kind: "temporal" | "aggregate";
+  severity: "hard" | "soft";
+  sentence: string;
+  matched: string;
+}
+
+export class PrNarrativeValidationError extends Error {
+  readonly violations: PrNarrativeProseViolation[];
+
+  constructor(violations: PrNarrativeProseViolation[], message?: string) {
+    super(message ?? violations.map(describePrNarrativeProseViolation).join("; "));
+    this.name = "PrNarrativeValidationError";
+    this.violations = violations;
+  }
+}
+
+export function describePrNarrativeProseViolation(violation: PrNarrativeProseViolation): string {
+  const label = violation.kind === "temporal"
+    ? "a temporal or delta assertion"
+    : "an aggregate, count, or distribution assertion";
+  return `${violation.context} contains ${label}: sentence "${violation.sentence}" (matched "${violation.matched}")`;
+}
+
 function trimmedString(value: unknown): string {
   return typeof value === "string" ? value.trim() : "";
 }
@@ -212,6 +237,9 @@ export function chunkPrNarrativeSources(
   return chunks;
 }
 
+const PR_NARRATIVE_POST_READ_SCHEMA_LINE = "Return JSON only: {\"readings\":[{\"ref\":\"P01\",\"gist\":\"...\",\"evidenceSummary\":\"...\",\"alignmentScore\":0,\"actionabilityScore\":0,\"claimSeeds\":[],\"caveat\":\"\"}]}";
+const PR_NARRATIVE_SYNTHESIS_SCHEMA_LINE = "Return JSON only: {\"status\":\"complete\",\"priorityClaimId\":\"claim-1\",\"claims\":[{\"id\":\"claim-1\",\"title\":\"...\",\"statement\":\"...\",\"implication\":\"...\",\"supportRefs\":[\"P01\"],\"counterRefs\":[]}]}";
+
 export function buildPrNarrativePostReadPrompt(
   campaign: PrCampaign,
   sources: readonly PrNarrativeSource[]
@@ -222,7 +250,7 @@ export function buildPrNarrativePostReadPrompt(
     "Do not use comments, replies, outside knowledge, or other campaign posts.",
     "No counts, percentages, distributions, or cross-post claims.",
     "Do not make temporal or delta claims.",
-    "Return JSON only: {\"readings\":[{\"ref\":\"P01\",\"gist\":\"...\",\"evidenceSummary\":\"...\",\"alignmentScore\":0,\"actionabilityScore\":0,\"claimSeeds\":[],\"caveat\":\"\"}]}",
+    PR_NARRATIVE_POST_READ_SCHEMA_LINE,
     "Scores must be between -1 and 1. alignmentScore is challenge (-1) to echo (+1); actionabilityScore is attitude (-1) to action (+1).",
     "",
     `Campaign: ${campaign.name}`,
@@ -244,7 +272,7 @@ export function buildPrNarrativeSynthesisPrompt(
     "No counts, percentages, shares, denominators, or model-authored metrics.",
     "Counter refs may be empty. Do not force counterexamples.",
     "Choose exactly one priorityClaimId based on decision impact, action specificity, evidence breadth, and clear limitations.",
-    "Return JSON only: {\"status\":\"complete\",\"priorityClaimId\":\"claim-1\",\"claims\":[{\"id\":\"claim-1\",\"title\":\"...\",\"statement\":\"...\",\"implication\":\"...\",\"supportRefs\":[\"P01\"],\"counterRefs\":[]}]}",
+    PR_NARRATIVE_SYNTHESIS_SCHEMA_LINE,
     "If no defensible claim exists, return {\"status\":\"insufficient_evidence\",\"priorityClaimId\":null,\"claims\":[]}.",
     "",
     `Campaign: ${campaign.name}`,
@@ -329,20 +357,30 @@ export function parsePrNarrativePostReadResponse(
   return normalizePostReadings(payload.readings, expectedRefs);
 }
 
-const TEMPORAL_CLAIM_PATTERN = new RegExp([
-  String.raw`\b(?:increas(?:e|ed|es|ing)|decreas(?:e|ed|es|ing)|declin(?:e|ed|es|ing)|grew|grown|growing|rose|risen|rising|fell|fallen|falling|shift(?:ed|s|ing)?|surg(?:e|ed|es|ing)|dropp(?:ed|ing)|worsen(?:ed|s|ing)?|improv(?:e|ed|es|ing))\b`,
-  String.raw`\b(?:over\s+time|recently|over\s+the\s+(?:last|past)|since\s+(?:the\s+)?(?:previous|prior|last|earlier))\b`,
+// Two-tier temporal detection. HARD patterns are unambiguous corpus-delta or
+// time-comparison language and always reject. SOFT patterns (bare change verbs,
+// bare recency words) are legitimate inside a single post's own reported content,
+// so they are collected as flags and adjudicated by one semantic repair pass
+// instead of hard-failing the whole read.
+const TEMPORAL_HARD_PATTERN = new RegExp([
+  String.raw`\bover\s+time\b`,
+  String.raw`\b(?:since|after)\s+(?:the\s+)?(?:previous|prior|last|earlier)\b`,
   String.raw`\bcompared\s+(?:with|to)\s+(?:the\s+)?(?:previous|prior|last|earlier|baseline)\b`,
   String.raw`\b(?:upward|downward|rising|falling)\s+trend\b|\btrending\b`,
   String.raw`\b(?:new|recent)\s+posts?\s+(?:show|indicate|suggest|reveal|contain|add|bring)\b`,
   String.raw`\b(?:more|less|higher|lower|stronger|weaker)\b.{0,30}\b(?:than\s+before|than\s+previously|than\s+(?:the\s+)?(?:previous|prior|last|earlier))\b`,
   String.raw`\b(?:gain(?:s|ed|ing)|los(?:es|t|ing))\s+momentum\b`,
   String.raw`\bmomentum\s+(?:(?:is|was|has\s+been|appears\s+to\s+be)\s+)?(?:build(?:s|ing)|grow(?:s|ing)|ris(?:es|ing)|wan(?:es|ing)|fad(?:es|ing)|slow(?:s|ing)|accelerat(?:es|ing))\b`,
-  String.raw`上升|下降|增加|減少|成長|下滑|轉強|轉弱|升高|降低|越來越`,
-  String.raw`(?:較|比|自)(?:上次|此前|之前|前次)|最近\s*\d*\s*(?:天|週|周|月)`,
+  String.raw`(?:較|比|自)(?:上次|此前|之前|前次)`,
   String.raw`新帖(?:顯示|指出|反映|帶來|新增)|持續(?:監測|追蹤)|自動發現`,
   String.raw`(?:上升|下降|增加|減少|成長|下滑)趨勢|趨勢(?:上升|下降|增加|減少|轉強|轉弱)`,
   String.raw`(?:聲勢|動能|勢頭)\s*(?:正在|持續|開始|逐漸)?\s*(?:增強|增長|累積|上升|升溫|減弱|消退|下滑|降溫)`
+].join("|"), "i");
+const TEMPORAL_SOFT_PATTERN = new RegExp([
+  String.raw`\b(?:increas(?:e|ed|es|ing)|decreas(?:e|ed|es|ing)|declin(?:e|ed|es|ing)|grew|grown|growing|rose|risen|rising|fell|fallen|falling|shift(?:ed|s|ing)?|surg(?:e|ed|es|ing)|dropp(?:ed|ing)|worsen(?:ed|s|ing)?|improv(?:e|ed|es|ing))\b`,
+  String.raw`\b(?:recently|over\s+the\s+(?:last|past))\b`,
+  String.raw`上升|下降|增加|減少|成長|下滑|轉強|轉弱|升高|降低|越來越`,
+  String.raw`最近\s*\d*\s*(?:天|週|周|月)`
 ].join("|"), "i");
 const ENGLISH_COUNT_TOKEN = String.raw`(?:\d+(?:\.\d+)?|zero|one|two|three|four|five|six|seven|eight|nine|ten|eleven|twelve|dozen|hundred)`;
 const ENGLISH_FRACTION_DENOMINATOR = String.raw`(?:halves|thirds?|quarters?|fourths?|fifths?|sixths?|sevenths?|eighths?|ninths?|tenths?)`;
@@ -370,14 +408,56 @@ const AGGREGATE_CLAIM_PATTERN = new RegExp([
   String.raw`(?:多數|少數|大多數|大部分|多半|過半|半數|一半|逾半|超過一半|不到一半|全部|所有|多篇|數篇|若干篇)\s*(?:的)?\s*${CHINESE_CORPUS_NOUN}`
 ].join("|"), "i");
 const INLINE_REF_PATTERN = /\bP\d{2,}\b/g;
+const SENTENCE_BOUNDARY_PATTERN = /(?<=[.!?。！？；;\n])/;
+
+function matchProseViolation(
+  text: string,
+  context: string,
+  pattern: RegExp,
+  kind: PrNarrativeProseViolation["kind"],
+  severity: PrNarrativeProseViolation["severity"]
+): PrNarrativeProseViolation | null {
+  for (const sentence of text.split(SENTENCE_BOUNDARY_PATTERN)) {
+    const matched = pattern.exec(sentence);
+    if (matched) {
+      return { context, kind, severity, sentence: sentence.trim(), matched: matched[0] };
+    }
+  }
+  return null;
+}
 
 function assertCurrentOnlyProse(text: string, context: string): void {
-  if (TEMPORAL_CLAIM_PATTERN.test(text)) {
-    throw new Error(`${context} contains a temporal or delta assertion`);
+  const violation = matchProseViolation(text, context, TEMPORAL_HARD_PATTERN, "temporal", "hard")
+    ?? matchProseViolation(text, context, AGGREGATE_CLAIM_PATTERN, "aggregate", "hard");
+  if (violation) {
+    throw new PrNarrativeValidationError([violation]);
   }
-  if (AGGREGATE_CLAIM_PATTERN.test(text)) {
-    throw new Error(`${context} contains an aggregate, count, or distribution assertion`);
-  }
+}
+
+function collectSoftProseFlags(text: string, context: string): PrNarrativeProseViolation[] {
+  const violation = matchProseViolation(text, context, TEMPORAL_SOFT_PATTERN, "temporal", "soft");
+  return violation ? [violation] : [];
+}
+
+export function collectPrNarrativePostReadingSoftFlags(
+  readings: readonly PrNarrativePostReading[]
+): PrNarrativeProseViolation[] {
+  return readings.flatMap((reading) => {
+    const prose = [reading.gist, reading.evidenceSummary, ...reading.claimSeeds, reading.caveat]
+      .filter(Boolean)
+      .join("\n");
+    return collectSoftProseFlags(prose, `post reading ${reading.ref}`);
+  });
+}
+
+export function collectPrNarrativeSynthesisSoftFlags(
+  draft: PrNarrativeSynthesisDraft
+): PrNarrativeProseViolation[] {
+  return draft.claims.flatMap((claim) => {
+    const refs = [...claim.supportRefs, ...claim.counterRefs].join(", ");
+    const prose = `${claim.title}\n${claim.statement}\n${claim.implication}`;
+    return collectSoftProseFlags(prose, `claim ${claim.id}${refs ? ` (refs ${refs})` : ""}`);
+  });
 }
 
 function normalizePostReadings(
@@ -447,11 +527,12 @@ function parseSynthesisClaim(
   const title = requiredString(raw, "title", `claim ${id}`);
   const statement = requiredString(raw, "statement", `claim ${id}`);
   const implication = requiredString(raw, "implication", `claim ${id}`);
-  const prose = `${title}\n${statement}\n${implication}`;
-  assertCurrentOnlyProse(prose, `claim ${id}`);
-  assertAllowedInlineRefs(prose, allowedRefs, `claim ${id}`);
   const supportRefs = stringArray(raw.supportRefs, `claim ${id}.supportRefs`, false);
   const counterRefs = stringArray(raw.counterRefs, `claim ${id}.counterRefs`);
+  const prose = `${title}\n${statement}\n${implication}`;
+  const claimContext = `claim ${id} (refs ${[...supportRefs, ...counterRefs].join(", ")})`;
+  assertCurrentOnlyProse(prose, claimContext);
+  assertAllowedInlineRefs(prose, allowedRefs, `claim ${id}`);
   for (const ref of [...supportRefs, ...counterRefs]) {
     if (!allowedRefs.has(ref)) {
       throw new Error(`claim ${id} contains unknown ref ${ref}`);
@@ -514,6 +595,88 @@ export function parsePrNarrativeSynthesisResponse(
 ): PrNarrativeSynthesisDraft {
   const payload = parseJsonObject(raw);
   return normalizeSynthesisDraft(payload, allowedRefs, true);
+}
+
+export function buildPrNarrativeRepairPrompt({
+  stage,
+  originalRaw,
+  violations
+}: {
+  stage: "postRead" | "synthesis";
+  originalRaw: string;
+  violations: readonly PrNarrativeProseViolation[];
+}): string {
+  return [
+    "Your previous JSON output for this PR narrative stage violated current-state-only rules.",
+    "Fix ONLY the flagged sentences below. Keep every other field and value unchanged.",
+    "hard violations: rewrite the sentence into current-state phrasing that preserves the meaning and evidence.",
+    "soft violations: if the sentence asserts change over time, momentum, or a cross-post aggregate, rewrite it the same way; if it only reports what that single post itself says, keep it as is.",
+    "Never introduce counts, percentages, trends, or comparisons with earlier readings.",
+    stage === "postRead" ? PR_NARRATIVE_POST_READ_SCHEMA_LINE : PR_NARRATIVE_SYNTHESIS_SCHEMA_LINE,
+    "",
+    "Violations:",
+    ...violations.map((violation) =>
+      `- ${violation.context} [${violation.kind}/${violation.severity}] sentence: "${violation.sentence}" (matched: "${violation.matched}")`),
+    "",
+    "Original JSON:",
+    originalRaw
+  ].join("\n");
+}
+
+export interface PrNarrativeRepairOutcome<T> {
+  value: T;
+  repaired: boolean;
+  violationsBeforeRepair: PrNarrativeProseViolation[];
+  keptSoftFlags: PrNarrativeProseViolation[];
+}
+
+// One semantic repair pass, at most: parse the raw stage output; on hard prose
+// violations or soft flags, ask the model once (via the injected repair callback)
+// to rewrite or, for soft flags only, keep the sentence. The repaired output is
+// re-parsed under the same hard rules; surviving soft flags were adjudicated as
+// in-post language and are accepted (reported in the outcome for tracing).
+export async function parsePrNarrativeStageWithRepair<T>({
+  raw,
+  parse,
+  collectSoftFlags,
+  repair
+}: {
+  raw: string;
+  parse: (raw: string) => T;
+  collectSoftFlags: (value: T) => PrNarrativeProseViolation[];
+  repair: (request: { originalRaw: string; violations: PrNarrativeProseViolation[] }) => Promise<string>;
+}): Promise<PrNarrativeRepairOutcome<T>> {
+  let violations: PrNarrativeProseViolation[];
+  try {
+    const value = parse(raw);
+    violations = collectSoftFlags(value);
+    if (!violations.length) {
+      return { value, repaired: false, violationsBeforeRepair: [], keptSoftFlags: [] };
+    }
+  } catch (error) {
+    if (!(error instanceof PrNarrativeValidationError)) {
+      throw error;
+    }
+    violations = error.violations;
+  }
+
+  let repairedRaw: string;
+  try {
+    repairedRaw = await repair({ originalRaw: raw, violations });
+  } catch (error) {
+    const reason = error instanceof Error ? error.message : String(error);
+    throw new PrNarrativeValidationError(
+      violations,
+      `${violations.map(describePrNarrativeProseViolation).join("; ")}; semantic repair attempt failed: ${reason}`
+    );
+  }
+  const value = parse(repairedRaw);
+  return {
+    value,
+    repaired: true,
+    violationsBeforeRepair: violations,
+    keptSoftFlags: collectSoftFlags(value)
+  };
 }
 
 function average(values: number[]): number {
