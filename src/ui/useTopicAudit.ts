@@ -19,6 +19,29 @@ import type { TopicAuditSummary } from "./topic-audit-components.tsx";
 
 type SendAndSync = <T extends ExtensionResponse = ExtensionResponse>(message: ExtensionMessage) => Promise<T>;
 
+export const TOPIC_AUDIT_RUN_TIMEOUT_MS = 15 * 60_000;
+
+export function withTopicAuditRunTimeout<T>(
+  operation: Promise<T>,
+  timeoutMs = TOPIC_AUDIT_RUN_TIMEOUT_MS
+): Promise<T> {
+  return new Promise<T>((resolve, reject) => {
+    const timeout = setTimeout(() => {
+      reject(new Error("議題審查超過總時限，請重新生成。"));
+    }, timeoutMs);
+    operation.then(
+      (value) => {
+        clearTimeout(timeout);
+        resolve(value);
+      },
+      (error) => {
+        clearTimeout(timeout);
+        reject(error);
+      }
+    );
+  });
+}
+
 export interface TopicAuditUiState {
   auditEvidence: EvidencePacket[];
   auditMemos: TopicAuditMemoBundle | null;
@@ -293,6 +316,12 @@ export function useTopicAudit({
   activeFolderIdRef.current = activeFolder?.id ?? "";
   const topicById = useMemo(() => new Map(topics.map((topic) => [topic.id, topic])), [topics]);
 
+  useEffect(() => {
+    requestReconcilerRef.current.reset();
+    setLocalRunByTopicId({});
+    setP1RunningByKey({});
+  }, [activeFolder?.id, activeFolder?.mode]);
+
   const p1Key = (topicId: string, signalId: string) => `${topicId}::${signalId}`;
   const settleTopicAuditResponse = (
     token: RequestReconcileToken,
@@ -361,18 +390,28 @@ export function useTopicAudit({
       target: { sessionId: activeFolder.id, topicId }
     });
     let settled: RequestReconcileDecision | null = null;
+    const clearLocalRunState = () => {
+      setLocalRunByTopicId((current) => {
+        const next = { ...current };
+        delete next[topicId];
+        return next;
+      });
+    };
     setLocalRunByTopicId((current) => ({ ...current, [topicId]: { status: "running", stage: startStage } }));
     try {
-      const response = await sendAndSync({
-        type: "topic/audit/run",
-        requestId,
-        sessionId: activeFolder.id,
-        topicId,
-        ...(fromStage ? { fromStage } : {}),
-        ...(force ? { force: true } : {})
-      });
+      const response = await withTopicAuditRunTimeout(
+        sendAndSync({
+          type: "topic/audit/run",
+          requestId,
+          sessionId: activeFolder.id,
+          topicId,
+          ...(fromStage ? { fromStage } : {}),
+          ...(force ? { force: true } : {})
+        })
+      );
       settled = settleTopicAuditResponse(token, { sessionId: activeFolderIdRef.current, topicId });
       if (!settled.accepted) {
+        if (shouldClearTopicAuditRunState(settled)) clearLocalRunState();
         return;
       }
       if (!response.ok) {
@@ -380,16 +419,13 @@ export function useTopicAudit({
       }
       const acceptedSettled = settled;
       setLoadedByTopicId((current) => applyTopicAuditRunResult(current, topicId, response, acceptedSettled));
-      setLocalRunByTopicId((current) => {
-        const next = { ...current };
-        delete next[topicId];
-        return next;
-      });
+      clearLocalRunState();
     } catch (error) {
       if (settled === null) {
         settled = settleTopicAuditResponse(token, { sessionId: activeFolderIdRef.current, topicId });
       }
       if (!settled.accepted) {
+        if (shouldClearTopicAuditRunState(settled)) clearLocalRunState();
         return;
       }
       setLocalRunByTopicId((current) => ({
