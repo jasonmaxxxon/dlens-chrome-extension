@@ -101,12 +101,16 @@ This note is the high-signal shared memory for Codex and Claude when working on 
 - TRACE full-live verification is locked by `docs/qa/assets/2026-06-13/full-live-backend-llm/live-trace-full-hover-save-queue-analysis.json`; `npm run qa:harness:fixture` requires hover.detected → ui.ready, including backend.request and llm.call phases.
 - Verified build artifact was copied to `output/chrome-mv3`; the source checkout there may still be dirty.
 
-## Version Rule As Of 2026-07-14
+## Version Rule As Of 2026-07-15
 
-- Current source version in the active worktree: `0.3.43`.
-- Latest local verification for 0.3.43: 1149 tests / 1144 pass / 0 fail / 5 skipped; typecheck, both boundary guards, storage seam guard, migration fixtures, QA fixture, build, bundle markers, and diff check passed.
-- Built `.output/chrome-mv3/manifest.json` and mirrored `output/chrome-mv3/manifest.json` both report `version: "0.3.43"`; the active Chrome profile must still reload the unpacked extension before runtime QA because its popup reported 0.3.42.
-- Current engineering branch: `main`.
+- Current source version in the active worktree: `0.3.46`.
+- Latest local verification for 0.3.46: 1156 tests / 1151 pass / 0 fail / 5 skipped; typecheck, both boundary guards, storage seam guard, build, and diff check passed.
+- Built `.output/chrome-mv3/manifest.json` and mirrored `output/chrome-mv3/manifest.json` both report `version: "0.3.46"`. Real-Chrome QA in Jason's Default profile reloaded the same extension ID from `output/chrome-mv3`; a real Threads page reported `v.0.3.46`, Topic → Product → Topic returned with no residual running state, and the stale 6/7 Atlas remained visible beside `開始爬取 1 篇`. The optional local ingest backend was offline, so the crawl and a new LLM audit were not triggered.
+- Current engineering branch: `release-0-3-46`; it contains S2–S5 and is not merged to local main or pushed.
+- Topic truth contract: inventory denominator, current crawled evidence, P1-read count, and report snapshot count are distinct. Pending or removed evidence cannot inflate completeness.
+- Topic recrawl contract: an existing Atlas still exposes `開始爬取 N 篇` when current inventory contains uncrawled sources; after crawl + full regeneration, the compatible publication returns to ready and the stale state clears.
+- Single-post P1 contract: preserve the last complete report, episodes, unrelated signal readings, and old lens display hints. A P1 memo/publication mismatch is intentionally rendered as stale; only a complete audit publishes the replacement report + episodes.
+- Topic audit transient-state contract: mode/session changes reset reconciler ownership and local running flags immediately; late responses are ignored. Whole UI audit requests have a 15-minute total guard.
 - `docs/ENGINEERING_PLAN.md` §2 N1-N5 is complete: React ErrorBoundary, Settings storage usage, `mutateSnapshot` seam, behavioral storage contracts, and code-review checklist.
 - §3 remains a deferred trigger pool, not a backlog drain queue.
 - Motion Layer v2 is pure CSS/token-based and shared across modes; content-script CSS is scoped under `data-dlens-control="true"` and respects `prefers-reduced-motion`.
