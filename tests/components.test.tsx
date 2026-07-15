@@ -322,8 +322,10 @@ test("WorkspaceSwitcher sizes the sliding thumb from the same equal tracks as th
 test("WorkspaceSwitcher moves by keyboard arrow keys", async () => {
   const { JSDOM } = await import("jsdom");
   const { createRoot } = await import("react-dom/client");
-  const { flushSync } = await import("react-dom");
+  const { act } = await import("react");
   const dom = new JSDOM("<div id=\"root\"></div>", { url: "https://dlens.test" });
+  const reactActGlobal = globalThis as typeof globalThis & { IS_REACT_ACT_ENVIRONMENT?: boolean };
+  const previousActEnvironment = reactActGlobal.IS_REACT_ACT_ENVIRONMENT;
   const previous = {
     window: globalThis.window,
     document: globalThis.document,
@@ -340,13 +342,14 @@ test("WorkspaceSwitcher moves by keyboard arrow keys", async () => {
     Event: dom.window.Event,
     KeyboardEvent: dom.window.KeyboardEvent
   });
+  reactActGlobal.IS_REACT_ACT_ENVIRONMENT = true;
 
   const rootElement = dom.window.document.getElementById("root");
   assert.ok(rootElement);
   const root = createRoot(rootElement);
 
   try {
-    flushSync(() => {
+    await act(async () => {
       root.render(
         React.createElement(WorkspaceSwitcher, {
           activeMode: "topic",
@@ -357,13 +360,16 @@ test("WorkspaceSwitcher moves by keyboard arrow keys", async () => {
 
     const tablist = rootElement.querySelector('[data-workspace-switcher="segmented"]');
     assert.ok(tablist);
-    tablist.dispatchEvent(new dom.window.KeyboardEvent("keydown", { key: "ArrowRight", bubbles: true }));
+    await act(async () => {
+      tablist.dispatchEvent(new dom.window.KeyboardEvent("keydown", { key: "ArrowRight", bubbles: true }));
+    });
 
     assert.deepEqual(calls, ["product"]);
   } finally {
-    flushSync(() => root.unmount());
-    await new Promise((resolve) => setTimeout(resolve, 0));
+    await act(async () => root.unmount());
     Object.assign(globalThis, previous);
+    if (previousActEnvironment === undefined) delete reactActGlobal.IS_REACT_ACT_ENVIRONMENT;
+    else reactActGlobal.IS_REACT_ACT_ENVIRONMENT = previousActEnvironment;
   }
 });
 

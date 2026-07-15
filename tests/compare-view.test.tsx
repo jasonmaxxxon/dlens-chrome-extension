@@ -383,8 +383,10 @@ test("CompareView mode accent vars still flip through the shell mode theme contr
 test("CompareView selector keeps selectPair command wiring after hero shaping", async () => {
   const { JSDOM } = await import("jsdom");
   const { createRoot } = await import("react-dom/client");
-  const { flushSync } = await import("react-dom");
+  const { act } = await import("react");
   const dom = new JSDOM("<div id=\"root\"></div>", { url: "https://dlens.test" });
+  const reactActGlobal = globalThis as typeof globalThis & { IS_REACT_ACT_ENVIRONMENT?: boolean };
+  const previousActEnvironment = reactActGlobal.IS_REACT_ACT_ENVIRONMENT;
   const previous = {
     window: globalThis.window,
     document: globalThis.document,
@@ -421,13 +423,14 @@ test("CompareView selector keeps selectPair command wiring after hero shaping", 
     HTMLSelectElement: dom.window.HTMLSelectElement,
     Event: dom.window.Event
   });
+  reactActGlobal.IS_REACT_ACT_ENVIRONMENT = true;
 
   const rootElement = dom.window.document.getElementById("root");
   assert.ok(rootElement);
   const root = createRoot(rootElement);
 
   try {
-    flushSync(() => {
+    await act(async () => {
       root.render(compareViewElement({
         session,
         settings: createDefaultSettings(),
@@ -440,7 +443,9 @@ test("CompareView selector keeps selectPair command wiring after hero shaping", 
     const firstSelect = rootElement.querySelector("select") as HTMLSelectElement | null;
     assert.ok(firstSelect);
     firstSelect.value = itemC.id;
-    firstSelect.dispatchEvent(new dom.window.Event("change", { bubbles: true }));
+    await act(async () => {
+      firstSelect.dispatchEvent(new dom.window.Event("change", { bubbles: true }));
+    });
 
     assert.deepEqual(calls, [
       {
@@ -453,9 +458,10 @@ test("CompareView selector keeps selectPair command wiring after hero shaping", 
       }
     ]);
   } finally {
-    flushSync(() => root.unmount());
-    await new Promise((resolve) => setTimeout(resolve, 0));
+    await act(async () => root.unmount());
     Object.assign(globalThis, previous);
+    if (previousActEnvironment === undefined) delete reactActGlobal.IS_REACT_ACT_ENVIRONMENT;
+    else reactActGlobal.IS_REACT_ACT_ENVIRONMENT = previousActEnvironment;
   }
 });
 
