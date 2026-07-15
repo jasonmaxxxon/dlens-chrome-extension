@@ -733,7 +733,9 @@ function buildAuditViewModel({
   const lanes = withNarrativeStrength(hints.narrativeLanes ?? [], postTotal);
   const compatibleReport = isTopicAuditPublicationCompatible(auditReport, auditMemos, auditEvidence)
     ? auditReport
-    : null;
+    : summary.reportStatus === "stale"
+      ? auditReport
+      : null;
   const compatibleEpisode = compatibleReport
     ? [...auditEpisodes].reverse().find((episode) => (
         episode.inputHash === compatibleReport.inputHash

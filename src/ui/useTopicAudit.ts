@@ -87,14 +87,14 @@ export function applyTopicAuditP1Result(
     [topicId]: {
       evidence: response.auditEvidence ?? current[topicId]?.evidence ?? [],
       memos: response.auditMemos ?? current[topicId]?.memos ?? null,
-      report: null,
+      report: response.auditReport ?? current[topicId]?.report ?? null,
       episodes: current[topicId]?.episodes ?? [],
       flags: []
     }
   };
 }
 
-export function invalidateTopicAuditPublication(
+export function clearTopicAuditValidationAfterP1(
   current: LoadedTopicAuditByTopicId,
   topicId: string
 ): LoadedTopicAuditByTopicId {
@@ -106,7 +106,6 @@ export function invalidateTopicAuditPublication(
     ...current,
     [topicId]: {
       ...loaded,
-      report: null,
       flags: []
     }
   };
@@ -174,7 +173,7 @@ function topicAuditHeadline(report: TopicAuditReport | null): string | undefined
   return sentence.length > 64 ? `${sentence.slice(0, 63)}…` : sentence;
 }
 
-function makeSummary({
+export function summarizeTopicAudit({
   topic,
   evidence,
   memos,
@@ -218,11 +217,8 @@ function makeSummary({
       flags
     };
   }
-  if (
-    isTopicAuditPublicationCompatible(report, memos, evidence)
-    && report
-    && memos
-  ) {
+  if (report && memos) {
+    const publicationCompatible = isTopicAuditPublicationCompatible(report, memos, evidence);
     const generatedSignals = report.generatedFrom.filter((entry) => entry.endsWith(":p1")).length;
     const added = sourceTotal > generatedSignals ? sourceTotal - generatedSignals : 0;
     const removed = generatedSignals > sourceTotal ? generatedSignals - sourceTotal : 0;
@@ -236,7 +232,7 @@ function makeSummary({
       sourceDeltaThreshold: 1,
       currentUpdatedAt: topic.updatedAt
     });
-    const isStale = staleness.state === "stale";
+    const isStale = !publicationCompatible || staleness.state === "stale";
     return {
       reportStatus: isStale ? "stale" : "ready",
       analyzedCount,
@@ -335,7 +331,7 @@ export function useTopicAudit({
         auditReport: loaded.report,
         auditEpisodes: loaded.episodes,
         auditValidatorFlags: loaded.flags,
-        summary: makeSummary({
+        summary: summarizeTopicAudit({
           topic,
           evidence: loaded.evidence,
           memos: loaded.memos,
@@ -460,7 +456,7 @@ export function useTopicAudit({
         return { ok: true as const };
       }
       const message = error instanceof Error ? error.message : String(error);
-      setLoadedByTopicId((current) => invalidateTopicAuditPublication(current, topicId));
+      setLoadedByTopicId((current) => clearTopicAuditValidationAfterP1(current, topicId));
       setP1ErrorByKey((current) => ({ ...current, [key]: message }));
       return { ok: false as const, error: message };
     } finally {

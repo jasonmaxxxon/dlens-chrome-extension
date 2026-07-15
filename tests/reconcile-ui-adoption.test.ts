@@ -7,7 +7,7 @@ import type { EvidenceAnnotation } from "../src/compare/evidence-annotation.ts";
 import type { EvidencePacket, TopicAuditEpisode, TopicAuditReport } from "../src/compare/topic-audit.ts";
 import type { ExtensionResponse } from "../src/state/messages.ts";
 import { createRequestReconciler, type RequestReconcileTarget } from "../src/state/request-reconcile.ts";
-import type { SavedAnalysisSnapshot } from "../src/state/types.ts";
+import type { SavedAnalysisSnapshot, Topic } from "../src/state/types.ts";
 import type { TopicAuditValidationFlag } from "../src/compare/topic-audit-validator.ts";
 import type { TopicAuditMemoBundle } from "../src/state/topic-audit-storage.ts";
 import {
@@ -22,7 +22,8 @@ import {
 import {
   applyTopicAuditP1Result,
   applyTopicAuditRunResult,
-  invalidateTopicAuditPublication,
+  clearTopicAuditValidationAfterP1,
+  summarizeTopicAudit,
   shouldClearTopicAuditP1Running,
   shouldClearTopicAuditRunState
 } from "../src/ui/useTopicAudit.ts";
@@ -163,15 +164,47 @@ test("topic audit stale run and P1 responses do not adopt old audit state or cle
     topicId: "topic-old",
     signalId: "signal-1"
   });
-  const p1Next = applyTopicAuditP1Result(current, "topic-old", makeAuditResponse("accepted-p1"), acceptedP1);
+  const p1Next = applyTopicAuditP1Result(current, "topic-old", {
+    ...makeAuditResponse("accepted-p1"),
+    auditReport: current["topic-old"]?.report
+  }, acceptedP1);
   assert.equal(p1Next["topic-old"]?.episodes[0]?.id, "episode-previous");
-  assert.equal(p1Next["topic-old"]?.report, null);
+  assert.deepEqual(p1Next["topic-old"]?.report, current["topic-old"]?.report);
   assert.deepEqual(p1Next["topic-old"]?.flags, []);
 
-  const failedP1Next = invalidateTopicAuditPublication(current, "topic-old");
-  assert.equal(failedP1Next["topic-old"]?.report, null);
+  const failedP1Next = clearTopicAuditValidationAfterP1(current, "topic-old");
+  assert.deepEqual(failedP1Next["topic-old"]?.report, current["topic-old"]?.report);
   assert.equal(failedP1Next["topic-old"]?.episodes[0]?.id, "episode-previous");
   assert.deepEqual(failedP1Next["topic-old"]?.flags, []);
+});
+
+test("topic audit summary marks a preserved report stale after a single-P1 memo update", () => {
+  const summary = summarizeTopicAudit({
+    topic: {
+      id: "topic-old",
+      signalIds: ["signal-1"],
+      updatedAt: "2026-07-15T00:00:00.000Z"
+    } as Topic,
+    evidence: [{ signalId: "signal-1", auditRunId: "draft-run", inputHash: "draft-hash" } as EvidencePacket],
+    memos: {
+      auditRunId: "draft-run",
+      inputHash: "draft-hash",
+      signalReadings: [{ signalId: "signal-1" }],
+      lensMemos: []
+    } as TopicAuditMemoBundle,
+    report: {
+      auditRunId: "published-run",
+      inputHash: "published-hash",
+      generatedFrom: ["S1:p1"],
+      generatedAt: "2026-07-14T00:00:00.000Z",
+      promptVersion: "v1",
+      sections: { overall: "舊 report" }
+    } as TopicAuditReport,
+    flags: []
+  });
+
+  assert.equal(summary.reportStatus, "stale");
+  assert.equal(summary.headline, "舊 report");
 });
 
 test("judgment stale responses do not adopt old saved analyses or clear newer loading", () => {

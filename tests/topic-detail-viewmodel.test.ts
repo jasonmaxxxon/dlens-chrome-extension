@@ -271,6 +271,31 @@ test("Topic detail VM does not mix a published report episode with a different m
   assert.doesNotMatch(vm.audit.headlineProse, /舊 report/);
 });
 
+test("Topic detail VM keeps an incompatible published report visible only when explicitly stale", () => {
+  const packet = buildAuditPacket(1);
+  const memos = buildAuditMemos([packet]);
+  const report = {
+    auditRunId: "audit-older",
+    inputHash: "hash-1",
+    sections: { overall: "舊 report", absence: "舊 absence", editorial: "舊 report" }
+  } as TopicAuditReport;
+  const episode = { id: "episode-old", auditRunId: "audit-older", inputHash: "hash-1" } as TopicAuditEpisode;
+  const vm = buildTopicDetailViewModel({
+    topic,
+    signals: [],
+    pairs: [],
+    auditEvidence: [packet],
+    auditMemos: memos,
+    auditReport: report,
+    auditEpisodes: [episode],
+    auditSummary: { reportStatus: "stale", analyzedCount: 1, queuedCount: 0 }
+  });
+
+  assert.equal(vm.audit.hasAuditReport, true);
+  assert.equal(vm.audit.latestEpisode?.id, "episode-old");
+  assert.match(vm.audit.headlineProse, /舊 report/);
+});
+
 test("Topic detail VM exposes evidence-bound reaction patterns from display hints", () => {
   const auditEvidence = [
     buildAuditPacket(1, {

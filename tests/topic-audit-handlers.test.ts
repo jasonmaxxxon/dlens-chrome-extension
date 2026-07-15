@@ -660,7 +660,7 @@ test("topic audit publishes a bounded narrative state and carries claim ids acro
   assert.ok(prompts.filter((prompt) => prompt.includes("claim-1")).length >= 3);
 });
 
-test("topic audit carries claim ids across a single-signal P1 regeneration that deletes the report", async () => {
+test("topic audit carries claim ids while single-signal P1 regeneration preserves the stale report", async () => {
   const storage = new MemoryStorage();
   await seedTopic(storage);
   await handleTopicAuditMessage(storage, {
@@ -683,17 +683,21 @@ test("topic audit carries claim ids across a single-signal P1 regeneration that 
       : makeEnvelope(stageName),
     model: "mock:model"
   });
-  assert.equal((await loadTopicAuditReport(storage, "topic-1"))?.narrativeState?.claims[0]?.id, "claim-1");
+  const publishedBeforeP1 = await loadTopicAuditReport(storage, "topic-1");
+  assert.equal(publishedBeforeP1?.narrativeState?.claims[0]?.id, "claim-1");
 
-  // Regenerating one signal's P1 deletes the report but keeps the episodes.
+  // Regenerating one signal's P1 keeps the last complete publication available as stale.
   await handleTopicAuditMessage(storage, {
     message: { type: "topic/audit/p1-signal", sessionId: "session-1", topicId: "topic-1", signalId: "signal-1" },
     sessions: [makeSession()],
     generateEnvelope: async (stageName) => makeEnvelope(stageName),
     model: "mock:model"
   });
-  assert.equal(await loadTopicAuditReport(storage, "topic-1"), null);
+  assert.deepEqual(await loadTopicAuditReport(storage, "topic-1"), publishedBeforeP1);
   assert.equal((await loadTopicAuditEpisodes(storage, "topic-1")).length, 1);
+  const memosAfterP1 = await loadTopicAuditMemos(storage, "topic-1");
+  assert.deepEqual(memosAfterP1?.signalReadings.map((reading) => reading.signalId).sort(), ["signal-1", "signal-2"]);
+  assert.equal(memosAfterP1?.lensMemos.length, 4);
 
   // The next full audit must recover the prior state from the surviving episode: claim-1 stays the
   // same proposition and the new proposition gets claim-2 — claim-1 is never reused for another claim.
@@ -1113,7 +1117,7 @@ test("topic audit checkpoints each completed shard before a later shard fails", 
   assert.equal(checkpoint?.shardReadings?.[0]?.shardIndex, 0);
 });
 
-test("topic audit hides the published report before a single-P1 checkpoint can diverge", async () => {
+test("topic audit preserves the published report when a single-P1 checkpoint fails", async () => {
   const storage = new MemoryStorage();
   await saveTopic(storage, { ...makeTopic(), signalIds: ["signal-1"] });
   await storage.set({ "dlens:v1:signals": [makeSignal("signal-1", "item-1")] });
@@ -1124,7 +1128,8 @@ test("topic audit hides the published report before a single-P1 checkpoint can d
     generateEnvelope: async (stageName) => makeEnvelope(stageName),
     model: "mock:model"
   });
-  assert.ok(await loadTopicAuditReport(storage, "topic-1"));
+  const publishedBeforeP1 = await loadTopicAuditReport(storage, "topic-1");
+  assert.ok(publishedBeforeP1);
 
   const changedSession = makeSession();
   const item = changedSession.items[0]!;
@@ -1163,7 +1168,7 @@ test("topic audit hides the published report before a single-P1 checkpoint can d
     /second shard timeout/
   );
 
-  assert.equal(await loadTopicAuditReport(storage, "topic-1"), null);
+  assert.deepEqual(await loadTopicAuditReport(storage, "topic-1"), publishedBeforeP1);
 });
 
 test("topic audit get, validate, and clear do not touch synthesis or topic signal reading keys", async () => {

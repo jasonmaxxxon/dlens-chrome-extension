@@ -896,9 +896,8 @@ async function runAuditPipeline(
   let evidence = await buildEvidence(storageArea, session, topic, provisionalAuditRunId, inputHash);
   const validPriorNarrativeState = (candidate: TopicNarrativeState | undefined): TopicNarrativeState | null =>
     candidate?.version === "topic-narrative-state.v1" && candidate.topicId === topic.id ? candidate : null;
-  // Report is deleted (not episodes) when a single signal's P1 is regenerated, so fall back to the
-  // latest episode's snapshot — otherwise claim ids restart at claim-1 and Episode Explorer would draw
-  // two unrelated narratives as one trajectory.
+  // Legacy states may lack a report while retaining episodes. Keep the latest episode fallback so
+  // claim ids never restart at claim-1 for an unrelated proposition.
   const previousNarrativeState = validPriorNarrativeState(existingReport?.narrativeState)
     ?? validPriorNarrativeState(existingEpisodes[existingEpisodes.length - 1]?.stateSnapshot)
     ?? null;
@@ -1198,6 +1197,7 @@ async function runP1ForSingleSignal(
     throw new Error("Signal is not ready for audit; crawl it before generating a reading");
   }
   const existingMemos = await loadTopicAuditMemos(storageArea, topic.id);
+  const existingReport = await loadTopicAuditReport(storageArea, topic.id);
   const shardReadings: CommentShardReading[] = existingMemos
     ? collectReusableShardReadings(
         evidence,
@@ -1215,9 +1215,7 @@ async function runP1ForSingleSignal(
         options
       )).filter((reading) => reading.signalId !== signalId)
     : [];
-  const lensMemos: LensMemo[] = [];
-
-  await deleteMapEntry(storageArea, TOPIC_AUDIT_REPORTS_STORAGE_KEY, topic.id);
+  const lensMemos: LensMemo[] = existingMemos ? [...existingMemos.lensMemos] : [];
 
   const generatedShardReadings = await generateMissingShardReadingsForPacket(
     targetPacket,
@@ -1256,12 +1254,11 @@ async function runP1ForSingleSignal(
     await expectedSignalReadingIdentity(targetPacket, packetShardReadings, options)
   ));
   await saveMemos(storageArea, topic.id, auditRunId, inputHash, shardReadings, signalReadings, lensMemos);
-  await deleteMapEntry(storageArea, TOPIC_AUDIT_REPORTS_STORAGE_KEY, topic.id);
 
   return {
     auditEvidence: evidence,
     auditMemos: { auditRunId, inputHash, shardReadings, signalReadings, lensMemos },
-    auditReport: null
+    auditReport: existingReport
   };
 }
 
