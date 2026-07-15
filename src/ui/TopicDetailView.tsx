@@ -2967,7 +2967,7 @@ export function TopicDetailView({
           </div>
           </div>
 
-        {auditEvidence.length === 0 ? topicSourceFeed : null}
+        {auditEvidence.length === 0 || unanalyzedItemIds.length > 0 ? topicSourceFeed : null}
 
         <AuditDetailDrawer
           activeDetail={activeDetail}

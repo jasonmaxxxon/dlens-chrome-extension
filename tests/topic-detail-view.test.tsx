@@ -1710,16 +1710,17 @@ test("TopicDetailView keeps an uncrawled saved signal pending outside the 15-sou
       auditValidatorFlags: [],
       onBack: () => undefined,
       onOpenPair: () => undefined,
-      onUpdateTopic: () => undefined
+      onUpdateTopic: () => undefined,
+      onAnalyzeItems: async () => ({ ok: true, failedCount: 0 })
     })
   );
 
   assert.match(html, /data-atlas-ledger-metric="已讀 75 · 可用 75"/);
-  assert.doesNotMatch(html, /P1 判讀/);
   assert.doesNotMatch(html, /覆蓋 /);
   assert.equal((html.match(/data-source-row="S\d+"/g) ?? []).length, 15);
-  assert.doesNotMatch(html, /16 訊號/);
-  assert.doesNotMatch(html, /P1 判讀 15\/16/);
+  assert.match(html, /data-topic-source-crawl="action"/);
+  assert.match(html, /開始爬取 1 篇/);
+  assert.match(html, /P1 判讀 15\/16/);
   assert.doesNotMatch(html, /覆蓋 15\/16/);
 });
 
