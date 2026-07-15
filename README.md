@@ -3,8 +3,8 @@
 DLens is a mode-aware MV3 Chrome extension for capturing Threads posts and turning them into research, product-signal, and PR evidence workflows.
 
 > Last updated: 2026-07-15
-> Current source version: `0.3.46` · Topic truth fix (inventory coverage, recrawl entry, non-destructive single-post reading, mode-switch recovery)
-> Current engineering branch: `release-0-3-46` (S2–S5 release candidate; local main integration and remote push still require explicit approval)
+> Current source version: `0.3.47` · S6 PR narrative repair (two-tier temporal validation, one semantic repair pass, per-post error naming, staged LLM call trace) on top of the 0.3.46 topic truth fix and S7 single-poller status sync
+> Current engineering branch: `main` (`release-0-3-46` S2–S5 merged to local main 2026-07-15; remote push still requires explicit approval)
 > Positioning (2026-06-18, design contract amended 2026-07-10): local power-tool (self + small technical circle); two separate repos (extension public · ingest-core **private**), not monorepo; design contract is `src/ui/tokens.ts` glass workspace (warm ink + serif voice on the shared `workspaceGlass` white ground — the warm-paper cream surface family is retired)
 > Load-unpacked build path: `output/chrome-mv3`
 > Stability note: `TRACE`, `SEAM_GUARD`, `RECONCILE`, `INVALIDATE`, `BOUNDARY`, and `MIGRATE` are locked in the live architecture map. Visual Reset A shipped the native-feeling shell plus PR Evidence, Topic, Compare, and Product marquee surfaces without changing storage, backend, ViewModel, command, or signal-packet contracts.
@@ -35,6 +35,7 @@ Recent PRs and local commits changed the shape more than the old README suggeste
 - PR #58-#67 shipped Visual Reset A and release 0.3.0.
 - PR #68-#71 handled post-reset LOC/overflow fixes: Library/Compare split, popup clipping, topic removal, masthead containment.
 - Local 0.3.6/0.3.7 commits and worktree changes compact Product saved-signal rows, suppress stale backend errors, restore the extension action side panel, and move Product classification visibility into the Saved Signals surface.
+- Local 0.3.45-0.3.47 commits (2026-07-14/15) shipped model transport fixes (stable Gemini ID, Claude Sonnet 5, Retry-After), the S2-S5 topic truth contract (honest inventory/crawled/read/report counts, recrawl entry, non-destructive single-post reading, mode-switch recovery), S7 single-poller status sync (stable `sendAndSync`, 12s idle cadence, backend slow/unreachable copy, bounded backend DB pool + 503), and S6 PR narrative semantic repair (two-tier temporal validation, one repair pass per stage call, per-post validation errors, staged LLM call trace).
 
 ## Current Features
 

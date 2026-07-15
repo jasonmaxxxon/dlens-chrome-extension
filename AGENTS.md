@@ -109,6 +109,16 @@ git diff --check
   `c1..c6` (labels editable, count not); Collect never runs AI; match output
   is `✓ / blank` only; CSV (UTF-8 BOM) is the primary output. Non-goals: no
   social listening, no true reach, no EAV, no XLSX, no in-app spreadsheet.
+- **PR Narrative read** (0.3.47): Stage A per-chunk post readings + Stage B
+  synthesis. Prose validation is two-tier — hard corpus-delta/aggregate
+  language rejects; bare change verbs and bare recency words soft-flag and
+  get exactly ONE semantic repair/adjudication call per stage call (rewrite
+  if it asserts over-time or cross-post change, keep if it only reports the
+  single post's own content). Validation failures must name ref, author,
+  URL, sentence, and matched fragment. Stage calls, chunk labels, repair
+  attempts, and HTTP attempts land in the QA trace (`pr-narrative.*` steps,
+  `direct-llm.<provider>.pr-narrative.*` labels). Do not add retry loops
+  beyond the single repair pass.
 - **Signal Packet** export is `v3`; keep new JSONL fields additive.
 - Every animation sits behind a `prefers-reduced-motion` guard.
 
