@@ -46,7 +46,7 @@ test("content root is a viewport host so fixed launcher remains hit-testable", (
   assert.match(block, /root\.style\.pointerEvents = "none";/);
 });
 
-test("content selection overlay uses the vermillion product theme", () => {
+test("content selection overlay uses the steel-blue product theme", () => {
   const source = readFileSync(new URL("../entrypoints/threads.content.ts", import.meta.url), "utf8");
   const start = source.indexOf("  product: {");
   assert.notEqual(start, -1);
@@ -54,10 +54,10 @@ test("content selection overlay uses the vermillion product theme", () => {
   assert.notEqual(end, -1);
   const block = source.slice(start, end);
 
-  assert.match(block, /accent: "#c2401f"/);
-  assert.match(block, /accentMid: "#d65a36"/);
-  assert.match(block, /borderStrong: "rgba\(194,64,31,0\.58\)"/);
-  assert.doesNotMatch(block, /#234f7a|#2f6a96|35,79,122/);
+  assert.match(block, /accent: "#234f7a"/);
+  assert.match(block, /accentMid: "#2f6a96"/);
+  assert.match(block, /borderStrong: "rgba\(35,79,122,0\.58\)"/);
+  assert.doesNotMatch(block, /#c2401f|#d65a36|194,64,31/);
 });
 
 test("content selection overlay joins the scoped reduced-motion safety net", () => {

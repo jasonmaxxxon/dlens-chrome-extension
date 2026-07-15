@@ -540,8 +540,12 @@ test("TopicDetailView mirrors the audit popup surface in topic mode without lega
   assert.doesNotMatch(html, /data-topic-audit-block="overview"/);
   assert.match(html, /data-signal-atlas-canvas="true"/);
   assert.match(html, /data-signal-atlas-empty-state="true"/);
+  assert.match(html, /data-signal-atlas-empty-state="true"[^>]*data-dlens-presence="card"/);
+  assert.doesNotMatch(html, /data-signal-atlas-empty-state="true"[^>]*data-dlens-presence-motion=/);
   assert.match(html, /data-topic-audit-status="none"/);
   assert.match(html, /data-topic-audit-block="sources"/);
+  assert.match(html, /data-topic-detail-surface="sources"[^>]*data-dlens-presence="card"/);
+  assert.doesNotMatch(html, /data-topic-detail-surface="sources"[^>]*data-dlens-presence-motion=/);
   assert.match(html, /data-topic-source-row="signal-1"/);
   assert.match(html, /signal text item-1/);
   assert.doesNotMatch(html, /data-topic-signal-inventory="true"/);
@@ -627,6 +631,8 @@ test("TopicDetailView renders ready audit actions without the duplicate overview
   assert.doesNotMatch(html, /覆蓋 /);
   assert.equal((html.match(/<h1/g) ?? []).length, 1);
   assert.match(html, /data-signal-atlas-hero="true"/);
+  assert.match(html, /data-signal-atlas-hero="true"[^>]*data-dlens-presence="card"/);
+  assert.doesNotMatch(html, /data-signal-atlas-hero="true"[^>]*data-dlens-presence-motion=/);
   assert.match(html, /data-topic-audit-live="true"/);
   assert.match(html, /Atlas 已更新/);
   assert.match(html, /data-topic-audit-block="lanes"/);
@@ -638,6 +644,12 @@ test("TopicDetailView renders ready audit actions without the duplicate overview
   assert.doesNotMatch(html, /data-topic-newsroom-ladder="true"/);
   assert.doesNotMatch(html, /我也遇到/);
   assert.match(html, /data-topic-audit-block="sources"/);
+  assert.doesNotMatch(html, /data-topic-audit-block="sources"[^>]*data-dlens-presence=/);
+  assert.match(html, /data-topic-audit-source-list-style="audit-report"[^>]*data-dlens-presence="card"/);
+  assert.doesNotMatch(html, /data-topic-audit-source-list-style="audit-report"[^>]*data-dlens-presence-motion=/);
+  assert.match(html, /data-topic-audit-block="reliability"[^>]*data-dlens-presence="card"/);
+  assert.doesNotMatch(html, /data-topic-audit-block="reliability"[^>]*data-dlens-presence-motion=/);
+  assert.doesNotMatch(html, /data-narrative-lane="[^"]+"[^>]*data-dlens-presence=/);
 });
 
 test("TopicDetailView keeps the current Atlas visible while regeneration runs", () => {
@@ -1059,6 +1071,12 @@ test("TopicDetailView renders the Signal Atlas L0 spine without raw audience com
   assert.ok(laneIndex < mapIndex, "hero (with ribbons) should precede the compass panel");
   assert.ok(mapIndex < sourceIndex, "compass panel should precede the posts rail");
   assert.ok(sourceIndex < warnIndex, "posts rail should precede the reliability strip");
+  assert.match(html, /data-signal-atlas-map="true"[^>]*data-dlens-presence="card"/);
+  assert.doesNotMatch(html, /data-signal-atlas-map="true"[^>]*data-dlens-presence-motion=/);
+  assert.doesNotMatch(html, /data-reaction-pattern="[^"]+"[^>]*data-dlens-presence=/);
+  assert.match(html, /data-reaction-pattern="[^"]+"[^>]*border-radius:8px/);
+  assert.match(html, /data-reaction-pattern="[^"]+"[^>]*class="dlens-atlas-legend-row"/);
+  assert.doesNotMatch(html, /data-reaction-pattern="[^"]+"[^>]*class="[^"]*dlens-tactile-row/);
   // the old reaction card wall stays removed: the compass legend is the only pattern text at L0
   assert.doesNotMatch(html, /data-topic-audit-block="reaction-patterns"/);
 
@@ -2077,6 +2095,7 @@ test("topicDetailViewTestables pair row opens the saved analysis", () => {
 
   row.props.onClick();
   assert.deepEqual(calls, ["result-1"]);
+  assert.equal(row.props["data-dlens-presence-motion"], undefined);
 });
 
 test("TopicDetailView renders the product judgment panel in product mode", () => {

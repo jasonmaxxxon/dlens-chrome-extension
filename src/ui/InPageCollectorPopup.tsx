@@ -4,6 +4,7 @@ import { CasebookView } from "./CasebookView";
 import { CompareSetupView } from "./CompareSetupView";
 import { CollectView } from "./CollectView";
 import { DLENS_BUTTON_CSS, StatusRail, WorkspaceShell, WorkspaceSurface, ModeRail, UtilityEdge, type WorkspaceMaterial, type WorkspaceSwitcherMode } from "./components";
+import { LanguageProvider } from "./i18n";
 import { getModeHomePage, getModeRailPages } from "../state/processing-state";
 import { getPageComponentKind, getPageWidth } from "../state/page-registry";
 import { IS_PR_ONLY_BUILD } from "../build-variant";
@@ -28,6 +29,7 @@ import {
   usePipelineUiReadyTrace
 } from "./pipeline-ui-ready";
 import type { InPageCollectorAppModel } from "./useInPageCollectorAppState";
+import { useWorkspaceScrollMotion } from "./useWorkspaceScrollMotion";
 
 const WORKSPACE_SWITCHER_MODES: ReadonlyArray<WorkspaceSwitcherMode> = IS_PR_ONLY_BUILD
   ? ["pr-evidence"]
@@ -38,7 +40,10 @@ const WORKSPACE_SWITCHER_MODES: ReadonlyArray<WorkspaceSwitcherMode> = IS_PR_ONL
 // `padding-bottom`: Chrome will not scroll into the padding-bottom of a flex
 // column scroll container, so padding-bottom silently clips the last card /
 // action button in every mode. Do not "simplify" this back into padding-bottom.
-const POPUP_VIEWPORT_BOTTOM_PADDING = tokens.spacing.section + 48;
+const POPUP_VIEWPORT_BOTTOM_PADDING = tokens.spacing.xl;
+// One shared height keeps mode switching stable while trimming the empty canvas
+// left by the earlier marketing-scale frame. Long workspaces still scroll.
+const POPUP_VIEWPORT_HEIGHT = tokens.layout.workspacePopupHeight;
 // Variant D's 28px frame radius is part of the glass silhouette. Keeping the
 // scroll viewport on the same radius makes the bottom curve remain visible.
 const POPUP_FRAME_RADIUS = 28;
@@ -79,6 +84,7 @@ function isProductSignalPageKind(page: PopupPage): page is ProductSignalPageKind
 export function InPageCollectorPopup({ app }: { app: InPageCollectorAppModel }) {
   const { snapshot, page, popupOpen, activeFolder, resultItemA, resultItemB } = app;
   const activeFolderMode = activeFolder?.mode ?? "archive";
+  const uiLang = snapshot?.global.settings.layoutPreferences.language ?? "zh";
   const workspaceMaterial = workspaceMaterialForFolderMode(activeFolderMode);
   const workspaceGlass = tokens.material.workspaceGlass;
   const productExportFolders = (snapshot?.global.sessions ?? [])
@@ -233,6 +239,17 @@ export function InPageCollectorPopup({ app }: { app: InPageCollectorAppModel }) 
     : null);
 
   const scrollRef = useRef<HTMLDivElement>(null);
+  const scrollTrackRef = useWorkspaceScrollMotion(scrollRef, {
+    active: popupOpen,
+    routeKey: [
+      activeFolderMode,
+      guardedPage,
+      activeFolder?.id ?? "",
+      app.activeTopic?.id ?? "",
+      app.activeSavedAnalysis?.resultId ?? "",
+      app.activePrCampaign?.id ?? ""
+    ].join(":")
+  });
   const prBriefInputRef = useRef<HTMLInputElement>(null);
   const [switchingWorkspaceMode, setSwitchingWorkspaceMode] = useState<WorkspaceSwitcherMode | null>(null);
 
@@ -313,6 +330,7 @@ export function InPageCollectorPopup({ app }: { app: InPageCollectorAppModel }) 
   }
 
   return (
+    <LanguageProvider value={uiLang}>
     <div
       ref={app.popupRef}
       data-dlens-control="true"
@@ -324,7 +342,7 @@ export function InPageCollectorPopup({ app }: { app: InPageCollectorAppModel }) 
         top: 82,
         width: getPageWidth(guardedPage),
         maxWidth: "calc(100vw - 24px)",
-        height: "min(86vh, 860px)",
+        height: POPUP_VIEWPORT_HEIGHT,
         maxHeight: "calc(100vh - 94px)",
         overflow: "hidden",
         borderRadius: POPUP_FRAME_RADIUS,
@@ -369,21 +387,34 @@ export function InPageCollectorPopup({ app }: { app: InPageCollectorAppModel }) 
           zIndex: 1,
           boxSizing: "border-box",
           height: "100%",
-          maxHeight: "min(86vh, 860px)",
+          maxHeight: POPUP_VIEWPORT_HEIGHT,
           overflowY: "auto",
           overflowX: "hidden",
+          overscrollBehaviorY: "contain",
           borderRadius: POPUP_FRAME_RADIUS,
           padding: `${tokens.spacing.section}px`,
           paddingBottom: 0,
           display: "flex",
           flexDirection: "column",
-          gap: tokens.spacing.md,
           scrollbarGutter: "stable both-edges"
         }}
       >
-        <InPageCollectorFolderControls app={app} />
+        <div
+          ref={scrollTrackRef}
+          data-workspace-popup-scroll-track="true"
+          style={{
+            width: "100%",
+            minWidth: 0,
+            minHeight: "100%",
+            flex: "1 0 auto",
+            display: "flex",
+            flexDirection: "column",
+            gap: tokens.spacing.md
+          }}
+        >
+          <InPageCollectorFolderControls app={app} />
 
-        <WorkspaceShell
+          <WorkspaceShell
           mode={guardedPage === "audit-report" ? "topics" : guardedPage}
           folderMode={activeFolderMode}
           material={workspaceMaterial}
@@ -601,7 +632,6 @@ export function InPageCollectorPopup({ app }: { app: InPageCollectorAppModel }) 
             <WorkspaceSurface style={SETTINGS_WORKSPACE_SURFACE_STYLE}>
               <SettingsView
                 sessionMode={activeFolder?.mode ?? "topic"}
-                canEditSessionMode
                 draftBaseUrl={app.draftBaseUrl}
                 draftProvider={app.draftProvider}
                 draftOpenAiKey={app.draftOpenAiKey}
@@ -627,31 +657,32 @@ export function InPageCollectorPopup({ app }: { app: InPageCollectorAppModel }) 
                 onDraftProductProfileChange={app.onDraftProductProfileChange}
                 onProductProfileSeedTextChange={app.setProductProfileSeedText}
                 onInitProductProfile={() => void app.onInitProductProfile()}
-                onSessionModeChange={(mode) => void app.onSessionModeChange(mode)}
                 onClearProductCache={() => void app.onClearProductCache()}
                 createContextFileId={app.createContextFileId}
                 onSaveSettings={() => void app.onSaveSettings()}
               />
             </WorkspaceSurface>
           ) : null}
-        </WorkspaceShell>
+          </WorkspaceShell>
 
-        {snapshot?.tab.error ? (
-          <div style={{ marginTop: 12, color: tokens.color.failed, fontSize: 12 }}>
-            <strong>Error:</strong> {getProcessingFailureMessage(snapshot.tab.error)}
-          </div>
-        ) : null}
+          {snapshot?.tab.error ? (
+            <div style={{ marginTop: 12, color: tokens.color.failed, fontSize: 12 }}>
+              <strong>Error:</strong> {getProcessingFailureMessage(snapshot.tab.error)}
+            </div>
+          ) : null}
 
-        {/* Scrollable bottom spacer — keeps the last card + action button fully
-            reachable. See POPUP_VIEWPORT_BOTTOM_PADDING for why this is an
-            element and not the scroll container's padding-bottom. */}
-        <div
-          data-workspace-popup-bottom-spacer="true"
-          aria-hidden="true"
-          style={{ height: POPUP_VIEWPORT_BOTTOM_PADDING, flexShrink: 0 }}
-        />
+          {/* Scrollable bottom spacer — keeps the last card + action button fully
+              reachable. See POPUP_VIEWPORT_BOTTOM_PADDING for why this is an
+              element and not the scroll container's padding-bottom. */}
+          <div
+            data-workspace-popup-bottom-spacer="true"
+            aria-hidden="true"
+            style={{ height: POPUP_VIEWPORT_BOTTOM_PADDING, flexShrink: 0 }}
+          />
+        </div>
       </div>
     </div>
+    </LanguageProvider>
   );
 }
 
@@ -659,6 +690,7 @@ export const inPageCollectorPopupTestables = {
   shouldShowProcessingContextStrip,
   workspaceMaterialForFolderMode,
   popupViewportBottomPadding: POPUP_VIEWPORT_BOTTOM_PADDING,
+  popupViewportHeight: POPUP_VIEWPORT_HEIGHT,
   popupFrameRadius: POPUP_FRAME_RADIUS,
   settingsWorkspaceSurfaceStyle: SETTINGS_WORKSPACE_SURFACE_STYLE
 };

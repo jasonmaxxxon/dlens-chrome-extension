@@ -1685,7 +1685,8 @@ function TopicDetailSection({
       dataAttrs={{
         "data-topic-audit-block": surface,
         "data-topic-detail-surface": surface,
-        "data-topic-detail-rhythm": "section"
+        "data-topic-detail-rhythm": "section",
+        "data-dlens-presence": "card"
       }}
       style={{
         display: "grid",
@@ -2632,6 +2633,7 @@ export function TopicDetailView({
               <>
             <section
               data-signal-atlas-hero="true"
+              data-dlens-presence="card"
               style={{
                 display: "grid",
                 gap: 14,
@@ -2720,7 +2722,7 @@ export function TopicDetailView({
                       type="button"
                       data-narrative-lane={lane.id}
                       data-active={selectedLaneId === lane.id ? "true" : "false"}
-                      className="dlens-tactile-row"
+                      className="dlens-atlas-legend-row"
                       onClick={() => setActiveDetail({ kind: "narrative", id: lane.id })}
                       style={{ border: "none", background: "none", padding: "1px 2px", cursor: "pointer", display: "flex", gap: 8, alignItems: "baseline", textAlign: "left", fontFamily: tokens.font.sans, minWidth: 0 }}
                     >
@@ -2734,7 +2736,12 @@ export function TopicDetailView({
             </section>
 
             {reactionPatterns.length > 0 ? (
-              <section data-signal-atlas-map="true" data-signal-atlas-map-kind={compassLayout.kind} style={atlasGlassPanelStyle}>
+              <section
+                data-signal-atlas-map="true"
+                data-dlens-presence="card"
+                data-signal-atlas-map-kind={compassLayout.kind}
+                style={atlasGlassPanelStyle}
+              >
                 <div style={sectionLabelStyle}>
                   <span>{compassLayout.kind === "compass" ? "民情羅盤" : "民情形狀"}</span>
                   <span>{reactionPatterns.length} 個形狀 · {patternAssignmentCount} 次留言歸屬 · 可用 {compassDenominator} 則</span>
@@ -2815,7 +2822,7 @@ export function TopicDetailView({
                       type="button"
                       data-reaction-pattern={pattern.id}
                       data-active={selectedReactionId === pattern.id ? "true" : "false"}
-                      className="dlens-tactile-row"
+                      className="dlens-atlas-legend-row"
                       onClick={() => setActiveDetail({ kind: "reaction", id: pattern.id })}
                       style={{
                         display: "flex",
@@ -2823,6 +2830,7 @@ export function TopicDetailView({
                         gap: 8,
                         padding: "8px 2px",
                         border: "none",
+                        borderRadius: tokens.radius.xs,
                         borderBottom: index < reactionPatterns.length - 1 ? `1px solid ${tokens.color.line}` : "none",
                         background: "none",
                         cursor: "pointer",
@@ -2847,7 +2855,11 @@ export function TopicDetailView({
             {auditEvidence.length > 0 ? (
               <section data-topic-audit-block="sources" style={{ display: "grid", gap: 8 }}>
                 <div style={sectionLabelStyle}><span>貼文 · 點入單帖</span><span>{postTotal} 篇貼文 · 擷取 {coverageNumbers.captured} · 可用 {coverageNumbers.usable} 則</span></div>
-                <div data-topic-audit-source-list-style="audit-report" style={{ display: "grid", gap: 2, borderRadius: tokens.radius.cardLg, background: tokens.color.elevated, boxShadow: tokens.shadow.topicCard, padding: 6 }}>
+                <div
+                  data-topic-audit-source-list-style="audit-report"
+                  data-dlens-presence="card"
+                  style={{ display: "grid", gap: 2, borderRadius: tokens.radius.cardLg, background: tokens.color.elevated, boxShadow: tokens.shadow.topicCard, padding: 6 }}
+                >
                   {audit.sourceRows.map((row) => (
                     <SourceRow
                       key={row.packet.signalId}
@@ -2871,6 +2883,7 @@ export function TopicDetailView({
 
             <section
               data-topic-audit-block="reliability"
+              data-dlens-presence="card"
               style={{
                 display: "grid",
                 gap: 11,
@@ -2923,6 +2936,7 @@ export function TopicDetailView({
             ) : (
               <section
                 data-signal-atlas-empty-state="true"
+                data-dlens-presence="card"
                 style={{
                   display: "grid",
                   gap: 10,
@@ -3072,7 +3086,10 @@ export function TopicDetailView({
                 </AuditGhostButton>
               ) : null}
             </div>
-            <div style={{ display: "grid", gap: 2, borderRadius: tokens.radius.cardLg, background: tokens.color.elevated, boxShadow: tokens.shadow.topicCard, padding: 6 }}>
+            <div
+              data-dlens-presence="card"
+              style={{ display: "grid", gap: 2, borderRadius: tokens.radius.cardLg, background: tokens.color.elevated, boxShadow: tokens.shadow.topicCard, padding: 6 }}
+            >
               {filteredAuditRows.map((row) => (
                 <SourceRow
                   key={row.packet.signalId}

@@ -2,6 +2,7 @@ import { useLayoutEffect, useRef, type RefObject } from "react";
 
 import { planCausalListTransitions, type MotionLayoutPoint } from "./motion";
 import { tokens } from "./tokens";
+import { settleWorkspacePresenceTree } from "./useWorkspaceScrollMotion";
 
 const REDUCED_MOTION_QUERY = "(prefers-reduced-motion: reduce)";
 
@@ -58,6 +59,9 @@ export function useCausalListMotion(dependency: string): RefObject<HTMLDivElemen
       previousLayoutRef.current = currentLayout;
       return;
     }
+    // Initial presence is allowed, but a real filter/reorder owns every direct
+    // child (and any marked card inside it) before FLIP starts.
+    children.forEach(settleWorkspacePresenceTree);
     const transitions = planCausalListTransitions(previousLayoutRef.current, currentLayout);
     previousLayoutRef.current = currentLayout;
 
@@ -84,6 +88,7 @@ export function useCausalListMotion(dependency: string): RefObject<HTMLDivElemen
         duration: durationMs(tokens.motion.duration.slow),
         easing: tokens.motion.easing.springSoft
       });
+      animation.id = "dlens-causal-list";
       activeAnimationsRef.current.set(child, animation);
     }
   }, [dependency]);

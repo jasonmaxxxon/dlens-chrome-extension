@@ -12,7 +12,7 @@ function MotionList({ keys }: { keys: string[] }) {
   return (
     <div ref={ref} data-test-motion-list="true">
       {keys.map((key, index) => (
-        <div key={key} data-dlens-list-key={key} data-test-index={index} />
+        <div key={key} data-dlens-list-key={key} data-dlens-presence="row" data-test-index={index} />
       ))}
     </div>
   );
@@ -43,7 +43,7 @@ test("useCausalListMotion animates derived changes, skips first paint, and honou
   const originalAnimate = dom.window.HTMLElement.prototype.animate;
   const originalOffsetTop = Object.getOwnPropertyDescriptor(dom.window.HTMLElement.prototype, "offsetTop");
   const originalOffsetLeft = Object.getOwnPropertyDescriptor(dom.window.HTMLElement.prototype, "offsetLeft");
-  const animationCalls: Array<{ key: string | null; frames: Keyframe[] }> = [];
+  const animationCalls: Array<{ key: string | null; frames: Keyframe[]; animation: Animation }> = [];
   const lifecycleEvents: string[] = [];
   dom.window.HTMLElement.prototype.getBoundingClientRect = function getBoundingClientRect() {
     const index = Number(this.getAttribute("data-test-index") ?? 0);
@@ -77,11 +77,13 @@ test("useCausalListMotion animates derived changes, skips first paint, and honou
   });
   dom.window.HTMLElement.prototype.animate = function animate(frames) {
     const key = this.getAttribute("data-dlens-list-key");
+    const animation = { cancel: () => lifecycleEvents.push(`cancel:${key}`) } as Animation;
     animationCalls.push({
       key,
-      frames: frames as Keyframe[]
+      frames: frames as Keyframe[],
+      animation
     });
-    return { cancel: () => lifecycleEvents.push(`cancel:${key}`) } as Animation;
+    return animation;
   };
 
   const rootElement = dom.window.document.getElementById("root");
@@ -90,11 +92,15 @@ test("useCausalListMotion animates derived changes, skips first paint, and honou
   try {
     flushSync(() => root.render(<MotionList keys={["a", "b"]} />));
     assert.equal(animationCalls.length, 0, "first paint stays still");
+    assert.equal(rootElement.querySelector('[data-dlens-list-key="a"]')?.hasAttribute("data-dlens-presence-settled"), false);
 
     flushSync(() => root.render(<MotionList keys={["b", "c"]} />));
     assert.deepEqual(animationCalls.map((call) => call.key), ["b", "c"]);
     assert.equal(animationCalls[0]!.frames[0]!.translate, "0px 40px");
     assert.equal(animationCalls[1]!.frames[0]!.opacity, 0);
+    assert.ok(animationCalls.every((call) => call.animation.id === "dlens-causal-list"));
+    assert.equal(rootElement.querySelector<HTMLElement>('[data-dlens-list-key="b"]')?.dataset.dlensPresenceSettled, "causal");
+    assert.equal(rootElement.querySelector<HTMLElement>('[data-dlens-list-key="c"]')?.dataset.dlensPresenceSettled, "causal");
 
     animationCalls.length = 0;
     lifecycleEvents.length = 0;

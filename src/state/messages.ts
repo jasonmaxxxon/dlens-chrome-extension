@@ -27,7 +27,8 @@ import type { EvidenceAnnotation, EvidenceAnnotationRequest } from "../compare/e
 import type { TargetDescriptor } from "../contracts/target-descriptor";
 import type { ExtensionSnapshot, HoverCandidateStrength, PopupPage } from "./types";
 import type { BackendWorkUiState, WorkerStatus } from "./processing-state";
-import type { PrCampaign, PrCampaignSaveDraft, PrCriterion, PrEvidenceRow } from "./pr-evidence-storage";
+import type { PrCampaign, PrCampaignSaveDraft, PrCriterion, PrEvidenceRow, PrNarrativeSettings } from "./pr-evidence-storage";
+import type { PrNarrativeRead } from "../compare/pr-narrative";
 import type { DLensSignalPacket, SignalPacketIndexFilter } from "../compare/signal-packet";
 import type { SignalPacketExportFormat, SignalPacketExportResult } from "../compare/signal-packet-export";
 import type { CrossTopicCalibration, EvidencePacket, TopicAuditEpisode, TopicAuditReport, TopicAuditStageName } from "../compare/topic-audit";
@@ -133,6 +134,8 @@ export type ExtensionMessagePayload =
   | { type: "pr/match-criteria"; campaignId: string }
   | { type: "pr/fetch-advanced-metrics"; campaignId: string }
   | { type: "pr/generate-summary"; campaignId: string }
+  | { type: "pr/get-narrative-read"; campaignId: string }
+  | { type: "pr/generate-narrative-read"; campaignId: string }
   | {
     type: "judgment/result";
     resultId: string;
@@ -203,6 +206,9 @@ export type ExtensionSuccessResponse = {
     failed: number;
   };
   prCriteria?: PrCriterion[];
+  prNarrativeSettings?: PrNarrativeSettings;
+  prNarrativeRead?: PrNarrativeRead | null;
+  prNarrativeCurrentSourceHash?: string;
   prSummary?: string;
   folderSynthesis?: FolderSynthesis | null;
   auditEvidence?: EvidencePacket[];

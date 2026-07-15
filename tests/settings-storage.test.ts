@@ -21,6 +21,7 @@ test("createDefaultSettings has layoutPreferences defaults", () => {
 
   assert.equal(settings.layoutPreferences.topicSynthesisLayout, "console");
   assert.equal(settings.layoutPreferences.compareResultLayout, "parallel");
+  assert.equal(settings.layoutPreferences.language, "zh");
 });
 
 test("normalizeExtensionSettings preserves partial layoutPreferences and fills defaults", () => {
@@ -32,6 +33,17 @@ test("normalizeExtensionSettings preserves partial layoutPreferences and fills d
 
   assert.equal(settings.layoutPreferences.compareResultLayout, "chapters");
   assert.equal(settings.layoutPreferences.topicSynthesisLayout, "console");
+});
+
+test("normalizeExtensionSettings keeps a valid language and defaults the rest to zh", () => {
+  const english = normalizeExtensionSettings({ layoutPreferences: { language: "en" } });
+  assert.equal(english.layoutPreferences.language, "en");
+
+  const missing = normalizeExtensionSettings({ layoutPreferences: {} });
+  assert.equal(missing.layoutPreferences.language, "zh");
+
+  const bogus = normalizeExtensionSettings({ layoutPreferences: { language: "fr" as unknown as "en" } });
+  assert.equal(bogus.layoutPreferences.language, "zh");
 });
 
 test("mergeOneLinerSettings preserves existing API keys when incoming drafts are blank", () => {

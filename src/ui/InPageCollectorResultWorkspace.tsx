@@ -48,9 +48,9 @@ export function InPageCollectorResultWorkspace({
           <PrimaryButton onClick={() => void app.onNavigate("compare")}>前往比較</PrimaryButton>
         </div>
       ) : activeFolder && resultItemA && resultItemB ? (
-        <div style={{ display: "grid", gap: 10, paddingBottom: 24 }}>
+        <div style={{ display: "grid", gap: 10 }}>
           {app.activeSavedAnalysis ? (
-            <div style={surfaceCardStyle({ padding: "12px 14px", display: "grid", gap: 8, boxShadow: tokens.shadow.glass, background: tokens.color.elevated })}>
+            <div data-dlens-presence="card" style={surfaceCardStyle({ padding: "12px 14px", display: "grid", gap: 8, boxShadow: tokens.shadow.glass, background: tokens.color.elevated })}>
               <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10, flexWrap: "wrap" }}>
                 <span style={{ fontSize: 10, fontWeight: 700, color: tokens.color.accent, background: tokens.color.accentSoft, borderRadius: tokens.radius.sm, padding: "2px 8px" }}>
                   已儲存分析
@@ -98,7 +98,7 @@ export function InPageCollectorResultWorkspace({
               </div>
             </div>
           ) : (
-            <div style={surfaceCardStyle({ padding: "12px 14px", display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10, flexWrap: "wrap", boxShadow: tokens.shadow.glass, background: tokens.color.elevated })}>
+            <div data-dlens-presence="card" style={surfaceCardStyle({ padding: "12px 14px", display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10, flexWrap: "wrap", boxShadow: tokens.shadow.glass, background: tokens.color.elevated })}>
               <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
                 <span style={{ fontSize: 10, fontWeight: 700, color: tokens.color.success, background: tokens.color.successSoft, borderRadius: tokens.radius.sm, padding: "2px 8px" }}>
                   分析就緒

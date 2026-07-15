@@ -13,6 +13,7 @@ import {
   surfaceCardStyle,
   viewRootStyle
 } from "./components";
+import { useUiText } from "./i18n";
 import { CollectorGist, CollectorMetricStrip, COLLECTOR_MOTION_CSS } from "./CollectorMetricStrip";
 import { tokens } from "./tokens";
 
@@ -86,6 +87,7 @@ export function CollectView({
   onCreateTopicFromSignals,
   onSignalDeleted
 }: CollectViewProps) {
+  const t = useUiText();
   const [selectedSignalIds, setSelectedSignalIds] = useState<string[]>([]);
   const hasPreview = Boolean(preview);
   const isProductMode = mode === "product";
@@ -93,14 +95,20 @@ export function CollectView({
   const isPrEvidenceMode = mode === "pr-evidence";
   const isArchiveMode = mode === "archive";
   const targetLabel = isPrEvidenceMode ? "PR evidence ledger" : isProductMode ? "產品訊號收件匣" : isTopicMode ? "主題" : "資料庫";
-  const title = isPrEvidenceMode ? "快速收集，加入 PR evidence" : isProductMode ? "快速判斷，加入產品訊號" : isTopicMode ? "快速採集，存入主題" : "快速判斷，存入資料庫";
-  const deck = isProductMode
-    ? "指向 Threads 貼文即可預覽，按下加入產品訊號收件匣。"
-    : isPrEvidenceMode
-      ? "指向已找到的 Threads 貼文即可預覽；儲存只建立 evidence row，不跑 AI。"
+  const title = isPrEvidenceMode
+    ? t("快速收集，加入 PR evidence", "Collect fast, add to PR evidence")
+    : isProductMode
+      ? t("快速判斷，加入產品訊號", "Judge fast, add to product signals")
       : isTopicMode
-      ? "指向 Threads 貼文即可預覽，儲存後可在主題頁分配或追蹤。"
-      : "指向 Threads 貼文即可預覽，按下存入資料庫。";
+      ? t("快速採集，存入主題", "Collect fast, save into a topic")
+      : t("快速判斷，存入資料庫", "Judge fast, save to the database");
+  const deck = isProductMode
+    ? t("指向 Threads 貼文即可預覽，按下加入產品訊號收件匣。", "Point at a Threads post to preview, then add it to the product signal inbox.")
+    : isPrEvidenceMode
+      ? t("指向已找到的 Threads 貼文即可預覽；儲存只建立 evidence row，不跑 AI。", "Point at a found Threads post to preview; saving only creates an evidence row, no AI run.")
+      : isTopicMode
+      ? t("指向 Threads 貼文即可預覽，儲存後可在主題頁分配或追蹤。", "Point at a Threads post to preview; once saved you can assign or track it on the topic page.")
+      : t("指向 Threads 貼文即可預覽，按下存入資料庫。", "Point at a Threads post to preview, then save it to the database.");
   const savedCopy = isPrEvidenceMode ? "已加入 PR evidence" : isProductMode ? "已加入產品訊號" : isTopicMode ? "已加入主題" : "已儲存到資料庫";
   const saveCopy = isPrEvidenceMode ? "加入 evidence row" : isProductMode ? "加入產品訊號" : isTopicMode ? "加入主題" : "儲存到資料庫";
   const previewPostUrl = preview?.post_url || "";
@@ -140,6 +148,7 @@ export function CollectView({
 
       <section
         data-collector-stage="hero"
+        data-dlens-presence="card"
         style={{
           display: "grid",
           gap: 12,
@@ -402,6 +411,7 @@ export function CollectView({
       {recentCaptures.length ? (
         <section
           data-collector-recent-captures="true"
+          data-dlens-presence="card"
           style={surfaceCardStyle({ padding: "14px 16px 6px" })}
         >
           <SectionHeader title="最近採集" caption={`${recentCaptures.length} 篇`} style={{ marginBottom: 2 }} />
@@ -451,6 +461,7 @@ export function CollectView({
       {isTopicMode && visibleUntriagedSignals.length ? (
         <section
           data-topic-triage="untriaged"
+          data-dlens-presence="card"
           style={{
             display: "grid",
             gap: 10,
@@ -477,6 +488,7 @@ export function CollectView({
                 <label
                   key={signal.id}
                   data-untriaged-row={signal.id}
+                  data-dlens-presence="row"
                   className="dlens-card-lift"
                   style={{
                     display: "grid",

@@ -100,8 +100,10 @@ import {
   generateCompareOneLiner,
   generateEvidenceAnnotations,
   generateJudgment,
+  generatePrCampaignSetupSuggestion,
   generatePrCriteriaMatches,
-  generatePrCriteriaSuggestions,
+  generatePrNarrativePostReadings,
+  generatePrNarrativeSynthesis,
   generatePrSummaryDraft,
   generateProductSignalAnalysis,
   generateSignalReading,
@@ -132,7 +134,8 @@ import {
   buildDeterministicPrCriteria,
   buildDeterministicPrCriteriaMatches,
   buildDeterministicPrSummary,
-  buildPrSummaryFacts
+  buildPrSummaryFacts,
+  type PrCampaignSetupSuggestion
 } from "../src/compare/pr-evidence";
 import { createLlmCallWrapper } from "../src/compare/llm-call-wrapper";
 import {
@@ -186,9 +189,15 @@ import {
   savePrCampaignDraft,
   savePrEvidenceRow,
   toPrEvidenceRowFromSessionItem,
+  EMPTY_PR_NARRATIVE_SETTINGS,
   type PrCampaign,
   type PrEvidenceRow
 } from "../src/state/pr-evidence-storage";
+import {
+  getPrNarrativeReadState,
+  PrNarrativeSourceChangedError,
+  runPrNarrativeRead
+} from "../src/state/pr-narrative-handlers";
 import { mergeLayoutPreferences, mergeOneLinerSettings, normalizeExtensionSettings } from "../src/state/settings-storage";
 import { buildRefreshFailureMessage } from "../src/state/refresh-errors";
 import { createAsyncLock } from "../src/state/snapshot-lock";
@@ -851,16 +860,44 @@ function createPrCampaignStamp() {
   };
 }
 
-async function generatePrCriteriaForGlobal(
+async function generatePrSetupForGlobal(
   global: ExtensionGlobalState,
   campaignName: string,
   briefText: string
-): Promise<PrCampaign["criteria"]> {
+): Promise<PrCampaignSetupSuggestion> {
   const providerConfig = providerKeyForRequest(global);
   if (!providerConfig) {
-    return buildDeterministicPrCriteria(campaignName, briefText);
+    return {
+      criteria: buildDeterministicPrCriteria(campaignName, briefText),
+      narrativeSettings: { ...EMPTY_PR_NARRATIVE_SETTINGS }
+    };
   }
-  return generatePrCriteriaSuggestions(providerConfig.provider, providerConfig.apiKey, campaignName, briefText);
+  return generatePrCampaignSetupSuggestion(providerConfig.provider, providerConfig.apiKey, campaignName, briefText);
+}
+
+async function findPrCampaignContext(
+  storageArea: StorageAreaLike,
+  global: ExtensionGlobalState,
+  campaignId: string
+): Promise<{ campaign: PrCampaign; rows: PrEvidenceRow[]; session: SessionRecord }> {
+  for (const session of global.sessions) {
+    const campaigns = await loadPrCampaigns(storageArea, session.id);
+    const campaign = campaigns.find((entry) => entry.id === campaignId);
+    if (campaign) {
+      return {
+        campaign,
+        rows: await loadPrEvidenceRows(storageArea, campaign.id),
+        session
+      };
+    }
+  }
+  throw new Error("PR campaign not found.");
+}
+
+function prNarrativeModel(provider: "openai" | "claude" | "google"): string {
+  if (provider === "openai") return OPENAI_COMPARE_MODEL;
+  if (provider === "claude") return CLAUDE_COMPARE_MODEL;
+  return GOOGLE_COMPARE_MODEL;
 }
 
 async function matchPrCriteriaForCampaign(
@@ -3082,10 +3119,12 @@ export default defineBackground(() => {
           case "pr/generate-criteria": {
             const tabId = await resolveTabId(sender);
             const current = await loadSnapshot(tabId);
+            const suggestion = await generatePrSetupForGlobal(current.global, message.campaignName, message.briefText);
             sendResponse({
               ok: true,
               tabId,
-              prCriteria: await generatePrCriteriaForGlobal(current.global, message.campaignName, message.briefText)
+              prCriteria: suggestion.criteria,
+              prNarrativeSettings: suggestion.narrativeSettings
             } satisfies ExtensionResponse);
             return;
           }
@@ -3133,6 +3172,80 @@ export default defineBackground(() => {
               ok: true,
               tabId,
               prSummary: await generatePrSummaryForCampaign(current.global, message.campaignId)
+            } satisfies ExtensionResponse);
+            return;
+          }
+          case "pr/get-narrative-read": {
+            const tabId = await resolveTabId(sender);
+            const current = await loadSnapshot(tabId);
+            const context = await findPrCampaignContext(chrome.storage.local, current.global, message.campaignId);
+            const narrative = await getPrNarrativeReadState({
+              storageArea: chrome.storage.local,
+              ...context
+            });
+            sendResponse({
+              ok: true,
+              tabId,
+              prNarrativeRead: narrative.read,
+              prNarrativeCurrentSourceHash: narrative.currentSourceHash,
+              prNarrativeSettings: narrative.settings
+            } satisfies ExtensionResponse);
+            return;
+          }
+          case "pr/generate-narrative-read": {
+            const tabId = await resolveTabId(sender);
+            const current = await loadSnapshot(tabId);
+            const requestId = message.requestId ?? createPipelineRequestId("background.pr.generate-narrative-read");
+            const reconcileToken = beginBackgroundSnapshotReconcile(
+              `pr.generateNarrative:${tabId}:${message.campaignId}`,
+              requestId,
+              { campaignId: message.campaignId, tabId }
+            );
+            const providerConfig = providerKeyForRequest(current.global);
+            if (!providerConfig) {
+              throw new Error("A configured AI provider and API key are required for PR narrative reading.");
+            }
+            const storageArea = withDirectStorageReconcile(chrome.storage.local, { reconcileToken });
+            const context = await findPrCampaignContext(storageArea, current.global, message.campaignId);
+            let prNarrativeRead: Awaited<ReturnType<typeof runPrNarrativeRead>>;
+            try {
+              prNarrativeRead = await runPrNarrativeRead({
+                storageArea,
+                ...context,
+                provider: providerConfig.provider,
+                apiKey: providerConfig.apiKey,
+                model: prNarrativeModel(providerConfig.provider),
+                generatePostReadings: generatePrNarrativePostReadings,
+                generateSynthesis: generatePrNarrativeSynthesis,
+                verifyCurrentSourceHash: async (sourceHash) => {
+                  const latestGlobal = await loadGlobalState();
+                  const latestContext = await findPrCampaignContext(
+                    chrome.storage.local,
+                    latestGlobal,
+                    message.campaignId
+                  );
+                  const latestNarrative = await getPrNarrativeReadState({
+                    storageArea: chrome.storage.local,
+                    ...latestContext
+                  });
+                  return latestNarrative.currentSourceHash === sourceHash;
+                },
+                now: new Date().toISOString()
+              });
+            } catch (error) {
+              if (error instanceof PrNarrativeSourceChangedError) {
+                sendResponse({ ok: false, error: error.message } satisfies ExtensionResponse);
+                return;
+              }
+              throw error;
+            }
+            broadcastDirectStorageUpdate(tabId, current, { reconcileToken });
+            sendResponse({
+              ok: true,
+              tabId,
+              prNarrativeRead,
+              prNarrativeCurrentSourceHash: prNarrativeRead.sourceHash,
+              prNarrativeSettings: context.campaign.narrativeSettings ?? { ...EMPTY_PR_NARRATIVE_SETTINGS }
             } satisfies ExtensionResponse);
             return;
           }

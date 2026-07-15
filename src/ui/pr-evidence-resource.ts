@@ -8,6 +8,9 @@ export function createPrEvidenceResource(sessionId: string): PrEvidenceResourceS
   return {
     campaign: createDraftPrCampaign(sessionId) satisfies PrCampaignDraft,
     rows: [],
+    narrativeRead: null,
+    narrativeCurrentSourceHash: "",
+    narrativeError: "",
     summary: "",
     notice: "",
     uploadError: "",

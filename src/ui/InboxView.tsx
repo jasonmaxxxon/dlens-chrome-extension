@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 
 import type { Signal, Topic, TriageAction } from "../state/types.ts";
 import { Kicker, ModeHeader, SCAN_ROW_HOVER_CSS, SecondaryButton, Stamp, WorkspaceSurface, lineClamp, scanRowStyle, viewRootStyle } from "./components.tsx";
+import { useUiText } from "./i18n.ts";
 import { tokens } from "./tokens.ts";
 
 type InboxFilter = "all" | "unprocessed" | "marked" | "archived";
@@ -169,6 +170,7 @@ export function InboxView({
   showJudgmentBadges = false,
   judgmentByTopicId = {}
 }: InboxViewProps) {
+  const t = useUiText();
   const [signals, setSignals] = useState<Signal[]>(initialSignals);
   const [filter, setFilter] = useState<InboxFilter>("all");
 
@@ -208,8 +210,8 @@ export function InboxView({
       <ModeHeader
         mode="inbox"
         kicker="Inbox"
-        title="先把訊號分流，再決定要不要立題"
-        deck="收件匣先處理未分流訊號，避免直接堆進案例本。"
+        title={t("先把訊號分流，再決定要不要立題", "Triage signals first, then decide what becomes a topic")}
+        deck={t("收件匣先處理未分流訊號，避免直接堆進案例本。", "The inbox clears untriaged signals first, so nothing piles straight into the casebook.")}
         stamp={<Stamp tone="accent">Signal</Stamp>}
       />
 

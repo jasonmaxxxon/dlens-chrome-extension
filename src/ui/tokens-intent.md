@@ -1,19 +1,15 @@
 # tokens-intent.md — why the tokens are what they are
 
-> **This is NOT a design spec.** Design values (colors, sizes, curves) live in
-> exactly one place: `src/ui/tokens.ts`. This file is guard-enforced value-free
-> (`tests/tokens-intent-guard.test.ts` fails on any hex/rgb/px/ms literal) and
-> explains WHY the values are what they are and WHEN to use which. If this file
-> and `tokens.ts` disagree, `tokens.ts` plus the newest shipped marquee surface
-> win. Update this file in the same PR as the token change it explains. Hard cap
-> ~150 lines — replace, don't append.
+> **This is NOT a design spec.** Values live only in `src/ui/tokens.ts`; this
+> guard-enforced, value-free file explains why and when to use them. If they
+> disagree, tokens plus the newest shipped marquee surface win. Replace rather
+> than append, and update this file with the token change it explains.
 > 中文註解：這是「立法理由書」，不是第二套規格。值只在 tokens.ts；這裡只寫意圖。
 
 ## The one-sentence language
 
-DLens is an editorial reading voice on one shared glass workspace — a
-researcher's instrument that happens to be an app, **not** a dashboard that
-happens to contain text. Every visual decision below serves that sentence.
+DLens is an editorial reading voice on one shared glass workspace — a research
+instrument, **not** a dashboard that happens to contain text.
 
 ## The metaphor, unpacked（2026-07-10 修憲：暖紙退役）
 
@@ -29,13 +25,12 @@ happens to contain text. Every visual decision below serves that sentence.
   black text; "muted" comes from ink pressure, not opacity tricks.
 - **Accents are a researcher's annotations ON the glass, never the glass
   itself.** One accent per workspace mode via `getModeTheme` (indigo archive,
-  sage topic, fusion D vermillion product, rose pr-evidence). Product's warmer
-  accent was chosen from the mockup gate on 2026-07-06 to make signal work feel
-  decisive without borrowing PR Evidence's wine tone. Two mode accents on one
-  surface means the surface doesn't know what it is — split it or pick one.
-- **Mode identity comes from accent + content, never from a different
-  material.** The shell, rail, cards, and chips are identical across modes;
-  only `getModeTheme` and the data change.
+  sage topic, steel-blue product, rose pr-evidence). Product returned to its
+  original steel blue on 2026-07-14 (2026-07-06 vermillion retired); the three
+  top-tab modes now read sage Topic, steel-blue Product, rose-red PR — PR the
+  sole red. Two accents on one surface means it doesn't know what it is — split.
+- **Mode identity comes from accent + content, never a different material.**
+  Shell, rail, cards, and chips stay identical; only theme and data change.
 
 ## Per-family intent
 
@@ -51,11 +46,10 @@ happens to contain text. Every visual decision below serves that sentence.
   `color.running`) are natural dyes — sage, ochre, wine, indigo — deliberately
   below traffic-light saturation. Alarm is expressed by copy and placement,
   not by shouting pigment.
-- Status washes and failed border roles cover low-emphasis status panels and
-  danger edges without view-local opacity choices.
-- `glassBg` / `glassBorder` are legacy aliases and `effect.glassBlur` remains
-  disabled for ordinary reading cards. Shared shell glass uses the single
-  `material.workspaceGlass` family instead of reviving component-local blur.
+- Status washes and failed borders cover quiet panels and danger edges without
+  view-local opacity choices.
+- `glassBg` / `glassBorder` are legacy aliases; ordinary reading cards keep
+  `effect.glassBlur` disabled and shell glass uses `material.workspaceGlass`.
 
 ### type (`textStyles`)
 - **Weight carries hierarchy, size stays close.** 400 body, 500 field labels,
@@ -79,19 +73,23 @@ happens to contain text. Every visual decision below serves that sentence.
   `shadow.shell` → `shadow.raised`, `shadow.popup` for the floating
   workspace). Colored glow is allowed only under accent CTAs
   (`shadow.topicCta`, `shadow.accentButton`).
-- Hover shadows remain part of that same elevation ladder; component files
-  choose the named tier instead of composing new blur stacks inline.
-- Prefer "definition by shadow" (`color.cardEdge` + a shadow tier) over strong
-  borders — see the color section; the two rules are the same rule.
+- Hover shadows use the same ladder; components choose a named tier, never a
+  new inline blur stack. Prefer shadow definition over strong borders.
 
 ### motion
-- **Motion confirms, never entertains.** Use `motion.preset.buttonPress` for
-  tactile ack, `motion.preset.cardLift` for hover/focus settle, and
-  `motion.preset.surfaceFade` for content arrival; one-offs need a reason.
-- Springs only acknowledge direct manipulation; elevated cards, dense rows,
-  and Atlas bubbles have separate roles. Popup presence is one shell cascade;
-  lists move only for real filter, reorder, or disclosure state changes.
-  Ambient shimmer/pulse means work is happening, never decoration.
+- **Motion confirms, never entertains.** Use `motion.preset.buttonPress` for tactile ack,
+  `motion.preset.cardLift` for hover/focus, and `motion.preset.surfaceFade` for arrival.
+- Springs acknowledge direct manipulation; popup opening keeps its shell
+  cascade. On every route, the first top-level card may soft-pop. Later
+  top-level rounded cards use `motion.presence.cardDelayMs`,
+  `motion.presence.cardOpacityFrom`, `motion.presence.cardRisePx`,
+  `motion.presence.cardDurationMs`, and `motion.presence.cardStaggerMs`; they
+  never scale or overshoot. The scroll viewport remains native, nested cards
+  inherit their parent entrance, dense rows stay quiet, and causal state motion
+  wins over unfinished presence.
+- Bottom rebound belongs only to a genuinely scrollable workspace at its real
+  end; only its inner track moves. Hover lift is reserved for active surfaces.
+- Ambient shimmer/pulse means work is happening, never decoration.
 - Every animation sits behind a `prefers-reduced-motion` guard (repo contract).
 
 ### spacing
@@ -99,6 +97,8 @@ happens to contain text. Every visual decision below serves that sentence.
   like `spacing.resultSectionGap` / `spacing.resultCardGap` on a flex-gap
   parent. Per-child margins are how vertical rhythm died before — the Result
   spacing contract exists because of it.
+- `layout.workspacePopupHeight` is shared by every mode; drawers must resolve
+  inside that frame rather than carrying a second viewport-height contract.
 
 ### Shared glass shell + Atlas surface（2026-07-10 修憲）
 - Variant D glass is now the shared Topic / Product / PR shell grammar. The

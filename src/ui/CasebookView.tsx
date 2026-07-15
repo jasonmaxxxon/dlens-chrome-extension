@@ -197,6 +197,7 @@ function TopicCard({
       data-casebook-topic-id={topic.id}
       data-scan-row="true"
       data-scan-action="true"
+      data-dlens-presence="card"
       className="dlens-card-lift"
       onClick={() => onSelect(topic.id)}
       style={{
@@ -270,6 +271,7 @@ function UnassignedCard({
     <button
       type="button"
       data-topic-filter="unassigned"
+      data-dlens-presence="card"
       className="dlens-card-lift"
       onClick={onClick}
       style={{
@@ -752,6 +754,7 @@ export function CasebookView({
           </div>
         ) : (
           <div
+            data-dlens-presence="card"
             style={{
               padding: "18px 16px",
               borderRadius: tokens.radius.card,
@@ -769,6 +772,7 @@ export function CasebookView({
         {/* AI suggestion hint (old casebook path, no signals) */}
         {!hasSignals && pendingSignalCount > 0 ? (
           <section
+            data-dlens-presence="card"
             style={{
               display: "grid",
               gap: 6,

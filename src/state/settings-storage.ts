@@ -22,6 +22,10 @@ function validCompareResultLayout(value: unknown): value is LayoutPreferences["c
   return value === "reading" || value === "parallel" || value === "chapters";
 }
 
+function validUiLanguage(value: unknown): value is NonNullable<LayoutPreferences["language"]> {
+  return value === "zh" || value === "en";
+}
+
 export function normalizeLayoutPreferences(raw: LayoutPreferencesPatch | null | undefined): LayoutPreferences {
   const defaults = createDefaultLayoutPreferences();
   return {
@@ -30,7 +34,8 @@ export function normalizeLayoutPreferences(raw: LayoutPreferencesPatch | null | 
       : defaults.topicSynthesisLayout,
     compareResultLayout: validCompareResultLayout(raw?.compareResultLayout)
       ? raw.compareResultLayout
-      : defaults.compareResultLayout
+      : defaults.compareResultLayout,
+    language: validUiLanguage(raw?.language) ? raw.language : defaults.language
   };
 }
 

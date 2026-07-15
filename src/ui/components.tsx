@@ -10,6 +10,7 @@ import type {
 } from "../state/processing-state.ts";
 import { TOKENS, textStyles, tokens } from "./tokens";
 import { BUILD_VERSION } from "./version";
+import { useUiLang } from "./i18n";
 
 export { TOKENS } from "./tokens";
 
@@ -316,6 +317,7 @@ export function SurfaceCard({
     <section
       data-shared-surface-card={tone}
       {...dataAttrs}
+      data-dlens-presence={dataAttrs?.["data-dlens-presence"] ?? "card"}
       style={surfaceCardStyle({
         padding: tokens.spacing.section,
         background,
@@ -796,7 +798,6 @@ export function scanRowStyle(extra?: CSSProperties): CSSProperties {
     padding: "10px 4px",
     borderBottom: `1px solid ${tokens.color.line}`,
     background: "transparent",
-    transition: "background 140ms ease",
     cursor: "default",
     ...extra
   };
@@ -804,6 +805,9 @@ export function scanRowStyle(extra?: CSSProperties): CSSProperties {
 
 /** Hover state for interactive scan rows */
 export const SCAN_ROW_HOVER_CSS = `
+[data-dlens-control="true"] [data-scan-list] [data-scan-row]:not(.dlens-card-lift):not(.dlens-tactile-row) {
+  transition: background-color ${tokens.motion.duration.fast} ${tokens.motion.easing.standard};
+}
 [data-dlens-control="true"] [data-scan-list] [data-scan-row][data-scan-action="true"]:hover {
   background: ${tokens.color.inkWash};
 }
@@ -872,17 +876,17 @@ type PrimaryWorkspaceMode = Extract<
 
 type RailTier = "primary" | "tool";
 
-const PRIMARY_WORKSPACE_MODES: ReadonlyArray<{ key: PrimaryWorkspaceMode; label: string; tier?: RailTier }> = [
-  { key: "collect", label: "採集" },
-  { key: "topics", label: "議題" },
-  { key: "casebook", label: "主題" },
-  { key: "inbox", label: "收件匣" },
-  { key: "library", label: "脈絡" },
-  { key: "compare", label: "比較", tier: "tool" },
-  { key: "saved-signals", label: "訊號" },
-  { key: "classification", label: "分類" },
-  { key: "actionable-filter", label: "行動" },
-  { key: "pr-evidence", label: "PR" }
+const PRIMARY_WORKSPACE_MODES: ReadonlyArray<{ key: PrimaryWorkspaceMode; label: string; labelEn: string; tier?: RailTier }> = [
+  { key: "collect", label: "採集", labelEn: "Collect" },
+  { key: "topics", label: "議題", labelEn: "Topics" },
+  { key: "casebook", label: "主題", labelEn: "Casebook" },
+  { key: "inbox", label: "收件匣", labelEn: "Inbox" },
+  { key: "library", label: "脈絡", labelEn: "Context" },
+  { key: "compare", label: "比較", labelEn: "Compare", tier: "tool" },
+  { key: "saved-signals", label: "訊號", labelEn: "Signals" },
+  { key: "classification", label: "分類", labelEn: "Classify" },
+  { key: "actionable-filter", label: "行動", labelEn: "Actions" },
+  { key: "pr-evidence", label: "PR", labelEn: "PR" }
 ];
 
 function railIcon(mode: PrimaryWorkspaceMode) {
@@ -1387,6 +1391,7 @@ export function ModeRail({
   badgeCounts?: Partial<Record<PrimaryWorkspaceMode, number>>;
   onSelect: (mode: PrimaryWorkspaceMode) => void;
 }) {
+  const lang = useUiLang();
   const visibleModes = PRIMARY_WORKSPACE_MODES.filter((mode) => modes.includes(mode.key));
   const firstToolIndex = visibleModes.findIndex((mode) => mode.tier === "tool");
 
@@ -1416,7 +1421,7 @@ export function ModeRail({
           ) : null}
           <ModeRailButton
             mode={mode.key}
-            label={mode.label}
+            label={lang === "en" ? mode.labelEn : mode.label}
             active={activeMode === mode.key}
             tier={mode.tier ?? "primary"}
             badgeCount={badgeCounts?.[mode.key]}

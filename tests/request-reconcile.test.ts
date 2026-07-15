@@ -162,7 +162,8 @@ test("reconcile guard is wired into current async response write paths", () => {
     "pr.saveGeneratedCriteria",
     "pr.matchCriteria",
     "pr.fetchAdvancedMetrics",
-    "pr.generateSummary"
+    "pr.generateSummary",
+    "pr.generateNarrative"
   ]) {
     assert.match(appState, new RegExp(lane.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")));
   }

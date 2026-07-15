@@ -230,15 +230,27 @@ export const DLENS_MOTION_CSS = `
 }
 [data-dlens-control="true"] .dlens-tactile-row {
   transform: ${tokens.motion.transform.rowRest};
-  transition: transform ${tokens.motion.duration.base} ${tokens.motion.easing.springSoft}, background-color ${tokens.motion.duration.fast} ${tokens.motion.easing.standard};
+  transition: transform ${tokens.motion.duration.base} ${tokens.motion.easing.springSoft}, background-color ${tokens.motion.duration.fast} ${tokens.motion.easing.standard}, box-shadow ${tokens.motion.duration.base} ${tokens.motion.easing.springSoft}, border-color ${tokens.motion.duration.fast} ${tokens.motion.easing.standard};
 }
 [data-dlens-control="true"] .dlens-tactile-row:hover,
 [data-dlens-control="true"] .dlens-tactile-row:focus-visible {
   transform: ${tokens.motion.transform.rowHover};
+  box-shadow: ${tokens.shadow.cardLiftHover} !important;
+  border-color: ${tokens.color.lineHover} !important;
 }
 [data-dlens-control="true"] .dlens-tactile-row:active {
   transform: ${tokens.motion.transform.rowPress};
   transition: transform 90ms ${tokens.motion.easing.standard};
+}
+[data-dlens-control="true"] .dlens-atlas-legend-row {
+  transition: background-color ${tokens.motion.duration.fast} ${tokens.motion.easing.standard};
+}
+[data-dlens-control="true"] .dlens-atlas-legend-row:hover,
+[data-dlens-control="true"] .dlens-atlas-legend-row:focus-visible {
+  background: ${tokens.color.inkWash} !important;
+}
+[data-dlens-control="true"] .dlens-atlas-legend-row:active {
+  background: ${tokens.color.inkWashStrong} !important;
 }
 [data-dlens-control="true"] .dlens-quote-row {
   transition: background 200ms ${tokens.motion.easing.standard};
@@ -326,6 +338,7 @@ export const DLENS_MOTION_CSS = `
   }
   [data-dlens-control="true"] .dlens-card-lift,
   [data-dlens-control="true"] .dlens-tactile-row,
+  [data-dlens-control="true"] .dlens-atlas-legend-row,
   [data-dlens-control="true"] .dlens-quote-row,
   [data-dlens-control="true"] .dlens-details-summary,
   [data-dlens-control="true"] .dlens-details-chevron,

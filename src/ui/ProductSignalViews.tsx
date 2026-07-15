@@ -43,6 +43,7 @@ import {
   surfaceCardStyle,
   viewRootStyle
 } from "./components";
+import { useUiText } from "./i18n";
 import { modeThemes, tokens, textStyles } from "./tokens";
 import { useCausalListMotion } from "./useCausalListMotion";
 
@@ -52,18 +53,24 @@ export type ProductSignalPageKind = "saved-signals" | "classification" | "action
  * here so the threads content script and existing imports/tests keep working. */
 export { DLENS_MOTION_CSS } from "./motion";
 
-const PAGE_COPY: Record<ProductSignalPageKind, { title: string; deck: string }> = {
+const PAGE_COPY: Record<ProductSignalPageKind, { title: string; titleEn: string; deck: string; deckEn: string }> = {
   "saved-signals": {
     title: "已存訊號",
-    deck: "先確認已儲存的 Threads post 是否完成抓取，再到行動頁整理可試 workflow。"
+    titleEn: "Saved signals",
+    deck: "先確認已儲存的 Threads post 是否完成抓取，再到行動頁整理可試 workflow。",
+    deckEn: "Confirm the saved Threads posts finished crawling, then head to Actions to shape a workflow to try."
   },
   classification: {
     title: "分類整理",
-    deck: "先把每則 Threads signal 放回正確範疇，再決定是否值得產品團隊處理。"
+    titleEn: "Classify",
+    deck: "先把每則 Threads signal 放回正確範疇，再決定是否值得產品團隊處理。",
+    deckEn: "Sort each Threads signal back into the right category, then decide if it's worth the product team's time."
   },
   "actionable-filter": {
     title: "行動簡報",
-    deck: "先審視模型判讀，再把已收錄 reading 組成可貼給 coding agent 的 brief。"
+    titleEn: "Action brief",
+    deck: "先審視模型判讀，再把已收錄 reading 組成可貼給 coding agent 的 brief。",
+    deckEn: "Review the model's read, then compose the collected readings into a brief you can paste to a coding agent."
   },
 };
 
@@ -1046,6 +1053,7 @@ function PendingSignalCard({
   return (
     <div
       data-product-pending-card="topic-card"
+      data-dlens-presence="card"
       style={cardStyle({
         padding: "14px 16px",
         border: "none",
@@ -1119,6 +1127,7 @@ function PendingSignalsQueueSummary({ signals }: { signals: ProductSignalViewMod
   return (
     <section
       data-product-action-queue-summary="true"
+      data-dlens-presence="card"
       style={{
         display: "flex",
         alignItems: "center",
@@ -1214,6 +1223,7 @@ function ReadinessPanel({
     return (
       <div
         data-product-hydrating="true"
+        data-dlens-presence="card"
         style={heroPanelStyle({
           gap: 9,
           padding: "10px 12px"
@@ -1234,6 +1244,7 @@ function ReadinessPanel({
   if (viewModel.allGreen && !viewModel.isAnalyzing && !visibleError) {
     return (
       <div
+        data-dlens-presence="card"
         style={heroPanelStyle({
           display: "flex",
           alignItems: "center",
@@ -1254,7 +1265,7 @@ function ReadinessPanel({
   }
 
   return (
-    <div style={heroPanelStyle({ gap: hasResults ? 8 : 10 })}>
+    <div data-dlens-presence="card" style={heroPanelStyle({ gap: hasResults ? 8 : 10 })}>
       <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10, flexWrap: "wrap" }}>
         <Kicker>{hasResults ? "分析狀態" : "真實狀態"}</Kicker>
         <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
@@ -1330,6 +1341,7 @@ function ClassificationSignalRow({
       data-scan-row="true"
       data-scan-action="true"
       data-dlens-list-key={analysis.signalId}
+      data-dlens-presence="row"
       className="dlens-tactile-row"
       style={scanRowStyle({
         width: "100%",
@@ -1384,7 +1396,7 @@ function SelectedPostAside({
   const verdictMeta = VERDICT_META[analysis.verdict];
   const wrapTextStyle: CSSProperties = { minWidth: 0, overflowWrap: "anywhere", wordBreak: "break-word" };
   return (
-    <aside data-product-selected-aside="true" style={cardStyle({ gap: 11, minWidth: 0, overflowWrap: "anywhere", wordBreak: "break-word" })}>
+    <aside data-product-selected-aside="true" data-dlens-presence="card" style={cardStyle({ gap: 11, minWidth: 0, overflowWrap: "anywhere", wordBreak: "break-word" })}>
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 8, minWidth: 0 }}>
         <Kicker>系統挑出的內容</Kicker>
         <Stamp tone="neutral">{formatContentType(analysis.contentType)}</Stamp>
@@ -2102,6 +2114,7 @@ function SignalPacketHtmlExportSection({
   return (
     <section
       data-signal-packet-html-export="true"
+      data-dlens-presence={embedded ? undefined : "card"}
       style={embedded
         ? {
             display: "grid",
@@ -2284,7 +2297,7 @@ function SavedSignalsBoard({
 
   return (
     <section data-saved-signals-route="true" style={{ display: "grid", gap: 12 }}>
-      <div style={cardStyle({ gap: 10 })}>
+      <div data-saved-signals-frame="true" style={cardStyle({ gap: 10 })}>
         <SectionHeader title="訊號清單" caption={`${signals.length} 則`} style={{ marginBottom: 0 }} />
         <div data-product-saved-filter-tabs="true" role="tablist" aria-label="已存訊號篩選" style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
           {SAVED_FILTER_TABS.map((tab) => {
@@ -2380,6 +2393,7 @@ function SavedSignalsBoard({
                 data-product-fusion-card={isFusionRow ? isHeroRow ? "hero" : "row" : undefined}
                 data-scan-row="true"
                 data-scan-action="true"
+                data-dlens-presence="card"
                 className="dlens-card-lift"
                 style={scanRowStyle({
                   display: "grid",
@@ -2555,7 +2569,7 @@ function RecoveredAnalysesBoard({
 
   return (
     <section data-product-recovered-analyses="true" style={{ display: "grid", gap: 12 }}>
-      <div style={cardStyle({ gap: 10 })}>
+      <div data-dlens-presence="card" style={cardStyle({ gap: 10 })}>
         <div style={{ display: "flex", justifyContent: "space-between", gap: 10, alignItems: "baseline" }}>
           <Kicker>已分析資料</Kicker>
           <span style={{ ...textStyles.meta, color: tokens.color.softInk }}>{analyses.length} analyses · signal 清單是空的</span>
@@ -2702,6 +2716,7 @@ function FirstReadingCta({
   return (
     <section
       data-reading-first-run-cta="true"
+      data-dlens-presence="card"
       style={{
         display: "grid",
         gap: 8,
@@ -2850,8 +2865,8 @@ function SignalReadingReviewWorkspace({
     });
   };
   return (
-    <div data-signal-reading-review-workspace="true" style={{ display: "grid", gap: 14, paddingBottom: 76 }}>
-      <section data-signal-reading-verdict-summary="true" style={cardStyle({ gap: 12 })}>
+    <div data-signal-reading-review-workspace="true" style={{ display: "grid", gap: 14 }}>
+      <section data-signal-reading-verdict-summary="true" data-dlens-presence="card" style={cardStyle({ gap: 12 })}>
         <div style={{ display: "flex", alignItems: "baseline", justifyContent: "space-between", gap: 10 }}>
           <div style={{ fontSize: 14, fontWeight: 850, color: tokens.color.ink }}>{analysesForSignals.length} 則訊號已評估</div>
           <span style={{ ...textStyles.meta, color: tokens.color.softInk }}>
@@ -2923,6 +2938,7 @@ function SignalReadingReviewWorkspace({
                 data-signal-reading-review-row="true"
                 data-dlens-list-key={signal.signalId}
                 data-signal-reading-filed-flash={recentlyFiledSignalId === signal.signalId ? "true" : undefined}
+                data-dlens-presence="row"
                 className={isActive ? undefined : "dlens-card-lift"}
                 style={{
                   border: `1px solid ${tokens.color.cardEdge}`,
@@ -3052,7 +3068,7 @@ function SignalReadingReviewWorkspace({
               </article>
             );
           }) : (
-            <div style={mutedPanelStyle({ fontSize: 12.5, color: tokens.color.subInk })}>
+            <div data-dlens-presence="card" style={mutedPanelStyle({ fontSize: 12.5, color: tokens.color.subInk })}>
               這個分類暫時沒有訊號。切換上方四格可以審視其他類型。
             </div>
           )}
@@ -3146,7 +3162,7 @@ function SavedSignalsBatchExport({
   const packetPayloadChars = agentBrief.length;
 
   return (
-    <div data-saved-signals-batch-export="true" style={cardStyle({ gap: 13, borderColor: tokens.color.product, background: `linear-gradient(180deg, ${tokens.color.elevated}, ${tokens.color.productSoft})` })}>
+    <div data-saved-signals-batch-export="true" data-dlens-presence="card" style={cardStyle({ gap: 13, borderColor: tokens.color.product, background: `linear-gradient(180deg, ${tokens.color.elevated}, ${tokens.color.productSoft})` })}>
       <div style={{ display: "flex", justifyContent: "space-between", gap: 10, alignItems: "center" }}>
         <Kicker>行動簡報匯出</Kicker>
         <Stamp tone={selectedSignals.length ? "accent" : "neutral"}>{selectedSignals.length} 已選</Stamp>
@@ -3221,6 +3237,7 @@ function SavedSignalsBatchExport({
                 data-batch-export-selection-row="true"
                 data-scan-row="true"
                 data-scan-action="true"
+                data-dlens-presence="row"
                 className="dlens-tactile-row"
                 style={scanRowStyle({
                   display: "grid",
@@ -3369,8 +3386,8 @@ function ClassificationBoard({
   }
 
   return (
-    <div data-product-classification-board="true" style={{ display: "grid", gap: 12, paddingBottom: 76, minWidth: 0, overflow: "hidden" }}>
-      <section style={cardStyle({ gap: 10 })}>
+    <div data-product-classification-board="true" style={{ display: "grid", gap: 12, minWidth: 0, overflow: "hidden" }}>
+      <section data-dlens-presence="card" style={cardStyle({ gap: 10 })}>
         <div style={{ display: "flex", justifyContent: "space-between", gap: 10, alignItems: "baseline" }}>
           <Kicker>分類構成</Kicker>
           <span style={{ fontSize: 11, color: tokens.color.softInk }}>AI 已分類 {analyses.length} 則訊號</span>
@@ -3629,6 +3646,7 @@ function ActionableItemCard({
       data-product-action-card-primary={primaryActionCard ? "true" : "false"}
       data-verdict-value={analysis.verdict}
       data-exclusion-card={excluded ? "true" : "false"}
+      data-dlens-presence="card"
       style={cardStyle({
         gap: 14,
         padding: 18,
@@ -3790,7 +3808,7 @@ function SavedExperimentsPanel({
   }
 
   return (
-    <section style={cardStyle({ padding: "12px 14px", gap: 10 })}>
+    <section data-dlens-presence="card" style={cardStyle({ padding: "12px 14px", gap: 10 })}>
       <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
         <div style={{ ...textStyles.cardTitle, color: tokens.color.ink }}>已儲存實驗</div>
         <Stamp tone="accent">{actionable.length}</Stamp>
@@ -3864,7 +3882,7 @@ function ActionableInsightsBoard({
         <Stamp tone="neutral">{productProfile?.audience || "目標受眾未填"}</Stamp>
         <Stamp tone={isProductContextSourceReady(productProfile) ? "success" : "warning"}>ProductContext</Stamp>
       </div>
-      <section style={cardStyle({ gap: 12 })}>
+      <section data-dlens-presence="card" style={cardStyle({ gap: 12 })}>
         <div style={{ fontSize: 14, fontWeight: 850, color: tokens.color.ink }}>{analyses.length} 則訊號已評估</div>
         <VerdictFilterTiles
           stats={stats}
@@ -3891,7 +3909,7 @@ function ActionableInsightsBoard({
             />
           </div>
         )) : (
-          <div style={mutedPanelStyle({ fontSize: 12.5, color: tokens.color.subInk })}>{emptyCopyByFilter[selectedFilter]}</div>
+          <div data-dlens-presence="card" style={mutedPanelStyle({ fontSize: 12.5, color: tokens.color.subInk })}>{emptyCopyByFilter[selectedFilter]}</div>
         )}
       </section>
     </div>
@@ -3926,6 +3944,7 @@ export function ProductSignalView({
     scopedSignalReadings,
     pendingSignals
   } = viewModel;
+  const t = useUiText();
   const copy = PAGE_COPY[kind];
   const [selectedSignalIds, setSelectedSignalIds] = useState<string[]>([]);
   const [briefMode, setBriefMode] = useState<AgentBriefMode>("original");
@@ -4006,8 +4025,8 @@ export function ProductSignalView({
       <ModeHeader
         mode={kind}
         kicker="Product mode"
-        title={copy.title}
-        deck={copy.deck}
+        title={t(copy.title, copy.titleEn)}
+        deck={t(copy.deck, copy.deckEn)}
         stamp={
           viewModel.statusErrorLabel
             ? <Stamp tone="warning">{viewModel.statusErrorLabel}</Stamp>
@@ -4047,6 +4066,7 @@ export function ProductSignalView({
         {kind === "saved-signals" && scopedAnalyses.length > 0 && !viewModel.isAnalyzing && openActionableCommand ? (
           <div
             data-product-action-cta="true"
+            data-dlens-presence="card"
             style={{
               display: "flex",
               alignItems: "center",
@@ -4143,7 +4163,7 @@ export function ProductSignalView({
             </>
           )
         ) : viewModel.loadState === "loading" ? null : (
-          <div style={cardStyle()}>
+          <div data-dlens-presence="card" style={cardStyle()}>
             <div style={{ fontSize: 14, fontWeight: 800, color: tokens.color.ink }}>
               尚未有 AI 分析結果
             </div>

@@ -10,7 +10,10 @@ import {
   type PrEvidenceCommand,
   type PrEvidenceCsvPreviewViewModel,
   type PrEvidenceRowViewModel,
-  type PrEvidenceViewModel
+  type PrEvidenceViewModel,
+  type PrNarrativeClaimViewModel,
+  type PrNarrativeEvidenceViewModel,
+  type PrNarrativeViewStatus
 } from "../viewmodel/pr-evidence.ts";
 import {
   Kicker,
@@ -18,12 +21,14 @@ import {
   PrimaryButton,
   SCAN_ROW_HOVER_CSS,
   SecondaryButton,
+  SegmentedTabs,
   Stamp,
   SurfaceCard,
   WorkspaceSurface,
   viewRootStyle
 } from "./components.tsx";
 import { CollectorGist, CollectorMetricStrip } from "./CollectorMetricStrip.tsx";
+import { useUiText } from "./i18n.ts";
 import { textStyles, tokens } from "./tokens.ts";
 
 const accentButtonStyle = {
@@ -184,6 +189,19 @@ function CampaignEditor({
     onChange({ ...campaign.saveDraft, criteria });
   }
 
+  function updateNarrativeSetting(
+    key: keyof NonNullable<PrCampaignSaveDraft["narrativeSettings"]>,
+    value: string
+  ) {
+    onChange({
+      ...campaign.saveDraft,
+      narrativeSettings: {
+        ...campaign.narrativeSettings,
+        [key]: value
+      }
+    });
+  }
+
   const parsedMessages = coreMessages.slice(0, 5).map(parseCoreMessage);
   const briefPreview = campaign.briefText.split("\n").find((l) => l.trim()) ?? "";
   const fieldLabelStyle = {
@@ -195,6 +213,7 @@ function CampaignEditor({
   } as const;
   const inputLineStyle = {
     width: "100%",
+    boxSizing: "border-box",
     fontFamily: tokens.font.sans,
     fontSize: 12,
     fontWeight: 400,
@@ -235,7 +254,11 @@ function CampaignEditor({
           <span aria-hidden style={{ width: 6, height: 6, borderRadius: PR_ROUND, background: PR_MOSS }} />
           已設定
         </span>
-        <SecondaryButton onClick={() => onExpand?.()} style={compactButtonStyle}>
+        <SecondaryButton
+          onClick={() => onExpand?.()}
+          style={compactButtonStyle}
+          dataAttrs={{ "data-pr-open-settings": "summary" }}
+        >
           編輯設定
         </SecondaryButton>
       </div>
@@ -459,6 +482,50 @@ function CampaignEditor({
           ) : null}
         </div>
 
+        {/* ── Narrative definition ─────────────────────────────────── */}
+        <div data-pr-section="narrative" style={{ display: "grid", gap: 10 }}>
+          <div style={{ display: "flex", alignItems: "baseline", justifyContent: "space-between", gap: 10 }}>
+            <span style={fieldLabelStyle}>敘事判讀設定</span>
+            <span style={{ ...prMonoMetaStyle, color: tokens.color.softInk }}>提供給 AI 的判讀邊界</span>
+          </div>
+          <label style={{ display: "grid", gap: 6 }}>
+            <span style={fieldLabelStyle}>核心敘事</span>
+            <textarea
+              aria-label="核心敘事"
+              data-pr-field="narrative-anchor"
+              value={campaign.narrativeSettings.narrativeAnchor}
+              onChange={(event) => updateNarrativeSetting("narrativeAnchor", event.target.value)}
+              placeholder="這個活動希望市場記住的主要說法"
+              rows={2}
+              style={{ ...inputLineStyle, lineHeight: 1.5, resize: "vertical", minHeight: 58 }}
+            />
+          </label>
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(2, minmax(0, 1fr))", gap: tokens.spacing.md }}>
+            <label style={{ display: "grid", gap: 6 }}>
+              <span style={fieldLabelStyle}>目標受眾</span>
+              <input
+                aria-label="目標受眾"
+                data-pr-field="target-audience"
+                value={campaign.narrativeSettings.targetAudience}
+                onChange={(event) => updateNarrativeSetting("targetAudience", event.target.value)}
+                placeholder="希望被說服或採取行動的人"
+                style={inputLineStyle}
+              />
+            </label>
+            <label style={{ display: "grid", gap: 6 }}>
+              <span style={fieldLabelStyle}>希望行動</span>
+              <input
+                aria-label="希望行動"
+                data-pr-field="desired-action"
+                value={campaign.narrativeSettings.desiredAction}
+                onChange={(event) => updateNarrativeSetting("desiredAction", event.target.value)}
+                placeholder="閱讀後希望對方採取的行動"
+                style={inputLineStyle}
+              />
+            </label>
+          </div>
+        </div>
+
         {/* ── PR matching criteria ──────────────────────────────────── */}
         <div data-pr-section="criteria" style={{ display: "grid", gap: 9 }}>
           {campaign.briefText.trim() ? (
@@ -611,6 +678,7 @@ function EvidenceLedger({ rows, caption }: { rows: PrEvidenceRowViewModel[]; cap
           }}
         >
           <summary
+            data-dlens-presence="row"
             className="dlens-tactile-row"
             style={{
               listStyle: "none",
@@ -872,6 +940,7 @@ function CriteriaHealth({ health, rows }: { health: PrEvidenceViewModel["criteri
               }}
             >
               <summary
+                data-dlens-presence="row"
                 className="dlens-tactile-row"
                 style={{
                   listStyle: "none",
@@ -1088,6 +1157,7 @@ function PrWorkingArea({
         }}
       >
         <summary
+          data-dlens-presence="row"
           className="dlens-tactile-row"
           style={{
             listStyle: "none",
@@ -1233,7 +1303,7 @@ function CsvPreview({ preview }: { preview: PrEvidenceCsvPreviewViewModel }) {
   const body = preview.rows;
   return (
     <details data-pr-csv-preview="true" style={{ marginTop: 4, borderTop: `1px solid ${PR_RULE}`, paddingTop: 18, borderRadius: PR_RADIUS }}>
-      <summary className="dlens-tactile-row" style={{ listStyle: "none", cursor: "pointer", display: "flex", alignItems: "baseline", gap: 8, fontFamily: `${tokens.font.serifCjk}, ${tokens.font.serif}`, fontSize: 16, fontWeight: 600, color: tokens.color.ink }}>
+      <summary data-dlens-presence="row" className="dlens-tactile-row" style={{ listStyle: "none", cursor: "pointer", display: "flex", alignItems: "baseline", gap: 8, fontFamily: `${tokens.font.serifCjk}, ${tokens.font.serif}`, fontSize: 16, fontWeight: 600, color: tokens.color.ink }}>
         <span style={{ fontSize: 11, color: tokens.color.softInk }}>▸</span>
         CSV 預覽
         <span style={{ ...prMonoMetaStyle, marginLeft: "auto", color: tokens.color.softInk, fontWeight: 500 }}>
@@ -1314,7 +1384,7 @@ function SummaryPanel({
   return (
     <SurfaceCard
       tone="default"
-      dataAttrs={{ "data-pr-summary": "facts-first" }}
+      dataAttrs={{ "data-pr-summary": "facts-first", "data-dlens-presence": "card" }}
       style={{
         display: "grid",
         gap: 12,
@@ -1366,6 +1436,7 @@ function ExportReadyPanel({ viewModel }: { viewModel: PrEvidenceViewModel }) {
     <section data-pr-export-ready="true" style={{ display: "grid", gap: 8 }}>
       <div
         data-pr-export-ready-card="true"
+        data-dlens-presence="card"
         style={{ display: "flex", gap: 13, alignItems: "center", padding: "14px 16px", borderRadius: tokens.radius.cardLg, border: `1px solid ${tokens.color.failedBorder}`, background: `linear-gradient(180deg, ${tokens.color.surface}, ${tokens.color.failedWash})` }}
       >
         <span aria-hidden style={{ width: 40, height: 40, borderRadius: 11, background: tokens.color.failedSoft, color: PR_ACCENT, display: "grid", placeItems: "center", fontSize: 20, flexShrink: 0 }}>✓</span>
@@ -1406,6 +1477,441 @@ function ExportReadyPanel({ viewModel }: { viewModel: PrEvidenceViewModel }) {
   );
 }
 
+/* ── PR narrative lens ─────────────────────────────────────────────── */
+
+function PrScopeBar({
+  collectedCount,
+  onOpenSettings
+}: {
+  collectedCount: number;
+  onOpenSettings: () => void;
+}) {
+  return (
+    <div
+      data-pr-scope-bar="campaign-collected-posts"
+      style={{
+        display: "flex",
+        alignItems: "center",
+        gap: tokens.spacing.sm,
+        padding: "9px 12px",
+        borderRadius: PR_RADIUS,
+        border: `1px solid ${PR_RULE}`,
+        background: tokens.color.contextSurface,
+        minWidth: 0
+      }}
+    >
+      <span aria-hidden style={{ width: 7, height: 7, borderRadius: PR_ROUND, background: PR_ACCENT, flexShrink: 0 }} />
+      <span style={{ ...prRowTextStyle, color: tokens.color.subInk, minWidth: 0 }}>
+        只分析這個 campaign 已 Collect 的 Threads 主帖
+      </span>
+      <span style={{ ...prMonoMetaStyle, color: tokens.color.softInk, whiteSpace: "nowrap" }}>
+        {collectedCount} 篇
+      </span>
+      <SecondaryButton
+        onClick={onOpenSettings}
+        style={{ ...compactButtonStyle, marginLeft: "auto", whiteSpace: "nowrap" }}
+        dataAttrs={{ "data-pr-open-settings": "header" }}
+      >
+        活動設定
+      </SecondaryButton>
+    </div>
+  );
+}
+
+function NarrativeEvidenceList({
+  title,
+  rows,
+  marker
+}: {
+  title: string;
+  rows: PrNarrativeEvidenceViewModel[];
+  marker: "support" | "counterexamples";
+}) {
+  if (!rows.length) return null;
+  return (
+    <section
+      data-pr-narrative-evidence-list={marker}
+      {...(marker === "counterexamples" ? { "data-pr-narrative-counterexamples": "true" } : {})}
+      style={{ display: "grid", gap: 8 }}
+    >
+      <div style={{ display: "flex", alignItems: "baseline", justifyContent: "space-between", gap: 8 }}>
+        <Kicker tone={marker === "counterexamples" ? "accent" : "default"}>{title}</Kicker>
+        <span style={{ ...prMonoMetaStyle, color: tokens.color.softInk }}>{rows.length} 篇</span>
+      </div>
+      <div style={{ display: "grid", borderTop: `1px solid ${PR_RULE}` }}>
+        {rows.map((entry) => (
+          <article
+            key={`${marker}-${entry.rowId}`}
+            style={{ display: "grid", gap: 6, padding: "11px 0", borderBottom: `1px solid ${PR_RULE}` }}
+          >
+            <div style={{ display: "flex", alignItems: "baseline", gap: 8, minWidth: 0 }}>
+              <span style={{ ...prMonoMetaStyle, color: PR_ACCENT, minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                @{entry.row.authorLabel.replace(/^@/, "")}
+              </span>
+              <span style={{ ...prMonoMetaStyle, color: tokens.color.softInk, marginLeft: "auto", whiteSpace: "nowrap" }}>
+                {entry.row.collectedAtLabel}
+              </span>
+            </div>
+            <span style={{ ...prRowTextStyle, color: tokens.color.ink }}>{entry.summary}</span>
+            <span style={{ ...textStyles.caption, color: tokens.color.softInk }}>{entry.row.captionLabel}</span>
+            {entry.row.sourceUrl ? (
+              <a
+                href={entry.row.sourceUrl}
+                target="_blank"
+                rel="noreferrer"
+                aria-label={`Threads 原帖 · ${entry.row.authorLabel}`}
+                style={{ display: "inline-flex", alignItems: "center", gap: 5, width: "fit-content", color: PR_ACCENT, fontSize: 11, fontWeight: 700, textDecoration: "none" }}
+              >
+                Threads 原帖
+                <ExternalLink size={12} strokeWidth={2} aria-hidden="true" />
+              </a>
+            ) : null}
+          </article>
+        ))}
+      </div>
+    </section>
+  );
+}
+
+function NarrativeDrawer({
+  detail,
+  onCommand
+}: {
+  detail: NonNullable<PrEvidenceViewModel["narrative"]["detail"]>;
+  onCommand: (command: PrEvidenceCommand) => void;
+}) {
+  const drawerRef = useRef<HTMLElement | null>(null);
+  const closeCommandRef = useRef(detail.closeCommand);
+  closeCommandRef.current = detail.closeCommand;
+
+  useEffect(() => {
+    const previousFocus = document.activeElement instanceof HTMLElement ? document.activeElement : null;
+    drawerRef.current?.focus();
+    return () => previousFocus?.focus();
+  }, []);
+
+  return (
+    <aside
+      ref={drawerRef}
+      role="dialog"
+      aria-modal="true"
+      aria-label={detail.claim.title}
+      tabIndex={-1}
+      data-pr-narrative-drawer="true"
+      onKeyDown={(event) => {
+        if (event.key === "Escape") {
+          event.preventDefault();
+          onCommand(closeCommandRef.current);
+        }
+      }}
+      style={{
+        position: "fixed",
+        top: 80,
+        right: 16,
+        bottom: 16,
+        zIndex: 2147483642,
+        width: "min(430px, calc(100vw - 32px))",
+        display: "grid",
+        gridTemplateRows: "auto minmax(0, 1fr)",
+        borderRadius: tokens.radius.cardLg,
+        border: `1px solid ${tokens.color.lineStrong}`,
+        background: tokens.color.shellSurface,
+        boxShadow: tokens.shadow.topicDrawer,
+        overflow: "hidden"
+      }}
+    >
+      <header style={{ display: "grid", gap: 7, padding: "16px 18px", borderBottom: `1px solid ${PR_RULE}` }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+          <Kicker tone="accent">現象 claim</Kicker>
+          <span style={{ ...prMonoMetaStyle, color: tokens.color.softInk, marginLeft: "auto" }}>{detail.limitationLabel}</span>
+          <SecondaryButton
+            onClick={() => onCommand(detail.closeCommand)}
+            style={compactButtonStyle}
+            dataAttrs={{ "aria-label": "關閉敘事證據" }}
+          >
+            關閉
+          </SecondaryButton>
+        </div>
+        <h2 style={{ margin: 0, fontFamily: `${tokens.font.serifCjk}, ${tokens.font.serif}`, fontSize: 21, lineHeight: 1.3, color: tokens.color.ink }}>
+          {detail.claim.title}
+        </h2>
+        <p style={{ ...prRowTextStyle, margin: 0, color: tokens.color.subInk }}>{detail.claim.statement}</p>
+      </header>
+      <div style={{ display: "grid", gap: tokens.spacing.lg, padding: "16px 18px 24px", overflowY: "auto", alignContent: "start" }}>
+        <NarrativeEvidenceList title="支持證據" rows={detail.support} marker="support" />
+        {detail.counterexamples.length ? (
+          <NarrativeEvidenceList title="反例／限制" rows={detail.counterexamples} marker="counterexamples" />
+        ) : null}
+      </div>
+    </aside>
+  );
+}
+
+const NARRATIVE_ALIGNMENT_POSITION: Record<PrNarrativeClaimViewModel["alignment"], string> = {
+  challenges: "16%",
+  mixed: "50%",
+  echoes: "84%"
+};
+
+const NARRATIVE_ALIGNMENT_LABEL: Record<PrNarrativeClaimViewModel["alignment"], string> = {
+  challenges: "挑戰",
+  mixed: "混合",
+  echoes: "呼應"
+};
+
+const NARRATIVE_MODE_LABEL: Record<PrNarrativeClaimViewModel["mode"], string> = {
+  attitude: "態度",
+  experience: "體驗",
+  behavior: "行為",
+  actionable: "行動"
+};
+
+const NARRATIVE_MODE_POSITION: Record<PrNarrativeClaimViewModel["mode"], string> = {
+  attitude: "82%",
+  experience: "62%",
+  behavior: "38%",
+  actionable: "18%"
+};
+
+function NarrativeCompass({
+  claims,
+  onCommand
+}: {
+  claims: PrNarrativeClaimViewModel[];
+  onCommand: (command: PrEvidenceCommand) => void;
+}) {
+  if (claims.length < 2) return null;
+  return (
+    <details data-pr-narrative-compass="true" style={{ borderTop: `1px solid ${PR_RULE}`, paddingTop: 12, borderRadius: PR_RADIUS }}>
+      <summary
+        data-dlens-presence="row"
+        className="dlens-tactile-row"
+        style={{ listStyle: "none", cursor: "pointer", display: "flex", alignItems: "baseline", gap: 8, color: tokens.color.ink, fontFamily: `${tokens.font.serifCjk}, ${tokens.font.serif}`, fontSize: 15, fontWeight: 700 }}
+      >
+        <span style={{ fontSize: 11, color: tokens.color.softInk }}>▸</span>
+        敘事羅盤
+        <span style={{ ...prMonoMetaStyle, marginLeft: "auto", color: tokens.color.softInk }}>挑戰 ↔ 呼應 · 態度 ↕ 行動</span>
+      </summary>
+      <div style={{ paddingTop: 12 }}>
+        <div
+          style={{
+            position: "relative",
+            height: 210,
+            borderRadius: PR_RADIUS,
+            border: `1px solid ${PR_RULE}`,
+            background: tokens.color.contextSurface,
+            overflow: "hidden"
+          }}
+        >
+          <span aria-hidden style={{ position: "absolute", left: "50%", top: 0, bottom: 0, width: 1, background: PR_RULE }} />
+          <span aria-hidden style={{ position: "absolute", left: 0, right: 0, top: "50%", height: 1, background: PR_RULE }} />
+          <span style={{ position: "absolute", left: 8, top: "50%", transform: "translateY(-50%)", ...textStyles.caption, color: tokens.color.softInk }}>挑戰</span>
+          <span style={{ position: "absolute", right: 8, top: "50%", transform: "translateY(-50%)", ...textStyles.caption, color: tokens.color.softInk }}>呼應</span>
+          <span style={{ position: "absolute", left: "50%", top: 7, transform: "translateX(-50%)", ...textStyles.caption, color: tokens.color.softInk }}>行動</span>
+          <span style={{ position: "absolute", left: "50%", bottom: 7, transform: "translateX(-50%)", ...textStyles.caption, color: tokens.color.softInk }}>態度</span>
+          {claims.map((claim, index) => (
+            <button
+              key={claim.id}
+              type="button"
+              data-pr-narrative-compass-claim={claim.id}
+              aria-label={`查看「${claim.title}」的證據`}
+              title={claim.title}
+              onClick={() => onCommand(claim.selectCommand)}
+              style={{
+                position: "absolute",
+                left: NARRATIVE_ALIGNMENT_POSITION[claim.alignment],
+                top: NARRATIVE_MODE_POSITION[claim.mode],
+                transform: "translate(-50%, -50%)",
+                width: claim.priority ? 32 : 26,
+                height: claim.priority ? 32 : 26,
+                borderRadius: PR_ROUND,
+                border: `2px solid ${claim.priority ? PR_ACCENT : tokens.color.surface}`,
+                background: claim.priority ? tokens.color.failedSoft : tokens.color.successSoft,
+                color: claim.priority ? PR_ACCENT : PR_MOSS,
+                boxShadow: tokens.shadow.card,
+                fontFamily: tokens.font.mono,
+                fontSize: 10,
+                fontWeight: 800,
+                cursor: "pointer"
+              }}
+            >
+              {index + 1}
+            </button>
+          ))}
+        </div>
+      </div>
+    </details>
+  );
+}
+
+const NARRATIVE_STATE_COPY: Record<Exclude<PrNarrativeViewStatus, "ready">, { title: string; body: string }> = {
+  empty: {
+    title: "尚未建立敘事判讀",
+    body: "按下判讀後，AI 只會閱讀這個 campaign 已 Collect 的 Threads 主帖。"
+  },
+  stale: {
+    title: "已收集的貼文已變更",
+    body: "以下保留上次判讀；重新判讀後才會納入目前這批主帖。"
+  },
+  insufficient_evidence: {
+    title: "可判讀內容不足",
+    body: "目前沒有足夠的主帖形成可靠的現象 claim；不會硬湊分佈或趨勢。"
+  },
+  error: {
+    title: "敘事判讀失敗",
+    body: "舊結果不會被覆寫。請確認 provider 設定後再手動重試。"
+  }
+};
+
+function NarrativeStateMessage({
+  status,
+  error
+}: {
+  status: Exclude<PrNarrativeViewStatus, "ready">;
+  error: string;
+}) {
+  const copy = NARRATIVE_STATE_COPY[status];
+  const warning = status === "stale" || status === "insufficient_evidence";
+  return (
+    <div
+      data-pr-narrative-state={status}
+      style={{
+        display: "grid",
+        gap: 4,
+        padding: "11px 13px",
+        borderRadius: PR_RADIUS,
+        border: `1px solid ${warning ? tokens.color.queuedBorder : status === "error" ? tokens.color.failedBorder : PR_RULE}`,
+        background: warning ? tokens.color.queuedWash : status === "error" ? tokens.color.failedWash : tokens.color.neutralSurfaceSoft
+      }}
+    >
+      <strong style={{ ...textStyles.bodyTight, color: status === "error" ? tokens.color.failed : tokens.color.ink }}>{copy.title}</strong>
+      <span style={{ ...textStyles.caption, color: tokens.color.subInk, lineHeight: 1.55 }}>{copy.body}</span>
+      {error ? (
+        <span style={{ ...prMonoMetaStyle, color: tokens.color.failed }}>
+          {status === "error" ? error : `上次重新判讀失敗：${error}`}
+        </span>
+      ) : null}
+    </div>
+  );
+}
+
+function NarrativeClaimCard({
+  claim,
+  priority,
+  onCommand
+}: {
+  claim: PrNarrativeClaimViewModel;
+  priority: boolean;
+  onCommand: (command: PrEvidenceCommand) => void;
+}) {
+  return (
+    <button
+      type="button"
+      data-pr-narrative-claim={claim.id}
+      {...(priority ? { "data-pr-narrative-priority": "true" } : {})}
+      aria-label={`查看「${claim.title}」的證據`}
+      onClick={() => onCommand(claim.selectCommand)}
+      className="dlens-card-lift"
+      style={{
+        appearance: "none",
+        width: "100%",
+        display: "grid",
+        gap: priority ? 9 : 6,
+        padding: priority ? "16px 18px" : "12px 14px",
+        borderRadius: priority ? tokens.radius.cardLg : PR_RADIUS,
+        border: `1px solid ${priority ? tokens.color.failedBorder : PR_RULE}`,
+        background: priority ? `linear-gradient(180deg, ${tokens.color.surface}, ${tokens.color.failedWash})` : tokens.color.surface,
+        boxShadow: priority ? tokens.shadow.card : "none",
+        color: tokens.color.ink,
+        textAlign: "left",
+        cursor: "pointer",
+        transition: tokens.motion.interactiveTransition
+      }}
+    >
+      <div style={{ display: "flex", alignItems: "baseline", gap: 8, minWidth: 0 }}>
+        {priority ? <Kicker tone="accent">優先判斷</Kicker> : null}
+        <span style={{ fontFamily: `${tokens.font.serifCjk}, ${tokens.font.serif}`, fontSize: priority ? 17 : 14, fontWeight: 700, minWidth: 0 }}>
+          {claim.title}
+        </span>
+        <span style={{ ...prMonoMetaStyle, marginLeft: "auto", color: claim.supportCount ? PR_MOSS : tokens.color.softInk, whiteSpace: "nowrap" }}>
+          {claim.supportCount}/{claim.denominator} 支持
+        </span>
+      </div>
+      {priority ? (
+        <strong style={{ fontFamily: `${tokens.font.serifCjk}, ${tokens.font.serif}`, fontSize: 22, lineHeight: 1.38, fontWeight: 600, color: PR_ACCENT }}>
+          {claim.implication}
+        </strong>
+      ) : null}
+      <span style={{ ...prRowTextStyle, color: tokens.color.subInk }}>{claim.statement}</span>
+      <span style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
+        <span style={{ ...prMonoMetaStyle, color: tokens.color.softInk }}>
+          {NARRATIVE_ALIGNMENT_LABEL[claim.alignment]} · {NARRATIVE_MODE_LABEL[claim.mode]}
+        </span>
+        {claim.counterCount ? (
+          <span style={{ ...prMonoMetaStyle, color: PR_ACCENT, background: tokens.color.failedSoft, padding: "2px 7px", borderRadius: tokens.radius.pill }}>
+            {claim.counterCount} 個反例
+          </span>
+        ) : null}
+        <span style={{ ...textStyles.caption, marginLeft: "auto", color: PR_ACCENT, fontWeight: 700 }}>查看原帖 →</span>
+      </span>
+    </button>
+  );
+}
+
+function PrNarrativeLens({
+  viewModel,
+  onCommand
+}: {
+  viewModel: PrEvidenceViewModel;
+  onCommand: (command: PrEvidenceCommand) => void;
+}) {
+  const narrative = viewModel.narrative;
+  const otherClaims = narrative.claims.filter((claim) => !claim.priority);
+  const canGenerate = Boolean(narrative.generateCommand && viewModel.rows.length > 0 && !narrative.isGenerating);
+  const showsRead = Boolean(narrative.priorityClaim && (narrative.status === "ready" || narrative.status === "stale"));
+  return (
+    <section data-pr-narrative-lens="true" style={{ display: "grid", gap: tokens.spacing.md, minWidth: 0 }}>
+      <div style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
+        <div style={{ display: "grid", gap: 2 }}>
+          <Kicker>敘事判讀</Kicker>
+          <span style={{ ...prMonoMetaStyle, color: tokens.color.softInk }}>
+            {narrative.coverageLabel}{narrative.snippetFallbackCount ? ` · ${narrative.snippetFallbackCount} 篇使用採集摘要` : ""}
+          </span>
+        </div>
+        <PrimaryButton
+          onClick={() => narrative.generateCommand ? onCommand(narrative.generateCommand) : undefined}
+          disabled={!canGenerate}
+          style={{ ...compactButtonStyle, marginLeft: "auto" }}
+          dataAttrs={{ "data-pr-narrative-generate": "true" }}
+        >
+          {narrative.isGenerating ? "判讀中..." : narrative.generateLabel}
+        </PrimaryButton>
+      </div>
+
+      {narrative.status !== "ready" ? <NarrativeStateMessage status={narrative.status} error={narrative.error} /> : null}
+      {narrative.status === "ready" && narrative.error ? (
+        <div data-pr-narrative-last-error="true" style={{ ...textStyles.caption, color: tokens.color.failed, padding: "8px 10px", borderRadius: PR_RADIUS, background: tokens.color.failedWash }}>
+          上次重新判讀失敗：{narrative.error}
+        </div>
+      ) : null}
+
+      {showsRead && narrative.priorityClaim ? (
+        <NarrativeClaimCard claim={narrative.priorityClaim} priority onCommand={onCommand} />
+      ) : null}
+
+      {showsRead && otherClaims.length ? (
+        <div style={{ display: "grid", gap: 8 }}>
+          <Kicker>其餘現象</Kicker>
+          {otherClaims.map((claim) => <NarrativeClaimCard key={claim.id} claim={claim} priority={false} onCommand={onCommand} />)}
+        </div>
+      ) : null}
+
+      {showsRead ? <NarrativeCompass claims={narrative.claims} onCommand={onCommand} /> : null}
+      {narrative.detail ? <NarrativeDrawer detail={narrative.detail} onCommand={onCommand} /> : null}
+    </section>
+  );
+}
+
 export interface PrEvidenceViewProps {
   viewModel: PrEvidenceViewModel;
   onCommand: (command: PrEvidenceCommand) => Promise<unknown> | unknown;
@@ -1414,6 +1920,7 @@ export interface PrEvidenceViewProps {
 // memo-wrapped below as PrEvidenceView. Inline export `PrEvidenceViewInner`
 // is kept for tests / hot-reload introspection.
 function PrEvidenceViewInner({ viewModel, onCommand }: PrEvidenceViewProps) {
+  const t = useUiText();
   const dispatchCommand = (command: PrEvidenceCommand) => Promise.resolve(onCommand(command));
   const saveCampaignAction = viewModel.actions.find((action) => action.kind === "saveCampaign");
   const generateCriteriaAction = viewModel.actions.find((action) => action.kind === "generateCriteria");
@@ -1427,8 +1934,7 @@ function PrEvidenceViewInner({ viewModel, onCommand }: PrEvidenceViewProps) {
         gap: tokens.spacing.md,
         boxSizing: "border-box",
         maxWidth: "100%",
-        paddingRight: tokens.spacing.sm,
-        paddingBottom: tokens.spacing.xl
+        paddingRight: tokens.spacing.sm
       })}
       data-pr-evidence-view="true"
       data-pr-editorial-v1="true"
@@ -1436,9 +1942,9 @@ function PrEvidenceViewInner({ viewModel, onCommand }: PrEvidenceViewProps) {
       <ModeHeader
         mode="pr-evidence"
         kicker="PR Evidence"
-        title="把已找到的 Threads 貼文整理成 PR evidence CSV"
-        deck="採集先儲存貼文，PR 頁再批次判斷與匯出 CSV；V1 不在採集時跑 AI。"
-        stamp={<Stamp tone="accent">先出 CSV</Stamp>}
+        title={t("讀出已收集貼文正在形成的 campaign 敘事", "Read the campaign narrative forming across collected posts")}
+        deck={t("同一批手動 Collect 的 Threads 主帖，可切換敘事判讀與逐帖 evidence matching。", "The same batch of manually collected Threads posts — switch between narrative reading and per-post evidence matching.")}
+        stamp={<Stamp tone="accent">{t("手動判讀", "Manual read")}</Stamp>}
       />
 
       <WorkspaceSurface
@@ -1453,6 +1959,11 @@ function PrEvidenceViewInner({ viewModel, onCommand }: PrEvidenceViewProps) {
           boxShadow: tokens.shadow.topicCard
         }}
       >
+        <PrScopeBar
+          collectedCount={viewModel.rows.length}
+          onOpenSettings={() => void dispatchCommand({ kind: "setSetupCollapsed", target: { sessionId: viewModel.sessionId }, collapsed: false })}
+        />
+
         <CampaignEditor
           campaign={viewModel.campaign}
           onChange={(draft) => void dispatchCommand({ kind: "updateDraft", target: { sessionId: viewModel.sessionId }, draft })}
@@ -1469,31 +1980,67 @@ function PrEvidenceViewInner({ viewModel, onCommand }: PrEvidenceViewProps) {
           onCollapse={() => void dispatchCommand({ kind: "setSetupCollapsed", target: { sessionId: viewModel.sessionId }, collapsed: true })}
         />
 
-        <PrWorkingArea
-          viewModel={viewModel}
-          onCommand={(command) => void dispatchCommand(command)}
-        />
+        {viewModel.campaign.setupCollapsed ? (
+          <>
+            <div
+              data-pr-lens-switcher="true"
+              style={{
+                display: "flex",
+                alignItems: "center",
+                gap: tokens.spacing.sm,
+                borderBottom: `1px solid ${PR_RULE}`,
+                minWidth: 0,
+                flexWrap: "wrap"
+              }}
+            >
+              <SegmentedTabs
+                tabs={[
+                  { id: "narrative", label: "敘事判讀", tone: "accent" },
+                  { id: "evidence", label: "證據匹配", tone: "neutral" }
+                ]}
+                activeId={viewModel.activeLens}
+                onChange={(lens) => void dispatchCommand(viewModel.lensCommands[lens])}
+                ariaLabel="PR 分析視角"
+                dataAttr={(lens) => ({ "data-pr-lens-tab": lens })}
+              />
+              <span style={{ ...prMonoMetaStyle, marginLeft: "auto", paddingRight: 4, color: tokens.color.softInk }}>
+                同一批 {viewModel.rows.length} 篇 · 兩種讀法
+              </span>
+            </div>
 
-        <NoticeBar notice={viewModel.notice} />
+            {viewModel.activeLens === "narrative" ? (
+              <PrNarrativeLens viewModel={viewModel} onCommand={(command) => void dispatchCommand(command)} />
+            ) : (
+              <>
+                <PrWorkingArea
+                  viewModel={viewModel}
+                  onCommand={(command) => void dispatchCommand(command)}
+                />
 
-        <ExportReadyPanel viewModel={viewModel} />
+                <ExportReadyPanel viewModel={viewModel} />
 
-        {viewModel.csvPreview ? <CsvPreview preview={viewModel.csvPreview} /> : null}
+                {viewModel.csvPreview ? <CsvPreview preview={viewModel.csvPreview} /> : null}
 
-        {viewModel.summary ? (
-          <SummaryPanel
-            summary={viewModel.summary}
-            markdownCommand={markdownCommand}
-            docxCommand={docxCommand}
-            onCommand={(command) => void dispatchCommand(command)}
-          />
-        ) : (
-          <SummaryGenerateCard
-            onGenerate={() => generateSummaryAction ? void dispatchCommand(generateSummaryAction) : undefined}
-            loading={viewModel.ui.isGeneratingSummary}
-            disabled={!generateSummaryAction || viewModel.ui.isGeneratingSummary}
-          />
-        )}
+                {viewModel.summary ? (
+                  <SummaryPanel
+                    summary={viewModel.summary}
+                    markdownCommand={markdownCommand}
+                    docxCommand={docxCommand}
+                    onCommand={(command) => void dispatchCommand(command)}
+                  />
+                ) : (
+                  <SummaryGenerateCard
+                    onGenerate={() => generateSummaryAction ? void dispatchCommand(generateSummaryAction) : undefined}
+                    loading={viewModel.ui.isGeneratingSummary}
+                    disabled={!generateSummaryAction || viewModel.ui.isGeneratingSummary}
+                  />
+                )}
+              </>
+            )}
+
+            <NoticeBar notice={viewModel.notice} />
+          </>
+        ) : null}
       </WorkspaceSurface>
     </div>
   );
@@ -1511,7 +2058,7 @@ function SummaryGenerateCard({ onGenerate, loading, disabled = false }: { onGene
   return (
     <SurfaceCard
       tone="default"
-      dataAttrs={{ "data-pr-summary-cta": "empty" }}
+      dataAttrs={{ "data-pr-summary-cta": "empty", "data-dlens-presence": "card" }}
       style={{
         display: "flex",
         justifyContent: "space-between",

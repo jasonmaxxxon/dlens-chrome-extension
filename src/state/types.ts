@@ -32,10 +32,14 @@ export type HoverCandidateStrength = "soft" | "hard";
 export type CompareTeaserState = "idle" | "loading" | "ready";
 export type TopicSynthesisLayout = "stack" | "console";
 export type CompareResultLayout = "reading" | "parallel" | "chapters";
+/** UI chrome language. Deep view bodies stay 繁中 for now; only the shell chrome switches. */
+export type UiLanguage = "zh" | "en";
 
 export interface LayoutPreferences {
   topicSynthesisLayout: TopicSynthesisLayout;
   compareResultLayout: CompareResultLayout;
+  /** Optional so existing persisted preferences read back as the 繁中 default. */
+  language?: UiLanguage;
 }
 
 export interface InlineToast {
@@ -489,7 +493,8 @@ export function createDefaultSettings(): ExtensionSettings {
 export function createDefaultLayoutPreferences(): LayoutPreferences {
   return {
     topicSynthesisLayout: "console",
-    compareResultLayout: "parallel"
+    compareResultLayout: "parallel",
+    language: "zh"
   };
 }
 

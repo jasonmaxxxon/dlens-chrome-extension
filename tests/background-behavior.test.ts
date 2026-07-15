@@ -13,6 +13,7 @@ import type { CaptureSnapshot, JobSnapshot } from "../src/contracts/ingest.ts";
 import type { ExtensionMessage, ExtensionResponse } from "../src/state/messages.ts";
 import { readPipelineTrace } from "../src/state/pipeline-trace.ts";
 import { PR_CAMPAIGNS_STORAGE_KEY, PR_EVIDENCE_ROWS_STORAGE_KEY, type PrCampaign, type PrEvidenceRow } from "../src/state/pr-evidence-storage.ts";
+import { PR_NARRATIVE_READS_STORAGE_KEY } from "../src/state/pr-narrative-storage.ts";
 import { createSessionItem } from "../src/state/store-helpers.ts";
 import { SIGNALS_STORAGE_KEY, TOPICS_STORAGE_KEY } from "../src/state/topic-storage.ts";
 import { createEmptyGlobalState, createEmptyTabState, type ExtensionGlobalState, type FolderMode, type FolderSynthesis, type ProductContext, type SavedAnalysisSnapshot, type Signal, type SessionItem, type SessionRecord, type TabUiState, type Topic } from "../src/state/types.ts";
@@ -87,6 +88,45 @@ function makeGoogleJsonResponse(payload: unknown): Response {
       }
     }]
   });
+}
+
+function makePrNarrativeReadingPayload(label: string) {
+  return {
+    readings: [{
+      ref: "P01",
+      gist: `${label} campaign gist`,
+      evidenceSummary: `${label} campaign evidence`,
+      alignmentScore: 0.4,
+      actionabilityScore: 0.7,
+      claimSeeds: [`${label} practical proof`],
+      caveat: ""
+    }]
+  };
+}
+
+function makePrNarrativeSynthesisPayload(label: string) {
+  return {
+    status: "complete",
+    priorityClaimId: "claim-1",
+    claims: [
+      {
+        id: "claim-1",
+        title: `${label} priority claim`,
+        statement: "P01 frames the campaign through practical proof.",
+        implication: "Lead with a concrete demonstration.",
+        supportRefs: ["P01"],
+        counterRefs: []
+      },
+      {
+        id: "claim-2",
+        title: `${label} supporting claim`,
+        statement: "P01 makes the intended action legible.",
+        implication: "Keep the next action explicit.",
+        supportRefs: ["P01"],
+        counterRefs: []
+      }
+    ]
+  };
 }
 
 function makeProductSignalAnalysisPayload(label: string) {
@@ -479,6 +519,7 @@ async function createHarness(
   } = {}
 ): Promise<{
   dispatch: (message: ExtensionMessage) => Promise<ExtensionResponse>;
+  dispatchFrom: (tabId: number, message: ExtensionMessage) => Promise<ExtensionResponse>;
   state: StorageState;
   tabKey: string;
   tabMessages: ExtensionMessage[];
@@ -568,20 +609,23 @@ async function createHarness(
 
   assert.notEqual(listener, null, "background runtime listener must be registered");
 
+  const dispatchFrom = (tabId: number, message: ExtensionMessage) => new Promise<ExtensionResponse>((resolve, reject) => {
+    const originalInfo = console.info;
+    console.info = () => undefined;
+    const timeout = setTimeout(() => {
+      console.info = originalInfo;
+      reject(new Error(`No response for ${message.type}`));
+    }, 1000);
+    listener?.(message, { tab: { id: tabId } } as chrome.runtime.MessageSender, (response: ExtensionResponse) => {
+      clearTimeout(timeout);
+      console.info = originalInfo;
+      resolve(response);
+    });
+  });
+
   return {
-    dispatch: (message: ExtensionMessage) => new Promise((resolve, reject) => {
-      const originalInfo = console.info;
-      console.info = () => undefined;
-      const timeout = setTimeout(() => {
-        console.info = originalInfo;
-        reject(new Error(`No response for ${message.type}`));
-      }, 1000);
-      listener?.(message, { tab: { id: senderTabId } } as chrome.runtime.MessageSender, (response: ExtensionResponse) => {
-        clearTimeout(timeout);
-        console.info = originalInfo;
-        resolve(response);
-      });
-    }),
+    dispatch: (message: ExtensionMessage) => dispatchFrom(senderTabId, message),
+    dispatchFrom,
     state,
     tabKey,
     tabMessages,
@@ -2113,6 +2157,325 @@ test("pr/match-criteria starts a fresh write when a newer request supersedes in-
   } finally {
     globalThis.fetch = originalFetch;
     disablePipelineTraceForTest();
+  }
+});
+
+test("pr/generate-criteria falls back to deterministic criteria and empty narrative settings without a provider", async () => {
+  const prSession = makeSession("pr-session", "pr-evidence");
+  const tabKey = backgroundTestables.tabStorageKey(TAB_ID);
+  const harness = await createHarness({
+    [backgroundTestables.GLOBAL_STORAGE_KEY]: makeGlobal([prSession], prSession.id),
+    [backgroundTestables.ACTIVE_SESSION_ID_STORAGE_KEY]: prSession.id,
+    [tabKey]: createEmptyTabState()
+  });
+
+  const response = await harness.dispatch({
+    type: "pr/generate-criteria",
+    campaignName: "BoostUP Launch",
+    briefText: "A practical social wellness campaign."
+  });
+
+  assert.equal(response.ok, true);
+  assert.equal(response.prCriteria?.length, 6);
+  assert.deepEqual(response.prNarrativeSettings, {
+    narrativeAnchor: "",
+    targetAudience: "",
+    desiredAction: ""
+  });
+});
+
+test("pr/generate-narrative-read publishes one current read and broadcasts once", async () => {
+  const originalFetch = globalThis.fetch;
+  try {
+    const prSession = {
+      ...makeSession("pr-session", "pr-evidence"),
+      items: [makeSucceededItem("narrative")]
+    };
+    const campaign = makePrCampaign("campaign-1", prSession.id);
+    const row = makePrEvidenceRow(campaign.id, "item-narrative", "narrative");
+    const tabKey = backgroundTestables.tabStorageKey(TAB_ID);
+    const fetchCalls: string[] = [];
+    globalThis.fetch = (async (input: RequestInfo | URL) => {
+      fetchCalls.push(String(input));
+      return fetchCalls.length === 1
+        ? makeGoogleJsonResponse(makePrNarrativeReadingPayload("Current"))
+        : makeGoogleJsonResponse(makePrNarrativeSynthesisPayload("Current"));
+    }) as typeof fetch;
+    const global = makeGlobal([prSession], prSession.id);
+    const harness = await createHarness({
+      [backgroundTestables.GLOBAL_STORAGE_KEY]: {
+        ...global,
+        settings: {
+          ...global.settings,
+          oneLinerProvider: "google",
+          googleApiKey: "test-google-key"
+        }
+      },
+      [backgroundTestables.ACTIVE_SESSION_ID_STORAGE_KEY]: prSession.id,
+      [PR_CAMPAIGNS_STORAGE_KEY]: [campaign],
+      [PR_EVIDENCE_ROWS_STORAGE_KEY]: [row],
+      [tabKey]: createEmptyTabState()
+    });
+
+    const response = await harness.dispatch({
+      type: "pr/generate-narrative-read",
+      requestId: "narrative-current",
+      campaignId: campaign.id
+    } as ExtensionMessage);
+    const hydrated = await harness.dispatch({
+      type: "pr/get-narrative-read",
+      campaignId: campaign.id
+    });
+
+    assert.equal(response.ok, true);
+    assert.equal(response.prNarrativeRead?.claims[0]?.title, "Current priority claim");
+    assert.equal(response.prNarrativeCurrentSourceHash, response.prNarrativeRead?.sourceHash);
+    assert.equal(hydrated.ok, true);
+    assert.equal(hydrated.prNarrativeRead?.claims[0]?.title, "Current priority claim");
+    assert.equal(hydrated.prNarrativeCurrentSourceHash, response.prNarrativeRead?.sourceHash);
+    assert.equal(fetchCalls.length, 2);
+    assert.equal(harness.writesFor(PR_NARRATIVE_READS_STORAGE_KEY).length, 1);
+    assertStateUpdatedBroadcastOnce(harness);
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
+});
+
+test("pr/generate-narrative-read keeps concurrent tab and campaign lanes independent", async () => {
+  const originalFetch = globalThis.fetch;
+  let releaseFirstReading: ((response: Response) => void) | null = null;
+  const firstReadingResponse = new Promise<Response>((resolve) => {
+    releaseFirstReading = resolve;
+  });
+  try {
+    const firstSession = {
+      ...makeSession("pr-session-a", "pr-evidence"),
+      items: [makeSucceededItem("narrative-a")]
+    };
+    const secondSession = {
+      ...makeSession("pr-session-b", "pr-evidence"),
+      items: [makeSucceededItem("narrative-b")]
+    };
+    const firstCampaign = makePrCampaign("campaign-a", firstSession.id);
+    const secondCampaign = makePrCampaign("campaign-b", secondSession.id);
+    const firstRow = makePrEvidenceRow(firstCampaign.id, "item-narrative-a", "narrative-a");
+    const secondRow = makePrEvidenceRow(secondCampaign.id, "item-narrative-b", "narrative-b");
+    let fetchCount = 0;
+    globalThis.fetch = (async () => {
+      fetchCount += 1;
+      if (fetchCount === 1) return firstReadingResponse;
+      if (fetchCount === 2) return makeGoogleJsonResponse(makePrNarrativeReadingPayload("Second"));
+      if (fetchCount === 3) return makeGoogleJsonResponse(makePrNarrativeSynthesisPayload("Second"));
+      return makeGoogleJsonResponse(makePrNarrativeSynthesisPayload("First"));
+    }) as typeof fetch;
+    const global = makeGlobal([firstSession, secondSession], firstSession.id);
+    const harness = await createHarness({
+      [backgroundTestables.GLOBAL_STORAGE_KEY]: {
+        ...global,
+        settings: {
+          ...global.settings,
+          oneLinerProvider: "google",
+          googleApiKey: "test-google-key"
+        }
+      },
+      [backgroundTestables.ACTIVE_SESSION_ID_STORAGE_KEY]: firstSession.id,
+      [PR_CAMPAIGNS_STORAGE_KEY]: [firstCampaign, secondCampaign],
+      [PR_EVIDENCE_ROWS_STORAGE_KEY]: [firstRow, secondRow],
+      [backgroundTestables.tabStorageKey(TAB_ID)]: createEmptyTabState(),
+      [backgroundTestables.tabStorageKey(OTHER_TAB_ID)]: createEmptyTabState()
+    });
+
+    const firstResponsePromise = harness.dispatchFrom(TAB_ID, {
+      type: "pr/generate-narrative-read",
+      requestId: "narrative-tab-a",
+      campaignId: firstCampaign.id
+    } as ExtensionMessage);
+    await waitFor(() => fetchCount === 1, "first tab narrative Stage A");
+    const secondResponse = await harness.dispatchFrom(OTHER_TAB_ID, {
+      type: "pr/generate-narrative-read",
+      requestId: "narrative-tab-b",
+      campaignId: secondCampaign.id
+    } as ExtensionMessage);
+    assert.equal(secondResponse.ok, true);
+
+    assert.notEqual(releaseFirstReading, null);
+    releaseFirstReading?.(makeGoogleJsonResponse(makePrNarrativeReadingPayload("First")));
+    const firstResponse = await firstResponsePromise;
+
+    assert.equal(firstResponse.ok, true);
+    const storedMap = harness.state[PR_NARRATIVE_READS_STORAGE_KEY] as Record<string, { claims: Array<{ title: string }> }>;
+    assert.equal(storedMap[firstCampaign.id]?.claims[0]?.title, "First priority claim");
+    assert.equal(storedMap[secondCampaign.id]?.claims[0]?.title, "Second priority claim");
+    assert.equal(harness.writesFor(PR_NARRATIVE_READS_STORAGE_KEY).length, 2);
+    assert.deepEqual(
+      harness.tabMessageTargets
+        .filter(({ message }) => message.type === "state/updated")
+        .map(({ tabId }) => tabId)
+        .toSorted((left, right) => left - right),
+      [TAB_ID, OTHER_TAB_ID]
+    );
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
+});
+
+test("pr/generate-narrative-read ignores a superseded narrative-key write", async () => {
+  enablePipelineTraceForTest();
+  const originalFetch = globalThis.fetch;
+  let releaseOldReading: ((response: Response) => void) | null = null;
+  const oldReadingResponse = new Promise<Response>((resolve) => {
+    releaseOldReading = resolve;
+  });
+  try {
+    const prSession = {
+      ...makeSession("pr-session", "pr-evidence"),
+      items: [makeSucceededItem("narrative")]
+    };
+    const campaign = makePrCampaign("campaign-1", prSession.id);
+    const row = makePrEvidenceRow(campaign.id, "item-narrative", "narrative");
+    const tabKey = backgroundTestables.tabStorageKey(TAB_ID);
+    let fetchCount = 0;
+    globalThis.fetch = (async () => {
+      fetchCount += 1;
+      if (fetchCount === 1) return oldReadingResponse;
+      if (fetchCount === 2) return makeGoogleJsonResponse(makePrNarrativeReadingPayload("Current"));
+      if (fetchCount === 3) return makeGoogleJsonResponse(makePrNarrativeSynthesisPayload("Current"));
+      return makeGoogleJsonResponse(makePrNarrativeSynthesisPayload("Superseded"));
+    }) as typeof fetch;
+    const global = makeGlobal([prSession], prSession.id);
+    const harness = await createHarness({
+      [backgroundTestables.GLOBAL_STORAGE_KEY]: {
+        ...global,
+        settings: {
+          ...global.settings,
+          oneLinerProvider: "google",
+          googleApiKey: "test-google-key"
+        }
+      },
+      [backgroundTestables.ACTIVE_SESSION_ID_STORAGE_KEY]: prSession.id,
+      [PR_CAMPAIGNS_STORAGE_KEY]: [campaign],
+      [PR_EVIDENCE_ROWS_STORAGE_KEY]: [row],
+      [tabKey]: createEmptyTabState()
+    });
+
+    const oldResponsePromise = harness.dispatch({
+      type: "pr/generate-narrative-read",
+      requestId: "narrative-old",
+      campaignId: campaign.id
+    } as ExtensionMessage);
+    await waitFor(() => fetchCount === 1, "old narrative Stage A");
+    const currentResponse = await harness.dispatch({
+      type: "pr/generate-narrative-read",
+      requestId: "narrative-current",
+      campaignId: campaign.id
+    } as ExtensionMessage);
+    assert.equal(currentResponse.ok, true);
+
+    assert.notEqual(releaseOldReading, null);
+    releaseOldReading?.(makeGoogleJsonResponse(makePrNarrativeReadingPayload("Superseded")));
+    const oldResponse = await oldResponsePromise;
+
+    assert.equal(oldResponse.ok, true);
+    const storedMap = harness.state[PR_NARRATIVE_READS_STORAGE_KEY] as Record<string, { claims: Array<{ title: string }> }>;
+    assert.equal(storedMap[campaign.id]?.claims[0]?.title, "Current priority claim");
+    assert.equal(harness.writesFor(PR_NARRATIVE_READS_STORAGE_KEY).length, 1);
+    assertStateUpdatedBroadcastOnce(harness);
+    assert.equal(
+      readPipelineTrace().some((event) =>
+        event.step === "reconcile.stale-result.ignore"
+        && event.requestId === "narrative-old"
+      ),
+      true
+    );
+  } finally {
+    globalThis.fetch = originalFetch;
+    disablePipelineTraceForTest();
+  }
+});
+
+test("pr/generate-narrative-read rejects a changed live source before publish", async () => {
+  const originalFetch = globalThis.fetch;
+  let releaseChangedReading: ((response: Response) => void) | null = null;
+  const changedReadingResponse = new Promise<Response>((resolve) => {
+    releaseChangedReading = resolve;
+  });
+  try {
+    const prSession = {
+      ...makeSession("pr-session", "pr-evidence"),
+      items: [makeSucceededItem("narrative")]
+    };
+    const campaign = makePrCampaign("campaign-1", prSession.id);
+    const row = makePrEvidenceRow(campaign.id, "item-narrative", "narrative");
+    let fetchCount = 0;
+    globalThis.fetch = (async () => {
+      fetchCount += 1;
+      if (fetchCount === 1) return makeGoogleJsonResponse(makePrNarrativeReadingPayload("Previous"));
+      if (fetchCount === 2) return makeGoogleJsonResponse(makePrNarrativeSynthesisPayload("Previous"));
+      if (fetchCount === 3) return changedReadingResponse;
+      return makeGoogleJsonResponse(makePrNarrativeSynthesisPayload("Changed"));
+    }) as typeof fetch;
+    const global = makeGlobal([prSession], prSession.id);
+    const harness = await createHarness({
+      [backgroundTestables.GLOBAL_STORAGE_KEY]: {
+        ...global,
+        settings: {
+          ...global.settings,
+          oneLinerProvider: "google",
+          googleApiKey: "test-google-key"
+        }
+      },
+      [backgroundTestables.ACTIVE_SESSION_ID_STORAGE_KEY]: prSession.id,
+      [PR_CAMPAIGNS_STORAGE_KEY]: [campaign],
+      [PR_EVIDENCE_ROWS_STORAGE_KEY]: [row],
+      [backgroundTestables.tabStorageKey(TAB_ID)]: createEmptyTabState()
+    });
+
+    const previousResponse = await harness.dispatch({
+      type: "pr/generate-narrative-read",
+      requestId: "narrative-previous",
+      campaignId: campaign.id
+    } as ExtensionMessage);
+    assert.equal(previousResponse.ok, true);
+    const previousRead = structuredClone(
+      (harness.state[PR_NARRATIVE_READS_STORAGE_KEY] as Record<string, unknown>)[campaign.id]
+    );
+    harness.writes.length = 0;
+    harness.tabMessages.length = 0;
+    harness.tabMessageTargets.length = 0;
+
+    const changedResponsePromise = harness.dispatch({
+      type: "pr/generate-narrative-read",
+      requestId: "narrative-changed-source",
+      campaignId: campaign.id
+    } as ExtensionMessage);
+    await waitFor(() => fetchCount === 3, "changed-source narrative Stage A");
+
+    const liveGlobal = structuredClone(harness.state[backgroundTestables.GLOBAL_STORAGE_KEY] as ExtensionGlobalState);
+    const liveItem = liveGlobal.sessions.find((session) => session.id === prSession.id)?.items[0];
+    assert.ok(liveItem?.latestCapture?.result);
+    liveItem.latestCapture.result.canonical_post = {
+      ...liveItem.latestCapture.result.canonical_post,
+      text: "Canonical main post changed while narrative generation was running."
+    };
+    harness.state[backgroundTestables.GLOBAL_STORAGE_KEY] = liveGlobal;
+
+    assert.notEqual(releaseChangedReading, null);
+    releaseChangedReading?.(makeGoogleJsonResponse(makePrNarrativeReadingPayload("Changed")));
+    const changedResponse = await changedResponsePromise;
+
+    assert.equal(changedResponse.ok, false);
+    assert.match(changedResponse.error ?? "", /source.*changed/i);
+    assert.deepEqual(
+      (harness.state[PR_NARRATIVE_READS_STORAGE_KEY] as Record<string, unknown>)[campaign.id],
+      previousRead
+    );
+    assert.equal(harness.writesFor(PR_NARRATIVE_READS_STORAGE_KEY).length, 0);
+    assert.equal(
+      harness.tabMessageTargets.filter(({ message }) => message.type === "state/updated").length,
+      0
+    );
+  } finally {
+    globalThis.fetch = originalFetch;
   }
 });
 

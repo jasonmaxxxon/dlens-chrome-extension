@@ -59,8 +59,12 @@ test("SignalDrawer renders the P1 hero with inline citation chips and topic memb
   assert.match(html, /position:fixed/);
   assert.match(html, /right:24px/);
   assert.match(html, /top:82px/);
+  assert.match(html, /bottom:0/);
   assert.match(html, /width:720px/);
-  assert.match(html, /height:min\(86vh,\s*860px\)/);
+  assert.match(html, /height:auto/);
+  assert.match(html, /max-height:none/);
+  assert.doesNotMatch(html, /min\(86vh,\s*860px\)/);
+  assert.match(html, /data-signal-drawer-body="true"[^>]*min-height:0/);
   assert.match(html, /align-content:start/);
   assert.doesNotMatch(html, /width:440px/);
   assert.doesNotMatch(html, /bottom:40px/);

@@ -113,6 +113,7 @@ test("CasebookView renders the topic list and signal metadata", () => {
   );
 
   assert.match(html, /data-mode-header="casebook"/);
+  assert.match(html, /data-casebook-topic-id="topic-1"[^>]*data-dlens-presence="card"/);
   assert.match(html, /航班爭議/);
   assert.match(html, /客服/);
   assert.match(html, /2 則訊號/);

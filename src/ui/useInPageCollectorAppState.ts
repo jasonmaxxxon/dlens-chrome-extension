@@ -37,8 +37,8 @@ import type {
 } from "../state/messages";
 import type { SignalPacketExportFormat, SignalPacketExportResult } from "../compare/signal-packet-export";
 import type { SignalReading } from "../compare/signal-reading-storage";
-import type { PrCampaign, PrEvidenceRow } from "../state/pr-evidence-storage";
-import { normalizePrCriteria, prCampaignToDraft } from "../state/pr-evidence-storage";
+import type { PrCampaign, PrCampaignDraft, PrEvidenceRow, PrNarrativeSettings } from "../state/pr-evidence-storage";
+import { normalizePrCriteria, normalizePrNarrativeSettings, prCampaignToDraft } from "../state/pr-evidence-storage";
 import { getProcessingFailureMessage, getProcessingFailureUiMessage } from "../state/processing-errors";
 import {
   getItemReadinessStatus,
@@ -106,6 +106,9 @@ export type PreviewSaveResult =
     };
 
 const DEFAULT_PR_EVIDENCE_UI_STATE: PrEvidenceUiState = {
+  activeLens: "narrative",
+  selectedNarrativeClaimId: null,
+  isGeneratingNarrative: false,
   activePane: "ledger",
   isSaving: false,
   isReadingBrief: false,
@@ -286,10 +289,126 @@ export function applyPrGenerateSummaryResult(
   };
 }
 
-export function applyPrGeneratedCriteriaSaveResult(
+export function applyPrNarrativeResult(
   current: PrEvidenceResourceState,
   response: ExtensionResponse,
   settled: RequestReconcileDecision
+): PrEvidenceResourceState {
+  if (!settled.accepted) {
+    return current;
+  }
+  if (!response.ok) {
+    return {
+      ...current,
+      narrativeError: response.error
+    };
+  }
+  const hasRead = Object.prototype.hasOwnProperty.call(response, "prNarrativeRead");
+  return {
+    ...current,
+    narrativeRead: hasRead ? response.prNarrativeRead ?? null : current.narrativeRead,
+    narrativeCurrentSourceHash: response.prNarrativeCurrentSourceHash ?? current.narrativeCurrentSourceHash,
+    narrativeError: ""
+  };
+}
+
+export function applyPrSetupSuggestionToDraft(
+  current: PrCampaignDraft,
+  suggestion: {
+    criteria: unknown;
+    narrativeSettings?: PrNarrativeSettings | null;
+  },
+  requested?: PrCampaignDraft
+): PrCampaignDraft {
+  const currentSettings = current.narrativeSettings;
+  const suggestedSettings = normalizePrNarrativeSettings(suggestion.narrativeSettings);
+  const requestedSettings = requested?.narrativeSettings;
+  const preserveEnteredValue = (
+    key: keyof PrNarrativeSettings,
+    currentValue: string,
+    suggestedValue: string
+  ): string => {
+    if (requestedSettings && currentValue !== requestedSettings[key]) {
+      return currentValue;
+    }
+    return currentValue.trim() ? currentValue : suggestedValue;
+  };
+  const criteriaChangedAfterRequest = Boolean(requested && !hasSamePrCriteria(current, requested));
+  return {
+    ...current,
+    criteria: criteriaChangedAfterRequest ? current.criteria : normalizePrCriteria(suggestion.criteria),
+    narrativeSettings: {
+      narrativeAnchor: preserveEnteredValue("narrativeAnchor", currentSettings.narrativeAnchor, suggestedSettings.narrativeAnchor),
+      targetAudience: preserveEnteredValue("targetAudience", currentSettings.targetAudience, suggestedSettings.targetAudience),
+      desiredAction: preserveEnteredValue("desiredAction", currentSettings.desiredAction, suggestedSettings.desiredAction)
+    }
+  };
+}
+
+function hasSamePrCriteria(left: PrCampaignDraft, right: PrCampaignDraft): boolean {
+  return left.criteria.every((criterion, index) => criterion.label === right.criteria[index]?.label);
+}
+
+function hasSamePrEditableDraft(left: PrCampaignDraft, right: PrCampaignDraft): boolean {
+  return left.name === right.name
+    && left.briefText === right.briefText
+    && hasSamePrCriteria(left, right)
+    && left.narrativeSettings.narrativeAnchor === right.narrativeSettings.narrativeAnchor
+    && left.narrativeSettings.targetAudience === right.narrativeSettings.targetAudience
+    && left.narrativeSettings.desiredAction === right.narrativeSettings.desiredAction;
+}
+
+function applySuccessfulPrCampaignSave(
+  current: PrEvidenceResourceState,
+  active: PrCampaign,
+  submittedDraft: PrCampaignDraft,
+  successNotice: string,
+  newerEditsNotice: string
+): PrEvidenceResourceState {
+  const savedDraft = prCampaignToDraft(active);
+  const hasNewerEdits = !hasSamePrEditableDraft(current.campaign, submittedDraft);
+  return {
+    ...current,
+    campaign: hasNewerEdits ? {
+      ...savedDraft,
+      name: current.campaign.name,
+      briefText: current.campaign.briefText,
+      criteria: current.campaign.criteria,
+      narrativeSettings: current.campaign.narrativeSettings
+    } : savedDraft,
+    narrativeCurrentSourceHash: "",
+    narrativeError: "",
+    setupCollapsed: !hasNewerEdits,
+    notice: hasNewerEdits ? newerEditsNotice : successNotice
+  };
+}
+
+export function applyPrCampaignSaveResult(
+  current: PrEvidenceResourceState,
+  response: ExtensionResponse,
+  submittedDraft: PrCampaignDraft,
+  successNotice: string
+): PrEvidenceResourceState {
+  if (!response.ok) {
+    return { ...current, notice: response.error };
+  }
+  const active = response.prCampaigns?.[0] || null;
+  return active
+    ? applySuccessfulPrCampaignSave(
+        current,
+        active,
+        submittedDraft,
+        successNotice,
+        "活動已儲存；你在等待期間的編輯尚未儲存。"
+      )
+    : current;
+}
+
+export function applyPrGeneratedCriteriaSaveResult(
+  current: PrEvidenceResourceState,
+  response: ExtensionResponse,
+  settled: RequestReconcileDecision,
+  submittedDraft?: PrCampaignDraft
 ): PrEvidenceResourceState {
   if (!settled.accepted) {
     return current;
@@ -304,12 +423,22 @@ export function applyPrGeneratedCriteriaSaveResult(
   if (!active) {
     return current;
   }
-  return {
-    ...current,
-    campaign: prCampaignToDraft(active),
-    setupCollapsed: true,
-    notice: "條件已生成並儲存；批次判斷會使用這六個標籤。"
-  };
+  return submittedDraft
+    ? applySuccessfulPrCampaignSave(
+        current,
+        active,
+        submittedDraft,
+        "條件已生成並儲存；批次判斷會使用這六個標籤。",
+        "條件已生成並儲存；你在等待期間的編輯尚未儲存。"
+      )
+    : {
+        ...current,
+        campaign: prCampaignToDraft(active),
+        narrativeCurrentSourceHash: "",
+        narrativeError: "",
+        setupCollapsed: true,
+        notice: "條件已生成並儲存；批次判斷會使用這六個標籤。"
+      };
 }
 
 type ProductHydrateTransition =
@@ -578,6 +707,8 @@ export function useInPageCollectorAppState({ snapshot, tabId, sendAndSync }: Use
   const [isHydratingProductSignals, setIsHydratingProductSignals] = useState(false);
   const [activePrCampaign, setActivePrCampaign] = useState<PrCampaign | null>(null);
   const [prEvidenceResource, setPrEvidenceResource] = useState<PrEvidenceResourceState>(() => createPrEvidenceResource(""));
+  const prEvidenceResourceRef = useRef(prEvidenceResource);
+  prEvidenceResourceRef.current = prEvidenceResource;
   const [prEvidenceUiState, setPrEvidenceUiState] = useState<PrEvidenceUiState>(DEFAULT_PR_EVIDENCE_UI_STATE);
   const [folderSynthesis, setFolderSynthesis] = useState<FolderSynthesis | null>(null);
   const [isGeneratingFolderSynthesis, setIsGeneratingFolderSynthesis] = useState(false);
@@ -885,6 +1016,9 @@ export function useInPageCollectorAppState({ snapshot, tabId, sendAndSync }: Use
         setPrEvidenceResource((current) => ({
           campaign: prCampaignToDraft(active),
           rows: current.campaign.id === active.id ? current.rows : [],
+          narrativeRead: current.campaign.id === active.id ? current.narrativeRead : null,
+          narrativeCurrentSourceHash: current.campaign.id === active.id ? current.narrativeCurrentSourceHash : "",
+          narrativeError: "",
           summary: current.campaign.id === active.id ? current.summary : "",
           notice: "",
           uploadError: "",
@@ -917,11 +1051,29 @@ export function useInPageCollectorAppState({ snapshot, tabId, sendAndSync }: Use
           }
           return;
         }
+        let narrativeResponse: ExtensionResponse | null = null;
+        if (rowResponse.ok) {
+          try {
+            narrativeResponse = await sendExtensionMessage({
+              type: "pr/get-narrative-read",
+              campaignId: active.id
+            });
+          } catch (error) {
+            narrativeResponse = {
+              ok: false,
+              error: error instanceof Error ? error.message : String(error)
+            };
+          }
+        }
         if (!cancelled) {
+          const hydrateOk = rowResponse.ok && narrativeResponse?.ok !== false;
           setActivePrCampaign(active);
           setPrEvidenceResource({
             campaign: prCampaignToDraft(active),
             rows: rowResponse.ok ? rowResponse.prEvidenceRows ?? [] : [],
+            narrativeRead: narrativeResponse?.ok ? narrativeResponse.prNarrativeRead ?? null : null,
+            narrativeCurrentSourceHash: narrativeResponse?.ok ? narrativeResponse.prNarrativeCurrentSourceHash ?? "" : "",
+            narrativeError: narrativeResponse && !narrativeResponse.ok ? narrativeResponse.error : "",
             summary: "",
             notice: rowResponse.ok ? "" : rowResponse.error,
             uploadError: "",
@@ -931,14 +1083,15 @@ export function useInPageCollectorAppState({ snapshot, tabId, sendAndSync }: Use
             surface: "pr",
             event: "response",
             sessionId,
-            result: rowResponse.ok ? "ok" : "error",
+            result: hydrateOk ? "ok" : "error",
             detail: {
               mode: activeFolderMode,
               campaignId: active.id,
               campaignsOk: true,
               campaignCount: response.prCampaigns?.length ?? 0,
               rowsOk: rowResponse.ok,
-              rowCount: rowResponse.ok ? rowResponse.prEvidenceRows?.length ?? 0 : null
+              rowCount: rowResponse.ok ? rowResponse.prEvidenceRows?.length ?? 0 : null,
+              narrativeOk: narrativeResponse?.ok ?? null
             }
           }));
         }
@@ -2492,6 +2645,7 @@ export function useInPageCollectorAppState({ snapshot, tabId, sendAndSync }: Use
   }
 
   const onPrEvidenceResourceChange = useCallback((resource: PrEvidenceResourceState) => {
+    prEvidenceResourceRef.current = resource;
     setPrEvidenceResource(resource);
   }, []);
 
@@ -2517,7 +2671,11 @@ export function useInPageCollectorAppState({ snapshot, tabId, sendAndSync }: Use
       setPrEvidenceUiState((current) => ({ ...current, ...patch }));
     };
     const updateResource = (updater: (current: PrEvidenceResourceState) => PrEvidenceResourceState) => {
-      setPrEvidenceResource(updater);
+      setPrEvidenceResource((current) => {
+        const next = updater(current);
+        prEvidenceResourceRef.current = next;
+        return next;
+      });
     };
     const beginPrRequest = (
       lane: string,
@@ -2539,6 +2697,13 @@ export function useInPageCollectorAppState({ snapshot, tabId, sendAndSync }: Use
       campaignId: activePrCampaignIdRef.current || campaignId
     });
     const saveDraft = async (draft: PrEvidenceCommand & { kind: "saveCampaign" }, successNotice: string) => {
+      const submittedDraft: PrCampaignDraft = {
+        ...prEvidenceResourceRef.current.campaign,
+        ...draft.draft,
+        sessionId: draft.target.sessionId,
+        criteria: normalizePrCriteria(draft.draft.criteria),
+        narrativeSettings: normalizePrNarrativeSettings(draft.draft.narrativeSettings)
+      };
       updateUiState({ isSaving: true });
       updateResource((current) => ({ ...current, notice: "" }));
       try {
@@ -2551,13 +2716,8 @@ export function useInPageCollectorAppState({ snapshot, tabId, sendAndSync }: Use
           const active = response.prCampaigns?.[0] || null;
           if (active) {
             setActivePrCampaign(active);
-            updateResource((current) => ({
-              ...current,
-              campaign: prCampaignToDraft(active),
-              setupCollapsed: true,
-              notice: successNotice
-            }));
           }
+          updateResource((current) => applyPrCampaignSaveResult(current, response, submittedDraft, successNotice));
         } else {
           updateResource((current) => ({ ...current, notice: response.error }));
         }
@@ -2568,9 +2728,14 @@ export function useInPageCollectorAppState({ snapshot, tabId, sendAndSync }: Use
       }
     };
     const generateCriteria = async (campaignName: string, briefText: string) => {
+      const requestedDraft: PrCampaignDraft = {
+        ...prEvidenceResourceRef.current.campaign,
+        criteria: normalizePrCriteria(prEvidenceResourceRef.current.campaign.criteria),
+        narrativeSettings: { ...prEvidenceResourceRef.current.campaign.narrativeSettings }
+      };
       updateUiState({ isGeneratingCriteria: true });
       updateResource((current) => ({ ...current, notice: "" }));
-      const campaignId = prEvidenceResource.campaign.id || "draft";
+      const campaignId = requestedDraft.id || "draft";
       const { requestId, token } = beginPrRequest(
         "pr.generateCriteria",
         { sessionId: command.target.sessionId, campaignId },
@@ -2589,14 +2754,25 @@ export function useInPageCollectorAppState({ snapshot, tabId, sendAndSync }: Use
           return;
         }
         if (response.ok && response.prCriteria?.length) {
-          const nextDraft = {
-            ...prEvidenceResource.campaign,
-            name: campaignName,
-            briefText,
-            criteria: normalizePrCriteria(response.prCriteria)
+          const currentDraft = prEvidenceResourceRef.current.campaign;
+          const changedDuringGeneration = !hasSamePrEditableDraft(currentDraft, requestedDraft);
+          const nextDraft = applyPrSetupSuggestionToDraft(currentDraft, {
+            criteria: response.prCriteria,
+            narrativeSettings: response.prNarrativeSettings
+          }, requestedDraft);
+          prEvidenceResourceRef.current = {
+            ...prEvidenceResourceRef.current,
+            campaign: nextDraft,
+            ...(changedDuringGeneration ? {
+              setupCollapsed: false,
+              notice: "活動設定在生成期間已變更；新建議尚未儲存，請確認後再儲存。"
+            } : {})
           };
-          updateResource((current) => ({ ...current, campaign: nextDraft }));
-          if (campaignName.trim()) {
+          setPrEvidenceResource(prEvidenceResourceRef.current);
+          if (changedDuringGeneration) {
+            return;
+          }
+          if (nextDraft.name.trim()) {
             const {
               requestId: saveRequestId,
               token: saveToken
@@ -2613,7 +2789,8 @@ export function useInPageCollectorAppState({ snapshot, tabId, sendAndSync }: Use
                 ...(nextDraft.id ? { id: nextDraft.id } : {}),
                 name: nextDraft.name.trim(),
                 briefText: nextDraft.briefText,
-                criteria: nextDraft.criteria
+                criteria: nextDraft.criteria,
+                narrativeSettings: nextDraft.narrativeSettings
               }
             });
             const saveSettled = settleReconciledResponse(saveToken, currentPrTarget(campaignId));
@@ -2627,7 +2804,7 @@ export function useInPageCollectorAppState({ snapshot, tabId, sendAndSync }: Use
                 setActivePrCampaign(active);
               }
             }
-            updateResource((current) => applyPrGeneratedCriteriaSaveResult(current, saveResponse, saveSettled));
+            updateResource((current) => applyPrGeneratedCriteriaSaveResult(current, saveResponse, saveSettled, nextDraft));
           } else {
             updateResource((current) => ({ ...current, notice: "條件已生成。請先填活動名稱，再執行批次判斷。" }));
           }
@@ -2649,17 +2826,67 @@ export function useInPageCollectorAppState({ snapshot, tabId, sendAndSync }: Use
 
     switch (command.kind) {
       case "updateDraft":
-        updateResource((current) => ({
-          ...current,
-          campaign: {
-            ...current.campaign,
-            ...command.draft,
-            sessionId: command.target.sessionId
-          }
-        }));
+        {
+          const next = {
+            ...prEvidenceResourceRef.current,
+            campaign: {
+              ...prEvidenceResourceRef.current.campaign,
+              ...command.draft,
+              sessionId: command.target.sessionId
+            }
+          };
+          prEvidenceResourceRef.current = next;
+          setPrEvidenceResource(next);
+        }
         return;
       case "setSetupCollapsed":
         updateResource((current) => ({ ...current, setupCollapsed: command.collapsed }));
+        return;
+      case "setLens":
+        updateUiState({ activeLens: command.lens });
+        return;
+      case "selectNarrativeClaim":
+        updateUiState({ selectedNarrativeClaimId: command.claimId });
+        return;
+      case "generateNarrative":
+        updateUiState({ isGeneratingNarrative: true });
+        updateResource((current) => ({ ...current, narrativeError: "" }));
+        {
+          const { requestId, token } = beginPrRequest(
+            "pr.generateNarrative",
+            { sessionId: command.target.sessionId, campaignId: command.target.campaignId },
+            "pr-generate-narrative"
+          );
+          let settled: RequestReconcileDecision | null = null;
+          try {
+            const response = await sendAndSync({
+              type: "pr/generate-narrative-read",
+              requestId,
+              campaignId: command.target.campaignId
+            });
+            settled = settleReconciledResponse(token, currentPrTarget(command.target.campaignId));
+            if (!settled.accepted) {
+              return;
+            }
+            const acceptedSettled = settled;
+            updateResource((current) => applyPrNarrativeResult(current, response, acceptedSettled));
+            if (response.ok) {
+              updateUiState({ selectedNarrativeClaimId: null });
+            }
+          } catch (error) {
+            settled = settleReconciledResponse(token, currentPrTarget(command.target.campaignId));
+            if (settled.accepted) {
+              updateResource((current) => ({
+                ...current,
+                narrativeError: error instanceof Error ? error.message : String(error)
+              }));
+            }
+          } finally {
+            if (shouldClearPrReconciledLoading(settled)) {
+              updateUiState({ isGeneratingNarrative: false });
+            }
+          }
+        }
         return;
       case "setPane":
         updateUiState({ activePane: command.pane });

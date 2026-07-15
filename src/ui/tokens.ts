@@ -122,11 +122,11 @@ export const tokens = {
     tealSoft: "rgba(63,90,59,0.10)",
     tealGlow: "rgba(63,90,59,0.16)",
 
-    /* product accent — vermillion */
-    product: "#c2401f",
-    productMid: "#d65a36",
-    productSoft: "rgba(194,64,31,0.10)",
-    productGlow: "rgba(194,64,31,0.18)",
+    /* product accent — steel blue (restored 2026-07-14) */
+    product: "#234f7a",
+    productMid: "#2f6a96",
+    productSoft: "rgba(35,79,122,0.10)",
+    productGlow: "rgba(35,79,122,0.18)",
 
     /* technique accents */
     techniqueRose: "#7a2030",
@@ -240,17 +240,53 @@ export const tokens = {
       entrance: "cubic-bezier(0.16, 1, 0.3, 1)",
       exit: "cubic-bezier(0.4, 0, 1, 1)",
       spring: "cubic-bezier(0.34, 1.56, 0.64, 1)",
-      springSoft: "cubic-bezier(0.22, 1.12, 0.36, 1)"
+      springSoft: "cubic-bezier(0.22, 1.12, 0.36, 1)",
+      softPop: "cubic-bezier(0.25, 0.46, 0.45, 0.94)"
     },
     transform: {
       cardRest: "translateY(0)",
-      cardHover: "translateY(-4px)",
+      cardHover: "translateY(-4px) scale(1.015)",
       cardPress: "translateY(1px) scale(0.994)",
       rowRest: "translateY(0)",
-      rowHover: "translateY(-2px)",
+      rowHover: "translateY(-4px)",
       rowPress: "translateY(1px) scale(0.995)",
       atlasHover: "scale(1.025)",
       atlasPress: "scale(0.985)"
+    },
+    /* Product-wide arrival grammar (approved 2026-07-14). Presence is
+     * one-shot and opt-in through data-dlens-presence so dense utility rows
+     * stay quiet unless a view explicitly assigns them to this hierarchy. */
+    presence: {
+      cardOpacityFrom: 0.28,
+      cardRisePx: 10,
+      cardDurationMs: 480,
+      cardDelayMs: 70,
+      cardStaggerMs: 60,
+      rowOpacityFrom: 0.92,
+      rowRisePx: 4,
+      rowDurationMs: 220,
+      staggerMs: 35,
+      staggerCap: 6,
+      staggerResetMs: 120,
+      threshold: 0.08,
+      rootMargin: "1000px 0px -96px 0px",
+      leadSoftPop: {
+        opacityFrom: 0.68,
+        risePx: 10,
+        overshootPx: -1.5,
+        scaleFrom: 0.985,
+        scaleOvershoot: 1.003,
+        durationMs: 420
+      }
+    },
+    bottomRebound: {
+      amplitudePx: 3,
+      durationMs: 280,
+      hysteresisPx: 30,
+      wheelGain: 0.06,
+      settleDelayMs: 140,
+      cooldownMs: 400,
+      bottomTolerancePx: 1
     },
     cascadeDelay: {
       masthead: "0ms",
@@ -265,7 +301,7 @@ export const tokens = {
      * `buttonPress` springs the transform; `cardLift` settles with a soft overshoot. */
     preset: {
       buttonPress: "transform 160ms cubic-bezier(0.34, 1.56, 0.64, 1), background-color 140ms cubic-bezier(0.4, 0, 0.2, 1), box-shadow 160ms cubic-bezier(0.4, 0, 0.2, 1), border-color 140ms cubic-bezier(0.4, 0, 0.2, 1), filter 140ms cubic-bezier(0.4, 0, 0.2, 1)",
-      cardLift: "transform 200ms cubic-bezier(0.22, 1.12, 0.36, 1), box-shadow 200ms cubic-bezier(0.22, 1.12, 0.36, 1), border-color 180ms cubic-bezier(0.4, 0, 0.2, 1)",
+      cardLift: "transform 200ms cubic-bezier(0.22, 1.12, 0.36, 1), box-shadow 200ms cubic-bezier(0.22, 1.12, 0.36, 1), border-color 180ms cubic-bezier(0.4, 0, 0.2, 1), background-color 180ms cubic-bezier(0.4, 0, 0.2, 1)",
       surfaceFade: "opacity 280ms cubic-bezier(0.16, 1, 0.3, 1), transform 280ms cubic-bezier(0.16, 1, 0.3, 1)"
     },
     /* Loading + one-shot feedback: shorthands for keyframes injected at runtime
@@ -279,6 +315,10 @@ export const tokens = {
       successRing: "dlens-success-ring 900ms cubic-bezier(0.4, 0, 0.6, 1)",
       successPop: "dlens-success-pop 900ms cubic-bezier(0.4, 0, 0.6, 1)"
     }
+  },
+
+  layout: {
+    workspacePopupHeight: "min(78vh, 780px)"
   },
 
   spacing: {
@@ -328,17 +368,17 @@ export const modeThemes = {
     hoverShadowSoft: "rgba(63,90,59,0.08)"
   },
   product: {
-    accent: "#c2401f",
-    accentMid: "#d65a36",
-    accentSoft: "rgba(194,64,31,0.10)",
-    accentGlow: "rgba(194,64,31,0.18)",
-    accentButtonShadow: "0 8px 18px rgba(194,64,31,0.16)",
-    hoverBorderStrong: "rgba(194,64,31,0.58)",
-    hoverBorderSoft: "rgba(194,64,31,0.28)",
-    hoverSurfaceStrong: "rgba(194,64,31,0.045)",
-    hoverSurfaceSoft: "rgba(194,64,31,0.025)",
-    hoverShadowStrong: "rgba(194,64,31,0.14)",
-    hoverShadowSoft: "rgba(194,64,31,0.07)"
+    accent: "#234f7a",
+    accentMid: "#2f6a96",
+    accentSoft: "rgba(35,79,122,0.10)",
+    accentGlow: "rgba(35,79,122,0.18)",
+    accentButtonShadow: "0 8px 18px rgba(35,79,122,0.16)",
+    hoverBorderStrong: "rgba(35,79,122,0.58)",
+    hoverBorderSoft: "rgba(35,79,122,0.28)",
+    hoverSurfaceStrong: "rgba(35,79,122,0.045)",
+    hoverSurfaceSoft: "rgba(35,79,122,0.025)",
+    hoverShadowStrong: "rgba(35,79,122,0.14)",
+    hoverShadowSoft: "rgba(35,79,122,0.07)"
   },
   "pr-evidence": {
     accent: tokens.color.techniqueRose,

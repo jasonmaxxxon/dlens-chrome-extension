@@ -120,7 +120,7 @@ function PostHeader({ post, label, color, borderColor, commentCount }: {
   commentCount: number;
 }) {
   return (
-    <div style={{ padding: "12px 14px", borderRadius: 12, background: color, border: `1.5px solid ${borderColor}`, minWidth: 0 }}>
+    <div data-dlens-presence="card" style={{ padding: "12px 14px", borderRadius: 12, background: color, border: `1.5px solid ${borderColor}`, minWidth: 0 }}>
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", marginBottom: 4, gap: 6, minWidth: 0 }}>
         <div style={{ minWidth: 0 }}>
           <span style={{ fontSize: 12, fontWeight: 600, color: T.soft, letterSpacing: "0.02em", lineHeight: 1.4 }}>{label}</span>
@@ -969,6 +969,7 @@ function AudienceDetailPanel({
                   type="button"
                   onClick={() => onToggleEvidence(evidenceKey)}
                   data-evidence-card-layout="field-rows"
+                  data-dlens-presence="card"
                   className="dlens-card-lift"
                   style={{
                     borderRadius: 12,
@@ -1150,6 +1151,7 @@ function TopEvidenceStrip({
       data-top-evidence={`post-${sideLabel.toLowerCase()}`}
       data-top-evidence-section="visible"
       data-evidence-card-layout="field-rows"
+      data-dlens-presence="card"
       className="dlens-card-lift"
       style={{
         borderRadius: 12,
@@ -1283,6 +1285,7 @@ function CompareUnavailableBridge({
   return (
     <div
       data-compare-bridge="unavailable"
+      data-dlens-presence="card"
       style={{
         display: "grid",
         gap: 10,
@@ -1623,6 +1626,7 @@ function ResultHeroCard({
   return (
     <section
       data-compare-hero="billboard"
+      data-dlens-presence="card"
       data-compare-brief-state={compareBriefState}
       data-compare-raised-surface="true"
       data-compare-hero-accent="mode-var"
@@ -1834,7 +1838,7 @@ function ResultBalanceCard({
   })();
 
   return (
-    <div style={{ background: AR.card, borderRadius: 12, overflow: "hidden", boxShadow: COMPARE_CARD_SHADOW }}>
+    <div data-dlens-presence="card" style={{ background: AR.card, borderRadius: 12, overflow: "hidden", boxShadow: COMPARE_CARD_SHADOW }}>
       {/* Header + toggle */}
       <div style={{ padding: "11px 14px 9px", borderBottom: `0.5px solid ${AR.line}` }}>
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 8 }}>
@@ -1972,7 +1976,7 @@ function ResultWhyCard({ brief }: { brief: CompareBrief | null }) {
   if (!text) return null;
   const readingStyle = { fontSize: 12, lineHeight: 1.52, letterSpacing: 0, color: AR.softInk, margin: 0, ...WRAP_ANYWHERE };
   return (
-    <div style={{ background: AR.card, borderRadius: tokens.radius.card, padding: "16px 17px 15px", boxShadow: tokens.shadow.glass, minWidth: 0 }}>
+    <div data-dlens-presence="card" style={{ background: AR.card, borderRadius: tokens.radius.card, padding: "16px 17px 15px", boxShadow: tokens.shadow.glass, minWidth: 0 }}>
       <span style={{ fontSize: 9.5, fontWeight: 700, color: AR.muteInk, letterSpacing: 0, display: "block", marginBottom: 10 }}>為什麼重要</span>
       <div style={{ borderLeft: `2.5px solid ${AR.blue}`, paddingLeft: 12, marginBottom: 12, minWidth: 0 }}>
         <p style={{ fontFamily: tokens.font.sans, fontSize: 16, fontWeight: 600, fontStyle: "italic", lineHeight: 1.5, letterSpacing: 0, color: AR.ink, margin: 0, ...WRAP_ANYWHERE }}>
@@ -2060,7 +2064,7 @@ function ResultTrustStrip({
   };
 
   return (
-    <div style={{ background: AR.card, borderRadius: 12, overflow: "hidden", boxShadow: COMPARE_CARD_SHADOW }}>
+    <div data-dlens-presence="card" style={{ background: AR.card, borderRadius: 12, overflow: "hidden", boxShadow: COMPARE_CARD_SHADOW }}>
       <div style={{ padding: "11px 15px", display: "flex", alignItems: "center", gap: 7, borderBottom: `0.5px solid ${AR.line}`, flexWrap: "wrap" as const }}>
         {badges.map(([icon, text]) => (
           <div key={text} style={{ display: "flex", alignItems: "center", gap: 4, background: AR.canvas, borderRadius: 6, padding: "4px 9px" }}>
@@ -2069,7 +2073,7 @@ function ResultTrustStrip({
           </div>
         ))}
       </div>
-      <button className="dlens-tactile-row" onClick={() => setDrawer(d => !d)} style={{ width: "100%", background: "none", border: "none", cursor: "pointer", padding: "11px 15px", display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+      <button data-dlens-presence="row" className="dlens-tactile-row" onClick={() => setDrawer(d => !d)} style={{ width: "100%", background: "none", border: "none", cursor: "pointer", padding: "11px 15px", display: "flex", alignItems: "center", justifyContent: "space-between" }}>
         <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
           <svg width="13" height="13" viewBox="0 0 13 13" fill="none"><rect x="0.5" y="0.5" width="5" height="5" rx="1.2" fill={AR.dimInk}/><rect x="7.5" y="0.5" width="5" height="5" rx="1.2" fill={AR.dimInk}/><rect x="0.5" y="7.5" width="5" height="5" rx="1.2" fill={AR.dimInk}/><rect x="7.5" y="7.5" width="5" height="5" rx="1.2" fill={AR.dimInk}/></svg>
           <span style={{ fontSize: 12, fontWeight: 600, color: AR.softInk }}>驗證數據</span>
@@ -2161,6 +2165,7 @@ function ResultParallelColumn({
       ) : null}
 
       <div
+        data-dlens-presence="card"
         style={{
           background: AR.card,
           borderRadius: tokens.radius.card,
@@ -2201,6 +2206,7 @@ function ResultParallelColumn({
 
       {reading ? (
         <div
+          data-dlens-presence="card"
           style={{
             background: AR.card,
             borderRadius: tokens.radius.card,
@@ -2243,7 +2249,7 @@ function ResultParallelColumn({
             />
           );
         }) : (
-          <div style={{ fontSize: 12, color: AR.muteInk, background: AR.card, borderRadius: tokens.radius.card, border: `1px solid ${AR.line}`, padding: "12px 14px" }}>
+          <div data-dlens-presence="card" style={{ fontSize: 12, color: AR.muteInk, background: AR.card, borderRadius: tokens.radius.card, border: `1px solid ${AR.line}`, padding: "12px 14px" }}>
             No audience evidence captured yet.
           </div>
         )}
@@ -2322,6 +2328,7 @@ function ResultChapterPostSection({
 
       {reading ? (
         <div
+          data-dlens-presence="card"
           style={{
             background: AR.card,
             borderRadius: tokens.radius.card,
@@ -2339,6 +2346,7 @@ function ResultChapterPostSection({
       ) : null}
 
       <div
+        data-dlens-presence="card"
         style={{
           background: AR.card,
           borderRadius: tokens.radius.card,
@@ -2425,6 +2433,7 @@ function ResultChaptersBody({
     <div data-compare-layout="chapters" style={{ display: "flex", flexDirection: "column", gap: tokens.spacing.resultSectionGap, minWidth: 0 }}>
       <ResultChapterFrame chapter="I" title="Relation" accent={AR.green}>
         <div
+          data-dlens-presence="card"
           style={{
             background: AR.card,
             borderRadius: 14,
@@ -2494,7 +2503,7 @@ function ResultChaptersBody({
               />
             );
           }) : (
-            <div style={{ fontSize: 12, color: AR.muteInk, background: AR.card, borderRadius: tokens.radius.card, border: `1px solid ${AR.line}`, padding: "12px 14px" }}>
+            <div data-dlens-presence="card" style={{ fontSize: 12, color: AR.muteInk, background: AR.card, borderRadius: tokens.radius.card, border: `1px solid ${AR.line}`, padding: "12px 14px" }}>
               No audience evidence captured yet.
             </div>
           )}
@@ -3116,6 +3125,7 @@ export function CompareView({
 
       {attachment.activeResultId && attachment.topics.length ? (
         <div
+          data-dlens-presence="card"
           style={{
             display: "grid",
             gap: 10,

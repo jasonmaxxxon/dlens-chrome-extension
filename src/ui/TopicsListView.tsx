@@ -4,6 +4,7 @@ import { getItemReadinessStatus } from "../state/processing-state.ts";
 import type { SessionItem, Signal, Topic } from "../state/types.ts";
 import { tokens } from "./tokens";
 import { ModeHeader } from "./components.tsx";
+import { useUiText } from "./i18n.ts";
 import { useCausalListMotion } from "./useCausalListMotion.ts";
 import {
   type TopicAuditReportStatus,
@@ -206,6 +207,7 @@ export function TopicCard({
       tabIndex={0}
       data-topic-card={topic.id}
       data-dlens-list-key={topic.id}
+      data-dlens-presence="card"
       className="dlens-card-lift"
       onClick={openTopic}
       onKeyDown={handleKeyDown}
@@ -354,15 +356,17 @@ export function TopicsListView({
   onCreateTopic: () => void;
   onDeleteTopic?: (topicId: string) => void;
 }) {
+  const t = useUiText();
   const sourceSummariesByTopicId = buildTopicSourceSummaries(topics, signals, sessionItems);
   const listMotionRef = useCausalListMotion(topics.map((topic) => topic.id).join("|"));
   return (
     <div data-topics-list="audit" style={{ display: "grid", gap: 14 }}>
       <ModeHeader
         mode="topics"
-        title="議題"
-        deck="每個議題收一批 Threads 訊號；點進去看詞群、敘事與源清單。"
-        stamp={<span style={{ fontSize: 11, color: tokens.color.softInk, whiteSpace: "nowrap" }}>{topics.length} 個議題</span>}
+        kicker="Topic mode"
+        title={t("議題", "Topics")}
+        deck={t("每個議題收一批 Threads 訊號；點進去看詞群、敘事與源清單。", "Each topic gathers a batch of Threads signals — open one for clusters, narratives, and sources.")}
+        stamp={<span style={{ fontSize: 11, color: tokens.color.softInk, whiteSpace: "nowrap" }}>{t(`${topics.length} 個議題`, `${topics.length} topics`)}</span>}
       />
       <div ref={listMotionRef} data-topic-list-motion="causal" style={{ display: "grid", gap: 12 }}>
         {topics.map((topic) => (

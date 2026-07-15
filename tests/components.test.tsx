@@ -25,6 +25,7 @@ import {
   scanRowStyle,
   type WorkspaceSwitcherMode
 } from "../src/ui/components.tsx";
+import { LanguageProvider } from "../src/ui/i18n.ts";
 import { tokens } from "../src/ui/tokens.ts";
 
 function findTagWithAttribute(html: string, attribute: string): string {
@@ -116,6 +117,28 @@ test("ModeRail renders only the allowed archive-mode items when a custom rail is
   assert.ok(collectIndex >= 0);
 });
 
+test("ModeRail rail labels stay 繁中 by default and switch to English under the language provider", () => {
+  const railModes = ["collect", "topics", "inbox"] as const;
+  const zhHtml = renderToStaticMarkup(
+    React.createElement(ModeRail, { activeMode: "collect", modes: [...railModes], onSelect: () => undefined })
+  );
+  assert.match(zhHtml, /採集/);
+  assert.match(zhHtml, /議題/);
+  assert.doesNotMatch(zhHtml, /Collect/);
+
+  const enHtml = renderToStaticMarkup(
+    React.createElement(
+      LanguageProvider,
+      { value: "en" },
+      React.createElement(ModeRail, { activeMode: "collect", modes: [...railModes], onSelect: () => undefined })
+    )
+  );
+  assert.match(enHtml, /Collect/);
+  assert.match(enHtml, /Topics/);
+  assert.match(enHtml, /Inbox/);
+  assert.doesNotMatch(enHtml, /採集/);
+});
+
 test("ModeRail uses the design-system rail icon language", () => {
   const html = renderToStaticMarkup(
     React.createElement(ModeRail, {
@@ -183,6 +206,12 @@ test("scan row primitive stays flat and line-separated", () => {
   assert.equal(style.boxShadow, undefined);
   assert.equal(style.borderRadius, undefined);
   assert.equal(style.padding, "12px 4px");
+  assert.equal(
+    style.transition,
+    undefined,
+    "the scan-row primitive must not override tactile card transform and shadow transitions inline"
+  );
+  assert.match(SCAN_ROW_HOVER_CSS, /data-scan-row[^}]*transition:\s*background-color/);
   assert.match(SCAN_ROW_HOVER_CSS, /\[data-dlens-control="true"\] \[data-scan-list\] \[data-scan-row\]\[data-scan-action="true"\]:hover/);
   assert.doesNotMatch(SCAN_ROW_HOVER_CSS, /\[data-scan-row\]:hover/);
   assert.doesNotMatch(SCAN_ROW_HOVER_CSS, /^\[data-scan-list\]/m);
@@ -612,6 +641,7 @@ test("SurfaceCard exposes shared utility surface geometry", () => {
   );
 
   assert.match(html, /data-shared-surface-card="utility"/);
+  assert.match(html, /data-dlens-presence="card"/);
   assert.match(html, /data-test-surface="card"/);
   assert.match(html, /border-radius:20px/);
   assert.match(html, /overflow:hidden/);

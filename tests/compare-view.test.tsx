@@ -283,6 +283,7 @@ test("CompareView hero renders a raised billboard with headline verdict and stan
   );
 
   assert.match(html, /data-compare-hero="billboard"/);
+  assert.match(html, /data-compare-hero="billboard"[^>]*data-dlens-presence="card"/);
   assert.match(html, /data-compare-raised-surface="true"/);
   assert.match(html, /data-compare-hero-headline="true"/);
   assert.match(html, /data-compare-hero-verdict="true"/);

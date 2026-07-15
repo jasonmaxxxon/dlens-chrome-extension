@@ -2,10 +2,14 @@ import assert from "node:assert/strict";
 import test from "node:test";
 
 import { buildPrEvidenceViewModel, type PrEvidenceUiState } from "../src/viewmodel/pr-evidence.ts";
+import type { PrNarrativeRead } from "../src/compare/pr-narrative.ts";
 import { prCampaignToDraft, type PrCampaign, type PrEvidenceRow } from "../src/state/pr-evidence-storage.ts";
 import { createPrEvidenceResource } from "../src/ui/pr-evidence-resource.ts";
 
 const idleUiState: PrEvidenceUiState = {
+  activeLens: "evidence",
+  selectedNarrativeClaimId: null,
+  isGeneratingNarrative: false,
   activePane: "ledger",
   isSaving: false,
   isReadingBrief: false,
@@ -28,6 +32,11 @@ const campaign: PrCampaign = {
     { id: "c5", label: "Experience" },
     { id: "c6", label: "CTA" }
   ],
+  narrativeSettings: {
+    narrativeAnchor: "Wellness belongs in daily life",
+    targetAudience: "Young working adults",
+    desiredAction: "Register for the event"
+  },
   createdAt: "2026-05-26T00:00:00.000Z",
   updatedAt: "2026-05-26T00:00:00.000Z",
   lastMatchedAt: "2026-05-26T02:00:00.000Z"
@@ -44,6 +53,208 @@ const row: PrEvidenceRow = {
   criteriaMatches: { c1: true, c2: false, c3: true, c4: false, c5: false, c6: false },
   collectedAt: "2026-05-26T01:00:00.000Z"
 };
+
+const narrativeRows: PrEvidenceRow[] = [
+  row,
+  {
+    ...row,
+    id: "row-support",
+    itemId: "item-support",
+    postUrl: "https://www.threads.net/@support/post/2",
+    authorHandle: "support_author",
+    caption: "A second supporting post"
+  },
+  {
+    ...row,
+    id: "row-counter",
+    itemId: "item-counter",
+    postUrl: "https://www.threads.net/@counter/post/3",
+    authorHandle: "counter_author",
+    caption: "A counterexample post"
+  }
+];
+
+const narrativeRead: PrNarrativeRead = {
+  schemaVersion: 1,
+  campaignId: campaign.id,
+  sourceRowIds: ["row-shared", "row-support", "row-counter"],
+  collectedRowCount: 3,
+  snippetFallbackCount: 1,
+  sourceHash: "sha256:current",
+  promptVersion: "pr-narrative.v1",
+  provider: "openai",
+  model: "gpt-4.1-mini",
+  generatedAt: "2026-07-14T03:00:00.000Z",
+  status: "complete",
+  priorityClaimId: "claim-1",
+  claims: [
+    {
+      id: "claim-1",
+      title: "Practical proof",
+      statement: "Collected posts frame wellness as practical.",
+      implication: "Lead with practical proof.",
+      mode: "actionable",
+      alignment: "mixed",
+      supportRefs: [
+        { rowId: "row-shared", summary: "The event fits daily life." },
+        { rowId: "row-support", summary: "The experience feels accessible." }
+      ],
+      counterRefs: [{ rowId: "row-counter", summary: "One post sees setup friction." }]
+    },
+    {
+      id: "claim-2",
+      title: "Social relevance",
+      statement: "Collected posts connect wellness with shared activity.",
+      implication: "Show the social experience.",
+      mode: "experience",
+      alignment: "echoes",
+      supportRefs: [{ rowId: "row-support", summary: "The post highlights shared activity." }],
+      counterRefs: []
+    }
+  ]
+};
+
+test("PrEvidence resource initializes narrative read state without starting generation", () => {
+  const resource = createPrEvidenceResource("session-pr");
+
+  assert.equal(resource.narrativeRead, null);
+  assert.equal(resource.narrativeCurrentSourceHash, "");
+  assert.equal(resource.narrativeError, "");
+});
+
+test("ViewModel derives narrative counts and joins refs to current rows", () => {
+  const vm = buildPrEvidenceViewModel({
+    sessionId: "session-pr",
+    resource: {
+      ...createPrEvidenceResource("session-pr"),
+      campaign: prCampaignToDraft(campaign),
+      rows: narrativeRows,
+      narrativeRead,
+      narrativeCurrentSourceHash: narrativeRead.sourceHash
+    },
+    uiState: {
+      ...idleUiState,
+      activeLens: "narrative",
+      selectedNarrativeClaimId: "claim-1"
+    }
+  });
+
+  assert.equal(vm.activeLens, "narrative");
+  assert.equal(vm.narrative?.status, "ready");
+  assert.equal(vm.narrative?.priorityClaim?.supportCount, 2);
+  assert.equal(vm.narrative?.priorityClaim?.denominator, narrativeRead.sourceRowIds.length);
+  assert.equal(vm.narrative?.priorityClaim?.counterCount, 1);
+  assert.deepEqual(vm.narrative?.priorityClaim?.support.map((entry) => entry.row.id), ["row-shared", "row-support"]);
+  assert.equal(vm.narrative?.detail?.counterexamples[0]?.row.sourceUrl, "https://www.threads.net/@counter/post/3");
+  assert.deepEqual(vm.lensCommands.narrative, {
+    kind: "setLens",
+    target: { sessionId: "session-pr" },
+    lens: "narrative"
+  });
+  assert.deepEqual(vm.narrative?.generateCommand, {
+    kind: "generateNarrative",
+    target: { sessionId: "session-pr", campaignId: "campaign-shared" }
+  });
+  assert.deepEqual(vm.narrative?.priorityClaim?.selectCommand, {
+    kind: "selectNarrativeClaim",
+    target: { sessionId: "session-pr", campaignId: "campaign-shared" },
+    claimId: "claim-1"
+  });
+});
+
+test("ViewModel marks a hash-mismatched narrative read stale", () => {
+  const vm = buildPrEvidenceViewModel({
+    sessionId: "session-pr",
+    resource: {
+      ...createPrEvidenceResource("session-pr"),
+      campaign: prCampaignToDraft(campaign),
+      rows: narrativeRows,
+      narrativeRead,
+      narrativeCurrentSourceHash: "sha256:new"
+    },
+    uiState: idleUiState
+  });
+
+  assert.equal(vm.narrative?.status, "stale");
+});
+
+test("ViewModel treats a stored read with an unknown current hash as stale", () => {
+  const vm = buildPrEvidenceViewModel({
+    sessionId: "session-pr",
+    resource: {
+      ...createPrEvidenceResource("session-pr"),
+      campaign: prCampaignToDraft(campaign),
+      rows: narrativeRows,
+      narrativeRead,
+      narrativeCurrentSourceHash: ""
+    },
+    uiState: idleUiState
+  });
+
+  assert.equal(vm.narrative?.status, "stale");
+});
+
+test("ViewModel exposes insufficient evidence without fabricated claims", () => {
+  const insufficientRead: PrNarrativeRead = {
+    ...narrativeRead,
+    sourceRowIds: [],
+    collectedRowCount: 3,
+    snippetFallbackCount: 0,
+    status: "insufficient_evidence",
+    priorityClaimId: null,
+    claims: []
+  };
+  const vm = buildPrEvidenceViewModel({
+    sessionId: "session-pr",
+    resource: {
+      ...createPrEvidenceResource("session-pr"),
+      campaign: prCampaignToDraft(campaign),
+      rows: narrativeRows,
+      narrativeRead: insufficientRead,
+      narrativeCurrentSourceHash: insufficientRead.sourceHash
+    },
+    uiState: idleUiState
+  });
+
+  assert.equal(vm.narrative?.status, "insufficient_evidence");
+  assert.equal(vm.narrative?.priorityClaim, null);
+  assert.deepEqual(vm.narrative?.claims, []);
+});
+
+test("ViewModel keeps optional counterexamples empty", () => {
+  const vm = buildPrEvidenceViewModel({
+    sessionId: "session-pr",
+    resource: {
+      ...createPrEvidenceResource("session-pr"),
+      campaign: prCampaignToDraft(campaign),
+      rows: narrativeRows,
+      narrativeRead,
+      narrativeCurrentSourceHash: narrativeRead.sourceHash
+    },
+    uiState: { ...idleUiState, selectedNarrativeClaimId: "claim-2" }
+  });
+  const claim = vm.narrative?.claims.find((entry) => entry.id === "claim-2");
+
+  assert.equal(claim?.counterCount, 0);
+  assert.deepEqual(claim?.counterexamples, []);
+  assert.deepEqual(vm.narrative?.detail?.counterexamples, []);
+});
+
+test("ViewModel surfaces narrative errors only when no stored read exists", () => {
+  const vm = buildPrEvidenceViewModel({
+    sessionId: "session-pr",
+    resource: {
+      ...createPrEvidenceResource("session-pr"),
+      campaign: prCampaignToDraft(campaign),
+      rows: narrativeRows,
+      narrativeError: "Provider key required"
+    },
+    uiState: idleUiState
+  });
+
+  assert.equal(vm.narrative?.status, "error");
+  assert.equal(vm.narrative?.error, "Provider key required");
+});
 
 test("PrEvidence VM composes rows, counters, actions, and exports from resource plus UI state", () => {
   const vm = buildPrEvidenceViewModel({
@@ -99,7 +310,8 @@ test("PrEvidence VM composes rows, counters, actions, and exports from resource 
       id: "campaign-shared",
       name: "Shared campaign",
       briefText: "「Shared Launch Campaign」 #SharedLaunch",
-      criteria: campaign.criteria
+      criteria: campaign.criteria,
+      narrativeSettings: campaign.narrativeSettings
     }
   });
 });
@@ -215,7 +427,12 @@ test("PrEvidence VM keeps unsaved draft commands free of id and timestamps", () 
     draft: {
       name: "Draft campaign",
       briefText: "Draft brief",
-      criteria: vm.campaign.criteria
+      criteria: vm.campaign.criteria,
+      narrativeSettings: {
+        narrativeAnchor: "",
+        targetAudience: "",
+        desiredAction: ""
+      }
     }
   });
   assert.equal("createdAt" in (saveCommand as any).draft, false);

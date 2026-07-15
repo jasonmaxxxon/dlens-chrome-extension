@@ -2,9 +2,19 @@ import type {
   PrCampaign,
   PrCriteriaMatches,
   PrCriterion,
-  PrEvidenceRow
+  PrEvidenceRow,
+  PrNarrativeSettings
 } from "../state/pr-evidence-storage.ts";
-import { emptyPrCriteriaMatches, PR_CRITERION_IDS } from "../state/pr-evidence-storage.ts";
+import {
+  emptyPrCriteriaMatches,
+  normalizePrNarrativeSettings,
+  PR_CRITERION_IDS
+} from "../state/pr-evidence-storage.ts";
+
+export interface PrCampaignSetupSuggestion {
+  criteria: PrCampaign["criteria"];
+  narrativeSettings: PrNarrativeSettings;
+}
 
 export interface PrSummaryFacts {
   campaign_name: string;
@@ -109,6 +119,14 @@ export function normalizePrCriteriaSuggestionResponse(raw: string): PrCampaign["
       label: readCriteriaEntryLabel(entries[index], index)
     };
   }) as PrCampaign["criteria"];
+}
+
+export function parsePrCampaignSetupSuggestion(raw: string): PrCampaignSetupSuggestion {
+  const parsed = parseJsonObject(raw);
+  return {
+    criteria: normalizePrCriteriaSuggestionResponse(parsed ? raw : "{}"),
+    narrativeSettings: normalizePrNarrativeSettings(parsed?.narrativeSettings)
+  };
 }
 
 export function isDefaultPrCriteria(criteria: PrCampaign["criteria"]): boolean {
@@ -565,8 +583,10 @@ export function buildPrCriteriaSuggestionPrompt(campaignName: string, briefText:
   const coreMessages = extractPrCoreMessages(briefText);
   return [
     "You are helping a PR operator turn a campaign brief into six reportable message criteria.",
-    "Return exactly six short criteria labels as JSON.",
+    "Return one JSON envelope containing exactly six short criteria labels and three editable narrative settings.",
+    "Use this exact shape: {\"criteria\":[\"...\",\"...\",\"...\",\"...\",\"...\",\"...\"],\"narrativeSettings\":{\"narrativeAnchor\":\"...\",\"targetAudience\":\"...\",\"desiredAction\":\"...\"}}.",
     "Each label must be matchable against a Threads post caption or visible post text.",
+    "narrativeAnchor is the intended proposition, targetAudience is the relevant audience, and desiredAction is the behavior the campaign wants.",
     "Prefer concrete campaign message pull-through over generic labels such as Brand named or CTA included when the brief has enough detail.",
     "Do not produce strategy advice. Do not invent performance numbers.",
     "",

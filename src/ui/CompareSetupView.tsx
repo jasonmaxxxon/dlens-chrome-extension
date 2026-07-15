@@ -287,6 +287,7 @@ export function CompareSetupView({
 
       {/* Selector cards */}
       <div
+        data-dlens-presence="card"
         style={{
           background: AR.card,
           borderRadius: tokens.radius.card,
@@ -371,6 +372,7 @@ export function CompareSetupView({
       {bothSelected && (teaserState === "loading" || teaser) ? (
         <div
           data-compare-teaser-state={teaserState}
+          data-dlens-presence="card"
           aria-busy={teaserState === "loading" ? "true" : undefined}
           style={{
             background: AR.card,

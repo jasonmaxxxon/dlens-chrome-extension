@@ -164,6 +164,8 @@ test("topic cards use one status slot and expose tactile/list motion hooks", () 
   assert.match(html, /data-topic-list-motion="causal"/);
   assert.match(html, /data-dlens-list-key="ready"/);
   assert.match(html, /data-topic-card="ready"[^>]*class="dlens-card-lift"/);
+  assert.match(html, /data-topic-card="ready"[^>]*data-dlens-presence="card"/);
+  assert.doesNotMatch(html, /data-dlens-presence-motion=/, "the hook, not per-mode markup, chooses the first lead card");
 });
 
 test("TopicsListView source metrics come from real session item readiness, not audit memo counts", () => {

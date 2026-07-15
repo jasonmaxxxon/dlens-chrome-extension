@@ -28,6 +28,20 @@ const motionTestables = motionModule as unknown as {
 
 const MOTION_PATH = fileURLToPath(new URL("../src/ui/motion.ts", import.meta.url));
 const COMPARE_PATH = fileURLToPath(new URL("../src/ui/CompareView.tsx", import.meta.url));
+const WORKSPACE_ROUTE_CARD_SOURCES = [
+  "../src/ui/TopicsListView.tsx",
+  "../src/ui/TopicDetailView.tsx",
+  "../src/ui/CollectView.tsx",
+  "../src/ui/LibraryView.tsx",
+  "../src/ui/CasebookView.tsx",
+  "../src/ui/SettingsView.tsx",
+  "../src/ui/CompareSetupView.tsx",
+  "../src/ui/CompareView.tsx",
+  "../src/ui/TechniqueView.tsx",
+  "../src/ui/ProductSignalViews.tsx",
+  "../src/ui/PrEvidenceViews.tsx",
+  "../src/ui/InPageCollectorResultWorkspace.tsx"
+] as const;
 const SCAN_ROOTS = ["../src/ui", "../src/compare", "../src/state", "../entrypoints"]
   .map((rel) => fileURLToPath(new URL(rel, import.meta.url)));
 
@@ -94,18 +108,26 @@ test("reduced-motion safety net is scoped to DLens roots and neutralises animati
 });
 
 test("tactile cards lift on intent, press below rest, and release through the shared spring", () => {
-  assert.match(DLENS_MOTION_CSS, /\.dlens-card-lift:hover[\s\S]*translateY\(-4px\)/);
+  assert.match(DLENS_MOTION_CSS, /\.dlens-card-lift:hover[\s\S]*translateY\(-4px\) scale\(1\.015\)/);
   assert.match(DLENS_MOTION_CSS, /\.dlens-card-lift:active[\s\S]*translateY\(1px\) scale\(0\.994\)/);
   assert.match(DLENS_MOTION_CSS, /prefers-reduced-motion:\s*reduce[\s\S]*\.dlens-card-lift:active[\s\S]*transform:\s*none\s*!important/);
 });
 
-test("dense actionable rows acknowledge hover and press without card shadow", () => {
-  assert.match(DLENS_MOTION_CSS, /\.dlens-tactile-row:hover[\s\S]*translateY\(-2px\)/);
+test("approved hover preset A gives dense actionable rows the same pronounced lift", () => {
+  assert.match(DLENS_MOTION_CSS, /\.dlens-tactile-row:hover[\s\S]*translateY\(-4px\)/);
+  assert.match(DLENS_MOTION_CSS, /\.dlens-tactile-row:hover[\s\S]*box-shadow:[^;]*0 18px 40px/);
   assert.match(DLENS_MOTION_CSS, /\.dlens-tactile-row:active[\s\S]*translateY\(1px\) scale\(0\.995\)/);
   assert.match(DLENS_MOTION_CSS, /prefers-reduced-motion:\s*reduce[\s\S]*\.dlens-tactile-row:active[\s\S]*transform:\s*none\s*!important/);
 });
 
-test("popup opening wakes masthead, rail, then main exactly once without per-card scroll reveal", () => {
+test("Atlas legend rows acknowledge hover without borrowing card lift or shadow", () => {
+  assert.match(DLENS_MOTION_CSS, /\.dlens-atlas-legend-row\s*\{[^}]*transition:\s*background-color/);
+  assert.match(DLENS_MOTION_CSS, /\.dlens-atlas-legend-row:hover[\s\S]*?background:\s*[^;]+;/);
+  const quietRule = DLENS_MOTION_CSS.match(/\.dlens-atlas-legend-row:hover\s*\{([^}]*)\}/)?.[1] ?? "";
+  assert.doesNotMatch(quietRule, /transform|box-shadow/);
+});
+
+test("popup opening still wakes masthead, rail, then main in order", () => {
   const popupRoot = '[data-dlens-control="true"][data-workspace-popup-material]';
   const masthead = DLENS_MOTION_CSS.indexOf(`${popupRoot} [data-shell-masthead="editorial"]`);
   const rail = DLENS_MOTION_CSS.indexOf(`${popupRoot} [data-shell-header="workspace"]`);
@@ -118,7 +140,60 @@ test("popup opening wakes masthead, rail, then main exactly once without per-car
   assert.match(DLENS_MOTION_CSS, /animation-delay:\s*35ms/);
   assert.match(DLENS_MOTION_CSS, /animation-delay:\s*70ms/);
   assert.doesNotMatch(DLENS_MOTION_CSS, /\[data-dlens-control="true"\]\s+\[data-workspace-popup-material\]/);
-  assert.doesNotMatch(DLENS_MOTION_CSS, /scroll-reveal|intersection-observer/i);
+});
+
+test("motion tokens carry the approved presence and bottom-rebound values", () => {
+  assert.deepEqual(tokens.motion.presence, {
+    cardOpacityFrom: 0.28,
+    cardRisePx: 10,
+    cardDurationMs: 480,
+    cardDelayMs: 70,
+    cardStaggerMs: 60,
+    rowOpacityFrom: 0.92,
+    rowRisePx: 4,
+    rowDurationMs: 220,
+    staggerMs: 35,
+    staggerCap: 6,
+    staggerResetMs: 120,
+    threshold: 0.08,
+    rootMargin: "1000px 0px -96px 0px",
+    leadSoftPop: {
+      opacityFrom: 0.68,
+      risePx: 10,
+      overshootPx: -1.5,
+      scaleFrom: 0.985,
+      scaleOvershoot: 1.003,
+      durationMs: 420
+    }
+  });
+  assert.equal(tokens.motion.easing.softPop, "cubic-bezier(0.25, 0.46, 0.45, 0.94)");
+  assert.deepEqual(tokens.motion.bottomRebound, {
+    amplitudePx: 3,
+    durationMs: 280,
+    hysteresisPx: 30,
+    wheelGain: 0.06,
+    settleDelayMs: 140,
+    cooldownMs: 400,
+    bottomTolerancePx: 1
+  });
+});
+
+test("every workspace route family opts real cards into the shared presence grammar", () => {
+  for (const relativePath of WORKSPACE_ROUTE_CARD_SOURCES) {
+    const source = readFileSync(fileURLToPath(new URL(relativePath, import.meta.url)), "utf8");
+    assert.match(
+      source,
+      /data-dlens-presence="card"|<SurfaceCard\b/,
+      `${relativePath} must expose at least one real card to the route-independent presence grammar`
+    );
+  }
+
+  const productionSource = sourceFiles().map((file) => readFileSync(file, "utf8")).join("\n");
+  assert.doesNotMatch(
+    productionSource,
+    /data-dlens-presence-motion|topicSoftPop|topic-soft/,
+    "presence behavior must not depend on a Topic-only marker or token"
+  );
 });
 
 test("causal list planner moves retained rows and only enters rows created by a state change", () => {

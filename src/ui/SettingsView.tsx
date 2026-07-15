@@ -9,14 +9,12 @@ import {
   Stamp,
   viewRootStyle
 } from "./components";
+import { useUiText } from "./i18n";
 import { tokens } from "./tokens";
 
-const MODE_ACCENT = `var(--dlens-mode-accent, ${tokens.color.accent})`;
-const MODE_ACCENT_SOFT = `var(--dlens-mode-accent-soft, ${tokens.color.accentSoft})`;
 
 interface SettingsViewProps {
   sessionMode: FolderMode;
-  canEditSessionMode?: boolean;
   draftBaseUrl: string;
   draftProvider: NonNullable<ExtensionSettings["oneLinerProvider"]> | "";
   draftOpenAiKey: string;
@@ -33,7 +31,6 @@ interface SettingsViewProps {
   isSavingSettings?: boolean;
   productProfileSeedText?: string;
   isInitializingProductProfile?: boolean;
-  onSessionModeChange: (mode: FolderMode) => void;
   onDraftBaseUrlChange: (value: string) => void;
   onDraftProviderChange: (value: NonNullable<ExtensionSettings["oneLinerProvider"]> | "") => void;
   onDraftOpenAiKeyChange: (value: string) => void;
@@ -117,7 +114,7 @@ function SettingsGroup({
   caption,
   children
 }: {
-  name: "folder" | "layout" | "connection" | "keys" | "product";
+  name: "folder" | "layout" | "language" | "connection" | "keys" | "product";
   title: string;
   caption: string;
   children: ReactNode;
@@ -125,6 +122,7 @@ function SettingsGroup({
   return (
     <div
       data-settings-group={name}
+      data-dlens-presence="card"
       style={{
         display: "grid",
         gap: 12,
@@ -198,7 +196,6 @@ function SavedKeyStatus({ provider, visible }: { provider: "openai" | "claude" |
 
 export function SettingsView({
   sessionMode,
-  canEditSessionMode = false,
   draftBaseUrl,
   draftProvider,
   draftOpenAiKey,
@@ -215,7 +212,6 @@ export function SettingsView({
   isSavingSettings = false,
   productProfileSeedText = "",
   isInitializingProductProfile = false,
-  onSessionModeChange,
   onDraftBaseUrlChange,
   onDraftProviderChange,
   onDraftOpenAiKeyChange,
@@ -229,6 +225,8 @@ export function SettingsView({
   createContextFileId,
   onSaveSettings
 }: SettingsViewProps) {
+  const t = useUiText();
+  const activeLanguage = draftLayoutPreferences.language ?? "zh";
   const [contextNotice, setContextNotice] = useState("");
   const readmeInputRef = useRef<HTMLInputElement | null>(null);
   const agentsInputRef = useRef<HTMLInputElement | null>(null);
@@ -277,74 +275,49 @@ export function SettingsView({
       <ModeHeader
         mode="settings"
         kicker="Runtime settings"
-        title="調整連線與模型入口"
-        deck="連線設定與 API 金鑰存於本機，不會上傳。"
+        title={t("調整連線與模型入口", "Tune connections and model access")}
+        deck={t("連線設定與 API 金鑰存於本機，不會上傳。", "Connection settings and API keys stay on this device — never uploaded.")}
       />
 
       <div data-settings-surface="drawer" style={settingsDrawerStyle}>
-          <SettingsGroup name="folder" title="資料夾類型" caption="Folder">
-            <div style={{ display: "grid", gap: 10 }}>
-              <div style={{ display: "grid", gap: 8 }}>
-                {[
-                  {
-                    mode: "archive" as const,
-                    title: "封存（Archive）",
-                    deck: "純儲存，無議題追蹤"
-                  },
-                  {
-                    mode: "topic" as const,
-                    title: "議題追蹤（Topic）",
-                    deck: "啟用 Casebook 和收件匣"
-                  },
-                  {
-                    mode: "product" as const,
-                    title: "產品觀察（Product）",
-                    deck: "啟用 Topic 流程並加上 Judgment"
-                  },
-                  {
-                    mode: "pr-evidence" as const,
-                    title: "PR Evidence",
-                    deck: "整理已找到的 Threads posts，輸出 criteria CSV"
-                  }
-                ].map((option) => {
-                  const active = sessionMode === option.mode;
-                  return (
-                    <label
-                      key={option.mode}
-                      data-settings-mode-option={option.mode}
-                      className={canEditSessionMode ? "dlens-card-lift" : undefined}
-                      style={{
-                        display: "grid",
-                        gridTemplateColumns: "16px minmax(0, 1fr)",
-                        gap: 10,
-                        alignItems: "start",
-                        padding: "10px 12px",
-                        borderRadius: tokens.radius.card,
-                        border: `1px solid ${active ? MODE_ACCENT : tokens.color.cardEdge}`,
-                        background: active ? MODE_ACCENT_SOFT : tokens.color.surface,
-                        boxShadow: active ? tokens.shadow.card : "none",
-                        opacity: canEditSessionMode ? 1 : 0.55,
-                        cursor: canEditSessionMode ? "pointer" : "default",
-                        transition: tokens.motion.interactiveTransitionFast
-                      }}
-                    >
-                      <input
-                        type="radio"
-                        name="session-mode"
-                        value={option.mode}
-                        checked={active}
-                        disabled={!canEditSessionMode}
-                        onChange={() => onSessionModeChange(option.mode)}
-                        style={{ accentColor: MODE_ACCENT, marginTop: 1 }}
-                      />
-                      <span style={{ display: "grid", gap: 4 }}>
-                        <span style={{ fontSize: 12, fontWeight: 700, color: tokens.color.ink }}>{option.title}</span>
-                        <span style={{ fontSize: 11, color: tokens.color.subInk }}>{option.deck}</span>
-                      </span>
-                    </label>
-                  );
-                })}
-              </div>
+          <SettingsGroup name="language" title="語言" caption="Language">
+            <div
+              data-settings-language-switch="true"
+              role="radiogroup"
+              aria-label="Interface language"
+              style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 6 }}
+            >
+              {(["zh", "en"] as const).map((lang) => {
+                const active = activeLanguage === lang;
+                return (
+                  <button
+                    key={lang}
+                    type="button"
+                    role="radio"
+                    aria-checked={active}
+                    data-settings-language-option={lang}
+                    data-active={active ? "true" : "false"}
+                    onClick={() => onDraftLayoutPreferencesChange({ language: lang })}
+                    style={{
+                      padding: "9px 12px",
+                      borderRadius: tokens.radius.lg,
+                      border: `1px solid ${active ? tokens.color.accent : tokens.color.line}`,
+                      background: active ? tokens.color.accent : tokens.color.surface,
+                      color: active ? tokens.color.inverse : tokens.color.subInk,
+                      fontFamily: tokens.font.sans,
+                      fontSize: 12.5,
+                      fontWeight: active ? 700 : 500,
+                      cursor: "pointer",
+                      transition: tokens.motion.interactiveTransitionFast
+                    }}
+                  >
+                    {lang === "zh" ? "中文" : "English"}
+                  </button>
+                );
+              })}
+            </div>
+            <div style={{ fontSize: 10.5, lineHeight: 1.55, color: tokens.color.softInk }}>
+              {t("切換介面外殼（模式標題、導覽列）的語言；深層內容暫時維持繁中。儲存後生效。", "Switches the shell chrome (mode headers, nav rail) language; deeper content stays 繁中 for now. Applies after saving.")}
             </div>
           </SettingsGroup>
 
@@ -588,7 +561,7 @@ export function SettingsView({
             </SettingsGroup>
           ) : null}
 
-          <div data-settings-save-dock="footer" style={settingsSaveDockStyle}>
+          <div data-settings-save-dock="footer" data-dlens-presence="card" style={settingsSaveDockStyle}>
             <PrimaryButton onClick={onSaveSettings} disabled={isSavingSettings} style={{ width: "100%" }}>
               {isSavingSettings ? "Saving settings..." : "Save settings"}
             </PrimaryButton>

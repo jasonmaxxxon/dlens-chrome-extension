@@ -38,8 +38,8 @@
   --sans: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
 
   /* ===== tunables (controls write these) ===== */
-  --presence-distance: 8px;        /* tier-1 rise */
-  --presence-duration: 300ms;
+  --presence-distance: 4px;        /* selected tier-1 rise */
+  --presence-duration: 240ms;
   --presence-row-distance: 4px;    /* tier-2 rise */
   --presence-row-duration: 220ms;
   --rebound-duration: 280ms;
@@ -260,9 +260,9 @@ body.reduced .pres, body.reduced .pres-row { opacity: 1 !important; transform: n
     <label><input type="checkbox" id="presenceOn" checked> 啟用（一次性，捲入才播）</label>
     <label><input type="checkbox" id="presenceRows" checked> 密集 row 也做（更輕的第二級）</label>
     <div class="hint">大卡 rise ↓</div>
-    <div class="seg" data-var="--presence-distance" data-unit="px"><button>4</button><button aria-pressed="true">8</button><button>12</button></div>
+    <div class="seg" data-var="--presence-distance" data-unit="px"><button aria-pressed="true">4</button><button>8</button><button>12</button></div>
     <div class="hint">大卡 duration ↓</div>
-    <div class="seg" data-var="--presence-duration" data-unit="ms"><button>240</button><button aria-pressed="true">300</button><button>340</button></div>
+    <div class="seg" data-var="--presence-duration" data-unit="ms"><button aria-pressed="true">240</button><button>300</button><button>340</button></div>
     <button class="replay" id="replay">↻ REPLAY — 回頂重播進場</button>
     <div class="hint">大卡 0.84→1 opacity；row 固定 0.92→1 / 4px / 220ms。stagger 每格 35ms、上限 6 格。</div>
   </fieldset>
@@ -270,7 +270,7 @@ body.reduced .pres, body.reduced .pres-row { opacity: 1 !important; transform: n
   <fieldset>
     <legend>BOTTOM REBOUND</legend>
     <div class="hint">到底後繼續滾 trackpad 才觸發；amplitude ↓</div>
-    <div class="seg" id="reboundAmp"><button>3</button><button aria-pressed="true">5</button><button>8</button></div>
+    <div class="seg" id="reboundAmp"><button aria-pressed="true">3</button><button>5</button><button>8</button></div>
     <div class="hint">回彈 duration ↓</div>
     <div class="seg" data-var="--rebound-duration" data-unit="ms"><button>220</button><button aria-pressed="true">280</button><button>320</button></div>
   </fieldset>
@@ -438,7 +438,7 @@ document.getElementById("replay").addEventListener("click", () => {
 });
 
 /* ===== bottom rebound: wheel-delta past the end, hysteresis + cooldown ===== */
-let reboundAmp = 5;
+let reboundAmp = 3;
 document.getElementById("reboundAmp").addEventListener("click", (e) => {
   const btn = e.target.closest("button"); if (!btn) return;
   document.querySelectorAll("#reboundAmp button").forEach((b) => b.removeAttribute("aria-pressed"));

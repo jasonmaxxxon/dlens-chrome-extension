@@ -8,6 +8,7 @@ import {
   loadPrCampaigns,
   loadPrEvidenceRows,
   normalizePrCampaign,
+  normalizePrCriteria,
   normalizePrEvidenceRow,
   PR_CAMPAIGNS_STORAGE_KEY,
   PR_EVIDENCE_ROWS_STORAGE_KEY,
@@ -70,6 +71,23 @@ test("normalizePrCampaign enforces exactly six criteria without inventing placeh
   assert.deepEqual(normalized?.criteria.map((criterion) => criterion.id), ["c1", "c2", "c3", "c4", "c5", "c6"]);
   assert.equal(normalized?.criteria[0]?.label, "Brand named");
   assert.equal(normalized?.criteria[2]?.label, "");
+});
+
+test("normalizes legacy campaigns with empty narrative settings", () => {
+  const normalized = normalizePrCampaign({
+    id: "campaign-1",
+    sessionId: "session-1",
+    name: "Launch",
+    briefText: "Brief",
+    criteria: normalizePrCriteria([]),
+    createdAt: "2026-07-14T00:00:00.000Z",
+    updatedAt: "2026-07-14T00:00:00.000Z"
+  });
+  assert.deepEqual(normalized?.narrativeSettings, {
+    narrativeAnchor: "",
+    targetAudience: "",
+    desiredAction: ""
+  });
 });
 
 test("savePrCampaign keeps one active campaign per session", async () => {
@@ -142,7 +160,68 @@ test("savePrCampaignDraft stamps id and timestamps at the storage seam", async (
   assert.equal(saved[0]?.id, "prcampaign-fixed");
   assert.equal(saved[0]?.createdAt, "2026-06-12T01:02:03.000Z");
   assert.equal(saved[0]?.updatedAt, "2026-06-12T01:02:03.000Z");
+  assert.deepEqual(saved[0]?.narrativeSettings, {
+    narrativeAnchor: "",
+    targetAudience: "",
+    desiredAction: ""
+  });
   assert.equal((await loadActivePrCampaign(storage, "session-1"))?.id, "prcampaign-fixed");
+});
+
+test("incoming narrative settings survive a save and load round trip", async () => {
+  const storage = createStorageArea();
+  const narrativeSettings = {
+    narrativeAnchor: "Wellness belongs in daily life",
+    targetAudience: "Young working adults",
+    desiredAction: "Register for the event"
+  };
+
+  await savePrCampaignDraft(storage, {
+    sessionId: "session-1",
+    name: "Launch",
+    briefText: "Brief",
+    criteria: normalizePrCriteria([]),
+    narrativeSettings
+  }, { id: "campaign-1", now: "2026-07-14T00:00:00.000Z" });
+
+  const loaded = await loadActivePrCampaign(storage, "session-1");
+  assert.deepEqual(loaded?.narrativeSettings, narrativeSettings);
+});
+
+test("legacy save messages preserve existing narrative settings", async () => {
+  const campaign = normalizePrCampaign({
+    id: "campaign-1",
+    sessionId: "session-1",
+    name: "Launch",
+    briefText: "Brief",
+    criteria: normalizePrCriteria([]),
+    narrativeSettings: {
+      narrativeAnchor: "Wellness belongs in daily life",
+      targetAudience: "Young working adults",
+      desiredAction: "Register for the event"
+    },
+    createdAt: "2026-07-14T00:00:00.000Z",
+    updatedAt: "2026-07-14T00:00:00.000Z"
+  });
+  assert.ok(campaign);
+  const storageWithNarrativeCampaign = createStorageArea({
+    [PR_CAMPAIGNS_STORAGE_KEY]: [{
+      ...campaign,
+      narrativeSettings: {
+        narrativeAnchor: "Wellness belongs in daily life",
+        targetAudience: "Young working adults",
+        desiredAction: "Register for the event"
+      }
+    }]
+  });
+  const saved = await savePrCampaignDraft(storageWithNarrativeCampaign, {
+    sessionId: campaign.sessionId,
+    id: campaign.id,
+    name: "Renamed",
+    briefText: campaign.briefText,
+    criteria: campaign.criteria
+  }, { now: "2026-07-14T01:00:00.000Z" });
+  assert.equal(saved[0]?.narrativeSettings.desiredAction, "Register for the event");
 });
 
 test("normalizePrEvidenceRow defaults all criteria matches to false", () => {

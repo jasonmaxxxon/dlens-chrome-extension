@@ -109,6 +109,8 @@ export function TechniqueView({
           </span>
         </div>
         <div
+          data-technique-missing-card="true"
+          data-dlens-presence="card"
           style={{
             display: "grid",
             gap: 8,
@@ -281,6 +283,7 @@ export function TechniqueView({
                   <article
                     key={technique.key}
                     data-technique-card={technique.key}
+                    data-dlens-presence="card"
                     style={{
                       scrollSnapAlign: "start",
                       borderRadius: tokens.radius.card,

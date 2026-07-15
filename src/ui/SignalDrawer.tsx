@@ -285,10 +285,11 @@ export function SignalDrawer({
         position: "fixed",
         right: 24,
         top: 82,
+        bottom: 0,
         width: DEFAULT_POPUP_WIDTH,
         maxWidth: "calc(100vw - 48px)",
-        height: "min(86vh, 860px)",
-        maxHeight: "min(86vh, 860px)",
+        height: "auto",
+        maxHeight: "none",
         zIndex: 2147483642,
         borderRadius: tokens.radius.lg + 2,
         background: tokens.color.surface,
@@ -347,6 +348,7 @@ export function SignalDrawer({
         data-signal-drawer-body="true"
         style={{
           flex: 1,
+          minHeight: 0,
           overflowY: "auto",
           padding: "18px 24px 24px",
           display: "grid",

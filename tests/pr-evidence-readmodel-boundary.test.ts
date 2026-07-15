@@ -4,6 +4,7 @@ import test from "node:test";
 
 const prEvidenceViewSource = readFileSync(new URL("../src/ui/PrEvidenceViews.tsx", import.meta.url), "utf8");
 const prEvidenceViewModelSource = readFileSync(new URL("../src/viewmodel/pr-evidence.ts", import.meta.url), "utf8");
+const prEvidenceResourceSource = readFileSync(new URL("../src/ui/pr-evidence-resource.ts", import.meta.url), "utf8");
 const appStateSource = readFileSync(new URL("../src/ui/useInPageCollectorAppState.ts", import.meta.url), "utf8");
 const popupSource = readFileSync(new URL("../src/ui/InPageCollectorPopup.tsx", import.meta.url), "utf8");
 const backgroundSource = readFileSync(new URL("../entrypoints/background.ts", import.meta.url), "utf8");
@@ -38,4 +39,14 @@ test("PR campaign save intent is stamped at the background storage boundary", ()
   assert.match(backgroundSource, /case "pr\/save-campaign"/);
   assert.match(backgroundSource, /savePrCampaignDraft\(\s*chrome\.storage\.local,[\s\S]*createPrCampaignStamp\(\)/);
   assert.doesNotMatch(prEvidenceViewSource, /createdAt|updatedAt|Date\.now|Math\.random/);
+});
+
+test("PR narrative state stays in the resource and ViewModel command boundary", () => {
+  assert.match(prEvidenceResourceSource, /narrativeRead/);
+  assert.match(prEvidenceResourceSource, /narrativeCurrentSourceHash/);
+  assert.match(prEvidenceResourceSource, /narrativeError/);
+  assert.match(prEvidenceViewModelSource, /kind:\s*"setLens"/);
+  assert.match(prEvidenceViewModelSource, /kind:\s*"generateNarrative"/);
+  assert.match(prEvidenceViewModelSource, /kind:\s*"selectNarrativeClaim"/);
+  assert.doesNotMatch(prEvidenceViewModelSource, /sendExtensionMessage|chrome\.storage|Date\.now\(|Math\.random\(/);
 });

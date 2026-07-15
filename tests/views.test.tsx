@@ -5,6 +5,7 @@ import React from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 
 import { buildProductAgentTaskPromptHash } from "../src/compare/product-agent-task-feedback.ts";
+import type { PrNarrativeRead } from "../src/compare/pr-narrative.ts";
 import { SIGNAL_READING_PROMPT_VERSION } from "../src/compare/signal-reading.ts";
 import type { SessionProcessingSummary, WorkerStatus } from "../src/state/processing-state.ts";
 import type { SignalReadiness } from "../src/state/signal-readiness.ts";
@@ -21,6 +22,7 @@ import {
 } from "../src/viewmodel/product-signal.ts";
 import {
   buildPrEvidenceViewModel,
+  type PrEvidenceCommand,
   type PrEvidenceResourceState,
   type PrEvidenceUiState,
   type PrEvidenceViewModel
@@ -380,7 +382,7 @@ function buildPrEvidenceVm(
   const baseResource = createPrEvidenceResource(sessionId);
   return buildPrEvidenceViewModel({
     sessionId,
-    resource: { ...baseResource, ...resource },
+    resource: { ...baseResource, setupCollapsed: true, ...resource },
     uiState: { ...idlePrEvidenceUiState, ...uiState }
   });
 }
@@ -395,6 +397,111 @@ function renderPrEvidenceView(
       onCommand: () => undefined
     })
   );
+}
+
+function buildPrNarrativeViewFixture(): Pick<PrEvidenceResourceState, "campaign" | "rows" | "narrativeRead" | "narrativeCurrentSourceHash" | "setupCollapsed"> {
+  const campaign: PrCampaign = {
+    id: "campaign-narrative",
+    sessionId: "session-pr",
+    name: "Launch narrative",
+    briefText: "把設定流程由三步簡化成一步，讓首次使用者可以立即完成。",
+    criteria: [
+      { id: "c1", label: "活動名稱" },
+      { id: "c2", label: "官方帳號" },
+      { id: "c3", label: "核心訊息" },
+      { id: "c4", label: "場地" },
+      { id: "c5", label: "體驗主題" },
+      { id: "c6", label: "希望行動" }
+    ],
+    narrativeSettings: {
+      narrativeAnchor: "一分鐘完成首次設定",
+      targetAudience: "第一次使用產品的自由工作者",
+      desiredAction: "完成設定並開始第一個專案"
+    },
+    createdAt: "2026-07-14T01:00:00.000Z",
+    updatedAt: "2026-07-14T01:00:00.000Z"
+  };
+  const rows: PrEvidenceRow[] = [
+    {
+      id: "row-narrative-1",
+      campaignId: campaign.id,
+      itemId: "item-narrative-1",
+      postUrl: "https://www.threads.net/@alpha/post/n1",
+      authorHandle: "alpha",
+      caption: "第一步很清楚，但連接帳戶仍然找不到入口。",
+      metrics: { likes: 12, comments: 2, reposts: 1 },
+      criteriaMatches: { c1: true, c2: false, c3: true, c4: false, c5: true, c6: false },
+      collectedAt: "2026-07-14T01:10:00.000Z"
+    },
+    {
+      id: "row-narrative-2",
+      campaignId: campaign.id,
+      itemId: "item-narrative-2",
+      postUrl: "https://www.threads.net/@beta/post/n2",
+      authorHandle: "beta",
+      caption: "我停在授權畫面，不知道下一步會發生甚麼。",
+      metrics: { likes: 9, comments: 3, reposts: 0 },
+      criteriaMatches: { c1: true, c2: false, c3: true, c4: false, c5: true, c6: false },
+      collectedAt: "2026-07-14T01:20:00.000Z"
+    },
+    {
+      id: "row-narrative-3",
+      campaignId: campaign.id,
+      itemId: "item-narrative-3",
+      postUrl: "https://www.threads.net/@gamma/post/n3",
+      authorHandle: "gamma",
+      caption: "照畫面做兩步就完成，沒有想像中複雜。",
+      metrics: { likes: 5, comments: 0, reposts: 0 },
+      criteriaMatches: { c1: true, c2: false, c3: true, c4: false, c5: true, c6: true },
+      collectedAt: "2026-07-14T01:30:00.000Z"
+    }
+  ];
+  const narrativeRead: PrNarrativeRead = {
+    schemaVersion: 1,
+    campaignId: campaign.id,
+    sourceRowIds: rows.map((row) => row.id),
+    collectedRowCount: rows.length,
+    snippetFallbackCount: 1,
+    sourceHash: "sha256:narrative-current",
+    promptVersion: "pr-narrative.v1",
+    provider: "google",
+    model: "gemini-test",
+    generatedAt: "2026-07-14T02:00:00.000Z",
+    status: "complete",
+    priorityClaimId: "claim-friction",
+    claims: [
+      {
+        id: "claim-friction",
+        title: "Setup friction dominates",
+        statement: "首次設定的阻力集中在帳戶連接與授權下一步。",
+        implication: "先修正授權後的下一步提示，否則簡化主敘事不會被相信。",
+        mode: "actionable",
+        alignment: "challenges",
+        supportRefs: [
+          { rowId: rows[0].id, summary: "找不到連接帳戶入口。" },
+          { rowId: rows[1].id, summary: "授權後不知道下一步。" }
+        ],
+        counterRefs: [{ rowId: rows[2].id, summary: "兩步即可完成設定。" }]
+      },
+      {
+        id: "claim-speed",
+        title: "Speed promise has a foothold",
+        statement: "少數貼文已直接呼應快速完成的核心敘事。",
+        implication: "保留速度承諾，但必須以清楚的操作證據支撐。",
+        mode: "experience",
+        alignment: "echoes",
+        supportRefs: [{ rowId: rows[2].id, summary: "兩步完成，感受直接。" }],
+        counterRefs: []
+      }
+    ]
+  };
+  return {
+    campaign: prCampaignToDraft(campaign),
+    rows,
+    narrativeRead,
+    narrativeCurrentSourceHash: narrativeRead.sourceHash,
+    setupCollapsed: true
+  };
 }
 
 function buildComments(count: number) {
@@ -529,7 +636,7 @@ test("mode themes keep topic and product visually separate", () => {
   assert.equal(topicStyle["--dlens-mode-accent"], tokens.color.cyan);
   assert.notEqual(productStyle["--dlens-mode-accent"], topicStyle["--dlens-mode-accent"]);
   assert.match(topicStyle["--dlens-mode-hover-border-strong"], /63,90,59/);
-  assert.match(productStyle["--dlens-mode-hover-border-strong"], /194,64,31/);
+  assert.match(productStyle["--dlens-mode-hover-border-strong"], /35,79,122/);
   assert.match(prStyle["--dlens-mode-hover-border-strong"], /122,32,48/);
 });
 
@@ -596,7 +703,11 @@ test("InPageCollectorPopup selects the shared glass shell for Topic, Product, an
 });
 
 test("InPageCollectorPopup keeps extra scroll padding below the last card", () => {
-  assert.ok(inPageCollectorPopupTestables.popupViewportBottomPadding >= tokens.spacing.section + 40);
+  assert.equal(inPageCollectorPopupTestables.popupViewportBottomPadding, tokens.spacing.xl);
+  assert.equal(
+    (inPageCollectorPopupTestables as unknown as { popupViewportHeight?: string }).popupViewportHeight,
+    "min(78vh, 780px)"
+  );
   assert.equal(inPageCollectorPopupTestables.settingsWorkspaceSurfaceStyle.overflow, "visible");
 });
 
@@ -744,6 +855,14 @@ test("InPageCollectorPopup topic create action opens the real create-topic flow"
     assert.equal(scrollViewport.style.borderRadius, `${inPageCollectorPopupTestables.popupFrameRadius}px`);
     assert.equal(scrollViewport.style.boxSizing, "border-box");
     assert.equal(scrollViewport.style.transform, "");
+    assert.equal(scrollViewport.style.overscrollBehaviorY, "contain");
+    const scrollTrack = scrollViewport.querySelector<HTMLElement>('[data-workspace-popup-scroll-track="true"]');
+    assert.ok(scrollTrack, "presence and rebound need a dedicated content track inside the viewport");
+    assert.equal(scrollTrack.style.transform, "", "rebound must use individual translate and leave transform ownership alone");
+    assert.equal(scrollTrack.style.minHeight, "100%", "the inner motion track must preserve the popup's full-height shell contract");
+    const bottomSpacer = scrollTrack.querySelector<HTMLElement>('[data-workspace-popup-bottom-spacer="true"]');
+    assert.ok(bottomSpacer, "the final action remains reachable through a real scroll-track spacer");
+    assert.equal(bottomSpacer.style.height, `${tokens.spacing.xl}px`);
     const button = rootElement.querySelector<HTMLButtonElement>('[data-new-topic-button="triage"]');
     assert.ok(button, "topics page must render the create-topic button");
     button.dispatchEvent(new dom.window.MouseEvent("click", { bubbles: true }));
@@ -957,6 +1076,7 @@ test("LibraryView render layer keeps row count, section state, and shared framin
   assert.match(pendingHtml, /data-library-section-state="pending"/);
   assert.match(pendingHtml, /data-library-process-all="true"/);
   assert.match(pendingHtml, /data-library-section="posts"/);
+  assert.match(pendingHtml, /data-library-section="readiness"[^>]*data-dlens-presence="card"/);
   assert.match(pendingHtml, /data-section-header="shared"/);
   assert.ok(countOccurrences(pendingHtml, `data-shared-surface-card=`) >= 2);
 
@@ -1265,6 +1385,7 @@ test("CollectView keeps the preview card and compact collect controls visible wi
   assert.match(html, /data-archive-no-ai-notice="collect"/);
   assert.match(html, /儲存為原文記錄，不跑 AI 分析/);
   assert.match(html, /data-collector-panel-header="true"/);
+  assert.match(html, /data-collector-stage="hero"[^>]*data-dlens-presence="card"/);
   assert.match(html, /data-collector-mode-toggle="true"/);
   assert.match(html, /data-collector-key-hints="true"/);
   assert.match(html, /採集中/);
@@ -1295,6 +1416,7 @@ test("CollectView renders saved-post metrics in recent captures instead of dupli
   );
 
   assert.match(html, /data-collector-recent-captures="true"/);
+  assert.match(html, /data-collector-recent-captures="true"[^>]*data-dlens-presence="card"/);
   assert.match(html, /data-collector-metric-strip="recent-metric-item"/);
   assert.match(html, /data-collector-metric="likes"/);
   assert.match(html, /data-collector-metric="comments"/);
@@ -1355,6 +1477,8 @@ test("PrEvidenceView renders campaign setup and compact evidence ledger", () => 
 
   assert.match(html, /data-pr-evidence-view="true"/);
   assert.match(html, /data-pr-campaign-setup="true"/);
+  assert.doesNotMatch(html, /data-pr-campaign-setup="true"[^>]*data-dlens-presence=/);
+  assert.match(html, /data-pr-summary-cta="empty"[^>]*data-dlens-presence="card"/);
   assert.match(html, /data-pr-actions="true"/);
   assert.match(html, /data-pr-evidence-ledger="compact"/);
   assert.match(html, /data-pr-match-summary="true"/);
@@ -1439,7 +1563,7 @@ test("PrEvidenceView aligns the editorial PR structure to shared workspace token
 });
 
 test("PR Evidence setup copy is Chinese-first and avoids fake campaign examples", () => {
-  const html = renderPrEvidenceView();
+  const html = renderPrEvidenceView({ setupCollapsed: false });
 
   assert.match(html, /活動名稱/);
   assert.match(html, /貼上新聞稿、message house 或 PR guideline，也可以上傳 PDF。/);
@@ -1450,6 +1574,193 @@ test("PR Evidence setup copy is Chinese-first and avoids fake campaign examples"
   assert.doesNotMatch(html, /Mannings BoostUP Wellness Carnival/);
   assert.doesNotMatch(html, /Campaign name|Saved posts|Ledger|Auto-saves after Save/);
   assert.doesNotMatch(html, /criterion_1/);
+});
+
+test("PR expanded activity settings expose narrative fields without rendering either work lens", () => {
+  const fixture = buildPrNarrativeViewFixture();
+  const html = renderPrEvidenceView({ ...fixture, setupCollapsed: false }, { activeLens: "narrative" });
+
+  assert.match(html, /aria-label="核心敘事"/);
+  assert.match(html, /aria-label="目標受眾"/);
+  assert.match(html, /aria-label="希望行動"/);
+  assert.match(html, /一分鐘完成首次設定/);
+  assert.match(html, /第一次使用產品的自由工作者/);
+  assert.match(html, /完成設定並開始第一個專案/);
+  assert.doesNotMatch(html, /data-pr-lens-switcher="true"/);
+  assert.doesNotMatch(html, /data-pr-working-area="true"/);
+  assert.doesNotMatch(html, /data-pr-narrative-lens="true"/);
+});
+
+test("PR narrative lens leads with one priority insight and opens auditable support plus optional counterevidence", () => {
+  const fixture = buildPrNarrativeViewFixture();
+  const html = renderPrEvidenceView(fixture, {
+    activeLens: "narrative",
+    selectedNarrativeClaimId: "claim-friction"
+  });
+
+  assert.match(html, /data-pr-scope-bar="campaign-collected-posts"/);
+  assert.match(html, /只分析這個 campaign 已 Collect 的 Threads 主帖/);
+  assert.match(html, /data-pr-lens-switcher="true"/);
+  assert.match(html, /role="tab" aria-selected="true"[^>]*data-pr-lens-tab="narrative"/);
+  assert.match(html, /data-pr-narrative-priority="true"/);
+  assert.ok(
+    html.indexOf("先修正授權後的下一步提示") < html.indexOf("首次設定的阻力集中"),
+    "priority surface must lead with the implication before the supporting claim statement"
+  );
+  assert.equal(countOccurrences(html, "2/3 支持"), 1, "the priority support ratio must render once");
+  assert.match(html, /3 \/ 3 篇可判讀/);
+  assert.match(html, /1 篇使用採集摘要/);
+  assert.match(html, /data-pr-narrative-compass="true"/);
+  assert.match(html, /role="dialog"[^>]*aria-label="Setup friction dominates"/);
+  assert.match(html, /data-pr-narrative-evidence-list="support"/);
+  assert.match(html, /data-pr-narrative-counterexamples="true"/);
+  assert.match(html, /兩步即可完成設定/);
+  assert.ok(countOccurrences(html, "Threads 原帖") >= 2);
+  assert.doesNotMatch(html, /自動持續|監察新帖|份額變化|自上次判讀/);
+});
+
+test("PR narrative drawer omits the counterexample section when the selected claim has none", () => {
+  const fixture = buildPrNarrativeViewFixture();
+  const html = renderPrEvidenceView(fixture, {
+    activeLens: "narrative",
+    selectedNarrativeClaimId: "claim-speed"
+  });
+
+  assert.match(html, /role="dialog"[^>]*aria-label="Speed promise has a foothold"/);
+  assert.match(html, /data-pr-narrative-evidence-list="support"/);
+  assert.doesNotMatch(html, /data-pr-narrative-counterexamples="true"/);
+  assert.doesNotMatch(html, /反例／限制/);
+});
+
+test("PR evidence lens preserves matching, metrics, summary, and CSV actions", () => {
+  const fixture = buildPrNarrativeViewFixture();
+  const html = renderPrEvidenceView(fixture, { activeLens: "evidence" });
+
+  assert.match(html, /role="tab" aria-selected="true"[^>]*data-pr-lens-tab="evidence"/);
+  assert.match(html, /data-pr-working-area="true"/);
+  assert.match(html, /批次判斷/);
+  assert.match(html, /抓取進階指標/);
+  assert.match(html, /aria-label="匯出 CSV"/);
+  assert.match(html, /生成摘要/);
+  assert.doesNotMatch(html, /data-pr-narrative-priority="true"/);
+});
+
+test("PR narrative lens distinguishes empty, stale, insufficient, and provider-error states", () => {
+  const fixture = buildPrNarrativeViewFixture();
+  const emptyHtml = renderPrEvidenceView({
+    ...fixture,
+    narrativeRead: null,
+    narrativeCurrentSourceHash: "sha256:narrative-current"
+  }, { activeLens: "narrative" });
+  assert.match(emptyHtml, /data-pr-narrative-state="empty"/);
+  assert.match(emptyHtml, /尚未建立敘事判讀/);
+  assert.match(emptyHtml, /判讀已收集的 3 篇/);
+
+  const staleHtml = renderPrEvidenceView({
+    ...fixture,
+    narrativeCurrentSourceHash: "sha256:newly-collected",
+    narrativeError: "Provider timeout during retry"
+  }, { activeLens: "narrative" });
+  assert.match(staleHtml, /data-pr-narrative-state="stale"/);
+  assert.match(staleHtml, /已收集的貼文已變更/);
+  assert.match(staleHtml, /上次重新判讀失敗：Provider timeout during retry/);
+  assert.match(staleHtml, /data-pr-narrative-priority="true"/);
+
+  const insufficientRead: PrNarrativeRead = {
+    ...fixture.narrativeRead!,
+    sourceRowIds: [],
+    collectedRowCount: fixture.rows.length,
+    snippetFallbackCount: 0,
+    sourceHash: "sha256:insufficient",
+    status: "insufficient_evidence",
+    priorityClaimId: null,
+    claims: []
+  };
+  const insufficientHtml = renderPrEvidenceView({
+    ...fixture,
+    narrativeRead: insufficientRead,
+    narrativeCurrentSourceHash: insufficientRead.sourceHash,
+    narrativeError: "Provider timeout after insufficient read"
+  }, { activeLens: "narrative" });
+  assert.match(insufficientHtml, /data-pr-narrative-state="insufficient_evidence"/);
+  assert.match(insufficientHtml, /不會硬湊分佈或趨勢/);
+  assert.match(insufficientHtml, /上次重新判讀失敗：Provider timeout after insufficient read/);
+  assert.doesNotMatch(insufficientHtml, /data-pr-narrative-priority="true"/);
+
+  const errorHtml = renderPrEvidenceView({
+    ...fixture,
+    narrativeRead: null,
+    narrativeError: "Provider key missing"
+  }, { activeLens: "narrative" });
+  assert.match(errorHtml, /data-pr-narrative-state="error"/);
+  assert.match(errorHtml, /Provider key missing/);
+});
+
+test("PR settings, lens, manual generation, and claim controls dispatch ViewModel commands", async () => {
+  const { JSDOM } = await import("jsdom");
+  const { createRoot } = await import("react-dom/client");
+  const { flushSync } = await import("react-dom");
+  const dom = new JSDOM("<div id=\"root\"></div>", { url: "https://dlens.test" });
+  const previous = {
+    window: globalThis.window,
+    document: globalThis.document,
+    HTMLElement: globalThis.HTMLElement,
+    HTMLButtonElement: globalThis.HTMLButtonElement,
+    MouseEvent: globalThis.MouseEvent,
+    KeyboardEvent: globalThis.KeyboardEvent
+  };
+  Object.assign(globalThis, {
+    window: dom.window,
+    document: dom.window.document,
+    HTMLElement: dom.window.HTMLElement,
+    HTMLButtonElement: dom.window.HTMLButtonElement,
+    MouseEvent: dom.window.MouseEvent,
+    KeyboardEvent: dom.window.KeyboardEvent
+  });
+  const fixture = buildPrNarrativeViewFixture();
+  const viewModel = buildPrEvidenceVm(fixture, { activeLens: "narrative", selectedNarrativeClaimId: "claim-friction" });
+  const commands: PrEvidenceCommand[] = [];
+  const rootElement = dom.window.document.getElementById("root");
+  assert.ok(rootElement);
+  const root = createRoot(rootElement);
+
+  try {
+    flushSync(() => {
+      root.render(React.createElement(PrEvidenceView, {
+        viewModel,
+        onCommand: (command) => {
+          commands.push(command);
+        }
+      }));
+    });
+    const click = (selector: string) => {
+      const button = rootElement.querySelector<HTMLButtonElement>(selector);
+      assert.ok(button, `missing control: ${selector}`);
+      button.dispatchEvent(new dom.window.MouseEvent("click", { bubbles: true }));
+    };
+    const drawer = rootElement.querySelector<HTMLElement>('[data-pr-narrative-drawer="true"]');
+    assert.ok(drawer);
+    assert.equal(dom.window.document.activeElement, drawer, "opening the drawer must move focus into its dialog");
+    drawer.dispatchEvent(new dom.window.KeyboardEvent("keydown", { key: "Escape", bubbles: true }));
+    click('[data-pr-open-settings="header"]');
+    click('[data-pr-open-settings="summary"]');
+    click('[data-pr-lens-tab="evidence"]');
+    click('[data-pr-narrative-generate="true"]');
+    click('[data-pr-narrative-claim="claim-friction"]');
+
+    assert.deepEqual(commands, [
+      { kind: "selectNarrativeClaim", target: { sessionId: "session-pr", campaignId: "campaign-narrative" }, claimId: null },
+      { kind: "setSetupCollapsed", target: { sessionId: "session-pr" }, collapsed: false },
+      { kind: "setSetupCollapsed", target: { sessionId: "session-pr" }, collapsed: false },
+      { kind: "setLens", target: { sessionId: "session-pr" }, lens: "evidence" },
+      { kind: "generateNarrative", target: { sessionId: "session-pr", campaignId: "campaign-narrative" } },
+      { kind: "selectNarrativeClaim", target: { sessionId: "session-pr", campaignId: "campaign-narrative" }, claimId: "claim-friction" }
+    ]);
+  } finally {
+    flushSync(() => root.unmount());
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    Object.assign(globalThis, previous);
+  }
 });
 
 test("PR Evidence ledger rows expose the original Threads post link", () => {
@@ -1841,7 +2152,7 @@ test("PrEvidenceView keeps metrics actions prominent and avoids horizontal inspe
   assert.match(html, /data-pr-metrics-list="wrap"/);
   assert.match(previewHtml, /data-pr-csv-preview-layout="wrap"/);
   assert.doesNotMatch(previewHtml, /min-width:1320/);
-  assert.match(html, /padding-bottom:28px/);
+  assert.doesNotMatch(html, /data-pr-evidence-view="true"[^>]*padding-bottom/);
 });
 
 test("PR Evidence compact rows use shared typography tokens instead of fractional font drift", () => {
@@ -1955,7 +2266,6 @@ test("SettingsView exposes Google provider and save action", () => {
   const html = renderToStaticMarkup(
     React.createElement(SettingsView, {
       sessionMode: "product",
-      canEditSessionMode: true,
       draftBaseUrl: "http://127.0.0.1:8000",
       draftProvider: "google",
       draftOpenAiKey: "",
@@ -2013,7 +2323,6 @@ test("SettingsView exposes Google provider and save action", () => {
       onDraftProductProfileChange: () => undefined,
       onProductProfileSeedTextChange: () => undefined,
       onInitProductProfile: () => undefined,
-      onSessionModeChange: () => undefined,
       onClearProductCache: () => undefined,
       createContextFileId: (kind, name) => `ctx_${kind}_${name}`,
       onSaveSettings: () => undefined
@@ -2024,16 +2333,20 @@ test("SettingsView exposes Google provider and save action", () => {
   assert.match(html, /連線設定與 API 金鑰存於本機，不會上傳。/);
   assert.doesNotMatch(html, /field drawer/);
   assert.match(html, /data-settings-surface="drawer"/);
-  assert.match(html, /data-settings-group="folder"/);
-  assert.match(html, /data-settings-mode-option="product"[^>]*class="dlens-card-lift"/);
+  assert.doesNotMatch(html, /data-settings-group="folder"/);
+  assert.doesNotMatch(html, /data-settings-mode-option=/);
   assert.doesNotMatch(html, /data-settings-group="layout"/);
+  assert.match(html, /data-settings-group="language"/);
+  assert.match(html, /data-settings-language-switch="true"/);
+  assert.match(html, /data-settings-language-option="zh"[^>]*data-active="true"/);
+  assert.match(html, /data-settings-language-option="en"[^>]*data-active="false"/);
   assert.match(html, /data-settings-group="connection"/);
   assert.match(html, /data-settings-group="keys"/);
   assert.match(html, /data-settings-group="product"/);
   assert.match(html, /data-settings-group="connection"[^>]*border-radius:20px/);
   assert.match(html, /data-settings-group="connection"[^>]*0 4px 14px -4px rgba\(27,26,23,0\.07\)/);
-  assert.match(html, /資料夾類型/);
-  assert.match(html, /產品觀察（Product）/);
+  assert.doesNotMatch(html, /資料夾類型/);
+  assert.doesNotMatch(html, /產品觀察（Product）/);
   assert.doesNotMatch(html, /版面偏好/);
   assert.doesNotMatch(html, /Product signal card/);
   assert.doesNotMatch(html, /Topic synthesis/);
@@ -2111,7 +2424,6 @@ test("SettingsView shows saved key state when sanitized snapshot hides the raw k
       onDraftGoogleKeyChange: () => undefined,
       onDraftLayoutPreferencesChange: () => undefined,
       onDraftProductProfileChange: () => undefined,
-      onSessionModeChange: () => undefined,
       createContextFileId: (kind, name) => `ctx_${kind}_${name}`,
       onSaveSettings: () => undefined
     })
@@ -2153,6 +2465,9 @@ test("Frame 01 — saved-signals filter tabs surface unclassified / pending / cl
   assert.match(html, /data-product-list-motion="saved-signals"/);
   assert.match(html, /data-dlens-list-key="s_ready"/);
   assert.match(html, /data-saved-signal-row="compact"[^>]*class="dlens-card-lift"/);
+  assert.match(html, /data-saved-signals-frame="true"/);
+  assert.doesNotMatch(html, /data-saved-signals-frame="true"[^>]*data-dlens-presence=/);
+  assert.match(html, /data-saved-signal-row="compact"[^>]*data-dlens-presence="card"/);
   assert.match(html, /未分類/);
   assert.match(html, /待處理/);
   assert.match(html, /已分類/);
@@ -2445,7 +2760,7 @@ test("ProductSignalView shows hydration state instead of an empty result while p
     })
   );
 
-  assert.match(html, /data-product-hydrating="true"/);
+  assert.match(html, /data-product-hydrating="true"[^>]*data-dlens-presence="card"/);
   assert.match(html, /data-product-load-state="loading"/);
   assert.match(html, /讀取中/);
   assert.doesNotMatch(html, /No result|尚無結果/);
@@ -3248,7 +3563,7 @@ test("ProductSignalView gives each product page a distinct information shape", (
   assert.doesNotMatch(savedHtml, /data-product-selected-aside="true"/);
 
   assert.match(classificationHtml, /分類構成/);
-  assert.match(classificationHtml, /data-product-classification-board="true"[^>]*padding-bottom:76px/);
+  assert.doesNotMatch(classificationHtml, /data-product-classification-board="true"[^>]*padding-bottom/);
   assert.match(classificationHtml, /系統挑出的內容/);
   assert.match(classificationHtml, /討論串內容/);
   assert.match(classificationHtml, /data-product-classification-layout="responsive"[^>]*min-width:0/);
@@ -3795,7 +4110,7 @@ test("actionable view with analyses but no readings surfaces the first-reading C
     productSignalViewElement( { ...baseProps, kind: "actionable-filter", signalReadings: [] })
   );
 
-  assert.match(html, /data-reading-first-run-cta="true"/);
+  assert.match(html, /data-reading-first-run-cta="true"[^>]*data-dlens-presence="card"/);
   assert.match(html, /深度判讀/);
   assert.match(html, /data-actionable-insights-board="true"/);
 
@@ -4194,7 +4509,7 @@ test("ProductSignalView restores the 0.1.15 reading review route when readings e
 
   assert.match(html, /行動簡報/);
   assert.match(html, /READING REVIEW/);
-  assert.match(html, /data-signal-reading-review-workspace="true"[^>]*padding-bottom:76px/);
+  assert.doesNotMatch(html, /data-signal-reading-review-workspace="true"[^>]*padding-bottom/);
   assert.doesNotMatch(html, /data-saved-signals-batch-export="true"/);
   assert.doesNotMatch(html, /Agent export/);
   assert.doesNotMatch(html, /原文優先/);
@@ -4213,7 +4528,7 @@ test("ProductSignalView restores the 0.1.15 reading review route when readings e
   assert.match(html, /data-product-list-motion="reading-review"/);
   assert.match(html, /data-signal-reading-marginalia="true"/);
   assert.match(html, /data-signal-reading-marginalia-rail="true"/);
-  assert.match(html, /border-left:3px solid var\(--dlens-mode-accent, #c2401f\)/);
+  assert.match(html, /border-left:3px solid var\(--dlens-mode-accent, #234f7a\)/);
   assert.match(html, /data-signal-reading-relevance-summary="true"/);
   assert.match(html, /data-signal-reading-provenance="true"/);
   assert.match(html, /data-signal-reading-evidence="true"/);

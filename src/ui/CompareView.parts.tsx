@@ -143,6 +143,7 @@ export function DictionaryCard({ rank, handle, quote, likes, replies, side, mark
   return (
     <div
       data-compare-evidence-row="dictionary"
+      data-dlens-presence="card"
       style={{ background: AR.card, borderRadius: tokens.radius.card, overflow: "hidden", boxShadow: tokens.shadow.glass }}
     >
       <div style={{ padding: "12px 15px 10px", display: "flex", alignItems: "center", gap: 8, borderBottom: `0.5px solid ${AR.line}` }}>
@@ -173,7 +174,7 @@ export function DictionaryCard({ rank, handle, quote, likes, replies, side, mark
       )}
       {hasEffectiveness && (
         <>
-          <button className="dlens-tactile-row" onClick={() => setExp((value) => !value)} style={{ width: "100%", background: tokens.color.inkWash, border: "none", borderTop: `0.5px solid ${tokens.color.cardEdge}`, cursor: "pointer", padding: "8px 15px", display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+          <button data-dlens-presence="row" className="dlens-tactile-row" onClick={() => setExp((value) => !value)} style={{ width: "100%", background: tokens.color.inkWash, border: "none", borderTop: `0.5px solid ${tokens.color.cardEdge}`, cursor: "pointer", padding: "8px 15px", display: "flex", alignItems: "center", justifyContent: "space-between" }}>
             <div style={{ display: "flex", alignItems: "center", gap: 5 }}>
               <PartsSparkle color={cc} size={9} />
               <span style={{ fontSize: 10.5, fontWeight: 700, color: cc }}>為什麼被挑出來</span>

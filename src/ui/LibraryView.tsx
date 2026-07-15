@@ -188,6 +188,7 @@ function SavedAnalysisCard({
   return (
     <div
       data-saved-analysis-card={analysis.resultId}
+      data-dlens-presence="card"
       className="dlens-card-lift"
       style={{
         background: tokens.color.elevated,
@@ -327,6 +328,7 @@ function FolderSynthesisCard({
     <section
       data-folder-synthesis="card"
       data-folder-synthesis-layout="briefing"
+      data-dlens-presence="card"
       style={{
         display: "grid",
         gap: 14,
@@ -880,6 +882,7 @@ export function LibraryView({
                 return (
                   <div
                     key={reading.id}
+                    data-dlens-presence="card"
                     style={{
                       background: AR.card, borderRadius: 12, overflow: "hidden",
                       boxShadow: tokens.shadow.card,

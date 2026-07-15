@@ -11,12 +11,25 @@ export interface PrCriterion {
   label: string;
 }
 
+export interface PrNarrativeSettings {
+  narrativeAnchor: string;
+  targetAudience: string;
+  desiredAction: string;
+}
+
+export const EMPTY_PR_NARRATIVE_SETTINGS: PrNarrativeSettings = {
+  narrativeAnchor: "",
+  targetAudience: "",
+  desiredAction: ""
+};
+
 export interface PrCampaign {
   id: string;
   sessionId: string;
   name: string;
   briefText: string;
   criteria: [PrCriterion, PrCriterion, PrCriterion, PrCriterion, PrCriterion, PrCriterion];
+  narrativeSettings?: PrNarrativeSettings;
   createdAt: string;
   updatedAt: string;
   lastMatchedAt?: string;
@@ -28,6 +41,7 @@ export interface PrCampaignDraft {
   name: string;
   briefText: string;
   criteria: [PrCriterion, PrCriterion, PrCriterion, PrCriterion, PrCriterion, PrCriterion];
+  narrativeSettings: PrNarrativeSettings;
   createdAt?: string;
   updatedAt?: string;
   lastMatchedAt?: string;
@@ -38,6 +52,7 @@ export interface PrCampaignSaveDraft {
   name: string;
   briefText: string;
   criteria: [PrCriterion, PrCriterion, PrCriterion, PrCriterion, PrCriterion, PrCriterion];
+  narrativeSettings?: PrNarrativeSettings;
 }
 
 export interface PrCampaignSaveDraftWithSession extends PrCampaignSaveDraft {
@@ -48,6 +63,8 @@ export interface PrCampaignStamp {
   id?: string;
   now?: string;
 }
+
+type NormalizedPrCampaign = PrCampaign & { narrativeSettings: PrNarrativeSettings };
 
 export type PrCriteriaMatches = Record<PrCriterionId, boolean>;
 
@@ -84,7 +101,8 @@ export function createDraftPrCampaign(sessionId: string): PrCampaignDraft {
     sessionId,
     name: "",
     briefText: "",
-    criteria: normalizePrCriteria([])
+    criteria: normalizePrCriteria([]),
+    narrativeSettings: normalizePrNarrativeSettings(null)
   };
 }
 
@@ -95,6 +113,7 @@ export function prCampaignToDraft(campaign: PrCampaign): PrCampaignDraft {
     name: campaign.name,
     briefText: campaign.briefText,
     criteria: normalizePrCriteria(campaign.criteria),
+    narrativeSettings: normalizePrNarrativeSettings(campaign.narrativeSettings),
     createdAt: campaign.createdAt,
     updatedAt: campaign.updatedAt,
     ...(campaign.lastMatchedAt ? { lastMatchedAt: campaign.lastMatchedAt } : {})
@@ -103,6 +122,15 @@ export function prCampaignToDraft(campaign: PrCampaign): PrCampaignDraft {
 
 function readString(value: unknown, fallback = ""): string {
   return typeof value === "string" ? value : fallback;
+}
+
+export function normalizePrNarrativeSettings(value: unknown): PrNarrativeSettings {
+  const raw = value && typeof value === "object" ? value as Record<string, unknown> : {};
+  return {
+    narrativeAnchor: readString(raw.narrativeAnchor).trim(),
+    targetAudience: readString(raw.targetAudience).trim(),
+    desiredAction: readString(raw.desiredAction).trim()
+  };
 }
 
 function readNumber(value: unknown): number | undefined {
@@ -148,7 +176,7 @@ export function normalizePrCriteriaMatches(value: unknown): PrCriteriaMatches {
   };
 }
 
-export function normalizePrCampaign(value: unknown): PrCampaign | null {
+export function normalizePrCampaign(value: unknown): NormalizedPrCampaign | null {
   if (!value || typeof value !== "object") {
     return null;
   }
@@ -166,6 +194,7 @@ export function normalizePrCampaign(value: unknown): PrCampaign | null {
     name,
     briefText: readString(raw.briefText).trim(),
     criteria: normalizePrCriteria(raw.criteria),
+    narrativeSettings: normalizePrNarrativeSettings(raw.narrativeSettings),
     createdAt: readString(raw.createdAt, "1970-01-01T00:00:00.000Z").trim() || "1970-01-01T00:00:00.000Z",
     updatedAt: readString(raw.updatedAt, "1970-01-01T00:00:00.000Z").trim() || "1970-01-01T00:00:00.000Z",
     ...(lastMatchedAt ? { lastMatchedAt } : {})
@@ -188,7 +217,10 @@ export function normalizePrCampaignSaveDraft(value: unknown): PrCampaignSaveDraf
     sessionId,
     name,
     briefText: readString(raw.briefText).trim(),
-    criteria: normalizePrCriteria(raw.criteria)
+    criteria: normalizePrCriteria(raw.criteria),
+    ...(Object.prototype.hasOwnProperty.call(raw, "narrativeSettings")
+      ? { narrativeSettings: normalizePrNarrativeSettings(raw.narrativeSettings) }
+      : {})
   };
 }
 
@@ -232,15 +264,15 @@ export function normalizePrEvidenceRow(value: unknown): PrEvidenceRow | null {
   };
 }
 
-async function readPrCampaigns(storageArea: StorageAreaLike): Promise<PrCampaign[]> {
+async function readPrCampaigns(storageArea: StorageAreaLike): Promise<NormalizedPrCampaign[]> {
   const raw = await storageArea.get(PR_CAMPAIGNS_STORAGE_KEY);
   const entries = Array.isArray(raw[PR_CAMPAIGNS_STORAGE_KEY]) ? raw[PR_CAMPAIGNS_STORAGE_KEY] : [];
   return entries
     .map((entry) => normalizePrCampaign(entry))
-    .filter((entry): entry is PrCampaign => entry !== null);
+    .filter((entry): entry is NormalizedPrCampaign => entry !== null);
 }
 
-async function writePrCampaigns(storageArea: StorageAreaLike, campaigns: PrCampaign[]): Promise<PrCampaign[]> {
+async function writePrCampaigns(storageArea: StorageAreaLike, campaigns: NormalizedPrCampaign[]): Promise<NormalizedPrCampaign[]> {
   await storageArea.set({ [PR_CAMPAIGNS_STORAGE_KEY]: campaigns });
   return campaigns;
 }
@@ -258,17 +290,17 @@ async function writePrEvidenceRows(storageArea: StorageAreaLike, rows: PrEvidenc
   return rows;
 }
 
-export async function loadPrCampaigns(storageArea: StorageAreaLike, sessionId: string): Promise<PrCampaign[]> {
+export async function loadPrCampaigns(storageArea: StorageAreaLike, sessionId: string): Promise<NormalizedPrCampaign[]> {
   const campaigns = await readPrCampaigns(storageArea);
   return campaigns.filter((campaign) => campaign.sessionId === sessionId);
 }
 
-export async function loadActivePrCampaign(storageArea: StorageAreaLike, sessionId: string): Promise<PrCampaign | null> {
+export async function loadActivePrCampaign(storageArea: StorageAreaLike, sessionId: string): Promise<NormalizedPrCampaign | null> {
   const campaigns = await loadPrCampaigns(storageArea, sessionId);
   return campaigns.sort((a, b) => b.updatedAt.localeCompare(a.updatedAt))[0] || null;
 }
 
-export async function savePrCampaign(storageArea: StorageAreaLike, campaign: PrCampaign): Promise<PrCampaign[]> {
+export async function savePrCampaign(storageArea: StorageAreaLike, campaign: PrCampaign): Promise<NormalizedPrCampaign[]> {
   const normalized = normalizePrCampaign(campaign);
   if (!normalized) {
     throw new Error("Invalid PR campaign");
@@ -282,7 +314,7 @@ export async function savePrCampaignDraft(
   storageArea: StorageAreaLike,
   draft: PrCampaignSaveDraftWithSession,
   stamp: PrCampaignStamp = {}
-): Promise<PrCampaign[]> {
+): Promise<NormalizedPrCampaign[]> {
   const normalized = normalizePrCampaignSaveDraft(draft);
   if (!normalized) {
     throw new Error("Invalid PR campaign draft");
@@ -293,12 +325,17 @@ export async function savePrCampaignDraft(
     : campaigns.find((entry) => entry.sessionId === normalized.sessionId);
   const now = stamp.now ?? new Date().toISOString();
   const id = normalized.id || existing?.id || stamp.id || createId("prcampaign");
-  const nextCampaign: PrCampaign = {
+  const nextCampaign: NormalizedPrCampaign = {
     id,
     sessionId: normalized.sessionId,
     name: normalized.name,
     briefText: normalized.briefText,
     criteria: normalizePrCriteria(normalized.criteria),
+    narrativeSettings: normalizePrNarrativeSettings(
+      Object.prototype.hasOwnProperty.call(normalized, "narrativeSettings")
+        ? normalized.narrativeSettings
+        : existing?.narrativeSettings
+    ),
     createdAt: existing?.createdAt || now,
     updatedAt: now,
     ...(existing?.lastMatchedAt ? { lastMatchedAt: existing.lastMatchedAt } : {})

@@ -49,6 +49,7 @@ test("TechniqueView renders cluster-specific deeper reading notes instead of a g
   assert.match(html, /data-technique-notes="cluster-specific"/);
   assert.match(html, /data-technique-carousel="swipe-cards"/);
   assert.match(html, /data-technique-card=/);
+  assert.match(html, /data-technique-card="[^"]+"[^>]*data-dlens-presence="card"/);
   assert.match(html, /Technique \/ Evidence/);
   assert.match(html, /Why this cluster matters/i);
   assert.match(html, /How Post B differs/i);
@@ -79,6 +80,7 @@ test("TechniqueView keeps a visible fallback instead of disappearing when detail
   );
 
   assert.match(html, /data-technique-view="missing-detail"/);
+  assert.match(html, /data-technique-missing-card="true"[^>]*data-dlens-presence="card"/);
   assert.match(html, /Deeper reading is unavailable right now\./);
   assert.match(html, /Back to Compare/);
 });

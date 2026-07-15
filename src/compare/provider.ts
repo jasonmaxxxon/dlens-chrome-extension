@@ -33,11 +33,19 @@ import {
   buildPrSummaryPrompt,
   isDefaultPrCriteria,
   mergePrCriteriaMatches,
-  normalizePrCriteriaSuggestionResponse,
+  parsePrCampaignSetupSuggestion,
   parsePrCriteriaMatchResponse,
   validatePrSummaryDraft,
+  type PrCampaignSetupSuggestion,
   type PrSummaryFacts
 } from "./pr-evidence.ts";
+import {
+  buildPrNarrativeSynthesisPrompt,
+  parsePrNarrativePostReadResponse,
+  parsePrNarrativeSynthesisResponse,
+  type PrNarrativePostReading,
+  type PrNarrativeSynthesisDraft
+} from "./pr-narrative.ts";
 import {
   buildSignalReadingPrompt,
   SIGNAL_READING_SYSTEM_PROMPT,
@@ -1001,21 +1009,67 @@ async function generateJsonText(
   return readClaudeContent(await response.json());
 }
 
+export async function generatePrCampaignSetupSuggestion(
+  provider: "openai" | "claude" | "google",
+  apiKey: string,
+  campaignName: string,
+  briefText: string
+): Promise<PrCampaignSetupSuggestion> {
+  const raw = await generateJsonText(
+    provider,
+    apiKey,
+    buildPrCriteriaSuggestionPrompt(campaignName, briefText),
+    "You are a PR reporting assistant. Return one JSON envelope containing criteria and narrativeSettings only.",
+    1000
+  );
+  const suggestion = parsePrCampaignSetupSuggestion(raw);
+  return {
+    criteria: isDefaultPrCriteria(suggestion.criteria)
+      ? buildDeterministicPrCriteria(campaignName, briefText)
+      : suggestion.criteria,
+    narrativeSettings: suggestion.narrativeSettings
+  };
+}
+
 export async function generatePrCriteriaSuggestions(
   provider: "openai" | "claude" | "google",
   apiKey: string,
   campaignName: string,
   briefText: string
 ): Promise<PrCampaign["criteria"]> {
+  return (await generatePrCampaignSetupSuggestion(provider, apiKey, campaignName, briefText)).criteria;
+}
+
+export async function generatePrNarrativePostReadings(
+  provider: "openai" | "claude" | "google",
+  apiKey: string,
+  prompt: string,
+  expectedRefs: string[]
+): Promise<PrNarrativePostReading[]> {
   const raw = await generateJsonText(
     provider,
     apiKey,
-    buildPrCriteriaSuggestionPrompt(campaignName, briefText),
-    "You are a PR reporting assistant. Return JSON only.",
-    700
+    prompt,
+    "Read only supplied PR posts and return JSON only.",
+    2600
   );
-  const criteria = normalizePrCriteriaSuggestionResponse(raw);
-  return isDefaultPrCriteria(criteria) ? buildDeterministicPrCriteria(campaignName, briefText) : criteria;
+  return parsePrNarrativePostReadResponse(raw, expectedRefs);
+}
+
+export async function generatePrNarrativeSynthesis(
+  provider: "openai" | "claude" | "google",
+  apiKey: string,
+  readings: PrNarrativePostReading[],
+  campaign: PrCampaign
+): Promise<PrNarrativeSynthesisDraft> {
+  const raw = await generateJsonText(
+    provider,
+    apiKey,
+    buildPrNarrativeSynthesisPrompt(campaign, readings),
+    "Synthesize only validated PR post readings and return JSON only.",
+    2200
+  );
+  return parsePrNarrativeSynthesisResponse(raw, readings.map((reading) => reading.ref));
 }
 
 export async function generatePrCriteriaMatches(

@@ -10,6 +10,11 @@ import {
   sanitizePrFileBase,
   type PrFileExportDescriptor
 } from "../compare/pr-summary-export.ts";
+import type {
+  PrNarrativeClaim,
+  PrNarrativeEvidenceRef,
+  PrNarrativeRead
+} from "../compare/pr-narrative.ts";
 import type { TargetDescriptor } from "../contracts/target-descriptor.ts";
 import type {
   PrCampaign,
@@ -18,16 +23,26 @@ import type {
   PrCriteriaMatches,
   PrCriterion,
   PrCriterionId,
-  PrEvidenceRow
+  PrEvidenceRow,
+  PrNarrativeSettings
 } from "../state/pr-evidence-storage.ts";
-import { normalizePrCriteria, PR_CRITERION_IDS } from "../state/pr-evidence-storage.ts";
+import {
+  normalizePrCriteria,
+  normalizePrNarrativeSettings,
+  PR_CRITERION_IDS
+} from "../state/pr-evidence-storage.ts";
 
+export type PrLens = "narrative" | "evidence";
 export type PrWorkPane = "ledger" | "match" | "metrics";
 export type PrTabTone = "accent" | "success" | "neutral";
+export type PrNarrativeViewStatus = "empty" | "ready" | "stale" | "insufficient_evidence" | "error";
 
 export interface PrEvidenceResourceState {
   campaign: PrCampaignDraft;
   rows: PrEvidenceRow[];
+  narrativeRead: PrNarrativeRead | null;
+  narrativeCurrentSourceHash: string;
+  narrativeError: string;
   summary: string;
   notice: string;
   uploadError: string;
@@ -35,6 +50,9 @@ export interface PrEvidenceResourceState {
 }
 
 export interface PrEvidenceUiState {
+  activeLens?: PrLens;
+  selectedNarrativeClaimId?: string | null;
+  isGeneratingNarrative?: boolean;
   activePane: PrWorkPane;
   isSaving: boolean;
   isReadingBrief: boolean;
@@ -47,6 +65,9 @@ export interface PrEvidenceUiState {
 export type PrEvidenceCommand =
   | { kind: "updateDraft"; target: { sessionId: string }; draft: PrCampaignSaveDraft }
   | { kind: "setSetupCollapsed"; target: { sessionId: string }; collapsed: boolean }
+  | { kind: "setLens"; target: { sessionId: string }; lens: PrLens }
+  | { kind: "generateNarrative"; target: { sessionId: string; campaignId: string } }
+  | { kind: "selectNarrativeClaim"; target: { sessionId: string; campaignId: string }; claimId: string | null }
   | { kind: "setPane"; target: { sessionId: string }; pane: PrWorkPane }
   | { kind: "saveCampaign"; target: { sessionId: string }; draft: PrCampaignSaveDraft }
   | { kind: "generateCriteria"; target: { sessionId: string }; campaignName: string; briefText: string }
@@ -64,6 +85,7 @@ export interface PrCampaignViewModel {
   name: string;
   briefText: string;
   criteria: [PrCriterion, PrCriterion, PrCriterion, PrCriterion, PrCriterion, PrCriterion];
+  narrativeSettings: PrNarrativeSettings;
   placeholders: Record<PrCriterionId, string>;
   saved: boolean;
   canSave: boolean;
@@ -101,6 +123,52 @@ export interface PrEvidenceRowViewModel {
   metrics: PrEvidenceMetricCellViewModel[];
   collectorDescriptor: TargetDescriptor;
   advancedMetricsError: string;
+}
+
+export interface PrNarrativeEvidenceViewModel {
+  rowId: string;
+  summary: string;
+  row: PrEvidenceRowViewModel;
+}
+
+export interface PrNarrativeClaimViewModel {
+  id: string;
+  title: string;
+  statement: string;
+  implication: string;
+  mode: PrNarrativeClaim["mode"];
+  alignment: PrNarrativeClaim["alignment"];
+  priority: boolean;
+  selected: boolean;
+  supportCount: number;
+  counterCount: number;
+  denominator: number;
+  support: PrNarrativeEvidenceViewModel[];
+  counterexamples: PrNarrativeEvidenceViewModel[];
+  selectCommand: PrEvidenceCommand;
+}
+
+export interface PrNarrativeClaimDetailViewModel {
+  claim: PrNarrativeClaimViewModel;
+  support: PrNarrativeEvidenceViewModel[];
+  counterexamples: PrNarrativeEvidenceViewModel[];
+  limitationLabel: string;
+  closeCommand: PrEvidenceCommand;
+}
+
+export interface PrNarrativeViewModel {
+  status: PrNarrativeViewStatus;
+  priorityClaim: PrNarrativeClaimViewModel | null;
+  claims: PrNarrativeClaimViewModel[];
+  detail: PrNarrativeClaimDetailViewModel | null;
+  readableRowCount: number;
+  collectedRowCount: number;
+  snippetFallbackCount: number;
+  coverageLabel: string;
+  error: string;
+  isGenerating: boolean;
+  generateLabel: string;
+  generateCommand: PrEvidenceCommand | null;
 }
 
 export interface PrEvidenceTabViewModel {
@@ -151,7 +219,10 @@ export interface PrEvidenceCsvPreviewViewModel {
 
 export interface PrEvidenceViewModel {
   sessionId: string;
+  activeLens: PrLens;
+  lensCommands: Record<PrLens, PrEvidenceCommand>;
   campaign: PrCampaignViewModel;
+  narrative: PrNarrativeViewModel;
   coreMessages: string[];
   rows: PrEvidenceRowViewModel[];
   ledger: { rows: PrEvidenceRowViewModel[] };
@@ -279,6 +350,7 @@ function campaignForExport(campaign: PrCampaignDraft): PrCampaign {
     name: campaign.name,
     briefText: campaign.briefText,
     criteria: normalizePrCriteria(campaign.criteria),
+    narrativeSettings: normalizePrNarrativeSettings(campaign.narrativeSettings),
     createdAt: campaign.createdAt || fallbackTime,
     updatedAt: campaign.updatedAt || fallbackTime,
     ...(campaign.lastMatchedAt ? { lastMatchedAt: campaign.lastMatchedAt } : {})
@@ -287,12 +359,14 @@ function campaignForExport(campaign: PrCampaignDraft): PrCampaign {
 
 function buildCampaignViewModel(sessionId: string, draft: PrCampaignDraft, setupCollapsed: boolean): PrCampaignViewModel {
   const criteria = normalizePrCriteria(draft.criteria);
+  const narrativeSettings = normalizePrNarrativeSettings(draft.narrativeSettings);
   const id = draft.id?.trim() || "";
   const saveDraft: PrCampaignSaveDraft = {
     ...(id ? { id } : {}),
     name: draft.name.trim(),
     briefText: draft.briefText,
-    criteria
+    criteria,
+    narrativeSettings
   };
   return {
     id: id || null,
@@ -300,6 +374,7 @@ function buildCampaignViewModel(sessionId: string, draft: PrCampaignDraft, setup
     name: draft.name,
     briefText: draft.briefText,
     criteria,
+    narrativeSettings,
     placeholders: PR_CRITERION_PLACEHOLDERS,
     saved: Boolean(id),
     canSave: Boolean(draft.name.trim()),
@@ -340,6 +415,114 @@ function buildRowViewModel(row: PrEvidenceRow, criteria: PrCriterion[]): PrEvide
     ],
     collectorDescriptor: buildCollectorDescriptor(row, views),
     advancedMetricsError: row.advancedMetricsError || ""
+  };
+}
+
+function uniqueNarrativeRefs(refs: readonly PrNarrativeEvidenceRef[]): PrNarrativeEvidenceRef[] {
+  const seen = new Set<string>();
+  return refs.filter((ref) => {
+    if (seen.has(ref.rowId)) {
+      return false;
+    }
+    seen.add(ref.rowId);
+    return true;
+  });
+}
+
+function joinNarrativeRefs(
+  refs: readonly PrNarrativeEvidenceRef[],
+  rowsById: ReadonlyMap<string, PrEvidenceRowViewModel>
+): PrNarrativeEvidenceViewModel[] {
+  return uniqueNarrativeRefs(refs).flatMap((ref) => {
+    const row = rowsById.get(ref.rowId);
+    return row ? [{ rowId: ref.rowId, summary: ref.summary, row }] : [];
+  });
+}
+
+function buildNarrativeViewModel({
+  sessionId,
+  campaign,
+  rows,
+  rowViewModels,
+  resource,
+  uiState
+}: {
+  sessionId: string;
+  campaign: PrCampaignViewModel;
+  rows: PrEvidenceRow[];
+  rowViewModels: PrEvidenceRowViewModel[];
+  resource: PrEvidenceResourceState;
+  uiState: PrEvidenceUiState;
+}): PrNarrativeViewModel {
+  const read = resource.narrativeRead;
+  const rowsById = new Map(rowViewModels.map((row) => [row.id, row]));
+  const selectedClaimId = uiState.selectedNarrativeClaimId ?? null;
+  const denominator = read?.sourceRowIds.length ?? 0;
+  const claims = (read?.claims ?? []).map((claim): PrNarrativeClaimViewModel => {
+    const supportRefs = uniqueNarrativeRefs(claim.supportRefs);
+    const counterRefs = uniqueNarrativeRefs(claim.counterRefs);
+    return {
+      id: claim.id,
+      title: claim.title,
+      statement: claim.statement,
+      implication: claim.implication,
+      mode: claim.mode,
+      alignment: claim.alignment,
+      priority: read?.priorityClaimId === claim.id,
+      selected: selectedClaimId === claim.id,
+      supportCount: supportRefs.length,
+      counterCount: counterRefs.length,
+      denominator,
+      support: joinNarrativeRefs(supportRefs, rowsById),
+      counterexamples: joinNarrativeRefs(counterRefs, rowsById),
+      selectCommand: {
+        kind: "selectNarrativeClaim",
+        target: { sessionId, campaignId: read?.campaignId || campaign.id || "" },
+        claimId: claim.id
+      }
+    };
+  });
+  const priorityClaim = claims.find((claim) => claim.priority) ?? null;
+  const selectedClaim = claims.find((claim) => claim.id === selectedClaimId) ?? null;
+  const collectedRowCount = read?.collectedRowCount ?? rows.length;
+  const readableRowCount = read?.sourceRowIds.length ?? 0;
+  const stale = Boolean(read && resource.narrativeCurrentSourceHash !== read.sourceHash);
+  const status: PrNarrativeViewStatus = stale
+    ? "stale"
+    : read?.status === "insufficient_evidence"
+      ? "insufficient_evidence"
+      : read
+        ? "ready"
+        : resource.narrativeError
+          ? "error"
+          : "empty";
+  const campaignId = campaign.id;
+  const generateCommand: PrEvidenceCommand | null = campaignId
+    ? { kind: "generateNarrative", target: { sessionId, campaignId } }
+    : null;
+  return {
+    status,
+    priorityClaim,
+    claims,
+    detail: selectedClaim && read ? {
+      claim: selectedClaim,
+      support: selectedClaim.support,
+      counterexamples: selectedClaim.counterexamples,
+      limitationLabel: `${readableRowCount} / ${collectedRowCount} 篇可判讀`,
+      closeCommand: {
+        kind: "selectNarrativeClaim",
+        target: { sessionId, campaignId: read.campaignId },
+        claimId: null
+      }
+    } : null,
+    readableRowCount,
+    collectedRowCount,
+    snippetFallbackCount: read?.snippetFallbackCount ?? 0,
+    coverageLabel: `${readableRowCount} / ${collectedRowCount} 篇可判讀`,
+    error: resource.narrativeError,
+    isGenerating: uiState.isGeneratingNarrative === true,
+    generateLabel: read ? `重新判讀 ${rows.length} 篇` : `判讀已收集的 ${rows.length} 篇`,
+    generateCommand
   };
 }
 
@@ -434,6 +617,8 @@ export function buildPrEvidenceViewModel({ sessionId, resource, uiState }: Build
   const rows = safeRows(resource.rows);
   const campaign = buildCampaignViewModel(sessionId, resource.campaign, resource.setupCollapsed);
   const rowViewModels = rows.map((row) => buildRowViewModel(row, campaign.criteria));
+  const activeLens = uiState.activeLens ?? "evidence";
+  const narrative = buildNarrativeViewModel({ sessionId, campaign, rows, rowViewModels, resource, uiState });
   const criterionTotals = campaign.criteria.map((criterion) =>
     rows.reduce((total, row) => total + (row.criteriaMatches[criterion.id] ? 1 : 0), 0)
   );
@@ -466,7 +651,13 @@ export function buildPrEvidenceViewModel({ sessionId, resource, uiState }: Build
   };
   return {
     sessionId,
+    activeLens,
+    lensCommands: {
+      narrative: { kind: "setLens", target: { sessionId }, lens: "narrative" },
+      evidence: { kind: "setLens", target: { sessionId }, lens: "evidence" }
+    },
     campaign,
+    narrative,
     coreMessages: extractPrCoreMessages(resource.campaign.briefText),
     rows: rowViewModels,
     ledger: { rows: rowViewModels },

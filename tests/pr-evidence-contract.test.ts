@@ -15,9 +15,17 @@ import {
   isDefaultPrCriteria,
   mergePrCriteriaMatches,
   normalizePrCriteriaSuggestionResponse,
+  parsePrCampaignSetupSuggestion,
   parsePrCriteriaMatchResponse,
   validatePrSummaryDraft
 } from "../src/compare/pr-evidence.ts";
+import {
+  generatePrCampaignSetupSuggestion,
+  generatePrCriteriaSuggestions,
+  generatePrNarrativePostReadings,
+  generatePrNarrativeSynthesis
+} from "../src/compare/provider.ts";
+import type { PrNarrativePostReading } from "../src/compare/pr-narrative.ts";
 import type { PrCampaign, PrEvidenceRow } from "../src/state/pr-evidence-storage.ts";
 
 const campaign: PrCampaign = {
@@ -64,6 +72,147 @@ const rows: PrEvidenceRow[] = [
     collectedAt: "2026-05-06T12:05:00.000Z"
   }
 ];
+
+function openAiJsonResponse(payload: unknown): Response {
+  return new Response(JSON.stringify({
+    choices: [{ message: { content: JSON.stringify(payload) } }]
+  }), {
+    status: 200,
+    headers: { "Content-Type": "application/json" }
+  });
+}
+
+async function withMockedFetch<T>(
+  payloads: unknown[],
+  run: (requests: Array<{ input: string; init?: RequestInit }>) => Promise<T>
+): Promise<T> {
+  const originalFetch = globalThis.fetch;
+  const requests: Array<{ input: string; init?: RequestInit }> = [];
+  globalThis.fetch = (async (input: string | URL | Request, init?: RequestInit) => {
+    requests.push({ input: String(input), init });
+    const payload = payloads.shift();
+    assert.notEqual(payload, undefined, "unexpected provider request");
+    return openAiJsonResponse(payload);
+  }) as typeof fetch;
+  try {
+    return await run(requests);
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
+}
+
+function makePostReading(ref: string): PrNarrativePostReading {
+  return {
+    ref,
+    gist: `Gist ${ref}`,
+    evidenceSummary: `Evidence ${ref}`,
+    alignmentScore: 0.4,
+    actionabilityScore: 0.7,
+    claimSeeds: ["Practical wellness"],
+    caveat: ""
+  };
+}
+
+test("setup parser returns six criteria and three editable fields", () => {
+  const suggestion = parsePrCampaignSetupSuggestion(JSON.stringify({
+    criteria: ["C1", "C2", "C3", "C4", "C5", "C6"],
+    narrativeSettings: {
+      narrativeAnchor: "Wellness is practical and social",
+      targetAudience: "Young working adults",
+      desiredAction: "Register for the event"
+    }
+  }));
+
+  assert.deepEqual(suggestion.criteria.map((criterion) => criterion.label), ["C1", "C2", "C3", "C4", "C5", "C6"]);
+  assert.deepEqual(suggestion.narrativeSettings, {
+    narrativeAnchor: "Wellness is practical and social",
+    targetAudience: "Young working adults",
+    desiredAction: "Register for the event"
+  });
+});
+
+test("setup suggestion provider parses one criteria and narrative settings envelope", async () => {
+  const envelope = {
+    criteria: ["C1", "C2", "C3", "C4", "C5", "C6"],
+    narrativeSettings: {
+      narrativeAnchor: "Wellness is practical and social",
+      targetAudience: "Young working adults",
+      desiredAction: "Register for the event"
+    }
+  };
+  await withMockedFetch([envelope, envelope], async (requests) => {
+    const suggestion = await generatePrCampaignSetupSuggestion(
+      "openai",
+      "test-key",
+      "Mannings BoostUP",
+      "A practical social wellness event."
+    );
+    const legacyCriteria = await generatePrCriteriaSuggestions(
+      "openai",
+      "test-key",
+      "Mannings BoostUP",
+      "A practical social wellness event."
+    );
+
+    assert.equal(suggestion.criteria.length, 6);
+    assert.equal(suggestion.narrativeSettings.desiredAction, "Register for the event");
+    assert.deepEqual(legacyCriteria, suggestion.criteria);
+    assert.equal(requests.length, 2);
+    const requestBody = JSON.parse(String(requests[0]?.init?.body)) as { messages?: Array<{ content?: string }> };
+    assert.match(requestBody.messages?.[1]?.content ?? "", /narrativeSettings/);
+    assert.match(requestBody.messages?.[1]?.content ?? "", /exactly six/i);
+  });
+});
+
+test("narrative provider wrappers validate Stage A and Stage B envelopes", async () => {
+  const readings = [makePostReading("P01"), makePostReading("P02")];
+  await withMockedFetch([
+    { readings },
+    {
+      status: "complete",
+      priorityClaimId: "claim-1",
+      claims: [
+        {
+          id: "claim-1",
+          title: "Practical proof",
+          statement: "Posts frame wellness as practical.",
+          implication: "Lead with practical proof.",
+          supportRefs: ["P01"],
+          counterRefs: []
+        },
+        {
+          id: "claim-2",
+          title: "Social relevance",
+          statement: "Posts connect wellness with shared activity.",
+          implication: "Show the social experience.",
+          supportRefs: ["P02"],
+          counterRefs: []
+        }
+      ]
+    }
+  ], async (requests) => {
+    const parsedReadings = await generatePrNarrativePostReadings(
+      "openai",
+      "test-key",
+      "Read P01 and P02",
+      ["P01", "P02"]
+    );
+    const synthesis = await generatePrNarrativeSynthesis(
+      "openai",
+      "test-key",
+      parsedReadings,
+      campaign
+    );
+
+    assert.deepEqual(parsedReadings, readings);
+    assert.equal(synthesis.priorityClaimId, "claim-1");
+    assert.deepEqual(synthesis.claims.map((claim) => claim.id), ["claim-1", "claim-2"]);
+    assert.equal(requests.length, 2);
+    const stageBBody = JSON.parse(String(requests[1]?.init?.body)) as { messages?: Array<{ content?: string }> };
+    assert.match(stageBBody.messages?.[1]?.content ?? "", /Validated readings/);
+    assert.match(stageBBody.messages?.[1]?.content ?? "", /P01/);
+  });
+});
 
 test("normalizePrCriteriaSuggestionResponse returns exactly six short labels", () => {
   const criteria = normalizePrCriteriaSuggestionResponse(JSON.stringify({
