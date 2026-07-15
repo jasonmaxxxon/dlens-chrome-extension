@@ -1,7 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import React from "react";
-import { flushSync } from "react-dom";
+import React, { act } from "react";
 import { createRoot } from "react-dom/client";
 import { JSDOM } from "jsdom";
 
@@ -20,6 +19,8 @@ function MotionList({ keys }: { keys: string[] }) {
 
 test("useCausalListMotion animates derived changes, skips first paint, and honours reduced motion", async () => {
   const dom = new JSDOM('<div id="root"></div>', { url: "https://dlens.test" });
+  const reactActGlobal = globalThis as typeof globalThis & { IS_REACT_ACT_ENVIRONMENT?: boolean };
+  const previousActEnvironment = reactActGlobal.IS_REACT_ACT_ENVIRONMENT;
   const previous = {
     window: globalThis.window,
     document: globalThis.document,
@@ -32,6 +33,7 @@ test("useCausalListMotion animates derived changes, skips first paint, and honou
     HTMLElement: dom.window.HTMLElement,
     Element: dom.window.Element
   });
+  reactActGlobal.IS_REACT_ACT_ENVIRONMENT = true;
 
   let reduceMotion = false;
   Object.defineProperty(dom.window, "matchMedia", {
@@ -90,11 +92,11 @@ test("useCausalListMotion animates derived changes, skips first paint, and honou
   assert.ok(rootElement);
   const root = createRoot(rootElement);
   try {
-    flushSync(() => root.render(<MotionList keys={["a", "b"]} />));
+    await act(async () => root.render(<MotionList keys={["a", "b"]} />));
     assert.equal(animationCalls.length, 0, "first paint stays still");
     assert.equal(rootElement.querySelector('[data-dlens-list-key="a"]')?.hasAttribute("data-dlens-presence-settled"), false);
 
-    flushSync(() => root.render(<MotionList keys={["b", "c"]} />));
+    await act(async () => root.render(<MotionList keys={["b", "c"]} />));
     assert.deepEqual(animationCalls.map((call) => call.key), ["b", "c"]);
     assert.equal(animationCalls[0]!.frames[0]!.translate, "0px 40px");
     assert.equal(animationCalls[1]!.frames[0]!.opacity, 0);
@@ -104,30 +106,31 @@ test("useCausalListMotion animates derived changes, skips first paint, and honou
 
     animationCalls.length = 0;
     lifecycleEvents.length = 0;
-    flushSync(() => root.render(<MotionList keys={["c", "b"]} />));
+    await act(async () => root.render(<MotionList keys={["c", "b"]} />));
     assert.deepEqual(lifecycleEvents.slice(0, 2).sort(), ["cancel:b", "cancel:c"], "running animations cancel before the next layout measurement");
     assert.equal(lifecycleEvents.some((event) => event.startsWith("visual-measure:")), false, "layout reads ignore visual transforms");
     assert.deepEqual(animationCalls.map((call) => call.key), ["c", "b"]);
 
     animationCalls.length = 0;
-    flushSync(() => root.render(<MotionList keys={[]} />));
-    flushSync(() => root.render(<MotionList keys={["d"]} />));
+    await act(async () => root.render(<MotionList keys={[]} />));
+    await act(async () => root.render(<MotionList keys={["d"]} />));
     assert.deepEqual(animationCalls.map((call) => call.key), ["d"], "empty filter to populated filter is a state change, not first paint");
     assert.equal(animationCalls[0]!.frames[0]!.opacity, 0);
 
     animationCalls.length = 0;
     lifecycleEvents.length = 0;
     reduceMotion = true;
-    flushSync(() => root.render(<MotionList keys={["d", "e"]} />));
+    await act(async () => root.render(<MotionList keys={["d", "e"]} />));
     assert.equal(animationCalls.length, 0, "reduced motion suppresses JS animations");
     assert.ok(lifecycleEvents.includes("cancel:d"), "switching to reduced motion cancels an animation already in flight");
   } finally {
-    flushSync(() => root.unmount());
+    await act(async () => root.unmount());
     dom.window.HTMLElement.prototype.getBoundingClientRect = originalRect;
     dom.window.HTMLElement.prototype.animate = originalAnimate;
     if (originalOffsetTop) Object.defineProperty(dom.window.HTMLElement.prototype, "offsetTop", originalOffsetTop);
     if (originalOffsetLeft) Object.defineProperty(dom.window.HTMLElement.prototype, "offsetLeft", originalOffsetLeft);
-    await new Promise((resolve) => setTimeout(resolve, 0));
     Object.assign(globalThis, previous);
+    if (previousActEnvironment === undefined) delete reactActGlobal.IS_REACT_ACT_ENVIRONMENT;
+    else reactActGlobal.IS_REACT_ACT_ENVIRONMENT = previousActEnvironment;
   }
 });
