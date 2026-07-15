@@ -184,7 +184,7 @@ export async function generateProductProfileSuggestion(
       body: JSON.stringify({
         model: CLAUDE_COMPARE_MODEL,
         max_tokens: 400,
-        temperature: 0.1,
+        thinking: { type: "disabled" },
         system,
         messages: [{ role: "user", content: prompt }]
       })

@@ -76,14 +76,28 @@ export const COMPARE_ONE_LINER_PROMPT_VERSION = "v2";
 export const COMPARE_CLUSTER_SUMMARY_PROMPT_VERSION = "v3";
 export const COMPARE_EVIDENCE_ANNOTATION_PROMPT_VERSION = "v1";
 export const OPENAI_COMPARE_MODEL = "gpt-4.1-mini";
-export const CLAUDE_COMPARE_MODEL = "claude-3-5-sonnet-latest"; // haiku → sonnet: better reasoning for reaction-type analysis
-export const GOOGLE_COMPARE_MODEL = "gemini-3.1-flash-lite-preview";
+export const CLAUDE_COMPARE_MODEL = "claude-sonnet-5"; // 3.5 Sonnet retired 2025-10-28; sonnet-5 is the drop-in. Sonnet 5 rejects temperature and defaults to adaptive thinking, so Claude bodies below send no temperature and thinking:{type:"disabled"}.
+export const GOOGLE_COMPARE_MODEL = "gemini-3.1-flash-lite";
 const PROVIDER_TIMEOUT_MS = 30_000;
 const PROVIDER_MAX_RETRIES = 2;
 const PROVIDER_RETRY_DELAYS_MS = [250, 500];
+const PROVIDER_RETRY_AFTER_CAP_MS = 10_000;
 
 function sleep(ms: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+// Providers signal 429 backoff via a Retry-After header in delta-seconds; honour it
+// (capped) instead of the fixed 250/500ms ladder so we don't hammer a rate limit.
+function parseRetryAfterMs(headerValue: string | null): number | null {
+  if (!headerValue) {
+    return null;
+  }
+  const seconds = Number(headerValue);
+  if (!Number.isFinite(seconds) || seconds < 0) {
+    return null;
+  }
+  return Math.min(seconds * 1000, PROVIDER_RETRY_AFTER_CAP_MS);
 }
 
 function isRetryableStatus(status: number): boolean {
@@ -112,6 +126,7 @@ export async function fetchWithRetry(label: string, input: string, init: Request
     const attemptNumber = attempt + 1;
     const controller = new AbortController();
     const timeoutHandle = setTimeout(() => controller.abort(), PROVIDER_TIMEOUT_MS);
+    let retryAfterMs: number | null = null;
     emitPipelineEvent({
       phase: "llm.call",
       step: `direct-llm.${label}.request`,
@@ -154,6 +169,7 @@ export async function fetchWithRetry(label: string, input: string, init: Request
         return response;
       }
       lastError = new Error(`${label} ${response.status}: transient upstream failure`);
+      retryAfterMs = parseRetryAfterMs(response.headers.get("retry-after"));
       emitPipelineEvent({
         phase: "llm.call",
         step: `direct-llm.${label}.response`,
@@ -200,7 +216,8 @@ export async function fetchWithRetry(label: string, input: string, init: Request
     }
 
     if (attempt < PROVIDER_MAX_RETRIES) {
-      await sleep(PROVIDER_RETRY_DELAYS_MS[attempt] || PROVIDER_RETRY_DELAYS_MS[PROVIDER_RETRY_DELAYS_MS.length - 1] || 500);
+      const fixedDelay = PROVIDER_RETRY_DELAYS_MS[attempt] || PROVIDER_RETRY_DELAYS_MS[PROVIDER_RETRY_DELAYS_MS.length - 1] || 500;
+      await sleep(retryAfterMs ?? fixedDelay);
     }
   }
 
@@ -295,7 +312,7 @@ function buildProductSignalAnalysisBody(
   return {
     model: CLAUDE_COMPARE_MODEL,
     max_tokens: 1800,
-    temperature: 0.2,
+    thinking: { type: "disabled" },
     system,
     messages: [{ role: "user", content: prompt }],
     tools: [
@@ -371,7 +388,7 @@ export async function generateCompareBrief(
       body: JSON.stringify({
         model: CLAUDE_COMPARE_MODEL,
         max_tokens: 1400,
-        temperature: 0.2,
+        thinking: { type: "disabled" },
         system,
         messages: [{ role: "user", content: prompt }]
       })
@@ -451,7 +468,7 @@ export async function generateCompareClusterSummaries(
       body: JSON.stringify({
         model: CLAUDE_COMPARE_MODEL,
         max_tokens: 1200,
-        temperature: 0.2,
+        thinking: { type: "disabled" },
         system,
         messages: [{ role: "user", content: prompt }]
       })
@@ -551,7 +568,7 @@ export async function generateCompareOneLiner(
     body: JSON.stringify({
       model: CLAUDE_COMPARE_MODEL,
       max_tokens: 120,
-      temperature: 0.3,
+      thinking: { type: "disabled" },
       system: "你是社群分析助手。只回傳一句繁體中文比較句，不要解釋。",
       messages: [
         {
@@ -625,7 +642,7 @@ export async function generateEvidenceAnnotations(
       body: JSON.stringify({
         model: CLAUDE_COMPARE_MODEL,
         max_tokens: 1200,
-        temperature: 0.2,
+        thinking: { type: "disabled" },
         system,
         messages: [{ role: "user", content: prompt }]
       })
@@ -704,7 +721,7 @@ export async function generateJudgment(
       body: JSON.stringify({
         model: CLAUDE_COMPARE_MODEL,
         max_tokens: 800,
-        temperature: 0.2,
+        thinking: { type: "disabled" },
         system,
         messages: [{ role: "user", content: prompt }]
       })
@@ -850,7 +867,7 @@ export async function generateSignalReading(
     body: JSON.stringify({
       model: CLAUDE_COMPARE_MODEL,
       max_tokens: maxOutputTokens,
-      temperature: 0.4,
+      thinking: { type: "disabled" },
       system,
       messages: [{ role: "user", content: prompt }]
     })
@@ -998,7 +1015,7 @@ async function generateJsonText(
     body: JSON.stringify({
       model: CLAUDE_COMPARE_MODEL,
       max_tokens: maxOutputTokens,
-      temperature: 0.2,
+      thinking: { type: "disabled" },
       system,
       messages: [{ role: "user", content: prompt }]
     })

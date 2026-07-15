@@ -175,7 +175,7 @@ export function buildProductContextProviderBody(
   return {
     model: CLAUDE_COMPARE_MODEL,
     max_tokens: 1200,
-    temperature: 0.1,
+    thinking: { type: "disabled" },
     system,
     messages: [{ role: "user", content: prompt }],
     tools: [
