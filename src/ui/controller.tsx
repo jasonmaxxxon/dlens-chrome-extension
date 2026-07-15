@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { ExtensionMessage, ExtensionResponse } from "../state/messages";
 import type { ExtensionSnapshot, SessionItem, SessionRecord } from "../state/types";
 import { createPipelineRequestId, emitPipelineEvent } from "../state/pipeline-trace";
@@ -244,7 +244,7 @@ export function useExtensionSnapshot(polling = true) {
     return () => window.clearInterval(handle);
   }, [polling, runningItemIds.join(","), snapshot?.global.activeSessionId]);
 
-  async function sendAndSync<T extends ExtensionResponse = ExtensionResponse>(message: ExtensionMessage): Promise<T> {
+  const sendAndSync = useCallback(async function sendAndSync<T extends ExtensionResponse = ExtensionResponse>(message: ExtensionMessage): Promise<T> {
     const outgoing = {
       ...message,
       requestId: message.requestId ?? createPipelineRequestId(`ui-${message.type}`)
@@ -272,7 +272,7 @@ export function useExtensionSnapshot(polling = true) {
       setTabId(response.tabId ?? null);
     }
     return response;
-  }
+  }, []);
 
   return {
     snapshot,

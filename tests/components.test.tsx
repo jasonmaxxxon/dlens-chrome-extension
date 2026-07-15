@@ -718,6 +718,21 @@ test("StatusDot and StatusRail map backend reachability and work states to DOM h
   assert.match(railHtml, /aria-label="Backend: Backend slow \| Work: Retry waiting · 2 tasks are backed off - Backend is waiting before retrying\. Not actively crawling\. \| Items: 1\/3 ready"/);
 });
 
+test("StatusRail exposes an unreachable backend in its visible status copy", () => {
+  const html = renderToStaticMarkup(
+    React.createElement(StatusRail, {
+      backendReachability: "unreachable",
+      backendWorkUiState: { kind: "idle" },
+      workerStatus: "idle",
+      ready: 7,
+      total: 7
+    })
+  );
+
+  assert.match(html, />Backend unreachable<\/span>/);
+  assert.doesNotMatch(html, />idle<\/span>/);
+});
+
 test("QuoteBlock uses the editorial quote text style", () => {
   const html = renderToStaticMarkup(
     React.createElement(

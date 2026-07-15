@@ -710,7 +710,8 @@ export function StatusRail({
   const reachability = reachabilityStatus(backendReachability);
   const work = backendWorkStatus(backendWorkUiState, workerStatus);
   const recoveryCopy = resolveBackendWorkCopy(backendWorkUiState);
-  const resolvedHint = hint ?? recoveryCopy?.headline ?? work.label;
+  const resolvedHint = hint
+    ?? (backendReachability === "reachable" ? recoveryCopy?.headline ?? work.label : reachability.label);
   const countLabel = ready !== undefined && total !== undefined ? `${ready}/${total} ready` : null;
   const hoverLabel = buildStatusRailHoverLabel({
     reachabilityLabel: reachability.label,
