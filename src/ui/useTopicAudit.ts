@@ -130,50 +130,33 @@ function inferLatestStage(memos: TopicAuditMemoBundle | null): TopicAuditStageNa
 }
 
 function topicAuditSourceTotal({
-  topic,
-  evidence,
-  memos,
-  report
+  topic
 }: {
   topic: Topic;
-  evidence: EvidencePacket[];
-  memos: TopicAuditMemoBundle | null;
-  report: TopicAuditReport | null;
 }): number {
-  if (evidence.length > 0) {
-    return evidence.length;
-  }
-  if (memos?.signalReadings.length) {
-    return memos.signalReadings.length;
-  }
-  const generatedSignals = report?.generatedFrom.filter((entry) => entry.endsWith(":p1")).length ?? 0;
-  if (generatedSignals > 0) {
-    return generatedSignals;
-  }
   return topic.signalIds.length;
 }
 
 function topicAuditAnalyzedCount({
+  inventorySignalIds,
   evidence,
-  memos,
-  report
+  memos
 }: {
+  inventorySignalIds: string[];
   evidence: EvidencePacket[];
   memos: TopicAuditMemoBundle | null;
-  report: TopicAuditReport | null;
 }): number {
-  if (evidence.length > 0) {
-    const readSignalIds = new Set((memos?.signalReadings ?? []).map((reading) => reading.signalId));
-    return evidence.filter((packet) => readSignalIds.has(packet.signalId)).length;
-  }
-  if (memos?.signalReadings.length) {
-    return memos.signalReadings.length;
-  }
-  return report?.generatedFrom.filter((entry) => entry.endsWith(":p1")).length ?? 0;
+  const inventory = new Set(inventorySignalIds);
+  const usableEvidence = new Set(evidence.map((packet) => packet.signalId));
+  const readSignalIds = new Set((memos?.signalReadings ?? []).map((reading) => reading.signalId));
+  return [...readSignalIds].filter((signalId) => (
+    inventory.has(signalId)
+    && (usableEvidence.size === 0 || usableEvidence.has(signalId))
+  )).length;
 }
 
-function topicAuditCoverageLabel(evidence: EvidencePacket[], sourceTotal: number): string | undefined {
-  return evidence.length > 0 ? `${evidence.length}/${sourceTotal}` : undefined;
+function topicAuditCoverageLabel(analyzedCount: number, sourceTotal: number): string | undefined {
+  return sourceTotal > 0 ? `${analyzedCount}/${sourceTotal}` : undefined;
 }
 
 /** First sentence of the report's overall section, markdown-stripped — the topic card gist. */
@@ -206,14 +189,19 @@ function makeSummary({
   flags: TopicAuditValidationFlag[];
   local?: LocalRunState;
 }): TopicAuditSummary {
-  const sourceTotal = topicAuditSourceTotal({ topic, evidence, memos, report });
-  const analyzedCount = topicAuditAnalyzedCount({ evidence, memos, report });
-  const coverage = topicAuditCoverageLabel(evidence, sourceTotal);
+  const sourceTotal = topicAuditSourceTotal({ topic });
+  const analyzedCount = topicAuditAnalyzedCount({
+    inventorySignalIds: topic.signalIds,
+    evidence,
+    memos
+  });
+  const pendingCount = Math.max(0, sourceTotal - analyzedCount);
+  const coverage = topicAuditCoverageLabel(analyzedCount, sourceTotal);
   if (local?.status === "running") {
     return {
       reportStatus: "running",
       analyzedCount,
-      queuedCount: sourceTotal - analyzedCount,
+      queuedCount: pendingCount,
       runningStage: stageNumber(local.stage),
       coverage,
       flags
@@ -223,7 +211,7 @@ function makeSummary({
     return {
       reportStatus: "failed",
       analyzedCount,
-      queuedCount: sourceTotal - analyzedCount,
+      queuedCount: pendingCount,
       failedStage: stageNumber(local.stage),
       failedReason: local.error,
       coverage,
@@ -235,7 +223,7 @@ function makeSummary({
     && report
     && memos
   ) {
-    const generatedSignals = topicAuditAnalyzedCount({ evidence, memos, report });
+    const generatedSignals = report.generatedFrom.filter((entry) => entry.endsWith(":p1")).length;
     const added = sourceTotal > generatedSignals ? sourceTotal - generatedSignals : 0;
     const removed = generatedSignals > sourceTotal ? generatedSignals - sourceTotal : 0;
     const staleness = deriveDerivedRecordStaleness({
@@ -252,7 +240,7 @@ function makeSummary({
     return {
       reportStatus: isStale ? "stale" : "ready",
       analyzedCount,
-      queuedCount: sourceTotal - analyzedCount,
+      queuedCount: pendingCount,
       staleDelta: isStale ? { added, removed } : undefined,
       generatedAt: report.generatedAt,
       coverage,
@@ -263,7 +251,7 @@ function makeSummary({
   return {
     reportStatus: "none",
     analyzedCount,
-    queuedCount: sourceTotal,
+    queuedCount: pendingCount,
     coverage,
     flags
   };

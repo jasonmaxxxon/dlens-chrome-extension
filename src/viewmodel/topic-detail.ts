@@ -564,88 +564,78 @@ function buildAuditAbsence({
 }
 
 function topicAuditSourceTotal({
-  signalCount,
-  auditEvidence,
-  auditMemos,
-  auditSummary
+  signalCount
 }: {
   signalCount: number;
-  auditEvidence: EvidencePacket[];
-  auditMemos: TopicAuditMemoBundle | null | undefined;
-  auditSummary?: TopicAuditViewSummary;
 }): number {
-  if (auditEvidence.length > 0) {
-    return auditEvidence.length;
-  }
-  if (auditMemos?.signalReadings.length) {
-    return auditMemos.signalReadings.length;
-  }
-  if (auditSummary) {
-    return auditSummary.analyzedCount + auditSummary.queuedCount;
-  }
   return signalCount;
 }
 
 function topicAuditAnalyzedCount({
+  inventorySignalIds,
   auditEvidence,
   auditMemos,
   auditSummary
 }: {
+  inventorySignalIds: string[];
   auditEvidence: EvidencePacket[];
   auditMemos: TopicAuditMemoBundle | null | undefined;
   auditSummary?: TopicAuditViewSummary;
 }): number {
-  if (auditEvidence.length > 0) {
-    const readSignalIds = new Set((auditMemos?.signalReadings ?? []).map((reading) => reading.signalId));
-    return auditEvidence.filter((packet) => readSignalIds.has(packet.signalId)).length;
-  }
+  const inventory = new Set(inventorySignalIds);
+  const usableEvidence = new Set(auditEvidence.map((packet) => packet.signalId));
   if (auditMemos?.signalReadings.length) {
-    return auditMemos.signalReadings.length;
+    const readSignalIds = new Set(auditMemos.signalReadings.map((reading) => reading.signalId));
+    return [...readSignalIds].filter((signalId) => (
+      inventory.has(signalId)
+      && (usableEvidence.size === 0 || usableEvidence.has(signalId))
+    )).length;
   }
-  return auditSummary?.analyzedCount ?? 0;
+  return Math.min(inventory.size, Math.max(0, auditSummary?.analyzedCount ?? 0));
 }
 
 function topicAuditCoverageLabel({
-  auditEvidence,
-  auditSummary,
+  analyzedCount,
   sourceTotal
 }: {
-  auditEvidence: EvidencePacket[];
-  auditSummary?: TopicAuditViewSummary;
+  analyzedCount: number;
   sourceTotal: number;
 }): string | undefined {
-  if (auditEvidence.length > 0) {
-    return `${auditEvidence.length}/${sourceTotal}`;
-  }
-  return auditSummary?.coverage;
+  return sourceTotal > 0 ? `${analyzedCount}/${sourceTotal}` : undefined;
 }
 
 function buildTopicAuditSummary({
-  signalCount,
+  inventorySignalIds,
   auditEvidence,
   auditMemos,
   auditSummary
 }: {
-  signalCount: number;
+  inventorySignalIds: string[];
   auditEvidence: EvidencePacket[];
   auditMemos: TopicAuditMemoBundle | null | undefined;
   auditSummary?: TopicAuditViewSummary;
 }): TopicAuditViewSummary {
-  const sourceTotal = topicAuditSourceTotal({ signalCount, auditEvidence, auditMemos, auditSummary });
-  const analyzedCount = topicAuditAnalyzedCount({ auditEvidence, auditMemos, auditSummary });
+  const sourceTotal = topicAuditSourceTotal({ signalCount: inventorySignalIds.length });
+  const analyzedCount = topicAuditAnalyzedCount({
+    inventorySignalIds,
+    auditEvidence,
+    auditMemos,
+    auditSummary
+  });
+  const queuedCount = Math.max(0, sourceTotal - analyzedCount);
   if (auditSummary) {
     return {
       ...auditSummary,
       analyzedCount,
-      queuedCount: sourceTotal - analyzedCount,
-      coverage: topicAuditCoverageLabel({ auditEvidence, auditSummary, sourceTotal })
+      queuedCount,
+      coverage: topicAuditCoverageLabel({ analyzedCount, sourceTotal })
     };
   }
   return {
     reportStatus: auditMemos ? "ready" : "none",
     analyzedCount,
-    queuedCount: sourceTotal - analyzedCount,
-    coverage: topicAuditCoverageLabel({ auditEvidence, auditSummary, sourceTotal }),
+    queuedCount,
+    coverage: topicAuditCoverageLabel({ analyzedCount, sourceTotal }),
     flags: []
   };
 }
@@ -730,13 +720,10 @@ function buildAuditViewModel({
   capabilities: Required<TopicDetailCapabilities>;
 }): TopicAuditViewModel {
   const sourceTotal = topicAuditSourceTotal({
-    signalCount: signalRows.length,
-    auditEvidence,
-    auditMemos,
-    auditSummary
+    signalCount: topic.signalIds.length
   });
   const summary = buildTopicAuditSummary({
-    signalCount: signalRows.length,
+    inventorySignalIds: topic.signalIds,
     auditEvidence,
     auditMemos,
     auditSummary

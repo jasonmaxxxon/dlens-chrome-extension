@@ -155,7 +155,10 @@ test("Topic detail VM composes source rows, audit state, and command targets", (
     buildSignal("signal-ready", "item-ready"),
     buildSignal("signal-saved", "item-saved")
   ];
-  const auditEvidence = [buildAuditPacket(1), buildAuditPacket(2)];
+  const auditEvidence = [
+    buildAuditPacket(1, { signalId: "signal-ready", itemId: "item-ready" }),
+    buildAuditPacket(2, { signalId: "signal-saved", itemId: "item-saved" })
+  ];
   const auditMemos = buildAuditMemos([auditEvidence[0]!]);
   const signalTagsByItemId: Record<string, SignalTagsRecord> = {
     "item-ready": {
@@ -192,7 +195,7 @@ test("Topic detail VM composes source rows, audit state, and command targets", (
       { id: "episode-2", auditRunId: "audit-1", inputHash: "hash-1", transition: "advance" } as TopicAuditEpisode
     ],
     auditSummary: { reportStatus: "ready", analyzedCount: 9, queuedCount: 9, coverage: "9/18" },
-    p1RunningSignalIds: ["audit-signal-2"]
+    p1RunningSignalIds: ["signal-saved"]
   });
 
   assert.equal(vm.topic.id, "topic-1");
@@ -220,7 +223,7 @@ test("Topic detail VM composes source rows, audit state, and command targets", (
   assert.equal(vm.audit.sourceTotal, 2);
   assert.equal(vm.audit.summary.analyzedCount, 1);
   assert.equal(vm.audit.summary.queuedCount, 1);
-  assert.equal(vm.audit.summary.coverage, "2/2");
+  assert.equal(vm.audit.summary.coverage, "1/2");
   assert.equal(vm.audit.p1ReadyCount, 1);
   assert.equal(vm.audit.p1TotalCount, 2);
   assert.equal(vm.audit.sourceRows[0]?.readingStatus, "ready");
@@ -402,7 +405,7 @@ test("Topic detail VM exposes local evidence packets per crawled signal for pre-
   assert.notEqual(vm.packetsBySignalId["signal-saved"]?.status, "succeeded");
 });
 
-test("Topic detail VM keeps audit denominator on evidence when saved signals drift", () => {
+test("Topic detail VM keeps an uncrawled topic source pending outside the completed audit evidence", () => {
   const auditEvidence = Array.from({ length: 15 }, (_, index) => buildAuditPacket(index + 1));
   const auditMemos = buildAuditMemos(auditEvidence);
   const topicSignals = [
@@ -418,17 +421,44 @@ test("Topic detail VM keeps audit denominator on evidence when saved signals dri
     sessionItems: [buildSessionItem("saved-item", "saved")],
     auditEvidence,
     auditMemos,
-    auditSummary: { reportStatus: "ready", analyzedCount: 15, queuedCount: 1, coverage: "15/15" }
+    auditSummary: { reportStatus: "ready", analyzedCount: 15, queuedCount: 1, coverage: "15/16" }
   });
 
   assert.equal(vm.signalRows.length, 16);
   assert.equal(vm.audit.sourceRows.length, 15);
-  assert.equal(vm.audit.sourceTotal, 15);
+  assert.equal(vm.audit.sourceTotal, 16);
   assert.equal(vm.audit.summary.analyzedCount, 15);
-  assert.equal(vm.audit.summary.queuedCount, 0);
-  assert.equal(vm.audit.summary.coverage, "15/15");
+  assert.equal(vm.audit.summary.queuedCount, 1);
+  assert.equal(vm.audit.summary.coverage, "15/16");
   assert.equal(vm.audit.p1ReadyCount, 15);
   assert.equal(vm.audit.p1TotalCount, 15);
+});
+
+test("Topic detail VM excludes removed evidence from current inventory coverage", () => {
+  const currentPacket = buildAuditPacket(1);
+  const removedPacket = buildAuditPacket(2);
+  const auditEvidence = [currentPacket, removedPacket];
+  const auditMemos = buildAuditMemos(auditEvidence);
+  const topicSignals = [
+    buildSignal(currentPacket.signalId, currentPacket.itemId),
+    buildSignal("saved-signal", "saved-item")
+  ];
+
+  const vm = buildTopicDetailViewModel({
+    topic: { ...topic, signalIds: topicSignals.map((signal) => signal.id) },
+    signals: topicSignals,
+    pairs: [],
+    sessionMode: "topic",
+    sessionItems: [buildSessionItem("saved-item", "saved")],
+    auditEvidence,
+    auditMemos,
+    auditSummary: { reportStatus: "stale", analyzedCount: 2, queuedCount: 0, coverage: "2/2" }
+  });
+
+  assert.equal(vm.audit.sourceTotal, 2);
+  assert.equal(vm.audit.summary.analyzedCount, 1);
+  assert.equal(vm.audit.summary.queuedCount, 1);
+  assert.equal(vm.audit.summary.coverage, "1/2");
 });
 
 test("Topic detail VM blocks audit commands when no source is readable", () => {

@@ -1579,7 +1579,7 @@ test("TopicDetailView routes reaction, narrative, atlas dot, and source row into
   }
 });
 
-test("TopicDetailView uses audit evidence as the denominator when topic signal pointers drift", () => {
+test("TopicDetailView keeps stale Atlas evidence visible when current inventory pointers drift", () => {
   const driftedEvidence = Array.from({ length: 3 }, (_, index) => ({
     ...auditPacket,
     signalId: `orphan-signal-${index + 1}`,
@@ -1667,7 +1667,7 @@ test("TopicDetailView ignores non-topic-scoped signals when audit sources are pr
   assert.doesNotMatch(html, /P1 判讀 15\/30/);
 });
 
-test("TopicDetailView keeps the B-14 audit count at 15/15 when a topic also has an uncrawled saved signal", () => {
+test("TopicDetailView keeps an uncrawled saved signal pending outside the 15-source Atlas", () => {
   const auditEvidence = Array.from({ length: 15 }, (_, index) => ({
     ...auditPacket,
     signalId: `audit-signal-${index + 1}`,
@@ -1706,7 +1706,7 @@ test("TopicDetailView keeps the B-14 audit count at 15/15 when a topic also has 
       sessionItems: [buildSessionItem("saved-item", "saved")],
       auditEvidence,
       auditMemos: auditOnlyMemos,
-      auditSummary: { reportStatus: "ready", analyzedCount: 15, queuedCount: 1, coverage: "15/15" },
+      auditSummary: { reportStatus: "ready", analyzedCount: 15, queuedCount: 1, coverage: "15/16" },
       auditValidatorFlags: [],
       onBack: () => undefined,
       onOpenPair: () => undefined,
