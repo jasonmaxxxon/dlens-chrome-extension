@@ -1,8 +1,10 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import React from "react";
+import React, { act } from "react";
+import { createRoot } from "react-dom/client";
 import { renderToStaticMarkup } from "react-dom/server";
+import { JSDOM } from "jsdom";
 
 import { createSessionItem } from "../src/state/store-helpers.ts";
 import type { SessionItem, Signal, Topic } from "../src/state/types.ts";
@@ -104,6 +106,134 @@ function item(id: string, status: SessionItem["status"]): SessionItem {
   }
   return record;
 }
+
+function countSourceSummaryProjections(
+  sessionItems: SessionItem[],
+  onProjection: () => void
+): SessionItem[] {
+  return new Proxy([...sessionItems], {
+    get(target, property, receiver) {
+      if (property !== "map") {
+        return Reflect.get(target, property, receiver);
+      }
+      return (...args: unknown[]) => {
+        onProjection();
+        return Reflect.apply(Array.prototype.map, target, args);
+      };
+    }
+  });
+}
+
+test("TopicsListView memoizes source summaries until an input identity changes", async () => {
+  const dom = new JSDOM("<body></body>", { url: "https://dlens.test" });
+  const reactActGlobal = globalThis as typeof globalThis & { IS_REACT_ACT_ENVIRONMENT?: boolean };
+  const previousActEnvironment = reactActGlobal.IS_REACT_ACT_ENVIRONMENT;
+  const previous = {
+    window: globalThis.window,
+    document: globalThis.document,
+    HTMLElement: globalThis.HTMLElement,
+    Element: globalThis.Element
+  };
+  Object.assign(globalThis, {
+    window: dom.window,
+    document: dom.window.document,
+    HTMLElement: dom.window.HTMLElement,
+    Element: dom.window.Element
+  });
+  reactActGlobal.IS_REACT_ACT_ENVIRONMENT = true;
+
+  const inputNames = ["topics", "signals", "sessionItems"] as const;
+  try {
+    for (const changedInput of inputNames) {
+      let projectionCalls = 0;
+      const topics = [topic("topic-1", "議題一")];
+      const signals = [signal("topic-1-signal-1", "topic-1", "item-ready")];
+      const sourceItems = [item("item-ready", "succeeded")];
+      const sessionItems = countSourceSummaryProjections(sourceItems, () => {
+        projectionCalls += 1;
+      });
+      const rootElement = dom.window.document.createElement("div");
+      dom.window.document.body.append(rootElement);
+      const root = createRoot(rootElement);
+
+      function Harness({
+        parentRevision,
+        topicsInput,
+        signalsInput,
+        sessionItemsInput
+      }: {
+        parentRevision: number;
+        topicsInput: Topic[];
+        signalsInput: Signal[];
+        sessionItemsInput: SessionItem[];
+      }) {
+        return (
+          <div data-parent-revision={parentRevision}>
+            <TopicsListView
+              topics={topicsInput}
+              signals={signalsInput}
+              sessionItems={sessionItemsInput}
+              onOpenTopic={() => undefined}
+              onCreateTopic={() => undefined}
+            />
+          </div>
+        );
+      }
+
+      try {
+        await act(async () => {
+          root.render(
+            <Harness
+              parentRevision={0}
+              topicsInput={topics}
+              signalsInput={signals}
+              sessionItemsInput={sessionItems}
+            />
+          );
+        });
+        assert.equal(projectionCalls, 1, `${changedInput}: initial projection runs once`);
+
+        for (const parentRevision of [1, 2]) {
+          await act(async () => {
+            root.render(
+              <Harness
+                parentRevision={parentRevision}
+                topicsInput={topics}
+                signalsInput={signals}
+                sessionItemsInput={sessionItems}
+              />
+            );
+          });
+        }
+        assert.equal(projectionCalls, 1, `${changedInput}: unrelated parent rerenders reuse the projection`);
+
+        const changedSessionItems = changedInput === "sessionItems"
+          ? countSourceSummaryProjections(sourceItems, () => {
+              projectionCalls += 1;
+            })
+          : sessionItems;
+        await act(async () => {
+          root.render(
+            <Harness
+              parentRevision={3}
+              topicsInput={changedInput === "topics" ? [...topics] : topics}
+              signalsInput={changedInput === "signals" ? [...signals] : signals}
+              sessionItemsInput={changedSessionItems}
+            />
+          );
+        });
+        assert.equal(projectionCalls, 2, `${changedInput}: changing the input identity recomputes once`);
+      } finally {
+        await act(async () => root.unmount());
+        rootElement.remove();
+      }
+    }
+  } finally {
+    Object.assign(globalThis, previous);
+    if (previousActEnvironment === undefined) delete reactActGlobal.IS_REACT_ACT_ENVIRONMENT;
+    else reactActGlobal.IS_REACT_ACT_ENVIRONMENT = previousActEnvironment;
+  }
+});
 
 test("TopicsListView renders the five audit states with distinct status copy", () => {
   const topics = [

@@ -1,4 +1,4 @@
-import type { KeyboardEvent, MouseEvent } from "react";
+import { useMemo, type KeyboardEvent, type MouseEvent } from "react";
 
 import { getItemReadinessStatus } from "../state/processing-state.ts";
 import type { SessionItem, Signal, Topic } from "../state/types.ts";
@@ -357,7 +357,10 @@ export function TopicsListView({
   onDeleteTopic?: (topicId: string) => void;
 }) {
   const t = useUiText();
-  const sourceSummariesByTopicId = buildTopicSourceSummaries(topics, signals, sessionItems);
+  const sourceSummariesByTopicId = useMemo(
+    () => buildTopicSourceSummaries(topics, signals, sessionItems),
+    [topics, signals, sessionItems]
+  );
   const listMotionRef = useCausalListMotion(topics.map((topic) => topic.id).join("|"));
   return (
     <div data-topics-list="audit" style={{ display: "grid", gap: 14 }}>
