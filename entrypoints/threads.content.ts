@@ -2,6 +2,7 @@ import React from "react";
 import ReactDOM from "react-dom/client";
 import { defineContentScript } from "wxt/utils/define-content-script";
 import { buildTargetDescriptor, canSubmitDescriptor, findCardCandidate, type CandidateStrength } from "../src/targeting/threads";
+import { hoverFingerprint, shouldPublishHover } from "../src/targeting/hover-geometry";
 import { createLocationChangeChecker, HOVER_INTENT_DELAY_MS } from "../src/targeting/navigation-reset";
 import type { ExtensionMessage, ExtensionResponse } from "../src/state/messages";
 import { appendExternalPipelineTraceEntry, createPipelineRequestId, emitPipelineEvent, isQaTraceEnabled } from "../src/state/pipeline-trace";
@@ -32,6 +33,9 @@ let hoverCard: HTMLElement | null = null;
 let hoverStrength: CandidateStrength | null = null;
 let hoverDescriptor: ReturnType<typeof buildTargetDescriptor> | null = null;
 let hoverIntentHandle: number | null = null;
+let lastPublishedHoverFingerprint: string | null = null;
+let pendingPointerTarget: EventTarget | null = null;
+let pointerFrameHandle: number | null = null;
 let previousBodyCursor = "";
 let previousDocumentCursor = "";
 let removeSpaNavigationReset: (() => void) | null = null;
@@ -152,14 +156,14 @@ function renderWorkspaceCrashFallback(root: HTMLDivElement, error: unknown) {
   root.innerHTML = buildWorkspaceCrashMarkup(message);
 }
 
-function emitHoverRect(card: HTMLElement | null) {
-  const detail = card ? card.getBoundingClientRect().toJSON() : null;
+function emitHoverRect(rect: DOMRect | null) {
+  const detail = rect ? rect.toJSON() : null;
   window.dispatchEvent(new CustomEvent(HOVER_RECT_EVENT, { detail }));
 }
 
-function renderOverlay(card: HTMLElement | null, strength: CandidateStrength | null) {
+function renderOverlay(card: HTMLElement | null, strength: CandidateStrength | null, rect: DOMRect | null) {
   const overlay = ensureOverlay();
-  if (!card) {
+  if (!card || !rect) {
     overlay.style.display = "none";
     emitHoverRect(null);
     emitPipelineEvent({
@@ -171,7 +175,6 @@ function renderOverlay(card: HTMLElement | null, strength: CandidateStrength | n
     return;
   }
 
-  const rect = card.getBoundingClientRect();
   const theme = selectionTheme();
   overlay.style.display = "block";
   overlay.style.top = `${rect.top - 3}px`;
@@ -184,7 +187,7 @@ function renderOverlay(card: HTMLElement | null, strength: CandidateStrength | n
     strength === "soft"
       ? `0 0 0 1px rgba(255,255,255,0.35), 0 6px 16px ${theme.shadowSoft}`
       : `0 0 0 1px rgba(255,255,255,0.5), 0 10px 24px ${theme.shadowStrong}`;
-  emitHoverRect(card);
+  emitHoverRect(rect);
   emitPipelineEvent({
     phase: "hover.detected",
     step: "content.overlay.render",
@@ -258,20 +261,30 @@ function cardFingerprint(card: HTMLElement): string {
 let lastCardFingerprint = "";
 
 function setHoverCard(card: HTMLElement | null, strength: CandidateStrength | null) {
-  const fp = card ? cardFingerprint(card) : "";
+  // One layout read per processed frame; the pure geometry helpers take this
+  // rect, they never read it themselves.
+  const rect = card ? card.getBoundingClientRect() : null;
+  const cardId = card ? cardFingerprint(card) : null;
 
-  // Same DOM node AND same permalink — just update visual strength
-  if (hoverCard === card && fp === lastCardFingerprint) {
+  // Same DOM node AND same permalink — the card itself did not change, so the
+  // descriptor/intent bookkeeping below would no-op. Skip the redundant overlay
+  // render + hover-rect dispatch unless strength or geometry actually moved.
+  if (hoverCard === card && (cardId ?? "") === lastCardFingerprint) {
+    if (!shouldPublishHover(lastPublishedHoverFingerprint, cardId, strength, rect)) {
+      return;
+    }
     hoverStrength = strength;
-    renderOverlay(card, strength);
+    renderOverlay(card, strength, rect);
+    lastPublishedHoverFingerprint = hoverFingerprint(cardId, strength, rect);
     return;
   }
 
   hoverCard = card;
   hoverStrength = strength;
   hoverDescriptor = null;
-  lastCardFingerprint = fp;
-  renderOverlay(card, strength);
+  lastCardFingerprint = cardId ?? "";
+  renderOverlay(card, strength, rect);
+  lastPublishedHoverFingerprint = hoverFingerprint(cardId, strength, rect);
   clearHoverIntent();
   emitPipelineEvent({
     phase: "hover.detected",
@@ -281,7 +294,7 @@ function setHoverCard(card: HTMLElement | null, strength: CandidateStrength | nu
     detail: {
       hasCard: Boolean(card),
       strength,
-      fingerprint: fp || null,
+      fingerprint: cardId || null,
       delayMs: card ? strength === "hard" ? 0 : HOVER_INTENT_DELAY_MS : null
     }
   });
@@ -439,7 +452,22 @@ function onPointerMove(event: MouseEvent) {
   if (!selectionMode || isControlSurface(event.target)) {
     return;
   }
-  const candidate = findCardCandidate(event.target);
+  // Coalesce a mousemove burst into one trailing evaluation per animation frame,
+  // so a hot stream of moves over the same card costs a single layout read.
+  pendingPointerTarget = event.target;
+  if (pointerFrameHandle === null) {
+    pointerFrameHandle = window.requestAnimationFrame(processPointerFrame);
+  }
+}
+
+function processPointerFrame() {
+  pointerFrameHandle = null;
+  const target = pendingPointerTarget;
+  pendingPointerTarget = null;
+  if (!selectionMode) {
+    return;
+  }
+  const candidate = findCardCandidate(target);
   setHoverCard(candidate.root, candidate.strength);
 }
 
