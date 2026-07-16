@@ -32,19 +32,29 @@ export function useProcessingCoordinator({
   const processingFailureCountRef = useRef(0);
   const backendHealthFailureCountRef = useRef(0);
   const lastKnownWorkerStatusRef = useRef<WorkerStatus>("idle");
+  const workerStatusStateRef = useRef<WorkerStatus | null>(null);
+  const workerErrorRef = useRef<string | null>(null);
+  const backendWorkUiStateRef = useRef<BackendWorkUiState | null>(null);
+  const backendReachabilityRef = useRef<BackendReachability>("reachable");
   const [workerStatus, setWorkerStatusState] = useState<WorkerStatus | null>(null);
   const [workerError, setWorkerError] = useState<string | null>(null);
   const [backendWorkUiState, setBackendWorkUiState] = useState<BackendWorkUiState | null>(null);
   const [backendReachability, setBackendReachability] = useState<BackendReachability>("reachable");
   const setWorkerStatus = useCallback((status: WorkerStatus) => {
     lastKnownWorkerStatusRef.current = status;
-    setWorkerStatusState(status);
+    if (workerStatusStateRef.current !== status) {
+      workerStatusStateRef.current = status;
+      setWorkerStatusState(status);
+    }
   }, []);
 
   useEffect(() => {
     if (!popupOpen) {
       backendHealthFailureCountRef.current = 0;
-      setBackendReachability("reachable");
+      if (backendReachabilityRef.current !== "reachable") {
+        backendReachabilityRef.current = "reachable";
+        setBackendReachability("reachable");
+      }
       return;
     }
 
@@ -65,13 +75,20 @@ export function useProcessingCoordinator({
           throw new Error(response.ok ? response.backendHealth?.error || "Backend health check failed" : response.error);
         }
         backendHealthFailureCountRef.current = 0;
-        setBackendReachability("reachable");
+        if (backendReachabilityRef.current !== "reachable") {
+          backendReachabilityRef.current = "reachable";
+          setBackendReachability("reachable");
+        }
       } catch {
         if (cancelled) {
           return;
         }
         backendHealthFailureCountRef.current += 1;
-        setBackendReachability(projectBackendReachability(backendHealthFailureCountRef.current));
+        const nextReachability = projectBackendReachability(backendHealthFailureCountRef.current);
+        if (backendReachabilityRef.current !== nextReachability) {
+          backendReachabilityRef.current = nextReachability;
+          setBackendReachability(nextReachability);
+        }
       }
 
       if (!cancelled) {
@@ -93,9 +110,18 @@ export function useProcessingCoordinator({
   useEffect(() => {
     if (!popupOpen) {
       lastKnownWorkerStatusRef.current = "idle";
-      setWorkerStatusState(null);
-      setWorkerError(null);
-      setBackendWorkUiState(null);
+      if (workerStatusStateRef.current !== null) {
+        workerStatusStateRef.current = null;
+        setWorkerStatusState(null);
+      }
+      if (workerErrorRef.current !== null) {
+        workerErrorRef.current = null;
+        setWorkerError(null);
+      }
+      if (backendWorkUiStateRef.current !== null) {
+        backendWorkUiStateRef.current = null;
+        setBackendWorkUiState(null);
+      }
       processingFailureCountRef.current = 0;
       return;
     }
@@ -133,12 +159,19 @@ export function useProcessingCoordinator({
         const previousWorkerStatus = lastKnownWorkerStatus;
         lastKnownWorkerStatus = nextWorkerStatus;
         lastKnownWorkerStatusRef.current = nextWorkerStatus;
-        setWorkerStatusState(nextWorkerStatus);
+        if (workerStatusStateRef.current !== nextWorkerStatus) {
+          workerStatusStateRef.current = nextWorkerStatus;
+          setWorkerStatusState(nextWorkerStatus);
+        }
         const nextBackendWorkUiState = workerResponse.backendWorkUiState ?? { kind: nextWorkerStatus };
-        setBackendWorkUiState((current) =>
-          sameBackendWorkUiState(current, nextBackendWorkUiState) ? current : nextBackendWorkUiState
-        );
-        setWorkerError(null);
+        if (!sameBackendWorkUiState(backendWorkUiStateRef.current, nextBackendWorkUiState)) {
+          backendWorkUiStateRef.current = nextBackendWorkUiState;
+          setBackendWorkUiState(nextBackendWorkUiState);
+        }
+        if (workerErrorRef.current !== null) {
+          workerErrorRef.current = null;
+          setWorkerError(null);
+        }
         emitPipelineEvent({
           phase: "crawl.queued",
           step: "popup.worker.status.response",
@@ -204,8 +237,11 @@ export function useProcessingCoordinator({
         if (cancelled) {
           return;
         }
-        setWorkerStatusState((current) => current);
-        setWorkerError(error instanceof Error ? error.message : String(error));
+        const nextWorkerError = error instanceof Error ? error.message : String(error);
+        if (workerErrorRef.current !== nextWorkerError) {
+          workerErrorRef.current = nextWorkerError;
+          setWorkerError(nextWorkerError);
+        }
         processingFailureCountRef.current += 1;
         emitPipelineEvent({
           phase: "crawl.queued",

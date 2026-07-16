@@ -175,6 +175,7 @@ async function withCoordinatorHarness(
   run: (ctx: {
     fireHeartbeat: () => Promise<void>;
     consumerRenders: () => number;
+    ownerRenders: () => number;
     statusRequests: () => number;
     setWork: (workerStatus: WorkerStatus, workState: BackendWorkUiState) => void;
     setHealthReachable: (reachable: boolean) => void;
@@ -198,6 +199,7 @@ async function withCoordinatorHarness(
   let nextTimerId = 1;
   let statusRequests = 0;
   let consumerRenders = 0;
+  let ownerRenders = 0;
 
   const backend = {
     workerStatus: "idle" as WorkerStatus,
@@ -254,6 +256,7 @@ async function withCoordinatorHarness(
   });
 
   function Harness() {
+    ownerRenders += 1;
     const { sendAndSync } = useExtensionSnapshot(false);
     const coordinator = useProcessingCoordinator({
       popupOpen: true,
@@ -289,6 +292,7 @@ async function withCoordinatorHarness(
         });
       },
       consumerRenders: () => consumerRenders,
+      ownerRenders: () => ownerRenders,
       statusRequests: () => statusRequests,
       setWork: (workerStatus, workState) => {
         backend.workerStatus = workerStatus;
@@ -312,6 +316,7 @@ test("five identical idle worker responses commit backend work state exactly onc
     // The first idle response (during mount) is the only permitted commit.
     assert.equal(ctx.statusRequests(), 1);
     const rendersAfterFirstResponse = ctx.consumerRenders();
+    const ownerRendersAfterFirstResponse = ctx.ownerRenders();
     assert.equal(
       rendersAfterFirstResponse,
       2,
@@ -328,6 +333,11 @@ test("five identical idle worker responses commit backend work state exactly onc
       ctx.consumerRenders() - rendersAfterFirstResponse,
       0,
       "identical idle polls must not re-render the backend work state consumer"
+    );
+    assert.equal(
+      ctx.ownerRenders() - ownerRendersAfterFirstResponse,
+      0,
+      "identical idle polls must not re-render the coordinator owner"
     );
   });
 });
