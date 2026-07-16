@@ -711,6 +711,467 @@ test("InPageCollectorPopup keeps extra scroll padding below the last card", () =
   assert.equal(inPageCollectorPopupTestables.settingsWorkspaceSurfaceStyle.overflow, "visible");
 });
 
+function buildPopupAppFixture({
+  session = buildSession(),
+  page = "topics",
+  popupOpen = true,
+  prEvidenceViewModel = buildPrEvidenceVm(),
+  onSessionModeChange = async () => ({ ok: true })
+}: {
+  session?: SessionRecord;
+  page?: string;
+  popupOpen?: boolean;
+  prEvidenceViewModel?: PrEvidenceViewModel;
+  onSessionModeChange?: (mode: "topic" | "product" | "pr-evidence") => Promise<unknown>;
+} = {}) {
+  return {
+    popupRef: { current: null },
+    snapshot: {
+      global: {
+        settings: createDefaultSettings(),
+        sessions: [session],
+        activeSessionId: session.id,
+        updatedAt: "2026-07-07T08:00:00.000Z"
+      },
+      tab: {
+        ...createEmptyTabState(),
+        popupOpen,
+        popupPage: page
+      }
+    },
+    page,
+    popupOpen,
+    activeFolder: session,
+    activeFolderMode: session.mode,
+    activeTopic: null,
+    activeTopicSignals: [],
+    activeTopicPairs: [],
+    topicLoadState: "ready",
+    selectedTopicId: null,
+    activePrCampaign: null,
+    topics: [],
+    signals: [],
+    topicAuditByTopicId: {},
+    savedAnalyses: [],
+    productSignalAnalyses: [],
+    historicalProductSignalAnalyses: [],
+    productAgentTaskFeedback: [],
+    signalReadings: [],
+    compiledProductContext: null,
+    productAiProviderReady: false,
+    productBackendError: null,
+    productSignalAnalysisError: null,
+    productSignalAnalysisNotice: null,
+    isHydratingProductSignals: false,
+    isAnalyzingProductSignals: false,
+    activeTopicAudit: undefined,
+    topicAuditP1RunningBySignalId: {},
+    topicAuditP1ErrorBySignalId: {},
+    optimisticQueuedIds: [],
+    bulkAnalyzingFolderId: null,
+    isStartingProcessing: false,
+    workerStatus: "idle",
+    backendWorkUiState: null,
+    backendReachability: "unknown",
+    processingSummary: {
+      total: 0,
+      ready: 0,
+      crawling: 0,
+      analyzing: 0,
+      pending: 0,
+      failed: 0,
+      hasReadyPair: false,
+      hasInflight: false
+    },
+    showFolderPrompt: false,
+    isRenamingFolder: false,
+    editingFolderName: "",
+    folderName: "",
+    readInteractionNowMs: () => 0,
+    readWallClockNowMs: () => Date.parse("2026-07-07T08:00:00.000Z"),
+    prEvidenceViewModel,
+    resultItemA: null,
+    resultItemB: null,
+    activeSavedAnalysis: null,
+    signalPreviewById: {},
+    signalTagsByItemId: {},
+    onSessionModeChange,
+    onNavigate: async () => undefined,
+    onPrEvidenceCommand: () => undefined,
+    onPrEvidenceBriefFileSelected: () => undefined
+  };
+}
+
+test("InPageCollectorPopup close and reopen remounts DOM refs while preserving an in-flight workspace switch", async () => {
+  const { JSDOM } = await import("jsdom");
+  const { createRoot } = await import("react-dom/client");
+  const { act } = await import("react");
+  const prSession = buildSession();
+  prSession.mode = "pr-evidence";
+  const dom = new JSDOM("<div id=\"root\"></div>", { url: "https://dlens.test" });
+  const reactActGlobal = globalThis as typeof globalThis & { IS_REACT_ACT_ENVIRONMENT?: boolean };
+  const previousActEnvironment = reactActGlobal.IS_REACT_ACT_ENVIRONMENT;
+  const previous = {
+    window: globalThis.window,
+    document: globalThis.document,
+    HTMLElement: globalThis.HTMLElement,
+    HTMLButtonElement: globalThis.HTMLButtonElement,
+    HTMLInputElement: globalThis.HTMLInputElement,
+    MouseEvent: globalThis.MouseEvent
+  };
+  let resolveSwitch!: (value: unknown) => void;
+  const switchPromise = new Promise<unknown>((resolve) => {
+    resolveSwitch = resolve;
+  });
+  let switchCalls = 0;
+  const app = buildPopupAppFixture({
+    session: prSession,
+    page: "pr-evidence",
+    prEvidenceViewModel: buildPrEvidenceVm({ setupCollapsed: false }),
+    onSessionModeChange: async () => {
+      switchCalls += 1;
+      return switchPromise;
+    }
+  });
+
+  Object.assign(globalThis, {
+    window: dom.window,
+    document: dom.window.document,
+    HTMLElement: dom.window.HTMLElement,
+    HTMLButtonElement: dom.window.HTMLButtonElement,
+    HTMLInputElement: dom.window.HTMLInputElement,
+    MouseEvent: dom.window.MouseEvent
+  });
+  reactActGlobal.IS_REACT_ACT_ENVIRONMENT = true;
+
+  const rootElement = dom.window.document.getElementById("root");
+  assert.ok(rootElement);
+  const root = createRoot(rootElement);
+
+  try {
+    await act(async () => {
+      root.render(React.createElement(InPageCollectorPopup, { app: app as any }));
+      await Promise.resolve();
+    });
+    const firstViewport = rootElement.querySelector<HTMLElement>('[data-workspace-popup-scroll="viewport"]');
+    const firstBriefInput = rootElement.querySelector<HTMLInputElement>('input[type="file"]');
+    const productSwitch = rootElement.querySelector<HTMLButtonElement>('[data-workspace-switcher-mode="product"]');
+    assert.ok(firstViewport);
+    assert.ok(firstBriefInput);
+    assert.ok(productSwitch);
+    firstViewport.scrollTop = 240;
+
+    await act(async () => {
+      productSwitch.dispatchEvent(new dom.window.MouseEvent("click", { bubbles: true }));
+      await Promise.resolve();
+    });
+    assert.equal(
+      rootElement.querySelector('[data-workspace-switcher="segmented"]')?.getAttribute("data-workspace-switcher-pending"),
+      "product"
+    );
+
+    app.popupOpen = false;
+    await act(async () => {
+      root.render(React.createElement(InPageCollectorPopup, { app: app as any }));
+      await Promise.resolve();
+    });
+    assert.equal(rootElement.querySelector('[data-workspace-popup="shell"]'), null);
+    assert.equal(firstViewport.isConnected, false);
+    assert.equal(firstBriefInput.isConnected, false);
+
+    app.popupOpen = true;
+    await act(async () => {
+      root.render(React.createElement(InPageCollectorPopup, { app: app as any }));
+      await Promise.resolve();
+    });
+    const reopenedViewport = rootElement.querySelector<HTMLElement>('[data-workspace-popup-scroll="viewport"]');
+    assert.ok(reopenedViewport);
+    assert.notEqual(reopenedViewport, firstViewport);
+    assert.equal(reopenedViewport.scrollTop, 0);
+    assert.equal(
+      rootElement.querySelector('[data-workspace-switcher="segmented"]')?.getAttribute("data-workspace-switcher-pending"),
+      "product",
+      "an in-flight workspace switch remains visible across close and reopen"
+    );
+
+    await act(async () => {
+      resolveSwitch({ ok: true });
+      await switchPromise;
+      await Promise.resolve();
+    });
+    const reopenedBriefInput = rootElement.querySelector<HTMLInputElement>('input[type="file"]');
+    const uploadButton = [...rootElement.querySelectorAll<HTMLButtonElement>("button")]
+      .find((button) => button.textContent?.includes("上傳 PDF"));
+    assert.ok(reopenedBriefInput);
+    assert.ok(uploadButton);
+    assert.notEqual(reopenedBriefInput, firstBriefInput);
+    let firstInputClicks = 0;
+    let reopenedInputClicks = 0;
+    firstBriefInput.addEventListener("click", () => {
+      firstInputClicks += 1;
+    });
+    reopenedBriefInput.addEventListener("click", () => {
+      reopenedInputClicks += 1;
+    });
+    uploadButton.dispatchEvent(new dom.window.MouseEvent("click", { bubbles: true }));
+
+    assert.equal(switchCalls, 1);
+    assert.equal(firstInputClicks, 0);
+    assert.equal(reopenedInputClicks, 1);
+  } finally {
+    await act(async () => root.unmount());
+    Object.assign(globalThis, previous);
+    if (previousActEnvironment === undefined) delete reactActGlobal.IS_REACT_ACT_ENVIRONMENT;
+    else reactActGlobal.IS_REACT_ACT_ENVIRONMENT = previousActEnvironment;
+    dom.window.close();
+  }
+});
+
+test("InPageCollectorPopup reopening the same route does not replay the lead presence motion", async () => {
+  const { JSDOM } = await import("jsdom");
+  const { createRoot } = await import("react-dom/client");
+  const { act } = await import("react");
+  const topicSession = buildSession();
+  topicSession.mode = "topic";
+  const dom = new JSDOM("<div id=\"root\"></div>", { url: "https://dlens.test" });
+  const reactActGlobal = globalThis as typeof globalThis & { IS_REACT_ACT_ENVIRONMENT?: boolean };
+  const previousActEnvironment = reactActGlobal.IS_REACT_ACT_ENVIRONMENT;
+  const previous = {
+    window: globalThis.window,
+    document: globalThis.document,
+    HTMLElement: globalThis.HTMLElement,
+    IntersectionObserver: globalThis.IntersectionObserver
+  };
+  class CharacterizationIntersectionObserver {
+    observe = () => undefined;
+    unobserve = () => undefined;
+    disconnect = () => undefined;
+    takeRecords = () => [];
+  }
+  Object.defineProperty(dom.window, "IntersectionObserver", {
+    configurable: true,
+    value: CharacterizationIntersectionObserver
+  });
+  const app = buildPopupAppFixture({
+    session: topicSession,
+    page: "topics"
+  });
+  app.topics = [{
+    id: "topic-motion",
+    sessionId: topicSession.id,
+    name: "Motion continuity",
+    description: "",
+    status: "watching",
+    tags: [],
+    signalIds: [],
+    pairIds: [],
+    createdAt: "2026-07-07T08:00:00.000Z",
+    updatedAt: "2026-07-07T08:00:00.000Z"
+  }];
+
+  Object.assign(globalThis, {
+    window: dom.window,
+    document: dom.window.document,
+    HTMLElement: dom.window.HTMLElement,
+    IntersectionObserver: CharacterizationIntersectionObserver
+  });
+  reactActGlobal.IS_REACT_ACT_ENVIRONMENT = true;
+
+  const rootElement = dom.window.document.getElementById("root");
+  assert.ok(rootElement);
+  const root = createRoot(rootElement);
+
+  try {
+    await act(async () => {
+      root.render(React.createElement(InPageCollectorPopup, { app: app as any }));
+      await Promise.resolve();
+    });
+    const firstPresenceCard = rootElement.querySelector<HTMLElement>('[data-dlens-presence="card"]');
+    assert.ok(firstPresenceCard);
+    assert.equal(firstPresenceCard.style.opacity, String(tokens.motion.presence.leadSoftPop.opacityFrom));
+    assert.equal(firstPresenceCard.style.scale, String(tokens.motion.presence.leadSoftPop.scaleFrom));
+
+    app.popupOpen = false;
+    await act(async () => {
+      root.render(React.createElement(InPageCollectorPopup, { app: app as any }));
+      await Promise.resolve();
+    });
+    app.popupOpen = true;
+    await act(async () => {
+      root.render(React.createElement(InPageCollectorPopup, { app: app as any }));
+      await Promise.resolve();
+    });
+
+    const reopenedPresenceCard = rootElement.querySelector<HTMLElement>('[data-dlens-presence="card"]');
+    assert.ok(reopenedPresenceCard);
+    assert.notEqual(reopenedPresenceCard, firstPresenceCard);
+    assert.equal(
+      reopenedPresenceCard.style.opacity,
+      String(tokens.motion.presence.cardOpacityFrom),
+      "same-route reopen must use the settled card rhythm, not a second lead soft-pop"
+    );
+    assert.equal(reopenedPresenceCard.style.scale, "");
+  } finally {
+    await act(async () => root.unmount());
+    Object.assign(globalThis, previous);
+    if (previousActEnvironment === undefined) delete reactActGlobal.IS_REACT_ACT_ENVIRONMENT;
+    else reactActGlobal.IS_REACT_ACT_ENVIRONMENT = previousActEnvironment;
+    dom.window.close();
+  }
+});
+
+test("InPageCollectorPopup closed facade reads only popupOpen and skips Product and Topic projection paths", () => {
+  const results: Array<{
+    route: string;
+    strictReads: string[];
+    unexpectedRead: string | null;
+    projectionBuilderInputReads: number;
+  }> = [];
+  const scenarios = [
+    {
+      route: "product",
+      page: "saved-signals",
+      mode: "product",
+      builderProbe: "productSignalAnalyses",
+      activeTopic: null
+    },
+    {
+      route: "topic",
+      page: "topic-detail",
+      mode: "topic",
+      builderProbe: "activeTopicSignals",
+      activeTopic: {
+        id: "topic-closed",
+        sessionId: "session-closed",
+        name: "Closed topic",
+        description: "",
+        status: "watching",
+        tags: [],
+        signalIds: [],
+        pairIds: [],
+        createdAt: "2026-07-07T08:00:00.000Z",
+        updatedAt: "2026-07-07T08:00:00.000Z"
+      }
+    }
+  ] as const;
+
+  for (const scenario of scenarios) {
+    const session = buildSession();
+    session.id = "session-closed";
+    session.mode = scenario.mode;
+    const target = buildPopupAppFixture({
+      session,
+      page: scenario.page,
+      popupOpen: false
+    });
+    target.activeTopic = scenario.activeTopic;
+
+    const strictReads: string[] = [];
+    let unexpectedRead: string | null = null;
+    const strictApp = new Proxy({ popupOpen: false }, {
+      get(current, property, receiver) {
+        const key = String(property);
+        strictReads.push(key);
+        if (key !== "popupOpen") {
+          throw new Error(`unexpected closed app read: ${key}`);
+        }
+        return Reflect.get(current, property, receiver);
+      }
+    });
+    try {
+      assert.equal(
+        renderToStaticMarkup(React.createElement(InPageCollectorPopup, { app: strictApp as any })),
+        ""
+      );
+    } catch (error) {
+      unexpectedRead = error instanceof Error ? error.message : String(error);
+    }
+
+    let projectionBuilderInputReads = 0;
+    const projectionProbeApp = new Proxy(target, {
+      get(current, property, receiver) {
+        if (String(property) === scenario.builderProbe) {
+          projectionBuilderInputReads += 1;
+        }
+        return Reflect.get(current, property, receiver);
+      }
+    });
+    renderToStaticMarkup(React.createElement(InPageCollectorPopup, { app: projectionProbeApp as any }));
+    results.push({
+      route: scenario.route,
+      strictReads,
+      unexpectedRead,
+      projectionBuilderInputReads
+    });
+  }
+
+  assert.deepEqual(results, [
+    {
+      route: "product",
+      strictReads: ["popupOpen"],
+      unexpectedRead: null,
+      projectionBuilderInputReads: 0
+    },
+    {
+      route: "topic",
+      strictReads: ["popupOpen"],
+      unexpectedRead: null,
+      projectionBuilderInputReads: 0
+    }
+  ]);
+});
+
+test("InPageCollectorPopup builds route projections only for their actual open consumers", () => {
+  const activeTopic = {
+    id: "topic-route-gate",
+    sessionId: "session-route-gate",
+    name: "Route gate",
+    description: "",
+    status: "watching",
+    tags: [],
+    signalIds: [],
+    pairIds: [],
+    createdAt: "2026-07-07T08:00:00.000Z",
+    updatedAt: "2026-07-07T08:00:00.000Z"
+  };
+  const scenarios = [
+    { page: "topics", mode: "topic", expectedProductReads: 0, expectedTopicReads: 0 },
+    { page: "saved-signals", mode: "product", expectedProductReads: 1, expectedTopicReads: 0 },
+    { page: "topic-detail", mode: "topic", expectedProductReads: 0, expectedTopicReads: 1 },
+    { page: "casebook", mode: "topic", expectedProductReads: 0, expectedTopicReads: 0 }
+  ] as const;
+  const results: Array<{ page: string; productReads: number; topicReads: number }> = [];
+
+  for (const scenario of scenarios) {
+    const session = buildSession();
+    session.id = "session-route-gate";
+    session.mode = scenario.mode;
+    const target = buildPopupAppFixture({ session, page: scenario.page });
+    target.activeTopic = activeTopic;
+    let productReads = 0;
+    let topicReads = 0;
+    const app = new Proxy(target, {
+      get(current, property, receiver) {
+        if (property === "productSignalAnalyses") productReads += 1;
+        if (property === "activeTopicSignals") topicReads += 1;
+        return Reflect.get(current, property, receiver);
+      }
+    });
+
+    renderToStaticMarkup(React.createElement(InPageCollectorPopup, { app: app as any }));
+    results.push({ page: scenario.page, productReads, topicReads });
+  }
+
+  assert.deepEqual(
+    results,
+    scenarios.map((scenario) => ({
+      page: scenario.page,
+      productReads: scenario.expectedProductReads,
+      topicReads: scenario.expectedTopicReads
+    }))
+  );
+});
+
 test("InPageCollectorPopup topic create action opens the real create-topic flow", async () => {
   const { JSDOM } = await import("jsdom");
   const { createRoot } = await import("react-dom/client");

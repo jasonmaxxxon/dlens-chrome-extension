@@ -1,4 +1,13 @@
-import { useEffect, useLayoutEffect, useRef, useState, type CSSProperties } from "react";
+import {
+  useEffect,
+  useLayoutEffect,
+  useRef,
+  useState,
+  type CSSProperties,
+  type Dispatch,
+  type RefObject,
+  type SetStateAction
+} from "react";
 import type { MainPage, PopupPage } from "../state/types";
 import { CasebookView } from "./CasebookView";
 import { CompareSetupView } from "./CompareSetupView";
@@ -82,7 +91,59 @@ function isProductSignalPageKind(page: PopupPage): page is ProductSignalPageKind
 }
 
 export function InPageCollectorPopup({ app }: { app: InPageCollectorAppModel }) {
-  const { snapshot, page, popupOpen, activeFolder, resultItemA, resultItemB } = app;
+  const popupOpen = app.popupOpen;
+  // Characterization locks this state across close/open: an in-flight mode
+  // switch must stay visible and keep duplicate switches disabled on reopen.
+  const [switchingWorkspaceMode, setSwitchingWorkspaceMode] = useState<WorkspaceSwitcherMode | null>(null);
+  // The motion hook also stays facade-owned so its same-route presence history
+  // survives the DOM unmount. With active=false it returns before touching the
+  // empty route key, so closing does not consume a second lead soft-pop.
+  const scrollRef = useRef<HTMLDivElement>(null);
+  const motionRouteKey = popupOpen
+    ? [
+        app.activeFolder?.mode ?? "archive",
+        app.page,
+        app.activeFolder?.id ?? "",
+        app.activeTopic?.id ?? "",
+        app.activeSavedAnalysis?.resultId ?? "",
+        app.activePrCampaign?.id ?? ""
+      ].join(":")
+    : "";
+  const scrollTrackRef = useWorkspaceScrollMotion(scrollRef, {
+    active: popupOpen,
+    routeKey: motionRouteKey
+  });
+
+  if (!popupOpen) {
+    return null;
+  }
+
+  return (
+    <OpenInPageCollectorPopup
+      app={app}
+      scrollRef={scrollRef}
+      scrollTrackRef={scrollTrackRef}
+      switchingWorkspaceMode={switchingWorkspaceMode}
+      setSwitchingWorkspaceMode={setSwitchingWorkspaceMode}
+    />
+  );
+}
+
+function OpenInPageCollectorPopup({
+  app,
+  scrollRef,
+  scrollTrackRef,
+  switchingWorkspaceMode,
+  setSwitchingWorkspaceMode
+}: {
+  app: InPageCollectorAppModel;
+  scrollRef: RefObject<HTMLDivElement | null>;
+  scrollTrackRef: RefObject<HTMLDivElement | null>;
+  switchingWorkspaceMode: WorkspaceSwitcherMode | null;
+  setSwitchingWorkspaceMode: Dispatch<SetStateAction<WorkspaceSwitcherMode | null>>;
+}) {
+  const { snapshot, page, activeFolder, resultItemA, resultItemB } = app;
+  const guardedPage = page as PopupPage;
   const activeFolderMode = activeFolder?.mode ?? "archive";
   const uiLang = snapshot?.global.settings.layoutPreferences.language ?? "zh";
   const workspaceMaterial = workspaceMaterialForFolderMode(activeFolderMode);
@@ -112,7 +173,7 @@ export function InPageCollectorPopup({ app }: { app: InPageCollectorAppModel }) 
         isAnalyzing: app.isAnalyzingProductSignals
       })
     : null;
-  const topicDetailViewModel = app.activeTopic
+  const topicDetailViewModel = guardedPage === "topic-detail" && app.activeTopic
     ? buildTopicDetailViewModel({
         topic: app.activeTopic,
         signals: app.activeTopicSignals,
@@ -204,7 +265,6 @@ export function InPageCollectorPopup({ app }: { app: InPageCollectorAppModel }) 
         return undefined;
     }
   }
-  const guardedPage = page as PopupPage;
   const pageComponentKind = getPageComponentKind(guardedPage);
   const allowedRailModes = getModeRailPages(activeFolderMode).filter(isRailMode);
   const guardedPrimaryMode: RailMode | null = isRailMode(guardedPage) && allowedRailModes.includes(guardedPage)
@@ -228,30 +288,17 @@ export function InPageCollectorPopup({ app }: { app: InPageCollectorAppModel }) 
       : "";
   const showProcessingContextStrip = Boolean(activeFolder) && shouldShowProcessingContextStrip(activeFolderMode, guardedPage);
 
-  usePipelineUiReadyTrace(popupOpen && productSignalViewModel
+  usePipelineUiReadyTrace(productSignalViewModel
     ? buildProductUiReadyEvent(productSignalViewModel)
     : null);
-  usePipelineUiReadyTrace(popupOpen && guardedPage === "topic-detail" && topicDetailViewModel
+  usePipelineUiReadyTrace(guardedPage === "topic-detail" && topicDetailViewModel
     ? buildTopicUiReadyEvent(topicDetailViewModel)
     : null);
-  usePipelineUiReadyTrace(popupOpen && guardedPage === "pr-evidence"
+  usePipelineUiReadyTrace(guardedPage === "pr-evidence"
     ? buildPrEvidenceUiReadyEvent(app.prEvidenceViewModel)
     : null);
 
-  const scrollRef = useRef<HTMLDivElement>(null);
-  const scrollTrackRef = useWorkspaceScrollMotion(scrollRef, {
-    active: popupOpen,
-    routeKey: [
-      activeFolderMode,
-      guardedPage,
-      activeFolder?.id ?? "",
-      app.activeTopic?.id ?? "",
-      app.activeSavedAnalysis?.resultId ?? "",
-      app.activePrCampaign?.id ?? ""
-    ].join(":")
-  });
   const prBriefInputRef = useRef<HTMLInputElement>(null);
-  const [switchingWorkspaceMode, setSwitchingWorkspaceMode] = useState<WorkspaceSwitcherMode | null>(null);
 
   // Reset before paint so mode switches do not flash at the prior scrollTop.
   useLayoutEffect(() => {
@@ -323,10 +370,6 @@ export function InPageCollectorPopup({ app }: { app: InPageCollectorAppModel }) 
       return;
     }
     return app.onPrEvidenceCommand(command);
-  }
-
-  if (!popupOpen) {
-    return null;
   }
 
   return (
