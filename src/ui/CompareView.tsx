@@ -2840,12 +2840,6 @@ export function CompareView({
   const { selectedA, selectedB, itemA, itemB } = selection;
   const [selectedClusterA, setSelectedClusterA] = useState<ClusterSelectionRef | null>(null);
   const [selectedClusterB, setSelectedClusterB] = useState<ClusterSelectionRef | null>(null);
-  const [hoveredClusterKey, setHoveredClusterKey] = useState<string | null>(null);
-  const [expandedEvidenceKeys, setExpandedEvidenceKeys] = useState<Set<string>>(new Set());
-  const [highlightedClusterPanel, setHighlightedClusterPanel] = useState<"A" | "B" | null>(null);
-  const [supportExpanded, setSupportExpanded] = useState(false);
-  const [engagementExpanded, setEngagementExpanded] = useState(false);
-  const [commentsExpanded, setCommentsExpanded] = useState(false);
   const [comparePage, setComparePage] = useState<"compare" | "technique">("compare");
   const [techniqueSide, setTechniqueSide] = useState<"A" | "B">("A");
   const [selectedDetailSide, setSelectedDetailSide] = useState<"A" | "B">("A");
@@ -2923,24 +2917,6 @@ export function CompareView({
     setSelectedClusterB({ key: rightClusterSurfaces[0]!.key });
   }, [selectedClusterB, rightClusterSurfaces]);
 
-  const toggleEvidence = (key: string) => {
-    setExpandedEvidenceKeys((current) => {
-      const next = new Set(current);
-      if (next.has(key)) {
-        next.delete(key);
-      } else {
-        next.add(key);
-      }
-      return next;
-    });
-  };
-
-  useEffect(() => {
-    if (!highlightedClusterPanel) return;
-    const timeout = window.setTimeout(() => setHighlightedClusterPanel(null), 1400);
-    return () => window.clearTimeout(timeout);
-  }, [highlightedClusterPanel]);
-
   useEffect(() => {
     if (selectedDetailSide === "A") {
       detailPageRefA.current?.scrollIntoView({ behavior: currentMotionScrollBehavior(), block: "nearest", inline: "start" });
@@ -2962,7 +2938,6 @@ export function CompareView({
       setComparePage("compare");
       setTechniqueSide("A");
       setTechniqueSaveState("idle");
-      setHighlightedClusterPanel("A");
       window.requestAnimationFrame(() => {
         detailPageRefA.current?.scrollIntoView({ behavior: currentMotionScrollBehavior(), block: "nearest", inline: "start" });
         detailRefA.current?.scrollIntoView({ behavior: currentMotionScrollBehavior(), block: "start" });
@@ -2974,7 +2949,6 @@ export function CompareView({
     setTechniqueSaveState("idle");
     setSelectedDetailSide("B");
     setSelectedClusterB({ key });
-    setHighlightedClusterPanel("B");
     window.requestAnimationFrame(() => {
       detailPageRefB.current?.scrollIntoView({ behavior: currentMotionScrollBehavior(), block: "nearest", inline: "start" });
       detailRefB.current?.scrollIntoView({ behavior: currentMotionScrollBehavior(), block: "start" });
@@ -2994,13 +2968,10 @@ export function CompareView({
     const side = techniqueSide;
     setComparePage("compare");
     setTechniqueSaveState("idle");
-    setSupportExpanded(true);
     if (side === "A") {
-      setHighlightedClusterPanel("A");
       scrollToRef(clusterMapRefA);
       return;
     }
-    setHighlightedClusterPanel("B");
     scrollToRef(clusterMapRefB);
   };
 

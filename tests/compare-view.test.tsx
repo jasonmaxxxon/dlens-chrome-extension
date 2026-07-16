@@ -908,6 +908,47 @@ test("CompareView renders audience evidence with inline captured metrics", () =>
   assert.match(html, /support this policy/);
 });
 
+// Characterization guards for inert Compare render state (verified 2026-07-16):
+// the outer CompareView holds hover/expansion/highlight state that no live render
+// output reads. These lock that the live DOM does not depend on it, so removing the
+// state is behavior-preserving. The markers below only ever come from the never-
+// rendered ClusterBubbleMap / AudienceDetailPanel sub-components.
+test("CompareView live render carries no jump-highlight marker (highlightedClusterPanel is inert)", () => {
+  const html = renderToStaticMarkup(
+    compareViewElement({
+      session: buildSession(),
+      settings: createDefaultSettings()
+    })
+  );
+
+  assert.doesNotMatch(html, /data-jump-highlight/);
+});
+
+test("CompareView live render gates no audience evidence behind an expansion toggle (expandedEvidenceKeys is inert)", () => {
+  const html = renderToStaticMarkup(
+    compareViewElement({
+      session: buildSession(),
+      settings: createDefaultSettings()
+    })
+  );
+
+  assert.doesNotMatch(html, /Show evidence/);
+  assert.doesNotMatch(html, /Hide evidence/);
+  assert.match(html, /support this policy/);
+});
+
+test("CompareView live render mounts no hover-driven cluster bubble map (hoveredClusterKey is inert)", () => {
+  const html = renderToStaticMarkup(
+    compareViewElement({
+      session: buildSession(),
+      settings: createDefaultSettings()
+    })
+  );
+
+  assert.doesNotMatch(html, /data-cluster-node=/);
+  assert.doesNotMatch(html, /data-cluster-map=/);
+});
+
 test("CompareView uses comments captured copy instead of ambiguous crawled label", () => {
   const session = buildSession();
   session.items[0]!.latestCapture!.analysis!.source_comment_count = 9;
