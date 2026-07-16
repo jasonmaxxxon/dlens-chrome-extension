@@ -2,6 +2,10 @@ import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import test from "node:test";
 
+import React, { act } from "react";
+import { createRoot } from "react-dom/client";
+import { JSDOM } from "jsdom";
+
 import type { ExtensionMessage, ExtensionResponse } from "../src/state/messages.ts";
 import type { PrNarrativeRead } from "../src/compare/pr-narrative.ts";
 import type { WorkerStatus } from "../src/state/processing-state.ts";
@@ -9,7 +13,7 @@ import type { PrCampaign } from "../src/state/pr-evidence-storage.ts";
 import { normalizePrCriteria, prCampaignToDraft } from "../src/state/pr-evidence-storage.ts";
 import { createRequestReconciler } from "../src/state/request-reconcile.ts";
 import { createSessionRecord } from "../src/state/store-helpers.ts";
-import { createEmptyTabState, type ExtensionSnapshot } from "../src/state/types.ts";
+import { createEmptyGlobalState, createEmptyTabState, type ExtensionSnapshot } from "../src/state/types.ts";
 import { createPrEvidenceResource } from "../src/ui/pr-evidence-resource.ts";
 import {
   applyPrGeneratedCriteriaSaveResult,
@@ -25,7 +29,8 @@ import {
   planProductHydrateTransition,
   resolveOptimisticSession,
   runAnalyzeItemsPipeline,
-  shouldClearPrReconciledLoading
+  shouldClearPrReconciledLoading,
+  useInPageCollectorAppState
 } from "../src/ui/useInPageCollectorAppState.ts";
 
 const descriptor = {
@@ -183,6 +188,93 @@ test("resolveOptimisticSession returns an existing target-mode session without m
   assert.equal(resolveOptimisticSession(snapshot, "pr-evidence")?.id, prSession.id);
   assert.equal(resolveOptimisticSession(snapshot, "topic"), null);
   assert.equal(snapshot.global.activeSessionId, productSession.id);
+});
+
+test("Technique readings stay idle while popup is closed and load once on open Library", async () => {
+  const dom = new JSDOM('<div id="root"></div>', { url: "https://dlens.test" });
+  const reactActGlobal = globalThis as typeof globalThis & { IS_REACT_ACT_ENVIRONMENT?: boolean };
+  const previousActEnvironment = reactActGlobal.IS_REACT_ACT_ENVIRONMENT;
+  const previous = {
+    window: globalThis.window,
+    document: globalThis.document,
+    HTMLElement: globalThis.HTMLElement,
+    chrome: globalThis.chrome
+  };
+  const globalState = createEmptyGlobalState();
+  const makeSnapshot = (popupOpen: boolean): ExtensionSnapshot => ({
+    global: globalState,
+    tab: {
+      ...createEmptyTabState(),
+      popupOpen,
+      popupPage: "library"
+    }
+  });
+  let techniqueRequests = 0;
+  const listeners = new Set<(message: unknown) => void>();
+
+  Object.assign(globalThis, {
+    window: dom.window,
+    document: dom.window.document,
+    HTMLElement: dom.window.HTMLElement,
+    chrome: {
+      runtime: {
+        sendMessage: async (message: ExtensionMessage) => {
+          if (message.type === "compare/get-technique-readings") {
+            techniqueRequests += 1;
+            return { ok: true, techniqueReadings: [] };
+          }
+          if (message.type === "backend/get-health") {
+            return { ok: true, backendHealth: { reachable: true } };
+          }
+          if (message.type === "worker/get-status") {
+            return { ok: true, workerStatus: "idle", backendWorkUiState: { kind: "idle" } };
+          }
+          if (message.type === "compare/get-saved-analyses") {
+            return { ok: true, savedAnalyses: [] };
+          }
+          return { ok: true };
+        },
+        onMessage: {
+          addListener: (listener: (message: unknown) => void) => listeners.add(listener),
+          removeListener: (listener: (message: unknown) => void) => listeners.delete(listener)
+        }
+      }
+    }
+  });
+  reactActGlobal.IS_REACT_ACT_ENVIRONMENT = true;
+
+  const sendAndSync = async <T extends ExtensionResponse = ExtensionResponse>(): Promise<T> => (
+    { ok: true } as T
+  );
+  function Harness({ snapshot }: { snapshot: ExtensionSnapshot }) {
+    useInPageCollectorAppState({ snapshot, tabId: 7, sendAndSync });
+    return null;
+  }
+
+  const rootElement = dom.window.document.getElementById("root");
+  assert.ok(rootElement);
+  const root = createRoot(rootElement);
+  try {
+    await act(async () => {
+      root.render(React.createElement(Harness, { snapshot: makeSnapshot(false) }));
+      await Promise.resolve();
+      await Promise.resolve();
+    });
+    assert.equal(techniqueRequests, 0);
+
+    await act(async () => {
+      root.render(React.createElement(Harness, { snapshot: makeSnapshot(true) }));
+      await Promise.resolve();
+      await Promise.resolve();
+    });
+    assert.equal(techniqueRequests, 1);
+  } finally {
+    await act(async () => root.unmount());
+    Object.assign(globalThis, previous);
+    if (previousActEnvironment === undefined) delete reactActGlobal.IS_REACT_ACT_ENVIRONMENT;
+    else reactActGlobal.IS_REACT_ACT_ENVIRONMENT = previousActEnvironment;
+    dom.window.close();
+  }
 });
 
 test("buildSessionModeChangeMessage realigns to an existing product session when active session drifted null", () => {

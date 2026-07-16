@@ -1161,7 +1161,7 @@ export function useInPageCollectorAppState({ snapshot, tabId, sendAndSync }: Use
   }, [activeFolder?.id, activeFolderMode, page, popupOpen, snapshot?.global.updatedAt]);
 
   useEffect(() => {
-    if (page !== "library") {
+    if (!popupOpen || page !== "library") {
       return;
     }
     let cancelled = false;
@@ -1186,7 +1186,7 @@ export function useInPageCollectorAppState({ snapshot, tabId, sendAndSync }: Use
     return () => {
       cancelled = true;
     };
-  }, [page]);
+  }, [page, popupOpen]);
 
   useEffect(() => {
     if (!popupOpen || page !== "settings" || activeFolderMode !== "product") {
