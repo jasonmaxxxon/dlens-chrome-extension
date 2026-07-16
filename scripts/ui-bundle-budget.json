@@ -1,0 +1,7 @@
+{
+  "threads": {
+    "rawBytes": 910000,
+    "gzip9Bytes": 256000,
+    "brotliBytes": 203000
+  }
+}

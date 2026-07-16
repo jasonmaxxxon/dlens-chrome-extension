@@ -1,0 +1,14 @@
+{
+  "version": "0.3.47",
+  "threads": {
+    "rawBytes": 906988,
+    "gzip9Bytes": 253459,
+    "brotliBytes": 201965,
+    "sha256": "a44ac91497ce5bb25008db36f4fcb104184707c22c84083f89a66a0cc59ff11b"
+  },
+  "buildBytes": 1496305,
+  "idleWorkerStatusRequestsPerMinute": 5,
+  "sameCardMousemoves": 20,
+  "sameCardOverlayRenders": 20,
+  "sameCardCardChanges": 1
+}
