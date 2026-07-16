@@ -122,6 +122,57 @@ export function projectBackendWorkStatus(response: WorkerStatusResponse): Backen
   return { kind: "idle" };
 }
 
+// Idle polling hits worker/get-status every 12s and each response is projected
+// into a fresh BackendWorkUiState object, so a naive setState re-renders every
+// consumer even when nothing changed. This structural compare lets the
+// coordinator keep the previous object's identity when the poll is unchanged.
+// The switch is exhaustive over every union member; the trailing never check
+// makes any newly added member a typecheck failure until it is compared here.
+export function sameBackendWorkUiState(
+  left: BackendWorkUiState | null,
+  right: BackendWorkUiState | null
+): boolean {
+  if (left === right) {
+    return true;
+  }
+  if (!left || !right || left.kind !== right.kind) {
+    return false;
+  }
+  switch (left.kind) {
+    case "idle":
+    case "draining":
+      return true;
+    case "retry_waiting": {
+      const other = right as typeof left;
+      return (
+        left.count === other.count &&
+        left.earliestRetryAt === other.earliestRetryAt &&
+        left.nextDueAt === other.nextDueAt
+      );
+    }
+    case "expired_running": {
+      const other = right as typeof left;
+      return left.count === other.count;
+    }
+    case "analysis_waiting": {
+      const other = right as typeof left;
+      return left.count === other.count;
+    }
+    case "analysis_failed": {
+      const other = right as typeof left;
+      return left.count === other.count;
+    }
+    case "backend_error": {
+      const other = right as typeof left;
+      return left.message === other.message;
+    }
+    default: {
+      const exhaustive: never = left;
+      return exhaustive;
+    }
+  }
+}
+
 export function projectBackendReachability(consecutiveTimeouts: number): BackendReachability {
   if (consecutiveTimeouts >= 3) {
     return "unreachable";

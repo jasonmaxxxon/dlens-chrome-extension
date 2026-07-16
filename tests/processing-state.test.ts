@@ -19,8 +19,10 @@ import {
   projectBackendReachability,
   projectBackendWorkStatus,
   resolveInitialPopupMode,
+  sameBackendWorkUiState,
   shouldRefreshProcessingFolder,
-  summarizeSessionProcessing
+  summarizeSessionProcessing,
+  type BackendWorkUiState
 } from "../src/state/processing-state.ts";
 import { createSessionItem, createSessionRecord } from "../src/state/store-helpers.ts";
 
@@ -460,4 +462,115 @@ test("projectBackendWorkStatus reports backend_error with the highest priority",
   if (state.kind === "backend_error") {
     assert.equal(state.message, "db unavailable");
   }
+});
+
+// sameBackendWorkUiState is the identity-preservation gate: an idle backend
+// polled every 12s must not mint a fresh UI state object when nothing changed,
+// so the comparison has to be exhaustive over every union member and field.
+const sameBackendWorkUiStateCases: Array<{
+  name: string;
+  left: BackendWorkUiState | null;
+  right: BackendWorkUiState | null;
+  expected: boolean;
+}> = [
+  // Null / value / kind edges.
+  { name: "null vs null", left: null, right: null, expected: true },
+  { name: "null vs value", left: null, right: { kind: "idle" }, expected: false },
+  { name: "value vs null", left: { kind: "idle" }, right: null, expected: false },
+  { name: "kind mismatch idle vs draining", left: { kind: "idle" }, right: { kind: "draining" }, expected: false },
+  {
+    name: "kind mismatch analysis_waiting vs analysis_failed (same count)",
+    left: { kind: "analysis_waiting", count: 2 },
+    right: { kind: "analysis_failed", count: 2 },
+    expected: false
+  },
+
+  // idle — no fields.
+  { name: "idle identical", left: { kind: "idle" }, right: { kind: "idle" }, expected: true },
+
+  // draining — no fields.
+  { name: "draining identical", left: { kind: "draining" }, right: { kind: "draining" }, expected: true },
+
+  // retry_waiting — count, earliestRetryAt, nextDueAt.
+  {
+    name: "retry_waiting identical",
+    left: { kind: "retry_waiting", count: 2, earliestRetryAt: "2026-06-16T10:30:00.000Z", nextDueAt: "2026-06-16T10:35:00.000Z" },
+    right: { kind: "retry_waiting", count: 2, earliestRetryAt: "2026-06-16T10:30:00.000Z", nextDueAt: "2026-06-16T10:35:00.000Z" },
+    expected: true
+  },
+  {
+    name: "retry_waiting flipped count",
+    left: { kind: "retry_waiting", count: 2, earliestRetryAt: "2026-06-16T10:30:00.000Z", nextDueAt: null },
+    right: { kind: "retry_waiting", count: 3, earliestRetryAt: "2026-06-16T10:30:00.000Z", nextDueAt: null },
+    expected: false
+  },
+  {
+    name: "retry_waiting flipped earliestRetryAt",
+    left: { kind: "retry_waiting", count: 2, earliestRetryAt: "2026-06-16T10:30:00.000Z", nextDueAt: null },
+    right: { kind: "retry_waiting", count: 2, earliestRetryAt: "2026-06-16T10:31:00.000Z", nextDueAt: null },
+    expected: false
+  },
+  {
+    name: "retry_waiting flipped earliestRetryAt null vs value",
+    left: { kind: "retry_waiting", count: 2, earliestRetryAt: null, nextDueAt: null },
+    right: { kind: "retry_waiting", count: 2, earliestRetryAt: "2026-06-16T10:30:00.000Z", nextDueAt: null },
+    expected: false
+  },
+  {
+    name: "retry_waiting flipped nextDueAt",
+    left: { kind: "retry_waiting", count: 2, earliestRetryAt: null, nextDueAt: "2026-06-16T10:35:00.000Z" },
+    right: { kind: "retry_waiting", count: 2, earliestRetryAt: null, nextDueAt: "2026-06-16T10:36:00.000Z" },
+    expected: false
+  },
+  {
+    name: "retry_waiting flipped nextDueAt value vs null",
+    left: { kind: "retry_waiting", count: 2, earliestRetryAt: null, nextDueAt: "2026-06-16T10:35:00.000Z" },
+    right: { kind: "retry_waiting", count: 2, earliestRetryAt: null, nextDueAt: null },
+    expected: false
+  },
+
+  // expired_running — count.
+  { name: "expired_running identical", left: { kind: "expired_running", count: 1 }, right: { kind: "expired_running", count: 1 }, expected: true },
+  { name: "expired_running flipped count", left: { kind: "expired_running", count: 1 }, right: { kind: "expired_running", count: 2 }, expected: false },
+
+  // analysis_waiting — count.
+  { name: "analysis_waiting identical", left: { kind: "analysis_waiting", count: 3 }, right: { kind: "analysis_waiting", count: 3 }, expected: true },
+  { name: "analysis_waiting flipped count", left: { kind: "analysis_waiting", count: 3 }, right: { kind: "analysis_waiting", count: 4 }, expected: false },
+
+  // analysis_failed — count.
+  { name: "analysis_failed identical", left: { kind: "analysis_failed", count: 1 }, right: { kind: "analysis_failed", count: 1 }, expected: true },
+  { name: "analysis_failed flipped count", left: { kind: "analysis_failed", count: 1 }, right: { kind: "analysis_failed", count: 2 }, expected: false },
+
+  // backend_error — message.
+  { name: "backend_error identical", left: { kind: "backend_error", message: "db unavailable" }, right: { kind: "backend_error", message: "db unavailable" }, expected: true },
+  { name: "backend_error flipped message", left: { kind: "backend_error", message: "db unavailable" }, right: { kind: "backend_error", message: "queue full" }, expected: false }
+];
+
+test("sameBackendWorkUiState compares every union member and field structurally", () => {
+  for (const testCase of sameBackendWorkUiStateCases) {
+    assert.equal(
+      sameBackendWorkUiState(testCase.left, testCase.right),
+      testCase.expected,
+      `${testCase.name}: expected ${testCase.expected}`
+    );
+    // Comparison must be symmetric.
+    assert.equal(
+      sameBackendWorkUiState(testCase.right, testCase.left),
+      testCase.expected,
+      `${testCase.name} (reversed): expected ${testCase.expected}`
+    );
+  }
+});
+
+test("sameBackendWorkUiState short-circuits on reference identity", () => {
+  const shared: BackendWorkUiState = { kind: "retry_waiting", count: 5, earliestRetryAt: null, nextDueAt: null };
+  assert.equal(sameBackendWorkUiState(shared, shared), true);
+  assert.equal(sameBackendWorkUiState(null, null), true);
+});
+
+test("sameBackendWorkUiState treats structurally equal distinct objects as equal", () => {
+  const first: BackendWorkUiState = { kind: "idle" };
+  const second: BackendWorkUiState = { kind: "idle" };
+  assert.notEqual(first, second);
+  assert.equal(sameBackendWorkUiState(first, second), true);
 });
