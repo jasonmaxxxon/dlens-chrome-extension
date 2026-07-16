@@ -19,8 +19,8 @@ typecheck/targeted tests green after · deterministic artifact hash identical
 
 | Symbol | Callers | Tests | Marker | Decision |
 |---|---|---|---|---|
-| `CompareView.tsx` `AudienceDetailPanel` | defined, never rendered by live `CompareView` tree; reachable only via `compareViewTestables` | exercised by tests through testables | in bundle (live-adjacent) | DEFER — testables contract must be renegotiated first; contains the only `data-jump-highlight` consumer |
-| `CompareView.tsx` `ClusterBubbleMap` | never rendered live; testables only | exercised via testables | in bundle | DEFER — same testables condition as above |
+| `CompareView.tsx` `AudienceDetailPanel` | 0 production (declaration-only at `src/ui/CompareView.tsx:883`); NOT in `compareViewTestables` | 0 (one test-file mention is a comment, not a caller) | 0 hits in `output/chrome-mv3` (`AudienceDetailPanel` and `data-jump-highlight` both absent) — fully tree-shaken | independently deletable, hash-identity class (verified 2026-07-16; corrected from an earlier wrong "testables" claim) |
+| `CompareView.tsx` `ClusterBubbleMap` | never rendered live; exported via `compareViewTestables` | exercised via testables | in bundle (testables keep it live) | DEFER — testables contract must be renegotiated first |
 | `CompareView.tsx` `selectClusterAndFocus` | 0 live calls (pre-existing unused warning) | none directly | in bundle | candidate for next Compare `removal:` commit after testables review |
 | `CompareView.tsx` `clustersSectionRef` / `engagementSectionRef` / `commentsSectionRef`, `commentsA/B`, `ageA/B` | pre-existing `--noUnusedLocals` warnings; not created by this branch | none | in bundle | candidate; verify no ref threading before removal |
 | Compare Technique pipeline (`comparePage`, Technique reading storage/controller, `openTechniqueView`) | contract live in controller/storage/docs; UI entry unclear | motion-registry scroll contract locks `openTechniqueView` | in bundle | NOT dead-source scope — separate product decision: restore entry vs remove whole lane (plan global constraint) |
