@@ -5,6 +5,7 @@ import { fileURLToPath } from "node:url";
 
 import * as motionModule from "../src/ui/motion.ts";
 import { tokens } from "../src/ui/tokens.ts";
+import { readSourceFamily, readUiSourceFamily, type UiSourceFamilyName } from "./helpers/read-ui-source-family.ts";
 
 const {
   DLENS_KEYFRAMES_CSS,
@@ -27,21 +28,28 @@ const motionTestables = motionModule as unknown as {
 };
 
 const MOTION_PATH = fileURLToPath(new URL("../src/ui/motion.ts", import.meta.url));
-const COMPARE_PATH = fileURLToPath(new URL("../src/ui/CompareView.tsx", import.meta.url));
-const WORKSPACE_ROUTE_CARD_SOURCES = [
-  "../src/ui/TopicsListView.tsx",
-  "../src/ui/TopicDetailView.tsx",
-  "../src/ui/CollectView.tsx",
-  "../src/ui/LibraryView.tsx",
-  "../src/ui/CasebookView.tsx",
-  "../src/ui/SettingsView.tsx",
-  "../src/ui/CompareSetupView.tsx",
-  "../src/ui/CompareView.tsx",
-  "../src/ui/TechniqueView.tsx",
-  "../src/ui/ProductSignalViews.tsx",
-  "../src/ui/PrEvidenceViews.tsx",
-  "../src/ui/InPageCollectorResultWorkspace.tsx"
-] as const;
+
+// Every workspace route's card/motion marker either lives in a single file
+// (no split is planned for it) or in a UI source family (facade file today,
+// facade + sibling dir once a future wave splits it apart). Family entries
+// must be scanned as a whole family so a marker that moves into a sibling
+// file doesn't silently escape the guard.
+type RouteCardSource = { kind: "file"; relativePath: string } | { kind: "family"; family: UiSourceFamilyName };
+
+const WORKSPACE_ROUTE_CARD_SOURCES: readonly RouteCardSource[] = [
+  { kind: "file", relativePath: "../src/ui/TopicsListView.tsx" },
+  { kind: "family", family: "TopicDetailView" },
+  { kind: "file", relativePath: "../src/ui/CollectView.tsx" },
+  { kind: "family", family: "LibraryView" },
+  { kind: "file", relativePath: "../src/ui/CasebookView.tsx" },
+  { kind: "file", relativePath: "../src/ui/SettingsView.tsx" },
+  { kind: "file", relativePath: "../src/ui/CompareSetupView.tsx" },
+  { kind: "family", family: "CompareView" },
+  { kind: "file", relativePath: "../src/ui/TechniqueView.tsx" },
+  { kind: "family", family: "ProductSignalViews" },
+  { kind: "family", family: "PrEvidenceViews" },
+  { kind: "file", relativePath: "../src/ui/InPageCollectorResultWorkspace.tsx" }
+];
 const SCAN_ROOTS = ["../src/ui", "../src/compare", "../src/state", "../entrypoints"]
   .map((rel) => fileURLToPath(new URL(rel, import.meta.url)));
 
@@ -64,6 +72,26 @@ function sourceFiles(): string[] {
 
 function registryKeyframeNames(): string[] {
   return [...DLENS_KEYFRAMES_CSS.matchAll(/@keyframes\s+([a-zA-Z0-9_-]+)/g)].map((match) => match[1]!);
+}
+
+// Slices out the `{ ... }` block that starts at or after `fromIndex`, by
+// counting braces rather than by looking for a sibling symbol's name. This
+// lets a function's body be isolated wherever it lives inside a source
+// family, without assuming a particular neighboring declaration follows it
+// in the same file.
+function sliceBalancedBlock(source: string, fromIndex: number): string {
+  const openIndex = source.indexOf("{", fromIndex);
+  assert.notEqual(openIndex, -1, "expected an opening brace after fromIndex");
+
+  let depth = 0;
+  for (let i = openIndex; i < source.length; i++) {
+    if (source[i] === "{") depth++;
+    else if (source[i] === "}") {
+      depth--;
+      if (depth === 0) return source.slice(fromIndex, i + 1);
+    }
+  }
+  throw new Error("unbalanced braces while slicing block");
 }
 
 test("keyframe registry names are unique (guards the dlens-success-pulse dup-name class of bug)", () => {
@@ -179,12 +207,23 @@ test("motion tokens carry the approved presence and bottom-rebound values", () =
 });
 
 test("every workspace route family opts real cards into the shared presence grammar", () => {
-  for (const relativePath of WORKSPACE_ROUTE_CARD_SOURCES) {
-    const source = readFileSync(fileURLToPath(new URL(relativePath, import.meta.url)), "utf8");
-    assert.match(
-      source,
-      /data-dlens-presence="card"|<SurfaceCard\b/,
-      `${relativePath} must expose at least one real card to the route-independent presence grammar`
+  const cardMarker = /data-dlens-presence="card"|<SurfaceCard\b/;
+
+  for (const routeSource of WORKSPACE_ROUTE_CARD_SOURCES) {
+    if (routeSource.kind === "file") {
+      const source = readFileSync(fileURLToPath(new URL(routeSource.relativePath, import.meta.url)), "utf8");
+      assert.match(
+        source,
+        cardMarker,
+        `${routeSource.relativePath} must expose at least one real card to the route-independent presence grammar`
+      );
+      continue;
+    }
+
+    const family = readUiSourceFamily(routeSource.family);
+    assert.ok(
+      family.some((entry) => cardMarker.test(entry.source)),
+      `${routeSource.family} family (${family.map((entry) => entry.relativePath).join(", ")}) must expose at least one real card to the route-independent presence grammar`
     );
   }
 
@@ -300,15 +339,48 @@ test("scrollWorkspaceViewportToTop falls back for a standalone Compare surface",
 });
 
 test("Compare scrolling uses the shared motion preference instead of hard-coded smooth behavior", () => {
-  const source = readFileSync(COMPARE_PATH, "utf8");
-  const start = source.indexOf('  const openTechniqueView = (side: "A" | "B") => {');
-  assert.notEqual(start, -1);
-  const end = source.indexOf("\n  const jumpBackToCluster", start);
-  assert.notEqual(end, -1);
-  const openTechniqueBlock = source.slice(start, end);
+  const family = readUiSourceFamily("CompareView");
+  const openTechniqueMarker = 'const openTechniqueView = (side: "A" | "B") => {';
+  const owner = family.find((entry) => entry.source.includes(openTechniqueMarker));
+  assert.ok(
+    owner,
+    `expected some file in the CompareView family (${family.map((entry) => entry.relativePath).join(", ")}) to define openTechniqueView`
+  );
 
-  assert.doesNotMatch(source, /behavior:\s*["']smooth["']/);
-  assert.match(source, /resolveMotionScrollBehavior/);
+  const start = owner!.source.indexOf(openTechniqueMarker);
+  const openTechniqueBlock = sliceBalancedBlock(owner!.source, start);
+  const familySource = family.map((entry) => entry.source).join("\n");
+
+  assert.doesNotMatch(familySource, /behavior:\s*["']smooth["']/);
+  assert.match(familySource, /resolveMotionScrollBehavior/);
   assert.match(openTechniqueBlock, /scrollWorkspaceViewportToTop/);
   assert.doesNotMatch(openTechniqueBlock, /window\.scrollTo/);
+});
+
+test("family reader catches a hard-coded scroll behavior hidden in a nested family sibling (RED-first proof)", () => {
+  const FIXTURE_FACADE = "tests/fixtures/ui-source-family/FacadeView.tsx";
+  const FIXTURE_SIBLING_DIR = "tests/fixtures/ui-source-family/sibling";
+  const hardcodedSmooth = /behavior:\s*["']smooth["']/;
+
+  // RED: a guard that only reads the single hardcoded facade file (the old
+  // approach this task replaces) never looks at the sibling directory, so
+  // it misses the violation planted in sibling/nested/BadScrollView.tsx.
+  const facadeOnlySource = readFileSync(
+    fileURLToPath(new URL("./fixtures/ui-source-family/FacadeView.tsx", import.meta.url)),
+    "utf8"
+  );
+  assert.doesNotMatch(
+    facadeOnlySource,
+    hardcodedSmooth,
+    "sanity check: the violation must live in the nested sibling, not the facade file itself"
+  );
+
+  // GREEN: the family reader walks the sibling directory recursively (via
+  // readSourceTree) and surfaces the violation the facade-only read missed.
+  const family = readSourceFamily(FIXTURE_FACADE, FIXTURE_SIBLING_DIR);
+  const offenders = family.filter((entry) => hardcodedSmooth.test(entry.source));
+  assert.ok(
+    offenders.some((entry) => entry.relativePath.includes("sibling/nested/")),
+    `expected the family scan to catch the nested fixture violation among: ${family.map((entry) => entry.relativePath).join(", ")}`
+  );
 });
