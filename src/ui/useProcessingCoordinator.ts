@@ -5,6 +5,7 @@ import { createPipelineRequestId, emitPipelineEvent } from "../state/pipeline-tr
 import {
   getPollingDelayMs,
   projectBackendReachability,
+  sameBackendWorkUiState,
   shouldRefreshProcessingFolder,
   type BackendReachability,
   type BackendWorkUiState,
@@ -133,7 +134,10 @@ export function useProcessingCoordinator({
         lastKnownWorkerStatus = nextWorkerStatus;
         lastKnownWorkerStatusRef.current = nextWorkerStatus;
         setWorkerStatusState(nextWorkerStatus);
-        setBackendWorkUiState(workerResponse.backendWorkUiState ?? { kind: nextWorkerStatus });
+        const nextBackendWorkUiState = workerResponse.backendWorkUiState ?? { kind: nextWorkerStatus };
+        setBackendWorkUiState((current) =>
+          sameBackendWorkUiState(current, nextBackendWorkUiState) ? current : nextBackendWorkUiState
+        );
         setWorkerError(null);
         emitPipelineEvent({
           phase: "crawl.queued",
