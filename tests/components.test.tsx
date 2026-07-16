@@ -747,3 +747,21 @@ test("QuoteBlock uses the editorial quote text style", () => {
   assert.match(html, /This is a cited audience quote/);
   assert.match(html, /alpha/);
 });
+
+test("components.tsx module surface: tree-shaken dead exports are gone, live surface survives", async () => {
+  const componentsModule: Record<string, unknown> = await import("../src/ui/components.tsx");
+
+  // Retired — verified dead (declaration was the only mention anywhere in src/entrypoints/tests).
+  assert.equal(componentsModule.statusTheme, undefined);
+  assert.equal(componentsModule.hudLabel, undefined);
+  assert.equal(componentsModule.formatElapsed, undefined);
+  assert.equal(componentsModule.PageButton, undefined);
+
+  // ModeRailButton keeps its in-file caller (ModeRail) but is no longer a public export.
+  assert.equal(componentsModule.ModeRailButton, undefined);
+
+  // Public testables that must survive.
+  assert.equal(typeof componentsModule.ModeRail, "function");
+  assert.equal(typeof componentsModule.SurfaceCard, "function");
+  assert.equal(typeof componentsModule.WorkspaceSurface, "function");
+});

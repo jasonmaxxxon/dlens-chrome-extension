@@ -59,25 +59,6 @@ export function IconButton({
   );
 }
 
-/* ─── Status Theme ─── */
-
-export function statusTheme(status: string) {
-  switch (status) {
-    case "saved":
-      return { background: tokens.color.neutralSurface, color: tokens.color.neutralText };
-    case "queued":
-      return { background: TOKENS.queuedSoft, color: TOKENS.queued };
-    case "running":
-      return { background: TOKENS.runningSoft, color: TOKENS.running };
-    case "succeeded":
-      return { background: TOKENS.successSoft, color: TOKENS.success };
-    case "failed":
-      return { background: TOKENS.failedSoft, color: TOKENS.failed };
-    default:
-      return { background: tokens.color.neutralSurface, color: tokens.color.neutralText };
-  }
-}
-
 /* ─── Metric Icons (SVG) ─── */
 
 export function MetricIcon({
@@ -1434,7 +1415,7 @@ export function ModeRail({
   );
 }
 
-export function ModeRailButton({
+function ModeRailButton({
   mode,
   label,
   active,
@@ -1627,16 +1608,6 @@ export function WorkspaceSurface({
   );
 }
 
-/** HUD section label — uppercase, tracked, faint */
-export function hudLabel(): CSSProperties {
-  return {
-    fontSize: 10,
-    fontWeight: 700,
-    letterSpacing: 0,
-    color: tokens.color.softInk
-  };
-}
-
 export function Kicker({
   children,
   tone = "default"
@@ -1748,20 +1719,6 @@ export function ModeHeader({
       {stamp ? <div style={{ flexShrink: 0, alignSelf: "end", paddingBottom: 3 }}>{stamp}</div> : null}
     </header>
   );
-}
-
-export function formatElapsed(isoTime: string | null | undefined, nowMs = 0): string {
-  if (!isoTime) return "just now";
-  const diffMs = nowMs - new Date(isoTime).getTime();
-  if (!Number.isFinite(diffMs) || diffMs < 0) return "just now";
-  const totalSeconds = Math.max(0, Math.floor(diffMs / 1000));
-  const minutes = Math.floor(totalSeconds / 60);
-  const seconds = totalSeconds % 60;
-  if (minutes >= 60) {
-    const hours = Math.floor(minutes / 60);
-    return `${hours}h ${minutes % 60}m`;
-  }
-  return minutes > 0 ? `${minutes}m ${seconds}s` : `${seconds}s`;
 }
 
 /* ─── Processing Tone ─── */
@@ -1888,43 +1845,6 @@ export function SecondaryButton({
         opacity: disabled ? 0.5 : 1,
         transition: tokens.motion.interactiveTransition,
         ...style
-      }}
-    >
-      {children}
-    </button>
-  );
-}
-
-/* ─── Tab Button (thin underline, not fat pill) ─── */
-
-export function PageButton({
-  active,
-  onClick,
-  children
-}: {
-  active: boolean;
-  onClick: () => void;
-  children: ReactNode;
-}) {
-  return (
-    <button
-      onClick={onClick}
-      style={{
-        flex: 1,
-        border: "none",
-        borderRadius: 0,
-        padding: "8px 4px 10px",
-        background: active ? tokens.color.elevated : "transparent",
-        color: active ? tokens.color.ink : tokens.color.softInk,
-        fontSize: 11,
-        fontWeight: active ? 700 : 500,
-        letterSpacing: 0,
-        cursor: "pointer",
-        transition: tokens.motion.interactiveTransition,
-        borderBottom: active
-          ? `2px solid ${MODE_ACCENT}`
-          : "2px solid transparent",
-        textTransform: "none" as const
       }}
     >
       {children}

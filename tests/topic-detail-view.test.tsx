@@ -1241,27 +1241,6 @@ test("TopicDetailView keeps one source footer for drill-in rows", () => {
   assert.doesNotMatch(html, /data-topic-newsroom-ladder="true"/);
 });
 
-test("buildNewsroomLadder classifies counter quotes by low-consensus lane membership", async () => {
-  const { buildNewsroomLadder } = await import("../src/ui/topic-audit-components.tsx");
-  const ladder = buildNewsroomLadder(
-    [
-      { id: "lane-main", label: "主敘事", signalRefs: ["S1.OP", "S2.OP"], consensus: 0.8 },
-      { id: "lane-counter", label: "反向", signalRefs: ["S3.OP"], consensus: 0.3 }
-    ],
-    [
-      { shortCode: "S1", text: "主敘事原文 A", author: "op_a" },
-      { shortCode: "S2", text: "主敘事原文 B", author: "op_b" },
-      { shortCode: "S3", text: "反例原文 C", author: "op_c" }
-    ]
-  );
-
-  assert.equal(ladder.length, 3);
-  // Mains lead, a counter slot is reserved at the end.
-  assert.deepEqual(ladder.map((quote) => quote.ordinal), ["主", "主", "反"]);
-  assert.equal(ladder[2]?.shortCode, "S3");
-  assert.equal(ladder[2]?.author, "op_c");
-});
-
 test("TopicDetailView surfaces P5 absence and caveats in the reliability strip", () => {
   const weakFlag: TopicAuditValidationFlag = {
     severity: "WEAK",
@@ -2452,4 +2431,30 @@ test("TopicProcessingStatus keeps existing queued-idle restart copy when no expi
 
   assert.match(html, /啟動處理/);
   assert.doesNotMatch(html, /重啟處理/);
+});
+
+test("topic-audit-components.tsx module surface: retired Newsroom family is gone, live surface survives", async () => {
+  const topicAuditModule: Record<string, unknown> = await import("../src/ui/topic-audit-components.tsx");
+
+  // Retired Newsroom family — verified dead (declaration was the only mention
+  // anywhere in src/entrypoints/tests, aside from the absence-contract tests below).
+  assert.equal(topicAuditModule.ReactionPatternDetailPanel, undefined);
+  assert.equal(topicAuditModule.NewsroomLane, undefined);
+  assert.equal(topicAuditModule.NewsroomLadder, undefined);
+  assert.equal(topicAuditModule.NewsroomUncertainty, undefined);
+  assert.equal(topicAuditModule.NarrativeLaneDetailPanel, undefined);
+  assert.equal(topicAuditModule.buildNewsroomLadder, undefined);
+  assert.equal(topicAuditModule.newsroomRoleForLane, undefined);
+
+  // Dot and ReactionCoverageStrip keep their in-file callers but are no longer public exports.
+  assert.equal(topicAuditModule.Dot, undefined);
+  assert.equal(topicAuditModule.ReactionCoverageStrip, undefined);
+
+  // Public testables that must survive.
+  assert.equal(typeof topicAuditModule.TopicAuditStatusPill, "function");
+  assert.equal(typeof topicAuditModule.AuditReportReactionPatterns, "function");
+  assert.equal(typeof topicAuditModule.AuditReportNarrativeLanes, "function");
+  assert.equal(typeof topicAuditModule.NarrativeLane, "function");
+  assert.equal(typeof topicAuditModule.ReactionPatternLane, "function");
+  assert.equal(typeof topicAuditModule.SourceRow, "function");
 });
