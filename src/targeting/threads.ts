@@ -191,8 +191,12 @@ function isRecommendationLike(card: HTMLElement): boolean {
   return followButtons.length >= 2 && !card.querySelector('a[href*="/post/"]');
 }
 
+function readCandidateWidth(card: HTMLElement): number {
+  return card.offsetWidth || card.clientWidth;
+}
+
 function collectCandidateSignals(card: HTMLElement): CardCandidateSignals {
-  const widthRatio = window.innerWidth > 0 ? card.getBoundingClientRect().width / window.innerWidth : 0;
+  const widthRatio = window.innerWidth > 0 ? readCandidateWidth(card) / window.innerWidth : 0;
   const permalinkCount = card.querySelectorAll('a[href*="/post/"]').length;
   const articleDescendants = card.querySelectorAll("article, div[role='article']").length;
   const nestedPermalinkCount = Array.from(card.children).reduce((count, child) => {

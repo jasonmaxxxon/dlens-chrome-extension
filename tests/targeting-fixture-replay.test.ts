@@ -23,8 +23,8 @@
  *     will start asserting when a future authorized capture adds a
  *     fixture under tests/fixtures/threads/descriptor/<label>.html.
  *
- * JSDOM caveat: there is no layout engine, so getBoundingClientRect
- * returns zeros and window.innerWidth is 0. collectCandidateSignals
+ * JSDOM caveat: there is no layout engine, so offsetWidth/clientWidth
+ * return zero. collectCandidateSignals
  * therefore reports widthRatio=0 for every card and the width-based
  * scoring penalties never fire. That makes the scoring slightly more
  * generous than production but does not change which card root is

@@ -7,6 +7,7 @@ import {
   buildTargetDescriptor,
   classifyCandidateStrength,
   classifyMetric,
+  findCardCandidate,
   inferThreadFollowersFromText,
   inferThreadViewsFromText,
   scoreCardCandidateSignals,
@@ -206,6 +207,133 @@ test("findCardCandidate promotes depth-capped fragment wins to the enclosing pos
   const findStart = source.indexOf("export function findCardCandidate(");
   const findBlock = source.slice(findStart, source.indexOf("\nexport function findCardRoot", findStart));
   assert.match(findBlock, /return promoteCandidateToPostRoot\(best\);/);
+});
+
+test("findCardCandidate walks and promotes without reading layout rects", () => {
+  const dom = new JSDOM(`
+    <main>
+      <article id="post">
+        <a href="/@alpha">alpha</a>
+        <a href="/@alpha/post/one">1h</a>
+        <svg aria-label="Like"></svg>
+        <svg aria-label="Reply"></svg>
+        <div><span id="hover-target">post body</span></div>
+      </article>
+    </main>
+  `, { url: "https://www.threads.net/" });
+  const previous = {
+    window: globalThis.window,
+    document: globalThis.document,
+    HTMLElement: globalThis.HTMLElement,
+    Element: globalThis.Element,
+    Node: globalThis.Node,
+    SVGElement: globalThis.SVGElement
+  };
+  let rectReads = 0;
+  Object.defineProperty(dom.window, "innerWidth", { configurable: true, value: 1000 });
+  Object.defineProperty(dom.window.HTMLElement.prototype, "offsetWidth", {
+    configurable: true,
+    get() {
+      return this.id === "post" ? 600 : 200;
+    }
+  });
+  dom.window.HTMLElement.prototype.getBoundingClientRect = function getBoundingClientRect() {
+    rectReads += 1;
+    return {
+      top: 0,
+      left: 0,
+      width: this.id === "post" ? 600 : 200,
+      height: 100,
+      right: 0,
+      bottom: 0,
+      x: 0,
+      y: 0,
+      toJSON: () => ({})
+    } as DOMRect;
+  };
+  Object.assign(globalThis, {
+    window: dom.window,
+    document: dom.window.document,
+    HTMLElement: dom.window.HTMLElement,
+    Element: dom.window.Element,
+    Node: dom.window.Node,
+    SVGElement: dom.window.SVGElement
+  });
+
+  try {
+    const target = dom.window.document.getElementById("hover-target");
+    const candidate = findCardCandidate(target);
+
+    assert.equal(candidate.root?.id, "post");
+    assert.equal(candidate.strength, "hard");
+    assert.equal(rectReads, 0);
+  } finally {
+    Object.assign(globalThis, previous);
+    dom.window.close();
+  }
+});
+
+test("findCardCandidate preserves wide-card demotion with a non-rect width signal", () => {
+  const dom = new JSDOM(`
+    <div id="wide-card" data-pressable-container="true">
+      <a href="/@alpha">alpha</a>
+      <a href="/@alpha/post/one">1h</a>
+      <svg aria-label="Like"></svg>
+      <svg aria-label="Reply"></svg>
+      <span>post body</span>
+    </div>
+    <div>Suggested for you</div>
+  `, { url: "https://www.threads.net/" });
+  const previous = {
+    window: globalThis.window,
+    document: globalThis.document,
+    HTMLElement: globalThis.HTMLElement,
+    Element: globalThis.Element,
+    Node: globalThis.Node,
+    SVGElement: globalThis.SVGElement
+  };
+  let rectReads = 0;
+  Object.defineProperty(dom.window, "innerWidth", { configurable: true, value: 1000 });
+  Object.defineProperty(dom.window.HTMLElement.prototype, "offsetWidth", {
+    configurable: true,
+    get() {
+      return this.id === "wide-card" ? 950 : 0;
+    }
+  });
+  dom.window.HTMLElement.prototype.getBoundingClientRect = function getBoundingClientRect() {
+    rectReads += 1;
+    return {
+      top: 0,
+      left: 0,
+      width: this.id === "wide-card" ? 950 : 0,
+      height: 100,
+      right: 0,
+      bottom: 0,
+      x: 0,
+      y: 0,
+      toJSON: () => ({})
+    } as DOMRect;
+  };
+  Object.assign(globalThis, {
+    window: dom.window,
+    document: dom.window.document,
+    HTMLElement: dom.window.HTMLElement,
+    Element: dom.window.Element,
+    Node: dom.window.Node,
+    SVGElement: dom.window.SVGElement
+  });
+
+  try {
+    const wideCard = dom.window.document.getElementById("wide-card");
+    const candidate = findCardCandidate(wideCard);
+
+    assert.equal(candidate.root?.id, "wide-card");
+    assert.equal(candidate.strength, "soft");
+    assert.equal(rectReads, 0);
+  } finally {
+    Object.assign(globalThis, previous);
+    dom.window.close();
+  }
 });
 
 test("buildTargetDescriptor marks feed post cards as posts beyond the first article", () => {

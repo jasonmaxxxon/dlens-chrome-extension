@@ -100,3 +100,33 @@ test("collect mode click interception only happens after a collectable card desc
   assert.ok(preventIndex > descriptorGuardIndex);
   assert.ok(stopIndex > descriptorGuardIndex);
 });
+
+test("content hover lifecycle routes pointer, navigation and stop through one frame controller", () => {
+  const source = readFileSync(new URL("../entrypoints/threads.content.ts", import.meta.url), "utf8");
+  const pointerStart = source.indexOf("function onPointerMove(event: MouseEvent)");
+  const pointerEnd = source.indexOf("\nfunction onClick", pointerStart);
+  const navigationStart = source.indexOf("function clearHoverStateForNavigation()");
+  const navigationEnd = source.indexOf("\nfunction installSpaNavigationReset", navigationStart);
+  const stopStart = source.indexOf("function stopSelectionMode(");
+  const stopEnd = source.indexOf("\nfunction startSelectionMode", stopStart);
+
+  assert.ok(pointerStart >= 0 && pointerEnd > pointerStart);
+  assert.ok(navigationStart >= 0 && navigationEnd > navigationStart);
+  assert.ok(stopStart >= 0 && stopEnd > stopStart);
+  assert.match(source.slice(pointerStart, pointerEnd), /hoverFrameController\.enqueue\(event\.target\)/);
+  assert.match(source.slice(navigationStart, navigationEnd), /hoverFrameController\.cancel\(\)/);
+  assert.match(source.slice(stopStart, stopEnd), /hoverFrameController\.cancel\(\)/);
+});
+
+test("content hover update path consumes the measured rect without re-reading layout", () => {
+  const source = readFileSync(new URL("../entrypoints/threads.content.ts", import.meta.url), "utf8");
+  const setStart = source.indexOf("function setHoverCard(");
+  const setEnd = source.indexOf("\nconst hoverFrameController", setStart);
+  const renderStart = source.indexOf("function renderOverlay(");
+  const renderEnd = source.indexOf("\nfunction clearHoverIntent", renderStart);
+
+  assert.ok(setStart >= 0 && setEnd > setStart);
+  assert.ok(renderStart >= 0 && renderEnd > renderStart);
+  assert.doesNotMatch(source.slice(setStart, setEnd), /getBoundingClientRect\(\)/);
+  assert.doesNotMatch(source.slice(renderStart, renderEnd), /getBoundingClientRect\(\)/);
+});

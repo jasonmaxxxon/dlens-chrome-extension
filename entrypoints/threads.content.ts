@@ -2,7 +2,7 @@ import React from "react";
 import ReactDOM from "react-dom/client";
 import { defineContentScript } from "wxt/utils/define-content-script";
 import { buildTargetDescriptor, canSubmitDescriptor, findCardCandidate, type CandidateStrength } from "../src/targeting/threads";
-import { hoverFingerprint, shouldPublishHover } from "../src/targeting/hover-geometry";
+import { createHoverFrameController } from "../src/targeting/hover-geometry";
 import { createLocationChangeChecker, HOVER_INTENT_DELAY_MS } from "../src/targeting/navigation-reset";
 import type { ExtensionMessage, ExtensionResponse } from "../src/state/messages";
 import { appendExternalPipelineTraceEntry, createPipelineRequestId, emitPipelineEvent, isQaTraceEnabled } from "../src/state/pipeline-trace";
@@ -33,9 +33,6 @@ let hoverCard: HTMLElement | null = null;
 let hoverStrength: CandidateStrength | null = null;
 let hoverDescriptor: ReturnType<typeof buildTargetDescriptor> | null = null;
 let hoverIntentHandle: number | null = null;
-let lastPublishedHoverFingerprint: string | null = null;
-let pendingPointerTarget: EventTarget | null = null;
-let pointerFrameHandle: number | null = null;
 let previousBodyCursor = "";
 let previousDocumentCursor = "";
 let removeSpaNavigationReset: (() => void) | null = null;
@@ -260,22 +257,14 @@ function cardFingerprint(card: HTMLElement): string {
 
 let lastCardFingerprint = "";
 
-function setHoverCard(card: HTMLElement | null, strength: CandidateStrength | null) {
-  // One layout read per processed frame; the pure geometry helpers take this
-  // rect, they never read it themselves.
-  const rect = card ? card.getBoundingClientRect() : null;
+function setHoverCard(card: HTMLElement | null, strength: CandidateStrength | null, rect: DOMRect | null) {
   const cardId = card ? cardFingerprint(card) : null;
 
-  // Same DOM node AND same permalink — the card itself did not change, so the
-  // descriptor/intent bookkeeping below would no-op. Skip the redundant overlay
-  // render + hover-rect dispatch unless strength or geometry actually moved.
+  // The frame controller already suppresses stable card/strength/geometry.
+  // A same-card publish therefore means only strength or measured geometry moved.
   if (hoverCard === card && (cardId ?? "") === lastCardFingerprint) {
-    if (!shouldPublishHover(lastPublishedHoverFingerprint, cardId, strength, rect)) {
-      return;
-    }
     hoverStrength = strength;
     renderOverlay(card, strength, rect);
-    lastPublishedHoverFingerprint = hoverFingerprint(cardId, strength, rect);
     return;
   }
 
@@ -284,7 +273,6 @@ function setHoverCard(card: HTMLElement | null, strength: CandidateStrength | nu
   hoverDescriptor = null;
   lastCardFingerprint = cardId ?? "";
   renderOverlay(card, strength, rect);
-  lastPublishedHoverFingerprint = hoverFingerprint(cardId, strength, rect);
   clearHoverIntent();
   emitPipelineEvent({
     phase: "hover.detected",
@@ -324,9 +312,22 @@ function setHoverCard(card: HTMLElement | null, strength: CandidateStrength | nu
   }, delayMs);
 }
 
+const hoverFrameController = createHoverFrameController<
+  EventTarget | null,
+  HTMLElement,
+  CandidateStrength,
+  DOMRect
+>({
+  requestFrame: (callback) => window.requestAnimationFrame(callback),
+  cancelFrame: (handle) => window.cancelAnimationFrame(handle),
+  resolveCandidate: (target) => findCardCandidate(target),
+  getCardId: (card) => cardFingerprint(card),
+  readRect: (card) => card.getBoundingClientRect(),
+  publish: (card, strength, rect) => setHoverCard(card, strength, rect)
+});
+
 function clearHoverStateForNavigation() {
-  lastCardFingerprint = "";
-  setHoverCard(null, null);
+  hoverFrameController.cancel();
 }
 
 function installSpaNavigationReset() {
@@ -375,8 +376,7 @@ function installSpaNavigationReset() {
 function stopSelectionMode(reason: SelectionModeExitReason = "manual-cancel") {
   selectionMode = false;
   setCollectCursor(false);
-  clearHoverIntent();
-  setHoverCard(null, null);
+  hoverFrameController.cancel();
   dropKeepAlive();
   const message = buildSelectionModeMessage(false, reason);
   emitPipelineEvent({
@@ -452,23 +452,7 @@ function onPointerMove(event: MouseEvent) {
   if (!selectionMode || isControlSurface(event.target)) {
     return;
   }
-  // Coalesce a mousemove burst into one trailing evaluation per animation frame,
-  // so a hot stream of moves over the same card costs a single layout read.
-  pendingPointerTarget = event.target;
-  if (pointerFrameHandle === null) {
-    pointerFrameHandle = window.requestAnimationFrame(processPointerFrame);
-  }
-}
-
-function processPointerFrame() {
-  pointerFrameHandle = null;
-  const target = pendingPointerTarget;
-  pendingPointerTarget = null;
-  if (!selectionMode) {
-    return;
-  }
-  const candidate = findCardCandidate(target);
-  setHoverCard(candidate.root, candidate.strength);
+  hoverFrameController.enqueue(event.target);
 }
 
 function onClick(event: MouseEvent) {
