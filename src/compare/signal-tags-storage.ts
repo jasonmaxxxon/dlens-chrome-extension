@@ -115,6 +115,17 @@ export async function listSignalTags(
     .sort((left, right) => right.generatedAt.localeCompare(left.generatedAt));
 }
 
+export async function deleteSignalTagsByItemId(
+  storageArea: StorageAreaLike,
+  itemId: string
+): Promise<Record<string, SignalTagsRecord>> {
+  const map = await readSignalTagsMap(storageArea);
+  const next = { ...map };
+  delete next[itemId];
+  await storageArea.set({ [SIGNAL_TAGS_STORAGE_KEY]: next });
+  return next;
+}
+
 export const signalTagsStorageTestables = {
   normalizeSignalTags
 };

@@ -1,4 +1,7 @@
+import { deleteProductAgentTaskFeedbackBySignalId } from "../compare/product-agent-task-feedback";
 import { clearFolderSynthesis } from "../compare/folder-synthesis-storage";
+import { deleteSignalReadingsBySignalId } from "../compare/signal-reading-storage";
+import { deleteTopicSignalReadingsBySignalId } from "../compare/topic-signal-reading-storage";
 import { removeSessionItem } from "./store-helpers";
 import { deleteSignal, type StorageAreaLike } from "./topic-storage";
 import type { ExtensionGlobalState, Signal, Topic } from "./types";
@@ -14,7 +17,12 @@ export async function deleteSignalStorageRecords(
   signalId: string
 ): Promise<Required<SignalStorageDeletion>> {
   const result = await deleteSignal(storageArea, signalId);
-  await clearFolderSynthesis(storageArea, result.deleted.sessionId);
+  await Promise.all([
+    clearFolderSynthesis(storageArea, result.deleted.sessionId),
+    deleteSignalReadingsBySignalId(storageArea, signalId),
+    deleteProductAgentTaskFeedbackBySignalId(storageArea, signalId),
+    deleteTopicSignalReadingsBySignalId(storageArea, signalId)
+  ]);
   return result;
 }
 

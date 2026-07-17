@@ -127,7 +127,7 @@ import {
   saveSignalReading
 } from "../src/compare/signal-reading-storage";
 import { buildSignalTagsInputFromCapture } from "../src/compare/signal-tags";
-import { listSignalTags, saveSignalTags } from "../src/compare/signal-tags-storage";
+import { deleteSignalTagsByItemId, listSignalTags, saveSignalTags } from "../src/compare/signal-tags-storage";
 import { buildTopicSignalReadingInputFromCapture } from "../src/compare/topic-signal-reading";
 import { listTopicSignalReadings, saveTopicSignalReading } from "../src/compare/topic-signal-reading-storage";
 import {
@@ -2735,6 +2735,9 @@ export default defineBackground(() => {
               resultRef.value = deletion;
               await deleteProductSignalAnalysis(chrome.storage.local, message.signalId);
               const applied = applySignalDeletionToGlobalState(current.global, deletion);
+              if (applied.removedItemId) {
+                await deleteSignalTagsByItemId(chrome.storage.local, applied.removedItemId);
+              }
               const deletedActiveItem = applied.removedItemId !== null && current.tab.activeItemId === applied.removedItemId;
               const deletedSession = applied.globalState.sessions.find((session) => session.id === deletion.deleted.sessionId) ?? null;
               const nextActiveItemId = deletedActiveItem && deletedSession

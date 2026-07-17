@@ -9,12 +9,20 @@ import { PRODUCT_CONTEXT_STORAGE_KEY } from "../src/compare/product-context.ts";
 import { SAVED_ANALYSES_STORAGE_KEY } from "../src/compare/saved-analysis-storage.ts";
 import { PRODUCT_SIGNAL_ANALYSES_STORAGE_KEY } from "../src/compare/product-signal-storage.ts";
 import { SIGNAL_READINGS_STORAGE_KEY } from "../src/compare/signal-reading-storage.ts";
+import { SIGNAL_TAGS_STORAGE_KEY } from "../src/compare/signal-tags-storage.ts";
+import { TOPIC_SIGNAL_READINGS_STORAGE_KEY } from "../src/compare/topic-signal-reading-storage.ts";
 import type { CaptureSnapshot, JobSnapshot } from "../src/contracts/ingest.ts";
 import type { ExtensionMessage, ExtensionResponse } from "../src/state/messages.ts";
 import { readPipelineTrace } from "../src/state/pipeline-trace.ts";
 import { PR_CAMPAIGNS_STORAGE_KEY, PR_EVIDENCE_ROWS_STORAGE_KEY, type PrCampaign, type PrEvidenceRow } from "../src/state/pr-evidence-storage.ts";
 import { PR_NARRATIVE_READS_STORAGE_KEY } from "../src/state/pr-narrative-storage.ts";
 import { createSessionItem } from "../src/state/store-helpers.ts";
+import {
+  TOPIC_AUDIT_EPISODES_STORAGE_KEY,
+  TOPIC_AUDIT_EVIDENCE_STORAGE_KEY,
+  TOPIC_AUDIT_MEMOS_STORAGE_KEY,
+  TOPIC_AUDIT_REPORTS_STORAGE_KEY
+} from "../src/state/topic-audit-storage.ts";
 import { SIGNALS_STORAGE_KEY, TOPICS_STORAGE_KEY } from "../src/state/topic-storage.ts";
 import { createEmptyGlobalState, createEmptyTabState, type ExtensionGlobalState, type FolderMode, type FolderSynthesis, type ProductContext, type SavedAnalysisSnapshot, type Signal, type SessionItem, type SessionRecord, type TabUiState, type Topic } from "../src/state/types.ts";
 
@@ -2880,5 +2888,242 @@ test("product/clear-cache removes derived product cache without deleting saved s
   assert.equal(SIGNAL_READINGS_STORAGE_KEY in harness.state, false);
   assert.equal(PRODUCT_CONTEXT_STORAGE_KEY in harness.state, false);
   assert.deepEqual(harness.state[signalsKey], [{ id: "signal-1", sessionId: product.id }]);
+  assertStateUpdatedBroadcastOnce(harness);
+});
+
+test("signal/delete removes directly owned rows, preserves audit history, and drops tags only for orphan items", async () => {
+  const session = {
+    ...makeSession("topic-session", "topic"),
+    items: [
+      makeSucceededItem("one", "prompt caching"),
+      makeSucceededItem("two", "prompt caching")
+    ]
+  };
+  session.items[0]!.id = "item-1";
+  session.items[1]!.id = "item-2";
+  const signals = [
+    makeSignal("signal-1", session.id, "item-1", "topic-1"),
+    makeSignal("signal-2", session.id, "item-2", "topic-1")
+  ];
+  const tabKey = backgroundTestables.tabStorageKey(TAB_ID);
+  const harness = await createHarness({
+    [backgroundTestables.GLOBAL_STORAGE_KEY]: makeGlobal([session], session.id),
+    [backgroundTestables.ACTIVE_SESSION_ID_STORAGE_KEY]: session.id,
+    [tabKey]: { ...createEmptyTabState(), activeItemId: "item-1" },
+    [SIGNALS_STORAGE_KEY]: signals,
+    [TOPICS_STORAGE_KEY]: [makeTopic("topic-1", session.id, ["signal-1", "signal-2"])],
+    [PRODUCT_SIGNAL_ANALYSES_STORAGE_KEY]: {
+      "signal-1": {
+        signalId: "signal-1",
+        signalType: "demand",
+        signalSubtype: "pain",
+        contentType: "mixed",
+        contentSummary: "summary 1",
+        relevance: 4,
+        whyRelevant: "why 1",
+        verdict: "watch",
+        reason: "reason 1",
+        status: "complete",
+        productContextHash: "ctx",
+        promptVersion: "v1",
+        model: "google:test",
+        analyzedAt: "2026-05-27T00:00:00.000Z"
+      },
+      "signal-2": {
+        signalId: "signal-2",
+        signalType: "demand",
+        signalSubtype: "pain",
+        contentType: "mixed",
+        contentSummary: "summary 2",
+        relevance: 4,
+        whyRelevant: "why 2",
+        verdict: "watch",
+        reason: "reason 2",
+        status: "complete",
+        productContextHash: "ctx",
+        promptVersion: "v1",
+        model: "google:test",
+        analyzedAt: "2026-05-27T00:01:00.000Z"
+      }
+    },
+    [PRODUCT_AGENT_TASK_FEEDBACK_STORAGE_KEY]: [
+      { signalId: "signal-1", taskPromptHash: "task-1", feedback: "needs_rewrite", note: "remove me", createdAt: "2026-05-27T00:00:00.000Z" },
+      { signalId: "signal-2", taskPromptHash: "task-2", feedback: "adopted", createdAt: "2026-05-27T00:01:00.000Z" }
+    ],
+    [SIGNAL_READINGS_STORAGE_KEY]: {
+      "signal-1::ctx::pkt::v1": {
+        signalId: "signal-1",
+        cacheKey: "signal-1::ctx::pkt::v1",
+        productContextHash: "ctx",
+        sourcePacketHash: "pkt",
+        promptVersion: "v1",
+        reading: "reading 1",
+        generatedAt: "2026-05-27T00:00:00.000Z",
+        model: "google:test",
+        sourceRefs: ["e1"],
+        sourcePacket: { assembledContent: "a", postUrl: "https://example.com/1", representativeComments: [], analysisPromptVersion: "v1" },
+        reviewState: "pending",
+        feedbackEvents: []
+      },
+      "signal-2::ctx::pkt::v1": {
+        signalId: "signal-2",
+        cacheKey: "signal-2::ctx::pkt::v1",
+        productContextHash: "ctx",
+        sourcePacketHash: "pkt",
+        promptVersion: "v1",
+        reading: "reading 2",
+        generatedAt: "2026-05-27T00:01:00.000Z",
+        model: "google:test",
+        sourceRefs: ["e2"],
+        sourcePacket: { assembledContent: "b", postUrl: "https://example.com/2", representativeComments: [], analysisPromptVersion: "v1" },
+        reviewState: "pending",
+        feedbackEvents: []
+      }
+    },
+    [TOPIC_SIGNAL_READINGS_STORAGE_KEY]: {
+      "topic-1::signal-1": {
+        signalId: "signal-1",
+        topicId: "topic-1",
+        status: "complete",
+        stance: "central",
+        reading: "topic reading 1",
+        audienceSignal: "audience 1",
+        evidenceRefs: ["e1"],
+        uncertainties: [],
+        promptVersion: "v1",
+        model: "google:test",
+        generatedAt: "2026-05-27T00:00:00.000Z"
+      },
+      "topic-1::signal-2": {
+        signalId: "signal-2",
+        topicId: "topic-1",
+        status: "complete",
+        stance: "adjacent",
+        reading: "topic reading 2",
+        audienceSignal: "audience 2",
+        evidenceRefs: ["e2"],
+        uncertainties: [],
+        promptVersion: "v1",
+        model: "google:test",
+        generatedAt: "2026-05-27T00:01:00.000Z"
+      }
+    },
+    [SIGNAL_TAGS_STORAGE_KEY]: {
+      "item-1": {
+        itemId: "item-1",
+        status: "complete",
+        signalTags: ["prompt caching"],
+        signalGist: "gist 1",
+        promptVersion: "v1",
+        model: "google:test",
+        generatedAt: "2026-05-27T00:00:00.000Z"
+      },
+      "item-2": {
+        itemId: "item-2",
+        status: "complete",
+        signalTags: ["agents"],
+        signalGist: "gist 2",
+        promptVersion: "v1",
+        model: "google:test",
+        generatedAt: "2026-05-27T00:01:00.000Z"
+      }
+    },
+    [TOPIC_AUDIT_EVIDENCE_STORAGE_KEY]: { "topic-1": [{ evidenceId: "evidence-1" }] },
+    [TOPIC_AUDIT_MEMOS_STORAGE_KEY]: { "topic-1": { memoId: "memo-1" } },
+    [TOPIC_AUDIT_REPORTS_STORAGE_KEY]: { "topic-1": { reportId: "report-1" } },
+    [TOPIC_AUDIT_EPISODES_STORAGE_KEY]: { "topic-1": [{ episodeId: "episode-1" }] },
+    [SAVED_ANALYSES_STORAGE_KEY]: [{ resultId: "result-1", compareKey: "item-1::item-2" }]
+  });
+
+  const response = await harness.dispatch({ type: "signal/delete", signalId: "signal-1" });
+
+  assert.equal(response.ok, true);
+  assert.deepEqual((harness.state[SIGNALS_STORAGE_KEY] as Signal[]).map((signal) => signal.id), ["signal-2"]);
+  assert.deepEqual(Object.keys(harness.state[PRODUCT_SIGNAL_ANALYSES_STORAGE_KEY] as Record<string, unknown>), ["signal-2"]);
+  assert.deepEqual((harness.state[PRODUCT_AGENT_TASK_FEEDBACK_STORAGE_KEY] as Array<{ signalId: string }>).map((entry) => entry.signalId), ["signal-2"]);
+  assert.deepEqual(Object.values(harness.state[SIGNAL_READINGS_STORAGE_KEY] as Record<string, { signalId: string }>).map((entry) => entry.signalId), ["signal-2"]);
+  assert.deepEqual(Object.values(harness.state[TOPIC_SIGNAL_READINGS_STORAGE_KEY] as Record<string, { signalId: string }>).map((entry) => entry.signalId), ["signal-2"]);
+  assert.deepEqual(Object.keys(harness.state[SIGNAL_TAGS_STORAGE_KEY] as Record<string, unknown>), ["item-2"]);
+  assert.deepEqual(harness.state[TOPIC_AUDIT_EVIDENCE_STORAGE_KEY], { "topic-1": [{ evidenceId: "evidence-1" }] });
+  assert.deepEqual(harness.state[TOPIC_AUDIT_MEMOS_STORAGE_KEY], { "topic-1": { memoId: "memo-1" } });
+  assert.deepEqual(harness.state[TOPIC_AUDIT_REPORTS_STORAGE_KEY], { "topic-1": { reportId: "report-1" } });
+  assert.deepEqual(harness.state[TOPIC_AUDIT_EPISODES_STORAGE_KEY], { "topic-1": [{ episodeId: "episode-1" }] });
+  assert.deepEqual(harness.state[SAVED_ANALYSES_STORAGE_KEY], [{ resultId: "result-1", compareKey: "item-1::item-2" }]);
+  assert.deepEqual((response.productSignalAnalyses ?? []).map((analysis) => analysis.signalId), ["signal-2"]);
+  assertStateUpdatedBroadcastOnce(harness);
+});
+
+test("signal/delete keeps shared item tags until the last signal reference disappears", async () => {
+  const sharedItem = makeSucceededItem("shared", "prompt caching");
+  sharedItem.id = "item-shared";
+  const session = {
+    ...makeSession("topic-session", "topic"),
+    items: [sharedItem]
+  };
+  const tabKey = backgroundTestables.tabStorageKey(TAB_ID);
+  const harness = await createHarness({
+    [backgroundTestables.GLOBAL_STORAGE_KEY]: makeGlobal([session], session.id),
+    [backgroundTestables.ACTIVE_SESSION_ID_STORAGE_KEY]: session.id,
+    [tabKey]: { ...createEmptyTabState(), activeItemId: "item-shared" },
+    [SIGNALS_STORAGE_KEY]: [
+      makeSignal("signal-1", session.id, "item-shared", "topic-1"),
+      makeSignal("signal-2", session.id, "item-shared", "topic-1")
+    ],
+    [TOPICS_STORAGE_KEY]: [makeTopic("topic-1", session.id, ["signal-1", "signal-2"])],
+    [PRODUCT_SIGNAL_ANALYSES_STORAGE_KEY]: {
+      "signal-1": {
+        signalId: "signal-1",
+        signalType: "demand",
+        signalSubtype: "pain",
+        contentType: "mixed",
+        contentSummary: "summary 1",
+        relevance: 4,
+        whyRelevant: "why 1",
+        verdict: "watch",
+        reason: "reason 1",
+        status: "complete",
+        productContextHash: "ctx",
+        promptVersion: "v1",
+        model: "google:test",
+        analyzedAt: "2026-05-27T00:00:00.000Z"
+      },
+      "signal-2": {
+        signalId: "signal-2",
+        signalType: "demand",
+        signalSubtype: "pain",
+        contentType: "mixed",
+        contentSummary: "summary 2",
+        relevance: 4,
+        whyRelevant: "why 2",
+        verdict: "watch",
+        reason: "reason 2",
+        status: "complete",
+        productContextHash: "ctx",
+        promptVersion: "v1",
+        model: "google:test",
+        analyzedAt: "2026-05-27T00:01:00.000Z"
+      }
+    },
+    [SIGNAL_TAGS_STORAGE_KEY]: {
+      "item-shared": {
+        itemId: "item-shared",
+        status: "complete",
+        signalTags: ["prompt caching"],
+        signalGist: "shared gist",
+        promptVersion: "v1",
+        model: "google:test",
+        generatedAt: "2026-05-27T00:00:00.000Z"
+      }
+    }
+  });
+
+  const response = await harness.dispatch({ type: "signal/delete", signalId: "signal-1" });
+
+  assert.equal(response.ok, true);
+  assert.deepEqual((harness.state[SIGNALS_STORAGE_KEY] as Signal[]).map((signal) => signal.id), ["signal-2"]);
+  assert.deepEqual(Object.keys(harness.state[SIGNAL_TAGS_STORAGE_KEY] as Record<string, unknown>), ["item-shared"]);
+  const global = harness.state[backgroundTestables.GLOBAL_STORAGE_KEY] as ExtensionGlobalState;
+  assert.deepEqual(global.sessions[0]?.items.map((item) => item.id), ["item-shared"]);
+  assert.deepEqual((response.productSignalAnalyses ?? []).map((analysis) => analysis.signalId), ["signal-2"]);
   assertStateUpdatedBroadcastOnce(harness);
 });

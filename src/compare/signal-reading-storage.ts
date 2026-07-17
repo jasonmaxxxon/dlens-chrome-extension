@@ -170,6 +170,18 @@ export async function listSignalReadings(storageArea: StorageAreaLike): Promise<
   return Object.values(map).sort((left, right) => right.generatedAt.localeCompare(left.generatedAt));
 }
 
+export async function deleteSignalReadingsBySignalId(
+  storageArea: StorageAreaLike,
+  signalId: string
+): Promise<Record<string, SignalReading>> {
+  const map = await readReadingMap(storageArea);
+  const next = Object.fromEntries(
+    Object.entries(map).filter(([, reading]) => reading.signalId !== signalId)
+  );
+  await storageArea.set({ [SIGNAL_READINGS_STORAGE_KEY]: next });
+  return next;
+}
+
 /** Latest reading per signal, by generatedAt — what §1 READING REVIEW shows per signal row. */
 export function latestReadingBySignalId(readings: SignalReading[]): Map<string, SignalReading> {
   const map = new Map<string, SignalReading>();

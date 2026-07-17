@@ -2,10 +2,20 @@ import assert from "node:assert/strict";
 import test from "node:test";
 
 import { createSessionItem, createSessionRecord } from "../src/state/store-helpers.ts";
+import { PRODUCT_AGENT_TASK_FEEDBACK_STORAGE_KEY, listProductAgentTaskFeedback, saveProductAgentTaskFeedback } from "../src/compare/product-agent-task-feedback.ts";
 import { ensureSignalForSavedItem, ensureSignalsForSessionItems, ensureWorkspaceTopicForSession, handleTopicMessage } from "../src/state/topic-handlers.ts";
 import { loadSignals, loadTopics, SIGNALS_STORAGE_KEY, TOPICS_STORAGE_KEY } from "../src/state/topic-storage.ts";
 import { FOLDER_SYNTHESIS_STORAGE_KEY, loadFolderSynthesis, saveFolderSynthesis } from "../src/compare/folder-synthesis-storage.ts";
 import { FOLDER_SYNTHESIS_VERSION } from "../src/compare/folder-synthesis.ts";
+import { SAVED_ANALYSES_STORAGE_KEY } from "../src/compare/saved-analysis-storage.ts";
+import { listSignalReadings, saveSignalReading } from "../src/compare/signal-reading-storage.ts";
+import { listTopicSignalReadings, saveTopicSignalReading } from "../src/compare/topic-signal-reading-storage.ts";
+import {
+  TOPIC_AUDIT_EPISODES_STORAGE_KEY,
+  TOPIC_AUDIT_EVIDENCE_STORAGE_KEY,
+  TOPIC_AUDIT_MEMOS_STORAGE_KEY,
+  TOPIC_AUDIT_REPORTS_STORAGE_KEY
+} from "../src/state/topic-audit-storage.ts";
 import type { FolderSynthesis } from "../src/state/types.ts";
 
 function createStorageArea(bucket: Record<string, unknown> = {}) {
@@ -379,7 +389,79 @@ test("signal/delete handler removes the signal, clears topic synthesis, and clea
       { id: "signal-1", sessionId: "session-1", source: "threads", inboxStatus: "assigned", topicId: "topic-1", capturedAt: "2026-05-12T00:00:00.000Z", suggestedTopicIds: [] },
       { id: "signal-2", sessionId: "session-1", source: "threads", inboxStatus: "assigned", topicId: "topic-1", capturedAt: "2026-05-12T00:01:00.000Z", suggestedTopicIds: [] }
     ],
-    [FOLDER_SYNTHESIS_STORAGE_KEY]: [fakeSynthesis]
+    [FOLDER_SYNTHESIS_STORAGE_KEY]: [fakeSynthesis],
+    [TOPIC_AUDIT_EVIDENCE_STORAGE_KEY]: { "topic-1": [{ evidenceId: "evidence-1" }] },
+    [TOPIC_AUDIT_MEMOS_STORAGE_KEY]: { "topic-1": { memoId: "memo-1" } },
+    [TOPIC_AUDIT_REPORTS_STORAGE_KEY]: { "topic-1": { reportId: "report-1" } },
+    [TOPIC_AUDIT_EPISODES_STORAGE_KEY]: { "topic-1": [{ episodeId: "episode-1" }] },
+    [SAVED_ANALYSES_STORAGE_KEY]: [{ resultId: "result-1", compareKey: "item-1::item-2" }]
+  });
+  await saveSignalReading(storage, {
+    signalId: "signal-1",
+    cacheKey: "signal-1::ctx::pkt::v1",
+    productContextHash: "ctx",
+    sourcePacketHash: "pkt",
+    promptVersion: "v1",
+    reading: "signal 1 reading",
+    generatedAt: "2026-05-12T00:00:00.000Z",
+    model: "google:test",
+    sourceRefs: ["e1"],
+    sourcePacket: { assembledContent: "a", postUrl: "https://example.com/1", representativeComments: [], analysisPromptVersion: "v1" },
+    reviewState: "pending",
+    feedbackEvents: []
+  });
+  await saveSignalReading(storage, {
+    signalId: "signal-2",
+    cacheKey: "signal-2::ctx::pkt::v1",
+    productContextHash: "ctx",
+    sourcePacketHash: "pkt",
+    promptVersion: "v1",
+    reading: "signal 2 reading",
+    generatedAt: "2026-05-12T00:01:00.000Z",
+    model: "google:test",
+    sourceRefs: ["e2"],
+    sourcePacket: { assembledContent: "b", postUrl: "https://example.com/2", representativeComments: [], analysisPromptVersion: "v1" },
+    reviewState: "pending",
+    feedbackEvents: []
+  });
+  await saveProductAgentTaskFeedback(storage, {
+    signalId: "signal-1",
+    taskPromptHash: "task-1",
+    feedback: "needs_rewrite",
+    note: "remove me",
+    createdAt: "2026-05-12T00:00:00.000Z"
+  });
+  await saveProductAgentTaskFeedback(storage, {
+    signalId: "signal-2",
+    taskPromptHash: "task-2",
+    feedback: "adopted",
+    createdAt: "2026-05-12T00:01:00.000Z"
+  });
+  await saveTopicSignalReading(storage, {
+    signalId: "signal-1",
+    topicId: "topic-1",
+    status: "complete",
+    stance: "central",
+    reading: "topic reading 1",
+    audienceSignal: "audience 1",
+    evidenceRefs: ["e1"],
+    uncertainties: [],
+    promptVersion: "v1",
+    model: "google:test",
+    generatedAt: "2026-05-12T00:00:00.000Z"
+  });
+  await saveTopicSignalReading(storage, {
+    signalId: "signal-2",
+    topicId: "topic-1",
+    status: "complete",
+    stance: "adjacent",
+    reading: "topic reading 2",
+    audienceSignal: "audience 2",
+    evidenceRefs: ["e2"],
+    uncertainties: [],
+    promptVersion: "v1",
+    model: "google:test",
+    generatedAt: "2026-05-12T00:01:00.000Z"
   });
 
   const response = await handleTopicMessage(storage, { type: "signal/delete", signalId: "signal-1" });
@@ -396,4 +478,13 @@ test("signal/delete handler removes the signal, clears topic synthesis, and clea
 
   const folderSynthesis = await loadFolderSynthesis(storage, "session-1");
   assert.equal(folderSynthesis, null, "folder synthesis cleared after delete");
+  assert.deepEqual((await listSignalReadings(storage)).map((reading) => reading.signalId), ["signal-2"]);
+  assert.deepEqual((await listProductAgentTaskFeedback(storage)).map((feedback) => feedback.signalId), ["signal-2"]);
+  assert.deepEqual((await listTopicSignalReadings(storage)).map((reading) => reading.signalId), ["signal-2"]);
+  assert.deepEqual((await storage.get(TOPIC_AUDIT_EVIDENCE_STORAGE_KEY))[TOPIC_AUDIT_EVIDENCE_STORAGE_KEY], { "topic-1": [{ evidenceId: "evidence-1" }] });
+  assert.deepEqual((await storage.get(TOPIC_AUDIT_MEMOS_STORAGE_KEY))[TOPIC_AUDIT_MEMOS_STORAGE_KEY], { "topic-1": { memoId: "memo-1" } });
+  assert.deepEqual((await storage.get(TOPIC_AUDIT_REPORTS_STORAGE_KEY))[TOPIC_AUDIT_REPORTS_STORAGE_KEY], { "topic-1": { reportId: "report-1" } });
+  assert.deepEqual((await storage.get(TOPIC_AUDIT_EPISODES_STORAGE_KEY))[TOPIC_AUDIT_EPISODES_STORAGE_KEY], { "topic-1": [{ episodeId: "episode-1" }] });
+  assert.deepEqual((await storage.get(SAVED_ANALYSES_STORAGE_KEY))[SAVED_ANALYSES_STORAGE_KEY], [{ resultId: "result-1", compareKey: "item-1::item-2" }]);
+  assert.equal(PRODUCT_AGENT_TASK_FEEDBACK_STORAGE_KEY in (await storage.get()), true);
 });

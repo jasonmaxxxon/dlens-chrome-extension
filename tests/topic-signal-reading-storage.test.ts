@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 
 import {
+  deleteTopicSignalReadingsBySignalId,
   TOPIC_SIGNAL_READINGS_STORAGE_KEY,
   listTopicSignalReadings,
   loadTopicSignalReading,
@@ -60,6 +61,18 @@ test("listTopicSignalReadings filters by topic id and sorts newest first", async
     ["new", "old"]
   );
   assert.equal((await listTopicSignalReadings(storage)).length, 3);
+});
+
+test("deleteTopicSignalReadingsBySignalId 只刪目標 signal 的所有 topic 判讀", async () => {
+  const storage = makeStorage();
+  await saveTopicSignalReading(storage, makeReading({ signalId: "sig-1", topicId: "topic-1" }));
+  await saveTopicSignalReading(storage, makeReading({ signalId: "sig-1", topicId: "topic-2", generatedAt: "2026-05-21T00:01:00.000Z" }));
+  await saveTopicSignalReading(storage, makeReading({ signalId: "sig-2", topicId: "topic-1", generatedAt: "2026-05-22T00:00:00.000Z" }));
+
+  await deleteTopicSignalReadingsBySignalId(storage, "sig-1");
+
+  const readings = await listTopicSignalReadings(storage);
+  assert.deepEqual(readings.map((reading) => `${reading.topicId}::${reading.signalId}`), ["topic-1::sig-2"]);
 });
 
 test("normalizeTopicSignalReading preserves error records and defaults optional arrays", () => {

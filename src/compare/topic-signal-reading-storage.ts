@@ -118,6 +118,18 @@ export async function listTopicSignalReadings(
     .sort((left, right) => right.generatedAt.localeCompare(left.generatedAt));
 }
 
+export async function deleteTopicSignalReadingsBySignalId(
+  storageArea: StorageAreaLike,
+  signalId: string
+): Promise<Record<string, TopicSignalReading>> {
+  const map = await readReadingMap(storageArea);
+  const next = Object.fromEntries(
+    Object.entries(map).filter(([, reading]) => reading.signalId !== signalId)
+  );
+  await storageArea.set({ [TOPIC_SIGNAL_READINGS_STORAGE_KEY]: next });
+  return next;
+}
+
 export const topicSignalReadingStorageTestables = {
   normalizeTopicSignalReading
 };

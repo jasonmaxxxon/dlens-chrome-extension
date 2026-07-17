@@ -4,6 +4,7 @@ import test from "node:test";
 import {
   PRODUCT_AGENT_TASK_FEEDBACK_STORAGE_KEY,
   buildProductAgentTaskPromptHash,
+  deleteProductAgentTaskFeedbackBySignalId,
   listProductAgentTaskFeedback,
   saveProductAgentTaskFeedback
 } from "../src/compare/product-agent-task-feedback.ts";
@@ -86,6 +87,42 @@ test("listProductAgentTaskFeedback filters malformed legacy records", async () =
       feedback: "irrelevant",
       note: "超出目前 non-goals。",
       createdAt: "2026-04-28T10:00:00.000Z"
+    }
+  ]);
+});
+
+test("deleteProductAgentTaskFeedbackBySignalId 只刪目標 signal 的回饋", async () => {
+  const storage = makeStorage();
+  await saveProductAgentTaskFeedback(storage, {
+    signalId: "signal_1",
+    taskPromptHash: "task_abc",
+    feedback: "needs_rewrite",
+    note: "補 repo context",
+    createdAt: "2026-04-28T10:00:00.000Z"
+  });
+  await saveProductAgentTaskFeedback(storage, {
+    signalId: "signal_1",
+    taskPromptHash: "task_def",
+    feedback: "adopted",
+    createdAt: "2026-04-28T10:01:00.000Z"
+  });
+  await saveProductAgentTaskFeedback(storage, {
+    signalId: "signal_2",
+    taskPromptHash: "task_xyz",
+    feedback: "irrelevant",
+    note: "另一筆保留",
+    createdAt: "2026-04-28T10:02:00.000Z"
+  });
+
+  await deleteProductAgentTaskFeedbackBySignalId(storage, "signal_1");
+
+  assert.deepEqual(await listProductAgentTaskFeedback(storage), [
+    {
+      signalId: "signal_2",
+      taskPromptHash: "task_xyz",
+      feedback: "irrelevant",
+      note: "另一筆保留",
+      createdAt: "2026-04-28T10:02:00.000Z"
     }
   ]);
 });

@@ -78,3 +78,15 @@ export async function saveProductAgentTaskFeedback(
   });
   return normalized;
 }
+
+export async function deleteProductAgentTaskFeedbackBySignalId(
+  storageArea: StorageAreaLike,
+  signalId: string
+): Promise<ProductAgentTaskFeedback[]> {
+  const existing = await listProductAgentTaskFeedback(storageArea);
+  const next = existing.filter((entry) => entry.signalId !== signalId);
+  await storageArea.set({
+    [PRODUCT_AGENT_TASK_FEEDBACK_STORAGE_KEY]: next
+  });
+  return next;
+}

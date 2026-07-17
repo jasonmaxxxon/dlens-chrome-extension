@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 
 import {
+  deleteSignalTagsByItemId,
   SIGNAL_TAGS_STORAGE_KEY,
   listSignalTags,
   loadSignalTags,
@@ -56,6 +57,17 @@ test("listSignalTags filters by item ids and sorts newest first", async () => {
     ["new", "old"]
   );
   assert.equal((await listSignalTags(storage)).length, 3);
+});
+
+test("deleteSignalTagsByItemId 只刪最後 orphan item 的 tags", async () => {
+  const storage = makeStorage();
+  await saveSignalTags(storage, makeRecord({ itemId: "item-1" }));
+  await saveSignalTags(storage, makeRecord({ itemId: "item-2", generatedAt: "2026-05-22T00:00:00.000Z" }));
+
+  await deleteSignalTagsByItemId(storage, "item-1");
+
+  assert.equal(await loadSignalTags(storage, "item-1"), null);
+  assert.deepEqual((await listSignalTags(storage)).map((record) => record.itemId), ["item-2"]);
 });
 
 test("normalizeSignalTags preserves error records and drops duplicate tags", () => {

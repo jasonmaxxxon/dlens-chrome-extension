@@ -12,6 +12,7 @@ import {
 import {
   appendSignalReadingReview,
   buildSignalReadingCacheKey,
+  deleteSignalReadingsBySignalId,
   getSignalReading,
   latestReadingBySignalId,
   listSignalReadings,
@@ -266,6 +267,18 @@ test("listSignalReadings 與 latestReadingBySignalId", async () => {
   const latest = latestReadingBySignalId(all);
   assert.equal(latest.get("sig_1")?.cacheKey, "sig_1::b");
   assert.equal(latest.get("sig_2")?.cacheKey, "sig_2::a");
+});
+
+test("deleteSignalReadingsBySignalId 只刪目標 signal 的所有判讀", async () => {
+  const storage = makeStorage();
+  await saveSignalReading(storage, makeReading({ signalId: "sig_1", cacheKey: "sig_1::a" }));
+  await saveSignalReading(storage, makeReading({ signalId: "sig_1", cacheKey: "sig_1::b", generatedAt: "2026-05-18T00:00:00.000Z" }));
+  await saveSignalReading(storage, makeReading({ signalId: "sig_2", cacheKey: "sig_2::a", generatedAt: "2026-05-12T00:00:00.000Z" }));
+
+  await deleteSignalReadingsBySignalId(storage, "sig_1");
+
+  const readings = await listSignalReadings(storage);
+  assert.deepEqual(readings.map((reading) => reading.cacheKey), ["sig_2::a"]);
 });
 
 test("signalReadingStaleness 偵測兩個原因", () => {
