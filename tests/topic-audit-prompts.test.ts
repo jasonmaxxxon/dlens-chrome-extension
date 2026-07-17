@@ -354,6 +354,39 @@ test("parseAuditPromptEnvelopeResult keeps complete schema mismatches out of tru
   });
 });
 
+test("parseAuditPromptEnvelopeResult prioritizes complete envelope semantics over max-token metadata", () => {
+  const completeSchemaMismatch = JSON.stringify({ evidenceRefs: [], caveats: [] });
+  assert.deepEqual(
+    parseAuditPromptEnvelopeResult(completeSchemaMismatch, undefined, { finishReason: "MAX_TOKENS" }),
+    {
+      ok: false,
+      kind: "schema_mismatch",
+      finishReason: "MAX_TOKENS",
+      outputChars: completeSchemaMismatch.length
+    }
+  );
+
+  const incompleteJson = '{"prose":"未完';
+  assert.deepEqual(
+    parseAuditPromptEnvelopeResult(incompleteJson, undefined, { finishReason: "MAX_TOKENS" }),
+    {
+      ok: false,
+      kind: "truncated",
+      finishReason: "MAX_TOKENS",
+      outputChars: incompleteJson.length
+    }
+  );
+
+  const completeValidEnvelope = JSON.stringify({ prose: "完整判讀", evidenceRefs: [], caveats: [] });
+  assert.deepEqual(
+    parseAuditPromptEnvelopeResult(completeValidEnvelope, undefined, { finishReason: "MAX_TOKENS" }),
+    {
+      ok: true,
+      envelope: { prose: "完整判讀", evidenceRefs: [], caveats: [] }
+    }
+  );
+});
+
 test("nullable audit parser remains compatible with valid aliases", () => {
   const raw = '{"memo":"有效判讀","evidence_refs":[],"caveats":[]}';
 

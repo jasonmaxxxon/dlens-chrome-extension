@@ -149,6 +149,15 @@ function hasIncompleteJsonTail(raw: string): boolean {
   return quoted || depth > 0;
 }
 
+function hasCompleteJsonPayload(raw: string): boolean {
+  try {
+    JSON.parse(stripCodeFence(raw));
+    return true;
+  } catch {
+    return false;
+  }
+}
+
 function parseJsonObject(raw: string): Record<string, unknown> | null {
   const stripped = stripCodeFence(raw);
   const candidates = [stripped];
@@ -496,7 +505,8 @@ export function parseAuditPromptEnvelopeResult(
   }
 
   const finishReason = meta.finishReason?.trim();
-  const truncated = Boolean(finishReason && TRUNCATED_FINISH_REASONS.has(finishReason)) || hasIncompleteJsonTail(raw);
+  const truncated = !hasCompleteJsonPayload(raw)
+    && (Boolean(finishReason && TRUNCATED_FINISH_REASONS.has(finishReason)) || hasIncompleteJsonTail(raw));
   return {
     ok: false,
     kind: truncated ? "truncated" : "schema_mismatch",
