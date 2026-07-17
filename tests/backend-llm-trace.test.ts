@@ -56,6 +56,63 @@ test("ingest client emits backend.request trace events around backend fetches", 
   }
 });
 
+test("ingest client emits one terminal error trace when a request times out", async () => {
+  const originalFetch = globalThis.fetch;
+  const originalSetTimeout = globalThis.setTimeout;
+  const originalClearTimeout = globalThis.clearTimeout;
+  const originalDebug = console.debug;
+  enableProcessTrace();
+  console.debug = () => undefined;
+  globalThis.setTimeout = ((callback: TimerHandler) => {
+    queueMicrotask(() => {
+      if (typeof callback === "function") callback();
+    });
+    return 1 as unknown as ReturnType<typeof setTimeout>;
+  }) as typeof setTimeout;
+  globalThis.clearTimeout = (() => undefined) as typeof clearTimeout;
+  globalThis.fetch = ((_input: string | URL | Request, init?: RequestInit) => {
+    const signal = init?.signal;
+    const body = new ReadableStream<Uint8Array>({
+      start(controller) {
+        controller.enqueue(new TextEncoder().encode('{"status":'));
+        const abort = () => controller.error(signal?.reason);
+        if (signal?.aborted) {
+          abort();
+        } else {
+          signal?.addEventListener("abort", abort, { once: true });
+        }
+      }
+    });
+    return Promise.resolve(new Response(body, {
+      status: 200,
+      headers: { "Content-Type": "application/json" }
+    }));
+  }) as typeof fetch;
+
+  try {
+    await assert.rejects(() => fetchWorkerStatus("http://127.0.0.1:8000"), /timed out after 30000 ms/i);
+
+    const trace = readPipelineTrace();
+    assert.equal(trace.length, 2);
+    assert.deepEqual(trace.map((entry) => entry.result), ["pending", "error"]);
+    assert.equal(trace[0]?.requestId, trace[1]?.requestId);
+    assert.deepEqual(trace[1]?.detail, {
+      method: "GET",
+      path: "/worker/status",
+      ok: false,
+      error: "Ingest backend request timed out after 30000 ms at /worker/status.",
+      timeoutMs: 30000,
+      timedOut: true
+    });
+  } finally {
+    globalThis.fetch = originalFetch;
+    globalThis.setTimeout = originalSetTimeout;
+    globalThis.clearTimeout = originalClearTimeout;
+    console.debug = originalDebug;
+    disableProcessTrace();
+  }
+});
+
 test("provider fetchWithRetry emits llm.call trace events with provider provenance", async () => {
   const originalFetch = globalThis.fetch;
   const originalDebug = console.debug;

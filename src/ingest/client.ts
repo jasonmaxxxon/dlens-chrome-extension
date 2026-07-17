@@ -13,6 +13,9 @@ import type {
 import { inferRouteType, inferSurfaceFromUrl, type TargetDescriptor } from "../contracts/target-descriptor";
 import { createPipelineRequestId, emitPipelineEvent } from "../state/pipeline-trace.ts";
 
+const DEFAULT_INGEST_REQUEST_TIMEOUT_MS = 30_000;
+const ADVANCED_METRICS_REQUEST_TIMEOUT_MS = 120_000;
+
 export function normalizeBaseUrl(baseUrl: string): string {
   return String(baseUrl || "").trim().replace(/\/+$/, "") || "http://127.0.0.1:8000";
 }
@@ -71,11 +74,57 @@ function backendTracePath(input: string): string {
   }
 }
 
-async function fetchJson<T>(input: string, init?: RequestInit): Promise<T> {
+function createBoundedRequestSignal(
+  callerSignal: AbortSignal | null | undefined,
+  timeoutMs: number,
+  timeoutError: Error
+): {
+  signal: AbortSignal;
+  cleanup: () => void;
+  didCallerAbort: () => boolean;
+  didTimeout: () => boolean;
+} {
+  const controller = new AbortController();
+  let abortKind: "caller" | "timeout" | null = null;
+  const abortFromCaller = () => {
+    if (abortKind) return;
+    abortKind = "caller";
+    controller.abort(callerSignal?.reason ?? new DOMException("Ingest backend request aborted by caller.", "AbortError"));
+  };
+  if (callerSignal?.aborted) {
+    abortFromCaller();
+  } else {
+    callerSignal?.addEventListener("abort", abortFromCaller, { once: true });
+  }
+  const timeoutId = globalThis.setTimeout(() => {
+    if (abortKind) return;
+    abortKind = "timeout";
+    controller.abort(timeoutError);
+  }, timeoutMs);
+
+  return {
+    signal: controller.signal,
+    cleanup: () => {
+      globalThis.clearTimeout(timeoutId);
+      callerSignal?.removeEventListener("abort", abortFromCaller);
+    },
+    didCallerAbort: () => abortKind === "caller",
+    didTimeout: () => abortKind === "timeout"
+  };
+}
+
+async function fetchJson<T>(
+  input: string,
+  init?: RequestInit,
+  timeoutMs = DEFAULT_INGEST_REQUEST_TIMEOUT_MS
+): Promise<T> {
   const method = String(init?.method || "GET").toUpperCase();
   const path = backendTracePath(input);
   const step = `backend.${backendTraceStep(input)}`;
   const requestId = createPipelineRequestId(step);
+  const timeoutError = new Error(`Ingest backend request timed out after ${timeoutMs} ms at ${path}.`);
+  timeoutError.name = "TimeoutError";
+  const boundedRequest = createBoundedRequestSignal(init?.signal, timeoutMs, timeoutError);
   emitPipelineEvent({
     phase: "backend.request",
     step: `${step}.request`,
@@ -85,66 +134,87 @@ async function fetchJson<T>(input: string, init?: RequestInit): Promise<T> {
     detail: { method, path }
   });
 
-  let response: Response;
+  let terminalEventEmitted = false;
   try {
-    response = await fetch(input, {
+    const response = await fetch(input, {
       ...init,
+      signal: boundedRequest.signal,
       headers: {
         "Content-Type": "application/json",
         ...(init?.headers || {})
       }
     });
-  } catch (error) {
-    const message = error instanceof Error ? error.message : String(error);
+    if (!response.ok) {
+      const body = await response.text();
+      emitPipelineEvent({
+        phase: "backend.request",
+        step: `${step}.response`,
+        target: {},
+        result: "error",
+        requestId,
+        detail: {
+          method,
+          path,
+          status: response.status,
+          ok: false,
+          body: body.slice(0, 240)
+        }
+      });
+      terminalEventEmitted = true;
+      throw new Error(`${response.status} ${response.statusText}: ${body || "request failed"}`);
+    }
+    const body = await response.json() as T;
     emitPipelineEvent({
       phase: "backend.request",
       step: `${step}.response`,
       target: {},
-      result: "error",
-      requestId,
-      detail: {
-        method,
-        path,
-        ok: false,
-        error: message
-      }
-    });
-    throw new Error(
-      `Optional ingest backend unavailable at ${input}. Check ingestBaseUrl or start the backend. Original error: ${message}`
-    );
-  }
-  if (!response.ok) {
-    const body = await response.text();
-    emitPipelineEvent({
-      phase: "backend.request",
-      step: `${step}.response`,
-      target: {},
-      result: "error",
+      result: "ok",
       requestId,
       detail: {
         method,
         path,
         status: response.status,
-        ok: false,
-        body: body.slice(0, 240)
+        ok: true
       }
     });
-    throw new Error(`${response.status} ${response.statusText}: ${body || "request failed"}`);
-  }
-  emitPipelineEvent({
-    phase: "backend.request",
-    step: `${step}.response`,
-    target: {},
-    result: "ok",
-    requestId,
-    detail: {
-      method,
-      path,
-      status: response.status,
-      ok: true
+    terminalEventEmitted = true;
+    return body;
+  } catch (error) {
+    if (terminalEventEmitted) {
+      throw error;
     }
-  });
-  return response.json() as Promise<T>;
+    const message = boundedRequest.didTimeout()
+      ? timeoutError.message
+      : error instanceof Error
+        ? error.message
+        : String(error);
+    emitPipelineEvent({
+      phase: "backend.request",
+      step: `${step}.response`,
+      target: {},
+      result: "error",
+      requestId,
+      detail: {
+        method,
+        path,
+        ok: false,
+        error: message,
+        ...(boundedRequest.didTimeout() ? { timeoutMs, timedOut: true } : {}),
+        ...(boundedRequest.didCallerAbort() ? { aborted: true } : {})
+      }
+    });
+    if (boundedRequest.didTimeout()) {
+      throw timeoutError;
+    }
+    if (boundedRequest.didCallerAbort()) {
+      throw boundedRequest.signal.reason;
+    }
+    throw new Error(
+      `Optional ingest backend unavailable at ${input}. Check ingestBaseUrl or start the backend. Original error: ${message}`
+    );
+  } finally {
+    boundedRequest.cleanup();
+  }
 }
 
 export async function submitCaptureTarget(
@@ -178,22 +248,14 @@ export async function fetchWorkerStatus(baseUrl: string): Promise<WorkerStatusRe
 }
 
 export async function fetchBackendHealth(baseUrl: string, timeoutMs = 3000): Promise<BackendHealthResponse> {
-  const controller = new AbortController();
-  const timeoutId = globalThis.setTimeout(() => controller.abort(), timeoutMs);
-  try {
-    return await fetchJson<BackendHealthResponse>(`${normalizeBaseUrl(baseUrl)}/health`, {
-      signal: controller.signal
-    });
-  } finally {
-    globalThis.clearTimeout(timeoutId);
-  }
+  return fetchJson<BackendHealthResponse>(`${normalizeBaseUrl(baseUrl)}/health`, undefined, timeoutMs);
 }
 
 export async function fetchThreadsAdvancedMetrics(baseUrl: string, postUrl: string): Promise<ThreadsAdvancedMetricsResponse> {
   return fetchJson<ThreadsAdvancedMetricsResponse>(`${normalizeBaseUrl(baseUrl)}/threads/advanced-metrics`, {
     method: "POST",
     body: JSON.stringify({ post_url: postUrl })
-  });
+  }, ADVANCED_METRICS_REQUEST_TIMEOUT_MS);
 }
 
 export function toSidebarJobStatus(job: JobSnapshot): SidebarJobStatus {
@@ -222,3 +284,7 @@ export function toQueuedCapture(response: CaptureTargetResponse, job: JobSnapsho
     last_error: job?.last_error ?? null
   };
 }
+
+export const ingestClientTestables = {
+  fetchJson
+};

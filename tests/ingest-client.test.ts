@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
+import * as ingestClient from "../src/ingest/client.ts";
 import {
   buildCaptureTargetRequest,
   fetchBackendHealth,
@@ -10,6 +11,16 @@ import {
   triggerWorkerDrain
 } from "../src/ingest/client.ts";
 import type { TargetDescriptor } from "../src/contracts/target-descriptor.ts";
+
+type FetchJsonForTest = <T>(input: string, init?: RequestInit, timeoutMs?: number) => Promise<T>;
+
+function getFetchJsonForTest(): FetchJsonForTest {
+  const fetchJson = (ingestClient as unknown as {
+    ingestClientTestables?: { fetchJson?: FetchJsonForTest };
+  }).ingestClientTestables?.fetchJson;
+  assert.equal(typeof fetchJson, "function", "ingest client must expose its transport through testables");
+  return fetchJson!;
+}
 
 function makeDescriptor(overrides: Partial<TargetDescriptor> = {}): TargetDescriptor {
   return {
@@ -200,6 +211,133 @@ test("fetchThreadsAdvancedMetrics posts to the advanced metrics endpoint", async
     assert.equal(calls[0]?.init?.method, "POST");
     assert.match(String(calls[0]?.init?.body), /"post_url":"https:\/\/www\.threads\.net\/@alpha\/post\/abc"/);
     assert.deepEqual(response.metrics, { views: 9000, followers: 756 });
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
+});
+
+test("ingest requests install endpoint-specific bounded timeouts", async () => {
+  const originalFetch = globalThis.fetch;
+  const originalSetTimeout = globalThis.setTimeout;
+  const originalClearTimeout = globalThis.clearTimeout;
+  const delays: number[] = [];
+  globalThis.setTimeout = ((_: TimerHandler, delay?: number) => {
+    delays.push(Number(delay));
+    return delays.length as unknown as ReturnType<typeof setTimeout>;
+  }) as typeof setTimeout;
+  globalThis.clearTimeout = (() => undefined) as typeof clearTimeout;
+  globalThis.fetch = (async (input: string | URL | Request) => {
+    const path = new URL(String(input)).pathname;
+    return new Response(JSON.stringify(
+      path === "/threads/advanced-metrics"
+        ? { post_url: "https://www.threads.net/@alpha/post/abc", metrics: {}, fetched_at: "2026-07-17T00:00:00Z" }
+        : { status: path === "/health" ? "ok" : "idle" }
+    ), {
+      status: 200,
+      headers: { "Content-Type": "application/json" }
+    });
+  }) as typeof fetch;
+
+  try {
+    await fetchBackendHealth("http://127.0.0.1:8000");
+    await fetchWorkerStatus("http://127.0.0.1:8000");
+    await fetchThreadsAdvancedMetrics("http://127.0.0.1:8000", "https://www.threads.net/@alpha/post/abc");
+
+    assert.deepEqual(delays, [3000, 30000, 120000]);
+  } finally {
+    globalThis.fetch = originalFetch;
+    globalThis.setTimeout = originalSetTimeout;
+    globalThis.clearTimeout = originalClearTimeout;
+  }
+});
+
+test("ingest request timeout aborts pending fetches with an explicit endpoint error", async () => {
+  const fetchJson = getFetchJsonForTest();
+  const originalFetch = globalThis.fetch;
+  globalThis.fetch = ((_input: string | URL | Request, init?: RequestInit) => new Promise<Response>((_resolve, reject) => {
+    const signal = init?.signal;
+    if (signal?.aborted) {
+      reject(signal.reason);
+      return;
+    }
+    signal?.addEventListener("abort", () => reject(signal.reason), { once: true });
+  })) as typeof fetch;
+
+  try {
+    await assert.rejects(
+      () => fetchJson("http://127.0.0.1:8000/worker/status", undefined, 5),
+      (error: unknown) => {
+        assert.match(String(error), /timed out after 5 ms/i);
+        assert.match(String(error), /\/worker\/status/);
+        return true;
+      }
+    );
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
+});
+
+test("ingest request timeout stays active until the response body is consumed", async () => {
+  const fetchJson = getFetchJsonForTest();
+  const originalFetch = globalThis.fetch;
+  const originalSetTimeout = globalThis.setTimeout;
+  globalThis.fetch = ((_input: string | URL | Request, init?: RequestInit) => {
+    const signal = init?.signal;
+    const body = new ReadableStream<Uint8Array>({
+      start(controller) {
+        controller.enqueue(new TextEncoder().encode('{"status":'));
+        const abort = () => controller.error(signal?.reason);
+        if (signal?.aborted) {
+          abort();
+        } else {
+          signal?.addEventListener("abort", abort, { once: true });
+        }
+      }
+    });
+    return Promise.resolve(new Response(body, {
+      status: 200,
+      headers: { "Content-Type": "application/json" }
+    }));
+  }) as typeof fetch;
+
+  try {
+    const outcome = await Promise.race([
+      fetchJson("http://127.0.0.1:8000/worker/status", undefined, 5).catch((error: unknown) => error),
+      new Promise<Error>((resolve) => {
+        originalSetTimeout(() => resolve(new Error("response body remained pending")), 50);
+      })
+    ]);
+    assert.match(String(outcome), /timed out after 5 ms/i);
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
+});
+
+test("ingest request timeout composes with caller cancellation", async () => {
+  const fetchJson = getFetchJsonForTest();
+  const originalFetch = globalThis.fetch;
+  const caller = new AbortController();
+  let transportSignal: AbortSignal | null = null;
+  globalThis.fetch = ((_input: string | URL | Request, init?: RequestInit) => new Promise<Response>((_resolve, reject) => {
+    transportSignal = init?.signal ?? null;
+    if (transportSignal?.aborted) {
+      reject(transportSignal.reason);
+      return;
+    }
+    transportSignal?.addEventListener("abort", () => reject(transportSignal?.reason), { once: true });
+  })) as typeof fetch;
+
+  try {
+    const abortReason = new DOMException("caller stopped", "AbortError");
+    const pending = fetchJson("http://127.0.0.1:8000/worker/status", { signal: caller.signal }, 30000);
+    caller.abort(abortReason);
+
+    await assert.rejects(pending, (error: unknown) => {
+      assert.equal(error, abortReason);
+      assert.equal((error as Error).name, "AbortError");
+      return true;
+    });
+    assert.equal(transportSignal?.aborted, true);
   } finally {
     globalThis.fetch = originalFetch;
   }
