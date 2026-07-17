@@ -445,6 +445,63 @@ test("topic audit preserves the original failure when a newer request replaces i
   assert.equal(status?.stage, "narrative");
 });
 
+test("topic audit rejects an expired lease before its memo checkpoint and preserves the ownership error", async () => {
+  const storage = new MemoryStorage();
+  await seedTopic(storage);
+  let currentNow = "2026-07-17T10:00:00.000Z";
+
+  await assert.rejects(
+    () => handleTopicAuditMessage(storage, {
+      message: { type: "topic/audit/run", requestId: "request-expired-checkpoint", sessionId: "session-1", topicId: "topic-1" },
+      sessions: [makeSession()],
+      now: () => currentNow,
+      generateEnvelope: async (stageName, _prompt, onAttempt) => {
+        await onAttempt(1);
+        assert.equal((await loadTopicAuditRun(storage, "topic-1", currentNow))?.stage, stageName);
+        currentNow = "2026-07-17T10:16:00.000Z";
+        return makeEnvelope(stageName);
+      }
+    }),
+    /no longer owns/
+  );
+
+  assert.equal(await loadTopicAuditMemos(storage, "topic-1"), null);
+  assert.equal(await loadTopicAuditReport(storage, "topic-1"), null);
+  assert.deepEqual(await loadTopicAuditEpisodes(storage, "topic-1"), []);
+  const status = await loadTopicAuditRun(storage, "topic-1", currentNow);
+  assert.equal(status?.state, "failed");
+  assert.equal(status?.failureKind, "interrupted");
+});
+
+test("topic audit rejects final publication after its lease expires", async () => {
+  const storage = new MemoryStorage();
+  await seedTopic(storage);
+  let currentNow = "2026-07-17T10:00:00.000Z";
+
+  await assert.rejects(
+    () => handleTopicAuditMessage(storage, {
+      message: { type: "topic/audit/run", requestId: "request-expired-publication", sessionId: "session-1", topicId: "topic-1" },
+      sessions: [makeSession()],
+      now: () => currentNow,
+      generateEnvelope: async (stageName, _prompt, onAttempt) => {
+        await onAttempt(1);
+        assert.equal((await loadTopicAuditRun(storage, "topic-1", currentNow))?.stage, stageName);
+        if (stageName === "final") {
+          currentNow = "2026-07-17T10:16:00.000Z";
+        }
+        return makeEnvelope(stageName);
+      }
+    }),
+    /no longer owns/
+  );
+
+  assert.equal(await loadTopicAuditReport(storage, "topic-1"), null);
+  assert.deepEqual(await loadTopicAuditEpisodes(storage, "topic-1"), []);
+  const status = await loadTopicAuditRun(storage, "topic-1", currentNow);
+  assert.equal(status?.state, "failed");
+  assert.equal(status?.failureKind, "interrupted");
+});
+
 test("topic audit retry preserves both topic memo maps when another topic checkpoints during attempt two", async () => {
   const storage = new MemoryStorage();
   await seedTopic(storage);

@@ -847,7 +847,7 @@ async function saveMemos(
   shardReadings: CommentShardReading[],
   signalReadings: SignalReading[],
   lensMemos: LensMemo[],
-  owner?: TopicAuditRunOwner
+  ownerAtNow?: () => TopicAuditRunOwner
 ): Promise<void> {
   const bundle = {
     auditRunId,
@@ -856,8 +856,8 @@ async function saveMemos(
     signalReadings,
     lensMemos
   };
-  if (owner) {
-    await saveTopicAuditMemosForRun(storageArea, owner, bundle);
+  if (ownerAtNow) {
+    await saveTopicAuditMemosForRun(storageArea, ownerAtNow(), bundle);
     return;
   }
   await saveTopicAuditMemos(storageArea, topicId, bundle);
@@ -981,23 +981,24 @@ async function runAuditPipeline(
     };
   }
 
-  const owner: TopicAuditRunOwner = {
+  const ownerAtNow = (): TopicAuditRunOwner => ({
     topicId: topic.id,
     requestId,
     now: nowIso(options)
-  };
+  });
+  const startOwner = ownerAtNow();
   await beginTopicAuditRun(storageArea, {
     sessionId: session.id,
     topicId: topic.id,
     requestId,
     state: "running",
     stage: "p1-signal-reading",
-    startedAt: owner.now,
-    updatedAt: owner.now,
-    expiresAt: nextTopicAuditRunExpiry(owner.now)
+    startedAt: startOwner.now,
+    updatedAt: startOwner.now,
+    expiresAt: nextTopicAuditRunExpiry(startOwner.now)
   });
   const onStageAttempt = (stageName: TopicAuditStageName) => async (_attempt: 1 | 2): Promise<void> => {
-    await advanceTopicAuditRun(storageArea, { ...owner, now: nowIso(options) }, stageName);
+    await advanceTopicAuditRun(storageArea, ownerAtNow(), stageName);
   };
 
   try {
@@ -1049,7 +1050,7 @@ async function runAuditPipeline(
         [...shardReadings, ...checkpoint],
         signalReadings,
         lensMemos,
-        owner
+        ownerAtNow
       ),
       onStageAttempt("comment-shard-reading")
     );
@@ -1103,7 +1104,7 @@ async function runAuditPipeline(
         p1Failures.push(packet.shortCode);
       }
     }
-    await saveMemos(storageArea, topic.id, auditRunId, inputHash, shardReadings, signalReadings, lensMemos, owner);
+    await saveMemos(storageArea, topic.id, auditRunId, inputHash, shardReadings, signalReadings, lensMemos, ownerAtNow);
   }
 
   if (upstreamChanged) {
@@ -1125,7 +1126,7 @@ async function runAuditPipeline(
     }
     lexiconMemo = lensMemoFromEnvelope(topic.id, auditRunId, inputHash, "lexicon", lexiconEnvelope, TOPIC_AUDIT_PROMPT_VERSIONS.p2, options);
     lensMemos.push(lexiconMemo);
-    await saveMemos(storageArea, topic.id, auditRunId, inputHash, shardReadings, signalReadings, lensMemos, owner);
+    await saveMemos(storageArea, topic.id, auditRunId, inputHash, shardReadings, signalReadings, lensMemos, ownerAtNow);
   }
 
   if (!lensMemos.some((memo) => memo.stageName === "narrative")) {
@@ -1152,7 +1153,7 @@ async function runAuditPipeline(
       options
     );
     lensMemos.push(narrativeMemo);
-    await saveMemos(storageArea, topic.id, auditRunId, inputHash, shardReadings, signalReadings, lensMemos, owner);
+    await saveMemos(storageArea, topic.id, auditRunId, inputHash, shardReadings, signalReadings, lensMemos, ownerAtNow);
   }
 
   if (!lensMemos.some((memo) => memo.stageName === "audience")) {
@@ -1180,7 +1181,7 @@ async function runAuditPipeline(
       options
     );
     lensMemos.push(audienceMemo);
-    await saveMemos(storageArea, topic.id, auditRunId, inputHash, shardReadings, signalReadings, lensMemos, owner);
+    await saveMemos(storageArea, topic.id, auditRunId, inputHash, shardReadings, signalReadings, lensMemos, ownerAtNow);
   }
 
   if (!lensMemos.some((memo) => memo.stageName === "absence")) {
@@ -1201,7 +1202,7 @@ async function runAuditPipeline(
       options
     );
     lensMemos.push(absenceMemo);
-    await saveMemos(storageArea, topic.id, auditRunId, inputHash, shardReadings, signalReadings, lensMemos, owner);
+    await saveMemos(storageArea, topic.id, auditRunId, inputHash, shardReadings, signalReadings, lensMemos, ownerAtNow);
   }
 
   const finalEnvelope = await generateOrParseEnvelope(
@@ -1249,7 +1250,7 @@ async function runAuditPipeline(
     packets: evidence,
     audienceMemo: lensMemos.find((memo) => memo.stageName === "audience") ?? null
   });
-  await publishTopicAuditReportAndEpisodes(storageArea, report, auditEpisodes, owner);
+  await publishTopicAuditReportAndEpisodes(storageArea, report, auditEpisodes, ownerAtNow());
   return {
     auditEvidence: evidence,
     auditMemos: { auditRunId, inputHash, shardReadings, signalReadings, lensMemos },
@@ -1260,7 +1261,7 @@ async function runAuditPipeline(
   };
   } catch (error) {
     try {
-      await failTopicAuditRun(storageArea, { ...owner, now: nowIso(options) }, topicAuditRunFailureKind(error));
+      await failTopicAuditRun(storageArea, ownerAtNow(), topicAuditRunFailureKind(error));
     } catch {
       // A superseding request owns the ledger now; never replace its status or hide the original error.
     }
