@@ -218,7 +218,10 @@ test("Topic Audit uses native schemas only for Google and OpenAI", async () => {
     const openai = bodies.find(({ provider }) => provider === "openai")?.body;
     const claude = bodies.find(({ provider }) => provider === "claude")?.body;
     assert.equal(google.generationConfig.responseMimeType, "application/json");
-    assert.equal(google.generationConfig.responseJsonSchema.type, "object");
+    // gemini-3.1-flash-lite runs away under responseJsonSchema on the audit
+    // envelope (2026-07-18 truncated-final regression) — Google must stay
+    // schema-free; shape is guarded by parse + repair retry.
+    assert.equal(google.generationConfig.responseJsonSchema, undefined);
     assert.equal(openai.response_format.type, "json_schema");
     assert.equal(openai.response_format.json_schema.strict, false);
     assert.equal(openai.response_format.json_schema.schema.type, "object");

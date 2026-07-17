@@ -1016,14 +1016,19 @@ async function requestJsonResponse(
 ): Promise<TopicAuditJsonResponse> {
   const label = (base: string) => (traceLabel ? `${base}.${traceLabel}` : base);
   if (provider === "google") {
+    // Deliberately no responseJsonSchema here: schema-constrained decoding on
+    // gemini-3.1-flash-lite runs away on the loose audit envelope (replayed
+    // 2026-07-18: 31k chars at a 16k ceiling, MAX_TOKENS every time; the same
+    // prompt without the schema stops at STOP inside the prose budget).
+    // Envelope shape is enforced by parseAuditPromptEnvelopeResult + one repair
+    // retry instead.
     const request = googleGenerateContentRequest(apiKey, {
       systemInstruction: { parts: [{ text: system }] },
       contents: [{ role: "user", parts: [{ text: prompt }] }],
       generationConfig: {
         temperature: 0.2,
         maxOutputTokens,
-        responseMimeType: "application/json",
-        ...(useTopicAuditSchema ? { responseJsonSchema: TOPIC_AUDIT_ENVELOPE_JSON_SCHEMA } : {})
+        responseMimeType: "application/json"
       }
     });
     const response = await fetchWithRetry(label("Google"), request.input, request.init);
