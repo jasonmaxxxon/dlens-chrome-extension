@@ -54,10 +54,16 @@ function SessionProgress({
   total: number;
   indeterminate?: boolean;
 }) {
-  const completion = total > 0 ? `${Math.round((ready / total) * 100)}%` : "0%";
+  const completionPercent = total > 0 ? Math.round((ready / total) * 100) : 0;
+  const completion = `${completionPercent}%`;
   return (
     <span
-      aria-hidden="true"
+      role="progressbar"
+      aria-label="來源處理進度"
+      aria-valuemin={0}
+      aria-valuemax={100}
+      aria-valuetext={indeterminate ? "正在生成 Atlas" : completion}
+      {...(indeterminate ? {} : { "aria-valuenow": completionPercent })}
       data-topic-source-session-progress={indeterminate ? "indeterminate" : "determinate"}
       style={{
         display: "block",

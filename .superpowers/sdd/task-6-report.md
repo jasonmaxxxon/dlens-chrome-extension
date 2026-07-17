@@ -52,3 +52,19 @@ The focused source-session and viewmodel suite passed: 66/66.
 The final card adds +4928 raw, +1617 gzip -9, and +1056 brotli bytes over full removal-only. It remains inside the immutable limits. The prior over-budget final measurement is retained as evidence only; it was superseded by the completed approved removal.
 
 The exact baseline and measured values are in `docs/qa/assets/2026-07-17/0.3.49-topic-session/bundle-budget.md`.
+
+## Review follow-up — progress semantics and motion registry
+
+The valid review finding was fixed test-first: `SessionProgress` now exposes a labelled `role="progressbar"` with explicit 0–100 bounds. Determinate states expose the measured `aria-valuenow`; the generating indeterminate state omits it. The live status region still contains status text only, with controls outside it.
+
+The motion finding was rejected against the existing architecture, not patched with duplicate CSS. `DLENS_REDUCED_MOTION_CSS` already applies its reduced-motion duration and iteration overrides to `[data-dlens-control="true"] *`, and the in-page collector mounts this card below that root. The strengthened motion registry regression locks this descendant wildcard, its `0.01ms` duration and one iteration, plus the source-session/card root contract. No production motion CSS was added.
+
+- RED: the new progress semantics test failed because the bar was `aria-hidden` and lacked `role="progressbar"`/ARIA values.
+- Green: topic detail/viewmodel plus motion registry focused suite passed 87/87.
+- `npm run typecheck`, `npm run boundary:guard`, `npm run build`, `npm run bundle:guard`, and `git diff --check`: passed.
+
+| Metric | Prior final | Follow-up final | Limit | Result |
+| --- | ---: | ---: | ---: | --- |
+| raw | 908914 | 909055 | 910000 | within by 945 |
+| gzip -9 | 254718 | 254785 | 256000 | within by 1215 |
+| brotli | 202808 | 202737 | 203000 | within by 263 |

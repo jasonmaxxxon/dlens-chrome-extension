@@ -7,7 +7,7 @@
 | Task 6 partial removal-only | 903764 | 253041 | 201640 | -5107 | -1038 | -719 | partial checkpoint before legacy non-Atlas duplicate-owner removal |
 | Task 6 full removal-only | 903986 | 253101 | 201752 | -4885 | -978 | -607 | within all current limits; measured with card import and both mounts temporarily removed |
 | Task 6 prior final card | 911979 | 255544 | 203477 | +3108 | +1465 | +1118 | superseded after full duplicate-owner removal; raw over by 1979 and brotli over by 477 |
-| Task 6 final card | 908914 | 254718 | 202808 | +43 | +639 | +449 | within all current limits |
+| Task 6 final card + progress semantics follow-up | 909055 | 254785 | 202737 | +184 | +706 | +378 | within all current limits |
 
 Current limits: raw 910000 bytes; gzip -9 256000 bytes; brotli 203000 bytes.
 

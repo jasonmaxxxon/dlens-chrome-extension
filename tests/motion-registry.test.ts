@@ -131,8 +131,20 @@ test("every inline `animation:` keyframe name resolves to a registry keyframe", 
 test("reduced-motion safety net is scoped to DLens roots and neutralises animation", () => {
   assert.match(DLENS_REDUCED_MOTION_CSS, /@media\s*\(prefers-reduced-motion:\s*reduce\)/);
   assert.match(DLENS_REDUCED_MOTION_CSS, /\[data-dlens-control="true"\]/);
+  assert.match(DLENS_REDUCED_MOTION_CSS, /\[data-dlens-control="true"\]\s+\*/);
   assert.match(DLENS_REDUCED_MOTION_CSS, /animation-duration:\s*0\.01ms\s*!important/);
   assert.match(DLENS_REDUCED_MOTION_CSS, /animation-iteration-count:\s*1\s*!important/);
+});
+
+test("source-session motion stays under the global control-root reduced-motion wildcard", () => {
+  const cardSource = readFileSync(fileURLToPath(new URL("../src/ui/TopicSourceSessionCard.tsx", import.meta.url)), "utf8");
+  const popupSource = readFileSync(fileURLToPath(new URL("../src/ui/InPageCollectorPopup.tsx", import.meta.url)), "utf8");
+
+  assert.match(cardSource, /data-topic-source-session-spinner/);
+  assert.match(cardSource, /data-topic-source-session-progress/);
+  assert.match(cardSource, /tokens\.motion\.keyframes\.(spin|indeterminate)/);
+  assert.match(popupSource, /data-dlens-control="true"/);
+  assert.match(DLENS_REDUCED_MOTION_CSS, /\[data-dlens-control="true"\]\s+\*[\s\S]*animation-duration:\s*0\.01ms\s*!important[\s\S]*animation-iteration-count:\s*1\s*!important/);
 });
 
 test("tactile cards lift on intent, press below rest, and release through the shared spring", () => {

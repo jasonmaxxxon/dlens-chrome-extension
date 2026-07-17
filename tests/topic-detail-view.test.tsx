@@ -12,6 +12,7 @@ import type { TopicAuditValidationFlag } from "../src/compare/topic-audit-valida
 import type { TopicAuditMemoBundle } from "../src/state/topic-audit-storage.ts";
 import type { SavedAnalysisSnapshot, SessionItem, Signal, SignalTagsRecord, Topic, TopicSignalReading, TopicSynthesis } from "../src/state/types.ts";
 import { TopicDetailView, topicDetailViewTestables } from "../src/ui/TopicDetailView.tsx";
+import { TopicSourceSessionCard } from "../src/ui/TopicSourceSessionCard.tsx";
 import { SignalDrawer } from "../src/ui/SignalDrawer.tsx";
 import { tokens } from "../src/ui/tokens.ts";
 import { pickPrimaryJudgmentPair } from "../src/ui/useTopicState.ts";
@@ -718,6 +719,26 @@ test("TopicDetailView keeps one manual ready-to-generate action and dispatches i
     await new Promise((resolve) => setTimeout(resolve, 0));
     Object.assign(globalThis, previous);
   }
+});
+
+test("TopicSourceSessionCard exposes determinate and indeterminate progress semantics", () => {
+  const determinate = renderToStaticMarkup(
+    <TopicSourceSessionCard
+      state={{ kind: "needs_crawl", scope: "topic", total: 4, ready: 1, pending: 3, failed: 0 }}
+      disabled={false}
+      onAnalyze={() => undefined}
+    />
+  );
+  const indeterminate = renderToStaticMarkup(
+    <TopicSourceSessionCard
+      state={{ kind: "generating", scope: "topic", total: 4, ready: 4 }}
+      disabled={false}
+    />
+  );
+
+  assert.match(determinate, /role="progressbar"[^>]*aria-label="來源處理進度"[^>]*aria-valuemin="0"[^>]*aria-valuemax="100"[^>]*aria-valuenow="25"/);
+  assert.match(indeterminate, /role="progressbar"[^>]*aria-label="來源處理進度"[^>]*aria-valuemin="0"[^>]*aria-valuemax="100"/);
+  assert.doesNotMatch(indeterminate, /aria-valuenow=/);
 });
 
 test("TopicSourceSessionCard stays token-only and keeps status text separate from controls", () => {
