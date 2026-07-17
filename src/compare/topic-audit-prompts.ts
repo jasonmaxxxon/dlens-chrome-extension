@@ -1163,6 +1163,7 @@ export function buildP6FinalReportPrompt(input: TopicPromptInput): string {
     `Topic: ${input.topicName}`,
     "P6 Editor Synthesis：寫最終 report。固定 7 節，內容由 evidence + LensMemo 長出，不靠 schema 拼。",
     "7 節：1 整體判讀；2 共同用字；3 風向/時間；4 narrative clusters；5 audience reaction；6 缺席聲音/outliers；7 editorial reading。",
+    "長度預算與來源數無關：prose 全文收在約 1500 字內，每節 2–4 句。來源多時提高每句密度（合併同類引用），不是加長篇幅；JSON 必須完整閉合，寧可縮節也不可寫到截斷。",
     "§7 editorial 必須 prose，必須指認語言生態形狀：哪些位置有語言、哪些沒有、哪些被撤回信用、哪些連詞都沒長出。",
     "每節標 coverage。資料不足明說。不可宣稱 platform-level，最多說本 topic 內觀察到。",
     "不要預設任何在其他 topic 出現過的 finding；每個判讀都從本 topic evidence 長出。",

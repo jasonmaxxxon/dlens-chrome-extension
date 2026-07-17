@@ -2875,7 +2875,10 @@ export default defineBackground(() => {
                 providerConfig.apiKey,
                 stageName,
                 prompt,
-                stageName === "final" ? 3200 : 2200,
+                // final writes the 7-section report and audience carries the full
+                // reactionPatterns envelope — both must survive large topics (100+
+                // posts) without hitting the output ceiling before the retry kicks in.
+                stageName === "final" ? 6000 : stageName === "audience" ? 3200 : 2200,
                 { onAttempt }
               ),
               model: providerConfig.provider === "openai"
