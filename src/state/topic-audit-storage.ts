@@ -87,9 +87,26 @@ const TOPIC_AUDIT_RUN_FAILURE_KINDS = new Set<TopicAuditRunFailureKind>([
   "timeout",
   "interrupted"
 ]);
+const ISO_TIMESTAMP_PATTERN = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d{1,3})?(?:Z|[+-]\d{2}:\d{2})$/;
+
+function parseIsoTimestamp(value: unknown): number | null {
+  if (typeof value !== "string" || !ISO_TIMESTAMP_PATTERN.test(value)) {
+    return null;
+  }
+  const timestamp = Date.parse(value);
+  return Number.isFinite(timestamp) ? timestamp : null;
+}
+
+function assertIsoTimestamp(value: unknown, field: string): number {
+  const timestamp = parseIsoTimestamp(value);
+  if (timestamp === null) {
+    throw new Error(`Topic audit ${field} must be a valid ISO timestamp`);
+  }
+  return timestamp;
+}
 
 function isIsoDate(value: unknown): value is string {
-  return typeof value === "string" && Number.isFinite(Date.parse(value));
+  return parseIsoTimestamp(value) !== null;
 }
 
 function isTopicAuditRunStatus(value: unknown, topicId: string): value is TopicAuditRunStatus {
@@ -132,7 +149,8 @@ async function writeTopicAuditRunCache(
 }
 
 function assertRunOwner(status: TopicAuditRunStatus | null, owner: TopicAuditRunOwner): TopicAuditRunStatus {
-  if (!status || status.requestId !== owner.requestId || status.state !== "running" || Date.parse(status.expiresAt) <= Date.parse(owner.now)) {
+  const ownerNow = assertIsoTimestamp(owner.now, "owner.now");
+  if (!status || status.requestId !== owner.requestId || status.state !== "running" || assertIsoTimestamp(status.expiresAt, "run.expiresAt") <= ownerNow) {
     throw new Error(`Topic audit request ${owner.requestId} no longer owns ${owner.topicId}`);
   }
   return status;
@@ -277,10 +295,11 @@ export async function loadTopicAuditRun(
   topicId: string,
   now: string
 ): Promise<TopicAuditRunStatus | null> {
+  const currentTime = assertIsoTimestamp(now, "now");
   return enqueueTopicAuditMutation(async () => {
     const runs = await readTopicAuditRunCache(storageArea);
     const current = runs[topicId] ?? null;
-    if (!current || current.state !== "running" || Date.parse(current.expiresAt) > Date.parse(now)) {
+    if (!current || current.state !== "running" || assertIsoTimestamp(current.expiresAt, "run.expiresAt") > currentTime) {
       return current;
     }
     const expired = {

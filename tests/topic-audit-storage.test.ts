@@ -561,6 +561,60 @@ test("topic audit run lease expires to interrupted and blocks late owner writes"
   );
 });
 
+test("malformed topic audit owner timestamps reject without rewriting durable artifacts or the run cache", async () => {
+  const storage = new MemoryStorage();
+  const run = makeRunStatus("request-1");
+  const existingEpisode = makeEpisode(1);
+  const replacementEpisode = makeEpisode(2);
+  await beginTopicAuditRun(storage, run);
+  storage.values[TOPIC_AUDIT_MEMOS_STORAGE_KEY] = { "topic-1": makeMemoBundle("topic-1") };
+  storage.values[TOPIC_AUDIT_REPORTS_STORAGE_KEY] = { "topic-1": makeReportForEpisode(existingEpisode) };
+  storage.values[TOPIC_AUDIT_EPISODES_STORAGE_KEY] = { "topic-1": [existingEpisode] };
+  const before = structuredClone(storage.values);
+  storage.setCalls = 0;
+  const malformedOwner = { topicId: run.topicId, requestId: run.requestId, now: "not-a-date" };
+
+  await assert.rejects(
+    () => saveTopicAuditMemosForRun(storage, malformedOwner, makeMemoBundle("topic-1")),
+    /valid ISO timestamp/i
+  );
+  await assert.rejects(
+    () => advanceTopicAuditRun(storage, malformedOwner, "narrative"),
+    /valid ISO timestamp/i
+  );
+  await assert.rejects(
+    () => failTopicAuditRun(storage, malformedOwner, "timeout"),
+    /valid ISO timestamp/i
+  );
+  await assert.rejects(
+    () => publishTopicAuditReportAndEpisodes(
+      storage,
+      makeReportForEpisode(replacementEpisode),
+      [replacementEpisode],
+      malformedOwner
+    ),
+    /valid ISO timestamp/i
+  );
+
+  assert.equal(storage.setCalls, 0);
+  assert.deepEqual(storage.values, before);
+});
+
+test("malformed topic audit load timestamps reject without corrupting the disposable run cache", async () => {
+  const storage = new MemoryStorage();
+  await beginTopicAuditRun(storage, makeRunStatus("request-1"));
+  const before = structuredClone(storage.values);
+  storage.setCalls = 0;
+
+  await assert.rejects(
+    () => loadTopicAuditRun(storage, "topic-1", "not-a-date"),
+    /valid ISO timestamp/i
+  );
+
+  assert.equal(storage.setCalls, 0);
+  assert.deepEqual(storage.values, before);
+});
+
 test("topic audit run advances, checkpoints, and records an owned failure", async () => {
   const storage = new MemoryStorage();
   await beginTopicAuditRun(storage, makeRunStatus("request-1"));
