@@ -2008,7 +2008,7 @@ export function TopicDetailView({
     <TopicSourceSessionCard
       state={sourceSession}
       disabled={isBulkAnalyzing || isStartingProcessing}
-      hasAtlasData={hasAtlasData}
+      hasAuditReport={hasAuditReport}
       onAnalyze={handleAnalyzeSession}
       onStartProcessing={handleSessionStartProcessing}
       onRunAudit={() => handleRunAudit(topic.id, undefined, true)}

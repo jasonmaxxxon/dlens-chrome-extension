@@ -10,6 +10,7 @@
 | Task 6 final card + progress semantics follow-up | 909055 | 254785 | 202737 | +184 | +706 | +378 | within all current limits |
 | Task 7 final folder-scoped status rail | 909983 | 255021 | 202997 | +1112 | +942 | +638 | within all current limits |
 | Final review-fix checkpoint | 909981 | 255039 | 202971 | +1110 | +960 | +612 | within all current limits |
+| Truthful-copy follow-up checkpoint | 909846 | 255007 | 202998 | +975 | +928 | +639 | within all current limits |
 
 Current limits: raw 910000 bytes; gzip -9 256000 bytes; brotli 203000 bytes.
 
@@ -19,4 +20,8 @@ Task 7 rail-only delta versus the Task 6 final checkpoint: raw `+928`, gzip -9 `
 
 Final review-fix delta versus Task 7: raw `-2`, gzip -9 `+18`, brotli `-26` bytes.
 
-Final headroom: raw `19`, gzip -9 `961`, brotli `29` bytes.
+Final review-fix headroom: raw `19`, gzip -9 `961`, brotli `29` bytes.
+
+Truthful-copy follow-up delta versus the final review-fix checkpoint: raw `-135`, gzip -9 `-32`, brotli `+27` bytes.
+
+Truthful-copy follow-up headroom: raw `154`, gzip -9 `993`, brotli `2` bytes.

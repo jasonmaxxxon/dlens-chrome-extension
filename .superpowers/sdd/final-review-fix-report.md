@@ -20,8 +20,8 @@ Closed the final review's three Important findings and one Minor finding without
    - GREEN: superseded-owner ledger errors alone are ignored and rethrow the original error; every other ledger failure surfaces as `AggregateError([originalError, ledgerError])`. The failed write leaves the run non-successful and publishes no report. Existing superseded-owner semantics passed.
 
 4. First-generation failure copy
-   - RED: first-run timeout, provider, and interrupted states claimed that an old Atlas remained even when no Atlas data existed.
-   - GREEN: the existing `hasAtlasData` calculation is shared before the Topic/Product branch and passed to `TopicSourceSessionCard`. First-run failures omit the old-Atlas claim; evidence/memo-backed prior Atlas failures retain it.
+   - RED: a partial first run with persisted evidence, `auditReport: null`, and a failed timeout still claimed that an old Atlas remained.
+   - GREEN: `TopicSourceSessionCard` receives the view model's `hasAuditReport` truth. Partial evidence or memos do not count as a prior Atlas; a failed rerun with a persisted `completedAuditReport` still retains the old-Atlas copy.
 
 ## Bundle checkpoints
 
@@ -37,4 +37,19 @@ Closed the final review's three Important findings and one Minor finding without
 - `npm run typecheck`: PASS.
 - `npm run build`: PASS.
 - `npm run bundle:guard`: PASS at `909981 / 255039 / 202971` against `910000 / 256000 / 203000`.
+- `git diff --check`: PASS.
+
+## Truthful-copy follow-up
+
+- RED: the existing partial-first-run integration case failed `doesNotMatch(/舊版 Atlas 仍保留/)` while `auditEvidence` existed and `auditReport` was null. The completed-report rerun assertion already passed.
+- GREEN: the card's prior-Atlas input now comes from `viewModel.audit.hasAuditReport`; focused rendering locks both the partial-first-run negative case and completed-report failed-rerun positive case.
+- Bundle-preserving simplification stayed inside `TopicSourceSessionCard`: the one-use previous-failure renderer was inlined, stage labels share one table, and the two audit actions with identical wiring share one button branch.
+
+### Fresh verification
+
+- `npx tsx --test tests/topic-detail-view.test.tsx`: PASS, 59 tests.
+- `npm run typecheck`: PASS.
+- `npm run build`: PASS.
+- `npm run bundle:guard`: PASS at `909846 / 255007 / 202998` against unchanged `910000 / 256000 / 203000` limits.
+- Delta versus the final review-fix checkpoint: `-135 / -32 / +27`; final headroom: `154 / 993 / 2` raw/gzip-9/brotli bytes.
 - `git diff --check`: PASS.

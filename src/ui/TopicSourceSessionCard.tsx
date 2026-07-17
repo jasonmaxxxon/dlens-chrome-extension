@@ -5,25 +5,22 @@ import type { TopicSourceSessionState } from "../viewmodel/topic-detail.ts";
 import { PrimaryButton, SecondaryButton, Stamp, SurfaceCard } from "./components.tsx";
 import { textStyles, tokens } from "./tokens.ts";
 
-function stageLabel(stage: TopicAuditStageName): string {
-  const labels: Record<TopicAuditStageName, string> = {
-    "comment-shard-reading": "留言分段",
-    "p1-signal-reading": "逐篇判讀",
-    lexicon: "詞彙",
-    narrative: "敘事",
-    audience: "群眾反應",
-    absence: "缺席",
-    final: "整合"
-  };
-  return labels[stage];
-}
+const stageLabels: Record<TopicAuditStageName, string> = {
+  "comment-shard-reading": "留言分段",
+  "p1-signal-reading": "逐篇判讀",
+  lexicon: "詞彙",
+  narrative: "敘事",
+  audience: "群眾反應",
+  absence: "缺席",
+  final: "整合"
+};
 
-function failureCopy(kind: TopicAuditRunFailureKind, hasAtlasData: boolean): string {
+function failureCopy(kind: TopicAuditRunFailureKind, hasAuditReport: boolean): string {
   if (kind === "empty" || kind === "truncated" || kind === "schema_mismatch") {
     return topicAuditFailureCopy(kind);
   }
   const reason = kind === "timeout" ? "生成逾時" : kind === "interrupted" ? "上次生成已中斷" : "生成服務暫時無法完成";
-  return `${reason}${hasAtlasData ? "，舊版 Atlas 仍保留" : ""}。`;
+  return `${reason}${hasAuditReport ? "，舊版 Atlas 仍保留" : ""}。`;
 }
 
 function SessionSpinner() {
@@ -86,32 +83,17 @@ function SessionProgress({
   );
 }
 
-function PreviousFailure({
-  failure,
-  hasAtlasData
-}: {
-  failure: { stage: TopicAuditStageName; failureKind: TopicAuditRunFailureKind } | undefined;
-  hasAtlasData: boolean;
-}) {
-  if (!failure) return null;
-  return (
-    <span data-topic-source-session-previous-failure="true" style={{ ...textStyles.caption, color: tokens.color.failed }}>
-      上次於 {stageLabel(failure.stage)} 未完成：{failureCopy(failure.failureKind, hasAtlasData)}
-    </span>
-  );
-}
-
 export function TopicSourceSessionCard({
   state,
   disabled,
-  hasAtlasData,
+  hasAuditReport,
   onAnalyze,
   onStartProcessing,
   onRunAudit
 }: {
   state: TopicSourceSessionState;
   disabled: boolean;
-  hasAtlasData: boolean;
+  hasAuditReport: boolean;
   onAnalyze?: () => void;
   onStartProcessing?: () => void;
   onRunAudit?: () => void;
@@ -129,7 +111,7 @@ export function TopicSourceSessionCard({
         ? "來源已完成，等待你手動重新生成 Atlas。"
         : state.kind === "generating"
           ? "正在重新生成 Atlas，完成後會原位更新。"
-          : `${failureCopy(state.failureKind, hasAtlasData)} 失敗階段：${stageLabel(state.stage)}。`;
+          : `${failureCopy(state.failureKind, hasAuditReport)} 失敗階段：${stageLabels[state.stage]}。`;
   const processingCounts = state.kind === "processing"
     ? [
         state.queued > 0 ? `已排隊 ${state.queued} 篇` : null,
@@ -138,6 +120,9 @@ export function TopicSourceSessionCard({
       ].filter(Boolean)
     : [];
   const crawlCount = state.kind === "needs_crawl" ? state.pending + state.failed : 0;
+  const previousFailure = state.kind === "needs_crawl" || state.kind === "processing"
+    ? state.previousGenerationFailure
+    : undefined;
 
   return (
     <SurfaceCard
@@ -183,7 +168,11 @@ export function TopicSourceSessionCard({
         {state.kind === "processing" ? (
           <span style={{ ...textStyles.caption, color: tokens.color.softInk }}>{processingCounts.join(" · ")}</span>
         ) : null}
-        {state.kind === "needs_crawl" || state.kind === "processing" ? <PreviousFailure failure={state.previousGenerationFailure} hasAtlasData={hasAtlasData} /> : null}
+        {previousFailure ? (
+          <span data-topic-source-session-previous-failure="true" style={{ ...textStyles.caption, color: tokens.color.failed }}>
+            上次於 {stageLabels[previousFailure.stage]} 未完成：{failureCopy(previousFailure.failureKind, hasAuditReport)}
+          </span>
+        ) : null}
       </div>
 
       <SessionProgress ready={state.ready} total={state.total} indeterminate={state.kind === "generating"} />
@@ -198,14 +187,9 @@ export function TopicSourceSessionCard({
           啟動處理
         </SecondaryButton>
       ) : null}
-      {state.kind === "ready_to_generate" ? (
+      {state.kind === "ready_to_generate" || state.kind === "generation_failed" ? (
         <PrimaryButton onClick={() => onRunAudit?.()} disabled={disabled || !onRunAudit}>
-          用 {state.ready} 篇重新生成 Atlas
-        </PrimaryButton>
-      ) : null}
-      {state.kind === "generation_failed" ? (
-        <PrimaryButton onClick={() => onRunAudit?.()} disabled={disabled || !onRunAudit}>
-          重試生成
+          {state.kind === "ready_to_generate" ? `用 ${state.ready} 篇重新生成 Atlas` : "重試生成"}
         </PrimaryButton>
       ) : null}
     </SurfaceCard>

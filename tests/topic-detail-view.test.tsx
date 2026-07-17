@@ -772,7 +772,7 @@ test("TopicSourceSessionCard exposes determinate and indeterminate progress sema
     <TopicSourceSessionCard
       state={{ kind: "needs_crawl", scope: "topic", total: 4, ready: 1, pending: 3, failed: 0 }}
       disabled={false}
-      hasAtlasData={false}
+      hasAuditReport={false}
       onAnalyze={() => undefined}
     />
   );
@@ -780,7 +780,7 @@ test("TopicSourceSessionCard exposes determinate and indeterminate progress sema
     <TopicSourceSessionCard
       state={{ kind: "generating", scope: "topic", total: 4, ready: 4 }}
       disabled={false}
-      hasAtlasData={false}
+      hasAuditReport={false}
     />
   );
 
@@ -806,7 +806,7 @@ test("TopicSourceSessionCard first-run provider and interruption failures never 
       <TopicSourceSessionCard
         state={{ kind: "generation_failed", scope: "topic", total: 1, ready: 1, stage: "final", failureKind }}
         disabled={false}
-        hasAtlasData={false}
+        hasAuditReport={false}
         onRunAudit={() => undefined}
       />
     );
@@ -1049,6 +1049,7 @@ test("TopicDetailView retains the previous Atlas for stale and failed states", (
       sessionItems: atlasSignals.map((signal) => buildReadySessionItem(signal.itemId)),
       auditEvidence: signalAtlasEvidence,
       auditMemos: signalAtlasMemos,
+      auditReport: completedAuditReport,
       auditSummary: { reportStatus: "failed", analyzedCount: 6, queuedCount: 0, failedStage: 4, failedReason: "provider timeout" },
       auditRunStatus: {
         sessionId: "session-1", topicId: "topic-1", requestId: "run-1", state: "failed", stage: "audience", failureKind: "timeout",
@@ -1242,6 +1243,7 @@ test("TopicDetailView can restart when a partial first run left evidence without
     sessionItems: [buildReadySessionItem("item-1")],
     auditEvidence: [auditPacket],
     auditMemos: null,
+    auditReport: null,
     auditSummary: {
       reportStatus,
       analyzedCount: 0,
@@ -1281,6 +1283,9 @@ test("TopicDetailView can restart when a partial first run left evidence without
         false,
         `${reportStatus} partial recovery must not expose a report that does not exist`
       );
+      if (reportStatus === "failed") {
+        assert.doesNotMatch(rootElement.textContent ?? "", /舊版 Atlas 仍保留/);
+      }
     }
   } finally {
     flushSync(() => root.unmount());
