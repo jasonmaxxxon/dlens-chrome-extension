@@ -365,7 +365,7 @@ test("Topic detail VM composes source rows, audit state, and command targets", (
   }
 });
 
-test("Topic detail VM does not mix a published report episode with a different memo input", () => {
+test("Topic detail VM separates persisted report existence from compatible report content", () => {
   const packet = buildAuditPacket(1);
   const memos = buildAuditMemos([packet]);
   const report = {
@@ -384,9 +384,23 @@ test("Topic detail VM does not mix a published report episode with a different m
     auditEpisodes: [episode]
   });
 
-  assert.equal(vm.audit.hasAuditReport, false);
+  assert.equal(vm.audit.hasAuditReport, true);
   assert.equal(vm.audit.latestEpisode, undefined);
   assert.doesNotMatch(vm.audit.headlineProse, /舊 report/);
+});
+
+test("Topic detail VM reports no persisted audit report when storage has none", () => {
+  const packet = buildAuditPacket(1);
+  const vm = buildTopicDetailViewModel({
+    topic,
+    signals: [],
+    pairs: [],
+    auditEvidence: [packet],
+    auditMemos: buildAuditMemos([packet]),
+    auditReport: null
+  });
+
+  assert.equal(vm.audit.hasAuditReport, false);
 });
 
 test("Topic detail VM keeps an incompatible published report visible only when explicitly stale", () => {
