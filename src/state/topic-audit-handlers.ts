@@ -77,7 +77,7 @@ import type { SessionRecord, SessionItem, Signal, Topic } from "./types.ts";
 
 export type TopicAuditHandlerMessage =
   | { type: "topic/audit/build-evidence"; sessionId: string; topicId: string }
-  | { type: "topic/audit/run"; requestId?: string; sessionId: string; topicId: string; fromStage?: TopicAuditStageName; force?: boolean }
+  | { type: "topic/audit/run"; requestId: string; sessionId: string; topicId: string; fromStage?: TopicAuditStageName; force?: boolean }
   | { type: "topic/audit/p1-signal"; sessionId: string; topicId: string; signalId: string }
   | { type: "topic/audit/get"; topicId: string }
   | { type: "topic/audit/validate"; topicId: string }
@@ -1262,8 +1262,13 @@ async function runAuditPipeline(
   } catch (error) {
     try {
       await failTopicAuditRun(storageArea, ownerAtNow(), topicAuditRunFailureKind(error));
-    } catch {
-      // A superseding request owns the ledger now; never replace its status or hide the original error.
+    } catch (ledgerError) {
+      if (!isSupersededTopicAuditOwnerError(ledgerError)) {
+        throw new AggregateError(
+          [error, ledgerError],
+          "Topic audit ledger write failed"
+        );
+      }
     }
     throw error;
   }

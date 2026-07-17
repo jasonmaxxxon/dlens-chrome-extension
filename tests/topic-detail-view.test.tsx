@@ -613,6 +613,52 @@ test("TopicDetailView legacy branch keeps one source-session owner while crawl o
   assert.doesNotMatch(processing, /worker 目前未在跑|重啟處理/);
 });
 
+test("TopicDetailView product stale state leaves regeneration solely to the source-session card", () => {
+  const html = renderToStaticMarkup(
+    topicDetailViewElement({
+      topic,
+      signals,
+      pairs: [],
+      sessionMode: "product",
+      sessionItems: [buildReadySessionItem("item-1")],
+      auditSummary: { reportStatus: "stale", analyzedCount: 1, queuedCount: 0, staleDelta: { added: 1, removed: 0 } },
+      onRunAudit: () => undefined,
+      onOpenAuditReport: () => undefined
+    })
+  );
+
+  assert.match(html, /data-topic-source-session="ready_to_generate"/);
+  assert.equal((html.match(/data-topic-source-session=/g) ?? []).length, 1);
+  assert.equal((html.match(/用 1 篇重新生成 Atlas/g) ?? []).length, 1);
+  assert.doesNotMatch(html, /data-topic-audit-block="overview"/);
+  assert.doesNotMatch(html, /先看舊版/);
+});
+
+test("TopicDetailView product failed state leaves retry and failure copy solely to the source-session card", () => {
+  const html = renderToStaticMarkup(
+    topicDetailViewElement({
+      topic,
+      signals,
+      pairs: [],
+      sessionMode: "product",
+      sessionItems: [buildReadySessionItem("item-1")],
+      auditSummary: { reportStatus: "failed", analyzedCount: 1, queuedCount: 0, failedStage: 4, failedReason: "provider_error" },
+      auditRunStatus: {
+        sessionId: "session-1", topicId: "topic-1", requestId: "run-1", state: "failed", stage: "audience", failureKind: "provider_error",
+        startedAt: "2026-07-17T09:00:00.000Z", updatedAt: "2026-07-17T09:01:00.000Z", expiresAt: "2026-07-17T09:16:00.000Z"
+      },
+      onRunAudit: () => undefined,
+      onOpenAuditReport: () => undefined
+    })
+  );
+
+  assert.match(html, /data-topic-source-session="generation_failed"/);
+  assert.equal((html.match(/data-topic-source-session=/g) ?? []).length, 1);
+  assert.equal((html.match(/重試生成/g) ?? []).length, 1);
+  assert.doesNotMatch(html, /data-topic-audit-block="overview"/);
+  assert.doesNotMatch(html, /從 P4 續跑|查看錯誤詳情|失敗於 P4|provider_error/);
+});
+
 test("TopicDetailView lets a running paid generation outrank a newly saved source", () => {
   const sessionSignals = Array.from({ length: 8 }, (_, index) => ({
     ...signals[0]!,
@@ -726,6 +772,7 @@ test("TopicSourceSessionCard exposes determinate and indeterminate progress sema
     <TopicSourceSessionCard
       state={{ kind: "needs_crawl", scope: "topic", total: 4, ready: 1, pending: 3, failed: 0 }}
       disabled={false}
+      hasAtlasData={false}
       onAnalyze={() => undefined}
     />
   );
@@ -733,6 +780,7 @@ test("TopicSourceSessionCard exposes determinate and indeterminate progress sema
     <TopicSourceSessionCard
       state={{ kind: "generating", scope: "topic", total: 4, ready: 4 }}
       disabled={false}
+      hasAtlasData={false}
     />
   );
 
@@ -750,6 +798,22 @@ test("TopicSourceSessionCard stays token-only and keeps status text separate fro
   assert.match(source, /role="status"/);
   assert.match(source, /aria-live="polite"/);
   assert.match(source, /aria-atomic="true"/);
+});
+
+test("TopicSourceSessionCard first-run provider and interruption failures never claim a previous Atlas", () => {
+  for (const failureKind of ["provider_error", "interrupted"] as const) {
+    const html = renderToStaticMarkup(
+      <TopicSourceSessionCard
+        state={{ kind: "generation_failed", scope: "topic", total: 1, ready: 1, stage: "final", failureKind }}
+        disabled={false}
+        hasAtlasData={false}
+        onRunAudit={() => undefined}
+      />
+    );
+
+    assert.match(html, /生成服務暫時無法完成|上次生成已中斷/);
+    assert.doesNotMatch(html, /舊版 Atlas 仍保留/);
+  }
 });
 
 test("TopicDetailView mirrors the audit popup surface in topic mode without legacy detail blocks", () => {
@@ -2029,7 +2093,8 @@ test("TopicDetailView failed audit state stays in the Atlas frame and shows the 
   assert.match(html, /data-signal-atlas-canvas="true"/);
   assert.match(html, /data-signal-atlas-empty-state="true"/);
   assert.match(html, /data-topic-source-session="generation_failed"/);
-  assert.match(html, /生成逾時，舊版 Atlas 仍保留。/);
+  assert.match(html, /生成逾時。/);
+  assert.doesNotMatch(html, /舊版 Atlas 仍保留/);
   assert.match(html, /重試生成/);
   assert.doesNotMatch(html, /錯誤詳情/);
   assert.doesNotMatch(html, /data-topic-audit-block="overview"/);

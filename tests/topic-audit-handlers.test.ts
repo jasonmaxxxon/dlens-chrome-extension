@@ -9,6 +9,7 @@ import {
   TOPIC_AUDIT_EPISODES_STORAGE_KEY,
   TOPIC_AUDIT_MEMOS_STORAGE_KEY,
   TOPIC_AUDIT_REPORTS_STORAGE_KEY,
+  TOPIC_AUDIT_RUNS_STORAGE_KEY,
   beginTopicAuditRun,
   loadCrossTopicCalibration,
   loadTopicAuditEvidence,
@@ -23,7 +24,7 @@ import {
   saveTopicAuditReport
 } from "../src/state/topic-audit-storage.ts";
 import { saveTopic } from "../src/state/topic-storage.ts";
-import { handleTopicAuditMessage } from "../src/state/topic-audit-handlers.ts";
+import { handleTopicAuditMessage, type TopicAuditHandlerMessage } from "../src/state/topic-audit-handlers.ts";
 import type { SessionItem, SessionRecord, Signal, Topic } from "../src/state/types.ts";
 
 class MemoryStorage {
@@ -389,6 +390,23 @@ test("topic audit run persists real stage attempts and clears its run entry only
   assert.ok(await loadTopicAuditReport(storage, "topic-1"));
 });
 
+test("topic audit run rejects a malformed missing requestId before writing the run ledger", async () => {
+  const storage = new MemoryStorage();
+  await seedTopic(storage);
+  const writesBeforeRun = storage.setCalls;
+
+  await assert.rejects(
+    () => handleTopicAuditMessage(storage, {
+      message: { type: "topic/audit/run", sessionId: "session-1", topicId: "topic-1" } as TopicAuditHandlerMessage,
+      sessions: [makeSession()]
+    }),
+    /requires a non-empty requestId/
+  );
+
+  assert.equal(storage.setCalls, writesBeforeRun);
+  assert.equal(storage.values[TOPIC_AUDIT_RUNS_STORAGE_KEY], undefined);
+});
+
 test("topic audit terminal envelope failure records its actual stage and typed kind", async () => {
   const storage = new MemoryStorage();
   await seedTopic(storage);
@@ -409,6 +427,42 @@ test("topic audit terminal envelope failure records its actual stage and typed k
   assert.equal(status?.state, "failed");
   assert.equal(status?.stage, "comment-shard-reading");
   assert.equal(status?.failureKind, "truncated");
+});
+
+test("topic audit surfaces a terminal ledger write failure alongside the provider failure", async () => {
+  const providerFailure = new TopicAuditEnvelopeError("comment-shard-reading", "schema_mismatch", 2, undefined, 0);
+  const ledgerFailure = new Error("synthetic terminal ledger storage failure");
+  class TerminalLedgerFailureStorage extends MemoryStorage {
+    failTerminalWrite = false;
+
+    override async set(values: Record<string, unknown>): Promise<void> {
+      const cache = values[TOPIC_AUDIT_RUNS_STORAGE_KEY] as { runs?: Record<string, { state?: string }> } | undefined;
+      if (this.failTerminalWrite && cache?.runs?.["topic-1"]?.state === "failed") {
+        throw ledgerFailure;
+      }
+      await super.set(values);
+    }
+  }
+  const storage = new TerminalLedgerFailureStorage();
+  await seedTopic(storage);
+
+  await assert.rejects(
+    () => handleTopicAuditMessage(storage, {
+      message: { type: "topic/audit/run", requestId: "request-ledger-failure", sessionId: "session-1", topicId: "topic-1" },
+      sessions: [makeSession()],
+      generateEnvelope: async (_stageName, _prompt, onAttempt) => {
+        await onAttempt(1);
+        storage.failTerminalWrite = true;
+        throw providerFailure;
+      }
+    }),
+    (error: unknown) => error instanceof AggregateError
+      && error.errors[0] === providerFailure
+      && error.errors[1] === ledgerFailure
+  );
+
+  assert.equal((await loadTopicAuditRun(storage, "topic-1", new Date().toISOString()))?.state, "running");
+  assert.equal(await loadTopicAuditReport(storage, "topic-1"), null);
 });
 
 test("topic audit preserves the original failure when a newer request replaces its owner", async () => {

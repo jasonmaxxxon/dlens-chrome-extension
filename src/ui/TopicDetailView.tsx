@@ -1567,7 +1567,6 @@ function auditStageFromNumber(stage: number): TopicAuditStageName {
 
 function TopicAuditOverview({
   topic,
-  signals,
   summary,
   flags,
   canRunAudit = true,
@@ -1579,7 +1578,6 @@ function TopicAuditOverview({
   onOpenAuditReport
 }: {
   topic: Topic;
-  signals: TopicSignalViewModel[];
   summary: TopicAuditSummary;
   flags: TopicAuditValidationFlag[];
   canRunAudit?: boolean;
@@ -1593,7 +1591,6 @@ function TopicAuditOverview({
   const displaySourceTotal = sourceTotalCount ?? summary.analyzedCount + summary.queuedCount;
   const coverageLabel = summary.coverage ?? `${displaySourceTotal}/${displaySourceTotal}`;
   const p1All = typeof p1ReadyCount === "number" && typeof p1TotalCount === "number" && p1TotalCount > 0 && p1ReadyCount === p1TotalCount;
-  const p1NoneReady = (p1ReadyCount ?? 0) === 0;
   const generateCtaLabel = p1All ? "生成審查報告（綜合 P2–P6）" : "生成審查報告";
   const generateCtaHint = typeof p1TotalCount === "number" && p1TotalCount > 0
     ? p1All
@@ -1812,6 +1809,11 @@ export function TopicDetailView({
   const p1TotalCount = audit.p1TotalCount;
   const canRunAuditFromSources = audit.canRunAudit;
   const hasAuditReport = audit.hasAuditReport;
+  const hasAtlasData = auditThemes.length > 0
+    || auditLanes.length > 0
+    || reactionPatterns.length > 0
+    || auditEvidence.length > 0
+    || Boolean(audit.headlineProse || audit.absenceProse || audit.caveats.length);
   const commandTarget = { sessionId: viewModel.sessionId, topicId: topic.id };
   const dispatch = (command: TopicDetailCommand) => {
     void onCommand(command);
@@ -2006,6 +2008,7 @@ export function TopicDetailView({
     <TopicSourceSessionCard
       state={sourceSession}
       disabled={isBulkAnalyzing || isStartingProcessing}
+      hasAtlasData={hasAtlasData}
       onAnalyze={handleAnalyzeSession}
       onStartProcessing={handleSessionStartProcessing}
       onRunAudit={() => handleRunAudit(topic.id, undefined, true)}
@@ -2220,11 +2223,6 @@ export function TopicDetailView({
   );
 
   if (sessionMode === "topic") {
-    const hasAtlasData = auditThemes.length > 0
-      || auditLanes.length > 0
-      || reactionPatterns.length > 0
-      || auditEvidence.length > 0
-      || Boolean(audit.headlineProse || audit.absenceProse || audit.caveats.length);
     const postTotal = postTotalFromEvidence(auditEvidence);
     const coverageNumbers = readCommentCoverage({ coverage: reactionCoverage, packets: auditEvidence });
     const narrativeCount = auditLanes.filter((lane) => !lane.isSinglePostObservation).length;
@@ -2682,19 +2680,20 @@ export function TopicDetailView({
 
       {topicSourceSessionCard}
 
-      <TopicAuditOverview
-        topic={topic}
-        signals={signals}
-        summary={auditSummaryValue}
-        flags={auditValidatorFlags}
-        canRunAudit={canRunAuditFromSources}
-        blockedReason={audit.blockedReason}
-        p1ReadyCount={p1ReadyCount}
-        p1TotalCount={p1TotalCount}
-        sourceTotalCount={auditSourceTotal}
-        onRunAudit={handleRunAudit}
-        onOpenAuditReport={handleOpenAuditReport}
-      />
+      {sourceSession.kind === "current" ? (
+        <TopicAuditOverview
+          topic={topic}
+          summary={auditSummaryValue}
+          flags={auditValidatorFlags}
+          canRunAudit={canRunAuditFromSources}
+          blockedReason={audit.blockedReason}
+          p1ReadyCount={p1ReadyCount}
+          p1TotalCount={p1TotalCount}
+          sourceTotalCount={auditSourceTotal}
+          onRunAudit={handleRunAudit}
+          onOpenAuditReport={handleOpenAuditReport}
+        />
+      ) : null}
 
       <WorkspaceSurface tone="utility" style={{ display: "grid", gap: 18 }}>
         {auditSummaryValue.reportStatus === "failed" || (auditThemes.length === 0 && auditLanes.length === 0 && auditEvidence.length === 0) ? (

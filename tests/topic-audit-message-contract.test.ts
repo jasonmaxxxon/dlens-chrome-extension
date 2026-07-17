@@ -6,11 +6,20 @@ import type { CrossTopicCalibration, EvidencePacket, TopicAuditEpisode, TopicAud
 import type { TopicAuditValidationFlag } from "../src/compare/topic-audit-validator.ts";
 import type { ExtensionMessage, ExtensionSuccessResponse } from "../src/state/messages.ts";
 import type { TopicAuditMemoBundle } from "../src/state/topic-audit-storage.ts";
+import type { TopicAuditHandlerMessage } from "../src/state/topic-audit-handlers.ts";
+
+const acceptExtensionMessage = (_message: ExtensionMessage): void => undefined;
+const acceptTopicAuditHandlerMessage = (_message: TopicAuditHandlerMessage): void => undefined;
+
+// @ts-expect-error topic/audit/run requires a requestId at the public message boundary.
+acceptExtensionMessage({ type: "topic/audit/run", sessionId: "session-1", topicId: "topic-1" });
+// @ts-expect-error topic/audit/run requires a requestId at the handler boundary.
+acceptTopicAuditHandlerMessage({ type: "topic/audit/run", sessionId: "session-1", topicId: "topic-1" });
 
 test("ExtensionMessage exposes topic audit and cross-topic calibration contracts", () => {
   const messages = [
     { type: "topic/audit/build-evidence", sessionId: "session-1", topicId: "topic-1" },
-    { type: "topic/audit/run", sessionId: "session-1", topicId: "topic-1", fromStage: "lexicon" },
+    { type: "topic/audit/run", requestId: "request-1", sessionId: "session-1", topicId: "topic-1", fromStage: "lexicon" },
     { type: "topic/audit/get", topicId: "topic-1" },
     { type: "topic/audit/validate", topicId: "topic-1" },
     { type: "topic/audit/clear", topicId: "topic-1" },

@@ -18,13 +18,12 @@ function stageLabel(stage: TopicAuditStageName): string {
   return labels[stage];
 }
 
-function failureCopy(kind: TopicAuditRunFailureKind): string {
+function failureCopy(kind: TopicAuditRunFailureKind, hasAtlasData: boolean): string {
   if (kind === "empty" || kind === "truncated" || kind === "schema_mismatch") {
     return topicAuditFailureCopy(kind);
   }
-  if (kind === "timeout") return "生成逾時，舊版 Atlas 仍保留。";
-  if (kind === "interrupted") return "上次生成已中斷，舊版 Atlas 仍保留。";
-  return "生成服務暫時無法完成，舊版 Atlas 仍保留。";
+  const reason = kind === "timeout" ? "生成逾時" : kind === "interrupted" ? "上次生成已中斷" : "生成服務暫時無法完成";
+  return `${reason}${hasAtlasData ? "，舊版 Atlas 仍保留" : ""}。`;
 }
 
 function SessionSpinner() {
@@ -88,14 +87,16 @@ function SessionProgress({
 }
 
 function PreviousFailure({
-  failure
+  failure,
+  hasAtlasData
 }: {
   failure: { stage: TopicAuditStageName; failureKind: TopicAuditRunFailureKind } | undefined;
+  hasAtlasData: boolean;
 }) {
   if (!failure) return null;
   return (
     <span data-topic-source-session-previous-failure="true" style={{ ...textStyles.caption, color: tokens.color.failed }}>
-      上次於 {stageLabel(failure.stage)} 未完成：{failureCopy(failure.failureKind)}
+      上次於 {stageLabel(failure.stage)} 未完成：{failureCopy(failure.failureKind, hasAtlasData)}
     </span>
   );
 }
@@ -103,12 +104,14 @@ function PreviousFailure({
 export function TopicSourceSessionCard({
   state,
   disabled,
+  hasAtlasData,
   onAnalyze,
   onStartProcessing,
   onRunAudit
 }: {
   state: TopicSourceSessionState;
   disabled: boolean;
+  hasAtlasData: boolean;
   onAnalyze?: () => void;
   onStartProcessing?: () => void;
   onRunAudit?: () => void;
@@ -126,7 +129,7 @@ export function TopicSourceSessionCard({
         ? "來源已完成，等待你手動重新生成 Atlas。"
         : state.kind === "generating"
           ? "正在重新生成 Atlas，完成後會原位更新。"
-          : `${failureCopy(state.failureKind)} 失敗階段：${stageLabel(state.stage)}。`;
+          : `${failureCopy(state.failureKind, hasAtlasData)} 失敗階段：${stageLabel(state.stage)}。`;
   const processingCounts = state.kind === "processing"
     ? [
         state.queued > 0 ? `已排隊 ${state.queued} 篇` : null,
@@ -180,7 +183,7 @@ export function TopicSourceSessionCard({
         {state.kind === "processing" ? (
           <span style={{ ...textStyles.caption, color: tokens.color.softInk }}>{processingCounts.join(" · ")}</span>
         ) : null}
-        {state.kind === "needs_crawl" || state.kind === "processing" ? <PreviousFailure failure={state.previousGenerationFailure} /> : null}
+        {state.kind === "needs_crawl" || state.kind === "processing" ? <PreviousFailure failure={state.previousGenerationFailure} hasAtlasData={hasAtlasData} /> : null}
       </div>
 
       <SessionProgress ready={state.ready} total={state.total} indeterminate={state.kind === "generating"} />
