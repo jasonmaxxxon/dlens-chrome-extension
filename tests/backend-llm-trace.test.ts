@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 
 import { fetchWorkerStatus } from "../src/ingest/client.ts";
-import { fetchWithRetry } from "../src/compare/provider.ts";
+import { fetchWithRetry, generateTopicAuditEnvelope } from "../src/compare/provider.ts";
 import { readPipelineTrace } from "../src/state/pipeline-trace.ts";
 
 function enableProcessTrace() {
@@ -147,6 +147,39 @@ test("provider fetchWithRetry emits llm.call trace events with provider provenan
       maxRetries: 2,
       timeoutMs: 30000
     });
+  } finally {
+    globalThis.fetch = originalFetch;
+    console.debug = originalDebug;
+    disableProcessTrace();
+  }
+});
+
+test("Topic Audit envelope telemetry keeps only scalar metadata", async () => {
+  const originalFetch = globalThis.fetch;
+  const originalDebug = console.debug;
+  const rawOutput = '{"prose":"raw-output-sentinel","evidenceRefs":[],"caveats":[]}';
+  enableProcessTrace();
+  console.debug = () => undefined;
+  globalThis.fetch = (async () => new Response(JSON.stringify({
+    candidates: [{ finishReason: "STOP", content: { parts: [{ text: rawOutput }] } }]
+  }), { status: 200, headers: { "Content-Type": "application/json" } })) as typeof fetch;
+
+  try {
+    await generateTopicAuditEnvelope("google", "key-sentinel", "final", "prompt-sentinel", 3200);
+    const trace = readPipelineTrace();
+    const envelopeAttempt = trace.find((entry) => entry.step === "topic-audit.envelope.attempt");
+    assert.deepEqual(envelopeAttempt?.detail, {
+      provider: "google",
+      model: "google:gemini-3.1-flash-lite",
+      stageName: "final",
+      attempt: 1,
+      outputTokenCeiling: 3200,
+      finishReason: "STOP",
+      outputChars: rawOutput.length,
+      result: "success"
+    });
+    assert.equal(envelopeAttempt?.result, "ok");
+    assert.doesNotMatch(JSON.stringify(trace), /key-sentinel|prompt-sentinel|raw-output-sentinel/);
   } finally {
     globalThis.fetch = originalFetch;
     console.debug = originalDebug;

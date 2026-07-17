@@ -70,9 +70,16 @@ import {
   type TopicSignalReadingInput
 } from "./topic-signal-reading.ts";
 import {
-  parseAuditPromptEnvelopeResponse,
+  parseAuditPromptEnvelopeResult,
   type AuditPromptEnvelope
 } from "./topic-audit-prompts.ts";
+import {
+  TOPIC_AUDIT_ENVELOPE_JSON_SCHEMA,
+  TOPIC_AUDIT_REPAIR_SUFFIX,
+  TopicAuditEnvelopeError,
+  type TopicAuditEnvelopeFailureKind
+} from "./topic-audit-envelope-contract.ts";
+import type { TopicAuditStageName } from "./topic-audit.ts";
 import type { PrCampaign, PrCriteriaMatches, PrEvidenceRow } from "../state/pr-evidence-storage.ts";
 import type { JudgmentResult, ProductProfile, ProductSignalAnalysis, SignalTagsRecord, TopicSignalReading } from "../state/types.ts";
 import { createPipelineRequestId, emitPipelineEvent } from "../state/pipeline-trace.ts";
@@ -88,6 +95,29 @@ const PROVIDER_TIMEOUT_MS = 30_000;
 const PROVIDER_MAX_RETRIES = 2;
 const PROVIDER_RETRY_DELAYS_MS = [250, 500];
 const PROVIDER_RETRY_AFTER_CAP_MS = 10_000;
+
+type CompareProvider = "openai" | "claude" | "google";
+
+function modelForProvider(provider: CompareProvider): string {
+  if (provider === "google") return `google:${GOOGLE_COMPARE_MODEL}`;
+  if (provider === "openai") return `openai:${OPENAI_COMPARE_MODEL}`;
+  return `claude:${CLAUDE_COMPARE_MODEL}`;
+}
+
+function googleGenerateContentRequest(apiKey: string, body: unknown): { input: string; init: RequestInit } {
+  return {
+    input: `https://generativelanguage.googleapis.com/v1beta/models/${GOOGLE_COMPARE_MODEL}:generateContent`,
+    init: {
+      method: "POST",
+      headers: { "Content-Type": "application/json", "x-goog-api-key": apiKey },
+      body: JSON.stringify(body)
+    }
+  };
+}
+
+function throwGoogleResponseError(response: Response): never {
+  throw new Error(`Google ${response.status}: request failed`);
+}
 
 function sleep(ms: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, ms));
@@ -343,23 +373,14 @@ export async function generateCompareBrief(
   let raw = "";
 
   if (provider === "google") {
-    const response = await fetchWithRetry(
-      "Google",
-      `https://generativelanguage.googleapis.com/v1beta/models/${GOOGLE_COMPARE_MODEL}:generateContent?key=${apiKey}`,
-      {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          systemInstruction: {
-            parts: [{ text: system }]
-          },
-          contents: [{ role: "user", parts: [{ text: prompt }] }],
-          generationConfig: { temperature: 0.2, maxOutputTokens: 1400, responseMimeType: "application/json" }
-        })
-      }
-    );
+    const request = googleGenerateContentRequest(apiKey, {
+      systemInstruction: { parts: [{ text: system }] },
+      contents: [{ role: "user", parts: [{ text: prompt }] }],
+      generationConfig: { temperature: 0.2, maxOutputTokens: 1400, responseMimeType: "application/json" }
+    });
+    const response = await fetchWithRetry("Google", request.input, request.init);
     if (!response.ok) {
-      throw new Error(`Google ${response.status}: ${await response.text()}`);
+      throwGoogleResponseError(response);
     }
     raw = readGoogleContent(await response.json());
   } else if (provider === "openai") {
@@ -423,23 +444,14 @@ export async function generateCompareClusterSummaries(
   let raw = "";
 
   if (provider === "google") {
-    const response = await fetchWithRetry(
-      "Google",
-      `https://generativelanguage.googleapis.com/v1beta/models/${GOOGLE_COMPARE_MODEL}:generateContent?key=${apiKey}`,
-      {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          systemInstruction: {
-            parts: [{ text: system }]
-          },
-          contents: [{ role: "user", parts: [{ text: prompt }] }],
-          generationConfig: { temperature: 0.2, maxOutputTokens: 1200, responseMimeType: "application/json" }
-        })
-      }
-    );
+    const request = googleGenerateContentRequest(apiKey, {
+      systemInstruction: { parts: [{ text: system }] },
+      contents: [{ role: "user", parts: [{ text: prompt }] }],
+      generationConfig: { temperature: 0.2, maxOutputTokens: 1200, responseMimeType: "application/json" }
+    });
+    const response = await fetchWithRetry("Google", request.input, request.init);
     if (!response.ok) {
-      throw new Error(`Google ${response.status}: ${await response.text()}`);
+      throwGoogleResponseError(response);
     }
     raw = readGoogleContent(await response.json());
   } else if (provider === "openai") {
@@ -512,23 +524,14 @@ export async function generateCompareOneLiner(
   const prompt = buildCompareOneLinerPrompt(request);
 
   if (provider === "google") {
-    const response = await fetchWithRetry(
-      "Google",
-      `https://generativelanguage.googleapis.com/v1beta/models/${GOOGLE_COMPARE_MODEL}:generateContent?key=${apiKey}`,
-      {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          systemInstruction: {
-            parts: [{ text: "你是社群分析助手。只回傳一句繁體中文比較句，不要解釋。" }]
-          },
-          contents: [{ role: "user", parts: [{ text: prompt }] }],
-          generationConfig: { temperature: 0.3, maxOutputTokens: 120 }
-        })
-      }
-    );
+    const request = googleGenerateContentRequest(apiKey, {
+      systemInstruction: { parts: [{ text: "你是社群分析助手。只回傳一句繁體中文比較句，不要解釋。" }] },
+      contents: [{ role: "user", parts: [{ text: prompt }] }],
+      generationConfig: { temperature: 0.3, maxOutputTokens: 120 }
+    });
+    const response = await fetchWithRetry("Google", request.input, request.init);
     if (!response.ok) {
-      throw new Error(`Google ${response.status}: ${await response.text()}`);
+      throwGoogleResponseError(response);
     }
     const json = await response.json();
     return readGoogleContent(json);
@@ -602,21 +605,14 @@ export async function generateEvidenceAnnotations(
   let raw = "";
 
   if (provider === "google") {
-    const response = await fetchWithRetry(
-      "Google",
-      `https://generativelanguage.googleapis.com/v1beta/models/${GOOGLE_COMPARE_MODEL}:generateContent?key=${apiKey}`,
-      {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          systemInstruction: { parts: [{ text: system }] },
-          contents: [{ role: "user", parts: [{ text: prompt }] }],
-          generationConfig: { temperature: 0.2, maxOutputTokens: 1200, responseMimeType: "application/json" }
-        })
-      }
-    );
+    const request = googleGenerateContentRequest(apiKey, {
+      systemInstruction: { parts: [{ text: system }] },
+      contents: [{ role: "user", parts: [{ text: prompt }] }],
+      generationConfig: { temperature: 0.2, maxOutputTokens: 1200, responseMimeType: "application/json" }
+    });
+    const response = await fetchWithRetry("Google", request.input, request.init);
     if (!response.ok) {
-      throw new Error(`Google ${response.status}: ${await response.text()}`);
+      throwGoogleResponseError(response);
     }
     raw = readGoogleContent(await response.json());
   } else if (provider === "openai") {
@@ -678,21 +674,14 @@ export async function generateJudgment(
   let raw = "";
 
   if (provider === "google") {
-    const response = await fetchWithRetry(
-      "Google",
-      `https://generativelanguage.googleapis.com/v1beta/models/${GOOGLE_COMPARE_MODEL}:generateContent?key=${apiKey}`,
-      {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          systemInstruction: { parts: [{ text: system }] },
-          contents: [{ role: "user", parts: [{ text: prompt }] }],
-          generationConfig: { temperature: 0.2, maxOutputTokens: 800, responseMimeType: "application/json" }
-        })
-      }
-    );
+    const request = googleGenerateContentRequest(apiKey, {
+      systemInstruction: { parts: [{ text: system }] },
+      contents: [{ role: "user", parts: [{ text: prompt }] }],
+      generationConfig: { temperature: 0.2, maxOutputTokens: 800, responseMimeType: "application/json" }
+    });
+    const response = await fetchWithRetry("Google", request.input, request.init);
     if (!response.ok) {
-      throw new Error(`Google ${response.status}: ${await response.text()}`);
+      throwGoogleResponseError(response);
     }
     raw = readGoogleContent(await response.json());
   } else if (provider === "openai") {
@@ -757,17 +746,10 @@ export async function generateProductSignalAnalysis(
 
   if (provider === "google") {
     model = `google:${GOOGLE_COMPARE_MODEL}`;
-    const response = await fetchWithRetry(
-      "Google",
-      `https://generativelanguage.googleapis.com/v1beta/models/${GOOGLE_COMPARE_MODEL}:generateContent?key=${apiKey}`,
-      {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(buildProductSignalAnalysisBody("google", system, prompt))
-      }
-    );
+    const request = googleGenerateContentRequest(apiKey, buildProductSignalAnalysisBody("google", system, prompt));
+    const response = await fetchWithRetry("Google", request.input, request.init);
     if (!response.ok) {
-      throw new Error(`Google ${response.status}: ${await response.text()}`);
+      throwGoogleResponseError(response);
     }
     raw = readGoogleContent(await response.json());
   } else if (provider === "openai") {
@@ -821,21 +803,14 @@ export async function generateSignalReading(
   const maxOutputTokens = 1400;
 
   if (provider === "google") {
-    const response = await fetchWithRetry(
-      "Google",
-      `https://generativelanguage.googleapis.com/v1beta/models/${GOOGLE_COMPARE_MODEL}:generateContent?key=${apiKey}`,
-      {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          systemInstruction: { parts: [{ text: system }] },
-          contents: [{ role: "user", parts: [{ text: prompt }] }],
-          generationConfig: { temperature: 0.4, maxOutputTokens }
-        })
-      }
-    );
+    const request = googleGenerateContentRequest(apiKey, {
+      systemInstruction: { parts: [{ text: system }] },
+      contents: [{ role: "user", parts: [{ text: prompt }] }],
+      generationConfig: { temperature: 0.4, maxOutputTokens }
+    });
+    const response = await fetchWithRetry("Google", request.input, request.init);
     if (!response.ok) {
-      throw new Error(`Google ${response.status}: ${await response.text()}`);
+      throwGoogleResponseError(response);
     }
     return { reading: readGoogleContent(await response.json()), model: `google:${GOOGLE_COMPARE_MODEL}` };
   }
@@ -939,68 +914,143 @@ export async function generateSignalTags(
 }
 
 export async function generateTopicAuditEnvelope(
-  provider: "openai" | "claude" | "google",
+  provider: CompareProvider,
   apiKey: string,
+  stageName: TopicAuditStageName,
   prompt: string,
-  maxOutputTokens = 2200
+  maxOutputTokens = 2200,
+  options: { onAttempt?: (attempt: 1 | 2) => Promise<void> | void } = {}
 ): Promise<AuditPromptEnvelope> {
   if (!apiKey) {
     throw new Error("尚未設定 AI key。請先在 Settings 設定 Google / OpenAI / Claude key。");
   }
-  const raw = await generateJsonText(
+
+  let previousKind: TopicAuditEnvelopeFailureKind | null = null;
+  for (const attempt of [1, 2] as const) {
+    await options.onAttempt?.(attempt);
+    const outputTokenCeiling = attempt === 2 && previousKind === "truncated"
+      ? Math.round(maxOutputTokens * 1.5)
+      : maxOutputTokens;
+    const attemptPrompt = attempt === 1
+      ? prompt
+      : `${prompt}\n\n${TOPIC_AUDIT_REPAIR_SUFFIX}${previousKind === "truncated" ? " 請縮短 prose，確保 JSON 完整閉合。" : ""}`;
+    const response = await requestTopicAuditJson(provider, apiKey, attemptPrompt, outputTokenCeiling);
+    const parsed = parseAuditPromptEnvelopeResult(response.text, undefined, { finishReason: response.finishReason });
+    emitTopicAuditEnvelopeAttempt({
+      provider,
+      model: modelForProvider(provider),
+      stageName,
+      attempt,
+      outputTokenCeiling,
+      finishReason: response.finishReason,
+      outputChars: parsed.ok ? response.text.trim().length : parsed.outputChars,
+      result: parsed.ok ? "success" : attempt === 1 ? "retrying" : "terminal",
+      ...(!parsed.ok ? { failureKind: parsed.kind } : {})
+    });
+    if (parsed.ok) {
+      return parsed.envelope;
+    }
+    previousKind = parsed.kind;
+    if (attempt === 2) {
+      throw new TopicAuditEnvelopeError(stageName, parsed.kind, attempt, parsed.finishReason, parsed.outputChars);
+    }
+  }
+
+  throw new Error("unreachable topic audit retry state");
+}
+
+interface TopicAuditJsonResponse {
+  text: string;
+  finishReason?: string;
+}
+
+function finishReason(value: unknown): string | undefined {
+  return typeof value === "string" && value.trim() ? value.trim() : undefined;
+}
+
+function emitTopicAuditEnvelopeAttempt(detail: {
+  provider: CompareProvider;
+  model: string;
+  stageName: TopicAuditStageName;
+  attempt: 1 | 2;
+  outputTokenCeiling: number;
+  finishReason?: string;
+  outputChars: number;
+  result: "success" | "retrying" | "terminal";
+  failureKind?: TopicAuditEnvelopeFailureKind;
+}): void {
+  emitPipelineEvent({
+    phase: "llm.call",
+    step: "topic-audit.envelope.attempt",
+    target: {},
+    result: detail.result === "success" ? "ok" : detail.result === "retrying" ? "pending" : "error",
+    detail
+  });
+}
+
+async function requestTopicAuditJson(
+  provider: CompareProvider,
+  apiKey: string,
+  prompt: string,
+  maxOutputTokens: number
+): Promise<TopicAuditJsonResponse> {
+  return requestJsonResponse(
     provider,
     apiKey,
     prompt,
     "你是 DLens 的 topic audit pipeline worker。只回傳 JSON envelope；不要改寫或捏造 evidence。",
-    maxOutputTokens
+    maxOutputTokens,
+    undefined,
+    true
   );
-  const parsed = parseAuditPromptEnvelopeResponse(raw);
-  if (!parsed) {
-    throw new Error("Invalid topic audit envelope payload");
-  }
-  return parsed;
 }
 
-async function generateJsonText(
-  provider: "openai" | "claude" | "google",
+async function requestJsonResponse(
+  provider: CompareProvider,
   apiKey: string,
   prompt: string,
   system: string,
   maxOutputTokens: number,
-  traceLabel?: string
-): Promise<string> {
+  traceLabel?: string,
+  useTopicAuditSchema = false
+): Promise<TopicAuditJsonResponse> {
   const label = (base: string) => (traceLabel ? `${base}.${traceLabel}` : base);
   if (provider === "google") {
-    const response = await fetchWithRetry(
-      label("Google"),
-      `https://generativelanguage.googleapis.com/v1beta/models/${GOOGLE_COMPARE_MODEL}:generateContent?key=${apiKey}`,
-      {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          systemInstruction: { parts: [{ text: system }] },
-          contents: [{ role: "user", parts: [{ text: prompt }] }],
-          generationConfig: { temperature: 0.2, maxOutputTokens, responseMimeType: "application/json" }
-        })
+    const request = googleGenerateContentRequest(apiKey, {
+      systemInstruction: { parts: [{ text: system }] },
+      contents: [{ role: "user", parts: [{ text: prompt }] }],
+      generationConfig: {
+        temperature: 0.2,
+        maxOutputTokens,
+        responseMimeType: "application/json",
+        ...(useTopicAuditSchema ? { responseJsonSchema: TOPIC_AUDIT_ENVELOPE_JSON_SCHEMA } : {})
       }
-    );
+    });
+    const response = await fetchWithRetry(label("Google"), request.input, request.init);
     if (!response.ok) {
-      throw new Error(`Google ${response.status}: ${await response.text()}`);
+      throwGoogleResponseError(response);
     }
-    return readGoogleContent(await response.json());
+    const json = await response.json();
+    return { text: readGoogleContent(json), finishReason: finishReason(json?.candidates?.[0]?.finishReason) };
   }
 
   if (provider === "openai") {
     const response = await fetchWithRetry(label("OpenAI"), "https://api.openai.com/v1/chat/completions", {
       method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${apiKey}`
-      },
+      headers: { "Content-Type": "application/json", Authorization: `Bearer ${apiKey}` },
       body: JSON.stringify({
         model: OPENAI_COMPARE_MODEL,
         temperature: 0.2,
-        response_format: { type: "json_object" },
+        response_format: useTopicAuditSchema
+          ? {
+              type: "json_schema",
+              json_schema: {
+                name: "topic_audit_envelope",
+                strict: false,
+                schema: TOPIC_AUDIT_ENVELOPE_JSON_SCHEMA
+              }
+            }
+          : { type: "json_object" },
         messages: [
           { role: "system", content: system },
           { role: "user", content: prompt }
@@ -1010,7 +1060,8 @@ async function generateJsonText(
     if (!response.ok) {
       throw new Error(`OpenAI ${response.status}: ${await response.text()}`);
     }
-    return readOpenAiContent(await response.json());
+    const json = await response.json();
+    return { text: readOpenAiContent(json), finishReason: finishReason(json?.choices?.[0]?.finish_reason) };
   }
 
   const response = await fetchWithRetry(label("Claude"), "https://api.anthropic.com/v1/messages", {
@@ -1031,7 +1082,19 @@ async function generateJsonText(
   if (!response.ok) {
     throw new Error(`Claude ${response.status}: ${await response.text()}`);
   }
-  return readClaudeContent(await response.json());
+  const json = await response.json();
+  return { text: readClaudeContent(json), finishReason: finishReason(json?.stop_reason) };
+}
+
+async function generateJsonText(
+  provider: CompareProvider,
+  apiKey: string,
+  prompt: string,
+  system: string,
+  maxOutputTokens: number,
+  traceLabel?: string
+): Promise<string> {
+  return (await requestJsonResponse(provider, apiKey, prompt, system, maxOutputTokens, traceLabel)).text;
 }
 
 export async function generatePrCampaignSetupSuggestion(

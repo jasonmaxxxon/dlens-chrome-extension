@@ -2873,6 +2873,7 @@ export default defineBackground(() => {
               generateEnvelope: async (stageName, prompt) => generateTopicAuditEnvelope(
                 providerConfig.provider,
                 providerConfig.apiKey,
+                stageName,
                 prompt,
                 stageName === "final" ? 3200 : 2200
               ),
