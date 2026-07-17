@@ -99,13 +99,7 @@ git diff --check
   accents carry the editorial identity. Topic Audit keeps one stable Atlas
   canvas through `none / running / ready / stale / failed`, preserves the last
   Atlas during regeneration, and must not present memo-derived `Pn/6` as live
-  progress. As of 0.3.50 the topic page renders ONE source list (atlas
-  `SourceRow` grammar with gist titles + manifest actions; uncrawled signals
-  are `PendingSignalRow` entries in the same card) — do not reintroduce a
-  second 源清單-style manifest section. The P6 final-report prose is
-  budget-fixed (~1500 chars, independent of source count); audit stage output
-  ceilings live in `entrypoints/background.ts` (final 6000 / audience 3200 /
-  others 2200).
+  progress.
 - **Product** mode is insight / evidence / task-first: cited evidence,
   verdicts, experiment hints, agent task prompts. Backend clusters are support
   data, never the user-facing abstraction. Product rail contract:
