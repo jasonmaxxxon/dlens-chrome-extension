@@ -303,11 +303,11 @@ function withTimestamp<T extends { updatedAt: string | null }>(value: T): T {
 
 async function persistGlobalStateOnly(global: ExtensionGlobalState, logLabel: string): Promise<ExtensionGlobalState> {
   const nextGlobal = withTimestamp(normalizeGlobalState(global));
-  globalStateCache = nextGlobal;
 
   const storageStart = performance.now();
   await writeGlobalStateSnapshot(chrome.storage.local, GLOBAL_STORAGE_KEY, nextGlobal);
   const storageSetMs = Math.round(performance.now() - storageStart);
+  globalStateCache = nextGlobal;
   lastSaveSnapshotStorageMs = storageSetMs;
 
   if (storageSetMs >= 50) {
@@ -1445,11 +1445,10 @@ async function persistSnapshot(
   payload: Record<string, unknown>,
   logLabel: string
 ): Promise<ExtensionSnapshot> {
-  cacheSnapshot(tabId, snapshot);
-
   const storageStart = performance.now();
   await writeSnapshotPayload(chrome.storage.local, payload);
   const storageSetMs = Math.round(performance.now() - storageStart);
+  cacheSnapshot(tabId, snapshot);
   lastSaveSnapshotStorageMs = storageSetMs;
 
   broadcastSnapshotUpdate(tabId, snapshot);
@@ -2164,7 +2163,10 @@ export const backgroundTestables = {
   ACTIVE_SESSION_ID_STORAGE_KEY,
   GLOBAL_STORAGE_KEY,
   buildProductSignalFailureDetails,
+  getLastSaveSnapshotStorageMs: () => lastSaveSnapshotStorageMs,
+  loadSnapshotCached,
   mutateSnapshot,
+  persistGlobalStateOnly,
   readSenderTraceFlag,
   resetBackgroundTestState,
   tabStorageKey

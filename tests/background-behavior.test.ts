@@ -515,6 +515,7 @@ async function createHarness(
     activeTabId?: number;
     blockStateUpdatedBroadcast?: boolean;
     onGet?: (keys: string | string[] | Record<string, unknown> | null | undefined) => Promise<void> | void;
+    onSet?: (payload: Record<string, unknown>) => Promise<void> | void;
     senderTabId?: number;
   } = {}
 ): Promise<{
@@ -553,6 +554,7 @@ async function createHarness(
     },
     set: async (payload: Record<string, unknown>) => {
       writes.push(Object.keys(payload));
+      await options.onSet?.(payload);
       Object.assign(state, structuredClone(payload));
     }
   };
@@ -823,6 +825,148 @@ test("snapshot writers never persist a null active-session pointer while session
   assert.equal(harness.state[backgroundTestables.ACTIVE_SESSION_ID_STORAGE_KEY], product.id);
   const storedGlobal = harness.state[backgroundTestables.GLOBAL_STORAGE_KEY] as ExtensionGlobalState;
   assert.equal(storedGlobal.activeSessionId, product.id);
+});
+
+test("failed full snapshot writes do not publish phantom cache or broadcasts", async () => {
+  const topic = makeSession("topic-session", "topic");
+  const product = makeSession("product-session", "product");
+  const tabKey = backgroundTestables.tabStorageKey(TAB_ID);
+  let rejectNextSnapshotWrite = true;
+  const harness = await createHarness({
+    [backgroundTestables.GLOBAL_STORAGE_KEY]: makeGlobal([topic, product], topic.id),
+    [backgroundTestables.ACTIVE_SESSION_ID_STORAGE_KEY]: topic.id,
+    [tabKey]: createEmptyTabState()
+  }, {
+    onSet: async (payload) => {
+      const keys = Object.keys(payload);
+      if (
+        rejectNextSnapshotWrite
+        && keys.includes(backgroundTestables.GLOBAL_STORAGE_KEY)
+        && keys.includes(tabKey)
+      ) {
+        rejectNextSnapshotWrite = false;
+        throw new Error("snapshot durable write failed");
+      }
+    }
+  });
+
+  await assert.rejects(
+    backgroundTestables.mutateSnapshot(TAB_ID, (current) => ({
+      global: {
+        ...current.global,
+        sessions: current.global.sessions.map((session) =>
+          session.id === topic.id ? { ...session, name: "phantom topic" } : session
+        )
+      },
+      tab: {
+        ...current.tab,
+        error: "phantom tab"
+      }
+    })),
+    /snapshot durable write failed/
+  );
+
+  assert.equal(harness.tabMessages.filter((message) => message.type === "state/updated").length, 0);
+  assert.equal(backgroundTestables.getLastSaveSnapshotStorageMs(), 0);
+
+  const cached = await backgroundTestables.loadSnapshotCached(TAB_ID);
+  const storedGlobal = harness.state[backgroundTestables.GLOBAL_STORAGE_KEY] as ExtensionGlobalState;
+  const storedTab = harness.state[tabKey] as TabUiState;
+
+  assert.equal(cached.global.sessions.find((session) => session.id === topic.id)?.name, topic.name);
+  assert.equal(cached.tab.error, null);
+  assert.equal(storedGlobal.sessions.find((session) => session.id === topic.id)?.name, topic.name);
+  assert.equal(storedTab.error, null);
+});
+
+test("failed global-only writes do not publish phantom cache", async () => {
+  const topic = makeSession("topic-session", "topic");
+  const tabKey = backgroundTestables.tabStorageKey(TAB_ID);
+  let rejectNextGlobalWrite = true;
+  const harness = await createHarness({
+    [backgroundTestables.GLOBAL_STORAGE_KEY]: makeGlobal([topic], topic.id),
+    [backgroundTestables.ACTIVE_SESSION_ID_STORAGE_KEY]: topic.id,
+    [tabKey]: createEmptyTabState()
+  }, {
+    onSet: async (payload) => {
+      const keys = Object.keys(payload);
+      if (rejectNextGlobalWrite && keys.length === 1 && keys[0] === backgroundTestables.GLOBAL_STORAGE_KEY) {
+        rejectNextGlobalWrite = false;
+        throw new Error("global durable write failed");
+      }
+    }
+  });
+
+  await assert.rejects(
+    backgroundTestables.persistGlobalStateOnly({
+      ...makeGlobal([topic], topic.id),
+      sessions: [{ ...topic, name: "phantom topic" }]
+    }, "[test] persistGlobalStateOnly"),
+    /global durable write failed/
+  );
+
+  assert.equal(harness.tabMessages.filter((message) => message.type === "state/updated").length, 0);
+  assert.equal(backgroundTestables.getLastSaveSnapshotStorageMs(), 0);
+
+  const cached = await backgroundTestables.loadSnapshotCached(TAB_ID);
+  const storedGlobal = harness.state[backgroundTestables.GLOBAL_STORAGE_KEY] as ExtensionGlobalState;
+
+  assert.equal(cached.global.sessions.find((session) => session.id === topic.id)?.name, topic.name);
+  assert.equal(storedGlobal.sessions.find((session) => session.id === topic.id)?.name, topic.name);
+});
+
+test("successful snapshot writes publish disk, cache, latency, and one broadcast exactly once", async () => {
+  const topic = makeSession("topic-session", "topic");
+  const product = makeSession("product-session", "product");
+  const tabKey = backgroundTestables.tabStorageKey(TAB_ID);
+  const originalPerformanceNow = performance.now.bind(performance);
+  let nowCall = 0;
+  Object.defineProperty(performance, "now", {
+    configurable: true,
+    value: () => {
+      nowCall += 1;
+      return nowCall === 1 ? 10 : 17;
+    }
+  });
+
+  try {
+    const harness = await createHarness({
+      [backgroundTestables.GLOBAL_STORAGE_KEY]: makeGlobal([topic, product], topic.id),
+      [backgroundTestables.ACTIVE_SESSION_ID_STORAGE_KEY]: topic.id,
+      [tabKey]: createEmptyTabState()
+    });
+
+    await backgroundTestables.mutateSnapshot(TAB_ID, (current) => ({
+      global: {
+        ...current.global,
+        sessions: current.global.sessions.map((session) =>
+          session.id === topic.id ? { ...session, name: "saved topic" } : session
+        )
+      },
+      tab: {
+        ...current.tab,
+        error: "saved tab"
+      }
+    }));
+
+    const cached = await backgroundTestables.loadSnapshotCached(TAB_ID);
+    const storedGlobal = harness.state[backgroundTestables.GLOBAL_STORAGE_KEY] as ExtensionGlobalState;
+    const storedTab = harness.state[tabKey] as TabUiState;
+
+    assert.equal(harness.writes.length, 1);
+    assert.deepEqual(harness.writes[0]?.toSorted(), [backgroundTestables.GLOBAL_STORAGE_KEY, tabKey].toSorted());
+    assertStateUpdatedBroadcastOnce(harness);
+    assert.equal(cached.global.sessions.find((session) => session.id === topic.id)?.name, "saved topic");
+    assert.equal(cached.tab.error, "saved tab");
+    assert.equal(storedGlobal.sessions.find((session) => session.id === topic.id)?.name, "saved topic");
+    assert.equal(storedTab.error, "saved tab");
+    assert.equal(backgroundTestables.getLastSaveSnapshotStorageMs(), 7);
+  } finally {
+    Object.defineProperty(performance, "now", {
+      configurable: true,
+      value: originalPerformanceNow
+    });
+  }
 });
 
 test("signal/list repairs missing product signal rows from existing session items", async () => {
