@@ -713,9 +713,63 @@ test("StatusDot and StatusRail map backend reachability and work states to DOM h
   assert.match(railHtml, /data-status-rail="shared"/);
   assert.match(railHtml, /data-backend-reachability="slow"/);
   assert.match(railHtml, /data-backend-work-kind="retry_waiting"/);
-  assert.match(railHtml, /1\/3 ready/);
-  assert.match(railHtml, /title="Backend: Backend slow \| Work: Retry waiting · 2 tasks are backed off - Backend is waiting before retrying\. Not actively crawling\. \| Items: 1\/3 ready"/);
-  assert.match(railHtml, /aria-label="Backend: Backend slow \| Work: Retry waiting · 2 tasks are backed off - Backend is waiting before retrying\. Not actively crawling\. \| Items: 1\/3 ready"/);
+  assert.match(railHtml, /資料夾 1\/3 ready/);
+  assert.match(railHtml, /title="Backend: Backend slow \| Work: Retry waiting · 2 tasks are backed off - Backend is waiting before retrying\. Not actively crawling\. \| Items: 資料夾 1\/3 ready"/);
+  assert.match(railHtml, /aria-label="Backend: Backend slow \| Work: Retry waiting · 2 tasks are backed off - Backend is waiting before retrying\. Not actively crawling\. \| Items: 資料夾 1\/3 ready"/);
+});
+
+test("StatusRail labels folder progress and exposes an active disclosure", () => {
+  const html = renderToStaticMarkup(
+    React.createElement(StatusRail, {
+      scopeLabel: "資料夾",
+      backendWorkUiState: { kind: "draining", count: 3 },
+      workerStatus: "draining",
+      ready: 9,
+      total: 20
+    })
+  );
+
+  assert.match(html, /data-status-rail-active="true"/);
+  assert.match(html, /tabindex="0"/);
+  assert.match(html, /資料夾 9\/20 ready/);
+  assert.match(html, /data-status-rail-disclosure="true"/);
+  assert.match(html, /data-status-rail-progress="true"/);
+  assert.match(html, /width:45%/);
+});
+
+test("StatusRail keeps idle, retry, and error work states still and labelled", () => {
+  const idleHtml = renderToStaticMarkup(
+    React.createElement(StatusRail, {
+      backendWorkUiState: { kind: "idle" },
+      workerStatus: "idle",
+      ready: 0,
+      total: 0
+    })
+  );
+  const retryHtml = renderToStaticMarkup(
+    React.createElement(StatusRail, {
+      backendWorkUiState: { kind: "retry_waiting", count: 2, earliestRetryAt: null, nextDueAt: null },
+      workerStatus: "idle"
+    })
+  );
+  const errorHtml = renderToStaticMarkup(
+    React.createElement(StatusRail, {
+      backendWorkUiState: { kind: "analysis_failed", count: 1 },
+      workerStatus: "idle"
+    })
+  );
+
+  assert.match(idleHtml, /data-status-rail-active="false"/);
+  assert.doesNotMatch(idleHtml, /animation:/);
+  assert.match(idleHtml, /width:0%/);
+  assert.match(retryHtml, /data-status-rail-active="false"/);
+  assert.match(retryHtml, /data-status-dot="warning"/);
+  assert.match(retryHtml, /retry_waiting/);
+  assert.doesNotMatch(retryHtml, /animation:/);
+  assert.match(errorHtml, /data-status-rail-active="false"/);
+  assert.match(errorHtml, /data-status-dot="danger"/);
+  assert.match(errorHtml, /analysis_failed/);
+  assert.doesNotMatch(errorHtml, /animation:/);
 });
 
 test("StatusRail exposes an unreachable backend in its visible status copy", () => {

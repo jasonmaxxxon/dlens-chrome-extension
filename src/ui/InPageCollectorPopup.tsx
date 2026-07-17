@@ -468,6 +468,7 @@ function OpenInPageCollectorPopup({
           reserveContextStrip={showProcessingContextStrip}
           statusRail={(
             <StatusRail
+              scopeLabel="資料夾"
               backendReachability={app.backendReachability}
               backendWorkUiState={app.backendWorkUiState}
               workerStatus={app.workerStatus}

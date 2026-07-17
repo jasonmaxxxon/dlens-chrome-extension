@@ -8,7 +8,12 @@
 | Task 6 full removal-only | 903986 | 253101 | 201752 | -4885 | -978 | -607 | within all current limits; measured with card import and both mounts temporarily removed |
 | Task 6 prior final card | 911979 | 255544 | 203477 | +3108 | +1465 | +1118 | superseded after full duplicate-owner removal; raw over by 1979 and brotli over by 477 |
 | Task 6 final card + progress semantics follow-up | 909055 | 254785 | 202737 | +184 | +706 | +378 | within all current limits |
+| Task 7 final folder-scoped status rail | 909983 | 255021 | 202997 | +1112 | +942 | +638 | within all current limits |
 
 Current limits: raw 910000 bytes; gzip -9 256000 bytes; brotli 203000 bytes.
 
 Measurement command: `npm run build && npm run bundle:guard` on 2026-07-17.
+
+Task 7 rail-only delta versus the Task 6 final checkpoint: raw `+928`, gzip -9 `+236`, brotli `+260` bytes.
+
+Final headroom: raw `17`, gzip -9 `979`, brotli `3` bytes.

@@ -647,36 +647,13 @@ function backendWorkStatus(state: BackendWorkUiState | null | undefined, workerS
   return { tone: "neutral", label: "idle" };
 }
 
-function buildStatusRailHoverLabel({
-  reachabilityLabel,
-  workLabel,
-  recoveryCopy,
-  countLabel
-}: {
-  reachabilityLabel: string;
-  workLabel: string;
-  recoveryCopy: ReturnType<typeof resolveBackendWorkCopy>;
-  countLabel: string | null;
-}): string {
-  const workDetail = recoveryCopy
-    ? `${recoveryCopy.headline}${recoveryCopy.hint ? ` - ${recoveryCopy.hint}` : ""}`
-    : workLabel;
-  const parts = [
-    `Backend: ${reachabilityLabel}`,
-    `Work: ${workDetail}`
-  ];
-  if (countLabel) {
-    parts.push(`Items: ${countLabel}`);
-  }
-  return parts.join(" | ");
-}
-
 export function StatusRail({
   backendReachability = "reachable",
   backendWorkUiState = null,
   workerStatus = null,
   ready,
   total,
+  scopeLabel = "資料夾",
   hint,
   style
 }: {
@@ -685,6 +662,7 @@ export function StatusRail({
   workerStatus?: WorkerStatus | null;
   ready?: number;
   total?: number;
+  scopeLabel?: string;
   hint?: string;
   style?: CSSProperties;
 }) {
@@ -693,42 +671,74 @@ export function StatusRail({
   const recoveryCopy = resolveBackendWorkCopy(backendWorkUiState);
   const resolvedHint = hint
     ?? (backendReachability === "reachable" ? recoveryCopy?.headline ?? work.label : reachability.label);
-  const countLabel = ready !== undefined && total !== undefined ? `${ready}/${total} ready` : null;
-  const hoverLabel = buildStatusRailHoverLabel({
-    reachabilityLabel: reachability.label,
-    workLabel: work.label,
-    recoveryCopy,
-    countLabel
-  });
+  const countLabel = ready !== undefined && total !== undefined ? `${scopeLabel} ${ready}/${total} ready` : null;
+  const workKind = backendWorkUiState?.kind;
+  const active = work.tone === "info";
+  const progress = total && total > 0
+    ? Math.min(1, Math.max(0, (ready ?? 0) / total))
+    : 0;
+  const workDetail = recoveryCopy
+    ? `${recoveryCopy.headline}${recoveryCopy.hint ? ` - ${recoveryCopy.hint}` : ""}`
+    : work.label;
+  const hoverLabel = `Backend: ${reachability.label} | Work: ${workDetail}${countLabel ? ` | Items: ${countLabel}` : ""}`;
 
   return (
     <div
       data-status-rail="shared"
+      data-status-rail-active={active}
       data-backend-reachability={backendReachability}
-      data-backend-work-kind={backendWorkUiState?.kind ?? workerStatus ?? "idle"}
+      data-backend-work-kind={workKind ?? workerStatus ?? "idle"}
+      tabIndex={0}
       aria-label={hoverLabel}
       title={hoverLabel}
       style={{
+        position: "relative",
         display: "flex",
         alignItems: "center",
-        gap: 8,
+        gap: tokens.spacing.sm,
         minWidth: 0,
-        padding: "7px 10px",
+        padding: `${tokens.spacing.sm}px ${tokens.spacing.md}px`,
         borderRadius: tokens.radius.pill,
         border: `1px solid ${tokens.color.line}`,
         background: tokens.color.contextSurface,
-        color: tokens.color.subInk,
         ...style
       }}
     >
       <StatusDot tone={reachability.tone} label={reachability.label} />
-      <StatusDot tone={work.tone} label={work.label} size={8} />
+      <span style={{ display: "inline-flex", animation: active ? tokens.motion.keyframes.pulse : undefined }}>
+        <StatusDot tone={work.tone} label={work.label} size={tokens.spacing.sm} />
+      </span>
       <span style={{ ...textStyles.caption, color: tokens.color.subInk, minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
         {resolvedHint}
       </span>
       {countLabel ? (
         <span style={{ ...textStyles.metric, marginLeft: "auto", color: tokens.color.softInk, whiteSpace: "nowrap" }}>
           {countLabel}
+        </span>
+      ) : null}
+      {countLabel ? (
+        <span
+          data-status-rail-disclosure="true"
+          aria-hidden="true"
+          style={{
+            position: "absolute",
+            inset: 0,
+            display: "none",
+            gap: tokens.spacing.xs,
+            padding: tokens.spacing.xs,
+            borderRadius: tokens.radius.pill,
+            background: tokens.color.elevated
+          }}
+        >
+          <span style={{ ...textStyles.caption, color: tokens.color.subInk, overflow: "hidden", whiteSpace: "nowrap" }}>
+            {backendReachability === "reachable" ? work.label : reachability.label}·{countLabel}
+          </span>
+          <span
+            data-status-rail-progress="true"
+            style={{ height: tokens.spacing.xs, borderRadius: tokens.radius.round, background: tokens.color.neutralSurface, overflow: "hidden" }}
+          >
+            <span style={{ display: "block", width: `${progress * 100}%`, height: "100%", background: MODE_ACCENT }} />
+          </span>
         </span>
       ) : null}
     </div>
@@ -799,6 +809,7 @@ export const SCAN_ROW_HOVER_CSS = `
 `;
 
 export const DLENS_BUTTON_CSS = `
+[data-status-rail]:is(:hover,:focus-visible)>[data-status-rail-disclosure]{display:grid}
 [data-dlens-control="true"] [data-dlens-button] {
   transition: ${tokens.motion.preset.buttonPress};
 }

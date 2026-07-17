@@ -147,6 +147,16 @@ test("source-session motion stays under the global control-root reduced-motion w
   assert.match(DLENS_REDUCED_MOTION_CSS, /\[data-dlens-control="true"\]\s+\*[\s\S]*animation-duration:\s*0\.01ms\s*!important[\s\S]*animation-iteration-count:\s*1\s*!important/);
 });
 
+test("active status rail motion stays under the global control-root reduced-motion wildcard", () => {
+  const componentsSource = readFileSync(fileURLToPath(new URL("../src/ui/components.tsx", import.meta.url)), "utf8");
+  const popupSource = readFileSync(fileURLToPath(new URL("../src/ui/InPageCollectorPopup.tsx", import.meta.url)), "utf8");
+
+  assert.match(componentsSource, /data-status-rail-active/);
+  assert.match(componentsSource, /tokens\.motion\.keyframes\.pulse/);
+  assert.match(popupSource, /data-dlens-control="true"/);
+  assert.match(DLENS_REDUCED_MOTION_CSS, /\[data-dlens-control="true"\]\s+\*[\s\S]*animation-duration:\s*0\.01ms\s*!important[\s\S]*animation-iteration-count:\s*1\s*!important/);
+});
+
 test("tactile cards lift on intent, press below rest, and release through the shared spring", () => {
   assert.match(DLENS_MOTION_CSS, /\.dlens-card-lift:hover[\s\S]*translateY\(-4px\) scale\(1\.015\)/);
   assert.match(DLENS_MOTION_CSS, /\.dlens-card-lift:active[\s\S]*translateY\(1px\) scale\(0\.994\)/);
