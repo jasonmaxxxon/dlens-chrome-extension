@@ -12,6 +12,7 @@
 | Final review-fix checkpoint | 909981 | 255039 | 202971 | +1110 | +960 | +612 | within all current limits |
 | Truthful-copy follow-up checkpoint | 909846 | 255007 | 202998 | +975 | +928 | +639 | within all current limits |
 | Failed-rerun persisted-report truth checkpoint | 909846 | 255006 | 202909 | +975 | +927 | +550 | within all current limits |
+| 0.3.49 release build | 909846 | 255007 | 202909 | +975 | +928 | +550 | within all fixed limits |
 
 Current limits: raw 910000 bytes; gzip -9 256000 bytes; brotli 203000 bytes.
 
@@ -30,3 +31,7 @@ Truthful-copy follow-up headroom: raw `154`, gzip -9 `993`, brotli `2` bytes.
 Failed-rerun truth delta versus the truthful-copy follow-up checkpoint: raw `0`, gzip -9 `-1`, brotli `-89` bytes.
 
 Failed-rerun truth headroom: raw `154`, gzip -9 `994`, brotli `91` bytes.
+
+0.3.49 release-build delta versus the failed-rerun checkpoint: raw `0`, gzip -9 `+1`, brotli `0` bytes.
+
+0.3.49 release-build headroom: raw `154`, gzip -9 `993`, brotli `91` bytes.
