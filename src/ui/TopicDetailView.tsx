@@ -27,11 +27,12 @@ import type {
   TopicDetailViewModel,
   TopicItemAnalysisState,
   SignalTagSummary,
+  TopicSourceSessionState,
   TopicSignalViewModel
 } from "../viewmodel/topic-detail.ts";
 import { Kicker, PrimaryButton, SCAN_ROW_HOVER_CSS, SecondaryButton, SectionHeader, Stamp, SurfaceCard, WorkspaceSurface, lineClamp, scanRowStyle, viewRootStyle } from "./components.tsx";
 import { SignalDrawer } from "./SignalDrawer.tsx";
-import type { BackendWorkUiState } from "../state/processing-state.ts";
+import { TopicSourceSessionCard } from "./TopicSourceSessionCard.tsx";
 import {
   buildEvidenceFragmentLookup,
   EvidenceProse,
@@ -763,156 +764,6 @@ export function PairRow({
         <span>開啟</span>
       </div>
     </button>
-  );
-}
-
-function BulkAnalyzeCta({
-  count,
-  isBulkAnalyzing,
-  disabled,
-  onAnalyze
-}: {
-  count: number;
-  isBulkAnalyzing: boolean;
-  disabled: boolean;
-  onAnalyze: () => void;
-}) {
-  return (
-    <div
-      data-topic-bulk-analyze="action"
-      style={{
-        display: "grid",
-        gap: 6,
-        padding: "10px 12px",
-        borderRadius: tokens.radius.card,
-        border: `1px solid ${tokens.color.accentSoft}`,
-        background: `linear-gradient(180deg, ${tokens.color.contextSurface}, ${tokens.color.surface})`
-      }}
-    >
-      <PrimaryButton
-        onClick={onAnalyze}
-        disabled={disabled}
-        style={{ width: "100%", padding: "10px 16px", fontSize: 13 }}
-      >
-        {isBulkAnalyzing ? "正在加入隊列…" : `開始分析 ${count} 篇`}
-      </PrimaryButton>
-      <div style={{ fontSize: 11, color: tokens.color.softInk, textAlign: "center", lineHeight: 1.45 }}>
-        {isBulkAnalyzing
-          ? "完成後可在脈絡或比較查看"
-          : `${count} 篇未分析，完成後才可查看單篇分析或加入比較`}
-      </div>
-    </div>
-  );
-}
-
-function TopicProcessingStatus({
-  total,
-  ready,
-  queued,
-  crawling,
-  analyzing,
-  workerStatus,
-  backendWorkUiState = null,
-  isStartingProcessing,
-  onStartProcessing
-}: {
-  total: number;
-  ready: number;
-  queued: number;
-  crawling: number;
-  analyzing: number;
-  workerStatus?: "idle" | "draining" | null;
-  backendWorkUiState?: BackendWorkUiState | null;
-  isStartingProcessing?: boolean;
-  onStartProcessing?: () => void;
-}) {
-  const processing = queued + crawling + analyzing;
-  const queuedOnly = queued > 0 && crawling === 0 && analyzing === 0;
-  const expiredRunningPresent = backendWorkUiState?.kind === "expired_running";
-  const restartActionable = (queuedOnly && workerStatus === "idle") || expiredRunningPresent;
-  const title = analyzing > 0
-    ? `正在分析 ${analyzing} 篇`
-    : crawling > 0
-      ? `正在捕捉 ${crawling} 篇`
-      : `已排隊 ${queued} 篇`;
-  const detail = expiredRunningPresent
-    ? `${ready}/${total} 已完成，有 ${backendWorkUiState!.count} 個任務的 lease 過期，重新啟動可回收`
-    : queuedOnly && workerStatus === "idle"
-      ? `${ready}/${total} 已完成，worker 目前未在跑，可重新啟動處理`
-      : `${ready}/${total} 已完成，完成後可查看單篇分析或加入比較`;
-  const stamp = expiredRunningPresent
-    ? "可重啟"
-    : queuedOnly && workerStatus === "idle"
-      ? "等待處理"
-      : "處理中";
-  const restartLabel = expiredRunningPresent ? "重啟處理" : "啟動處理";
-
-  return (
-    <div
-      data-topic-bulk-analyze="processing"
-      style={{
-        display: "grid",
-        gap: 8,
-        padding: "12px 14px",
-        borderRadius: tokens.radius.card,
-        border: `1px solid ${tokens.color.accentSoft}`,
-        background: `linear-gradient(180deg, ${tokens.color.contextSurface}, ${tokens.color.surface})`
-      }}
-    >
-      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12 }}>
-        <div style={{ display: "flex", alignItems: "center", gap: 8, minWidth: 0 }}>
-          <span
-            aria-hidden="true"
-            style={{
-              width: 14,
-              height: 14,
-              borderRadius: 999,
-              border: `2px solid ${tokens.color.lineStrong}`,
-              borderTopColor: "var(--dlens-mode-accent)",
-              animation: "dlens-spin 0.8s linear infinite",
-              flex: "0 0 auto"
-            }}
-          />
-          <div style={{ minWidth: 0 }}>
-            <div style={{ fontSize: 13, fontWeight: 700, color: tokens.color.ink }}>{title}</div>
-            <div style={{ fontSize: 11, color: tokens.color.softInk, lineHeight: 1.45 }}>
-              {detail}
-            </div>
-          </div>
-        </div>
-        {restartActionable && onStartProcessing ? (
-          <SecondaryButton
-            onClick={onStartProcessing}
-            disabled={Boolean(isStartingProcessing)}
-            style={{ padding: "7px 10px", fontSize: 11 }}
-          >
-            {isStartingProcessing ? "啟動中…" : restartLabel}
-          </SecondaryButton>
-        ) : (
-          <Stamp tone="accent">{stamp}</Stamp>
-        )}
-      </div>
-      <div
-        aria-hidden="true"
-        style={{
-          height: 4,
-          borderRadius: 999,
-          overflow: "hidden",
-          background: tokens.color.neutralSurface
-        }}
-      >
-        <span
-          style={{
-            display: "block",
-            width: "38%",
-            height: "100%",
-            borderRadius: 999,
-            background: `linear-gradient(90deg, transparent, var(--dlens-mode-accent), transparent)`,
-            animation: "dlens-popup-indeterminate 1.2s ease-in-out infinite"
-          }}
-        />
-      </div>
-    </div>
   );
 }
 
@@ -1867,6 +1718,7 @@ function TopicAuditOverview({
 function TopicAuditAtlasToolbar({
   topic,
   summary,
+  sourceSession,
   hasAtlasData,
   hasAuditReport,
   canRunAudit,
@@ -1875,6 +1727,7 @@ function TopicAuditAtlasToolbar({
 }: {
   topic: Topic;
   summary: TopicAuditSummary;
+  sourceSession: TopicSourceSessionState;
   hasAtlasData: boolean;
   hasAuditReport: boolean;
   canRunAudit: boolean;
@@ -1883,8 +1736,9 @@ function TopicAuditAtlasToolbar({
 }) {
   if (!hasAtlasData) return null;
   const isRunning = summary.reportStatus === "running";
+  const ownsRegeneration = sourceSession.kind === "current";
   const runAudit = () => {
-    if (!canRunAudit || isRunning) return;
+    if (!canRunAudit || isRunning || !ownsRegeneration) return;
     onRunAudit?.(topic.id, undefined, true);
   };
 
@@ -1901,15 +1755,17 @@ function TopicAuditAtlasToolbar({
           審查報告 ↗
         </AuditGhostButton>
       )}
-      <AuditGhostButton
-        dataAction="regenerate"
-        disabled={!canRunAudit}
-        ariaDisabled={isRunning}
-        onClick={runAudit}
-        style={{ padding: "4px 10px", fontSize: 10.5 }}
-      >
-        {isRunning ? "⟳ 重新生成中" : summary.reportStatus === "none" ? "⟳ 生成審查報告" : "⟳ 重新生成"}
-      </AuditGhostButton>
+      {ownsRegeneration ? (
+        <AuditGhostButton
+          dataAction="regenerate"
+          disabled={!canRunAudit}
+          ariaDisabled={isRunning}
+          onClick={runAudit}
+          style={{ padding: "4px 10px", fontSize: 10.5 }}
+        >
+          {isRunning ? "⟳ 重新生成中" : summary.reportStatus === "none" ? "⟳ 生成審查報告" : "⟳ 重新生成"}
+        </AuditGhostButton>
+      ) : null}
     </div>
   );
 }
@@ -1918,149 +1774,6 @@ function atlasBubbleUsesDarkText(index: number, paletteSize: number): boolean {
   if (paletteSize <= 0) return false;
   const paletteIndex = ((index % paletteSize) + paletteSize) % paletteSize;
   return paletteIndex === 0 || paletteIndex === 2;
-}
-
-function TopicAuditAtlasStatus({
-  topic,
-  summary,
-  hasAtlasData,
-  canRunAudit,
-  blockedReason,
-  onRunAudit,
-  onOpenAuditReport
-}: {
-  topic: Topic;
-  summary: TopicAuditSummary;
-  hasAtlasData: boolean;
-  canRunAudit: boolean;
-  blockedReason?: string;
-  onRunAudit?: (topicId: string, fromStage?: TopicAuditStageName, force?: boolean) => void;
-  onOpenAuditReport?: (topicId: string, stale?: boolean) => void;
-}) {
-  const content = summary.reportStatus === "ready"
-    ? {
-        title: "Atlas 已更新",
-        detail: "最新判讀已在原位顯示。",
-        tone: tokens.color.signalDeep,
-        wash: tokens.color.cyanSoft,
-        border: tokens.color.atlasEdge
-      }
-    : summary.reportStatus === "running"
-    ? {
-        title: hasAtlasData ? "重新生成中" : "判讀生成中",
-        detail: hasAtlasData ? "目前保留上一版 Atlas；完成後會原位更新。" : "Atlas 會在讀取完成後原位展開。",
-        tone: tokens.color.queued,
-        wash: tokens.color.queuedSoft,
-        border: tokens.color.queuedBorder
-      }
-    : summary.reportStatus === "failed"
-      ? {
-          title: "生成未完成",
-          detail: hasAtlasData ? "上一版 Atlas 已保留；可重新生成。" : "目前沒有可顯示的完成版 Atlas。",
-          tone: tokens.topicAccent.fail,
-          wash: tokens.topicAccent.failBg,
-          border: tokens.color.failedBorder
-        }
-      : summary.reportStatus === "stale"
-        ? {
-            title: "目前顯示上一版",
-            detail: "來源已有變動；重新生成後會在同一位置更新。",
-            tone: tokens.topicAccent.warm,
-            wash: tokens.topicAccent.tintAmber,
-            border: tokens.color.queuedBorder
-          }
-        : {
-            title: "尚未生成 Atlas",
-            detail: "完成議題審查後，民情形狀、跨帖敘事與來源會在這裡展開。",
-            tone: tokens.color.signalDeep,
-            wash: tokens.color.cyanSoft,
-            border: tokens.color.atlasEdge
-          };
-
-  const runAudit = (fromStage?: TopicAuditStageName, force?: boolean) => {
-    if (!canRunAudit) return;
-    onRunAudit?.(topic.id, fromStage, force);
-  };
-
-  return (
-    <>
-      <span
-        data-topic-audit-live="true"
-        role="status"
-        aria-live="polite"
-        aria-atomic="true"
-        style={{
-          position: "absolute",
-          width: 1,
-          height: 1,
-          padding: 0,
-          margin: -1,
-          overflow: "hidden",
-          clip: "rect(0, 0, 0, 0)",
-          whiteSpace: "nowrap",
-          border: 0
-        }}
-      >
-        {content.title}。{content.detail}
-      </span>
-      {summary.reportStatus === "ready" ? null : <section
-      data-topic-audit-status={summary.reportStatus}
-      data-topic-audit-status-has-atlas={hasAtlasData ? "true" : "false"}
-      style={{
-        display: "flex",
-        alignItems: "center",
-        justifyContent: "space-between",
-        gap: 12,
-        flexWrap: "wrap",
-        padding: "10px 12px",
-        borderRadius: tokens.radius.card,
-        border: `1px solid ${content.border}`,
-        background: content.wash,
-        boxShadow: tokens.shadow.atlasCard
-      }}
-    >
-      <span style={{ display: "grid", gap: 2, minWidth: 0 }}>
-        <span data-topic-audit-status-title="true" style={{ display: "inline-flex", alignItems: "center", gap: 7, fontSize: 11.5, fontWeight: 800, color: tokens.color.ink }}>
-          <span aria-hidden="true" style={{ width: 7, height: 7, borderRadius: tokens.radius.round, background: content.tone, flexShrink: 0 }} />
-          {content.title}
-        </span>
-        <span style={{ paddingLeft: 14, ...textStyles.caption, color: tokens.color.subInk }}>{content.detail}</span>
-        {summary.reportStatus === "failed" && summary.failedReason ? (
-          <span data-topic-audit-failure-reason="true" style={{ paddingLeft: 14, ...textStyles.caption, color: tokens.topicAccent.fail }}>
-            {summary.failedReason}
-          </span>
-        ) : null}
-        {!canRunAudit && blockedReason ? (
-          <span data-topic-audit-blocked="true" style={{ paddingLeft: 14, ...textStyles.caption, color: tokens.color.subInk }}>
-            {blockedReason}
-          </span>
-        ) : null}
-      </span>
-      <span style={{ display: "inline-flex", gap: 6, flexWrap: "wrap", alignItems: "center" }}>
-        {!hasAtlasData ? (
-          <AuditPrimaryButton
-            dataAction="generate"
-            disabled={!canRunAudit}
-            ariaDisabled={summary.reportStatus === "running"}
-            onClick={() => runAudit(undefined, summary.reportStatus === "none" ? undefined : true)}
-            style={{ padding: "6px 10px", fontSize: 10.5 }}
-          >
-            {summary.reportStatus === "running"
-              ? "生成中"
-              : summary.reportStatus === "none"
-                ? "生成審查報告"
-                : "重新生成"}
-          </AuditPrimaryButton>
-        ) : null}
-        {!hasAtlasData && summary.reportStatus === "stale" ? (
-          <AuditGhostButton onClick={() => onOpenAuditReport?.(topic.id, true)} style={{ padding: "6px 10px", fontSize: 10.5 }}>
-            查看上一版 ↗
-          </AuditGhostButton>
-        ) : null}
-      </span>
-    </section>}
-    </>
-  );
 }
 
 export function TopicDetailView({
@@ -2076,8 +1789,8 @@ export function TopicDetailView({
     primaryJudgmentPair,
     signalRows: signals,
     analysisCounts: topicAnalysisCounts,
+    sourceSession,
     sourcePendingCount,
-    unanalyzedItemIds,
     signalTagSummaries,
     taggedSignalCount,
     audit,
@@ -2099,7 +1812,6 @@ export function TopicDetailView({
   const p1TotalCount = audit.p1TotalCount;
   const canRunAuditFromSources = audit.canRunAudit;
   const hasAuditReport = audit.hasAuditReport;
-  const auditBlockedReason = audit.blockedReason;
   const commandTarget = { sessionId: viewModel.sessionId, topicId: topic.id };
   const dispatch = (command: TopicDetailCommand) => {
     void onCommand(command);
@@ -2205,19 +1917,21 @@ export function TopicDetailView({
     return () => document.removeEventListener("keydown", onKeyDown);
   }, []);
 
-  const handleAnalyzeUnanalyzedItems = () => {
-    const action = viewModel.actions.find((entry) => entry.kind === "analyzeItems");
-    if (action && !isBulkAnalyzing) {
-      dispatch(action);
-    }
-  };
-
   const handleAnalyzeItem = (signal: TopicSignalViewModel) => {
     const action = signal.actions.find((entry) => entry.kind === "analyzeItem" || entry.kind === "queueSignalItem");
     if (action && !(action.kind === "analyzeItem" && isBulkAnalyzing)) {
       dispatch(action);
     }
   };
+
+  const analyzeItemsAction = viewModel.actions.find((entry) => entry.kind === "analyzeItems");
+  const handleAnalyzeSession = analyzeItemsAction && !isBulkAnalyzing ? () => dispatch(analyzeItemsAction) : undefined;
+  const startProcessingAction = viewModel.actions.find((entry) => entry.kind === "startProcessing");
+  const handleStartProcessing = startProcessingAction ? () => dispatch(startProcessingAction) : undefined;
+  const queuedOnly = sourceSession.kind === "processing" && sourceSession.queued > 0 && sourceSession.crawling === 0 && sourceSession.analyzing === 0;
+  const processingRecoveryAvailable = sourceSession.kind === "processing"
+    && (backendWorkUiState?.kind === "expired_running" || (queuedOnly && workerStatus === "idle"));
+  const handleSessionStartProcessing = processingRecoveryAvailable ? handleStartProcessing : undefined;
 
   async function handleDeleteSignal(signalId: string) {
     const signal = signals.find((entry) => entry.signalId === signalId);
@@ -2277,8 +1991,6 @@ export function TopicDetailView({
       });
   };
 
-  const startProcessingAction = viewModel.actions.find((entry) => entry.kind === "startProcessing");
-  const handleStartProcessing = startProcessingAction ? () => dispatch(startProcessingAction) : undefined;
   const handleBack = () => dispatch({ kind: "back", target: commandTarget });
   const handleOpenPair = (resultId: string) => dispatch({ kind: "openPair", target: { ...commandTarget, resultId } });
   const handleOpenAnalysis = (resultId: string) => dispatch({ kind: "openAnalysis", target: { ...commandTarget, resultId } });
@@ -2290,6 +2002,15 @@ export function TopicDetailView({
     resultId: string,
     patch: { relevance: 1 | 2 | 3 | 4 | 5; recommendedState: "park" | "watch" | "act" }
   ) => dispatch({ kind: "saveJudgmentOverride", target: { ...commandTarget, resultId }, patch });
+  const topicSourceSessionCard = (
+    <TopicSourceSessionCard
+      state={sourceSession}
+      disabled={isBulkAnalyzing || isStartingProcessing}
+      onAnalyze={handleAnalyzeSession}
+      onStartProcessing={handleSessionStartProcessing}
+      onRunAudit={() => handleRunAudit(topic.id, undefined, true)}
+    />
+  );
 
   const visibleJudgment = manualJudgment && primaryJudgmentPair?.resultId === manualJudgment.resultId
     ? {
@@ -2332,45 +2053,6 @@ export function TopicDetailView({
           </span>
         </div>
       </div>
-
-      {topicAnalysisCounts.processing > 0 ? (
-        <TopicProcessingStatus
-          total={topicAnalysisCounts.total}
-          ready={topicAnalysisCounts.ready}
-          queued={topicAnalysisCounts.queued}
-          crawling={topicAnalysisCounts.crawling}
-          analyzing={topicAnalysisCounts.analyzing}
-          workerStatus={workerStatus}
-          backendWorkUiState={backendWorkUiState}
-          isStartingProcessing={isStartingProcessing}
-          onStartProcessing={handleStartProcessing}
-        />
-      ) : null}
-
-      {unanalyzedItemIds.length > 0 ? (
-        <div
-          data-topic-source-crawl="action"
-          style={{
-            display: "grid",
-            gap: 6,
-            padding: "10px 12px",
-            borderRadius: tokens.radius.card,
-            border: `1px solid ${tokens.color.accentSoft}`,
-            background: tokens.color.contextSurface
-          }}
-        >
-          <PrimaryButton
-            onClick={handleAnalyzeUnanalyzedItems}
-            disabled={!viewModel.actions.some((entry) => entry.kind === "analyzeItems") || isBulkAnalyzing}
-            style={{ width: "100%", padding: "10px 16px", fontSize: 13 }}
-          >
-            {isBulkAnalyzing ? "正在加入隊列…" : `開始爬取 ${unanalyzedItemIds.length} 篇`}
-          </PrimaryButton>
-          <span style={{ fontSize: 11, lineHeight: 1.45, color: tokens.color.softInk, textAlign: "center" }}>
-            先補齊貼文與留言分析，再用現有資料生成報告。
-          </span>
-        </div>
-      ) : null}
 
       {deleteError ? (
         <div style={{ fontSize: 11, color: tokens.color.failed }}>{deleteError}</div>
@@ -2586,6 +2268,7 @@ export function TopicDetailView({
       <TopicAuditAtlasToolbar
         topic={topic}
         summary={auditSummaryValue}
+        sourceSession={sourceSession}
         hasAtlasData={hasAtlasData}
         hasAuditReport={hasAuditReport}
         canRunAudit={canRunAuditFromSources}
@@ -2599,6 +2282,8 @@ export function TopicDetailView({
           <Breadcrumb topicName={topic.name} onBack={handleBack} />
           {auditToolbarElement}
         </div>
+
+        {topicSourceSessionCard}
 
         <div
           data-signal-atlas-canvas="true"
@@ -2615,15 +2300,6 @@ export function TopicDetailView({
             <div aria-hidden="true" data-atlas-aura="amber" style={{ position: "absolute", top: 330, left: -90, width: 220, height: 220, borderRadius: "50%", background: tokens.color.atlasAuraAmber, filter: "blur(46px)", pointerEvents: "none" }} />
             <div aria-hidden="true" data-atlas-aura="violet" style={{ position: "absolute", bottom: -80, right: -40, width: 240, height: 240, borderRadius: "50%", background: tokens.color.atlasAuraViolet, filter: "blur(46px)", pointerEvents: "none" }} />
           <div data-topic-audit-spine="signal-atlas-l0" style={{ position: "relative", zIndex: 1, display: "grid", gap: 12 }}>
-            <TopicAuditAtlasStatus
-              topic={topic}
-              summary={auditSummaryValue}
-              hasAtlasData={hasAtlasData}
-              canRunAudit={canRunAuditFromSources}
-              blockedReason={auditBlockedReason}
-              onRunAudit={handleRunAudit}
-              onOpenAuditReport={handleOpenAuditReport}
-            />
             <div
               data-signal-atlas-content="true"
               aria-busy={auditSummaryValue.reportStatus === "running" ? "true" : undefined}
@@ -2967,7 +2643,7 @@ export function TopicDetailView({
           </div>
           </div>
 
-        {auditEvidence.length === 0 || unanalyzedItemIds.length > 0 ? topicSourceFeed : null}
+        {topicSourceFeed}
 
         <AuditDetailDrawer
           activeDetail={activeDetail}
@@ -3003,6 +2679,8 @@ export function TopicDetailView({
           pairCount={pairs.length}
         />
       </div>
+
+      {topicSourceSessionCard}
 
       <TopicAuditOverview
         topic={topic}
@@ -3240,29 +2918,6 @@ export function TopicDetailView({
               onSelectTag={setSelectedTag}
               onClearTag={() => setSelectedTag(null)}
             />
-
-            {topicAnalysisCounts.processing > 0 ? (
-              <TopicProcessingStatus
-                total={topicAnalysisCounts.total}
-                ready={topicAnalysisCounts.ready}
-                queued={topicAnalysisCounts.queued}
-                crawling={topicAnalysisCounts.crawling}
-                analyzing={topicAnalysisCounts.analyzing}
-                workerStatus={workerStatus}
-                backendWorkUiState={backendWorkUiState}
-                isStartingProcessing={isStartingProcessing}
-                onStartProcessing={handleStartProcessing}
-              />
-            ) : null}
-
-            {unanalyzedItemIds.length > 0 ? (
-              <BulkAnalyzeCta
-                count={unanalyzedItemIds.length}
-                isBulkAnalyzing={isBulkAnalyzing}
-                disabled={!viewModel.actions.some((entry) => entry.kind === "analyzeItems") || isBulkAnalyzing}
-                onAnalyze={handleAnalyzeUnanalyzedItems}
-              />
-            ) : null}
 
             {sessionMode === "product" && primaryJudgmentPair ? (
               <div
@@ -3631,9 +3286,7 @@ export function TopicDetailView({
 export const topicDetailViewTestables = {
   Breadcrumb,
   PairRow,
-  BulkAnalyzeCta,
   SynthesisStackSection,
-  TopicProcessingStatus,
   atlasBubbleUsesDarkText,
   singleAnalyzeActionLabel,
   runSingleAnalyzeAction,

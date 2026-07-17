@@ -1,4 +1,5 @@
 import assert from "node:assert/strict";
+import { existsSync, readFileSync } from "node:fs";
 import test from "node:test";
 
 import React from "react";
@@ -408,6 +409,28 @@ function buildSessionItem(id = "item-1", status: SessionItem["status"] = "saved"
   return item;
 }
 
+function buildReadySessionItem(id = "item-1"): SessionItem {
+  const item = buildSessionItem(id, "succeeded");
+  item.latestCapture = {
+    analysis: {
+      id: `analysis-${id}`,
+      capture_id: `capture-${id}`,
+      status: "succeeded",
+      stage: "final",
+      analysis_version: "v1",
+      source_comment_count: 5,
+      clusters: [],
+      evidence: [],
+      metrics: {},
+      generated_at: "2026-05-01T00:00:00.000Z",
+      last_error: null,
+      created_at: "2026-05-01T00:00:00.000Z",
+      updated_at: "2026-05-01T00:00:00.000Z"
+    }
+  } as SessionItem["latestCapture"];
+  return item;
+}
+
 type LegacyTopicDetailViewProps = BuildTopicDetailViewModelInput & {
   signalPreviewById?: Record<string, string>;
   onBack?: () => void;
@@ -521,6 +544,193 @@ function topicDetailViewElement({
   return React.createElement(TopicDetailView, { viewModel, onCommand });
 }
 
+test("TopicDetailView places one source-session owner between the breadcrumb and Atlas", () => {
+  const html = renderToStaticMarkup(
+    topicDetailViewElement({
+      topic,
+      signals,
+      pairs: [],
+      sessionItems: [buildSessionItem("item-1", "saved")],
+      onAnalyzeItems: async () => ({ ok: true, failedCount: 0 })
+    })
+  );
+
+  const breadcrumbIndex = html.indexOf("← 主題");
+  const sessionIndex = html.indexOf('data-topic-source-session="needs_crawl"');
+  const atlasIndex = html.indexOf('data-signal-atlas-canvas="true"');
+  assert.ok(sessionIndex > breadcrumbIndex, "the session card follows the breadcrumb row");
+  assert.ok(sessionIndex < atlasIndex, "the session card leads the previous Atlas");
+});
+
+test("TopicDetailView keeps the processing session and source inventory after all crawl items queue", () => {
+  const html = renderToStaticMarkup(
+    topicDetailViewElement({
+      topic,
+      signals,
+      pairs: [],
+      sessionItems: [buildSessionItem("item-1", "queued")],
+      onAnalyzeItems: async () => ({ ok: true, failedCount: 0 })
+    })
+  );
+
+  assert.match(html, /data-topic-source-session="processing"/);
+  assert.match(html, /議題 0\/1 已完成/);
+  assert.match(html, /data-topic-source-list="true"/);
+  assert.ok(
+    html.indexOf('data-topic-source-list="true"') > html.indexOf('data-signal-atlas-canvas="true"'),
+    "the inspect/delete inventory remains below the Atlas"
+  );
+  assert.doesNotMatch(html, /data-topic-bulk-analyze="processing"/);
+  assert.doesNotMatch(html, /data-topic-source-crawl="action"/);
+});
+
+test("TopicDetailView legacy branch keeps one source-session owner while crawl or processing is pending", () => {
+  const renderLegacy = (item: SessionItem) => renderToStaticMarkup(
+    topicDetailViewElement({
+      topic,
+      signals,
+      pairs: [],
+      sessionMode: "product",
+      sessionItems: [item],
+      signalPreviewById: { "signal-1": "保留的來源列" },
+      workerStatus: "idle",
+      onAnalyzeItems: async () => ({ ok: true, failedCount: 0 }),
+      onStartProcessing: () => undefined
+    })
+  );
+
+  const needsCrawl = renderLegacy(buildSessionItem("item-1", "saved"));
+  const processing = renderLegacy(buildSessionItem("item-1", "queued"));
+
+  for (const [html, state] of [[needsCrawl, "needs_crawl"], [processing, "processing"]] as const) {
+    assert.match(html, new RegExp(`data-topic-source-session="${state}"`));
+    assert.doesNotMatch(html, /data-topic-bulk-analyze="(?:action|processing)"/);
+    assert.match(html, /保留的來源列/);
+  }
+  assert.equal((needsCrawl.match(/開始爬取 1 篇/g) ?? []).length, 1);
+  assert.equal((processing.match(/啟動處理/g) ?? []).length, 1);
+  assert.doesNotMatch(processing, /worker 目前未在跑|重啟處理/);
+});
+
+test("TopicDetailView lets a running paid generation outrank a newly saved source", () => {
+  const sessionSignals = Array.from({ length: 8 }, (_, index) => ({
+    ...signals[0]!,
+    id: `signal-${index + 1}`,
+    itemId: `item-${index + 1}`
+  }));
+  const sessionItems = sessionSignals.map((signal, index) => index === 7 ? buildSessionItem(signal.itemId, "saved") : buildReadySessionItem(signal.itemId));
+  const html = renderToStaticMarkup(
+    topicDetailViewElement({
+      topic: { ...topic, signalIds: sessionSignals.map((signal) => signal.id) },
+      signals: sessionSignals,
+      pairs: [],
+      sessionItems,
+      auditRunStatus: {
+        sessionId: "session-1",
+        topicId: "topic-1",
+        requestId: "run-1",
+        state: "running",
+        stage: "narrative",
+        startedAt: "2026-07-17T09:00:00.000Z",
+        updatedAt: "2026-07-17T09:01:00.000Z",
+        expiresAt: "2026-07-17T09:16:00.000Z"
+      },
+      onAnalyzeItems: async () => ({ ok: true, failedCount: 0 }),
+      onRunAudit: () => undefined
+    })
+  );
+
+  assert.match(html, /data-topic-source-session="generating"/);
+  assert.match(html, /議題 7\/8 已完成/);
+  assert.doesNotMatch(html, /data-topic-source-crawl="action"/);
+  assert.doesNotMatch(html, /開始爬取 1 篇/);
+  assert.doesNotMatch(html, /data-topic-audit-action="regenerate"/);
+});
+
+test("TopicDetailView keeps a prior typed generation failure secondary while source crawl is pending", () => {
+  const html = renderToStaticMarkup(
+    topicDetailViewElement({
+      topic,
+      signals,
+      pairs: [],
+      sessionItems: [buildSessionItem("item-1", "saved")],
+      auditRunStatus: {
+        sessionId: "session-1",
+        topicId: "topic-1",
+        requestId: "run-1",
+        state: "failed",
+        stage: "narrative",
+        failureKind: "schema_mismatch",
+        startedAt: "2026-07-17T09:00:00.000Z",
+        updatedAt: "2026-07-17T09:01:00.000Z",
+        expiresAt: "2026-07-17T09:16:00.000Z"
+      },
+      onAnalyzeItems: async () => ({ ok: true, failedCount: 0 }),
+      onRunAudit: () => undefined
+    })
+  );
+
+  assert.match(html, /data-topic-source-session="needs_crawl"/);
+  assert.match(html, /開始爬取 1 篇/);
+  assert.match(html, /模型回傳格式不完整，已重試一次。/);
+  assert.match(html, /敘事/);
+  assert.doesNotMatch(html, /data-topic-audit-action="regenerate"/);
+});
+
+test("TopicDetailView keeps one manual ready-to-generate action and dispatches it only on click", async () => {
+  const { JSDOM } = await import("jsdom");
+  const { createRoot } = await import("react-dom/client");
+  const { flushSync } = await import("react-dom");
+  const dom = new JSDOM("<div id=\"root\"></div>", { url: "https://dlens.test" });
+  const previous = {
+    window: globalThis.window,
+    document: globalThis.document,
+    HTMLElement: globalThis.HTMLElement,
+    Event: globalThis.Event
+  };
+  Object.assign(globalThis, {
+    window: dom.window,
+    document: dom.window.document,
+    HTMLElement: dom.window.HTMLElement,
+    Event: dom.window.Event
+  });
+  const calls: Array<{ topicId: string; force?: boolean }> = [];
+  const rootElement = dom.window.document.getElementById("root")!;
+  const root = createRoot(rootElement);
+
+  try {
+    flushSync(() => root.render(topicDetailViewElement({
+      topic,
+      signals,
+      pairs: [],
+      sessionItems: [buildReadySessionItem("item-1")],
+      auditSummary: { reportStatus: "stale", analyzedCount: 1, queuedCount: 0, coverage: "1/1" },
+      onRunAudit: (topicId, _fromStage, force) => calls.push({ topicId, force })
+    })));
+    const button = Array.from(rootElement.querySelectorAll("button")).find((candidate) => candidate.textContent === "用 1 篇重新生成 Atlas");
+    assert.ok(button, "the session card owns the explicit paid-generation action");
+    assert.deepEqual(calls, [], "rendering ready_to_generate must not dispatch a paid run");
+    assert.equal(rootElement.querySelector('[data-topic-audit-action="regenerate"]'), null, "the Atlas toolbar yields this stale action to the session card");
+    button.dispatchEvent(new dom.window.MouseEvent("click", { bubbles: true }));
+    assert.deepEqual(calls, [{ topicId: "topic-1", force: true }]);
+  } finally {
+    flushSync(() => root.unmount());
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    Object.assign(globalThis, previous);
+  }
+});
+
+test("TopicSourceSessionCard stays token-only and keeps status text separate from controls", () => {
+  const componentPath = "src/ui/TopicSourceSessionCard.tsx";
+  assert.ok(existsSync(componentPath), "the source-session card is a focused component");
+  const source = readFileSync(componentPath, "utf8");
+  assert.match(source, /import\s+\{[^}]*\btokens\b[^}]*\}\s+from/);
+  assert.doesNotMatch(source, /#[0-9a-f]{3,8}\b|(?:rgb|hsl)a?\s*\(/i);
+  assert.match(source, /role="status"/);
+  assert.match(source, /aria-live="polite"/);
+  assert.match(source, /aria-atomic="true"/);
+});
+
 test("TopicDetailView mirrors the audit popup surface in topic mode without legacy detail blocks", () => {
   const html = renderToStaticMarkup(
     topicDetailViewElement({
@@ -542,7 +752,7 @@ test("TopicDetailView mirrors the audit popup surface in topic mode without lega
   assert.match(html, /data-signal-atlas-empty-state="true"/);
   assert.match(html, /data-signal-atlas-empty-state="true"[^>]*data-dlens-presence="card"/);
   assert.doesNotMatch(html, /data-signal-atlas-empty-state="true"[^>]*data-dlens-presence-motion=/);
-  assert.match(html, /data-topic-audit-status="none"/);
+  assert.match(html, /data-topic-source-session="needs_crawl"/);
   assert.match(html, /data-topic-audit-block="sources"/);
   assert.match(html, /data-topic-detail-surface="sources"[^>]*data-dlens-presence="card"/);
   assert.doesNotMatch(html, /data-topic-detail-surface="sources"[^>]*data-dlens-presence-motion=/);
@@ -550,7 +760,7 @@ test("TopicDetailView mirrors the audit popup surface in topic mode without lega
   assert.match(html, /signal text item-1/);
   assert.doesNotMatch(html, /data-topic-signal-inventory="true"/);
   assert.doesNotMatch(html, /已採集貼文/);
-  assert.match(html, /尚未生成 Atlas/);
+  assert.match(html, /民情形狀、跨帖敘事與來源會在此展開/);
   assert.doesNotMatch(html, /Topic detail/);
   assert.doesNotMatch(html, /補充描述/);
   assert.doesNotMatch(html, /研究問題/);
@@ -612,6 +822,7 @@ test("TopicDetailView renders ready audit actions without the duplicate overview
       topic,
       signals,
       pairs: [],
+      sessionItems: [buildReadySessionItem("item-1")],
       auditEvidence: [auditPacket],
       auditMemos,
       auditReport: completedAuditReport,
@@ -633,8 +844,8 @@ test("TopicDetailView renders ready audit actions without the duplicate overview
   assert.match(html, /data-signal-atlas-hero="true"/);
   assert.match(html, /data-signal-atlas-hero="true"[^>]*data-dlens-presence="card"/);
   assert.doesNotMatch(html, /data-signal-atlas-hero="true"[^>]*data-dlens-presence-motion=/);
-  assert.match(html, /data-topic-audit-live="true"/);
-  assert.match(html, /Atlas 已更新/);
+  assert.doesNotMatch(html, /data-topic-source-session=/);
+  assert.doesNotMatch(html, /data-topic-audit-live=/);
   assert.match(html, /data-topic-audit-block="lanes"/);
   assert.match(html, /客服補救失速/);
   assert.match(html, /data-narrative-lane-metric="lane-1"/);
@@ -644,7 +855,6 @@ test("TopicDetailView renders ready audit actions without the duplicate overview
   assert.doesNotMatch(html, /data-topic-newsroom-ladder="true"/);
   assert.doesNotMatch(html, /我也遇到/);
   assert.match(html, /data-topic-audit-block="sources"/);
-  assert.doesNotMatch(html, /data-topic-audit-block="sources"[^>]*data-dlens-presence=/);
   assert.match(html, /data-topic-audit-source-list-style="audit-report"[^>]*data-dlens-presence="card"/);
   assert.doesNotMatch(html, /data-topic-audit-source-list-style="audit-report"[^>]*data-dlens-presence-motion=/);
   assert.match(html, /data-topic-audit-block="reliability"[^>]*data-dlens-presence="card"/);
@@ -666,6 +876,10 @@ test("TopicDetailView keeps the current Atlas visible while regeneration runs", 
       auditEvidence: signalAtlasEvidence,
       auditMemos: signalAtlasMemos,
       auditSummary: { reportStatus: "running", analyzedCount: 6, queuedCount: 0, runningStage: 2 },
+      auditRunStatus: {
+        sessionId: "session-1", topicId: "topic-1", requestId: "run-1", state: "running", stage: "narrative",
+        startedAt: "2026-07-17T09:00:00.000Z", updatedAt: "2026-07-17T09:01:00.000Z", expiresAt: "2026-07-17T09:16:00.000Z"
+      },
       auditValidatorFlags: [],
       onBack: () => undefined,
       onOpenPair: () => undefined,
@@ -675,12 +889,11 @@ test("TopicDetailView keeps the current Atlas visible while regeneration runs", 
 
   assert.match(html, /data-signal-atlas-canvas="true"/);
   assert.match(html, /data-signal-atlas-hero="true"/);
-  assert.match(html, /data-topic-audit-status="running"/);
-  assert.match(html, /重新生成中/);
+  assert.match(html, /data-topic-source-session="generating"/);
+  assert.match(html, /正在重新生成 Atlas/);
   assert.match(html, /data-topic-audit-actions="running"/);
-  assert.match(html, /aria-disabled="true"/);
-  assert.match(html, /data-topic-audit-live="true"/);
-  assert.match(html, /目前保留上一版 Atlas；完成後會原位更新。/);
+  assert.doesNotMatch(html, /data-topic-audit-action="regenerate"/);
+  assert.doesNotMatch(html, /目前顯示上一版/);
   assert.match(html, /data-atlas-ledger-metric="已讀 342 · 可用 318"/);
   assert.doesNotMatch(html, /data-signal-atlas-empty-state/);
   assert.doesNotMatch(html, /data-topic-audit-block="overview"/);
@@ -698,6 +911,10 @@ test("TopicDetailView uses the same Atlas glass frame for the first audit run", 
       auditEvidence: [],
       auditMemos: null,
       auditSummary: { reportStatus: "running", analyzedCount: 1, queuedCount: 0, runningStage: 2 },
+      auditRunStatus: {
+        sessionId: "session-1", topicId: "topic-1", requestId: "run-1", state: "running", stage: "narrative",
+        startedAt: "2026-07-17T09:00:00.000Z", updatedAt: "2026-07-17T09:01:00.000Z", expiresAt: "2026-07-17T09:16:00.000Z"
+      },
       auditValidatorFlags: [],
       onBack: () => undefined,
       onOpenPair: () => undefined,
@@ -709,8 +926,8 @@ test("TopicDetailView uses the same Atlas glass frame for the first audit run", 
   assert.doesNotMatch(html, /data-signal-atlas-canvas="true" aria-busy=/);
   assert.match(html, /data-signal-atlas-content="true" aria-busy="true"/);
   assert.match(html, /data-signal-atlas-empty-state="true"/);
-  assert.match(html, /data-topic-audit-status="running"/);
-  assert.match(html, /判讀生成中/);
+  assert.match(html, /data-topic-source-session="generating"/);
+  assert.match(html, /正在重新生成 Atlas/);
   assert.doesNotMatch(html, /data-topic-audit-block="overview"/);
   assert.doesNotMatch(html, /data-topic-audit-placeholder="empty"/);
   assert.doesNotMatch(html, /data-signal-atlas-hero/);
@@ -729,6 +946,7 @@ test("TopicDetailView retains the previous Atlas for stale and failed states", (
       topic,
       signals: atlasSignals,
       pairs: [],
+      sessionItems: atlasSignals.map((signal) => buildReadySessionItem(signal.itemId)),
       auditEvidence: signalAtlasEvidence,
       auditMemos: signalAtlasMemos,
       auditSummary: { reportStatus: "stale", analyzedCount: 6, queuedCount: 0, staleDelta: { added: 1, removed: 0 } },
@@ -743,9 +961,14 @@ test("TopicDetailView retains the previous Atlas for stale and failed states", (
       topic,
       signals: atlasSignals,
       pairs: [],
+      sessionItems: atlasSignals.map((signal) => buildReadySessionItem(signal.itemId)),
       auditEvidence: signalAtlasEvidence,
       auditMemos: signalAtlasMemos,
       auditSummary: { reportStatus: "failed", analyzedCount: 6, queuedCount: 0, failedStage: 4, failedReason: "provider timeout" },
+      auditRunStatus: {
+        sessionId: "session-1", topicId: "topic-1", requestId: "run-1", state: "failed", stage: "audience", failureKind: "timeout",
+        startedAt: "2026-07-17T09:00:00.000Z", updatedAt: "2026-07-17T09:01:00.000Z", expiresAt: "2026-07-17T09:16:00.000Z"
+      },
       auditValidatorFlags: [],
       onBack: () => undefined,
       onOpenPair: () => undefined,
@@ -753,17 +976,17 @@ test("TopicDetailView retains the previous Atlas for stale and failed states", (
     })
   );
 
-  assert.match(staleHtml, /data-topic-audit-status="stale"/);
-  assert.match(staleHtml, /目前顯示上一版/);
-  assert.match(staleHtml, new RegExp(`data-topic-audit-status-title="true"[^>]*color:${tokens.color.ink.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}`));
+  assert.match(staleHtml, /data-topic-source-session="ready_to_generate"/);
+  assert.match(staleHtml, /用 6 篇重新生成 Atlas/);
+  assert.doesNotMatch(staleHtml, /目前顯示上一版/);
   assert.match(staleHtml, /data-signal-atlas-hero="true"/);
   assert.match(staleHtml, /data-atlas-ledger-metric="已讀 342 · 可用 318"/);
   assert.doesNotMatch(staleHtml, /data-signal-atlas-empty-state/);
   assert.doesNotMatch(staleHtml, /data-topic-audit-block="overview"/);
 
-  assert.match(failedHtml, /data-topic-audit-status="failed"/);
-  assert.match(failedHtml, /provider timeout/);
-  assert.match(failedHtml, /上一版 Atlas 已保留；可重新生成。/);
+  assert.match(failedHtml, /data-topic-source-session="generation_failed"/);
+  assert.match(failedHtml, /生成逾時，舊版 Atlas 仍保留。/);
+  assert.match(failedHtml, /重試生成/);
   assert.match(failedHtml, /data-signal-atlas-hero="true"/);
   assert.match(failedHtml, /data-atlas-ledger-metric="已讀 342 · 可用 318"/);
   assert.doesNotMatch(failedHtml, /data-signal-atlas-empty-state/);
@@ -808,9 +1031,16 @@ test("TopicDetailView keeps regenerate focus and dispatches one forced rerun whi
     topic,
     signals: atlasSignals,
     pairs: [],
+    sessionItems: atlasSignals.map((signal) => buildReadySessionItem(signal.itemId)),
     auditEvidence: signalAtlasEvidence,
     auditMemos: signalAtlasMemos,
     auditSummary: { reportStatus, analyzedCount: 6, queuedCount: 0, ...(reportStatus === "running" ? { runningStage: 2 } : {}) },
+    ...(reportStatus === "running" ? {
+      auditRunStatus: {
+        sessionId: "session-1", topicId: "topic-1", requestId: "run-1", state: "running" as const, stage: "narrative" as const,
+        startedAt: "2026-07-17T09:00:00.000Z", updatedAt: "2026-07-17T09:01:00.000Z", expiresAt: "2026-07-17T09:16:00.000Z"
+      }
+    } : {}),
     auditValidatorFlags: [],
     onBack: () => undefined,
     onOpenPair: () => undefined,
@@ -828,10 +1058,8 @@ test("TopicDetailView keeps regenerate focus and dispatches one forced rerun whi
 
     flushSync(() => root.render(renderStatus("running")));
     const runningRegenerate = rootElement.querySelector<HTMLButtonElement>('[data-topic-audit-action="regenerate"]');
-    assert.equal(runningRegenerate, regenerate, "the same action node must survive the ready-to-running rerender");
-    assert.equal(dom.window.document.activeElement, regenerate);
-    assert.equal(runningRegenerate?.getAttribute("aria-disabled"), "true");
-    runningRegenerate?.dispatchEvent(new dom.window.MouseEvent("click", { bubbles: true }));
+    assert.equal(runningRegenerate, null, "the generating session card owns the in-flight state");
+    assert.match(rootElement.textContent ?? "", /正在重新生成 Atlas/);
     assert.equal(calls.length, 1, "the in-flight action must not queue a second run");
   } finally {
     flushSync(() => root.unmount());
@@ -871,16 +1099,22 @@ test("TopicDetailView forces a clean rerun after failure instead of pretending t
       topic,
       signals: signalAtlasEvidence.map((packet) => ({ ...signals[0]!, id: packet.signalId, itemId: packet.itemId, capturedAt: packet.capturedAt })),
       pairs: [],
+      sessionItems: signalAtlasEvidence.map((packet) => buildReadySessionItem(packet.itemId)),
       auditEvidence: signalAtlasEvidence,
       auditMemos: signalAtlasMemos,
       auditSummary: { reportStatus: "failed", analyzedCount: 6, queuedCount: 0, failedStage: 4, failedReason: "provider timeout" },
+      auditRunStatus: {
+        sessionId: "session-1", topicId: "topic-1", requestId: "run-1", state: "failed", stage: "audience", failureKind: "timeout",
+        startedAt: "2026-07-17T09:00:00.000Z", updatedAt: "2026-07-17T09:01:00.000Z", expiresAt: "2026-07-17T09:16:00.000Z"
+      },
       auditValidatorFlags: [],
       onBack: () => undefined,
       onOpenPair: () => undefined,
       onUpdateTopic: () => undefined,
       onRunAudit: (topicId, fromStage, force) => calls.push({ topicId, ...(fromStage ? { fromStage } : {}), ...(typeof force === "boolean" ? { force } : {}) })
     })));
-    const regenerate = rootElement.querySelector<HTMLButtonElement>('[data-topic-audit-action="regenerate"]');
+    const regenerate = Array.from(rootElement.querySelectorAll<HTMLButtonElement>("button"))
+      .find((button) => button.textContent === "重試生成");
     assert.ok(regenerate);
     regenerate.dispatchEvent(new dom.window.MouseEvent("click", { bubbles: true }));
     assert.deepEqual(calls, [{ topicId: "topic-1", force: true }]);
@@ -920,6 +1154,7 @@ test("TopicDetailView can restart when a partial first run left evidence without
     topic,
     signals,
     pairs: [],
+    sessionItems: [buildReadySessionItem("item-1")],
     auditEvidence: [auditPacket],
     auditMemos: null,
     auditSummary: {
@@ -929,6 +1164,17 @@ test("TopicDetailView can restart when a partial first run left evidence without
       ...(reportStatus === "running" ? { runningStage: 1 } : {}),
       ...(reportStatus === "failed" ? { failedStage: 1, failedReason: "provider timeout" } : {})
     },
+    ...(reportStatus === "running" ? {
+      auditRunStatus: {
+        sessionId: "session-1", topicId: "topic-1", requestId: "run-1", state: "running" as const, stage: "narrative" as const,
+        startedAt: "2026-07-17T09:00:00.000Z", updatedAt: "2026-07-17T09:01:00.000Z", expiresAt: "2026-07-17T09:16:00.000Z"
+      }
+    } : reportStatus === "failed" ? {
+      auditRunStatus: {
+        sessionId: "session-1", topicId: "topic-1", requestId: "run-1", state: "failed" as const, stage: "narrative" as const, failureKind: "timeout" as const,
+        startedAt: "2026-07-17T09:00:00.000Z", updatedAt: "2026-07-17T09:01:00.000Z", expiresAt: "2026-07-17T09:16:00.000Z"
+      }
+    } : {}),
     auditValidatorFlags: [],
     onBack: () => undefined,
     onOpenPair: () => undefined,
@@ -938,9 +1184,9 @@ test("TopicDetailView can restart when a partial first run left evidence without
 
   try {
     flushSync(() => root.render(renderStatus("none")));
-    const regenerate = rootElement.querySelector<HTMLButtonElement>('[data-topic-audit-action="regenerate"]');
+    const regenerate = Array.from(rootElement.querySelectorAll<HTMLButtonElement>("button"))
+      .find((button) => button.textContent === "用 1 篇重新生成 Atlas");
     assert.ok(regenerate, "partial evidence must never strand the Topic without a recovery action");
-    assert.match(regenerate.textContent ?? "", /生成審查報告/);
     regenerate.dispatchEvent(new dom.window.MouseEvent("click", { bubbles: true }));
     assert.deepEqual(calls, [{ topicId: "topic-1", force: true }]);
     for (const reportStatus of ["running", "failed"] as const) {
@@ -983,25 +1229,7 @@ test("TopicDetailView keeps first-run focus while an empty Atlas starts generati
   const rootElement = dom.window.document.getElementById("root");
   assert.ok(rootElement);
   const root = createRoot(rootElement);
-  // a crawled-ready signal makes canRunAudit true while the Atlas itself stays empty
-  const readyItem = buildSessionItem("item-1", "succeeded");
-  readyItem.latestCapture = {
-    analysis: {
-      id: "analysis-1",
-      capture_id: "capture-item-1",
-      status: "succeeded",
-      stage: "final",
-      analysis_version: "v1",
-      source_comment_count: 5,
-      clusters: [],
-      evidence: [],
-      metrics: {},
-      generated_at: "2026-05-01T00:00:00.000Z",
-      last_error: null,
-      created_at: "2026-05-01T00:00:00.000Z",
-      updated_at: "2026-05-01T00:00:00.000Z"
-    }
-  } as SessionItem["latestCapture"];
+  const readyItem = buildReadySessionItem("item-1");
   const renderStatus = (reportStatus: "none" | "running") => topicDetailViewElement({
     topic,
     signals,
@@ -1010,6 +1238,12 @@ test("TopicDetailView keeps first-run focus while an empty Atlas starts generati
     auditEvidence: [],
     auditMemos: null,
     auditSummary: { reportStatus, analyzedCount: reportStatus === "running" ? 1 : 0, queuedCount: 0, ...(reportStatus === "running" ? { runningStage: 1 } : {}) },
+    ...(reportStatus === "running" ? {
+      auditRunStatus: {
+        sessionId: "session-1", topicId: "topic-1", requestId: "run-1", state: "running" as const, stage: "narrative" as const,
+        startedAt: "2026-07-17T09:00:00.000Z", updatedAt: "2026-07-17T09:01:00.000Z", expiresAt: "2026-07-17T09:16:00.000Z"
+      }
+    } : {}),
     auditValidatorFlags: [],
     onBack: () => undefined,
     onOpenPair: () => undefined,
@@ -1019,19 +1253,15 @@ test("TopicDetailView keeps first-run focus while an empty Atlas starts generati
 
   try {
     flushSync(() => root.render(renderStatus("none")));
-    const generate = rootElement.querySelector<HTMLButtonElement>('[data-topic-audit-action="generate"]');
+    const generate = Array.from(rootElement.querySelectorAll<HTMLButtonElement>("button"))
+      .find((button) => button.textContent === "用 1 篇重新生成 Atlas");
     assert.ok(generate);
-    generate.focus();
     generate.dispatchEvent(new dom.window.MouseEvent("click", { bubbles: true }));
-    assert.deepEqual(calls, [{ topicId: "topic-1" }]);
+    assert.deepEqual(calls, [{ topicId: "topic-1", force: true }]);
 
     flushSync(() => root.render(renderStatus("running")));
-    const runningGenerate = rootElement.querySelector<HTMLButtonElement>('[data-topic-audit-action="generate"]');
-    assert.equal(runningGenerate, generate);
-    assert.equal(dom.window.document.activeElement, generate);
-    assert.equal(runningGenerate?.getAttribute("aria-disabled"), "true");
-    assert.match(runningGenerate?.textContent ?? "", /生成中/);
-    runningGenerate?.dispatchEvent(new dom.window.MouseEvent("click", { bubbles: true }));
+    assert.equal(rootElement.querySelector('[data-topic-audit-action="generate"]'), null);
+    assert.match(rootElement.textContent ?? "", /正在重新生成 Atlas/);
     assert.equal(calls.length, 1);
   } finally {
     flushSync(() => root.unmount());
@@ -1327,6 +1557,7 @@ test("TopicDetailView uses shared primitives and topic accent rhythm for audit m
       topic,
       signals,
       pairs: [],
+      sessionItems: [buildReadySessionItem("item-1")],
       auditEvidence,
       auditMemos,
       auditReport: completedAuditReport,
@@ -1594,7 +1825,6 @@ test("TopicDetailView keeps stale Atlas evidence visible when current inventory 
   assert.match(html, /data-topic-audit-actions="ready"/);
   assert.match(html, /data-atlas-ledger-metric="已讀 15 · 可用 15"/);
   assert.equal((html.match(/data-source-row="S\d+"/g) ?? []).length, 3);
-  assert.doesNotMatch(html, /P1 判讀/);
   assert.doesNotMatch(html, /覆蓋 /);
   assert.doesNotMatch(html, /P1 判讀 3\/0/);
   assert.doesNotMatch(html, /覆蓋 3\/0/);
@@ -1640,7 +1870,6 @@ test("TopicDetailView ignores non-topic-scoped signals when audit sources are pr
 
   assert.match(html, /data-atlas-ledger-metric="已讀 75 · 可用 75"/);
   assert.equal((html.match(/data-source-row="S\d+"/g) ?? []).length, 15);
-  assert.doesNotMatch(html, /P1 判讀/);
   assert.doesNotMatch(html, /覆蓋 /);
   assert.doesNotMatch(html, /30 訊號/);
   assert.doesNotMatch(html, /P1 判讀 15\/30/);
@@ -1682,7 +1911,9 @@ test("TopicDetailView keeps an uncrawled saved signal pending outside the 15-sou
       topic: { ...topic, signalIds: topicSignals.map((signal) => signal.id) },
       signals: topicSignals,
       pairs: [],
-      sessionItems: [buildSessionItem("saved-item", "saved")],
+      sessionItems: topicSignals.map((signal) => signal.itemId === "saved-item"
+        ? buildSessionItem(signal.itemId, "saved")
+        : buildReadySessionItem(signal.itemId)),
       auditEvidence,
       auditMemos: auditOnlyMemos,
       auditSummary: { reportStatus: "ready", analyzedCount: 15, queuedCount: 1, coverage: "15/16" },
@@ -1697,7 +1928,8 @@ test("TopicDetailView keeps an uncrawled saved signal pending outside the 15-sou
   assert.match(html, /data-atlas-ledger-metric="已讀 75 · 可用 75"/);
   assert.doesNotMatch(html, /覆蓋 /);
   assert.equal((html.match(/data-source-row="S\d+"/g) ?? []).length, 15);
-  assert.match(html, /data-topic-source-crawl="action"/);
+  assert.match(html, /data-topic-source-session="needs_crawl"/);
+  assert.doesNotMatch(html, /data-topic-source-crawl="action"/);
   assert.match(html, /開始爬取 1 篇/);
   assert.match(html, /P1 判讀 15\/16/);
   assert.doesNotMatch(html, /覆蓋 15\/16/);
@@ -1741,7 +1973,6 @@ test("TopicDetailView derives audit header, coverage, and remaining source rows 
   );
 
   assert.match(html, /data-atlas-ledger-metric="已讀 20 · 可用 20"/);
-  assert.doesNotMatch(html, /P1 判讀/);
   assert.doesNotMatch(html, /覆蓋 /);
   assert.equal((html.match(/data-source-row="S\d+"/g) ?? []).length, 4);
   assert.match(html, /data-source-row="S1"/);
@@ -1759,9 +1990,14 @@ test("TopicDetailView failed audit state stays in the Atlas frame and shows the 
       topic,
       signals,
       pairs: [],
+      sessionItems: [buildReadySessionItem("item-1")],
       auditEvidence: [],
       auditMemos: null,
       auditSummary: { reportStatus: "failed", analyzedCount: 1, queuedCount: 0, failedStage: 3, failedReason: "provider timeout" },
+      auditRunStatus: {
+        sessionId: "session-1", topicId: "topic-1", requestId: "run-1", state: "failed", stage: "narrative", failureKind: "timeout",
+        startedAt: "2026-07-17T09:00:00.000Z", updatedAt: "2026-07-17T09:01:00.000Z", expiresAt: "2026-07-17T09:16:00.000Z"
+      },
       auditValidatorFlags: [],
       onBack: () => undefined,
       onOpenPair: () => undefined,
@@ -1771,10 +2007,9 @@ test("TopicDetailView failed audit state stays in the Atlas frame and shows the 
 
   assert.match(html, /data-signal-atlas-canvas="true"/);
   assert.match(html, /data-signal-atlas-empty-state="true"/);
-  assert.match(html, /data-topic-audit-status="failed"/);
-  assert.match(html, /生成未完成/);
-  assert.match(html, /重新生成/);
-  assert.match(html, /provider timeout/);
+  assert.match(html, /data-topic-source-session="generation_failed"/);
+  assert.match(html, /生成逾時，舊版 Atlas 仍保留。/);
+  assert.match(html, /重試生成/);
   assert.doesNotMatch(html, /錯誤詳情/);
   assert.doesNotMatch(html, /data-topic-audit-block="overview"/);
   assert.doesNotMatch(html, /從 P3 續跑|失敗於 P3/);
@@ -2110,28 +2345,6 @@ test("TopicDetailView renders the product judgment panel in product mode", () =>
   assert.match(html, /人工調教/);
 });
 
-test("TopicDetailView renders bulk analyze as the primary signal action", () => {
-  const html = renderToStaticMarkup(
-    topicDetailViewElement({
-      topic,
-      signals,
-      pairs: [],
-      sessionMode: "product",
-      sessionItems: [buildSessionItem("item-1", "saved")],
-      signalPreviewById: { "signal-1": "待分析貼文" },
-      onAnalyzeItems: async () => ({ ok: true, failedCount: 0 }),
-      onBack: () => undefined,
-      onOpenPair: () => undefined,
-      onUpdateTopic: () => undefined
-    })
-  );
-
-  assert.match(html, /data-topic-bulk-analyze="action"/);
-  assert.match(html, /開始分析 1 篇/);
-  assert.match(html, /1 篇未分析，完成後才可查看單篇分析或加入比較/);
-  assert.match(html, /data-dlens-button="primary"/);
-});
-
 test("TopicDetailView single-row analysis action starts processing when available", () => {
   const html = renderToStaticMarkup(
     topicDetailViewElement({
@@ -2151,47 +2364,6 @@ test("TopicDetailView single-row analysis action starts processing when availabl
 
   assert.match(html, /開始分析/);
   assert.doesNotMatch(html, /排隊分析/);
-});
-
-test("TopicDetailView surfaces bulk analyze in the single overview", () => {
-  const html = renderToStaticMarkup(
-    topicDetailViewElement({
-      topic,
-      signals,
-      pairs: [],
-      sessionMode: "product",
-      sessionItems: [buildSessionItem("item-1", "saved")],
-      onAnalyzeItems: async () => ({ ok: true, failedCount: 0 }),
-      onBack: () => undefined,
-      onOpenPair: () => undefined,
-      onUpdateTopic: () => undefined
-    })
-  );
-
-  assert.match(html, /data-topic-bulk-analyze="action"/);
-  assert.match(html, /開始分析 1 篇/);
-  assert.match(html, /訊號/);
-});
-
-test("TopicDetailView bulk analyze loading state disables the CTA", () => {
-  const html = renderToStaticMarkup(
-    topicDetailViewElement({
-      topic,
-      signals,
-      pairs: [],
-      sessionMode: "product",
-      sessionItems: [buildSessionItem("item-1", "saved")],
-      isBulkAnalyzing: true,
-      onAnalyzeItems: async () => ({ ok: true, failedCount: 0 }),
-      onBack: () => undefined,
-      onOpenPair: () => undefined,
-      onUpdateTopic: () => undefined
-    })
-  );
-
-  assert.match(html, /正在加入隊列…/);
-  assert.match(html, /disabled=""/);
-  assert.match(html, /完成後可在脈絡或比較查看/);
 });
 
 test("TopicDetailView optimistic queued ids immediately update row status", () => {
@@ -2233,100 +2405,6 @@ test("TopicDetailView lets real running status override optimistic queued rows",
   assert.match(html, /捕捉中/);
   assert.match(html, /正在捕捉 1 篇/);
   assert.doesNotMatch(html, /已排隊 1 篇/);
-});
-
-test("TopicDetailView keeps a visible processing state after bulk queueing", () => {
-  const html = renderToStaticMarkup(
-    topicDetailViewElement({
-      topic,
-      signals,
-      pairs: [],
-      sessionMode: "product",
-      sessionItems: [buildSessionItem("item-1", "queued")],
-      onAnalyzeItems: async () => ({ ok: true, failedCount: 0 }),
-      onBack: () => undefined,
-      onOpenPair: () => undefined,
-      onUpdateTopic: () => undefined
-    })
-  );
-
-  assert.match(html, /data-topic-bulk-analyze="processing"/);
-  assert.match(html, /已排隊 1 篇/);
-  assert.match(html, /0\/1 已完成/);
-  assert.doesNotMatch(html, /開始分析 1 篇/);
-});
-
-test("TopicDetailView shows processing status alongside remaining unanalyzed CTA", () => {
-  const mixedTopic = { ...topic, signalIds: ["signal-1", "signal-2"] };
-  const mixedSignals: Signal[] = [
-    signals[0],
-    {
-      id: "signal-2",
-      sessionId: "session-1",
-      itemId: "item-2",
-      source: "threads",
-      inboxStatus: "assigned",
-      topicId: "topic-1",
-      suggestedTopicIds: [],
-      capturedAt: "2026-04-23T08:05:00.000Z",
-      triagedAt: "2026-04-23T09:05:00.000Z"
-    }
-  ];
-  const html = renderToStaticMarkup(
-    topicDetailViewElement({
-      topic: mixedTopic,
-      signals: mixedSignals,
-      pairs: [],
-      sessionMode: "product",
-      sessionItems: [buildSessionItem("item-1", "queued"), buildSessionItem("item-2", "saved")],
-      onAnalyzeItems: async () => ({ ok: true, failedCount: 0 }),
-      onBack: () => undefined,
-      onOpenPair: () => undefined,
-      onUpdateTopic: () => undefined
-    })
-  );
-
-  assert.match(html, /已排隊 1 篇/);
-  assert.match(html, /開始分析 1 篇/);
-});
-
-test("TopicDetailView can restart queued topic processing when worker is idle", () => {
-  const html = renderToStaticMarkup(
-    topicDetailViewElement({
-      topic,
-      signals,
-      pairs: [],
-      sessionMode: "product",
-      sessionItems: [buildSessionItem("item-1", "queued")],
-      workerStatus: "idle",
-      onStartProcessing: () => undefined,
-      onAnalyzeItems: async () => ({ ok: true, failedCount: 0 }),
-      onBack: () => undefined,
-      onOpenPair: () => undefined,
-      onUpdateTopic: () => undefined
-    })
-  );
-
-  assert.match(html, /已排隊 1 篇/);
-  assert.match(html, /worker 目前未在跑/);
-  assert.match(html, /啟動處理/);
-});
-
-test("topicDetailViewTestables bulk analyze CTA calls the supplied action", () => {
-  let called = 0;
-  const element = topicDetailViewTestables.BulkAnalyzeCta({
-    count: 2,
-    isBulkAnalyzing: false,
-    disabled: false,
-    onAnalyze: () => {
-      called += 1;
-    }
-  });
-  const children = React.Children.toArray(element.props.children);
-  const button = children[0] as React.ReactElement<{ onClick: () => void }>;
-
-  button.props.onClick();
-  assert.equal(called, 1);
 });
 
 test("topicDetailViewTestables single item action prefers queue-and-start over queue-only", () => {
@@ -2393,44 +2471,6 @@ test("pickPrimaryJudgmentPair picks the highest-relevance judgment pair and brea
     ])?.resultId,
     "result-newer-high"
   );
-});
-
-test("TopicProcessingStatus exposes restart processing when backend has expired running work", () => {
-  const html = renderToStaticMarkup(
-    React.createElement(topicDetailViewTestables.TopicProcessingStatus, {
-      total: 3,
-      ready: 1,
-      queued: 0,
-      crawling: 0,
-      analyzing: 2,
-      workerStatus: "draining",
-      backendWorkUiState: { kind: "expired_running" as const, count: 1 },
-      isStartingProcessing: false,
-      onStartProcessing: () => undefined
-    })
-  );
-
-  assert.match(html, /重啟處理|Restart/i);
-  assert.match(html, /lease 過期|expired/i);
-});
-
-test("TopicProcessingStatus keeps existing queued-idle restart copy when no expired work", () => {
-  const html = renderToStaticMarkup(
-    React.createElement(topicDetailViewTestables.TopicProcessingStatus, {
-      total: 3,
-      ready: 1,
-      queued: 2,
-      crawling: 0,
-      analyzing: 0,
-      workerStatus: "idle",
-      backendWorkUiState: null,
-      isStartingProcessing: false,
-      onStartProcessing: () => undefined
-    })
-  );
-
-  assert.match(html, /啟動處理/);
-  assert.doesNotMatch(html, /重啟處理/);
 });
 
 test("topic-audit-components.tsx module surface: retired Newsroom family is gone, live surface survives", async () => {
