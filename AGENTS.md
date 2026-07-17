@@ -105,7 +105,11 @@ git diff --check
   second 源清單-style manifest section. The P6 final-report prose is
   budget-fixed (~1500 chars, independent of source count); audit stage output
   ceilings live in `entrypoints/background.ts` (final 6000 / audience 3200 /
-  others 2200).
+  others 2200). Google topic-audit envelope requests are schema-free
+  (0.3.51): `responseJsonSchema` sends gemini-3.1-flash-lite into runaway
+  constrained decoding (MAX_TOKENS at any ceiling) — never re-add it there;
+  shape is guarded by `parseAuditPromptEnvelopeResult` + one repair retry
+  (locked in `tests/provider-runtime.test.ts`).
 - **Product** mode is insight / evidence / task-first: cited evidence,
   verdicts, experiment hints, agent task prompts. Backend clusters are support
   data, never the user-facing abstraction. Product rail contract:
