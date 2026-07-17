@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 
 import type { EvidencePacket, TopicAuditEpisode, TopicAuditReport, TopicAuditStageName } from "../compare/topic-audit.ts";
+import { nextTopicAuditRunExpiry, type TopicAuditRunStatus } from "../compare/topic-audit-envelope-contract.ts";
 import type { TopicAuditValidationFlag } from "../compare/topic-audit-validator.ts";
 import type { ExtensionMessage, ExtensionResponse } from "../state/messages.ts";
 import { createPipelineRequestId, emitPipelineEvent } from "../state/pipeline-trace.ts";
@@ -48,6 +49,7 @@ export interface TopicAuditUiState {
   auditReport: TopicAuditReport | null;
   auditEpisodes: TopicAuditEpisode[];
   auditValidatorFlags: TopicAuditValidationFlag[];
+  auditRunStatus: TopicAuditRunStatus | null;
   summary: TopicAuditSummary;
 }
 
@@ -57,14 +59,18 @@ export interface LoadedTopicAuditState {
   report: TopicAuditReport | null;
   episodes: TopicAuditEpisode[];
   flags: TopicAuditValidationFlag[];
+  auditRunStatus: TopicAuditRunStatus | null;
 }
 
 export type LoadedTopicAuditByTopicId = Record<string, LoadedTopicAuditState>;
 
-interface LocalRunState {
-  status: "running" | "failed";
-  stage: TopicAuditStageName;
-  error?: string;
+type LocalRunState = TopicAuditRunStatus;
+
+export function resolveTopicAuditRunStatus(
+  persisted: TopicAuditRunStatus | null,
+  local: LocalRunState | undefined
+): TopicAuditRunStatus | null {
+  return persisted ?? local ?? null;
 }
 
 export function shouldClearTopicAuditRunState(settled: RequestReconcileDecision | null): boolean {
@@ -91,9 +97,22 @@ export function applyTopicAuditRunResult(
       memos: response.auditMemos ?? current[topicId]?.memos ?? null,
       report: response.auditReport ?? current[topicId]?.report ?? null,
       episodes: response.auditEpisodes ?? current[topicId]?.episodes ?? [],
-      flags: response.auditValidatorFlags ?? current[topicId]?.flags ?? []
+      flags: response.auditValidatorFlags ?? current[topicId]?.flags ?? [],
+      auditRunStatus: response.auditRunStatus ?? null
     }
   };
+}
+
+export function applyTopicAuditLoadResult(
+  current: LoadedTopicAuditByTopicId,
+  topicId: string,
+  loaded: LoadedTopicAuditState,
+  settled: RequestReconcileDecision
+): LoadedTopicAuditByTopicId {
+  if (!settled.accepted) {
+    return current;
+  }
+  return { ...current, [topicId]: loaded };
 }
 
 export function applyTopicAuditP1Result(
@@ -112,7 +131,8 @@ export function applyTopicAuditP1Result(
       memos: response.auditMemos ?? current[topicId]?.memos ?? null,
       report: response.auditReport ?? current[topicId]?.report ?? null,
       episodes: current[topicId]?.episodes ?? [],
-      flags: []
+      flags: [],
+      auditRunStatus: current[topicId]?.auditRunStatus ?? null
     }
   };
 }
@@ -202,6 +222,7 @@ export function summarizeTopicAudit({
   memos,
   report,
   flags,
+  auditRunStatus,
   local
 }: {
   topic: Topic;
@@ -209,6 +230,7 @@ export function summarizeTopicAudit({
   memos: TopicAuditMemoBundle | null;
   report: TopicAuditReport | null;
   flags: TopicAuditValidationFlag[];
+  auditRunStatus?: TopicAuditRunStatus | null;
   local?: LocalRunState;
 }): TopicAuditSummary {
   const sourceTotal = topicAuditSourceTotal({ topic });
@@ -219,23 +241,24 @@ export function summarizeTopicAudit({
   });
   const pendingCount = Math.max(0, sourceTotal - analyzedCount);
   const coverage = topicAuditCoverageLabel(analyzedCount, sourceTotal);
-  if (local?.status === "running") {
+  const runStatus = resolveTopicAuditRunStatus(auditRunStatus ?? null, local);
+  if (runStatus?.state === "running") {
     return {
       reportStatus: "running",
       analyzedCount,
       queuedCount: pendingCount,
-      runningStage: stageNumber(local.stage),
+      runningStage: stageNumber(runStatus.stage),
       coverage,
       flags
     };
   }
-  if (local?.status === "failed") {
+  if (runStatus?.state === "failed") {
     return {
       reportStatus: "failed",
       analyzedCount,
       queuedCount: pendingCount,
-      failedStage: stageNumber(local.stage),
-      failedReason: local.error,
+      failedStage: stageNumber(runStatus.stage),
+      failedReason: runStatus.failureKind,
       coverage,
       flags
     };
@@ -276,14 +299,8 @@ export function summarizeTopicAudit({
   };
 }
 
-async function loadAuditState(topicId: string): Promise<{
-  evidence: EvidencePacket[];
-  memos: TopicAuditMemoBundle | null;
-  report: TopicAuditReport | null;
-  episodes: TopicAuditEpisode[];
-  flags: TopicAuditValidationFlag[];
-}> {
-  const getResponse = await sendExtensionMessage<ExtensionResponse>({ type: "topic/audit/get", topicId });
+async function loadAuditState(topicId: string, sendAndSync: SendAndSync): Promise<LoadedTopicAuditState> {
+  const getResponse = await sendAndSync<ExtensionResponse>({ type: "topic/audit/get", topicId });
   if (!getResponse.ok) {
     throw new Error(getResponse.error);
   }
@@ -292,7 +309,8 @@ async function loadAuditState(topicId: string): Promise<{
     memos: getResponse.auditMemos ?? null,
     report: getResponse.auditReport ?? null,
     episodes: getResponse.auditEpisodes ?? [],
-    flags: getResponse.auditValidatorFlags ?? []
+    flags: getResponse.auditValidatorFlags ?? [],
+    auditRunStatus: getResponse.auditRunStatus ?? null
   };
 }
 
@@ -313,7 +331,9 @@ export function useTopicAudit({
   const [p1ErrorByKey, setP1ErrorByKey] = useState<Record<string, string>>({});
   const requestReconcilerRef = useRef(createRequestReconciler());
   const activeFolderIdRef = useRef(activeFolder?.id ?? "");
+  const topicIdsRef = useRef(new Set(topics.map((topic) => topic.id)));
   activeFolderIdRef.current = activeFolder?.id ?? "";
+  topicIdsRef.current = new Set(topics.map((topic) => topic.id));
   const topicById = useMemo(() => new Map(topics.map((topic) => [topic.id, topic])), [topics]);
 
   useEffect(() => {
@@ -334,38 +354,60 @@ export function useTopicAudit({
     return decision;
   };
 
+  const currentLoadTarget = (topicId: string): RequestReconcileTarget => ({
+    sessionId: activeFolderIdRef.current,
+    topicId: topicIdsRef.current.has(topicId) ? topicId : ""
+  });
+
+  const loadTopicAudit = async (topicId: string): Promise<RequestReconcileDecision> => {
+    const requestId = createPipelineRequestId("topic-audit-load");
+    const token = requestReconcilerRef.current.begin({
+      lane: `topic.audit.load:${topicId}`,
+      requestId,
+      target: currentLoadTarget(topicId)
+    });
+    try {
+      const loaded = await loadAuditState(topicId, sendAndSync);
+      const settled = settleTopicAuditResponse(token, currentLoadTarget(topicId));
+      setLoadedByTopicId((current) => applyTopicAuditLoadResult(current, topicId, loaded, settled));
+      return settled;
+    } catch (error) {
+      const settled = settleTopicAuditResponse(token, currentLoadTarget(topicId));
+      if (!settled.accepted) {
+        return settled;
+      }
+      throw error;
+    }
+  };
+
   useEffect(() => {
     if (!popupOpen || activeFolder?.mode !== "topic" || topics.length === 0) {
       return;
     }
-    let cancelled = false;
-    void Promise.all(topics.map(async (topic) => [topic.id, await loadAuditState(topic.id)] as const))
-      .then((entries) => {
-        if (cancelled) return;
-        setLoadedByTopicId(Object.fromEntries(entries));
-      })
-      .catch(() => undefined);
-    return () => {
-      cancelled = true;
-    };
+    void Promise.all(topics.map((topic) => loadTopicAudit(topic.id).catch(() => undefined)));
   }, [activeFolder?.id, activeFolder?.mode, popupOpen, topics.map((topic) => `${topic.id}:${topic.updatedAt}`).join("|")]);
 
   const auditByTopicId = useMemo(() => {
     const next: Record<string, TopicAuditUiState> = {};
     for (const topic of topics) {
-      const loaded = loadedByTopicId[topic.id] ?? { evidence: [], memos: null, report: null, episodes: [], flags: [] };
+      const loaded = loadedByTopicId[topic.id] ?? {
+        evidence: [], memos: null, report: null, episodes: [], flags: [], auditRunStatus: null
+      };
+      const auditRunStatus = resolveTopicAuditRunStatus(loaded.auditRunStatus, localRunByTopicId[topic.id]);
       next[topic.id] = {
         auditEvidence: loaded.evidence,
         auditMemos: loaded.memos,
         auditReport: loaded.report,
         auditEpisodes: loaded.episodes,
         auditValidatorFlags: loaded.flags,
+        auditRunStatus,
         summary: summarizeTopicAudit({
           topic,
           evidence: loaded.evidence,
           memos: loaded.memos,
           report: loaded.report,
           flags: loaded.flags,
+          auditRunStatus: loaded.auditRunStatus,
           local: localRunByTopicId[topic.id]
         })
       };
@@ -374,8 +416,7 @@ export function useTopicAudit({
   }, [loadedByTopicId, localRunByTopicId, topics]);
 
   async function refreshTopicAudit(topicId: string) {
-    const loaded = await loadAuditState(topicId);
-    setLoadedByTopicId((current) => ({ ...current, [topicId]: loaded }));
+    return loadTopicAudit(topicId);
   }
 
   async function runTopicAudit(topicId: string, fromStage?: TopicAuditStageName, force?: boolean) {
@@ -389,15 +430,40 @@ export function useTopicAudit({
       requestId,
       target: { sessionId: activeFolder.id, topicId }
     });
+    requestReconcilerRef.current.begin({
+      lane: `topic.audit.load:${topicId}`,
+      requestId,
+      target: { sessionId: activeFolder.id, topicId }
+    });
     let settled: RequestReconcileDecision | null = null;
     const clearLocalRunState = () => {
       setLocalRunByTopicId((current) => {
+        if (current[topicId]?.requestId !== requestId) {
+          return current;
+        }
         const next = { ...current };
         delete next[topicId];
         return next;
       });
     };
-    setLocalRunByTopicId((current) => ({ ...current, [topicId]: { status: "running", stage: startStage } }));
+    const now = new Date().toISOString();
+    setLoadedByTopicId((current) => {
+      const loaded = current[topicId];
+      return loaded ? { ...current, [topicId]: { ...loaded, auditRunStatus: null } } : current;
+    });
+    setLocalRunByTopicId((current) => ({
+      ...current,
+      [topicId]: {
+        sessionId: activeFolder.id,
+        topicId,
+        requestId,
+        state: "running",
+        stage: startStage,
+        startedAt: now,
+        updatedAt: now,
+        expiresAt: nextTopicAuditRunExpiry(now)
+      }
+    }));
     try {
       const response = await withTopicAuditRunTimeout(
         sendAndSync({
@@ -428,14 +494,35 @@ export function useTopicAudit({
         if (shouldClearTopicAuditRunState(settled)) clearLocalRunState();
         return;
       }
-      setLocalRunByTopicId((current) => ({
-        ...current,
-        [topicId]: {
-          status: "failed",
-          stage: startStage,
-          error: error instanceof Error ? error.message : String(error)
+      try {
+        const refreshed = await refreshTopicAudit(topicId);
+        if (refreshed?.accepted) {
+          clearLocalRunState();
+        } else if (shouldClearTopicAuditRunState(refreshed ?? null)) {
+          clearLocalRunState();
         }
-      }));
+      } catch {
+        const failureNow = new Date().toISOString();
+        setLocalRunByTopicId((current) => {
+          if (current[topicId]?.requestId !== requestId) {
+            return current;
+          }
+          return {
+            ...current,
+            [topicId]: {
+              sessionId: activeFolder.id,
+              topicId,
+              requestId,
+              state: "failed",
+              stage: startStage,
+              failureKind: "provider_error",
+              startedAt: now,
+              updatedAt: failureNow,
+              expiresAt: nextTopicAuditRunExpiry(failureNow)
+            }
+          };
+        });
+      }
     }
   }
 

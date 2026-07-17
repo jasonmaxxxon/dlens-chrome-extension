@@ -1,11 +1,12 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import type { EvidencePacket, TopicAuditEpisode, TopicAuditReport } from "../src/compare/topic-audit.ts";
+import type { EvidencePacket, TopicAuditEpisode, TopicAuditReport, TopicAuditStageName } from "../src/compare/topic-audit.ts";
+import type { TopicAuditRunStatus } from "../src/compare/topic-audit-envelope-contract.ts";
 import type { TopicAuditMemoBundle } from "../src/state/topic-audit-storage.ts";
 import { createSessionItem } from "../src/state/store-helpers.ts";
 import type { SavedAnalysisSnapshot, SessionItem, Signal, SignalTagsRecord, Topic } from "../src/state/types.ts";
-import { buildTopicDetailViewModel } from "../src/viewmodel/topic-detail.ts";
+import { buildTopicDetailViewModel, deriveTopicSourceSessionState, type TopicAnalysisCounts } from "../src/viewmodel/topic-detail.ts";
 
 const topic: Topic = {
   id: "topic-1",
@@ -149,6 +150,123 @@ function buildAuditMemos(packets: EvidencePacket[]): TopicAuditMemoBundle {
     }]
   };
 }
+
+function makeRunStatus(overrides: Partial<TopicAuditRunStatus> = {}): TopicAuditRunStatus {
+  return {
+    sessionId: "session-1",
+    topicId: "topic-1",
+    requestId: "request-1",
+    state: "running",
+    stage: "narrative" as TopicAuditStageName,
+    startedAt: "2026-07-17T00:00:00.000Z",
+    updatedAt: "2026-07-17T00:01:00.000Z",
+    expiresAt: "2026-07-17T00:16:00.000Z",
+    ...overrides
+  };
+}
+
+function analysisCounts(overrides: Partial<TopicAnalysisCounts> = {}): TopicAnalysisCounts {
+  return {
+    total: 8,
+    ready: 8,
+    saved: 0,
+    queued: 0,
+    crawling: 0,
+    analyzing: 0,
+    failed: 0,
+    missing: 0,
+    processing: 0,
+    ...overrides
+  };
+}
+
+test("deriveTopicSourceSessionState applies the source and generation priority matrix", () => {
+  const cases = [
+    {
+      name: "running paid generation wins over a new crawlable source",
+      input: {
+        analysisCounts: analysisCounts({ ready: 7, saved: 1 }),
+        crawlableCount: 1,
+        auditRunStatus: makeRunStatus({ state: "running", stage: "final" }),
+        reportStatus: "stale" as const,
+        addedSinceReport: 1
+      },
+      expected: { kind: "generating", scope: "topic", total: 8, ready: 7 }
+    },
+    {
+      name: "processing precedes needs crawl",
+      input: {
+        analysisCounts: analysisCounts({ ready: 5, saved: 1, queued: 1, crawling: 1, processing: 2 }),
+        crawlableCount: 1,
+        auditRunStatus: null,
+        reportStatus: "stale" as const,
+        addedSinceReport: 1
+      },
+      expected: { kind: "processing", scope: "topic", total: 8, ready: 5, queued: 1, crawling: 1, analyzing: 0 }
+    },
+    {
+      name: "crawlable sources remain pending and source failures stay separate",
+      input: {
+        analysisCounts: analysisCounts({ ready: 5, saved: 1, missing: 1, failed: 1 }),
+        crawlableCount: 2,
+        auditRunStatus: null,
+        reportStatus: "none" as const,
+        addedSinceReport: 0
+      },
+      expected: { kind: "needs_crawl", scope: "topic", total: 8, ready: 5, pending: 2, failed: 1 }
+    },
+    {
+      name: "terminal generation failure becomes primary after source work settles",
+      input: {
+        analysisCounts: analysisCounts(),
+        crawlableCount: 0,
+        auditRunStatus: makeRunStatus({ state: "failed", stage: "narrative", failureKind: "schema_mismatch" }),
+        reportStatus: "stale" as const,
+        addedSinceReport: 1
+      },
+      expected: { kind: "generation_failed", scope: "topic", total: 8, ready: 8, stage: "narrative", failureKind: "schema_mismatch" }
+    },
+    {
+      name: "all-ready stale atlas is ready to generate",
+      input: {
+        analysisCounts: analysisCounts(),
+        crawlableCount: 0,
+        auditRunStatus: null,
+        reportStatus: "stale" as const,
+        addedSinceReport: 2
+      },
+      expected: { kind: "ready_to_generate", scope: "topic", total: 8, ready: 8, addedSinceReport: 2 }
+    },
+    {
+      name: "fresh atlas is current",
+      input: {
+        analysisCounts: analysisCounts(),
+        crawlableCount: 0,
+        auditRunStatus: null,
+        reportStatus: "ready" as const,
+        addedSinceReport: 0
+      },
+      expected: { kind: "current", scope: "topic", total: 8, ready: 8 }
+    }
+  ];
+
+  for (const { name, input, expected } of cases) {
+    assert.deepEqual(deriveTopicSourceSessionState(input), expected, name);
+  }
+});
+
+test("deriveTopicSourceSessionState keeps terminal generation failure secondary during source work", () => {
+  const state = deriveTopicSourceSessionState({
+    analysisCounts: analysisCounts({ ready: 7, saved: 1 }),
+    crawlableCount: 1,
+    auditRunStatus: makeRunStatus({ state: "failed", stage: "narrative", failureKind: "schema_mismatch" }),
+    reportStatus: "stale",
+    addedSinceReport: 1
+  });
+
+  assert.equal(state.kind, "needs_crawl");
+  assert.deepEqual(state.previousGenerationFailure, { stage: "narrative", failureKind: "schema_mismatch" });
+});
 
 test("Topic detail VM composes source rows, audit state, and command targets", () => {
   const signals = [

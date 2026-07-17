@@ -1,4 +1,5 @@
 import type { CommentShardReading, EvidencePacket, LensMemo, ReactionCoverage, ReactionPattern, SignalReading, TopicAuditEpisode, TopicAuditReport, TopicAuditStageName } from "../compare/topic-audit.ts";
+import type { TopicAuditRunFailureKind, TopicAuditRunStatus } from "../compare/topic-audit-envelope-contract.ts";
 import { buildTopicEvidencePackets } from "../compare/topic-audit.ts";
 import type { TopicAuditValidationFlag } from "../compare/topic-audit-validator.ts";
 import { projectCapturedPost, projectCapturedPostFromSources, type CapturedPostProjection } from "../state/captured-post.ts";
@@ -176,6 +177,79 @@ export interface TopicAnalysisCounts {
   processing: number;
 }
 
+export interface TopicGenerationFailure {
+  stage: TopicAuditStageName;
+  failureKind: TopicAuditRunFailureKind;
+}
+
+export type TopicSourceSessionState =
+  | { kind: "needs_crawl"; scope: "topic"; total: number; ready: number; pending: number; failed: number; previousGenerationFailure?: TopicGenerationFailure }
+  | { kind: "processing"; scope: "topic"; total: number; ready: number; queued: number; crawling: number; analyzing: number; previousGenerationFailure?: TopicGenerationFailure }
+  | { kind: "ready_to_generate"; scope: "topic"; total: number; ready: number; addedSinceReport: number }
+  | { kind: "generating"; scope: "topic"; total: number; ready: number }
+  | { kind: "generation_failed"; scope: "topic"; total: number; ready: number; stage: TopicAuditStageName; failureKind: TopicAuditRunFailureKind }
+  | { kind: "current"; scope: "topic"; total: number; ready: number };
+
+function generationFailure(status: TopicAuditRunStatus | null | undefined): TopicGenerationFailure | undefined {
+  if (status?.state !== "failed") {
+    return undefined;
+  }
+  return {
+    stage: status.stage,
+    failureKind: status.failureKind ?? "provider_error"
+  };
+}
+
+export function deriveTopicSourceSessionState({
+  analysisCounts,
+  crawlableCount,
+  auditRunStatus,
+  reportStatus,
+  addedSinceReport
+}: {
+  analysisCounts: TopicAnalysisCounts;
+  crawlableCount: number;
+  auditRunStatus: TopicAuditRunStatus | null | undefined;
+  reportStatus: TopicAuditReportStatus;
+  addedSinceReport: number;
+}): TopicSourceSessionState {
+  const base = {
+    scope: "topic" as const,
+    total: analysisCounts.total,
+    ready: analysisCounts.ready
+  };
+  const previousGenerationFailure = generationFailure(auditRunStatus);
+  if (auditRunStatus?.state === "running") {
+    return { kind: "generating", ...base };
+  }
+  if (analysisCounts.processing > 0) {
+    return {
+      kind: "processing",
+      ...base,
+      queued: analysisCounts.queued,
+      crawling: analysisCounts.crawling,
+      analyzing: analysisCounts.analyzing,
+      ...(previousGenerationFailure ? { previousGenerationFailure } : {})
+    };
+  }
+  if (crawlableCount > 0) {
+    return {
+      kind: "needs_crawl",
+      ...base,
+      pending: analysisCounts.saved + analysisCounts.missing,
+      failed: analysisCounts.failed,
+      ...(previousGenerationFailure ? { previousGenerationFailure } : {})
+    };
+  }
+  if (previousGenerationFailure) {
+    return { kind: "generation_failed", ...base, ...previousGenerationFailure };
+  }
+  if (reportStatus === "stale" || reportStatus === "none") {
+    return { kind: "ready_to_generate", ...base, addedSinceReport };
+  }
+  return { kind: "current", ...base };
+}
+
 export interface TopicDetailViewModel {
   topic: Topic;
   sessionId: string;
@@ -193,6 +267,7 @@ export interface TopicDetailViewModel {
    */
   packetsBySignalId: Record<string, EvidencePacket>;
   analysisCounts: TopicAnalysisCounts;
+  sourceSession: TopicSourceSessionState;
   sourcePendingCount: number;
   unanalyzedItemIds: string[];
   signalTagSummaries: SignalTagSummary[];
@@ -222,6 +297,7 @@ export interface BuildTopicDetailViewModelInput {
   auditEpisodes?: TopicAuditEpisode[];
   auditSummary?: TopicAuditViewSummary;
   auditValidatorFlags?: TopicAuditValidationFlag[];
+  auditRunStatus?: TopicAuditRunStatus | null;
   p1RunningSignalIds?: ReadonlyArray<string>;
   p1ErrorBySignalId?: Record<string, string>;
   optimisticQueuedItemIds?: ReadonlyArray<string>;
@@ -833,6 +909,7 @@ export function buildTopicDetailViewModel({
   auditEpisodes = [],
   auditSummary,
   auditValidatorFlags = [],
+  auditRunStatus = null,
   p1RunningSignalIds = [],
   p1ErrorBySignalId = {},
   optimisticQueuedItemIds = [],
@@ -883,6 +960,13 @@ export function buildTopicDetailViewModel({
     analysisCounts,
     capabilities: resolvedCapabilities
   });
+  const sourceSession = deriveTopicSourceSessionState({
+    analysisCounts,
+    crawlableCount: analysisCounts.saved + analysisCounts.missing,
+    auditRunStatus,
+    reportStatus: audit.summary.reportStatus,
+    addedSinceReport: audit.summary.staleDelta?.added ?? 0
+  });
   return {
     topic,
     sessionId: topic.sessionId,
@@ -895,7 +979,8 @@ export function buildTopicDetailViewModel({
     signalRows,
     packetsBySignalId,
     analysisCounts,
-    sourcePendingCount: analysisCounts.saved + analysisCounts.failed + analysisCounts.missing,
+    sourceSession,
+    sourcePendingCount: analysisCounts.saved + analysisCounts.missing,
     unanalyzedItemIds,
     signalTagSummaries: buildSignalTagSummaries(signalRows),
     taggedSignalCount: signalRows.filter((row) => row.tagRecord?.status === "complete").length,

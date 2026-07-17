@@ -21,6 +21,7 @@ import {
 } from "../src/ui/useResultSurfaceState.ts";
 import {
   applyTopicAuditP1Result,
+  applyTopicAuditLoadResult,
   applyTopicAuditRunResult,
   clearTopicAuditValidationAfterP1,
   summarizeTopicAudit,
@@ -205,6 +206,47 @@ test("topic audit summary marks a preserved report stale after a single-P1 memo 
 
   assert.equal(summary.reportStatus, "stale");
   assert.equal(summary.headline, "舊 report");
+});
+
+test("topic audit load lane rejects a previous folder and cannot replace an accepted newer run", () => {
+  const current = {
+    "topic-1": makeAuditLoaded("initial")
+  };
+  const reconciler = createRequestReconciler();
+  const folderALoad = reconciler.begin({
+    lane: "topic.audit.load:topic-1",
+    requestId: "folder-a-load",
+    target: { sessionId: "folder-a", topicId: "topic-1" }
+  });
+  const folderBLoad = reconciler.begin({
+    lane: "topic.audit.load:topic-1",
+    requestId: "folder-b-load",
+    target: { sessionId: "folder-b", topicId: "topic-1" }
+  });
+
+  const switchedFolder = reconciler.complete(folderALoad, {
+    currentTarget: { sessionId: "folder-b", topicId: "topic-1" }
+  });
+  assert.deepEqual(
+    applyTopicAuditLoadResult(current, "topic-1", makeAuditLoaded("folder-a"), switchedFolder),
+    current
+  );
+
+  const acceptedRun = acceptedDecision("topic.audit.run:topic-1", { sessionId: "folder-b", topicId: "topic-1" });
+  const afterRun = applyTopicAuditRunResult(current, "topic-1", makeAuditResponse("new-run"), acceptedRun);
+  reconciler.begin({
+    lane: "topic.audit.load:topic-1",
+    requestId: "new-run",
+    target: { sessionId: "folder-b", topicId: "topic-1" }
+  });
+  const supersededLoad = reconciler.complete(folderBLoad, {
+    currentTarget: { sessionId: "folder-b", topicId: "topic-1" }
+  });
+  assert.equal(supersededLoad.accepted, false);
+  assert.deepEqual(
+    applyTopicAuditLoadResult(afterRun, "topic-1", makeAuditLoaded("old-get"), supersededLoad),
+    afterRun
+  );
 });
 
 test("judgment stale responses do not adopt old saved analyses or clear newer loading", () => {

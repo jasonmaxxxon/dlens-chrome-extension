@@ -191,6 +191,7 @@ function OpenInPageCollectorPopup({
         auditEpisodes: app.activeTopicAudit?.auditEpisodes,
         auditSummary: app.activeTopicAudit?.summary,
         auditValidatorFlags: app.activeTopicAudit?.auditValidatorFlags,
+        auditRunStatus: app.activeTopicAudit?.auditRunStatus,
         p1RunningSignalIds: app.activeTopic && app.topicAuditP1RunningBySignalId[app.activeTopic.id]
           ? Object.keys(app.topicAuditP1RunningBySignalId[app.activeTopic.id])
           : [],
