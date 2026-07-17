@@ -1,4 +1,11 @@
 import type { AuditPromptEnvelope } from "../compare/topic-audit-prompts.ts";
+import {
+  TopicAuditEnvelopeError,
+  nextTopicAuditRunExpiry,
+  type TopicAuditRunFailureKind,
+  type TopicAuditRunOwner,
+  type TopicAuditRunStatus
+} from "../compare/topic-audit-envelope-contract.ts";
 import { extractTopicEvidenceRefs } from "../compare/topic-audit-evidence.ts";
 import {
   buildTopicAuditFingerprints,
@@ -44,16 +51,21 @@ import {
 } from "../compare/topic-audit.ts";
 import {
   buildTopicAuditCacheKey,
+  advanceTopicAuditRun,
+  beginTopicAuditRun,
   clearTopicAuditStorageTopic,
+  failTopicAuditRun,
   loadTopicAuditEvidence,
   loadTopicAuditEpisodes,
   loadTopicAuditMemos,
   loadTopicAuditReport,
+  loadTopicAuditRun,
   isTopicAuditPublicationCompatible,
   publishTopicAuditReportAndEpisodes,
   saveCrossTopicCalibration,
   saveTopicAuditEvidence,
   saveTopicAuditMemos,
+  saveTopicAuditMemosForRun,
   type StorageAreaLike,
   type TopicAuditMemoBundle
 } from "./topic-audit-storage.ts";
@@ -65,7 +77,7 @@ import type { SessionRecord, SessionItem, Signal, Topic } from "./types.ts";
 
 export type TopicAuditHandlerMessage =
   | { type: "topic/audit/build-evidence"; sessionId: string; topicId: string }
-  | { type: "topic/audit/run"; sessionId: string; topicId: string; fromStage?: TopicAuditStageName; force?: boolean }
+  | { type: "topic/audit/run"; requestId?: string; sessionId: string; topicId: string; fromStage?: TopicAuditStageName; force?: boolean }
   | { type: "topic/audit/p1-signal"; sessionId: string; topicId: string; signalId: string }
   | { type: "topic/audit/get"; topicId: string }
   | { type: "topic/audit/validate"; topicId: string }
@@ -77,6 +89,7 @@ export interface TopicAuditHandlerResult {
   auditReport?: TopicAuditReport | null;
   auditMemos?: TopicAuditMemoBundle | null;
   auditEpisodes?: TopicAuditEpisode[];
+  auditRunStatus?: TopicAuditRunStatus | null;
   auditValidatorFlags?: TopicAuditValidationFlag[];
   crossTopicCalibration?: CrossTopicCalibration | null;
 }
@@ -84,13 +97,39 @@ export interface TopicAuditHandlerResult {
 export interface TopicAuditHandlerOptions {
   message: TopicAuditHandlerMessage;
   sessions: SessionRecord[];
-  generateEnvelope?: (stageName: TopicAuditStageName, prompt: string) => Promise<AuditPromptEnvelope>;
+  generateEnvelope?: (
+    stageName: TopicAuditStageName,
+    prompt: string,
+    onAttempt: (attempt: 1 | 2) => Promise<void>
+  ) => Promise<AuditPromptEnvelope>;
   model?: string;
   now?: () => string;
 }
 
 function nowIso(options: TopicAuditHandlerOptions): string {
   return options.now?.() ?? new Date().toISOString();
+}
+
+const noopTopicAuditAttempt = async (_attempt: 1 | 2): Promise<void> => undefined;
+
+function requireNonEmptyTopicAuditRunId(value: string | undefined, field: "requestId" | "sessionId"): string {
+  const normalized = value?.trim() ?? "";
+  if (!normalized) {
+    throw new Error(`Topic audit run requires a non-empty ${field}`);
+  }
+  return normalized;
+}
+
+function topicAuditRunFailureKind(error: unknown): TopicAuditRunFailureKind {
+  if (error instanceof TopicAuditEnvelopeError) {
+    return error.kind;
+  }
+  const message = error instanceof Error ? error.message : String(error);
+  return /timeout|timed out|time out/i.test(message) ? "timeout" : "provider_error";
+}
+
+function isSupersededTopicAuditOwnerError(error: unknown): boolean {
+  return error instanceof Error && /no longer owns/i.test(error.message);
 }
 
 let auditRunSequence = 0;
@@ -600,12 +639,13 @@ async function generateOrParseEnvelope(
   stageName: TopicAuditStageName,
   prompt: string,
   allowedRefs: ReadonlySet<string>,
-  strictInlineRefs = true
+  strictInlineRefs = true,
+  onAttempt: (attempt: 1 | 2) => Promise<void> = noopTopicAuditAttempt
 ): Promise<AuditPromptEnvelope> {
   if (!generateEnvelope) {
     throw new Error("Audit LLM generator unavailable");
   }
-  const raw = await generateEnvelope(stageName, prompt);
+  const raw = await generateEnvelope(stageName, prompt, onAttempt);
   return normalizeEnvelope(raw, allowedRefs, strictInlineRefs);
 }
 
@@ -806,15 +846,21 @@ async function saveMemos(
   inputHash: string,
   shardReadings: CommentShardReading[],
   signalReadings: SignalReading[],
-  lensMemos: LensMemo[]
+  lensMemos: LensMemo[],
+  owner?: TopicAuditRunOwner
 ): Promise<void> {
-  await saveTopicAuditMemos(storageArea, topicId, {
+  const bundle = {
     auditRunId,
     inputHash,
     shardReadings,
     signalReadings,
     lensMemos
-  });
+  };
+  if (owner) {
+    await saveTopicAuditMemosForRun(storageArea, owner, bundle);
+    return;
+  }
+  await saveTopicAuditMemos(storageArea, topicId, bundle);
 }
 
 async function generateMissingShardReadingsForPacket(
@@ -822,7 +868,8 @@ async function generateMissingShardReadingsForPacket(
   existingReadings: readonly CommentShardReading[],
   options: TopicAuditHandlerOptions,
   inputHash: string,
-  onCheckpoint?: (generatedReadings: readonly CommentShardReading[]) => Promise<void>
+  onCheckpoint?: (generatedReadings: readonly CommentShardReading[]) => Promise<void>,
+  onAttempt: (attempt: 1 | 2) => Promise<void> = noopTopicAuditAttempt
 ): Promise<CommentShardReading[]> {
   const shards = splitPacketIntoCommentShards(packet);
   const generated: CommentShardReading[] = [];
@@ -843,7 +890,9 @@ async function generateMissingShardReadingsForPacket(
       options.generateEnvelope,
       "comment-shard-reading",
       buildP0_5ShardReadingPrompt(packet, shardFragments),
-      shardRefs
+      shardRefs,
+      true,
+      onAttempt
     );
     generated.push(shardReadingFromEnvelope(
       packet,
@@ -879,6 +928,7 @@ async function runAuditPipeline(
   session: SessionRecord,
   topic: Topic,
   options: TopicAuditHandlerOptions,
+  requestId: string,
   fromStage?: TopicAuditStageName,
   force?: boolean
 ): Promise<TopicAuditHandlerResult> {
@@ -931,6 +981,26 @@ async function runAuditPipeline(
     };
   }
 
+  const owner: TopicAuditRunOwner = {
+    topicId: topic.id,
+    requestId,
+    now: nowIso(options)
+  };
+  await beginTopicAuditRun(storageArea, {
+    sessionId: session.id,
+    topicId: topic.id,
+    requestId,
+    state: "running",
+    stage: "p1-signal-reading",
+    startedAt: owner.now,
+    updatedAt: owner.now,
+    expiresAt: nextTopicAuditRunExpiry(owner.now)
+  });
+  const onStageAttempt = (stageName: TopicAuditStageName) => async (_attempt: 1 | 2): Promise<void> => {
+    await advanceTopicAuditRun(storageArea, { ...owner, now: nowIso(options) }, stageName);
+  };
+
+  try {
   const auditRunId = buildTopicAuditRunId(fingerprints, nextAuditRunNonce(options));
   evidence = evidence.map((packet) => ({ ...packet, auditRunId }));
   await saveTopicAuditEvidence(storageArea, topic.id, evidence);
@@ -978,8 +1048,10 @@ async function runAuditPipeline(
         inputHash,
         [...shardReadings, ...checkpoint],
         signalReadings,
-        lensMemos
-      )
+        lensMemos,
+        owner
+      ),
+      onStageAttempt("comment-shard-reading")
     );
     if (generated.length > 0) {
       shardReadings.push(...generated);
@@ -1012,7 +1084,9 @@ async function runAuditPipeline(
             packet,
             shardReadings.filter((reading) => reading.signalId === packet.signalId)
           ),
-          allAllowedRefs([packet])
+          allAllowedRefs([packet]),
+          true,
+          onStageAttempt("p1-signal-reading")
         );
         const packetShardReadings = shardReadings.filter((reading) => reading.signalId === packet.signalId);
         signalReadings.push(signalReadingFromEnvelope(
@@ -1022,11 +1096,14 @@ async function runAuditPipeline(
           inputHash,
           await expectedSignalReadingIdentity(packet, packetShardReadings, options)
         ));
-      } catch {
+      } catch (error) {
+        if (isSupersededTopicAuditOwnerError(error)) {
+          throw error;
+        }
         p1Failures.push(packet.shortCode);
       }
     }
-    await saveMemos(storageArea, topic.id, auditRunId, inputHash, shardReadings, signalReadings, lensMemos);
+    await saveMemos(storageArea, topic.id, auditRunId, inputHash, shardReadings, signalReadings, lensMemos, owner);
   }
 
   if (upstreamChanged) {
@@ -1039,14 +1116,16 @@ async function runAuditPipeline(
       options.generateEnvelope,
       "lexicon",
       buildP2LexiconPrompt({ topicName: topic.name, packets: evidence, signalReadings, shardReadings }),
-      allowedRefs
+      allowedRefs,
+      true,
+      onStageAttempt("lexicon")
     );
     if (p1Failures.length) {
       lexiconEnvelope.caveats = [...lexiconEnvelope.caveats, `P1 failures: ${p1Failures.join(", ")}`];
     }
     lexiconMemo = lensMemoFromEnvelope(topic.id, auditRunId, inputHash, "lexicon", lexiconEnvelope, TOPIC_AUDIT_PROMPT_VERSIONS.p2, options);
     lensMemos.push(lexiconMemo);
-    await saveMemos(storageArea, topic.id, auditRunId, inputHash, shardReadings, signalReadings, lensMemos);
+    await saveMemos(storageArea, topic.id, auditRunId, inputHash, shardReadings, signalReadings, lensMemos, owner);
   }
 
   if (!lensMemos.some((memo) => memo.stageName === "narrative")) {
@@ -1065,13 +1144,15 @@ async function runAuditPipeline(
           lexiconMemo,
           priorNarrativeState: previousNarrativeState
         }),
-        allowedRefs
+        allowedRefs,
+        true,
+        onStageAttempt("narrative")
       ),
       TOPIC_AUDIT_PROMPT_VERSIONS.p3,
       options
     );
     lensMemos.push(narrativeMemo);
-    await saveMemos(storageArea, topic.id, auditRunId, inputHash, shardReadings, signalReadings, lensMemos);
+    await saveMemos(storageArea, topic.id, auditRunId, inputHash, shardReadings, signalReadings, lensMemos, owner);
   }
 
   if (!lensMemos.some((memo) => memo.stageName === "audience")) {
@@ -1091,13 +1172,15 @@ async function runAuditPipeline(
           shardReadings,
           priorNarrativeState: previousNarrativeState
         }),
-        allowedRefs
+        allowedRefs,
+        true,
+        onStageAttempt("audience")
       ),
       TOPIC_AUDIT_PROMPT_VERSIONS.p4,
       options
     );
     lensMemos.push(audienceMemo);
-    await saveMemos(storageArea, topic.id, auditRunId, inputHash, shardReadings, signalReadings, lensMemos);
+    await saveMemos(storageArea, topic.id, auditRunId, inputHash, shardReadings, signalReadings, lensMemos, owner);
   }
 
   if (!lensMemos.some((memo) => memo.stageName === "absence")) {
@@ -1110,13 +1193,15 @@ async function runAuditPipeline(
         options.generateEnvelope,
         "absence",
         buildP5AbsencePrompt({ topicName: topic.name, packets: evidence, signalReadings, lensMemos, shardReadings }),
-        allowedRefs
+        allowedRefs,
+        true,
+        onStageAttempt("absence")
       ),
       TOPIC_AUDIT_PROMPT_VERSIONS.p5,
       options
     );
     lensMemos.push(absenceMemo);
-    await saveMemos(storageArea, topic.id, auditRunId, inputHash, shardReadings, signalReadings, lensMemos);
+    await saveMemos(storageArea, topic.id, auditRunId, inputHash, shardReadings, signalReadings, lensMemos, owner);
   }
 
   const finalEnvelope = await generateOrParseEnvelope(
@@ -1129,7 +1214,9 @@ async function runAuditPipeline(
       lensMemos,
       priorNarrativeState: previousNarrativeState
     }),
-    allowedRefs
+    allowedRefs,
+    true,
+    onStageAttempt("final")
   );
   const generatedAt = nowIso(options);
   const narrativeState = materializeNarrativeState({
@@ -1162,14 +1249,23 @@ async function runAuditPipeline(
     packets: evidence,
     audienceMemo: lensMemos.find((memo) => memo.stageName === "audience") ?? null
   });
-  await publishTopicAuditReportAndEpisodes(storageArea, report, auditEpisodes);
+  await publishTopicAuditReportAndEpisodes(storageArea, report, auditEpisodes, owner);
   return {
     auditEvidence: evidence,
     auditMemos: { auditRunId, inputHash, shardReadings, signalReadings, lensMemos },
     auditReport: report,
     auditEpisodes,
-    auditValidatorFlags: flags
+    auditValidatorFlags: flags,
+    auditRunStatus: null
   };
+  } catch (error) {
+    try {
+      await failTopicAuditRun(storageArea, { ...owner, now: nowIso(options) }, topicAuditRunFailureKind(error));
+    } catch {
+      // A superseding request owns the ledger now; never replace its status or hide the original error.
+    }
+    throw error;
+  }
 }
 
 async function runP1ForSingleSignal(
@@ -1275,9 +1371,11 @@ export async function handleTopicAuditMessage(
       return { auditEvidence };
     }
     case "topic/audit/run": {
-      const session = findSession(options.sessions, message.sessionId);
-      const topic = await findTopic(storageArea, message.sessionId, message.topicId);
-      return runAuditPipeline(storageArea, session, topic, options, message.fromStage, message.force);
+      const sessionId = requireNonEmptyTopicAuditRunId(message.sessionId, "sessionId");
+      const requestId = requireNonEmptyTopicAuditRunId(message.requestId, "requestId");
+      const session = findSession(options.sessions, sessionId);
+      const topic = await findTopic(storageArea, sessionId, message.topicId);
+      return runAuditPipeline(storageArea, session, topic, options, requestId, message.fromStage, message.force);
     }
     case "topic/audit/p1-signal": {
       const session = findSession(options.sessions, message.sessionId);
@@ -1285,17 +1383,19 @@ export async function handleTopicAuditMessage(
       return runP1ForSingleSignal(storageArea, session, topic, message.signalId, options);
     }
     case "topic/audit/get": {
-      const [auditEvidence, auditMemos, auditReport, auditEpisodes] = await Promise.all([
+      const [auditEvidence, auditMemos, auditReport, auditEpisodes, auditRunStatus] = await Promise.all([
         loadTopicAuditEvidence(storageArea, message.topicId),
         loadTopicAuditMemos(storageArea, message.topicId),
         loadTopicAuditReport(storageArea, message.topicId),
-        loadTopicAuditEpisodes(storageArea, message.topicId)
+        loadTopicAuditEpisodes(storageArea, message.topicId),
+        loadTopicAuditRun(storageArea, message.topicId, nowIso(options))
       ]);
       return {
         auditEvidence,
         auditMemos,
         auditReport,
         auditEpisodes,
+        auditRunStatus,
         auditValidatorFlags: isTopicAuditPublicationCompatible(auditReport, auditMemos, auditEvidence)
           ? validateTopicAuditDraft({ packets: auditEvidence, reportMarkdown: reportMarkdown(auditReport!) })
           : []
@@ -1315,7 +1415,7 @@ export async function handleTopicAuditMessage(
     }
     case "topic/audit/clear":
       await clearTopicAuditStorageTopic(storageArea, message.topicId);
-      return { auditEvidence: [], auditMemos: null, auditReport: null, auditEpisodes: [] };
+      return { auditEvidence: [], auditMemos: null, auditReport: null, auditEpisodes: [], auditRunStatus: null };
     case "cross-topic/calibrate": {
       if (message.topicIds.length < 2) {
         throw new Error("Need at least 2 topics for cross-topic calibration");

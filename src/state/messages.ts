@@ -32,6 +32,7 @@ import type { PrNarrativeRead } from "../compare/pr-narrative";
 import type { DLensSignalPacket, SignalPacketIndexFilter } from "../compare/signal-packet";
 import type { SignalPacketExportFormat, SignalPacketExportResult } from "../compare/signal-packet-export";
 import type { CrossTopicCalibration, EvidencePacket, TopicAuditEpisode, TopicAuditReport, TopicAuditStageName } from "../compare/topic-audit";
+import type { TopicAuditRunStatus } from "../compare/topic-audit-envelope-contract";
 import type { TopicAuditValidationFlag } from "../compare/topic-audit-validator";
 import type { TopicAuditMemoBundle } from "./topic-audit-storage";
 import type { SaveCurrentPreviewActionTarget, SessionActionTarget, SessionItemActionTarget } from "./action-target";
@@ -94,7 +95,7 @@ export type ExtensionMessagePayload =
   | { type: "topic/synthesis/generate"; topicId: string }
   | { type: "topic/synthesis/clear"; topicId: string }
   | { type: "topic/audit/build-evidence"; sessionId: string; topicId: string }
-  | { type: "topic/audit/run"; sessionId: string; topicId: string; fromStage?: TopicAuditStageName; force?: boolean }
+  | { type: "topic/audit/run"; requestId?: string; sessionId: string; topicId: string; fromStage?: TopicAuditStageName; force?: boolean }
   | { type: "topic/audit/p1-signal"; sessionId: string; topicId: string; signalId: string }
   | { type: "extension/open-page"; path: string }
   | { type: "topic/audit/get"; topicId: string }
@@ -215,6 +216,7 @@ export type ExtensionSuccessResponse = {
   auditReport?: TopicAuditReport | null;
   auditMemos?: TopicAuditMemoBundle | null;
   auditEpisodes?: TopicAuditEpisode[];
+  auditRunStatus?: TopicAuditRunStatus | null;
   auditValidatorFlags?: TopicAuditValidationFlag[];
   crossTopicCalibration?: CrossTopicCalibration | null;
   /** Optional server-side wall-clock for the handler (ms). Used by popup

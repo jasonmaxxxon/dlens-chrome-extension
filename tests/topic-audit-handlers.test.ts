@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
+import { TopicAuditEnvelopeError } from "../src/compare/topic-audit-envelope-contract.ts";
 import type { AuditPromptEnvelope } from "../src/compare/topic-audit-prompts.ts";
 import { TOPIC_SIGNAL_READINGS_STORAGE_KEY } from "../src/compare/topic-signal-reading-storage.ts";
 import {
@@ -8,11 +9,13 @@ import {
   TOPIC_AUDIT_EPISODES_STORAGE_KEY,
   TOPIC_AUDIT_MEMOS_STORAGE_KEY,
   TOPIC_AUDIT_REPORTS_STORAGE_KEY,
+  beginTopicAuditRun,
   loadCrossTopicCalibration,
   loadTopicAuditEvidence,
   loadTopicAuditEpisodes,
   loadTopicAuditMemos,
   loadTopicAuditReport,
+  loadTopicAuditRun,
   saveCrossTopicCalibration,
   saveTopicAuditEpisodes,
   saveTopicAuditEvidence,
@@ -321,7 +324,7 @@ test("topic audit run persists each stage and reuses cache on the same input", a
   };
 
   const first = await handleTopicAuditMessage(storage, {
-    message: { type: "topic/audit/run", sessionId: "session-1", topicId: "topic-1" },
+    message: { type: "topic/audit/run", requestId: "test-topic-audit-run", sessionId: "session-1", topicId: "topic-1" },
     sessions: [makeSession()],
     generateEnvelope: generator,
     model: "mock:model"
@@ -351,7 +354,7 @@ test("topic audit run persists each stage and reuses cache on the same input", a
   assert.ok(storage.values[TOPIC_AUDIT_REPORTS_STORAGE_KEY]);
 
   const second = await handleTopicAuditMessage(storage, {
-    message: { type: "topic/audit/run", sessionId: "session-1", topicId: "topic-1" },
+    message: { type: "topic/audit/run", requestId: "test-topic-audit-run", sessionId: "session-1", topicId: "topic-1" },
     sessions: [makeSession()],
     generateEnvelope: generator,
     model: "mock:model"
@@ -361,13 +364,126 @@ test("topic audit run persists each stage and reuses cache on the same input", a
   assert.equal(second.auditReport?.inputHash, first.auditReport?.inputHash);
 });
 
+test("topic audit run persists real stage attempts and clears its run entry only with publication", async () => {
+  const storage = new MemoryStorage();
+  await seedTopic(storage);
+  const stages: string[] = [];
+  const persistedStages: string[] = [];
+
+  const result = await handleTopicAuditMessage(storage, {
+    message: { type: "topic/audit/run", requestId: "request-stage-ledger", sessionId: "session-1", topicId: "topic-1" },
+    sessions: [makeSession()],
+    now: () => "2026-07-17T10:00:00.000Z",
+    generateEnvelope: async (stageName, _prompt, onAttempt) => {
+      await onAttempt(1);
+      persistedStages.push((await loadTopicAuditRun(storage, "topic-1", "2026-07-17T10:00:00.000Z"))?.stage ?? "missing");
+      stages.push(stageName);
+      return makeEnvelope(stageName);
+    }
+  });
+
+  assert.ok(stages.includes("final"));
+  assert.deepEqual(persistedStages, stages);
+  assert.equal(result.auditRunStatus, null);
+  assert.equal(await loadTopicAuditRun(storage, "topic-1", "2026-07-17T10:01:00.000Z"), null);
+  assert.ok(await loadTopicAuditReport(storage, "topic-1"));
+});
+
+test("topic audit terminal envelope failure records its actual stage and typed kind", async () => {
+  const storage = new MemoryStorage();
+  await seedTopic(storage);
+
+  await assert.rejects(
+    () => handleTopicAuditMessage(storage, {
+      message: { type: "topic/audit/run", requestId: "request-terminal-failure", sessionId: "session-1", topicId: "topic-1" },
+      sessions: [makeSession()],
+      generateEnvelope: async (stageName, _prompt, onAttempt) => {
+        await onAttempt(1);
+        throw new TopicAuditEnvelopeError(stageName, "truncated", 2, "MAX_TOKENS", 3200);
+      }
+    }),
+    TopicAuditEnvelopeError
+  );
+
+  const status = await loadTopicAuditRun(storage, "topic-1", new Date().toISOString());
+  assert.equal(status?.state, "failed");
+  assert.equal(status?.stage, "comment-shard-reading");
+  assert.equal(status?.failureKind, "truncated");
+});
+
+test("topic audit preserves the original failure when a newer request replaces its owner", async () => {
+  const storage = new MemoryStorage();
+  await seedTopic(storage);
+  const original = new TopicAuditEnvelopeError("comment-shard-reading", "schema_mismatch", 2, undefined, 0);
+
+  await assert.rejects(
+    () => handleTopicAuditMessage(storage, {
+      message: { type: "topic/audit/run", requestId: "request-old", sessionId: "session-1", topicId: "topic-1" },
+      sessions: [makeSession()],
+      now: () => "2026-07-17T10:00:00.000Z",
+      generateEnvelope: async (_stageName, _prompt, onAttempt) => {
+        await onAttempt(1);
+        await beginTopicAuditRun(storage, {
+          sessionId: "session-1",
+          topicId: "topic-1",
+          requestId: "request-new",
+          state: "running",
+          stage: "narrative",
+          startedAt: "2026-07-17T10:00:00.000Z",
+          updatedAt: "2026-07-17T10:00:00.000Z",
+          expiresAt: "2026-07-17T10:15:00.000Z"
+        });
+        throw original;
+      }
+    }),
+    (error: unknown) => error === original
+  );
+
+  const status = await loadTopicAuditRun(storage, "topic-1", "2026-07-17T10:00:01.000Z");
+  assert.equal(status?.requestId, "request-new");
+  assert.equal(status?.state, "running");
+  assert.equal(status?.stage, "narrative");
+});
+
+test("topic audit retry preserves both topic memo maps when another topic checkpoints during attempt two", async () => {
+  const storage = new MemoryStorage();
+  await seedTopic(storage);
+  let firstAttemptInvalid = false;
+
+  await handleTopicAuditMessage(storage, {
+    message: { type: "topic/audit/run", requestId: "request-topic-a", sessionId: "session-1", topicId: "topic-1" },
+    sessions: [makeSession()],
+    generateEnvelope: async (stageName, _prompt, onAttempt) => {
+      await onAttempt(1);
+      firstAttemptInvalid = true;
+      await saveTopicAuditMemos(storage, "topic-2", {
+        auditRunId: "audit-topic-b",
+        inputHash: "hash-topic-b",
+        signalReadings: [],
+        lensMemos: []
+      });
+      await onAttempt(2);
+      return makeEnvelope(stageName);
+    }
+  });
+
+  assert.equal(firstAttemptInvalid, true);
+  assert.equal((await loadTopicAuditMemos(storage, "topic-1"))?.auditRunId.startsWith("audit_"), true);
+  assert.deepEqual(await loadTopicAuditMemos(storage, "topic-2"), {
+    auditRunId: "audit-topic-b",
+    inputHash: "hash-topic-b",
+    signalReadings: [],
+    lensMemos: []
+  });
+});
+
 test("topic audit run only generates P1 readings for ready signals", async () => {
   const storage = new MemoryStorage();
   await seedTopic(storage);
   const calls: string[] = [];
 
   const response = await handleTopicAuditMessage(storage, {
-    message: { type: "topic/audit/run", sessionId: "session-1", topicId: "topic-1" },
+    message: { type: "topic/audit/run", requestId: "test-topic-audit-run", sessionId: "session-1", topicId: "topic-1" },
     sessions: [makeSessionWithSecondItemSaved()],
     generateEnvelope: async (stageName) => {
       calls.push(stageName);
@@ -526,7 +642,7 @@ test("topic audit rejects unknown inline refs hidden in display theme chips", as
 
   await assert.rejects(
     () => handleTopicAuditMessage(storage, {
-      message: { type: "topic/audit/run", sessionId: "session-1", topicId: "topic-1" },
+      message: { type: "topic/audit/run", requestId: "test-topic-audit-run", sessionId: "session-1", topicId: "topic-1" },
       sessions: [makeSession()],
       generateEnvelope: async (stageName) => stageName === "lexicon"
         ? {
@@ -550,7 +666,7 @@ test("topic audit drops narrative lanes that have no valid structured refs", asy
   await seedTopic(storage);
 
   const response = await handleTopicAuditMessage(storage, {
-    message: { type: "topic/audit/run", sessionId: "session-1", topicId: "topic-1" },
+    message: { type: "topic/audit/run", requestId: "test-topic-audit-run", sessionId: "session-1", topicId: "topic-1" },
     sessions: [makeSession()],
     generateEnvelope: async (stageName) => stageName === "narrative"
       ? {
@@ -574,7 +690,7 @@ test("topic audit run can resume from a later stage without rerunning completed 
   await seedTopic(storage);
   const firstCalls: string[] = [];
   const first = await handleTopicAuditMessage(storage, {
-    message: { type: "topic/audit/run", sessionId: "session-1", topicId: "topic-1" },
+    message: { type: "topic/audit/run", requestId: "test-topic-audit-run", sessionId: "session-1", topicId: "topic-1" },
     sessions: [makeSession()],
     generateEnvelope: async (stageName) => {
       firstCalls.push(stageName);
@@ -585,7 +701,7 @@ test("topic audit run can resume from a later stage without rerunning completed 
 
   const resumedCalls: string[] = [];
   const response = await handleTopicAuditMessage(storage, {
-    message: { type: "topic/audit/run", sessionId: "session-1", topicId: "topic-1", fromStage: "narrative" },
+    message: { type: "topic/audit/run", requestId: "test-topic-audit-run", sessionId: "session-1", topicId: "topic-1", fromStage: "narrative" },
     sessions: [makeSession()],
     generateEnvelope: async (stageName) => {
       resumedCalls.push(stageName);
@@ -606,7 +722,7 @@ test("topic audit audience stage stores structured reaction patterns from P4", a
   await seedTopic(storage);
 
   const response = await handleTopicAuditMessage(storage, {
-    message: { type: "topic/audit/run", sessionId: "session-1", topicId: "topic-1" },
+    message: { type: "topic/audit/run", requestId: "test-topic-audit-run", sessionId: "session-1", topicId: "topic-1" },
     sessions: [makeSession()],
     generateEnvelope: async (stageName) => {
       if (stageName === "audience") {
@@ -652,7 +768,7 @@ test("topic audit publishes a bounded narrative state and carries claim ids acro
   const storage = new MemoryStorage();
   await seedTopic(storage);
   const first = await handleTopicAuditMessage(storage, {
-    message: { type: "topic/audit/run", sessionId: "session-1", topicId: "topic-1" },
+    message: { type: "topic/audit/run", requestId: "test-topic-audit-run", sessionId: "session-1", topicId: "topic-1" },
     sessions: [makeSession()],
     generateEnvelope: async (stageName) => stageName === "final"
       ? {
@@ -679,7 +795,7 @@ test("topic audit publishes a bounded narrative state and carries claim ids acro
 
   const prompts: string[] = [];
   const second = await handleTopicAuditMessage(storage, {
-    message: { type: "topic/audit/run", sessionId: "session-1", topicId: "topic-1", force: true },
+    message: { type: "topic/audit/run", requestId: "test-topic-audit-run", sessionId: "session-1", topicId: "topic-1", force: true },
     sessions: [makeSession()],
     generateEnvelope: async (stageName, prompt) => {
       prompts.push(prompt);
@@ -718,7 +834,7 @@ test("topic audit carries claim ids while single-signal P1 regeneration preserve
   const storage = new MemoryStorage();
   await seedTopic(storage);
   await handleTopicAuditMessage(storage, {
-    message: { type: "topic/audit/run", sessionId: "session-1", topicId: "topic-1" },
+    message: { type: "topic/audit/run", requestId: "test-topic-audit-run", sessionId: "session-1", topicId: "topic-1" },
     sessions: [makeSession()],
     generateEnvelope: async (stageName) => stageName === "final"
       ? {
@@ -757,7 +873,7 @@ test("topic audit carries claim ids while single-signal P1 regeneration preserve
   // same proposition and the new proposition gets claim-2 — claim-1 is never reused for another claim.
   const prompts: string[] = [];
   const third = await handleTopicAuditMessage(storage, {
-    message: { type: "topic/audit/run", sessionId: "session-1", topicId: "topic-1", force: true },
+    message: { type: "topic/audit/run", requestId: "test-topic-audit-run", sessionId: "session-1", topicId: "topic-1", force: true },
     sessions: [makeSession()],
     generateEnvelope: async (stageName, prompt) => {
       prompts.push(prompt);
@@ -809,7 +925,7 @@ test("topic audit does not replace the published report when continuity accounti
   const storage = new MemoryStorage();
   await seedTopic(storage);
   await handleTopicAuditMessage(storage, {
-    message: { type: "topic/audit/run", sessionId: "session-1", topicId: "topic-1" },
+    message: { type: "topic/audit/run", requestId: "test-topic-audit-run", sessionId: "session-1", topicId: "topic-1" },
     sessions: [makeSession()],
     generateEnvelope: async (stageName) => stageName === "final"
       ? {
@@ -830,7 +946,7 @@ test("topic audit does not replace the published report when continuity accounti
 
   await assert.rejects(
     () => handleTopicAuditMessage(storage, {
-      message: { type: "topic/audit/run", sessionId: "session-1", topicId: "topic-1", force: true },
+      message: { type: "topic/audit/run", requestId: "test-topic-audit-run", sessionId: "session-1", topicId: "topic-1", force: true },
       sessions: [makeSession()],
       generateEnvelope: async (stageName) => stageName === "final"
         ? {
@@ -862,7 +978,7 @@ test("topic audit run keeps per-signal P1 failures isolated", async () => {
   };
 
   const response = await handleTopicAuditMessage(storage, {
-    message: { type: "topic/audit/run", sessionId: "session-1", topicId: "topic-1" },
+    message: { type: "topic/audit/run", requestId: "test-topic-audit-run", sessionId: "session-1", topicId: "topic-1" },
     sessions: [makeSession()],
     generateEnvelope: generator,
     model: "mock:model"
@@ -883,7 +999,7 @@ test("topic audit append reuses unchanged per-signal P0.5 and P1 artifacts while
   const firstSession = makeSession();
   const firstCalls: string[] = [];
   const first = await handleTopicAuditMessage(storage, {
-    message: { type: "topic/audit/run", sessionId: "session-1", topicId: "topic-1" },
+    message: { type: "topic/audit/run", requestId: "test-topic-audit-run", sessionId: "session-1", topicId: "topic-1" },
     sessions: [{ ...firstSession, items: [firstSession.items[0]!] }],
     generateEnvelope: async (stageName) => {
       firstCalls.push(stageName);
@@ -897,7 +1013,7 @@ test("topic audit append reuses unchanged per-signal P0.5 and P1 artifacts while
   await saveTopic(storage, makeTopic());
   const secondCalls: string[] = [];
   const second = await handleTopicAuditMessage(storage, {
-    message: { type: "topic/audit/run", sessionId: "session-1", topicId: "topic-1" },
+    message: { type: "topic/audit/run", requestId: "test-topic-audit-run", sessionId: "session-1", topicId: "topic-1" },
     sessions: [makeSession()],
     generateEnvelope: async (stageName) => {
       secondCalls.push(stageName);
@@ -920,7 +1036,7 @@ test("topic audit topic-definition changes bypass fast return and publish a reba
   const storage = new MemoryStorage();
   await seedTopic(storage);
   await handleTopicAuditMessage(storage, {
-    message: { type: "topic/audit/run", sessionId: "session-1", topicId: "topic-1" },
+    message: { type: "topic/audit/run", requestId: "test-topic-audit-run", sessionId: "session-1", topicId: "topic-1" },
     sessions: [makeSession()],
     generateEnvelope: async (stageName) => makeEnvelope(stageName),
     model: "mock:model"
@@ -933,7 +1049,7 @@ test("topic audit topic-definition changes bypass fast return and publish a reba
 
   const calls: string[] = [];
   const result = await handleTopicAuditMessage(storage, {
-    message: { type: "topic/audit/run", sessionId: "session-1", topicId: "topic-1" },
+    message: { type: "topic/audit/run", requestId: "test-topic-audit-run", sessionId: "session-1", topicId: "topic-1" },
     sessions: [makeSession()],
     generateEnvelope: async (stageName) => {
       calls.push(stageName);
@@ -952,7 +1068,7 @@ test("topic audit retries a missing P1 on the same input instead of fast-returni
   await seedTopic(storage);
   let p1Calls = 0;
   await handleTopicAuditMessage(storage, {
-    message: { type: "topic/audit/run", sessionId: "session-1", topicId: "topic-1" },
+    message: { type: "topic/audit/run", requestId: "test-topic-audit-run", sessionId: "session-1", topicId: "topic-1" },
     sessions: [makeSession()],
     generateEnvelope: async (stageName) => {
       if (stageName === "p1-signal-reading") {
@@ -966,7 +1082,7 @@ test("topic audit retries a missing P1 on the same input instead of fast-returni
 
   const retryCalls: string[] = [];
   const retried = await handleTopicAuditMessage(storage, {
-    message: { type: "topic/audit/run", sessionId: "session-1", topicId: "topic-1" },
+    message: { type: "topic/audit/run", requestId: "test-topic-audit-run", sessionId: "session-1", topicId: "topic-1" },
     sessions: [makeSession()],
     generateEnvelope: async (stageName) => {
       retryCalls.push(stageName);
@@ -984,7 +1100,7 @@ test("topic audit restarts aggregate lenses when resume fills a previously missi
   await seedTopic(storage);
   let p1Calls = 0;
   await handleTopicAuditMessage(storage, {
-    message: { type: "topic/audit/run", sessionId: "session-1", topicId: "topic-1" },
+    message: { type: "topic/audit/run", requestId: "test-topic-audit-run", sessionId: "session-1", topicId: "topic-1" },
     sessions: [makeSession()],
     generateEnvelope: async (stageName) => {
       if (stageName === "p1-signal-reading" && ++p1Calls === 1) {
@@ -997,7 +1113,7 @@ test("topic audit restarts aggregate lenses when resume fills a previously missi
 
   const calls: string[] = [];
   await handleTopicAuditMessage(storage, {
-    message: { type: "topic/audit/run", sessionId: "session-1", topicId: "topic-1", fromStage: "narrative" },
+    message: { type: "topic/audit/run", requestId: "test-topic-audit-run", sessionId: "session-1", topicId: "topic-1", fromStage: "narrative" },
     sessions: [makeSession()],
     generateEnvelope: async (stageName) => {
       calls.push(stageName);
@@ -1013,7 +1129,7 @@ test("topic audit invalidates only the signal whose captured content changed", a
   const storage = new MemoryStorage();
   await seedTopic(storage);
   const first = await handleTopicAuditMessage(storage, {
-    message: { type: "topic/audit/run", sessionId: "session-1", topicId: "topic-1" },
+    message: { type: "topic/audit/run", requestId: "test-topic-audit-run", sessionId: "session-1", topicId: "topic-1" },
     sessions: [makeSession()],
     generateEnvelope: async (stageName) => makeEnvelope(stageName),
     model: "mock:model"
@@ -1042,7 +1158,7 @@ test("topic audit invalidates only the signal whose captured content changed", a
   };
   const calls: Array<{ stageName: string; prompt: string }> = [];
   const changed = await handleTopicAuditMessage(storage, {
-    message: { type: "topic/audit/run", sessionId: "session-1", topicId: "topic-1" },
+    message: { type: "topic/audit/run", requestId: "test-topic-audit-run", sessionId: "session-1", topicId: "topic-1" },
     sessions: [changedSession],
     generateEnvelope: async (stageName, prompt) => {
       calls.push({ stageName, prompt });
@@ -1069,7 +1185,7 @@ test("topic audit invalidates per-signal artifacts when signal order moves their
   const storage = new MemoryStorage();
   await seedTopic(storage);
   await handleTopicAuditMessage(storage, {
-    message: { type: "topic/audit/run", sessionId: "session-1", topicId: "topic-1" },
+    message: { type: "topic/audit/run", requestId: "test-topic-audit-run", sessionId: "session-1", topicId: "topic-1" },
     sessions: [makeSession()],
     generateEnvelope: async (stageName) => makeEnvelope(stageName),
     model: "mock:model"
@@ -1078,7 +1194,7 @@ test("topic audit invalidates per-signal artifacts when signal order moves their
   await saveTopic(storage, { ...makeTopic(), signalIds: ["signal-2", "signal-1"] });
   const calls: string[] = [];
   await handleTopicAuditMessage(storage, {
-    message: { type: "topic/audit/run", sessionId: "session-1", topicId: "topic-1" },
+    message: { type: "topic/audit/run", requestId: "test-topic-audit-run", sessionId: "session-1", topicId: "topic-1" },
     sessions: [makeSession()],
     generateEnvelope: async (stageName) => {
       calls.push(stageName);
@@ -1095,7 +1211,7 @@ test("topic audit refuses to replay a cache-valid memo containing an unknown inl
   const storage = new MemoryStorage();
   await seedTopic(storage);
   await handleTopicAuditMessage(storage, {
-    message: { type: "topic/audit/run", sessionId: "session-1", topicId: "topic-1" },
+    message: { type: "topic/audit/run", requestId: "test-topic-audit-run", sessionId: "session-1", topicId: "topic-1" },
     sessions: [makeSession()],
     generateEnvelope: async (stageName) => makeEnvelope(stageName),
     model: "mock:model"
@@ -1112,7 +1228,7 @@ test("topic audit refuses to replay a cache-valid memo containing an unknown inl
 
   const calls: string[] = [];
   await handleTopicAuditMessage(storage, {
-    message: { type: "topic/audit/run", sessionId: "session-1", topicId: "topic-1" },
+    message: { type: "topic/audit/run", requestId: "test-topic-audit-run", sessionId: "session-1", topicId: "topic-1" },
     sessions: [makeSession()],
     generateEnvelope: async (stageName) => {
       calls.push(stageName);
@@ -1177,7 +1293,7 @@ test("topic audit preserves the published report when a single-P1 checkpoint fai
   await storage.set({ "dlens:v1:signals": [makeSignal("signal-1", "item-1")] });
   const originalSession = makeSession();
   await handleTopicAuditMessage(storage, {
-    message: { type: "topic/audit/run", sessionId: "session-1", topicId: "topic-1" },
+    message: { type: "topic/audit/run", requestId: "test-topic-audit-run", sessionId: "session-1", topicId: "topic-1" },
     sessions: [{ ...originalSession, items: [originalSession.items[0]!] }],
     generateEnvelope: async (stageName) => makeEnvelope(stageName),
     model: "mock:model"
@@ -1231,7 +1347,7 @@ test("topic audit get, validate, and clear do not touch synthesis or topic signa
   storage.values[TOPIC_SYNTHESIS_STORAGE_KEY] = { "topic-1": { untouched: true } };
   storage.values[TOPIC_SIGNAL_READINGS_STORAGE_KEY] = { "topic-1::signal-1": { untouched: true } };
   await handleTopicAuditMessage(storage, {
-    message: { type: "topic/audit/run", sessionId: "session-1", topicId: "topic-1" },
+    message: { type: "topic/audit/run", requestId: "test-topic-audit-run", sessionId: "session-1", topicId: "topic-1" },
     sessions: [makeSession()],
     generateEnvelope: async (stageName) => makeEnvelope(stageName),
     model: "mock:model"

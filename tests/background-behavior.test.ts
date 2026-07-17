@@ -21,7 +21,8 @@ import {
   TOPIC_AUDIT_EPISODES_STORAGE_KEY,
   TOPIC_AUDIT_EVIDENCE_STORAGE_KEY,
   TOPIC_AUDIT_MEMOS_STORAGE_KEY,
-  TOPIC_AUDIT_REPORTS_STORAGE_KEY
+  TOPIC_AUDIT_REPORTS_STORAGE_KEY,
+  TOPIC_AUDIT_RUNS_STORAGE_KEY
 } from "../src/state/topic-audit-storage.ts";
 import { SIGNALS_STORAGE_KEY, TOPICS_STORAGE_KEY } from "../src/state/topic-storage.ts";
 import { createEmptyGlobalState, createEmptyTabState, type ExtensionGlobalState, type FolderMode, type FolderSynthesis, type ProductContext, type SavedAnalysisSnapshot, type Signal, type SessionItem, type SessionRecord, type TabUiState, type Topic } from "../src/state/types.ts";
@@ -42,6 +43,55 @@ function makeSession(id: string, mode: FolderMode): SessionRecord {
     items: []
   };
 }
+
+test("topic/audit/get returns typed persisted run status without provider secrets or raw output", async () => {
+  const topicSession = makeSession("topic-session", "topic");
+  const tabKey = backgroundTestables.tabStorageKey(TAB_ID);
+  const harness = await createHarness({
+    [backgroundTestables.GLOBAL_STORAGE_KEY]: {
+      ...makeGlobal([topicSession], topicSession.id),
+      settings: {
+        ...createEmptyGlobalState().settings,
+        oneLinerProvider: "google",
+        googleApiKey: "test-google-key"
+      }
+    },
+    [backgroundTestables.ACTIVE_SESSION_ID_STORAGE_KEY]: topicSession.id,
+    [tabKey]: createEmptyTabState(),
+    [TOPIC_AUDIT_RUNS_STORAGE_KEY]: {
+      schemaVersion: 1,
+      runs: {
+        "topic-1": {
+          sessionId: topicSession.id,
+          topicId: "topic-1",
+          requestId: "persisted-request",
+          state: "failed",
+          stage: "narrative",
+          failureKind: "provider_error",
+          startedAt: "2026-07-17T10:00:00.000Z",
+          updatedAt: "2026-07-17T10:01:00.000Z",
+          expiresAt: "2026-07-17T10:16:00.000Z"
+        }
+      }
+    }
+  });
+
+  const response = await harness.dispatch({ type: "topic/audit/get", topicId: "topic-1" });
+
+  assert.equal(response.ok, true);
+  assert.deepEqual(response.auditRunStatus, {
+    sessionId: topicSession.id,
+    topicId: "topic-1",
+    requestId: "persisted-request",
+    state: "failed",
+    stage: "narrative",
+    failureKind: "provider_error",
+    startedAt: "2026-07-17T10:00:00.000Z",
+    updatedAt: "2026-07-17T10:01:00.000Z",
+    expiresAt: "2026-07-17T10:16:00.000Z"
+  });
+  assert.doesNotMatch(JSON.stringify(response), /test-google-key|raw model response|prompt/i);
+});
 
 function makePrCriteria(): PrCampaign["criteria"] {
   return [

@@ -2870,12 +2870,13 @@ export default defineBackground(() => {
             const result = await handleTopicAuditMessage(chrome.storage.local, {
               message,
               sessions: current.global.sessions,
-              generateEnvelope: async (stageName, prompt) => generateTopicAuditEnvelope(
+              generateEnvelope: async (stageName, prompt, onAttempt) => generateTopicAuditEnvelope(
                 providerConfig.provider,
                 providerConfig.apiKey,
                 stageName,
                 prompt,
-                stageName === "final" ? 3200 : 2200
+                stageName === "final" ? 3200 : 2200,
+                { onAttempt }
               ),
               model: providerConfig.provider === "openai"
                 ? `openai:${OPENAI_COMPARE_MODEL}`
