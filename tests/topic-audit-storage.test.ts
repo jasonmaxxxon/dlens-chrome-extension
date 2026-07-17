@@ -3,25 +3,32 @@ import test from "node:test";
 import { setImmediate as nextTick } from "node:timers/promises";
 
 import type { CrossTopicCalibration, EvidencePacket, LensMemo, SignalReading, TopicAuditEpisode, TopicAuditReport } from "../src/compare/topic-audit.ts";
+import type { TopicAuditRunStatus } from "../src/compare/topic-audit-envelope-contract.ts";
 import {
   CROSS_TOPIC_CALIBRATIONS_STORAGE_KEY,
   TOPIC_AUDIT_EPISODES_STORAGE_KEY,
   TOPIC_AUDIT_EVIDENCE_STORAGE_KEY,
   TOPIC_AUDIT_MEMOS_STORAGE_KEY,
   TOPIC_AUDIT_REPORTS_STORAGE_KEY,
+  TOPIC_AUDIT_RUNS_STORAGE_KEY,
+  advanceTopicAuditRun,
+  beginTopicAuditRun,
   buildTopicAuditCacheKey,
   clearTopicAuditStorageTopic,
+  failTopicAuditRun,
   isTopicAuditPublicationCompatible,
   loadCrossTopicCalibration,
   loadTopicAuditEpisodes,
   loadTopicAuditEvidence,
   loadTopicAuditMemos,
   loadTopicAuditReport,
+  loadTopicAuditRun,
   publishTopicAuditReportAndEpisodes,
   saveCrossTopicCalibration,
   saveTopicAuditEvidence,
   saveTopicAuditEpisodes,
   saveTopicAuditMemos,
+  saveTopicAuditMemosForRun,
   saveTopicAuditReport
 } from "../src/state/topic-audit-storage.ts";
 
@@ -36,6 +43,22 @@ class MemoryStorage {
   async set(values: Record<string, unknown>): Promise<void> {
     this.setCalls += 1;
     this.values = { ...this.values, ...values };
+  }
+}
+
+class RejectOnceStorage extends MemoryStorage {
+  private shouldReject = true;
+
+  constructor(private readonly rejectedKey: string) {
+    super();
+  }
+
+  override async set(values: Record<string, unknown>): Promise<void> {
+    if (this.shouldReject && this.rejectedKey in values) {
+      this.shouldReject = false;
+      throw new Error("synthetic run-cache write failure");
+    }
+    await super.set(values);
   }
 }
 
@@ -164,6 +187,23 @@ function makeMemoBundle(topicId: string): {
       model: "mock:model",
       generatedAt: "2026-07-17T00:00:00.000Z"
     }]
+  };
+}
+
+function makeRunStatus(
+  requestId: string,
+  overrides: Partial<TopicAuditRunStatus> = {}
+): TopicAuditRunStatus {
+  return {
+    sessionId: "session-1",
+    topicId: "topic-1",
+    requestId,
+    state: "running",
+    stage: "p1-signal-reading",
+    startedAt: "2026-07-17T10:00:00.000Z",
+    updatedAt: "2026-07-17T10:00:00.000Z",
+    expiresAt: "2026-07-17T10:15:00.000Z",
+    ...overrides
   };
 }
 
@@ -480,6 +520,117 @@ test("topic audit publishes report and episode ledger in one storage write", asy
   assert.deepEqual(await loadTopicAuditEpisodes(storage, "topic-1"), [episode]);
 });
 
+test("topic audit run cache normalizes malformed disposable payload without touching durable artifacts", async () => {
+  const storage = new MemoryStorage();
+  storage.values[TOPIC_AUDIT_RUNS_STORAGE_KEY] = ["not-a-map"];
+  storage.values[TOPIC_AUDIT_MEMOS_STORAGE_KEY] = { "topic-1": makeMemoBundle("topic-1") };
+
+  assert.equal(await loadTopicAuditRun(storage, "topic-1", "2026-07-17T10:00:00.000Z"), null);
+  assert.deepEqual(await loadTopicAuditMemos(storage, "topic-1"), makeMemoBundle("topic-1"));
+});
+
+test("topic audit run cache discards an unknown disposable schema version", async () => {
+  const storage = new MemoryStorage();
+  storage.values[TOPIC_AUDIT_RUNS_STORAGE_KEY] = {
+    schemaVersion: 2,
+    runs: { "topic-1": makeRunStatus("future-request") }
+  };
+
+  assert.equal(await loadTopicAuditRun(storage, "topic-1", "2026-07-17T10:00:00.000Z"), null);
+});
+
+test("topic audit run lease expires to interrupted and blocks late owner writes", async () => {
+  const storage = new MemoryStorage();
+  await beginTopicAuditRun(storage, {
+    sessionId: "session-1",
+    topicId: "topic-1",
+    requestId: "request-old",
+    state: "running",
+    stage: "narrative",
+    startedAt: "2026-07-17T09:00:00.000Z",
+    updatedAt: "2026-07-17T09:00:00.000Z",
+    expiresAt: "2026-07-17T09:15:00.000Z"
+  });
+
+  const expired = await loadTopicAuditRun(storage, "topic-1", "2026-07-17T09:16:00.000Z");
+  assert.equal(expired?.state, "failed");
+  assert.equal(expired?.failureKind, "interrupted");
+  await assert.rejects(
+    () => saveTopicAuditMemosForRun(storage, { topicId: "topic-1", requestId: "request-old", now: "2026-07-17T09:16:01.000Z" }, makeMemoBundle("topic-1")),
+    /no longer owns/i
+  );
+});
+
+test("topic audit run advances, checkpoints, and records an owned failure", async () => {
+  const storage = new MemoryStorage();
+  await beginTopicAuditRun(storage, makeRunStatus("request-1"));
+
+  const owner = { topicId: "topic-1", requestId: "request-1", now: "2026-07-17T10:01:00.000Z" };
+  const advanced = await advanceTopicAuditRun(storage, owner, "narrative");
+  assert.deepEqual(advanced, makeRunStatus("request-1", {
+    stage: "narrative",
+    updatedAt: owner.now,
+    expiresAt: "2026-07-17T10:16:00.000Z"
+  }));
+
+  await saveTopicAuditMemosForRun(storage, owner, makeMemoBundle("topic-1"));
+  assert.deepEqual(await loadTopicAuditMemos(storage, "topic-1"), makeMemoBundle("topic-1"));
+
+  const failed = await failTopicAuditRun(storage, { ...owner, now: "2026-07-17T10:02:00.000Z" }, "timeout");
+  assert.equal(failed.state, "failed");
+  assert.equal(failed.failureKind, "timeout");
+  assert.equal((await loadTopicAuditRun(storage, "topic-1", "2026-07-17T10:02:00.000Z"))?.state, "failed");
+});
+
+test("a newer topic audit request prevents an older request from publishing late", async () => {
+  const storage = new MemoryStorage();
+  await beginTopicAuditRun(storage, makeRunStatus("request-old"));
+  await beginTopicAuditRun(storage, makeRunStatus("request-new"));
+
+  await assert.rejects(
+    () => publishTopicAuditReportAndEpisodes(storage, makeReportForEpisode(makeEpisode(1)), [makeEpisode(1)], {
+      topicId: "topic-1",
+      requestId: "request-old",
+      now: "2026-07-17T10:01:00.000Z"
+    }),
+    /no longer owns/i
+  );
+  assert.equal(await loadTopicAuditReport(storage, "topic-1"), null);
+});
+
+test("owned topic audit publication clears the run cache in its aggregate write", async () => {
+  const storage = new MemoryStorage();
+  const run = makeRunStatus("request-1");
+  await beginTopicAuditRun(storage, run);
+  storage.setCalls = 0;
+  const episode = makeEpisode(1);
+
+  await publishTopicAuditReportAndEpisodes(storage, makeReportForEpisode(episode), [episode], {
+    topicId: run.topicId,
+    requestId: run.requestId,
+    now: "2026-07-17T10:01:00.000Z"
+  });
+
+  assert.equal(storage.setCalls, 1);
+  assert.equal(await loadTopicAuditRun(storage, run.topicId, "2026-07-17T10:01:00.000Z"), null);
+});
+
+test("clearing a topic removes its disposable run cache entry", async () => {
+  const storage = new MemoryStorage();
+  await beginTopicAuditRun(storage, makeRunStatus("request-1"));
+
+  await clearTopicAuditStorageTopic(storage, "topic-1");
+
+  assert.equal(await loadTopicAuditRun(storage, "topic-1", "2026-07-17T10:01:00.000Z"), null);
+});
+
+test("a rejected run-cache write does not poison the shared mutation queue", async () => {
+  const storage = new RejectOnceStorage(TOPIC_AUDIT_RUNS_STORAGE_KEY);
+  await assert.rejects(() => beginTopicAuditRun(storage, makeRunStatus("request-fail")));
+  await saveTopicAuditMemos(storage, "topic-2", makeMemoBundle("topic-2"));
+  assert.ok(await loadTopicAuditMemos(storage, "topic-2"));
+});
+
 test("topic audit mutation queue recovers after one rejected write", async () => {
   const storage = new ControlledInterleavingStorage();
   const firstSave = saveTopicAuditEvidence(storage, "topic-1", [makePacket()]);
@@ -516,7 +667,7 @@ test("topic audit save and clear mutations obey call order on the same queue", a
     assert.equal(storage.pendingGets.length, 1, "clear must not start reading before the prior save publishes");
 
     await finishPendingMutation(storage, 1, "save-before-clear save");
-    await finishPendingMutation(storage, 4, "save-before-clear clear");
+    await finishPendingMutation(storage, 5, "save-before-clear clear");
     await Promise.all([save, clear]);
 
     const evidence = storage.values[TOPIC_AUDIT_EVIDENCE_STORAGE_KEY] as Record<string, unknown>;
@@ -527,14 +678,14 @@ test("topic audit save and clear mutations obey call order on the same queue", a
     const storage = new ControlledInterleavingStorage();
     storage.values[TOPIC_AUDIT_EVIDENCE_STORAGE_KEY] = { "topic-1": [makePacket()] };
     const clear = clearTopicAuditStorageTopic(storage, "topic-1");
-    await waitFor(() => storage.pendingGets.length === 4, "clear-before-save gets");
+    await waitFor(() => storage.pendingGets.length === 5, "clear-before-save gets");
 
     const packets = [makePacket({ auditRunId: "audit-later" })];
     const save = saveTopicAuditEvidence(storage, "topic-1", packets);
     await nextTick();
-    assert.equal(storage.pendingGets.length, 4, "save must not read before the prior clear publishes");
+    assert.equal(storage.pendingGets.length, 5, "save must not read before the prior clear publishes");
 
-    await finishPendingMutation(storage, 4, "clear-before-save clear");
+    await finishPendingMutation(storage, 5, "clear-before-save clear");
     await finishPendingMutation(storage, 1, "clear-before-save save");
     await Promise.all([clear, save]);
 
@@ -556,7 +707,7 @@ test("topic audit publication and clear mutations obey call order on the same qu
     assert.equal(storage.pendingGets.length, 2, "clear must wait for the prior publication");
 
     await finishPendingMutation(storage, 2, "publication-before-clear publication");
-    await finishPendingMutation(storage, 4, "publication-before-clear clear");
+    await finishPendingMutation(storage, 5, "publication-before-clear clear");
     await Promise.all([publication, clear]);
 
     const reports = storage.values[TOPIC_AUDIT_REPORTS_STORAGE_KEY] as Record<string, unknown>;
@@ -571,15 +722,15 @@ test("topic audit publication and clear mutations obey call order on the same qu
     storage.values[TOPIC_AUDIT_REPORTS_STORAGE_KEY] = { "topic-1": makeReportForEpisode(oldEpisode) };
     storage.values[TOPIC_AUDIT_EPISODES_STORAGE_KEY] = { "topic-1": [oldEpisode] };
     const clear = clearTopicAuditStorageTopic(storage, "topic-1");
-    await waitFor(() => storage.pendingGets.length === 4, "clear-before-publication gets");
+    await waitFor(() => storage.pendingGets.length === 5, "clear-before-publication gets");
 
     const laterEpisode = makeEpisode(2);
     const laterReport = makeReportForEpisode(laterEpisode);
     const publication = publishTopicAuditReportAndEpisodes(storage, laterReport, [laterEpisode]);
     await nextTick();
-    assert.equal(storage.pendingGets.length, 4, "publication must wait for the prior clear");
+    assert.equal(storage.pendingGets.length, 5, "publication must wait for the prior clear");
 
-    await finishPendingMutation(storage, 4, "clear-before-publication clear");
+    await finishPendingMutation(storage, 5, "clear-before-publication clear");
     await finishPendingMutation(storage, 2, "clear-before-publication publication");
     await Promise.all([clear, publication]);
 

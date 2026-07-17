@@ -3,6 +3,7 @@ import { readFileSync } from "node:fs";
 import test from "node:test";
 
 import { PRODUCT_CONTEXT_STORAGE_KEY } from "../src/compare/product-context.ts";
+import { TOPIC_AUDIT_RUNS_STORAGE_KEY } from "../src/state/topic-audit-storage.ts";
 import { GLOBAL_STATE_STORAGE_KEY } from "../src/state/storage-keys.ts";
 import { runMigrationsFor, STORAGE_MIGRATIONS } from "../src/state/storage-schema.ts";
 
@@ -40,6 +41,14 @@ test("STORAGE_MIGRATIONS covers both currently-registered keys", () => {
   const registeredKeys = new Set(STORAGE_MIGRATIONS.map((m) => m.key));
   assert.equal(registeredKeys.has(GLOBAL_STATE_STORAGE_KEY), true, "missing global-state migration");
   assert.equal(registeredKeys.has(PRODUCT_CONTEXT_STORAGE_KEY), true, "missing product-context migration");
+});
+
+test("topic audit run cache remains outside the durable migration registry", () => {
+  assert.equal(
+    STORAGE_MIGRATIONS.map(({ key }) => key).includes(TOPIC_AUDIT_RUNS_STORAGE_KEY),
+    false,
+    "topic-audit-runs is a disposable leased cache, not an unregistered durable family"
+  );
 });
 
 test("STORAGE_MIGRATIONS entries are forward-only and reach version 1", () => {
