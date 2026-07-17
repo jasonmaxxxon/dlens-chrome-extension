@@ -1026,6 +1026,13 @@ test("TopicDetailView retains the previous Atlas for stale and failed states", (
     itemId: packet.itemId,
     capturedAt: packet.capturedAt
   }));
+  const failedRerunEvidence = signalAtlasEvidence.map((packet) => ({ ...packet, auditRunId: "audit-2" }));
+  const failedRerunMemos: TopicAuditMemoBundle = {
+    ...signalAtlasMemos,
+    auditRunId: "audit-2",
+    signalReadings: signalAtlasMemos.signalReadings.map((reading) => ({ ...reading, auditRunId: "audit-2" })),
+    lensMemos: signalAtlasMemos.lensMemos.map((memo) => ({ ...memo, auditRunId: "audit-2" }))
+  };
   const staleHtml = renderToStaticMarkup(
     topicDetailViewElement({
       topic,
@@ -1047,8 +1054,8 @@ test("TopicDetailView retains the previous Atlas for stale and failed states", (
       signals: atlasSignals,
       pairs: [],
       sessionItems: atlasSignals.map((signal) => buildReadySessionItem(signal.itemId)),
-      auditEvidence: signalAtlasEvidence,
-      auditMemos: signalAtlasMemos,
+      auditEvidence: failedRerunEvidence,
+      auditMemos: failedRerunMemos,
       auditReport: completedAuditReport,
       auditSummary: { reportStatus: "failed", analyzedCount: 6, queuedCount: 0, failedStage: 4, failedReason: "provider timeout" },
       auditRunStatus: {

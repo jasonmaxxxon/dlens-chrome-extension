@@ -11,6 +11,7 @@
 | Task 7 final folder-scoped status rail | 909983 | 255021 | 202997 | +1112 | +942 | +638 | within all current limits |
 | Final review-fix checkpoint | 909981 | 255039 | 202971 | +1110 | +960 | +612 | within all current limits |
 | Truthful-copy follow-up checkpoint | 909846 | 255007 | 202998 | +975 | +928 | +639 | within all current limits |
+| Failed-rerun persisted-report truth checkpoint | 909846 | 255006 | 202909 | +975 | +927 | +550 | within all current limits |
 
 Current limits: raw 910000 bytes; gzip -9 256000 bytes; brotli 203000 bytes.
 
@@ -25,3 +26,7 @@ Final review-fix headroom: raw `19`, gzip -9 `961`, brotli `29` bytes.
 Truthful-copy follow-up delta versus the final review-fix checkpoint: raw `-135`, gzip -9 `-32`, brotli `+27` bytes.
 
 Truthful-copy follow-up headroom: raw `154`, gzip -9 `993`, brotli `2` bytes.
+
+Failed-rerun truth delta versus the truthful-copy follow-up checkpoint: raw `0`, gzip -9 `-1`, brotli `-89` bytes.
+
+Failed-rerun truth headroom: raw `154`, gzip -9 `994`, brotli `91` bytes.

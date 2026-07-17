@@ -851,7 +851,7 @@ function buildAuditViewModel({
     absenceProse: absence.prose,
     caveats: absence.caveats,
     shardReadings: auditMemos?.shardReadings ?? [],
-    hasAuditReport: Boolean(compatibleReport),
+    hasAuditReport: Boolean(auditReport),
     canRunAudit,
     blockedReason: canRunAudit
       ? undefined
