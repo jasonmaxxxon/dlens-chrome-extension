@@ -43,11 +43,8 @@ import {
   type TopicAuditStageName
 } from "../compare/topic-audit.ts";
 import {
-  TOPIC_AUDIT_EVIDENCE_STORAGE_KEY,
-  TOPIC_AUDIT_EPISODES_STORAGE_KEY,
-  TOPIC_AUDIT_MEMOS_STORAGE_KEY,
-  TOPIC_AUDIT_REPORTS_STORAGE_KEY,
   buildTopicAuditCacheKey,
+  clearTopicAuditStorageTopic,
   loadTopicAuditEvidence,
   loadTopicAuditEpisodes,
   loadTopicAuditMemos,
@@ -1262,15 +1259,6 @@ async function runP1ForSingleSignal(
   };
 }
 
-async function deleteMapEntry(storageArea: StorageAreaLike, storageKey: string, key: string): Promise<void> {
-  const raw = await storageArea.get(storageKey);
-  const map = raw[storageKey] && typeof raw[storageKey] === "object" && !Array.isArray(raw[storageKey])
-    ? { ...(raw[storageKey] as Record<string, unknown>) }
-    : {};
-  delete map[key];
-  await storageArea.set({ [storageKey]: map });
-}
-
 export async function handleTopicAuditMessage(
   storageArea: StorageAreaLike,
   options: TopicAuditHandlerOptions
@@ -1326,10 +1314,7 @@ export async function handleTopicAuditMessage(
       };
     }
     case "topic/audit/clear":
-      await deleteMapEntry(storageArea, TOPIC_AUDIT_EVIDENCE_STORAGE_KEY, message.topicId);
-      await deleteMapEntry(storageArea, TOPIC_AUDIT_MEMOS_STORAGE_KEY, message.topicId);
-      await deleteMapEntry(storageArea, TOPIC_AUDIT_REPORTS_STORAGE_KEY, message.topicId);
-      await deleteMapEntry(storageArea, TOPIC_AUDIT_EPISODES_STORAGE_KEY, message.topicId);
+      await clearTopicAuditStorageTopic(storageArea, message.topicId);
       return { auditEvidence: [], auditMemos: null, auditReport: null, auditEpisodes: [] };
     case "cross-topic/calibrate": {
       if (message.topicIds.length < 2) {

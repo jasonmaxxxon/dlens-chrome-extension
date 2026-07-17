@@ -7,7 +7,7 @@ export const TOPIC_AUDIT_REPORTS_STORAGE_KEY = "dlens:v1:topic-audit-reports";
 export const TOPIC_AUDIT_EPISODES_STORAGE_KEY = "dlens:v1:topic-audit-episodes";
 export const CROSS_TOPIC_CALIBRATIONS_STORAGE_KEY = "dlens:v1:cross-topic-calibrations";
 
-let topicAuditPublicationQueue: Promise<void> = Promise.resolve();
+let topicAuditMutationQueue: Promise<void> = Promise.resolve();
 
 export interface StorageAreaLike {
   get(key: string): Promise<Record<string, unknown>>;
@@ -66,6 +66,34 @@ async function writeStorageMap(storageArea: StorageAreaLike, key: string, map: R
   await storageArea.set({ [key]: map });
 }
 
+function enqueueTopicAuditMutation<T>(mutation: () => Promise<T>): Promise<T> {
+  const operation = topicAuditMutationQueue.then(mutation);
+  topicAuditMutationQueue = operation.then(() => undefined, () => undefined);
+  return operation;
+}
+
+async function saveStorageMapEntry<T>(
+  storageArea: StorageAreaLike,
+  storageKey: string,
+  entryKey: string,
+  value: T
+): Promise<Record<string, T>> {
+  const map = await readStorageMap(storageArea, storageKey);
+  const next = { ...map, [entryKey]: value } as Record<string, T>;
+  await writeStorageMap(storageArea, storageKey, next);
+  return next;
+}
+
+async function deleteStorageMapEntry(
+  storageArea: StorageAreaLike,
+  storageKey: string,
+  entryKey: string
+): Promise<Record<string, unknown>> {
+  const map = { ...await readStorageMap(storageArea, storageKey) };
+  delete map[entryKey];
+  return map;
+}
+
 function stableHash(value: string): string {
   let hash = 0x811c9dc5;
   for (let index = 0; index < value.length; index += 1) {
@@ -100,10 +128,7 @@ export async function saveTopicAuditEvidence(
   topicId: string,
   packets: EvidencePacket[]
 ): Promise<Record<string, EvidencePacket[]>> {
-  const map = await readStorageMap(storageArea, TOPIC_AUDIT_EVIDENCE_STORAGE_KEY);
-  const next = { ...map, [topicId]: packets } as Record<string, EvidencePacket[]>;
-  await writeStorageMap(storageArea, TOPIC_AUDIT_EVIDENCE_STORAGE_KEY, next);
-  return next;
+  return enqueueTopicAuditMutation(() => saveStorageMapEntry(storageArea, TOPIC_AUDIT_EVIDENCE_STORAGE_KEY, topicId, packets));
 }
 
 export async function loadTopicAuditEvidence(
@@ -120,10 +145,7 @@ export async function saveTopicAuditMemos(
   topicId: string,
   bundle: TopicAuditMemoBundle
 ): Promise<Record<string, TopicAuditMemoBundle>> {
-  const map = await readStorageMap(storageArea, TOPIC_AUDIT_MEMOS_STORAGE_KEY);
-  const next = { ...map, [topicId]: bundle } as Record<string, TopicAuditMemoBundle>;
-  await writeStorageMap(storageArea, TOPIC_AUDIT_MEMOS_STORAGE_KEY, next);
-  return next;
+  return enqueueTopicAuditMutation(() => saveStorageMapEntry(storageArea, TOPIC_AUDIT_MEMOS_STORAGE_KEY, topicId, bundle));
 }
 
 export async function loadTopicAuditMemos(
@@ -139,10 +161,7 @@ export async function saveTopicAuditReport(
   storageArea: StorageAreaLike,
   report: TopicAuditReport
 ): Promise<Record<string, TopicAuditReport>> {
-  const map = await readStorageMap(storageArea, TOPIC_AUDIT_REPORTS_STORAGE_KEY);
-  const next = { ...map, [report.topicId]: report } as Record<string, TopicAuditReport>;
-  await writeStorageMap(storageArea, TOPIC_AUDIT_REPORTS_STORAGE_KEY, next);
-  return next;
+  return enqueueTopicAuditMutation(() => saveStorageMapEntry(storageArea, TOPIC_AUDIT_REPORTS_STORAGE_KEY, report.topicId, report));
 }
 
 export async function loadTopicAuditReport(
@@ -159,13 +178,12 @@ export async function saveTopicAuditEpisodes(
   topicId: string,
   episodes: readonly TopicAuditEpisode[]
 ): Promise<Record<string, TopicAuditEpisode[]>> {
-  const map = await readStorageMap(storageArea, TOPIC_AUDIT_EPISODES_STORAGE_KEY);
-  const next = {
-    ...map,
-    [topicId]: [...episodes].slice(-TOPIC_AUDIT_EPISODE_LIMIT)
-  } as Record<string, TopicAuditEpisode[]>;
-  await writeStorageMap(storageArea, TOPIC_AUDIT_EPISODES_STORAGE_KEY, next);
-  return next;
+  return enqueueTopicAuditMutation(() => saveStorageMapEntry(
+    storageArea,
+    TOPIC_AUDIT_EPISODES_STORAGE_KEY,
+    topicId,
+    [...episodes].slice(-TOPIC_AUDIT_EPISODE_LIMIT)
+  ));
 }
 
 export async function loadTopicAuditEpisodes(
@@ -182,7 +200,7 @@ export async function publishTopicAuditReportAndEpisodes(
   report: TopicAuditReport,
   episodes: readonly TopicAuditEpisode[]
 ): Promise<void> {
-  const publication = topicAuditPublicationQueue.then(async () => {
+  await enqueueTopicAuditMutation(async () => {
     const [reportMap, episodeMap] = await Promise.all([
       readStorageMap(storageArea, TOPIC_AUDIT_REPORTS_STORAGE_KEY),
       readStorageMap(storageArea, TOPIC_AUDIT_EPISODES_STORAGE_KEY)
@@ -195,18 +213,18 @@ export async function publishTopicAuditReportAndEpisodes(
       }
     });
   });
-  topicAuditPublicationQueue = publication.catch(() => undefined);
-  await publication;
 }
 
 export async function saveCrossTopicCalibration(
   storageArea: StorageAreaLike,
   calibration: CrossTopicCalibration
 ): Promise<Record<string, CrossTopicCalibration>> {
-  const map = await readStorageMap(storageArea, CROSS_TOPIC_CALIBRATIONS_STORAGE_KEY);
-  const next = { ...map, [calibration.id]: calibration } as Record<string, CrossTopicCalibration>;
-  await writeStorageMap(storageArea, CROSS_TOPIC_CALIBRATIONS_STORAGE_KEY, next);
-  return next;
+  return enqueueTopicAuditMutation(() => saveStorageMapEntry(
+    storageArea,
+    CROSS_TOPIC_CALIBRATIONS_STORAGE_KEY,
+    calibration.id,
+    calibration
+  ));
 }
 
 export async function loadCrossTopicCalibration(
@@ -216,4 +234,24 @@ export async function loadCrossTopicCalibration(
   const map = await readStorageMap(storageArea, CROSS_TOPIC_CALIBRATIONS_STORAGE_KEY);
   const calibration = map[id];
   return calibration && typeof calibration === "object" && !Array.isArray(calibration) ? calibration as CrossTopicCalibration : null;
+}
+
+export async function clearTopicAuditStorageTopic(
+  storageArea: StorageAreaLike,
+  topicId: string
+): Promise<void> {
+  await enqueueTopicAuditMutation(async () => {
+    const [evidenceMap, memoMap, reportMap, episodeMap] = await Promise.all([
+      deleteStorageMapEntry(storageArea, TOPIC_AUDIT_EVIDENCE_STORAGE_KEY, topicId),
+      deleteStorageMapEntry(storageArea, TOPIC_AUDIT_MEMOS_STORAGE_KEY, topicId),
+      deleteStorageMapEntry(storageArea, TOPIC_AUDIT_REPORTS_STORAGE_KEY, topicId),
+      deleteStorageMapEntry(storageArea, TOPIC_AUDIT_EPISODES_STORAGE_KEY, topicId)
+    ]);
+    await storageArea.set({
+      [TOPIC_AUDIT_EVIDENCE_STORAGE_KEY]: evidenceMap,
+      [TOPIC_AUDIT_MEMOS_STORAGE_KEY]: memoMap,
+      [TOPIC_AUDIT_REPORTS_STORAGE_KEY]: reportMap,
+      [TOPIC_AUDIT_EPISODES_STORAGE_KEY]: episodeMap
+    });
+  });
 }

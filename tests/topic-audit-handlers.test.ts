@@ -8,10 +8,14 @@ import {
   TOPIC_AUDIT_EPISODES_STORAGE_KEY,
   TOPIC_AUDIT_MEMOS_STORAGE_KEY,
   TOPIC_AUDIT_REPORTS_STORAGE_KEY,
+  loadCrossTopicCalibration,
   loadTopicAuditEvidence,
   loadTopicAuditEpisodes,
   loadTopicAuditMemos,
   loadTopicAuditReport,
+  saveCrossTopicCalibration,
+  saveTopicAuditEpisodes,
+  saveTopicAuditEvidence,
   saveTopicAuditMemos,
   saveTopicAuditReport
 } from "../src/state/topic-audit-storage.ts";
@@ -21,12 +25,14 @@ import type { SessionItem, SessionRecord, Signal, Topic } from "../src/state/typ
 
 class MemoryStorage {
   values: Record<string, unknown> = {};
+  setCalls = 0;
 
   async get(key: string): Promise<Record<string, unknown>> {
     return { [key]: this.values[key] };
   }
 
   async set(values: Record<string, unknown>): Promise<void> {
+    this.setCalls += 1;
     this.values = { ...this.values, ...values };
   }
 }
@@ -191,6 +197,54 @@ function makeEnvelope(label: string): AuditPromptEnvelope {
     evidenceRefs: ["S1.OP"],
     caveats: [],
     coverage: "1/2"
+  };
+}
+
+function makeStoredPacket(topicId: string): Awaited<ReturnType<typeof loadTopicAuditEvidence>>[number] {
+  return {
+    auditRunId: `audit-${topicId}`,
+    inputHash: `hash-${topicId}`,
+    topicId,
+    signalId: `signal-${topicId}`,
+    itemId: `item-${topicId}`,
+    shortCode: topicId === "topic-1" ? "S1" : "S2",
+    sourceUrl: `https://www.threads.net/@${topicId}/post/1`,
+    capturedAt: "2026-07-17T00:00:00.000Z",
+    status: "succeeded",
+    opAuthor: topicId,
+    opText: `${topicId} root`,
+    opLikes: 1,
+    commentCount: 1,
+    replyFragments: [{ ref: `${topicId === "topic-1" ? "S1" : "S2"}.R1`, author: "reader", text: "reply", likes: null, role: "audience" }],
+    gaps: [],
+    notes: []
+  };
+}
+
+function makeStoredEpisode(topicId: string) {
+  return {
+    version: "topic-audit-episode.v1" as const,
+    id: `episode-${topicId}`,
+    topicId,
+    auditRunId: `audit-${topicId}`,
+    inputHash: `hash-${topicId}`,
+    generatedAt: "2026-07-17T00:00:00.000Z",
+    transition: "first" as const,
+    fingerprints: { evidence: `e-${topicId}`, definition: `d-${topicId}`, pipeline: `p-${topicId}` },
+    sourceCount: 1,
+    stateSnapshot: {
+      version: "topic-narrative-state.v1" as const,
+      topicId,
+      auditRunId: `audit-${topicId}`,
+      fingerprints: { evidence: `e-${topicId}`, definition: `d-${topicId}`, pipeline: `p-${topicId}` },
+      nextIds: { claim: 1, voice: 1, question: 1 },
+      claims: [],
+      voices: [],
+      openQuestions: [],
+      updatedAt: "2026-07-17T00:00:00.000Z"
+    },
+    delta: [],
+    reactionSnapshot: { patterns: [] }
   };
 }
 
@@ -1205,6 +1259,97 @@ test("topic audit get, validate, and clear do not touch synthesis or topic signa
   assert.equal(await loadTopicAuditReport(storage, "topic-1"), null);
   assert.deepEqual(await loadTopicAuditEpisodes(storage, "topic-1"), []);
   assert.ok(storage.values[TOPIC_AUDIT_EPISODES_STORAGE_KEY]);
+  assert.deepEqual(storage.values[TOPIC_SYNTHESIS_STORAGE_KEY], { "topic-1": { untouched: true } });
+  assert.deepEqual(storage.values[TOPIC_SIGNAL_READINGS_STORAGE_KEY], { "topic-1::signal-1": { untouched: true } });
+});
+
+test("topic audit clear removes only the requested topic in one write and leaves other topics plus unrelated keys intact", async () => {
+  const storage = new MemoryStorage();
+  const topicOneEpisode = makeStoredEpisode("topic-1");
+  const topicTwoEpisode = makeStoredEpisode("topic-2");
+  const topicOneReport = {
+    auditRunId: "audit-topic-1",
+    inputHash: "hash-topic-1",
+    topicId: "topic-1",
+    topicName: "work",
+    generatedFrom: [],
+    coveragePerSection: {},
+    sections: {
+      overall: "work overall",
+      lexicon: "",
+      scaleOrTime: "",
+      narratives: "",
+      audience: "",
+      absence: "",
+      editorial: ""
+    },
+    limitations: [],
+    narrativeState: topicOneEpisode.stateSnapshot,
+    promptVersion: "p6",
+    model: "mock:model",
+    generatedAt: "2026-07-17T00:00:00.000Z"
+  };
+  const topicTwoReport = {
+    ...topicOneReport,
+    auditRunId: "audit-topic-2",
+    inputHash: "hash-topic-2",
+    topicId: "topic-2",
+    topicName: "love",
+    sections: { ...topicOneReport.sections, overall: "love overall" },
+    narrativeState: topicTwoEpisode.stateSnapshot
+  };
+
+  await saveTopicAuditEvidence(storage, "topic-1", [makeStoredPacket("topic-1")]);
+  await saveTopicAuditEvidence(storage, "topic-2", [makeStoredPacket("topic-2")]);
+  await saveTopicAuditMemos(storage, "topic-1", {
+    auditRunId: "audit-topic-1",
+    inputHash: "hash-topic-1",
+    signalReadings: [],
+    lensMemos: []
+  });
+  await saveTopicAuditMemos(storage, "topic-2", {
+    auditRunId: "audit-topic-2",
+    inputHash: "hash-topic-2",
+    signalReadings: [],
+    lensMemos: []
+  });
+  await saveTopicAuditReport(storage, topicOneReport);
+  await saveTopicAuditReport(storage, topicTwoReport);
+  await saveTopicAuditEpisodes(storage, "topic-1", [topicOneEpisode]);
+  await saveTopicAuditEpisodes(storage, "topic-2", [topicTwoEpisode]);
+  await saveCrossTopicCalibration(storage, {
+    id: "calibration-1",
+    topicIds: ["topic-1", "topic-2"],
+    topicsCompared: ["topic-1", "topic-2"],
+    decompositions: [{
+      findingFromTopic: "topic-1 finding",
+      perTopicResult: { "topic-1": "present", "topic-2": "absent" },
+      verdict: "topic-specific",
+      strength: "strong",
+      caveats: []
+    }],
+    promptVersion: "p8",
+    model: "mock:model",
+    generatedAt: "2026-07-17T00:00:00.000Z"
+  });
+  storage.values[TOPIC_SYNTHESIS_STORAGE_KEY] = { "topic-1": { untouched: true } };
+  storage.values[TOPIC_SIGNAL_READINGS_STORAGE_KEY] = { "topic-1::signal-1": { untouched: true } };
+
+  const setCallsBeforeClear = storage.setCalls;
+  await handleTopicAuditMessage(storage, {
+    message: { type: "topic/audit/clear", topicId: "topic-1" },
+    sessions: []
+  });
+
+  assert.equal(storage.setCalls - setCallsBeforeClear, 1);
+  assert.deepEqual(await loadTopicAuditEvidence(storage, "topic-1"), []);
+  assert.equal(await loadTopicAuditMemos(storage, "topic-1"), null);
+  assert.equal(await loadTopicAuditReport(storage, "topic-1"), null);
+  assert.deepEqual(await loadTopicAuditEpisodes(storage, "topic-1"), []);
+  assert.deepEqual(await loadTopicAuditEvidence(storage, "topic-2"), [makeStoredPacket("topic-2")]);
+  assert.deepEqual((await loadTopicAuditEpisodes(storage, "topic-2")).map((episode) => episode.id), ["episode-topic-2"]);
+  assert.equal((await loadTopicAuditReport(storage, "topic-2"))?.topicName, "love");
+  assert.equal((await loadCrossTopicCalibration(storage, "calibration-1"))?.id, "calibration-1");
   assert.deepEqual(storage.values[TOPIC_SYNTHESIS_STORAGE_KEY], { "topic-1": { untouched: true } });
   assert.deepEqual(storage.values[TOPIC_SIGNAL_READINGS_STORAGE_KEY], { "topic-1::signal-1": { untouched: true } });
 });

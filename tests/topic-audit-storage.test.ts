@@ -1,7 +1,8 @@
 import assert from "node:assert/strict";
 import test from "node:test";
+import { setImmediate as nextTick } from "node:timers/promises";
 
-import type { EvidencePacket, LensMemo, SignalReading, TopicAuditEpisode, TopicAuditReport } from "../src/compare/topic-audit.ts";
+import type { CrossTopicCalibration, EvidencePacket, LensMemo, SignalReading, TopicAuditEpisode, TopicAuditReport } from "../src/compare/topic-audit.ts";
 import {
   CROSS_TOPIC_CALIBRATIONS_STORAGE_KEY,
   TOPIC_AUDIT_EPISODES_STORAGE_KEY,
@@ -9,6 +10,7 @@ import {
   TOPIC_AUDIT_MEMOS_STORAGE_KEY,
   TOPIC_AUDIT_REPORTS_STORAGE_KEY,
   buildTopicAuditCacheKey,
+  clearTopicAuditStorageTopic,
   isTopicAuditPublicationCompatible,
   loadCrossTopicCalibration,
   loadTopicAuditEpisodes,
@@ -35,6 +37,152 @@ class MemoryStorage {
     this.setCalls += 1;
     this.values = { ...this.values, ...values };
   }
+}
+
+class ControlledInterleavingStorage implements MemoryStorage {
+  values: Record<string, unknown> = {};
+  setCalls = 0;
+  pendingGets: Array<{ key: string; snapshot: Record<string, unknown>; resolve: (value: Record<string, unknown>) => void }> = [];
+  pendingSets: Array<{ values: Record<string, unknown>; resolve: () => void; reject: (error: unknown) => void }> = [];
+
+  async get(key: string): Promise<Record<string, unknown>> {
+    const snapshot = { [key]: this.values[key] };
+    return await new Promise<Record<string, unknown>>((resolve) => {
+      this.pendingGets.push({ key, snapshot, resolve });
+    });
+  }
+
+  async set(values: Record<string, unknown>): Promise<void> {
+    this.setCalls += 1;
+    return await new Promise<void>((resolve, reject) => {
+      this.pendingSets.push({ values, resolve, reject });
+    });
+  }
+
+  releaseAllGets(): void {
+    while (this.pendingGets.length > 0) {
+      const pending = this.pendingGets.shift();
+      pending?.resolve(pending.snapshot);
+    }
+  }
+
+  releaseNextGet(): void {
+    const pending = this.pendingGets.shift();
+    pending?.resolve(pending.snapshot);
+  }
+
+  releaseNextSet(): void {
+    const pending = this.pendingSets.shift();
+    if (!pending) {
+      return;
+    }
+    this.values = { ...this.values, ...pending.values };
+    pending.resolve();
+  }
+
+  releaseAllSets(): void {
+    while (this.pendingSets.length > 0) {
+      this.releaseNextSet();
+    }
+  }
+
+  rejectNextSet(error: unknown): void {
+    const pending = this.pendingSets.shift();
+    pending?.reject(error);
+  }
+}
+
+async function waitFor(condition: () => boolean, label: string): Promise<void> {
+  for (let attempt = 0; attempt < 200; attempt += 1) {
+    if (condition()) {
+      return;
+    }
+    await nextTick();
+  }
+  throw new Error(`Timed out waiting for ${label}`);
+}
+
+async function driveTwoMutationRace(storage: ControlledInterleavingStorage): Promise<void> {
+  await waitFor(() => storage.pendingGets.length >= 1, "first pending get");
+  await nextTick();
+  while (storage.pendingGets.length > 0) {
+    storage.releaseNextGet();
+  }
+  await waitFor(() => storage.pendingSets.length >= 1, "first pending set");
+  storage.releaseNextSet();
+  await nextTick();
+  while (storage.pendingGets.length > 0) {
+    storage.releaseNextGet();
+  }
+  await waitFor(() => storage.pendingSets.length >= 1, "remaining pending set");
+  storage.releaseAllSets();
+}
+
+async function finishPendingMutation(
+  storage: ControlledInterleavingStorage,
+  expectedGetCount: number,
+  label: string
+): Promise<void> {
+  await waitFor(() => storage.pendingGets.length === expectedGetCount, `${label} gets`);
+  storage.releaseAllGets();
+  await waitFor(() => storage.pendingSets.length === 1, `${label} set`);
+  storage.releaseNextSet();
+}
+
+function makeMemoBundle(topicId: string): {
+  auditRunId: string;
+  inputHash: string;
+  signalReadings: SignalReading[];
+  lensMemos: LensMemo[];
+} {
+  return {
+    auditRunId: `audit-${topicId}`,
+    inputHash: `input-${topicId}`,
+    signalReadings: [{
+      auditRunId: `audit-${topicId}`,
+      inputHash: `input-${topicId}`,
+      topicId,
+      signalId: `signal-${topicId}`,
+      shortCode: topicId.toUpperCase(),
+      reading: `${topicId} reading`,
+      evidenceRefs: [`${topicId.toUpperCase()}.OP`],
+      watchNotes: [],
+      promptVersion: "p1.v1",
+      model: "mock:model",
+      generatedAt: "2026-07-17T00:00:00.000Z"
+    }],
+    lensMemos: [{
+      auditRunId: `audit-${topicId}`,
+      inputHash: `input-${topicId}`,
+      topicId,
+      stageName: "audience",
+      prose: `${topicId} memo`,
+      evidenceRefs: [`${topicId.toUpperCase()}.OP`],
+      caveats: [],
+      coverage: "1/1",
+      promptVersion: "p4.v1",
+      model: "mock:model",
+      generatedAt: "2026-07-17T00:00:00.000Z"
+    }]
+  };
+}
+
+function makeCalibration(id: string): CrossTopicCalibration {
+  return {
+    id,
+    topicIds: ["topic-1", "topic-2"],
+    topicsCompared: ["topic-1", "topic-2"],
+    decompositions: [{
+      findingFromTopic: `${id}: finding`,
+      perTopicResult: { "topic-1": "present", "topic-2": "absent" },
+      verdict: "topic-specific",
+      strength: "strong",
+      caveats: []
+    }],
+    promptVersion: "p8.v1",
+    model: "mock:model",
+    generatedAt: "2026-07-17T00:00:00.000Z"
+  };
 }
 
 function makePacket(overrides: Partial<EvidencePacket> = {}): EvidencePacket {
@@ -129,6 +277,82 @@ test("topic audit storage roundtrips evidence by topic without mutating other to
     "topic-1",
     "topic-2"
   ]);
+});
+
+test("topic audit RMW mutations serialize concurrent saves across every audit storage map", async (t) => {
+  await t.test("evidence", async () => {
+    const storage = new ControlledInterleavingStorage();
+    const firstSave = saveTopicAuditEvidence(storage, "topic-1", [makePacket()]);
+    const secondSave = saveTopicAuditEvidence(storage, "topic-2", [makePacket({
+      topicId: "topic-2",
+      signalId: "signal-2",
+      shortCode: "S2"
+    })]);
+
+    await driveTwoMutationRace(storage);
+    await Promise.all([firstSave, secondSave]);
+
+    assert.deepEqual(Object.keys(storage.values[TOPIC_AUDIT_EVIDENCE_STORAGE_KEY] as Record<string, unknown>).sort(), [
+      "topic-1",
+      "topic-2"
+    ]);
+  });
+
+  await t.test("memos", async () => {
+    const storage = new ControlledInterleavingStorage();
+    const firstSave = saveTopicAuditMemos(storage, "topic-1", makeMemoBundle("topic-1"));
+    const secondSave = saveTopicAuditMemos(storage, "topic-2", makeMemoBundle("topic-2"));
+
+    await driveTwoMutationRace(storage);
+    await Promise.all([firstSave, secondSave]);
+
+    assert.deepEqual(Object.keys(storage.values[TOPIC_AUDIT_MEMOS_STORAGE_KEY] as Record<string, unknown>).sort(), [
+      "topic-1",
+      "topic-2"
+    ]);
+  });
+
+  await t.test("reports", async () => {
+    const storage = new ControlledInterleavingStorage();
+    const firstSave = saveTopicAuditReport(storage, makeReportForEpisode(makeEpisode(1, "topic-1")));
+    const secondSave = saveTopicAuditReport(storage, makeReportForEpisode(makeEpisode(1, "topic-2")));
+
+    await driveTwoMutationRace(storage);
+    await Promise.all([firstSave, secondSave]);
+
+    assert.deepEqual(Object.keys(storage.values[TOPIC_AUDIT_REPORTS_STORAGE_KEY] as Record<string, unknown>).sort(), [
+      "topic-1",
+      "topic-2"
+    ]);
+  });
+
+  await t.test("episodes", async () => {
+    const storage = new ControlledInterleavingStorage();
+    const firstSave = saveTopicAuditEpisodes(storage, "topic-1", [makeEpisode(1, "topic-1")]);
+    const secondSave = saveTopicAuditEpisodes(storage, "topic-2", [makeEpisode(1, "topic-2")]);
+
+    await driveTwoMutationRace(storage);
+    await Promise.all([firstSave, secondSave]);
+
+    assert.deepEqual(Object.keys(storage.values[TOPIC_AUDIT_EPISODES_STORAGE_KEY] as Record<string, unknown>).sort(), [
+      "topic-1",
+      "topic-2"
+    ]);
+  });
+
+  await t.test("cross-topic calibrations", async () => {
+    const storage = new ControlledInterleavingStorage();
+    const firstSave = saveCrossTopicCalibration(storage, makeCalibration("calibration-1"));
+    const secondSave = saveCrossTopicCalibration(storage, makeCalibration("calibration-2"));
+
+    await driveTwoMutationRace(storage);
+    await Promise.all([firstSave, secondSave]);
+
+    assert.deepEqual(Object.keys(storage.values[CROSS_TOPIC_CALIBRATIONS_STORAGE_KEY] as Record<string, unknown>).sort(), [
+      "calibration-1",
+      "calibration-2"
+    ]);
+  });
 });
 
 test("topic audit memos store signal readings and lens memos under the same audit run", async () => {
@@ -254,6 +478,116 @@ test("topic audit publishes report and episode ledger in one storage write", asy
   assert.equal(storage.setCalls, 1);
   assert.deepEqual(await loadTopicAuditReport(storage, "topic-1"), report);
   assert.deepEqual(await loadTopicAuditEpisodes(storage, "topic-1"), [episode]);
+});
+
+test("topic audit mutation queue recovers after one rejected write", async () => {
+  const storage = new ControlledInterleavingStorage();
+  const firstSave = saveTopicAuditEvidence(storage, "topic-1", [makePacket()]);
+
+  await waitFor(() => storage.pendingGets.length === 1, "rejected save get");
+  storage.releaseNextGet();
+  await waitFor(() => storage.pendingSets.length === 1, "rejected save set");
+  storage.rejectNextSet(new Error("storage write failed"));
+  await assert.rejects(firstSave, /storage write failed/);
+
+  const secondSave = saveTopicAuditEvidence(storage, "topic-2", [makePacket({
+    topicId: "topic-2",
+    signalId: "signal-2",
+    shortCode: "S2"
+  })]);
+
+  await waitFor(() => storage.pendingGets.length === 1, "recovery save get");
+  storage.releaseNextGet();
+  await waitFor(() => storage.pendingSets.length === 1, "recovery save set");
+  storage.releaseNextSet();
+  await secondSave;
+
+  assert.deepEqual(Object.keys(storage.values[TOPIC_AUDIT_EVIDENCE_STORAGE_KEY] as Record<string, unknown>), ["topic-2"]);
+});
+
+test("topic audit save and clear mutations obey call order on the same queue", async (t) => {
+  await t.test("save then clear leaves the topic absent", async () => {
+    const storage = new ControlledInterleavingStorage();
+    const save = saveTopicAuditEvidence(storage, "topic-1", [makePacket()]);
+    await waitFor(() => storage.pendingGets.length === 1, "save-before-clear get");
+
+    const clear = clearTopicAuditStorageTopic(storage, "topic-1");
+    await nextTick();
+    assert.equal(storage.pendingGets.length, 1, "clear must not start reading before the prior save publishes");
+
+    await finishPendingMutation(storage, 1, "save-before-clear save");
+    await finishPendingMutation(storage, 4, "save-before-clear clear");
+    await Promise.all([save, clear]);
+
+    const evidence = storage.values[TOPIC_AUDIT_EVIDENCE_STORAGE_KEY] as Record<string, unknown>;
+    assert.equal(Object.hasOwn(evidence, "topic-1"), false);
+  });
+
+  await t.test("clear then save keeps the later save", async () => {
+    const storage = new ControlledInterleavingStorage();
+    storage.values[TOPIC_AUDIT_EVIDENCE_STORAGE_KEY] = { "topic-1": [makePacket()] };
+    const clear = clearTopicAuditStorageTopic(storage, "topic-1");
+    await waitFor(() => storage.pendingGets.length === 4, "clear-before-save gets");
+
+    const packets = [makePacket({ auditRunId: "audit-later" })];
+    const save = saveTopicAuditEvidence(storage, "topic-1", packets);
+    await nextTick();
+    assert.equal(storage.pendingGets.length, 4, "save must not read before the prior clear publishes");
+
+    await finishPendingMutation(storage, 4, "clear-before-save clear");
+    await finishPendingMutation(storage, 1, "clear-before-save save");
+    await Promise.all([clear, save]);
+
+    const evidence = storage.values[TOPIC_AUDIT_EVIDENCE_STORAGE_KEY] as Record<string, EvidencePacket[]>;
+    assert.deepEqual(evidence["topic-1"], packets);
+  });
+});
+
+test("topic audit publication and clear mutations obey call order on the same queue", async (t) => {
+  await t.test("publication then clear leaves report and episodes absent", async () => {
+    const storage = new ControlledInterleavingStorage();
+    const episode = makeEpisode(1);
+    const report = makeReportForEpisode(episode);
+    const publication = publishTopicAuditReportAndEpisodes(storage, report, [episode]);
+    await waitFor(() => storage.pendingGets.length === 2, "publication-before-clear gets");
+
+    const clear = clearTopicAuditStorageTopic(storage, "topic-1");
+    await nextTick();
+    assert.equal(storage.pendingGets.length, 2, "clear must wait for the prior publication");
+
+    await finishPendingMutation(storage, 2, "publication-before-clear publication");
+    await finishPendingMutation(storage, 4, "publication-before-clear clear");
+    await Promise.all([publication, clear]);
+
+    const reports = storage.values[TOPIC_AUDIT_REPORTS_STORAGE_KEY] as Record<string, unknown>;
+    const episodes = storage.values[TOPIC_AUDIT_EPISODES_STORAGE_KEY] as Record<string, unknown>;
+    assert.equal(Object.hasOwn(reports, "topic-1"), false);
+    assert.equal(Object.hasOwn(episodes, "topic-1"), false);
+  });
+
+  await t.test("clear then publication keeps the later report and episodes", async () => {
+    const storage = new ControlledInterleavingStorage();
+    const oldEpisode = makeEpisode(1);
+    storage.values[TOPIC_AUDIT_REPORTS_STORAGE_KEY] = { "topic-1": makeReportForEpisode(oldEpisode) };
+    storage.values[TOPIC_AUDIT_EPISODES_STORAGE_KEY] = { "topic-1": [oldEpisode] };
+    const clear = clearTopicAuditStorageTopic(storage, "topic-1");
+    await waitFor(() => storage.pendingGets.length === 4, "clear-before-publication gets");
+
+    const laterEpisode = makeEpisode(2);
+    const laterReport = makeReportForEpisode(laterEpisode);
+    const publication = publishTopicAuditReportAndEpisodes(storage, laterReport, [laterEpisode]);
+    await nextTick();
+    assert.equal(storage.pendingGets.length, 4, "publication must wait for the prior clear");
+
+    await finishPendingMutation(storage, 4, "clear-before-publication clear");
+    await finishPendingMutation(storage, 2, "clear-before-publication publication");
+    await Promise.all([clear, publication]);
+
+    const reports = storage.values[TOPIC_AUDIT_REPORTS_STORAGE_KEY] as Record<string, TopicAuditReport>;
+    const episodes = storage.values[TOPIC_AUDIT_EPISODES_STORAGE_KEY] as Record<string, TopicAuditEpisode[]>;
+    assert.deepEqual(reports["topic-1"], laterReport);
+    assert.deepEqual(episodes["topic-1"], [laterEpisode]);
+  });
 });
 
 test("concurrent topic publications do not lose another topic's report or episode ledger", async () => {
