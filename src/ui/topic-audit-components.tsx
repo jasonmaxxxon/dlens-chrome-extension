@@ -853,25 +853,55 @@ const Sep = () => (
   <span aria-hidden="true" style={{ color: tokens.color.lineStrong, fontWeight: 700 }}>·</span>
 );
 
+function rowActionButtonStyle(color: string, wait = false): CSSProperties {
+  return {
+    border: `1px solid ${tokens.color.line}`,
+    borderRadius: tokens.radius.button,
+    background: tokens.color.surface,
+    color,
+    padding: "2px 8px",
+    fontSize: 10.5,
+    fontWeight: 700,
+    cursor: wait ? "wait" : "pointer",
+    fontFamily: tokens.font.sans,
+    lineHeight: 1.5,
+    textDecoration: "none"
+  };
+}
+
 export function SourceRow({
   packet,
   active,
   readingStatus,
+  title,
   tags,
   showPreview = true,
+  originalUrl,
   onOpen,
   onRunP1,
   isRunningP1,
+  onAddToCompare,
+  onDelete,
+  deleting,
+  stanceBadge,
   reactionMix
 }: {
   packet: EvidencePacket;
   active?: boolean;
   readingStatus: SourceRowReadingStatus;
+  /** LLM signal gist — the one-line brief title carried over from the old 源清單 rows */
+  title?: string;
   tags?: readonly string[];
   showPreview?: boolean;
+  originalUrl?: string;
   onOpen?: () => void;
   onRunP1?: () => void;
   isRunningP1?: boolean;
+  onAddToCompare?: () => void;
+  onDelete?: () => void;
+  deleting?: boolean;
+  /** topic reading stance chip, rendered inline in the meta row */
+  stanceBadge?: ReactNode;
   /** per-pattern comment counts for this post, pre-coloured by the atlas palette */
   reactionMix?: ReadonlyArray<{ color: string; count: number }>;
 }) {
@@ -934,6 +964,14 @@ export function SourceRow({
         <StatusDot status={readingStatus} />
       </span>
       <div style={{ minWidth: 0 }}>
+        {title ? (
+          <div
+            data-source-row-title="true"
+            style={{ fontSize: 13, fontWeight: 700, lineHeight: 1.35, color: tokens.color.ink, marginBottom: 4, ...lineClamp(2) }}
+          >
+            {title}
+          </div>
+        ) : null}
         <div
           style={{
             display: "flex",
@@ -1004,6 +1042,7 @@ export function SourceRow({
               未抓取
             </span>
           ) : null}
+          {stanceBadge}
           <Sep />
           <span style={{ fontSize: 11, color: authorColor, fontWeight: 600, ...lineClamp1() }}>
             @{author}
@@ -1050,53 +1089,75 @@ export function SourceRow({
             <MessageCircle aria-hidden="true" size={10.5} strokeWidth={2.2} style={{ opacity: 0.65 }} />
             {commentsText}
           </span>
-          {canRunP1 ? (
-            <button
-              type="button"
-              data-source-row-run-p1={packet.shortCode}
-              onClick={(event) => {
-                event.preventDefault();
-                event.stopPropagation();
-                onRunP1?.();
-              }}
-              disabled={isRunningP1}
-              style={{
-                marginLeft: "auto",
-                border: `1px solid ${tokens.color.line}`,
-                borderRadius: tokens.radius.button,
-                background: tokens.color.surface,
-                color: TOPIC.primary,
-                padding: "2px 8px",
-                fontSize: 10.5,
-                fontWeight: 700,
-                cursor: isRunningP1 ? "wait" : "pointer",
-                fontFamily: tokens.font.sans
-              }}
-            >
-              {isRunningP1 ? "處理中…" : "分析此篇"}
-            </button>
-          ) : null}
-          {onOpen ? (
-            <button
-              type="button"
-              data-source-row-open={packet.shortCode}
-              data-dlens-button="secondary"
-              onClick={onOpen}
-              style={{
-                marginLeft: canRunP1 ? 0 : "auto",
-                border: `1px solid ${tokens.color.line}`,
-                borderRadius: tokens.radius.button,
-                background: tokens.color.surface,
-                color: TOPIC.primary,
-                padding: "2px 8px",
-                fontSize: 10.5,
-                fontWeight: 700,
-                cursor: "pointer",
-                fontFamily: tokens.font.sans
-              }}
-            >
-              詳情 →
-            </button>
+          {canRunP1 || onOpen || originalUrl || onAddToCompare || onDelete ? (
+            <span style={{ marginLeft: "auto", display: "inline-flex", gap: 5, alignItems: "center" }}>
+              {canRunP1 ? (
+                <button
+                  type="button"
+                  data-source-row-run-p1={packet.shortCode}
+                  onClick={(event) => {
+                    event.preventDefault();
+                    event.stopPropagation();
+                    onRunP1?.();
+                  }}
+                  disabled={isRunningP1}
+                  style={rowActionButtonStyle(TOPIC.primary, isRunningP1)}
+                >
+                  {isRunningP1 ? "處理中…" : "分析此篇"}
+                </button>
+              ) : null}
+              {originalUrl ? (
+                <a
+                  href={originalUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  data-source-row-original={packet.shortCode}
+                  style={rowActionButtonStyle(tokens.color.subInk)}
+                >
+                  原文 ↗
+                </a>
+              ) : null}
+              {onAddToCompare ? (
+                <button
+                  type="button"
+                  data-source-row-compare={packet.shortCode}
+                  onClick={(event) => {
+                    event.stopPropagation();
+                    onAddToCompare();
+                  }}
+                  style={rowActionButtonStyle(tokens.color.subInk)}
+                >
+                  加入比較
+                </button>
+              ) : null}
+              {onOpen ? (
+                <button
+                  type="button"
+                  data-source-row-open={packet.shortCode}
+                  data-dlens-button="secondary"
+                  onClick={onOpen}
+                  style={rowActionButtonStyle(TOPIC.primary)}
+                >
+                  詳情 →
+                </button>
+              ) : null}
+              {onDelete ? (
+                <button
+                  type="button"
+                  data-topic-signal-remove="true"
+                  aria-label="移除此訊號"
+                  disabled={deleting}
+                  onClick={(event) => {
+                    event.preventDefault();
+                    event.stopPropagation();
+                    onDelete();
+                  }}
+                  style={rowActionButtonStyle(tokens.color.softInk, deleting)}
+                >
+                  刪除
+                </button>
+              ) : null}
+            </span>
           ) : null}
         </div>
         {showPreview ? (
@@ -1172,6 +1233,150 @@ export function SourceRow({
             ) : null}
           </div>
         ) : null}
+      </div>
+    </div>
+  );
+}
+
+export function PendingSignalRow({
+  signalId,
+  title,
+  preview,
+  capturedAt,
+  state,
+  statusLabel,
+  stanceBadge,
+  originalUrl,
+  crawlLabel,
+  onCrawl,
+  crawlDisabled,
+  onDelete,
+  deleting
+}: {
+  signalId: string;
+  title: string;
+  /** captured snippet, shown under the gist title when both exist */
+  preview?: string;
+  capturedAt: string;
+  state: "processing" | "failed" | "idle";
+  statusLabel?: string;
+  stanceBadge?: ReactNode;
+  originalUrl?: string;
+  crawlLabel?: string;
+  onCrawl?: () => void;
+  crawlDisabled?: boolean;
+  onDelete?: () => void;
+  deleting?: boolean;
+}) {
+  const formattedDate = formatRowDate(capturedAt);
+  return (
+    <div
+      data-topic-source-row={signalId}
+      data-crawl-state={state}
+      style={{
+        display: "grid",
+        gridTemplateColumns: "14px minmax(0, 1fr)",
+        gap: 8,
+        padding: "9px 13px 10px",
+        borderRadius: tokens.radius.xs,
+        fontFamily: tokens.font.sans
+      }}
+    >
+      <span style={{ display: "flex", justifyContent: "center", paddingTop: 7 }}>
+        <StatusDot status={state === "processing" ? "running" : state === "failed" ? "failed" : "pending"} />
+      </span>
+      <div style={{ minWidth: 0 }}>
+        <div
+          data-source-row-title="true"
+          style={{ fontSize: 13, fontWeight: 700, lineHeight: 1.35, color: tokens.color.ink, marginBottom: 4, ...lineClamp(2) }}
+        >
+          {title}
+        </div>
+        {preview ? (
+          <div
+            style={{
+              fontFamily: `${tokens.font.serifCjk}, ${tokens.font.serif}`,
+              fontSize: 13,
+              lineHeight: 1.55,
+              color: tokens.color.subInk,
+              letterSpacing: "0.005em",
+              marginBottom: 4,
+              ...lineClamp(2)
+            }}
+          >
+            {preview}
+          </div>
+        ) : null}
+        <div style={{ display: "flex", flexWrap: "wrap", gap: 6, alignItems: "baseline", lineHeight: 1.5 }}>
+          {statusLabel ? (
+            <span
+              data-pending-signal-status={signalId}
+              style={{
+                display: "inline-flex",
+                alignItems: "center",
+                fontFamily: tokens.font.mono,
+                fontSize: 9.5,
+                fontWeight: 700,
+                letterSpacing: "0.06em",
+                color: state === "failed" ? TOPIC.fail : state === "processing" ? TOPIC.warm : tokens.color.softInk,
+                background: state === "failed" ? tokens.color.failedSoft : state === "processing" ? tokens.color.queuedSoft : tokens.color.contextSurface,
+                padding: "1px 6px",
+                borderRadius: 4
+              }}
+            >
+              {statusLabel}
+            </span>
+          ) : null}
+          {stanceBadge}
+          {formattedDate ? (
+            <>
+              <Sep />
+              <span style={{ fontFamily: tokens.font.mono, fontSize: 10.5, color: tokens.color.softInk, letterSpacing: "0.02em" }}>
+                加入 {formattedDate}
+              </span>
+            </>
+          ) : null}
+          <span style={{ marginLeft: "auto", display: "inline-flex", gap: 5, alignItems: "center" }}>
+            {crawlLabel && onCrawl ? (
+              <button
+                type="button"
+                data-pending-signal-crawl={signalId}
+                onClick={onCrawl}
+                disabled={crawlDisabled}
+                style={rowActionButtonStyle(TOPIC.primary, crawlDisabled)}
+              >
+                {crawlLabel}
+              </button>
+            ) : null}
+            {originalUrl ? (
+              <a
+                href={originalUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                data-pending-signal-original={signalId}
+                style={rowActionButtonStyle(tokens.color.subInk)}
+              >
+                原文 ↗
+              </a>
+            ) : null}
+            {onDelete ? (
+              <button
+                type="button"
+                data-topic-signal-remove="true"
+                aria-label="移除此訊號"
+                disabled={deleting}
+                onClick={(event) => {
+                  event.preventDefault();
+                  event.stopPropagation();
+                  onDelete();
+                }}
+                style={rowActionButtonStyle(tokens.color.softInk, deleting)}
+              >
+                刪除
+              </button>
+            ) : null}
+          </span>
+        </div>
       </div>
     </div>
   );

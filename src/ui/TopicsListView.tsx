@@ -368,7 +368,7 @@ export function TopicsListView({
         mode="topics"
         kicker="Topic mode"
         title={t("議題", "Topics")}
-        deck={t("每個議題收一批 Threads 訊號；點進去看詞群、敘事與源清單。", "Each topic gathers a batch of Threads signals — open one for clusters, narratives, and sources.")}
+        deck={t("每個議題收一批 Threads 訊號；點進去看詞群、敘事與貼文。", "Each topic gathers a batch of Threads signals — open one for clusters, narratives, and posts.")}
         stamp={<span style={{ fontSize: 11, color: tokens.color.softInk, whiteSpace: "nowrap" }}>{t(`${topics.length} 個議題`, `${topics.length} topics`)}</span>}
       />
       <div ref={listMotionRef} data-topic-list-motion="causal" style={{ display: "grid", gap: 12 }}>

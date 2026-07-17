@@ -1568,6 +1568,48 @@ test("TopicDetailView keeps one source footer for drill-in rows", () => {
   assert.doesNotMatch(html, /data-topic-newsroom-ladder="true"/);
 });
 
+test("TopicDetailView folds the source manifest into the atlas post list", () => {
+  const pendingSignal: Signal = {
+    ...signals[0]!,
+    id: "signal-2",
+    itemId: "item-2",
+    capturedAt: "2026-04-23T09:00:00.000Z"
+  };
+  const html = renderToStaticMarkup(
+    topicDetailViewElement({
+      topic: { ...topic, signalIds: ["signal-1", "signal-2"] },
+      signals: [...signals, pendingSignal],
+      pairs: [],
+      sessionItems: [buildReadySessionItem("item-1"), buildSessionItem("item-2", "saved")],
+      signalTagsByItemId,
+      auditEvidence: [auditPacket],
+      auditMemos,
+      auditSummary: { reportStatus: "ready", analyzedCount: 1, queuedCount: 1 },
+      auditValidatorFlags: [],
+      onBack: () => undefined,
+      onOpenPair: () => undefined,
+      onUpdateTopic: () => undefined,
+      onAnalyzeItems: async () => ({ ok: true, failedCount: 0 }),
+      onAddToCompare: () => undefined,
+      onSignalDeleted: () => undefined
+    })
+  );
+
+  // one merged surface — the legacy 源清單 section is gone
+  assert.doesNotMatch(html, /源清單/);
+  assert.equal((html.match(/data-topic-audit-block="sources"/g) ?? []).length, 1);
+  // packet row carries the signal gist as its brief title plus the manifest actions
+  assert.match(html, /data-source-row="S1"/);
+  assert.match(html, /data-source-row-title="true"/);
+  assert.match(html, /這篇是在討論外勞招聘與本地求職者被壓價的衝突。/);
+  assert.match(html, /data-source-row-original="S1"/);
+  assert.match(html, /data-source-row-compare="S1"/);
+  assert.match(html, /data-topic-signal-remove="true"/);
+  // the uncrawled signal joins the same list as a pending row with its crawl action
+  assert.match(html, /data-topic-source-row="signal-2"/);
+  assert.match(html, /data-pending-signal-crawl="signal-2"/);
+});
+
 test("TopicDetailView surfaces P5 absence and caveats in the reliability strip", () => {
   const weakFlag: TopicAuditValidationFlag = {
     severity: "WEAK",

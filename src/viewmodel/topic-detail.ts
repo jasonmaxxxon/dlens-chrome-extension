@@ -268,7 +268,6 @@ export interface TopicDetailViewModel {
   packetsBySignalId: Record<string, EvidencePacket>;
   analysisCounts: TopicAnalysisCounts;
   sourceSession: TopicSourceSessionState;
-  sourcePendingCount: number;
   unanalyzedItemIds: string[];
   signalTagSummaries: SignalTagSummary[];
   taggedSignalCount: number;
@@ -980,7 +979,6 @@ export function buildTopicDetailViewModel({
     packetsBySignalId,
     analysisCounts,
     sourceSession,
-    sourcePendingCount: analysisCounts.saved + analysisCounts.missing,
     unanalyzedItemIds,
     signalTagSummaries: buildSignalTagSummaries(signalRows),
     taggedSignalCount: signalRows.filter((row) => row.tagRecord?.status === "complete").length,

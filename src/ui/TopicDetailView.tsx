@@ -30,7 +30,7 @@ import type {
   TopicSourceSessionState,
   TopicSignalViewModel
 } from "../viewmodel/topic-detail.ts";
-import { Kicker, PrimaryButton, SCAN_ROW_HOVER_CSS, SecondaryButton, SectionHeader, Stamp, SurfaceCard, WorkspaceSurface, lineClamp, scanRowStyle, viewRootStyle } from "./components.tsx";
+import { Kicker, PrimaryButton, SCAN_ROW_HOVER_CSS, SecondaryButton, Stamp, SurfaceCard, WorkspaceSurface, lineClamp, scanRowStyle, viewRootStyle } from "./components.tsx";
 import { SignalDrawer } from "./SignalDrawer.tsx";
 import { TopicSourceSessionCard } from "./TopicSourceSessionCard.tsx";
 import {
@@ -44,6 +44,7 @@ import {
   countValidationFlags,
   GhostButton as AuditGhostButton,
   NarrativeLane,
+  PendingSignalRow,
   PrimaryButton as AuditPrimaryButton,
   ReactionPatternLane,
   SectionLabel,
@@ -58,7 +59,6 @@ import {
 import { pickPrimaryJudgmentPair } from "./useTopicState.ts";
 
 const TOPIC_MODE_ACCENT = `var(--dlens-mode-accent, ${tokens.topicAccent.primary})`;
-const TOPIC_MODE_ACCENT_SOFT = `var(--dlens-mode-accent-soft, ${tokens.topicAccent.tintSage})`;
 
 type AuditDetailState =
   | { kind: "reaction"; id: string }
@@ -808,40 +808,6 @@ function TopicCompactHeader({
   );
 }
 
-function TopicInventoryStat({
-  value,
-  label,
-  tone = "neutral"
-}: {
-  value: number | string;
-  label: string;
-  tone?: "neutral" | "success" | "warning" | "accent";
-}) {
-  const color = tone === "success"
-    ? tokens.color.success
-    : tone === "warning"
-      ? tokens.topicAccent.warm
-      : tone === "accent"
-        ? tokens.topicAccent.primary
-        : tokens.color.ink;
-  return (
-    <span
-      style={{
-        display: "grid",
-        gap: 3,
-        minWidth: 58,
-        paddingRight: 12,
-        borderRight: `1px solid ${tokens.color.line}`
-      }}
-    >
-      <span style={{ fontSize: 18, fontWeight: 850, lineHeight: 1, color, fontVariantNumeric: "tabular-nums" }}>
-        {value}
-      </span>
-      <span style={{ fontSize: 10.5, fontWeight: 700, color: tokens.color.softInk }}>{label}</span>
-    </span>
-  );
-}
-
 type SynthesisStackSectionId = "observations" | "clusters" | "techniques" | "memes" | "outliers";
 type SynthesisStackTestId =
   | "synthesis-observations"
@@ -1515,45 +1481,6 @@ function hasSignalTag(record: SignalTagsRecord | undefined, tag: string | null):
   return Boolean(record?.signalTags.some((entry) => entry === tag));
 }
 
-function TopicDetailSection({
-  surface,
-  title,
-  caption,
-  action,
-  children,
-  style
-}: {
-  surface: "themes" | "lanes" | "reaction-patterns" | "sources";
-  title: string;
-  caption?: ReactNode;
-  action?: ReactNode;
-  children: ReactNode;
-  style?: CSSProperties;
-}) {
-  return (
-    <SurfaceCard
-      tone="utility"
-      dataAttrs={{
-        "data-topic-audit-block": surface,
-        "data-topic-detail-surface": surface,
-        "data-topic-detail-rhythm": "section",
-        "data-dlens-presence": "card"
-      }}
-      style={{
-        display: "grid",
-        gap: 10,
-        padding: "16px 18px",
-        borderLeft: `3px solid ${TOPIC_MODE_ACCENT_SOFT}`,
-        boxShadow: tokens.shadow.topicCard,
-        ...style
-      }}
-    >
-      <SectionHeader title={title} caption={caption} action={action} style={{ marginBottom: 0 }} />
-      {children}
-    </SurfaceCard>
-  );
-}
-
 function auditStageFromNumber(stage: number): TopicAuditStageName {
   switch (stage) {
     case 2: return "lexicon";
@@ -1787,7 +1714,6 @@ export function TopicDetailView({
     signalRows: signals,
     analysisCounts: topicAnalysisCounts,
     sourceSession,
-    sourcePendingCount,
     signalTagSummaries,
     taggedSignalCount,
     audit,
@@ -2023,205 +1949,6 @@ export function TopicDetailView({
         actionCue: primaryJudgmentPair?.judgmentResult?.actionCue || ""
       }
     : primaryJudgmentPair?.judgmentResult || null;
-  const topicSourceFeed = (
-    <TopicDetailSection
-      surface="sources"
-      title="源清單"
-      caption="先確認來源、爬取狀態與刪除項目，再生成議題審查報告。"
-      action={(
-        <Stamp tone={topicAnalysisCounts.ready > 0 ? "success" : "neutral"}>
-          {topicAnalysisCounts.ready}/{topicAnalysisCounts.total} 已完成
-        </Stamp>
-      )}
-      style={{ gap: 12 }}
-    >
-      <div style={{ display: "grid", gap: 11 }}>
-        <div
-          style={{
-            display: "flex",
-            alignItems: "center",
-            gap: 0,
-            borderRadius: tokens.radius.button,
-            background: tokens.color.contextSurface,
-            padding: "10px 14px",
-            overflowX: "auto"
-          }}
-        >
-          <TopicInventoryStat value={signals.length} label="訊號" />
-          <TopicInventoryStat value={topicAnalysisCounts.ready} label="已完成" tone="success" />
-          <TopicInventoryStat value={topicAnalysisCounts.processing} label="處理中" tone={topicAnalysisCounts.processing ? "accent" : "neutral"} />
-          <TopicInventoryStat value={sourcePendingCount} label="待處理" tone={sourcePendingCount ? "warning" : "neutral"} />
-          <span style={{ marginLeft: "auto", fontSize: 11, color: tokens.color.softInk, whiteSpace: "nowrap" }}>
-            P1 判讀 {auditSummaryValue.analyzedCount}/{signals.length}
-          </span>
-        </div>
-      </div>
-
-      {deleteError ? (
-        <div style={{ fontSize: 11, color: tokens.color.failed }}>{deleteError}</div>
-      ) : null}
-
-      <style>{SCAN_ROW_HOVER_CSS}</style>
-      <div data-topic-source-list="true" style={{ display: "grid", borderTop: `1px solid ${tokens.color.line}` }}>
-        {signals.length === 0 ? (
-          <div style={{ padding: "14px 4px", fontSize: 12, lineHeight: 1.55, color: tokens.color.softInk }}>
-            這個議題暫時沒有貼文。先回採集頁加入 Threads 訊號。
-          </div>
-        ) : visibleSignals.length === 0 ? (
-          <div style={{ padding: "14px 4px", fontSize: 12, lineHeight: 1.55, color: tokens.color.softInk }}>
-            目前篩選沒有貼文。
-          </div>
-        ) : visibleSignals.map((signal) => {
-          const status = signal.analysisState;
-          const preview = signal.sourcePreview.displayText || signal.source || "資料不完整的 Threads 訊號";
-          const tagRecord = signal.tagRecord;
-          const reading = signal.reading;
-          const originalUrl = signal.sourcePreview.displayUrl;
-          const addToCompareAction = signal.actions.find((entry) => entry.kind === "addSignalToCompare");
-          const analyzeAction = signal.actions.find((entry) => entry.kind === "analyzeItem" || entry.kind === "queueSignalItem");
-          const deleteAction = signal.actions.find((entry) => entry.kind === "deleteSignal");
-          // Drill-in is meaningful only once the thread (原文 + 留言) has been
-          // crawled; a collection-only snippet has no comments to show yet.
-          const canOpenDrawer = viewModel.packetsBySignalId[signal.signalId]?.status === "succeeded";
-
-          return (
-            <div
-              key={signal.signalId}
-              data-topic-source-row={signal.signalId}
-              data-scan-row="true"
-              style={scanRowStyle({
-                display: "grid",
-                gridTemplateColumns: deleteAction ? "5px minmax(0, 1fr) auto 42px" : "5px minmax(0, 1fr) auto",
-                gap: 10,
-                padding: "11px 0",
-                alignItems: "start",
-                cursor: "default"
-              })}
-            >
-              <span
-                aria-hidden="true"
-                style={{
-                  width: 5,
-                  height: 26,
-                  borderRadius: tokens.radius.round,
-                  background: signal.isReady ? tokens.color.success : signal.isProcessing ? tokens.topicAccent.primary : tokens.color.lineStrong,
-                  marginTop: 2
-                }}
-              />
-              <div style={{ display: "grid", gap: 6, minWidth: 0 }}>
-                <div style={{ fontSize: 13, fontWeight: 700, lineHeight: 1.35, color: tokens.color.ink, ...lineClamp(2) }}>
-                  {tagRecord?.signalGist || preview}
-                </div>
-                {tagRecord?.signalGist && preview ? (
-                  <div style={{ fontSize: 11.5, lineHeight: 1.5, color: tokens.color.softInk, ...lineClamp(2) }}>
-                    {preview}
-                  </div>
-                ) : null}
-                <div
-                  onClick={(event) => event.stopPropagation()}
-                  style={{ display: "flex", gap: 5, flexWrap: "wrap", alignItems: "center" }}
-                >
-                  <Stamp tone={analysisStateTone(status)}>{analysisStateLabel(status)}</Stamp>
-                  {reading ? <StanceBadge stance={reading.stance} marker="source" /> : null}
-                  <span style={{ fontSize: 10.5, color: tokens.color.softInk }}>加入 {formatTopicDate(signal.capturedAt)}</span>
-                  {originalUrl ? (
-                    <a
-                      href={originalUrl}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      style={{
-                        padding: "4px 8px",
-                        fontSize: 10.5,
-                        borderRadius: 6,
-                        border: `1px solid ${tokens.color.line}`,
-                        background: tokens.color.surface,
-                        color: tokens.color.subInk,
-                        fontWeight: 600,
-                        textDecoration: "none",
-                        lineHeight: 1
-                      }}
-                    >
-                      原文 ↗
-                    </a>
-                  ) : null}
-                  {canOpenDrawer ? (
-                    <button
-                      type="button"
-                      data-topic-source-row-detail={signal.signalId}
-                      data-dlens-button="secondary"
-                      onClick={() => setActiveDetail({ kind: "source", id: signal.signalId })}
-                      style={{
-                        padding: "4px 8px",
-                        fontSize: 10.5,
-                        borderRadius: 6,
-                        border: `1px solid ${tokens.color.line}`,
-                        background: tokens.color.surface,
-                        color: tokens.topicAccent.primary,
-                        fontWeight: 700,
-                        cursor: "pointer",
-                        lineHeight: 1,
-                        fontFamily: tokens.font.sans
-                      }}
-                    >
-                      詳情 →
-                    </button>
-                  ) : null}
-                  {signal.itemId && !signal.isProcessing ? (
-                    signal.isReady ? (
-                      addToCompareAction ? (
-                        <SecondaryButton onClick={() => dispatch(addToCompareAction)} style={{ padding: "4px 8px", fontSize: 10.5 }}>
-                          加入比較
-                        </SecondaryButton>
-                      ) : null
-                    ) : analyzeAction ? (
-                      <SecondaryButton
-                        onClick={() => handleAnalyzeItem(signal)}
-                        disabled={analyzeAction.kind === "analyzeItem" && isBulkAnalyzing}
-                        style={{ padding: "4px 8px", fontSize: 10.5 }}
-                      >
-                        {analyzeAction.kind === "analyzeItem" ? "開始爬取" : "排隊爬取"}
-                      </SecondaryButton>
-                    ) : null
-                  ) : null}
-                </div>
-              </div>
-              <div style={{ fontSize: 10, color: tokens.color.softInk, whiteSpace: "nowrap" }}>
-                {formatTopicDate(signal.capturedAt)}
-              </div>
-              {deleteAction ? (
-                <button
-                  type="button"
-                  data-topic-signal-remove="true"
-                  aria-label="移除此訊號"
-                  disabled={deletingSignalId === signal.signalId}
-                  onClick={(event) => {
-                    event.preventDefault();
-                    event.stopPropagation();
-                    void handleDeleteSignal(signal.signalId);
-                  }}
-                  style={{
-                    minWidth: 38,
-                    height: 24,
-                    borderRadius: 7,
-                    border: `1px solid ${tokens.color.line}`,
-                    background: tokens.color.surface,
-                    color: tokens.color.softInk,
-                    cursor: deletingSignalId === signal.signalId ? "wait" : "pointer",
-                    fontSize: 11,
-                    fontWeight: 700,
-                    padding: "0 7px"
-                  }}
-                >
-                  刪除
-                </button>
-              ) : null}
-            </div>
-          );
-        })}
-      </div>
-    </TopicDetailSection>
-  );
-
   if (sessionMode === "topic") {
     const postTotal = postTotalFromEvidence(auditEvidence);
     const coverageNumbers = readCommentCoverage({ coverage: reactionCoverage, packets: auditEvidence });
@@ -2273,6 +2000,92 @@ export function TopicDetailView({
         onRunAudit={handleRunAudit}
         onOpenAuditReport={handleOpenAuditReport}
       />
+    );
+    const signalBySignalId = new Map(signals.map((signal) => [signal.signalId, signal]));
+    const packetSignalIds = new Set(audit.sourceRows.map((row) => row.packet.signalId));
+    const pendingSignals = signals.filter((signal) => !packetSignalIds.has(signal.signalId));
+    const sourceListCounts = auditEvidence.length > 0
+      ? `${postTotal} 篇貼文 · 擷取 ${coverageNumbers.captured} · 可用 ${coverageNumbers.usable} 則`
+      : `${signals.length} 個訊號`;
+    const showP1Progress = signals.length > 0 && auditSummaryValue.analyzedCount < signals.length;
+    const mergedSourceSection = (
+      <section data-topic-audit-block="sources" style={{ display: "grid", gap: 8 }}>
+        <div style={sectionLabelStyle}>
+          <span>貼文 · 點入單帖</span>
+          <span>
+            {sourceListCounts}
+            {showP1Progress ? ` · P1 判讀 ${auditSummaryValue.analyzedCount}/${signals.length}` : ""}
+          </span>
+        </div>
+        {deleteError ? (
+          <div style={{ fontSize: 11, color: tokens.color.failed }}>{deleteError}</div>
+        ) : null}
+        <div
+          data-topic-source-list="true"
+          data-topic-detail-surface="sources"
+          data-topic-audit-source-list-style="audit-report"
+          data-dlens-presence="card"
+          style={{ display: "grid", gap: 2, borderRadius: tokens.radius.cardLg, background: tokens.color.elevated, boxShadow: tokens.shadow.topicCard, padding: 6 }}
+        >
+          {signals.length === 0 && audit.sourceRows.length === 0 ? (
+            <div style={{ padding: "14px 8px", fontSize: 12, lineHeight: 1.55, color: tokens.color.softInk }}>
+              這個議題暫時沒有貼文。先回採集頁加入 Threads 訊號。
+            </div>
+          ) : null}
+          {audit.sourceRows.map((row) => {
+            const signal = signalBySignalId.get(row.packet.signalId);
+            const gist = signal?.tagRecord?.signalGist;
+            const addToCompareAction = signal?.actions.find((entry) => entry.kind === "addSignalToCompare");
+            const deleteAction = signal?.actions.find((entry) => entry.kind === "deleteSignal");
+            return (
+              <SourceRow
+                key={row.packet.signalId}
+                packet={row.packet}
+                active={selectedSourceId === row.packet.signalId}
+                readingStatus={row.readingStatus}
+                title={gist}
+                tags={row.tags}
+                showPreview={false}
+                stanceBadge={signal?.reading ? <StanceBadge stance={signal.reading.stance} marker="source" /> : undefined}
+                originalUrl={signal?.sourcePreview.displayUrl || undefined}
+                onOpen={() => setActiveDetail({ kind: "source", id: row.packet.signalId })}
+                onRunP1={row.actions.some((entry) => entry.kind === "runAuditP1") ? () => handleRunAuditP1(topic.id, row.packet.signalId) : undefined}
+                isRunningP1={row.isRunningP1}
+                onAddToCompare={addToCompareAction ? () => dispatch(addToCompareAction) : undefined}
+                onDelete={deleteAction ? () => { void handleDeleteSignal(row.packet.signalId); } : undefined}
+                deleting={deletingSignalId === row.packet.signalId}
+                reactionMix={(reactionMixByShortCode.get(row.packet.shortCode) ?? []).map((count, index) => ({
+                  color: atlasPalette[index % atlasPalette.length]!,
+                  count
+                }))}
+              />
+            );
+          })}
+          {pendingSignals.map((signal) => {
+            const analyzeAction = signal.actions.find((entry) => entry.kind === "analyzeItem" || entry.kind === "queueSignalItem");
+            const deleteAction = signal.actions.find((entry) => entry.kind === "deleteSignal");
+            const preview = signal.sourcePreview.displayText || signal.source || "資料不完整的 Threads 訊號";
+            return (
+              <PendingSignalRow
+                key={signal.signalId}
+                signalId={signal.signalId}
+                title={signal.tagRecord?.signalGist || preview}
+                preview={signal.tagRecord?.signalGist ? preview : undefined}
+                capturedAt={signal.capturedAt}
+                state={signal.isProcessing ? "processing" : signal.analysisState === "failed" ? "failed" : "idle"}
+                statusLabel={analysisStateLabel(signal.analysisState)}
+                stanceBadge={signal.reading ? <StanceBadge stance={signal.reading.stance} marker="source" /> : undefined}
+                originalUrl={signal.sourcePreview.displayUrl || undefined}
+                crawlLabel={analyzeAction ? (analyzeAction.kind === "analyzeItem" ? "開始爬取" : "排隊爬取") : undefined}
+                onCrawl={analyzeAction ? () => handleAnalyzeItem(signal) : undefined}
+                crawlDisabled={analyzeAction?.kind === "analyzeItem" && isBulkAnalyzing}
+                onDelete={deleteAction ? () => { void handleDeleteSignal(signal.signalId); } : undefined}
+                deleting={deletingSignalId === signal.signalId}
+              />
+            );
+          })}
+        </div>
+      </section>
     );
     return (
       <div style={viewRootStyle()} data-topic-load-state={loadState}>
@@ -2526,34 +2339,7 @@ export function TopicDetailView({
               </section>
             ) : null}
 
-            {auditEvidence.length > 0 ? (
-              <section data-topic-audit-block="sources" style={{ display: "grid", gap: 8 }}>
-                <div style={sectionLabelStyle}><span>貼文 · 點入單帖</span><span>{postTotal} 篇貼文 · 擷取 {coverageNumbers.captured} · 可用 {coverageNumbers.usable} 則</span></div>
-                <div
-                  data-topic-audit-source-list-style="audit-report"
-                  data-dlens-presence="card"
-                  style={{ display: "grid", gap: 2, borderRadius: tokens.radius.cardLg, background: tokens.color.elevated, boxShadow: tokens.shadow.topicCard, padding: 6 }}
-                >
-                  {audit.sourceRows.map((row) => (
-                    <SourceRow
-                      key={row.packet.signalId}
-                      packet={row.packet}
-                      active={selectedSourceId === row.packet.signalId}
-                      readingStatus={row.readingStatus}
-                      tags={row.tags}
-                      showPreview={false}
-                      onOpen={() => setActiveDetail({ kind: "source", id: row.packet.signalId })}
-                      onRunP1={row.actions.some((entry) => entry.kind === "runAuditP1") ? () => handleRunAuditP1(topic.id, row.packet.signalId) : undefined}
-                      isRunningP1={row.isRunningP1}
-                      reactionMix={(reactionMixByShortCode.get(row.packet.shortCode) ?? []).map((count, index) => ({
-                        color: atlasPalette[index % atlasPalette.length]!,
-                        count
-                      }))}
-                    />
-                  ))}
-                </div>
-              </section>
-            ) : null}
+            {mergedSourceSection}
 
             <section
               data-topic-audit-block="reliability"
@@ -2608,6 +2394,7 @@ export function TopicDetailView({
             </section>
               </>
             ) : (
+              <>
               <section
                 data-signal-atlas-empty-state="true"
                 data-dlens-presence="card"
@@ -2636,12 +2423,12 @@ export function TopicDetailView({
                       : "生成議題審查後，民情形狀、跨帖敘事與來源會在此展開。"}
                 </p>
               </section>
+                {mergedSourceSection}
+              </>
             )}
             </div>
           </div>
           </div>
-
-        {topicSourceFeed}
 
         <AuditDetailDrawer
           activeDetail={activeDetail}
