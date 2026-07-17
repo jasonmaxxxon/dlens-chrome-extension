@@ -149,16 +149,7 @@ function hasIncompleteJsonTail(raw: string): boolean {
   return quoted || depth > 0;
 }
 
-function hasCompleteJsonPayload(raw: string): boolean {
-  try {
-    JSON.parse(stripCodeFence(raw));
-    return true;
-  } catch {
-    return false;
-  }
-}
-
-function parseJsonObject(raw: string): Record<string, unknown> | null {
+function getJsonCandidates(raw: string): string[] {
   const stripped = stripCodeFence(raw);
   const candidates = [stripped];
   const firstBrace = stripped.indexOf("{");
@@ -166,7 +157,23 @@ function parseJsonObject(raw: string): Record<string, unknown> | null {
   if (firstBrace >= 0 && lastBrace > firstBrace) {
     candidates.push(stripped.slice(firstBrace, lastBrace + 1));
   }
-  for (const candidate of candidates) {
+  return candidates;
+}
+
+function hasCompleteJsonPayload(raw: string): boolean {
+  for (const candidate of getJsonCandidates(raw)) {
+    try {
+      JSON.parse(candidate);
+      return true;
+    } catch {
+      // Try the next candidate.
+    }
+  }
+  return false;
+}
+
+function parseJsonObject(raw: string): Record<string, unknown> | null {
+  for (const candidate of getJsonCandidates(raw)) {
     try {
       const payload = JSON.parse(candidate) as unknown;
       if (payload && typeof payload === "object" && !Array.isArray(payload)) {

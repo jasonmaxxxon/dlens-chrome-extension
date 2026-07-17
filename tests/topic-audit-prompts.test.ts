@@ -387,6 +387,46 @@ test("parseAuditPromptEnvelopeResult prioritizes complete envelope semantics ove
   );
 });
 
+test("parseAuditPromptEnvelopeResult classifies salvaged complete schema mismatches before max-token metadata", () => {
+  const raw = `note before\n${JSON.stringify({ evidenceRefs: [], caveats: [] })}\nthanks`;
+
+  assert.deepEqual(
+    parseAuditPromptEnvelopeResult(raw, undefined, { finishReason: "MAX_TOKENS" }),
+    {
+      ok: false,
+      kind: "schema_mismatch",
+      finishReason: "MAX_TOKENS",
+      outputChars: raw.length
+    }
+  );
+});
+
+test("parseAuditPromptEnvelopeResult preserves salvaged valid envelopes with max-token metadata", () => {
+  const raw = `note before\n${JSON.stringify({ prose: "完整判讀", evidenceRefs: [], caveats: [] })}\nthanks`;
+
+  assert.deepEqual(
+    parseAuditPromptEnvelopeResult(raw, undefined, { finishReason: "MAX_TOKENS" }),
+    {
+      ok: true,
+      envelope: { prose: "完整判讀", evidenceRefs: [], caveats: [] }
+    }
+  );
+});
+
+test("parseAuditPromptEnvelopeResult keeps an incomplete salvaged candidate truncated with max-token metadata", () => {
+  const raw = 'note before\n{"prose":"未完\nthanks';
+
+  assert.deepEqual(
+    parseAuditPromptEnvelopeResult(raw, undefined, { finishReason: "MAX_TOKENS" }),
+    {
+      ok: false,
+      kind: "truncated",
+      finishReason: "MAX_TOKENS",
+      outputChars: raw.length
+    }
+  );
+});
+
 test("nullable audit parser remains compatible with valid aliases", () => {
   const raw = '{"memo":"有效判讀","evidence_refs":[],"caveats":[]}';
 
