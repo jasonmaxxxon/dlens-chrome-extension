@@ -14,6 +14,7 @@ import {
   buildP7ValidatorPrompt,
   buildP8CrossTopicCalibrationPrompt,
   findForbiddenFindingAssertions,
+  parseAuditPromptEnvelopeResult,
   parseAuditPromptEnvelopeResponse
 } from "../src/compare/topic-audit-prompts.ts";
 
@@ -308,6 +309,56 @@ test("P7 and P8 prompts make validation and cross-topic calibration explicit", (
   assert.match(calibrationPrompt, /topic-specific/);
   assert.match(calibrationPrompt, /platform-affordance/);
   assert.equal(TOPIC_AUDIT_PROMPT_VERSIONS.p8, "topic-audit-p8.v1");
+});
+
+test("parseAuditPromptEnvelopeResult classifies empty, truncated, and schema mismatch", () => {
+  assert.deepEqual(parseAuditPromptEnvelopeResult("   "), {
+    ok: false,
+    kind: "empty",
+    outputChars: 0
+  });
+
+  const truncatedWithFinishReason = '{"prose":"未完';
+  assert.deepEqual(
+    parseAuditPromptEnvelopeResult(truncatedWithFinishReason, undefined, { finishReason: "MAX_TOKENS" }),
+    {
+      ok: false,
+      kind: "truncated",
+      finishReason: "MAX_TOKENS",
+      outputChars: truncatedWithFinishReason.length
+    }
+  );
+
+  const structurallyTruncated = parseAuditPromptEnvelopeResult('{"prose":"未完');
+  assert.equal(structurallyTruncated.ok, false);
+  assert.equal((structurallyTruncated as { kind: string }).kind, "truncated");
+
+  const schemaMismatch = '{"evidenceRefs":[],"caveats":[]}';
+  assert.deepEqual(parseAuditPromptEnvelopeResult(schemaMismatch), {
+    ok: false,
+    kind: "schema_mismatch",
+    outputChars: schemaMismatch.length
+  });
+});
+
+test("parseAuditPromptEnvelopeResult keeps complete schema mismatches out of truncation", () => {
+  const completeSchemaMismatch = JSON.stringify({
+    caveats: [],
+    note: 'escaped quote \\" then {'
+  });
+
+  assert.deepEqual(parseAuditPromptEnvelopeResult(completeSchemaMismatch), {
+    ok: false,
+    kind: "schema_mismatch",
+    outputChars: completeSchemaMismatch.length
+  });
+});
+
+test("nullable audit parser remains compatible with valid aliases", () => {
+  const raw = '{"memo":"有效判讀","evidence_refs":[],"caveats":[]}';
+
+  assert.equal(parseAuditPromptEnvelopeResult(raw).ok, true);
+  assert.equal(parseAuditPromptEnvelopeResponse(raw)?.prose, "有效判讀");
 });
 
 test("parseAuditPromptEnvelopeResponse accepts prose JSON and filters unknown refs", () => {

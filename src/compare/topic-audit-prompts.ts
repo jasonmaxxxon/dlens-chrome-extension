@@ -13,6 +13,10 @@ import {
   type SignalReading,
   type TopicNarrativeState
 } from "./topic-audit.ts";
+import type {
+  TopicAuditEnvelopeParseResult,
+  TopicAuditEnvelopeResponseMeta
+} from "./topic-audit-envelope-contract.ts";
 
 export const TOPIC_AUDIT_PROMPT_VERSIONS = {
   p0_5: "topic-audit-p0_5.v2",
@@ -111,6 +115,38 @@ function stripCodeFence(value: string): string {
     return trimmed;
   }
   return trimmed.replace(/^```(?:json)?/i, "").replace(/```$/i, "").trim();
+}
+
+const TRUNCATED_FINISH_REASONS = new Set(["MAX_TOKENS", "length", "max_tokens"]);
+
+function hasIncompleteJsonTail(raw: string): boolean {
+  let depth = 0;
+  let quoted = false;
+  let escaped = false;
+  for (const char of stripCodeFence(raw)) {
+    if (escaped) {
+      escaped = false;
+      continue;
+    }
+    if (char === "\\" && quoted) {
+      escaped = true;
+      continue;
+    }
+    if (char === '"') {
+      quoted = !quoted;
+      continue;
+    }
+    if (quoted) {
+      continue;
+    }
+    if (char === "{" || char === "[") {
+      depth += 1;
+    }
+    if (char === "}" || char === "]") {
+      depth -= 1;
+    }
+  }
+  return quoted || depth > 0;
 }
 
 function parseJsonObject(raw: string): Record<string, unknown> | null {
@@ -385,7 +421,7 @@ function readContinuityReview(
   };
 }
 
-export function parseAuditPromptEnvelopeResponse(
+function parseAuditEnvelopeObject(
   raw: string,
   allowedRefs?: ReadonlySet<string>
 ): AuditPromptEnvelope | null {
@@ -442,6 +478,39 @@ export function parseAuditPromptEnvelopeResponse(
         }
       : {})
   };
+}
+
+export function parseAuditPromptEnvelopeResult(
+  raw: string,
+  allowedRefs?: ReadonlySet<string>,
+  meta: TopicAuditEnvelopeResponseMeta = {}
+): TopicAuditEnvelopeParseResult {
+  const trimmed = raw.trim();
+  if (!trimmed) {
+    return { ok: false, kind: "empty", outputChars: 0 };
+  }
+
+  const envelope = parseAuditEnvelopeObject(raw, allowedRefs);
+  if (envelope) {
+    return { ok: true, envelope };
+  }
+
+  const finishReason = meta.finishReason?.trim();
+  const truncated = Boolean(finishReason && TRUNCATED_FINISH_REASONS.has(finishReason)) || hasIncompleteJsonTail(raw);
+  return {
+    ok: false,
+    kind: truncated ? "truncated" : "schema_mismatch",
+    ...(finishReason ? { finishReason } : {}),
+    outputChars: trimmed.length
+  };
+}
+
+export function parseAuditPromptEnvelopeResponse(
+  raw: string,
+  allowedRefs?: ReadonlySet<string>
+): AuditPromptEnvelope | null {
+  const result = parseAuditPromptEnvelopeResult(raw, allowedRefs);
+  return result.ok ? result.envelope : null;
 }
 
 interface TopicPromptInput {
