@@ -584,7 +584,12 @@ function envelopeReplayText(envelope: AuditPromptEnvelope): string[] {
       candidate.uncertainty
     ]),
     ...(envelope.displayHints?.themeChips ?? []),
-    ...(envelope.displayHints?.narrativeLanes ?? []).map((lane) => lane.label),
+    ...(envelope.displayHints?.narrativeLanes ?? []).flatMap((lane) => [
+      lane.label,
+      lane.beats?.setup ?? "",
+      lane.beats?.tension ?? "",
+      lane.beats?.outcome ?? ""
+    ]),
     ...(envelope.displayHints?.reactionPatterns ?? []).flatMap((pattern) => [
       pattern.label,
       pattern.dynamicImplication

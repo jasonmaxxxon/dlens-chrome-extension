@@ -1604,6 +1604,26 @@ test("TopicDetailView keeps pre-Atlas source work visibly open", () => {
   assert.match(html, /收合 ▴/);
 });
 
+test("TopicDetailView keeps an evidence-only P1 source disclosure open before Atlas presentation exists", () => {
+  const html = renderToStaticMarkup(
+    topicDetailViewElement({
+      topic,
+      signals,
+      pairs: [],
+      sessionItems: [buildReadySessionItem("item-1")],
+      auditEvidence: [auditPacket],
+      auditMemos: null,
+      auditReport: null,
+      auditSummary: { reportStatus: "none", analyzedCount: 0, queuedCount: 0 },
+      auditValidatorFlags: []
+    })
+  );
+
+  assert.match(html, /data-signal-atlas-empty-state="true"/);
+  assert.match(html, /<details[^>]*data-atlas-source-disclosure="true"[^>]*open/);
+  assert.match(html, /data-source-row="S1"/);
+});
+
 test("TopicDetailView lets ready Atlas readers expand sources and keep source callbacks working", async () => {
   const { JSDOM } = await import("jsdom");
   const { createRoot } = await import("react-dom/client");
@@ -1664,6 +1684,104 @@ test("TopicDetailView lets ready Atlas readers expand sources and keep source ca
       compare!.dispatchEvent(new dom.window.MouseEvent("click", { bubbles: true }));
     });
     assert.deepEqual(comparedItemIds, ["item-1"]);
+  } finally {
+    flushSync(() => root.unmount());
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    Object.assign(globalThis, previous);
+  }
+});
+
+test("TopicDetailView resets an opened ready Atlas source disclosure when the ready topic changes", async () => {
+  const { JSDOM } = await import("jsdom");
+  const { createRoot } = await import("react-dom/client");
+  const { flushSync } = await import("react-dom");
+  const dom = new JSDOM("<div id=\"root\"></div>", { url: "https://dlens.test" });
+  const previous = {
+    window: globalThis.window,
+    document: globalThis.document,
+    HTMLElement: globalThis.HTMLElement,
+    Event: globalThis.Event,
+    MouseEvent: globalThis.MouseEvent
+  };
+  Object.assign(globalThis, {
+    window: dom.window,
+    document: dom.window.document,
+    HTMLElement: dom.window.HTMLElement,
+    Event: dom.window.Event,
+    MouseEvent: dom.window.MouseEvent
+  });
+  const rootElement = dom.window.document.getElementById("root")!;
+  const root = createRoot(rootElement);
+  const topicB: Topic = {
+    ...topic,
+    id: "topic-2",
+    name: "住宿爭議",
+    signalIds: ["signal-2"],
+    pairIds: []
+  };
+  const signalB: Signal = {
+    ...signals[0]!,
+    id: "signal-2",
+    itemId: "item-2",
+    topicId: topicB.id
+  };
+  const auditPacketB: EvidencePacket = {
+    ...auditPacket,
+    topicId: topicB.id,
+    signalId: signalB.id,
+    itemId: signalB.itemId
+  };
+  const auditMemosB: TopicAuditMemoBundle = {
+    ...auditMemos,
+    signalReadings: auditMemos.signalReadings.map((reading) => ({
+      ...reading,
+      topicId: topicB.id,
+      signalId: signalB.id
+    })),
+    lensMemos: auditMemos.lensMemos.map((memo) => ({ ...memo, topicId: topicB.id }))
+  };
+  const renderReadyTopic = (
+    nextTopic: Topic,
+    nextSignals: Signal[],
+    nextItemId: string,
+    nextEvidence: EvidencePacket[],
+    nextMemos: TopicAuditMemoBundle
+  ) => topicDetailViewElement({
+    topic: nextTopic,
+    signals: nextSignals,
+    pairs: [],
+    sessionItems: [buildReadySessionItem(nextItemId)],
+    auditEvidence: nextEvidence,
+    auditMemos: nextMemos,
+    auditSummary: { reportStatus: "ready", analyzedCount: 1, queuedCount: 0 },
+    auditValidatorFlags: []
+  });
+
+  try {
+    flushSync(() => {
+      root.render(renderReadyTopic(topic, signals, "item-1", [auditPacket], auditMemos));
+    });
+    const topicADisclosure = rootElement.querySelector<HTMLDetailsElement>("details[data-atlas-source-disclosure]");
+    const topicASummary = topicADisclosure?.querySelector("summary");
+    assert.ok(topicADisclosure);
+    assert.ok(topicASummary);
+    assert.equal(topicADisclosure.open, false);
+
+    flushSync(() => {
+      topicASummary.dispatchEvent(new dom.window.MouseEvent("click", { bubbles: true }));
+    });
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    assert.equal(topicADisclosure.open, true);
+
+    flushSync(() => {
+      root.render(renderReadyTopic(topicB, [signalB], "item-2", [auditPacketB], auditMemosB));
+    });
+    await new Promise((resolve) => setTimeout(resolve, 0));
+
+    const topicBDisclosure = rootElement.querySelector<HTMLDetailsElement>("details[data-atlas-source-disclosure]");
+    assert.ok(topicBDisclosure);
+    assert.equal(topicBDisclosure.open, false);
+    assert.match(topicBDisclosure.querySelector("summary")?.textContent ?? "", /展開 ▾/);
   } finally {
     flushSync(() => root.unmount());
     await new Promise((resolve) => setTimeout(resolve, 0));

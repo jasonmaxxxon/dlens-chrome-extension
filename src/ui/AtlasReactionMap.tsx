@@ -29,6 +29,19 @@ function assignmentPercent(count: number, total: number): number {
   return total > 0 ? Math.round((count / total) * 100) : 0;
 }
 
+const BUBBLE_LABEL_CODEPOINTS_PER_LINE = 8;
+
+function formatBubbleLabel(label: string): string[] {
+  const codepoints = Array.from(label.trim().replace(/\s+/g, " "));
+  if (codepoints.length > BUBBLE_LABEL_CODEPOINTS_PER_LINE * 2) {
+    codepoints.splice(BUBBLE_LABEL_CODEPOINTS_PER_LINE * 2 - 1, codepoints.length, "…");
+  }
+  return [
+    codepoints.slice(0, BUBBLE_LABEL_CODEPOINTS_PER_LINE).join(""),
+    codepoints.slice(BUBBLE_LABEL_CODEPOINTS_PER_LINE).join("")
+  ].filter(Boolean);
+}
+
 export function AtlasReactionMap({ patterns, usableCount, selectedId, onSelect }: AtlasReactionMapProps) {
   const [hoveredId, setHoveredId] = useState<string | null>(null);
   const [focusedId, setFocusedId] = useState<string | null>(null);
@@ -139,6 +152,9 @@ export function AtlasReactionMap({ patterns, usableCount, selectedId, onSelect }
               const { pattern, originalIndex } = patternEntry;
               const paletteIndex = originalIndex % ATLAS_PALETTE.length;
               const fill = ATLAS_PALETTE[paletteIndex]!;
+              const bubbleLabelLines = formatBubbleLabel(pattern.label);
+              const labelSafeInset = tokens.spacing.xl * 2;
+              const labelX = Math.max(labelSafeInset, Math.min(layout.width - labelSafeInset, bubble.x));
               return (
                 <g
                   key={bubble.id}
@@ -170,12 +186,21 @@ export function AtlasReactionMap({ patterns, usableCount, selectedId, onSelect }
                   </text>
                   <text
                     data-atlas-bubble-label={pattern.id}
-                    x={bubble.x}
+                    x={labelX}
                     y={bubble.y + bubble.r + tokens.spacing.section}
                     textAnchor="middle"
+                    aria-hidden="true"
                     style={{ ...textStyles.caption, fill: tokens.color.subInk }}
                   >
-                    {pattern.label}
+                    {bubbleLabelLines.map((line, lineIndex) => (
+                      <tspan
+                        key={`${pattern.id}-label-${lineIndex}`}
+                        x={labelX}
+                        dy={lineIndex === 0 ? 0 : `${textStyles.caption.lineHeight}em`}
+                      >
+                        {line}
+                      </tspan>
+                    ))}
                   </text>
                   <circle className="dlens-atlas-focus-ring" cx={bubble.x} cy={bubble.y} r={bubble.r + tokens.spacing.xs} fill="none" stroke={tokens.color.signalDeep} strokeWidth={2} />
                   <circle className="dlens-atlas-focus-ring" cx={bubble.x} cy={bubble.y} r={bubble.r + tokens.spacing.sm} fill="none" stroke={tokens.color.atlasPaperStrong} strokeWidth={1} />

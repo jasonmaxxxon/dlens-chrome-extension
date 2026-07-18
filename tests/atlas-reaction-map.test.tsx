@@ -67,6 +67,43 @@ test("AtlasReactionMap renders complete bubbles and an accessible assignment dis
   assert.match(html, /data-atlas-assignment-row="skeptic"[^>]*data-atlas-palette-index="2"/);
 });
 
+test("AtlasReactionMap bounds long visible labels at both compass edges without truncating accessible copy", async () => {
+  const module = await loadAtlasReactionMap();
+  assert.ok(module, "AtlasReactionMap module must exist");
+  const leftLabel = "制度責任追問與長期結構風險需要持續公開驗證";
+  const rightLabel = "具體改善提案與跨部門協作承諾需要持續追蹤落實";
+  const edgePatterns: ReactionPattern[] = [
+    { ...patterns[0]!, id: "left-long", label: leftLabel, valence: -1, mode: 0 },
+    { ...patterns[1]!, id: "right-long", label: rightLabel, valence: 1, mode: 0 }
+  ];
+  const html = renderToStaticMarkup(
+    <module.AtlasReactionMap patterns={edgePatterns} usableCount={42} selectedId={null} onSelect={() => undefined} />
+  );
+  const dom = new JSDOM(html);
+
+  try {
+    for (const [id, fullLabel] of [["left-long", leftLabel], ["right-long", rightLabel]] as const) {
+      const bubble = dom.window.document.querySelector(`[data-signal-atlas-dot="${id}"]`);
+      assert.ok(bubble);
+      assert.match(bubble.getAttribute("aria-label") ?? "", new RegExp(fullLabel));
+
+      const visibleLabel = bubble.querySelector(`[data-atlas-bubble-label="${id}"]`);
+      assert.ok(visibleLabel);
+      const lines = [...visibleLabel.querySelectorAll("tspan")].map((line) => line.textContent ?? "");
+      assert.equal(lines.length, 2);
+      assert.ok(lines.every((line) => Array.from(line).length <= 8));
+      assert.match(lines.at(-1) ?? "", /…$/);
+      assert.notEqual(lines.join(""), fullLabel);
+
+      const row = dom.window.document.querySelector(`[data-atlas-assignment-row="${id}"]`);
+      assert.ok(row);
+      assert.match(row.textContent ?? "", new RegExp(fullLabel));
+    }
+  } finally {
+    dom.window.close();
+  }
+});
+
 test("AtlasReactionMap exposes the selected distribution row through aria-pressed", async () => {
   const module = await loadAtlasReactionMap();
   assert.ok(module, "AtlasReactionMap module must exist");

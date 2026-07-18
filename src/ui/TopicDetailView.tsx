@@ -1730,10 +1730,9 @@ export function TopicDetailView({
   const p1TotalCount = audit.p1TotalCount;
   const canRunAuditFromSources = audit.canRunAudit;
   const hasAuditReport = audit.hasAuditReport;
-  const hasAtlasData = auditThemes.length > 0
+  const hasReadyAtlasPresentation = auditThemes.length > 0
     || auditLanes.length > 0
     || reactionPatterns.length > 0
-    || auditEvidence.length > 0
     || Boolean(audit.headlineProse || audit.absenceProse || audit.caveats.length);
   const commandTarget = { sessionId: viewModel.sessionId, topicId: topic.id };
   const dispatch = (command: TopicDetailCommand) => {
@@ -1754,7 +1753,7 @@ export function TopicDetailView({
     relevance: 1 | 2 | 3 | 4 | 5;
     recommendedState: "park" | "watch" | "act";
   } | null>(null);
-  const [sourceDisclosureOpen, setSourceDisclosureOpen] = useState(() => !hasAtlasData);
+  const [sourceDisclosureOpen, setSourceDisclosureOpen] = useState(() => !hasReadyAtlasPresentation);
 
   useEffect(() => {
     setDraftDescription(topic.description || "");
@@ -1762,8 +1761,8 @@ export function TopicDetailView({
   }, [topic.context?.researchQuestion, topic.description, topic.id]);
 
   useEffect(() => {
-    setSourceDisclosureOpen(!hasAtlasData);
-  }, [hasAtlasData]);
+    setSourceDisclosureOpen(!hasReadyAtlasPresentation);
+  }, [topic.id, hasReadyAtlasPresentation]);
 
   const visibleSignals = useMemo(
     () => signals.filter((signal) =>
@@ -1977,7 +1976,7 @@ export function TopicDetailView({
         topic={topic}
         summary={auditSummaryValue}
         sourceSession={sourceSession}
-        hasAtlasData={hasAtlasData}
+        hasAtlasData={hasReadyAtlasPresentation}
         hasAuditReport={hasAuditReport}
         canRunAudit={canRunAuditFromSources}
         onRunAudit={handleRunAudit}
@@ -2127,7 +2126,7 @@ export function TopicDetailView({
               aria-busy={auditSummaryValue.reportStatus === "running" ? "true" : undefined}
               style={{ display: "grid", gap: 12 }}
             >
-            {hasAtlasData ? (
+            {hasReadyAtlasPresentation ? (
               <>
             <section
               data-signal-atlas-hero="true"

@@ -772,6 +772,43 @@ test("topic audit rejects unknown inline refs hidden in display theme chips", as
   );
 });
 
+test("topic audit rejects unknown inline refs hidden in narrative beats", async () => {
+  const storage = new MemoryStorage();
+  await seedTopic(storage);
+
+  await assert.rejects(
+    () => handleTopicAuditMessage(storage, {
+      message: { type: "topic/audit/run", requestId: "test-topic-audit-run", sessionId: "session-1", topicId: "topic-1" },
+      sessions: [makeSession()],
+      generateEnvelope: async (stageName) => stageName === "narrative"
+        ? {
+            ...makeEnvelope(stageName),
+            displayHints: {
+              narrativeLanes: [{
+                id: "fabricated-beat-ref",
+                label: "偽引用敘事",
+                signalRefs: ["S1.OP"],
+                consensus: 0.8,
+                beats: {
+                  setup: "已知材料",
+                  tension: "憑空加入未知留言 [S9.R9]",
+                  outcome: "偽引用不應保存"
+                }
+              }]
+            }
+          }
+        : makeEnvelope(stageName),
+      model: "mock:model"
+    }),
+    /Unknown inline evidence ref: S9\.R9/
+  );
+
+  assert.equal(
+    (await loadTopicAuditMemos(storage, "topic-1"))?.lensMemos.some((memo) => memo.stageName === "narrative"),
+    false
+  );
+});
+
 test("topic audit preserves narrative beats after filtering unknown lane refs", async () => {
   const storage = new MemoryStorage();
   await seedTopic(storage);
@@ -810,6 +847,38 @@ test("topic audit preserves narrative beats after filtering unknown lane refs", 
     outcome: "結構性困境成為共同框架"
   });
   assert.equal(narrativeMemo?.displayHints?.narrativeLanes?.[0]?.trajectory, "carried");
+});
+
+test("topic audit removes a narrative lane when every lane ref is invalid", async () => {
+  const storage = new MemoryStorage();
+  await seedTopic(storage);
+
+  await handleTopicAuditMessage(storage, {
+    message: { type: "topic/audit/run", requestId: "test-topic-audit-run", sessionId: "session-1", topicId: "topic-1" },
+    sessions: [makeSession()],
+    generateEnvelope: async (stageName) => stageName === "narrative"
+      ? {
+          ...makeEnvelope(stageName),
+          displayHints: {
+            narrativeLanes: [{
+              id: "all-invalid-refs",
+              label: "無有效證據的敘事",
+              signalRefs: ["S9.R9"],
+              consensus: 0.8,
+              beats: {
+                setup: "未引用 evidence alias",
+                tension: "沒有合法 lane ref",
+                outcome: "整條 lane 應移除"
+              }
+            }]
+          }
+        }
+      : makeEnvelope(stageName),
+    model: "mock:model"
+  });
+
+  const narrativeMemo = (await loadTopicAuditMemos(storage, "topic-1"))?.lensMemos.find((memo) => memo.stageName === "narrative");
+  assert.deepEqual(narrativeMemo?.displayHints?.narrativeLanes, []);
 });
 
 test("topic audit run can resume from a later stage without rerunning completed stages", async () => {
