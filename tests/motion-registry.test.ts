@@ -170,10 +170,10 @@ test("approved hover preset A gives dense actionable rows the same pronounced li
   assert.match(DLENS_MOTION_CSS, /prefers-reduced-motion:\s*reduce[\s\S]*\.dlens-tactile-row:active[\s\S]*transform:\s*none\s*!important/);
 });
 
-test("Atlas legend rows acknowledge hover without borrowing card lift or shadow", () => {
-  assert.match(DLENS_MOTION_CSS, /\.dlens-atlas-legend-row\s*\{[^}]*transition:\s*background-color/);
-  assert.match(DLENS_MOTION_CSS, /\.dlens-atlas-legend-row:hover[\s\S]*?background:\s*[^;]+;/);
-  const quietRule = DLENS_MOTION_CSS.match(/\.dlens-atlas-legend-row:hover\s*\{([^}]*)\}/)?.[1] ?? "";
+test("Atlas distribution rows acknowledge hover without borrowing card lift or shadow", () => {
+  assert.match(DLENS_MOTION_CSS, /\.dlens-atlas-distribution-row\s*\{[^}]*transition:\s*background-color/);
+  assert.match(DLENS_MOTION_CSS, /\.dlens-atlas-distribution-row:hover[\s\S]*?background:\s*[^;]+;/);
+  const quietRule = DLENS_MOTION_CSS.match(/\.dlens-atlas-distribution-row:hover\s*\{([^}]*)\}/)?.[1] ?? "";
   assert.doesNotMatch(quietRule, /transform|box-shadow/);
 });
 

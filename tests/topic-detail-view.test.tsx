@@ -1397,7 +1397,7 @@ test("TopicDetailView renders the Signal Atlas L0 spine with only one exact repr
 
   const heroIndex = html.indexOf("data-signal-atlas-hero=\"true\"");
   const laneIndex = html.indexOf("data-atlas-narrative-pager=\"true\"");
-  const mapIndex = html.indexOf("data-signal-atlas-map=\"true\"");
+  const mapIndex = html.indexOf("data-atlas-assignment-distribution=\"true\"");
   const warnIndex = html.indexOf("data-topic-audit-block=\"reliability\"");
   const sourceIndex = html.indexOf("data-topic-audit-block=\"sources\"");
   assert.ok(heroIndex >= 0, "hero should render");
@@ -1406,13 +1406,11 @@ test("TopicDetailView renders the Signal Atlas L0 spine with only one exact repr
   assert.match(html, /<\/section><section data-topic-audit-block="lanes"[^>]*data-atlas-narrative-pager="true"/);
   assert.ok(mapIndex < sourceIndex, "compass panel should precede the posts rail");
   assert.ok(sourceIndex < warnIndex, "posts rail should precede the reliability strip");
-  assert.match(html, /data-signal-atlas-map="true"[^>]*data-dlens-presence="card"/);
-  assert.doesNotMatch(html, /data-signal-atlas-map="true"[^>]*data-dlens-presence-motion=/);
-  assert.doesNotMatch(html, /data-reaction-pattern="[^"]+"[^>]*data-dlens-presence=/);
-  assert.match(html, /data-reaction-pattern="[^"]+"[^>]*border-radius:8px/);
-  assert.match(html, /data-reaction-pattern="[^"]+"[^>]*class="dlens-atlas-legend-row"/);
-  assert.doesNotMatch(html, /data-reaction-pattern="[^"]+"[^>]*class="[^"]*dlens-tactile-row/);
-  // the old reaction card wall stays removed: the compass legend is the only pattern text at L0
+  assert.match(html, /data-atlas-assignment-distribution="true"[^>]*data-dlens-presence="card"/);
+  assert.doesNotMatch(html, /data-signal-atlas-map="true"|dlens-atlas-legend-row/);
+  assert.match(html, /data-atlas-assignment-row="reaction-local-labor-defense"[^>]*class="dlens-atlas-distribution-row"/);
+  assert.doesNotMatch(html, /data-atlas-assignment-row="[^"]+"[^>]*class="[^"]*dlens-tactile-row/);
+  // the old reaction card wall stays removed: the distribution is the only pattern list at L0
   assert.doesNotMatch(html, /data-topic-audit-block="reaction-patterns"/);
 
   assert.match(html, /342/);
@@ -1426,7 +1424,7 @@ test("TopicDetailView renders the Signal Atlas L0 spine with only one exact repr
   assert.doesNotMatch(html, /data-atlas-ledger-metric="342\/318|118\/342|已歸類留言|反應構成/);
   assert.match(html, /反例 1/);
   assert.match(html, /<svg[^>]+role="group"[^>]+aria-label="民情羅盤/);
-  assert.match(html, /data-signal-atlas-dot="reaction-local-labor-defense"[^>]+role="button"[^>]+aria-label="本地勞工身份防守，118 次留言歸屬，按 Enter 開啟詳情"/);
+  assert.match(html, /data-signal-atlas-dot="reaction-local-labor-defense"[^>]+role="button"[^>]+aria-label="本地勞工身份防守，118 次留言歸屬。留言把政策爭議推向身份與分配正義，而不是單純效率討論。按 Enter 或空白鍵開啟詳情"/);
   assert.match(html, />質疑</);
   assert.match(html, />支持</);
   assert.doesNotMatch(html, /質疑・悲觀|支持・正面/);
@@ -1873,7 +1871,7 @@ test("TopicDetailView routes reaction, narrative, atlas dot, and source row into
     assert.equal(rootElement.querySelector("[data-reaction-pattern-detail]"), null);
     assert.equal(rootElement.querySelector("[data-signal-drawer]"), null);
 
-    const patternButton = rootElement.querySelector<HTMLButtonElement>("button[data-reaction-pattern=\"reaction-local-labor-defense\"]");
+    const patternButton = rootElement.querySelector<HTMLButtonElement>("button[data-atlas-assignment-row=\"reaction-local-labor-defense\"]");
     assert.ok(patternButton, "reaction pattern should be clickable");
     flushSync(() => {
       patternButton!.dispatchEvent(new dom.window.MouseEvent("click", { bubbles: true }));
@@ -2383,20 +2381,6 @@ test("TopicSynthesisCard Stack layout observation section expands when open", ()
   assert.match(openHtml, /旅客把流程缺口讀成制度責任/);
 });
 
-test("Signal Atlas bubble labels follow the wrapped palette contrast", () => {
-  const usesDarkText = (topicDetailViewTestables as typeof topicDetailViewTestables & {
-    atlasBubbleUsesDarkText: (index: number, paletteSize: number) => boolean;
-  }).atlasBubbleUsesDarkText;
-
-  assert.equal(usesDarkText(0, 5), true);
-  assert.equal(usesDarkText(2, 5), true);
-  assert.equal(usesDarkText(5, 5), true);
-  assert.equal(usesDarkText(7, 5), true);
-  assert.equal(usesDarkText(1, 5), false);
-  assert.equal(usesDarkText(6, 5), false);
-  assert.equal(usesDarkText(0, 0), false);
-});
-
 test("TopicDetailView empty pairs folds the compare-results section away", () => {
   const html = renderToStaticMarkup(
     topicDetailViewElement({
@@ -2650,6 +2634,6 @@ test("topic-audit-components.tsx module surface: retired Newsroom family is gone
   assert.equal(typeof topicAuditModule.AuditReportReactionPatterns, "function");
   assert.equal(typeof topicAuditModule.AuditReportNarrativeLanes, "function");
   assert.equal(typeof topicAuditModule.NarrativeLane, "function");
-  assert.equal(typeof topicAuditModule.ReactionPatternLane, "function");
+  assert.equal(topicAuditModule.ReactionPatternLane, undefined);
   assert.equal(typeof topicAuditModule.SourceRow, "function");
 });

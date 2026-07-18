@@ -242,14 +242,14 @@ export const DLENS_MOTION_CSS = `
   transform: ${tokens.motion.transform.rowPress};
   transition: transform 90ms ${tokens.motion.easing.standard};
 }
-[data-dlens-control="true"] .dlens-atlas-legend-row {
+[data-dlens-control="true"] .dlens-atlas-distribution-row {
   transition: background-color ${tokens.motion.duration.fast} ${tokens.motion.easing.standard};
 }
-[data-dlens-control="true"] .dlens-atlas-legend-row:hover,
-[data-dlens-control="true"] .dlens-atlas-legend-row:focus-visible {
+[data-dlens-control="true"] .dlens-atlas-distribution-row:hover,
+[data-dlens-control="true"] .dlens-atlas-distribution-row:focus-visible {
   background: ${tokens.color.inkWash} !important;
 }
-[data-dlens-control="true"] .dlens-atlas-legend-row:active {
+[data-dlens-control="true"] .dlens-atlas-distribution-row:active {
   background: ${tokens.color.inkWashStrong} !important;
 }
 [data-dlens-control="true"] .dlens-quote-row {
@@ -338,7 +338,7 @@ export const DLENS_MOTION_CSS = `
   }
   [data-dlens-control="true"] .dlens-card-lift,
   [data-dlens-control="true"] .dlens-tactile-row,
-  [data-dlens-control="true"] .dlens-atlas-legend-row,
+  [data-dlens-control="true"] .dlens-atlas-distribution-row,
   [data-dlens-control="true"] .dlens-quote-row,
   [data-dlens-control="true"] .dlens-details-summary,
   [data-dlens-control="true"] .dlens-details-chevron,

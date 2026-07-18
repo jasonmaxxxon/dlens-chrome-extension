@@ -10,7 +10,7 @@ import type { TopicAuditValidationFlag } from "../compare/topic-audit-validator.
 import { buildNarrativeLaneDetail, type NarrativeLaneDetail } from "../viewmodel/narrative-lane-detail.ts";
 import { buildReactionPatternFullList } from "../viewmodel/reaction-pattern-full-list.ts";
 import { buildReactionPatternDetail, type ReactionPatternDetail } from "../viewmodel/reaction-pattern-detail.ts";
-import { layoutSignalAtlasCompass, postReactionMixByShortCode } from "../viewmodel/signal-atlas-compass.ts";
+import { postReactionMixByShortCode } from "../viewmodel/signal-atlas-compass.ts";
 import type {
   FolderMode,
   SavedAnalysisSnapshot,
@@ -32,6 +32,7 @@ import type {
 } from "../viewmodel/topic-detail.ts";
 import { Kicker, PrimaryButton, SCAN_ROW_HOVER_CSS, SecondaryButton, Stamp, SurfaceCard, WorkspaceSurface, lineClamp, scanRowStyle, viewRootStyle } from "./components.tsx";
 import { AtlasNarrativeStage } from "./AtlasNarrativeStage.tsx";
+import { AtlasReactionMap } from "./AtlasReactionMap.tsx";
 import { SignalDrawer } from "./SignalDrawer.tsx";
 import { TopicSourceSessionCard } from "./TopicSourceSessionCard.tsx";
 import {
@@ -47,7 +48,6 @@ import {
   NarrativeLane,
   PendingSignalRow,
   PrimaryButton as AuditPrimaryButton,
-  ReactionPatternLane,
   SectionLabel,
   SourceRow,
   ThemeChip,
@@ -1695,12 +1695,6 @@ function TopicAuditAtlasToolbar({
   );
 }
 
-function atlasBubbleUsesDarkText(index: number, paletteSize: number): boolean {
-  if (paletteSize <= 0) return false;
-  const paletteIndex = ((index % paletteSize) + paletteSize) % paletteSize;
-  return paletteIndex === 0 || paletteIndex === 2;
-}
-
 export function TopicDetailView({
   viewModel,
   onCommand
@@ -1972,22 +1966,8 @@ export function TopicDetailView({
       />
     ));
     const atlasPalette = [tokens.color.signal, tokens.color.techniqueViolet, tokens.color.queued, tokens.color.techniqueRose, tokens.color.accent];
-    const compassLayout = layoutSignalAtlasCompass(reactionPatterns);
     const reactionMixByShortCode = postReactionMixByShortCode(reactionPatterns);
-    const patternAssignmentCount = reactionPatterns.reduce((sum, pattern) => sum + pattern.nComments, 0);
     const compassDenominator = coverageNumbers.usable || reactionPatterns[0]?.coverageDenominator || 0;
-    const atlasAxisLabelStyle: CSSProperties = { fontFamily: tokens.font.mono, fontSize: 8.5, fontWeight: 800, letterSpacing: "0.1em", fill: tokens.color.softInk };
-    const atlasGlassPanelStyle: CSSProperties = {
-      display: "grid",
-      gap: 10,
-      padding: "16px 16px 12px",
-      borderRadius: tokens.radius.cardLg,
-      border: `1px solid ${tokens.color.atlasEdge}`,
-      background: tokens.color.atlasPaper,
-      boxShadow: tokens.shadow.atlasCard,
-      backdropFilter: tokens.effect.atlasBlur,
-      WebkitBackdropFilter: tokens.effect.atlasBlur
-    };
     const auditToolbarElement = (
       <TopicAuditAtlasToolbar
         topic={topic}
@@ -2175,120 +2155,12 @@ export function TopicDetailView({
             ) : null}
 
             {reactionPatterns.length > 0 ? (
-              <section
-                data-signal-atlas-map="true"
-                data-dlens-presence="card"
-                data-signal-atlas-map-kind={compassLayout.kind}
-                style={atlasGlassPanelStyle}
-              >
-                <div style={sectionLabelStyle}>
-                  <span>{compassLayout.kind === "compass" ? "民情羅盤" : "民情形狀"}</span>
-                  <span>{reactionPatterns.length} 個形狀 · {patternAssignmentCount} 次留言歸屬 · 可用 {compassDenominator} 則</span>
-                </div>
-                <style>{`
-                  @media (prefers-reduced-motion: no-preference) {
-                    [data-signal-atlas-dot][data-top-dot="true"] { animation: dlens-atlas-dot-pulse ${tokens.motion.duration.slower} ${tokens.motion.easing.standard} infinite alternate; }
-                  }
-                  [data-signal-atlas-dot] { outline: none; }
-                  [data-signal-atlas-dot] { transform-box: fill-box; transform-origin: center; transition: transform ${tokens.motion.duration.base} ${tokens.motion.easing.springSoft}; }
-                  [data-signal-atlas-dot]:hover { transform: ${tokens.motion.transform.atlasHover}; }
-                  [data-signal-atlas-dot]:active { transform: ${tokens.motion.transform.atlasPress}; }
-                  [data-signal-atlas-dot] .dlens-atlas-focus-ring { opacity: 0; transition: opacity ${tokens.motion.duration.fast} ${tokens.motion.easing.standard}; }
-                  [data-signal-atlas-dot]:focus-visible .dlens-atlas-focus-ring { opacity: 1; }
-                  @media (prefers-reduced-motion: reduce) {
-                    [data-signal-atlas-dot]:hover, [data-signal-atlas-dot]:active { transform: none !important; }
-                  }
-                `}</style>
-                <svg
-                  viewBox={`0 0 ${compassLayout.width} ${compassLayout.height}`}
-                  role="group"
-                  aria-label={compassLayout.kind === "compass"
-                    ? "民情羅盤：橫軸由質疑到支持，縱軸由行動導向到情緒共鳴，泡泡大小為留言數"
-                    : "反應形狀圖：泡泡大小為留言數"}
-                  style={{ width: "100%", height: "auto", display: "block" }}
-                >
-                  {compassLayout.kind === "compass" ? (
-                    <g aria-hidden="true">
-                      <line x1={compassLayout.width / 2} y1={16} x2={compassLayout.width / 2} y2={compassLayout.height - 26} stroke={tokens.color.line} strokeWidth={1} />
-                      <line x1={22} y1={compassLayout.height / 2} x2={compassLayout.width - 22} y2={compassLayout.height / 2} stroke={tokens.color.line} strokeWidth={1} />
-                      <text x={compassLayout.width / 2} y={11} textAnchor="middle" style={atlasAxisLabelStyle}>情緒共鳴</text>
-                      <text x={compassLayout.width / 2} y={compassLayout.height - 6} textAnchor="middle" style={atlasAxisLabelStyle}>行動導向</text>
-                      <text x={20} y={compassLayout.height / 2 - 7} textAnchor="start" style={atlasAxisLabelStyle}>質疑</text>
-                      <text x={compassLayout.width - 20} y={compassLayout.height / 2 - 7} textAnchor="end" style={atlasAxisLabelStyle}>支持</text>
-                    </g>
-                  ) : null}
-                  {compassLayout.bubbles.map((bubble, index) => {
-                    const paletteIndex = index % atlasPalette.length;
-                    const fill = atlasPalette[paletteIndex]!;
-                    const bubbleLabel = bubble.label.length > 12 ? `${bubble.label.slice(0, 12)}…` : bubble.label;
-                    return (
-                      <g
-                        key={bubble.id}
-                        data-signal-atlas-dot={bubble.id}
-                        data-top-dot={index === 0 ? "true" : "false"}
-                        data-active={selectedReactionId === bubble.id ? "true" : "false"}
-                        role="button"
-                        aria-label={`${bubble.label}，${bubble.nComments} 次留言歸屬，按 Enter 開啟詳情`}
-                        tabIndex={0}
-                        onClick={() => setActiveDetail({ kind: "reaction", id: bubble.id })}
-                        onKeyDown={(event) => {
-                          if (event.key === "Enter" || event.key === " ") {
-                            event.preventDefault();
-                            setActiveDetail({ kind: "reaction", id: bubble.id });
-                          }
-                        }}
-                        style={{ cursor: "pointer" }}
-                      >
-                        <circle cx={bubble.x} cy={bubble.y} r={bubble.r + 6} fill={fill} fillOpacity={0.22} />
-                        <circle cx={bubble.x} cy={bubble.y} r={bubble.r} fill={fill} stroke={tokens.color.atlasEdge} strokeWidth={1.5} />
-                        <text x={bubble.x} y={bubble.y + 4} textAnchor="middle" style={{ fontFamily: tokens.font.mono, fontSize: 12, fontWeight: 800, fill: atlasBubbleUsesDarkText(index, atlasPalette.length) ? tokens.color.ink : tokens.color.atlasPaperStrong }}>{bubble.nComments}</text>
-                        <text x={bubble.x} y={bubble.y + bubble.r + 14} textAnchor="middle" style={{ fontFamily: tokens.font.sans, fontSize: 9.5, fontWeight: 700, fill: tokens.color.subInk }}>{bubbleLabel}</text>
-                        <circle className="dlens-atlas-focus-ring" cx={bubble.x} cy={bubble.y} r={bubble.r + 3} fill="none" stroke={tokens.color.signalDeep} strokeWidth={2} />
-                        <circle className="dlens-atlas-focus-ring" cx={bubble.x} cy={bubble.y} r={bubble.r + 5} fill="none" stroke={tokens.color.atlasPaperStrong} strokeWidth={1} />
-                      </g>
-                    );
-                  })}
-                </svg>
-                {compassLayout.kind === "field" ? (
-                  <span data-signal-atlas-compass-hint="true" style={{ ...textStyles.caption, color: tokens.color.softInk }}>
-                    此審計早於羅盤座標——按「⟳ 重新生成」重讀後，泡泡會依 質疑↔支持 × 情緒↔行動 定位。
-                  </span>
-                ) : null}
-                <div style={{ display: "grid", borderTop: `1px solid ${tokens.color.line}` }}>
-                  {reactionPatterns.map((pattern, index) => (
-                    <button
-                      key={pattern.id}
-                      type="button"
-                      data-reaction-pattern={pattern.id}
-                      data-active={selectedReactionId === pattern.id ? "true" : "false"}
-                      className="dlens-atlas-legend-row"
-                      onClick={() => setActiveDetail({ kind: "reaction", id: pattern.id })}
-                      style={{
-                        display: "flex",
-                        alignItems: "baseline",
-                        gap: 8,
-                        padding: "8px 2px",
-                        border: "none",
-                        borderRadius: tokens.radius.xs,
-                        borderBottom: index < reactionPatterns.length - 1 ? `1px solid ${tokens.color.line}` : "none",
-                        background: "none",
-                        cursor: "pointer",
-                        textAlign: "left",
-                        fontFamily: tokens.font.sans,
-                        minWidth: 0
-                      }}
-                    >
-                      <span aria-hidden="true" style={{ width: 8, height: 8, borderRadius: tokens.radius.round, background: atlasPalette[index % atlasPalette.length], alignSelf: "center", flexShrink: 0 }} />
-                      <span style={{ fontSize: 12, fontWeight: 750, color: tokens.color.ink, whiteSpace: "nowrap" }}>{pattern.label}</span>
-                      <span style={{ flex: 1, minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", fontSize: 11, color: tokens.color.softInk }}>{pattern.dynamicImplication}</span>
-                      <span style={{ ...textStyles.metric, color: tokens.color.subInk, whiteSpace: "nowrap" }}>
-                        {pattern.nComments} 次歸屬
-                        {pattern.counterRefs.length > 0 ? <span style={{ color: tokens.color.techniqueRose }}> · 反例 {pattern.counterRefs.length}</span> : null}
-                      </span>
-                    </button>
-                  ))}
-                </div>
-              </section>
+              <AtlasReactionMap
+                patterns={reactionPatterns}
+                usableCount={compassDenominator}
+                selectedId={selectedReactionId}
+                onSelect={(id) => setActiveDetail({ kind: "reaction", id })}
+              />
             ) : null}
 
             {mergedSourceSection}
@@ -3025,7 +2897,6 @@ export const topicDetailViewTestables = {
   Breadcrumb,
   PairRow,
   SynthesisStackSection,
-  atlasBubbleUsesDarkText,
   singleAnalyzeActionLabel,
   runSingleAnalyzeAction,
   pickPrimaryJudgmentPair

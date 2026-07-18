@@ -650,27 +650,6 @@ function ReactionCoverageStrip({ coverage }: { coverage?: ReactionCoverage }) {
   );
 }
 
-export function ReactionPatternLane({
-  pattern,
-  active,
-  onClick
-}: {
-  pattern: ReactionPattern;
-  active?: boolean;
-  onClick?: () => void;
-}) {
-  const lane: NarrativeLaneHint = {
-    id: pattern.id,
-    label: pattern.label,
-    signalRefs: [...pattern.supportRefs, ...pattern.counterRefs],
-    consensus: 0,
-    icon: pattern.icon ?? "message-circle",
-    metricLabel: reactionMetricLabel(pattern),
-    subtext: pattern.dynamicImplication
-  };
-  return <NarrativeLane lane={lane} active={active} onClick={onClick} kind="reaction" />;
-}
-
 export function AuditReportReactionPatterns({
   patterns,
   coverage
