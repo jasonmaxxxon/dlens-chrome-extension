@@ -4,6 +4,8 @@ import {
   type CommentShardReading,
   type EvidencePacket,
   type LensMemo,
+  type NarrativeLaneBeats,
+  type NarrativeLaneTrajectory,
   type NarrativeContinuityReview,
   type PostReactionObservation,
   type ReactionCoverage,
@@ -22,7 +24,7 @@ export const TOPIC_AUDIT_PROMPT_VERSIONS = {
   p0_5: "topic-audit-p0_5.v2",
   p1: "topic-audit-p1.v3",
   p2: "topic-audit-p2.v3",
-  p3: "topic-audit-p3.v3",
+  p3: "topic-audit-p3.v4",
   p4: "topic-audit-p4.v4",
   p5: "topic-audit-p5.v2",
   p6: "topic-audit-p6.v3",
@@ -92,6 +94,8 @@ interface AuditPromptNarrativeLane {
   signalRefs: string[];
   consensus: number;
   icon?: NarrativeLaneIcon;
+  beats?: NarrativeLaneBeats;
+  trajectory?: NarrativeLaneTrajectory;
 }
 
 interface ParsedDisplayHints {
@@ -190,6 +194,26 @@ function readTrimmedString(value: unknown): string {
   return typeof value === "string" ? value.replace(/\s+/g, " ").trim() : "";
 }
 
+const NARRATIVE_BEAT_MAX_CHARS = 48;
+
+function readNarrativeBeat(value: unknown): string {
+  return Array.from(readTrimmedString(value)).slice(0, NARRATIVE_BEAT_MAX_CHARS).join("");
+}
+
+function readNarrativeBeats(value: unknown): NarrativeLaneBeats | undefined {
+  if (!value || typeof value !== "object" || Array.isArray(value)) return undefined;
+  const raw = value as Record<string, unknown>;
+  const setup = readNarrativeBeat(raw.setup ?? raw.setup_text);
+  const tension = readNarrativeBeat(raw.tension ?? raw.tension_text);
+  const outcome = readNarrativeBeat(raw.outcome ?? raw.outcome_text);
+  return setup && tension && outcome ? { setup, tension, outcome } : undefined;
+}
+
+function readNarrativeTrajectory(value: unknown): NarrativeLaneTrajectory | undefined {
+  const normalized = readTrimmedString(value).toLowerCase();
+  return normalized === "new" || normalized === "carried" ? normalized : undefined;
+}
+
 function readStringArray(value: unknown): string[] {
   if (!Array.isArray(value)) {
     return [];
@@ -252,12 +276,16 @@ function readNarrativeLanes(value: unknown, allowedRefs?: ReadonlySet<string>): 
       .filter((ref) => !allowedRefs || allowedRefs.has(ref));
     const consensus = Math.max(0, Math.min(1, readNumber(raw.consensus ?? raw.strength ?? raw.score) ?? 0));
     const icon = readIcon(raw.icon);
+    const beats = readNarrativeBeats(raw.beats ?? raw.storyBeats ?? raw.story_beats);
+    const trajectory = readNarrativeTrajectory(raw.trajectory);
     lanes.push({
       id: readTrimmedString(raw.id) || `lane-${lanes.length + 1}`,
       label,
       signalRefs,
       consensus,
-      ...(icon ? { icon } : {})
+      ...(icon ? { icon } : {}),
+      ...(beats ? { beats } : {}),
+      ...(trajectory ? { trajectory } : {})
     });
   }
   return lanes;
@@ -567,7 +595,7 @@ const ENVELOPE_SCHEMA = `{
   "displayHints": {
     "themeChips": ["只放 broad themes，不放 fine tags"],
     "narrativeLanes": [
-      { "id": "lane-1", "label": "敘事線名稱", "signalRefs": ["S1.OP"], "consensus": 0.6, "icon": "heart" }
+      { "id": "lane-1", "label": "敘事線名稱", "signalRefs": ["S1.OP"], "consensus": 0.6, "icon": "heart", "beats": { "setup": "起", "tension": "張力", "outcome": "收束" }, "trajectory": "new|carried" }
     ]
   }
 }`;
@@ -1094,6 +1122,8 @@ export function buildP3NarrativePrompt(input: P3PromptInput): string {
     "先讀本次 current evidence，再看前態；前態是歷史假說，不是 evidence，也沒有存續特權。",
     "每條敘事 = story shape（setup → tension → outcome）+ evidence + boundary/反例/inversion。",
     "敘事是 story shape，不是 proposition、不是 posture；不要繼承其他 topic 的 narrative 名稱。",
+    "P3-only producer contract：每條 beats 的 setup、tension、outcome 必須使用議題原文語言，每段最多 48 字；比較本次 current evidence 與 prior narrative state，trajectory 只能是 new 或 carried。",
+    "當 evidence 無法支持 beats 或 trajectory 時，省略該欄位；不可猜測或以歷史假說補足。",
     "",
     "[P1 readings]",
     renderSignalReadings(input.signalReadings),

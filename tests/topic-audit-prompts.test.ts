@@ -213,7 +213,13 @@ test("P2-P6 prompts use prior prose memos but keep findings as probes instead of
   assert.match(p2, /有沒有 future-positive 詞/);
   assert.match(p2, /app 識/);
   assert.doesNotMatch(p2, /完全未被引用的 raw reply/);
-  assert.match(buildP3NarrativePrompt({ topicName: "love", packets: [packet], signalReadings: [reading], lexiconMemo: lexicon }), /自然長出敘事/);
+  const p3 = buildP3NarrativePrompt({ topicName: "love", packets: [packet], signalReadings: [reading], lexiconMemo: lexicon });
+  assert.equal(TOPIC_AUDIT_PROMPT_VERSIONS.p3, "topic-audit-p3.v4");
+  assert.match(p3, /beats/);
+  assert.match(p3, /setup.*tension.*outcome/s);
+  assert.match(p3, /每段.*48/);
+  assert.match(p3, /trajectory.*new.*carried/s);
+  assert.match(p3, /自然長出敘事/);
   const p4 = buildP4AudiencePrompt({ topicName: "love", packets: [packet], signalReadings: [reading], lensMemos: [lexicon, narrative], shardReadings: [shardReading] });
   assert.match(p4, /看到才寫/);
   assert.match(p4, /reactionPatterns/);
@@ -468,6 +474,67 @@ test("parseAuditPromptEnvelopeResponse accepts memo aliases and snake_case displ
       narrativeLanes: [{ id: "lane-1", label: "條件交換焦慮", signalRefs: ["S1.OP"], consensus: 0.4 }]
     }
   });
+});
+
+test("P3 parser preserves optional narrative beats and trajectory without breaking legacy lanes", () => {
+  const modern = parseAuditPromptEnvelopeResponse(JSON.stringify({
+    prose: "跨帖敘事。",
+    evidenceRefs: ["S1.OP"],
+    caveats: [],
+    displayHints: { narrativeLanes: [{
+      id: "lane-1",
+      label: "結構性困境",
+      signalRefs: ["S1.OP"],
+      consensus: 0.8,
+      beats: { setup: "職缺收縮", tension: "經驗門檻升高", outcome: "困境被重讀為結構問題" },
+      trajectory: "carried"
+    }] }
+  }), new Set(["S1.OP"]));
+  assert.deepEqual(modern?.displayHints?.narrativeLanes?.[0]?.beats, {
+    setup: "職缺收縮",
+    tension: "經驗門檻升高",
+    outcome: "困境被重讀為結構問題"
+  });
+  assert.equal(modern?.displayHints?.narrativeLanes?.[0]?.trajectory, "carried");
+
+  const legacy = parseAuditPromptEnvelopeResponse(JSON.stringify({
+    prose: "舊敘事。",
+    evidenceRefs: ["S1.OP"],
+    caveats: [],
+    display_hints: { narrative_lanes: [{ label: "舊 lane", signal_refs: ["S1.OP"], consensus: 0.6 }] }
+  }), new Set(["S1.OP"]));
+  assert.equal(legacy?.displayHints?.narrativeLanes?.[0]?.beats, undefined);
+  assert.equal(legacy?.displayHints?.narrativeLanes?.[0]?.trajectory, undefined);
+
+  const snakeAliases = parseAuditPromptEnvelopeResponse(JSON.stringify({
+    prose: "別名敘事。",
+    evidenceRefs: ["S1.OP"],
+    caveats: [],
+    display_hints: { narrative_lanes: [
+      {
+        label: "別名完整 lane",
+        signal_refs: ["S1.OP"],
+        consensus: 0.5,
+        story_beats: { setup_text: "甲".repeat(50), tension_text: "張力", outcome_text: "收束" },
+        trajectory: "new"
+      },
+      {
+        label: "別名不完整 lane",
+        signal_refs: ["S1.OP"],
+        consensus: 0.4,
+        storyBeats: { setup_text: "起", tension_text: "張力" },
+        trajectory: "unknown"
+      }
+    ] }
+  }), new Set(["S1.OP"]));
+  assert.deepEqual(snakeAliases?.displayHints?.narrativeLanes?.[0]?.beats, {
+    setup: "甲".repeat(48),
+    tension: "張力",
+    outcome: "收束"
+  });
+  assert.equal(snakeAliases?.displayHints?.narrativeLanes?.[0]?.trajectory, "new");
+  assert.equal(snakeAliases?.displayHints?.narrativeLanes?.[1]?.beats, undefined);
+  assert.equal(snakeAliases?.displayHints?.narrativeLanes?.[1]?.trajectory, undefined);
 });
 
 test("parseAuditPromptEnvelopeResponse preserves structured reaction patterns and filters evidence refs", () => {

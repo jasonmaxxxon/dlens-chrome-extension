@@ -119,6 +119,14 @@ export interface NarrativeContinuityReview {
   openQuestions: string[];
 }
 
+export interface NarrativeLaneBeats {
+  setup: string;
+  tension: string;
+  outcome: string;
+}
+
+export type NarrativeLaneTrajectory = "new" | "carried";
+
 export interface ReplyFragment {
   ref: string;
   commentId?: string | null;
@@ -189,6 +197,8 @@ export interface LensMemo {
       signalRefs: string[];
       consensus: number;
       icon?: string;
+      beats?: NarrativeLaneBeats;
+      trajectory?: NarrativeLaneTrajectory;
     }>;
     reactionCoverage?: ReactionCoverage;
     reactionPatterns?: ReactionPattern[];
