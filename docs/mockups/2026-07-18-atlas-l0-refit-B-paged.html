@@ -1,0 +1,378 @@
+<!doctype html>
+<!--
+  DLens Signal Atlas L0 refit · Variant B — 一頁一卡 (paged narrative stage card)
+  Reference-only mockup · 2026-07-18
+
+  Scope: same three refits as Variant A; §2 民情羅盤 and §3 貼文收合 are identical.
+  §1 differs: 跨帖敘事 renders ONE large "stage" card at a time with ‹ › paging and
+  dots. The card earns its size with a three-beat story row (起 → 張力 → 收束),
+  anchors, and a representative quote. Trade-off on display: 2/3 of the lanes sit
+  behind a click — Variant A keeps all lanes scannable.
+
+  Truth boundary: counts/refs/quotes are the real 失業 topic run (0.3.51, 19 posts,
+  可用 799). Story beats are illustrative editorial copy — shipped version reads P3
+  narrative memos. Visual values map to src/ui/tokens.ts (2026-07-18 working tree).
+  Reference, not spec.
+-->
+<html lang="zh-Hant">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Atlas L0 Refit · B 一頁一卡</title>
+<link rel="icon" href="data:," />
+<style>
+  :root {
+    --ink: #1b1a17;
+    --sub-ink: #3d3b35;
+    --soft-ink: #6c695e;
+    --line: rgba(27,26,23,0.10);
+    --line-strong: rgba(27,26,23,0.18);
+    --surface: #f8fbf8;
+    --elevated: #ffffff;
+    --neutral-surface: #edf2ee;
+    --context-surface: rgba(242,247,243,0.72);
+    --signal: #43d6c8;
+    --signal-deep: #118c80;
+    --violet: #5e4b73;
+    --amber: #a16a17;
+    --rose: #7a2030;
+    --cyan-soft: rgba(63,90,59,0.10);
+    --atlas-canvas: linear-gradient(172deg, #ffffff 0%, #f8fbf8 55%, #f2f7f3 100%);
+    --atlas-paper: linear-gradient(168deg, rgba(255,255,255,0.84), rgba(255,255,255,0.50));
+    --atlas-paper-strong: rgba(255,255,255,0.90);
+    --atlas-edge: rgba(255,255,255,0.82);
+    --aura-teal: rgba(67,214,200,0.30);
+    --aura-amber: rgba(233,181,88,0.22);
+    --aura-violet: rgba(111,90,167,0.16);
+    --mono: 'JetBrains Mono', 'SFMono-Regular', Consolas, monospace;
+    --sans: 'Noto Sans TC', -apple-system, BlinkMacSystemFont, 'SF Pro Text', system-ui, sans-serif;
+    --serif: 'Noto Serif TC', 'Songti TC', 'Source Han Serif TC', serif;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    padding: 28px 16px 64px;
+    background: #eef2ef;
+    font-family: var(--sans);
+    color: var(--ink);
+    display: grid;
+    justify-items: center;
+  }
+  .frame {
+    width: min(760px, 100%);
+    border-radius: 20px;
+    background: var(--atlas-canvas);
+    padding: 14px 14px 46px;
+    position: relative;
+    overflow: hidden;
+    box-shadow: 0 1px 2px rgba(27,26,23,0.04), 0 4px 14px -4px rgba(27,26,23,0.07);
+  }
+  .aura { position: absolute; border-radius: 50%; filter: blur(46px); pointer-events: none; }
+  .aura.teal { top: -70px; right: -60px; width: 250px; height: 250px; background: var(--aura-teal); }
+  .aura.amber { top: 420px; left: -90px; width: 220px; height: 220px; background: var(--aura-amber); }
+  .aura.violet { bottom: -80px; right: -40px; width: 240px; height: 240px; background: var(--aura-violet); }
+  .stack { position: relative; z-index: 1; display: grid; gap: 12px; }
+  .kicker { font-family: var(--mono); font-size: 10px; font-weight: 800; letter-spacing: 0.1em; color: var(--signal-deep); text-transform: uppercase; }
+  .mock-note { font-family: var(--mono); font-size: 9.5px; letter-spacing: 0.06em; color: var(--soft-ink); padding: 3px 8px; border: 1px dashed var(--line-strong); border-radius: 6px; justify-self: start; }
+  .card {
+    border-radius: 20px;
+    border: 1px solid var(--atlas-edge);
+    background: var(--atlas-paper);
+    backdrop-filter: blur(14px);
+    -webkit-backdrop-filter: blur(14px);
+    box-shadow: 0 1px 2px rgba(27,26,23,0.04), 0 10px 26px -14px rgba(27,26,23,0.16);
+    padding: 16px 18px;
+  }
+  .section-label {
+    display: flex; justify-content: space-between; align-items: baseline; gap: 10px;
+    font-family: var(--mono); font-size: 10.5px; font-weight: 700; letter-spacing: 0.05em;
+    color: var(--sub-ink); padding: 2px 4px;
+  }
+
+  /* ---------- §1 paged narrative stage ---------- */
+  .stage { display: grid; gap: 12px; border-radius: 20px; border: 1px dashed rgba(161,106,23,0.36); background: var(--atlas-paper-strong); padding: 18px 20px 14px; min-height: 300px; }
+  .stage[hidden] { display: none; }
+  .stage-head { display: flex; align-items: baseline; gap: 9px; flex-wrap: wrap; }
+  .stage-dot { width: 10px; height: 10px; border-radius: 50%; align-self: center; }
+  .stage-title { font-family: var(--serif); font-size: 19px; font-weight: 700; color: var(--ink); }
+  .stage-traj { font-family: var(--mono); font-size: 9.5px; font-weight: 700; letter-spacing: 0.06em; padding: 2px 8px; border-radius: 999px; }
+  .traj-new { color: var(--signal-deep); background: rgba(67,214,200,0.16); }
+  .traj-carry { color: var(--soft-ink); background: var(--neutral-surface); }
+  .stage-metric { margin-left: auto; font-family: var(--mono); font-size: 11.5px; font-weight: 700; color: var(--amber); }
+  .beats { display: grid; grid-template-columns: 1fr auto 1fr auto 1fr; gap: 8px; align-items: stretch; }
+  .beat { display: grid; gap: 4px; align-content: start; border-radius: 12px; background: var(--context-surface); padding: 9px 11px; }
+  .beat b { font-family: var(--mono); font-size: 9px; font-weight: 800; letter-spacing: 0.1em; color: var(--soft-ink); }
+  .beat span { font-size: 12px; line-height: 1.55; color: var(--sub-ink); }
+  .beat-arrow { align-self: center; font-family: var(--mono); font-size: 12px; color: var(--soft-ink); }
+  .stage-quote { margin: 0; border-left: 3px solid var(--signal); padding: 2px 0 2px 12px; font-family: var(--serif); font-style: italic; font-size: 14px; line-height: 1.65; color: var(--sub-ink); }
+  .stage-quote .qmeta { display: block; margin-top: 4px; font-style: normal; font-family: var(--mono); font-size: 10px; color: var(--soft-ink); }
+  .stage-foot { display: flex; gap: 6px; align-items: center; flex-wrap: wrap; }
+  .ref-chip { font-family: var(--mono); font-size: 10px; font-weight: 700; letter-spacing: 0.04em; color: var(--signal-deep); background: rgba(67,214,200,0.12); border: 1px solid rgba(17,140,128,0.22); border-radius: 6px; padding: 2.5px 7px; cursor: pointer; }
+  .stage-n { font-family: var(--mono); font-size: 10px; color: var(--soft-ink); margin-left: auto; }
+  .pager { display: flex; align-items: center; justify-content: center; gap: 14px; padding-top: 2px; }
+  .pager button {
+    border: 1px solid var(--line);
+    background: var(--elevated);
+    color: var(--signal-deep);
+    font-family: var(--mono);
+    font-size: 12px;
+    font-weight: 700;
+    border-radius: 8px;
+    padding: 4px 12px;
+    cursor: pointer;
+  }
+  .pager button:disabled { color: var(--soft-ink); opacity: 0.5; cursor: default; }
+  .pager .dots { display: flex; gap: 6px; }
+  .pager .dots i { width: 7px; height: 7px; border-radius: 50%; background: var(--neutral-surface); border: 1px solid var(--line-strong); }
+  .pager .dots i.on { background: var(--signal-deep); border-color: var(--signal-deep); }
+  .pager .pos { font-family: var(--mono); font-size: 10px; color: var(--soft-ink); }
+  @media (prefers-reduced-motion: no-preference) {
+    .stage { animation: fadeUp 240ms cubic-bezier(0.16, 1, 0.3, 1); }
+    @keyframes fadeUp { from { opacity: 0.4; transform: translateY(6px); } to { opacity: 1; transform: none; } }
+  }
+
+  /* ---------- §2 compass (same as Variant A) ---------- */
+  .compass-wrap { display: grid; gap: 4px; }
+  .compass-svg { width: 100%; height: auto; display: block; }
+  .axis-label { font-family: var(--mono); font-size: 9px; font-weight: 800; letter-spacing: 0.1em; fill: var(--soft-ink); }
+  .bubble { cursor: pointer; }
+  .bubble text { font-family: var(--mono); font-size: 15px; font-weight: 800; fill: #ffffff; text-anchor: middle; dominant-baseline: central; }
+  .bubble .halo { fill: none; stroke-width: 5; opacity: 0.28; }
+  .bubble.hot .halo { opacity: 0.8; }
+  @media (prefers-reduced-motion: no-preference) {
+    .bubble .halo { transition: opacity 160ms ease; }
+    .legend-row { transition: background-color 160ms ease; }
+  }
+  .legend { display: grid; border-top: 1px solid var(--line); }
+  .legend-row { display: grid; grid-template-columns: 10px minmax(0, auto) minmax(0, 1fr) auto; gap: 9px; align-items: baseline; padding: 8px 4px; border-bottom: 1px solid var(--line); cursor: pointer; border-radius: 8px; }
+  .legend-row:last-child { border-bottom: none; }
+  .legend-row:hover { background: var(--context-surface); }
+  .legend-row .dot { width: 8px; height: 8px; border-radius: 50%; align-self: center; }
+  .legend-row .name { font-size: 12px; font-weight: 750; color: var(--ink); white-space: nowrap; }
+  .legend-row .desc { font-size: 11px; color: var(--soft-ink); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .legend-row .n { font-family: var(--mono); font-size: 10.5px; font-weight: 700; color: var(--sub-ink); white-space: nowrap; }
+
+  /* ---------- §3 collapsed post list (same as Variant A) ---------- */
+  .post-strip { border-radius: 20px; background: var(--elevated); box-shadow: 0 1px 2px rgba(27,26,23,0.05), 0 6px 18px -10px rgba(27,26,23,0.14); padding: 6px; }
+  .post-strip summary { list-style: none; display: flex; align-items: center; gap: 10px; padding: 9px 12px; cursor: pointer; border-radius: 14px; }
+  .post-strip summary::-webkit-details-marker { display: none; }
+  .post-strip summary:hover { background: var(--context-surface); }
+  .post-strip .s-title { font-family: var(--mono); font-size: 10.5px; font-weight: 700; letter-spacing: 0.05em; color: var(--sub-ink); }
+  .post-strip .s-count { margin-left: auto; font-family: var(--mono); font-size: 10.5px; color: var(--soft-ink); }
+  .post-strip .s-caret { font-family: var(--mono); font-size: 10px; color: var(--soft-ink); }
+  .post-row { display: grid; grid-template-columns: 14px minmax(0, 1fr); gap: 8px; padding: 9px 13px 10px; }
+  .post-row .dot { width: 7px; height: 7px; border-radius: 50%; background: var(--signal-deep); box-shadow: 0 0 0 3px rgba(67,214,200,0.25); margin: 7px auto 0; }
+  .post-row .gist { font-size: 13px; font-weight: 700; line-height: 1.35; color: var(--ink); margin-bottom: 4px; }
+  .post-row .meta { display: flex; gap: 6px; align-items: baseline; flex-wrap: wrap; font-family: var(--mono); font-size: 10.5px; color: var(--soft-ink); }
+  .post-row .code { color: var(--signal-deep); font-weight: 700; }
+  .post-row .author { font-family: var(--sans); font-size: 11px; font-weight: 600; color: var(--sub-ink); }
+  .post-more { padding: 8px 13px 10px; font-family: var(--mono); font-size: 10px; color: var(--soft-ink); }
+</style>
+</head>
+<body>
+<div class="frame">
+  <span class="aura teal"></span><span class="aura amber"></span><span class="aura violet"></span>
+  <div class="stack">
+    <span class="mock-note">MOCKUP 2026-07-18 · VARIANT B 一頁一卡 · reference only</span>
+    <span class="kicker">Signal Atlas · Topic Audit · L0 · 失業</span>
+
+    <!-- ============ §1 跨帖敘事:paged stage card ============ -->
+    <div class="section-label"><span>跨帖敘事 · 一頁一條</span><span>3 條 · 19 篇來源</span></div>
+
+    <section class="stage" data-page="0" style="border-color: rgba(17,140,128,0.4)">
+      <div class="stage-head">
+        <span class="stage-dot" style="background:#118c80"></span>
+        <span class="stage-title">結構性困境與行業寒冬</span>
+        <span class="stage-traj traj-carry">續存</span>
+        <span class="stage-metric">跨 5/19 篇</span>
+      </div>
+      <div class="beats">
+        <div class="beat"><b>起</b><span>經濟下行與 AI 衝擊同時抵達,建築、設計、IT 皆現裁員與凍薪。</span></div>
+        <span class="beat-arrow">→</span>
+        <div class="beat"><b>張力</b><span>入門職位要求多年經驗,新人與中年轉職者在門檻兩側同時被鎖。</span></div>
+        <span class="beat-arrow">→</span>
+        <div class="beat"><b>收束</b><span>個人失業被集體重讀為行業結構問題,「行業寒冬」成為共識框架。</span></div>
+      </div>
+      <blockquote class="stage-quote">
+        而家經濟咁差,真係唔好讀archi啦…… 經濟差成咁,建築行業真係好慘。
+        <span class="qmeta">S19.OP · @iamth1ccaf · ♥ 241</span>
+      </blockquote>
+      <div class="stage-foot">
+        <span class="ref-chip">S1.OP</span><span class="ref-chip">S8.OP</span><span class="ref-chip">S13.OP</span>
+        <span class="stage-n">歸屬 31 則留言 · 反例 0</span>
+      </div>
+    </section>
+
+    <section class="stage" data-page="1" hidden style="border-color: rgba(94,75,115,0.4)">
+      <div class="stage-head">
+        <span class="stage-dot" style="background:#5e4b73"></span>
+        <span class="stage-title">生存主義與馬死落地行</span>
+        <span class="stage-traj traj-carry">續存</span>
+        <span class="stage-metric">跨 4/19 篇</span>
+      </div>
+      <div class="beats">
+        <div class="beat"><b>起</b><span>失業數月後儲蓄見底,「有工先」壓過「啱唔啱」。</span></div>
+        <span class="beat-arrow">→</span>
+        <div class="beat"><b>張力</b><span>接受苛刻合約與壓價 offer 被自嘲為「簽賣身契」。</span></div>
+        <span class="beat-arrow">→</span>
+        <div class="beat"><b>收束</b><span>「騎牛搵馬」成為共識策略,尊嚴讓位於現金流。</span></div>
+      </div>
+      <blockquote class="stage-quote">
+        失業咗幾個月 又要簽賣身契。
+        <span class="qmeta">S17.OP · @occujm9 · ♥ 188</span>
+      </blockquote>
+      <div class="stage-foot">
+        <span class="ref-chip">S2.OP</span><span class="ref-chip">S10.R6</span><span class="ref-chip">S11.R4</span>
+        <span class="stage-n">歸屬 24 則留言 · 反例 2</span>
+      </div>
+    </section>
+
+    <section class="stage" data-page="2" hidden style="border-color: rgba(161,106,23,0.4)">
+      <div class="stage-head">
+        <span class="stage-dot" style="background:#a16a17"></span>
+        <span class="stage-title">心理調適與社交戲謔</span>
+        <span class="stage-traj traj-new">新出現</span>
+        <span class="stage-metric">跨 4/19 篇</span>
+      </div>
+      <div class="beats">
+        <div class="beat"><b>起</b><span>面試挫敗與已讀不回反覆累積,個人焦慮無處安放。</span></div>
+        <span class="beat-arrow">→</span>
+        <div class="beat"><b>張力</b><span>「有演技先 in 得成」— 面試被解構為表演,真誠反而失分。</span></div>
+        <span class="beat-arrow">→</span>
+        <div class="beat"><b>收束</b><span>自嘲與吐槽成為社交貨幣,集體幽默承接個人挫折。</span></div>
+      </div>
+      <blockquote class="stage-quote">
+        冇演技咁in=柒 有演技咁去in=又假又柒😭
+        <span class="qmeta">S3.R6 · @pawsduo · ♥ 81</span>
+      </blockquote>
+      <div class="stage-foot">
+        <span class="ref-chip">S3.OP</span><span class="ref-chip">S6.R7</span><span class="ref-chip">S7.R33</span>
+        <span class="stage-n">歸屬 23 則留言 · 反例 0</span>
+      </div>
+    </section>
+
+    <div class="pager">
+      <button type="button" id="prev" aria-label="上一條">‹ 上一條</button>
+      <span class="dots" id="dots"><i class="on"></i><i></i><i></i></span>
+      <span class="pos" id="pos">1 / 3</span>
+      <button type="button" id="next" aria-label="下一條">下一條 ›</button>
+    </div>
+
+    <!-- ============ §2 民情羅盤:one naming surface(同 Variant A) ============ -->
+    <div class="card compass-wrap">
+      <div class="section-label" style="padding:0 0 6px"><span>民情羅盤</span><span>4 個形狀 · 78 次留言歸屬 · 可用 799 則</span></div>
+      <svg class="compass-svg" viewBox="0 0 640 400" role="img" aria-label="民情羅盤:泡泡只標位置與規模,名稱見下方圖例">
+        <line x1="40" y1="200" x2="600" y2="200" stroke="rgba(27,26,23,0.14)" stroke-width="1"/>
+        <line x1="320" y1="24" x2="320" y2="376" stroke="rgba(27,26,23,0.14)" stroke-width="1"/>
+        <text class="axis-label" x="320" y="14" text-anchor="middle">情緒共鳴</text>
+        <text class="axis-label" x="320" y="394" text-anchor="middle">行動導向</text>
+        <text class="axis-label" x="36" y="196" text-anchor="end">質疑</text>
+        <text class="axis-label" x="604" y="196" text-anchor="start">支持</text>
+        <g class="bubble" data-k="tease">
+          <circle class="halo" cx="252" cy="108" r="40" stroke="#43d6c8"/>
+          <circle cx="252" cy="108" r="33" fill="#43d6c8" opacity="0.92"/>
+          <text x="252" y="108">14</text>
+        </g>
+        <g class="bubble" data-k="moral">
+          <circle class="halo" cx="200" cy="212" r="45" stroke="#a16a17"/>
+          <circle cx="200" cy="212" r="38" fill="#a16a17" opacity="0.92"/>
+          <text x="200" y="212">19</text>
+        </g>
+        <g class="bubble" data-k="doom">
+          <circle class="halo" cx="168" cy="308" r="49" stroke="#7a2030"/>
+          <circle cx="168" cy="308" r="42" fill="#7a2030" opacity="0.92"/>
+          <text x="168" y="308">24</text>
+        </g>
+        <g class="bubble" data-k="pragma">
+          <circle class="halo" cx="472" cy="290" r="47" stroke="#5e4b73"/>
+          <circle cx="472" cy="290" r="40" fill="#5e4b73" opacity="0.92"/>
+          <text x="472" y="290">21</text>
+        </g>
+      </svg>
+      <div class="legend">
+        <div class="legend-row" data-k="doom">
+          <span class="dot" style="background:#7a2030"></span>
+          <span class="name">行業悲觀與結構性焦慮</span>
+          <span class="desc">參與者對特定行業(設計、珠寶、IT)前景感到絕望,形成集體性行業寒冬敘事。</span>
+          <span class="n">24 次歸屬</span>
+        </div>
+        <div class="legend-row" data-k="pragma">
+          <span class="dot" style="background:#5e4b73"></span>
+          <span class="name">實用主義求職策略</span>
+          <span class="desc">將失業視為專案管理,透過技術性手段提升競爭力,試圖突破結構性門檻。</span>
+          <span class="n">21 次歸屬</span>
+        </div>
+        <div class="legend-row" data-k="moral">
+          <span class="dot" style="background:#a16a17"></span>
+          <span class="name">道德審判與階級歸因</span>
+          <span class="desc">將長期失業歸因於個人責任或家底,討論從結構性困境轉向對個人選擇的審判。</span>
+          <span class="n">19 次歸屬</span>
+        </div>
+        <div class="legend-row" data-k="tease">
+          <span class="dot" style="background:#43d6c8"></span>
+          <span class="name">職場戲謔與表演性解構</span>
+          <span class="desc">將面試失敗轉化為社交貨幣,透過集體吐槽緩解求職焦慮。</span>
+          <span class="n">14 次歸屬</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- ============ §3 貼文列表:collapsed by default(同 Variant A) ============ -->
+    <details class="post-strip">
+      <summary>
+        <span class="s-title">貼文 · 點入單帖</span>
+        <span class="s-count">19 篇 · 擷取 923 · 可用 799 則</span>
+        <span class="s-caret">展開 ▾</span>
+      </summary>
+      <div class="post-row">
+        <span class="dot"></span>
+        <div>
+          <div class="gist">畢業生感嘆求職市場普遍要求多年工作經驗,導致新鮮人難以找到入門職位。</div>
+          <div class="meta"><span class="code">S1.OP</span> · <span class="author">@s_s0311</span> · 07/07/2026 · ♥ 26 · 💬 9</div>
+        </div>
+      </div>
+      <div class="post-row">
+        <span class="dot"></span>
+        <div>
+          <div class="gist">一名四十多歲的職場人士在失業不到一個月後順利獲得新工作,並對這次轉職感到相當滿意。</div>
+          <div class="meta"><span class="code">S2.OP</span> · <span class="author">@john.new.journey</span> · 07/07/2026 · ♥ 285 · 💬 23</div>
+        </div>
+      </div>
+      <div class="post-more">… 其餘 17 篇(展開後完整列表照舊,含 原文 / 加入比較 / 詳情 / 刪除)</div>
+    </details>
+  </div>
+</div>
+<script>
+  // §1 pager
+  const stages = Array.from(document.querySelectorAll(".stage"));
+  const dots = Array.from(document.querySelectorAll("#dots i"));
+  const pos = document.getElementById("pos");
+  const prev = document.getElementById("prev");
+  const next = document.getElementById("next");
+  let page = 0;
+  function renderPage() {
+    stages.forEach((s, i) => { s.hidden = i !== page; });
+    dots.forEach((d, i) => d.classList.toggle("on", i === page));
+    pos.textContent = `${page + 1} / ${stages.length}`;
+    prev.disabled = page === 0;
+    next.disabled = page === stages.length - 1;
+  }
+  prev.addEventListener("click", () => { if (page > 0) { page -= 1; renderPage(); } });
+  next.addEventListener("click", () => { if (page < stages.length - 1) { page += 1; renderPage(); } });
+  renderPage();
+
+  // §2 legend row ⇄ bubble mutual highlight
+  document.querySelectorAll("[data-k]").forEach((el) => {
+    const key = el.getAttribute("data-k");
+    el.addEventListener("mouseenter", () => {
+      document.querySelectorAll(`.bubble[data-k="${key}"]`).forEach((b) => b.classList.add("hot"));
+      document.querySelectorAll(`.legend-row[data-k="${key}"]`).forEach((r) => r.style.background = "var(--context-surface)");
+    });
+    el.addEventListener("mouseleave", () => {
+      document.querySelectorAll(`.bubble[data-k="${key}"]`).forEach((b) => b.classList.remove("hot"));
+      document.querySelectorAll(`.legend-row[data-k="${key}"]`).forEach((r) => r.style.background = "");
+    });
+  });
+</script>
+</body>
+</html>

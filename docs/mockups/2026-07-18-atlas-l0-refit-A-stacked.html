@@ -1,0 +1,427 @@
+<!doctype html>
+<!--
+  DLens Signal Atlas L0 refit · Variant A — 豐富直排 (enriched stacked narrative cards)
+  Reference-only mockup · 2026-07-18
+
+  Scope (three L0 presentation refits, same in both variants except §1):
+  §1 跨帖敘事 — stacked full-width cards, each carrying: trajectory badge, one-line
+     story shape, per-post participation dashes (each dash = one post, lit = involved),
+     anchor ref chips, and attribution count. No carousel: 3 lanes stay scannable.
+  §2 民情羅盤 — one naming surface: bubbles carry only position/size/colour, all text
+     moves to the legend rows (dot + name + implication + n). Row hover highlights bubble.
+  §3 貼文 · 點入單帖 — collapsed to a count strip by default when the Atlas is ready
+     (pre-atlas keeps today's expanded list; not shown here).
+
+  Truth boundary: counts/refs/quotes are the real 失業 topic run (0.3.51, 19 posts,
+  可用 799). Story one-liners are illustrative editorial copy — the shipped version
+  reads them from P3 narrative memos. Visual values map to src/ui/tokens.ts
+  (2026-07-18 working tree). Reference, not spec.
+-->
+<html lang="zh-Hant">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Atlas L0 Refit · A 豐富直排</title>
+<link rel="icon" href="data:," />
+<style>
+  :root {
+    --ink: #1b1a17;
+    --sub-ink: #3d3b35;
+    --soft-ink: #6c695e;
+    --line: rgba(27,26,23,0.10);
+    --line-strong: rgba(27,26,23,0.18);
+    --surface: #f8fbf8;
+    --elevated: #ffffff;
+    --neutral-surface: #edf2ee;
+    --context-surface: rgba(242,247,243,0.72);
+    --signal: #43d6c8;
+    --signal-deep: #118c80;
+    --violet: #5e4b73;
+    --amber: #a16a17;
+    --amber-deep: #7c4f10;
+    --rose: #7a2030;
+    --success: #3f5a3b;
+    --cyan-soft: rgba(63,90,59,0.10);
+    --teal-mid: #527648;
+    --atlas-canvas: linear-gradient(172deg, #ffffff 0%, #f8fbf8 55%, #f2f7f3 100%);
+    --atlas-paper: linear-gradient(168deg, rgba(255,255,255,0.84), rgba(255,255,255,0.50));
+    --atlas-paper-strong: rgba(255,255,255,0.90);
+    --atlas-edge: rgba(255,255,255,0.82);
+    --aura-teal: rgba(67,214,200,0.30);
+    --aura-amber: rgba(233,181,88,0.22);
+    --aura-violet: rgba(111,90,167,0.16);
+    --mono: 'JetBrains Mono', 'SFMono-Regular', Consolas, monospace;
+    --sans: 'Noto Sans TC', -apple-system, BlinkMacSystemFont, 'SF Pro Text', system-ui, sans-serif;
+    --serif: 'Noto Serif TC', 'Songti TC', 'Source Han Serif TC', serif;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    padding: 28px 16px 64px;
+    background: #eef2ef;
+    font-family: var(--sans);
+    color: var(--ink);
+    display: grid;
+    justify-items: center;
+  }
+  .frame {
+    width: min(760px, 100%);
+    border-radius: 20px;
+    background: var(--atlas-canvas);
+    padding: 14px 14px 46px;
+    position: relative;
+    overflow: hidden;
+    box-shadow: 0 1px 2px rgba(27,26,23,0.04), 0 4px 14px -4px rgba(27,26,23,0.07);
+  }
+  .aura { position: absolute; border-radius: 50%; filter: blur(46px); pointer-events: none; }
+  .aura.teal { top: -70px; right: -60px; width: 250px; height: 250px; background: var(--aura-teal); }
+  .aura.amber { top: 420px; left: -90px; width: 220px; height: 220px; background: var(--aura-amber); }
+  .aura.violet { bottom: -80px; right: -40px; width: 240px; height: 240px; background: var(--aura-violet); }
+  .stack { position: relative; z-index: 1; display: grid; gap: 12px; }
+
+  .kicker {
+    font-family: var(--mono);
+    font-size: 10px;
+    font-weight: 800;
+    letter-spacing: 0.1em;
+    color: var(--signal-deep);
+    text-transform: uppercase;
+  }
+  .mock-note {
+    font-family: var(--mono);
+    font-size: 9.5px;
+    letter-spacing: 0.06em;
+    color: var(--soft-ink);
+    padding: 3px 8px;
+    border: 1px dashed var(--line-strong);
+    border-radius: 6px;
+    justify-self: start;
+  }
+
+  .card {
+    border-radius: 20px;
+    border: 1px solid var(--atlas-edge);
+    background: var(--atlas-paper);
+    backdrop-filter: blur(14px);
+    -webkit-backdrop-filter: blur(14px);
+    box-shadow: 0 1px 2px rgba(27,26,23,0.04), 0 10px 26px -14px rgba(27,26,23,0.16);
+    padding: 16px 18px;
+  }
+  .section-label {
+    display: flex;
+    justify-content: space-between;
+    align-items: baseline;
+    gap: 10px;
+    font-family: var(--mono);
+    font-size: 10.5px;
+    font-weight: 700;
+    letter-spacing: 0.05em;
+    color: var(--sub-ink);
+    padding: 2px 4px;
+  }
+
+  /* ---------- §1 narrative stacked cards ---------- */
+  .lane-card {
+    display: grid;
+    gap: 9px;
+    border-radius: 16px;
+    border: 1px dashed rgba(161,106,23,0.36);
+    background: var(--atlas-paper-strong);
+    padding: 13px 15px;
+  }
+  .lane-head { display: flex; align-items: baseline; gap: 8px; flex-wrap: wrap; }
+  .lane-dot { width: 9px; height: 9px; border-radius: 50%; align-self: center; flex-shrink: 0; }
+  .lane-title { font-size: 13.5px; font-weight: 800; color: var(--ink); }
+  .lane-traj {
+    font-family: var(--mono);
+    font-size: 9.5px;
+    font-weight: 700;
+    letter-spacing: 0.06em;
+    padding: 1.5px 7px;
+    border-radius: 999px;
+  }
+  .traj-new { color: var(--signal-deep); background: rgba(67,214,200,0.16); }
+  .traj-carry { color: var(--soft-ink); background: var(--neutral-surface); }
+  .lane-metric {
+    margin-left: auto;
+    font-family: var(--mono);
+    font-size: 11px;
+    font-weight: 700;
+    color: var(--amber);
+    white-space: nowrap;
+  }
+  .lane-story {
+    margin: 0;
+    font-family: var(--serif);
+    font-size: 13.5px;
+    line-height: 1.7;
+    color: var(--sub-ink);
+  }
+  .lane-posts { display: flex; gap: 4px; align-items: center; }
+  .lane-posts i {
+    flex: 1;
+    height: 5px;
+    border-radius: 999px;
+    background: var(--neutral-surface);
+    position: relative;
+  }
+  .lane-posts i.on { background: var(--lane-color, var(--amber)); }
+  .lane-posts i.on:hover::after {
+    content: attr(data-post);
+    position: absolute;
+    bottom: 9px;
+    left: 50%;
+    transform: translateX(-50%);
+    font-family: var(--mono);
+    font-size: 9px;
+    font-weight: 700;
+    color: var(--sub-ink);
+    background: var(--elevated);
+    border: 1px solid var(--line);
+    border-radius: 5px;
+    padding: 1px 5px;
+    white-space: nowrap;
+  }
+  .lane-foot { display: flex; gap: 6px; align-items: center; flex-wrap: wrap; }
+  .ref-chip {
+    font-family: var(--mono);
+    font-size: 10px;
+    font-weight: 700;
+    letter-spacing: 0.04em;
+    color: var(--signal-deep);
+    background: rgba(67,214,200,0.12);
+    border: 1px solid rgba(17,140,128,0.22);
+    border-radius: 6px;
+    padding: 2.5px 7px;
+    cursor: pointer;
+  }
+  .lane-n { font-family: var(--mono); font-size: 10px; color: var(--soft-ink); margin-left: auto; }
+
+  /* ---------- §2 compass ---------- */
+  .compass-wrap { display: grid; gap: 4px; }
+  .compass-svg { width: 100%; height: auto; display: block; }
+  .axis-label { font-family: var(--mono); font-size: 9px; font-weight: 800; letter-spacing: 0.1em; fill: var(--soft-ink); }
+  .bubble { cursor: pointer; }
+  .bubble circle.core { transition: none; }
+  .bubble text { font-family: var(--mono); font-size: 15px; font-weight: 800; fill: #ffffff; text-anchor: middle; dominant-baseline: central; }
+  .bubble .halo { fill: none; stroke-width: 5; opacity: 0.28; }
+  .bubble.hot .halo { opacity: 0.8; }
+  @media (prefers-reduced-motion: no-preference) {
+    .bubble .halo { transition: opacity 160ms ease; }
+    .legend-row { transition: background-color 160ms ease; }
+  }
+  .legend { display: grid; border-top: 1px solid var(--line); }
+  .legend-row {
+    display: grid;
+    grid-template-columns: 10px minmax(0, auto) minmax(0, 1fr) auto;
+    gap: 9px;
+    align-items: baseline;
+    padding: 8px 4px;
+    border-bottom: 1px solid var(--line);
+    cursor: pointer;
+    border-radius: 8px;
+  }
+  .legend-row:last-child { border-bottom: none; }
+  .legend-row:hover { background: var(--context-surface); }
+  .legend-row .dot { width: 8px; height: 8px; border-radius: 50%; align-self: center; }
+  .legend-row .name { font-size: 12px; font-weight: 750; color: var(--ink); white-space: nowrap; }
+  .legend-row .desc {
+    font-size: 11px;
+    color: var(--soft-ink);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+  .legend-row .n { font-family: var(--mono); font-size: 10.5px; font-weight: 700; color: var(--sub-ink); white-space: nowrap; }
+
+  /* ---------- §3 collapsed post list ---------- */
+  .post-strip { border-radius: 20px; background: var(--elevated); box-shadow: 0 1px 2px rgba(27,26,23,0.05), 0 6px 18px -10px rgba(27,26,23,0.14); padding: 6px; }
+  .post-strip summary {
+    list-style: none;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 9px 12px;
+    cursor: pointer;
+    border-radius: 14px;
+  }
+  .post-strip summary::-webkit-details-marker { display: none; }
+  .post-strip summary:hover { background: var(--context-surface); }
+  .post-strip .s-title { font-family: var(--mono); font-size: 10.5px; font-weight: 700; letter-spacing: 0.05em; color: var(--sub-ink); }
+  .post-strip .s-count { margin-left: auto; font-family: var(--mono); font-size: 10.5px; color: var(--soft-ink); }
+  .post-strip .s-caret { font-family: var(--mono); font-size: 10px; color: var(--soft-ink); }
+  .post-row {
+    display: grid;
+    grid-template-columns: 14px minmax(0, 1fr);
+    gap: 8px;
+    padding: 9px 13px 10px;
+  }
+  .post-row .dot { width: 7px; height: 7px; border-radius: 50%; background: var(--signal-deep); box-shadow: 0 0 0 3px rgba(67,214,200,0.25); margin: 7px auto 0; }
+  .post-row .gist { font-size: 13px; font-weight: 700; line-height: 1.35; color: var(--ink); margin-bottom: 4px; }
+  .post-row .meta { display: flex; gap: 6px; align-items: baseline; flex-wrap: wrap; font-family: var(--mono); font-size: 10.5px; color: var(--soft-ink); }
+  .post-row .code { color: var(--signal-deep); font-weight: 700; }
+  .post-row .author { font-family: var(--sans); font-size: 11px; font-weight: 600; color: var(--sub-ink); }
+  .post-more { padding: 8px 13px 10px; font-family: var(--mono); font-size: 10px; color: var(--soft-ink); }
+</style>
+</head>
+<body>
+<div class="frame">
+  <span class="aura teal"></span><span class="aura amber"></span><span class="aura violet"></span>
+  <div class="stack">
+    <span class="mock-note">MOCKUP 2026-07-18 · VARIANT A 豐富直排 · reference only</span>
+    <span class="kicker">Signal Atlas · Topic Audit · L0 · 失業</span>
+
+    <!-- ============ §1 跨帖敘事:enriched stacked cards ============ -->
+    <div class="section-label"><span>跨帖敘事 · 點入看軌跡</span><span>3 條 · 19 篇來源</span></div>
+
+    <div class="lane-card" style="--lane-color:#118c80">
+      <div class="lane-head">
+        <span class="lane-dot" style="background:#118c80"></span>
+        <span class="lane-title">結構性困境與行業寒冬</span>
+        <span class="lane-traj traj-carry">續存</span>
+        <span class="lane-metric">跨 5/19 篇</span>
+      </div>
+      <p class="lane-story">經濟下行與 AI 衝擊互鎖 → 裁員、凍薪、入行門檻同時收緊 → 個人失業被集體重讀為行業結構問題。</p>
+      <div class="lane-posts">
+        <i class="on" data-post="S1"></i><i></i><i></i><i></i><i></i><i></i><i></i><i class="on" data-post="S8"></i><i class="on" data-post="S9"></i><i></i><i></i><i></i><i class="on" data-post="S13"></i><i></i><i></i><i></i><i></i><i></i><i class="on" data-post="S19"></i>
+      </div>
+      <div class="lane-foot">
+        <span class="ref-chip">S1.OP</span><span class="ref-chip">S8.OP</span><span class="ref-chip">S13.OP</span>
+        <span class="lane-n">歸屬 31 則留言 · 反例 0</span>
+      </div>
+    </div>
+
+    <div class="lane-card" style="--lane-color:#5e4b73">
+      <div class="lane-head">
+        <span class="lane-dot" style="background:#5e4b73"></span>
+        <span class="lane-title">生存主義與馬死落地行</span>
+        <span class="lane-traj traj-carry">續存</span>
+        <span class="lane-metric">跨 4/19 篇</span>
+      </div>
+      <p class="lane-story">現金流見底 → 先接受苛刻合約求生 → 「騎牛搵馬」成為共識策略,尊嚴讓位於生存。</p>
+      <div class="lane-posts">
+        <i></i><i class="on" data-post="S2"></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i class="on" data-post="S10"></i><i class="on" data-post="S11"></i><i></i><i></i><i></i><i></i><i></i><i class="on" data-post="S17"></i><i></i><i></i>
+      </div>
+      <div class="lane-foot">
+        <span class="ref-chip">S2.OP</span><span class="ref-chip">S10.R6</span><span class="ref-chip">S11.R4</span>
+        <span class="lane-n">歸屬 24 則留言 · 反例 2</span>
+      </div>
+    </div>
+
+    <div class="lane-card" style="--lane-color:#a16a17">
+      <div class="lane-head">
+        <span class="lane-dot" style="background:#a16a17"></span>
+        <span class="lane-title">心理調適與社交戲謔</span>
+        <span class="lane-traj traj-new">新出現</span>
+        <span class="lane-metric">跨 4/19 篇</span>
+      </div>
+      <p class="lane-story">面試挫敗反覆累積 → 以自嘲與吐槽轉化為社交貨幣 → 集體幽默承接個人焦慮。</p>
+      <div class="lane-posts">
+        <i></i><i></i><i class="on" data-post="S3"></i><i></i><i></i><i class="on" data-post="S6"></i><i class="on" data-post="S7"></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i class="on" data-post="S18"></i><i></i>
+      </div>
+      <div class="lane-foot">
+        <span class="ref-chip">S3.OP</span><span class="ref-chip">S6.R7</span><span class="ref-chip">S7.R33</span>
+        <span class="lane-n">歸屬 23 則留言 · 反例 0</span>
+      </div>
+    </div>
+
+    <!-- ============ §2 民情羅盤:one naming surface ============ -->
+    <div class="card compass-wrap">
+      <div class="section-label" style="padding:0 0 6px"><span>民情羅盤</span><span>4 個形狀 · 78 次留言歸屬 · 可用 799 則</span></div>
+      <svg class="compass-svg" viewBox="0 0 640 400" role="img" aria-label="民情羅盤:泡泡只標位置與規模,名稱見下方圖例">
+        <line x1="40" y1="200" x2="600" y2="200" stroke="rgba(27,26,23,0.14)" stroke-width="1"/>
+        <line x1="320" y1="24" x2="320" y2="376" stroke="rgba(27,26,23,0.14)" stroke-width="1"/>
+        <text class="axis-label" x="320" y="14" text-anchor="middle">情緒共鳴</text>
+        <text class="axis-label" x="320" y="394" text-anchor="middle">行動導向</text>
+        <text class="axis-label" x="36" y="196" text-anchor="end">質疑</text>
+        <text class="axis-label" x="604" y="196" text-anchor="start">支持</text>
+        <g class="bubble" data-k="tease">
+          <circle class="halo" cx="252" cy="108" r="40" stroke="#43d6c8"/>
+          <circle class="core" cx="252" cy="108" r="33" fill="#43d6c8" opacity="0.92"/>
+          <text x="252" y="108">14</text>
+        </g>
+        <g class="bubble" data-k="moral">
+          <circle class="halo" cx="200" cy="212" r="45" stroke="#a16a17"/>
+          <circle class="core" cx="200" cy="212" r="38" fill="#a16a17" opacity="0.92"/>
+          <text x="200" y="212">19</text>
+        </g>
+        <g class="bubble" data-k="doom">
+          <circle class="halo" cx="168" cy="308" r="49" stroke="#7a2030"/>
+          <circle class="core" cx="168" cy="308" r="42" fill="#7a2030" opacity="0.92"/>
+          <text x="168" y="308">24</text>
+        </g>
+        <g class="bubble" data-k="pragma">
+          <circle class="halo" cx="472" cy="290" r="47" stroke="#5e4b73"/>
+          <circle class="core" cx="472" cy="290" r="40" fill="#5e4b73" opacity="0.92"/>
+          <text x="472" y="290">21</text>
+        </g>
+      </svg>
+      <div class="legend">
+        <div class="legend-row" data-k="doom">
+          <span class="dot" style="background:#7a2030"></span>
+          <span class="name">行業悲觀與結構性焦慮</span>
+          <span class="desc">參與者對特定行業(設計、珠寶、IT)前景感到絕望,形成集體性行業寒冬敘事。</span>
+          <span class="n">24 次歸屬</span>
+        </div>
+        <div class="legend-row" data-k="pragma">
+          <span class="dot" style="background:#5e4b73"></span>
+          <span class="name">實用主義求職策略</span>
+          <span class="desc">將失業視為專案管理,透過技術性手段提升競爭力,試圖突破結構性門檻。</span>
+          <span class="n">21 次歸屬</span>
+        </div>
+        <div class="legend-row" data-k="moral">
+          <span class="dot" style="background:#a16a17"></span>
+          <span class="name">道德審判與階級歸因</span>
+          <span class="desc">將長期失業歸因於個人責任或家底,討論從結構性困境轉向對個人選擇的審判。</span>
+          <span class="n">19 次歸屬</span>
+        </div>
+        <div class="legend-row" data-k="tease">
+          <span class="dot" style="background:#43d6c8"></span>
+          <span class="name">職場戲謔與表演性解構</span>
+          <span class="desc">將面試失敗轉化為社交貨幣,透過集體吐槽緩解求職焦慮。</span>
+          <span class="n">14 次歸屬</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- ============ §3 貼文列表:collapsed by default when Atlas ready ============ -->
+    <details class="post-strip">
+      <summary>
+        <span class="s-title">貼文 · 點入單帖</span>
+        <span class="s-count">19 篇 · 擷取 923 · 可用 799 則</span>
+        <span class="s-caret">展開 ▾</span>
+      </summary>
+      <div class="post-row">
+        <span class="dot"></span>
+        <div>
+          <div class="gist">畢業生感嘆求職市場普遍要求多年工作經驗,導致新鮮人難以找到入門職位。</div>
+          <div class="meta"><span class="code">S1.OP</span> · <span class="author">@s_s0311</span> · 07/07/2026 · ♥ 26 · 💬 9</div>
+        </div>
+      </div>
+      <div class="post-row">
+        <span class="dot"></span>
+        <div>
+          <div class="gist">一名四十多歲的職場人士在失業不到一個月後順利獲得新工作,並對這次轉職感到相當滿意。</div>
+          <div class="meta"><span class="code">S2.OP</span> · <span class="author">@john.new.journey</span> · 07/07/2026 · ♥ 285 · 💬 23</div>
+        </div>
+      </div>
+      <div class="post-more">… 其餘 17 篇(展開後完整列表照舊,含 原文 / 加入比較 / 詳情 / 刪除)</div>
+    </details>
+  </div>
+</div>
+<script>
+  // legend row ⇄ bubble mutual highlight (one naming surface, two views of the same set)
+  document.querySelectorAll("[data-k]").forEach((el) => {
+    const key = el.getAttribute("data-k");
+    el.addEventListener("mouseenter", () => {
+      document.querySelectorAll(`.bubble[data-k="${key}"]`).forEach((b) => b.classList.add("hot"));
+      document.querySelectorAll(`.legend-row[data-k="${key}"]`).forEach((r) => r.style.background = "var(--context-surface)");
+    });
+    el.addEventListener("mouseleave", () => {
+      document.querySelectorAll(`.bubble[data-k="${key}"]`).forEach((b) => b.classList.remove("hot"));
+      document.querySelectorAll(`.legend-row[data-k="${key}"]`).forEach((r) => r.style.background = "");
+    });
+  });
+</script>
+</body>
+</html>
