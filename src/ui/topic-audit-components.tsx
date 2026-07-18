@@ -2,8 +2,11 @@ import type { CSSProperties, ReactNode } from "react";
 import {
   Heart,
   MessageCircle,
+  Users,
+  type LucideIcon
 } from "lucide-react";
 
+import type { NarrativeLaneIcon } from "../compare/topic-audit-prompts.ts";
 import type {
   EvidencePacket,
   NarrativeLaneBeats,
@@ -328,6 +331,20 @@ function laneMetricLabel(lane: NarrativeLaneHint): string {
   return count <= 1 ? `單帖觀察 · ${count}/${total} 篇` : `跨 ${count}/${total} 篇`;
 }
 
+const NARRATIVE_ICON_COMPONENTS = {
+  heart: Heart,
+  users: Users,
+  "message-circle": MessageCircle
+} satisfies Record<NarrativeLaneIcon, LucideIcon>;
+
+function isNarrativeLaneIcon(icon: string): icon is NarrativeLaneIcon {
+  return Object.prototype.hasOwnProperty.call(NARRATIVE_ICON_COMPONENTS, icon);
+}
+
+function resolveNarrativeIcon(icon: NarrativeLaneHint["icon"]): LucideIcon {
+  return icon && isNarrativeLaneIcon(icon) ? NARRATIVE_ICON_COMPONENTS[icon] : MessageCircle;
+}
+
 export function ThemeChip({
   label,
   active,
@@ -444,7 +461,7 @@ export function NarrativeLane({
   pinnedRef?: string | null;
   onPin?: (ref: string) => void;
 }) {
-  const Icon = MessageCircle;
+  const Icon = resolveNarrativeIcon(lane.icon);
   const crossPostCount = laneCrossPostCount(lane);
   const postTotal = lanePostTotal(lane);
   const metricLabel = laneMetricLabel(lane);

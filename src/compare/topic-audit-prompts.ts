@@ -55,35 +55,8 @@ export type { AuditPromptNarrativeLane };
 
 export const NARRATIVE_LANE_ICONS = [
   "heart",
-  "heart-crack",
   "users",
-  "user",
-  "user-x",
-  "message-circle",
-  "message-square-warning",
-  "banknote",
-  "scale",
-  "ban",
-  "alert-triangle",
-  "shield",
-  "sparkles",
-  "ghost",
-  "clock",
-  "calendar",
-  "compass",
-  "map",
-  "lightbulb",
-  "flag",
-  "flame",
-  "leaf",
-  "trending-up",
-  "trending-down",
-  "activity",
-  "eye",
-  "eye-off",
-  "lock",
-  "key",
-  "search"
+  "message-circle"
 ] as const;
 
 export type NarrativeLaneIcon = (typeof NARRATIVE_LANE_ICONS)[number];

@@ -6,6 +6,10 @@ import React from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 
 import { TOPIC_SYNTHESIS_VERSION } from "../src/compare/topic-synthesis.ts";
+import {
+  NARRATIVE_LANE_ICONS,
+  type NarrativeLaneIcon
+} from "../src/compare/topic-audit-prompts.ts";
 import { createSessionItem } from "../src/state/store-helpers.ts";
 import type { EvidencePacket, TopicAuditEpisode, TopicAuditReport } from "../src/compare/topic-audit.ts";
 import type { TopicAuditValidationFlag } from "../src/compare/topic-audit-validator.ts";
@@ -2743,4 +2747,42 @@ test("topic-audit-components.tsx module surface: retired Newsroom family is gone
   assert.match(laneHtml, /data-narrative-lane-strength="surface-lane"/);
   assert.doesNotMatch(laneHtml, /data-reaction-pattern/);
   assert.doesNotMatch(componentSource, /kind\??:\s*"narrative"\s*\|\s*"reaction"|kind\s*=\s*"narrative"|data-reaction-pattern/);
+});
+
+async function renderNarrativeLaneIcon(icon: string): Promise<string> {
+  const { NarrativeLane } = await import("../src/ui/topic-audit-components.tsx");
+  return renderToStaticMarkup(
+    <NarrativeLane
+      lane={{
+        id: "icon-lane",
+        label: "敘事圖示",
+        signalRefs: ["S1.R1", "S2.R1"],
+        consensus: 0.8,
+        crossPostCount: 2,
+        postTotal: 3,
+        icon
+      }}
+    />
+  );
+}
+
+test("NarrativeLane covers every producer icon with semantic Lucide output", async () => {
+  const expectedClasses = {
+    heart: "lucide-heart",
+    users: "lucide-users",
+    "message-circle": "lucide-message-circle"
+  } satisfies Record<NarrativeLaneIcon, string>;
+
+  assert.deepEqual(Object.keys(expectedClasses), [...NARRATIVE_LANE_ICONS]);
+  for (const icon of NARRATIVE_LANE_ICONS) {
+    const html = await renderNarrativeLaneIcon(icon);
+    assert.match(html, new RegExp(`class="lucide ${expectedClasses[icon]}"`), icon);
+  }
+});
+
+test("NarrativeLane safely falls back for unknown and inherited object keys", async () => {
+  for (const icon of ["not-in-producer-whitelist", "constructor", "__proto__", "toString"]) {
+    const html = await renderNarrativeLaneIcon(icon);
+    assert.match(html, /class="lucide lucide-message-circle"/, icon);
+  }
 });

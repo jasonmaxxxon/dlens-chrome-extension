@@ -3,6 +3,7 @@ import test from "node:test";
 
 import type { EvidencePacket, LensMemo, SignalReading, TopicNarrativeState } from "../src/compare/topic-audit.ts";
 import {
+  NARRATIVE_LANE_ICONS,
   TOPIC_AUDIT_PROMPT_VERSIONS,
   buildP0_5ShardReadingPrompt,
   buildP1SignalReadingPrompt,
@@ -242,6 +243,35 @@ test("P2-P6 prompts use prior prose memos but keep findings as probes instead of
   assert.equal(TOPIC_AUDIT_PROMPT_VERSIONS.p6, "topic-audit-p6.v3");
   assert.deepEqual(findForbiddenFindingAssertions(p5), []);
   assert.deepEqual(findForbiddenFindingAssertions(p6), []);
+});
+
+test("P3 producer icon contract stays within the renderer-supported whitelist", () => {
+  assert.deepEqual(NARRATIVE_LANE_ICONS, ["heart", "users", "message-circle"]);
+
+  const prompt = buildP3NarrativePrompt({
+    topicName: "love",
+    packets: [makePacket()],
+    signalReadings: [makeSignalReading()],
+    lexiconMemo: makeMemo("lexicon", "app、條件、選擇成本形成市場語彙。")
+  });
+  assert.match(prompt, /whitelist.*heart, users, message-circle/s);
+  assert.doesNotMatch(prompt, /heart-crack|message-square-warning/);
+
+  const parsedLegacyIcon = parseAuditPromptEnvelopeResponse(JSON.stringify({
+    prose: "舊圖示值仍可安全降級。",
+    evidenceRefs: ["S1.OP"],
+    caveats: [],
+    displayHints: {
+      narrativeLanes: [{
+        id: "legacy-icon",
+        label: "舊圖示",
+        signalRefs: ["S1.OP"],
+        consensus: 0.5,
+        icon: "heart-crack"
+      }]
+    }
+  }), new Set(["S1.OP"]));
+  assert.equal(parsedLegacyIcon?.displayHints?.narrativeLanes?.[0]?.icon, undefined);
 });
 
 test("P3 P4 and P6 read current evidence before treating prior narrative state as hypotheses", () => {

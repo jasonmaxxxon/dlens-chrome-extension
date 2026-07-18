@@ -111,7 +111,10 @@ git diff --check
   shape is guarded by `parseAuditPromptEnvelopeResult` + one repair retry
   (locked in `tests/provider-runtime.test.ts`). P3 v4 may publish optional evidence-bound displayHints.narrativeLanes[].beats
   (setup/tension/outcome, ≤48 chars each) plus trajectory new/carried. Legacy lanes
-  remain valid; the UI never derives missing beats from prose.
+  remain valid; the UI never derives missing beats from prose. The P3 narrative
+  icon producer whitelist is exactly `heart | users | message-circle`; the parser
+  drops other model values, while legacy stored/unknown strings safely render with
+  the `message-circle` fallback (including inherited object-key names).
 - **Product** mode is insight / evidence / task-first: cited evidence,
   verdicts, experiment hints, agent task prompts. Backend clusters are support
   data, never the user-facing abstraction. Product rail contract:
