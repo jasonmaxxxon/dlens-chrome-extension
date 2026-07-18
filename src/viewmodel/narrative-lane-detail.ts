@@ -53,20 +53,25 @@ export function pickRepresentativeNarrativeEvidence({
 }): (LaneComment & { ref: string }) | null {
   const byRef = new Map<string, LaneComment & { ref: string }>();
   for (const packet of packets) {
-    byRef.set(`${packet.shortCode}.OP`, {
-      ref: `${packet.shortCode}.OP`,
-      shortCode: packet.shortCode,
-      author: packet.opAuthor || "unknown",
-      text: (packet.opText || "").trim(),
-      likes: packet.opLikes,
-      kind: "op"
-    });
+    const opText = (packet.opText || "").trim();
+    if (opText) {
+      byRef.set(`${packet.shortCode}.OP`, {
+        ref: `${packet.shortCode}.OP`,
+        shortCode: packet.shortCode,
+        author: packet.opAuthor || "unknown",
+        text: opText,
+        likes: packet.opLikes,
+        kind: "op"
+      });
+    }
     for (const fragment of packet.replyFragments) {
+      const text = (fragment.text || "").trim();
+      if (!text) continue;
       byRef.set(fragment.ref, {
         ref: fragment.ref,
         shortCode: packet.shortCode,
         author: fragment.author || "unknown",
-        text: (fragment.text || "").trim(),
+        text,
         likes: fragment.likes,
         kind: "reply"
       });

@@ -105,3 +105,18 @@ test("representative narrative evidence is selected only from exact lane refs", 
   assert.equal(quote?.ref, "S2.R1");
   assert.doesNotMatch(quote?.text ?? "", /unrelated high-like reply/);
 });
+
+test("empty duplicate exact refs do not clobber earlier valid narrative evidence", () => {
+  const quote = pickRepresentativeNarrativeEvidence({
+    lane: { id: "lane-1", signalRefs: ["S1.OP", "S2.R1"] },
+    packets: [
+      packet({ shortCode: "S1", opText: "earlier valid opener", opLikes: 10 }),
+      packet({ shortCode: "S2", replyFragments: [{ ref: "S2.R1", author: "matched", text: "earlier valid reply", likes: 20, role: "audience" }] }),
+      packet({ shortCode: "S1", opText: "   ", opLikes: 999 }),
+      packet({ shortCode: "S2", replyFragments: [{ ref: "S2.R1", author: "duplicate", text: "   ", likes: 999, role: "audience" }] })
+    ]
+  });
+
+  assert.equal(quote?.ref, "S2.R1");
+  assert.equal(quote?.text, "earlier valid reply");
+});
