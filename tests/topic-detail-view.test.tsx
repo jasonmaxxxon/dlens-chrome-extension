@@ -1577,8 +1577,94 @@ test("TopicDetailView keeps one source footer for drill-in rows", () => {
 
   assert.match(html, /data-topic-audit-block="sources"/);
   assert.match(html, /data-topic-audit-source-list-style="audit-report"/);
+  assert.match(html, /<details[^>]*data-atlas-source-disclosure="true"/);
+  assert.doesNotMatch(html, /<details[^>]*data-atlas-source-disclosure="true"[^>]*open/);
+  assert.match(html, /data-topic-source-list="true"/);
+  assert.match(html, /貼文 · 點入單帖/);
   assert.match(html, /data-source-row="S1"/);
   assert.doesNotMatch(html, /data-topic-newsroom-ladder="true"/);
+});
+
+test("TopicDetailView keeps pre-Atlas source work visibly open", () => {
+  const html = renderToStaticMarkup(
+    topicDetailViewElement({
+      topic,
+      signals,
+      pairs: [],
+      sessionItems: [buildSessionItem("item-1", "saved")],
+      onAnalyzeItems: async () => ({ ok: true, failedCount: 0 })
+    })
+  );
+
+  assert.match(html, /<details[^>]*data-atlas-source-disclosure="true"[^>]*open/);
+  assert.match(html, /收合 ▴/);
+});
+
+test("TopicDetailView lets ready Atlas readers expand sources and keep source callbacks working", async () => {
+  const { JSDOM } = await import("jsdom");
+  const { createRoot } = await import("react-dom/client");
+  const { flushSync } = await import("react-dom");
+  const dom = new JSDOM("<div id=\"root\"></div>", { url: "https://dlens.test" });
+  const previous = {
+    window: globalThis.window,
+    document: globalThis.document,
+    HTMLElement: globalThis.HTMLElement,
+    Event: globalThis.Event,
+    MouseEvent: globalThis.MouseEvent
+  };
+  Object.assign(globalThis, {
+    window: dom.window,
+    document: dom.window.document,
+    HTMLElement: dom.window.HTMLElement,
+    Event: dom.window.Event,
+    MouseEvent: dom.window.MouseEvent
+  });
+  const rootElement = dom.window.document.getElementById("root")!;
+  const root = createRoot(rootElement);
+  const comparedItemIds: string[] = [];
+
+  try {
+    flushSync(() => {
+      root.render(topicDetailViewElement({
+        topic,
+        signals,
+        pairs: [],
+        sessionItems: [buildReadySessionItem("item-1")],
+        signalTagsByItemId,
+        auditEvidence: [auditPacket],
+        auditMemos,
+        auditSummary: { reportStatus: "ready", analyzedCount: 1, queuedCount: 0 },
+        auditValidatorFlags: [],
+        onAddToCompare: (itemId) => comparedItemIds.push(itemId)
+      }));
+    });
+
+    const disclosure = rootElement.querySelector<HTMLDetailsElement>("details[data-atlas-source-disclosure]");
+    const summary = disclosure?.querySelector("summary");
+    assert.ok(disclosure);
+    assert.ok(summary);
+    assert.equal(disclosure.open, false);
+    assert.match(summary.textContent ?? "", /展開 ▾/);
+
+    flushSync(() => {
+      summary!.dispatchEvent(new dom.window.MouseEvent("click", { bubbles: true }));
+    });
+    await new Promise((resolve) => setTimeout(resolve, 0));
+
+    assert.equal(disclosure.open, true);
+    assert.match(summary!.textContent ?? "", /收合 ▴/);
+
+    const compare = rootElement.querySelector<HTMLButtonElement>("[data-source-row-compare=\"S1\"]");
+    assert.ok(compare, "opening the disclosure must retain the existing SourceRow compare callback");
+    flushSync(() => {
+      compare!.dispatchEvent(new dom.window.MouseEvent("click", { bubbles: true }));
+    });
+    assert.deepEqual(comparedItemIds, ["item-1"]);
+  } finally {
+    flushSync(() => root.unmount());
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    Object.assign(globalThis, previous);
+  }
 });
 
 test("TopicDetailView folds the source manifest into the atlas post list", () => {

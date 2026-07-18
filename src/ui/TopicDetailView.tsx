@@ -1,4 +1,4 @@
-import { useEffect, useLayoutEffect, useMemo, useRef, useState, type CSSProperties, type ReactNode } from "react";
+import { useEffect, useLayoutEffect, useMemo, useRef, useState, type ReactNode } from "react";
 
 import {
   TOPIC_SYNTHESIS_MIN_ANALYZED,
@@ -1754,11 +1754,16 @@ export function TopicDetailView({
     relevance: 1 | 2 | 3 | 4 | 5;
     recommendedState: "park" | "watch" | "act";
   } | null>(null);
+  const [sourceDisclosureOpen, setSourceDisclosureOpen] = useState(() => !hasAtlasData);
 
   useEffect(() => {
     setDraftDescription(topic.description || "");
     setDraftResearchQuestion(topic.context?.researchQuestion || "");
   }, [topic.context?.researchQuestion, topic.description, topic.id]);
+
+  useEffect(() => {
+    setSourceDisclosureOpen(!hasAtlasData);
+  }, [hasAtlasData]);
 
   const visibleSignals = useMemo(
     () => signals.filter((signal) =>
@@ -1954,7 +1959,6 @@ export function TopicDetailView({
       ? buildReactionPatternFullList({ pattern: activeReactionPattern, packets: auditEvidence, shardReadings: audit.shardReadings })
       : null;
     const fullListOpen = Boolean(activeReactionPattern && expandedFullListId === activeReactionPattern.id);
-    const sectionLabelStyle: CSSProperties = { display: "flex", justifyContent: "space-between", gap: 10, alignItems: "baseline", ...textStyles.label, color: tokens.color.subInk };
     const renderRefChips = (refs: ReadonlyArray<string>) => refs.slice(0, 3).map((ref) => (
       <EvidenceRefChip
         key={ref}
@@ -1988,16 +1992,44 @@ export function TopicDetailView({
       : `${signals.length} 個訊號`;
     const showP1Progress = signals.length > 0 && auditSummaryValue.analyzedCount < signals.length;
     const mergedSourceSection = (
-      <section data-topic-audit-block="sources" style={{ display: "grid", gap: 8 }}>
-        <div style={sectionLabelStyle}>
-          <span>貼文 · 點入單帖</span>
-          <span>
+      <details
+        data-topic-audit-block="sources"
+        data-atlas-source-disclosure="true"
+        open={sourceDisclosureOpen}
+        onToggle={(event) => setSourceDisclosureOpen(event.currentTarget.open)}
+        style={{ borderRadius: tokens.radius.cardLg, background: tokens.color.elevated, boxShadow: tokens.shadow.topicCard }}
+      >
+        <style>{`
+          [data-atlas-source-disclosure] > summary {
+            cursor: pointer;
+            list-style: none;
+            display: flex;
+            align-items: baseline;
+            justify-content: space-between;
+            gap: ${tokens.spacing.sm}px;
+            padding: ${tokens.spacing.sm}px ${tokens.spacing.md}px;
+            color: ${tokens.color.subInk};
+            transition: ${tokens.motion.interactiveTransition};
+          }
+          [data-atlas-source-disclosure] > summary:hover {
+            background: ${tokens.color.contextSurface};
+            color: ${tokens.color.ink};
+          }
+          [data-atlas-source-disclosure] > summary:focus-visible {
+            background: ${tokens.color.focusedSurface};
+            box-shadow: ${tokens.shadow.focus};
+          }
+        `}</style>
+        <summary aria-label={`${sourceDisclosureOpen ? "收合" : "展開"}貼文清單`}>
+          <span style={{ ...textStyles.label }}>貼文 · 點入單帖</span>
+          <span style={{ marginLeft: "auto", ...textStyles.caption, color: tokens.color.softInk }}>
             {sourceListCounts}
             {showP1Progress ? ` · P1 判讀 ${auditSummaryValue.analyzedCount}/${signals.length}` : ""}
           </span>
-        </div>
+          <span style={{ ...textStyles.caption, color: tokens.color.subInk }}>{sourceDisclosureOpen ? "收合 ▴" : "展開 ▾"}</span>
+        </summary>
         {deleteError ? (
-          <div style={{ fontSize: 11, color: tokens.color.failed }}>{deleteError}</div>
+          <div style={{ padding: `0 ${tokens.spacing.md}px`, fontSize: 11, color: tokens.color.failed }}>{deleteError}</div>
         ) : null}
         <div
           data-topic-source-list="true"
@@ -2064,7 +2096,7 @@ export function TopicDetailView({
             );
           })}
         </div>
-      </section>
+      </details>
     );
     return (
       <div style={viewRootStyle()} data-topic-load-state={loadState}>
