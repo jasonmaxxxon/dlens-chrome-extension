@@ -1,4 +1,16 @@
-import type { CommentShardReading, EvidencePacket, LensMemo, ReactionCoverage, ReactionPattern, SignalReading, TopicAuditEpisode, TopicAuditReport, TopicAuditStageName } from "../compare/topic-audit.ts";
+import type {
+  CommentShardReading,
+  EvidencePacket,
+  LensMemo,
+  NarrativeLaneBeats,
+  NarrativeLaneTrajectory,
+  ReactionCoverage,
+  ReactionPattern,
+  SignalReading,
+  TopicAuditEpisode,
+  TopicAuditReport,
+  TopicAuditStageName
+} from "../compare/topic-audit.ts";
 import type { TopicAuditRunFailureKind, TopicAuditRunStatus } from "../compare/topic-audit-envelope-contract.ts";
 import { buildTopicEvidencePackets } from "../compare/topic-audit.ts";
 import type { TopicAuditValidationFlag } from "../compare/topic-audit-validator.ts";
@@ -101,6 +113,8 @@ export interface TopicAuditNarrativeLaneHint {
   signalRefs: string[];
   consensus: number;
   icon?: string;
+  beats?: NarrativeLaneBeats;
+  trajectory?: NarrativeLaneTrajectory;
   metricLabel?: string;
   crossPostCount?: number;
   postTotal?: number;

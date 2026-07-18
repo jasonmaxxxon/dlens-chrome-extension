@@ -503,7 +503,18 @@ test("Topic detail VM derives narrative cross-post strength from evidence refs",
     ...auditMemos.lensMemos[0]!,
     displayHints: {
       narrativeLanes: [
-        { id: "lane-cross", label: "跨帖敘事", signalRefs: ["S1.OP", "S2.R1", "S5.OP"], consensus: 0.82 },
+        {
+          id: "lane-cross",
+          label: "跨帖敘事",
+          signalRefs: ["S1.OP", "S2.R1", "S5.OP"],
+          consensus: 0.82,
+          beats: {
+            setup: "職缺收縮",
+            tension: "經驗門檻升高",
+            outcome: "結構性困境成為共同框架"
+          },
+          trajectory: "carried"
+        },
         { id: "lane-single", label: "單帖苗頭", signalRefs: ["S4.R1"], consensus: 0.74 }
       ]
     }
@@ -524,7 +535,15 @@ test("Topic detail VM derives narrative cross-post strength from evidence refs",
     crossPostCount?: number;
     postTotal?: number;
     isSinglePostObservation?: boolean;
+    beats?: { setup: string; tension: string; outcome: string };
+    trajectory?: "new" | "carried";
   }>;
+  assert.deepEqual(lanes[0]?.beats, {
+    setup: "職缺收縮",
+    tension: "經驗門檻升高",
+    outcome: "結構性困境成為共同框架"
+  });
+  assert.equal(lanes[0]?.trajectory, "carried");
   assert.equal(lanes[0]?.crossPostCount, 3);
   assert.equal(lanes[0]?.postTotal, 6);
   assert.equal(lanes[0]?.metricLabel, "跨 3/6 篇");

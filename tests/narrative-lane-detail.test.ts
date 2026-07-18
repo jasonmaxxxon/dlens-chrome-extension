@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import { buildNarrativeLaneDetail } from "../src/viewmodel/narrative-lane-detail.ts";
+import { buildNarrativeLaneDetail, pickRepresentativeNarrativeEvidence } from "../src/viewmodel/narrative-lane-detail.ts";
 import type { EvidencePacket } from "../src/compare/topic-audit.ts";
 
 function packet(overrides: Partial<EvidencePacket> & { shortCode: string }): EvidencePacket {
@@ -82,4 +82,26 @@ test("buildNarrativeLaneDetail degrades gracefully when a lane has no replies", 
   // Representative quotes fall back to OP text instead of being empty.
   assert.equal(detail.comments[0]!.kind, "op");
   assert.equal(detail.comments[0]!.shortCode, "S1");
+});
+
+test("representative narrative evidence is selected only from exact lane refs", () => {
+  const packetOne = packet({
+    shortCode: "S1",
+    opText: "lane opener",
+    opLikes: 1,
+    replyFragments: [{ ref: "S1.R2", author: "unrelated", text: "unrelated high-like reply", likes: 999, role: "audience" }]
+  });
+  const packetTwo = packet({
+    shortCode: "S2",
+    opText: "another opener",
+    replyFragments: [{ ref: "S2.R1", author: "matched", text: "exact lane reply", likes: 20, role: "audience" }]
+  });
+
+  const quote = pickRepresentativeNarrativeEvidence({
+    lane: { id: "lane-1", signalRefs: ["S1.OP", "S2.R1"] },
+    packets: [packetOne, packetTwo]
+  });
+
+  assert.equal(quote?.ref, "S2.R1");
+  assert.doesNotMatch(quote?.text ?? "", /unrelated high-like reply/);
 });

@@ -33,7 +33,13 @@ import {
   type LucideIcon
 } from "lucide-react";
 
-import type { EvidencePacket, ReactionCoverage, ReactionPattern } from "../compare/topic-audit.ts";
+import type {
+  EvidencePacket,
+  NarrativeLaneBeats,
+  NarrativeLaneTrajectory,
+  ReactionCoverage,
+  ReactionPattern
+} from "../compare/topic-audit.ts";
 import type { TopicAuditValidationFlag } from "../compare/topic-audit-validator.ts";
 import { EvidenceRefChip, type EvidenceFragmentLookup } from "./EvidenceRefChip.tsx";
 import { modeThemes, tokens } from "./tokens";
@@ -105,6 +111,8 @@ export interface NarrativeLaneHint {
   signalRefs: string[];
   consensus: number;
   icon?: string;
+  beats?: NarrativeLaneBeats;
+  trajectory?: NarrativeLaneTrajectory;
   metricLabel?: string;
   subtext?: string;
   crossPostCount?: number;

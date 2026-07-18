@@ -44,6 +44,40 @@ function likesValue(likes: number | null): number {
   return typeof likes === "number" ? likes : -1;
 }
 
+export function pickRepresentativeNarrativeEvidence({
+  lane,
+  packets
+}: {
+  lane: NarrativeLaneRef;
+  packets: ReadonlyArray<EvidencePacket>;
+}): (LaneComment & { ref: string }) | null {
+  const byRef = new Map<string, LaneComment & { ref: string }>();
+  for (const packet of packets) {
+    byRef.set(`${packet.shortCode}.OP`, {
+      ref: `${packet.shortCode}.OP`,
+      shortCode: packet.shortCode,
+      author: packet.opAuthor || "unknown",
+      text: (packet.opText || "").trim(),
+      likes: packet.opLikes,
+      kind: "op"
+    });
+    for (const fragment of packet.replyFragments) {
+      byRef.set(fragment.ref, {
+        ref: fragment.ref,
+        shortCode: packet.shortCode,
+        author: fragment.author || "unknown",
+        text: (fragment.text || "").trim(),
+        likes: fragment.likes,
+        kind: "reply"
+      });
+    }
+  }
+  return lane.signalRefs
+    .map((ref) => byRef.get(ref))
+    .filter((entry): entry is LaneComment & { ref: string } => Boolean(entry?.text))
+    .sort((a, b) => likesValue(b.likes) - likesValue(a.likes) || a.ref.localeCompare(b.ref))[0] ?? null;
+}
+
 /**
  * Builds the lane drill-down detail from the packets whose shortCode is
  * referenced by the lane. Pure and deterministic: same input → same output.

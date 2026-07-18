@@ -772,7 +772,7 @@ test("topic audit rejects unknown inline refs hidden in display theme chips", as
   );
 });
 
-test("topic audit drops narrative lanes that have no valid structured refs", async () => {
+test("topic audit preserves narrative beats after filtering unknown lane refs", async () => {
   const storage = new MemoryStorage();
   await seedTopic(storage);
 
@@ -783,17 +783,33 @@ test("topic audit drops narrative lanes that have no valid structured refs", asy
       ? {
           ...makeEnvelope(stageName),
           displayHints: {
-            narrativeLanes: [{ id: "fake", label: "沒有證據", signalRefs: ["S9.R9"], consensus: 0.8 }]
+            narrativeLanes: [{
+              id: "structural-difficulty",
+              label: "結構性困境",
+              signalRefs: ["S1.OP", "S9.R9"],
+              consensus: 0.8,
+              beats: {
+                setup: "職缺收縮",
+                tension: "經驗門檻升高",
+                outcome: "結構性困境成為共同框架"
+              },
+              trajectory: "carried"
+            }]
           }
         }
       : makeEnvelope(stageName),
     model: "mock:model"
   });
 
-  assert.deepEqual(
-    response.auditMemos?.lensMemos.find((memo) => memo.stageName === "narrative")?.displayHints?.narrativeLanes,
-    []
-  );
+  assert.ok(response.auditMemos);
+  const narrativeMemo = (await loadTopicAuditMemos(storage, "topic-1"))?.lensMemos.find((memo) => memo.stageName === "narrative");
+  assert.deepEqual(narrativeMemo?.displayHints?.narrativeLanes?.[0]?.signalRefs, ["S1.OP"]);
+  assert.deepEqual(narrativeMemo?.displayHints?.narrativeLanes?.[0]?.beats, {
+    setup: "職缺收縮",
+    tension: "經驗門檻升高",
+    outcome: "結構性困境成為共同框架"
+  });
+  assert.equal(narrativeMemo?.displayHints?.narrativeLanes?.[0]?.trajectory, "carried");
 });
 
 test("topic audit run can resume from a later stage without rerunning completed stages", async () => {
