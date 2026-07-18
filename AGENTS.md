@@ -109,7 +109,9 @@ git diff --check
   (0.3.51): `responseJsonSchema` sends gemini-3.1-flash-lite into runaway
   constrained decoding (MAX_TOKENS at any ceiling) — never re-add it there;
   shape is guarded by `parseAuditPromptEnvelopeResult` + one repair retry
-  (locked in `tests/provider-runtime.test.ts`).
+  (locked in `tests/provider-runtime.test.ts`). P3 v4 may publish optional evidence-bound displayHints.narrativeLanes[].beats
+  (setup/tension/outcome, ≤48 chars each) plus trajectory new/carried. Legacy lanes
+  remain valid; the UI never derives missing beats from prose.
 - **Product** mode is insight / evidence / task-first: cited evidence,
   verdicts, experiment hints, agent task prompts. Backend clusters are support
   data, never the user-facing abstraction. Product rail contract:

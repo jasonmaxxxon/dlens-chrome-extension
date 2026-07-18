@@ -1,36 +1,7 @@
 import type { CSSProperties, ReactNode } from "react";
 import {
-  Activity,
-  AlertTriangle,
-  Ban,
-  Banknote,
-  Calendar,
-  Clock,
-  Compass,
-  Eye,
-  EyeOff,
-  Flag,
-  Flame,
-  Ghost,
   Heart,
-  HeartCrack,
-  Key,
-  Leaf,
-  Lightbulb,
-  Lock,
-  Map as MapIcon,
   MessageCircle,
-  MessageSquareWarning,
-  Scale,
-  Search,
-  Shield,
-  Sparkles,
-  TrendingDown,
-  TrendingUp,
-  User,
-  UserX,
-  Users,
-  type LucideIcon
 } from "lucide-react";
 
 import type {
@@ -43,44 +14,6 @@ import type {
 import type { TopicAuditValidationFlag } from "../compare/topic-audit-validator.ts";
 import { EvidenceRefChip, type EvidenceFragmentLookup } from "./EvidenceRefChip.tsx";
 import { modeThemes, tokens } from "./tokens";
-
-const NARRATIVE_ICON_COMPONENTS: Record<string, LucideIcon> = {
-  heart: Heart,
-  "heart-crack": HeartCrack,
-  users: Users,
-  user: User,
-  "user-x": UserX,
-  "message-circle": MessageCircle,
-  "message-square-warning": MessageSquareWarning,
-  banknote: Banknote,
-  scale: Scale,
-  ban: Ban,
-  "alert-triangle": AlertTriangle,
-  shield: Shield,
-  sparkles: Sparkles,
-  ghost: Ghost,
-  clock: Clock,
-  calendar: Calendar,
-  compass: Compass,
-  map: MapIcon,
-  lightbulb: Lightbulb,
-  flag: Flag,
-  flame: Flame,
-  leaf: Leaf,
-  "trending-up": TrendingUp,
-  "trending-down": TrendingDown,
-  activity: Activity,
-  eye: Eye,
-  "eye-off": EyeOff,
-  lock: Lock,
-  key: Key,
-  search: Search
-};
-
-function resolveNarrativeIcon(name: string | undefined): LucideIcon {
-  if (name && NARRATIVE_ICON_COMPONENTS[name]) return NARRATIVE_ICON_COMPONENTS[name];
-  return MessageCircle;
-}
 
 export type TopicAuditReportStatus = "none" | "running" | "ready" | "failed" | "stale";
 
@@ -511,7 +444,7 @@ export function NarrativeLane({
   pinnedRef?: string | null;
   onPin?: (ref: string) => void;
 }) {
-  const Icon = resolveNarrativeIcon(lane.icon);
+  const Icon = MessageCircle;
   const crossPostCount = laneCrossPostCount(lane);
   const postTotal = lanePostTotal(lane);
   const metricLabel = laneMetricLabel(lane);

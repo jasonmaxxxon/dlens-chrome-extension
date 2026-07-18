@@ -12,9 +12,6 @@ import { tokens } from "./tokens";
  * so whichever `<style>` loaded last won. The two animations are now distinct:
  * `dlens-success-ring` (row filed-flash) and `dlens-success-pop` (collector dot).
  *
- * `dlens-glow-border` and `dlens-scan` are currently unreferenced but retained
- * (pre-existing, removed by nobody's request).
- *
  * Ownership contract (enforced by tests/motion-registry.test.ts): every DLens
  * `@keyframes` lives in this string and nowhere else. The Signal Atlas drift/pulse
  * used to define its own keyframes inline in TopicDetailView; they now live here so
@@ -28,14 +25,6 @@ export const DLENS_KEYFRAMES_CSS = `
 @keyframes dlens-pulse {
   0%, 100% { opacity: 1; }
   50% { opacity: 0.35; }
-}
-@keyframes dlens-glow-border {
-  0%, 100% { border-color: ${tokens.color.successFlashSoft}; }
-  50% { border-color: ${tokens.color.successBorder}; }
-}
-@keyframes dlens-scan {
-  0% { background-position: 0% 0%; }
-  100% { background-position: 0% 100%; }
 }
 @keyframes dlens-bump {
   0% { transform: scale(1); }
@@ -252,13 +241,6 @@ export const DLENS_MOTION_CSS = `
 [data-dlens-control="true"] .dlens-atlas-distribution-row:active {
   background: ${tokens.color.inkWashStrong} !important;
 }
-[data-dlens-control="true"] .dlens-quote-row {
-  transition: background 200ms ${tokens.motion.easing.standard};
-  border-radius: 6px;
-}
-[data-dlens-control="true"] .dlens-quote-row:hover {
-  background: ${tokens.color.inkWash};
-}
 [data-dlens-control="true"] .dlens-expand-trigger {
   transition: background 120ms ${tokens.motion.easing.standard}, border-color 120ms ${tokens.motion.easing.standard};
 }
@@ -339,7 +321,6 @@ export const DLENS_MOTION_CSS = `
   [data-dlens-control="true"] .dlens-card-lift,
   [data-dlens-control="true"] .dlens-tactile-row,
   [data-dlens-control="true"] .dlens-atlas-distribution-row,
-  [data-dlens-control="true"] .dlens-quote-row,
   [data-dlens-control="true"] .dlens-details-summary,
   [data-dlens-control="true"] .dlens-details-chevron,
   [data-dlens-control="true"] .dlens-details-panel,
