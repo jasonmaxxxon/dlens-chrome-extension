@@ -133,7 +133,7 @@ In `src/compare/topic-audit-prompts.ts`:
 const NARRATIVE_BEAT_MAX_CHARS = 48;
 
 function readNarrativeBeat(value: unknown): string {
-  return readTrimmedString(value).slice(0, NARRATIVE_BEAT_MAX_CHARS);
+  return Array.from(readTrimmedString(value)).slice(0, NARRATIVE_BEAT_MAX_CHARS).join("");
 }
 
 function readNarrativeBeats(value: unknown): NarrativeLaneBeats | undefined {
@@ -146,7 +146,8 @@ function readNarrativeBeats(value: unknown): NarrativeLaneBeats | undefined {
 }
 
 function readNarrativeTrajectory(value: unknown): NarrativeLaneTrajectory | undefined {
-  return value === "new" || value === "carried" ? value : undefined;
+  const normalized = readTrimmedString(value).toLowerCase();
+  return normalized === "new" || normalized === "carried" ? normalized : undefined;
 }
 ```
 
@@ -319,6 +320,8 @@ git commit -m "feature: project atlas narrative stages"
 - Create: `src/ui/AtlasNarrativeStage.tsx`
 - Create: `tests/atlas-narrative-stage.test.tsx`
 - Modify: `src/ui/TopicDetailView.tsx`
+- Modify: `src/ui/tokens.ts`
+- Modify: `src/ui/tokens-intent.md`
 - Modify: `tests/topic-detail-view.test.tsx`
 
 **Interfaces:**
@@ -382,7 +385,7 @@ Implementation rules:
 - render at most three `EvidenceRefChip`s; preserve all refs in the drawer contract;
 - `aria-live="polite"` announces page position; buttons expose disabled state and labels;
 - single-post observations remain as compact, clickable rows after the pager;
-- CSS inside the component uses existing tokens and stacks beat cards at `max-width: 520px`;
+- add `tokens.layout.atlasNarrowBreakpointPx = 520`, document its value-free semantic intent in `tokens-intent.md`, and use that token for the narrow stacked beat layout;
 - stage entrance animation is inside `@media (prefers-reduced-motion: no-preference)` only.
 
 - [ ] **Step 5: Integrate and remove old lane markup**
@@ -416,7 +419,7 @@ Expected: focused tests pass; typecheck exits 0.
 - [ ] **Step 7: Commit the stage replacement**
 
 ```bash
-git add src/ui/AtlasNarrativeStage.tsx src/ui/TopicDetailView.tsx tests/atlas-narrative-stage.test.tsx tests/topic-detail-view.test.tsx
+git add src/ui/AtlasNarrativeStage.tsx src/ui/TopicDetailView.tsx src/ui/tokens.ts src/ui/tokens-intent.md tests/atlas-narrative-stage.test.tsx tests/topic-detail-view.test.tsx
 git commit -m "feature: replace atlas narrative ribbons"
 ```
 
@@ -481,8 +484,8 @@ Inside the component:
 - use dark count text on signal/amber bubbles and light text on violet/rose bubbles;
 - assignment total is `sum(pattern.nComments)`; row percent is `Math.round(nComments / total * 100)`;
 - donut is `aria-hidden`, rows are semantic buttons and the readable source of count/percentage data;
-- order rows by `nComments` descending with stable original-index tie-break;
-- distribution becomes one column at `max-width: 520px`;
+- order rows by `nComments` descending with stable original-index tie-break while retaining each pattern's original palette index;
+- distribution becomes one column at `max-width: ${tokens.layout.atlasNarrowBreakpointPx}px`;
 - no color literal: palette is `[signal, techniqueViolet, queued, techniqueRose, accent]` from tokens.
 
 - [ ] **Step 4: Integrate and remove obsolete surfaces**
@@ -557,7 +560,7 @@ Replace the outer source `<section>` with:
 ```tsx
 <details
   data-atlas-source-disclosure="true"
-  defaultOpen={!hasAtlasData}
+  open={sourceDisclosureOpen}
   onToggle={(event) => setSourceDisclosureOpen(event.currentTarget.open)}
   style={{ borderRadius: tokens.radius.cardLg, background: tokens.color.elevated, boxShadow: tokens.shadow.topicCard }}
 >
@@ -570,7 +573,7 @@ Replace the outer source `<section>` with:
 </details>
 ```
 
-The exact implementation may keep the existing mapped rows in a local element, but must not clone or render them twice. `showP1Progress` stays in the summary. Add summary focus/hover CSS using tokens only.
+Initialize `sourceDisclosureOpen` from `!hasAtlasData`, then reset it in an effect when `hasAtlasData` changes so a newly ready Atlas closes and a no-Atlas state remains open. The exact implementation may keep the existing mapped rows in a local element, but must not clone or render them twice. `showP1Progress` stays in the summary. Add summary focus/hover CSS using tokens only.
 
 - [ ] **Step 4: Run focused tests and typecheck**
 
