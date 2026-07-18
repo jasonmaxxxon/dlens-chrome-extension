@@ -97,8 +97,9 @@ instrument, **not** a dashboard that happens to contain text.
   like `spacing.resultSectionGap` / `spacing.resultCardGap` on a flex-gap
   parent. Per-child margins are how vertical rhythm died before — the Result
   spacing contract exists because of it.
-- `layout.workspacePopupHeight` is shared by every mode; drawers must resolve
-  inside that frame rather than carrying a second viewport-height contract.
+- The Atlas narrow layout stacks narrative beats into one uninterrupted reading
+  column; `layout.workspacePopupHeight` stays shared so drawers resolve inside
+  the frame instead of carrying another viewport-height contract.
 
 ### Shared glass shell + Atlas surface（2026-07-10 修憲）
 - Variant D glass is now the shared Topic / Product / PR shell grammar. The

@@ -322,7 +322,14 @@ const signalAtlasMemos: TopicAuditMemoBundle = {
       displayHints: {
         themeChips: ["航班", "客服"],
         narrativeLanes: [
-          { id: "lane-cross", label: "跨帖服務焦慮", signalRefs: ["S1.R1", "S2.R1"], consensus: 0.81 },
+          {
+            id: "lane-cross",
+            label: "跨帖服務焦慮",
+            signalRefs: ["S1.R1", "S2.R1"],
+            consensus: 0.81,
+            beats: { setup: "工作焦慮浮現", tension: "制度底線受質疑", outcome: "責任回到保障設計" },
+            trajectory: "carried"
+          },
           { id: "lane-single", label: "單帖價格疑慮", signalRefs: ["S4.R1"], consensus: 0.73 }
         ]
       } as never
@@ -1367,7 +1374,7 @@ test("TopicDetailView keeps first-run focus while an empty Atlas starts generati
   }
 });
 
-test("TopicDetailView renders the Signal Atlas L0 spine without raw audience comments", () => {
+test("TopicDetailView renders the Signal Atlas L0 spine with only one exact representative audience quote", () => {
   const html = renderToStaticMarkup(
     topicDetailViewElement({
       topic,
@@ -1389,13 +1396,14 @@ test("TopicDetailView renders the Signal Atlas L0 spine without raw audience com
   );
 
   const heroIndex = html.indexOf("data-signal-atlas-hero=\"true\"");
-  const laneIndex = html.indexOf("data-topic-audit-block=\"lanes\"");
+  const laneIndex = html.indexOf("data-atlas-narrative-pager=\"true\"");
   const mapIndex = html.indexOf("data-signal-atlas-map=\"true\"");
   const warnIndex = html.indexOf("data-topic-audit-block=\"reliability\"");
   const sourceIndex = html.indexOf("data-topic-audit-block=\"sources\"");
   assert.ok(heroIndex >= 0, "hero should render");
-  assert.ok(heroIndex < laneIndex, "narrative ribbons live inside the hero, under the verdict");
-  assert.ok(laneIndex < mapIndex, "hero (with ribbons) should precede the compass panel");
+  assert.ok(heroIndex < laneIndex, "narrative stage should follow the hero verdict");
+  assert.ok(laneIndex < mapIndex, "narrative stage should precede the compass panel");
+  assert.match(html, /<\/section><section data-topic-audit-block="lanes"[^>]*data-atlas-narrative-pager="true"/);
   assert.ok(mapIndex < sourceIndex, "compass panel should precede the posts rail");
   assert.ok(sourceIndex < warnIndex, "posts rail should precede the reliability strip");
   assert.match(html, /data-signal-atlas-map="true"[^>]*data-dlens-presence="card"/);
@@ -1424,11 +1432,14 @@ test("TopicDetailView renders the Signal Atlas L0 spine without raw audience com
   assert.doesNotMatch(html, /質疑・悲觀|支持・正面/);
   assert.match(html, /data-evidence-ref-chip="S1.R1"/);
   assert.match(html, /跨 2\/6 篇/);
-  assert.match(html, /data-narrative-strength-cell="lane-cross"/);
+  assert.match(html, /data-narrative-participation-fill="lane-cross"[^>]*width:33\.33333333333333%/);
+  assert.doesNotMatch(html, /data-narrative-strength-cell/);
   assert.match(html, /單帖觀察/);
+  assert.match(html, /data-narrative-representative-ref="S1\.R1"/);
+  assert.equal((html.match(/data-narrative-representative-ref=/g) ?? []).length, 1);
+  assert.match(html, /本地人已經好難搵工/);
   assert.doesNotMatch(html, /共識\s*\d+%/);
   assert.doesNotMatch(html, new RegExp("重" + "複用字"));
-  assert.doesNotMatch(html, /本地人已經好難搵工/);
   assert.doesNotMatch(html, /有些工種真的請不到人/);
   assert.doesNotMatch(html, /raw audience comment/);
   assert.doesNotMatch(html, /data-topic-episode-strip=/);
@@ -1468,7 +1479,8 @@ test("TopicDetailView places the episode delta strip between the Atlas ledger an
   assert.match(html, /data-topic-episode-delta-details="true"/);
   assert.match(html, /讀者開始用個人反例收窄市場論/);
   assert.match(html, /data-evidence-ref-chip="S1.R1"/);
-  assert.doesNotMatch(html, /本地人已經好難搵工/);
+  assert.match(html, /data-narrative-representative-ref="S1\.R1"/);
+  assert.match(html, /本地人已經好難搵工/);
 });
 
 test("TopicDetailView labels first and rebase episodes without inventing ordinary delta", () => {
@@ -1499,7 +1511,7 @@ test("TopicDetailView labels first and rebase episodes without inventing ordinar
   assert.doesNotMatch(rebase, /新出現 1/);
 });
 
-test("TopicDetailView frames narrative lanes as L0 atlas cards and keeps source attribution", () => {
+test("TopicDetailView frames single-post narrative lanes as compact L0 observations with source attribution", () => {
   const html = renderToStaticMarkup(
     topicDetailViewElement({
       topic,
@@ -1518,12 +1530,14 @@ test("TopicDetailView frames narrative lanes as L0 atlas cards and keeps source 
   assert.match(html, /data-topic-audit-spine="signal-atlas-l0"/);
   assert.match(html, /data-topic-audit-block="lanes"/);
   assert.doesNotMatch(html, /data-topic-newsroom-signal="true"/);
-  // L0 preserves source attribution in the footer without spilling raw comments into the reading spine.
+  // Single observations keep the source ref compact; representative quotes belong to cross-post pages.
   assert.match(html, /@alpha/);
+  assert.match(html, /data-atlas-single-observation="lane-1"/);
+  assert.doesNotMatch(html, /data-narrative-representative-ref=/);
   assert.doesNotMatch(html, /航班改動後等不到客服/);
 });
 
-test("TopicDetailView keeps representative quotes behind chips or the drawer", () => {
+test("TopicDetailView keeps single-observation evidence behind its chip or the drawer", () => {
   const html = renderToStaticMarkup(
     topicDetailViewElement({
       topic,
@@ -1540,6 +1554,7 @@ test("TopicDetailView keeps representative quotes behind chips or the drawer", (
   );
 
   assert.match(html, /data-evidence-ref-chip="S1.OP"/);
+  assert.doesNotMatch(html, /data-narrative-representative-ref=/);
   assert.match(html, /data-audit-detail-drawer/);
   assert.doesNotMatch(html, /data-topic-newsroom-ladder="true"/);
   assert.doesNotMatch(html, /代表 quote/);

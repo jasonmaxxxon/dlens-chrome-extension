@@ -31,6 +31,7 @@ import type {
   TopicSignalViewModel
 } from "../viewmodel/topic-detail.ts";
 import { Kicker, PrimaryButton, SCAN_ROW_HOVER_CSS, SecondaryButton, Stamp, SurfaceCard, WorkspaceSurface, lineClamp, scanRowStyle, viewRootStyle } from "./components.tsx";
+import { AtlasNarrativeStage } from "./AtlasNarrativeStage.tsx";
 import { SignalDrawer } from "./SignalDrawer.tsx";
 import { TopicSourceSessionCard } from "./TopicSourceSessionCard.tsx";
 import {
@@ -1970,8 +1971,6 @@ export function TopicDetailView({
         variant="atlas"
       />
     ));
-    const crossLanes = auditLanes.filter((lane) => !lane.isSinglePostObservation);
-    const singleLanes = auditLanes.filter((lane) => Boolean(lane.isSinglePostObservation));
     const atlasPalette = [tokens.color.signal, tokens.color.techniqueViolet, tokens.color.queued, tokens.color.techniqueRose, tokens.color.accent];
     const compassLayout = layoutSignalAtlasCompass(reactionPatterns);
     const reactionMixByShortCode = postReactionMixByShortCode(reactionPatterns);
@@ -2160,67 +2159,20 @@ export function TopicDetailView({
                 <EvidenceProse prose={headlineProse} fragmentLookup={auditFragmentLookup} pinnedRef={pinnedAuditRef} onPin={handlePinAuditRef} chipVariant="atlas" />
                 {headlineRefs.length > 0 ? <span> {renderRefChips(headlineRefs)}</span> : null}
               </p>
-              {auditLanes.length > 0 ? (
-                <div data-topic-audit-block="lanes" style={{ display: "grid", gap: 6 }}>
-                  {crossLanes.map((lane) => {
-                    const crossCount = lane.crossPostCount ?? lane.signalRefs.length;
-                    const laneDenominator = lane.postTotal ?? postTotal;
-                    return (
-                      <button
-                        key={lane.id}
-                        type="button"
-                        data-narrative-lane={lane.id}
-                        data-active={selectedLaneId === lane.id ? "true" : "false"}
-                        className="dlens-card-lift"
-                        onClick={() => setActiveDetail({ kind: "narrative", id: lane.id })}
-                        style={{
-                          textAlign: "left",
-                          display: "grid",
-                          gap: 6,
-                          padding: "9px 12px",
-                          borderRadius: tokens.radius.card,
-                          border: `1px dashed ${tokens.color.queuedBorder}`,
-                          background: tokens.color.atlasPaperStrong,
-                          cursor: "pointer",
-                          fontFamily: tokens.font.sans
-                        }}
-                      >
-                        <span style={{ display: "flex", justifyContent: "space-between", gap: 10, alignItems: "baseline" }}>
-                          <span style={{ fontSize: 12, fontWeight: 750, color: tokens.color.ink, minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>跨帖敘事：{lane.label}</span>
-                          <span data-narrative-lane-metric={lane.id} style={{ ...textStyles.metric, color: tokens.color.queued, whiteSpace: "nowrap" }}>跨 {crossCount}/{laneDenominator} 篇</span>
-                        </span>
-                        <span aria-hidden="true" style={{ display: "grid", gridTemplateColumns: `repeat(${Math.max(1, laneDenominator)}, minmax(0, 1fr))`, gap: 3, height: 4 }}>
-                          {Array.from({ length: Math.max(1, laneDenominator) }, (_, index) => (
-                            <span
-                              key={`${lane.id}-${index}`}
-                              data-narrative-strength-cell={lane.id}
-                              data-filled={index < crossCount ? "true" : "false"}
-                              style={{ borderRadius: tokens.radius.round, background: index < crossCount ? tokens.color.queued : tokens.color.neutralSurface }}
-                            />
-                          ))}
-                        </span>
-                        <span style={{ display: "flex", gap: 5, flexWrap: "wrap", alignItems: "center" }}>{renderRefChips(lane.signalRefs)}</span>
-                      </button>
-                    );
-                  })}
-                  {singleLanes.map((lane) => (
-                    <button
-                      key={lane.id}
-                      type="button"
-                      data-narrative-lane={lane.id}
-                      data-active={selectedLaneId === lane.id ? "true" : "false"}
-                      className="dlens-atlas-legend-row"
-                      onClick={() => setActiveDetail({ kind: "narrative", id: lane.id })}
-                      style={{ border: "none", background: "none", padding: "1px 2px", cursor: "pointer", display: "flex", gap: 8, alignItems: "baseline", textAlign: "left", fontFamily: tokens.font.sans, minWidth: 0 }}
-                    >
-                      <span data-narrative-lane-metric={lane.id} style={{ ...textStyles.caption, color: tokens.color.softInk, whiteSpace: "nowrap" }}>單帖觀察</span>
-                      <span style={{ fontSize: 11.5, color: tokens.color.subInk, minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{lane.label}</span>
-                      <span style={{ display: "inline-flex", gap: 5, alignItems: "center" }}>{renderRefChips(lane.signalRefs)}</span>
-                    </button>
-                  ))}
-                </div>
-              ) : null}
             </section>
+
+            {auditLanes.length > 0 ? (
+              <AtlasNarrativeStage
+                lanes={auditLanes}
+                packets={auditEvidence}
+                postTotal={postTotal}
+                selectedLaneId={selectedLaneId}
+                pinnedRef={pinnedAuditRef}
+                fragmentLookup={auditFragmentLookup}
+                onSelectLane={(id) => setActiveDetail({ kind: "narrative", id })}
+                onPinRef={handlePinAuditRef}
+              />
+            ) : null}
 
             {reactionPatterns.length > 0 ? (
               <section

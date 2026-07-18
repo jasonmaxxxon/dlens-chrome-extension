@@ -318,6 +318,7 @@ export const tokens = {
   },
 
   layout: {
+    atlasNarrowBreakpointPx: 520,
     workspacePopupHeight: "min(78vh, 780px)"
   },
 
