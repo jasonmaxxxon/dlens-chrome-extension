@@ -107,16 +107,23 @@ test("representative narrative evidence is selected only from exact lane refs", 
 });
 
 test("empty duplicate exact refs do not clobber earlier valid narrative evidence", () => {
-  const quote = pickRepresentativeNarrativeEvidence({
-    lane: { id: "lane-1", signalRefs: ["S1.OP", "S2.R1"] },
-    packets: [
-      packet({ shortCode: "S1", opText: "earlier valid opener", opLikes: 10 }),
-      packet({ shortCode: "S2", replyFragments: [{ ref: "S2.R1", author: "matched", text: "earlier valid reply", likes: 20, role: "audience" }] }),
-      packet({ shortCode: "S1", opText: "   ", opLikes: 999 }),
-      packet({ shortCode: "S2", replyFragments: [{ ref: "S2.R1", author: "duplicate", text: "   ", likes: 999, role: "audience" }] })
-    ]
+  const packets = [
+    packet({ shortCode: "S1", opText: "earlier valid opener", opLikes: 10 }),
+    packet({ shortCode: "S2", replyFragments: [{ ref: "S2.R1", author: "matched", text: "earlier valid reply", likes: 20, role: "audience" }] }),
+    packet({ shortCode: "S1", opText: "   ", opLikes: 999 }),
+    packet({ shortCode: "S2", replyFragments: [{ ref: "S2.R1", author: "duplicate", text: "   ", likes: 999, role: "audience" }] })
+  ];
+  const opQuote = pickRepresentativeNarrativeEvidence({
+    lane: { id: "lane-op", signalRefs: ["S1.OP"] },
+    packets
+  });
+  const replyQuote = pickRepresentativeNarrativeEvidence({
+    lane: { id: "lane-reply", signalRefs: ["S2.R1"] },
+    packets
   });
 
-  assert.equal(quote?.ref, "S2.R1");
-  assert.equal(quote?.text, "earlier valid reply");
+  assert.equal(opQuote?.ref, "S1.OP");
+  assert.equal(opQuote?.text, "earlier valid opener");
+  assert.equal(replyQuote?.ref, "S2.R1");
+  assert.equal(replyQuote?.text, "earlier valid reply");
 });
