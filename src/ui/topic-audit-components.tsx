@@ -502,8 +502,7 @@ export function NarrativeLane({
   onClick,
   fragmentLookup,
   pinnedRef,
-  onPin,
-  kind = "narrative"
+  onPin
 }: {
   lane: NarrativeLaneHint;
   active?: boolean;
@@ -511,18 +510,16 @@ export function NarrativeLane({
   fragmentLookup?: Map<string, EvidenceFragmentLookup>;
   pinnedRef?: string | null;
   onPin?: (ref: string) => void;
-  kind?: "narrative" | "reaction";
 }) {
   const Icon = resolveNarrativeIcon(lane.icon);
   const crossPostCount = laneCrossPostCount(lane);
   const postTotal = lanePostTotal(lane);
   const metricLabel = laneMetricLabel(lane);
   const isSinglePostObservation = lane.isSinglePostObservation ?? crossPostCount <= 1;
-  const showStrength = kind === "narrative" && !isSinglePostObservation;
+  const showStrength = !isSinglePostObservation;
   return (
     <button
       data-narrative-lane={lane.id}
-      data-reaction-pattern={kind === "reaction" ? lane.id : undefined}
       data-active={active ? "true" : "false"}
       className="dlens-card-lift"
       onClick={onClick}

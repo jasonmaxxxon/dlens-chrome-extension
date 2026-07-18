@@ -101,6 +101,7 @@ export function AtlasReactionMap({ patterns, usableCount, selectedId, onSelect }
         }
         @media (prefers-reduced-motion: reduce) {
           [data-signal-atlas-dot] { transition: none !important; }
+          [data-signal-atlas-dot] .dlens-atlas-focus-ring { transition: none !important; }
           [data-signal-atlas-dot]:hover, [data-signal-atlas-dot]:active { transform: none !important; }
         }
         @media (max-width: ${tokens.layout.atlasNarrowBreakpointPx}px) {
@@ -251,6 +252,7 @@ export function AtlasReactionMap({ patterns, usableCount, selectedId, onSelect }
                   data-assignment-percent={percent}
                   data-atlas-palette-index={paletteIndex}
                   data-active={selectedId === pattern.id ? "true" : "false"}
+                  aria-pressed={selectedId === pattern.id}
                   className="dlens-atlas-distribution-row"
                   onClick={() => activate(pattern.id)}
                   style={{

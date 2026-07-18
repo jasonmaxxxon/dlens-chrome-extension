@@ -67,6 +67,19 @@ test("AtlasReactionMap renders complete bubbles and an accessible assignment dis
   assert.match(html, /data-atlas-assignment-row="skeptic"[^>]*data-atlas-palette-index="2"/);
 });
 
+test("AtlasReactionMap exposes the selected distribution row through aria-pressed", async () => {
+  const module = await loadAtlasReactionMap();
+  assert.ok(module, "AtlasReactionMap module must exist");
+  const html = renderToStaticMarkup(
+    <module.AtlasReactionMap patterns={patterns} usableCount={72} selectedId="doom" onSelect={() => undefined} />
+  );
+  const selectedRow = html.match(/<button[^>]*data-atlas-assignment-row="doom"[^>]*>/)?.[0] ?? "";
+  const idleRow = html.match(/<button[^>]*data-atlas-assignment-row="cautious"[^>]*>/)?.[0] ?? "";
+
+  assert.match(selectedRow, /aria-pressed="true"/);
+  assert.match(idleRow, /aria-pressed="false"/);
+});
+
 test("AtlasReactionMap exposes real implications on hover/focus and activates bubbles with mouse or keyboard", async () => {
   const module = await loadAtlasReactionMap();
   assert.ok(module, "AtlasReactionMap module must exist");

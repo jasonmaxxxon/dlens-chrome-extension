@@ -2614,6 +2614,7 @@ test("pickPrimaryJudgmentPair picks the highest-relevance judgment pair and brea
 
 test("topic-audit-components.tsx module surface: retired Newsroom family is gone, live surface survives", async () => {
   const topicAuditModule: Record<string, unknown> = await import("../src/ui/topic-audit-components.tsx");
+  const componentSource = readFileSync(new URL("../src/ui/topic-audit-components.tsx", import.meta.url), "utf8");
 
   // Retired Newsroom family — verified dead (declaration was the only mention
   // anywhere in src/entrypoints/tests, aside from the absence-contract tests below).
@@ -2636,4 +2637,24 @@ test("topic-audit-components.tsx module surface: retired Newsroom family is gone
   assert.equal(typeof topicAuditModule.NarrativeLane, "function");
   assert.equal(topicAuditModule.ReactionPatternLane, undefined);
   assert.equal(typeof topicAuditModule.SourceRow, "function");
+
+  const NarrativeLaneComponent = topicAuditModule.NarrativeLane as React.ComponentType<{
+    lane: {
+      id: string;
+      label: string;
+      signalRefs: string[];
+      consensus: number;
+      crossPostCount: number;
+      postTotal: number;
+    };
+  }>;
+  const laneHtml = renderToStaticMarkup(
+    <NarrativeLaneComponent
+      lane={{ id: "surface-lane", label: "仍可用的敘事線", signalRefs: ["S1.R1", "S2.R1"], consensus: 0.8, crossPostCount: 2, postTotal: 3 }}
+    />
+  );
+  assert.match(laneHtml, /data-narrative-lane="surface-lane"/);
+  assert.match(laneHtml, /data-narrative-lane-strength="surface-lane"/);
+  assert.doesNotMatch(laneHtml, /data-reaction-pattern/);
+  assert.doesNotMatch(componentSource, /kind\??:\s*"narrative"\s*\|\s*"reaction"|kind\s*=\s*"narrative"|data-reaction-pattern/);
 });

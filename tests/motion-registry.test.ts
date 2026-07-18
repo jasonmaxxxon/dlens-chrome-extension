@@ -28,6 +28,7 @@ const motionTestables = motionModule as unknown as {
 };
 
 const MOTION_PATH = fileURLToPath(new URL("../src/ui/motion.ts", import.meta.url));
+const ATLAS_REACTION_MAP_PATH = fileURLToPath(new URL("../src/ui/AtlasReactionMap.tsx", import.meta.url));
 
 // Every workspace route's card/motion marker either lives in a single file
 // (no split is planned for it) or in a UI source family (facade file today,
@@ -175,6 +176,14 @@ test("Atlas distribution rows acknowledge hover without borrowing card lift or s
   assert.match(DLENS_MOTION_CSS, /\.dlens-atlas-distribution-row:hover[\s\S]*?background:\s*[^;]+;/);
   const quietRule = DLENS_MOTION_CSS.match(/\.dlens-atlas-distribution-row:hover\s*\{([^}]*)\}/)?.[1] ?? "";
   assert.doesNotMatch(quietRule, /transform|box-shadow/);
+});
+
+test("Atlas focus rings disable their opacity transition when reduced motion is requested", () => {
+  const source = readFileSync(ATLAS_REACTION_MAP_PATH, "utf8");
+  assert.match(
+    source,
+    /@media \(prefers-reduced-motion: reduce\)\s*\{[\s\S]*?\.dlens-atlas-focus-ring\s*\{\s*transition:\s*none !important;\s*\}/
+  );
 });
 
 test("popup opening still wakes masthead, rail, then main in order", () => {
