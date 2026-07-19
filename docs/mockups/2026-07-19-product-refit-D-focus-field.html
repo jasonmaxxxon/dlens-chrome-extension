@@ -164,7 +164,7 @@
             <button class="bubble" type="button" data-signal-bubble="r4" aria-label="AI 程式碼除錯的信任門檻，互動 92" aria-pressed="false"><strong>92</strong><small>r4</small></button>
             <button class="bubble" type="button" data-signal-bubble="r5" aria-label="透過嚴格 JSON 協定降低模型依賴，互動 49" aria-pressed="false"><strong>49</strong><small>r5</small></button>
             <div class="missing-shelf" aria-label="互動未讀"><span class="mono">互動未讀</span><button class="missing" type="button" data-signal-bubble="r6" aria-label="無直接產品參考價值，互動未讀" aria-pressed="false">?</button><button class="missing" type="button" data-signal-bubble="r7" aria-label="數據呈現的環境變數過濾，互動未讀" aria-pressed="false">?</button></div>
-            <div class="tooltip" id="field-tooltip" role="tooltip"></div>
+            <div class="tooltip" id="field-tooltip" role="tooltip" hidden aria-hidden="true"></div>
           </div>
           <aside class="reading-dock" data-reading-dock="true" data-reading-signal="r1"><noscript><article aria-label="初始訊號閱讀"><div class="dock-meta"><span>保留觀察</span><span>learning</span><span>參考度 2/5</span></div><h3>介面微互動的節制應用原則</h3><p class="dock-copy">最近看到一個滿適合做產品細節的工具：Icon Animator…</p><p class="dock-quote">「我覺得hover或是新功能上線後吸引人注意,但不能用太多」</p><div class="dock-sequence"><div><b>觀察原因</b><span>此訊號探討 UI 互動的細節處理，對提升產品介面質感與用戶體驗有參考價值。</span></div><div><b>證據</b><span class="mono">e8</span></div></div></article></noscript></aside>
         </div>
@@ -209,6 +209,7 @@
     const actionFrame = document.querySelector('[data-product-frame="action"]');
     const maxKnownEngagement = Math.max(...SIGNALS.map((signal) => signal.engagement || 0));
     const collisionJitterBySignalId = Object.freeze({ r1: -2.5, r3: 2.5 });
+    let describedTooltipControl = null;
 
     function verdictLabel(signal) { return signal.status === "crawling" ? "抓取中" : signal.verdict === "watch" ? "保留觀察" : "前提不符"; }
     function metadata(signal) { return [verdictLabel(signal), signal.type || "未讀", signal.relevance ? `參考度 ${signal.relevance}/5` : "參考度未讀"].map((item) => `<span>${item}</span>`).join(""); }
@@ -235,6 +236,20 @@
         const id = control.dataset.signalBubble || control.dataset.signalIndexRow;
         control.setAttribute("aria-pressed", String(id === state.selectedSignalId));
       });
+    }
+    function setTooltipAccessibility(control, visible) {
+      if (describedTooltipControl && describedTooltipControl !== control) describedTooltipControl.removeAttribute("aria-describedby");
+      if (visible) {
+        control.setAttribute("aria-describedby", fieldTooltip.id);
+        describedTooltipControl = control;
+        fieldTooltip.hidden = false;
+        fieldTooltip.setAttribute("aria-hidden", "false");
+        return;
+      }
+      control.removeAttribute("aria-describedby");
+      if (describedTooltipControl === control) describedTooltipControl = null;
+      fieldTooltip.hidden = true;
+      fieldTooltip.setAttribute("aria-hidden", "true");
     }
     function renderHoverState() {
       document.querySelectorAll("[data-signal-bubble], [data-signal-index-row]").forEach((control) => {
@@ -268,7 +283,7 @@
       renderSelection();
       renderReadingDock(signal);
     }
-    function setHoveredSignal(id) { state.hoveredSignalId = id; renderHoverState(); }
+    function setHoveredSignal(id, control) { state.hoveredSignalId = id; setTooltipAccessibility(control, id !== null); renderHoverState(); }
     function renderActionStage(signal) {
       stage.dataset.actionPage = signal.id;
       stage.classList.remove("action-forward", "action-backward");
@@ -303,10 +318,10 @@
     }
     document.querySelectorAll("[data-signal-bubble], [data-signal-index-row]").forEach((control) => {
       const id = control.dataset.signalBubble || control.dataset.signalIndexRow;
-      control.addEventListener("pointerenter", () => setHoveredSignal(id));
-      control.addEventListener("pointerleave", () => setHoveredSignal(null));
-      control.addEventListener("focus", () => setHoveredSignal(id));
-      control.addEventListener("blur", () => setHoveredSignal(null));
+      control.addEventListener("pointerenter", () => setHoveredSignal(id, control));
+      control.addEventListener("pointerleave", () => setHoveredSignal(null, control));
+      control.addEventListener("focus", () => setHoveredSignal(id, control));
+      control.addEventListener("blur", () => setHoveredSignal(null, control));
       control.addEventListener("click", () => selectSignal(id));
     });
     const bubbles = [...document.querySelectorAll("[data-signal-bubble]")];
