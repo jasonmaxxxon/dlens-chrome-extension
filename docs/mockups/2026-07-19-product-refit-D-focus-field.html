@@ -4,6 +4,7 @@
   Reference-only, standalone interaction mockup. It visualizes supplied Product
   signals only; unavailable analysis fields remain unavailable rather than inferred.
 -->
+<!-- Accent roles: watch/current data identity and selection; Action evidence/pager navigation. -->
 <html lang="zh-Hant">
 <head>
   <meta charset="utf-8" />
@@ -40,8 +41,7 @@
     .ledger span { color: var(--muted); font-size: 12px; }
     .ledger-actions { margin-left: auto; display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
     .button { border: 1px solid var(--line); border-radius: 9px; padding: 9px 13px; background: var(--surface); color: var(--ink); font-weight: 650; }
-    .button.primary { background: var(--accent); border-color: var(--accent); color: var(--surface); }
-    .route { color: var(--accent); font-size: 13px; font-weight: 650; }
+    .route { color: var(--muted); font-size: 13px; font-weight: 650; }
     .readiness { color: var(--muted); font-size: 12px; padding-top: 11px; }
     .hero-surface { margin-top: 18px; border: 1px solid var(--line); border-radius: 18px; background: var(--surface); overflow: hidden; }
     .hero-top { display: flex; gap: 16px; justify-content: space-between; align-items: baseline; padding: 18px 20px 0; flex-wrap: wrap; }
@@ -53,12 +53,10 @@
     .field { min-height: 407px; position: relative; padding: 24px 34px 50px 50px; border-right: 1px solid var(--line); background: color-mix(in oklch, var(--bg) 48%, var(--surface)); }
     .field[data-focus-field="true"]::before { content: ""; position: absolute; inset: 54px 34px 54px 50px; background: linear-gradient(to top, var(--line) 1px, transparent 1px) 0 100% / 100% 33%, linear-gradient(to right, var(--line) 1px, transparent 1px) 0 0 / 25% 100%; opacity: .72; pointer-events: none; }
     .axis-y { position: absolute; top: 22px; left: 17px; color: var(--muted); font-size: 10px; writing-mode: vertical-rl; transform: rotate(180deg); }
-    .axis-x { position: absolute; bottom: 18px; right: 32px; color: var(--muted); font-size: 10px; }
-    .bubble { position: absolute; z-index: 1; width: var(--size); height: var(--size); border: 0; border-radius: 50%; background: var(--accent); color: var(--surface); box-shadow: 0 0 0 0 color-mix(in oklch, var(--accent) 25%, transparent); transition: transform .18s ease, box-shadow .18s ease, opacity .18s ease; }
-    .bubble[data-signal-bubble="r1"] { --size: 78px; left: 30%; top: 17%; }
-    .bubble[data-signal-bubble="r3"] { --size: 53px; left: 43%; top: 43%; }
-    .bubble[data-signal-bubble="r4"] { --size: 58px; left: 11%; top: 35%; background: color-mix(in oklch, var(--ink) 38%, var(--surface)); }
-    .bubble[data-signal-bubble="r5"] { --size: 43px; left: 61%; top: 57%; }
+    .axis-x { position: absolute; bottom: 12px; right: 32px; color: var(--muted); font-size: 10px; }
+    .x-band-labels { position: absolute; z-index: 1; right: 34px; bottom: 29px; left: 50px; display: grid; grid-template-columns: repeat(5, 1fr); color: var(--muted); font-size: 9px; text-align: center; pointer-events: none; }
+    .bubble { position: absolute; z-index: 1; left: var(--x); top: var(--y); width: var(--size); height: var(--size); translate: -50% -50%; border: 0; border-radius: 50%; background: var(--accent); color: var(--surface); box-shadow: 0 0 0 0 color-mix(in oklch, var(--accent) 25%, transparent); transition: transform .18s ease, box-shadow .18s ease, opacity .18s ease; }
+    .bubble[data-signal-bubble="r4"] { background: color-mix(in oklch, var(--ink) 38%, var(--surface)); }
     .bubble strong { display: block; font-family: ui-monospace, "SFMono-Regular", Menlo, monospace; font-size: 13px; }
     .bubble small { display: block; margin-top: 1px; font-size: 9px; opacity: .85; }
     .bubble:hover, .bubble.is-hovered, .bubble[aria-pressed="true"] { transform: scale(1.06); box-shadow: 0 0 0 7px color-mix(in oklch, var(--accent) 18%, transparent); }
@@ -68,9 +66,13 @@
     .missing { width: 33px; height: 33px; border: 1px dashed var(--accent); border-radius: 50%; background: var(--surface); color: var(--accent); font-family: ui-monospace, "SFMono-Regular", Menlo, monospace; font-weight: 800; }
     .missing[data-signal-bubble="r6"] { border-color: color-mix(in oklch, var(--ink) 35%, var(--surface)); color: var(--muted); }
     .missing:hover, .missing.is-hovered, .missing[aria-pressed="true"] { background: color-mix(in oklch, var(--accent) 9%, var(--surface)); box-shadow: 0 0 0 5px color-mix(in oklch, var(--accent) 13%, transparent); }
-    .tooltip { position: absolute; z-index: 2; max-width: 215px; padding: 8px 10px; border: 1px solid var(--line); border-radius: 8px; background: var(--surface); box-shadow: 0 10px 24px color-mix(in oklch, var(--ink) 12%, transparent); color: var(--ink); font-size: 11px; opacity: 0; pointer-events: none; transform: translateY(4px); transition: opacity .18s ease, transform .18s ease; }
-    .tooltip.is-visible { opacity: 1; transform: none; }
+    .tooltip { position: absolute; z-index: 2; left: var(--tooltip-x); top: var(--tooltip-y); width: min(235px, calc(100% - 24px)); padding: 8px 10px; border: 1px solid var(--line); border-radius: 8px; background: var(--surface); box-shadow: 0 10px 24px color-mix(in oklch, var(--ink) 12%, transparent); color: var(--ink); font-size: 11px; opacity: 0; pointer-events: none; transform: translate(-50%, calc(-100% - 7px)) translateY(4px); transition: opacity .18s ease, transform .18s ease; }
+    .tooltip.is-visible { opacity: 1; transform: translate(-50%, calc(-100% - 7px)); }
+    .tooltip strong, .tooltip span { display: block; }
+    .tooltip span { margin-top: 3px; color: var(--muted); }
     .reading-dock { display: grid; align-content: start; gap: 14px; padding: 25px; min-height: 407px; }
+    .reading-dock.reading-swap { animation: reading-swap 200ms ease both; }
+    @keyframes reading-swap { from { opacity: .28; transform: translateY(5px); } to { opacity: 1; transform: none; } }
     .dock-meta { display: flex; gap: 7px; flex-wrap: wrap; color: var(--muted); font-size: 11px; }
     .dock-meta span { border: 1px solid var(--line); border-radius: 999px; padding: 3px 7px; }
     .reading-dock h3 { font-size: 27px; line-height: 1.16; }
@@ -85,7 +87,7 @@
     .signal-row[aria-pressed="true"] { box-shadow: inset 3px 0 var(--accent); background: color-mix(in oklch, var(--accent) 8%, var(--surface)); }
     .row-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--accent); }
     .signal-row[data-signal-status="crawling"] .row-dot { background: color-mix(in oklch, var(--ink) 45%, var(--surface)); }
-    .signal-row[data-signal-bubble-ref="r4"], .signal-row[data-signal-bubble-ref="r6"] .row-dot { background: color-mix(in oklch, var(--ink) 38%, var(--surface)); }
+    .signal-row[data-signal-bubble-ref="r4"] .row-dot, .signal-row[data-signal-bubble-ref="r6"] .row-dot { background: color-mix(in oklch, var(--ink) 38%, var(--surface)); }
     .row-main { min-width: 0; display: grid; gap: 2px; }
     .row-title { font-size: 14px; font-weight: 680; overflow-wrap: anywhere; }
     .row-meta, .row-verdict { color: var(--muted); font-size: 11px; }
@@ -93,6 +95,10 @@
     .action-head { display: flex; justify-content: space-between; align-items: baseline; gap: 18px; flex-wrap: wrap; margin-bottom: 14px; }
     .action-head p { color: var(--muted); font-size: 13px; }
     .action-stage { min-height: 384px; padding: clamp(22px, 4vw, 44px); border: 1px solid var(--line); border-radius: 18px; background: var(--surface); }
+    .action-stage.action-forward { animation: action-forward .22s ease both; }
+    .action-stage.action-backward { animation: action-backward .22s ease both; }
+    @keyframes action-forward { from { opacity: .25; transform: translateX(6px); } to { opacity: 1; transform: none; } }
+    @keyframes action-backward { from { opacity: .25; transform: translateX(-6px); } to { opacity: 1; transform: none; } }
     .stage-meta { display: flex; align-items: center; gap: 9px; flex-wrap: wrap; color: var(--muted); font-size: 12px; }
     .stage-number { display: grid; place-items: center; width: 28px; height: 28px; border: 1px solid var(--line); border-radius: 50%; color: var(--accent); font-family: ui-monospace, "SFMono-Regular", Menlo, monospace; }
     .stage-title { max-width: 25ch; margin-top: 20px; font-size: clamp(30px, 4vw, 48px); line-height: 1.04; }
@@ -128,8 +134,14 @@
       .beats { grid-template-columns: 1fr; }
       .beat + .beat { border-left: 0; border-top: 1px solid var(--line); }
     }
+    @media (max-width: 480px) {
+      .pager { display: grid; grid-template-columns: auto 1fr auto; }
+      .pager-dots { justify-self: center; }
+      .live { grid-row: 2; grid-column: 1 / -1; }
+    }
     @media (prefers-reduced-motion: reduce) {
       *, *::before, *::after { scroll-behavior: auto !important; animation-duration: 0.01ms !important; transition-duration: 0.01ms !important; }
+      .reading-dock.reading-swap, .action-stage.action-forward, .action-stage.action-backward { animation: none !important; transform: none !important; }
     }
   </style>
 </head>
@@ -139,21 +151,22 @@
       <div class="header">
         <div><p class="kicker">Variant D · Focus Field</p><h1>已存訊號，聚成一個閱讀場</h1><p>每則已分析訊號都有可回看的位置；尚未取得的互動數不假裝成座標。</p></div>
       </div>
-      <div class="ledger" aria-label="覆蓋率帳本"><div><b id="analyzed-count">6/7</b><span>已分析</span></div><div><b id="classified-count">6/6</b><span>AI 已分類</span></div><div><b id="crawling-count">1</b><span>補爬中</span></div><div class="ledger-actions"><button class="button primary" type="button">重新分析</button><span class="route">查看候選行動 ↓</span></div></div>
+      <div class="ledger" aria-label="覆蓋率帳本"><div><b id="analyzed-count">6/7</b><span>已分析</span></div><div><b id="classified-count">6/6</b><span>AI 已分類</span></div><div><b id="crawling-count">1</b><span>補爬中</span></div><div class="ledger-actions"><button class="button" type="button">重新分析</button><span class="route">查看候選行動 ↓</span></div></div>
       <p class="readiness mono">AI key · ProductProfile · ProductContext 已就緒 · 1 則正在補爬</p>
       <div class="hero-surface">
         <div class="hero-top"><h2>參考度場</h2><div class="legend"><span><i></i>保留觀察 <b data-watch-count>4</b></span><span><i class="neutral"></i>前提不符 <b data-park-count>2</b></span><span>技術 <b data-technical-count>2</b> / 學習 <b data-learning-count>2</b> / 噪音 <b data-noise-count>2</b></span></div></div>
         <div class="focus-composite">
           <div class="field" data-focus-field="true" aria-label="依參考度與已知互動熱度排列的訊號場">
             <span class="axis-y mono">已知互動熱度（log）</span><span class="axis-x mono">參考度 1–5 →</span>
+            <div class="x-band-labels mono" data-x-band-labels aria-hidden="true"><span>1 低</span><span>2 中低</span><span>3 中</span><span>4 中高</span><span>5 高</span></div>
             <button class="bubble" type="button" data-signal-bubble="r1" aria-label="介面微互動的節制應用原則，互動 410" aria-pressed="true"><strong>410</strong><small>r1</small></button>
             <button class="bubble" type="button" data-signal-bubble="r3" aria-label="AI 驅動的快速原型開發流程，互動 78" aria-pressed="false"><strong>78</strong><small>r3</small></button>
             <button class="bubble" type="button" data-signal-bubble="r4" aria-label="AI 程式碼除錯的信任門檻，互動 92" aria-pressed="false"><strong>92</strong><small>r4</small></button>
             <button class="bubble" type="button" data-signal-bubble="r5" aria-label="透過嚴格 JSON 協定降低模型依賴，互動 49" aria-pressed="false"><strong>49</strong><small>r5</small></button>
             <div class="missing-shelf" aria-label="互動未讀"><span class="mono">互動未讀</span><button class="missing" type="button" data-signal-bubble="r6" aria-label="無直接產品參考價值，互動未讀" aria-pressed="false">?</button><button class="missing" type="button" data-signal-bubble="r7" aria-label="數據呈現的環境變數過濾，互動未讀" aria-pressed="false">?</button></div>
-            <div class="tooltip" id="field-tooltip" role="status"></div>
+            <div class="tooltip" id="field-tooltip" role="tooltip"></div>
           </div>
-          <aside class="reading-dock" data-reading-dock="true" data-reading-signal="r1" aria-live="polite"></aside>
+          <aside class="reading-dock" data-reading-dock="true" data-reading-signal="r1"><noscript><article aria-label="初始訊號閱讀"><div class="dock-meta"><span>保留觀察</span><span>learning</span><span>參考度 2/5</span></div><h3>介面微互動的節制應用原則</h3><p class="dock-copy">最近看到一個滿適合做產品細節的工具：Icon Animator…</p><p class="dock-quote">「我覺得hover或是新功能上線後吸引人注意,但不能用太多」</p><div class="dock-sequence"><div><b>觀察原因</b><span>此訊號探討 UI 互動的細節處理，對提升產品介面質感與用戶體驗有參考價值。</span></div><div><b>證據</b><span class="mono">e8</span></div></div></article></noscript></aside>
         </div>
       </div>
       <div class="signal-index" aria-label="七則訊號索引">
@@ -167,22 +180,22 @@
       </div>
     </section>
 
-    <section class="frame" data-od-id="action-observation-stage" data-product-frame="action">
+    <section class="frame" data-od-id="action-observation-stage" data-product-frame="action" tabindex="0" aria-label="候選行動分頁；可用左右方向鍵、Home 與 End 操作">
       <div class="action-head"><div><p class="quiet-label">候選行動 · 保留觀察</p><h2>一則一讀，保留下一步的判斷</h2></div><p><span id="action-total">4</span> 則 · 7 已收錄</p></div>
-      <article class="action-stage" data-action-stage="true" data-action-page="r1" aria-live="polite"></article>
+      <article class="action-stage" data-action-stage="true" data-action-page="r1"><noscript><section aria-label="候選行動第 1 則"><div class="stage-meta"><span class="stage-number">1</span><span>保留觀察 · learning · 參考度 2/5</span></div><h3 class="stage-title">介面微互動的節制應用原則</h3><p class="stage-summary">最近看到一個滿適合做產品細節的工具：Icon Animator…</p><blockquote class="stage-quote">「我覺得hover或是新功能上線後吸引人注意,但不能用太多」</blockquote><p class="mono">候選行動 · 證據 e8</p></section></noscript></article>
       <div class="pager" aria-label="候選行動分頁"><button class="pager-button" type="button" data-pager="prev" disabled>← 上一則</button><div class="pager-dots"><button class="pager-dot" type="button" data-action-dot="0" aria-label="第 1 則" aria-current="page"></button><button class="pager-dot" type="button" data-action-dot="1" aria-label="第 2 則"></button><button class="pager-dot" type="button" data-action-dot="2" aria-label="第 3 則"></button><button class="pager-dot" type="button" data-action-dot="3" aria-label="第 4 則"></button></div><span class="live mono" data-action-live aria-live="polite">1 / 4 · 介面微互動的節制應用原則</span><button class="pager-button" type="button" data-pager="next">下一則 →</button></div>
-      <details class="exclusion"><summary>前提不符 · 2 則（展開查看）</summary><div class="excluded-row"><span>AI 程式碼除錯的信任門檻</span><span>既有截圖未載排除原因</span></div><div class="excluded-row"><span>無直接產品參考價值</span><span>既有截圖未載排除原因</span></div></details>
+      <details class="exclusion"><summary>前提不符 · 2 則（展開查看）</summary><div class="excluded-row"><span>AI 程式碼除錯的信任門檻</span><span>用戶情緒抒發,缺乏可操作脈絡</span></div><div class="excluded-row"><span>無直接產品參考價值</span><span>缺乏技術細節與實作脈絡</span></div></details>
     </section>
   </main>
   <script>
     const SIGNALS = Object.freeze([
-      { id: "r1", title: "介面微互動的節制應用原則", type: "learning", relevance: 2, engagement: 410, verdict: "watch", status: "analyzed", summary: "最近看到一個滿適合做產品細節的工具：Icon Animator…", reason: "此訊號探討 UI 互動的細節處理，對提升產品介面質感與用戶體驗有參考價值。", takeaway: "動態效果僅在 hover 或互動引導時觸發。", quote: "最近看到一個滿適合做產品細節的工具：Icon Animator…", evidence: "E-01 · 既有引文" },
-      { id: "r2", title: "vibe coding 我开发了一个看得见 Wi-Fi 信号强…", type: null, relevance: null, engagement: null, verdict: null, status: "crawling" },
-      { id: "r3", title: "AI 驅動的快速原型開發流程", type: "learning", relevance: 2, engagement: 78, verdict: "watch", status: "analyzed", summary: null, reason: null, takeaway: null, quote: null, evidence: null },
-      { id: "r4", title: "AI 程式碼除錯的信任門檻", type: "noise", relevance: 1, engagement: 92, verdict: "park", status: "analyzed" },
-      { id: "r5", title: "透過嚴格 JSON 協定降低模型依賴", type: "technical", relevance: 3, engagement: 49, verdict: "watch", status: "analyzed", summary: null, reason: null, takeaway: null, quote: null, evidence: null },
-      { id: "r6", title: "無直接產品參考價值", type: "noise", relevance: 1, engagement: null, verdict: "park", status: "analyzed" },
-      { id: "r7", title: "數據呈現的環境變數過濾", type: "technical", relevance: 2, engagement: null, verdict: "watch", status: "analyzed", summary: null, reason: null, takeaway: null, quote: null, evidence: null }
+      { id: "r1", title: "介面微互動的節制應用原則", type: "learning", relevance: 2, likes: 224, replies: 5, reposts: 23, shares: 158, engagement: 410, verdict: "watch", status: "analyzed", summary: "最近看到一個滿適合做產品細節的工具：Icon Animator…", reason: "此訊號探討 UI 互動的細節處理，對提升產品介面質感與用戶體驗有參考價值。", takeaway: "動態效果僅在 hover 或互動引導時觸發。", quote: "我覺得hover或是新功能上線後吸引人注意,但不能用太多", evidence: "e8" },
+      { id: "r2", title: "vibe coding 我开发了一个看得见 Wi-Fi 信号强…", type: null, relevance: null, likes: null, replies: null, reposts: null, shares: null, engagement: null, verdict: null, status: "crawling" },
+      { id: "r3", title: "AI 驅動的快速原型開發流程", type: "learning", relevance: 2, likes: 47, replies: 5, reposts: 2, shares: 24, engagement: 78, verdict: "watch", status: "analyzed", summary: null, reason: null, takeaway: null, quote: null, evidence: null },
+      { id: "r4", title: "AI 程式碼除錯的信任門檻", type: "noise", relevance: 1, likes: 68, replies: 21, reposts: null, shares: 3, engagement: 92, verdict: "park", status: "analyzed", reason: "用戶情緒抒發,缺乏可操作脈絡" },
+      { id: "r5", title: "透過嚴格 JSON 協定降低模型依賴", type: "technical", relevance: 3, likes: 17, replies: 25, reposts: 2, shares: 5, engagement: 49, verdict: "watch", status: "analyzed", summary: null, reason: null, takeaway: null, quote: null, evidence: null },
+      { id: "r6", title: "無直接產品參考價值", type: "noise", relevance: 1, likes: null, replies: null, reposts: null, shares: null, engagement: null, verdict: "park", status: "analyzed", reason: "缺乏技術細節與實作脈絡" },
+      { id: "r7", title: "數據呈現的環境變數過濾", type: "technical", relevance: 2, likes: null, replies: null, reposts: null, shares: null, engagement: null, verdict: "watch", status: "analyzed", summary: null, reason: null, takeaway: null, quote: null, evidence: null, sourceGap: "來源對應未確認；不冒領既有 Wi-Fi 文案。" }
     ]);
     const analyzed = SIGNALS.filter((signal) => signal.status === "analyzed");
     const actionSignals = SIGNALS.filter((signal) => signal.verdict === "watch");
@@ -193,9 +206,30 @@
     const fieldTooltip = document.getElementById("field-tooltip");
     const stage = document.querySelector("[data-action-stage]");
     const live = document.querySelector("[data-action-live]");
+    const actionFrame = document.querySelector('[data-product-frame="action"]');
+    const maxKnownEngagement = Math.max(...SIGNALS.map((signal) => signal.engagement || 0));
+    const collisionJitterBySignalId = Object.freeze({ r1: -2.5, r3: 2.5 });
 
     function verdictLabel(signal) { return signal.status === "crawling" ? "抓取中" : signal.verdict === "watch" ? "保留觀察" : "前提不符"; }
-    function metadata(signal) { return [verdictLabel(signal), signal.type || "unavailable", signal.relevance ? `參考度 ${signal.relevance}/5` : "參考度 unavailable"].map((item) => `<span>${item}</span>`).join(""); }
+    function metadata(signal) { return [verdictLabel(signal), signal.type || "未讀", signal.relevance ? `參考度 ${signal.relevance}/5` : "參考度未讀"].map((item) => `<span>${item}</span>`).join(""); }
+    function relevanceToX(relevance) { return 16 + ((relevance - 1) / 4) * 68; }
+    function engagementToY(totalEngagement) { return 76 - (Math.log1p(totalEngagement) / Math.log1p(maxKnownEngagement)) * 58; }
+    function engagementToSize(totalEngagement) { return 42 + Math.sqrt(totalEngagement / maxKnownEngagement) * 38; }
+    function formatMetric(value) { return value == null ? "未讀" : String(value); }
+    function formatMetricBreakdown(signal) { return `讚 ${formatMetric(signal.likes)} · 回覆 ${formatMetric(signal.replies)} · 轉發 ${formatMetric(signal.reposts)} · 分享 ${formatMetric(signal.shares)} · 總互動 ${formatMetric(signal.engagement)}`; }
+    function renderFieldGeometry() {
+      document.querySelectorAll(".bubble[data-signal-bubble]").forEach((bubble) => {
+        const signal = SIGNALS.find((item) => item.id === bubble.dataset.signalBubble);
+        if (!signal || signal.relevance == null || signal.engagement == null) return;
+        const x = relevanceToX(signal.relevance) + (collisionJitterBySignalId[signal.id] || 0);
+        const y = engagementToY(signal.engagement);
+        const size = engagementToSize(signal.engagement);
+        bubble.dataset.xBand = String(signal.relevance);
+        bubble.style.setProperty("--x", `${x}%`);
+        bubble.style.setProperty("--y", `${y}%`);
+        bubble.style.setProperty("--size", `${size}px`);
+      });
+    }
     function renderSelection() {
       document.querySelectorAll("[data-signal-bubble], [data-signal-index-row]").forEach((control) => {
         const id = control.dataset.signalBubble || control.dataset.signalIndexRow;
@@ -209,17 +243,23 @@
       });
       const signal = SIGNALS.find((item) => item.id === state.hoveredSignalId);
       if (!signal) { fieldTooltip.classList.remove("is-visible"); return; }
-      fieldTooltip.textContent = `${signal.title} · ${signal.type || "unavailable"} · ${signal.relevance ? `參考度 ${signal.relevance}/5` : "參考度 unavailable"} · ${signal.engagement ?? "互動未讀"} · ${verdictLabel(signal)}`;
+      const bubble = document.querySelector(`[data-signal-bubble="${signal.id}"]`);
+      fieldTooltip.style.setProperty("--tooltip-x", bubble?.style.getPropertyValue("--x") || "50%");
+      fieldTooltip.style.setProperty("--tooltip-y", bubble?.style.getPropertyValue("--y") || "32%");
+      fieldTooltip.innerHTML = `<strong>${signal.title}</strong><span>${signal.type || "未讀"} · ${signal.relevance ? `參考度 ${signal.relevance}/5` : "參考度未讀"} · ${verdictLabel(signal)}</span><span>${formatMetricBreakdown(signal)}</span>`;
       fieldTooltip.classList.add("is-visible");
     }
     function renderReadingDock(signal) {
       dock.dataset.readingSignal = signal.id;
       if (signal.status === "crawling") {
         dock.innerHTML = `<div class="dock-meta"><span>抓取中</span><span>尚未分析</span></div><h3>${signal.title}</h3><p class="dock-copy">抓取尚未完成；不配置場上座標，也不生成閱讀內容。</p><div class="dock-sequence"><div><b>狀態</b><span>補爬中</span></div><div><b>可用內容</b><span>${unavailable}</span></div></div>`;
-        return;
+      } else {
+        const isWatch = signal.verdict === "watch";
+        dock.innerHTML = `<div class="dock-meta">${metadata(signal)}</div><h3>${signal.title}</h3><p class="dock-copy">${signal.summary || signal.sourceGap || unavailable}</p>${signal.quote ? `<p class="dock-quote">「${signal.quote}」</p>` : ""}<div class="dock-sequence"><div><b>${isWatch ? "觀察原因" : "排除原因"}</b><span>${signal.reason || unavailable}</span></div><div><b>新知保留</b><span>${signal.takeaway || unavailable}</span></div><div><b>證據</b><span class="mono">${signal.evidence || unavailable}${signal.engagement !== null ? ` · 互動 ${signal.engagement}` : " · 互動未讀"}</span></div></div>`;
       }
-      const isWatch = signal.verdict === "watch";
-      dock.innerHTML = `<div class="dock-meta">${metadata(signal)}</div><h3>${signal.title}</h3><p class="dock-copy">${signal.summary || unavailable}</p>${signal.quote ? `<p class="dock-quote">「${signal.quote}」</p>` : ""}<div class="dock-sequence"><div><b>${isWatch ? "觀察原因" : "排除原因"}</b><span>${signal.reason || unavailable}</span></div><div><b>新知保留</b><span>${signal.takeaway || unavailable}</span></div><div><b>證據</b><span class="mono">${signal.evidence || unavailable}${signal.engagement !== null ? ` · 互動 ${signal.engagement}` : ""}</span></div></div>`;
+      dock.classList.remove("reading-swap");
+      void dock.offsetWidth;
+      dock.classList.add("reading-swap");
     }
     function selectSignal(id) {
       const signal = SIGNALS.find((item) => item.id === id);
@@ -231,9 +271,12 @@
     function setHoveredSignal(id) { state.hoveredSignalId = id; renderHoverState(); }
     function renderActionStage(signal) {
       stage.dataset.actionPage = signal.id;
-      stage.classList.remove("stage-transition");
-      const summary = signal.summary || unavailable;
+      stage.classList.remove("action-forward", "action-backward");
+      const summary = signal.summary || signal.sourceGap || unavailable;
       stage.innerHTML = `<div class="stage-meta"><span class="stage-number">${state.actionIndex + 1}</span><span>保留觀察 · ${signal.type} · 參考度 ${signal.relevance}/5</span></div><h3 class="stage-title">${signal.title}</h3><p class="stage-summary">${summary}</p><div class="beats"><div class="beat"><b>觀察原因</b><span>${signal.reason || unavailable}</span></div><div class="beat"><b>新知保留</b><span>${signal.takeaway || unavailable}</span></div><div class="beat"><b>下一步</b><span>${signal.takeaway ? "尚未有可派發任務；先保留為觀察。" : unavailable}</span></div></div>${signal.quote ? `<blockquote class="stage-quote evidence-target">「${signal.quote}」</blockquote>` : ""}${signal.evidence ? `<button class="evidence-button" type="button" data-evidence-ref="${signal.id}">${signal.evidence}</button>` : ""}`;
+      void stage.offsetWidth;
+      if (state.direction > 0) stage.classList.add("action-forward");
+      if (state.direction < 0) stage.classList.add("action-backward");
       stage.querySelector("[data-evidence-ref]")?.addEventListener("click", () => {
         const target = stage.querySelector(".evidence-target");
         target?.classList.remove("is-flashed");
@@ -244,7 +287,10 @@
     function renderPager() {
       document.querySelector("[data-pager=prev]").disabled = state.actionIndex === 0;
       document.querySelector("[data-pager=next]").disabled = state.actionIndex === actionSignals.length - 1;
-      document.querySelectorAll("[data-action-dot]").forEach((dot) => dot.toggleAttribute("aria-current", Number(dot.dataset.actionDot) === state.actionIndex));
+      document.querySelectorAll("[data-action-dot]").forEach((dot) => {
+        if (Number(dot.dataset.actionDot) === state.actionIndex) dot.setAttribute("aria-current", "page");
+        else dot.removeAttribute("aria-current");
+      });
       const signal = actionSignals[state.actionIndex];
       live.textContent = `${state.actionIndex + 1} / ${actionSignals.length} · ${signal.title}`;
     }
@@ -274,11 +320,15 @@
     document.querySelector("[data-pager=prev]").addEventListener("click", () => goToActionPage(state.actionIndex - 1));
     document.querySelector("[data-pager=next]").addEventListener("click", () => goToActionPage(state.actionIndex + 1));
     document.querySelectorAll("[data-action-dot]").forEach((dot) => dot.addEventListener("click", () => goToActionPage(Number(dot.dataset.actionDot))));
-    document.addEventListener("keydown", (event) => {
-      if (event.key === "ArrowLeft") goToActionPage(state.actionIndex - 1);
-      if (event.key === "ArrowRight") goToActionPage(state.actionIndex + 1);
-      if (event.key === "Home") goToActionPage(0);
-      if (event.key === "End") goToActionPage(actionSignals.length - 1);
+    actionFrame.addEventListener("keydown", (event) => {
+      const nextIndex = event.key === "ArrowLeft" ? state.actionIndex - 1
+        : event.key === "ArrowRight" ? state.actionIndex + 1
+          : event.key === "Home" ? 0
+            : event.key === "End" ? actionSignals.length - 1
+              : null;
+      if (nextIndex === null) return;
+      event.preventDefault();
+      goToActionPage(nextIndex);
     });
     document.getElementById("analyzed-count").textContent = `${analyzed.length}/${SIGNALS.length}`;
     document.getElementById("classified-count").textContent = `${analyzed.length}/${analyzed.length}`;
@@ -289,6 +339,7 @@
     ["technical", "learning", "noise"].forEach((type) => {
       document.querySelector(`[data-${type}-count]`).textContent = String(analyzed.filter((signal) => signal.type === type).length);
     });
+    renderFieldGeometry();
     renderReadingDock(SIGNALS[0]);
     renderActionStage(actionSignals[0]);
     renderPager();
