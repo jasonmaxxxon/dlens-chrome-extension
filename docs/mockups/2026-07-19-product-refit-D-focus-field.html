@@ -117,7 +117,7 @@
     .exclusion summary { padding: 13px 4px; cursor: pointer; color: var(--muted); font-family: ui-monospace, "SFMono-Regular", Menlo, monospace; font-size: 12px; }
     .excluded-row { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 12px; padding: 10px 4px; border-top: 1px solid var(--line); font-size: 13px; }
     .excluded-row span { color: var(--muted); font-size: 12px; }
-    :focus-visible { outline: 3px solid rgba(35, 79, 122, 0.34); outline-offset: 3px; }
+    :focus-visible { outline: 3px solid color-mix(in oklch, var(--accent) 34%, transparent); outline-offset: 3px; }
     @media (max-width: 720px) {
       .page { width: min(100% - 24px, 680px); }
       .focus-composite { grid-template-columns: 1fr; }
@@ -153,9 +153,7 @@
             <div class="missing-shelf" aria-label="互動未讀"><span class="mono">互動未讀</span><button class="missing" type="button" data-signal-bubble="r6" aria-label="無直接產品參考價值，互動未讀" aria-pressed="false">?</button><button class="missing" type="button" data-signal-bubble="r7" aria-label="數據呈現的環境變數過濾，互動未讀" aria-pressed="false">?</button></div>
             <div class="tooltip" id="field-tooltip" role="status"></div>
           </div>
-          <aside class="reading-dock" data-reading-dock="true" data-reading-signal="r1" aria-live="polite">
-            <div class="dock-meta"><span>保留觀察</span><span>learning</span><span>參考度 2/5</span></div><h3>介面微互動的節制應用原則</h3><p class="dock-copy">最近看到一個滿適合做產品細節的工具：Icon Animator…</p><p class="dock-quote">「最近看到一個滿適合做產品細節的工具：Icon Animator…」</p><div class="dock-sequence"><div><b>觀察原因</b><span>此訊號探討 UI 互動的細節處理，對提升產品介面質感與用戶體驗有參考價值。</span></div><div><b>新知保留</b><span>動態效果僅在 hover 或互動引導時觸發。</span></div><div><b>證據</b><span class="mono">既有截圖：互動 410 · 證據 3 則</span></div></div>
-          </aside>
+          <aside class="reading-dock" data-reading-dock="true" data-reading-signal="r1" aria-live="polite"></aside>
         </div>
       </div>
       <div class="signal-index" aria-label="七則訊號索引">
@@ -171,9 +169,7 @@
 
     <section class="frame" data-od-id="action-observation-stage" data-product-frame="action">
       <div class="action-head"><div><p class="quiet-label">候選行動 · 保留觀察</p><h2>一則一讀，保留下一步的判斷</h2></div><p><span id="action-total">4</span> 則 · 7 已收錄</p></div>
-      <article class="action-stage" data-action-stage="true" data-action-page="r1" aria-live="polite">
-        <div class="stage-meta"><span class="stage-number">1</span><span>保留觀察 · learning · 參考度 2/5</span></div><h3 class="stage-title">介面微互動的節制應用原則</h3><p class="stage-summary">既有截圖記錄了 UI 微互動的產品觀察；詳情未載的頁面會保留這個缺口。</p><div class="beats"><div class="beat"><b>觀察原因</b><span>此訊號探討 UI 互動的細節處理，對提升產品介面質感與用戶體驗有參考價值。</span></div><div class="beat"><b>新知保留</b><span>動態效果僅在 hover 或互動引導時觸發。</span></div><div class="beat"><b>下一步</b><span>尚未有可派發任務；先保留為觀察。</span></div></div><blockquote class="stage-quote evidence-target">「最近看到一個滿適合做產品細節的工具：Icon Animator…」</blockquote><button class="evidence-button" type="button" data-evidence-ref="r1">E-01 · 既有引文</button>
-      </article>
+      <article class="action-stage" data-action-stage="true" data-action-page="r1" aria-live="polite"></article>
       <div class="pager" aria-label="候選行動分頁"><button class="pager-button" type="button" data-pager="prev" disabled>← 上一則</button><div class="pager-dots"><button class="pager-dot" type="button" data-action-dot="0" aria-label="第 1 則" aria-current="page"></button><button class="pager-dot" type="button" data-action-dot="1" aria-label="第 2 則"></button><button class="pager-dot" type="button" data-action-dot="2" aria-label="第 3 則"></button><button class="pager-dot" type="button" data-action-dot="3" aria-label="第 4 則"></button></div><span class="live mono" data-action-live aria-live="polite">1 / 4 · 介面微互動的節制應用原則</span><button class="pager-button" type="button" data-pager="next">下一則 →</button></div>
       <details class="exclusion"><summary>前提不符 · 2 則（展開查看）</summary><div class="excluded-row"><span>AI 程式碼除錯的信任門檻</span><span>既有截圖未載排除原因</span></div><div class="excluded-row"><span>無直接產品參考價值</span><span>既有截圖未載排除原因</span></div></details>
     </section>
@@ -293,6 +289,10 @@
     ["technical", "learning", "noise"].forEach((type) => {
       document.querySelector(`[data-${type}-count]`).textContent = String(analyzed.filter((signal) => signal.type === type).length);
     });
+    renderReadingDock(SIGNALS[0]);
+    renderActionStage(actionSignals[0]);
+    renderPager();
+    renderSelection();
     window.__productRefitD = Object.freeze({ getSelectedSignalId: () => state.selectedSignalId, getActionIndex: () => state.actionIndex, getState: () => ({ ...state }) });
   </script>
 </body>
