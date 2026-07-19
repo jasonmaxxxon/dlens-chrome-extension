@@ -210,6 +210,8 @@
     const maxKnownEngagement = Math.max(...SIGNALS.map((signal) => signal.engagement || 0));
     const collisionJitterBySignalId = Object.freeze({ r1: -2.5, r3: 2.5 });
     let describedTooltipControl = null;
+    let hoveredTooltipControl = null;
+    let focusedTooltipControl = null;
 
     function verdictLabel(signal) { return signal.status === "crawling" ? "抓取中" : signal.verdict === "watch" ? "保留觀察" : "前提不符"; }
     function metadata(signal) { return [verdictLabel(signal), signal.type || "未讀", signal.relevance ? `參考度 ${signal.relevance}/5` : "參考度未讀"].map((item) => `<span>${item}</span>`).join(""); }
@@ -237,20 +239,6 @@
         control.setAttribute("aria-pressed", String(id === state.selectedSignalId));
       });
     }
-    function setTooltipAccessibility(control, visible) {
-      if (describedTooltipControl && describedTooltipControl !== control) describedTooltipControl.removeAttribute("aria-describedby");
-      if (visible) {
-        control.setAttribute("aria-describedby", fieldTooltip.id);
-        describedTooltipControl = control;
-        fieldTooltip.hidden = false;
-        fieldTooltip.setAttribute("aria-hidden", "false");
-        return;
-      }
-      control.removeAttribute("aria-describedby");
-      if (describedTooltipControl === control) describedTooltipControl = null;
-      fieldTooltip.hidden = true;
-      fieldTooltip.setAttribute("aria-hidden", "true");
-    }
     function renderHoverState() {
       document.querySelectorAll("[data-signal-bubble], [data-signal-index-row]").forEach((control) => {
         const id = control.dataset.signalBubble || control.dataset.signalIndexRow;
@@ -263,6 +251,31 @@
       fieldTooltip.style.setProperty("--tooltip-y", bubble?.style.getPropertyValue("--y") || "32%");
       fieldTooltip.innerHTML = `<strong>${signal.title}</strong><span>${signal.type || "未讀"} · ${signal.relevance ? `參考度 ${signal.relevance}/5` : "參考度未讀"} · ${verdictLabel(signal)}</span><span>${formatMetricBreakdown(signal)}</span>`;
       fieldTooltip.classList.add("is-visible");
+    }
+    function reconcileTooltipAccessibility() {
+      const activeControl = focusedTooltipControl || hoveredTooltipControl;
+      if (describedTooltipControl && describedTooltipControl !== activeControl) describedTooltipControl.removeAttribute("aria-describedby");
+      describedTooltipControl = activeControl;
+      state.hoveredSignalId = activeControl ? activeControl.dataset.signalBubble || activeControl.dataset.signalIndexRow : null;
+      if (activeControl) {
+        activeControl.setAttribute("aria-describedby", fieldTooltip.id);
+        fieldTooltip.hidden = false;
+        fieldTooltip.setAttribute("aria-hidden", "false");
+      } else {
+        fieldTooltip.hidden = true;
+        fieldTooltip.setAttribute("aria-hidden", "true");
+      }
+      renderHoverState();
+    }
+    function setHoveredTooltipControl(control, hovered) {
+      if (hovered) hoveredTooltipControl = control;
+      else if (hoveredTooltipControl === control) hoveredTooltipControl = null;
+      reconcileTooltipAccessibility();
+    }
+    function setFocusedTooltipControl(control, focused) {
+      if (focused) focusedTooltipControl = control;
+      else if (focusedTooltipControl === control) focusedTooltipControl = null;
+      reconcileTooltipAccessibility();
     }
     function renderReadingDock(signal) {
       dock.dataset.readingSignal = signal.id;
@@ -283,7 +296,6 @@
       renderSelection();
       renderReadingDock(signal);
     }
-    function setHoveredSignal(id, control) { state.hoveredSignalId = id; setTooltipAccessibility(control, id !== null); renderHoverState(); }
     function renderActionStage(signal) {
       stage.dataset.actionPage = signal.id;
       stage.classList.remove("action-forward", "action-backward");
@@ -318,10 +330,10 @@
     }
     document.querySelectorAll("[data-signal-bubble], [data-signal-index-row]").forEach((control) => {
       const id = control.dataset.signalBubble || control.dataset.signalIndexRow;
-      control.addEventListener("pointerenter", () => setHoveredSignal(id, control));
-      control.addEventListener("pointerleave", () => setHoveredSignal(null, control));
-      control.addEventListener("focus", () => setHoveredSignal(id, control));
-      control.addEventListener("blur", () => setHoveredSignal(null, control));
+      control.addEventListener("pointerenter", () => setHoveredTooltipControl(control, true));
+      control.addEventListener("pointerleave", () => setHoveredTooltipControl(control, false));
+      control.addEventListener("focus", () => setFocusedTooltipControl(control, true));
+      control.addEventListener("blur", () => setFocusedTooltipControl(control, false));
       control.addEventListener("click", () => selectSignal(id));
     });
     const bubbles = [...document.querySelectorAll("[data-signal-bubble]")];
