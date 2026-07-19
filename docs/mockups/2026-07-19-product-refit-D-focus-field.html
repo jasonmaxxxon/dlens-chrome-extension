@@ -253,7 +253,7 @@
       fieldTooltip.classList.add("is-visible");
     }
     function reconcileTooltipAccessibility() {
-      const activeControl = focusedTooltipControl || hoveredTooltipControl;
+      const activeControl = hoveredTooltipControl || focusedTooltipControl;
       if (describedTooltipControl && describedTooltipControl !== activeControl) describedTooltipControl.removeAttribute("aria-describedby");
       describedTooltipControl = activeControl;
       state.hoveredSignalId = activeControl ? activeControl.dataset.signalBubble || activeControl.dataset.signalIndexRow : null;
