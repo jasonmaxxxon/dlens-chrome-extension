@@ -3323,7 +3323,7 @@ test("ProductSignalView only shows remove controls when delete is wired", () => 
   assert.match(wiredHtml, /aria-label="移除此訊號"/);
 });
 
-test("SavedSignalsBoard keeps saved rows scan-first with compact copy", () => {
+test("SavedSignalsBoard keeps saved rows scan-first with a coverage ledger instead of classification bars", () => {
   const longPreview = "用戶問產品需要如何收斂訊號列表，避免每行都像文章一樣難掃描 META_ROW_SHOULD_NOT_RENDER 這段不應在 compact row 出現";
   const html = renderToStaticMarkup(
     productSignalViewElement( {
@@ -3374,12 +3374,186 @@ test("SavedSignalsBoard keeps saved rows scan-first with compact copy", () => {
   assert.match(html, /data-saved-signal-title="compact"/);
   assert.match(html, /列表需要更像營運 inbox。/);
   assert.doesNotMatch(html, /META_ROW_SHOULD_NOT_RENDER/);
-  assert.match(html, /data-product-merged-classification="true"/);
-  assert.match(html, /data-product-classification-bucket="learning"/);
+  assert.match(html, /data-product-saved-coverage-ledger="true"/);
+  assert.match(html, /data-product-saved-coverage="analysed"[^>]*>已分析 1\/1/);
+  assert.match(html, /data-product-saved-coverage="classified"[^>]*>AI 已分類 1\/1/);
+  assert.doesNotMatch(html, /data-product-merged-classification="true"/);
+  assert.doesNotMatch(html, /data-product-classification-bucket="learning"/);
   assert.doesNotMatch(html, /可分析 · 學習資源 · 保留觀察/);
 });
 
-test("ProductSignalView saved signals apply the signed fusion density grammar from real analysis fields", () => {
+test("SavedSignalsBoard renders source truth from supported citations and honest engagement totals", () => {
+  const html = renderToStaticMarkup(
+    productSignalViewElement({
+      kind: "saved-signals",
+      signals: [
+        { id: "signal_truth", sessionId: "session_truth", itemId: "item_truth", source: "threads", inboxStatus: "processed", capturedAt: "2026-07-20T00:00:00.000Z" }
+      ],
+      analyses: [{
+        signalId: "signal_truth",
+        signalType: "demand",
+        signalSubtype: "source_truth",
+        contentType: "discussion_starter",
+        contentSummary: "保留來源真相，而不是把模型的 ref 當成已驗證證據。",
+        relevance: 4,
+        relevantTo: ["coreWorkflows"],
+        whyRelevant: "可避免把無對應來源的 reference 顯示給使用者。",
+        verdict: "watch",
+        reason: "來源支持仍要逐筆確認。",
+        audienceGap: "尚未看見反例回應。",
+        referenceTakeaway: "先保留有來源支持的判讀。",
+        evidenceRefs: ["e1", "e8", "e_raw"],
+        evidenceNotes: [{ ref: "e1", quoteSummary: "精確引用：來源支持這個觀察。", whyItMatters: "支持判讀。" }],
+        productContextHash: "ctx_truth",
+        promptVersion: "v17",
+        analyzedAt: "2026-07-20T01:00:00.000Z",
+        status: "complete"
+      }],
+      productProfile: productTestProfile(),
+      signalPreviewById: { signal_truth: "來源訊號原文。" },
+      evidenceBySignalId: {
+        signal_truth: [
+          { ref: "e1", id: "entry_1", author: "alpha", text: "來源 e1", likeCount: 5 },
+          { ref: "e8", id: "entry_8", author: "beta", text: "來源 e8", likeCount: 2 }
+        ]
+      },
+      descriptorBySignalId: {
+        signal_truth: {
+          engagement: { likes: 42, comments: 7, reposts: 3, forwards: 2 },
+          engagement_present: { likes: true, comments: true, reposts: true, forwards: true }
+        }
+      },
+      onAnalyze: () => undefined
+    })
+  );
+
+  assert.match(html, /data-product-source-truth="signal_truth"/);
+  assert.match(html, /data-product-source-truth-metric="evidence"[^>]*aria-label="證據 ref e1 \+1"/);
+  assert.match(html, /data-product-source-truth-metric="likes"[^>]*aria-label="讚 42"/);
+  assert.match(html, /data-product-source-truth-metric="comments"[^>]*aria-label="回覆 7"/);
+  assert.match(html, /data-product-source-truth-metric="reposts"[^>]*aria-label="轉發 3"/);
+  assert.match(html, /data-product-source-truth-metric="forwards"[^>]*aria-label="分享 2"/);
+  assert.match(html, /data-product-source-truth-metric="total"[^>]*aria-label="總互動 54"/);
+  assert.match(html, /e1 \+1/);
+  assert.doesNotMatch(html, /e_raw/);
+});
+
+test("SavedSignalsBoard keeps a committed inline reader separate from checkbox batch selection", async () => {
+  const { JSDOM } = await import("jsdom");
+  const { createRoot } = await import("react-dom/client");
+  const { act } = await import("react");
+  const dom = new JSDOM("<div id=\"root\"></div>", { url: "https://dlens.test" });
+  const reactActGlobal = globalThis as typeof globalThis & { IS_REACT_ACT_ENVIRONMENT?: boolean };
+  const previousActEnvironment = reactActGlobal.IS_REACT_ACT_ENVIRONMENT;
+  const previous = {
+    window: globalThis.window,
+    document: globalThis.document,
+    HTMLElement: globalThis.HTMLElement,
+    HTMLButtonElement: globalThis.HTMLButtonElement,
+    HTMLInputElement: globalThis.HTMLInputElement,
+    MouseEvent: globalThis.MouseEvent
+  };
+  Object.assign(globalThis, {
+    window: dom.window,
+    document: dom.window.document,
+    HTMLElement: dom.window.HTMLElement,
+    HTMLButtonElement: dom.window.HTMLButtonElement,
+    HTMLInputElement: dom.window.HTMLInputElement,
+    MouseEvent: dom.window.MouseEvent
+  });
+  reactActGlobal.IS_REACT_ACT_ENVIRONMENT = true;
+  const rootElement = dom.window.document.getElementById("root");
+  assert.ok(rootElement);
+  const root = createRoot(rootElement);
+
+  try {
+    await act(async () => {
+      root.render(productSignalViewElement({
+        kind: "saved-signals",
+        signals: [
+          { id: "signal_reader_1", sessionId: "session_reader", itemId: "item_reader_1", source: "threads", inboxStatus: "processed", capturedAt: "2026-07-20T00:00:00.000Z" },
+          { id: "signal_reader_2", sessionId: "session_reader", itemId: "item_reader_2", source: "threads", inboxStatus: "processed", capturedAt: "2026-07-20T00:01:00.000Z" }
+        ],
+        analyses: [{
+          signalId: "signal_reader_1", signalType: "demand", signalSubtype: "inline_reader", contentType: "discussion_starter",
+          contentSummary: "判讀摘要。", relevance: 4, relevantTo: ["coreWorkflows"], whyRelevant: "來源與產品脈絡的落差。",
+          verdict: "watch", reason: "需要先讀來源。", audienceGap: "尚未看見反例。", referenceTakeaway: "只保留有來源支持的重點。",
+          evidenceRefs: ["e_raw"], productContextHash: "ctx_reader", promptVersion: "v17", analyzedAt: "2026-07-20T01:00:00.000Z", status: "complete"
+        }, {
+          signalId: "signal_reader_2", signalType: "technical", signalSubtype: "second_reader", contentType: "discussion_starter",
+          contentSummary: "第二列判讀。", relevance: 3, relevantTo: ["coreWorkflows"], whyRelevant: "第二列的來源落差。",
+          verdict: "try", reason: "第二列原因。", referenceTakeaway: "第二列重點。",
+          evidenceRefs: ["e2"], productContextHash: "ctx_reader", promptVersion: "v17", analyzedAt: "2026-07-20T01:01:00.000Z", status: "complete"
+        }],
+        productProfile: productTestProfile(),
+        signalPreviewById: {
+          signal_reader_1: "可讀取的原始訊號。",
+          signal_reader_2: "第二列原始訊號。"
+        },
+        descriptorBySignalId: {
+          signal_reader_1: {
+            engagement: { likes: 9, comments: null, reposts: null, forwards: null },
+            engagement_present: { likes: true, comments: false, reposts: false, forwards: false }
+          },
+          signal_reader_2: {
+            engagement: { likes: 2, comments: 1, reposts: 0, forwards: 0 },
+            engagement_present: { likes: true, comments: true, reposts: true, forwards: true }
+          }
+        },
+        onAnalyze: () => undefined
+      }));
+      await Promise.resolve();
+    });
+
+    const firstRow = rootElement.querySelector<HTMLButtonElement>('[data-saved-signal-open="signal_reader_1"]');
+    const secondRow = rootElement.querySelector<HTMLButtonElement>('[data-saved-signal-open="signal_reader_2"]');
+    const checkbox = rootElement.querySelector<HTMLInputElement>('input[aria-label="選取 signal_reader_2"]');
+    assert.ok(firstRow);
+    assert.ok(secondRow);
+    assert.ok(checkbox);
+    const initialReading = rootElement.querySelector<HTMLElement>('[data-product-saved-inline-reading="signal_reader_1"]');
+    const firstCompactRow = firstRow.closest<HTMLElement>('[data-saved-signal-row="compact"]');
+    assert.ok(initialReading);
+    assert.equal(initialReading.id, "saved-reading-signal_reader_1");
+    assert.equal(firstRow.getAttribute("aria-expanded"), "true");
+    assert.equal(secondRow.getAttribute("aria-expanded"), "false");
+    assert.ok(firstCompactRow?.nextElementSibling === initialReading);
+
+    await act(async () => {
+      checkbox.dispatchEvent(new dom.window.MouseEvent("click", { bubbles: true }));
+      await Promise.resolve();
+    });
+    assert.equal(checkbox.checked, true);
+    assert.ok(rootElement.querySelector('[data-product-saved-inline-reading="signal_reader_1"]'));
+    assert.equal(firstRow.getAttribute("aria-expanded"), "true");
+    assert.equal(secondRow.getAttribute("aria-expanded"), "false");
+
+    await act(async () => {
+      secondRow.dispatchEvent(new dom.window.MouseEvent("click", { bubbles: true }));
+      await Promise.resolve();
+    });
+    const reading = rootElement.querySelector<HTMLElement>('[data-product-saved-inline-reading="signal_reader_2"]');
+    assert.ok(reading);
+    assert.equal(rootElement.querySelector('[data-product-saved-inline-reading="signal_reader_1"]'), null);
+    assert.equal(firstRow.getAttribute("aria-expanded"), "false");
+    assert.equal(secondRow.getAttribute("aria-expanded"), "true");
+    const secondCompactRow = secondRow.closest<HTMLElement>('[data-saved-signal-row="compact"]');
+    assert.ok(secondCompactRow?.nextElementSibling === reading);
+    assert.equal(reading.id, "saved-reading-signal_reader_2");
+    assert.match(reading.textContent ?? "", /第二列判讀。/);
+    assert.match(reading.textContent ?? "", /第二列原因。/);
+    assert.match(reading.textContent ?? "", /第二列重點。/);
+    assert.match(reading.textContent ?? "", /證據 ref 未提供/);
+    assert.equal(reading.querySelector('[data-product-source-truth-metric="total"]')?.getAttribute("aria-label"), "總互動 3");
+  } finally {
+    await act(async () => root.unmount());
+    Object.assign(globalThis, previous);
+    if (previousActEnvironment === undefined) delete reactActGlobal.IS_REACT_ACT_ENVIRONMENT;
+    else reactActGlobal.IS_REACT_ACT_ENVIRONMENT = previousActEnvironment;
+  }
+});
+
+test("ProductSignalView saved signals removes the old equal-weight fusion card grammar", () => {
   const html = renderToStaticMarkup(
     productSignalViewElement({
       kind: "saved-signals",
@@ -3435,27 +3609,16 @@ test("ProductSignalView saved signals apply the signed fusion density grammar fr
     })
   );
 
-  assert.match(html, /data-product-fusion-card="hero"/);
-  assert.match(html, /data-product-card-eyebrow="true"/);
-  assert.match(html, /需求/);
-  assert.match(html, /參考度 4\/5/);
-  assert.match(html, /AI 生成/);
-  assert.match(html, /討論開場/);
-  assert.match(html, /PM 文件產出/);
-  assert.match(html, /data-product-card-title="true"[^>]*>討論轉 agent task/);
-  assert.match(html, /data-product-card-quote="true"/);
-  assert.match(html, /原文提到需要把討論轉成 agent 可以接手的工作包。/);
-  assert.match(html, /data-product-kv-grid="signal"/);
-  assert.match(html, /data-product-kv="whyRelevant"/);
-  assert.match(html, /data-product-kv="whyNow"/);
-  assert.match(html, /data-product-kv="experimentHint"/);
-  assert.match(html, /data-product-kv="validationMetric"/);
-  assert.match(html, /data-collector-metric-strip="product-signal-signal_fusion"/);
-  assert.match(html, /data-collector-metric="likes"[^>]*>[\s\S]*42/);
-  assert.match(html, /data-collector-metric="comments"[^>]*>[\s\S]*7/);
-  assert.match(html, /data-collector-metric="reposts"[^>]*>[\s\S]*–/);
-  assert.match(html, /data-product-verdict-pill="try"[^>]*>值得嘗試/);
-  assert.doesNotMatch(html, /相關度 4\/5/);
+  assert.match(html, /data-saved-signal-row="compact"/);
+  assert.match(html, /data-saved-signal-open="signal_fusion"/);
+  assert.match(html, /討論轉 agent task/);
+  assert.match(html, /data-product-source-truth="signal_fusion"/);
+  assert.match(html, /data-product-source-truth-metric="total"[^>]*aria-label="總互動 未讀"/);
+  assert.doesNotMatch(html, /data-product-fusion-card=/);
+  assert.doesNotMatch(html, /data-product-card-eyebrow="true"/);
+  assert.doesNotMatch(html, /data-product-card-quote="true"/);
+  assert.doesNotMatch(html, /data-product-kv-grid="signal"/);
+  assert.doesNotMatch(html, /data-collector-metric-strip="product-signal-signal_fusion"/);
 });
 
 test("ProductSignalView keeps Agent export off Product action pages", () => {
@@ -4014,12 +4177,16 @@ test("ProductSignalView gives each product page a distinct information shape", (
     })
   );
 
-  assert.match(savedHtml, /data-product-merged-classification="true"/);
-  assert.match(savedHtml, /分類摘要/);
-  assert.match(savedHtml, /AI 已分類 1 \/ 1/);
-  assert.match(savedHtml, /data-product-classification-bucket="demand"/);
-  assert.match(savedHtml, /Threads post preview/);
-  assert.match(savedHtml, /需求/);
+  assert.match(savedHtml, /data-product-saved-coverage-ledger="true"/);
+  assert.match(savedHtml, /已分析 1\/1/);
+  assert.match(savedHtml, /AI 已分類 1\/1/);
+  assert.match(savedHtml, /data-product-saved-inline-reading="signal_a"/);
+  assert.match(savedHtml, /data-product-source-truth="signal_a"/);
+  assert.doesNotMatch(savedHtml, /data-product-merged-classification="true"/);
+  assert.doesNotMatch(savedHtml, /分類摘要/);
+  assert.doesNotMatch(savedHtml, /data-product-classification-bucket="demand"/);
+  assert.doesNotMatch(savedHtml, /Threads post preview/);
+  assert.doesNotMatch(savedHtml, /需求/);
   assert.doesNotMatch(savedHtml, /data-product-classification-layout="responsive"/);
   assert.doesNotMatch(savedHtml, /data-product-selected-aside="true"/);
 
