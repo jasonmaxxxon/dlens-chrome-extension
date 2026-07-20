@@ -224,6 +224,7 @@ async function auditRawLabels(allLines) {
 async function auditNoiseActionSemantics(allLines) {
   const file = FILES.productSignalViews;
   const lines = allLines[file];
+  const actionStage = functionBlock(lines, "ProductActionStage");
   const verdictTileHits = [
     ...lineHit(file, lines, "function VerdictFilterTiles", "verdict tile component"),
     ...lineHit(file, lines, 'data-verdict-filter-tiles="true"', "four-color verdict tile group"),
@@ -239,6 +240,7 @@ async function auditNoiseActionSemantics(allLines) {
     ...lineHit(file, lines, 'data-product-action-pager="text"', "text pager")
   ];
   const activeStageHits = lineHit(file, lines, "data-product-action-stage={activeAnalysis.signalId}", "one active stage card");
+  const verdictTileMountHits = lineHitsInBlock(file, actionStage, "<VerdictFilterTiles", "verdict tiles mounted in Action stage");
   const nonActionableSemanticHits = [
     ...lineHit(file, lines, 'const activeIsActionable = resolvedFilter === "try" || resolvedFilter === "watch"', "actionable verdict boundary"),
     ...lineHit(file, lines, "data-product-action-verdict-reason={resolvedFilter}", "non-actionable semantic reason block"),
@@ -252,7 +254,7 @@ async function auditNoiseActionSemantics(allLines) {
     ...lineHit(file, lines, 'data-product-action-exclusions', "retired exclusion lane"),
     ...lineHit(file, lines, 'data-product-action-insufficient', "retired insufficient lane")
   ]);
-  const failed = verdictTileHits.length < 7 || stageHits.length < 3 || activeStageHits.length !== 1 || nonActionableSemanticHits.length < 4 || retiredFramingHits.length > 0;
+  const failed = verdictTileHits.length < 7 || stageHits.length < 3 || activeStageHits.length !== 1 || verdictTileMountHits.length !== 1 || nonActionableSemanticHits.length < 4 || retiredFramingHits.length > 0;
   return {
     id: "B-07",
     status: statusFromFail(failed),
@@ -261,10 +263,11 @@ async function auditNoiseActionSemantics(allLines) {
       verdictTileHits,
       stageHits,
       activeStageHits,
+      verdictTileMountHits,
       nonActionableSemanticHits,
       retiredFramingHits
     },
-    expectedFixShape: "keep four visible verdict tile controls and one active stage with a text pager; park/insufficient must render a verdict-specific reason rather than actionable reading controls, with no card wall, dot pager, or duplicate exclusion lanes"
+    expectedFixShape: "mount exactly one four-tile verdict selector inside ProductActionStage above one active stage with a text pager; park/insufficient must render a verdict-specific reason rather than actionable reading controls, with no card wall, dot pager, or duplicate exclusion lanes"
   };
 }
 
