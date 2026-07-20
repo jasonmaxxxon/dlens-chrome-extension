@@ -87,3 +87,13 @@
 - Real Chrome reload and real Threads interaction QA were not performed and remain explicitly pending.
 - The bundle guard passes, but brotli headroom is 3,333 bytes; future UI growth should be watched.
 - `npm install` reported 15 dependency audit findings (3 low, 4 moderate, 5 high, 3 critical). The install was already up to date and this fix wave changed no dependencies; remediation is outside this brief.
+
+## Final re-review docs evidence refresh
+
+- Manifest lookup command: `node -e 'const m=require("./output/chrome-mv3/manifest.json"); console.log(JSON.stringify(m.content_scripts,null,2))'`
+- Manifest result: the Threads match entry (`*://*.threads.com/*`, `*://*.threads.net/*`) references only `content-scripts/threads.js`.
+- Hash command: `shasum -a 256 output/chrome-mv3/content-scripts/threads.js`
+- Hash result: `f445adf5d147d2224e76358430966a5d854105b12c1bdcd4074c0b4e7155cb4b  output/chrome-mv3/content-scripts/threads.js`.
+- README and `docs/memory/latest-shared-context.md` now record the final full-suite result (1326 tests / 1321 pass / 5 skipped / 0 fail), bundle sizes (887801 raw / 250270 gzip-9 / 199667 brotli), source/build version `0.3.54`, the fresh content-script SHA-256 above, and pending real Chrome/Threads QA.
+- Read-back confirmed both release-evidence locations contain those exact values; a fresh `git diff --check` exited 0.
+- This docs-only refresh did not modify code, tests, or built artifacts; tests/build were not rerun by explicit instruction.
