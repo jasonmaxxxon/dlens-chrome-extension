@@ -190,14 +190,10 @@ function patchProductTestCapabilities(vm: ProductSignalWorkspaceViewModel, props
   const signals = vm.signals.map(patchSignal);
   const byId = new Map(signals.map((signal) => [signal.signalId, signal]));
   const pendingSignals = vm.pendingSignals.map((signal) => byId.get(signal.signalId) ?? patchSignal(signal));
-  const firstSynthesizableSignal = vm.firstSynthesizableSignal
-    ? byId.get(vm.firstSynthesizableSignal.signalId) ?? patchSignal(vm.firstSynthesizableSignal)
-    : null;
   return {
     ...vm,
     signals,
     pendingSignals,
-    firstSynthesizableSignal,
     signalPreviewById: Object.fromEntries(signals.map((signal) => [signal.signalId, signal.sourcePreview.displayText] as const)),
     signalUrlById: Object.fromEntries(signals.map((signal) => [signal.signalId, signal.sourcePreview.displayUrl] as const)),
     signalReadinessById: Object.fromEntries(signals.map((signal) => [signal.signalId, signal.readiness] as const)),
@@ -3287,8 +3283,9 @@ test("ProductSignalView action route uses recovered analyses when signal inbox i
     })
   );
 
-  assert.match(html, /data-actionable-insights-board="true"/);
-  assert.match(html, /data-product-list-motion="actionable"/);
+  assert.match(html, /data-product-action-workspace="stage"/);
+  assert.match(html, /data-product-action-stage="signal_recovered_action"/);
+  assert.match(html, /data-product-action-live="true"[^>]*>1 \/ 1/);
   assert.match(html, /團隊想把討論整理成可交付的 agent brief。/);
   assert.doesNotMatch(html, /data-signal-reading-review-workspace/);
   assert.doesNotMatch(html, /0 則訊號已評估/);
@@ -3727,7 +3724,7 @@ test("ProductSignalView saved signals removes the old equal-weight fusion card g
   assert.doesNotMatch(html, /data-collector-metric-strip="product-signal-signal_fusion"/);
 });
 
-test("ProductSignalView keeps Agent export off Product action pages", () => {
+test("ProductSignalView keeps folder packet export secondary on Product action pages", () => {
   const baseProps = {
     signals: [
       {
@@ -3810,17 +3807,18 @@ test("ProductSignalView keeps Agent export off Product action pages", () => {
   assert.match(savedHtml, /精簡決策/);
   assert.match(savedHtml, /複製行動簡報/);
   assert.match(savedHtml, /data-product-action-cta="true"[^>]*border-radius:20px/);
-  assert.match(actionableHtml, /data-actionable-insights-board="true"/);
+  assert.match(actionableHtml, /data-product-action-workspace="stage"/);
   assert.doesNotMatch(actionableHtml, /data-saved-signals-batch-export="true"/);
   assert.doesNotMatch(actionableHtml, /Agent export/);
   assert.doesNotMatch(actionableHtml, /原文優先/);
   assert.doesNotMatch(actionableHtml, /精簡決策/);
   assert.doesNotMatch(actionableHtml, /複製 Agent Brief|複製行動簡報/);
-  assert.doesNotMatch(actionableHtml, /data-signal-packet-html-export="true"/);
-  assert.doesNotMatch(actionableHtml, /data-signal-packet-format-option="html"/);
-  assert.doesNotMatch(actionableHtml, /data-signal-packet-format-option="jsonl"/);
-  assert.doesNotMatch(actionableHtml, /匯出 HTML Reading/);
-  assert.doesNotMatch(actionableHtml, /JSONL Packet/);
+  assert.match(actionableHtml, /<details data-product-action-export="true"/);
+  assert.match(actionableHtml, /data-signal-packet-html-export="true"/);
+  assert.match(actionableHtml, /data-signal-packet-format-option="html"/);
+  assert.match(actionableHtml, /data-signal-packet-format-option="jsonl"/);
+  assert.match(actionableHtml, /匯出 HTML Reading/);
+  assert.match(actionableHtml, /JSONL Packet/);
   assert.doesNotMatch(actionableHtml, /data-agent-brief-copy-status/);
   assert.doesNotMatch(actionableHtml, /data-batch-export-selection-row="true"/);
   assert.doesNotMatch(actionableHtml, /# Agent Brief/);
@@ -4321,8 +4319,9 @@ test("ProductSignalView gives each product page a distinct information shape", (
   assert.match(classificationHtml, /值得嘗試/);
   assert.doesNotMatch(classificationHtml, /R5/);
 
-  assert.match(actionableHtml, /1 則訊號已評估/);
-  assert.match(actionableHtml, /可直接試的做法/);
+  assert.match(actionableHtml, /1 候選 · 1 已評估/);
+  assert.match(actionableHtml, /data-product-action-stage="signal_a"/);
+  assert.match(actionableHtml, /data-product-action-pager="true"/);
   assert.match(actionableHtml, /A one-tap mobile save flow would fit my day/);
   assert.doesNotMatch(actionableHtml, /儲存至行動清單|>\+<\/span> 儲存/);
   assert.doesNotMatch(actionableHtml, /AI 實驗建議（輔助）/);
@@ -4332,7 +4331,9 @@ test("ProductSignalView gives each product page a distinct information shape", (
   assert.doesNotMatch(actionableHtml, /這個任務建議/);
   assert.doesNotMatch(actionableHtml, /\d+\s+likes/);
   assert.doesNotMatch(actionableHtml, /TRY experiment|relevance 5\/5|signal type/);
-  assert.match(actionableHtml, /實驗切入/);
+  assert.match(actionableHtml, /觀察原因/);
+  assert.match(actionableHtml, /新知保留/);
+  assert.match(actionableHtml, /下一步/);
   assert.match(actionableHtml, /相關度 5\/5/);
   assert.doesNotMatch(actionableHtml, /R5/);
   // Marginalia owns the experiment and judgment slots in its main column / rail.
@@ -4344,13 +4345,13 @@ test("ProductSignalView gives each product page a distinct information shape", (
   // source quotes intentionally keeps no badge
   assert.doesNotMatch(actionableHtml, /data-product-panel-badge="source-quotes"/);
   assert.doesNotMatch(actionableHtml, /data-agent-task-feedback-row="true"/);
-  // Motion is state-causal: verdict controls and list choreography move; the
-  // read-only action card itself must not advertise a click affordance.
+  // Motion is state-causal on the keyed Product Action stage.
   assert.doesNotMatch(actionableHtml, /data-dlens-product-motion/);
-  assert.match(actionableHtml, /data-product-list-motion="actionable"/);
-  assert.match(actionableHtml, /data-verdict-filter-tiles="true"/);
-  assert.match(actionableHtml, /data-verdict-filter-plate="true"/);
-  assert.match(actionableHtml, /data-verdict-tile-count="true"/);
+  assert.match(actionableHtml, /data-direction="forward"/);
+  assert.doesNotMatch(actionableHtml, /data-product-list-motion="actionable"/);
+  assert.doesNotMatch(actionableHtml, /data-verdict-filter-tiles="true"/);
+  assert.doesNotMatch(actionableHtml, /data-verdict-filter-plate="true"/);
+  assert.doesNotMatch(actionableHtml, /data-verdict-tile-count="true"/);
   assert.doesNotMatch(actionableHtml, /data-dlens-motion-card="true"/);
   // The exported CSS constant must include reduced-motion and grid-template-rows animation
   assert.ok(DLENS_MOTION_CSS.includes("prefers-reduced-motion"), "CSS must guard reduced-motion");
@@ -4358,10 +4359,8 @@ test("ProductSignalView gives each product page a distinct information shape", (
   assert.ok(!DLENS_MOTION_CSS.includes("::details-content"), "CSS must not use ::details-content");
   assert.match(DLENS_MOTION_CSS, /\[data-dlens-control="true"\] \.dlens-card-lift/);
   assert.match(DLENS_MOTION_CSS, /\[data-dlens-control="true"\] \[data-rail-icon\]/);
-  assert.match(DLENS_MOTION_CSS, /\[data-dlens-control="true"\] \[data-bump-number="true"\]/);
-  assert.match(DLENS_MOTION_CSS, /\[data-dlens-control="true"\] \[data-signal-reading-filed-flash="true"\]/);
-  assert.match(DLENS_MOTION_CSS, /\[data-dlens-control="true"\] \[data-verdict-filter-plate\]/);
-  assert.match(DLENS_MOTION_CSS, /\[data-dlens-control="true"\] \[data-verdict-tile-count\]/);
+  assert.match(DLENS_MOTION_CSS, /\[data-dlens-control="true"\] \[data-product-action-stage\]\[data-direction="forward"\]/);
+  assert.match(DLENS_MOTION_CSS, /\[data-dlens-control="true"\] \[data-product-action-stage\]\[data-direction="backward"\]/);
   assert.match(DLENS_MOTION_CSS, /\[data-dlens-control="true"\] \[data-button-shimmer="true"\]/);
   assert.match(DLENS_MOTION_CSS, /\[data-dlens-control="true"\] \[data-signal-reading-compose-flash="true"\]/);
   assert.doesNotMatch(DLENS_MOTION_CSS, /^\.dlens-card-lift/m);
@@ -4396,7 +4395,7 @@ test("ProductSignalView gives each product page a distinct information shape", (
   assert.match(classificationTwoHtml, /最新在前/);
 });
 
-test("Product action brief preserves the four-part macro strip labels", () => {
+test("Product action brief removes the four-part macro scoreboard", () => {
   const fixture = buildActionableCardFixture();
   const html = renderToStaticMarkup(
     productSignalViewElement({
@@ -4409,11 +4408,10 @@ test("Product action brief preserves the four-part macro strip labels", () => {
     })
   );
 
-  assert.match(html, /data-product-macro-strip="true"/);
-  assert.match(html, /信號重試/);
-  assert.match(html, /噪音不符/);
-  assert.match(html, /資料不足/);
-  assert.match(html, /保留觀察/);
+  assert.match(html, /data-product-action-stage=/);
+  assert.match(html, /data-product-action-sequence="true"/);
+  assert.doesNotMatch(html, /data-product-macro-strip="true"/);
+  assert.doesNotMatch(html, /data-verdict-filter-tiles="true"/);
   assert.doesNotMatch(html, /受眾\s*\/\s*主題\s*\/\s*情緒\s*\/\s*主張/);
 });
 
@@ -4543,38 +4541,6 @@ function buildActionableCardFixture() {
   };
 }
 
-function renderActionableCardFixture(
-  layout?: "verdict" | "marginalia",
-  analysisOverride: Partial<ReturnType<typeof buildActionableCardFixture>["analysis"]> = {},
-  readiness: SignalReadiness = { status: "ready", itemStatus: "succeeded" }
-) {
-  const fixture = buildActionableCardFixture();
-  const analysis = { ...fixture.analysis, ...analysisOverride };
-  const testables = productSignalViewTestables as typeof productSignalViewTestables & {
-    ActionableItemCard: React.ComponentType<{
-      analysis: typeof analysis;
-      index: number;
-      evidenceBySignalId: typeof fixture.evidenceBySignalId;
-      historicalAnalyses: typeof analysis[];
-      agentTaskFeedback: [];
-      layout?: "verdict" | "marginalia";
-      readiness?: SignalReadiness;
-    }>;
-  };
-
-  return renderToStaticMarkup(
-    React.createElement(testables.ActionableItemCard, {
-      analysis,
-      index: 0,
-      evidenceBySignalId: fixture.evidenceBySignalId,
-      historicalAnalyses: [analysis],
-      agentTaskFeedback: [],
-      readiness,
-      ...(layout ? { layout } : {})
-    })
-  );
-}
-
 function countOccurrences(haystack: string, needle: string): number {
   let count = 0;
   let index = haystack.indexOf(needle);
@@ -4585,6 +4551,282 @@ function countOccurrences(haystack: string, needle: string): number {
   return count;
 }
 
+function productActionStageFixture() {
+  const baseAnalysis = {
+    signalType: "learning" as const,
+    signalSubtype: "stage_signal",
+    contentType: "content" as const,
+    relevance: 3 as const,
+    relevantTo: ["technicalLearning" as const],
+    referenceType: "technical_learning" as const,
+    referenceLabel: "技術學習",
+    whyRelevant: "這是有來源支持的產品脈絡。",
+    evidenceRefs: [] as string[],
+    productContextHash: "ctx_stage",
+    promptVersion: "v17",
+    analyzedAt: "2026-07-20T01:00:00.000Z",
+    status: "complete" as const
+  };
+  const signals = [
+    "signal_watch_first",
+    "signal_try_second",
+    "signal_park",
+    "signal_noise",
+    "signal_insufficient",
+    "signal_incomplete"
+  ].map((id, index) => ({
+    id,
+    sessionId: "session_stage",
+    itemId: `item_${index}`,
+    source: "threads" as const,
+    inboxStatus: "processed" as const,
+    capturedAt: `2026-07-20T00:0${index}:00.000Z`
+  }));
+  const analyses = [
+    {
+      ...baseAnalysis,
+      signalId: "signal_watch_first",
+      contentSummary: "第一則低相關度觀察",
+      relevance: 1 as const,
+      verdict: "watch" as const,
+      reason: "第一則觀察原因。",
+      referenceTakeaway: "第一則新知保留。",
+      evidenceRefs: ["e_raw", "e_note", "e_missing"],
+      evidenceNotes: [{ ref: "e_note", quoteSummary: "AI 摘要不可冒充逐字引文。", whyItMatters: "只可作判讀。" }]
+    },
+    {
+      ...baseAnalysis,
+      signalId: "signal_try_second",
+      contentSummary: "第二則高相關度實驗",
+      relevance: 5 as const,
+      verdict: "try" as const,
+      reason: "第二則觀察原因。",
+      referenceTakeaway: "第二則新知保留。",
+      agentTaskSpec: {
+        targetAgent: "codex",
+        taskTitle: "建立第二則真實任務",
+        requiredContext: ["README"],
+        taskPrompt: "Implement the second task."
+      }
+    },
+    {
+      ...baseAnalysis,
+      signalId: "signal_park",
+      contentSummary: "前提不符的真實標題",
+      verdict: "park" as const,
+      reason: "前提不符的真實原因。"
+    },
+    {
+      ...baseAnalysis,
+      signalId: "signal_noise",
+      signalType: "noise" as const,
+      contentSummary: "噪音訊號的真實標題",
+      verdict: "try" as const,
+      reason: "噪音訊號的真實原因。"
+    },
+    {
+      ...baseAnalysis,
+      signalId: "signal_insufficient",
+      contentSummary: "資料不足的真實標題",
+      verdict: "insufficient_data" as const,
+      reason: "資料不足的真實原因。"
+    },
+    {
+      ...baseAnalysis,
+      signalId: "signal_incomplete",
+      contentSummary: "尚未完成不得進 pager",
+      verdict: "try" as const,
+      reason: "未完成。",
+      status: "analyzing" as const
+    }
+  ];
+  return {
+    kind: "actionable-filter" as const,
+    signals,
+    analyses,
+    productProfile: productTestProfile(),
+    signalPreviewById: Object.fromEntries(signals.map((signal) => [signal.id, `來源 ${signal.id}`])),
+    descriptorBySignalId: {
+      signal_watch_first: {
+        engagement: { likes: 4, comments: 3, reposts: 2, forwards: 1 },
+        engagement_present: { likes: true, comments: true, reposts: true, forwards: true }
+      }
+    },
+    evidenceBySignalId: {
+      signal_watch_first: [{ ref: "e_raw", id: "reply_raw", author: "reader", text: "唯一可作逐字引文的真實 evidence entry。", likeCount: 8 }]
+    },
+    onAnalyze: () => undefined,
+    onSynthesizeSignalReading: async () => ({ ok: true as const, reading: "新判讀" })
+  };
+}
+
+test("Product Action stage keeps completed try/watch candidates in scoped source order and separates exclusions", () => {
+  const html = renderToStaticMarkup(productSignalViewElement(productActionStageFixture()));
+
+  assert.equal(countOccurrences(html, "data-product-action-stage="), 1);
+  assert.match(html, /data-product-action-stage="signal_watch_first"/);
+  assert.match(html, /data-product-action-page="1"/);
+  assert.match(html, /data-product-action-live="true"[^>]*>1 \/ 2/);
+  assert.match(html, /data-direction="forward"/);
+  assert.match(html, /觀察原因[^]*第一則觀察原因。[^]*新知保留[^]*第一則新知保留。[^]*下一步[^]*尚未有可派發任務；先保留為觀察。/);
+  assert.match(html, /data-product-source-truth="signal_watch_first"/);
+  assert.match(html, /aria-label="讚 4"[^>]*title="讚 4"/);
+  assert.match(html, /aria-label="總互動 10"[^>]*title="總互動 10"/);
+  assert.match(html, /data-product-action-dot="1"[^>]*aria-label="前往候選 1"[^>]*title="前往候選 1"/);
+  assert.match(html, /data-product-action-exact-quote="true"[^]*唯一可作逐字引文的真實 evidence entry。/);
+  assert.doesNotMatch(html, /<blockquote[^>]*>AI 摘要不可冒充逐字引文。/);
+  assert.doesNotMatch(html, /e_missing/);
+  const stageTag = findTagWithAttribute(html, 'data-product-action-stage="signal_watch_first"');
+  assert.match(stageTag, /tabindex="0"/);
+  assert.match(stageTag, /min-width:0/);
+  assert.doesNotMatch(stageTag, /(?:min-)?height:\d|overflow:(?:auto|scroll)|min-width:[2-9]\d{2}px/);
+
+  const exclusionTag = findTagWithAttribute(html, 'data-product-action-exclusions="true"');
+  const insufficientTag = findTagWithAttribute(html, 'data-product-action-insufficient="true"');
+  assert.doesNotMatch(exclusionTag, /\sopen(?:=|\s|>)/);
+  assert.doesNotMatch(insufficientTag, /\sopen(?:=|\s|>)/);
+  assert.match(html, /前提不符的真實標題[^]*前提不符的真實原因。/);
+  assert.match(html, /噪音訊號的真實標題[^]*噪音訊號的真實原因。/);
+  assert.match(html, /資料不足的真實標題[^]*資料不足的真實原因。/);
+  assert.doesNotMatch(html, /尚未完成不得進 pager/);
+  assert.doesNotMatch(html, /data-verdict-filter-tiles|data-product-macro-strip|data-product-action-card=/);
+});
+
+test("Product Action pager supports buttons, dots, stage-owned keyboard navigation, edges, live copy, and direction", async () => {
+  const { JSDOM } = await import("jsdom");
+  const { createRoot } = await import("react-dom/client");
+  const { act } = await import("react");
+  const dom = new JSDOM("<div id=\"root\"></div>", { url: "https://dlens.test" });
+  const reactActGlobal = globalThis as typeof globalThis & { IS_REACT_ACT_ENVIRONMENT?: boolean };
+  const previousActEnvironment = reactActGlobal.IS_REACT_ACT_ENVIRONMENT;
+  const previous = {
+    window: globalThis.window,
+    document: globalThis.document,
+    HTMLElement: globalThis.HTMLElement,
+    HTMLButtonElement: globalThis.HTMLButtonElement,
+    MouseEvent: globalThis.MouseEvent,
+    KeyboardEvent: globalThis.KeyboardEvent
+  };
+  Object.assign(globalThis, {
+    window: dom.window,
+    document: dom.window.document,
+    HTMLElement: dom.window.HTMLElement,
+    HTMLButtonElement: dom.window.HTMLButtonElement,
+    MouseEvent: dom.window.MouseEvent,
+    KeyboardEvent: dom.window.KeyboardEvent
+  });
+  reactActGlobal.IS_REACT_ACT_ENVIRONMENT = true;
+  const rootElement = dom.window.document.getElementById("root");
+  assert.ok(rootElement);
+  const root = createRoot(rootElement);
+  const synthesisCalls: Array<[string, string, boolean | undefined]> = [];
+  const reviewCalls: Array<[string, "filed" | "deferred" | "rejected"]> = [];
+  const reading = {
+    signalId: "signal_watch_first",
+    cacheKey: "stage-reading-key",
+    productContextHash: "ctx_stage",
+    sourcePacketHash: "packet-stage",
+    promptVersion: SIGNAL_READING_PROMPT_VERSION,
+    reading: "目前候選的深度判讀。",
+    generatedAt: "2026-07-20T02:00:00.000Z",
+    model: "google:test",
+    sourceRefs: ["e_raw"],
+    sourcePacket: { assembledContent: "source", postUrl: "https://www.threads.net/@reader/post/stage", representativeComments: [], analysisPromptVersion: "v17" },
+    feedbackEvents: [],
+    reviewState: "pending" as const
+  };
+  const interactiveProps = {
+    ...productActionStageFixture(),
+    onSynthesizeSignalReading: async (signalId: string, sessionId: string, force?: boolean) => {
+      synthesisCalls.push([signalId, sessionId, force]);
+      return { ok: true as const, reading: force ? "重新生成的判讀" : "第一份判讀" };
+    },
+    onReviewSignalReading: async (cacheKey: string, decision: "filed" | "deferred" | "rejected") => {
+      reviewCalls.push([cacheKey, decision]);
+      return { ok: true as const, signalReading: { ...reading, reviewState: decision } };
+    }
+  };
+
+  const click = async (selector: string) => {
+    const button = rootElement.querySelector<HTMLButtonElement>(selector);
+    assert.ok(button, `${selector} must exist`);
+    await act(async () => {
+      button.dispatchEvent(new dom.window.MouseEvent("click", { bubbles: true }));
+      await Promise.resolve();
+    });
+  };
+  const key = async (keyValue: string, nestedSelector?: string) => {
+    const target = nestedSelector
+      ? rootElement.querySelector<HTMLElement>(nestedSelector)
+      : rootElement.querySelector<HTMLElement>("[data-product-action-stage]");
+    assert.ok(target, `${nestedSelector ?? "stage"} must exist`);
+    await act(async () => {
+      target.dispatchEvent(new dom.window.KeyboardEvent("keydown", { key: keyValue, bubbles: true }));
+      await Promise.resolve();
+    });
+  };
+  const assertPage = (signalId: string, page: number, direction: "forward" | "backward") => {
+    const stage = rootElement.querySelector<HTMLElement>("[data-product-action-stage]");
+    assert.ok(stage);
+    assert.equal(stage.dataset.productActionStage, signalId);
+    assert.equal(stage.dataset.productActionPage, String(page));
+    assert.equal(stage.dataset.direction, direction);
+    assert.equal(rootElement.querySelector("[data-product-action-live]")?.textContent, `${page} / 2`);
+    assert.equal(rootElement.querySelectorAll('[data-product-action-dot][aria-current="page"]').length, 1);
+  };
+
+  try {
+    await act(async () => {
+      root.render(productSignalViewElement(interactiveProps));
+      await Promise.resolve();
+    });
+    assertPage("signal_watch_first", 1, "forward");
+    assert.equal(rootElement.querySelector<HTMLButtonElement>("[data-product-action-previous]")?.disabled, true);
+    assert.equal(rootElement.querySelector<HTMLButtonElement>("[data-product-action-next]")?.disabled, false);
+
+    await click("[data-product-action-next]");
+    assertPage("signal_try_second", 2, "forward");
+    assert.equal(rootElement.querySelector<HTMLButtonElement>("[data-product-action-next]")?.disabled, true);
+
+    await click('[data-product-action-dot="1"]');
+    assertPage("signal_watch_first", 1, "backward");
+    await key("End");
+    assertPage("signal_try_second", 2, "forward");
+    await key("Home");
+    assertPage("signal_watch_first", 1, "backward");
+    await key("ArrowRight");
+    assertPage("signal_try_second", 2, "forward");
+    await key("ArrowLeft");
+    assertPage("signal_watch_first", 1, "backward");
+
+    await key("ArrowRight", "[data-product-action-generate-reading]");
+    assertPage("signal_watch_first", 1, "backward");
+
+    await click("[data-product-action-generate-reading]");
+    assert.deepEqual(synthesisCalls, [["signal_watch_first", "session_stage", false]]);
+    await act(async () => {
+      root.render(productSignalViewElement({ ...interactiveProps, signalReadings: [reading] }));
+      await Promise.resolve();
+    });
+    assert.match(rootElement.textContent ?? "", /目前候選的深度判讀。/);
+    await click("[data-product-action-regenerate-reading]");
+    assert.deepEqual(synthesisCalls.at(-1), ["signal_watch_first", "session_stage", true]);
+    await click('[data-product-action-review="filed"]');
+    await click('[data-product-action-review="deferred"]');
+    await click('[data-product-action-review="rejected"]');
+    assert.deepEqual(reviewCalls, [
+      ["stage-reading-key", "filed"],
+      ["stage-reading-key", "deferred"],
+      ["stage-reading-key", "rejected"]
+    ]);
+  } finally {
+    await act(async () => root.unmount());
+    Object.assign(globalThis, previous);
+    if (previousActEnvironment === undefined) delete reactActGlobal.IS_REACT_ACT_ENVIRONMENT;
+    else reactActGlobal.IS_REACT_ACT_ENVIRONMENT = previousActEnvironment;
+  }
+});
+
 function findTagWithAttribute(html: string, attribute: string): string {
   const markerIndex = html.indexOf(attribute);
   assert.ok(markerIndex >= 0, `${attribute} must exist`);
@@ -4594,174 +4836,7 @@ function findTagWithAttribute(html: string, attribute: string): string {
   return html.slice(tagStart, tagEnd + 1);
 }
 
-function styleFromTag(tag: string): string {
-  const match = tag.match(/\sstyle="([^"]*)"/);
-  assert.ok(match, `${tag} must include inline style`);
-  return match[1];
-}
-
-function cssRuleBlock(css: string, selectorNeedle: string): string {
-  const selectorIndex = css.indexOf(selectorNeedle);
-  assert.ok(selectorIndex >= 0, `${selectorNeedle} must exist`);
-  const blockStart = css.indexOf("{", selectorIndex);
-  const blockEnd = css.indexOf("}", blockStart);
-  assert.ok(blockStart >= 0 && blockEnd >= 0, `${selectorNeedle} CSS block must close`);
-  return css.slice(blockStart + 1, blockEnd);
-}
-
-function extractTestIdSection(html: string, testId: string, closeTag: string) {
-  const marker = `data-testid="${testId}"`;
-  const markerIndex = html.indexOf(marker);
-  assert.ok(markerIndex >= 0, `${testId} must exist`);
-  const tagStart = html.lastIndexOf("<", markerIndex);
-  const closeIndex = html.indexOf(closeTag, markerIndex);
-  assert.ok(tagStart >= 0 && closeIndex >= 0, `${testId} section must close with ${closeTag}`);
-  return html.slice(tagStart, closeIndex + closeTag.length);
-}
-
-test("ActionableItemCard renders the unified compact card for actionable verdicts", () => {
-  const html = renderActionableCardFixture();
-
-  assert.match(html, /data-product-action-card="verdict"/);
-  assert.match(html, /data-testid="insight-headline"[^>]*>多來源討論轉交付文件/);
-  assert.match(html, /data-product-readiness-chip="true"[^>]*data-product-readiness-status="ready"[^>]*>可分析/);
-  assert.match(html, /實驗切入/);
-  assert.match(html, /子型：PM 文件產出/);
-  assert.match(html, /data-testid="task-slot"/);
-  assert.match(html, /下一步/);
-  assert.match(html, /產出 release-note 草稿/);
-  // The old marginalia / verdict-panel / Frame-03 chrome is gone for good.
-  assert.doesNotMatch(html, /data-marginalia-layout/);
-  assert.doesNotMatch(html, /data-testid="verdict-panel"/);
-  assert.doesNotMatch(html, /data-product-action-lead/);
-  assert.doesNotMatch(html, /data-product-action-more/);
-});
-
-test("ActionableItemCard keeps the primary-card raised elevation and stays min-width safe", () => {
-  const html = renderActionableCardFixture();
-  const shellStyle = styleFromTag(findTagWithAttribute(html, `data-product-action-card="verdict"`));
-
-  assert.equal(countOccurrences(html, `box-shadow:${tokens.shadow.raised}`), 1);
-  assert.match(shellStyle, /min-width:0/);
-});
-
-test("ActionableItemCard stays width-safe as a single-column compact card", () => {
-  const html = renderActionableCardFixture();
-
-  assert.doesNotMatch(html, /\bwidth:(?:320|440)px/);
-  assert.doesNotMatch(html, /\bmin-width:[2-9]\d{2}px/);
-});
-
-test("ProductSignalView threads action readiness into the compact cards", () => {
-  const fixture = buildActionableCardFixture();
-  const html = renderToStaticMarkup(
-    productSignalViewElement({
-      kind: "actionable-filter",
-      signals: [fixture.signal],
-      analyses: [fixture.analysis],
-      productProfile: fixture.productProfile,
-      evidenceBySignalId: fixture.evidenceBySignalId,
-      signalReadinessById: {
-        [fixture.signal.id]: { status: "crawling", itemStatus: "running" }
-      },
-      onAnalyze: () => undefined
-    })
-  );
-
-  assert.match(html, /data-product-action-card="verdict"/);
-  assert.match(html, /data-product-readiness-chip="true"[^>]*data-product-readiness-status="crawling"[^>]*>抓取中/);
-});
-
-test("ActionableItemCard renders noise and park verdicts as compact exclusion cards without task framing", () => {
-  const html = renderActionableCardFixture(undefined, {
-    signalType: "noise",
-    signalSubtype: "user_sentiment_reflection",
-    verdict: "park",
-    relevance: 1,
-    contentSummary: "這只是一般情緒宣洩，沒有直接產品參考。",
-    reason: "沒有可採用的產品需求或 workflow pattern。",
-    referenceType: "no_direct_fit",
-    referenceLabel: "暫無直接用途",
-    referenceTakeaway: "保留為背景噪音，不排進 Agent 任務。",
-    experimentHint: "",
-    agentTaskSpec: undefined
-  });
-
-  assert.match(html, /data-product-action-card="exclusion"/);
-  assert.match(html, /data-exclusion-card="true"/);
-  assert.match(html, /不納入行動清單/);
-  assert.match(html, /排除原因/);
-  assert.match(html, /沒有可採用的產品需求或 workflow pattern/);
-  assert.match(html, /暫無直接用途/);
-  // Excluded cards carry no "下一步" task framing.
-  assert.doesNotMatch(html, /data-testid="task-slot"/);
-  assert.doesNotMatch(html, /下一步|可借用 workflow|任務 ›|排入小實驗/);
-});
-
-test("ActionableItemCard renders no source hero (the compact card has no lead block)", () => {
-  const html = renderActionableCardFixture();
-  assert.doesNotMatch(html, /data-product-action-lead="true"/);
-});
-
-test("ProductSignalView keeps non-try verdicts behind clickable filters by default", () => {
-  const baseAnalysis = {
-    signalType: "learning" as const,
-    signalSubtype: "agent_workflow",
-    contentType: "content" as const,
-    relevance: 4 as const,
-    relevantTo: ["technicalLearning" as const],
-    referenceType: "technical_learning" as const,
-    referenceLabel: "學習 Agent 工作流",
-    referenceTakeaway: "先作為技術學習，不直接產品化。",
-    evidenceRefs: [],
-    productContextHash: "ctx",
-    promptVersion: "v12",
-    analyzedAt: "2026-05-07T00:00:00.000Z",
-    status: "complete" as const
-  };
-  const html = renderToStaticMarkup(
-    productSignalViewElement( {
-      kind: "actionable-filter",
-      signals: [
-        { id: "signal_try", sessionId: "sess", itemId: "i1", source: "threads", inboxStatus: "unprocessed", capturedAt: "2026-05-07T00:00:00.000Z" },
-        { id: "signal_watch", sessionId: "sess", itemId: "i2", source: "threads", inboxStatus: "unprocessed", capturedAt: "2026-05-07T00:00:00.000Z" }
-      ] as any,
-      analyses: [
-        {
-          ...baseAnalysis,
-          signalId: "signal_try",
-          contentSummary: "可直接試的 Agent 工作流",
-          whyRelevant: "可直接測試。",
-          verdict: "try" as const,
-          reason: "有明確行動。"
-        },
-        {
-          ...baseAnalysis,
-          signalId: "signal_watch",
-          contentSummary: "只適合保留觀察的跨平台資料流",
-          whyRelevant: "先學習概念。",
-          verdict: "watch" as const,
-          reason: "暫時不直接改產品。"
-        }
-      ],
-      productProfile: {
-        name: "DLens",
-        category: "x",
-        audience: "y",
-        contextText: "z",
-        contextFiles: [{ id: "f", name: "README.md", kind: "readme", importedAt: "2026-05-07T00:00:00.000Z", charCount: 1 }]
-      } as any,
-      onAnalyze: () => undefined
-    })
-  );
-
-  assert.match(html, /data-action-verdict-filter="try"[^>]*aria-pressed="true"/);
-  assert.match(html, /data-action-verdict-filter="watch"[^>]*aria-pressed="false"/);
-  assert.match(html, /可直接試的 Agent 工作流/);
-  assert.doesNotMatch(html, /只適合保留觀察的跨平台資料流/);
-});
-
-test("merged candidate-action board keeps AI commentary collapsed on action route", () => {
+test("Product Action stage renders one candidate at a time without promoting AI quote summaries", () => {
   const v3Props = {
     signals: [
       { id: "s1", sessionId: "sess", itemId: "i1", source: "threads" as const, inboxStatus: "unprocessed" as const, capturedAt: "2026-04-28T00:00:00.000Z" },
@@ -4804,12 +4879,16 @@ test("merged candidate-action board keeps AI commentary collapsed on action rout
 
   assert.equal(openDetails.length, 0);
   assert.match(html, /行動簡報/);
+  assert.equal(countOccurrences(html, "data-product-action-stage="), 1);
+  assert.match(html, /data-product-action-stage="s1"/);
+  assert.match(html, /data-product-action-live="true"[^>]*>1 \/ 2/);
   assert.doesNotMatch(html, /儲存至行動清單|>\+<\/span> 儲存/);
-  assert.match(html, /s1 摘錄。/);
-  assert.match(html, /s2 摘錄。/);
+  assert.match(html, /data-product-action-exact-quote="true"[^]*raw 1/);
+  assert.doesNotMatch(html, /<blockquote[^>]*>s1 摘錄。/);
+  assert.doesNotMatch(html, /raw 2|卡片 s2/);
 });
 
-test("actionable view with analyses but no readings surfaces the first-reading CTA", () => {
+test("actionable view keeps deep-reading generation inside the active stage", () => {
   const baseProps = {
     signals: [
       { id: "s1", sessionId: "sess", itemId: "i1", source: "threads" as const, inboxStatus: "unprocessed" as const, capturedAt: "2026-04-28T00:00:00.000Z" }
@@ -4844,9 +4923,11 @@ test("actionable view with analyses but no readings surfaces the first-reading C
     productSignalViewElement( { ...baseProps, kind: "actionable-filter", signalReadings: [] })
   );
 
-  assert.match(html, /data-reading-first-run-cta="true"[^>]*data-dlens-presence="card"/);
+  assert.match(html, /data-product-action-stage="s1"/);
+  assert.match(html, /data-product-action-reading="missing"/);
+  assert.match(html, /data-product-action-generate-reading="true"/);
   assert.match(html, /深度判讀/);
-  assert.match(html, /data-actionable-insights-board="true"/);
+  assert.doesNotMatch(html, /data-reading-first-run-cta="true"/);
 
   const withReading = renderToStaticMarkup(
     productSignalViewElement( {
@@ -4869,8 +4950,10 @@ test("actionable view with analyses but no readings surfaces the first-reading C
     })
   );
 
-  assert.doesNotMatch(withReading, /data-reading-first-run-cta="true"/);
-  assert.match(withReading, /data-signal-reading-review-workspace="true"/);
+  assert.match(withReading, /data-product-action-stage="s1"/);
+  assert.match(withReading, /data-product-action-reading="existing"/);
+  assert.match(withReading, /data-product-action-regenerate-reading="true"/);
+  assert.doesNotMatch(withReading, /data-signal-reading-review-workspace="true"/);
 });
 
 test("product view chrome stays 繁中 — no english workspace labels", () => {
@@ -4951,11 +5034,10 @@ test("citationsForAnalysis filters out refs missing both entry and note", () => 
     productSignalViewElement( { ...v3Props, kind: "actionable-filter", cardLayout: "verdict" })
   );
 
-  // e1 has note only, e2 has entry only → both render. e_dangling has neither → must be skipped.
-  assert.match(html, /e1 摘錄。/);
-  assert.match(html, /raw 2/);
-  assert.match(html, /子型/);
-  assert.match(html, /原文證據 · 2 則/);
+  // e1 has note only, e2 has entry only → both count. e_dangling has neither → must be skipped.
+  assert.match(html, /data-product-source-truth-metric="evidence"[^>]*aria-label="證據 ref e1 \+1"/);
+  assert.match(html, /data-product-action-exact-quote="true"[^]*raw 2/);
+  assert.doesNotMatch(html, /<blockquote[^>]*>e1 摘錄。/);
   assert.doesNotMatch(html, /e_dangling/);
 });
 
@@ -5005,10 +5087,11 @@ test("ProductSignalView tolerates legacy analysis records with missing optional 
     })
   );
 
+  assert.match(html, /data-product-action-stage="s_legacy"/);
   assert.match(html, /舊資料仍應可顯示/);
-  assert.match(html, /這則訊號暫時沒有可顯示的原文證據/);
+  assert.match(html, /data-product-source-truth-metric="evidence"[^>]*aria-label="證據 ref 未提供"/);
   assert.doesNotMatch(html, /Agent 任務（可複製）/);
-  assert.match(html, /data-testid="task-slot"/);
+  assert.match(html, /data-product-action-beat="next"/);
   assert.match(html, /舊任務/);
   assert.doesNotMatch(html, /You are helping with a legacy task/);
 });
@@ -5145,7 +5228,7 @@ test("ProductSignalView original batch export includes audience reactions and au
   assert.match(brief, /預期落差: 作者預期毒舌語氣成為差異化/);
 });
 
-test("ProductSignalView restores the 0.1.15 reading review route when readings exist", () => {
+test("ProductSignalView keeps reading review and packet export inside the active Action stage", () => {
   const signals = [
     { id: "signal_pending", sessionId: "sess", itemId: "i1", source: "threads" as const, inboxStatus: "unprocessed" as const, capturedAt: "2026-05-18T00:00:00.000Z" },
     { id: "signal_filed", sessionId: "sess", itemId: "i2", source: "threads" as const, inboxStatus: "unprocessed" as const, capturedAt: "2026-05-18T00:00:00.000Z" }
@@ -5237,13 +5320,20 @@ test("ProductSignalView restores the 0.1.15 reading review route when readings e
           generatedAt: "2026-05-19T08:30:00.000Z"
         }
       }),
+      onSynthesizeSignalReading: async () => ({ ok: true, reading: "重新生成的判讀" }),
+      onReviewSignalReading: async (_cacheKey: string, decision: "filed" | "deferred" | "rejected") => ({
+        ok: true,
+        signalReading: { ...signalReadings[0], reviewState: decision }
+      }),
       onAnalyze: () => undefined
     })
   );
 
   assert.match(html, /行動簡報/);
-  assert.match(html, /READING REVIEW/);
-  assert.doesNotMatch(html, /data-signal-reading-review-workspace="true"[^>]*padding-bottom/);
+  assert.match(html, /data-product-action-stage="signal_pending"/);
+  assert.match(html, /data-product-action-reading="existing"/);
+  assert.match(html, /data-product-action-live="true"[^>]*>1 \/ 2/);
+  assert.doesNotMatch(html, /data-signal-reading-review-workspace="true"/);
   assert.doesNotMatch(html, /data-saved-signals-batch-export="true"/);
   assert.doesNotMatch(html, /Agent export/);
   assert.doesNotMatch(html, /原文優先/);
@@ -5251,41 +5341,22 @@ test("ProductSignalView restores the 0.1.15 reading review route when readings e
   assert.doesNotMatch(html, /複製 Agent Brief|複製行動簡報/);
   assert.doesNotMatch(html, /data-actionable-insights-board="true"/);
   assert.match(html, /收錄此判讀/);
-  assert.match(html, /已收錄/);
-  assert.match(html, /data-action-verdict-filter="try"/);
-  assert.match(html, /data-action-verdict-filter="watch"/);
-  assert.match(html, /data-verdict-filter-tiles="true"/);
-  assert.match(html, /data-product-macro-strip="true"/);
-  assert.match(html, /data-verdict-filter-plate="true"/);
-  assert.match(html, /data-verdict-tile-count="true"/);
-  assert.match(html, /data-signal-reading-review-list-filter="watch"/);
-  assert.match(html, /data-product-list-motion="reading-review"/);
-  assert.match(html, /data-signal-reading-marginalia="true"/);
-  assert.match(html, /data-signal-reading-marginalia-rail="true"/);
-  assert.match(html, /border-left:3px solid var\(--dlens-mode-accent, #234f7a\)/);
-  assert.match(html, /data-signal-reading-relevance-summary="true"/);
+  assert.match(html, /data-product-action-regenerate-reading="true"/);
+  assert.match(html, /data-product-action-review="filed"/);
+  assert.match(html, /data-product-action-review="deferred"/);
+  assert.match(html, /data-product-action-review="rejected"/);
+  assert.match(html, /<details data-product-action-reading-secondary="true"/);
+  assert.match(html, /data-product-action-reading-stale="true"/);
   assert.match(html, /data-signal-reading-provenance="true"/);
   assert.match(html, /data-signal-reading-evidence="true"/);
   assert.match(html, /引用留言 1 則/);
   assert.match(html, /對產品參考：這是一段完整顯示的長判斷，不能被截斷。/);
-  assert.doesNotMatch(html, /source link/);
-  assert.match(html, /信號重試/);
-  assert.match(html, /噪音不符/);
-  assert.match(html, /資料不足/);
-  assert.match(html, /保留觀察/);
-  assert.doesNotMatch(html, /data-signal-reading-brief-copy-bar="inline"/);
-  assert.doesNotMatch(html, /data-signal-reading-brief-copy-status="idle"/);
-  assert.doesNotMatch(html, /data-signal-reading-brief-preview="true"/);
-  assert.doesNotMatch(html, /data-brief-format-option=/);
-  assert.doesNotMatch(html, /預覽 Brief/);
-  assert.doesNotMatch(html, /複製 Brief/);
-  assert.doesNotMatch(html, /what gets copied/);
   assert.match(html, /<strong[^>]*>判讀內容<\/strong>/);
   assert.doesNotMatch(html, /\*\*判讀內容\*\*/);
-  assert.doesNotMatch(html, /SOURCE https/);
-  assert.doesNotMatch(html, /逐則審視判讀 → 決定值得進 corpus/);
-  assert.doesNotMatch(html, /1 已收錄，可複製給 agent/);
-  assert.doesNotMatch(html, /1 則判讀已收錄 → 可複製給 coding agent/);
+  assert.match(html, /<details data-product-action-export="true"/);
+  assert.match(html, /data-signal-packet-format-option="html"/);
+  assert.match(html, /data-signal-packet-format-option="jsonl"/);
+  assert.doesNotMatch(html, /data-verdict-filter-tiles|data-product-macro-strip|data-product-action-card=/);
 });
 
 test("ProductSignalView turns long reading openings into a lighter lead title and summary", () => {
@@ -5299,7 +5370,7 @@ test("ProductSignalView turns long reading openings into a lighter lead title an
   assert.match(display.body, /第二段保留完整判讀/);
 });
 
-test("ProductSignalView action route stays on actionable cards before readings exist", () => {
+test("ProductSignalView action route stays on one stage before readings exist", () => {
   const html = renderToStaticMarkup(
     productSignalViewElement( {
       kind: "actionable-filter",
@@ -5339,10 +5410,12 @@ test("ProductSignalView action route stays on actionable cards before readings e
     })
   );
 
-  assert.match(html, /data-actionable-insights-board="true"/);
+  assert.match(html, /data-product-action-stage="signal_empty"/);
+  assert.match(html, /data-product-action-reading="missing"/);
+  assert.match(html, /data-product-action-generate-reading="true"/);
   assert.match(html, /保留觀察/);
   assert.doesNotMatch(html, /data-signal-reading-review-workspace="true"/);
-  assert.doesNotMatch(html, /尚未生成深度判讀/);
+  assert.match(html, /尚未生成深度判讀/);
 });
 
 test("ProductSignalView action route ignores stale readings from other signals", () => {
@@ -5400,12 +5473,13 @@ test("ProductSignalView action route ignores stale readings from other signals",
     })
   );
 
-  assert.match(html, /data-actionable-insights-board="true"/);
+  assert.match(html, /data-product-action-stage="signal_current"/);
+  assert.match(html, /data-product-action-reading="missing"/);
   assert.doesNotMatch(html, /data-signal-reading-review-workspace="true"/);
   assert.doesNotMatch(html, /其他訊號的舊判讀不應該啟動這個 route/);
 });
 
-test("ProductSignalView action route shows existing reading review content", () => {
+test("ProductSignalView action route shows matching reading controls without replacing the stage", () => {
   const html = renderToStaticMarkup(
     productSignalViewElement( {
       kind: "actionable-filter",
@@ -5460,16 +5534,20 @@ test("ProductSignalView action route shows existing reading review content", () 
     })
   );
 
-  assert.match(html, /data-signal-reading-review-workspace="true"/);
+  assert.match(html, /data-product-action-stage="signal_ready"/);
+  assert.match(html, /data-product-action-reading="existing"/);
+  assert.match(html, /data-product-action-regenerate-reading="true"/);
+  assert.match(html, /data-product-action-review="filed"/);
+  assert.doesNotMatch(html, /data-signal-reading-review-workspace="true"/);
   assert.match(html, /AI 生成/);
   assert.match(html, /來源 threads/);
   assert.match(html, /capture cap-signal_ready/);
   assert.match(html, /item succeeded/);
   assert.match(html, /現有判讀內容/);
-  assert.doesNotMatch(html, /data-actionable-insights-board="true"/);
+  assert.equal(countOccurrences(html, "data-product-action-stage="), 1);
 });
 
-test("reading-review card leads with original-post hero, keeps the judgment panel, folds provenance (Frame 03)", () => {
+test("active Action stage keeps reading content visible and folds provenance details", () => {
   const html = renderToStaticMarkup(
     productSignalViewElement({
       kind: "actionable-filter",
@@ -5490,7 +5568,7 @@ test("reading-review card leads with original-post hero, keeps the judgment pane
           referenceLabel: "對產品參考",
           referenceTakeaway: "用來判斷產品語氣。",
           whyRelevant: "對產品語氣有參考價值。",
-          verdict: "park",
+          verdict: "watch",
           reason: "理由。",
           evidenceRefs: ["e1"],
           productContextHash: "ctx",
@@ -5525,12 +5603,9 @@ test("reading-review card leads with original-post hero, keeps the judgment pane
     })
   );
 
-  // Original post leads as the SourceHero (original ≫ AI reading).
-  assert.match(html, /data-evidence-source-hero="true"/);
-  assert.match(html, /原文：多卡推理在 PCIe 頻寬限制下出現明顯瓶頸。/);
-  // Judgment + relevance panel stays visible (the block to keep).
-  assert.match(html, /data-signal-reading-relevance-summary="true"/);
-  // The AI reading body is kept but secondary.
+  assert.match(html, /data-product-action-stage="signal_f03"/);
+  assert.doesNotMatch(html, /data-evidence-source-hero="true"/);
+  assert.match(html, /觀察原因/);
   assert.match(html, /AI 判讀內容。/);
   assert.match(html, /data-signal-reading-full="true"/);
   assert.match(html, /data-signal-reading-full-summary="true"/);
@@ -5539,14 +5614,13 @@ test("reading-review card leads with original-post hero, keeps the judgment pane
     html.indexOf("data-signal-reading-full-summary=\"true\"") < html.indexOf("第二段完整判讀不應在主卡直接展開"),
     "long reading body should sit behind the full-reading disclosure"
   );
-  // Source/capture provenance + evidence drill-down fold into a collapsed disclosure.
-  assert.match(html, /data-signal-reading-more="true"/);
-  const moreIndex = html.indexOf("data-signal-reading-more-summary=\"true\"");
+  // Source/capture provenance stays in the stage's collapsed secondary disclosure.
+  assert.match(html, /data-product-action-reading-secondary="true"/);
+  const moreIndex = html.indexOf("data-product-action-reading-secondary=\"true\"");
   const captureIndex = html.indexOf("capture cap-signal_f03");
   assert.ok(moreIndex >= 0, "the more-disclosure should render");
   assert.ok(captureIndex > moreIndex, "provenance should sit inside the folded disclosure");
-  // Hero (original) appears before the AI reading body.
-  assert.ok(html.indexOf("data-evidence-source-hero") < html.indexOf("AI 判讀內容。"));
+  assert.doesNotMatch(findTagWithAttribute(html, 'data-product-action-reading-secondary="true"'), /\sopen(?:=|\s|>)/);
 });
 
 test("ProductSignalView marks signal readings with missing provenance explicitly", () => {

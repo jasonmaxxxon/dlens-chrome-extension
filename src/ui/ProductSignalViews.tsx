@@ -1,11 +1,8 @@
-import { useEffect, useRef, useState } from "react";
-import type { CSSProperties, ReactNode } from "react";
+import { useEffect, useState } from "react";
+import type { CSSProperties, KeyboardEvent as ReactKeyboardEvent, ReactNode } from "react";
 import { Activity, Quote } from "lucide-react";
 
 import type {
-  ProductAgentTaskFeedback,
-  ProductAgentTaskFeedbackValue,
-  ProductProfile,
   ProductSignalAnalysis,
   ProductSignalEvidenceNote,
   ProductSignalReferenceTarget,
@@ -133,14 +130,7 @@ const SUBTYPE_LABELS: Record<string, string> = {
   user_sentiment_reflection: "使用者情緒回饋"
 };
 
-type ActionVerdictFilter = "try" | "park" | "insufficient" | "watch";
 type AgentBriefCopyStatus = "idle" | "copied" | "error";
-
-function verdictFilterKeyForAnalysis(analysis: ProductSignalAnalysis): ActionVerdictFilter {
-  if (analysis.verdict === "park" || analysis.signalType === "noise") return "park";
-  if (analysis.verdict === "insufficient_data") return "insufficient";
-  return analysis.verdict;
-}
 
 const CONTEXT_FIELD_LABELS: Record<ProductSignalReferenceTarget, string> = {
   productPromise: "產品承諾",
@@ -168,25 +158,6 @@ const REFERENCE_TYPE_LABELS: Record<ProductSignalReferenceType, string> = {
   market_language: "市場語言",
   general_learning: "新知保留",
   no_direct_fit: "暫無直接用途"
-};
-
-const AGENT_TASK_FEEDBACK_OPTIONS: Array<{
-  value: ProductAgentTaskFeedbackValue;
-  label: string;
-  color: string;
-  soft: string;
-}> = [
-  { value: "adopted", label: "已採用", color: tokens.color.success, soft: tokens.color.successSoft },
-  { value: "needs_rewrite", label: "需要改寫", color: tokens.color.queued, soft: tokens.color.queuedSoft },
-  { value: "irrelevant", label: "不相關", color: tokens.color.failed, soft: tokens.color.failedSoft },
-  { value: "ignored", label: "先忽略", color: tokens.color.softInk, soft: tokens.color.neutralSurfaceSoft }
-];
-
-const FEEDBACK_LABELS: Record<ProductAgentTaskFeedbackValue, string> = {
-  adopted: "已採用",
-  needs_rewrite: "需要改寫",
-  irrelevant: "不相關",
-  ignored: "先忽略"
 };
 
 const PRODUCT_MODE_ACCENT = `var(--dlens-mode-accent, ${tokens.color.product})`;
@@ -432,6 +403,7 @@ function ProductSourceTruthStrip({
       <span
         data-product-source-truth-metric="evidence"
         aria-label={firstCitation ? `證據 ref ${evidenceValue}` : evidenceValue}
+        title={firstCitation ? `證據 ref ${evidenceValue}` : evidenceValue}
         style={sourceTruthMetricStyle(Boolean(firstCitation))}
       >
         <Quote aria-hidden size={12} strokeWidth={1.6} />
@@ -442,6 +414,7 @@ function ProductSourceTruthStrip({
           key={metric.key}
           data-product-source-truth-metric={metric.key}
           aria-label={`${metric.label} ${metric.value}`}
+          title={`${metric.label} ${metric.value}`}
           style={sourceTruthMetricStyle(metric.value !== "未讀")}
         >
           <span aria-hidden><MetricIcon kind={metric.key} size={12} /></span>
@@ -451,6 +424,7 @@ function ProductSourceTruthStrip({
       <span
         data-product-source-truth-metric="total"
         aria-label={`總互動 ${total}`}
+        title={`總互動 ${total}`}
         style={sourceTruthMetricStyle(totalExact)}
       >
         <Activity aria-hidden size={12} strokeWidth={1.6} />
@@ -971,33 +945,6 @@ function ScorePill({ children, color, soft }: { children: string; color: string;
     >
       {children}
     </span>
-  );
-}
-
-function RelevanceBars({ score, tone = "light" }: { score: ProductSignalAnalysis["relevance"]; tone?: "light" | "dark" }) {
-  const active = tone === "light" ? tokens.color.inverseStrong : tokens.color.teal;
-  const inactive = tone === "light" ? tokens.color.inverseTrack : tokens.color.lineStrong;
-  const labelColor = tone === "light" ? tokens.color.inverseStrong : tokens.color.softInk;
-
-  return (
-    <div data-relevance-bars="true" style={{ display: "grid", gap: 6 }}>
-      <div style={{ fontSize: 11, lineHeight: 1.2, fontWeight: 800, color: labelColor }}>
-        {formatRelevanceScore(score)}
-      </div>
-      <div style={{ display: "grid", gridTemplateColumns: "repeat(5, minmax(0, 1fr))", gap: 4 }}>
-        {[1, 2, 3, 4, 5].map((bar) => (
-          <span
-            key={bar}
-            aria-hidden="true"
-            style={{
-              height: 6,
-              borderRadius: 999,
-              background: bar <= score ? active : inactive
-            }}
-          />
-        ))}
-      </div>
-    </div>
   );
 }
 
@@ -1715,28 +1662,6 @@ function SignalReadingProvenanceRow({
   );
 }
 
-/** A number that replays a spring "bump" each time it changes — not on first mount. */
-function BumpNumber({ value }: { value: number }) {
-  const mounted = useRef(false);
-  const [bumpKey, setBumpKey] = useState(0);
-  useEffect(() => {
-    if (mounted.current) {
-      setBumpKey((key) => key + 1);
-    } else {
-      mounted.current = true;
-    }
-  }, [value]);
-  return (
-    <span
-      key={bumpKey}
-      data-bump-number="true"
-      style={{ display: "inline-block", animation: bumpKey ? tokens.motion.keyframes.bump : undefined }}
-    >
-      {value}
-    </span>
-  );
-}
-
 /** A shimmer sweep overlay for a button in a loading state. The host button
  * must be position:relative + overflow:hidden. */
 function ButtonShimmer() {
@@ -1847,75 +1772,6 @@ function SignalReadingEvidenceDetails({ citations }: { citations: EvidenceCitati
         })}
       </div>
     </SmoothDetails>
-  );
-}
-
-function SignalReadingMarginaliaPanel({
-  analysis
-}: {
-  analysis: ProductSignalAnalysis;
-}) {
-  const verdictMeta = VERDICT_META[analysis.verdict];
-  const typeMeta = SIGNAL_TYPE_META[analysis.signalType];
-
-  return (
-    <div
-      data-signal-reading-marginalia="true"
-      style={{
-        display: "grid",
-        gridTemplateColumns: "minmax(0, 1fr) 138px",
-        gap: 0,
-        overflow: "hidden",
-        border: `1px solid ${PRODUCT_MODE_ACCENT_GLOW}`,
-        borderRadius: tokens.radius.card,
-        background: `linear-gradient(90deg, ${PRODUCT_MODE_ACCENT_SOFT}, ${tokens.color.elevated} 68%)`
-      }}
-    >
-      <div style={{ display: "grid", gap: 10, padding: "13px 14px", minWidth: 0 }}>
-        <div style={{ display: "flex", gap: 7, flexWrap: "wrap", alignItems: "center" }}>
-          <ScorePill color={verdictMeta.color} soft={tokens.color.elevated}>{VERDICT_LABELS[analysis.verdict]}</ScorePill>
-          <ScorePill color={typeMeta.color} soft={tokens.color.elevated}>{typeMeta.label}</ScorePill>
-          <span style={{ ...textStyles.meta, color: tokens.color.subInk }}>{referenceTypeLabel(analysis.referenceType)}</span>
-        </div>
-        <div
-          data-signal-reading-reference-copy="full"
-          style={{
-            fontSize: 13.5,
-            lineHeight: 1.5,
-            color: tokens.color.ink,
-            fontWeight: 700,
-            overflowWrap: "anywhere"
-          }}
-        >
-          {referenceLabel(analysis)}
-        </div>
-        <div style={{ fontSize: 12.5, lineHeight: 1.6, color: tokens.color.subInk }}>
-          {referenceTakeaway(analysis)}
-        </div>
-      </div>
-      <aside
-        data-signal-reading-marginalia-rail="true"
-        data-product-drawer-accent-rail="true"
-        data-signal-reading-relevance-summary="true"
-        style={{
-          display: "grid",
-          alignContent: "start",
-          gap: 9,
-          padding: "13px 12px",
-          borderLeft: `3px solid ${PRODUCT_MODE_ACCENT}`,
-          background: `linear-gradient(180deg, ${PRODUCT_MODE_ACCENT_SOFT}, ${tokens.color.inversePanel})`,
-          minWidth: 0
-        }}
-      >
-        <div style={{ display: "grid", gap: 2 }}>
-          <span style={{ fontSize: 10, color: tokens.color.softInk, fontWeight: 850 }}>判斷</span>
-          <span style={{ fontSize: 18, lineHeight: 1.1, color: verdictMeta.color, fontWeight: 900, fontFamily: tokens.font.serifCjk }}>
-            {VERDICT_LABELS[analysis.verdict]}
-          </span>
-        </div>
-        <RelevanceBars score={analysis.relevance} tone="dark" />
-      </aside>
-    </div>
   );
 }
 
@@ -2686,418 +2542,6 @@ function SignalReadingDisclosure({
   );
 }
 
-function FirstReadingCta({
-  signal,
-  analysisCount,
-  onSynthesize
-}: {
-  signal: ProductSignalViewModel;
-  analysisCount: number;
-  onSynthesize: SynthesizeSignalReading;
-}) {
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-
-  const handleGenerate = () => {
-    if (loading) {
-      return;
-    }
-    setLoading(true);
-    setError(null);
-    void onSynthesize(signal.signalId, signal.sessionId).then((result) => {
-      if (!result.ok) {
-        setError(result.error);
-      }
-      setLoading(false);
-    });
-  };
-
-  return (
-    <section
-      data-reading-first-run-cta="true"
-      data-dlens-presence="card"
-      style={{
-        display: "grid",
-        gap: 8,
-        padding: "12px 14px",
-        borderRadius: tokens.radius.cardLg,
-        border: `1px solid var(--dlens-mode-accent-soft, ${tokens.color.productSoft})`,
-        background: `var(--dlens-mode-accent-soft, ${tokens.color.productSoft})`,
-        boxShadow: tokens.shadow.topicCard
-      }}
-    >
-      <Kicker>深度判讀 → 匯出</Kicker>
-      <p style={{ margin: 0, fontSize: 12, lineHeight: 1.6, color: tokens.color.subInk }}>
-        已完成 {analysisCount} 條分析。生成第一份深度判讀後，這裡會變成審核與匯出工作區（Signal Packet／行動簡報）。
-      </p>
-      <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-        <PrimaryButton onClick={handleGenerate} disabled={loading} activateOnPointerDown style={{ padding: "6px 14px", whiteSpace: "nowrap" }}>
-          {loading ? "判讀中…" : "生成第一份深度判讀"}
-        </PrimaryButton>
-        {error ? <span style={{ fontSize: 12, color: tokens.color.queued }}>{error}</span> : null}
-      </div>
-    </section>
-  );
-}
-
-function SignalReadingReviewWorkspace({
-  signals,
-  analyses,
-  activeFolderId,
-  exportFolders,
-  signalReadings,
-  signalPreviewById,
-  signalUrlById,
-  evidenceBySignalId,
-  onSynthesizeSignalReading,
-  onReviewSignalReading,
-  onExportSignalPackets
-}: {
-  signals: ProductSignalViewModel[];
-  analyses: ProductSignalAnalysis[];
-  activeFolderId?: string;
-  exportFolders?: SignalPacketExportFolderOption[];
-  signalReadings: SignalReading[];
-  signalPreviewById: Record<string, string>;
-  signalUrlById: Record<string, string>;
-  evidenceBySignalId: Record<string, ProductSignalEvidenceEntry[]>;
-  onSynthesizeSignalReading?: SynthesizeSignalReading;
-  onReviewSignalReading?: ReviewSignalReading;
-  onExportSignalPackets?: ExportSignalPackets;
-}) {
-  const analysesBySignal = analysisBySignalId(analyses);
-  const readingsBySignal = latestReadingBySignalId(signalReadings);
-  const firstActiveSignalId = signals.find((signal) => signalReadingReviewState(readingsBySignal.get(signal.signalId)) === "pending")?.signalId
-    ?? signals[0]?.signalId
-    ?? null;
-  const firstActiveAnalysis = firstActiveSignalId ? analysesBySignal.get(firstActiveSignalId) : undefined;
-  const initialReviewFilter = firstActiveAnalysis ? verdictFilterKeyForAnalysis(firstActiveAnalysis) : "try";
-  const [activeSignalId, setActiveSignalId] = useState<string | null>(firstActiveSignalId);
-  const [selectedReviewFilter, setSelectedReviewFilter] = useState<ActionVerdictFilter>(initialReviewFilter);
-  const [reviewOverrides, setReviewOverrides] = useState<Record<string, SignalReadingReviewState>>({});
-  const [reviewError, setReviewError] = useState<string | null>(null);
-  const [reviewNotice, setReviewNotice] = useState<string | null>(null);
-  const [recentlyFiledSignalId, setRecentlyFiledSignalId] = useState<string | null>(null);
-  const [regeneratingSignalId, setRegeneratingSignalId] = useState<string | null>(null);
-  const filedFlashTimeoutRef = useRef<number | null>(null);
-  useEffect(() => {
-    return () => {
-      if (filedFlashTimeoutRef.current !== null && typeof window !== "undefined") {
-        window.clearTimeout(filedFlashTimeoutRef.current);
-      }
-    };
-  }, []);
-  const readingsWithReview = signalReadings.map((reading) => {
-    const override = reviewOverrides[reading.cacheKey];
-    return override ? ({ ...reading, reviewState: override } as SignalReading) : reading;
-  });
-  const filedReadings = readingsWithReview.filter((reading) => signalReadingReviewState(reading) === "filed");
-  const pendingCount = signals.filter((signal) => signalReadingReviewState(readingsBySignal.get(signal.signalId)) === "pending").length;
-  const analysesForSignals = signals
-    .map((signal) => analysesBySignal.get(signal.signalId))
-    .filter((analysis): analysis is ProductSignalAnalysis => Boolean(analysis));
-  const reviewStats = buildProductActionMacroStats(analysesForSignals);
-  const selectedReviewStat = reviewStats.find((stat) => stat.key === selectedReviewFilter) ?? reviewStats[0];
-  const visibleReviewSignals = signals.filter((signal) => {
-    const analysis = analysesBySignal.get(signal.signalId);
-    return analysis ? verdictFilterKeyForAnalysis(analysis) === selectedReviewFilter : false;
-  });
-  const reviewListMotionRef = useCausalListMotion(
-    `${selectedReviewFilter}:${activeSignalId ?? "none"}:${visibleReviewSignals.map((signal) => signal.signalId).join("|")}`
-  );
-  const reviewNoticeForDecision = (decision: SignalReadingReviewDecision) => {
-    if (decision === "filed") {
-      return "已收錄到本機判讀庫，會保留在 Signal Packet。";
-    }
-    if (decision === "deferred") {
-      return "已標記待看；這則判讀仍保留在本機記錄。";
-    }
-    return "已退回；這則判讀會保留 feedback 記錄。";
-  };
-
-  const flashFiled = (signalId: string) => {
-    setRecentlyFiledSignalId(signalId);
-    if (typeof window !== "undefined") {
-      if (filedFlashTimeoutRef.current !== null) {
-        window.clearTimeout(filedFlashTimeoutRef.current);
-      }
-      filedFlashTimeoutRef.current = window.setTimeout(() => {
-        setRecentlyFiledSignalId((current) => (current === signalId ? null : current));
-        filedFlashTimeoutRef.current = null;
-      }, 1000);
-    }
-  };
-
-  const handleReview = (reading: SignalReading, decision: SignalReadingReviewDecision) => {
-    setReviewError(null);
-    setReviewNotice(null);
-    if (!onReviewSignalReading) {
-      setReviewOverrides((current) => ({ ...current, [reading.cacheKey]: decision }));
-      setReviewNotice(reviewNoticeForDecision(decision));
-      if (decision === "filed") flashFiled(reading.signalId);
-      return;
-    }
-    void onReviewSignalReading(reading.cacheKey, decision).then((result) => {
-      if (result.ok) {
-        const nextState = signalReadingReviewState(result.signalReading);
-        setReviewOverrides((current) => ({ ...current, [reading.cacheKey]: nextState }));
-        if (nextState !== "pending") {
-          setReviewNotice(reviewNoticeForDecision(nextState));
-        }
-        if (nextState === "filed") flashFiled(reading.signalId);
-      } else {
-        setReviewError(result.error);
-      }
-    });
-  };
-  const handleRegenerateReading = (signal: ProductSignalViewModel) => {
-    if (!onSynthesizeSignalReading || regeneratingSignalId) {
-      return;
-    }
-    setReviewError(null);
-    setRegeneratingSignalId(signal.signalId);
-    void onSynthesizeSignalReading(signal.signalId, signal.sessionId, true).then((result) => {
-      if (!result.ok) {
-        setReviewError(result.error);
-      }
-      setRegeneratingSignalId(null);
-    });
-  };
-  return (
-    <div data-signal-reading-review-workspace="true" style={{ display: "grid", gap: 14 }}>
-      <section data-signal-reading-verdict-summary="true" data-dlens-presence="card" style={cardStyle({ gap: 12 })}>
-        <div style={{ display: "flex", alignItems: "baseline", justifyContent: "space-between", gap: 10 }}>
-          <div style={{ fontSize: 14, fontWeight: 850, color: tokens.color.ink }}>{analysesForSignals.length} 則訊號已評估</div>
-          <span style={{ ...textStyles.meta, color: tokens.color.softInk }}>
-            {filedReadings.length} 收錄 · {signals.length - pendingCount}/{signals.length} reviewed
-          </span>
-        </div>
-        <VerdictFilterTiles
-          stats={reviewStats}
-          selectedKey={selectedReviewFilter}
-          onSelect={(key) => {
-            setSelectedReviewFilter(key);
-            const target = signals.find((signal) => {
-              const analysis = analysesBySignal.get(signal.signalId);
-              return analysis ? verdictFilterKeyForAnalysis(analysis) === key : false;
-            });
-            if (target) setActiveSignalId(target.signalId);
-          }}
-          dataAttrs={{ "data-product-macro-strip": "true" }}
-        />
-      </section>
-      <section style={{ display: "grid", gap: 8 }}>
-        <div style={{ display: "flex", alignItems: "baseline", justifyContent: "space-between", gap: 12 }}>
-          <div style={{ display: "flex", alignItems: "baseline", gap: 10 }}>
-            <span style={{ ...textStyles.meta, color: tokens.color.product, fontWeight: 850 }}>§ 1</span>
-            <h2 style={{ margin: 0, fontSize: 17, lineHeight: 1.2, letterSpacing: 0, color: tokens.color.ink }}>READING REVIEW</h2>
-          </div>
-          <span style={{ ...textStyles.meta, color: tokens.color.softInk }}>
-            顯示 {selectedReviewStat?.label ?? "訊號"} · {visibleReviewSignals.length} 則
-          </span>
-        </div>
-        {reviewError ? (
-          <div role="alert" style={mutedPanelStyle({ borderColor: tokens.color.queued, color: tokens.color.queued, fontSize: 12 })}>{reviewError}</div>
-        ) : null}
-        {reviewNotice ? (
-          <div
-            data-signal-reading-review-notice="true"
-            role="status"
-            aria-live="polite"
-            style={mutedPanelStyle({ borderColor: tokens.color.success, color: tokens.color.success, fontSize: 12 })}
-          >
-            {reviewNotice}
-          </div>
-        ) : null}
-        <div
-          ref={reviewListMotionRef}
-          data-signal-reading-review-list-filter={selectedReviewFilter}
-          data-product-list-motion="reading-review"
-          style={{ display: "grid", gap: 10 }}
-        >
-          {visibleReviewSignals.length ? visibleReviewSignals.map((signal, index) => {
-            const analysis = analysesBySignal.get(signal.signalId);
-            const reading = readingsBySignal.get(signal.signalId);
-            const reviewedReading = reading ? readingsWithReview.find((entry) => entry.cacheKey === reading.cacheKey) ?? reading : undefined;
-            const reviewState = signalReadingReviewState(reviewedReading);
-            const stateTone = SIGNAL_READING_REVIEW_TONES[reviewState];
-            const title = analysis?.contentSummary || excerpt(signal.sourcePreview.displayText || signalPreviewById[signal.signalId] || signal.signalId, 96);
-            const isActive = activeSignalId === signal.signalId;
-            const verdictMeta = analysis ? VERDICT_META[analysis.verdict] : null;
-            const typeMeta = analysis ? SIGNAL_TYPE_META[analysis.signalType] : null;
-            const sourceUrl = signal.sourcePreview.displayUrl || signalUrlById[signal.signalId] || reading?.sourcePacket?.postUrl || "";
-            const sourceHeroText = (signal.sourcePreview.displayText || signalPreviewById[signal.signalId] || "").trim();
-            const evidenceCitations = analysis ? citationsForAnalysis(analysis, evidenceBySignalId) : [];
-            const staleness = reading
-              ? signalReadingStaleness(reading, SIGNAL_READING_PROMPT_VERSION)
-              : { stale: false, reasons: [] };
-            return (
-              <article
-                key={signal.signalId}
-                data-signal-reading-review-row="true"
-                data-dlens-list-key={signal.signalId}
-                data-signal-reading-filed-flash={recentlyFiledSignalId === signal.signalId ? "true" : undefined}
-                data-dlens-presence="row"
-                className={isActive ? undefined : "dlens-card-lift"}
-                style={{
-                  border: `1px solid ${tokens.color.cardEdge}`,
-                  borderRadius: tokens.radius.card,
-                  background: isActive ? tokens.color.elevated : tokens.color.surface,
-                  boxShadow: isActive ? tokens.shadow.raised : tokens.shadow.card,
-                  overflow: "hidden",
-                  transition: tokens.motion.preset.cardLift,
-                  animation: recentlyFiledSignalId === signal.signalId ? tokens.motion.keyframes.successRing : undefined
-                }}
-              >
-                <button
-                  type="button"
-                  onClick={() => setActiveSignalId(signal.signalId)}
-                  style={{
-                    appearance: "none",
-                    border: 0,
-                    width: "100%",
-                    background: "transparent",
-                    padding: "12px 14px",
-                    display: "grid",
-                    gridTemplateColumns: "42px minmax(0, 1fr) auto",
-                    gap: 10,
-                    alignItems: "center",
-                    cursor: "pointer",
-                    font: "inherit",
-                    textAlign: "left"
-                  }}
-                >
-                  <span style={{ color: tokens.color.softInk, fontWeight: 800, fontSize: 12 }}>{String(index + 1).padStart(2, "0")}</span>
-                  <span style={{ display: "grid", gap: 4, minWidth: 0 }}>
-                    <span style={{ fontSize: 15, fontWeight: 700, lineHeight: 1.38, color: tokens.color.ink, ...lineClamp(2) }}>{title}</span>
-                    <span style={{ display: "flex", gap: 6, flexWrap: "wrap", alignItems: "center", ...textStyles.meta, color: tokens.color.softInk }}>
-                      {analysis && verdictMeta ? <ScorePill color={verdictMeta.color} soft={verdictMeta.soft}>{VERDICT_LABELS[analysis.verdict]}</ScorePill> : null}
-                      {analysis && typeMeta ? <ScorePill color={typeMeta.color} soft={typeMeta.soft}>{typeMeta.label}</ScorePill> : null}
-                      <span>{analysis ? `${referenceTypeLabel(analysis.referenceType)} · ${formatRelevanceScore(analysis.relevance)}` : "尚未分析"}</span>
-                      <span>·</span>
-                      <span>{reading ? `判讀 ${reading.promptVersion}` : "未生成"}</span>
-                    </span>
-                  </span>
-                  <Stamp tone={stateTone}>{SIGNAL_READING_REVIEW_LABELS[reviewState]}</Stamp>
-                </button>
-                {isActive ? (
-                  <div style={{ borderTop: `1px solid ${tokens.color.line}`, display: "grid", gap: 10, padding: "10px 12px 12px" }}>
-                    {sourceHeroText ? (
-                      <EvidenceSourceHero
-                        tone="product"
-                        author={productActionHandle(sourceUrl)}
-                        meta={sourceUrl || undefined}
-                      >
-                        {sourceHeroText}
-                      </EvidenceSourceHero>
-                    ) : null}
-                    {analysis ? (
-                      <SignalReadingMarginaliaPanel
-                        analysis={analysis}
-                      />
-                    ) : null}
-                    {staleness.stale ? (
-                      <div style={mutedPanelStyle({ borderColor: tokens.color.queued, color: tokens.color.queued, fontSize: 12 })}>
-                        判讀建議重新生成：{signalReadingStalenessCopy(staleness)}。
-                      </div>
-                    ) : null}
-                    {reading?.reading ? (
-                      <SignalReadingBody reading={reading.reading} />
-                    ) : (
-                      <div style={{ fontSize: 13.5, lineHeight: 1.75, color: tokens.color.subInk }}>
-                        尚未生成深度判讀。生成後才能收錄進本地判讀庫。
-                      </div>
-                    )}
-                    {reading ? (
-                      <div style={{ display: "flex", gap: 8, flexWrap: "wrap", alignItems: "center" }}>
-                        {onSynthesizeSignalReading ? (
-                          <SecondaryButton
-                            onClick={() => handleRegenerateReading(signal)}
-                            disabled={regeneratingSignalId === signal.signalId}
-                            style={{
-                              padding: "7px 13px",
-                              whiteSpace: "nowrap",
-                              position: "relative",
-                              overflow: "hidden"
-                            }}
-                          >
-                            {regeneratingSignalId === signal.signalId ? (
-                              <>生成中…<ButtonShimmer /></>
-                            ) : "重新生成判讀"}
-                          </SecondaryButton>
-                        ) : null}
-                        <PrimaryButton
-                          disabled={reviewState === "filed"}
-                          onClick={() => handleReview(reading, "filed")}
-                          style={{ padding: "7px 13px" }}
-                        >
-                          ✓ {reviewState === "filed" ? "已收錄" : "收錄此判讀"}
-                        </PrimaryButton>
-                        <SecondaryButton onClick={() => handleReview(reading, "deferred")} style={{ padding: "7px 13px" }}>
-                          待看
-                        </SecondaryButton>
-                        <SecondaryButton onClick={() => handleReview(reading, "rejected")} style={{ padding: "7px 13px" }}>
-                          退回
-                        </SecondaryButton>
-                      </div>
-                    ) : onSynthesizeSignalReading ? (
-                      <SignalReadingDisclosure signal={signal} onSynthesize={onSynthesizeSignalReading} />
-                    ) : null}
-                    <details data-signal-reading-more="true" style={{ borderTop: `1px solid ${tokens.color.line}`, paddingTop: 10 }}>
-                      <summary
-                        data-signal-reading-more-summary="true"
-                        className="dlens-expand-trigger"
-                        style={{ cursor: "pointer", listStyle: "none", display: "inline-flex", alignItems: "center", gap: 6, ...textStyles.fieldLabel, color: tokens.color.softInk }}
-                      >
-                        <span aria-hidden>▸</span>來源與引用
-                      </summary>
-                      <div style={{ display: "grid", gap: 10, marginTop: 10 }}>
-                        <SignalReadingProvenanceRow
-                          sourceUrl={sourceUrl}
-                          reading={reading}
-                          sourceKind={signal.source}
-                          captureId={signal.captureId}
-                          itemStatus={signal.readiness.itemStatus}
-                        />
-                        <SignalReadingEvidenceDetails citations={evidenceCitations} />
-                      </div>
-                    </details>
-                  </div>
-                ) : null}
-              </article>
-            );
-          }) : (
-            <div data-dlens-presence="card" style={mutedPanelStyle({ fontSize: 12.5, color: tokens.color.subInk })}>
-              這個分類暫時沒有訊號。切換上方四格可以審視其他類型。
-            </div>
-          )}
-        </div>
-      </section>
-      <section
-        style={{
-          display: "grid",
-          gap: 12,
-          paddingTop: 14,
-          borderTop: `1px solid ${tokens.color.line}`
-        }}
-      >
-        <div style={{ display: "flex", alignItems: "baseline", justifyContent: "space-between", gap: 12 }}>
-          <div style={{ display: "flex", alignItems: "baseline", gap: 10 }}>
-            <span style={{ ...textStyles.meta, color: tokens.color.product, fontWeight: 850 }}>§ 2</span>
-            <h2 style={{ margin: 0, fontSize: 17, lineHeight: 1.2, letterSpacing: 0, color: tokens.color.ink }}>PACKET EXPORT</h2>
-          </div>
-          <span style={{ ...textStyles.meta, color: tokens.color.softInk }}><BumpNumber value={signals.length} /> signals → packet</span>
-        </div>
-        <SignalPacketHtmlExportSection
-          activeFolderId={activeFolderId}
-          exportFolders={exportFolders}
-          onExportSignalPackets={onExportSignalPackets}
-        />
-      </section>
-    </div>
-  );
-}
-
 function SavedSignalsBatchExport({
   signals,
   analyses,
@@ -3460,464 +2904,383 @@ function ClassificationBoard({
   );
 }
 
-type VerdictFilterStat = {
-  key: ActionVerdictFilter;
-  label: string;
-  count: number;
-  color: string;
-  soft: string;
-};
-
-function buildProductActionMacroStats(analyses: ProductSignalAnalysis[]): VerdictFilterStat[] {
-  const tryCount = analyses.filter((analysis) => verdictFilterKeyForAnalysis(analysis) === "try").length;
-  const parkCount = analyses.filter((analysis) => verdictFilterKeyForAnalysis(analysis) === "park").length;
-  const insufficientCount = analyses.filter((analysis) => verdictFilterKeyForAnalysis(analysis) === "insufficient").length;
-  const watchCount = analyses.filter((analysis) => verdictFilterKeyForAnalysis(analysis) === "watch").length;
-  return [
-    { key: "try", ...VERDICT_META.try, label: "信號重試", count: tryCount },
-    { key: "park", ...VERDICT_META.park, label: "噪音不符", count: parkCount },
-    { key: "insufficient", ...VERDICT_META.insufficient_data, count: insufficientCount },
-    { key: "watch", ...VERDICT_META.watch, count: watchCount }
-  ];
-}
-
-/** Four verdict tiles over a shared selection plate that slides between them. */
-function VerdictFilterTiles({
-  stats,
-  selectedKey,
-  onSelect,
-  dataAttrs
-}: {
-  stats: VerdictFilterStat[];
-  selectedKey: ActionVerdictFilter;
-  onSelect: (key: ActionVerdictFilter) => void;
-  dataAttrs?: Record<string, string>;
-}) {
-  const count = stats.length;
-  const selectedIndex = Math.max(0, stats.findIndex((stat) => stat.key === selectedKey));
-  const active = stats[selectedIndex];
-  return (
-    <div
-      data-verdict-filter-tiles="true"
-      {...dataAttrs}
-      style={{
-        position: "relative",
-        display: "grid",
-        gridTemplateColumns: `repeat(${count}, minmax(0, 1fr))`,
-        gap: 8
-      }}
-    >
-      <div
-        aria-hidden="true"
-        data-verdict-filter-plate="true"
-        style={{
-          position: "absolute",
-          top: 0,
-          bottom: 0,
-          left: 0,
-          width: `calc((100% - ${(count - 1) * 8}px) / ${count})`,
-          transform: `translateX(calc((100% + 8px) * ${selectedIndex}))`,
-          borderRadius: tokens.radius.card,
-          background: active?.soft ?? tokens.color.surface,
-          border: `1px solid ${active?.color ?? tokens.color.line}`,
-          boxShadow: tokens.shadow.activeTab,
-          pointerEvents: "none"
-        }}
-      />
-      {stats.map((stat) => (
-        <ActionStatCard
-          key={stat.key}
-          filterKey={stat.key}
-          label={stat.label}
-          count={stat.count}
-          color={stat.color}
-          soft={stat.soft}
-          selected={selectedKey === stat.key}
-          onSelect={() => onSelect(stat.key)}
-        />
-      ))}
-    </div>
-  );
-}
-
-function ActionStatCard({
-  filterKey,
-  label,
-  count,
-  color,
-  soft,
-  selected,
-  onSelect
-}: {
-  filterKey: ActionVerdictFilter;
-  label: string;
-  count: number;
-  color: string;
-  soft: string;
-  selected: boolean;
-  onSelect: () => void;
-}) {
-  const isZero = count === 0;
-  return (
-    <button
-      type="button"
-      data-action-verdict-filter={filterKey}
-      data-verdict-tile="true"
-      aria-pressed={selected}
-      onClick={onSelect}
-      style={{
-        position: "relative",
-        zIndex: 1,
-        display: "grid",
-        gap: 3,
-        padding: "10px 9px",
-        placeItems: "center",
-        textAlign: "center",
-        borderRadius: tokens.radius.card,
-        border: "1px solid transparent",
-        background: "transparent",
-        opacity: isZero && !selected ? 0.5 : 1,
-        cursor: "pointer",
-        appearance: "none",
-        font: "inherit"
-      }}
-    >
-      <div style={{ fontSize: 11, fontWeight: isZero ? 600 : 800, color }}>{label}</div>
-      <div
-        data-verdict-tile-count="true"
-        style={{ display: "inline-block", fontSize: 24, fontWeight: isZero ? 600 : 850, lineHeight: 1, color }}
-      >
-        {count}
-      </div>
-      <div
-        data-verdict-tile-bar="true"
-        style={{ height: 3, width: "100%", borderRadius: 999, background: selected ? color : soft }}
-      />
-    </button>
-  );
-}
-
 function isExcludedActionSignal(analysis: ProductSignalAnalysis): boolean {
   return analysis.verdict === "park" || analysis.signalType === "noise";
 }
 
-function productActionHandle(url: string | undefined): string {
-  const match = url?.match(/@([A-Za-z0-9_.]+)/);
-  return match ? `@${match[1]}` : "原文";
-}
+type ProductActionDirection = "forward" | "backward";
 
-function ActionableItemCard({
-  analysis,
-  index,
-  evidenceBySignalId,
-  historicalAnalyses,
-  agentTaskFeedback,
-  onRemove,
-  readiness = DEFAULT_PRODUCT_ACTION_READINESS,
-  sourceText,
-  sourceUrl
+function ProductActionReadingOperations({
+  signal,
+  reading,
+  sourceUrl,
+  citations,
+  onSynthesizeSignalReading,
+  onReviewSignalReading
 }: {
-  analysis: ProductSignalAnalysis;
-  index: number;
-  evidenceBySignalId: Record<string, ProductSignalEvidenceEntry[]>;
-  historicalAnalyses: ProductSignalAnalysis[];
-  agentTaskFeedback: ProductAgentTaskFeedback[];
-  onRemove?: () => void;
-  readiness?: SignalReadiness;
-  sourceText?: string;
-  sourceUrl?: string;
+  signal?: ProductSignalViewModel;
+  reading?: SignalReading;
+  sourceUrl: string;
+  citations: EvidenceCitation[];
+  onSynthesizeSignalReading?: SynthesizeSignalReading;
+  onReviewSignalReading?: ReviewSignalReading;
 }) {
-  const verdictMeta = VERDICT_META[analysis.verdict];
-  const citations = citationsForAnalysis(analysis, evidenceBySignalId);
-  const citationCount = citations.length;
-  const title = primaryWorkflowTitle(citations, analysis.contentSummary);
-  const taskSlotCopy = analysis.agentTaskSpec?.taskTitle?.trim()
-    || analysis.experimentHint?.trim()
-    || "尚未有可派發任務；先保留為觀察。";
-  const excluded = isExcludedActionSignal(analysis);
-  const primaryActionCard = index === 0;
-  const baseActionCardShadow = primaryActionCard ? tokens.shadow.raised : tokens.shadow.card;
-  const headline = excluded ? "不納入行動清單" : title;
+  const [localReading, setLocalReading] = useState<string | null>(null);
+  const [generating, setGenerating] = useState(false);
+  const [reviewState, setReviewState] = useState<SignalReadingReviewState>(() => signalReadingReviewState(reading));
+  const [notice, setNotice] = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  const displayedReading = reading?.reading || localReading;
+  const staleness = reading
+    ? signalReadingStaleness(reading, SIGNAL_READING_PROMPT_VERSION)
+    : { stale: false, reasons: [] };
 
-  return (
-    <article
-      data-product-action-card={excluded ? "exclusion" : "verdict"}
-      data-product-action-card-primary={primaryActionCard ? "true" : "false"}
-      data-verdict-value={analysis.verdict}
-      data-exclusion-card={excluded ? "true" : "false"}
-      data-dlens-presence="card"
-      style={cardStyle({
-        gap: 14,
-        padding: 18,
-        minWidth: 0,
-        borderColor: tokens.color.line,
-        boxShadow: baseActionCardShadow,
-        overflow: "hidden",
-      })}
-    >
-      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: 12 }}>
-        <div style={{ display: "grid", gap: 8, minWidth: 0 }}>
-          <div style={{ display: "flex", gap: 7, alignItems: "center", flexWrap: "wrap" }}>
-            <span
-              data-dlens-number-badge="true"
-              style={{
-                width: 24,
-                height: 24,
-                borderRadius: 999,
-                display: "inline-grid",
-                placeItems: "center",
-                fontSize: 12,
-                fontWeight: 600,
-                color: tokens.color.subInk,
-                background: tokens.color.neutralSurface,
-                border: `1px solid ${tokens.color.lineStrong}`,
-                fontFamily: tokens.font.serifCjk,
-                fontVariantNumeric: "tabular-nums"
-              }}
-            >
-              {index + 1}
-            </span>
-            <ScorePill
-              color={excluded ? tokens.color.neutralText : verdictMeta.color}
-              soft={excluded ? tokens.color.neutralSurfaceSoft : verdictMeta.soft}
-            >
-              {verdictMeta?.label ?? VERDICT_LABELS[analysis.verdict]}
-            </ScorePill>
-            <ProductReadinessChip readiness={readiness} />
-            <span style={{ fontSize: 11.5, color: tokens.color.softInk }}>{SIGNAL_TYPE_LABELS[analysis.signalType]}</span>
-            <span style={{ fontSize: 11.5, color: tokens.color.softInk }}>{formatRelevanceScore(analysis.relevance)}</span>
-          </div>
-          <h3
-            data-testid="insight-headline"
-            style={{ margin: 0, fontSize: 22, lineHeight: 1.25, color: tokens.color.ink, fontWeight: 760, fontFamily: tokens.font.serifCjk }}
-          >
-            {headline}
-          </h3>
-          {analysis.contentSummary && analysis.contentSummary !== headline ? (
-            <div style={{ fontSize: 13.5, lineHeight: 1.65, color: tokens.color.subInk }}>
-              {analysis.contentSummary}
-            </div>
-          ) : null}
-        </div>
-        {onRemove ? (
-          <button
-            type="button"
-            aria-label="移除此訊號"
-            onClick={onRemove}
-            style={{ background: "none", border: "none", cursor: "pointer", padding: "2px 4px", lineHeight: 1, color: tokens.color.softInk, fontSize: 16, borderRadius: 4, display: "flex", alignItems: "center", flexShrink: 0 }}
-          >×</button>
-        ) : null}
-      </div>
+  const generate = (force: boolean) => {
+    if (!signal || !onSynthesizeSignalReading || generating) return;
+    setGenerating(true);
+    setError(null);
+    setNotice(null);
+    void onSynthesizeSignalReading(signal.signalId, signal.sessionId, force).then((result) => {
+      if (result.ok) {
+        setLocalReading(result.reading);
+        setNotice(force ? "判讀已重新生成。" : "判讀已生成。");
+      } else {
+        setError(result.error);
+      }
+      setGenerating(false);
+    });
+  };
 
-      <div style={mutedPanelStyle({ gap: 7, background: tokens.color.neutralSurfaceSoft })}>
-        <div style={{ ...textStyles.label, color: tokens.color.softInk }}>{excluded ? "排除原因" : REASON_PANEL_LABEL[analysis.verdict]}</div>
-        <div style={{ fontSize: 13, lineHeight: 1.65, color: tokens.color.subInk }}>
-          {analysis.reason || referenceTakeaway(analysis)}
-        </div>
-      </div>
+  const review = (decision: SignalReadingReviewDecision) => {
+    if (!reading || !onReviewSignalReading) return;
+    setError(null);
+    setNotice(null);
+    void onReviewSignalReading(reading.cacheKey, decision).then((result) => {
+      if (result.ok) {
+        const nextState = signalReadingReviewState(result.signalReading);
+        setReviewState(nextState);
+        setNotice(nextState === "filed" ? "已收錄此判讀。" : nextState === "deferred" ? "已標記待看。" : "已退回此判讀。");
+      } else {
+        setError(result.error);
+      }
+    });
+  };
 
-      <div style={{ display: "grid", gap: 8 }}>
-        <div style={{ display: "grid", gap: 4 }}>
-          <span style={{ ...textStyles.fieldLabel, color: tokens.color.softInk }}>{referenceTypeLabel(analysis.referenceType)}</span>
-          <span style={{ fontSize: 13, lineHeight: 1.55, color: tokens.color.ink, fontWeight: 650 }}>{referenceLabel(analysis)}</span>
-          <span style={{ fontSize: 12.5, lineHeight: 1.55, color: tokens.color.subInk }}>{referenceTakeaway(analysis)}</span>
-        </div>
-        <div style={{ display: "flex", gap: 8, flexWrap: "wrap", fontSize: 11.5, color: tokens.color.softInk }}>
-          <span>子型：{formatSubtype(analysis.signalSubtype)}</span>
-          <span>證據：{citationCount} 則</span>
-          <span>Analyzed：{formatAnalyzedAt(analysis.analyzedAt)}</span>
-        </div>
-      </div>
-
-      {!excluded ? (
-        <div
-          data-testid="task-slot"
-          style={{ borderTop: `1px dashed ${tokens.color.line}`, paddingTop: 10, fontSize: 12, lineHeight: 1.5, color: tokens.color.softInk }}
-        >
-          下一步 · <span style={{ color: tokens.color.subInk, fontWeight: 600 }}>{taskSlotCopy}</span>
-        </div>
-      ) : null}
-
-      {citations.length ? (
-        <div style={{ display: "grid", gap: 7 }}>
-          <span data-evidence-section-label="true" style={{ ...textStyles.label, color: tokens.color.softInk }}>
-            原文證據 · {citationCount} 則
-          </span>
-          {citations.slice(0, 3).map((citation) => (
-            <div key={citation.ref} style={{ display: "grid", gridTemplateColumns: "30px minmax(0, 1fr)", gap: 8, alignItems: "start" }}>
-              <span style={{ fontFamily: tokens.font.mono, fontSize: 11, color: tokens.color.softInk }}>{citation.ref}.</span>
-              <div style={{ fontSize: 12.5, lineHeight: 1.6, color: tokens.color.subInk }}>
-                {citationText(citation, 220)}
-              </div>
-            </div>
-          ))}
-        </div>
-      ) : !excluded ? (
-        <div style={mutedPanelStyle({ background: tokens.color.neutralSurfaceSoft, fontSize: 12.5, color: tokens.color.softInk })}>
-          這則訊號暫時沒有可顯示的原文證據。
-        </div>
-      ) : null}
-    </article>
-  );
-}
-
-function SavedExperimentsPanel({
-  feedback,
-  analyses
-}: {
-  feedback: ProductAgentTaskFeedback[];
-  analyses: ProductSignalAnalysis[];
-}) {
-  const actionable = feedback.filter((f) => f.feedback === "adopted" || f.feedback === "needs_rewrite");
-  if (!actionable.length) return null;
-
-  const bySignal = analysisBySignalId(analyses);
-  const adopted = actionable.filter((f) => f.feedback === "adopted");
-  const needsRewrite = actionable.filter((f) => f.feedback === "needs_rewrite");
-
-  function feedbackRow(f: ProductAgentTaskFeedback, tone: "adopted" | "needs_rewrite") {
-    const analysis = bySignal.get(f.signalId);
-    const title = analysis?.contentSummary || f.signalId;
-    const meta = AGENT_TASK_FEEDBACK_OPTIONS.find((o) => o.value === tone);
-    return (
-      <div
-        key={`${f.signalId}-${f.taskPromptHash}`}
-        style={{
-          display: "flex", alignItems: "center", gap: 8, padding: "7px 10px",
-          borderRadius: tokens.radius.sm,
-          background: meta?.soft || tokens.color.neutralSurfaceSoft,
-          border: `1px solid ${tokens.color.line}`
-        }}
-      >
-        <span style={{
-          width: 6, height: 6, borderRadius: 999, flexShrink: 0,
-          background: meta?.color || tokens.color.softInk
-        }} />
-        <span style={{ ...textStyles.bodyTight, color: tokens.color.ink, flex: 1, minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-          {title}
-        </span>
-        {f.note ? (
-          <span style={{ ...textStyles.meta, color: tokens.color.softInk }} title={f.note}>📝</span>
-        ) : null}
-        <span style={{ ...textStyles.meta, color: tokens.color.softInk, flexShrink: 0 }}>
-          {new Date(f.createdAt).toLocaleDateString("zh-TW", { month: "numeric", day: "numeric" })}
-        </span>
-      </div>
-    );
+  if (!signal || (!displayedReading && !onSynthesizeSignalReading)) {
+    return null;
   }
 
   return (
-    <section data-dlens-presence="card" style={cardStyle({ padding: "12px 14px", gap: 10 })}>
-      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
-        <div style={{ ...textStyles.cardTitle, color: tokens.color.ink }}>已儲存實驗</div>
-        <Stamp tone="accent">{actionable.length}</Stamp>
+    <section
+      data-product-action-reading={reading ? "existing" : "missing"}
+      style={{ display: "grid", gap: 10, paddingTop: 12, borderTop: `1px solid ${tokens.color.line}`, minWidth: 0 }}
+    >
+      <div style={{ display: "flex", alignItems: "baseline", justifyContent: "space-between", gap: 8, flexWrap: "wrap" }}>
+        <span style={{ ...textStyles.fieldLabel, color: tokens.color.product }}>深度判讀</span>
+        {reading ? <Stamp tone={SIGNAL_READING_REVIEW_TONES[reviewState]}>{SIGNAL_READING_REVIEW_LABELS[reviewState]}</Stamp> : null}
       </div>
-      {adopted.length ? (
-        <div style={{ display: "grid", gap: 5 }}>
-          <div style={{ ...textStyles.label, color: tokens.color.success }}>已採用</div>
-          {adopted.map((f) => feedbackRow(f, "adopted"))}
+      {displayedReading ? <SignalReadingBody reading={displayedReading} /> : (
+        <div style={{ fontSize: 12.5, lineHeight: 1.6, color: tokens.color.subInk }}>
+          尚未生成深度判讀；可直接從目前候選生成。
         </div>
-      ) : null}
-      {needsRewrite.length ? (
-        <div style={{ display: "grid", gap: 5 }}>
-          <div style={{ ...textStyles.label, color: tokens.color.queued }}>需要改寫</div>
-          {needsRewrite.map((f) => feedbackRow(f, "needs_rewrite"))}
-        </div>
+      )}
+      <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
+        {!reading && onSynthesizeSignalReading ? (
+          <PrimaryButton
+            dataAttrs={{ "data-product-action-generate-reading": "true" }}
+            onClick={() => generate(false)}
+            disabled={generating}
+            style={{ position: "relative", overflow: "hidden" }}
+          >
+            {generating ? <>生成中…<ButtonShimmer /></> : "生成深度判讀"}
+          </PrimaryButton>
+        ) : null}
+        {reading && onSynthesizeSignalReading ? (
+          <SecondaryButton
+            dataAttrs={{ "data-product-action-regenerate-reading": "true" }}
+            onClick={() => generate(true)}
+            disabled={generating}
+            style={{ position: "relative", overflow: "hidden" }}
+          >
+            {generating ? <>生成中…<ButtonShimmer /></> : "重新生成判讀"}
+          </SecondaryButton>
+        ) : null}
+        {reading && onReviewSignalReading ? (
+          <>
+            <PrimaryButton
+              dataAttrs={{ "data-product-action-review": "filed" }}
+              disabled={reviewState === "filed"}
+              onClick={() => review("filed")}
+            >
+              {reviewState === "filed" ? "已收錄" : "收錄此判讀"}
+            </PrimaryButton>
+            <SecondaryButton dataAttrs={{ "data-product-action-review": "deferred" }} onClick={() => review("deferred")}>待看</SecondaryButton>
+            <SecondaryButton dataAttrs={{ "data-product-action-review": "rejected" }} onClick={() => review("rejected")}>退回</SecondaryButton>
+          </>
+        ) : null}
+      </div>
+      {notice ? <div data-product-action-reading-notice="true" role="status" aria-live="polite" style={{ fontSize: 12, color: tokens.color.success }}>{notice}</div> : null}
+      {error ? <div data-product-action-reading-error="true" role="alert" style={{ fontSize: 12, color: tokens.color.queued }}>{error}</div> : null}
+      {reading ? (
+        <details data-product-action-reading-secondary="true" style={{ borderTop: `1px solid ${tokens.color.line}`, paddingTop: 8 }}>
+          <summary className="dlens-expand-trigger" style={{ cursor: "pointer", ...textStyles.fieldLabel, color: tokens.color.softInk }}>
+            來源、引用與新鮮度
+          </summary>
+          <div style={{ display: "grid", gap: 9, marginTop: 9, minWidth: 0 }}>
+            {staleness.stale ? (
+              <div data-product-action-reading-stale="true" style={{ fontSize: 12, lineHeight: 1.55, color: tokens.color.queued }}>
+                判讀建議重新生成：{signalReadingStalenessCopy(staleness)}。
+              </div>
+            ) : null}
+            <SignalReadingProvenanceRow
+              sourceUrl={sourceUrl}
+              reading={reading}
+              sourceKind={signal.source}
+              captureId={signal.captureId}
+              itemStatus={signal.readiness.itemStatus}
+            />
+            <SignalReadingEvidenceDetails citations={citations} />
+          </div>
+        </details>
       ) : null}
     </section>
   );
 }
 
-function ActionableInsightsBoard({
+function ProductActionCompactDetails({
+  marker,
+  title,
+  items
+}: {
+  marker: "exclusions" | "insufficient";
+  title: string;
+  items: ProductSignalAnalysis[];
+}) {
+  if (!items.length) return null;
+  const dataAttribute = marker === "exclusions"
+    ? { "data-product-action-exclusions": "true" }
+    : { "data-product-action-insufficient": "true" };
+  return (
+    <details
+      {...dataAttribute}
+      style={{ border: `1px solid ${tokens.color.line}`, borderRadius: tokens.radius.card, background: tokens.color.contextSurface, minWidth: 0 }}
+    >
+      <summary
+        className="dlens-expand-trigger"
+        style={{ cursor: "pointer", padding: "9px 11px", display: "flex", justifyContent: "space-between", gap: 10, color: tokens.color.subInk, fontSize: 12, fontWeight: 750 }}
+      >
+        <span>{title}</span>
+        <span style={{ color: tokens.color.softInk, fontFamily: tokens.font.mono }}>{items.length}</span>
+      </summary>
+      <div style={{ display: "grid", padding: "0 11px 9px", minWidth: 0 }}>
+        {items.map((analysis) => (
+          <div
+            key={analysis.signalId}
+            data-product-action-compact-row={analysis.signalId}
+            style={{ display: "grid", gridTemplateColumns: "minmax(0, 0.8fr) minmax(0, 1.2fr)", gap: 10, padding: "7px 0", borderTop: `1px solid ${tokens.color.line}`, minWidth: 0 }}
+          >
+            <span style={{ fontSize: 12, fontWeight: 700, color: tokens.color.ink, overflowWrap: "anywhere" }}>{excerpt(analysis.contentSummary, 100)}</span>
+            <span style={{ fontSize: 11.5, lineHeight: 1.5, color: tokens.color.softInk, overflowWrap: "anywhere" }}>{analysis.reason || analysis.whyRelevant}</span>
+          </div>
+        ))}
+      </div>
+    </details>
+  );
+}
+
+function ProductActionStage({
   analyses,
-  productProfile,
+  signals,
+  signalReadings,
+  activeFolderId,
+  exportFolders,
   evidenceBySignalId,
-  signalReadinessById,
-  historicalAnalyses,
-  agentTaskFeedback,
-  signalPreviewById,
   signalUrlById,
+  onSynthesizeSignalReading,
+  onReviewSignalReading,
+  onExportSignalPackets,
   onRemoveSignal
 }: {
   analyses: ProductSignalAnalysis[];
-  productProfile: ProductProfile | null | undefined;
+  signals: ProductSignalViewModel[];
+  signalReadings: SignalReading[];
+  activeFolderId?: string;
+  exportFolders?: SignalPacketExportFolderOption[];
   evidenceBySignalId: Record<string, ProductSignalEvidenceEntry[]>;
-  signalReadinessById: Record<string, SignalReadiness>;
-  historicalAnalyses: ProductSignalAnalysis[];
-  agentTaskFeedback: ProductAgentTaskFeedback[];
-  signalPreviewById: Record<string, string>;
   signalUrlById: Record<string, string>;
+  onSynthesizeSignalReading?: SynthesizeSignalReading;
+  onReviewSignalReading?: ReviewSignalReading;
+  onExportSignalPackets?: ExportSignalPackets;
   onRemoveSignal?: (signalId: string) => void;
 }) {
-  const [selectedFilter, setSelectedFilter] = useState<ActionVerdictFilter>("try");
-  const tryItems = analyses.filter((analysis) => verdictFilterKeyForAnalysis(analysis) === "try").sort((a, b) => b.relevance - a.relevance);
-  const parkItems = analyses.filter((analysis) => verdictFilterKeyForAnalysis(analysis) === "park");
-  const insufficientItems = analyses.filter((analysis) => verdictFilterKeyForAnalysis(analysis) === "insufficient");
-  const watchItems = analyses.filter((analysis) => verdictFilterKeyForAnalysis(analysis) === "watch");
-  const stats = buildProductActionMacroStats(analyses);
-  const itemsByFilter: Record<ActionVerdictFilter, ProductSignalAnalysis[]> = {
-    try: tryItems,
-    park: parkItems,
-    insufficient: insufficientItems,
-    watch: watchItems
-  };
-  const selectedItems = itemsByFilter[selectedFilter];
-  const actionListMotionRef = useCausalListMotion(
-    `${selectedFilter}:${selectedItems.map((analysis) => analysis.signalId).join("|")}`
-  );
-  const selectedStat = stats.find((stat) => stat.key === selectedFilter) ?? stats[0];
-  const selectedSectionTitle = selectedFilter === "try" ? "可直接試的做法" : selectedStat.label;
-  const emptyCopyByFilter: Record<ActionVerdictFilter, string> = {
-    try: "目前沒有 verdict=try 的訊號。先看保留觀察或資料不足。",
-    park: "目前沒有被判定為前提不符的訊號。",
-    insufficient: "目前沒有資料不足的訊號。",
-    watch: "目前沒有需要保留觀察的訊號。"
+  const completed = analyses.filter((analysis) => analysis.status === "complete");
+  const candidates = completed.filter((analysis) => (
+    !isExcludedActionSignal(analysis)
+    && (analysis.verdict === "try" || analysis.verdict === "watch")
+  ));
+  const exclusions = completed.filter(isExcludedActionSignal);
+  const insufficient = completed.filter((analysis) => (
+    !isExcludedActionSignal(analysis) && analysis.verdict === "insufficient_data"
+  ));
+  const [activeIndex, setActiveIndex] = useState(0);
+  const [direction, setDirection] = useState<ProductActionDirection>("forward");
+  const safeIndex = Math.min(activeIndex, Math.max(candidates.length - 1, 0));
+  const activeAnalysis = candidates[safeIndex];
+  const signalsById = new Map(signals.map((signal) => [signal.signalId, signal]));
+  const readingsBySignalId = latestReadingBySignalId(signalReadings);
+
+  useEffect(() => {
+    if (activeIndex !== safeIndex) setActiveIndex(safeIndex);
+  }, [activeIndex, safeIndex]);
+
+  const moveTo = (nextIndex: number) => {
+    const clamped = Math.max(0, Math.min(nextIndex, candidates.length - 1));
+    if (clamped === safeIndex) return;
+    setDirection(clamped > safeIndex ? "forward" : "backward");
+    setActiveIndex(clamped);
   };
 
+  const handleStageKeyDown = (event: ReactKeyboardEvent<HTMLElement>) => {
+    if (event.currentTarget !== event.target) return;
+    let nextIndex: number | null = null;
+    if (event.key === "ArrowLeft") nextIndex = safeIndex - 1;
+    if (event.key === "ArrowRight") nextIndex = safeIndex + 1;
+    if (event.key === "Home") nextIndex = 0;
+    if (event.key === "End") nextIndex = candidates.length - 1;
+    if (nextIndex === null) return;
+    event.preventDefault();
+    moveTo(nextIndex);
+  };
+
+  const activeSignal = activeAnalysis ? signalsById.get(activeAnalysis.signalId) : undefined;
+  const activeReading = activeAnalysis ? readingsBySignalId.get(activeAnalysis.signalId) : undefined;
+  const citations = activeAnalysis ? citationsForAnalysis(activeAnalysis, evidenceBySignalId) : [];
+  const exactCitation = citations.find((citation) => citation.entry?.text?.trim());
+  const activeSourceUrl = activeAnalysis
+    ? signalUrlById[activeAnalysis.signalId] || activeReading?.sourcePacket?.postUrl || activeSignal?.sourcePreview.sourceUrl || activeSignal?.sourcePreview.displayUrl || ""
+    : "";
+  const activeTitle = activeAnalysis
+    ? activeAnalysis.referenceLabel?.trim() || activeAnalysis.contentSummary
+    : "";
+
   return (
-    <div data-actionable-insights-board="true" style={{ display: "grid", gap: 14 }}>
-      <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
-        <Stamp tone="accent">{productProfile?.name || "ProductProfile"}</Stamp>
-        <Stamp tone="neutral">{productProfile?.audience || "目標受眾未填"}</Stamp>
-        <Stamp tone={isProductContextSourceReady(productProfile) ? "success" : "warning"}>ProductContext</Stamp>
-      </div>
-      <section data-dlens-presence="card" style={cardStyle({ gap: 12 })}>
-        <div style={{ fontSize: 14, fontWeight: 850, color: tokens.color.ink }}>{analyses.length} 則訊號已評估</div>
-        <VerdictFilterTiles
-          stats={stats}
-          selectedKey={selectedFilter}
-          onSelect={setSelectedFilter}
-          dataAttrs={{ "data-product-macro-strip": "true" }}
-        />
-      </section>
-      <SavedExperimentsPanel feedback={agentTaskFeedback} analyses={analyses} />
-      <section ref={actionListMotionRef} data-product-list-motion="actionable" style={{ display: "grid", gap: 10 }}>
-        <Kicker>{selectedSectionTitle}</Kicker>
-        {selectedItems.length ? selectedItems.map((analysis, index) => (
-          <div key={analysis.signalId} data-dlens-list-key={analysis.signalId} style={{ minWidth: 0 }}>
-            <ActionableItemCard
-              analysis={analysis}
-              index={index}
-              evidenceBySignalId={evidenceBySignalId}
-              historicalAnalyses={historicalAnalyses}
-              agentTaskFeedback={agentTaskFeedback}
-              readiness={signalReadinessById[analysis.signalId] ?? DEFAULT_PRODUCT_ACTION_READINESS}
-              sourceText={signalPreviewById[analysis.signalId]}
-              sourceUrl={signalUrlById[analysis.signalId]}
-              onRemove={onRemoveSignal ? () => onRemoveSignal(analysis.signalId) : undefined}
+    <div data-product-action-workspace="stage" style={{ display: "grid", gap: 12, minWidth: 0, overflow: "visible" }}>
+      {activeAnalysis ? (
+        <>
+          <div style={{ display: "flex", alignItems: "baseline", justifyContent: "space-between", gap: 10, flexWrap: "wrap" }}>
+            <Kicker>候選行動</Kicker>
+            <span style={{ ...textStyles.meta, color: tokens.color.softInk }}>{candidates.length} 候選 · {completed.length} 已評估</span>
+          </div>
+          <article
+            key={`${activeAnalysis.signalId}:${safeIndex}:${direction}`}
+            data-product-action-stage={activeAnalysis.signalId}
+            data-product-action-page={safeIndex + 1}
+            data-direction={direction}
+            tabIndex={0}
+            onKeyDown={handleStageKeyDown}
+            aria-label={`候選行動 ${safeIndex + 1} / ${candidates.length}`}
+            style={cardStyle({ gap: 14, padding: 18, minWidth: 0, overflow: "visible", borderColor: tokens.color.productSoft, boxShadow: tokens.shadow.raised })}
+          >
+            <header style={{ display: "grid", gap: 7, minWidth: 0 }}>
+              <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap", minWidth: 0 }}>
+                <span style={{ fontFamily: tokens.font.mono, fontSize: 11, fontWeight: 800, color: tokens.color.product }}>{String(safeIndex + 1).padStart(2, "0")}</span>
+                <ProductVerdictSoftPill verdict={activeAnalysis.verdict} />
+                {activeSignal ? <ProductReadinessChip readiness={activeSignal.readiness} /> : null}
+                <span style={{ fontSize: 11.5, color: tokens.color.softInk }}>{SIGNAL_TYPE_LABELS[activeAnalysis.signalType]} · {formatRelevanceScore(activeAnalysis.relevance)}</span>
+                {onRemoveSignal ? (
+                  <button type="button" aria-label="移除此訊號" onClick={() => onRemoveSignal(activeAnalysis.signalId)} style={{ marginLeft: "auto", border: 0, background: "transparent", color: tokens.color.softInk, cursor: "pointer", fontSize: 16 }}>×</button>
+                ) : null}
+              </div>
+              <h2 style={{ margin: 0, fontFamily: tokens.font.serifCjk, fontSize: 22, lineHeight: 1.28, color: tokens.color.ink, overflowWrap: "anywhere" }}>
+                {activeTitle}
+              </h2>
+              {activeAnalysis.contentSummary && activeAnalysis.contentSummary !== activeTitle ? <p style={{ margin: 0, fontSize: 13, lineHeight: 1.65, color: tokens.color.subInk, overflowWrap: "anywhere" }}>{activeAnalysis.contentSummary}</p> : null}
+            </header>
+
+            <div data-product-action-sequence="true" style={{ display: "flex", flexWrap: "wrap", gap: 8, minWidth: 0 }}>
+              {[
+                { key: "reason", label: "觀察原因", value: activeAnalysis.reason || activeAnalysis.whyRelevant },
+                { key: "takeaway", label: "新知保留", value: activeAnalysis.referenceTakeaway?.trim() || activeAnalysis.whyRelevant || activeAnalysis.reason },
+                { key: "next", label: "下一步", value: activeAnalysis.agentTaskSpec?.taskTitle?.trim() || activeAnalysis.experimentHint?.trim() || "尚未有可派發任務；先保留為觀察。" }
+              ].map((beat) => (
+                <div key={beat.key} data-product-action-beat={beat.key} style={{ flex: "1 1 150px", minWidth: 0, display: "grid", alignContent: "start", gap: 5, padding: "10px 11px", borderRadius: tokens.radius.sm, border: `1px solid ${beat.key === "next" ? tokens.color.productSoft : tokens.color.line}`, background: beat.key === "next" ? tokens.color.productSoft : tokens.color.contextSurface }}>
+                  <span style={{ ...textStyles.fieldLabel, color: beat.key === "next" ? tokens.color.product : tokens.color.softInk }}>{beat.label}</span>
+                  <span style={{ fontSize: 12.5, lineHeight: 1.6, color: tokens.color.subInk, overflowWrap: "anywhere" }}>{beat.value}</span>
+                </div>
+              ))}
+            </div>
+
+            <div style={{ display: "grid", gap: 6, minWidth: 0 }}>
+              <span style={{ ...textStyles.fieldLabel, color: tokens.color.softInk }}>來源真相</span>
+              <ProductSourceTruthStrip
+                analysis={activeAnalysis}
+                descriptor={activeSignal?.sourceDescriptor}
+                evidenceBySignalId={evidenceBySignalId}
+                signalId={activeAnalysis.signalId}
+              />
+            </div>
+            {exactCitation?.entry?.text ? (
+              <blockquote data-product-action-exact-quote="true" style={{ margin: 0, padding: "9px 11px", borderLeft: `3px solid ${tokens.color.product}`, color: tokens.color.subInk, fontFamily: tokens.font.serifCjk, fontSize: 13, lineHeight: 1.65, overflowWrap: "anywhere" }}>
+                {exactCitation.entry.text}
+                <footer style={{ marginTop: 5, fontFamily: tokens.font.mono, fontSize: 10, color: tokens.color.softInk }}>
+                  {exactCitation.ref}{exactCitation.entry.author ? ` · ${exactCitation.entry.author}` : ""}{exactCitation.entry.likeCount != null ? ` · ${exactCitation.entry.likeCount} ♥` : ""}
+                </footer>
+              </blockquote>
+            ) : null}
+            <ProductActionReadingOperations
+              signal={activeSignal}
+              reading={activeReading}
+              sourceUrl={activeSourceUrl}
+              citations={citations}
+              onSynthesizeSignalReading={onSynthesizeSignalReading}
+              onReviewSignalReading={onReviewSignalReading}
+            />
+          </article>
+          <nav data-product-action-pager="true" aria-label="候選行動分頁" style={{ display: "flex", justifyContent: "center", alignItems: "center", gap: 10, flexWrap: "wrap", minWidth: 0 }}>
+            <SecondaryButton dataAttrs={{ "data-product-action-previous": "true", "aria-label": "上一則候選" }} disabled={safeIndex === 0} onClick={() => moveTo(safeIndex - 1)}>←</SecondaryButton>
+            <span style={{ display: "inline-flex", gap: 6, alignItems: "center" }}>
+              {candidates.map((analysis, index) => (
+                <button
+                  key={analysis.signalId}
+                  type="button"
+                  data-product-action-dot={index + 1}
+                  aria-label={`前往候選 ${index + 1}`}
+                  title={`前往候選 ${index + 1}`}
+                  aria-current={index === safeIndex ? "page" : undefined}
+                  onClick={() => moveTo(index)}
+                  style={{ width: 9, height: 9, padding: 0, borderRadius: tokens.radius.round, border: `1px solid ${index === safeIndex ? tokens.color.product : tokens.color.lineStrong}`, background: index === safeIndex ? tokens.color.product : tokens.color.neutralSurface, cursor: "pointer" }}
+                />
+              ))}
+            </span>
+            <span data-product-action-live="true" role="status" aria-live="polite" style={{ minWidth: 36, fontFamily: tokens.font.mono, fontSize: 10.5, color: tokens.color.softInk, textAlign: "center" }}>{safeIndex + 1} / {candidates.length}</span>
+            <SecondaryButton dataAttrs={{ "data-product-action-next": "true", "aria-label": "下一則候選" }} disabled={safeIndex === candidates.length - 1} onClick={() => moveTo(safeIndex + 1)}>→</SecondaryButton>
+          </nav>
+        </>
+      ) : (
+        <div data-product-action-empty="true" style={mutedPanelStyle({ fontSize: 12.5, color: tokens.color.subInk })}>目前沒有已完成的 try / watch 候選。</div>
+      )}
+
+      <ProductActionCompactDetails marker="exclusions" title="已排除 · 不納入行動清單" items={exclusions} />
+      <ProductActionCompactDetails marker="insufficient" title="資料不足 · 不計入候選" items={insufficient} />
+      {onExportSignalPackets ? (
+        <details data-product-action-export="true" style={{ borderTop: `1px solid ${tokens.color.line}`, paddingTop: 10 }}>
+          <summary className="dlens-expand-trigger" style={{ cursor: "pointer", ...textStyles.fieldLabel, color: tokens.color.product }}>Folder Packet 匯出</summary>
+          <div style={{ marginTop: 10 }}>
+            <SignalPacketHtmlExportSection
+              activeFolderId={activeFolderId}
+              exportFolders={exportFolders}
+              onExportSignalPackets={onExportSignalPackets}
+              embedded
             />
           </div>
-        )) : (
-          <div data-dlens-presence="card" style={mutedPanelStyle({ fontSize: 12.5, color: tokens.color.subInk })}>{emptyCopyByFilter[selectedFilter]}</div>
-        )}
-      </section>
+        </details>
+      ) : null}
     </div>
   );
 }
 
 export const productSignalViewTestables = {
   buildAgentBrief,
-  ActionableItemCard,
   SavedSignalsBatchExport,
   createSignalReadingDisplayCopy
 };
@@ -3935,8 +3298,6 @@ export function ProductSignalView({
     kind,
     signals,
     scopedAnalyses,
-    historicalAnalyses,
-    agentTaskFeedback,
     signalPreviewById,
     signalUrlById,
     evidenceBySignalId,
@@ -4126,41 +3487,20 @@ export function ProductSignalView({
         ) : scopedAnalyses.length ? (
           kind === "classification" ? (
             <ClassificationBoard analyses={scopedAnalyses} signalPreviewById={signalPreviewById} />
-          ) : viewModel.showSignalReadingReview ? (
-            <SignalReadingReviewWorkspace
+          ) : (
+            <ProductActionStage
               signals={signals}
               analyses={scopedAnalyses}
               activeFolderId={viewModel.sessionId ?? undefined}
               exportFolders={exportFolders}
               signalReadings={scopedSignalReadings}
-              signalPreviewById={signalPreviewById}
               signalUrlById={signalUrlById}
               evidenceBySignalId={evidenceBySignalId}
               onSynthesizeSignalReading={synthesizeSignalReading}
               onReviewSignalReading={reviewSignalReading}
               onExportSignalPackets={exportSignalPackets}
+              onRemoveSignal={signals.some((signal) => signal.actions.some((action) => action.kind === "remove")) ? handleRemoveSignal : undefined}
             />
-          ) : (
-            <>
-              {viewModel.firstSynthesizableSignal && synthesizeSignalReading ? (
-                <FirstReadingCta
-                  signal={viewModel.firstSynthesizableSignal}
-                  analysisCount={scopedAnalyses.length}
-                  onSynthesize={synthesizeSignalReading}
-                />
-              ) : null}
-              <ActionableInsightsBoard
-                analyses={scopedAnalyses}
-                productProfile={viewModel.productProfile}
-                evidenceBySignalId={evidenceBySignalId}
-                signalReadinessById={viewModel.signalReadinessById}
-                historicalAnalyses={historicalAnalyses}
-                agentTaskFeedback={agentTaskFeedback}
-                signalPreviewById={viewModel.signalPreviewById}
-                signalUrlById={viewModel.signalUrlById}
-                onRemoveSignal={signals.some((signal) => signal.actions.some((action) => action.kind === "remove")) ? handleRemoveSignal : undefined}
-              />
-            </>
           )
         ) : viewModel.loadState === "loading" ? null : (
           <div data-dlens-presence="card" style={cardStyle()}>
