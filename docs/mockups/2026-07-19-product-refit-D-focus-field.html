@@ -153,7 +153,10 @@
       background: transparent;
       text-align: left;
     }
-    .saved-row:hover, .saved-row.is-hovered { background: var(--context); }
+    .saved-row:hover:not([aria-expanded="true"]), .saved-row.is-hovered:not([aria-expanded="true"]) {
+      background: var(--elevated);
+      box-shadow: inset 2px 0 var(--line-strong);
+    }
     .saved-row[aria-expanded="true"] { box-shadow: inset 3px 0 var(--product); background: var(--product-soft); }
     .signal-dot { width: 7px; height: 7px; border-radius: 50%; background: var(--muted); }
     .signal-dot.is-busy { background: var(--amber); }
