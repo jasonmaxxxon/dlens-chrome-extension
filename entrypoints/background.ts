@@ -173,7 +173,7 @@ import {
 } from "../src/state/store-helpers";
 import { ensureSignalForSavedItem, ensureSignalsForSessionItems, ensureWorkspaceTopicForSession, handleTopicMessage } from "../src/state/topic-handlers";
 import { handleTopicAuditMessage } from "../src/state/topic-audit-handlers";
-import { loadSignals, loadTopicById, loadTopics, saveTopic, type StorageAreaLike } from "../src/state/topic-storage";
+import { loadAllSignals, loadSignals, loadTopicById, loadTopics, saveTopic, type StorageAreaLike } from "../src/state/topic-storage";
 import { generateTopicSynthesis } from "../src/compare/topic-synthesis";
 import { generateFolderSynthesis } from "../src/compare/folder-synthesis";
 import {
@@ -3432,20 +3432,31 @@ export default defineBackground(() => {
                 providerConfig.apiKey,
                 readingInput
               );
-              const saved = await saveSignalReading(storageArea, {
-                signalId: signal.id,
-                cacheKey,
-                productContextHash,
-                sourcePacketHash,
-                promptVersion: SIGNAL_READING_PROMPT_VERSION,
-                reading,
-                generatedAt: new Date().toISOString(),
-                model,
-                sourceRefs: readingInput.representativeComments.map((comment) => comment.ref),
-                sourcePacket: buildStoredSourcePacket(readingInput),
-                reviewState: "pending",
-                feedbackEvents: []
+              const saved = await withSnapshotLock(async () => {
+                const liveSignal = (await loadSignals(chrome.storage.local, message.sessionId))
+                  .find((entry) => entry.id === signal.id && entry.itemId === item.id);
+                if (!liveSignal) {
+                  return null;
+                }
+                return saveSignalReading(storageArea, {
+                  signalId: signal.id,
+                  cacheKey,
+                  productContextHash,
+                  sourcePacketHash,
+                  promptVersion: SIGNAL_READING_PROMPT_VERSION,
+                  reading,
+                  generatedAt: new Date().toISOString(),
+                  model,
+                  sourceRefs: readingInput.representativeComments.map((comment) => comment.ref),
+                  sourcePacket: buildStoredSourcePacket(readingInput),
+                  reviewState: "pending",
+                  feedbackEvents: []
+                });
               });
+              if (!saved) {
+                sendResponse({ ok: false, error: "該 signal 已移除，未儲存這次判讀。" } satisfies ExtensionResponse);
+                return;
+              }
               sendResponse({ ok: true, tabId, signalReading: saved } satisfies ExtensionResponse);
             } catch (error) {
               sendResponse({
@@ -3491,12 +3502,24 @@ export default defineBackground(() => {
               requestId,
               { cacheKey: message.cacheKey, tabId }
             );
-            const updated = await appendSignalReadingReview(
-              withDirectStorageReconcile(chrome.storage.local, { reconcileToken }),
-              message.cacheKey,
-              message.decision,
-              message.note
-            );
+            const updated = await withSnapshotLock(async () => {
+              const storageArea = withDirectStorageReconcile(chrome.storage.local, { reconcileToken });
+              const reading = await getSignalReading(storageArea, message.cacheKey);
+              if (!reading) {
+                return null;
+              }
+              const signalStillExists = (await loadAllSignals(chrome.storage.local))
+                .some((signal) => signal.id === reading.signalId);
+              if (!signalStillExists) {
+                return null;
+              }
+              return appendSignalReadingReview(
+                storageArea,
+                message.cacheKey,
+                message.decision,
+                message.note
+              );
+            });
             if (!updated) {
               sendResponse({ ok: false, error: "找不到該判讀記錄。" } satisfies ExtensionResponse);
               return;

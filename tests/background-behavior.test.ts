@@ -2941,6 +2941,137 @@ test("product/clear-cache removes derived product cache without deleting saved s
   assertStateUpdatedBroadcastOnce(harness);
 });
 
+test("signal/delete wins over an in-flight product signal-reading synthesis", async () => {
+  const originalFetch = globalThis.fetch;
+  let fetchStarted = false;
+  let releaseReading: ((response: Response) => void) | null = null;
+  const readingResponse = new Promise<Response>((resolve) => {
+    releaseReading = resolve;
+  });
+
+  try {
+    const item = makeSucceededItem("reading-race", "prompt caching");
+    const session = {
+      ...makeSession("product-reading-race", "product"),
+      items: [item]
+    };
+    const signal = makeSignal("signal-reading-race", session.id, item.id);
+    const global = makeGlobal([session], session.id);
+    globalThis.fetch = (async () => {
+      fetchStarted = true;
+      return readingResponse;
+    }) as typeof fetch;
+    const harness = await createHarness({
+      [backgroundTestables.GLOBAL_STORAGE_KEY]: {
+        ...global,
+        settings: {
+          ...global.settings,
+          oneLinerProvider: "google",
+          googleApiKey: "test-google-key"
+        }
+      },
+      [backgroundTestables.ACTIVE_SESSION_ID_STORAGE_KEY]: session.id,
+      [backgroundTestables.tabStorageKey(TAB_ID)]: createEmptyTabState(),
+      [PRODUCT_CONTEXT_STORAGE_KEY]: makeProductContext(),
+      [SIGNALS_STORAGE_KEY]: [signal]
+    });
+
+    const synthesisPromise = harness.dispatch({
+      type: "product/synthesize-signal-reading",
+      signalId: signal.id,
+      sessionId: session.id,
+      force: true
+    });
+    await waitFor(() => fetchStarted, "signal-reading provider call");
+
+    const deletion = await harness.dispatch({ type: "signal/delete", signalId: signal.id });
+    assert.equal(deletion.ok, true);
+
+    releaseReading?.(makeGoogleJsonResponse("late reading"));
+    const synthesis = await synthesisPromise;
+
+    assert.equal(synthesis.ok, false);
+    assert.match(synthesis.error || "", /signal.*(?:removed|移除)|找不到/i);
+    assert.deepEqual(harness.state[SIGNAL_READINGS_STORAGE_KEY] ?? {}, {});
+  } finally {
+    releaseReading?.(makeGoogleJsonResponse("cleanup reading"));
+    globalThis.fetch = originalFetch;
+  }
+});
+
+test("signal/delete cannot race a reading review into restoring the deleted reading", async () => {
+  const item = makeSucceededItem("review-race", "prompt caching");
+  const session = {
+    ...makeSession("product-review-race", "product"),
+    items: [item]
+  };
+  const signal = makeSignal("signal-review-race", session.id, item.id);
+  const cacheKey = `${signal.id}::ctx::pkt::v9`;
+  let readingWriteCount = 0;
+  let releaseFirstReadingWrite: (() => void) | null = null;
+  const firstReadingWriteGate = new Promise<void>((resolve) => {
+    releaseFirstReadingWrite = resolve;
+  });
+
+  const harness = await createHarness({
+    [backgroundTestables.GLOBAL_STORAGE_KEY]: makeGlobal([session], session.id),
+    [backgroundTestables.ACTIVE_SESSION_ID_STORAGE_KEY]: session.id,
+    [backgroundTestables.tabStorageKey(TAB_ID)]: createEmptyTabState(),
+    [SIGNALS_STORAGE_KEY]: [signal],
+    [SIGNAL_READINGS_STORAGE_KEY]: {
+      [cacheKey]: {
+        signalId: signal.id,
+        cacheKey,
+        productContextHash: "ctx",
+        sourcePacketHash: "pkt",
+        promptVersion: "v9",
+        reading: "existing reading",
+        generatedAt: "2026-05-27T00:00:00.000Z",
+        model: "google:test",
+        sourceRefs: ["e1"],
+        sourcePacket: {
+          assembledContent: "source",
+          postUrl: item.descriptor.post_url,
+          representativeComments: [],
+          analysisPromptVersion: "v1"
+        },
+        reviewState: "pending",
+        feedbackEvents: []
+      }
+    }
+  }, {
+    onSet: async (payload) => {
+      if (!(SIGNAL_READINGS_STORAGE_KEY in payload)) {
+        return;
+      }
+      readingWriteCount += 1;
+      if (readingWriteCount === 1) {
+        await firstReadingWriteGate;
+      }
+    }
+  });
+
+  const reviewPromise = harness.dispatch({
+    type: "product/review-signal-reading",
+    cacheKey,
+    decision: "filed",
+    note: "keep"
+  });
+  await waitFor(() => readingWriteCount === 1, "blocked reading review write");
+
+  const deletionPromise = harness.dispatch({ type: "signal/delete", signalId: signal.id });
+  await Promise.race([
+    deletionPromise,
+    new Promise((resolve) => setTimeout(resolve, 50))
+  ]);
+  releaseFirstReadingWrite?.();
+
+  const [review, deletion] = await Promise.all([reviewPromise, deletionPromise]);
+  assert.equal(review.ok, true);
+  assert.equal(deletion.ok, true);
+  assert.deepEqual(harness.state[SIGNAL_READINGS_STORAGE_KEY] ?? {}, {});
+});
+
 test("signal/delete removes directly owned rows, preserves audit history, and drops tags only for orphan items", async () => {
   const session = {
     ...makeSession("topic-session", "topic"),
