@@ -106,6 +106,16 @@ const VERDICT_META: Record<ProductSignalVerdict, { label: string; color: string;
   insufficient_data: { label: "資料不足", color: tokens.color.queued, soft: tokens.color.queuedSoft }
 };
 
+type ActionVerdictFilter = "try" | "watch" | "park" | "insufficient";
+
+const ACTION_VERDICT_FILTER_ORDER: ActionVerdictFilter[] = ["try", "watch", "park", "insufficient"];
+
+function verdictFilterKeyForAnalysis(analysis: ProductSignalAnalysis): ActionVerdictFilter {
+  if (analysis.signalType === "noise" || analysis.verdict === "park") return "park";
+  if (analysis.verdict === "insufficient_data") return "insufficient";
+  return analysis.verdict;
+}
+
 const REASON_PANEL_LABEL: Record<ProductSignalVerdict, string> = {
   try: "實驗切入",
   watch: "觀察原因",
@@ -2654,11 +2664,109 @@ function ClassificationBoard({
   );
 }
 
-function isExcludedActionSignal(analysis: ProductSignalAnalysis): boolean {
-  return analysis.verdict === "park" || analysis.signalType === "noise";
-}
-
 type ProductActionDirection = "forward" | "backward";
+
+type VerdictFilterStat = {
+  key: ActionVerdictFilter;
+  label: string;
+  count: number;
+  color: string;
+  soft: string;
+};
+
+function VerdictFilterTiles({
+  stats,
+  selectedKey,
+  onSelect
+}: {
+  stats: VerdictFilterStat[];
+  selectedKey: ActionVerdictFilter | null;
+  onSelect: (key: ActionVerdictFilter) => void;
+}) {
+  const selectedIndex = stats.findIndex((stat) => stat.key === selectedKey);
+  const active = selectedIndex >= 0 ? stats[selectedIndex] : undefined;
+
+  const handleKeyDown = (event: ReactKeyboardEvent<HTMLButtonElement>, key: ActionVerdictFilter) => {
+    if (!(["ArrowLeft", "ArrowRight", "Home", "End"] as string[]).includes(event.key)) return;
+    const enabled = stats.filter((stat) => stat.count > 0);
+    if (!enabled.length) return;
+    const currentIndex = Math.max(0, enabled.findIndex((stat) => stat.key === key));
+    const nextIndex = event.key === "Home"
+      ? 0
+      : event.key === "End"
+        ? enabled.length - 1
+        : event.key === "ArrowLeft"
+          ? (currentIndex - 1 + enabled.length) % enabled.length
+          : (currentIndex + 1) % enabled.length;
+    const next = enabled[nextIndex];
+    if (!next) return;
+    event.preventDefault();
+    onSelect(next.key);
+    event.currentTarget.parentElement
+      ?.querySelector<HTMLButtonElement>(`[data-action-verdict-filter="${next.key}"]`)
+      ?.focus({ preventScroll: true });
+  };
+
+  return (
+    <div
+      className="dlens-verdict-tiles"
+      data-verdict-filter-tiles="true"
+      role="tablist"
+      aria-label="行動判定類別"
+    >
+      {active ? (
+        <div
+          aria-hidden="true"
+          data-verdict-filter-plate="true"
+          data-verdict-plate-index={selectedIndex}
+          style={{ background: active.soft, borderColor: active.color }}
+        />
+      ) : null}
+      {stats.map((stat) => {
+        const selected = selectedKey === stat.key;
+        const disabled = stat.count === 0;
+        return (
+          <button
+            key={stat.key}
+            type="button"
+            data-action-verdict-filter={stat.key}
+            data-verdict-tile="true"
+            role="tab"
+            aria-selected={selected}
+            aria-pressed={selected}
+            tabIndex={selected ? 0 : -1}
+            disabled={disabled}
+            onClick={() => onSelect(stat.key)}
+            onKeyDown={(event) => handleKeyDown(event, stat.key)}
+            style={{
+              position: "relative",
+              zIndex: 1,
+              display: "grid",
+              gap: 4,
+              minWidth: 0,
+              padding: "10px 9px",
+              placeItems: "center",
+              textAlign: "center",
+              borderRadius: tokens.radius.card,
+              border: "1px solid transparent",
+              background: "transparent",
+              color: stat.color,
+              opacity: disabled ? 0.45 : 1,
+              cursor: disabled ? "not-allowed" : "pointer",
+              appearance: "none",
+              font: "inherit"
+            }}
+          >
+            <span style={{ fontSize: 11, fontWeight: 800 }}>{stat.label}</span>
+            <span data-verdict-tile-count="true" style={{ fontFamily: tokens.font.mono, fontSize: 16, fontWeight: 850 }}>
+              {stat.count}
+            </span>
+          </button>
+        );
+      })}
+    </div>
+  );
+}
 
 function ProductActionReadingOperations({
   signal,
@@ -2805,47 +2913,6 @@ function ProductActionReadingOperations({
   );
 }
 
-function ProductActionCompactDetails({
-  marker,
-  title,
-  items
-}: {
-  marker: "exclusions" | "insufficient";
-  title: string;
-  items: ProductSignalAnalysis[];
-}) {
-  if (!items.length) return null;
-  const dataAttribute = marker === "exclusions"
-    ? { "data-product-action-exclusions": "true" }
-    : { "data-product-action-insufficient": "true" };
-  return (
-    <details
-      {...dataAttribute}
-      style={{ border: `1px solid ${tokens.color.line}`, borderRadius: tokens.radius.card, background: tokens.color.contextSurface, minWidth: 0 }}
-    >
-      <summary
-        className="dlens-expand-trigger"
-        style={{ cursor: "pointer", padding: "9px 11px", display: "flex", justifyContent: "space-between", gap: 10, color: tokens.color.subInk, fontSize: 12, fontWeight: 750 }}
-      >
-        <span>{title}</span>
-        <span style={{ color: tokens.color.softInk, fontFamily: tokens.font.mono }}>{items.length}</span>
-      </summary>
-      <div style={{ display: "grid", padding: "0 11px 9px", minWidth: 0 }}>
-        {items.map((analysis) => (
-          <div
-            key={analysis.signalId}
-            data-product-action-compact-row={analysis.signalId}
-            style={{ display: "grid", gridTemplateColumns: "minmax(0, 0.8fr) minmax(0, 1.2fr)", gap: 10, padding: "7px 0", borderTop: `1px solid ${tokens.color.line}`, minWidth: 0 }}
-          >
-            <span style={{ fontSize: 12, fontWeight: 700, color: tokens.color.ink, overflowWrap: "anywhere" }}>{excerpt(analysis.contentSummary, 100)}</span>
-            <span style={{ fontSize: 11.5, lineHeight: 1.5, color: tokens.color.softInk, overflowWrap: "anywhere" }}>{analysis.reason || analysis.whyRelevant}</span>
-          </div>
-        ))}
-      </div>
-    </details>
-  );
-}
-
 function ProductActionStage({
   analyses,
   signals,
@@ -2856,8 +2923,7 @@ function ProductActionStage({
   signalUrlById,
   onSynthesizeSignalReading,
   onReviewSignalReading,
-  onExportSignalPackets,
-  onRemoveSignal
+  onExportSignalPackets
 }: {
   analyses: ProductSignalAnalysis[];
   signals: ProductSignalViewModel[];
@@ -2869,44 +2935,66 @@ function ProductActionStage({
   onSynthesizeSignalReading?: SynthesizeSignalReading;
   onReviewSignalReading?: ReviewSignalReading;
   onExportSignalPackets?: ExportSignalPackets;
-  onRemoveSignal?: (signalId: string) => void;
 }) {
   const completed = analyses.filter((analysis) => analysis.status === "complete");
-  const candidates = completed.filter((analysis) => (
-    !isExcludedActionSignal(analysis)
-    && (analysis.verdict === "try" || analysis.verdict === "watch")
-  ));
-  const exclusions = completed.filter(isExcludedActionSignal);
-  const insufficient = completed.filter((analysis) => (
-    !isExcludedActionSignal(analysis) && analysis.verdict === "insufficient_data"
-  ));
-  const [activeSelection, setActiveSelection] = useState(() => ({
-    signalId: candidates[0]?.signalId ?? null,
-    sourceIndex: 0
+  const itemsByFilter: Record<ActionVerdictFilter, ProductSignalAnalysis[]> = {
+    try: [],
+    watch: [],
+    park: [],
+    insufficient: []
+  };
+  for (const analysis of completed) {
+    itemsByFilter[verdictFilterKeyForAnalysis(analysis)].push(analysis);
+  }
+  const stats: VerdictFilterStat[] = [
+    { key: "try", label: "值得嘗試", count: itemsByFilter.try.length, color: VERDICT_META.try.color, soft: VERDICT_META.try.soft },
+    { key: "watch", label: "保留觀察", count: itemsByFilter.watch.length, color: VERDICT_META.watch.color, soft: VERDICT_META.watch.soft },
+    { key: "park", label: "噪音 / 前提不符", count: itemsByFilter.park.length, color: VERDICT_META.park.color, soft: VERDICT_META.park.soft },
+    { key: "insufficient", label: "資料不足", count: itemsByFilter.insufficient.length, color: VERDICT_META.insufficient_data.color, soft: VERDICT_META.insufficient_data.soft }
+  ];
+  const firstEnabledFilter = ACTION_VERDICT_FILTER_ORDER.find((key) => itemsByFilter[key].length > 0) ?? "try";
+  const [activeFilter, setActiveFilter] = useState<ActionVerdictFilter>(() => firstEnabledFilter);
+  const [activeSelectionByFilter, setActiveSelectionByFilter] = useState<Record<ActionVerdictFilter, { signalId: string | null; sourceIndex: number }>>(() => ({
+    try: { signalId: itemsByFilter.try[0]?.signalId ?? null, sourceIndex: 0 },
+    watch: { signalId: itemsByFilter.watch[0]?.signalId ?? null, sourceIndex: 0 },
+    park: { signalId: itemsByFilter.park[0]?.signalId ?? null, sourceIndex: 0 },
+    insufficient: { signalId: itemsByFilter.insufficient[0]?.signalId ?? null, sourceIndex: 0 }
   }));
+  const resolvedFilter = itemsByFilter[activeFilter].length ? activeFilter : firstEnabledFilter;
+  const activeItems = itemsByFilter[resolvedFilter];
+  const activeSelection = activeSelectionByFilter[resolvedFilter];
   const [direction, setDirection] = useState<ProductActionDirection>("forward");
   const stageRef = useRef<HTMLElement | null>(null);
   const restoreStageFocusRef = useRef(false);
   const matchingIndex = activeSelection.signalId
-    ? candidates.findIndex((analysis) => analysis.signalId === activeSelection.signalId)
+    ? activeItems.findIndex((analysis) => analysis.signalId === activeSelection.signalId)
     : -1;
   const safeIndex = matchingIndex >= 0
     ? matchingIndex
-    : Math.min(activeSelection.sourceIndex, Math.max(candidates.length - 1, 0));
-  const activeAnalysis = candidates[safeIndex];
+    : Math.min(activeSelection.sourceIndex, Math.max(activeItems.length - 1, 0));
+  const activeAnalysis = activeItems[safeIndex];
   const selectionWasRemoved = activeSelection.signalId !== null && matchingIndex < 0;
   const renderedDirection = selectionWasRemoved && safeIndex < activeSelection.sourceIndex
     ? "backward"
     : direction;
+  const activeMeta = stats.find((stat) => stat.key === resolvedFilter) ?? stats[0]!;
+  const activeIsActionable = resolvedFilter === "try" || resolvedFilter === "watch";
   const signalsById = new Map(signals.map((signal) => [signal.signalId, signal]));
   const readingsBySignalId = latestReadingBySignalId(signalReadings);
+
+  useEffect(() => {
+    if (activeFilter !== resolvedFilter) setActiveFilter(resolvedFilter);
+  }, [activeFilter, resolvedFilter]);
 
   useEffect(() => {
     const nextSignalId = activeAnalysis?.signalId ?? null;
     if (activeSelection.signalId === nextSignalId && activeSelection.sourceIndex === safeIndex) return;
     if (selectionWasRemoved) setDirection(renderedDirection);
-    setActiveSelection({ signalId: nextSignalId, sourceIndex: safeIndex });
-  }, [activeAnalysis?.signalId, activeSelection.signalId, activeSelection.sourceIndex, renderedDirection, safeIndex, selectionWasRemoved]);
+    setActiveSelectionByFilter((previous) => ({
+      ...previous,
+      [resolvedFilter]: { signalId: nextSignalId, sourceIndex: safeIndex }
+    }));
+  }, [activeAnalysis?.signalId, activeSelection.signalId, activeSelection.sourceIndex, renderedDirection, resolvedFilter, safeIndex, selectionWasRemoved]);
 
   useEffect(() => {
     if (!restoreStageFocusRef.current || !activeAnalysis) return;
@@ -2915,12 +3003,21 @@ function ProductActionStage({
   }, [activeAnalysis?.signalId]);
 
   const moveTo = (nextIndex: number, restoreFocus = false) => {
-    const clamped = Math.max(0, Math.min(nextIndex, candidates.length - 1));
-    const nextCandidate = candidates[clamped];
+    const clamped = Math.max(0, Math.min(nextIndex, activeItems.length - 1));
+    const nextCandidate = activeItems[clamped];
     if (!nextCandidate || nextCandidate.signalId === activeAnalysis?.signalId) return;
     if (restoreFocus) restoreStageFocusRef.current = true;
     setDirection(clamped > safeIndex ? "forward" : "backward");
-    setActiveSelection({ signalId: nextCandidate.signalId, sourceIndex: clamped });
+    setActiveSelectionByFilter((previous) => ({
+      ...previous,
+      [resolvedFilter]: { signalId: nextCandidate.signalId, sourceIndex: clamped }
+    }));
+  };
+
+  const selectFilter = (nextFilter: ActionVerdictFilter) => {
+    if (!itemsByFilter[nextFilter].length || nextFilter === resolvedFilter) return;
+    setDirection(ACTION_VERDICT_FILTER_ORDER.indexOf(nextFilter) > ACTION_VERDICT_FILTER_ORDER.indexOf(resolvedFilter) ? "forward" : "backward");
+    setActiveFilter(nextFilter);
   };
 
   const handleStageKeyDown = (event: ReactKeyboardEvent<HTMLElement>) => {
@@ -2929,7 +3026,7 @@ function ProductActionStage({
     if (event.key === "ArrowLeft") nextIndex = safeIndex - 1;
     if (event.key === "ArrowRight") nextIndex = safeIndex + 1;
     if (event.key === "Home") nextIndex = 0;
-    if (event.key === "End") nextIndex = candidates.length - 1;
+    if (event.key === "End") nextIndex = activeItems.length - 1;
     if (nextIndex === null) return;
     event.preventDefault();
     moveTo(nextIndex, true);
@@ -2948,11 +3045,56 @@ function ProductActionStage({
 
   return (
     <div data-product-action-workspace="stage" style={{ display: "grid", gap: 12, minWidth: 0, overflow: "visible" }}>
+      <style>{`
+        .dlens-verdict-tiles {
+          position: relative;
+          display: grid;
+          grid-template-columns: repeat(4, minmax(0, 1fr));
+          gap: 8px;
+          min-width: 0;
+        }
+        .dlens-verdict-tiles [data-verdict-filter-plate] {
+          position: absolute;
+          top: 0;
+          bottom: 0;
+          left: 0;
+          width: calc((100% - 24px) / 4);
+          border: 1px solid;
+          border-radius: ${tokens.radius.card}px;
+          box-shadow: ${tokens.shadow.activeTab};
+          pointer-events: none;
+        }
+        .dlens-verdict-tiles [data-verdict-plate-index="0"] { transform: translateX(0); }
+        .dlens-verdict-tiles [data-verdict-plate-index="1"] { transform: translateX(calc(100% + 8px)); }
+        .dlens-verdict-tiles [data-verdict-plate-index="2"] { transform: translateX(calc((100% + 8px) * 2)); }
+        .dlens-verdict-tiles [data-verdict-plate-index="3"] { transform: translateX(calc((100% + 8px) * 3)); }
+        @media (max-width: ${tokens.layout.atlasNarrowBreakpointPx}px) {
+          .dlens-verdict-tiles {
+            grid-template-columns: repeat(2, minmax(0, 1fr));
+            grid-auto-rows: 1fr;
+          }
+          .dlens-verdict-tiles [data-verdict-filter-plate] {
+            right: auto;
+            bottom: auto;
+            width: calc((100% - 8px) / 2);
+            height: calc((100% - 8px) / 2);
+          }
+          .dlens-verdict-tiles [data-verdict-plate-index="0"] { transform: translate(0, 0); }
+          .dlens-verdict-tiles [data-verdict-plate-index="1"] { transform: translate(calc(100% + 8px), 0); }
+          .dlens-verdict-tiles [data-verdict-plate-index="2"] { transform: translate(0, calc(100% + 8px)); }
+          .dlens-verdict-tiles [data-verdict-plate-index="3"] { transform: translate(calc(100% + 8px), calc(100% + 8px)); }
+        }
+      `}</style>
+      <div style={{ display: "flex", alignItems: "baseline", justifyContent: "space-between", gap: 10, flexWrap: "wrap" }}>
+        <Kicker>判定導覽</Kicker>
+        <span style={{ ...textStyles.meta, color: tokens.color.softInk }}>{completed.length} 已評估</span>
+      </div>
+      <VerdictFilterTiles stats={stats} selectedKey={completed.length ? resolvedFilter : null} onSelect={selectFilter} />
       {activeAnalysis ? (
         <>
           <div style={{ display: "flex", alignItems: "baseline", justifyContent: "space-between", gap: 10, flexWrap: "wrap" }}>
-            <Kicker>候選行動</Kicker>
-            <span style={{ ...textStyles.meta, color: tokens.color.softInk }}>{candidates.length} 候選 · {completed.length} 已評估</span>
+            <Kicker>{activeMeta.label}</Kicker>
+            <span style={{ ...textStyles.meta, color: tokens.color.softInk }}>{activeItems.length} 則</span>
           </div>
           <article
             key={`${activeAnalysis.signalId}:${renderedDirection}`}
@@ -2962,18 +3104,19 @@ function ProductActionStage({
             data-direction={renderedDirection}
             tabIndex={0}
             onKeyDown={handleStageKeyDown}
-            aria-label={`候選行動 ${safeIndex + 1} / ${candidates.length}`}
+            aria-label={`${activeMeta.label} ${safeIndex + 1} / ${activeItems.length}`}
             style={cardStyle({ gap: 14, padding: 18, minWidth: 0, overflow: "visible", borderColor: tokens.color.productSoft, boxShadow: tokens.shadow.raised })}
           >
             <header style={{ display: "grid", gap: 7, minWidth: 0 }}>
               <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap", minWidth: 0 }}>
                 <span style={{ fontFamily: tokens.font.mono, fontSize: 11, fontWeight: 800, color: tokens.color.product }}>{String(safeIndex + 1).padStart(2, "0")}</span>
-                <ProductVerdictSoftPill verdict={activeAnalysis.verdict} />
+                {activeIsActionable ? (
+                  <ProductVerdictSoftPill verdict={activeAnalysis.verdict} />
+                ) : (
+                  <ScorePill color={activeMeta.color} soft={activeMeta.soft}>{activeMeta.label}</ScorePill>
+                )}
                 {activeSignal ? <ProductReadinessChip readiness={activeSignal.readiness} /> : null}
                 <span style={{ fontSize: 11.5, color: tokens.color.softInk }}>{SIGNAL_TYPE_LABELS[activeAnalysis.signalType]} · {formatRelevanceScore(activeAnalysis.relevance)}</span>
-                {onRemoveSignal ? (
-                  <button type="button" aria-label="移除此訊號" onClick={() => onRemoveSignal(activeAnalysis.signalId)} style={{ marginLeft: "auto", border: 0, background: "transparent", color: tokens.color.softInk, cursor: "pointer", fontSize: 16 }}>×</button>
-                ) : null}
               </div>
               <h2 style={{ margin: 0, fontFamily: tokens.font.serifCjk, fontSize: 22, lineHeight: 1.28, color: tokens.color.ink, overflowWrap: "anywhere" }}>
                 {activeTitle}
@@ -2981,18 +3124,28 @@ function ProductActionStage({
               {activeAnalysis.contentSummary && activeAnalysis.contentSummary !== activeTitle ? <p style={{ margin: 0, fontSize: 13, lineHeight: 1.65, color: tokens.color.subInk, overflowWrap: "anywhere" }}>{activeAnalysis.contentSummary}</p> : null}
             </header>
 
-            <div data-product-action-sequence="true" style={{ display: "flex", flexWrap: "wrap", gap: 8, minWidth: 0 }}>
-              {[
-                { key: "reason", label: "觀察原因", value: activeAnalysis.reason || activeAnalysis.whyRelevant },
-                { key: "takeaway", label: "新知保留", value: activeAnalysis.referenceTakeaway?.trim() || activeAnalysis.whyRelevant || activeAnalysis.reason },
-                { key: "next", label: "下一步", value: activeAnalysis.agentTaskSpec?.taskTitle?.trim() || activeAnalysis.experimentHint?.trim() || "尚未有可派發任務；先保留為觀察。" }
-              ].map((beat) => (
-                <div key={beat.key} data-product-action-beat={beat.key} style={{ flex: "1 1 150px", minWidth: 0, display: "grid", alignContent: "start", gap: 5, padding: "10px 11px", borderRadius: tokens.radius.sm, border: `1px solid ${beat.key === "next" ? tokens.color.productSoft : tokens.color.line}`, background: beat.key === "next" ? tokens.color.productSoft : tokens.color.contextSurface }}>
-                  <span style={{ ...textStyles.fieldLabel, color: beat.key === "next" ? tokens.color.product : tokens.color.softInk }}>{beat.label}</span>
-                  <span style={{ fontSize: 12.5, lineHeight: 1.6, color: tokens.color.subInk, overflowWrap: "anywhere" }}>{beat.value}</span>
-                </div>
-              ))}
-            </div>
+            {activeIsActionable ? (
+              <div data-product-action-sequence="true" style={{ display: "flex", flexWrap: "wrap", gap: 8, minWidth: 0 }}>
+                {[
+                  { key: "reason", label: "觀察原因", value: activeAnalysis.reason || activeAnalysis.whyRelevant },
+                  { key: "takeaway", label: "新知保留", value: activeAnalysis.referenceTakeaway?.trim() || activeAnalysis.whyRelevant || activeAnalysis.reason },
+                  { key: "next", label: "下一步", value: activeAnalysis.agentTaskSpec?.taskTitle?.trim() || activeAnalysis.experimentHint?.trim() || "尚未有可派發任務；先保留為觀察。" }
+                ].map((beat) => (
+                  <div key={beat.key} data-product-action-beat={beat.key} style={{ flex: "1 1 150px", minWidth: 0, display: "grid", alignContent: "start", gap: 5, padding: "10px 11px", borderRadius: tokens.radius.sm, border: `1px solid ${beat.key === "next" ? tokens.color.productSoft : tokens.color.line}`, background: beat.key === "next" ? tokens.color.productSoft : tokens.color.contextSurface }}>
+                    <span style={{ ...textStyles.fieldLabel, color: beat.key === "next" ? tokens.color.product : tokens.color.softInk }}>{beat.label}</span>
+                    <span style={{ fontSize: 12.5, lineHeight: 1.6, color: tokens.color.subInk, overflowWrap: "anywhere" }}>{beat.value}</span>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <section
+                data-product-action-verdict-reason={resolvedFilter}
+                style={{ display: "grid", gap: 5, padding: "10px 11px", borderRadius: tokens.radius.sm, border: `1px solid ${activeMeta.soft}`, background: activeMeta.soft }}
+              >
+                <span style={{ ...textStyles.fieldLabel, color: activeMeta.color }}>{resolvedFilter === "park" ? "排除原因" : "資料缺口"}</span>
+                <span style={{ fontSize: 12.5, lineHeight: 1.6, color: tokens.color.subInk, overflowWrap: "anywhere" }}>{activeAnalysis.reason || activeAnalysis.whyRelevant}</span>
+              </section>
+            )}
 
             <div style={{ display: "grid", gap: 6, minWidth: 0 }}>
               <span style={{ ...textStyles.fieldLabel, color: tokens.color.softInk }}>來源真相</span>
@@ -3011,48 +3164,27 @@ function ProductActionStage({
                 </footer>
               </blockquote>
             ) : null}
-            <ProductActionReadingOperations
-              signal={activeSignal}
-              reading={activeReading}
-              sourceUrl={activeSourceUrl}
-              citations={citations}
-              onSynthesizeSignalReading={onSynthesizeSignalReading}
-              onReviewSignalReading={onReviewSignalReading}
-            />
+            {activeIsActionable ? (
+              <ProductActionReadingOperations
+                signal={activeSignal}
+                reading={activeReading}
+                sourceUrl={activeSourceUrl}
+                citations={citations}
+                onSynthesizeSignalReading={onSynthesizeSignalReading}
+                onReviewSignalReading={onReviewSignalReading}
+              />
+            ) : null}
           </article>
-          <nav data-product-action-pager="true" aria-label="候選行動分頁" style={{ display: "flex", justifyContent: "center", alignItems: "center", gap: 10, flexWrap: "wrap", minWidth: 0 }}>
-            <SecondaryButton dataAttrs={{ "data-product-action-previous": "true", "aria-label": "上一則候選" }} disabled={safeIndex === 0} onClick={() => moveTo(safeIndex - 1)}>←</SecondaryButton>
-            <span style={{ display: "inline-flex", gap: 6, alignItems: "center" }}>
-              {candidates.map((analysis, index) => (
-                <button
-                  key={analysis.signalId}
-                  type="button"
-                  data-product-action-dot={index + 1}
-                  aria-label={`前往候選 ${index + 1}`}
-                  title={`前往候選 ${index + 1}`}
-                  aria-current={index === safeIndex ? "page" : undefined}
-                  onClick={() => moveTo(index)}
-                  style={{ width: 24, height: 24, padding: 0, border: 0, borderRadius: tokens.radius.round, background: "transparent", display: "grid", placeItems: "center", cursor: "pointer" }}
-                >
-                  <span
-                    data-product-action-dot-visual="true"
-                    aria-hidden="true"
-                    style={{ width: 9, height: 9, borderRadius: tokens.radius.round, border: `1px solid ${index === safeIndex ? tokens.color.product : tokens.color.lineStrong}`, background: index === safeIndex ? tokens.color.product : tokens.color.neutralSurface }}
-                  />
-                </button>
-              ))}
-            </span>
-            <span data-product-action-live="true" role="status" aria-live="polite" style={{ minWidth: 36, fontFamily: tokens.font.mono, fontSize: 10.5, color: tokens.color.softInk, textAlign: "center" }}>{safeIndex + 1} / {candidates.length}</span>
-            <SecondaryButton dataAttrs={{ "data-product-action-next": "true", "aria-label": "下一則候選" }} disabled={safeIndex === candidates.length - 1} onClick={() => moveTo(safeIndex + 1)}>→</SecondaryButton>
+          <nav data-product-action-pager="text" aria-label={`${activeMeta.label}分頁`} style={{ display: "flex", justifyContent: "center", alignItems: "center", gap: 10, flexWrap: "wrap", minWidth: 0 }}>
+            <SecondaryButton dataAttrs={{ "data-product-action-previous": "true" }} disabled={safeIndex === 0} onClick={() => moveTo(safeIndex - 1)}>← 上一則</SecondaryButton>
+            <span data-product-action-live="true" role="status" aria-live="polite" style={{ minWidth: 36, fontFamily: tokens.font.mono, fontSize: 10.5, color: tokens.color.softInk, textAlign: "center" }}>{safeIndex + 1} / {activeItems.length}</span>
+            <SecondaryButton dataAttrs={{ "data-product-action-next": "true" }} disabled={safeIndex === activeItems.length - 1} onClick={() => moveTo(safeIndex + 1)}>下一則 →</SecondaryButton>
           </nav>
         </>
       ) : (
-        <div data-product-action-empty="true" style={mutedPanelStyle({ fontSize: 12.5, color: tokens.color.subInk })}>目前沒有已完成的 try / watch 候選。</div>
+        <div data-product-action-empty="true" style={mutedPanelStyle({ fontSize: 12.5, color: tokens.color.subInk })}>請先到訊號頁開始分析</div>
       )}
-
-      <ProductActionCompactDetails marker="exclusions" title="已排除 · 不納入行動清單" items={exclusions} />
-      <ProductActionCompactDetails marker="insufficient" title="資料不足 · 不計入候選" items={insufficient} />
-      {onExportSignalPackets ? (
+      {completed.length && onExportSignalPackets ? (
         <details data-product-action-export="true" style={{ borderTop: `1px solid ${tokens.color.line}`, paddingTop: 10 }}>
           <summary className="dlens-expand-trigger" style={{ cursor: "pointer", ...textStyles.fieldLabel, color: tokens.color.product }}>Folder Packet 匯出</summary>
           <div style={{ marginTop: 10 }}>
@@ -3176,10 +3308,22 @@ export function ProductSignalView({
         }
       />
       <div data-product-signal-frame="true" style={{ display: "grid", gap: tokens.spacing.md, overflow: "visible", minWidth: 0 }}>
-        <ReadinessPanel
-          viewModel={viewModel}
-          onAnalyze={handleAnalyze}
-        />
+        {kind === "actionable-filter" ? (
+          <div
+            data-product-action-status="compact"
+            data-dlens-presence="card"
+            style={heroPanelStyle({ display: "flex", alignItems: "center", gap: 10, padding: "9px 12px", flexWrap: "wrap" })}
+          >
+            <Kicker>判讀狀態</Kicker>
+            <Stamp tone={scopedAnalyses.length ? "success" : "neutral"}>{scopedAnalyses.length} analyses</Stamp>
+            {pendingSignals.length ? <Stamp tone="warning">{pendingSignals.length} 處理中</Stamp> : null}
+          </div>
+        ) : (
+          <ReadinessPanel
+            viewModel={viewModel}
+            onAnalyze={handleAnalyze}
+          />
+        )}
         {pendingSignals.length && kind !== "saved-signals" ? (
           kind === "actionable-filter" ? (
             <section style={{ display: "grid", gap: 8 }}>
@@ -3242,24 +3386,21 @@ export function ProductSignalView({
               />
             </>
           )
+        ) : kind === "actionable-filter" ? (
+          <ProductActionStage
+            signals={signals}
+            analyses={scopedAnalyses}
+            activeFolderId={viewModel.sessionId ?? undefined}
+            exportFolders={exportFolders}
+            signalReadings={scopedSignalReadings}
+            signalUrlById={signalUrlById}
+            evidenceBySignalId={evidenceBySignalId}
+            onSynthesizeSignalReading={synthesizeSignalReading}
+            onReviewSignalReading={reviewSignalReading}
+            onExportSignalPackets={exportSignalPackets}
+          />
         ) : scopedAnalyses.length ? (
-          kind === "classification" ? (
-            <ClassificationBoard analyses={scopedAnalyses} signalPreviewById={signalPreviewById} />
-          ) : (
-            <ProductActionStage
-              signals={signals}
-              analyses={scopedAnalyses}
-              activeFolderId={viewModel.sessionId ?? undefined}
-              exportFolders={exportFolders}
-              signalReadings={scopedSignalReadings}
-              signalUrlById={signalUrlById}
-              evidenceBySignalId={evidenceBySignalId}
-              onSynthesizeSignalReading={synthesizeSignalReading}
-              onReviewSignalReading={reviewSignalReading}
-              onExportSignalPackets={exportSignalPackets}
-              onRemoveSignal={signals.some((signal) => signal.actions.some((action) => action.kind === "remove")) ? handleRemoveSignal : undefined}
-            />
-          )
+          <ClassificationBoard analyses={scopedAnalyses} signalPreviewById={signalPreviewById} />
         ) : viewModel.loadState === "loading" ? null : (
           <div data-dlens-presence="card" style={cardStyle()}>
             <div style={{ fontSize: 14, fontWeight: 800, color: tokens.color.ink }}>

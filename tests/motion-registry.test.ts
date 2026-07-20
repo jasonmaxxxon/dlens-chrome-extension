@@ -208,33 +208,25 @@ test("Product Action stage explicitly removes animation and transforms for reduc
   assert.match(rule, /transform:\s*none\s*!important/);
 });
 
-test("Product Action pager dots have tactile hover and focus motion with a reduced-motion fallback", () => {
-  const dotSelector = '[data-dlens-control="true"] [data-product-action-dot]';
-  const dotStart = DLENS_MOTION_CSS.indexOf(dotSelector);
-  assert.notEqual(dotStart, -1, "expected a Product Action pager-dot transition");
-  const dotRule = sliceBalancedBlock(DLENS_MOTION_CSS, dotStart);
-  assert.match(dotRule, /transition:\s*transform/);
+test("Product Action verdict tiles have token-owned plate and count motion with a reduced-motion fallback", () => {
+  assert.match(DLENS_MOTION_CSS, /data-verdict-filter-plate/);
+  assert.match(DLENS_MOTION_CSS, /data-verdict-tile-count/);
 
-  for (const state of [":hover", ":focus-visible"] as const) {
-    const selector = `${dotSelector}${state}`;
-    const selectorStart = DLENS_MOTION_CSS.indexOf(selector);
-    assert.notEqual(selectorStart, -1, `expected Product Action pager-dot ${state} feedback`);
-    const rule = sliceBalancedBlock(DLENS_MOTION_CSS, selectorStart);
-    assert.match(rule, /transform:\s*scale\(/);
-  }
+  const plateSelector = '[data-dlens-control="true"] [data-verdict-filter-plate]';
+  const plateRule = sliceBalancedBlock(DLENS_MOTION_CSS, DLENS_MOTION_CSS.indexOf(plateSelector));
+  assert.match(plateRule, /transition:\s*transform/);
+  assert.match(plateRule, /background-color/);
+
+  const countSelector = '[data-dlens-control="true"] [data-verdict-tile-count]';
+  const countRule = sliceBalancedBlock(DLENS_MOTION_CSS, DLENS_MOTION_CSS.indexOf(countSelector));
+  assert.match(countRule, /transition:\s*transform/);
+  assert.match(DLENS_MOTION_CSS, /\[data-verdict-tile\]:hover \[data-verdict-tile-count\][^]*transform:\s*scale\(/);
+  assert.match(DLENS_MOTION_CSS, /\[data-verdict-tile\]\[aria-pressed="true"\] \[data-verdict-tile-count\][^]*transform:\s*scale\(/);
 
   const reduceStart = DLENS_MOTION_CSS.indexOf("@media (prefers-reduced-motion: reduce)");
-  assert.notEqual(reduceStart, -1);
   const reduceBlock = sliceBalancedBlock(DLENS_MOTION_CSS, reduceStart);
-  const reduceSelectorStart = reduceBlock.indexOf(dotSelector);
-  assert.notEqual(reduceSelectorStart, -1, "expected Product Action pager-dot reduced-motion rule");
-  const reduceRule = sliceBalancedBlock(reduceBlock, reduceSelectorStart);
-  assert.match(reduceRule, /transition:\s*none\s*!important/);
-  assert.match(reduceRule, /transform:\s*none\s*!important/);
-});
-
-test("motion registry drops retired Product Action scoreboard selectors", () => {
-  assert.doesNotMatch(DLENS_MOTION_CSS, /data-verdict-filter-plate|data-verdict-tile-(?:count|bar)/);
+  assert.match(reduceBlock, /data-verdict-filter-plate[^]*transition:\s*none\s*!important/);
+  assert.match(reduceBlock, /data-verdict-tile-count[^]*transform:\s*none\s*!important/);
 });
 
 test("reduced-motion safety net is scoped to DLens roots and neutralises animation", () => {

@@ -310,16 +310,19 @@ export const DLENS_MOTION_CSS = `
   transform: translateY(0) scale(0.86);
   transition: transform 90ms ${tokens.motion.easing.standard};
 }
-[data-dlens-control="true"] [data-product-action-dot] {
+[data-dlens-control="true"] [data-verdict-filter-plate] {
+  transition: transform ${tokens.motion.duration.slow} ${tokens.motion.easing.spring}, background-color ${tokens.motion.duration.base} ${tokens.motion.easing.standard}, border-color ${tokens.motion.duration.base} ${tokens.motion.easing.standard};
+}
+[data-dlens-control="true"] [data-verdict-tile-count] {
   transform: scale(1);
-  transition: transform 180ms ${tokens.motion.easing.springSoft};
+  transition: transform ${tokens.motion.duration.base} ${tokens.motion.easing.springSoft};
 }
-[data-dlens-control="true"] [data-product-action-dot]:hover,
-[data-dlens-control="true"] [data-product-action-dot]:focus-visible {
-  transform: scale(1.28);
+[data-dlens-control="true"] [data-verdict-tile]:hover [data-verdict-tile-count],
+[data-dlens-control="true"] [data-verdict-tile][aria-pressed="true"] [data-verdict-tile-count] {
+  transform: scale(1.1);
 }
-[data-dlens-control="true"] [data-product-action-dot]:active {
-  transform: scale(0.9);
+[data-dlens-control="true"] [data-verdict-tile]:active [data-verdict-tile-count] {
+  transform: scale(0.96);
   transition: transform 90ms ${tokens.motion.easing.standard};
 }
 @media (prefers-reduced-motion: reduce) {
@@ -327,11 +330,13 @@ export const DLENS_MOTION_CSS = `
     animation: none !important;
     transform: none !important;
   }
-  [data-dlens-control="true"] [data-product-action-dot],
-  [data-dlens-control="true"] [data-product-action-dot]:hover,
-  [data-dlens-control="true"] [data-product-action-dot]:focus-visible,
-  [data-dlens-control="true"] [data-product-action-dot]:active {
+  [data-dlens-control="true"] [data-verdict-filter-plate],
+  [data-dlens-control="true"] [data-verdict-tile-count] {
     transition: none !important;
+  }
+  [data-dlens-control="true"] [data-verdict-tile]:hover [data-verdict-tile-count],
+  [data-dlens-control="true"] [data-verdict-tile][aria-pressed="true"] [data-verdict-tile-count],
+  [data-dlens-control="true"] [data-verdict-tile]:active [data-verdict-tile-count] {
     transform: none !important;
   }
   [data-dlens-control="true"] .dlens-card-lift,
