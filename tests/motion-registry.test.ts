@@ -129,6 +129,85 @@ test("every inline `animation:` keyframe name resolves to a registry keyframe", 
   assert.deepEqual([...missing], []);
 });
 
+test("Product Action stage keyframes enter from opposite token-owned x offsets", () => {
+  const distancePx = tokens.motion.presence.cardRisePx;
+  const directions = [
+    {
+      keyframe: "dlens-product-stage-forward-in",
+      expectedFromTransform: `translateX(${distancePx}px)`
+    },
+    {
+      keyframe: "dlens-product-stage-backward-in",
+      expectedFromTransform: `translateX(-${distancePx}px)`
+    }
+  ] as const;
+
+  for (const { keyframe, expectedFromTransform } of directions) {
+    const start = DLENS_KEYFRAMES_CSS.indexOf(`@keyframes ${keyframe}`);
+    assert.notEqual(start, -1, `expected ${keyframe} in the single motion registry`);
+    const block = sliceBalancedBlock(DLENS_KEYFRAMES_CSS, start);
+    assert.ok(block.includes(`from { transform: ${expectedFromTransform}; }`));
+    assert.ok(block.includes("to { transform: translateX(0); }"));
+  }
+
+  const source = readFileSync(MOTION_PATH, "utf8");
+  assert.match(
+    source,
+    /@keyframes dlens-product-stage-forward-in[\s\S]*?translateX\(\$\{tokens\.motion\.presence\.cardRisePx\}px\)/
+  );
+  assert.match(
+    source,
+    /@keyframes dlens-product-stage-backward-in[\s\S]*?translateX\(-\$\{tokens\.motion\.presence\.cardRisePx\}px\)/
+  );
+});
+
+test("Product Action stage direction selectors animate only when motion is preferred", () => {
+  const mediaStart = DLENS_MOTION_CSS.indexOf("@media (prefers-reduced-motion: no-preference)");
+  assert.notEqual(mediaStart, -1, "expected an explicit no-preference motion gate");
+  const mediaBlock = sliceBalancedBlock(DLENS_MOTION_CSS, mediaStart);
+
+  for (const [direction, keyframe] of [
+    ["forward", "dlens-product-stage-forward-in"],
+    ["backward", "dlens-product-stage-backward-in"]
+  ] as const) {
+    const selector = `[data-dlens-control="true"] [data-product-action-stage][data-direction="${direction}"]`;
+    const selectorStart = mediaBlock.indexOf(selector);
+    assert.notEqual(selectorStart, -1, `expected ${direction} Product Action stage selector`);
+    const rule = sliceBalancedBlock(mediaBlock, selectorStart);
+    assert.ok(
+      rule.includes(
+        `animation: ${keyframe} ${tokens.motion.duration.slow} ${tokens.motion.easing.entrance} both;`
+      )
+    );
+  }
+
+  const cssOutsideGate = DLENS_MOTION_CSS.replace(mediaBlock, "");
+  assert.doesNotMatch(cssOutsideGate, /animation:\s*dlens-product-stage-(?:forward|backward)-in/);
+
+  const source = readFileSync(MOTION_PATH, "utf8");
+  assert.match(
+    source,
+    /animation: dlens-product-stage-forward-in \$\{tokens\.motion\.duration\.slow\} \$\{tokens\.motion\.easing\.entrance\} both;/
+  );
+  assert.match(
+    source,
+    /animation: dlens-product-stage-backward-in \$\{tokens\.motion\.duration\.slow\} \$\{tokens\.motion\.easing\.entrance\} both;/
+  );
+});
+
+test("Product Action stage explicitly removes animation and transforms for reduced motion", () => {
+  const mediaStart = DLENS_MOTION_CSS.indexOf("@media (prefers-reduced-motion: reduce)");
+  assert.notEqual(mediaStart, -1, "expected an explicit reduced-motion block");
+  const mediaBlock = sliceBalancedBlock(DLENS_MOTION_CSS, mediaStart);
+  const selector = '[data-dlens-control="true"] [data-product-action-stage]';
+  const selectorStart = mediaBlock.indexOf(selector);
+  assert.notEqual(selectorStart, -1, "expected Product Action stage reduced-motion selector");
+  const rule = sliceBalancedBlock(mediaBlock, selectorStart);
+
+  assert.match(rule, /animation:\s*none\s*!important/);
+  assert.match(rule, /transform:\s*none\s*!important/);
+});
+
 test("reduced-motion safety net is scoped to DLens roots and neutralises animation", () => {
   assert.match(DLENS_REDUCED_MOTION_CSS, /@media\s*\(prefers-reduced-motion:\s*reduce\)/);
   assert.match(DLENS_REDUCED_MOTION_CSS, /\[data-dlens-control="true"\]/);

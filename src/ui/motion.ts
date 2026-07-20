@@ -64,6 +64,14 @@ export const DLENS_KEYFRAMES_CSS = `
   0% { opacity: 0.45; transform: translateY(2px); }
   100% { opacity: 1; transform: translateY(0); }
 }
+@keyframes dlens-product-stage-forward-in {
+  from { transform: translateX(${tokens.motion.presence.cardRisePx}px); }
+  to { transform: translateX(0); }
+}
+@keyframes dlens-product-stage-backward-in {
+  from { transform: translateX(-${tokens.motion.presence.cardRisePx}px); }
+  to { transform: translateX(0); }
+}
 @keyframes dlens-source-row-pulse {
   0%, 100% { box-shadow: 0 0 0 3px ${tokens.color.queuedBorder}; }
   50%      { box-shadow: 0 0 0 6px ${tokens.color.queuedWash}; }
@@ -190,6 +198,14 @@ export function planCausalListTransitions(
  * Applies across every workspace mode; classes are opt-in so unstyled
  * elements are unaffected. `prefers-reduced-motion` neutralises all of it. */
 export const DLENS_MOTION_CSS = `
+@media (prefers-reduced-motion: no-preference) {
+  [data-dlens-control="true"] [data-product-action-stage][data-direction="forward"] {
+    animation: dlens-product-stage-forward-in ${tokens.motion.duration.slow} ${tokens.motion.easing.entrance} both;
+  }
+  [data-dlens-control="true"] [data-product-action-stage][data-direction="backward"] {
+    animation: dlens-product-stage-backward-in ${tokens.motion.duration.slow} ${tokens.motion.easing.entrance} both;
+  }
+}
 [data-dlens-control="true"][data-workspace-popup-material] [data-shell-masthead="editorial"] {
   animation: dlens-mode-swap-in ${tokens.motion.duration.slow} ${tokens.motion.easing.entrance} backwards;
   animation-delay: ${tokens.motion.cascadeDelay.masthead};
@@ -309,6 +325,10 @@ export const DLENS_MOTION_CSS = `
   transition: transform 90ms ${tokens.motion.easing.standard};
 }
 @media (prefers-reduced-motion: reduce) {
+  [data-dlens-control="true"] [data-product-action-stage] {
+    animation: none !important;
+    transform: none !important;
+  }
   [data-dlens-control="true"] [data-verdict-filter-plate],
   [data-dlens-control="true"] [data-verdict-tile-count],
   [data-dlens-control="true"] [data-verdict-tile-bar] {
