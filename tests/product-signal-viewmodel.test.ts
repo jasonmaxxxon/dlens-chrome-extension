@@ -276,6 +276,32 @@ test("Product VM preserves recovered analyses when the signal inbox is empty", (
   assert.equal(vm.pendingSignals.length, 0);
 });
 
+test("Product workspace actions keep packet export on Action only", () => {
+  const input = {
+    snapshot: makeSnapshot(),
+    signals: [makeSignal()],
+    analyses: [makeAnalysis()],
+    productContext,
+    aiProviderReady: true,
+    isHydrating: false,
+    isAnalyzing: false
+  };
+  const saved = buildProductSignalWorkspaceViewModel({ kind: "saved-signals", ...input });
+  const action = buildProductSignalWorkspaceViewModel({ kind: "actionable-filter", ...input });
+
+  assert.deepEqual(saved.actions.map((entry) => entry.kind), ["analyzeInbox", "openActionable"]);
+  assert.deepEqual(action.actions.map((entry) => entry.kind), [
+    "analyzeInbox",
+    "exportSignalPackets",
+    "exportSignalPackets",
+    "openActionable"
+  ]);
+  assert.deepEqual(
+    action.actions.filter((entry) => entry.kind === "exportSignalPackets").map((entry) => entry.format),
+    ["html", "jsonl"]
+  );
+});
+
 test("Product VM marks complete analyses stale only when current ProductContext or generator version drifts", () => {
   const staleContext: ProductContext = {
     ...productContext,

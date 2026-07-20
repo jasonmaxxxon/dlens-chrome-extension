@@ -3522,7 +3522,7 @@ test("ProductSignalView saved signals removes the old equal-weight fusion card g
   assert.doesNotMatch(html, /data-collector-metric-strip="product-signal-signal_fusion"/);
 });
 
-test("ProductSignalView keeps folder packet export secondary on Product action pages", () => {
+test("ProductSignalView export ownership is Action-only with one whole-folder packet section", () => {
   const baseProps = {
     signals: [
       {
@@ -3600,42 +3600,40 @@ test("ProductSignalView keeps folder packet export secondary on Product action p
   );
 
   assert.doesNotMatch(savedHtml, /data-saved-signals-batch-export="true"/);
+  assert.doesNotMatch(savedHtml, /data-product-action-brief-export|data-signal-packet-html-export/);
   assert.doesNotMatch(savedHtml, /行動簡報匯出|原文優先|精簡決策|複製行動簡報/);
   assert.match(savedHtml, /data-product-action-cta="true"[^>]*border-radius:20px/);
   assert.match(actionableHtml, /data-product-action-workspace="stage"/);
+  assert.match(actionableHtml, /data-product-action-brief-export="true"/);
   assert.doesNotMatch(actionableHtml, /data-saved-signals-batch-export="true"/);
   assert.doesNotMatch(actionableHtml, /Agent export/);
-  assert.doesNotMatch(actionableHtml, /原文優先/);
-  assert.doesNotMatch(actionableHtml, /精簡決策/);
-  assert.doesNotMatch(actionableHtml, /複製 Agent Brief|複製行動簡報/);
+  assert.match(actionableHtml, /原文優先/);
+  assert.match(actionableHtml, /精簡決策/);
+  assert.match(actionableHtml, /複製行動簡報/);
   assert.match(actionableHtml, /<details data-product-action-export="true"/);
-  assert.match(actionableHtml, /data-signal-packet-html-export="true"/);
+  assert.equal(countOccurrences(actionableHtml, 'data-signal-packet-html-export="true"'), 1);
+  assert.match(actionableHtml, /整個 Folder Packet/);
   assert.match(actionableHtml, /data-signal-packet-format-option="html"/);
   assert.match(actionableHtml, /data-signal-packet-format-option="jsonl"/);
   assert.match(actionableHtml, /匯出 HTML Reading/);
   assert.match(actionableHtml, /JSONL Packet/);
   assert.doesNotMatch(actionableHtml, /data-agent-brief-copy-status/);
-  assert.doesNotMatch(actionableHtml, /data-batch-export-selection-row="true"/);
+  assert.doesNotMatch(actionableHtml, /data-batch-export-selection-list|data-signal-reading-disclosure/);
   assert.doesNotMatch(actionableHtml, /# Agent Brief/);
 });
 
-test("SavedSignalsBatchExport action brief packet card uses the signed frame 5 mono packet grammar", () => {
+test("ProductActionBriefExport keeps a compact selected summary without duplicate selection UI", () => {
   const fixture = buildActionableCardFixture();
-  const SavedSignalsBatchExport = (productSignalViewTestables as unknown as {
-    SavedSignalsBatchExport: React.ComponentType<{
+  const ProductActionBriefExport = (productSignalViewTestables as unknown as {
+    ProductActionBriefExport: React.ComponentType<{
       signals: any[];
       analyses: typeof fixture.analysis[];
-      activeFolderId?: string;
-      exportFolders?: [];
       signalPreviewById: Record<string, string>;
       signalUrlById: Record<string, string>;
       selectedIds: string[];
-      briefMode: "original" | "decision";
-      onBriefModeChange: (mode: "original" | "decision") => void;
-      onToggleSignal: (signalId: string) => void;
       evidenceBySignalId: typeof fixture.evidenceBySignalId;
     }>;
-  }).SavedSignalsBatchExport;
+  }).ProductActionBriefExport;
   const signal = {
     signalId: fixture.signal.id,
     sessionId: fixture.signal.sessionId,
@@ -3669,26 +3667,22 @@ test("SavedSignalsBatchExport action brief packet card uses the signed frame 5 m
   };
 
   const html = renderToStaticMarkup(
-    React.createElement(SavedSignalsBatchExport, {
+    React.createElement(ProductActionBriefExport, {
       signals: [signal],
       analyses: [fixture.analysis],
-      activeFolderId: fixture.signal.sessionId,
-      exportFolders: [],
       signalPreviewById: { [fixture.signal.id]: signal.sourcePreview.displayText },
       signalUrlById: { [fixture.signal.id]: signal.sourcePreview.displayUrl },
       selectedIds: [fixture.signal.id],
-      briefMode: "original",
-      onBriefModeChange: () => undefined,
-      onToggleSignal: () => undefined,
       evidenceBySignalId: fixture.evidenceBySignalId
     })
   );
 
-  assert.match(html, /data-product-agent-packet-card="ready"/);
-  assert.match(html, /data-product-agent-packet-block="true"/);
-  assert.match(html, /data-product-agent-packet-field="signals"[^>]*>signals: 1/);
-  assert.match(html, /data-product-agent-packet-field="buckets"[^>]*>buckets: 1/);
-  assert.match(html, /agent_packet.ready/);
+  assert.match(html, /data-product-action-brief-selected-summary="true"/);
+  assert.match(html, /原文需要更清楚的 agent handoff/);
+  assert.match(html, /原文優先/);
+  assert.match(html, /精簡決策/);
+  assert.match(html, /複製行動簡報/);
+  assert.doesNotMatch(html, /data-batch-export-selection-list|data-signal-reading-disclosure|type="checkbox"/);
 });
 
 test("SavedSignalsBoard keeps unanalyzed placeholders in compact management", () => {
@@ -4482,6 +4476,101 @@ test("Product Action stage groups completed analyses into four verdict tiles wit
   assert.doesNotMatch(html, /data-product-macro-strip|data-product-action-card=/);
 });
 
+test("Product Action brief toggles are limited to backed try and watch analyses", () => {
+  const fixture = productActionStageFixture();
+  const actionableHtml = renderToStaticMarkup(productSignalViewElement(fixture));
+  assert.equal(countOccurrences(actionableHtml, 'data-product-action-brief-toggle="true"'), 1);
+  assert.match(actionableHtml, /data-product-action-brief-toggle="true"[^>]*aria-pressed="false"/);
+  assert.match(actionableHtml, /data-product-action-brief-toggle="true"[^>]*min-height:44px[^]*加入行動簡報/);
+
+  for (const signalId of ["signal_park", "signal_noise", "signal_insufficient"] as const) {
+    const html = renderToStaticMarkup(productSignalViewElement({
+      ...fixture,
+      analyses: fixture.analyses.map((analysis) => (
+        analysis.signalId === signalId
+          ? analysis
+          : { ...analysis, status: "analyzing" as const }
+      ))
+    }));
+    assert.doesNotMatch(html, /data-product-action-brief-toggle=/);
+  }
+
+  const recoveredHtml = renderToStaticMarkup(productSignalViewElement({
+    ...fixture,
+    activeFolderId: "session_stage",
+    signals: [],
+    analyses: [fixture.analyses.find((analysis) => analysis.signalId === "signal_try_second")!]
+  }));
+  assert.doesNotMatch(recoveredHtml, /data-product-action-brief-toggle=/);
+  assert.doesNotMatch(recoveredHtml, /data-product-action-brief-export=/);
+});
+
+test("Product Action brief selection prunes ineligible IDs and resets for a new session", async () => {
+  const { JSDOM } = await import("jsdom");
+  const { createRoot } = await import("react-dom/client");
+  const { act } = await import("react");
+  const dom = new JSDOM("<div id=\"root\"></div>", { url: "https://dlens.test" });
+  const reactActGlobal = globalThis as typeof globalThis & { IS_REACT_ACT_ENVIRONMENT?: boolean };
+  const previousActEnvironment = reactActGlobal.IS_REACT_ACT_ENVIRONMENT;
+  const previous = {
+    window: globalThis.window,
+    document: globalThis.document,
+    HTMLElement: globalThis.HTMLElement,
+    HTMLButtonElement: globalThis.HTMLButtonElement,
+    MouseEvent: globalThis.MouseEvent
+  };
+  Object.assign(globalThis, {
+    window: dom.window,
+    document: dom.window.document,
+    HTMLElement: dom.window.HTMLElement,
+    HTMLButtonElement: dom.window.HTMLButtonElement,
+    MouseEvent: dom.window.MouseEvent
+  });
+  reactActGlobal.IS_REACT_ACT_ENVIRONMENT = true;
+  const rootElement = dom.window.document.getElementById("root");
+  assert.ok(rootElement);
+  const root = createRoot(rootElement);
+  const fixture = productActionStageFixture();
+  const render = async (props: ReturnType<typeof productActionStageFixture>) => {
+    await act(async () => root.render(productSignalViewElement(props)));
+  };
+  const clickToggle = async () => {
+    const toggle = rootElement.querySelector<HTMLButtonElement>('[data-product-action-brief-toggle="true"]');
+    assert.ok(toggle);
+    await act(async () => toggle.dispatchEvent(new dom.window.MouseEvent("click", { bubbles: true })));
+  };
+
+  try {
+    await render(fixture);
+    await clickToggle();
+    assert.match(rootElement.innerHTML, /行動簡報匯出 · 1 已選/);
+
+    const withoutTry = {
+      ...fixture,
+      analyses: fixture.analyses.map((analysis) => (
+        analysis.signalId === "signal_try_second"
+          ? { ...analysis, status: "analyzing" as const }
+          : analysis
+      ))
+    };
+    await render(withoutTry);
+    assert.match(rootElement.innerHTML, /行動簡報匯出 · 0 已選/);
+
+    await clickToggle();
+    assert.match(rootElement.innerHTML, /行動簡報匯出 · 1 已選/);
+    await render({
+      ...withoutTry,
+      signals: withoutTry.signals.map((signal) => ({ ...signal, sessionId: "session_stage_next" }))
+    });
+    assert.match(rootElement.innerHTML, /行動簡報匯出 · 0 已選/);
+  } finally {
+    await act(async () => root.unmount());
+    Object.assign(globalThis, previous);
+    reactActGlobal.IS_REACT_ACT_ENVIRONMENT = previousActEnvironment;
+    dom.window.close();
+  }
+});
+
 test("Product Action verdict tiles disable empty buckets and default to the first enabled bucket", () => {
   const fixture = productActionStageFixture();
   const html = renderToStaticMarkup(productSignalViewElement({
@@ -5253,9 +5342,11 @@ test("ProductSignalView keeps reading review and packet export inside the active
   assert.doesNotMatch(html, /data-signal-reading-review-workspace="true"/);
   assert.doesNotMatch(html, /data-saved-signals-batch-export="true"/);
   assert.doesNotMatch(html, /Agent export/);
-  assert.doesNotMatch(html, /原文優先/);
-  assert.doesNotMatch(html, /精簡決策/);
-  assert.doesNotMatch(html, /複製 Agent Brief|複製行動簡報/);
+  assert.match(html, /data-product-action-brief-export="true"/);
+  assert.match(html, /原文優先/);
+  assert.match(html, /精簡決策/);
+  assert.match(html, /複製行動簡報/);
+  assert.doesNotMatch(html, /data-batch-export-selection-list|data-signal-reading-disclosure/);
   assert.doesNotMatch(html, /data-actionable-insights-board="true"/);
   assert.match(html, /收錄此判讀/);
   assert.match(html, /data-product-action-regenerate-reading="true"/);

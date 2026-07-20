@@ -1971,7 +1971,7 @@ function SignalPacketHtmlExportSection({
           letterSpacing: 0
         }}
       >
-        把這個 folder 已完成的判讀打包成可重讀的 packet — 給未來的你，或 agent。
+        匯出整個 Folder Packet；不受上方行動簡報的已選項目影響。
       </p>
       <div role="radiogroup" aria-label="Signal Packet 匯出格式" style={{ display: "grid", gridTemplateColumns: "repeat(2, minmax(0, 1fr))", gap: 10 }}>
         {SIGNAL_PACKET_EXPORT_FORMATS.map((format) => {
@@ -2227,119 +2227,25 @@ type SynthesizeSignalReading = (
   force?: boolean
 ) => Promise<{ ok: true; reading: string } | { ok: false; error: string }>;
 
-function SignalReadingDisclosure({
-  signal,
-  onSynthesize
-}: {
-  signal: ProductSignalViewModel;
-  onSynthesize: SynthesizeSignalReading;
-}) {
-  const [open, setOpen] = useState(false);
-  const [reading, setReading] = useState<string | null>(null);
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-
-  const handleToggle = () => {
-    const next = !open;
-    setOpen(next);
-    if (next && reading === null && !loading) {
-      setLoading(true);
-      setError(null);
-      void onSynthesize(signal.signalId, signal.sessionId).then((result) => {
-        if (result.ok) {
-          setReading(result.reading);
-        } else {
-          setError(result.error);
-        }
-        setLoading(false);
-      });
-    }
-  };
-
-  return (
-    <div style={{ padding: "4px 6px 9px 31px" }}>
-      <button
-        type="button"
-        data-signal-reading-toggle="true"
-        onClick={handleToggle}
-        style={{
-          position: "relative",
-          overflow: "hidden",
-          border: `1px solid ${tokens.color.product}`,
-          background: tokens.color.productSoft,
-          cursor: "pointer",
-          padding: "3px 10px",
-          borderRadius: tokens.radius.sm,
-          font: "inherit",
-          fontSize: 11,
-          fontWeight: 700,
-          color: tokens.color.product
-        }}
-      >
-        {open ? "▾ 深度判讀" : "▸ 深度判讀"}
-        {loading ? <ButtonShimmer /> : null}
-      </button>
-      {open ? (
-        <div
-          data-signal-reading-body="true"
-          style={{
-            marginTop: 6,
-            fontSize: 12,
-            lineHeight: 1.65,
-            color: tokens.color.subInk,
-            whiteSpace: "pre-wrap",
-            wordBreak: "break-word"
-          }}
-        >
-          {loading
-            ? "判讀中…"
-            : error
-              ? <span style={{ color: tokens.color.queued }}>{error}</span>
-              : reading || "（沒有判讀內容）"}
-        </div>
-      ) : null}
-    </div>
-  );
-}
-
-function SavedSignalsBatchExport({
+function ProductActionBriefExport({
   signals,
   analyses,
-  activeFolderId,
-  exportFolders,
   signalPreviewById,
   signalUrlById,
   selectedIds,
-  briefMode,
-  onBriefModeChange,
-  onToggleSignal,
-  onSynthesizeSignalReading,
-  onExportSignalPackets,
   evidenceBySignalId
 }: {
   signals: ProductSignalViewModel[];
   analyses: ProductSignalAnalysis[];
-  activeFolderId?: string;
-  exportFolders?: SignalPacketExportFolderOption[];
   signalPreviewById: Record<string, string>;
   signalUrlById: Record<string, string>;
   selectedIds: string[];
-  briefMode: AgentBriefMode;
-  onBriefModeChange: (mode: AgentBriefMode) => void;
-  onToggleSignal: (signalId: string) => void;
-  onSynthesizeSignalReading?: SynthesizeSignalReading;
-  onExportSignalPackets?: ExportSignalPackets;
   evidenceBySignalId: Record<string, ProductSignalEvidenceEntry[]>;
 }) {
   const [copyStatus, setCopyStatus] = useState<AgentBriefCopyStatus>("idle");
+  const [briefMode, setBriefMode] = useState<AgentBriefMode>("original");
   const analysesBySignal = analysisBySignalId(analyses);
-  const exportableRows = signals
-    .map((signal) => ({ signal, analysis: analysesBySignal.get(signal.signalId) }))
-    .filter((row): row is { signal: ProductSignalViewModel; analysis: ProductSignalAnalysis } => Boolean(row.analysis));
-  const unanalyzedCount = signals.length - exportableRows.length;
-  const selectedSignals = exportableRows
-    .filter((row) => selectedIds.includes(row.signal.signalId))
-    .map((row) => row.signal);
+  const selectedSignals = signals.filter((signal) => selectedIds.includes(signal.signalId));
   const agentBrief = selectedSignals.length
     ? buildAgentBrief({ mode: briefMode, selectedSignals, analysesBySignal, signalPreviewById, signalUrlById, evidenceBySignalId })
     : "";
@@ -2360,144 +2266,17 @@ function SavedSignalsBatchExport({
     );
   };
   const copyStatusText = copyStatus === "copied" ? "已複製" : copyStatus === "error" ? "複製失敗" : " ";
-  const selectedBucketCount = new Set(selectedSignals.map((entry) => entry.analysis?.signalType).filter(Boolean)).size;
-  const packetModeLabel = briefMode === "original" ? "original_first" : "decision_compact";
-  const packetPayloadChars = agentBrief.length;
 
   return (
-    <div data-saved-signals-batch-export="true" data-dlens-presence="card" style={cardStyle({ gap: 13, borderColor: tokens.color.product, background: `linear-gradient(180deg, ${tokens.color.elevated}, ${tokens.color.productSoft})` })}>
-      <div style={{ display: "flex", justifyContent: "space-between", gap: 10, alignItems: "center" }}>
-        <Kicker>行動簡報匯出</Kicker>
-        <Stamp tone={selectedSignals.length ? "accent" : "neutral"}>{selectedSignals.length} 已選</Stamp>
-      </div>
-      {selectedSignals.length ? (
-        <div data-product-packet-ready="true" style={{ display: "grid", gap: 8 }}>
-          <div
-            data-product-agent-packet-card="ready"
-            style={{
-              display: "grid",
-              gap: 10,
-              padding: "12px 14px",
-              borderRadius: tokens.radius.card,
-              border: `1px solid ${tokens.color.product}`,
-              background: tokens.color.surface,
-              minWidth: 0
-            }}
-          >
-            <div style={{ display: "flex", gap: 8, alignItems: "baseline", flexWrap: "wrap" }}>
-              <span style={{ ...textStyles.label, color: tokens.color.product, letterSpacing: 0 }}>agent packet</span>
-              <span style={{ ...textStyles.metric, color: tokens.color.softInk }}>{selectedSignals.length} readings</span>
-              <ProductVerdictSoftPill verdict="try" />
-            </div>
-            <div
-              data-product-agent-packet-block="true"
-              style={{
-                display: "grid",
-                gap: 3,
-                padding: "10px 11px",
-                borderRadius: tokens.radius.card,
-                border: `1px solid ${tokens.color.line}`,
-                background: tokens.color.contextSurface,
-                color: tokens.color.subInk,
-                fontFamily: tokens.font.mono,
-                fontSize: 10.5,
-                lineHeight: 1.7,
-                whiteSpace: "pre-wrap",
-                overflowWrap: "anywhere"
-              }}
-            >
-              <span style={{ color: tokens.color.product, fontWeight: 800 }}>agent_packet.ready</span>
-              <span data-product-agent-packet-field="signals">signals: {selectedSignals.length}</span>
-              <span data-product-agent-packet-field="buckets">buckets: {selectedBucketCount}</span>
-              <span data-product-agent-packet-field="mode">mode: {packetModeLabel}</span>
-              <span data-product-agent-packet-field="payload">payload_chars: {packetPayloadChars}</span>
-              <span data-product-agent-packet-field="formats">formats: html,jsonl</span>
-            </div>
-          </div>
-          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8 }}>
-            {[
-              { id: "html", name: "HTML Reading", desc: "人讀 · 含 quote ladder" },
-              { id: "jsonl", name: "JSONL Packet", desc: "agent handoff · 逐行" }
-            ].map((format) => (
-              <div key={format.id} data-product-format-card={format.id} style={{ display: "flex", gap: 10, alignItems: "center", padding: "11px 13px", borderRadius: tokens.radius.card, border: `1px solid ${tokens.color.line}`, background: tokens.color.surface, minWidth: 0 }}>
-                <span style={{ display: "grid", gap: 1, minWidth: 0 }}>
-                  <span style={{ fontSize: 12.5, fontWeight: 500, color: tokens.color.ink }}>{format.name}</span>
-                  <span style={{ fontSize: 10, color: tokens.color.softInk, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{format.desc}</span>
-                </span>
-                <span style={{ marginLeft: "auto", ...textStyles.label, fontFamily: tokens.font.mono, color: tokens.color.success, background: tokens.color.successSoft, padding: "2px 7px", borderRadius: 4, whiteSpace: "nowrap" }}>可用</span>
-              </div>
-            ))}
-          </div>
-        </div>
-      ) : null}
-      <div data-batch-export-selection-list="true" style={{ display: "grid", borderTop: `1px solid ${tokens.color.line}`, borderBottom: `1px solid ${tokens.color.line}`, maxHeight: 240, overflowY: "auto" }}>
-        {exportableRows.map(({ signal, analysis }) => {
-          const checked = selectedIds.includes(signal.signalId);
-          const typeMeta = SIGNAL_TYPE_META[analysis.signalType];
-          return (
-            <div key={signal.signalId} style={{ background: checked ? tokens.color.surface : "transparent" }}>
-              <label
-                data-batch-export-selection-row="true"
-                data-scan-row="true"
-                data-scan-action="true"
-                data-dlens-presence="row"
-                className="dlens-tactile-row"
-                style={scanRowStyle({
-                  display: "grid",
-                  gridTemplateColumns: "18px minmax(0, 1fr) auto",
-                  gap: 9,
-                  alignItems: "center",
-                  padding: "9px 4px",
-                  cursor: "pointer"
-                })}
-              >
-                <input
-                  type="checkbox"
-                  checked={checked}
-                  onChange={() => onToggleSignal(signal.signalId)}
-                  aria-label={`選取 ${referenceLabel(analysis)}`}
-                />
-                <span style={{ minWidth: 0, display: "grid", gap: 3 }}>
-                  <span style={{ ...textStyles.bodyTight, color: tokens.color.ink, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-                    {referenceLabel(analysis)}
-                  </span>
-                  <span style={{ ...textStyles.meta, color: tokens.color.softInk, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-                    {referenceTypeLabel(analysis?.referenceType)} · {referenceTakeaway(analysis)}
-                  </span>
-                </span>
-                <ScorePill color={typeMeta.color} soft={typeMeta.soft}>{VERDICT_LABELS[analysis.verdict]}</ScorePill>
-              </label>
-              {checked && onSynthesizeSignalReading ? (
-                <SignalReadingDisclosure signal={signal} onSynthesize={onSynthesizeSignalReading} />
-              ) : null}
-            </div>
-          );
-        })}
-        {unanalyzedCount ? (
-          <div
-            data-batch-export-unanalysed-summary="true"
-            data-scan-row="true"
-            style={scanRowStyle({
-              display: "grid",
-              gridTemplateColumns: "18px minmax(0, 1fr) auto",
-              gap: 9,
-              alignItems: "center",
-              padding: "9px 4px",
-              color: tokens.color.softInk
-            })}
-          >
-            <span aria-hidden="true" style={{ textAlign: "center", fontSize: 12 }}>•</span>
-            <span style={{ minWidth: 0, display: "grid", gap: 3 }}>
-              <span style={{ ...textStyles.bodyTight, color: tokens.color.subInk }}>
-                {unanalyzedCount} 個 signal 待分析後可生成 brief
-              </span>
-              <span style={{ ...textStyles.meta, color: tokens.color.softInk }}>
-                先完成分析後再輸出 agent brief。
-              </span>
-            </span>
-            <Stamp tone="neutral">未分析</Stamp>
-          </div>
-        ) : null}
+    <div style={{ display: "grid", gap: 10, marginTop: 10 }}>
+      <div data-product-action-brief-selected-summary="true" style={{ display: "flex", gap: 6, flexWrap: "wrap", alignItems: "center" }}>
+        {selectedSignals.length ? selectedSignals.map((signal) => (
+          <span key={signal.signalId} style={{ ...textStyles.meta, maxWidth: "100%", padding: "4px 7px", borderRadius: tokens.radius.sm, border: `1px solid ${tokens.color.line}`, background: tokens.color.contextSurface, color: tokens.color.subInk, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+            {excerpt(signal.sourcePreview.displayText || signal.title, 72)}
+          </span>
+        )) : (
+          <span style={{ ...textStyles.meta, color: tokens.color.softInk }}>尚未選取；請從上方值得嘗試／保留觀察卡加入。</span>
+        )}
       </div>
       <div role="radiogroup" aria-label="行動簡報輸出格式" style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
         {[
@@ -2508,7 +2287,7 @@ function SavedSignalsBatchExport({
             key={value}
             type="button"
             aria-pressed={briefMode === value}
-            onClick={() => onBriefModeChange(value as AgentBriefMode)}
+            onClick={() => setBriefMode(value as AgentBriefMode)}
             style={{
               border: `1px solid ${briefMode === value ? tokens.color.product : tokens.color.line}`,
               borderRadius: tokens.radius.sm,
@@ -2528,7 +2307,7 @@ function SavedSignalsBatchExport({
       </div>
       <PrimaryButton onClick={copyBrief} disabled={!selectedSignals.length}>複製行動簡報</PrimaryButton>
       <div
-        data-agent-brief-copy-status={copyStatus}
+        data-product-action-brief-copy-status={copyStatus}
         aria-live="polite"
         role="status"
         style={{
@@ -2549,12 +2328,6 @@ function SavedSignalsBatchExport({
       >
         {copyStatusText}
       </div>
-      <SignalPacketHtmlExportSection
-        activeFolderId={activeFolderId}
-        exportFolders={exportFolders}
-        onExportSignalPackets={onExportSignalPackets}
-        embedded
-      />
     </div>
   );
 }
@@ -2920,6 +2693,7 @@ function ProductActionStage({
   activeFolderId,
   exportFolders,
   evidenceBySignalId,
+  signalPreviewById,
   signalUrlById,
   onSynthesizeSignalReading,
   onReviewSignalReading,
@@ -2931,6 +2705,7 @@ function ProductActionStage({
   activeFolderId?: string;
   exportFolders?: SignalPacketExportFolderOption[];
   evidenceBySignalId: Record<string, ProductSignalEvidenceEntry[]>;
+  signalPreviewById: Record<string, string>;
   signalUrlById: Record<string, string>;
   onSynthesizeSignalReading?: SynthesizeSignalReading;
   onReviewSignalReading?: ReviewSignalReading;
@@ -2980,6 +2755,17 @@ function ProductActionStage({
   const activeMeta = stats.find((stat) => stat.key === resolvedFilter) ?? stats[0]!;
   const activeIsActionable = resolvedFilter === "try" || resolvedFilter === "watch";
   const signalsById = new Map(signals.map((signal) => [signal.signalId, signal]));
+  const eligibleBriefIds = completed
+    .filter((analysis) => (
+      analysis.signalType !== "noise"
+      && (analysis.verdict === "try" || analysis.verdict === "watch")
+      && signalsById.has(analysis.signalId)
+    ))
+    .map((analysis) => analysis.signalId);
+  const eligibleBriefKey = eligibleBriefIds.join("|");
+  const eligibleBriefIdSet = new Set(eligibleBriefIds);
+  const [selectedSignalIds, setSelectedSignalIds] = useState<string[]>([]);
+  const previousBriefSessionIdRef = useRef(activeFolderId);
   const readingsBySignalId = latestReadingBySignalId(signalReadings);
 
   useEffect(() => {
@@ -3001,6 +2787,17 @@ function ProductActionStage({
     restoreStageFocusRef.current = false;
     stageRef.current?.focus({ preventScroll: true });
   }, [activeAnalysis?.signalId]);
+
+  useEffect(() => {
+    const sessionChanged = previousBriefSessionIdRef.current !== activeFolderId;
+    previousBriefSessionIdRef.current = activeFolderId;
+    const eligibleIds = new Set(eligibleBriefIds);
+    setSelectedSignalIds((previous) => {
+      if (sessionChanged) return [];
+      const next = previous.filter((signalId) => eligibleIds.has(signalId));
+      return next.length === previous.length ? previous : next;
+    });
+  }, [activeFolderId, eligibleBriefKey]);
 
   const moveTo = (nextIndex: number, restoreFocus = false) => {
     const clamped = Math.max(0, Math.min(nextIndex, activeItems.length - 1));
@@ -3042,6 +2839,15 @@ function ProductActionStage({
   const activeTitle = activeAnalysis
     ? activeAnalysis.referenceLabel?.trim() || activeAnalysis.contentSummary
     : "";
+  const activeBriefEligible = Boolean(activeAnalysis && eligibleBriefIdSet.has(activeAnalysis.signalId));
+  const activeBriefSelected = Boolean(activeAnalysis && selectedSignalIds.includes(activeAnalysis.signalId));
+
+  const toggleActiveBriefSelection = () => {
+    if (!activeAnalysis || !activeBriefEligible) return;
+    setSelectedSignalIds((previous) => previous.includes(activeAnalysis.signalId)
+      ? previous.filter((signalId) => signalId !== activeAnalysis.signalId)
+      : [...previous, activeAnalysis.signalId]);
+  };
 
   return (
     <div data-product-action-workspace="stage" style={{ display: "grid", gap: 12, minWidth: 0, overflow: "visible" }}>
@@ -3124,6 +2930,34 @@ function ProductActionStage({
               {activeAnalysis.contentSummary && activeAnalysis.contentSummary !== activeTitle ? <p style={{ margin: 0, fontSize: 13, lineHeight: 1.65, color: tokens.color.subInk, overflowWrap: "anywhere" }}>{activeAnalysis.contentSummary}</p> : null}
             </header>
 
+            {activeBriefEligible ? (
+              <button
+                type="button"
+                data-product-action-brief-toggle="true"
+                aria-pressed={activeBriefSelected}
+                onClick={toggleActiveBriefSelection}
+                style={{
+                  minHeight: 44,
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "space-between",
+                  gap: 10,
+                  padding: "8px 11px",
+                  borderRadius: tokens.radius.sm,
+                  border: `1px solid ${activeBriefSelected ? tokens.color.product : tokens.color.line}`,
+                  background: activeBriefSelected ? tokens.color.productSoft : tokens.color.contextSurface,
+                  color: activeBriefSelected ? tokens.color.product : tokens.color.subInk,
+                  font: "inherit",
+                  fontSize: 12,
+                  fontWeight: 750,
+                  cursor: "pointer"
+                }}
+              >
+                <span>{activeBriefSelected ? "已加入行動簡報" : "加入行動簡報"}</span>
+                <span aria-hidden="true">{activeBriefSelected ? "✓" : "+"}</span>
+              </button>
+            ) : null}
+
             {activeIsActionable ? (
               <div data-product-action-sequence="true" style={{ display: "flex", flexWrap: "wrap", gap: 8, minWidth: 0 }}>
                 {[
@@ -3184,9 +3018,24 @@ function ProductActionStage({
       ) : (
         <div data-product-action-empty="true" style={mutedPanelStyle({ fontSize: 12.5, color: tokens.color.subInk })}>請先到訊號頁開始分析</div>
       )}
+      {eligibleBriefIds.length ? (
+        <details data-product-action-brief-export="true" style={{ borderTop: `1px solid ${tokens.color.line}`, paddingTop: 10 }}>
+          <summary className="dlens-expand-trigger" style={{ cursor: "pointer", ...textStyles.fieldLabel, color: tokens.color.product }}>
+            行動簡報匯出 · {selectedSignalIds.length} 已選
+          </summary>
+          <ProductActionBriefExport
+            signals={signals}
+            analyses={completed}
+            signalPreviewById={signalPreviewById}
+            signalUrlById={signalUrlById}
+            selectedIds={selectedSignalIds}
+            evidenceBySignalId={evidenceBySignalId}
+          />
+        </details>
+      ) : null}
       {completed.length && onExportSignalPackets ? (
         <details data-product-action-export="true" style={{ borderTop: `1px solid ${tokens.color.line}`, paddingTop: 10 }}>
-          <summary className="dlens-expand-trigger" style={{ cursor: "pointer", ...textStyles.fieldLabel, color: tokens.color.product }}>Folder Packet 匯出</summary>
+          <summary className="dlens-expand-trigger" style={{ cursor: "pointer", ...textStyles.fieldLabel, color: tokens.color.product }}>整個 Folder Packet 匯出（HTML / JSONL）</summary>
           <div style={{ marginTop: 10 }}>
             <SignalPacketHtmlExportSection
               activeFolderId={activeFolderId}
@@ -3203,7 +3052,7 @@ function ProductActionStage({
 
 export const productSignalViewTestables = {
   buildAgentBrief,
-  SavedSignalsBatchExport,
+  ProductActionBriefExport,
   createSignalReadingDisplayCopy
 };
 
@@ -3393,6 +3242,7 @@ export function ProductSignalView({
             activeFolderId={viewModel.sessionId ?? undefined}
             exportFolders={exportFolders}
             signalReadings={scopedSignalReadings}
+            signalPreviewById={signalPreviewById}
             signalUrlById={signalUrlById}
             evidenceBySignalId={evidenceBySignalId}
             onSynthesizeSignalReading={synthesizeSignalReading}

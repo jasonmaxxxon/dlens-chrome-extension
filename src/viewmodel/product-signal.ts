@@ -353,15 +353,21 @@ function buildSignalViewModels({
   });
 }
 
-function buildWorkspaceActions(sessionId: string | null, hasActionable: boolean): ProductSignalCommand[] {
+function buildWorkspaceActions(
+  kind: ProductSignalWorkspaceViewModel["kind"],
+  sessionId: string | null,
+  hasActionable: boolean
+): ProductSignalCommand[] {
   if (!sessionId) {
     return [];
   }
-  const actions: ProductSignalCommand[] = [
-    { kind: "analyzeInbox", target: { sessionId } },
-    { kind: "exportSignalPackets", target: { sessionId }, format: "html" },
-    { kind: "exportSignalPackets", target: { sessionId }, format: "jsonl" }
-  ];
+  const actions: ProductSignalCommand[] = [{ kind: "analyzeInbox", target: { sessionId } }];
+  if (kind === "actionable-filter") {
+    actions.push(
+      { kind: "exportSignalPackets", target: { sessionId }, format: "html" },
+      { kind: "exportSignalPackets", target: { sessionId }, format: "jsonl" }
+    );
+  }
   if (hasActionable) {
     actions.push({ kind: "openActionable", target: { sessionId } });
   }
@@ -449,7 +455,7 @@ export function buildProductSignalWorkspaceViewModel({
     analysisNotice,
     isAnalyzing,
     aiProviderReady,
-    actions: buildWorkspaceActions(activeFolder?.id ?? null, scopedAnalyses.length > 0)
+    actions: buildWorkspaceActions(kind, activeFolder?.id ?? null, scopedAnalyses.length > 0)
   };
 }
 
