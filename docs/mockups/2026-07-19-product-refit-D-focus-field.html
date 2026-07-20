@@ -27,7 +27,7 @@
       --amber: #a16a17;
       --canvas: linear-gradient(172deg, #ffffff 0%, #f8fbf8 55%, #f2f7f3 100%);
       --panel: linear-gradient(168deg, rgba(255,255,255,0.84), rgba(255,255,255,0.50));
-      --shadow: 0 1px 2px rgba(27,26,23,0.04), 0 20px 38px -16px rgba(27,26,23,0.11);
+      --shadow: inset 0 1px 0 rgba(255,255,255,0.7), 0 1px 2px rgba(27,26,23,0.045), 0 8px 16px -6px rgba(27,26,23,0.08), 0 20px 38px -16px rgba(27,26,23,0.11);
       --font-serif: "Noto Serif TC", "Songti TC", "Source Han Serif TC", Iowan Old Style, Charter, Georgia, serif;
       --font-sans: "Noto Sans TC", -apple-system, BlinkMacSystemFont, "SF Pro Text", system-ui, sans-serif;
       --font-mono: "JetBrains Mono", "SFMono-Regular", Menlo, monospace;
@@ -38,7 +38,7 @@
     body {
       min-height: 100vh;
       margin: 0;
-      padding: 16px;
+      padding: 12px;
       display: grid;
       place-items: center;
       background: var(--bg);
@@ -56,8 +56,8 @@
     .mono { font-family: var(--font-mono); font-variant-numeric: tabular-nums; }
 
     .extension-shell {
-      width: min(720px, calc(100vw - 32px));
-      height: min(780px, calc(100vh - 32px));
+      width: min(720px, calc(100vw - 24px));
+      height: min(780px, calc(100vh - 24px));
       min-height: 560px;
       display: grid;
       grid-template-columns: 72px minmax(0, 1fr);
@@ -199,7 +199,7 @@
     .stage-head .stage-index { width: 24px; height: 24px; display: grid; place-items: center; padding: 0; border: 1px solid var(--line-strong); border-radius: 50%; background: var(--elevated); color: var(--sub-ink); }
     .stage-title { max-width: 24ch; font-size: clamp(27px, 4.8vw, 40px); line-height: 1.08; }
     .stage-summary { max-width: 62ch; color: var(--sub-ink); font-size: 13px; line-height: 1.7; }
-    .observation-sequence { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin: 4px 0 0; padding: 0; list-style: none; }
+    .observation-sequence { display: grid; grid-template-columns: 1fr; gap: 8px; margin: 4px 0 0; padding: 0; list-style: none; }
     .observation-sequence li { position: relative; min-width: 0; padding: 11px; border-radius: 12px; background: var(--context); }
     .observation-sequence li:last-child { background: var(--product-soft); }
     .observation-sequence b { display: block; color: var(--muted); font-family: var(--font-mono); font-size: 9px; letter-spacing: .07em; }
@@ -207,13 +207,38 @@
     .stage-quote { margin: 0; padding: 3px 0 3px 12px; border-left: 2px solid var(--line-strong); color: var(--sub-ink); font-family: var(--font-serif); font-size: 14px; font-style: italic; line-height: 1.65; }
     .stage-quote cite { display: block; margin-top: 4px; color: var(--muted); font-family: var(--font-mono); font-size: 9px; font-style: normal; }
     .pager { display: flex; align-items: center; justify-content: center; gap: 10px; margin-top: 16px; }
-    .pager-button, .pager-dot { border: 1px solid var(--line); background: var(--elevated); }
-    .pager-button { padding: 7px 10px; border-radius: 9px; color: var(--sub-ink); font-size: 11px; font-weight: 700; }
+    .pager-button { padding: 7px 10px; border: 1px solid var(--line); border-radius: 9px; background: var(--elevated); color: var(--sub-ink); font-size: 11px; font-weight: 700; }
     .pager-button:hover:not(:disabled) { border-color: var(--line-strong); background: var(--context); }
-    .pager-dots { display: flex; gap: 6px; }
-    .pager-dot { width: 9px; height: 9px; padding: 0; border-radius: 50%; }
-    .pager-dot:hover { border-color: var(--line-strong); }
-    .pager-dot[aria-current="page"] { border-color: var(--product); background: var(--product); }
+    .pager-dots { display: flex; gap: 2px; }
+    .pager-dot { position: relative; width: 24px; height: 24px; display: grid; place-items: center; padding: 0; border: 0; border-radius: 7px; background: transparent; }
+    .pager-dot::before { content: ""; width: 9px; height: 9px; border: 1px solid var(--line-strong); border-radius: 50%; background: var(--elevated); }
+    .pager-dot:hover::before { border-color: var(--product); background: var(--context); }
+    .pager-dot[aria-current="page"]::before { border-color: var(--product); background: var(--product); }
+    .pager-dot::after {
+      content: attr(data-tooltip);
+      position: absolute;
+      z-index: 4;
+      left: 50%;
+      bottom: calc(100% + 7px);
+      width: max-content;
+      max-width: 210px;
+      padding: 5px 7px;
+      border: 1px solid var(--line-strong);
+      border-radius: 7px;
+      background: var(--ink);
+      color: var(--elevated);
+      font-size: 9px;
+      font-weight: 650;
+      line-height: 1.35;
+      text-align: left;
+      white-space: normal;
+      opacity: 0;
+      visibility: hidden;
+      transform: translate(-50%, 2px);
+      transition: opacity 120ms ease, transform 120ms ease, visibility 120ms ease;
+      pointer-events: none;
+    }
+    .pager-dot:hover::after, .pager-dot:focus-visible::after { opacity: 1; visibility: visible; transform: translate(-50%, 0); }
     .action-live { min-width: 88px; color: var(--muted); font-size: 9px; text-align: center; }
     .exclusion { margin-top: 16px; border-top: 1px solid var(--line); }
     .exclusion summary { padding: 13px 4px; color: var(--muted); cursor: pointer; font-family: var(--font-mono); font-size: 10px; }
@@ -221,16 +246,13 @@
     .excluded-row { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 12px; padding: 10px 4px; border-top: 1px solid var(--line); color: var(--sub-ink); font-size: 11px; }
     .excluded-row span:last-child { color: var(--muted); text-align: right; }
 
-    :focus-visible { outline: 3px solid var(--line-strong); outline-offset: 3px; }
+    :is(button, summary, [tabindex]):focus-visible { outline: 3px solid var(--product); outline-offset: 2px; box-shadow: 0 0 0 6px var(--elevated); }
     @media (max-width: 680px) {
-      body { padding: 0; place-items: stretch; }
-      .extension-shell { width: 100%; height: 100vh; min-height: 0; border: 0; border-radius: 0; }
+      .extension-shell { min-height: 0; border-radius: 16px; }
       .route-panel { padding: 20px 16px 28px; }
-      .observation-sequence { grid-template-columns: 1fr; }
       .action-stage { min-height: 0; }
     }
     @media (max-width: 480px) {
-      .extension-shell { grid-template-columns: 64px minmax(0, 1fr); }
       .saved-row { grid-template-columns: 9px minmax(0, 1fr); }
       .saved-verdict { grid-column: 2; }
       .reading-facts div { grid-template-columns: 1fr; gap: 3px; }
@@ -292,10 +314,10 @@
         <div class="pager" aria-label="候選行動分頁">
           <button class="pager-button" type="button" data-pager="prev">← 上一則</button>
           <div class="pager-dots">
-            <button class="pager-dot" type="button" data-action-dot="0" aria-label="第 1 則" aria-current="page"></button>
-            <button class="pager-dot" type="button" data-action-dot="1" aria-label="第 2 則"></button>
-            <button class="pager-dot" type="button" data-action-dot="2" aria-label="第 3 則"></button>
-            <button class="pager-dot" type="button" data-action-dot="3" aria-label="第 4 則"></button>
+            <button class="pager-dot" type="button" data-action-dot="0" data-tooltip="介面微互動的節制應用原則" aria-label="第 1 則：介面微互動的節制應用原則" aria-current="page"></button>
+            <button class="pager-dot" type="button" data-action-dot="1" data-tooltip="AI 驅動的快速原型開發流程" aria-label="第 2 則：AI 驅動的快速原型開發流程"></button>
+            <button class="pager-dot" type="button" data-action-dot="2" data-tooltip="透過嚴格 JSON 協定降低模型依賴" aria-label="第 3 則：透過嚴格 JSON 協定降低模型依賴"></button>
+            <button class="pager-dot" type="button" data-action-dot="3" data-tooltip="數據呈現的環境變數過濾" aria-label="第 4 則：數據呈現的環境變數過濾"></button>
           </div>
           <span class="action-live mono" data-action-live>1 / 4</span>
           <button class="pager-button" type="button" data-pager="next">下一則 →</button>
@@ -475,7 +497,9 @@
     document.querySelectorAll("[data-action-dot]").forEach((dot) => {
       dot.addEventListener("click", () => goToActionIndex(Number(dot.dataset.actionDot)));
     });
-    document.querySelector('[data-route-panel="action"]').addEventListener("keydown", (event) => {
+    const actionPanel = document.querySelector('[data-route-panel="action"]');
+    actionPanel.addEventListener("keydown", (event) => {
+      if (event.target !== actionPanel) return;
       const currentIndex = ACTION_SIGNAL_IDS.indexOf(state.actionSignalId);
       const nextIndex = event.key === "ArrowLeft" ? currentIndex - 1
         : event.key === "ArrowRight" ? currentIndex + 1
