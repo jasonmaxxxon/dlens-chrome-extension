@@ -18,7 +18,7 @@ The Saved Signals route remains the Product home. It is visually reduced to a co
 
 The route keeps the existing readiness panel and replaces the reading wall with:
 
-- a four-cell pipeline ledger: collected, ready to analyze, processing, complete;
+- a four-cell pipeline ledger: collected, ready to analyze or retry, processing, complete; persisted analysis errors with a ready source belong to the retryable cell;
 - a default-collapsed management disclosure;
 - one-line source rows containing only an identifier, processing state, and delete action;
 - aggregate processing errors and the existing analyze/retry command.
@@ -46,7 +46,7 @@ Within a bucket, the large card uses text-labelled previous/next buttons and an 
 
 `park` and `insufficient` use the same outer card geometry but show only the verdict-appropriate reason, source truth, and exact evidence. They do not expose next steps, reading generation, review, or brief selection. The old duplicate collapsed exclusion lanes are removed.
 
-The Action route replaces the large readiness card with a compact analysis ledger whenever completed analyses exist. If no analysis exists, the full readiness panel remains available as a recovery path.
+Signals exclusively owns analysis start and retry. Action owns reading, review, and export; when no analysis exists, Action keeps the four disabled verdict tiles and directs the user back to Signals instead of exposing a readiness recovery path or analysis control.
 
 ## Action Brief Export
 
@@ -75,4 +75,3 @@ Rename the Saved-owned export surface to `ProductActionBriefExport` and render i
 - No route deletion or persisted-page migration.
 - No restoration of the old multi-card Action wall or retired review workspace.
 - No automatic selection of excluded or insufficient signals for an action brief.
-

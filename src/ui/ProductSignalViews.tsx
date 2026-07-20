@@ -108,7 +108,13 @@ const VERDICT_META: Record<ProductSignalVerdict, { label: string; color: string;
 
 type ActionVerdictFilter = "try" | "watch" | "park" | "insufficient";
 
-const ACTION_VERDICT_FILTER_ORDER: ActionVerdictFilter[] = ["try", "watch", "park", "insufficient"];
+const ACTION_VERDICT_VISUAL_ORDER: ActionVerdictFilter[] = ["try", "park", "insufficient", "watch"];
+const ACTION_VERDICT_DEFAULT_PRIORITY: ActionVerdictFilter[] = ["try", "watch", "park", "insufficient"];
+const PRODUCT_ACTION_STAGE_PANEL_ID = "product-action-stage-panel";
+
+function actionVerdictTabId(key: ActionVerdictFilter): string {
+  return `product-action-verdict-${key}-tab`;
+}
 
 function verdictFilterKeyForAnalysis(analysis: ProductSignalAnalysis): ActionVerdictFilter {
   if (analysis.signalType === "noise" || analysis.verdict === "park") return "park";
@@ -2055,6 +2061,37 @@ function SignalPacketHtmlExportSection({
   );
 }
 
+type SavedSignalLifecycleStage = "collected" | "ready" | "processing" | "complete";
+
+type SavedSignalLifecycle = {
+  stage: SavedSignalLifecycleStage;
+  label: string;
+  tone: ReadinessLabel["tone"];
+};
+
+function savedSignalLifecycle(signal: ProductSignalViewModel): SavedSignalLifecycle {
+  if (signal.analysis?.status === "complete") {
+    return { stage: "complete", label: "已完成", tone: "success" };
+  }
+  if (signal.analysis?.status === "pending" || signal.analysis?.status === "analyzing") {
+    return { stage: "processing", label: "處理中", tone: "neutral" };
+  }
+  if (signal.analysis?.status === "error") {
+    return signal.readiness.status === "ready"
+      ? { stage: "ready", label: "分析失敗 · 可重試", tone: "warning" }
+      : { stage: "collected", label: "分析失敗", tone: "warning" };
+  }
+
+  const readiness = readinessLabel(signal.readiness);
+  if (signal.readiness.status === "ready") {
+    return { stage: "ready", label: readiness.label, tone: readiness.tone };
+  }
+  if (signal.readiness.status === "crawling") {
+    return { stage: "processing", label: readiness.label, tone: readiness.tone };
+  }
+  return { stage: "collected", label: readiness.label, tone: readiness.tone };
+}
+
 function SavedSignalsBoard({
   signals,
   pendingSignals,
@@ -2072,13 +2109,11 @@ function SavedSignalsBoard({
     return null;
   }
 
-  const readyCount = signals.filter((signal) => !signal.analysis && signal.readiness.status === "ready").length;
-  const processingCount = signals.filter((signal) => (
-    signal.analysis?.status === "pending"
-    || signal.analysis?.status === "analyzing"
-    || (!signal.analysis && signal.readiness.status === "crawling")
-  )).length;
-  const completedCount = signals.filter((signal) => signal.analysis?.status === "complete").length;
+  const lifecycles = signals.map(savedSignalLifecycle);
+  const lifecycleBySignalId = new Map(signals.map((signal, index) => [signal.signalId, lifecycles[index]!]));
+  const readyCount = lifecycles.filter((lifecycle) => lifecycle.stage === "ready").length;
+  const processingCount = lifecycles.filter((lifecycle) => lifecycle.stage === "processing").length;
+  const completedCount = lifecycles.filter((lifecycle) => lifecycle.stage === "complete").length;
 
   return (
     <section data-saved-signals-route="true" style={{ display: "grid", gap: 12 }}>
@@ -2091,7 +2126,7 @@ function SavedSignalsBoard({
         >
           {[
             ["已收集", signals.length],
-            ["可分析", readyCount],
+            ["可分析／重試", readyCount],
             ["處理中", processingCount],
             ["已完成", completedCount]
           ].map(([label, value]) => (
@@ -2142,17 +2177,19 @@ function SavedSignalsBoard({
           </summary>
           <div style={{ display: "grid", marginTop: 8 }}>
           {signals.map((signal) => {
-            const readiness = readinessLabel(signal.readiness);
+            const lifecycle = lifecycleBySignalId.get(signal.signalId)!;
             return (
               <div
                 key={signal.signalId}
                 data-saved-signal-row="management"
+                data-saved-signal-lifecycle={lifecycle.stage}
+                data-saved-signal-tone={lifecycle.tone}
                 style={scanRowStyle({ display: "grid", gridTemplateColumns: `minmax(0, 1fr) auto${onRemoveSignal ? " 20px" : ""}`, gap: 9, alignItems: "center", padding: "9px 0" })}
               >
                 <span style={{ ...textStyles.bodyTight, color: tokens.color.ink, minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
                   {excerpt(signal.sourcePreview.displayText || signal.title || signal.signalId, 72)}
                 </span>
-                <Stamp tone={readiness.tone}>{signal.analysis?.status === "complete" ? "已完成" : readiness.label}</Stamp>
+                <Stamp tone={lifecycle.tone}>{lifecycle.label}</Stamp>
                 {onRemoveSignal ? (
                   <button
                     type="button"
@@ -2501,11 +2538,13 @@ function VerdictFilterTiles({
         return (
           <button
             key={stat.key}
+            id={actionVerdictTabId(stat.key)}
             type="button"
             data-action-verdict-filter={stat.key}
             data-verdict-tile="true"
             role="tab"
             aria-selected={selected}
+            aria-controls={PRODUCT_ACTION_STAGE_PANEL_ID}
             aria-pressed={selected}
             tabIndex={selected ? 0 : -1}
             disabled={disabled}
@@ -2517,6 +2556,7 @@ function VerdictFilterTiles({
               display: "grid",
               gap: 4,
               minWidth: 0,
+              minHeight: 44,
               padding: "10px 9px",
               placeItems: "center",
               textAlign: "center",
@@ -2721,13 +2761,14 @@ function ProductActionStage({
   for (const analysis of completed) {
     itemsByFilter[verdictFilterKeyForAnalysis(analysis)].push(analysis);
   }
-  const stats: VerdictFilterStat[] = [
-    { key: "try", label: "值得嘗試", count: itemsByFilter.try.length, color: VERDICT_META.try.color, soft: VERDICT_META.try.soft },
-    { key: "watch", label: "保留觀察", count: itemsByFilter.watch.length, color: VERDICT_META.watch.color, soft: VERDICT_META.watch.soft },
-    { key: "park", label: "噪音 / 前提不符", count: itemsByFilter.park.length, color: VERDICT_META.park.color, soft: VERDICT_META.park.soft },
-    { key: "insufficient", label: "資料不足", count: itemsByFilter.insufficient.length, color: VERDICT_META.insufficient_data.color, soft: VERDICT_META.insufficient_data.soft }
-  ];
-  const firstEnabledFilter = ACTION_VERDICT_FILTER_ORDER.find((key) => itemsByFilter[key].length > 0) ?? "try";
+  const statByFilter: Record<ActionVerdictFilter, VerdictFilterStat> = {
+    try: { key: "try", label: "值得嘗試", count: itemsByFilter.try.length, color: VERDICT_META.try.color, soft: VERDICT_META.try.soft },
+    watch: { key: "watch", label: "保留觀察", count: itemsByFilter.watch.length, color: VERDICT_META.watch.color, soft: VERDICT_META.watch.soft },
+    park: { key: "park", label: "噪音 / 前提不符", count: itemsByFilter.park.length, color: VERDICT_META.park.color, soft: VERDICT_META.park.soft },
+    insufficient: { key: "insufficient", label: "資料不足", count: itemsByFilter.insufficient.length, color: VERDICT_META.insufficient_data.color, soft: VERDICT_META.insufficient_data.soft }
+  };
+  const stats = ACTION_VERDICT_VISUAL_ORDER.map((key) => statByFilter[key]);
+  const firstEnabledFilter = ACTION_VERDICT_DEFAULT_PRIORITY.find((key) => itemsByFilter[key].length > 0) ?? "try";
   const [activeFilter, setActiveFilter] = useState<ActionVerdictFilter>(() => firstEnabledFilter);
   const [activeSelectionByFilter, setActiveSelectionByFilter] = useState<Record<ActionVerdictFilter, { signalId: string | null; sourceIndex: number }>>(() => ({
     try: { signalId: itemsByFilter.try[0]?.signalId ?? null, sourceIndex: 0 },
@@ -2813,7 +2854,7 @@ function ProductActionStage({
 
   const selectFilter = (nextFilter: ActionVerdictFilter) => {
     if (!itemsByFilter[nextFilter].length || nextFilter === resolvedFilter) return;
-    setDirection(ACTION_VERDICT_FILTER_ORDER.indexOf(nextFilter) > ACTION_VERDICT_FILTER_ORDER.indexOf(resolvedFilter) ? "forward" : "backward");
+    setDirection(ACTION_VERDICT_VISUAL_ORDER.indexOf(nextFilter) > ACTION_VERDICT_VISUAL_ORDER.indexOf(resolvedFilter) ? "forward" : "backward");
     setActiveFilter(nextFilter);
   };
 
@@ -2904,11 +2945,14 @@ function ProductActionStage({
           </div>
           <article
             key={`${activeAnalysis.signalId}:${renderedDirection}`}
+            id={PRODUCT_ACTION_STAGE_PANEL_ID}
             ref={stageRef}
             data-product-action-stage={activeAnalysis.signalId}
             data-product-action-page={safeIndex + 1}
             data-direction={renderedDirection}
             tabIndex={0}
+            role="tabpanel"
+            aria-labelledby={actionVerdictTabId(resolvedFilter)}
             onKeyDown={handleStageKeyDown}
             aria-label={`${activeMeta.label} ${safeIndex + 1} / ${activeItems.length}`}
             style={cardStyle({ gap: 14, padding: 18, minWidth: 0, overflow: "visible", borderColor: tokens.color.productSoft, boxShadow: tokens.shadow.raised })}
@@ -3010,13 +3054,13 @@ function ProductActionStage({
             ) : null}
           </article>
           <nav data-product-action-pager="text" aria-label={`${activeMeta.label}分頁`} style={{ display: "flex", justifyContent: "center", alignItems: "center", gap: 10, flexWrap: "wrap", minWidth: 0 }}>
-            <SecondaryButton dataAttrs={{ "data-product-action-previous": "true" }} disabled={safeIndex === 0} onClick={() => moveTo(safeIndex - 1)}>← 上一則</SecondaryButton>
+            <SecondaryButton dataAttrs={{ "data-product-action-previous": "true" }} disabled={safeIndex === 0} onClick={() => moveTo(safeIndex - 1)} style={{ minHeight: 44 }}>← 上一則</SecondaryButton>
             <span data-product-action-live="true" role="status" aria-live="polite" style={{ minWidth: 36, fontFamily: tokens.font.mono, fontSize: 10.5, color: tokens.color.softInk, textAlign: "center" }}>{safeIndex + 1} / {activeItems.length}</span>
-            <SecondaryButton dataAttrs={{ "data-product-action-next": "true" }} disabled={safeIndex === activeItems.length - 1} onClick={() => moveTo(safeIndex + 1)}>下一則 →</SecondaryButton>
+            <SecondaryButton dataAttrs={{ "data-product-action-next": "true" }} disabled={safeIndex === activeItems.length - 1} onClick={() => moveTo(safeIndex + 1)} style={{ minHeight: 44 }}>下一則 →</SecondaryButton>
           </nav>
         </>
       ) : (
-        <div data-product-action-empty="true" style={mutedPanelStyle({ fontSize: 12.5, color: tokens.color.subInk })}>請先到訊號頁開始分析</div>
+        <div id={PRODUCT_ACTION_STAGE_PANEL_ID} data-product-action-empty="true" role="tabpanel" style={mutedPanelStyle({ fontSize: 12.5, color: tokens.color.subInk })}>請先到訊號頁開始分析</div>
       )}
       {eligibleBriefIds.length ? (
         <details data-product-action-brief-export="true" style={{ borderTop: `1px solid ${tokens.color.line}`, paddingTop: 10 }}>
@@ -3237,6 +3281,7 @@ export function ProductSignalView({
           )
         ) : kind === "actionable-filter" ? (
           <ProductActionStage
+            key={viewModel.sessionId ?? "product-action-no-session"}
             signals={signals}
             analyses={scopedAnalyses}
             activeFolderId={viewModel.sessionId ?? undefined}

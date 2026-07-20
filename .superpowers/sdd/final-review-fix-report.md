@@ -1,70 +1,89 @@
-# Final review fix report
+# Final Review Fix Report
 
-## Scope
+**Date:** 2026-07-20
 
-Closed the final review's three Important findings and one Minor finding without changing bundle limits or files outside the approved list.
+**Base HEAD:** `0ba8d3ddb66d9324378c2c85a4139ff89c57c045`
+
+**Expected version:** `0.3.54`
+
+**Status:** implementation and static verification complete; real Chrome/Threads QA remains pending
+
+## Binding product decision preserved
+
+- Signals remains the sole owner of analysis start/retry.
+- Action remains the owner of reading, review, and export.
+- The Action total-zero state still renders four disabled verdict tiles and directs the user back to Signals; no analyze/retry control was added.
 
 ## TDD evidence
 
-1. Required `topic/audit/run.requestId`
-   - RED: the isolated TypeScript contract compile failed with two `TS2578` unused `@ts-expect-error` diagnostics, proving both public and handler message types still accepted omission.
-   - Runtime characterization: a cast malformed message was rejected before any run-ledger write.
-   - GREEN: `requestId` is required only on the `topic/audit/run` members of `ExtensionMessagePayload` and `TopicAuditHandlerMessage`; the shared optional request-id intersection remains unchanged. The isolated contract compile and contract/runtime tests passed.
+### Fix 1 — visual order versus default priority
 
-2. Product/legacy single owner
-   - RED: stale and failed Product renders both retained `data-topic-audit-block="overview"`; failed output also exposed `provider_error`, a continuation CTA, and a second failure banner.
-   - GREEN: the legacy overview mounts only for `sourceSession.kind === "current"`. Focused stale/failed, pending/processing, and current/ready control tests passed.
+- RED command: `npx tsx --test --test-name-pattern='Product Action verdict tiles render|follows visual tile keyboard order' tests/views.test.tsx`
+- RED result: exit 1; 2 tests failed. DOM order was `try → watch → park → insufficient`, and ArrowRight from `try` selected `watch` instead of `park`.
+- Implementation: split `ACTION_VERDICT_VISUAL_ORDER` (`try → park → insufficient → watch`) from `ACTION_VERDICT_DEFAULT_PRIORITY` (`try → watch → park → insufficient`); render and directional navigation use visual order while first-enabled selection uses default priority.
+- GREEN command: `npx tsx --test --test-name-pattern='Product Action verdict tiles render|follows visual tile keyboard order|default to the first enabled bucket' tests/views.test.tsx`
+- GREEN result: exit 0; 3 tests passed, 0 failed.
 
-3. Terminal ledger persistence failure
-   - RED: fault injection made the failed-ledger write throw, but the caller received only the original provider error.
-   - GREEN: superseded-owner ledger errors alone are ignored and rethrow the original error; every other ledger failure surfaces as `AggregateError([originalError, ledgerError])`. The failed write leaves the run non-successful and publishes no report. Existing superseded-owner semantics passed.
+### Fix 2 — Product session stage-state reset
 
-4. First-generation failure copy
-   - RED: a partial first run with persisted evidence, `auditReport: null`, and a failed timeout still claimed that an old Atlas remained.
-   - GREEN: `TopicSourceSessionCard` receives the view model's persisted-report `hasAuditReport` truth. Partial evidence or memos do not count as a prior Atlas; a failed rerun with a persisted `completedAuditReport` still retains the old-Atlas copy.
+- RED command: `npx tsx --test --test-name-pattern='Product Action resets verdict stage state' tests/views.test.tsx`
+- RED result: exit 1; 1 test failed because same-root session B retained session A's selected verdict (`aria-selected=false` for B's expected default `try`).
+- Implementation: key the `ProductActionStage` mount by stable `viewModel.sessionId`. This resets filter, per-bucket signal/source position, direction, and other Action-local state only when the Product session changes; ordinary rerenders in the same session preserve memory.
+- GREEN command: `npx tsx --test --test-name-pattern='Product Action resets verdict stage state|brief selection prunes' tests/views.test.tsx`
+- GREEN result: exit 0; 2 tests passed, 0 failed.
 
-## Bundle checkpoints
+### Fix 3 — tab/panel semantics and 44px targets
 
-- Task 7 baseline: `909983 / 255021 / 202997` raw/gzip-9/brotli bytes.
-- Initial review-fix build: `910046 / 255070 / 203097`; raw and brotli exceeded the unchanged limits.
-- Contract-preserving simplification removed unused legacy overview inputs and consolidated failure copy.
-- Final: `909981 / 255039 / 202971`; delta versus Task 7 is `-2 / +18 / -26`; headroom is `19 / 961 / 29`.
+- RED command: `npx tsx --test --test-name-pattern='Product Action verdict tabs link' tests/views.test.tsx`
+- RED result: exit 1; 1 test failed because verdict tabs had no stable IDs/`aria-controls`; the panel contract and explicit 44px targets were also absent.
+- Implementation: every verdict control remains a native button with `role=tab`, stable tab ID, `aria-selected`, and `aria-controls`; the one active or empty panel now has stable `id=product-action-stage-panel` and `role=tabpanel`, with `aria-labelledby` when a verdict is selected. Verdict tiles and both pager buttons have explicit `minHeight: 44`.
+- GREEN command: `npx tsx --test --test-name-pattern='Product Action verdict tabs link|total-zero state|stage groups completed analyses' tests/views.test.tsx`
+- GREEN result: exit 0; 3 tests passed, 0 failed.
 
-## Final verification
+### Fix 4 — persisted analysis error lifecycle
 
-- `npx tsx --test tests/topic-audit-message-contract.test.ts tests/topic-audit-handlers.test.ts tests/topic-detail-view.test.tsx`: PASS, 100 tests.
-- Isolated TypeScript compile for `tests/topic-audit-message-contract.test.ts`: PASS.
-- `npm run typecheck`: PASS.
-- `npm run build`: PASS.
-- `npm run bundle:guard`: PASS at `909981 / 255039 / 202971` against `910000 / 256000 / 203000`.
-- `git diff --check`: PASS.
+- RED command: `npx tsx --test --test-name-pattern='SavedSignalsBoard counts persisted analysis errors' tests/views.test.tsx`
+- RED result: exit 1; 1 test failed. An `analysis.status:error` signal with ready source rendered ledger `可分析 0` and row `可分析`.
+- Implementation: added one `savedSignalLifecycle` helper used by both ledger counts and management-row labels. Ready, never-analyzed signals and ready, retryable analysis errors share the `可分析／重試` cell; error rows render `分析失敗 · 可重試` with warning tone. Crawl-error aggregation and backend detail contracts were untouched.
+- GREEN command: `npx tsx --test --test-name-pattern='SavedSignalsBoard|saved signals|Saved and Action surfaces|distinct information shape' tests/views.test.tsx`
+- GREEN result: exit 0; 10 tests passed, 0 failed.
 
-## Truthful-copy follow-up
+### Combined focused gate
 
-- RED: the existing partial-first-run integration case failed `doesNotMatch(/舊版 Atlas 仍保留/)` while `auditEvidence` existed and `auditReport` was null. The completed-report rerun assertion already passed.
-- GREEN: the card's prior-Atlas input now comes from `viewModel.audit.hasAuditReport`; focused rendering locks both the partial-first-run negative case and completed-report failed-rerun positive case.
-- Bundle-preserving simplification stayed inside `TopicSourceSessionCard`: the one-use previous-failure renderer was inlined, stage labels share one table, and the two audit actions with identical wiring share one button branch.
+- Command: `npx tsx --test --test-name-pattern='Product Action verdict tiles render|follows visual tile keyboard order|resets verdict stage state|verdict tabs link|counts persisted analysis errors|default to the first enabled bucket|total-zero state' tests/views.test.tsx`
+- Result: exit 0; 7 tests passed, 0 failed.
 
-### Fresh verification
+## Required verification
 
-- `npx tsx --test tests/topic-detail-view.test.tsx`: PASS, 59 tests.
-- `npm run typecheck`: PASS.
-- `npm run build`: PASS.
-- `npm run bundle:guard`: PASS at `909846 / 255007 / 202998` against unchanged `910000 / 256000 / 203000` limits.
-- Delta versus the final review-fix checkpoint: `-135 / -32 / +27`; final headroom: `154 / 993 / 2` raw/gzip-9/brotli bytes.
-- `git diff --check`: PASS.
+| Gate | Result |
+| --- | --- |
+| `npm run typecheck` | exit 0 |
+| `npx tsx --test tests/views.test.tsx tests/motion-registry.test.ts tests/product-signal-viewmodel.test.ts tests/qa-code-path-audit.test.ts tests/manifest-config.test.ts` | exit 0; 140 passed, 0 failed |
+| `node scripts/qa-code-path-audit.mjs` | exit 0; 5 pass, 0 warn, 0 fail |
+| `git diff --check` | exit 0 |
+| `npx tsx --test tests/*.test.ts tests/*.test.tsx` | exit 0; 1326 tests, 1321 passed, 5 skipped, 0 failed |
+| `npm run build` | exit 0; WXT chrome-mv3 build completed as version `0.3.54`; mirrored to `output/chrome-mv3` |
+| `npm run bundle:guard` | exit 0; raw 887,801 / 910,000; gzip9 250,270 / 256,000; brotli 199,667 / 203,000 bytes |
 
-## Failed-rerun persisted-report follow-up
+## Changed files
 
-- RED: the failed-rerun render used an old `completedAuditReport` from `audit-1` plus newly persisted evidence and memos from `audit-2`; the card omitted `舊版 Atlas 仍保留` because publication compatibility correctly rejected the mixed revisions.
-- GREEN: exported `audit.hasAuditReport` now uses `Boolean(auditReport)`, so it answers only whether storage contains a prior report. The existing `compatibleReport` remains unchanged and continues to gate report-derived headline, absence, and episode content.
-- The `auditReport: null` partial-first-run case remains negative, so evidence or memos alone cannot claim that an old Atlas exists.
+- `src/ui/ProductSignalViews.tsx` — order contracts, session boundary, tab/panel semantics, target sizes, Saved lifecycle helper.
+- `tests/views.test.tsx` — DOM order, keyboard order, same-root session reset, accessibility/target contract, and retryable persisted-error regressions.
+- `README.md` — approved verdict visual order and Saved ready/retry wording.
+- `docs/superpowers/specs/2026-07-20-product-action-verdict-intake-design.md` — binding Signals/Action ownership and retryable-error lifecycle; removed the stale Action recovery-path sentence.
+- `.superpowers/sdd/final-review-fix-report.md` — this RED/GREEN, verification, changed-files, and self-review record.
 
-### Fresh verification
+## Self-review
 
-- `npx tsx --test tests/topic-detail-view.test.tsx`: PASS, 59 tests.
-- `npm run typecheck`: PASS.
-- `npm run build`: PASS.
-- `npm run bundle:guard`: PASS at `909846 / 255006 / 202909` against unchanged `910000 / 256000 / 203000` limits.
-- Delta versus the truthful-copy follow-up checkpoint: `0 / -1 / -89`; final headroom: `154 / 994 / 91` raw/gzip-9/brotli bytes.
-- `git diff --check`: PASS.
+- No changes to background, evidence, reading, export, storage, or message data contracts.
+- Version remains `0.3.54`; no dependency or lockfile changes.
+- Default bucket priority is still independent of the visual/keyboard order.
+- Session reset occurs at the Action stage boundary, so same-session analysis refreshes do not erase stage memory.
+- The all-zero Action state retains disabled tiles, no active plate, and no analyze/retry button.
+- Persisted analysis errors use existing status/readiness facts only; no raw backend detail was invented or exposed.
+
+## Remaining concerns
+
+- Real Chrome reload and real Threads interaction QA were not performed and remain explicitly pending.
+- The bundle guard passes, but brotli headroom is 3,333 bytes; future UI growth should be watched.
+- `npm install` reported 15 dependency audit findings (3 low, 4 moderate, 5 high, 3 critical). The install was already up to date and this fix wave changed no dependencies; remediation is outside this brief.
