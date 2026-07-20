@@ -161,8 +161,6 @@ function OpenInPageCollectorPopup({
         snapshot,
         signals: app.signals,
         analyses: app.productSignalAnalyses,
-        historicalAnalyses: app.historicalProductSignalAnalyses,
-        agentTaskFeedback: app.productAgentTaskFeedback,
         signalReadings: app.signalReadings,
         productContext: app.compiledProductContext,
         aiProviderReady: app.productAiProviderReady,

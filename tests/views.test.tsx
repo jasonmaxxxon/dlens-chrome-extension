@@ -1,4 +1,5 @@
 import assert from "node:assert/strict";
+import { readFileSync } from "node:fs";
 import test from "node:test";
 
 import React from "react";
@@ -240,8 +241,6 @@ function productSignalViewElement(props: any) {
       snapshot,
       signals,
       analyses: props.analyses ?? [],
-      historicalAnalyses: props.historicalAnalyses,
-      agentTaskFeedback: props.agentTaskFeedback,
       signalReadings: props.signalReadings,
       productContext: null,
       aiProviderReady: props.aiProviderReady ?? true,
@@ -750,8 +749,6 @@ function buildPopupAppFixture({
     topicAuditByTopicId: {},
     savedAnalyses: [],
     productSignalAnalyses: [],
-    historicalProductSignalAnalyses: [],
-    productAgentTaskFeedback: [],
     signalReadings: [],
     compiledProductContext: null,
     productAiProviderReady: false,
@@ -1226,8 +1223,6 @@ test("InPageCollectorPopup topic create action opens the real create-topic flow"
     topicAuditByTopicId: {},
     savedAnalyses: [],
     productSignalAnalyses: [],
-    historicalProductSignalAnalyses: [],
-    productAgentTaskFeedback: [],
     signalReadings: [],
     compiledProductContext: null,
     productAiProviderReady: false,
@@ -4673,6 +4668,8 @@ test("Product Action stage keeps completed try/watch candidates in scoped source
   assert.match(html, /aria-label="讚 4"[^>]*title="讚 4"/);
   assert.match(html, /aria-label="總互動 10"[^>]*title="總互動 10"/);
   assert.match(html, /data-product-action-dot="1"[^>]*aria-label="前往候選 1"[^>]*title="前往候選 1"/);
+  assert.match(html, /data-product-action-dot="1"[^>]*style="[^"]*width:24px;height:24px/);
+  assert.match(html, /data-product-action-dot-visual="true"[^>]*style="[^"]*width:9px;height:9px/);
   assert.match(html, /data-product-action-exact-quote="true"[^]*唯一可作逐字引文的真實 evidence entry。/);
   assert.doesNotMatch(html, /<blockquote[^>]*>AI 摘要不可冒充逐字引文。/);
   assert.doesNotMatch(html, /e_missing/);
@@ -4690,6 +4687,15 @@ test("Product Action stage keeps completed try/watch candidates in scoped source
   assert.match(html, /資料不足的真實標題[^]*資料不足的真實原因。/);
   assert.doesNotMatch(html, /尚未完成不得進 pager/);
   assert.doesNotMatch(html, /data-verdict-filter-tiles|data-product-macro-strip|data-product-action-card=/);
+});
+
+test("Product hydrate requests only data consumed by the live Saved and Action surfaces", () => {
+  const appStateSource = readFileSync(new URL("../src/ui/useInPageCollectorAppState.ts", import.meta.url), "utf8");
+  const popupSource = readFileSync(new URL("../src/ui/InPageCollectorPopup.tsx", import.meta.url), "utf8");
+
+  assert.equal(countOccurrences(appStateSource, 'type: "product/list-signal-analyses"'), 1);
+  assert.doesNotMatch(appStateSource, /product\/list-agent-task-feedback|historicalProductSignalAnalyses|productAgentTaskFeedback/);
+  assert.doesNotMatch(popupSource, /historicalAnalyses:|agentTaskFeedback:/);
 });
 
 test("Product Action pager supports buttons, dots, stage-owned keyboard navigation, edges, live copy, and direction", async () => {
@@ -4765,22 +4771,38 @@ test("Product Action pager supports buttons, dots, stage-owned keyboard navigati
       await Promise.resolve();
     });
   };
-  const assertPage = (signalId: string, page: number, direction: "forward" | "backward") => {
+  const assertPage = (signalId: string, page: number, direction: "forward" | "backward", total = 2) => {
     const stage = rootElement.querySelector<HTMLElement>("[data-product-action-stage]");
     assert.ok(stage);
     assert.equal(stage.dataset.productActionStage, signalId);
     assert.equal(stage.dataset.productActionPage, String(page));
     assert.equal(stage.dataset.direction, direction);
-    assert.equal(rootElement.querySelector("[data-product-action-live]")?.textContent, `${page} / 2`);
+    assert.equal(rootElement.querySelector("[data-product-action-live]")?.textContent, `${page} / ${total}`);
     assert.equal(rootElement.querySelectorAll('[data-product-action-dot][aria-current="page"]').length, 1);
   };
 
   try {
+    const delayedFirstCandidateProps = {
+      ...interactiveProps,
+      analyses: interactiveProps.analyses.map((analysis) => (
+        analysis.signalId === "signal_watch_first"
+          ? { ...analysis, status: "analyzing" as const }
+          : analysis
+      ))
+    };
+    await act(async () => {
+      root.render(productSignalViewElement(delayedFirstCandidateProps));
+      await Promise.resolve();
+    });
+    assertPage("signal_try_second", 1, "forward", 1);
+
     await act(async () => {
       root.render(productSignalViewElement(interactiveProps));
       await Promise.resolve();
     });
-    assertPage("signal_watch_first", 1, "forward");
+    assertPage("signal_try_second", 2, "forward");
+    await click('[data-product-action-dot="1"]');
+    assertPage("signal_watch_first", 1, "backward");
     assert.equal(rootElement.querySelector<HTMLButtonElement>("[data-product-action-previous]")?.disabled, true);
     assert.equal(rootElement.querySelector<HTMLButtonElement>("[data-product-action-next]")?.disabled, false);
 
@@ -4794,10 +4816,24 @@ test("Product Action pager supports buttons, dots, stage-owned keyboard navigati
     assertPage("signal_try_second", 2, "forward");
     await key("Home");
     assertPage("signal_watch_first", 1, "backward");
+    const keyboardStage = rootElement.querySelector<HTMLElement>("[data-product-action-stage]");
+    assert.ok(keyboardStage);
+    keyboardStage.focus();
+    assert.equal(dom.window.document.activeElement === keyboardStage, true);
     await key("ArrowRight");
     assertPage("signal_try_second", 2, "forward");
+    assert.equal(
+      dom.window.document.activeElement === rootElement.querySelector<HTMLElement>("[data-product-action-stage]"),
+      true,
+      "the keyed replacement stage must retain focus after keyboard paging"
+    );
     await key("ArrowLeft");
     assertPage("signal_watch_first", 1, "backward");
+    assert.equal(
+      dom.window.document.activeElement === rootElement.querySelector<HTMLElement>("[data-product-action-stage]"),
+      true,
+      "keyboard paging must remain usable for consecutive moves"
+    );
 
     await key("ArrowRight", "[data-product-action-generate-reading]");
     assertPage("signal_watch_first", 1, "backward");
@@ -4819,6 +4855,22 @@ test("Product Action pager supports buttons, dots, stage-owned keyboard navigati
       ["stage-reading-key", "deferred"],
       ["stage-reading-key", "rejected"]
     ]);
+    const regeneratedReading = {
+      ...reading,
+      reading: "重新生成後的新判讀。",
+      generatedAt: "2026-07-20T03:00:00.000Z",
+      reviewState: "pending" as const
+    };
+    await act(async () => {
+      root.render(productSignalViewElement({ ...interactiveProps, signalReadings: [regeneratedReading] }));
+      await Promise.resolve();
+    });
+    const refreshedReading = rootElement.querySelector<HTMLElement>("[data-product-action-reading]");
+    assert.ok(refreshedReading);
+    assert.match(refreshedReading.textContent ?? "", /重新生成後的新判讀。/);
+    assert.match(refreshedReading.textContent ?? "", /待 review/);
+    assert.doesNotMatch(refreshedReading.textContent ?? "", /已退回/);
+    assert.equal(rootElement.querySelector("[data-product-action-reading-notice]"), null);
   } finally {
     await act(async () => root.unmount());
     Object.assign(globalThis, previous);
@@ -5249,7 +5301,12 @@ test("ProductSignalView keeps reading review and packet export inside the active
     whyRelevant: "對產品語氣有參考價值。",
     verdict: index === 0 ? "watch" as const : "try" as const,
     reason: "理由。",
-    evidenceRefs: ["e1"],
+    evidenceRefs: index === 0 ? ["e1", "e2"] : ["e1"],
+    evidenceNotes: index === 0 ? [{
+      ref: "e2",
+      quoteSummary: "這是 AI 產生的來源摘要，不是留言原文。",
+      whyItMatters: "只可作判讀提示。"
+    }] : [],
     productContextHash: "ctx",
     promptVersion: "v16",
     analyzedAt: "2026-05-18T00:00:00.000Z",
@@ -5349,7 +5406,10 @@ test("ProductSignalView keeps reading review and packet export inside the active
   assert.match(html, /data-product-action-reading-stale="true"/);
   assert.match(html, /data-signal-reading-provenance="true"/);
   assert.match(html, /data-signal-reading-evidence="true"/);
-  assert.match(html, /引用留言 1 則/);
+  assert.match(html, /來源引用 1 則 · AI 摘要 1 則/);
+  assert.match(html, /data-signal-reading-evidence-kind="source"[^]*變蠢可能係真嘅，但唔係必然/);
+  assert.match(html, /data-signal-reading-evidence-kind="analysis-note"[^]*AI 摘要（非逐字引文）[^]*這是 AI 產生的來源摘要/);
+  assert.doesNotMatch(html, /引用留言 2 則|unknown[^]*這是 AI 產生的來源摘要/);
   assert.match(html, /對產品參考：這是一段完整顯示的長判斷，不能被截斷。/);
   assert.match(html, /<strong[^>]*>判讀內容<\/strong>/);
   assert.doesNotMatch(html, /\*\*判讀內容\*\*/);

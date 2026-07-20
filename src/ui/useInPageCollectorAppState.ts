@@ -21,7 +21,6 @@ import {
   type LayoutPreferences,
   type ProductContext,
   type ProductProfileContextFile,
-  type ProductAgentTaskFeedback,
   type ProductSignalAnalysis,
   type SavedAnalysisSnapshot,
   type SessionRecord,
@@ -547,17 +546,6 @@ export function planProductHydrateTransition({
   };
 }
 
-function mergeAnalysesBySignalId(
-  previous: ProductSignalAnalysis[],
-  next: ProductSignalAnalysis[]
-): ProductSignalAnalysis[] {
-  const bySignalId = new Map(previous.map((analysis) => [analysis.signalId, analysis]));
-  for (const analysis of next) {
-    bySignalId.set(analysis.signalId, analysis);
-  }
-  return [...bySignalId.values()].sort((left, right) => right.analyzedAt.localeCompare(left.analyzedAt));
-}
-
 function upsertSignalReading(previous: SignalReading[], next: SignalReading): SignalReading[] {
   const byCacheKey = new Map(previous.map((reading) => [reading.cacheKey, reading]));
   byCacheKey.set(next.cacheKey, next);
@@ -701,8 +689,6 @@ export function useInPageCollectorAppState({ snapshot, tabId, sendAndSync }: Use
   const [techniqueReadings, setTechniqueReadings] = useState<TechniqueReadingSnapshot[]>([]);
   const [savedAnalyses, setSavedAnalyses] = useState<SavedAnalysisSnapshot[]>([]);
   const [productSignalAnalyses, setProductSignalAnalyses] = useState<ProductSignalAnalysis[]>([]);
-  const [historicalProductSignalAnalyses, setHistoricalProductSignalAnalyses] = useState<ProductSignalAnalysis[]>([]);
-  const [productAgentTaskFeedback, setProductAgentTaskFeedback] = useState<ProductAgentTaskFeedback[]>([]);
   const [signalReadings, setSignalReadings] = useState<SignalReading[]>([]);
   const [isHydratingProductSignals, setIsHydratingProductSignals] = useState(false);
   const [activePrCampaign, setActivePrCampaign] = useState<PrCampaign | null>(null);
@@ -1296,23 +1282,17 @@ export function useInPageCollectorAppState({ snapshot, tabId, sendAndSync }: Use
         type: "product/list-signal-analyses",
         signalIds: transition.signalIds
       }),
-      sendExtensionMessage<{ ok: true; productSignalAnalyses?: ProductSignalAnalysis[] } | { ok: false; error: string }>({
-        type: "product/list-signal-analyses"
-      }),
-      sendExtensionMessage<{ ok: true; productAgentTaskFeedback?: ProductAgentTaskFeedback[] } | { ok: false; error: string }>({
-        type: "product/list-agent-task-feedback"
-      }),
       sendExtensionMessage<{ ok: true; signalReadings?: SignalReading[] } | { ok: false; error: string }>({
         type: "product/list-signal-readings"
       })
     ])
-      .then(([currentResponse, historicalResponse, feedbackResponse, readingsResponse]) => {
+      .then(([currentResponse, readingsResponse]) => {
         if (!productHydrateMountedRef.current || productHydrateInFlightKeyRef.current !== transition.requestKey) {
           return;
         }
         productHydrateInFlightKeyRef.current = null;
         setIsHydratingProductSignals(false);
-        const allOk = currentResponse.ok && historicalResponse.ok && feedbackResponse.ok && readingsResponse.ok;
+        const allOk = currentResponse.ok && readingsResponse.ok;
         emitPipelineEvent(buildInPageHydrateTraceEvent({
           surface: "product",
           event: "response",
@@ -1323,22 +1303,12 @@ export function useInPageCollectorAppState({ snapshot, tabId, sendAndSync }: Use
             signalCount: transition.signalIds.length,
             currentOk: currentResponse.ok,
             currentAnalysisCount: currentResponse.ok ? currentResponse.productSignalAnalyses?.length ?? 0 : null,
-            historicalOk: historicalResponse.ok,
-            historicalAnalysisCount: historicalResponse.ok ? historicalResponse.productSignalAnalyses?.length ?? 0 : null,
-            feedbackOk: feedbackResponse.ok,
-            feedbackCount: feedbackResponse.ok ? feedbackResponse.productAgentTaskFeedback?.length ?? 0 : null,
             readingsOk: readingsResponse.ok,
             readingCount: readingsResponse.ok ? readingsResponse.signalReadings?.length ?? 0 : null
           }
         }));
         if (currentResponse.ok) {
           setProductSignalAnalyses(currentResponse.productSignalAnalyses ?? []);
-        }
-        if (historicalResponse.ok) {
-          setHistoricalProductSignalAnalyses(historicalResponse.productSignalAnalyses ?? []);
-        }
-        if (feedbackResponse.ok) {
-          setProductAgentTaskFeedback(feedbackResponse.productAgentTaskFeedback ?? []);
         }
         if (readingsResponse.ok) {
           const scopedSignalIds = new Set(transition.signalIds);
@@ -1362,8 +1332,6 @@ export function useInPageCollectorAppState({ snapshot, tabId, sendAndSync }: Use
           }
         }));
         setProductSignalAnalyses([]);
-        setHistoricalProductSignalAnalyses([]);
-        setProductAgentTaskFeedback([]);
         setSignalReadings([]);
       });
   }, [
@@ -2369,8 +2337,6 @@ export function useInPageCollectorAppState({ snapshot, tabId, sendAndSync }: Use
         return;
       }
       setProductSignalAnalyses([]);
-      setHistoricalProductSignalAnalyses([]);
-      setProductAgentTaskFeedback([]);
       setSignalReadings([]);
       setCompiledProductContext(null);
       setProductSignalAnalysisNotice("Product cache 已清除；保留已儲存 signals，請重新分析。");
@@ -2468,7 +2434,6 @@ export function useInPageCollectorAppState({ snapshot, tabId, sendAndSync }: Use
       });
       if (response.ok) {
         setProductSignalAnalyses(response.productSignalAnalyses ?? []);
-        setHistoricalProductSignalAnalyses((previous) => mergeAnalysesBySignalId(previous, response.productSignalAnalyses ?? []));
         const queued = response.productSignalAnalysisSummary?.queued ?? 0;
         const analyzed = response.productSignalAnalysisSummary?.analyzed ?? 0;
         const failed = response.productSignalAnalysisSummary?.failed ?? 0;
@@ -2636,8 +2601,6 @@ export function useInPageCollectorAppState({ snapshot, tabId, sendAndSync }: Use
     const response = await topicState.onRemoveSignal(signalId);
     if (response.ok) {
       setProductSignalAnalyses(response.productSignalAnalyses ?? productSignalAnalyses.filter((analysis) => analysis.signalId !== signalId));
-      setHistoricalProductSignalAnalyses((previous) => previous.filter((analysis) => analysis.signalId !== signalId));
-      setProductAgentTaskFeedback((previous) => previous.filter((feedback) => feedback.signalId !== signalId));
       setProductSignalAnalysisNotice("已移除 signal。");
       return;
     }
@@ -3098,8 +3061,6 @@ export function useInPageCollectorAppState({ snapshot, tabId, sendAndSync }: Use
     techniqueReadings,
     savedAnalyses,
     productSignalAnalyses,
-    historicalProductSignalAnalyses,
-    productAgentTaskFeedback,
     signalReadings,
     isHydratingProductSignals,
     isAnalyzingProductSignals,

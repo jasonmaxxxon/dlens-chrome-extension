@@ -15,7 +15,6 @@ import { buildSignalReadinessById, type SignalReadiness } from "../state/signal-
 import { getActiveSession } from "../state/store-helpers.ts";
 import type {
   ExtensionSnapshot,
-  ProductAgentTaskFeedback,
   ProductContext,
   ProductProfile,
   ProductSignalAnalysis,
@@ -70,8 +69,6 @@ export interface ProductSignalWorkspaceViewModel {
   signals: ProductSignalViewModel[];
   pendingSignals: ProductSignalViewModel[];
   scopedAnalyses: ProductSignalAnalysis[];
-  historicalAnalyses: ProductSignalAnalysis[];
-  agentTaskFeedback: ProductAgentTaskFeedback[];
   scopedSignalReadings: SignalReading[];
   signalCount: number;
   completedAnalysisCount: number;
@@ -83,8 +80,6 @@ export interface ProductSignalWorkspaceViewModel {
   canAnalyze: boolean;
   allGreen: boolean;
   readinessCopy: string;
-  showSignalReadingReview: boolean;
-  firstSynthesizableSignal: ProductSignalViewModel | null;
   visibleError: string | null;
   statusErrorLabel: string | null;
   analysisNotice: string | null;
@@ -98,8 +93,6 @@ export interface BuildProductSignalWorkspaceViewModelInput {
   snapshot: ExtensionSnapshot;
   signals: Signal[];
   analyses: ProductSignalAnalysis[];
-  historicalAnalyses?: ProductSignalAnalysis[];
-  agentTaskFeedback?: ProductAgentTaskFeedback[];
   signalReadings?: SignalReading[];
   productContext?: ProductContext | null;
   aiProviderReady?: boolean;
@@ -380,8 +373,6 @@ export function buildProductSignalWorkspaceViewModel({
   snapshot,
   signals,
   analyses,
-  historicalAnalyses,
-  agentTaskFeedback,
   signalReadings,
   productContext = null,
   aiProviderReady = true,
@@ -418,7 +409,6 @@ export function buildProductSignalWorkspaceViewModel({
     ? safeSignalReadings.filter((reading) => signalIdSet.has(reading.signalId))
     : [];
   const pendingSignals = rows.filter((signal) => signal.analysis?.status !== "complete");
-  const firstSynthesizableSignal = rows.find((signal) => signal.analysis?.status === "complete") ?? null;
   const productProfile = snapshot.global.settings.productProfile ?? null;
   const canAnalyze = canRunProductSignalAction({
     signals: rows,
@@ -443,8 +433,6 @@ export function buildProductSignalWorkspaceViewModel({
     signals: rows,
     pendingSignals,
     scopedAnalyses,
-    historicalAnalyses: safeArray(historicalAnalyses).length ? safeArray(historicalAnalyses) : safeAnalyses,
-    agentTaskFeedback: safeArray(agentTaskFeedback),
     scopedSignalReadings,
     signalCount: rows.length,
     completedAnalysisCount,
@@ -456,8 +444,6 @@ export function buildProductSignalWorkspaceViewModel({
     canAnalyze,
     allGreen,
     readinessCopy: readinessCopy({ signals: rows, analyses: scopedAnalyses, productProfile, aiProviderReady }),
-    showSignalReadingReview: scopedSignalReadings.length > 0,
-    firstSynthesizableSignal,
     visibleError,
     statusErrorLabel,
     analysisNotice,

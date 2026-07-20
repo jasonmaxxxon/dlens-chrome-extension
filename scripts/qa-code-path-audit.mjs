@@ -214,63 +214,62 @@ async function auditRawLabels(allLines) {
 async function auditNoiseActionSemantics(allLines) {
   const file = FILES.productSignalViews;
   const lines = allLines[file];
-  const filterHits = [
-    ...lineHit(file, lines, "const parkItems = analyses.filter", "park/noise action filter"),
-    ...lineHit(file, lines, "park: parkItems", "park items rendered in action board")
+  const candidateHits = [
+    ...lineHit(file, lines, "const candidates = completed.filter", "completed candidate filter"),
+    ...lineHit(file, lines, 'analysis.verdict === "try" || analysis.verdict === "watch"', "try/watch pager gate")
   ];
   const exclusionHits = uniqueHits([
     ...lineHit(file, lines, "function isExcludedActionSignal", "exclusion guard"),
-    ...lineHit(file, lines, "data-exclusion-card=\"true\"", "exclusion card marker"),
-    ...lineHit(file, lines, "不納入行動清單", "exclusion card copy"),
-    ...lineHit(file, lines, "排除原因", "exclusion reason copy")
+    ...lineHit(file, lines, "const exclusions = completed.filter(isExcludedActionSignal)", "park/noise exclusion lane"),
+    ...lineHit(file, lines, 'data-product-action-exclusions', "collapsed exclusion marker"),
+    ...lineHit(file, lines, 'data-product-action-insufficient', "separate insufficient-data marker")
   ]);
-  const actionFramingHits = uniqueHits([
-    ...lineHit(file, lines, "Keep as observation", "shared non-try action CTA"),
-    ...lineHit(file, lines, "TASK ›", "task slot label"),
-    ...lineHit(file, lines, "可借用 workflow", "workflow framing")
+  const retiredFramingHits = uniqueHits([
+    ...lineHit(file, lines, "const parkItems = analyses.filter", "retired park/noise board filter"),
+    ...lineHit(file, lines, 'data-product-action-card=', "retired action-card wall"),
+    ...lineHit(file, lines, 'data-exclusion-card=', "retired exclusion card"),
+    ...lineHit(file, lines, 'data-verdict-filter-tiles=', "retired verdict scoreboard")
   ]);
-  const failed = filterHits.length > 0 && exclusionHits.length < 4;
+  const failed = candidateHits.length < 2 || exclusionHits.length < 4 || retiredFramingHits.length > 0;
   return {
     id: "B-07",
     status: statusFromFail(failed),
-    summary: "noise/park verdicts use the same action-card framing as usable signals",
+    summary: "Product Action limits the pager to completed try/watch candidates and separates park/noise from insufficient data",
     evidence: {
-      filterHits,
+      candidateHits,
       exclusionHits,
-      actionFramingHits
+      retiredFramingHits
     },
-    expectedFixShape: "render park/noise/premise-mismatch as exclusion cards without workflow/task CTA; keep action framing for try/watch signals only"
+    expectedFixShape: "page only completed try/watch analyses; keep park/noise in a collapsed exclusion lane, insufficient_data in its own collapsed lane, and remove the retired card-wall/scoreboard framing"
   };
 }
 
 async function auditSignalReadingExportGate(allLines) {
   const file = FILES.productSignalViews;
   const lines = allLines[file];
-  const gateHits = [
+  const retiredRouteSwapHits = [
     ...lineHit(file, lines, "const showSignalReadingReview = scopedSignalReadings.length > 0", "reading review gate"),
     ...lineHit(file, lines, "showSignalReadingReview ?", "conditional review workspace"),
     ...lineHit(file, lines, "<SignalReadingReviewWorkspace", "review/export workspace")
   ];
-  const firstRunCtaHits = [
-    ...lineHit(file, lines, "產生 reading", "first reading CTA"),
-    ...lineHit(file, lines, "生成 reading", "first reading CTA"),
-    ...lineHit(file, lines, "Generate reading", "first reading CTA"),
-    ...lineHit(file, lines, "深度判讀", "visible reading disclosure"),
-    ...lineHit(file, lines, "SignalReadingDisclosure", "visible reading disclosure component"),
-    ...lineHit(file, lines, "onSynthesizeSignalReading", "synthesis callback")
-  ];
-  const hasGate = gateHits.length >= 2;
-  const hasVisibleFirstRunCta = firstRunCtaHits.some((hit) => /深度判讀|SignalReadingDisclosure|產生|生成|Generate/.test(hit.text));
+  const inStageReadingHits = uniqueHits([
+    ...lineHit(file, lines, "function ProductActionReadingOperations", "stage-owned reading operations"),
+    ...lineHit(file, lines, 'data-product-action-generate-reading', "first reading action"),
+    ...lineHit(file, lines, 'data-product-action-regenerate-reading', "regenerate action"),
+    ...lineHit(file, lines, "<ProductActionReadingOperations", "reading operations mounted in stage"),
+    ...lineHit(file, lines, 'data-product-action-export', "secondary packet export disclosure"),
+    ...lineHit(file, lines, "<ProductActionStage", "single Action route owner")
+  ]);
+  const failed = retiredRouteSwapHits.length > 0 || inStageReadingHits.length < 6;
   return {
     id: "B-08",
-    status: hasGate ? "warn" : statusFromFail(firstRunCtaHits.length === 0),
-    summary: "Signal Packet review/export workspace is gated behind existing SignalReading records, while first-reading creation lives elsewhere",
+    status: statusFromFail(failed),
+    summary: "Reading generation/review and packet export remain inside the single paged Product Action route",
     evidence: {
-      gateHits,
-      firstRunCtaHits,
-      hasVisibleFirstRunCta
+      retiredRouteSwapHits,
+      inStageReadingHits
     },
-    expectedFixShape: "when analyses exist but scopedSignalReadings is empty, surface the first-reading action near the review/export affordance instead of requiring users to discover it through selection/disclosure rows"
+    expectedFixShape: "keep first-run generation, regeneration, review, and secondary packet export reachable from the active stage without swapping the whole Action route when SignalReading rows appear"
   };
 }
 

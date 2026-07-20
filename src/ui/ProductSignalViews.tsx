@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import type { CSSProperties, KeyboardEvent as ReactKeyboardEvent, ReactNode } from "react";
 import { Activity, Quote } from "lucide-react";
 
@@ -1681,10 +1681,33 @@ function ButtonShimmer() {
   );
 }
 
+type SignalReadingEvidenceDisplay = {
+  citation: EvidenceCitation;
+  kind: "source" | "analysis-note";
+  text: string;
+};
+
 function SignalReadingEvidenceDetails({ citations }: { citations: EvidenceCitation[] }) {
-  if (!citations.length) {
+  const visibleCitations = citations.flatMap<SignalReadingEvidenceDisplay>((citation) => {
+    const sourceText = citation.entry?.text?.trim();
+    if (sourceText) {
+      return [{ citation, kind: "source" as const, text: sourceText }];
+    }
+    const noteText = citation.note?.quoteSummary?.trim();
+    if (noteText) {
+      return [{ citation, kind: "analysis-note" as const, text: noteText }];
+    }
+    return [];
+  });
+  if (!visibleCitations.length) {
     return null;
   }
+  const sourceCount = visibleCitations.filter((item) => item.kind === "source").length;
+  const noteCount = visibleCitations.length - sourceCount;
+  const summaryLabel = [
+    sourceCount ? `來源引用 ${sourceCount} 則` : "",
+    noteCount ? `AI 摘要 ${noteCount} 則${sourceCount ? "" : "（非逐字引文）"}` : ""
+  ].filter(Boolean).join(" · ");
 
   return (
     <SmoothDetails
@@ -1702,17 +1725,19 @@ function SignalReadingEvidenceDetails({ citations }: { citations: EvidenceCitati
             letterSpacing: 0
           }}
         >
-          <span>引用留言 {citations.length} 則</span>
+          <span>{summaryLabel}</span>
           <span style={{ display: "inline-flex", flexWrap: "wrap", gap: 4 }}>
-            {citations.map((citation) => {
-              const text = citation.entry?.text?.trim() || citation.note?.quoteSummary || "";
-              const author = citation.entry?.author || "unknown";
-              const likeFragment = citation.entry?.likeCount ? ` · ${citation.entry.likeCount}♥` : "";
-              const tooltip = `${author}${likeFragment}\n${text}`.slice(0, 280);
+            {visibleCitations.map(({ citation, kind, text }) => {
+              const author = citation.entry?.author || "來源作者未提供";
+              const likeFragment = citation.entry?.likeCount != null ? ` · ${citation.entry.likeCount}♥` : "";
+              const tooltip = kind === "source"
+                ? `${author}${likeFragment}\n${text}`.slice(0, 280)
+                : `AI 摘要（非逐字引文）\n${text}`.slice(0, 280);
               return (
                 <span
                   key={citation.ref}
                   data-signal-reading-evidence-chip={citation.ref}
+                  data-signal-reading-evidence-kind={kind}
                   title={tooltip}
                   style={{
                     fontSize: 10.5,
@@ -1737,12 +1762,12 @@ function SignalReadingEvidenceDetails({ citations }: { citations: EvidenceCitati
       summaryStyle={{ padding: "2px 0", cursor: "pointer", letterSpacing: 0 }}
     >
       <div style={{ display: "grid", gap: 0, marginTop: 6, borderTop: `1px solid ${tokens.color.line}` }}>
-        {citations.map((citation) => {
-          const text = citation.entry?.text?.trim() || citation.note?.quoteSummary || "";
+        {visibleCitations.map(({ citation, kind, text }) => {
           return (
             <div
               key={citation.ref}
               data-signal-reading-evidence-row="true"
+              data-signal-reading-evidence-kind={kind}
               style={{
                 display: "grid",
                 gap: 3,
@@ -1753,9 +1778,10 @@ function SignalReadingEvidenceDetails({ citations }: { citations: EvidenceCitati
               <div style={{ display: "flex", justifyContent: "space-between", gap: 8, alignItems: "baseline" }}>
                 <span style={{ fontSize: 11, fontWeight: 700, color: tokens.color.softInk }}>
                   {citation.ref}
-                  {citation.entry?.author ? <span style={{ fontWeight: 400 }}> · {citation.entry.author}</span> : null}
+                  {kind === "source" && citation.entry?.author ? <span style={{ fontWeight: 400 }}> · {citation.entry.author}</span> : null}
+                  {kind === "analysis-note" ? <span style={{ fontWeight: 400 }}> · AI 摘要（非逐字引文）</span> : null}
                 </span>
-                {citation.entry?.likeCount ? (
+                {kind === "source" && citation.entry?.likeCount != null ? (
                   <span style={{ fontSize: 10.5, color: tokens.color.softInk }}>{citation.entry.likeCount} ♥</span>
                 ) : null}
               </div>
@@ -1764,7 +1790,7 @@ function SignalReadingEvidenceDetails({ citations }: { citations: EvidenceCitati
               </p>
               {citation.note?.whyItMatters ? (
                 <p style={{ margin: 0, fontSize: 11, lineHeight: 1.5, color: tokens.color.softInk }}>
-                  {citation.note.whyItMatters}
+                  {kind === "source" ? "AI 判讀：" : "判讀用途："}{citation.note.whyItMatters}
                 </p>
               ) : null}
             </div>
@@ -2925,15 +2951,23 @@ function ProductActionReadingOperations({
   onSynthesizeSignalReading?: SynthesizeSignalReading;
   onReviewSignalReading?: ReviewSignalReading;
 }) {
+  const incomingReviewState = signalReadingReviewState(reading);
   const [localReading, setLocalReading] = useState<string | null>(null);
   const [generating, setGenerating] = useState(false);
-  const [reviewState, setReviewState] = useState<SignalReadingReviewState>(() => signalReadingReviewState(reading));
+  const [reviewState, setReviewState] = useState<SignalReadingReviewState>(() => incomingReviewState);
   const [notice, setNotice] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const displayedReading = reading?.reading || localReading;
   const staleness = reading
     ? signalReadingStaleness(reading, SIGNAL_READING_PROMPT_VERSION)
     : { stale: false, reasons: [] };
+
+  useEffect(() => {
+    setReviewState(incomingReviewState);
+    setLocalReading(null);
+    setNotice(null);
+    setError(null);
+  }, [reading?.cacheKey, reading?.generatedAt, incomingReviewState]);
 
   const generate = (force: boolean) => {
     if (!signal || !onSynthesizeSignalReading || generating) return;
@@ -3122,22 +3156,47 @@ function ProductActionStage({
   const insufficient = completed.filter((analysis) => (
     !isExcludedActionSignal(analysis) && analysis.verdict === "insufficient_data"
   ));
-  const [activeIndex, setActiveIndex] = useState(0);
+  const [activeSelection, setActiveSelection] = useState(() => ({
+    signalId: candidates[0]?.signalId ?? null,
+    sourceIndex: 0
+  }));
   const [direction, setDirection] = useState<ProductActionDirection>("forward");
-  const safeIndex = Math.min(activeIndex, Math.max(candidates.length - 1, 0));
+  const stageRef = useRef<HTMLElement | null>(null);
+  const restoreStageFocusRef = useRef(false);
+  const matchingIndex = activeSelection.signalId
+    ? candidates.findIndex((analysis) => analysis.signalId === activeSelection.signalId)
+    : -1;
+  const safeIndex = matchingIndex >= 0
+    ? matchingIndex
+    : Math.min(activeSelection.sourceIndex, Math.max(candidates.length - 1, 0));
   const activeAnalysis = candidates[safeIndex];
+  const selectionWasRemoved = activeSelection.signalId !== null && matchingIndex < 0;
+  const renderedDirection = selectionWasRemoved && safeIndex < activeSelection.sourceIndex
+    ? "backward"
+    : direction;
   const signalsById = new Map(signals.map((signal) => [signal.signalId, signal]));
   const readingsBySignalId = latestReadingBySignalId(signalReadings);
 
   useEffect(() => {
-    if (activeIndex !== safeIndex) setActiveIndex(safeIndex);
-  }, [activeIndex, safeIndex]);
+    const nextSignalId = activeAnalysis?.signalId ?? null;
+    if (activeSelection.signalId === nextSignalId && activeSelection.sourceIndex === safeIndex) return;
+    if (selectionWasRemoved) setDirection(renderedDirection);
+    setActiveSelection({ signalId: nextSignalId, sourceIndex: safeIndex });
+  }, [activeAnalysis?.signalId, activeSelection.signalId, activeSelection.sourceIndex, renderedDirection, safeIndex, selectionWasRemoved]);
 
-  const moveTo = (nextIndex: number) => {
+  useEffect(() => {
+    if (!restoreStageFocusRef.current || !activeAnalysis) return;
+    restoreStageFocusRef.current = false;
+    stageRef.current?.focus({ preventScroll: true });
+  }, [activeAnalysis?.signalId]);
+
+  const moveTo = (nextIndex: number, restoreFocus = false) => {
     const clamped = Math.max(0, Math.min(nextIndex, candidates.length - 1));
-    if (clamped === safeIndex) return;
+    const nextCandidate = candidates[clamped];
+    if (!nextCandidate || nextCandidate.signalId === activeAnalysis?.signalId) return;
+    if (restoreFocus) restoreStageFocusRef.current = true;
     setDirection(clamped > safeIndex ? "forward" : "backward");
-    setActiveIndex(clamped);
+    setActiveSelection({ signalId: nextCandidate.signalId, sourceIndex: clamped });
   };
 
   const handleStageKeyDown = (event: ReactKeyboardEvent<HTMLElement>) => {
@@ -3149,7 +3208,7 @@ function ProductActionStage({
     if (event.key === "End") nextIndex = candidates.length - 1;
     if (nextIndex === null) return;
     event.preventDefault();
-    moveTo(nextIndex);
+    moveTo(nextIndex, true);
   };
 
   const activeSignal = activeAnalysis ? signalsById.get(activeAnalysis.signalId) : undefined;
@@ -3172,10 +3231,11 @@ function ProductActionStage({
             <span style={{ ...textStyles.meta, color: tokens.color.softInk }}>{candidates.length} 候選 · {completed.length} 已評估</span>
           </div>
           <article
-            key={`${activeAnalysis.signalId}:${safeIndex}:${direction}`}
+            key={`${activeAnalysis.signalId}:${renderedDirection}`}
+            ref={stageRef}
             data-product-action-stage={activeAnalysis.signalId}
             data-product-action-page={safeIndex + 1}
-            data-direction={direction}
+            data-direction={renderedDirection}
             tabIndex={0}
             onKeyDown={handleStageKeyDown}
             aria-label={`候選行動 ${safeIndex + 1} / ${candidates.length}`}
@@ -3248,8 +3308,14 @@ function ProductActionStage({
                   title={`前往候選 ${index + 1}`}
                   aria-current={index === safeIndex ? "page" : undefined}
                   onClick={() => moveTo(index)}
-                  style={{ width: 9, height: 9, padding: 0, borderRadius: tokens.radius.round, border: `1px solid ${index === safeIndex ? tokens.color.product : tokens.color.lineStrong}`, background: index === safeIndex ? tokens.color.product : tokens.color.neutralSurface, cursor: "pointer" }}
-                />
+                  style={{ width: 24, height: 24, padding: 0, border: 0, borderRadius: tokens.radius.round, background: "transparent", display: "grid", placeItems: "center", cursor: "pointer" }}
+                >
+                  <span
+                    data-product-action-dot-visual="true"
+                    aria-hidden="true"
+                    style={{ width: 9, height: 9, borderRadius: tokens.radius.round, border: `1px solid ${index === safeIndex ? tokens.color.product : tokens.color.lineStrong}`, background: index === safeIndex ? tokens.color.product : tokens.color.neutralSurface }}
+                  />
+                </button>
               ))}
             </span>
             <span data-product-action-live="true" role="status" aria-live="polite" style={{ minWidth: 36, fontFamily: tokens.font.mono, fontSize: 10.5, color: tokens.color.softInk, textAlign: "center" }}>{safeIndex + 1} / {candidates.length}</span>

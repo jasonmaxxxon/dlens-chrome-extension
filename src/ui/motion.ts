@@ -310,18 +310,16 @@ export const DLENS_MOTION_CSS = `
   transform: translateY(0) scale(0.86);
   transition: transform 90ms ${tokens.motion.easing.standard};
 }
-[data-dlens-control="true"] [data-verdict-filter-plate] {
-  transition: transform 280ms ${tokens.motion.easing.spring}, background-color 220ms ${tokens.motion.easing.standard}, border-color 220ms ${tokens.motion.easing.standard};
+[data-dlens-control="true"] [data-product-action-dot] {
+  transform: scale(1);
+  transition: transform 180ms ${tokens.motion.easing.springSoft};
 }
-[data-dlens-control="true"] [data-verdict-tile-count],
-[data-dlens-control="true"] [data-verdict-tile-bar] {
-  transition: transform 200ms ${tokens.motion.easing.springSoft}, background-color 220ms ${tokens.motion.easing.standard} 40ms;
+[data-dlens-control="true"] [data-product-action-dot]:hover,
+[data-dlens-control="true"] [data-product-action-dot]:focus-visible {
+  transform: scale(1.28);
 }
-[data-dlens-control="true"] [data-verdict-tile]:hover [data-verdict-tile-count] {
-  transform: scale(1.1);
-}
-[data-dlens-control="true"] [data-verdict-tile]:active [data-verdict-tile-count] {
-  transform: scale(0.96);
+[data-dlens-control="true"] [data-product-action-dot]:active {
+  transform: scale(0.9);
   transition: transform 90ms ${tokens.motion.easing.standard};
 }
 @media (prefers-reduced-motion: reduce) {
@@ -329,13 +327,11 @@ export const DLENS_MOTION_CSS = `
     animation: none !important;
     transform: none !important;
   }
-  [data-dlens-control="true"] [data-verdict-filter-plate],
-  [data-dlens-control="true"] [data-verdict-tile-count],
-  [data-dlens-control="true"] [data-verdict-tile-bar] {
+  [data-dlens-control="true"] [data-product-action-dot],
+  [data-dlens-control="true"] [data-product-action-dot]:hover,
+  [data-dlens-control="true"] [data-product-action-dot]:focus-visible,
+  [data-dlens-control="true"] [data-product-action-dot]:active {
     transition: none !important;
-  }
-  [data-dlens-control="true"] [data-verdict-tile]:hover [data-verdict-tile-count],
-  [data-dlens-control="true"] [data-verdict-tile]:active [data-verdict-tile-count] {
     transform: none !important;
   }
   [data-dlens-control="true"] .dlens-card-lift,
