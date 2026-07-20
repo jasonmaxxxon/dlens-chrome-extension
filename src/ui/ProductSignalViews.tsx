@@ -2197,8 +2197,8 @@ function SignalPacketHtmlExportSection({
 type SavedSignalCategory = "unclassified" | "pending" | "classified";
 
 function savedSignalCategory(signal: ProductSignalViewModel): SavedSignalCategory {
-  if (signal.analysis) return "classified";
-  if (signal.readiness.status === "ready") return "unclassified";
+  if (signal.analysis?.status === "complete") return "classified";
+  if (!signal.analysis && signal.readiness.status === "ready") return "unclassified";
   return "pending";
 }
 
@@ -2222,21 +2222,28 @@ function SavedSignalInlineReading({
 }) {
   const citations = analysis ? citationsForAnalysis(analysis, evidenceBySignalId) : [];
   const exactCitation = citations
-    .map((citation) => citation.entry?.text?.trim() || citation.note?.quoteSummary?.trim() || "")
+    .map((citation) => citation.entry?.text?.trim() || "")
     .find(Boolean);
-  const isProcessing = !analysis && signal.readiness.status === "crawling";
+  const isCrawlProcessing = !analysis && signal.readiness.status === "crawling";
+  const isAnalysisProcessing = !analysis
+    && (signal.analysis?.status === "pending" || signal.analysis?.status === "analyzing");
   const summary = analysis
     ? analysis.contentSummary || "摘要未提供"
-    : isProcessing
+    : isCrawlProcessing
       ? "抓取尚未完成；不生成分析內容。"
+      : isAnalysisProcessing
+        ? "分析尚未完成；不生成判讀內容。"
       : "尚未生成分析內容。";
   const observationLabel = analysis?.verdict === "park" ? "排除原因" : "觀察原因";
+  const unavailableCopy = isCrawlProcessing
+    ? "抓取完成前不可用。"
+    : isAnalysisProcessing
+      ? "分析完成前不可用。"
+      : "完成分析後才可用。";
   const observation = analysis
     ? analysis.reason || `${observationLabel}未提供`
-    : isProcessing
-      ? "抓取完成前不可用。"
-      : "完成分析後才可用。";
-  const takeaway = analysis?.referenceTakeaway?.trim() || (analysis ? "新知保留未提供" : "抓取完成前不可用。");
+    : unavailableCopy;
+  const takeaway = analysis?.referenceTakeaway?.trim() || (analysis ? "新知保留未提供" : unavailableCopy);
 
   return (
     <section
@@ -2321,13 +2328,16 @@ function SavedSignalsBoard({
     : signals.filter((signal) => savedSignalCategory(signal) === activeFilter);
   const isBounded = !showAll && filteredSignals.length > SAVED_LIST_VISIBLE_LIMIT;
   const visibleSignals = isBounded ? filteredSignals.slice(0, SAVED_LIST_VISIBLE_LIMIT) : filteredSignals;
+  const committedSignalId = visibleSignals.some((signal) => signal.signalId === activeSignalId)
+    ? activeSignalId
+    : visibleSignals[0]?.signalId ?? null;
 
   if (!signals.length) {
     return null;
   }
 
   const analysedCount = signals.filter((signal) => signal.analysis?.status === "complete").length;
-  const classifiedCount = signals.filter((signal) => Boolean(signal.analysis)).length;
+  const classifiedCount = signals.filter((signal) => signal.analysis?.status === "complete").length;
   const processingCount = signals.filter((signal) => (
     signal.analysis?.status === "pending"
     || signal.analysis?.status === "analyzing"
@@ -2448,13 +2458,13 @@ function SavedSignalsBoard({
         ) : null}
         <div ref={listMotionRef} data-scan-list="saved-signals" data-product-list-motion="saved-signals" style={{ display: "grid" }}>
           {visibleSignals.map((signal) => {
-            const analysis = signal.analysis;
+            const analysis = signal.analysis?.status === "complete" ? signal.analysis : undefined;
             const readiness = readinessLabel(signal.readiness);
             const checked = selectedIds.includes(signal.signalId);
             const rowTitle = savedRowTitle(signal, analysis);
             const rowMeta = savedRowMeta(readiness, analysis);
             const isCrawling = !analysis && signal.readiness.status === "crawling" && !readiness.isTerminal;
-            const active = activeSignalId === signal.signalId;
+            const active = committedSignalId === signal.signalId;
             return (
               <div key={signal.signalId}>
                 <div
@@ -3120,7 +3130,7 @@ function SavedSignalsBatchExport({
   const [copyStatus, setCopyStatus] = useState<AgentBriefCopyStatus>("idle");
   const analysesBySignal = analysisBySignalId(analyses);
   const exportableRows = signals
-    .map((signal) => ({ signal, analysis: signal.analysis ?? analysesBySignal.get(signal.signalId) }))
+    .map((signal) => ({ signal, analysis: analysesBySignal.get(signal.signalId) }))
     .filter((row): row is { signal: ProductSignalViewModel; analysis: ProductSignalAnalysis } => Boolean(row.analysis));
   const unanalyzedCount = signals.length - exportableRows.length;
   const selectedSignals = exportableRows

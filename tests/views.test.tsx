@@ -3005,6 +3005,18 @@ test("saved-signals filter tabs filter the list and the long list collapses", as
     assert.ok(toggle);
     flushSync(() => toggle!.dispatchEvent(new dom.window.MouseEvent("click", { bubbles: true })));
     assert.equal(countRows(), 8);
+
+    const lastPendingRow = rootElement.querySelector<HTMLButtonElement>('[data-saved-signal-open="p8"]');
+    assert.ok(lastPendingRow);
+    flushSync(() => lastPendingRow.dispatchEvent(new dom.window.MouseEvent("click", { bubbles: true })));
+    assert.equal(lastPendingRow.getAttribute("aria-expanded"), "true");
+
+    const collapseToggle = rootElement.querySelector("[data-product-saved-list-toggle]");
+    assert.ok(collapseToggle);
+    flushSync(() => collapseToggle.dispatchEvent(new dom.window.MouseEvent("click", { bubbles: true })));
+    assert.equal(countRows(), 6);
+    assert.equal(rootElement.querySelector('[data-saved-signal-open="p1"]')?.getAttribute("aria-expanded"), "true");
+    assert.ok(rootElement.querySelector('[data-product-saved-inline-reading="p1"]'));
   } finally {
     flushSync(() => root.unmount());
     await new Promise((resolve) => setTimeout(resolve, 0));
@@ -3436,6 +3448,100 @@ test("SavedSignalsBoard renders source truth from supported citations and honest
   assert.match(html, /data-product-source-truth-metric="total"[^>]*aria-label="總互動 54"/);
   assert.match(html, /e1 \+1/);
   assert.doesNotMatch(html, /e_raw/);
+});
+
+test("SavedSignalsBoard keeps pending analysis out of completed coverage and uses honest unavailable copy", () => {
+  const completeAnalysis = {
+    signalId: "signal_complete",
+    signalType: "demand" as const,
+    signalSubtype: "coverage_truth",
+    contentType: "discussion_starter" as const,
+    contentSummary: "已完成的分析。",
+    relevance: 4 as const,
+    relevantTo: ["coreWorkflows" as const],
+    whyRelevant: "只計算完成的分析。",
+    verdict: "watch" as const,
+    reason: "完成分析。",
+    referenceTakeaway: "完成後才可保留新知。",
+    evidenceRefs: ["e1"],
+    productContextHash: "ctx_coverage",
+    promptVersion: "v17",
+    analyzedAt: "2026-07-20T01:00:00.000Z",
+    status: "complete" as const
+  };
+  const html = renderToStaticMarkup(
+    productSignalViewElement({
+      kind: "saved-signals",
+      signals: [
+        { id: "signal_pending", sessionId: "session_coverage", itemId: "item_pending", source: "threads", inboxStatus: "processed", capturedAt: "2026-07-20T00:00:00.000Z" },
+        { id: "signal_complete", sessionId: "session_coverage", itemId: "item_complete", source: "threads", inboxStatus: "processed", capturedAt: "2026-07-20T00:01:00.000Z" }
+      ],
+      analyses: [{
+        ...completeAnalysis,
+        signalId: "signal_pending",
+        contentSummary: "尚未完成，不可顯示這段模型內容。",
+        reason: "尚未完成，不可顯示這段模型理由。",
+        referenceTakeaway: "尚未完成，不可顯示這段新知。",
+        status: "analyzing" as const
+      }, completeAnalysis],
+      productProfile: productTestProfile(),
+      signalPreviewById: {
+        signal_pending: "已抓取、正在分析的原始訊號。",
+        signal_complete: "已完成的原始訊號。"
+      },
+      signalReadinessById: {
+        signal_pending: { status: "ready", itemStatus: "succeeded" },
+        signal_complete: { status: "ready", itemStatus: "succeeded" }
+      },
+      onAnalyze: () => undefined
+    })
+  );
+
+  assert.match(html, /data-product-saved-coverage="analysed"[^>]*>已分析 1\/2/);
+  assert.match(html, /data-product-saved-coverage="classified"[^>]*>AI 已分類 1\/1/);
+  assert.match(html, /data-product-saved-coverage="processing"[^>]*>處理中 1/);
+  assert.match(html, /data-product-saved-inline-reading="signal_pending"/);
+  assert.match(html, /分析尚未完成；不生成判讀內容。/);
+  assert.match(html, /分析完成前不可用。/);
+  assert.doesNotMatch(html, /尚未完成，不可顯示這段模型內容/);
+  assert.doesNotMatch(html, /AI 已分類 2\/1|AI 已分類 1\/0/);
+});
+
+test("SavedSignalsBoard does not present an AI quote summary as an exact source quotation", () => {
+  const html = renderToStaticMarkup(
+    productSignalViewElement({
+      kind: "saved-signals",
+      signals: [
+        { id: "signal_note_only", sessionId: "session_note", itemId: "item_note", source: "threads", inboxStatus: "processed", capturedAt: "2026-07-20T00:00:00.000Z" }
+      ],
+      analyses: [{
+        signalId: "signal_note_only",
+        signalType: "learning",
+        signalSubtype: "note_only",
+        contentType: "content",
+        contentSummary: "只有 AI 摘要，沒有來源逐字內容。",
+        relevance: 3,
+        relevantTo: ["technicalLearning"],
+        whyRelevant: "可作為判讀，但不是逐字引文。",
+        verdict: "watch",
+        reason: "需要回到來源確認。",
+        referenceTakeaway: "保留為待查證重點。",
+        evidenceRefs: ["e7"],
+        evidenceNotes: [{ ref: "e7", quoteSummary: "這是 AI 產生的來源摘要。", whyItMatters: "不是逐字引用。" }],
+        productContextHash: "ctx_note",
+        promptVersion: "v17",
+        analyzedAt: "2026-07-20T01:00:00.000Z",
+        status: "complete"
+      }],
+      productProfile: productTestProfile(),
+      signalPreviewById: { signal_note_only: "來源正文。" },
+      onAnalyze: () => undefined
+    })
+  );
+
+  assert.match(html, /data-product-source-truth-metric="evidence"[^>]*aria-label="證據 ref e7"/);
+  assert.doesNotMatch(html, /data-product-saved-exact-citation="true"/);
+  assert.doesNotMatch(html, /<blockquote[^>]*>這是 AI 產生的來源摘要。/);
 });
 
 test("SavedSignalsBoard keeps a committed inline reader separate from checkbox batch selection", async () => {
