@@ -250,37 +250,6 @@ function ProductReadinessChip({ readiness }: { readiness: SignalReadiness }) {
   );
 }
 
-function ProductCrawlSweep() {
-  return (
-    <span
-      aria-hidden="true"
-      data-product-crawl-sweep="true"
-      style={{
-        display: "block",
-        width: "min(184px, 100%)",
-        height: 4,
-        borderRadius: tokens.radius.round,
-        overflow: "hidden",
-        background: tokens.color.neutralSurface,
-        border: `1px solid ${tokens.color.line}`,
-        boxSizing: "border-box"
-      }}
-    >
-      <span
-        data-product-crawl-sweep-fill="true"
-        style={{
-          display: "block",
-          width: "38%",
-          height: "100%",
-          borderRadius: tokens.radius.round,
-          background: `linear-gradient(90deg, transparent, ${PRODUCT_MODE_ACCENT}, transparent)`,
-          animation: tokens.motion.keyframes.indeterminate
-        }}
-      />
-    </span>
-  );
-}
-
 function excerpt(value: string | null | undefined, maxLength = 150): string {
   const trimmed = (value ?? "").replace(/\s+/g, " ").trim();
   if (trimmed.length <= maxLength) {
@@ -2076,232 +2045,51 @@ function SignalPacketHtmlExportSection({
   );
 }
 
-type SavedSignalCategory = "unclassified" | "pending" | "classified";
-
-function savedSignalCategory(signal: ProductSignalViewModel): SavedSignalCategory {
-  if (signal.analysis?.status === "complete") return "classified";
-  if (!signal.analysis && signal.readiness.status === "ready") return "unclassified";
-  return "pending";
-}
-
-const SAVED_FILTER_TABS: Array<{ key: "all" | SavedSignalCategory; label: string }> = [
-  { key: "all", label: "全部" },
-  { key: "unclassified", label: "未分類" },
-  { key: "pending", label: "待處理" },
-  { key: "classified", label: "已分類" }
-];
-
-const SAVED_LIST_VISIBLE_LIMIT = 6;
-
-function SavedSignalInlineReading({
-  signal,
-  analysis,
-  evidenceBySignalId
-}: {
-  signal: ProductSignalViewModel;
-  analysis?: ProductSignalAnalysis;
-  evidenceBySignalId: Record<string, ProductSignalEvidenceEntry[]>;
-}) {
-  const citations = analysis ? citationsForAnalysis(analysis, evidenceBySignalId) : [];
-  const exactCitation = citations
-    .map((citation) => citation.entry?.text?.trim() || "")
-    .find(Boolean);
-  const isCrawlProcessing = !analysis && signal.readiness.status === "crawling";
-  const isAnalysisProcessing = !analysis
-    && (signal.analysis?.status === "pending" || signal.analysis?.status === "analyzing");
-  const summary = analysis
-    ? analysis.contentSummary || "摘要未提供"
-    : isCrawlProcessing
-      ? "抓取尚未完成；不生成分析內容。"
-      : isAnalysisProcessing
-        ? "分析尚未完成；不生成判讀內容。"
-      : "尚未生成分析內容。";
-  const observationLabel = analysis?.verdict === "park" ? "排除原因" : "觀察原因";
-  const unavailableCopy = isCrawlProcessing
-    ? "抓取完成前不可用。"
-    : isAnalysisProcessing
-      ? "分析完成前不可用。"
-      : "完成分析後才可用。";
-  const observation = analysis
-    ? analysis.reason || `${observationLabel}未提供`
-    : unavailableCopy;
-  const takeaway = analysis?.referenceTakeaway?.trim() || (analysis ? "新知保留未提供" : unavailableCopy);
-
-  return (
-    <section
-      data-product-saved-inline-reading={signal.signalId}
-      id={`saved-reading-${signal.signalId}`}
-      aria-label={`${signal.signalId} 判讀`}
-      style={mutedPanelStyle({
-        margin: "0 10px 8px 28px",
-        padding: "10px 12px",
-        border: `1px solid ${tokens.color.productSoft}`
-      })}
-    >
-      <div data-product-saved-reading-field="summary" style={{ display: "grid", gap: 3 }}>
-        <span style={{ ...textStyles.fieldLabel, color: tokens.color.softInk }}>摘要</span>
-        <p style={{ margin: 0, fontSize: 12, lineHeight: 1.6, color: tokens.color.subInk }}>{summary}</p>
-      </div>
-      <div data-product-saved-reading-field="observation" style={{ display: "grid", gap: 3 }}>
-        <span style={{ ...textStyles.fieldLabel, color: tokens.color.softInk }}>{observationLabel}</span>
-        <span style={{ fontSize: 12, lineHeight: 1.55, color: tokens.color.subInk, overflowWrap: "anywhere" }}>{observation}</span>
-      </div>
-      <div data-product-saved-reading-field="takeaway" style={{ display: "grid", gap: 3 }}>
-        <span style={{ ...textStyles.fieldLabel, color: tokens.color.softInk }}>新知保留</span>
-        <span style={{ fontSize: 12, lineHeight: 1.55, color: tokens.color.subInk, overflowWrap: "anywhere" }}>{takeaway}</span>
-      </div>
-      <div data-product-saved-reading-field="source-truth" style={{ display: "grid", gap: 4 }}>
-        <span style={{ ...textStyles.fieldLabel, color: tokens.color.softInk }}>來源真相</span>
-        <ProductSourceTruthStrip
-          analysis={analysis}
-          descriptor={signal.sourceDescriptor}
-          evidenceBySignalId={evidenceBySignalId}
-          signalId={signal.signalId}
-        />
-      </div>
-      {exactCitation ? (
-        <blockquote data-product-saved-exact-citation="true" style={{ margin: 0, padding: "7px 9px", borderLeft: `2px solid ${tokens.color.product}`, color: tokens.color.subInk, fontSize: 11.5, lineHeight: 1.55 }}>
-          {exactCitation}
-        </blockquote>
-      ) : null}
-    </section>
-  );
-}
-
 function SavedSignalsBoard({
   signals,
   pendingSignals,
   pendingErrorAggregate,
-  selectedIds,
-  onToggleSignal,
   onRemoveSignal,
-  onAnalyze,
-  evidenceBySignalId
+  onAnalyze
 }: {
   signals: ProductSignalViewModel[];
   pendingSignals: ProductSignalViewModel[];
   pendingErrorAggregate: ProcessingErrorAggregate | null;
-  selectedIds: string[];
-  onToggleSignal: (signalId: string) => void;
   onRemoveSignal?: (signalId: string) => void;
   onAnalyze: () => void;
-  evidenceBySignalId: Record<string, ProductSignalEvidenceEntry[]>;
 }) {
-  const [activeFilter, setActiveFilter] = useState<"all" | SavedSignalCategory>("all");
-  const [showAll, setShowAll] = useState(false);
-  const [activeSignalId, setActiveSignalId] = useState<string | null>(() => (
-    signals[0]?.signalId ?? null
-  ));
-  const listMotionRef = useCausalListMotion(
-    `${activeFilter}:${showAll ? "all" : "bounded"}:${signals.map((signal) => signal.signalId).join("|")}`
-  );
-
-  const counts: Record<"all" | SavedSignalCategory, number> = {
-    all: signals.length,
-    unclassified: 0,
-    pending: 0,
-    classified: 0
-  };
-  for (const signal of signals) {
-    counts[savedSignalCategory(signal)] += 1;
-  }
-  const filteredSignals = activeFilter === "all"
-    ? signals
-    : signals.filter((signal) => savedSignalCategory(signal) === activeFilter);
-  const isBounded = !showAll && filteredSignals.length > SAVED_LIST_VISIBLE_LIMIT;
-  const visibleSignals = isBounded ? filteredSignals.slice(0, SAVED_LIST_VISIBLE_LIMIT) : filteredSignals;
-  const committedSignalId = visibleSignals.some((signal) => signal.signalId === activeSignalId)
-    ? activeSignalId
-    : visibleSignals[0]?.signalId ?? null;
-
   if (!signals.length) {
     return null;
   }
 
-  const analysedCount = signals.filter((signal) => signal.analysis?.status === "complete").length;
-  const classifiedCount = signals.filter((signal) => signal.analysis?.status === "complete").length;
+  const readyCount = signals.filter((signal) => !signal.analysis && signal.readiness.status === "ready").length;
   const processingCount = signals.filter((signal) => (
     signal.analysis?.status === "pending"
     || signal.analysis?.status === "analyzing"
     || (!signal.analysis && signal.readiness.status === "crawling")
   )).length;
-
-  function savedRowTitle(signal: ProductSignalViewModel, analysis: ProductSignalAnalysis | undefined): string {
-    const raw = signal.sourcePreview.displayText || analysis?.contentSummary || signal.signalId;
-    const maxLength = /[\u3400-\u9fff]/.test(raw) ? 30 : 72;
-    return excerpt(raw, maxLength);
-  }
-
-  function savedRowMeta(readiness: ReadinessLabel, analysis: ProductSignalAnalysis | undefined): string {
-    if (analysis) {
-      return VERDICT_LABELS[analysis.verdict];
-    }
-    return readiness.isTerminal ? readiness.label : "未分析";
-  }
-
-  function commitFilter(filter: "all" | SavedSignalCategory) {
-    const nextSignals = filter === "all"
-      ? signals
-      : signals.filter((signal) => savedSignalCategory(signal) === filter);
-    setActiveFilter(filter);
-    setShowAll(false);
-    setActiveSignalId(nextSignals[0]?.signalId ?? null);
-  }
+  const completedCount = signals.filter((signal) => signal.analysis?.status === "complete").length;
 
   return (
     <section data-saved-signals-route="true" style={{ display: "grid", gap: 12 }}>
       <div data-saved-signals-frame="true" style={cardStyle({ gap: 10 })}>
-        <SectionHeader title="訊號清單" caption={`${signals.length} 則`} style={{ marginBottom: 0 }} />
+        <SectionHeader title="分析收件匣" caption={`${signals.length} 則`} style={{ marginBottom: 0 }} />
         <section
-          data-product-saved-coverage-ledger="true"
-          aria-label="訊號覆蓋帳本"
+          data-product-saved-pipeline="true"
+          aria-label="訊號分析流程"
           style={{ display: "flex", gap: 8, flexWrap: "wrap", padding: "8px 10px", borderRadius: tokens.radius.card, background: tokens.color.contextSurface, border: `1px solid ${tokens.color.line}` }}
         >
-          <span data-product-saved-coverage="analysed" style={{ ...textStyles.metric, color: tokens.color.subInk }}>已分析 {analysedCount}/{signals.length}</span>
-          <span aria-hidden style={{ color: tokens.color.line }}>·</span>
-          <span data-product-saved-coverage="classified" style={{ ...textStyles.metric, color: tokens.color.product }}>AI 已分類 {classifiedCount}/{analysedCount}</span>
-          <span aria-hidden style={{ color: tokens.color.line }}>·</span>
-          <span data-product-saved-coverage="processing" style={{ ...textStyles.metric, color: processingCount ? tokens.color.running : tokens.color.softInk }}>處理中 {processingCount}</span>
+          {[
+            ["已收集", signals.length],
+            ["可分析", readyCount],
+            ["處理中", processingCount],
+            ["已完成", completedCount]
+          ].map(([label, value]) => (
+            <span key={label} style={{ ...textStyles.metric, color: label === "處理中" && value ? tokens.color.running : tokens.color.subInk }}>
+              {label} {value}
+            </span>
+          ))}
         </section>
-        <div data-product-saved-filter-tabs="true" role="tablist" aria-label="已存訊號篩選" style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
-          {SAVED_FILTER_TABS.map((tab) => {
-            const active = activeFilter === tab.key;
-            const count = counts[tab.key];
-            const disabled = count === 0 && tab.key !== "all";
-            return (
-              <button
-                key={tab.key}
-                type="button"
-                role="tab"
-                aria-selected={active}
-                data-product-saved-filter={tab.key}
-                data-active={active ? "true" : "false"}
-                disabled={disabled}
-                onClick={() => commitFilter(tab.key)}
-                style={{
-                  display: "inline-flex",
-                  alignItems: "center",
-                  gap: 6,
-                  padding: "5px 11px",
-                  borderRadius: tokens.radius.pill,
-                  border: `1px solid ${active ? tokens.color.product : tokens.color.line}`,
-                  background: active ? tokens.color.productSoft : tokens.color.surface,
-                  color: disabled ? tokens.color.softInk : active ? tokens.color.product : tokens.color.subInk,
-                  fontFamily: tokens.font.sans,
-                  fontSize: 11.5,
-                  fontWeight: 750,
-                  cursor: disabled ? "default" : "pointer",
-                  opacity: disabled ? 0.55 : 1
-                }}
-              >
-                {tab.label}
-                <span style={{ fontFamily: tokens.font.mono, fontSize: 10.5, fontWeight: 700, color: active ? tokens.color.product : tokens.color.softInk }}>
-                  {count}
-                </span>
-              </button>
-            );
-          })}
-        </div>
         {pendingSignals.length ? (
           <details
             data-product-saved-pending-detail="collapsed"
@@ -2338,100 +2126,36 @@ function SavedSignalsBoard({
             </div>
           </details>
         ) : null}
-        <div ref={listMotionRef} data-scan-list="saved-signals" data-product-list-motion="saved-signals" style={{ display: "grid" }}>
-          {visibleSignals.map((signal) => {
-            const analysis = signal.analysis?.status === "complete" ? signal.analysis : undefined;
+        <details data-product-saved-management="collapsed" style={{ borderRadius: tokens.radius.card, border: `1px solid ${tokens.color.line}`, background: tokens.color.contextSurface, padding: "8px 10px" }}>
+          <summary style={{ cursor: "pointer", listStyle: "none", fontSize: 11.5, fontWeight: 750, color: tokens.color.subInk }}>
+            管理收件匣 · {signals.length} 則
+          </summary>
+          <div style={{ display: "grid", marginTop: 8 }}>
+          {signals.map((signal) => {
             const readiness = readinessLabel(signal.readiness);
-            const checked = selectedIds.includes(signal.signalId);
-            const rowTitle = savedRowTitle(signal, analysis);
-            const rowMeta = savedRowMeta(readiness, analysis);
-            const isCrawling = !analysis && signal.readiness.status === "crawling" && !readiness.isTerminal;
-            const active = committedSignalId === signal.signalId;
             return (
-              <div key={signal.signalId}>
-                <div
-                data-saved-signal-row="compact"
-                data-dlens-list-key={signal.signalId}
-                data-scan-row="true"
-                data-scan-action="true"
-                data-dlens-presence="card"
-                className="dlens-card-lift"
-                style={scanRowStyle({
-                  display: "grid",
-                  gridTemplateColumns: `18px minmax(0, 1fr)${!analysis ? " auto" : ""}${onRemoveSignal ? " 20px" : ""}`,
-                  gap: 9,
-                  alignItems: "center",
-                  padding: "9px 10px",
-                  background: active ? tokens.color.productSoft : checked ? tokens.color.neutralSurfaceSoft : "transparent",
-                  boxShadow: active ? `inset 3px 0 0 ${tokens.color.product}` : "none",
-                  cursor: "pointer"
-                })}
+              <div
+                key={signal.signalId}
+                data-saved-signal-row="management"
+                style={scanRowStyle({ display: "grid", gridTemplateColumns: `minmax(0, 1fr) auto${onRemoveSignal ? " 20px" : ""}`, gap: 9, alignItems: "center", padding: "9px 0" })}
               >
-                <input
-                  type="checkbox"
-                  checked={checked}
-                  onChange={() => onToggleSignal(signal.signalId)}
-                  aria-label={`選取 ${signal.signalId}`}
-                  style={{ margin: 0 }}
-                />
-                <button
-                    type="button"
-                    data-saved-signal-open={signal.signalId}
-                    aria-expanded={active ? "true" : "false"}
-                    aria-controls={`saved-reading-${signal.signalId}`}
-                    onClick={() => setActiveSignalId(signal.signalId)}
-                    style={{ display: "grid", gap: 3, minWidth: 0, padding: 0, border: "none", background: "transparent", textAlign: "left", color: "inherit", font: "inherit", cursor: "pointer" }}
-                  >
-                    <span
-                      data-saved-signal-title="compact"
-                      style={{
-                        ...textStyles.bodyTight,
-                        color: tokens.color.ink,
-                        minWidth: 0,
-                        overflow: "hidden",
-                        textOverflow: "ellipsis",
-                        whiteSpace: "nowrap",
-                        overflowWrap: "anywhere",
-                        wordBreak: "break-word"
-                      }}
-                    >
-                      {analysis ? referenceLabel(analysis) : rowTitle}
-                    </span>
-                    <span style={{ ...textStyles.meta, color: tokens.color.softInk }}>{analysis ? VERDICT_LABELS[analysis.verdict] : rowMeta}</span>
-                  </button>
-                {isCrawling ? <ProductCrawlSweep /> : null}
-                {!analysis ? (
-                  <Stamp tone={readiness.tone === "success" ? "success" : readiness.tone === "warning" ? "warning" : "neutral"}>{readiness.label}</Stamp>
-                ) : null}
+                <span style={{ ...textStyles.bodyTight, color: tokens.color.ink, minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                  {excerpt(signal.sourcePreview.displayText || signal.title || signal.signalId, 72)}
+                </span>
+                <Stamp tone={readiness.tone}>{signal.analysis?.status === "complete" ? "已完成" : readiness.label}</Stamp>
                 {onRemoveSignal ? (
                   <button
                     type="button"
                     aria-label="移除此訊號"
-                    onClick={(e) => { e.preventDefault(); onRemoveSignal(signal.signalId); }}
+                    onClick={() => onRemoveSignal(signal.signalId)}
                     style={{ background: "none", border: "none", cursor: "pointer", padding: "1px 2px", lineHeight: 1, color: tokens.color.softInk, fontSize: 14, borderRadius: 4, display: "flex", alignItems: "center", justifyContent: "center" }}
                   >×</button>
                 ) : null}
-                </div>
-                {active ? <SavedSignalInlineReading signal={signal} analysis={analysis} evidenceBySignalId={evidenceBySignalId} /> : null}
               </div>
             );
           })}
-          {filteredSignals.length === 0 ? (
-            <div data-product-saved-empty={activeFilter} style={{ padding: "10px 4px", ...textStyles.meta, color: tokens.color.softInk }}>
-              此分類目前沒有訊號。
-            </div>
-          ) : null}
-        </div>
-        {filteredSignals.length > SAVED_LIST_VISIBLE_LIMIT ? (
-          <button
-            type="button"
-            data-product-saved-list-toggle={isBounded ? "collapsed" : "expanded"}
-            onClick={() => setShowAll((value) => !value)}
-            style={{ justifySelf: "start", background: "none", border: "none", cursor: "pointer", padding: "4px 2px", fontSize: 11, fontWeight: 700, color: tokens.color.product, fontFamily: tokens.font.sans }}
-          >
-            {isBounded ? `顯示全部 ${filteredSignals.length} 則 ▾` : "收起 ▴"}
-          </button>
-        ) : null}
+          </div>
+        </details>
       </div>
     </section>
   );
@@ -3372,22 +3096,11 @@ export function ProductSignalView({
   } = viewModel;
   const t = useUiText();
   const copy = PAGE_COPY[kind];
-  const [selectedSignalIds, setSelectedSignalIds] = useState<string[]>([]);
-  const [briefMode, setBriefMode] = useState<AgentBriefMode>("original");
-
   const dispatchCommand = (command: ProductSignalCommand) => Promise.resolve(onCommand(command));
   const analyzeCommand = viewModel.actions.find((action) => action.kind === "analyzeInbox");
   const openActionableCommand = viewModel.actions.find((action) => action.kind === "openActionable");
   const hasReadingCommand = signals.some((signal) => signal.actions.some((action) => action.kind === "generateReading"));
   const pendingErrorAggregate = summarizeProcessingErrorAggregate(pendingSignals);
-
-  function toggleSelectedSignal(signalId: string) {
-    setSelectedSignalIds((current) =>
-      current.includes(signalId)
-        ? current.filter((id) => id !== signalId)
-        : [...current, signalId]
-    );
-  }
 
   function signalAction(signalId: string, kind: ProductSignalAction["kind"]): ProductSignalAction | null {
     return signals.find((signal) => signal.signalId === signalId)?.actions.find((action) => action.kind === kind) ?? null;
@@ -3409,7 +3122,6 @@ export function ProductSignalView({
     if (!window.confirm("確認刪除此 signal？此操作無法復原。")) return;
     const action = signalAction(signalId, "remove");
     if (!action) return;
-    setSelectedSignalIds((current) => current.filter((id) => id !== signalId));
     void dispatchCommand({ kind: "remove", target: action.target });
   }
 
@@ -3525,29 +3237,9 @@ export function ProductSignalView({
                 signals={signals}
                 pendingSignals={pendingSignals}
                 pendingErrorAggregate={pendingErrorAggregate}
-                selectedIds={selectedSignalIds}
-                onToggleSignal={toggleSelectedSignal}
                 onRemoveSignal={signals.some((signal) => signal.actions.some((action) => action.kind === "remove")) ? handleRemoveSignal : undefined}
                 onAnalyze={handleAnalyze}
-                evidenceBySignalId={evidenceBySignalId}
               />
-              {scopedAnalyses.length ? (
-                <SavedSignalsBatchExport
-                  signals={signals}
-                  analyses={scopedAnalyses}
-                  activeFolderId={viewModel.sessionId ?? undefined}
-                  exportFolders={exportFolders}
-                  signalPreviewById={signalPreviewById}
-                  signalUrlById={signalUrlById}
-                  selectedIds={selectedSignalIds}
-                  briefMode={briefMode}
-                  onBriefModeChange={setBriefMode}
-                  onToggleSignal={toggleSelectedSignal}
-                  onSynthesizeSignalReading={synthesizeSignalReading}
-                  onExportSignalPackets={exportSignalPackets}
-                  evidenceBySignalId={evidenceBySignalId}
-                />
-              ) : null}
             </>
           )
         ) : scopedAnalyses.length ? (

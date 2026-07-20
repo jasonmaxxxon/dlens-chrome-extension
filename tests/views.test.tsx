@@ -2886,7 +2886,7 @@ test("SettingsView shows saved key state when sanitized snapshot hides the raw k
   assert.match(html, /已儲存金鑰 · 輸入以覆寫/);
 });
 
-test("Frame 01 — saved-signals filter tabs surface unclassified / pending / classified", () => {
+test("SavedSignalsBoard presents a compact analysis intake", () => {
   const html = renderToStaticMarkup(
     productSignalViewElement({
       kind: "saved-signals",
@@ -2910,46 +2910,18 @@ test("Frame 01 — saved-signals filter tabs surface unclassified / pending / cl
     })
   );
 
-  assert.match(html, /data-product-saved-filter-tabs="true"/);
-  assert.match(html, /data-product-saved-filter="unclassified"/);
-  assert.match(html, /data-product-saved-filter="pending"/);
-  assert.match(html, /data-product-saved-filter="classified"/);
-  assert.match(html, /data-product-list-motion="saved-signals"/);
-  assert.match(html, /data-dlens-list-key="s_ready"/);
-  assert.match(html, /data-saved-signal-row="compact"[^>]*class="dlens-card-lift"/);
+  assert.match(html, /data-product-saved-pipeline="true"/);
+  assert.match(html, /已收集[^]*可分析[^]*處理中[^]*已完成/);
+  assert.match(html, /data-product-saved-management="collapsed"/);
+  assert.match(html, /data-saved-signal-row="management"/);
   assert.match(html, /data-saved-signals-frame="true"/);
   assert.doesNotMatch(html, /data-saved-signals-frame="true"[^>]*data-dlens-presence=/);
-  assert.match(html, /data-saved-signal-row="compact"[^>]*data-dlens-presence="card"/);
-  assert.match(html, /未分類/);
-  assert.match(html, /待處理/);
-  assert.match(html, /已分類/);
-  // The old read-only intake strip is replaced by functional filter tabs.
-  assert.doesNotMatch(html, /data-product-intake-strip/);
+  assert.doesNotMatch(html, /data-product-saved-filter-tabs|data-product-saved-inline-reading/);
+  assert.doesNotMatch(html, /data-saved-signals-batch-export|行動簡報匯出/);
+  assert.doesNotMatch(html, /type="checkbox"/);
 });
 
-test("saved-signals filter tabs filter the list and the long list collapses", async () => {
-  const { JSDOM } = await import("jsdom");
-  const { createRoot } = await import("react-dom/client");
-  const { flushSync } = await import("react-dom");
-  const dom = new JSDOM("<div id=\"root\"></div>", { url: "https://dlens.test" });
-  const previous = {
-    window: globalThis.window,
-    document: globalThis.document,
-    HTMLElement: globalThis.HTMLElement,
-    HTMLButtonElement: globalThis.HTMLButtonElement,
-    MouseEvent: globalThis.MouseEvent
-  };
-  Object.assign(globalThis, {
-    window: dom.window,
-    document: dom.window.document,
-    HTMLElement: dom.window.HTMLElement,
-    HTMLButtonElement: dom.window.HTMLButtonElement,
-    MouseEvent: dom.window.MouseEvent
-  });
-  const rootElement = dom.window.document.getElementById("root");
-  assert.ok(rootElement);
-  const root = createRoot(rootElement);
-
+test("saved-signals keeps all management rows behind a collapsed disclosure", () => {
   const readyIds = ["r1", "r2", "r3"];
   const pendingIds = ["p1", "p2", "p3", "p4", "p5", "p6", "p7", "p8"];
   const signals = [...readyIds, ...pendingIds].map((id) => ({
@@ -2958,61 +2930,20 @@ test("saved-signals filter tabs filter the list and the long list collapses", as
   const signalReadinessById: Record<string, { status: string; itemStatus: string }> = {};
   for (const id of readyIds) signalReadinessById[id] = { status: "ready", itemStatus: "succeeded" };
   for (const id of pendingIds) signalReadinessById[id] = { status: "saved", itemStatus: "saved" };
+  const html = renderToStaticMarkup(
+    productSignalViewElement({
+      kind: "saved-signals",
+      signals,
+      analyses: [],
+      signalPreviewById: {},
+      signalReadinessById,
+      onAnalyze: () => undefined
+    })
+  );
 
-  const countRows = () => rootElement!.querySelectorAll('[data-saved-signal-row="compact"]').length;
-  const clickTab = (key: string) => {
-    const tab = rootElement!.querySelector(`[data-product-saved-filter="${key}"]`);
-    assert.ok(tab, `filter tab ${key} should render`);
-    flushSync(() => tab!.dispatchEvent(new dom.window.MouseEvent("click", { bubbles: true })));
-  };
-
-  try {
-    flushSync(() => {
-      root.render(
-        productSignalViewElement({
-          kind: "saved-signals",
-          signals,
-          analyses: [],
-          signalPreviewById: {},
-          signalReadinessById,
-          onAnalyze: () => undefined
-        })
-      );
-    });
-
-    // All 11 saved signals → bounded to 6 rows with a collapse toggle.
-    assert.equal(countRows(), 6);
-    assert.ok(rootElement.querySelector("[data-product-saved-list-toggle]"));
-
-    // 未分類 → exactly the 3 ready-but-unclassified signals, short enough to skip the toggle.
-    clickTab("unclassified");
-    assert.equal(countRows(), 3);
-    assert.equal(rootElement.querySelector("[data-product-saved-list-toggle]"), null);
-
-    // 待處理 → 8 pending, bounded to 6 until the toggle expands them.
-    clickTab("pending");
-    assert.equal(countRows(), 6);
-    const toggle = rootElement.querySelector("[data-product-saved-list-toggle]");
-    assert.ok(toggle);
-    flushSync(() => toggle!.dispatchEvent(new dom.window.MouseEvent("click", { bubbles: true })));
-    assert.equal(countRows(), 8);
-
-    const lastPendingRow = rootElement.querySelector<HTMLButtonElement>('[data-saved-signal-open="p8"]');
-    assert.ok(lastPendingRow);
-    flushSync(() => lastPendingRow.dispatchEvent(new dom.window.MouseEvent("click", { bubbles: true })));
-    assert.equal(lastPendingRow.getAttribute("aria-expanded"), "true");
-
-    const collapseToggle = rootElement.querySelector("[data-product-saved-list-toggle]");
-    assert.ok(collapseToggle);
-    flushSync(() => collapseToggle.dispatchEvent(new dom.window.MouseEvent("click", { bubbles: true })));
-    assert.equal(countRows(), 6);
-    assert.equal(rootElement.querySelector('[data-saved-signal-open="p1"]')?.getAttribute("aria-expanded"), "true");
-    assert.ok(rootElement.querySelector('[data-product-saved-inline-reading="p1"]'));
-  } finally {
-    flushSync(() => root.unmount());
-    await new Promise((resolve) => setTimeout(resolve, 0));
-    Object.assign(globalThis, previous);
-  }
+  assert.match(html, /<details data-product-saved-management="collapsed"/);
+  assert.equal(countOccurrences(html, 'data-saved-signal-row="management"'), 11);
+  assert.doesNotMatch(html, /data-product-saved-list-toggle|data-product-saved-filter-tabs/);
 });
 
 test("ProductSignalView shows real readiness state without fake AI results", () => {
@@ -3063,7 +2994,8 @@ test("ProductSignalView shows real readiness state without fake AI results", () 
   assert.match(html, /ProductProfile/);
   assert.match(html, /ProductContext/);
   assert.match(html, /data-saved-signals-route="true"/);
-  assert.match(html, /data-saved-signal-row="compact"/);
+  assert.match(html, /data-saved-signal-row="management"/);
+  assert.match(html, /data-product-saved-pipeline="true"/);
   assert.match(html, /data-product-saved-pending-detail="collapsed"/);
   assert.doesNotMatch(html, /data-product-pending-card="topic-card"/);
   assert.doesNotMatch(html, /data-saved-signals-batch-export="true"/);
@@ -3327,7 +3259,7 @@ test("ProductSignalView only shows remove controls when delete is wired", () => 
   assert.match(wiredHtml, /aria-label="移除此訊號"/);
 });
 
-test("SavedSignalsBoard keeps saved rows scan-first with a coverage ledger instead of classification bars", () => {
+test("SavedSignalsBoard keeps management rows compact behind the analysis lifecycle", () => {
   const longPreview = "用戶問產品需要如何收斂訊號列表，避免每行都像文章一樣難掃描 META_ROW_SHOULD_NOT_RENDER 這段不應在 compact row 出現";
   const html = renderToStaticMarkup(
     productSignalViewElement( {
@@ -3375,18 +3307,17 @@ test("SavedSignalsBoard keeps saved rows scan-first with a coverage ledger inste
     })
   );
 
-  assert.match(html, /data-saved-signal-title="compact"/);
-  assert.match(html, /列表需要更像營運 inbox。/);
-  assert.doesNotMatch(html, /META_ROW_SHOULD_NOT_RENDER/);
-  assert.match(html, /data-product-saved-coverage-ledger="true"/);
-  assert.match(html, /data-product-saved-coverage="analysed"[^>]*>已分析 1\/1/);
-  assert.match(html, /data-product-saved-coverage="classified"[^>]*>AI 已分類 1\/1/);
+  assert.match(html, /data-saved-signal-row="management"/);
+  assert.match(html, /管理收件匣 · 1 則/);
+  assert.match(html, /已收集 1[^]*可分析 0[^]*處理中 0[^]*已完成 1/);
+  assert.match(html, /已完成/);
+  assert.doesNotMatch(html, /data-product-saved-inline-reading|data-product-source-truth/);
   assert.doesNotMatch(html, /data-product-merged-classification="true"/);
   assert.doesNotMatch(html, /data-product-classification-bucket="learning"/);
   assert.doesNotMatch(html, /可分析 · 學習資源 · 保留觀察/);
 });
 
-test("SavedSignalsBoard renders source truth from supported citations and honest engagement totals", () => {
+test("SavedSignalsBoard keeps source truth out of the compact intake", () => {
   const html = renderToStaticMarkup(
     productSignalViewElement({
       kind: "saved-signals",
@@ -3431,18 +3362,11 @@ test("SavedSignalsBoard renders source truth from supported citations and honest
     })
   );
 
-  assert.match(html, /data-product-source-truth="signal_truth"/);
-  assert.match(html, /data-product-source-truth-metric="evidence"[^>]*aria-label="證據 ref e1 \+1"/);
-  assert.match(html, /data-product-source-truth-metric="likes"[^>]*aria-label="讚 42"/);
-  assert.match(html, /data-product-source-truth-metric="comments"[^>]*aria-label="回覆 7"/);
-  assert.match(html, /data-product-source-truth-metric="reposts"[^>]*aria-label="轉發 3"/);
-  assert.match(html, /data-product-source-truth-metric="forwards"[^>]*aria-label="分享 2"/);
-  assert.match(html, /data-product-source-truth-metric="total"[^>]*aria-label="總互動 54"/);
-  assert.match(html, /e1 \+1/);
-  assert.doesNotMatch(html, /e_raw/);
+  assert.match(html, /data-product-saved-management="collapsed"/);
+  assert.doesNotMatch(html, /data-product-source-truth|證據 ref|總互動|e_raw/);
 });
 
-test("SavedSignalsBoard keeps pending analysis out of completed coverage and uses honest unavailable copy", () => {
+test("SavedSignalsBoard counts pending and complete analysis in the lifecycle ledger", () => {
   const completeAnalysis = {
     signalId: "signal_complete",
     signalType: "demand" as const,
@@ -3489,17 +3413,14 @@ test("SavedSignalsBoard keeps pending analysis out of completed coverage and use
     })
   );
 
-  assert.match(html, /data-product-saved-coverage="analysed"[^>]*>已分析 1\/2/);
-  assert.match(html, /data-product-saved-coverage="classified"[^>]*>AI 已分類 1\/1/);
-  assert.match(html, /data-product-saved-coverage="processing"[^>]*>處理中 1/);
-  assert.match(html, /data-product-saved-inline-reading="signal_pending"/);
-  assert.match(html, /分析尚未完成；不生成判讀內容。/);
-  assert.match(html, /分析完成前不可用。/);
+  assert.match(html, /data-product-saved-pipeline="true"[^]*已收集 2[^]*可分析 0[^]*處理中 1[^]*已完成 1/);
+  assert.match(html, /data-saved-signal-row="management"/);
+  assert.doesNotMatch(html, /data-product-saved-inline-reading/);
   assert.doesNotMatch(html, /尚未完成，不可顯示這段模型內容/);
-  assert.doesNotMatch(html, /AI 已分類 2\/1|AI 已分類 1\/0/);
+  assert.doesNotMatch(html, /AI 已分類/);
 });
 
-test("SavedSignalsBoard does not present an AI quote summary as an exact source quotation", () => {
+test("SavedSignalsBoard does not present evidence detail in the analysis intake", () => {
   const html = renderToStaticMarkup(
     productSignalViewElement({
       kind: "saved-signals",
@@ -3531,124 +3452,7 @@ test("SavedSignalsBoard does not present an AI quote summary as an exact source 
     })
   );
 
-  assert.match(html, /data-product-source-truth-metric="evidence"[^>]*aria-label="證據 ref e7"/);
-  assert.doesNotMatch(html, /data-product-saved-exact-citation="true"/);
-  assert.doesNotMatch(html, /<blockquote[^>]*>這是 AI 產生的來源摘要。/);
-});
-
-test("SavedSignalsBoard keeps a committed inline reader separate from checkbox batch selection", async () => {
-  const { JSDOM } = await import("jsdom");
-  const { createRoot } = await import("react-dom/client");
-  const { act } = await import("react");
-  const dom = new JSDOM("<div id=\"root\"></div>", { url: "https://dlens.test" });
-  const reactActGlobal = globalThis as typeof globalThis & { IS_REACT_ACT_ENVIRONMENT?: boolean };
-  const previousActEnvironment = reactActGlobal.IS_REACT_ACT_ENVIRONMENT;
-  const previous = {
-    window: globalThis.window,
-    document: globalThis.document,
-    HTMLElement: globalThis.HTMLElement,
-    HTMLButtonElement: globalThis.HTMLButtonElement,
-    HTMLInputElement: globalThis.HTMLInputElement,
-    MouseEvent: globalThis.MouseEvent
-  };
-  Object.assign(globalThis, {
-    window: dom.window,
-    document: dom.window.document,
-    HTMLElement: dom.window.HTMLElement,
-    HTMLButtonElement: dom.window.HTMLButtonElement,
-    HTMLInputElement: dom.window.HTMLInputElement,
-    MouseEvent: dom.window.MouseEvent
-  });
-  reactActGlobal.IS_REACT_ACT_ENVIRONMENT = true;
-  const rootElement = dom.window.document.getElementById("root");
-  assert.ok(rootElement);
-  const root = createRoot(rootElement);
-
-  try {
-    await act(async () => {
-      root.render(productSignalViewElement({
-        kind: "saved-signals",
-        signals: [
-          { id: "signal_reader_1", sessionId: "session_reader", itemId: "item_reader_1", source: "threads", inboxStatus: "processed", capturedAt: "2026-07-20T00:00:00.000Z" },
-          { id: "signal_reader_2", sessionId: "session_reader", itemId: "item_reader_2", source: "threads", inboxStatus: "processed", capturedAt: "2026-07-20T00:01:00.000Z" }
-        ],
-        analyses: [{
-          signalId: "signal_reader_1", signalType: "demand", signalSubtype: "inline_reader", contentType: "discussion_starter",
-          contentSummary: "判讀摘要。", relevance: 4, relevantTo: ["coreWorkflows"], whyRelevant: "來源與產品脈絡的落差。",
-          verdict: "watch", reason: "需要先讀來源。", audienceGap: "尚未看見反例。", referenceTakeaway: "只保留有來源支持的重點。",
-          evidenceRefs: ["e_raw"], productContextHash: "ctx_reader", promptVersion: "v17", analyzedAt: "2026-07-20T01:00:00.000Z", status: "complete"
-        }, {
-          signalId: "signal_reader_2", signalType: "technical", signalSubtype: "second_reader", contentType: "discussion_starter",
-          contentSummary: "第二列判讀。", relevance: 3, relevantTo: ["coreWorkflows"], whyRelevant: "第二列的來源落差。",
-          verdict: "try", reason: "第二列原因。", referenceTakeaway: "第二列重點。",
-          evidenceRefs: ["e2"], productContextHash: "ctx_reader", promptVersion: "v17", analyzedAt: "2026-07-20T01:01:00.000Z", status: "complete"
-        }],
-        productProfile: productTestProfile(),
-        signalPreviewById: {
-          signal_reader_1: "可讀取的原始訊號。",
-          signal_reader_2: "第二列原始訊號。"
-        },
-        descriptorBySignalId: {
-          signal_reader_1: {
-            engagement: { likes: 9, comments: null, reposts: null, forwards: null },
-            engagement_present: { likes: true, comments: false, reposts: false, forwards: false }
-          },
-          signal_reader_2: {
-            engagement: { likes: 2, comments: 1, reposts: 0, forwards: 0 },
-            engagement_present: { likes: true, comments: true, reposts: true, forwards: true }
-          }
-        },
-        onAnalyze: () => undefined
-      }));
-      await Promise.resolve();
-    });
-
-    const firstRow = rootElement.querySelector<HTMLButtonElement>('[data-saved-signal-open="signal_reader_1"]');
-    const secondRow = rootElement.querySelector<HTMLButtonElement>('[data-saved-signal-open="signal_reader_2"]');
-    const checkbox = rootElement.querySelector<HTMLInputElement>('input[aria-label="選取 signal_reader_2"]');
-    assert.ok(firstRow);
-    assert.ok(secondRow);
-    assert.ok(checkbox);
-    const initialReading = rootElement.querySelector<HTMLElement>('[data-product-saved-inline-reading="signal_reader_1"]');
-    const firstCompactRow = firstRow.closest<HTMLElement>('[data-saved-signal-row="compact"]');
-    assert.ok(initialReading);
-    assert.equal(initialReading.id, "saved-reading-signal_reader_1");
-    assert.equal(firstRow.getAttribute("aria-expanded"), "true");
-    assert.equal(secondRow.getAttribute("aria-expanded"), "false");
-    assert.ok(firstCompactRow?.nextElementSibling === initialReading);
-
-    await act(async () => {
-      checkbox.dispatchEvent(new dom.window.MouseEvent("click", { bubbles: true }));
-      await Promise.resolve();
-    });
-    assert.equal(checkbox.checked, true);
-    assert.ok(rootElement.querySelector('[data-product-saved-inline-reading="signal_reader_1"]'));
-    assert.equal(firstRow.getAttribute("aria-expanded"), "true");
-    assert.equal(secondRow.getAttribute("aria-expanded"), "false");
-
-    await act(async () => {
-      secondRow.dispatchEvent(new dom.window.MouseEvent("click", { bubbles: true }));
-      await Promise.resolve();
-    });
-    const reading = rootElement.querySelector<HTMLElement>('[data-product-saved-inline-reading="signal_reader_2"]');
-    assert.ok(reading);
-    assert.equal(rootElement.querySelector('[data-product-saved-inline-reading="signal_reader_1"]'), null);
-    assert.equal(firstRow.getAttribute("aria-expanded"), "false");
-    assert.equal(secondRow.getAttribute("aria-expanded"), "true");
-    const secondCompactRow = secondRow.closest<HTMLElement>('[data-saved-signal-row="compact"]');
-    assert.ok(secondCompactRow?.nextElementSibling === reading);
-    assert.equal(reading.id, "saved-reading-signal_reader_2");
-    assert.match(reading.textContent ?? "", /第二列判讀。/);
-    assert.match(reading.textContent ?? "", /第二列原因。/);
-    assert.match(reading.textContent ?? "", /第二列重點。/);
-    assert.match(reading.textContent ?? "", /證據 ref 未提供/);
-    assert.equal(reading.querySelector('[data-product-source-truth-metric="total"]')?.getAttribute("aria-label"), "總互動 3");
-  } finally {
-    await act(async () => root.unmount());
-    Object.assign(globalThis, previous);
-    if (previousActEnvironment === undefined) delete reactActGlobal.IS_REACT_ACT_ENVIRONMENT;
-    else reactActGlobal.IS_REACT_ACT_ENVIRONMENT = previousActEnvironment;
-  }
+  assert.doesNotMatch(html, /data-product-source-truth|data-product-saved-exact-citation|這是 AI 產生的來源摘要。/);
 });
 
 test("ProductSignalView saved signals removes the old equal-weight fusion card grammar", () => {
@@ -3707,11 +3511,10 @@ test("ProductSignalView saved signals removes the old equal-weight fusion card g
     })
   );
 
-  assert.match(html, /data-saved-signal-row="compact"/);
-  assert.match(html, /data-saved-signal-open="signal_fusion"/);
-  assert.match(html, /討論轉 agent task/);
-  assert.match(html, /data-product-source-truth="signal_fusion"/);
-  assert.match(html, /data-product-source-truth-metric="total"[^>]*aria-label="總互動 未讀"/);
+  assert.match(html, /data-saved-signal-row="management"/);
+  assert.match(html, /原文提到需要把討論轉成 agent 可以接手的工作包。/);
+  assert.match(html, /已完成/);
+  assert.doesNotMatch(html, /data-saved-signal-open|data-product-source-truth/);
   assert.doesNotMatch(html, /data-product-fusion-card=/);
   assert.doesNotMatch(html, /data-product-card-eyebrow="true"/);
   assert.doesNotMatch(html, /data-product-card-quote="true"/);
@@ -3796,11 +3599,8 @@ test("ProductSignalView keeps folder packet export secondary on Product action p
     })
   );
 
-  assert.match(savedHtml, /data-saved-signals-batch-export="true"/);
-  assert.match(savedHtml, /行動簡報匯出/);
-  assert.match(savedHtml, /原文優先/);
-  assert.match(savedHtml, /精簡決策/);
-  assert.match(savedHtml, /複製行動簡報/);
+  assert.doesNotMatch(savedHtml, /data-saved-signals-batch-export="true"/);
+  assert.doesNotMatch(savedHtml, /行動簡報匯出|原文優先|精簡決策|複製行動簡報/);
   assert.match(savedHtml, /data-product-action-cta="true"[^>]*border-radius:20px/);
   assert.match(actionableHtml, /data-product-action-workspace="stage"/);
   assert.doesNotMatch(actionableHtml, /data-saved-signals-batch-export="true"/);
@@ -3891,7 +3691,7 @@ test("SavedSignalsBatchExport action brief packet card uses the signed frame 5 m
   assert.match(html, /agent_packet.ready/);
 });
 
-test("SavedSignalsBatchExport collapses unanalyzed placeholders into one summary row", () => {
+test("SavedSignalsBoard keeps unanalyzed placeholders in compact management", () => {
   const signals = [
     {
       id: "signal_done",
@@ -3949,11 +3749,9 @@ test("SavedSignalsBatchExport collapses unanalyzed placeholders into one summary
     })
   );
 
-  assert.match(html, /data-saved-signals-batch-export="true"/);
-  assert.match(html, /data-batch-export-unanalysed-summary="true"/);
-  assert.match(html, /4 個 signal 待分析後可生成 brief/);
-  assert.equal(countOccurrences(html, 'data-batch-export-selection-row="true"'), 1);
-  assert.match(html, /data-batch-export-selection-row="true"[^>]*class="dlens-tactile-row"/);
+  assert.match(html, /data-product-saved-pipeline="true"[^]*已收集 5[^]*已完成 1/);
+  assert.equal(countOccurrences(html, 'data-saved-signal-row="management"'), 5);
+  assert.doesNotMatch(html, /data-saved-signals-batch-export|data-batch-export-unanalysed-summary|data-batch-export-selection-row/);
 });
 
 test("ProductSignalView aggregates terminal crawler setup errors without raw backend details", () => {
@@ -4089,8 +3887,8 @@ test("ProductSignalView keeps crawling pending signals collapsed on saved-signal
 
   assert.match(html, /抓取中/);
   assert.match(html, /data-product-saved-pending-detail="collapsed"/);
-  assert.match(html, /data-product-crawl-sweep="true"/);
-  assert.match(html, /dlens-popup-indeterminate/);
+  assert.doesNotMatch(html, /data-product-crawl-sweep="true"/);
+  assert.doesNotMatch(html, /dlens-popup-indeterminate/);
   assert.doesNotMatch(html, /data-pending-signal-spinner="true"/);
   assert.doesNotMatch(html, /animation:dlens-spin 0\.8s linear infinite/);
 });
@@ -4276,15 +4074,15 @@ test("ProductSignalView gives each product page a distinct information shape", (
     })
   );
 
-  assert.match(savedHtml, /data-product-saved-coverage-ledger="true"/);
-  assert.match(savedHtml, /已分析 1\/1/);
-  assert.match(savedHtml, /AI 已分類 1\/1/);
-  assert.match(savedHtml, /data-product-saved-inline-reading="signal_a"/);
-  assert.match(savedHtml, /data-product-source-truth="signal_a"/);
+  assert.match(savedHtml, /data-product-saved-pipeline="true"/);
+  assert.match(savedHtml, /已收集 1[^]*可分析 0[^]*處理中 0[^]*已完成 1/);
+  assert.match(savedHtml, /data-product-saved-management="collapsed"/);
+  assert.match(savedHtml, /Threads post preview/);
+  assert.doesNotMatch(savedHtml, /data-product-saved-inline-reading|data-product-source-truth/);
   assert.doesNotMatch(savedHtml, /data-product-merged-classification="true"/);
   assert.doesNotMatch(savedHtml, /分類摘要/);
   assert.doesNotMatch(savedHtml, /data-product-classification-bucket="demand"/);
-  assert.doesNotMatch(savedHtml, /Threads post preview/);
+  assert.match(savedHtml, /Threads post preview/);
   assert.doesNotMatch(savedHtml, /需求/);
   assert.doesNotMatch(savedHtml, /data-product-classification-layout="responsive"/);
   assert.doesNotMatch(savedHtml, /data-product-selected-aside="true"/);
