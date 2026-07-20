@@ -8,6 +8,10 @@ import config from "../wxt.config.ts";
 const packageJson = JSON.parse(readFileSync(new URL("../package.json", import.meta.url), "utf8")) as {
   version: string;
 };
+const packageLockJson = JSON.parse(readFileSync(new URL("../package-lock.json", import.meta.url), "utf8")) as {
+  version: string;
+  packages: Record<string, { version?: string }>;
+};
 
 test("manifest host permissions include Google Generative Language API for Gemini compare requests", () => {
   const hostPermissions = config.manifest?.host_permissions ?? [];
@@ -18,8 +22,13 @@ test("manifest host permissions include Google Generative Language API for Gemin
   );
 });
 
-test("extension version is synchronized across package, manifest, and UI", () => {
-  assert.equal(packageJson.version, "0.3.52");
+test("release target is 0.3.53", () => {
+  assert.equal(packageJson.version, "0.3.53");
+});
+
+test("extension version is synchronized across package lock, manifest, and UI", () => {
+  assert.equal(packageLockJson.version, packageJson.version);
+  assert.equal(packageLockJson.packages[""]?.version, packageJson.version);
   assert.equal(config.manifest?.version, packageJson.version);
   assert.equal(BUILD_VERSION, packageJson.version);
 });

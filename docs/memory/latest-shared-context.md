@@ -6,7 +6,7 @@ type: project
 
 # DLens Extension Shared Context
 
-Last updated: 2026-07-18
+Last updated: 2026-07-20
 
 This file is the current shared context. Keep this filename stable and update
 the contents in place whenever an automated or manual handoff refresh makes it
@@ -48,7 +48,8 @@ This note is the high-signal shared memory for Codex and Claude when working on 
 - `Collect` is a low-friction capture surface, not an analysis page.
 - `Settings` should behave like a narrow runtime utility drawer even while still page-backed.
 - `Product` mode is an insight-first workflow backed by `ProductContextCompiler` and `ProductSignalAnalyzer`.
-- Product Saved Signals is the current Product landing surface. Classification visibility is merged into Saved Signals through filter tabs and a compact classification summary; `classification` remains an allowed internal/deep-link product page, but is not rail-visible.
+- Product Saved Signals is the current Product landing surface. Classification visibility is expressed through filter tabs plus a completion-only coverage ledger; one committed inline reader stays independent from batch-selection checkboxes and shows summary, observation/exclusion reason, takeaway, exact source text only when evidence-backed, and a source-truth icon strip. `classification` remains an allowed internal/deep-link product page but is not rail-visible.
+- Product Action is a one-at-a-time stage over completed `try` / `watch` candidates, with previous/next buttons, dots, stage-owned keyboard navigation, and live page status. The old macro scoreboard and multi-card wall are removed; excluded and insufficient-data rows stay in collapsed disclosures. Stage identity is keyed, direction is explicit, forward/backward x motion is token-owned under `no-preference`, and reduced motion clears both animation and transform.
 - `PR Evidence` mode is a dual-lens campaign workflow for agency / PR operators: a current-only narrative read plus the existing evidence matching/export surface, backed by `PrCampaign`, `PrEvidenceRow`, and `PrNarrativeRead`.
 - 0.3.0 is the Visual Reset A user-visible release: popup shell, PR Evidence ledger, Topic detail, Compare hero, and Product action marquee surfaces now follow the `src/ui/tokens.ts` warm-paper editorial contract plus native-feeling utility shell affordances. This did not change storage, backend, ViewModel, command target, classifier, content-script, or Signal Packet contracts.
 - 0.3.13 is a Collect / Topic chrome cleanup release: Topic Collect's 未分流 queue now has per-row and bulk delete controls wired to `signal/delete`, and the redundant Topic top selector strip is removed. Topic destination selection lives in the floating collect preview card, and topic creation stays in the 議題 page, so Topic/Product/PR top chrome is consistent.
@@ -77,22 +78,22 @@ This note is the high-signal shared memory for Codex and Claude when working on 
   - `f52f73b feature: Compare result parallel and chapters layouts (#3)`
   - `2738d2f feature: Persist layout preferences (#4)`
 - `ExtensionSettings.layoutPreferences` persists:
-  - Product signal card layout: `verdict | marginalia`, default `marginalia`
+  - Product signal card layout: `verdict | marginalia`, default `marginalia`, retained for storage compatibility only; live Product Saved/Action surfaces do not read it
   - Topic synthesis layout: `stack | console`, default `console`
   - Compare result layout: `reading | parallel | chapters`, default `parallel`
-- `InPageCollectorPopup` still threads persisted layout values into `ProductSignalViews`, `TopicDetailView`, and `CompareView`.
+- `InPageCollectorPopup` still threads the live Topic synthesis preference into `TopicDetailView`, and `InPageCollectorResultWorkspace` threads the Compare result preference; Product Variant B is not selected through the retired Product card-layout preference.
 - `SettingsView` no longer exposes Layout or folder-mode controls; the visible drawer is limited to connection, storage usage, API keys, and ProductProfile.
 - Workspace headers, Settings groups, Product recovered-analysis rows, and the PR/Product surfaces now follow the Topic-style serif title weight, 20px card radius, matte shadow, and compact duplicate-free row grammar.
-- Product Action route restores the 0.1.15 `SignalReadingReviewWorkspace` / `READING REVIEW` UI only when the current saved signals have matching `SignalReading` rows; review callbacks alone must not switch the route away from the Marginalia action cards. It must still not render the removed Agent export / 原文優先 panel.
+- Product Action keeps reading generation/review operations inside the active stage and keeps Folder Packet export in a disclosure below the pager. It must not reintroduce the old `SignalReadingReviewWorkspace`, macro scoreboard, verdict-tile filter, or multi-card Action wall.
 - Product-only cache reset is available from Settings through `product/clear-cache`; it clears derived Product analyses, agent-task feedback, SignalReading rows, and compiled ProductContext while preserving saved signals, sessions, topics, archive data, and PR evidence.
 - ProductSignalAnalyzer prompt/cache version is `v17`; strict provider output no longer asks for legacy recipe fields (`copy_recipe_markdown`, `workflow_stack`, `copyable_template`). Product Action should show reusable evidence patterns plus agent-brief context, not a long how-to/tutorial recipe; the UI ignores legacy recipe fields if old records or provider responses still contain them.
 - Collect preview metrics use shared icon chips in both the popup preview and hover overlay. Product pending saved-signal cards follow Topic-style matte card grammar with compact meta and clamped preview text.
-- Product signal card variants are Verdict and Marginalia; Marginalia is default, keeps `experimentHint` in the main TRY block, and keeps the right-rail TASK slot to the short `agentTaskSpec.taskTitle`.
+- Saved Signals and Product Action share `ProductSourceTruthStrip`: evidence counts include only supported refs, engagement chips distinguish descriptor-present values from `未讀`, and the total is numeric only when every tracked metric is present. AI `quoteSummary` prose must never render as an exact source quotation.
 - Workspace mode switches reserve the ProcessingStrip slot, reset scroll with `useLayoutEffect`, and crossfade only the mode frame. This keeps Topic/Product/PR data-loaded transitions from jumping while avoiding extra animation on same-mode tabs.
-- Marginalia visual hierarchy is intentionally simplified: eyebrow has no verdict, FOOTNOTES header is hidden, bottom AI experiment/judgment detail blocks are not rendered, and workflow evidence rows are flat label-stacked sections with dotted dividers.
+- The active Product Action stage owns one non-duplicated sequence: observation reason, retained takeaway, and next step. Source truth, exact quotation, and reading operations remain separate blocks beneath that sequence.
 - Product classification list rows no longer render relevance dots; `最新在前` only appears when the selected type group has at least two signals.
 - Product rail pages should be `saved-signals`, `actionable-filter`, and `collect`. If live Chrome still shows a separate `分類` rail item, check for stale `output/chrome-mv3` bundled JS or an unreloaded unpacked extension before changing source.
-- Product Agent Brief uses reviewable `SignalReading` records; active review cards keep a compact Marginalia signal strip with verdict, reference category, and relevance bars.
+- Product Agent Brief continues to use reviewable `SignalReading` records; generation/review controls operate on only the signal currently mounted in the Action stage.
 - Topic synthesis uses deterministic `v3.generic-keyword-lens`; Stack is collapsible, Console is dense and always visible.
 - Folder synthesis uses deterministic `v3.generic-keyword-lens` and renders as the Library Briefing card. Storage key: `dlens:v1:folder-synthesis`.
 - Compare result variants are Reading, Parallel, and Chapters; Parallel is default and uses sticky A/B columns.
@@ -101,12 +102,12 @@ This note is the high-signal shared memory for Codex and Claude when working on 
 - TRACE full-live verification is locked by `docs/qa/assets/2026-06-13/full-live-backend-llm/live-trace-full-hover-save-queue-analysis.json`; `npm run qa:harness:fixture` requires hover.detected → ui.ready, including backend.request and llm.call phases.
 - Verified build artifact was copied to `output/chrome-mv3`; the source checkout there may still be dirty.
 
-## Version Rule As Of 2026-07-18
+## Version Rule As Of 2026-07-20
 
-- Current source version: `0.3.52` (Atlas Refit C: optional evidence-bound P3 v4 beats/trajectory, paged narrative stage, assignment distribution, and closed-by-default ready source disclosure), synchronized across all five lock sites on 2026-07-18.
-- Latest local verification for 0.3.52: targeted Atlas bundle 189/189; full suite 1310 total / 1305 pass / 0 fail / 5 skipped; typecheck, both boundary guards, storage seam guard, production build, diff check, bundle guard, dual-manifest version/hash, and four built markers pass. Final bundle is 906432 raw / 254698 gzip -9 / 202747 Brotli bytes, within unchanged limits 910000 / 256000 / 203000.
+- Current source version: `0.3.53` (Product Variant B: Saved Signals coverage/inline reader, source-truth icon strip, and one-at-a-time Product Action stage/pager), synchronized across all five lock sites on 2026-07-20.
+- Final 0.3.53 suite totals, bundle sizes, built markers, and manifest hashes belong to the fresh main-agent integration closeout; do not carry forward 0.3.52 numbers as 0.3.53 evidence.
 - P3 narrative icon producer output is formally limited to `heart | users | message-circle`, matching the renderer's exhaustive typed mapping. Other model values are dropped by the parser; legacy stored and inherited object-key strings render through the safe `message-circle` fallback.
-- Built `.output/chrome-mv3/manifest.json` and mirrored `output/chrome-mv3/manifest.json` both report `version: "0.3.52"` with matching SHA-256 `6e8fd59f2ea419c9127bebaad0caf13a4384f1d306da8e2d0ea1719913d0c888`; the unpacked test path is `output/chrome-mv3`. Source/build 0.3.52 is local-only/static-ready, but Real Chrome acceptance remains pending the controller. Static/build evidence is not runtime proof or runtime-green.
+- Source 0.3.53 is local-only and is not pushed or tagged. Real Chrome acceptance through the extension action or in-page launcher on a real Threads page in Jason's `Default` profile remains pending; source/test evidence is not runtime proof or runtime-green. The load-unpacked path remains `output/chrome-mv3`.
 - 0.3.47 shipped S6+S7 and passed live acceptance on 2026-07-16: the Default-profile extension was reloaded (service worker 0.3.46 → 0.3.47, real Threads page reported `v. 0.3.47`), a formal 60-second window measured exactly 5 `/worker/status` + 5 `/health` requests (stable-idle cap held), stopping the backend walked the visible status through reachable → slow → unreachable with a real `Failed to fetch`, restarting it auto-recovered to `Backend reachable` in 13 seconds without a reload, and bundle hashes before/after the full gate were identical. The 8 historical dead-letter jobs (4 April `BaseException` handler bugs, 1 missing Playwright browser, 2 dead-session `empty_crawl_result`, 1 smoke cleanup) were verified to have zero downstream crawl_results and zero successful sibling jobs, then deleted the same day; `/worker/status` reports `dead_jobs: 0`. The real 8-post PR narrative campaign trace remains the acceptance gate for future PR-surface work, not a 0.3.47 blocker.
 - Repository/release state is local-only, not pushed or tagged. This wording is branch-neutral so it remains correct after integration.
 - Corrected render-performance model (2026-07-16, expanded in `docs/superpowers/plans/2026-07-16-ui-maintainability-runtime-refactor.md`): extracting domain hooks out of `useInPageCollectorAppState` does NOT by itself speed anything up — if the same root calls them, the 178-member app object is still rebuilt on every root state change. Real render-radius levers, in order: narrow stable props, `memo` boundaries, then state ownership moved to the lowest consumer subtree. File splitting buys maintainability only; deleting tree-shaken dead source buys hygiene only; never report either as display speedup. The 2026-04 dead-letter jobs deleted at the 0.3.47 closeout are preserved as a full-row snapshot in `docs/qa/assets/2026-07-16/dead-jobs-snapshot.json`.
@@ -133,7 +134,7 @@ This note is the high-signal shared memory for Codex and Claude when working on 
 - Product signal removal uses `signal/delete` and must persist to storage: remove from `dlens:v1:signals`, clear topic membership and affected topic synthesis, delete directly owned SignalReading/Product-agent feedback/TopicSignalReading rows, delete the matching Product analysis, clear session folder synthesis, and refresh Product state. Remove the backing session item and item-owned tags only after the last signal reference disappears; preserve Topic audit and saved analyses/comparisons.
 - Topic Collect 未分流 deletion also uses `signal/delete`; row and bulk controls live in `CollectView` and should be visible only when `onSignalDeleted` is wired from the app shell.
 - Product mode `classification` is a valid product signal page for routing/data effects. Keep it in `ALLOWED_PAGES.product`, `PRODUCT_SIGNAL_PAGES`, product width handling, and product data-effect routing so deep links do not fall back to `saved-signals`; keep it out of the Product rail because classification is summarized inside Saved Signals.
-- Marginalia right rail should not duplicate main prose: `對到` shows only a short reference category, TASK shows `agentTaskSpec.taskTitle`, and `contentSummary` / `experimentHint` remain in the main column.
+- Product Action must not duplicate prose across stage blocks: observation, retained takeaway, and next step each have one owner; the next step prefers `agentTaskSpec.taskTitle`, then `experimentHint`, then the honest no-task fallback.
 
 ## Signal Packet Export As Of 2026-05-20
 
