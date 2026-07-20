@@ -22,8 +22,8 @@ test("manifest host permissions include Google Generative Language API for Gemin
   );
 });
 
-test("release target is 0.3.53", () => {
-  assert.equal(packageJson.version, "0.3.53");
+test("release target is 0.3.54", () => {
+  assert.equal(packageJson.version, "0.3.54");
 });
 
 test("extension version is synchronized across package lock, manifest, and UI", () => {

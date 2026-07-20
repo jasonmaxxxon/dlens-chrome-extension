@@ -80,6 +80,16 @@ function firstLineNumberInBlock(block, pattern) {
   return index === -1 ? null : block.startLine + index;
 }
 
+function lineHitsInBlock(file, block, pattern, label = pattern.toString()) {
+  if (!block) {
+    return [];
+  }
+  return lineHit(file, block.lines, pattern, label).map((hit) => ({
+    ...hit,
+    line: block.startLine + hit.line - 1
+  }));
+}
+
 function functionBlock(lines, functionName) {
   const startIndex = lines.findIndex((line) => line.includes(`function ${functionName}`));
   if (startIndex === -1) {
@@ -214,62 +224,102 @@ async function auditRawLabels(allLines) {
 async function auditNoiseActionSemantics(allLines) {
   const file = FILES.productSignalViews;
   const lines = allLines[file];
-  const candidateHits = [
-    ...lineHit(file, lines, "const candidates = completed.filter", "completed candidate filter"),
-    ...lineHit(file, lines, 'analysis.verdict === "try" || analysis.verdict === "watch"', "try/watch pager gate")
+  const verdictTileHits = [
+    ...lineHit(file, lines, "function VerdictFilterTiles", "verdict tile component"),
+    ...lineHit(file, lines, 'data-verdict-filter-tiles="true"', "four-color verdict tile group"),
+    ...lineHit(file, lines, "data-action-verdict-filter={stat.key}", "verdict tile filter control"),
+    ...lineHit(file, lines, '{ key: "try", label: "值得嘗試"', "try tile"),
+    ...lineHit(file, lines, '{ key: "watch", label: "保留觀察"', "watch tile"),
+    ...lineHit(file, lines, '{ key: "park", label: "噪音 / 前提不符"', "park tile"),
+    ...lineHit(file, lines, '{ key: "insufficient", label: "資料不足"', "insufficient tile")
   ];
-  const exclusionHits = uniqueHits([
-    ...lineHit(file, lines, "function isExcludedActionSignal", "exclusion guard"),
-    ...lineHit(file, lines, "const exclusions = completed.filter(isExcludedActionSignal)", "park/noise exclusion lane"),
-    ...lineHit(file, lines, 'data-product-action-exclusions', "collapsed exclusion marker"),
-    ...lineHit(file, lines, 'data-product-action-insufficient', "separate insufficient-data marker")
-  ]);
+  const stageHits = [
+    ...lineHit(file, lines, "function ProductActionStage", "single Action stage owner"),
+    ...lineHit(file, lines, 'data-product-action-workspace="stage"', "stage workspace"),
+    ...lineHit(file, lines, 'data-product-action-pager="text"', "text pager")
+  ];
+  const activeStageHits = lineHit(file, lines, "data-product-action-stage={activeAnalysis.signalId}", "one active stage card");
+  const nonActionableSemanticHits = [
+    ...lineHit(file, lines, 'const activeIsActionable = resolvedFilter === "try" || resolvedFilter === "watch"', "actionable verdict boundary"),
+    ...lineHit(file, lines, "data-product-action-verdict-reason={resolvedFilter}", "non-actionable semantic reason block"),
+    ...lineHit(file, lines, 'resolvedFilter === "park" ? "排除原因" : "資料缺口"', "park and insufficient copy"),
+    ...lineHit(file, lines, "activeIsActionable ? (", "reading/review guarded to actionable verdicts")
+  ];
   const retiredFramingHits = uniqueHits([
-    ...lineHit(file, lines, "const parkItems = analyses.filter", "retired park/noise board filter"),
     ...lineHit(file, lines, 'data-product-action-card=', "retired action-card wall"),
     ...lineHit(file, lines, 'data-exclusion-card=', "retired exclusion card"),
-    ...lineHit(file, lines, 'data-verdict-filter-tiles=', "retired verdict scoreboard")
+    ...lineHit(file, lines, 'data-product-action-dot', "retired dot pager"),
+    ...lineHit(file, lines, 'data-product-action-exclusions', "retired exclusion lane"),
+    ...lineHit(file, lines, 'data-product-action-insufficient', "retired insufficient lane")
   ]);
-  const failed = candidateHits.length < 2 || exclusionHits.length < 4 || retiredFramingHits.length > 0;
+  const failed = verdictTileHits.length < 7 || stageHits.length < 3 || activeStageHits.length !== 1 || nonActionableSemanticHits.length < 4 || retiredFramingHits.length > 0;
   return {
     id: "B-07",
     status: statusFromFail(failed),
-    summary: "Product Action limits the pager to completed try/watch candidates and separates park/noise from insufficient data",
+    summary: "Product Action uses four-color verdict tiles above one text-paged stage, with semantic park/insufficient content and no card wall or dots",
     evidence: {
-      candidateHits,
-      exclusionHits,
+      verdictTileHits,
+      stageHits,
+      activeStageHits,
+      nonActionableSemanticHits,
       retiredFramingHits
     },
-    expectedFixShape: "page only completed try/watch analyses; keep park/noise in a collapsed exclusion lane, insufficient_data in its own collapsed lane, and remove the retired card-wall/scoreboard framing"
+    expectedFixShape: "keep four visible verdict tile controls and one active stage with a text pager; park/insufficient must render a verdict-specific reason rather than actionable reading controls, with no card wall, dot pager, or duplicate exclusion lanes"
   };
 }
 
 async function auditSignalReadingExportGate(allLines) {
   const file = FILES.productSignalViews;
   const lines = allLines[file];
+  const actionStage = functionBlock(lines, "ProductActionStage");
+  const savedSignalsBoard = functionBlock(lines, "SavedSignalsBoard");
   const retiredRouteSwapHits = [
     ...lineHit(file, lines, "const showSignalReadingReview = scopedSignalReadings.length > 0", "reading review gate"),
     ...lineHit(file, lines, "showSignalReadingReview ?", "conditional review workspace"),
     ...lineHit(file, lines, "<SignalReadingReviewWorkspace", "review/export workspace")
   ];
-  const inStageReadingHits = uniqueHits([
+  const readingReviewHits = uniqueHits([
     ...lineHit(file, lines, "function ProductActionReadingOperations", "stage-owned reading operations"),
     ...lineHit(file, lines, 'data-product-action-generate-reading', "first reading action"),
     ...lineHit(file, lines, 'data-product-action-regenerate-reading', "regenerate action"),
-    ...lineHit(file, lines, "<ProductActionReadingOperations", "reading operations mounted in stage"),
-    ...lineHit(file, lines, 'data-product-action-export', "secondary packet export disclosure"),
+    ...lineHit(file, lines, 'data-product-action-review', "reading review controls"),
+    ...lineHitsInBlock(file, actionStage, "<ProductActionReadingOperations", "reading operations mounted in Action stage")
+  ]);
+  const actionExportHits = uniqueHits([
+    ...lineHitsInBlock(file, actionStage, 'data-product-action-brief-export="true"', "single Action brief export shelf"),
+    ...lineHitsInBlock(file, actionStage, "<ProductActionBriefExport", "Action brief export renderer"),
+    ...lineHitsInBlock(file, actionStage, 'data-product-action-export="true"', "single Action whole-folder packet shelf"),
+    ...lineHitsInBlock(file, actionStage, "<SignalPacketHtmlExportSection", "Action whole-folder packet renderer"),
     ...lineHit(file, lines, "<ProductActionStage", "single Action route owner")
   ]);
-  const failed = retiredRouteSwapHits.length > 0 || inStageReadingHits.length < 6;
+  const actionBriefShelfHits = lineHit(file, lines, 'data-product-action-brief-export="true"', "Action brief export shelf count");
+  const actionPacketShelfHits = lineHit(file, lines, 'data-product-action-export="true"', "Action whole-folder packet shelf count");
+  const savedExportHits = uniqueHits([
+    ...lineHitsInBlock(file, savedSignalsBoard, "ProductActionBriefExport", "Action brief rendered by Saved"),
+    ...lineHitsInBlock(file, savedSignalsBoard, "SignalPacketHtmlExportSection", "packet export rendered by Saved"),
+    ...lineHitsInBlock(file, savedSignalsBoard, "data-saved-signals-batch-export", "retired Saved batch export"),
+    ...lineHitsInBlock(file, savedSignalsBoard, "data-product-action-brief-export", "Action brief shelf rendered by Saved"),
+    ...lineHitsInBlock(file, savedSignalsBoard, "data-product-action-export", "Action packet shelf rendered by Saved")
+  ]);
+  const failed = retiredRouteSwapHits.length > 0
+    || readingReviewHits.length < 5
+    || actionExportHits.length < 5
+    || actionBriefShelfHits.length !== 1
+    || actionPacketShelfHits.length !== 1
+    || savedExportHits.length > 0;
   return {
     id: "B-08",
     status: statusFromFail(failed),
-    summary: "Reading generation/review and packet export remain inside the single paged Product Action route",
+    summary: "Reading/review plus one selected brief shelf and one whole-folder packet shelf belong only to Product Action",
     evidence: {
       retiredRouteSwapHits,
-      inStageReadingHits
+      readingReviewHits,
+      actionExportHits,
+      actionBriefShelfHits,
+      actionPacketShelfHits,
+      savedExportHits
     },
-    expectedFixShape: "keep first-run generation, regeneration, review, and secondary packet export reachable from the active stage without swapping the whole Action route when SignalReading rows appear"
+    expectedFixShape: "keep generation, regeneration, and review inside the active Action stage; render exactly one Action-owned selected brief shelf and one Action-owned whole-folder packet shelf, with no Saved export surface or reading-review route swap"
   };
 }
 
