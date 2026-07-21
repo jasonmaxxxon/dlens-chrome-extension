@@ -113,8 +113,8 @@ instrument, **not** a dashboard that happens to contain text.
   `color.atlas*`, `shadow.atlas*`, and `effect.atlasBlur` names remain
   compatibility aliases while callers move to `material.workspaceGlass`.
 - Dense lists, tables, evidence rows, form controls, and long reading cards
-  stay OPAQUE — on the glass-white surface family, without blur — preventing
-  glass-on-glass layering and protecting contrast.
+  stay OPAQUE on the glass-white family — no glass-on-glass, protect contrast.
+- Product action + inbox share the Atlas canvas grammar via `color.productCanvas` + `color.auraProductBlue` (steel-blue lean).
 - 民情羅盤 is L0's protagonist: bubbles positioned by LLM-read valence/mode,
   sized by comment count. Pattern count floats with the actual reading — never
   force four quadrant clusters; same-quadrant crowding is valid. If a pattern

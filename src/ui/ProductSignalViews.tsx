@@ -2134,7 +2134,19 @@ function SavedSignalsBoard({
   const completedCount = lifecycles.filter((lifecycle) => lifecycle.stage === "complete").length;
 
   return (
-    <section data-saved-signals-route="true" style={{ display: "grid", gap: 12 }}>
+    <section
+      data-saved-signals-route="true"
+      style={{ position: "relative", overflow: "hidden", borderRadius: tokens.radius.cardLg, background: tokens.color.productCanvas, padding: "12px 12px 16px", minWidth: 0 }}
+    >
+      <style>{`
+        @media (prefers-reduced-motion: no-preference) {
+          [data-product-field-aura] { animation: dlens-atlas-aura-drift 18s ease-in-out infinite alternate; }
+          [data-product-field-aura="violet"] { animation-duration: 26s; animation-delay: -13s; }
+        }
+      `}</style>
+      <div aria-hidden="true" data-product-field-aura="blue" style={{ position: "absolute", top: -70, right: -60, width: 240, height: 240, borderRadius: "50%", background: tokens.color.auraProductBlue, filter: "blur(46px)", pointerEvents: "none" }} />
+      <div aria-hidden="true" data-product-field-aura="violet" style={{ position: "absolute", bottom: -90, left: -70, width: 220, height: 220, borderRadius: "50%", background: tokens.color.atlasAuraViolet, filter: "blur(46px)", pointerEvents: "none" }} />
+      <div style={{ position: "relative", zIndex: 1, display: "grid", gap: 12, minWidth: 0 }}>
       <div data-saved-signals-frame="true" style={glassCardStyle({ gap: 10 })}>
         <SectionHeader title="分析收件匣" caption={`${signals.length} 則`} style={{ marginBottom: 0 }} />
         <section
@@ -2162,7 +2174,10 @@ function SavedSignalsBoard({
                   padding: "7px 9px",
                   borderRadius: tokens.radius.card,
                   border: `1px solid ${active ? tokens.color.runningSoft : tokens.color.cardEdge}`,
-                  background: active ? tokens.color.runningSoft : tokens.color.contextSurface,
+                  background: active
+                    ? `linear-gradient(172deg, ${tokens.color.elevated} 0%, ${tokens.color.runningSoft} 100%)`
+                    : `linear-gradient(172deg, ${tokens.color.elevated} 0%, ${tokens.color.contextSurface} 100%)`,
+                  boxShadow: tokens.shadow.card,
                   color: active ? tokens.color.running : tokens.color.subInk,
                   whiteSpace: "nowrap"
                 }}
@@ -2246,6 +2261,7 @@ function SavedSignalsBoard({
           })}
           </div>
         </details>
+      </div>
       </div>
     </section>
   );
@@ -2934,7 +2950,10 @@ function ProductActionStage({
   };
 
   return (
-    <div data-product-action-workspace="stage" style={{ display: "grid", gap: 12, minWidth: 0, overflow: "visible" }}>
+    <div
+      data-product-action-workspace="stage"
+      style={{ position: "relative", overflow: "hidden", borderRadius: tokens.radius.cardLg, background: tokens.color.productCanvas, padding: "12px 12px 20px", minWidth: 0 }}
+    >
       <style>{`
         .dlens-verdict-tiles,
         .dlens-verdict-tiles *,
@@ -2978,7 +2997,16 @@ function ProductActionStage({
           .dlens-verdict-tiles [data-verdict-plate-index="2"] { transform: translate(0, calc(100% + 8px)); }
           .dlens-verdict-tiles [data-verdict-plate-index="3"] { transform: translate(calc(100% + 8px), calc(100% + 8px)); }
         }
+        @media (prefers-reduced-motion: no-preference) {
+          [data-product-field-aura] { animation: dlens-atlas-aura-drift 18s ease-in-out infinite alternate; }
+          [data-product-field-aura="amber"] { animation-duration: 22s; animation-delay: -7s; }
+          [data-product-field-aura="violet"] { animation-duration: 26s; animation-delay: -13s; }
+        }
       `}</style>
+      <div aria-hidden="true" data-product-field-aura="blue" style={{ position: "absolute", top: -70, right: -60, width: 250, height: 250, borderRadius: "50%", background: tokens.color.auraProductBlue, filter: "blur(46px)", pointerEvents: "none" }} />
+      <div aria-hidden="true" data-product-field-aura="amber" style={{ position: "absolute", top: 330, left: -90, width: 220, height: 220, borderRadius: "50%", background: tokens.color.atlasAuraAmber, filter: "blur(46px)", pointerEvents: "none" }} />
+      <div aria-hidden="true" data-product-field-aura="violet" style={{ position: "absolute", bottom: -80, right: -40, width: 240, height: 240, borderRadius: "50%", background: tokens.color.atlasAuraViolet, filter: "blur(46px)", pointerEvents: "none" }} />
+      <div style={{ position: "relative", zIndex: 1, display: "grid", gap: 12, minWidth: 0 }}>
       <div style={{ display: "flex", alignItems: "baseline", justifyContent: "space-between", gap: 10, flexWrap: "wrap" }}>
         <Kicker>判定導覽</Kicker>
         <span style={{ ...textStyles.meta, color: tokens.color.softInk }}>{completed.length} 已評估</span>
@@ -3035,8 +3063,11 @@ function ProductActionStage({
                   gap: 10,
                   padding: "8px 11px",
                   borderRadius: tokens.radius.card,
-                  border: `1px solid ${activeBriefSelected ? tokens.color.product : tokens.color.line}`,
-                  background: activeBriefSelected ? tokens.color.productSoft : tokens.color.contextSurface,
+                  border: `1px solid ${activeBriefSelected ? tokens.color.product : tokens.color.cardEdge}`,
+                  background: activeBriefSelected
+                    ? `linear-gradient(172deg, ${tokens.color.elevated} 0%, ${tokens.color.productSoft} 100%)`
+                    : `linear-gradient(172deg, ${tokens.color.elevated} 0%, ${tokens.color.contextSurface} 100%)`,
+                  boxShadow: tokens.shadow.card,
                   color: activeBriefSelected ? tokens.color.product : tokens.color.subInk,
                   font: "inherit",
                   fontSize: 12,
@@ -3056,7 +3087,24 @@ function ProductActionStage({
                   { key: "takeaway", label: "新知保留", value: activeAnalysis.referenceTakeaway?.trim() || activeAnalysis.whyRelevant || activeAnalysis.reason },
                   { key: "next", label: "下一步", value: activeAnalysis.agentTaskSpec?.taskTitle?.trim() || activeAnalysis.experimentHint?.trim() || "尚未有可派發任務；先保留為觀察。" }
                 ].map((beat) => (
-                  <div key={beat.key} data-product-action-beat={beat.key} style={{ flex: "1 1 150px", minWidth: 0, display: "grid", alignContent: "start", gap: 5, padding: "10px 11px", borderRadius: tokens.radius.sm, border: `1px solid ${beat.key === "next" ? tokens.color.productSoft : tokens.color.line}`, background: beat.key === "next" ? tokens.color.productSoft : tokens.color.contextSurface }}>
+                  <div
+                    key={beat.key}
+                    data-product-action-beat={beat.key}
+                    style={{
+                      flex: "1 1 150px",
+                      minWidth: 0,
+                      display: "grid",
+                      alignContent: "start",
+                      gap: 5,
+                      padding: "11px 12px",
+                      borderRadius: tokens.radius.card,
+                      border: `1px solid ${beat.key === "next" ? tokens.color.productGlow : tokens.color.cardEdge}`,
+                      background: beat.key === "next"
+                        ? `linear-gradient(172deg, ${tokens.color.elevated} 0%, ${tokens.color.productSoft} 100%)`
+                        : `linear-gradient(172deg, ${tokens.color.elevated} 0%, ${tokens.color.contextSurface} 100%)`,
+                      boxShadow: tokens.shadow.card
+                    }}
+                  >
                     <span style={{ ...textStyles.fieldLabel, color: beat.key === "next" ? tokens.color.product : tokens.color.softInk }}>{beat.label}</span>
                     <span style={{ fontSize: 12.5, lineHeight: 1.6, color: tokens.color.subInk, overflowWrap: "anywhere" }}>{beat.value}</span>
                   </div>
@@ -3065,7 +3113,7 @@ function ProductActionStage({
             ) : (
               <section
                 data-product-action-verdict-reason={resolvedFilter}
-                style={{ display: "grid", gap: 5, padding: "10px 11px", borderRadius: tokens.radius.sm, border: `1px solid ${activeMeta.soft}`, background: activeMeta.soft }}
+                style={{ display: "grid", gap: 5, padding: "11px 12px", borderRadius: tokens.radius.card, border: `1px solid ${activeMeta.soft}`, background: `linear-gradient(172deg, ${tokens.color.elevated} 0%, ${activeMeta.soft} 100%)`, boxShadow: tokens.shadow.card }}
               >
                 <span style={{ ...textStyles.fieldLabel, color: activeMeta.color }}>{resolvedFilter === "park" ? "排除原因" : "資料缺口"}</span>
                 <span style={{ fontSize: 12.5, lineHeight: 1.6, color: tokens.color.subInk, overflowWrap: "anywhere" }}>{activeAnalysis.reason || activeAnalysis.whyRelevant}</span>
@@ -3082,7 +3130,7 @@ function ProductActionStage({
               />
             </div>
             {exactCitation?.entry?.text ? (
-              <blockquote data-product-action-exact-quote="true" style={{ margin: 0, padding: "9px 11px", borderLeft: `3px solid ${tokens.color.product}`, color: tokens.color.subInk, fontFamily: tokens.font.serifCjk, fontSize: 13, lineHeight: 1.65, overflowWrap: "anywhere" }}>
+              <blockquote data-product-action-exact-quote="true" style={{ margin: 0, padding: "10px 12px", borderLeft: `3px solid ${tokens.color.product}`, borderRadius: `0 ${tokens.radius.card}px ${tokens.radius.card}px 0`, background: tokens.color.inkWash, color: tokens.color.subInk, fontFamily: tokens.font.serifCjk, fontSize: 13, lineHeight: 1.65, overflowWrap: "anywhere" }}>
                 {exactCitation.entry.text}
                 <footer style={{ marginTop: 5, fontFamily: tokens.font.mono, fontSize: 10, color: tokens.color.softInk }}>
                   {exactCitation.ref}{exactCitation.entry.author ? ` · ${exactCitation.entry.author}` : ""}{exactCitation.entry.likeCount != null ? ` · ${exactCitation.entry.likeCount} ♥` : ""}
@@ -3137,6 +3185,7 @@ function ProductActionStage({
           </div>
         </details>
       ) : null}
+      </div>
     </div>
   );
 }

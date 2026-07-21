@@ -127,6 +127,10 @@ export const tokens = {
     productMid: "#2f6a96",
     productSoft: "rgba(35,79,122,0.10)",
     productGlow: "rgba(35,79,122,0.18)",
+    /* product field canvas — atlasCanvas grammar with a steel-blue lean, for the
+     * Product action stage and saved-signals inbox aura fields */
+    productCanvas: "linear-gradient(172deg, #ffffff 0%, #f7fafc 55%, #eff4f8 100%)",
+    auraProductBlue: "rgba(35,79,122,0.20)",
 
     /* technique accents */
     techniqueRose: "#7a2030",
