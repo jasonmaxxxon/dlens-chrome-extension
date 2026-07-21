@@ -498,6 +498,24 @@ function cardStyle(extra?: CSSProperties): CSSProperties {
   });
 }
 
+/** Translucent workspace glass for marquee product cards — same material as the
+ *  atlas/readiness surfaces, so the action stage and inbox read as one system
+ *  instead of flat opaque panels. */
+function glassCardStyle(extra?: CSSProperties): CSSProperties {
+  return {
+    display: "grid",
+    gap: 9,
+    padding: "12px 13px",
+    borderRadius: tokens.radius.cardLg,
+    border: `1px solid ${tokens.color.atlasEdge}`,
+    background: tokens.color.atlasPaper,
+    boxShadow: tokens.shadow.atlasCard,
+    backdropFilter: tokens.effect.atlasBlur,
+    WebkitBackdropFilter: tokens.effect.atlasBlur,
+    ...extra
+  };
+}
+
 function mutedPanelStyle(extra?: CSSProperties): CSSProperties {
   return surfaceCardStyle({
     display: "grid",
@@ -2117,23 +2135,42 @@ function SavedSignalsBoard({
 
   return (
     <section data-saved-signals-route="true" style={{ display: "grid", gap: 12 }}>
-      <div data-saved-signals-frame="true" style={cardStyle({ gap: 10 })}>
+      <div data-saved-signals-frame="true" style={glassCardStyle({ gap: 10 })}>
         <SectionHeader title="分析收件匣" caption={`${signals.length} 則`} style={{ marginBottom: 0 }} />
         <section
           data-product-saved-pipeline="true"
           aria-label="訊號分析流程"
-          style={{ display: "flex", gap: 8, flexWrap: "wrap", padding: "8px 10px", borderRadius: tokens.radius.card, background: tokens.color.contextSurface, border: `1px solid ${tokens.color.line}` }}
+          style={{ display: "flex", gap: 6, flexWrap: "wrap" }}
         >
-          {[
+          {([
             ["已收集", signals.length],
             ["可分析／重試", readyCount],
             ["處理中", processingCount],
             ["已完成", completedCount]
-          ].map(([label, value]) => (
-            <span key={label} style={{ ...textStyles.metric, color: label === "處理中" && value ? tokens.color.running : tokens.color.subInk }}>
-              {label} {value}
-            </span>
-          ))}
+          ] as const).map(([label, value]) => {
+            const active = label === "處理中" && value > 0;
+            return (
+              <span
+                key={label}
+                style={{
+                  ...textStyles.metric,
+                  flex: "1 1 92px",
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  gap: 5,
+                  padding: "7px 9px",
+                  borderRadius: tokens.radius.card,
+                  border: `1px solid ${active ? tokens.color.runningSoft : tokens.color.cardEdge}`,
+                  background: active ? tokens.color.runningSoft : tokens.color.contextSurface,
+                  color: active ? tokens.color.running : tokens.color.subInk,
+                  whiteSpace: "nowrap"
+                }}
+              >
+                {label} {value}
+              </span>
+            );
+          })}
         </section>
         {pendingSignals.length ? (
           <details
@@ -2178,14 +2215,20 @@ function SavedSignalsBoard({
           <div style={{ display: "grid", marginTop: 8 }}>
           {signals.map((signal) => {
             const lifecycle = lifecycleBySignalId.get(signal.signalId)!;
+            const dotColor = lifecycle.tone === "success"
+              ? tokens.color.success
+              : lifecycle.tone === "warning"
+                ? tokens.color.queued
+                : tokens.color.lineStrong;
             return (
               <div
                 key={signal.signalId}
                 data-saved-signal-row="management"
                 data-saved-signal-lifecycle={lifecycle.stage}
                 data-saved-signal-tone={lifecycle.tone}
-                style={scanRowStyle({ display: "grid", gridTemplateColumns: `minmax(0, 1fr) auto${onRemoveSignal ? " 20px" : ""}`, gap: 9, alignItems: "center", padding: "9px 0" })}
+                style={scanRowStyle({ display: "grid", gridTemplateColumns: `8px minmax(0, 1fr) auto${onRemoveSignal ? " 20px" : ""}`, gap: 10, alignItems: "center", padding: "9px 6px" })}
               >
+                <span aria-hidden="true" style={{ width: 8, height: 8, borderRadius: 999, background: dotColor, justifySelf: "center" }} />
                 <span style={{ ...textStyles.bodyTight, color: tokens.color.ink, minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
                   {excerpt(signal.sourcePreview.displayText || signal.title || signal.signalId, 72)}
                 </span>
@@ -2893,6 +2936,10 @@ function ProductActionStage({
   return (
     <div data-product-action-workspace="stage" style={{ display: "grid", gap: 12, minWidth: 0, overflow: "visible" }}>
       <style>{`
+        .dlens-verdict-tiles,
+        .dlens-verdict-tiles *,
+        .dlens-verdict-tiles *::before,
+        .dlens-verdict-tiles *::after { box-sizing: border-box; }
         .dlens-verdict-tiles {
           position: relative;
           display: grid;
@@ -2955,7 +3002,7 @@ function ProductActionStage({
             aria-labelledby={actionVerdictTabId(resolvedFilter)}
             onKeyDown={handleStageKeyDown}
             aria-label={`${activeMeta.label} ${safeIndex + 1} / ${activeItems.length}`}
-            style={cardStyle({ gap: 14, padding: 18, minWidth: 0, overflow: "visible", borderColor: tokens.color.productSoft, boxShadow: tokens.shadow.raised })}
+            style={glassCardStyle({ gap: 14, padding: 18, minWidth: 0, overflow: "visible", borderColor: tokens.color.productSoft, boxShadow: tokens.shadow.raised })}
           >
             <header style={{ display: "grid", gap: 7, minWidth: 0 }}>
               <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap", minWidth: 0 }}>
@@ -2987,7 +3034,7 @@ function ProductActionStage({
                   justifyContent: "space-between",
                   gap: 10,
                   padding: "8px 11px",
-                  borderRadius: tokens.radius.sm,
+                  borderRadius: tokens.radius.card,
                   border: `1px solid ${activeBriefSelected ? tokens.color.product : tokens.color.line}`,
                   background: activeBriefSelected ? tokens.color.productSoft : tokens.color.contextSurface,
                   color: activeBriefSelected ? tokens.color.product : tokens.color.subInk,
