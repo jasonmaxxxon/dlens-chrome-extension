@@ -35,7 +35,6 @@ import {
   type ProductPrimaryCategory
 } from "../viewmodel/product-card-presentation";
 import {
-  AttentionBeam,
   AttentionSurface,
   EvidenceSourceHero,
   Kicker,
@@ -642,6 +641,26 @@ function heroPanelStyle(extra?: CSSProperties): CSSProperties {
   };
 }
 
+function betweenRowStyle(extra?: CSSProperties): CSSProperties {
+  return {
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "space-between",
+    gap: 8,
+    flexWrap: "wrap",
+    ...extra
+  };
+}
+
+function fieldStackStyle(extra?: CSSProperties): CSSProperties {
+  return {
+    display: "grid",
+    gap: 2,
+    minWidth: 0,
+    ...extra
+  };
+}
+
 type InsightTone = "relevance" | "timing" | "experiment" | "validation";
 
 const INSIGHT_TONE: Record<InsightTone, { label: string; accent: string; soft: string }> = {
@@ -846,7 +865,7 @@ function WorkflowEvidenceCard({
         background: flatten ? "transparent" : tokens.color.elevated
       }}
     >
-      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10, flexWrap: "wrap" }}>
+      <div style={betweenRowStyle({ gap: 10 })}>
         <div style={{ display: "grid", gap: 2 }}>
           <div style={{ ...textStyles.cardTitle, color: tokens.color.ink }}>
             {workflow.pattern}
@@ -1085,7 +1104,7 @@ function PendingSignalCard({
         gap: 10
       })}
     >
-      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8, flexWrap: "wrap" }}>
+      <div style={betweenRowStyle()}>
         <div style={{ display: "flex", alignItems: "center", gap: 6, flexWrap: "wrap" }}>
           <Stamp tone={label.tone}>{label.label}</Stamp>
           {isProcessing ? (
@@ -1253,7 +1272,7 @@ function ReadinessPanel({
           padding: "10px 12px"
         })}
       >
-        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10, flexWrap: "wrap" }}>
+        <div style={betweenRowStyle({ gap: 10 })}>
           <Kicker>讀取狀態</Kicker>
           <Stamp tone="neutral">讀取中</Stamp>
         </div>
@@ -1295,7 +1314,7 @@ function ReadinessPanel({
         dataAttrs={{ "data-product-analysis-surface": "true", "data-dlens-presence": "card" }}
       style={heroPanelStyle({ gap: hasResults ? 8 : 10 })}
     >
-      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10, flexWrap: "wrap" }}>
+      <div style={betweenRowStyle({ gap: 10 })}>
         <Kicker>{hasResults ? "分析狀態" : "真實狀態"}</Kicker>
         <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
           <Stamp tone={viewModel.signalCount ? "success" : "warning"}>{viewModel.signalCount} signals</Stamp>
@@ -1412,7 +1431,7 @@ function ClassificationSignalRow({
           background: verdictColor
         }}
       />
-      <div style={{ display: "grid", gap: 2, minWidth: 0 }}>
+      <div style={fieldStackStyle()}>
         <div style={{ fontSize: 14, lineHeight: 1.35, fontWeight: 600, color: tokens.color.ink, ...lineClamp(1) }}>
           {excerpt(analysis.contentSummary, 120)}
         </div>
@@ -2815,7 +2834,7 @@ function ProductActionReadingOperations({
       }}
       style={{ display: "grid", gap: 10, paddingTop: 12, borderTop: `1px solid ${tokens.color.line}`, minWidth: 0 }}
     >
-      <div style={{ display: "flex", alignItems: "baseline", justifyContent: "space-between", gap: 8, flexWrap: "wrap" }}>
+      <div style={betweenRowStyle({ alignItems: "baseline" })}>
         <span style={{ ...textStyles.fieldLabel, color: tokens.color.product }}>深度判讀</span>
         {reading ? <Stamp tone={SIGNAL_READING_REVIEW_TONES[reviewState]}>{SIGNAL_READING_REVIEW_LABELS[reviewState]}</Stamp> : null}
       </div>
@@ -3300,14 +3319,14 @@ function ProductActionStage({
       <div aria-hidden="true" data-product-field-aura="amber" style={{ position: "absolute", top: 330, left: -90, width: 220, height: 220, borderRadius: "50%", background: tokens.color.atlasAuraAmber, filter: "blur(46px)", pointerEvents: "none" }} />
       <div aria-hidden="true" data-product-field-aura="violet" style={{ position: "absolute", bottom: -80, right: -40, width: 240, height: 240, borderRadius: "50%", background: tokens.color.atlasAuraViolet, filter: "blur(46px)", pointerEvents: "none" }} />
       <div data-product-action-content="true" style={{ position: "relative", zIndex: 1, display: "grid", gridTemplateColumns: "minmax(0, 1fr)", gap: 12, minWidth: 0 }}>
-      <div style={{ display: "flex", alignItems: "baseline", justifyContent: "space-between", gap: 10, flexWrap: "wrap" }}>
+      <div style={betweenRowStyle({ alignItems: "baseline", gap: 10 })}>
         <Kicker>判定導覽</Kicker>
         <span style={{ ...textStyles.meta, color: tokens.color.softInk }}>{completed.length} 已評估</span>
       </div>
       <VerdictFilterTiles stats={stats} selectedKey={completed.length ? resolvedFilter : null} onSelect={selectFilter} />
       {activeAnalysis ? (
         <>
-          <div style={{ display: "flex", alignItems: "baseline", justifyContent: "space-between", gap: 10, flexWrap: "wrap" }}>
+          <div style={betweenRowStyle({ alignItems: "baseline", gap: 10 })}>
             <Kicker>{activeMeta.label}</Kicker>
             <span style={{ ...textStyles.meta, color: tokens.color.softInk }}>{activeItems.length} 則</span>
           </div>
@@ -3352,7 +3371,7 @@ function ProductActionStage({
             style={glassCardStyle({ gap: activePresentation?.density === "compact" ? 10 : 14, padding: activePresentation?.density === "compact" ? 12 : 18, minWidth: 0, overflow: "visible", borderColor: tokens.color.productSoft, boxShadow: activePresentation?.density === "compact" ? tokens.shadow.topicCard : tokens.shadow.raised })}
           >
             <header data-product-action-header="true" style={{ display: "grid", gap: 7, minWidth: 0 }}>
-              <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: 10, flexWrap: "wrap", minWidth: 0 }}>
+              <div style={betweenRowStyle({ alignItems: "flex-start", gap: 10, minWidth: 0 })}>
                 <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap", minWidth: 0, flex: "1 1 220px" }}>
                   <span style={{ fontFamily: tokens.font.mono, fontSize: 11, fontWeight: 800, color: tokens.color.product }}>{String(safeIndex + 1).padStart(2, "0")}</span>
                   <span data-product-action-verdict-pill={activeCardVerdict ?? resolvedFilter} style={{ display: "inline-flex", alignItems: "center", minHeight: 22, padding: "2px 8px", borderRadius: tokens.radius.pill, background: activeCardMeta.soft, color: activeCardMeta.color, fontSize: 10.5, fontWeight: 800 }}>{activeCardMeta.label}</span>
@@ -3418,7 +3437,7 @@ function ProductActionStage({
                         ["fit", "為何保留", activePresentation.watchGuidance.fitReason],
                         ["next", "下一步要知道", activePresentation.watchGuidance.nextEvidence]
                       ] as const).map(([part, label, value]) => (
-                        <div key={part} data-product-action-watch-guidance-part={part} style={{ display: "grid", gap: 2, minWidth: 0, paddingTop: part === "source" ? 0 : 8, borderTop: part === "source" ? "none" : `1px solid ${tokens.color.line}` }}>
+                        <div key={part} data-product-action-watch-guidance-part={part} style={fieldStackStyle({ paddingTop: part === "source" ? 0 : 8, borderTop: part === "source" ? "none" : `1px solid ${tokens.color.line}` })}>
                           <span style={{ ...textStyles.fieldLabel, color: tokens.color.softInk }}>{label}</span>
                           <span style={{ fontSize: 13, lineHeight: 1.6, color: tokens.color.subInk, overflowWrap: "anywhere" }}>{value}</span>
                         </div>
@@ -3434,15 +3453,10 @@ function ProductActionStage({
                   <>
                   <div
                     data-product-action-recommendation-header="true"
-                    style={{
-                      display: "flex",
-                      alignItems: "center",
-                      justifyContent: "space-between",
-                      gap: 8,
-                      flexWrap: "wrap",
+                    style={betweenRowStyle({
                       paddingBottom: activePresentation.recommendationTier === "application" ? 9 : 0,
                       borderBottom: activePresentation.recommendationTier === "application" ? `1px solid ${tokens.color.line}` : "none"
-                    }}
+                    })}
                   >
                     <span style={{ ...textStyles.fieldLabel, color: activePresentation.recommendationTier === "application" ? tokens.color.product : tokens.color.softInk }}>
                       {activePresentation.recommendationTier === "application"
@@ -3478,27 +3492,27 @@ function ProductActionStage({
                       >
                         {recommendation.kind === "application" ? (
                           <>
-                            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8, flexWrap: "wrap", minWidth: 0 }}>
+                            <div style={betweenRowStyle({ minWidth: 0 })}>
                               <span style={{ ...textStyles.fieldLabel, color: tokens.color.product }}>AI 提案 · 待驗證</span>
                               <span data-product-action-application-target={recommendation.productContextTarget} style={{ ...textStyles.meta, color: tokens.color.softInk }}>
                                 套用至 {CONTEXT_FIELD_LABELS[recommendation.productContextTarget]}
                               </span>
                             </div>
                             {([["source", "來源做法", recommendation.sourcePattern], ["fit", "可能適合", recommendation.fitReason], ["test", "先小試", recommendation.smallTest]] as const).map(([part, label, value]) => (
-                              <div key={part} data-product-action-application-part={part} style={{ display: "grid", gap: 2, minWidth: 0, paddingTop: part === "source" ? 0 : 8, borderTop: part === "source" ? "none" : `1px solid ${tokens.color.line}` }}>
+                              <div key={part} data-product-action-application-part={part} style={fieldStackStyle({ paddingTop: part === "source" ? 0 : 8, borderTop: part === "source" ? "none" : `1px solid ${tokens.color.line}` })}>
                                 <span style={{ ...textStyles.fieldLabel, color: tokens.color.softInk }}>{label}</span>
                                 <span style={{ fontSize: 13, lineHeight: 1.6, color: tokens.color.subInk, overflowWrap: "anywhere" }}>{value}</span>
                               </div>
                             ))}
                             <span data-product-action-application-refs={recommendation.sourceRefs.join(",")} style={{ ...textStyles.meta, justifySelf: "start", padding: "3px 7px", borderRadius: tokens.radius.pill, background: tokens.color.inkWash, color: tokens.color.softInk }}>{recommendation.sourceRefs.map((ref) => ref === ROOT_SPAN_REF ? "原文" : ref).join("、")} · 文字支持</span>
-                            <div data-product-action-application-question="true" style={{ display: "grid", gap: 2, minWidth: 0, padding: "8px 9px", borderRadius: tokens.radius.sm, background: tokens.color.inkWash }}>
+                            <div data-product-action-application-question="true" style={fieldStackStyle({ padding: "8px 9px", borderRadius: tokens.radius.sm, background: tokens.color.inkWash })}>
                               <span style={{ ...textStyles.fieldLabel, color: tokens.color.softInk }}>驗證問題</span>
                               <span style={{ fontSize: 12, lineHeight: 1.6, color: tokens.color.subInk, overflowWrap: "anywhere" }}>{recommendation.verificationQuestion}</span>
                             </div>
                           </>
                         ) : (
                           <>
-                            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8, flexWrap: "wrap", minWidth: 0 }}>
+                            <div style={betweenRowStyle({ minWidth: 0 })}>
                               <span style={{ ...textStyles.fieldLabel, color: recommendation.kind === "experiment" ? tokens.color.product : tokens.color.success }}>{recommendation.kind === "experiment" ? "AI 建議先試" : "可借用模式"}</span>
                               {recommendation.kind === "pattern" ? <span style={{ ...textStyles.meta, color: tokens.color.softInk }}>{recommendation.sourceRef} · 文字支持</span> : null}
                             </div>
@@ -3512,9 +3526,9 @@ function ProductActionStage({
                     <div
                       data-product-action-agent-brief="true"
                       data-product-action-application-footer="true"
-                      style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8, flexWrap: "wrap", paddingTop: 10, borderTop: `1px solid ${tokens.color.line}` }}
+                      style={betweenRowStyle({ paddingTop: 10, borderTop: `1px solid ${tokens.color.line}` })}
                     >
-                      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8, flexWrap: "wrap", minWidth: 0 }}>
+                      <div style={betweenRowStyle({ minWidth: 0 })}>
                         <span style={{ ...textStyles.fieldLabel, color: tokens.color.product }}>交給 Agent</span>
                         {activeAnalysis.agentTaskSpec?.taskTitle?.trim() ? <span style={{ ...textStyles.meta, color: tokens.color.softInk, overflowWrap: "anywhere" }}>{activeAnalysis.agentTaskSpec.taskTitle.trim()}</span> : null}
                       </div>

@@ -5146,6 +5146,53 @@ test("Product Action renders application suggestions as three parts with target,
   assert.doesNotMatch(html, /data-product-action-agent-brief="true"/);
 });
 
+test("Product Action application render has one actionable owner and no nested beams", () => {
+  const fixture = productActionStageFixture();
+  const signal = fixture.signals.find((item) => item.id === "signal_try_second");
+  const baseAnalysis = fixture.analyses.find((analysis) => analysis.signalId === "signal_try_second");
+  assert.ok(signal);
+  assert.ok(baseAnalysis);
+
+  const html = renderToStaticMarkup(productSignalViewElement({
+    ...fixture,
+    signals: [signal],
+    analyses: [{
+      ...baseAnalysis,
+      evidenceRefs: ["e1"],
+      evidenceNotes: [{
+        ref: "e1",
+        quoteSummary: "來源狀態可直接顯示。",
+        whyItMatters: "支持 bounded test。",
+        grounding: "text_grounded" as const
+      }],
+      applicationSuggestions: [{
+        sourcePattern: "把來源狀態直接放進操作卡",
+        fitReason: "可能降低核心流程的來源誤讀",
+        smallTest: "先用一張卡驗證。",
+        productContextTarget: "coreWorkflows" as const,
+        supportRefs: ["e1"],
+        verificationQuestion: "一次 bounded test 能否分辨來源狀態？"
+      }],
+      agentTaskSpec: {
+        targetAgent: "codex",
+        taskTitle: "驗證來源狀態",
+        requiredContext: ["root"],
+        taskPrompt: "只供 clipboard 使用。"
+      }
+    }],
+    evidenceBySignalId: {
+      signal_try_second: [{ ref: "e1", id: "reply-1", author: "reader", text: "來源狀態可直接顯示。", likeCount: 1 }]
+    }
+  }));
+
+  assert.equal(countOccurrences(html, 'data-attention-beam="actionable"'), 1);
+  assert.match(findTagWithAttribute(html, 'data-product-action-recommendations="true"'), /data-attention-beam="actionable"/);
+  assert.doesNotMatch(findTagWithAttribute(html, 'data-product-action-recommendation-header="true"'), /data-attention-beam=/);
+  assert.doesNotMatch(findTagWithAttribute(html, 'data-product-action-brief-toggle="true"'), /data-attention-beam=/);
+  assert.doesNotMatch(findTagWithAttribute(html, 'data-product-action-application-footer="true"'), /data-attention-beam=/);
+  assert.doesNotMatch(findTagWithAttribute(html, 'data-product-action-agent-brief-copy="true"'), /data-attention-beam=/);
+});
+
 test("Product Action keeps watch, park, noise, and insufficient cards free of actionable light", () => {
   const fixture = productActionStageFixture();
   const renderSignal = (signalId: "signal_watch_first" | "signal_park" | "signal_noise" | "signal_insufficient") => {
