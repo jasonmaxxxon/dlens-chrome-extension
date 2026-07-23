@@ -122,7 +122,9 @@ export const PRODUCT_CONTEXT_FIELDS = [
 ] as const satisfies readonly ProductContextField[];
 
 export interface ProductApplicationSuggestion {
-  proposal: string;
+  sourcePattern: string;
+  fitReason: string;
+  smallTest: string;
   productContextTarget: ProductContextField;
   supportRefs: string[];
   verificationQuestion: string;

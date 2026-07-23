@@ -151,7 +151,9 @@ function normalizeApplicationSuggestions(
       continue;
     }
     const raw = entry as Record<string, unknown>;
-    const proposal = readTrimmedString(raw.proposal);
+    const sourcePattern = readTrimmedString(raw.sourcePattern ?? raw.source_pattern).slice(0, 80);
+    const fitReason = readTrimmedString(raw.fitReason ?? raw.fit_reason).slice(0, 100);
+    const smallTest = readTrimmedString(raw.smallTest ?? raw.small_test).slice(0, 100);
     const productContextTarget = readProductContextTarget(
       raw.productContextTarget ?? raw.product_context_target
     );
@@ -160,7 +162,9 @@ function normalizeApplicationSuggestions(
     );
     const rawSupportRefs = raw.supportRefs ?? raw.support_refs;
     if (
-      !proposal
+      !sourcePattern
+      || !fitReason
+      || !smallTest
       || !productContextTarget
       || !verificationQuestion
       || !Array.isArray(rawSupportRefs)
@@ -179,14 +183,19 @@ function normalizeApplicationSuggestions(
       continue;
     }
 
-    const normalizedProposal = proposal.slice(0, 120);
-    const dedupeKey = `${normalizedProposal.toLocaleLowerCase()}\u0000${productContextTarget}`;
+    const dedupeKey = [
+      sourcePattern.toLocaleLowerCase(),
+      productContextTarget,
+      smallTest.toLocaleLowerCase()
+    ].join("\u0000");
     if (seen.has(dedupeKey)) {
       continue;
     }
     seen.add(dedupeKey);
     suggestions.push({
-      proposal: normalizedProposal,
+      sourcePattern,
+      fitReason,
+      smallTest,
       productContextTarget,
       supportRefs,
       verificationQuestion: verificationQuestion.slice(0, 100)

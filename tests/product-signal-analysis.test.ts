@@ -133,6 +133,10 @@ test("ProductSignalAnalyzer exposes a strict JSON schema contract", () => {
       required: string[];
       properties: {
         product_context_target: { enum: string[] };
+        source_pattern?: { type: string };
+        fit_reason?: { type: string };
+        small_test?: { type: string };
+        proposal?: unknown;
       };
     };
   };
@@ -141,11 +145,17 @@ test("ProductSignalAnalyzer exposes a strict JSON schema contract", () => {
   assert.equal(applicationSuggestions.items.type, "object");
   assert.equal(applicationSuggestions.items.additionalProperties, false);
   assert.deepEqual([...applicationSuggestions.items.required].sort(), [
+    "fit_reason",
     "product_context_target",
-    "proposal",
+    "small_test",
+    "source_pattern",
     "support_refs",
     "verification_question"
   ]);
+  assert.equal(applicationSuggestions.items.properties.source_pattern?.type, "string");
+  assert.equal(applicationSuggestions.items.properties.fit_reason?.type, "string");
+  assert.equal(applicationSuggestions.items.properties.small_test?.type, "string");
+  assert.equal(applicationSuggestions.items.properties.proposal, undefined);
   assert.deepEqual(applicationSuggestions.items.properties.product_context_target.enum, [
     "productPromise",
     "targetAudience",
@@ -314,13 +324,17 @@ test("parseProductSignalAnalysisResponse accepts strict snake_case and camelCase
     JSON.stringify(applicationSuggestionPayload({
       application_suggestions: [
         {
-          proposal: "強化既有分類流程，先顯示一個可被否證的定位假設。",
+          source_pattern: "先顯示一個可被否證的定位假設，再要求採用",
+          fit_reason: "可能降低核心流程的人工判讀負擔",
+          small_test: "只在既有分類流程加入一張定位假設卡",
           product_context_target: "coreWorkflows",
           support_refs: ["e1"],
           verification_question: "目前 repo 是否已有對應流程，且一次小實驗能否降低人工判讀？"
         },
         {
-          proposal: "把比較追問加入既有評估條件，檢查定位差距。",
+          sourcePattern: "把比較追問收斂成一條可檢查的定位差距",
+          fitReason: "可能讓既有評估條件更貼近使用者辨識需求",
+          smallTest: "在評估條件加入一個定位差距檢查項",
           productContextTarget: "evaluationCriteria",
           supportRefs: ["e2"],
           verificationQuestion: "ProductContext 是否已有可衡量定位差距的條件？"
@@ -332,13 +346,17 @@ test("parseProductSignalAnalysisResponse accepts strict snake_case and camelCase
 
   assert.deepEqual(parsed?.applicationSuggestions, [
     {
-      proposal: "強化既有分類流程，先顯示一個可被否證的定位假設。",
+      sourcePattern: "先顯示一個可被否證的定位假設，再要求採用",
+      fitReason: "可能降低核心流程的人工判讀負擔",
+      smallTest: "只在既有分類流程加入一張定位假設卡",
       productContextTarget: "coreWorkflows",
       supportRefs: ["e1"],
       verificationQuestion: "目前 repo 是否已有對應流程，且一次小實驗能否降低人工判讀？"
     },
     {
-      proposal: "把比較追問加入既有評估條件，檢查定位差距。",
+      sourcePattern: "把比較追問收斂成一條可檢查的定位差距",
+      fitReason: "可能讓既有評估條件更貼近使用者辨識需求",
+      smallTest: "在評估條件加入一個定位差距檢查項",
       productContextTarget: "evaluationCriteria",
       supportRefs: ["e2"],
       verificationQuestion: "ProductContext 是否已有可衡量定位差距的條件？"
@@ -349,7 +367,9 @@ test("parseProductSignalAnalysisResponse accepts strict snake_case and camelCase
 test("parseProductSignalAnalysisResponse drops an entire malformed or unsupported application suggestion", () => {
   const invalidCases: Array<[string, Record<string, unknown>, Record<string, unknown>]> = [
     ["unknown target", { product_context_target: "technicalLearning" }, {}],
-    ["empty proposal", { proposal: "   " }, {}],
+    ["empty source_pattern", { source_pattern: "   " }, {}],
+    ["empty fit_reason", { fit_reason: "   " }, {}],
+    ["empty small_test", { small_test: "   " }, {}],
     ["empty question", { verification_question: "   " }, {}],
     ["empty ref", { support_refs: [""] }, {}],
     ["raw ref with surrounding whitespace", { support_refs: [" e1 "] }, {}],
@@ -377,7 +397,9 @@ test("parseProductSignalAnalysisResponse drops an entire malformed or unsupporte
     const parsed = parseProductSignalAnalysisResponse(
       JSON.stringify(applicationSuggestionPayload({
         application_suggestions: [{
-          proposal: "先強化既有流程。",
+          source_pattern: "先展示可檢查結果，再要求採用",
+          fit_reason: "可能降低核心流程的首次決策負擔",
+          small_test: "只在一個入口測試先預覽後確認",
           product_context_target: "coreWorkflows",
           support_refs: ["e1"],
           verification_question: "現有產品流程能否支持這項有限實驗？",
@@ -400,7 +422,9 @@ test("parseProductSignalAnalysisResponse only emits suggestions for non-noise tr
       JSON.stringify(applicationSuggestionPayload({
         ...overrides,
         application_suggestions: [{
-          proposal: "先強化既有流程。",
+          source_pattern: "先展示可檢查結果，再要求採用",
+          fit_reason: "可能降低核心流程的首次決策負擔",
+          small_test: "只在一個入口測試先預覽後確認",
           product_context_target: "coreWorkflows",
           support_refs: ["e1"],
           verification_question: "現有產品流程能否支持這項有限實驗？"
@@ -413,37 +437,48 @@ test("parseProductSignalAnalysisResponse only emits suggestions for non-noise tr
 });
 
 test("parseProductSignalAnalysisResponse rejects root-only support, deduplicates, caps, and truncates valid suggestions", () => {
-  const longProposal = "提".repeat(130);
+  const longSource = "來".repeat(90);
+  const longTest = "試".repeat(110);
   const longQuestion = "問".repeat(110);
   const parsed = parseProductSignalAnalysisResponse(
     JSON.stringify(applicationSuggestionPayload({
       application_suggestions: [
         {
-          proposal: "  強化   既有分類流程  ",
+          source_pattern: "  先展示   可檢查結果  ",
+          fit_reason: "可能降低首次決策負擔",
+          small_test: "只在一個入口小試",
           product_context_target: "coreWorkflows",
           support_refs: ["e1"],
           verification_question: "問題一？"
         },
         {
-          proposal: "強化 既有分類流程",
+          source_pattern: "先展示 可檢查結果",
+          fit_reason: "另一個看似不同的理由",
+          small_test: "只在一個入口小試",
           product_context_target: "coreWorkflows",
           support_refs: ["e2"],
           verification_question: "重複提案應被移除？"
         },
         {
-          proposal: longProposal,
+          source_pattern: longSource,
+          fit_reason: "可能對評估標準有幫助",
+          small_test: longTest,
           product_context_target: "evaluationCriteria",
           support_refs: ["e1"],
           verification_question: longQuestion
         },
         {
-          proposal: "檢查明確限制。",
+          source_pattern: "檢查明確限制的展示做法",
+          fit_reason: "可能避免違反既有限制",
+          small_test: "只在一處限制檢查",
           product_context_target: "explicitConstraints",
           support_refs: ["e2"],
           verification_question: "限制是否阻止這項實驗？"
         },
         {
-          proposal: "第四個唯一提案不應保留。",
+          source_pattern: "第四個唯一提案不應保留",
+          fit_reason: "理由",
+          small_test: "測試",
           product_context_target: "unknowns",
           support_refs: ["e1"],
           verification_question: "未知項是否能被小型實驗回答？"
@@ -454,8 +489,9 @@ test("parseProductSignalAnalysisResponse rejects root-only support, deduplicates
   );
 
   assert.equal(parsed?.applicationSuggestions?.length, 3);
-  assert.equal(parsed?.applicationSuggestions?.[0]?.proposal, "強化 既有分類流程");
-  assert.equal(parsed?.applicationSuggestions?.[1]?.proposal.length, 120);
+  assert.equal(parsed?.applicationSuggestions?.[0]?.sourcePattern, "先展示 可檢查結果");
+  assert.equal(parsed?.applicationSuggestions?.[1]?.sourcePattern.length, 80);
+  assert.equal(parsed?.applicationSuggestions?.[1]?.smallTest.length, 100);
   assert.equal(parsed?.applicationSuggestions?.[1]?.verificationQuestion.length, 100);
   assert.equal(parsed?.applicationSuggestions?.[2]?.productContextTarget, "explicitConstraints");
 
@@ -464,7 +500,9 @@ test("parseProductSignalAnalysisResponse rejects root-only support, deduplicates
       evidence_refs: [],
       evidence_notes: [],
       application_suggestions: [{
-        proposal: "不能只靠 root post 產生結構化提案。",
+        source_pattern: "不能只靠 root post 產生結構化提案",
+        fit_reason: "可能仍缺乏 discussion 支持",
+        small_test: "先確認是否有 discussion evidence",
         product_context_target: "coreWorkflows",
         support_refs: ["e1"],
         verification_question: "這項提案有 discussion evidence 嗎？"
@@ -473,6 +511,21 @@ test("parseProductSignalAnalysisResponse rejects root-only support, deduplicates
     { ...analyzerInput, discussionReplies: [] }
   );
   assert.deepEqual(rootOnly?.applicationSuggestions, []);
+});
+
+test("parseProductSignalAnalysisResponse rejects a legacy v18 proposal-only application row", () => {
+  const parsed = parseProductSignalAnalysisResponse(
+    JSON.stringify(applicationSuggestionPayload({
+      application_suggestions: [{
+        proposal: "舊版 v18 只有 proposal，缺少三段結構。",
+        product_context_target: "coreWorkflows",
+        support_refs: ["e1"],
+        verification_question: "這個舊格式是否應被拒絕？"
+      }]
+    })),
+    analyzerInput
+  );
+  assert.deepEqual(parsed?.applicationSuggestions, []);
 });
 
 test("parseProductSignalAnalysisResponse normalizes strict JSON and owns metadata", () => {

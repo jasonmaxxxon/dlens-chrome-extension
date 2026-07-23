@@ -342,7 +342,9 @@ test("storage preserves valid camelCase application suggestions for non-noise tr
     ],
     applicationSuggestions: [
       {
-        proposal: "在比較流程加入可回查的證據摘要。",
+        sourcePattern: "在關鍵步驟先出示可回查的證據摘要",
+        fitReason: "可能讓比較流程更快對齊來源",
+        smallTest: "在比較流程加入一次可回查的證據摘要",
         productContextTarget: "coreWorkflows",
         supportRefs: ["e1", "e2"],
         verificationQuestion: "現有比較流程是否能在一次操作內回查兩條來源？"
@@ -355,8 +357,9 @@ test("storage preserves valid camelCase application suggestions for non-noise tr
   assert.deepEqual(await listProductSignalAnalyses(storage, [analysis.signalId]), [analysis]);
 });
 
-test("storage normalizes snake_case application suggestions and caps proposal and question text", async () => {
-  const proposal = `  ${"提".repeat(125)}  `;
+test("storage normalizes snake_case application suggestions and caps source, test, and question text", async () => {
+  const sourcePattern = `  ${"來".repeat(90)}  `;
+  const smallTest = `  ${"試".repeat(110)}  `;
   const verificationQuestion = `  ${"問".repeat(105)}  `;
   const storage = makeStorage({
     [PRODUCT_SIGNAL_ANALYSES_STORAGE_KEY]: {
@@ -372,7 +375,9 @@ test("storage normalizes snake_case application suggestions and caps proposal an
           }]
         }),
         application_suggestions: [{
-          proposal,
+          source_pattern: sourcePattern,
+          fit_reason: "可能強化既有能力而非新增功能",
+          small_test: smallTest,
           product_context_target: "currentCapabilities",
           support_refs: ["e1"],
           verification_question: verificationQuestion
@@ -384,7 +389,9 @@ test("storage normalizes snake_case application suggestions and caps proposal an
   const analyses = await listProductSignalAnalyses(storage, ["signal-snake-applications"]);
 
   assert.deepEqual(analyses[0]?.applicationSuggestions, [{
-    proposal: "提".repeat(120),
+    sourcePattern: "來".repeat(80),
+    fitReason: "可能強化既有能力而非新增功能",
+    smallTest: "試".repeat(100),
     productContextTarget: "currentCapabilities",
     supportRefs: ["e1"],
     verificationQuestion: "問".repeat(100)
@@ -412,37 +419,49 @@ test("storage drops a whole application suggestion when any support ref is malfo
     ],
     applicationSuggestions: [
       {
-        proposal: "混合已知與未知 ref。",
+        sourcePattern: "混合已知與未知 ref 的展示做法",
+        fitReason: "可能改善核心流程",
+        smallTest: "只在一處試混合 ref",
         productContextTarget: "coreWorkflows",
         supportRefs: ["e1", "e9"],
         verificationQuestion: "這個提案是否有完整來源？"
       },
       {
-        proposal: "重複 ref。",
+        sourcePattern: "重複 ref 的展示做法",
+        fitReason: "可能改善核心流程",
+        smallTest: "只在一處試重複 ref",
         productContextTarget: "coreWorkflows",
         supportRefs: ["e1", "e1"],
         verificationQuestion: "引用是否唯一？"
       },
       {
-        proposal: "帶空白的 ref 不可被修補。",
+        sourcePattern: "帶空白 ref 的展示做法",
+        fitReason: "可能改善核心流程",
+        smallTest: "只在一處試帶空白 ref",
         productContextTarget: "coreWorkflows",
         supportRefs: [" e1"],
         verificationQuestion: "引用是否保持 raw exact？"
       },
       {
-        proposal: "混合非字串 ref。",
+        sourcePattern: "混合非字串 ref 的展示做法",
+        fitReason: "可能改善核心流程",
+        smallTest: "只在一處試非字串 ref",
         productContextTarget: "coreWorkflows",
         supportRefs: ["e1", 1] as unknown as string[],
         verificationQuestion: "每條引用是否都是 raw string？"
       },
       {
-        proposal: "使用非文字支持的 ref。",
+        sourcePattern: "使用非文字支持 ref 的展示做法",
+        fitReason: "可能改善核心流程",
+        smallTest: "只在一處試非文字支持 ref",
         productContextTarget: "coreWorkflows",
         supportRefs: ["e1", "e2"],
         verificationQuestion: "每條引用是否都有文字支持？"
       },
       {
-        proposal: "使用沒有 evidence note 的 ref。",
+        sourcePattern: "使用無 note ref 的展示做法",
+        fitReason: "可能改善核心流程",
+        smallTest: "只在一處試無 note ref",
         productContextTarget: "coreWorkflows",
         supportRefs: ["e1", "e3"],
         verificationQuestion: "每條引用是否都有對應 note？"
@@ -472,31 +491,57 @@ test("storage drops malformed application text, target, and support ref cardinal
         }),
         applicationSuggestions: [
           {
-            proposal: "   ",
+            sourcePattern: "   ",
+            fitReason: "可能改善核心流程",
+            smallTest: "只在一處小試",
             productContextTarget: "coreWorkflows",
             supportRefs: ["e1"],
-            verificationQuestion: "提案是否非空？"
+            verificationQuestion: "來源做法是否非空？"
           },
           {
-            proposal: "未知 target。",
+            sourcePattern: "先展示可檢查結果的做法",
+            fitReason: "   ",
+            smallTest: "只在一處小試",
+            productContextTarget: "coreWorkflows",
+            supportRefs: ["e1"],
+            verificationQuestion: "可能適合是否非空？"
+          },
+          {
+            sourcePattern: "先展示可檢查結果的做法",
+            fitReason: "可能改善核心流程",
+            smallTest: "   ",
+            productContextTarget: "coreWorkflows",
+            supportRefs: ["e1"],
+            verificationQuestion: "先小試是否非空？"
+          },
+          {
+            sourcePattern: "未知 target 的展示做法",
+            fitReason: "可能改善核心流程",
+            smallTest: "只在一處小試",
             productContextTarget: "technicalLearning",
             supportRefs: ["e1"],
             verificationQuestion: "target 是否有效？"
           },
           {
-            proposal: "缺少引用。",
+            sourcePattern: "缺少引用的展示做法",
+            fitReason: "可能改善核心流程",
+            smallTest: "只在一處小試",
             productContextTarget: "coreWorkflows",
             supportRefs: [],
             verificationQuestion: "是否有引用？"
           },
           {
-            proposal: "引用過多。",
+            sourcePattern: "引用過多的展示做法",
+            fitReason: "可能改善核心流程",
+            smallTest: "只在一處小試",
             productContextTarget: "coreWorkflows",
             supportRefs: ["e1", "e2", "e3", "e4"],
             verificationQuestion: "引用是否超過上限？"
           },
           {
-            proposal: "問題為空。",
+            sourcePattern: "問題為空的展示做法",
+            fitReason: "可能改善核心流程",
+            smallTest: "只在一處小試",
             productContextTarget: "coreWorkflows",
             supportRefs: ["e1"],
             verificationQuestion: "   "
@@ -511,7 +556,7 @@ test("storage drops malformed application text, target, and support ref cardinal
   assert.equal(stored?.applicationSuggestions, undefined);
 });
 
-test("storage deduplicates normalized proposal and target then caps valid suggestions at three", async () => {
+test("storage deduplicates normalized source pattern, target, and small test then caps valid suggestions at three", async () => {
   const storage = makeStorage({
     [PRODUCT_SIGNAL_ANALYSES_STORAGE_KEY]: {
       capped: {
@@ -526,11 +571,11 @@ test("storage deduplicates normalized proposal and target then caps valid sugges
           }]
         }),
         applicationSuggestions: [
-          { proposal: "改善   比較流程", productContextTarget: "coreWorkflows", supportRefs: ["e1"], verificationQuestion: "A？" },
-          { proposal: "改善 比較流程", productContextTarget: "coreWorkflows", supportRefs: ["e1"], verificationQuestion: "重複項？" },
-          { proposal: "改善 比較流程", productContextTarget: "currentCapabilities", supportRefs: ["e1"], verificationQuestion: "B？" },
-          { proposal: "增加驗證提示", productContextTarget: "evaluationCriteria", supportRefs: ["e1"], verificationQuestion: "C？" },
-          { proposal: "補上未知項", productContextTarget: "unknowns", supportRefs: ["e1"], verificationQuestion: "D？" }
+          { sourcePattern: "改善   比較流程", fitReason: "可能加速比較", smallTest: "只在一處試", productContextTarget: "coreWorkflows", supportRefs: ["e1"], verificationQuestion: "A？" },
+          { sourcePattern: "改善 比較流程", fitReason: "看似不同的理由", smallTest: "只在一處試", productContextTarget: "coreWorkflows", supportRefs: ["e1"], verificationQuestion: "重複項？" },
+          { sourcePattern: "改善 比較流程", fitReason: "可能強化既有能力", smallTest: "只在一處試", productContextTarget: "currentCapabilities", supportRefs: ["e1"], verificationQuestion: "B？" },
+          { sourcePattern: "增加驗證提示", fitReason: "可能改善評估", smallTest: "只在一處試", productContextTarget: "evaluationCriteria", supportRefs: ["e1"], verificationQuestion: "C？" },
+          { sourcePattern: "補上未知項", fitReason: "可能補齊未知", smallTest: "只在一處試", productContextTarget: "unknowns", supportRefs: ["e1"], verificationQuestion: "D？" }
         ]
       }
     }
@@ -539,15 +584,17 @@ test("storage deduplicates normalized proposal and target then caps valid sugges
   const [stored] = await listProductSignalAnalyses(storage, ["capped"]);
 
   assert.deepEqual(stored?.applicationSuggestions, [
-    { proposal: "改善 比較流程", productContextTarget: "coreWorkflows", supportRefs: ["e1"], verificationQuestion: "A？" },
-    { proposal: "改善 比較流程", productContextTarget: "currentCapabilities", supportRefs: ["e1"], verificationQuestion: "B？" },
-    { proposal: "增加驗證提示", productContextTarget: "evaluationCriteria", supportRefs: ["e1"], verificationQuestion: "C？" }
+    { sourcePattern: "改善 比較流程", fitReason: "可能加速比較", smallTest: "只在一處試", productContextTarget: "coreWorkflows", supportRefs: ["e1"], verificationQuestion: "A？" },
+    { sourcePattern: "改善 比較流程", fitReason: "可能強化既有能力", smallTest: "只在一處試", productContextTarget: "currentCapabilities", supportRefs: ["e1"], verificationQuestion: "B？" },
+    { sourcePattern: "增加驗證提示", fitReason: "可能改善評估", smallTest: "只在一處試", productContextTarget: "evaluationCriteria", supportRefs: ["e1"], verificationQuestion: "C？" }
   ]);
 });
 
 test("storage omits application suggestions for noise, non-try, and legacy records without the field", async () => {
   const validSuggestion = {
-    proposal: "加入證據提示。",
+    sourcePattern: "在關鍵步驟加入證據提示",
+    fitReason: "可能減少回查來源的時間",
+    smallTest: "只在一處加入證據提示",
     productContextTarget: "coreWorkflows" as const,
     supportRefs: ["e1"],
     verificationQuestion: "提示是否減少回查時間？"

@@ -117,9 +117,18 @@ test("provider payloads use structured schema for ProductSignalAnalyzer", () => 
     items: {
       type: "object",
       additionalProperties: false,
-      required: ["proposal", "product_context_target", "support_refs", "verification_question"],
+      required: [
+        "source_pattern",
+        "fit_reason",
+        "small_test",
+        "product_context_target",
+        "support_refs",
+        "verification_question"
+      ],
       properties: {
-        proposal: { type: "string" },
+        source_pattern: { type: "string" },
+        fit_reason: { type: "string" },
+        small_test: { type: "string" },
         product_context_target: { type: "string", enum: PRODUCT_CONTEXT_FIELDS },
         support_refs: {
           type: "array",

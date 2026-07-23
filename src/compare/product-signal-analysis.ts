@@ -141,9 +141,18 @@ export const PRODUCT_SIGNAL_ANALYSIS_JSON_SCHEMA = {
       items: {
         type: "object",
         additionalProperties: false,
-        required: ["proposal", "product_context_target", "support_refs", "verification_question"],
+        required: [
+          "source_pattern",
+          "fit_reason",
+          "small_test",
+          "product_context_target",
+          "support_refs",
+          "verification_question"
+        ],
         properties: {
-          proposal: { type: "string" },
+          source_pattern: { type: "string" },
+          fit_reason: { type: "string" },
+          small_test: { type: "string" },
           product_context_target: { type: "string", enum: PRODUCT_CONTEXT_FIELDS },
           support_refs: {
             type: "array",
@@ -457,7 +466,9 @@ function readApplicationSuggestions(
       continue;
     }
     const raw = entry as Record<string, unknown>;
-    const proposal = readTrimmedString(raw.proposal);
+    const sourcePattern = readTrimmedString(raw.sourcePattern ?? raw.source_pattern).slice(0, 80);
+    const fitReason = readTrimmedString(raw.fitReason ?? raw.fit_reason).slice(0, 100);
+    const smallTest = readTrimmedString(raw.smallTest ?? raw.small_test).slice(0, 100);
     const productContextTarget = readProductContextTarget(
       raw.productContextTarget ?? raw.product_context_target
     );
@@ -466,7 +477,9 @@ function readApplicationSuggestions(
     );
     const rawSupportRefs = raw.supportRefs ?? raw.support_refs;
     if (
-      !proposal
+      !sourcePattern
+      || !fitReason
+      || !smallTest
       || !productContextTarget
       || !verificationQuestion
       || !Array.isArray(rawSupportRefs)
@@ -491,14 +504,19 @@ function readApplicationSuggestions(
       continue;
     }
 
-    const normalizedProposal = proposal.slice(0, 120);
-    const dedupeKey = `${normalizedProposal.toLocaleLowerCase()}\u0000${productContextTarget}`;
+    const dedupeKey = [
+      sourcePattern.toLocaleLowerCase(),
+      productContextTarget,
+      smallTest.toLocaleLowerCase()
+    ].join("\u0000");
     if (seen.has(dedupeKey)) {
       continue;
     }
     seen.add(dedupeKey);
     suggestions.push({
-      proposal: normalizedProposal,
+      sourcePattern,
+      fitReason,
+      smallTest,
       productContextTarget,
       supportRefs,
       verificationQuestion: verificationQuestion.slice(0, 100)

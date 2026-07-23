@@ -4916,7 +4916,9 @@ test("Product Action renders application proposals as pending verification with 
         { ref: "e2", quoteSummary: "第二段", whyItMatters: "支持提案", grounding: "text_grounded" as const }
       ],
       applicationSuggestions: [{
-        proposal: "在 Product Action 加入來源狀態檢查。",
+        sourcePattern: "把來源狀態直接放進操作卡",
+        fitReason: "可能降低核心流程的來源誤讀",
+        smallTest: "在 Product Action 加入來源狀態檢查。",
         productContextTarget: "coreWorkflows" as const,
         supportRefs: ["e1", "e2"],
         verificationQuestion: "使用者能否在一次 bounded test 中正確分辨來源狀態？"
@@ -4971,13 +4973,17 @@ test("Product Action keeps same-proposal application rows distinct across target
         ],
         applicationSuggestions: [
           {
-            proposal: "相同提案文字與來源。",
+            sourcePattern: "相同的來源做法與小試",
+            fitReason: "可能適合",
+            smallTest: "相同的小試內容",
             productContextTarget: "coreWorkflows" as const,
             supportRefs: ["e1"],
             verificationQuestion: "核心流程是否通過 bounded check？"
           },
           {
-            proposal: "相同提案文字與來源。",
+            sourcePattern: "相同的來源做法與小試",
+            fitReason: "可能適合",
+            smallTest: "相同的小試內容",
             productContextTarget: "evaluationCriteria" as const,
             supportRefs: ["e1"],
             verificationQuestion: "評估標準是否通過 bounded check？"

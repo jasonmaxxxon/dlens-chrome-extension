@@ -421,13 +421,17 @@ test("valid application suggestions replace generic rows, keep all refs, and do 
       ],
       applicationSuggestions: [
         {
-          proposal: "把證據卡的來源狀態套用到 Product Action。",
+          sourcePattern: "把證據卡的來源狀態直接放進操作卡",
+          fitReason: "可能降低核心流程的來源誤讀",
+          smallTest: "在 Product Action 加一個來源狀態檢查",
           productContextTarget: "coreWorkflows",
           supportRefs: ["e1", "e2"],
           verificationQuestion: "小型可用性測試是否降低來源誤讀？"
         },
         {
-          proposal: "這一則因任一 ref 無法解析而整則丟棄。",
+          sourcePattern: "這一則因任一 ref 無法解析而整則丟棄",
+          fitReason: "可能無效",
+          smallTest: "不應顯示",
           productContextTarget: "evaluationCriteria",
           supportRefs: ["e2", "e3"],
           verificationQuestion: "e3 是否仍有目前捕捉文字？"
@@ -442,8 +446,11 @@ test("valid application suggestions replace generic rows, keep all refs, and do 
 
   assert.deepEqual(result.recommendations, [{
     kind: "application",
-    text: "把證據卡的來源狀態套用到 Product Action。",
     support: "text_grounded",
+    text: "在 Product Action 加一個來源狀態檢查",
+    sourcePattern: "把證據卡的來源狀態直接放進操作卡",
+    fitReason: "可能降低核心流程的來源誤讀",
+    smallTest: "在 Product Action 加一個來源狀態檢查",
     sourceRefs: ["e1", "e2"],
     productContextTarget: "coreWorkflows",
     verificationQuestion: "小型可用性測試是否降低來源誤讀？"
@@ -453,13 +460,17 @@ test("valid application suggestions replace generic rows, keep all refs, and do 
 
 test("application suggestion presentation gate rejects malformed refs and fields independently", () => {
   const base = {
-    proposal: "有效提案",
+    sourcePattern: "有效的來源做法",
+    fitReason: "可能適合目前能力",
+    smallTest: "在既有能力上做一次 bounded 小試",
     productContextTarget: "currentCapabilities",
     supportRefs: ["e1"],
     verificationQuestion: "目前能力是否能完成這個 bounded experiment？"
   };
   const malformed = [
-    { ...base, proposal: "   " },
+    { ...base, sourcePattern: "   " },
+    { ...base, fitReason: "   " },
+    { ...base, smallTest: "   " },
     { ...base, productContextTarget: "technicalLearning" },
     { ...base, supportRefs: [] },
     { ...base, supportRefs: ["e1", "e1"] },
@@ -510,7 +521,9 @@ test("application rows produce an application recommendation tier", () => {
         grounding: "text_grounded"
       }],
       applicationSuggestions: [{
-        proposal: "先在一個入口測試預覽後確認",
+        sourcePattern: "先展示可檢查結果，再要求採用",
+        fitReason: "可能提高核心流程的首次完成率",
+        smallTest: "先在一個入口測試預覽後確認",
         productContextTarget: "coreWorkflows",
         supportRefs: ["e1"],
         verificationQuestion: "首次完成率是否提高？"
@@ -545,7 +558,9 @@ test("no recommendation rows produce a none tier", () => {
 
 test("application suggestions require a full non-noise try analysis", () => {
   const applicationSuggestions = [{
-    proposal: "只允許 try 卡顯示的提案。",
+    sourcePattern: "只允許 try 卡顯示的來源做法",
+    fitReason: "可能符合評估標準",
+    smallTest: "在評估標準上做一次 bounded check",
     productContextTarget: "evaluationCriteria" as const,
     supportRefs: ["e1"],
     verificationQuestion: "這個提案能否通過一個 bounded check？"

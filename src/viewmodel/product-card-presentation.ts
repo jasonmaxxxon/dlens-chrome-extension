@@ -86,8 +86,13 @@ export type ProductCardRecommendation =
     }
   | {
       kind: "application";
-      text: string;
       support: "text_grounded";
+      // Temporary presentation alias for Task 2 only.
+      // Remove it after Task 4 changes the View to render the three real fields.
+      text: string;
+      sourcePattern: string;
+      fitReason: string;
+      smallTest: string;
       sourceRefs: string[];
       productContextTarget: ProductContextField;
       verificationQuestion: string;
@@ -311,12 +316,16 @@ function deriveApplicationRecommendations(input: ProductCardInput): ProductCardR
 
   for (const suggestion of analysis.applicationSuggestions ?? []) {
     if (!suggestion || typeof suggestion !== "object") continue;
-    const proposal = readBoundedRecommendationText(suggestion.proposal, 120);
+    const sourcePattern = readBoundedRecommendationText(suggestion.sourcePattern, 80);
+    const fitReason = readBoundedRecommendationText(suggestion.fitReason, 100);
+    const smallTest = readBoundedRecommendationText(suggestion.smallTest, 100);
     const verificationQuestion = readBoundedRecommendationText(suggestion.verificationQuestion, 100);
     const target = suggestion.productContextTarget;
     const refs = suggestion.supportRefs;
     if (
-      !proposal
+      !sourcePattern
+      || !fitReason
+      || !smallTest
       || !verificationQuestion
       || !productContextFields.has(target)
       || !Array.isArray(refs)
@@ -332,8 +341,12 @@ function deriveApplicationRecommendations(input: ProductCardInput): ProductCardR
     }
     recommendations.push({
       kind: "application",
-      text: proposal,
       support: "text_grounded",
+      // Temporary alias; the View still reads recommendation.text until Task 4.
+      text: smallTest,
+      sourcePattern,
+      fitReason,
+      smallTest,
       sourceRefs: [...refs],
       productContextTarget: target,
       verificationQuestion
