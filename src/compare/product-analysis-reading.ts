@@ -4,6 +4,7 @@ import {
   buildSignalReadingCacheKey,
   type SignalReading
 } from "./signal-reading-storage.ts";
+import type { SignalReadingSourcePacket } from "./signal-reading.ts";
 
 function hashText(value: string): string {
   let hash = 2166136261;
@@ -12,6 +13,31 @@ function hashText(value: string): string {
     hash = Math.imul(hash, 16777619);
   }
   return (hash >>> 0).toString(36);
+}
+
+export function buildProductAnalysisReadingSourcePacketHash(
+  sourcePacket: SignalReadingSourcePacket
+): string {
+  return hashText(JSON.stringify(sourcePacket));
+}
+
+export function buildProductAnalysisReadingCacheKey({
+  analysis,
+  sourcePacketHash
+}: {
+  analysis: ProductSignalAnalysis;
+  sourcePacketHash: string;
+}): string {
+  if (!analysis.productReading) {
+    throw new Error("Product analysis is missing productReading");
+  }
+  return buildSignalReadingCacheKey({
+    signalId: analysis.signalId,
+    productContextHash: analysis.productContextHash,
+    sourcePacketHash,
+    promptVersion: analysis.promptVersion,
+    contentHash: hashText(JSON.stringify(analysis.productReading))
+  });
 }
 
 export function materializeProductAnalysisReading({
@@ -43,14 +69,10 @@ export function materializeProductAnalysisReading({
     })),
     analysisPromptVersion: analysis.promptVersion
   };
-  const sourcePacketHash = hashText(JSON.stringify(sourcePacket));
-  const contentHash = hashText(JSON.stringify(productReading));
-  const cacheKey = buildSignalReadingCacheKey({
-    signalId: analysis.signalId,
-    productContextHash: analysis.productContextHash,
-    sourcePacketHash,
-    promptVersion: analysis.promptVersion,
-    contentHash
+  const sourcePacketHash = buildProductAnalysisReadingSourcePacketHash(sourcePacket);
+  const cacheKey = buildProductAnalysisReadingCacheKey({
+    analysis,
+    sourcePacketHash
   });
 
   return {

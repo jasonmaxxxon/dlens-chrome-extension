@@ -5,6 +5,12 @@ import {
   saveProductAnalysisResult
 } from "../src/compare/product-analysis-result-storage.ts";
 import {
+  materializeProductAnalysisReading
+} from "../src/compare/product-analysis-reading.ts";
+import type {
+  ProductSignalAnalyzerInput
+} from "../src/compare/product-signal-analysis.ts";
+import {
   PRODUCT_SIGNAL_ANALYSES_STORAGE_KEY
 } from "../src/compare/product-signal-storage.ts";
 import {
@@ -30,7 +36,9 @@ function makeStorage(initial: Record<string, unknown> = {}) {
   };
 }
 
-function makeAnalysis(): ProductSignalAnalysis {
+function makeAnalysis(
+  overrides: Partial<ProductSignalAnalysis> = {}
+): ProductSignalAnalysis {
   return {
     signalId: "sig_1",
     signalType: "learning",
@@ -73,38 +81,41 @@ function makeAnalysis(): ProductSignalAnalysis {
     promptVersion: "v21",
     model: "google:gemini-3.1-flash-lite-preview",
     analyzedAt: "2026-07-23T00:00:00.000Z",
-    status: "complete"
+    status: "complete",
+    ...overrides
   };
 }
 
 function makeReading(overrides: Partial<SignalReading> = {}): SignalReading {
+  const reading = materializeProductAnalysisReading({
+    analysis: makeAnalysis(),
+    analyzerInput: makeAnalyzerInput(),
+    postUrl: "https://www.threads.com/@author/post/abc"
+  });
+  assert.ok(reading);
+  return { ...reading, ...overrides };
+}
+
+function makeAnalyzerInput(): ProductSignalAnalyzerInput {
   return {
     signalId: "sig_1",
-    cacheKey: "sig_1::ctx_1::packet::v21::content",
-    productContextHash: "ctx_1",
-    sourcePacketHash: "packet",
-    promptVersion: "v21",
-    headline: "值得注意的互動模式",
-    reading: "原文與留言共同顯示這個互動模式值得有限驗證。",
-    generatedAt: "2026-07-23T00:00:00.000Z",
-    model: "google:gemini-3.1-flash-lite-preview",
-    sourceRefs: ["root", "e1"],
-    sourcePacket: {
-      rootText: "原文展示互動模式。",
-      assembledContent: "原文展示互動模式。\n\n留言認為值得驗證。",
-      postUrl: "https://www.threads.com/@author/post/abc",
-      representativeComments: [{
-        ref: "e1",
-        author: "userA",
-        text: "這值得有限驗證。",
-        likeCount: 12
-      }],
-      analysisPromptVersion: "v21"
-    },
-    origin: "product_analysis",
-    reviewState: "pending",
-    feedbackEvents: [],
-    ...overrides
+    source: "threads",
+    rootText: "原文展示互動模式。",
+    assembledContent: "原文展示互動模式。\n\n留言認為值得驗證。",
+    discussionReplies: [{
+      id: "reply-1",
+      author: "userA",
+      text: "這值得有限驗證。",
+      likeCount: 12,
+      role: "audience",
+      isOrphan: false,
+      parentId: null,
+      resolvedParentId: null
+    }],
+    productContext: {
+      productPromise: "幫產品團隊讀懂社群訊號。"
+    } as ProductSignalAnalyzerInput["productContext"],
+    productContextHash: "ctx_1"
   };
 }
 
@@ -160,4 +171,74 @@ test("actionable analysis cannot publish without its projected reading", async (
     /requires a projected reading/
   );
   assert.equal(storage.setCalls.length, 0);
+});
+
+test("non-actionable analysis discards a supplied reading", async () => {
+  const cases: Partial<ProductSignalAnalysis>[] = [
+    { verdict: "park" },
+    { verdict: "insufficient_data" },
+    { signalType: "noise" }
+  ];
+
+  for (const overrides of cases) {
+    const storage = makeStorage();
+    const result = await saveProductAnalysisResult(
+      storage,
+      makeAnalysis(overrides),
+      makeReading()
+    );
+
+    assert.equal(result.reading, null);
+    assert.deepEqual(storage.data[SIGNAL_READINGS_STORAGE_KEY], {});
+    assert.equal(storage.setCalls.length, 1);
+  }
+});
+
+test("projected reading identity must match its analysis and cache structure", async () => {
+  const mismatches: Partial<SignalReading>[] = [
+    { signalId: "sig_forged" },
+    { productContextHash: "ctx_forged" },
+    { promptVersion: "v999" },
+    { sourcePacketHash: "packet_forged" },
+    { cacheKey: "sig_1::ctx_1::forged::v21::forged" },
+    { reading: "被置換的判讀內容。" },
+    {
+      sourcePacket: {
+        ...makeReading().sourcePacket,
+        assembledContent: "被置換的來源內容。"
+      }
+    }
+  ];
+
+  for (const mismatch of mismatches) {
+    const storage = makeStorage();
+    await assert.rejects(
+      saveProductAnalysisResult(storage, makeAnalysis(), makeReading(mismatch)),
+      /projected reading identity/
+    );
+    assert.equal(storage.setCalls.length, 0);
+  }
+});
+
+test("same cache key with different stored identity does not inherit review", async () => {
+  const incoming = makeReading();
+  const forgedExisting: SignalReading = {
+    ...incoming,
+    reading: "不同內容卻偽造相同 cache key。",
+    reviewState: "filed",
+    feedbackEvents: [{ type: "filed", at: "2026-07-23T00:00:00.000Z" }]
+  };
+  const storage = makeStorage({
+    [SIGNAL_READINGS_STORAGE_KEY]: {
+      [incoming.cacheKey]: forgedExisting
+    }
+  });
+
+  const result = await saveProductAnalysisResult(storage, makeAnalysis(), incoming);
+  const stored = await getSignalReading(storage, incoming.cacheKey);
+
+  assert.equal(result.reading?.reviewState, "pending");
+  assert.deepEqual(result.reading?.feedbackEvents, []);
+  assert.equal(stored?.reviewState, "pending");
+  assert.deepEqual(stored?.feedbackEvents, []);
 });
