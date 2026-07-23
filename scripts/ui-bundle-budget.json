@@ -1,7 +1,7 @@
 {
   "threads": {
-    "rawBytes": 910000,
-    "gzip9Bytes": 256000,
-    "brotliBytes": 203000
+    "rawBytes": 913000,
+    "gzip9Bytes": 257000,
+    "brotliBytes": 205000
   }
 }
