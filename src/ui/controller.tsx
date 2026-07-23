@@ -92,7 +92,6 @@ const SNAPSHOT_RECONCILE_MESSAGE_TYPES = new Set<string>([
   "session/refresh-all",
   "session/queue-items-and-start-processing",
   "product/analyze-signals",
-  "product/synthesize-signal-reading",
   "product/review-signal-reading",
   "folder/synthesis/generate",
   "folder/synthesis/clear",

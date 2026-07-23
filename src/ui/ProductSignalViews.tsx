@@ -11,16 +11,16 @@ import type {
   ProductSignalVerdict
 } from "../state/types";
 import { isProductContextSourceReady } from "../compare/product-context";
-import type { ProductSignalEvidenceEntry } from "../compare/product-signal-analysis";
+import {
+  PRODUCT_SIGNAL_ANALYSIS_PROMPT_VERSION,
+  type ProductSignalEvidenceEntry
+} from "../compare/product-signal-analysis";
 import type { SignalPacketExportFormat, SignalPacketExportResult } from "../compare/signal-packet-export";
 import {
   latestReadingBySignalId,
-  signalReadingStaleness,
   type SignalReading,
-  type SignalReadingReviewState,
-  type SignalReadingStaleness
+  type SignalReadingReviewState
 } from "../compare/signal-reading-storage";
-import { SIGNAL_READING_PROMPT_VERSION } from "../compare/signal-reading";
 import { aiOutputProvenanceFromModel, describeAiOutputProvenance } from "../state/ai-provenance";
 import type { TargetDescriptor } from "../contracts/target-descriptor";
 import { describeProcessingError, type ProcessingErrorClass, type ProcessingErrorView } from "../state/processing-errors";
@@ -1553,14 +1553,6 @@ function signalReadingReviewState(reading: SignalReading | undefined): SignalRea
   return reading?.reviewState ?? "pending";
 }
 
-function signalReadingStalenessCopy(staleness: SignalReadingStaleness): string {
-  const labels: Record<SignalReadingStaleness["reasons"][number], string> = {
-    prompt_version: "prompt 版本較舊",
-    missing_provenance: "缺 provenance"
-  };
-  return staleness.reasons.map((reason) => labels[reason]).join("、");
-}
-
 function renderEmphasizedText(text: string): ReactNode[] {
   const pattern = /\*\*([^*]+)\*\*/g;
   // Measure how much of the text the author bolded. When most of a passage
@@ -1599,121 +1591,54 @@ function renderEmphasizedText(text: string): ReactNode[] {
   return nodes.length ? nodes : [text];
 }
 
-function stripMarkdownEmphasis(text: string): string {
-  return text.replace(/\*\*([^*]+)\*\*/g, "$1").replace(/\s+/g, " ").trim();
+function createSignalReadingDisplayCopy(
+  reading: SignalReading,
+  fallbackHeadline = ""
+): { title: string; body: string } {
+  return {
+    title: reading.headline?.trim() || fallbackHeadline.trim(),
+    body: reading.reading.trim()
+  };
 }
 
-function splitReadingFirstSentence(text: string): { first: string; rest: string } {
-  const trimmed = text.trim();
-  const match = trimmed.match(/^([\s\S]*?[。！？!?])([\s\S]*)$/);
-  if (!match) {
-    return { first: trimmed, rest: "" };
-  }
-  return { first: match[1].trim(), rest: match[2].trim() };
-}
-
-function deriveReadingLeadTitle(sentence: string): string {
-  const plain = stripMarkdownEmphasis(sentence);
-  const quotedAfterContrast = plain.match(/而在於「([^」]{4,42})」/);
-  if (quotedAfterContrast) {
-    return quotedAfterContrast[1].trim();
-  }
-  const quotedAfterPivot = plain.match(/(?:在於|是|提醒了我們[:：]?)「([^」]{4,42})」/);
-  if (quotedAfterPivot) {
-    return quotedAfterPivot[1].trim();
-  }
-  const afterColon = plain.match(/[:：]\s*([^。！？!?]{6,42})/);
-  if (afterColon) {
-    return afterColon[1].trim();
-  }
-  return excerpt(plain, 34);
-}
-
-function createSignalReadingDisplayCopy(reading: string): { title: string; summary: string; body: string } {
-  const normalized = reading.trim();
-  if (!normalized) {
-    return { title: "", summary: "", body: "" };
-  }
-  const paragraphs = normalized.split(/\n{2,}/);
-  const { first, rest } = splitReadingFirstSentence(paragraphs[0] ?? normalized);
-  const title = deriveReadingLeadTitle(first);
-  const summary = first;
-  const bodyParts = [
-    rest,
-    ...paragraphs.slice(1)
-  ].map((part) => part.trim()).filter(Boolean);
-  return { title, summary, body: bodyParts.join("\n\n") };
-}
-
-function SignalReadingBody({ reading }: { reading: string }) {
-  const copy = createSignalReadingDisplayCopy(reading);
+function SignalReadingBody({
+  reading,
+  fallbackHeadline
+}: {
+  reading: SignalReading;
+  fallbackHeadline: string;
+}) {
+  const copy = createSignalReadingDisplayCopy(reading, fallbackHeadline);
   if (!copy.title) {
     return null;
   }
   return (
     <div data-signal-reading-display-copy="true" style={{ display: "grid", gap: 9 }}>
-      <div style={{ display: "grid", gap: 4 }}>
+      <div
+        data-signal-reading-lead-title="true"
+        style={{
+          fontSize: 15,
+          lineHeight: 1.38,
+          color: tokens.color.ink,
+          fontWeight: 700,
+          overflowWrap: "anywhere"
+        }}
+      >
+        {copy.title}
+      </div>
+      {copy.body ? (
         <div
-          data-signal-reading-lead-title="true"
-          style={{
-            fontSize: 15,
-            lineHeight: 1.38,
-            color: tokens.color.ink,
-            fontWeight: 700,
-            overflowWrap: "anywhere"
-          }}
-        >
-          {copy.title}
-        </div>
-        <div
-          data-signal-reading-lead-summary="true"
+          data-product-reading-body="true"
           style={{
             fontSize: 13,
             lineHeight: 1.72,
             color: tokens.color.subInk,
+            whiteSpace: "pre-wrap",
             overflowWrap: "anywhere"
           }}
         >
-          {renderEmphasizedText(copy.summary)}
+          {renderEmphasizedText(copy.body)}
         </div>
-      </div>
-      {copy.body ? (
-        <details
-          data-signal-reading-full="true"
-          style={{
-            borderTop: `1px solid ${tokens.color.line}`,
-            paddingTop: 8
-          }}
-        >
-          <summary
-            data-signal-reading-full-summary="true"
-            className="dlens-expand-trigger"
-            style={{
-              cursor: "pointer",
-              listStyle: "none",
-              display: "inline-flex",
-              alignItems: "center",
-              gap: 6,
-              ...textStyles.fieldLabel,
-              color: tokens.color.product
-            }}
-          >
-            <span aria-hidden>▸</span>完整判讀
-          </summary>
-          <div
-            data-signal-reading-full-body="true"
-            style={{
-              marginTop: 8,
-              fontSize: 13,
-              lineHeight: 1.72,
-              color: tokens.color.subInk,
-              whiteSpace: "pre-wrap",
-              overflowWrap: "anywhere"
-            }}
-          >
-            {renderEmphasizedText(copy.body)}
-          </div>
-        </details>
       ) : null}
     </div>
   );
@@ -2432,12 +2357,6 @@ function RecoveredAnalysesBoard({
   );
 }
 
-type SynthesizeSignalReading = (
-  signalId: string,
-  sessionId: string,
-  force?: boolean
-) => Promise<{ ok: true; reading: string } | { ok: false; error: string }>;
-
 function ProductActionBriefExport({
   signals,
   analyses,
@@ -2757,56 +2676,49 @@ function VerdictFilterTiles({
 }
 
 function ProductActionReadingOperations({
+  analysis,
   signal,
   reading,
   sourceUrl,
   citations,
-  onSynthesizeSignalReading,
+  agentBrief,
+  agentBriefCopyStatus,
+  onCopyAgentBrief,
   onReviewSignalReading
 }: {
+  analysis: ProductSignalAnalysis;
   signal?: ProductSignalViewModel;
-  reading?: SignalReading;
+  reading: SignalReading;
   sourceUrl: string;
   citations: EvidenceCitation[];
-  onSynthesizeSignalReading?: SynthesizeSignalReading;
+  agentBrief: string;
+  agentBriefCopyStatus: AgentBriefCopyStatus;
+  onCopyAgentBrief: () => void;
   onReviewSignalReading?: ReviewSignalReading;
 }) {
   const incomingReviewState = signalReadingReviewState(reading);
-  const [localReading, setLocalReading] = useState<string | null>(null);
-  const [generating, setGenerating] = useState(false);
   const [reviewState, setReviewState] = useState<SignalReadingReviewState>(() => incomingReviewState);
   const [notice, setNotice] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const displayedReading = reading?.reading || localReading;
-  const staleness = reading
-    ? signalReadingStaleness(reading, SIGNAL_READING_PROMPT_VERSION)
-    : { stale: false, reasons: [] };
+  const evidenceState = analysis.judgmentAxes?.evidenceState;
+  const evidenceStateLabel = evidenceState === "text_sufficient"
+    ? "文字證據足夠"
+    : evidenceState === "external_unverified"
+      ? "外部內容未驗證"
+      : evidenceState === "insufficient"
+        ? "文字證據不足"
+        : "證據狀態未標示";
+  const provenanceStale = reading.promptVersion !== analysis.promptVersion
+    || reading.productContextHash !== analysis.productContextHash;
 
   useEffect(() => {
     setReviewState(incomingReviewState);
-    setLocalReading(null);
     setNotice(null);
     setError(null);
   }, [reading?.cacheKey, reading?.generatedAt, incomingReviewState]);
 
-  const generate = (force: boolean) => {
-    if (!signal || !onSynthesizeSignalReading || generating) return;
-    setGenerating(true);
-    setError(null);
-    setNotice(null);
-    void onSynthesizeSignalReading(signal.signalId, signal.sessionId, force).then((result) => {
-      if (result.ok) {
-        setLocalReading(result.reading);
-        setNotice(force ? "判讀已重新生成。" : "判讀已生成。");
-      } else {
-        setError(result.error);
-      }
-      setGenerating(false);
-    });
-  };
-
   const review = (decision: SignalReadingReviewDecision) => {
-    if (!reading || !onReviewSignalReading) return;
+    if (!onReviewSignalReading) return;
     setError(null);
     setNotice(null);
     void onReviewSignalReading(reading.cacheKey, decision).then((result) => {
@@ -2820,100 +2732,110 @@ function ProductActionReadingOperations({
     });
   };
 
-  if (!signal || (!displayedReading && !onSynthesizeSignalReading)) {
-    return null;
-  }
-
   return (
     <AttentionSurface
       as="section"
-      state={generating ? "generating" : "none"}
+      state="none"
       dataAttrs={{
-        "data-product-action-reading": reading ? "existing" : "missing",
-        "data-product-deep-reading-surface": "true"
+        "data-product-reading-card": "true",
+        "data-product-reading-origin": reading.origin ?? "legacy"
       }}
-      style={{ display: "grid", gap: 10, paddingTop: 12, borderTop: `1px solid ${tokens.color.line}`, minWidth: 0 }}
+      style={glassCardStyle({
+        gap: 12,
+        padding: 16,
+        boxSizing: "border-box",
+        maxWidth: "100%",
+        minWidth: 0
+      })}
     >
       <div style={betweenRowStyle({ alignItems: "baseline" })}>
-        <span style={{ ...textStyles.fieldLabel, color: tokens.color.product }}>深度判讀</span>
-        {reading ? <Stamp tone={SIGNAL_READING_REVIEW_TONES[reviewState]}>{SIGNAL_READING_REVIEW_LABELS[reviewState]}</Stamp> : null}
-      </div>
-      {displayedReading ? <SignalReadingBody reading={displayedReading} /> : (
-        <div style={{ fontSize: 12.5, lineHeight: 1.6, color: tokens.color.subInk }}>
-          尚未生成深度判讀；可直接從目前候選生成。
+        <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
+          <span style={{ ...textStyles.fieldLabel, color: tokens.color.product }}>完整判讀</span>
+          <Stamp tone={analysis.verdict === "try" ? "success" : "warning"}>
+            {VERDICT_LABELS[analysis.verdict]}
+          </Stamp>
         </div>
-      )}
-      <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
-        {!reading && onSynthesizeSignalReading ? (
-          <PrimaryButton
-            dataAttrs={{ "data-product-action-generate-reading": "true" }}
-            onClick={() => generate(false)}
-            disabled={generating}
-            ariaBusy={generating}
-          >
-            {generating ? (
-              <>
-                <SearchingOrb />
-                <span>生成中…</span>
-              </>
-            ) : "生成深度判讀"}
-          </PrimaryButton>
-        ) : null}
-        {reading && onSynthesizeSignalReading ? (
-          <SecondaryButton
-            dataAttrs={{ "data-product-action-regenerate-reading": "true" }}
-            onClick={() => generate(true)}
-            disabled={generating}
-            ariaBusy={generating}
-          >
-            {generating ? (
-              <>
-                <SearchingOrb />
-                <span>生成中…</span>
-              </>
-            ) : "重新生成判讀"}
-          </SecondaryButton>
-        ) : null}
-        {reading && onReviewSignalReading ? (
-          <>
-            <PrimaryButton
-              dataAttrs={{ "data-product-action-review": "filed" }}
-              disabled={reviewState === "filed"}
-              onClick={() => review("filed")}
-            >
-              {reviewState === "filed" ? "已收錄" : "收錄此判讀"}
-            </PrimaryButton>
-            <SecondaryButton dataAttrs={{ "data-product-action-review": "deferred" }} onClick={() => review("deferred")}>待看</SecondaryButton>
-            <SecondaryButton dataAttrs={{ "data-product-action-review": "rejected" }} onClick={() => review("rejected")}>退回</SecondaryButton>
-          </>
-        ) : null}
+        <Stamp tone={SIGNAL_READING_REVIEW_TONES[reviewState]}>{SIGNAL_READING_REVIEW_LABELS[reviewState]}</Stamp>
       </div>
+      <SignalReadingBody reading={reading} fallbackHeadline={analysis.contentSummary} />
+      <div
+        data-product-reading-evidence-state={evidenceState ?? "unknown"}
+        style={{ display: "flex", gap: 7, alignItems: "center", flexWrap: "wrap", ...textStyles.meta, color: tokens.color.softInk }}
+      >
+        <span>{evidenceStateLabel}</span>
+        {reading.sourceRefs.length ? <span>{reading.sourceRefs.map((ref) => ref === ROOT_SPAN_REF ? "原文" : ref).join("、")}</span> : null}
+      </div>
+      <footer
+        data-product-reading-footer="true"
+        style={betweenRowStyle({ paddingTop: 10, borderTop: `1px solid ${tokens.color.line}`, alignItems: "center" })}
+      >
+        <div data-product-reading-review-actions="true" style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
+          {onReviewSignalReading ? (
+            <>
+              <PrimaryButton
+                dataAttrs={{ "data-product-action-review": "filed" }}
+                disabled={reviewState === "filed"}
+                onClick={() => review("filed")}
+              >
+                {reviewState === "filed" ? "已收錄" : "收錄此判讀"}
+              </PrimaryButton>
+              <SecondaryButton dataAttrs={{ "data-product-action-review": "deferred" }} onClick={() => review("deferred")}>待看</SecondaryButton>
+              <SecondaryButton dataAttrs={{ "data-product-action-review": "rejected" }} onClick={() => review("rejected")}>退回</SecondaryButton>
+            </>
+          ) : null}
+        </div>
+        {agentBrief ? (
+          <div data-product-action-agent-brief="true" style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
+            <span style={{ ...textStyles.fieldLabel, color: tokens.color.product }}>交給 Agent</span>
+            {analysis.agentTaskSpec?.taskTitle?.trim() ? <span style={{ ...textStyles.meta, color: tokens.color.softInk, overflowWrap: "anywhere" }}>{analysis.agentTaskSpec.taskTitle.trim()}</span> : null}
+            <SecondaryButton dataAttrs={{ "data-product-action-agent-brief-copy": "true" }} onClick={onCopyAgentBrief} style={{ minHeight: 44 }}>複製 Agent brief</SecondaryButton>
+            <span data-product-action-agent-brief-copy-status={agentBriefCopyStatus} role="status" aria-live="polite" style={{ ...textStyles.meta, color: agentBriefCopyStatus === "error" ? tokens.color.queued : tokens.color.success }}>{agentBriefCopyStatus === "copied" ? "已複製" : agentBriefCopyStatus === "error" ? "複製失敗" : ""}</span>
+          </div>
+        ) : null}
+      </footer>
       {notice ? <div data-product-action-reading-notice="true" role="status" aria-live="polite" style={{ fontSize: 12, color: tokens.color.success }}>{notice}</div> : null}
       {error ? <div data-product-action-reading-error="true" role="alert" style={{ fontSize: 12, color: tokens.color.queued }}>{error}</div> : null}
-      {reading ? (
-        <details data-product-action-reading-secondary="true" style={{ borderTop: `1px solid ${tokens.color.line}`, paddingTop: 8 }}>
-          <summary className="dlens-expand-trigger" style={{ cursor: "pointer", ...textStyles.fieldLabel, color: tokens.color.softInk }}>
-            來源、引用與新鮮度
-          </summary>
-          <div style={{ display: "grid", gap: 9, marginTop: 9, minWidth: 0 }}>
-            {staleness.stale ? (
-              <div data-product-action-reading-stale="true" style={{ fontSize: 12, lineHeight: 1.55, color: tokens.color.queued }}>
-                判讀建議重新生成：{signalReadingStalenessCopy(staleness)}。
-              </div>
-            ) : null}
-            <SignalReadingProvenanceRow
-              sourceUrl={sourceUrl}
-              reading={reading}
-              sourceKind={signal.source}
-              captureId={signal.captureId}
-              itemStatus={signal.readiness.itemStatus}
-            />
-            <SignalReadingEvidenceDetails citations={citations} />
-          </div>
-        </details>
-      ) : null}
+      <details data-product-action-reading-secondary="true" style={{ borderTop: `1px solid ${tokens.color.line}`, paddingTop: 8 }}>
+        <summary className="dlens-expand-trigger" style={{ cursor: "pointer", ...textStyles.fieldLabel, color: tokens.color.softInk }}>
+          來源、引用與新鮮度
+        </summary>
+        <div style={{ display: "grid", gap: 9, marginTop: 9, minWidth: 0 }}>
+          {provenanceStale ? (
+            <div data-product-action-reading-stale="true" style={{ fontSize: 12, lineHeight: 1.55, color: tokens.color.queued }}>
+              這筆判讀與目前分析版本不一致。
+            </div>
+          ) : null}
+          <SignalReadingProvenanceRow
+            sourceUrl={sourceUrl}
+            reading={reading}
+            sourceKind={signal?.source}
+            captureId={signal?.captureId}
+            itemStatus={signal?.readiness.itemStatus}
+          />
+          <SignalReadingEvidenceDetails citations={citations} />
+        </div>
+      </details>
     </AttentionSurface>
   );
+}
+
+function currentProjectedReading(
+  analysis: ProductSignalAnalysis,
+  reading: SignalReading | undefined
+): SignalReading | undefined {
+  if (
+    analysis.promptVersion !== PRODUCT_SIGNAL_ANALYSIS_PROMPT_VERSION
+    || !analysis.productReading
+    || !reading
+    || reading.origin !== "product_analysis"
+    || reading.promptVersion !== analysis.promptVersion
+    || reading.productContextHash !== analysis.productContextHash
+    || reading.headline?.trim() !== analysis.productReading.headline.trim()
+    || reading.reading.trim() !== analysis.productReading.body.trim()
+  ) {
+    return undefined;
+  }
+  return reading;
 }
 
 function ProductActionStage({
@@ -2925,7 +2847,6 @@ function ProductActionStage({
   evidenceBySignalId,
   signalPreviewById,
   signalUrlById,
-  onSynthesizeSignalReading,
   onReviewSignalReading,
   onExportSignalPackets
 }: {
@@ -2937,7 +2858,6 @@ function ProductActionStage({
   evidenceBySignalId: Record<string, ProductSignalEvidenceEntry[]>;
   signalPreviewById: Record<string, string>;
   signalUrlById: Record<string, string>;
-  onSynthesizeSignalReading?: SynthesizeSignalReading;
   onReviewSignalReading?: ReviewSignalReading;
   onExportSignalPackets?: ExportSignalPackets;
 }) {
@@ -3114,7 +3034,10 @@ function ProductActionStage({
   };
 
   const activeSignal = activeAnalysis ? signalsById.get(activeAnalysis.signalId) : undefined;
-  const activeReading = activeAnalysis ? readingsBySignalId.get(activeAnalysis.signalId) : undefined;
+  const latestActiveReading = activeAnalysis ? readingsBySignalId.get(activeAnalysis.signalId) : undefined;
+  const activeReading = activeAnalysis
+    ? currentProjectedReading(activeAnalysis, latestActiveReading)
+    : undefined;
   const activePresentation = activeAnalysis ? presentationBySignalId.get(activeAnalysis.signalId) : undefined;
   const citations = activeAnalysis ? citationsForAnalysis(activeAnalysis, evidenceBySignalId) : [];
   const exactCitation = citations.find((citation) => citation.entry?.text?.trim());
@@ -3124,7 +3047,7 @@ function ProductActionStage({
   ];
   const capturedSpanByRef = new Map<string, string>(capturedSpanEntries.filter(([, text]) => text.trim().length > 0));
   const activeSourceUrl = activeAnalysis
-    ? signalUrlById[activeAnalysis.signalId] || activeReading?.sourcePacket?.postUrl || activeSignal?.sourcePreview.sourceUrl || activeSignal?.sourcePreview.displayUrl || ""
+    ? signalUrlById[activeAnalysis.signalId] || latestActiveReading?.sourcePacket?.postUrl || activeSignal?.sourcePreview.sourceUrl || activeSignal?.sourcePreview.displayUrl || ""
     : "";
   const activeTitle = activeAnalysis
     ? activeAnalysis.referenceLabel?.trim() || activeAnalysis.contentSummary
@@ -3223,40 +3146,6 @@ function ProductActionStage({
     void navigator.clipboard.writeText(activeAgentBrief).then(
       () => setCurrentCopyStatus("copied"),
       () => setCurrentCopyStatus("error")
-    );
-  };
-
-  const renderRecommendationSurface = (children: ReactNode) => {
-    if (!activePresentation) return null;
-    if (activePresentation.recommendationTier === "application") {
-      return (
-        <AttentionSurface
-          as="section"
-          state="actionable"
-          dataAttrs={{
-            "data-product-action-recommendations": "true",
-            "data-product-recommendation-tier": activePresentation.recommendationTier
-          }}
-          style={glassCardStyle({
-            gap: 12,
-            padding: "14px 15px",
-            minWidth: 0,
-            background: tokens.color.atlasPaper,
-            boxShadow: tokens.shadow.atlasCard
-          })}
-        >
-          {children}
-        </AttentionSurface>
-      );
-    }
-    return (
-      <section
-        data-product-action-recommendations="true"
-        data-product-recommendation-tier={activePresentation.recommendationTier}
-        style={{ display: "grid", gap: 9, minWidth: 0, padding: "12px 13px", borderRadius: tokens.radius.card, border: `1px solid ${tokens.color.line}`, background: tokens.color.inkWash }}
-      >
-        {children}
-      </section>
     );
   };
 
@@ -3423,124 +3312,27 @@ function ProductActionStage({
               <span style={{ ...textStyles.fieldLabel, color: tokens.color.softInk }}>{activeCompactDecisionKey ? activeDecisionLabel : "可帶走"}</span>
               <span data-product-action-decision-row={activeCompactDecisionKey ? "reason" : "takeaway"} style={{ fontSize: 13, lineHeight: 1.6, color: tokens.color.subInk, overflowWrap: "anywhere" }}>{activeTakeaway}</span>
             </section>
-            {activePresentation?.density === "full" ? (
-              activeCardVerdict === "watch" ? (
-                <section
-                  data-product-action-watch-guidance="true"
-                  style={{ display: "grid", gap: 9, minWidth: 0, padding: "12px 13px", borderRadius: tokens.radius.card, border: `1px solid ${tokens.color.cardEdge}`, background: tokens.color.contextSurface }}
-                >
-                  <span style={{ ...textStyles.fieldLabel, color: tokens.color.product }}>保留觀察指引</span>
-                  {activePresentation.watchGuidance ? (
-                    <>
-                      {([
-                        ["source", "來源做法", activePresentation.watchGuidance.sourcePattern],
-                        ["fit", "為何保留", activePresentation.watchGuidance.fitReason],
-                        ["next", "下一步要知道", activePresentation.watchGuidance.nextEvidence]
-                      ] as const).map(([part, label, value]) => (
-                        <div key={part} data-product-action-watch-guidance-part={part} style={fieldStackStyle({ paddingTop: part === "source" ? 0 : 8, borderTop: part === "source" ? "none" : `1px solid ${tokens.color.line}` })}>
-                          <span style={{ ...textStyles.fieldLabel, color: tokens.color.softInk }}>{label}</span>
-                          <span style={{ fontSize: 13, lineHeight: 1.6, color: tokens.color.subInk, overflowWrap: "anywhere" }}>{value}</span>
-                        </div>
-                      ))}
-                      <span data-product-action-watch-guidance-refs={activePresentation.watchGuidance.supportRefs.join(",")} style={{ ...textStyles.meta, color: tokens.color.softInk }}>{activePresentation.watchGuidance.supportRefs.map((ref) => ref === ROOT_SPAN_REF ? "原文" : ref).join("、")} · 文字支持</span>
-                    </>
-                  ) : (
-                    <span style={{ fontSize: 13, lineHeight: 1.6, color: tokens.color.softInk }}>現有分析與證據尚不足以形成可追蹤的保留觀察指引。</span>
-                  )}
-                </section>
+            {activeIsActionable ? (
+              activeReading ? (
+                <ProductActionReadingOperations
+                  analysis={activeAnalysis}
+                  signal={activeSignal}
+                  reading={activeReading}
+                  sourceUrl={activeSourceUrl}
+                  citations={citations}
+                  agentBrief={activeAgentBrief}
+                  agentBriefCopyStatus={agentBriefCopyStatus}
+                  onCopyAgentBrief={copyActiveAgentBrief}
+                  onReviewSignalReading={onReviewSignalReading}
+                />
               ) : (
-                renderRecommendationSurface(
-                  <>
-                  <div
-                    data-product-action-recommendation-header="true"
-                    style={betweenRowStyle({
-                      paddingBottom: activePresentation.recommendationTier === "application" ? 9 : 0,
-                      borderBottom: activePresentation.recommendationTier === "application" ? `1px solid ${tokens.color.line}` : "none"
-                    })}
-                  >
-                    <span style={{ ...textStyles.fieldLabel, color: activePresentation.recommendationTier === "application" ? tokens.color.product : tokens.color.softInk }}>
-                      {activePresentation.recommendationTier === "application"
-                        ? "可能用法 · 待驗證"
-                        : activePresentation.recommendationTier === "inspiration"
-                          ? "可借用靈感"
-                          : "尚未形成建議"}
-                    </span>
-                    {activePresentation.recommendationTier === "application" ? <span style={{ ...textStyles.meta, color: tokens.color.softInk }}>小步測試</span> : null}
-                  </div>
-                  {activePresentation.recommendations.map((recommendation) => {
-                    const recommendationKey = recommendation.kind === "application"
-                      ? JSON.stringify([
-                          recommendation.kind,
-                          recommendation.sourceRefs,
-                          recommendation.sourcePattern,
-                          recommendation.productContextTarget,
-                          recommendation.smallTest,
-                          recommendation.verificationQuestion
-                        ])
-                      : `${recommendation.kind}:${recommendation.sourceRef ?? "analysis"}:${recommendation.text}`;
-                    return (
-                      <div
-                        key={recommendationKey}
-                        data-product-action-recommendation={recommendation.kind}
-                        data-product-action-recommendation-ref={recommendation.kind === "pattern" ? recommendation.sourceRef : undefined}
-                        data-product-action-application-status={recommendation.kind === "application" ? "pending-verification" : undefined}
-                        data-product-action-application-identity={recommendation.kind === "application" ? recommendationKey : undefined}
-                        data-product-action-application-content={recommendation.kind === "application" ? "true" : undefined}
-                        style={recommendation.kind === "application"
-                          ? { display: "grid", gap: 10, minWidth: 0, padding: "11px 12px", borderRadius: tokens.radius.card, border: `1px solid ${tokens.color.cardEdge}`, background: tokens.color.contextSurface }
-                          : { display: "grid", gap: 4, minWidth: 0, paddingTop: 8, borderTop: `1px solid ${tokens.color.line}` }}
-                      >
-                        {recommendation.kind === "application" ? (
-                          <>
-                            <div style={betweenRowStyle({ minWidth: 0 })}>
-                              <span style={{ ...textStyles.fieldLabel, color: tokens.color.product }}>AI 提案 · 待驗證</span>
-                              <span data-product-action-application-target={recommendation.productContextTarget} style={{ ...textStyles.meta, color: tokens.color.softInk }}>
-                                套用至 {CONTEXT_FIELD_LABELS[recommendation.productContextTarget]}
-                              </span>
-                            </div>
-                            {([["source", "來源做法", recommendation.sourcePattern], ["fit", "可能適合", recommendation.fitReason], ["test", "先小試", recommendation.smallTest]] as const).map(([part, label, value]) => (
-                              <div key={part} data-product-action-application-part={part} style={fieldStackStyle({ paddingTop: part === "source" ? 0 : 8, borderTop: part === "source" ? "none" : `1px solid ${tokens.color.line}` })}>
-                                <span style={{ ...textStyles.fieldLabel, color: tokens.color.softInk }}>{label}</span>
-                                <span style={{ fontSize: 13, lineHeight: 1.6, color: tokens.color.subInk, overflowWrap: "anywhere" }}>{value}</span>
-                              </div>
-                            ))}
-                            <span data-product-action-application-refs={recommendation.sourceRefs.join(",")} style={{ ...textStyles.meta, justifySelf: "start", padding: "3px 7px", borderRadius: tokens.radius.pill, background: tokens.color.inkWash, color: tokens.color.softInk }}>{recommendation.sourceRefs.map((ref) => ref === ROOT_SPAN_REF ? "原文" : ref).join("、")} · 文字支持</span>
-                            <div data-product-action-application-question="true" style={fieldStackStyle({ padding: "8px 9px", borderRadius: tokens.radius.sm, background: tokens.color.inkWash })}>
-                              <span style={{ ...textStyles.fieldLabel, color: tokens.color.softInk }}>驗證問題</span>
-                              <span style={{ fontSize: 12, lineHeight: 1.6, color: tokens.color.subInk, overflowWrap: "anywhere" }}>{recommendation.verificationQuestion}</span>
-                            </div>
-                          </>
-                        ) : (
-                          <>
-                            <div style={betweenRowStyle({ minWidth: 0 })}>
-                              <span style={{ ...textStyles.fieldLabel, color: recommendation.kind === "experiment" ? tokens.color.product : tokens.color.success }}>{recommendation.kind === "experiment" ? "AI 建議先試" : "可借用模式"}</span>
-                              {recommendation.kind === "pattern" ? <span style={{ ...textStyles.meta, color: tokens.color.softInk }}>{recommendation.sourceRef} · 文字支持</span> : null}
-                            </div>
-                            <span style={{ fontSize: 13, lineHeight: 1.6, color: tokens.color.subInk, overflowWrap: "anywhere" }}>{recommendation.text}</span>
-                          </>
-                        )}
-                      </div>
-                    );
-                  })}
-                  {activePresentation.agentBriefReady ? (
-                    <div
-                      data-product-action-agent-brief="true"
-                      data-product-action-application-footer="true"
-                      style={betweenRowStyle({ paddingTop: 10, borderTop: `1px solid ${tokens.color.line}` })}
-                    >
-                      <div style={betweenRowStyle({ minWidth: 0 })}>
-                        <span style={{ ...textStyles.fieldLabel, color: tokens.color.product }}>交給 Agent</span>
-                        {activeAnalysis.agentTaskSpec?.taskTitle?.trim() ? <span style={{ ...textStyles.meta, color: tokens.color.softInk, overflowWrap: "anywhere" }}>{activeAnalysis.agentTaskSpec.taskTitle.trim()}</span> : null}
-                      </div>
-                      <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
-                        <SecondaryButton dataAttrs={{ "data-product-action-agent-brief-copy": "true" }} onClick={copyActiveAgentBrief} style={{ minHeight: 44 }}>複製 Agent brief</SecondaryButton>
-                        <span data-product-action-agent-brief-copy-status={agentBriefCopyStatus} role="status" aria-live="polite" style={{ ...textStyles.meta, color: agentBriefCopyStatus === "error" ? tokens.color.queued : tokens.color.success }}>{agentBriefCopyStatus === "copied" ? "已複製" : agentBriefCopyStatus === "error" ? "複製失敗" : ""}</span>
-                      </div>
-                    </div>
-                  ) : null}
-                  {!activePresentation.recommendations.length && !activePresentation.agentBriefReady ? <span data-product-action-recommendations-empty="true" style={{ fontSize: 13, lineHeight: 1.6, color: tokens.color.softInk }}>現有分析與證據尚不足以形成具體建議。</span> : null}
-                  </>
-                )
+                <section
+                  data-product-reading-unavailable="true"
+                  style={{ display: "grid", gap: 6, minWidth: 0, padding: "12px 13px", borderRadius: tokens.radius.card, border: `1px solid ${tokens.color.line}`, background: tokens.color.inkWash }}
+                >
+                  <span style={{ ...textStyles.fieldLabel, color: tokens.color.softInk }}>完整判讀尚不可用</span>
+                  <span style={{ fontSize: 13, lineHeight: 1.6, color: tokens.color.subInk }}>需要重新分析以產生完整判讀</span>
+                </section>
               )
             ) : null}
             <aside data-product-action-evidence-stack="true" style={{ display: "grid", gap: 9, minWidth: 0, padding: "12px 13px", borderRadius: tokens.radius.card, border: `1px solid ${tokens.color.cardEdge}`, background: tokens.color.inkWash }}>
@@ -3554,26 +3346,6 @@ function ProductActionStage({
                 </blockquote>
               ) : null}
             </aside>
-            {activePresentation?.density === "full" ? (
-              <details data-product-action-deep-read="true" data-product-action-sequence="true" style={{ display: "grid", gap: 12, minWidth: 0, borderTop: `1px solid ${tokens.color.line}`, paddingTop: 10 }}>
-                <summary className="dlens-expand-trigger" style={{ minHeight: 44, display: "flex", alignItems: "center", padding: "8px 4px", cursor: "pointer", ...textStyles.fieldLabel, color: tokens.color.product }}>展開深度閱讀</summary>
-                {activePresentation.heroKind !== "quote" && exactCitation?.entry?.text ? (
-                  <blockquote data-product-action-extra-exact-quote="true" style={{ margin: 0, padding: "9px 10px", borderLeft: `3px solid ${tokens.color.product}`, borderRadius: `0 ${tokens.radius.card}px ${tokens.radius.card}px 0`, background: tokens.color.elevated, color: tokens.color.subInk, fontFamily: tokens.font.serifCjk, fontSize: 13, lineHeight: 1.65, overflowWrap: "anywhere" }}>
-                    {exactCitation.entry.text}
-                    <footer style={{ marginTop: 5, fontFamily: tokens.font.mono, fontSize: 10, color: tokens.color.softInk }}>{exactCitation.ref}{exactCitation.entry.author ? ` · ${exactCitation.entry.author}` : ""}{exactCitation.entry.likeCount != null ? ` · ${exactCitation.entry.likeCount} ♥` : ""}</footer>
-                  </blockquote>
-                ) : null}
-                {activeDecisionRows.length ? (
-                  <section data-product-action-decision-summary={resolvedFilter} data-product-action-verdict-reason={resolvedFilter} style={{ display: "grid", gap: 9, minWidth: 0, padding: "12px 13px", borderRadius: tokens.radius.card, border: `1px solid ${tokens.color.cardEdge}`, background: tokens.color.contextSurface }}>
-                    <span style={{ ...textStyles.fieldLabel, color: activeMeta.color }}>決策摘要</span>
-                    <dl style={{ display: "grid", gap: 8, minWidth: 0, margin: 0 }}>
-                      {activeDecisionRows.map((row, rowIndex) => <div key={row.key} data-product-action-decision-row={row.key} style={{ display: "grid", gridTemplateColumns: "minmax(64px, auto) minmax(0, 1fr)", gap: 10, minWidth: 0, paddingTop: rowIndex ? 8 : 0, borderTop: rowIndex ? `1px solid ${tokens.color.line}` : "none" }}><dt style={{ ...textStyles.fieldLabel, margin: 0, color: row.key === "next" ? tokens.color.product : tokens.color.softInk }}>{row.label}</dt><dd style={{ minWidth: 0, margin: 0, fontSize: 12.5, lineHeight: 1.6, color: tokens.color.subInk, overflowWrap: "anywhere" }}>{row.value}</dd></div>)}
-                    </dl>
-                  </section>
-                ) : null}
-                {activeIsActionable ? <ProductActionReadingOperations signal={activeSignal} reading={activeReading} sourceUrl={activeSourceUrl} citations={citations} onSynthesizeSignalReading={onSynthesizeSignalReading} onReviewSignalReading={onReviewSignalReading} /> : null}
-              </details>
-            ) : null}
           </article>
           <nav data-product-action-pager="text" aria-label={`${activeMeta.label}分頁`} style={{ display: "flex", justifyContent: "center", alignItems: "center", gap: 10, flexWrap: "wrap", minWidth: 0 }}>
             <SecondaryButton dataAttrs={{ "data-product-action-previous": "true" }} disabled={safeIndex === 0} onClick={() => moveTo(safeIndex - 1)} style={{ minHeight: 44 }}>← 上一則</SecondaryButton>
@@ -3648,7 +3420,6 @@ export function ProductSignalView({
   const dispatchCommand = (command: ProductSignalCommand) => Promise.resolve(onCommand(command));
   const analyzeCommand = viewModel.actions.find((action) => action.kind === "analyzeInbox");
   const openActionableCommand = viewModel.actions.find((action) => action.kind === "openActionable");
-  const hasReadingCommand = signals.some((signal) => signal.actions.some((action) => action.kind === "generateReading"));
   const pendingErrorAggregate = summarizeProcessingErrorAggregate(pendingSignals);
   const routeSignals = signals;
   const routeAnalyses = scopedAnalyses;
@@ -3682,16 +3453,6 @@ export function ProductSignalView({
     if (!action) return;
     void dispatchCommand({ kind: "remove", target: action.target });
   }
-
-  const synthesizeSignalReading: SynthesizeSignalReading | undefined = hasReadingCommand
-    ? (signalId, sessionId, force) => {
-        const action = signalAction(signalId, "generateReading");
-        if (!action || action.target.sessionId !== sessionId) {
-          return Promise.resolve({ ok: false, error: "這則 signal 目前尚未可生成判讀。" });
-        }
-        return dispatchCommand({ kind: "generateReading", target: action.target, force }) as Promise<{ ok: true; reading: string } | { ok: false; error: string }>;
-      }
-    : undefined;
 
   const reviewSignalReading: ReviewSignalReading = (cacheKey, decision, note) => {
     const reading = scopedSignalReadings.find((entry) => entry.cacheKey === cacheKey);
@@ -3828,7 +3589,6 @@ export function ProductSignalView({
             signalPreviewById={routeSignalPreviewById}
             signalUrlById={routeSignalUrlById}
             evidenceBySignalId={routeEvidenceBySignalId}
-            onSynthesizeSignalReading={synthesizeSignalReading}
             onReviewSignalReading={reviewSignalReading}
             onExportSignalPackets={exportSignalPackets}
           />

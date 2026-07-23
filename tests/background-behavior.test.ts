@@ -3085,60 +3085,39 @@ test("product/clear-cache removes derived product cache without deleting saved s
   assertStateUpdatedBroadcastOnce(harness);
 });
 
-test("signal/delete wins over an in-flight product signal-reading synthesis", async () => {
+test("background rejects the retired Product signal-reading synthesis message without side effects", async () => {
   const originalFetch = globalThis.fetch;
-  let fetchStarted = false;
-  let releaseReading: ((response: Response) => void) | null = null;
-  const readingResponse = new Promise<Response>((resolve) => {
-    releaseReading = resolve;
-  });
+  let fetchCalls = 0;
+  const session = makeSession("product-reading-retired", "product");
+  const initialState = {
+    [backgroundTestables.GLOBAL_STORAGE_KEY]: makeGlobal([session], session.id),
+    [backgroundTestables.ACTIVE_SESSION_ID_STORAGE_KEY]: session.id,
+    [backgroundTestables.tabStorageKey(TAB_ID)]: createEmptyTabState(),
+    [PRODUCT_CONTEXT_STORAGE_KEY]: makeProductContext(),
+    [SIGNALS_STORAGE_KEY]: []
+  };
 
   try {
-    const item = makeSucceededItem("reading-race", "prompt caching");
-    const session = {
-      ...makeSession("product-reading-race", "product"),
-      items: [item]
-    };
-    const signal = makeSignal("signal-reading-race", session.id, item.id);
-    const global = makeGlobal([session], session.id);
     globalThis.fetch = (async () => {
-      fetchStarted = true;
-      return readingResponse;
+      fetchCalls += 1;
+      throw new Error("retired Product reading message must not call a provider");
     }) as typeof fetch;
-    const harness = await createHarness({
-      [backgroundTestables.GLOBAL_STORAGE_KEY]: {
-        ...global,
-        settings: {
-          ...global.settings,
-          oneLinerProvider: "google",
-          googleApiKey: "test-google-key"
-        }
-      },
-      [backgroundTestables.ACTIVE_SESSION_ID_STORAGE_KEY]: session.id,
-      [backgroundTestables.tabStorageKey(TAB_ID)]: createEmptyTabState(),
-      [PRODUCT_CONTEXT_STORAGE_KEY]: makeProductContext(),
-      [SIGNALS_STORAGE_KEY]: [signal]
-    });
+    const harness = await createHarness(initialState);
+    const before = structuredClone(harness.state);
+    const retiredType = ["product", "synthesize-signal-reading"].join("/");
 
-    const synthesisPromise = harness.dispatch({
-      type: "product/synthesize-signal-reading",
-      signalId: signal.id,
+    const response = await harness.dispatch({
+      type: retiredType,
+      signalId: "signal-reading-retired",
       sessionId: session.id,
       force: true
-    });
-    await waitFor(() => fetchStarted, "signal-reading provider call");
+    } as unknown as ExtensionMessage);
 
-    const deletion = await harness.dispatch({ type: "signal/delete", signalId: signal.id });
-    assert.equal(deletion.ok, true);
-
-    releaseReading?.(makeGoogleJsonResponse("late reading"));
-    const synthesis = await synthesisPromise;
-
-    assert.equal(synthesis.ok, false);
-    assert.match(synthesis.error || "", /signal.*(?:removed|移除)|找不到/i);
-    assert.deepEqual(harness.state[SIGNAL_READINGS_STORAGE_KEY] ?? {}, {});
+    assert.deepEqual(response, { ok: false, error: "Unsupported message" });
+    assert.equal(fetchCalls, 0);
+    assert.deepEqual(harness.state, before);
+    assert.equal(harness.writes.length, 0);
   } finally {
-    releaseReading?.(makeGoogleJsonResponse("cleanup reading"));
     globalThis.fetch = originalFetch;
   }
 });

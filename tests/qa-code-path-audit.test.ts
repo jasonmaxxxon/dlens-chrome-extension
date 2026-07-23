@@ -12,6 +12,7 @@ const auditFixtureFiles = [
   "scripts/qa-code-path-audit.mjs",
   "entrypoints/threads.content.ts",
   "src/ui/ProductSignalViews.tsx",
+  "src/compare/product-analysis-reading.ts",
   "src/ui/useInPageCollectorAppState.ts",
   "entrypoints/background.ts",
   "src/state/store-helpers.ts"
@@ -50,4 +51,30 @@ test("B-07 fails when VerdictFilterTiles is defined but not mounted in ProductAc
   } finally {
     await rm(fixtureRoot, { recursive: true, force: true });
   }
+});
+
+test("B-08 identifies analyzer materialization as the sole Product Reading producer", async () => {
+  const { stdout } = await execFileAsync(process.execPath, ["scripts/qa-code-path-audit.mjs"], {
+    cwd: repoRoot,
+    maxBuffer: 1024 * 1024
+  });
+  const audit = JSON.parse(stdout) as {
+    checks: Array<{
+      id: string;
+      status: string;
+      summary: string;
+      evidence?: {
+        producerHits?: unknown[];
+        legacyProducerHits?: unknown[];
+        readingCardHits?: unknown[];
+      };
+    }>;
+  };
+  const b08 = audit.checks.find((check) => check.id === "B-08");
+
+  assert.equal(b08?.status, "pass");
+  assert.match(b08?.summary ?? "", /sole Product Reading producer/);
+  assert.ok((b08?.evidence?.producerHits?.length ?? 0) >= 2);
+  assert.equal(b08?.evidence?.legacyProducerHits?.length, 0);
+  assert.equal(b08?.evidence?.readingCardHits?.length, 1);
 });

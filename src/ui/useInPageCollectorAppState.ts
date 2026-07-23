@@ -2496,52 +2496,6 @@ export function useInPageCollectorAppState({ snapshot, tabId, sendAndSync }: Use
     }
   }
 
-  async function onSynthesizeSignalReading(
-    signalId: string,
-    sessionId: string,
-    force?: boolean
-  ): Promise<{ ok: true; reading: string } | { ok: false; error: string }> {
-    const requestId = createPipelineRequestId("product-signal-reading");
-    const token = requestReconcilerRef.current.begin({
-      lane: `product.synthesizeSignalReading:${signalId}`,
-      requestId,
-      target: { sessionId, signalId }
-    });
-    try {
-      const response = await sendAndSync({
-        type: "product/synthesize-signal-reading",
-        requestId,
-        signalId,
-        sessionId,
-        force
-      });
-      const decision = settleReconciledResponse(token, {
-        sessionId: activeFolderIdRef.current,
-        signalId
-      });
-      if (!decision.accepted) {
-        return { ok: false, error: "已忽略過期的判讀結果。" };
-      }
-      if (response.ok) {
-        if (response.signalReading) {
-          setSignalReadings((previous) => upsertSignalReading(previous, response.signalReading!));
-          return { ok: true, reading: response.signalReading.reading };
-        }
-        return { ok: false, error: "沒有產生判讀。" };
-      }
-      return { ok: false, error: response.error };
-    } catch (error) {
-      const decision = settleReconciledResponse(token, {
-        sessionId: activeFolderIdRef.current,
-        signalId
-      });
-      if (!decision.accepted) {
-        return { ok: false, error: "已忽略過期的判讀結果。" };
-      }
-      return { ok: false, error: error instanceof Error ? error.message : String(error) };
-    }
-  }
-
   async function onReviewSignalReading(
     cacheKey: string,
     decision: "filed" | "deferred" | "rejected",
@@ -3174,7 +3128,6 @@ export function useInPageCollectorAppState({ snapshot, tabId, sendAndSync }: Use
     onSaveJudgmentOverride,
     onInitProductProfile,
     onAnalyzeProductSignals,
-    onSynthesizeSignalReading,
     onReviewSignalReading,
     onExportSignalPackets,
     onRemoveProductSignal,

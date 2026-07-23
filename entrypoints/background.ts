@@ -108,25 +108,14 @@ import {
   generatePrNarrativeSynthesis,
   generatePrSummaryDraft,
   generateProductSignalAnalysis,
-  generateSignalReading,
   generateSignalTags,
   generateTopicAuditEnvelope,
   generateTopicSignalReading
 } from "../src/compare/provider";
 import {
-  buildExistingAnalysisSummary,
-  selectSignalReadingRepresentativeRefs,
-  buildSourcePacketHash,
-  buildStoredSourcePacket,
-  SIGNAL_READING_PROMPT_VERSION,
-  type SignalReadingInput
-} from "../src/compare/signal-reading";
-import {
   appendSignalReadingReview,
-  buildSignalReadingCacheKey,
   getSignalReading,
-  listSignalReadings,
-  saveSignalReading
+  listSignalReadings
 } from "../src/compare/signal-reading-storage";
 import { buildSignalTagsInputFromCapture } from "../src/compare/signal-tags";
 import { deleteSignalTagsByItemId, listSignalTags, saveSignalTags } from "../src/compare/signal-tags-storage";
@@ -3380,125 +3369,6 @@ export default defineBackground(() => {
               tabId,
               productContext: await loadProductContext()
             } satisfies ExtensionResponse);
-            return;
-          }
-          case "product/synthesize-signal-reading": {
-            const tabId = await resolveTabId(sender);
-            const requestId = message.requestId ?? createPipelineRequestId("background.product.synthesize-signal-reading");
-            const reconcileToken = beginBackgroundSnapshotReconcile(
-              `product.synthesizeSignalReading:${message.signalId}`,
-              requestId,
-              { sessionId: message.sessionId, signalId: message.signalId, tabId }
-            );
-            const storageArea = withDirectStorageReconcile(chrome.storage.local, { reconcileToken });
-            const global = await loadGlobalState();
-            const session = normalizeGlobalState(global).sessions.find((entry) => entry.id === message.sessionId) || null;
-            const signals = await loadSignals(storageArea, message.sessionId);
-            const signal = signals.find((entry) => entry.id === message.signalId) || null;
-            const item = session && signal?.itemId
-              ? session.items.find((entry) => entry.id === signal.itemId) || null
-              : null;
-            if (!session || !signal || !item) {
-              sendResponse({ ok: false, error: "找不到該 signal 或對應的貼文。" } satisfies ExtensionResponse);
-              return;
-            }
-            const productContext = await resolveProductContextForAnalysis({
-              cachedContext: await loadProductContext(),
-              productProfile: global.settings.productProfile,
-              allowMissingPrerequisites: true,
-              compileProductContext: () => compileProductContextIfReady(global, { reconcileToken })
-            });
-            if (!productContext) {
-              sendResponse({ ok: false, error: "尚未設定 ProductContext。請先在 Settings 完成產品設定。" } satisfies ExtensionResponse);
-              return;
-            }
-            const productContextHash = buildProductContextHash(productContext);
-            const analyzerInput = buildProductSignalAnalyzerInputFromCapture({
-              signalId: signal.id,
-              source: signal.source,
-              capture: item.latestCapture,
-              productContext,
-              productContextHash
-            });
-            if (!analyzerInput) {
-              sendResponse({ ok: false, error: "這則貼文還沒有可分析的內容。請先完成抓取。" } satisfies ExtensionResponse);
-              return;
-            }
-            const analysis = await getProductSignalAnalysis(storageArea, signal.id);
-            const replies = analyzerInput.discussionReplies;
-            const repRefs = selectSignalReadingRepresentativeRefs(replies, analysis?.evidenceRefs ?? []);
-            const representativeComments = repRefs
-              .map((ref) => {
-                const index = Number(ref.replace(/^e/, "")) - 1;
-                const reply = replies[index];
-                return reply ? { ref, author: reply.author, text: reply.text, likeCount: reply.likeCount ?? null } : null;
-              })
-              .filter((comment): comment is { ref: string; author: string; text: string; likeCount: number | null } => comment !== null);
-            const readingInput: SignalReadingInput = {
-              signalId: signal.id,
-              assembledContent: analyzerInput.assembledContent,
-              postUrl: item.descriptor.post_url || item.descriptor.page_url || "",
-              representativeComments,
-              productContext,
-              productContextHash,
-              analysisPromptVersion: analysis?.promptVersion || "",
-              existingAnalysisSummary: analysis ? buildExistingAnalysisSummary(analysis) : ""
-            };
-            const sourcePacketHash = buildSourcePacketHash(readingInput);
-            const cacheKey = buildSignalReadingCacheKey({
-              signalId: signal.id,
-              productContextHash,
-              sourcePacketHash,
-              promptVersion: SIGNAL_READING_PROMPT_VERSION
-            });
-            const cached = await getSignalReading(storageArea, cacheKey);
-            if (cached && !message.force) {
-              sendResponse({ ok: true, tabId, signalReading: cached } satisfies ExtensionResponse);
-              return;
-            }
-            const providerConfig = providerKeyForRequest(global);
-            if (!providerConfig) {
-              sendResponse({ ok: false, error: "尚未設定 AI key。請先在 Settings 設定 Google / OpenAI / Claude key。" } satisfies ExtensionResponse);
-              return;
-            }
-            try {
-              const { reading, model } = await generateSignalReading(
-                providerConfig.provider,
-                providerConfig.apiKey,
-                readingInput
-              );
-              const saved = await withSnapshotLock(async () => {
-                const liveSignal = (await loadSignals(chrome.storage.local, message.sessionId))
-                  .find((entry) => entry.id === signal.id && entry.itemId === item.id);
-                if (!liveSignal) {
-                  return null;
-                }
-                return saveSignalReading(storageArea, {
-                  signalId: signal.id,
-                  cacheKey,
-                  productContextHash,
-                  sourcePacketHash,
-                  promptVersion: SIGNAL_READING_PROMPT_VERSION,
-                  reading,
-                  generatedAt: new Date().toISOString(),
-                  model,
-                  sourceRefs: readingInput.representativeComments.map((comment) => comment.ref),
-                  sourcePacket: buildStoredSourcePacket(readingInput),
-                  reviewState: "pending",
-                  feedbackEvents: []
-                });
-              });
-              if (!saved) {
-                sendResponse({ ok: false, error: "該 signal 已移除，未儲存這次判讀。" } satisfies ExtensionResponse);
-                return;
-              }
-              sendResponse({ ok: true, tabId, signalReading: saved } satisfies ExtensionResponse);
-            } catch (error) {
-              sendResponse({
-                ok: false,
-                error: error instanceof Error ? error.message : String(error)
-              } satisfies ExtensionResponse);
-            }
             return;
           }
           case "product/list-signal-readings": {

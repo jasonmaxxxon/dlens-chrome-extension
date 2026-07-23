@@ -53,11 +53,6 @@ import {
   type PrNarrativeSynthesisDraft
 } from "./pr-narrative.ts";
 import {
-  buildSignalReadingPrompt,
-  SIGNAL_READING_SYSTEM_PROMPT,
-  type SignalReadingInput
-} from "./signal-reading.ts";
-import {
   buildSignalTagsPrompt,
   parseSignalTagsResponse,
   SIGNAL_TAGS_SYSTEM_PROMPT,
@@ -789,75 +784,6 @@ export async function generateProductSignalAnalysis(
     throw new Error("Invalid product signal analysis payload");
   }
   return { ...parsed, model };
-}
-
-export async function generateSignalReading(
-  provider: "openai" | "claude" | "google",
-  apiKey: string,
-  input: SignalReadingInput
-): Promise<{ reading: string; model: string }> {
-  if (!apiKey) {
-    throw new Error("尚未設定 AI key。請先在 Settings 設定 Google / OpenAI / Claude key。");
-  }
-  const prompt = buildSignalReadingPrompt(input);
-  const system = SIGNAL_READING_SYSTEM_PROMPT;
-  const maxOutputTokens = 1400;
-
-  if (provider === "google") {
-    const request = googleGenerateContentRequest(apiKey, {
-      systemInstruction: { parts: [{ text: system }] },
-      contents: [{ role: "user", parts: [{ text: prompt }] }],
-      generationConfig: { temperature: 0.4, maxOutputTokens }
-    });
-    const response = await fetchWithRetry("Google", request.input, request.init);
-    if (!response.ok) {
-      throwGoogleResponseError(response);
-    }
-    return { reading: readGoogleContent(await response.json()), model: `google:${GOOGLE_COMPARE_MODEL}` };
-  }
-
-  if (provider === "openai") {
-    const response = await fetchWithRetry("OpenAI", "https://api.openai.com/v1/chat/completions", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${apiKey}`
-      },
-      body: JSON.stringify({
-        model: OPENAI_COMPARE_MODEL,
-        max_tokens: maxOutputTokens,
-        temperature: 0.4,
-        messages: [
-          { role: "system", content: system },
-          { role: "user", content: prompt }
-        ]
-      })
-    });
-    if (!response.ok) {
-      throw new Error(`OpenAI ${response.status}: ${await response.text()}`);
-    }
-    return { reading: readOpenAiContent(await response.json()), model: `openai:${OPENAI_COMPARE_MODEL}` };
-  }
-
-  const response = await fetchWithRetry("Claude", "https://api.anthropic.com/v1/messages", {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      "x-api-key": apiKey,
-      "anthropic-version": "2023-06-01"
-    },
-    body: JSON.stringify({
-      model: CLAUDE_COMPARE_MODEL,
-      max_tokens: maxOutputTokens,
-      thinking: { type: "disabled" },
-      system,
-      messages: [{ role: "user", content: prompt }]
-    })
-  });
-  if (!response.ok) {
-    throw new Error(`Claude ${response.status}: ${await response.text()}`);
-  }
-  return { reading: readClaudeContent(await response.json()), model: `claude:${CLAUDE_COMPARE_MODEL}` };
 }
 
 export async function generateTopicSignalReading(

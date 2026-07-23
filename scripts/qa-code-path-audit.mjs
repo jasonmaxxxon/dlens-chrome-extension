@@ -5,10 +5,13 @@ import path from "node:path";
 const FILES = {
   threadsContent: "entrypoints/threads.content.ts",
   productSignalViews: "src/ui/ProductSignalViews.tsx",
+  productAnalysisReading: "src/compare/product-analysis-reading.ts",
   inpageState: "src/ui/useInPageCollectorAppState.ts",
   background: "entrypoints/background.ts",
   storeHelpers: "src/state/store-helpers.ts"
 };
+const RETIRED_PRODUCT_SYNTHESIS_MESSAGE = ["product", "synthesize-signal-reading"].join("/");
+const RETIRED_PRODUCT_READING_ACTIONS = ["generate", "regenerate"].map((action) => `data-product-action-${action}-reading`);
 
 function parseArgs(argv) {
   const args = { out: null };
@@ -231,7 +234,7 @@ async function auditNoiseActionSemantics(allLines) {
     ...lineHit(file, lines, "data-action-verdict-filter={stat.key}", "verdict tile filter control"),
     ...lineHit(file, lines, '{ key: "try", label: "值得嘗試"', "try tile"),
     ...lineHit(file, lines, '{ key: "watch", label: "保留觀察"', "watch tile"),
-    ...lineHit(file, lines, '{ key: "park", label: "噪音 / 前提不符"', "park tile"),
+    ...lineHit(file, lines, '{ key: "noise", label: "噪音"', "noise tile"),
     ...lineHit(file, lines, '{ key: "insufficient", label: "資料不足"', "insufficient tile")
   ];
   const stageHits = [
@@ -242,9 +245,9 @@ async function auditNoiseActionSemantics(allLines) {
   const activeStageHits = lineHit(file, lines, "data-product-action-stage={activeAnalysis.signalId}", "one active stage card");
   const verdictTileMountHits = lineHitsInBlock(file, actionStage, "<VerdictFilterTiles", "verdict tiles mounted in Action stage");
   const nonActionableSemanticHits = [
-    ...lineHit(file, lines, 'const activeIsActionable = resolvedFilter === "try" || resolvedFilter === "watch"', "actionable verdict boundary"),
-    ...lineHit(file, lines, "data-product-action-verdict-reason={resolvedFilter}", "non-actionable semantic reason block"),
-    ...lineHit(file, lines, 'resolvedFilter === "park" ? "排除原因" : "資料缺口"', "park and insufficient copy"),
+    ...lineHit(file, lines, 'const activeIsActionable = activeCardVerdict === "try" || activeCardVerdict === "watch"', "actionable verdict boundary"),
+    ...lineHit(file, lines, "data-product-action-verdict-reason={activeCompactDecisionKey", "non-actionable semantic reason block"),
+    ...lineHit(file, lines, 'activeCardVerdict === "park"', "park and insufficient copy"),
     ...lineHit(file, lines, "activeIsActionable ? (", "reading/review guarded to actionable verdicts")
   ];
   const retiredFramingHits = uniqueHits([
@@ -274,6 +277,8 @@ async function auditNoiseActionSemantics(allLines) {
 async function auditSignalReadingExportGate(allLines) {
   const file = FILES.productSignalViews;
   const lines = allLines[file];
+  const materializationFile = FILES.productAnalysisReading;
+  const materializationLines = allLines[materializationFile];
   const actionStage = functionBlock(lines, "ProductActionStage");
   const savedSignalsBoard = functionBlock(lines, "SavedSignalsBoard");
   const retiredRouteSwapHits = [
@@ -281,10 +286,22 @@ async function auditSignalReadingExportGate(allLines) {
     ...lineHit(file, lines, "showSignalReadingReview ?", "conditional review workspace"),
     ...lineHit(file, lines, "<SignalReadingReviewWorkspace", "review/export workspace")
   ];
+  const producerHits = uniqueHits([
+    ...lineHit(materializationFile, materializationLines, "export function materializeProductAnalysisReading", "canonical Product Reading materializer"),
+    ...lineHit(FILES.background, allLines[FILES.background], "materializeProductAnalysisReading", "analyzer materialization call")
+  ]);
+  const legacyProducerHits = uniqueHits([
+    ...lineHit(file, lines, RETIRED_PRODUCT_SYNTHESIS_MESSAGE, "retired Product second-reading request"),
+    ...lineHit(file, lines, "generateSignalReading", "retired Product second-reading command"),
+    ...lineHit(file, lines, RETIRED_PRODUCT_READING_ACTIONS[0], "retired first reading action"),
+    ...lineHit(file, lines, RETIRED_PRODUCT_READING_ACTIONS[1], "retired regenerate action"),
+    ...lineHit(FILES.inpageState, allLines[FILES.inpageState], RETIRED_PRODUCT_SYNTHESIS_MESSAGE, "retired in-page producer request"),
+    ...lineHit(FILES.background, allLines[FILES.background], RETIRED_PRODUCT_SYNTHESIS_MESSAGE, "retired background producer handler"),
+    ...lineHit(FILES.background, allLines[FILES.background], "generateSignalReading", "retired provider reading call")
+  ]);
+  const readingCardHits = lineHit(file, lines, '"data-product-reading-card": "true"', "complete Product Reading card");
   const readingReviewHits = uniqueHits([
     ...lineHit(file, lines, "function ProductActionReadingOperations", "stage-owned reading operations"),
-    ...lineHit(file, lines, 'data-product-action-generate-reading', "first reading action"),
-    ...lineHit(file, lines, 'data-product-action-regenerate-reading', "regenerate action"),
     ...lineHit(file, lines, 'data-product-action-review', "reading review controls"),
     ...lineHitsInBlock(file, actionStage, "<ProductActionReadingOperations", "reading operations mounted in Action stage")
   ]);
@@ -305,7 +322,10 @@ async function auditSignalReadingExportGate(allLines) {
     ...lineHitsInBlock(file, savedSignalsBoard, "data-product-action-export", "Action packet shelf rendered by Saved")
   ]);
   const failed = retiredRouteSwapHits.length > 0
-    || readingReviewHits.length < 5
+    || producerHits.length < 2
+    || legacyProducerHits.length > 0
+    || readingCardHits.length !== 1
+    || readingReviewHits.length < 3
     || actionExportHits.length < 5
     || actionBriefShelfHits.length !== 1
     || actionPacketShelfHits.length !== 1
@@ -313,16 +333,19 @@ async function auditSignalReadingExportGate(allLines) {
   return {
     id: "B-08",
     status: statusFromFail(failed),
-    summary: "Reading/review plus one selected brief shelf and one whole-folder packet shelf belong only to Product Action",
+    summary: "Analyzer materialization is the sole Product Reading producer; review and export remain Product Action-owned",
     evidence: {
       retiredRouteSwapHits,
+      producerHits,
+      legacyProducerHits,
+      readingCardHits,
       readingReviewHits,
       actionExportHits,
       actionBriefShelfHits,
       actionPacketShelfHits,
       savedExportHits
     },
-    expectedFixShape: "keep generation, regeneration, and review inside the active Action stage; render exactly one Action-owned selected brief shelf and one Action-owned whole-folder packet shelf, with no Saved export surface or reading-review route swap"
+    expectedFixShape: "materialize Product Reading exactly once at the analyzer boundary, mount one complete reading card with review in Product Action, and keep one selected brief shelf plus one whole-folder packet shelf without any second reading-generation path"
   };
 }
 

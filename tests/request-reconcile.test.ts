@@ -155,7 +155,6 @@ test("reconcile guard is wired into current async response write paths", () => {
   const appState = readRepoFile("src/ui/useInPageCollectorAppState.ts");
   for (const lane of [
     "product.analyzeSignals",
-    "product.synthesizeSignalReading",
     "folder.generateSynthesis",
     "folder.clearSynthesis",
     "pr.generateCriteria",
@@ -167,6 +166,7 @@ test("reconcile guard is wired into current async response write paths", () => {
   ]) {
     assert.match(appState, new RegExp(lane.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")));
   }
+  assert.doesNotMatch(appState, /product\.synthesizeSignalReading|product\/synthesize-signal-reading/);
   assert.match(appState, /settleReconciledResponse\(token/);
 
   const topicAudit = readRepoFile("src/ui/useTopicAudit.ts");
@@ -193,7 +193,6 @@ test("reconcile guard is wired into current async response write paths", () => {
     "folder.generateSynthesis",
     "folder.clearSynthesis",
     "product.analyzeSignals",
-    "product.synthesizeSignalReading",
     "product.reviewSignalReading",
     "pr.matchCriteria",
     "pr.fetchAdvancedMetrics",
@@ -201,4 +200,5 @@ test("reconcile guard is wired into current async response write paths", () => {
   ]) {
     assert.match(background, new RegExp(lane.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")));
   }
+  assert.doesNotMatch(background, /product\.synthesizeSignalReading|product\/synthesize-signal-reading/);
 });

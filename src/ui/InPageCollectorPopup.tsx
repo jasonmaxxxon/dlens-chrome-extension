@@ -210,8 +210,6 @@ function OpenInPageCollectorPopup({
         return app.onNavigate("actionable-filter");
       case "remove":
         return app.onRemoveProductSignal(command.target.signalId);
-      case "generateReading":
-        return app.onSynthesizeSignalReading(command.target.signalId, command.target.sessionId, command.force);
       case "reviewReading":
         return app.onReviewSignalReading(command.target.cacheKey, command.decision, command.note);
       case "exportSignalPackets":

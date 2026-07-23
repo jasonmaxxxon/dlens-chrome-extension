@@ -29,14 +29,12 @@ export type Provenance = AiOutputProvenance;
 export type ProductSignalAction =
   | { kind: "analyze"; target: { sessionId: string; signalId: string } }
   | { kind: "recrawl"; target: { sessionId: string; signalId: string } }
-  | { kind: "generateReading"; target: { sessionId: string; signalId: string } }
   | { kind: "remove"; target: { sessionId: string; signalId: string } };
 
 export type ProductSignalCommand =
   | { kind: "analyzeInbox"; target: { sessionId: string } }
   | { kind: "openActionable"; target: { sessionId: string } }
   | { kind: "remove"; target: { sessionId: string; signalId: string } }
-  | { kind: "generateReading"; target: { sessionId: string; signalId: string }; force?: boolean }
   | { kind: "reviewReading"; target: { sessionId: string; signalId: string; cacheKey: string }; decision: "filed" | "deferred" | "rejected"; note?: string }
   | { kind: "exportSignalPackets"; target: { sessionId: string }; format: "html" | "jsonl" };
 
@@ -295,22 +293,17 @@ function deriveProvenance(analysis: ProductSignalAnalysis | undefined): Provenan
 function buildActions({
   sessionId,
   signalId,
-  readiness,
-  analysis
+  readiness
 }: {
   sessionId: string;
   signalId: string;
   readiness: SignalReadiness;
-  analysis?: ProductSignalAnalysis;
 }): ProductSignalAction[] {
   const actions: ProductSignalAction[] = [
     { kind: "analyze", target: { sessionId, signalId } }
   ];
   if (readiness.status === "saved" || readiness.status === "failed" || readiness.status === "missing_content") {
     actions.push({ kind: "recrawl", target: { sessionId, signalId } });
-  }
-  if (analysis?.status === "complete") {
-    actions.push({ kind: "generateReading", target: { sessionId, signalId } });
   }
   actions.push({ kind: "remove", target: { sessionId, signalId } });
   return actions;
@@ -351,7 +344,7 @@ function buildSignalViewModels({
       provenance: deriveProvenance(analysis),
       ...(analysis ? { analysis } : {}),
       evidence: buildProductSignalEvidenceCatalogFromCapture(item?.latestCapture),
-      actions: buildActions({ sessionId: signal.sessionId, signalId: signal.id, readiness, analysis })
+      actions: buildActions({ sessionId: signal.sessionId, signalId: signal.id, readiness })
     };
   });
 }

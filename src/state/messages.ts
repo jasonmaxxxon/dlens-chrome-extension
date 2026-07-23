@@ -121,7 +121,6 @@ export type ExtensionMessagePayload =
   | { type: "product/save-agent-task-feedback"; feedback: ProductAgentTaskFeedback }
   | { type: "product/clear-cache" }
   | { type: "product/get-context" }
-  | { type: "product/synthesize-signal-reading"; signalId: string; sessionId: string; force?: boolean }
   | { type: "product/list-signal-readings" }
   | { type: "product/review-signal-reading"; cacheKey: string; decision: "filed" | "deferred" | "rejected"; note?: string }
   | { type: "signal-packet/get"; signalId: string }

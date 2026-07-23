@@ -213,7 +213,7 @@ test("Product VM composes capture preview, readiness, analysis state, provenance
   assert.equal(ready.readiness.status, "ready");
   assert.equal(ready.analysisState, "ready");
   assert.equal(ready.provenance, "ai");
-  assert.deepEqual(actionKinds(vm, "sig-ready"), ["analyze", "generateReading", "remove"]);
+  assert.deepEqual(actionKinds(vm, "sig-ready"), ["analyze", "remove"]);
 
   const saved = vm.signals.find((signal) => signal.signalId === "sig-saved");
   assert.ok(saved);
@@ -302,7 +302,7 @@ test("Product workspace actions keep packet export on Action only", () => {
   );
 });
 
-test("Product VM marks a complete v17 analysis stale under the v20 generator", () => {
+test("Product VM marks a complete v17 analysis stale under the v21 generator", () => {
   const vm = buildProductSignalWorkspaceViewModel({
     kind: "classification",
     snapshot: makeSnapshot(),
@@ -314,7 +314,7 @@ test("Product VM marks a complete v17 analysis stale under the v20 generator", (
     isAnalyzing: false
   });
 
-  assert.equal(PRODUCT_SIGNAL_ANALYSIS_PROMPT_VERSION, "v20");
+  assert.equal(PRODUCT_SIGNAL_ANALYSIS_PROMPT_VERSION, "v21");
   assert.equal(vm.signals[0]?.analysisState, "stale");
 });
 
@@ -333,7 +333,7 @@ test("Product VM marks a complete v17 analysis stale when ProductContext is unav
   assert.equal(vm.signals[0]?.analysisState, "stale");
 });
 
-test("Product VM keeps a complete v20 analysis ready for the same ProductContext", () => {
+test("Product VM keeps a complete v21 analysis ready for the same ProductContext", () => {
   const vm = buildProductSignalWorkspaceViewModel({
     kind: "classification",
     snapshot: makeSnapshot(),
@@ -348,7 +348,7 @@ test("Product VM keeps a complete v20 analysis ready for the same ProductContext
   assert.equal(vm.signals[0]?.analysisState, "ready");
 });
 
-test("Product VM marks a complete v20 analysis stale when ProductContext drifts", () => {
+test("Product VM marks a complete v21 analysis stale when ProductContext drifts", () => {
   const staleContext: ProductContext = {
     ...productContext,
     productPromise: "Capture evidence and generate release briefs",

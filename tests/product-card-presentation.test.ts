@@ -4,7 +4,6 @@ import test from "node:test";
 import type { ProductSignalAnalysis, ProductSignalType, ProductSignalReferenceType } from "../src/state/types.ts";
 import {
   derivePrimaryCategory,
-  deriveProductCardRecommendations,
   resolveProductHero,
   deriveProductCardPresentation,
   extractCapturedUrl,
@@ -281,371 +280,36 @@ test("briefEligible only for try/watch non-noise; agentBriefReady needs a real t
   })).agentBriefReady, false);
 });
 
-/* ── W1.1: evidence-grounded recommendations ── */
-test("deriveProductCardRecommendations keeps only captured text-grounded reusable patterns after the experiment", () => {
-  const result = deriveProductCardRecommendations(input({
-    analysis: analysis({
-      experimentHint: "  先用一張卡測試聚焦層級。  ",
-      evidenceNotes: [
-        {
-          ref: "e1",
-          quoteSummary: "不應成為建議",
-          whyItMatters: "不應成為建議",
-          grounding: "text_grounded",
-          reusablePattern: "  聚焦主要操作  ",
-          whyItWorks: "不應成為建議"
-        },
-        {
-          ref: "e2",
-          quoteSummary: "不應成為建議",
-          whyItMatters: "不應成為建議",
-          grounding: "model_inferred",
-          reusablePattern: "模型推論模式",
-          whyItWorks: "不應成為建議"
-        },
-        {
-          ref: "e3_missing",
-          quoteSummary: "不應成為建議",
-          whyItMatters: "不應成為建議",
-          grounding: "text_grounded",
-          reusablePattern: "缺失引用模式",
-          whyItWorks: "不應成為建議"
-        }
-      ]
-    }),
-    capturedSpans: [{ ref: "e1", text: "作者明確描述如何聚焦主要操作。" }]
-  }));
-
-  assert.deepEqual(result, [
-    { kind: "experiment", text: "先用一張卡測試聚焦層級。", support: "analysis", sourceRef: null },
-    { kind: "pattern", text: "聚焦主要操作", support: "text_grounded", sourceRef: "e1" }
-  ]);
-});
-
-test("deriveProductCardRecommendations returns none for compact and noise cards", () => {
-  const usable = {
-    experimentHint: "先試一個小改動",
-    evidenceNotes: [{
-      ref: "e1",
-      quoteSummary: "不應成為建議",
-      whyItMatters: "不應成為建議",
-      grounding: "text_grounded" as const,
-      reusablePattern: "可借用模式",
-      whyItWorks: "不應成為建議"
-    }]
-  };
-  const capturedSpans = [{ ref: "e1", text: "可驗證的原文" }];
-
-  assert.deepEqual(
-    deriveProductCardRecommendations(input({ analysis: analysis({ ...usable, verdict: "park" }), capturedSpans })),
-    []
-  );
-  assert.deepEqual(
-    deriveProductCardRecommendations(input({ analysis: analysis({ ...usable, signalType: "noise" }), capturedSpans })),
-    []
-  );
-});
-
-test("deriveProductCardRecommendations deduplicates normalized text and caps the output at three", () => {
-  const result = deriveProductCardRecommendations(input({
-    analysis: analysis({
-      experimentHint: "  聚焦主要操作  ",
-      evidenceNotes: [
-        {
-          ref: "e1", quoteSummary: "不應成為建議", whyItMatters: "不應成為建議",
-          grounding: "text_grounded", reusablePattern: "聚焦主要操作", whyItWorks: "不應成為建議"
-        },
-        {
-          ref: "e2", quoteSummary: "不應成為建議", whyItMatters: "不應成為建議",
-          grounding: "text_grounded", reusablePattern: "  分段顯示關鍵狀態  ", whyItWorks: "不應成為建議"
-        },
-        {
-          ref: "e3", quoteSummary: "不應成為建議", whyItMatters: "不應成為建議",
-          grounding: "text_grounded", reusablePattern: "用來源證據校驗建議", whyItWorks: "不應成為建議"
-        },
-        {
-          ref: "e4", quoteSummary: "不應成為建議", whyItMatters: "不應成為建議",
-          grounding: "text_grounded", reusablePattern: "第四個不得超過上限", whyItWorks: "不應成為建議"
-        }
-      ]
-    }),
-    capturedSpans: [
-      { ref: "e1", text: "captured e1" },
-      { ref: "e2", text: "captured e2" },
-      { ref: "e3", text: "captured e3" },
-      { ref: "e4", text: "captured e4" }
-    ]
-  }));
-
-  assert.deepEqual(result, [
-    { kind: "experiment", text: "聚焦主要操作", support: "analysis", sourceRef: null },
-    { kind: "pattern", text: "分段顯示關鍵狀態", support: "text_grounded", sourceRef: "e2" },
-    { kind: "pattern", text: "用來源證據校驗建議", support: "text_grounded", sourceRef: "e3" }
-  ]);
-});
-
-test("deriveProductCardRecommendations keeps at most two patterns without an experiment", () => {
-  const result = deriveProductCardRecommendations(input({
-    analysis: analysis({
-      evidenceNotes: [
-        { ref: "e1", quoteSummary: "x", whyItMatters: "x", grounding: "text_grounded", reusablePattern: "模式一", whyItWorks: "x" },
-        { ref: "e2", quoteSummary: "x", whyItMatters: "x", grounding: "text_grounded", reusablePattern: "模式二", whyItWorks: "x" },
-        { ref: "e3", quoteSummary: "x", whyItMatters: "x", grounding: "text_grounded", reusablePattern: "模式三", whyItWorks: "x" },
-        { ref: "e4", quoteSummary: "x", whyItMatters: "x", grounding: "text_grounded", reusablePattern: "模式四", whyItWorks: "x" }
-      ]
-    }),
-    capturedSpans: [
-      { ref: "e1", text: "captured e1" },
-      { ref: "e2", text: "captured e2" },
-      { ref: "e3", text: "captured e3" },
-      { ref: "e4", text: "captured e4" }
-    ]
-  }));
-
-  assert.deepEqual(result, [
-    { kind: "pattern", text: "模式一", support: "text_grounded", sourceRef: "e1" },
-    { kind: "pattern", text: "模式二", support: "text_grounded", sourceRef: "e2" }
-  ]);
-});
-
-/* ── W2.1: presentation-time application suggestion precedence ── */
-test("valid application suggestions replace generic rows, keep all refs, and do not ready an Agent brief", () => {
+test("Product card presentation exposes no recommendation or watch projection fields", () => {
   const result = deriveProductCardPresentation(input({
     analysis: analysis({
-      experimentHint: "這個 generic experiment 不應與 application 並列。",
-      evidenceRefs: ["e1", "e2", "e3"],
-      evidenceNotes: [
-        { ref: "e1", quoteSummary: "x", whyItMatters: "x", grounding: "text_grounded", reusablePattern: "generic pattern", whyItWorks: "x" },
-        { ref: "e2", quoteSummary: "x", whyItMatters: "x", grounding: "text_grounded" },
-        { ref: "e3", quoteSummary: "x", whyItMatters: "x", grounding: "text_grounded" }
-      ],
-      applicationSuggestions: [
-        {
-          sourcePattern: "把證據卡的來源狀態直接放進操作卡",
-          fitReason: "可能降低核心流程的來源誤讀",
-          smallTest: "在 Product Action 加一個來源狀態檢查",
-          productContextTarget: "coreWorkflows",
-          supportRefs: ["e1", "e2"],
-          verificationQuestion: "小型可用性測試是否降低來源誤讀？"
-        },
-        {
-          sourcePattern: "這一則因任一 ref 無法解析而整則丟棄",
-          fitReason: "可能無效",
-          smallTest: "不應顯示",
-          productContextTarget: "evaluationCriteria",
-          supportRefs: ["e2", "e3"],
-          verificationQuestion: "e3 是否仍有目前捕捉文字？"
-        }
-      ]
-    }),
-    capturedSpans: [
-      { ref: "e1", text: "第一段目前捕捉文字" },
-      { ref: "e2", text: "第二段目前捕捉文字" }
-    ]
-  }));
-
-  assert.deepEqual(result.recommendations, [{
-    kind: "application",
-    support: "text_grounded",
-    sourcePattern: "把證據卡的來源狀態直接放進操作卡",
-    fitReason: "可能降低核心流程的來源誤讀",
-    smallTest: "在 Product Action 加一個來源狀態檢查",
-    sourceRefs: ["e1", "e2"],
-    productContextTarget: "coreWorkflows",
-    verificationQuestion: "小型可用性測試是否降低來源誤讀？"
-  }]);
-  assert.equal(result.agentBriefReady, false);
-});
-
-test("application suggestion presentation gate rejects malformed refs and fields independently", () => {
-  const base = {
-    sourcePattern: "有效的來源做法",
-    fitReason: "可能適合目前能力",
-    smallTest: "在既有能力上做一次 bounded 小試",
-    productContextTarget: "currentCapabilities",
-    supportRefs: ["e1"],
-    verificationQuestion: "目前能力是否能完成這個 bounded experiment？"
-  };
-  const malformed = [
-    { ...base, sourcePattern: "   " },
-    { ...base, fitReason: "   " },
-    { ...base, smallTest: "   " },
-    { ...base, productContextTarget: "technicalLearning" },
-    { ...base, supportRefs: [] },
-    { ...base, supportRefs: ["e1", "e1"] },
-    { ...base, supportRefs: ["e1", "e2", "e3", "e4"] },
-    { ...base, supportRefs: ["e_missing"] },
-    { ...base, supportRefs: ["e2"] },
-    { ...base, verificationQuestion: "   " }
-  ];
-
-  const result = deriveProductCardRecommendations(input({
-    analysis: analysis({
-      evidenceRefs: ["e1", "e2", "e3", "e4"],
-      evidenceNotes: [
-        { ref: "e1", quoteSummary: "x", whyItMatters: "x", grounding: "text_grounded" },
-        { ref: "e2", quoteSummary: "x", whyItMatters: "x", grounding: "model_inferred" },
-        { ref: "e3", quoteSummary: "x", whyItMatters: "x", grounding: "text_grounded" },
-        { ref: "e4", quoteSummary: "x", whyItMatters: "x", grounding: "text_grounded" }
-      ],
-      applicationSuggestions: malformed as ProductSignalAnalysis["applicationSuggestions"],
-      experimentHint: "所有 application 失敗時要完整保留 fallback。"
-    }),
-    capturedSpans: [
-      { ref: "e1", text: "captured e1" },
-      { ref: "e2", text: "captured e2" },
-      { ref: "e3", text: "captured e3" },
-      { ref: "e4", text: "captured e4" }
-    ]
-  }));
-
-  assert.deepEqual(result, [{
-    kind: "experiment",
-    text: "所有 application 失敗時要完整保留 fallback。",
-    support: "analysis",
-    sourceRef: null
-  }]);
-});
-
-/* ── Task 1: recommendation strength tier ── */
-test("application rows produce an application recommendation tier", () => {
-  const result = deriveProductCardPresentation({
-    analysis: analysis({
       verdict: "try",
+      experimentHint: "legacy experiment text must not become a recommendation",
       evidenceRefs: ["e1"],
       evidenceNotes: [{
         ref: "e1",
-        quoteSummary: "來源指出先預覽再確認",
-        whyItMatters: "支持一個可測流程",
-        grounding: "text_grounded"
-      }],
-      applicationSuggestions: [{
-        sourcePattern: "先展示可檢查結果，再要求採用",
-        fitReason: "可能提高核心流程的首次完成率",
-        smallTest: "先在一個入口測試預覽後確認",
-        productContextTarget: "coreWorkflows",
-        supportRefs: ["e1"],
-        verificationQuestion: "首次完成率是否提高？"
+        quoteSummary: "legacy note",
+        whyItMatters: "legacy note",
+        grounding: "text_grounded",
+        reusablePattern: "legacy reusable pattern"
       }]
     }),
-    citations: [{ ref: "e1", text: "先預覽，再確認。" }],
-    capturedSpans: [{ ref: "e1", text: "先預覽，再確認。" }]
-  });
-
-  assert.equal(result.recommendationTier, "application");
-});
-
-test("try-only fallback rows produce an inspiration tier", () => {
-  const result = deriveProductCardPresentation({
-    analysis: analysis({ verdict: "try", experimentHint: "先做一個小測試" }),
-    citations: [],
-    capturedSpans: []
-  });
-
-  assert.equal(result.recommendationTier, "inspiration");
-});
-
-test("watch cards expose validated watch guidance instead of generic fallback rows", () => {
-  const watchAnalysis = {
-    ...analysis({
-      verdict: "watch",
-      experimentHint: "不應顯示的 generic fallback",
-      evidenceRefs: ["e1"],
-      evidenceNotes: [
-        {
-          ref: "e1",
-          quoteSummary: "來源原文",
-          whyItMatters: "支持保留觀察",
-          grounding: "text_grounded" as const,
-          reusablePattern: "不應顯示的 generic pattern"
-        }
-      ]
-    }),
-    watchGuidance: {
-      sourcePattern: "先保留來源做法，再確認是否值得產品化",
-      fitReason: "目前只有方向性訊號，仍值得持續觀察",
-      nextEvidence: "需要更多成功案例與失敗邊界",
-      supportRefs: ["e1"]
-    }
-  };
-  const result = deriveProductCardPresentation({
-    analysis: watchAnalysis as ProductSignalAnalysis,
-    citations: [{ ref: "e1", text: "先保留來源做法，再確認是否值得產品化。" }],
-    capturedSpans: [{ ref: "e1", text: "先保留來源做法，再確認是否值得產品化。" }]
-  });
-
-  assert.deepEqual(result.watchGuidance, {
-    sourcePattern: "先保留來源做法，再確認是否值得產品化",
-    fitReason: "目前只有方向性訊號，仍值得持續觀察",
-    nextEvidence: "需要更多成功案例與失敗邊界",
-    supportRefs: ["e1"]
-  });
-  assert.deepEqual(result.recommendations, []);
-  assert.equal(result.recommendationTier, "none");
-});
-
-test("no recommendation rows produce a none tier", () => {
-  const result = deriveProductCardPresentation({
-    analysis: analysis({ verdict: "watch", experimentHint: "" }),
-    citations: [],
-    capturedSpans: []
-  });
-
-  assert.equal(result.recommendationTier, "none");
-});
-
-test("an application grounded on the root span is kept with the root ref", () => {
-  const result = deriveProductCardRecommendations(input({
-    analysis: analysis({
-      verdict: "try",
-      evidenceRefs: [ROOT_SPAN_REF],
-      evidenceNotes: [{
-        ref: ROOT_SPAN_REF,
-        quoteSummary: "主文說先展示再要求採用",
-        whyItMatters: "支持一個以主文文字為根據的可測流程",
-        grounding: "text_grounded"
-      }],
-      applicationSuggestions: [{
-        sourcePattern: "先展示可檢查結果，再要求採用",
-        fitReason: "可能降低核心流程的首次決策負擔",
-        smallTest: "只在一個入口測試先預覽後確認",
-        productContextTarget: "coreWorkflows",
-        supportRefs: [ROOT_SPAN_REF],
-        verificationQuestion: "首次完成率是否提高？"
-      }]
-    }),
-    capturedSpans: [{ ref: ROOT_SPAN_REF, text: "主文：先展示可檢查結果，再要求採用。" }]
+    capturedSpans: [{ ref: "e1", text: "captured evidence" }]
   }));
 
-  assert.equal(result.length, 1);
-  assert.equal(result[0]?.kind, "application");
-  assert.deepEqual((result[0] as { sourceRefs: string[] }).sourceRefs, [ROOT_SPAN_REF]);
-});
-
-test("only full non-noise try analyses render application or fallback rows", () => {
-  const applicationSuggestions = [{
-    sourcePattern: "只允許 try 卡顯示的來源做法",
-    fitReason: "可能符合評估標準",
-    smallTest: "在評估標準上做一次 bounded check",
-    productContextTarget: "evaluationCriteria" as const,
-    supportRefs: ["e1"],
-    verificationQuestion: "這個提案能否通過一個 bounded check？"
-  }];
-  const evidenceNotes = [{ ref: "e1", quoteSummary: "x", whyItMatters: "x", grounding: "text_grounded" as const }];
-  const capturedSpans = [{ ref: "e1", text: "captured e1" }];
-
+  assert.equal(Object.hasOwn(result, "recommendations"), false);
+  assert.equal(Object.hasOwn(result, "recommendationTier"), false);
+  assert.equal(Object.hasOwn(result, "watchGuidance"), false);
   assert.deepEqual(
-    deriveProductCardRecommendations(input({
-      analysis: analysis({ verdict: "watch", evidenceRefs: ["e1"], evidenceNotes, applicationSuggestions, experimentHint: "watch fallback" }),
-      capturedSpans
-    })),
-    []
-  );
-  assert.deepEqual(
-    deriveProductCardRecommendations(input({
-      analysis: analysis({ verdict: "try", signalType: "noise", evidenceRefs: ["e1"], evidenceNotes, applicationSuggestions }),
-      capturedSpans
-    })),
-    []
+    Object.keys(result).sort(),
+    [
+      "agentBriefReady",
+      "briefEligible",
+      "density",
+      "heroKind",
+      "heroPayload",
+      "primaryCategory",
+      "secondaryTags"
+    ]
   );
 });
