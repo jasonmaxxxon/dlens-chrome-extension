@@ -535,14 +535,53 @@ test("application rows produce an application recommendation tier", () => {
   assert.equal(result.recommendationTier, "application");
 });
 
-test("experiment and pattern fallback rows produce an inspiration tier", () => {
+test("try-only fallback rows produce an inspiration tier", () => {
   const result = deriveProductCardPresentation({
-    analysis: analysis({ verdict: "watch", experimentHint: "先做一個小測試" }),
+    analysis: analysis({ verdict: "try", experimentHint: "先做一個小測試" }),
     citations: [],
     capturedSpans: []
   });
 
   assert.equal(result.recommendationTier, "inspiration");
+});
+
+test("watch cards expose validated watch guidance instead of generic fallback rows", () => {
+  const watchAnalysis = {
+    ...analysis({
+      verdict: "watch",
+      experimentHint: "不應顯示的 generic fallback",
+      evidenceRefs: ["e1"],
+      evidenceNotes: [
+        {
+          ref: "e1",
+          quoteSummary: "來源原文",
+          whyItMatters: "支持保留觀察",
+          grounding: "text_grounded" as const,
+          reusablePattern: "不應顯示的 generic pattern"
+        }
+      ]
+    }),
+    watchGuidance: {
+      sourcePattern: "先保留來源做法，再確認是否值得產品化",
+      fitReason: "目前只有方向性訊號，仍值得持續觀察",
+      nextEvidence: "需要更多成功案例與失敗邊界",
+      supportRefs: ["e1"]
+    }
+  };
+  const result = deriveProductCardPresentation({
+    analysis: watchAnalysis as ProductSignalAnalysis,
+    citations: [{ ref: "e1", text: "先保留來源做法，再確認是否值得產品化。" }],
+    capturedSpans: [{ ref: "e1", text: "先保留來源做法，再確認是否值得產品化。" }]
+  });
+
+  assert.deepEqual(result.watchGuidance, {
+    sourcePattern: "先保留來源做法，再確認是否值得產品化",
+    fitReason: "目前只有方向性訊號，仍值得持續觀察",
+    nextEvidence: "需要更多成功案例與失敗邊界",
+    supportRefs: ["e1"]
+  });
+  assert.deepEqual(result.recommendations, []);
+  assert.equal(result.recommendationTier, "none");
 });
 
 test("no recommendation rows produce a none tier", () => {
@@ -583,7 +622,7 @@ test("an application grounded on the root span is kept with the root ref", () =>
   assert.deepEqual((result[0] as { sourceRefs: string[] }).sourceRefs, [ROOT_SPAN_REF]);
 });
 
-test("application suggestions require a full non-noise try analysis", () => {
+test("only full non-noise try analyses render application or fallback rows", () => {
   const applicationSuggestions = [{
     sourcePattern: "只允許 try 卡顯示的來源做法",
     fitReason: "可能符合評估標準",
@@ -600,7 +639,7 @@ test("application suggestions require a full non-noise try analysis", () => {
       analysis: analysis({ verdict: "watch", evidenceRefs: ["e1"], evidenceNotes, applicationSuggestions, experimentHint: "watch fallback" }),
       capturedSpans
     })),
-    [{ kind: "experiment", text: "watch fallback", support: "analysis", sourceRef: null }]
+    []
   );
   assert.deepEqual(
     deriveProductCardRecommendations(input({

@@ -302,7 +302,7 @@ test("Product workspace actions keep packet export on Action only", () => {
   );
 });
 
-test("Product VM marks a complete v17 analysis stale under the v19 generator", () => {
+test("Product VM marks a complete v17 analysis stale under the v20 generator", () => {
   const vm = buildProductSignalWorkspaceViewModel({
     kind: "classification",
     snapshot: makeSnapshot(),
@@ -314,7 +314,7 @@ test("Product VM marks a complete v17 analysis stale under the v19 generator", (
     isAnalyzing: false
   });
 
-  assert.equal(PRODUCT_SIGNAL_ANALYSIS_PROMPT_VERSION, "v19");
+  assert.equal(PRODUCT_SIGNAL_ANALYSIS_PROMPT_VERSION, "v20");
   assert.equal(vm.signals[0]?.analysisState, "stale");
 });
 
@@ -333,7 +333,7 @@ test("Product VM marks a complete v17 analysis stale when ProductContext is unav
   assert.equal(vm.signals[0]?.analysisState, "stale");
 });
 
-test("Product VM keeps a complete v19 analysis ready for the same ProductContext", () => {
+test("Product VM keeps a complete v20 analysis ready for the same ProductContext", () => {
   const vm = buildProductSignalWorkspaceViewModel({
     kind: "classification",
     snapshot: makeSnapshot(),
@@ -348,7 +348,7 @@ test("Product VM keeps a complete v19 analysis ready for the same ProductContext
   assert.equal(vm.signals[0]?.analysisState, "ready");
 });
 
-test("Product VM marks a complete v19 analysis stale when ProductContext drifts", () => {
+test("Product VM marks a complete v20 analysis stale when ProductContext drifts", () => {
   const staleContext: ProductContext = {
     ...productContext,
     productPromise: "Capture evidence and generate release briefs",

@@ -119,6 +119,14 @@ export interface ProductCardPresentation extends ProductHeroResult {
   recommendationTier: ProductRecommendationTier;
   briefEligible: boolean;
   agentBriefReady: boolean;
+  watchGuidance: ProductCardWatchGuidance | null;
+}
+
+export interface ProductCardWatchGuidance {
+  sourcePattern: string;
+  fitReason: string;
+  nextEvidence: string;
+  supportRefs: string[];
 }
 
 /* ── category: deterministic mapping over EXISTING analyzer fields ── */
@@ -355,16 +363,75 @@ function deriveApplicationRecommendations(input: ProductCardInput): ProductCardR
 
 export function deriveProductCardRecommendations(input: ProductCardInput): ProductCardRecommendation[] {
   if (densityFor(input.analysis) === "compact") return [];
+  if (input.analysis.verdict !== "try" || input.analysis.signalType === "noise") return [];
   const applicationRecommendations = deriveApplicationRecommendations(input);
   return applicationRecommendations.length > 0
     ? applicationRecommendations
     : deriveFallbackRecommendations(input);
 }
 
+function deriveWatchGuidance(input: ProductCardInput): ProductCardWatchGuidance | null {
+  const { analysis } = input;
+  if (analysis.verdict !== "watch" || analysis.signalType === "noise") return null;
+
+  const rawAnalysis = analysis as ProductSignalAnalysis & {
+    watchGuidance?: unknown;
+    watch_guidance?: unknown;
+  };
+  const rawGuidance = rawAnalysis.watchGuidance ?? rawAnalysis.watch_guidance;
+  if (!rawGuidance || typeof rawGuidance !== "object") return null;
+
+  const guidance = rawGuidance as Record<string, unknown>;
+  const sourcePattern = readBoundedRecommendationText(guidance.sourcePattern ?? guidance.source_pattern, 80);
+  const fitReason = readBoundedRecommendationText(guidance.fitReason ?? guidance.fit_reason, 100);
+  const nextEvidence = readBoundedRecommendationText(guidance.nextEvidence ?? guidance.next_evidence, 100);
+  const rawSupportRefs = guidance.supportRefs ?? guidance.support_refs;
+  if (
+    !sourcePattern
+    || !fitReason
+    || !nextEvidence
+    || !Array.isArray(rawSupportRefs)
+    || rawSupportRefs.length < 1
+    || rawSupportRefs.length > 3
+    || rawSupportRefs.some((ref) => typeof ref !== "string" || ref.length === 0 || ref !== ref.trim())
+  ) {
+    return null;
+  }
+
+  const supportRefs = rawSupportRefs as string[];
+  const persistedEvidenceRefs = new Set(analysis.evidenceRefs);
+  const textGroundedRefs = new Set(
+    (analysis.evidenceNotes ?? [])
+      .filter((note) => note.grounding === "text_grounded")
+      .map((note) => note.ref)
+  );
+  const capturedRefs = new Set(
+    input.capturedSpans
+      .filter((span) => span.ref.trim().length > 0 && span.text.trim().length > 0)
+      .map((span) => span.ref)
+  );
+  if (
+    new Set(supportRefs).size !== supportRefs.length
+    || supportRefs.some((ref) => !persistedEvidenceRefs.has(ref))
+    || supportRefs.some((ref) => !textGroundedRefs.has(ref))
+    || supportRefs.some((ref) => !capturedRefs.has(ref))
+  ) {
+    return null;
+  }
+
+  return {
+    sourcePattern,
+    fitReason,
+    nextEvidence,
+    supportRefs: [...supportRefs]
+  };
+}
+
 export function deriveProductCardPresentation(input: ProductCardInput): ProductCardPresentation {
   const { primary, secondary } = derivePrimaryCategory(input.analysis);
   const hero = resolveProductHero(input);
   const recommendations = deriveProductCardRecommendations(input);
+  const watchGuidance = deriveWatchGuidance(input);
   return {
     primaryCategory: primary,
     secondaryTags: secondary,
@@ -373,6 +440,7 @@ export function deriveProductCardPresentation(input: ProductCardInput): ProductC
     recommendations,
     recommendationTier: recommendationTierFor(recommendations),
     briefEligible: briefEligibleFor(input.analysis),
-    agentBriefReady: agentBriefReadyFor(input.analysis)
+    agentBriefReady: agentBriefReadyFor(input.analysis),
+    watchGuidance
   };
 }

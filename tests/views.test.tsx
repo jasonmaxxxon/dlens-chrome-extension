@@ -2095,7 +2095,72 @@ test("PR evidence lens preserves matching, metrics, summary, and CSV actions", (
   assert.match(html, /抓取進階指標/);
   assert.match(html, /aria-label="匯出 CSV"/);
   assert.match(html, /生成摘要/);
+  assert.match(html, /data-pr-summary-cta="empty"[\s\S]*data-attention-beam="actionable"/);
   assert.doesNotMatch(html, /data-pr-narrative-priority="true"/);
+});
+
+test("PR evidence AI generation controls use the shared attention grammar while brief upload stays plain", () => {
+  const fixture = buildPrNarrativeViewFixture();
+
+  const uploadHtml = renderPrEvidenceView({ ...fixture, setupCollapsed: false }, {
+    activeLens: "evidence",
+    isReadingBrief: true
+  });
+  assert.match(uploadHtml, /讀取中\.\.\./);
+  assert.doesNotMatch(uploadHtml, /data-searching-orb="true"/);
+  assert.match(uploadHtml, /data-pr-criteria-generate="true"[\s\S]*data-attention-beam="none"/);
+  assert.doesNotMatch(uploadHtml, /data-pr-criteria-generate="true"[\s\S]*data-attention-beam="actionable"/);
+
+  const criteriaUnavailableVm = buildPrEvidenceVm(
+    { ...fixture, setupCollapsed: false },
+    { activeLens: "evidence" }
+  );
+  const criteriaUnavailableHtml = renderToStaticMarkup(
+    React.createElement(PrEvidenceView, {
+      viewModel: {
+        ...criteriaUnavailableVm,
+        actions: criteriaUnavailableVm.actions.filter((action) => action.kind !== "generateCriteria")
+      },
+      onCommand: () => undefined
+    })
+  );
+  assert.match(criteriaUnavailableHtml, /data-pr-criteria-generate="true"[\s\S]*data-attention-beam="none"/);
+  assert.doesNotMatch(criteriaUnavailableHtml, /data-pr-criteria-generate="true"[\s\S]*data-attention-beam="actionable"/);
+
+  const criteriaHtml = renderPrEvidenceView({ ...fixture, setupCollapsed: false }, {
+    activeLens: "evidence",
+    isGeneratingCriteria: true
+  });
+  assert.match(criteriaHtml, /data-pr-criteria-generate="true"[\s\S]*data-attention-beam="generating"/);
+  assert.match(criteriaHtml, /data-searching-orb="true"/);
+
+  const summaryHtml = renderPrEvidenceView(fixture, {
+    activeLens: "evidence",
+    isGeneratingSummary: true
+  });
+  assert.match(summaryHtml, /data-pr-summary-generate="true"[\s\S]*data-attention-beam="generating"/);
+  assert.match(summaryHtml, /data-searching-orb="true"/);
+
+  const summaryUnavailableHtml = renderPrEvidenceView(
+    { campaign: fixture.campaign, rows: [], setupCollapsed: true },
+    { activeLens: "evidence" }
+  );
+  assert.match(summaryUnavailableHtml, /data-pr-summary-generate="true"[\s\S]*data-attention-beam="none"/);
+  assert.doesNotMatch(summaryUnavailableHtml, /data-pr-summary-generate="true"[\s\S]*data-attention-beam="actionable"/);
+
+  const narrativeHtml = renderPrEvidenceView(fixture, {
+    activeLens: "narrative",
+    isGeneratingNarrative: true
+  });
+  assert.match(narrativeHtml, /data-pr-narrative-generate="true"[\s\S]*data-attention-beam="generating"/);
+  assert.match(narrativeHtml, /data-searching-orb="true"/);
+
+  const narrativeUnavailableHtml = renderPrEvidenceView(
+    { campaign: fixture.campaign, rows: [], setupCollapsed: true },
+    { activeLens: "narrative" }
+  );
+  assert.match(narrativeUnavailableHtml, /data-pr-narrative-generate="true"[\s\S]*data-attention-beam="none"/);
+  assert.doesNotMatch(narrativeUnavailableHtml, /data-pr-narrative-generate="true"[\s\S]*data-attention-beam="actionable"/);
 });
 
 test("PR narrative lens distinguishes empty, stale, insufficient, and provider-error states", () => {
@@ -4454,7 +4519,7 @@ test("ProductSignalView gives each product page a distinct information shape", (
   assert.match(DLENS_MOTION_CSS, /\[data-dlens-control="true"\] \[data-rail-icon\]/);
   assert.match(DLENS_MOTION_CSS, /\[data-dlens-control="true"\] \[data-product-action-stage\]\[data-direction="forward"\]/);
   assert.match(DLENS_MOTION_CSS, /\[data-dlens-control="true"\] \[data-product-action-stage\]\[data-direction="backward"\]/);
-  assert.match(DLENS_MOTION_CSS, /\[data-dlens-control="true"\] \[data-button-shimmer="true"\]/);
+  assert.doesNotMatch(DLENS_MOTION_CSS, /data-button-shimmer/);
   assert.match(DLENS_MOTION_CSS, /\[data-dlens-control="true"\] \[data-signal-reading-compose-flash="true"\]/);
   assert.doesNotMatch(DLENS_MOTION_CSS, /^\.dlens-card-lift/m);
 
@@ -4684,8 +4749,14 @@ function productActionStageFixture() {
       verdict: "watch" as const,
       reason: "第一則觀察原因。",
       referenceTakeaway: "第一則新知保留。",
-      evidenceRefs: ["e_raw", "e_note", "e_missing"],
-      evidenceNotes: [{ ref: "e_note", quoteSummary: "AI 摘要不可冒充逐字引文。", whyItMatters: "只可作判讀。" }]
+      evidenceRefs: ["e_raw", "root", "e_missing"],
+      evidenceNotes: [{ ref: "root", quoteSummary: "AI 摘要不可冒充逐字引文。", whyItMatters: "只可作判讀。", grounding: "text_grounded" as const }],
+      watchGuidance: {
+        sourcePattern: "先保留做法脈絡，不急著升格為 experiment",
+        fitReason: "這條訊號仍有產品學習價值，但暫未到可試門檻",
+        nextEvidence: "需要更多可比對的成功與失敗案例",
+        supportRefs: ["root"]
+      }
     },
     {
       ...baseAnalysis,
@@ -4757,16 +4828,20 @@ test("Product Action stage groups completed analyses into four verdict tiles wit
   const fixture = productActionStageFixture();
   const html = renderToStaticMarkup(productSignalViewElement(fixture));
   const stageTag = findTagWithAttribute(html, 'data-product-action-stage="signal_try_second"');
+  const tryTile = findTagWithAttribute(html, 'data-action-verdict-filter="try"');
+  const noiseTile = findTagWithAttribute(html, 'data-action-verdict-filter="noise"');
+  const insufficientTile = findTagWithAttribute(html, 'data-action-verdict-filter="insufficient"');
+  const watchTile = findTagWithAttribute(html, 'data-action-verdict-filter="watch"');
   assert.ok(stageTag);
 
   assert.equal(countOccurrences(html, "data-product-action-stage="), 1);
   assert.match(html, /data-verdict-filter-tiles="true"[^>]*role="tablist"/);
   assert.match(html, /@media \(max-width: 520px\)[^]*\.dlens-verdict-tiles[^}]*grid-template-columns: repeat\(2, minmax\(0, 1fr\)\);[^}]*grid-auto-rows: 1fr/);
-  assert.match(html, /data-action-verdict-filter="try"[^]*值得嘗試/);
-  assert.match(findTagWithAttribute(html, 'data-action-verdict-filter="try"'), /role="tab"[^>]*aria-selected="true"[^>]*tabindex="0"/);
-  assert.match(html, /data-action-verdict-filter="watch"[^]*保留觀察/);
-  assert.match(html, /data-action-verdict-filter="park"[^]*噪音 \/ 前提不符/);
-  assert.match(html, /data-action-verdict-filter="insufficient"[^]*資料不足/);
+  assert.match(tryTile, /role="tab"[^>]*aria-selected="true"[^>]*tabindex="0"/);
+  assert.match(html, /data-action-verdict-filter="try"[^]*值得嘗試[^]*data-verdict-tile-count="true"[^>]*>1</);
+  assert.match(html, /data-action-verdict-filter="noise"[^]*噪音[^]*data-verdict-tile-count="true"[^>]*>1</);
+  assert.match(html, /data-action-verdict-filter="insufficient"[^]*資料不足[^]*data-verdict-tile-count="true"[^>]*>1</);
+  assert.match(html, /data-action-verdict-filter="watch"[^]*保留觀察[^]*data-verdict-tile-count="true"[^>]*>2</);
   assert.match(html, /data-product-action-stage="signal_try_second"/);
   assert.match(html, /data-product-action-page="1"/);
   assert.match(html, /data-product-action-live="true"[^>]*>1 \/ 1/);
@@ -4791,6 +4866,113 @@ test("Product Action stage groups completed analyses into four verdict tiles wit
   assert.doesNotMatch(stageTag, /(?:min-)?height:\d|overflow:(?:auto|scroll)|min-width:[2-9]\d{2}px/);
   assert.doesNotMatch(html, /尚未完成不得進 pager/);
   assert.doesNotMatch(html, /data-product-macro-strip|data-product-action-card=/);
+});
+
+test("Product Action watch cards render three watch-guidance rows and no generic recommendation section", () => {
+  const fixture = productActionStageFixture();
+  const signal = fixture.signals.find((item) => item.id === "signal_watch_first");
+  const watchAnalysis = fixture.analyses.find((analysis) => analysis.signalId === "signal_watch_first");
+  assert.ok(signal);
+  assert.ok(watchAnalysis);
+
+  const html = renderToStaticMarkup(productSignalViewElement({
+    ...fixture,
+    signals: [signal],
+    analyses: [watchAnalysis]
+  }));
+
+  assert.match(html, /data-product-action-stage="signal_watch_first"/);
+  assert.match(html, /data-product-action-watch-guidance="true"/);
+  assert.match(html, /data-product-action-watch-guidance-part="source"/);
+  assert.match(html, /來源做法/);
+  assert.match(html, /先保留做法脈絡，不急著升格為 experiment/);
+  assert.match(html, /data-product-action-watch-guidance-part="fit"/);
+  assert.match(html, /為何保留/);
+  assert.match(html, /這條訊號仍有產品學習價值，但暫未到可試門檻/);
+  assert.match(html, /data-product-action-watch-guidance-part="next"/);
+  assert.match(html, /下一步要知道/);
+  assert.match(html, /需要更多可比對的成功與失敗案例/);
+  assert.match(html, /data-product-action-watch-guidance-refs="root"/);
+  assert.match(html, /原文 · 文字支持/);
+  assert.doesNotMatch(html, /data-product-action-recommendations="true"/);
+  assert.doesNotMatch(html, /不應顯示的 generic fallback|不應顯示的 generic pattern/);
+});
+
+test("Product Action keeps watch and non-noise park in one mixed-density pager", async () => {
+  const { JSDOM } = await import("jsdom");
+  const { createRoot } = await import("react-dom/client");
+  const { act } = await import("react");
+  const dom = new JSDOM("<div id=\"root\"></div>", { url: "https://dlens.test" });
+  const reactActGlobal = globalThis as typeof globalThis & { IS_REACT_ACT_ENVIRONMENT?: boolean };
+  const previousActEnvironment = reactActGlobal.IS_REACT_ACT_ENVIRONMENT;
+  const previousNavigatorDescriptor = Object.getOwnPropertyDescriptor(globalThis, "navigator");
+  const previous = {
+    window: globalThis.window,
+    document: globalThis.document,
+    HTMLElement: globalThis.HTMLElement,
+    Event: globalThis.Event,
+    KeyboardEvent: globalThis.KeyboardEvent,
+    MouseEvent: globalThis.MouseEvent
+  };
+  Object.assign(globalThis, {
+    window: dom.window,
+    document: dom.window.document,
+    HTMLElement: dom.window.HTMLElement,
+    Event: dom.window.Event,
+    KeyboardEvent: dom.window.KeyboardEvent,
+    MouseEvent: dom.window.MouseEvent
+  });
+  Object.defineProperty(globalThis, "navigator", {
+    configurable: true,
+    enumerable: true,
+    writable: true,
+    value: dom.window.navigator
+  });
+  reactActGlobal.IS_REACT_ACT_ENVIRONMENT = true;
+  const rootElement = dom.window.document.getElementById("root");
+  assert.ok(rootElement);
+  const root = createRoot(rootElement);
+  const fixture = productActionStageFixture();
+  const interactiveProps = {
+    ...fixture,
+    analyses: fixture.analyses.filter((analysis) => analysis.signalId !== "signal_try_second")
+  };
+  const click = async (selector: string) => {
+    const button = rootElement.querySelector<HTMLButtonElement>(selector);
+    assert.ok(button, `${selector} must exist`);
+    await act(async () => button.dispatchEvent(new dom.window.MouseEvent("click", { bubbles: true })));
+  };
+
+  try {
+    await act(async () => {
+      root.render(productSignalViewElement(interactiveProps));
+      await Promise.resolve();
+    });
+
+    assert.equal(rootElement.querySelector('[data-action-verdict-filter="watch"]')?.getAttribute("aria-selected"), "true");
+    assert.equal(rootElement.querySelector<HTMLElement>("[data-product-action-stage]")?.dataset.productActionStage, "signal_watch_first");
+    assert.equal(rootElement.querySelector("[data-product-action-live]")?.textContent, "1 / 2");
+    assert.ok(rootElement.querySelector('[data-product-action-watch-guidance="true"]'));
+    assert.equal(rootElement.querySelector('[data-product-action-decision-summary="park"]'), null);
+
+    await click("[data-product-action-next]");
+    assert.equal(rootElement.querySelector<HTMLElement>("[data-product-action-stage]")?.dataset.productActionStage, "signal_park");
+    assert.equal(rootElement.querySelector("[data-product-action-live]")?.textContent, "2 / 2");
+    assert.equal(rootElement.querySelector("[data-product-action-verdict-pill]")?.getAttribute("data-product-action-verdict-pill"), "park");
+    assert.equal(rootElement.querySelector("[data-product-action-verdict-pill]")?.textContent, "不適合目前產品");
+    assert.match(rootElement.querySelector<HTMLElement>("[data-product-action-stage]")?.getAttribute("aria-label") ?? "", /^不適合目前產品 /);
+    assert.ok(rootElement.querySelector('[data-product-action-decision-summary="park"]'));
+    assert.equal(rootElement.querySelector('[data-product-action-watch-guidance="true"]'), null);
+    assert.equal(rootElement.querySelector('[data-product-action-recommendations="true"]'), null);
+  } finally {
+    await act(async () => root.unmount());
+    Object.assign(globalThis, previous);
+    if (previousNavigatorDescriptor) Object.defineProperty(globalThis, "navigator", previousNavigatorDescriptor);
+    else delete (globalThis as { navigator?: Navigator }).navigator;
+    if (previousActEnvironment === undefined) delete reactActGlobal.IS_REACT_ACT_ENVIRONMENT;
+    else reactActGlobal.IS_REACT_ACT_ENVIRONMENT = previousActEnvironment;
+    dom.window.close();
+  }
 });
 
 test("Product Action exposes grounded recommendations and one Agent brief row only on full cards", () => {
@@ -4945,6 +5127,8 @@ test("Product Action renders application suggestions as three parts with target,
   assert.match(html, /data-product-action-application-target="coreWorkflows"[^]*核心流程/);
   assert.match(html, /data-product-action-application-refs="e1,e2"[^]*e1、e2 · 文字支持/);
   assert.match(html, /data-product-action-application-question="true"[^]*驗證問題[^]*使用者能否在一次 bounded test 中正確分辨來源狀態？/);
+  assert.match(html, /data-product-action-recommendations="true"[^]*data-attention-beam="actionable"/);
+  assert.match(html, /data-product-action-brief-toggle="true"[^]*data-attention-beam="actionable"/);
   assert.doesNotMatch(html, /不應與 application 同時顯示的 fallback/);
   assert.doesNotMatch(row, /已捕捉事實|來源已證實|captured fact/iu);
   assert.doesNotMatch(html, /data-product-action-agent-brief="true"/);
@@ -5426,13 +5610,13 @@ test("Product Action verdict tiles render in the approved visual order", () => {
     (match) => match[1]
   );
 
-  assert.deepEqual(tileOrder, ["try", "park", "insufficient", "watch"]);
+  assert.deepEqual(tileOrder, ["try", "noise", "insufficient", "watch"]);
 });
 
 test("Product Action verdict tabs link to one stage panel and keep 44px hit areas", () => {
   const html = renderToStaticMarkup(productSignalViewElement(productActionStageFixture()));
 
-  for (const key of ["try", "park", "insufficient", "watch"] as const) {
+  for (const key of ["try", "noise", "insufficient", "watch"] as const) {
     const tile = findTagWithAttribute(html, `data-action-verdict-filter="${key}"`);
     assert.match(tile, /^<button\b/);
     assert.match(tile, /role="tab"/);
@@ -5617,8 +5801,10 @@ test("Product Action resets verdict stage state when the Product session changes
     assert.equal(rootElement.querySelector<HTMLElement>("[data-product-action-stage]")?.dataset.productActionStage, "signal_try_third");
     await click('[data-action-verdict-filter="watch"]');
     await click("[data-product-action-next]");
+    assert.equal(rootElement.querySelector<HTMLElement>("[data-product-action-stage]")?.dataset.productActionStage, "signal_park");
+    await click("[data-product-action-next]");
     assert.equal(rootElement.querySelector<HTMLElement>("[data-product-action-stage]")?.dataset.productActionStage, "signal_watch_second");
-    await click('[data-action-verdict-filter="park"]');
+    await click('[data-action-verdict-filter="noise"]');
     assert.equal(rootElement.querySelector<HTMLElement>("[data-product-action-stage]")?.dataset.direction, "backward");
 
     const renameForSessionB = (signalId: string) => `${signalId}_session_b`;
@@ -5664,7 +5850,7 @@ test("Product Action verdict tiles disable empty buckets and default to the firs
   }));
 
   assert.match(findTagWithAttribute(html, 'data-action-verdict-filter="try"'), /\sdisabled=""/);
-  assert.match(findTagWithAttribute(html, 'data-action-verdict-filter="park"'), /\sdisabled=""/);
+  assert.match(findTagWithAttribute(html, 'data-action-verdict-filter="noise"'), /\sdisabled=""/);
   assert.match(findTagWithAttribute(html, 'data-action-verdict-filter="insufficient"'), /\sdisabled=""/);
   assert.match(findTagWithAttribute(html, 'data-action-verdict-filter="watch"'), /aria-selected="true"/);
   assert.match(html, /data-product-action-stage="signal_watch_first"/);
@@ -5682,7 +5868,7 @@ test("Product Action total-zero state keeps four disabled verdict tiles and send
   assert.match(html, /data-product-action-status="compact"/);
   assert.match(html, /data-verdict-filter-tiles="true"/);
   assert.equal(countOccurrences(html, "data-action-verdict-filter="), 4);
-  for (const key of ["try", "watch", "park", "insufficient"] as const) {
+  for (const key of ["try", "watch", "noise", "insufficient"] as const) {
     const tile = findTagWithAttribute(html, `data-action-verdict-filter="${key}"`);
     assert.match(tile, /\sdisabled=""/);
     assert.match(tile, /aria-selected="false"/);
@@ -5796,7 +5982,7 @@ test("Product Action remembers text-paged selection per verdict bucket and follo
       await Promise.resolve();
     });
   };
-  const assertPage = (filter: "try" | "watch" | "park" | "insufficient", signalId: string, page: number, total: number) => {
+  const assertPage = (filter: "try" | "watch" | "noise" | "insufficient", signalId: string, page: number, total: number) => {
     const stage = rootElement.querySelector<HTMLElement>("[data-product-action-stage]");
     assert.ok(stage);
     assert.equal(stage.dataset.productActionStage, signalId);
@@ -5818,29 +6004,34 @@ test("Product Action remembers text-paged selection per verdict bucket and follo
     assert.equal(rootElement.querySelector<HTMLButtonElement>("[data-product-action-next]")?.disabled, true);
 
     await key("ArrowRight", '[data-action-verdict-filter="try"]');
-    assertPage("park", "signal_park", 1, 2);
-    await key("ArrowRight", '[data-action-verdict-filter="park"]');
+    assertPage("noise", "signal_noise", 1, 1);
+    await key("ArrowRight", '[data-action-verdict-filter="noise"]');
     assertPage("insufficient", "signal_insufficient", 1, 1);
     await key("ArrowRight", '[data-action-verdict-filter="insufficient"]');
-    assertPage("watch", "signal_watch_first", 1, 2);
+    assertPage("watch", "signal_watch_first", 1, 3);
     await key("ArrowRight", '[data-action-verdict-filter="watch"]');
     assertPage("try", "signal_try_second", 1, 1);
 
     await click('[data-action-verdict-filter="watch"]');
-    assertPage("watch", "signal_watch_first", 1, 2);
+    assertPage("watch", "signal_watch_first", 1, 3);
     await click("[data-product-action-next]");
-    assertPage("watch", "signal_watch_second", 2, 2);
+    assertPage("watch", "signal_park", 2, 3);
+    assert.equal(rootElement.querySelector('[data-product-action-watch-guidance="true"]'), null);
+    assert.ok(rootElement.querySelector('[data-product-action-decision-summary="park"]'));
+    await click("[data-product-action-next]");
+    assertPage("watch", "signal_watch_second", 3, 3);
+    assert.ok(rootElement.querySelector('[data-product-action-watch-guidance="true"]'));
     assert.equal(rootElement.querySelector<HTMLButtonElement>("[data-product-action-next]")?.disabled, true);
 
     await click('[data-action-verdict-filter="try"]');
     assertPage("try", "signal_try_second", 1, 1);
     await click('[data-action-verdict-filter="watch"]');
-    assertPage("watch", "signal_watch_second", 2, 2);
+    assertPage("watch", "signal_watch_second", 3, 3);
 
     await key("Home", '[data-action-verdict-filter="watch"]');
     assertPage("try", "signal_try_second", 1, 1);
     await key("End", '[data-action-verdict-filter="try"]');
-    assertPage("watch", "signal_watch_second", 2, 2);
+    assertPage("watch", "signal_watch_second", 3, 3);
 
     await click('[data-action-verdict-filter="insufficient"]');
     assertPage("insufficient", "signal_insufficient", 1, 1);
@@ -5850,32 +6041,32 @@ test("Product Action remembers text-paged selection per verdict bucket and follo
     assert.match(rootElement.textContent ?? "", /資料不足的真實原因。/);
     assert.ok(rootElement.querySelector('[data-product-source-truth="signal_insufficient"]'));
 
-    await click('[data-action-verdict-filter="park"]');
-    assertPage("park", "signal_park", 1, 2);
-    assert.ok(rootElement.querySelector('[data-product-action-decision-summary="park"]'));
+    await click('[data-action-verdict-filter="noise"]');
+    assertPage("noise", "signal_noise", 1, 1);
+    assert.ok(rootElement.querySelector('[data-product-action-decision-summary="noise"]'));
     assert.ok(rootElement.querySelector("[data-product-action-evidence-stack]"));
     assert.equal(rootElement.querySelector("[data-product-action-reading]"), null);
-    assert.match(rootElement.textContent ?? "", /前提不符的真實原因。/);
+    assert.match(rootElement.textContent ?? "", /噪音訊號的真實原因。/);
 
     await click('[data-action-verdict-filter="watch"]');
-    assertPage("watch", "signal_watch_second", 2, 2);
+    assertPage("watch", "signal_watch_second", 3, 3);
     await key("End");
-    assertPage("watch", "signal_watch_second", 2, 2);
+    assertPage("watch", "signal_watch_second", 3, 3);
     await key("Home");
-    assertPage("watch", "signal_watch_first", 1, 2);
+    assertPage("watch", "signal_watch_first", 1, 3);
     const keyboardStage = rootElement.querySelector<HTMLElement>("[data-product-action-stage]");
     assert.ok(keyboardStage);
     keyboardStage.focus();
     assert.equal(dom.window.document.activeElement === keyboardStage, true);
     await key("ArrowRight");
-    assertPage("watch", "signal_watch_second", 2, 2);
+    assertPage("watch", "signal_park", 2, 3);
     assert.equal(
       dom.window.document.activeElement === rootElement.querySelector<HTMLElement>("[data-product-action-stage]"),
       true,
       "the keyed replacement stage must retain focus after keyboard paging"
     );
     await key("ArrowLeft");
-    assertPage("watch", "signal_watch_first", 1, 2);
+    assertPage("watch", "signal_watch_first", 1, 3);
     assert.equal(
       dom.window.document.activeElement === rootElement.querySelector<HTMLElement>("[data-product-action-stage]"),
       true,
@@ -5883,7 +6074,7 @@ test("Product Action remembers text-paged selection per verdict bucket and follo
     );
 
     await key("ArrowRight", "[data-product-action-generate-reading]");
-    assertPage("watch", "signal_watch_first", 1, 2);
+    assertPage("watch", "signal_watch_first", 1, 3);
 
     await click("[data-product-action-generate-reading]");
     assert.deepEqual(synthesisCalls, [["signal_watch_first", "session_stage", false]]);
@@ -6618,9 +6809,25 @@ test("ProductSignalView action route stays on one stage before readings exist", 
   assert.match(html, /data-product-action-stage="signal_empty"/);
   assert.match(html, /data-product-action-reading="missing"/);
   assert.match(html, /data-product-action-generate-reading="true"/);
+  assert.match(html, /data-product-action-generate-reading="true"[^]*data-attention-beam="none"/);
+  assert.doesNotMatch(html, /data-product-action-generate-reading="true"[^]*data-attention-beam="actionable"/);
   assert.match(html, /保留觀察/);
   assert.doesNotMatch(html, /data-signal-reading-review-workspace="true"/);
   assert.match(html, /尚未生成深度判讀/);
+});
+
+test("Product user-triggered analysis uses the shared generating attention state", () => {
+  const fixture = productActionStageFixture();
+  const html = renderToStaticMarkup(productSignalViewElement({
+    ...fixture,
+    kind: "classification",
+    isAnalyzing: true,
+    onAnalyze: () => undefined
+  }));
+
+  assert.match(html, /data-attention-beam="generating"/);
+  assert.match(html, /data-searching-orb="true"/);
+  assert.match(html, /aria-busy="true"[^]*分析中/);
 });
 
 test("ProductSignalView action route ignores stale readings from other signals", () => {

@@ -35,6 +35,7 @@ import {
   type ProductPrimaryCategory
 } from "../viewmodel/product-card-presentation";
 import {
+  AttentionBeam,
   EvidenceSourceHero,
   Kicker,
   MetricIcon,
@@ -103,21 +104,21 @@ const SIGNAL_TYPE_ORDER: ProductSignalType[] = ["demand", "technical", "marketin
 const VERDICT_LABELS: Record<ProductSignalVerdict, string> = {
   try: "值得嘗試",
   watch: "保留觀察",
-  park: "前提不符",
+  park: "不適合目前產品",
   insufficient_data: "資料不足"
 };
 
 const VERDICT_META: Record<ProductSignalVerdict, { label: string; color: string; soft: string }> = {
   try: { label: "值得嘗試", color: tokens.color.success, soft: tokens.color.successSoft },
   watch: { label: "保留觀察", color: tokens.color.running, soft: tokens.color.runningSoft },
-  park: { label: "噪音 / 前提不符", color: tokens.color.neutralText, soft: tokens.color.neutralSurfaceSoft },
+  park: { label: "不適合目前產品", color: tokens.color.neutralText, soft: tokens.color.neutralSurfaceSoft },
   insufficient_data: { label: "資料不足", color: tokens.color.queued, soft: tokens.color.queuedSoft }
 };
 
-type ActionVerdictFilter = "try" | "watch" | "park" | "insufficient";
+type ActionVerdictFilter = "try" | "noise" | "insufficient" | "watch";
 
-const ACTION_VERDICT_VISUAL_ORDER: ActionVerdictFilter[] = ["try", "park", "insufficient", "watch"];
-const ACTION_VERDICT_DEFAULT_PRIORITY: ActionVerdictFilter[] = ["try", "watch", "park", "insufficient"];
+const ACTION_VERDICT_VISUAL_ORDER: ActionVerdictFilter[] = ["try", "noise", "insufficient", "watch"];
+const ACTION_VERDICT_DEFAULT_PRIORITY: ActionVerdictFilter[] = ["try", "watch", "noise", "insufficient"];
 const PRODUCT_ACTION_STAGE_PANEL_ID = "product-action-stage-panel";
 
 const PRODUCT_CATEGORY_META: Record<ProductPrimaryCategory, { label: string; color: string; soft: string }> = {
@@ -214,10 +215,23 @@ function externalHref(url: string): string {
   return /^https?:\/\//iu.test(url) ? url : `https://${url}`;
 }
 
+function assertNever(value: never): never {
+  throw new Error(`Unexpected exhaustive value: ${String(value)}`);
+}
+
 function verdictFilterKeyForAnalysis(analysis: ProductSignalAnalysis): ActionVerdictFilter {
-  if (analysis.signalType === "noise" || analysis.verdict === "park") return "park";
-  if (analysis.verdict === "insufficient_data") return "insufficient";
-  return analysis.verdict;
+  if (analysis.signalType === "noise") return "noise";
+  switch (analysis.verdict) {
+    case "insufficient_data":
+      return "insufficient";
+    case "watch":
+    case "park":
+      return "watch";
+    case "try":
+      return "try";
+    default:
+      return assertNever(analysis.verdict);
+  }
 }
 
 const REASON_PANEL_LABEL: Record<ProductSignalVerdict, string> = {
@@ -1316,8 +1330,19 @@ function ReadinessPanel({
         </div>
       ) : null}
       <div style={{ display: "flex", justifyContent: "flex-start" }}>
-        <PrimaryButton onClick={onAnalyze} disabled={!viewModel.canAnalyze || viewModel.isAnalyzing} activateOnPointerDown>
-          {viewModel.isAnalyzing ? "分析中" : hasResults ? "重新分析" : "分析收件匣"}
+        <PrimaryButton
+          onClick={onAnalyze}
+          disabled={!viewModel.canAnalyze || viewModel.isAnalyzing}
+          ariaBusy={viewModel.isAnalyzing}
+          activateOnPointerDown
+        >
+          <AttentionBeam
+            state={viewModel.isAnalyzing ? "generating" : "none"}
+            generatingLabel="分析中"
+            style={{ padding: viewModel.isAnalyzing ? "2px 4px" : 0 }}
+          >
+            {hasResults ? "重新分析" : "分析收件匣"}
+          </AttentionBeam>
         </PrimaryButton>
       </div>
     </div>
@@ -1744,25 +1769,6 @@ function SignalReadingProvenanceRow({
         判讀來源：{provenanceCopy.label}
       </span>
     </div>
-  );
-}
-
-/** A shimmer sweep overlay for a button in a loading state. The host button
- * must be position:relative + overflow:hidden. */
-function ButtonShimmer() {
-  return (
-    <span
-      aria-hidden="true"
-      data-button-shimmer="true"
-      style={{
-        position: "absolute",
-        inset: 0,
-        background: `linear-gradient(100deg, transparent 35%, ${tokens.color.inverseShimmer} 50%, transparent 65%)`,
-        backgroundSize: "220% 100%",
-        animation: tokens.motion.keyframes.shimmer,
-        pointerEvents: "none"
-      }}
-    />
   );
 }
 
@@ -2811,9 +2817,15 @@ function ProductActionReadingOperations({
             dataAttrs={{ "data-product-action-generate-reading": "true" }}
             onClick={() => generate(false)}
             disabled={generating}
-            style={{ position: "relative", overflow: "hidden" }}
+            ariaBusy={generating}
           >
-            {generating ? <>生成中…<ButtonShimmer /></> : "生成深度判讀"}
+            <AttentionBeam
+              state={generating ? "generating" : "none"}
+              generatingLabel="生成中…"
+              style={{ padding: generating ? "2px 4px" : 0 }}
+            >
+              生成深度判讀
+            </AttentionBeam>
           </PrimaryButton>
         ) : null}
         {reading && onSynthesizeSignalReading ? (
@@ -2821,9 +2833,15 @@ function ProductActionReadingOperations({
             dataAttrs={{ "data-product-action-regenerate-reading": "true" }}
             onClick={() => generate(true)}
             disabled={generating}
-            style={{ position: "relative", overflow: "hidden" }}
+            ariaBusy={generating}
           >
-            {generating ? <>生成中…<ButtonShimmer /></> : "重新生成判讀"}
+            <AttentionBeam
+              state={generating ? "generating" : "none"}
+              generatingLabel="生成中…"
+              style={{ padding: generating ? "2px 4px" : 0 }}
+            >
+              重新生成判讀
+            </AttentionBeam>
           </SecondaryButton>
         ) : null}
         {reading && onReviewSignalReading ? (
@@ -2897,7 +2915,7 @@ function ProductActionStage({
   const itemsByFilter: Record<ActionVerdictFilter, ProductSignalAnalysis[]> = {
     try: [],
     watch: [],
-    park: [],
+    noise: [],
     insufficient: []
   };
   for (const analysis of completed) {
@@ -2905,8 +2923,8 @@ function ProductActionStage({
   }
   const statByFilter: Record<ActionVerdictFilter, VerdictFilterStat> = {
     try: { key: "try", label: "值得嘗試", count: itemsByFilter.try.length, color: VERDICT_META.try.color, soft: VERDICT_META.try.soft },
+    noise: { key: "noise", label: "噪音", count: itemsByFilter.noise.length, color: SIGNAL_TYPE_META.noise.color, soft: SIGNAL_TYPE_META.noise.soft },
     watch: { key: "watch", label: "保留觀察", count: itemsByFilter.watch.length, color: VERDICT_META.watch.color, soft: VERDICT_META.watch.soft },
-    park: { key: "park", label: "噪音 / 前提不符", count: itemsByFilter.park.length, color: VERDICT_META.park.color, soft: VERDICT_META.park.soft },
     insufficient: { key: "insufficient", label: "資料不足", count: itemsByFilter.insufficient.length, color: VERDICT_META.insufficient_data.color, soft: VERDICT_META.insufficient_data.soft }
   };
   const stats = ACTION_VERDICT_VISUAL_ORDER.map((key) => statByFilter[key]);
@@ -2915,7 +2933,7 @@ function ProductActionStage({
   const [activeSelectionByFilter, setActiveSelectionByFilter] = useState<Record<ActionVerdictFilter, { signalId: string | null; sourceIndex: number }>>(() => ({
     try: { signalId: itemsByFilter.try[0]?.signalId ?? null, sourceIndex: 0 },
     watch: { signalId: itemsByFilter.watch[0]?.signalId ?? null, sourceIndex: 0 },
-    park: { signalId: itemsByFilter.park[0]?.signalId ?? null, sourceIndex: 0 },
+    noise: { signalId: itemsByFilter.noise[0]?.signalId ?? null, sourceIndex: 0 },
     insufficient: { signalId: itemsByFilter.insufficient[0]?.signalId ?? null, sourceIndex: 0 }
   }));
   const resolvedFilter = itemsByFilter[activeFilter].length ? activeFilter : firstEnabledFilter;
@@ -2933,7 +2951,7 @@ function ProductActionStage({
   const presentCategories = PRODUCT_CATEGORY_ORDER.filter((category) => categoryCounts.has(category));
   const categoryGateOpen = bucketItems.length >= 6 && presentCategories.length >= 2 && [...categoryCounts.values()].some((count) => count >= 2);
   const [activeCategoryByFilter, setActiveCategoryByFilter] = useState<Record<ActionVerdictFilter, ProductPrimaryCategory | "all">>({
-    try: "all", watch: "all", park: "all", insufficient: "all"
+    try: "all", watch: "all", noise: "all", insufficient: "all"
   });
   const requestedCategory = activeCategoryByFilter[resolvedFilter];
   const resolvedCategory = categoryGateOpen && (requestedCategory === "all" || categoryCounts.has(requestedCategory))
@@ -2958,7 +2976,6 @@ function ProductActionStage({
     ? "backward"
     : direction;
   const activeMeta = stats.find((stat) => stat.key === resolvedFilter) ?? stats[0]!;
-  const activeIsActionable = resolvedFilter === "try" || resolvedFilter === "watch";
   const eligibleBriefIds = completed
     .filter((analysis) => presentationBySignalId.get(analysis.signalId)?.briefEligible && signalsById.has(analysis.signalId))
     .map((analysis) => analysis.signalId);
@@ -3090,12 +3107,36 @@ function ProductActionStage({
   const activeDecisionTakeaway = activeAnalysis
     ? (activeAnalysis.referenceTakeaway?.trim() || activeAnalysis.whyRelevant || activeAnalysis.reason).trim()
     : "";
+  const activeCardVerdict = activeAnalysis?.signalType === "noise"
+    ? "noise"
+    : activeAnalysis?.verdict === "park"
+      ? "park"
+      : activeAnalysis?.verdict === "insufficient_data"
+        ? "insufficient"
+        : activeAnalysis?.verdict === "watch"
+          ? "watch"
+          : activeAnalysis?.verdict === "try"
+            ? "try"
+            : null;
+  const activeCardMeta = activeCardVerdict === "noise"
+    ? SIGNAL_TYPE_META.noise
+    : activeCardVerdict === "insufficient"
+      ? VERDICT_META.insufficient_data
+      : activeCardVerdict
+        ? VERDICT_META[activeCardVerdict]
+        : activeMeta;
+  const activeIsActionable = activeCardVerdict === "try" || activeCardVerdict === "watch";
   const activeTakeaway = activeIsActionable
     ? activeDecisionTakeaway || activeDecisionReason
     : activeDecisionReason || activeDecisionTakeaway;
   const activeDecisionLabel = activeIsActionable
     ? "核心判斷"
-    : resolvedFilter === "park" ? "排除原因" : "資料缺口";
+    : activeCardVerdict === "park"
+      ? "排除原因"
+      : activeCardVerdict === "noise"
+        ? "噪音原因"
+        : "資料缺口";
+  const activeCompactDecisionKey = activePresentation?.density === "compact" ? activeCardVerdict : null;
   const activeDecisionRows = activeAnalysis
     ? [
         ...(normalizeDecisionCopy(activeDecisionReason) && normalizeDecisionCopy(activeDecisionReason) !== normalizeDecisionCopy(activeTakeaway)
@@ -3262,14 +3303,14 @@ function ProductActionStage({
             role="tabpanel"
             aria-labelledby={[actionVerdictTabId(resolvedFilter), activeCategoryTab].filter(Boolean).join(" ")}
             onKeyDown={handleStageKeyDown}
-            aria-label={`${activeMeta.label} ${safeIndex + 1} / ${activeItems.length}`}
+            aria-label={`${activeCardMeta.label} ${safeIndex + 1} / ${activeItems.length}`}
             style={glassCardStyle({ gap: activePresentation?.density === "compact" ? 10 : 14, padding: activePresentation?.density === "compact" ? 12 : 18, minWidth: 0, overflow: "visible", borderColor: tokens.color.productSoft, boxShadow: activePresentation?.density === "compact" ? tokens.shadow.topicCard : tokens.shadow.raised })}
           >
             <header data-product-action-header="true" style={{ display: "grid", gap: 7, minWidth: 0 }}>
               <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: 10, flexWrap: "wrap", minWidth: 0 }}>
                 <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap", minWidth: 0, flex: "1 1 220px" }}>
                   <span style={{ fontFamily: tokens.font.mono, fontSize: 11, fontWeight: 800, color: tokens.color.product }}>{String(safeIndex + 1).padStart(2, "0")}</span>
-                  <span data-product-action-verdict-pill={resolvedFilter} style={{ display: "inline-flex", alignItems: "center", minHeight: 22, padding: "2px 8px", borderRadius: tokens.radius.pill, background: activeMeta.soft, color: activeMeta.color, fontSize: 10.5, fontWeight: 800 }}>{activeMeta.label}</span>
+                  <span data-product-action-verdict-pill={activeCardVerdict ?? resolvedFilter} style={{ display: "inline-flex", alignItems: "center", minHeight: 22, padding: "2px 8px", borderRadius: tokens.radius.pill, background: activeCardMeta.soft, color: activeCardMeta.color, fontSize: 10.5, fontWeight: 800 }}>{activeCardMeta.label}</span>
                   {activeCategoryMeta ? <span data-product-action-category={activeCategory} style={{ display: "inline-flex", alignItems: "center", minHeight: 22, padding: "2px 8px", borderRadius: tokens.radius.pill, background: activeCategoryMeta.soft, color: activeCategoryMeta.color, fontSize: 10.5, fontWeight: 800 }}>{activeCategoryMeta.label}</span> : null}
                   <span data-product-action-hero-kind={activePresentation?.heroKind ?? "editorial"} hidden />
                   {(import.meta as { env?: { DEV?: boolean } }).env?.DEV ? <span data-product-action-hero-kind-tag={activePresentation?.heroKind ?? "editorial"} style={{ ...textStyles.meta, color: tokens.color.softInk }}>{activePresentation?.heroKind ?? "editorial"}</span> : null}
@@ -3301,8 +3342,10 @@ function ProductActionStage({
                       cursor: "pointer"
                     }}
                   >
-                    <span>{activeBriefSelected ? "已加入行動簡報" : "加入行動簡報"}</span>
-                    <span aria-hidden="true">{activeBriefSelected ? "✓" : "+"}</span>
+                    <AttentionBeam state={activeBriefSelected ? "none" : "actionable"} style={{ padding: activeBriefSelected ? 0 : "2px 4px" }}>
+                      <span>{activeBriefSelected ? "已加入行動簡報" : "加入行動簡報"}</span>
+                      <span aria-hidden="true">{activeBriefSelected ? "✓" : "+"}</span>
+                    </AttentionBeam>
                   </button>
                 ) : null}
               </div>
@@ -3313,89 +3356,120 @@ function ProductActionStage({
             </header>
 
             {activePresentation?.density === "full" ? <HeroRenderer presentation={activePresentation} capturedSpanByRef={capturedSpanByRef} /> : null}
-            <section data-product-action-takeaway="true" data-product-action-decision-summary={activePresentation?.density === "compact" ? resolvedFilter : undefined} data-product-action-verdict-reason={activePresentation?.density === "compact" ? resolvedFilter : undefined} style={{ display: "grid", gap: 4, minWidth: 0 }}>
-              <span style={{ ...textStyles.fieldLabel, color: tokens.color.softInk }}>{activePresentation?.density === "compact" ? activeDecisionLabel : "可帶走"}</span>
-              <span data-product-action-decision-row={activePresentation?.density === "compact" ? "reason" : "takeaway"} style={{ fontSize: 13, lineHeight: 1.6, color: tokens.color.subInk, overflowWrap: "anywhere" }}>{activeTakeaway}</span>
+            <section data-product-action-takeaway="true" data-product-action-decision-summary={activeCompactDecisionKey ?? undefined} data-product-action-verdict-reason={activeCompactDecisionKey ?? undefined} style={{ display: "grid", gap: 4, minWidth: 0 }}>
+              <span style={{ ...textStyles.fieldLabel, color: tokens.color.softInk }}>{activeCompactDecisionKey ? activeDecisionLabel : "可帶走"}</span>
+              <span data-product-action-decision-row={activeCompactDecisionKey ? "reason" : "takeaway"} style={{ fontSize: 13, lineHeight: 1.6, color: tokens.color.subInk, overflowWrap: "anywhere" }}>{activeTakeaway}</span>
             </section>
             {activePresentation?.density === "full" ? (
-              <section
-                data-product-action-recommendations="true"
-                data-product-recommendation-tier={activePresentation.recommendationTier}
-                style={{ display: "grid", gap: 9, minWidth: 0, padding: "12px 13px", borderRadius: tokens.radius.card, border: `1px solid ${activePresentation.recommendationTier === "application" ? tokens.color.cardEdge : tokens.color.line}`, background: activePresentation.recommendationTier === "application" ? tokens.color.contextSurface : tokens.color.inkWash }}
-              >
-                <span style={{ ...textStyles.fieldLabel, color: activePresentation.recommendationTier === "application" ? tokens.color.product : tokens.color.softInk }}>
-                  {activePresentation.recommendationTier === "application"
-                    ? "可能用法 · 待驗證"
-                    : activePresentation.recommendationTier === "inspiration"
-                      ? "可借用靈感"
-                      : "尚未形成建議"}
-                </span>
-                {activePresentation.recommendations.map((recommendation) => {
-                  const recommendationKey = recommendation.kind === "application"
-                    ? JSON.stringify([
-                        recommendation.kind,
-                        recommendation.sourceRefs,
-                        recommendation.sourcePattern,
-                        recommendation.productContextTarget,
-                        recommendation.smallTest,
-                        recommendation.verificationQuestion
-                      ])
-                    : `${recommendation.kind}:${recommendation.sourceRef ?? "analysis"}:${recommendation.text}`;
-                  return (
-                    <div
-                      key={recommendationKey}
-                      data-product-action-recommendation={recommendation.kind}
-                      data-product-action-recommendation-ref={recommendation.kind === "pattern" ? recommendation.sourceRef : undefined}
-                      data-product-action-application-status={recommendation.kind === "application" ? "pending-verification" : undefined}
-                      data-product-action-application-identity={recommendation.kind === "application" ? recommendationKey : undefined}
-                      style={{ display: "grid", gap: 4, minWidth: 0, paddingTop: 8, borderTop: `1px solid ${tokens.color.line}` }}
-                    >
-                      {recommendation.kind === "application" ? (
-                        <>
-                          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8, flexWrap: "wrap", minWidth: 0 }}>
-                            <span style={{ ...textStyles.fieldLabel, color: tokens.color.product }}>AI 提案 · 待驗證</span>
-                            <span data-product-action-application-target={recommendation.productContextTarget} style={{ ...textStyles.meta, color: tokens.color.softInk }}>
-                              套用至 {CONTEXT_FIELD_LABELS[recommendation.productContextTarget]}
-                            </span>
-                          </div>
-                          {([["source", "來源做法", recommendation.sourcePattern], ["fit", "可能適合", recommendation.fitReason], ["test", "先小試", recommendation.smallTest]] as const).map(([part, label, value]) => (
-                            <div key={part} data-product-action-application-part={part} style={{ display: "grid", gap: 2, minWidth: 0 }}>
-                              <span style={{ ...textStyles.fieldLabel, color: tokens.color.softInk }}>{label}</span>
-                              <span style={{ fontSize: 13, lineHeight: 1.6, color: tokens.color.subInk, overflowWrap: "anywhere" }}>{value}</span>
+              activeCardVerdict === "watch" ? (
+                <section
+                  data-product-action-watch-guidance="true"
+                  style={{ display: "grid", gap: 9, minWidth: 0, padding: "12px 13px", borderRadius: tokens.radius.card, border: `1px solid ${tokens.color.cardEdge}`, background: tokens.color.contextSurface }}
+                >
+                  <span style={{ ...textStyles.fieldLabel, color: tokens.color.product }}>保留觀察指引</span>
+                  {activePresentation.watchGuidance ? (
+                    <>
+                      {([
+                        ["source", "來源做法", activePresentation.watchGuidance.sourcePattern],
+                        ["fit", "為何保留", activePresentation.watchGuidance.fitReason],
+                        ["next", "下一步要知道", activePresentation.watchGuidance.nextEvidence]
+                      ] as const).map(([part, label, value]) => (
+                        <div key={part} data-product-action-watch-guidance-part={part} style={{ display: "grid", gap: 2, minWidth: 0, paddingTop: part === "source" ? 0 : 8, borderTop: part === "source" ? "none" : `1px solid ${tokens.color.line}` }}>
+                          <span style={{ ...textStyles.fieldLabel, color: tokens.color.softInk }}>{label}</span>
+                          <span style={{ fontSize: 13, lineHeight: 1.6, color: tokens.color.subInk, overflowWrap: "anywhere" }}>{value}</span>
+                        </div>
+                      ))}
+                      <span data-product-action-watch-guidance-refs={activePresentation.watchGuidance.supportRefs.join(",")} style={{ ...textStyles.meta, color: tokens.color.softInk }}>{activePresentation.watchGuidance.supportRefs.map((ref) => ref === ROOT_SPAN_REF ? "原文" : ref).join("、")} · 文字支持</span>
+                    </>
+                  ) : (
+                    <span style={{ fontSize: 13, lineHeight: 1.6, color: tokens.color.softInk }}>現有分析與證據尚不足以形成可追蹤的保留觀察指引。</span>
+                  )}
+                </section>
+              ) : (
+                <section
+                  data-product-action-recommendations="true"
+                  data-product-recommendation-tier={activePresentation.recommendationTier}
+                  style={{ display: "grid", gap: 9, minWidth: 0, padding: "12px 13px", borderRadius: tokens.radius.card, border: `1px solid ${activePresentation.recommendationTier === "application" ? tokens.color.cardEdge : tokens.color.line}`, background: activePresentation.recommendationTier === "application" ? tokens.color.contextSurface : tokens.color.inkWash }}
+                >
+                  <AttentionBeam
+                    state={activePresentation.recommendationTier === "application" ? "actionable" : "none"}
+                    style={{ justifyContent: "flex-start", padding: activePresentation.recommendationTier === "application" ? "5px 7px" : 0 }}
+                  >
+                    <span style={{ ...textStyles.fieldLabel, color: activePresentation.recommendationTier === "application" ? tokens.color.product : tokens.color.softInk }}>
+                      {activePresentation.recommendationTier === "application"
+                        ? "可能用法 · 待驗證"
+                        : activePresentation.recommendationTier === "inspiration"
+                          ? "可借用靈感"
+                          : "尚未形成建議"}
+                    </span>
+                  </AttentionBeam>
+                  {activePresentation.recommendations.map((recommendation) => {
+                    const recommendationKey = recommendation.kind === "application"
+                      ? JSON.stringify([
+                          recommendation.kind,
+                          recommendation.sourceRefs,
+                          recommendation.sourcePattern,
+                          recommendation.productContextTarget,
+                          recommendation.smallTest,
+                          recommendation.verificationQuestion
+                        ])
+                      : `${recommendation.kind}:${recommendation.sourceRef ?? "analysis"}:${recommendation.text}`;
+                    return (
+                      <div
+                        key={recommendationKey}
+                        data-product-action-recommendation={recommendation.kind}
+                        data-product-action-recommendation-ref={recommendation.kind === "pattern" ? recommendation.sourceRef : undefined}
+                        data-product-action-application-status={recommendation.kind === "application" ? "pending-verification" : undefined}
+                        data-product-action-application-identity={recommendation.kind === "application" ? recommendationKey : undefined}
+                        style={{ display: "grid", gap: 4, minWidth: 0, paddingTop: 8, borderTop: `1px solid ${tokens.color.line}` }}
+                      >
+                        {recommendation.kind === "application" ? (
+                          <>
+                            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8, flexWrap: "wrap", minWidth: 0 }}>
+                              <span style={{ ...textStyles.fieldLabel, color: tokens.color.product }}>AI 提案 · 待驗證</span>
+                              <span data-product-action-application-target={recommendation.productContextTarget} style={{ ...textStyles.meta, color: tokens.color.softInk }}>
+                                套用至 {CONTEXT_FIELD_LABELS[recommendation.productContextTarget]}
+                              </span>
                             </div>
-                          ))}
-                          <span data-product-action-application-refs={recommendation.sourceRefs.join(",")} style={{ ...textStyles.meta, color: tokens.color.softInk }}>{recommendation.sourceRefs.map((ref) => ref === ROOT_SPAN_REF ? "原文" : ref).join("、")} · 文字支持</span>
-                          <div data-product-action-application-question="true" style={{ display: "grid", gap: 2, minWidth: 0, paddingTop: 4 }}>
-                            <span style={{ ...textStyles.fieldLabel, color: tokens.color.softInk }}>驗證問題</span>
-                            <span style={{ fontSize: 12, lineHeight: 1.6, color: tokens.color.subInk, overflowWrap: "anywhere" }}>{recommendation.verificationQuestion}</span>
-                          </div>
-                        </>
-                      ) : (
-                        <>
-                          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8, flexWrap: "wrap", minWidth: 0 }}>
-                            <span style={{ ...textStyles.fieldLabel, color: recommendation.kind === "experiment" ? tokens.color.product : tokens.color.success }}>{recommendation.kind === "experiment" ? "AI 建議先試" : "可借用模式"}</span>
-                            {recommendation.kind === "pattern" ? <span style={{ ...textStyles.meta, color: tokens.color.softInk }}>{recommendation.sourceRef} · 文字支持</span> : null}
-                          </div>
-                          <span style={{ fontSize: 13, lineHeight: 1.6, color: tokens.color.subInk, overflowWrap: "anywhere" }}>{recommendation.text}</span>
-                        </>
-                      )}
+                            {([["source", "來源做法", recommendation.sourcePattern], ["fit", "可能適合", recommendation.fitReason], ["test", "先小試", recommendation.smallTest]] as const).map(([part, label, value]) => (
+                              <div key={part} data-product-action-application-part={part} style={{ display: "grid", gap: 2, minWidth: 0 }}>
+                                <span style={{ ...textStyles.fieldLabel, color: tokens.color.softInk }}>{label}</span>
+                                <span style={{ fontSize: 13, lineHeight: 1.6, color: tokens.color.subInk, overflowWrap: "anywhere" }}>{value}</span>
+                              </div>
+                            ))}
+                            <span data-product-action-application-refs={recommendation.sourceRefs.join(",")} style={{ ...textStyles.meta, color: tokens.color.softInk }}>{recommendation.sourceRefs.map((ref) => ref === ROOT_SPAN_REF ? "原文" : ref).join("、")} · 文字支持</span>
+                            <div data-product-action-application-question="true" style={{ display: "grid", gap: 2, minWidth: 0, paddingTop: 4 }}>
+                              <span style={{ ...textStyles.fieldLabel, color: tokens.color.softInk }}>驗證問題</span>
+                              <span style={{ fontSize: 12, lineHeight: 1.6, color: tokens.color.subInk, overflowWrap: "anywhere" }}>{recommendation.verificationQuestion}</span>
+                            </div>
+                          </>
+                        ) : (
+                          <>
+                            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8, flexWrap: "wrap", minWidth: 0 }}>
+                              <span style={{ ...textStyles.fieldLabel, color: recommendation.kind === "experiment" ? tokens.color.product : tokens.color.success }}>{recommendation.kind === "experiment" ? "AI 建議先試" : "可借用模式"}</span>
+                              {recommendation.kind === "pattern" ? <span style={{ ...textStyles.meta, color: tokens.color.softInk }}>{recommendation.sourceRef} · 文字支持</span> : null}
+                            </div>
+                            <span style={{ fontSize: 13, lineHeight: 1.6, color: tokens.color.subInk, overflowWrap: "anywhere" }}>{recommendation.text}</span>
+                          </>
+                        )}
+                      </div>
+                    );
+                  })}
+                  {activePresentation.agentBriefReady ? (
+                    <div data-product-action-agent-brief="true" style={{ display: "grid", gap: 7, minWidth: 0, paddingTop: activePresentation.recommendations.length ? 8 : 0, borderTop: activePresentation.recommendations.length ? `1px solid ${tokens.color.line}` : "none" }}>
+                      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8, flexWrap: "wrap", minWidth: 0 }}>
+                        <span style={{ ...textStyles.fieldLabel, color: tokens.color.product }}>交給 Agent</span>
+                        {activeAnalysis.agentTaskSpec?.taskTitle?.trim() ? <span style={{ ...textStyles.meta, color: tokens.color.softInk, overflowWrap: "anywhere" }}>{activeAnalysis.agentTaskSpec.taskTitle.trim()}</span> : null}
+                      </div>
+                      <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
+                        <SecondaryButton dataAttrs={{ "data-product-action-agent-brief-copy": "true" }} onClick={copyActiveAgentBrief} style={{ minHeight: 44 }}>複製 Agent brief</SecondaryButton>
+                        <span data-product-action-agent-brief-copy-status={agentBriefCopyStatus} role="status" aria-live="polite" style={{ ...textStyles.meta, color: agentBriefCopyStatus === "error" ? tokens.color.queued : tokens.color.success }}>{agentBriefCopyStatus === "copied" ? "已複製" : agentBriefCopyStatus === "error" ? "複製失敗" : ""}</span>
+                      </div>
                     </div>
-                  );
-                })}
-                {activePresentation.agentBriefReady ? (
-                  <div data-product-action-agent-brief="true" style={{ display: "grid", gap: 7, minWidth: 0, paddingTop: activePresentation.recommendations.length ? 8 : 0, borderTop: activePresentation.recommendations.length ? `1px solid ${tokens.color.line}` : "none" }}>
-                    <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8, flexWrap: "wrap", minWidth: 0 }}>
-                      <span style={{ ...textStyles.fieldLabel, color: tokens.color.product }}>交給 Agent</span>
-                      {activeAnalysis.agentTaskSpec?.taskTitle?.trim() ? <span style={{ ...textStyles.meta, color: tokens.color.softInk, overflowWrap: "anywhere" }}>{activeAnalysis.agentTaskSpec.taskTitle.trim()}</span> : null}
-                    </div>
-                    <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
-                      <SecondaryButton dataAttrs={{ "data-product-action-agent-brief-copy": "true" }} onClick={copyActiveAgentBrief} style={{ minHeight: 44 }}>複製 Agent brief</SecondaryButton>
-                      <span data-product-action-agent-brief-copy-status={agentBriefCopyStatus} role="status" aria-live="polite" style={{ ...textStyles.meta, color: agentBriefCopyStatus === "error" ? tokens.color.queued : tokens.color.success }}>{agentBriefCopyStatus === "copied" ? "已複製" : agentBriefCopyStatus === "error" ? "複製失敗" : ""}</span>
-                    </div>
-                  </div>
-                ) : null}
-                {!activePresentation.recommendations.length && !activePresentation.agentBriefReady ? <span data-product-action-recommendations-empty="true" style={{ fontSize: 13, lineHeight: 1.6, color: tokens.color.softInk }}>現有分析與證據尚不足以形成具體建議。</span> : null}
-              </section>
+                  ) : null}
+                  {!activePresentation.recommendations.length && !activePresentation.agentBriefReady ? <span data-product-action-recommendations-empty="true" style={{ fontSize: 13, lineHeight: 1.6, color: tokens.color.softInk }}>現有分析與證據尚不足以形成具體建議。</span> : null}
+                </section>
+              )
             ) : null}
             <aside data-product-action-evidence-stack="true" style={{ display: "grid", gap: 9, minWidth: 0, padding: "12px 13px", borderRadius: tokens.radius.card, border: `1px solid ${tokens.color.cardEdge}`, background: tokens.color.inkWash }}>
               <span style={{ ...textStyles.fieldLabel, color: tokens.color.product }}>來源證據</span>
