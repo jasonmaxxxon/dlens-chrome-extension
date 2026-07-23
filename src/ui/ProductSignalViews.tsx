@@ -3207,6 +3207,40 @@ function ProductActionStage({
     );
   };
 
+  const renderRecommendationSurface = (children: ReactNode) => {
+    if (!activePresentation) return null;
+    if (activePresentation.recommendationTier === "application") {
+      return (
+        <AttentionSurface
+          as="section"
+          state="actionable"
+          dataAttrs={{
+            "data-product-action-recommendations": "true",
+            "data-product-recommendation-tier": activePresentation.recommendationTier
+          }}
+          style={glassCardStyle({
+            gap: 12,
+            padding: "14px 15px",
+            minWidth: 0,
+            background: tokens.color.atlasPaper,
+            boxShadow: tokens.shadow.atlasCard
+          })}
+        >
+          {children}
+        </AttentionSurface>
+      );
+    }
+    return (
+      <section
+        data-product-action-recommendations="true"
+        data-product-recommendation-tier={activePresentation.recommendationTier}
+        style={{ display: "grid", gap: 9, minWidth: 0, padding: "12px 13px", borderRadius: tokens.radius.card, border: `1px solid ${tokens.color.line}`, background: tokens.color.inkWash }}
+      >
+        {children}
+      </section>
+    );
+  };
+
   return (
     <div
       data-product-action-workspace="stage"
@@ -3343,9 +3377,10 @@ function ProductActionStage({
                       justifyContent: "center",
                       gap: 7,
                       padding: "8px 11px",
-                      borderRadius: tokens.radius.card,
+                      borderRadius: tokens.radius.cardLg,
                       border: `1px solid ${activeBriefSelected ? tokens.color.product : tokens.color.cardEdge}`,
-                      background: activeBriefSelected ? tokens.color.productSoft : tokens.color.contextSurface,
+                      background: activeBriefSelected ? tokens.color.productSoft : tokens.color.atlasPaper,
+                      boxShadow: activeBriefSelected ? tokens.shadow.topicCard : tokens.shadow.atlasCard,
                       color: activeBriefSelected ? tokens.color.product : tokens.color.subInk,
                       font: "inherit",
                       fontSize: 12,
@@ -3353,10 +3388,8 @@ function ProductActionStage({
                       cursor: "pointer"
                     }}
                   >
-                    <AttentionBeam state={activeBriefSelected ? "none" : "actionable"} style={{ padding: activeBriefSelected ? 0 : "2px 4px" }}>
-                      <span>{activeBriefSelected ? "已加入行動簡報" : "加入行動簡報"}</span>
-                      <span aria-hidden="true">{activeBriefSelected ? "✓" : "+"}</span>
-                    </AttentionBeam>
+                    <span>{activeBriefSelected ? "已加入行動簡報" : "加入行動簡報"}</span>
+                    <span aria-hidden="true">{activeBriefSelected ? "✓" : "+"}</span>
                   </button>
                 ) : null}
               </div>
@@ -3397,14 +3430,19 @@ function ProductActionStage({
                   )}
                 </section>
               ) : (
-                <section
-                  data-product-action-recommendations="true"
-                  data-product-recommendation-tier={activePresentation.recommendationTier}
-                  style={{ display: "grid", gap: 9, minWidth: 0, padding: "12px 13px", borderRadius: tokens.radius.card, border: `1px solid ${activePresentation.recommendationTier === "application" ? tokens.color.cardEdge : tokens.color.line}`, background: activePresentation.recommendationTier === "application" ? tokens.color.contextSurface : tokens.color.inkWash }}
-                >
-                  <AttentionBeam
-                    state={activePresentation.recommendationTier === "application" ? "actionable" : "none"}
-                    style={{ justifyContent: "flex-start", padding: activePresentation.recommendationTier === "application" ? "5px 7px" : 0 }}
+                renderRecommendationSurface(
+                  <>
+                  <div
+                    data-product-action-recommendation-header="true"
+                    style={{
+                      display: "flex",
+                      alignItems: "center",
+                      justifyContent: "space-between",
+                      gap: 8,
+                      flexWrap: "wrap",
+                      paddingBottom: activePresentation.recommendationTier === "application" ? 9 : 0,
+                      borderBottom: activePresentation.recommendationTier === "application" ? `1px solid ${tokens.color.line}` : "none"
+                    }}
                   >
                     <span style={{ ...textStyles.fieldLabel, color: activePresentation.recommendationTier === "application" ? tokens.color.product : tokens.color.softInk }}>
                       {activePresentation.recommendationTier === "application"
@@ -3413,7 +3451,8 @@ function ProductActionStage({
                           ? "可借用靈感"
                           : "尚未形成建議"}
                     </span>
-                  </AttentionBeam>
+                    {activePresentation.recommendationTier === "application" ? <span style={{ ...textStyles.meta, color: tokens.color.softInk }}>小步測試</span> : null}
+                  </div>
                   {activePresentation.recommendations.map((recommendation) => {
                     const recommendationKey = recommendation.kind === "application"
                       ? JSON.stringify([
@@ -3432,7 +3471,10 @@ function ProductActionStage({
                         data-product-action-recommendation-ref={recommendation.kind === "pattern" ? recommendation.sourceRef : undefined}
                         data-product-action-application-status={recommendation.kind === "application" ? "pending-verification" : undefined}
                         data-product-action-application-identity={recommendation.kind === "application" ? recommendationKey : undefined}
-                        style={{ display: "grid", gap: 4, minWidth: 0, paddingTop: 8, borderTop: `1px solid ${tokens.color.line}` }}
+                        data-product-action-application-content={recommendation.kind === "application" ? "true" : undefined}
+                        style={recommendation.kind === "application"
+                          ? { display: "grid", gap: 10, minWidth: 0, padding: "11px 12px", borderRadius: tokens.radius.card, border: `1px solid ${tokens.color.cardEdge}`, background: tokens.color.contextSurface }
+                          : { display: "grid", gap: 4, minWidth: 0, paddingTop: 8, borderTop: `1px solid ${tokens.color.line}` }}
                       >
                         {recommendation.kind === "application" ? (
                           <>
@@ -3443,13 +3485,13 @@ function ProductActionStage({
                               </span>
                             </div>
                             {([["source", "來源做法", recommendation.sourcePattern], ["fit", "可能適合", recommendation.fitReason], ["test", "先小試", recommendation.smallTest]] as const).map(([part, label, value]) => (
-                              <div key={part} data-product-action-application-part={part} style={{ display: "grid", gap: 2, minWidth: 0 }}>
+                              <div key={part} data-product-action-application-part={part} style={{ display: "grid", gap: 2, minWidth: 0, paddingTop: part === "source" ? 0 : 8, borderTop: part === "source" ? "none" : `1px solid ${tokens.color.line}` }}>
                                 <span style={{ ...textStyles.fieldLabel, color: tokens.color.softInk }}>{label}</span>
                                 <span style={{ fontSize: 13, lineHeight: 1.6, color: tokens.color.subInk, overflowWrap: "anywhere" }}>{value}</span>
                               </div>
                             ))}
-                            <span data-product-action-application-refs={recommendation.sourceRefs.join(",")} style={{ ...textStyles.meta, color: tokens.color.softInk }}>{recommendation.sourceRefs.map((ref) => ref === ROOT_SPAN_REF ? "原文" : ref).join("、")} · 文字支持</span>
-                            <div data-product-action-application-question="true" style={{ display: "grid", gap: 2, minWidth: 0, paddingTop: 4 }}>
+                            <span data-product-action-application-refs={recommendation.sourceRefs.join(",")} style={{ ...textStyles.meta, justifySelf: "start", padding: "3px 7px", borderRadius: tokens.radius.pill, background: tokens.color.inkWash, color: tokens.color.softInk }}>{recommendation.sourceRefs.map((ref) => ref === ROOT_SPAN_REF ? "原文" : ref).join("、")} · 文字支持</span>
+                            <div data-product-action-application-question="true" style={{ display: "grid", gap: 2, minWidth: 0, padding: "8px 9px", borderRadius: tokens.radius.sm, background: tokens.color.inkWash }}>
                               <span style={{ ...textStyles.fieldLabel, color: tokens.color.softInk }}>驗證問題</span>
                               <span style={{ fontSize: 12, lineHeight: 1.6, color: tokens.color.subInk, overflowWrap: "anywhere" }}>{recommendation.verificationQuestion}</span>
                             </div>
@@ -3467,7 +3509,11 @@ function ProductActionStage({
                     );
                   })}
                   {activePresentation.agentBriefReady ? (
-                    <div data-product-action-agent-brief="true" style={{ display: "grid", gap: 7, minWidth: 0, paddingTop: activePresentation.recommendations.length ? 8 : 0, borderTop: activePresentation.recommendations.length ? `1px solid ${tokens.color.line}` : "none" }}>
+                    <div
+                      data-product-action-agent-brief="true"
+                      data-product-action-application-footer="true"
+                      style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8, flexWrap: "wrap", paddingTop: 10, borderTop: `1px solid ${tokens.color.line}` }}
+                    >
                       <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8, flexWrap: "wrap", minWidth: 0 }}>
                         <span style={{ ...textStyles.fieldLabel, color: tokens.color.product }}>交給 Agent</span>
                         {activeAnalysis.agentTaskSpec?.taskTitle?.trim() ? <span style={{ ...textStyles.meta, color: tokens.color.softInk, overflowWrap: "anywhere" }}>{activeAnalysis.agentTaskSpec.taskTitle.trim()}</span> : null}
@@ -3479,7 +3525,8 @@ function ProductActionStage({
                     </div>
                   ) : null}
                   {!activePresentation.recommendations.length && !activePresentation.agentBriefReady ? <span data-product-action-recommendations-empty="true" style={{ fontSize: 13, lineHeight: 1.6, color: tokens.color.softInk }}>現有分析與證據尚不足以形成具體建議。</span> : null}
-                </section>
+                  </>
+                )
               )
             ) : null}
             <aside data-product-action-evidence-stack="true" style={{ display: "grid", gap: 9, minWidth: 0, padding: "12px 13px", borderRadius: tokens.radius.card, border: `1px solid ${tokens.color.cardEdge}`, background: tokens.color.inkWash }}>

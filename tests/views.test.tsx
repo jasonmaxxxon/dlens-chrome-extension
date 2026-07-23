@@ -5127,11 +5127,49 @@ test("Product Action renders application suggestions as three parts with target,
   assert.match(html, /data-product-action-application-target="coreWorkflows"[^]*核心流程/);
   assert.match(html, /data-product-action-application-refs="e1,e2"[^]*e1、e2 · 文字支持/);
   assert.match(html, /data-product-action-application-question="true"[^]*驗證問題[^]*使用者能否在一次 bounded test 中正確分辨來源狀態？/);
-  assert.match(html, /data-product-action-recommendations="true"[^]*data-attention-beam="actionable"/);
-  assert.match(html, /data-product-action-brief-toggle="true"[^]*data-attention-beam="actionable"/);
+  const applicationCard = findTagWithAttribute(html, 'data-product-action-recommendations="true"');
+  assert.match(applicationCard, /data-attention-surface="true"/);
+  assert.match(applicationCard, /data-attention-beam="actionable"/);
+  assert.match(applicationCard, /border-radius:20px/);
+  assert.match(applicationCard, /box-shadow:/);
+
+  const applicationHeader = findTagWithAttribute(html, 'data-product-action-recommendation-header="true"');
+  assert.doesNotMatch(applicationHeader, /data-attention-beam=/);
+
+  const briefToggle = findTagWithAttribute(html, 'data-product-action-brief-toggle="true"');
+  assert.doesNotMatch(briefToggle, /data-attention-beam=/);
+  assert.match(briefToggle, /border-radius:/);
+
+  assert.match(html, /data-product-action-application-content="true"/);
   assert.doesNotMatch(html, /不應與 application 同時顯示的 fallback/);
   assert.doesNotMatch(row, /已捕捉事實|來源已證實|captured fact/iu);
   assert.doesNotMatch(html, /data-product-action-agent-brief="true"/);
+});
+
+test("Product Action keeps watch, park, noise, and insufficient cards free of actionable light", () => {
+  const fixture = productActionStageFixture();
+  const renderSignal = (signalId: "signal_watch_first" | "signal_park" | "signal_noise" | "signal_insufficient") => {
+    const signal = fixture.signals.find((item) => item.id === signalId);
+    const analysis = fixture.analyses.find((item) => item.signalId === signalId);
+    assert.ok(signal);
+    assert.ok(analysis);
+    return renderToStaticMarkup(productSignalViewElement({
+      ...fixture,
+      signals: [signal],
+      analyses: [analysis]
+    }));
+  };
+
+  const watchHtml = renderSignal("signal_watch_first");
+  const parkHtml = renderSignal("signal_park");
+  const noiseHtml = renderSignal("signal_noise");
+  const insufficientHtml = renderSignal("signal_insufficient");
+
+  assert.doesNotMatch(watchHtml, /data-product-action-recommendations="true"[^>]*data-attention-beam="actionable"/);
+  assert.doesNotMatch(watchHtml, /data-attention-beam="actionable"/);
+  assert.doesNotMatch(parkHtml, /data-attention-beam="actionable"/);
+  assert.doesNotMatch(noiseHtml, /data-attention-beam="actionable"/);
+  assert.doesNotMatch(insufficientHtml, /data-attention-beam="actionable"/);
 });
 
 test("Product Action renders a non-software (shop) application as three parts", () => {
@@ -5294,6 +5332,8 @@ test("Product Action renders an Agent task title without leaking its clipboard-o
 
   assert.match(html, new RegExp(taskTitle));
   assert.doesNotMatch(html, new RegExp(taskPrompt));
+  const agentFooter = findTagWithAttribute(html, 'data-product-action-agent-brief="true"');
+  assert.match(agentFooter, /data-product-action-application-footer="true"/);
 });
 
 test("Product Action omits the empty full-card decision summary", () => {
