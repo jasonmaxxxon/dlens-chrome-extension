@@ -35,6 +35,7 @@ const productContext: ProductContext = {
 const analyzerInput = {
   signalId: "signal-1",
   source: "threads" as const,
+  rootText: "Root feature share\nOP continues with implementation details.",
   assembledContent: "Root feature share\n\nOP continues with implementation details.",
   discussionReplies: [
     {
@@ -513,6 +514,45 @@ test("parseProductSignalAnalysisResponse rejects root-only support, deduplicates
   assert.deepEqual(rootOnly?.applicationSuggestions, []);
 });
 
+test("parseProductSignalAnalysisResponse keeps a root-only grounded application suggestion", () => {
+  const rootOnlyInput = {
+    ...analyzerInput,
+    rootText: "作者說先展示可檢查結果，再要求採用。",
+    discussionReplies: []
+  };
+  const parsed = parseProductSignalAnalysisResponse(
+    JSON.stringify(applicationSuggestionPayload({
+      evidence_refs: ["root"],
+      evidence_notes: [{
+        ref: "root",
+        quote_summary: "主文說先展示可檢查結果。",
+        why_it_matters: "支持以主文文字為根據的可測流程。",
+        grounding: "text_grounded",
+        reusable_pattern: "先展示再要求採用",
+        why_it_works: "主文明確描述先讓使用者檢查結果再確認。"
+      }],
+      application_suggestions: [{
+        source_pattern: "先展示可檢查結果，再要求採用",
+        fit_reason: "可能降低核心流程的首次決策負擔",
+        small_test: "只在一個入口測試先預覽後確認",
+        product_context_target: "coreWorkflows",
+        support_refs: ["root"],
+        verification_question: "首次完成率是否提高？"
+      }]
+    })),
+    rootOnlyInput
+  );
+
+  assert.deepEqual(parsed?.applicationSuggestions, [{
+    sourcePattern: "先展示可檢查結果，再要求採用",
+    fitReason: "可能降低核心流程的首次決策負擔",
+    smallTest: "只在一個入口測試先預覽後確認",
+    productContextTarget: "coreWorkflows",
+    supportRefs: ["root"],
+    verificationQuestion: "首次完成率是否提高？"
+  }]);
+});
+
 test("parseProductSignalAnalysisResponse rejects a legacy v18 proposal-only application row", () => {
   const parsed = parseProductSignalAnalysisResponse(
     JSON.stringify(applicationSuggestionPayload({
@@ -896,6 +936,7 @@ test("buildProductSignalAnalyzerInputFromCapture prefers backend thread_read_mod
       text_snippet: "legacy snippet",
       result: {
         thread_read_model: {
+          root_post: { text: "Root post plus OP continuation." },
           assembled_content: "Root post plus OP continuation.",
           discussion_replies: [
             { comment_id: "c1", author: "reader", text: "I would use this.", like_count: 3 }
@@ -905,9 +946,11 @@ test("buildProductSignalAnalyzerInputFromCapture prefers backend thread_read_mod
     } as any
   });
 
+  assert.equal(input?.rootText, "Root post plus OP continuation.");
   assert.deepEqual(input, {
     signalId: "signal-1",
     source: "threads",
+    rootText: "Root post plus OP continuation.",
     assembledContent: "Root post plus OP continuation.",
     discussionReplies: [
       {

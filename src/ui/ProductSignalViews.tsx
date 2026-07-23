@@ -3358,7 +3358,7 @@ function ProductActionStage({
                             </span>
                           </div>
                           <span data-product-action-application-proposal="true" style={{ fontSize: 13, lineHeight: 1.6, color: tokens.color.subInk, overflowWrap: "anywhere" }}>{recommendation.text}</span>
-                          <span data-product-action-application-refs={recommendation.sourceRefs.join(",")} style={{ ...textStyles.meta, color: tokens.color.softInk }}>{recommendation.sourceRefs.join("、")} · 文字支持</span>
+                          <span data-product-action-application-refs={recommendation.sourceRefs.join(",")} style={{ ...textStyles.meta, color: tokens.color.softInk }}>{recommendation.sourceRefs.map((ref) => ref === ROOT_SPAN_REF ? "原文" : ref).join("、")} · 文字支持</span>
                           <div data-product-action-application-question="true" style={{ display: "grid", gap: 2, minWidth: 0, paddingTop: 4 }}>
                             <span style={{ ...textStyles.fieldLabel, color: tokens.color.softInk }}>驗證問題</span>
                             <span style={{ fontSize: 12, lineHeight: 1.6, color: tokens.color.subInk, overflowWrap: "anywhere" }}>{recommendation.verificationQuestion}</span>

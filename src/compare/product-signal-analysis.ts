@@ -182,9 +182,15 @@ export interface ProductSignalEvidenceEntry extends ProductSignalDiscussionReply
   ref: string;
 }
 
+/** Stable evidence ref for the captured root post (OP text + OP continuations).
+ *  A suggestion may ground on `root`, but only for what the captured text states —
+ *  never for uninspected video, repository, or linked-resource contents. */
+export const PRODUCT_SIGNAL_ROOT_REF = "root";
+
 export interface ProductSignalAnalyzerInput {
   signalId: string;
   source: SignalSource;
+  rootText: string;
   assembledContent: string;
   discussionReplies: ProductSignalDiscussionReply[];
   productContext: ProductContext;
@@ -238,9 +244,17 @@ export function buildProductSignalAnalyzerInputFromCapture({
     .map((fragment, index) => toProductSignalDiscussionReply(fragment, `discussion_${index + 1}`))
     .filter((reply): reply is ProductSignalDiscussionReply => reply !== null);
 
+  // Root text is only captured OP material. It must not include audience replies,
+  // so we build it from the root post and its OP continuations, not assembledContent.
+  const rootText = [
+    capturedPost.text,
+    ...capturedPost.opContinuations.map((fragment) => fragment.text)
+  ].map(readTrimmedString).filter(Boolean).join("\n");
+
   return {
     signalId,
     source,
+    rootText,
     assembledContent,
     discussionReplies,
     productContext,
@@ -549,15 +563,17 @@ export function buildProductContextHash(productContext: ProductContext): string 
   return `ctx_${(hash >>> 0).toString(36)}`;
 }
 
-function buildEvidenceCatalog(replies: ProductSignalDiscussionReply[]): string {
-  return replies.length
-    ? replies
-      .slice(0, 20)
-      .map((reply, index) =>
-        `e${index + 1} ${formatProductSignalEvidenceMetadata(reply)} author=${readTrimmedString(reply.author) || "unknown"} likes=${reply.likeCount ?? 0} text=${readTrimmedString(reply.text).slice(0, 500)}`
-      )
-      .join("\n")
-    : "none";
+function buildEvidenceCatalog(rootText: string, replies: ProductSignalDiscussionReply[]): string {
+  const rootLine = readTrimmedString(rootText)
+    ? `${PRODUCT_SIGNAL_ROOT_REF} role=source text=${readTrimmedString(rootText).slice(0, 500)}`
+    : "";
+  const replyLines = replies
+    .slice(0, 20)
+    .map((reply, index) =>
+      `e${index + 1} ${formatProductSignalEvidenceMetadata(reply)} author=${readTrimmedString(reply.author) || "unknown"} likes=${reply.likeCount ?? 0} text=${readTrimmedString(reply.text).slice(0, 500)}`
+    );
+  const lines = [rootLine, ...replyLines].filter(Boolean);
+  return lines.length ? lines.join("\n") : "none";
 }
 
 export function formatProductSignalEvidenceMetadata(entry: ProductSignalDiscussionReply): string {
@@ -642,13 +658,17 @@ export function buildProductSignalAnalyzerPrompt(input: ProductSignalAnalyzerInp
     "- experiment_hint 必須是 string；只有 verdict=try 時填具體實驗，其餘情況用空字串",
     "- agent_task_spec: 只有 verdict=try 時填 object；其餘回 null。target_agent 按性質選 codex/claude/generic；task_title <=12 字。",
     "- agent_task_spec.task_prompt 必須是可直接貼入 Codex / Claude 的 brief：說清楚要檢查的產品假設、可用 evidence refs、要輸出的格式與停止條件；不要寫成操作教學，也不要發明原文沒有的工具或步驟。",
-    "- evidence_refs 只能引用下方 evidence catalog 的 e1/e2/...；沒有證據就回空陣列",
-    "- evidence_notes：對 evidence_refs 列出的每個 ref 都要補一條對應 note；ref 必須來自 evidence_refs；沒有 evidence_refs 就回空陣列",
+    "- evidence_refs 只能引用下方 evidence catalog 的 root 或 e1/e2/...；沒有證據就回空陣列。root 代表主文（OP 文字與 OP 續文），e1/e2 代表 discussion replies。",
+    "- evidence_notes：對 evidence_refs 列出的每個 ref 都要補一條對應 note；ref 必須來自 evidence_refs（可含 root）；沒有 evidence_refs 就回空陣列",
     "- evidence_notes 不只是引用理由；要把高技術含量留言拆成可學習的模式，讓用戶知道可以保留、測試或交給 agent 追問哪個假設。",
     "- evidence_notes 必須是 evidence-specific，不要把 thread-level content_summary 複製到每條 evidence。",
-    "- application_suggestions 是 AI 提案、待驗證，不是來源事實、已證明或已實作的功能；證據不足、非 try、noise 或只有 root post 時必須回 []，不要硬套產品用途。",
+    "- application_suggestions 是 AI 提案、待驗證，不是來源事實、已證明或已實作的功能；證據不足、非 try 或 noise 時必須回 []，不要硬套產品用途。",
     `- application_suggestions[*].product_context_target 必須指定 [PRODUCT_CONTEXT] 內存在的一個 ProductContext 欄位，只能是：${PRODUCT_CONTEXT_FIELDS.join("、")}。`,
-    "- application_suggestions[*].support_refs 必須有 1-3 個不重複 refs；只能來自下方 captured discussion evidence catalog，且每個 ref 都必須同時出現在 evidence_refs，並有 grounding=text_grounded 的 evidence_notes 對應項。",
+    "- application_suggestions[*].support_refs 必須有 1-3 個不重複 refs；只能來自下方 evidence catalog（root 或 e1/e2/...），且每個 ref 都必須同時出現在 evidence_refs，並有 grounding=text_grounded 的 evidence_notes 對應項。",
+    "- root 只證明主文文字所說的內容；不要用 root 宣稱影片、動畫、repository 或外部連結裡的內容。",
+    "- 影片或動畫若沒有 captured 逐字稿或畫面證據，不算已檢視；不要假裝看過影片內容。",
+    "- repository（repo）或外部 URL 在此分析不會被實際開啟或檢視；不要假裝讀過 repo 或連結內容。",
+    "- 如果有用的機制只存在於未檢視的影片、動畫或連結資源，回傳 [] 並在 why_relevant 或 reason 說明缺少的證據。",
     "- application_suggestions[*].verification_question 必須能透過檢查 ProductContext／repository（repo）或執行一個有限實驗來回答。",
     "- 如果 proposal 涉及 currentCapabilities 或 coreWorkflows 已有能力，只能建議強化或評估既有能力，不可把它重新提成新功能。",
     "- quote 太短時，不要硬擠操作方法；grounding 用 insufficient_detail，why_it_works 寫「原文不足以推導具體機制」並說明缺哪一段。",
@@ -676,8 +696,8 @@ export function buildProductSignalAnalyzerPrompt(input: ProductSignalAnalyzerInp
     "[ASSEMBLED_CONTENT]",
     input.assembledContent.slice(0, 8000),
     "",
-    "[DISCUSSION_EVIDENCE]",
-    buildEvidenceCatalog(input.discussionReplies),
+    "[EVIDENCE_CATALOG]",
+    buildEvidenceCatalog(input.rootText, input.discussionReplies),
     "",
     "JSON schema:",
     JSON.stringify({
@@ -784,7 +804,10 @@ export function parseProductSignalAnalysisResponse(
     return null;
   }
 
-  const allowedRefs = new Set(input.discussionReplies.map((_, index) => `e${index + 1}`));
+  const allowedRefs = new Set([
+    ...(input.rootText.trim() ? [PRODUCT_SIGNAL_ROOT_REF] : []),
+    ...input.discussionReplies.map((_, index) => `e${index + 1}`)
+  ]);
   const relevantTo = readStringArray(parsed.relevantTo ?? parsed.relevant_to)
     .filter((field): field is ProductSignalReferenceTarget => PRODUCT_SIGNAL_REFERENCE_TARGETS.includes(field as ProductSignalReferenceTarget));
   const referenceType = readReferenceType(parsed.referenceType ?? parsed.reference_type);

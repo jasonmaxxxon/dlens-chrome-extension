@@ -15,6 +15,7 @@ import {
   type ProductContextField,
   type ProductSignalAnalysis
 } from "../state/types.ts";
+import { PRODUCT_SIGNAL_ROOT_REF } from "../compare/product-signal-analysis.ts";
 
 export type ProductPrimaryCategory = "lift" | "need" | "rival" | "market" | "learn";
 export type ProductHeroKind = "resource" | "quote" | "tally" | "editorial";
@@ -35,8 +36,8 @@ export interface ProductCardTally {
 }
 
 /** Explicit ref for the root post span, so a URL grounded in the root post still
- *  carries a non-null `sourceRef`. */
-export const ROOT_SPAN_REF = "root";
+ *  carries a non-null `sourceRef`. Aliases the analyzer's single source of truth. */
+export const ROOT_SPAN_REF = PRODUCT_SIGNAL_ROOT_REF;
 
 /** A captured span (root post or a reply) with its ref, used to ground resource URLs. */
 export interface CapturedSpan {

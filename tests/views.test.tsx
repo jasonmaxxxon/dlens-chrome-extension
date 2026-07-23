@@ -4948,6 +4948,42 @@ test("Product Action renders application proposals as pending verification with 
   assert.doesNotMatch(html, /data-product-action-agent-brief="true"/);
 });
 
+test("Product Action renders a root-grounded application with the 原文 source label", () => {
+  const fixture = productActionStageFixture();
+  const signal = fixture.signals.find((item) => item.id === "signal_try_second");
+  const baseAnalysis = fixture.analyses.find((analysis) => analysis.signalId === "signal_try_second");
+  assert.ok(signal);
+  assert.ok(baseAnalysis);
+
+  const html = renderToStaticMarkup(productSignalViewElement({
+    ...fixture,
+    signals: [signal],
+    signalPreviewById: { signal_try_second: "主文：先展示可檢查結果，再要求採用。" },
+    analyses: [{
+      ...baseAnalysis,
+      evidenceRefs: ["root"],
+      evidenceNotes: [
+        { ref: "root", quoteSummary: "主文先展示再採用", whyItMatters: "支持可測流程", grounding: "text_grounded" as const }
+      ],
+      applicationSuggestions: [{
+        sourcePattern: "先展示可檢查結果，再要求採用",
+        fitReason: "可能降低核心流程的首次決策負擔",
+        smallTest: "只在一個入口測試先預覽後確認",
+        productContextTarget: "coreWorkflows" as const,
+        supportRefs: ["root"],
+        verificationQuestion: "首次完成率是否提高？"
+      }],
+      agentTaskSpec: undefined
+    }]
+  }));
+
+  const row = findTagWithAttribute(html, 'data-product-action-recommendation="application"');
+  assert.match(row, /data-product-action-application-status="pending-verification"/);
+  assert.match(html, /data-product-action-application-refs="root"/);
+  assert.match(html, /原文 · 文字支持/);
+  assert.doesNotMatch(html, /root · 文字支持/);
+});
+
 test("Product Action keeps same-proposal application rows distinct across target and verification question", () => {
   const fixture = productActionStageFixture();
   const signal = fixture.signals.find((item) => item.id === "signal_try_second");

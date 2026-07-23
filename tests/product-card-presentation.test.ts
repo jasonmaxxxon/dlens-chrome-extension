@@ -556,6 +556,34 @@ test("no recommendation rows produce a none tier", () => {
   assert.equal(result.recommendationTier, "none");
 });
 
+test("an application grounded on the root span is kept with the root ref", () => {
+  const result = deriveProductCardRecommendations(input({
+    analysis: analysis({
+      verdict: "try",
+      evidenceRefs: [ROOT_SPAN_REF],
+      evidenceNotes: [{
+        ref: ROOT_SPAN_REF,
+        quoteSummary: "主文說先展示再要求採用",
+        whyItMatters: "支持一個以主文文字為根據的可測流程",
+        grounding: "text_grounded"
+      }],
+      applicationSuggestions: [{
+        sourcePattern: "先展示可檢查結果，再要求採用",
+        fitReason: "可能降低核心流程的首次決策負擔",
+        smallTest: "只在一個入口測試先預覽後確認",
+        productContextTarget: "coreWorkflows",
+        supportRefs: [ROOT_SPAN_REF],
+        verificationQuestion: "首次完成率是否提高？"
+      }]
+    }),
+    capturedSpans: [{ ref: ROOT_SPAN_REF, text: "主文：先展示可檢查結果，再要求採用。" }]
+  }));
+
+  assert.equal(result.length, 1);
+  assert.equal(result[0]?.kind, "application");
+  assert.deepEqual((result[0] as { sourceRefs: string[] }).sourceRefs, [ROOT_SPAN_REF]);
+});
+
 test("application suggestions require a full non-noise try analysis", () => {
   const applicationSuggestions = [{
     sourcePattern: "只允許 try 卡顯示的來源做法",
