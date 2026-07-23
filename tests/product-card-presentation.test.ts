@@ -447,7 +447,6 @@ test("valid application suggestions replace generic rows, keep all refs, and do 
   assert.deepEqual(result.recommendations, [{
     kind: "application",
     support: "text_grounded",
-    text: "在 Product Action 加一個來源狀態檢查",
     sourcePattern: "把證據卡的來源狀態直接放進操作卡",
     fitReason: "可能降低核心流程的來源誤讀",
     smallTest: "在 Product Action 加一個來源狀態檢查",

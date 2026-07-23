@@ -88,9 +88,6 @@ export type ProductCardRecommendation =
   | {
       kind: "application";
       support: "text_grounded";
-      // Temporary presentation alias for Task 2 only.
-      // Remove it after Task 4 changes the View to render the three real fields.
-      text: string;
       sourcePattern: string;
       fitReason: string;
       smallTest: string;
@@ -258,7 +255,7 @@ function normalizeRecommendationText(text: string): string {
 function deriveFallbackRecommendations(input: ProductCardInput): ProductCardRecommendation[] {
   const recommendations: ProductCardRecommendation[] = [];
   const seenTexts = new Set<string>();
-  const add = (recommendation: ProductCardRecommendation) => {
+  const add = (recommendation: Extract<ProductCardRecommendation, { kind: "experiment" | "pattern" }>) => {
     const normalized = normalizeRecommendationText(recommendation.text);
     if (!normalized || seenTexts.has(normalized) || recommendations.length >= 3) return false;
     seenTexts.add(normalized);
@@ -343,8 +340,6 @@ function deriveApplicationRecommendations(input: ProductCardInput): ProductCardR
     recommendations.push({
       kind: "application",
       support: "text_grounded",
-      // Temporary alias; the View still reads recommendation.text until Task 4.
-      text: smallTest,
       sourcePattern,
       fitReason,
       smallTest,

@@ -4897,7 +4897,7 @@ test("Product Action exposes grounded recommendations and one Agent brief row on
   assert.doesNotMatch(compactHtml, /data-product-action-recommendations=/);
 });
 
-test("Product Action renders application proposals as pending verification with target, all refs, and question", () => {
+test("Product Action renders application suggestions as three parts with target, all refs, and question", () => {
   const fixture = productActionStageFixture();
   const signal = fixture.signals.find((item) => item.id === "signal_try_second");
   const baseAnalysis = fixture.analyses.find((analysis) => analysis.signalId === "signal_try_second");
@@ -4939,13 +4939,51 @@ test("Product Action renders application proposals as pending verification with 
   assert.match(html, /可能用法 · 待驗證/);
   assert.doesNotMatch(html, /可直接採用/);
   assert.match(html, /AI 提案 · 待驗證/);
-  assert.match(html, /data-product-action-application-proposal="true"[^]*在 Product Action 加入來源狀態檢查。/);
+  assert.match(html, /data-product-action-application-part="source"[^]*來源做法[^]*把來源狀態直接放進操作卡/);
+  assert.match(html, /data-product-action-application-part="fit"[^]*可能適合[^]*可能降低核心流程的來源誤讀/);
+  assert.match(html, /data-product-action-application-part="test"[^]*先小試[^]*在 Product Action 加入來源狀態檢查。/);
   assert.match(html, /data-product-action-application-target="coreWorkflows"[^]*核心流程/);
   assert.match(html, /data-product-action-application-refs="e1,e2"[^]*e1、e2 · 文字支持/);
   assert.match(html, /data-product-action-application-question="true"[^]*驗證問題[^]*使用者能否在一次 bounded test 中正確分辨來源狀態？/);
   assert.doesNotMatch(html, /不應與 application 同時顯示的 fallback/);
   assert.doesNotMatch(row, /已捕捉事實|來源已證實|captured fact/iu);
   assert.doesNotMatch(html, /data-product-action-agent-brief="true"/);
+});
+
+test("Product Action renders a non-software (shop) application as three parts", () => {
+  const fixture = productActionStageFixture();
+  const signal = fixture.signals.find((item) => item.id === "signal_try_second");
+  const baseAnalysis = fixture.analyses.find((analysis) => analysis.signalId === "signal_try_second");
+  assert.ok(signal);
+  assert.ok(baseAnalysis);
+
+  const html = renderToStaticMarkup(productSignalViewElement({
+    ...fixture,
+    signals: [signal],
+    analyses: [{
+      ...baseAnalysis,
+      evidenceRefs: ["e1"],
+      evidenceNotes: [
+        { ref: "e1", quoteSummary: "顧客想先看到成品", whyItMatters: "支持購物流程", grounding: "text_grounded" as const }
+      ],
+      applicationSuggestions: [{
+        sourcePattern: "先讓顧客看到成品，再要求下單",
+        fitReason: "可能降低核心購物流程的決策阻力",
+        smallTest: "只在一個商品分類先試先看成品再結帳",
+        productContextTarget: "coreWorkflows" as const,
+        supportRefs: ["e1"],
+        verificationQuestion: "該分類的加入購物車率是否提高？"
+      }],
+      agentTaskSpec: undefined
+    }],
+    evidenceBySignalId: {
+      signal_try_second: [{ ref: "e1", id: "reply-1", author: "reader", text: "我想先看到成品再決定。", likeCount: 1 }]
+    }
+  }));
+
+  assert.match(html, /data-product-action-application-part="source"[^]*先讓顧客看到成品，再要求下單/);
+  assert.match(html, /data-product-action-application-part="fit"[^]*可能降低核心購物流程的決策阻力/);
+  assert.match(html, /data-product-action-application-part="test"[^]*只在一個商品分類先試先看成品再結帳/);
 });
 
 test("Product Action renders a root-grounded application with the 原文 source label", () => {

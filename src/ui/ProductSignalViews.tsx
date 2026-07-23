@@ -3335,8 +3335,9 @@ function ProductActionStage({
                     ? JSON.stringify([
                         recommendation.kind,
                         recommendation.sourceRefs,
-                        recommendation.text,
+                        recommendation.sourcePattern,
                         recommendation.productContextTarget,
+                        recommendation.smallTest,
                         recommendation.verificationQuestion
                       ])
                     : `${recommendation.kind}:${recommendation.sourceRef ?? "analysis"}:${recommendation.text}`;
@@ -3357,7 +3358,12 @@ function ProductActionStage({
                               套用至 {CONTEXT_FIELD_LABELS[recommendation.productContextTarget]}
                             </span>
                           </div>
-                          <span data-product-action-application-proposal="true" style={{ fontSize: 13, lineHeight: 1.6, color: tokens.color.subInk, overflowWrap: "anywhere" }}>{recommendation.text}</span>
+                          {([["source", "來源做法", recommendation.sourcePattern], ["fit", "可能適合", recommendation.fitReason], ["test", "先小試", recommendation.smallTest]] as const).map(([part, label, value]) => (
+                            <div key={part} data-product-action-application-part={part} style={{ display: "grid", gap: 2, minWidth: 0 }}>
+                              <span style={{ ...textStyles.fieldLabel, color: tokens.color.softInk }}>{label}</span>
+                              <span style={{ fontSize: 13, lineHeight: 1.6, color: tokens.color.subInk, overflowWrap: "anywhere" }}>{value}</span>
+                            </div>
+                          ))}
                           <span data-product-action-application-refs={recommendation.sourceRefs.join(",")} style={{ ...textStyles.meta, color: tokens.color.softInk }}>{recommendation.sourceRefs.map((ref) => ref === ROOT_SPAN_REF ? "原文" : ref).join("、")} · 文字支持</span>
                           <div data-product-action-application-question="true" style={{ display: "grid", gap: 2, minWidth: 0, paddingTop: 4 }}>
                             <span style={{ ...textStyles.fieldLabel, color: tokens.color.softInk }}>驗證問題</span>
