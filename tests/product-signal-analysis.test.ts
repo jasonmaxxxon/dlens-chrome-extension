@@ -468,16 +468,45 @@ test("v21 accepts a grounded complete reading for try and watch", () => {
     JSON.stringify(makeRawAnalysis({
       testability: "not_yet_testable",
       evidence_state: "external_unverified",
-      productReading: {
+      product_reading: {
         headline: "先保留互動方向並補足外部證據",
         body: "文字只描述互動效果，未檢查影片或外部連結。這可作為產品靈感，但應先確認實際動畫與現有介面是否相容。",
-        supportRefs: ["e1"]
+        support_refs: ["e1"]
       }
     })),
     analyzerInput
   );
   assert.equal(watchParsed?.verdict, "watch");
   assert.deepEqual(watchParsed?.productReading?.supportRefs, ["e1"]);
+});
+
+test("v21 rejects the top-level productReading alias", () => {
+  const parsed = parseProductSignalAnalysisResponse(
+    JSON.stringify(makeRawAnalysis({
+      product_reading: undefined,
+      productReading: {
+        headline: "不接受 camelCase 頂層欄位",
+        body: "嚴格版本只能讀取 canonical product_reading。",
+        support_refs: ["e1"]
+      }
+    })),
+    analyzerInput
+  );
+  assert.equal(parsed, null);
+});
+
+test("v21 rejects the nested supportRefs alias", () => {
+  const parsed = parseProductSignalAnalysisResponse(
+    JSON.stringify(makeRawAnalysis({
+      product_reading: {
+        headline: "不接受 camelCase 引用欄位",
+        body: "嚴格版本只能讀取 canonical support_refs。",
+        supportRefs: ["e1"]
+      }
+    })),
+    analyzerInput
+  );
+  assert.equal(parsed, null);
 });
 
 test("v21 rejects actionable analysis without a complete reading", () => {

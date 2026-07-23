@@ -541,7 +541,7 @@ function readProductReading(
   const raw = value as Record<string, unknown>;
   const headline = readTrimmedString(raw.headline).slice(0, 60);
   const body = readTrimmedString(raw.body);
-  const refs = raw.support_refs ?? raw.supportRefs;
+  const refs = raw.support_refs;
   if (!headline || !body || [...body].length > 1200 || !Array.isArray(refs)) {
     return null;
   }
@@ -780,7 +780,6 @@ interface ProductSignalAnalysisPayload {
   evidence_notes?: unknown;
   evidenceNotes?: unknown;
   product_reading?: unknown;
-  productReading?: unknown;
 }
 
 export function parseProductSignalAnalysisResponse(
@@ -845,7 +844,7 @@ export function parseProductSignalAnalysisResponse(
     .filter((ref) => allowedRefs.has(ref));
   const evidenceRefSet = new Set(evidenceRefs);
   const evidenceNotes = readEvidenceNotes(parsed.evidenceNotes ?? parsed.evidence_notes, evidenceRefSet);
-  const rawProductReading = parsed.productReading ?? parsed.product_reading;
+  const rawProductReading = parsed.product_reading;
   const readingEligible = signalType !== "noise"
     && (derived.verdict === "try" || derived.verdict === "watch");
   const productReading = readProductReading(rawProductReading, {
