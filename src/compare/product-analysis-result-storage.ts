@@ -109,7 +109,7 @@ export async function saveProductAnalysisResult(
     loadSignalReadingMap(storageArea)
   ]);
   const existing = normalizedReading ? readings[normalizedReading.cacheKey] : null;
-  const preservedReading = normalizedReading
+  const preservedReading: SignalReading | null = normalizedReading
     && existing
     && hasSameReviewIdentity(existing, normalizedReading)
     ? {
@@ -117,7 +117,13 @@ export async function saveProductAnalysisResult(
         reviewState: existing.reviewState,
         feedbackEvents: existing.feedbackEvents
       }
-    : normalizedReading;
+    : normalizedReading
+      ? {
+          ...normalizedReading,
+          reviewState: "pending",
+          feedbackEvents: []
+        }
+      : null;
 
   await storageArea.set({
     [PRODUCT_SIGNAL_ANALYSES_STORAGE_KEY]: {

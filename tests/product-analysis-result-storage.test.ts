@@ -146,15 +146,19 @@ test("analysis and projected reading use one storage set", async () => {
 });
 
 test("idempotent materialization preserves review state and feedback", async () => {
-  const storage = makeStorage();
   const analysis = makeAnalysis();
   const reading = makeReading();
-
-  await saveProductAnalysisResult(storage, analysis, {
+  const existing = {
     ...reading,
     reviewState: "filed",
     feedbackEvents: [{ type: "filed", at: "2026-07-23T00:00:00.000Z" }]
+  } satisfies SignalReading;
+  const storage = makeStorage({
+    [SIGNAL_READINGS_STORAGE_KEY]: {
+      [reading.cacheKey]: existing
+    }
   });
+
   await saveProductAnalysisResult(storage, analysis, {
     ...reading,
     reviewState: "pending",
@@ -167,7 +171,26 @@ test("idempotent materialization preserves review state and feedback", async () 
   assert.equal(stored?.sourcePacket.rootText, "原文展示互動模式。");
   assert.equal(stored?.reviewState, "filed");
   assert.equal(stored?.feedbackEvents.length, 1);
-  assert.equal(storage.setCalls.length, 2);
+  assert.equal(storage.setCalls.length, 1);
+});
+
+test("fresh composite save resets caller review state and feedback", async () => {
+  const storage = makeStorage();
+  const analysis = makeAnalysis();
+  const reading = makeReading();
+
+  const result = await saveProductAnalysisResult(storage, analysis, {
+    ...reading,
+    reviewState: "filed",
+    feedbackEvents: [{ type: "filed", at: "2026-07-23T00:00:00.000Z" }]
+  });
+
+  const stored = await getSignalReading(storage, reading.cacheKey);
+  assert.equal(result.reading?.reviewState, "pending");
+  assert.deepEqual(result.reading?.feedbackEvents, []);
+  assert.equal(stored?.reviewState, "pending");
+  assert.deepEqual(stored?.feedbackEvents, []);
+  assert.equal(storage.setCalls.length, 1);
 });
 
 test("actionable analysis cannot publish without its projected reading", async () => {
@@ -251,13 +274,17 @@ test("same cache key with different stored identity does not inherit review", as
 });
 
 test("reordered support refs preserve the same filed reading identity", async () => {
-  const storage = makeStorage();
   const firstAnalysis = makeAnalysis();
   const firstReading = materializeReading(firstAnalysis);
-  await saveProductAnalysisResult(storage, firstAnalysis, {
+  const existing = {
     ...firstReading,
     reviewState: "filed",
     feedbackEvents: [{ type: "filed", at: "2026-07-23T00:00:00.000Z" }]
+  } satisfies SignalReading;
+  const storage = makeStorage({
+    [SIGNAL_READINGS_STORAGE_KEY]: {
+      [firstReading.cacheKey]: existing
+    }
   });
 
   const reorderedAnalysis = makeAnalysis({
