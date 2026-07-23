@@ -8,6 +8,7 @@ import type { TargetDescriptor } from "../src/contracts/target-descriptor.ts";
 import { BUILD_VERSION } from "../src/ui/version.ts";
 import {
   AttentionBeam,
+  AttentionSurface,
   DLENS_BUTTON_CSS,
   EvidenceRow,
   ModeHeader,
@@ -274,6 +275,39 @@ test("AttentionBeam renders generating, actionable, and none states", () => {
   );
   assert.match(neutralHtml, /data-attention-beam="none"/);
   assert.doesNotMatch(neutralHtml, /data-attention-beam-sweep="true"/);
+});
+
+test("AttentionSurface owns one semantic full-card beam without inserting button content", () => {
+  const generatingHtml = renderToStaticMarkup(
+    React.createElement(
+      AttentionSurface,
+      {
+        as: "section",
+        state: "generating",
+        dataAttrs: { "data-product-operation": "analysis" },
+        style: { borderRadius: tokens.radius.cardLg }
+      },
+      React.createElement("button", { type: "button" }, "分析中")
+    )
+  );
+
+  assert.match(generatingHtml, /^<section/);
+  assert.match(generatingHtml, /data-attention-surface="true"/);
+  assert.match(generatingHtml, /data-attention-beam="generating"/);
+  assert.match(generatingHtml, /data-attention-beam-sweep="true"/);
+  assert.match(generatingHtml, /data-product-operation="analysis"/);
+  assert.doesNotMatch(generatingHtml, /data-searching-orb=/);
+
+  const actionableHtml = renderToStaticMarkup(
+    React.createElement(
+      AttentionSurface,
+      { state: "actionable" },
+      React.createElement("div", null, "可能用法")
+    )
+  );
+  assert.match(actionableHtml, /^<div/);
+  assert.match(actionableHtml, /data-attention-beam="actionable"/);
+  assert.doesNotMatch(actionableHtml, /data-attention-beam-sweep=/);
 });
 
 test("WorkspaceShell masthead exposes the extension build version", () => {

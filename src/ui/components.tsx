@@ -1,4 +1,4 @@
-import type { CSSProperties, KeyboardEvent, MouseEvent, PointerEvent, ReactNode } from "react";
+import type { CSSProperties, KeyboardEvent, MouseEvent, PointerEvent, ReactElement, ReactNode } from "react";
 
 import type { TargetDescriptor } from "../contracts/target-descriptor.ts";
 import { resolveBackendWorkCopy } from "../state/backend-work-copy.ts";
@@ -271,6 +271,33 @@ export function AttentionBeam({
       {generating ? <SearchingOrb /> : null}
       {generating ? generatingLabel ?? children : children}
     </span>
+  );
+}
+
+export function AttentionSurface({
+  as = "div",
+  state,
+  children,
+  style,
+  dataAttrs
+}: {
+  as?: "div" | "section";
+  state: AttentionBeamState;
+  children: ReactNode;
+  style?: CSSProperties;
+  dataAttrs?: Record<`data-${string}`, string | undefined>;
+}): ReactElement {
+  const Element = as;
+  return (
+    <Element
+      {...dataAttrs}
+      data-attention-surface="true"
+      data-attention-beam={state}
+      data-attention-beam-sweep={state === "generating" ? "true" : undefined}
+      style={style}
+    >
+      {children}
+    </Element>
   );
 }
 

@@ -271,6 +271,10 @@ test("AI attention primitives become explicitly static under reduced motion", ()
   assert.match(DLENS_ATTENTION_CSS, /\[data-searching-orb="true"\]/);
   assert.match(DLENS_ATTENTION_CSS, /dlens-popup-pulse/);
   assert.match(DLENS_ATTENTION_CSS, /dlens-popup-indeterminate/);
+  assert.match(DLENS_ATTENTION_CSS, /\[data-attention-surface="true"\]\{[^}]*display:grid/);
+  assert.match(DLENS_ATTENTION_CSS, /\[data-attention-surface="true"\]\{[^}]*overflow:hidden/);
+  assert.match(DLENS_ATTENTION_CSS, /\[data-attention-surface="true"\]\[data-attention-beam="actionable"\]::after/);
+  assert.doesNotMatch(DLENS_ATTENTION_CSS, /\[data-attention-surface="true"\][^}]*border-radius:[^}]*button/);
   const reduceStart = DLENS_REDUCED_MOTION_CSS.indexOf("@media (prefers-reduced-motion: reduce)");
   const reduceBlock = sliceBalancedBlock(DLENS_REDUCED_MOTION_CSS, reduceStart);
   const orbSelector = '[data-dlens-control="true"] [data-searching-orb="true"]';
