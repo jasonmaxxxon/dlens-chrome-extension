@@ -23,8 +23,15 @@ import { PRODUCT_CONTEXT_STORAGE_KEY } from "./product-context.ts";
 import {
   buildProductContextHash,
   buildProductSignalEvidenceCatalogFromCapture,
+  PRODUCT_SIGNAL_ANALYSIS_PROMPT_VERSION,
   type ProductSignalEvidenceEntry
 } from "./product-signal-analysis.ts";
+import { deriveDerivedRecordStaleness } from "../state/derived-record.ts";
+import {
+  buildProductAnalysisReadingCacheKey,
+  buildProductAnalysisReadingSourcePacketHash,
+  canonicalizeProductReadingSupportRefs
+} from "./product-analysis-reading.ts";
 import { listProductAgentTaskFeedback } from "./product-agent-task-feedback.ts";
 import { listProductSignalAnalyses } from "./product-signal-storage.ts";
 import {
@@ -79,6 +86,7 @@ export interface DLensSignalPacketSource {
 }
 
 export interface DLensSignalReadingBundle {
+  current: SignalReading | null;
   latest: SignalReading | null;
   latestFiled: SignalReading | null;
   supersededFiled: SignalReading[];
@@ -165,7 +173,7 @@ export interface DLensSignalDecisionTraceDetails {
 }
 
 export interface DLensSignalDecisionTraceStage {
-  stage: "structured_judgment" | "free_reading";
+  stage: "structured_judgment" | "product_analysis_reading" | "free_reading";
   outputKind: "verdict_fields" | "interpretive_reading";
   generatedAt: string;
   promptVersion: string;
@@ -349,10 +357,15 @@ function buildPacket({
   taskFeedback: ProductAgentTaskFeedback[];
   topics: Topic[];
 }): DLensSignalPacket {
-  const latestReading = readings[0] ?? null;
+  const historyLatestReading = readings[0] ?? null;
+  const currentReading = readings.find((reading) =>
+    matchesCurrentProductAnalysisReading(analysis, productContext, reading)
+  ) ?? null;
+  const latestReading = currentReading;
   const filedReadings = readings.filter((reading) => reading.reviewState === "filed");
-  const textEvidence = buildTextEvidence(item?.latestCapture, latestReading);
-  const sourcePacket = latestReading?.sourcePacket ?? buildSourcePacketFromCapture(
+  const provenanceReading = currentReading ?? historyLatestReading;
+  const textEvidence = buildTextEvidence(item?.latestCapture, provenanceReading);
+  const sourcePacket = provenanceReading?.sourcePacket ?? buildSourcePacketFromCapture(
     item?.latestCapture ?? null,
     textEvidence,
     analysis?.promptVersion ?? ""
@@ -361,7 +374,7 @@ function buildPacket({
 
   return {
     packetVersion: DLENS_SIGNAL_PACKET_VERSION,
-    source: buildPacketSource(signal, session, item, latestReading),
+    source: buildPacketSource(signal, session, item, provenanceReading),
     evidence: {
       textEvidence,
       imageEvidence: [],
@@ -372,6 +385,7 @@ function buildPacket({
     judgment: analysis,
     productContext: buildProductContextSnapshot(productContext, analysis),
     reading: {
+      current: currentReading,
       latest: latestReading,
       latestFiled: filedReadings[0] ?? null,
       supersededFiled: filedReadings.slice(1),
@@ -408,6 +422,67 @@ function buildPacket({
     },
     decisionTrace: buildDecisionTrace(analysis, readings, textEvidence)
   };
+}
+
+function matchesCurrentProductAnalysisReading(
+  analysis: ProductSignalAnalysis | null,
+  productContext: ProductContext | null,
+  reading: SignalReading
+): boolean {
+  if (
+    !analysis
+    || analysis.status !== "complete"
+    || analysis.promptVersion !== PRODUCT_SIGNAL_ANALYSIS_PROMPT_VERSION
+    || analysis.signalType === "noise"
+    || (analysis.verdict !== "try" && analysis.verdict !== "watch")
+    || !analysis.productReading
+    || reading.origin !== "product_analysis"
+    || reading.signalId !== analysis.signalId
+    || reading.productContextHash !== analysis.productContextHash
+    || reading.promptVersion !== analysis.promptVersion
+    || reading.sourcePacket.analysisPromptVersion !== analysis.promptVersion
+    || reading.headline !== analysis.productReading.headline
+    || reading.reading !== analysis.productReading.body
+    || reading.generatedAt !== analysis.analyzedAt
+    || reading.model !== (analysis.model ?? "")
+  ) {
+    return false;
+  }
+  if (productContext) {
+    const staleness = deriveDerivedRecordStaleness({
+      record: {
+        sourceHash: analysis.productContextHash,
+        generatorVersion: analysis.promptVersion,
+        generatedAt: analysis.analyzedAt
+      },
+      currentSourceHash: buildProductContextHash(productContext),
+      currentGeneratorVersion: PRODUCT_SIGNAL_ANALYSIS_PROMPT_VERSION,
+      currentUpdatedAt: productContext.compiledAt
+    });
+    if (staleness.stale) {
+      return false;
+    }
+  }
+  const readingRefs = canonicalizeProductReadingSupportRefs(reading.sourceRefs);
+  const analysisRefs = canonicalizeProductReadingSupportRefs(
+    analysis.productReading.supportRefs
+  );
+  if (
+    readingRefs.length !== analysisRefs.length
+    || readingRefs.some((ref, index) => ref !== analysisRefs[index])
+  ) {
+    return false;
+  }
+  if (
+    buildProductAnalysisReadingSourcePacketHash(reading.sourcePacket)
+    !== reading.sourcePacketHash
+  ) {
+    return false;
+  }
+  return reading.cacheKey === buildProductAnalysisReadingCacheKey({
+    analysis,
+    sourcePacketHash: reading.sourcePacketHash
+  });
 }
 
 function buildProductContextSnapshot(
@@ -656,7 +731,9 @@ function buildFreeReadingTraceStage(
   const keyInsights = extractReadingKeyInsights(reading.reading);
 
   return {
-    stage: "free_reading",
+    stage: reading.origin === "product_analysis"
+      ? "product_analysis_reading"
+      : "free_reading",
     outputKind: "interpretive_reading",
     generatedAt: reading.generatedAt,
     promptVersion: reading.promptVersion,

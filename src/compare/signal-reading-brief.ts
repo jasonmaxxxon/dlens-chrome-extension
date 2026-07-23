@@ -28,7 +28,7 @@ export function composeReadingBrief(
   }
   const sections = filed.map((reading, index) => {
     const analysis = analysesBySignalId.get(reading.signalId);
-    const title = analysis?.contentSummary || `Signal ${index + 1}`;
+    const title = reading.headline || analysis?.contentSummary || `Signal ${index + 1}`;
     const verdictText = analysis ? VERDICT_BRIEF_LABELS[analysis.verdict] : "尚未分析";
     const relevanceText = analysis ? ` · relevance ${analysis.relevance}/5` : "";
     const classText = analysis?.referenceLabel ? ` · ${analysis.referenceLabel}` : "";

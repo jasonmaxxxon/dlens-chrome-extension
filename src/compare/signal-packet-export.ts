@@ -156,11 +156,22 @@ function renderPacketMarkdown(packet: DLensSignalPacket): string[] {
     lines.push("");
   }
 
-  if (packet.reading.latest) {
+  const displayReading = packet.reading.latest ?? packet.reading.all[0] ?? null;
+  if (displayReading) {
+    const currentProductReading = packet.reading.current?.cacheKey === displayReading.cacheKey
+      && displayReading.origin === "product_analysis";
+    const heading = currentProductReading
+      ? "### 目前 Product analysis 判讀"
+      : displayReading.origin === "product_analysis"
+        ? "### Historical Product analysis reading"
+        : displayReading.origin === "manual_deep_read"
+          ? "### Historical manual reading"
+          : "### Latest reading";
     lines.push(
-      "### Latest reading",
+      heading,
       "",
-      packet.reading.latest.reading,
+      ...(displayReading.headline ? [`#### ${displayReading.headline}`, ""] : []),
+      displayReading.reading,
       ""
     );
   }
@@ -1194,7 +1205,7 @@ function renderHtmlEvidence(packet: DLensSignalPacket): string {
 }
 
 function renderHtmlReading(packet: DLensSignalPacket): string {
-  const latest = packet.reading.latest;
+  const latest = packet.reading.latest ?? packet.reading.all[0] ?? null;
   const lineageHtml = renderHtmlFiledReadingLineage(packet);
   if (!latest || !latest.reading.trim()) {
     return `<section class="reading-panel">
@@ -1203,8 +1214,18 @@ function renderHtmlReading(packet: DLensSignalPacket): string {
           ${lineageHtml}
         </section>`;
   }
+  const isCurrentProductReading = packet.reading.current?.cacheKey === latest.cacheKey
+    && latest.origin === "product_analysis";
+  const heading = isCurrentProductReading
+    ? "目前 Product analysis 判讀"
+    : latest.origin === "product_analysis"
+      ? "歷史 Product analysis 判讀"
+      : latest.origin === "manual_deep_read"
+        ? "歷史手動深度判讀"
+        : "Reading";
   return `<section class="reading-panel">
-          <h4>Reading</h4>
+          <h4>${heading}</h4>
+          ${latest.headline ? `<h5 class="reading-headline">${escapeHtml(latest.headline)}</h5>` : ""}
           <div class="reading-text">${renderReadingBody(latest.reading)}</div>
           ${lineageHtml}
         </section>`;
@@ -1246,9 +1267,10 @@ function renderHtmlFeedback(packet: DLensSignalPacket): string {
 }
 
 function collectHtmlCitedEvidenceRefs(packet: DLensSignalPacket): Set<string> {
+  const displayReading = packet.reading.latest ?? packet.reading.all[0] ?? null;
   return new Set([
     ...(packet.judgment?.evidenceRefs ?? []),
-    ...(packet.reading.latest?.sourceRefs ?? [])
+    ...(displayReading?.sourceRefs ?? [])
   ].filter(Boolean));
 }
 

@@ -35,6 +35,7 @@ function makeReadingBundle(latest: SignalPacketReading | null = null): DLensSign
   const all = latest ? [latest] : [];
   const filed = latest?.reviewState === "filed" ? [latest] : [];
   return {
+    current: latest?.origin === "product_analysis" ? latest : null,
     latest,
     latestFiled: filed[0] ?? null,
     supersededFiled: [],
@@ -265,6 +266,101 @@ test("exportSignalPackets markdown keeps useful reading fields and skips empty i
   assert.match(result.content, /Agent handoff/);
   assert.match(result.content, /1\. 讀取 signal storage/);
   assert.doesNotMatch(result.content, /Image evidence/);
+});
+
+test("exports preserve the explicit Product analysis headline and honest origin", () => {
+  const current = makeReading({
+    headline: "先把 agent handoff 收斂成可逆實驗",
+    origin: "product_analysis",
+    reading: "這是同一次 Product analysis 產生的完整判讀。"
+  });
+  const packet = makePacket({
+    reading: makeReadingBundle(current)
+  });
+
+  const jsonl = exportSignalPackets([packet], {
+    format: "jsonl",
+    generatedAt: "2026-05-19T08:30:00.000Z"
+  });
+  const row = JSON.parse(jsonl.content) as DLensSignalPacket;
+  assert.equal(row.reading.latest?.headline, "先把 agent handoff 收斂成可逆實驗");
+  assert.equal(row.reading.latest?.origin, "product_analysis");
+
+  const markdown = exportSignalPackets([packet], {
+    format: "markdown",
+    generatedAt: "2026-05-19T08:30:00.000Z"
+  });
+  assert.match(markdown.content, /先把 agent handoff 收斂成可逆實驗/);
+  assert.match(markdown.content, /目前 Product analysis 判讀/);
+  assert.doesNotMatch(markdown.content, /free reading|另一次模型|另一次 provider/i);
+
+  const html = exportSignalPackets([packet], {
+    format: "html",
+    generatedAt: "2026-05-19T08:30:00.000Z"
+  });
+  assert.match(html.content, /先把 agent handoff 收斂成可逆實驗/);
+  assert.match(html.content, /目前 Product analysis 判讀/);
+  assert.doesNotMatch(html.content, /free reading|另一次模型|另一次 provider/i);
+});
+
+test("exports keep legacy reading fallback without inventing headline or origin", () => {
+  const packet = makePacket({
+    reading: makeReadingBundle(makeReading({
+      headline: undefined,
+      origin: undefined,
+      reading: "舊判讀仍可匯出。"
+    }))
+  });
+
+  const markdown = exportSignalPackets([packet], {
+    format: "markdown",
+    generatedAt: "2026-05-19T08:30:00.000Z"
+  });
+  assert.match(markdown.content, /### Latest reading[\s\S]*舊判讀仍可匯出。/);
+  assert.doesNotMatch(markdown.content, /Origin:/);
+
+  const html = exportSignalPackets([packet], {
+    format: "html",
+    generatedAt: "2026-05-19T08:30:00.000Z"
+  });
+  assert.match(html.content, /<h4>Reading<\/h4>[\s\S]*舊判讀仍可匯出。/);
+  assert.doesNotMatch(html.content, /目前 Product analysis 判讀/);
+});
+
+test("exports retain legacy history without promoting it to current Product analysis", () => {
+  const legacy = makeReading({
+    headline: undefined,
+    origin: undefined,
+    reading: "只存在歷史區的舊判讀仍可匯出。"
+  });
+  const packet = makePacket({
+    reading: {
+      current: null,
+      latest: null,
+      latestFiled: legacy,
+      supersededFiled: [],
+      filed: [legacy],
+      all: [legacy]
+    },
+    userFeedback: {
+      ...makePacket().userFeedback,
+      currentReadingState: null
+    }
+  });
+
+  const markdown = exportSignalPackets([packet], {
+    format: "markdown",
+    generatedAt: "2026-05-19T08:30:00.000Z"
+  });
+  assert.match(markdown.content, /### Latest reading[\s\S]*只存在歷史區的舊判讀仍可匯出。/);
+  assert.doesNotMatch(markdown.content, /目前 Product analysis 判讀/);
+
+  const html = exportSignalPackets([packet], {
+    format: "html",
+    generatedAt: "2026-05-19T08:30:00.000Z"
+  });
+  assert.match(html.content, /<h4>Reading<\/h4>[\s\S]*只存在歷史區的舊判讀仍可匯出。/);
+  assert.doesNotMatch(html.content, /目前 Product analysis 判讀/);
 });
 
 test("exportSignalPackets html renders scannable verdict lanes and collapsed signal details", () => {
@@ -513,6 +609,7 @@ test("exportSignalPackets html surfaces filed reading lineage without rendering 
   });
   const packet = makePacket({
     reading: {
+      current: null,
       latest: latestReading,
       latestFiled,
       supersededFiled: [supersededFiled],

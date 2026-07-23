@@ -283,6 +283,38 @@ test("composeReadingBrief 只組 filed、標示過期", () => {
   assert.ok(staleBrief.includes("判讀版本過期"));
 });
 
+test("composeReadingBrief prefers the projected reading headline and keeps legacy title fallback", () => {
+  const analyses = new Map<string, ProductSignalAnalysis>([
+    [
+      "sig_1",
+      {
+        contentSummary: "分析摘要不應取代明確標題",
+        verdict: "watch",
+        relevance: 4
+      } as unknown as ProductSignalAnalysis
+    ]
+  ]);
+  const projectedBrief = composeReadingBrief(
+    [makeReading({
+      reviewState: "filed",
+      headline: "先把互動模式當成有限驗證",
+      origin: "product_analysis"
+    })],
+    analyses,
+    LEGACY_READING_PROMPT_VERSION
+  );
+  assert.match(projectedBrief, /## 1\. 先把互動模式當成有限驗證/);
+  assert.doesNotMatch(projectedBrief, /## 1\. 分析摘要不應取代明確標題/);
+
+  const legacyBrief = composeReadingBrief(
+    [makeReading({ reviewState: "filed" })],
+    analyses,
+    LEGACY_READING_PROMPT_VERSION
+  );
+  assert.match(legacyBrief, /## 1\. 分析摘要不應取代明確標題/);
+  assert.doesNotMatch(legacyBrief, /Origin:/);
+});
+
 test("buildStoredSourcePacket 對長內容做保守裁切", () => {
   const packet = buildStoredSourcePacket(
     makeInput({

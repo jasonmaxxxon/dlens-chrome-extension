@@ -6,6 +6,7 @@ import {
   buildSignalPacketIndex,
   DLENS_SIGNAL_PACKET_VERSION
 } from "../src/compare/signal-packet.ts";
+import { materializeProductAnalysisReading } from "../src/compare/product-analysis-reading.ts";
 import { saveProductAnalysisResult } from "../src/compare/product-analysis-result-storage.ts";
 import { PRODUCT_AGENT_TASK_FEEDBACK_STORAGE_KEY } from "../src/compare/product-agent-task-feedback.ts";
 import { PRODUCT_CONTEXT_STORAGE_KEY } from "../src/compare/product-context.ts";
@@ -192,7 +193,7 @@ function makeAnalysis(signalId: string, overrides: Partial<ProductSignalAnalysis
       quoteSummary: "weekly agent handoff",
       whyItMatters: "直接支持 agent 可用輸出。"
     }],
-    productContextHash: buildProductContextHash(makeProductContext()),
+    productContextHash: "ctx_1",
     promptVersion: "v16",
     model: "google:gemini-3.1-flash-lite-preview",
     analyzedAt: "2026-05-19T08:06:00.000Z",
@@ -205,7 +206,7 @@ function makeReading(overrides: Partial<SignalReading> = {}): SignalReading {
   return {
     signalId: "signal-1",
     cacheKey: "signal-1::ctx_1::pkt_1::v1",
-    productContextHash: "ctx_1",
+    productContextHash: buildProductContextHash(makeProductContext()),
     sourcePacketHash: "pkt_1",
     promptVersion: "v1",
     reading: "這條 signal 的價值在於 agent handoff 直接可用。",
@@ -226,6 +227,230 @@ function makeReading(overrides: Partial<SignalReading> = {}): SignalReading {
     ...overrides
   };
 }
+
+function makeCurrentAnalysis(
+  overrides: Partial<ProductSignalAnalysis> = {}
+): ProductSignalAnalysis {
+  return makeAnalysis("signal-1", {
+    productReading: {
+      headline: "先把 agent handoff 收斂成可逆實驗",
+      body: "目前證據支持先輸出一個可索引 packet，再驗證 handoff 是否真的可用。",
+      supportRefs: ["e1"]
+    },
+    evidenceNotes: [{
+      ref: "e1",
+      quoteSummary: "weekly agent handoff",
+      whyItMatters: "直接支持 agent 可用輸出。",
+      grounding: "text_grounded"
+    }],
+    judgmentAxes: {
+      usefulness: "useful",
+      testability: "reversible_test",
+      evidenceState: "text_sufficient",
+      conflictState: "none"
+    },
+    productContextHash: buildProductContextHash(makeProductContext()),
+    promptVersion: "v21",
+    model: "google:gemini-3.1-flash-lite-preview",
+    analyzedAt: "2026-07-23T08:06:00.000Z",
+    status: "complete",
+    ...overrides
+  });
+}
+
+function makeCurrentAnalysisReading(
+  analysis = makeCurrentAnalysis()
+): SignalReading {
+  const reading = materializeProductAnalysisReading({
+    analysis,
+    analyzerInput: {
+      signalId: "signal-1",
+      source: "threads",
+      rootText: "A useful agent workflow pattern.",
+      assembledContent: "Root post plus OP continuation.",
+      discussionReplies: [{
+        id: "c1",
+        author: "pm",
+        text: "This could become a weekly agent handoff.",
+        likeCount: 9,
+        role: "audience",
+        isOrphan: false,
+        parentId: null,
+        resolvedParentId: null
+      }],
+      productContext: makeProductContext(),
+      productContextHash: analysis.productContextHash
+    },
+    postUrl: "https://www.threads.net/@builder/post/abc"
+  });
+  assert.ok(reading);
+  return reading;
+}
+
+test("packet current/latest only expose the reading projected by the fresh actionable analysis", async () => {
+  const analysis = makeCurrentAnalysis();
+  const projected = makeCurrentAnalysisReading(analysis);
+  const newerManual = makeReading({
+    cacheKey: "signal-1::manual-newer",
+    generatedAt: "2026-07-23T09:00:00.000Z",
+    headline: "舊手動判讀",
+    origin: "manual_deep_read"
+  });
+  const storage = makeStorage({
+    [SIGNALS_STORAGE_KEY]: [{
+      id: "signal-1",
+      sessionId: "session-1",
+      itemId: "item-1",
+      source: "threads",
+      inboxStatus: "assigned",
+      capturedAt: "2026-05-19T08:00:00.000Z"
+    }],
+    [PRODUCT_SIGNAL_ANALYSES_STORAGE_KEY]: { "signal-1": analysis },
+    [SIGNAL_READINGS_STORAGE_KEY]: {
+      [projected.cacheKey]: projected,
+      [newerManual.cacheKey]: newerManual
+    },
+    [PRODUCT_CONTEXT_STORAGE_KEY]: makeProductContext()
+  });
+
+  const packet = await buildDLensSignalPacket(
+    storage,
+    makeGlobalState([makeItem("item-1")]),
+    "signal-1"
+  );
+
+  assert.ok(packet);
+  assert.equal(packet.reading.current?.cacheKey, projected.cacheKey);
+  assert.equal(packet.reading.latest?.cacheKey, projected.cacheKey);
+  assert.equal(packet.reading.latest?.headline, "先把 agent handoff 收斂成可逆實驗");
+  assert.equal(packet.reading.latest?.origin, "product_analysis");
+  assert.deepEqual(packet.reading.all.map((reading) => reading.cacheKey), [
+    newerManual.cacheKey,
+    projected.cacheKey
+  ]);
+  assert.equal(
+    packet.decisionTrace.stages.some((stage) => stage.stage === "free_reading"
+      && stage.generatedAt === projected.generatedAt),
+    false
+  );
+  assert.ok(
+    packet.decisionTrace.stages.some((stage) =>
+      stage.stage === "product_analysis_reading"
+      && stage.generatedAt === projected.generatedAt
+    )
+  );
+});
+
+test("packet does not expose a projection from a stale ProductContext analysis as current", async () => {
+  const analysis = makeCurrentAnalysis();
+  const projected = makeCurrentAnalysisReading(analysis);
+  const storage = makeStorage({
+    [SIGNALS_STORAGE_KEY]: [{
+      id: "signal-1",
+      sessionId: "session-1",
+      itemId: "item-1",
+      source: "threads",
+      inboxStatus: "assigned",
+      capturedAt: "2026-05-19T08:00:00.000Z"
+    }],
+    [PRODUCT_SIGNAL_ANALYSES_STORAGE_KEY]: { "signal-1": analysis },
+    [SIGNAL_READINGS_STORAGE_KEY]: { [projected.cacheKey]: projected },
+    [PRODUCT_CONTEXT_STORAGE_KEY]: makeProductContext({
+      productPromise: "已更新的產品承諾",
+      compiledAt: "2026-07-23T09:00:00.000Z"
+    })
+  });
+
+  const packet = await buildDLensSignalPacket(
+    storage,
+    makeGlobalState([makeItem("item-1")]),
+    "signal-1"
+  );
+
+  assert.ok(packet);
+  assert.equal(packet.reading.current, null);
+  assert.equal(packet.reading.latest, null);
+  assert.equal(packet.reading.all[0]?.cacheKey, projected.cacheKey);
+});
+
+test("packet keeps legacy/manual readings as history when no current Product analysis reading exists", async () => {
+  const legacy = makeReading({
+    cacheKey: "signal-1::legacy",
+    generatedAt: "2026-07-23T09:00:00.000Z"
+  });
+  const manual = makeReading({
+    cacheKey: "signal-1::manual",
+    generatedAt: "2026-07-23T10:00:00.000Z",
+    origin: "manual_deep_read"
+  });
+  const cases: ProductSignalAnalysis[] = [
+    makeCurrentAnalysis({ status: "error", error: "provider failed" }),
+    makeCurrentAnalysis({ verdict: "park", productReading: undefined })
+  ];
+
+  for (const analysis of cases) {
+    const storage = makeStorage({
+      [SIGNALS_STORAGE_KEY]: [{
+        id: "signal-1",
+        sessionId: "session-1",
+        itemId: "item-1",
+        source: "threads",
+        inboxStatus: "assigned",
+        capturedAt: "2026-05-19T08:00:00.000Z"
+      }],
+      [PRODUCT_SIGNAL_ANALYSES_STORAGE_KEY]: { "signal-1": analysis },
+      [SIGNAL_READINGS_STORAGE_KEY]: {
+        [legacy.cacheKey]: legacy,
+        [manual.cacheKey]: manual
+      },
+      [PRODUCT_CONTEXT_STORAGE_KEY]: makeProductContext()
+    });
+
+    const packet = await buildDLensSignalPacket(
+      storage,
+      makeGlobalState([makeItem("item-1")]),
+      "signal-1"
+    );
+
+    assert.ok(packet);
+    assert.equal(packet.reading.current, null);
+    assert.equal(packet.reading.latest, null);
+    assert.deepEqual(packet.reading.all.map((reading) => reading.cacheKey), [
+      manual.cacheKey,
+      legacy.cacheKey
+    ]);
+  }
+});
+
+test("packet rejects a mismatched product_analysis projection as current history", async () => {
+  const analysis = makeCurrentAnalysis();
+  const mismatched = makeCurrentAnalysisReading(analysis);
+  mismatched.headline = "不是目前分析的標題";
+  const storage = makeStorage({
+    [SIGNALS_STORAGE_KEY]: [{
+      id: "signal-1",
+      sessionId: "session-1",
+      itemId: "item-1",
+      source: "threads",
+      inboxStatus: "assigned",
+      capturedAt: "2026-05-19T08:00:00.000Z"
+    }],
+    [PRODUCT_SIGNAL_ANALYSES_STORAGE_KEY]: { "signal-1": analysis },
+    [SIGNAL_READINGS_STORAGE_KEY]: { [mismatched.cacheKey]: mismatched },
+    [PRODUCT_CONTEXT_STORAGE_KEY]: makeProductContext()
+  });
+
+  const packet = await buildDLensSignalPacket(
+    storage,
+    makeGlobalState([makeItem("item-1")]),
+    "signal-1"
+  );
+
+  assert.ok(packet);
+  assert.equal(packet.reading.current, null);
+  assert.equal(packet.reading.latest, null);
+  assert.equal(packet.reading.all[0]?.cacheKey, mismatched.cacheKey);
+});
 
 test("buildDLensSignalPacket joins source, judgment, reading, feedback timeline, and agent handoff", async () => {
   const productContext = makeProductContext();
@@ -286,7 +511,9 @@ test("buildDLensSignalPacket joins source, judgment, reading, feedback timeline,
   assert.equal(packet.productContext.compiledAt, "2026-05-19T08:00:00.000Z");
   assert.deepEqual(packet.productContext.sourceFileIds, ["file-1"]);
   assert.equal(packet.productContext.promptVersion, "v1");
-  assert.equal(packet.reading.latest?.cacheKey, "signal-1::ctx_1::pkt_1::v1");
+  assert.equal(packet.reading.current, null);
+  assert.equal(packet.reading.latest, null);
+  assert.equal(packet.reading.all[0]?.cacheKey, "signal-1::ctx_1::pkt_1::v1");
   assert.equal(packet.reading.filed.length, 1);
   assert.equal(packet.agentHandoff.taskSpec?.taskTitle, "寫 packet");
   assert.deepEqual(packet.agentHandoff.requiredContext, ["signal storage", "product signal analysis"]);
@@ -407,7 +634,7 @@ test("buildDLensSignalPacket keeps reading source refs resolvable in top-level e
   const packet = await buildDLensSignalPacket(storage, makeGlobalState([item]), "signal-1");
 
   assert.ok(packet);
-  assert.ok(packet.reading.latest?.sourceRefs.includes("e3"));
+  assert.ok(packet.reading.all[0]?.sourceRefs.includes("e3"));
   const evidenceRefs = packet.evidence.textEvidence.map((entry) => entry.ref);
   assert.ok(evidenceRefs.includes("e3"));
   const e3 = packet.evidence.textEvidence.find((entry) => entry.ref === "e3");
@@ -460,7 +687,7 @@ test("buildDLensSignalPacket maps evidence refs back to readings that cited them
   assert.equal(packet.packetVersion, DLENS_SIGNAL_PACKET_VERSION);
 });
 
-test("buildDLensSignalPacket separates latest reading from latest filed and superseded filed readings", async () => {
+test("buildDLensSignalPacket separates current reading from historical filed readings", async () => {
   const productContext = makeProductContext();
   const olderFiled = makeReading({
     cacheKey: "signal-1::ctx_1::pkt_1::filed-old",
@@ -505,7 +732,9 @@ test("buildDLensSignalPacket separates latest reading from latest filed and supe
   const packet = await buildDLensSignalPacket(storage, makeGlobalState([makeItem("item-1")]), "signal-1");
 
   assert.ok(packet);
-  assert.equal(packet.reading.latest?.cacheKey, latestPending.cacheKey);
+  assert.equal(packet.reading.current, null);
+  assert.equal(packet.reading.latest, null);
+  assert.equal(packet.reading.all[0]?.cacheKey, latestPending.cacheKey);
   assert.equal(packet.reading.latestFiled?.cacheKey, latestFiled.cacheKey);
   assert.deepEqual(packet.reading.supersededFiled.map((reading) => reading.cacheKey), [olderFiled.cacheKey]);
   assert.deepEqual(packet.reading.filed.map((reading) => reading.cacheKey), [latestFiled.cacheKey, olderFiled.cacheKey]);
