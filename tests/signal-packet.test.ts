@@ -6,6 +6,7 @@ import {
   buildSignalPacketIndex,
   DLENS_SIGNAL_PACKET_VERSION
 } from "../src/compare/signal-packet.ts";
+import { saveProductAnalysisResult } from "../src/compare/product-analysis-result-storage.ts";
 import { PRODUCT_AGENT_TASK_FEEDBACK_STORAGE_KEY } from "../src/compare/product-agent-task-feedback.ts";
 import { PRODUCT_CONTEXT_STORAGE_KEY } from "../src/compare/product-context.ts";
 import { buildProductContextHash } from "../src/compare/product-signal-analysis.ts";
@@ -314,6 +315,47 @@ test("buildDLensSignalPacket joins source, judgment, reading, feedback timeline,
   assert.match(readingTrace?.reasoningDetails.summary ?? "", /agent handoff 直接可用/);
   assert.match(readingTrace?.reasoningDetails.keyInsights[0] ?? "", /agent handoff 直接可用/);
   assert.match(readingTrace?.reasoningDetails.keyDecisions[0] ?? "", /agent handoff 直接可用/);
+});
+
+test("non-actionable reanalysis removes stale Product reading from the signal packet", async () => {
+  const staleReading = makeReading({ origin: "product_analysis" });
+  const storage = makeStorage({
+    [SIGNALS_STORAGE_KEY]: [{
+      id: "signal-1",
+      sessionId: "session-1",
+      itemId: "item-1",
+      source: "threads",
+      inboxStatus: "assigned",
+      capturedAt: "2026-05-19T08:00:00.000Z"
+    }],
+    [PRODUCT_SIGNAL_ANALYSES_STORAGE_KEY]: {
+      "signal-1": makeAnalysis("signal-1")
+    },
+    [SIGNAL_READINGS_STORAGE_KEY]: {
+      [staleReading.cacheKey]: staleReading
+    },
+    [PRODUCT_CONTEXT_STORAGE_KEY]: makeProductContext()
+  });
+
+  await saveProductAnalysisResult(
+    storage,
+    makeAnalysis("signal-1", { verdict: "park" }),
+    null
+  );
+  const packet = await buildDLensSignalPacket(
+    storage,
+    makeGlobalState([makeItem("item-1")]),
+    "signal-1"
+  );
+
+  assert.ok(packet);
+  assert.equal(packet.judgment?.verdict, "park");
+  assert.equal(packet.reading.latest, null);
+  assert.deepEqual(packet.reading.all, []);
+  assert.equal(
+    packet.decisionTrace.stages.some((stage) => stage.stage === "free_reading"),
+    false
+  );
 });
 
 test("buildDLensSignalPacket keeps reading source refs resolvable in top-level evidence", async () => {

@@ -109,6 +109,14 @@ export async function saveProductAnalysisResult(
     loadProductSignalAnalysisMap(storageArea),
     loadSignalReadingMap(storageArea)
   ]);
+  const retainedReadings = actionable
+    ? readings
+    : Object.fromEntries(
+        Object.entries(readings).filter(([, storedReading]) =>
+          storedReading.signalId !== normalizedAnalysis.signalId
+          || storedReading.origin !== "product_analysis"
+        )
+      );
   const existing = normalizedReading ? readings[normalizedReading.cacheKey] : null;
   const preservedReading: SignalReading | null = normalizedReading
     && existing
@@ -132,8 +140,8 @@ export async function saveProductAnalysisResult(
       [normalizedAnalysis.signalId]: normalizedAnalysis
     },
     [SIGNAL_READINGS_STORAGE_KEY]: preservedReading
-      ? { ...readings, [preservedReading.cacheKey]: preservedReading }
-      : readings
+      ? { ...retainedReadings, [preservedReading.cacheKey]: preservedReading }
+      : retainedReadings
   });
   return {
     analysis: normalizedAnalysis,

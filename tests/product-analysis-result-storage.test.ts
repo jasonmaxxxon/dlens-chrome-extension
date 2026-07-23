@@ -93,6 +93,36 @@ function makeReading(overrides: Partial<SignalReading> = {}): SignalReading {
   };
 }
 
+function makeMixedReadingHistory(): Record<string, SignalReading> {
+  const base = makeReading();
+  return {
+    "product-current": {
+      ...base,
+      cacheKey: "product-current"
+    },
+    "product-older": {
+      ...base,
+      cacheKey: "product-older",
+      generatedAt: "2026-07-22T00:00:00.000Z"
+    },
+    manual: {
+      ...base,
+      cacheKey: "manual",
+      origin: "manual_deep_read"
+    },
+    legacy: {
+      ...base,
+      cacheKey: "legacy",
+      origin: undefined
+    },
+    "other-product": {
+      ...base,
+      signalId: "sig_other",
+      cacheKey: "other-product"
+    }
+  };
+}
+
 function materializeReading(analysis: ProductSignalAnalysis): SignalReading {
   const reading = materializeProductAnalysisReading({
     analysis,
@@ -220,6 +250,64 @@ test("non-actionable analysis discards a supplied reading", async () => {
 
     assert.equal(result.reading, null);
     assert.deepEqual(storage.data[SIGNAL_READINGS_STORAGE_KEY], {});
+    assert.equal(storage.setCalls.length, 1);
+  }
+});
+
+test("complete non-actionable reanalysis removes only same-signal Product readings", async () => {
+  const cases: Partial<ProductSignalAnalysis>[] = [
+    { verdict: "park" },
+    { verdict: "insufficient_data" },
+    { signalType: "noise" }
+  ];
+
+  for (const overrides of cases) {
+    const storage = makeStorage({
+      [PRODUCT_SIGNAL_ANALYSES_STORAGE_KEY]: {
+        sig_1: makeAnalysis()
+      },
+      [SIGNAL_READINGS_STORAGE_KEY]: makeMixedReadingHistory()
+    });
+
+    await saveProductAnalysisResult(storage, makeAnalysis(overrides), null);
+
+    assert.deepEqual(
+      Object.keys(storage.data[SIGNAL_READINGS_STORAGE_KEY] as Record<string, unknown>).sort(),
+      ["legacy", "manual", "other-product"]
+    );
+    assert.equal(storage.setCalls.length, 1);
+    assert.deepEqual(
+      Object.keys(storage.setCalls[0]!).sort(),
+      [PRODUCT_SIGNAL_ANALYSES_STORAGE_KEY, SIGNAL_READINGS_STORAGE_KEY].sort()
+    );
+  }
+});
+
+test("non-complete reanalysis removes only same-signal Product readings", async () => {
+  const statuses: ProductSignalAnalysis["status"][] = [
+    "pending",
+    "analyzing",
+    "error"
+  ];
+
+  for (const status of statuses) {
+    const storage = makeStorage({
+      [PRODUCT_SIGNAL_ANALYSES_STORAGE_KEY]: {
+        sig_1: makeAnalysis()
+      },
+      [SIGNAL_READINGS_STORAGE_KEY]: makeMixedReadingHistory()
+    });
+
+    await saveProductAnalysisResult(
+      storage,
+      makeAnalysis({ status, verdict: "watch" }),
+      null
+    );
+
+    assert.deepEqual(
+      Object.keys(storage.data[SIGNAL_READINGS_STORAGE_KEY] as Record<string, unknown>).sort(),
+      ["legacy", "manual", "other-product"]
+    );
     assert.equal(storage.setCalls.length, 1);
   }
 });
