@@ -680,3 +680,37 @@ test("deleteProductSignalAnalysis is a no-op for unknown signalId", async () => 
   const remaining = await listProductSignalAnalyses(storage);
   assert.equal(remaining.length, 1);
 });
+
+test("saveProductSignalAnalysis rejects v20 records missing judgment axes", async () => {
+  const storage = makeStorage();
+  await assert.rejects(
+    saveProductSignalAnalysis(storage, makeAnalysis("signal-v20-missing-axes", {
+      promptVersion: "v20",
+      judgmentAxes: undefined
+    }) as ProductSignalAnalysis),
+    /Invalid product signal analysis/
+  );
+});
+
+test("listProductSignalAnalyses drops v20 watch records without watch guidance", async () => {
+  const storage = makeStorage({
+    [PRODUCT_SIGNAL_ANALYSES_STORAGE_KEY]: {
+      "signal-v20-broken-watch": {
+        ...makeAnalysis("signal-v20-broken-watch", {
+          promptVersion: "v20",
+          verdict: "watch",
+          judgmentAxes: {
+            usefulness: "uncertain",
+            testability: "not_yet_testable",
+            evidenceState: "external_unverified",
+            conflictState: "none"
+          }
+        }),
+        applicationSuggestions: undefined
+      }
+    }
+  });
+
+  const analyses = await listProductSignalAnalyses(storage, ["signal-v20-broken-watch"]);
+  assert.deepEqual(analyses, []);
+});

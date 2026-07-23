@@ -130,12 +130,24 @@ export interface ProductApplicationSuggestion {
   verificationQuestion: string;
 }
 
+export interface ProductWatchGuidance {
+  sourcePattern: string;
+  fitReason: string;
+  nextEvidence: string;
+  supportRefs: string[];
+}
+
 export type ProductSignalType = "learning" | "competitor" | "demand" | "technical" | "marketing" | "noise";
 export type ProductSignalContentType = "content" | "discussion_starter" | "mixed";
 export type ProductSignalVerdict = "try" | "watch" | "park" | "insufficient_data";
 export type ProductSignalAnalysisStatus = "pending" | "analyzing" | "complete" | "error";
 export type ProductAgentTaskTarget = "codex" | "claude" | "generic";
 export type ProductSignalEvidenceGrounding = "text_grounded" | "model_inferred" | "insufficient_detail";
+export type ProductSignalUsefulness = "useful" | "uncertain" | "none";
+export type ProductSignalTestability = "reversible_test" | "not_yet_testable" | "not_applicable";
+export type ProductSignalEvidenceState = "text_sufficient" | "external_unverified" | "insufficient";
+export type ProductSignalConflictState = "none" | "explicit_constraint" | "explicit_non_goal";
+export type ProductSignalJudgmentWarning = "none_with_reversible_test" | "missing_try_application";
 export type ProductSignalReferenceType =
   | "product_reference"
   | "technical_learning"
@@ -182,6 +194,13 @@ export interface ProductSignalEvidenceNote {
   tradeoff?: string;
 }
 
+export interface ProductSignalJudgmentAxes {
+  usefulness: ProductSignalUsefulness;
+  testability: ProductSignalTestability;
+  evidenceState: ProductSignalEvidenceState;
+  conflictState: ProductSignalConflictState;
+}
+
 export interface ProductSignalAnalysis {
   signalId: string;
   signalType: ProductSignalType;
@@ -205,6 +224,9 @@ export interface ProductSignalAnalysis {
   evidenceRefs: string[];
   evidenceNotes?: ProductSignalEvidenceNote[];
   applicationSuggestions?: ProductApplicationSuggestion[];
+  watchGuidance?: ProductWatchGuidance;
+  judgmentAxes?: ProductSignalJudgmentAxes;
+  warnings?: ProductSignalJudgmentWarning[];
   productContextHash: string;
   promptVersion: string;
   model?: string;

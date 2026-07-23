@@ -2,13 +2,21 @@ import type {
   ProductApplicationSuggestion,
   ProductAgentTaskSpec,
   ProductSignalAnalysis,
+  ProductSignalConflictState,
+  ProductSignalEvidenceState,
   ProductSignalEvidenceGrounding,
   ProductSignalEvidenceNote,
-  ProductSignalReferenceType
+  ProductSignalJudgmentAxes,
+  ProductSignalJudgmentWarning,
+  ProductSignalReferenceType,
+  ProductSignalTestability,
+  ProductSignalUsefulness,
+  ProductWatchGuidance
 } from "../state/types.ts";
 import { PRODUCT_CONTEXT_FIELDS } from "../state/types.ts";
 
 export const PRODUCT_SIGNAL_ANALYSES_STORAGE_KEY = "dlens:v1:product-signal-analyses";
+const PRODUCT_SIGNAL_ANALYSIS_STRICT_VERSION = "v20";
 
 export interface StorageAreaLike {
   get(key: string): Promise<Record<string, unknown>>;
@@ -51,6 +59,26 @@ function readReferenceType(value: unknown): ProductSignalReferenceType | null {
     || value === "no_direct_fit"
     ? value
     : null;
+}
+
+function readUsefulness(value: unknown): ProductSignalUsefulness | null {
+  return value === "useful" || value === "uncertain" || value === "none" ? value : null;
+}
+
+function readTestability(value: unknown): ProductSignalTestability | null {
+  return value === "reversible_test" || value === "not_yet_testable" || value === "not_applicable" ? value : null;
+}
+
+function readEvidenceState(value: unknown): ProductSignalEvidenceState | null {
+  return value === "text_sufficient" || value === "external_unverified" || value === "insufficient" ? value : null;
+}
+
+function readConflictState(value: unknown): ProductSignalConflictState | null {
+  return value === "none" || value === "explicit_constraint" || value === "explicit_non_goal" ? value : null;
+}
+
+function readJudgmentWarning(value: unknown): ProductSignalJudgmentWarning | null {
+  return value === "none_with_reversible_test" || value === "missing_try_application" ? value : null;
 }
 
 function normalizeAgentTaskSpec(value: unknown): ProductAgentTaskSpec | null {
@@ -208,6 +236,93 @@ function normalizeApplicationSuggestions(
   return suggestions;
 }
 
+function normalizeJudgmentAxes(value: unknown): ProductSignalJudgmentAxes | null {
+  if (!value || typeof value !== "object" || Array.isArray(value)) {
+    return null;
+  }
+  const raw = value as Record<string, unknown>;
+  const usefulness = readUsefulness(raw.usefulness);
+  const testability = readTestability(raw.testability);
+  const evidenceState = readEvidenceState(raw.evidenceState ?? raw.evidence_state);
+  const conflictState = readConflictState(raw.conflictState ?? raw.conflict_state);
+  if (!usefulness || !testability || !evidenceState || !conflictState) {
+    return null;
+  }
+  return {
+    usefulness,
+    testability,
+    evidenceState,
+    conflictState
+  };
+}
+
+function normalizeWarnings(value: unknown): ProductSignalJudgmentWarning[] {
+  if (!Array.isArray(value)) {
+    return [];
+  }
+  const warnings: ProductSignalJudgmentWarning[] = [];
+  for (const entry of value) {
+    const warning = readJudgmentWarning(entry);
+    if (warning && !warnings.includes(warning)) {
+      warnings.push(warning);
+    }
+  }
+  return warnings;
+}
+
+function normalizeWatchGuidance(
+  value: unknown,
+  {
+    eligible,
+    evidenceRefs,
+    evidenceNotes
+  }: {
+    eligible: boolean;
+    evidenceRefs: Set<string>;
+    evidenceNotes: ProductSignalEvidenceNote[];
+  }
+): ProductWatchGuidance | null {
+  if (!eligible || !value || typeof value !== "object" || Array.isArray(value)) {
+    return null;
+  }
+  const raw = value as Record<string, unknown>;
+  const sourcePattern = readTrimmedString(raw.sourcePattern ?? raw.source_pattern).slice(0, 80);
+  const fitReason = readTrimmedString(raw.fitReason ?? raw.fit_reason).slice(0, 100);
+  const nextEvidence = readTrimmedString(raw.nextEvidence ?? raw.next_evidence).slice(0, 100);
+  const rawSupportRefs = raw.supportRefs ?? raw.support_refs;
+  if (
+    !sourcePattern
+    || !fitReason
+    || !nextEvidence
+    || !Array.isArray(rawSupportRefs)
+    || rawSupportRefs.length < 1
+    || rawSupportRefs.length > 3
+    || rawSupportRefs.some((ref) => typeof ref !== "string" || !ref || ref !== ref.trim())
+  ) {
+    return null;
+  }
+
+  const textGroundedRefs = new Set(
+    evidenceNotes
+      .filter((note) => note.grounding === "text_grounded")
+      .map((note) => note.ref)
+  );
+  const supportRefs = rawSupportRefs as string[];
+  if (
+    new Set(supportRefs).size !== supportRefs.length
+    || supportRefs.some((ref) => !evidenceRefs.has(ref) || !textGroundedRefs.has(ref))
+  ) {
+    return null;
+  }
+
+  return {
+    sourcePattern,
+    fitReason,
+    nextEvidence,
+    supportRefs
+  };
+}
+
 function normalizeProductSignalAnalysis(value: unknown): ProductSignalAnalysis | null {
   if (!value || typeof value !== "object") {
     return null;
@@ -254,8 +369,10 @@ function normalizeProductSignalAnalysis(value: unknown): ProductSignalAnalysis |
     reference_takeaway?: unknown;
     audience_gap?: unknown;
     application_suggestions?: unknown;
+    judgment_axes?: unknown;
+    warnings?: unknown;
+    watch_guidance?: unknown;
   };
-  const agentTaskSpec = raw.verdict === "try" ? normalizeAgentTaskSpec(raw.agentTaskSpec ?? rawWithExtras.agent_task_spec) : null;
   const experimentHint = readTrimmedString(raw.experimentHint);
   const referenceType = readReferenceType(raw.referenceType ?? rawWithExtras.reference_type);
   const referenceLabel = readTrimmedString(raw.referenceLabel ?? rawWithExtras.reference_label).slice(0, 90);
@@ -270,14 +387,34 @@ function normalizeProductSignalAnalysis(value: unknown): ProductSignalAnalysis |
   const evidenceRefsSnake = readStringArray(rawWithExtras.evidence_refs);
   const evidenceRefs = evidenceRefsCamel.length > 0 ? evidenceRefsCamel : evidenceRefsSnake;
   const evidenceNotes = normalizeEvidenceNotes(raw.evidenceNotes ?? rawWithExtras.evidence_notes, new Set(evidenceRefs));
+  const evidenceRefSet = new Set(evidenceRefs);
   const applicationSuggestions = normalizeApplicationSuggestions(
     raw.applicationSuggestions ?? rawWithExtras.application_suggestions,
     {
       eligible: raw.verdict === "try" && raw.signalType !== "noise",
-      evidenceRefs: new Set(evidenceRefs),
+      evidenceRefs: evidenceRefSet,
       evidenceNotes
     }
   );
+  const judgmentAxes = normalizeJudgmentAxes(raw.judgmentAxes ?? rawWithExtras.judgment_axes);
+  const warnings = normalizeWarnings(raw.warnings ?? rawWithExtras.warnings);
+  const watchGuidance = normalizeWatchGuidance(raw.watchGuidance ?? rawWithExtras.watch_guidance, {
+    eligible: raw.verdict === "watch" && raw.signalType !== "noise",
+    evidenceRefs: evidenceRefSet,
+    evidenceNotes
+  });
+  const agentTaskSpec = raw.verdict === "try" ? normalizeAgentTaskSpec(raw.agentTaskSpec ?? rawWithExtras.agent_task_spec) : null;
+  if (promptVersion === PRODUCT_SIGNAL_ANALYSIS_STRICT_VERSION) {
+    if (!judgmentAxes) {
+      return null;
+    }
+    if (raw.verdict === "watch" && raw.signalType !== "noise" && !watchGuidance) {
+      return null;
+    }
+    if (raw.verdict === "try" && raw.signalType !== "noise" && applicationSuggestions.length === 0) {
+      return null;
+    }
+  }
 
   return {
     signalId,
@@ -302,6 +439,9 @@ function normalizeProductSignalAnalysis(value: unknown): ProductSignalAnalysis |
     evidenceRefs,
     ...(evidenceNotes.length ? { evidenceNotes } : {}),
     ...(applicationSuggestions.length ? { applicationSuggestions } : {}),
+    ...(watchGuidance ? { watchGuidance } : {}),
+    ...(judgmentAxes ? { judgmentAxes } : {}),
+    ...(judgmentAxes ? { warnings } : {}),
     productContextHash,
     promptVersion,
     ...(model ? { model } : {}),

@@ -199,9 +199,24 @@ function makeProductSignalAnalysisPayload(label: string) {
     reference_label: `pattern ${label}`,
     reference_takeaway: `takeaway ${label}`,
     why_relevant: `why ${label}`,
-    verdict: "watch",
+    usefulness: "uncertain",
+    testability: "not_yet_testable",
+    evidence_state: "text_sufficient",
+    conflict_state: "none",
     reason: `reason ${label}`,
-    evidence_refs: ["e1"]
+    evidence_refs: ["root"],
+    evidence_notes: [{
+      ref: "root",
+      quote_summary: `signal ${label}`,
+      why_it_matters: `supports ${label}`,
+      grounding: "text_grounded"
+    }],
+    watch_guidance: {
+      source_pattern: `pattern ${label}`,
+      fit_reason: `fit ${label}`,
+      next_evidence: `next ${label}`,
+      support_refs: ["root"]
+    }
   };
 }
 
