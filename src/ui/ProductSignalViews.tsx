@@ -3318,8 +3318,18 @@ function ProductActionStage({
               <span data-product-action-decision-row={activePresentation?.density === "compact" ? "reason" : "takeaway"} style={{ fontSize: 13, lineHeight: 1.6, color: tokens.color.subInk, overflowWrap: "anywhere" }}>{activeTakeaway}</span>
             </section>
             {activePresentation?.density === "full" ? (
-              <section data-product-action-recommendations="true" style={{ display: "grid", gap: 9, minWidth: 0, padding: "12px 13px", borderRadius: tokens.radius.card, border: `1px solid ${tokens.color.cardEdge}`, background: tokens.color.contextSurface }}>
-                <span style={{ ...textStyles.fieldLabel, color: tokens.color.product }}>可直接採用</span>
+              <section
+                data-product-action-recommendations="true"
+                data-product-recommendation-tier={activePresentation.recommendationTier}
+                style={{ display: "grid", gap: 9, minWidth: 0, padding: "12px 13px", borderRadius: tokens.radius.card, border: `1px solid ${activePresentation.recommendationTier === "application" ? tokens.color.cardEdge : tokens.color.line}`, background: activePresentation.recommendationTier === "application" ? tokens.color.contextSurface : tokens.color.inkWash }}
+              >
+                <span style={{ ...textStyles.fieldLabel, color: activePresentation.recommendationTier === "application" ? tokens.color.product : tokens.color.softInk }}>
+                  {activePresentation.recommendationTier === "application"
+                    ? "可能用法 · 待驗證"
+                    : activePresentation.recommendationTier === "inspiration"
+                      ? "可借用靈感"
+                      : "尚未形成建議"}
+                </span>
                 {activePresentation.recommendations.map((recommendation) => {
                   const recommendationKey = recommendation.kind === "application"
                     ? JSON.stringify([

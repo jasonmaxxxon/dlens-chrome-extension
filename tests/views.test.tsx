@@ -4840,6 +4840,9 @@ test("Product Action exposes grounded recommendations and one Agent brief row on
   }));
 
   assert.match(html, /data-product-action-recommendations="true"/);
+  assert.match(html, /data-product-recommendation-tier="inspiration"/);
+  assert.match(html, /可借用靈感/);
+  assert.doesNotMatch(html, /可能用法 · 待驗證|可直接採用/);
   assert.match(html, /data-product-action-recommendation="experiment"/);
   assert.match(html, /AI 建議先試/);
   assert.match(html, /data-product-action-recommendation="pattern"/);
@@ -4871,6 +4874,8 @@ test("Product Action exposes grounded recommendations and one Agent brief row on
     evidenceBySignalId: { signal_try_second: [{ ref: "e1", id: "reply-1", author: "reader", text: "原文回覆。", likeCount: 1 }] }
   }));
   assert.match(fallbackHtml, /data-product-action-recommendations="true"[^]*現有分析與證據尚不足以形成具體建議。/);
+  assert.match(fallbackHtml, /data-product-recommendation-tier="none"/);
+  assert.match(fallbackHtml, /尚未形成建議/);
 
   const compactHtml = renderToStaticMarkup(productSignalViewElement({
     ...fixture,
@@ -4928,6 +4933,9 @@ test("Product Action renders application proposals as pending verification with 
 
   const row = findTagWithAttribute(html, 'data-product-action-recommendation="application"');
   assert.match(row, /data-product-action-application-status="pending-verification"/);
+  assert.match(html, /data-product-recommendation-tier="application"/);
+  assert.match(html, /可能用法 · 待驗證/);
+  assert.doesNotMatch(html, /可直接採用/);
   assert.match(html, /AI 提案 · 待驗證/);
   assert.match(html, /data-product-action-application-proposal="true"[^]*在 Product Action 加入來源狀態檢查。/);
   assert.match(html, /data-product-action-application-target="coreWorkflows"[^]*核心流程/);

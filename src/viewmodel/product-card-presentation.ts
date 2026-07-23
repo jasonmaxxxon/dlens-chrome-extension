@@ -96,11 +96,24 @@ export type ProductCardRecommendation =
 export type ProductCardRecommendationKind = ProductCardRecommendation["kind"];
 export type ProductCardRecommendationSupport = ProductCardRecommendation["support"];
 
+/** Honest strength of the rendered recommendation rows: a grounded application
+ *  ("try this"), a borrowable inspiration (experiment/pattern fallback), or none. */
+export type ProductRecommendationTier = "application" | "inspiration" | "none";
+
+function recommendationTierFor(
+  recommendations: ProductCardRecommendation[]
+): ProductRecommendationTier {
+  if (recommendations.some((row) => row.kind === "application")) return "application";
+  if (recommendations.length > 0) return "inspiration";
+  return "none";
+}
+
 export interface ProductCardPresentation extends ProductHeroResult {
   primaryCategory: ProductPrimaryCategory | null;
   secondaryTags: ProductPrimaryCategory[];
   density: "full" | "compact";
   recommendations: ProductCardRecommendation[];
+  recommendationTier: ProductRecommendationTier;
   briefEligible: boolean;
   agentBriefReady: boolean;
 }
@@ -342,12 +355,14 @@ export function deriveProductCardRecommendations(input: ProductCardInput): Produ
 export function deriveProductCardPresentation(input: ProductCardInput): ProductCardPresentation {
   const { primary, secondary } = derivePrimaryCategory(input.analysis);
   const hero = resolveProductHero(input);
+  const recommendations = deriveProductCardRecommendations(input);
   return {
     primaryCategory: primary,
     secondaryTags: secondary,
     ...hero,
     density: densityFor(input.analysis),
-    recommendations: deriveProductCardRecommendations(input),
+    recommendations,
+    recommendationTier: recommendationTierFor(recommendations),
     briefEligible: briefEligibleFor(input.analysis),
     agentBriefReady: agentBriefReadyFor(input.analysis)
   };

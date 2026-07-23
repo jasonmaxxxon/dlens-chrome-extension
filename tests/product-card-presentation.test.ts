@@ -497,6 +497,52 @@ test("application suggestion presentation gate rejects malformed refs and fields
   }]);
 });
 
+/* ── Task 1: recommendation strength tier ── */
+test("application rows produce an application recommendation tier", () => {
+  const result = deriveProductCardPresentation({
+    analysis: analysis({
+      verdict: "try",
+      evidenceRefs: ["e1"],
+      evidenceNotes: [{
+        ref: "e1",
+        quoteSummary: "來源指出先預覽再確認",
+        whyItMatters: "支持一個可測流程",
+        grounding: "text_grounded"
+      }],
+      applicationSuggestions: [{
+        proposal: "先在一個入口測試預覽後確認",
+        productContextTarget: "coreWorkflows",
+        supportRefs: ["e1"],
+        verificationQuestion: "首次完成率是否提高？"
+      }]
+    }),
+    citations: [{ ref: "e1", text: "先預覽，再確認。" }],
+    capturedSpans: [{ ref: "e1", text: "先預覽，再確認。" }]
+  });
+
+  assert.equal(result.recommendationTier, "application");
+});
+
+test("experiment and pattern fallback rows produce an inspiration tier", () => {
+  const result = deriveProductCardPresentation({
+    analysis: analysis({ verdict: "watch", experimentHint: "先做一個小測試" }),
+    citations: [],
+    capturedSpans: []
+  });
+
+  assert.equal(result.recommendationTier, "inspiration");
+});
+
+test("no recommendation rows produce a none tier", () => {
+  const result = deriveProductCardPresentation({
+    analysis: analysis({ verdict: "watch", experimentHint: "" }),
+    citations: [],
+    capturedSpans: []
+  });
+
+  assert.equal(result.recommendationTier, "none");
+});
+
 test("application suggestions require a full non-noise try analysis", () => {
   const applicationSuggestions = [{
     proposal: "只允許 try 卡顯示的提案。",
