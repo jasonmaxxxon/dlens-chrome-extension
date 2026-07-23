@@ -224,6 +224,55 @@ test("non-actionable analysis discards a supplied reading", async () => {
   }
 });
 
+test("non-complete try and watch statuses do not require a projected reading", async () => {
+  const statuses: ProductSignalAnalysis["status"][] = [
+    "pending",
+    "analyzing",
+    "error"
+  ];
+  const verdicts: ProductSignalAnalysis["verdict"][] = ["try", "watch"];
+
+  for (const status of statuses) {
+    for (const verdict of verdicts) {
+      const storage = makeStorage();
+      const result = await saveProductAnalysisResult(
+        storage,
+        makeAnalysis({ status, verdict }),
+        null
+      );
+
+      assert.equal(result.reading, null);
+      assert.deepEqual(storage.data[SIGNAL_READINGS_STORAGE_KEY], {});
+      assert.equal(storage.setCalls.length, 1);
+    }
+  }
+});
+
+test("non-complete try and watch statuses discard a supplied reading", async () => {
+  const statuses: ProductSignalAnalysis["status"][] = [
+    "pending",
+    "analyzing",
+    "error"
+  ];
+  const verdicts: ProductSignalAnalysis["verdict"][] = ["try", "watch"];
+
+  for (const status of statuses) {
+    for (const verdict of verdicts) {
+      const storage = makeStorage();
+      const analysis = makeAnalysis({ status, verdict });
+      const result = await saveProductAnalysisResult(
+        storage,
+        analysis,
+        materializeReading(analysis)
+      );
+
+      assert.equal(result.reading, null);
+      assert.deepEqual(storage.data[SIGNAL_READINGS_STORAGE_KEY], {});
+      assert.equal(storage.setCalls.length, 1);
+    }
+  }
+});
+
 test("projected reading identity must match its analysis and cache structure", async () => {
   const mismatches: Partial<SignalReading>[] = [
     { signalId: "sig_forged" },

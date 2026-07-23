@@ -86,7 +86,8 @@ export async function saveProductAnalysisResult(
   if (!normalizedAnalysis) {
     throw new Error("Invalid product signal analysis");
   }
-  const actionable = normalizedAnalysis.signalType !== "noise"
+  const actionable = normalizedAnalysis.status === "complete"
+    && normalizedAnalysis.signalType !== "noise"
     && (normalizedAnalysis.verdict === "try" || normalizedAnalysis.verdict === "watch");
   const normalizedReading = actionable && reading
     ? normalizeSignalReadingRecord(reading)
