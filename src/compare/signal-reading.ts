@@ -16,6 +16,7 @@ export interface SignalReadingComment {
 
 export interface SignalReadingInput {
   signalId: string;
+  rootText?: string;
   assembledContent: string;
   postUrl: string;
   representativeComments: SignalReadingComment[];
@@ -27,6 +28,7 @@ export interface SignalReadingInput {
 
 /** Trimmed copy of the source material a reading was built from — stored for tracing. */
 export interface SignalReadingSourcePacket {
+  rootText?: string;
   assembledContent: string;
   postUrl: string;
   representativeComments: SignalReadingComment[];
@@ -43,6 +45,7 @@ const STORED_SOURCE_PACKET_COMMENT_CAP = 500;
  */
 export function buildStoredSourcePacket(input: SignalReadingInput): SignalReadingSourcePacket {
   return {
+    ...(typeof input.rootText === "string" ? { rootText: input.rootText } : {}),
     assembledContent: input.assembledContent.slice(0, STORED_SOURCE_PACKET_ASSEMBLED_CAP),
     postUrl: input.postUrl,
     representativeComments: input.representativeComments.map((comment) => ({

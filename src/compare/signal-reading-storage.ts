@@ -8,6 +8,8 @@ export const SIGNAL_READINGS_STORAGE_KEY = "dlens:v1:signal-readings";
 export type SignalReadingReviewState = "pending" | "filed" | "deferred" | "rejected";
 // 中文對應：待 review / 收錄 / 待看 / 退回
 
+export type SignalReadingOrigin = "product_analysis" | "manual_deep_read";
+
 export type SignalReadingFeedbackType = "filed" | "deferred" | "rejected" | "added_to_brief";
 
 export interface SignalReadingFeedbackEvent {
@@ -27,11 +29,13 @@ export interface SignalReading {
   productContextHash: string;
   sourcePacketHash: string;
   promptVersion: string;
+  headline?: string;
   reading: string;
   generatedAt: string;
   model: string;
   sourceRefs: string[];
   sourcePacket: SignalReadingSourcePacket;
+  origin?: SignalReadingOrigin;
   reviewState: SignalReadingReviewState;
   feedbackEvents: SignalReadingFeedbackEvent[];
 }
@@ -41,14 +45,22 @@ export function buildSignalReadingCacheKey(parts: {
   productContextHash: string;
   sourcePacketHash: string;
   promptVersion: string;
+  contentHash?: string;
 }): string {
-  return [parts.signalId, parts.productContextHash, parts.sourcePacketHash, parts.promptVersion].join("::");
+  return [
+    parts.signalId,
+    parts.productContextHash,
+    parts.sourcePacketHash,
+    parts.promptVersion,
+    parts.contentHash
+  ].filter(Boolean).join("::");
 }
 
 function normalizeSourcePacket(value: unknown): SignalReadingSourcePacket {
   const raw = value && typeof value === "object" && !Array.isArray(value) ? (value as Record<string, unknown>) : {};
   const comments = Array.isArray(raw.representativeComments) ? raw.representativeComments : [];
   return {
+    ...(typeof raw.rootText === "string" ? { rootText: raw.rootText } : {}),
     assembledContent: typeof raw.assembledContent === "string" ? raw.assembledContent : "",
     postUrl: typeof raw.postUrl === "string" ? raw.postUrl : "",
     representativeComments: comments
@@ -109,6 +121,7 @@ function normalizeSignalReading(value: unknown): SignalReading | null {
   const signalId = typeof raw.signalId === "string" ? raw.signalId.trim() : "";
   const cacheKey = typeof raw.cacheKey === "string" ? raw.cacheKey.trim() : "";
   const reading = typeof raw.reading === "string" ? raw.reading.trim() : "";
+  const headline = typeof raw.headline === "string" ? raw.headline.trim() : "";
   const generatedAt = typeof raw.generatedAt === "string" ? raw.generatedAt.trim() : "";
   if (!signalId || !cacheKey || !reading || !generatedAt) {
     return null;
@@ -119,6 +132,7 @@ function normalizeSignalReading(value: unknown): SignalReading | null {
     productContextHash: typeof raw.productContextHash === "string" ? raw.productContextHash : "",
     sourcePacketHash: typeof raw.sourcePacketHash === "string" ? raw.sourcePacketHash : "",
     promptVersion: typeof raw.promptVersion === "string" ? raw.promptVersion : "",
+    ...(headline ? { headline } : {}),
     reading,
     generatedAt,
     model: typeof raw.model === "string" ? raw.model : "",
@@ -126,6 +140,9 @@ function normalizeSignalReading(value: unknown): SignalReading | null {
       ? raw.sourceRefs.filter((ref): ref is string => typeof ref === "string")
       : [],
     sourcePacket: normalizeSourcePacket(raw.sourcePacket),
+    ...(raw.origin === "product_analysis" || raw.origin === "manual_deep_read"
+      ? { origin: raw.origin }
+      : {}),
     reviewState: normalizeReviewState(raw.reviewState),
     feedbackEvents: normalizeFeedbackEvents(raw.feedbackEvents)
   };
@@ -245,3 +262,6 @@ export function signalReadingStaleness(
 export const signalReadingStorageTestables = {
   normalizeSignalReading
 };
+
+export const normalizeSignalReadingRecord = normalizeSignalReading;
+export const loadSignalReadingMap = readReadingMap;

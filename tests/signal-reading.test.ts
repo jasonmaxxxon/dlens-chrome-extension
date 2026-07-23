@@ -9,6 +9,8 @@ import {
   SIGNAL_READING_SYSTEM_PROMPT,
   type SignalReadingInput
 } from "../src/compare/signal-reading.ts";
+import { materializeProductAnalysisReading } from "../src/compare/product-analysis-reading.ts";
+import type { ProductSignalAnalyzerInput } from "../src/compare/product-signal-analysis.ts";
 import {
   appendSignalReadingReview,
   buildSignalReadingCacheKey,
@@ -197,6 +199,63 @@ test("buildSignalReadingCacheKey 隨輸入改變", () => {
     key,
     buildSignalReadingCacheKey({ signalId: "s", productContextHash: "c2", sourcePacketHash: "p", promptVersion: "v1" })
   );
+  assert.equal(
+    key,
+    buildSignalReadingCacheKey({
+      signalId: "s",
+      productContextHash: "c",
+      sourcePacketHash: "p",
+      promptVersion: "v1",
+      contentHash: undefined
+    })
+  );
+  assert.notEqual(
+    key,
+    buildSignalReadingCacheKey({
+      signalId: "s",
+      productContextHash: "c",
+      sourcePacketHash: "p",
+      promptVersion: "v1",
+      contentHash: "content"
+    })
+  );
+});
+
+test("projected reading preserves explicit headline origin and root provenance", () => {
+  const analyzerInput = makeAnalyzerInput();
+  const reading = materializeProductAnalysisReading({
+    analysis: makeAnalysisWithReading(),
+    analyzerInput,
+    postUrl: "https://www.threads.com/@author/post/abc"
+  });
+
+  assert.equal(reading?.headline, "值得注意的互動模式");
+  assert.equal(reading?.origin, "product_analysis");
+  assert.deepEqual(reading?.sourceRefs, ["root", "e1"]);
+  assert.equal(reading?.sourcePacket.rootText, analyzerInput.rootText);
+});
+
+test("projected reading content identity is deterministic and changes with content", () => {
+  const input = {
+    analysis: makeAnalysisWithReading(),
+    analyzerInput: makeAnalyzerInput(),
+    postUrl: "https://www.threads.com/@author/post/abc"
+  };
+  const first = materializeProductAnalysisReading(input);
+  const second = materializeProductAnalysisReading(input);
+  const changed = materializeProductAnalysisReading({
+    ...input,
+    analysis: makeAnalysisWithReading({
+      productReading: {
+        headline: "另一個判讀",
+        body: "另一段內容。",
+        supportRefs: ["root", "e1"]
+      }
+    })
+  });
+
+  assert.equal(first?.cacheKey, second?.cacheKey);
+  assert.notEqual(first?.cacheKey, changed?.cacheKey);
 });
 
 test("signal reading cache 命中與失效", async () => {
@@ -335,10 +394,12 @@ test("composeReadingBrief 只組 filed、標示過期", () => {
 test("buildStoredSourcePacket 對長內容做保守裁切", () => {
   const packet = buildStoredSourcePacket(
     makeInput({
+      rootText: "原文 root provenance",
       assembledContent: "x".repeat(20000),
       representativeComments: [{ ref: "e1", author: "u", text: "y".repeat(2000), likeCount: 12 }]
     })
   );
+  assert.equal(packet.rootText, "原文 root provenance");
   assert.equal(packet.assembledContent.length, 8000);
   assert.equal(packet.representativeComments[0]?.text.length, 500);
   assert.equal(packet.representativeComments[0]?.likeCount, 12);
@@ -367,6 +428,76 @@ function makeReading(overrides: Partial<SignalReading> = {}): SignalReading {
     },
     reviewState: "pending",
     feedbackEvents: [],
+    ...overrides
+  };
+}
+
+function makeAnalyzerInput(): ProductSignalAnalyzerInput {
+  return {
+    signalId: "sig_1",
+    source: "threads",
+    rootText: "原文展示一個值得注意的互動模式。",
+    assembledContent: "原文展示一個值得注意的互動模式。\n\n留言認為這值得有限驗證。",
+    discussionReplies: [{
+      id: "reply-1",
+      author: "userA",
+      text: "這值得有限驗證。",
+      likeCount: 12,
+      role: "audience",
+      isOrphan: false,
+      parentId: null,
+      resolvedParentId: null
+    }],
+    productContext: { productPromise: "幫產品團隊讀懂社群訊號。" } as unknown as ProductContext,
+    productContextHash: "ctx_1"
+  };
+}
+
+function makeAnalysisWithReading(
+  overrides: Partial<ProductSignalAnalysis> = {}
+): ProductSignalAnalysis {
+  return {
+    signalId: "sig_1",
+    signalType: "learning",
+    signalSubtype: "interaction_pattern",
+    contentType: "content",
+    contentSummary: "一個互動模式。",
+    relevance: 4,
+    relevantTo: ["coreWorkflows"],
+    whyRelevant: "可作有限驗證。",
+    verdict: "watch",
+    reason: "值得保留觀察。",
+    evidenceRefs: ["root", "e1"],
+    evidenceNotes: [
+      {
+        ref: "root",
+        quoteSummary: "原文展示互動模式。",
+        whyItMatters: "支持判讀。",
+        grounding: "text_grounded"
+      },
+      {
+        ref: "e1",
+        quoteSummary: "留言認為值得驗證。",
+        whyItMatters: "支持判讀。",
+        grounding: "text_grounded"
+      }
+    ],
+    productReading: {
+      headline: "值得注意的互動模式",
+      body: "原文與留言共同顯示這個互動模式值得有限驗證。",
+      supportRefs: ["root", "e1"]
+    },
+    judgmentAxes: {
+      usefulness: "uncertain",
+      testability: "not_yet_testable",
+      evidenceState: "text_sufficient",
+      conflictState: "none"
+    },
+    productContextHash: "ctx_1",
+    promptVersion: "v21",
+    model: "google:gemini-3.1-flash-lite-preview",
+    analyzedAt: "2026-07-23T00:00:00.000Z",
+    status: "complete",
     ...overrides
   };
 }

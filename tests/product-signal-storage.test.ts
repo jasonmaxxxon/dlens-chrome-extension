@@ -3,11 +3,12 @@ import test from "node:test";
 
 import {
   deleteProductSignalAnalysis,
+  getProductSignalAnalysis,
   PRODUCT_SIGNAL_ANALYSES_STORAGE_KEY,
   listProductSignalAnalyses,
   saveProductSignalAnalysis
 } from "../src/compare/product-signal-storage.ts";
-import type { ProductSignalAnalysis } from "../src/state/types.ts";
+import type { ProductReading, ProductSignalAnalysis } from "../src/state/types.ts";
 
 function makeStorage(initial: Record<string, unknown> = {}) {
   const data = { ...initial };
@@ -41,6 +42,40 @@ function makeAnalysis(signalId: string, overrides: Partial<ProductSignalAnalysis
     status: "complete",
     ...overrides
   };
+}
+
+function validProductReading(overrides: Partial<ProductReading> = {}): ProductReading {
+  return {
+    headline: "值得注意的互動模式",
+    body: "原文與留言顯示這個互動模式值得有限驗證，但仍要區分文字證據與未檢查的外部內容。",
+    supportRefs: ["e1"],
+    ...overrides
+  };
+}
+
+function v21Analysis(
+  signalId: string,
+  overrides: Partial<ProductSignalAnalysis> = {}
+): ProductSignalAnalysis {
+  return makeAnalysis(signalId, {
+    promptVersion: "v21",
+    judgmentAxes: {
+      usefulness: "uncertain",
+      testability: "not_yet_testable",
+      evidenceState: "external_unverified",
+      conflictState: "none"
+    },
+    evidenceRefs: ["e1"],
+    evidenceNotes: [{
+      ref: "e1",
+      quoteSummary: "留言指出互動模式值得注意。",
+      whyItMatters: "提供可回查的文字支持。",
+      grounding: "text_grounded"
+    }],
+    productReading: validProductReading(),
+    warnings: [],
+    ...overrides
+  });
 }
 
 test("saveProductSignalAnalysis upserts by signal id", async () => {
@@ -681,36 +716,59 @@ test("deleteProductSignalAnalysis is a no-op for unknown signalId", async () => 
   assert.equal(remaining.length, 1);
 });
 
-test("saveProductSignalAnalysis rejects v20 records missing judgment axes", async () => {
+test("v21 storage preserves Product Reading through save and list", async () => {
   const storage = makeStorage();
-  await assert.rejects(
-    saveProductSignalAnalysis(storage, makeAnalysis("signal-v20-missing-axes", {
-      promptVersion: "v20",
-      judgmentAxes: undefined
-    }) as ProductSignalAnalysis),
-    /Invalid product signal analysis/
-  );
+  const analysis = v21Analysis("signal-v21-reading");
+
+  await saveProductSignalAnalysis(storage, analysis);
+
+  assert.deepEqual(await listProductSignalAnalyses(storage, [analysis.signalId]), [analysis]);
 });
 
-test("listProductSignalAnalyses drops v20 watch records without watch guidance", async () => {
+test("v21 storage requires a Product Reading for try and watch", async () => {
+  const storage = makeStorage();
+
+  for (const verdict of ["try", "watch"] as const) {
+    await assert.rejects(
+      saveProductSignalAnalysis(storage, v21Analysis(`missing-${verdict}`, {
+        verdict,
+        productReading: undefined
+      })),
+      /Invalid product signal analysis/
+    );
+  }
+});
+
+test("v21 storage discards Product Reading for non-actionable records", async () => {
+  const storage = makeStorage();
+
+  for (const verdict of ["park", "insufficient_data"] as const) {
+    const signalId = `non-actionable-${verdict}`;
+    await saveProductSignalAnalysis(storage, v21Analysis(signalId, {
+      verdict,
+      productReading: validProductReading()
+    }));
+    assert.equal((await getProductSignalAnalysis(storage, signalId))?.productReading, undefined);
+  }
+});
+
+test("v20 historical records remain readable without current Product Reading", async () => {
+  const legacy = makeAnalysis("signal-v20-watch", {
+    promptVersion: "v20",
+    verdict: "watch",
+    judgmentAxes: {
+      usefulness: "uncertain",
+      testability: "not_yet_testable",
+      evidenceState: "external_unverified",
+      conflictState: "none"
+    },
+    warnings: []
+  });
   const storage = makeStorage({
     [PRODUCT_SIGNAL_ANALYSES_STORAGE_KEY]: {
-      "signal-v20-broken-watch": {
-        ...makeAnalysis("signal-v20-broken-watch", {
-          promptVersion: "v20",
-          verdict: "watch",
-          judgmentAxes: {
-            usefulness: "uncertain",
-            testability: "not_yet_testable",
-            evidenceState: "external_unverified",
-            conflictState: "none"
-          }
-        }),
-        applicationSuggestions: undefined
-      }
+      [legacy.signalId]: legacy
     }
   });
 
-  const analyses = await listProductSignalAnalyses(storage, ["signal-v20-broken-watch"]);
-  assert.deepEqual(analyses, []);
+  assert.deepEqual(await listProductSignalAnalyses(storage, [legacy.signalId]), [legacy]);
 });
