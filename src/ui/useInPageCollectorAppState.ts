@@ -54,6 +54,7 @@ import {
   flashPreviewMetrics,
   getLiveHoverDescriptor,
   HOVER_RECT_EVENT,
+  PAGE_LOCATION_EVENT,
   OPTIMISTIC_SAVE_CONFIRMED_EVENT,
   OPTIMISTIC_SAVE_EVENT,
   OPTIMISTIC_SAVE_FAILED_EVENT,
@@ -680,6 +681,9 @@ export function useInPageCollectorAppState({ snapshot, tabId, sendAndSync }: Use
   const [productProfileSeedText, setProductProfileSeedText] = useState("");
   const [isInitializingProductProfile, setIsInitializingProductProfile] = useState(false);
   const [hoverRect, setHoverRect] = useState<HoverRect | null>(null);
+  const [currentPageUrl, setCurrentPageUrl] = useState(() => (
+    typeof window === "undefined" ? "" : window.location.href
+  ));
   const [displayToast, setDisplayToast] = useState<{ id: string; kind: "saved" | "queued"; message: string } | null>(null);
   const [successToastDescriptor, setSuccessToastDescriptor] = useState<TargetDescriptor | null>(null);
   const [optimisticSavedUrl, setOptimisticSavedUrl] = useState<string | null>(null);
@@ -1423,6 +1427,20 @@ export function useInPageCollectorAppState({ snapshot, tabId, sendAndSync }: Use
     };
     window.addEventListener(HOVER_RECT_EVENT, listener as EventListener);
     return () => window.removeEventListener(HOVER_RECT_EVENT, listener as EventListener);
+  }, []);
+
+  useEffect(() => {
+    if (typeof window === "undefined") {
+      return;
+    }
+    const listener = (event: Event) => {
+      const href = (event as CustomEvent<{ href?: unknown }>).detail?.href;
+      if (typeof href === "string") {
+        setCurrentPageUrl(href);
+      }
+    };
+    window.addEventListener(PAGE_LOCATION_EVENT, listener as EventListener);
+    return () => window.removeEventListener(PAGE_LOCATION_EVENT, listener as EventListener);
   }, []);
 
   useEffect(() => {
@@ -3010,6 +3028,7 @@ export function useInPageCollectorAppState({ snapshot, tabId, sendAndSync }: Use
     popupRef,
     snapshot: effectiveSnapshot,
     tabId,
+    currentPageUrl,
     activeFolder,
     activeFolderMode,
     activeItem,

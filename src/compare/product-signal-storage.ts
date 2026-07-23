@@ -1,10 +1,12 @@
 import type {
+  ProductApplicationSuggestion,
   ProductAgentTaskSpec,
   ProductSignalAnalysis,
   ProductSignalEvidenceGrounding,
   ProductSignalEvidenceNote,
   ProductSignalReferenceType
 } from "../state/types.ts";
+import { PRODUCT_CONTEXT_FIELDS } from "../state/types.ts";
 
 export const PRODUCT_SIGNAL_ANALYSES_STORAGE_KEY = "dlens:v1:product-signal-analyses";
 
@@ -114,6 +116,89 @@ function normalizeEvidenceNotes(value: unknown, allowedRefs: Set<string>): Produ
     .filter((note): note is ProductSignalEvidenceNote => note !== null);
 }
 
+function readProductContextTarget(value: unknown): ProductApplicationSuggestion["productContextTarget"] | null {
+  return PRODUCT_CONTEXT_FIELDS.includes(value as ProductApplicationSuggestion["productContextTarget"])
+    ? value as ProductApplicationSuggestion["productContextTarget"]
+    : null;
+}
+
+function normalizeApplicationSuggestions(
+  value: unknown,
+  {
+    eligible,
+    evidenceRefs,
+    evidenceNotes
+  }: {
+    eligible: boolean;
+    evidenceRefs: Set<string>;
+    evidenceNotes: ProductSignalEvidenceNote[];
+  }
+): ProductApplicationSuggestion[] {
+  if (!eligible || !Array.isArray(value)) {
+    return [];
+  }
+
+  const textGroundedRefs = new Set(
+    evidenceNotes
+      .filter((note) => note.grounding === "text_grounded")
+      .map((note) => note.ref)
+  );
+  const seen = new Set<string>();
+  const suggestions: ProductApplicationSuggestion[] = [];
+
+  for (const entry of value) {
+    if (!entry || typeof entry !== "object" || Array.isArray(entry)) {
+      continue;
+    }
+    const raw = entry as Record<string, unknown>;
+    const proposal = readTrimmedString(raw.proposal);
+    const productContextTarget = readProductContextTarget(
+      raw.productContextTarget ?? raw.product_context_target
+    );
+    const verificationQuestion = readTrimmedString(
+      raw.verificationQuestion ?? raw.verification_question
+    );
+    const rawSupportRefs = raw.supportRefs ?? raw.support_refs;
+    if (
+      !proposal
+      || !productContextTarget
+      || !verificationQuestion
+      || !Array.isArray(rawSupportRefs)
+      || rawSupportRefs.length < 1
+      || rawSupportRefs.length > 3
+      || rawSupportRefs.some((ref) => typeof ref !== "string" || !ref || ref !== ref.trim())
+    ) {
+      continue;
+    }
+
+    const supportRefs = rawSupportRefs as string[];
+    if (
+      new Set(supportRefs).size !== supportRefs.length
+      || supportRefs.some((ref) => !evidenceRefs.has(ref) || !textGroundedRefs.has(ref))
+    ) {
+      continue;
+    }
+
+    const normalizedProposal = proposal.slice(0, 120);
+    const dedupeKey = `${normalizedProposal.toLocaleLowerCase()}\u0000${productContextTarget}`;
+    if (seen.has(dedupeKey)) {
+      continue;
+    }
+    seen.add(dedupeKey);
+    suggestions.push({
+      proposal: normalizedProposal,
+      productContextTarget,
+      supportRefs,
+      verificationQuestion: verificationQuestion.slice(0, 100)
+    });
+    if (suggestions.length === 3) {
+      break;
+    }
+  }
+
+  return suggestions;
+}
+
 function normalizeProductSignalAnalysis(value: unknown): ProductSignalAnalysis | null {
   if (!value || typeof value !== "object") {
     return null;
@@ -159,6 +244,7 @@ function normalizeProductSignalAnalysis(value: unknown): ProductSignalAnalysis |
     reference_label?: unknown;
     reference_takeaway?: unknown;
     audience_gap?: unknown;
+    application_suggestions?: unknown;
   };
   const agentTaskSpec = raw.verdict === "try" ? normalizeAgentTaskSpec(raw.agentTaskSpec ?? rawWithExtras.agent_task_spec) : null;
   const experimentHint = readTrimmedString(raw.experimentHint);
@@ -175,6 +261,14 @@ function normalizeProductSignalAnalysis(value: unknown): ProductSignalAnalysis |
   const evidenceRefsSnake = readStringArray(rawWithExtras.evidence_refs);
   const evidenceRefs = evidenceRefsCamel.length > 0 ? evidenceRefsCamel : evidenceRefsSnake;
   const evidenceNotes = normalizeEvidenceNotes(raw.evidenceNotes ?? rawWithExtras.evidence_notes, new Set(evidenceRefs));
+  const applicationSuggestions = normalizeApplicationSuggestions(
+    raw.applicationSuggestions ?? rawWithExtras.application_suggestions,
+    {
+      eligible: raw.verdict === "try" && raw.signalType !== "noise",
+      evidenceRefs: new Set(evidenceRefs),
+      evidenceNotes
+    }
+  );
 
   return {
     signalId,
@@ -198,6 +292,7 @@ function normalizeProductSignalAnalysis(value: unknown): ProductSignalAnalysis |
     ...(agentTaskSpec ? { agentTaskSpec } : {}),
     evidenceRefs,
     ...(evidenceNotes.length ? { evidenceNotes } : {}),
+    ...(applicationSuggestions.length ? { applicationSuggestions } : {}),
     productContextHash,
     promptVersion,
     ...(model ? { model } : {}),

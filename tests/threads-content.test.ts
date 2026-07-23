@@ -2,8 +2,12 @@ import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import test from "node:test";
 
+import { JSDOM } from "jsdom";
+
 import { HOVER_INTENT_DELAY_MS, createLocationChangeChecker } from "../src/targeting/navigation-reset.ts";
 import {
+  dispatchPageLocationChange,
+  PAGE_LOCATION_EVENT,
   OPTIMISTIC_SAVE_CONFIRMED_EVENT,
   OPTIMISTIC_SAVE_EVENT,
   OPTIMISTIC_SAVE_FAILED_EVENT
@@ -25,6 +29,28 @@ test("createLocationChangeChecker only clears hover state when the URL changes",
 
   assert.equal(checker("https://www.threads.net/@alpha/post/abc", (href) => seen.push(href)), false);
   assert.deepEqual(seen, ["https://www.threads.net/@alpha/post/abc"]);
+});
+
+test("location checker publishes one same-window page event for one real href change", () => {
+  assert.equal(PAGE_LOCATION_EVENT, "dlens:page-location");
+  const dom = new JSDOM("", { url: "https://www.threads.net/@alpha" });
+  const seen: string[] = [];
+  dom.window.addEventListener(PAGE_LOCATION_EVENT, (event) => {
+    seen.push((event as CustomEvent<{ href: string }>).detail.href);
+  });
+  const checker = createLocationChangeChecker(dom.window.location.href);
+  const publish = (href: string) => {
+    dispatchPageLocationChange(href, dom.window as unknown as Window);
+  };
+
+  try {
+    assert.equal(checker(dom.window.location.href, publish), false);
+    assert.equal(checker("https://www.threads.net/@alpha/post/abc", publish), true);
+    assert.equal(checker("https://www.threads.net/@alpha/post/abc", publish), false);
+    assert.deepEqual(seen, ["https://www.threads.net/@alpha/post/abc"]);
+  } finally {
+    dom.window.close();
+  }
 });
 
 test("content-script saves have a confirmed event for refreshing the in-page UI", () => {
@@ -116,6 +142,22 @@ test("content hover lifecycle routes pointer, navigation and stop through one fr
   assert.match(source.slice(pointerStart, pointerEnd), /hoverFrameController\.enqueue\(event\.target\)/);
   assert.match(source.slice(navigationStart, navigationEnd), /hoverFrameController\.cancel\(\)/);
   assert.match(source.slice(stopStart, stopEnd), /hoverFrameController\.cancel\(\)/);
+});
+
+test("SPA navigation clears hover before publishing the changed page href", () => {
+  const source = readFileSync(new URL("../entrypoints/threads.content.ts", import.meta.url), "utf8");
+  const navigationStart = source.indexOf("function installSpaNavigationReset()");
+  const navigationEnd = source.indexOf("\nfunction stopSelectionMode", navigationStart);
+  assert.ok(navigationStart >= 0 && navigationEnd > navigationStart);
+  const block = source.slice(navigationStart, navigationEnd);
+  const callbackIndex = block.indexOf("checkLocationChange(window.location.href, (href) => {");
+  const clearIndex = block.indexOf("clearHoverStateForNavigation();", callbackIndex);
+  const publishIndex = block.indexOf("dispatchPageLocationChange(href);", callbackIndex);
+
+  assert.ok(callbackIndex >= 0);
+  assert.ok(clearIndex > callbackIndex);
+  assert.ok(publishIndex > clearIndex);
+  assert.equal(block.match(/dispatchPageLocationChange\(href\);/g)?.length, 1);
 });
 
 test("content hover update path consumes the measured rect without re-reading layout", () => {

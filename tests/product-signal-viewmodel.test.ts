@@ -302,11 +302,57 @@ test("Product workspace actions keep packet export on Action only", () => {
   );
 });
 
-test("Product VM marks complete analyses stale only when current ProductContext or generator version drifts", () => {
+test("Product VM marks a complete v17 analysis stale under the v18 generator", () => {
+  const vm = buildProductSignalWorkspaceViewModel({
+    kind: "classification",
+    snapshot: makeSnapshot(),
+    signals: [makeSignal()],
+    analyses: [makeAnalysis({ promptVersion: "v17" })],
+    productContext,
+    aiProviderReady: true,
+    isHydrating: false,
+    isAnalyzing: false
+  });
+
+  assert.equal(PRODUCT_SIGNAL_ANALYSIS_PROMPT_VERSION, "v18");
+  assert.equal(vm.signals[0]?.analysisState, "stale");
+});
+
+test("Product VM marks a complete v17 analysis stale when ProductContext is unavailable", () => {
+  const vm = buildProductSignalWorkspaceViewModel({
+    kind: "classification",
+    snapshot: makeSnapshot(),
+    signals: [makeSignal()],
+    analyses: [makeAnalysis({ promptVersion: "v17" })],
+    productContext: null,
+    aiProviderReady: true,
+    isHydrating: false,
+    isAnalyzing: false
+  });
+
+  assert.equal(vm.signals[0]?.analysisState, "stale");
+});
+
+test("Product VM keeps a complete v18 analysis ready for the same ProductContext", () => {
+  const vm = buildProductSignalWorkspaceViewModel({
+    kind: "classification",
+    snapshot: makeSnapshot(),
+    signals: [makeSignal()],
+    analyses: [makeAnalysis()],
+    productContext,
+    aiProviderReady: true,
+    isHydrating: false,
+    isAnalyzing: false
+  });
+
+  assert.equal(vm.signals[0]?.analysisState, "ready");
+});
+
+test("Product VM marks a complete v18 analysis stale when ProductContext drifts", () => {
   const staleContext: ProductContext = {
     ...productContext,
     productPromise: "Capture evidence and generate release briefs",
-    compiledAt: "2026-06-11T02:00:00.000Z"
+    compiledAt: productContext.compiledAt
   };
   const vm = buildProductSignalWorkspaceViewModel({
     kind: "classification",

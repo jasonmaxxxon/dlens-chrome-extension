@@ -95,7 +95,8 @@ test("ProductSignalAnalyzer exposes a strict JSON schema contract", () => {
     "experiment_hint",
     "agent_task_spec",
     "evidence_refs",
-    "evidence_notes"
+    "evidence_notes",
+    "application_suggestions"
   ]);
   assert.ok("agent_task_spec" in PRODUCT_SIGNAL_ANALYSIS_JSON_SCHEMA.properties);
   assert.deepEqual(PRODUCT_SIGNAL_ANALYSIS_JSON_SCHEMA.properties.reference_type.enum, [
@@ -122,6 +123,41 @@ test("ProductSignalAnalyzer exposes a strict JSON schema contract", () => {
     "park",
     "insufficient_data"
   ]);
+
+  const applicationSuggestions = PRODUCT_SIGNAL_ANALYSIS_JSON_SCHEMA.properties.application_suggestions as unknown as {
+    type: string;
+    maxItems: number;
+    items: {
+      type: string;
+      additionalProperties: boolean;
+      required: string[];
+      properties: {
+        product_context_target: { enum: string[] };
+      };
+    };
+  };
+  assert.equal(applicationSuggestions.type, "array");
+  assert.equal(applicationSuggestions.maxItems, 3);
+  assert.equal(applicationSuggestions.items.type, "object");
+  assert.equal(applicationSuggestions.items.additionalProperties, false);
+  assert.deepEqual([...applicationSuggestions.items.required].sort(), [
+    "product_context_target",
+    "proposal",
+    "support_refs",
+    "verification_question"
+  ]);
+  assert.deepEqual(applicationSuggestions.items.properties.product_context_target.enum, [
+    "productPromise",
+    "targetAudience",
+    "agentRoles",
+    "coreWorkflows",
+    "currentCapabilities",
+    "explicitConstraints",
+    "nonGoals",
+    "preferredTechDirection",
+    "evaluationCriteria",
+    "unknowns"
+  ]);
 });
 
 // Offline e2e equivalent for OpenAI strict mode: no API call, but enforces every
@@ -129,6 +165,16 @@ test("ProductSignalAnalyzer exposes a strict JSON schema contract", () => {
 // (every property in `required`, optionals as type+null union, nested objects also
 // strict). Catches the failure mode Codex flagged without needing a key.
 test("PRODUCT_SIGNAL_ANALYSIS_JSON_SCHEMA satisfies OpenAI Structured Outputs strict mode", () => {
+  const allowedKeywords = new Set([
+    "type",
+    "properties",
+    "required",
+    "additionalProperties",
+    "items",
+    "enum",
+    "minItems",
+    "maxItems"
+  ]);
   type SchemaNode = {
     type?: unknown;
     properties?: Record<string, SchemaNode>;
@@ -136,9 +182,17 @@ test("PRODUCT_SIGNAL_ANALYSIS_JSON_SCHEMA satisfies OpenAI Structured Outputs st
     additionalProperties?: boolean;
     items?: SchemaNode;
     enum?: unknown[];
+    minItems?: number;
+    maxItems?: number;
   };
 
   function walk(node: SchemaNode, path: string): void {
+    for (const keyword of Object.keys(node)) {
+      assert.ok(
+        allowedKeywords.has(keyword),
+        `${path}: unsupported OpenAI strict-schema keyword '${keyword}'`
+      );
+    }
     const types = Array.isArray(node.type) ? node.type : node.type ? [node.type] : [];
     if (types.includes("object") || node.properties) {
       assert.equal(node.additionalProperties, false, `${path}: object must set additionalProperties=false`);
@@ -216,6 +270,209 @@ test("parseProductSignalAnalysisResponse only keeps agent task specs for try ver
 
   assert.equal(parsed?.verdict, "watch");
   assert.equal(parsed?.agentTaskSpec, undefined);
+});
+
+function applicationSuggestionPayload(overrides: Record<string, unknown> = {}): Record<string, unknown> {
+  return {
+    signal_type: "learning",
+    signal_subtype: "workflow_validation",
+    content_type: "mixed",
+    content_summary: "討論如何把產品假設收斂成小型驗證。",
+    relevance: 5,
+    relevant_to: ["coreWorkflows"],
+    why_relevant: "留言提供可檢查的工作流觀察。",
+    verdict: "try",
+    reason: "有明確文字證據可支持小型驗證。",
+    experiment_hint: "先用一條已捕捉討論驗證流程。",
+    agent_task_spec: null,
+    evidence_refs: ["e1", "e2"],
+    evidence_notes: [
+      {
+        ref: "e1",
+        quote_summary: "讀者表示流程符合實際工作。",
+        why_it_matters: "直接支持產品流程假設。",
+        grounding: "text_grounded",
+        reusable_pattern: "先驗證再擴張",
+        why_it_works: "讀者明確描述使用情境，足以形成有限驗證。"
+      },
+      {
+        ref: "e2",
+        quote_summary: "讀者追問與既有工具的差異。",
+        why_it_matters: "支持先檢查產品定位差距。",
+        grounding: "text_grounded",
+        reusable_pattern: "比較定位差距",
+        why_it_works: "追問直接揭示使用者需要辨識的差異。"
+      }
+    ],
+    application_suggestions: [],
+    ...overrides
+  };
+}
+
+test("parseProductSignalAnalysisResponse accepts strict snake_case and camelCase application suggestions", () => {
+  const parsed = parseProductSignalAnalysisResponse(
+    JSON.stringify(applicationSuggestionPayload({
+      application_suggestions: [
+        {
+          proposal: "強化既有分類流程，先顯示一個可被否證的定位假設。",
+          product_context_target: "coreWorkflows",
+          support_refs: ["e1"],
+          verification_question: "目前 repo 是否已有對應流程，且一次小實驗能否降低人工判讀？"
+        },
+        {
+          proposal: "把比較追問加入既有評估條件，檢查定位差距。",
+          productContextTarget: "evaluationCriteria",
+          supportRefs: ["e2"],
+          verificationQuestion: "ProductContext 是否已有可衡量定位差距的條件？"
+        }
+      ]
+    })),
+    analyzerInput
+  );
+
+  assert.deepEqual(parsed?.applicationSuggestions, [
+    {
+      proposal: "強化既有分類流程，先顯示一個可被否證的定位假設。",
+      productContextTarget: "coreWorkflows",
+      supportRefs: ["e1"],
+      verificationQuestion: "目前 repo 是否已有對應流程，且一次小實驗能否降低人工判讀？"
+    },
+    {
+      proposal: "把比較追問加入既有評估條件，檢查定位差距。",
+      productContextTarget: "evaluationCriteria",
+      supportRefs: ["e2"],
+      verificationQuestion: "ProductContext 是否已有可衡量定位差距的條件？"
+    }
+  ]);
+});
+
+test("parseProductSignalAnalysisResponse drops an entire malformed or unsupported application suggestion", () => {
+  const invalidCases: Array<[string, Record<string, unknown>, Record<string, unknown>]> = [
+    ["unknown target", { product_context_target: "technicalLearning" }, {}],
+    ["empty proposal", { proposal: "   " }, {}],
+    ["empty question", { verification_question: "   " }, {}],
+    ["empty ref", { support_refs: [""] }, {}],
+    ["raw ref with surrounding whitespace", { support_refs: [" e1 "] }, {}],
+    ["non-string raw ref", { support_refs: [1] }, {}],
+    ["duplicate raw ref", { support_refs: ["e1", "e1"] }, {}],
+    ["unknown ref", { support_refs: ["e9"] }, {}],
+    ["ref absent from evidenceRefs", { support_refs: ["e2"] }, { evidence_refs: ["e1"] }],
+    [
+      "ref without a text-grounded note",
+      { support_refs: ["e1"] },
+      {
+        evidence_notes: [{
+          ref: "e1",
+          quote_summary: "只屬模型推論。",
+          why_it_matters: "仍需驗證。",
+          grounding: "model_inferred",
+          reusable_pattern: "待驗證",
+          why_it_works: "原文未直接支持。"
+        }]
+      }
+    ]
+  ];
+
+  for (const [label, suggestionOverrides, payloadOverrides] of invalidCases) {
+    const parsed = parseProductSignalAnalysisResponse(
+      JSON.stringify(applicationSuggestionPayload({
+        application_suggestions: [{
+          proposal: "先強化既有流程。",
+          product_context_target: "coreWorkflows",
+          support_refs: ["e1"],
+          verification_question: "現有產品流程能否支持這項有限實驗？",
+          ...suggestionOverrides
+        }],
+        ...payloadOverrides
+      })),
+      analyzerInput
+    );
+    assert.deepEqual(parsed?.applicationSuggestions, [], label);
+  }
+});
+
+test("parseProductSignalAnalysisResponse only emits suggestions for non-noise try analyses", () => {
+  for (const overrides of [
+    { verdict: "watch" },
+    { signal_type: "noise", verdict: "try" }
+  ]) {
+    const parsed = parseProductSignalAnalysisResponse(
+      JSON.stringify(applicationSuggestionPayload({
+        ...overrides,
+        application_suggestions: [{
+          proposal: "先強化既有流程。",
+          product_context_target: "coreWorkflows",
+          support_refs: ["e1"],
+          verification_question: "現有產品流程能否支持這項有限實驗？"
+        }]
+      })),
+      analyzerInput
+    );
+    assert.deepEqual(parsed?.applicationSuggestions, []);
+  }
+});
+
+test("parseProductSignalAnalysisResponse rejects root-only support, deduplicates, caps, and truncates valid suggestions", () => {
+  const longProposal = "提".repeat(130);
+  const longQuestion = "問".repeat(110);
+  const parsed = parseProductSignalAnalysisResponse(
+    JSON.stringify(applicationSuggestionPayload({
+      application_suggestions: [
+        {
+          proposal: "  強化   既有分類流程  ",
+          product_context_target: "coreWorkflows",
+          support_refs: ["e1"],
+          verification_question: "問題一？"
+        },
+        {
+          proposal: "強化 既有分類流程",
+          product_context_target: "coreWorkflows",
+          support_refs: ["e2"],
+          verification_question: "重複提案應被移除？"
+        },
+        {
+          proposal: longProposal,
+          product_context_target: "evaluationCriteria",
+          support_refs: ["e1"],
+          verification_question: longQuestion
+        },
+        {
+          proposal: "檢查明確限制。",
+          product_context_target: "explicitConstraints",
+          support_refs: ["e2"],
+          verification_question: "限制是否阻止這項實驗？"
+        },
+        {
+          proposal: "第四個唯一提案不應保留。",
+          product_context_target: "unknowns",
+          support_refs: ["e1"],
+          verification_question: "未知項是否能被小型實驗回答？"
+        }
+      ]
+    })),
+    analyzerInput
+  );
+
+  assert.equal(parsed?.applicationSuggestions?.length, 3);
+  assert.equal(parsed?.applicationSuggestions?.[0]?.proposal, "強化 既有分類流程");
+  assert.equal(parsed?.applicationSuggestions?.[1]?.proposal.length, 120);
+  assert.equal(parsed?.applicationSuggestions?.[1]?.verificationQuestion.length, 100);
+  assert.equal(parsed?.applicationSuggestions?.[2]?.productContextTarget, "explicitConstraints");
+
+  const rootOnly = parseProductSignalAnalysisResponse(
+    JSON.stringify(applicationSuggestionPayload({
+      evidence_refs: [],
+      evidence_notes: [],
+      application_suggestions: [{
+        proposal: "不能只靠 root post 產生結構化提案。",
+        product_context_target: "coreWorkflows",
+        support_refs: ["e1"],
+        verification_question: "這項提案有 discussion evidence 嗎？"
+      }]
+    })),
+    { ...analyzerInput, discussionReplies: [] }
+  );
+  assert.deepEqual(rootOnly?.applicationSuggestions, []);
 });
 
 test("parseProductSignalAnalysisResponse normalizes strict JSON and owns metadata", () => {
@@ -433,6 +690,26 @@ test("buildProductSignalAnalyzerPrompt enforces evidence-specific workflow recip
   assert.match(prompt, /不要假裝知道作者的實作/);
 });
 
+test("buildProductSignalAnalyzerPrompt defines conservative application suggestions without a hand-authored example", () => {
+  const prompt = buildProductSignalAnalyzerPrompt(analyzerInput);
+
+  assert.match(prompt, /application_suggestions/);
+  assert.match(prompt, /\[\]/);
+  assert.match(prompt, /AI 提案/);
+  assert.match(prompt, /待驗證/);
+  assert.match(prompt, /ProductContext/);
+  assert.match(prompt, /product_context_target/);
+  assert.match(prompt, /evidence_refs/);
+  assert.match(prompt, /text_grounded/);
+  assert.match(prompt, /可否證|可被否證/);
+  assert.match(prompt, /repo|repository|產品 context|ProductContext/);
+  assert.match(prompt, /有限實驗|小型實驗/);
+  assert.match(prompt, /強化|評估/);
+  for (const fixtureMarker of ["Focus Blur", "Stamp Arc", "刪除震動"]) {
+    assert.doesNotMatch(prompt, new RegExp(fixtureMarker), `prompt must not contain G/G1 fixture marker: ${fixtureMarker}`);
+  }
+});
+
 test("buildProductSignalAnalyzerPrompt gives enough room and examples for technical understanding", () => {
   const prompt = buildProductSignalAnalyzerPrompt(analyzerInput);
 
@@ -528,10 +805,10 @@ test("buildProductSignalAnalyzerPrompt includes local feedback examples only whe
   assert.doesNotMatch(promptWithoutExamples, /\[USER_FEEDBACK_EXAMPLES\]/);
 });
 
-test("PROMPT_VERSION + CACHE_VERSION are v17 (no legacy action recipe fields)", async () => {
+test("PROMPT_VERSION + CACHE_VERSION are v18", async () => {
   const { PRODUCT_SIGNAL_ANALYSIS_CACHE_VERSION } = await import("../src/compare/product-signal-analysis.ts");
-  assert.equal(PRODUCT_SIGNAL_ANALYSIS_PROMPT_VERSION, "v17");
-  assert.equal(PRODUCT_SIGNAL_ANALYSIS_CACHE_VERSION, "v17");
+  assert.equal(PRODUCT_SIGNAL_ANALYSIS_PROMPT_VERSION, "v18");
+  assert.equal(PRODUCT_SIGNAL_ANALYSIS_CACHE_VERSION, "v18");
 });
 
 test("parseProductSignalAnalysisResponse rejects incomplete or fake score payloads", () => {

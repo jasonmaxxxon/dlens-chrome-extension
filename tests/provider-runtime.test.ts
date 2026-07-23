@@ -5,6 +5,7 @@ import test from "node:test";
 import { providerTestables } from "../src/compare/provider.ts";
 import { generateCompareOneLiner, generateTopicAuditEnvelope } from "../src/compare/provider.ts";
 import { TopicAuditEnvelopeError } from "../src/compare/topic-audit-envelope-contract.ts";
+import { PRODUCT_CONTEXT_FIELDS } from "../src/state/types.ts";
 
 test("fetchWithRetry retries transient fetch failures before succeeding", async () => {
   const originalFetch = globalThis.fetch;
@@ -102,6 +103,34 @@ test("provider payloads use structured schema for ProductSignalAnalyzer", () => 
   const claudeBody = providerTestables.buildProductSignalAnalysisBody("claude", "system", "prompt");
   assert.equal(claudeBody.tool_choice.name, "record_product_signal_analysis");
   assert.equal(claudeBody.tools[0].input_schema.type, "object");
+
+  const openAiSchema = openAiBody.response_format.json_schema.schema;
+  const googleSchema = googleBody.generationConfig.responseJsonSchema;
+  const claudeSchema = claudeBody.tools[0].input_schema;
+  assert.deepEqual(googleSchema, openAiSchema);
+  assert.deepEqual(claudeSchema, openAiSchema);
+  assert.equal(openAiSchema.additionalProperties, false);
+  assert.ok(openAiSchema.required.includes("application_suggestions"));
+  assert.deepEqual(openAiSchema.properties.application_suggestions, {
+    type: "array",
+    maxItems: 3,
+    items: {
+      type: "object",
+      additionalProperties: false,
+      required: ["proposal", "product_context_target", "support_refs", "verification_question"],
+      properties: {
+        proposal: { type: "string" },
+        product_context_target: { type: "string", enum: PRODUCT_CONTEXT_FIELDS },
+        support_refs: {
+          type: "array",
+          minItems: 1,
+          maxItems: 3,
+          items: { type: "string" }
+        },
+        verification_question: { type: "string" }
+      }
+    }
+  });
 });
 
 test("OpenAI compare one-liner caps completion tokens", async () => {

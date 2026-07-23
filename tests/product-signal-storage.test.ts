@@ -4,7 +4,6 @@ import test from "node:test";
 import {
   deleteProductSignalAnalysis,
   PRODUCT_SIGNAL_ANALYSES_STORAGE_KEY,
-  deleteProductSignalAnalysis,
   listProductSignalAnalyses,
   saveProductSignalAnalysis
 } from "../src/compare/product-signal-storage.ts";
@@ -320,6 +319,273 @@ test("normalize accepts snake_case optional fields from legacy storage", async (
     }
   ]);
   assert.equal(analyses[0]?.agentTaskSpec?.taskTitle, "週報自動化");
+});
+
+test("storage preserves valid camelCase application suggestions for non-noise try analyses", async () => {
+  const storage = makeStorage();
+  const analysis = makeAnalysis("signal-applications", {
+    verdict: "try",
+    evidenceRefs: ["e1", "e2"],
+    evidenceNotes: [
+      {
+        ref: "e1",
+        quoteSummary: "使用者希望更快比較證據。",
+        whyItMatters: "支撐比較流程改善。",
+        grounding: "text_grounded"
+      },
+      {
+        ref: "e2",
+        quoteSummary: "使用者會回查來源。",
+        whyItMatters: "支撐保留來源入口。",
+        grounding: "text_grounded"
+      }
+    ],
+    applicationSuggestions: [
+      {
+        proposal: "在比較流程加入可回查的證據摘要。",
+        productContextTarget: "coreWorkflows",
+        supportRefs: ["e1", "e2"],
+        verificationQuestion: "現有比較流程是否能在一次操作內回查兩條來源？"
+      }
+    ]
+  });
+
+  await saveProductSignalAnalysis(storage, analysis);
+
+  assert.deepEqual(await listProductSignalAnalyses(storage, [analysis.signalId]), [analysis]);
+});
+
+test("storage normalizes snake_case application suggestions and caps proposal and question text", async () => {
+  const proposal = `  ${"提".repeat(125)}  `;
+  const verificationQuestion = `  ${"問".repeat(105)}  `;
+  const storage = makeStorage({
+    [PRODUCT_SIGNAL_ANALYSES_STORAGE_KEY]: {
+      "signal-snake-applications": {
+        ...makeAnalysis("signal-snake-applications", {
+          verdict: "try",
+          evidenceRefs: ["e1"],
+          evidenceNotes: [{
+            ref: "e1",
+            quoteSummary: "原文提出具體操作困難。",
+            whyItMatters: "可用來驗證改善方向。",
+            grounding: "text_grounded"
+          }]
+        }),
+        application_suggestions: [{
+          proposal,
+          product_context_target: "currentCapabilities",
+          support_refs: ["e1"],
+          verification_question: verificationQuestion
+        }]
+      }
+    }
+  });
+
+  const analyses = await listProductSignalAnalyses(storage, ["signal-snake-applications"]);
+
+  assert.deepEqual(analyses[0]?.applicationSuggestions, [{
+    proposal: "提".repeat(120),
+    productContextTarget: "currentCapabilities",
+    supportRefs: ["e1"],
+    verificationQuestion: "問".repeat(100)
+  }]);
+});
+
+test("storage drops a whole application suggestion when any support ref is malformed or ungrounded", async () => {
+  const storage = makeStorage();
+  const analysis = makeAnalysis("signal-invalid-applications", {
+    verdict: "try",
+    evidenceRefs: ["e1", "e2", "e3"],
+    evidenceNotes: [
+      {
+        ref: "e1",
+        quoteSummary: "有直接文字證據。",
+        whyItMatters: "可支持提案。",
+        grounding: "text_grounded"
+      },
+      {
+        ref: "e2",
+        quoteSummary: "只有模型推論。",
+        whyItMatters: "不可支持 application suggestion。",
+        grounding: "model_inferred"
+      }
+    ],
+    applicationSuggestions: [
+      {
+        proposal: "混合已知與未知 ref。",
+        productContextTarget: "coreWorkflows",
+        supportRefs: ["e1", "e9"],
+        verificationQuestion: "這個提案是否有完整來源？"
+      },
+      {
+        proposal: "重複 ref。",
+        productContextTarget: "coreWorkflows",
+        supportRefs: ["e1", "e1"],
+        verificationQuestion: "引用是否唯一？"
+      },
+      {
+        proposal: "帶空白的 ref 不可被修補。",
+        productContextTarget: "coreWorkflows",
+        supportRefs: [" e1"],
+        verificationQuestion: "引用是否保持 raw exact？"
+      },
+      {
+        proposal: "混合非字串 ref。",
+        productContextTarget: "coreWorkflows",
+        supportRefs: ["e1", 1] as unknown as string[],
+        verificationQuestion: "每條引用是否都是 raw string？"
+      },
+      {
+        proposal: "使用非文字支持的 ref。",
+        productContextTarget: "coreWorkflows",
+        supportRefs: ["e1", "e2"],
+        verificationQuestion: "每條引用是否都有文字支持？"
+      },
+      {
+        proposal: "使用沒有 evidence note 的 ref。",
+        productContextTarget: "coreWorkflows",
+        supportRefs: ["e1", "e3"],
+        verificationQuestion: "每條引用是否都有對應 note？"
+      }
+    ]
+  });
+
+  await saveProductSignalAnalysis(storage, analysis);
+  const [stored] = await listProductSignalAnalyses(storage, [analysis.signalId]);
+
+  assert.equal(stored?.applicationSuggestions, undefined);
+});
+
+test("storage drops malformed application text, target, and support ref cardinality", async () => {
+  const storage = makeStorage({
+    [PRODUCT_SIGNAL_ANALYSES_STORAGE_KEY]: {
+      malformed: {
+        ...makeAnalysis("malformed", {
+          verdict: "try",
+          evidenceRefs: ["e1", "e2", "e3", "e4"],
+          evidenceNotes: ["e1", "e2", "e3", "e4"].map((ref) => ({
+            ref,
+            quoteSummary: `文字證據 ${ref}`,
+            whyItMatters: "支撐驗證。",
+            grounding: "text_grounded" as const
+          }))
+        }),
+        applicationSuggestions: [
+          {
+            proposal: "   ",
+            productContextTarget: "coreWorkflows",
+            supportRefs: ["e1"],
+            verificationQuestion: "提案是否非空？"
+          },
+          {
+            proposal: "未知 target。",
+            productContextTarget: "technicalLearning",
+            supportRefs: ["e1"],
+            verificationQuestion: "target 是否有效？"
+          },
+          {
+            proposal: "缺少引用。",
+            productContextTarget: "coreWorkflows",
+            supportRefs: [],
+            verificationQuestion: "是否有引用？"
+          },
+          {
+            proposal: "引用過多。",
+            productContextTarget: "coreWorkflows",
+            supportRefs: ["e1", "e2", "e3", "e4"],
+            verificationQuestion: "引用是否超過上限？"
+          },
+          {
+            proposal: "問題為空。",
+            productContextTarget: "coreWorkflows",
+            supportRefs: ["e1"],
+            verificationQuestion: "   "
+          }
+        ]
+      }
+    }
+  });
+
+  const [stored] = await listProductSignalAnalyses(storage, ["malformed"]);
+
+  assert.equal(stored?.applicationSuggestions, undefined);
+});
+
+test("storage deduplicates normalized proposal and target then caps valid suggestions at three", async () => {
+  const storage = makeStorage({
+    [PRODUCT_SIGNAL_ANALYSES_STORAGE_KEY]: {
+      capped: {
+        ...makeAnalysis("capped", {
+          verdict: "try",
+          evidenceRefs: ["e1"],
+          evidenceNotes: [{
+            ref: "e1",
+            quoteSummary: "直接證據。",
+            whyItMatters: "支撐驗證。",
+            grounding: "text_grounded"
+          }]
+        }),
+        applicationSuggestions: [
+          { proposal: "改善   比較流程", productContextTarget: "coreWorkflows", supportRefs: ["e1"], verificationQuestion: "A？" },
+          { proposal: "改善 比較流程", productContextTarget: "coreWorkflows", supportRefs: ["e1"], verificationQuestion: "重複項？" },
+          { proposal: "改善 比較流程", productContextTarget: "currentCapabilities", supportRefs: ["e1"], verificationQuestion: "B？" },
+          { proposal: "增加驗證提示", productContextTarget: "evaluationCriteria", supportRefs: ["e1"], verificationQuestion: "C？" },
+          { proposal: "補上未知項", productContextTarget: "unknowns", supportRefs: ["e1"], verificationQuestion: "D？" }
+        ]
+      }
+    }
+  });
+
+  const [stored] = await listProductSignalAnalyses(storage, ["capped"]);
+
+  assert.deepEqual(stored?.applicationSuggestions, [
+    { proposal: "改善 比較流程", productContextTarget: "coreWorkflows", supportRefs: ["e1"], verificationQuestion: "A？" },
+    { proposal: "改善 比較流程", productContextTarget: "currentCapabilities", supportRefs: ["e1"], verificationQuestion: "B？" },
+    { proposal: "增加驗證提示", productContextTarget: "evaluationCriteria", supportRefs: ["e1"], verificationQuestion: "C？" }
+  ]);
+});
+
+test("storage omits application suggestions for noise, non-try, and legacy records without the field", async () => {
+  const validSuggestion = {
+    proposal: "加入證據提示。",
+    productContextTarget: "coreWorkflows" as const,
+    supportRefs: ["e1"],
+    verificationQuestion: "提示是否減少回查時間？"
+  };
+  const grounded = {
+    evidenceRefs: ["e1"],
+    evidenceNotes: [{
+      ref: "e1",
+      quoteSummary: "直接證據。",
+      whyItMatters: "支撐驗證。",
+      grounding: "text_grounded" as const
+    }]
+  };
+  const storage = makeStorage({
+    [PRODUCT_SIGNAL_ANALYSES_STORAGE_KEY]: {
+      noise: makeAnalysis("noise", {
+        ...grounded,
+        signalType: "noise",
+        verdict: "try",
+        applicationSuggestions: [validSuggestion]
+      }),
+      watch: makeAnalysis("watch", {
+        ...grounded,
+        verdict: "watch",
+        applicationSuggestions: [validSuggestion]
+      }),
+      legacy: makeAnalysis("legacy", { promptVersion: "v17" })
+    }
+  });
+
+  const analyses = await listProductSignalAnalyses(storage);
+  const legacy = analyses.find((entry) => entry.signalId === "legacy");
+
+  assert.equal(analyses.find((entry) => entry.signalId === "noise")?.applicationSuggestions, undefined);
+  assert.equal(analyses.find((entry) => entry.signalId === "watch")?.applicationSuggestions, undefined);
+  assert.ok(legacy);
+  assert.equal(legacy.promptVersion, "v17");
+  assert.equal(legacy.applicationSuggestions, undefined);
 });
 
 test("listProductSignalAnalyses normalizes legacy snake case agent task specs", async () => {

@@ -15,6 +15,7 @@ import { createRequestReconciler } from "../src/state/request-reconcile.ts";
 import { createSessionRecord } from "../src/state/store-helpers.ts";
 import { createEmptyGlobalState, createEmptyTabState, type ExtensionSnapshot } from "../src/state/types.ts";
 import { createPrEvidenceResource } from "../src/ui/pr-evidence-resource.ts";
+import { dispatchPageLocationChange, PAGE_LOCATION_EVENT } from "../src/ui/inpage-helpers.tsx";
 import {
   applyPrGeneratedCriteriaSaveResult,
   applyPrCampaignSaveResult,
@@ -171,6 +172,15 @@ test("active-folder workspace switches pass the target session id through the to
   assert.match(source, /topicState\.onSessionModeChange\(mode,\s*targetSession\?\.id/);
 });
 
+test("Product workspace does not receive the ambient current-page URL", () => {
+  const source = readFileSync(new URL("../src/ui/InPageCollectorPopup.tsx", import.meta.url), "utf8");
+  const builderStart = source.indexOf("buildProductSignalWorkspaceViewModel({");
+  const builderEnd = source.indexOf("\n      })", builderStart);
+
+  assert.ok(builderStart >= 0 && builderEnd > builderStart);
+  assert.doesNotMatch(source.slice(builderStart, builderEnd), /currentPageUrl/);
+});
+
 test("resolveOptimisticSession returns an existing target-mode session without mutating active session", () => {
   const productSession = createSessionRecord("Product workspace", "2026-05-27T00:00:00.000Z", "product");
   const prSession = createSessionRecord("PR Evidence workspace", "2026-05-27T00:00:00.000Z", "pr-evidence");
@@ -188,6 +198,101 @@ test("resolveOptimisticSession returns an existing target-mode session without m
   assert.equal(resolveOptimisticSession(snapshot, "pr-evidence")?.id, prSession.id);
   assert.equal(resolveOptimisticSession(snapshot, "topic"), null);
   assert.equal(snapshot.global.activeSessionId, productSession.id);
+});
+
+test("current-page state follows the live URL lifecycle independently of stale preview snapshots", async () => {
+  const dom = new JSDOM('<div id="root"></div>', {
+    url: "https://www.threads.com/@live/post/live-post"
+  });
+  const reactActGlobal = globalThis as typeof globalThis & { IS_REACT_ACT_ENVIRONMENT?: boolean };
+  const previousActEnvironment = reactActGlobal.IS_REACT_ACT_ENVIRONMENT;
+  const previous = {
+    window: globalThis.window,
+    document: globalThis.document,
+    HTMLElement: globalThis.HTMLElement,
+    chrome: globalThis.chrome
+  };
+  const snapshot: ExtensionSnapshot = {
+    global: createEmptyGlobalState(),
+    tab: {
+      ...createEmptyTabState(),
+      currentPreview: {
+        ...descriptor,
+        post_url: "https://www.threads.net/@stale/post/stale-preview"
+      }
+    }
+  };
+  const runtimeListeners = new Set<(message: unknown) => void>();
+  let latestCurrentPageUrl: string | undefined;
+  let addedLocationListener: EventListenerOrEventListenerObject | null = null;
+  let removedLocationListener: EventListenerOrEventListenerObject | null = null;
+  const originalAddEventListener = dom.window.addEventListener.bind(dom.window);
+  const originalRemoveEventListener = dom.window.removeEventListener.bind(dom.window);
+  dom.window.addEventListener = ((type: string, listener: EventListenerOrEventListenerObject, options?: boolean | AddEventListenerOptions) => {
+    if (type === PAGE_LOCATION_EVENT) {
+      addedLocationListener = listener;
+    }
+    originalAddEventListener(type, listener, options);
+  }) as typeof dom.window.addEventListener;
+  dom.window.removeEventListener = ((type: string, listener: EventListenerOrEventListenerObject, options?: boolean | EventListenerOptions) => {
+    if (type === PAGE_LOCATION_EVENT) {
+      removedLocationListener = listener;
+    }
+    originalRemoveEventListener(type, listener, options);
+  }) as typeof dom.window.removeEventListener;
+
+  Object.assign(globalThis, {
+    window: dom.window,
+    document: dom.window.document,
+    HTMLElement: dom.window.HTMLElement,
+    chrome: {
+      runtime: {
+        sendMessage: async () => ({ ok: true }),
+        onMessage: {
+          addListener: (listener: (message: unknown) => void) => runtimeListeners.add(listener),
+          removeListener: (listener: (message: unknown) => void) => runtimeListeners.delete(listener)
+        }
+      }
+    }
+  });
+  reactActGlobal.IS_REACT_ACT_ENVIRONMENT = true;
+
+  const sendAndSync = async <T extends ExtensionResponse = ExtensionResponse>(): Promise<T> => (
+    { ok: true } as T
+  );
+  function Harness() {
+    const app = useInPageCollectorAppState({ snapshot, tabId: 7, sendAndSync });
+    latestCurrentPageUrl = (app as typeof app & { currentPageUrl?: string }).currentPageUrl;
+    return null;
+  }
+
+  const rootElement = dom.window.document.getElementById("root");
+  assert.ok(rootElement);
+  const root = createRoot(rootElement);
+  try {
+    await act(async () => {
+      root.render(React.createElement(Harness));
+      await Promise.resolve();
+    });
+    assert.equal(latestCurrentPageUrl, "https://www.threads.com/@live/post/live-post");
+    assert.ok(addedLocationListener);
+
+    await act(async () => {
+      dispatchPageLocationChange(
+        "https://www.threads.com/@next/post/next-post?from=feed#reply",
+        dom.window as unknown as Window
+      );
+    });
+    assert.equal(latestCurrentPageUrl, "https://www.threads.com/@next/post/next-post?from=feed#reply");
+
+    await act(async () => root.unmount());
+    assert.equal(removedLocationListener, addedLocationListener);
+  } finally {
+    Object.assign(globalThis, previous);
+    if (previousActEnvironment === undefined) delete reactActGlobal.IS_REACT_ACT_ENVIRONMENT;
+    else reactActGlobal.IS_REACT_ACT_ENVIRONMENT = previousActEnvironment;
+    dom.window.close();
+  }
 });
 
 test("Technique readings stay idle while popup is closed and load once on open Library", async () => {

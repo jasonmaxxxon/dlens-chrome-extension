@@ -6,9 +6,22 @@ import type { CompareBrief } from "../compare/brief";
 import { MetricChip } from "./components";
 
 export const HOVER_RECT_EVENT = "dlens:hover-rect";
+export const PAGE_LOCATION_EVENT = "dlens:page-location";
 export const OPTIMISTIC_SAVE_EVENT = "dlens:optimistic-save";
 export const OPTIMISTIC_SAVE_CONFIRMED_EVENT = "dlens:optimistic-save-confirmed";
 export const OPTIMISTIC_SAVE_FAILED_EVENT = "dlens:optimistic-save-failed";
+
+export function dispatchPageLocationChange(
+  href: string,
+  targetWindow: Window | null = typeof window === "undefined" ? null : window
+): void {
+  if (!targetWindow) {
+    return;
+  }
+  const event = targetWindow.document.createEvent("CustomEvent");
+  event.initCustomEvent(PAGE_LOCATION_EVENT, false, false, { href });
+  targetWindow.dispatchEvent(event);
+}
 
 // Synchronous in-page channels shared between the content script and the in-page
 // popup (same window). They sidestep the async snapshot round-trip so that a save

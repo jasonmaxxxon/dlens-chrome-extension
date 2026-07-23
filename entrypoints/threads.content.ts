@@ -16,6 +16,7 @@ import { InPageCollectorApp } from "../src/ui/InPageCollectorApp";
 import { buildWorkspaceCrashMarkup, getWorkspaceCrashMessage, isExtensionRuntimeError } from "../src/ui/runtime-guard";
 import { DLENS_MOTION_CSS, ensureDlensKeyframes } from "../src/ui/motion";
 import {
+  dispatchPageLocationChange,
   getLiveCollectionTarget,
   HOVER_RECT_EVENT,
   OPTIMISTIC_SAVE_CONFIRMED_EVENT,
@@ -333,8 +334,9 @@ function clearHoverStateForNavigation() {
 function installSpaNavigationReset() {
   const checkLocationChange = createLocationChangeChecker(window.location.href);
   const handlePotentialNavigation = () => {
-    checkLocationChange(window.location.href, () => {
+    checkLocationChange(window.location.href, (href) => {
       clearHoverStateForNavigation();
+      dispatchPageLocationChange(href);
     });
   };
 

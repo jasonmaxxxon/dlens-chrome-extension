@@ -266,6 +266,9 @@ function deriveAnalysisState(
   if (analysis.status !== "complete") {
     return "missing";
   }
+  if (analysis.promptVersion !== PRODUCT_SIGNAL_ANALYSIS_PROMPT_VERSION) {
+    return "stale";
+  }
   if (!productContext) {
     return "ready";
   }
@@ -431,7 +434,6 @@ export function buildProductSignalWorkspaceViewModel({
   const signalUrlById = Object.fromEntries(rows.map((signal) => [signal.signalId, signal.sourcePreview.displayUrl] as const));
   const evidenceBySignalId = Object.fromEntries(rows.map((signal) => [signal.signalId, signal.evidence] as const));
   const signalReadinessById = Object.fromEntries(rows.map((signal) => [signal.signalId, signal.readiness] as const));
-
   return {
     kind,
     sessionId: activeFolder?.id ?? null,

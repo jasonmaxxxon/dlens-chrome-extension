@@ -27,6 +27,14 @@ import { describeProcessingError, type ProcessingErrorClass, type ProcessingErro
 import type { ProductSignalAction, ProductSignalCommand, ProductSignalViewModel, ProductSignalWorkspaceViewModel } from "../viewmodel/product-signal";
 import type { SignalReadiness } from "../state/signal-readiness";
 import {
+  deriveProductCardPresentation,
+  ROOT_SPAN_REF,
+  type CapturedSpan,
+  type ProductCardPresentation,
+  type ProductHeroResult,
+  type ProductPrimaryCategory
+} from "../viewmodel/product-card-presentation";
+import {
   EvidenceSourceHero,
   Kicker,
   MetricIcon,
@@ -112,8 +120,98 @@ const ACTION_VERDICT_VISUAL_ORDER: ActionVerdictFilter[] = ["try", "park", "insu
 const ACTION_VERDICT_DEFAULT_PRIORITY: ActionVerdictFilter[] = ["try", "watch", "park", "insufficient"];
 const PRODUCT_ACTION_STAGE_PANEL_ID = "product-action-stage-panel";
 
+const PRODUCT_CATEGORY_META: Record<ProductPrimaryCategory, { label: string; color: string; soft: string }> = {
+  lift: { label: "產品提升", color: tokens.color.product, soft: tokens.color.productSoft },
+  need: { label: "用戶需求", color: tokens.color.success, soft: tokens.color.successSoft },
+  rival: { label: "同類雷達", color: tokens.color.techniqueViolet, soft: tokens.color.techniqueVioletSoft },
+  market: { label: "市場觀察", color: tokens.color.queued, soft: tokens.color.queuedSoft },
+  learn: { label: "靈感學習", color: tokens.color.techniqueTeal, soft: tokens.color.cyanSoft }
+};
+const PRODUCT_CATEGORY_ORDER: ProductPrimaryCategory[] = ["lift", "need", "rival", "market", "learn"];
+
+function productActionPresentation(
+  analysis: ProductSignalAnalysis,
+  signal: ProductSignalViewModel | undefined,
+  evidenceBySignalId: Record<string, ProductSignalEvidenceEntry[]>
+): ProductCardPresentation {
+  const citations = citationsForAnalysis(analysis, evidenceBySignalId).map((citation) => ({
+    ref: citation.ref,
+    text: citation.entry?.text ?? null,
+    author: citation.entry?.author,
+    likeCount: citation.entry?.likeCount
+  }));
+  const projection = signal?.sourcePreview;
+  const capturedSpans: CapturedSpan[] = [
+    { ref: ROOT_SPAN_REF, text: projection?.text ?? "" },
+    ...(projection?.discussionReplies ?? []).map((reply, index) => ({ ref: `e${index + 1}`, text: reply.text }))
+  ].filter((span) => span.text.trim().length > 0);
+  return deriveProductCardPresentation({ analysis, citations, capturedSpans });
+}
+
+function HeroRenderer({
+  presentation,
+  capturedSpanByRef
+}: {
+  presentation: ProductHeroResult;
+  capturedSpanByRef: Map<string, string>;
+}) {
+  const [expandedTallyRow, setExpandedTallyRow] = useState<number | null>(null);
+  if (presentation.heroKind === "resource" && presentation.heroPayload && "url" in presentation.heroPayload) {
+    const hero = presentation.heroPayload;
+    return (
+      <section data-product-action-hero="resource" style={{ display: "grid", gap: 7, minWidth: 0, padding: "12px 13px", borderRadius: tokens.radius.card, border: `1px solid ${tokens.color.cardEdge}`, background: tokens.color.contextSurface }}>
+        <span style={{ ...textStyles.fieldLabel, color: tokens.color.product }}>已捕捉資源</span>
+        <a data-product-action-resource-url={hero.url} href={externalHref(hero.url)} target="_blank" rel="noreferrer" aria-label="已捕捉資源（於新分頁開啟）" style={{ minWidth: 0, color: tokens.color.product, fontWeight: 750, overflowWrap: "anywhere" }}>{hero.url}</a>
+        <span data-product-action-resource-ref={hero.sourceRef} style={{ ...textStyles.meta, color: tokens.color.softInk }}>來源 {hero.sourceRef} · 已從捕捉內容驗證</span>
+      </section>
+    );
+  }
+  if (presentation.heroKind === "quote" && presentation.heroPayload && "text" in presentation.heroPayload) {
+    const hero = presentation.heroPayload;
+    return (
+      <blockquote data-product-action-hero="quote" data-product-action-exact-quote="true" style={{ margin: 0, padding: "5px 0 5px 14px", borderLeft: `2px solid ${tokens.color.product}`, color: tokens.color.ink, fontFamily: tokens.font.serifCjk, fontSize: 18, lineHeight: 1.55, overflowWrap: "anywhere" }}>
+        {hero.text}
+        <footer style={{ marginTop: 7, fontFamily: tokens.font.mono, fontSize: 10, color: tokens.color.softInk }}>{hero.ref}{hero.author ? ` · ${hero.author}` : ""}</footer>
+      </blockquote>
+    );
+  }
+  if (presentation.heroKind === "tally" && presentation.heroPayload && "rows" in presentation.heroPayload) {
+    const hero = presentation.heroPayload;
+    const maxRowCount = Math.max(1, ...hero.rows.map((row) => row.count));
+    return (
+      <section data-product-action-hero="tally" aria-label="可追溯統計" style={{ display: "grid", gap: 8, minWidth: 0, padding: "12px 13px", borderRadius: tokens.radius.card, border: `1px solid ${tokens.color.cardEdge}`, background: tokens.color.contextSurface }}>
+        <span data-product-action-tally-denominator="true" style={{ ...textStyles.meta, color: tokens.color.softInk }}>已歸因 {hero.attributed} / {hero.total}</span>
+        {hero.rows.map((row, index) => {
+          const expanded = expandedTallyRow === index;
+          const revealId = `product-action-tally-${index}`;
+          return (
+            <div key={`${row.label}:${index}`} style={{ display: "grid", gap: 6, minWidth: 0 }}>
+              <button type="button" data-product-action-tally-row={index} aria-expanded={expanded} aria-controls={revealId} onClick={() => setExpandedTallyRow(expanded ? null : index)} style={{ minHeight: 44, display: "flex", justifyContent: "space-between", alignItems: "center", gap: 8, padding: "7px 0", border: "none", background: "transparent", color: tokens.color.ink, font: "inherit", cursor: "pointer", textAlign: "left" }}>
+                <span>{row.label}</span><span style={{ fontFamily: tokens.font.mono, color: tokens.color.subInk }}>{row.count} / {hero.total}</span>
+              </button>
+              <span data-product-action-tally-bar={index} aria-hidden="true" style={{ display: "block", width: `${(row.count / maxRowCount) * 100}%`, minWidth: row.count ? 2 : 0, height: 4, borderRadius: tokens.radius.pill, background: tokens.color.product }} />
+              <div id={revealId} data-product-action-tally-reveal={index} hidden={!expanded} style={{ display: "grid", gap: 4, fontSize: 12, lineHeight: 1.55, color: tokens.color.subInk }}>
+                {row.refs.map((ref) => <span key={ref}>{ref} · {capturedSpanByRef.get(ref) ?? "未找到捕捉文字"}</span>)}
+              </div>
+            </div>
+          );
+        })}
+      </section>
+    );
+  }
+  return <div data-product-action-hero="editorial" aria-label="沒有可驗證的高亮證據" />;
+}
+
 function actionVerdictTabId(key: ActionVerdictFilter): string {
   return `product-action-verdict-${key}-tab`;
+}
+
+function actionCategoryTabId(filter: ActionVerdictFilter, category: ProductPrimaryCategory | "all"): string {
+  return `product-action-category-${filter}-${category}-tab`;
+}
+
+function externalHref(url: string): string {
+  return /^https?:\/\//iu.test(url) ? url : `https://${url}`;
 }
 
 function verdictFilterKeyForAnalysis(analysis: ProductSignalAnalysis): ActionVerdictFilter {
@@ -330,6 +428,14 @@ function referenceTakeaway(analysis: ProductSignalAnalysis | undefined): string 
   return analysis.referenceTakeaway?.trim() || analysis.whyRelevant || analysis.reason;
 }
 
+function normalizeDecisionCopy(value: string): string {
+  return value
+    .trim()
+    .replace(/\s+/gu, " ")
+    .replace(/[。.!！?？]+$/gu, "")
+    .toLocaleLowerCase();
+}
+
 const PRODUCT_SIGNAL_METRIC_KEYS: Array<keyof Pick<TargetDescriptor["engagement_present"], "likes" | "comments" | "reposts" | "forwards">> = [
   "likes",
   "comments",
@@ -436,30 +542,6 @@ function sourceTruthMetricStyle(present: boolean): CSSProperties {
     fontVariantNumeric: "tabular-nums",
     lineHeight: 1
   };
-}
-
-function ProductVerdictSoftPill({ verdict }: { verdict: ProductSignalVerdict }) {
-  const meta = VERDICT_META[verdict];
-  return (
-    <span
-      data-product-verdict-pill={verdict}
-      style={{
-        display: "inline-flex",
-        alignItems: "center",
-        minHeight: 22,
-        padding: "0 9px",
-        borderRadius: tokens.radius.pill,
-        border: `1px solid ${meta.soft}`,
-        background: meta.soft,
-        color: meta.color,
-        fontSize: 10.5,
-        fontWeight: 800,
-        whiteSpace: "nowrap"
-      }}
-    >
-      {VERDICT_LABELS[verdict]}
-    </span>
-  );
 }
 
 interface EvidenceCitation {
@@ -2364,17 +2446,17 @@ function ProductActionBriefExport({
   const copyStatusText = copyStatus === "copied" ? "已複製" : copyStatus === "error" ? "複製失敗" : " ";
 
   return (
-    <div style={{ display: "grid", gap: 10, marginTop: 10 }}>
-      <div data-product-action-brief-selected-summary="true" style={{ display: "flex", gap: 6, flexWrap: "wrap", alignItems: "center" }}>
+    <div style={{ display: "grid", gridTemplateColumns: "minmax(0, 1fr)", gap: 10, marginTop: 10, minWidth: 0 }}>
+      <div data-product-action-brief-selected-summary="true" style={{ display: "flex", gap: 6, flexWrap: "wrap", alignItems: "center", minWidth: 0 }}>
         {selectedSignals.length ? selectedSignals.map((signal) => (
-          <span key={signal.signalId} style={{ ...textStyles.meta, maxWidth: "100%", padding: "4px 7px", borderRadius: tokens.radius.sm, border: `1px solid ${tokens.color.line}`, background: tokens.color.contextSurface, color: tokens.color.subInk, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+          <span key={signal.signalId} style={{ ...textStyles.meta, flex: "1 1 180px", minWidth: 0, maxWidth: "100%", boxSizing: "border-box", padding: "4px 7px", borderRadius: tokens.radius.sm, border: `1px solid ${tokens.color.line}`, background: tokens.color.contextSurface, color: tokens.color.subInk, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
             {excerpt(signal.sourcePreview.displayText || signal.title, 72)}
           </span>
         )) : (
           <span style={{ ...textStyles.meta, color: tokens.color.softInk }}>尚未選取；請從上方值得嘗試／保留觀察卡加入。</span>
         )}
       </div>
-      <div role="radiogroup" aria-label="行動簡報輸出格式" style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+      <div data-product-action-brief-mode="true" role="group" aria-label="行動簡報輸出格式" style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
         {[
           ["original", "原文優先"],
           ["decision", "精簡決策"]
@@ -2382,6 +2464,7 @@ function ProductActionBriefExport({
           <button
             key={value}
             type="button"
+            data-product-action-brief-mode-option={value}
             aria-pressed={briefMode === value}
             onClick={() => setBriefMode(value as AgentBriefMode)}
             style={{
@@ -2390,6 +2473,7 @@ function ProductActionBriefExport({
               background: briefMode === value ? tokens.color.product : tokens.color.surface,
               boxShadow: briefMode === value ? PRODUCT_MODE_ACCENT_BUTTON_SHADOW : "none",
               color: briefMode === value ? tokens.color.inverse : tokens.color.subInk,
+              minHeight: 44,
               padding: "6px 9px",
               font: "inherit",
               fontSize: 12,
@@ -2604,7 +2688,6 @@ function VerdictFilterTiles({
             role="tab"
             aria-selected={selected}
             aria-controls={PRODUCT_ACTION_STAGE_PANEL_ID}
-            aria-pressed={selected}
             tabIndex={selected ? 0 : -1}
             disabled={disabled}
             onClick={() => onSelect(stat.key)}
@@ -2836,7 +2919,29 @@ function ProductActionStage({
     insufficient: { signalId: itemsByFilter.insufficient[0]?.signalId ?? null, sourceIndex: 0 }
   }));
   const resolvedFilter = itemsByFilter[activeFilter].length ? activeFilter : firstEnabledFilter;
-  const activeItems = itemsByFilter[resolvedFilter];
+  const signalsById = new Map(signals.map((signal) => [signal.signalId, signal]));
+  const presentationBySignalId = new Map(completed.map((analysis) => [
+    analysis.signalId,
+    productActionPresentation(analysis, signalsById.get(analysis.signalId), evidenceBySignalId)
+  ]));
+  const bucketItems = itemsByFilter[resolvedFilter];
+  const categoryCounts = new Map<ProductPrimaryCategory, number>();
+  for (const analysis of bucketItems) {
+    const category = presentationBySignalId.get(analysis.signalId)?.primaryCategory;
+    if (category) categoryCounts.set(category, (categoryCounts.get(category) ?? 0) + 1);
+  }
+  const presentCategories = PRODUCT_CATEGORY_ORDER.filter((category) => categoryCounts.has(category));
+  const categoryGateOpen = bucketItems.length >= 6 && presentCategories.length >= 2 && [...categoryCounts.values()].some((count) => count >= 2);
+  const [activeCategoryByFilter, setActiveCategoryByFilter] = useState<Record<ActionVerdictFilter, ProductPrimaryCategory | "all">>({
+    try: "all", watch: "all", park: "all", insufficient: "all"
+  });
+  const requestedCategory = activeCategoryByFilter[resolvedFilter];
+  const resolvedCategory = categoryGateOpen && (requestedCategory === "all" || categoryCounts.has(requestedCategory))
+    ? requestedCategory
+    : "all";
+  const activeItems = resolvedCategory === "all"
+    ? bucketItems
+    : bucketItems.filter((analysis) => presentationBySignalId.get(analysis.signalId)?.primaryCategory === resolvedCategory);
   const activeSelection = activeSelectionByFilter[resolvedFilter];
   const [direction, setDirection] = useState<ProductActionDirection>("forward");
   const stageRef = useRef<HTMLElement | null>(null);
@@ -2854,13 +2959,8 @@ function ProductActionStage({
     : direction;
   const activeMeta = stats.find((stat) => stat.key === resolvedFilter) ?? stats[0]!;
   const activeIsActionable = resolvedFilter === "try" || resolvedFilter === "watch";
-  const signalsById = new Map(signals.map((signal) => [signal.signalId, signal]));
   const eligibleBriefIds = completed
-    .filter((analysis) => (
-      analysis.signalType !== "noise"
-      && (analysis.verdict === "try" || analysis.verdict === "watch")
-      && signalsById.has(analysis.signalId)
-    ))
+    .filter((analysis) => presentationBySignalId.get(analysis.signalId)?.briefEligible && signalsById.has(analysis.signalId))
     .map((analysis) => analysis.signalId);
   const eligibleBriefKey = eligibleBriefIds.join("|");
   const eligibleBriefIdSet = new Set(eligibleBriefIds);
@@ -2871,6 +2971,12 @@ function ProductActionStage({
   useEffect(() => {
     if (activeFilter !== resolvedFilter) setActiveFilter(resolvedFilter);
   }, [activeFilter, resolvedFilter]);
+
+  useEffect(() => {
+    if (requestedCategory !== resolvedCategory) {
+      setActiveCategoryByFilter((previous) => ({ ...previous, [resolvedFilter]: resolvedCategory }));
+    }
+  }, [requestedCategory, resolvedCategory, resolvedFilter]);
 
   useEffect(() => {
     const nextSignalId = activeAnalysis?.signalId ?? null;
@@ -2917,6 +3023,37 @@ function ProductActionStage({
     setActiveFilter(nextFilter);
   };
 
+  const selectCategory = (nextCategory: ProductPrimaryCategory | "all") => {
+    if (!categoryGateOpen || nextCategory === resolvedCategory) return;
+    const nextItems = nextCategory === "all"
+      ? bucketItems
+      : bucketItems.filter((analysis) => presentationBySignalId.get(analysis.signalId)?.primaryCategory === nextCategory);
+    const nextCandidate = nextItems[0];
+    if (!nextCandidate) return;
+    setDirection("forward");
+    setActiveCategoryByFilter((previous) => ({ ...previous, [resolvedFilter]: nextCategory }));
+    setActiveSelectionByFilter((previous) => ({
+      ...previous,
+      [resolvedFilter]: { signalId: nextCandidate.signalId, sourceIndex: bucketItems.findIndex((analysis) => analysis.signalId === nextCandidate.signalId) }
+    }));
+  };
+
+  const handleCategoryTabKeyDown = (event: ReactKeyboardEvent<HTMLButtonElement>, key: ProductPrimaryCategory | "all") => {
+    if (!categoryGateOpen) return;
+    const keys: Array<ProductPrimaryCategory | "all"> = ["all", ...presentCategories];
+    const currentIndex = keys.indexOf(key);
+    let nextIndex: number | null = null;
+    if (event.key === "ArrowLeft") nextIndex = (currentIndex - 1 + keys.length) % keys.length;
+    if (event.key === "ArrowRight") nextIndex = (currentIndex + 1) % keys.length;
+    if (event.key === "Home") nextIndex = 0;
+    if (event.key === "End") nextIndex = keys.length - 1;
+    if (nextIndex === null) return;
+    event.preventDefault();
+    const nextKey = keys[nextIndex]!;
+    event.currentTarget.parentElement?.querySelector<HTMLButtonElement>(`[data-product-action-category-tab="${nextKey}"]`)?.focus({ preventScroll: true });
+    selectCategory(nextKey);
+  };
+
   const handleStageKeyDown = (event: ReactKeyboardEvent<HTMLElement>) => {
     if (event.currentTarget !== event.target) return;
     let nextIndex: number | null = null;
@@ -2931,16 +3068,66 @@ function ProductActionStage({
 
   const activeSignal = activeAnalysis ? signalsById.get(activeAnalysis.signalId) : undefined;
   const activeReading = activeAnalysis ? readingsBySignalId.get(activeAnalysis.signalId) : undefined;
+  const activePresentation = activeAnalysis ? presentationBySignalId.get(activeAnalysis.signalId) : undefined;
   const citations = activeAnalysis ? citationsForAnalysis(activeAnalysis, evidenceBySignalId) : [];
   const exactCitation = citations.find((citation) => citation.entry?.text?.trim());
+  const capturedSpanEntries: Array<[string, string]> = [
+    [ROOT_SPAN_REF, activeSignal?.sourcePreview.text ?? ""],
+    ...(activeSignal?.sourcePreview.discussionReplies ?? []).map((reply, index): [string, string] => [`e${index + 1}`, reply.text])
+  ];
+  const capturedSpanByRef = new Map<string, string>(capturedSpanEntries.filter(([, text]) => text.trim().length > 0));
   const activeSourceUrl = activeAnalysis
     ? signalUrlById[activeAnalysis.signalId] || activeReading?.sourcePacket?.postUrl || activeSignal?.sourcePreview.sourceUrl || activeSignal?.sourcePreview.displayUrl || ""
     : "";
   const activeTitle = activeAnalysis
     ? activeAnalysis.referenceLabel?.trim() || activeAnalysis.contentSummary
     : "";
-  const activeBriefEligible = Boolean(activeAnalysis && eligibleBriefIdSet.has(activeAnalysis.signalId));
+  const activeBriefEligible = Boolean(activeAnalysis && activePresentation?.briefEligible && eligibleBriefIdSet.has(activeAnalysis.signalId));
   const activeBriefSelected = Boolean(activeAnalysis && selectedSignalIds.includes(activeAnalysis.signalId));
+  const activeDecisionReason = activeAnalysis
+    ? (activeAnalysis.reason || activeAnalysis.whyRelevant).trim()
+    : "";
+  const activeDecisionTakeaway = activeAnalysis
+    ? (activeAnalysis.referenceTakeaway?.trim() || activeAnalysis.whyRelevant || activeAnalysis.reason).trim()
+    : "";
+  const activeTakeaway = activeIsActionable
+    ? activeDecisionTakeaway || activeDecisionReason
+    : activeDecisionReason || activeDecisionTakeaway;
+  const activeDecisionLabel = activeIsActionable
+    ? "核心判斷"
+    : resolvedFilter === "park" ? "排除原因" : "資料缺口";
+  const activeDecisionRows = activeAnalysis
+    ? [
+        ...(normalizeDecisionCopy(activeDecisionReason) && normalizeDecisionCopy(activeDecisionReason) !== normalizeDecisionCopy(activeTakeaway)
+          ? [{ key: "reason", label: activeDecisionLabel, value: activeDecisionReason }]
+          : []),
+      ]
+    : [];
+  const activeCategory = activePresentation?.primaryCategory ?? null;
+  const activeCategoryMeta = activeCategory ? PRODUCT_CATEGORY_META[activeCategory] : null;
+  const activeCategoryTab = categoryGateOpen ? actionCategoryTabId(resolvedFilter, resolvedCategory) : null;
+  const [agentBriefCopyStatus, setAgentBriefCopyStatus] = useState<AgentBriefCopyStatus>("idle");
+  const activeAgentBriefSignalIdRef = useRef(activeAnalysis?.signalId);
+  const agentBriefCopyRequestRef = useRef(0);
+  const activeAgentBrief = activeAnalysis && activePresentation?.agentBriefReady
+    ? buildAgentBrief({
+        mode: "original",
+        selectedSignals: activeSignal ? [activeSignal] : [{ id: activeAnalysis.signalId }],
+        analysesBySignal: analysisBySignalId(completed),
+        signalPreviewById,
+        signalUrlById,
+        evidenceBySignalId
+      })
+    : "";
+
+  if (activeAgentBriefSignalIdRef.current !== activeAnalysis?.signalId) {
+    activeAgentBriefSignalIdRef.current = activeAnalysis?.signalId;
+  }
+
+  useEffect(() => {
+    agentBriefCopyRequestRef.current += 1;
+    setAgentBriefCopyStatus("idle");
+  }, [activeAnalysis?.signalId]);
 
   const toggleActiveBriefSelection = () => {
     if (!activeAnalysis || !activeBriefEligible) return;
@@ -2949,9 +3136,29 @@ function ProductActionStage({
       : [...previous, activeAnalysis.signalId]);
   };
 
+  const copyActiveAgentBrief = () => {
+    const signalId = activeAnalysis?.signalId;
+    const requestToken = agentBriefCopyRequestRef.current + 1;
+    agentBriefCopyRequestRef.current = requestToken;
+    const setCurrentCopyStatus = (status: AgentBriefCopyStatus) => {
+      if (activeAgentBriefSignalIdRef.current === signalId && agentBriefCopyRequestRef.current === requestToken) {
+        setAgentBriefCopyStatus(status);
+      }
+    };
+    if (!activeAgentBrief || typeof navigator === "undefined" || !navigator.clipboard) {
+      setCurrentCopyStatus("error");
+      return;
+    }
+    void navigator.clipboard.writeText(activeAgentBrief).then(
+      () => setCurrentCopyStatus("copied"),
+      () => setCurrentCopyStatus("error")
+    );
+  };
+
   return (
     <div
       data-product-action-workspace="stage"
+      data-product-action-route-context="folder"
       style={{ position: "relative", overflow: "hidden", borderRadius: tokens.radius.cardLg, background: tokens.color.productCanvas, padding: "12px 12px 20px", minWidth: 0 }}
     >
       <style>{`
@@ -3006,7 +3213,7 @@ function ProductActionStage({
       <div aria-hidden="true" data-product-field-aura="blue" style={{ position: "absolute", top: -70, right: -60, width: 250, height: 250, borderRadius: "50%", background: tokens.color.auraProductBlue, filter: "blur(46px)", pointerEvents: "none" }} />
       <div aria-hidden="true" data-product-field-aura="amber" style={{ position: "absolute", top: 330, left: -90, width: 220, height: 220, borderRadius: "50%", background: tokens.color.atlasAuraAmber, filter: "blur(46px)", pointerEvents: "none" }} />
       <div aria-hidden="true" data-product-field-aura="violet" style={{ position: "absolute", bottom: -80, right: -40, width: 240, height: 240, borderRadius: "50%", background: tokens.color.atlasAuraViolet, filter: "blur(46px)", pointerEvents: "none" }} />
-      <div style={{ position: "relative", zIndex: 1, display: "grid", gap: 12, minWidth: 0 }}>
+      <div data-product-action-content="true" style={{ position: "relative", zIndex: 1, display: "grid", gridTemplateColumns: "minmax(0, 1fr)", gap: 12, minWidth: 0 }}>
       <div style={{ display: "flex", alignItems: "baseline", justifyContent: "space-between", gap: 10, flexWrap: "wrap" }}>
         <Kicker>判定導覽</Kicker>
         <span style={{ ...textStyles.meta, color: tokens.color.softInk }}>{completed.length} 已評估</span>
@@ -3018,6 +3225,31 @@ function ProductActionStage({
             <Kicker>{activeMeta.label}</Kicker>
             <span style={{ ...textStyles.meta, color: tokens.color.softInk }}>{activeItems.length} 則</span>
           </div>
+          {categoryGateOpen ? (
+            <div data-product-action-category-tabs={resolvedFilter} role="tablist" aria-label={`${activeMeta.label}分類`} style={{ display: "flex", gap: 8, flexWrap: "wrap", minWidth: 0 }}>
+              {(["all", ...presentCategories] as Array<ProductPrimaryCategory | "all">).map((category) => {
+                const selected = resolvedCategory === category;
+                const meta = category === "all" ? null : PRODUCT_CATEGORY_META[category];
+                return (
+                  <button
+                    key={category}
+                    id={actionCategoryTabId(resolvedFilter, category)}
+                    type="button"
+                    data-product-action-category-tab={category}
+                    role="tab"
+                    aria-selected={selected}
+                    aria-controls={PRODUCT_ACTION_STAGE_PANEL_ID}
+                    tabIndex={selected ? 0 : -1}
+                    onClick={() => selectCategory(category)}
+                    onKeyDown={(event) => handleCategoryTabKeyDown(event, category)}
+                    style={{ minHeight: 44, padding: "7px 10px", borderRadius: tokens.radius.pill, border: `1px solid ${selected ? (meta?.color ?? tokens.color.product) : tokens.color.cardEdge}`, background: selected ? (meta?.soft ?? tokens.color.productSoft) : tokens.color.contextSurface, color: meta?.color ?? tokens.color.subInk, font: "inherit", fontSize: 12, fontWeight: 700, cursor: "pointer" }}
+                  >
+                    {category === "all" ? `全部 ${bucketItems.length}` : `${meta!.label} ${categoryCounts.get(category) ?? 0}`}
+                  </button>
+                );
+              })}
+            </div>
+          ) : null}
           <article
             key={`${activeAnalysis.signalId}:${renderedDirection}`}
             id={PRODUCT_ACTION_STAGE_PANEL_ID}
@@ -3025,23 +3257,54 @@ function ProductActionStage({
             data-product-action-stage={activeAnalysis.signalId}
             data-product-action-page={safeIndex + 1}
             data-direction={renderedDirection}
+            data-product-action-density={activePresentation?.density ?? "full"}
             tabIndex={0}
             role="tabpanel"
-            aria-labelledby={actionVerdictTabId(resolvedFilter)}
+            aria-labelledby={[actionVerdictTabId(resolvedFilter), activeCategoryTab].filter(Boolean).join(" ")}
             onKeyDown={handleStageKeyDown}
             aria-label={`${activeMeta.label} ${safeIndex + 1} / ${activeItems.length}`}
-            style={glassCardStyle({ gap: 14, padding: 18, minWidth: 0, overflow: "visible", borderColor: tokens.color.productSoft, boxShadow: tokens.shadow.raised })}
+            style={glassCardStyle({ gap: activePresentation?.density === "compact" ? 10 : 14, padding: activePresentation?.density === "compact" ? 12 : 18, minWidth: 0, overflow: "visible", borderColor: tokens.color.productSoft, boxShadow: activePresentation?.density === "compact" ? tokens.shadow.topicCard : tokens.shadow.raised })}
           >
-            <header style={{ display: "grid", gap: 7, minWidth: 0 }}>
-              <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap", minWidth: 0 }}>
-                <span style={{ fontFamily: tokens.font.mono, fontSize: 11, fontWeight: 800, color: tokens.color.product }}>{String(safeIndex + 1).padStart(2, "0")}</span>
-                {activeIsActionable ? (
-                  <ProductVerdictSoftPill verdict={activeAnalysis.verdict} />
-                ) : (
-                  <ScorePill color={activeMeta.color} soft={activeMeta.soft}>{activeMeta.label}</ScorePill>
-                )}
-                {activeSignal ? <ProductReadinessChip readiness={activeSignal.readiness} /> : null}
-                <span style={{ fontSize: 11.5, color: tokens.color.softInk }}>{SIGNAL_TYPE_LABELS[activeAnalysis.signalType]} · {formatRelevanceScore(activeAnalysis.relevance)}</span>
+            <header data-product-action-header="true" style={{ display: "grid", gap: 7, minWidth: 0 }}>
+              <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: 10, flexWrap: "wrap", minWidth: 0 }}>
+                <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap", minWidth: 0, flex: "1 1 220px" }}>
+                  <span style={{ fontFamily: tokens.font.mono, fontSize: 11, fontWeight: 800, color: tokens.color.product }}>{String(safeIndex + 1).padStart(2, "0")}</span>
+                  <span data-product-action-verdict-pill={resolvedFilter} style={{ display: "inline-flex", alignItems: "center", minHeight: 22, padding: "2px 8px", borderRadius: tokens.radius.pill, background: activeMeta.soft, color: activeMeta.color, fontSize: 10.5, fontWeight: 800 }}>{activeMeta.label}</span>
+                  {activeCategoryMeta ? <span data-product-action-category={activeCategory} style={{ display: "inline-flex", alignItems: "center", minHeight: 22, padding: "2px 8px", borderRadius: tokens.radius.pill, background: activeCategoryMeta.soft, color: activeCategoryMeta.color, fontSize: 10.5, fontWeight: 800 }}>{activeCategoryMeta.label}</span> : null}
+                  <span data-product-action-hero-kind={activePresentation?.heroKind ?? "editorial"} hidden />
+                  {(import.meta as { env?: { DEV?: boolean } }).env?.DEV ? <span data-product-action-hero-kind-tag={activePresentation?.heroKind ?? "editorial"} style={{ ...textStyles.meta, color: tokens.color.softInk }}>{activePresentation?.heroKind ?? "editorial"}</span> : null}
+                </div>
+                {activeBriefEligible ? (
+                  <button
+                    type="button"
+                    data-product-action-brief-toggle="true"
+                    data-product-action-selection-state={activeBriefSelected ? "selected" : "available"}
+                    aria-pressed={activeBriefSelected}
+                    onClick={toggleActiveBriefSelection}
+                    style={{
+                      minWidth: 0,
+                      minHeight: 44,
+                      maxWidth: "100%",
+                      boxSizing: "border-box",
+                      display: "inline-flex",
+                      alignItems: "center",
+                      justifyContent: "center",
+                      gap: 7,
+                      padding: "8px 11px",
+                      borderRadius: tokens.radius.card,
+                      border: `1px solid ${activeBriefSelected ? tokens.color.product : tokens.color.cardEdge}`,
+                      background: activeBriefSelected ? tokens.color.productSoft : tokens.color.contextSurface,
+                      color: activeBriefSelected ? tokens.color.product : tokens.color.subInk,
+                      font: "inherit",
+                      fontSize: 12,
+                      fontWeight: 750,
+                      cursor: "pointer"
+                    }}
+                  >
+                    <span>{activeBriefSelected ? "已加入行動簡報" : "加入行動簡報"}</span>
+                    <span aria-hidden="true">{activeBriefSelected ? "✓" : "+"}</span>
+                  </button>
+                ) : null}
               </div>
               <h2 style={{ margin: 0, fontFamily: tokens.font.serifCjk, fontSize: 22, lineHeight: 1.28, color: tokens.color.ink, overflowWrap: "anywhere" }}>
                 {activeTitle}
@@ -3049,103 +3312,105 @@ function ProductActionStage({
               {activeAnalysis.contentSummary && activeAnalysis.contentSummary !== activeTitle ? <p style={{ margin: 0, fontSize: 13, lineHeight: 1.65, color: tokens.color.subInk, overflowWrap: "anywhere" }}>{activeAnalysis.contentSummary}</p> : null}
             </header>
 
-            {activeBriefEligible ? (
-              <button
-                type="button"
-                data-product-action-brief-toggle="true"
-                aria-pressed={activeBriefSelected}
-                onClick={toggleActiveBriefSelection}
-                style={{
-                  minHeight: 44,
-                  display: "flex",
-                  alignItems: "center",
-                  justifyContent: "space-between",
-                  gap: 10,
-                  padding: "8px 11px",
-                  borderRadius: tokens.radius.card,
-                  border: `1px solid ${activeBriefSelected ? tokens.color.product : tokens.color.cardEdge}`,
-                  background: activeBriefSelected
-                    ? `linear-gradient(172deg, ${tokens.color.elevated} 0%, ${tokens.color.productSoft} 100%)`
-                    : `linear-gradient(172deg, ${tokens.color.elevated} 0%, ${tokens.color.contextSurface} 100%)`,
-                  boxShadow: tokens.shadow.card,
-                  color: activeBriefSelected ? tokens.color.product : tokens.color.subInk,
-                  font: "inherit",
-                  fontSize: 12,
-                  fontWeight: 750,
-                  cursor: "pointer"
-                }}
-              >
-                <span>{activeBriefSelected ? "已加入行動簡報" : "加入行動簡報"}</span>
-                <span aria-hidden="true">{activeBriefSelected ? "✓" : "+"}</span>
-              </button>
-            ) : null}
-
-            {activeIsActionable ? (
-              <div data-product-action-sequence="true" style={{ display: "flex", flexWrap: "wrap", gap: 8, minWidth: 0 }}>
-                {[
-                  { key: "reason", label: "觀察原因", value: activeAnalysis.reason || activeAnalysis.whyRelevant },
-                  { key: "takeaway", label: "新知保留", value: activeAnalysis.referenceTakeaway?.trim() || activeAnalysis.whyRelevant || activeAnalysis.reason },
-                  { key: "next", label: "下一步", value: activeAnalysis.agentTaskSpec?.taskTitle?.trim() || activeAnalysis.experimentHint?.trim() || "尚未有可派發任務；先保留為觀察。" }
-                ].map((beat) => (
-                  <div
-                    key={beat.key}
-                    data-product-action-beat={beat.key}
-                    style={{
-                      flex: "1 1 150px",
-                      minWidth: 0,
-                      display: "grid",
-                      alignContent: "start",
-                      gap: 5,
-                      padding: "11px 12px",
-                      borderRadius: tokens.radius.card,
-                      border: `1px solid ${beat.key === "next" ? tokens.color.productGlow : tokens.color.cardEdge}`,
-                      background: beat.key === "next"
-                        ? `linear-gradient(172deg, ${tokens.color.elevated} 0%, ${tokens.color.productSoft} 100%)`
-                        : `linear-gradient(172deg, ${tokens.color.elevated} 0%, ${tokens.color.contextSurface} 100%)`,
-                      boxShadow: tokens.shadow.card
-                    }}
-                  >
-                    <span style={{ ...textStyles.fieldLabel, color: beat.key === "next" ? tokens.color.product : tokens.color.softInk }}>{beat.label}</span>
-                    <span style={{ fontSize: 12.5, lineHeight: 1.6, color: tokens.color.subInk, overflowWrap: "anywhere" }}>{beat.value}</span>
+            {activePresentation?.density === "full" ? <HeroRenderer presentation={activePresentation} capturedSpanByRef={capturedSpanByRef} /> : null}
+            <section data-product-action-takeaway="true" data-product-action-decision-summary={activePresentation?.density === "compact" ? resolvedFilter : undefined} data-product-action-verdict-reason={activePresentation?.density === "compact" ? resolvedFilter : undefined} style={{ display: "grid", gap: 4, minWidth: 0 }}>
+              <span style={{ ...textStyles.fieldLabel, color: tokens.color.softInk }}>{activePresentation?.density === "compact" ? activeDecisionLabel : "可帶走"}</span>
+              <span data-product-action-decision-row={activePresentation?.density === "compact" ? "reason" : "takeaway"} style={{ fontSize: 13, lineHeight: 1.6, color: tokens.color.subInk, overflowWrap: "anywhere" }}>{activeTakeaway}</span>
+            </section>
+            {activePresentation?.density === "full" ? (
+              <section data-product-action-recommendations="true" style={{ display: "grid", gap: 9, minWidth: 0, padding: "12px 13px", borderRadius: tokens.radius.card, border: `1px solid ${tokens.color.cardEdge}`, background: tokens.color.contextSurface }}>
+                <span style={{ ...textStyles.fieldLabel, color: tokens.color.product }}>可直接採用</span>
+                {activePresentation.recommendations.map((recommendation) => {
+                  const recommendationKey = recommendation.kind === "application"
+                    ? JSON.stringify([
+                        recommendation.kind,
+                        recommendation.sourceRefs,
+                        recommendation.text,
+                        recommendation.productContextTarget,
+                        recommendation.verificationQuestion
+                      ])
+                    : `${recommendation.kind}:${recommendation.sourceRef ?? "analysis"}:${recommendation.text}`;
+                  return (
+                    <div
+                      key={recommendationKey}
+                      data-product-action-recommendation={recommendation.kind}
+                      data-product-action-recommendation-ref={recommendation.kind === "pattern" ? recommendation.sourceRef : undefined}
+                      data-product-action-application-status={recommendation.kind === "application" ? "pending-verification" : undefined}
+                      data-product-action-application-identity={recommendation.kind === "application" ? recommendationKey : undefined}
+                      style={{ display: "grid", gap: 4, minWidth: 0, paddingTop: 8, borderTop: `1px solid ${tokens.color.line}` }}
+                    >
+                      {recommendation.kind === "application" ? (
+                        <>
+                          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8, flexWrap: "wrap", minWidth: 0 }}>
+                            <span style={{ ...textStyles.fieldLabel, color: tokens.color.product }}>AI 提案 · 待驗證</span>
+                            <span data-product-action-application-target={recommendation.productContextTarget} style={{ ...textStyles.meta, color: tokens.color.softInk }}>
+                              套用至 {CONTEXT_FIELD_LABELS[recommendation.productContextTarget]}
+                            </span>
+                          </div>
+                          <span data-product-action-application-proposal="true" style={{ fontSize: 13, lineHeight: 1.6, color: tokens.color.subInk, overflowWrap: "anywhere" }}>{recommendation.text}</span>
+                          <span data-product-action-application-refs={recommendation.sourceRefs.join(",")} style={{ ...textStyles.meta, color: tokens.color.softInk }}>{recommendation.sourceRefs.join("、")} · 文字支持</span>
+                          <div data-product-action-application-question="true" style={{ display: "grid", gap: 2, minWidth: 0, paddingTop: 4 }}>
+                            <span style={{ ...textStyles.fieldLabel, color: tokens.color.softInk }}>驗證問題</span>
+                            <span style={{ fontSize: 12, lineHeight: 1.6, color: tokens.color.subInk, overflowWrap: "anywhere" }}>{recommendation.verificationQuestion}</span>
+                          </div>
+                        </>
+                      ) : (
+                        <>
+                          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8, flexWrap: "wrap", minWidth: 0 }}>
+                            <span style={{ ...textStyles.fieldLabel, color: recommendation.kind === "experiment" ? tokens.color.product : tokens.color.success }}>{recommendation.kind === "experiment" ? "AI 建議先試" : "可借用模式"}</span>
+                            {recommendation.kind === "pattern" ? <span style={{ ...textStyles.meta, color: tokens.color.softInk }}>{recommendation.sourceRef} · 文字支持</span> : null}
+                          </div>
+                          <span style={{ fontSize: 13, lineHeight: 1.6, color: tokens.color.subInk, overflowWrap: "anywhere" }}>{recommendation.text}</span>
+                        </>
+                      )}
+                    </div>
+                  );
+                })}
+                {activePresentation.agentBriefReady ? (
+                  <div data-product-action-agent-brief="true" style={{ display: "grid", gap: 7, minWidth: 0, paddingTop: activePresentation.recommendations.length ? 8 : 0, borderTop: activePresentation.recommendations.length ? `1px solid ${tokens.color.line}` : "none" }}>
+                    <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8, flexWrap: "wrap", minWidth: 0 }}>
+                      <span style={{ ...textStyles.fieldLabel, color: tokens.color.product }}>交給 Agent</span>
+                      {activeAnalysis.agentTaskSpec?.taskTitle?.trim() ? <span style={{ ...textStyles.meta, color: tokens.color.softInk, overflowWrap: "anywhere" }}>{activeAnalysis.agentTaskSpec.taskTitle.trim()}</span> : null}
+                    </div>
+                    <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
+                      <SecondaryButton dataAttrs={{ "data-product-action-agent-brief-copy": "true" }} onClick={copyActiveAgentBrief} style={{ minHeight: 44 }}>複製 Agent brief</SecondaryButton>
+                      <span data-product-action-agent-brief-copy-status={agentBriefCopyStatus} role="status" aria-live="polite" style={{ ...textStyles.meta, color: agentBriefCopyStatus === "error" ? tokens.color.queued : tokens.color.success }}>{agentBriefCopyStatus === "copied" ? "已複製" : agentBriefCopyStatus === "error" ? "複製失敗" : ""}</span>
+                    </div>
                   </div>
-                ))}
-              </div>
-            ) : (
-              <section
-                data-product-action-verdict-reason={resolvedFilter}
-                style={{ display: "grid", gap: 5, padding: "11px 12px", borderRadius: tokens.radius.card, border: `1px solid ${activeMeta.soft}`, background: `linear-gradient(172deg, ${tokens.color.elevated} 0%, ${activeMeta.soft} 100%)`, boxShadow: tokens.shadow.card }}
-              >
-                <span style={{ ...textStyles.fieldLabel, color: activeMeta.color }}>{resolvedFilter === "park" ? "排除原因" : "資料缺口"}</span>
-                <span style={{ fontSize: 12.5, lineHeight: 1.6, color: tokens.color.subInk, overflowWrap: "anywhere" }}>{activeAnalysis.reason || activeAnalysis.whyRelevant}</span>
+                ) : null}
+                {!activePresentation.recommendations.length && !activePresentation.agentBriefReady ? <span data-product-action-recommendations-empty="true" style={{ fontSize: 13, lineHeight: 1.6, color: tokens.color.softInk }}>現有分析與證據尚不足以形成具體建議。</span> : null}
               </section>
-            )}
-
-            <div style={{ display: "grid", gap: 6, minWidth: 0 }}>
-              <span style={{ ...textStyles.fieldLabel, color: tokens.color.softInk }}>來源真相</span>
-              <ProductSourceTruthStrip
-                analysis={activeAnalysis}
-                descriptor={activeSignal?.sourceDescriptor}
-                evidenceBySignalId={evidenceBySignalId}
-                signalId={activeAnalysis.signalId}
-              />
-            </div>
-            {exactCitation?.entry?.text ? (
-              <blockquote data-product-action-exact-quote="true" style={{ margin: 0, padding: "10px 12px", borderLeft: `3px solid ${tokens.color.product}`, borderRadius: `0 ${tokens.radius.card}px ${tokens.radius.card}px 0`, background: tokens.color.inkWash, color: tokens.color.subInk, fontFamily: tokens.font.serifCjk, fontSize: 13, lineHeight: 1.65, overflowWrap: "anywhere" }}>
-                {exactCitation.entry.text}
-                <footer style={{ marginTop: 5, fontFamily: tokens.font.mono, fontSize: 10, color: tokens.color.softInk }}>
-                  {exactCitation.ref}{exactCitation.entry.author ? ` · ${exactCitation.entry.author}` : ""}{exactCitation.entry.likeCount != null ? ` · ${exactCitation.entry.likeCount} ♥` : ""}
-                </footer>
-              </blockquote>
             ) : null}
-            {activeIsActionable ? (
-              <ProductActionReadingOperations
-                signal={activeSignal}
-                reading={activeReading}
-                sourceUrl={activeSourceUrl}
-                citations={citations}
-                onSynthesizeSignalReading={onSynthesizeSignalReading}
-                onReviewSignalReading={onReviewSignalReading}
-              />
+            <aside data-product-action-evidence-stack="true" style={{ display: "grid", gap: 9, minWidth: 0, padding: "12px 13px", borderRadius: tokens.radius.card, border: `1px solid ${tokens.color.cardEdge}`, background: tokens.color.inkWash }}>
+              <span style={{ ...textStyles.fieldLabel, color: tokens.color.product }}>來源證據</span>
+              <ProductSourceTruthStrip analysis={activeAnalysis} descriptor={activeSignal?.sourceDescriptor} evidenceBySignalId={evidenceBySignalId} signalId={activeAnalysis.signalId} />
+              {activeSourceUrl ? <a data-product-action-original-source="true" href={externalHref(activeSourceUrl)} target="_blank" rel="noreferrer" aria-label="原文（於新分頁開啟）" style={{ color: tokens.color.product, fontSize: 12, fontWeight: 750, overflowWrap: "anywhere" }}>原文 ↗</a> : <span data-product-action-original-source="missing" style={{ ...textStyles.meta, color: tokens.color.softInk }}>原文連結未提供</span>}
+              {activePresentation?.density === "compact" && exactCitation?.entry?.text ? (
+                <blockquote data-product-action-exact-quote="true" style={{ margin: 0, padding: "9px 10px", borderLeft: `3px solid ${tokens.color.product}`, borderRadius: `0 ${tokens.radius.card}px ${tokens.radius.card}px 0`, background: tokens.color.elevated, color: tokens.color.subInk, fontFamily: tokens.font.serifCjk, fontSize: 13, lineHeight: 1.65, overflowWrap: "anywhere" }}>
+                  {exactCitation.entry.text}
+                  <footer style={{ marginTop: 5, fontFamily: tokens.font.mono, fontSize: 10, color: tokens.color.softInk }}>{exactCitation.ref}{exactCitation.entry.author ? ` · ${exactCitation.entry.author}` : ""}{exactCitation.entry.likeCount != null ? ` · ${exactCitation.entry.likeCount} ♥` : ""}</footer>
+                </blockquote>
+              ) : null}
+            </aside>
+            {activePresentation?.density === "full" ? (
+              <details data-product-action-deep-read="true" data-product-action-sequence="true" style={{ display: "grid", gap: 12, minWidth: 0, borderTop: `1px solid ${tokens.color.line}`, paddingTop: 10 }}>
+                <summary className="dlens-expand-trigger" style={{ minHeight: 44, display: "flex", alignItems: "center", padding: "8px 4px", cursor: "pointer", ...textStyles.fieldLabel, color: tokens.color.product }}>展開深度閱讀</summary>
+                {activePresentation.heroKind !== "quote" && exactCitation?.entry?.text ? (
+                  <blockquote data-product-action-extra-exact-quote="true" style={{ margin: 0, padding: "9px 10px", borderLeft: `3px solid ${tokens.color.product}`, borderRadius: `0 ${tokens.radius.card}px ${tokens.radius.card}px 0`, background: tokens.color.elevated, color: tokens.color.subInk, fontFamily: tokens.font.serifCjk, fontSize: 13, lineHeight: 1.65, overflowWrap: "anywhere" }}>
+                    {exactCitation.entry.text}
+                    <footer style={{ marginTop: 5, fontFamily: tokens.font.mono, fontSize: 10, color: tokens.color.softInk }}>{exactCitation.ref}{exactCitation.entry.author ? ` · ${exactCitation.entry.author}` : ""}{exactCitation.entry.likeCount != null ? ` · ${exactCitation.entry.likeCount} ♥` : ""}</footer>
+                  </blockquote>
+                ) : null}
+                {activeDecisionRows.length ? (
+                  <section data-product-action-decision-summary={resolvedFilter} data-product-action-verdict-reason={resolvedFilter} style={{ display: "grid", gap: 9, minWidth: 0, padding: "12px 13px", borderRadius: tokens.radius.card, border: `1px solid ${tokens.color.cardEdge}`, background: tokens.color.contextSurface }}>
+                    <span style={{ ...textStyles.fieldLabel, color: activeMeta.color }}>決策摘要</span>
+                    <dl style={{ display: "grid", gap: 8, minWidth: 0, margin: 0 }}>
+                      {activeDecisionRows.map((row, rowIndex) => <div key={row.key} data-product-action-decision-row={row.key} style={{ display: "grid", gridTemplateColumns: "minmax(64px, auto) minmax(0, 1fr)", gap: 10, minWidth: 0, paddingTop: rowIndex ? 8 : 0, borderTop: rowIndex ? `1px solid ${tokens.color.line}` : "none" }}><dt style={{ ...textStyles.fieldLabel, margin: 0, color: row.key === "next" ? tokens.color.product : tokens.color.softInk }}>{row.label}</dt><dd style={{ minWidth: 0, margin: 0, fontSize: 12.5, lineHeight: 1.6, color: tokens.color.subInk, overflowWrap: "anywhere" }}>{row.value}</dd></div>)}
+                    </dl>
+                  </section>
+                ) : null}
+                {activeIsActionable ? <ProductActionReadingOperations signal={activeSignal} reading={activeReading} sourceUrl={activeSourceUrl} citations={citations} onSynthesizeSignalReading={onSynthesizeSignalReading} onReviewSignalReading={onReviewSignalReading} /> : null}
+              </details>
             ) : null}
           </article>
           <nav data-product-action-pager="text" aria-label={`${activeMeta.label}分頁`} style={{ display: "flex", justifyContent: "center", alignItems: "center", gap: 10, flexWrap: "wrap", minWidth: 0 }}>
@@ -3155,11 +3420,11 @@ function ProductActionStage({
           </nav>
         </>
       ) : (
-        <div id={PRODUCT_ACTION_STAGE_PANEL_ID} data-product-action-empty="true" role="tabpanel" style={mutedPanelStyle({ fontSize: 12.5, color: tokens.color.subInk })}>請先到訊號頁開始分析</div>
+        <div id={PRODUCT_ACTION_STAGE_PANEL_ID} data-product-action-empty="true" role="tabpanel" aria-label="行動判定尚無可顯示的分析" style={mutedPanelStyle({ fontSize: 12.5, color: tokens.color.subInk })}>請先到訊號頁開始分析</div>
       )}
       {eligibleBriefIds.length ? (
-        <details data-product-action-brief-export="true" style={{ borderTop: `1px solid ${tokens.color.line}`, paddingTop: 10 }}>
-          <summary className="dlens-expand-trigger" style={{ cursor: "pointer", ...textStyles.fieldLabel, color: tokens.color.product }}>
+        <details data-product-action-brief-export="true" style={{ minWidth: 0, borderTop: `1px solid ${tokens.color.line}`, paddingTop: 10 }}>
+          <summary className="dlens-expand-trigger" style={{ minHeight: 44, display: "flex", alignItems: "center", padding: "8px 4px", cursor: "pointer", ...textStyles.fieldLabel, color: tokens.color.product }}>
             行動簡報匯出 · {selectedSignalIds.length} 已選
           </summary>
           <ProductActionBriefExport
@@ -3173,8 +3438,8 @@ function ProductActionStage({
         </details>
       ) : null}
       {completed.length && onExportSignalPackets ? (
-        <details data-product-action-export="true" style={{ borderTop: `1px solid ${tokens.color.line}`, paddingTop: 10 }}>
-          <summary className="dlens-expand-trigger" style={{ cursor: "pointer", ...textStyles.fieldLabel, color: tokens.color.product }}>整個 Folder Packet 匯出（HTML / JSONL）</summary>
+        <details data-product-action-export="true" style={{ minWidth: 0, borderTop: `1px solid ${tokens.color.line}`, paddingTop: 10 }}>
+          <summary className="dlens-expand-trigger" style={{ minHeight: 44, display: "flex", alignItems: "center", padding: "8px 4px", cursor: "pointer", ...textStyles.fieldLabel, color: tokens.color.product }}>整個 Folder Packet 匯出（HTML / JSONL）</summary>
           <div style={{ marginTop: 10 }}>
             <SignalPacketHtmlExportSection
               activeFolderId={activeFolderId}
@@ -3193,6 +3458,7 @@ function ProductActionStage({
 export const productSignalViewTestables = {
   buildAgentBrief,
   ProductActionBriefExport,
+  HeroRenderer,
   createSignalReadingDisplayCopy
 };
 
@@ -3222,6 +3488,15 @@ export function ProductSignalView({
   const openActionableCommand = viewModel.actions.find((action) => action.kind === "openActionable");
   const hasReadingCommand = signals.some((signal) => signal.actions.some((action) => action.kind === "generateReading"));
   const pendingErrorAggregate = summarizeProcessingErrorAggregate(pendingSignals);
+  const routeSignals = signals;
+  const routeAnalyses = scopedAnalyses;
+  const routeSignalReadings = scopedSignalReadings;
+  const routePendingSignals = pendingSignals;
+  const routeSignalPreviewById = Object.fromEntries(routeSignals.map((signal) => [signal.signalId, signalPreviewById[signal.signalId] ?? signal.sourcePreview.displayText] as const));
+  const routeSignalUrlById = Object.fromEntries(routeSignals.map((signal) => [signal.signalId, signalUrlById[signal.signalId] ?? signal.sourcePreview.displayUrl] as const));
+  const routeEvidenceBySignalId = Object.fromEntries(routeSignals.map((signal) => [signal.signalId, evidenceBySignalId[signal.signalId] ?? signal.evidence] as const));
+  const routePendingErrorAggregate = summarizeProcessingErrorAggregate(routePendingSignals);
+  const productActionStageKey = viewModel.sessionId ?? "product-action-no-session";
 
   function signalAction(signalId: string, kind: ProductSignalAction["kind"]): ProductSignalAction | null {
     return signals.find((signal) => signal.signalId === signalId)?.actions.find((action) => action.kind === kind) ?? null;
@@ -3296,16 +3571,21 @@ export function ProductSignalView({
               </Stamp>
         }
       />
-      <div data-product-signal-frame="true" style={{ display: "grid", gap: tokens.spacing.md, overflow: "visible", minWidth: 0 }}>
+      <div
+        data-product-signal-frame="true"
+        data-product-action-route-context={kind === "actionable-filter" ? "folder" : undefined}
+        style={{ display: "grid", gap: tokens.spacing.md, overflow: "visible", minWidth: 0 }}
+      >
         {kind === "actionable-filter" ? (
           <div
             data-product-action-status="compact"
+            data-product-selection-context="folder"
             data-dlens-presence="card"
             style={heroPanelStyle({ display: "flex", alignItems: "center", gap: 10, padding: "9px 12px", flexWrap: "wrap" })}
           >
             <Kicker>判讀狀態</Kicker>
             <Stamp tone={scopedAnalyses.length ? "success" : "neutral"}>{scopedAnalyses.length} analyses</Stamp>
-            {pendingSignals.length ? <Stamp tone="warning">{pendingSignals.length} 處理中</Stamp> : null}
+            {routePendingSignals.length ? <Stamp tone="warning">{routePendingSignals.length} 處理中</Stamp> : null}
           </div>
         ) : (
           <ReadinessPanel
@@ -3313,22 +3593,22 @@ export function ProductSignalView({
             onAnalyze={handleAnalyze}
           />
         )}
-        {pendingSignals.length && kind !== "saved-signals" ? (
+        {routePendingSignals.length && kind !== "saved-signals" ? (
           kind === "actionable-filter" ? (
             <section style={{ display: "grid", gap: 8 }}>
-              <PendingSignalsQueueSummary signals={pendingSignals} />
-              {pendingErrorAggregate ? <ProcessingErrorAggregateBanner summary={pendingErrorAggregate} /> : null}
+              <PendingSignalsQueueSummary signals={routePendingSignals} />
+              {routePendingErrorAggregate ? <ProcessingErrorAggregateBanner summary={routePendingErrorAggregate} /> : null}
             </section>
           ) : (
             <section style={{ display: "grid", gap: 8 }}>
               <Kicker>等待處理的 signals</Kicker>
-              {pendingErrorAggregate ? <ProcessingErrorAggregateBanner summary={pendingErrorAggregate} /> : null}
-              {pendingSignals.map((signal) => (
+              {routePendingErrorAggregate ? <ProcessingErrorAggregateBanner summary={routePendingErrorAggregate} /> : null}
+              {routePendingSignals.map((signal) => (
                 <PendingSignalCard
                   key={signal.signalId}
                   signal={signal}
                   onRemove={signal.actions.some((action) => action.kind === "remove") ? () => handleRemoveSignal(signal.signalId) : undefined}
-                  suppressTerminalDetail={pendingErrorAggregate?.errorClass === readinessLabel(signal.readiness).errorClass}
+                  suppressTerminalDetail={routePendingErrorAggregate?.errorClass === readinessLabel(signal.readiness).errorClass}
                 />
               ))}
             </section>
@@ -3377,15 +3657,15 @@ export function ProductSignalView({
           )
         ) : kind === "actionable-filter" ? (
           <ProductActionStage
-            key={viewModel.sessionId ?? "product-action-no-session"}
-            signals={signals}
-            analyses={scopedAnalyses}
+            key={productActionStageKey}
+            signals={routeSignals}
+            analyses={routeAnalyses}
             activeFolderId={viewModel.sessionId ?? undefined}
             exportFolders={exportFolders}
-            signalReadings={scopedSignalReadings}
-            signalPreviewById={signalPreviewById}
-            signalUrlById={signalUrlById}
-            evidenceBySignalId={evidenceBySignalId}
+            signalReadings={routeSignalReadings}
+            signalPreviewById={routeSignalPreviewById}
+            signalUrlById={routeSignalUrlById}
+            evidenceBySignalId={routeEvidenceBySignalId}
             onSynthesizeSignalReading={synthesizeSignalReading}
             onReviewSignalReading={reviewSignalReading}
             onExportSignalPackets={exportSignalPackets}

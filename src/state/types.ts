@@ -107,6 +107,27 @@ export type ProductContextField =
   | "preferredTechDirection"
   | "evaluationCriteria"
   | "unknowns";
+
+export const PRODUCT_CONTEXT_FIELDS = [
+  "productPromise",
+  "targetAudience",
+  "agentRoles",
+  "coreWorkflows",
+  "currentCapabilities",
+  "explicitConstraints",
+  "nonGoals",
+  "preferredTechDirection",
+  "evaluationCriteria",
+  "unknowns"
+] as const satisfies readonly ProductContextField[];
+
+export interface ProductApplicationSuggestion {
+  proposal: string;
+  productContextTarget: ProductContextField;
+  supportRefs: string[];
+  verificationQuestion: string;
+}
+
 export type ProductSignalType = "learning" | "competitor" | "demand" | "technical" | "marketing" | "noise";
 export type ProductSignalContentType = "content" | "discussion_starter" | "mixed";
 export type ProductSignalVerdict = "try" | "watch" | "park" | "insufficient_data";
@@ -181,6 +202,7 @@ export interface ProductSignalAnalysis {
   agentTaskSpec?: ProductAgentTaskSpec;
   evidenceRefs: string[];
   evidenceNotes?: ProductSignalEvidenceNote[];
+  applicationSuggestions?: ProductApplicationSuggestion[];
   productContextHash: string;
   promptVersion: string;
   model?: string;
