@@ -2,7 +2,7 @@
 
 ## Status
 
-Complete on top of base/current head `6b5f5d2`.
+Complete on top of prior implementation head `6b5f5d2`; the fix commit is `5eb5d57`.
 
 Commit subject: `bug fix: restore attention surface bundle budget`
 
