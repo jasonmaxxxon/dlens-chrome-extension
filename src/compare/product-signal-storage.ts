@@ -472,7 +472,7 @@ function normalizeProductSignalAnalysis(value: unknown): ProductSignalAnalysis |
         evidenceNotes
       });
   const agentTaskSpec = raw.verdict === "try" ? normalizeAgentTaskSpec(raw.agentTaskSpec ?? rawWithExtras.agent_task_spec) : null;
-  if (isCurrentVersion) {
+  if (isCurrentVersion && raw.status === "complete") {
     if (!judgmentAxes) {
       return null;
     }

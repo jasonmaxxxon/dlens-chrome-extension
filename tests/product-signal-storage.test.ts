@@ -725,6 +725,31 @@ test("v21 storage preserves Product Reading through save and list", async () => 
   assert.deepEqual(await listProductSignalAnalyses(storage, [analysis.signalId]), [analysis]);
 });
 
+test("v21 storage preserves error records without model judgment axes", async () => {
+  const storage = makeStorage();
+  const analysis = makeAnalysis("signal-v21-error", {
+    signalType: "noise",
+    signalSubtype: "analysis_error",
+    contentType: "mixed",
+    contentSummary: "產品訊號分析失敗。",
+    relevance: 1,
+    relevantTo: [],
+    whyRelevant: "這次分析沒有產生可信結果。",
+    verdict: "insufficient_data",
+    reason: "原始 provider 錯誤。",
+    evidenceRefs: [],
+    productContextHash: "ctx_error",
+    promptVersion: "v21",
+    analyzedAt: "2026-07-23T06:00:00.000Z",
+    status: "error",
+    error: "原始 provider 錯誤。"
+  });
+
+  await saveProductSignalAnalysis(storage, analysis);
+
+  assert.deepEqual(await getProductSignalAnalysis(storage, analysis.signalId), analysis);
+});
+
 test("v21 storage requires a Product Reading for try and watch", async () => {
   const storage = makeStorage();
 
