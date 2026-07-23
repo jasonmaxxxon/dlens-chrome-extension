@@ -87,13 +87,20 @@ function makeAnalysis(
 }
 
 function makeReading(overrides: Partial<SignalReading> = {}): SignalReading {
+  return {
+    ...materializeReading(makeAnalysis()),
+    ...overrides
+  };
+}
+
+function materializeReading(analysis: ProductSignalAnalysis): SignalReading {
   const reading = materializeProductAnalysisReading({
-    analysis: makeAnalysis(),
+    analysis,
     analyzerInput: makeAnalyzerInput(),
     postUrl: "https://www.threads.com/@author/post/abc"
   });
   assert.ok(reading);
-  return { ...reading, ...overrides };
+  return reading;
 }
 
 function makeAnalyzerInput(): ProductSignalAnalyzerInput {
@@ -241,4 +248,33 @@ test("same cache key with different stored identity does not inherit review", as
   assert.deepEqual(result.reading?.feedbackEvents, []);
   assert.equal(stored?.reviewState, "pending");
   assert.deepEqual(stored?.feedbackEvents, []);
+});
+
+test("reordered support refs preserve the same filed reading identity", async () => {
+  const storage = makeStorage();
+  const firstAnalysis = makeAnalysis();
+  const firstReading = materializeReading(firstAnalysis);
+  await saveProductAnalysisResult(storage, firstAnalysis, {
+    ...firstReading,
+    reviewState: "filed",
+    feedbackEvents: [{ type: "filed", at: "2026-07-23T00:00:00.000Z" }]
+  });
+
+  const reorderedAnalysis = makeAnalysis({
+    productReading: {
+      ...firstAnalysis.productReading!,
+      supportRefs: ["e1", "root"]
+    }
+  });
+  const reorderedReading = materializeReading(reorderedAnalysis);
+  const result = await saveProductAnalysisResult(
+    storage,
+    reorderedAnalysis,
+    reorderedReading
+  );
+
+  assert.deepEqual(reorderedReading.sourceRefs, ["root", "e1"]);
+  assert.equal(reorderedReading.cacheKey, firstReading.cacheKey);
+  assert.equal(result.reading?.reviewState, "filed");
+  assert.equal(result.reading?.feedbackEvents.length, 1);
 });

@@ -15,6 +15,17 @@ function hashText(value: string): string {
   return (hash >>> 0).toString(36);
 }
 
+export function canonicalizeProductReadingSupportRefs(
+  refs: readonly string[]
+): string[] {
+  return [...new Set(refs.map((ref) => ref.trim()).filter(Boolean))]
+    .sort((left, right) => {
+      if (left === "root") return right === "root" ? 0 : -1;
+      if (right === "root") return 1;
+      return left < right ? -1 : left > right ? 1 : 0;
+    });
+}
+
 export function buildProductAnalysisReadingSourcePacketHash(
   sourcePacket: SignalReadingSourcePacket
 ): string {
@@ -31,12 +42,19 @@ export function buildProductAnalysisReadingCacheKey({
   if (!analysis.productReading) {
     throw new Error("Product analysis is missing productReading");
   }
+  const canonicalProductReading = {
+    headline: analysis.productReading.headline,
+    body: analysis.productReading.body,
+    supportRefs: canonicalizeProductReadingSupportRefs(
+      analysis.productReading.supportRefs
+    )
+  };
   return buildSignalReadingCacheKey({
     signalId: analysis.signalId,
     productContextHash: analysis.productContextHash,
     sourcePacketHash,
     promptVersion: analysis.promptVersion,
-    contentHash: hashText(JSON.stringify(analysis.productReading))
+    contentHash: hashText(JSON.stringify(canonicalProductReading))
   });
 }
 
@@ -85,7 +103,7 @@ export function materializeProductAnalysisReading({
     reading: productReading.body,
     generatedAt: analysis.analyzedAt,
     model: analysis.model ?? "",
-    sourceRefs: [...productReading.supportRefs],
+    sourceRefs: canonicalizeProductReadingSupportRefs(productReading.supportRefs),
     sourcePacket,
     origin: "product_analysis",
     reviewState: "pending",

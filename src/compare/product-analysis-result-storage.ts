@@ -1,7 +1,8 @@
 import type { ProductSignalAnalysis } from "../state/types.ts";
 import {
   buildProductAnalysisReadingCacheKey,
-  buildProductAnalysisReadingSourcePacketHash
+  buildProductAnalysisReadingSourcePacketHash,
+  canonicalizeProductReadingSupportRefs
 } from "./product-analysis-reading.ts";
 import {
   PRODUCT_SIGNAL_ANALYSES_STORAGE_KEY,
@@ -29,13 +30,19 @@ function matchesProductAnalysisReadingIdentity(
   if (!productReading) {
     return false;
   }
+  const canonicalAnalysisRefs = canonicalizeProductReadingSupportRefs(
+    productReading.supportRefs
+  );
+  const canonicalReadingRefs = canonicalizeProductReadingSupportRefs(
+    reading.sourceRefs
+  );
   if (
     reading.signalId !== analysis.signalId
     || reading.productContextHash !== analysis.productContextHash
     || reading.promptVersion !== analysis.promptVersion
     || reading.headline !== productReading.headline
     || reading.reading !== productReading.body
-    || !sameStringArray(reading.sourceRefs, productReading.supportRefs)
+    || !sameStringArray(canonicalReadingRefs, canonicalAnalysisRefs)
     || reading.generatedAt !== analysis.analyzedAt
     || reading.model !== (analysis.model ?? "")
     || reading.origin !== "product_analysis"
@@ -56,6 +63,8 @@ function matchesProductAnalysisReadingIdentity(
 }
 
 function hasSameReviewIdentity(left: SignalReading, right: SignalReading): boolean {
+  const leftRefs = canonicalizeProductReadingSupportRefs(left.sourceRefs);
+  const rightRefs = canonicalizeProductReadingSupportRefs(right.sourceRefs);
   return left.cacheKey === right.cacheKey
     && left.signalId === right.signalId
     && left.productContextHash === right.productContextHash
@@ -63,7 +72,7 @@ function hasSameReviewIdentity(left: SignalReading, right: SignalReading): boole
     && left.promptVersion === right.promptVersion
     && left.headline === right.headline
     && left.reading === right.reading
-    && sameStringArray(left.sourceRefs, right.sourceRefs)
+    && sameStringArray(leftRefs, rightRefs)
     && left.origin === right.origin
     && JSON.stringify(left.sourcePacket) === JSON.stringify(right.sourcePacket);
 }
