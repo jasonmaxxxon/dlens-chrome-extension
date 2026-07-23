@@ -36,12 +36,14 @@ import {
 } from "../viewmodel/product-card-presentation";
 import {
   AttentionBeam,
+  AttentionSurface,
   EvidenceSourceHero,
   Kicker,
   MetricIcon,
   ModeHeader,
   PrimaryButton,
   SCAN_ROW_HOVER_CSS,
+  SearchingOrb,
   SecondaryButton,
   SectionHeader,
   Stamp,
@@ -1265,8 +1267,9 @@ function ReadinessPanel({
   /* Compact single-line status bar when everything is green */
   if (viewModel.allGreen && !viewModel.isAnalyzing && !visibleError) {
     return (
-      <div
-        data-dlens-presence="card"
+      <AttentionSurface
+        state="none"
+        dataAttrs={{ "data-product-analysis-surface": "true", "data-dlens-presence": "card" }}
         style={heroPanelStyle({
           display: "flex",
           alignItems: "center",
@@ -1282,12 +1285,16 @@ function ReadinessPanel({
         <SecondaryButton onClick={onAnalyze} disabled={!viewModel.canAnalyze}>
           重新分析
         </SecondaryButton>
-      </div>
+      </AttentionSurface>
     );
   }
 
   return (
-    <div data-dlens-presence="card" style={heroPanelStyle({ gap: hasResults ? 8 : 10 })}>
+      <AttentionSurface
+        state={viewModel.isAnalyzing ? "generating" : "none"}
+        dataAttrs={{ "data-product-analysis-surface": "true", "data-dlens-presence": "card" }}
+      style={heroPanelStyle({ gap: hasResults ? 8 : 10 })}
+    >
       <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10, flexWrap: "wrap" }}>
         <Kicker>{hasResults ? "分析狀態" : "真實狀態"}</Kicker>
         <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
@@ -1336,16 +1343,17 @@ function ReadinessPanel({
           ariaBusy={viewModel.isAnalyzing}
           activateOnPointerDown
         >
-          <AttentionBeam
-            state={viewModel.isAnalyzing ? "generating" : "none"}
-            generatingLabel="分析中"
-            style={{ padding: viewModel.isAnalyzing ? "2px 4px" : 0 }}
-          >
-            {hasResults ? "重新分析" : "分析收件匣"}
-          </AttentionBeam>
+          {viewModel.isAnalyzing ? (
+            <>
+              <SearchingOrb />
+              <span>分析中</span>
+            </>
+          ) : (
+            hasResults ? "重新分析" : "分析收件匣"
+          )}
         </PrimaryButton>
       </div>
-    </div>
+    </AttentionSurface>
   );
 }
 
@@ -2798,8 +2806,13 @@ function ProductActionReadingOperations({
   }
 
   return (
-    <section
-      data-product-action-reading={reading ? "existing" : "missing"}
+    <AttentionSurface
+      as="section"
+      state={generating ? "generating" : "none"}
+      dataAttrs={{
+        "data-product-action-reading": reading ? "existing" : "missing",
+        "data-product-deep-reading-surface": "true"
+      }}
       style={{ display: "grid", gap: 10, paddingTop: 12, borderTop: `1px solid ${tokens.color.line}`, minWidth: 0 }}
     >
       <div style={{ display: "flex", alignItems: "baseline", justifyContent: "space-between", gap: 8, flexWrap: "wrap" }}>
@@ -2819,13 +2832,12 @@ function ProductActionReadingOperations({
             disabled={generating}
             ariaBusy={generating}
           >
-            <AttentionBeam
-              state={generating ? "generating" : "none"}
-              generatingLabel="生成中…"
-              style={{ padding: generating ? "2px 4px" : 0 }}
-            >
-              生成深度判讀
-            </AttentionBeam>
+            {generating ? (
+              <>
+                <SearchingOrb />
+                <span>生成中…</span>
+              </>
+            ) : "生成深度判讀"}
           </PrimaryButton>
         ) : null}
         {reading && onSynthesizeSignalReading ? (
@@ -2835,13 +2847,12 @@ function ProductActionReadingOperations({
             disabled={generating}
             ariaBusy={generating}
           >
-            <AttentionBeam
-              state={generating ? "generating" : "none"}
-              generatingLabel="生成中…"
-              style={{ padding: generating ? "2px 4px" : 0 }}
-            >
-              重新生成判讀
-            </AttentionBeam>
+            {generating ? (
+              <>
+                <SearchingOrb />
+                <span>生成中…</span>
+              </>
+            ) : "重新生成判讀"}
           </SecondaryButton>
         ) : null}
         {reading && onReviewSignalReading ? (
@@ -2882,7 +2893,7 @@ function ProductActionReadingOperations({
           </div>
         </details>
       ) : null}
-    </section>
+    </AttentionSurface>
   );
 }
 

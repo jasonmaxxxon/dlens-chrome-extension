@@ -5889,7 +5889,7 @@ test("Product hydrate requests only data consumed by the live Saved and Action s
   assert.doesNotMatch(popupSource, /historicalAnalyses:|agentTaskFeedback:/);
 });
 
-test("Product Action remembers text-paged selection per verdict bucket and follows visual tile keyboard order", async () => {
+test("Product Action deep reading remembers text-paged selection per verdict bucket and follows visual tile keyboard order", async () => {
   const { JSDOM } = await import("jsdom");
   const { createRoot } = await import("react-dom/client");
   const { act } = await import("react");
@@ -5917,6 +5917,7 @@ test("Product Action remembers text-paged selection per verdict bucket and follo
   assert.ok(rootElement);
   const root = createRoot(rootElement);
   const synthesisCalls: Array<[string, string, boolean | undefined]> = [];
+  let resolveInitialSynthesis: ((result: { ok: true; reading: string }) => void) | undefined;
   const reviewCalls: Array<[string, "filed" | "deferred" | "rejected"]> = [];
   const reading = {
     signalId: "signal_watch_first",
@@ -5956,6 +5957,11 @@ test("Product Action remembers text-paged selection per verdict bucket and follo
     ],
     onSynthesizeSignalReading: async (signalId: string, sessionId: string, force?: boolean) => {
       synthesisCalls.push([signalId, sessionId, force]);
+      if (!force) {
+        return new Promise<{ ok: true; reading: string }>((resolve) => {
+          resolveInitialSynthesis = resolve;
+        });
+      }
       return { ok: true as const, reading: force ? "重新生成的判讀" : "第一份判讀" };
     },
     onReviewSignalReading: async (cacheKey: string, decision: "filed" | "deferred" | "rejected") => {
@@ -6078,6 +6084,21 @@ test("Product Action remembers text-paged selection per verdict bucket and follo
 
     await click("[data-product-action-generate-reading]");
     assert.deepEqual(synthesisCalls, [["signal_watch_first", "session_stage", false]]);
+    const readingSurface = rootElement.querySelector<HTMLElement>('[data-product-deep-reading-surface="true"]');
+    assert.equal(readingSurface?.dataset.attentionBeam, "generating");
+    assert.equal(
+      rootElement.querySelector('[data-product-action-generate-reading] [data-attention-beam]'),
+      null
+    );
+    assert.ok(
+      rootElement.querySelector('[data-product-action-generate-reading] [data-searching-orb="true"]')
+    );
+    await act(async () => {
+      assert.ok(resolveInitialSynthesis);
+      resolveInitialSynthesis({ ok: true, reading: "第一份判讀" });
+      await Promise.resolve();
+    });
+    assert.equal(readingSurface.dataset.attentionBeam, "none");
     await act(async () => {
       root.render(productSignalViewElement({ ...interactiveProps, signalReadings: [reading] }));
       await Promise.resolve();
@@ -6809,8 +6830,8 @@ test("ProductSignalView action route stays on one stage before readings exist", 
   assert.match(html, /data-product-action-stage="signal_empty"/);
   assert.match(html, /data-product-action-reading="missing"/);
   assert.match(html, /data-product-action-generate-reading="true"/);
-  assert.match(html, /data-product-action-generate-reading="true"[^]*data-attention-beam="none"/);
-  assert.doesNotMatch(html, /data-product-action-generate-reading="true"[^]*data-attention-beam="actionable"/);
+  assert.match(findTagWithAttribute(html, 'data-product-deep-reading-surface="true"'), /data-attention-beam="none"/);
+  assert.doesNotMatch(html, /data-product-action-generate-reading="true"[^]*data-attention-beam=/);
   assert.match(html, /保留觀察/);
   assert.doesNotMatch(html, /data-signal-reading-review-workspace="true"/);
   assert.match(html, /尚未生成深度判讀/);
@@ -6818,16 +6839,26 @@ test("ProductSignalView action route stays on one stage before readings exist", 
 
 test("Product user-triggered analysis uses the shared generating attention state", () => {
   const fixture = productActionStageFixture();
-  const html = renderToStaticMarkup(productSignalViewElement({
+  const analyzingHtml = renderToStaticMarkup(productSignalViewElement({
     ...fixture,
     kind: "classification",
     isAnalyzing: true,
     onAnalyze: () => undefined
   }));
+  const idleHtml = renderToStaticMarkup(productSignalViewElement({
+    ...fixture,
+    kind: "classification",
+    isAnalyzing: false,
+    onAnalyze: () => undefined
+  }));
 
-  assert.match(html, /data-attention-beam="generating"/);
-  assert.match(html, /data-searching-orb="true"/);
-  assert.match(html, /aria-busy="true"[^]*分析中/);
+  const analysisSurface = findTagWithAttribute(analyzingHtml, 'data-product-analysis-surface="true"');
+  assert.match(analysisSurface, /data-attention-surface="true"/);
+  assert.match(analysisSurface, /data-attention-beam="generating"/);
+  const analysisButton = findTagWithAttribute(analyzingHtml, 'aria-busy="true"');
+  assert.doesNotMatch(analysisButton, /data-attention-beam=/);
+  assert.match(analyzingHtml, /data-searching-orb="true"[^]*分析中/);
+  assert.match(findTagWithAttribute(idleHtml, 'data-product-analysis-surface="true"'), /data-attention-beam="none"/);
 });
 
 test("ProductSignalView action route ignores stale readings from other signals", () => {
