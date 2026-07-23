@@ -211,10 +211,9 @@ function makeProductSignalAnalysisPayload(label: string) {
       why_it_matters: `supports ${label}`,
       grounding: "text_grounded"
     }],
-    watch_guidance: {
-      source_pattern: `pattern ${label}`,
-      fit_reason: `fit ${label}`,
-      next_evidence: `next ${label}`,
+    product_reading: {
+      headline: `完整判讀 ${label}`,
+      body: `已捕捉文字顯示 ${label} 的工作流方向值得保留觀察；目前證據只支持先確認第二個可重複案例，不足以推論未檢查的外部內容。`,
       support_refs: ["root"]
     }
   };
@@ -1551,6 +1550,130 @@ test("product/analyze-signals writes broadcast state/updated exactly once per ta
   }
 });
 
+async function runProductAnalyzeMessage(label: string) {
+  const product = {
+    ...makeSession(`product-${label}-session`, "product"),
+    items: [makeSucceededItem(`product-${label}`)]
+  };
+  const signal = makeSignal(`product-${label}-signal`, product.id, `item-product-${label}`);
+  const tabKey = backgroundTestables.tabStorageKey(TAB_ID);
+  const global = makeGlobal([product], product.id);
+  const harness = await createHarness({
+    [backgroundTestables.GLOBAL_STORAGE_KEY]: {
+      ...global,
+      settings: {
+        ...global.settings,
+        oneLinerProvider: "google",
+        googleApiKey: "test-google-key"
+      }
+    },
+    [backgroundTestables.ACTIVE_SESSION_ID_STORAGE_KEY]: product.id,
+    [PRODUCT_CONTEXT_STORAGE_KEY]: makeProductContext(),
+    [SIGNALS_STORAGE_KEY]: [signal],
+    [tabKey]: createEmptyTabState()
+  });
+  const response = await harness.dispatch({
+    type: "product/analyze-signals",
+    requestId: `product-${label}`,
+    sessionId: product.id
+  } as ExtensionMessage);
+  return { harness, response };
+}
+
+test("product analysis publishes analysis and projected reading in one storage write", async () => {
+  const originalFetch = globalThis.fetch;
+  try {
+    globalThis.fetch = (async () =>
+      makeGoogleJsonResponse(makeProductSignalAnalysisPayload("publication"))) as typeof fetch;
+    const { harness, response } = await runProductAnalyzeMessage("publication");
+
+    assert.equal(response.ok, true);
+    const resultWrites = harness.writes.filter((keys) =>
+      keys.includes(PRODUCT_SIGNAL_ANALYSES_STORAGE_KEY)
+      || keys.includes(SIGNAL_READINGS_STORAGE_KEY)
+    );
+    assert.equal(resultWrites.length, 1);
+    assert.equal(resultWrites[0]?.includes(PRODUCT_SIGNAL_ANALYSES_STORAGE_KEY), true);
+    assert.equal(resultWrites[0]?.includes(SIGNAL_READINGS_STORAGE_KEY), true);
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
+});
+
+test("normal Product analysis does not call the second reading provider", async () => {
+  const originalFetch = globalThis.fetch;
+  const fetchCalls: string[] = [];
+  try {
+    globalThis.fetch = (async (input: RequestInfo | URL) => {
+      fetchCalls.push(String(input));
+      return makeGoogleJsonResponse(makeProductSignalAnalysisPayload("single-provider"));
+    }) as typeof fetch;
+    const { response } = await runProductAnalyzeMessage("single-provider");
+
+    assert.equal(response.ok, true);
+    assert.equal(fetchCalls.length, 1);
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
+});
+
+test("a signal deleted while the Product analysis provider runs leaves neither analysis nor reading", async () => {
+  const originalFetch = globalThis.fetch;
+  let fetchStarted = false;
+  let releaseAnalysis: ((response: Response) => void) | null = null;
+  const analysisResponse = new Promise<Response>((resolve) => {
+    releaseAnalysis = resolve;
+  });
+
+  try {
+    const item = makeSucceededItem("product-analysis-delete-race");
+    const session = {
+      ...makeSession("product-analysis-delete-race-session", "product"),
+      items: [item]
+    };
+    const signal = makeSignal("product-analysis-delete-race-signal", session.id, item.id);
+    const global = makeGlobal([session], session.id);
+    globalThis.fetch = (async () => {
+      fetchStarted = true;
+      return analysisResponse;
+    }) as typeof fetch;
+    const harness = await createHarness({
+      [backgroundTestables.GLOBAL_STORAGE_KEY]: {
+        ...global,
+        settings: {
+          ...global.settings,
+          oneLinerProvider: "google",
+          googleApiKey: "test-google-key"
+        }
+      },
+      [backgroundTestables.ACTIVE_SESSION_ID_STORAGE_KEY]: session.id,
+      [backgroundTestables.tabStorageKey(TAB_ID)]: createEmptyTabState(),
+      [PRODUCT_CONTEXT_STORAGE_KEY]: makeProductContext(),
+      [SIGNALS_STORAGE_KEY]: [signal]
+    });
+
+    const analysisPromise = harness.dispatch({
+      type: "product/analyze-signals",
+      requestId: "product-analysis-delete-race",
+      sessionId: session.id
+    } as ExtensionMessage);
+    await waitFor(() => fetchStarted, "product analysis provider call");
+
+    const deletion = await harness.dispatch({ type: "signal/delete", signalId: signal.id });
+    assert.equal(deletion.ok, true);
+
+    releaseAnalysis?.(makeGoogleJsonResponse(makeProductSignalAnalysisPayload("deleted")));
+    const analysis = await analysisPromise;
+
+    assert.equal(analysis.ok, true);
+    assert.deepEqual(harness.state[PRODUCT_SIGNAL_ANALYSES_STORAGE_KEY] ?? {}, {});
+    assert.deepEqual(harness.state[SIGNAL_READINGS_STORAGE_KEY] ?? {}, {});
+  } finally {
+    releaseAnalysis?.(makeGoogleJsonResponse(makeProductSignalAnalysisPayload("cleanup")));
+    globalThis.fetch = originalFetch;
+  }
+});
+
 test("product failure summary ignores stale job errors for queued and running items", () => {
   const session = makeSession("product-session", "product");
   const queued = {
@@ -2070,10 +2193,16 @@ test("product/analyze-signals ignores stale direct storage-key writes", async ()
     assert.equal(oldResponse.ok, true);
     assert.equal(newResponse.ok, true);
     assert.equal(harness.writesFor(PRODUCT_SIGNAL_ANALYSES_STORAGE_KEY).length, 1);
+    assert.equal(harness.writesFor(SIGNAL_READINGS_STORAGE_KEY).length, 1);
     assertStateUpdatedBroadcastOnce(harness);
 
     const storedAnalyses = harness.state[PRODUCT_SIGNAL_ANALYSES_STORAGE_KEY] as Record<string, unknown>;
     assert.deepEqual(Object.keys(storedAnalyses).toSorted(), ["new-signal"]);
+    const storedReadings = harness.state[SIGNAL_READINGS_STORAGE_KEY] as Record<string, { signalId: string }>;
+    assert.deepEqual(
+      Object.values(storedReadings).map((reading) => reading.signalId),
+      ["new-signal"]
+    );
     assert.equal(
       readPipelineTrace().some((event) =>
         event.step === "reconcile.stale-result.ignore"

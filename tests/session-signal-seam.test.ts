@@ -147,11 +147,13 @@ test("deleteSignalStorageRecords clears signal-owned derived rows but keeps audi
     productContextHash: "ctx",
     sourcePacketHash: "pkt",
     promptVersion: "v1",
+    headline: "signal 1 product analysis reading",
     reading: "signal 1 reading",
     generatedAt: "2026-06-11T00:00:00.000Z",
     model: "google:test",
     sourceRefs: ["e1"],
     sourcePacket: { assembledContent: "a", postUrl: "https://example.com/1", representativeComments: [], analysisPromptVersion: "v1" },
+    origin: "product_analysis",
     reviewState: "pending",
     feedbackEvents: []
   });

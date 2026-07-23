@@ -80,6 +80,8 @@ import {
   listProductSignalAnalyses,
   saveProductSignalAnalysis
 } from "../src/compare/product-signal-storage";
+import { materializeProductAnalysisReading } from "../src/compare/product-analysis-reading";
+import { saveProductAnalysisResult } from "../src/compare/product-analysis-result-storage";
 import {
   listProductAgentTaskFeedback,
   saveProductAgentTaskFeedback
@@ -737,24 +739,57 @@ async function analyzeProductSignalsForSessionUnlocked(
       continue;
     }
 
+    const commitIfLive = async (commit: () => Promise<void>): Promise<void> => {
+      await withSnapshotLock(async () => {
+        if (!shouldApplyBackgroundReconcile(options)) {
+          return;
+        }
+        const [liveGlobal, liveSignals] = await Promise.all([
+          loadGlobalState(),
+          loadSignals(storageArea, session.id)
+        ]);
+        const liveSession = liveGlobal.sessions.find((entry) =>
+          entry.id === session.id && entry.mode === "product"
+        ) || null;
+        const liveItem = liveSession?.items.find((entry) => entry.id === item.id) || null;
+        const liveSignal = liveSignals.find((entry) =>
+          entry.id === signal.id
+          && entry.itemId === item.id
+          && entry.inboxStatus !== "archived"
+          && entry.inboxStatus !== "rejected"
+        ) || null;
+        if (!liveItem || !liveSignal) {
+          return;
+        }
+        await commit();
+      });
+    };
+
     try {
       const analysis = await generateProductSignalAnalysis(
         providerConfig.provider,
         providerConfig.apiKey,
         input
       );
-      await saveProductSignalAnalysis(storageArea, analysis);
+      const reading = materializeProductAnalysisReading({
+        analysis,
+        analyzerInput: input,
+        postUrl: item.descriptor.post_url || item.descriptor.page_url || ""
+      });
+      await commitIfLive(async () => {
+        await saveProductAnalysisResult(storageArea, analysis, reading);
+      });
     } catch (error) {
       console.error("[dlens] product signal analysis failed:", signal.id, error instanceof Error ? error.message : error);
-      await saveProductSignalAnalysis(
-        storageArea,
-        buildProductSignalErrorAnalysis({
-          signalId: signal.id,
-          productContextHash,
-          error,
-          apiKey: providerConfig.apiKey
-        })
-      );
+      const errorAnalysis = buildProductSignalErrorAnalysis({
+        signalId: signal.id,
+        productContextHash,
+        error,
+        apiKey: providerConfig.apiKey
+      });
+      await commitIfLive(async () => {
+        await saveProductSignalAnalysis(storageArea, errorAnalysis);
+      });
     }
   }
 
