@@ -16,6 +16,7 @@ import {
   type PrNarrativeViewStatus
 } from "../viewmodel/pr-evidence.ts";
 import {
+  AttentionBeam,
   Kicker,
   ModeHeader,
   PrimaryButton,
@@ -138,6 +139,7 @@ function CampaignEditor({
   onChange,
   onSave,
   onGenerateCriteria,
+  canGenerateCriteria,
   onUploadBrief,
   isSaving,
   isReadingBrief,
@@ -152,6 +154,7 @@ function CampaignEditor({
   onChange: (draft: PrCampaignSaveDraft) => void;
   onSave: () => void;
   onGenerateCriteria: () => void;
+  canGenerateCriteria: boolean;
   onUploadBrief: () => void;
   isSaving: boolean;
   isReadingBrief: boolean;
@@ -543,8 +546,19 @@ function CampaignEditor({
             <span style={fieldLabelStyle}>
               PR 判斷條件
             </span>
-            <SecondaryButton onClick={onGenerateCriteria} disabled={isReadingBrief || isGenerating} style={{ ...accentButtonStyle, ...compactButtonStyle }}>
-              {isGenerating ? "生成中..." : "生成條件"}
+            <SecondaryButton
+              onClick={onGenerateCriteria}
+              ariaBusy={isGenerating}
+              dataAttrs={{ "data-pr-criteria-generate": "true" }}
+              disabled={!canGenerateCriteria || isReadingBrief || isGenerating}
+              style={{ ...accentButtonStyle, ...compactButtonStyle }}
+            >
+              <AttentionBeam
+                state={isGenerating ? "generating" : canGenerateCriteria && !isReadingBrief ? "actionable" : "none"}
+                generatingLabel="生成中..."
+              >
+                生成條件
+              </AttentionBeam>
             </SecondaryButton>
           </div>
           <div style={{ display: "grid", gridTemplateColumns: "repeat(2, minmax(0, 1fr))", gap: `${tokens.spacing.sm}px ${tokens.spacing.md}px` }}>
@@ -1880,11 +1894,17 @@ function PrNarrativeLens({
         </div>
         <PrimaryButton
           onClick={() => narrative.generateCommand ? onCommand(narrative.generateCommand) : undefined}
+          ariaBusy={narrative.isGenerating}
           disabled={!canGenerate}
           style={{ ...compactButtonStyle, marginLeft: "auto" }}
           dataAttrs={{ "data-pr-narrative-generate": "true" }}
         >
-          {narrative.isGenerating ? "判讀中..." : narrative.generateLabel}
+          <AttentionBeam
+            state={narrative.isGenerating ? "generating" : canGenerate ? "actionable" : "none"}
+            generatingLabel="判讀中..."
+          >
+            {narrative.generateLabel}
+          </AttentionBeam>
         </PrimaryButton>
       </div>
 
@@ -1969,6 +1989,7 @@ function PrEvidenceViewInner({ viewModel, onCommand }: PrEvidenceViewProps) {
           onChange={(draft) => void dispatchCommand({ kind: "updateDraft", target: { sessionId: viewModel.sessionId }, draft })}
           onSave={() => saveCampaignAction ? void dispatchCommand(saveCampaignAction) : undefined}
           onGenerateCriteria={() => generateCriteriaAction ? void dispatchCommand(generateCriteriaAction) : undefined}
+          canGenerateCriteria={Boolean(generateCriteriaAction)}
           onUploadBrief={() => void dispatchCommand({ kind: "requestBriefUpload", target: { sessionId: viewModel.sessionId } })}
           isSaving={viewModel.ui.isSaving}
           isReadingBrief={viewModel.ui.isReadingBrief}
@@ -2077,8 +2098,19 @@ function SummaryGenerateCard({ onGenerate, loading, disabled = false }: { onGene
           生成摘要：把已判斷 evidence 轉成可貼進 PR brief 的段落。
         </span>
       </div>
-      <SecondaryButton onClick={onGenerate} disabled={disabled || loading} style={{ ...accentButtonStyle, ...compactButtonStyle, whiteSpace: "nowrap" }}>
-        {loading ? "生成中..." : "生成摘要"}
+      <SecondaryButton
+        onClick={onGenerate}
+        ariaBusy={loading}
+        dataAttrs={{ "data-pr-summary-generate": "true" }}
+        disabled={disabled || loading}
+        style={{ ...accentButtonStyle, ...compactButtonStyle, whiteSpace: "nowrap" }}
+      >
+        <AttentionBeam
+          state={loading ? "generating" : disabled ? "none" : "actionable"}
+          generatingLabel="生成中..."
+        >
+          生成摘要
+        </AttentionBeam>
       </SecondaryButton>
     </SurfaceCard>
   );

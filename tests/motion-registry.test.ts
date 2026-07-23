@@ -8,6 +8,7 @@ import { tokens } from "../src/ui/tokens.ts";
 import { readSourceFamily, readUiSourceFamily, type UiSourceFamilyName } from "./helpers/read-ui-source-family.ts";
 
 const {
+  DLENS_ATTENTION_CSS,
   DLENS_KEYFRAMES_CSS,
   DLENS_REDUCED_MOTION_CSS,
   DLENS_MOTION_CSS,
@@ -256,6 +257,30 @@ test("active status rail motion stays under the global control-root reduced-moti
   assert.match(componentsSource, /tokens\.motion\.keyframes\.pulse/);
   assert.match(popupSource, /data-dlens-control="true"/);
   assert.match(DLENS_REDUCED_MOTION_CSS, /\[data-dlens-control="true"\]\s+\*[\s\S]*animation-duration:\s*0\.01ms\s*!important[\s\S]*animation-iteration-count:\s*1\s*!important/);
+});
+
+test("AI attention primitives become explicitly static under reduced motion", () => {
+  const componentsSource = readFileSync(fileURLToPath(new URL("../src/ui/components.tsx", import.meta.url)), "utf8");
+  const popupSource = readFileSync(fileURLToPath(new URL("../src/ui/InPageCollectorPopup.tsx", import.meta.url)), "utf8");
+
+  assert.match(componentsSource, /data-searching-orb/);
+  assert.match(componentsSource, /data-attention-beam/);
+  assert.match(popupSource, /data-dlens-control="true"/);
+  assert.match(DLENS_ATTENTION_CSS, /\[data-attention-beam="generating"\]/);
+  assert.match(DLENS_ATTENTION_CSS, /\[data-attention-beam-sweep="true"\]::before/);
+  assert.match(DLENS_ATTENTION_CSS, /\[data-searching-orb="true"\]/);
+  assert.match(DLENS_ATTENTION_CSS, /dlens-popup-pulse/);
+  assert.match(DLENS_ATTENTION_CSS, /dlens-popup-indeterminate/);
+  const reduceStart = DLENS_REDUCED_MOTION_CSS.indexOf("@media (prefers-reduced-motion: reduce)");
+  const reduceBlock = sliceBalancedBlock(DLENS_REDUCED_MOTION_CSS, reduceStart);
+  const orbSelector = '[data-dlens-control="true"] [data-searching-orb="true"]';
+  const orbRule = sliceBalancedBlock(reduceBlock, reduceBlock.indexOf(orbSelector));
+  const sweepSelector = '[data-dlens-control="true"] [data-attention-beam-sweep="true"]::before';
+  const sweepRule = sliceBalancedBlock(reduceBlock, reduceBlock.indexOf(sweepSelector));
+
+  assert.match(orbRule, /animation:\s*none\s*!important/);
+  assert.match(sweepRule, /animation:\s*none\s*!important/);
+  assert.match(sweepRule, /display:\s*none\s*!important/);
 });
 
 test("tactile cards lift on intent, press below rest, and release through the shared spring", () => {

@@ -521,6 +521,8 @@ test("LibraryView renders folder synthesis as a narrative briefing", () => {
 
   assert.match(html, /data-folder-synthesis="card"/);
   assert.match(html, /data-folder-synthesis-layout="briefing"/);
+  assert.match(html, /data-folder-synthesis-regenerate="true"/);
+  assert.match(html, /data-attention-beam="actionable"/);
   assert.match(html, /data-testid="folder-briefing-narrative"/);
   assert.match(html, /data-testid="folder-briefing-spread"/);
   assert.match(html, /data-testid="folder-briefing-observations"/);
@@ -533,4 +535,48 @@ test("LibraryView renders folder synthesis as a narrative briefing", () => {
   assert.match(html, /裸辭 ×4/);
   assert.match(html, /5\/6 訊號/);
   assert.match(html, new RegExp(FOLDER_SYNTHESIS_VERSION));
+});
+
+test("LibraryView uses the shared generating attention only for folder synthesis generation", () => {
+  const session = buildPreparationSession();
+  const html = renderToStaticMarkup(
+    React.createElement(LibraryView, {
+      activeFolder: session,
+      activeItem: session.items[0] as SessionItem,
+      optimisticQueuedIds: [],
+      workerStatus: "idle" as WorkerStatus | null,
+      isStartingProcessing: false,
+      processAllLabel: "Process All",
+      processingSummary: {
+        total: 4,
+        ready: 1,
+        crawling: 1,
+        analyzing: 1,
+        pending: 1,
+        failed: 0,
+        hasReadyPair: false,
+        hasInflight: true
+      },
+      canPrev: false,
+      canNext: false,
+      onSelectItem: () => undefined,
+      onProcessAll: () => undefined,
+      onMoveSelection: () => undefined,
+      onQueueItem: () => undefined,
+      renderMetrics: () => null,
+      techniqueReadings: [],
+      topicSignalItemIds: [],
+      folderSynthesis: null,
+      folderAnalyzedCount: 5,
+      folderContributingTopicCount: 3,
+      isGeneratingFolderSynthesis: true,
+      onGenerateFolderSynthesis: () => undefined,
+      onClearFolderSynthesis: () => undefined
+    })
+  );
+
+  assert.match(html, /data-folder-synthesis-generate="true"/);
+  assert.match(html, /data-attention-beam="generating"/);
+  assert.match(html, /data-searching-orb="true"/);
+  assert.doesNotMatch(html, /data-item-phase="crawling"[^>]*data-attention-beam=/);
 });

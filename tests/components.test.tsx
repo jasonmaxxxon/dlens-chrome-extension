@@ -7,6 +7,7 @@ import { renderToStaticMarkup } from "react-dom/server";
 import type { TargetDescriptor } from "../src/contracts/target-descriptor.ts";
 import { BUILD_VERSION } from "../src/ui/version.ts";
 import {
+  AttentionBeam,
   DLENS_BUTTON_CSS,
   EvidenceRow,
   ModeHeader,
@@ -14,6 +15,7 @@ import {
   PreviewCard,
   QuoteBlock,
   SCAN_ROW_HOVER_CSS,
+  SearchingOrb,
   SectionHeader,
   StatusDot,
   StatusRail,
@@ -224,6 +226,54 @@ test("shared button motion CSS is scoped to the extension root", () => {
   assert.match(DLENS_BUTTON_CSS, /prefers-reduced-motion/);
   assert.match(DLENS_BUTTON_CSS, /animation: none !important/);
   assert.doesNotMatch(DLENS_BUTTON_CSS, /^\[data-dlens-button\]/m);
+});
+
+test("SearchingOrb exposes one fixed-size shared CSS marker", () => {
+  const html = renderToStaticMarkup(
+    React.createElement(SearchingOrb, null)
+  );
+
+  assert.match(html, /data-searching-orb="true"/);
+  assert.doesNotMatch(html, /data-searching-orb-size/);
+  assert.doesNotMatch(html, /style=/);
+  assert.doesNotMatch(html, /data-searching-orb-core/);
+});
+
+test("AttentionBeam renders generating, actionable, and none states", () => {
+  const generatingHtml = renderToStaticMarkup(
+    React.createElement(
+      AttentionBeam,
+      { state: "generating", generatingLabel: "生成中" },
+      "開始生成"
+    )
+  );
+  assert.match(generatingHtml, /data-attention-beam="generating"/);
+  assert.match(generatingHtml, /data-attention-beam-sweep="true"/);
+  assert.match(generatingHtml, /data-searching-orb="true"/);
+  assert.doesNotMatch(generatingHtml, /data-attention-beam-content/);
+  assert.match(generatingHtml, /生成中/);
+  assert.doesNotMatch(generatingHtml, /開始生成/);
+
+  const actionableHtml = renderToStaticMarkup(
+    React.createElement(
+      AttentionBeam,
+      { state: "actionable" },
+      React.createElement("span", null, "查看完整分析")
+    )
+  );
+  assert.match(actionableHtml, /data-attention-beam="actionable"/);
+  assert.doesNotMatch(actionableHtml, /data-attention-beam-sweep="true"/);
+  assert.doesNotMatch(actionableHtml, /data-searching-orb="true"/);
+
+  const neutralHtml = renderToStaticMarkup(
+    React.createElement(
+      AttentionBeam,
+      { state: "none" },
+      React.createElement("span", null, "Neutral")
+    )
+  );
+  assert.match(neutralHtml, /data-attention-beam="none"/);
+  assert.doesNotMatch(neutralHtml, /data-attention-beam-sweep="true"/);
 });
 
 test("WorkspaceShell masthead exposes the extension build version", () => {

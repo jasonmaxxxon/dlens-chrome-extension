@@ -1,5 +1,6 @@
 import type { SessionItem } from "../state/types.ts";
 import { describeAiOutputProvenance, normalizeAiOutputProvenance, type AiOutputProvenance } from "../state/ai-provenance.ts";
+import { AttentionBeam } from "./components.tsx";
 import { tokens } from "./tokens.ts";
 
 const AR = {
@@ -327,6 +328,7 @@ export function CompareSetupView({
         <button
           type="button"
           data-compare-primary-cta="true"
+          aria-busy={bothSelected && teaserState === "loading" ? "true" : undefined}
           onClick={onOpenResult}
           disabled={openDisabled}
           style={{
@@ -343,7 +345,16 @@ export function CompareSetupView({
             transition: "background 180ms ease, color 180ms ease, transform 180ms ease",
           }}
         >
-          {bothSelected && teaserState === "loading" ? "分析預覽生成中…" : "查看完整分析"}
+          {bothSelected ? (
+            <AttentionBeam
+              state={teaserState === "loading" ? "generating" : "actionable"}
+              generatingLabel="分析預覽生成中…"
+            >
+              查看完整分析
+            </AttentionBeam>
+          ) : (
+            "查看完整分析"
+          )}
         </button>
         {bothSelected ? (
           <button
@@ -403,10 +414,13 @@ export function CompareSetupView({
           </div>
 
           {teaserState === "loading" ? (
-            <div style={{ display: "flex", flexDirection: "column", gap: 7 }}>
-              <div style={{ width: "70%", height: 22, borderRadius: tokens.radius.sm, background: AR.canvas }} />
-              <div style={{ width: "100%", height: 12, borderRadius: tokens.radius.sm, background: AR.canvas }} />
-              <div style={{ width: "80%", height: 12, borderRadius: tokens.radius.sm, background: AR.canvas }} />
+            <div style={{ display: "grid", gap: 6 }}>
+              <div style={{ fontSize: 13, fontWeight: 650, color: AR.ink }}>
+                正在整理 A / B 的分析預覽。
+              </div>
+              <div style={{ fontSize: 12, color: AR.softInk, lineHeight: 1.6 }}>
+                完整分析完成後可直接打開；這張卡只保留文字狀態，不再額外疊加第二套 loading skeleton。
+              </div>
             </div>
           ) : teaser ? (
             <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>

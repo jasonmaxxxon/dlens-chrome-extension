@@ -120,6 +120,7 @@ export function PrimaryButton({
   onClick,
   disabled,
   ariaDisabled,
+  ariaBusy,
   dataAction,
   style
 }: {
@@ -127,6 +128,7 @@ export function PrimaryButton({
   onClick?: () => void;
   disabled?: boolean;
   ariaDisabled?: boolean;
+  ariaBusy?: boolean;
   dataAction?: string;
   style?: CSSProperties;
 }) {
@@ -138,6 +140,7 @@ export function PrimaryButton({
       onClick={ariaDisabled ? undefined : onClick}
       disabled={disabled}
       aria-disabled={ariaDisabled ? "true" : undefined}
+      aria-busy={ariaBusy ? "true" : undefined}
       style={{
         border: "none",
         borderRadius: tokens.radius.button,
@@ -167,6 +170,7 @@ export function GhostButton({
   onClick,
   disabled,
   ariaDisabled,
+  ariaBusy,
   dataAction,
   style
 }: {
@@ -174,6 +178,7 @@ export function GhostButton({
   onClick?: () => void;
   disabled?: boolean;
   ariaDisabled?: boolean;
+  ariaBusy?: boolean;
   dataAction?: string;
   style?: CSSProperties;
 }) {
@@ -185,6 +190,7 @@ export function GhostButton({
       onClick={ariaDisabled ? undefined : onClick}
       disabled={disabled}
       aria-disabled={ariaDisabled ? "true" : undefined}
+      aria-busy={ariaBusy ? "true" : undefined}
       style={{
         border: `1px solid ${tokens.color.line}`,
         borderRadius: tokens.radius.button,

@@ -9,7 +9,7 @@ import type { SessionProcessingSummary, WorkerStatus } from "../state/processing
 import type { FolderSynthesis, SavedAnalysisSnapshot, SessionItem, SessionRecord, TechniqueReadingSnapshot } from "../state/types";
 import { describeAiOutputProvenance, normalizeAiOutputProvenance } from "../state/ai-provenance";
 import { getSessionDisplayName } from "../state/store-helpers";
-import { Kicker, PrimaryButton, SCAN_ROW_HOVER_CSS, SecondaryButton, SectionHeader, SideMark, Stamp, SurfaceCard, TOKENS, lineClamp, viewRootStyle } from "./components";
+import { AttentionBeam, Kicker, PrimaryButton, SCAN_ROW_HOVER_CSS, SecondaryButton, SectionHeader, SideMark, Stamp, SurfaceCard, TOKENS, lineClamp, viewRootStyle } from "./components";
 import { formatSavedAt, PostCard } from "./LibraryView.parts";
 import { modeThemes, textStyles, tokens } from "./tokens";
 
@@ -373,10 +373,17 @@ function FolderSynthesisCard({
           </div>
           <PrimaryButton
             onClick={() => void onGenerate()}
+            ariaBusy={isGenerating}
+            dataAttrs={{ "data-folder-synthesis-generate": "true" }}
             disabled={isGenerating}
             style={{ justifySelf: "start", padding: "8px 14px", fontSize: 12 }}
           >
-            {isGenerating ? "正在合成…" : `生成脈絡（${analyzedCount} 篇 · ${contributingTopicCount} 主題）`}
+            <AttentionBeam
+              state={isGenerating ? "generating" : "actionable"}
+              generatingLabel="正在合成…"
+            >
+              {`生成脈絡（${analyzedCount} 篇 · ${contributingTopicCount} 主題）`}
+            </AttentionBeam>
           </PrimaryButton>
         </div>
       ) : null}
@@ -554,10 +561,17 @@ function FolderSynthesisCard({
           <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
             <SecondaryButton
               onClick={() => void onGenerate()}
+              ariaBusy={isGenerating}
+              dataAttrs={{ "data-folder-synthesis-regenerate": "true" }}
               disabled={isGenerating}
               style={{ padding: "6px 10px", fontSize: 11 }}
             >
-              {isGenerating ? "重新合成中…" : "重新合成"}
+              <AttentionBeam
+                state={isGenerating ? "generating" : "actionable"}
+                generatingLabel="重新合成中…"
+              >
+                重新合成
+              </AttentionBeam>
             </SecondaryButton>
             {onClear ? (
               <SecondaryButton

@@ -243,6 +243,37 @@ export function skeletonBlockStyle(
   };
 }
 
+export type AttentionBeamState = "generating" | "actionable" | "none";
+
+export function SearchingOrb() {
+  return <span data-searching-orb="true" aria-hidden="true" />;
+}
+
+export function AttentionBeam({
+  state,
+  children,
+  generatingLabel,
+  style
+}: {
+  state: AttentionBeamState;
+  children?: ReactNode;
+  generatingLabel?: ReactNode;
+  style?: CSSProperties;
+}) {
+  const generating = state === "generating";
+
+  return (
+    <span
+      data-attention-beam={state}
+      data-attention-beam-sweep={generating ? "true" : undefined}
+      style={style}
+    >
+      {generating ? <SearchingOrb /> : null}
+      {generating ? generatingLabel ?? children : children}
+    </span>
+  );
+}
+
 export function viewRootStyle(extra?: CSSProperties): CSSProperties {
   return {
     display: "grid",
@@ -1769,6 +1800,7 @@ export function PrimaryButton({
   children,
   onClick,
   disabled,
+  ariaBusy,
   style,
   dataAttrs,
   activateOnPointerDown = false
@@ -1776,6 +1808,7 @@ export function PrimaryButton({
   children: ReactNode;
   onClick: () => void;
   disabled?: boolean;
+  ariaBusy?: boolean;
   style?: CSSProperties;
   dataAttrs?: Record<string, string>;
   activateOnPointerDown?: boolean;
@@ -1799,6 +1832,7 @@ export function PrimaryButton({
       onPointerDown={handlePointerDown}
       onClick={handleClick}
       disabled={disabled}
+      aria-busy={ariaBusy ? "true" : undefined}
       style={{
         border: "none",
         borderRadius: tokens.radius.pill,
@@ -1813,6 +1847,9 @@ export function PrimaryButton({
         cursor: disabled ? "not-allowed" : "pointer",
         boxShadow: disabled ? "none" : MODE_ACCENT_BUTTON_SHADOW,
         transition: tokens.motion.interactiveTransition,
+        display: "inline-flex",
+        alignItems: "center",
+        justifyContent: "center",
         ...style
       }}
     >
@@ -1827,12 +1864,14 @@ export function SecondaryButton({
   children,
   onClick,
   disabled,
+  ariaBusy,
   style,
   dataAttrs
 }: {
   children: ReactNode;
   onClick: () => void;
   disabled?: boolean;
+  ariaBusy?: boolean;
   style?: CSSProperties;
   dataAttrs?: Record<string, string>;
 }) {
@@ -1842,6 +1881,7 @@ export function SecondaryButton({
       {...dataAttrs}
       onClick={onClick}
       disabled={disabled}
+      aria-busy={ariaBusy ? "true" : undefined}
       style={{
         border: `1px solid ${tokens.color.glassBorder}`,
         borderRadius: tokens.radius.pill,
@@ -1855,6 +1895,9 @@ export function SecondaryButton({
         cursor: disabled ? "not-allowed" : "pointer",
         opacity: disabled ? 0.5 : 1,
         transition: tokens.motion.interactiveTransition,
+        display: "inline-flex",
+        alignItems: "center",
+        justifyContent: "center",
         ...style
       }}
     >

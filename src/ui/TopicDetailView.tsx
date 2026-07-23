@@ -30,7 +30,7 @@ import type {
   TopicSourceSessionState,
   TopicSignalViewModel
 } from "../viewmodel/topic-detail.ts";
-import { Kicker, PrimaryButton, SCAN_ROW_HOVER_CSS, SecondaryButton, Stamp, SurfaceCard, WorkspaceSurface, lineClamp, scanRowStyle, viewRootStyle } from "./components.tsx";
+import { AttentionBeam, Kicker, PrimaryButton, SCAN_ROW_HOVER_CSS, SecondaryButton, Stamp, SurfaceCard, WorkspaceSurface, lineClamp, scanRowStyle, viewRootStyle } from "./components.tsx";
 import { AtlasNarrativeStage } from "./AtlasNarrativeStage.tsx";
 import { AtlasReactionMap } from "./AtlasReactionMap.tsx";
 import { SignalDrawer } from "./SignalDrawer.tsx";
@@ -1526,6 +1526,7 @@ function TopicAuditOverview({
       : `P1 ${p1ReadyCount ?? 0}/${p1TotalCount}：未分析的篇章會在此次 run 一併處理`
     : "首次生成會自動跑完整 pipeline：留言分流 → 逐篇 P1 判讀 → 詞彙／敘事／群眾反應 → 審查報告";
   const failedStage = summary.failedStage ?? 1;
+  const idleAttentionState = canRunAudit ? "actionable" : "none";
   const runAudit = (fromStage?: TopicAuditStageName, force?: boolean) => {
     if (!canRunAudit) return;
     onRunAudit?.(topic.id, fromStage, force);
@@ -1579,26 +1580,37 @@ function TopicAuditOverview({
         <div style={{ display: "grid", gap: 8, minWidth: 160 }}>
           {summary.reportStatus === "running" ? (
             <div style={{ display: "grid", gap: 8, borderRadius: tokens.radius.button, background: tokens.topicAccent.tintAmber, padding: 10, color: tokens.topicAccent.warm, fontSize: 11.5, fontWeight: 800 }}>
-              <span>生成中 · P{summary.runningStage ?? 1}/6</span>
-              <span style={{ display: "grid", gridTemplateColumns: "repeat(6, 1fr)", gap: 3 }}>
-                {Array.from({ length: 6 }, (_, index) => (
-                  <span key={index} style={{ height: 4, borderRadius: tokens.radius.round, background: index + 1 <= (summary.runningStage ?? 1) ? tokens.topicAccent.warm : tokens.color.queuedSoft }} />
-                ))}
-              </span>
+              <AttentionBeam
+                state="generating"
+                generatingLabel={`生成中 · P${summary.runningStage ?? 1}/6`}
+                style={{ borderRadius: tokens.radius.button, background: tokens.color.elevated, padding: "6px 8px" }}
+              />
             </div>
           ) : summary.reportStatus === "failed" ? (
             <>
-              <AuditPrimaryButton disabled={!canRunAudit} onClick={() => runAudit(auditStageFromNumber(failedStage))}>從 P{failedStage} 續跑</AuditPrimaryButton>
+              <AuditPrimaryButton disabled={!canRunAudit} onClick={() => runAudit(auditStageFromNumber(failedStage))}>
+                <AttentionBeam state={idleAttentionState}>
+                  從 P{failedStage} 續跑
+                </AttentionBeam>
+              </AuditPrimaryButton>
               <AuditGhostButton onClick={() => onOpenAuditReport?.(topic.id)}>查看錯誤詳情 ↗</AuditGhostButton>
             </>
           ) : summary.reportStatus === "stale" ? (
             <>
-              <AuditPrimaryButton disabled={!canRunAudit} onClick={() => runAudit(undefined, true)}>重新生成</AuditPrimaryButton>
+              <AuditPrimaryButton disabled={!canRunAudit} onClick={() => runAudit(undefined, true)}>
+                <AttentionBeam state={idleAttentionState}>
+                  重新生成
+                </AttentionBeam>
+              </AuditPrimaryButton>
               <AuditGhostButton onClick={() => onOpenAuditReport?.(topic.id, true)}>先看舊版 ↗</AuditGhostButton>
             </>
           ) : (
             <>
-              <AuditPrimaryButton disabled={!canRunAudit} onClick={() => runAudit()}>{generateCtaLabel}</AuditPrimaryButton>
+              <AuditPrimaryButton disabled={!canRunAudit} onClick={() => runAudit()}>
+                <AttentionBeam state={idleAttentionState}>
+                  {generateCtaLabel}
+                </AttentionBeam>
+              </AuditPrimaryButton>
               {generateCtaHint ? (
                 <span style={{ fontSize: 10.5, color: tokens.color.softInk, lineHeight: 1.45 }}>{generateCtaHint}</span>
               ) : null}
@@ -1685,10 +1697,16 @@ function TopicAuditAtlasToolbar({
           dataAction="regenerate"
           disabled={!canRunAudit}
           ariaDisabled={isRunning}
+          ariaBusy={isRunning}
           onClick={runAudit}
           style={{ padding: "4px 10px", fontSize: 10.5 }}
         >
-          {isRunning ? "⟳ 重新生成中" : summary.reportStatus === "none" ? "⟳ 生成審查報告" : "⟳ 重新生成"}
+          <AttentionBeam
+            state={isRunning ? "generating" : canRunAudit ? "actionable" : "none"}
+            generatingLabel="⟳ 重新生成中"
+          >
+            {summary.reportStatus === "none" ? "⟳ 生成審查報告" : "⟳ 重新生成"}
+          </AttentionBeam>
         </AuditGhostButton>
       ) : null}
     </div>
@@ -2868,9 +2886,15 @@ export function TopicDetailView({
 	                                <SecondaryButton
 	                                  onClick={() => handleGenerateSignalReading(signal.signalId)}
 	                                  disabled={isGeneratingForSignalId === signal.signalId}
+	                                  ariaBusy={isGeneratingForSignalId === signal.signalId}
 	                                  style={{ padding: "4px 8px", fontSize: 10.5 }}
 	                                >
-	                                  {isGeneratingForSignalId === signal.signalId ? "生成中…" : "生成判讀"}
+	                                  <AttentionBeam
+	                                    state={isGeneratingForSignalId === signal.signalId ? "generating" : "actionable"}
+	                                    generatingLabel="生成中…"
+	                                  >
+	                                    生成判讀
+	                                  </AttentionBeam>
 	                                </SecondaryButton>
 	                                {generatingErrorBySignalId[signal.signalId] ? (
 	                                  <span style={{ fontSize: 10.5, color: tokens.color.failed }}>

@@ -86,6 +86,8 @@ export const DLENS_KEYFRAMES_CSS = `
 }
 `;
 
+export const DLENS_ATTENTION_CSS = `[data-attention-beam]{position:relative;display:inline-flex;align-items:center;justify-content:center;gap:8px;width:100%;min-width:0;overflow:hidden;isolation:isolate;border-radius:${tokens.radius.button}px;padding:0}[data-attention-beam="generating"]{padding:1px 0;background:linear-gradient(90deg,${tokens.color.runningSoft},${tokens.color.surface},${tokens.color.runningSoft});box-shadow:inset 0 0 0 1px ${tokens.color.runningBorder}}[data-attention-beam="actionable"]{padding:1px 0;background:linear-gradient(90deg,var(--dlens-mode-accent-soft),${tokens.color.surface} 20%);box-shadow:inset 2px 0 var(--dlens-mode-accent)}[data-attention-beam-sweep="true"]::before{content:"";position:absolute;z-index:-1;inset:0 auto 0 -34%;width:34%;background:linear-gradient(90deg,transparent,${tokens.color.signalGlow},transparent);opacity:.82;animation:${tokens.motion.keyframes.indeterminate};pointer-events:none}[data-searching-orb="true"]{width:20px;height:20px;flex:0 0 20px;border-radius:${tokens.radius.round}px;background:radial-gradient(circle at 35% 35%,${tokens.color.elevated},${tokens.color.signal} 55%,${tokens.color.accentMid});box-shadow:0 0 14px ${tokens.color.signalGlow};animation:${tokens.motion.keyframes.pulse}}`;
+
 /**
  * Reduced-motion safety net, injected alongside the keyframe registry into every
  * DLens surface (threads overlay, in-page collector, audit-report page). Scoped to
@@ -104,6 +106,14 @@ export const DLENS_REDUCED_MOTION_CSS = `
     animation-iteration-count: 1 !important;
     animation-delay: 0ms !important;
     transition-duration: 0.01ms !important;
+  }
+  [data-dlens-control="true"] [data-searching-orb="true"] {
+    animation: none !important;
+  }
+  [data-dlens-control="true"] [data-attention-beam-sweep="true"]::before {
+    animation: none !important;
+    display: none !important;
+    transform: none !important;
   }
 }
 `;
@@ -125,7 +135,7 @@ export function ensureDlensKeyframes(doc: Document = document): void {
   }
   const style = doc.createElement("style");
   style.id = DLENS_KEYFRAMES_STYLE_ID;
-  style.textContent = DLENS_KEYFRAMES_CSS + DLENS_REDUCED_MOTION_CSS;
+  style.textContent = DLENS_KEYFRAMES_CSS + DLENS_ATTENTION_CSS + DLENS_REDUCED_MOTION_CSS;
   doc.head.appendChild(style);
 }
 
@@ -364,10 +374,6 @@ export const DLENS_MOTION_CSS = `
   [data-dlens-control="true"] [data-signal-reading-filed-flash="true"],
   [data-dlens-control="true"] [data-signal-reading-compose-flash="true"] {
     animation: none !important;
-  }
-  [data-dlens-control="true"] [data-button-shimmer="true"] {
-    animation: none !important;
-    opacity: 0 !important;
   }
 }
 `;
