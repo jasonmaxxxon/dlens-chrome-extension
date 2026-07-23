@@ -95,6 +95,7 @@ const PROVIDER_TIMEOUT_MS = 30_000;
 const PROVIDER_MAX_RETRIES = 2;
 const PROVIDER_RETRY_DELAYS_MS = [250, 500];
 const PROVIDER_RETRY_AFTER_CAP_MS = 10_000;
+const PRODUCT_SIGNAL_ANALYSIS_MAX_OUTPUT_TOKENS = 2800;
 
 type CompareProvider = "openai" | "claude" | "google";
 
@@ -321,7 +322,7 @@ function buildProductSignalAnalysisBody(
       contents: [{ role: "user", parts: [{ text: prompt }] }],
       generationConfig: {
         temperature: 0.2,
-        maxOutputTokens: 1800,
+        maxOutputTokens: PRODUCT_SIGNAL_ANALYSIS_MAX_OUTPUT_TOKENS,
         responseMimeType: "application/json",
         responseJsonSchema: PRODUCT_SIGNAL_ANALYSIS_JSON_SCHEMA
       }
@@ -347,7 +348,7 @@ function buildProductSignalAnalysisBody(
   }
   return {
     model: CLAUDE_COMPARE_MODEL,
-    max_tokens: 1800,
+    max_tokens: PRODUCT_SIGNAL_ANALYSIS_MAX_OUTPUT_TOKENS,
     thinking: { type: "disabled" },
     system,
     messages: [{ role: "user", content: prompt }],

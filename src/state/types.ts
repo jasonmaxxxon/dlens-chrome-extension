@@ -121,6 +121,14 @@ export const PRODUCT_CONTEXT_FIELDS = [
   "unknowns"
 ] as const satisfies readonly ProductContextField[];
 
+export interface ProductReading {
+  headline: string;
+  body: string;
+  supportRefs: string[];
+}
+
+/** @deprecated Compatibility-only seam for legacy stored records and consumers.
+ *  ProductSignalAnalyzer v21 neither accepts nor produces this field. */
 export interface ProductApplicationSuggestion {
   sourcePattern: string;
   fitReason: string;
@@ -130,6 +138,8 @@ export interface ProductApplicationSuggestion {
   verificationQuestion: string;
 }
 
+/** @deprecated Compatibility-only seam for legacy stored records and consumers.
+ *  ProductSignalAnalyzer v21 neither accepts nor produces this field. */
 export interface ProductWatchGuidance {
   sourcePattern: string;
   fitReason: string;
@@ -223,7 +233,10 @@ export interface ProductSignalAnalysis {
   agentTaskSpec?: ProductAgentTaskSpec;
   evidenceRefs: string[];
   evidenceNotes?: ProductSignalEvidenceNote[];
+  productReading?: ProductReading;
+  /** @deprecated Compatibility-only; v21 parser/schema never emits this field. */
   applicationSuggestions?: ProductApplicationSuggestion[];
+  /** @deprecated Compatibility-only; v21 parser/schema never emits this field. */
   watchGuidance?: ProductWatchGuidance;
   judgmentAxes?: ProductSignalJudgmentAxes;
   warnings?: ProductSignalJudgmentWarning[];

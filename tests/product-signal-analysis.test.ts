@@ -82,47 +82,57 @@ test("buildProductSignalAnalyzerPrompt uses assembled content and no contentType
   assert.match(prompt, /e1 role=audience orphan=false parent=none author=bob likes=4/);
   assert.match(prompt, /把 Threads 訊號變成產品判斷/);
   assert.match(prompt, /"usefulness": "useful\|uncertain\|none"/);
-  assert.match(prompt, /watch_guidance/);
+  assert.match(prompt, /product_reading/);
   assert.match(prompt, /不要輸出 verdict/);
   assert.doesNotMatch(prompt, /contentTypeHint/i);
 });
 
-test("buildProductSignalAnalyzerPrompt defines the v20 four-axis and watch contract", () => {
+test("buildProductSignalAnalyzerPrompt defines the v21 four-axis and Product Reading contract", () => {
   const prompt = buildProductSignalAnalyzerPrompt(analyzerInput);
-  assert.equal(PRODUCT_SIGNAL_ANALYSIS_PROMPT_VERSION, "v20");
-  assert.match(prompt, /application_suggestions/);
-  assert.match(prompt, /watch_guidance/);
+  assert.equal(PRODUCT_SIGNAL_ANALYSIS_PROMPT_VERSION, "v21");
+  assert.match(prompt, /product_reading/);
+  assert.doesNotMatch(prompt, /application_suggestions/);
+  assert.doesNotMatch(prompt, /watch_guidance/);
   assert.match(prompt, /低優先順序不等於 park/);
   assert.match(prompt, /external media\/repo\/link contents remain unverified/i);
   assert.match(prompt, /保留觀察|watch/);
 });
 
-test("ProductSignalAnalyzer exposes a strict JSON schema contract", () => {
+test("ProductSignalAnalyzer v21 schema owns one nullable product reading", async () => {
+  const { PRODUCT_SIGNAL_ANALYSIS_CACHE_VERSION } = await import("../src/compare/product-signal-analysis.ts");
+  assert.equal(PRODUCT_SIGNAL_ANALYSIS_PROMPT_VERSION, "v21");
+  assert.equal(PRODUCT_SIGNAL_ANALYSIS_CACHE_VERSION, "v21");
   assert.equal(PRODUCT_SIGNAL_ANALYSIS_JSON_SCHEMA.type, "object");
   assert.equal(PRODUCT_SIGNAL_ANALYSIS_JSON_SCHEMA.additionalProperties, false);
-  assert.deepEqual(PRODUCT_SIGNAL_ANALYSIS_JSON_SCHEMA.required, [
-    "signal_type",
-    "signal_subtype",
-    "content_type",
-    "content_summary",
-    "relevance",
-    "relevant_to",
-    "reference_type",
-    "reference_label",
-    "reference_takeaway",
-    "why_relevant",
-    "usefulness",
-    "testability",
-    "evidence_state",
-    "conflict_state",
-    "reason",
-    "experiment_hint",
-    "agent_task_spec",
-    "evidence_refs",
-    "evidence_notes",
-    "application_suggestions",
-    "watch_guidance"
-  ]);
+  const required = new Set(PRODUCT_SIGNAL_ANALYSIS_JSON_SCHEMA.required);
+  assert.equal(required.has("product_reading"), true);
+  assert.equal(required.has("application_suggestions"), false);
+  assert.equal(required.has("watch_guidance"), false);
+  const props = PRODUCT_SIGNAL_ANALYSIS_JSON_SCHEMA.properties as Record<string, unknown>;
+  assert.equal(props.application_suggestions, undefined);
+  assert.equal(props.watch_guidance, undefined);
+  assert.deepEqual(
+    (props.product_reading as {
+      type: readonly string[];
+      additionalProperties: boolean;
+      required: readonly string[];
+    }).type,
+    ["object", "null"]
+  );
+  assert.equal((props.product_reading as { additionalProperties: boolean }).additionalProperties, false);
+  assert.deepEqual(
+    [...(props.product_reading as { required: readonly string[] }).required].sort(),
+    ["body", "headline", "support_refs"]
+  );
+  const supportRefs = (props.product_reading as {
+    properties: { support_refs: { type: string; minItems: number; maxItems: number } };
+  }).properties.support_refs;
+  assert.deepEqual(supportRefs, {
+    type: "array",
+    minItems: 1,
+    maxItems: 5,
+    items: { type: "string" }
+  });
   assert.ok("agent_task_spec" in PRODUCT_SIGNAL_ANALYSIS_JSON_SCHEMA.properties);
   assert.deepEqual(PRODUCT_SIGNAL_ANALYSIS_JSON_SCHEMA.properties.reference_type.enum, [
     "product_reference",
@@ -163,64 +173,6 @@ test("ProductSignalAnalyzer exposes a strict JSON schema contract", () => {
     "explicit_constraint",
     "explicit_non_goal"
   ]);
-
-  const applicationSuggestions = PRODUCT_SIGNAL_ANALYSIS_JSON_SCHEMA.properties.application_suggestions as unknown as {
-    type: string;
-    maxItems: number;
-    items: {
-      type: string;
-      additionalProperties: boolean;
-      required: string[];
-      properties: {
-        product_context_target: { enum: string[] };
-        source_pattern?: { type: string };
-        fit_reason?: { type: string };
-        small_test?: { type: string };
-        proposal?: unknown;
-      };
-    };
-  };
-  assert.equal(applicationSuggestions.type, "array");
-  assert.equal(applicationSuggestions.maxItems, 3);
-  assert.equal(applicationSuggestions.items.type, "object");
-  assert.equal(applicationSuggestions.items.additionalProperties, false);
-  assert.deepEqual([...applicationSuggestions.items.required].sort(), [
-    "fit_reason",
-    "product_context_target",
-    "small_test",
-    "source_pattern",
-    "support_refs",
-    "verification_question"
-  ]);
-  assert.equal(applicationSuggestions.items.properties.source_pattern?.type, "string");
-  assert.equal(applicationSuggestions.items.properties.fit_reason?.type, "string");
-  assert.equal(applicationSuggestions.items.properties.small_test?.type, "string");
-  assert.equal(applicationSuggestions.items.properties.proposal, undefined);
-  assert.deepEqual(applicationSuggestions.items.properties.product_context_target.enum, [
-    "productPromise",
-    "targetAudience",
-    "agentRoles",
-    "coreWorkflows",
-    "currentCapabilities",
-    "explicitConstraints",
-    "nonGoals",
-    "preferredTechDirection",
-    "evaluationCriteria",
-    "unknowns"
-  ]);
-  const watchGuidance = PRODUCT_SIGNAL_ANALYSIS_JSON_SCHEMA.properties.watch_guidance as unknown as {
-    required: string[];
-    properties: Record<string, { type?: string; minItems?: number; maxItems?: number }>;
-  };
-  assert.deepEqual([...watchGuidance.required].sort(), [
-    "fit_reason",
-    "next_evidence",
-    "source_pattern",
-    "support_refs"
-  ]);
-  assert.equal(watchGuidance.properties.source_pattern?.type, "string");
-  assert.equal(watchGuidance.properties.support_refs?.minItems, 1);
-  assert.equal(watchGuidance.properties.support_refs?.maxItems, 3);
 });
 
 // Offline e2e equivalent for OpenAI strict mode: no API call, but enforces every
@@ -280,10 +232,10 @@ test("PRODUCT_SIGNAL_ANALYSIS_JSON_SCHEMA satisfies OpenAI Structured Outputs st
 });
 
 test("strict schema keeps only the minimal current analyzer fields plus evidence notes", () => {
-  const props = PRODUCT_SIGNAL_ANALYSIS_JSON_SCHEMA.properties;
+  const props = PRODUCT_SIGNAL_ANALYSIS_JSON_SCHEMA.properties as Record<string, any>;
   const experiment = props.experiment_hint as { type: unknown };
   assert.ok(Array.isArray(experiment.type) && experiment.type.includes("null"), "experiment_hint must be nullable");
-  assert.equal(props.verdict, undefined, "raw verdict must not exist in v20 schema");
+  assert.equal(props.verdict, undefined, "raw verdict must not exist in v21 schema");
   assert.equal(props.audience_gap, undefined, "audience_gap is parsed from older/local records but omitted from strict schema");
   const required = PRODUCT_SIGNAL_ANALYSIS_JSON_SCHEMA.required as readonly string[];
   assert.equal(required.includes("audience_gap"), false, "audience_gap is optional and must not force a gap-shaped answer");
@@ -306,7 +258,9 @@ test("strict schema keeps only the minimal current analyzer fields plus evidence
   assert.equal(evidenceProps.properties.copy_recipe_markdown, undefined);
   assert.equal(evidenceProps.properties.workflow_stack, undefined);
   assert.equal(evidenceProps.properties.copyable_template, undefined);
-  assert.ok("watch_guidance" in props);
+  assert.ok("product_reading" in props);
+  assert.equal(props.application_suggestions, undefined);
+  assert.equal(props.watch_guidance, undefined);
 });
 
 test("parseProductSignalAnalysisResponse only keeps agent task specs for try verdicts", () => {
@@ -339,10 +293,9 @@ test("parseProductSignalAnalysisResponse only keeps agent task specs for try ver
         reusable_pattern: "先保留再驗證",
         why_it_works: "留言直接指出目前更適合先觀察。"
       }],
-      watch_guidance: {
-        source_pattern: "先保留這條 workflow 方向",
-        fit_reason: "可能有價值，但還缺直接可做的小實驗",
-        next_evidence: "下一步要知道是否有第二個可重複案例",
+      product_reading: {
+        headline: "先保留這條工作流方向",
+        body: "文字證據顯示這個方向可能有價值，但目前還缺直接可做的小實驗。下一步應確認是否有第二個可重複案例。",
         support_refs: ["e1"]
       }
     }),
@@ -354,7 +307,7 @@ test("parseProductSignalAnalysisResponse only keeps agent task specs for try ver
   assert.equal(parsed?.agentTaskSpec, undefined);
 });
 
-function applicationSuggestionPayload(overrides: Record<string, unknown> = {}): Record<string, unknown> {
+function makeRawAnalysis(overrides: Record<string, unknown> = {}): Record<string, unknown> {
   return {
     signal_type: "learning",
     signal_subtype: "workflow_validation",
@@ -370,8 +323,16 @@ function applicationSuggestionPayload(overrides: Record<string, unknown> = {}): 
     reason: "有明確文字證據可支持小型驗證。",
     experiment_hint: "先用一條已捕捉討論驗證流程。",
     agent_task_spec: null,
-    evidence_refs: ["e1", "e2"],
+    evidence_refs: ["root", "e1", "e2"],
     evidence_notes: [
+      {
+        ref: "root",
+        quote_summary: "主文分享一個具體功能。",
+        why_it_matters: "直接支持產品判讀的來源描述。",
+        grounding: "text_grounded",
+        reusable_pattern: "先展示具體功能",
+        why_it_works: "主文明確描述被分享的功能。"
+      },
       {
         ref: "e1",
         quote_summary: "讀者表示流程符合實際工作。",
@@ -389,8 +350,11 @@ function applicationSuggestionPayload(overrides: Record<string, unknown> = {}): 
         why_it_works: "追問直接揭示使用者需要辨識的差異。"
       }
     ],
-    application_suggestions: [],
-    watch_guidance: null,
+    product_reading: {
+      headline: "把產品假設收斂成小型驗證",
+      body: "原文留言支持先驗證再擴張。對目前產品而言，可先以一條已捕捉討論測試分類流程，再決定是否擴大。",
+      support_refs: ["e1", "e2"]
+    },
     ...overrides
   };
 }
@@ -486,66 +450,83 @@ test("deriveProductSignalVerdict is total across all current axis combinations",
   assert.equal(warnedCount, 2);
 });
 
-test("parseProductSignalAnalysisResponse accepts strict snake_case and camelCase application suggestions", () => {
-  const parsed = parseProductSignalAnalysisResponse(
-    JSON.stringify(applicationSuggestionPayload({
-      application_suggestions: [
-        {
-          source_pattern: "先顯示一個可被否證的定位假設，再要求採用",
-          fit_reason: "可能降低核心流程的人工判讀負擔",
-          small_test: "只在既有分類流程加入一張定位假設卡",
-          product_context_target: "coreWorkflows",
-          support_refs: ["e1"],
-          verification_question: "目前 repo 是否已有對應流程，且一次小實驗能否降低人工判讀？"
-        },
-        {
-          sourcePattern: "把比較追問收斂成一條可檢查的定位差距",
-          fitReason: "可能讓既有評估條件更貼近使用者辨識需求",
-          smallTest: "在評估條件加入一個定位差距檢查項",
-          productContextTarget: "evaluationCriteria",
-          supportRefs: ["e2"],
-          verificationQuestion: "ProductContext 是否已有可衡量定位差距的條件？"
-        }
-      ]
+test("v21 accepts a grounded complete reading for try and watch", () => {
+  const tryParsed = parseProductSignalAnalysisResponse(
+    JSON.stringify(makeRawAnalysis({
+      product_reading: {
+        headline: "用 hover 動畫回應可互動狀態",
+        body: "原文展示 hover 觸發的動態回應。對目前產品而言，值得先在非核心按鈕做局部測試，並觀察流暢度與視覺一致性。",
+        support_refs: ["root", "e1"]
+      }
     })),
     analyzerInput
   );
+  assert.equal(tryParsed?.verdict, "try");
+  assert.deepEqual(tryParsed?.productReading?.supportRefs, ["root", "e1"]);
 
-  assert.deepEqual(parsed?.applicationSuggestions, [
-    {
-      sourcePattern: "先顯示一個可被否證的定位假設，再要求採用",
-      fitReason: "可能降低核心流程的人工判讀負擔",
-      smallTest: "只在既有分類流程加入一張定位假設卡",
-      productContextTarget: "coreWorkflows",
-      supportRefs: ["e1"],
-      verificationQuestion: "目前 repo 是否已有對應流程，且一次小實驗能否降低人工判讀？"
-    },
-    {
-      sourcePattern: "把比較追問收斂成一條可檢查的定位差距",
-      fitReason: "可能讓既有評估條件更貼近使用者辨識需求",
-      smallTest: "在評估條件加入一個定位差距檢查項",
-      productContextTarget: "evaluationCriteria",
-      supportRefs: ["e2"],
-      verificationQuestion: "ProductContext 是否已有可衡量定位差距的條件？"
-    }
-  ]);
+  const watchParsed = parseProductSignalAnalysisResponse(
+    JSON.stringify(makeRawAnalysis({
+      testability: "not_yet_testable",
+      evidence_state: "external_unverified",
+      productReading: {
+        headline: "先保留互動方向並補足外部證據",
+        body: "文字只描述互動效果，未檢查影片或外部連結。這可作為產品靈感，但應先確認實際動畫與現有介面是否相容。",
+        supportRefs: ["e1"]
+      }
+    })),
+    analyzerInput
+  );
+  assert.equal(watchParsed?.verdict, "watch");
+  assert.deepEqual(watchParsed?.productReading?.supportRefs, ["e1"]);
 });
 
-test("parseProductSignalAnalysisResponse drops an entire malformed or unsupported application suggestion", () => {
+test("v21 rejects actionable analysis without a complete reading", () => {
+  const parsed = parseProductSignalAnalysisResponse(
+    JSON.stringify(makeRawAnalysis({
+      testability: "not_yet_testable",
+      evidence_state: "external_unverified",
+      product_reading: null
+    })),
+    analyzerInput
+  );
+  assert.equal(parsed, null);
+});
+
+test("v21 discards reading content for a non-actionable verdict", () => {
+  const parsed = parseProductSignalAnalysisResponse(
+    JSON.stringify(makeRawAnalysis({
+      usefulness: "none",
+      testability: "not_applicable",
+      product_reading: {
+        headline: "不應顯示",
+        body: "這段不應形成高注意力內容。",
+        support_refs: ["root"]
+      }
+    })),
+    analyzerInput
+  );
+  assert.equal(parsed?.verdict, "park");
+  assert.equal(parsed?.productReading, undefined);
+});
+
+test("v21 rejects malformed or ungrounded Product Readings", () => {
+  const validReading = {
+    headline: "先測試可檢查的流程",
+    body: "原文提供具體文字證據。對目前產品而言，可先做一個有限、可停止的測試。",
+    support_refs: ["e1"]
+  };
   const invalidCases: Array<[string, Record<string, unknown>, Record<string, unknown>]> = [
-    ["unknown target", { product_context_target: "technicalLearning" }, {}],
-    ["empty source_pattern", { source_pattern: "   " }, {}],
-    ["empty fit_reason", { fit_reason: "   " }, {}],
-    ["empty small_test", { small_test: "   " }, {}],
-    ["empty question", { verification_question: "   " }, {}],
+    ["blank headline", { headline: "   " }, {}],
+    ["blank body", { body: "   " }, {}],
+    ["zero refs", { support_refs: [] }, {}],
+    ["more than five refs", { support_refs: ["root", "e1", "e2", "e3", "e4", "e5"] }, {}],
+    ["duplicate refs", { support_refs: ["e1", "e1"] }, {}],
     ["empty ref", { support_refs: [""] }, {}],
-    ["raw ref with surrounding whitespace", { support_refs: [" e1 "] }, {}],
-    ["non-string raw ref", { support_refs: [1] }, {}],
-    ["duplicate raw ref", { support_refs: ["e1", "e1"] }, {}],
-    ["unknown ref", { support_refs: ["e9"] }, {}],
-    ["ref absent from evidenceRefs", { support_refs: ["e2"] }, { evidence_refs: ["e1"] }],
+    ["ref with whitespace", { support_refs: [" e1 "] }, {}],
+    ["non-string ref", { support_refs: [1] }, {}],
+    ["ref absent from evidence_refs", { support_refs: ["e2"] }, { evidence_refs: ["e1"] }],
     [
-      "ref without a text-grounded note",
+      "ref without text_grounded note",
       { support_refs: ["e1"] },
       {
         evidence_notes: [{
@@ -557,21 +538,14 @@ test("parseProductSignalAnalysisResponse drops an entire malformed or unsupporte
           why_it_works: "原文未直接支持。"
         }]
       }
-    ]
+    ],
+    ["body over 1200 code points", { body: "判".repeat(1201) }, {}]
   ];
 
-  for (const [label, suggestionOverrides, payloadOverrides] of invalidCases) {
+  for (const [label, readingOverrides, payloadOverrides] of invalidCases) {
     const parsed = parseProductSignalAnalysisResponse(
-      JSON.stringify(applicationSuggestionPayload({
-        application_suggestions: [{
-          source_pattern: "先展示可檢查結果，再要求採用",
-          fit_reason: "可能降低核心流程的首次決策負擔",
-          small_test: "只在一個入口測試先預覽後確認",
-          product_context_target: "coreWorkflows",
-          support_refs: ["e1"],
-          verification_question: "現有產品流程能否支持這項有限實驗？",
-          ...suggestionOverrides
-        }],
+      JSON.stringify(makeRawAnalysis({
+        product_reading: { ...validReading, ...readingOverrides },
         ...payloadOverrides
       })),
       analyzerInput
@@ -580,172 +554,14 @@ test("parseProductSignalAnalysisResponse drops an entire malformed or unsupporte
   }
 });
 
-test("parseProductSignalAnalysisResponse only emits suggestions for non-noise try analyses", () => {
-  for (const overrides of [
-    {
-      testability: "not_yet_testable",
-      watch_guidance: {
-        source_pattern: "先保留這條方向",
-        fit_reason: "目前還缺直接可做的小實驗",
-        next_evidence: "下一步要知道是否有更小的可逆驗證",
-        support_refs: ["e1"]
-      }
-    },
-    { signal_type: "noise" }
-  ]) {
-    const parsed = parseProductSignalAnalysisResponse(
-      JSON.stringify(applicationSuggestionPayload({
-        ...overrides,
-        application_suggestions: [{
-          source_pattern: "先展示可檢查結果，再要求採用",
-          fit_reason: "可能降低核心流程的首次決策負擔",
-          small_test: "只在一個入口測試先預覽後確認",
-          product_context_target: "coreWorkflows",
-          support_refs: ["e1"],
-          verification_question: "現有產品流程能否支持這項有限實驗？"
-        }]
-      })),
-      analyzerInput
-    );
-    assert.equal(parsed?.applicationSuggestions, undefined);
-  }
-});
-
-test("parseProductSignalAnalysisResponse rejects root-only support, deduplicates, caps, and truncates valid suggestions", () => {
-  const longSource = "來".repeat(90);
-  const longTest = "試".repeat(110);
-  const longQuestion = "問".repeat(110);
-  const parsed = parseProductSignalAnalysisResponse(
-    JSON.stringify(applicationSuggestionPayload({
-      application_suggestions: [
-        {
-          source_pattern: "  先展示   可檢查結果  ",
-          fit_reason: "可能降低首次決策負擔",
-          small_test: "只在一個入口小試",
-          product_context_target: "coreWorkflows",
-          support_refs: ["e1"],
-          verification_question: "問題一？"
-        },
-        {
-          source_pattern: "先展示 可檢查結果",
-          fit_reason: "另一個看似不同的理由",
-          small_test: "只在一個入口小試",
-          product_context_target: "coreWorkflows",
-          support_refs: ["e2"],
-          verification_question: "重複提案應被移除？"
-        },
-        {
-          source_pattern: longSource,
-          fit_reason: "可能對評估標準有幫助",
-          small_test: longTest,
-          product_context_target: "evaluationCriteria",
-          support_refs: ["e1"],
-          verification_question: longQuestion
-        },
-        {
-          source_pattern: "檢查明確限制的展示做法",
-          fit_reason: "可能避免違反既有限制",
-          small_test: "只在一處限制檢查",
-          product_context_target: "explicitConstraints",
-          support_refs: ["e2"],
-          verification_question: "限制是否阻止這項實驗？"
-        },
-        {
-          source_pattern: "第四個唯一提案不應保留",
-          fit_reason: "理由",
-          small_test: "測試",
-          product_context_target: "unknowns",
-          support_refs: ["e1"],
-          verification_question: "未知項是否能被小型實驗回答？"
-        }
-      ]
-    })),
-    analyzerInput
-  );
-
-  assert.equal(parsed?.applicationSuggestions?.length, 3);
-  assert.equal(parsed?.applicationSuggestions?.[0]?.sourcePattern, "先展示 可檢查結果");
-  assert.equal(parsed?.applicationSuggestions?.[1]?.sourcePattern.length, 80);
-  assert.equal(parsed?.applicationSuggestions?.[1]?.smallTest.length, 100);
-  assert.equal(parsed?.applicationSuggestions?.[1]?.verificationQuestion.length, 100);
-  assert.equal(parsed?.applicationSuggestions?.[2]?.productContextTarget, "explicitConstraints");
-
-  const rootOnly = parseProductSignalAnalysisResponse(
-    JSON.stringify(applicationSuggestionPayload({
-      evidence_refs: [],
-      evidence_notes: [],
-      application_suggestions: [{
-        source_pattern: "不能只靠 root post 產生結構化提案",
-        fit_reason: "可能仍缺乏 discussion 支持",
-        small_test: "先確認是否有 discussion evidence",
-        product_context_target: "coreWorkflows",
-        support_refs: ["e1"],
-        verification_question: "這項提案有 discussion evidence 嗎？"
-      }]
-    })),
-    { ...analyzerInput, discussionReplies: [] }
-  );
-  assert.equal(rootOnly, null);
-});
-
-test("parseProductSignalAnalysisResponse accepts non-software (shop, service) application suggestions", () => {
-  const shop = parseProductSignalAnalysisResponse(
-    JSON.stringify(applicationSuggestionPayload({
-      application_suggestions: [{
-        source_pattern: "先讓顧客看到成品，再要求下單",
-        fit_reason: "可能降低核心購物流程的決策阻力",
-        small_test: "只在一個商品分類先試先看成品再結帳",
-        product_context_target: "coreWorkflows",
-        support_refs: ["e1"],
-        verification_question: "該分類的加入購物車率是否提高？"
-      }]
-    })),
-    analyzerInput
-  );
-  assert.equal(shop?.applicationSuggestions?.length, 1);
-  assert.equal(shop?.applicationSuggestions?.[0]?.productContextTarget, "coreWorkflows");
-
-  const service = parseProductSignalAnalysisResponse(
-    JSON.stringify(applicationSuggestionPayload({
-      application_suggestions: [{
-        source_pattern: "預約前先問幾個資格問題",
-        fit_reason: "可能讓現有服務能力更快對到合適客戶",
-        small_test: "只在一條預約路徑加入預先資格問題",
-        product_context_target: "currentCapabilities",
-        support_refs: ["e2"],
-        verification_question: "該路徑的到場率是否提高？"
-      }]
-    })),
-    analyzerInput
-  );
-  assert.equal(service?.applicationSuggestions?.length, 1);
-  assert.equal(service?.applicationSuggestions?.[0]?.productContextTarget, "currentCapabilities");
-
-  const noise = parseProductSignalAnalysisResponse(
-    JSON.stringify(applicationSuggestionPayload({
-      signal_type: "noise",
-      application_suggestions: [{
-        source_pattern: "無關雜訊的做法",
-        fit_reason: "可能無關",
-        small_test: "不應輸出",
-        product_context_target: "coreWorkflows",
-        support_refs: ["e1"],
-        verification_question: "應為空？"
-      }]
-    })),
-    analyzerInput
-  );
-  assert.equal(noise?.applicationSuggestions, undefined);
-});
-
-test("parseProductSignalAnalysisResponse keeps a root-only grounded application suggestion", () => {
+test("v21 accepts a grounded root-only Product Reading and caps the headline", () => {
   const rootOnlyInput = {
     ...analyzerInput,
     rootText: "作者說先展示可檢查結果，再要求採用。",
     discussionReplies: []
   };
   const parsed = parseProductSignalAnalysisResponse(
-    JSON.stringify(applicationSuggestionPayload({
+    JSON.stringify(makeRawAnalysis({
       evidence_refs: ["root"],
       evidence_notes: [{
         ref: "root",
@@ -755,37 +571,37 @@ test("parseProductSignalAnalysisResponse keeps a root-only grounded application 
         reusable_pattern: "先展示再要求採用",
         why_it_works: "主文明確描述先讓使用者檢查結果再確認。"
       }],
-      application_suggestions: [{
-        source_pattern: "先展示可檢查結果，再要求採用",
-        fit_reason: "可能降低核心流程的首次決策負擔",
-        small_test: "只在一個入口測試先預覽後確認",
-        product_context_target: "coreWorkflows",
-        support_refs: ["root"],
-        verification_question: "首次完成率是否提高？"
-      }]
+      product_reading: {
+        headline: "標".repeat(70),
+        body: "主文明確描述先讓使用者檢查結果再確認，足以支持一項有限測試。",
+        support_refs: ["root"]
+      }
     })),
     rootOnlyInput
   );
 
-  assert.deepEqual(parsed?.applicationSuggestions, [{
-    sourcePattern: "先展示可檢查結果，再要求採用",
-    fitReason: "可能降低核心流程的首次決策負擔",
-    smallTest: "只在一個入口測試先預覽後確認",
-    productContextTarget: "coreWorkflows",
-    supportRefs: ["root"],
-    verificationQuestion: "首次完成率是否提高？"
-  }]);
+  assert.equal(parsed?.productReading?.headline, "標".repeat(60));
+  assert.deepEqual(parsed?.productReading?.supportRefs, ["root"]);
 });
 
-test("parseProductSignalAnalysisResponse rejects a legacy v18 proposal-only application row", () => {
+test("v21 does not fall back to retired proposal fields", () => {
   const parsed = parseProductSignalAnalysisResponse(
-    JSON.stringify(applicationSuggestionPayload({
+    JSON.stringify(makeRawAnalysis({
+      product_reading: null,
       application_suggestions: [{
-        proposal: "舊版 v18 只有 proposal，缺少三段結構。",
+        source_pattern: "舊版提案",
+        fit_reason: "不應成為替代內容",
+        small_test: "不應執行",
         product_context_target: "coreWorkflows",
         support_refs: ["e1"],
-        verification_question: "這個舊格式是否應被拒絕？"
-      }]
+        verification_question: "不應讀取？"
+      }],
+      watch_guidance: {
+        source_pattern: "舊版觀察",
+        fit_reason: "不應成為替代內容",
+        next_evidence: "不應讀取",
+        support_refs: ["e1"]
+      }
     })),
     analyzerInput
   );
@@ -835,15 +651,11 @@ test("parseProductSignalAnalysisResponse normalizes strict JSON and owns metadat
           why_it_works: "回覆直接點出需要驗證的差異。"
         }
       ],
-      application_suggestions: [{
-        source_pattern: "先讓人檢查結果，再決定是否採用",
-        fit_reason: "可能讓分類流程先收斂成單一步驟驗證",
-        small_test: "在一個入口先試單步分類驗證",
-        product_context_target: "coreWorkflows",
-        support_refs: ["e1", "e2"],
-        verification_question: "單步分類驗證是否能降低人工判讀？"
-      }],
-      watch_guidance: null
+      product_reading: {
+        headline: "先把定位比較收斂成單一步驟驗證",
+        body: "主文與回覆顯示使用者需要先看見可檢查的分類結果，再決定是否採用。對目前產品而言，可先在一個入口測試單步分類驗證。",
+        support_refs: ["e1", "e2"]
+      }
     }),
     analyzerInput,
     "2026-04-27T01:00:00.000Z"
@@ -888,16 +700,11 @@ test("parseProductSignalAnalysisResponse normalizes strict JSON and owns metadat
         whyItWorks: "回覆直接點出需要驗證的差異。"
       }
     ],
-    applicationSuggestions: [
-      {
-        sourcePattern: "先讓人檢查結果，再決定是否採用",
-        fitReason: "可能讓分類流程先收斂成單一步驟驗證",
-        smallTest: "在一個入口先試單步分類驗證",
-        productContextTarget: "coreWorkflows",
-        supportRefs: ["e1", "e2"],
-        verificationQuestion: "單步分類驗證是否能降低人工判讀？"
-      }
-    ],
+    productReading: {
+      headline: "先把定位比較收斂成單一步驟驗證",
+      body: "主文與回覆顯示使用者需要先看見可檢查的分類結果，再決定是否採用。對目前產品而言，可先在一個入口測試單步分類驗證。",
+      supportRefs: ["e1", "e2"]
+    },
     judgmentAxes: {
       usefulness: "useful",
       testability: "reversible_test",
@@ -976,15 +783,11 @@ test("parseProductSignalAnalysisResponse preserves legacy optional fields when p
           tradeoff: "不應顯示。"
         }
       ],
-      application_suggestions: [{
-        source_pattern: "把討論收斂成可交付文件模板",
-        fit_reason: "可能讓核心工作流先做一條有限文件驗證",
-        small_test: "先用一個 release note 模板測試可交付格式",
-        product_context_target: "coreWorkflows",
-        support_refs: ["e1", "e2"],
-        verification_question: "這個模板是否讓 PM 重複使用？"
-      }],
-      watch_guidance: null
+      product_reading: {
+        headline: "把討論收斂成可交付文件模板",
+        body: "兩則回覆提供了把資料來源轉成文件與分析摘要的具體工作流。對目前產品而言，可先用一個 release note 模板驗證 PM 是否重複使用。",
+        support_refs: ["e1", "e2"]
+      }
     }),
     analyzerInput,
     "2026-04-28T01:00:00.000Z"
@@ -1002,7 +805,7 @@ test("parseProductSignalAnalysisResponse preserves legacy optional fields when p
     conflictState: "none"
   });
   assert.deepEqual(parsed?.warnings, []);
-  assert.equal(parsed?.applicationSuggestions?.length, 1);
+  assert.deepEqual(parsed?.productReading?.supportRefs, ["e1", "e2"]);
   assert.deepEqual(parsed?.evidenceNotes, [
     {
       ref: "e1",
@@ -1052,8 +855,7 @@ test("parseProductSignalAnalysisResponse drops whyNow/validationMetric for park 
       blockers: [],
       evidence_refs: [],
       evidence_notes: [],
-      application_suggestions: [],
-      watch_guidance: null
+      product_reading: null
     }),
     analyzerInput
   );
@@ -1063,14 +865,17 @@ test("parseProductSignalAnalysisResponse drops whyNow/validationMetric for park 
   assert.equal(parsed?.blockers, undefined);
 });
 
-test("buildProductSignalAnalyzerPrompt enforces evidence-specific workflow recipes and product-aware blocking", () => {
+test("buildProductSignalAnalyzerPrompt enforces evidence-specific Product Reading and product-aware blocking", () => {
   const prompt = buildProductSignalAnalyzerPrompt(analyzerInput);
   assert.match(prompt, /所有面向用戶的文字欄位用繁體中文/);
   assert.match(prompt, /reference_type/);
   assert.match(prompt, /reference_takeaway/);
   assert.match(prompt, /所有 schema keys 都必須出現/);
   assert.match(prompt, /四軸：usefulness、testability、evidence_state、conflict_state/);
-  assert.match(prompt, /若 claim reversible_test 但找不到可信 small_test，請改成 watch/);
+  assert.match(prompt, /product_reading/);
+  assert.match(prompt, /evidence|證據/i);
+  assert.match(prompt, /inference|推論/i);
+  assert.match(prompt, /uncertainty|不確定/i);
   assert.doesNotMatch(prompt, /why_now/);
   assert.doesNotMatch(prompt, /validation_metric/);
   assert.doesNotMatch(prompt, /blockers/);
@@ -1081,18 +886,19 @@ test("buildProductSignalAnalyzerPrompt enforces evidence-specific workflow recip
   assert.match(prompt, /external media\/repo\/link contents remain unverified/i);
 });
 
-test("buildProductSignalAnalyzerPrompt defines conservative application suggestions without a hand-authored example", () => {
+test("buildProductSignalAnalyzerPrompt defines a complete free-form reading without a hand-authored example", () => {
   const prompt = buildProductSignalAnalyzerPrompt(analyzerInput);
 
-  assert.match(prompt, /application_suggestions/);
-  assert.match(prompt, /watch_guidance/);
+  assert.match(prompt, /product_reading/);
+  assert.doesNotMatch(prompt, /application_suggestions/);
+  assert.doesNotMatch(prompt, /watch_guidance/);
   assert.match(prompt, /ProductContext/);
-  assert.match(prompt, /product_context_target/);
   assert.match(prompt, /evidence_refs/);
   assert.match(prompt, /text_grounded/);
   assert.match(prompt, /可逆|有限/);
-  assert.match(prompt, /source_pattern/);
-  assert.match(prompt, /next_evidence/);
+  assert.match(prompt, /headline/);
+  assert.match(prompt, /body/);
+  assert.match(prompt, /support_refs/);
   for (const fixtureMarker of ["Focus Blur", "Stamp Arc", "刪除震動"]) {
     assert.doesNotMatch(prompt, new RegExp(fixtureMarker), `prompt must not contain G/G1 fixture marker: ${fixtureMarker}`);
   }
@@ -1151,15 +957,11 @@ test("parseProductSignalAnalysisResponse keeps longer evidence explanations but 
         copy_recipe_markdown: longRecipe,
         tradeoff: "需要控管 tool 權限。"
       }],
-      application_suggestions: [{
-        source_pattern: "先用 read-only MCP server 驗證單條資料流",
-        fit_reason: "可能讓核心工作流先驗證工具發現與輸出是否連得起來",
-        small_test: "只接一條 read-only MCP 資料流並輸出 markdown 摘要",
-        product_context_target: "coreWorkflows",
-        support_refs: ["e1"],
-        verification_question: "單條資料流是否能穩定輸出可檢查摘要？"
-      }],
-      watch_guidance: null
+      product_reading: {
+        headline: "用 read-only MCP 驗證單條資料流",
+        body: "留言提供了工具發現與可檢查輸出的文字證據。對目前產品而言，可先接一條 read-only MCP 資料流並驗證能否穩定輸出摘要。",
+        support_refs: ["e1"]
+      }
     }),
     analyzerInput
   );
@@ -1205,10 +1007,10 @@ test("buildProductSignalAnalyzerPrompt includes local feedback examples only whe
   assert.doesNotMatch(promptWithoutExamples, /\[USER_FEEDBACK_EXAMPLES\]/);
 });
 
-test("PROMPT_VERSION + CACHE_VERSION are v20", async () => {
+test("PROMPT_VERSION + CACHE_VERSION are v21", async () => {
   const { PRODUCT_SIGNAL_ANALYSIS_CACHE_VERSION } = await import("../src/compare/product-signal-analysis.ts");
-  assert.equal(PRODUCT_SIGNAL_ANALYSIS_PROMPT_VERSION, "v20");
-  assert.equal(PRODUCT_SIGNAL_ANALYSIS_CACHE_VERSION, "v20");
+  assert.equal(PRODUCT_SIGNAL_ANALYSIS_PROMPT_VERSION, "v21");
+  assert.equal(PRODUCT_SIGNAL_ANALYSIS_CACHE_VERSION, "v21");
 });
 
 test("parseProductSignalAnalysisResponse rejects incomplete or fake score payloads", () => {
@@ -1230,8 +1032,7 @@ test("parseProductSignalAnalysisResponse rejects incomplete or fake score payloa
         reason: "reason",
         evidence_refs: [],
         evidence_notes: [],
-        application_suggestions: [],
-        watch_guidance: null
+        product_reading: null
       }),
       analyzerInput
     ),

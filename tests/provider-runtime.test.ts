@@ -5,7 +5,6 @@ import test from "node:test";
 import { providerTestables } from "../src/compare/provider.ts";
 import { generateCompareOneLiner, generateTopicAuditEnvelope } from "../src/compare/provider.ts";
 import { TopicAuditEnvelopeError } from "../src/compare/topic-audit-envelope-contract.ts";
-import { PRODUCT_CONTEXT_FIELDS } from "../src/state/types.ts";
 
 test("fetchWithRetry retries transient fetch failures before succeeding", async () => {
   const originalFetch = globalThis.fetch;
@@ -90,7 +89,7 @@ test("fetchWithRetry aborts stalled requests and surfaces a timeout error", asyn
   }
 });
 
-test("provider payloads use structured schema for ProductSignalAnalyzer", () => {
+test("ProductSignalAnalyzer v21 provider payloads share one Product Reading schema", () => {
   const openAiBody = providerTestables.buildProductSignalAnalysisBody("openai", "system", "prompt");
   assert.equal(openAiBody.response_format.type, "json_schema");
   assert.equal(openAiBody.response_format.json_schema.strict, true);
@@ -110,36 +109,28 @@ test("provider payloads use structured schema for ProductSignalAnalyzer", () => 
   assert.deepEqual(googleSchema, openAiSchema);
   assert.deepEqual(claudeSchema, openAiSchema);
   assert.equal(openAiSchema.additionalProperties, false);
-  assert.ok(openAiSchema.required.includes("application_suggestions"));
-  assert.deepEqual(openAiSchema.properties.application_suggestions, {
-    type: "array",
-    maxItems: 3,
-    items: {
-      type: "object",
-      additionalProperties: false,
-      required: [
-        "source_pattern",
-        "fit_reason",
-        "small_test",
-        "product_context_target",
-        "support_refs",
-        "verification_question"
-      ],
-      properties: {
-        source_pattern: { type: "string" },
-        fit_reason: { type: "string" },
-        small_test: { type: "string" },
-        product_context_target: { type: "string", enum: PRODUCT_CONTEXT_FIELDS },
-        support_refs: {
-          type: "array",
-          minItems: 1,
-          maxItems: 3,
-          items: { type: "string" }
-        },
-        verification_question: { type: "string" }
+  assert.ok(openAiSchema.required.includes("product_reading"));
+  assert.equal(openAiSchema.required.includes("application_suggestions"), false);
+  assert.equal(openAiSchema.required.includes("watch_guidance"), false);
+  assert.equal(openAiSchema.properties.application_suggestions, undefined);
+  assert.equal(openAiSchema.properties.watch_guidance, undefined);
+  assert.deepEqual(openAiSchema.properties.product_reading, {
+    type: ["object", "null"],
+    additionalProperties: false,
+    required: ["headline", "body", "support_refs"],
+    properties: {
+      headline: { type: "string" },
+      body: { type: "string" },
+      support_refs: {
+        type: "array",
+        minItems: 1,
+        maxItems: 5,
+        items: { type: "string" }
       }
     }
   });
+  assert.equal(googleBody.generationConfig.maxOutputTokens, 2800);
+  assert.equal(claudeBody.max_tokens, 2800);
 });
 
 test("OpenAI compare one-liner caps completion tokens", async () => {
