@@ -95,6 +95,25 @@ For `park`, `noise`, and `insufficient_data`, Product mode keeps the concise
 reason and evidence state. It does not spend output tokens or visual attention
 on a long reading.
 
+### First-open quality contract
+
+“One model pass” is also a first-open experience guarantee:
+
+- once Product analysis reports complete, opening a `try` or `watch` card for
+  the first time shows its complete high-quality Product Reading immediately;
+- the user does not click generate, expand, retry, or another tab to reach the
+  useful judgment;
+- the first visible reading is not a placeholder assembled from
+  `whyRelevant`, `sourcePattern`, `fitReason`, or other legacy short fields;
+- analysis cannot enter a successful complete state for a `try` or `watch`
+  signal unless its valid Product Reading has also been persisted;
+- while analysis is genuinely running, the UI shows the existing honest
+  processing state. It must not present a low-quality interim proposal as if it
+  were the finished answer.
+
+Quality therefore belongs to the initial analyzer contract, parser invariant,
+and stored result. It is not deferred to a later UI interaction.
+
 ## Analysis contract
 
 ### New type
@@ -351,6 +370,21 @@ The Product Reading card reuses the Product inbox visual language:
 - clear inset spacing;
 - no nested card inside another equivalently weighted card.
 
+The implementation must derive these values from the existing shared tokens and
+surface helpers, not introduce visually similar local constants. The live
+reference surfaces are:
+
+- the `分析收件匣` glass frame;
+- its completed/processing metric cards;
+- the `分析完成，查看哪些 signal 值得行動` transition card;
+- the existing Product canvas aura and spacing rhythm.
+
+The Product Reading card may have stronger attention light, but its underlying
+radius, inset, edge, paper gradient, shadow depth, typography rhythm, and
+responsive width must still read as the same product family. A screenshot of
+the reading card must not look like a foreign white form placed inside Product
+mode.
+
 All full-width surfaces must use:
 
 ```css
@@ -432,19 +466,25 @@ Static rendering is not sufficient. Using the real loaded extension and a real
 Threads page:
 
 1. reanalyze the Border Beam signal;
-2. confirm one complete reading appears without a structured proposal or a
-   second deep-reading layer;
-3. confirm its text is at least as useful as the previously generated complete
+2. open the completed card for the first time and confirm the complete reading
+   is already visible without generate, expand, retry, or another navigation
+   action;
+3. confirm no structured proposal, interim short-field card, or second
+   deep-reading layer appears;
+4. confirm its text is at least as useful as the previously generated complete
    reading and honestly marks uninspected media/repository/link content;
-4. confirm the complete card stays within its parent at normal and narrow
+5. compare it beside the live `分析收件匣`, metric cards, and
+   `分析完成，查看哪些 signal 值得行動` card; confirm radius, gradient, shadow,
+   inset, type rhythm, and sizing visibly belong to the same design system;
+6. confirm the complete card stays within its parent at normal and narrow
    widths;
-5. confirm the generating beam travels around the full rounded perimeter and
+7. confirm the generating beam travels around the full rounded perimeter and
    never crosses the text;
-6. confirm the ready card has restrained static edge light matching the
+8. confirm the ready card has restrained static edge light matching the
    approved mockup and Product inbox card language;
-7. page between full `try`/`watch` and compact park cards without misplaced
+9. page between full `try`/`watch` and compact park cards without misplaced
    cards, clipped controls, focus loss, or scroll jumps;
-8. verify keyboard and reduced-motion behavior.
+10. verify keyboard and reduced-motion behavior.
 
 Do not claim the package complete or release it from build/test evidence alone.
 
