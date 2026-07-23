@@ -310,6 +310,20 @@ test("AttentionSurface owns one semantic full-card beam without inserting button
   assert.doesNotMatch(actionableHtml, /data-attention-beam-sweep=/);
 });
 
+test("Product Reading attention surface emits one scoped perimeter owner", () => {
+  const html = renderToStaticMarkup(
+    React.createElement(
+      AttentionSurface,
+      { state: "actionable", variant: "product-reading" },
+      React.createElement("span", null, "判讀")
+    )
+  );
+
+  assert.match(html, /data-product-reading-beam="actionable"/);
+  assert.equal((html.match(/data-product-reading-beam=/g) ?? []).length, 1);
+  assert.doesNotMatch(html, /data-attention-beam-sweep/);
+});
+
 test("WorkspaceShell masthead exposes the extension build version", () => {
   const html = renderToStaticMarkup(
     React.createElement(

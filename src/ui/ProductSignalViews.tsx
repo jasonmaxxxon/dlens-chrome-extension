@@ -1311,6 +1311,7 @@ function ReadinessPanel({
   return (
       <AttentionSurface
         state={viewModel.isAnalyzing ? "generating" : "none"}
+        variant={viewModel.isAnalyzing ? "product-reading" : "default"}
         dataAttrs={{ "data-product-analysis-surface": "true", "data-dlens-presence": "card" }}
       style={heroPanelStyle({ gap: hasResults ? 8 : 10 })}
     >
@@ -2735,7 +2736,8 @@ function ProductActionReadingOperations({
   return (
     <AttentionSurface
       as="section"
-      state="none"
+      state="actionable"
+      variant="product-reading"
       dataAttrs={{
         "data-product-reading-card": "true",
         "data-product-reading-origin": reading.origin ?? "legacy"
@@ -2745,7 +2747,12 @@ function ProductActionReadingOperations({
         padding: 16,
         boxSizing: "border-box",
         maxWidth: "100%",
-        minWidth: 0
+        minWidth: 0,
+        overflow: "hidden",
+        borderRadius: tokens.radius.cardLg,
+        borderColor: tokens.color.atlasEdge,
+        background: tokens.color.atlasPaper,
+        boxShadow: tokens.shadow.atlasCard
       })}
     >
       <div style={betweenRowStyle({ alignItems: "baseline" })}>
@@ -3257,7 +3264,7 @@ function ProductActionStage({
             aria-labelledby={[actionVerdictTabId(resolvedFilter), activeCategoryTab].filter(Boolean).join(" ")}
             onKeyDown={handleStageKeyDown}
             aria-label={`${activeCardMeta.label} ${safeIndex + 1} / ${activeItems.length}`}
-            style={glassCardStyle({ gap: activePresentation?.density === "compact" ? 10 : 14, padding: activePresentation?.density === "compact" ? 12 : 18, minWidth: 0, overflow: "visible", borderColor: tokens.color.productSoft, boxShadow: activePresentation?.density === "compact" ? tokens.shadow.topicCard : tokens.shadow.raised })}
+            style={glassCardStyle({ gap: activePresentation?.density === "compact" ? 10 : 14, padding: activePresentation?.density === "compact" ? 12 : 18, minWidth: 0, overflow: "hidden", borderColor: tokens.color.productSoft, boxShadow: activePresentation?.density === "compact" ? tokens.shadow.topicCard : tokens.shadow.raised })}
           >
             <header data-product-action-header="true" style={{ display: "grid", gap: 7, minWidth: 0 }}>
               <div style={betweenRowStyle({ alignItems: "flex-start", gap: 10, minWidth: 0 })}>

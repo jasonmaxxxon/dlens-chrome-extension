@@ -96,6 +96,12 @@ function sliceBalancedBlock(source: string, fromIndex: number): string {
   throw new Error("unbalanced braces while slicing block");
 }
 
+function productReadingCssSlice(source: string): string {
+  return [...source.matchAll(/[^{}]*\[data-product-reading-beam[^{]*\{[^}]*\}/g)]
+    .map((match) => match[0])
+    .join("");
+}
+
 test("keyframe registry names are unique (guards the dlens-success-pulse dup-name class of bug)", () => {
   const names = registryKeyframeNames();
   assert.deepEqual([...names].sort(), [...new Set(names)].sort());
@@ -236,6 +242,21 @@ test("reduced-motion safety net is scoped to DLens roots and neutralises animati
   assert.match(DLENS_REDUCED_MOTION_CSS, /\[data-dlens-control="true"\]\s+\*/);
   assert.match(DLENS_REDUCED_MOTION_CSS, /animation-duration:\s*0\.01ms\s*!important/);
   assert.match(DLENS_REDUCED_MOTION_CSS, /animation-iteration-count:\s*1\s*!important/);
+});
+
+test("Product Reading beam is masked to the perimeter and freezes for reduced motion", () => {
+  const productReadingCss = productReadingCssSlice(DLENS_ATTENTION_CSS);
+
+  assert.match(DLENS_ATTENTION_CSS, /\[data-product-reading-beam\]/);
+  assert.match(productReadingCss, /mask-composite:exclude/);
+  assert.match(productReadingCss, /-webkit-mask-composite:xor/);
+  assert.match(productReadingCss, /pointer-events:none/);
+  assert.match(productReadingCss, /--dlens-reading-beam-angle:42deg/);
+  assert.match(productReadingCss, /\[data-product-reading-beam="generating"\]::after[^}]*animation:dlens-product-reading-beam/);
+  assert.match(DLENS_KEYFRAMES_CSS, /@keyframes dlens-product-reading-beam/);
+  assert.match(DLENS_REDUCED_MOTION_CSS, /data-product-reading-beam/);
+  assert.match(DLENS_REDUCED_MOTION_CSS, /--dlens-reading-beam-angle:\s*42deg/);
+  assert.doesNotMatch(productReadingCss, /linear-gradient\(90deg[^}]*signalGlow/);
 });
 
 test("source-session motion stays under the global control-root reduced-motion wildcard", () => {

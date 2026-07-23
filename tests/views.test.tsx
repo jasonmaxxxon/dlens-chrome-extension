@@ -4882,7 +4882,15 @@ test("Product Action first open shows one complete reading without another actio
   }));
 
   assert.equal(countOccurrences(html, 'data-product-reading-card="true"'), 1);
+  assert.equal(countOccurrences(html, "data-product-reading-beam="), 1);
   assert.match(html, /data-product-reading-origin="product_analysis"/);
+  const cardTag = findTagWithAttribute(html, 'data-product-reading-card="true"');
+  assert.match(cardTag, /data-attention-beam="actionable"/);
+  assert.match(cardTag, /data-product-reading-beam="actionable"/);
+  assert.match(cardTag, /box-sizing:border-box/);
+  assert.match(cardTag, /max-width:100%/);
+  assert.match(cardTag, /min-width:0/);
+  assert.match(cardTag, /overflow:hidden/);
   assert.match(html, /先把互動動畫當成局部視覺實驗/);
   assert.match(html, /這則訊號真正值得注意的是 hover 觸發的動態回應/);
   assert.equal(countOccurrences(html, 'data-product-reading-footer="true"'), 1);
@@ -4891,6 +4899,85 @@ test("Product Action first open shows one complete reading without another actio
   assert.equal(countOccurrences(html, 'data-product-action-reading-secondary="true"'), 1);
   assert.match(html, /來源、引用與新鮮度/);
   assert.doesNotMatch(html, /生成完整判讀|生成深度判讀|重新生成判讀|展開深度閱讀|AI 提案 · 待驗證|來源做法|可能適合|先小試/);
+});
+
+test("Product Reading card cannot exceed its parent by the former 12px content-box overflow", async () => {
+  const { JSDOM } = await import("jsdom");
+  const { createRoot } = await import("react-dom/client");
+  const { act } = await import("react");
+  const dom = new JSDOM("<div id=\"root\"></div>", { url: "https://dlens.test" });
+  const reactActGlobal = globalThis as typeof globalThis & { IS_REACT_ACT_ENVIRONMENT?: boolean };
+  const previousActEnvironment = reactActGlobal.IS_REACT_ACT_ENVIRONMENT;
+  const previousNavigatorDescriptor = Object.getOwnPropertyDescriptor(globalThis, "navigator");
+  const previous = {
+    window: globalThis.window,
+    document: globalThis.document,
+    HTMLElement: globalThis.HTMLElement
+  };
+  Object.assign(globalThis, {
+    window: dom.window,
+    document: dom.window.document,
+    HTMLElement: dom.window.HTMLElement
+  });
+  Object.defineProperty(globalThis, "navigator", {
+    configurable: true,
+    enumerable: true,
+    writable: true,
+    value: dom.window.navigator
+  });
+  reactActGlobal.IS_REACT_ACT_ENVIRONMENT = true;
+  const rootElement = dom.window.document.getElementById("root");
+  assert.ok(rootElement);
+  const root = createRoot(rootElement);
+  const rect = (left: number, width: number): DOMRect => ({
+    x: left,
+    y: 0,
+    left,
+    top: 0,
+    right: left + width,
+    bottom: 200,
+    width,
+    height: 200,
+    toJSON: () => ({})
+  } as DOMRect);
+
+  try {
+    await act(async () => {
+      root.render(productSignalViewElement(productActionStageFixture()));
+      await Promise.resolve();
+    });
+
+    const parent = rootElement.querySelector<HTMLElement>('[data-product-action-stage]');
+    const card = rootElement.querySelector<HTMLElement>('[data-product-reading-card="true"]');
+    assert.ok(parent);
+    assert.ok(card);
+
+    const parentWidth = 360;
+    const horizontalChrome = Number.parseFloat(card.style.paddingLeft || "0")
+      + Number.parseFloat(card.style.paddingRight || "0")
+      + Number.parseFloat(card.style.borderLeftWidth || "0")
+      + Number.parseFloat(card.style.borderRightWidth || "0");
+    const cardWidth = card.style.boxSizing === "border-box"
+      ? parentWidth
+      : parentWidth + horizontalChrome;
+    parent.getBoundingClientRect = () => rect(0, parentWidth);
+    card.getBoundingClientRect = () => rect(0, cardWidth);
+
+    assert.equal(card.style.maxWidth, "100%");
+    assert.equal(Number.parseFloat(card.style.minWidth), 0);
+    assert.ok(
+      card.getBoundingClientRect().right <= parent.getBoundingClientRect().right,
+      `Product Reading card right ${card.getBoundingClientRect().right}px must stay inside parent right ${parent.getBoundingClientRect().right}px`
+    );
+  } finally {
+    await act(async () => root.unmount());
+    Object.assign(globalThis, previous);
+    if (previousNavigatorDescriptor) Object.defineProperty(globalThis, "navigator", previousNavigatorDescriptor);
+    else delete (globalThis as { navigator?: Navigator }).navigator;
+    if (previousActEnvironment === undefined) delete reactActGlobal.IS_REACT_ACT_ENVIRONMENT;
+    else reactActGlobal.IS_REACT_ACT_ENVIRONMENT = previousActEnvironment;
+    dom.window.close();
+  }
 });
 
 test("Product Action renders no reading for park noise or insufficient cards", () => {
@@ -5056,9 +5143,9 @@ test("Product Action keeps watch and non-noise park in one mixed-density pager",
 
 
 
-test("Product Action keeps watch, park, noise, and insufficient cards free of actionable light", () => {
+test("Product Action lights only complete try and watch readings", () => {
   const fixture = productActionStageFixture();
-  const renderSignal = (signalId: "signal_watch_first" | "signal_park" | "signal_noise" | "signal_insufficient") => {
+  const renderSignal = (signalId: "signal_try_second" | "signal_watch_first" | "signal_park" | "signal_noise" | "signal_insufficient") => {
     const signal = fixture.signals.find((item) => item.id === signalId);
     const analysis = fixture.analyses.find((item) => item.signalId === signalId);
     assert.ok(signal);
@@ -5070,13 +5157,14 @@ test("Product Action keeps watch, park, noise, and insufficient cards free of ac
     }));
   };
 
+  const tryHtml = renderSignal("signal_try_second");
   const watchHtml = renderSignal("signal_watch_first");
   const parkHtml = renderSignal("signal_park");
   const noiseHtml = renderSignal("signal_noise");
   const insufficientHtml = renderSignal("signal_insufficient");
 
-  assert.doesNotMatch(watchHtml, /data-product-reading-card="true"[^>]*data-attention-beam="actionable"/);
-  assert.doesNotMatch(watchHtml, /data-attention-beam="actionable"/);
+  assert.match(findTagWithAttribute(tryHtml, 'data-product-reading-card="true"'), /data-product-reading-beam="actionable"/);
+  assert.match(findTagWithAttribute(watchHtml, 'data-product-reading-card="true"'), /data-product-reading-beam="actionable"/);
   assert.doesNotMatch(parkHtml, /data-attention-beam="actionable"/);
   assert.doesNotMatch(noiseHtml, /data-attention-beam="actionable"/);
   assert.doesNotMatch(insufficientHtml, /data-attention-beam="actionable"/);
@@ -6009,6 +6097,8 @@ test("Product user-triggered analysis uses the shared generating attention state
   const analysisSurface = findTagWithAttribute(analyzingHtml, 'data-product-analysis-surface="true"');
   assert.match(analysisSurface, /data-attention-surface="true"/);
   assert.match(analysisSurface, /data-attention-beam="generating"/);
+  assert.match(analysisSurface, /data-product-reading-beam="generating"/);
+  assert.doesNotMatch(analysisSurface, /data-attention-beam-sweep/);
   const analysisButton = findTagWithAttribute(analyzingHtml, 'aria-busy="true"');
   assert.doesNotMatch(analysisButton, /data-attention-beam=/);
   assert.match(analyzingHtml, /data-searching-orb="true"[^]*分析中/);

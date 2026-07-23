@@ -277,12 +277,14 @@ export function AttentionBeam({
 export function AttentionSurface({
   as = "div",
   state,
+  variant = "default",
   children,
   style,
   dataAttrs
 }: {
   as?: "div" | "section";
   state: AttentionBeamState;
+  variant?: "default" | "product-reading";
   children: ReactNode;
   style?: CSSProperties;
   dataAttrs?: Record<`data-${string}`, string | undefined>;
@@ -293,7 +295,8 @@ export function AttentionSurface({
       {...dataAttrs}
       data-attention-surface="true"
       data-attention-beam={state}
-      data-attention-beam-sweep={state === "generating" ? "true" : undefined}
+      data-attention-beam-sweep={variant === "default" && state === "generating" ? "true" : undefined}
+      data-product-reading-beam={variant === "product-reading" ? state : undefined}
       style={style}
     >
       {children}
