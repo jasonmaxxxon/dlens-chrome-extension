@@ -1,0 +1,384 @@
+<!doctype html>
+<!--
+  DLens Topic F · Compass-integrated reply-group deep reader
+  Reference-only interactive mockup · 2026-07-29
+  Truth boundary: evidence refs/quotes below come from the existing work-topic
+  audit fixture. This is not a persisted reaction-pattern payload and contains
+  no external factual context.
+-->
+<html lang="zh-Hant">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>DLens · 民情羅盤回覆群組細讀</title>
+  <style>
+    :root {
+      --ink: #1b1a17;
+      --sub-ink: #3d3b35;
+      --muted: #6c695e;
+      --line: rgba(27, 26, 23, .13);
+      --line-strong: rgba(27, 26, 23, .24);
+      --canvas: #eff4f0;
+      --glass: linear-gradient(156deg, rgba(255,255,255,.91), rgba(246,251,247,.72));
+      --paper: #fff;
+      --soft: #edf3ee;
+      --topic: #33776b;
+      --topic-wash: rgba(51, 119, 107, .12);
+      --red: #8c4036;
+      --serif: "Noto Serif TC", "Songti TC", "Source Han Serif TC", serif;
+      --sans: "Noto Sans TC", -apple-system, BlinkMacSystemFont, "SF Pro Text", system-ui, sans-serif;
+      --mono: "SFMono-Regular", Consolas, "Liberation Mono", monospace;
+      --drawer-width: 416px;
+    }
+
+    * { box-sizing: border-box; }
+    html { background: var(--canvas); color: var(--ink); overflow-x: clip; }
+    body { margin: 0; min-width: 0; overflow-x: clip; font-family: var(--sans); }
+    button, summary { font: inherit; }
+    button { color: inherit; }
+    button:focus-visible, [tabindex="0"]:focus-visible, summary:focus-visible {
+      outline: 3px solid var(--topic); outline-offset: 3px;
+    }
+
+    .workspace {
+      width: min(1120px, calc(100% - 32px)); margin: 0 auto; padding: 26px 0 72px;
+      display: grid; gap: 16px; position: relative; z-index: 2; overflow: clip;
+    }
+    .workspace::after { content: ""; position: absolute; z-index: -1; width: 390px; height: 390px; right: -100px; top: 70px; border-radius: 50%; background: rgba(93, 162, 140, .18); filter: blur(70px); }
+    .workspace-head { display: flex; align-items: flex-end; justify-content: space-between; gap: 20px; flex-wrap: wrap; }
+    .eyebrow, .micro, .meta, .ref, .ledger, .status { font-family: var(--mono); font-size: 11px; line-height: 1.45; letter-spacing: .035em; }
+    .eyebrow { color: var(--topic); font-weight: 800; text-transform: uppercase; }
+    h1, h2, h3, p { margin: 0; }
+    h1 { max-width: 710px; font-family: var(--serif); font-size: clamp(26px, 4.2vw, 42px); letter-spacing: -.035em; line-height: 1.15; }
+    .workspace-sub { max-width: 620px; margin-top: 8px; color: var(--sub-ink); font-size: 14px; line-height: 1.7; }
+    .reference-note { max-width: 290px; color: var(--muted); text-align: right; }
+
+    .compass-card { padding: clamp(16px, 3vw, 28px); border: 1px solid rgba(255,255,255,.9); border-radius: 24px; background: var(--glass); box-shadow: 0 16px 42px -30px rgba(27, 26, 23, .35); }
+    .section-head { display: flex; justify-content: space-between; align-items: baseline; gap: 14px; flex-wrap: wrap; margin-bottom: 14px; }
+    .section-head h2 { font-size: 19px; letter-spacing: -.02em; }
+    .section-head .micro { color: var(--muted); }
+    .compass-stage { position: relative; min-width: 0; }
+    .compass { display: block; width: 100%; height: auto; overflow: visible; }
+    .axis { stroke: var(--line-strong); stroke-width: 1; }
+    .axis-label { fill: var(--muted); font: 700 10px var(--mono); letter-spacing: .08em; }
+    .bubble { cursor: pointer; outline: none; }
+    .bubble .bubble-hit { fill: transparent; stroke: transparent; pointer-events: all; }
+    .bubble .bubble-ring { fill: none; stroke: var(--topic); stroke-width: 5; opacity: .18; }
+    .bubble .bubble-fill { fill: var(--topic); opacity: .9; }
+    .bubble .bubble-count { fill: white; font: 800 16px var(--mono); text-anchor: middle; dominant-baseline: central; }
+    .bubble .bubble-name { fill: var(--ink); font: 700 11px var(--sans); text-anchor: middle; }
+    .bubble:hover .bubble-ring, .bubble[aria-pressed="true"] .bubble-ring { opacity: .95; }
+    .bubble[aria-pressed="true"] .bubble-fill { stroke: var(--ink); stroke-width: 2px; }
+    .bubble[aria-pressed="true"] .bubble-name { fill: var(--topic); }
+
+    .distribution { display: grid; grid-template-columns: minmax(0, 1fr); border-top: 1px solid var(--line); margin-top: 8px; }
+    .distribution-row {
+      width: 100%; min-width: 0; min-height: 52px; display: grid; grid-template-columns: 10px minmax(0,1fr) auto auto; gap: 10px; align-items: center;
+      padding: 8px 4px; border: 0; border-bottom: 1px solid var(--line); background: transparent; text-align: left; cursor: pointer;
+    }
+    .distribution-row:last-child { border-bottom: 0; }
+    .distribution-row:hover, .distribution-row[aria-pressed="true"] { background: rgba(255,255,255,.68); }
+    .distribution-row[aria-pressed="true"] { box-shadow: inset 3px 0 0 var(--topic); }
+    .dot { width: 8px; height: 8px; border-radius: 50%; background: var(--topic); }
+    .distribution-name { min-width: 0; overflow-wrap: anywhere; font-size: 14px; font-weight: 700; }
+    .distribution-count { font-family: var(--mono); font-size: 13px; font-weight: 800; font-variant-numeric: tabular-nums; }
+    .distribution-share { color: var(--muted); font-family: var(--mono); font-size: 12px; min-width: 40px; text-align: right; font-variant-numeric: tabular-nums; }
+
+    .scrim { position: fixed; z-index: 1; inset: 0; pointer-events: none; background: rgba(27, 26, 23, .22); opacity: 0; }
+    .reader { position: fixed; z-index: 3; top: 0; right: 0; width: min(var(--drawer-width), 100vw); height: 100dvh; overflow-y: auto; overscroll-behavior: contain; transform: translateX(100%); border-left: 1px solid rgba(255,255,255,.86); background: color-mix(in srgb, var(--canvas) 62%, var(--paper)); box-shadow: -18px 0 48px -30px rgba(27,26,23,.5); }
+    .reader-inner { width: 100%; min-width: 0; padding: 18px clamp(16px, 4vw, 28px) 42px; }
+    .reader[hidden], .scrim[hidden] { display: none; }
+    html[data-reader-open="true"] { overflow: hidden; }
+    html[data-reader-open="true"] .reader { transform: translateX(0); }
+    html[data-reader-open="true"] .scrim { opacity: 1; }
+    .reader-top { display: flex; align-items: center; gap: 8px; min-height: 44px; }
+    .back, .close, .secondary-action { min-height: 44px; border: 0; background: transparent; color: var(--sub-ink); cursor: pointer; border-radius: 10px; }
+    .back { padding: 0 8px; font-size: 13px; }
+    .back:hover, .close:hover, .secondary-action:hover { background: var(--soft); }
+    .close { margin-left: auto; width: 44px; padding: 0; font-size: 23px; line-height: 1; }
+    .reader-head { padding: 18px 0 16px; border-bottom: 1px solid var(--line); }
+    .reader-head h2 { margin-top: 5px; font-family: var(--serif); font-size: 28px; line-height: 1.22; letter-spacing: -.03em; }
+    #reader-title:focus {
+      outline: 2px solid color-mix(in srgb, var(--topic) 48%, transparent);
+      outline-offset: 5px;
+      border-radius: 4px;
+    }
+    .reader-ledger { display: flex; gap: 8px 12px; flex-wrap: wrap; margin-top: 12px; color: var(--muted); }
+    .reader-content { display: grid; gap: 0; }
+    .reader-section { padding: 22px 0; border-bottom: 1px solid var(--line); }
+    .reader-section:last-child { border-bottom: 0; }
+    .reader-section h3 { margin-bottom: 11px; font-size: 15px; letter-spacing: -.01em; }
+    .section-kicker { color: var(--topic); font-family: var(--mono); font-size: 10px; font-weight: 800; letter-spacing: .06em; }
+    .core-reading { padding: 18px; border-radius: 16px; background: var(--paper); box-shadow: 0 12px 26px -22px rgba(27,26,23,.42); }
+    .core-reading p { font-family: var(--serif); font-size: 19px; line-height: 1.65; letter-spacing: -.018em; }
+    .scope-note { display: flex; flex-wrap: wrap; gap: 5px 10px; margin-top: 12px; color: var(--muted); }
+    .scope-note span { padding-left: 8px; border-left: 2px solid var(--topic); }
+    .dynamic { display: grid; gap: 13px; }
+    .dynamic-row { display: grid; grid-template-columns: 82px minmax(0, 1fr); gap: 10px; align-items: start; }
+    .dynamic-row b { font-size: 13px; }
+    .dynamic-row p { color: var(--sub-ink); font-size: 14px; line-height: 1.6; }
+    .dynamic-row .ref { display: block; margin-top: 3px; }
+    .ref { color: var(--topic); font-weight: 800; white-space: nowrap; }
+    .evidence-list { display: grid; gap: 0; }
+    .evidence { padding: 15px 0; border-top: 1px solid var(--line); }
+    .evidence:first-child { border-top: 0; padding-top: 0; }
+    .evidence-head { display: flex; align-items: baseline; gap: 8px; flex-wrap: wrap; }
+    .evidence-head h4 { margin: 0; font-size: 14px; }
+    .kind-label { color: var(--topic); font-family: var(--mono); font-size: 10px; font-weight: 800; letter-spacing: .04em; }
+    .kind-label.counter { color: var(--red); }
+    .evidence-explain { margin-top: 7px; color: var(--sub-ink); font-size: 14px; line-height: 1.6; }
+    .quote { margin: 10px 0 0; padding-left: 12px; border-left: 3px solid var(--topic); font-family: var(--serif); font-size: 16px; line-height: 1.55; }
+    .evidence.counter-evidence .quote { border-left-color: var(--red); }
+    .original-word { color: var(--muted); font-family: var(--mono); font-size: 10px; font-weight: 800; letter-spacing: .04em; }
+    .interpretation { margin-top: 9px; padding-left: 12px; color: var(--muted); font-size: 12px; line-height: 1.55; }
+    .interpretation b { color: var(--sub-ink); }
+    .context-stack { display: grid; gap: 10px; }
+    .context-item { padding: 12px; border-left: 2px solid var(--line-strong); background: var(--paper); }
+    .context-item .meta { display: block; margin-bottom: 5px; color: var(--muted); }
+    .context-item p { font-size: 14px; line-height: 1.6; }
+    .context-note { margin: 12px 0 0; padding: 11px 12px; border-left: 3px solid var(--red); background: rgba(140,64,54,.055); color: var(--sub-ink); font-size: 13px; line-height: 1.6; }
+    .language-rows { display: grid; gap: 0; }
+    .language-row { display: grid; grid-template-columns: 100px minmax(0,1fr); gap: 10px; padding: 11px 0; border-top: 1px solid var(--line); }
+    .language-row:first-child { border-top: 0; padding-top: 0; }
+    .language-row b { font-size: 13px; }
+    .language-row p { color: var(--sub-ink); font-size: 14px; line-height: 1.6; }
+    .derived { display: inline-block; margin-top: 5px; color: var(--topic); font-family: var(--mono); font-size: 10px; font-weight: 800; }
+    .empty-context { padding: 14px; border-left: 3px solid var(--topic); background: var(--paper); }
+    .empty-context p { font-size: 14px; line-height: 1.65; }
+    .source-contract { margin: 12px 0 0; padding-left: 18px; color: var(--sub-ink); font-size: 13px; line-height: 1.8; }
+    .secondary-action { margin-top: 12px; padding: 0 12px; border: 1px solid var(--line-strong); font-size: 13px; }
+    .reversal { font-family: var(--serif); font-size: 17px; line-height: 1.65; }
+    details { margin-top: 15px; padding-top: 14px; border-top: 1px solid var(--line); }
+    summary { min-height: 44px; display: flex; align-items: center; cursor: pointer; color: var(--sub-ink); font-weight: 700; }
+    summary::after { content: "+"; margin-left: auto; font-family: var(--mono); font-size: 18px; }
+    details[open] summary::after { content: "−"; }
+    details ul { margin: 7px 0 0; padding-left: 18px; color: var(--muted); font-size: 13px; line-height: 1.7; }
+    .preview { padding: 22px 0; }
+    .preview p { color: var(--sub-ink); font-size: 15px; line-height: 1.7; }
+    .preview-notice { margin-top: 14px; padding: 12px; border-left: 3px solid var(--red); background: rgba(140,64,54,.055); }
+
+    @media (prefers-reduced-motion: no-preference) {
+      .reader { transition: transform 190ms ease; }
+      .scrim { transition: opacity 190ms ease; }
+      .bubble .bubble-ring { transition: opacity 170ms ease; }
+      .distribution-row { transition: background-color 150ms ease; }
+    }
+    @media (min-width: 1180px) {
+      html[data-reader-open="true"] .workspace {
+        width: calc(100% - var(--drawer-width) - 32px);
+        margin-left: 16px;
+        margin-right: 0;
+      }
+    }
+    @media (max-width: 720px) {
+      .workspace { width: min(100% - 24px, 1120px); padding-top: 18px; }
+      .reference-note { text-align: left; }
+      .reader { width: 100vw; border-left: 0; }
+    }
+    @media (max-width: 420px) {
+      .compass-card { padding: 14px; border-radius: 18px; }
+      .bubble .bubble-name { font-size: 9px; }
+      .distribution-row { grid-template-columns: 10px minmax(0,1fr) auto; gap: 8px; }
+      .distribution-share { grid-column: 2 / -1; text-align: left; min-width: 0; margin-top: -6px; }
+      .dynamic-row, .language-row { grid-template-columns: 1fr; gap: 4px; }
+      .reader-head h2 { font-size: 25px; }
+    }
+  </style>
+</head>
+<body>
+  <main class="workspace" data-od-id="workspace">
+    <header class="workspace-head" data-od-id="workspace-header">
+      <div>
+        <p class="eyebrow">DLens · Topic reading · reference fixture</p>
+        <h1>民情羅盤，接續到一組回覆的細讀</h1>
+        <p class="workspace-sub">選取一個群組，在原有羅盤之上打開可追溯的閱讀面板。這是已捕捉留言的設計 fixture，不是平台全貌。</p>
+      </div>
+      <p class="reference-note micro">快照：2026-05-21<br>4 個反應形狀 · 78 次留言歸屬</p>
+    </header>
+
+    <section class="compass-card" aria-labelledby="compass-title" data-od-id="compass">
+      <div class="section-head">
+        <h2 id="compass-title">民情羅盤</h2>
+        <p class="micro">泡泡大小＝留言歸屬 · 選取可開啟群組細讀</p>
+      </div>
+      <div class="compass-stage">
+        <svg class="compass" viewBox="0 0 640 400" role="group" aria-label="民情羅盤：以質疑至支持和行動導向至情緒共鳴定位四組回覆">
+          <line class="axis" x1="54" y1="205" x2="590" y2="205"></line>
+          <line class="axis" x1="320" y1="36" x2="320" y2="360"></line>
+          <text class="axis-label" x="320" y="19" text-anchor="middle">情緒共鳴</text>
+          <text class="axis-label" x="320" y="386" text-anchor="middle">行動導向</text>
+          <text class="axis-label" x="48" y="201" text-anchor="end">質疑</text>
+          <text class="axis-label" x="596" y="201">支持</text>
+          <g class="bubble" data-compass-bubble="satire" tabindex="0" role="button" aria-label="職場戲謔與表演性解構，14 次留言歸屬" aria-pressed="false">
+            <circle class="bubble-hit" cx="255" cy="105" r="54"></circle>
+            <circle class="bubble-ring" cx="255" cy="105" r="37"></circle><circle class="bubble-fill" cx="255" cy="105" r="31"></circle>
+            <text class="bubble-count" x="255" y="105">14</text><text class="bubble-name" x="255" y="154">職場戲謔與表演性解構</text>
+          </g>
+          <g class="bubble" data-compass-bubble="moral" tabindex="0" role="button" aria-label="道德審判與階級歸因，19 次留言歸屬" aria-pressed="false">
+            <circle class="bubble-hit" cx="200" cy="215" r="54"></circle>
+            <circle class="bubble-ring" cx="200" cy="215" r="41"></circle><circle class="bubble-fill" cx="200" cy="215" r="35"></circle>
+            <text class="bubble-count" x="200" y="215">19</text><text class="bubble-name" x="247" y="208" text-anchor="start"><tspan x="247">道德審判與</tspan><tspan x="247" dy="15">階級歸因</tspan></text>
+          </g>
+          <g class="bubble" data-compass-bubble="pragmatic" tabindex="0" role="button" aria-label="實用主義求職策略，21 次留言歸屬" aria-pressed="false">
+            <circle class="bubble-hit" cx="470" cy="275" r="54"></circle>
+            <circle class="bubble-ring" cx="470" cy="275" r="43"></circle><circle class="bubble-fill" cx="470" cy="275" r="37"></circle>
+            <text class="bubble-count" x="470" y="275">21</text><text class="bubble-name" x="470" y="328">實用主義求職策略</text>
+          </g>
+          <g class="bubble" data-compass-bubble="doom" tabindex="0" role="button" aria-label="行業悲觀與結構性焦慮，24 次留言歸屬" aria-pressed="true">
+            <circle class="bubble-hit" cx="150" cy="300" r="54"></circle>
+            <circle class="bubble-ring" cx="150" cy="300" r="46"></circle><circle class="bubble-fill" cx="150" cy="300" r="40"></circle>
+            <text class="bubble-count" x="150" y="300">24</text><text class="bubble-name" x="150" y="357">行業悲觀與結構性焦慮</text>
+          </g>
+        </svg>
+      </div>
+      <div class="distribution" role="group" aria-label="歸屬分佈" data-od-id="compass-distribution">
+        <button class="distribution-row" type="button" data-distribution-row="doom" aria-pressed="true"><span class="dot"></span><span class="distribution-name">行業悲觀與結構性焦慮</span><span class="distribution-count">24</span><span class="distribution-share">31%</span></button>
+        <button class="distribution-row" type="button" data-distribution-row="pragmatic" aria-pressed="false"><span class="dot"></span><span class="distribution-name">實用主義求職策略</span><span class="distribution-count">21</span><span class="distribution-share">27%</span></button>
+        <button class="distribution-row" type="button" data-distribution-row="moral" aria-pressed="false"><span class="dot"></span><span class="distribution-name">道德審判與階級歸因</span><span class="distribution-count">19</span><span class="distribution-share">24%</span></button>
+        <button class="distribution-row" type="button" data-distribution-row="satire" aria-pressed="false"><span class="dot"></span><span class="distribution-name">職場戲謔與表演性解構</span><span class="distribution-count">14</span><span class="distribution-share">18%</span></button>
+      </div>
+    </section>
+  </main>
+
+  <div class="scrim" data-reader-scrim hidden></div>
+  <aside class="reader" data-reader-drawer role="dialog" aria-labelledby="reader-title" hidden>
+    <div class="reader-inner">
+      <div class="reader-top">
+        <button class="back" type="button" data-reader-back>← 返回民情羅盤</button>
+        <button class="close" type="button" data-reader-close aria-label="關閉細讀面板">×</button>
+      </div>
+      <header class="reader-head" data-od-id="reader-identity">
+        <p class="eyebrow">Reply group · bounded reading</p>
+        <h2 id="reader-title" tabindex="-1">行業悲觀與結構性焦慮</h2>
+        <div class="reader-ledger ledger"><span>快照 2026-05-21</span><span>24 次留言歸屬</span><span>15 個來源 · 約 27 則可用觀眾回覆</span></div>
+      </header>
+      <div class="reader-content" data-reader-kind="full"></div>
+    </div>
+  </aside>
+
+  <script>
+    const PATTERNS = [
+      { id: "doom", label: "行業悲觀與結構性焦慮", count: 24, share: 31, x: 150, y: 300, r: 40, kind: "full", description: "將個別失業、低薪與轉行焦慮讀成跨行業的結構性收縮。" },
+      { id: "pragmatic", label: "實用主義求職策略", count: 21, share: 27, x: 470, y: 275, r: 37, kind: "preview", description: "在不穩定處境中，以可承擔的風險、現金流與短期選擇安排求職。" },
+      { id: "moral", label: "道德審判與階級歸因", count: 19, share: 24, x: 200, y: 215, r: 35, kind: "preview", description: "把個人挫折連到僱主、世代、資源分配與階級位置的歸因。" },
+      { id: "satire", label: "職場戲謔與表演性解構", count: 14, share: 18, x: 255, y: 105, r: 31, kind: "preview", description: "用自嘲、粗口與表演性的語言，暫時承接職場困境。" }
+    ];
+    const drawer = document.querySelector('[data-reader-drawer]');
+    const scrim = document.querySelector('[data-reader-scrim]');
+    const drawerTitle = document.getElementById('reader-title');
+    const readerContent = document.querySelector('[data-reader-kind]');
+    const reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)');
+    let selectedId = 'doom';
+    let lastTrigger = null;
+
+    function fullReader() {
+      return `
+        <section class="reader-section" data-od-id="reader-core">
+          <p class="section-kicker">核心判讀</p>
+          <div class="core-reading">
+            <p>這組回覆把個別失業、低薪與轉行焦慮，重讀成跨行業的結構性收縮；「飽和」和「算帳」成為共同語言，但並非每個行業都接受同一種悲觀判斷。</p>
+            <div class="scope-note micro"><span>由本批留言推導</span><span>非平台全貌</span><span>不代表所有香港工作者</span></div>
+          </div>
+        </section>
+        <section class="reader-section" data-od-id="reader-dynamic">
+          <p class="section-kicker">群體 dynamic</p>
+          <div class="dynamic">
+            <div class="dynamic-row"><b>共同 frame</b><p>個別困境被提升為行業問題。<span class="ref">S12.OP · S13.OP</span></p></div>
+            <div class="dynamic-row"><b>支撐方式</b><p>跨 sector 重複、數字算帳、AI／裁員因果鏈。<span class="ref">S5.OP · S10.OP · S11.OP</span></p></div>
+            <div class="dynamic-row"><b>內部張力</b><p>拒絕規則 vs 適應規則；全面飽和 vs insider 反例。<span class="ref">S10.R1 · S10.R2 · S5.R1</span></p></div>
+          </div>
+        </section>
+        <section class="reader-section" data-od-id="reader-reasoning">
+          <p class="section-kicker">理由與證據</p>
+          <div class="evidence-list">
+            <article class="evidence"><div class="evidence-head"><h4>跨 sector 的「飽和」</h4><span class="kind-label">支持此讀法</span></div><p class="evidence-explain">模型把多個行業的相同詞彙整理為一種跨行業的收縮語言。</p><p class="quote"><span class="original-word">原文 · S5.OP</span><br>「以家已經供過於求、氾濫左」</p><p class="quote"><span class="original-word">原文 · S12.OP / S12.R1</span><br>「keeta 又飽和」／「千祈唔好讀護士，現在已經飽和」</p><p class="interpretation"><b>模型判讀：</b>重複未必證明所有市場同樣飽和；它先證明這批文字反覆以飽和描述出路。</p></article>
+            <article class="evidence"><div class="evidence-head"><h4>算帳成為共同 reasoning</h4><span class="kind-label">支持此讀法</span></div><p class="evidence-explain">薪金、成本、裁員數字被用來把焦慮轉成可計算的風險。</p><p class="quote"><span class="original-word">原文節錄 · S10.OP</span><br>「但人工得17k嘅我……計過條數要請嘅話起碼要成1000蚊」</p><p class="interpretation"><b>跨帖對照：</b>S5.R1 列加盟成本與利潤，S11.OP 列裁員比例與人數。這是本批語言的推論，不等於各數字已被外部核實。</p></article>
+            <article class="evidence"><div class="evidence-head"><h4>出路在同一語境被預先關閉</h4><span class="kind-label">支持此讀法</span></div><p class="evidence-explain">AI 位移的玩笑被另一則留言延伸成二階的競爭循環。</p><p class="quote"><span class="original-word">原文 · S11.R2</span><br>「結果整水喉都冇得做」</p><p class="interpretation"><b>模型判讀：</b>這是把行業轉換讀為 feedback loop；S11.R1 則只延續玩笑，不是同一種論證。</p></article>
+            <article class="evidence counter-evidence"><div class="evidence-head"><h4>反例：一個行業不接受全面飽和</h4><span class="kind-label counter">↗ 反例／限制</span></div><p class="evidence-explain">業界 insider 對單一行業的回應，限制了把「飽和」泛化成所有出路的讀法。</p><p class="quote"><span class="original-word">原文 · S5.R1</span><br>「廢水而家開始變剛性需求咁 無話氾唔氾濫」</p><p class="interpretation"><b>替代解釋：</b>群組內的悲觀可能是跨行業可攜的語言慣性，而非每個行業的共同判斷。</p></article>
+          </div>
+        </section>
+        <section class="reader-section" data-od-id="reader-context">
+          <p class="section-kicker">對話上下文</p>
+          <div class="context-stack" data-conversation-state="partial-thread">
+            <div class="context-item"><span class="meta">同一 thread · OP · S11.OP</span><p>「全民整水喉？」</p></div>
+            <div class="context-item"><span class="meta">同一 thread · sibling reply · S11.R1</span><p>「睇緊點考水電A牌」</p></div>
+            <div class="context-item"><span class="meta">同一 thread · sibling reply · S11.R2</span><p>「結果整水喉都冇得做」</p></div>
+          </div>
+          <p class="context-note">父層回覆未能還原；以下留言按獨立文字閱讀，模型不補寫其對話對象。</p>
+        </section>
+        <section class="reader-section" data-od-id="reader-language">
+          <p class="section-kicker">語言、語氣與 discourse</p>
+          <div class="language-rows">
+            <div class="language-row"><b>詞彙</b><p>飽和、供過於求、算帳、整水喉</p></div>
+            <div class="language-row"><b>語氣／姿態</b><p>冷嘲、風險計算、結構性悲觀<br><span class="derived">模型從本批文字推導</span></p></div>
+            <div class="language-row"><b>discourse reading</b><p>個體與制度之間的中間層語言在本次 captured sample 中薄弱<br><span class="derived">模型從本批文字推導；只限 captured sample</span></p></div>
+          </div>
+        </section>
+        <section class="reader-section" data-od-id="reader-external-context">
+          <p class="section-kicker">已核實外部 context</p>
+          <div class="empty-context" data-context-state="external-empty"><p>尚未附加已核實外部來源。這次判讀只使用已捕捉的 Threads 文字。</p></div>
+          <ul class="source-contract"><li>官方原始文件</li><li>直接報道</li><li>分析／倡議</li><li>使用者備註</li><li>來源衝突狀態</li></ul>
+          <button class="secondary-action" type="button">加入 context</button>
+          <p class="context-action-note status" data-context-action-note role="status" hidden>此 mockup 只示範入口；來源須先核實並由使用者確認，才會進入判讀。</p>
+        </section>
+        <section class="reader-section" data-od-id="reader-limits">
+          <p class="section-kicker">可能推翻判讀</p>
+          <p class="reversal">如果更多獨立 thread 出現具體可行的中層回應，或 insider 反例在多個 sector 重現，便會削弱「個體直接撞向制度、中間層薄弱」的判讀。</p>
+          <details data-sample-limits><summary>樣本與判讀限制</summary><ul><li>24 次留言歸屬不等於 24 個唯一留言；歸屬與唯一 comment 數不同。</li><li>此 fixture 由 15 個來源與可用 commentsPreview 組成；不是全平台或全 reply。</li><li>部分父層鏈結未能還原，不能重建完整 reply tree。</li><li>部分 ref 未提供完整父文或外部 context；不以背景知識補完。</li><li>語氣與 discourse 為模型從已捕捉文字推導，非原文作者自述。</li></ul></details>
+        </section>`;
+    }
+    function previewReader(pattern) {
+      return `<section class="preview" data-od-id="reader-preview"><p class="section-kicker">bounded preview</p><p>${pattern.description}</p><p class="preview-notice">這個 reference fixture 未附可解析 evidence refs；不以模型背景補寫詳細理由。</p></section>`;
+    }
+    function renderReader(pattern) {
+      drawerTitle.textContent = pattern.label;
+      drawer.querySelector('.reader-ledger').innerHTML = `<span>快照 2026-05-21</span><span>${pattern.count} 次留言歸屬</span>${pattern.kind === 'full' ? '<span>15 個來源 · 約 27 則可用觀眾回覆</span>' : '<span>reference fixture</span>'}`;
+      readerContent.dataset.readerKind = pattern.kind;
+      readerContent.innerHTML = pattern.kind === 'full' ? fullReader() : previewReader(pattern);
+    }
+    function syncSelection() {
+      document.querySelectorAll('[data-compass-bubble], [data-distribution-row]').forEach((node) => {
+        const id = node.dataset.compassBubble || node.dataset.distributionRow;
+        node.setAttribute('aria-pressed', String(id === selectedId));
+      });
+    }
+    function openReader(trigger) {
+      lastTrigger = trigger || lastTrigger;
+      drawer.hidden = false; scrim.hidden = false;
+      requestAnimationFrame(() => { document.documentElement.dataset.readerOpen = 'true'; drawerTitle.focus(); });
+    }
+    function closeReader() {
+      delete document.documentElement.dataset.readerOpen;
+      window.setTimeout(() => { drawer.hidden = true; scrim.hidden = true; lastTrigger?.focus(); }, reduceMotion.matches ? 0 : 190);
+    }
+    function selectPattern(id, trigger) {
+      const pattern = PATTERNS.find((item) => item.id === id);
+      if (!pattern) return;
+      selectedId = id;
+      lastTrigger = trigger || document.querySelector(`[data-compass-bubble="${id}"]`);
+      syncSelection(); renderReader(pattern); openReader(lastTrigger);
+    }
+    document.querySelectorAll('[data-compass-bubble]').forEach((bubble) => {
+      bubble.addEventListener('click', () => selectPattern(bubble.dataset.compassBubble, bubble));
+      bubble.addEventListener('keydown', (event) => { if (event.key === 'Enter' || event.key === ' ') { event.preventDefault(); selectPattern(bubble.dataset.compassBubble, bubble); } });
+    });
+    document.querySelectorAll('[data-distribution-row]').forEach((row) => row.addEventListener('click', () => selectPattern(row.dataset.distributionRow, row)));
+    document.querySelector('[data-reader-close]').addEventListener('click', closeReader);
+    document.querySelector('[data-reader-back]').addEventListener('click', closeReader);
+    readerContent.addEventListener('click', (event) => {
+      if (!event.target.closest('.secondary-action')) return;
+      const note = readerContent.querySelector('[data-context-action-note]');
+      if (!note) return;
+      note.hidden = false;
+      note.tabIndex = -1;
+      note.focus();
+    });
+    document.addEventListener('click', (event) => {
+      if (drawer.hidden || drawer.contains(event.target) || event.target.closest('[data-compass-bubble], [data-distribution-row]')) return;
+      closeReader();
+    });
+    document.addEventListener('keydown', (event) => { if (event.key === 'Escape' && !drawer.hidden) closeReader(); });
+    renderReader(PATTERNS[0]); syncSelection(); openReader(document.querySelector('[data-compass-bubble="doom"]'));
+  </script>
+</body>
+</html>
