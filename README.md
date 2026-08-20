@@ -4,7 +4,7 @@ DLens is a mode-aware MV3 Chrome extension for capturing Threads posts and turni
 
 > Last updated: 2026-08-20
 > Current source version: `0.3.59` · grounded Product Reading v21 and storage-schema v2 keep the long-lived collection library local without mirroring backend crawl payloads
-> Release state: `0.3.59` is published on `main` under `v0.3.59`. The full static gate and MV3 production build passed on 2026-08-20; real-Chrome collection acceptance is verified separately from this release commit.
+> Release state: `0.3.59` is published on `main` under `v0.3.59`. The full static gate and MV3 production build passed on 2026-08-20; real-Chrome collection acceptance remains a separate runtime gate and is not implied by this release commit.
 > Positioning: local power-tool (self + small technical circle); two separate repos (extension public · ingest-core **private**), not monorepo. The active visual contract is the translucent `workspaceGlass` shell, soft colour auras, layered gradients, and restrained attention lighting defined in `src/ui/tokens.ts` and `src/ui/motion.ts`.
 > Load-unpacked build path: `output/chrome-mv3`
 > Stability note: `TRACE`, `SEAM_GUARD`, `RECONCILE`, `INVALIDATE`, `BOUNDARY`, and `MIGRATE` are locked in the live architecture map. Visual Reset A shipped the native-feeling shell plus PR Evidence, Topic, Compare, and Product marquee surfaces without changing storage, backend, ViewModel, command, or signal-packet contracts.
