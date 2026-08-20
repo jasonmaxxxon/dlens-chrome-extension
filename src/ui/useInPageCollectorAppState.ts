@@ -707,7 +707,11 @@ export function useInPageCollectorAppState({ snapshot, tabId, sendAndSync }: Use
   const [productSignalAnalysisError, setProductSignalAnalysisError] = useState<string | null>(null);
   const [productSignalAnalysisNotice, setProductSignalAnalysisNotice] = useState<string | null>(null);
   const [compiledProductContext, setCompiledProductContext] = useState<ProductContext | null>(null);
-  const [storageUsage, setStorageUsage] = useState<{ bytesInUse: number; quotaBytes: number } | null>(null);
+  const [storageUsage, setStorageUsage] = useState<{
+    bytesInUse: number;
+    quotaBytes: number;
+    unlimitedStorage: boolean;
+  } | null>(null);
   const [settingsSaveStatus, setSettingsSaveStatus] = useState<{ kind: "success" | "error"; message: string } | null>(null);
   const [isSavingSettings, setIsSavingSettings] = useState(false);
   const [optimisticSessionMode, setOptimisticSessionMode] = useState<FolderMode | null>(null);
@@ -1207,17 +1211,28 @@ export function useInPageCollectorAppState({ snapshot, tabId, sendAndSync }: Use
       return;
     }
     let cancelled = false;
-    void sendExtensionMessage<{ ok: true; bytesInUse?: number; quotaBytes?: number } | { ok: false; error: string }>({
+    void sendExtensionMessage<{
+      ok: true;
+      bytesInUse?: number;
+      quotaBytes?: number;
+      unlimitedStorage?: boolean;
+    } | { ok: false; error: string }>({
       type: "storage/get-usage"
     })
       .then((response) => {
         if (cancelled) {
           return;
         }
-        if (response.ok && typeof response.bytesInUse === "number" && typeof response.quotaBytes === "number") {
+        if (
+          response.ok
+          && typeof response.bytesInUse === "number"
+          && typeof response.quotaBytes === "number"
+          && typeof response.unlimitedStorage === "boolean"
+        ) {
           setStorageUsage({
             bytesInUse: response.bytesInUse,
-            quotaBytes: response.quotaBytes
+            quotaBytes: response.quotaBytes,
+            unlimitedStorage: response.unlimitedStorage
           });
           return;
         }

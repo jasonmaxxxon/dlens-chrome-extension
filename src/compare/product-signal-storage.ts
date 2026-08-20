@@ -79,7 +79,11 @@ function readConflictState(value: unknown): ProductSignalConflictState | null {
 }
 
 function readJudgmentWarning(value: unknown): ProductSignalJudgmentWarning | null {
-  return value === "none_with_reversible_test" || value === "missing_try_application" ? value : null;
+  return value === "none_with_reversible_test"
+    || value === "missing_try_application"
+    || value === "reading_evidence_ungrounded"
+    ? value
+    : null;
 }
 
 function normalizeAgentTaskSpec(value: unknown): ProductAgentTaskSpec | null {

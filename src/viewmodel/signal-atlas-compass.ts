@@ -19,11 +19,11 @@ export interface SignalAtlasCompassLayout {
 }
 
 // The compass is the L0 protagonist: generous whitespace, bubbles never crowd or kiss edges.
-const COMPASS_WIDTH = 360;
+const COMPASS_WIDTH = 640;
 const COMPASS_HEIGHT = 400;
 const FIELD_HEIGHT = 248;
-const RADIUS_MIN = 14;
-const RADIUS_MAX = 30;
+const RADIUS_MIN = 18;
+const RADIUS_MAX = 40;
 const EDGE_PADDING = 18;
 const LABEL_CLEARANCE = 34;
 const SEPARATION_GAP = 18;

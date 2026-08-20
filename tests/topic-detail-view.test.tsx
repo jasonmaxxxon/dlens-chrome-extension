@@ -934,8 +934,8 @@ test("TopicDetailView renders ready audit actions without the duplicate overview
   assert.match(html, /data-topic-audit-actions="ready"/);
   assert.match(html, /審查報告 ↗/);
   assert.match(html, /重新生成/);
-  assert.match(html, /data-attention-beam="none"/);
-  assert.doesNotMatch(html, /data-attention-beam="actionable"/);
+  assert.match(html, /data-topic-audit-action="regenerate"[^>]*><svg[^>]*aria-hidden="true"/);
+  assert.doesNotMatch(html, /data-attention-beam=/);
   assert.doesNotMatch(html, /報告 已生成/);
   assert.doesNotMatch(html, /覆蓋 /);
   assert.equal((html.match(/<h1/g) ?? []).length, 1);

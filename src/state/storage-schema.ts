@@ -1,7 +1,7 @@
 import { PRODUCT_CONTEXT_STORAGE_KEY } from "../compare/product-context";
 import { GLOBAL_STATE_STORAGE_KEY } from "./storage-keys";
 
-export const CURRENT_STORAGE_SCHEMA_VERSION = 1;
+export const CURRENT_STORAGE_SCHEMA_VERSION = 2;
 
 export interface StorageSchemaMigration<TFrom = unknown, TTo = unknown> {
   key: string;
@@ -70,6 +70,51 @@ function stampSchemaVersion(value: unknown, version: number): Record<string, unk
   return { ...(value as Record<string, unknown>), schemaVersion: version };
 }
 
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null && !Array.isArray(value);
+}
+
+function stripRawPayloadFromCapture(value: unknown): unknown {
+  if (!isRecord(value)) {
+    return value;
+  }
+  const { raw_payload: _captureRawPayload, ...capture } = value;
+  if (!isRecord(capture.result)) {
+    return capture;
+  }
+  const { raw_payload: _resultRawPayload, ...result } = capture.result;
+  return { ...capture, result };
+}
+
+function stripRawPayloadMirrorsFromGlobalState(input: unknown): Record<string, unknown> {
+  if (!isRecord(input)) {
+    return {};
+  }
+  if (!Array.isArray(input.sessions)) {
+    return { ...input };
+  }
+  return {
+    ...input,
+    sessions: input.sessions.map((session) => {
+      if (!isRecord(session) || !Array.isArray(session.items)) {
+        return session;
+      }
+      return {
+        ...session,
+        items: session.items.map((item) => {
+          if (!isRecord(item) || !Object.hasOwn(item, "latestCapture")) {
+            return item;
+          }
+          return {
+            ...item,
+            latestCapture: stripRawPayloadFromCapture(item.latestCapture)
+          };
+        })
+      };
+    })
+  };
+}
+
 /**
  * Canonical registry of storage migrations.
  *
@@ -91,6 +136,15 @@ export const STORAGE_MIGRATIONS: ReadonlyArray<StorageSchemaMigration> = [
     from: 0,
     to: 1,
     migrate: (input) => (input && typeof input === "object" ? input : {})
+  }),
+  // Chrome only needs the normalized capture fields used by the UI and analyzers.
+  // Full crawl provenance remains canonical in Postgres, so remove both mirrored
+  // raw_payload layers from every saved item without touching comments/read models.
+  defineMigration<unknown, unknown>({
+    key: GLOBAL_STATE_STORAGE_KEY,
+    from: 1,
+    to: 2,
+    migrate: stripRawPayloadMirrorsFromGlobalState
   }),
   // Same shape, separate key: pre-registry `dlens:v1:product-context` payloads
   // had no schemaVersion field. The horizontal legacy key migration

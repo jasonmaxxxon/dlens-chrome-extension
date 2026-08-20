@@ -12,6 +12,7 @@ import {
   deriveProductSignalVerdict,
   hasDrainableProductSignalItems,
   parseProductSignalAnalysisResponse,
+  parseProductSignalAnalysisResult,
   shouldDrainWorkerAfterProductSignalQueue,
   shouldAutoAnalyzeProductSignal
 } from "../src/compare/product-signal-analysis.ts";
@@ -553,21 +554,6 @@ test("v21 rejects malformed or ungrounded Product Readings", () => {
     ["empty ref", { support_refs: [""] }, {}],
     ["ref with whitespace", { support_refs: [" e1 "] }, {}],
     ["non-string ref", { support_refs: [1] }, {}],
-    ["ref absent from evidence_refs", { support_refs: ["e2"] }, { evidence_refs: ["e1"] }],
-    [
-      "ref without text_grounded note",
-      { support_refs: ["e1"] },
-      {
-        evidence_notes: [{
-          ref: "e1",
-          quote_summary: "只屬模型推論。",
-          why_it_matters: "仍需驗證。",
-          grounding: "model_inferred",
-          reusable_pattern: "待驗證",
-          why_it_works: "原文未直接支持。"
-        }]
-      }
-    ],
     ["body over 1200 code points", { body: "判".repeat(1201) }, {}]
   ];
 
@@ -581,6 +567,87 @@ test("v21 rejects malformed or ungrounded Product Readings", () => {
     );
     assert.equal(parsed, null, label);
   }
+});
+
+test("v21 strict parser rejects a support ref absent from evidence refs and notes", () => {
+  const result = parseProductSignalAnalysisResult(
+    JSON.stringify(makeRawAnalysis({
+      evidence_refs: ["e1"],
+      evidence_notes: [{
+        ref: "e1",
+        quote_summary: "讀者表示流程符合實際工作。",
+        why_it_matters: "直接支持產品流程假設。",
+        grounding: "text_grounded",
+        reusable_pattern: "先驗證再擴張",
+        why_it_works: "讀者明確描述使用情境，足以形成有限驗證。"
+      }],
+      product_reading: {
+        headline: "先測試可檢查的流程",
+        body: "原文提供具體文字證據。對目前產品而言，可先做一個有限、可停止的測試。",
+        support_refs: ["e2"]
+      }
+    })),
+    analyzerInput
+  );
+
+  assert.deepEqual(result, {
+    ok: false,
+    rejection: "product_reading.support_refs must all appear in evidence_refs"
+  });
+});
+
+test("v21 downgrades instead of failing when no evidence note is text_grounded", () => {
+  // A reading may only cite text_grounded evidence, so a payload with no grounded
+  // note at all can never produce a passing reading — failing it would leave the
+  // signal permanently unanalyzable. It drops to insufficient_data, which owes no
+  // reading, and records why.
+  const parsed = parseProductSignalAnalysisResponse(
+    JSON.stringify(makeRawAnalysis({
+      product_reading: {
+        headline: "先測試可檢查的流程",
+        body: "原文提供具體文字證據。對目前產品而言，可先做一個有限、可停止的測試。",
+        support_refs: ["e1"]
+      },
+      evidence_notes: [{
+        ref: "e1",
+        quote_summary: "只屬模型推論。",
+        why_it_matters: "仍需驗證。",
+        grounding: "model_inferred",
+        reusable_pattern: "待驗證",
+        why_it_works: "原文未直接支持。"
+      }]
+    })),
+    analyzerInput
+  );
+
+  assert.ok(parsed);
+  assert.equal(parsed.verdict, "insufficient_data");
+  assert.equal(parsed.judgmentAxes.evidenceState, "insufficient");
+  assert.equal(
+    deriveProductSignalVerdict({
+      signalType: parsed.signalType,
+      judgmentAxes: parsed.judgmentAxes
+    }).verdict,
+    parsed.verdict
+  );
+  assert.ok(parsed.warnings.includes("reading_evidence_ungrounded"));
+  assert.equal(parsed.productReading, undefined);
+});
+
+test("v21 reports which field it rejected", () => {
+  const result = parseProductSignalAnalysisResult(
+    JSON.stringify(makeRawAnalysis({
+      product_reading: {
+        headline: "先測試可檢查的流程",
+        body: "原文提供具體文字證據。對目前產品而言，可先做一個有限、可停止的測試。",
+        support_refs: ["e1", "e1"]
+      }
+    })),
+    analyzerInput
+  );
+
+  assert.equal(result.ok, false);
+  assert.match(result.ok ? "" : result.rejection, /support_refs/);
 });
 
 test("v21 accepts a grounded root-only Product Reading and caps the headline", () => {
@@ -611,6 +678,43 @@ test("v21 accepts a grounded root-only Product Reading and caps the headline", (
 
   assert.equal(parsed?.productReading?.headline, "標".repeat(60));
   assert.deepEqual(parsed?.productReading?.supportRefs, ["root"]);
+});
+
+test("v21 canonicalizes a grounded evidence-note ref omitted from evidence_refs", () => {
+  const parsed = parseProductSignalAnalysisResponse(
+    JSON.stringify(makeRawAnalysis({
+      evidence_refs: ["e1"],
+      evidence_notes: [
+        {
+          ref: "e1",
+          quote_summary: "第一則留言支持小型驗證。",
+          why_it_matters: "提供一個可逆起點。",
+          grounding: "text_grounded",
+          reusable_pattern: "先驗證再擴張",
+          why_it_works: "留言直接描述驗證順序。"
+        },
+        {
+          ref: "e2",
+          quote_summary: "第二則留言補充定位差異。",
+          why_it_matters: "支持判讀中的產品定位。",
+          grounding: "text_grounded",
+          reusable_pattern: "比較定位差距",
+          why_it_works: "留言直接追問既有工具差異。"
+        }
+      ],
+      product_reading: {
+        headline: "先驗證流程與定位差異",
+        body: "兩則文字證據分別支持小型驗證與定位比較。",
+        support_refs: ["e2"]
+      }
+    })),
+    analyzerInput
+  );
+
+  assert.ok(parsed);
+  assert.deepEqual(parsed.evidenceRefs, ["e1", "e2"]);
+  assert.deepEqual(parsed.productReading?.supportRefs, ["e2"]);
+  assert.equal(parsed.evidenceNotes?.some((note) => note.ref === "e2"), true);
 });
 
 test("v21 does not fall back to retired proposal fields", () => {

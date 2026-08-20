@@ -300,52 +300,45 @@ async function auditSignalReadingExportGate(allLines) {
     ...lineHit(FILES.background, allLines[FILES.background], "generateSignalReading", "retired provider reading call")
   ]);
   const readingCardHits = lineHit(file, lines, '"data-product-reading-card": "true"', "complete Product Reading card");
-  const readingReviewHits = uniqueHits([
+  const readingOpsHits = uniqueHits([
     ...lineHit(file, lines, "function ProductActionReadingOperations", "stage-owned reading operations"),
-    ...lineHit(file, lines, 'data-product-action-review', "reading review controls"),
     ...lineHitsInBlock(file, actionStage, "<ProductActionReadingOperations", "reading operations mounted in Action stage")
   ]);
   const actionExportHits = uniqueHits([
-    ...lineHitsInBlock(file, actionStage, 'data-product-action-brief-export="true"', "single Action brief export shelf"),
-    ...lineHitsInBlock(file, actionStage, "<ProductActionBriefExport", "Action brief export renderer"),
     ...lineHitsInBlock(file, actionStage, 'data-product-action-export="true"', "single Action whole-folder packet shelf"),
     ...lineHitsInBlock(file, actionStage, "<SignalPacketHtmlExportSection", "Action whole-folder packet renderer"),
     ...lineHit(file, lines, "<ProductActionStage", "single Action route owner")
   ]);
-  const actionBriefShelfHits = lineHit(file, lines, 'data-product-action-brief-export="true"', "Action brief export shelf count");
   const actionPacketShelfHits = lineHit(file, lines, 'data-product-action-export="true"', "Action whole-folder packet shelf count");
   const savedExportHits = uniqueHits([
     ...lineHitsInBlock(file, savedSignalsBoard, "ProductActionBriefExport", "Action brief rendered by Saved"),
     ...lineHitsInBlock(file, savedSignalsBoard, "SignalPacketHtmlExportSection", "packet export rendered by Saved"),
     ...lineHitsInBlock(file, savedSignalsBoard, "data-saved-signals-batch-export", "retired Saved batch export"),
-    ...lineHitsInBlock(file, savedSignalsBoard, "data-product-action-brief-export", "Action brief shelf rendered by Saved"),
     ...lineHitsInBlock(file, savedSignalsBoard, "data-product-action-export", "Action packet shelf rendered by Saved")
   ]);
   const failed = retiredRouteSwapHits.length > 0
     || producerHits.length < 2
     || legacyProducerHits.length > 0
     || readingCardHits.length !== 1
-    || readingReviewHits.length < 3
-    || actionExportHits.length < 5
-    || actionBriefShelfHits.length !== 1
+    || readingOpsHits.length < 2
+    || actionExportHits.length < 3
     || actionPacketShelfHits.length !== 1
     || savedExportHits.length > 0;
   return {
     id: "B-08",
     status: statusFromFail(failed),
-    summary: "Analyzer materialization is the sole Product Reading producer; review and export remain Product Action-owned",
+    summary: "Analyzer materialization is the sole Product Reading producer; export remains Product Action-owned",
     evidence: {
       retiredRouteSwapHits,
       producerHits,
       legacyProducerHits,
       readingCardHits,
-      readingReviewHits,
+      readingOpsHits,
       actionExportHits,
-      actionBriefShelfHits,
       actionPacketShelfHits,
       savedExportHits
     },
-    expectedFixShape: "materialize Product Reading exactly once at the analyzer boundary, mount one complete reading card with review in Product Action, and keep one selected brief shelf plus one whole-folder packet shelf without any second reading-generation path"
+    expectedFixShape: "materialize Product Reading exactly once at the analyzer boundary, mount one complete reading card in Product Action, and keep one whole-folder packet shelf without any second reading-generation path"
   };
 }
 

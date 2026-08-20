@@ -157,7 +157,14 @@ export type ProductSignalUsefulness = "useful" | "uncertain" | "none";
 export type ProductSignalTestability = "reversible_test" | "not_yet_testable" | "not_applicable";
 export type ProductSignalEvidenceState = "text_sufficient" | "external_unverified" | "insufficient";
 export type ProductSignalConflictState = "none" | "explicit_constraint" | "explicit_non_goal";
-export type ProductSignalJudgmentWarning = "none_with_reversible_test" | "missing_try_application";
+export type ProductSignalJudgmentWarning =
+  | "none_with_reversible_test"
+  | "missing_try_application"
+  /* try/watch normally owe a complete reading, but a reading may only cite
+   * `text_grounded` evidence. When the model returns no grounded note at all
+   * there is nothing legitimate to ground a reading on, so the verdict drops to
+   * insufficient_data instead of failing the whole analysis. */
+  | "reading_evidence_ungrounded";
 export type ProductSignalReferenceType =
   | "product_reference"
   | "technical_learning"
@@ -559,7 +566,7 @@ export function createDefaultLayoutPreferences(): LayoutPreferences {
 
 export function createEmptyGlobalState(): ExtensionGlobalState {
   return {
-    schemaVersion: 1,
+    schemaVersion: 2,
     settings: createDefaultSettings(),
     sessions: [],
     activeSessionId: null,

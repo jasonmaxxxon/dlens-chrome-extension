@@ -104,6 +104,22 @@ export const tokens = {
     signalGlow: "rgba(67,214,200,0.36)",
     signalFaint: "rgba(67,214,200,0.12)",
 
+    /* Reading Beam spectrum — the nine light sources of the generating border
+     * beam, ported 1:1 from the accepted mockup
+     * docs/mockups/2026-07-23-product-action-deep-reading-orb-beam.html.
+     * These are LIGHT, not surface colour: they only ever appear inside the
+     * beam's conic mask at <=26% opacity, never as text, fill, or edge. They
+     * are not a second palette and nothing outside the beam may use them. */
+    beamRose: "rgb(255,50,100)",
+    beamAzure: "rgb(40,140,255)",
+    beamJade: "rgb(50,200,80)",
+    beamTeal: "rgb(30,185,170)",
+    beamIndigo: "rgb(100,70,255)",
+    beamAmber: "rgb(255,120,40)",
+    beamMagenta: "rgb(240,50,180)",
+    beamViolet: "rgb(180,40,240)",
+    beamShade: "rgba(0,0,0,0.14)",
+
     /* compatibility aliases for the shared workspace glass material */
     atlasPaper: WORKSPACE_GLASS.panel,
     atlasPaperStrong: WORKSPACE_GLASS.panelStrong,

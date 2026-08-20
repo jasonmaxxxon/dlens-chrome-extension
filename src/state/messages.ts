@@ -226,6 +226,7 @@ export type ExtensionSuccessResponse = {
   storageSetMs?: number;
   bytesInUse?: number;
   quotaBytes?: number;
+  unlimitedStorage?: boolean;
   /** session/set-mode only. "fast" = active-id-only key write (~7ms);
    *  "slow" = full saveSnapshot. Lets popup logger correlate slow switches
    *  with sessions ref equality breaking. */

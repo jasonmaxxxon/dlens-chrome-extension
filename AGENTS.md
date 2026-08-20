@@ -91,15 +91,26 @@ git diff --check
 
 - **Shared workspace shell**: Topic, Product, and PR Evidence use
   `tokens.material.workspaceGlass` across the popup canvas, masthead, rail,
-  and main frame; Archive keeps the non-blurred material variant. As of
-  0.3.28 the whole surface token family (`color.canvas/surface/elevated` +
-  shell/rail/neutral/idle/disabled roles) is glass-white derived from the
-  `workspaceGlass` canvas stops — the warm-paper cream values and the
-  `data-paper-grain` overlay are retired; warm ink, serif voice, and mode
-  accents carry the editorial identity. Topic Audit keeps one stable Atlas
-  canvas through `none / running / ready / stale / failed`, preserves the last
-  Atlas during regeneration, and must not present memo-derived `Pn/6` as live
-  progress. As of 0.3.50 the topic page renders ONE source list (atlas
+  and main frame; Archive keeps the non-blurred material variant. The visual
+  hierarchy is one translucent white-green shell, restrained teal / amber /
+  violet auras, mode-specific gradient fields, and contrast-safe near-white
+  reading cards. Translucency belongs to the shell and selected hero/attention
+  surfaces; do not stack blur on ordinary rows. Fine edges, inset highlights,
+  and layered shadows provide card depth. Warm ink, serif voice, and mode
+  accents carry the editorial identity.
+- **Attention lighting**: Light Beam is semantic, not ambient decoration. It
+  marks generation or a high-value actionable reading. One whole surface owns
+  one perimeter beam; never put separate beams on its title, button, or nested
+  panel, and never run a sweep underneath text. Product-reading generation uses
+  the 16px searching orb plus the moving perimeter; ready state is static and
+  quieter. Every animated state must freeze cleanly under
+  `prefers-reduced-motion`, and every beam/card must remain inside its parent
+  border box at narrow widths. Implement through `AttentionSurface` and the
+  token/motion registry, not ad-hoc gradients or keyframes.
+- **Topic Audit** keeps one stable Atlas canvas through
+  `none / running / ready / stale / failed`, preserves the last Atlas during
+  regeneration, and must not present memo-derived `Pn/6` as live progress. As
+  of 0.3.50 the topic page renders ONE source list (atlas
   `SourceRow` grammar with gist titles + manifest actions; uncrawled signals
   are `PendingSignalRow` entries in the same card) — do not reintroduce a
   second 源清單-style manifest section. The P6 final-report prose is
@@ -115,9 +126,28 @@ git diff --check
   icon producer whitelist is exactly `heart | users | message-circle`; the parser
   drops other model values, while legacy stored/unknown strings safely render with
   the `message-circle` fallback (including inherited object-key names).
-- **Product** mode is insight / evidence / task-first: cited evidence,
-  verdicts, experiment hints, agent task prompts. Backend clusters are support
-  data, never the user-facing abstraction. Product rail contract:
+- **Product** mode is insight / evidence / task-first. ProductSignalAnalyzer
+  v21 returns judgment axes plus one optional `product_reading`; `try` and
+  `watch` require a complete reading, while noise / park /
+  `insufficient_data` remain compact and unlit. The first opened actionable
+  card must show that persisted reading immediately. Do not restore the legacy
+  proposal rows, a second Product reading provider call, or a duplicated
+  “expand deep reading” surface.
+- **Product Reading provenance**: analysis and its projected SignalReading are
+  published atomically. Current UI/export projection requires matching signal,
+  ProductContext, analyzer prompt, source-packet, content, refs, and timestamp
+  identity; stale/manual/legacy readings are history, not the current card.
+  Support refs must resolve to captured root/reply text and `text_grounded`
+  evidence notes. Never claim that a video, animation, repository, or linked
+  page was inspected when only the Threads text was captured.
+- **Product Action UI**: the four mutually exclusive navigation buckets are
+  `try / noise / insufficient / watch`; non-noise `park` belongs under watch.
+  An actionable stage renders exactly one complete-reading card and one
+  copyable Agent brief. The whole-folder packet export remains Action-owned;
+  Saved Signals is lifecycle intake only. Do not reintroduce a review-action
+  group or selected-brief shelf that the current Product UI does not render.
+  Backend clusters are support data, never the user-facing abstraction.
+  Product rail contract:
   `getModeRailPages("product") === ["saved-signals", "actionable-filter",
   "collect"]` (guarded by `tests/product-routing.test.ts`).
 - **PR Evidence** V1: one active campaign per session; criteria fixed at

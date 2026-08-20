@@ -18,8 +18,7 @@ import {
 import type { SignalPacketExportFormat, SignalPacketExportResult } from "../compare/signal-packet-export";
 import {
   latestReadingBySignalId,
-  type SignalReading,
-  type SignalReadingReviewState
+  type SignalReading
 } from "../compare/signal-reading-storage";
 import { aiOutputProvenanceFromModel, describeAiOutputProvenance } from "../state/ai-provenance";
 import type { TargetDescriptor } from "../contracts/target-descriptor";
@@ -29,10 +28,12 @@ import type { SignalReadiness } from "../state/signal-readiness";
 import {
   deriveProductCardPresentation,
   ROOT_SPAN_REF,
+  segmentProductReadingBody,
   type CapturedSpan,
   type ProductCardPresentation,
   type ProductHeroResult,
-  type ProductPrimaryCategory
+  type ProductPrimaryCategory,
+  type ProductReadingSegmentKind
 } from "../viewmodel/product-card-presentation";
 import {
   AttentionSurface,
@@ -658,6 +659,24 @@ function fieldStackStyle(extra?: CSSProperties): CSSProperties {
     gap: 2,
     minWidth: 0,
     ...extra
+  };
+}
+
+/**
+ * Raised tile (「浮磚」) — the shared selectable-option surface: rounded card
+ * radius + the tier-1 card shadow + the atlasPaper glass gradient, so option
+ * chips read as liftable tiles instead of flat 直角 stickers. Selected swaps to
+ * the product accent + accent shadow. All values come from existing tokens — no
+ * new design values (see tokens-intent.md `### radius & shadow`).
+ */
+function selectableTileStyle(selected: boolean): CSSProperties {
+  return {
+    border: `1px solid ${selected ? tokens.color.product : tokens.color.line}`,
+    borderRadius: tokens.radius.card,
+    background: selected ? tokens.color.productSoft : tokens.color.atlasPaper,
+    boxShadow: selected ? PRODUCT_MODE_ACCENT_BUTTON_SHADOW : tokens.shadow.card,
+    color: selected ? tokens.color.product : tokens.color.subInk,
+    cursor: "pointer"
   };
 }
 
@@ -1509,27 +1528,6 @@ type ExportSignalPackets = (options: {
   sessionId: string;
   format: SignalPacketUiExportFormat;
 }) => Promise<{ ok: true; exportResult: SignalPacketExportResult } | { ok: false; error: string }>;
-type SignalReadingReviewDecision = Exclude<SignalReadingReviewState, "pending">;
-type ReviewSignalReading = (
-  cacheKey: string,
-  decision: SignalReadingReviewDecision,
-  note?: string
-) => Promise<{ ok: true; signalReading: SignalReading } | { ok: false; error: string }>;
-
-const SIGNAL_READING_REVIEW_LABELS: Record<SignalReadingReviewState, string> = {
-  pending: "待 review",
-  filed: "已收錄",
-  deferred: "待看",
-  rejected: "已退回"
-};
-
-const SIGNAL_READING_REVIEW_TONES: Record<SignalReadingReviewState, "neutral" | "accent" | "success" | "warning"> = {
-  pending: "neutral",
-  filed: "accent",
-  deferred: "warning",
-  rejected: "neutral"
-};
-
 const SIGNAL_PACKET_EXPORT_FORMATS: Array<{
   value: SignalPacketUiExportFormat;
   label: string;
@@ -1549,10 +1547,6 @@ const SIGNAL_PACKET_EXPORT_FORMATS: Array<{
     whatsInside: "每行一個 packet：原文 · 證據 · 判讀 · feedback · decisionTrace"
   }
 ];
-
-function signalReadingReviewState(reading: SignalReading | undefined): SignalReadingReviewState {
-  return reading?.reviewState ?? "pending";
-}
 
 function renderEmphasizedText(text: string): ReactNode[] {
   const pattern = /\*\*([^*]+)\*\*/g;
@@ -1592,6 +1586,100 @@ function renderEmphasizedText(text: string): ReactNode[] {
   return nodes.length ? nodes : [text];
 }
 
+const READING_SEGMENT_TONES: Record<ProductReadingSegmentKind, string> = {
+  intro: tokens.color.subInk,
+  evidence: tokens.color.success,
+  inference: "var(--dlens-mode-accent)",
+  uncertainty: tokens.color.queued,
+  external: tokens.color.softInk,
+  recommendation: tokens.color.product
+};
+
+function ReadingSegmentIcon({ kind }: { kind: ProductReadingSegmentKind }) {
+  const common = {
+    width: 13,
+    height: 13,
+    viewBox: "0 0 24 24",
+    fill: "none",
+    stroke: "currentColor",
+    strokeWidth: 1.8,
+    strokeLinecap: "round" as const,
+    strokeLinejoin: "round" as const,
+    "aria-hidden": true,
+    style: { display: "block" }
+  };
+  switch (kind) {
+    /* Intro — the author's summary before the evidence/inference structure. */
+    case "intro":
+      return <svg {...common}><path d="M5 7h14" /><path d="M5 12h10" /><path d="M5 17h8" /></svg>;
+    /* Captured evidence — a quotation lifted from the post. */
+    case "evidence":
+      return <svg {...common}><path d="M9.5 6.5C7 8 5.5 10 5.5 13v4.5h5V13H8c0-2 .6-3.4 2.4-4.6Z" /><path d="M18 6.5c-2.5 1.5-4 3.5-4 6.5v4.5h5V13h-2.5c0-2 .6-3.4 2.4-4.6Z" /></svg>;
+    /* Inference — derived from the evidence, not stated by it. */
+    case "inference":
+      return <svg {...common}><path d="M4 12h13" /><path d="m13 7 5 5-5 5" /></svg>;
+    /* Uncertainty — what was not verified. */
+    case "uncertainty":
+      return <svg {...common}><circle cx="12" cy="12" r="8.5" /><path d="M9.7 9.6a2.4 2.4 0 0 1 4.6.9c0 1.6-2.3 1.9-2.3 3.3" /><path d="M12 17.2h.01" /></svg>;
+    /* External content — named but never inspected by DLens. */
+    case "external":
+      return <svg {...common}><path d="M13.5 5.5H19V11" /><path d="M18.5 6 11 13.5" /><path d="M18 14.5V18a1.5 1.5 0 0 1-1.5 1.5h-9A1.5 1.5 0 0 1 6 18V9a1.5 1.5 0 0 1 1.5-1.5H11" /></svg>;
+    /* Recommendation — the reversible next move. */
+    case "recommendation":
+      return <svg {...common}><path d="M6 20V5.5" /><path d="M6 6h10.5l-1.8 3.2 1.8 3.3H6" /></svg>;
+  }
+}
+
+/**
+ * Render a reading body as labelled parts when the model wrote them, and as one
+ * paragraph when it did not. The wall-of-text complaint was never about length —
+ * evidence, inference, uncertainty and the recommendation all carry different
+ * weight, and a reader scanning for "what should I do" should not have to parse
+ * a paragraph to find it.
+ */
+function ReadingBodyProse({ body }: { body: string }) {
+  const segments = segmentProductReadingBody(body);
+  const proseStyle: CSSProperties = {
+    fontSize: 13,
+    lineHeight: 1.72,
+    color: tokens.color.subInk,
+    whiteSpace: "pre-wrap",
+    overflowWrap: "anywhere"
+  };
+
+  if (!segments.length) {
+    return <div data-product-reading-body="true" style={proseStyle}>{renderEmphasizedText(body)}</div>;
+  }
+
+  return (
+    <div data-product-reading-body="segmented" style={{ display: "grid", gap: 7 }}>
+      {segments.map((segment) => (
+        <div
+          key={segment.key}
+          data-product-reading-segment={segment.kind}
+          style={{ ...proseStyle, minWidth: 0 }}
+        >
+          <span
+            data-product-reading-segment-icon={segment.kind}
+            style={{
+              color: READING_SEGMENT_TONES[segment.kind],
+              display: "inline-flex",
+              verticalAlign: "text-bottom",
+              marginInlineEnd: 7
+            }}
+          >
+            <ReadingSegmentIcon kind={segment.kind} />
+          </span>
+          <span style={{ ...textStyles.fieldLabel, color: READING_SEGMENT_TONES[segment.kind], marginInlineEnd: 6 }}>
+            {segment.label}
+          </span>
+          {renderEmphasizedText(segment.text)}
+        </div>
+      ))}
+    </div>
+  );
+}
+
 function createSignalReadingDisplayCopy(
   reading: SignalReading,
   fallbackHeadline = ""
@@ -1627,20 +1715,7 @@ function SignalReadingBody({
       >
         {copy.title}
       </div>
-      {copy.body ? (
-        <div
-          data-product-reading-body="true"
-          style={{
-            fontSize: 13,
-            lineHeight: 1.72,
-            color: tokens.color.subInk,
-            whiteSpace: "pre-wrap",
-            overflowWrap: "anywhere"
-          }}
-        >
-          {renderEmphasizedText(copy.body)}
-        </div>
-      ) : null}
+      {copy.body ? <ReadingBodyProse body={copy.body} /> : null}
     </div>
   );
 }
@@ -2053,14 +2128,10 @@ function SignalPacketHtmlExportSection({
                 setExportMessage(" ");
               }}
               style={{
-                border: `1px solid ${selected ? tokens.color.product : tokens.color.line}`,
-                borderRadius: tokens.radius.sm,
-                background: selected ? tokens.color.productSoft : tokens.color.surface,
-                color: selected ? tokens.color.product : tokens.color.subInk,
+                ...selectableTileStyle(selected),
                 padding: "11px 13px",
                 font: "inherit",
                 textAlign: "left",
-                cursor: "pointer",
                 display: "grid",
                 gap: 5
               }}
@@ -2358,113 +2429,6 @@ function RecoveredAnalysesBoard({
   );
 }
 
-function ProductActionBriefExport({
-  signals,
-  analyses,
-  signalPreviewById,
-  signalUrlById,
-  selectedIds,
-  evidenceBySignalId
-}: {
-  signals: ProductSignalViewModel[];
-  analyses: ProductSignalAnalysis[];
-  signalPreviewById: Record<string, string>;
-  signalUrlById: Record<string, string>;
-  selectedIds: string[];
-  evidenceBySignalId: Record<string, ProductSignalEvidenceEntry[]>;
-}) {
-  const [copyStatus, setCopyStatus] = useState<AgentBriefCopyStatus>("idle");
-  const [briefMode, setBriefMode] = useState<AgentBriefMode>("original");
-  const analysesBySignal = analysisBySignalId(analyses);
-  const selectedSignals = signals.filter((signal) => selectedIds.includes(signal.signalId));
-  const agentBrief = selectedSignals.length
-    ? buildAgentBrief({ mode: briefMode, selectedSignals, analysesBySignal, signalPreviewById, signalUrlById, evidenceBySignalId })
-    : "";
-  const copyBrief = () => {
-    if (!agentBrief) return;
-    if (typeof navigator === "undefined" || !navigator.clipboard) {
-      setCopyStatus("error");
-      return;
-    }
-    void navigator.clipboard.writeText(agentBrief).then(
-      () => {
-        setCopyStatus("copied");
-        if (typeof window !== "undefined") {
-          window.setTimeout(() => setCopyStatus("idle"), 1800);
-        }
-      },
-      () => setCopyStatus("error")
-    );
-  };
-  const copyStatusText = copyStatus === "copied" ? "已複製" : copyStatus === "error" ? "複製失敗" : " ";
-
-  return (
-    <div style={{ display: "grid", gridTemplateColumns: "minmax(0, 1fr)", gap: 10, marginTop: 10, minWidth: 0 }}>
-      <div data-product-action-brief-selected-summary="true" style={{ display: "flex", gap: 6, flexWrap: "wrap", alignItems: "center", minWidth: 0 }}>
-        {selectedSignals.length ? selectedSignals.map((signal) => (
-          <span key={signal.signalId} style={{ ...textStyles.meta, flex: "1 1 180px", minWidth: 0, maxWidth: "100%", boxSizing: "border-box", padding: "4px 7px", borderRadius: tokens.radius.sm, border: `1px solid ${tokens.color.line}`, background: tokens.color.contextSurface, color: tokens.color.subInk, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-            {excerpt(signal.sourcePreview.displayText || signal.title, 72)}
-          </span>
-        )) : (
-          <span style={{ ...textStyles.meta, color: tokens.color.softInk }}>尚未選取；請從上方值得嘗試／保留觀察卡加入。</span>
-        )}
-      </div>
-      <div data-product-action-brief-mode="true" role="group" aria-label="行動簡報輸出格式" style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
-        {[
-          ["original", "原文優先"],
-          ["decision", "精簡決策"]
-        ].map(([value, label]) => (
-          <button
-            key={value}
-            type="button"
-            data-product-action-brief-mode-option={value}
-            aria-pressed={briefMode === value}
-            onClick={() => setBriefMode(value as AgentBriefMode)}
-            style={{
-              border: `1px solid ${briefMode === value ? tokens.color.product : tokens.color.line}`,
-              borderRadius: tokens.radius.sm,
-              background: briefMode === value ? tokens.color.product : tokens.color.surface,
-              boxShadow: briefMode === value ? PRODUCT_MODE_ACCENT_BUTTON_SHADOW : "none",
-              color: briefMode === value ? tokens.color.inverse : tokens.color.subInk,
-              minHeight: 44,
-              padding: "6px 9px",
-              font: "inherit",
-              fontSize: 12,
-              fontWeight: 600,
-              cursor: "pointer"
-            }}
-          >
-            {label}
-          </button>
-        ))}
-      </div>
-      <PrimaryButton onClick={copyBrief} disabled={!selectedSignals.length}>複製行動簡報</PrimaryButton>
-      <div
-        data-product-action-brief-copy-status={copyStatus}
-        aria-live="polite"
-        role="status"
-        style={{
-          minHeight: 20,
-          display: "inline-flex",
-          alignItems: "center",
-          justifyContent: "center",
-          justifySelf: "start",
-          padding: copyStatus === "idle" ? "0 8px" : "3px 9px",
-          borderRadius: 999,
-          background: copyStatus === "copied" ? tokens.color.successSoft : copyStatus === "error" ? tokens.color.queuedSoft : "transparent",
-          color: copyStatus === "copied" ? tokens.color.success : copyStatus === "error" ? tokens.color.queued : tokens.color.softInk,
-          border: copyStatus === "idle" ? "1px solid transparent" : `1px solid ${copyStatus === "copied" ? tokens.color.success : tokens.color.queued}`,
-          fontSize: 11.5,
-          fontWeight: 750,
-          opacity: copyStatus === "idle" ? 0 : 1
-        }}
-      >
-        {copyStatusText}
-      </div>
-    </div>
-  );
-}
-
 function ClassificationBoard({
   analyses,
   signalPreviewById
@@ -2684,8 +2648,7 @@ function ProductActionReadingOperations({
   citations,
   agentBrief,
   agentBriefCopyStatus,
-  onCopyAgentBrief,
-  onReviewSignalReading
+  onCopyAgentBrief
 }: {
   analysis: ProductSignalAnalysis;
   signal?: ProductSignalViewModel;
@@ -2695,12 +2658,7 @@ function ProductActionReadingOperations({
   agentBrief: string;
   agentBriefCopyStatus: AgentBriefCopyStatus;
   onCopyAgentBrief: () => void;
-  onReviewSignalReading?: ReviewSignalReading;
 }) {
-  const incomingReviewState = signalReadingReviewState(reading);
-  const [reviewState, setReviewState] = useState<SignalReadingReviewState>(() => incomingReviewState);
-  const [notice, setNotice] = useState<string | null>(null);
-  const [error, setError] = useState<string | null>(null);
   const evidenceState = analysis.judgmentAxes?.evidenceState;
   const evidenceStateLabel = evidenceState === "text_sufficient"
     ? "文字證據足夠"
@@ -2711,27 +2669,6 @@ function ProductActionReadingOperations({
         : "證據狀態未標示";
   const provenanceStale = reading.promptVersion !== analysis.promptVersion
     || reading.productContextHash !== analysis.productContextHash;
-
-  useEffect(() => {
-    setReviewState(incomingReviewState);
-    setNotice(null);
-    setError(null);
-  }, [reading?.cacheKey, reading?.generatedAt, incomingReviewState]);
-
-  const review = (decision: SignalReadingReviewDecision) => {
-    if (!onReviewSignalReading) return;
-    setError(null);
-    setNotice(null);
-    void onReviewSignalReading(reading.cacheKey, decision).then((result) => {
-      if (result.ok) {
-        const nextState = signalReadingReviewState(result.signalReading);
-        setReviewState(nextState);
-        setNotice(nextState === "filed" ? "已收錄此判讀。" : nextState === "deferred" ? "已標記待看。" : "已退回此判讀。");
-      } else {
-        setError(result.error);
-      }
-    });
-  };
 
   return (
     <AttentionSurface
@@ -2762,7 +2699,6 @@ function ProductActionReadingOperations({
             {VERDICT_LABELS[analysis.verdict]}
           </Stamp>
         </div>
-        <Stamp tone={SIGNAL_READING_REVIEW_TONES[reviewState]}>{SIGNAL_READING_REVIEW_LABELS[reviewState]}</Stamp>
       </div>
       <SignalReadingBody reading={reading} fallbackHeadline={analysis.contentSummary} />
       <div
@@ -2772,36 +2708,41 @@ function ProductActionReadingOperations({
         <span>{evidenceStateLabel}</span>
         {reading.sourceRefs.length ? <span>{reading.sourceRefs.map((ref) => ref === ROOT_SPAN_REF ? "原文" : ref).join("、")}</span> : null}
       </div>
-      <footer
-        data-product-reading-footer="true"
-        style={betweenRowStyle({ paddingTop: 10, borderTop: `1px solid ${tokens.color.line}`, alignItems: "center" })}
-      >
-        <div data-product-reading-review-actions="true" style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
-          {onReviewSignalReading ? (
-            <>
+      {agentBrief ? (
+        <footer
+          data-product-reading-footer="true"
+          style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap", minWidth: 0, paddingTop: 10, borderTop: `1px solid ${tokens.color.line}` }}
+        >
+          <div data-product-action-agent-brief="true" style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap", minWidth: 0 }}>
+            <AttentionSurface
+              state="generating"
+              variant="product-reading"
+              dataAttrs={{
+                "data-product-action-agent-brief-beam": "true",
+                "data-attention-button-beam": "true"
+              }}
+              style={{
+                display: "inline-flex",
+                width: "fit-content",
+                flex: "0 0 auto",
+                borderRadius: tokens.radius.pill,
+                overflow: "hidden"
+              }}
+            >
               <PrimaryButton
-                dataAttrs={{ "data-product-action-review": "filed" }}
-                disabled={reviewState === "filed"}
-                onClick={() => review("filed")}
+                dataAttrs={{
+                  "data-product-action-agent-brief-copy": "true",
+                  "data-attention-button-content": "true"
+                }}
+                onClick={onCopyAgentBrief}
               >
-                {reviewState === "filed" ? "已收錄" : "收錄此判讀"}
+                複製 Agent brief
               </PrimaryButton>
-              <SecondaryButton dataAttrs={{ "data-product-action-review": "deferred" }} onClick={() => review("deferred")}>待看</SecondaryButton>
-              <SecondaryButton dataAttrs={{ "data-product-action-review": "rejected" }} onClick={() => review("rejected")}>退回</SecondaryButton>
-            </>
-          ) : null}
-        </div>
-        {agentBrief ? (
-          <div data-product-action-agent-brief="true" style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
-            <span style={{ ...textStyles.fieldLabel, color: tokens.color.product }}>交給 Agent</span>
-            {analysis.agentTaskSpec?.taskTitle?.trim() ? <span style={{ ...textStyles.meta, color: tokens.color.softInk, overflowWrap: "anywhere" }}>{analysis.agentTaskSpec.taskTitle.trim()}</span> : null}
-            <SecondaryButton dataAttrs={{ "data-product-action-agent-brief-copy": "true" }} onClick={onCopyAgentBrief} style={{ minHeight: 44 }}>複製 Agent brief</SecondaryButton>
+            </AttentionSurface>
             <span data-product-action-agent-brief-copy-status={agentBriefCopyStatus} role="status" aria-live="polite" style={{ ...textStyles.meta, color: agentBriefCopyStatus === "error" ? tokens.color.queued : tokens.color.success }}>{agentBriefCopyStatus === "copied" ? "已複製" : agentBriefCopyStatus === "error" ? "複製失敗" : ""}</span>
           </div>
-        ) : null}
-      </footer>
-      {notice ? <div data-product-action-reading-notice="true" role="status" aria-live="polite" style={{ fontSize: 12, color: tokens.color.success }}>{notice}</div> : null}
-      {error ? <div data-product-action-reading-error="true" role="alert" style={{ fontSize: 12, color: tokens.color.queued }}>{error}</div> : null}
+        </footer>
+      ) : null}
       <details data-product-action-reading-secondary="true" style={{ borderTop: `1px solid ${tokens.color.line}`, paddingTop: 8 }}>
         <summary className="dlens-expand-trigger" style={{ cursor: "pointer", ...textStyles.fieldLabel, color: tokens.color.softInk }}>
           來源、引用與新鮮度
@@ -2854,7 +2795,6 @@ function ProductActionStage({
   evidenceBySignalId,
   signalPreviewById,
   signalUrlById,
-  onReviewSignalReading,
   onExportSignalPackets
 }: {
   analyses: ProductSignalAnalysis[];
@@ -2865,7 +2805,6 @@ function ProductActionStage({
   evidenceBySignalId: Record<string, ProductSignalEvidenceEntry[]>;
   signalPreviewById: Record<string, string>;
   signalUrlById: Record<string, string>;
-  onReviewSignalReading?: ReviewSignalReading;
   onExportSignalPackets?: ExportSignalPackets;
 }) {
   const completed = analyses.filter((analysis) => analysis.status === "complete");
@@ -2933,13 +2872,6 @@ function ProductActionStage({
     ? "backward"
     : direction;
   const activeMeta = stats.find((stat) => stat.key === resolvedFilter) ?? stats[0]!;
-  const eligibleBriefIds = completed
-    .filter((analysis) => presentationBySignalId.get(analysis.signalId)?.briefEligible && signalsById.has(analysis.signalId))
-    .map((analysis) => analysis.signalId);
-  const eligibleBriefKey = eligibleBriefIds.join("|");
-  const eligibleBriefIdSet = new Set(eligibleBriefIds);
-  const [selectedSignalIds, setSelectedSignalIds] = useState<string[]>([]);
-  const previousBriefSessionIdRef = useRef(activeFolderId);
   const readingsBySignalId = latestReadingBySignalId(signalReadings);
 
   useEffect(() => {
@@ -2967,17 +2899,6 @@ function ProductActionStage({
     restoreStageFocusRef.current = false;
     stageRef.current?.focus({ preventScroll: true });
   }, [activeAnalysis?.signalId]);
-
-  useEffect(() => {
-    const sessionChanged = previousBriefSessionIdRef.current !== activeFolderId;
-    previousBriefSessionIdRef.current = activeFolderId;
-    const eligibleIds = new Set(eligibleBriefIds);
-    setSelectedSignalIds((previous) => {
-      if (sessionChanged) return [];
-      const next = previous.filter((signalId) => eligibleIds.has(signalId));
-      return next.length === previous.length ? previous : next;
-    });
-  }, [activeFolderId, eligibleBriefKey]);
 
   const moveTo = (nextIndex: number, restoreFocus = false) => {
     const clamped = Math.max(0, Math.min(nextIndex, activeItems.length - 1));
@@ -3059,8 +2980,6 @@ function ProductActionStage({
   const activeTitle = activeAnalysis
     ? activeAnalysis.referenceLabel?.trim() || activeAnalysis.contentSummary
     : "";
-  const activeBriefEligible = Boolean(activeAnalysis && activePresentation?.briefEligible && eligibleBriefIdSet.has(activeAnalysis.signalId));
-  const activeBriefSelected = Boolean(activeAnalysis && selectedSignalIds.includes(activeAnalysis.signalId));
   const activeDecisionReason = activeAnalysis
     ? (activeAnalysis.reason || activeAnalysis.whyRelevant).trim()
     : "";
@@ -3129,13 +3048,6 @@ function ProductActionStage({
     agentBriefCopyRequestRef.current += 1;
     setAgentBriefCopyStatus("idle");
   }, [activeAnalysis?.signalId]);
-
-  const toggleActiveBriefSelection = () => {
-    if (!activeAnalysis || !activeBriefEligible) return;
-    setSelectedSignalIds((previous) => previous.includes(activeAnalysis.signalId)
-      ? previous.filter((signalId) => signalId !== activeAnalysis.signalId)
-      : [...previous, activeAnalysis.signalId]);
-  };
 
   const copyActiveAgentBrief = () => {
     const signalId = activeAnalysis?.signalId;
@@ -3275,38 +3187,6 @@ function ProductActionStage({
                   <span data-product-action-hero-kind={activePresentation?.heroKind ?? "editorial"} hidden />
                   {(import.meta as { env?: { DEV?: boolean } }).env?.DEV ? <span data-product-action-hero-kind-tag={activePresentation?.heroKind ?? "editorial"} style={{ ...textStyles.meta, color: tokens.color.softInk }}>{activePresentation?.heroKind ?? "editorial"}</span> : null}
                 </div>
-                {activeBriefEligible ? (
-                  <button
-                    type="button"
-                    data-product-action-brief-toggle="true"
-                    data-product-action-selection-state={activeBriefSelected ? "selected" : "available"}
-                    aria-pressed={activeBriefSelected}
-                    onClick={toggleActiveBriefSelection}
-                    style={{
-                      minWidth: 0,
-                      minHeight: 44,
-                      maxWidth: "100%",
-                      boxSizing: "border-box",
-                      display: "inline-flex",
-                      alignItems: "center",
-                      justifyContent: "center",
-                      gap: 7,
-                      padding: "8px 11px",
-                      borderRadius: tokens.radius.cardLg,
-                      border: `1px solid ${activeBriefSelected ? tokens.color.product : tokens.color.cardEdge}`,
-                      background: activeBriefSelected ? tokens.color.productSoft : tokens.color.atlasPaper,
-                      boxShadow: activeBriefSelected ? tokens.shadow.topicCard : tokens.shadow.atlasCard,
-                      color: activeBriefSelected ? tokens.color.product : tokens.color.subInk,
-                      font: "inherit",
-                      fontSize: 12,
-                      fontWeight: 750,
-                      cursor: "pointer"
-                    }}
-                  >
-                    <span>{activeBriefSelected ? "已加入行動簡報" : "加入行動簡報"}</span>
-                    <span aria-hidden="true">{activeBriefSelected ? "✓" : "+"}</span>
-                  </button>
-                ) : null}
               </div>
               <h2 style={{ margin: 0, fontFamily: tokens.font.serifCjk, fontSize: 22, lineHeight: 1.28, color: tokens.color.ink, overflowWrap: "anywhere" }}>
                 {activeTitle}
@@ -3330,7 +3210,6 @@ function ProductActionStage({
                   agentBrief={activeAgentBrief}
                   agentBriefCopyStatus={agentBriefCopyStatus}
                   onCopyAgentBrief={copyActiveAgentBrief}
-                  onReviewSignalReading={onReviewSignalReading}
                 />
               ) : (
                 <section
@@ -3363,21 +3242,6 @@ function ProductActionStage({
       ) : (
         <div id={PRODUCT_ACTION_STAGE_PANEL_ID} data-product-action-empty="true" role="tabpanel" aria-label="行動判定尚無可顯示的分析" style={mutedPanelStyle({ fontSize: 12.5, color: tokens.color.subInk })}>請先到訊號頁開始分析</div>
       )}
-      {eligibleBriefIds.length ? (
-        <details data-product-action-brief-export="true" style={{ minWidth: 0, borderTop: `1px solid ${tokens.color.line}`, paddingTop: 10 }}>
-          <summary className="dlens-expand-trigger" style={{ minHeight: 44, display: "flex", alignItems: "center", padding: "8px 4px", cursor: "pointer", ...textStyles.fieldLabel, color: tokens.color.product }}>
-            行動簡報匯出 · {selectedSignalIds.length} 已選
-          </summary>
-          <ProductActionBriefExport
-            signals={signals}
-            analyses={completed}
-            signalPreviewById={signalPreviewById}
-            signalUrlById={signalUrlById}
-            selectedIds={selectedSignalIds}
-            evidenceBySignalId={evidenceBySignalId}
-          />
-        </details>
-      ) : null}
       {completed.length && onExportSignalPackets ? (
         <details data-product-action-export="true" style={{ minWidth: 0, borderTop: `1px solid ${tokens.color.line}`, paddingTop: 10 }}>
           <summary className="dlens-expand-trigger" style={{ minHeight: 44, display: "flex", alignItems: "center", padding: "8px 4px", cursor: "pointer", ...textStyles.fieldLabel, color: tokens.color.product }}>整個 Folder Packet 匯出（HTML / JSONL）</summary>
@@ -3398,7 +3262,6 @@ function ProductActionStage({
 
 export const productSignalViewTestables = {
   buildAgentBrief,
-  ProductActionBriefExport,
   HeroRenderer,
   createSignalReadingDisplayCopy
 };
@@ -3460,19 +3323,6 @@ export function ProductSignalView({
     if (!action) return;
     void dispatchCommand({ kind: "remove", target: action.target });
   }
-
-  const reviewSignalReading: ReviewSignalReading = (cacheKey, decision, note) => {
-    const reading = scopedSignalReadings.find((entry) => entry.cacheKey === cacheKey);
-    if (!reading || !viewModel.sessionId) {
-      return Promise.resolve({ ok: false, error: "找不到這筆 signal reading。" });
-    }
-    return dispatchCommand({
-      kind: "reviewReading",
-      target: { sessionId: viewModel.sessionId, signalId: reading.signalId, cacheKey },
-      decision,
-      ...(note ? { note } : {})
-    }) as Promise<{ ok: true; signalReading: SignalReading } | { ok: false; error: string }>;
-  };
 
   const exportSignalPackets: ExportSignalPackets | undefined = viewModel.actions.some((action) => action.kind === "exportSignalPackets")
     ? (options) =>
@@ -3547,20 +3397,21 @@ export function ProductSignalView({
         {kind === "saved-signals" && scopedAnalyses.length > 0 && !viewModel.isAnalyzing && openActionableCommand ? (
           <div
             data-product-action-cta="true"
+            data-raised-tile="true"
             data-dlens-presence="card"
             style={{
+              ...selectableTileStyle(false),
               display: "flex",
               alignItems: "center",
               justifyContent: "space-between",
               gap: 10,
               padding: "10px 12px",
-              borderRadius: tokens.radius.cardLg,
-              border: `1px solid var(--dlens-mode-accent-soft, ${tokens.color.productSoft})`,
-              background: `var(--dlens-mode-accent-soft, ${tokens.color.productSoft})`,
-              boxShadow: tokens.shadow.topicCard
+              width: "100%",
+              boxSizing: "border-box",
+              cursor: "default"
             }}
           >
-            <span style={{ fontSize: 12, color: tokens.color.subInk, lineHeight: 1.4 }}>
+            <span data-product-action-cta-copy="true" style={{ ...textStyles.bodyTight, color: tokens.color.subInk }}>
               分析完成，查看哪些 signal 值得行動
             </span>
             <PrimaryButton onClick={handleGoToActionable} activateOnPointerDown style={{ padding: "6px 14px", whiteSpace: "nowrap" }}>
@@ -3596,7 +3447,6 @@ export function ProductSignalView({
             signalPreviewById={routeSignalPreviewById}
             signalUrlById={routeSignalUrlById}
             evidenceBySignalId={routeEvidenceBySignalId}
-            onReviewSignalReading={reviewSignalReading}
             onExportSignalPackets={exportSignalPackets}
           />
         ) : scopedAnalyses.length ? (

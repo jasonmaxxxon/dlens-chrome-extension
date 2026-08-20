@@ -362,14 +362,18 @@ async function loadGlobalState(): Promise<ExtensionGlobalState> {
   // Storage migration registry stamps schemaVersion on stored payloads from
   // before the registry existed (`dlens:v0:global-state` written without a
   // schemaVersion field). Fresh installs use createEmptyGlobalState() which
-  // already includes schemaVersion: 1.
+  // already carries the current registry schema version.
   const migrated = stored
     ? runMigrationsFor<ExtensionGlobalState>(STORAGE_MIGRATIONS, GLOBAL_STORAGE_KEY, stored)
     : createEmptyGlobalState();
+  const storedSchemaVersion = stored && typeof stored === "object"
+    ? (stored as { schemaVersion?: unknown }).schemaVersion
+    : undefined;
+  const migrationNeedsWrite = storedSchemaVersion !== migrated.schemaVersion;
   const normalized = normalizeGlobalState(migrated);
   const activeOverlaid = applyStoredActiveSessionId(normalized, raw[ACTIVE_SESSION_ID_STORAGE_KEY]);
   const expired = expireStaleInFlightItems(activeOverlaid);
-  if (expired !== activeOverlaid) {
+  if (migrationNeedsWrite || expired !== activeOverlaid) {
     return persistGlobalStateOnly(expired, "[DLens] loadGlobalState");
   }
   return expired;
@@ -2347,12 +2351,16 @@ export default defineBackground(() => {
           case "storage/get-usage": {
             const tabId = await resolveTabId(sender);
             const storageArea = chrome.storage.local as chrome.storage.StorageArea & { QUOTA_BYTES?: number };
-            const bytesInUse = await chrome.storage.local.getBytesInUse();
+            const [bytesInUse, unlimitedStorage] = await Promise.all([
+              chrome.storage.local.getBytesInUse(),
+              chrome.permissions.contains({ permissions: ["unlimitedStorage"] })
+            ]);
             sendResponse({
               ok: true,
               tabId,
               bytesInUse,
-              quotaBytes: storageArea.QUOTA_BYTES ?? DEFAULT_STORAGE_QUOTA_BYTES
+              quotaBytes: storageArea.QUOTA_BYTES ?? DEFAULT_STORAGE_QUOTA_BYTES,
+              unlimitedStorage
             } satisfies ExtensionResponse);
             return;
           }

@@ -17,11 +17,11 @@ export default defineConfig({
   entrypointsDir: "entrypoints",
   manifest: {
     name: isPrOnlyBuild ? "DLens PR Mode" : "DLens v3",
-    version: "0.3.57",
+    version: "0.3.59",
     description: isPrOnlyBuild
       ? "PR Evidence-only Threads capture client for DLens ingest-core."
       : "Thin Threads capture client for DLens ingest-core.",
-    permissions: ["storage", "tabs", "activeTab", "sidePanel"],
+    permissions: ["storage", "unlimitedStorage", "tabs", "activeTab", "sidePanel"],
     icons: ICONS,
     host_permissions: [
       "*://www.threads.net/*",

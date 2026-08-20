@@ -3,7 +3,11 @@ import { readFile } from "node:fs/promises";
 import test from "node:test";
 
 import { providerTestables } from "../src/compare/provider.ts";
-import { generateCompareOneLiner, generateTopicAuditEnvelope } from "../src/compare/provider.ts";
+import {
+  generateCompareOneLiner,
+  generateProductSignalAnalysis,
+  generateTopicAuditEnvelope
+} from "../src/compare/provider.ts";
 import { TopicAuditEnvelopeError } from "../src/compare/topic-audit-envelope-contract.ts";
 
 test("fetchWithRetry retries transient fetch failures before succeeding", async () => {
@@ -131,6 +135,190 @@ test("ProductSignalAnalyzer v21 provider payloads share one Product Reading sche
   });
   assert.equal(googleBody.generationConfig.maxOutputTokens, 2800);
   assert.equal(claudeBody.max_tokens, 2800);
+});
+
+test("ProductSignalAnalyzer repairs an ungrounded reading once before a coherent insufficient-data fallback", async () => {
+  const originalFetch = globalThis.fetch;
+  let attempts = 0;
+  const ungroundedPayload = {
+    signal_type: "learning",
+    signal_subtype: "workflow_validation",
+    content_type: "content",
+    content_summary: "討論把產品假設收斂成小型驗證。",
+    relevance: 5,
+    relevant_to: ["coreWorkflows"],
+    reference_type: "workflow_pattern",
+    reference_label: "先驗證再擴張",
+    reference_takeaway: "先用一條訊號驗證流程。",
+    why_relevant: "方向與產品工作流相關。",
+    usefulness: "useful",
+    testability: "reversible_test",
+    evidence_state: "text_sufficient",
+    conflict_state: "none",
+    reason: "表面上有可逆的小型測試。",
+    experiment_hint: "先測一條訊號。",
+    agent_task_spec: null,
+    evidence_refs: ["root"],
+    evidence_notes: [{
+      ref: "root",
+      quote_summary: "主文描述一個驗證流程。",
+      why_it_matters: "可能支持產品流程。",
+      grounding: "model_inferred",
+      reusable_pattern: "先驗證再擴張",
+      why_it_works: "仍缺直接文字支持。"
+    }],
+    product_reading: {
+      headline: "先驗證單條流程",
+      body: "主文可能支持小型驗證，但目前沒有文字 grounded evidence。",
+      support_refs: ["root"]
+    }
+  };
+
+  globalThis.fetch = (async () => {
+    attempts += 1;
+    return new Response(JSON.stringify({
+      choices: [{ message: { content: JSON.stringify(ungroundedPayload) } }]
+    }), {
+      status: 200,
+      headers: { "Content-Type": "application/json" }
+    });
+  }) as typeof fetch;
+
+  try {
+    const analysis = await generateProductSignalAnalysis("openai", "test-key", {
+      signalId: "signal-ungrounded",
+      source: "threads",
+      rootText: "主文描述一個驗證流程。",
+      assembledContent: "主文描述一個驗證流程。",
+      discussionReplies: [],
+      productContext: {
+        productPromise: "把 Threads 訊號變成產品判斷。",
+        targetAudience: "indie builders",
+        agentRoles: ["collector", "judge"],
+        coreWorkflows: ["save post", "classify signal"],
+        currentCapabilities: ["topic mode"],
+        explicitConstraints: ["local-first"],
+        nonGoals: ["multi-tenant SaaS"],
+        preferredTechDirection: "Chrome extension first",
+        evaluationCriteria: ["reduces manual reading"],
+        unknowns: ["mobile reader"],
+        compiledAt: "2026-04-27T00:00:00.000Z",
+        sourceFileIds: ["file_readme"],
+        promptVersion: "v1"
+      },
+      productContextHash: "context-hash"
+    });
+
+    assert.equal(attempts, 2);
+    assert.equal(analysis.verdict, "insufficient_data");
+    assert.equal(analysis.judgmentAxes.evidenceState, "insufficient");
+    assert.ok(analysis.warnings.includes("reading_evidence_ungrounded"));
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
+});
+
+test("ProductSignalAnalyzer downgrades a repeatedly missing reading support ref after one repair", async () => {
+  const originalFetch = globalThis.fetch;
+  let attempts = 0;
+  const mismatchedPayload = {
+    signal_type: "learning",
+    signal_subtype: "workflow_validation",
+    content_type: "content",
+    content_summary: "討論把產品假設收斂成小型驗證。",
+    relevance: 5,
+    relevant_to: ["coreWorkflows"],
+    reference_type: "workflow_pattern",
+    reference_label: "先驗證再擴張",
+    reference_takeaway: "先用一條訊號驗證流程。",
+    why_relevant: "方向與產品工作流相關。",
+    usefulness: "useful",
+    testability: "reversible_test",
+    evidence_state: "text_sufficient",
+    conflict_state: "none",
+    reason: "表面上有可逆的小型測試。",
+    experiment_hint: "先測一條訊號。",
+    agent_task_spec: null,
+    evidence_refs: ["e1"],
+    evidence_notes: [{
+      ref: "e1",
+      quote_summary: "第一則留言描述一個驗證流程。",
+      why_it_matters: "可能支持產品流程。",
+      grounding: "text_grounded",
+      reusable_pattern: "先驗證再擴張",
+      why_it_works: "留言直接描述驗證順序。"
+    }],
+    product_reading: {
+      headline: "先驗證單條流程",
+      body: "判讀錯誤地把第二則留言列為支持來源。",
+      support_refs: ["e2"]
+    }
+  };
+
+  globalThis.fetch = (async () => {
+    attempts += 1;
+    return new Response(JSON.stringify({
+      choices: [{ message: { content: JSON.stringify(mismatchedPayload) } }]
+    }), {
+      status: 200,
+      headers: { "Content-Type": "application/json" }
+    });
+  }) as typeof fetch;
+
+  try {
+    const analysis = await generateProductSignalAnalysis("openai", "test-key", {
+      signalId: "signal-missing-support",
+      source: "threads",
+      rootText: "主文描述一個驗證流程。",
+      assembledContent: "主文描述一個驗證流程。",
+      discussionReplies: [
+        {
+          id: "c1",
+          author: "reader",
+          text: "第一則留言描述一個驗證流程。",
+          likeCount: 1,
+          role: "audience",
+          isOrphan: false,
+          parentId: null,
+          resolvedParentId: null
+        },
+        {
+          id: "c2",
+          author: "reader-2",
+          text: "第二則留言未被建立 evidence note。",
+          likeCount: 0,
+          role: "audience",
+          isOrphan: false,
+          parentId: null,
+          resolvedParentId: null
+        }
+      ],
+      productContext: {
+        productPromise: "把 Threads 訊號變成產品判斷。",
+        targetAudience: "indie builders",
+        agentRoles: ["collector", "judge"],
+        coreWorkflows: ["save post", "classify signal"],
+        currentCapabilities: ["topic mode"],
+        explicitConstraints: ["local-first"],
+        nonGoals: ["multi-tenant SaaS"],
+        preferredTechDirection: "Chrome extension first",
+        evaluationCriteria: ["reduces manual reading"],
+        unknowns: ["mobile reader"],
+        compiledAt: "2026-04-27T00:00:00.000Z",
+        sourceFileIds: ["file_readme"],
+        promptVersion: "v1"
+      },
+      productContextHash: "context-hash"
+    });
+
+    assert.equal(attempts, 2);
+    assert.equal(analysis.verdict, "insufficient_data");
+    assert.equal(analysis.judgmentAxes.evidenceState, "insufficient");
+    assert.ok(analysis.warnings?.includes("reading_evidence_ungrounded"));
+    assert.equal(analysis.productReading, undefined);
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
 });
 
 test("OpenAI compare one-liner caps completion tokens", async () => {

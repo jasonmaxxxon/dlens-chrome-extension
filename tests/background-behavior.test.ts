@@ -227,6 +227,32 @@ function makeGlobal(sessions: SessionRecord[], activeSessionId: string | null): 
   };
 }
 
+test("background startup persists global-state storage migrations immediately", async () => {
+  const session = {
+    ...makeSession("migration-session", "product"),
+    items: [makeSucceededItem("migration-item")]
+  };
+  const legacyGlobal = {
+    ...makeGlobal([session], session.id),
+    schemaVersion: 1
+  };
+  assert.ok(legacyGlobal.sessions[0]!.items[0]!.latestCapture?.raw_payload);
+  assert.ok(legacyGlobal.sessions[0]!.items[0]!.latestCapture?.result?.raw_payload);
+
+  const harness = await createHarness({
+    [backgroundTestables.GLOBAL_STORAGE_KEY]: legacyGlobal
+  });
+  const stored = harness.state[backgroundTestables.GLOBAL_STORAGE_KEY] as ExtensionGlobalState;
+
+  assert.equal(stored.schemaVersion, 2);
+  assert.equal("raw_payload" in stored.sessions[0]!.items[0]!.latestCapture!, false);
+  assert.equal("raw_payload" in stored.sessions[0]!.items[0]!.latestCapture!.result!, false);
+  assert.deepEqual(
+    stored.sessions[0]!.items[0]!.latestCapture!.result!.comments,
+    legacyGlobal.sessions[0]!.items[0]!.latestCapture!.result!.comments
+  );
+});
+
 function makeProductContext(): ProductContext {
   return {
     productPromise: "Help teams read Threads evidence.",

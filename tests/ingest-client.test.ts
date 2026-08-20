@@ -342,3 +342,33 @@ test("ingest request timeout composes with caller cancellation", async () => {
     globalThis.fetch = originalFetch;
   }
 });
+
+test("fetchCapture drops backend-only raw_payload from the capture and its crawl result", async () => {
+  const originalFetch = globalThis.fetch;
+  globalThis.fetch = (async () =>
+    new Response(
+      JSON.stringify({
+        id: "cap-1",
+        canonical_target_url: "https://www.threads.net/@alpha/post/abc",
+        raw_payload: { html: "capture blob" },
+        result: {
+          id: "res-1",
+          canonical_post: { text: "alpha post" },
+          comments: [{ text: "kept" }],
+          raw_payload: { html: "result blob" }
+        }
+      }),
+      { status: 200, headers: { "Content-Type": "application/json" } }
+    )) as typeof fetch;
+
+  try {
+    const capture = await ingestClient.fetchCapture("http://127.0.0.1:8000", "cap-1");
+
+    assert.equal("raw_payload" in capture, false);
+    assert.equal("raw_payload" in (capture.result as object), false);
+    assert.equal(capture.id, "cap-1");
+    assert.deepEqual(capture.result?.comments, [{ text: "kept" }]);
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
+});

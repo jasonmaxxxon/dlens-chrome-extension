@@ -93,17 +93,13 @@ export function AtlasReactionMap({ patterns, usableCount, selectedId, onSelect }
         WebkitBackdropFilter: tokens.effect.atlasBlur
       }}
     >
-      <div style={{ display: "flex", justifyContent: "space-between", gap: tokens.spacing.sm, alignItems: "baseline", flexWrap: "wrap" }}>
-        <span style={{ ...textStyles.label, color: tokens.color.subInk }}>
-          {layout.kind === "compass" ? "民情羅盤與分佈" : "民情形狀與分佈"}
-        </span>
-        <span style={{ ...textStyles.caption, color: tokens.color.softInk }}>
-          {patterns.length} 個形狀 · {assignmentTotal} 次留言歸屬 · 可用 {usableCount} 則
-        </span>
-      </div>
+      <span style={{ ...textStyles.label, color: tokens.color.subInk }}>
+        {layout.kind === "compass" ? "民情羅盤與分佈" : "民情形狀與分佈"}
+      </span>
 
       <style>{`
-        [data-atlas-assignment-layout="responsive"] { grid-template-columns: minmax(0, 1.2fr) minmax(0, 0.8fr); }
+        [data-atlas-assignment-layout="responsive"] { grid-template-columns: minmax(0, 1fr); }
+        [data-atlas-distribution-split="true"] { grid-template-columns: ${tokens.spacing.xl * 4}px minmax(0, 1fr); }
         [data-signal-atlas-dot] { outline: none; transform-box: fill-box; transform-origin: center; transition: transform ${tokens.motion.duration.base} ${tokens.motion.easing.springSoft}; }
         [data-signal-atlas-dot]:hover { transform: ${tokens.motion.transform.atlasHover}; }
         [data-signal-atlas-dot]:active { transform: ${tokens.motion.transform.atlasPress}; }
@@ -118,7 +114,7 @@ export function AtlasReactionMap({ patterns, usableCount, selectedId, onSelect }
           [data-signal-atlas-dot]:hover, [data-signal-atlas-dot]:active { transform: none !important; }
         }
         @media (max-width: ${tokens.layout.atlasNarrowBreakpointPx}px) {
-          [data-atlas-assignment-layout="responsive"] { grid-template-columns: minmax(0, 1fr); }
+          [data-atlas-distribution-split="true"] { grid-template-columns: minmax(0, 1fr); justify-items: center; }
         }
       `}</style>
 
@@ -209,9 +205,13 @@ export function AtlasReactionMap({ patterns, usableCount, selectedId, onSelect }
             })}
           </svg>
 
+          <span style={{ ...textStyles.caption, color: tokens.color.softInk }}>
+            {patterns.length} 個形狀 · {assignmentTotal} 次留言歸屬 · 可用 {usableCount} 則
+          </span>
+
           {layout.kind === "field" ? (
             <span data-signal-atlas-compass-hint="true" style={{ ...textStyles.caption, color: tokens.color.softInk }}>
-              此審計早於羅盤座標——按「⟳ 重新生成」重讀後，泡泡會依 質疑↔支持 × 情緒↔行動 定位。
+              此審計早於羅盤座標——按「重新生成」重讀後，泡泡會依 質疑↔支持 × 情緒↔行動 定位。
             </span>
           ) : null}
 
@@ -234,12 +234,15 @@ export function AtlasReactionMap({ patterns, usableCount, selectedId, onSelect }
           ) : null}
         </div>
 
-        <div style={{ display: "grid", gap: tokens.spacing.sm, minWidth: 0 }}>
+        <div
+          data-atlas-distribution-split="true"
+          style={{ display: "grid", gap: tokens.spacing.section, alignItems: "center", minWidth: 0 }}
+        >
           <svg
             data-atlas-assignment-donut="true"
             aria-hidden="true"
             viewBox="0 0 40 40"
-            style={{ width: "100%", maxHeight: tokens.spacing.xl * 4, display: "block" }}
+            style={{ width: "100%", height: "auto", display: "block" }}
           >
             <circle cx="20" cy="20" r="15.9155" fill="none" stroke={tokens.color.line} strokeWidth="5" />
             {indexedPatterns.map(({ pattern, originalIndex }) => {

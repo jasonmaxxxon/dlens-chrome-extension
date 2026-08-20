@@ -9,6 +9,7 @@ import {
   extractCapturedUrl,
   findCapturedUrl,
   ROOT_SPAN_REF,
+  segmentProductReadingBody,
   type ProductCardInput,
   type ProductPrimaryCategory
 } from "../src/viewmodel/product-card-presentation.ts";
@@ -312,4 +313,70 @@ test("Product card presentation exposes no recommendation or watch projection fi
       "secondaryTags"
     ]
   );
+});
+
+test("segmentProductReadingBody splits a labelled reading into its parts", () => {
+  const segments = segmentProductReadingBody(
+    "證據：討論串指出 icon 動態化會造成閱讀負擔。推論：本產品應優先考慮資訊密度。"
+    + "不確定性：尚未驗證實作成本。外部內容：Icon Animator 未經本產品環境測試。"
+    + "建議：優化 UI 互動時可參考「互動觸發」原則。"
+  );
+
+  assert.deepEqual(segments.map((segment) => segment.kind), [
+    "evidence",
+    "inference",
+    "uncertainty",
+    "external",
+    "recommendation"
+  ]);
+  assert.equal(segments[0]!.text, "討論串指出 icon 動態化會造成閱讀負擔。");
+  assert.equal(segments[4]!.text, "優化 UI 互動時可參考「互動觸發」原則。");
+});
+
+test("segmentProductReadingBody leaves unlabelled prose as one paragraph", () => {
+  assert.deepEqual(segmentProductReadingBody("這段判讀沒有任何標籤，只是一段完整敘述。"), []);
+  // One stray label is prose, not structure.
+  assert.deepEqual(segmentProductReadingBody("整體來說建議：先做小規模測試。"), []);
+});
+
+test("segmentProductReadingBody preserves prose before the first structural label", () => {
+  const segments = segmentProductReadingBody(
+    "總結：這條訊號值得保留。證據：原文描述可逆的小型測試。推論：可以先在非核心區域驗證。"
+  );
+
+  assert.deepEqual(segments, [
+    {
+      key: "intro:0",
+      kind: "intro",
+      label: "總結",
+      text: "這條訊號值得保留。"
+    },
+    {
+      key: "evidence:12",
+      kind: "evidence",
+      label: "證據",
+      text: "原文描述可逆的小型測試。"
+    },
+    {
+      key: "inference:27",
+      kind: "inference",
+      label: "推論",
+      text: "可以先在非核心區域驗證。"
+    }
+  ]);
+});
+
+test("segmentProductReadingBody keeps repeated structural labels as separate segments", () => {
+  const segments = segmentProductReadingBody(
+    "證據：主文描述互動。證據：留言補充使用情境。建議：先做小型測試。"
+  );
+
+  assert.deepEqual(segments.map((segment) => segment.kind), [
+    "evidence",
+    "evidence",
+    "recommendation"
+  ]);
+  assert.equal(new Set(segments.map((segment) => segment.key)).size, segments.length);
+  assert.equal(segments[0]?.text, "主文描述互動。");
+  assert.equal(segments[1]?.text, "留言補充使用情境。");
 });

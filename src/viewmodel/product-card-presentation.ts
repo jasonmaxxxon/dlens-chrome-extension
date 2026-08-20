@@ -215,3 +215,80 @@ export function deriveProductCardPresentation(input: ProductCardInput): ProductC
     agentBriefReady: agentBriefReadyFor(input.analysis)
   };
 }
+
+/* ─── Reading body segmentation ─── */
+
+export type ProductReadingSegmentKind =
+  | "intro"
+  | "evidence"
+  | "inference"
+  | "uncertainty"
+  | "external"
+  | "recommendation";
+
+export interface ProductReadingSegment {
+  key: string;
+  kind: ProductReadingSegmentKind;
+  label: string;
+  text: string;
+}
+
+const READING_SEGMENT_LABELS: ReadonlyArray<[string, ProductReadingSegmentKind]> = [
+  ["證據", "evidence"],
+  ["推論", "inference"],
+  ["不確定性", "uncertainty"],
+  ["外部內容", "external"],
+  ["建議", "recommendation"]
+];
+
+const READING_SEGMENT_PATTERN = /(證據|推論|不確定性|外部內容|建議)\s*[:：]\s*/g;
+
+/**
+ * Split a `product_reading.body` into its labelled parts.
+ *
+ * The analyzer prompt asks for evidence / inference / uncertainty / next step,
+ * and the model complies — but as one run-on paragraph with inline "證據：" style
+ * labels, which reads as a wall of text. Splitting here (rather than changing the
+ * contract to four fields) keeps every stored reading readable, including the ones
+ * generated before this change. Returns `[]` when the prose carries fewer than two
+ * labels, so unlabelled bodies stay a single paragraph instead of being mangled.
+ */
+export function segmentProductReadingBody(body: string): ProductReadingSegment[] {
+  const source = body.trim();
+  if (!source) return [];
+
+  READING_SEGMENT_PATTERN.lastIndex = 0;
+  const marks: { kind: ProductReadingSegmentKind; label: string; start: number; end: number }[] = [];
+  let match: RegExpExecArray | null;
+  while ((match = READING_SEGMENT_PATTERN.exec(source)) !== null) {
+    const label = match[1]!;
+    const kind = READING_SEGMENT_LABELS.find(([name]) => name === label)?.[1];
+    if (!kind) continue;
+    marks.push({ kind, label, start: match.index, end: match.index + match[0].length });
+  }
+  if (marks.length < 2) return [];
+
+  const segments: ProductReadingSegment[] = [];
+  const introSource = source.slice(0, marks[0]!.start).trim();
+  if (introSource) {
+    const labelledIntro = /^(總結|結論)\s*[:：]\s*(.+)$/s.exec(introSource);
+    segments.push({
+      key: "intro:0",
+      kind: "intro",
+      label: labelledIntro?.[1] ?? "概覽",
+      text: (labelledIntro?.[2] ?? introSource).trim()
+    });
+  }
+  marks.forEach((mark, index) => {
+    const text = source.slice(mark.end, marks[index + 1]?.start ?? source.length).trim();
+    if (text) {
+      segments.push({
+        key: `${mark.kind}:${mark.start}`,
+        kind: mark.kind,
+        label: mark.label,
+        text
+      });
+    }
+  });
+  return segments;
+}

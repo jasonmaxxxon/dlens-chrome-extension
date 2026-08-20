@@ -22,8 +22,17 @@ test("manifest host permissions include Google Generative Language API for Gemin
   );
 });
 
-test("release target is 0.3.57", () => {
-  assert.equal(packageJson.version, "0.3.57");
+test("manifest grants unlimited local storage for the long-lived collection library", () => {
+  const permissions = config.manifest?.permissions ?? [];
+
+  assert.ok(
+    permissions.includes("unlimitedStorage"),
+    "Missing unlimitedStorage permission"
+  );
+});
+
+test("release target is 0.3.59", () => {
+  assert.equal(packageJson.version, "0.3.59");
 });
 
 test("extension version is synchronized across package lock, manifest, and UI", () => {

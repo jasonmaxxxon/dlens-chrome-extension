@@ -233,8 +233,22 @@ export async function fetchJob(baseUrl: string, jobId: string): Promise<JobSnaps
   return fetchJson<JobSnapshot>(`${normalizeBaseUrl(baseUrl)}/jobs/${jobId}`);
 }
 
+// `raw_payload` is crawl provenance that only the backend reads; Postgres already holds it.
+// Dropping it at the transport keeps the capture mirrored into chrome.storage.local from
+// carrying a second copy of the largest field on the row.
+function dropRawPayload(capture: CaptureSnapshot): CaptureSnapshot {
+  const next: CaptureSnapshot = { ...capture };
+  delete next.raw_payload;
+  if (next.result) {
+    const result = { ...next.result };
+    delete result.raw_payload;
+    next.result = result;
+  }
+  return next;
+}
+
 export async function fetchCapture(baseUrl: string, captureId: string): Promise<CaptureSnapshot> {
-  return fetchJson<CaptureSnapshot>(`${normalizeBaseUrl(baseUrl)}/captures/${captureId}`);
+  return dropRawPayload(await fetchJson<CaptureSnapshot>(`${normalizeBaseUrl(baseUrl)}/captures/${captureId}`));
 }
 
 export async function triggerWorkerDrain(baseUrl: string): Promise<WorkerDrainResponse> {

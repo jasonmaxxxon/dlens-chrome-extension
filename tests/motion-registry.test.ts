@@ -10,6 +10,7 @@ import { readSourceFamily, readUiSourceFamily, type UiSourceFamilyName } from ".
 const {
   DLENS_ATTENTION_CSS,
   DLENS_KEYFRAMES_CSS,
+  DLENS_PROPERTY_CSS,
   DLENS_REDUCED_MOTION_CSS,
   DLENS_MOTION_CSS,
   DLENS_KEYFRAMES_STYLE_ID,
@@ -248,12 +249,20 @@ test("Product Reading beam is masked to the perimeter and freezes for reduced mo
   const productReadingCss = productReadingCssSlice(DLENS_ATTENTION_CSS);
 
   assert.match(DLENS_ATTENTION_CSS, /\[data-product-reading-beam\]/);
-  assert.match(productReadingCss, /mask-composite:exclude/);
-  assert.match(productReadingCss, /-webkit-mask-composite:xor/);
+  // The ring mask is now composited with the rotating sweep window, so the
+  // perimeter-only guarantee reads as "<sweep>,exclude" rather than "exclude".
+  assert.match(productReadingCss, /mask-composite:(?:intersect,)?exclude/);
+  assert.match(productReadingCss, /-webkit-mask-composite:(?:source-in,)?xor/);
   assert.match(productReadingCss, /pointer-events:none/);
   assert.match(productReadingCss, /--dlens-reading-beam-angle:42deg/);
-  assert.match(productReadingCss, /\[data-product-reading-beam="generating"\]::after[^}]*animation:dlens-product-reading-beam/);
+  // The spin lives on the element, not on ::after: `--dlens-reading-beam-angle`
+  // inherits, so one animation drives both the crisp perimeter (::after) and the
+  // soft edge wash (::before). Animating it on ::after alone left ::before static.
+  assert.match(productReadingCss, /\[data-product-reading-beam="generating"\]\{[^}]*animation:dlens-product-reading-beam/);
   assert.match(DLENS_KEYFRAMES_CSS, /@keyframes dlens-product-reading-beam/);
+  // Registered custom properties are the whole reason the beam moves at all.
+  assert.match(DLENS_PROPERTY_CSS, /@property --dlens-reading-beam-angle[^}]*syntax: "<angle>"/);
+  assert.match(DLENS_PROPERTY_CSS, /@property --dlens-reading-beam-glow[^}]*syntax: "<number>"/);
   assert.match(DLENS_REDUCED_MOTION_CSS, /data-product-reading-beam/);
   assert.match(DLENS_REDUCED_MOTION_CSS, /--dlens-reading-beam-angle:\s*42deg/);
   assert.doesNotMatch(productReadingCss, /linear-gradient\(90deg[^}]*signalGlow/);
@@ -290,8 +299,15 @@ test("AI attention primitives become explicitly static under reduced motion", ()
   assert.match(DLENS_ATTENTION_CSS, /\[data-attention-beam="generating"\]/);
   assert.match(DLENS_ATTENTION_CSS, /\[data-attention-beam-sweep="true"\]::before/);
   assert.match(DLENS_ATTENTION_CSS, /\[data-searching-orb="true"\]/);
-  assert.match(DLENS_ATTENTION_CSS, /dlens-popup-pulse/);
+  assert.match(DLENS_ATTENTION_CSS, /data-searching-orb="true"\]\{width:16px;height:16px;flex:0 0 16px/);
+  // The orb is a canvas scanning sphere, so its motion is owned by rAF in
+  // components.tsx and its reduced-motion branch paints one static frame.
+  assert.match(componentsSource, /prefers-reduced-motion: reduce/);
+  assert.match(componentsSource, /requestAnimationFrame/);
   assert.match(DLENS_ATTENTION_CSS, /dlens-popup-indeterminate/);
+  // width:100% without border-box pushed every attention surface past its frame
+  // by its own horizontal padding — the readiness panel's rounded box was clipped.
+  assert.match(DLENS_ATTENTION_CSS, /\[data-attention-beam\],\[data-attention-surface="true"\]\{[^}]*box-sizing:border-box/);
   assert.match(DLENS_ATTENTION_CSS, /\[data-attention-surface="true"\]\{[^}]*display:grid/);
   assert.match(DLENS_ATTENTION_CSS, /\[data-attention-surface="true"\]\{[^}]*overflow:hidden/);
   assert.match(DLENS_ATTENTION_CSS, /\[data-attention-surface="true"\]\[data-attention-beam="actionable"\]::after/);

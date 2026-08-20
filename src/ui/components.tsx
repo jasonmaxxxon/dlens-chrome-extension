@@ -1,4 +1,5 @@
 import type { CSSProperties, KeyboardEvent, MouseEvent, PointerEvent, ReactElement, ReactNode } from "react";
+import { useEffect, useRef } from "react";
 
 import type { TargetDescriptor } from "../contracts/target-descriptor.ts";
 import { resolveBackendWorkCopy } from "../state/backend-work-copy.ts";
@@ -245,8 +246,111 @@ export function skeletonBlockStyle(
 
 export type AttentionBeamState = "generating" | "actionable" | "none";
 
+const ORB_SIZE = 16;
+
+export function searchingOrbDotStyle(
+  depth: number,
+  boost: number
+): { fill: string; alpha: number } {
+  const normalizedDepth = Math.min(1, Math.max(0, depth));
+  const normalizedBoost = Math.min(1, Math.max(0, boost));
+  return {
+    fill: tokens.color.ink,
+    alpha: Math.min(1, 0.68 + 0.24 * normalizedDepth + 0.08 * normalizedBoost)
+  };
+}
+
+/**
+ * Paint one frame of the searching orb: a wireframe dot sphere with a highlight
+ * band sweeping around it, so "AI is reading" reads as scanning rather than as a
+ * generic spinner. Ported from the accepted
+ * `docs/mockups/2026-07-23-product-action-deep-reading-orb-beam.html`, itself adapted
+ * from Jakub Antalik's thinking-orbs. The depth ramp is a computed greyscale, so no
+ * colour literal is hardcoded here.
+ */
+function paintSearchingOrb(ctx: CanvasRenderingContext2D, dpr: number, t: number): void {
+  ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+  ctx.clearRect(0, 0, ORB_SIZE, ORB_SIZE);
+  const spin = 0.5;
+  const centre = ORB_SIZE / 2;
+  const radius = centre * 0.82;
+  const tilt = 0.4 + 0.06 * Math.sin(t * 0.35);
+  const sinTilt = Math.sin(tilt);
+  const cosTilt = Math.cos(tilt);
+  const sinYaw = Math.sin(t * spin);
+  const cosYaw = Math.cos(t * spin);
+  const scan = t * (spin + (1.7 - spin) * 4.335);
+  const latRings = 6;
+  const lonDensity = 14;
+  const radiusScale = (ORB_SIZE / 300) ** 0.6;
+  const dots: { x: number; y: number; z: number; r: number; depth: number; boost: number }[] = [];
+
+  for (let latIndex = 0; latIndex <= latRings; latIndex += 1) {
+    const lat = -Math.PI / 2 + (latIndex / latRings) * Math.PI;
+    const cosLat = Math.cos(lat);
+    const sinLat = Math.sin(lat);
+    const lonCount = Math.max(1, Math.round(Math.abs(cosLat) * lonDensity));
+    for (let lonIndex = 0; lonIndex < lonCount; lonIndex += 1) {
+      const lon = (lonIndex / lonCount) * 2 * Math.PI;
+      const x = cosLat * Math.cos(lon);
+      const y = sinLat;
+      const z = cosLat * Math.sin(lon);
+      const xr = x * cosYaw + z * sinYaw;
+      const zr = -x * sinYaw + z * cosYaw;
+      const yr = y * cosTilt - zr * sinTilt;
+      const depth = ((y * sinTilt + zr * cosTilt) + 1) / 2;
+      const offset = lon + t * spin - scan;
+      const delta = Math.atan2(Math.sin(offset), Math.cos(offset));
+      const boost = Math.exp(-(delta * delta) / 0.18) * Math.max(0, zr);
+      dots.push({
+        x: centre + xr * radius,
+        y: centre - yr * radius,
+        z: y * sinTilt + zr * cosTilt,
+        r: Math.max(0.3, (1.05 + 2.975 * depth + 1.75 * boost) * radiusScale),
+        depth,
+        boost
+      });
+    }
+  }
+
+  dots.sort((a, b) => a.z - b.z);
+  for (const dot of dots) {
+    const style = searchingOrbDotStyle(dot.depth, dot.boost);
+    ctx.fillStyle = style.fill;
+    ctx.globalAlpha = style.alpha;
+    ctx.beginPath();
+    ctx.arc(dot.x, dot.y, dot.r, 0, Math.PI * 2);
+    ctx.fill();
+  }
+  ctx.globalAlpha = 1;
+}
+
 export function SearchingOrb() {
-  return <span data-searching-orb="true" aria-hidden="true" />;
+  const canvasRef = useRef<HTMLCanvasElement | null>(null);
+
+  useEffect(() => {
+    const canvas = canvasRef.current;
+    const ctx = canvas?.getContext("2d");
+    if (!canvas || !ctx) return;
+    const dpr = Math.min(2, window.devicePixelRatio || 1);
+    canvas.width = Math.round(ORB_SIZE * dpr);
+    canvas.height = Math.round(ORB_SIZE * dpr);
+
+    if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) {
+      paintSearchingOrb(ctx, dpr, 0.6);
+      return;
+    }
+
+    let raf = 0;
+    const loop = (now: number) => {
+      paintSearchingOrb(ctx, dpr, (now / 1000) * 2.665);
+      raf = requestAnimationFrame(loop);
+    };
+    raf = requestAnimationFrame(loop);
+    return () => cancelAnimationFrame(raf);
+  }, []);
+
+  return <canvas ref={canvasRef} data-searching-orb="true" width={ORB_SIZE} height={ORB_SIZE} aria-hidden="true" />;
 }
 
 export function AttentionBeam({
@@ -299,6 +403,11 @@ export function AttentionSurface({
       data-product-reading-beam={variant === "product-reading" ? state : undefined}
       style={style}
     >
+      {/* The beam's blurred halo. ::before and ::after already carry the wash and
+        * the crisp edge, so the mockup's third layer needs a real element. */}
+      {variant === "product-reading" && state === "generating"
+        ? <span data-attention-bloom="true" aria-hidden="true" />
+        : null}
       {children}
     </Element>
   );
@@ -898,13 +1007,33 @@ export const DLENS_BUTTON_CSS = `
   background: var(--dlens-mode-accent-soft, ${tokens.color.accentSoft});
   border-color: var(--dlens-mode-hover-border-soft, ${tokens.color.lineStrong});
 }
+[data-dlens-control="true"] [data-attention-button-beam="true"] {
+  transition: ${tokens.motion.preset.buttonPress};
+}
+[data-dlens-control="true"] [data-attention-button-beam="true"]:hover {
+  transform: translateY(-3px);
+  box-shadow: ${tokens.shadow.cardLiftHover};
+  filter: brightness(1.05);
+}
+[data-dlens-control="true"] [data-attention-button-beam="true"]:active {
+  transform: translateY(0) scale(0.93);
+  transition: transform 90ms ${tokens.motion.easing.standard}, box-shadow 140ms ${tokens.motion.easing.standard};
+}
+[data-dlens-control="true"] [data-attention-button-beam="true"] > [data-attention-button-content="true"]:not(:disabled):hover,
+[data-dlens-control="true"] [data-attention-button-beam="true"] > [data-attention-button-content="true"]:not(:disabled):active {
+  transform: none;
+  filter: none;
+}
 @media (prefers-reduced-motion: reduce) {
   [data-dlens-control="true"] [data-dlens-button],
-  [data-dlens-control="true"] [data-dlens-button]:not(:disabled):active {
+  [data-dlens-control="true"] [data-dlens-button]:not(:disabled):active,
+  [data-dlens-control="true"] [data-attention-button-beam="true"] {
     transition: background-color 140ms ${tokens.motion.easing.standard}, box-shadow 140ms ${tokens.motion.easing.standard}, border-color 140ms ${tokens.motion.easing.standard} !important;
   }
   [data-dlens-control="true"] [data-dlens-button]:not(:disabled):hover,
-  [data-dlens-control="true"] [data-dlens-button]:not(:disabled):active {
+  [data-dlens-control="true"] [data-dlens-button]:not(:disabled):active,
+  [data-dlens-control="true"] [data-attention-button-beam="true"]:hover,
+  [data-dlens-control="true"] [data-attention-button-beam="true"]:active {
     transform: none !important;
   }
   [data-dlens-control="true"] [data-dlens-button],

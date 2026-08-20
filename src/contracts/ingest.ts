@@ -95,7 +95,8 @@ export interface CrawlResultSnapshot {
   thread_read_model?: ThreadReadModelSnapshot | null;
   threadReadModel?: ThreadReadModelSnapshot | null;
   crawl_meta: Record<string, unknown>;
-  raw_payload: Record<string, unknown>;
+  /** Backend-only crawl provenance. Dropped by `fetchCapture` before the capture is mirrored into extension state. */
+  raw_payload?: Record<string, unknown>;
   fetched_at: string;
   created_at: string;
 }
@@ -203,7 +204,8 @@ export interface CaptureSnapshot {
   dom_anchor: string | null;
   engagement: Record<string, unknown>;
   client_context: Record<string, unknown>;
-  raw_payload: Record<string, unknown>;
+  /** Backend-only capture provenance. Dropped by `fetchCapture` before the capture is mirrored into extension state. */
+  raw_payload?: Record<string, unknown>;
   ingestion_status: "queued" | "running" | "succeeded" | "failed";
   captured_at: string;
   created_at: string;

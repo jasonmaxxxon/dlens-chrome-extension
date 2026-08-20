@@ -64,7 +64,9 @@ test("every STORAGE_MIGRATIONS entry replays its v<from> fixture into its v<to> 
     const toName = `${base}-v${entry.to}.json`;
     const fromPayload = readFixture(fromName);
     const expected = readFixture(toName);
-    const result = runMigrationsFor(STORAGE_MIGRATIONS, entry.key, fromPayload);
+    // Replay exactly this edge. Using the full registry would run v0 fixtures all
+    // the way to the latest version once a key owns more than one migration.
+    const result = runMigrationsFor([entry], entry.key, fromPayload);
     assert.deepEqual(
       result,
       expected,

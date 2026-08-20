@@ -9,8 +9,11 @@ const appStateSource = readFileSync(new URL("../src/ui/useInPageCollectorAppStat
 test("background exposes storage/get-usage through chrome.storage.local.getBytesInUse", () => {
   assert.match(backgroundSource, /case "storage\/get-usage"/);
   assert.match(backgroundSource, /chrome\.storage\.local\.getBytesInUse\(\)/);
+  assert.match(backgroundSource, /chrome\.permissions\.contains/);
+  assert.match(backgroundSource, /unlimitedStorage/);
   assert.match(backgroundSource, /bytesInUse/);
   assert.match(backgroundSource, /quotaBytes/);
+  assert.match(backgroundSource, /unlimited/);
 });
 
 test("SettingsView renders storage usage from props without direct chrome.storage access", () => {
@@ -22,4 +25,5 @@ test("SettingsView renders storage usage from props without direct chrome.storag
 test("popup app state fetches storage usage only while Settings is open", () => {
   assert.match(appStateSource, /type: "storage\/get-usage"/);
   assert.match(appStateSource, /page !== "settings"/);
+  assert.match(appStateSource, /unlimited/);
 });

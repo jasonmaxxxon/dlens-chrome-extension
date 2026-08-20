@@ -33,7 +33,7 @@ const STORED_SOURCE_PACKET_COMMENT_CAP = 500;
 
 /**
  * Build the trimmed source packet persisted with a reading record. Conservative caps
- * keep chrome.storage.local within quota (no unlimitedStorage permission); the full
+ * keep chrome.storage.local predictable even with unlimitedStorage; the full
  * content identity is preserved by sourcePacketHash, not by this stored copy.
  */
 export function buildStoredSourcePacket(input: SignalReadingInput): SignalReadingSourcePacket {

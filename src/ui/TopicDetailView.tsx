@@ -27,7 +27,6 @@ import type {
   TopicDetailViewModel,
   TopicItemAnalysisState,
   SignalTagSummary,
-  TopicSourceSessionState,
   TopicSignalViewModel
 } from "../viewmodel/topic-detail.ts";
 import { AttentionBeam, Kicker, PrimaryButton, SCAN_ROW_HOVER_CSS, SecondaryButton, Stamp, SurfaceCard, WorkspaceSurface, lineClamp, scanRowStyle, viewRootStyle } from "./components.tsx";
@@ -1482,6 +1481,26 @@ function hasSignalTag(record: SignalTagsRecord | undefined, tag: string | null):
   return Boolean(record?.signalTags.some((entry) => entry === tag));
 }
 
+function RegenerateIcon() {
+  return (
+    <svg
+      width="11"
+      height="11"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2.2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden="true"
+      style={{ display: "block", flexShrink: 0 }}
+    >
+      <path d="M20 12a8 8 0 1 1-2.34-5.66" />
+      <path d="M20 4v5h-5" />
+    </svg>
+  );
+}
+
 function auditStageFromNumber(stage: number): TopicAuditStageName {
   switch (stage) {
     case 2: return "lexicon";
@@ -1533,18 +1552,14 @@ function TopicAuditOverview({
   };
   if (summary.reportStatus === "ready") {
     return (
-      <div
-        data-topic-audit-actions="ready"
-        style={{
-          display: "flex",
-          justifyContent: "flex-end",
-          gap: 6,
-          flexWrap: "wrap"
-        }}
-      >
-        <AuditGhostButton onClick={() => onOpenAuditReport?.(topic.id)} style={{ padding: "4px 10px", fontSize: 10.5 }}>審查報告 ↗</AuditGhostButton>
-        <AuditGhostButton disabled={!canRunAudit} onClick={() => runAudit(undefined, true)} style={{ padding: "4px 10px", fontSize: 10.5 }}>⟳ 重新生成</AuditGhostButton>
-      </div>
+      <TopicAuditActionRow
+        summary={summary}
+        hasAuditReport
+        canRunAudit={canRunAudit}
+        ownsRegeneration
+        onOpenAuditReport={(stale) => onOpenAuditReport?.(topic.id, stale)}
+        onRegenerate={() => runAudit(undefined, true)}
+      />
     );
   }
   return (
@@ -1652,31 +1667,25 @@ function TopicAuditOverview({
   );
 }
 
-function TopicAuditAtlasToolbar({
-  topic,
+function TopicAuditActionRow({
   summary,
-  sourceSession,
-  hasAtlasData,
   hasAuditReport,
   canRunAudit,
-  onRunAudit,
-  onOpenAuditReport
+  ownsRegeneration,
+  onOpenAuditReport,
+  onRegenerate
 }: {
-  topic: Topic;
   summary: TopicAuditSummary;
-  sourceSession: TopicSourceSessionState;
-  hasAtlasData: boolean;
   hasAuditReport: boolean;
   canRunAudit: boolean;
-  onRunAudit?: (topicId: string, fromStage?: TopicAuditStageName, force?: boolean) => void;
-  onOpenAuditReport?: (topicId: string, stale?: boolean) => void;
+  ownsRegeneration: boolean;
+  onOpenAuditReport: (stale?: boolean) => void;
+  onRegenerate: () => void;
 }) {
-  if (!hasAtlasData) return null;
   const isRunning = summary.reportStatus === "running";
-  const ownsRegeneration = sourceSession.kind === "current";
   const runAudit = () => {
     if (!canRunAudit || isRunning || !ownsRegeneration) return;
-    onRunAudit?.(topic.id, undefined, true);
+    onRegenerate();
   };
 
   return (
@@ -1686,7 +1695,7 @@ function TopicAuditAtlasToolbar({
     >
       {!hasAuditReport ? null : (
         <AuditGhostButton
-          onClick={() => onOpenAuditReport?.(topic.id, summary.reportStatus === "stale" ? true : undefined)}
+          onClick={() => onOpenAuditReport(summary.reportStatus === "stale" ? true : undefined)}
           style={{ padding: "4px 10px", fontSize: 10.5 }}
         >
           審查報告 ↗
@@ -1699,14 +1708,16 @@ function TopicAuditAtlasToolbar({
           ariaDisabled={isRunning}
           ariaBusy={isRunning}
           onClick={runAudit}
-          style={{ padding: "4px 10px", fontSize: 10.5 }}
+          style={{ padding: "4px 10px", fontSize: 10.5, gap: 4 }}
         >
-          <AttentionBeam
-            state={isRunning ? "generating" : canRunAudit ? "actionable" : "none"}
-            generatingLabel="⟳ 重新生成中"
-          >
-            {summary.reportStatus === "none" ? "⟳ 生成審查報告" : "⟳ 重新生成"}
-          </AttentionBeam>
+          {isRunning ? (
+            <AttentionBeam state="generating" generatingLabel="重新生成中" style={{ gap: 4 }} />
+          ) : (
+            <>
+              <RegenerateIcon />
+              {summary.reportStatus === "none" ? "生成審查報告" : "重新生成"}
+            </>
+          )}
         </AuditGhostButton>
       ) : null}
     </div>
@@ -1989,18 +2000,16 @@ export function TopicDetailView({
     const atlasPalette = [tokens.color.signal, tokens.color.techniqueViolet, tokens.color.queued, tokens.color.techniqueRose, tokens.color.accent];
     const reactionMixByShortCode = postReactionMixByShortCode(reactionPatterns);
     const compassDenominator = coverageNumbers.usable || reactionPatterns[0]?.coverageDenominator || 0;
-    const auditToolbarElement = (
-      <TopicAuditAtlasToolbar
-        topic={topic}
+    const auditToolbarElement = hasReadyAtlasPresentation ? (
+      <TopicAuditActionRow
         summary={auditSummaryValue}
-        sourceSession={sourceSession}
-        hasAtlasData={hasReadyAtlasPresentation}
         hasAuditReport={hasAuditReport}
         canRunAudit={canRunAuditFromSources}
-        onRunAudit={handleRunAudit}
-        onOpenAuditReport={handleOpenAuditReport}
+        ownsRegeneration={sourceSession.kind === "current"}
+        onOpenAuditReport={(stale) => handleOpenAuditReport(topic.id, stale)}
+        onRegenerate={() => handleRunAudit(topic.id, undefined, true)}
       />
-    );
+    ) : null;
     const signalBySignalId = new Map(signals.map((signal) => [signal.signalId, signal]));
     const packetSignalIds = new Set(audit.sourceRows.map((row) => row.packet.signalId));
     const pendingSignals = signals.filter((signal) => !packetSignalIds.has(signal.signalId));

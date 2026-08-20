@@ -17,6 +17,7 @@ import {
   QuoteBlock,
   SCAN_ROW_HOVER_CSS,
   SearchingOrb,
+  searchingOrbDotStyle,
   SectionHeader,
   StatusDot,
   StatusRail,
@@ -229,15 +230,43 @@ test("shared button motion CSS is scoped to the extension root", () => {
   assert.doesNotMatch(DLENS_BUTTON_CSS, /^\[data-dlens-button\]/m);
 });
 
+test("attention button beam is the sole hover transform owner", () => {
+  assert.match(
+    DLENS_BUTTON_CSS,
+    /\[data-attention-button-beam="true"\]:hover\s*\{[^}]*transform:\s*translateY\(-3px\)/
+  );
+  assert.match(
+    DLENS_BUTTON_CSS,
+    /\[data-attention-button-beam="true"\]\s*>\s*\[data-attention-button-content="true"\]:not\(:disabled\):hover,[^{]*\{[^}]*transform:\s*none/
+  );
+  assert.match(
+    DLENS_BUTTON_CSS,
+    /prefers-reduced-motion:[\s\S]*\[data-attention-button-beam="true"\]:hover,[^{]*\{[^}]*transform:\s*none !important/
+  );
+});
+
 test("SearchingOrb exposes one fixed-size shared CSS marker", () => {
   const html = renderToStaticMarkup(
     React.createElement(SearchingOrb, null)
   );
 
   assert.match(html, /data-searching-orb="true"/);
+  assert.match(html, /width="16"/);
+  assert.match(html, /height="16"/);
   assert.doesNotMatch(html, /data-searching-orb-size/);
   assert.doesNotMatch(html, /style=/);
   assert.doesNotMatch(html, /data-searching-orb-core/);
+});
+
+test("SearchingOrb dots use the ink token with a high-contrast alpha floor", () => {
+  assert.deepEqual(searchingOrbDotStyle(0, 0), {
+    fill: tokens.color.ink,
+    alpha: 0.68
+  });
+  assert.deepEqual(searchingOrbDotStyle(1, 1), {
+    fill: tokens.color.ink,
+    alpha: 1
+  });
 });
 
 test("AttentionBeam renders generating, actionable, and none states", () => {

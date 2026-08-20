@@ -22,7 +22,7 @@ import {
 import {
   buildProductSignalAnalyzerPrompt,
   PRODUCT_SIGNAL_ANALYSIS_JSON_SCHEMA,
-  parseProductSignalAnalysisResponse,
+  parseProductSignalAnalysisResult,
   type ProductSignalAnalyzerInput
 } from "./product-signal-analysis.ts";
 import {
@@ -735,35 +735,36 @@ export async function generateProductSignalAnalysis(
   apiKey: string,
   request: ProductSignalAnalyzerInput
 ): Promise<ProductSignalAnalysis> {
-  const prompt = buildProductSignalAnalyzerPrompt(request);
   const system = "你是產品訊號分析助手。只回傳 JSON，不要加任何解釋。";
-  let raw = "";
-  let model = "";
+  const model = provider === "google"
+    ? `google:${GOOGLE_COMPARE_MODEL}`
+    : provider === "openai"
+      ? `openai:${OPENAI_COMPARE_MODEL}`
+      : `claude:${CLAUDE_COMPARE_MODEL}`;
 
-  if (provider === "google") {
-    model = `google:${GOOGLE_COMPARE_MODEL}`;
-    const request = googleGenerateContentRequest(apiKey, buildProductSignalAnalysisBody("google", system, prompt));
-    const response = await fetchWithRetry("Google", request.input, request.init);
-    if (!response.ok) {
-      throwGoogleResponseError(response);
+  async function callProvider(prompt: string): Promise<string> {
+    if (provider === "google") {
+      const googleRequest = googleGenerateContentRequest(apiKey, buildProductSignalAnalysisBody("google", system, prompt));
+      const response = await fetchWithRetry("Google", googleRequest.input, googleRequest.init);
+      if (!response.ok) {
+        throwGoogleResponseError(response);
+      }
+      return readGoogleContent(await response.json());
     }
-    raw = readGoogleContent(await response.json());
-  } else if (provider === "openai") {
-    model = `openai:${OPENAI_COMPARE_MODEL}`;
-    const response = await fetchWithRetry("OpenAI", "https://api.openai.com/v1/chat/completions", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${apiKey}`
-      },
-      body: JSON.stringify(buildProductSignalAnalysisBody("openai", system, prompt))
-    });
-    if (!response.ok) {
-      throw new Error(`OpenAI ${response.status}: ${await response.text()}`);
+    if (provider === "openai") {
+      const response = await fetchWithRetry("OpenAI", "https://api.openai.com/v1/chat/completions", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${apiKey}`
+        },
+        body: JSON.stringify(buildProductSignalAnalysisBody("openai", system, prompt))
+      });
+      if (!response.ok) {
+        throw new Error(`OpenAI ${response.status}: ${await response.text()}`);
+      }
+      return readOpenAiContent(await response.json());
     }
-    raw = readOpenAiContent(await response.json());
-  } else {
-    model = `claude:${CLAUDE_COMPARE_MODEL}`;
     const response = await fetchWithRetry("Claude", "https://api.anthropic.com/v1/messages", {
       method: "POST",
       headers: {
@@ -776,14 +777,37 @@ export async function generateProductSignalAnalysis(
     if (!response.ok) {
       throw new Error(`Claude ${response.status}: ${await response.text()}`);
     }
-    raw = readClaudeToolInput(await response.json(), "record_product_signal_analysis");
+    return readClaudeToolInput(await response.json(), "record_product_signal_analysis");
   }
 
-  const parsed = parseProductSignalAnalysisResponse(raw, request);
-  if (!parsed) {
-    throw new Error("Invalid product signal analysis payload");
+  const prompt = buildProductSignalAnalyzerPrompt(request);
+  const first = parseProductSignalAnalysisResult(await callProvider(prompt), request);
+  if (first.ok) {
+    return { ...first.analysis, model };
   }
-  return { ...parsed, model };
+
+  /* Exactly one repair call, mirroring the audit-envelope repair: the model gets
+   * told which field it broke rather than the whole prompt again. */
+  const repairedRaw = await callProvider(
+    `${prompt}\n\n上一次輸出被拒絕，原因：${first.rejection}。請修正該欄位後重新輸出完整 JSON。`
+  );
+  const repaired = parseProductSignalAnalysisResult(
+    repairedRaw,
+    request
+  );
+  if (repaired.ok) {
+    return { ...repaired.analysis, model };
+  }
+  const fallback = parseProductSignalAnalysisResult(
+    repairedRaw,
+    request,
+    new Date().toISOString(),
+    true
+  );
+  if (fallback.ok && fallback.analysis.warnings?.includes("reading_evidence_ungrounded")) {
+    return { ...fallback.analysis, model };
+  }
+  throw new Error(`Invalid product signal analysis payload: ${repaired.rejection}`);
 }
 
 export async function generateTopicSignalReading(

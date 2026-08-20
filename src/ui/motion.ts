@@ -76,6 +76,14 @@ export const DLENS_KEYFRAMES_CSS = `
   from { --dlens-reading-beam-angle: 42deg; }
   to { --dlens-reading-beam-angle: 402deg; }
 }
+@keyframes dlens-product-reading-glow {
+  from { --dlens-reading-beam-glow: 0; }
+  to { --dlens-reading-beam-glow: 1; }
+}
+@keyframes dlens-product-reading-hue {
+  0%, 100% { filter: hue-rotate(-30deg) brightness(1.30) saturate(1.50); }
+  50% { filter: hue-rotate(30deg) brightness(1.30) saturate(1.50); }
+}
 @keyframes dlens-source-row-pulse {
   0%, 100% { box-shadow: 0 0 0 3px ${tokens.color.queuedBorder}; }
   50%      { box-shadow: 0 0 0 6px ${tokens.color.queuedWash}; }
@@ -90,7 +98,69 @@ export const DLENS_KEYFRAMES_CSS = `
 }
 `;
 
-export const DLENS_ATTENTION_CSS = `[data-attention-beam],[data-attention-surface="true"]{position:relative;width:100%;min-width:0;overflow:hidden;isolation:isolate;padding:0}[data-attention-beam]{display:inline-flex;align-items:center;justify-content:center;gap:8px;border-radius:${tokens.radius.button}px}[data-attention-beam="generating"]{padding:1px 0;background:linear-gradient(90deg,${tokens.color.runningSoft},${tokens.color.surface},${tokens.color.runningSoft});box-shadow:inset 0 0 0 1px ${tokens.color.runningBorder}}[data-attention-beam="actionable"]{padding:1px 0;background:linear-gradient(90deg,var(--dlens-mode-accent-soft),${tokens.color.surface} 20%);box-shadow:inset 2px 0 var(--dlens-mode-accent)}[data-attention-beam-sweep="true"]::before{content:"";position:absolute;z-index:-1;inset:0 auto 0 -34%;width:34%;background:linear-gradient(90deg,transparent,${tokens.color.signalGlow},transparent);opacity:.82;animation:${tokens.motion.keyframes.indeterminate};pointer-events:none}[data-product-reading-beam]{box-sizing:border-box;max-width:100%;min-width:0;overflow:hidden;isolation:isolate;--dlens-reading-beam-angle:42deg}[data-product-reading-beam]::after{content:"";position:absolute;z-index:2;inset:0;padding:1px;border-radius:inherit;pointer-events:none;background:conic-gradient(from var(--dlens-reading-beam-angle),transparent 0 56%,var(--dlens-mode-accent-soft) 68%,var(--dlens-mode-accent) 74%,transparent 84%);-webkit-mask:linear-gradient(${tokens.color.ink} 0 0) content-box,linear-gradient(${tokens.color.ink} 0 0);-webkit-mask-composite:xor;mask:linear-gradient(${tokens.color.ink} 0 0) content-box,linear-gradient(${tokens.color.ink} 0 0);mask-composite:exclude;box-shadow:none;opacity:.72}[data-product-reading-beam="generating"]::after{animation:dlens-product-reading-beam 1600ms linear infinite}[data-searching-orb="true"]{width:20px;height:20px;flex:0 0 20px;border-radius:${tokens.radius.round}px;background:radial-gradient(circle at 35% 35%,${tokens.color.elevated},${tokens.color.signal} 55%,${tokens.color.accentMid});box-shadow:0 0 14px ${tokens.color.signalGlow};animation:${tokens.motion.keyframes.pulse}}[data-attention-surface="true"]{display:grid;border-radius:${tokens.radius.cardLg}px;align-items:stretch;justify-content:stretch;gap:inherit}[data-attention-surface="true"]>*{position:relative;z-index:1}[data-attention-surface="true"][data-attention-beam-sweep="true"]::before{z-index:0}[data-attention-surface="true"][data-attention-beam="actionable"]::after{content:"";position:absolute;z-index:2;inset:0;border-radius:inherit;box-shadow:inset 0 0 0 1px var(--dlens-mode-accent);opacity:.58;pointer-events:none}[data-attention-surface="true"][data-attention-beam="actionable"]{padding:0;box-shadow:none}`;
+/**
+ * Custom properties the beam animates. An unregistered custom property is not
+ * interpolable — Chrome flips it discretely at the halfway point, so the
+ * Product reading beam rendered as a frozen segment that jumped once per cycle
+ * instead of orbiting the card. `@property` gives the angle/number a syntax so
+ * the keyframes actually tween. Registration is document-global, which is why
+ * it ships with the registry injector rather than any one surface.
+ */
+export const DLENS_PROPERTY_CSS = `
+@property --dlens-reading-beam-angle {
+  syntax: "<angle>";
+  initial-value: 42deg;
+  inherits: true;
+}
+@property --dlens-reading-beam-glow {
+  syntax: "<number>";
+  initial-value: 0;
+  inherits: true;
+}
+`;
+
+/* ─── Reading Beam (ported from docs/mockups/2026-07-23-product-action-deep-reading-orb-beam.html) ───
+ *
+ * Nine light sources sit around the card, a rotating conic mask reveals only the
+ * arc currently sweeping past them, and three stacked layers separate the crisp
+ * 1px edge (::after), the soft inner wash (::before), and the blurred halo
+ * (the bloom span). Geometry, stop positions, the 1.96s spin, and the 12s hue
+ * cycle are the mockup's; only the colour VALUES moved into tokens.ts.
+ */
+const BEAM_LIGHTS = [
+  `radial-gradient(ellipse 70px 40px at 33% -7.4%,${tokens.color.beamRose},transparent)`,
+  `radial-gradient(ellipse 60px 35px at 12% -5%,${tokens.color.beamAzure},transparent)`,
+  `radial-gradient(ellipse 40px 70px at 2.1% 68.3%,${tokens.color.beamJade},transparent)`,
+  `radial-gradient(ellipse 20px 35px at 2.1% 68.3%,${tokens.color.beamTeal},transparent)`,
+  `radial-gradient(ellipse 180px 32px at 74.4% 100%,${tokens.color.beamIndigo},transparent)`,
+  `radial-gradient(ellipse 85px 26px at 55% 100%,${tokens.color.beamAzure},transparent)`,
+  `radial-gradient(ellipse 74px 32px at 93.9% 0%,${tokens.color.beamAmber},transparent)`,
+  `radial-gradient(ellipse 26px 42px at 100% 27.1%,${tokens.color.beamMagenta},transparent)`,
+  `radial-gradient(ellipse 52px 48px at 100% 27.1%,${tokens.color.beamViolet},transparent)`
+].join(",");
+
+/** Ink at a given alpha — the mockup's black beam-core stops, routed through tokens. */
+const beamInk = (percent: number) => `color-mix(in srgb,${tokens.color.ink} ${percent}%,transparent)`;
+/** Mask luminance at a given alpha — the mockup's white taper stops. */
+const beamMask = (percent: number) => `color-mix(in srgb,${tokens.color.elevated} ${percent}%,transparent)`;
+
+const BEAM_CORE = `conic-gradient(from var(--dlens-reading-beam-angle),transparent 0%,transparent 54%,${beamInk(8)} 57%,${beamInk(20)} 60%,${beamInk(40)} 63%,${beamInk(55)} 66%,${beamInk(40)} 69%,${beamInk(20)} 72%,${beamInk(8)} 75%,transparent 78%,transparent 100%)`;
+const BEAM_BLOOM_CORE = `conic-gradient(from var(--dlens-reading-beam-angle),transparent 0%,transparent 58%,${beamInk(2)} 62%,${beamInk(8)} 65%,${beamInk(20)} 67%,${beamInk(40)} 69%,${beamInk(60)} 70%,${beamInk(60)} 70.5%,${beamInk(40)} 71.5%,${beamInk(20)} 73%,${beamInk(8)} 75%,${beamInk(2)} 78%,transparent 82%)`;
+/** The rotating window: only the arc under this taper is lit. */
+const BEAM_SWEEP_MASK = `conic-gradient(from var(--dlens-reading-beam-angle),transparent 0%,transparent 30%,${beamMask(10)} 36%,${beamMask(35)} 44%,${tokens.color.elevated} 52%,${tokens.color.elevated} 80%,${beamMask(35)} 86%,${beamMask(10)} 92%,transparent 95%,transparent 100%)`;
+const BEAM_EDGE_FADE = `linear-gradient(${tokens.color.elevated},transparent 28px,transparent calc(100% - 28px),${tokens.color.elevated}),linear-gradient(to right,${tokens.color.elevated},transparent 28px,transparent calc(100% - 28px),${tokens.color.elevated})`;
+const BEAM_RING_MASK = `linear-gradient(${tokens.color.ink} 0 0) content-box,linear-gradient(${tokens.color.ink} 0 0)`;
+
+const READING_BEAM_CSS = `[data-product-reading-beam]{box-sizing:border-box;max-width:100%;min-width:0;overflow:hidden;isolation:isolate;--dlens-reading-beam-angle:42deg}`
+  + `[data-product-reading-beam="generating"]{animation:dlens-product-reading-beam 1960ms linear infinite,dlens-product-reading-glow 600ms ease forwards}`
+  + `[data-product-reading-beam="generating"]::after{content:"";position:absolute;z-index:3;inset:0;padding:1px;border-radius:inherit;pointer-events:none;background:${BEAM_CORE},${BEAM_LIGHTS};-webkit-mask:${BEAM_SWEEP_MASK},${BEAM_RING_MASK};-webkit-mask-composite:source-in,xor;mask:${BEAM_SWEEP_MASK},${BEAM_RING_MASK};mask-composite:intersect,exclude;box-shadow:none;opacity:calc(var(--dlens-reading-beam-glow) * .12);animation:dlens-product-reading-hue 12s ease-in-out infinite}`
+  + `[data-product-reading-beam="generating"]::before{content:"";position:absolute;z-index:2;inset:0;border-radius:inherit;pointer-events:none;background:${BEAM_LIGHTS};box-shadow:inset 0 0 9px 1px ${tokens.color.beamShade};-webkit-mask-image:${BEAM_SWEEP_MASK},${BEAM_EDGE_FADE};-webkit-mask-composite:source-in,source-over;mask-image:${BEAM_SWEEP_MASK},${BEAM_EDGE_FADE};mask-composite:intersect,add;opacity:calc(var(--dlens-reading-beam-glow) * .12);animation:dlens-product-reading-hue 12s ease-in-out infinite}`
+  /* Two-attribute selectors so the bloom outranks the generic
+   * `[data-attention-surface="true"]>*` stacking rule that follows it. */
+  + `[data-attention-surface="true"] [data-attention-bloom="true"]{display:none;position:absolute;z-index:4;inset:0;padding:1px;border-radius:inherit;pointer-events:none;background:${BEAM_BLOOM_CORE};-webkit-mask:${BEAM_RING_MASK};-webkit-mask-composite:xor;mask:${BEAM_RING_MASK};mask-composite:exclude;filter:blur(8px) brightness(1.30) saturate(1.50)}`
+  + `[data-attention-surface="true"][data-product-reading-beam="generating"] [data-attention-bloom="true"]{display:block;opacity:calc(var(--dlens-reading-beam-glow) * .34)}`;
+
+export const DLENS_ATTENTION_CSS = `[data-attention-beam],[data-attention-surface="true"]{position:relative;box-sizing:border-box;width:100%;max-width:100%;min-width:0;overflow:hidden;isolation:isolate;padding:0}[data-attention-beam]{display:inline-flex;align-items:center;justify-content:center;gap:8px;border-radius:${tokens.radius.button}px}[data-attention-beam="generating"]{padding:1px 0;background:linear-gradient(90deg,${tokens.color.runningSoft},${tokens.color.surface},${tokens.color.runningSoft});box-shadow:inset 0 0 0 1px ${tokens.color.runningBorder}}[data-attention-beam="actionable"]{padding:1px 0;background:linear-gradient(90deg,var(--dlens-mode-accent-soft),${tokens.color.surface} 20%);box-shadow:inset 2px 0 var(--dlens-mode-accent)}[data-attention-beam-sweep="true"]::before{content:"";position:absolute;z-index:-1;inset:0 auto 0 -34%;width:34%;background:linear-gradient(90deg,transparent,${tokens.color.signalGlow},transparent);opacity:.82;animation:${tokens.motion.keyframes.indeterminate};pointer-events:none}${READING_BEAM_CSS}[data-searching-orb="true"]{width:16px;height:16px;flex:0 0 16px;border-radius:${tokens.radius.round}px;box-shadow:0 0 14px ${tokens.color.signalGlow}}[data-attention-surface="true"]{display:grid;border-radius:${tokens.radius.cardLg}px;align-items:stretch;justify-content:stretch;gap:inherit}[data-attention-surface="true"]>*{position:relative;z-index:1}[data-attention-surface="true"][data-attention-beam-sweep="true"]::before{z-index:0}[data-attention-surface="true"][data-attention-beam="actionable"]::after{content:"";position:absolute;z-index:2;inset:0;border-radius:inherit;box-shadow:inset 0 0 0 1px var(--dlens-mode-accent);opacity:.58;pointer-events:none}[data-attention-surface="true"][data-attention-beam="actionable"]{padding:0;box-shadow:none}`;
 
 /**
  * Reduced-motion safety net, injected alongside the keyframe registry into every
@@ -119,9 +189,19 @@ export const DLENS_REDUCED_MOTION_CSS = `
     display: none !important;
     transform: none !important;
   }
-  [data-dlens-control="true"] [data-product-reading-beam]::after {
+  [data-dlens-control="true"] [data-product-reading-beam] {
     animation: none !important;
     --dlens-reading-beam-angle: 42deg;
+    --dlens-reading-beam-glow: 1;
+  }
+  [data-dlens-control="true"] [data-product-reading-beam]::after {
+    animation: none !important;
+    filter: none !important;
+    --dlens-reading-beam-angle: 42deg;
+  }
+  [data-dlens-control="true"] [data-product-reading-beam]::before {
+    animation: none !important;
+    display: none !important;
   }
 }
 `;
@@ -143,7 +223,7 @@ export function ensureDlensKeyframes(doc: Document = document): void {
   }
   const style = doc.createElement("style");
   style.id = DLENS_KEYFRAMES_STYLE_ID;
-  style.textContent = DLENS_KEYFRAMES_CSS + DLENS_ATTENTION_CSS + DLENS_REDUCED_MOTION_CSS;
+  style.textContent = DLENS_PROPERTY_CSS + DLENS_KEYFRAMES_CSS + DLENS_ATTENTION_CSS + DLENS_REDUCED_MOTION_CSS;
   doc.head.appendChild(style);
 }
 

@@ -26,7 +26,11 @@ interface SettingsViewProps {
   draftLayoutPreferences: LayoutPreferences;
   draftProductProfile: ProductProfile;
   compiledProductContext?: ProductContext | null;
-  storageUsage?: { bytesInUse: number; quotaBytes: number } | null;
+  storageUsage?: {
+    bytesInUse: number;
+    quotaBytes: number;
+    unlimitedStorage: boolean;
+  } | null;
   settingsSaveStatus?: { kind: "success" | "error"; message: string } | null;
   isSavingSettings?: boolean;
   productProfileSeedText?: string;
@@ -105,6 +109,9 @@ function formatStorageBytes(bytes: number): string {
 }
 
 function formatStorageUsage(storageUsage: NonNullable<SettingsViewProps["storageUsage"]>): string {
+  if (storageUsage.unlimitedStorage) {
+    return `${formatStorageBytes(storageUsage.bytesInUse)} · 不限額`;
+  }
   return `${formatStorageBytes(storageUsage.bytesInUse)} / ${formatStorageBytes(storageUsage.quotaBytes)}`;
 }
 

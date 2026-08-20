@@ -521,56 +521,69 @@ function readEvidenceNotes(value: unknown, allowedRefs: Set<string>): ProductSig
     .filter((note): note is ProductSignalEvidenceNote => note !== null);
 }
 
+/** Why a `product_reading` was refused — surfaced verbatim in the analysis error
+ * so a failed signal says which field the model got wrong instead of only
+ * "Invalid product signal analysis payload". */
+export type ProductReadingRejection =
+  | "product_reading missing"
+  | "product_reading.headline empty"
+  | "product_reading.body empty or over 1200 code points"
+  | "product_reading.support_refs must be an array of 1-5 unique non-empty refs"
+  | "product_reading.support_refs must all appear in evidence_refs"
+  | "product_reading.support_refs must all have a text_grounded evidence_note";
+
+type ProductReadingParse =
+  | { ok: true; reading: ProductReading }
+  | { ok: false; rejection: ProductReadingRejection };
+
 function readProductReading(
   value: unknown,
   {
-    eligible,
     allowedRefs,
     evidenceRefs,
-    evidenceNotes
+    groundedRefs
   }: {
-    eligible: boolean;
     allowedRefs: Set<string>;
     evidenceRefs: Set<string>;
-    evidenceNotes: ProductSignalEvidenceNote[];
+    groundedRefs: Set<string>;
   }
-): ProductReading | null {
-  if (!eligible || !value || typeof value !== "object" || Array.isArray(value)) {
-    return null;
+): ProductReadingParse {
+  if (!value || typeof value !== "object" || Array.isArray(value)) {
+    return { ok: false, rejection: "product_reading missing" };
   }
   const raw = value as Record<string, unknown>;
   const headline = readTrimmedString(raw.headline).slice(0, 60);
+  if (!headline) {
+    return { ok: false, rejection: "product_reading.headline empty" };
+  }
   const body = readTrimmedString(raw.body);
+  if (!body || [...body].length > 1200) {
+    return { ok: false, rejection: "product_reading.body empty or over 1200 code points" };
+  }
   const refs = raw.support_refs;
-  if (!headline || !body || [...body].length > 1200 || !Array.isArray(refs)) {
-    return null;
-  }
-  if (refs.length < 1 || refs.length > 5) {
-    return null;
-  }
-  if (refs.some((ref) => typeof ref !== "string" || !ref || ref !== ref.trim())) {
-    return null;
+  if (
+    !Array.isArray(refs)
+    || refs.length < 1
+    || refs.length > 5
+    || refs.some((ref) => typeof ref !== "string" || !ref || ref !== ref.trim())
+    || new Set(refs as string[]).size !== refs.length
+  ) {
+    return { ok: false, rejection: "product_reading.support_refs must be an array of 1-5 unique non-empty refs" };
   }
   const supportRefs = refs as string[];
-  if (new Set(supportRefs).size !== supportRefs.length) {
-    return null;
+  if (supportRefs.some((ref) => !allowedRefs.has(ref) || !evidenceRefs.has(ref))) {
+    return { ok: false, rejection: "product_reading.support_refs must all appear in evidence_refs" };
   }
-  const grounded = new Set(
-    evidenceNotes
-      .filter((note) => note.grounding === "text_grounded")
-      .map((note) => note.ref)
-  );
-  if (
-    supportRefs.some((ref) =>
-      !allowedRefs.has(ref) || !evidenceRefs.has(ref) || !grounded.has(ref)
-    )
-  ) {
-    return null;
+  if (supportRefs.some((ref) => !groundedRefs.has(ref))) {
+    return { ok: false, rejection: "product_reading.support_refs must all have a text_grounded evidence_note" };
   }
   return {
-    headline,
-    body,
-    supportRefs
+    ok: true,
+    reading: {
+      headline,
+      body,
+      supportRefs
+    }
   };
 }
 
@@ -782,16 +795,31 @@ interface ProductSignalAnalysisPayload {
   product_reading?: unknown;
 }
 
+export type ProductSignalAnalysisParseResult =
+  | { ok: true; analysis: ProductSignalAnalysis }
+  | { ok: false; rejection: string };
+
+/** Thin compatibility wrapper over {@link parseProductSignalAnalysisResult}. */
 export function parseProductSignalAnalysisResponse(
   raw: string,
   input: ProductSignalAnalyzerInput,
   analyzedAt = new Date().toISOString()
 ): ProductSignalAnalysis | null {
+  const result = parseProductSignalAnalysisResult(raw, input, analyzedAt, true);
+  return result.ok ? result.analysis : null;
+}
+
+export function parseProductSignalAnalysisResult(
+  raw: string,
+  input: ProductSignalAnalyzerInput,
+  analyzedAt = new Date().toISOString(),
+  allowUngroundedFallback = false
+): ProductSignalAnalysisParseResult {
   let parsed: ProductSignalAnalysisPayload;
   try {
     parsed = JSON.parse(stripCodeFence(raw)) as ProductSignalAnalysisPayload;
   } catch {
-    return null;
+    return { ok: false, rejection: "response was not JSON" };
   }
 
   const signalType = readSignalType(parsed.signalType ?? parsed.signal_type);
@@ -805,6 +833,21 @@ export function parseProductSignalAnalysisResponse(
   const evidenceState = readEvidenceState(parsed.evidence_state);
   const conflictState = readConflictState(parsed.conflict_state);
   const reason = readTrimmedString(parsed.reason);
+  const missingFields: string[] = ([
+    ["signal_type", signalType],
+    ["signal_subtype", signalSubtype],
+    ["content_type", contentType],
+    ["content_summary", contentSummary],
+    ["relevance", relevance],
+    ["why_relevant", whyRelevant],
+    ["usefulness", usefulness],
+    ["testability", testability],
+    ["evidence_state", evidenceState],
+    ["conflict_state", conflictState],
+    ["reason", reason]
+  ] as const)
+    .filter(([, value]) => value == null || value === "")
+    .map(([field]) => field);
   if (
     !signalType
     || !signalSubtype
@@ -818,7 +861,7 @@ export function parseProductSignalAnalysisResponse(
     || !conflictState
     || !reason
   ) {
-    return null;
+    return { ok: false, rejection: `missing or invalid: ${missingFields.join(", ")}` };
   }
 
   const judgmentAxes: ProductSignalJudgmentAxes = {
@@ -840,25 +883,61 @@ export function parseProductSignalAnalysisResponse(
   const referenceType = readReferenceType(parsed.referenceType ?? parsed.reference_type);
   const referenceLabel = readTrimmedString(parsed.referenceLabel ?? parsed.reference_label).slice(0, 90);
   const referenceTakeaway = readTrimmedString(parsed.referenceTakeaway ?? parsed.reference_takeaway).slice(0, 180);
-  const evidenceRefs = readStringArray(parsed.evidenceRefs ?? parsed.evidence_refs)
+  const declaredEvidenceRefs = readStringArray(parsed.evidenceRefs ?? parsed.evidence_refs)
     .filter((ref) => allowedRefs.has(ref));
+  const evidenceNotes = readEvidenceNotes(parsed.evidenceNotes ?? parsed.evidence_notes, allowedRefs);
+  /* Model providers occasionally omit a ref from evidence_refs while publishing
+   * a complete grounded evidence_note for that same allowed catalog entry. The
+   * note is the stronger structured fact, so canonicalize the redundant index
+   * instead of failing an otherwise grounded Product Reading. */
+  const evidenceRefs = [...new Set([
+    ...declaredEvidenceRefs,
+    ...evidenceNotes.map((note) => note.ref)
+  ])];
   const evidenceRefSet = new Set(evidenceRefs);
-  const evidenceNotes = readEvidenceNotes(parsed.evidenceNotes ?? parsed.evidence_notes, evidenceRefSet);
-  const rawProductReading = parsed.product_reading;
+  const groundedRefs = new Set(
+    evidenceNotes
+      .filter((note) => note.grounding === "text_grounded")
+      .map((note) => note.ref)
+  );
   const readingEligible = signalType !== "noise"
     && (derived.verdict === "try" || derived.verdict === "watch");
-  const productReading = readProductReading(rawProductReading, {
-    eligible: readingEligible,
-    allowedRefs,
-    evidenceRefs: evidenceRefSet,
-    evidenceNotes
-  });
-  if (readingEligible && !productReading) {
-    return null;
+  const readingParse = readingEligible
+    ? readProductReading(parsed.product_reading, {
+        allowedRefs,
+        evidenceRefs: evidenceRefSet,
+        groundedRefs
+      })
+    : null;
+  /* Provider calls stay strict for the first and repair attempts. Only after the
+   * one repair has failed may the caller downgrade a reading whose support refs
+   * are missing from the evidence index or lack grounded notes. The unsupported
+   * reading is discarded; malformed reading content remains a visible failure. */
+  const unsupportedReading = readingParse?.ok === false
+    && (
+      readingParse.rejection === "product_reading.support_refs must all appear in evidence_refs"
+      || readingParse.rejection === "product_reading.support_refs must all have a text_grounded evidence_note"
+    );
+  const ungroundable = allowUngroundedFallback
+    && unsupportedReading;
+  if (readingParse && !readingParse.ok && !ungroundable) {
+    return { ok: false, rejection: readingParse.rejection };
   }
 
-  const verdict = derived.verdict;
-  const warnings = [...derived.warnings];
+  const normalizedJudgmentAxes: ProductSignalJudgmentAxes = ungroundable
+    ? { ...judgmentAxes, evidenceState: "insufficient" }
+    : judgmentAxes;
+  const normalizedDerived = ungroundable
+    ? deriveProductSignalVerdict({
+        signalType,
+        judgmentAxes: normalizedJudgmentAxes
+      })
+    : derived;
+  const verdict = normalizedDerived.verdict;
+  const warnings = ungroundable
+    ? [...normalizedDerived.warnings, "reading_evidence_ungrounded" as const]
+    : [...normalizedDerived.warnings];
+  const productReading = readingParse?.ok ? readingParse.reading : null;
   const experimentHint = verdict === "try"
     ? readTrimmedString(parsed.experimentHint ?? parsed.experiment_hint)
     : "";
@@ -872,7 +951,7 @@ export function parseProductSignalAnalysisResponse(
     ? readAgentTaskSpec(parsed.agentTaskSpec ?? parsed.agent_task_spec)
     : null;
 
-  return {
+  const analysis: ProductSignalAnalysis = {
     signalId: input.signalId,
     signalType,
     signalSubtype,
@@ -894,12 +973,13 @@ export function parseProductSignalAnalysisResponse(
     ...(agentTaskSpec ? { agentTaskSpec } : {}),
     evidenceRefs,
     ...(evidenceNotes.length ? { evidenceNotes } : {}),
-    ...(readingEligible && productReading ? { productReading } : {}),
-    judgmentAxes,
+    ...(productReading ? { productReading } : {}),
+    judgmentAxes: normalizedJudgmentAxes,
     warnings,
     productContextHash: input.productContextHash,
     promptVersion: PRODUCT_SIGNAL_ANALYSIS_PROMPT_VERSION,
     analyzedAt,
     status: "complete"
   };
+  return { ok: true, analysis };
 }

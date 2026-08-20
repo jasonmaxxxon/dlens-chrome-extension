@@ -66,8 +66,8 @@ instrument, **not** a dashboard that happens to contain text.
 
 ### radius & shadow
 - Two card tiers only: `radius.card` for inner panels, `radius.cardLg` for the
-  Topic-style soft card that all modes now share. `radius.round` is
-  reserved for status dots — not for pills, not for avatars or buttons.
+  Topic-style soft card that all modes now share. `radius.round` is for status
+  dots only. Selectable options (mode toggles, packet-format cards) are the **raised tile「浮磚」**: `radius.card` + `shadow.card` on `color.atlasPaper`, selected → `color.product`.
 - Shadows are panes lifted off the glass ground: a lit-from-above inset
   highlight, a tight contact shadow, a wide ambient (`shadow.card` →
   `shadow.shell` → `shadow.raised`, `shadow.popup` for the floating

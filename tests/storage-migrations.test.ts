@@ -11,17 +11,62 @@ function readFixture(name: string): unknown {
   return JSON.parse(readFileSync(new URL(`./fixtures/storage/${name}`, import.meta.url), "utf8"));
 }
 
-test("global-state v0 fixture migrates to expected v1 shape", () => {
+test("global-state v0 fixture migrates through the full chain to expected v2 shape", () => {
   const v0 = readFixture("global-state-v0.json");
-  const expectedV1 = readFixture("global-state-v1.json");
+  const expectedV2 = readFixture("global-state-v2.json");
   const result = runMigrationsFor(STORAGE_MIGRATIONS, GLOBAL_STATE_STORAGE_KEY, v0);
-  assert.deepEqual(result, expectedV1);
+  assert.deepEqual(result, expectedV2);
 });
 
-test("global-state v1 fixture round-trips unchanged through the migration", () => {
+test("global-state v1 fixture migrates to expected v2 shape", () => {
   const v1 = readFixture("global-state-v1.json");
+  const expectedV2 = readFixture("global-state-v2.json");
   const result = runMigrationsFor(STORAGE_MIGRATIONS, GLOBAL_STATE_STORAGE_KEY, v1);
-  assert.deepEqual(result, v1);
+  assert.deepEqual(result, expectedV2);
+});
+
+test("global-state v2 fixture round-trips unchanged through the migration", () => {
+  const v2 = readFixture("global-state-v2.json");
+  const result = runMigrationsFor(STORAGE_MIGRATIONS, GLOBAL_STATE_STORAGE_KEY, v2);
+  assert.deepEqual(result, v2);
+});
+
+test("global-state v1 migration strips backend-only raw payload mirrors and reaches v2", () => {
+  const v1 = {
+    schemaVersion: 1,
+    settings: {},
+    sessions: [{
+      id: "session-1",
+      items: [{
+        id: "item-1",
+        latestCapture: {
+          id: "capture-1",
+          raw_payload: { captureHtml: "large capture payload" },
+          result: {
+            id: "result-1",
+            raw_payload: { resultHtml: "large crawl payload" },
+            comments: [{ text: "must stay" }]
+          }
+        }
+      }]
+    }],
+    activeSessionId: "session-1",
+    updatedAt: "2026-07-24T00:00:00.000Z"
+  };
+
+  const result = runMigrationsFor<Record<string, any>>(
+    STORAGE_MIGRATIONS,
+    GLOBAL_STATE_STORAGE_KEY,
+    v1
+  );
+
+  assert.equal(result.schemaVersion, 2);
+  assert.equal("raw_payload" in result.sessions[0].items[0].latestCapture, false);
+  assert.equal("raw_payload" in result.sessions[0].items[0].latestCapture.result, false);
+  assert.deepEqual(
+    result.sessions[0].items[0].latestCapture.result.comments,
+    [{ text: "must stay" }]
+  );
 });
 
 test("product-context v0 fixture migrates to expected v1 shape", () => {
@@ -51,17 +96,15 @@ test("topic audit run cache remains outside the durable migration registry", () 
   );
 });
 
-test("STORAGE_MIGRATIONS entries are forward-only and reach version 1", () => {
+test("STORAGE_MIGRATIONS entries are forward-only and reach each durable key's current version", () => {
   for (const entry of STORAGE_MIGRATIONS) {
     assert.ok(entry.to > entry.from, `${entry.key}: to must be > from`);
     assert.ok(entry.from >= 0, `${entry.key}: from must be >= 0`);
   }
-  // Every registered key reaches at least v1 in this PR; future PRs may add v1→v2 entries.
   const maxToByKey = new Map<string, number>();
   for (const entry of STORAGE_MIGRATIONS) {
     maxToByKey.set(entry.key, Math.max(maxToByKey.get(entry.key) ?? 0, entry.to));
   }
-  for (const [key, maxTo] of maxToByKey) {
-    assert.ok(maxTo >= 1, `${key}: should reach at least version 1`);
-  }
+  assert.equal(maxToByKey.get(GLOBAL_STATE_STORAGE_KEY), 2);
+  assert.equal(maxToByKey.get(PRODUCT_CONTEXT_STORAGE_KEY), 1);
 });
