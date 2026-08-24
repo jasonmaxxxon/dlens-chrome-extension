@@ -1317,8 +1317,10 @@ test("TopicDetailView can restart when a partial first run left evidence without
 test("TopicDetailView keeps first-run focus while an empty Atlas starts generating", async () => {
   const { JSDOM } = await import("jsdom");
   const { createRoot } = await import("react-dom/client");
-  const { flushSync } = await import("react-dom");
+  const { act } = await import("react");
   const dom = new JSDOM("<div id=\"root\"></div>", { url: "https://dlens.test" });
+  const reactActGlobal = globalThis as typeof globalThis & { IS_REACT_ACT_ENVIRONMENT?: boolean };
+  const previousActEnvironment = reactActGlobal.IS_REACT_ACT_ENVIRONMENT;
   const previous = {
     window: globalThis.window,
     document: globalThis.document,
@@ -1336,6 +1338,7 @@ test("TopicDetailView keeps first-run focus while an empty Atlas starts generati
     Event: dom.window.Event,
     MouseEvent: dom.window.MouseEvent
   });
+  reactActGlobal.IS_REACT_ACT_ENVIRONMENT = true;
   const rootElement = dom.window.document.getElementById("root");
   assert.ok(rootElement);
   const root = createRoot(rootElement);
@@ -1362,21 +1365,29 @@ test("TopicDetailView keeps first-run focus while an empty Atlas starts generati
   });
 
   try {
-    flushSync(() => root.render(renderStatus("none")));
+    await act(async () => {
+      root.render(renderStatus("none"));
+    });
     const generate = Array.from(rootElement.querySelectorAll<HTMLButtonElement>("button"))
       .find((button) => button.textContent === "用 1 篇重新生成 Atlas");
     assert.ok(generate);
-    generate.dispatchEvent(new dom.window.MouseEvent("click", { bubbles: true }));
+    await act(async () => {
+      generate.dispatchEvent(new dom.window.MouseEvent("click", { bubbles: true }));
+    });
     assert.deepEqual(calls, [{ topicId: "topic-1", force: true }]);
 
-    flushSync(() => root.render(renderStatus("running")));
+    await act(async () => {
+      root.render(renderStatus("running"));
+    });
     assert.equal(rootElement.querySelector('[data-topic-audit-action="generate"]'), null);
     assert.match(rootElement.textContent ?? "", /正在重新生成 Atlas/);
     assert.equal(calls.length, 1);
   } finally {
-    flushSync(() => root.unmount());
-    await new Promise((resolve) => setTimeout(resolve, 0));
+    await act(async () => root.unmount());
     Object.assign(globalThis, previous);
+    if (previousActEnvironment === undefined) delete reactActGlobal.IS_REACT_ACT_ENVIRONMENT;
+    else reactActGlobal.IS_REACT_ACT_ENVIRONMENT = previousActEnvironment;
+    dom.window.close();
   }
 });
 
