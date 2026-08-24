@@ -230,6 +230,21 @@ export async function saveTopicAuditEvidence(
   return enqueueTopicAuditMutation(() => saveStorageMapEntry(storageArea, TOPIC_AUDIT_EVIDENCE_STORAGE_KEY, topicId, packets));
 }
 
+export async function saveTopicAuditEvidenceUnlessRunActive(
+  storageArea: StorageAreaLike,
+  topicId: string,
+  packets: EvidencePacket[]
+): Promise<boolean> {
+  return enqueueTopicAuditMutation(async () => {
+    const runs = await readTopicAuditRunCache(storageArea);
+    if (runs[topicId]?.state === "running") {
+      return false;
+    }
+    await saveStorageMapEntry(storageArea, TOPIC_AUDIT_EVIDENCE_STORAGE_KEY, topicId, packets);
+    return true;
+  });
+}
+
 export async function loadTopicAuditEvidence(
   storageArea: StorageAreaLike,
   topicId: string

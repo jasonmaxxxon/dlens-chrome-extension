@@ -3,6 +3,7 @@ import test from "node:test";
 
 import { TopicAuditEnvelopeError } from "../src/compare/topic-audit-envelope-contract.ts";
 import type { AuditPromptEnvelope } from "../src/compare/topic-audit-prompts.ts";
+import { SIGNAL_TAGS_STORAGE_KEY } from "../src/compare/signal-tags-storage.ts";
 import { TOPIC_SIGNAL_READINGS_STORAGE_KEY } from "../src/compare/topic-signal-reading-storage.ts";
 import {
   TOPIC_AUDIT_EVIDENCE_STORAGE_KEY,
@@ -363,6 +364,154 @@ test("topic audit run persists each stage and reuses cache on the same input", a
 
   assert.equal(calls.length, 9);
   assert.equal(second.auditReport?.inputHash, first.auditReport?.inputHash);
+});
+
+test("topic audit get reconciles newly completed source evidence without rerunning or replacing the published audit", async () => {
+  const storage = new MemoryStorage();
+  await seedTopic(storage);
+  await handleTopicAuditMessage(storage, {
+    message: { type: "topic/audit/run", requestId: "seed-published-audit", sessionId: "session-1", topicId: "topic-1" },
+    sessions: [makeSession()],
+    generateEnvelope: async (stageName) => makeEnvelope(stageName),
+    model: "mock:model"
+  });
+  const evidenceBefore = await loadTopicAuditEvidence(storage, "topic-1");
+  const memosBefore = await loadTopicAuditMemos(storage, "topic-1");
+  const reportBefore = await loadTopicAuditReport(storage, "topic-1");
+  const episodesBefore = await loadTopicAuditEpisodes(storage, "topic-1");
+
+  const unchanged = await handleTopicAuditMessage(storage, {
+    message: { type: "topic/audit/get", topicId: "topic-1" },
+    sessions: [makeSession()]
+  });
+  assert.deepEqual(unchanged.auditEvidence, evidenceBefore);
+  assert.equal(unchanged.auditReport?.inputHash, reportBefore?.inputHash);
+
+  await saveTopic(storage, {
+    ...makeTopic(),
+    signalIds: ["signal-1", "signal-2", "signal-3"],
+    updatedAt: "2026-05-22T00:03:00.000Z"
+  });
+  await storage.set({
+    "dlens:v1:signals": [
+      makeSignal("signal-1", "item-1"),
+      makeSignal("signal-2", "item-2"),
+      makeSignal("signal-3", "item-3")
+    ]
+  });
+  const baseSession = makeSession();
+  const currentSession = {
+    ...baseSession,
+    items: [...baseSession.items, makeItem("item-3", "op3", "第三篇成功採集貼文", "第三篇留言")]
+  };
+  let generationCalls = 0;
+  const response = await handleTopicAuditMessage(storage, {
+    message: { type: "topic/audit/get", topicId: "topic-1" },
+    sessions: [currentSession],
+    generateEnvelope: async () => {
+      generationCalls += 1;
+      throw new Error("get 不可自動執行審查");
+    }
+  });
+
+  assert.deepEqual(response.auditEvidence?.map((packet) => packet.signalId), ["signal-1", "signal-2", "signal-3"]);
+  assert.equal(response.auditEvidence?.[2]?.status, "succeeded");
+  assert.notEqual(response.auditEvidence?.[0]?.inputHash, evidenceBefore[0]?.inputHash);
+  assert.deepEqual(response.auditMemos, memosBefore);
+  assert.deepEqual(response.auditReport, reportBefore);
+  assert.deepEqual(response.auditEpisodes, episodesBefore);
+  assert.equal(generationCalls, 0);
+  assert.deepEqual(response.auditValidatorFlags, []);
+
+  assert.deepEqual(await loadTopicAuditEvidence(storage, "topic-1"), response.auditEvidence);
+  assert.deepEqual(await loadTopicAuditMemos(storage, "topic-1"), memosBefore);
+  assert.deepEqual(await loadTopicAuditReport(storage, "topic-1"), reportBefore);
+});
+
+test("topic audit get leaves evidence intact until every topic signal has a session item", async () => {
+  const storage = new MemoryStorage();
+  await seedTopic(storage);
+  await handleTopicAuditMessage(storage, {
+    message: { type: "topic/audit/run", requestId: "seed-complete-inventory", sessionId: "session-1", topicId: "topic-1" },
+    sessions: [makeSession()],
+    generateEnvelope: async (stageName) => makeEnvelope(stageName),
+    model: "mock:model"
+  });
+  const evidenceBefore = await loadTopicAuditEvidence(storage, "topic-1");
+  await saveTopic(storage, { ...makeTopic(), signalIds: ["signal-1", "signal-2", "signal-3"] });
+  await storage.set({
+    "dlens:v1:signals": [
+      makeSignal("signal-1", "item-1"),
+      makeSignal("signal-2", "item-2"),
+      makeSignal("signal-3", "item-3")
+    ]
+  });
+  const writesBeforeGet = storage.setCalls;
+
+  const response = await handleTopicAuditMessage(storage, {
+    message: { type: "topic/audit/get", topicId: "topic-1" },
+    sessions: [makeSession()]
+  });
+
+  assert.deepEqual(response.auditEvidence, evidenceBefore);
+  assert.deepEqual(await loadTopicAuditEvidence(storage, "topic-1"), evidenceBefore);
+  assert.equal(storage.setCalls, writesBeforeGet);
+});
+
+test("topic audit get does not overwrite evidence when a run starts during reconciliation", async () => {
+  class LateRunStorage extends MemoryStorage {
+    startRunOnNextSignalTagsRead = false;
+    lateRunStarted = false;
+
+    override async get(key: string): Promise<Record<string, unknown>> {
+      const result = await super.get(key);
+      if (this.startRunOnNextSignalTagsRead && !this.lateRunStarted && key === SIGNAL_TAGS_STORAGE_KEY) {
+        this.lateRunStarted = true;
+        await beginTopicAuditRun(this, {
+          sessionId: "session-1",
+          topicId: "topic-1",
+          requestId: "late-running-audit",
+          state: "running",
+          stage: "comment-shard-reading",
+          startedAt: "2026-05-22T00:03:00.000Z",
+          updatedAt: "2026-05-22T00:03:00.000Z",
+          expiresAt: "2026-05-22T00:18:00.000Z"
+        });
+      }
+      return result;
+    }
+  }
+
+  const storage = new LateRunStorage();
+  await seedTopic(storage);
+  await handleTopicAuditMessage(storage, {
+    message: { type: "topic/audit/run", requestId: "seed-before-late-run", sessionId: "session-1", topicId: "topic-1" },
+    sessions: [makeSession()],
+    generateEnvelope: async (stageName) => makeEnvelope(stageName),
+    model: "mock:model"
+  });
+  const evidenceBefore = await loadTopicAuditEvidence(storage, "topic-1");
+  await saveTopic(storage, { ...makeTopic(), signalIds: ["signal-1", "signal-2", "signal-3"] });
+  await storage.set({
+    "dlens:v1:signals": [
+      makeSignal("signal-1", "item-1"),
+      makeSignal("signal-2", "item-2"),
+      makeSignal("signal-3", "item-3")
+    ]
+  });
+  const baseSession = makeSession();
+  storage.startRunOnNextSignalTagsRead = true;
+
+  const response = await handleTopicAuditMessage(storage, {
+    message: { type: "topic/audit/get", topicId: "topic-1" },
+    sessions: [{ ...baseSession, items: [...baseSession.items, makeItem("item-3", "op3", "第三篇成功採集貼文", "第三篇留言")] }],
+    now: () => "2026-05-22T00:03:01.000Z"
+  });
+
+  assert.equal(storage.lateRunStarted, true);
+  assert.deepEqual(response.auditEvidence, evidenceBefore);
+  assert.deepEqual(await loadTopicAuditEvidence(storage, "topic-1"), evidenceBefore);
+  assert.equal((await loadTopicAuditRun(storage, "topic-1", "2026-05-22T00:03:01.000Z"))?.state, "running");
 });
 
 test("topic audit run persists real stage attempts and clears its run entry only with publication", async () => {

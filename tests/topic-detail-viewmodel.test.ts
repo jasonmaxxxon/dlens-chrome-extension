@@ -610,6 +610,34 @@ test("Topic detail VM keeps an uncrawled topic source pending outside the comple
   assert.equal(vm.audit.p1TotalCount, 15);
 });
 
+test("Topic detail VM keeps a failed-only source retryable beside a stale Atlas", () => {
+  const packet = buildAuditPacket(1);
+  const failedSignal = buildSignal("failed-signal", "failed-item");
+  const vm = buildTopicDetailViewModel({
+    topic: { ...topic, signalIds: [packet.signalId, failedSignal.id] },
+    signals: [buildSignal(packet.signalId, packet.itemId), failedSignal],
+    pairs: [],
+    sessionMode: "topic",
+    sessionItems: [
+      buildSessionItem(packet.itemId, "succeeded"),
+      buildSessionItem("failed-item", "failed")
+    ],
+    auditEvidence: [packet],
+    auditMemos: buildAuditMemos([packet]),
+    auditSummary: { reportStatus: "stale", analyzedCount: 1, queuedCount: 1, coverage: "1/2" }
+  });
+
+  assert.deepEqual(vm.sourceSession, {
+    kind: "needs_crawl",
+    scope: "topic",
+    total: 2,
+    ready: 1,
+    pending: 0,
+    failed: 1
+  });
+  assert.deepEqual(vm.unanalyzedItemIds, ["failed-item"]);
+});
+
 test("Topic detail VM excludes removed evidence from current inventory coverage", () => {
   const currentPacket = buildAuditPacket(1);
   const removedPacket = buildAuditPacket(2);

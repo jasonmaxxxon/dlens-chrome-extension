@@ -975,7 +975,7 @@ export function buildTopicDetailViewModel({
   });
   const sourceSession = deriveTopicSourceSessionState({
     analysisCounts,
-    crawlableCount: analysisCounts.saved + analysisCounts.missing,
+    crawlableCount: analysisCounts.saved + analysisCounts.missing + analysisCounts.failed,
     auditRunStatus,
     reportStatus: audit.summary.reportStatus,
     addedSinceReport: audit.summary.staleDelta?.added ?? 0

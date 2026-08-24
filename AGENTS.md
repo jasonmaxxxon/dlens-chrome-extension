@@ -109,7 +109,11 @@ git diff --check
   token/motion registry, not ad-hoc gradients or keyframes.
 - **Topic Audit** keeps one stable Atlas canvas through
   `none / running / ready / stale / failed`, preserves the last Atlas during
-  regeneration, and must not present memo-derived `Pn/6` as live progress. As
+  regeneration, and must not present memo-derived `Pn/6` as live progress.
+  On popup reopen, `topic/audit/get` may reconcile evidence only after the
+  complete Topic/session inventory hydrates; it must not run Atlas generation
+  or replace published memos/reports/episodes, and a running audit wins the
+  shared mutation queue. A failed-only source remains retryable crawl work. As
   of 0.3.50 the topic page renders ONE source list (atlas
   `SourceRow` grammar with gist titles + manifest actions; uncrawled signals
   are `PendingSignalRow` entries in the same card) — do not reintroduce a

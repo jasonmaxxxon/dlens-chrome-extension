@@ -64,13 +64,14 @@ import {
   publishTopicAuditReportAndEpisodes,
   saveCrossTopicCalibration,
   saveTopicAuditEvidence,
+  saveTopicAuditEvidenceUnlessRunActive,
   saveTopicAuditMemos,
   saveTopicAuditMemosForRun,
   type StorageAreaLike,
   type TopicAuditMemoBundle
 } from "./topic-audit-storage.ts";
 import { buildSignalReadinessById } from "./signal-readiness.ts";
-import { loadSignals, loadTopics } from "./topic-storage.ts";
+import { loadSignals, loadTopicById, loadTopics } from "./topic-storage.ts";
 import { listSignalTags } from "../compare/signal-tags-storage.ts";
 import { validateCrossTopicCalibrationDraft, validateTopicAuditDraft, type TopicAuditValidationFlag } from "../compare/topic-audit-validator.ts";
 import type { SessionRecord, SessionItem, Signal, Topic } from "./types.ts";
@@ -233,6 +234,62 @@ async function buildAndSaveEvidence(
   const identifiedPackets = await buildEvidence(storageArea, session, topic, auditRunId, inputHash);
   await saveTopicAuditEvidence(storageArea, topic.id, identifiedPackets);
   return identifiedPackets;
+}
+
+function hasCompleteTopicEvidenceInventory(topic: Topic, signals: Signal[], session: SessionRecord): boolean {
+  const signalById = new Map(signals.map((signal) => [signal.id, signal]));
+  const itemIds = new Set(session.items.map((item) => item.id));
+  return topic.signalIds.every((signalId) => {
+    const itemId = signalById.get(signalId)?.itemId;
+    return Boolean(itemId && itemIds.has(itemId));
+  });
+}
+
+function persistedAuditModelKey(
+  auditMemos: TopicAuditMemoBundle | null,
+  auditReport: TopicAuditReport | null
+): string {
+  return auditReport?.model
+    ?? auditMemos?.lensMemos.at(-1)?.model
+    ?? auditMemos?.signalReadings.at(-1)?.model
+    ?? "unknown";
+}
+
+async function reconcileTopicAuditEvidence(
+  storageArea: StorageAreaLike,
+  options: TopicAuditHandlerOptions,
+  topicId: string,
+  auditEvidence: EvidencePacket[],
+  auditMemos: TopicAuditMemoBundle | null,
+  auditReport: TopicAuditReport | null,
+  auditRunStatus: TopicAuditRunStatus | null
+): Promise<EvidencePacket[]> {
+  if (auditRunStatus?.state === "running") {
+    return auditEvidence;
+  }
+  const topic = await loadTopicById(storageArea, topicId);
+  const session = topic ? options.sessions.find((entry) => entry.id === topic.sessionId) : undefined;
+  if (!topic || !session || (auditEvidence.length === 0 && topic.signalIds.length === 0)) {
+    return auditEvidence;
+  }
+  const signals = await loadSignals(storageArea, session.id);
+  if (!hasCompleteTopicEvidenceInventory(topic, signals, session)) {
+    return auditEvidence;
+  }
+  const inputHash = buildInputHash(
+    topic,
+    signals,
+    new Map(session.items.map((item) => [item.id, item])),
+    persistedAuditModelKey(auditMemos, auditReport)
+  );
+  if (auditEvidence.length > 0 && auditEvidence.every((packet) => packet.inputHash === inputHash)) {
+    return auditEvidence;
+  }
+  const auditRunId = `audit_${inputHash.replace(/^topic-audit:/, "")}`;
+  const reconciledEvidence = await buildEvidence(storageArea, session, topic, auditRunId, inputHash);
+  return await saveTopicAuditEvidenceUnlessRunActive(storageArea, topicId, reconciledEvidence)
+    ? reconciledEvidence
+    : auditEvidence;
 }
 
 function allAllowedRefs(packets: EvidencePacket[]): Set<string> {
@@ -1394,13 +1451,22 @@ export async function handleTopicAuditMessage(
       return runP1ForSingleSignal(storageArea, session, topic, message.signalId, options);
     }
     case "topic/audit/get": {
-      const [auditEvidence, auditMemos, auditReport, auditEpisodes, auditRunStatus] = await Promise.all([
+      const [storedAuditEvidence, auditMemos, auditReport, auditEpisodes, auditRunStatus] = await Promise.all([
         loadTopicAuditEvidence(storageArea, message.topicId),
         loadTopicAuditMemos(storageArea, message.topicId),
         loadTopicAuditReport(storageArea, message.topicId),
         loadTopicAuditEpisodes(storageArea, message.topicId),
         loadTopicAuditRun(storageArea, message.topicId, nowIso(options))
       ]);
+      const auditEvidence = await reconcileTopicAuditEvidence(
+        storageArea,
+        options,
+        message.topicId,
+        storedAuditEvidence,
+        auditMemos,
+        auditReport,
+        auditRunStatus
+      );
       return {
         auditEvidence,
         auditMemos,
