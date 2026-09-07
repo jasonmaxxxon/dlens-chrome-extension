@@ -16,7 +16,7 @@ type: project
 - 卡片／brief／packet 共用 reading identity；完整 body、未驗證限制、停止條件及原文／留言來源帶出。沒有新增 LLM call、改 analyzer prompt、DB 或 storage schema。
 - Bundle：raw 913,210／918,500、gzip9 258,653／258,700、Brotli 205,484／206,000 bytes；未提高門檻。gzip 僅餘 47 bytes，後續 UI 擴充須先量度與收斂重量。
 - 本機唯讀探測（2026-09-07 03:07 UTC）：health 200／ok、worker/status 503；未改服務或 DB。這不是 worker 修復或 queue/result 成功證據。
-- Jason 真實 Chrome 尚未驗證：工具 URL policy 拒絕 `chrome://extensions/`；已詢問現有載入目錄，未改已安裝 build。真實 Threads 的工具分頁可建立，但 AX 讀取 timeout／原生畫面空白，未觀察到新版 UI。
+- Jason 真實 Chrome 尚未驗證：使用者確認載入目錄為 `/Users/tung/developer/dlens-product-latest/output/chrome-mv3`；2026-09-07 已把 verified 0.3.61 原位更新，13檔SHA-256一致，0.3.60完整備份在審查資料夾 build-backups。工具 URL policy 拒絕 `chrome://extensions/`，尚待使用者手動 Reload。未觀察到新版 UI；main程式尚未合併，主checkout重新build會覆蓋這份測試產物。
 - Skills：新 Codex 唯讀 session 完成 8 情境讀取／回答；原 CLI 的 `gpt-6-Astra` 不被接受，以一次性 `gpt-6-astra` 重試成功，未改全域 config。Claude CLI 未登入，因此其 activation 未驗證。Repo UIUX 保留 canonical source 及 Claude wrapper，27 份 byte-identical 重複資產已移除。
 
 ## 接手所需的有效契約
@@ -31,7 +31,7 @@ type: project
 
 ## 待辦與證據邊界
 
-1. 先確認使用者提供的既有 Chrome unpacked 路徑，將本批 verified build 放回同一路徑以保留 extension ID／資料；工具不能操作 extension 管理頁，reload 需要使用者完成。不要另裝為新的空白 extension 並冒充既有資料驗收。
+1. 原載入目錄已更新為0.3.61；等待使用者在Jason Chrome按DLens Reload。工具不能操作extension管理頁。不要另裝成新的空白extension來冒充既有資料驗收。
 2. 再按 [Runtime QA](../../CLAUDE.md#runtime-qa) 驗證狀態恢復、brief 全文與頁面切換。目前保留「未驗證」。合併／push main 需本次明確授權。
 3. 第二台 Mac SOP 的 kit 版本已改為讀 manifest；隔離新機安裝仍待實測。後端 DB bootstrap 以相鄰 backend runbook 為準。
 4. 店舖／服務業 context、selected try/watch 的手動唯讀 agent 查證等保留於[需求索引](../architecture/product-decision-index.md)。未追蹤願景稿留在原 checkout，不由文件整理自動納入或實作。
