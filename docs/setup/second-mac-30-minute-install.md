@@ -4,7 +4,7 @@
 
 ## 先講結論
 
-30 分鐘可行，但只在 **owner 已預先準備 kit** 的情況下成立。
+30 分鐘是 **owner 已預先準備 kit** 後的估計；此 SOP 的更新不代表已在隔離新 Mac 完成實測。
 
 推薦路徑：
 
@@ -21,7 +21,7 @@
 - Chrome 已從 `~/dlens/chrome-mv3` 載入 `DLens v3`
 - Extension Settings backend URL 是 `http://127.0.0.1:8000`
 - Threads 頁面看得到 DLens launcher / popup
-- `curl -s http://127.0.0.1:8000/worker/status` 有回應
+- `GET /worker/status` 回 HTTP 200 及有效狀態 JSON；503 表示工作狀態不可取得，安裝尚未通過驗收
 
 ## 不需要的東西
 
@@ -52,43 +52,27 @@ Owner 必須在交給新手前完成這段。這段不算進 30 分鐘。
 cd /path/to/dlens-chrome-extension
 npm run build
 node -e "const fs=require('fs'); const m=JSON.parse(fs.readFileSync('output/chrome-mv3/manifest.json','utf8')); console.log(m.name, m.version)"
-rm -f ~/Downloads/dlens-chrome-mv3-0.1.30.zip
-(cd output && ditto -c -k --keepParent chrome-mv3 ~/Downloads/dlens-chrome-mv3-0.1.30.zip)
+(cd output && ditto -c -k --keepParent chrome-mv3 ~/Downloads/dlens-chrome-mv3.zip)
 ```
 
-預期輸出包含：
-
-```text
-DLens v3 0.1.30
-```
+記錄實際輸出的 name/version；版本以本次 kit 內 `chrome-mv3/manifest.json` 為準，不沿用 SOP 的示例或舊 zip 名。Owner 發布驗收按根 [CLAUDE.md](../../CLAUDE.md#verify-gate) 與 [Runtime QA](../../CLAUDE.md#runtime-qa) 執行；`npm run build` 本身不等於 release 已驗收。
 
 交付給新手的 zip 檔名：
 
 ```text
-dlens-chrome-mv3-0.1.30.zip
+dlens-chrome-mv3.zip
 ```
 
 ### 3. 確認 backend DB 已套 schema
 
-如果 owner 給的是共用、已 migrate 的 Supabase DB，只要確認即可。若是新的空 DB，owner 要先在 backend repo 跑：
+如果 owner 給的是共用、已 migrate 的 Supabase DB，先核對該 DB schema；若是空 DB，由 owner 在 backend checkout 按 `docs/runbooks/database-ops.md` 的 **2. Apply Or Re-Apply Schema** 段（`#2-apply-or-re-apply-schema`） 執行。相鄰 checkout 的完整位置是 `../dlens-ingest-core/docs/runbooks/database-ops.md`；使用 `DLENS_INGEST_CORE_DIR` 時從該目錄讀同一路徑。
 
-```bash
-cd /path/to/dlens-ingest-core
-source .venv/bin/activate
-set -a
-source .env
-set +a
-python scripts/db_exec_sql.py --file migrations/0001_schema_v0.sql
-python scripts/db_exec_sql.py --file migrations/0002_capture_analyses.sql
-python scripts/db_exec_sql.py --file migrations/0003_thread_read_model.sql
-```
-
-這一步不要交給新手。Backend 可能啟動成功，但實際 queue/crawl 時才因缺 table 或 column 爆掉；簡單 chatbot 很難從 runtime DB error 修回來。
+Backend runbook 是 migration 順序與命令的唯一入口，目前應包含 `0001_schema_v0.sql`、`0002_capture_analyses.sql`、`0003_thread_read_model.sql`。不要從舊 README 或本 SOP 複製一份過期 SQL 順序。這一步不交給新手：API 能啟動不代表 queue/crawl 所需 tables/columns 齊備。
 
 ### 4. 準備新手要放到 `~/Downloads` 的 3 個檔案
 
 ```text
-~/Downloads/dlens-chrome-mv3-0.1.30.zip
+~/Downloads/dlens-chrome-mv3.zip
 ~/Downloads/dlens-ingest-core.env
 ~/Downloads/auth_threads.json
 ```
@@ -107,7 +91,7 @@ DLENS_THREADS_AUTH_FILE='auth_threads.json'
 新手的 Mac 要有：
 
 - Git
-- Python 3.11+
+- Python 3.13+
 - Chrome
 - GitHub access to `github.com/jasonmaxxxon/dlens-ingest-core`，這是 private repo
 
@@ -203,10 +187,10 @@ python scripts/run_api.py
 再開第二個 Terminal 視窗，檢查 backend：
 
 ```bash
-curl -s http://127.0.0.1:8000/worker/status && echo
+curl --fail-with-body -sS -w '\nHTTP %{http_code}\n' http://127.0.0.1:8000/worker/status
 ```
 
-預期看到 JSON，常見是：
+必須看到 `HTTP 200` 及有效狀態 JSON。`HTTP 503` 即使有 JSON 也不算成功，應檢查 backend 的資料庫連線。成功時常見是：
 
 ```json
 {"status":"idle"}
@@ -229,8 +213,9 @@ PYTHONPATH=src python scripts/run_api.py
 
 ```bash
 mkdir -p ~/dlens
-ditto -x -k ~/Downloads/dlens-chrome-mv3-0.1.30.zip ~/dlens
+ditto -x -k ~/Downloads/dlens-chrome-mv3.zip ~/dlens
 test -f ~/dlens/chrome-mv3/manifest.json && echo "extension folder OK"
+python3 -c 'import json,pathlib; m=json.loads((pathlib.Path.home()/"dlens/chrome-mv3/manifest.json").read_text()); print(m["name"], m["version"])'
 ```
 
 如果 `extension folder OK` 沒出現，先找 manifest 在哪：
@@ -251,11 +236,11 @@ Chrome 載入方式：
 ~/dlens/chrome-mv3
 ```
 
-預期 Chrome extension 顯示：
+Chrome extension 的 name/version 必須與上一步讀到的 kit manifest 一致：
 
 ```text
 DLens v3
-Version 0.1.30
+Version <本次 kit manifest 的 version>
 ```
 
 ### 6. Smoke Test
@@ -276,15 +261,17 @@ http://127.0.0.1:8000
 9. 第二個 Terminal 再跑：
 
 ```bash
-curl -s http://127.0.0.1:8000/worker/status && echo
+curl --fail-with-body -sS -w '\nHTTP %{http_code}\n' http://127.0.0.1:8000/worker/status
 ```
 
 Pass condition：
 
 - Extension 沒 crash。
 - Popup modes 可見。
-- Backend health endpoint 有回應。
+- Backend health endpoint 有回應；這只確認 API liveness。
+- `/worker/status` 必須回 HTTP 200；503 或其他錯誤不能當作 backend 安裝驗收通過。
 - Settings backend URL 指向 `http://127.0.0.1:8000`。
+- 保存一個可見 post 後能重新開啟該 saved item；若有測 backend processing，另外核對該 item 的 queue 終態及 capture/result，不能僅用 status endpoint 有回應就說 crawl 成功。
 
 ## 如果 `auth_threads.json` 過期或缺失
 
@@ -310,7 +297,7 @@ python src/dlens_ingest_core/crawlers/threads/vendor/login.py
 
 ## Fallback：自行 build extension
 
-只有在 owner 沒有提供 `dlens-chrome-mv3-0.1.30.zip` 時才走這段。這條路需要 Node/npm，而且時間比較不可控。
+只有在 owner 沒有提供 `dlens-chrome-mv3.zip` 時才走這段。這條路需要 Node/npm，而且時間比較不可控。
 
 ```bash
 cd ~/dlens
@@ -420,15 +407,17 @@ Tell me whether I selected the wrong folder or the zip/build output is broken. G
 Owner 或 technical helper 最後確認：
 
 ```bash
-curl -s http://127.0.0.1:8000/worker/status && echo
+curl --fail-with-body -sS -w '\nHTTP %{http_code}\n' http://127.0.0.1:8000/worker/status
 ```
+
+確認 `HTTP 200`；僅有 JSON、503 或 curl 非零退出都不算通過。
 
 Chrome：
 
 - `DLens v3` loaded
-- Version is `0.1.30`
+- Chrome version 與本次 kit 的 `chrome-mv3/manifest.json` 完全一致
 - Loaded from `~/dlens/chrome-mv3` or fallback `~/dlens/dlens-chrome-extension/output/chrome-mv3`
 - Threads page shows DLens launcher / popup
 - Settings backend URL is `http://127.0.0.1:8000`
 
-如果以上都通過，第二台 Mac 已達到 extension + local backend testing 的最低可用狀態。
+以上只驗證已列出的安裝與基本操作。記錄 kit manifest 版本、實際 unpacked path、測試日期與 saved item 結果；backend 工作成功另附該 item 的 queue/result。未測爬取、LLM 或完整 release QA 時明記未驗證。

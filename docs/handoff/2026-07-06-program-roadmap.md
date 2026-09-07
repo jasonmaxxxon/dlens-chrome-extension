@@ -1,5 +1,7 @@
 # DLens Program Roadmap（2026-07-06）
 
+> **2026-09-07 狀態：** **歷史 roadmap，已取代 current queue／協作入口。** 下文模型、sandbox、Desktop 同步、四檔 version lock、taste gate 及免逐次確認只描述 7/6 session，不是現行工具限制或永久授權。當前流程與五鎖讀 [CLAUDE](../../CLAUDE.md)，接手進度讀[固定 shared context](../memory/latest-shared-context.md)。原文保留供理解當時決策。
+
 > Written by the Fable session that landed Phase 2 slices 1–2 and the
 > gallery-white winner mockup. Purpose: ONE place any future session (Claude or
 > Codex) reads to know what's next, in what order, and who decides what.

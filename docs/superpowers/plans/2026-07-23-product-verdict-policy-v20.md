@@ -1,5 +1,7 @@
 # Product Verdict Policy v20 Implementation Plan
 
+> **2026-09-07 狀態：** **部分取代（partially superseded）。** axes-derived verdict、互斥分類及 non-noise `park`→watch 保留；v20 proposal／application-suggestion／watch-guidance output 和呈現由 0.3.59／v21 `product_reading` 取代。不要按舊步驟恢復重複 reading。現行 owner：[AGENTS 有效模式契約](../../../AGENTS.md#mode-contracts-current-history-and-rationale-in-the-archive)。
+
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
 **Goal:** Derive Product verdicts deterministically from four model-supplied axes and make watch results concretely useful.

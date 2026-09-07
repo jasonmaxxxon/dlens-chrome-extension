@@ -1,5 +1,7 @@
 # Bootstrap Handoff
 
+> **2026-09-07 狀態：** **Bootstrap 歷史。** 下文 implementation targets 是當時初始清單，不是今日 backlog。現在先讀 [CLAUDE](../../CLAUDE.md)、[README](../../README.md) 與[固定 shared context](../memory/latest-shared-context.md)；`current-state.md` 僅是歷史導引。
+
 ## What Has Been Bootstrapped
 
 This repo now has:
@@ -13,7 +15,7 @@ This repo now has:
 ## What The Next Agent Should Do
 
 1. read `AGENTS.md`
-2. read `docs/memory/current-state.md`
+2. read `docs/memory/latest-shared-context.md`
 3. read `docs/contracts/ingest-core-api.md`
 4. read `docs/contracts/target-descriptor.md`
 5. inspect `src/targeting/threads.ts`

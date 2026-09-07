@@ -1,5 +1,7 @@
 # Signal Reading Review — 前後端接縫契約
 
+> **2026-09-07 狀態：** **資料接縫歷史；UI 部分已取代。** SignalReading review-state／provenance 歷史保留；獨立 Reading Review route、selected-brief shelf 與 Saved-owned export 不能依此恢復。0.3.59／v21 已改為 Action 內一份完整 reading＋Agent brief，whole-folder export 亦屬 Action。有效 owner：[AGENTS](../../AGENTS.md#mode-contracts-current-history-and-rationale-in-the-archive)。
+
 - Date: 2026-05-18
 - Status: **implemented contract** — 前端(Codex)與後端(Claude)並行實作的接縫文件
 - Worktree: `dlens-product-latest`(branch `codex/signal-verdict-layout`)— 唯一 source of truth

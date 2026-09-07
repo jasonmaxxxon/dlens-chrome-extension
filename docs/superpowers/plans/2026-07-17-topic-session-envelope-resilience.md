@@ -1,5 +1,7 @@
 # Topic Session and Audit Envelope Resilience Implementation Plan
 
+> **2026-09-07 狀態：** **Google transport 分支已由 0.3.51 取代（partially superseded）。** 下文要求保留 `responseJsonSchema`／不得 fallback 的 Google Topic Audit envelope 步驟僅為歷史；目前必須 schema-free，由 parser 與一次 repair 保護 shape。session、lease、inventory hydration 與 reconcile 設計仍保留，不因此整份失效。執行前讀 [AGENTS 有效模式契約](../../../AGENTS.md#mode-contracts-current-history-and-rationale-in-the-archive) 與 [provider regression](../../../tests/provider-runtime.test.ts)，不要重新套用舊 transport 分支。
+
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
 **Goal:** Keep Topic crawl/generation state visible and recoverable, retry one invalid Topic Audit stage safely, remove Gemini keys from URLs, and ship a real-Chrome-verified 0.3.49.

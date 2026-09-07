@@ -1,5 +1,7 @@
 # Two-Page Evidence-First Product Plan
 
+> **2026-09-07 狀態：** **Reference；two-page 路由已由後續模式設計取代。** evidence-first／避免 fake precision 的意圖保留，下文 Current／Acceptance 只代表當時日期。現行路由與產品契約讀 [AGENTS](../../AGENTS.md)，不要將兩頁配置視為產品上限。
+
 Last updated: 2026-04-04
 
 This note restores the current two-page product direction after the Compare iterations on 2026-04-02 through 2026-04-04.

@@ -1,91 +1,23 @@
-# AGENTS.md — DLens Chrome Extension
+# AGENTS.md — DLens Product Contracts
 
-> **Restructured 2026-07-03.** The 874-line handoff diary this file used to be
-> is archived verbatim at `docs/archive/agents-history-2026H1.md` — grep it for
-> history ("Recently Fixed", DictionaryCard contract details, slice notes);
-> do not read it whole. This file holds only current, load-bearing rules.
-> **Operative rule file: `CLAUDE.md` at the repo root** (reading order, verify
-> gate, version lock, design contract, boundaries). Read it first; on conflict,
-> `CLAUDE.md` wins over this file, and code/tests win over both.
+本檔是所有 agent 共用的**產品模式與證據契約 owner**。流程、完整 gate、五處版本鎖、工作邊界與 Jason Default 真實 Chrome 驗收都由根 [CLAUDE.md](CLAUDE.md) 維護，先讀該檔；不在此維護第二份流程規則。
 
 ## What this repo is
 
-Mode-aware MV3 Chrome extension: capture Threads posts, organize locally, and
-run topic / product-signal / PR-evidence workflows. Extension-first: local
-storage owns state and user API keys; the optional private ingest backend
-(sibling `../dlens-ingest-core`, default `http://127.0.0.1:8000`) owns crawl
-jobs and canonical clustering read models. The extension never talks to
-Supabase directly and never sends user LLM keys to the backend.
+Mode-aware MV3 Chrome extension：收集 Threads，整理本機資料，執行 Topic／Product／PR Evidence 流程。本機 storage 擁有使用者狀態與 LLM keys；選用私人 backend `../dlens-ingest-core`（預設 `http://127.0.0.1:8000`）擁有 crawl jobs 與 canonical clustering read models。Extension 不直接連 Supabase，不把使用者 LLM keys 傳給 backend。
 
-## Reading order
+[README](README.md) 提供版本與使用者入口；[架構地圖](docs/architecture/dlens-current-architecture-map.md) 對應 owner/test；[固定 shared context](docs/memory/latest-shared-context.md) 記錄接手進度。2026H1 契約歷史保留在 [archive](docs/archive/agents-history-2026H1.md)，本次整理前全文在[有日期的快照](docs/archive/2026-09-07-authority-consolidation/AGENTS.md)。
 
-1. `CLAUDE.md`, then the `README.md` header block (version + latest truth).
-2. Architecture work → `docs/architecture/dlens-current-architecture-map.md`
-   (status colors: 🟩 locked / 🟢 built / 🟡 partial / 🔴 not built — never
-   treat 🟢 as 🟩).
-3. History → `docs/archive/agents-history-2026H1.md` (grep only).
+已批准需求與現行 code/tests 不一致時，標明實作落差或文件過期；不要把既有 bug 當成推翻契約的理由。更新本檔只為契約改變，不追加 release 日記。
 
-## Process rules (locked 2026-04-17; violations block merge)
+## Boundary contract
 
-1. **One-in-one-out** — every PR adding content, UI surface, copy, or
-   dependency removes comparable weight; name both sides in the commit message.
-2. **Four commit prefixes only**: `bug fix` / `feature` / `removal` /
-   `refactor`. The words "pass", "polish", "round", "tune" are banned from
-   commit messages and doc headings.
-3. **Design contract**: `src/ui/tokens.ts` is the sole source of design
-   VALUES; `src/ui/tokens-intent.md` is the sole intent doc, value-free by
-   guard (`tests/tokens-intent-guard.test.ts`; amended 2026-07-03 from the
-   total markdown ban). No other design markdown. Mockups in `docs/mockups/`
-   are reference, not spec.
-4. **`src/ui/InPageCollectorApp.tsx` hard cap: 400 lines.**
-5. **One UI slot per contract field** — grep the field name across `src/ui/`
-   before adding a surface; no field renders twice on one page.
+完整處理規則見 [CLAUDE.md Boundaries](CLAUDE.md#boundaries)；以下保留接縫明文以供跨 repo 文件及 guard 查核：
 
-## Boundaries (CI-enforced by `npm run boundary:guard`, zero violations)
-
-- Views: no `sendExtensionMessage`, no `chrome.*`, no storage, no
-  `Date.now` / `Math.random` / `performance.now`.
-- ViewModels: no `chrome.*` / `fetch` / DOM / `File` / `Blob` / `FormData` /
-  React.
-- A needed side effect moves to a controller / hook / app shell. Never add
-  `TODO(boundary-bypass)`.
-
-## Version lock (locked 2026-05-14)
-
-User-visible `main` updates bump all FIVE together: `package.json`,
-`package-lock.json`, `wxt.config.ts` `manifest.version`,
-`src/ui/version.ts` `BUILD_VERSION`, and the expected version string in
-`tests/manifest-config.test.ts` (the enforcing test is itself a lock site).
-
-## Verify gate (run ALL before calling any change done)
-
-```bash
-npm run typecheck
-npm run boundary:guard
-npm run storage:seam-guard
-npx tsx --test tests/*.test.ts tests/*.test.tsx
-npm run build          # mirrors unpacked build to output/chrome-mv3
-git diff --check
-```
-
-- `tsx` is fetched by `npx` (not a devDependency); an npx prompt/offline
-  failure is an environment issue, not a red suite.
-- A "done" report from any agent (including your own earlier turn) is an
-  unverified claim — rerun the gate before merge/push.
-- Runtime QA only counts on: rebuilt `output/chrome-mv3` + Jason's Chrome
-  `Default` profile + opening DLens via the real extension action or in-page
-  launcher on a real Threads page. A direct
-  `chrome-extension://…/sidepanel.html` tab or temp profile is NOT proof.
-- If runtime contradicts source, suspect a stale bundle first: check the built
-  manifest version and grep the bundle for expected `data-*` markers.
-
-## PR expectations (Codex and any implementing agent)
-
-- Run the full verify gate BEFORE opening the PR; paste results into the PR
-  description. A separate reviewer re-runs the gate — descriptions are never
-  accepted as proof.
-- Merging/pushing to `main` always requires the user's approval first.
-- Stay inside the agreed slice; scope creep is a rejection reason on its own.
+- Views: no `sendExtensionMessage`, no `chrome.*`, no storage, no `Date.now` / `Math.random` / `performance.now`.
+- ViewModels: no `chrome.*` / `fetch` / DOM / `File` / `Blob` / `FormData` / React.
+- Needed side effects belong to controller / hook / app shell. Never add `TODO(boundary-bypass)`.
+- `npm run boundary:guard` enforces both walls with zero allowlisted violations.
 
 ## Mode contracts (current; history and rationale in the archive)
 

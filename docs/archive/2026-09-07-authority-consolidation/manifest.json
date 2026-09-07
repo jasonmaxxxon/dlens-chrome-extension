@@ -1,0 +1,52 @@
+{
+  "snapshot_date": "2026-09-07",
+  "source_commit": "c43e93e1d0f67b690604f77822c6c45c434effc1",
+  "purpose": "Verbatim history before authority consolidation. Not current instructions or new runtime evidence.",
+  "files": [
+    {
+      "source": "README.md",
+      "snapshot": "docs/archive/2026-09-07-authority-consolidation/README.md",
+      "sha256": "0c558d043b0708a36b4de523315ba87ec04e11d0046831ba3ea518966eaf2c00"
+    },
+    {
+      "source": "CLAUDE.md",
+      "snapshot": "docs/archive/2026-09-07-authority-consolidation/CLAUDE.md",
+      "sha256": "58c9a02faea4b43a35db3996f5d3349b5b85c4fd54de63ccfe044cb624d5e466"
+    },
+    {
+      "source": "AGENTS.md",
+      "snapshot": "docs/archive/2026-09-07-authority-consolidation/AGENTS.md",
+      "sha256": "2ed777491ee7d3b861dabade321fd86105e4f9ca5c3b64efa6a875748f19c8d8"
+    },
+    {
+      "source": "docs/memory/current-state.md",
+      "snapshot": "docs/archive/2026-09-07-authority-consolidation/docs/memory/current-state.md",
+      "sha256": "61d6d8e6d01bd0b088d66390223b76cc11eeebb867348f1685185e9732beff49"
+    },
+    {
+      "source": "docs/memory/latest-shared-context.md",
+      "snapshot": "docs/archive/2026-09-07-authority-consolidation/docs/memory/latest-shared-context.md",
+      "sha256": "6e3fe909453960a0aadab7592e9bde8d8fd7878e33b30ff815c9496f24d3df6e"
+    },
+    {
+      "source": "docs/architecture/dlens-current-architecture-map.md",
+      "snapshot": "docs/archive/2026-09-07-authority-consolidation/docs/architecture/dlens-current-architecture-map.md",
+      "sha256": "703d4a9187183db54e43873d8a088c54d94765139534b9198b3983b5eeaab521"
+    },
+    {
+      "source": "docs/setup/second-mac-30-minute-install.md",
+      "snapshot": "docs/archive/2026-09-07-authority-consolidation/docs/setup/second-mac-30-minute-install.md",
+      "sha256": "d561ca77007cf5adf8b67b86f7e173d490e6f6ebb035fc80764c910d3afea6a5"
+    },
+    {
+      "source": ".agents/skills/dlens-extension-qa/SKILL.md",
+      "snapshot": "docs/archive/2026-09-07-authority-consolidation/.agents/skills/dlens-extension-qa/SKILL.md",
+      "sha256": "275901bef9d136b49fac052640152509e6b9a1bee9f2cecc47f204892e15b2a1"
+    },
+    {
+      "source": ".agents/skills/dlens-release-publish/SKILL.md",
+      "snapshot": "docs/archive/2026-09-07-authority-consolidation/.agents/skills/dlens-release-publish/SKILL.md",
+      "sha256": "c593f1da954fe9b7ab66d003884bcfbdf609bfef146ff9f44e42217efa297077"
+    }
+  ]
+}

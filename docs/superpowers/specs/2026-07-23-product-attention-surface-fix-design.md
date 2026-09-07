@@ -1,5 +1,7 @@
 # Product Attention Surface Fix Design
 
+> **2026-09-07 狀態：** **部分取代（partially superseded）。** 一整張有意義 surface 擁有一個 beam 的原則保留；recommendation／application-suggestion 卡及另行 deep-reading 的呈現已由 0.3.59／v21 一次完整 reading 取代。不要依下文恢復第二次 provider call 或巢狀判讀 UI；見 [AGENTS 有效模式契約](../../../AGENTS.md#mode-contracts-current-history-and-rationale-in-the-archive) 與 [reading unification](../specs/2026-07-23-product-reading-unification-design.md)。
+
 ## Goal
 
 Correct the Product mode attention visuals so the beam illuminates the whole

@@ -1,5 +1,7 @@
 # Product Action Verdict Intake Implementation Plan
 
+> **2026-09-07 狀態：** **部分取代（partially superseded）。** Saved lifecycle intake／Action whole-folder export ownership 保留；全部 `park` 歸 noise 已由 v20 verdict policy 改為 non-noise `park`→watch。selected-brief shelf、第二次 reading generation 與舊三段 proposal 已由 0.3.59／v21 complete reading 取代。Action 為 folder-owned，不以 ambient current post 限縮為 1/1。下文 Approved／未勾選步驟是當時記錄；現行以 [AGENTS 有效模式契約](../../../AGENTS.md#mode-contracts-current-history-and-rationale-in-the-archive) 及 [reading unification](../specs/2026-07-23-product-reading-unification-design.md) 為準。
+
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
 **Goal:** Restore the 0.3.52 four-color verdict navigation around the current single Action stage, reduce Saved Signals to a processing intake, and move action-brief export to Action.

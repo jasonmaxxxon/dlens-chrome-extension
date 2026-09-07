@@ -1,5 +1,7 @@
 # Product Action Verdict Intake Design
 
+> **2026-09-07 狀態：** **部分取代（partially superseded）。** Saved lifecycle intake／Action whole-folder export ownership 保留；全部 `park` 歸 noise 已由 v20 verdict policy 改為 non-noise `park`→watch。selected-brief shelf、第二次 reading generation 與舊三段 proposal 已由 0.3.59／v21 complete reading 取代。Action 為 folder-owned，不以 ambient current post 限縮為 1/1。下文 Approved／未勾選步驟是當時記錄；現行以 [AGENTS 有效模式契約](../../../AGENTS.md#mode-contracts-current-history-and-rationale-in-the-archive) 及 [reading unification](../specs/2026-07-23-product-reading-unification-design.md) 為準。
+
 **Date:** 2026-07-20
 **Status:** Approved for implementation
 **Scope:** Product mode Saved Signals and Action routes in the MV3 popup

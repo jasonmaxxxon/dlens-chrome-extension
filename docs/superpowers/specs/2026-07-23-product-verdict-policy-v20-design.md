@@ -1,5 +1,7 @@
 # Product Verdict Policy v20 Design
 
+> **2026-09-07 狀態：** **部分取代（partially superseded）。** axes-derived verdict、互斥分類及 non-noise `park`→watch 保留；v20 proposal／application-suggestion／watch-guidance output 和呈現由 0.3.59／v21 `product_reading` 取代。不要按舊步驟恢復重複 reading。現行 owner：[AGENTS 有效模式契約](../../../AGENTS.md#mode-contracts-current-history-and-rationale-in-the-archive)。
+
 ## Goal
 
 Make Product mode trustworthy enough that users can rely on its judgment without useful, low-priority inspiration being silently treated as noise or rejected.

@@ -1,5 +1,7 @@
 # Product Reading Unification Implementation Plan
 
+> **2026-09-07 狀態：** **已選並有 v21 實作的設計記錄。** 0.3.59 已實作首次完整 reading 與 atomic analysis/reading publication；下文 checkbox／舊驗收命令不是今日待辦或 runtime 證據。有效行為讀 [AGENTS 有效模式契約](../../../AGENTS.md#mode-contracts-current-history-and-rationale-in-the-archive)；完整 gate 讀 [CLAUDE](../../../CLAUDE.md#verify-gate)。引用的 7/22 草稿名稱是歷史來源，未追蹤原稿不由本次整理自動納入；需求摘要見[決策索引](../../architecture/product-decision-index.md)。
+
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
 **Goal:** Make the first completed Product analysis persist and display one high-quality complete reading for every `try`/`watch` signal, while removing the shallow proposal/deep-reading duplication and repairing the Product attention card geometry.

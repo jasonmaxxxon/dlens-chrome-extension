@@ -1,5 +1,7 @@
 # Engineering Plan
 
+> **2026-09-07 狀態：** **歷史 baseline／investment reference。** 下文「working repo today」、storage keys 與數字只屬 2026-05-27 baseline；不再作 current state。現行 owner/test 讀[架構地圖](architecture/dlens-current-architecture-map.md)，待辦讀[固定 shared context](memory/latest-shared-context.md)。Deferred trigger 思路保留，但不從舊列表自動啟動實作。
+
 **Type:** Rolling engineering roadmap. Investment direction only.
 **Behavior contracts live in code + tests, not here.** This doc lists what we
 believe we will work on next and what we have chosen to defer or skip; it does
