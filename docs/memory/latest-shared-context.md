@@ -16,7 +16,7 @@ type: project
 - 0.3.62 修正：header 單行 summary，操作及診斷在 normal-flow disclosure；移除 196px cap 與 hover overlay。Action 完整有效 reading 置頂，背景／摘要／來源資訊保持可展開；去重複狀態板，pending／queued 不再冒稱 running，裁切容器改 clip。
 - 0.3.62 完整九項工程 gate：1,460 pass／5 skip／0 fail，全部命令 exit0；獨立 layout code review 未解重要問題0。沒有更改 reading identity／brief formatter、provider、DB 或 storage schema。
 - Bundle：raw 912,010／918,500、gzip9 258,390／258,700、Brotli 205,230／206,000 bytes；未提高門檻。
-- 原載入目錄已確認為 `/Users/tung/developer/dlens-product-latest/output/chrome-mv3`。本輪會原位更新已驗證0.3.62並備份0.3.61，保留extension ID／資料；工具URL政策禁止extension管理頁，仍需使用者Reload。更新紀錄見repo外審查資料夾的 installed-build-receipt.json。
+- 原載入目錄已確認為 `/Users/tung/developer/dlens-product-latest/output/chrome-mv3`。本輪已原位更新已驗證0.3.62並備份0.3.61，保留extension ID／資料；工具URL政策禁止extension管理頁，仍需使用者Reload。更新紀錄見repo外審查資料夾的 installed-build-receipt.json。
 - 0.3.62 視覺、分類裁切、按鈕、窄幅、診斷展開仍待真實Threads複驗。0.3.61 copy toast曾顯示成功，但browser virtual clipboard讀空；不宣稱剪貼簿全文已驗證。
 - Backend唯讀探測：2026-09-07 03:07 UTC health200/ok、worker/status503；未改服務或DB，未驗503→恢復或queue/result。
 - Skills新Codex唯讀session已完成8情境；Claude CLI未登入，activation未驗證。保留UIUX canonical source／Claude wrapper，27份重複資產已去重；歷史九份文件快照完整。
@@ -33,7 +33,7 @@ type: project
 
 ## 待辦與證據邊界
 
-1. 原位更新0.3.62後等待使用者在Jason Chrome按DLens Reload。工具不能操作extension管理頁。不要另裝成新的空白extension來冒充既有資料驗收。
+1. 原位更新0.3.62已完成，等待使用者在Jason Chrome按DLens Reload。工具不能操作extension管理頁。不要另裝成新的空白extension來冒充既有資料驗收。
 2. 按 [Runtime QA](../../CLAUDE.md#runtime-qa) 先驗首屏排版、全部分類按鈕、展開狀態與捲動，再驗brief全文、頁面切換及適用的狀態恢復。新版視覺保留「未驗證」。合併／push main需本次明確授權。
 3. 第二台 Mac SOP 的 kit 版本已改為讀 manifest；隔離新機安裝仍待實測。後端 DB bootstrap 以相鄰 backend runbook 為準。
 4. 店舖／服務業 context、selected try/watch 的手動唯讀 agent 查證等保留於[需求索引](../architecture/product-decision-index.md)。未追蹤願景稿留在原 checkout，不由文件整理自動納入或實作。
