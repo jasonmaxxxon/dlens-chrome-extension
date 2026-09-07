@@ -845,27 +845,17 @@ export function StatusRail({
   const countLabel = ready !== undefined && total !== undefined ? `${scopeLabel} ${ready}/${total} ready` : null;
   const workKind = workState.kind;
   const active = copy.active;
-  const progress = total && total > 0
-    ? Math.min(1, Math.max(0, (ready ?? 0) / total))
-    : 0;
   const workDetail = `${copy.headline}${copy.hint ? ` - ${copy.hint}` : ""}`;
   const canRetry = workKind === "unavailable" || workKind === "backend_error" || Boolean(dataRefreshError);
   const hoverLabel = `Backend: ${reachability.label} | Work: ${workDetail}${countLabel ? ` | Items: ${countLabel}` : ""}`;
 
   return (
-    <div
+    <details
       data-status-rail="shared"
       data-status-rail-active={active}
       data-backend-reachability={backendReachability}
       data-backend-work-kind={workKind}
-      tabIndex={0}
-      aria-label={hoverLabel}
-      title={hoverLabel}
       style={{
-        position: "relative",
-        display: "flex",
-        alignItems: "center",
-        gap: tokens.spacing.sm,
         minWidth: 0,
         padding: `${tokens.spacing.sm}px ${tokens.spacing.md}px`,
         borderRadius: tokens.radius.pill,
@@ -874,51 +864,27 @@ export function StatusRail({
         ...style
       }}
     >
-      <StatusDot tone={reachability.tone} label={reachability.label} />
-      <span style={{ display: "inline-flex", animation: active ? tokens.motion.keyframes.pulse : undefined }}>
-        <StatusDot tone={work.tone} label={work.label} size={tokens.spacing.sm} />
-      </span>
-      <span style={{ ...textStyles.caption, color: tokens.color.subInk, minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-        {resolvedHint}
-      </span>
-      {canRetry && onRetry ? <button type="button" onClick={onRetry} style={{ ...textStyles.caption, color: tokens.color.subInk, cursor: "pointer" }}>重試</button> : null}
-      {diagnosticError ? (
-        <details style={{ ...textStyles.caption, minWidth: 0 }}>
-          <summary style={{ cursor: "pointer" }}>診斷</summary>
-          <pre style={{ whiteSpace: "pre-wrap", overflowWrap: "anywhere" }}>{diagnosticError}</pre>
-        </details>
-      ) : null}
-      {countLabel ? (
-        <span style={{ ...textStyles.metric, marginLeft: "auto", color: tokens.color.softInk, whiteSpace: "nowrap" }}>
-          {countLabel}
+      <summary
+        aria-label={hoverLabel}
+        title={hoverLabel}
+        style={{ display: "flex", alignItems: "center", gap: tokens.spacing.sm, minWidth: 0, cursor: "pointer" }}
+      >
+        <StatusDot tone={reachability.tone} label={reachability.label} />
+        <span style={{ display: "inline-flex", flexShrink: 0, animation: active ? tokens.motion.keyframes.pulse : undefined }}>
+          <StatusDot tone={work.tone} label={work.label} size={tokens.spacing.sm} />
         </span>
-      ) : null}
-      {countLabel ? (
-        <span
-          data-status-rail-disclosure="true"
-          aria-hidden="true"
-          style={{
-            position: "absolute",
-            inset: 0,
-            display: "none",
-            gap: tokens.spacing.xs,
-            padding: tokens.spacing.xs,
-            borderRadius: tokens.radius.pill,
-            background: tokens.color.elevated
-          }}
-        >
-          <span style={{ ...textStyles.caption, color: tokens.color.subInk, overflow: "hidden", whiteSpace: "nowrap" }}>
-            {backendReachability === "reachable" ? work.label : reachability.label}·{countLabel}
-          </span>
-          <span
-            data-status-rail-progress="true"
-            style={{ height: tokens.spacing.xs, borderRadius: tokens.radius.round, background: tokens.color.neutralSurface, overflow: "hidden" }}
-          >
-            <span style={{ display: "block", width: `${progress * 100}%`, height: "100%", background: MODE_ACCENT }} />
-          </span>
+        <span style={{ ...textStyles.caption, color: tokens.color.subInk, flex: 1, minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+          {resolvedHint}
         </span>
-      ) : null}
-    </div>
+        {countLabel ? <span style={{ ...textStyles.metric, color: tokens.color.softInk, flexShrink: 0, whiteSpace: "nowrap" }}>{ready}/{total} ready</span> : null}
+        <span aria-hidden="true">⌄</span>
+      </summary>
+      <div data-status-rail-disclosure="true" style={{ display: "grid", gap: tokens.spacing.sm, marginTop: tokens.spacing.sm, overflowWrap: "anywhere" }}>
+        <span style={{ ...textStyles.caption, color: tokens.color.subInk }}>{workDetail}</span>
+        {canRetry && onRetry ? <SecondaryButton onClick={onRetry} style={{ justifySelf: "start", whiteSpace: "nowrap", flexShrink: 0 }}>重試</SecondaryButton> : null}
+        {diagnosticError ? <pre aria-label="診斷" style={{ ...textStyles.caption, margin: 0, minWidth: 0, whiteSpace: "pre-wrap", overflowWrap: "anywhere" }}>{diagnosticError}</pre> : null}
+      </div>
+    </details>
   );
 }
 
@@ -986,7 +952,6 @@ export const SCAN_ROW_HOVER_CSS = `
 `;
 
 export const DLENS_BUTTON_CSS = `
-[data-status-rail]:is(:hover,:focus-visible)>[data-status-rail-disclosure]{display:grid}
 [data-dlens-control="true"] [data-dlens-button] {
   transition: ${tokens.motion.preset.buttonPress};
 }
@@ -1390,11 +1355,11 @@ export function WorkspaceShell({
         data-shell-masthead-material={material}
         style={{
           display: "flex",
-          alignItems: "center",
+          alignItems: "flex-start",
+          flexWrap: "wrap",
           justifyContent: "space-between",
           gap: 12,
           minWidth: 0,
-          overflow: "hidden",
           padding: "10px 14px 8px",
           borderRadius: tokens.radius.card,
           border: `1px solid ${useGlassMaterial ? glass.edge : tokens.color.line}`,
@@ -1437,9 +1402,9 @@ export function WorkspaceShell({
             </span>
           ) : null}
         </div>
-        <div style={{ display: "flex", alignItems: "center", justifyContent: "flex-end", gap: 8, minWidth: 0, flex: "0 1 248px", overflow: "hidden" }}>
+        <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "flex-end", gap: tokens.spacing.sm, minWidth: 0, flex: "1 1 248px" }}>
           {statusRail ? (
-            <div data-shell-status-rail="masthead" style={{ minWidth: 0, maxWidth: 196, flex: "1 1 148px", overflow: "hidden" }}>
+            <div data-shell-status-rail="masthead" style={{ minWidth: 0, flex: "1 1 148px" }}>
               {statusRail}
             </div>
           ) : null}

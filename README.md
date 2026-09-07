@@ -2,7 +2,7 @@
 
 DLens 是 MV3 Chrome extension，將手動收集的 Threads 內容整理成議題研究、Product 判讀與 PR 證據。資料夾、已存內容、判讀及使用者 API keys 保存在本機 extension storage；選用的私人 ingest backend 負責爬取與 canonical read models。
 
-> 文件核對：2026-09-07，工作版本 `0.3.61`，分支 `codex/review-foundation`，起點 `c43e93e`／`0.3.60`；尚未合併／發布。完整九項工程 gate 通過（1,456 pass／5 skip），built manifest 同為 `0.3.61`；Jason 真實 Chrome 載入與操作仍未驗證。
+> 文件核對：2026-09-07，工作版本 `0.3.62`，分支 `codex/review-foundation`，起點 `c43e93e`／`0.3.60`；尚未合併／發布。完整九項工程 gate 通過（1,460 pass／5 skip），built manifest 同為 `0.3.62`；Jason 真實 Chrome 載入與操作仍未驗證。
 > 過往發布與驗收敘述已[完整保存](docs/archive/2026-09-07-authority-consolidation/README.md)，不是本次 runtime 證據。
 > Chrome Load unpacked 路徑：目前 checkout 的 `output/chrome-mv3`。
 
@@ -19,7 +19,7 @@ ProductSignalAnalyzer v21 在首次分析同一個 model call 產生判斷 axes 
 
 模型只能引用已捕獲文字。文字提到影片、網站或 repo 不代表已讀取其內容；舊版或 provenance 不符的 reading 不能冒充 current reading。店舖／服務業的獨立 context intake、手動唯讀 agent 查證流程仍是[未完成需求](docs/architecture/product-decision-index.md)，不是已交付能力。
 
-本批修正：卡片、brief 與 packet 共用完整 current reading identity；brief 保留完整判讀、限制與來源。工作狀態分開 API 連線、worker 可觀察性、本機 AI 與資料刷新；查詢失敗不再冒充 idle。細節與未驗證範圍見[固定 shared context](docs/memory/latest-shared-context.md)。
+本批修正：卡片、brief 與 packet 共用完整 current reading identity；brief 保留完整判讀、限制與來源。0.3.62 將完整判讀置頂、背景資料收合，狀態列改為單行摘要與可展開操作；排版待真實 Chrome 複驗。工作狀態分開 API 連線、worker 可觀察性、本機 AI 與資料刷新；查詢失敗不再冒充 idle。細節與未驗證範圍見[固定 shared context](docs/memory/latest-shared-context.md)。
 
 Extension 不直接連 Supabase，也不把使用者 LLM keys 傳給 backend。`/health` 只表示 API process 存活；worker 工作狀態要看 `/worker/status` 及 queue/result。模型金鑰不是本機收集功能的前置條件。
 

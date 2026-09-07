@@ -4019,7 +4019,7 @@ test("Product action route collapses pending signals into a compact queue summar
   );
 
   assert.match(html, /data-product-action-queue-summary="true"/);
-  assert.match(html, /1 則訊號等待進入行動判讀/);
+  assert.match(html, /1 則未完成/);
   assert.match(html, /抓取\/分析中/);
   assert.doesNotMatch(html, /data-product-pending-card="topic-card"/);
   assert.doesNotMatch(html, /等待處理的 signals/);
@@ -4055,7 +4055,7 @@ test("Product Action does not scope folder results to an ambient analyzed Thread
   );
 
   assert.match(html, /data-product-action-route-context="folder"/);
-  assert.match(html, /data-product-action-status="compact"[^>]*data-product-selection-context="folder"/);
+  assert.doesNotMatch(html, /data-product-action-status=/);
   assert.match(html, /data-product-action-stage="signal_try_second"/);
   assert.match(html, /第二則高相關度實驗/);
   assert.match(html, /Icon Animator|lottiefiles\.com|不相干 Icon Animator 建議/);
@@ -4915,6 +4915,66 @@ test("Product Action copy keeps the complete reading and body-only limits in the
   }
 });
 
+test("Product Action prioritizes its reading and keeps background behind a native disclosure", async () => {
+  const { JSDOM } = await import("jsdom");
+  const dom = new JSDOM(renderToStaticMarkup(productSignalViewElement(productActionStageFixture())));
+  try {
+    const document = dom.window.document;
+    const field = document.querySelector<HTMLElement>('[data-product-action-workspace="stage"]')!;
+    assert.equal(field.style.overflow, "clip", "the field must not become a hidden scroll container");
+    assert.equal(document.querySelector('[data-product-action-status]'), null);
+    assert.equal(document.querySelector('[data-mode-header="actionable-filter"]')?.textContent, "行動簡報");
+    const stage = document.querySelector<HTMLElement>('[data-product-action-stage]')!;
+    assert.equal(stage.style.overflow, "clip");
+    assert.equal(stage.firstElementChild?.getAttribute("data-product-reading-card"), "true");
+    assert.equal(stage.style.padding, "", "the reading must not sit inside a second padded card");
+    const context = stage.querySelector<HTMLDetailsElement>('details[data-product-action-context]')!;
+    assert.ok(context);
+    assert.equal(context.open, false);
+    assert.ok(context.querySelector('[data-product-action-header]'));
+    assert.ok(context.querySelector('[data-product-action-takeaway]'));
+    assert.ok(context.querySelector('[data-product-action-original-source]'));
+    context.querySelector<HTMLElement>('summary')!.click();
+    assert.equal(context.open, true, "source context remains reachable by the native disclosure");
+    const tabs = document.querySelectorAll<HTMLButtonElement>('[data-action-verdict-filter]');
+    assert.equal(tabs.length, 4);
+    for (const tab of tabs) assert.equal(tab.style.minHeight, "44px");
+  } finally { dom.window.close(); }
+});
+
+test("Product Action pending analysis is waiting rather than running", async () => {
+  const { JSDOM } = await import("jsdom");
+  const fixture = productActionStageFixture();
+  const analyses = fixture.analyses.map((analysis) => analysis.signalId === "signal_incomplete"
+    ? { ...analysis, status: "pending" }
+    : analysis);
+  const dom = new JSDOM(renderToStaticMarkup(productSignalViewElement({ ...fixture, analyses })));
+  try {
+    const queue = dom.window.document.querySelector('[data-product-action-queue-summary]');
+    assert.ok(queue);
+    assert.match(queue.textContent ?? "", /1 則未完成/);
+    assert.match(queue.textContent ?? "", /1待處理/);
+    assert.doesNotMatch(queue.textContent ?? "", /抓取\/分析中|0失敗|1 處理中/);
+  } finally { dom.window.close(); }
+});
+
+test("Product Action distinguishes queued capture from a running capture", async () => {
+  const { JSDOM } = await import("jsdom");
+  const fixture = productActionStageFixture();
+  for (const itemStatus of ["queued", "running"] as const) {
+    const dom = new JSDOM(renderToStaticMarkup(productSignalViewElement({
+      ...fixture,
+      analyses: fixture.analyses.filter((analysis) => analysis.signalId !== "signal_incomplete"),
+      signalReadinessById: { signal_incomplete: { status: "crawling", itemStatus } }
+    })));
+    try {
+      const text = dom.window.document.querySelector('[data-product-action-queue-summary]')?.textContent ?? "";
+      assert.match(text, itemStatus === "queued" ? /1待處理/ : /1抓取\/分析中/, itemStatus);
+      assert.doesNotMatch(text, itemStatus === "queued" ? /抓取\/分析中/ : /待處理/, itemStatus);
+    } finally { dom.window.close(); }
+  }
+});
+
 test("Product Action first open shows one complete reading without another action", () => {
   const fixture = productActionStageFixture();
   const html = renderToStaticMarkup(productSignalViewElement({
@@ -5658,7 +5718,7 @@ test("Product Action total-zero state keeps four disabled verdict tiles and send
     onAnalyze: () => undefined
   }));
 
-  assert.match(html, /data-product-action-status="compact"/);
+  assert.doesNotMatch(html, /data-product-action-status=/);
   assert.match(html, /data-verdict-filter-tiles="true"/);
   assert.equal(countOccurrences(html, "data-action-verdict-filter="), 4);
   for (const key of ["try", "watch", "noise", "insufficient"] as const) {

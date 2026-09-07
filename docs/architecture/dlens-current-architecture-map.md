@@ -1,6 +1,6 @@
 # DLens Architecture Map
 
-核對日期：2026-09-07；工作版本 `0.3.61`，起點 `c43e93e`／`0.3.60`。這份地圖索引實際資料流、owner 與現有 guard，不是另一份產品規格或發布證明。本工作分支已完成工程 gate，尚未合併／發布或完成真實 runtime 驗收；結果見[固定 shared context](../memory/latest-shared-context.md)。整理前圖與 PR 日記已[逐字保存](../archive/2026-09-07-authority-consolidation/docs/architecture/dlens-current-architecture-map.md)。
+核對日期：2026-09-07；工作版本 `0.3.62`，起點 `c43e93e`／`0.3.60`。這份地圖索引實際資料流、owner 與現有 guard，不是另一份產品規格或發布證明。本工作分支已完成工程 gate，尚未合併／發布或完成真實 runtime 驗收；結果見[固定 shared context](../memory/latest-shared-context.md)。整理前圖與 PR 日記已[逐字保存](../archive/2026-09-07-authority-consolidation/docs/architecture/dlens-current-architecture-map.md)。
 
 流程讀 [CLAUDE.md](../../CLAUDE.md)，產品讀 [AGENTS.md](../../AGENTS.md)。當資料流或 owner 改變時更新此圖；historical roadmap 不決定當前排期。
 

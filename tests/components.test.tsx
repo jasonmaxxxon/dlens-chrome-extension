@@ -1,7 +1,9 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import React from "react";
+import React, { act } from "react";
+import { createRoot } from "react-dom/client";
+import { JSDOM } from "jsdom";
 import { renderToStaticMarkup } from "react-dom/server";
 
 import type { TargetDescriptor } from "../src/contracts/target-descriptor.ts";
@@ -735,7 +737,7 @@ test("WorkspaceShell masthead omits nonessential shortcut and issue chrome in th
   const versionStyle = styleFromTag(findTagWithAttribute(html, `data-shell-version="masthead"`));
 
   assert.match(statusStyle, /min-width:0/);
-  assert.match(statusStyle, /overflow:hidden/);
+  assert.doesNotMatch(statusStyle, /overflow:hidden|max-width:196px/);
   assert.doesNotMatch(statusStyle, /min-width:150px/);
   assert.match(versionStyle, /flex-shrink:0/);
   assert.doesNotMatch(html, /data-shell-key-hints="idle"/);
@@ -857,11 +859,10 @@ test("StatusRail labels folder progress and exposes an active disclosure", () =>
   );
 
   assert.match(html, /data-status-rail-active="true"/);
-  assert.match(html, /tabindex="0"/);
+  assert.match(html, /<summary[^>]+aria-label=/);
   assert.match(html, /資料夾 9\/20 ready/);
   assert.match(html, /data-status-rail-disclosure="true"/);
-  assert.match(html, /data-status-rail-progress="true"/);
-  assert.match(html, /width:45%/);
+  assert.doesNotMatch(html, /data-status-rail-progress/);
 });
 
 test("StatusRail keeps idle, retry, and error work states still and labelled", () => {
@@ -888,7 +889,7 @@ test("StatusRail keeps idle, retry, and error work states still and labelled", (
 
   assert.match(idleHtml, /data-status-rail-active="false"/);
   assert.doesNotMatch(idleHtml, /animation:/);
-  assert.match(idleHtml, /width:0%/);
+  assert.match(idleHtml, /0\/0 ready/);
   assert.match(retryHtml, /data-status-rail-active="false"/);
   assert.match(retryHtml, /data-status-dot="warning"/);
   assert.match(retryHtml, /retry_waiting/);
@@ -972,5 +973,53 @@ test("StatusRail distinguishes initial unknown, reachable service with unavailab
   assert.match(local, /本機 AI 判讀中/);
   assert.match(local, /資料刷新失敗/);
   assert.match(local, /data-status-rail-active="true"/);
-  assert.doesNotMatch(local, /detail|503|refresh failed/);
+  assert.doesNotMatch(local, /503|refresh failed/);
+});
+
+test("StatusRail disclosure exposes details on click, keeps retry usable, and closes without losing counts", async () => {
+  const dom = new JSDOM('<div id="root"></div>');
+  const previous = { window: globalThis.window, document: globalThis.document, HTMLElement: globalThis.HTMLElement };
+  const reactGlobal = globalThis as typeof globalThis & { IS_REACT_ACT_ENVIRONMENT?: boolean };
+  const previousAct = reactGlobal.IS_REACT_ACT_ENVIRONMENT;
+  Object.assign(globalThis, { window: dom.window, document: dom.window.document, HTMLElement: dom.window.HTMLElement });
+  reactGlobal.IS_REACT_ACT_ENVIRONMENT = true;
+  const root = createRoot(dom.window.document.getElementById("root")!);
+  let retries = 0;
+  try {
+    await act(async () => root.render(React.createElement(StatusRail, {
+      backendReachability: "reachable",
+      backendWorkUiState: { kind: "unavailable", lastVerifiedAt: null },
+      ready: 11, total: 12,
+      diagnosticError: '503 {"detail":"status unavailable"}',
+      onRetry: () => { retries += 1; }
+    })));
+    const rail = dom.window.document.querySelector<HTMLDetailsElement>("details[data-status-rail]");
+    assert.ok(rail, "the state itself must be a native, keyboard-operable disclosure");
+    const summary = rail.querySelector("summary")!;
+    assert.match(summary.textContent ?? "", /工作狀態暫時無法取得/);
+    assert.match(summary.textContent ?? "", /11\/12/);
+    assert.equal(summary.querySelectorAll("[data-status-dot]").length, 2);
+    assert.equal(rail.open, false);
+    assert.equal(summary.querySelector("button, pre"), null, "actions and diagnostics must not compete with the compact summary");
+    await act(async () => { summary.click(); });
+    assert.equal(rail.open, true);
+    const disclosure = rail.querySelector('[data-status-rail-disclosure="true"]')!;
+    assert.notEqual(disclosure.getAttribute("aria-hidden"), "true");
+    assert.match(disclosure.textContent ?? "", /目前狀態未知/);
+    assert.match(disclosure.querySelector("pre")?.textContent ?? "", /status unavailable/);
+    const retry = disclosure.querySelector<HTMLButtonElement>('button[data-dlens-button="secondary"]');
+    assert.ok(retry);
+    await act(async () => { retry.click(); });
+    assert.equal(retries, 1);
+    assert.equal(rail.open, true, "retry must not toggle or be covered by the summary");
+    await act(async () => { summary.click(); });
+    assert.equal(rail.open, false);
+    assert.match(summary.textContent ?? "", /11\/12/);
+  } finally {
+    await act(async () => root.unmount());
+    Object.assign(globalThis, previous);
+    if (previousAct === undefined) delete reactGlobal.IS_REACT_ACT_ENVIRONMENT;
+    else reactGlobal.IS_REACT_ACT_ENVIRONMENT = previousAct;
+    dom.window.close();
+  }
 });
