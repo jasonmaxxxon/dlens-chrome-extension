@@ -7,6 +7,7 @@ import {
   DLENS_SIGNAL_PACKET_VERSION
 } from "../src/compare/signal-packet.ts";
 import { materializeProductAnalysisReading } from "../src/compare/product-analysis-reading.ts";
+import { buildProductAgentBrief } from "../src/compare/product-agent-brief.ts";
 import { saveProductAnalysisResult } from "../src/compare/product-analysis-result-storage.ts";
 import { PRODUCT_AGENT_TASK_FEEDBACK_STORAGE_KEY } from "../src/compare/product-agent-task-feedback.ts";
 import { PRODUCT_CONTEXT_STORAGE_KEY } from "../src/compare/product-context.ts";
@@ -450,6 +451,61 @@ test("packet rejects a mismatched product_analysis projection as current history
   assert.equal(packet.reading.current, null);
   assert.equal(packet.reading.latest, null);
   assert.equal(packet.reading.all[0]?.cacheKey, mismatched.cacheKey);
+});
+
+test("packet and Agent brief share the full current reading identity gate", async () => {
+  const cases: Array<[string, (analysis: ProductSignalAnalysis, reading: SignalReading, context: ProductContext) => void]> = [
+    ["current", () => undefined],
+    ["context hash", (_analysis, reading) => { reading.productContextHash = "old-context"; }],
+    ["current context", (_analysis, _reading, context) => { context.productPromise = "changed"; }],
+    ["context newer", (_analysis, _reading, context) => { context.compiledAt = "2026-08-01T00:00:00.000Z"; }],
+    ["prompt", (analysis) => { analysis.promptVersion = "v20"; }],
+    ["source prompt", (_analysis, reading) => { reading.sourcePacket.analysisPromptVersion = "v20"; }],
+    ["refs", (_analysis, reading) => { reading.sourceRefs = ["root"]; }],
+    ["timestamp", (_analysis, reading) => { reading.generatedAt = "2026-08-01T00:00:00.000Z"; }],
+    ["source hash", (_analysis, reading) => { reading.sourcePacket.rootText = "changed source"; }],
+    ["cache key", (_analysis, reading) => { reading.cacheKey = "other-reading"; }],
+    ["headline", (_analysis, reading) => { reading.headline += "changed"; }],
+    ["body", (_analysis, reading) => { reading.reading += "changed"; }],
+    ["model", (_analysis, reading) => { reading.model = "different model"; }],
+    ["manual", (_analysis, reading) => { reading.origin = "manual_deep_read"; }]
+  ];
+  for (const [label, mutate] of cases) {
+    const analysis = makeCurrentAnalysis();
+    const reading = makeCurrentAnalysisReading(analysis);
+    const context = makeProductContext();
+    mutate(analysis, reading, context);
+    const storage = makeStorage({
+      [SIGNALS_STORAGE_KEY]: [{ id: "signal-1", sessionId: "session-1", itemId: "item-1", source: "threads", inboxStatus: "assigned", capturedAt: "2026-05-19T08:00:00.000Z" }],
+      [PRODUCT_SIGNAL_ANALYSES_STORAGE_KEY]: { "signal-1": analysis },
+      [SIGNAL_READINGS_STORAGE_KEY]: { [reading.cacheKey]: reading },
+      [PRODUCT_CONTEXT_STORAGE_KEY]: context
+    });
+    const packet = await buildDLensSignalPacket(storage, makeGlobalState([makeItem("item-1")]), "signal-1");
+    const brief = buildProductAgentBrief({ analysis, reading, productContext: context });
+    assert.equal(Boolean(packet?.reading.current), label === "current", `packet: ${label}`);
+    assert.equal(Boolean(brief), label === "current", `brief: ${label}`);
+    if (label === "current") {
+      assert.ok(brief.includes(reading.headline!));
+      assert.ok(brief.includes(reading.reading));
+      assert.ok(brief.includes(analysis.agentTaskSpec!.taskPrompt));
+      assert.match(brief, /需要上下文：signal storage、product signal analysis/);
+      assert.match(brief, /留言 \[e1\] · pm/);
+      assert.ok(brief.includes(reading.sourcePacket.representativeComments[0]!.text));
+      assert.ok(brief.includes(reading.sourcePacket.postUrl));
+    } else {
+      assert.equal(brief, "", `invalid identity never yields an executable brief: ${label}`);
+    }
+  }
+  assert.equal(buildProductAgentBrief({ analysis: makeCurrentAnalysis(), reading: undefined, productContext: makeProductContext() }), "");
+});
+
+test("Agent brief rejects missing identity even when analysis and reading share the omission", () => {
+  for (const field of ["signalId", "productContextHash", "analyzedAt"] as const) {
+    const analysis = makeCurrentAnalysis({ [field]: "" });
+    const reading = makeCurrentAnalysisReading(analysis);
+    assert.equal(buildProductAgentBrief({ analysis, reading, productContext: null }), "", field);
+  }
 });
 
 test("buildDLensSignalPacket joins source, judgment, reading, feedback timeline, and agent handoff", async () => {

@@ -86,6 +86,13 @@ function SkeletonBar({ width }: { width: string }) {
 
 function backendReachabilityTone(reachability: BackendReachability): { label: string; color: string; background: string; border: string } {
   switch (reachability) {
+    case "unknown":
+      return {
+        label: "服務連線尚未確認",
+        color: tokens.color.softInk,
+        background: tokens.color.neutralSurfaceSoft,
+        border: tokens.color.lineStrong
+      };
     case "slow":
       return {
         label: "Backend slow",
@@ -133,7 +140,7 @@ function BackendHealthDot({ reachability }: { reachability: BackendReachability 
 export function ProcessingStrip({
   workerStatus,
   backendWorkUiState = null,
-  backendReachability = "reachable",
+  backendReachability = "unknown",
   ready,
   total,
   crawling,

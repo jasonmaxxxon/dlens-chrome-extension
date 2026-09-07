@@ -148,3 +148,13 @@ test("ProcessingStrip renders backend reachability dot at the leading edge", () 
   assert.match(unreachableHtml, /data-backend-health-dot="unreachable"/);
   assert.match(unreachableHtml, /Backend unreachable/);
 });
+
+test("ProcessingStrip does not advertise healthy API before observing health", () => {
+  const html = renderToStaticMarkup(React.createElement(ProcessingStrip, {
+    workerStatus: null, backendWorkUiState: { kind: "unknown" },
+    ready: 0, total: 0, crawling: 0, analyzing: 0, pending: 0
+  }));
+  assert.match(html, /確認工作狀態中/);
+  assert.match(html, /data-backend-health-dot="unknown"/);
+  assert.doesNotMatch(html, /Backend reachable/);
+});

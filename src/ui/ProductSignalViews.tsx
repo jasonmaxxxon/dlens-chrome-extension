@@ -3,6 +3,7 @@ import type { CSSProperties, KeyboardEvent as ReactKeyboardEvent, ReactNode } fr
 import { Activity, Quote } from "lucide-react";
 
 import type {
+  ProductContext,
   ProductSignalAnalysis,
   ProductSignalEvidenceNote,
   ProductSignalReferenceTarget,
@@ -11,15 +12,12 @@ import type {
   ProductSignalVerdict
 } from "../state/types";
 import { isProductContextSourceReady } from "../compare/product-context";
-import {
-  PRODUCT_SIGNAL_ANALYSIS_PROMPT_VERSION,
-  type ProductSignalEvidenceEntry
-} from "../compare/product-signal-analysis";
+import type { ProductSignalEvidenceEntry } from "../compare/product-signal-analysis";
 import type { SignalPacketExportFormat, SignalPacketExportResult } from "../compare/signal-packet-export";
-import {
-  latestReadingBySignalId,
-  type SignalReading
-} from "../compare/signal-reading-storage";
+import type { SignalReading } from "../compare/signal-reading-storage";
+import { buildProductAgentBrief } from "../compare/product-agent-brief";
+import { matchesCurrentProductAnalysisReading } from "../compare/product-reading-identity";
+import { useAgentBriefClipboard, type AgentBriefCopyStatus } from "./useAgentBriefClipboard";
 import { aiOutputProvenanceFromModel, describeAiOutputProvenance } from "../state/ai-provenance";
 import type { TargetDescriptor } from "../contracts/target-descriptor";
 import { describeProcessingError, type ProcessingErrorClass, type ProcessingErrorView } from "../state/processing-errors";
@@ -260,8 +258,6 @@ const SUBTYPE_LABELS: Record<string, string> = {
   user_sentiment_reflection: "使用者情緒回饋"
 };
 
-type AgentBriefCopyStatus = "idle" | "copied" | "error";
-
 const CONTEXT_FIELD_LABELS: Record<ProductSignalReferenceTarget, string> = {
   productPromise: "產品承諾",
   targetAudience: "目標受眾",
@@ -296,10 +292,6 @@ const PRODUCT_MODE_ACCENT_SOFT = `var(--dlens-mode-accent-soft, ${tokens.color.p
 const PRODUCT_MODE_ACCENT_GLOW = `var(--dlens-mode-accent-glow, ${tokens.color.productGlow})`;
 const PRODUCT_MODE_ACCENT_BUTTON_SHADOW = `var(--dlens-mode-accent-button-shadow, ${modeThemes.product.accentButtonShadow})`;
 const DEFAULT_PRODUCT_ACTION_READINESS: SignalReadiness = { status: "ready", itemStatus: "succeeded" };
-
-function analysisBySignalId(analyses: ProductSignalAnalysis[]): Map<string, ProductSignalAnalysis> {
-  return new Map(analyses.map((analysis) => [analysis.signalId, analysis]));
-}
 
 type ReadinessLabel = {
   label: string;
@@ -1516,7 +1508,6 @@ function SelectedPostAside({
   );
 }
 
-type AgentBriefMode = "original" | "decision";
 type SignalPacketExportFolderOption = {
   id: string;
   name: string;
@@ -1918,89 +1909,6 @@ function SignalReadingEvidenceDetails({ citations }: { citations: EvidenceCitati
       </div>
     </SmoothDetails>
   );
-}
-
-function buildAgentBrief({
-  mode,
-  selectedSignals,
-  analysesBySignal,
-  signalPreviewById,
-  signalUrlById,
-  evidenceBySignalId = {}
-}: {
-  mode: AgentBriefMode;
-  selectedSignals: Array<ProductSignalViewModel | { id: string }>;
-  analysesBySignal: Map<string, ProductSignalAnalysis>;
-  signalPreviewById: Record<string, string>;
-  signalUrlById: Record<string, string>;
-  evidenceBySignalId?: Record<string, ProductSignalEvidenceEntry[]>;
-}): string {
-  const header = mode === "original"
-    ? "# Product Action Brief - 原文優先"
-    : "# Product Action Brief - 精簡決策";
-  const usage = [
-    "## 使用方式",
-    "- 先處理 `值得嘗試`；這些可以轉成實驗、prototype 或 agent task。",
-    "- `保留觀察` 只作產品學習或後續研究，不應直接排入開發。"
-  ].join("\n");
-  const sections = selectedSignals.map((signal, index) => {
-    const signalId = "signalId" in signal ? signal.signalId : signal.id;
-    const analysis = ("analysis" in signal ? signal.analysis : undefined) ?? analysesBySignal.get(signalId);
-    const previewSource = "sourcePreview" in signal ? signal.sourcePreview.displayText : signalPreviewById[signalId];
-    const preview = excerpt(previewSource || analysis?.contentSummary || "", mode === "original" ? 900 : 420);
-    const url = ("sourcePreview" in signal ? signal.sourcePreview.displayUrl : signalUrlById[signalId]) || "";
-    const title = analysis?.contentSummary || `Signal ${index + 1}`;
-    const task = analysis?.agentTaskSpec?.taskPrompt?.trim();
-    const reference = referenceLabel(analysis);
-    const takeaway = referenceTakeaway(analysis);
-    const referenceKind = analysis ? referenceTypeLabel(analysis.referenceType) : "尚未分析";
-    const contextTargets = analysis ? contextLabels(analysis.relevantTo) : "尚未分析";
-    const requiredContext = analysis?.agentTaskSpec?.requiredContext?.length
-      ? analysis.agentTaskSpec.requiredContext.join("、")
-      : "";
-    if (mode === "decision") {
-      return [
-        `## ${index + 1}. ${title}`,
-        `- 原文訊號: ${preview || "無可用原文摘要"}`,
-        ...(url ? [`- 原文連結: ${url}`] : []),
-        `- 產品判斷: ${analysis ? VERDICT_LABELS[analysis.verdict] : "尚未分析"}${analysis ? ` / ${SIGNAL_TYPE_LABELS[analysis.signalType]}` : ""}`,
-        `- ${referenceKind}: ${reference}`,
-        `- 可帶走: ${takeaway}`,
-        `- 相關欄位: ${contextTargets}`,
-        `- 為什麼值得看: ${analysis?.whyRelevant || "尚未有 ProductSignalAnalyzer 結果"}`,
-        `- 建議下一步: ${analysis?.experimentHint || analysis?.reason || "先完成抓取與分析"}`,
-        ...(requiredContext ? [`- 需要上下文: ${requiredContext}`] : []),
-        ...(task ? ["", "```text", `[SIGNAL]\n${preview}\n\n${task}`, "```"] : [])
-      ].join("\n");
-    }
-    const evidenceNotes = analysis?.evidenceNotes ?? [];
-    const evidenceByRef = new Map((("evidence" in signal ? signal.evidence : evidenceBySignalId[signalId]) ?? []).map((entry) => [entry.ref, entry]));
-    const evidenceLines = evidenceNotes
-      .map((note) => {
-        const entry = evidenceByRef.get(note.ref);
-        const verbatim = entry?.text?.trim();
-        const head = verbatim
-          ? `  - [${note.ref}] ${entry?.author || "unknown"}：${excerpt(verbatim, 220)}`
-          : `  - [${note.ref}] ${note.quoteSummary}`;
-        return note.whyItMatters ? `${head}\n    ↳ 為何重要：${note.whyItMatters}` : head;
-      })
-      .filter(Boolean)
-      .join("\n");
-    return [
-      `## ${index + 1}. ${title}`,
-      `- 原文訊號: ${preview || "無可用原文摘要"}`,
-      ...(url ? [`- 原文連結: ${url}`] : []),
-      ...(evidenceLines ? [`- 觀眾反應 (${evidenceNotes.length} 則):\n${evidenceLines}`] : []),
-      ...(analysis?.audienceGap ? [`- 預期落差: ${analysis.audienceGap}`] : []),
-      `- 產品判斷: ${analysis ? VERDICT_LABELS[analysis.verdict] : "尚未分析"}`,
-      `- ${referenceKind}: ${reference}`,
-      `- 可帶走: ${takeaway}`,
-      `- 相關欄位: ${contextTargets}`,
-      `- AI 判讀: ${analysis?.reason || analysis?.whyRelevant || "尚未分析"}`,
-      ...(task ? ["", "可複製任務:", "```text", `[SIGNAL]\n${preview}\n\n${task}`, "```"] : [])
-    ].join("\n");
-  });
-  return [header, usage, ...sections].join("\n\n");
 }
 
 function resolveDefaultSignalPacketExportFolderId(
@@ -2706,7 +2614,7 @@ function ProductActionReadingOperations({
         style={{ display: "flex", gap: 7, alignItems: "center", flexWrap: "wrap", ...textStyles.meta, color: tokens.color.softInk }}
       >
         <span>{evidenceStateLabel}</span>
-        {reading.sourceRefs.length ? <span>{reading.sourceRefs.map((ref) => ref === ROOT_SPAN_REF ? "原文" : ref).join("、")}</span> : null}
+        {reading.sourceRefs.length ? <span>{reading.sourceRefs.map((ref) => ref === ROOT_SPAN_REF ? "原文" : `留言 [${ref}]`).join("、")}</span> : null}
       </div>
       {agentBrief ? (
         <footer
@@ -2767,26 +2675,8 @@ function ProductActionReadingOperations({
   );
 }
 
-function currentProjectedReading(
-  analysis: ProductSignalAnalysis,
-  reading: SignalReading | undefined
-): SignalReading | undefined {
-  if (
-    analysis.promptVersion !== PRODUCT_SIGNAL_ANALYSIS_PROMPT_VERSION
-    || !analysis.productReading
-    || !reading
-    || reading.origin !== "product_analysis"
-    || reading.promptVersion !== analysis.promptVersion
-    || reading.productContextHash !== analysis.productContextHash
-    || reading.headline?.trim() !== analysis.productReading.headline.trim()
-    || reading.reading.trim() !== analysis.productReading.body.trim()
-  ) {
-    return undefined;
-  }
-  return reading;
-}
-
 function ProductActionStage({
+  productContext,
   analyses,
   signals,
   signalReadings,
@@ -2797,6 +2687,7 @@ function ProductActionStage({
   signalUrlById,
   onExportSignalPackets
 }: {
+  productContext: ProductContext | null;
   analyses: ProductSignalAnalysis[];
   signals: ProductSignalViewModel[];
   signalReadings: SignalReading[];
@@ -2872,7 +2763,6 @@ function ProductActionStage({
     ? "backward"
     : direction;
   const activeMeta = stats.find((stat) => stat.key === resolvedFilter) ?? stats[0]!;
-  const readingsBySignalId = latestReadingBySignalId(signalReadings);
 
   useEffect(() => {
     if (activeFilter !== resolvedFilter) setActiveFilter(resolvedFilter);
@@ -2962,9 +2852,8 @@ function ProductActionStage({
   };
 
   const activeSignal = activeAnalysis ? signalsById.get(activeAnalysis.signalId) : undefined;
-  const latestActiveReading = activeAnalysis ? readingsBySignalId.get(activeAnalysis.signalId) : undefined;
   const activeReading = activeAnalysis
-    ? currentProjectedReading(activeAnalysis, latestActiveReading)
+    ? signalReadings.find((reading) => matchesCurrentProductAnalysisReading(activeAnalysis, productContext, reading))
     : undefined;
   const activePresentation = activeAnalysis ? presentationBySignalId.get(activeAnalysis.signalId) : undefined;
   const citations = activeAnalysis ? citationsForAnalysis(activeAnalysis, evidenceBySignalId) : [];
@@ -2975,7 +2864,7 @@ function ProductActionStage({
   ];
   const capturedSpanByRef = new Map<string, string>(capturedSpanEntries.filter(([, text]) => text.trim().length > 0));
   const activeSourceUrl = activeAnalysis
-    ? signalUrlById[activeAnalysis.signalId] || latestActiveReading?.sourcePacket?.postUrl || activeSignal?.sourcePreview.sourceUrl || activeSignal?.sourcePreview.displayUrl || ""
+    ? signalUrlById[activeAnalysis.signalId] || activeReading?.sourcePacket?.postUrl || activeSignal?.sourcePreview.sourceUrl || activeSignal?.sourcePreview.displayUrl || ""
     : "";
   const activeTitle = activeAnalysis
     ? activeAnalysis.referenceLabel?.trim() || activeAnalysis.contentSummary
@@ -3026,47 +2915,10 @@ function ProductActionStage({
   const activeCategory = activePresentation?.primaryCategory ?? null;
   const activeCategoryMeta = activeCategory ? PRODUCT_CATEGORY_META[activeCategory] : null;
   const activeCategoryTab = categoryGateOpen ? actionCategoryTabId(resolvedFilter, resolvedCategory) : null;
-  const [agentBriefCopyStatus, setAgentBriefCopyStatus] = useState<AgentBriefCopyStatus>("idle");
-  const activeAgentBriefSignalIdRef = useRef(activeAnalysis?.signalId);
-  const agentBriefCopyRequestRef = useRef(0);
-  const activeAgentBrief = activeAnalysis && activePresentation?.agentBriefReady
-    ? buildAgentBrief({
-        mode: "original",
-        selectedSignals: activeSignal ? [activeSignal] : [{ id: activeAnalysis.signalId }],
-        analysesBySignal: analysisBySignalId(completed),
-        signalPreviewById,
-        signalUrlById,
-        evidenceBySignalId
-      })
+  const activeAgentBrief = activeAnalysis && activeReading
+    ? buildProductAgentBrief({ analysis: activeAnalysis, reading: activeReading, productContext })
     : "";
-
-  if (activeAgentBriefSignalIdRef.current !== activeAnalysis?.signalId) {
-    activeAgentBriefSignalIdRef.current = activeAnalysis?.signalId;
-  }
-
-  useEffect(() => {
-    agentBriefCopyRequestRef.current += 1;
-    setAgentBriefCopyStatus("idle");
-  }, [activeAnalysis?.signalId]);
-
-  const copyActiveAgentBrief = () => {
-    const signalId = activeAnalysis?.signalId;
-    const requestToken = agentBriefCopyRequestRef.current + 1;
-    agentBriefCopyRequestRef.current = requestToken;
-    const setCurrentCopyStatus = (status: AgentBriefCopyStatus) => {
-      if (activeAgentBriefSignalIdRef.current === signalId && agentBriefCopyRequestRef.current === requestToken) {
-        setAgentBriefCopyStatus(status);
-      }
-    };
-    if (!activeAgentBrief || typeof navigator === "undefined" || !navigator.clipboard) {
-      setCurrentCopyStatus("error");
-      return;
-    }
-    void navigator.clipboard.writeText(activeAgentBrief).then(
-      () => setCurrentCopyStatus("copied"),
-      () => setCurrentCopyStatus("error")
-    );
-  };
+  const { copyStatus: agentBriefCopyStatus, copy: copyActiveAgentBrief } = useAgentBriefClipboard(activeAgentBrief);
 
   return (
     <div
@@ -3261,7 +3113,6 @@ function ProductActionStage({
 }
 
 export const productSignalViewTestables = {
-  buildAgentBrief,
   HeroRenderer,
   createSignalReadingDisplayCopy
 };
@@ -3438,6 +3289,7 @@ export function ProductSignalView({
           )
         ) : kind === "actionable-filter" ? (
           <ProductActionStage
+            productContext={viewModel.productContext}
             key={productActionStageKey}
             signals={routeSignals}
             analyses={routeAnalyses}

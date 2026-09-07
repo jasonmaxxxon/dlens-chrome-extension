@@ -243,7 +243,7 @@ export function useExtensionSnapshot(polling = true) {
     return () => window.clearInterval(handle);
   }, [polling, runningItemIds.join(","), snapshot?.global.activeSessionId]);
 
-  const sendAndSync = useCallback(async function sendAndSync<T extends ExtensionResponse = ExtensionResponse>(message: ExtensionMessage): Promise<T> {
+  const sendAndSync = useCallback(async function sendAndSync<T extends ExtensionResponse = ExtensionResponse>(message: ExtensionMessage, shouldApplyResponse?: () => boolean): Promise<T> {
     const outgoing = {
       ...message,
       requestId: message.requestId ?? createPipelineRequestId(`ui-${message.type}`)
@@ -256,7 +256,7 @@ export function useExtensionSnapshot(polling = true) {
       })
       : null;
     const response = await sendExtensionMessage<T>(outgoing);
-    if (response.ok && response.snapshot) {
+    if (response.ok && response.snapshot && (shouldApplyResponse?.() ?? true)) {
       if (token) {
         const decision = snapshotReconcilerRef.current.complete(token, {
           currentTarget: { sessionId: snapshotRef.current?.global.activeSessionId ?? "" }

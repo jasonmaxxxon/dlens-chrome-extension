@@ -1,4 +1,4 @@
-import type { BackendWorkUiState } from "./processing-state.ts";
+import type { BackendReachability, BackendWorkUiState, WorkerStatus } from "./processing-state.ts";
 
 export type BackendWorkCopyTone = "neutral" | "info" | "blocked";
 
@@ -13,6 +13,14 @@ export function resolveBackendWorkCopy(state: BackendWorkUiState | null): Backen
     return null;
   }
   switch (state.kind) {
+    case "unknown":
+      return { headline: "確認工作狀態中", hint: "尚未取得工作狀態。", tone: "neutral" };
+    case "unavailable":
+      return {
+        headline: "工作狀態暫時無法取得",
+        hint: `目前狀態未知，請重試。${state.lastVerifiedAt ? ` 上次確認：${state.lastVerifiedAt}。` : ""}`,
+        tone: "blocked"
+      };
     case "idle":
     case "draining":
       return null;
@@ -56,9 +64,40 @@ export function resolveBackendWorkCopy(state: BackendWorkUiState | null): Backen
     }
     case "backend_error":
       return {
-        headline: "Backend unavailable",
-        hint: state.message,
+        headline: "工作執行失敗",
+        hint: "請重試，或展開診斷查看錯誤原因。",
         tone: "blocked"
       };
   }
+}
+
+// Shared observable status copy for the Product VM and status rail. Health,
+// worker observation, local AI, and data refresh remain independent inputs.
+export function resolveProcessingStatusCopy({
+  backendWorkUiState,
+  backendReachability = "unknown",
+  workerStatus = null,
+  localAnalysisRunning = false,
+  dataRefreshError = null
+}: {
+  backendWorkUiState?: BackendWorkUiState | null;
+  backendReachability?: BackendReachability;
+  workerStatus?: WorkerStatus | null;
+  localAnalysisRunning?: boolean;
+  dataRefreshError?: string | null;
+}): BackendWorkRecoveryCopy & { active: boolean } {
+  const state = backendWorkUiState ?? { kind: workerStatus ?? "unknown" };
+  const recovery = resolveBackendWorkCopy(state);
+  const active = state.kind === "draining" || state.kind === "analysis_waiting";
+  let headline = recovery?.headline ?? (state.kind === "draining" ? "工作處理中" : "閒置");
+  if (state.kind === "unavailable" && backendReachability === "reachable") {
+    headline = `服務可連線；${headline}`;
+  }
+  const hint = [recovery?.hint, dataRefreshError ? "資料刷新失敗，請重試。" : null].filter(Boolean).join(" ");
+  return {
+    headline: localAnalysisRunning ? "本機 AI 判讀中" : headline,
+    hint: localAnalysisRunning ? [headline, hint].filter(Boolean).join("；") : hint,
+    tone: localAnalysisRunning || active ? "info" : recovery?.tone ?? "neutral",
+    active: localAnalysisRunning || active
+  };
 }

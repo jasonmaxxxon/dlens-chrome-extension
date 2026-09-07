@@ -23,15 +23,9 @@ import { PRODUCT_CONTEXT_STORAGE_KEY } from "./product-context.ts";
 import {
   buildProductContextHash,
   buildProductSignalEvidenceCatalogFromCapture,
-  PRODUCT_SIGNAL_ANALYSIS_PROMPT_VERSION,
   type ProductSignalEvidenceEntry
 } from "./product-signal-analysis.ts";
-import { deriveDerivedRecordStaleness } from "../state/derived-record.ts";
-import {
-  buildProductAnalysisReadingCacheKey,
-  buildProductAnalysisReadingSourcePacketHash,
-  canonicalizeProductReadingSupportRefs
-} from "./product-analysis-reading.ts";
+import { matchesCurrentProductAnalysisReading } from "./product-reading-identity.ts";
 import { listProductAgentTaskFeedback } from "./product-agent-task-feedback.ts";
 import { listProductSignalAnalyses } from "./product-signal-storage.ts";
 import {
@@ -422,67 +416,6 @@ function buildPacket({
     },
     decisionTrace: buildDecisionTrace(analysis, readings, textEvidence)
   };
-}
-
-function matchesCurrentProductAnalysisReading(
-  analysis: ProductSignalAnalysis | null,
-  productContext: ProductContext | null,
-  reading: SignalReading
-): boolean {
-  if (
-    !analysis
-    || analysis.status !== "complete"
-    || analysis.promptVersion !== PRODUCT_SIGNAL_ANALYSIS_PROMPT_VERSION
-    || analysis.signalType === "noise"
-    || (analysis.verdict !== "try" && analysis.verdict !== "watch")
-    || !analysis.productReading
-    || reading.origin !== "product_analysis"
-    || reading.signalId !== analysis.signalId
-    || reading.productContextHash !== analysis.productContextHash
-    || reading.promptVersion !== analysis.promptVersion
-    || reading.sourcePacket.analysisPromptVersion !== analysis.promptVersion
-    || reading.headline !== analysis.productReading.headline
-    || reading.reading !== analysis.productReading.body
-    || reading.generatedAt !== analysis.analyzedAt
-    || reading.model !== (analysis.model ?? "")
-  ) {
-    return false;
-  }
-  if (productContext) {
-    const staleness = deriveDerivedRecordStaleness({
-      record: {
-        sourceHash: analysis.productContextHash,
-        generatorVersion: analysis.promptVersion,
-        generatedAt: analysis.analyzedAt
-      },
-      currentSourceHash: buildProductContextHash(productContext),
-      currentGeneratorVersion: PRODUCT_SIGNAL_ANALYSIS_PROMPT_VERSION,
-      currentUpdatedAt: productContext.compiledAt
-    });
-    if (staleness.stale) {
-      return false;
-    }
-  }
-  const readingRefs = canonicalizeProductReadingSupportRefs(reading.sourceRefs);
-  const analysisRefs = canonicalizeProductReadingSupportRefs(
-    analysis.productReading.supportRefs
-  );
-  if (
-    readingRefs.length !== analysisRefs.length
-    || readingRefs.some((ref, index) => ref !== analysisRefs[index])
-  ) {
-    return false;
-  }
-  if (
-    buildProductAnalysisReadingSourcePacketHash(reading.sourcePacket)
-    !== reading.sourcePacketHash
-  ) {
-    return false;
-  }
-  return reading.cacheKey === buildProductAnalysisReadingCacheKey({
-    analysis,
-    sourcePacketHash: reading.sourcePacketHash
-  });
 }
 
 function buildProductContextSnapshot(

@@ -756,17 +756,13 @@ export function useInPageCollectorAppState({ snapshot, tabId, sendAndSync }: Use
     () => summarizeSessionProcessing(activeFolder?.items || []),
     [activeFolder?.items]
   );
-  const { workerStatus, workerError, backendWorkUiState, backendReachability, setWorkerStatus } = useProcessingCoordinator({
+  const { workerStatus, workerError, dataRefreshError, retryProcessingStatus, backendWorkUiState, backendReachability, setWorkerStatus } = useProcessingCoordinator({
     popupOpen,
     activeFolderId: activeFolder?.id,
     hasInflight: processingSummary.hasInflight,
     ingestBaseUrl: snapshot?.global.settings.ingestBaseUrl,
     sendAndSync
   });
-  const productBackendError = useMemo(
-    () => activeFolderMode === "product" && workerError ? getProcessingFailureUiMessage(workerError) : null,
-    [activeFolderMode, workerError]
-  );
   const {
     workspaceState,
     setWorkspaceState,
@@ -3053,7 +3049,9 @@ export function useInPageCollectorAppState({ snapshot, tabId, sendAndSync }: Use
     isHydratingProductSignals,
     isAnalyzingProductSignals,
     productSignalAnalysisError,
-    productBackendError,
+    workerError,
+    dataRefreshError,
+    retryProcessingStatus,
     productSignalAnalysisNotice,
     productAiProviderReady,
     activePrCampaign,

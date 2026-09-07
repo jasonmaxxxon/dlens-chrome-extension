@@ -10,6 +10,8 @@ import type { TargetDescriptor } from "../contracts/target-descriptor.ts";
 import { normalizeAiOutputProvenance, aiOutputProvenanceFromModel, type AiOutputProvenance } from "../state/ai-provenance.ts";
 import { projectCapturedPost, projectCapturedPostFromSources, type CapturedPostProjection } from "../state/captured-post.ts";
 import { deriveDerivedRecordStaleness } from "../state/derived-record.ts";
+import { resolveProcessingStatusCopy } from "../state/backend-work-copy.ts";
+import type { BackendReachability, BackendWorkUiState } from "../state/processing-state.ts";
 import { deriveProductSignalLoadState, type LoadState } from "../state/load-state.ts";
 import { buildSignalReadinessById, type SignalReadiness } from "../state/signal-readiness.ts";
 import { getActiveSession } from "../state/store-helpers.ts";
@@ -64,6 +66,7 @@ export interface ProductSignalWorkspaceViewModel {
   kind: "saved-signals" | "classification" | "actionable-filter";
   sessionId: string | null;
   productProfile: ProductProfile | null;
+  productContext: ProductContext | null;
   signals: ProductSignalViewModel[];
   pendingSignals: ProductSignalViewModel[];
   scopedAnalyses: ProductSignalAnalysis[];
@@ -95,6 +98,9 @@ export interface BuildProductSignalWorkspaceViewModelInput {
   productContext?: ProductContext | null;
   aiProviderReady?: boolean;
   backendError?: string | null;
+  backendWorkUiState?: BackendWorkUiState | null;
+  backendReachability?: BackendReachability;
+  dataRefreshError?: string | null;
   analysisError?: string | null;
   analysisNotice?: string | null;
   isHydrating?: boolean;
@@ -379,6 +385,9 @@ export function buildProductSignalWorkspaceViewModel({
   productContext = null,
   aiProviderReady = true,
   backendError = null,
+  backendWorkUiState = null,
+  backendReachability = "unknown",
+  dataRefreshError = null,
   analysisError = null,
   analysisNotice = null,
   isHydrating = false,
@@ -397,8 +406,12 @@ export function buildProductSignalWorkspaceViewModel({
     ? rows.map((signal) => analysesBySignal.get(signal.signalId)).filter((entry): entry is ProductSignalAnalysis => Boolean(entry))
     : safeAnalyses;
   const scopedAnalyses = visibleAnalyses(signalScopedAnalyses);
-  const visibleError = analysisError || backendError || null;
-  const statusErrorLabel = backendError ? "Backend 離線" : analysisError ? "部分失敗" : null;
+  const observedWork = backendWorkUiState ?? (backendError ? { kind: "unavailable", lastVerifiedAt: null } : null);
+  const workCopy = resolveProcessingStatusCopy({ backendWorkUiState: observedWork, backendReachability });
+  const hasWorkError = workCopy.tone === "blocked";
+  const visibleError = analysisError || (hasWorkError ? `${workCopy.headline}。${workCopy.hint}` : null)
+    || (dataRefreshError ? "資料刷新失敗，請重試。" : null);
+  const statusErrorLabel = analysisError ? "部分失敗" : hasWorkError ? workCopy.headline : dataRefreshError ? "資料刷新失敗" : null;
   const loadState = deriveProductSignalLoadState({
     isHydrating,
     signalCount: rows.length,
@@ -431,6 +444,7 @@ export function buildProductSignalWorkspaceViewModel({
     kind,
     sessionId: activeFolder?.id ?? null,
     productProfile,
+    productContext,
     signals: rows,
     pendingSignals,
     scopedAnalyses,

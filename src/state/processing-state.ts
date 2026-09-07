@@ -71,9 +71,11 @@ export type ItemReadinessStatus = "saved" | "queued" | "crawling" | "analyzing" 
 export type ProgressMode = "idle" | "queued" | "crawling" | "analyzing" | "ready";
 export type ProgressVariant = "neutral" | "queued" | "running" | "success" | "failed";
 export type WorkspaceMode = Exclude<PopupPage, "settings" | "audit-report">;
-export type BackendReachability = "reachable" | "slow" | "unreachable";
+export type BackendReachability = "unknown" | "reachable" | "slow" | "unreachable";
 
 export type BackendWorkUiState =
+  | { kind: "unknown" }
+  | { kind: "unavailable"; lastVerifiedAt: string | null }
   | { kind: "idle" }
   | { kind: "draining" }
   | { kind: "retry_waiting"; count: number; earliestRetryAt: string | null; nextDueAt: string | null }
@@ -139,6 +141,10 @@ export function sameBackendWorkUiState(
     return false;
   }
   switch (left.kind) {
+    case "unknown":
+      return true;
+    case "unavailable":
+      return left.lastVerifiedAt === (right as typeof left).lastVerifiedAt;
     case "idle":
     case "draining":
       return true;
@@ -173,14 +179,14 @@ export function sameBackendWorkUiState(
   }
 }
 
-export function projectBackendReachability(consecutiveTimeouts: number): BackendReachability {
+export function projectBackendReachability(consecutiveTimeouts: number, hasVerifiedResponse = true): BackendReachability {
   if (consecutiveTimeouts >= 3) {
     return "unreachable";
   }
   if (consecutiveTimeouts >= 2) {
     return "slow";
   }
-  return "reachable";
+  return hasVerifiedResponse ? "reachable" : "unknown";
 }
 
 export interface SessionProcessingSummary {
@@ -363,7 +369,7 @@ export function pickCompareSelection(
 
 // Low-frequency heartbeat while the worker is idle: worker/get-status hits the
 // ingest backend, so this is what lets passive surfaces (readiness panel, mode
-// header stamp) flip to Backend 離線 without an analyze click (B-03). It also
+// header stamp) report unavailable work state without an analyze click (B-03). It also
 // bounds how stale a recovery can look after the backend comes back.
 const IDLE_BACKEND_HEARTBEAT_MS = 12000;
 

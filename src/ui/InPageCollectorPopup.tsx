@@ -164,7 +164,9 @@ function OpenInPageCollectorPopup({
         signalReadings: app.signalReadings,
         productContext: app.compiledProductContext,
         aiProviderReady: app.productAiProviderReady,
-        backendError: app.productBackendError,
+        backendWorkUiState: app.backendWorkUiState,
+        backendReachability: app.backendReachability,
+        dataRefreshError: app.dataRefreshError,
         analysisError: app.productSignalAnalysisError,
         analysisNotice: app.productSignalAnalysisNotice,
         isHydrating: app.isHydratingProductSignals,
@@ -468,6 +470,10 @@ function OpenInPageCollectorPopup({
               backendReachability={app.backendReachability}
               backendWorkUiState={app.backendWorkUiState}
               workerStatus={app.workerStatus}
+              localAnalysisRunning={activeFolderMode === "product" && app.isAnalyzingProductSignals}
+              dataRefreshError={app.dataRefreshError}
+              diagnosticError={app.workerError || app.dataRefreshError || (app.backendWorkUiState?.kind === "backend_error" ? app.backendWorkUiState.message : null)}
+              onRetry={app.retryProcessingStatus}
               ready={app.processingSummary.ready}
               total={app.processingSummary.total}
             />

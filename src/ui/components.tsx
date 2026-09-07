@@ -2,7 +2,7 @@ import type { CSSProperties, KeyboardEvent, MouseEvent, PointerEvent, ReactEleme
 import { useEffect, useRef } from "react";
 
 import type { TargetDescriptor } from "../contracts/target-descriptor.ts";
-import { resolveBackendWorkCopy } from "../state/backend-work-copy.ts";
+import { resolveProcessingStatusCopy } from "../state/backend-work-copy.ts";
 import type {
   BackendReachability,
   BackendWorkUiState,
@@ -795,6 +795,8 @@ export function StatusDot({
 
 function reachabilityStatus(reachability: BackendReachability): { tone: StatusDotTone; label: string } {
   switch (reachability) {
+    case "unknown":
+      return { tone: "neutral", label: "服務連線尚未確認" };
     case "slow":
       return { tone: "warning", label: "Backend slow" };
     case "unreachable":
@@ -804,23 +806,14 @@ function reachabilityStatus(reachability: BackendReachability): { tone: StatusDo
   }
 }
 
-function backendWorkStatus(state: BackendWorkUiState | null | undefined, workerStatus: WorkerStatus | null): { tone: StatusDotTone; label: string } {
-  if (state?.kind === "backend_error" || state?.kind === "analysis_failed" || state?.kind === "expired_running") {
-    return { tone: "danger", label: state.kind };
-  }
-  if (state?.kind === "retry_waiting") {
-    return { tone: "warning", label: "retry_waiting" };
-  }
-  if (state?.kind === "analysis_waiting" || state?.kind === "draining" || workerStatus === "draining") {
-    return { tone: "info", label: state?.kind ?? "draining" };
-  }
-  return { tone: "neutral", label: "idle" };
-}
-
 export function StatusRail({
-  backendReachability = "reachable",
+  backendReachability = "unknown",
   backendWorkUiState = null,
   workerStatus = null,
+  localAnalysisRunning = false,
+  dataRefreshError = null,
+  diagnosticError = null,
+  onRetry,
   ready,
   total,
   scopeLabel = "資料夾",
@@ -830,6 +823,10 @@ export function StatusRail({
   backendReachability?: BackendReachability;
   backendWorkUiState?: BackendWorkUiState | null;
   workerStatus?: WorkerStatus | null;
+  localAnalysisRunning?: boolean;
+  dataRefreshError?: string | null;
+  diagnosticError?: string | null;
+  onRetry?: () => void;
   ready?: number;
   total?: number;
   scopeLabel?: string;
@@ -837,19 +834,22 @@ export function StatusRail({
   style?: CSSProperties;
 }) {
   const reachability = reachabilityStatus(backendReachability);
-  const work = backendWorkStatus(backendWorkUiState, workerStatus);
-  const recoveryCopy = resolveBackendWorkCopy(backendWorkUiState);
-  const resolvedHint = hint
-    ?? (backendReachability === "reachable" ? recoveryCopy?.headline ?? work.label : reachability.label);
+  const workState = backendWorkUiState ?? { kind: workerStatus ?? "unknown" };
+  const copy = resolveProcessingStatusCopy({ backendWorkUiState: workState, backendReachability, workerStatus, localAnalysisRunning, dataRefreshError });
+  const work: { tone: StatusDotTone; label: string } = {
+    tone: copy.active ? "info" : copy.tone === "blocked" ? "danger" : copy.tone === "info" ? "warning" : "neutral",
+    label: copy.headline
+  };
+  const healthWarning = backendReachability === "slow" || backendReachability === "unreachable";
+  const resolvedHint = hint ?? `${healthWarning && !localAnalysisRunning && workState.kind !== "unavailable" ? reachability.label : copy.headline}${dataRefreshError ? " · 資料刷新失敗" : ""}`;
   const countLabel = ready !== undefined && total !== undefined ? `${scopeLabel} ${ready}/${total} ready` : null;
-  const workKind = backendWorkUiState?.kind;
-  const active = work.tone === "info";
+  const workKind = workState.kind;
+  const active = copy.active;
   const progress = total && total > 0
     ? Math.min(1, Math.max(0, (ready ?? 0) / total))
     : 0;
-  const workDetail = recoveryCopy
-    ? `${recoveryCopy.headline}${recoveryCopy.hint ? ` - ${recoveryCopy.hint}` : ""}`
-    : work.label;
+  const workDetail = `${copy.headline}${copy.hint ? ` - ${copy.hint}` : ""}`;
+  const canRetry = workKind === "unavailable" || workKind === "backend_error" || Boolean(dataRefreshError);
   const hoverLabel = `Backend: ${reachability.label} | Work: ${workDetail}${countLabel ? ` | Items: ${countLabel}` : ""}`;
 
   return (
@@ -857,7 +857,7 @@ export function StatusRail({
       data-status-rail="shared"
       data-status-rail-active={active}
       data-backend-reachability={backendReachability}
-      data-backend-work-kind={workKind ?? workerStatus ?? "idle"}
+      data-backend-work-kind={workKind}
       tabIndex={0}
       aria-label={hoverLabel}
       title={hoverLabel}
@@ -881,6 +881,13 @@ export function StatusRail({
       <span style={{ ...textStyles.caption, color: tokens.color.subInk, minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
         {resolvedHint}
       </span>
+      {canRetry && onRetry ? <button type="button" onClick={onRetry} style={{ ...textStyles.caption, color: tokens.color.subInk, cursor: "pointer" }}>重試</button> : null}
+      {diagnosticError ? (
+        <details style={{ ...textStyles.caption, minWidth: 0 }}>
+          <summary style={{ cursor: "pointer" }}>診斷</summary>
+          <pre style={{ whiteSpace: "pre-wrap", overflowWrap: "anywhere" }}>{diagnosticError}</pre>
+        </details>
+      ) : null}
       {countLabel ? (
         <span style={{ ...textStyles.metric, marginLeft: "auto", color: tokens.color.softInk, whiteSpace: "nowrap" }}>
           {countLabel}

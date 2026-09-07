@@ -368,3 +368,23 @@ test("Product VM marks a complete v21 analysis stale when ProductContext drifts"
   assert.equal(vm.signals[0]?.analysisState, "stale");
   assert.equal(vm.scopedAnalyses[0]?.signalId, "sig-ready");
 });
+
+test("Product status uses observable worker copy without hiding local analysis", () => {
+  const vm = buildProductSignalWorkspaceViewModel({
+    kind: "saved-signals", snapshot: makeSnapshot(), signals: [makeSignal()], analyses: [],
+    backendError: '503 {"detail":"DB unavailable"}',
+    backendReachability: "reachable",
+    backendWorkUiState: { kind: "unavailable", lastVerifiedAt: null },
+    isAnalyzing: true
+  });
+  assert.equal(vm.statusErrorLabel, "服務可連線；工作狀態暫時無法取得");
+  assert.equal(vm.isAnalyzing, true);
+  assert.doesNotMatch(vm.visibleError ?? "", /Backend 離線|detail|DB unavailable|503/);
+  const refreshing = buildProductSignalWorkspaceViewModel({
+    kind: "saved-signals", snapshot: makeSnapshot(), signals: [makeSignal()], analyses: [],
+    backendWorkUiState: { kind: "draining" },
+    dataRefreshError: '503 {"detail":"refresh failed"}'
+  });
+  assert.equal(refreshing.statusErrorLabel, "資料刷新失敗");
+  assert.doesNotMatch(refreshing.visibleError ?? "", /detail|503/);
+});

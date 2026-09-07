@@ -44,10 +44,19 @@ test("resolveBackendWorkCopy labels analysis_failed as blocked", () => {
   assert.equal(copy!.tone, "blocked");
 });
 
-test("resolveBackendWorkCopy surfaces backend_error with the message", () => {
-  const copy = resolveBackendWorkCopy({ kind: "backend_error", message: "db unavailable" });
+test("resolveBackendWorkCopy keeps backend_error diagnostic text out of primary copy", () => {
+  const copy = resolveBackendWorkCopy({ kind: "backend_error", message: '503 {"detail":"DB unavailable"}' });
   assert.ok(copy);
-  assert.match(copy!.headline, /backend|unavailable/i);
-  assert.match(copy!.hint, /db unavailable/);
+  assert.equal(copy!.headline, "工作執行失敗");
+  assert.doesNotMatch(copy!.hint, /DB unavailable|detail|503/);
   assert.equal(copy!.tone, "blocked");
+});
+
+test("work copy distinguishes unobserved and unavailable state from idle", () => {
+  assert.equal(resolveBackendWorkCopy({ kind: "unknown" })?.headline, "確認工作狀態中");
+  const copy = resolveBackendWorkCopy({ kind: "unavailable", lastVerifiedAt: "2026-09-07T03:00:00.000Z" });
+  assert.equal(copy?.headline, "工作狀態暫時無法取得");
+  assert.match(copy!.hint, /目前狀態未知/);
+  assert.match(copy!.hint, /2026-09-07T03:00:00.000Z/);
+  assert.doesNotMatch(copy!.hint, /idle|閒置|服務正常/);
 });

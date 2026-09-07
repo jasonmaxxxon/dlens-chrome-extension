@@ -946,3 +946,31 @@ test("components.tsx module surface: tree-shaken dead exports are gone, live sur
   assert.equal(typeof componentsModule.SurfaceCard, "function");
   assert.equal(typeof componentsModule.WorkspaceSurface, "function");
 });
+
+test("StatusRail distinguishes initial unknown, reachable service with unavailable work, and local AI", () => {
+  const initial = renderToStaticMarkup(React.createElement(StatusRail, {}));
+  assert.match(initial, /確認工作狀態中/);
+  assert.match(initial, /data-backend-reachability="unknown"/);
+  assert.doesNotMatch(initial, /Backend reachable|>idle<|>閒置</);
+  const html = renderToStaticMarkup(React.createElement(StatusRail, {
+    backendReachability: "reachable",
+    backendWorkUiState: { kind: "unavailable", lastVerifiedAt: null },
+    workerStatus: "idle",
+    ready: 3,
+    total: 4,
+    onRetry: () => undefined
+  }));
+  assert.match(html, />服務可連線；工作狀態暫時無法取得<\/span>/);
+  assert.match(html, /資料夾 3\/4 ready/);
+  assert.match(html, /重試/);
+  assert.doesNotMatch(html, /Backend 離線|>idle</);
+  const local = renderToStaticMarkup(React.createElement(StatusRail, {
+    backendWorkUiState: { kind: "unavailable", lastVerifiedAt: null },
+    localAnalysisRunning: true,
+    dataRefreshError: '503 {"detail":"refresh failed"}'
+  }));
+  assert.match(local, /本機 AI 判讀中/);
+  assert.match(local, /資料刷新失敗/);
+  assert.match(local, /data-status-rail-active="true"/);
+  assert.doesNotMatch(local, /detail|503|refresh failed/);
+});

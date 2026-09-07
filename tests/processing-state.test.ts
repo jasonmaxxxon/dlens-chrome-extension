@@ -338,7 +338,7 @@ test("projectBackendReachability suppresses one timeout and escalates by streak"
 test("processing coordinator does not restart polling just because workerStatus state changed", () => {
   const source = readFileSync(new URL("../src/ui/useProcessingCoordinator.ts", import.meta.url), "utf8");
   assert.match(source, /lastKnownWorkerStatusRef/);
-  assert.match(source, /\[popupOpen,\s*activeFolderId,\s*hasInflight,\s*sendAndSync\]/);
+  assert.match(source, /\[popupOpen,\s*activeFolderId,\s*hasInflight,\s*sendAndSync(?:,\s*retryAttempt)?\]/);
   assert.doesNotMatch(source, /\[popupOpen,\s*activeFolderId,\s*hasInflight,\s*sendAndSync,\s*workerStatus\]/);
 });
 
@@ -573,4 +573,16 @@ test("sameBackendWorkUiState treats structurally equal distinct objects as equal
   const second: BackendWorkUiState = { kind: "idle" };
   assert.notEqual(first, second);
   assert.equal(sameBackendWorkUiState(first, second), true);
+});
+
+test("reachability requires a verified health response before reporting reachable", () => {
+  assert.equal(projectBackendReachability(0, false), "unknown");
+  assert.equal(projectBackendReachability(1, false), "unknown");
+});
+
+test("unknown and unavailable projections preserve identity only for identical observations", () => {
+  assert.equal(sameBackendWorkUiState({ kind: "unknown" }, { kind: "unknown" }), true);
+  assert.equal(sameBackendWorkUiState({ kind: "unknown" }, { kind: "idle" }), false);
+  assert.equal(sameBackendWorkUiState({ kind: "unavailable", lastVerifiedAt: null }, { kind: "unavailable", lastVerifiedAt: null }), true);
+  assert.equal(sameBackendWorkUiState({ kind: "unavailable", lastVerifiedAt: null }, { kind: "unavailable", lastVerifiedAt: "2026-09-07T03:00:00.000Z" }), false);
 });
