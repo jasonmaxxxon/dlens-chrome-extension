@@ -1,5 +1,6 @@
 import type { CaptureSnapshot, JobSnapshot } from "../contracts/ingest";
 import type { TargetDescriptor } from "../contracts/target-descriptor";
+import { CURRENT_STORAGE_SCHEMA_VERSION } from "./storage-keys";
 import type { AiOutputProvenance } from "./ai-provenance";
 
 export type FolderMode = "archive" | "topic" | "product" | "pr-evidence";
@@ -566,7 +567,7 @@ export function createDefaultLayoutPreferences(): LayoutPreferences {
 
 export function createEmptyGlobalState(): ExtensionGlobalState {
   return {
-    schemaVersion: 2,
+    schemaVersion: CURRENT_STORAGE_SCHEMA_VERSION,
     settings: createDefaultSettings(),
     sessions: [],
     activeSessionId: null,

@@ -1,0 +1,178 @@
+<!doctype html>
+<!--
+  DLens 收藏列表縮圖 · 變體 C — 行內微縮圖
+  Reference-only mockup · 2026-09-18
+
+  Scope: how a saved-post thumbnail sits in the collection list, on top of the
+  search row and de-cluttered rows from the collection-search/undo work (#77).
+  Only the row treatment differs between variants A/B/C; everything else is held
+  identical so they can be compared directly.
+
+  What each variant must survive, shown as real rows below:
+    - a post with a photo
+    - a text-only post (no image, and never will have one)
+    - a link-preview card image
+    - a video post (poster frame)
+    - a saved post whose CDN URL has EXPIRED — Threads signs its image URLs with
+      an `oe=` deadline, so this is not an edge case, it is every row eventually
+    - a row still being processed
+
+  Truth boundary: the thumbnails here are inline SVG stand-ins, NOT real Threads
+  imagery, so this file stays self-contained and implies no live CDN URL. Authors,
+  snippets and counts are illustrative. Colour/type/radius values mirror
+  src/ui/tokens.ts (2026-09-18 working tree). Reference, not spec.
+-->
+<html lang="zh-Hant">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>收藏縮圖 · C 行內</title>
+<link rel="icon" href="data:," />
+<style>
+  :root {
+    --ink: #1b1a17;
+    --sub-ink: #3d3b35;
+    --soft-ink: #6c695e;
+    --line: rgba(27,26,23,0.10);
+    --surface: #f8fbf8;
+    --elevated: #ffffff;
+    --context-surface: rgba(242,247,243,0.72);
+    --success: #3f5a3b;
+    --amber: #a16a17;
+    --radius-card: 12px;
+    --sans: 'Noto Sans TC', -apple-system, BlinkMacSystemFont, system-ui, sans-serif;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; padding: 28px 18px 56px;
+    background: #eef2ee; color: var(--ink);
+    font-family: var(--sans); font-size: 13px; line-height: 1.5;
+    display: flex; flex-direction: column; align-items: center; gap: 18px;
+  }
+  .shell {
+    width: 100%; max-width: 380px; background: var(--surface);
+    border: 1px solid var(--line); border-radius: var(--radius-card);
+    padding: 12px 10px; box-shadow: 0 4px 10px -4px rgba(27,26,23,0.06);
+  }
+  .variant-name { max-width: 380px; width: 100%; }
+  .variant-name h1 { font-size: 15px; margin: 0 0 3px; letter-spacing: .01em; }
+  .variant-name p { margin: 0; font-size: 11.5px; color: var(--soft-ink); }
+  .searchrow {
+    display: flex; align-items: center; gap: 7px; padding: 6px 9px;
+    border-radius: var(--radius-card); border: 1px solid var(--line);
+    background: var(--elevated); margin-bottom: 6px;
+  }
+  .searchrow span { font-size: 11.5px; color: var(--soft-ink); }
+  .row {
+    display: grid; align-items: start; gap: 10px;
+    padding: 10px 4px; border: none; background: transparent;
+    text-align: left; width: 100%; cursor: pointer;
+    border-bottom: 1px solid rgba(27,26,23,0.05);
+  }
+  .row:last-child { border-bottom: none; }
+  .row:hover { background: var(--context-surface); }
+  .dot { width: 8px; height: 8px; border-radius: 999px; margin-top: 6px; }
+  .copy { display: grid; gap: 3px; min-width: 0; }
+  .author { font-size: 12.5px; font-weight: 600; color: var(--ink);
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .snippet { font-size: 11.5px; color: var(--sub-ink);
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .trail { display: grid; justify-items: end; gap: 3px; white-space: nowrap; }
+  .ord { font-size: 10.5px; color: var(--soft-ink); font-variant-numeric: tabular-nums; }
+  .meta { font-size: 10.5px; color: var(--soft-ink); }
+  .thumb { object-fit: cover; display: block; background: #e4e9e4; }
+  /* The no-image state. Never a broken-image icon, never a fake picture. */
+  .thumb-none { background: transparent; }
+  .legend {
+    max-width: 380px; width: 100%; font-size: 11px; color: var(--soft-ink);
+    background: var(--elevated); border: 1px solid var(--line);
+    border-radius: var(--radius-card); padding: 10px 12px;
+  }
+  .legend b { color: var(--sub-ink); font-weight: 600; }
+  .legend ul { margin: 6px 0 0; padding-left: 16px; }
+  .legend li { margin: 3px 0; }
+  .tagcol { font-size: 10px; color: var(--soft-ink); opacity:.75; }
+  @media (prefers-reduced-motion: reduce) { * { transition: none !important; } }
+  .rowC { grid-template-columns: 8px minmax(0,1fr) auto; }
+  .rowC .snippetline { display: flex; align-items: center; gap: 6px; min-width: 0; }
+  .rowC .snippetline .snippet { min-width: 0; }
+  .rowC .micro { border-radius: 4px; flex: none; }
+  .rowC .micro.thumb-none { display: none; }
+</style>
+</head>
+<body>
+<div class="variant-name">
+  <h1>變體 C — 行內微縮圖</h1>
+  <p>18px 微縮圖擺喺內文前面。行高幾乎唔變，最密最靜。</p>
+</div>
+<div class="shell">
+  <div class="searchrow">
+    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#6c695e" stroke-width="2" stroke-linecap="round"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg>
+    <span>搜尋內文或作者</span>
+  </div>
+  <div class="row rowC">
+    <span class="dot" style="background:#3f5a3b"></span>
+    <div class="copy">
+      <div class="author">@aiposthub</div>
+      <div class="snippetline"><img class="thumb micro" src="data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'><defs><linearGradient id='g' x1='0' y1='0' x2='1' y2='1'><stop offset='0' stop-color='%232f6a96'/><stop offset='1' stop-color='%231a2e4f'/></linearGradient></defs><rect width='64' height='64' fill='url(%23g)'/><text x='32' y='38' font-family='sans-serif' font-size='22' fill='rgba(255,255,255,.85)' text-anchor='middle'>&%239634;</text></svg>" alt="" style="width:18px;height:18px" /><span class="snippet">把 Hermes Agent 部署到雲端，實測 0 成本跑滿 24 小時</span></div>
+      <div class="tagcol">相片</div>
+    </div>
+    <div class="trail"><span class="ord">1</span><span class="meta">137 則留言</span></div>
+  </div>
+  <div class="row rowC">
+    <span class="dot" style="background:#3f5a3b"></span>
+    <div class="copy">
+      <div class="author">@bibobibobiuuuu</div>
+      <div class="snippetline"><span class="thumb micro thumb-none" style="width:18px;height:18px"></span><span class="snippet">呢個 workflow 我試過，重點係 retry 要分開計</span></div>
+      <div class="tagcol">純文字</div>
+    </div>
+    <div class="trail"><span class="ord">2</span><span class="meta">昨天</span></div>
+  </div>
+  <div class="row rowC">
+    <span class="dot" style="background:#3f5a3b"></span>
+    <div class="copy">
+      <div class="author">@tech_notes_hk</div>
+      <div class="snippetline"><img class="thumb micro" src="data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'><defs><linearGradient id='g' x1='0' y1='0' x2='1' y2='1'><stop offset='0' stop-color='%23a16a17'/><stop offset='1' stop-color='%237c4f10'/></linearGradient></defs><rect width='64' height='64' fill='url(%23g)'/><text x='32' y='38' font-family='sans-serif' font-size='22' fill='rgba(255,255,255,.85)' text-anchor='middle'>&%238599;</text></svg>" alt="" style="width:18px;height:18px" /><span class="snippet">Flash Lesson 04｜AI Agent 雲端實戰 · Luma</span></div>
+      <div class="tagcol">連結預覽</div>
+    </div>
+    <div class="trail"><span class="ord">3</span><span class="meta">3天前</span></div>
+  </div>
+  <div class="row rowC">
+    <span class="dot" style="background:#3f5a3b"></span>
+    <div class="copy">
+      <div class="author">@deploy_diary</div>
+      <div class="snippetline"><img class="thumb micro" src="data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'><defs><linearGradient id='g' x1='0' y1='0' x2='1' y2='1'><stop offset='0' stop-color='%23527648'/><stop offset='1' stop-color='%233f5a3b'/></linearGradient></defs><rect width='64' height='64' fill='url(%23g)'/><text x='32' y='38' font-family='sans-serif' font-size='22' fill='rgba(255,255,255,.85)' text-anchor='middle'>&%239654;</text></svg>" alt="" style="width:18px;height:18px" /><span class="snippet">示範片：由 git push 到 agent 上線只需 90 秒</span></div>
+      <div class="tagcol">影片首格</div>
+    </div>
+    <div class="trail"><span class="ord">4</span><span class="meta">41 則留言</span></div>
+  </div>
+  <div class="row rowC">
+    <span class="dot" style="background:#3f5a3b"></span>
+    <div class="copy">
+      <div class="author">@old_capture_2026</div>
+      <div class="snippetline"><span class="thumb micro thumb-none" style="width:18px;height:18px" title="圖片連結已過期，退回無圖狀態"></span><span class="snippet">兩個月前存低嘅帖，圖片連結已經過期</span></div>
+      <div class="tagcol">連結過期</div>
+    </div>
+    <div class="trail"><span class="ord">5</span><span class="meta">6月12日</span></div>
+  </div>
+  <div class="row rowC">
+    <span class="dot" style="background:#a16a17"></span>
+    <div class="copy">
+      <div class="author">@just_saved</div>
+      <div class="snippetline"><img class="thumb micro" src="data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'><defs><linearGradient id='g' x1='0' y1='0' x2='1' y2='1'><stop offset='0' stop-color='%232f6a96'/><stop offset='1' stop-color='%231a2e4f'/></linearGradient></defs><rect width='64' height='64' fill='url(%23g)'/><text x='32' y='38' font-family='sans-serif' font-size='22' fill='rgba(255,255,255,.85)' text-anchor='middle'>&%239634;</text></svg>" alt="" style="width:18px;height:18px" /><span class="snippet">啱啱存入，仲拉緊留言</span></div>
+      <div class="tagcol">處理中</div>
+    </div>
+    <div class="trail"><span class="ord">6</span><span class="meta">今天</span></div>
+  </div>
+</div>
+<div class="legend">
+<b>取捨</b>
+<ul>
+  <li>行高幾乎唔變，一屏睇到嘅行數同而家一樣，最符合「密啲靜啲」。</li>
+  <li>無圖嘅行直接唔出嗰個位（<code>display:none</code>），唔會留白。</li>
+  <li>代價：18px 真係好細，只夠認色同大致構圖，認唔到細節。</li>
+  <li>如果縮圖嘅目的係「靠張圖認返篇嘢」，呢個變體可能唔夠用；如果只係想知「呢篇有圖」，就夠。</li>
+</ul>
+</div>
+</body>
+</html>

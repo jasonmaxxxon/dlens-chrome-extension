@@ -562,6 +562,121 @@ function resolveEngagement(card: HTMLElement, targetType: TargetType): { engagem
   return { engagement: metrics, engagement_present: present, engagement_source };
 }
 
+/**
+ * Upper bound on a stored image URL, in characters.
+ *
+ * Threads serves post photos, video posters and avatars from the Instagram CDN
+ * at ~500-700 chars. Link previews are different: they go through the
+ * `external.*.fbcdn.net/emg1/` proxy, which percent-encodes the entire source
+ * URL into the query string and reaches 1,300-1,700 chars in the captured
+ * fixture. A truncated URL is not a working URL, so anything over the cap is
+ * dropped rather than trimmed — the post renders with no thumbnail.
+ *
+ * This is the knob that bounds thumbnail storage growth. At this value a saved
+ * record grows by at most ~1KB; raising it to 2048 admits proxied link
+ * previews at up to ~2KB each.
+ */
+const MAX_IMAGE_URL_LENGTH = 1024;
+
+/**
+ * Smallest declared pixel edge we will accept as post content. Threads renders
+ * avatars at 36x36 and link-preview favicons at 14x14; real attachments either
+ * declare a large pixel size or size themselves with a percentage.
+ */
+const MIN_IMAGE_EDGE_PX = 64;
+
+// Instagram's profile-picture media family. Post content is served from the
+// `-15` families (t51.2885-15 and friends); avatars from `-19`.
+const PROFILE_PICTURE_PATH_RE = /\/t51\.\d+-19\//;
+
+// Threads localizes the avatar alt text; each locale keeps the same shape.
+const PROFILE_PICTURE_ALT_RE =
+  /(profile picture|大頭貼照|头像|大頭照|プロフィール写真|프로필 사진)/i;
+
+// A bare profile permalink: https://www.threads.net/@handle with nothing after
+// it. Avatars link here; a post attachment never does.
+const PROFILE_LINK_RE = /^https:\/\/www\.threads\.net\/@[^/]+$/i;
+
+/**
+ * Reads a declared pixel dimension. Returns null for percentage or missing
+ * values, which means "unknown" rather than "too small" — `height="100%"` is
+ * how Threads sizes real attachment images, so it must not be rejected.
+ *
+ * JSDOM has no layout engine, so naturalWidth/offsetWidth are always 0 here.
+ * Declared attributes are the only dimension signal that survives fixture
+ * replay, and they are what this filter uses in production too.
+ */
+function readDeclaredEdgePx(element: Element, attribute: "width" | "height"): number | null {
+  const raw = (element.getAttribute(attribute) || "").trim();
+  if (!raw || !/^\d+$/.test(raw)) {
+    return null;
+  }
+  const parsed = Number(raw);
+  return Number.isFinite(parsed) ? parsed : null;
+}
+
+function isTooSmallForContent(element: Element): boolean {
+  const width = readDeclaredEdgePx(element, "width");
+  const height = readDeclaredEdgePx(element, "height");
+  // Reject only when a declared pixel size proves the element is chrome-sized.
+  return (width !== null && width < MIN_IMAGE_EDGE_PX)
+    || (height !== null && height < MIN_IMAGE_EDGE_PX);
+}
+
+function isAvatarLike(element: Element): boolean {
+  if (PROFILE_PICTURE_ALT_RE.test(element.getAttribute("alt") || "")) {
+    return true;
+  }
+  if (PROFILE_PICTURE_PATH_RE.test(element.getAttribute("src") || "")) {
+    return true;
+  }
+  const anchor = element.closest("a[href]");
+  const href = anchor?.getAttribute("href");
+  return Boolean(href && PROFILE_LINK_RE.test(normalizeUrl(href)));
+}
+
+function readContentImageUrl(element: Element, attribute: "src" | "poster"): string | null {
+  const raw = (element.getAttribute(attribute) || "").trim();
+  if (!raw || !/^https?:\/\//i.test(raw)) {
+    // data: and blob: sources are placeholders/previews, not durable URLs.
+    return null;
+  }
+  if (raw.length > MAX_IMAGE_URL_LENGTH) {
+    return null;
+  }
+  if (element.getAttribute("aria-hidden") === "true") {
+    return null;
+  }
+  if (isTooSmallForContent(element) || isAvatarLike(element)) {
+    return null;
+  }
+  return raw;
+}
+
+/**
+ * Picks the URL of the post's own attachment image, or null.
+ *
+ * Takes the first surviving candidate in document order rather than the
+ * largest: the card's own attachment precedes any nested quoted post, and
+ * without a layout engine there is no trustworthy size to rank by. Video
+ * posters count, so a video post still gets a thumbnail.
+ *
+ * Returns null for text-only posts, and for posts whose only images are
+ * avatars, favicons or over-long proxied URLs. That null is the same state the
+ * UI shows for an expired URL and for a pre-v3 saved record.
+ */
+export function extractImageUrl(card: HTMLElement): string | null {
+  const candidates = Array.from(card.querySelectorAll<HTMLElement>("img[src], video[poster]"));
+  for (const candidate of candidates) {
+    const attribute = candidate.tagName.toLowerCase() === "video" ? "poster" : "src";
+    const url = readContentImageUrl(candidate, attribute);
+    if (url) {
+      return url;
+    }
+  }
+  return null;
+}
+
 export function buildTargetDescriptor(card: HTMLElement, pageUrl: string): TargetDescriptor | null {
   const normalizedPage = normalizeUrl(pageUrl || window.location.href || "");
   const { permalink, rawText } = extractPermalink(card);
@@ -580,6 +695,7 @@ export function buildTargetDescriptor(card: HTMLElement, pageUrl: string): Targe
     engagement: metricsResult.engagement,
     engagement_present: metricsResult.engagement_present,
     engagement_source: metricsResult.engagement_source,
+    image_url: extractImageUrl(card),
     captured_at: new Date().toISOString()
   };
 }

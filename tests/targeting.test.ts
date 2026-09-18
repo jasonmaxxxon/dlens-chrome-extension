@@ -7,6 +7,7 @@ import {
   buildTargetDescriptor,
   classifyCandidateStrength,
   classifyMetric,
+  extractImageUrl,
   findCardCandidate,
   inferThreadFollowersFromText,
   inferThreadViewsFromText,
@@ -381,4 +382,128 @@ test("buildTargetDescriptor marks feed post cards as posts beyond the first arti
     Object.assign(globalThis, previous);
     dom.window.close();
   }
+});
+
+/**
+ * Thumbnail extraction.
+ *
+ * JSDOM has no layout engine, so naturalWidth/offsetWidth are 0 for every
+ * image here — the same blind spot the fixture replay documents. These cases
+ * therefore exercise exactly the signals production relies on: declared
+ * attributes, alt text, the media-family path segment, and the enclosing link.
+ */
+function withImageCard<T>(html: string, handler: (card: HTMLElement) => T): T {
+  const dom = new JSDOM(`<main><article id="card">${html}</article></main>`, {
+    url: "https://www.threads.net/@alpha/post/one"
+  });
+  const previous = {
+    window: globalThis.window,
+    document: globalThis.document,
+    HTMLElement: globalThis.HTMLElement,
+    Element: globalThis.Element,
+    Node: globalThis.Node,
+    SVGElement: globalThis.SVGElement
+  };
+  Object.assign(globalThis, {
+    window: dom.window,
+    document: dom.window.document,
+    HTMLElement: dom.window.HTMLElement,
+    Element: dom.window.Element,
+    Node: dom.window.Node,
+    SVGElement: dom.window.SVGElement
+  });
+  try {
+    const card = dom.window.document.getElementById("card");
+    assert.ok(card);
+    return handler(card as unknown as HTMLElement);
+  } finally {
+    Object.assign(globalThis, previous);
+    dom.window.close();
+  }
+}
+
+// Shapes copied from tests/fixtures/threads/descriptor/rich-thread.html.
+const AVATAR_IMG =
+  `<img height="36" width="36" alt="alpha's profile picture" ` +
+  `src="https://instagram.fna.fbcdn.net/v/t51.2885-19/371158559_823109449283951_n.jpg?oe=6A37F69F">`;
+const FAVICON_IMG =
+  `<img height="14" width="14" alt="" aria-hidden="true" ` +
+  `src="https://external.fna.fbcdn.net/emg1/v/t13/580727449633084326?url=https%3A%2F%2Fluma.com%2Ffavicon.ico">`;
+const PHOTO_URL =
+  "https://scontent.cdninstagram.com/v/t51.2885-15/482913746_18072936105628190_n.jpg?oe=68D9F3A2";
+const PHOTO_IMG = `<img height="100%" width="100%" alt="A chart" src="${PHOTO_URL}">`;
+
+test("extractImageUrl picks the post attachment over the author avatar", () => {
+  const url = withImageCard(`${AVATAR_IMG}<p>post body</p>${PHOTO_IMG}`, extractImageUrl);
+  assert.equal(url, PHOTO_URL);
+});
+
+test("extractImageUrl returns null for a text-only post that only shows avatars", () => {
+  const url = withImageCard(`${AVATAR_IMG}<p>text only</p>${AVATAR_IMG}`, extractImageUrl);
+  assert.equal(url, null);
+});
+
+test("extractImageUrl ignores link-preview favicons", () => {
+  const url = withImageCard(`${AVATAR_IMG}${FAVICON_IMG}<p>a shared link</p>`, extractImageUrl);
+  assert.equal(url, null);
+});
+
+test("extractImageUrl falls back to a video poster so video posts get a thumbnail", () => {
+  const poster = "https://scontent.cdninstagram.com/v/t51.2885-15/poster_frame.jpg?oe=68D9F3A2";
+  const url = withImageCard(
+    `${AVATAR_IMG}<video poster="${poster}"></video>`,
+    extractImageUrl
+  );
+  assert.equal(url, poster);
+});
+
+test("extractImageUrl rejects an image whose only link is the author profile", () => {
+  // Same media family as a real photo, but wrapped in a bare profile permalink —
+  // the path check alone would let this through.
+  const url = withImageCard(
+    `<a href="/@alpha"><img height="120" width="120" alt="alpha" src="${PHOTO_URL}"></a>`,
+    extractImageUrl
+  );
+  assert.equal(url, null);
+});
+
+test("extractImageUrl drops over-long proxied URLs instead of truncating them", () => {
+  // A truncated URL is a broken URL, and these proxy URLs run past 1,600 chars
+  // in the captured fixture. Dropping keeps per-record storage bounded.
+  const long = `https://external.fna.fbcdn.net/emg1/v/t13/1?url=${"a".repeat(1100)}`;
+  assert.ok(long.length > 1024);
+  const url = withImageCard(`<img height="400" width="400" src="${long}">`, extractImageUrl);
+  assert.equal(url, null);
+});
+
+test("extractImageUrl ignores non-http sources", () => {
+  const url = withImageCard(
+    `<img height="400" width="400" src="data:image/gif;base64,R0lGODlhAQABAAAAACw=">`,
+    extractImageUrl
+  );
+  assert.equal(url, null);
+});
+
+test("extractImageUrl takes the first surviving image in document order", () => {
+  const second = "https://scontent.cdninstagram.com/v/t51.2885-15/quoted_post.jpg";
+  const url = withImageCard(
+    `${PHOTO_IMG}<blockquote><img height="200" width="200" src="${second}"></blockquote>`,
+    extractImageUrl
+  );
+  assert.equal(url, PHOTO_URL);
+});
+
+test("buildTargetDescriptor carries image_url, and reports null rather than omitting it", () => {
+  const withPhoto = withImageCard(
+    `<a href="/@alpha/post/one">1h</a>${PHOTO_IMG}<p>body</p>`,
+    (card) => buildTargetDescriptor(card, "https://www.threads.net/@alpha/post/one")
+  );
+  assert.equal(withPhoto?.image_url, PHOTO_URL);
+
+  const withoutPhoto = withImageCard(
+    `<a href="/@alpha/post/one">1h</a>${AVATAR_IMG}<p>body</p>`,
+    (card) => buildTargetDescriptor(card, "https://www.threads.net/@alpha/post/one")
+  );
+  assert.equal(withoutPhoto?.image_url, null);
+  assert.equal("image_url" in (withoutPhoto ?? {}), true);
 });

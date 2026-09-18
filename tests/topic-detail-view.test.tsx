@@ -1103,8 +1103,10 @@ test("TopicDetailView retains the previous Atlas for stale and failed states", (
 test("TopicDetailView keeps regenerate focus and dispatches one forced rerun while status changes", async () => {
   const { JSDOM } = await import("jsdom");
   const { createRoot } = await import("react-dom/client");
-  const { flushSync } = await import("react-dom");
+  const { act } = await import("react");
   const dom = new JSDOM("<div id=\"root\"></div>", { url: "https://dlens.test" });
+  const reactActGlobal = globalThis as typeof globalThis & { IS_REACT_ACT_ENVIRONMENT?: boolean };
+  const previousActEnvironment = reactActGlobal.IS_REACT_ACT_ENVIRONMENT;
   const previous = {
     window: globalThis.window,
     document: globalThis.document,
@@ -1123,6 +1125,7 @@ test("TopicDetailView keeps regenerate focus and dispatches one forced rerun whi
     Event: dom.window.Event,
     MouseEvent: dom.window.MouseEvent
   });
+  reactActGlobal.IS_REACT_ACT_ENVIRONMENT = true;
 
   const rootElement = dom.window.document.getElementById("root");
   assert.ok(rootElement);
@@ -1155,22 +1158,30 @@ test("TopicDetailView keeps regenerate focus and dispatches one forced rerun whi
   });
 
   try {
-    flushSync(() => root.render(renderStatus("ready")));
+    await act(async () => {
+      root.render(renderStatus("ready"));
+    });
     const regenerate = rootElement.querySelector<HTMLButtonElement>('[data-topic-audit-action="regenerate"]');
     assert.ok(regenerate);
     regenerate.focus();
-    regenerate.dispatchEvent(new dom.window.MouseEvent("click", { bubbles: true }));
+    await act(async () => {
+      regenerate.dispatchEvent(new dom.window.MouseEvent("click", { bubbles: true }));
+    });
     assert.deepEqual(calls, [{ topicId: "topic-1", force: true }]);
 
-    flushSync(() => root.render(renderStatus("running")));
+    await act(async () => {
+      root.render(renderStatus("running"));
+    });
     const runningRegenerate = rootElement.querySelector<HTMLButtonElement>('[data-topic-audit-action="regenerate"]');
     assert.equal(runningRegenerate, null, "the generating session card owns the in-flight state");
     assert.match(rootElement.textContent ?? "", /正在重新生成 Atlas/);
     assert.equal(calls.length, 1, "the in-flight action must not queue a second run");
   } finally {
-    flushSync(() => root.unmount());
-    await new Promise((resolve) => setTimeout(resolve, 0));
+    await act(async () => root.unmount());
     Object.assign(globalThis, previous);
+    if (previousActEnvironment === undefined) delete reactActGlobal.IS_REACT_ACT_ENVIRONMENT;
+    else reactActGlobal.IS_REACT_ACT_ENVIRONMENT = previousActEnvironment;
+    dom.window.close();
   }
 });
 
