@@ -36,8 +36,8 @@ import type {
 } from "../state/messages";
 import type { SignalPacketExportFormat, SignalPacketExportResult } from "../compare/signal-packet-export";
 import type { SignalReading } from "../compare/signal-reading-storage";
-import type { PrCampaign, PrCampaignDraft, PrEvidenceRow, PrNarrativeSettings } from "../state/pr-evidence-storage";
-import { normalizePrCriteria, normalizePrNarrativeSettings, prCampaignToDraft } from "../state/pr-evidence-storage";
+import type { PrCampaign, PrCampaignDraft, PrCriterionId, PrEvidenceRow, PrNarrativeSettings } from "../state/pr-evidence-storage";
+import { normalizePrCriteria, normalizePrNarrativeSettings, PR_ACTIVE_CRITERION_IDS, prCampaignToDraft } from "../state/pr-evidence-storage";
 import { getProcessingFailureMessage, getProcessingFailureUiMessage } from "../state/processing-errors";
 import {
   getItemReadinessStatus,
@@ -81,6 +81,7 @@ import { downloadPrFileExport } from "./pr-summary-export";
 import {
   buildPrEvidenceViewModel,
   summarizeAdvancedMetricsNotice,
+  type PrCriterionReviewMark,
   type PrEvidenceCommand,
   type PrEvidenceUiState
 } from "../viewmodel/pr-evidence";
@@ -113,6 +114,7 @@ const DEFAULT_PR_EVIDENCE_UI_STATE: PrEvidenceUiState = {
   isSaving: false,
   isReadingBrief: false,
   isGeneratingCriteria: false,
+  criteriaReview: {},
   isMatching: false,
   isFetchingAdvancedMetrics: false,
   isGeneratingSummary: false
@@ -2693,6 +2695,23 @@ export function useInPageCollectorAppState({ snapshot, tabId, sendAndSync }: Use
         return next;
       });
     };
+    const markCriterionReview = (criterionId: PrCriterionId, mark: PrCriterionReviewMark) => {
+      setPrEvidenceUiState((current) => ({
+        ...current,
+        criteriaReview: { ...current.criteriaReview, [criterionId]: mark }
+      }));
+    };
+    const setCriterionLabel = (criterionId: PrCriterionId, label: string) => {
+      updateResource((current) => ({
+        ...current,
+        campaign: {
+          ...current.campaign,
+          criteria: current.campaign.criteria.map((criterion) =>
+            criterion.id === criterionId ? { ...criterion, label } : criterion
+          ) as PrCampaignDraft["criteria"]
+        }
+      }));
+    };
     const beginPrRequest = (
       lane: string,
       target: RequestReconcileTarget,
@@ -2776,6 +2795,14 @@ export function useInPageCollectorAppState({ snapshot, tabId, sendAndSync }: Use
             criteria: response.prCriteria,
             narrativeSettings: response.prNarrativeSettings
           }, requestedDraft);
+          setPrEvidenceUiState((current) => ({
+            ...current,
+            criteriaReview: Object.fromEntries(
+              PR_ACTIVE_CRITERION_IDS
+                .filter((id) => nextDraft.criteria.some((criterion) => criterion.id === id && criterion.label.trim()))
+                .map((id) => [id, "candidate" as PrCriterionReviewMark])
+            )
+          }));
           prEvidenceResourceRef.current = {
             ...prEvidenceResourceRef.current,
             campaign: nextDraft,
@@ -2912,6 +2939,18 @@ export function useInPageCollectorAppState({ snapshot, tabId, sendAndSync }: Use
         return;
       case "generateCriteria":
         await generateCriteria(command.campaignName, command.briefText);
+        return;
+      case "confirmCriterion":
+        markCriterionReview(command.criterionId, "confirmed");
+        return;
+      case "correctCriterion":
+        markCriterionReview(command.criterionId, "editing");
+        return;
+      case "markCriterionNotMentioned":
+        /* Not a confirmation: the label is cleared so the criterion stops
+           counting, and the row says so rather than reading as confirmed. */
+        setCriterionLabel(command.criterionId, "");
+        markCriterionReview(command.criterionId, "not_mentioned");
         return;
       case "requestBriefUpload":
         return;

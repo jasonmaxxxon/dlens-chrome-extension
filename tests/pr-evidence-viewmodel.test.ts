@@ -14,6 +14,7 @@ const idleUiState: PrEvidenceUiState = {
   isSaving: false,
   isReadingBrief: false,
   isGeneratingCriteria: false,
+  criteriaReview: {},
   isMatching: false,
   isFetchingAdvancedMetrics: false,
   isGeneratingSummary: false
@@ -28,9 +29,9 @@ const campaign: PrCampaign = {
     { id: "c1", label: "Campaign" },
     { id: "c2", label: "Hashtag" },
     { id: "c3", label: "Message" },
-    { id: "c4", label: "Venue" },
-    { id: "c5", label: "Experience" },
-    { id: "c6", label: "CTA" }
+    { id: "c4", label: "" },
+    { id: "c5", label: "" },
+    { id: "c6", label: "" }
   ],
   narrativeSettings: {
     narrativeAnchor: "Wellness belongs in daily life",
@@ -280,7 +281,9 @@ test("PrEvidence VM composes rows, counters, actions, and exports from resource 
   ]);
   assert.deepEqual(vm.workingArea.tabs, []);
   assert.equal(vm.workingArea.activePane, "match");
-  assert.equal(vm.workingArea.match.caption, "約 1 次 AI call · 6 格");
+  assert.equal(vm.workingArea.match.caption, "約 1 次 AI call · 3 格");
+  assert.equal(vm.workingArea.match.totalCells, 3);
+  assert.equal(vm.ledger.rows[0]?.matchCountLabel, "2 / 3");
   assert.equal(vm.ledger.rows[0]?.authorLabel, "shared_author");
   assert.equal(vm.ledger.rows[0]?.captionLabel, "Shared row from app boundary");
   assert.equal(vm.ledger.rows[0]?.metricLine, "12 喜歡 · 3 回覆 · 1 轉發");
@@ -350,9 +353,9 @@ test("buildPrEvidenceViewModel derives criteria health from matched rows with re
   });
 
   assert.equal(vm.criteriaHealth.totalRows, 10);
-  // Rows matching >= 4 criteria are "strong": index 0 (5), index 1 (4), index 2 (4).
-  assert.equal(vm.criteriaHealth.strongRows, 3);
-  assert.equal(vm.criteriaHealth.criteria.length, 6);
+  /* Strong is 2 of the 3 criteria: index 0-4 match c1+c2+c3, index 5 matches c1+c2. */
+  assert.equal(vm.criteriaHealth.strongRows, 6);
+  assert.equal(vm.criteriaHealth.criteria.length, 3);
 
   // First criterion matched by every row -> strong; carries the real label, not "C1".
   assert.equal(vm.criteriaHealth.criteria[0]?.matchedRows, 10);
@@ -364,12 +367,8 @@ test("buildPrEvidenceViewModel derives criteria health from matched rows with re
   assert.equal(vm.criteriaHealth.criteria[2]?.matchedRows, 5);
   assert.equal(vm.criteriaHealth.criteria[2]?.strength, "partial");
 
-  // Last criterion matched by nobody -> gap, and it is the systemic gap.
-  assert.equal(vm.criteriaHealth.criteria[5]?.matchedRows, 0);
-  assert.equal(vm.criteriaHealth.criteria[5]?.strength, "gap");
-  assert.equal(vm.criteriaHealth.systemicGap?.criterionId, "c6");
-  assert.equal(vm.criteriaHealth.systemicGap?.label, "CTA");
-  assert.equal(vm.criteriaHealth.systemicGap?.missingRows, 10);
+  /* Every counted criterion has coverage here, so there is no systemic gap. */
+  assert.equal(vm.criteriaHealth.systemicGap, null);
 });
 
 test("buildPrEvidenceViewModel reports no systemic gap when every criterion has coverage", () => {
@@ -402,6 +401,153 @@ test("buildPrEvidenceViewModel reports no systemic gap when every criterion has 
   assert.equal(vm.criteriaHealth.criteria.every((entry) => entry.strength === "strong"), true);
 });
 
+test("PrEvidence VM offers three criterion rows, not six", () => {
+  const vm = buildPrEvidenceViewModel({
+    sessionId: "session-pr",
+    resource: {
+      campaign: prCampaignToDraft({
+        ...campaign,
+        criteria: [
+          { id: "c1", label: "Campaign" },
+          { id: "c2", label: "Hashtag" },
+          { id: "c3", label: "Message" },
+          /* Stale labels from the six-criterion era stay in storage. */
+          { id: "c4", label: "Venue" },
+          { id: "c5", label: "Experience" },
+          { id: "c6", label: "CTA" }
+        ]
+      }),
+      rows: [row],
+      summary: "",
+      notice: "",
+      uploadError: "",
+      setupCollapsed: false
+    },
+    uiState: idleUiState
+  });
+
+  assert.deepEqual(vm.campaign.criteriaSetup.map((entry) => entry.id), ["c1", "c2", "c3"]);
+  assert.equal(vm.campaign.countedCriteriaCount, 3);
+  assert.deepEqual(vm.campaign.criteria.map((entry) => entry.id), ["c1", "c2", "c3"]);
+  /* The stale c4..c6 labels are saved as-is but never counted or rendered. */
+  assert.deepEqual(vm.campaign.saveDraft.criteria.map((entry) => entry.label), [
+    "Campaign",
+    "Hashtag",
+    "Message",
+    "Venue",
+    "Experience",
+    "CTA"
+  ]);
+  assert.equal(vm.ledger.rows[0]?.matchCountLabel, "2 / 3");
+  assert.equal(vm.criteriaHealth.criteria.length, 3);
+});
+
+test("PrEvidence VM marks AI candidates for review and gates confirm on brief support", () => {
+  const vm = buildPrEvidenceViewModel({
+    sessionId: "session-pr",
+    resource: {
+      campaign: prCampaignToDraft({
+        ...campaign,
+        briefText: "Shared Launch Campaign opens in March. Register at the venue desk.",
+        criteria: [
+          { id: "c1", label: "Shared Launch Campaign" },
+          { id: "c2", label: "Unrelated invented angle" },
+          { id: "c3", label: "Message" },
+          { id: "c4", label: "" },
+          { id: "c5", label: "" },
+          { id: "c6", label: "" }
+        ]
+      }),
+      rows: [],
+      summary: "",
+      notice: "",
+      uploadError: "",
+      setupCollapsed: false
+    },
+    uiState: {
+      ...idleUiState,
+      criteriaReview: { c1: "candidate", c2: "candidate", c3: "confirmed" }
+    }
+  });
+  const [first, second, third] = vm.campaign.criteriaSetup;
+
+  assert.equal(first?.status, "candidate");
+  assert.equal(first?.supported, true);
+  assert.ok(first?.supportExcerpt.includes("Shared Launch Campaign"));
+  assert.equal(first?.confirmEmphasis, true);
+
+  /* An unsupported candidate still gets a confirm, just never the emphasised one. */
+  assert.equal(second?.status, "candidate");
+  assert.equal(second?.supported, false);
+  assert.equal(second?.confirmEmphasis, false);
+  assert.equal(second?.confirmCommand?.kind, "confirmCriterion");
+
+  assert.equal(third?.status, "confirmed");
+  assert.equal(third?.statusLabel, "已確認");
+  assert.match(vm.campaign.criteriaCaption, /2 條候選/);
+});
+
+test("PrEvidence VM keeps not-mentioned separate from confirmed and out of the denominator", () => {
+  const vm = buildPrEvidenceViewModel({
+    sessionId: "session-pr",
+    resource: {
+      campaign: prCampaignToDraft({
+        ...campaign,
+        criteria: [
+          { id: "c1", label: "Campaign" },
+          { id: "c2", label: "Hashtag" },
+          /* markCriterionNotMentioned clears the label so it stops counting. */
+          { id: "c3", label: "" },
+          { id: "c4", label: "" },
+          { id: "c5", label: "" },
+          { id: "c6", label: "" }
+        ]
+      }),
+      rows: [row],
+      summary: "",
+      notice: "",
+      uploadError: "",
+      setupCollapsed: false
+    },
+    uiState: { ...idleUiState, criteriaReview: { c3: "not_mentioned" } }
+  });
+  const notMentioned = vm.campaign.criteriaSetup[2];
+
+  assert.equal(notMentioned?.status, "not_mentioned");
+  assert.equal(notMentioned?.statusLabel, "未提及 · 不計分");
+  assert.equal(notMentioned?.counted, false);
+  /* Marking is its own act: it is never offered as a confirmation. */
+  assert.equal(notMentioned?.confirmCommand, null);
+  assert.equal(notMentioned?.notMentionedCommand, null);
+  assert.equal(notMentioned?.correctCommand?.kind, "correctCriterion");
+
+  assert.equal(vm.campaign.countedCriteriaCount, 2);
+  assert.match(vm.campaign.criteriaCaption, /1 條標記為未提及/);
+  /* row matches c1 and c3; c3 no longer counts, so the honest read is 1 of 2. */
+  assert.equal(vm.ledger.rows[0]?.matchCountLabel, "1 / 2");
+  assert.equal(vm.workingArea.match.totalCells, 2);
+});
+
+test("PrEvidence VM reports a reloaded label as saved rather than confirmed", () => {
+  const vm = buildPrEvidenceViewModel({
+    sessionId: "session-pr",
+    resource: {
+      campaign: prCampaignToDraft(campaign),
+      rows: [],
+      summary: "",
+      notice: "",
+      uploadError: "",
+      setupCollapsed: false
+    },
+    uiState: idleUiState
+  });
+
+  assert.deepEqual(vm.campaign.criteriaSetup.map((entry) => entry.status), ["saved", "saved", "saved"]);
+  assert.equal(vm.campaign.criteriaSetup[0]?.confirmCommand, null);
+  assert.equal(vm.campaign.criteriaSetup[0]?.correctCommand?.kind, "correctCriterion");
+  assert.equal(vm.campaign.criteriaCaption, "3 條條件計分");
+});
+
 test("PrEvidence VM keeps unsaved draft commands free of id and timestamps", () => {
   const vm = buildPrEvidenceViewModel({
     sessionId: "session-pr",
@@ -427,7 +573,7 @@ test("PrEvidence VM keeps unsaved draft commands free of id and timestamps", () 
     draft: {
       name: "Draft campaign",
       briefText: "Draft brief",
-      criteria: vm.campaign.criteria,
+      criteria: vm.campaign.saveDraft.criteria,
       narrativeSettings: {
         narrativeAnchor: "",
         targetAudience: "",

@@ -92,6 +92,33 @@ export interface PrEvidenceRow {
 
 export const PR_CRITERION_IDS: PrCriterionId[] = ["c1", "c2", "c3", "c4", "c5", "c6"];
 
+/**
+ * Campaign-level cap: a campaign reports on three criteria. The storage
+ * contract keeps all six ids so older campaigns and rows stay readable;
+ * c4..c6 are inert - nothing renders them and no fresh match writes them.
+ */
+export const PR_ACTIVE_CRITERION_LIMIT = 3;
+export const PR_ACTIVE_CRITERION_IDS: PrCriterionId[] = ["c1", "c2", "c3"];
+
+/** The three criterion slots a campaign can use, label present or not. */
+export function activePrCriteria(criteria: readonly PrCriterion[]): PrCriterion[] {
+  return PR_ACTIVE_CRITERION_IDS.map((id) => {
+    const found = criteria.find((criterion) => criterion.id === id);
+    return { id, label: found?.label ?? "" };
+  });
+}
+
+/** The active criteria that carry a label, i.e. the ones that count. */
+export function countedPrCriteria(criteria: readonly PrCriterion[]): PrCriterion[] {
+  return activePrCriteria(criteria).filter((criterion) => criterion.label.trim().length > 0);
+}
+
+/** Ids of the criteria that count, for reading a PrCriteriaMatches record. */
+export function countedPrCriterionIds(criteria: readonly PrCriterion[]): PrCriterionId[] {
+  return countedPrCriteria(criteria).map((criterion) => criterion.id);
+}
+
+
 function createId(prefix: string): string {
   return `${prefix}_${Math.random().toString(36).slice(2, 10)}_${Date.now().toString(36)}`;
 }
