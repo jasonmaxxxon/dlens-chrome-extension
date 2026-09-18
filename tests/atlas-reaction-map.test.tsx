@@ -197,3 +197,91 @@ test("AtlasReactionMap preserves the regeneration copy for audits without compas
   assert.match(html, /data-signal-atlas-compass-hint="true"/);
   assert.match(html, /此審計早於羅盤座標/);
 });
+
+test("AtlasReactionMap names the denominator instead of leaving 可用 N 則 open to posts or comments", async () => {
+  const module = await loadAtlasReactionMap();
+  assert.ok(module, "AtlasReactionMap module must exist");
+  const html = renderToStaticMarkup(
+    <module.AtlasReactionMap patterns={patterns} usableCount={72} selectedId={null} onSelect={() => undefined} />
+  );
+
+  assert.match(html, /data-atlas-denominator-note="true"/);
+  assert.match(html, /78 次留言歸屬（一則留言可屬多個形狀）· 分母為可用留言 72 則，不是貼文數/);
+  // the shape count moved out: the ledger metric and the row list already carry it
+  assert.doesNotMatch(html, /5 個形狀 · 78 次留言歸屬/);
+  assert.match(html, /aria-label="民情羅盤：[^"]*泡泡大小為歸屬於該形狀的留言數"/);
+});
+
+test("AtlasReactionMap says when overlap relaxation moved bubbles off their read coordinates", async () => {
+  const module = await loadAtlasReactionMap();
+  assert.ok(module, "AtlasReactionMap module must exist");
+  const stacked = patterns.slice(0, 3).map((pattern) => ({ ...pattern, valence: 0.5, mode: 0.5 }));
+  const stackedHtml = renderToStaticMarkup(
+    <module.AtlasReactionMap patterns={stacked} usableCount={72} selectedId={null} onSelect={() => undefined} />
+  );
+
+  assert.doesNotMatch(stackedHtml, /data-atlas-compass-nudged-count="0"/);
+  assert.match(stackedHtml, /data-atlas-nudge-note="true"/);
+  assert.match(stackedHtml, /個泡泡位置為避免重疊已微調，已離開原座標/);
+  assert.match(stackedHtml, /data-atlas-bubble-nudged="true"/);
+
+  const spread = [
+    { ...patterns[0]!, valence: -0.9, mode: -0.6 },
+    { ...patterns[1]!, valence: 0.9, mode: 0.6 }
+  ];
+  const spreadHtml = renderToStaticMarkup(
+    <module.AtlasReactionMap patterns={spread} usableCount={72} selectedId={null} onSelect={() => undefined} />
+  );
+
+  assert.match(spreadHtml, /data-atlas-compass-nudged-count="0"/);
+  assert.doesNotMatch(spreadHtml, /data-atlas-nudge-note="true"/);
+  assert.doesNotMatch(spreadHtml, /data-atlas-bubble-nudged="true"/);
+});
+
+test("AtlasReactionMap puts the read valence and mode in the bubble's accessible name and tooltip", async () => {
+  const module = await loadAtlasReactionMap();
+  assert.ok(module, "AtlasReactionMap module must exist");
+  const readout = module.atlasReactionMapTestables.compassReadout;
+  assert.equal(module.atlasReactionMapTestables.formatCompassScalar(-0.8), "-0.80");
+  assert.equal(module.atlasReactionMapTestables.formatCompassScalar(0), "+0.00");
+  assert.equal(readout({ valence: null, mode: 0.5 }), null, "a field slot has no coordinate to report");
+  assert.equal(readout({ valence: -0.8, mode: 0.7 }), "質疑↔支持 -0.80 · 行動↔情緒 +0.70");
+
+  const dom = new JSDOM("<div id=\"root\"></div>", { url: "https://dlens.test" });
+  const previous = {
+    window: globalThis.window, document: globalThis.document, HTMLElement: globalThis.HTMLElement,
+    SVGElement: globalThis.SVGElement, Event: globalThis.Event, MouseEvent: globalThis.MouseEvent,
+    FocusEvent: globalThis.FocusEvent, KeyboardEvent: globalThis.KeyboardEvent
+  };
+  const actGlobal = globalThis as typeof globalThis & { IS_REACT_ACT_ENVIRONMENT?: boolean };
+  const previousActEnvironment = actGlobal.IS_REACT_ACT_ENVIRONMENT;
+  Object.assign(globalThis, {
+    window: dom.window, document: dom.window.document, HTMLElement: dom.window.HTMLElement,
+    SVGElement: dom.window.SVGElement, Event: dom.window.Event, MouseEvent: dom.window.MouseEvent,
+    FocusEvent: dom.window.FocusEvent, KeyboardEvent: dom.window.KeyboardEvent
+  });
+  actGlobal.IS_REACT_ACT_ENVIRONMENT = true;
+  const rootElement = dom.window.document.getElementById("root");
+  assert.ok(rootElement);
+  const root = createRoot(rootElement);
+
+  try {
+    await act(async () => {
+      root.render(<module.AtlasReactionMap patterns={patterns} usableCount={72} selectedId={null} onSelect={() => undefined} />);
+    });
+    const bubble = rootElement.querySelector<SVGGElement>('[data-signal-atlas-dot="doom"]');
+    assert.ok(bubble);
+    assert.match(bubble.getAttribute("aria-label") ?? "", /座標 質疑↔支持 -0\.80 · 行動↔情緒 \+0\.70。/);
+    assert.match(bubble.getAttribute("aria-label") ?? "", /24 則可用留言歸屬於此形狀/);
+
+    await act(async () => bubble.dispatchEvent(new dom.window.MouseEvent("mouseover", { bubbles: true })));
+    const tooltip = rootElement.querySelector('[data-atlas-tooltip-readout="true"]');
+    assert.ok(tooltip, "the tooltip must show the coordinates the LLM actually read");
+    assert.match(tooltip.textContent ?? "", /質疑↔支持 -0\.80 · 行動↔情緒 \+0\.70/);
+  } finally {
+    await act(async () => root.unmount());
+    actGlobal.IS_REACT_ACT_ENVIRONMENT = previousActEnvironment;
+    Object.assign(globalThis, previous);
+    dom.window.close();
+  }
+});

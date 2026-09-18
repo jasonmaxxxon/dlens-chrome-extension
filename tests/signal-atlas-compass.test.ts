@@ -101,3 +101,51 @@ test("layoutSignalAtlasCompass keeps every bubble inside the viewbox", () => {
     assert.ok(bubble.y + bubble.r <= layout.height, `${bubble.id} overflows bottom`);
   }
 });
+
+test("layoutSignalAtlasCompass carries the read scalars and reports a zero nudge when nothing overlaps", () => {
+  const layout = layoutSignalAtlasCompass([
+    pattern({ id: "left", nComments: 20, valence: -0.75, mode: -0.4 }),
+    pattern({ id: "right", nComments: 20, valence: 0.75, mode: 0.4 })
+  ]);
+
+  assert.equal(layout.nudgedCount, 0);
+  for (const bubble of layout.bubbles) {
+    assert.equal(bubble.nudgePx, 0, `${bubble.id} sits on its own reading`);
+  }
+  const left = layout.bubbles.find((bubble) => bubble.id === "left")!;
+  assert.equal(left.valence, -0.75);
+  assert.equal(left.mode, -0.4);
+});
+
+test("layoutSignalAtlasCompass reports how far overlap relaxation moved each bubble", () => {
+  const layout = layoutSignalAtlasCompass([
+    pattern({ id: "a", nComments: 20, valence: 0.5, mode: 0.5 }),
+    pattern({ id: "b", nComments: 20, valence: 0.5, mode: 0.5 }),
+    pattern({ id: "c", nComments: 20, valence: 0.5, mode: 0.5 })
+  ]);
+
+  // relaxation pushes the outer two off the shared point; a middle bubble can net back onto it
+  const moved = layout.bubbles.filter((bubble) => bubble.nudgePx >= 1);
+  assert.ok(moved.length >= 2, "coincident bubbles cannot all claim to sit on their reading");
+  assert.equal(layout.nudgedCount, moved.length, "the reported count must match the bubbles that moved");
+  for (const bubble of layout.bubbles) {
+    // the scalars stay the LLM's reading, not the drawn position
+    assert.equal(bubble.valence, 0.5);
+    assert.equal(bubble.mode, 0.5);
+  }
+});
+
+test("layoutSignalAtlasCompass leaves field slots without scalars, since the slot is not a reading", () => {
+  const layout = layoutSignalAtlasCompass([
+    pattern({ id: "p1", nComments: 31, valence: 0.7, mode: 0.6 }),
+    pattern({ id: "p2", nComments: 21 })
+  ]);
+
+  assert.equal(layout.kind, "field");
+  assert.equal(layout.nudgedCount, 0);
+  for (const bubble of layout.bubbles) {
+    assert.equal(bubble.valence, null);
+    assert.equal(bubble.mode, null);
+    assert.equal(bubble.nudgePx, 0);
+  }
+});
