@@ -1,5 +1,5 @@
 import type { TargetDescriptor } from "../contracts/target-descriptor.ts";
-import type { HoverCandidateStrength, InlineToast, InlineToastKind, SessionRecord, TabUiState } from "./types.ts";
+import type { HoverCandidateStrength, InlineToast, InlineToastKind, InlineToastUndo, SessionRecord, TabUiState } from "./types.ts";
 import { normalizePostUrl } from "./store-helpers.ts";
 
 export function setCollectModeState(tabState: TabUiState, enabled: boolean): TabUiState {
@@ -36,12 +36,18 @@ export function applyHoveredPreview(
   };
 }
 
-export function createInlineToast(kind: InlineToastKind, folderName: string, now = new Date().toISOString()): InlineToast {
+export function createInlineToast(
+  kind: InlineToastKind,
+  folderName: string,
+  now = new Date().toISOString(),
+  undo?: InlineToastUndo | null
+): InlineToast {
   return {
     id: `${kind}-${now}`,
     kind,
     message: kind === "queued" ? `已加入隊列：${folderName}` : `已儲存到：${folderName}`,
-    createdAt: now
+    createdAt: now,
+    ...(undo ? { undo } : {})
   };
 }
 

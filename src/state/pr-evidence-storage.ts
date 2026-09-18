@@ -365,6 +365,21 @@ export async function savePrEvidenceRow(storageArea: StorageAreaLike, row: PrEvi
   return writePrEvidenceRows(storageArea, next);
 }
 
+/** Reverse of the row `savePrEvidenceRow` writes when a PR-evidence save lands.
+ *  Used by the save-undo path so an undone capture leaves no ledger row behind. */
+export async function deletePrEvidenceRowsByItemId(
+  storageArea: StorageAreaLike,
+  campaignId: string,
+  itemId: string
+): Promise<PrEvidenceRow[]> {
+  const rows = await readPrEvidenceRows(storageArea);
+  const next = rows.filter((entry) => !(entry.campaignId === campaignId && entry.itemId === itemId));
+  if (next.length === rows.length) {
+    return rows;
+  }
+  return writePrEvidenceRows(storageArea, next);
+}
+
 export function toPrEvidenceRowFromSessionItem(campaignId: string, item: SessionItem, now = new Date().toISOString()): PrEvidenceRow {
   const descriptor = item.descriptor;
   const engagement = descriptor.engagement || {};

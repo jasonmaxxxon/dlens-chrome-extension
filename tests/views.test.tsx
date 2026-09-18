@@ -1442,7 +1442,9 @@ test("LibraryView renders top-cluster keyword chips and removes the old fingerpr
   assert.match(html, /support/);
   assert.match(html, /policy/);
   assert.match(html, /budget/);
-  assert.match(html, /可比較/);
+  // The row trail carries one status rendering only — the phase badge.
+  assert.doesNotMatch(html, /可比較/);
+  assert.match(html, /data-item-phase="ready"/);
   assert.doesNotMatch(html, /data-library-fingerprint="bar"/);
 });
 

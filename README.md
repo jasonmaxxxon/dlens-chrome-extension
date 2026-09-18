@@ -2,9 +2,9 @@
 
 DLens is a mode-aware MV3 Chrome extension for capturing Threads posts and turning them into research, product-signal, and PR evidence workflows.
 
-> Last updated: 2026-08-24
-> Current source version: `0.3.60` · Topic crawl evidence reconciles against a fully hydrated current inventory without rerunning or replacing the last Atlas
-> Release state: `0.3.60` is published on `main` under `v0.3.60`. The full static gate and MV3 production build passed on 2026-08-24; real-Chrome validation on a real Threads page confirmed the backend recovered, current Topic coverage reconciled from 19 to 20, and a remaining failed source is explicitly retryable rather than silently treated as ready.
+> Last updated: 2026-09-18
+> Current source version: `0.3.61` · Collection list has local search over `text_snippet` + `author_hint`, and a save can be undone for 5 seconds from its own toast
+> Release state: `0.3.60` is published on `main` under `v0.3.60`. `0.3.61` is source-only: the full static gate and MV3 production build passed on 2026-09-18, real-Chrome validation on a real Threads page is still outstanding. The 0.3.60 release notes below remain current for everything else.
 > Positioning: local power-tool (self + small technical circle); two separate repos (extension public · ingest-core **private**), not monorepo. The active visual contract is the translucent `workspaceGlass` shell, soft colour auras, layered gradients, and restrained attention lighting defined in `src/ui/tokens.ts` and `src/ui/motion.ts`.
 > Load-unpacked build path: `output/chrome-mv3`
 > Stability note: `TRACE`, `SEAM_GUARD`, `RECONCILE`, `INVALIDATE`, `BOUNDARY`, and `MIGRATE` are locked in the live architecture map. Visual Reset A shipped the native-feeling shell plus PR Evidence, Topic, Compare, and Product marquee surfaces without changing storage, backend, ViewModel, command, or signal-packet contracts.
@@ -46,6 +46,7 @@ Recent PRs and local commits changed the shape more than the old README suggeste
 - PR #68-#71 handled post-reset LOC/overflow fixes: Library/Compare split, popup clipping, topic removal, masthead containment.
 - Local 0.3.6/0.3.7 commits and worktree changes compact Product saved-signal rows, suppress stale backend errors, restore the extension action side panel, and move Product classification visibility into the Saved Signals surface.
 - Local 0.3.45-0.3.49 commits (2026-07-14–17) shipped model transport fixes (stable Gemini ID, Claude Sonnet 5, Retry-After), the S2-S5 topic truth contract, S7 single-poller status sync, S6 PR narrative semantic repair, Wave 3 render hot-path hardening, the 0.3.48 timeout/storage-integrity fixes, and 0.3.49 Topic session envelope resilience.
+- 0.3.61 collection search + save undo: the Library post list filters locally on `text_snippet` and `author_hint` once it holds at least 6 rows (no new storage field, no migration, no AI), and a save that actually created a new row stamps an undo handle on its toast. Pressing 復原 within 5 seconds removes the item together with everything the save derived from it (signal, product analysis, signal tags, PR evidence row). Re-saving a post already in the folder refreshes it and is deliberately not undoable.
 - 0.3.60 Topic crawl evidence reconciliation: opening a Topic now rebuilds and persists only its evidence packets after the complete Topic/session inventory is hydrated. It does not invoke Atlas generation or replace the published memo/report/episode artifacts; the previous Atlas remains honestly stale until a manual regeneration. A conditional write on the shared mutation queue prevents a newly running audit from being overwritten, and a failed-only source remains a visible retry target instead of incorrectly producing a ready-to-generate state.
 - 0.3.59 moves the complete Product reading into ProductSignalAnalyzer v21, publishes analysis + reading atomically, removes the duplicate proposal/deep-reading paths, preserves reading identity and packet provenance, scopes the Light Beam to the whole reading card, and migrates extension state to omit backend-only `raw_payload` mirrors.
 

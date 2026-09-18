@@ -303,6 +303,35 @@ export function FlashPreviewCard({
   );
 }
 
+/** The undo affordance inside the save toast. It lives for the toast's 5-second
+ *  window only — there is no persistent inline control on the collection list. */
+function UndoSaveAction({ onUndo }: { onUndo: () => void }) {
+  return (
+    <button
+      type="button"
+      data-collector-undo-save="true"
+      onClick={onUndo}
+      style={{
+        border: `1px solid ${tokens.color.line}`,
+        background: tokens.color.elevated,
+        borderRadius: TOKENS.pillRadius,
+        padding: "3px 10px",
+        marginLeft: "auto",
+        cursor: "pointer",
+        fontFamily: tokens.font.sans,
+        fontSize: 11,
+        fontWeight: 700,
+        lineHeight: 1.45,
+        color: tokens.color.subInk,
+        whiteSpace: "nowrap",
+        pointerEvents: "auto"
+      }}
+    >
+      復原
+    </button>
+  );
+}
+
 export function InPageCollectorOverlays({ app }: { app: InPageCollectorAppModel }) {
   const {
     snapshot,
@@ -313,6 +342,7 @@ export function InPageCollectorOverlays({ app }: { app: InPageCollectorAppModel 
     flashStyle,
     displayToast,
     successToastDescriptor,
+    pendingUndoSave,
     preview,
     popupOpen
   } = app;
@@ -326,6 +356,9 @@ export function InPageCollectorOverlays({ app }: { app: InPageCollectorAppModel 
     return () => window.clearTimeout(timer);
   }, [inlineSuccess]);
 
+  const undoSaveAction = pendingUndoSave && displayToast?.kind === "saved"
+    ? <UndoSaveAction onUndo={() => void app.onUndoSave()} />
+    : null;
   const activeMode = app.activeFolderMode ?? app.activeFolder?.mode ?? "archive";
   const cardDescriptor = inlineSuccess?.descriptor ?? flashPreview ?? null;
   const cardStyle = inlineSuccess?.style ?? flashStyle ?? null;
@@ -529,9 +562,11 @@ export function InPageCollectorOverlays({ app }: { app: InPageCollectorAppModel 
               />
               <span style={{ fontSize: 12, fontWeight: 800, color: tokens.color.success }}>{displayToast.message}</span>
             </span>
-            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke={tokens.color.success} strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-              <path d="M20 6 9 17l-5-5" />
-            </svg>
+            {undoSaveAction ?? (
+              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke={tokens.color.success} strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M20 6 9 17l-5-5" />
+              </svg>
+            )}
           </div>
           <CollectorGist>{successToastDescriptor.text_snippet || "已保存的 Threads 貼文"}</CollectorGist>
           <CollectorMetricStrip descriptor={successToastDescriptor} marker="success" />
@@ -567,6 +602,7 @@ export function InPageCollectorOverlays({ app }: { app: InPageCollectorAppModel 
             {displayToast.kind === "saved" ? <path d="M20 6 9 17l-5-5" /> : <path d="M12 2v10l4 2" />}
           </svg>
           {displayToast.message}
+          {undoSaveAction}
         </div>
       ) : null}
     </>

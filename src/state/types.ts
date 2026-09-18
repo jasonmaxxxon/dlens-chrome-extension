@@ -42,11 +42,20 @@ export interface LayoutPreferences {
   language?: UiLanguage;
 }
 
+/** Reference to the item a save just created, so the toast can offer an undo
+ *  inside the undo window. Absent when the save only refreshed an item that
+ *  was already in the folder — re-saving a known post is not undoable. */
+export interface InlineToastUndo {
+  sessionId: string;
+  itemId: string;
+}
+
 export interface InlineToast {
   id: string;
   kind: InlineToastKind;
   message: string;
   createdAt: string;
+  undo?: InlineToastUndo;
 }
 
 export interface ExtensionSettings {

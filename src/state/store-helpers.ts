@@ -248,9 +248,12 @@ export function saveDescriptorToSession(
   globalState: ExtensionGlobalState,
   sessionId: string,
   descriptor: TargetDescriptor
-): { globalState: ExtensionGlobalState; item: SessionItem } {
+): { globalState: ExtensionGlobalState; item: SessionItem; created: boolean } {
   const now = new Date().toISOString();
   let savedItem: SessionItem | null = null;
+  // A save that only refreshes an already-collected post must not be offered as
+  // undoable — undoing it would delete a row the user collected earlier.
+  let created = false;
   const normalizedUrl = normalizePostUrl(descriptor.post_url);
 
   const sessions = globalState.sessions.map((session) => {
@@ -274,6 +277,7 @@ export function saveDescriptorToSession(
     }
 
     savedItem = createSessionItem(descriptor, now);
+    created = true;
     return {
       ...session,
       updatedAt: now,
@@ -291,7 +295,8 @@ export function saveDescriptorToSession(
       sessions,
       updatedAt: now
     },
-    item: savedItem
+    item: savedItem,
+    created
   };
 }
 
