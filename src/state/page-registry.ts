@@ -6,7 +6,6 @@ export type PageComponentKind =
   | "collect"
   | "compare"
   | "casebook"
-  | "inbox"
   | "product-signal"
   | "pr-evidence"
   | "result"
@@ -45,7 +44,7 @@ export const PAGE_REGISTRY: ReadonlyArray<PageRegistryEntry> = [
     railVisible: true,
     componentKind: "collect",
     allowedFrom: ["archive", "topic", "product", "pr-evidence"],
-    orderByMode: { archive: 2, topic: 1, product: 4, "pr-evidence": 2 }
+    orderByMode: { archive: 2, topic: 1, product: 2, "pr-evidence": 2 }
   },
   {
     key: "compare",
@@ -63,14 +62,6 @@ export const PAGE_REGISTRY: ReadonlyArray<PageRegistryEntry> = [
     componentKind: "result",
     allowedFrom: [],
     bypassModeGuard: true
-  },
-  {
-    key: "casebook",
-    mode: "topic",
-    width: PAGE_POPUP_WIDTH,
-    railVisible: false,
-    componentKind: "casebook",
-    allowedFrom: []
   },
   {
     key: "topics",
@@ -92,15 +83,9 @@ export const PAGE_REGISTRY: ReadonlyArray<PageRegistryEntry> = [
     bypassModeGuard: true
   },
   {
-    key: "inbox",
-    mode: "topic",
-    width: PAGE_POPUP_WIDTH,
-    railVisible: false,
-    componentKind: "inbox",
-    allowedFrom: []
-  },
-  {
-    key: "saved-signals",
+    // One destination for every saved Product signal. The intake / category /
+    // action views that used to be three rail entries are filters inside it.
+    key: "signals",
     mode: "product",
     width: PAGE_POPUP_WIDTH,
     railVisible: true,
@@ -108,24 +93,6 @@ export const PAGE_REGISTRY: ReadonlyArray<PageRegistryEntry> = [
     allowedFrom: ["product"],
     homeFor: ["product"],
     orderByMode: { product: 1 }
-  },
-  {
-    key: "classification",
-    mode: "product",
-    width: PAGE_POPUP_WIDTH,
-    railVisible: false,
-    componentKind: "product-signal",
-    allowedFrom: ["product"],
-    orderByMode: { product: 2 }
-  },
-  {
-    key: "actionable-filter",
-    mode: "product",
-    width: PAGE_POPUP_WIDTH,
-    railVisible: true,
-    componentKind: "product-signal",
-    allowedFrom: ["product"],
-    orderByMode: { product: 3 }
   },
   {
     key: "pr-evidence",
@@ -158,6 +125,14 @@ export const PAGE_REGISTRY: ReadonlyArray<PageRegistryEntry> = [
 ];
 
 const PAGE_BY_KEY = new Map(PAGE_REGISTRY.map((entry) => [entry.key, entry]));
+
+/** A persisted tab can still name a route retired by a later version (the
+ *  0.4.1 signal-filter merge retired saved-signals / classification /
+ *  actionable-filter / inbox / casebook). Callers resolving a stored page must
+ *  check this first so an upgrade lands on the mode home instead of throwing. */
+export function isKnownPage(page: PopupPage): boolean {
+  return PAGE_BY_KEY.has(page);
+}
 
 function readPageEntry(page: PopupPage): PageRegistryEntry {
   const entry = PAGE_BY_KEY.get(page);

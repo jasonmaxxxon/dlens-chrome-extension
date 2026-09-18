@@ -1047,13 +1047,9 @@ type PrimaryWorkspaceMode = Extract<
   WorkspaceMode,
   | "collect"
   | "topics"
-  | "casebook"
-  | "inbox"
   | "library"
   | "compare"
-  | "saved-signals"
-  | "classification"
-  | "actionable-filter"
+  | "signals"
   | "pr-evidence"
 >;
 
@@ -1062,13 +1058,9 @@ type RailTier = "primary" | "tool";
 const PRIMARY_WORKSPACE_MODES: ReadonlyArray<{ key: PrimaryWorkspaceMode; label: string; labelEn: string; tier?: RailTier }> = [
   { key: "collect", label: "採集", labelEn: "Collect" },
   { key: "topics", label: "議題", labelEn: "Topics" },
-  { key: "casebook", label: "主題", labelEn: "Casebook" },
-  { key: "inbox", label: "收件匣", labelEn: "Inbox" },
   { key: "library", label: "脈絡", labelEn: "Context" },
   { key: "compare", label: "比較", labelEn: "Compare", tier: "tool" },
-  { key: "saved-signals", label: "訊號", labelEn: "Signals" },
-  { key: "classification", label: "分類", labelEn: "Classify" },
-  { key: "actionable-filter", label: "行動", labelEn: "Actions" },
+  { key: "signals", label: "訊號", labelEn: "Signals" },
   { key: "pr-evidence", label: "PR", labelEn: "PR" }
 ];
 
@@ -1088,22 +1080,14 @@ function railIcon(mode: PrimaryWorkspaceMode) {
   switch (mode) {
     case "topics":
       return <svg {...common}><path d="M6 5.5A2.5 2.5 0 0 1 8.5 3H18v17.5H8.5A2.5 2.5 0 0 0 6 23" /><path d="M6 5.5V23" /><path d="M10 8h5" /><path d="M10 12h5" /></svg>;
-    case "casebook":
-      return <svg {...common}><path d="M6 5.5A2.5 2.5 0 0 1 8.5 3H18v17.5H8.5A2.5 2.5 0 0 0 6 23" /><path d="M6 5.5V23" /><path d="M10 8h5" /><path d="M10 12h5" /></svg>;
-    case "inbox":
-      return <svg {...common}><path d="M3 7a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2v10a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z" /><path d="m3 7 9 6 9-6" /></svg>;
     case "library":
       return <svg {...common}><circle cx="6" cy="6" r="2" /><circle cx="18" cy="6" r="2" /><circle cx="12" cy="18" r="2" /><circle cx="6" cy="13" r="1.5" /><path d="M8 6h8" /><path d="M7 13l4 4" /><path d="M17 8l-4 9" /></svg>;
     case "compare":
       return <svg {...common}><path d="M12 3v18" /><path d="M3 12h18" /><path d="M7 7l-4 5 4 5" /><path d="M17 7l4 5-4 5" /></svg>;
     case "collect":
       return <svg {...common}><circle cx="12" cy="12" r="9" /><circle cx="12" cy="12" r="1.5" /></svg>;
-    case "saved-signals":
+    case "signals":
       return <svg {...common}><path d="M5 5h14v14H5z" /><path d="M8 9h8" /><path d="M8 13h5" /><path d="M8 17h3" /></svg>;
-    case "classification":
-      return <svg {...common}><rect x="4" y="4" width="7" height="7" rx="1" /><rect x="13" y="4" width="7" height="7" rx="1" /><rect x="4" y="13" width="7" height="7" rx="1" /><rect x="13" y="13" width="7" height="7" rx="1" /></svg>;
-    case "actionable-filter":
-      return <svg {...common}><path d="M3 4h18l-7 8v5l-4 2v-7z" /></svg>;
     case "pr-evidence":
       return <svg {...common}><path d="M5 4h14v16H5z" /><path d="M8 8h8" /><path d="M8 12h8" /><path d="M8 16h4" /></svg>;
   }

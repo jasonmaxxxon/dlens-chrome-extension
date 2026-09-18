@@ -151,9 +151,14 @@ git diff --check
   Saved Signals is lifecycle intake only. Do not reintroduce a review-action
   group or selected-brief shelf that the current Product UI does not render.
   Backend clusters are support data, never the user-facing abstraction.
-  Product rail contract:
-  `getModeRailPages("product") === ["saved-signals", "actionable-filter",
-  "collect"]` (guarded by `tests/product-routing.test.ts`).
+  Product rail contract (0.4.1 signal-filter merge):
+  `getModeRailPages("product") === ["signals", "collect"]` (guarded by
+  `tests/product-routing.test.ts`). The former `saved-signals` /
+  `classification` / `actionable-filter` routes — and the never-reachable
+  `inbox` / `casebook` entries — are gone; intake, category and action are
+  filters inside the one `signals` page (`data-signals-filter`). A persisted
+  tab naming a retired route resolves to the mode home instead of throwing
+  (`resolveEffectivePopupPage`); do not reintroduce a second product route.
 - **PR Evidence** V1: one active campaign per session; criteria fixed at
   `c1..c6` (labels editable, count not); Collect never runs AI; match output
   is `✓ / blank` only; CSV (UTF-8 BOM) is the primary output. Non-goals: no

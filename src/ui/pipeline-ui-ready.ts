@@ -47,7 +47,7 @@ export function buildProductUiReadyEvent(viewModel: ProductSignalWorkspaceViewMo
     result,
     detail: {
       surface: "product",
-      kind: viewModel.kind,
+      kind: "signals",
       loadState: viewModel.loadState,
       signalCount: viewModel.signalCount,
       completedAnalysisCount: viewModel.completedAnalysisCount,

@@ -19,7 +19,7 @@ import { getPageComponentKind, getPageWidth } from "../state/page-registry";
 import { IS_PR_ONLY_BUILD } from "../build-variant";
 import { LibraryView } from "./LibraryView";
 import { ProcessingStrip } from "./ProcessingStrip";
-import { ProductSignalView, type ProductSignalPageKind } from "./ProductSignalViews";
+import { ProductSignalView } from "./ProductSignalViews";
 import { PrEvidenceView } from "./PrEvidenceViews";
 import { SettingsView } from "./SettingsView";
 import { TopicDetailView } from "./TopicDetailView";
@@ -86,7 +86,7 @@ function isRailMode(page: PopupPage): page is RailMode {
   return page !== "settings" && page !== "audit-report" && page !== "result" && page !== "topic-detail";
 }
 
-function isProductSignalPageKind(page: PopupPage): page is ProductSignalPageKind {
+function isProductSignalPage(page: PopupPage): boolean {
   return getPageComponentKind(page) === "product-signal";
 }
 
@@ -155,9 +155,8 @@ function OpenInPageCollectorPopup({
       name: session.name,
       itemCount: session.items.length
     }));
-  const productSignalViewModel = snapshot && isProductSignalPageKind(page)
+  const productSignalViewModel = snapshot && isProductSignalPage(page)
     ? buildProductSignalWorkspaceViewModel({
-        kind: page,
         snapshot,
         signals: app.signals,
         analyses: app.productSignalAnalyses,
@@ -206,8 +205,6 @@ function OpenInPageCollectorPopup({
     switch (command.kind) {
       case "analyzeInbox":
         return app.onAnalyzeProductSignals();
-      case "openActionable":
-        return app.onNavigate("actionable-filter");
       case "remove":
         return app.onRemoveProductSignal(command.target.signalId);
       case "reviewReading":
@@ -477,7 +474,6 @@ function OpenInPageCollectorPopup({
               <ModeRail
                 activeMode={guardedPrimaryMode}
                 modes={allowedRailModes}
-                badgeCounts={{ casebook: app.savedAnalyses?.length ?? 0 }}
                 onSelect={(mode) => void app.onNavigate(mode)}
               />
               <UtilityEdge active={guardedPage === "settings"} onSelect={() => void app.onNavigate("settings")} />
@@ -551,7 +547,7 @@ function OpenInPageCollectorPopup({
             </WorkspaceSurface>
           ) : null}
 
-          {guardedPage === "topic-detail" || guardedPage === "casebook" ? (
+          {guardedPage === "topic-detail" ? (
             <WorkspaceSurface style={{ padding: 0, background: "transparent", boxShadow: "none", border: "none", overflow: "visible" }}>
               {topicDetailViewModel ? (
                 <TopicDetailView

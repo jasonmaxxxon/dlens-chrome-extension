@@ -13,18 +13,17 @@ export type TriageAction =
   | { kind: "archive" }
   | { kind: "reject" };
 
+/** Signal-filter routes collapsed into one `signals` page (0.4.1): the former
+ *  casebook / inbox / saved-signals / classification / actionable-filter keys
+ *  are now filters inside it, not separate rail destinations. */
 export type MainPage =
   | "library"
   | "collect"
   | "compare"
   | "result"
-  | "casebook"
   | "topics"
   | "topic-detail"
-  | "inbox"
-  | "saved-signals"
-  | "classification"
-  | "actionable-filter"
+  | "signals"
   | "pr-evidence";
 export type PopupPage = MainPage | "settings" | "audit-report";
 export type SessionItemStatus = "saved" | "queued" | "running" | "succeeded" | "failed";

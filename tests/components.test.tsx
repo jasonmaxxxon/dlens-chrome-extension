@@ -109,8 +109,7 @@ test("ModeRail renders only the allowed archive-mode items when a custom rail is
   assert.match(html, /data-mode="library"/);
   assert.match(html, /data-mode="collect"/);
   assert.doesNotMatch(html, /data-mode="compare"/);
-  assert.doesNotMatch(html, /data-mode="casebook"/);
-  assert.doesNotMatch(html, /data-mode="inbox"/);
+  assert.doesNotMatch(html, /data-mode="signals"/);
   assert.doesNotMatch(html, /data-mode="result"/);
   assert.doesNotMatch(html, /Settings/);
 
@@ -122,7 +121,7 @@ test("ModeRail renders only the allowed archive-mode items when a custom rail is
 });
 
 test("ModeRail rail labels stay 繁中 by default and switch to English under the language provider", () => {
-  const railModes = ["collect", "topics", "inbox"] as const;
+  const railModes = ["collect", "topics", "signals"] as const;
   const zhHtml = renderToStaticMarkup(
     React.createElement(ModeRail, { activeMode: "collect", modes: [...railModes], onSelect: () => undefined })
   );
@@ -139,7 +138,7 @@ test("ModeRail rail labels stay 繁中 by default and switch to English under th
   );
   assert.match(enHtml, /Collect/);
   assert.match(enHtml, /Topics/);
-  assert.match(enHtml, /Inbox/);
+  assert.match(enHtml, /Signals/);
   assert.doesNotMatch(enHtml, /採集/);
 });
 
@@ -147,21 +146,22 @@ test("ModeRail uses the design-system rail icon language", () => {
   const html = renderToStaticMarkup(
     React.createElement(ModeRail, {
       activeMode: "collect",
-      modes: ["inbox", "compare", "collect", "saved-signals", "classification", "actionable-filter"],
+      modes: ["topics", "compare", "collect", "signals"],
       onSelect: () => undefined
     })
   );
 
-  assert.match(html, /m3 7 9 6 9-6/);
   assert.match(html, /M12 3v18/);
   assert.match(html, /M3 12h18/);
   assert.match(html, /M7 7l-4 5 4 5/);
   assert.match(html, /M17 7l4 5-4 5/);
   assert.match(html, /cx="12" cy="12" r="1.5"/);
   assert.match(html, /M8 9h8/);
-  assert.match(html, /x="4" y="4" width="7" height="7"/);
-  assert.match(html, /M3 4h18l-7 8v5l-4 2v-7z/);
   assert.doesNotMatch(html, /M7 5h3v14/);
+  // The inbox envelope, classification grid and action funnel left with their routes.
+  assert.doesNotMatch(html, /m3 7 9 6 9-6/);
+  assert.doesNotMatch(html, /x="4" y="4" width="7" height="7"/);
+  assert.doesNotMatch(html, /M3 4h18l-7 8v5l-4 2v-7z/);
 });
 
 test("UtilityEdge keeps settings outside the primary mode rail", () => {
@@ -374,18 +374,18 @@ test("WorkspaceShell masthead exposes the extension build version", () => {
 test("ModeHeader uses the Topic list intro grammar across modes", () => {
   const html = renderToStaticMarkup(
     React.createElement(ModeHeader, {
-      mode: "saved-signals",
+      mode: "signals",
       kicker: "Product mode",
       title: "Saved Signals",
       deck: "Read the real inbox state."
     })
   );
 
-  assert.match(html, /data-mode-header="saved-signals"/);
+  assert.match(html, /data-mode-header="signals"/);
   assert.match(html, /data-mode-intro="topic"/);
   assert.match(html, /padding:10px 4px 0/);
-  assert.doesNotMatch(html, /data-mode-header="saved-signals"[^>]*border-radius:20px/);
-  assert.doesNotMatch(html, /data-mode-header="saved-signals"[^>]*0 4px 14px -4px rgba\(27,26,23,0\.07\)/);
+  assert.doesNotMatch(html, /data-mode-header="signals"[^>]*border-radius:20px/);
+  assert.doesNotMatch(html, /data-mode-header="signals"[^>]*0 4px 14px -4px rgba\(27,26,23,0\.07\)/);
   assert.match(html, /Saved Signals<\/h2>/);
   assert.match(html, /font-weight:900/);
 });
@@ -395,7 +395,7 @@ test("WorkspaceShell renders masthead WorkspaceSwitcher when onSwitchWorkspace i
     React.createElement(
       WorkspaceShell,
       {
-        mode: "saved-signals",
+        mode: "signals",
         folderMode: "product",
         onSwitchWorkspace: () => {},
         availableWorkspaceModes: ["topic", "product", "pr-evidence"] as const,
@@ -611,7 +611,7 @@ test("WorkspaceShell marks a pending workspace switch immediately", () => {
     React.createElement(
       WorkspaceShell,
       {
-        mode: "saved-signals",
+        mode: "signals",
         folderMode: "product",
         onSwitchWorkspace: () => {},
         availableWorkspaceModes: ["topic", "product", "pr-evidence"] as const,
@@ -715,7 +715,7 @@ test("WorkspaceShell masthead omits nonessential shortcut and issue chrome in th
     React.createElement(
       WorkspaceShell,
       {
-        mode: "saved-signals",
+        mode: "signals",
         folderMode: "product",
         onSwitchWorkspace: () => {},
         availableWorkspaceModes: ["topic", "product", "pr-evidence"] as const,

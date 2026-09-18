@@ -33,7 +33,6 @@ export type ProductSignalAction =
 
 export type ProductSignalCommand =
   | { kind: "analyzeInbox"; target: { sessionId: string } }
-  | { kind: "openActionable"; target: { sessionId: string } }
   | { kind: "remove"; target: { sessionId: string; signalId: string } }
   | { kind: "reviewReading"; target: { sessionId: string; signalId: string; cacheKey: string }; decision: "filed" | "deferred" | "rejected"; note?: string }
   | { kind: "exportSignalPackets"; target: { sessionId: string }; format: "html" | "jsonl" };
@@ -60,9 +59,18 @@ export interface ProductSignalViewModel {
   actions: ProductSignalAction[];
 }
 
+/** What the merged signals page shows about the compiled ProductContext when the
+ *  action filter is active: readings are only as good as the context they were
+ *  judged against, so the page states whether one exists and how old it is. */
+export interface ProductContextSummary {
+  compiled: boolean;
+  compiledAt: string | null;
+  promptVersion: string | null;
+}
+
 export interface ProductSignalWorkspaceViewModel {
-  kind: "saved-signals" | "classification" | "actionable-filter";
   sessionId: string | null;
+  productContextSummary: ProductContextSummary;
   productProfile: ProductProfile | null;
   signals: ProductSignalViewModel[];
   pendingSignals: ProductSignalViewModel[];
@@ -87,7 +95,6 @@ export interface ProductSignalWorkspaceViewModel {
 }
 
 export interface BuildProductSignalWorkspaceViewModelInput {
-  kind: ProductSignalWorkspaceViewModel["kind"];
   snapshot: ExtensionSnapshot;
   signals: Signal[];
   analyses: ProductSignalAnalysis[];
@@ -349,29 +356,21 @@ function buildSignalViewModels({
   });
 }
 
-function buildWorkspaceActions(
-  kind: ProductSignalWorkspaceViewModel["kind"],
-  sessionId: string | null,
-  hasActionable: boolean
-): ProductSignalCommand[] {
+// The merged signals page owns intake, category and action in one route, so the
+// folder packet export is always available here rather than only on the former
+// actionable-filter route.
+function buildWorkspaceActions(sessionId: string | null): ProductSignalCommand[] {
   if (!sessionId) {
     return [];
   }
-  const actions: ProductSignalCommand[] = [{ kind: "analyzeInbox", target: { sessionId } }];
-  if (kind === "actionable-filter") {
-    actions.push(
-      { kind: "exportSignalPackets", target: { sessionId }, format: "html" },
-      { kind: "exportSignalPackets", target: { sessionId }, format: "jsonl" }
-    );
-  }
-  if (hasActionable) {
-    actions.push({ kind: "openActionable", target: { sessionId } });
-  }
-  return actions;
+  return [
+    { kind: "analyzeInbox", target: { sessionId } },
+    { kind: "exportSignalPackets", target: { sessionId }, format: "html" },
+    { kind: "exportSignalPackets", target: { sessionId }, format: "jsonl" }
+  ];
 }
 
 export function buildProductSignalWorkspaceViewModel({
-  kind,
   snapshot,
   signals,
   analyses,
@@ -428,8 +427,12 @@ export function buildProductSignalWorkspaceViewModel({
   const evidenceBySignalId = Object.fromEntries(rows.map((signal) => [signal.signalId, signal.evidence] as const));
   const signalReadinessById = Object.fromEntries(rows.map((signal) => [signal.signalId, signal.readiness] as const));
   return {
-    kind,
     sessionId: activeFolder?.id ?? null,
+    productContextSummary: {
+      compiled: Boolean(productContext),
+      compiledAt: productContext?.compiledAt ?? null,
+      promptVersion: productContext?.promptVersion ?? null
+    },
     productProfile,
     signals: rows,
     pendingSignals,
@@ -450,7 +453,7 @@ export function buildProductSignalWorkspaceViewModel({
     analysisNotice,
     isAnalyzing,
     aiProviderReady,
-    actions: buildWorkspaceActions(kind, activeFolder?.id ?? null, scopedAnalyses.length > 0)
+    actions: buildWorkspaceActions(activeFolder?.id ?? null)
   };
 }
 

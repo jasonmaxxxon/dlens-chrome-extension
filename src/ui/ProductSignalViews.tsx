@@ -56,31 +56,48 @@ import { useUiText } from "./i18n";
 import { modeThemes, tokens, textStyles } from "./tokens";
 import { useCausalListMotion } from "./useCausalListMotion";
 
-export type ProductSignalPageKind = "saved-signals" | "classification" | "actionable-filter";
+/** The three views that used to be three rail destinations. They are now filters
+ *  inside the single `signals` page; the route no longer selects between them. */
+export type SignalsFilter = "intake" | "category" | "action";
+
+const SIGNALS_FILTER_ORDER: ReadonlyArray<SignalsFilter> = ["intake", "category", "action"];
+
+/** Formats a stored ISO timestamp. Reads no clock, so it stays inside the View
+ *  boundary (no Date.now / performance.now). */
+function formatContextCompiledAt(compiledAt: string | null): string {
+  if (!compiledAt) {
+    return "編譯時間未知";
+  }
+  const parsed = new Date(compiledAt);
+  if (Number.isNaN(parsed.getTime())) {
+    return "編譯時間未知";
+  }
+  return `${parsed.getFullYear()}-${String(parsed.getMonth() + 1).padStart(2, "0")}-${String(parsed.getDate()).padStart(2, "0")} 編譯`;
+}
 
 /* DLENS_MOTION_CSS now lives in ./motion (the single motion owner). Re-exported
  * here so the threads content script and existing imports/tests keep working. */
 export { DLENS_MOTION_CSS } from "./motion";
 
-const PAGE_COPY: Record<ProductSignalPageKind, { title: string; titleEn: string; deck: string; deckEn: string }> = {
-  "saved-signals": {
-    title: "已存訊號",
-    titleEn: "Saved signals",
-    deck: "先確認已儲存的 Threads post 是否完成抓取，再到行動頁整理可試 workflow。",
-    deckEn: "Confirm the saved Threads posts finished crawling, then head to Actions to shape a workflow to try."
+const FILTER_COPY: Record<SignalsFilter, { label: string; labelEn: string; deck: string; deckEn: string }> = {
+  intake: {
+    label: "收錄",
+    labelEn: "Intake",
+    deck: "先確認已儲存的 Threads post 是否完成抓取。",
+    deckEn: "Confirm the saved Threads posts finished crawling."
   },
-  classification: {
-    title: "分類整理",
-    titleEn: "Classify",
-    deck: "先把每則 Threads signal 放回正確範疇，再決定是否值得產品團隊處理。",
-    deckEn: "Sort each Threads signal back into the right category, then decide if it's worth the product team's time."
+  category: {
+    label: "範疇",
+    labelEn: "Category",
+    deck: "把每則 Threads signal 放回正確範疇。",
+    deckEn: "Sort each Threads signal back into the right category."
   },
-  "actionable-filter": {
-    title: "行動簡報",
-    titleEn: "Action brief",
-    deck: "先審視模型判讀，再把已收錄 reading 組成可貼給 coding agent 的 brief。",
-    deckEn: "Review the model's read, then compose the collected readings into a brief you can paste to a coding agent."
-  },
+  action: {
+    label: "行動",
+    labelEn: "Action",
+    deck: "審視模型判讀，再把已收錄 reading 組成可貼給 coding agent 的 brief。",
+    deckEn: "Review the model's read, then compose collected readings into a brief for a coding agent."
+  }
 };
 
 const SIGNAL_TYPE_LABELS: Record<ProductSignalType, string> = {
@@ -3269,14 +3286,17 @@ export const productSignalViewTestables = {
 export function ProductSignalView({
   viewModel,
   onCommand,
-  exportFolders = []
+  exportFolders = [],
+  initialFilter = "intake"
 }: {
   viewModel: ProductSignalWorkspaceViewModel;
   onCommand: (command: ProductSignalCommand) => Promise<unknown> | unknown;
   exportFolders?: SignalPacketExportFolderOption[];
+  /** Which filter the merged signals page opens on. Defaults to intake, the
+   *  same surface the retired `saved-signals` route used to be the home for. */
+  initialFilter?: SignalsFilter;
 }) {
   const {
-    kind,
     signals,
     scopedAnalyses,
     signalPreviewById,
@@ -3286,10 +3306,10 @@ export function ProductSignalView({
     pendingSignals
   } = viewModel;
   const t = useUiText();
-  const copy = PAGE_COPY[kind];
+  const [filter, setFilter] = useState<SignalsFilter>(initialFilter);
+  const copy = FILTER_COPY[filter];
   const dispatchCommand = (command: ProductSignalCommand) => Promise.resolve(onCommand(command));
   const analyzeCommand = viewModel.actions.find((action) => action.kind === "analyzeInbox");
-  const openActionableCommand = viewModel.actions.find((action) => action.kind === "openActionable");
   const pendingErrorAggregate = summarizeProcessingErrorAggregate(pendingSignals);
   const routeSignals = signals;
   const routeAnalyses = scopedAnalyses;
@@ -3312,9 +3332,7 @@ export function ProductSignalView({
   }
 
   function handleGoToActionable() {
-    if (openActionableCommand) {
-      void dispatchCommand(openActionableCommand);
-    }
+    setFilter("action");
   }
 
   function handleRemoveSignal(signalId: string) {
@@ -3333,13 +3351,19 @@ export function ProductSignalView({
         }) as Promise<{ ok: true; exportResult: SignalPacketExportResult } | { ok: false; error: string }>
     : undefined;
 
+  const filterCounts: Record<SignalsFilter, number> = {
+    intake: routeSignals.length,
+    category: scopedAnalyses.length,
+    action: routeAnalyses.filter((analysis) => analysis.status === "complete").length
+  };
+
   return (
-    <div style={viewRootStyle()} data-product-signal-view={kind} data-product-load-state={viewModel.loadState}>
+    <div style={viewRootStyle()} data-product-signal-view="signals" data-product-signal-filter={filter} data-product-load-state={viewModel.loadState}>
       <style>{SCAN_ROW_HOVER_CSS}</style>
       <ModeHeader
-        mode={kind}
+        mode="signals"
         kicker="Product mode"
-        title={t(copy.title, copy.titleEn)}
+        title={t("訊號", "Signals")}
         deck={t(copy.deck, copy.deckEn)}
         stamp={
           viewModel.statusErrorLabel
@@ -3353,10 +3377,71 @@ export function ProductSignalView({
       />
       <div
         data-product-signal-frame="true"
-        data-product-action-route-context={kind === "actionable-filter" ? "folder" : undefined}
+        data-product-action-route-context={filter === "action" ? "folder" : undefined}
         style={{ display: "grid", gap: tokens.spacing.md, overflow: "visible", minWidth: 0 }}
       >
-        {kind === "actionable-filter" ? (
+        <nav
+          data-signals-filter-row="true"
+          aria-label={t("訊號篩選", "Signal filters")}
+          style={{ display: "flex", gap: 6, flexWrap: "wrap", minWidth: 0 }}
+        >
+          {SIGNALS_FILTER_ORDER.map((key) => (
+            <button
+              key={key}
+              type="button"
+              data-signals-filter={key}
+              aria-pressed={filter === key}
+              onClick={() => setFilter(key)}
+              style={{
+                display: "inline-flex",
+                alignItems: "center",
+                gap: 5,
+                minHeight: 30,
+                padding: "5px 11px",
+                borderRadius: tokens.radius.pill,
+                border: `1px solid ${filter === key ? tokens.color.product : tokens.color.lineStrong}`,
+                background: filter === key ? tokens.color.product : "transparent",
+                color: filter === key ? tokens.color.elevated : tokens.color.subInk,
+                fontSize: 11.5,
+                fontWeight: 700,
+                cursor: "pointer",
+                transition: tokens.motion.interactiveTransition
+              }}
+            >
+              <span>{t(FILTER_COPY[key].label, FILTER_COPY[key].labelEn)}</span>
+              <span style={{ fontFamily: tokens.font.mono, opacity: 0.7 }}>{filterCounts[key]}</span>
+            </button>
+          ))}
+        </nav>
+        {filter === "action" ? (
+          <div
+            data-signals-context-bar="true"
+            data-product-context-state={viewModel.productContextSummary.compiled ? "compiled" : "missing"}
+            style={{
+              display: "flex",
+              alignItems: "center",
+              gap: 9,
+              flexWrap: "wrap",
+              minWidth: 0,
+              padding: "8px 11px",
+              borderRadius: tokens.radius.card,
+              border: `1px solid ${tokens.color.line}`,
+              background: tokens.color.contextSurface
+            }}
+          >
+            <span style={{ ...textStyles.fieldLabel, color: tokens.color.product }}>判讀依據</span>
+            {viewModel.productContextSummary.compiled ? (
+              <span style={{ ...textStyles.meta, color: tokens.color.subInk }}>
+                ProductContext {viewModel.productContextSummary.promptVersion ?? ""} · {formatContextCompiledAt(viewModel.productContextSummary.compiledAt)}
+              </span>
+            ) : (
+              <span style={{ ...textStyles.meta, color: tokens.color.queued }}>
+                尚未編譯 ProductContext，判讀只反映貼文本身
+              </span>
+            )}
+          </div>
+        ) : null}
+        {filter === "action" ? (
           <div
             data-product-action-status="compact"
             data-product-selection-context="folder"
@@ -3373,8 +3458,8 @@ export function ProductSignalView({
             onAnalyze={handleAnalyze}
           />
         )}
-        {routePendingSignals.length && kind !== "saved-signals" ? (
-          kind === "actionable-filter" ? (
+        {routePendingSignals.length && filter !== "intake" ? (
+          filter === "action" ? (
             <section style={{ display: "grid", gap: 8 }}>
               <PendingSignalsQueueSummary signals={routePendingSignals} />
               {routePendingErrorAggregate ? <ProcessingErrorAggregateBanner summary={routePendingErrorAggregate} /> : null}
@@ -3394,7 +3479,12 @@ export function ProductSignalView({
             </section>
           )
         ) : null}
-        {kind === "saved-signals" && scopedAnalyses.length > 0 && !viewModel.isAnalyzing && openActionableCommand ? (
+        {filter === "intake"
+          && scopedAnalyses.length > 0
+          && !viewModel.isAnalyzing
+          // Never advertise finished analysis while the surface is in an error
+          // state: the stamp above uses the same ready/recovering gate.
+          && (viewModel.loadState === "ready" || viewModel.loadState === "recovering") ? (
           <div
             data-product-action-cta="true"
             data-raised-tile="true"
@@ -3419,7 +3509,7 @@ export function ProductSignalView({
             </PrimaryButton>
           </div>
         ) : null}
-        {kind === "saved-signals" ? (
+        {filter === "intake" ? (
           viewModel.loadState === "recovering" ? (
             <RecoveredAnalysesBoard
               analyses={scopedAnalyses}
@@ -3436,7 +3526,7 @@ export function ProductSignalView({
               />
             </>
           )
-        ) : kind === "actionable-filter" ? (
+        ) : filter === "action" ? (
           <ProductActionStage
             key={productActionStageKey}
             signals={routeSignals}

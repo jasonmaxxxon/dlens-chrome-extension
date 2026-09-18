@@ -198,7 +198,6 @@ function patchProductTestCapabilities(vm: ProductSignalWorkspaceViewModel, props
     signalReadinessById: Object.fromEntries(signals.map((signal) => [signal.signalId, signal.readiness] as const)),
     evidenceBySignalId: Object.fromEntries(signals.map((signal) => [signal.signalId, signal.evidence] as const)),
     actions: vm.actions.filter((action) => {
-      if (action.kind === "openActionable") return typeof props.onGoToActionable === "function";
       if (action.kind === "exportSignalPackets") return typeof props.onExportSignalPackets === "function";
       return true;
     })
@@ -235,7 +234,6 @@ function productSignalViewElement(props: any) {
   };
   const vm = patchProductTestCapabilities(
     buildProductSignalWorkspaceViewModel({
-      kind: props.kind,
       snapshot,
       signals,
       analyses: props.analyses ?? [],
@@ -255,8 +253,6 @@ function productSignalViewElement(props: any) {
     switch (command.kind) {
       case "analyzeInbox":
         return props.onAnalyze?.();
-      case "openActionable":
-        return props.onGoToActionable?.();
       case "remove":
         return props.onRemoveSignal?.(command.target.signalId);
       case "reviewReading":
@@ -271,9 +267,17 @@ function productSignalViewElement(props: any) {
         return undefined;
     }
   };
+  // The three former product routes are now filters on one page; tests still
+  // name the surface they exercise with `kind`.
+  const initialFilter = props.kind === "actionable-filter"
+    ? "action"
+    : props.kind === "classification"
+      ? "category"
+      : "intake";
   return React.createElement(ProductSignalView, {
     viewModel: vm,
     exportFolders: props.exportFolders,
+    initialFilter,
     onCommand
   });
 }
@@ -1124,9 +1128,9 @@ test("InPageCollectorPopup builds route projections only for their actual open c
   };
   const scenarios = [
     { page: "topics", mode: "topic", expectedProductReads: 0, expectedTopicReads: 0 },
-    { page: "saved-signals", mode: "product", expectedProductReads: 1, expectedTopicReads: 0 },
+    { page: "signals", mode: "product", expectedProductReads: 1, expectedTopicReads: 0 },
     { page: "topic-detail", mode: "topic", expectedProductReads: 0, expectedTopicReads: 1 },
-    { page: "casebook", mode: "topic", expectedProductReads: 0, expectedTopicReads: 0 }
+    { page: "collect", mode: "topic", expectedProductReads: 0, expectedTopicReads: 0 }
   ] as const;
   const results: Array<{ page: string; productReads: number; topicReads: number }> = [];
 
@@ -3086,7 +3090,8 @@ test("ProductSignalView shows real readiness state without fake AI results", () 
     })
   );
 
-  assert.match(html, /data-product-signal-view="saved-signals"/);
+  assert.match(html, /data-product-signal-view="signals"/);
+  assert.match(html, /data-product-signal-filter="intake"/);
   assert.match(html, /已存訊號/);
   assert.match(html, /1 signals/);
   assert.match(html, /0 analyses/);
@@ -5640,7 +5645,8 @@ test("Product Action stage renders one candidate at a time without promoting AI 
   const openDetails = html.match(/<details open=""[^]*?<\/details>/g) ?? [];
 
   assert.equal(openDetails.length, 0);
-  assert.match(html, /行動簡報/);
+  // The action surface is a filter on the merged signals page, not its own route.
+  assert.match(html, /data-product-signal-filter="action"/);
   assert.equal(countOccurrences(html, "data-product-action-stage="), 1);
   assert.match(html, /data-product-action-stage="s1"/);
   assert.match(html, /data-product-action-live="true"[^>]*>1 \/ 2/);

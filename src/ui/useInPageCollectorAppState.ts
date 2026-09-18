@@ -47,7 +47,7 @@ import {
   summarizeSessionProcessing,
   type WorkerStatus
 } from "../state/processing-state";
-import { shouldBypassModeGuard } from "../state/page-registry";
+import { isKnownPage, shouldBypassModeGuard } from "../state/page-registry";
 import { addRuntimeMessageListener, getActiveItem, getActiveSession, sendExtensionMessage } from "./controller";
 import {
   computeFlashPreviewStyle,
@@ -121,6 +121,11 @@ const DEFAULT_PR_EVIDENCE_UI_STATE: PrEvidenceUiState = {
 };
 
 export function resolveEffectivePopupPage(page: ExtensionSnapshot["tab"]["popupPage"], activeFolderMode: FolderMode) {
+  // Storage can hold a route this build no longer has. Send it to the mode home
+  // rather than letting the registry lookup throw while the popup renders.
+  if (!isKnownPage(page)) {
+    return getModeHomePage(activeFolderMode);
+  }
   if (shouldBypassModeGuard(page)) {
     return page;
   }

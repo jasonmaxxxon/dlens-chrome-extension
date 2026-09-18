@@ -212,10 +212,20 @@ test("pending popup navigation survives stale snapshots until the destination is
 });
 
 test("resolveEffectivePopupPage keeps product data effects on the rendered guarded page", () => {
-  assert.equal(resolveEffectivePopupPage("library", "product"), "saved-signals");
+  assert.equal(resolveEffectivePopupPage("library", "product"), "signals");
   assert.equal(resolveEffectivePopupPage("settings", "product"), "settings");
-  assert.equal(resolveEffectivePopupPage("classification", "product"), "classification");
-  assert.equal(resolveEffectivePopupPage("actionable-filter", "product"), "actionable-filter");
+  assert.equal(resolveEffectivePopupPage("signals", "product"), "signals");
+});
+
+test("resolveEffectivePopupPage sends a route retired by the signal-filter merge to the mode home", () => {
+  // A tab saved by 0.4.0 can still name these; the registry has no entry for
+  // them, so an unguarded lookup would throw while the popup renders.
+  for (const retired of ["saved-signals", "classification", "actionable-filter", "inbox", "casebook"] as const) {
+    assert.equal(resolveEffectivePopupPage(retired as never, "product"), "signals");
+    assert.equal(resolveEffectivePopupPage(retired as never, "topic"), "topics");
+    assert.equal(resolveEffectivePopupPage(retired as never, "archive"), "library");
+    assert.equal(resolveEffectivePopupPage(retired as never, "pr-evidence"), "pr-evidence");
+  }
 });
 
 test("resolveEffectivePopupPage lets the result surface through so 查看完整分析 does not fall back to collect", () => {

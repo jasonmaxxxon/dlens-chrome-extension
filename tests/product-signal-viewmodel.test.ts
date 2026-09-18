@@ -169,7 +169,6 @@ test("Product VM composes capture preview, readiness, analysis state, provenance
   const session = makeSession([makeItem(), savedItem]);
 
   const vm = buildProductSignalWorkspaceViewModel({
-    kind: "saved-signals",
     snapshot: makeSnapshot(session),
     signals: [
       makeSignal(),
@@ -243,7 +242,6 @@ test("Product VM allows analysis when ProductContext is ready even if profile me
   snapshot.global.settings.productProfile = contextOnlyProfile;
 
   const vm = buildProductSignalWorkspaceViewModel({
-    kind: "saved-signals",
     snapshot,
     signals: [makeSignal()],
     analyses: [],
@@ -260,7 +258,6 @@ test("Product VM allows analysis when ProductContext is ready even if profile me
 
 test("Product VM preserves recovered analyses when the signal inbox is empty", () => {
   const vm = buildProductSignalWorkspaceViewModel({
-    kind: "actionable-filter",
     snapshot: makeSnapshot(makeSession([])),
     signals: [],
     analyses: [makeAnalysis()],
@@ -276,7 +273,7 @@ test("Product VM preserves recovered analyses when the signal inbox is empty", (
   assert.equal(vm.pendingSignals.length, 0);
 });
 
-test("Product workspace actions keep packet export on Action only", () => {
+test("Product workspace actions expose packet export on the merged signals page", () => {
   const input = {
     snapshot: makeSnapshot(),
     signals: [makeSignal()],
@@ -286,25 +283,24 @@ test("Product workspace actions keep packet export on Action only", () => {
     isHydrating: false,
     isAnalyzing: false
   };
-  const saved = buildProductSignalWorkspaceViewModel({ kind: "saved-signals", ...input });
-  const action = buildProductSignalWorkspaceViewModel({ kind: "actionable-filter", ...input });
+  const vm = buildProductSignalWorkspaceViewModel({ ...input });
 
-  assert.deepEqual(saved.actions.map((entry) => entry.kind), ["analyzeInbox", "openActionable"]);
-  assert.deepEqual(action.actions.map((entry) => entry.kind), [
+  // One route now owns intake, category and action, so the folder packet export
+  // is always present instead of appearing only on the old action route.
+  assert.deepEqual(vm.actions.map((entry) => entry.kind), [
     "analyzeInbox",
     "exportSignalPackets",
-    "exportSignalPackets",
-    "openActionable"
+    "exportSignalPackets"
   ]);
   assert.deepEqual(
-    action.actions.filter((entry) => entry.kind === "exportSignalPackets").map((entry) => entry.format),
+    vm.actions.filter((entry) => entry.kind === "exportSignalPackets").map((entry) => entry.format),
     ["html", "jsonl"]
   );
+  assert.equal(vm.actions.some((entry) => entry.kind === "openActionable"), false);
 });
 
 test("Product VM marks a complete v17 analysis stale under the v21 generator", () => {
   const vm = buildProductSignalWorkspaceViewModel({
-    kind: "classification",
     snapshot: makeSnapshot(),
     signals: [makeSignal()],
     analyses: [makeAnalysis({ promptVersion: "v17" })],
@@ -320,7 +316,6 @@ test("Product VM marks a complete v17 analysis stale under the v21 generator", (
 
 test("Product VM marks a complete v17 analysis stale when ProductContext is unavailable", () => {
   const vm = buildProductSignalWorkspaceViewModel({
-    kind: "classification",
     snapshot: makeSnapshot(),
     signals: [makeSignal()],
     analyses: [makeAnalysis({ promptVersion: "v17" })],
@@ -335,7 +330,6 @@ test("Product VM marks a complete v17 analysis stale when ProductContext is unav
 
 test("Product VM keeps a complete v21 analysis ready for the same ProductContext", () => {
   const vm = buildProductSignalWorkspaceViewModel({
-    kind: "classification",
     snapshot: makeSnapshot(),
     signals: [makeSignal()],
     analyses: [makeAnalysis()],
@@ -355,7 +349,6 @@ test("Product VM marks a complete v21 analysis stale when ProductContext drifts"
     compiledAt: productContext.compiledAt
   };
   const vm = buildProductSignalWorkspaceViewModel({
-    kind: "classification",
     snapshot: makeSnapshot(),
     signals: [makeSignal()],
     analyses: [makeAnalysis()],

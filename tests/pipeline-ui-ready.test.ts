@@ -14,7 +14,6 @@ import type { TopicDetailViewModel } from "../src/viewmodel/topic-detail.ts";
 
 test("Product VM terminal state projects to a ui.ready pipeline event", () => {
   const event = buildProductUiReadyEvent({
-    kind: "classification",
     sessionId: "session-product",
     loadState: "ready",
     signalCount: 2,
@@ -34,7 +33,7 @@ test("Product VM terminal state projects to a ui.ready pipeline event", () => {
   assert.deepEqual(event.target, { sessionId: "session-product" });
   assert.deepEqual(event.detail, {
     surface: "product",
-    kind: "classification",
+    kind: "signals",
     loadState: "ready",
     signalCount: 2,
     completedAnalysisCount: 1,

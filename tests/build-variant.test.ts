@@ -11,7 +11,7 @@ import type { FolderMode, PopupPage } from "../src/state/types.ts";
 const defaultPages: Record<FolderMode, PopupPage[]> = {
   archive: ["library", "collect"],
   topic: ["collect", "topics", "settings"],
-  product: ["saved-signals", "classification", "actionable-filter", "collect"],
+  product: ["signals", "collect"],
   "pr-evidence": ["pr-evidence", "collect"]
 };
 
