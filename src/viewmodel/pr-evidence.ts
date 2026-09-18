@@ -2,6 +2,7 @@ import {
   buildPrEvidenceCsv,
   buildPrEvidenceCsvRows,
   extractPrCoreMessages,
+  findPrCriterionBriefSupport,
   inferPrViewsFromText
 } from "../compare/pr-evidence.ts";
 import {
@@ -20,16 +21,17 @@ import type {
   PrCampaign,
   PrCampaignDraft,
   PrCampaignSaveDraft,
-  PrCriteriaMatches,
   PrCriterion,
   PrCriterionId,
   PrEvidenceRow,
   PrNarrativeSettings
 } from "../state/pr-evidence-storage.ts";
 import {
+  activePrCriteria,
+  countedPrCriteria,
   normalizePrCriteria,
   normalizePrNarrativeSettings,
-  PR_CRITERION_IDS
+  PR_ACTIVE_CRITERION_LIMIT
 } from "../state/pr-evidence-storage.ts";
 
 export type PrLens = "narrative" | "evidence";
@@ -49,6 +51,17 @@ export interface PrEvidenceResourceState {
   setupCollapsed: boolean;
 }
 
+/** What a person did to an AI-suggested criterion during this setup session. */
+export type PrCriterionReviewMark = "candidate" | "editing" | "confirmed" | "not_mentioned";
+
+export type PrCriterionSetupStatus =
+  | "empty"
+  | "candidate"
+  | "editing"
+  | "confirmed"
+  | "saved"
+  | "not_mentioned";
+
 export interface PrEvidenceUiState {
   activeLens?: PrLens;
   selectedNarrativeClaimId?: string | null;
@@ -57,6 +70,12 @@ export interface PrEvidenceUiState {
   isSaving: boolean;
   isReadingBrief: boolean;
   isGeneratingCriteria: boolean;
+  /**
+   * Per-criterion review state for this setup session. Deliberately not stored:
+   * what survives a reload is the label a person left behind, so a reloaded
+   * label is reported as saved rather than claimed as confirmed.
+   */
+  criteriaReview?: Partial<Record<PrCriterionId, PrCriterionReviewMark>>;
   isMatching: boolean;
   isFetchingAdvancedMetrics: boolean;
   isGeneratingSummary: boolean;
@@ -71,6 +90,9 @@ export type PrEvidenceCommand =
   | { kind: "setPane"; target: { sessionId: string }; pane: PrWorkPane }
   | { kind: "saveCampaign"; target: { sessionId: string }; draft: PrCampaignSaveDraft }
   | { kind: "generateCriteria"; target: { sessionId: string }; campaignName: string; briefText: string }
+  | { kind: "confirmCriterion"; target: { sessionId: string }; criterionId: PrCriterionId }
+  | { kind: "correctCriterion"; target: { sessionId: string }; criterionId: PrCriterionId }
+  | { kind: "markCriterionNotMentioned"; target: { sessionId: string }; criterionId: PrCriterionId }
   | { kind: "requestBriefUpload"; target: { sessionId: string } }
   | { kind: "matchCriteria"; target: { sessionId: string; campaignId: string } }
   | { kind: "fetchAdvancedMetrics"; target: { sessionId: string; campaignId: string } }
@@ -79,12 +101,40 @@ export type PrEvidenceCommand =
   | { kind: "exportSummaryMarkdown"; target: { sessionId: string; campaignId: string }; file: PrFileExportDescriptor }
   | { kind: "exportSummaryDocx"; target: { sessionId: string; campaignId: string }; file: PrFileExportDescriptor };
 
+export interface PrCriterionSetupViewModel {
+  id: PrCriterionId;
+  index: number;
+  numberLabel: string;
+  label: string;
+  placeholder: string;
+  status: PrCriterionSetupStatus;
+  statusLabel: string;
+  /** Brief wording that backs the suggested label; "" when nothing backs it. */
+  supportExcerpt: string;
+  supportLabel: string;
+  supported: boolean;
+  /** True while the row is a text input rather than a reviewable candidate. */
+  editable: boolean;
+  /** Counts toward the match denominator. */
+  counted: boolean;
+  confirmLabel: string;
+  /** F6: only a brief-supported candidate earns the emphasised confirm. */
+  confirmEmphasis: boolean;
+  confirmCommand: PrEvidenceCommand | null;
+  correctCommand: PrEvidenceCommand | null;
+  notMentionedCommand: PrEvidenceCommand | null;
+}
+
 export interface PrCampaignViewModel {
   id: string | null;
   sessionId: string;
   name: string;
   briefText: string;
-  criteria: [PrCriterion, PrCriterion, PrCriterion, PrCriterion, PrCriterion, PrCriterion];
+  criteria: PrCriterion[];
+  /** The three reviewable criterion rows, in order. */
+  criteriaSetup: PrCriterionSetupViewModel[];
+  criteriaCaption: string;
+  countedCriteriaCount: number;
   narrativeSettings: PrNarrativeSettings;
   placeholders: Record<PrCriterionId, string>;
   saved: boolean;
@@ -118,6 +168,9 @@ export interface PrEvidenceRowViewModel {
   collectedAtLabel: string;
   matchedCount: number;
   matchCountLabel: string;
+  matchCountAriaLabel: string;
+  /** True once the row clears this campaign's strong-match bar. */
+  strong: boolean;
   matchedCriterionLabels: string[];
   criteria: PrEvidenceCriterionMatchViewModel[];
   metrics: PrEvidenceMetricCellViewModel[];
@@ -247,13 +300,26 @@ export interface BuildPrEvidenceViewModelInput {
   uiState: PrEvidenceUiState;
 }
 
+/**
+ * Only c1..c3 render. c4..c6 stay in the record so the storage contract's id
+ * set keeps a complete placeholder map.
+ */
 export const PR_CRITERION_PLACEHOLDERS: Record<PrCriterionId, string> = {
   c1: "活動名稱或品牌",
-  c2: "Hashtag 或官方帳號",
-  c3: "核心訊息或 tagline",
-  c4: "場地 / 地點",
-  c5: "體驗主題",
-  c6: "CTA / 報名動作"
+  c2: "核心訊息或 tagline",
+  c3: "CTA / 報名動作",
+  c4: "",
+  c5: "",
+  c6: ""
+};
+
+const PR_CRITERION_STATUS_LABELS: Record<PrCriterionSetupStatus, string> = {
+  empty: "待填",
+  candidate: "AI 候選 · 待確認",
+  editing: "更正中",
+  confirmed: "已確認",
+  saved: "已儲存",
+  not_mentioned: "未提及 · 不計分"
 };
 
 function formatMetric(value: number | undefined): string {
@@ -334,10 +400,6 @@ export function formatPrEvidenceTime(value: string | undefined): string {
   return new Intl.DateTimeFormat("zh-HK", { month: "numeric", day: "numeric", hour: "numeric", minute: "2-digit" }).format(new Date(value));
 }
 
-function matchedCount(matches: PrCriteriaMatches): number {
-  return Object.values(matches).filter(Boolean).length;
-}
-
 function safeRows(rows: PrEvidenceRow[] | null | undefined): PrEvidenceRow[] {
   return Array.isArray(rows) ? rows : [];
 }
@@ -357,7 +419,92 @@ function campaignForExport(campaign: PrCampaignDraft): PrCampaign {
   };
 }
 
-function buildCampaignViewModel(sessionId: string, draft: PrCampaignDraft, setupCollapsed: boolean): PrCampaignViewModel {
+function resolveCriterionStatus(
+  label: string,
+  mark: PrCriterionReviewMark | undefined
+): PrCriterionSetupStatus {
+  if (mark === "editing") {
+    return "editing";
+  }
+  if (mark === "not_mentioned") {
+    return "not_mentioned";
+  }
+  if (!label.trim()) {
+    return "empty";
+  }
+  if (mark === "candidate") {
+    return "candidate";
+  }
+  return mark === "confirmed" ? "confirmed" : "saved";
+}
+
+function buildCriterionSetupViewModel({
+  sessionId,
+  criterion,
+  index,
+  briefText,
+  mark
+}: {
+  sessionId: string;
+  criterion: PrCriterion;
+  index: number;
+  briefText: string;
+  mark: PrCriterionReviewMark | undefined;
+}): PrCriterionSetupViewModel {
+  const label = criterion.label;
+  const status = resolveCriterionStatus(label, mark);
+  const supportExcerpt = status === "candidate" ? findPrCriterionBriefSupport(briefText, label) : "";
+  const supported = supportExcerpt.length > 0;
+  const editable = status === "empty" || status === "editing";
+  const target = { sessionId };
+  const canConfirm = status === "candidate" || (status === "editing" && label.trim().length > 0);
+  const canReopen = status !== "empty" && status !== "editing";
+  return {
+    id: criterion.id,
+    index,
+    numberLabel: String(index + 1).padStart(2, "0"),
+    label,
+    placeholder: PR_CRITERION_PLACEHOLDERS[criterion.id],
+    status,
+    statusLabel: PR_CRITERION_STATUS_LABELS[status],
+    supportExcerpt,
+    supportLabel: status === "candidate"
+      ? (supported ? "brief 佐證" : "brief 內搵唔到支持文字")
+      : "",
+    supported,
+    editable,
+    counted: label.trim().length > 0 && status !== "not_mentioned",
+    confirmLabel: status === "editing" ? "完成更正" : "確認",
+    confirmEmphasis: status === "candidate" && supported,
+    confirmCommand: canConfirm ? { kind: "confirmCriterion", target, criterionId: criterion.id } : null,
+    correctCommand: canReopen ? { kind: "correctCriterion", target, criterionId: criterion.id } : null,
+    notMentionedCommand: status === "not_mentioned"
+      ? null
+      : { kind: "markCriterionNotMentioned", target, criterionId: criterion.id }
+  };
+}
+
+function buildCriteriaCaption(setup: PrCriterionSetupViewModel[]): string {
+  const pending = setup.filter((entry) => entry.status === "candidate").length;
+  if (pending) {
+    return `AI 從 brief 抽出 ${pending} 條候選 · 逐條確認或更正`;
+  }
+  const counted = setup.filter((entry) => entry.counted).length;
+  if (!counted) {
+    return `未設定判斷條件 · 上限 ${PR_ACTIVE_CRITERION_LIMIT} 條`;
+  }
+  const notMentioned = setup.filter((entry) => entry.status === "not_mentioned").length;
+  return notMentioned
+    ? `${counted} 條條件計分 · ${notMentioned} 條標記為未提及`
+    : `${counted} 條條件計分`;
+}
+
+function buildCampaignViewModel(
+  sessionId: string,
+  draft: PrCampaignDraft,
+  setupCollapsed: boolean,
+  criteriaReview: Partial<Record<PrCriterionId, PrCriterionReviewMark>>
+): PrCampaignViewModel {
   const criteria = normalizePrCriteria(draft.criteria);
   const narrativeSettings = normalizePrNarrativeSettings(draft.narrativeSettings);
   const id = draft.id?.trim() || "";
@@ -368,12 +515,24 @@ function buildCampaignViewModel(sessionId: string, draft: PrCampaignDraft, setup
     criteria,
     narrativeSettings
   };
+  const criteriaSetup = activePrCriteria(criteria).map((criterion, index) =>
+    buildCriterionSetupViewModel({
+      sessionId,
+      criterion,
+      index,
+      briefText: draft.briefText,
+      mark: criteriaReview[criterion.id]
+    })
+  );
   return {
     id: id || null,
     sessionId,
     name: draft.name,
     briefText: draft.briefText,
-    criteria,
+    criteria: countedPrCriteria(criteria),
+    criteriaSetup,
+    criteriaCaption: buildCriteriaCaption(criteriaSetup),
+    countedCriteriaCount: criteriaSetup.filter((entry) => entry.counted).length,
     narrativeSettings,
     placeholders: PR_CRITERION_PLACEHOLDERS,
     saved: Boolean(id),
@@ -386,13 +545,13 @@ function buildCampaignViewModel(sessionId: string, draft: PrCampaignDraft, setup
 }
 
 function buildRowViewModel(row: PrEvidenceRow, criteria: PrCriterion[]): PrEvidenceRowViewModel {
-  const count = matchedCount(row.criteriaMatches);
-  const criterionMatches = PR_CRITERION_IDS.map((id, index) => ({
-    id,
+  const criterionMatches = criteria.map((criterion, index) => ({
+    id: criterion.id,
     index,
-    label: criteria[index]?.label || `C${index + 1}`,
-    matched: row.criteriaMatches[id]
+    label: criterion.label || `C${index + 1}`,
+    matched: row.criteriaMatches[criterion.id] === true
   }));
+  const count = criterionMatches.filter((entry) => entry.matched).length;
   const views = row.metrics.views ?? inferPrViewsFromText(row.caption) ?? undefined;
   return {
     id: row.id,
@@ -403,7 +562,11 @@ function buildRowViewModel(row: PrEvidenceRow, criteria: PrCriterion[]): PrEvide
     metricLine: metricLine(row),
     collectedAtLabel: formatPrEvidenceTime(row.collectedAt),
     matchedCount: count,
-    matchCountLabel: `${count} / 6`,
+    strong: count > 0 && count >= prStrongMatchThreshold(criteria.length),
+    matchCountLabel: criteria.length ? `${count} / ${criteria.length}` : "條件未設定",
+    matchCountAriaLabel: criteria.length
+      ? `${count} of ${criteria.length} criteria matched`
+      : "No criteria configured yet",
     matchedCriterionLabels: criterionMatches.filter((entry) => entry.matched).map((entry) => entry.label),
     criteria: criterionMatches,
     metrics: [
@@ -533,8 +696,13 @@ function classifyCriterionStrength(matchedRows: number, totalRows: number): PrCr
   return matchedRows / totalRows >= 0.6 ? "strong" : "partial";
 }
 
-/** A caption counts as "strong" once it matches at least this many of the six criteria. */
-export const PR_STRONG_MATCH_THRESHOLD = 4;
+/**
+ * A caption counts as "strong" once it matches at least two thirds of the
+ * criteria this campaign actually reports on (2 of 3, the old 4 of 6).
+ */
+export function prStrongMatchThreshold(countedCriteriaCount: number): number {
+  return countedCriteriaCount > 0 ? Math.ceil((countedCriteriaCount * 2) / 3) : 0;
+}
 
 function buildCriteriaHealth(
   criteria: PrCriterion[],
@@ -615,16 +783,21 @@ function buildActions({
 
 export function buildPrEvidenceViewModel({ sessionId, resource, uiState }: BuildPrEvidenceViewModelInput): PrEvidenceViewModel {
   const rows = safeRows(resource.rows);
-  const campaign = buildCampaignViewModel(sessionId, resource.campaign, resource.setupCollapsed);
+  const campaign = buildCampaignViewModel(
+    sessionId,
+    resource.campaign,
+    resource.setupCollapsed,
+    uiState.criteriaReview ?? {}
+  );
   const rowViewModels = rows.map((row) => buildRowViewModel(row, campaign.criteria));
   const activeLens = uiState.activeLens ?? "evidence";
   const narrative = buildNarrativeViewModel({ sessionId, campaign, rows, rowViewModels, resource, uiState });
   const criterionTotals = campaign.criteria.map((criterion) =>
     rows.reduce((total, row) => total + (row.criteriaMatches[criterion.id] ? 1 : 0), 0)
   );
-  const matchedCells = rows.reduce((total, row) => total + matchedCount(row.criteriaMatches), 0);
-  const totalCells = rows.length * 6;
-  const strongRows = rowViewModels.filter((row) => row.matchedCount >= PR_STRONG_MATCH_THRESHOLD).length;
+  const matchedCells = rowViewModels.reduce((total, row) => total + row.matchedCount, 0);
+  const totalCells = rows.length * campaign.criteria.length;
+  const strongRows = rowViewModels.filter((row) => row.strong).length;
   const criteriaHealth = buildCriteriaHealth(campaign.criteria, criterionTotals, rows.length, strongRows);
   const csvPreview = buildCsvPreview(resource.campaign, rows);
   const csv = campaign.id && rows.length
