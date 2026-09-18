@@ -672,6 +672,16 @@ test("LibraryView search filters saved rows by snippet and author, and can be cl
     Element: dom.window.Element
   });
   actGlobal.IS_REACT_ACT_ENVIRONMENT = true;
+  // Node 20 has no global navigator and react-dom/client reads one at module
+  // init; Node 22 exposes a getter-only global, so only define what is missing.
+  const hadNavigator = "navigator" in globalThis;
+  if (!hadNavigator) {
+    Object.defineProperty(globalThis, "navigator", {
+      configurable: true,
+      writable: true,
+      value: dom.window.navigator
+    });
+  }
 
   // react-dom/client sniffs the DOM at module init, so it must load after the
   // jsdom globals are in place or its change-event plugin never fires.
@@ -712,6 +722,9 @@ test("LibraryView search filters saved rows by snippet and author, and can be cl
   } finally {
     await act(async () => root.unmount());
     Object.assign(globalThis, previous);
+    if (!hadNavigator) {
+      Reflect.deleteProperty(globalThis, "navigator");
+    }
     actGlobal.IS_REACT_ACT_ENVIRONMENT = previousActEnvironment;
     dom.window.close();
   }
