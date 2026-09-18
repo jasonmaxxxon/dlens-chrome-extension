@@ -244,13 +244,17 @@ test("background startup persists global-state storage migrations immediately", 
   });
   const stored = harness.state[backgroundTestables.GLOBAL_STORAGE_KEY] as ExtensionGlobalState;
 
-  assert.equal(stored.schemaVersion, 2);
+  assert.equal(stored.schemaVersion, 3);
   assert.equal("raw_payload" in stored.sessions[0]!.items[0]!.latestCapture!, false);
   assert.equal("raw_payload" in stored.sessions[0]!.items[0]!.latestCapture!.result!, false);
   assert.deepEqual(
     stored.sessions[0]!.items[0]!.latestCapture!.result!.comments,
     legacyGlobal.sessions[0]!.items[0]!.latestCapture!.result!.comments
   );
+  // v2→v3: a descriptor saved before thumbnails gets an explicit null, so the
+  // collection list has one no-image shape to render instead of two.
+  assert.equal(stored.sessions[0]!.items[0]!.descriptor.image_url, null);
+  assert.equal("image_url" in stored.sessions[0]!.items[0]!.descriptor, true);
 });
 
 function makeProductContext(): ProductContext {
