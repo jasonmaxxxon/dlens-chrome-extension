@@ -140,7 +140,8 @@ import {
   type Signal,
   type SessionItem,
   type SessionRecord,
-  type TabUiState
+  type TabUiState,
+  type Topic
 } from "../src/state/types";
 import {
   activateSessionForMode,
@@ -157,6 +158,7 @@ import {
   normalizeSessionRecord,
   reconcileSessionItem,
   renameSession,
+  removeSessionItem,
   saveDescriptorToSession,
   setActiveSession,
   updateSessionItem,
@@ -173,6 +175,7 @@ import {
   saveFolderSynthesis
 } from "../src/compare/folder-synthesis-storage";
 import {
+  deletePrEvidenceRowsByItemId,
   loadActivePrCampaign,
   loadPrCampaigns,
   loadPrEvidenceRows,
@@ -1774,13 +1777,80 @@ async function saveCurrentPreviewToSession(
         tab: {
           ...current.tab,
           activeItemId: saved.item.id,
-          lastSavedToast: createInlineToast("saved", session.name),
+          lastSavedToast: createInlineToast(
+            "saved",
+            session.name,
+            undefined,
+            saved.created ? { sessionId: session.id, itemId: saved.item.id } : null
+          ),
           error: null
         }
       },
       saveOptions: { persistActiveSessionId: activeSessionRealigned }
     };
   });
+}
+
+/**
+ * Reverse of `saveCurrentPreviewToSession` for the 5-second undo window offered
+ * by the save toast. Only an item the save actually created is undoable, so the
+ * caller's `itemId` is the one stamped on `lastSavedToast.undo`. Every derived
+ * record the save wrote (signal, product analysis, signal tags, PR evidence row)
+ * is removed with the item so undo cannot leave an orphan behind.
+ */
+async function undoSavedItem(
+  tabId: number,
+  sessionId: string,
+  itemId: string
+): Promise<{ snapshot: ExtensionSnapshot; signals: Signal[]; topics: Topic[] }> {
+  const derivedRef: { signals: Signal[]; topics: Topic[] } = { signals: [], topics: [] };
+  const snapshot = await mutateSnapshot(tabId, async (current) => {
+    const session = getSessionById(current.global, sessionId);
+    if (!session) {
+      throw new Error("Target folder not found.");
+    }
+    const item = session.items.find((entry) => entry.id === itemId);
+    if (!item) {
+      throw new Error("Saved post is already gone.");
+    }
+
+    if (session.mode === "pr-evidence") {
+      const campaign = await loadActivePrCampaign(chrome.storage.local, session.id);
+      if (campaign) {
+        await deletePrEvidenceRowsByItemId(chrome.storage.local, campaign.id, itemId);
+      }
+    } else if (session.mode !== "archive") {
+      const signals = await loadSignals(chrome.storage.local, session.id);
+      const signal = signals.find((entry) => entry.itemId === itemId);
+      if (signal) {
+        const deletion = await deleteSignalStorageRecords(chrome.storage.local, signal.id);
+        await deleteProductSignalAnalysis(chrome.storage.local, signal.id);
+        derivedRef.signals = deletion.signals.filter((entry) => entry.sessionId === session.id);
+        derivedRef.topics = deletion.topics.filter((entry) => entry.sessionId === session.id);
+      }
+    }
+    await deleteSignalTagsByItemId(chrome.storage.local, itemId);
+
+    const globalState = removeSessionItem(current.global, sessionId, itemId);
+    const nextSession = getSessionById(globalState, sessionId);
+    const nextActiveItemId = current.tab.activeItemId === itemId
+      ? (nextSession ? ensureActiveItemId(nextSession, null) : null)
+      : current.tab.activeItemId;
+    const nextActiveItem = nextSession?.items.find((entry) => entry.id === nextActiveItemId) ?? null;
+    return {
+      global: globalState,
+      tab: {
+        ...current.tab,
+        activeItemId: nextActiveItemId,
+        currentPreview: current.tab.activeItemId === itemId
+          ? nextActiveItem?.descriptor ?? current.tab.hoveredTarget
+          : current.tab.currentPreview,
+        lastSavedToast: null,
+        error: null
+      }
+    };
+  });
+  return { snapshot, signals: derivedRef.signals, topics: derivedRef.topics };
 }
 
 async function createSession(
@@ -1841,7 +1911,12 @@ async function createSession(
       activeItemId = saved.item.id;
       popupPage = "library";
       currentMainPage = "library";
-      lastSavedToast = createInlineToast("saved", session.name);
+      lastSavedToast = createInlineToast(
+        "saved",
+        session.name,
+        undefined,
+        saved.created ? { sessionId: session.id, itemId: saved.item.id } : null
+      );
     }
 
     return {
@@ -2654,6 +2729,18 @@ export default defineBackground(() => {
               ok: true,
               tabId,
               snapshot: await deleteExistingSession(tabId, message.sessionId)
+            } satisfies ExtensionResponse);
+            return;
+          }
+          case "session/undo-save": {
+            const tabId = await resolveTabId(sender);
+            const undone = await undoSavedItem(tabId, message.sessionId, message.itemId);
+            sendResponse({
+              ok: true,
+              tabId,
+              snapshot: undone.snapshot,
+              signals: undone.signals,
+              topics: undone.topics
             } satisfies ExtensionResponse);
             return;
           }

@@ -249,3 +249,63 @@ test("InPageCollectorOverlays preview card can render the inline saved success s
   assert.match(html, /data-collector-metric-strip="success-inline"/);
   assert.doesNotMatch(html, /data-collector-topic-picker="true"/);
 });
+
+test("InPageCollectorOverlays offers undo inside the save toast while the window is open", () => {
+  const baseApp = {
+    snapshot: null,
+    tabId: 1,
+    hoverRect: null,
+    hoverSaved: false,
+    flashPreview: null,
+    flashStyle: null,
+    displayToast: { id: "saved-1", kind: "saved", message: "已儲存到：Signals" },
+    successToastDescriptor: null,
+    preview: null,
+    popupOpen: true,
+    onTogglePopup: () => undefined,
+    onSavePreview: () => undefined,
+    openPreview: () => undefined,
+    onUndoSave: () => undefined
+  };
+
+  const withUndo = renderToStaticMarkup(
+    React.createElement(InPageCollectorOverlays, {
+      app: {
+        ...baseApp,
+        pendingUndoSave: { toastId: "saved-1", sessionId: "session-1", itemId: "item-1" }
+      } as never
+    })
+  );
+  assert.match(withUndo, /data-collector-undo-save="true"/);
+  assert.match(withUndo, /復原/);
+
+  const withoutUndo = renderToStaticMarkup(
+    React.createElement(InPageCollectorOverlays, { app: { ...baseApp, pendingUndoSave: null } as never })
+  );
+  assert.doesNotMatch(withoutUndo, /data-collector-undo-save="true"/);
+});
+
+test("InPageCollectorOverlays keeps undo off a toast that is not a save", () => {
+  const html = renderToStaticMarkup(
+    React.createElement(InPageCollectorOverlays, {
+      app: {
+        snapshot: null,
+        tabId: 1,
+        hoverRect: null,
+        hoverSaved: false,
+        flashPreview: null,
+        flashStyle: null,
+        displayToast: { id: "queued-1", kind: "queued", message: "已加入隊列：Signals" },
+        successToastDescriptor: null,
+        pendingUndoSave: { toastId: "saved-1", sessionId: "session-1", itemId: "item-1" },
+        preview: null,
+        popupOpen: true,
+        onTogglePopup: () => undefined,
+        onSavePreview: () => undefined,
+        openPreview: () => undefined,
+        onUndoSave: () => undefined
+      } as never
+    })
+  );
+  assert.doesNotMatch(html, /data-collector-undo-save="true"/);
+});

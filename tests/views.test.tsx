@@ -358,6 +358,7 @@ const idlePrEvidenceUiState: PrEvidenceUiState = {
   isSaving: false,
   isReadingBrief: false,
   isGeneratingCriteria: false,
+  criteriaReview: {},
   isMatching: false,
   isFetchingAdvancedMetrics: false,
   isGeneratingSummary: false
@@ -1442,7 +1443,9 @@ test("LibraryView renders top-cluster keyword chips and removes the old fingerpr
   assert.match(html, /support/);
   assert.match(html, /policy/);
   assert.match(html, /budget/);
-  assert.match(html, /可比較/);
+  // The row trail carries one status rendering only — the phase badge.
+  assert.doesNotMatch(html, /可比較/);
+  assert.match(html, /data-item-phase="ready"/);
   assert.doesNotMatch(html, /data-library-fingerprint="bar"/);
 });
 
@@ -1982,7 +1985,8 @@ test("PrEvidenceView renders PR campaign and rows from the shared resource state
   assert.match(html, /data-collector-metric="comments"/);
   assert.match(html, /data-collector-metric="reposts"/);
   assert.match(html, /data-collector-metric="forwards"/);
-  assert.match(html, /data-pr-evidence-strength-chip="partial"/);
+  /* 2 of the campaign's 3 criteria clears the strong bar. */
+  assert.match(html, /data-pr-evidence-strength-chip="strong"/);
   assert.match(html, /data-pr-criteria-health-detail="c1"/);
   assert.match(html, /data-pr-criteria-coverage-row="c1"/);
   assert.match(html, /data-pr-criteria-coverage-bar="c1"/);
@@ -2386,8 +2390,8 @@ test("PR Evidence ledger rows use audit numbering, gist, metric strip, and stren
   assert.match(html, /data-collector-metric="forwards"/);
   assert.match(html, /data-pr-evidence-strength-chip="partial"/);
   assert.match(html, /data-pr-match-indicator="true"/);
-  assert.match(html, /2\/6/);
-  assert.match(html, /1\/6/);
+  assert.match(html, /2 \/ 3/);
+  assert.match(html, /1 \/ 3/);
   assert.doesNotMatch(html, />C1</);
   assert.doesNotMatch(html, />C2</);
   assert.doesNotMatch(html, /data-quote-block="shared"/);
@@ -2404,10 +2408,10 @@ test("PR criteria health surfaces real criterion labels and the systemic gap", (
     criteria: [
       { id: "c1", label: "活動名稱" },
       { id: "c2", label: "Hashtag" },
-      { id: "c3", label: "核心訊息" },
-      { id: "c4", label: "場地" },
-      { id: "c5", label: "體驗主題" },
-      { id: "c6", label: "CTA / 報名動作" }
+      { id: "c3", label: "CTA / 報名動作" },
+      { id: "c4", label: "" },
+      { id: "c5", label: "" },
+      { id: "c6", label: "" }
     ],
     createdAt: "2026-05-26T00:00:00.000Z",
     updatedAt: "2026-05-26T00:00:00.000Z",
@@ -2424,7 +2428,7 @@ test("PR criteria health surfaces real criterion labels and the systemic gap", (
     criteriaMatches: {
       c1: true,
       c2: index < 2,
-      c3: index < 3,
+      c3: false,
       c4: index < 1,
       c5: index < 1,
       c6: false
@@ -2446,18 +2450,19 @@ test("PR criteria health surfaces real criterion labels and the systemic gap", (
   assert.match(html, /Strong/);
   assert.match(html, /Criteria 待補/);
   assert.match(html, /data-pr-criteria-coverage-row="c1"/);
-  assert.match(html, /data-pr-criteria-coverage-row="c6"/);
+  assert.match(html, /data-pr-criteria-coverage-row="c3"/);
+  assert.doesNotMatch(html, /data-pr-criteria-coverage-row="c4"/);
   assert.match(html, /data-pr-criteria-coverage-bar="c1"/);
   assert.match(html, /data-pr-criteria-coverage-fill="c1"/);
   assert.match(html, /data-pr-criteria-coverage-count="c1"[^>]*>4\/4/);
-  assert.match(html, /data-pr-criteria-coverage-count="c6"[^>]*>0\/4/);
-  assert.match(html, /data-pr-criteria-strength-dot="c6"/);
+  assert.match(html, /data-pr-criteria-coverage-count="c3"[^>]*>0\/4/);
+  assert.match(html, /data-pr-criteria-strength-dot="c3"/);
   // F1: the real criterion label stays primary; the C-id is only a secondary tag.
   assert.match(html, /CTA \/ 報名動作/);
   assert.match(html, /活動名稱/);
-  assert.match(html, /data-pr-criteria-id="c6"/);
+  assert.match(html, /data-pr-criteria-id="c3"/);
   assert.match(html, /系統性缺口/);
-  // C6 has zero coverage -> it is a GAP row with a zero-width coverage lane.
+  // C3 has zero coverage -> it is a GAP row with a zero-width coverage lane.
   assert.match(html, /data-pr-criteria-health-strength="gap"/);
   assert.match(html, /data-pr-criteria-health-detail="c1"/);
   assert.match(html, /data-pr-criteria-health-matches="c1"/);
@@ -2604,15 +2609,48 @@ test("Frame 7 — export action buttons keep commands and render download icon p
   assert.match(html, /data-pr-export-format-tag="docx"[^>]*>DOCX/);
 });
 
-test("Frame 08 — criteria setup shows the AI-drafted banner when a brief is loaded", () => {
-  const html = renderPrEvidenceView({
-    campaign: prCampaignToDraft(prFrameCampaign()),
-    setupCollapsed: false
-  });
+test("Frame 08 — criteria setup shows three reviewable AI candidates when a brief is loaded", () => {
+  const html = renderPrEvidenceView(
+    {
+      campaign: prCampaignToDraft(prFrameCampaign()),
+      setupCollapsed: false
+    },
+    { criteriaReview: { c1: "candidate", c2: "candidate", c3: "candidate" } }
+  );
 
   assert.match(html, /data-pr-criteria-ai-banner="true"/);
-  assert.match(html, /AI 已從 brief 抽出/);
-  assert.match(html, /6 條 criteria/);
+  assert.match(html, /AI 從 brief 抽出 3 條候選/);
+  assert.match(html, /data-pr-criterion-row="c1"/);
+  assert.match(html, /data-pr-criterion-row="c3"/);
+  /* Three rows only: the campaign cap, even though storage still holds c4..c6. */
+  assert.doesNotMatch(html, /data-pr-criterion-row="c4"/);
+  assert.match(html, /data-pr-criterion-confirm="c1"/);
+  assert.match(html, /data-pr-criterion-correct="c1"/);
+  /* F7: "not seen in the brief" is its own act, never a confirmation. */
+  assert.match(html, /data-pr-criterion-not-mentioned="c1"/);
+  assert.match(html, /標記為未提及/);
+});
+
+test("Frame 08 — a criterion marked as not mentioned stops counting and is not confirmed", () => {
+  const campaign = prFrameCampaign({
+    criteria: [
+      { id: "c1", label: "活動名稱" },
+      { id: "c2", label: "Hashtag" },
+      { id: "c3", label: "" },
+      { id: "c4", label: "" },
+      { id: "c5", label: "" },
+      { id: "c6", label: "" }
+    ]
+  });
+  const html = renderPrEvidenceView(
+    { campaign: prCampaignToDraft(campaign), setupCollapsed: false },
+    { criteriaReview: { c3: "not_mentioned" } }
+  );
+
+  assert.match(html, /data-pr-criterion-status="not_mentioned"/);
+  assert.match(html, /brief 未提及/);
+  assert.match(html, /1 條標記為未提及/);
+  assert.doesNotMatch(html, /data-pr-criterion-confirm="c3"/);
 });
 
 test("PrEvidenceView keeps metrics actions prominent and avoids horizontal inspection tables", () => {

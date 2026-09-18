@@ -1,5 +1,6 @@
 import type { CaptureSnapshot, JobSnapshot } from "../contracts/ingest";
 import type { TargetDescriptor } from "../contracts/target-descriptor";
+import { CURRENT_STORAGE_SCHEMA_VERSION } from "./storage-keys";
 import type { AiOutputProvenance } from "./ai-provenance";
 
 export type FolderMode = "archive" | "topic" | "product" | "pr-evidence";
@@ -42,11 +43,20 @@ export interface LayoutPreferences {
   language?: UiLanguage;
 }
 
+/** Reference to the item a save just created, so the toast can offer an undo
+ *  inside the undo window. Absent when the save only refreshed an item that
+ *  was already in the folder — re-saving a known post is not undoable. */
+export interface InlineToastUndo {
+  sessionId: string;
+  itemId: string;
+}
+
 export interface InlineToast {
   id: string;
   kind: InlineToastKind;
   message: string;
   createdAt: string;
+  undo?: InlineToastUndo;
 }
 
 export interface ExtensionSettings {
@@ -566,7 +576,7 @@ export function createDefaultLayoutPreferences(): LayoutPreferences {
 
 export function createEmptyGlobalState(): ExtensionGlobalState {
   return {
-    schemaVersion: 2,
+    schemaVersion: CURRENT_STORAGE_SCHEMA_VERSION,
     settings: createDefaultSettings(),
     sessions: [],
     activeSessionId: null,

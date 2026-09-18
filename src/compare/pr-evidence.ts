@@ -2,12 +2,17 @@ import type {
   PrCampaign,
   PrCriteriaMatches,
   PrCriterion,
+  PrCriterionId,
   PrEvidenceRow,
   PrNarrativeSettings
 } from "../state/pr-evidence-storage.ts";
 import {
+  countedPrCriteria,
+  countedPrCriterionIds,
   emptyPrCriteriaMatches,
   normalizePrNarrativeSettings,
+  PR_ACTIVE_CRITERION_IDS,
+  PR_ACTIVE_CRITERION_LIMIT,
   PR_CRITERION_IDS
 } from "../state/pr-evidence-storage.ts";
 
@@ -19,6 +24,8 @@ export interface PrCampaignSetupSuggestion {
 export interface PrSummaryFacts {
   campaign_name: string;
   total_rows: number;
+  /** How many criteria this campaign actually reports on (at most three). */
+  criteria_count: number;
   observed_metrics: {
     likes: number;
     comments: number;
@@ -116,7 +123,7 @@ export function normalizePrCriteriaSuggestionResponse(raw: string): PrCampaign["
   return PR_CRITERION_IDS.map((id, index) => {
     return {
       id,
-      label: readCriteriaEntryLabel(entries[index], index)
+      label: index < PR_ACTIVE_CRITERION_LIMIT ? readCriteriaEntryLabel(entries[index], index) : ""
     };
   }) as PrCampaign["criteria"];
 }
@@ -130,7 +137,43 @@ export function parsePrCampaignSetupSuggestion(raw: string): PrCampaignSetupSugg
 }
 
 export function isDefaultPrCriteria(criteria: PrCampaign["criteria"]): boolean {
-  return criteria.every((criterion, index) => criterion.label === `criterion_${index + 1}`);
+  return criteria
+    .slice(0, PR_ACTIVE_CRITERION_LIMIT)
+    .every((criterion, index) => criterion.label === `criterion_${index + 1}`);
+}
+
+/**
+ * The brief span that supports an AI-suggested criterion label, or "" when the
+ * label is not traceable to the brief. Only a supported candidate earns the
+ * one-press confirm; an unsupported one has to be corrected or marked as not
+ * mentioned.
+ */
+export function findPrCriterionBriefSupport(briefText: string, label: string): string {
+  const keywords = criterionKeywords(label);
+  if (!keywords.length) {
+    return "";
+  }
+  const lines = briefText.split(/\r?\n|(?<=[。；;!?！？])/u);
+  for (const line of lines) {
+    const cleaned = line.replace(/\s+/g, " ").trim();
+    if (cleaned.length < 2) {
+      continue;
+    }
+    const normalized = normalizeMatchText(cleaned);
+    if (keywords.some((keyword) => normalized.includes(keyword))) {
+      return cleaned.length > 120 ? `${cleaned.slice(0, 119).trim()}…` : cleaned;
+    }
+  }
+  return "";
+}
+
+/** Reads c1..c3 from a model response; c4..c6 are inert and stay false. */
+function readActiveMatches(matches: Record<string, unknown>, matchIds: ReadonlySet<string>): PrCriteriaMatches {
+  const result = emptyPrCriteriaMatches();
+  for (const id of PR_ACTIVE_CRITERION_IDS) {
+    result[id] = readBooleanLike(matches[id]) || matchIds.has(id);
+  }
+  return result;
 }
 
 export function parsePrCriteriaMatchResponse(raw: string, knownRowIds: string[]): Record<string, PrCriteriaMatches> {
@@ -158,14 +201,7 @@ export function parsePrCriteriaMatchResponse(raw: string, knownRowIds: string[])
       ? rawMatches as Record<string, unknown>
       : {};
     const matchIds = new Set(Array.isArray(rawMatches) ? rawMatches.map((value) => readString(value)).filter(Boolean) : []);
-    result[rowId] = {
-      c1: readBooleanLike(matches.c1) || matchIds.has("c1"),
-      c2: readBooleanLike(matches.c2) || matchIds.has("c2"),
-      c3: readBooleanLike(matches.c3) || matchIds.has("c3"),
-      c4: readBooleanLike(matches.c4) || matchIds.has("c4"),
-      c5: readBooleanLike(matches.c5) || matchIds.has("c5"),
-      c6: readBooleanLike(matches.c6) || matchIds.has("c6")
-    };
+    result[rowId] = readActiveMatches(matches, matchIds);
   }
   if (parsed) {
     for (const rowId of knownRowIds) {
@@ -175,14 +211,7 @@ export function parsePrCriteriaMatchResponse(raw: string, knownRowIds: string[])
       }
       const matches = Array.isArray(rawMatches) ? {} : rawMatches as Record<string, unknown>;
       const matchIds = new Set(Array.isArray(rawMatches) ? rawMatches.map((value) => readString(value)).filter(Boolean) : []);
-      result[rowId] = {
-        c1: readBooleanLike(matches.c1) || matchIds.has("c1"),
-        c2: readBooleanLike(matches.c2) || matchIds.has("c2"),
-        c3: readBooleanLike(matches.c3) || matchIds.has("c3"),
-        c4: readBooleanLike(matches.c4) || matchIds.has("c4"),
-        c5: readBooleanLike(matches.c5) || matchIds.has("c5"),
-        c6: readBooleanLike(matches.c6) || matchIds.has("c6")
-      };
+      result[rowId] = readActiveMatches(matches, matchIds);
     }
   }
   return result;
@@ -226,13 +255,15 @@ function criterionKeywords(label: string): string[] {
 
 export function buildDeterministicPrCriteriaMatches(campaign: PrCampaign, rows: PrEvidenceRow[]): Record<string, PrCriteriaMatches> {
   const result: Record<string, PrCriteriaMatches> = {};
-  const keywordSets = campaign.criteria.map((criterion) => criterionKeywords(criterion.label));
+  const counted = countedPrCriteria(campaign.criteria).map((criterion) => ({
+    id: criterion.id,
+    keywords: criterionKeywords(criterion.label)
+  }));
   for (const row of rows) {
     const text = normalizeMatchText(`${row.caption} ${row.expectedEngagement || ""} ${row.authorHandle}`);
     const matches = emptyPrCriteriaMatches();
-    for (const id of PR_CRITERION_IDS) {
-      const index = PR_CRITERION_IDS.indexOf(id);
-      matches[id] = keywordSets[index]?.some((keyword) => text.includes(keyword)) || false;
+    for (const criterion of counted) {
+      matches[criterion.id] = criterion.keywords.some((keyword) => text.includes(keyword));
     }
     result[row.id] = matches;
   }
@@ -248,14 +279,11 @@ export function mergePrCriteriaMatches(
   for (const rowId of knownRowIds) {
     const base = primary[rowId] || emptyPrCriteriaMatches();
     const backstop = fallback[rowId] || emptyPrCriteriaMatches();
-    result[rowId] = {
-      c1: base.c1 || backstop.c1,
-      c2: base.c2 || backstop.c2,
-      c3: base.c3 || backstop.c3,
-      c4: base.c4 || backstop.c4,
-      c5: base.c5 || backstop.c5,
-      c6: base.c6 || backstop.c6
-    };
+    const merged = emptyPrCriteriaMatches();
+    for (const id of PR_ACTIVE_CRITERION_IDS) {
+      merged[id] = base[id] || backstop[id];
+    }
+    result[rowId] = merged;
   }
   return result;
 }
@@ -303,7 +331,7 @@ function observedViews(row: PrEvidenceRow): number | undefined {
 }
 
 function criteriaHeaders(criteria: PrCriterion[]): string[] {
-  return criteria.map((criterion, index) => criterion.label.trim() || `criterion_${index + 1}`);
+  return countedPrCriteria(criteria).map((criterion) => criterion.label.trim());
 }
 
 export function buildPrEvidenceCsvRows(campaign: PrCampaign, rows: PrEvidenceRow[], limit?: number): string[][] {
@@ -321,6 +349,7 @@ export function buildPrEvidenceCsvRows(campaign: PrCampaign, rows: PrEvidenceRow
     "manual_notes",
     "collected_at"
   ];
+  const countedIds = countedPrCriterionIds(campaign.criteria);
   const body = (typeof limit === "number" ? rows.slice(0, limit) : rows).map((row) => [
     row.postUrl,
     row.authorHandle,
@@ -331,7 +360,7 @@ export function buildPrEvidenceCsvRows(campaign: PrCampaign, rows: PrEvidenceRow
     String(observedViews(row) ?? ""),
     String(row.metrics.followers ?? ""),
     row.expectedEngagement || "",
-    ...PR_CRITERION_IDS.map((id) => row.criteriaMatches[id] ? "✓" : ""),
+    ...countedIds.map((id) => row.criteriaMatches[id] ? "✓" : ""),
     "",
     row.collectedAt
   ]);
@@ -342,8 +371,8 @@ export function buildPrEvidenceCsv(campaign: PrCampaign, rows: PrEvidenceRow[]):
   return `\uFEFF${buildPrEvidenceCsvRows(campaign, rows).map((line) => line.map(csvEscape).join(",")).join("\n")}`;
 }
 
-function matchedCount(row: PrEvidenceRow): number {
-  return PR_CRITERION_IDS.filter((id) => row.criteriaMatches[id]).length;
+function matchedCount(row: PrEvidenceRow, countedIds: PrCriterionId[]): number {
+  return countedIds.filter((id) => row.criteriaMatches[id]).length;
 }
 
 function compactCaption(caption: string, maxLength = 180): string {
@@ -374,11 +403,14 @@ export function buildPrSummaryFacts(campaign: PrCampaign, rows: PrEvidenceRow[])
     },
     { likes: 0, comments: 0, reposts: 0, views: 0, views_rows_observed: 0 }
   );
+  const counted = countedPrCriteria(campaign.criteria);
+  const countedIds = counted.map((criterion) => criterion.id);
   return {
     campaign_name: campaign.name,
     total_rows: totalRows,
+    criteria_count: counted.length,
     observed_metrics: observedMetrics,
-    criteria: campaign.criteria.map((criterion) => {
+    criteria: counted.map((criterion) => {
       const matchedRows = rows.filter((row) => row.criteriaMatches[criterion.id]).length;
       return {
         id: criterion.id,
@@ -388,15 +420,15 @@ export function buildPrSummaryFacts(campaign: PrCampaign, rows: PrEvidenceRow[])
       };
     }),
     top_rows: [...rows]
-      .sort((a, b) => matchedCount(b) - matchedCount(a) || (b.metrics.likes || 0) - (a.metrics.likes || 0))
+      .sort((a, b) => matchedCount(b, countedIds) - matchedCount(a, countedIds) || (b.metrics.likes || 0) - (a.metrics.likes || 0))
       .slice(0, 5)
 	      .map((row) => ({
 	        author_handle: row.authorHandle,
 	        caption: compactCaption(row.caption),
 	        likes: row.metrics.likes || 0,
 	        comments: row.metrics.comments || 0,
-	        matched_count: matchedCount(row),
-	        matched_labels: campaign.criteria
+	        matched_count: matchedCount(row, countedIds),
+	        matched_labels: counted
 	          .filter((criterion) => row.criteriaMatches[criterion.id])
 	          .map((criterion) => criterion.label)
 	      }))
@@ -416,7 +448,7 @@ export function buildDeterministicPrSummary(facts: PrSummaryFacts): string {
     .join("\n");
   const highlights = facts.top_rows.length
     ? facts.top_rows.slice(0, 5).map((row, index) => [
-      `${index + 1}. **${row.author_handle || "Unknown author"}** - ${row.matched_count}/6 criteria matched, ${row.likes} likes, ${row.comments} comments.`,
+      `${index + 1}. **${row.author_handle || "Unknown author"}** - ${row.matched_count}/${facts.criteria_count} criteria matched, ${row.likes} likes, ${row.comments} comments.`,
       `   Matched: ${row.matched_labels.length ? row.matched_labels.join("; ") : "No criteria matched."}`,
       `   Evidence excerpt: "${row.caption || "No caption captured."}"`
     ].join("\n")).join("\n")
@@ -575,16 +607,17 @@ export function buildDeterministicPrCriteria(campaignName: string, briefText: st
 
   return PR_CRITERION_IDS.map((id, index) => ({
     id,
-    label: labels[index] || `criterion_${index + 1}`
+    label: index < PR_ACTIVE_CRITERION_LIMIT ? (labels[index] || `criterion_${index + 1}`) : ""
   })) as PrCampaign["criteria"];
 }
 
 export function buildPrCriteriaSuggestionPrompt(campaignName: string, briefText: string): string {
   const coreMessages = extractPrCoreMessages(briefText);
   return [
-    "You are helping a PR operator turn a campaign brief into six reportable message criteria.",
-    "Return one JSON envelope containing exactly six short criteria labels and three editable narrative settings.",
-    "Use this exact shape: {\"criteria\":[\"...\",\"...\",\"...\",\"...\",\"...\",\"...\"],\"narrativeSettings\":{\"narrativeAnchor\":\"...\",\"targetAudience\":\"...\",\"desiredAction\":\"...\"}}.",
+    "You are helping a PR operator turn a campaign brief into three reportable message criteria.",
+    "Return one JSON envelope containing exactly three short criteria labels and three editable narrative settings.",
+    "Use this exact shape: {\"criteria\":[\"...\",\"...\",\"...\"],\"narrativeSettings\":{\"narrativeAnchor\":\"...\",\"targetAudience\":\"...\",\"desiredAction\":\"...\"}}.",
+    "Pick the three the brief supports with its own wording; a human confirms or corrects each one, so do not pad the list to fill slots.",
     "Each label must be matchable against a Threads post caption or visible post text.",
     "narrativeAnchor is the intended proposition, targetAudience is the relevant audience, and desiredAction is the behavior the campaign wants.",
     "Prefer concrete campaign message pull-through over generic labels such as Brand named or CTA included when the brief has enough detail.",
@@ -599,14 +632,15 @@ export function buildPrCriteriaSuggestionPrompt(campaignName: string, briefText:
 }
 
 export function buildPrCriteriaMatchPrompt(campaign: PrCampaign, rows: PrEvidenceRow[]): string {
+  const counted = countedPrCriteria(campaign.criteria);
   return [
-    "Match collected Threads posts against six PR report criteria.",
-    "Return JSON only. For each known row_id, output booleans c1..c6. No explanation, no confidence, no quotes.",
+    `Match collected Threads posts against ${counted.length} PR report criteria.`,
+    `Return JSON only. For each known row_id, output booleans ${counted.map((criterion) => criterion.id).join(", ") || "none"}. No explanation, no confidence, no quotes.`,
     "",
     `Campaign: ${campaign.name}`,
     `Brief: ${campaign.briefText}`,
     "Criteria:",
-    ...campaign.criteria.map((criterion) => `${criterion.id}: ${criterion.label}`),
+    ...counted.map((criterion) => `${criterion.id}: ${criterion.label}`),
     "",
     "Rows:",
     ...rows.map((row) => `${row.id}: ${row.caption}`)

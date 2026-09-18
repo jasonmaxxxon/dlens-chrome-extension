@@ -196,13 +196,6 @@ function RowTrail({
       <span style={{ ...textStyles.caption, color: tokens.color.softInk, textAlign: "right" }}>
         {detail}
       </span>
-      {phase === "ready" ? (
-        <span style={{ ...textStyles.caption, fontWeight: 700, color: tokens.color.accent }}>
-          可比較 →
-        </span>
-      ) : phase === "analyzing" ? (
-        <span style={{ ...textStyles.caption, color: tokens.color.queued }}>分析中…</span>
-      ) : null}
     </div>
   );
 }

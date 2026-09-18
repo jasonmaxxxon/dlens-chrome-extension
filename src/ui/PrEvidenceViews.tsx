@@ -4,8 +4,8 @@ import { Download, ExternalLink } from "lucide-react";
 import type { PrCampaignSaveDraft } from "../state/pr-evidence-storage.ts";
 import {
   metricLine,
-  PR_CRITERION_PLACEHOLDERS,
   summarizeAdvancedMetricsNotice,
+  type PrCriterionSetupViewModel,
   type PrCriterionStrength,
   type PrEvidenceCommand,
   type PrEvidenceCsvPreviewViewModel,
@@ -134,9 +134,143 @@ function parseCoreMessage(raw: string): { label: string | null; value: string } 
   return { label: null, value: raw };
 }
 
+const CRITERION_GHOST_BUTTON_STYLE = {
+  padding: "4px 8px",
+  fontSize: textStyles.caption.fontSize,
+  fontWeight: 500
+} as const;
+
+/*
+ * One criterion, three separate acts: confirm the AI candidate, correct it, or
+ * mark it as not mentioned in the brief. Marking is not a confirmation, so it
+ * never shares the confirm button, and only a candidate the brief actually
+ * backs gets the emphasised confirm (docs/mockups review F6/F7).
+ */
+function CriterionReviewRow({
+  criterion,
+  onLabelChange,
+  onDispatch
+}: {
+  criterion: PrCriterionSetupViewModel;
+  onLabelChange: (label: string) => void;
+  onDispatch: (command: PrEvidenceCommand) => void;
+}) {
+  const statusTone = criterion.status === "not_mentioned"
+    ? tokens.color.softInk
+    : criterion.status === "candidate"
+      ? PR_ACCENT
+      : criterion.status === "confirmed"
+        ? PR_MOSS
+        : tokens.color.subInk;
+  return (
+    <div
+      data-pr-criterion-row={criterion.id}
+      data-pr-criterion-status={criterion.status}
+      style={{
+        display: "grid",
+        gap: 5,
+        padding: "8px 0",
+        borderTop: `1px solid ${tokens.color.line}`
+      }}
+    >
+      <div style={{ display: "flex", alignItems: "baseline", gap: 10, minWidth: 0 }}>
+        <span style={{ ...prMonoMetaStyle, color: tokens.color.softInk, flex: "0 0 18px" }}>
+          {criterion.numberLabel}
+        </span>
+        {criterion.editable ? (
+          <input
+            data-pr-field={`criterion-${criterion.index}`}
+            value={criterion.label}
+            onChange={(event) => onLabelChange(event.target.value)}
+            placeholder={criterion.placeholder}
+            style={{
+              flex: 1,
+              minWidth: 0,
+              boxSizing: "border-box",
+              fontFamily: tokens.font.sans,
+              fontSize: 12,
+              padding: "7px 9px",
+              background: tokens.color.surface,
+              border: `1px solid ${PR_RULE}`,
+              borderRadius: tokens.radius.card,
+              color: tokens.color.ink,
+              outline: "none"
+            }}
+          />
+        ) : (
+          <span
+            data-pr-criterion-label={criterion.id}
+            style={{
+              ...prRowTextStyle,
+              flex: 1,
+              minWidth: 0,
+              color: criterion.status === "not_mentioned" ? tokens.color.softInk : tokens.color.ink,
+              fontWeight: 500
+            }}
+          >
+            {criterion.status === "not_mentioned" ? "brief 未提及" : criterion.label}
+          </span>
+        )}
+        <span
+          data-pr-criterion-status-chip={criterion.status}
+          style={{ ...prMonoMetaStyle, color: statusTone, whiteSpace: "nowrap" }}
+        >
+          {criterion.statusLabel}
+        </span>
+      </div>
+      {criterion.supportLabel ? (
+        <p
+          data-pr-criterion-support={criterion.supported ? "found" : "missing"}
+          style={{
+            margin: 0,
+            paddingLeft: 28,
+            ...textStyles.caption,
+            color: criterion.supported ? tokens.color.subInk : PR_AMBER
+          }}
+        >
+          {criterion.supportLabel}
+          {criterion.supportExcerpt ? `：「${criterion.supportExcerpt}」` : ""}
+        </p>
+      ) : null}
+      <div style={{ display: "flex", gap: 6, paddingLeft: 28, flexWrap: "wrap" }}>
+        {criterion.confirmCommand ? (
+          <SecondaryButton
+            onClick={() => onDispatch(criterion.confirmCommand as PrEvidenceCommand)}
+            dataAttrs={{ "data-pr-criterion-confirm": criterion.id }}
+            style={criterion.confirmEmphasis
+              ? { ...accentButtonStyle, ...CRITERION_GHOST_BUTTON_STYLE, fontWeight: 700 }
+              : CRITERION_GHOST_BUTTON_STYLE}
+          >
+            {criterion.confirmLabel}
+          </SecondaryButton>
+        ) : null}
+        {criterion.correctCommand ? (
+          <SecondaryButton
+            onClick={() => onDispatch(criterion.correctCommand as PrEvidenceCommand)}
+            dataAttrs={{ "data-pr-criterion-correct": criterion.id }}
+            style={CRITERION_GHOST_BUTTON_STYLE}
+          >
+            更正
+          </SecondaryButton>
+        ) : null}
+        {criterion.notMentionedCommand ? (
+          <SecondaryButton
+            onClick={() => onDispatch(criterion.notMentionedCommand as PrEvidenceCommand)}
+            dataAttrs={{ "data-pr-criterion-not-mentioned": criterion.id }}
+            style={CRITERION_GHOST_BUTTON_STYLE}
+          >
+            標記為未提及
+          </SecondaryButton>
+        ) : null}
+      </div>
+    </div>
+  );
+}
+
 function CampaignEditor({
   campaign,
   onChange,
+  onDispatch,
   onSave,
   onGenerateCriteria,
   canGenerateCriteria,
@@ -152,6 +286,7 @@ function CampaignEditor({
 }: {
   campaign: PrEvidenceViewModel["campaign"];
   onChange: (draft: PrCampaignSaveDraft) => void;
+  onDispatch: (command: PrEvidenceCommand) => void;
   onSave: () => void;
   onGenerateCriteria: () => void;
   canGenerateCriteria: boolean;
@@ -185,9 +320,9 @@ function CampaignEditor({
     prevIsReadingBrief.current = isReadingBrief;
   }, [isReadingBrief, campaign.briefText]);
 
-  function updateCriterion(index: number, label: string) {
-    const criteria = campaign.criteria.map((criterion, currentIndex) =>
-      currentIndex === index ? { ...criterion, label } : criterion
+  function updateCriterion(criterionId: string, label: string) {
+    const criteria = campaign.saveDraft.criteria.map((criterion) =>
+      criterion.id === criterionId ? { ...criterion, label } : criterion
     ) as PrCampaignSaveDraft["criteria"];
     onChange({ ...campaign.saveDraft, criteria });
   }
@@ -229,11 +364,6 @@ function CampaignEditor({
     margin: 0,
     transition: tokens.motion.interactiveTransitionFast
   } as const;
-  const criteriaInputLineStyle = {
-    ...inputLineStyle,
-    fontSize: 12
-  } as const;
-
   /* ── Collapsed summary row ───────────────────────────────────────── */
   if (collapsed) {
     return (
@@ -537,8 +667,8 @@ function CampaignEditor({
               style={{ display: "flex", gap: 10, alignItems: "center", padding: "9px 12px", borderRadius: PR_RADIUS, border: `1px solid ${tokens.color.failedBorder}`, background: `linear-gradient(180deg, ${tokens.color.surface}, ${tokens.color.failedWash})` }}
             >
               <span aria-hidden style={{ width: 28, height: 28, borderRadius: 8, background: tokens.color.failedSoft, color: PR_ACCENT, display: "grid", placeItems: "center", fontSize: 14, flexShrink: 0 }}>✦</span>
-              <span style={{ ...prRowTextStyle, color: tokens.color.subInk, minWidth: 0 }}>
-                AI 已從 brief 抽出 <b style={{ color: PR_ACCENT, fontWeight: 600 }}>{campaign.criteria.length} 條 criteria</b> · 點任一條可改
+              <span data-pr-criteria-caption="true" style={{ ...prRowTextStyle, color: tokens.color.subInk, minWidth: 0 }}>
+                {campaign.criteriaCaption}
               </span>
             </div>
           ) : null}
@@ -561,20 +691,14 @@ function CampaignEditor({
               </AttentionBeam>
             </SecondaryButton>
           </div>
-          <div style={{ display: "grid", gridTemplateColumns: "repeat(2, minmax(0, 1fr))", gap: `${tokens.spacing.sm}px ${tokens.spacing.md}px` }}>
-            {campaign.criteria.map((criterion, index) => (
-              <div key={criterion.id} style={{ display: "flex", alignItems: "baseline", gap: 10 }}>
-                <span style={{ fontFamily: tokens.font.mono, fontSize: 10, color: tokens.color.softInk, flex: "0 0 18px", letterSpacing: "0.04em" }}>
-                  {String(index + 1).padStart(2, "0")}
-                </span>
-                <input
-                  data-pr-field={`criterion-${index}`}
-                  value={criterion.label}
-                  onChange={(event) => updateCriterion(index, event.target.value)}
-                  placeholder={campaign.placeholders[criterion.id] || PR_CRITERION_PLACEHOLDERS[criterion.id]}
-                  style={criteriaInputLineStyle}
-                />
-              </div>
+          <div data-pr-criteria-review="true" style={{ display: "grid" }}>
+            {campaign.criteriaSetup.map((criterion) => (
+              <CriterionReviewRow
+                key={criterion.id}
+                criterion={criterion}
+                onLabelChange={(label) => updateCriterion(criterion.id, label)}
+                onDispatch={onDispatch}
+              />
             ))}
           </div>
         </div>
@@ -639,7 +763,7 @@ function PrEvidenceHeaderStats({ health }: { health: PrEvidenceViewModel["criter
 }
 
 function rowEvidenceStrength(row: PrEvidenceRowViewModel): PrCriterionStrength {
-  if (row.matchedCount >= 4) return "strong";
+  if (row.strong) return "strong";
   if (row.matchedCount > 0) return "partial";
   return "gap";
 }
@@ -650,7 +774,7 @@ function EvidenceStrengthChip({ row }: { row: PrEvidenceRowViewModel }) {
   return (
     <span
       data-pr-evidence-strength-chip={strength}
-      title={`${row.matchedCount}/6 criteria matched`}
+      title={row.matchCountAriaLabel}
       style={{
         display: "inline-flex",
         alignItems: "center",
@@ -834,12 +958,12 @@ function SourceLinkIcon({ row }: { row: PrEvidenceRowViewModel }) {
 function CriterionChips({ row, variant }: { row: PrEvidenceRowViewModel; variant: "full" | "compact" }) {
   const matchedTotal = row.matchedCount;
   if (variant === "compact") {
-    const tone = matchedTotal >= 5 ? PR_MOSS : matchedTotal > 0 ? PR_ACCENT : tokens.color.softInk;
-    const soft = matchedTotal >= 5 ? tokens.color.successSoft : matchedTotal > 0 ? tokens.color.runningSoft : tokens.color.neutralSurfaceSoft;
+    const tone = row.strong ? PR_MOSS : matchedTotal > 0 ? PR_ACCENT : tokens.color.softInk;
+    const soft = row.strong ? tokens.color.successSoft : matchedTotal > 0 ? tokens.color.runningSoft : tokens.color.neutralSurfaceSoft;
     return (
       <span
         data-pr-match-indicator="true"
-        aria-label={matchedTotal === 0 ? "No criteria matched yet" : `${matchedTotal} of 6 criteria matched`}
+        aria-label={matchedTotal === 0 ? "No criteria matched yet" : row.matchCountAriaLabel}
         title={matchedTotal === 0 ? "No criteria matched yet" : row.matchedCriterionLabels.join(" · ")}
         style={{
           display: "inline-flex",
@@ -863,7 +987,7 @@ function CriterionChips({ row, variant }: { row: PrEvidenceRowViewModel; variant
             flexShrink: 0
           }}
         />
-        {matchedTotal}/6
+        {row.matchCountLabel}
       </span>
     );
   }
@@ -1057,8 +1181,8 @@ function CriteriaHealth({ health, rows }: { health: PrEvidenceViewModel["criteri
                     <span style={{ ...textStyles.caption, color: tokens.color.subInk, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
                       {row.captionLabel}
                     </span>
-                    <span style={{ ...prMonoMetaStyle, color: row.matchedCount >= 4 ? PR_MOSS : PR_ACCENT }}>
-                      {row.matchedCount}/6
+                    <span style={{ ...prMonoMetaStyle, color: row.strong ? PR_MOSS : PR_ACCENT }}>
+                      {row.matchCountLabel}
                     </span>
                   </div>
                 )) : (
@@ -1987,6 +2111,7 @@ function PrEvidenceViewInner({ viewModel, onCommand }: PrEvidenceViewProps) {
         <CampaignEditor
           campaign={viewModel.campaign}
           onChange={(draft) => void dispatchCommand({ kind: "updateDraft", target: { sessionId: viewModel.sessionId }, draft })}
+          onDispatch={(command) => void dispatchCommand(command)}
           onSave={() => saveCampaignAction ? void dispatchCommand(saveCampaignAction) : undefined}
           onGenerateCriteria={() => generateCriteriaAction ? void dispatchCommand(generateCriteriaAction) : undefined}
           canGenerateCriteria={Boolean(generateCriteriaAction)}

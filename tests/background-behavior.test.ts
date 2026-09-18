@@ -244,13 +244,17 @@ test("background startup persists global-state storage migrations immediately", 
   });
   const stored = harness.state[backgroundTestables.GLOBAL_STORAGE_KEY] as ExtensionGlobalState;
 
-  assert.equal(stored.schemaVersion, 2);
+  assert.equal(stored.schemaVersion, 3);
   assert.equal("raw_payload" in stored.sessions[0]!.items[0]!.latestCapture!, false);
   assert.equal("raw_payload" in stored.sessions[0]!.items[0]!.latestCapture!.result!, false);
   assert.deepEqual(
     stored.sessions[0]!.items[0]!.latestCapture!.result!.comments,
     legacyGlobal.sessions[0]!.items[0]!.latestCapture!.result!.comments
   );
+  // v2→v3: a descriptor saved before thumbnails gets an explicit null, so the
+  // collection list has one no-image shape to render instead of two.
+  assert.equal(stored.sessions[0]!.items[0]!.descriptor.image_url, null);
+  assert.equal("image_url" in stored.sessions[0]!.items[0]!.descriptor, true);
 });
 
 function makeProductContext(): ProductContext {
@@ -1149,6 +1153,131 @@ test("session/save-current-preview can save topic posts into the untriaged lane"
   assert.equal(signals[0]?.sessionId, topic.id);
   assert.equal(signals[0]?.inboxStatus, "unprocessed");
   assert.equal(signals[0]?.topicId, undefined);
+});
+
+test("session/save-current-preview stamps an undo handle on the toast only for a newly created item", async () => {
+  const topic = makeSession("topic-session", "topic");
+  const tabKey = backgroundTestables.tabStorageKey(TAB_ID);
+  const harness = await createHarness({
+    [backgroundTestables.GLOBAL_STORAGE_KEY]: makeGlobal([topic], topic.id),
+    [backgroundTestables.ACTIVE_SESSION_ID_STORAGE_KEY]: topic.id,
+    [tabKey]: createEmptyTabState(),
+    [TOPICS_STORAGE_KEY]: []
+  });
+
+  const first = await harness.dispatch({
+    type: "session/save-current-preview",
+    target: { sessionId: topic.id, topicId: null },
+    descriptor: makeDescriptor("undoable")
+  } as unknown as ExtensionMessage);
+
+  assert.equal(first.ok, true);
+  const savedItemId = first.snapshot?.global.sessions[0]?.items[0]?.id;
+  assert.ok(savedItemId);
+  assert.deepEqual(first.snapshot?.tab.lastSavedToast?.undo, { sessionId: topic.id, itemId: savedItemId });
+
+  // Re-saving the same post refreshes the existing row, so it is not undoable.
+  const second = await harness.dispatch({
+    type: "session/save-current-preview",
+    target: { sessionId: topic.id, topicId: null },
+    descriptor: makeDescriptor("undoable")
+  } as unknown as ExtensionMessage);
+
+  assert.equal(second.ok, true);
+  assert.equal(second.snapshot?.global.sessions[0]?.items.length, 1);
+  assert.equal(second.snapshot?.tab.lastSavedToast?.undo, undefined);
+});
+
+test("session/undo-save removes the saved item, its signal, and its tags", async () => {
+  const topic = makeSession("topic-session", "topic");
+  const tabKey = backgroundTestables.tabStorageKey(TAB_ID);
+  const harness = await createHarness({
+    [backgroundTestables.GLOBAL_STORAGE_KEY]: makeGlobal([topic], topic.id),
+    [backgroundTestables.ACTIVE_SESSION_ID_STORAGE_KEY]: topic.id,
+    [tabKey]: createEmptyTabState(),
+    [TOPICS_STORAGE_KEY]: []
+  });
+
+  const saved = await harness.dispatch({
+    type: "session/save-current-preview",
+    target: { sessionId: topic.id, topicId: null },
+    descriptor: makeDescriptor("undo-me")
+  } as unknown as ExtensionMessage);
+  const undo = saved.snapshot?.tab.lastSavedToast?.undo;
+  assert.ok(undo);
+  assert.equal((harness.state[SIGNALS_STORAGE_KEY] as Signal[]).length, 1);
+
+  const response = await harness.dispatch({
+    type: "session/undo-save",
+    sessionId: undo.sessionId,
+    itemId: undo.itemId
+  } as unknown as ExtensionMessage);
+
+  assert.equal(response.ok, true);
+  const global = harness.state[backgroundTestables.GLOBAL_STORAGE_KEY] as ExtensionGlobalState;
+  assert.equal(global.sessions[0]?.items.length, 0);
+  assert.equal((harness.state[SIGNALS_STORAGE_KEY] as Signal[]).length, 0);
+  const tabState = harness.state[tabKey] as TabUiState;
+  assert.equal(tabState.lastSavedToast, null);
+  assert.equal(tabState.activeItemId, null);
+});
+
+test("session/undo-save drops the PR evidence row a pr-evidence save wrote", async () => {
+  const prSession = makeSession("pr-session", "pr-evidence");
+  const tabKey = backgroundTestables.tabStorageKey(TAB_ID);
+  const campaign: PrCampaign = {
+    id: "campaign-1",
+    sessionId: prSession.id,
+    name: "Launch",
+    briefText: "",
+    criteria: ["c1", "c2", "c3", "c4", "c5", "c6"].map((id) => ({ id, label: "" })) as PrCampaign["criteria"],
+    createdAt: "2026-05-27T00:00:00.000Z",
+    updatedAt: "2026-05-27T00:00:00.000Z"
+  };
+  const harness = await createHarness({
+    [backgroundTestables.GLOBAL_STORAGE_KEY]: makeGlobal([prSession], prSession.id),
+    [backgroundTestables.ACTIVE_SESSION_ID_STORAGE_KEY]: prSession.id,
+    [tabKey]: createEmptyTabState(),
+    [PR_CAMPAIGNS_STORAGE_KEY]: [campaign]
+  });
+
+  const saved = await harness.dispatch({
+    type: "session/save-current-preview",
+    target: { sessionId: prSession.id, topicId: null },
+    descriptor: makeDescriptor("pr-undo")
+  } as unknown as ExtensionMessage);
+  const undo = saved.snapshot?.tab.lastSavedToast?.undo;
+  assert.ok(undo);
+  assert.equal((harness.state[PR_EVIDENCE_ROWS_STORAGE_KEY] as PrEvidenceRow[]).length, 1);
+
+  const response = await harness.dispatch({
+    type: "session/undo-save",
+    sessionId: undo.sessionId,
+    itemId: undo.itemId
+  } as unknown as ExtensionMessage);
+
+  assert.equal(response.ok, true);
+  assert.equal((harness.state[PR_EVIDENCE_ROWS_STORAGE_KEY] as PrEvidenceRow[]).length, 0);
+  const global = harness.state[backgroundTestables.GLOBAL_STORAGE_KEY] as ExtensionGlobalState;
+  assert.equal(global.sessions[0]?.items.length, 0);
+});
+
+test("session/undo-save refuses an item that is already gone instead of silently succeeding", async () => {
+  const archive = makeSession("archive-session", "archive");
+  const tabKey = backgroundTestables.tabStorageKey(TAB_ID);
+  const harness = await createHarness({
+    [backgroundTestables.GLOBAL_STORAGE_KEY]: makeGlobal([archive], archive.id),
+    [backgroundTestables.ACTIVE_SESSION_ID_STORAGE_KEY]: archive.id,
+    [tabKey]: createEmptyTabState()
+  });
+
+  const response = await harness.dispatch({
+    type: "session/undo-save",
+    sessionId: archive.id,
+    itemId: "never-saved"
+  } as unknown as ExtensionMessage);
+
+  assert.equal(response.ok, false);
 });
 
 test("session/save-current-preview emits signal.saved background boundary events with requestId", async () => {

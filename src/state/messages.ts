@@ -66,6 +66,7 @@ export type ExtensionMessagePayload =
   | { type: "session/set-mode"; sessionId: string; mode: FolderMode }
   | { type: "session/save-current-preview"; target: SaveCurrentPreviewActionTarget; descriptor?: TargetDescriptor }
   | { type: "session/select-item"; sessionId: string; itemId: string }
+  | { type: "session/undo-save"; sessionId: string; itemId: string }
   | { type: "session/queue-item"; sessionId: string; itemId: string }
   | { type: "session/queue-items"; sessionId: string; itemIds: string[] }
   | { type: "session/queue-items-and-start-processing"; sessionId: string; itemIds: string[] }

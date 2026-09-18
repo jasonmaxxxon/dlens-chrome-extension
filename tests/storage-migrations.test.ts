@@ -5,30 +5,42 @@ import test from "node:test";
 import { PRODUCT_CONTEXT_STORAGE_KEY } from "../src/compare/product-context.ts";
 import { TOPIC_AUDIT_RUNS_STORAGE_KEY } from "../src/state/topic-audit-storage.ts";
 import { GLOBAL_STATE_STORAGE_KEY } from "../src/state/storage-keys.ts";
-import { runMigrationsFor, STORAGE_MIGRATIONS } from "../src/state/storage-schema.ts";
+import { createEmptyGlobalState } from "../src/state/types.ts";
+import {
+  CURRENT_STORAGE_SCHEMA_VERSION,
+  runMigrationsFor,
+  STORAGE_MIGRATIONS
+} from "../src/state/storage-schema.ts";
 
 function readFixture(name: string): unknown {
   return JSON.parse(readFileSync(new URL(`./fixtures/storage/${name}`, import.meta.url), "utf8"));
 }
 
-test("global-state v0 fixture migrates through the full chain to expected v2 shape", () => {
+test("global-state v0 fixture migrates through the full chain to expected v3 shape", () => {
   const v0 = readFixture("global-state-v0.json");
-  const expectedV2 = readFixture("global-state-v2.json");
+  const expectedV3 = readFixture("global-state-v3.json");
   const result = runMigrationsFor(STORAGE_MIGRATIONS, GLOBAL_STATE_STORAGE_KEY, v0);
-  assert.deepEqual(result, expectedV2);
+  assert.deepEqual(result, expectedV3);
 });
 
-test("global-state v1 fixture migrates to expected v2 shape", () => {
+test("global-state v1 fixture migrates to expected v3 shape", () => {
   const v1 = readFixture("global-state-v1.json");
-  const expectedV2 = readFixture("global-state-v2.json");
+  const expectedV3 = readFixture("global-state-v3.json");
   const result = runMigrationsFor(STORAGE_MIGRATIONS, GLOBAL_STATE_STORAGE_KEY, v1);
-  assert.deepEqual(result, expectedV2);
+  assert.deepEqual(result, expectedV3);
 });
 
-test("global-state v2 fixture round-trips unchanged through the migration", () => {
+test("global-state v2 fixture migrates to expected v3 shape", () => {
   const v2 = readFixture("global-state-v2.json");
+  const expectedV3 = readFixture("global-state-v3.json");
   const result = runMigrationsFor(STORAGE_MIGRATIONS, GLOBAL_STATE_STORAGE_KEY, v2);
-  assert.deepEqual(result, v2);
+  assert.deepEqual(result, expectedV3);
+});
+
+test("global-state v3 fixture round-trips unchanged through the migration", () => {
+  const v3 = readFixture("global-state-v3.json");
+  const result = runMigrationsFor(STORAGE_MIGRATIONS, GLOBAL_STATE_STORAGE_KEY, v3);
+  assert.deepEqual(result, v3);
 });
 
 test("global-state v1 migration strips backend-only raw payload mirrors and reaches v2", () => {
@@ -60,13 +72,61 @@ test("global-state v1 migration strips backend-only raw payload mirrors and reac
     v1
   );
 
-  assert.equal(result.schemaVersion, 2);
+  assert.equal(result.schemaVersion, 3);
   assert.equal("raw_payload" in result.sessions[0].items[0].latestCapture, false);
   assert.equal("raw_payload" in result.sessions[0].items[0].latestCapture.result, false);
   assert.deepEqual(
     result.sessions[0].items[0].latestCapture.result.comments,
     [{ text: "must stay" }]
   );
+});
+
+test("global-state v2 migration stamps image_url on descriptors that predate thumbnails", () => {
+  const v2 = {
+    schemaVersion: 2,
+    sessions: [{
+      id: "session-1",
+      items: [
+        // Saved before thumbnails: no image_url at all.
+        { id: "item-legacy", descriptor: { post_url: "https://www.threads.net/@a/post/D1" } },
+        // Already captured with a thumbnail: must keep its URL.
+        {
+          id: "item-with-image",
+          descriptor: {
+            post_url: "https://www.threads.net/@a/post/D2",
+            image_url: "https://scontent.cdninstagram.com/v/t51.2885-15/photo.jpg"
+          }
+        },
+        // Already known to have no image: an explicit null must not be rewritten.
+        {
+          id: "item-known-imageless",
+          descriptor: { post_url: "https://www.threads.net/@a/post/D3", image_url: null }
+        },
+        // A record with no descriptor at all must pass through untouched.
+        { id: "item-no-descriptor", latestCapture: { id: "capture-1" } }
+      ]
+    }],
+    activeSessionId: "session-1"
+  };
+
+  const result = runMigrationsFor<Record<string, any>>(
+    STORAGE_MIGRATIONS,
+    GLOBAL_STATE_STORAGE_KEY,
+    v2
+  );
+  const [legacy, withImage, knownImageless, noDescriptor] = result.sessions[0].items;
+
+  assert.equal(result.schemaVersion, 3);
+  assert.equal(legacy.descriptor.image_url, null);
+  assert.equal("image_url" in legacy.descriptor, true, "null must be explicit, not absent");
+  assert.equal(
+    withImage.descriptor.image_url,
+    "https://scontent.cdninstagram.com/v/t51.2885-15/photo.jpg"
+  );
+  assert.equal(knownImageless.descriptor.image_url, null);
+  assert.deepEqual(noDescriptor, { id: "item-no-descriptor", latestCapture: { id: "capture-1" } });
+  // Untouched fields stay untouched.
+  assert.equal(legacy.descriptor.post_url, "https://www.threads.net/@a/post/D1");
 });
 
 test("product-context v0 fixture migrates to expected v1 shape", () => {
@@ -105,6 +165,23 @@ test("STORAGE_MIGRATIONS entries are forward-only and reach each durable key's c
   for (const entry of STORAGE_MIGRATIONS) {
     maxToByKey.set(entry.key, Math.max(maxToByKey.get(entry.key) ?? 0, entry.to));
   }
-  assert.equal(maxToByKey.get(GLOBAL_STATE_STORAGE_KEY), 2);
+  // Bound to the constant, not a literal: a fresh install stamps this version,
+  // so if the registry stops reaching it every startup re-migrates current state.
+  assert.equal(maxToByKey.get(GLOBAL_STATE_STORAGE_KEY), CURRENT_STORAGE_SCHEMA_VERSION);
   assert.equal(maxToByKey.get(PRODUCT_CONTEXT_STORAGE_KEY), 1);
+});
+
+test("a freshly created global state is already at the current schema version", () => {
+  // Regression: createEmptyGlobalState used to hardcode its version, so adding
+  // a migration left every fresh install one version behind and re-migrating on
+  // each startup. The empty state must be a no-op through the registry.
+  const fresh = createEmptyGlobalState();
+  assert.equal(fresh.schemaVersion, CURRENT_STORAGE_SCHEMA_VERSION);
+
+  const result = runMigrationsFor<Record<string, any>>(
+    STORAGE_MIGRATIONS,
+    GLOBAL_STATE_STORAGE_KEY,
+    fresh
+  );
+  assert.deepEqual(result, fresh);
 });

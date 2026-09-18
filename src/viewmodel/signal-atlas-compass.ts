@@ -8,6 +8,12 @@ export interface CompassBubble {
   x: number;
   y: number;
   r: number;
+  /** LLM-read valence the bubble was placed from, before any layout nudge; null on field layouts. */
+  valence: number | null;
+  /** LLM-read mode the bubble was placed from, before any layout nudge; null on field layouts. */
+  mode: number | null;
+  /** Pixels between the drawn centre and the centre the scalars asked for. 0 when the bubble sits on its own reading. */
+  nudgePx: number;
 }
 
 export interface SignalAtlasCompassLayout {
@@ -16,6 +22,8 @@ export interface SignalAtlasCompassLayout {
   width: number;
   height: number;
   bubbles: CompassBubble[];
+  /** How many bubbles overlap relaxation pushed off their read coordinates. */
+  nudgedCount: number;
 }
 
 // The compass is the L0 protagonist: generous whitespace, bubbles never crowd or kiss edges.
@@ -28,6 +36,8 @@ const EDGE_PADDING = 18;
 const LABEL_CLEARANCE = 34;
 const SEPARATION_GAP = 18;
 const RELAX_ITERATIONS = 48;
+/** Below a pixel the bubble still reads as sitting on its own coordinate; don't claim a nudge. */
+const NUDGE_REPORT_PX = 1;
 
 function radiusFor(nComments: number, maxComments: number): number {
   const ratio = Math.sqrt(Math.max(0, nComments)) / Math.sqrt(Math.max(1, maxComments));
@@ -37,6 +47,22 @@ function radiusFor(nComments: number, maxComments: number): number {
 function clampBubble(bubble: CompassBubble, width: number, height: number): void {
   bubble.x = Math.max(bubble.r + EDGE_PADDING, Math.min(width - bubble.r - EDGE_PADDING, bubble.x));
   bubble.y = Math.max(bubble.r + EDGE_PADDING, Math.min(height - bubble.r - LABEL_CLEARANCE, bubble.y));
+}
+
+/** Distance each bubble ended up from the centre its own scalars asked for. */
+function recordNudges(bubbles: CompassBubble[], anchors: ReadonlyArray<{ x: number; y: number }>): number {
+  let nudgedCount = 0;
+  bubbles.forEach((bubble, index) => {
+    const anchor = anchors[index];
+    if (!anchor) {
+      return;
+    }
+    bubble.nudgePx = Math.hypot(bubble.x - anchor.x, bubble.y - anchor.y);
+    if (bubble.nudgePx >= NUDGE_REPORT_PX) {
+      nudgedCount += 1;
+    }
+  });
+  return nudgedCount;
 }
 
 /** Deterministic pairwise relaxation — no randomness, same input always yields the same layout. */
@@ -93,13 +119,19 @@ export function layoutSignalAtlasCompass(patterns: ReadonlyArray<ReactionPattern
         counterCount: pattern.counterRefs.length,
         x: centerX + (pattern.valence ?? 0) * reachX,
         y: centerY - (pattern.mode ?? 0) * reachY,
-        r: radiusFor(pattern.nComments, maxComments)
+        r: radiusFor(pattern.nComments, maxComments),
+        valence: pattern.valence ?? null,
+        mode: pattern.mode ?? null,
+        nudgePx: 0
       };
       clampBubble(bubble, width, height);
       return bubble;
     });
+    // Anchors are read after clamping: the edge guard is part of what the reading can ask for.
+    const anchors = bubbles.map((bubble) => ({ x: bubble.x, y: bubble.y }));
     separateBubbles(bubbles, width, height);
-    return { kind: "compass", width, height, bubbles };
+    const nudgedCount = recordNudges(bubbles, anchors);
+    return { kind: "compass", width, height, bubbles, nudgedCount };
   }
 
   const width = COMPASS_WIDTH;
@@ -114,13 +146,17 @@ export function layoutSignalAtlasCompass(patterns: ReadonlyArray<ReactionPattern
       counterCount: pattern.counterRefs.length,
       x: slot * (index + 0.5),
       y: index % 2 === 0 ? 78 : 168,
-      r: radiusFor(pattern.nComments, maxComments)
+      r: radiusFor(pattern.nComments, maxComments),
+      // Field slots are an arrangement, not a reading — there is no true coordinate to be nudged off.
+      valence: null,
+      mode: null,
+      nudgePx: 0
     };
     clampBubble(bubble, width, height);
     return bubble;
   });
   separateBubbles(bubbles, width, height);
-  return { kind: "field", width, height, bubbles };
+  return { kind: "field", width, height, bubbles, nudgedCount: 0 };
 }
 
 /**
