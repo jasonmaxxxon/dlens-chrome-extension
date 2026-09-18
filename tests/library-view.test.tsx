@@ -580,3 +580,152 @@ test("LibraryView uses the shared generating attention only for folder synthesis
   assert.match(html, /data-searching-orb="true"/);
   assert.doesNotMatch(html, /data-item-phase="crawling"[^>]*data-attention-beam=/);
 });
+
+function buildSearchableSession(count: number): SessionRecord {
+  const session = createSessionRecord("Signals", "2026-03-24T07:00:00.000Z");
+  for (let index = 0; index < count; index += 1) {
+    const author = index === 0 ? "rentwatch" : `author-${index}`;
+    const snippet = index === 0 ? "租金管制真係幫到人？" : `unrelated snippet ${index}`;
+    session.items.push(
+      createSessionItem(
+        {
+          target_type: "post",
+          page_url: `https://www.threads.net/@${author}/post/${index}`,
+          post_url: `https://www.threads.net/@${author}/post/${index}`,
+          author_hint: author,
+          text_snippet: snippet,
+          time_token_hint: "1h",
+          dom_anchor: `card-${index}`,
+          engagement: {},
+          engagement_present: {},
+          captured_at: "2026-03-24T07:22:21.000Z"
+        },
+        "2026-03-24T07:22:21.000Z"
+      )
+    );
+  }
+  return session;
+}
+
+function libraryProps(session: SessionRecord) {
+  return {
+    activeFolder: session,
+    activeItem: session.items[0] as SessionItem,
+    optimisticQueuedIds: [],
+    workerStatus: "idle" as WorkerStatus | null,
+    isStartingProcessing: false,
+    processAllLabel: "Process All",
+    processingSummary: {
+      total: session.items.length,
+      ready: 0,
+      crawling: 0,
+      analyzing: 0,
+      pending: session.items.length,
+      failed: 0,
+      hasReadyPair: false,
+      hasInflight: false
+    } satisfies SessionProcessingSummary,
+    canPrev: false,
+    canNext: false,
+    onSelectItem: () => undefined,
+    onProcessAll: () => undefined,
+    onMoveSelection: () => undefined,
+    onQueueItem: () => undefined,
+    renderMetrics: () => null,
+    techniqueReadings: [] as TechniqueReadingSnapshot[],
+    initialSection: "posts" as const
+  };
+}
+
+test("LibraryView hides the search row until the list is long enough to need one", () => {
+  const short = renderToStaticMarkup(React.createElement(LibraryView, libraryProps(buildSearchableSession(3))));
+  assert.doesNotMatch(short, /data-library-search="row"/);
+
+  const long = renderToStaticMarkup(React.createElement(LibraryView, libraryProps(buildSearchableSession(6))));
+  assert.match(long, /data-library-search="row"/);
+  assert.match(long, /data-library-search="input"/);
+  assert.doesNotMatch(long, /data-library-search="count"/);
+});
+
+test("LibraryView row trail no longer restates the status badge it sits under", () => {
+  const html = renderToStaticMarkup(React.createElement(LibraryView, libraryProps(buildSearchableSession(6))));
+  assert.doesNotMatch(html, /可比較 →/);
+  assert.doesNotMatch(html, /分析中…/);
+});
+
+test("LibraryView search filters saved rows by snippet and author, and can be cleared", async () => {
+  const { JSDOM } = await import("jsdom");
+
+  const dom = new JSDOM('<div id="root"></div>', { url: "https://dlens.test" });
+  const actGlobal = globalThis as typeof globalThis & { IS_REACT_ACT_ENVIRONMENT?: boolean };
+  const previousActEnvironment = actGlobal.IS_REACT_ACT_ENVIRONMENT;
+  const previous = {
+    window: globalThis.window,
+    document: globalThis.document,
+    HTMLElement: globalThis.HTMLElement,
+    Element: globalThis.Element
+  };
+  Object.assign(globalThis, {
+    window: dom.window,
+    document: dom.window.document,
+    HTMLElement: dom.window.HTMLElement,
+    Element: dom.window.Element
+  });
+  actGlobal.IS_REACT_ACT_ENVIRONMENT = true;
+  // Node 20 has no global navigator and react-dom/client reads one at module
+  // init; Node 22 exposes a getter-only global, so only define what is missing.
+  const hadNavigator = "navigator" in globalThis;
+  if (!hadNavigator) {
+    Object.defineProperty(globalThis, "navigator", {
+      configurable: true,
+      writable: true,
+      value: dom.window.navigator
+    });
+  }
+
+  // react-dom/client sniffs the DOM at module init, so it must load after the
+  // jsdom globals are in place or its change-event plugin never fires.
+  const { act } = await import("react");
+  const { createRoot } = await import("react-dom/client");
+
+  const rootElement = dom.window.document.getElementById("root");
+  assert.ok(rootElement);
+  const root = createRoot(rootElement);
+
+  function typeQuery(value: string) {
+    const input = rootElement!.querySelector<HTMLInputElement>('[data-library-search="input"]');
+    assert.ok(input, "search input must be mounted");
+    const setter = Object.getOwnPropertyDescriptor(dom.window.HTMLInputElement.prototype, "value")?.set;
+    setter?.call(input, value);
+    input.dispatchEvent(new dom.window.Event("input", { bubbles: true }));
+  }
+
+  try {
+    await act(async () => root.render(React.createElement(LibraryView, libraryProps(buildSearchableSession(6)))));
+    assert.equal(rootElement.querySelectorAll('[data-library-row="scan"]').length, 6);
+
+    await act(async () => typeQuery("租金"));
+    assert.equal(rootElement.querySelectorAll('[data-library-row="scan"]').length, 1);
+    assert.equal(rootElement.querySelector('[data-library-search="count"]')?.textContent, "1 / 6");
+
+    await act(async () => typeQuery("@rentwatch"));
+    assert.equal(rootElement.querySelectorAll('[data-library-row="scan"]').length, 1);
+
+    await act(async () => typeQuery("沒有呢個字"));
+    assert.equal(rootElement.querySelectorAll('[data-library-row="scan"]').length, 0);
+    assert.ok(rootElement.querySelector('[data-library-search="empty"]'));
+
+    const clear = rootElement.querySelector<HTMLButtonElement>('[data-library-search="clear"]');
+    assert.ok(clear);
+    await act(async () => clear.dispatchEvent(new dom.window.MouseEvent("click", { bubbles: true })));
+    assert.equal(rootElement.querySelectorAll('[data-library-row="scan"]').length, 6);
+  } finally {
+    await act(async () => root.unmount());
+    Object.assign(globalThis, previous);
+    if (!hadNavigator) {
+      Reflect.deleteProperty(globalThis, "navigator");
+    }
+    actGlobal.IS_REACT_ACT_ENVIRONMENT = previousActEnvironment;
+    dom.window.close();
+  }
+});

@@ -11,6 +11,7 @@ import { describeAiOutputProvenance, normalizeAiOutputProvenance } from "../stat
 import { getSessionDisplayName } from "../state/store-helpers";
 import { AttentionBeam, Kicker, PrimaryButton, SCAN_ROW_HOVER_CSS, SecondaryButton, SectionHeader, SideMark, Stamp, SurfaceCard, TOKENS, lineClamp, viewRootStyle } from "./components";
 import { formatSavedAt, PostCard } from "./LibraryView.parts";
+import { LIBRARY_SEARCH_MIN_ITEMS, searchSessionItems } from "../viewmodel/library-search";
 import { modeThemes, textStyles, tokens } from "./tokens";
 
 // AR design tokens (matching Result page)
@@ -116,6 +117,112 @@ function LibraryMetaKicker({ children, style }: { children: ReactNode; style?: C
   return (
     <div style={{ ...textStyles.label, color: AR.muteInk, letterSpacing: 0, textTransform: "none", ...style }}>
       {children}
+    </div>
+  );
+}
+
+const librarySearchInputStyle: CSSProperties = {
+  flex: 1,
+  minWidth: 0,
+  border: "none",
+  outline: "none",
+  background: "transparent",
+  color: tokens.color.ink,
+  fontFamily: tokens.font.sans,
+  fontSize: 11.5,
+  padding: 0
+};
+
+/** Local search over the two fields every saved row already carries. It filters
+ *  the list in place rather than opening a second surface. */
+function LibrarySearchRow({
+  query,
+  matchCount,
+  totalCount,
+  isFiltering,
+  onQueryChange
+}: {
+  query: string;
+  matchCount: number;
+  totalCount: number;
+  isFiltering: boolean;
+  onQueryChange: (value: string) => void;
+}) {
+  return (
+    <div
+      data-library-search="row"
+      style={{
+        display: "flex",
+        alignItems: "center",
+        gap: 7,
+        padding: "6px 9px",
+        borderRadius: tokens.radius.card,
+        border: `1px solid ${tokens.color.line}`,
+        background: tokens.color.surface,
+        minWidth: 0
+      }}
+    >
+      <svg aria-hidden="true" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke={AR.muteInk} strokeWidth="2" strokeLinecap="round">
+        <circle cx="11" cy="11" r="7" />
+        <path d="m20 20-3.5-3.5" />
+      </svg>
+      <input
+        data-library-search="input"
+        value={query}
+        onChange={(event) => onQueryChange(event.target.value)}
+        placeholder="搜尋內文或作者"
+        aria-label="搜尋已儲存貼文"
+        style={librarySearchInputStyle}
+      />
+      {isFiltering ? (
+        <>
+          <span data-library-search="count" style={{ ...textStyles.caption, color: AR.muteInk, whiteSpace: "nowrap" }}>
+            {matchCount} / {totalCount}
+          </span>
+          <button
+            type="button"
+            data-library-search="clear"
+            aria-label="清除搜尋"
+            onClick={() => onQueryChange("")}
+            style={{
+              border: "none",
+              background: "transparent",
+              padding: 0,
+              cursor: "pointer",
+              color: AR.muteInk,
+              display: "grid",
+              placeItems: "center"
+            }}
+          >
+            <svg aria-hidden="true" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
+              <path d="M18 6 6 18M6 6l12 12" />
+            </svg>
+          </button>
+        </>
+      ) : null}
+    </div>
+  );
+}
+
+function LibrarySearchEmpty({ onClear }: { onClear: () => void }) {
+  return (
+    <div data-library-search="empty" style={{ display: "grid", gap: 6, padding: "14px 4px", justifyItems: "center" }}>
+      <div style={{ ...textStyles.meta, color: AR.softInk }}>沒有符合的貼文</div>
+      <button
+        type="button"
+        onClick={onClear}
+        style={{
+          border: "none",
+          background: "transparent",
+          padding: 0,
+          cursor: "pointer",
+          ...textStyles.caption,
+          fontWeight: 700,
+          color: tokens.color.subInk
+        }}
+      >
+        清除搜尋
+      </button>
     </div>
   );
 }
@@ -625,6 +732,7 @@ export function LibraryView({
   folderContributingTopicCount = 0,
 }: LibraryViewProps) {
   const [showCasebook, setShowCasebook] = useState(false);
+  const [searchQuery, setSearchQuery] = useState("");
 
   if (!activeFolder) {
     return (
@@ -649,6 +757,37 @@ export function LibraryView({
   const visibleItems = isTopicScopedLibrary
     ? activeFolder.items.filter((item) => topicSignalItemIdSet.has(item.id))
     : activeFolder.items;
+  const ordinalByItemId = new Map(visibleItems.map((item, index) => [item.id, index + 1]));
+  const search = searchSessionItems(visibleItems, searchQuery);
+  const showSearchRow = visibleItems.length >= LIBRARY_SEARCH_MIN_ITEMS || search.isFiltering;
+  const searchRow = showSearchRow ? (
+    <LibrarySearchRow
+      query={searchQuery}
+      matchCount={search.matchCount}
+      totalCount={search.totalCount}
+      isFiltering={search.isFiltering}
+      onQueryChange={setSearchQuery}
+    />
+  ) : null;
+  const renderPostRows = () => (
+    search.items.length === 0
+      ? <LibrarySearchEmpty onClear={() => setSearchQuery("")} />
+      : (
+        <div data-scan-list="library" style={{ display: "grid" }}>
+          {search.items.map((item) => (
+            <PostCard
+              key={item.id}
+              item={item}
+              isSelected={item.id === activeItem?.id}
+              optimisticQueued={optimisticQueuedIds.includes(item.id)}
+              ordinal={ordinalByItemId.get(item.id)}
+              nowMs={nowMs}
+              onSelect={() => onSelectItem(item.id)}
+            />
+          ))}
+        </div>
+      )
+  );
   const readyCount = processingSummary.ready;
   const pendingCount = processingSummary.pending;
   const hasPending = pendingCount > 0;
@@ -814,37 +953,17 @@ export function LibraryView({
                 style={{ marginBottom: 0 }}
               />
             </summary>
-            <div data-scan-list="library" style={{ display: "grid", marginTop: 8 }}>
-              {visibleItems.map((item, index) => (
-                <PostCard
-                  key={item.id}
-                  item={item}
-                  isSelected={item.id === activeItem?.id}
-                  optimisticQueued={optimisticQueuedIds.includes(item.id)}
-                  ordinal={index + 1}
-                  nowMs={nowMs}
-                  onSelect={() => onSelectItem(item.id)}
-                />
-              ))}
+            <div style={{ display: "grid", gap: 8, marginTop: 8 }}>
+              {searchRow}
+              {renderPostRows()}
             </div>
           </details>
         </LibraryFrame>
       ) : (
         <LibraryFrame section="posts" state={sectionState} tone="utility" style={{ padding: "10px 12px" }}>
           <SectionHeader title="儲存貼文" caption={`${visibleItems.length} 篇`} style={{ marginBottom: 0 }} />
-          <div data-scan-list="library" style={{ display: "grid" }}>
-            {visibleItems.map((item, index) => (
-              <PostCard
-                key={item.id}
-                item={item}
-                isSelected={item.id === activeItem?.id}
-                optimisticQueued={optimisticQueuedIds.includes(item.id)}
-                ordinal={index + 1}
-                nowMs={nowMs}
-                onSelect={() => onSelectItem(item.id)}
-              />
-            ))}
-          </div>
+          {searchRow}
+          {renderPostRows()}
         </LibraryFrame>
       )}
 

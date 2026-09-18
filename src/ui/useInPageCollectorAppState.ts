@@ -555,6 +555,16 @@ function upsertSignalReading(previous: SignalReading[], next: SignalReading): Si
 
 type DisplayToastState = { id: string; kind: "saved" | "queued"; message: string };
 
+/** How long a save stays undoable. The toast owns its own dismissal for this
+ *  window, so the undo affordance never outlives the message it belongs to. */
+export const UNDO_SAVE_WINDOW_MS = 5000;
+const TOAST_DISMISS_MS = 1200;
+
+/** The item a save just created, mirrored from `lastSavedToast.undo`. It is kept
+ *  outside `displayToast` because the optimistic save paths overwrite that toast
+ *  after the background response lands. */
+export type PendingUndoSave = { toastId: string; sessionId: string; itemId: string };
+
 export async function runAnalyzeItemsPipeline({
   folderId,
   itemIds,
@@ -665,6 +675,7 @@ export function useInPageCollectorAppState({ snapshot, tabId, sendAndSync }: Use
   const productHydrateInFlightKeyRef = useRef<string | null>(null);
   const productHydrateMountedRef = useRef(true);
   const pendingSuccessDescriptorRef = useRef<TargetDescriptor | null>(null);
+  const handledUndoToastIdRef = useRef<string | null>(null);
   usePopupKeyframes();
 
   const [showFolderPrompt, setShowFolderPrompt] = useState(false);
@@ -685,6 +696,7 @@ export function useInPageCollectorAppState({ snapshot, tabId, sendAndSync }: Use
     typeof window === "undefined" ? "" : window.location.href
   ));
   const [displayToast, setDisplayToast] = useState<{ id: string; kind: "saved" | "queued"; message: string } | null>(null);
+  const [pendingUndoSave, setPendingUndoSave] = useState<PendingUndoSave | null>(null);
   const [successToastDescriptor, setSuccessToastDescriptor] = useState<TargetDescriptor | null>(null);
   const [optimisticSavedUrl, setOptimisticSavedUrl] = useState<string | null>(null);
   const [optimisticQueuedIds, setOptimisticQueuedIds] = useState<string[]>([]);
@@ -1477,6 +1489,31 @@ export function useInPageCollectorAppState({ snapshot, tabId, sendAndSync }: Use
   }, [activeFolder?.name, savedToastMessage, snapshot?.tab.lastSavedToast]);
 
   useEffect(() => {
+    const toast = snapshot?.tab.lastSavedToast;
+    if (!toast?.undo) {
+      return;
+    }
+    // Each saved toast opens the undo window exactly once. Later snapshot syncs
+    // replay the same toast object, and an expired window must stay closed.
+    if (handledUndoToastIdRef.current === toast.id) {
+      return;
+    }
+    handledUndoToastIdRef.current = toast.id;
+    setPendingUndoSave({ toastId: toast.id, sessionId: toast.undo.sessionId, itemId: toast.undo.itemId });
+  }, [snapshot?.tab.lastSavedToast]);
+
+  useEffect(() => {
+    if (!pendingUndoSave) {
+      return;
+    }
+    const handle = window.setTimeout(() => {
+      setPendingUndoSave((current) => (current?.toastId === pendingUndoSave.toastId ? null : current));
+      setDisplayToast((current) => (current?.kind === "saved" ? null : current));
+    }, UNDO_SAVE_WINDOW_MS);
+    return () => window.clearTimeout(handle);
+  }, [pendingUndoSave]);
+
+  useEffect(() => {
     if (!displayToast) {
       setSuccessToastDescriptor(null);
       return;
@@ -1484,11 +1521,16 @@ export function useInPageCollectorAppState({ snapshot, tabId, sendAndSync }: Use
     if (displayToast.kind !== "saved") {
       setSuccessToastDescriptor(null);
     }
+    // While a save is undoable the undo window above owns dismissal, so the
+    // 復原 button stays reachable for its full 5 seconds.
+    if (pendingUndoSave && displayToast.kind === "saved") {
+      return;
+    }
     const handle = window.setTimeout(() => {
       setDisplayToast((current) => (current?.id === displayToast.id ? null : current));
-    }, 1200);
+    }, TOAST_DISMISS_MS);
     return () => window.clearTimeout(handle);
-  }, [displayToast]);
+  }, [displayToast, pendingUndoSave]);
 
   useEffect(() => {
     if (!processingSummary.hasReadyPair) {
@@ -1663,6 +1705,30 @@ export function useInPageCollectorAppState({ snapshot, tabId, sendAndSync }: Use
       : isStartingProcessing
         ? "Starting..."
         : "Process All";
+  /** Reverses the save the current toast is offering. The background removes the
+   *  item and everything the save derived from it; topics/signals rehydrate off
+   *  the new snapshot timestamp. */
+  async function onUndoSave(): Promise<void> {
+    const undo = pendingUndoSave;
+    if (!undo) {
+      return;
+    }
+    setPendingUndoSave(null);
+    setDisplayToast(null);
+    setSuccessToastDescriptor(null);
+    setOptimisticSavedUrl(null);
+    const response = await sendAndSync({
+      type: "session/undo-save",
+      sessionId: undo.sessionId,
+      itemId: undo.itemId
+    });
+    setDisplayToast({
+      id: `undo-${undo.toastId}`,
+      kind: "queued",
+      message: response.ok ? "已復原保存" : "復原失敗"
+    });
+  }
+
   async function onSavePreview(): Promise<PreviewSaveResult> {
     const message = buildPreviewSaveMessage({
       activeFolderMode,
@@ -3039,6 +3105,8 @@ export function useInPageCollectorAppState({ snapshot, tabId, sendAndSync }: Use
     isInitializingProductProfile,
     hoverRect,
     displayToast,
+    pendingUndoSave,
+    onUndoSave,
     successToastDescriptor,
     optimisticQueuedIds,
     bulkAnalyzingFolderId,
