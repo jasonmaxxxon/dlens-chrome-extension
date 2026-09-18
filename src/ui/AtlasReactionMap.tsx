@@ -29,6 +29,20 @@ function assignmentPercent(count: number, total: number): number {
   return total > 0 ? Math.round((count / total) * 100) : 0;
 }
 
+/** The LLM reads these as continuous decimals, so print them as read — signed, two places. */
+function formatCompassScalar(value: number): string {
+  return `${value >= 0 ? "+" : "-"}${Math.abs(value).toFixed(2)}`;
+}
+
+function compassReadout(bubble: { valence: number | null; mode: number | null }): string | null {
+  if (bubble.valence === null || bubble.mode === null) {
+    return null;
+  }
+  return `質疑↔支持 ${formatCompassScalar(bubble.valence)} · 行動↔情緒 ${formatCompassScalar(bubble.mode)}`;
+}
+
+const NUDGE_NOTE = "位置為避免重疊已微調";
+
 const BUBBLE_LABEL_CODEPOINTS_PER_LINE = 8;
 
 function formatBubbleLabel(label: string): string[] {
@@ -52,8 +66,11 @@ export function AtlasReactionMap({ patterns, usableCount, selectedId, onSelect }
     b.pattern.nComments - a.pattern.nComments || a.originalIndex - b.originalIndex
   ));
   const patternById = new Map(indexedPatterns.map((entry) => [entry.pattern.id, entry]));
+  const bubbleById = new Map(layout.bubbles.map((bubble) => [bubble.id, bubble]));
   const tooltipId = focusedId ?? hoveredId;
   const tooltipPattern = tooltipId ? patternById.get(tooltipId)?.pattern ?? null : null;
+  const tooltipBubble = tooltipId ? bubbleById.get(tooltipId) ?? null : null;
+  const tooltipReadout = tooltipBubble ? compassReadout(tooltipBubble) : null;
   const axisLabelStyle: CSSProperties = {
     fontFamily: tokens.font.mono,
     fontSize: textStyles.label.fontSize,
@@ -80,6 +97,7 @@ export function AtlasReactionMap({ patterns, usableCount, selectedId, onSelect }
       data-atlas-assignment-distribution="true"
       data-atlas-assignment-total={assignmentTotal}
       data-atlas-reaction-map-kind={layout.kind}
+      data-atlas-compass-nudged-count={layout.nudgedCount}
       data-dlens-presence="card"
       style={{
         display: "grid",
@@ -127,8 +145,8 @@ export function AtlasReactionMap({ patterns, usableCount, selectedId, onSelect }
             viewBox={`0 0 ${layout.width} ${layout.height}`}
             role="group"
             aria-label={layout.kind === "compass"
-              ? "民情羅盤：橫軸由質疑到支持，縱軸由行動導向到情緒共鳴，泡泡大小為留言數"
-              : "反應形狀圖：泡泡大小為留言數"}
+              ? "民情羅盤：橫軸由質疑到支持，縱軸由行動導向到情緒共鳴，泡泡大小為歸屬於該形狀的留言數"
+              : "反應形狀圖：泡泡大小為歸屬於該形狀的留言數，位置僅為排列"}
             style={{ width: "100%", height: "auto", display: "block" }}
           >
             {layout.kind === "compass" ? (
@@ -149,6 +167,9 @@ export function AtlasReactionMap({ patterns, usableCount, selectedId, onSelect }
               const paletteIndex = originalIndex % ATLAS_PALETTE.length;
               const fill = ATLAS_PALETTE[paletteIndex]!;
               const bubbleLabelLines = formatBubbleLabel(pattern.label);
+              const readout = compassReadout(bubble);
+              const nudged = bubble.nudgePx >= 1;
+              const coordinateSpeech = readout ? `座標 ${readout}。${nudged ? `${NUDGE_NOTE}。` : ""}` : "";
               const labelSafeInset = tokens.spacing.xl * 2;
               const labelX = Math.max(labelSafeInset, Math.min(layout.width - labelSafeInset, bubble.x));
               return (
@@ -157,9 +178,10 @@ export function AtlasReactionMap({ patterns, usableCount, selectedId, onSelect }
                   data-signal-atlas-dot={bubble.id}
                   data-atlas-palette-index={paletteIndex}
                   data-top-dot={index === 0 ? "true" : "false"}
+                  data-atlas-bubble-nudged={nudged ? "true" : "false"}
                   data-active={selectedId === bubble.id ? "true" : "false"}
                   role="button"
-                  aria-label={`${pattern.label}，${pattern.nComments} 次留言歸屬。${pattern.dynamicImplication}按 Enter 或空白鍵開啟詳情`}
+                  aria-label={`${pattern.label}，${pattern.nComments} 則可用留言歸屬於此形狀。${coordinateSpeech}${pattern.dynamicImplication}按 Enter 或空白鍵開啟詳情`}
                   tabIndex={0}
                   onClick={() => activate(pattern.id)}
                   onKeyDown={(event) => handleBubbleKeyDown(event, pattern.id)}
@@ -205,13 +227,19 @@ export function AtlasReactionMap({ patterns, usableCount, selectedId, onSelect }
             })}
           </svg>
 
-          <span style={{ ...textStyles.caption, color: tokens.color.softInk }}>
-            {patterns.length} 個形狀 · {assignmentTotal} 次留言歸屬 · 可用 {usableCount} 則
+          <span data-atlas-denominator-note="true" style={{ ...textStyles.caption, color: tokens.color.softInk }}>
+            {assignmentTotal} 次留言歸屬（一則留言可屬多個形狀）· 分母為可用留言 {usableCount} 則，不是貼文數
           </span>
+
+          {layout.nudgedCount > 0 ? (
+            <span data-atlas-nudge-note="true" style={{ ...textStyles.caption, color: tokens.color.softInk }}>
+              {layout.nudgedCount} 個泡泡{NUDGE_NOTE}，已離開原座標——hover 或聚焦可看讀到的原值。
+            </span>
+          ) : null}
 
           {layout.kind === "field" ? (
             <span data-signal-atlas-compass-hint="true" style={{ ...textStyles.caption, color: tokens.color.softInk }}>
-              此審計早於羅盤座標——按「重新生成」重讀後，泡泡會依 質疑↔支持 × 情緒↔行動 定位。
+              此審計早於羅盤座標——現時泡泡位置僅為排列，不代表立場；按「重新生成」重讀後，才會依 質疑↔支持 × 情緒↔行動 定位。
             </span>
           ) : null}
 
@@ -230,6 +258,12 @@ export function AtlasReactionMap({ patterns, usableCount, selectedId, onSelect }
               }}
             >
               <strong>{tooltipPattern.label}</strong> · {tooltipPattern.dynamicImplication}
+              {tooltipReadout ? (
+                <div data-atlas-tooltip-readout="true" style={{ ...textStyles.caption, fontFamily: tokens.font.mono, color: tokens.color.subInk }}>
+                  {tooltipReadout}
+                  {tooltipBubble && tooltipBubble.nudgePx >= 1 ? ` · ${NUDGE_NOTE}` : ""}
+                </div>
+              ) : null}
             </div>
           ) : null}
         </div>
@@ -317,5 +351,7 @@ export function AtlasReactionMap({ patterns, usableCount, selectedId, onSelect }
 
 export const atlasReactionMapTestables = {
   assignmentPercent,
-  bubbleUsesDarkText
+  bubbleUsesDarkText,
+  formatCompassScalar,
+  compassReadout
 };

@@ -1443,7 +1443,9 @@ test("TopicDetailView renders the Signal Atlas L0 spine with only one exact repr
 
   assert.match(html, /342/);
   assert.match(html, /data-atlas-ledger-metric="已讀 342 · 可用 318"/);
-  assert.match(html, /1 個形狀 · 118 次留言歸屬 · 可用 318 則/);
+  // the shape count lives on the ledger metric below; the compass caption now spends its line on the denominator
+  assert.match(html, /118 次留言歸屬（一則留言可屬多個形狀）· 分母為可用留言 318 則，不是貼文數/);
+  assert.doesNotMatch(html, /1 個形狀 · 118 次留言歸屬/);
   assert.match(html, /6 篇貼文 · 擷取 342 · 可用 318 則/);
   assert.match(html, /data-atlas-ledger-metric="1 個形狀 · 6 篇來源"/);
   assert.match(html, /data-atlas-ledger-metric="1 條跨帖敘事 · 6 篇來源"/);
@@ -1452,7 +1454,7 @@ test("TopicDetailView renders the Signal Atlas L0 spine with only one exact repr
   assert.doesNotMatch(html, /data-atlas-ledger-metric="342\/318|118\/342|已歸類留言|反應構成/);
   assert.match(html, /反例 1/);
   assert.match(html, /<svg[^>]+role="group"[^>]+aria-label="民情羅盤/);
-  assert.match(html, /data-signal-atlas-dot="reaction-local-labor-defense"[^>]+role="button"[^>]+aria-label="本地勞工身份防守，118 次留言歸屬。留言把政策爭議推向身份與分配正義，而不是單純效率討論。按 Enter 或空白鍵開啟詳情"/);
+  assert.match(html, /data-signal-atlas-dot="reaction-local-labor-defense"[^>]+role="button"[^>]+aria-label="本地勞工身份防守，118 則可用留言歸屬於此形狀。座標 質疑↔支持 \+0\.55 · 行動↔情緒 \+0\.45。留言把政策爭議推向身份與分配正義，而不是單純效率討論。按 Enter 或空白鍵開啟詳情"/);
   assert.match(html, />質疑</);
   assert.match(html, />支持</);
   assert.doesNotMatch(html, /質疑・悲觀|支持・正面/);
