@@ -49,18 +49,13 @@
               "followers": true
             },
             "engagement_source": "card",
+            "image_url": null,
             "captured_at": "2026-06-15T00:00:00.000Z"
           },
           "latestCapture": {
             "id": "capture-fixture-1",
-            "raw_payload": {
-              "captureHtml": "backend-only capture provenance"
-            },
             "result": {
               "id": "result-fixture-1",
-              "raw_payload": {
-                "resultHtml": "backend-only crawl provenance"
-              },
               "comments": [
                 {
                   "text": "must survive migration"
@@ -78,5 +73,6 @@
     }
   ],
   "activeSessionId": "session-fixture-1",
-  "updatedAt": "2026-06-15T00:00:00.000Z"
+  "updatedAt": "2026-06-15T00:00:00.000Z",
+  "schemaVersion": 3
 }
