@@ -1188,8 +1188,10 @@ test("TopicDetailView keeps regenerate focus and dispatches one forced rerun whi
 test("TopicDetailView forces a clean rerun after failure instead of pretending to resume a stale stage", async () => {
   const { JSDOM } = await import("jsdom");
   const { createRoot } = await import("react-dom/client");
-  const { flushSync } = await import("react-dom");
+  const { act } = await import("react");
   const dom = new JSDOM("<div id=\"root\"></div>", { url: "https://dlens.test" });
+  const reactActGlobal = globalThis as typeof globalThis & { IS_REACT_ACT_ENVIRONMENT?: boolean };
+  const previousActEnvironment = reactActGlobal.IS_REACT_ACT_ENVIRONMENT;
   const previous = {
     window: globalThis.window,
     document: globalThis.document,
@@ -1207,12 +1209,14 @@ test("TopicDetailView forces a clean rerun after failure instead of pretending t
     Event: dom.window.Event,
     MouseEvent: dom.window.MouseEvent
   });
+  reactActGlobal.IS_REACT_ACT_ENVIRONMENT = true;
   const rootElement = dom.window.document.getElementById("root");
   assert.ok(rootElement);
   const root = createRoot(rootElement);
 
   try {
-    flushSync(() => root.render(topicDetailViewElement({
+    await act(async () => {
+      root.render(topicDetailViewElement({
       topic,
       signals: signalAtlasEvidence.map((packet) => ({ ...signals[0]!, id: packet.signalId, itemId: packet.itemId, capturedAt: packet.capturedAt })),
       pairs: [],
@@ -1228,17 +1232,22 @@ test("TopicDetailView forces a clean rerun after failure instead of pretending t
       onBack: () => undefined,
       onOpenPair: () => undefined,
       onUpdateTopic: () => undefined,
-      onRunAudit: (topicId, fromStage, force) => calls.push({ topicId, ...(fromStage ? { fromStage } : {}), ...(typeof force === "boolean" ? { force } : {}) })
-    })));
+        onRunAudit: (topicId, fromStage, force) => calls.push({ topicId, ...(fromStage ? { fromStage } : {}), ...(typeof force === "boolean" ? { force } : {}) })
+      }));
+    });
     const regenerate = Array.from(rootElement.querySelectorAll<HTMLButtonElement>("button"))
       .find((button) => button.textContent === "重試生成");
     assert.ok(regenerate);
-    regenerate.dispatchEvent(new dom.window.MouseEvent("click", { bubbles: true }));
+    await act(async () => {
+      regenerate.dispatchEvent(new dom.window.MouseEvent("click", { bubbles: true }));
+    });
     assert.deepEqual(calls, [{ topicId: "topic-1", force: true }]);
   } finally {
-    flushSync(() => root.unmount());
-    await new Promise((resolve) => setTimeout(resolve, 0));
+    await act(async () => root.unmount());
     Object.assign(globalThis, previous);
+    if (previousActEnvironment === undefined) delete reactActGlobal.IS_REACT_ACT_ENVIRONMENT;
+    else reactActGlobal.IS_REACT_ACT_ENVIRONMENT = previousActEnvironment;
+    dom.window.close();
   }
 });
 
