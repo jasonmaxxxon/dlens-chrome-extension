@@ -133,8 +133,8 @@ git diff --check
 - **Product** mode is insight / evidence / task-first. ProductSignalAnalyzer
   v21 returns judgment axes plus one optional `product_reading`; `try` and
   `watch` require a complete reading, while noise / park /
-  `insufficient_data` remain compact and unlit. The first opened actionable
-  card must show that persisted reading immediately. Do not restore the legacy
+  `insufficient_data` remain compact and unlit. The saved source list is immediately visible. The user-approved 2026-09-21
+  collection-first flow keeps persisted AI readings collapsed until explicitly opened. Do not restore the legacy
   proposal rows, a second Product reading provider call, or a duplicated
   “expand deep reading” surface.
 - **Product Reading provenance**: analysis and its projected SignalReading are
@@ -146,8 +146,8 @@ git diff --check
   page was inspected when only the Threads text was captured.
 - **Product Action UI**: the four mutually exclusive navigation buckets are
   `try / noise / insufficient / watch`; non-noise `park` belongs under watch.
-  An actionable stage renders exactly one complete-reading card and one
-  copyable Agent brief. The whole-folder packet export remains Action-owned;
+  An actionable stage offers exactly one persisted reading disclosure and one
+  copyable Agent brief. Collection rows lead with the source, thumbnail, metrics and crawl state. The whole-folder packet export remains Action-owned;
   Saved Signals is lifecycle intake only. Do not reintroduce a review-action
   group or selected-brief shelf that the current Product UI does not render.
   Backend clusters are support data, never the user-facing abstraction.

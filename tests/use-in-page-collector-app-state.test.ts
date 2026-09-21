@@ -866,7 +866,7 @@ test("runAnalyzeItemsPipeline queues selected items then starts worker and refre
   assert.deepEqual((calls[1] as Extract<ExtensionMessage, { type: "session/refresh-all" }>).target, { sessionId: "folder-1" });
   assert.deepEqual(statuses, ["draining"]);
   assert.deepEqual(result, { ok: true, failedCount: 0 });
-  assert.match(toasts.at(-1) ?? "", /開始分析 2 篇/);
+  assert.match(toasts.at(-1) ?? "", /開始抓取 2 篇/);
 });
 
 test("runAnalyzeItemsPipeline stops before worker start when queue fails", async () => {

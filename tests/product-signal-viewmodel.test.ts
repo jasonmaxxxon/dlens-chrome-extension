@@ -361,3 +361,39 @@ test("Product VM marks a complete v21 analysis stale when ProductContext drifts"
   assert.equal(vm.signals[0]?.analysisState, "stale");
   assert.equal(vm.scopedAnalyses[0]?.signalId, "sig-ready");
 });
+
+test("Product source crawl is independent of AI setup and selects only retryable backing items", () => {
+  const items = [
+    makeItem({ id: "saved", status: "saved", latestCapture: null }),
+    makeItem({ id: "failed", status: "failed", latestCapture: null }),
+    makeItem({ id: "empty", status: "succeeded", latestCapture: null }),
+    makeItem({ id: "running", status: "running", latestCapture: null }),
+    makeItem({ id: "queued", status: "queued", latestCapture: null }),
+    makeItem({ id: "ready" })
+  ];
+  const snapshot = makeSnapshot(makeSession(items));
+  snapshot.global.settings.productProfile = {};
+  const signals = items.map(item => makeSignal({ id: `sig-${item.id}`, itemId: item.id }));
+  signals.push(makeSignal({ id: "duplicate-saved", itemId: "saved" }), makeSignal({ id: "orphan", itemId: "absent" }));
+  const vm = buildProductSignalWorkspaceViewModel({ snapshot, signals, analyses: [], aiProviderReady: false, productContext: null });
+  assert.equal(vm.canAnalyze, false);
+  assert.equal(vm.canCrawl, true);
+  assert.deepEqual(vm.crawlItemIds, ["saved", "failed", "empty"]);
+  assert.deepEqual(vm.actions.find(action => action.kind === "crawlSources"), {
+    kind: "crawlSources", target: { sessionId: "session-product", itemIds: ["saved", "failed", "empty"] }
+  });
+});
+
+test("Product source crawl blocks offline, hydrating and active dispatch states", () => {
+  const snapshot = makeSnapshot(makeSession([makeItem({ status: "saved", latestCapture: null })]));
+  const input = { snapshot, signals: [makeSignal()], analyses: [], aiProviderReady: false };
+  for (const guard of [{ backendError: "offline" }, { isHydrating: true }, { isProcessing: true }, { isAnalyzing: true }]) {
+    const vm = buildProductSignalWorkspaceViewModel({ ...input, ...guard });
+    assert.equal(vm.canCrawl, false);
+    assert.deepEqual(vm.crawlItemIds, ["item-ready"]);
+  }
+  const queued = buildProductSignalWorkspaceViewModel({ ...input, optimisticQueuedItemIds: ["item-ready"] });
+  assert.equal(queued.canCrawl, false);
+  assert.deepEqual(queued.crawlItemIds, []);
+  assert.equal(queued.actions.some(action => action.kind === "crawlSources"), false);
+});

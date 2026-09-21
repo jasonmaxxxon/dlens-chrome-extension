@@ -10,7 +10,6 @@ import type {
   ProductSignalType,
   ProductSignalVerdict
 } from "../state/types";
-import { isProductContextSourceReady } from "../compare/product-context";
 import {
   PRODUCT_SIGNAL_ANALYSIS_PROMPT_VERSION,
   type ProductSignalEvidenceEntry
@@ -53,6 +52,8 @@ import {
   viewRootStyle
 } from "./components";
 import { useUiText } from "./i18n";
+import { SavedPostMetrics, SavedPostThumbnail } from "./SavedPostPreview";
+import { LIBRARY_SEARCH_MIN_ITEMS, parseLibrarySearchTokens } from "../viewmodel/library-search";
 import { modeThemes, tokens, textStyles } from "./tokens";
 import { useCausalListMotion } from "./useCausalListMotion";
 
@@ -1352,13 +1353,10 @@ function ReadinessPanel({
       style={heroPanelStyle({ gap: hasResults ? 8 : 10 })}
     >
       <div style={betweenRowStyle({ gap: 10 })}>
-        <Kicker>{hasResults ? "分析狀態" : "真實狀態"}</Kicker>
+        <Kicker>AI 分析</Kicker>
         <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
           <Stamp tone={viewModel.signalCount ? "success" : "warning"}>{viewModel.signalCount} signals</Stamp>
           <Stamp tone={completedCount ? "success" : "neutral"}>{completedCount} analyses</Stamp>
-          <Stamp tone={viewModel.aiProviderReady ? "success" : "warning"}>AI key</Stamp>
-          <Stamp tone={viewModel.productProfile?.name && viewModel.productProfile.category && viewModel.productProfile.audience ? "success" : "warning"}>ProductProfile</Stamp>
-          <Stamp tone={isProductContextSourceReady(viewModel.productProfile) ? "success" : "warning"}>ProductContext</Stamp>
         </div>
       </div>
       {copy ? <div style={{ fontSize: 12, lineHeight: 1.65, color: tokens.color.subInk }}>{copy}</div> : null}
@@ -2217,6 +2215,10 @@ type SavedSignalLifecycle = {
 };
 
 function savedSignalLifecycle(signal: ProductSignalViewModel): SavedSignalLifecycle {
+  const readiness = readinessLabel(signal.readiness);
+  if (signal.readiness.status !== "ready") {
+    return { stage: signal.readiness.status === "crawling" ? "processing" : "collected", label: readiness.label, tone: readiness.tone };
+  }
   if (signal.analysis?.status === "complete") {
     return { stage: "complete", label: "已完成", tone: "success" };
   }
@@ -2224,173 +2226,104 @@ function savedSignalLifecycle(signal: ProductSignalViewModel): SavedSignalLifecy
     return { stage: "processing", label: "處理中", tone: "neutral" };
   }
   if (signal.analysis?.status === "error") {
-    return signal.readiness.status === "ready"
-      ? { stage: "ready", label: "分析失敗 · 可重試", tone: "warning" }
-      : { stage: "collected", label: "分析失敗", tone: "warning" };
+    return { stage: "ready", label: "分析失敗 · 可重試", tone: "warning" };
   }
-
-  const readiness = readinessLabel(signal.readiness);
-  if (signal.readiness.status === "ready") {
-    return { stage: "ready", label: readiness.label, tone: readiness.tone };
-  }
-  if (signal.readiness.status === "crawling") {
-    return { stage: "processing", label: readiness.label, tone: readiness.tone };
-  }
-  return { stage: "collected", label: readiness.label, tone: readiness.tone };
+  return { stage: "ready", label: readiness.label, tone: readiness.tone };
 }
 
 function SavedSignalsBoard({
   signals,
-  pendingSignals,
-  pendingErrorAggregate,
-  onRemoveSignal,
-  onAnalyze
+  crawlCount,
+  canCrawl,
+  isCrawling,
+  crawlError,
+  onCrawl,
+  onRemoveSignal
 }: {
   signals: ProductSignalViewModel[];
-  pendingSignals: ProductSignalViewModel[];
-  pendingErrorAggregate: ProcessingErrorAggregate | null;
+  crawlCount: number;
+  canCrawl: boolean;
+  isCrawling: boolean;
+  crawlError: string | null;
+  onCrawl: () => void;
   onRemoveSignal?: (signalId: string) => void;
-  onAnalyze: () => void;
 }) {
-  if (!signals.length) {
-    return null;
-  }
+  const [query, setQuery] = useState("");
+  const searchTokens = parseLibrarySearchTokens(query);
+  const visibleSignals = signals.filter((signal) => {
+    const text = `${signal.sourcePreview.displayText}\n${signal.sourceDescriptor?.author_hint ?? ""}`.toLowerCase();
+    return searchTokens.every((token) => text.includes(token));
+  });
+  if (!signals.length) return null;
 
   const lifecycles = signals.map(savedSignalLifecycle);
-  const lifecycleBySignalId = new Map(signals.map((signal, index) => [signal.signalId, lifecycles[index]!]));
   const readyCount = lifecycles.filter((lifecycle) => lifecycle.stage === "ready").length;
   const processingCount = lifecycles.filter((lifecycle) => lifecycle.stage === "processing").length;
   const completedCount = lifecycles.filter((lifecycle) => lifecycle.stage === "complete").length;
 
   return (
-    <section
-      data-saved-signals-route="true"
-      style={{ position: "relative", overflow: "hidden", borderRadius: tokens.radius.cardLg, background: tokens.color.productCanvas, padding: "12px 12px 16px", minWidth: 0 }}
-    >
-      <style>{`
-        @media (prefers-reduced-motion: no-preference) {
-          [data-product-field-aura] { animation: dlens-atlas-aura-drift 18s ease-in-out infinite alternate; }
-          [data-product-field-aura="violet"] { animation-duration: 26s; animation-delay: -13s; }
-        }
-      `}</style>
-      <div aria-hidden="true" data-product-field-aura="blue" style={{ position: "absolute", top: -70, right: -60, width: 240, height: 240, borderRadius: "50%", background: tokens.color.auraProductBlue, filter: "blur(46px)", pointerEvents: "none" }} />
-      <div aria-hidden="true" data-product-field-aura="violet" style={{ position: "absolute", bottom: -90, left: -70, width: 220, height: 220, borderRadius: "50%", background: tokens.color.atlasAuraViolet, filter: "blur(46px)", pointerEvents: "none" }} />
-      <div style={{ position: "relative", zIndex: 1, display: "grid", gap: 12, minWidth: 0 }}>
-      <div data-saved-signals-frame="true" style={glassCardStyle({ gap: 10 })}>
-        <SectionHeader title="分析收件匣" caption={`${signals.length} 則`} style={{ marginBottom: 0 }} />
-        <section
-          data-product-saved-pipeline="true"
-          aria-label="訊號分析流程"
-          style={{ display: "flex", gap: 6, flexWrap: "wrap" }}
-        >
-          {([
-            ["已收集", signals.length],
-            ["可分析／重試", readyCount],
-            ["處理中", processingCount],
-            ["已完成", completedCount]
-          ] as const).map(([label, value]) => {
-            const active = label === "處理中" && value > 0;
-            return (
-              <span
-                key={label}
-                style={{
-                  ...textStyles.metric,
-                  flex: "1 1 92px",
-                  display: "flex",
-                  alignItems: "center",
-                  justifyContent: "center",
-                  gap: 5,
-                  padding: "7px 9px",
-                  borderRadius: tokens.radius.card,
-                  border: `1px solid ${active ? tokens.color.runningSoft : tokens.color.cardEdge}`,
-                  background: active
-                    ? `linear-gradient(172deg, ${tokens.color.elevated} 0%, ${tokens.color.runningSoft} 100%)`
-                    : `linear-gradient(172deg, ${tokens.color.elevated} 0%, ${tokens.color.contextSurface} 100%)`,
-                  boxShadow: tokens.shadow.card,
-                  color: active ? tokens.color.running : tokens.color.subInk,
-                  whiteSpace: "nowrap"
-                }}
-              >
-                {label} {value}
-              </span>
-            );
-          })}
-        </section>
-        {pendingSignals.length ? (
-          <details
-            data-product-saved-pending-detail="collapsed"
-            style={{
-              borderRadius: tokens.radius.card,
-              border: `1px solid ${tokens.color.line}`,
-              background: tokens.color.contextSurface,
-              padding: "8px 10px"
-            }}
-          >
-            <summary
-              style={{
-                cursor: "pointer",
-                listStyle: "none",
-                display: "flex",
-                alignItems: "center",
-                gap: 8,
-                fontSize: 11.5,
-                fontWeight: 750,
-                color: tokens.color.subInk
-              }}
-            >
-              <span>{pendingSignals.length} 則待補爬 / 未分析</span>
-              <span style={{ marginLeft: "auto", color: tokens.color.product }}>重新處理</span>
-            </summary>
-            <div style={{ display: "grid", gap: 8, marginTop: 9 }}>
-              {pendingErrorAggregate ? <ProcessingErrorAggregateBanner summary={pendingErrorAggregate} /> : null}
-              <div style={{ fontSize: 11.5, lineHeight: 1.55, color: tokens.color.softInk }}>
-                尚未抓取的來源先收在這裡，不佔用已存訊號列表注意力。
-              </div>
-              <SecondaryButton onClick={onAnalyze} style={{ justifySelf: "start", padding: "5px 10px", fontSize: 11 }}>
-                重新處理
-              </SecondaryButton>
-            </div>
-          </details>
+    <section data-saved-signals-route="true" style={{ minWidth: 0 }}>
+      <div data-saved-signals-frame="true" style={glassCardStyle({ gap: tokens.spacing.sm })}>
+        <SectionHeader
+          title="已儲存貼文"
+          caption={`${signals.length} 則`}
+          style={{ marginBottom: 0 }}
+          action={crawlCount || isCrawling ? (
+            <SecondaryButton dataAttrs={{ "data-product-crawl-sources": "true" }} disabled={!canCrawl || isCrawling} onClick={onCrawl}>
+              {isCrawling ? "送出抓取中" : `抓取 ${crawlCount} 篇`}
+            </SecondaryButton>
+          ) : undefined}
+        />
+        {crawlError ? <div role="alert" style={{ ...textStyles.meta, color: tokens.color.failed }}>{crawlError}</div> : null}
+        {signals.length >= LIBRARY_SEARCH_MIN_ITEMS || query ? (
+          <div style={{ display: "flex", gap: tokens.spacing.sm, alignItems: "center", minWidth: 0 }}>
+            <input
+              type="search"
+              value={query}
+              onInput={(event) => setQuery(event.currentTarget.value)}
+              placeholder="搜尋內文或作者"
+              aria-label="搜尋已儲存貼文"
+              style={{ ...textStyles.bodyTight, minWidth: 0, flex: 1, padding: tokens.spacing.sm, color: tokens.color.ink, background: tokens.color.surface, border: `1px solid ${tokens.color.line}`, borderRadius: tokens.radius.xs }}
+            />
+            {searchTokens.length ? <span role="status" style={textStyles.caption}>{visibleSignals.length} / {signals.length}</span> : null}
+          </div>
         ) : null}
-        <details data-product-saved-management="collapsed" style={{ borderRadius: tokens.radius.card, border: `1px solid ${tokens.color.line}`, background: tokens.color.contextSurface, padding: "8px 10px" }}>
-          <summary style={{ cursor: "pointer", listStyle: "none", fontSize: 11.5, fontWeight: 750, color: tokens.color.subInk }}>
-            管理收件匣 · {signals.length} 則
-          </summary>
-          <div style={{ display: "grid", marginTop: 8 }}>
-          {signals.map((signal) => {
-            const lifecycle = lifecycleBySignalId.get(signal.signalId)!;
-            const dotColor = lifecycle.tone === "success"
-              ? tokens.color.success
-              : lifecycle.tone === "warning"
-                ? tokens.color.queued
-                : tokens.color.lineStrong;
+        <div data-product-saved-list="visible" style={{ display: "grid", minWidth: 0 }}>
+          {visibleSignals.map((signal) => {
+            const lifecycle = savedSignalLifecycle(signal);
+            const author = signal.sourceDescriptor?.author_hint?.replace(/^@+/, "");
+            const sourceUrl = signal.sourcePreview.displayUrl;
             return (
               <div
                 key={signal.signalId}
-                data-saved-signal-row="management"
+                data-saved-signal-row="source"
                 data-saved-signal-lifecycle={lifecycle.stage}
                 data-saved-signal-tone={lifecycle.tone}
-                style={scanRowStyle({ display: "grid", gridTemplateColumns: `8px minmax(0, 1fr) auto${onRemoveSignal ? " 20px" : ""}`, gap: 10, alignItems: "center", padding: "9px 6px" })}
+                style={scanRowStyle({ display: "grid", gridTemplateColumns: `${tokens.layout.savedPostThumbnailSize}px minmax(0, 1fr)${onRemoveSignal ? " auto" : ""}`, gap: tokens.spacing.sm, alignItems: "start", padding: tokens.spacing.sm })}
               >
-                <span aria-hidden="true" style={{ width: 8, height: 8, borderRadius: 999, background: dotColor, justifySelf: "center" }} />
-                <span style={{ ...textStyles.bodyTight, color: tokens.color.ink, minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-                  {excerpt(signal.sourcePreview.displayText || signal.title || signal.signalId, 72)}
-                </span>
-                <Stamp tone={lifecycle.tone}>{lifecycle.label}</Stamp>
+                <SavedPostThumbnail imageUrl={signal.sourceDescriptor?.image_url} />
+                <div style={{ display: "grid", gap: tokens.spacing.xs, minWidth: 0 }}>
+                  <div style={{ display: "flex", gap: tokens.spacing.sm, alignItems: "center", flexWrap: "wrap", minWidth: 0 }}>
+                    <span style={{ ...textStyles.bodyTight, color: tokens.color.ink, fontWeight: 600, overflowWrap: "anywhere" }}>{author ? `@${author}` : "作者未提供"}</span>
+                    {sourceUrl ? <a href={externalHref(sourceUrl)} target="_blank" rel="noreferrer" aria-label="原文（於新分頁開啟）" style={{ ...textStyles.caption, color: tokens.color.product }}>原文 ↗</a> : null}
+                    <span data-saved-signal-status="true" style={{ marginLeft: "auto" }}><Stamp tone={lifecycle.tone}>{lifecycle.label}</Stamp></span>
+                  </div>
+                  <div style={{ ...textStyles.bodyTight, color: tokens.color.subInk, overflowWrap: "anywhere", ...lineClamp(2) }}>
+                    {signal.sourcePreview.displayText || "原文未提供"}
+                  </div>
+                  <SavedPostMetrics descriptor={signal.sourceDescriptor} />
+                </div>
                 {onRemoveSignal ? (
-                  <button
-                    type="button"
-                    aria-label="移除此訊號"
-                    onClick={() => onRemoveSignal(signal.signalId)}
-                    style={{ background: "none", border: "none", cursor: "pointer", padding: "1px 2px", lineHeight: 1, color: tokens.color.softInk, fontSize: 14, borderRadius: 4, display: "flex", alignItems: "center", justifyContent: "center" }}
-                  >×</button>
+                  <button type="button" aria-label="移除此訊號" onClick={() => onRemoveSignal(signal.signalId)} style={{ background: "none", border: "none", cursor: "pointer", padding: tokens.spacing.xs, color: tokens.color.softInk, font: "inherit" }}>×</button>
                 ) : null}
               </div>
             );
           })}
-          </div>
-        </details>
-      </div>
+          {!visibleSignals.length ? <div role="status" style={{ ...textStyles.meta, padding: tokens.spacing.md, color: tokens.color.softInk }}>沒有符合的收藏</div> : null}
+        </div>
+        <div data-product-saved-pipeline="true" aria-label="處理進度" style={{ ...textStyles.caption, color: tokens.color.softInk, display: "flex", gap: tokens.spacing.sm, flexWrap: "wrap" }}>
+          <span>已收集 {signals.length}</span><span>可分析／重試 {readyCount}</span><span>處理中 {processingCount}</span><span>已完成 {completedCount}</span>
+        </div>
       </div>
     </section>
   );
@@ -3195,6 +3128,26 @@ function ProductActionStage({
             aria-label={`${activeCardMeta.label} ${safeIndex + 1} / ${activeItems.length}`}
             style={glassCardStyle({ gap: activePresentation?.density === "compact" ? 10 : 14, padding: activePresentation?.density === "compact" ? 12 : 18, minWidth: 0, overflow: "hidden", borderColor: tokens.color.productSoft, boxShadow: activePresentation?.density === "compact" ? tokens.shadow.topicCard : tokens.shadow.raised })}
           >
+            <aside data-product-action-evidence-stack="true" style={{ display: "grid", gap: 9, minWidth: 0, padding: "12px 13px", borderRadius: tokens.radius.card, border: `1px solid ${tokens.color.cardEdge}`, background: tokens.color.inkWash }}>
+              <div style={{ display: "grid", gridTemplateColumns: `${tokens.layout.savedPostThumbnailSize}px minmax(0, 1fr)`, gap: tokens.spacing.sm, minWidth: 0 }}>
+                <SavedPostThumbnail imageUrl={activeSignal?.sourceDescriptor?.image_url} />
+                <div style={{ display: "grid", gap: tokens.spacing.xs, minWidth: 0 }}>
+                  <span style={{ ...textStyles.fieldLabel, color: tokens.color.product }}>{activeSignal?.sourceDescriptor?.author_hint ? `@${activeSignal.sourceDescriptor.author_hint.replace(/^@+/, "")}` : "原始貼文"}</span>
+                  <div data-product-action-source-text="true" style={{ ...textStyles.bodyTight, color: tokens.color.subInk, overflowWrap: "anywhere" }}>{activeSignal?.sourcePreview.displayText || "原文未提供"}</div>
+                </div>
+              </div>
+              <ProductSourceTruthStrip analysis={activeAnalysis} descriptor={activeSignal?.sourceDescriptor} evidenceBySignalId={evidenceBySignalId} signalId={activeAnalysis.signalId} />
+              {activeSourceUrl ? <a data-product-action-original-source="true" href={externalHref(activeSourceUrl)} target="_blank" rel="noreferrer" aria-label="原文（於新分頁開啟）" style={{ color: tokens.color.product, fontSize: 12, fontWeight: 750, overflowWrap: "anywhere" }}>原文 ↗</a> : <span data-product-action-original-source="missing" style={{ ...textStyles.meta, color: tokens.color.softInk }}>原文連結未提供</span>}
+              {activePresentation?.density === "compact" && exactCitation?.entry?.text ? (
+                <blockquote data-product-action-exact-quote="true" style={{ margin: 0, padding: "9px 10px", borderLeft: `3px solid ${tokens.color.product}`, borderRadius: `0 ${tokens.radius.card}px ${tokens.radius.card}px 0`, background: tokens.color.elevated, color: tokens.color.subInk, fontFamily: tokens.font.serifCjk, fontSize: 13, lineHeight: 1.65, overflowWrap: "anywhere" }}>
+                  {exactCitation.entry.text}
+                  <footer style={{ marginTop: 5, fontFamily: tokens.font.mono, fontSize: 10, color: tokens.color.softInk }}>{exactCitation.ref}{exactCitation.entry.author ? ` · ${exactCitation.entry.author}` : ""}{exactCitation.entry.likeCount != null ? ` · ${exactCitation.entry.likeCount} ♥` : ""}</footer>
+                </blockquote>
+              ) : null}
+            </aside>
+            <details data-product-ai-reading="collapsed" style={{ minWidth: 0 }}>
+              <summary style={{ ...textStyles.fieldLabel, color: tokens.color.product, cursor: "pointer", padding: tokens.spacing.sm }}>查看 AI 判讀</summary>
+              <div style={{ display: "grid", gap: tokens.spacing.md, minWidth: 0 }}>
             <header data-product-action-header="true" style={{ display: "grid", gap: 7, minWidth: 0 }}>
               <div style={betweenRowStyle({ alignItems: "flex-start", gap: 10, minWidth: 0 })}>
                 <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap", minWidth: 0, flex: "1 1 220px" }}>
@@ -3238,17 +3191,8 @@ function ProductActionStage({
                 </section>
               )
             ) : null}
-            <aside data-product-action-evidence-stack="true" style={{ display: "grid", gap: 9, minWidth: 0, padding: "12px 13px", borderRadius: tokens.radius.card, border: `1px solid ${tokens.color.cardEdge}`, background: tokens.color.inkWash }}>
-              <span style={{ ...textStyles.fieldLabel, color: tokens.color.product }}>來源證據</span>
-              <ProductSourceTruthStrip analysis={activeAnalysis} descriptor={activeSignal?.sourceDescriptor} evidenceBySignalId={evidenceBySignalId} signalId={activeAnalysis.signalId} />
-              {activeSourceUrl ? <a data-product-action-original-source="true" href={externalHref(activeSourceUrl)} target="_blank" rel="noreferrer" aria-label="原文（於新分頁開啟）" style={{ color: tokens.color.product, fontSize: 12, fontWeight: 750, overflowWrap: "anywhere" }}>原文 ↗</a> : <span data-product-action-original-source="missing" style={{ ...textStyles.meta, color: tokens.color.softInk }}>原文連結未提供</span>}
-              {activePresentation?.density === "compact" && exactCitation?.entry?.text ? (
-                <blockquote data-product-action-exact-quote="true" style={{ margin: 0, padding: "9px 10px", borderLeft: `3px solid ${tokens.color.product}`, borderRadius: `0 ${tokens.radius.card}px ${tokens.radius.card}px 0`, background: tokens.color.elevated, color: tokens.color.subInk, fontFamily: tokens.font.serifCjk, fontSize: 13, lineHeight: 1.65, overflowWrap: "anywhere" }}>
-                  {exactCitation.entry.text}
-                  <footer style={{ marginTop: 5, fontFamily: tokens.font.mono, fontSize: 10, color: tokens.color.softInk }}>{exactCitation.ref}{exactCitation.entry.author ? ` · ${exactCitation.entry.author}` : ""}{exactCitation.entry.likeCount != null ? ` · ${exactCitation.entry.likeCount} ♥` : ""}</footer>
-                </blockquote>
-              ) : null}
-            </aside>
+            </div>
+            </details>
           </article>
           <nav data-product-action-pager="text" aria-label={`${activeMeta.label}分頁`} style={{ display: "flex", justifyContent: "center", alignItems: "center", gap: 10, flexWrap: "wrap", minWidth: 0 }}>
             <SecondaryButton dataAttrs={{ "data-product-action-previous": "true" }} disabled={safeIndex === 0} onClick={() => moveTo(safeIndex - 1)} style={{ minHeight: 44 }}>← 上一則</SecondaryButton>
@@ -3307,9 +3251,13 @@ export function ProductSignalView({
   } = viewModel;
   const t = useUiText();
   const [filter, setFilter] = useState<SignalsFilter>(initialFilter);
+  const [isCrawling, setIsCrawling] = useState(false);
+  const [crawlFailure, setCrawlFailure] = useState<{ sessionId: string; message: string } | null>(null);
+  const crawlPendingRef = useRef(false);
   const copy = FILTER_COPY[filter];
   const dispatchCommand = (command: ProductSignalCommand) => Promise.resolve(onCommand(command));
   const analyzeCommand = viewModel.actions.find((action) => action.kind === "analyzeInbox");
+  const crawlCommand = viewModel.actions.find((action) => action.kind === "crawlSources");
   const pendingErrorAggregate = summarizeProcessingErrorAggregate(pendingSignals);
   const routeSignals = signals;
   const routeAnalyses = scopedAnalyses;
@@ -3329,6 +3277,21 @@ export function ProductSignalView({
     if (analyzeCommand) {
       void dispatchCommand(analyzeCommand);
     }
+  }
+
+  function handleCrawlSources() {
+    if (!viewModel.canCrawl || !crawlCommand || crawlPendingRef.current) return;
+    crawlPendingRef.current = true;
+    setIsCrawling(true);
+    setCrawlFailure(null);
+    // Structured queue failures use the app's notice. A rejected transport
+    // promise also needs a visible retry path, without exposing backend details.
+    void Promise.resolve().then(() => onCommand(crawlCommand)).catch(() => {
+      setCrawlFailure({ sessionId: crawlCommand.target.sessionId, message: "無法開始抓取，請重試。" });
+    }).finally(() => {
+      crawlPendingRef.current = false;
+      setIsCrawling(false);
+    });
   }
 
   function handleGoToActionable() {
@@ -3368,6 +3331,8 @@ export function ProductSignalView({
         stamp={
           viewModel.statusErrorLabel
             ? <Stamp tone="warning">{viewModel.statusErrorLabel}</Stamp>
+            : filter === "intake" && viewModel.loadState !== "loading"
+              ? <Stamp tone="neutral">{signals.length} 則收藏</Stamp>
             : viewModel.loadState === "loading"
               ? <Stamp tone="neutral">讀取中</Stamp>
             : <Stamp tone={viewModel.loadState === "ready" || viewModel.loadState === "recovering" ? "success" : "neutral"}>
@@ -3452,12 +3417,9 @@ export function ProductSignalView({
             <Stamp tone={scopedAnalyses.length ? "success" : "neutral"}>{scopedAnalyses.length} analyses</Stamp>
             {routePendingSignals.length ? <Stamp tone="warning">{routePendingSignals.length} 處理中</Stamp> : null}
           </div>
-        ) : (
-          <ReadinessPanel
-            viewModel={viewModel}
-            onAnalyze={handleAnalyze}
-          />
-        )}
+        ) : filter === "category" ? (
+          <ReadinessPanel viewModel={viewModel} onAnalyze={handleAnalyze} />
+        ) : null}
         {routePendingSignals.length && filter !== "intake" ? (
           filter === "action" ? (
             <section style={{ display: "grid", gap: 8 }}>
@@ -3479,53 +3441,17 @@ export function ProductSignalView({
             </section>
           )
         ) : null}
-        {filter === "intake"
-          && scopedAnalyses.length > 0
-          && !viewModel.isAnalyzing
-          // Never advertise finished analysis while the surface is in an error
-          // state: the stamp above uses the same ready/recovering gate.
-          && (viewModel.loadState === "ready" || viewModel.loadState === "recovering") ? (
-          <div
-            data-product-action-cta="true"
-            data-raised-tile="true"
-            data-dlens-presence="card"
-            style={{
-              ...selectableTileStyle(false),
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "space-between",
-              gap: 10,
-              padding: "10px 12px",
-              width: "100%",
-              boxSizing: "border-box",
-              cursor: "default"
-            }}
-          >
-            <span data-product-action-cta-copy="true" style={{ ...textStyles.bodyTight, color: tokens.color.subInk }}>
-              分析完成，查看哪些 signal 值得行動
-            </span>
-            <PrimaryButton onClick={handleGoToActionable} activateOnPointerDown style={{ padding: "6px 14px", whiteSpace: "nowrap" }}>
-              查看候選行動 →
-            </PrimaryButton>
-          </div>
-        ) : null}
         {filter === "intake" ? (
-          viewModel.loadState === "recovering" ? (
-            <RecoveredAnalysesBoard
-              analyses={scopedAnalyses}
-              signalPreviewById={signalPreviewById}
-            />
-          ) : (
-            <>
-              <SavedSignalsBoard
-                signals={signals}
-                pendingSignals={pendingSignals}
-                pendingErrorAggregate={pendingErrorAggregate}
-                onRemoveSignal={signals.some((signal) => signal.actions.some((action) => action.kind === "remove")) ? handleRemoveSignal : undefined}
-                onAnalyze={handleAnalyze}
-              />
-            </>
-          )
+          <SavedSignalsBoard
+            key={viewModel.sessionId}
+            signals={signals}
+            crawlCount={viewModel.crawlItemIds.length}
+            canCrawl={viewModel.canCrawl}
+            isCrawling={isCrawling}
+            crawlError={crawlFailure?.sessionId === viewModel.sessionId ? crawlFailure.message : null}
+            onCrawl={handleCrawlSources}
+            onRemoveSignal={signals.some((signal) => signal.actions.some((action) => action.kind === "remove")) ? handleRemoveSignal : undefined}
+          />
         ) : filter === "action" ? (
           <ProductActionStage
             key={productActionStageKey}
@@ -3547,7 +3473,7 @@ export function ProductSignalView({
               尚未有 AI 分析結果
             </div>
             <div style={{ fontSize: 12, lineHeight: 1.65, color: tokens.color.subInk }}>
-              這裡只顯示 storage 裡的真實分析；如果 AI 尚未跑完，不會顯示假分類、假數字或示範案例。
+              完成分析後，可在這裡查看分類。
             </div>
             <div>
               <SecondaryButton onClick={handleAnalyze} disabled={!viewModel.canAnalyze || viewModel.isAnalyzing}>
@@ -3556,6 +3482,19 @@ export function ProductSignalView({
             </div>
           </div>
         )}
+        {filter === "intake" ? (
+          <details data-product-analysis-controls="collapsed" style={{ minWidth: 0 }}>
+            <summary style={{ ...textStyles.fieldLabel, cursor: "pointer", color: tokens.color.product, padding: tokens.spacing.sm }}>AI 分析</summary>
+            <div style={{ display: "grid", gap: tokens.spacing.sm }}>
+              <ReadinessPanel viewModel={viewModel} onAnalyze={handleAnalyze} />
+              {viewModel.loadState === "recovering" ? <RecoveredAnalysesBoard analyses={scopedAnalyses} signalPreviewById={signalPreviewById} /> : null}
+              {pendingErrorAggregate ? <ProcessingErrorAggregateBanner summary={pendingErrorAggregate} /> : null}
+              {scopedAnalyses.length && (viewModel.loadState === "ready" || viewModel.loadState === "recovering") ? (
+                <SecondaryButton onClick={handleGoToActionable}>查看候選行動 →</SecondaryButton>
+              ) : null}
+            </div>
+          </details>
+        ) : null}
       </div>
     </div>
   );

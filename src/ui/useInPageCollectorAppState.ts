@@ -639,8 +639,8 @@ export async function runAnalyzeItemsPipeline({
       id: `bulk-analyze-${Date.now()}`,
       kind: "queued",
       message: failedCount
-        ? `開始分析 ${queuedCount} 篇（${failedCount} 篇失敗）`
-        : `開始分析 ${queuedCount} 篇`
+        ? `開始抓取 ${queuedCount} 篇（${failedCount} 篇失敗）`
+        : `開始抓取 ${queuedCount} 篇`
     });
     const refreshRequestId = createPipelineRequestId("popup-bulk-refresh");
     emitPipelineEvent({

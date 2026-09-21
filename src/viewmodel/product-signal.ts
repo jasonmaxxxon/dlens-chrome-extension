@@ -33,6 +33,7 @@ export type ProductSignalAction =
 
 export type ProductSignalCommand =
   | { kind: "analyzeInbox"; target: { sessionId: string } }
+  | { kind: "crawlSources"; target: { sessionId: string; itemIds: string[] } }
   | { kind: "remove"; target: { sessionId: string; signalId: string } }
   | { kind: "reviewReading"; target: { sessionId: string; signalId: string; cacheKey: string }; decision: "filed" | "deferred" | "rejected"; note?: string }
   | { kind: "exportSignalPackets"; target: { sessionId: string }; format: "html" | "jsonl" };
@@ -84,6 +85,8 @@ export interface ProductSignalWorkspaceViewModel {
   signalReadinessById: Record<string, SignalReadiness>;
   loadState: LoadState;
   canAnalyze: boolean;
+  crawlItemIds: string[];
+  canCrawl: boolean;
   allGreen: boolean;
   readinessCopy: string;
   visibleError: string | null;
@@ -106,6 +109,8 @@ export interface BuildProductSignalWorkspaceViewModelInput {
   analysisNotice?: string | null;
   isHydrating?: boolean;
   isAnalyzing?: boolean;
+  isProcessing?: boolean;
+  optimisticQueuedItemIds?: string[];
 }
 
 function safeArray<T>(value: T[] | null | undefined): T[] {
@@ -359,11 +364,12 @@ function buildSignalViewModels({
 // The merged signals page owns intake, category and action in one route, so the
 // folder packet export is always available here rather than only on the former
 // actionable-filter route.
-function buildWorkspaceActions(sessionId: string | null): ProductSignalCommand[] {
+function buildWorkspaceActions(sessionId: string | null, crawlItemIds: string[]): ProductSignalCommand[] {
   if (!sessionId) {
     return [];
   }
   return [
+    ...(crawlItemIds.length ? [{ kind: "crawlSources" as const, target: { sessionId, itemIds: crawlItemIds } }] : []),
     { kind: "analyzeInbox", target: { sessionId } },
     { kind: "exportSignalPackets", target: { sessionId }, format: "html" },
     { kind: "exportSignalPackets", target: { sessionId }, format: "jsonl" }
@@ -381,7 +387,9 @@ export function buildProductSignalWorkspaceViewModel({
   analysisError = null,
   analysisNotice = null,
   isHydrating = false,
-  isAnalyzing = false
+  isAnalyzing = false,
+  isProcessing = false,
+  optimisticQueuedItemIds = []
 }: BuildProductSignalWorkspaceViewModelInput): ProductSignalWorkspaceViewModel {
   const activeFolder = activeProductSession(snapshot);
   const safeAnalyses = safeArray(analyses);
@@ -416,6 +424,14 @@ export function buildProductSignalWorkspaceViewModel({
     productProfile,
     aiProviderReady
   });
+  const optimisticQueued = new Set(optimisticQueuedItemIds);
+  const crawlItemIds = Array.from(new Set(rows.flatMap((signal) => {
+    const retryable = signal.readiness.status === "saved"
+      || signal.readiness.status === "failed"
+      || signal.readiness.status === "missing_content";
+    return retryable && signal.itemId && !optimisticQueued.has(signal.itemId) ? [signal.itemId] : [];
+  })));
+  const canCrawl = Boolean(activeFolder && crawlItemIds.length && !backendError && !isHydrating && !isProcessing && !isAnalyzing);
   const completedAnalysisCount = scopedAnalyses.length;
   const allGreen = rows.length > 0
     && completedAnalysisCount > 0
@@ -446,6 +462,8 @@ export function buildProductSignalWorkspaceViewModel({
     signalReadinessById,
     loadState,
     canAnalyze,
+    crawlItemIds,
+    canCrawl,
     allGreen,
     readinessCopy: readinessCopy({ signals: rows, analyses: scopedAnalyses, productProfile, aiProviderReady }),
     visibleError,
@@ -453,7 +471,7 @@ export function buildProductSignalWorkspaceViewModel({
     analysisNotice,
     isAnalyzing,
     aiProviderReady,
-    actions: buildWorkspaceActions(activeFolder?.id ?? null)
+    actions: buildWorkspaceActions(activeFolder?.id ?? null, crawlItemIds)
   };
 }
 

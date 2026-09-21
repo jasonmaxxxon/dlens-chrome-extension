@@ -4,6 +4,10 @@ export function getProcessingFailureMessage(error: string | null | undefined): s
     return "Processing failed.";
   }
 
+  if (/Worker status database unavailable/i.test(message)) {
+    return "Database unavailable. Crawling cannot proceed until the database connection is restored.";
+  }
+
   if (/Optional ingest backend unavailable/i.test(message)) {
     return "Backend unavailable. Check Settings > backend URL or start the ingest backend.";
   }
@@ -27,6 +31,10 @@ export function getProcessingFailureUiMessage(error: string | null | undefined):
   const message = String(error || "").trim();
   if (!message) {
     return "處理失敗。請稍後再試。";
+  }
+
+  if (/Worker status database unavailable/i.test(message)) {
+    return "後端資料庫未能連接，暫時無法抓取。請恢復連線後再試。";
   }
 
   if (/Optional ingest backend unavailable/i.test(message)) {

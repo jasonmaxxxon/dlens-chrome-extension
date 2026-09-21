@@ -338,6 +338,7 @@ export const tokens = {
   },
 
   layout: {
+    savedPostThumbnailSize: 44,
     atlasNarrowBreakpointPx: 520,
     workspacePopupHeight: "min(78vh, 780px)"
   },

@@ -93,10 +93,10 @@ instrument, **not** a dashboard that happens to contain text.
 - Every animation sits behind a `prefers-reduced-motion` guard (repo contract).
 
 ### spacing
+- Saved-post rows reserve a leading thumbnail slot; missing or expired images leave quiet space to keep text aligned.
 - Rhythm is owned by containers, not children: section gaps come from tokens
   like `spacing.resultSectionGap` / `spacing.resultCardGap` on a flex-gap
-  parent. Per-child margins are how vertical rhythm died before — the Result
-  spacing contract exists because of it.
+  parent; per-child margins break the Result spacing contract.
 - The Atlas narrow layout stacks narrative beats into one uninterrupted reading
   column; `layout.workspacePopupHeight` stays shared so drawers resolve inside
   the frame instead of carrying another viewport-height contract.

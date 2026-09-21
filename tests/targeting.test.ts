@@ -94,37 +94,13 @@ test("scoreCardCandidateSignals keeps quoted-post outer cards eligible", () => {
 });
 
 test("composer detection does not reject post detail wrappers with reply composers", () => {
-  const postDetailWrapper = {
-    querySelector(selector: string) {
-      if (selector === "textarea, [contenteditable='true']") return {};
-      if (selector === 'a[href*="/post/"]') return {};
-      if (selector === "a[href^='/@'], a[href*='threads.net/@']") return {};
-      return null;
-    },
-    querySelectorAll(selector: string) {
-      if (selector === "svg[aria-label]") {
-        return [
-          { getAttribute: () => "Like" },
-          { getAttribute: () => "Reply" }
-        ];
-      }
-      return [];
-    },
-    innerText: "Follow sswirll 2d 第二次上樓 Like 1.8K Reply 86",
-    textContent: "Follow sswirll 2d 第二次上樓 Like 1.8K Reply 86"
-  };
-  const pureComposer = {
-    querySelector(selector: string) {
-      if (selector === "textarea, [contenteditable='true']") return {};
-      return null;
-    },
-    querySelectorAll: () => [],
-    innerText: "Start a thread",
-    textContent: "Start a thread"
-  };
-
-  assert.equal(threadsTargetingTestables.isComposerLike(postDetailWrapper as any), false);
-  assert.equal(threadsTargetingTestables.isComposerLike(pureComposer as any), true);
+  withTargetCard(`<a href="/@alpha">alpha</a><a href="/@alpha/post/one">1h</a>
+    <svg aria-label="Like"></svg><svg aria-label="Reply"></svg><textarea></textarea>`, (card) => {
+    assert.equal(threadsTargetingTestables.isComposerLike(card), false);
+  });
+  withTargetCard('<textarea></textarea><p>Start a thread</p>', (card) => {
+    assert.equal(threadsTargetingTestables.isComposerLike(card), true);
+  });
 });
 
 // classifyMetric tests
@@ -178,6 +154,16 @@ test("inferThreadFollowersFromText extracts visible profile-card follower counts
   assert.equal(inferThreadFollowersFromText("yrzhe\n12.4K followers\nFollow"), 12400);
   assert.equal(inferThreadFollowersFromText("創作者\n1.2萬 followers\nFollow"), 12000);
   assert.equal(inferThreadFollowersFromText("View followers"), null);
+});
+
+test("view counts preserve thousands separators in English and Chinese", () => {
+  assert.equal(inferThreadViewsFromText("1,234 views"), 1234);
+  assert.equal(inferThreadViewsFromText("1,234次瀏覽"), 1234);
+});
+
+test("follower counts preserve thousands separators in English and Chinese", () => {
+  assert.equal(inferThreadFollowersFromText("12,345 followers"), 12345);
+  assert.equal(inferThreadFollowersFromText("12,345 位粉絲"), 12345);
 });
 
 test("cleanBodyText keeps CJK post text even when it has no spaces", () => {
@@ -392,7 +378,7 @@ test("buildTargetDescriptor marks feed post cards as posts beyond the first arti
  * therefore exercise exactly the signals production relies on: declared
  * attributes, alt text, the media-family path segment, and the enclosing link.
  */
-function withImageCard<T>(html: string, handler: (card: HTMLElement) => T): T {
+function withTargetCard<T>(html: string, handler: (card: HTMLElement) => T): T {
   const dom = new JSDOM(`<main><article id="card">${html}</article></main>`, {
     url: "https://www.threads.net/@alpha/post/one"
   });
@@ -434,23 +420,23 @@ const PHOTO_URL =
 const PHOTO_IMG = `<img height="100%" width="100%" alt="A chart" src="${PHOTO_URL}">`;
 
 test("extractImageUrl picks the post attachment over the author avatar", () => {
-  const url = withImageCard(`${AVATAR_IMG}<p>post body</p>${PHOTO_IMG}`, extractImageUrl);
+  const url = withTargetCard(`${AVATAR_IMG}<p>post body</p>${PHOTO_IMG}`, extractImageUrl);
   assert.equal(url, PHOTO_URL);
 });
 
 test("extractImageUrl returns null for a text-only post that only shows avatars", () => {
-  const url = withImageCard(`${AVATAR_IMG}<p>text only</p>${AVATAR_IMG}`, extractImageUrl);
+  const url = withTargetCard(`${AVATAR_IMG}<p>text only</p>${AVATAR_IMG}`, extractImageUrl);
   assert.equal(url, null);
 });
 
 test("extractImageUrl ignores link-preview favicons", () => {
-  const url = withImageCard(`${AVATAR_IMG}${FAVICON_IMG}<p>a shared link</p>`, extractImageUrl);
+  const url = withTargetCard(`${AVATAR_IMG}${FAVICON_IMG}<p>a shared link</p>`, extractImageUrl);
   assert.equal(url, null);
 });
 
 test("extractImageUrl falls back to a video poster so video posts get a thumbnail", () => {
   const poster = "https://scontent.cdninstagram.com/v/t51.2885-15/poster_frame.jpg?oe=68D9F3A2";
-  const url = withImageCard(
+  const url = withTargetCard(
     `${AVATAR_IMG}<video poster="${poster}"></video>`,
     extractImageUrl
   );
@@ -460,7 +446,7 @@ test("extractImageUrl falls back to a video poster so video posts get a thumbnai
 test("extractImageUrl rejects an image whose only link is the author profile", () => {
   // Same media family as a real photo, but wrapped in a bare profile permalink —
   // the path check alone would let this through.
-  const url = withImageCard(
+  const url = withTargetCard(
     `<a href="/@alpha"><img height="120" width="120" alt="alpha" src="${PHOTO_URL}"></a>`,
     extractImageUrl
   );
@@ -472,12 +458,12 @@ test("extractImageUrl drops over-long proxied URLs instead of truncating them", 
   // in the captured fixture. Dropping keeps per-record storage bounded.
   const long = `https://external.fna.fbcdn.net/emg1/v/t13/1?url=${"a".repeat(1100)}`;
   assert.ok(long.length > 1024);
-  const url = withImageCard(`<img height="400" width="400" src="${long}">`, extractImageUrl);
+  const url = withTargetCard(`<img height="400" width="400" src="${long}">`, extractImageUrl);
   assert.equal(url, null);
 });
 
 test("extractImageUrl ignores non-http sources", () => {
-  const url = withImageCard(
+  const url = withTargetCard(
     `<img height="400" width="400" src="data:image/gif;base64,R0lGODlhAQABAAAAACw=">`,
     extractImageUrl
   );
@@ -486,7 +472,7 @@ test("extractImageUrl ignores non-http sources", () => {
 
 test("extractImageUrl takes the first surviving image in document order", () => {
   const second = "https://scontent.cdninstagram.com/v/t51.2885-15/quoted_post.jpg";
-  const url = withImageCard(
+  const url = withTargetCard(
     `${PHOTO_IMG}<blockquote><img height="200" width="200" src="${second}"></blockquote>`,
     extractImageUrl
   );
@@ -494,16 +480,162 @@ test("extractImageUrl takes the first surviving image in document order", () => 
 });
 
 test("buildTargetDescriptor carries image_url, and reports null rather than omitting it", () => {
-  const withPhoto = withImageCard(
+  const withPhoto = withTargetCard(
     `<a href="/@alpha/post/one">1h</a>${PHOTO_IMG}<p>body</p>`,
     (card) => buildTargetDescriptor(card, "https://www.threads.net/@alpha/post/one")
   );
   assert.equal(withPhoto?.image_url, PHOTO_URL);
 
-  const withoutPhoto = withImageCard(
+  const withoutPhoto = withTargetCard(
     `<a href="/@alpha/post/one">1h</a>${AVATAR_IMG}<p>body</p>`,
     (card) => buildTargetDescriptor(card, "https://www.threads.net/@alpha/post/one")
   );
   assert.equal(withoutPhoto?.image_url, null);
   assert.equal("image_url" in (withoutPhoto ?? {}), true);
+});
+
+// Minimal DOM shapes from the 2026-09-18 Chrome inspection. These are
+// constructed regressions, not a saved full-page browser fixture.
+function titleMetric(label: string, count: string | null, childTitleOnly = false): string {
+  return `<div role="button"><div><div><svg role="img"${childTitleOnly ? "" : ` title="${label}"`}><title>${label}</title></svg>${count === null ? "" : `<span><div><span>${count}</span></div></span>`}</div></div></div>`;
+}
+
+const POST_HEADER = '<a href="/@alpha">alpha</a><a href="/@alpha/post/one">1h</a>';
+const POST_URL = "https://www.threads.net/@alpha/post/one";
+
+test("title-labeled role buttons expose counts and remain eligible beside a reply composer", () => {
+  withTargetCard(`${POST_HEADER}<p id="body">A real post body</p>
+    <div>${titleMetric("Like", "22")}${titleMetric("Reply", "3", true)}${titleMetric("Repost", "1")}${titleMetric("Share", "2")}</div>
+    <textarea></textarea>`, (card) => {
+    const candidate = findCardCandidate(card.querySelector("#body"));
+    assert.equal(candidate.root, card);
+    assert.equal(candidate.strength, "hard");
+    const descriptor = buildTargetDescriptor(card, POST_URL)!;
+    assert.deepEqual(descriptor.engagement, {
+      likes: 22, comments: 3, reposts: 1, forwards: 2, views: null, followers: null
+    });
+    assert.equal(descriptor.engagement_source, "card");
+  });
+});
+
+test("title controls preserve unknown count, explicit zero and absent control separately", () => {
+  withTargetCard(`${POST_HEADER}${titleMetric("Like", null)}${titleMetric("Reply", "0")}${titleMetric("Repost", "unavailable")}`, (card) => {
+    const descriptor = buildTargetDescriptor(card, POST_URL)!;
+    assert.equal(descriptor.engagement.likes, null);
+    assert.equal(descriptor.engagement_present.likes, true);
+    assert.equal(descriptor.engagement.comments, 0);
+    assert.equal(descriptor.engagement_present.comments, true);
+    assert.equal(descriptor.engagement.reposts, null);
+    assert.equal(descriptor.engagement_present.reposts, true);
+    assert.equal(descriptor.engagement.forwards, null);
+    assert.equal(descriptor.engagement_present.forwards, false);
+  });
+});
+
+test("mixed legacy SVG and labeled controls contribute independent metrics", () => {
+  withTargetCard(`${POST_HEADER}<div><svg aria-label="Like"></svg><span>1.2K</span></div>
+    <div role="button" aria-label="3 replies"></div>
+    <button aria-label="Repost"><span>0</span></button>
+    <a aria-label="Share"><span>4</span></a>`, (card) => {
+    const descriptor = buildTargetDescriptor(card, POST_URL)!;
+    assert.deepEqual(descriptor.engagement, {
+      likes: 1200, comments: 3, reposts: 0, forwards: 4, views: null, followers: null
+    });
+  });
+});
+
+test("a countless SVG control does not borrow the next control's count", () => {
+  withTargetCard(`${POST_HEADER}<div>
+    <div role="button"><div><svg aria-label="Like"></svg></div></div>
+    <div role="button"><div><svg aria-label="Reply"></svg><span>8</span></div></div>
+  </div>`, (card) => {
+    const descriptor = buildTargetDescriptor(card, POST_URL)!;
+    assert.equal(descriptor.engagement.likes, null);
+    assert.equal(descriptor.engagement.comments, 8);
+  });
+});
+
+for (const wrapper of ['article', 'div role="article"', 'div data-pressable-container="true"', 'blockquote']) {
+  test(`nested ${wrapper} metrics cannot fill or override the outer post`, () => {
+    const tag = wrapper.split(" ")[0];
+    withTargetCard(`${POST_HEADER}<p>Outer post body</p>
+      <${wrapper}><a href="/@quoted/post/two">2h</a>
+        <div><svg aria-label="Like"></svg><span>999</span></div>
+        <div><svg aria-label="Reply"></svg><span>88</span></div>
+        <span>5K views</span><span>6K followers</span>
+      </${tag}>
+      <div><svg aria-label="Like"></svg><span>22</span></div>`, (card) => {
+      const descriptor = buildTargetDescriptor(card, POST_URL)!;
+      assert.equal(descriptor.engagement.likes, 22);
+      assert.equal(descriptor.engagement.comments, null);
+      assert.equal(descriptor.engagement_present.comments, false);
+      assert.equal(descriptor.engagement.views, null);
+      assert.equal(descriptor.engagement.followers, null);
+    });
+  });
+}
+
+test("same-post pressable wrapper retains its own metrics", () => {
+  withTargetCard(`<div data-pressable-container="true">${POST_HEADER}
+    <div><svg aria-label="Like"></svg><span>22</span></div>
+    <div><svg aria-label="Reply"></svg><span>3</span></div>
+  </div>`, (card) => {
+    const descriptor = buildTargetDescriptor(card, POST_URL)!;
+    assert.equal(descriptor.engagement.likes, 22);
+    assert.equal(descriptor.engagement.comments, 3);
+  });
+});
+
+test("pressable engagement controls without a permalink retain the current post's counts", () => {
+  withTargetCard(`${POST_HEADER}<div data-pressable-container="true" role="button">
+    <svg><title>Like</title></svg><span>22</span>
+  </div><div data-pressable-container="true">
+    <div role="button"><svg aria-label="Reply"></svg><span>3</span></div>
+  </div>`, (card) => {
+    const descriptor = buildTargetDescriptor(card, POST_URL)!;
+    assert.equal(descriptor.engagement.likes, 22);
+    assert.equal(descriptor.engagement.comments, 3);
+  });
+});
+
+test("unbounded metrics in one row do not reuse another icon's count", () => {
+  withTargetCard(`${POST_HEADER}<div>
+    <svg><title>Like</title></svg><svg><title>Reply</title></svg><span>8</span>
+  </div>`, (card) => {
+    const descriptor = buildTargetDescriptor(card, POST_URL)!;
+    assert.equal(descriptor.engagement.likes, null);
+    assert.equal(descriptor.engagement.comments, null);
+    assert.equal(descriptor.engagement_present.likes, true);
+    assert.equal(descriptor.engagement_present.comments, true);
+  });
+});
+
+test("explicit counts in control labels work when an icon has a count-free title", () => {
+  withTargetCard(`${POST_HEADER}<button aria-label="0 likes"><svg><title>Like</title></svg></button>
+    <div role="button" title="2 replies"><svg><title>Reply</title></svg></div>`, (card) => {
+    const descriptor = buildTargetDescriptor(card, POST_URL)!;
+    assert.equal(descriptor.engagement.likes, 0);
+    assert.equal(descriptor.engagement.comments, 2);
+  });
+});
+
+test("unrelated page views and followers remain unknown for the current post", () => {
+  withTargetCard(`${POST_HEADER}<p>Post without exposed metrics</p>`, (card) => {
+    card.ownerDocument.body.insertAdjacentHTML("beforeend", '<aside>99K followers</aside><article><span>8K views</span></article>');
+    const descriptor = buildTargetDescriptor(card, POST_URL)!;
+    assert.equal(descriptor.engagement.views, null);
+    assert.equal(descriptor.engagement.followers, null);
+    assert.equal(descriptor.engagement_present.views, false);
+    assert.equal(descriptor.engagement_present.followers, false);
+    assert.equal(descriptor.engagement_source, "missing");
+  });
+});
+
+test("own card view and follower counters remain available", () => {
+  withTargetCard(`${POST_HEADER} <span>132 views</span> <span>756 followers</span>`, (card) => {
+    const descriptor = buildTargetDescriptor(card, POST_URL)!;
+    assert.equal(descriptor.engagement.views, 132);
+    assert.equal(descriptor.engagement.followers, 756);
+    assert.equal(descriptor.engagement_source, "card");
+  });
 });

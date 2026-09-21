@@ -1,3 +1,15 @@
+## Current handoff — 2026-09-21 collection focus (0.4.2)
+
+- User approved a left thumbnail, immediately visible source list and collapsed AI detail on the existing Product signals page. This supersedes earlier instructions to immediately open full Product readings.
+- Source branch: `codex/collect-recall-focus`, based on 0.4.1 `b9a358e`, isolated at `/Users/tung/developer/worktrees/dlens-v4-focus`. No main merge/push.
+- Capture work supports new title-labeled Threads icons and role buttons, preserves unknown counts, and excludes nested posts and unrelated page-wide metrics.
+- Product collection and Library use the stored descriptor image URL. Source text/metrics remain available before crawling or AI. CDN image errors fall back without blocking the row.
+- Backend 2026-09-21 diagnosis: API running, worker 503, configured Supabase project INACTIVE. Restore was requested through the official management API using the existing CLI credential; no DSN/schema/credential changes. Project is now ACTIVE_HEALTHY; SELECT 1 passed. Restarted the existing launchd API to renew pooled connections; health and worker status both return 200, worker idle. A live public-post crawl succeeded in one attempt with 284 post-text characters and 29 nonempty comments, followed by successful deterministic analysis. One new smoke capture/job/result/analysis was added; the historical dead job was untouched.
+- Verification: 1501 tests / 1496 passed / 5 existing fixture skips / 0 failed; typecheck, View/VM boundary, storage seam, migration fixtures, production build, and diff check passed. Independent review found and verified a fix for rejected crawl commands that previously gave no user feedback.
+- Installed bundle: 0.4.2 copied into the existing Downloads 0.4.1 folder, ID `cblkjhpcmfcgmdbbdgobpkpdbbgdkhfe` unchanged; 13 files SHA-256 verified. Original program files backed up at `/Users/tung/developer/reviews/dlens-0.4.2-2026-09-21/backup-chrome-mv3-0.4.1`. Browser storage was not modified directly.
+- Runtime limitation: Computer Use repeatedly returned `timeoutReached` for Chrome and the Chrome bridge became unavailable, even after a tool-session reset. Extension reload, real UI save, image loading, and original -> hover -> stored metric comparison remain UNVERIFIED. The successful backend smoke is not extension save proof.
+- Backend smoke IDs: capture `e727fd65-e598-453a-aa1d-604ed7ebfda8`, job `2ed243cd-4b3a-47b5-8cc8-3691a2d162d6`, result `32e841af-ca95-4413-8154-ac52f65733d7`, analysis `17194921-39da-448a-a285-7df6df7b6693`. The existing smoke helper has a fixed historical `captured_at` and test snippet; actual `fetched_at` is 2026-09-21T02:42:51.577790Z. Coverage reports expected 27 vs 29 captured (includes an OP continuation); do not claim complete comment coverage.
+
 ---
 name: latest_shared_context
 description: Shared Codex and Claude memory for DLens extension product direction, repo boundary, and update protocol

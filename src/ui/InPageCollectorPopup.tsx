@@ -143,6 +143,7 @@ function OpenInPageCollectorPopup({
   setSwitchingWorkspaceMode: Dispatch<SetStateAction<WorkspaceSwitcherMode | null>>;
 }) {
   const { snapshot, page, activeFolder, resultItemA, resultItemB } = app;
+  const productCrawlPendingRef = useRef(false);
   const guardedPage = page as PopupPage;
   const activeFolderMode = activeFolder?.mode ?? "archive";
   const uiLang = snapshot?.global.settings.layoutPreferences.language ?? "zh";
@@ -167,7 +168,9 @@ function OpenInPageCollectorPopup({
         analysisError: app.productSignalAnalysisError,
         analysisNotice: app.productSignalAnalysisNotice,
         isHydrating: app.isHydratingProductSignals,
-        isAnalyzing: app.isAnalyzingProductSignals
+        isAnalyzing: app.isAnalyzingProductSignals,
+        isProcessing: app.isStartingProcessing || app.bulkAnalyzingFolderId === activeFolder?.id,
+        optimisticQueuedItemIds: app.optimisticQueuedIds
       })
     : null;
   const topicDetailViewModel = guardedPage === "topic-detail" && app.activeTopic
@@ -203,6 +206,14 @@ function OpenInPageCollectorPopup({
 
   function onProductSignalCommand(command: ProductSignalCommand): Promise<unknown> | unknown {
     switch (command.kind) {
+      case "crawlSources": {
+        if (command.target.sessionId !== activeFolder?.id || productCrawlPendingRef.current) {
+          return { ok: false };
+        }
+        productCrawlPendingRef.current = true;
+        return Promise.resolve(app.onAnalyzeItems(command.target.itemIds))
+          .finally(() => { productCrawlPendingRef.current = false; });
+      }
       case "analyzeInbox":
         return app.onAnalyzeProductSignals();
       case "remove":

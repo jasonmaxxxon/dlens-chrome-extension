@@ -93,11 +93,11 @@ function parseCount(label: string | null | undefined): number | null {
 
 export function inferThreadViewsFromText(text: string): number | null {
   const source = String(text || "").replace(/\s+/g, " ");
-  const english = source.match(/(\d+(?:\.\d+)?\s*(?:[kKmM]|萬|万|千)?)\s*(?:views|view)\b/i);
+  const english = source.match(/(\d[\d,]*(?:\.\d+)?\s*(?:[kKmM]|萬|万|千)?)\s*(?:views|view)\b/i);
   if (english) {
     return parseCount(english[1]);
   }
-  const chinese = source.match(/(\d+(?:\.\d+)?\s*(?:[kKmM]|萬|万|千)?)\s*(?:次)?(?:瀏覽|浏览|觀看|观看|查看)/);
+  const chinese = source.match(/(\d[\d,]*(?:\.\d+)?\s*(?:[kKmM]|萬|万|千)?)\s*(?:次)?(?:瀏覽|浏览|觀看|观看|查看)/);
   if (chinese) {
     return parseCount(chinese[1]);
   }
@@ -109,11 +109,11 @@ export function inferThreadFollowersFromText(text: string): number | null {
   if (/\bview\s+followers\b/i.test(source)) {
     return null;
   }
-  const english = source.match(/(\d+(?:\.\d+)?\s*(?:[kKmM]|萬|万|千)?)\s*followers\b/i);
+  const english = source.match(/(\d[\d,]*(?:\.\d+)?\s*(?:[kKmM]|萬|万|千)?)\s*followers\b/i);
   if (english) {
     return parseCount(english[1]);
   }
-  const chinese = source.match(/(\d+(?:\.\d+)?\s*(?:[kKmM]|萬|万|千)?)\s*(?:位|個|个)?(?:粉絲|粉丝|追蹤者|追踪者)/);
+  const chinese = source.match(/(\d[\d,]*(?:\.\d+)?\s*(?:[kKmM]|萬|万|千)?)\s*(?:位|個|个)?(?:粉絲|粉丝|追蹤者|追踪者)/);
   if (chinese) {
     return parseCount(chinese[1]);
   }
@@ -152,15 +152,11 @@ export function inferSurfaceFromLocation(url: string): TargetSurface {
 }
 
 function hasLikelyEngagementRow(card: HTMLElement): boolean {
-  // Threads uses svg[aria-label] for engagement icons (Like, Reply, Repost, Share)
-  const svgs = card.querySelectorAll<SVGElement>("svg[aria-label]");
-  let score = 0;
-  for (const svg of svgs) {
-    const label = svg.getAttribute("aria-label") || "";
-    if (classifyMetric(label)) {
-      score += 1;
-      if (score >= 2) return true;
-    }
+  const metrics = new Set<string>();
+  for (const { key } of findMetricElements(card)) {
+    if (key === "views" || key === "followers") continue;
+    metrics.add(key);
+    if (metrics.size >= 2) return true;
   }
   return false;
 }
@@ -458,7 +454,78 @@ export function classifyMetric(label: string): keyof EngagementMetrics | null {
   return null;
 }
 
-function resolveEngagement(card: HTMLElement, targetType: TargetType): { engagement: EngagementMetrics; engagement_present: EngagementPresent; engagement_source: EngagementSource } {
+const METRIC_ELEMENT_SELECTOR =
+  'svg, button[aria-label], a[aria-label], [role="button"][aria-label], button[title], a[title], [role="button"][title]';
+const POST_BOUNDARY_SELECTOR = 'article, [role="article"], [data-pressable-container], blockquote';
+
+function belongsToCurrentPost(element: Element, card: HTMLElement): boolean {
+  // An article may wrap its own pressable container. Keep that wrapper, but
+  // exclude descendant post/quote boundaries that do not contain its permalink.
+  // A pressable without a post link may just be this post's metric control.
+  const ownPermalink = card.querySelector('a[href*="/post/"]');
+  let ancestor: Element | null = element;
+  while (ancestor && ancestor !== card) {
+    const isPostBoundary = ancestor.matches(POST_BOUNDARY_SELECTOR) &&
+      (ancestor.matches('article, [role="article"], blockquote') ||
+        Boolean(ancestor.querySelector('a[href*="/post/"]')));
+    if (isPostBoundary &&
+      (ancestor.matches("blockquote") || !ownPermalink || !ancestor.contains(ownPermalink))) {
+      return false;
+    }
+    ancestor = ancestor.parentElement;
+  }
+  return ancestor === card;
+}
+
+function readMetricLabel(element: Element): { key: keyof EngagementMetrics; label: string } | null {
+  const labels = [element.getAttribute("aria-label"), element.getAttribute("title")];
+  if (element.tagName.toLowerCase() === "svg") {
+    labels.push(element.querySelector("title")?.textContent ?? null);
+  }
+  for (const label of labels) {
+    const key = classifyMetric(label || "");
+    if (key) return { key, label: label! };
+  }
+  return null;
+}
+
+function findMetricElements(card: HTMLElement) {
+  return Array.from(card.querySelectorAll(METRIC_ELEMENT_SELECTOR)).flatMap((element) => {
+    if (!belongsToCurrentPost(element, card)) return [];
+    const metric = readMetricLabel(element);
+    return metric ? [{ element, ...metric }] : [];
+  });
+}
+
+function readScopedText(element: Element, card: HTMLElement): string {
+  if (element.matches("svg, script, style") || !belongsToCurrentPost(element, card)) return "";
+  return Array.from(element.childNodes).map((node) => {
+    if (node instanceof Element) return readScopedText(node, card);
+    return node.nodeType === Node.TEXT_NODE ? node.textContent || "" : "";
+  }).join(" ");
+}
+
+function readMetricCount(element: Element, label: string, key: keyof EngagementMetrics, card: HTMLElement): number | null {
+  const control = element.closest('button, [role="button"], a');
+  const scope = control && card.contains(control) ? control : element.parentElement;
+  // Without a button boundary, only a local single-icon wrapper is safe.
+  // Never read a row containing several metrics as one count.
+  if (scope && (scope !== card || control === card)) {
+    const keys = new Set(Array.from(scope.querySelectorAll(METRIC_ELEMENT_SELECTOR))
+      .map((candidate) => readMetricLabel(candidate)?.key).filter(Boolean));
+    if (keys.size <= 1) {
+      const text = readScopedText(scope, card).replace(/\s+/g, " ").trim();
+      if (/^\d[\d,]*(?:\.\d+)?\s*[kKmM萬万千]?$/.test(text) ||
+        (text.length <= 40 && classifyMetric(text) === key)) {
+        const count = parseCount(text);
+        if (count !== null) return count;
+      }
+    }
+  }
+  return parseCount(label);
+}
+
+function resolveEngagement(card: HTMLElement): { engagement: EngagementMetrics; engagement_present: EngagementPresent; engagement_source: EngagementSource } {
   const metrics: EngagementMetrics = {
     likes: null,
     comments: null,
@@ -475,89 +542,30 @@ function resolveEngagement(card: HTMLElement, targetType: TargetType): { engagem
     views: false,
     followers: false
   };
-  // F1 telemetry: did any metric come from the card itself vs the
-  // page-wide body fallback? "page_fallback" wins because it is the
-  // audit's risk class — those numbers may belong to unrelated chrome.
-  let usedCardSource = false;
-  let usedBodyFallback = false;
-
-  // Threads DOM: <svg aria-label="Like"> + <span>582</span> as sibling
-  const svgs = Array.from(card.querySelectorAll<SVGElement>("svg[aria-label]"));
-  for (const svg of svgs) {
-    const ariaLabel = svg.getAttribute("aria-label") || "";
-    const key = classifyMetric(ariaLabel);
-    if (!key || present[key]) continue;
-
-    // Count is in a sibling <span> next to the SVG
-    const parent = svg.parentElement;
-    const siblingSpan = parent?.querySelector("span");
-    const countText = siblingSpan ? (siblingSpan.textContent || "").trim() : "";
-
+  for (const { element, key, label } of findMetricElements(card)) {
     present[key] = true;
-    metrics[key] = countText ? parseCount(countText) : null;
-    usedCardSource = true;
+    if (metrics[key] == null) metrics[key] = readMetricCount(element, label, key, card);
   }
 
-  // Fallback: also check [aria-label] on non-SVG elements (buttons, links)
-  if (!present.likes && !present.comments && !present.reposts && !present.forwards) {
-    const controls = Array.from(card.querySelectorAll<HTMLElement>("button[aria-label], a[aria-label]"));
-    for (const el of controls.slice(0, 20)) {
-      const ariaLabel = el.getAttribute("aria-label") || "";
-      const key = classifyMetric(ariaLabel);
-      if (!key || present[key]) continue;
-
-      const text = (el.textContent || "").trim();
-      present[key] = true;
-      metrics[key] = text.length <= 20 ? parseCount(text) : null;
-      usedCardSource = true;
-    }
-  }
-
+  const cardText = readScopedText(card, card);
   if (!present.views) {
-    const cardText = card.innerText || card.textContent || "";
     const views = inferThreadViewsFromText(cardText);
     if (views !== null) {
       present.views = true;
       metrics.views = views;
-      usedCardSource = true;
-    }
-  }
-
-  if (targetType === "post" && !present.views) {
-    const bodyText = document.body?.innerText || document.body?.textContent || "";
-    const views = inferThreadViewsFromText(bodyText);
-    if (views !== null) {
-      present.views = true;
-      metrics.views = views;
-      usedBodyFallback = true;
     }
   }
 
   if (!present.followers) {
-    const cardText = card.innerText || card.textContent || "";
     const followers = inferThreadFollowersFromText(cardText);
     if (followers !== null) {
       present.followers = true;
       metrics.followers = followers;
-      usedCardSource = true;
     }
   }
 
-  if (targetType === "post" && !present.followers) {
-    const bodyText = document.body?.innerText || document.body?.textContent || "";
-    const followers = inferThreadFollowersFromText(bodyText);
-    if (followers !== null) {
-      present.followers = true;
-      metrics.followers = followers;
-      usedBodyFallback = true;
-    }
-  }
-
-  const engagement_source: EngagementSource = usedBodyFallback
-    ? "page_fallback"
-    : usedCardSource
-      ? "card"
-      : "missing";
+  // Page-wide counters cannot be attributed to this post. Keep them unknown.
+  const engagement_source: EngagementSource = Object.values(present).some(Boolean) ? "card" : "missing";
 
   return { engagement: metrics, engagement_present: present, engagement_source };
 }
@@ -682,7 +690,7 @@ export function buildTargetDescriptor(card: HTMLElement, pageUrl: string): Targe
   const { permalink, rawText } = extractPermalink(card);
   const targetType = classifyTargetType(card, normalizedPage, permalink);
   const cleanedText = cleanBodyText(rawText);
-  const metricsResult = resolveEngagement(card, targetType);
+  const metricsResult = resolveEngagement(card);
 
   return {
     target_type: targetType,

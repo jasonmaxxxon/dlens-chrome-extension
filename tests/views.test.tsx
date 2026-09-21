@@ -32,6 +32,7 @@ import { CollectView } from "../src/ui/CollectView.tsx";
 import { InPageCollectorFolderControls, inPageCollectorFolderControlsTestables } from "../src/ui/InPageCollectorFolderControls.tsx";
 import { InPageCollectorPopup, inPageCollectorPopupTestables } from "../src/ui/InPageCollectorPopup.tsx";
 import { LibraryView } from "../src/ui/LibraryView.tsx";
+import { PostCard } from "../src/ui/LibraryView.parts.tsx";
 import { createPrEvidenceResource } from "../src/ui/pr-evidence-resource.ts";
 import { PrEvidenceView, prEvidenceViewTestables } from "../src/ui/PrEvidenceViews.tsx";
 import { ProductSignalView, DLENS_MOTION_CSS, productSignalViewTestables } from "../src/ui/ProductSignalViews.tsx";
@@ -110,6 +111,7 @@ function buildProductTestItem(signal: any, props: any): SessionItem | null {
       page_url: url,
       post_url: url,
       author_hint: descriptorOverride.author_hint ?? "dlens",
+      image_url: descriptorOverride.image_url,
       text_snippet: preview,
       time_token_hint: descriptorOverride.time_token_hint ?? "",
       dom_anchor: signal.id,
@@ -245,12 +247,16 @@ function productSignalViewElement(props: any) {
       analysisError: props.analysisError ?? null,
       analysisNotice: props.analysisNotice ?? null,
       isHydrating: props.isHydrating ?? false,
-      isAnalyzing: props.isAnalyzing ?? false
+      isAnalyzing: props.isAnalyzing ?? false,
+      isProcessing: props.isProcessing ?? false,
+      optimisticQueuedItemIds: props.optimisticQueuedItemIds ?? []
     }),
     props
   );
   const onCommand = (command: ProductSignalCommand) => {
     switch (command.kind) {
+      case "crawlSources":
+        return props.onCrawlSources?.(command);
       case "analyzeInbox":
         return props.onAnalyze?.();
       case "remove":
@@ -1831,7 +1837,7 @@ test("CollectView keeps the preview card and compact collect controls visible wi
   );
 
   assert.match(html, /data-mode-header="collect"/);
-  assert.match(html, /指向 Threads 貼文即可預覽，按下存入資料庫。/);
+  assert.match(html, /指向貼文預覽，按 S 儲存。/);
   assert.doesNotMatch(html, /decision surface/);
   assert.match(html, /Signals/);
   assert.match(html, /儲存到資料庫/);
@@ -1897,7 +1903,7 @@ test("CollectView uses product inbox language in product mode", () => {
     })
   );
 
-  assert.match(html, /加入產品訊號收件匣/);
+  assert.match(html, /收藏貼文/);
   assert.match(html, /產品訊號收件匣/);
   assert.match(html, /加入產品訊號/);
   assert.doesNotMatch(html, /資料夾/);
@@ -1919,7 +1925,7 @@ test("CollectView blocks PR Evidence saves until a campaign exists", () => {
     })
   );
 
-  assert.match(html, /加入 PR evidence/);
+  assert.match(html, /收藏貼文/);
   assert.match(html, /data-collect-disabled-reason="true"/);
   assert.match(html, /先在 PR 頁建立 campaign/);
   assert.match(html, /disabled=""/);
@@ -2989,7 +2995,7 @@ test("SettingsView shows saved key state when sanitized snapshot hides the raw k
   assert.match(html, /已儲存金鑰 · 輸入以覆寫/);
 });
 
-test("SavedSignalsBoard presents a compact analysis intake", () => {
+test("SavedSignalsBoard presents saved sources before optional analysis", () => {
   const html = renderToStaticMarkup(
     productSignalViewElement({
       kind: "saved-signals",
@@ -3015,8 +3021,8 @@ test("SavedSignalsBoard presents a compact analysis intake", () => {
 
   assert.match(html, /data-product-saved-pipeline="true"/);
   assert.match(html, /已收集[^]*可分析[^]*處理中[^]*已完成/);
-  assert.match(html, /data-product-saved-management="collapsed"/);
-  assert.match(html, /data-saved-signal-row="management"/);
+  assert.match(html, /data-product-saved-list="visible"/);
+  assert.match(html, /data-saved-signal-row="source"/);
   assert.match(html, /data-saved-signals-frame="true"/);
   assert.doesNotMatch(html, /data-saved-signals-frame="true"[^>]*data-dlens-presence=/);
   assert.doesNotMatch(html, /data-product-saved-filter-tabs|data-product-saved-inline-reading/);
@@ -3024,7 +3030,7 @@ test("SavedSignalsBoard presents a compact analysis intake", () => {
   assert.doesNotMatch(html, /type="checkbox"/);
 });
 
-test("saved-signals keeps all management rows behind a collapsed disclosure", () => {
+test("saved-signals keeps all source rows visible", () => {
   const readyIds = ["r1", "r2", "r3"];
   const pendingIds = ["p1", "p2", "p3", "p4", "p5", "p6", "p7", "p8"];
   const signals = [...readyIds, ...pendingIds].map((id) => ({
@@ -3044,8 +3050,8 @@ test("saved-signals keeps all management rows behind a collapsed disclosure", ()
     })
   );
 
-  assert.match(html, /<details data-product-saved-management="collapsed"/);
-  assert.equal(countOccurrences(html, 'data-saved-signal-row="management"'), 11);
+  assert.match(html, /<div data-product-saved-list="visible"/);
+  assert.equal(countOccurrences(html, 'data-saved-signal-row="source"'), 11);
   assert.doesNotMatch(html, /data-product-saved-list-toggle|data-product-saved-filter-tabs/);
 });
 
@@ -3092,19 +3098,18 @@ test("ProductSignalView shows real readiness state without fake AI results", () 
 
   assert.match(html, /data-product-signal-view="signals"/);
   assert.match(html, /data-product-signal-filter="intake"/);
-  assert.match(html, /已存訊號/);
+  assert.match(html, /已儲存貼文/);
   assert.match(html, /1 signals/);
   assert.match(html, /0 analyses/);
-  assert.match(html, /ProductProfile/);
-  assert.match(html, /ProductContext/);
+  assert.doesNotMatch(html, /真實狀態|>AI key<|>ProductProfile<|>ProductContext</);
   assert.match(html, /data-saved-signals-route="true"/);
-  assert.match(html, /data-saved-signal-row="management"/);
+  assert.match(html, /data-saved-signal-row="source"/);
   assert.match(html, /data-product-saved-pipeline="true"/);
-  assert.match(html, /data-product-saved-pending-detail="collapsed"/);
+  assert.match(html, /data-product-analysis-controls="collapsed"/);
   assert.doesNotMatch(html, /data-product-pending-card="topic-card"/);
   assert.doesNotMatch(html, /data-saved-signals-batch-export="true"/);
   assert.match(html, /尚未抓取/);
-  assert.match(html, /重新處理/);
+  assert.match(html, /分析收件匣/);
   assert.doesNotMatch(html, /航班觀察|fixture|score/i);
 });
 
@@ -3225,7 +3230,7 @@ test("ProductSignalView keeps existing analyses visible when signal inbox is emp
   assert.match(html, /data-product-load-state="recovering"/);
   assert.match(html, /已有 1 筆既有分析，但目前 signal 清單是空的/);
   assert.match(html, /使用者想把 Threads 討論直接變成可執行任務。/);
-  assert.match(html, /分析完成/);
+  assert.match(html, /查看候選行動/);
   assert.match(html, /噪音/);
   assert.doesNotMatch(html, /前提不符/);
   assert.doesNotMatch(html, /signal_orphan/);
@@ -3363,7 +3368,7 @@ test("ProductSignalView only shows remove controls when delete is wired", () => 
   assert.match(wiredHtml, /aria-label="移除此訊號"/);
 });
 
-test("SavedSignalsBoard keeps management rows compact behind the analysis lifecycle", () => {
+test("SavedSignalsBoard keeps source rows compact with their lifecycle", () => {
   const longPreview = "用戶問產品需要如何收斂訊號列表，避免每行都像文章一樣難掃描 META_ROW_SHOULD_NOT_RENDER 這段不應在 compact row 出現";
   const html = renderToStaticMarkup(
     productSignalViewElement( {
@@ -3411,8 +3416,8 @@ test("SavedSignalsBoard keeps management rows compact behind the analysis lifecy
     })
   );
 
-  assert.match(html, /data-saved-signal-row="management"/);
-  assert.match(html, /管理收件匣 · 1 則/);
+  assert.match(html, /data-saved-signal-row="source"/);
+  assert.match(html, /已儲存貼文/);
   assert.match(html, /已收集 1[^]*可分析／重試 0[^]*處理中 0[^]*已完成 1/);
   assert.match(html, /已完成/);
   assert.doesNotMatch(html, /data-product-saved-inline-reading|data-product-source-truth/);
@@ -3421,7 +3426,7 @@ test("SavedSignalsBoard keeps management rows compact behind the analysis lifecy
   assert.doesNotMatch(html, /可分析 · 學習資源 · 保留觀察/);
 });
 
-test("SavedSignalsBoard keeps source truth out of the compact intake", () => {
+test("SavedSignalsBoard shows capture metrics without AI evidence detail in intake", () => {
   const html = renderToStaticMarkup(
     productSignalViewElement({
       kind: "saved-signals",
@@ -3466,7 +3471,7 @@ test("SavedSignalsBoard keeps source truth out of the compact intake", () => {
     })
   );
 
-  assert.match(html, /data-product-saved-management="collapsed"/);
+  assert.match(html, /data-product-saved-list="visible"/);
   assert.doesNotMatch(html, /data-product-source-truth|證據 ref|總互動|e_raw/);
 });
 
@@ -3518,7 +3523,7 @@ test("SavedSignalsBoard counts pending and complete analysis in the lifecycle le
   );
 
   assert.match(html, /data-product-saved-pipeline="true"[^]*已收集 2[^]*可分析／重試 0[^]*處理中 1[^]*已完成 1/);
-  assert.match(html, /data-saved-signal-row="management"/);
+  assert.match(html, /data-saved-signal-row="source"/);
   assert.doesNotMatch(html, /data-product-saved-inline-reading/);
   assert.doesNotMatch(html, /尚未完成，不可顯示這段模型內容/);
   assert.doesNotMatch(html, /AI 已分類/);
@@ -3559,8 +3564,8 @@ test("SavedSignalsBoard counts persisted analysis errors as retryable and labels
   );
 
   assert.match(html, /data-product-saved-pipeline="true"[^]*已收集 1[^]*可分析／重試 1[^]*處理中 0[^]*已完成 0/);
-  assert.match(html, /data-saved-signal-row="management"[^>]*data-saved-signal-lifecycle="ready"[^>]*data-saved-signal-tone="warning"[^]*分析失敗 · 可重試/);
-  const management = html.slice(html.indexOf('data-product-saved-management="collapsed"'));
+  assert.match(html, /data-saved-signal-row="source"[^>]*data-saved-signal-lifecycle="ready"[^>]*data-saved-signal-tone="warning"[^]*分析失敗 · 可重試/);
+  const management = html.slice(html.indexOf('data-product-saved-list="visible"'));
   assert.doesNotMatch(management, />可分析</);
 });
 
@@ -3655,7 +3660,7 @@ test("ProductSignalView saved signals removes the old equal-weight fusion card g
     })
   );
 
-  assert.match(html, /data-saved-signal-row="management"/);
+  assert.match(html, /data-saved-signal-row="source"/);
   assert.match(html, /原文提到需要把討論轉成 agent 可以接手的工作包。/);
   assert.match(html, /已完成/);
   assert.doesNotMatch(html, /data-saved-signal-open|data-product-source-truth/);
@@ -3746,15 +3751,8 @@ test("ProductSignalView export ownership is Action-only with one whole-folder pa
   assert.doesNotMatch(savedHtml, /data-saved-signals-batch-export="true"/);
   assert.doesNotMatch(savedHtml, /data-product-action-brief-export|data-signal-packet-html-export/);
   assert.doesNotMatch(savedHtml, /行動簡報匯出|原文優先|精簡決策|複製行動簡報/);
-  const transitionTile = findTagWithAttribute(savedHtml, 'data-product-action-cta="true"');
-  assert.match(transitionTile, /data-raised-tile="true"/);
-  assert.match(transitionTile, new RegExp(`border-radius:${tokens.radius.card}px`));
-  assert.match(transitionTile, /width:100%/);
-  assert.match(transitionTile, /box-sizing:border-box/);
-  const transitionCopy = findTagWithAttribute(savedHtml, 'data-product-action-cta-copy="true"');
-  assert.match(transitionCopy, /font-size:13px/);
-  assert.match(transitionCopy, /line-height:1.55/);
-  assert.match(transitionCopy, /font-weight:400/);
+  assert.doesNotMatch(savedHtml, /data-product-action-cta=/);
+  assert.match(savedHtml, /<details data-product-analysis-controls="collapsed"[^]*查看候選行動/);
   assert.match(actionableHtml, /data-product-action-workspace="stage"/);
   assert.doesNotMatch(actionableHtml, /data-saved-signals-batch-export="true"/);
   assert.doesNotMatch(actionableHtml, /Agent export/);
@@ -3771,7 +3769,7 @@ test("ProductSignalView export ownership is Action-only with one whole-folder pa
   assert.doesNotMatch(actionableHtml, /# Agent Brief/);
 });
 
-test("SavedSignalsBoard keeps unanalyzed placeholders in compact management", () => {
+test("SavedSignalsBoard keeps unanalyzed sources visible with completed sources", () => {
   const signals = [
     {
       id: "signal_done",
@@ -3830,7 +3828,7 @@ test("SavedSignalsBoard keeps unanalyzed placeholders in compact management", ()
   );
 
   assert.match(html, /data-product-saved-pipeline="true"[^]*已收集 5[^]*已完成 1/);
-  assert.equal(countOccurrences(html, 'data-saved-signal-row="management"'), 5);
+  assert.equal(countOccurrences(html, 'data-saved-signal-row="source"'), 5);
   assert.doesNotMatch(html, /data-saved-signals-batch-export|data-batch-export-unanalysed-summary|data-batch-export-selection-row/);
 });
 
@@ -3925,7 +3923,7 @@ test("ProductSignalView ignores stale terminal job errors while signals are stil
   assert.doesNotMatch(html, /BrowserType\.launch|ms-playwright|\/Users\/tung/);
 });
 
-test("ProductSignalView keeps crawling pending signals collapsed on saved-signals", () => {
+test("ProductSignalView shows crawling source state without extra process animation", () => {
   const html = renderToStaticMarkup(
     productSignalViewElement( {
       kind: "saved-signals",
@@ -3966,7 +3964,7 @@ test("ProductSignalView keeps crawling pending signals collapsed on saved-signal
   );
 
   assert.match(html, /抓取中/);
-  assert.match(html, /data-product-saved-pending-detail="collapsed"/);
+  assert.match(html, /data-product-analysis-controls="collapsed"/);
   assert.doesNotMatch(html, /data-product-crawl-sweep="true"/);
   assert.doesNotMatch(html, /dlens-popup-indeterminate/);
   assert.doesNotMatch(html, /data-pending-signal-spinner="true"/);
@@ -4403,7 +4401,7 @@ test("ProductSignalView gives each product page a distinct information shape", (
 
   assert.match(savedHtml, /data-product-saved-pipeline="true"/);
   assert.match(savedHtml, /已收集 1[^]*可分析／重試 0[^]*處理中 0[^]*已完成 1/);
-  assert.match(savedHtml, /data-product-saved-management="collapsed"/);
+  assert.match(savedHtml, /data-product-saved-list="visible"/);
   assert.match(savedHtml, /Threads post preview/);
   assert.doesNotMatch(savedHtml, /data-product-saved-inline-reading|data-product-source-truth/);
   assert.doesNotMatch(savedHtml, /data-product-merged-classification="true"/);
@@ -4453,7 +4451,7 @@ test("ProductSignalView gives each product page a distinct information shape", (
   assert.doesNotMatch(actionableHtml, /TRY experiment|relevance 5\/5|signal type/);
   assert.match(actionableHtml, /data-product-action-content="true"[^>]*display:grid/);
   assert.match(actionableHtml, /data-product-reading-unavailable="true"/);
-  assert.match(actionableHtml, /來源證據/);
+  assert.match(actionableHtml, /data-product-action-source-text="true"/);
   assert.doesNotMatch(actionableHtml, /觀察原因|新知保留|下一步|尚未有可派發任務；先保留為觀察。/);
   assert.doesNotMatch(actionableHtml, /相關度 5\/5/);
   assert.doesNotMatch(actionableHtml, /R5/);
@@ -4835,7 +4833,7 @@ function projectedProductReading(
   };
 }
 
-test("Product Action first open shows one complete reading without another action", () => {
+test("Product Action preserves one complete reading behind explicit disclosure", () => {
   const fixture = productActionStageFixture();
   const html = renderToStaticMarkup(productSignalViewElement({
     ...fixture,
@@ -4853,6 +4851,7 @@ test("Product Action first open shows one complete reading without another actio
   }));
 
   assert.equal(countOccurrences(html, 'data-product-reading-card="true"'), 1);
+  assert.match(html, /<details data-product-ai-reading="collapsed"/);
   assert.equal(countOccurrences(html, 'data-product-action-agent-brief-beam="true"'), 1);
   assert.equal(countOccurrences(html, "data-product-reading-beam="), 2);
   assert.match(html, /data-product-reading-origin="product_analysis"/);
@@ -6137,4 +6136,218 @@ test("ProductSignalView surfaces product analyzer readiness and errors", () => {
   assert.match(html, /需重試/);
   assert.match(html, /部分失敗/);
   assert.doesNotMatch(html, /Backend 離線/);
+});
+
+async function withCollectionFocusDom(run: (host: HTMLElement, dom: any, root: any, act: any) => Promise<void>) {
+  const { JSDOM } = await import("jsdom");
+  const { createRoot } = await import("react-dom/client");
+  const { act } = await import("react");
+  const dom = new JSDOM('<div id="root"></div>', { url: "https://dlens.test" });
+  const previous = { window: globalThis.window, document: globalThis.document, HTMLElement: globalThis.HTMLElement };
+  const previousAct = (globalThis as any).IS_REACT_ACT_ENVIRONMENT;
+  Object.assign(globalThis, { window: dom.window, document: dom.window.document, HTMLElement: dom.window.HTMLElement, IS_REACT_ACT_ENVIRONMENT: true });
+  const host = dom.window.document.getElementById("root")!;
+  const root = createRoot(host);
+  try { await run(host, dom, root, act); }
+  finally {
+    await act(async () => root.unmount());
+    Object.assign(globalThis, previous);
+    if (previousAct === undefined) delete (globalThis as any).IS_REACT_ACT_ENVIRONMENT;
+    else (globalThis as any).IS_REACT_ACT_ENVIRONMENT = previousAct;
+    dom.window.close();
+  }
+}
+
+function collectionFocusFixture(count = 1) {
+  const signals = Array.from({ length: count }, (_, index) => ({
+    id: `saved_${index}`, sessionId: "local_collection", itemId: `item_${index}`, source: "threads",
+    inboxStatus: "unprocessed", capturedAt: "2026-09-21T00:00:00.000Z"
+  }));
+  return {
+    signals, analyses: [], aiProviderReady: false,
+    signalReadinessById: Object.fromEntries(signals.map(signal => [signal.id, { status: "saved", itemStatus: "saved" }])),
+    signalPreviewById: Object.fromEntries(signals.map((signal, index) => [signal.id, index === 0 ? "立即看見原文，還未抓取。" : `另外的收藏 ${index}`])),
+    descriptorBySignalId: Object.fromEntries(signals.map((signal, index) => [signal.id, {
+      author_hint: index === 0 ? "Alice" : "Bob",
+      image_url: index === 0 ? "https://images.example/post.jpg" : null,
+      engagement: { likes: 12, comments: 0, reposts: null, forwards: 0 },
+      engagement_present: { likes: true, comments: true, reposts: false, forwards: false }
+    }]))
+  };
+}
+
+test("collection focus immediately shows saved source, thumbnail and truthful metrics before AI setup", async () => {
+  await withCollectionFocusDom(async (host, _dom, root, act) => {
+    await act(async () => root.render(productSignalViewElement(collectionFocusFixture())));
+    const row = host.querySelector<HTMLElement>('[data-saved-signal-row]')!;
+    assert.ok(row);
+    assert.ok(row.closest("details") === null, "saved sources must not be hidden in management disclosure");
+    assert.match(row.textContent!, /@Alice/);
+    assert.match(row.textContent!, /立即看見原文，還未抓取。/);
+    assert.equal(row.querySelector<HTMLImageElement>("img")?.getAttribute("src"), "https://images.example/post.jpg");
+    assert.equal(row.querySelector('a[target="_blank"]')?.getAttribute("href"), "https://www.threads.net/@dlens/post/saved_0");
+    assert.equal(row.querySelector('[data-saved-signal-metric="likes"]')?.getAttribute("aria-label"), "讚 12");
+    assert.equal(row.querySelector('[data-saved-signal-metric="comments"]')?.getAttribute("aria-label"), "回覆 0");
+    assert.equal(row.querySelector('[data-saved-signal-metric="forwards"]')?.getAttribute("aria-label"), "分享 未讀");
+    assert.equal(row.querySelectorAll("[data-saved-signal-status]").length, 1);
+    const ai = host.querySelector<HTMLDetailsElement>("[data-product-analysis-controls]")!;
+    assert.ok(ai);
+    assert.equal(ai.open, false);
+    assert.ok(row.compareDocumentPosition(ai) & 4, "saved sources precede AI controls");
+    assert.equal(host.querySelector('input[type="search"]'), null);
+  });
+});
+
+test("collection focus searches saved author and text locally from six rows", async () => {
+  await withCollectionFocusDom(async (host, dom, root, act) => {
+    let commands = 0;
+    await act(async () => root.render(productSignalViewElement({ ...collectionFocusFixture(6), onAnalyze: () => { commands += 1; } })));
+    const input = host.querySelector<HTMLInputElement>('input[type="search"]');
+    assert.ok(input);
+    const setValue = Object.getOwnPropertyDescriptor(dom.window.HTMLInputElement.prototype, "value")!.set!;
+    await act(async () => {
+      setValue.call(input, "@ALICE 原文");
+      input.dispatchEvent(new dom.window.Event("input", { bubbles: true }));
+    });
+    assert.equal(host.querySelectorAll("[data-saved-signal-row]").length, 1);
+    assert.match(host.querySelector("[data-saved-signal-row]")!.textContent!, /@Alice/);
+    await act(async () => {
+      setValue.call(input, "找不到的字詞");
+      input.dispatchEvent(new dom.window.Event("input", { bubbles: true }));
+    });
+    assert.equal(host.querySelectorAll("[data-saved-signal-row]").length, 0);
+    assert.match(host.textContent!, /沒有符合的收藏/);
+    assert.equal(commands, 0);
+  });
+});
+
+test("collection focus thumbnail falls back on CDN error and accepts a replacement URL", async () => {
+  await withCollectionFocusDom(async (host, dom, root, act) => {
+    const item = buildSession().items[0]!;
+    const renderCard = (imageUrl?: string | null) => React.createElement(PostCard, {
+      item: { ...item, descriptor: { ...item.descriptor, image_url: imageUrl } },
+      isSelected: false, optimisticQueued: false, nowMs: 0, onSelect: () => undefined
+    });
+    await act(async () => root.render(renderCard("https://images.example/old.jpg")));
+    const img = host.querySelector("img");
+    assert.ok(img);
+    await act(async () => img.dispatchEvent(new dom.window.Event("error")));
+    assert.equal(host.querySelector("img"), null);
+    assert.ok(host.querySelector('[data-saved-post-thumbnail="fallback"]'));
+    await act(async () => root.render(renderCard("https://images.example/new.jpg")));
+    assert.equal(host.querySelector("img")?.getAttribute("src"), "https://images.example/new.jpg");
+    for (const missing of [null, undefined, "", "javascript:alert(1)"]) {
+      await act(async () => root.render(renderCard(missing)));
+      assert.equal(host.querySelector("img"), null);
+      assert.ok(host.querySelector('[data-saved-post-thumbnail="fallback"]'));
+    }
+  });
+});
+
+test("collection focus opens stored AI reading only through explicit disclosure without new analysis", async () => {
+  await withCollectionFocusDom(async (host, dom, root, act) => {
+    let analyses = 0;
+    await act(async () => root.render(productSignalViewElement({ ...productActionStageFixture(), onAnalyze: () => { analyses += 1; } })));
+    const card = host.querySelector('[data-product-reading-card="true"]')!;
+    assert.ok(card);
+    const disclosure = card.closest("details");
+    assert.ok(disclosure, "persisted AI reading must have a disclosure");
+    assert.equal(disclosure.open, false);
+    await act(async () => disclosure.querySelector("summary")!.dispatchEvent(new dom.window.MouseEvent("click", { bubbles: true })));
+    assert.equal(disclosure.open, true);
+    assert.match(card.textContent!, /這則訊號真正值得注意的是 hover 觸發/);
+    assert.equal(analyses, 0);
+  });
+});
+
+
+test("collection focus keeps retained analyses collapsed when source records are unavailable", async () => {
+  await withCollectionFocusDom(async (host, _dom, root, act) => {
+    await act(async () => root.render(productSignalViewElement({ ...productActionStageFixture(), kind: "saved-signals", signals: [] })));
+    const recovered = host.querySelector('[data-product-recovered-analyses="true"]');
+    assert.ok(recovered);
+    const disclosure = recovered.closest("details");
+    assert.ok(disclosure);
+    assert.equal(disclosure.open, false);
+  });
+});
+
+test("collection focus lifecycle shows an active crawl before a retained completed analysis", async () => {
+  await withCollectionFocusDom(async (host, _dom, root, act) => {
+    const fixture = productActionStageFixture();
+    const signal = fixture.signals[0];
+    await act(async () => root.render(productSignalViewElement({
+      ...fixture, kind: "saved-signals", signals: [signal],
+      signalReadinessById: { [signal.id]: { status: "crawling", itemStatus: "running" } }
+    })));
+    const row = host.querySelector('[data-saved-signal-row]')!;
+    assert.equal(row.getAttribute("data-saved-signal-lifecycle"), "processing");
+    assert.match(row.querySelector('[data-saved-signal-status]')!.textContent!, /抓取中/);
+  });
+});
+
+
+test("collection focus can crawl sources without AI setup and prevents duplicate dispatch", async () => {
+  await withCollectionFocusDom(async (host, dom, root, act) => {
+    const fixture = collectionFocusFixture(3);
+    const commands: ProductSignalCommand[] = [];
+    let release!: () => void;
+    const pending = new Promise<void>(resolve => { release = resolve; });
+    let analysisCalls = 0;
+    await act(async () => root.render(productSignalViewElement({
+      ...fixture, productProfile: {},
+      signalReadinessById: {
+        saved_0: { status: "saved", itemStatus: "saved" },
+        saved_1: { status: "crawling", itemStatus: "running" },
+        saved_2: { status: "ready", itemStatus: "succeeded" }
+      },
+      onAnalyze: () => { analysisCalls += 1; },
+      onCrawlSources: (command: ProductSignalCommand) => { commands.push(command); return pending; }
+    })));
+    const button = host.querySelector<HTMLButtonElement>('[data-product-crawl-sources="true"]');
+    assert.ok(button);
+    assert.equal(button.disabled, false);
+    assert.match(button.textContent!, /抓取 1 篇/);
+    assert.ok(button.closest("details") === null);
+    assert.equal(host.querySelectorAll('[data-saved-signal-row]').length, 3);
+    await act(async () => {
+      button.dispatchEvent(new dom.window.MouseEvent("click", { bubbles: true }));
+      button.dispatchEvent(new dom.window.MouseEvent("click", { bubbles: true }));
+    });
+    assert.deepEqual(commands, [{ kind: "crawlSources", target: { sessionId: "local_collection", itemIds: ["item_0"] } }]);
+    assert.equal(button.disabled, true);
+    assert.equal(analysisCalls, 0);
+    await act(async () => { release(); await pending; });
+  });
+});
+
+test("collection focus keeps saved sources readable while backend offline disables crawling", async () => {
+  await withCollectionFocusDom(async (host, _dom, root, act) => {
+    await act(async () => root.render(productSignalViewElement({ ...collectionFocusFixture(), productProfile: {}, backendError: "Backend 離線" })));
+    assert.equal(host.querySelectorAll('[data-saved-signal-row]').length, 1);
+    const button = host.querySelector<HTMLButtonElement>('[data-product-crawl-sources="true"]');
+    assert.ok(button);
+    assert.equal(button.disabled, true);
+  });
+});
+
+test("collection focus reports a rejected crawl command and allows a retry", async () => {
+  await withCollectionFocusDom(async (host, dom, root, act) => {
+    let calls = 0;
+    await act(async () => root.render(productSignalViewElement({
+      ...collectionFocusFixture(), productProfile: {},
+      onCrawlSources: async () => {
+        calls += 1;
+        if (calls === 1) throw new Error("message port closed");
+      }
+    })));
+    const button = host.querySelector<HTMLButtonElement>('[data-product-crawl-sources="true"]')!;
+    await act(async () => button.dispatchEvent(new dom.window.MouseEvent("click", { bubbles: true })));
+    assert.equal(button.disabled, false);
+    assert.match(host.querySelector('[role="alert"]')?.textContent ?? "", /無法開始抓取，請重試/);
+    assert.doesNotMatch(host.textContent!, /message port closed/);
+    await act(async () => button.dispatchEvent(new dom.window.MouseEvent("click", { bubbles: true })));
+    assert.equal(calls, 2);
+    assert.ok(host.querySelector('[role="alert"]') === null);
+  });
 });

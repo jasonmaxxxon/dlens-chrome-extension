@@ -3,6 +3,7 @@ import type { CSSProperties } from "react";
 import { getLibraryItemUiState } from "../state/processing-state";
 import type { SessionItem } from "../state/types";
 import { lineClamp, scanRowStyle, skeletonBlockStyle } from "./components";
+import { SavedPostMetrics, SavedPostThumbnail } from "./SavedPostPreview";
 import { textStyles, tokens } from "./tokens";
 
 const ROW_PILL_PALETTE = [
@@ -64,7 +65,7 @@ function rowBaseStyle(isSelected: boolean): CSSProperties {
   return scanRowStyle({
     textAlign: "left",
     display: "grid",
-    gridTemplateColumns: "8px minmax(0, 1fr) auto",
+    gridTemplateColumns: `8px ${tokens.layout.savedPostThumbnailSize}px minmax(0, 1fr) auto`,
     alignItems: "start",
     gap: 10,
     background: isSelected ? tokens.color.contextSurface : "transparent",
@@ -171,7 +172,7 @@ function RowPrimaryCopy({ author, snippet }: { author: string; snippet: string }
       <div style={{ ...textStyles.bodyTight, fontWeight: 600, color: tokens.color.ink, ...lineClamp(1) }}>
         @{author}
       </div>
-      <div style={{ ...textStyles.meta, color: tokens.color.subInk, ...lineClamp(1) }}>
+      <div style={{ ...textStyles.meta, color: tokens.color.subInk, ...lineClamp(2) }}>
         {snippet}
       </div>
     </div>
@@ -235,8 +236,10 @@ export function PostCard({
       style={rowBaseStyle(isSelected)}
     >
       <StatusDot phase={uiState.itemPhase} />
+      <SavedPostThumbnail imageUrl={item.descriptor.image_url} />
       <div style={{ display: "grid", gap: 6, minWidth: 0 }}>
         <RowPrimaryCopy author={item.descriptor.author_hint || "Unknown"} snippet={snippet} />
+        <SavedPostMetrics descriptor={item.descriptor} />
         {showPendingSkeleton ? <PendingSkeleton /> : null}
         {!showPendingSkeleton ? <KeywordPills keywords={keywords} phase={uiState.itemPhase} accentColor={accentColor} /> : null}
       </div>
