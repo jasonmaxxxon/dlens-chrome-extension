@@ -713,23 +713,29 @@ test("InPageCollectorPopup keeps extra scroll padding below the last card", () =
 
 function buildPopupAppFixture({
   session = buildSession(),
+  sessions = [session],
   page = "topics",
   popupOpen = true,
   prEvidenceViewModel = buildPrEvidenceVm(),
-  onSessionModeChange = async () => ({ ok: true })
+  onSessionModeChange = async () => ({ ok: true }),
+  onSetActiveSession,
+  onNavigate
 }: {
   session?: SessionRecord;
+  sessions?: SessionRecord[];
   page?: string;
   popupOpen?: boolean;
   prEvidenceViewModel?: PrEvidenceViewModel;
   onSessionModeChange?: (mode: "topic" | "product" | "pr-evidence") => Promise<unknown>;
+  onSetActiveSession?: (sessionId: string) => Promise<{ ok: boolean }>;
+  onNavigate?: (page: string) => Promise<unknown>;
 } = {}) {
-  return {
+  const app = {
     popupRef: { current: null },
     snapshot: {
       global: {
         settings: createDefaultSettings(),
-        sessions: [session],
+        sessions,
         activeSessionId: session.id,
         updatedAt: "2026-07-07T08:00:00.000Z"
       },
@@ -794,133 +800,144 @@ function buildPopupAppFixture({
     signalPreviewById: {},
     signalTagsByItemId: {},
     onSessionModeChange,
-    onNavigate: async () => undefined,
+    onSetActiveSession: async (_sessionId: string) => ({ ok: true }),
+    onNavigate: async (_page: string) => undefined,
+    onCreateWorkspace: async (_name: string, _mode: string) => ({ ok: true }),
+    onNavigateToTopic: () => undefined,
+    onCreateTopic: () => undefined,
+    onDeleteTopic: () => undefined,
+    draftBaseUrl: "http://127.0.0.1:8000",
+    draftProvider: "google",
+    draftOpenAiKey: "",
+    draftClaudeKey: "",
+    draftGoogleKey: "",
+    draftLayoutPreferences: createDefaultSettings().layoutPreferences,
+    draftProductProfile: productTestProfile(),
+    setDraftBaseUrl: () => undefined,
+    setDraftProvider: () => undefined,
+    setDraftOpenAiKey: () => undefined,
+    setDraftClaudeKey: () => undefined,
+    setDraftGoogleKey: () => undefined,
+    onDraftLayoutPreferencesChange: () => undefined,
+    onDraftProductProfileChange: () => undefined,
+    createContextFileId: () => "context-file",
+    onSaveSettings: () => undefined,
     onPrEvidenceCommand: () => undefined,
     onPrEvidenceBriefFileSelected: () => undefined
   };
+  app.onSetActiveSession = async (sessionId: string) => {
+    const response = await onSetActiveSession?.(sessionId) ?? { ok: true };
+    if (!response.ok) return response;
+    const selected = app.snapshot.global.sessions.find((entry) => entry.id === sessionId);
+    assert.ok(selected, "fixture can only activate an existing session");
+    app.activeFolder = selected;
+    app.activeFolderMode = selected.mode;
+    app.snapshot.global.activeSessionId = selected.id;
+    app.page = "library";
+    app.snapshot.tab.popupPage = "library";
+    return response;
+  };
+  app.onNavigate = async (nextPage: string) => {
+    app.page = nextPage;
+    app.snapshot.tab.popupPage = nextPage;
+    await onNavigate?.(nextPage);
+  };
+  return app;
 }
 
-test("InPageCollectorPopup close and reopen remounts DOM refs while preserving an in-flight workspace switch", async () => {
+function scrollPopup(viewport: HTMLElement, top: number) {
+  viewport.scrollTop = top;
+  viewport.dispatchEvent(new viewport.ownerDocument.defaultView!.Event("scroll"));
+}
+
+function popupTab(root: HTMLElement, label: "收藏" | "工作區"): HTMLButtonElement {
+  const tab = [...root.querySelectorAll<HTMLButtonElement>('[role="tablist"][aria-label="主要導覽"] [role="tab"]')]
+    .find((entry) => entry.textContent === label);
+  assert.ok(tab, `primary tab ${label} must exist`);
+  return tab;
+}
+
+test("InPageCollectorPopup keeps a workspace open pending across close and reopen and remounts PR upload refs", async () => {
   const { JSDOM } = await import("jsdom");
-  const { createRoot } = await import("react-dom/client");
   const { act } = await import("react");
   const prSession = buildSession();
   prSession.mode = "pr-evidence";
-  const dom = new JSDOM("<div id=\"root\"></div>", { url: "https://dlens.test" });
-  const reactActGlobal = globalThis as typeof globalThis & { IS_REACT_ACT_ENVIRONMENT?: boolean };
-  const previousActEnvironment = reactActGlobal.IS_REACT_ACT_ENVIRONMENT;
-  const previous = {
-    window: globalThis.window,
-    document: globalThis.document,
-    HTMLElement: globalThis.HTMLElement,
-    HTMLButtonElement: globalThis.HTMLButtonElement,
-    HTMLInputElement: globalThis.HTMLInputElement,
-    MouseEvent: globalThis.MouseEvent
-  };
-  let resolveSwitch!: (value: unknown) => void;
-  const switchPromise = new Promise<unknown>((resolve) => {
-    resolveSwitch = resolve;
-  });
-  let switchCalls = 0;
+  const dom = new JSDOM('<div id="root"></div>', { url: "https://dlens.test" });
+  const actGlobal = globalThis as typeof globalThis & { IS_REACT_ACT_ENVIRONMENT?: boolean };
+  const previousAct = actGlobal.IS_REACT_ACT_ENVIRONMENT;
+  const previous = { window: globalThis.window, document: globalThis.document, HTMLElement: globalThis.HTMLElement };
+  Object.assign(globalThis, { window: dom.window, document: dom.window.document, HTMLElement: dom.window.HTMLElement });
+  actGlobal.IS_REACT_ACT_ENVIRONMENT = true;
+  const { createRoot } = await import("react-dom/client");
+  const host = dom.window.document.getElementById("root")!;
+  const root = createRoot(host);
+  let finishOpen!: (response: { ok: boolean }) => void;
+  const pendingOpen = new Promise<{ ok: boolean }>((resolve) => { finishOpen = resolve; });
+  const openCalls: string[] = [];
+  const navCalls: string[] = [];
   const app = buildPopupAppFixture({
-    session: prSession,
-    page: "pr-evidence",
-    prEvidenceViewModel: buildPrEvidenceVm({ setupCollapsed: false }),
-    onSessionModeChange: async () => {
-      switchCalls += 1;
-      return switchPromise;
-    }
+    session: prSession, page: "pr-evidence", prEvidenceViewModel: buildPrEvidenceVm({ setupCollapsed: false }),
+    onSetActiveSession: async (id) => { openCalls.push(id); return pendingOpen; },
+    onNavigate: async (page) => { navCalls.push(page); }
   });
-
-  Object.assign(globalThis, {
-    window: dom.window,
-    document: dom.window.document,
-    HTMLElement: dom.window.HTMLElement,
-    HTMLButtonElement: dom.window.HTMLButtonElement,
-    HTMLInputElement: dom.window.HTMLInputElement,
-    MouseEvent: dom.window.MouseEvent
-  });
-  reactActGlobal.IS_REACT_ACT_ENVIRONMENT = true;
-
-  const rootElement = dom.window.document.getElementById("root");
-  assert.ok(rootElement);
-  const root = createRoot(rootElement);
-
+  const render = async () => { await act(async () => root.render(<InPageCollectorPopup app={app as any} />)); };
   try {
-    await act(async () => {
-      root.render(React.createElement(InPageCollectorPopup, { app: app as any }));
-      await Promise.resolve();
-    });
-    const firstViewport = rootElement.querySelector<HTMLElement>('[data-workspace-popup-scroll="viewport"]');
-    const firstBriefInput = rootElement.querySelector<HTMLInputElement>('input[type="file"]');
-    const productSwitch = rootElement.querySelector<HTMLButtonElement>('[data-workspace-switcher-mode="product"]');
-    assert.ok(firstViewport);
-    assert.ok(firstBriefInput);
-    assert.ok(productSwitch);
-    firstViewport.scrollTop = 240;
-
-    await act(async () => {
-      productSwitch.dispatchEvent(new dom.window.MouseEvent("click", { bubbles: true }));
-      await Promise.resolve();
-    });
-    assert.equal(
-      rootElement.querySelector('[data-workspace-switcher="segmented"]')?.getAttribute("data-workspace-switcher-pending"),
-      "product"
-    );
+    await render();
+    assert.ok(host.querySelector('[data-collection-browser="list"]'));
+    assert.equal(host.querySelector('input[type="file"]'), null, "existing domain state must not bypass the collection landing");
+    assert.deepEqual(openCalls, []);
+    await act(async () => popupTab(host, "工作區").click());
+    const row = host.querySelector<HTMLButtonElement>(`[data-workspace-session="${prSession.id}"]`);
+    assert.ok(row);
+    await act(async () => row.click());
+    assert.equal(row.disabled, true);
+    const firstViewport = host.querySelector<HTMLElement>('[data-workspace-popup-scroll="viewport"]')!;
+    scrollPopup(firstViewport, 240);
 
     app.popupOpen = false;
-    await act(async () => {
-      root.render(React.createElement(InPageCollectorPopup, { app: app as any }));
-      await Promise.resolve();
-    });
-    assert.equal(rootElement.querySelector('[data-workspace-popup="shell"]'), null);
+    await render();
+    assert.equal(host.querySelector('[data-workspace-popup="shell"]'), null);
     assert.equal(firstViewport.isConnected, false);
-    assert.equal(firstBriefInput.isConnected, false);
-
     app.popupOpen = true;
-    await act(async () => {
-      root.render(React.createElement(InPageCollectorPopup, { app: app as any }));
-      await Promise.resolve();
-    });
-    const reopenedViewport = rootElement.querySelector<HTMLElement>('[data-workspace-popup-scroll="viewport"]');
+    await render();
+    const reopenedViewport = host.querySelector<HTMLElement>('[data-workspace-popup-scroll="viewport"]');
     assert.ok(reopenedViewport);
     assert.notEqual(reopenedViewport, firstViewport);
-    assert.equal(reopenedViewport.scrollTop, 0);
-    assert.equal(
-      rootElement.querySelector('[data-workspace-switcher="segmented"]')?.getAttribute("data-workspace-switcher-pending"),
-      "product",
-      "an in-flight workspace switch remains visible across close and reopen"
-    );
+    assert.equal(reopenedViewport.scrollTop, 240, "workspace index scroll survives close/reopen");
+    const pendingRow = host.querySelector<HTMLButtonElement>(`[data-workspace-session="${prSession.id}"]`);
+    assert.ok(pendingRow);
+    assert.equal(pendingRow.disabled, true, "reopening must not release an unresolved workspace navigation");
+    assert.equal(popupTab(host, "收藏").disabled, true);
+    await act(async () => pendingRow.click());
+    assert.deepEqual(openCalls, [prSession.id], "the same in-flight open must not be sent twice");
+    await act(async () => { finishOpen({ ok: true }); await pendingOpen; });
+    assert.deepEqual(navCalls, ["pr-evidence"]);
+    const firstBriefInput = host.querySelector<HTMLInputElement>('input[type="file"]');
+    assert.ok(firstBriefInput, "resolving the card open reaches the existing PR workflow");
 
-    await act(async () => {
-      resolveSwitch({ ok: true });
-      await switchPromise;
-      await Promise.resolve();
-    });
-    const reopenedBriefInput = rootElement.querySelector<HTMLInputElement>('input[type="file"]');
-    const uploadButton = [...rootElement.querySelectorAll<HTMLButtonElement>("button")]
-      .find((button) => button.textContent?.includes("上傳 PDF"));
+    app.popupOpen = false;
+    await render();
+    assert.equal(firstBriefInput.isConnected, false);
+    app.popupOpen = true;
+    await render();
+    const reopenedBriefInput = host.querySelector<HTMLInputElement>('input[type="file"]');
+    const uploadButton = [...host.querySelectorAll<HTMLButtonElement>("button")].find((button) => button.textContent?.includes("上傳 PDF"));
     assert.ok(reopenedBriefInput);
     assert.ok(uploadButton);
     assert.notEqual(reopenedBriefInput, firstBriefInput);
-    let firstInputClicks = 0;
-    let reopenedInputClicks = 0;
-    firstBriefInput.addEventListener("click", () => {
-      firstInputClicks += 1;
-    });
-    reopenedBriefInput.addEventListener("click", () => {
-      reopenedInputClicks += 1;
-    });
-    uploadButton.dispatchEvent(new dom.window.MouseEvent("click", { bubbles: true }));
-
-    assert.equal(switchCalls, 1);
-    assert.equal(firstInputClicks, 0);
-    assert.equal(reopenedInputClicks, 1);
+    let detachedClicks = 0;
+    let liveClicks = 0;
+    firstBriefInput.addEventListener("click", () => { detachedClicks += 1; });
+    reopenedBriefInput.addEventListener("click", () => { liveClicks += 1; });
+    await act(async () => uploadButton.click());
+    assert.equal(detachedClicks, 0);
+    assert.equal(liveClicks, 1, "upload must use the live remounted input ref");
   } finally {
-    await act(async () => root.unmount());
+    finishOpen({ ok: true });
+    await act(async () => { await pendingOpen; root.unmount(); });
     Object.assign(globalThis, previous);
-    if (previousActEnvironment === undefined) delete reactActGlobal.IS_REACT_ACT_ENVIRONMENT;
-    else reactActGlobal.IS_REACT_ACT_ENVIRONMENT = previousActEnvironment;
+    if (previousAct === undefined) delete actGlobal.IS_REACT_ACT_ENVIRONMENT;
+    else actGlobal.IS_REACT_ACT_ENVIRONMENT = previousAct;
     dom.window.close();
   }
 });
@@ -984,6 +1001,11 @@ test("InPageCollectorPopup reopening the same route does not replay the lead pre
       root.render(React.createElement(InPageCollectorPopup, { app: app as any }));
       await Promise.resolve();
     });
+    assert.ok(rootElement.querySelector('[data-collection-browser="list"]'));
+    await act(async () => popupTab(rootElement, "工作區").click());
+    const workspaceRow = rootElement.querySelector<HTMLButtonElement>(`[data-workspace-session="${topicSession.id}"]`);
+    assert.ok(workspaceRow);
+    await act(async () => { workspaceRow.click(); await Promise.resolve(); });
     const firstPresenceCard = rootElement.querySelector<HTMLElement>('[data-dlens-presence="card"]');
     assert.ok(firstPresenceCard);
     assert.equal(firstPresenceCard.style.opacity, String(tokens.motion.presence.leadSoftPop.opacityFrom));
@@ -1014,6 +1036,152 @@ test("InPageCollectorPopup reopening the same route does not replay the lead pre
     Object.assign(globalThis, previous);
     if (previousActEnvironment === undefined) delete reactActGlobal.IS_REACT_ACT_ENVIRONMENT;
     else reactActGlobal.IS_REACT_ACT_ENVIRONMENT = previousActEnvironment;
+    dom.window.close();
+  }
+});
+
+test("InPageCollectorPopup keeps collection query and reader across reopen without changing workspace ownership", async () => {
+  const { JSDOM } = await import("jsdom");
+  const { act } = await import("react");
+  const dom = new JSDOM('<div id="root"></div>', { url: "https://dlens.test" });
+  const previous = { window: globalThis.window, document: globalThis.document, HTMLElement: globalThis.HTMLElement };
+  const actGlobal = globalThis as typeof globalThis & { IS_REACT_ACT_ENVIRONMENT?: boolean };
+  const previousAct = actGlobal.IS_REACT_ACT_ENVIRONMENT;
+  Object.assign(globalThis, { window: dom.window, document: dom.window.document, HTMLElement: dom.window.HTMLElement });
+  actGlobal.IS_REACT_ACT_ENVIRONMENT = true;
+  const { createRoot } = await import("react-dom/client");
+  const host = dom.window.document.getElementById("root")!;
+  const root = createRoot(host);
+  const activeSession = buildSession();
+  const otherSession = createSessionRecord("另一個產品工作區", "2026-09-21T00:00:00Z", "product");
+  otherSession.items = [createSessionItem({ ...buildDescriptor(), post_url: "https://www.threads.net/@pear/post/other", author_hint: "pear", text_snippet: "pear 保存原文" }, "2026-09-21T00:00:00Z")];
+  const sessions = [activeSession, otherSession];
+  const inventoryBefore = JSON.stringify(sessions);
+  const mutations: string[] = [];
+  const app = buildPopupAppFixture({ session: activeSession, sessions,
+    onSetActiveSession: async (id) => { mutations.push(`session:${id}`); return { ok: true }; },
+    onSessionModeChange: async (mode) => { mutations.push(`mode:${mode}`); return { ok: true }; },
+    onNavigate: async (page) => { mutations.push(`page:${page}`); }
+  });
+  const render = async () => { await act(async () => root.render(<InPageCollectorPopup app={app as any} />)); };
+  try {
+    await render();
+    assert.equal(host.querySelectorAll("[data-collection-post]").length, 2, "collection includes inactive workspaces");
+    const innerScrollOwners = () => [...host.querySelectorAll<HTMLElement>('[data-collection-browser], [data-collection-browser] *')]
+      .filter((element) => element.style.overflowY === "auto" || element.style.overflowY === "scroll");
+    assert.equal(innerScrollOwners().length, 0, "collection uses the popup viewport as its single scroll owner");
+    const search = host.querySelector<HTMLInputElement>('input[aria-label="搜尋收藏"]');
+    assert.ok(search);
+    await act(async () => {
+      Object.getOwnPropertyDescriptor(dom.window.HTMLInputElement.prototype, "value")!.set!.call(search, "pear");
+      search.dispatchEvent(new dom.window.Event("input", { bubbles: true }));
+    });
+    assert.equal(host.querySelectorAll("[data-collection-post]").length, 1);
+    const row = host.querySelector<HTMLButtonElement>("[data-collection-post]");
+    assert.ok(row);
+    const viewport = () => host.querySelector<HTMLElement>('[data-workspace-popup-scroll="viewport"]')!;
+    scrollPopup(viewport(), 180);
+    await act(async () => row.click());
+    assert.equal(viewport().scrollTop, 0, "a new reader starts at the top");
+    scrollPopup(viewport(), 370);
+    const firstReader = host.querySelector('[data-collection-browser="reader"]');
+    assert.ok(firstReader);
+    assert.equal(innerScrollOwners().length, 0, "reader uses the same outer scroll owner");
+    assert.equal(host.querySelector('[data-collection-reader-body]')?.textContent, "pear 保存原文");
+    app.popupOpen = false;
+    await render();
+    assert.equal(firstReader.isConnected, false);
+    app.popupOpen = true;
+    await render();
+    assert.equal(viewport().scrollTop, 370, "reader scroll survives popup remount");
+    assert.ok(host.querySelector('[data-collection-browser="reader"]'), "selectedKey survives the popup DOM unmount");
+    assert.equal(host.querySelector('[data-collection-reader-body]')?.textContent, "pear 保存原文");
+    const back = host.querySelector<HTMLButtonElement>('[data-collection-action="back"]');
+    assert.ok(back);
+    await act(async () => back.click());
+    assert.equal(viewport().scrollTop, 180, "reader return restores the collection list");
+    await act(async () => host.querySelector<HTMLButtonElement>("[data-collection-post]")!.click());
+    assert.equal(viewport().scrollTop, 370, "reopening the same reader restores its own scroll");
+    await act(async () => host.querySelector<HTMLButtonElement>('[data-collection-action="back"]')!.click());
+    assert.equal(host.querySelector<HTMLInputElement>('input[aria-label="搜尋收藏"]')?.value, "pear");
+    assert.equal(host.querySelectorAll("[data-collection-post]").length, 1);
+    await act(async () => popupTab(host, "工作區").click());
+    assert.equal(host.querySelectorAll("[data-workspace-session]").length, 2);
+    scrollPopup(viewport(), 90);
+    await act(async () => popupTab(host, "收藏").click());
+    assert.equal(viewport().scrollTop, 180, "primary tabs keep independent positions");
+    assert.equal(host.querySelector<HTMLInputElement>('input[aria-label="搜尋收藏"]')?.value, "pear");
+    assert.deepEqual(mutations, [], "browsing, reading and the workspace index must never change domain state");
+    assert.equal(app.snapshot.global.activeSessionId, activeSession.id);
+    assert.equal(JSON.stringify(sessions), inventoryBefore, "all folder modes and item ownership remain intact");
+  } finally {
+    await act(async () => root.unmount());
+    Object.assign(globalThis, previous);
+    if (previousAct === undefined) delete actGlobal.IS_REACT_ACT_ENVIRONMENT;
+    else actGlobal.IS_REACT_ACT_ENVIRONMENT = previousAct;
+    dom.window.close();
+  }
+});
+
+test("InPageCollectorPopup settings returns to the open workspace page without selecting another session", async () => {
+  const { JSDOM } = await import("jsdom");
+  const { act } = await import("react");
+  const dom = new JSDOM('<div id="root"></div>', { url: "https://dlens.test" });
+  const previous = { window: globalThis.window, document: globalThis.document, HTMLElement: globalThis.HTMLElement };
+  const actGlobal = globalThis as typeof globalThis & { IS_REACT_ACT_ENVIRONMENT?: boolean };
+  const previousAct = actGlobal.IS_REACT_ACT_ENVIRONMENT;
+  Object.assign(globalThis, { window: dom.window, document: dom.window.document, HTMLElement: dom.window.HTMLElement });
+  actGlobal.IS_REACT_ACT_ENVIRONMENT = true;
+  const { createRoot } = await import("react-dom/client");
+  const host = dom.window.document.getElementById("root")!;
+  const root = createRoot(host);
+  const prSession = buildSession();
+  prSession.mode = "pr-evidence";
+  const opened: string[] = [];
+  const pages: string[] = [];
+  const app = buildPopupAppFixture({ session: prSession, page: "pr-evidence",
+    onSetActiveSession: async (id) => { opened.push(id); return { ok: true }; },
+    onNavigate: async (page) => { pages.push(page); }
+  });
+  try {
+    await act(async () => root.render(<InPageCollectorPopup app={app as any} />));
+    await act(async () => popupTab(host, "工作區").click());
+    const row = host.querySelector<HTMLButtonElement>(`[data-workspace-session="${prSession.id}"]`);
+    assert.ok(row);
+    await act(async () => row.click());
+    assert.ok(host.querySelector('input[type="file"]'), "the original PR view is open");
+    const collectButton = [...host.querySelectorAll<HTMLButtonElement>("button")].find((button) => button.textContent === "加入貼文");
+    assert.ok(collectButton);
+    await act(async () => collectButton.click());
+    // A persisted route update causes the real app model to render again.
+    await act(async () => root.render(<InPageCollectorPopup app={app as any} />));
+    assert.ok(host.querySelector('[data-collector-target-chip="true"]'));
+    assert.equal(app.page, "collect", "test a workspace child route rather than its default home");
+    const viewport = host.querySelector<HTMLElement>('[data-workspace-popup-scroll="viewport"]')!;
+    scrollPopup(viewport, 290);
+    const menu = host.querySelector<HTMLElement>('[data-collection-menu] > summary');
+    assert.ok(menu);
+    await act(async () => menu.click());
+    const settings = [...host.querySelectorAll<HTMLButtonElement>('[data-collection-menu] button')].find((button) => button.textContent === "設定");
+    assert.ok(settings);
+    await act(async () => settings.click());
+    assert.ok(host.querySelector('[data-settings-surface="drawer"]'));
+    assert.equal(viewport.scrollTop, 0, "settings have their own scroll position");
+    scrollPopup(viewport, 110);
+    assert.deepEqual(pages, ["pr-evidence", "collect", "settings"]);
+    await act(async () => popupTab(host, "工作區").click());
+    assert.equal(host.querySelector('[data-settings-surface="drawer"]'), null);
+    assert.ok(host.querySelector('[data-collector-target-chip="true"]'), "return restores the exact workspace child route");
+    assert.equal(app.page, "collect");
+    assert.equal(viewport.scrollTop, 290, "settings return restores the workspace child route");
+    assert.deepEqual(pages, ["pr-evidence", "collect", "settings", "collect"]);
+    assert.deepEqual(opened, [prSession.id], "settings return must not activate a different or default session");
+    assert.equal(popupTab(host, "工作區").getAttribute("aria-selected"), "true");
+  } finally {
+    await act(async () => root.unmount());
+    Object.assign(globalThis, previous);
+    if (previousAct === undefined) delete actGlobal.IS_REACT_ACT_ENVIRONMENT;
+    else actGlobal.IS_REACT_ACT_ENVIRONMENT = previousAct;
     dom.window.close();
   }
 });
@@ -1119,7 +1287,7 @@ test("InPageCollectorPopup closed facade reads only popupOpen and skips Product 
   ]);
 });
 
-test("InPageCollectorPopup builds route projections only for their actual open consumers", () => {
+test("InPageCollectorPopup collection landing skips retained domain projections", () => {
   const activeTopic = {
     id: "topic-route-gate",
     sessionId: "session-route-gate",
@@ -1134,8 +1302,8 @@ test("InPageCollectorPopup builds route projections only for their actual open c
   };
   const scenarios = [
     { page: "topics", mode: "topic", expectedProductReads: 0, expectedTopicReads: 0 },
-    { page: "signals", mode: "product", expectedProductReads: 1, expectedTopicReads: 0 },
-    { page: "topic-detail", mode: "topic", expectedProductReads: 0, expectedTopicReads: 1 },
+    { page: "signals", mode: "product", expectedProductReads: 0, expectedTopicReads: 0 },
+    { page: "topic-detail", mode: "topic", expectedProductReads: 0, expectedTopicReads: 0 },
     { page: "collect", mode: "topic", expectedProductReads: 0, expectedTopicReads: 0 }
   ] as const;
   const results: Array<{ page: string; productReads: number; topicReads: number }> = [];
@@ -1156,7 +1324,8 @@ test("InPageCollectorPopup builds route projections only for their actual open c
       }
     });
 
-    renderToStaticMarkup(React.createElement(InPageCollectorPopup, { app: app as any }));
+    const html = renderToStaticMarkup(React.createElement(InPageCollectorPopup, { app: app as any }));
+    assert.match(html, /data-collection-browser="list"/);
     results.push({ page: scenario.page, productReads, topicReads });
   }
 
@@ -1170,135 +1339,34 @@ test("InPageCollectorPopup builds route projections only for their actual open c
   );
 });
 
-test("InPageCollectorPopup topic create action opens the real create-topic flow", async () => {
+test("InPageCollectorPopup preserves the scroll frame and reaches topic creation through a workspace card", async () => {
   const { JSDOM } = await import("jsdom");
-  const { createRoot } = await import("react-dom/client");
-  const { flushSync } = await import("react-dom");
+  const { act } = await import("react");
   const topicSession = buildSession();
   topicSession.mode = "topic";
-  const dom = new JSDOM("<div id=\"root\"></div>", { url: "https://dlens.test" });
-  const previous = {
-    window: globalThis.window,
-    document: globalThis.document,
-    HTMLElement: globalThis.HTMLElement,
-    HTMLButtonElement: globalThis.HTMLButtonElement,
-    MouseEvent: globalThis.MouseEvent
-  };
+  const dom = new JSDOM('<div id="root"></div>', { url: "https://dlens.test" });
+  const previous = { window: globalThis.window, document: globalThis.document, HTMLElement: globalThis.HTMLElement };
+  const actGlobal = globalThis as typeof globalThis & { IS_REACT_ACT_ENVIRONMENT?: boolean };
+  const previousAct = actGlobal.IS_REACT_ACT_ENVIRONMENT;
+  Object.assign(globalThis, { window: dom.window, document: dom.window.document, HTMLElement: dom.window.HTMLElement });
+  actGlobal.IS_REACT_ACT_ENVIRONMENT = true;
+  const { createRoot } = await import("react-dom/client");
+  const host = dom.window.document.getElementById("root")!;
+  const root = createRoot(host);
+  const openCalls: string[] = [];
   const navCalls: string[] = [];
   let createCalls = 0;
-
-  Object.assign(globalThis, {
-    window: dom.window,
-    document: dom.window.document,
-    HTMLElement: dom.window.HTMLElement,
-    HTMLButtonElement: dom.window.HTMLButtonElement,
-    MouseEvent: dom.window.MouseEvent
+  const app = buildPopupAppFixture({ session: topicSession, page: "topics",
+    onSetActiveSession: async (id) => { openCalls.push(id); return { ok: true }; },
+    onNavigate: async (page) => { navCalls.push(page); }
   });
-
-  const rootElement = dom.window.document.getElementById("root");
-  assert.ok(rootElement);
-  const root = createRoot(rootElement);
-  const app = {
-    popupRef: { current: null },
-    snapshot: {
-      global: {
-        settings: createDefaultSettings(),
-        sessions: [topicSession],
-        activeSessionId: topicSession.id,
-        updatedAt: "2026-07-07T08:00:00.000Z"
-      },
-      tab: {
-        ...createEmptyTabState(),
-        popupOpen: true,
-        popupPage: "topics"
-      }
-    },
-    page: "topics",
-    popupOpen: true,
-    activeFolder: topicSession,
-    activeFolderMode: "topic",
-    activeTopic: null,
-    activeTopicSignals: [],
-    activeTopicPairs: [],
-    topicLoadState: "ready",
-    selectedTopicId: null,
-    activePrCampaign: null,
-    topics: [],
-    signals: [],
-    topicAuditByTopicId: {},
-    savedAnalyses: [],
-    productSignalAnalyses: [],
-    signalReadings: [],
-    compiledProductContext: null,
-    productAiProviderReady: false,
-    productBackendError: null,
-    productSignalAnalysisError: null,
-    productSignalAnalysisNotice: null,
-    isHydratingProductSignals: false,
-    isAnalyzingProductSignals: false,
-    activeTopicAudit: undefined,
-    topicAuditP1RunningBySignalId: {},
-    topicAuditP1ErrorBySignalId: {},
-    optimisticQueuedIds: [],
-    bulkAnalyzingFolderId: null,
-    isStartingProcessing: false,
-    workerStatus: "idle",
-    backendWorkUiState: null,
-    backendReachability: "unknown",
-    processingSummary: {
-      total: 0,
-      ready: 0,
-      crawling: 0,
-      analyzing: 0,
-      pending: 0,
-      failed: 0,
-      hasReadyPair: false,
-      hasInflight: false
-    },
-    readInteractionNowMs: () => 0,
-    readWallClockNowMs: () => Date.parse("2026-07-07T08:00:00.000Z"),
-    prEvidenceViewModel: buildPrEvidenceVm(),
-    resultItemA: null,
-    resultItemB: null,
-    activeSavedAnalysis: null,
-    signalPreviewById: {},
-    signalTagsByItemId: {},
-    renderMetrics: () => null,
-    canPrev: false,
-    canNext: false,
-    readyCompareItems: [],
-    selectedCompareA: "",
-    selectedCompareB: "",
-    compareTeaserState: "idle",
-    compareTeaser: null,
-    setSelectedCompareA: () => undefined,
-    setSelectedCompareB: () => undefined,
-    processAllLabel: "Process All",
-    techniqueReadings: [],
-    folderSynthesis: null,
-    isGeneratingFolderSynthesis: false,
-    folderSynthesisError: null,
-    folderAnalyzedCount: 0,
-    folderContributingTopicCount: 0,
-    onSessionModeChange: async () => ({ ok: true }),
-    onNavigate: async (page: string) => {
-      navCalls.push(page);
-    },
-    onNavigateToTopic: () => undefined,
-    onCreateTopic: () => {
-      createCalls += 1;
-    },
-    onDeleteTopic: () => undefined
-  };
-
+  app.onCreateTopic = () => { createCalls += 1; };
   try {
-    flushSync(() => {
-      root.render(React.createElement(InPageCollectorPopup, { app: app as any }));
-    });
-    const shell = rootElement.querySelector<HTMLElement>('[data-workspace-popup="shell"]');
-    assert.ok(shell, "popup shell should render as the non-scrolling extension frame");
+    await act(async () => root.render(<InPageCollectorPopup app={app as any} />));
+    const shell = host.querySelector<HTMLElement>('[data-workspace-popup="shell"]');
+    assert.ok(shell, "popup frame remains separate from the scrolling content");
     assert.equal(shell.getAttribute("data-workspace-popup-material"), "glass");
-    assert.ok(inPageCollectorPopupTestables.popupFrameRadius >= 24, "the outer popup must retain the pronounced Variant D curve");
+    assert.ok(inPageCollectorPopupTestables.popupFrameRadius >= 24);
     assert.equal(shell.style.borderRadius, `${inPageCollectorPopupTestables.popupFrameRadius}px`);
     assert.equal(shell.style.maxWidth, "calc(100vw - 24px)");
     assert.equal(shell.style.right, "12px");
@@ -1306,30 +1374,46 @@ test("InPageCollectorPopup topic create action opens the real create-topic flow"
     assert.equal(shell.style.maxHeight, "calc(100vh - 94px)");
     assert.equal(shell.style.transform, "translateZ(0)");
     assert.equal(shell.style.contain, "paint");
-    assert.ok(rootElement.querySelector<HTMLElement>('[data-workspace-material="glass"]'), "topic popup must pass glass into WorkspaceShell");
-    const scrollViewport = rootElement.querySelector<HTMLElement>('[data-workspace-popup-scroll="viewport"]');
-    assert.ok(scrollViewport, "popup scroll viewport should remain separate from the frame");
-    assert.equal(scrollViewport.style.borderRadius, `${inPageCollectorPopupTestables.popupFrameRadius}px`);
-    assert.equal(scrollViewport.style.boxSizing, "border-box");
-    assert.equal(scrollViewport.style.transform, "");
-    assert.equal(scrollViewport.style.overscrollBehaviorY, "contain");
-    const scrollTrack = scrollViewport.querySelector<HTMLElement>('[data-workspace-popup-scroll-track="true"]');
-    assert.ok(scrollTrack, "presence and rebound need a dedicated content track inside the viewport");
-    assert.equal(scrollTrack.style.transform, "", "rebound must use individual translate and leave transform ownership alone");
-    assert.equal(scrollTrack.style.minHeight, "100%", "the inner motion track must preserve the popup's full-height shell contract");
-    const bottomSpacer = scrollTrack.querySelector<HTMLElement>('[data-workspace-popup-bottom-spacer="true"]');
-    assert.ok(bottomSpacer, "the final action remains reachable through a real scroll-track spacer");
-    assert.equal(bottomSpacer.style.height, `${tokens.spacing.xl}px`);
-    const button = rootElement.querySelector<HTMLButtonElement>('[data-new-topic-button="triage"]');
-    assert.ok(button, "topics page must render the create-topic button");
-    button.dispatchEvent(new dom.window.MouseEvent("click", { bubbles: true }));
-
-    assert.equal(createCalls, 1);
+    assert.ok(host.querySelector('[data-collection-workspace-shell="true"]'));
+    assert.deepEqual([...host.querySelectorAll('[aria-label="主要導覽"] [role="tab"]')].map((tab) => tab.textContent), ["收藏", "工作區"]);
+    assert.equal(host.querySelector('[data-workspace-switcher="segmented"]'), null);
+    assert.equal(host.querySelector('[data-new-topic-button="triage"]'), null, "domain actions stay inside their workspace");
+    assert.deepEqual(openCalls, []);
     assert.deepEqual(navCalls, []);
+
+    const viewport = host.querySelector<HTMLElement>('[data-workspace-popup-scroll="viewport"]');
+    assert.ok(viewport);
+    assert.equal(viewport.style.borderRadius, `${inPageCollectorPopupTestables.popupFrameRadius}px`);
+    assert.equal(viewport.style.boxSizing, "border-box");
+    assert.equal(viewport.style.transform, "");
+    assert.equal(viewport.style.overscrollBehaviorY, "contain");
+    const track = viewport.querySelector<HTMLElement>('[data-workspace-popup-scroll-track="true"]');
+    assert.ok(track);
+    assert.equal(track.style.transform, "", "rebound leaves transform ownership alone");
+    assert.equal(track.style.minHeight, "100%");
+    const spacer = track.querySelector<HTMLElement>('[data-workspace-popup-bottom-spacer="true"]');
+    assert.ok(spacer, "last action remains reachable through a real scroll spacer");
+    assert.equal(spacer.style.height, `${tokens.spacing.xl}px`);
+    viewport.scrollTop = 150;
+    await act(async () => popupTab(host, "工作區").click());
+    assert.equal(viewport.scrollTop, 0, "primary navigation resets the shared scroll viewport");
+    assert.deepEqual(openCalls, [], "opening the workspace index never changes the active session");
+    const row = host.querySelector<HTMLButtonElement>(`[data-workspace-session="${topicSession.id}"]`);
+    assert.ok(row);
+    await act(async () => row.click());
+    assert.deepEqual(openCalls, [topicSession.id]);
+    assert.deepEqual(navCalls, ["topics"]);
+    const createButton = host.querySelector<HTMLButtonElement>('[data-new-topic-button="triage"]');
+    assert.ok(createButton, "the selected workspace renders the original topic workflow");
+    await act(async () => createButton.click());
+    assert.equal(createCalls, 1);
+    assert.equal(host.querySelector('[data-workspace-popup-scroll="viewport"]'), viewport, "in-popup navigation keeps the shared viewport ref");
   } finally {
-    flushSync(() => root.unmount());
-    await new Promise((resolve) => setTimeout(resolve, 0));
+    await act(async () => root.unmount());
     Object.assign(globalThis, previous);
+    if (previousAct === undefined) delete actGlobal.IS_REACT_ACT_ENVIRONMENT;
+    else actGlobal.IS_REACT_ACT_ENVIRONMENT = previousAct;
+    dom.window.close();
   }
 });
 
@@ -6349,5 +6433,229 @@ test("collection focus reports a rejected crawl command and allows a retry", asy
     await act(async () => button.dispatchEvent(new dom.window.MouseEvent("click", { bubbles: true })));
     assert.equal(calls, 2);
     assert.ok(host.querySelector('[role="alert"]') === null);
+  });
+});
+
+test("InPageCollectorPopup restores independent workspace session, route and topic scroll positions", async () => {
+  await withCollectionFocusDom(async (host, _dom, root, act) => {
+    const one = buildSession();
+    const two = { ...buildSession(), id: "second-topic-workspace" };
+    const app = buildPopupAppFixture({ session: one, sessions: [one, two] });
+    const render = async () => { await act(async () => root.render(<InPageCollectorPopup app={app as any} />)); };
+    const viewport = () => host.querySelector<HTMLElement>('[data-workspace-popup-scroll="viewport"]')!;
+    const back = async () => { await act(async () => [...host.querySelectorAll<HTMLButtonElement>("button")].find((button) => button.textContent === "← 工作區")!.click()); };
+    const open = async (id: string) => { await act(async () => host.querySelector<HTMLButtonElement>(`[data-workspace-session="${id}"]`)!.click()); };
+    await render();
+    await act(async () => popupTab(host, "工作區").click());
+    await open(one.id);
+    scrollPopup(viewport(), 140);
+    await back();
+    await open(two.id);
+    assert.equal(viewport().scrollTop, 0, "same route in a different session has no inherited position");
+    scrollPopup(viewport(), 260);
+    await back();
+    await open(one.id);
+    assert.equal(viewport().scrollTop, 140);
+    app.page = "collect";
+    await render();
+    assert.equal(viewport().scrollTop, 0, "new route starts at its own position");
+    scrollPopup(viewport(), 330);
+    app.activeTopic = { id: "topic-a", name: "Topic A" } as any;
+    await render();
+    assert.equal(viewport().scrollTop, 0, "collect target topic has its own position");
+    scrollPopup(viewport(), 480);
+    app.activeTopic = { id: "topic-b", name: "Topic B" } as any;
+    await render();
+    assert.equal(viewport().scrollTop, 0);
+    scrollPopup(viewport(), 590);
+    app.activeTopic = { id: "topic-a", name: "Topic A" } as any;
+    await render();
+    assert.equal(viewport().scrollTop, 480);
+    app.activeTopic = null;
+    await render();
+    assert.equal(viewport().scrollTop, 330);
+    app.page = "topics";
+    await render();
+    assert.equal(viewport().scrollTop, 140);
+    await back();
+    await open(two.id);
+    assert.equal(viewport().scrollTop, 260);
+  });
+});
+
+test("PR-only popup keeps mixed inventories and stale non-PR routes behind the PR boundary", async () => {
+  const { build } = await import("esbuild");
+  const { mkdtemp, mkdir, writeFile, rm } = await import("node:fs/promises");
+  const { pathToFileURL } = await import("node:url");
+  const { resolve, join } = await import("node:path");
+  const cache = resolve("node_modules/.cache");
+  await mkdir(cache, { recursive: true });
+  const directory = await mkdtemp(join(cache, "dlens-pr-popup-"));
+  try {
+    const bundle = await build({ entryPoints: ["src/ui/InPageCollectorPopup.tsx"], bundle: true, platform: "node", format: "esm", packages: "external", write: false,
+      define: { "import.meta.env": JSON.stringify({ VITE_DLENS_BUILD_VARIANT: "pr-only" }) } });
+    const modulePath = join(directory, "popup.mjs");
+    await writeFile(modulePath, bundle.outputFiles[0].text);
+    const { InPageCollectorPopup: PrPopup } = await import(pathToFileURL(modulePath).href);
+    await withCollectionFocusDom(async (host, dom, root, act) => {
+      const topic = buildSession();
+      const pr = { ...buildSession(), id: "pr-workspace", mode: "pr-evidence" as const, name: "核對工作區" };
+      const app = buildPopupAppFixture({ session: topic, sessions: [topic, pr], page: "topics" });
+      const calls: Array<[string, string]> = [];
+      app.onCreateWorkspace = async (name, mode) => { calls.push([name, mode]); return { ok: false }; };
+      await act(async () => root.render(<PrPopup app={app} />));
+      assert.equal(host.querySelector('[data-collection-browser]'), null);
+      assert.deepEqual([...host.querySelectorAll('[role="tab"]')].map((tab) => tab.textContent), ["工作區"]);
+      assert.ok(host.querySelector('[data-workspace-home]'), "stale non-PR domain opens only the allowed workspace index");
+      assert.deepEqual([...host.querySelectorAll('[data-workspace-session]')].map((row) => row.getAttribute("data-workspace-session")), [pr.id]);
+      await act(async () => [...host.querySelectorAll<HTMLButtonElement>("button")].find((button) => button.textContent === "建立工作區")!.click());
+      assert.deepEqual([...host.querySelectorAll('select[name="workspace-type"] option')].map((option) => option.getAttribute("value")), ["pr-evidence"]);
+      const name = host.querySelector<HTMLInputElement>('input[name="workspace-name"]')!;
+      await act(async () => { name.value = "新核對"; name.dispatchEvent(new dom.window.Event("input", { bubbles: true })); });
+      await act(async () => host.querySelector<HTMLButtonElement>('button[type="submit"]')!.click());
+      assert.deepEqual(calls, [["新核對", "pr-evidence"]]);
+      await act(async () => host.querySelector<HTMLButtonElement>(`[data-workspace-session="${pr.id}"]`)!.click());
+      assert.equal(app.activeFolder.id, pr.id);
+      assert.equal(app.page, "pr-evidence");
+      assert.ok(host.querySelector('input[type="file"]'), "existing PR tools remain reachable");
+      assert.equal(host.querySelector('[data-collection-browser]'), null);
+    });
+    await withCollectionFocusDom(async (host, _dom, root, act) => {
+      const product = { ...buildSession(), mode: "product" as const };
+      const app = buildPopupAppFixture({ session: product, page: "signals" });
+      let completeNavigation!: () => void;
+      const navigation = new Promise<void>((resolve) => { completeNavigation = resolve; });
+      app.onNavigate = async () => { await navigation; app.page = "settings"; };
+      await act(async () => root.render(<PrPopup app={app} />));
+      assert.ok(host.querySelector('[data-workspace-home]'));
+      try {
+        await act(async () => [...host.querySelectorAll<HTMLButtonElement>('[data-collection-menu] button')].find((button) => button.textContent === "設定")!.click());
+        assert.equal(app.page, "signals", "domain route remains stale while settings navigation is pending");
+        assert.ok(host.querySelector('[data-settings-surface="drawer"]'));
+        const exposedProductControls = () => ({
+          workspace: Boolean(host.querySelector('[data-product-saved-list], [data-product-hydrating], [data-product-classification-board], [data-signals-filter]')),
+          settings: Boolean(host.querySelector('[data-settings-group="product"]')),
+          cacheReset: Boolean(host.querySelector('[data-product-cache-reset]'))
+        });
+        assert.deepEqual(exposedProductControls(), { workspace: false, settings: false, cacheReset: false }, "pending PR-only settings must not expose the stale Product domain");
+        await act(async () => { completeNavigation(); await navigation; });
+        await act(async () => root.render(<PrPopup app={app} />));
+        assert.deepEqual(exposedProductControls(), { workspace: false, settings: false, cacheReset: false }, "settled settings keep PR-only controls");
+      } finally { await act(async () => { completeNavigation(); await navigation; }); }
+    });
+  } finally { await rm(directory, { recursive: true, force: true }); }
+});
+
+test("InPageCollectorPopup captures user scroll before shorter route DOM clamps the viewport", async () => {
+  await withCollectionFocusDom(async (host, dom, root, act) => {
+    const app = buildPopupAppFixture();
+    await act(async () => root.render(<InPageCollectorPopup app={app as any} />));
+    const viewport = host.querySelector<HTMLElement>('[data-workspace-popup-scroll="viewport"]')!;
+    viewport.scrollTop = 420;
+    viewport.dispatchEvent(new dom.window.Event("scroll"));
+    const list = host.querySelector('[data-collection-browser="list"]')!;
+    const parent = list.parentElement!;
+    const removeChild = parent.removeChild.bind(parent);
+    parent.removeChild = ((child: Node) => {
+      const result = removeChild(child);
+      // Browsers clamp scrollTop as soon as a shorter page replaces the list.
+      viewport.scrollTop = 0;
+      return result;
+    }) as typeof parent.removeChild;
+    await act(async () => host.querySelector<HTMLButtonElement>("[data-collection-post]")!.click());
+    parent.removeChild = removeChild;
+    await act(async () => host.querySelector<HTMLButtonElement>('[data-collection-action="back"]')!.click());
+    assert.equal(viewport.scrollTop, 420, "save the last user scroll, not the post-mutation clamped value");
+  });
+});
+
+test("InPageCollectorPopup retries a clamped reader offset when late images expand the content", async () => {
+  await withCollectionFocusDom(async (host, dom, root, act) => {
+    const observers: Array<{ callback: ResizeObserverCallback; active: boolean }> = [];
+    dom.window.ResizeObserver = class {
+      entry: { callback: ResizeObserverCallback; active: boolean };
+      constructor(callback: ResizeObserverCallback) { this.entry = { callback, active: false }; observers.push(this.entry); }
+      observe() { this.entry.active = true; }
+      disconnect() { this.entry.active = false; }
+    };
+    const app = buildPopupAppFixture();
+    const render = async () => { await act(async () => root.render(<InPageCollectorPopup app={app as any} />)); };
+    const openReader = async () => { await act(async () => host.querySelector<HTMLButtonElement>("[data-collection-post]")!.click()); };
+    const back = async () => { await act(async () => host.querySelector<HTMLButtonElement>('[data-collection-action="back"]')!.click()); };
+    await render();
+    await openReader();
+    const viewport = host.querySelector<HTMLElement>('[data-workspace-popup-scroll="viewport"]')!;
+    scrollPopup(viewport, 650);
+    await back();
+    let maxScrollTop = 120;
+    let top = 0;
+    Object.defineProperty(viewport, "scrollTop", { configurable: true, get: () => top, set: (value: number) => { top = Math.min(value, maxScrollTop); } });
+    await openReader();
+    assert.equal(viewport.scrollTop, 120, "simulate unloaded images clamping the restored reader");
+    viewport.dispatchEvent(new dom.window.Event("scroll"));
+    maxScrollTop = 1000;
+    await act(async () => { for (const observer of observers) if (observer.active) observer.callback([], {} as ResizeObserver); });
+    assert.equal(viewport.scrollTop, 650, "content resize restores the original requested offset");
+    assert.ok(observers.every((observer) => !observer.active), "successful restoration disconnects observers");
+    await back();
+    maxScrollTop = 100;
+    await openReader();
+    assert.equal(viewport.scrollTop, 100);
+    viewport.dispatchEvent(new dom.window.WheelEvent("wheel", { bubbles: true, deltaY: -40 }));
+    scrollPopup(viewport, 60);
+    maxScrollTop = 1000;
+    await act(async () => { for (const observer of observers) if (observer.active) observer.callback([], {} as ResizeObserver); });
+    assert.equal(viewport.scrollTop, 60, "user scrolling cancels the pending restoration");
+    await back();
+    await openReader();
+    assert.equal(viewport.scrollTop, 60, "the user's new offset replaces the old pending target");
+    assert.ok(observers.every((observer) => !observer.active));
+  });
+});
+
+test("InPageCollectorPopup keeps workspace mutations pending and failures visible across close and reopen", async () => {
+  await withCollectionFocusDom(async (host, dom, root, act) => {
+    const app = buildPopupAppFixture();
+    const calls: string[] = [];
+    let finish!: (result: unknown) => void;
+    app.onRenameWorkspace = async (id: string) => { calls.push(id); return new Promise((resolve) => { finish = resolve; }); };
+    app.onDeleteWorkspace = async (id: string) => { calls.push(`delete:${id}`); return new Promise((resolve) => { finish = resolve; }); };
+    const render = async () => { await act(async () => root.render(<InPageCollectorPopup app={app as any} />)); };
+    const button = (label: string) => [...host.querySelectorAll<HTMLButtonElement>("button")].find((entry) => entry.textContent === label)!;
+    await render();
+    await act(async () => popupTab(host, "工作區").click());
+    await act(async () => button("重新命名").click());
+    const input = host.querySelector<HTMLInputElement>('input[name="workspace-rename"]')!;
+    await act(async () => { input.value = "改名"; input.dispatchEvent(new dom.window.Event("input", { bubbles: true })); });
+    await act(async () => button("儲存名稱").click());
+    assert.equal(popupTab(host, "收藏").disabled, true, "pending mutation blocks tab-driven unmount and duplicate requests");
+    await act(async () => button("設定").click());
+    assert.equal(host.querySelector('[data-settings-surface="drawer"]'), null, "settings cannot bypass the mutation lock");
+    app.popupOpen = false;
+    await render();
+    app.popupOpen = true;
+    await render();
+    assert.equal(popupTab(host, "收藏").disabled, true, "facade lock survives popup remount");
+    assert.equal(button("重新命名").disabled, true);
+    await act(async () => button("重新命名").click());
+    assert.deepEqual(calls, [app.activeFolder.id]);
+    await act(async () => finish({ ok: false, error: "private failure" }));
+    assert.equal(popupTab(host, "收藏").disabled, false);
+    assert.equal(host.querySelectorAll('[role="alert"]').length, 1);
+    assert.match(host.querySelector('[role="alert"]')?.textContent ?? "", /未能重新命名/);
+    assert.doesNotMatch(host.textContent ?? "", /private failure/);
+    await act(async () => button("刪除").click());
+    await act(async () => button("確認刪除").click());
+    app.popupOpen = false;
+    await render();
+    await act(async () => finish({ ok: false }));
+    app.popupOpen = true;
+    await render();
+    assert.match(host.querySelector('[role="alert"]')?.textContent ?? "", /未能刪除/);
+    await act(async () => button("刪除").click());
+    await act(async () => button("確認刪除").click());
+    await act(async () => finish({ ok: true }));
+    assert.equal(host.querySelector('[role="alert"]'), null, "successful retry clears the persisted failure");
+    assert.equal(popupTab(host, "收藏").disabled, false);
   });
 });

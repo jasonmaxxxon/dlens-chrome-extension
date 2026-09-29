@@ -1862,6 +1862,17 @@ export function useInPageCollectorAppState({ snapshot, tabId, sendAndSync }: Use
     return createResponse;
   }
 
+  async function onRenameWorkspace(sessionId: string, name: string) {
+    if (!name.trim() || !snapshot?.global.sessions.some((session) => session.id === sessionId)) return { ok: false as const };
+    return sendAndSync({ type: "session/rename", sessionId, name: name.trim() });
+  }
+
+  // The workspace view asks for confirmation before invoking this command.
+  async function onDeleteWorkspace(sessionId: string) {
+    if (!snapshot?.global.sessions.some((session) => session.id === sessionId)) return { ok: false as const };
+    return sendAndSync({ type: "session/delete", sessionId });
+  }
+
   async function onRenameFolder() {
     if (!activeFolder || !editingFolderName.trim()) {
       return;
@@ -2249,8 +2260,12 @@ export function useInPageCollectorAppState({ snapshot, tabId, sendAndSync }: Use
 
   const compareViewSettings = effectiveSettings || createDefaultSettings();
 
+  async function onCreateWorkspace(name: string, mode: FolderMode) {
+    return sendAndSync({ type: "session/create", name: name.trim(), mode });
+  }
+
   async function onSetActiveSession(sessionId: string) {
-    await sendAndSync({
+    return sendAndSync({
       type: "session/set-active",
       sessionId
     });
@@ -3263,6 +3278,8 @@ export function useInPageCollectorAppState({ snapshot, tabId, sendAndSync }: Use
     onPrEvidenceCommand,
     onPrEvidenceBriefFileSelected,
     onCreateFolder,
+    onRenameWorkspace,
+    onDeleteWorkspace,
     onRenameFolder,
     onDeleteFolder,
     onOpenPopup,
@@ -3279,6 +3296,7 @@ export function useInPageCollectorAppState({ snapshot, tabId, sendAndSync }: Use
     onAddToCompare,
     onProcessAll,
     onSetActiveSession,
+    onCreateWorkspace,
     onSelectItem,
     onSaveSettings,
     onClearProductCache

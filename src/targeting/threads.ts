@@ -1,3 +1,4 @@
+import { stripThreadsTranslationChrome } from "../state/source-text";
 import type { EngagementMetrics, EngagementPresent, EngagementSource, TargetDescriptor, TargetSurface, TargetType } from "../contracts/target-descriptor";
 
 const TIME_TOKEN_RE = /\b\d+\s*[smhdw]\b/i;
@@ -689,7 +690,7 @@ export function buildTargetDescriptor(card: HTMLElement, pageUrl: string): Targe
   const normalizedPage = normalizeUrl(pageUrl || window.location.href || "");
   const { permalink, rawText } = extractPermalink(card);
   const targetType = classifyTargetType(card, normalizedPage, permalink);
-  const cleanedText = cleanBodyText(rawText);
+  const cleanedText = stripThreadsTranslationChrome(cleanBodyText(rawText));
   const metricsResult = resolveEngagement(card);
 
   return {

@@ -16,7 +16,7 @@ import type {
 } from "../compare/topic-audit.ts";
 import type { TopicAuditValidationFlag } from "../compare/topic-audit-validator.ts";
 import { EvidenceRefChip, type EvidenceFragmentLookup } from "./EvidenceRefChip.tsx";
-import { modeThemes, tokens } from "./tokens";
+import { modeThemes, textStyles, tokens } from "./tokens";
 
 export type TopicAuditReportStatus = "none" | "running" | "ready" | "failed" | "stale";
 
@@ -814,6 +814,7 @@ export function SourceRow({
   active,
   readingStatus,
   title,
+  sourceFirst = false,
   tags,
   showPreview = true,
   originalUrl,
@@ -829,8 +830,9 @@ export function SourceRow({
   packet: EvidencePacket;
   active?: boolean;
   readingStatus: SourceRowReadingStatus;
-  /** LLM signal gist — the one-line brief title carried over from the old 源清單 rows */
+  /** Generated gist or captured post text, depending on available source data. */
   title?: string;
+  sourceFirst?: boolean;
   tags?: readonly string[];
   showPreview?: boolean;
   originalUrl?: string;
@@ -907,7 +909,7 @@ export function SourceRow({
         {title ? (
           <div
             data-source-row-title="true"
-            style={{ fontSize: 13, fontWeight: 700, lineHeight: 1.35, color: tokens.color.ink, marginBottom: 4, ...lineClamp(2) }}
+            style={{ ...(sourceFirst ? textStyles.bodyTight : { fontSize: 13, fontWeight: 700, lineHeight: 1.35 }), color: tokens.color.ink, marginBottom: 4, ...lineClamp(2) }}
           >
             {title}
           </div>
@@ -922,9 +924,11 @@ export function SourceRow({
             lineHeight: 1.5
           }}
         >
-          <span style={{ fontFamily: tokens.font.mono, fontSize: 10.5, fontWeight: 700, color: codeColor, letterSpacing: "0.04em" }}>
-            {packet.shortCode}.OP
-          </span>
+          {!sourceFirst ? (
+            <span style={{ fontFamily: tokens.font.mono, fontSize: 10.5, fontWeight: 700, color: codeColor, letterSpacing: "0.04em" }}>
+              {packet.shortCode}.OP
+            </span>
+          ) : null}
           {isRunning ? (
             <span
               data-source-row-running-label="true"
@@ -983,7 +987,7 @@ export function SourceRow({
             </span>
           ) : null}
           {stanceBadge}
-          <Sep />
+          {!sourceFirst || isRunning || isFailed || isNotReady || stanceBadge ? <Sep /> : null}
           <span style={{ fontSize: 11, color: authorColor, fontWeight: 600, ...lineClamp1() }}>
             @{author}
           </span>
@@ -1115,6 +1119,12 @@ export function SourceRow({
             {opSnippet}
           </div>
         ) : null}
+        {sourceFirst ? (
+          <details data-source-row-provenance={packet.shortCode} style={{ fontSize: 10.5, color: tokens.color.softInk }}>
+            <summary style={{ cursor: "pointer" }}>來源編號</summary>
+            <span style={{ fontFamily: tokens.font.mono }}>{packet.shortCode}.OP</span>
+          </details>
+        ) : null}
         {mixTotal > 0 ? (
           <div
             data-source-row-reaction-mix={packet.shortCode}
@@ -1183,6 +1193,7 @@ export function PendingSignalRow({
   title,
   preview,
   capturedAt,
+  author,
   state,
   statusLabel,
   stanceBadge,
@@ -1198,6 +1209,7 @@ export function PendingSignalRow({
   /** captured snippet, shown under the gist title when both exist */
   preview?: string;
   capturedAt: string;
+  author?: string;
   state: "processing" | "failed" | "idle";
   statusLabel?: string;
   stanceBadge?: ReactNode;
@@ -1228,7 +1240,7 @@ export function PendingSignalRow({
       <div style={{ minWidth: 0 }}>
         <div
           data-source-row-title="true"
-          style={{ fontSize: 13, fontWeight: 700, lineHeight: 1.35, color: tokens.color.ink, marginBottom: 4, ...lineClamp(2) }}
+          style={{ ...textStyles.bodyTight, color: tokens.color.ink, marginBottom: 4, ...lineClamp(2) }}
         >
           {title}
         </div>
@@ -1248,6 +1260,7 @@ export function PendingSignalRow({
           </div>
         ) : null}
         <div style={{ display: "flex", flexWrap: "wrap", gap: 6, alignItems: "baseline", lineHeight: 1.5 }}>
+          {author ? <span style={{ fontSize: 11, color: tokens.color.softInk }}>@{author.replace(/^@/, "")}</span> : null}
           {statusLabel ? (
             <span
               data-pending-signal-status={signalId}

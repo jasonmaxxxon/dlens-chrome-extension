@@ -63,6 +63,8 @@ test("popup consumes page registry instead of re-declaring page families", () =>
 
   assert.doesNotMatch(source, /\bALLOWED_PAGES\b/);
   assert.doesNotMatch(source, /guardedPage === "signals"\s*\|\|/);
-  assert.match(source, /getModeRailPages/);
+  assert.match(source, /getModeHomePage\(session.mode\)/);
+  assert.match(source, /getPageWidth\(/);
+  assert.doesNotMatch(source, /\bModeRail\b|\bswitchingWorkspaceMode\b/);
   assert.match(source, /getPageComponentKind/);
 });

@@ -63,7 +63,8 @@ test("CollectView shows topic triage rows for unprocessed signals", () => {
   assert.match(html, /未分流/);
   assert.match(html, /航班改動後等不到客服/);
   assert.match(html, /航班/);
-  assert.match(html, /建立議題需要 ≥ 3/);
+  assert.match(html, /至少 3 篇/);
+  assert.doesNotMatch(html, /建議議題待標籤完成/);
 });
 
 test("CollectView renders per-row and bulk delete for untriaged signals when onSignalDeleted is provided", () => {
@@ -214,4 +215,74 @@ test("collect triage helper requires at least three selected signals", () => {
   assert.equal(collectViewTestables.canCreateTopicFromSelection(["signal-1", "signal-2"]), false);
   assert.equal(collectViewTestables.canCreateTopicFromSelection(["signal-1", "signal-2", "signal-3"]), true);
   assert.deepEqual(collectViewTestables.suggestTagsForSignal(signals[0]!, tagsByItemId), ["航班", "客服"]);
+});
+
+
+test("CollectView triage keeps original text and author readable with one selected count", () => {
+  const item = createSessionItem(descriptor(), "2026-05-23T00:00:00.000Z");
+  item.id = "item-1";
+  const html = renderToStaticMarkup(<CollectView
+    preview={null}
+    folderName="Topics"
+    mode="topic"
+    isSaved={false}
+    selectionMode={false}
+    recentItems={[item]}
+    untriagedSignals={signals}
+    signalPreviewById={{ "signal-1": item.descriptor.text_snippet }}
+    onSavePreview={() => undefined}
+    onOpenPreview={() => undefined}
+    onToggleCollectMode={() => undefined}
+    onCreateTopicFromSignals={() => undefined}
+  />);
+
+  assert.match(html, /data-untriaged-snippet="signal-1"[^>]*font-weight:400/);
+  assert.match(html, /data-untriaged-author="signal-1"[^>]*>@alpha</);
+  assert.doesNotMatch(html, /建議議題待標籤完成/);
+  assert.equal((html.match(/已選 0 篇/g) ?? []).length, 1);
+});
+
+test("CollectView triage selection dispatches exactly the selected sources and keeps removal separate", async () => {
+  const { JSDOM } = await import("jsdom");
+  const { createRoot } = await import("react-dom/client");
+  const { act } = await import("react");
+  const reactActGlobal = globalThis as typeof globalThis & { IS_REACT_ACT_ENVIRONMENT?: boolean };
+  const previousActEnvironment = reactActGlobal.IS_REACT_ACT_ENVIRONMENT;
+  reactActGlobal.IS_REACT_ACT_ENVIRONMENT = true;
+  const dom = new JSDOM('<div id="root"></div>', { url: "https://dlens.test" });
+  const previous = { window: globalThis.window, document: globalThis.document, HTMLElement: globalThis.HTMLElement };
+  Object.assign(globalThis, { window: dom.window, document: dom.window.document, HTMLElement: dom.window.HTMLElement });
+  const host = dom.window.document.getElementById("root")!;
+  const root = createRoot(host);
+  const created: string[][] = [];
+  const removed: string[] = [];
+  try {
+    await act(async () => root.render(<CollectView
+      preview={null} folderName="Topics" mode="topic" isSaved={false} selectionMode={false}
+      untriagedSignals={signals}
+      signalPreviewById={{ "signal-1": "第一篇", "signal-2": "第二篇", "signal-3": "第三篇" }}
+      onSavePreview={() => undefined} onOpenPreview={() => undefined} onToggleCollectMode={() => undefined}
+      onCreateTopicFromSignals={(ids) => created.push(ids)} onSignalDeleted={(id) => removed.push(id)}
+    />));
+    const create = host.querySelector<HTMLButtonElement>('[data-topic-triage-action-bar] [data-dlens-button="primary"]')!;
+    assert.equal(create.disabled, true);
+    for (const checkbox of host.querySelectorAll<HTMLInputElement>('[data-topic-triage] input[type="checkbox"]')) {
+      await act(async () => checkbox.click());
+    }
+    assert.equal(create.disabled, false);
+    assert.match(host.querySelector('[data-topic-triage-action-bar]')?.textContent ?? "", /已選 3 篇/);
+    await act(async () => create.click());
+    assert.deepEqual(created, [["signal-1", "signal-2", "signal-3"]]);
+    const remove = host.querySelector<HTMLButtonElement>('[data-untriaged-delete="signal-2"]')!;
+    await act(async () => remove.click());
+    assert.deepEqual(removed, ["signal-2"]);
+    assert.match(host.querySelector('[data-topic-triage-action-bar]')?.textContent ?? "", /已選 2 篇/);
+    assert.equal(create.disabled, true);
+  } finally {
+    await act(async () => root.unmount());
+    Object.assign(globalThis, previous);
+    if (previousActEnvironment === undefined) delete reactActGlobal.IS_REACT_ACT_ENVIRONMENT;
+    else reactActGlobal.IS_REACT_ACT_ENVIRONMENT = previousActEnvironment;
+    dom.window.close();
+  }
 });

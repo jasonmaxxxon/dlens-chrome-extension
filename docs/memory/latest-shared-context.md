@@ -1,4 +1,13 @@
-## Current handoff — 2026-09-21 collection focus (0.4.2)
+## Current handoff — 2026-09-29 collection navigation (0.4.3 installed)
+
+- User resumed the paused 09-21 work. Collection/workspaces navigation, full-width source reader, scroll restoration, explicit workspace management and PR-only guards are implemented on `codex/collect-recall-focus`; no main merge/push.
+- Final root gate: 1535 tests / 1530 pass / 5 existing skips / 0 fail; typecheck, boundaries, storage seam, full and PR-only builds, diff check passed. Independent review resolved two P2 issues and reran 278 related tests plus two independent probes.
+- Original unpacked folder and extension ID retained. Chrome details and real Threads in-page UI confirm 0.4.3. Thirteen installed files match the full build; 0.4.2 program backup and ZIP are under `~/developer/reviews/dlens-0.4.3-2026-09-29/`.
+- Real Chrome checks: 17 original items and 3 workspaces retained; search/query return, list/reader scroll, settings return, close/reopen, rename-and-restore and delete-cancel verified. One public save to the newly created Archive succeeded; 18 total items now. Returning from global capture restored the prior Topic collect page and topic. No AI generation was triggered.
+- Existing Atlas integration failure and old output remain; some historical image URLs are expired with the expected fallback. A fresh saved image loaded. Batch selection is covered by automated tests, not a new live Topic mutation.
+- Follow-up: single-post capture can retain trailing Threads reply UI text. Scope and complete evidence: `docs/handoff/mockup-navigation-paused.md` and the review folder's `verification.md`.
+
+## Previous handoff — 2026-09-21 collection focus (0.4.2)
 
 - User approved a left thumbnail, immediately visible source list and collapsed AI detail on the existing Product signals page. This supersedes earlier instructions to immediately open full Product readings.
 - Source branch: `codex/collect-recall-focus`, based on 0.4.1 `b9a358e`, isolated at `/Users/tung/developer/worktrees/dlens-v4-focus`. No main merge/push.

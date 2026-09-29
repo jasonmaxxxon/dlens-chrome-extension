@@ -887,3 +887,51 @@ test("runAnalyzeItemsPipeline stops before worker start when queue fails", async
   assert.deepEqual(calls.map((call) => call.type), ["session/queue-items-and-start-processing"]);
   assert.deepEqual(result, { ok: false, failedCount: 2 });
 });
+
+test("workspace management sends explicit inactive session ids and returns persistence failures", async () => {
+  const dom = new JSDOM('<div id="root"></div>', { url: "https://dlens.test" });
+  const previous = { window: globalThis.window, document: globalThis.document, HTMLElement: globalThis.HTMLElement, chrome: globalThis.chrome };
+  const actGlobal = globalThis as typeof globalThis & { IS_REACT_ACT_ENVIRONMENT?: boolean };
+  const previousAct = actGlobal.IS_REACT_ACT_ENVIRONMENT;
+  const active = createSessionRecord("目前研究", "2026-09-29T00:00:00Z", "topic");
+  const archive = createSessionRecord("舊收藏", "2026-09-29T00:00:00Z", "archive");
+  const snapshot: ExtensionSnapshot = { global: { ...createEmptyGlobalState(), sessions: [active, archive], activeSessionId: active.id }, tab: createEmptyTabState() };
+  const messages: ExtensionMessage[] = [];
+  const sendAndSync = async <T extends ExtensionResponse = ExtensionResponse>(message: ExtensionMessage): Promise<T> => {
+    messages.push(message);
+    return { ok: false, error: "persistence failed" } as T;
+  };
+  Object.assign(globalThis, { window: dom.window, document: dom.window.document, HTMLElement: dom.window.HTMLElement,
+    chrome: { runtime: { sendMessage: async () => ({ ok: true }), onMessage: { addListener: () => undefined, removeListener: () => undefined } } } });
+  actGlobal.IS_REACT_ACT_ENVIRONMENT = true;
+  let app!: ReturnType<typeof useInPageCollectorAppState>;
+  function Harness() { app = useInPageCollectorAppState({ snapshot, tabId: 7, sendAndSync }); return null; }
+  const root = createRoot(dom.window.document.getElementById("root")!);
+  try {
+    await act(async () => root.render(React.createElement(Harness)));
+    assert.equal(typeof app.onRenameWorkspace, "function");
+    assert.equal(typeof app.onDeleteWorkspace, "function");
+    await act(async () => {
+      assert.equal((await app.onRenameWorkspace(archive.id, "  保留收藏  "))?.ok, false);
+      assert.equal((await app.onDeleteWorkspace(archive.id))?.ok, false);
+    });
+    assert.deepEqual(messages.filter((message) => message.type === "session/rename" || message.type === "session/delete"), [
+      { type: "session/rename", sessionId: archive.id, name: "保留收藏" },
+      { type: "session/delete", sessionId: archive.id }
+    ]);
+    assert.equal(snapshot.global.activeSessionId, active.id);
+    const count = messages.length;
+    await act(async () => {
+      await app.onRenameWorkspace("missing", "name");
+      await app.onRenameWorkspace(archive.id, "   ");
+      await app.onDeleteWorkspace("missing");
+    });
+    assert.equal(messages.length, count, "unknown session ids and empty names never reach persistence");
+  } finally {
+    await act(async () => root.unmount());
+    Object.assign(globalThis, previous);
+    if (previousAct === undefined) delete actGlobal.IS_REACT_ACT_ENVIRONMENT;
+    else actGlobal.IS_REACT_ACT_ENVIRONMENT = previousAct;
+    dom.window.close();
+  }
+});

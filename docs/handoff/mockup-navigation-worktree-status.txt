@@ -1,0 +1,32 @@
+ M AGENTS.md
+ M docs/memory/latest-shared-context.md
+ M package-lock.json
+ M package.json
+ M src/targeting/threads.ts
+ M src/ui/CollectView.tsx
+ M src/ui/InPageCollectorPopup.tsx
+ M src/ui/TopicDetailView.tsx
+ M src/ui/TopicSourceSessionCard.tsx
+ M src/ui/tokens-intent.md
+ M src/ui/tokens.ts
+ M src/ui/topic-audit-components.tsx
+ M src/ui/useInPageCollectorAppState.ts
+ M src/ui/version.ts
+ M tests/collect-view.test.tsx
+ M tests/manifest-config.test.ts
+ M tests/topic-detail-view.test.tsx
+ M tests/views.test.tsx
+ M wxt.config.ts
+?? docs/handoff/mockup-navigation-paused.md
+?? docs/superpowers/plans/2026-09-21-mockup-navigation.md
+?? src/state/source-text.ts
+?? src/ui/CollectionBrowser.tsx
+?? src/ui/CollectionWorkspaceShell.tsx
+?? src/ui/WorkspaceHomeView.tsx
+?? src/viewmodel/collection-browser.ts
+?? tests/collection-browser-viewmodel.test.ts
+?? tests/collection-browser.fixtures.ts
+?? tests/collection-browser.test.tsx
+?? tests/collection-workspace-shell.test.tsx
+?? tests/source-text.test.ts
+?? tests/workspace-home-view.test.tsx

@@ -556,7 +556,7 @@ function topicDetailViewElement({
   return React.createElement(TopicDetailView, { viewModel, onCommand });
 }
 
-test("TopicDetailView places one source-session owner between the breadcrumb and Atlas", () => {
+test("TopicDetailView leads with saved sources and one crawl action before an Atlas exists", () => {
   const html = renderToStaticMarkup(
     topicDetailViewElement({
       topic,
@@ -567,11 +567,31 @@ test("TopicDetailView places one source-session owner between the breadcrumb and
     })
   );
 
-  const breadcrumbIndex = html.indexOf("← 主題");
-  const sessionIndex = html.indexOf('data-topic-source-session="needs_crawl"');
-  const atlasIndex = html.indexOf('data-signal-atlas-canvas="true"');
-  assert.ok(sessionIndex > breadcrumbIndex, "the session card follows the breadcrumb row");
-  assert.ok(sessionIndex < atlasIndex, "the session card leads the previous Atlas");
+  assert.doesNotMatch(html, /data-signal-atlas-canvas|data-signal-atlas-empty-state|Signal Atlas · Topic Audit · L0/);
+  assert.equal((html.match(new RegExp(topic.name, "g")) ?? []).length, 1, "the topic title has one owner");
+  assert.match(html, /signal text item-1/);
+  assert.match(html, /@alpha/);
+  assert.ok(html.indexOf('data-topic-source-list="true"') < html.indexOf('data-topic-source-session="needs_crawl"'), "the source list precedes optional processing details");
+  assert.equal((html.match(/data-dlens-button="primary"/g) ?? []).length, 1);
+  assert.match(html, /<details[^>]*data-topic-source-session-details="true"/);
+  assert.doesNotMatch(html, /<details[^>]*data-topic-source-session-details="true"[^>]*open/);
+});
+
+test("TopicDetailView uses the captured text when a packet has no generated gist", () => {
+  const html = renderToStaticMarkup(topicDetailViewElement({
+    topic,
+    signals,
+    pairs: [],
+    sessionItems: [buildSessionItem("item-1", "saved")],
+    auditEvidence: [{ ...auditPacket, opText: "原始貼文內容：輪班安排影響休息時間。" }],
+    auditMemos: null,
+    onAnalyzeItems: async () => ({ ok: true, failedCount: 0 })
+  }));
+
+  assert.match(html, /data-source-row-title="true"[^>]*>原始貼文內容：輪班安排影響休息時間。/);
+  assert.match(html, /<details[^>]*data-source-row-provenance="S1"/);
+  assert.doesNotMatch(html, /<details[^>]*data-source-row-provenance="S1"[^>]*open/);
+  assert.doesNotMatch(html, /<summary[^>]*>[^<]*P1 判讀/);
 });
 
 test("TopicDetailView keeps the processing session and source inventory after all crawl items queue", () => {
@@ -765,7 +785,7 @@ test("TopicDetailView keeps one manual ready-to-generate action and dispatches i
       auditSummary: { reportStatus: "stale", analyzedCount: 1, queuedCount: 0, coverage: "1/1" },
       onRunAudit: (topicId, _fromStage, force) => calls.push({ topicId, force })
     })));
-    const button = Array.from(rootElement.querySelectorAll("button")).find((candidate) => candidate.textContent === "用 1 篇重新生成 Atlas");
+    const button = Array.from(rootElement.querySelectorAll("button")).find((candidate) => candidate.textContent === "生成議題整理");
     assert.ok(button, "the session card owns the explicit paid-generation action");
     assert.deepEqual(calls, [], "rendering ready_to_generate must not dispatch a paid run");
     assert.equal(rootElement.querySelector('[data-topic-audit-action="regenerate"]'), null, "the Atlas toolbar yields this stale action to the session card");
@@ -844,9 +864,8 @@ test("TopicDetailView mirrors the audit popup surface in topic mode without lega
   assert.match(html, /← 主題/);
   assert.match(html, /航班爭議/);
   assert.doesNotMatch(html, /data-topic-audit-block="overview"/);
-  assert.match(html, /data-signal-atlas-canvas="true"/);
-  assert.match(html, /data-signal-atlas-empty-state="true"/);
-  assert.match(html, /data-signal-atlas-empty-state="true"[^>]*data-dlens-presence="card"/);
+  assert.doesNotMatch(html, /data-signal-atlas-canvas/);
+  assert.doesNotMatch(html, /data-signal-atlas-empty-state/);
   assert.doesNotMatch(html, /data-signal-atlas-empty-state="true"[^>]*data-dlens-presence-motion=/);
   assert.match(html, /data-topic-source-session="needs_crawl"/);
   assert.match(html, /data-topic-audit-block="sources"/);
@@ -856,7 +875,7 @@ test("TopicDetailView mirrors the audit popup surface in topic mode without lega
   assert.match(html, /signal text item-1/);
   assert.doesNotMatch(html, /data-topic-signal-inventory="true"/);
   assert.doesNotMatch(html, /已採集貼文/);
-  assert.match(html, /民情形狀、跨帖敘事與來源會在此展開/);
+  assert.doesNotMatch(html, /民情形狀、跨帖敘事與來源會在此展開/);
   assert.doesNotMatch(html, /Topic detail/);
   assert.doesNotMatch(html, /補充描述/);
   assert.doesNotMatch(html, /研究問題/);
@@ -1000,7 +1019,7 @@ test("TopicDetailView keeps the current Atlas visible while regeneration runs", 
   assert.equal((html.match(/<h1/g) ?? []).length, 1);
 });
 
-test("TopicDetailView uses the same Atlas glass frame for the first audit run", () => {
+test("TopicDetailView keeps first-run generation beside the sources without an empty Atlas frame", () => {
   const html = renderToStaticMarkup(
     topicDetailViewElement({
       topic,
@@ -1020,12 +1039,11 @@ test("TopicDetailView uses the same Atlas glass frame for the first audit run", 
     })
   );
 
-  assert.match(html, /data-signal-atlas-canvas="true"/);
+  assert.doesNotMatch(html, /data-signal-atlas-canvas/);
   assert.doesNotMatch(html, /data-signal-atlas-canvas="true" aria-busy=/);
-  assert.match(html, /data-signal-atlas-content="true" aria-busy="true"/);
-  assert.match(html, /data-signal-atlas-empty-state="true"/);
+  assert.doesNotMatch(html, /data-signal-atlas-empty-state/);
   assert.match(html, /data-topic-source-session="generating"/);
-  assert.match(html, /正在重新生成 Atlas/);
+  assert.match(html, /正在整理來源/);
   assert.doesNotMatch(html, /data-topic-audit-block="overview"/);
   assert.doesNotMatch(html, /data-topic-audit-placeholder="empty"/);
   assert.doesNotMatch(html, /data-signal-atlas-hero/);
@@ -1312,7 +1330,7 @@ test("TopicDetailView can restart when a partial first run left evidence without
   try {
     flushSync(() => root.render(renderStatus("none")));
     const regenerate = Array.from(rootElement.querySelectorAll<HTMLButtonElement>("button"))
-      .find((button) => button.textContent === "用 1 篇重新生成 Atlas");
+      .find((button) => button.textContent === "生成議題整理");
     assert.ok(regenerate, "partial evidence must never strand the Topic without a recovery action");
     regenerate.dispatchEvent(new dom.window.MouseEvent("click", { bubbles: true }));
     assert.deepEqual(calls, [{ topicId: "topic-1", force: true }]);
@@ -1389,7 +1407,7 @@ test("TopicDetailView keeps first-run focus while an empty Atlas starts generati
       root.render(renderStatus("none"));
     });
     const generate = Array.from(rootElement.querySelectorAll<HTMLButtonElement>("button"))
-      .find((button) => button.textContent === "用 1 篇重新生成 Atlas");
+      .find((button) => button.textContent === "生成議題整理");
     assert.ok(generate);
     await act(async () => {
       generate.dispatchEvent(new dom.window.MouseEvent("click", { bubbles: true }));
@@ -1400,7 +1418,7 @@ test("TopicDetailView keeps first-run focus while an empty Atlas starts generati
       root.render(renderStatus("running"));
     });
     assert.equal(rootElement.querySelector('[data-topic-audit-action="generate"]'), null);
-    assert.match(rootElement.textContent ?? "", /正在重新生成 Atlas/);
+    assert.match(rootElement.textContent ?? "", /正在整理來源/);
     assert.equal(calls.length, 1);
   } finally {
     await act(async () => root.unmount());
@@ -1571,7 +1589,7 @@ test("TopicDetailView frames single-post narrative lanes as compact L0 observati
   assert.match(html, /@alpha/);
   assert.match(html, /data-atlas-single-observation="lane-1"/);
   assert.doesNotMatch(html, /data-narrative-representative-ref=/);
-  assert.doesNotMatch(html, /航班改動後等不到客服/);
+  assert.doesNotMatch(html.slice(0, html.indexOf('data-topic-audit-block="sources"')), /航班改動後等不到客服/);
 });
 
 test("TopicDetailView keeps single-observation evidence behind its chip or the drawer", () => {
@@ -1595,7 +1613,7 @@ test("TopicDetailView keeps single-observation evidence behind its chip or the d
   assert.match(html, /data-audit-detail-drawer/);
   assert.doesNotMatch(html, /data-topic-newsroom-ladder="true"/);
   assert.doesNotMatch(html, /代表 quote/);
-  assert.doesNotMatch(html, /航班改動後等不到客服/);
+  assert.doesNotMatch(html.slice(0, html.indexOf('data-topic-audit-block="sources"')), /航班改動後等不到客服/);
 });
 
 test("TopicDetailView keeps one source footer for drill-in rows", () => {
@@ -1654,7 +1672,7 @@ test("TopicDetailView keeps an evidence-only P1 source disclosure open before At
     })
   );
 
-  assert.match(html, /data-signal-atlas-empty-state="true"/);
+  assert.doesNotMatch(html, /data-signal-atlas-empty-state/);
   assert.match(html, /<details[^>]*data-atlas-source-disclosure="true"[^>]*open/);
   assert.match(html, /data-source-row="S1"/);
 });
@@ -2379,7 +2397,7 @@ test("TopicDetailView derives audit header, coverage, and remaining source rows 
   assert.doesNotMatch(html, /覆蓋 5\/12/);
 });
 
-test("TopicDetailView failed audit state stays in the Atlas frame and shows the reason", () => {
+test("TopicDetailView first-run failure keeps sources and retry visible without an Atlas frame", () => {
   const html = renderToStaticMarkup(
     topicDetailViewElement({
       topic,
@@ -2400,8 +2418,8 @@ test("TopicDetailView failed audit state stays in the Atlas frame and shows the 
     })
   );
 
-  assert.match(html, /data-signal-atlas-canvas="true"/);
-  assert.match(html, /data-signal-atlas-empty-state="true"/);
+  assert.doesNotMatch(html, /data-signal-atlas-canvas/);
+  assert.doesNotMatch(html, /data-signal-atlas-empty-state/);
   assert.match(html, /data-topic-source-session="generation_failed"/);
   assert.match(html, /生成逾時。/);
   assert.doesNotMatch(html, /舊版 Atlas 仍保留/);

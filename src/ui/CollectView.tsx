@@ -4,7 +4,6 @@ import type { TargetDescriptor } from "../contracts/target-descriptor";
 import type { SessionProcessingSummary } from "../state/processing-state";
 import type { FolderMode, SessionItem, Signal, SignalTagsRecord } from "../state/types";
 import {
-  Kicker,
   ModeHeader,
   PrimaryButton,
   SecondaryButton,
@@ -15,7 +14,7 @@ import {
 } from "./components";
 import { useUiText } from "./i18n";
 import { CollectorGist, CollectorMetricStrip, COLLECTOR_MOTION_CSS } from "./CollectorMetricStrip";
-import { tokens } from "./tokens";
+import { textStyles, tokens } from "./tokens";
 
 const MODE_ACCENT = `var(--dlens-mode-accent, ${tokens.color.accent})`;
 const MODE_ACCENT_MID = `var(--dlens-mode-accent-mid, ${tokens.color.accentMid})`;
@@ -83,7 +82,6 @@ export function CollectView({
   processingSummary,
   untriagedSignals = [],
   signalPreviewById = {},
-  signalTagsByItemId = {},
   onCreateTopicFromSignals,
   onSignalDeleted
 }: CollectViewProps) {
@@ -462,15 +460,16 @@ export function CollectView({
         >
           <div style={{ display: "flex", alignItems: "end", justifyContent: "space-between", gap: 10 }}>
             <div style={{ display: "grid", gap: 3 }}>
-              <Kicker tone="accent">Triage</Kicker>
-              <div style={{ fontSize: 15, fontWeight: 800, color: tokens.color.ink }}>未分流</div>
+              <div style={{ ...textStyles.cardTitle, color: tokens.color.ink }}>未分流</div>
+              <span style={{ ...textStyles.caption, color: tokens.color.softInk }}>選取至少 3 篇建立議題</span>
             </div>
-            <span style={{ fontSize: 11, color: tokens.color.softInk }}>{visibleUntriagedSignals.length} 篇</span>
+            <SecondaryButton onClick={selectAll} style={{ padding: "6px 10px", fontSize: 11 }}>全選</SecondaryButton>
           </div>
 
           <div style={{ display: "grid", gap: 2 }}>
             {visibleUntriagedSignals.map((signal) => {
-              const tags = suggestTagsForSignal(signal, signalTagsByItemId);
+              const item = recentItems.find((entry) => entry.id === signal.itemId);
+              const author = item?.descriptor.author_hint?.replace(/^@/, "");
               const checked = selectedSignalIds.includes(signal.id);
               return (
                 <label
@@ -495,18 +494,10 @@ export function CollectView({
                     style={{ width: 16, height: 16, marginTop: 2, accentColor: tokens.topicAccent.primary }}
                   />
                   <span style={{ display: "grid", gap: 5, minWidth: 0 }}>
-                    <span style={{ fontSize: 12.5, lineHeight: 1.55, color: tokens.color.subInk, ...lineClamp(2) }}>
-                      {signalPreviewById[signal.id] || "資料不完整的 Threads 訊號"}
+                    <span data-untriaged-snippet={signal.id} style={{ ...textStyles.bodyTight, color: tokens.color.subInk, ...lineClamp(2) }}>
+                      {signalPreviewById[signal.id] || item?.descriptor.text_snippet || "資料不完整的 Threads 訊號"}
                     </span>
-                    <span style={{ display: "flex", gap: 5, flexWrap: "wrap" }}>
-                      {tags.length ? tags.map((tag) => (
-                        <span key={tag} style={{ fontSize: 10.5, color: tokens.topicAccent.primary, background: tokens.topicAccent.tintSage, borderRadius: tokens.radius.round, padding: "2px 6px" }}>
-                          {tag}
-                        </span>
-                      )) : (
-                        <span style={{ fontSize: 10.5, color: tokens.color.softInk }}>建議議題待標籤完成</span>
-                      )}
-                    </span>
+                    {author ? <span data-untriaged-author={signal.id} style={{ ...textStyles.caption, color: tokens.color.softInk }}>@{author}</span> : null}
                   </span>
                   {onSignalDeleted ? (
                     <button
@@ -549,6 +540,7 @@ export function CollectView({
               display: "flex",
               alignItems: "center",
               justifyContent: "space-between",
+              flexWrap: "wrap",
               gap: 10,
               padding: "10px 12px",
               borderRadius: tokens.radius.card,
@@ -557,10 +549,9 @@ export function CollectView({
             }}
           >
             <span style={{ fontSize: 11.5, color: tokens.color.softInk, fontWeight: 700 }}>
-              已選 {selectedSignalIds.length} 篇 · 建立議題需要 ≥ 3
+              已選 {selectedSignalIds.length} 篇
             </span>
             <span style={{ display: "flex", gap: 8 }}>
-              <SecondaryButton onClick={selectAll} style={{ padding: "6px 10px", fontSize: 11 }}>全選</SecondaryButton>
               {onSignalDeleted ? (
                 <SecondaryButton
                   dataAttrs={{ "data-untriaged-delete-selected": "true" }}
@@ -568,7 +559,7 @@ export function CollectView({
                   disabled={selectedSignalIds.length === 0}
                   style={{ padding: "6px 10px", fontSize: 11, color: tokens.color.failed, borderColor: tokens.color.failedBorder }}
                 >
-                  刪除
+                  刪除所選
                 </SecondaryButton>
               ) : null}
               <PrimaryButton

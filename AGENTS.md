@@ -87,6 +87,19 @@ git diff --check
 - Merging/pushing to `main` always requires the user's approval first.
 - Stay inside the agreed slice; scope creep is a rejection reason on its own.
 
+## Collection-first navigation (approved 2026-09-21)
+
+The primary navigation is 收藏 / 工作區. The global collection reads all existing
+session items without changing their storage, ownership, active session or mode.
+Source images and original excerpts lead; metrics, crawl diagnostics and AI tools
+are secondary disclosures. Reading selection and query live in the popup facade.
+Only explicit workspace/capture actions change domain context, and a return from
+global capture restores the previous workspace session/page/topic. Existing
+Topic/Product/PR engines remain workspace tools; do not restore permanent mode
+tabs or the old sidebar. Topic pre-result pages show sources and one action,
+without an empty Atlas banner. Real prior Atlas results remain visible while
+regenerating. PR-only builds expose only their existing PR domain.
+
 ## Mode contracts (current; history and rationale in the archive)
 
 - **Shared workspace shell**: Topic, Product, and PR Evidence use

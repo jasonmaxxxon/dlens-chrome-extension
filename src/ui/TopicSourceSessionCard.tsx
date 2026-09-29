@@ -85,6 +85,7 @@ function SessionProgress({
 
 export function TopicSourceSessionCard({
   state,
+  compact = false,
   disabled,
   hasAuditReport,
   onAnalyze,
@@ -92,6 +93,7 @@ export function TopicSourceSessionCard({
   onRunAudit
 }: {
   state: TopicSourceSessionState;
+  compact?: boolean;
   disabled: boolean;
   hasAuditReport: boolean;
   onAnalyze?: () => void;
@@ -123,6 +125,54 @@ export function TopicSourceSessionCard({
   const previousFailure = state.kind === "needs_crawl" || state.kind === "processing"
     ? state.previousGenerationFailure
     : undefined;
+
+  if (compact) {
+    const compactCopy = !hasAuditReport && state.kind === "ready_to_generate"
+      ? "來源已備妥，可以生成議題整理。"
+      : !hasAuditReport && state.kind === "generating"
+        ? "正在整理來源，完成後會顯示結果。"
+        : stateCopy;
+    return (
+      <SurfaceCard
+        tone="utility"
+        dataAttrs={{ "data-topic-source-session": state.kind, "data-dlens-presence": "card" }}
+        style={{ display: "grid", gap: tokens.spacing.sm }}
+      >
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: tokens.spacing.sm, flexWrap: "wrap" }}>
+          <span role="status" aria-live="polite" aria-atomic="true" style={{ display: "inline-flex", alignItems: "center", gap: tokens.spacing.sm, ...textStyles.bodyTight, color: state.kind === "generation_failed" ? tokens.color.failed : tokens.color.subInk }}>
+            {state.kind === "processing" || state.kind === "generating" ? <SessionSpinner /> : null}
+            {compactCopy}
+          </span>
+          {state.kind === "needs_crawl" ? (
+            <PrimaryButton onClick={() => onAnalyze?.()} disabled={disabled || !onAnalyze}>
+              {state.failed > 0 && state.pending === 0 ? `重試 ${crawlCount} 篇` : `開始爬取 ${crawlCount} 篇`}
+            </PrimaryButton>
+          ) : null}
+          {state.kind === "processing" && onStartProcessing ? (
+            <SecondaryButton onClick={onStartProcessing} disabled={disabled}>啟動處理</SecondaryButton>
+          ) : null}
+          {state.kind === "ready_to_generate" || state.kind === "generation_failed" ? (
+            <PrimaryButton onClick={() => onRunAudit?.()} disabled={disabled || !onRunAudit}>
+              {state.kind === "generation_failed" ? "重試生成" : hasAuditReport ? `用 ${state.ready} 篇重新生成 Atlas` : "生成議題整理"}
+            </PrimaryButton>
+          ) : null}
+        </div>
+        {previousFailure ? (
+          <span data-topic-source-session-previous-failure="true" style={{ ...textStyles.caption, color: tokens.color.failed }}>
+            上次於 {stageLabels[previousFailure.stage]} 未完成：{failureCopy(previousFailure.failureKind, hasAuditReport)}
+          </span>
+        ) : null}
+        <details data-topic-source-session-details="true" style={{ ...textStyles.caption, color: tokens.color.softInk }}>
+          <summary style={{ cursor: "pointer" }}>處理詳情</summary>
+          <div style={{ display: "grid", gap: tokens.spacing.sm, paddingTop: tokens.spacing.sm }}>
+            <span>{completion}</span>
+            {processingCounts.length > 0 ? <span>{processingCounts.join(" · ")}</span> : null}
+            <SessionProgress ready={state.ready} total={state.total} indeterminate={state.kind === "generating"} />
+          </div>
+        </details>
+      </SurfaceCard>
+    );
+  }
 
   return (
     <SurfaceCard

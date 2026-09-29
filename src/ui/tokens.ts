@@ -339,6 +339,9 @@ export const tokens = {
 
   layout: {
     savedPostThumbnailSize: 44,
+    collectionMenuWidth: 224,
+    collectionThumbnailWidth: 96,
+    collectionThumbnailHeight: 72,
     atlasNarrowBreakpointPx: 520,
     workspacePopupHeight: "min(78vh, 780px)"
   },

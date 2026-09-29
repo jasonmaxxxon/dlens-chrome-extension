@@ -727,7 +727,7 @@ export function Breadcrumb({
       }}
     >
       <span>← 主題</span>
-      <span style={{ color: tokens.color.softInk }}>{topicName}</span>
+      {topicName ? <span style={{ color: tokens.color.softInk }}>{topicName}</span> : null}
     </button>
   );
 }
@@ -1961,8 +1961,9 @@ export function TopicDetailView({
   const topicSourceSessionCard = (
     <TopicSourceSessionCard
       state={sourceSession}
+      compact={sessionMode === "topic"}
       disabled={isBulkAnalyzing || isStartingProcessing}
-      hasAuditReport={hasAuditReport}
+      hasAuditReport={hasAuditReport || (sessionMode === "topic" && hasReadyAtlasPresentation)}
       onAnalyze={handleAnalyzeSession}
       onStartProcessing={handleSessionStartProcessing}
       onRunAudit={() => handleRunAudit(topic.id, undefined, true)}
@@ -2049,8 +2050,7 @@ export function TopicDetailView({
         <summary aria-label={`${sourceDisclosureOpen ? "收合" : "展開"}貼文清單`}>
           <span style={{ ...textStyles.label }}>貼文 · 點入單帖</span>
           <span style={{ marginLeft: "auto", ...textStyles.caption, color: tokens.color.softInk }}>
-            {sourceListCounts}
-            {showP1Progress ? ` · P1 判讀 ${auditSummaryValue.analyzedCount}/${signals.length}` : ""}
+            {audit.sourceRows.length + pendingSignals.length} 篇貼文
           </span>
           <span style={{ ...textStyles.caption, color: tokens.color.subInk }}>{sourceDisclosureOpen ? "收合 ▴" : "展開 ▾"}</span>
         </summary>
@@ -2080,7 +2080,8 @@ export function TopicDetailView({
                 packet={row.packet}
                 active={selectedSourceId === row.packet.signalId}
                 readingStatus={row.readingStatus}
-                title={gist}
+                title={gist || row.packet.opText || signal?.sourcePreview.displayText || "資料不完整的 Threads 訊號"}
+                sourceFirst
                 tags={row.tags}
                 showPreview={false}
                 stanceBadge={signal?.reading ? <StanceBadge stance={signal.reading.stance} marker="source" /> : undefined}
@@ -2109,6 +2110,7 @@ export function TopicDetailView({
                 title={signal.tagRecord?.signalGist || preview}
                 preview={signal.tagRecord?.signalGist ? preview : undefined}
                 capturedAt={signal.capturedAt}
+                author={signal.sourcePreview.author}
                 state={signal.isProcessing ? "processing" : signal.analysisState === "failed" ? "failed" : "idle"}
                 statusLabel={analysisStateLabel(signal.analysisState)}
                 stanceBadge={signal.reading ? <StanceBadge stance={signal.reading.stance} marker="source" /> : undefined}
@@ -2122,15 +2124,26 @@ export function TopicDetailView({
             );
           })}
         </div>
+        {auditEvidence.length > 0 || showP1Progress ? (
+          <details data-topic-source-evidence-details="true" style={{ padding: tokens.spacing.sm, color: tokens.color.softInk, ...textStyles.caption }}>
+            <summary style={{ cursor: "pointer" }}>來源詳情</summary>
+            <div style={{ paddingTop: tokens.spacing.xs }}>
+              {sourceListCounts}
+              {showP1Progress ? ` · P1 判讀 ${auditSummaryValue.analyzedCount}/${signals.length}` : ""}
+            </div>
+          </details>
+        ) : null}
       </details>
     );
     return (
       <div style={viewRootStyle()} data-topic-load-state={loadState}>
         <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8, flexWrap: "wrap" }}>
-          <Breadcrumb topicName={topic.name} onBack={handleBack} />
+          <Breadcrumb topicName="" onBack={handleBack} />
           {auditToolbarElement}
         </div>
 
+        {hasReadyAtlasPresentation ? (
+          <>
         {topicSourceSessionCard}
 
         <div
@@ -2153,8 +2166,6 @@ export function TopicDetailView({
               aria-busy={auditSummaryValue.reportStatus === "running" ? "true" : undefined}
               style={{ display: "grid", gap: 12 }}
             >
-            {hasReadyAtlasPresentation ? (
-              <>
             <section
               data-signal-atlas-hero="true"
               data-dlens-presence="card"
@@ -2274,43 +2285,17 @@ export function TopicDetailView({
                 </>
               ) : null}
             </section>
-              </>
-            ) : (
-              <>
-              <section
-                data-signal-atlas-empty-state="true"
-                data-dlens-presence="card"
-                style={{
-                  display: "grid",
-                  gap: 10,
-                  minHeight: 180,
-                  alignContent: "center",
-                  justifyItems: "start",
-                  padding: "22px 20px",
-                  borderRadius: tokens.radius.cardLg,
-                  border: `1px solid ${tokens.color.atlasEdge}`,
-                  background: tokens.color.atlasPaper,
-                  boxShadow: tokens.shadow.atlasGlass,
-                  backdropFilter: tokens.effect.atlasBlur,
-                  WebkitBackdropFilter: tokens.effect.atlasBlur
-                }}
-              >
-                <span style={{ ...textStyles.label, color: tokens.color.signalDeep }}>Signal Atlas · Topic Audit · L0</span>
-                <h1 style={{ ...textStyles.h2, margin: 0, color: tokens.color.ink }}>{topic.name}</h1>
-                <p style={{ margin: 0, ...textStyles.bodyTight, maxWidth: 520, color: tokens.color.subInk }}>
-                  {auditSummaryValue.reportStatus === "running"
-                    ? "正在逐篇讀取來源；民情形狀、跨帖敘事與可靠性會在完成後原位展開。"
-                    : auditSummaryValue.reportStatus === "failed"
-                      ? "這次生成未完成；既有來源仍保留，可重新生成後在此更新。"
-                      : "生成議題審查後，民情形狀、跨帖敘事與來源會在此展開。"}
-                </p>
-              </section>
-                {mergedSourceSection}
-              </>
-            )}
             </div>
           </div>
           </div>
+          </>
+        ) : (
+          <>
+            <h1 style={{ ...textStyles.h2, margin: 0, color: tokens.color.ink }}>{topic.name}</h1>
+            {mergedSourceSection}
+            {topicSourceSessionCard}
+          </>
+        )}
 
         <AuditDetailDrawer
           activeDetail={activeDetail}

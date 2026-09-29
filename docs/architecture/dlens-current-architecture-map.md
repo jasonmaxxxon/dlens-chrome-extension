@@ -4,6 +4,14 @@
 > **This is the agent handoff map.** Any Codex / ChatGPT / Claude session reads this FIRST. It is the single source of truth for "what is built, what is enforced, what you must not bypass." Status colors must be kept honest (see DoD rule below) — a stale map is worse than none.
 > **Active design contract:** [`src/ui/tokens.ts`](../../src/ui/tokens.ts) is the only live design source. Visual Reset A keeps warm-paper editorial content language and absorbs macOS utility shell patterns into existing tokens; archived `DESIGN.md` and mockups are references, not competing specs.
 
+## Collection navigation update — 2026-09-29 (0.4.3 branch)
+
+- 🟢 `CollectionWorkspaceShell` owns the two primary entries, 收藏 / 工作區. Domain pages remain under explicit workspace navigation; settings and diagnostics are secondary disclosures.
+- 🟢 `viewmodel/collection-browser.ts` projects saved sources across sessions, deduplicates canonical post URLs and retains each membership. It does not write storage, change active sessions or run AI. Captured root/OP text and canonical image URLs feed the reader; snippet-only content remains labelled.
+- 🟢 `InPageCollectorPopup` facade owns query, selected reader, pending navigation, return context and per-route scroll positions across close/reopen. The popup viewport owns scrolling; restore tracks delayed content sizing and yields to user input.
+- 🟢 Workspace management dispatches rename/delete with the explicit session ID through existing AppState/storage seams; deletion remains behind confirmation. PR-only builds retain their PR domain boundary.
+- View/VM and storage boundaries are unchanged. The new navigation tests cover DOM state transitions; real Chrome acceptance is reported separately in `docs/memory/latest-shared-context.md`.
+
 ## Legend
 
 ```

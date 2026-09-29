@@ -2,12 +2,12 @@
 
 DLens is a mode-aware MV3 Chrome extension for capturing Threads posts and turning them into research, product-signal, and PR evidence workflows.
 
-> Last updated: 2026-09-21
-> Current source version: `0.4.2` — collection-first beta, based on `claude/v4-beta` 0.4.1 (`b9a358e`). Work is isolated on `codex/collect-recall-focus`; it is not merged into `main`.
+> Last updated: 2026-09-29
+> Current source version: `0.4.3` — collection-first navigation, based on `claude/v4-beta` 0.4.1 (`b9a358e`). Work is isolated on `codex/collect-recall-focus`; it is not merged into `main`.
 > Capture: current Threads SVG title / role-button metric controls and legacy aria-label controls are supported. Counts stay within their own controls and post boundaries; missing values stay unknown. Page-wide views/followers fallback is removed.
-> Collection: saved Product sources are visible immediately with a leading thumbnail, author, source text, captured metrics and lifecycle. Search is local. AI controls/readings remain available behind explicit disclosure; saving does not require running AI. Library also displays stored thumbnails; expired/missing images have a quiet fallback.
+> Collection: 收藏 / 工作區 are the two primary entries. Global saved sources are searchable across all existing workspaces without changing ownership; a full-width reader shows captured original text and images, with metrics and membership in details. Query, reader, route and scroll state survive closing/reopening and settings returns. Workspaces retain explicit open/create/rename/delete actions; deletion requires confirmation. Topic starts with sources and one action before Atlas is available.
 > Installation: update the contents of the existing unpacked beta folder to preserve its extension ID and storage. Do not load a newly named folder as a second beta. The currently observed folder is `/Users/tung/Downloads/dlens-v4-beta-0.4.1-chrome-mv3`.
-> Verification and runtime evidence: see `docs/memory/latest-shared-context.md`. Source/build checks do not prove real Chrome acceptance. Reload the extension and Threads before runtime validation.
+> Verification: 1530 tests passed, 5 existing skips, zero failures; full and PR-only builds passed. Version 0.4.3 was reloaded in Jason’s original Chrome profile and checked through a real Threads in-page launcher. Coverage, screenshots, backup and capture/image limitations: `docs/handoff/mockup-navigation-paused.md` and `docs/memory/latest-shared-context.md`.
 
 ## What It Does
 

@@ -1,4 +1,4 @@
-# tokens-intent.md — why the tokens are what they are
+# tokens-intent.md — why the tokens are what they are Collection and workspaces share one reading surface; source content leads and tools stay secondary.
 
 > **This is NOT a design spec.** Values live only in `src/ui/tokens.ts`; this
 > guard-enforced, value-free file explains why and when to use them. If they
