@@ -196,6 +196,7 @@ export interface SessionProcessingSummary {
 
 export interface PollingDelayInput {
   workerStatus: WorkerStatus;
+  previousWorkerStatus?: WorkerStatus;
   hasInflight: boolean;
   failureCount: number;
 }
@@ -366,13 +367,21 @@ export function pickCompareSelection(
 // header stamp) flip to Backend 離線 without an analyze click (B-03). It also
 // bounds how stale a recovery can look after the backend comes back.
 const IDLE_BACKEND_HEARTBEAT_MS = 12000;
+// Healthy polling while jobs are queued/running, and the one poll right after the worker drains.
+const INFLIGHT_POLL_MS = 2500;
+const JUST_DRAINED_POLL_MS = 1000;
 
 export function getPollingDelayMs(input: PollingDelayInput): number | null {
   if (!input.hasInflight && input.workerStatus === "idle") {
     return IDLE_BACKEND_HEARTBEAT_MS;
   }
+  if (input.failureCount <= 0) {
+    return input.previousWorkerStatus === "draining" && input.workerStatus === "idle"
+      ? JUST_DRAINED_POLL_MS
+      : INFLIGHT_POLL_MS;
+  }
   const base = input.workerStatus === "draining" ? 4000 : 8000;
-  const multiplier = input.failureCount <= 0 ? 1 : Math.min(2 ** input.failureCount, 4);
+  const multiplier = Math.min(2 ** input.failureCount, 4);
   return Math.min(base * multiplier, 15000);
 }
 

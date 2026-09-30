@@ -217,6 +217,7 @@ export function useProcessingCoordinator({
         processingFailureCountRef.current = 0;
         const nextDelay = getPollingDelayMs({
           workerStatus: nextWorkerStatus,
+          previousWorkerStatus,
           hasInflight,
           failureCount: 0
         });

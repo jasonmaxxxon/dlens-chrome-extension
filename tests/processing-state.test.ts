@@ -313,10 +313,18 @@ test("pickCompareSelection auto-fills the first legal pair and repairs invalid s
 });
 
 test("getPollingDelayMs follows the shared coordinator rules and backoff", () => {
-  assert.equal(getPollingDelayMs({ workerStatus: "draining", hasInflight: true, failureCount: 0 }), 4000);
+  assert.equal(getPollingDelayMs({ workerStatus: "draining", hasInflight: true, failureCount: 0 }), 2500);
+  assert.equal(getPollingDelayMs({ workerStatus: "draining", previousWorkerStatus: "draining", hasInflight: true, failureCount: 0 }), 2500);
   assert.equal(getPollingDelayMs({ workerStatus: "draining", hasInflight: true, failureCount: 1 }), 8000);
   assert.equal(getPollingDelayMs({ workerStatus: "draining", hasInflight: true, failureCount: 3 }), 15000);
-  assert.equal(getPollingDelayMs({ workerStatus: "idle", hasInflight: true, failureCount: 0 }), 8000);
+  assert.equal(getPollingDelayMs({ workerStatus: "idle", hasInflight: true, failureCount: 0 }), 2500);
+  assert.equal(getPollingDelayMs({ workerStatus: "idle", hasInflight: true, failureCount: 1 }), 15000);
+});
+
+test("getPollingDelayMs polls again quickly right after the worker drains", () => {
+  assert.equal(getPollingDelayMs({ workerStatus: "idle", previousWorkerStatus: "draining", hasInflight: true, failureCount: 0 }), 1000);
+  assert.equal(getPollingDelayMs({ workerStatus: "idle", previousWorkerStatus: "draining", hasInflight: true, failureCount: 1 }), 15000);
+  assert.equal(getPollingDelayMs({ workerStatus: "idle", previousWorkerStatus: "draining", hasInflight: false, failureCount: 0 }), 12000);
 });
 
 test("getPollingDelayMs keeps an idle heartbeat so passive surfaces notice a dead backend", () => {
