@@ -25,7 +25,11 @@ import {
   saveTopicAuditReport
 } from "../src/state/topic-audit-storage.ts";
 import { saveTopic } from "../src/state/topic-storage.ts";
-import { handleTopicAuditMessage, type TopicAuditHandlerMessage } from "../src/state/topic-audit-handlers.ts";
+import {
+  TOPIC_AUDIT_LLM_CONCURRENCY,
+  handleTopicAuditMessage,
+  type TopicAuditHandlerMessage
+} from "../src/state/topic-audit-handlers.ts";
 import type { SessionItem, SessionRecord, Signal, Topic } from "../src/state/types.ts";
 
 class MemoryStorage {
@@ -1630,6 +1634,171 @@ test("topic audit checkpoints each completed shard before a later shard fails", 
   const checkpoint = await loadTopicAuditMemos(storage, "topic-1");
   assert.equal(checkpoint?.shardReadings?.length, 1);
   assert.equal(checkpoint?.shardReadings?.[0]?.shardIndex, 0);
+});
+
+async function seedTopicWithPosts(storage: MemoryStorage, count: number): Promise<SessionRecord> {
+  const numbers = Array.from({ length: count }, (_, index) => index + 1);
+  await saveTopic(storage, { ...makeTopic(), signalIds: numbers.map((n) => `signal-${n}`) });
+  await storage.set({ "dlens:v1:signals": numbers.map((n) => makeSignal(`signal-${n}`, `item-${n}`)) });
+  return {
+    ...makeSession(),
+    items: numbers.map((n) => makeItem(`item-${n}`, `op${n}`, `第 ${n} 篇貼文。`, `第 ${n} 篇的留言。`))
+  };
+}
+
+function promptPostNumber(prompt: string): number {
+  return Number(/\bS(\d+)\.OP\b/.exec(prompt)?.[1] ?? 0);
+}
+
+const sleep = (ms: number) => new Promise<void>((resolve) => setTimeout(resolve, ms));
+
+test("topic audit runs P0.5 shard and P1 post calls with bounded concurrency", async () => {
+  const storage = new MemoryStorage();
+  const session = await seedTopicWithPosts(storage, 7);
+  let inFlight = 0;
+  const maxInFlight: Record<string, number> = {};
+
+  await handleTopicAuditMessage(storage, {
+    message: { type: "topic/audit/run", requestId: "request-concurrency", sessionId: "session-1", topicId: "topic-1" },
+    sessions: [session],
+    generateEnvelope: async (stageName, _prompt, onAttempt) => {
+      await onAttempt(1);
+      inFlight += 1;
+      maxInFlight[stageName] = Math.max(maxInFlight[stageName] ?? 0, inFlight);
+      await sleep(5);
+      inFlight -= 1;
+      return makeEnvelope(stageName);
+    },
+    model: "mock:model"
+  });
+
+  for (const stageName of ["comment-shard-reading", "p1-signal-reading"]) {
+    assert.ok((maxInFlight[stageName] ?? 0) > 1, `${stageName} ran serially`);
+    assert.ok((maxInFlight[stageName] ?? 0) <= TOPIC_AUDIT_LLM_CONCURRENCY, `${stageName} exceeded the limit`);
+  }
+  for (const stageName of ["lexicon", "narrative", "audience", "absence", "final"]) {
+    assert.equal(maxInFlight[stageName], 1);
+  }
+});
+
+test("topic audit keeps shard and P1 readings in input order when calls finish in reverse", async () => {
+  const storage = new MemoryStorage();
+  const postCount = TOPIC_AUDIT_LLM_CONCURRENCY;
+  const session = await seedTopicWithPosts(storage, postCount);
+  const completionOrder: Record<string, number[]> = {};
+
+  const result = await handleTopicAuditMessage(storage, {
+    message: { type: "topic/audit/run", requestId: "request-order", sessionId: "session-1", topicId: "topic-1" },
+    sessions: [session],
+    generateEnvelope: async (stageName, prompt) => {
+      if (stageName === "comment-shard-reading" || stageName === "p1-signal-reading") {
+        const post = promptPostNumber(prompt);
+        await sleep((postCount - post + 1) * 10);
+        (completionOrder[stageName] ??= []).push(post);
+      }
+      return makeEnvelope(stageName);
+    },
+    model: "mock:model"
+  });
+
+  const inputOrder = Array.from({ length: postCount }, (_, index) => `S${index + 1}`);
+  const reverseCompletion = Array.from({ length: postCount }, (_, index) => postCount - index);
+  assert.deepEqual(completionOrder["comment-shard-reading"], reverseCompletion);
+  assert.deepEqual(completionOrder["p1-signal-reading"], reverseCompletion);
+  assert.deepEqual(result.auditMemos?.shardReadings?.map((reading) => reading.shortCode), inputOrder);
+  assert.deepEqual(result.auditMemos?.signalReadings.map((reading) => reading.shortCode), inputOrder);
+  const stored = await loadTopicAuditMemos(storage, "topic-1");
+  assert.deepEqual(stored?.shardReadings?.map((reading) => reading.shortCode), inputOrder);
+  assert.deepEqual(stored?.signalReadings.map((reading) => reading.shortCode), inputOrder);
+});
+
+test("topic audit never overlaps checkpoint writes while shard calls overlap", async () => {
+  class SlowWriteStorage extends MemoryStorage {
+    activeWrites = 0;
+    maxActiveWrites = 0;
+    memoShardCounts: number[] = [];
+
+    override async set(values: Record<string, unknown>): Promise<void> {
+      this.activeWrites += 1;
+      this.maxActiveWrites = Math.max(this.maxActiveWrites, this.activeWrites);
+      const memos = values[TOPIC_AUDIT_MEMOS_STORAGE_KEY] as Record<string, { shardReadings?: unknown[] }> | undefined;
+      if (memos?.["topic-1"]) {
+        this.memoShardCounts.push(memos["topic-1"].shardReadings?.length ?? 0);
+      }
+      await sleep(2);
+      await super.set(values);
+      this.activeWrites -= 1;
+    }
+  }
+  const storage = new SlowWriteStorage();
+  const session = await seedTopicWithPosts(storage, 6);
+  let inFlight = 0;
+  let maxInFlight = 0;
+
+  await handleTopicAuditMessage(storage, {
+    message: { type: "topic/audit/run", requestId: "request-serial-writes", sessionId: "session-1", topicId: "topic-1" },
+    sessions: [session],
+    generateEnvelope: async (stageName, prompt, onAttempt) => {
+      await onAttempt(1);
+      inFlight += 1;
+      maxInFlight = Math.max(maxInFlight, inFlight);
+      await sleep(stageName === "comment-shard-reading" ? (promptPostNumber(prompt) % 3) * 3 + 1 : 1);
+      inFlight -= 1;
+      return makeEnvelope(stageName);
+    },
+    model: "mock:model"
+  });
+
+  assert.ok(maxInFlight > 1);
+  assert.equal(storage.maxActiveWrites, 1);
+  assert.ok(storage.memoShardCounts.some((count) => count < 6), "no intermediate shard checkpoint was written");
+  assert.ok(
+    storage.memoShardCounts.every((count, index, counts) => index === 0 || count >= counts[index - 1]!),
+    `checkpoint regressed: ${storage.memoShardCounts.join(",")}`
+  );
+  assert.equal(storage.memoShardCounts.at(-1), 6);
+});
+
+test("topic audit surfaces a failing shard's error and stage only after in-flight shards settle", async () => {
+  const storage = new MemoryStorage();
+  const session = await seedTopicWithPosts(storage, 6);
+  const failure = new TopicAuditEnvelopeError("comment-shard-reading", "schema_mismatch", 2, undefined, 0);
+  const shardCalls: number[] = [];
+  const laterStageCalls: string[] = [];
+
+  await assert.rejects(
+    () => handleTopicAuditMessage(storage, {
+      message: { type: "topic/audit/run", requestId: "request-shard-failure", sessionId: "session-1", topicId: "topic-1" },
+      sessions: [session],
+      generateEnvelope: async (stageName, prompt, onAttempt) => {
+        await onAttempt(1);
+        if (stageName !== "comment-shard-reading") {
+          laterStageCalls.push(stageName);
+          return makeEnvelope(stageName);
+        }
+        const post = promptPostNumber(prompt);
+        shardCalls.push(post);
+        if (post === 3) {
+          throw failure;
+        }
+        await sleep(20);
+        return makeEnvelope(stageName);
+      },
+      model: "mock:model"
+    }),
+    (error: unknown) => error === failure
+  );
+
+  assert.deepEqual(shardCalls, [1, 2, 3, 4]);
+  assert.deepEqual(laterStageCalls, []);
+  const status = await loadTopicAuditRun(storage, "topic-1", new Date().toISOString());
+  assert.equal(status?.state, "failed");
+  assert.equal(status?.stage, "comment-shard-reading");
+  assert.equal(status?.failureKind, "schema_mismatch");
+  assert.deepEqual(
+    (await loadTopicAuditMemos(storage, "topic-1"))?.shardReadings?.map((reading) => reading.shortCode),
+    ["S1", "S2", "S4"]
+  );
 });
 
 test("topic audit preserves the published report when a single-P1 checkpoint fails", async () => {

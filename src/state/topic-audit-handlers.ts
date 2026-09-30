@@ -925,28 +925,63 @@ async function saveMemos(
   await saveTopicAuditMemos(storageArea, topicId, bundle);
 }
 
-async function generateMissingShardReadingsForPacket(
-  packet: EvidencePacket,
+// Independent per-shard (P0.5) and per-post (P1) LLM calls run with at most this many in flight.
+export const TOPIC_AUDIT_LLM_CONCURRENCY = 4;
+
+// Results keep input order. The first rejection stops new tasks from starting; in-flight tasks
+// settle before that error is rethrown, so the run is marked failed only after they stop writing.
+async function mapWithConcurrency<T, R>(
+  items: readonly T[],
+  limit: number,
+  task: (item: T, index: number) => Promise<R>
+): Promise<R[]> {
+  const results: R[] = new Array(items.length);
+  const errors: unknown[] = [];
+  let nextIndex = 0;
+  const worker = async (): Promise<void> => {
+    while (errors.length === 0 && nextIndex < items.length) {
+      const index = nextIndex;
+      nextIndex += 1;
+      try {
+        results[index] = await task(items[index]!, index);
+      } catch (error) {
+        errors.push(error);
+      }
+    }
+  };
+  await Promise.all(Array.from({ length: Math.min(limit, items.length) }, worker));
+  if (errors.length > 0) {
+    throw errors[0];
+  }
+  return results;
+}
+
+async function generateMissingShardReadings(
+  packets: readonly EvidencePacket[],
   existingReadings: readonly CommentShardReading[],
   options: TopicAuditHandlerOptions,
   inputHash: string,
   onCheckpoint?: (generatedReadings: readonly CommentShardReading[]) => Promise<void>,
   onAttempt: (attempt: 1 | 2) => Promise<void> = noopTopicAuditAttempt
 ): Promise<CommentShardReading[]> {
-  const shards = splitPacketIntoCommentShards(packet);
-  const generated: CommentShardReading[] = [];
-  for (let shardIndex = 0; shardIndex < shards.length; shardIndex += 1) {
-    const expectedIdentity = expectedShardIdentity(packet, shardIndex, shards.length, options);
-    const existing = existingReadings.find((reading) => (
-      reading.signalId === packet.signalId
-      && reading.shardIndex === shardIndex
-      && reading.shardCount === shards.length
-      && isTopicAuditArtifactReusable(reading.cacheIdentity, expectedIdentity)
-    ));
-    if (existing) {
-      continue;
-    }
-    const shardFragments = shards[shardIndex] ?? [];
+  const missingShards = packets.flatMap((packet) => {
+    const shards = splitPacketIntoCommentShards(packet);
+    return shards.flatMap((shardFragments, shardIndex) => {
+      const expectedIdentity = expectedShardIdentity(packet, shardIndex, shards.length, options);
+      const existing = existingReadings.find((reading) => (
+        reading.signalId === packet.signalId
+        && reading.shardIndex === shardIndex
+        && reading.shardCount === shards.length
+        && isTopicAuditArtifactReusable(reading.cacheIdentity, expectedIdentity)
+      ));
+      return existing ? [] : [{ packet, shardIndex, shardCount: shards.length, shardFragments, expectedIdentity }];
+    });
+  });
+  const completed: Array<CommentShardReading | undefined> = new Array(missingShards.length);
+  // One checkpoint at a time; each saves every shard completed so far, in input order.
+  let checkpoints: Promise<void> = Promise.resolve();
+  return mapWithConcurrency(missingShards, TOPIC_AUDIT_LLM_CONCURRENCY, async (shard, index) => {
+    const { packet, shardIndex, shardCount, shardFragments, expectedIdentity } = shard;
     const shardRefs = new Set(shardFragments.map((fragment) => fragment.ref));
     const envelope = await generateOrParseEnvelope(
       options.generateEnvelope,
@@ -956,19 +991,21 @@ async function generateMissingShardReadingsForPacket(
       true,
       onAttempt
     );
-    generated.push(shardReadingFromEnvelope(
+    const reading = shardReadingFromEnvelope(
       packet,
       shardIndex,
-      shards.length,
+      shardCount,
       shardFragments,
       envelope,
       options,
       inputHash,
       expectedIdentity
-    ));
-    await onCheckpoint?.(generated);
-  }
-  return generated;
+    );
+    completed[index] = reading;
+    checkpoints = checkpoints.then(() => onCheckpoint?.(completed.filter((entry) => entry !== undefined)));
+    await checkpoints;
+    return reading;
+  });
 }
 
 const AUDIT_STAGE_ORDER: TopicAuditStageName[] = [
@@ -1098,28 +1135,26 @@ async function runAuditPipeline(
 
   const shardEligiblePackets = evidence.filter((packet) => readySignalIds.has(packet.signalId));
   let upstreamChanged = false;
-  for (const packet of shardEligiblePackets) {
-    const generated = await generateMissingShardReadingsForPacket(
-      packet,
-      shardReadings,
-      options,
+  const generatedShardReadings = await generateMissingShardReadings(
+    shardEligiblePackets,
+    shardReadings,
+    options,
+    inputHash,
+    async (checkpoint) => saveMemos(
+      storageArea,
+      topic.id,
+      auditRunId,
       inputHash,
-      async (checkpoint) => saveMemos(
-        storageArea,
-        topic.id,
-        auditRunId,
-        inputHash,
-        [...shardReadings, ...checkpoint],
-        signalReadings,
-        lensMemos,
-        ownerAtNow
-      ),
-      onStageAttempt("comment-shard-reading")
-    );
-    if (generated.length > 0) {
-      shardReadings.push(...generated);
-      upstreamChanged = true;
-    }
+      [...shardReadings, ...checkpoint],
+      signalReadings,
+      lensMemos,
+      ownerAtNow
+    ),
+    onStageAttempt("comment-shard-reading")
+  );
+  if (generatedShardReadings.length > 0) {
+    shardReadings.push(...generatedShardReadings);
+    upstreamChanged = true;
   }
 
   if (existingMemos) {
@@ -1138,7 +1173,7 @@ async function runAuditPipeline(
   const missingPackets = evidence.filter((packet) => readySignalIds.has(packet.signalId) && !readingBySignalId.has(packet.signalId));
   if (missingPackets.length > 0) {
     upstreamChanged = true;
-    for (const packet of missingPackets) {
+    const p1Readings = await mapWithConcurrency(missingPackets, TOPIC_AUDIT_LLM_CONCURRENCY, async (packet) => {
       try {
         const envelope = await generateOrParseEnvelope(
           options.generateEnvelope,
@@ -1152,20 +1187,28 @@ async function runAuditPipeline(
           onStageAttempt("p1-signal-reading")
         );
         const packetShardReadings = shardReadings.filter((reading) => reading.signalId === packet.signalId);
-        signalReadings.push(signalReadingFromEnvelope(
+        return signalReadingFromEnvelope(
           packet,
           envelope,
           options,
           inputHash,
           await expectedSignalReadingIdentity(packet, packetShardReadings, options)
-        ));
+        );
       } catch (error) {
         if (isSupersededTopicAuditOwnerError(error)) {
           throw error;
         }
+        return null;
+      }
+    });
+    missingPackets.forEach((packet, index) => {
+      const reading = p1Readings[index];
+      if (reading) {
+        signalReadings.push(reading);
+      } else {
         p1Failures.push(packet.shortCode);
       }
-    }
+    });
     await saveMemos(storageArea, topic.id, auditRunId, inputHash, shardReadings, signalReadings, lensMemos, ownerAtNow);
   }
 
@@ -1378,8 +1421,8 @@ async function runP1ForSingleSignal(
     : [];
   const lensMemos: LensMemo[] = existingMemos ? [...existingMemos.lensMemos] : [];
 
-  const generatedShardReadings = await generateMissingShardReadingsForPacket(
-    targetPacket,
+  const generatedShardReadings = await generateMissingShardReadings(
+    [targetPacket],
     shardReadings,
     options,
     inputHash,
