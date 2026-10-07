@@ -772,6 +772,24 @@ test("background wires extension action click to open the side panel on worker s
   assert.deepEqual(harness.sidePanelOpenCalls, [{ tabId: TAB_ID }]);
 });
 
+test("a card's 開啟工作區 opens the side panel inside the gesture and hands its workspace over once", async () => {
+  const harness = await createHarness({
+    [backgroundTestables.GLOBAL_STORAGE_KEY]: makeGlobal([makeSession("topic-session", "topic")], "topic-session"),
+    [backgroundTestables.ACTIVE_SESSION_ID_STORAGE_KEY]: "topic-session",
+    [backgroundTestables.tabStorageKey(TAB_ID)]: createEmptyTabState()
+  });
+
+  const opened = harness.dispatch({ type: "sidepanel/open", sessionId: "topic-session" });
+  assert.deepEqual(harness.sidePanelOpenCalls, [{ tabId: TAB_ID }], "sidePanel.open must run before the handler awaits anything");
+  assert.equal((await opened).ok, true);
+  const first = await harness.dispatch({ type: "sidepanel/take-workspace-open" });
+  assert.ok(first.ok);
+  assert.equal(first.workspaceSessionId, "topic-session");
+  const second = await harness.dispatch({ type: "sidepanel/take-workspace-open" });
+  assert.ok(second.ok);
+  assert.equal(second.workspaceSessionId, null);
+});
+
 test("session/set-mode existing target mode writes only active-session and tab keys", async () => {
   const topic = makeSession("topic-session", "topic");
   const product = makeSession("product-session", "product");

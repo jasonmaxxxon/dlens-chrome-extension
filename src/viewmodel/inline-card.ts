@@ -11,12 +11,23 @@ export type InlineCardAnswer =
   | { kind: "op"; rows: { text: string; inReplyTo: string }[] }
   | { kind: "ask"; headline: string; rows: { text: string; status: "author" | "other" | "none" }[] }
   | { kind: "empty"; text: string };
+/** Replies the post page ships in its own HTML, read on save; the crawl replaces them. */
+export type InlineCardPeekInput = { state: "loading" } | { state: "ready"; replies: InlineCardQuote[] } | { state: "unavailable" };
+export type InlineCardPeek = { state: "loading" } | { state: "ready"; total: number; top: InlineCardQuote | null };
+export interface InlineCardContext {
+  /** Every saved item, to count crawls ahead of this one on the single backend worker. */
+  queue?: SessionItem[];
+  peek?: InlineCardPeekInput;
+  /** The crawl request itself failed (backend down), so the item never left 「saved」. */
+  startError?: string | null;
+}
 export interface InlineCardViewModel {
   mode: FolderMode;
   sessionName: string;
   phase: InlineCardPhase;
-  /** ISO time the current wait started; the view turns it into 「已等 m:ss」. */
-  waitingSince: string | null;
+  /** Estimate only: the backend has no ETA. The view counts down from `from` and says 「比平常久」 past it. */
+  eta: { from: string; seconds: number; ahead: number } | null;
+  peek: InlineCardPeek | null;
   error: string | null;
   countLabel: string | null;
   /** Fewer than MIN_COMMENTS read: list them instead of grouping. */
@@ -26,6 +37,9 @@ export interface InlineCardViewModel {
 }
 
 export const INLINE_CARD_MIN_COMMENTS = 10;
+// Fitted to the ingest log 2026-08-24 → 09-21 (p50 84s, p90 163s): a fixed overhead plus time per reply.
+export const estimateCrawlSeconds = (item: SessionItem) =>
+  Math.round(55 + Math.min(item.descriptor.engagement?.comments ?? 0, 500) * 0.22);
 const QUESTION = /[？?]|點解|點樣|點算|有冇|係咪|會唔會|可唔可以|幾時|邊度|邊個|幾多|\b(what|why|how|when|where|who)\b/i;
 
 interface Comment { id: string; parent: string | null; author: string; text: string; likes: number | null }
@@ -54,12 +68,34 @@ function phaseOf(item: SessionItem): InlineCardPhase {
   return "saved";
 }
 
-export function buildInlineCardViewModel(item: SessionItem, mode: FolderMode, sessionName: string): InlineCardViewModel {
-  const phase = phaseOf(item);
+function etaOf(item: SessionItem, phase: InlineCardPhase, queue: SessionItem[]): InlineCardViewModel["eta"] {
+  const own = estimateCrawlSeconds(item);
+  if (phase === "running") {
+    const from = item.lastStatusAt ?? item.queuedAt;
+    return from ? { from, seconds: own, ahead: 0 } : null;
+  }
+  if (phase !== "queued" || !item.queuedAt) return null;
+  const ahead = queue.filter((other) => other.id !== item.id
+    && (other.status === "running" || (other.status === "queued" && !!other.queuedAt && other.queuedAt < item.queuedAt!)));
+  return { from: item.queuedAt, seconds: own + ahead.reduce((sum, other) => sum + estimateCrawlSeconds(other), 0), ahead: ahead.length };
+}
+
+function peekOf(input: InlineCardPeekInput | undefined): InlineCardPeek | null {
+  if (!input || input.state === "unavailable") return null;
+  if (input.state === "loading") return input;
+  const top = [...input.replies].sort((a, b) => (b.likes ?? 0) - (a.likes ?? 0))[0] ?? null;
+  return { state: "ready", total: input.replies.length, top };
+}
+
+export function buildInlineCardViewModel(item: SessionItem, mode: FolderMode, sessionName: string, context: InlineCardContext = {}): InlineCardViewModel {
+  const startError = phaseOf(item) === "saved" ? context.startError ?? null : null;
+  const phase = startError ? "failed" : phaseOf(item);
+  const reads = mode === "topic" || mode === "product";
   const base: InlineCardViewModel = {
     mode, sessionName, phase,
-    waitingSince: phase === "running" ? item.lastStatusAt ?? item.queuedAt : phase === "queued" ? item.queuedAt : null,
-    error: phase === "failed" ? item.lastError || item.lastErrorKind || "原因不明" : null,
+    eta: etaOf(item, phase, context.queue ?? []),
+    peek: reads && phase !== "done" ? peekOf(context.peek) : null,
+    error: phase === "failed" ? startError || item.lastError || item.lastErrorKind || "原因不明" : null,
     countLabel: null, few: null, entries: [], answers: {}
   };
   if (phase !== "done" || mode !== "topic") return base;

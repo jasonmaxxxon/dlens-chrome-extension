@@ -1,11 +1,7 @@
-import React from "react";
-import ReactDOM from "react-dom/client";
 import { defineContentScript } from "wxt/utils/define-content-script";
 import { createLocationChangeChecker } from "../src/targeting/navigation-reset";
 import type { ExtensionMessage, ExtensionResponse } from "../src/state/messages";
 import { appendExternalPipelineTraceEntry, isQaTraceEnabled } from "../src/state/pipeline-trace";
-import { InPageCollectorApp } from "../src/ui/InPageCollectorApp";
-import { buildWorkspaceCrashMarkup, getWorkspaceCrashMessage, isExtensionRuntimeError } from "../src/ui/runtime-guard";
 import { DLENS_MOTION_CSS, ensureDlensKeyframes } from "../src/ui/motion";
 import { dispatchPageLocationChange } from "../src/ui/inpage-helpers";
 import { startInlineCollectRuntime } from "../src/content/inline-collect-runtime";
@@ -51,10 +47,6 @@ function ensureRoot(): HTMLDivElement {
   return root;
 }
 
-
-function renderWorkspaceCrashFallback(root: HTMLDivElement, error: unknown) {
-  root.innerHTML = buildWorkspaceCrashMarkup(getWorkspaceCrashMessage(error));
-}
 
 function installSpaNavigationReset() {
   const checkLocationChange = createLocationChangeChecker(window.location.href);
@@ -105,28 +97,11 @@ export default defineContentScript({
   matches: ["*://*.threads.net/*", "*://*.threads.com/*"],
   main() {
     const root = ensureRoot();
-    // React owns only the workspace child. Wheel nodes share the fixed overlay
-    // host but cannot be removed by a workspace rerender or error fallback.
-    const workspace = document.createElement("div");
-    workspace.setAttribute("data-dlens-control", "true");
-    workspace.style.isolation = "isolate";
-    root.appendChild(workspace);
-    const reactRoot = ReactDOM.createRoot(workspace);
+    // Threads pages carry only the collect button and its card; the workspace lives in Chrome's side panel.
     inlineCollect?.destroy();
     inlineCollect = startInlineCollectRuntime(root);
     removeSpaNavigationReset?.();
     removeSpaNavigationReset = installSpaNavigationReset();
-    const extensionOrigin = chrome.runtime.getURL("");
-    const onWindowError = (event: ErrorEvent) => {
-      const candidate = event.error || event.message || event.filename;
-      if (isExtensionRuntimeError(candidate, extensionOrigin)) renderWorkspaceCrashFallback(workspace, candidate);
-    };
-    const onUnhandledRejection = (event: PromiseRejectionEvent) => {
-      if (isExtensionRuntimeError(event.reason, extensionOrigin)) renderWorkspaceCrashFallback(workspace, event.reason);
-    };
-    window.addEventListener("error", onWindowError);
-    window.addEventListener("unhandledrejection", onUnhandledRejection);
-    reactRoot.render(React.createElement(InPageCollectorApp));
     if (isQaTraceEnabled()) void chrome.runtime.sendMessage({ type: "pipeline-trace/enable-background" } satisfies ExtensionMessage).catch(() => undefined);
     chrome.runtime.onMessage.addListener((message: ExtensionMessage, _sender, sendResponse) => {
       if (message.type === "pipeline-trace/background-event") {
@@ -137,8 +112,6 @@ export default defineContentScript({
       return false;
     });
     window.addEventListener("pagehide", () => {
-      window.removeEventListener("error", onWindowError);
-      window.removeEventListener("unhandledrejection", onUnhandledRejection);
       inlineCollect?.destroy();
       removeSpaNavigationReset?.();
     }, { once: true });

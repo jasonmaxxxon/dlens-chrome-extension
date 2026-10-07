@@ -51,6 +51,8 @@ export type ExtensionMessagePayload =
   | { type: "settings/set-one-liner-config"; provider: "openai" | "claude" | "google" | null; openaiApiKey: string; claudeApiKey: string; googleApiKey: string }
   | { type: "settings/set-layout-preferences"; layoutPreferences: Partial<LayoutPreferences> }
   | { type: "popup/open-active-tab" }
+  | { type: "sidepanel/open"; sessionId: string }
+  | { type: "sidepanel/take-workspace-open" }
   | { type: "popup/close-tab"; tabId: number }
   | { type: "popup/navigate-active-tab"; page: PopupPage }
   | { type: "selection/start-active-tab" }
@@ -173,6 +175,8 @@ export type ExtensionSuccessResponse = {
   capture?: CaptureSnapshot;
   compareBrief?: CompareBrief | null;
   oneLiner?: string | null;
+  /** The workspace a card asked the side panel to open, handed over once. */
+  workspaceSessionId?: string | null;
   clusterInterpretations?: ClusterInterpretation[];
   evidenceAnnotations?: EvidenceAnnotation[];
   techniqueReadings?: TechniqueReadingSnapshot[];

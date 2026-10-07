@@ -18,7 +18,6 @@ const VIEW_FILE_EXCLUDE = new Set([
   "src/ui/AuditReportEntry.tsx",
   "src/ui/controller.tsx",
   "src/ui/InPageCollectorResultWorkspace.tsx",
-  "src/ui/SidepanelApp.tsx",
   "src/ui/inpage-helpers.tsx"
 ]);
 

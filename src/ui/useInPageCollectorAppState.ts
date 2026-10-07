@@ -92,6 +92,8 @@ type UseInPageCollectorAppStateArgs = {
   snapshot: ExtensionSnapshot | null;
   tabId: number | null;
   sendAndSync: SendAndSync;
+  /** Rendered in Chrome's side panel: always open, never closed by clicks on the Threads page. */
+  embedded?: boolean;
 };
 
 export type PreviewSaveResult =
@@ -674,7 +676,7 @@ export async function runAnalyzeItemsPipeline({
   return { ok: false, failedCount };
 }
 
-export function useInPageCollectorAppState({ snapshot, tabId, sendAndSync }: UseInPageCollectorAppStateArgs) {
+export function useInPageCollectorAppState({ snapshot, tabId, sendAndSync, embedded = false }: UseInPageCollectorAppStateArgs) {
   const popupRef = useRef<HTMLDivElement | null>(null);
   const hadReadyPairRef = useRef(false);
   const refreshedOnOpenFolderRef = useRef<string | null>(null);
@@ -765,7 +767,7 @@ export function useInPageCollectorAppState({ snapshot, tabId, sendAndSync }: Use
   const activeItem = useMemo(() => getActiveItem(snapshot), [snapshot]);
   const activeFolderMode: FolderMode = activeFolder?.mode ?? "archive";
   const persistedPopupOpen = Boolean(snapshot?.tab.popupOpen);
-  const popupOpen = persistedPopupOpen || localPopupOpen;
+  const popupOpen = embedded || persistedPopupOpen || localPopupOpen;
   useEffect(() => {
     if (persistedPopupOpen) {
       setLocalPopupOpen(false);
@@ -1433,7 +1435,7 @@ export function useInPageCollectorAppState({ snapshot, tabId, sendAndSync }: Use
   }, [activeFolder?.id]);
 
   useEffect(() => {
-    if (!snapshot?.tab.popupOpen || !tabId) {
+    if (embedded || !snapshot?.tab.popupOpen || !tabId) {
       return;
     }
     const onPointerDown = (event: MouseEvent) => {
@@ -1449,7 +1451,7 @@ export function useInPageCollectorAppState({ snapshot, tabId, sendAndSync }: Use
     };
     document.addEventListener("mousedown", onPointerDown, true);
     return () => document.removeEventListener("mousedown", onPointerDown, true);
-  }, [sendAndSync, snapshot?.tab.popupOpen, tabId]);
+  }, [embedded, sendAndSync, snapshot?.tab.popupOpen, tabId]);
 
   useEffect(() => {
     const listener = (event: Event) => {

@@ -1,6 +1,6 @@
 import { modeThemes, tokens } from "../ui/tokens";
 import type { FolderMode } from "../state/types";
-import type { InlineCardAnswer, InlineCardEntryKey, InlineCardQuote, InlineCardViewModel } from "../viewmodel/inline-card";
+import type { InlineCardAnswer, InlineCardEntryKey, InlineCardPeek, InlineCardQuote, InlineCardViewModel } from "../viewmodel/inline-card";
 
 const c = tokens.collectCard;
 const esc = (s: string) => s.replace(/[&<>"]/g, (ch) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[ch]!));
@@ -13,13 +13,19 @@ const ICON: Record<InlineCardEntryKey, string> = {
   ask: svg('<path d="M4 12a8 8 0 1 1 3.4 6.5L4 20l1.1-3.5A8 8 0 0 1 4 12z"/><path d="M10 9.6a2 2 0 1 1 2.6 1.9c-.4.2-.6.5-.6.9v.6M12 15.4v.1"/>')
 };
 
-export function formatWait(sinceIso: string | null, now: number): string {
-  if (!sinceIso) return "";
-  const s = Math.max(0, Math.floor((now - Date.parse(sinceIso)) / 1000));
-  return `${Math.floor(s / 60)}:${String(s % 60).padStart(2, "0")}`;
+export function formatEta(fromIso: string, seconds: number, now: number): string {
+  const left = seconds - Math.floor((now - Date.parse(fromIso)) / 1000);
+  if (!Number.isFinite(left) || left < 0) return "比平常久";
+  return left < 60 ? `約 ${left} 秒` : `約 ${Math.floor(left / 60)} 分 ${String(left % 60).padStart(2, "0")} 秒`;
 }
 
 const cite = (q: InlineCardQuote) => `@${esc(q.author)}${q.likes !== null ? ` · ${q.likes} 讚` : ""}`;
+function peekHtml(peek: InlineCardPeek | null): string {
+  if (!peek) return "";
+  if (peek.state === "loading") return `<div class="sk" aria-label="讀取首批留言"><i></i><i></i></div>`;
+  if (!peek.top) return `<p class="note">首批未見留言，等抓取完成。</p>`;
+  return `<div class="q1"><q>「${esc(peek.top.text)}」</q><cite>${cite(peek.top)} · 首批 ${peek.total} 則中最高讚</cite></div>`;
+}
 function answerHtml(a: InlineCardAnswer): string {
   if (a.kind === "empty") return `<p class="hl">${esc(a.text)}</p>`;
   if (a.kind === "clusters") {
@@ -43,14 +49,17 @@ export function renderInlineCard(vm: InlineCardViewModel, open: InlineCardEntryK
   const isRead = vm.mode === "topic" || vm.mode === "product";
   let status: string, dot = "";
   if (vm.phase === "failed") { status = `<span class="bad">抓取失敗</span>`; dot = "fail"; }
-  else if (vm.phase === "running") { status = `抓取中 · 已等 <span data-dlens-wait="${esc(vm.waitingSince ?? "")}">${formatWait(vm.waitingSince, now)}</span>`; dot = "live"; }
-  else if (vm.phase === "queued") { status = "排隊中"; dot = "idle"; }
+  else if (vm.phase === "running" || vm.phase === "queued") {
+    const eta = vm.eta ? ` · <span data-dlens-eta="${esc(vm.eta.from)}" data-dlens-eta-sec="${vm.eta.seconds}">${formatEta(vm.eta.from, vm.eta.seconds, now)}</span>` : "";
+    status = vm.phase === "running" ? `抓取中${eta}` : `排隊${vm.eta?.ahead ? ` · 前面 ${vm.eta.ahead} 篇` : ""}${eta}`;
+    dot = vm.phase === "running" ? "live" : "idle";
+  }
   else if (vm.phase === "saved") status = isRead ? "未抓取留言" : vm.mode === "archive" ? "已放好" : "已加入";
   else status = vm.countLabel ?? "已抓取";
   const head = `<div class="head"><span class="dt ${dot}"></span><span class="nm">${esc(vm.sessionName)}</span><span>· ${status}</span><button class="x" data-dlens-act="close" aria-label="收起">×</button></div>`;
-  let body = "";
-  if (vm.phase === "failed") body = `<p class="note">${esc(vm.error ?? "")}</p><div class="acts"><button class="btn primary" data-dlens-act="crawl">重試</button></div>`;
-  else if (vm.phase === "saved" && isRead) body = `<div class="acts"><button class="btn primary" data-dlens-act="crawl">抓取留言</button></div>`;
+  let body = peekHtml(vm.peek);
+  if (vm.phase === "failed") body += `<p class="note">${esc(vm.error ?? "")}</p><div class="acts"><button class="btn primary" data-dlens-act="crawl">重試</button></div>`;
+  else if (vm.phase === "saved" && isRead) body += `<div class="acts"><button class="btn primary" data-dlens-act="crawl">抓取留言</button></div>`;
   else if (vm.phase === "done" && vm.few) body = `<p class="note">只有 ${vm.few.length} 則留言，未夠歸納，全部列出：</p>${vm.few.map((q) => `<div class="reply">${esc(q.text)}<cite>${cite(q)}</cite></div>`).join("")}`;
   else if (vm.phase === "done" && vm.entries.length) {
     body = `<div class="entries" role="tablist">${vm.entries.map((e) => {
@@ -75,6 +84,10 @@ export const DLENS_INLINE_CARD_CSS = `
 .dlens-card .x {margin-left:auto;border:0;background:none;color:${c.soft};cursor:pointer;font-size:15px;line-height:1;padding:2px 5px;border-radius:6px}
 .dlens-card .x:hover {background:${c.hover};color:${tokens.color.ink}}
 .dlens-card .note {margin:8px 0 0;font-size:12.5px;color:${c.soft}}
+.dlens-card .sk {margin-top:12px}
+.dlens-card .sk i {display:block;height:${c.skeletonHeight}px;border-radius:5px;background:linear-gradient(90deg,${c.skeleton[0]} 0,${c.skeleton[1]} 40%,${c.skeleton[0]} 80%);background-size:200% 100%;animation:dlens-card-shimmer 1.1s linear infinite}
+.dlens-card .sk i + i {width:58%;margin-top:8px}
+@keyframes dlens-card-shimmer {from {background-position:100% 0} to {background-position:-100% 0}}
 .dlens-card .acts {display:flex;gap:8px;margin-top:10px}
 .dlens-card .btn {font:600 ${c.btnFont}px ${tokens.collectWheel.font};border-radius:${c.btnRadius}px;padding:${c.btnPadding};border:1px solid ${c.hair};background:${tokens.color.inverse};color:${tokens.color.ink};cursor:pointer}
 .dlens-card .btn.primary {background:var(--acc);border-color:transparent;color:${tokens.color.inverse}}

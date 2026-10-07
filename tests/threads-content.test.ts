@@ -63,7 +63,7 @@ test("content root is a viewport host so fixed launcher remains hit-testable", (
   const source = readFileSync(new URL("../entrypoints/threads.content.ts", import.meta.url), "utf8");
   const start = source.indexOf("function ensureRoot()");
   assert.notEqual(start, -1);
-  const end = source.indexOf("\nfunction renderWorkspaceCrashFallback", start);
+  const end = source.indexOf("\nfunction installSpaNavigationReset", start);
   assert.notEqual(end, -1);
   const block = source.slice(start, end);
 
@@ -98,11 +98,12 @@ test("content no longer intercepts native post clicks for hover saves", () => {
   assert.match(source, /startInlineCollectRuntime\(root\)/);
 });
 
-test("wheel shares the fixed overlay but React owns only its workspace child", () => {
+test("Threads pages no longer mount the old workspace popup; the side panel hosts it", () => {
   const source = readFileSync(new URL("../entrypoints/threads.content.ts", import.meta.url), "utf8");
-  assert.match(source, /ReactDOM\.createRoot\(workspace\)/);
-  assert.match(source, /root\.appendChild\(workspace\)/);
-  assert.match(source, /renderWorkspaceCrashFallback\(workspace,/);
+  assert.doesNotMatch(source, /InPageCollectorApp|ReactDOM|createRoot/);
+  const panel = readFileSync(new URL("../entrypoints/sidepanel/main.tsx", import.meta.url), "utf8");
+  assert.match(panel, /<InPageCollectorApp embedded \/>/);
+  assert.match(panel, /sidepanel\/take-workspace-open/);
 });
 
 test("SPA navigation resets the wheel before publishing the changed page href", () => {

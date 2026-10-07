@@ -96,7 +96,7 @@ function isProductSignalPage(page: PopupPage): boolean {
   return getPageComponentKind(page) === "product-signal";
 }
 
-export function InPageCollectorPopup({ app }: { app: InPageCollectorAppModel }) {
+export function InPageCollectorPopup({ app, embedded = false }: { app: InPageCollectorAppModel; embedded?: boolean }) {
   const popupOpen = app.popupOpen;
   const [readingNavigation, setReadingNavigation] = useState<ReadingNavigation>({
     tab: IS_PR_ONLY_BUILD ? "workspaces" : "collection", workspaceOpen: IS_PR_ONLY_BUILD, collecting: false,
@@ -138,12 +138,14 @@ export function InPageCollectorPopup({ app }: { app: InPageCollectorAppModel }) 
       navigationControl={{ pending: navigationPending, busy: navigationBusy, setBusy: setNavigationBusy, error: navigationError, setError: setNavigationError }}
       readingNavigation={readingNavigation}
       setReadingNavigation={setReadingNavigation}
+      embedded={embedded}
     />
   );
 }
 
 function OpenInPageCollectorPopup({
   app,
+  embedded,
   scrollRef,
   scrollTrackRef,
   scrollPositions,
@@ -152,6 +154,7 @@ function OpenInPageCollectorPopup({
   navigationControl
 }: {
   app: InPageCollectorAppModel;
+  embedded: boolean;
   scrollRef: RefObject<HTMLDivElement | null>;
   scrollTrackRef: RefObject<HTMLDivElement | null>;
   scrollPositions: Map<string, number>;
@@ -521,7 +524,9 @@ function OpenInPageCollectorPopup({
         pointerEvents: "auto",
         isolation: "isolate",
         transform: "translateZ(0)",
-        contain: "paint"
+        contain: "paint",
+        // The side panel is the frame: fill it instead of floating over a page.
+        ...(embedded ? { position: "relative", right: undefined, top: undefined, width: "100%", maxWidth: "none", height: "100vh", maxHeight: "none", borderRadius: 0, border: "none", boxShadow: "none", animation: "none" } : {})
       }}
       onClick={(event) => event.stopPropagation()}
       onMouseDown={(event) => event.stopPropagation()}
@@ -530,7 +535,7 @@ function OpenInPageCollectorPopup({
       <div aria-hidden style={{
         position: "absolute",
         inset: 0,
-        borderRadius: POPUP_FRAME_RADIUS,
+        borderRadius: embedded ? 0 : POPUP_FRAME_RADIUS,
         background: workspaceMaterial === "glass"
           ? workspaceGlass.canvas
           : `linear-gradient(180deg, ${tokens.color.elevated}, ${tokens.color.canvas})`,
@@ -552,11 +557,11 @@ function OpenInPageCollectorPopup({
           zIndex: 1,
           boxSizing: "border-box",
           height: "100%",
-          maxHeight: POPUP_VIEWPORT_HEIGHT,
+          maxHeight: embedded ? "none" : POPUP_VIEWPORT_HEIGHT,
           overflowY: "auto",
           overflowX: "hidden",
           overscrollBehaviorY: "contain",
-          borderRadius: POPUP_FRAME_RADIUS,
+          borderRadius: embedded ? 0 : POPUP_FRAME_RADIUS,
           padding: `0 ${tokens.spacing.section}px`,
           paddingBottom: 0,
           display: "flex",

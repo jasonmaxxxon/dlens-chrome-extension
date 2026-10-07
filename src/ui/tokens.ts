@@ -285,7 +285,8 @@ export const tokens = {
     btnFont: 12, btnRadius: 8, btnPadding: "6px 11px", btnBorder: "rgba(27,26,23,.18)",
     entryColors: { stance: "#35628a", top: "#b0453a", op: "#4a5d6e", ask: "#7b4a8a" },
     clusterColors: ["#5a4a72", "#3f8f86", "#a06a17", "#7a7a8a"],
-    askColors: { author: "#3f5a3b", other: "#234f7a", none: "#a06a17" }
+    askColors: { author: "#3f5a3b", other: "#234f7a", none: "#a06a17" },
+    skeleton: ["#eeede9", "#f7f6f3"], skeletonHeight: 9
   },
 
   motion: {

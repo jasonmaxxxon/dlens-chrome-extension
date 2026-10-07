@@ -7,19 +7,20 @@ import { useExtensionSnapshot } from "./controller";
 import { modeThemeStyle } from "./tokens";
 import { useInPageCollectorAppState } from "./useInPageCollectorAppState";
 
-export function InPageCollectorApp() {
+export function InPageCollectorApp({ embedded = false }: { embedded?: boolean }) {
   const { snapshot, tabId, sendAndSync } = useExtensionSnapshot(false);
   const app = useInPageCollectorAppState({
     snapshot,
     tabId,
-    sendAndSync
+    sendAndSync,
+    embedded
   });
 
   return (
     <div data-dlens-mode-theme={app.activeFolderMode} style={modeThemeStyle(app.activeFolderMode) as CSSProperties}>
       <WorkspaceErrorBoundary>
-        <InPageCollectorOverlays app={app} />
-        <InPageCollectorPopup app={app} />
+        {embedded ? null : <InPageCollectorOverlays app={app} />}
+        <InPageCollectorPopup app={app} embedded={embedded} />
       </WorkspaceErrorBoundary>
     </div>
   );

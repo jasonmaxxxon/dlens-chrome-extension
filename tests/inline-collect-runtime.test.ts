@@ -6,7 +6,7 @@ import { INLINE_COLLECT_MODES, INLINE_COLLECT_MODE_NAMES, type InlineCollectStat
 import type { ExtensionMessage, ExtensionResponse } from "../src/state/messages.ts";
 import { consumeWorkspaceOpen, requestWorkspaceOpen } from "../src/ui/inpage-helpers.tsx";
 import { GLOBAL_STATE_STORAGE_KEY } from "../src/state/storage-keys.ts";
-import { createEmptyGlobalState, type ExtensionGlobalState } from "../src/state/types.ts";
+import { createEmptyGlobalState, createEmptyTabState, type ExtensionGlobalState, type SessionItem } from "../src/state/types.ts";
 import { readPipelineTrace } from "../src/state/pipeline-trace.ts";
 import { createSessionItem } from "../src/state/store-helpers.ts";
 const tick = () => new Promise((resolve) => setTimeout(resolve, 0));
@@ -14,10 +14,11 @@ const base: InlineCollectState = {
   lastMode: "topic", saved: [], changed: false,
   destinations: INLINE_COLLECT_MODES.map((mode) => ({ mode, sessionId: mode, sessionName: INLINE_COLLECT_MODE_NAMES[mode] }))
 };
-function fixture(options: { deferSnapshot?: boolean } = {}) {
+function fixture(options: { deferSnapshot?: boolean; intervals?: (() => void)[]; fetch?: typeof fetch } = {}) {
   const dom = new JSDOM(`<article><a href="/@author">author</a><a href="/@author/post/a">1h</a><p>The original source text.</p><div>${["Like", "Reply", "Repost", "Share"].map((title) => `<div role="button"><svg><title>${title}</title></svg></div>`).join("")}</div></article><div id="overlay"></div>`, { url: "https://www.threads.com/", pretendToBeVisual: true });
   const calls: { message: ExtensionMessage; resolve: (response: ExtensionResponse) => void; reject: (error: Error) => void }[] = [];
-  const keys = ["window", "document", "Element", "HTMLElement", "Node", "MutationObserver", "CustomEvent", "chrome"] as const;
+  const keys = ["window", "document", "Element", "HTMLElement", "Node", "MutationObserver", "CustomEvent", "chrome", "fetch"] as const;
+  const fetchStub = options.fetch ?? (() => Promise.reject(new Error("offline in tests")));
   const saved = keys.map((key) => Object.getOwnPropertyDescriptor(globalThis, key));
   const storageListeners = new Set<(changes: Record<string, chrome.storage.StorageChange>, area: string) => void>();
   let releaseSnapshot: ((response: ExtensionResponse) => void) | null = null;
@@ -29,7 +30,8 @@ function fixture(options: { deferSnapshot?: boolean } = {}) {
       ? new Promise<ExtensionResponse>(resolve => { releaseSnapshot = resolve; }) : Promise.resolve({ ok: true, inlineCollect: base });
     return new Promise<ExtensionResponse>((resolve, reject) => calls.push({ message, resolve, reject }));
   }, onMessage: { addListener() {}, removeListener() {} } } };
-  keys.forEach((key) => Object.defineProperty(globalThis, key, { configurable: true, value: key === "chrome" ? chrome : dom.window[key] }));
+  keys.forEach((key) => Object.defineProperty(globalThis, key, { configurable: true, value: key === "chrome" ? chrome : key === "fetch" ? fetchStub : dom.window[key] }));
+  if (options.intervals) dom.window.setInterval = ((callback: () => void) => options.intervals!.push(callback)) as unknown as typeof dom.window.setInterval;
   const runtime = startInlineCollectRuntime(dom.window.document.getElementById("overlay")!);
   const button = dom.window.document.querySelector<HTMLButtonElement>(".dlens-collect-button")!;
   const chip = dom.window.document.querySelector<HTMLButtonElement>(".dlens-collect-chip")!;
@@ -258,5 +260,76 @@ test("rejected writes and transport failures emit a terminal failure with the sa
       assert.deepEqual(events.map(({ step, result }) => [step, result]), [["content.inline-collect.request", "pending"], ["content.inline-collect.failure", "error"]]);
       assert.equal((events[1].detail as { error: string }).error, error);
     }
+  } finally { s.cleanup(); }
+});
+
+function readingGlobal(mode: "topic" | "archive", status: SessionItem["status"]): ExtensionGlobalState {
+  const item = createSessionItem({
+    target_type: "post", page_url: "https://www.threads.com/", post_url: "https://www.threads.com/@author/post/a",
+    author_hint: "author", text_snippet: "The original source text.", time_token_hint: "1h", dom_anchor: "a",
+    engagement: {}, engagement_present: {}, captured_at: "2026-10-07T00:00:00.000Z", image_url: null
+  });
+  item.id = "item-a"; item.status = status;
+  return { ...createEmptyGlobalState(), sessions: [{ id: mode, mode, name: INLINE_COLLECT_MODE_NAMES[mode], createdAt: "2026-10-07T00:00:00.000Z", updatedAt: "2026-10-07T00:00:00.000Z", items: [item] }] };
+}
+
+test("saving into 觀眾反應 starts the reply crawl and the card polls it while it runs", async () => {
+  const intervals: (() => void)[] = [];
+  const s = fixture({ intervals });
+  try {
+    await tick(); s.click(); await tick();
+    s.calls[0].resolve({ ok: true, inlineCollect: savedState, snapshot: { global: readingGlobal("topic", "saved"), tab: createEmptyTabState() } }); await tick();
+    const queued = s.calls[1].message;
+    assert.ok(queued.type === "session/queue-items-and-start-processing");
+    assert.equal(queued.sessionId, "topic");
+    assert.deepEqual(queued.itemIds, ["item-a"]);
+    s.calls[1].resolve({ ok: true, processingStatus: "started", queuedItemIds: ["item-a"], failedItemIds: [] } as ExtensionResponse); await tick();
+    s.emitGlobal(readingGlobal("topic", "running"));
+    assert.match(s.dom.window.document.querySelector(".dlens-card .head")!.textContent!, /抓取中/);
+    intervals.forEach((poll) => poll()); await tick();
+    const refresh = s.calls[2].message;
+    assert.ok(refresh.type === "session/refresh-item" && refresh.itemId === "item-a");
+    intervals.forEach((poll) => poll()); await tick();
+    assert.equal(s.calls.length, 3, "one refresh in flight per item");
+    s.calls[2].resolve({ ok: true }); await tick();
+    s.emitGlobal(readingGlobal("topic", "succeeded"));
+    intervals.forEach((poll) => poll()); await tick();
+    assert.equal(s.calls.length, 3, "a settled crawl is not polled");
+  } finally { s.cleanup(); }
+});
+
+test("saving into 收藏整理 does not crawl, and a failed crawl start says so", async () => {
+  const s = fixture();
+  try {
+    await tick(); s.click(); await tick();
+    const archived: InlineCollectState = { ...base, changed: true, lastMode: "archive", saved: [{ ...savedState.saved[0], mode: "archive", sessionId: "archive", sessionName: "收藏整理" }] };
+    s.calls[0].resolve({ ok: true, inlineCollect: archived, snapshot: { global: readingGlobal("archive", "saved"), tab: createEmptyTabState() } }); await tick();
+    assert.equal(s.calls.length, 1);
+    s.emitGlobal(readingGlobal("topic", "saved"));
+    s.dom.window.document.querySelector<HTMLButtonElement>('.dlens-card [data-dlens-act="crawl"]')!.click(); await tick();
+    s.calls[1].resolve({ ok: true, queuedItemIds: [], failedItemIds: ["item-a"] }); await tick();
+    assert.match(s.dom.window.document.querySelector(".dlens-collect-toast")!.textContent!, /未能開始抓取/);
+    const head = s.dom.window.document.querySelector(".dlens-card .head")!.textContent!;
+    assert.match(head, /抓取失敗/, "a crawl that never became a job must not look untouched");
+    assert.match(s.dom.window.document.querySelector(".dlens-card .note")!.textContent!, /資料庫/);
+  } finally { s.cleanup(); }
+});
+
+test("the card shows the post page's top first reply while the crawl is pending", async () => {
+  let release: (response: Response) => void = () => {};
+  const html = `<script type="application/json">${JSON.stringify({ data: { thread_items: [
+    { post: { code: "a", user: { username: "author" }, caption: { text: "root" }, like_count: 9, text_post_app_info: { is_reply: false } } },
+    { post: { code: "r1", user: { username: "fan" }, caption: { text: "第一則" }, like_count: 3, text_post_app_info: { is_reply: true } } },
+    { post: { code: "r2", user: { username: "critic" }, caption: { text: "最多讚" }, like_count: 40, text_post_app_info: { is_reply: true } } }
+  ] } })}</script>`;
+  const s = fixture({ fetch: (() => new Promise<Response>((resolve) => { release = resolve; })) as typeof fetch });
+  try {
+    await tick();
+    s.emitGlobal(readingGlobal("topic", "running"));
+    assert.ok(s.dom.window.document.querySelector(".dlens-card .sk"), "skeleton while the page loads");
+    release(new Response(html)); await tick(); await tick(); await tick();
+    const quote = s.dom.window.document.querySelector(".dlens-card .q1")!.textContent!;
+    assert.match(quote, /最多讚/);
+    assert.match(quote, /首批 2 則中最高讚/);
   } finally { s.cleanup(); }
 });

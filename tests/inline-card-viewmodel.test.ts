@@ -1,7 +1,8 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import { buildInlineCardViewModel } from "../src/viewmodel/inline-card.ts";
-import { renderInlineCard } from "../src/content/inline-collect-card.ts";
+import { formatEta, renderInlineCard } from "../src/content/inline-collect-card.ts";
+import { parseFirstReplies } from "../src/content/inline-collect-peek.ts";
 import type { SessionItem } from "../src/state/types.ts";
 
 function item(status: SessionItem["status"], comments: Array<Record<string, unknown>> = [], extra: Partial<SessionItem> = {}): SessionItem {
@@ -26,8 +27,8 @@ const many = [
 
 test("inline card phases follow the saved item status without crawl data", () => {
   assert.equal(buildInlineCardViewModel(item("saved"), "topic", "返工").phase, "saved");
-  assert.equal(buildInlineCardViewModel(item("queued"), "topic", "返工").waitingSince, "2026-10-07T10:00:00Z");
-  assert.equal(buildInlineCardViewModel(item("running"), "topic", "返工").waitingSince, "2026-10-07T10:00:10Z");
+  assert.deepEqual(buildInlineCardViewModel(item("queued"), "topic", "返工").eta, { from: "2026-10-07T10:00:00Z", seconds: 59, ahead: 0 });
+  assert.deepEqual(buildInlineCardViewModel(item("running"), "topic", "返工").eta, { from: "2026-10-07T10:00:10Z", seconds: 59, ahead: 0 });
   assert.equal(buildInlineCardViewModel(item("failed", [], { lastError: "頁面載入異常" }), "topic", "返工").error, "頁面載入異常");
   assert.equal(buildInlineCardViewModel(item("succeeded", many), "archive", "收藏").entries.length, 0);
 });
@@ -69,4 +70,41 @@ test("card markup escapes comment text and only opens the selected answer", () =
   assert.ok(open.includes('class="answer"'));
   assert.ok(!open.includes("<img"));
   assert.ok(open.includes("&lt;img"));
+});
+
+test("a queued crawl waits behind the running one and every earlier queued one", () => {
+  const mine = item("queued", [], { id: "mine", queuedAt: "2026-10-07T10:05:00Z" });
+  const queue = [item("running", [], { id: "r" }), item("queued", [], { id: "early", queuedAt: "2026-10-07T10:01:00Z" }), item("queued", [], { id: "late", queuedAt: "2026-10-07T10:09:00Z" }), mine];
+  const eta = buildInlineCardViewModel(mine, "topic", "返工", { queue }).eta;
+  assert.deepEqual(eta, { from: "2026-10-07T10:05:00Z", seconds: 59 * 3, ahead: 2 });
+  const text = renderInlineCard(buildInlineCardViewModel(mine, "topic", "返工", { queue }), null, Date.parse("2026-10-07T10:05:00Z")).replace(/<[^>]+>/g, "");
+  assert.match(text, /排隊 · 前面 2 篇 · 約 2 分 57 秒/);
+});
+
+test("the estimate counts down and admits a long wait instead of going negative", () => {
+  assert.equal(formatEta("2026-10-07T10:00:00Z", 84, Date.parse("2026-10-07T10:00:30Z")), "約 54 秒");
+  assert.equal(formatEta("2026-10-07T10:00:00Z", 84, Date.parse("2026-10-07T10:02:00Z")), "比平常久");
+});
+
+test("a crawl request that never became a job reads as failed with its reason", () => {
+  const vm = buildInlineCardViewModel(item("saved"), "topic", "返工", { startError: "後端未能建立抓取工作" });
+  assert.equal(vm.phase, "failed");
+  assert.equal(vm.error, "後端未能建立抓取工作");
+  assert.equal(buildInlineCardViewModel(item("running"), "topic", "返工", { startError: "old" }).phase, "running");
+});
+
+test("the peek picks the most-liked first reply and disappears once the crawl is done", () => {
+  const replies = [{ text: "一", author: "a", likes: 2 }, { text: "二", author: "b", likes: 30 }];
+  assert.deepEqual(buildInlineCardViewModel(item("running"), "topic", "返工", { peek: { state: "ready", replies } }).peek, { state: "ready", total: 2, top: replies[1] });
+  assert.equal(buildInlineCardViewModel(item("running"), "archive", "收藏", { peek: { state: "ready", replies } }).peek, null);
+  assert.equal(buildInlineCardViewModel(item("succeeded", many), "topic", "返工", { peek: { state: "ready", replies } }).peek, null);
+  assert.equal(buildInlineCardViewModel(item("running"), "topic", "返工", { peek: { state: "unavailable" } }).peek, null);
+});
+
+test("first replies come from thread_items, skipping the post and the author's own thread", () => {
+  const post = (code: string, username: string, text: string, likes: number, isReply: boolean) =>
+    ({ post: { code, user: { username }, caption: { text }, like_count: likes, text_post_app_info: { is_reply: isReply } } });
+  const html = `<script type="application/json" data-sjs="">${JSON.stringify({ a: { thread_items: [post("ROOT", "op", "原帖", 9, false)] }, b: [{ thread_items: [post("S1", "op", "作者續寫", 5, true)] }, { thread_items: [post("R1", "fan", "讚", 4, true), post("R2", "op", "作者回覆", 1, true)] }, { thread_items: [post("R1", "fan", "讚", 4, true)] }] })}</script><script type="application/json">not json thread_items</script>`;
+  assert.deepEqual(parseFirstReplies(html, "ROOT"), [{ text: "讚", author: "fan", likes: 4 }]);
+  assert.equal(parseFirstReplies("<html>logged out</html>", "ROOT"), null);
 });

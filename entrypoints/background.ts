@@ -2399,6 +2399,9 @@ export const backgroundTestables = {
   tabStorageKey
 };
 
+// The card's 開啟工作區 names a workspace before the side panel has loaded; the panel takes it once.
+let pendingSidePanelWorkspace: { sessionId: string; at: number } | null = null;
+
 function configureActionSidePanel(): void {
   void chrome.sidePanel.setPanelBehavior({ openPanelOnActionClick: true }).catch(() => undefined);
 }
@@ -2528,6 +2531,19 @@ export default defineBackground(() => {
     void (async () => {
       try {
         switch (message.type) {
+          case "sidepanel/open": {
+            // Before any await: Chrome only opens the side panel inside the click's user gesture.
+            if (sender.tab) openSidePanelFromAction(sender.tab);
+            pendingSidePanelWorkspace = { sessionId: message.sessionId, at: Date.now() };
+            sendResponse({ ok: true } satisfies ExtensionResponse);
+            return;
+          }
+          case "sidepanel/take-workspace-open": {
+            const pending = pendingSidePanelWorkspace;
+            pendingSidePanelWorkspace = null;
+            sendResponse({ ok: true, workspaceSessionId: pending && Date.now() - pending.at < 15_000 ? pending.sessionId : null } satisfies ExtensionResponse);
+            return;
+          }
           case "pipeline-trace/enable-background": {
             const tabId = await resolveTabId(sender);
             setPipelineTraceMirrorTab(tabId);

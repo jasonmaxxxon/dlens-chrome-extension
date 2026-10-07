@@ -1,15 +1,16 @@
-import type { ExtensionMessage, ExtensionResponse } from "../state/messages";
-import { INLINE_COLLECT_MODES, INLINE_COLLECT_MODE_NAMES, inlineCollectPostKey, projectInlineCollectState, type InlineCollectMessage, type InlineCollectState } from "../state/inline-collect";
+import type { ExtensionMessage, ExtensionResponse, QueueItemsAndStartProcessingResponse } from "../state/messages";
+import { INLINE_COLLECT_MODES, INLINE_COLLECT_MODE_NAMES, inlineCollectPostKey, projectInlineCollectState, type InlineCollectMessage, type InlineCollectSavedPost, type InlineCollectState } from "../state/inline-collect";
 import { buildTargetDescriptor } from "../targeting/threads";
-import { getModeHomePage } from "../state/processing-state";
-import { requestWorkspaceOpen, OPTIMISTIC_SAVE_CONFIRMED_EVENT } from "../ui/inpage-helpers";
 import { createInlineCollectInjection, type InlineCollectEntry } from "./inline-collect-injection";
 import { createInlineCollectWheel, INLINE_COLLECT_BUTTON_HTML, updateSavedButton, type InlineCollectPost } from "./inline-collect-wheel";
 import { createEmptyGlobalState, type ExtensionGlobalState, type FolderMode } from "../state/types";
 import { createPipelineRequestId, emitPipelineEvent } from "../state/pipeline-trace";
 import { GLOBAL_STATE_STORAGE_KEY } from "../state/storage-keys";
-import { buildInlineCardViewModel, type InlineCardEntryKey } from "../viewmodel/inline-card";
-import { renderInlineCard, formatWait } from "./inline-collect-card";
+import { buildInlineCardViewModel, type InlineCardEntryKey, type InlineCardPeekInput } from "../viewmodel/inline-card";
+import { renderInlineCard, formatEta } from "./inline-collect-card";
+import { fetchFirstReplies } from "./inline-collect-peek";
+
+const INLINE_CARD_POLL_MS = 4000;
 
 /** Side effects live here; the wheel only consumes typed callbacks and data. */
 export function startInlineCollectRuntime(overlayRoot: HTMLElement) {
@@ -27,7 +28,6 @@ export function startInlineCollectRuntime(overlayRoot: HTMLElement) {
   let optimisticLastMode: FolderMode | null = null;
   let mutationQueue: Promise<void> = Promise.resolve();
   const latestMutation = new Map<string, number>();
-  const mutations = new Map<string, Promise<void>>();
   const saved = (identity: string) => state.saved.find((item) => item.postKey === identity);
   const send = (message: ExtensionMessage) => chrome.runtime.sendMessage(message) as Promise<ExtensionResponse>;
   // The card under a saved post (v9): shown on save, × hides it, the chip toggles it back.
@@ -35,11 +35,39 @@ export function startInlineCollectRuntime(overlayRoot: HTMLElement) {
   const cards = new Map<string, { hidden: boolean; lens: InlineCardEntryKey | null }>();
   const slots = new Map<string, HTMLElement>();
   function removeCard(identity: string) { slots.get(identity)?.remove(); slots.delete(identity); }
+  const itemOf = (destination: InlineCollectSavedPost) =>
+    global?.sessions.find((entry) => entry.id === destination.sessionId)?.items.find((entry) => entry.id === destination.itemId) ?? null;
+  const repaintCard = (identity: string) => injection?.entries().filter((entry) => entry.identity === identity).forEach(renderCard);
+  // A crawl request that never reached a job leaves the item 「saved」; the card says why instead of staying silent.
+  const startErrors = new Map<string, string>();
+  function crawl(destination: InlineCollectSavedPost) {
+    const fail = (reason: string) => {
+      startErrors.set(destination.postKey, reason);
+      repaintCard(destination.postKey);
+      wheel.showToast("未能開始抓取，請檢查 DLens 後端。");
+    };
+    startErrors.delete(destination.postKey);
+    repaintCard(destination.postKey);
+    void (send({ type: "session/queue-items-and-start-processing", sessionId: destination.sessionId, itemIds: [destination.itemId] }) as Promise<QueueItemsAndStartProcessingResponse>)
+      .then((response) => {
+        if (!response.ok) fail(response.error || "後端拒絕了抓取請求。");
+        else if (!response.queuedItemIds.length) fail("後端未能建立抓取工作，請確認後端和資料庫已連上。");
+        else if (response.processingError) fail(`已排隊，但後端未開始處理：${response.processingError}`);
+      }, () => fail("未能連上 DLens 背景程式。"));
+  }
+  // 1-second peek: the post page's own first replies, fetched once per post while its crawl is pending.
+  const peeks = new Map<string, InlineCardPeekInput>();
+  function startPeek(identity: string, postUrl: string) {
+    peeks.set(identity, { state: "loading" });
+    void fetchFirstReplies(postUrl).then(
+      (replies) => peeks.set(identity, replies ? { state: "ready", replies } : { state: "unavailable" }),
+      () => peeks.set(identity, { state: "unavailable" })
+    ).then(() => { if (!destroyed) repaintCard(identity); });
+  }
   function renderCard(post: InlineCollectPost) {
     const destination = pending.has(post.identity) ? null : saved(post.identity);
     const view = cards.get(post.identity);
-    const session = destination && global?.sessions.find((entry) => entry.id === destination.sessionId);
-    const item = session?.items.find((entry) => entry.id === destination!.itemId);
+    const item = destination && itemOf(destination);
     if (!destination || !item || view?.hidden) { removeCard(post.identity); return; }
     const bar = post.button.parentElement?.parentElement;
     if (!bar) return;
@@ -53,7 +81,13 @@ export function startInlineCollectRuntime(overlayRoot: HTMLElement) {
       bar.insertAdjacentElement("afterend", slot);
       slots.set(post.identity, slot);
     }
-    const vm = buildInlineCardViewModel(item, destination.mode, destination.sessionName);
+    const reads = destination.mode === "topic" || destination.mode === "product";
+    if (reads && item.status !== "succeeded" && !peeks.has(post.identity) && item.descriptor.post_url) startPeek(post.identity, item.descriptor.post_url);
+    const vm = buildInlineCardViewModel(item, destination.mode, destination.sessionName, {
+      queue: global?.sessions.flatMap((session) => session.items) ?? [],
+      peek: peeks.get(post.identity),
+      startError: startErrors.get(post.identity) ?? null
+    });
     const lens = view?.lens && vm.answers[view.lens] ? view.lens : null;
     slot.innerHTML = renderInlineCard(vm, lens, Date.now());
   }
@@ -67,16 +101,25 @@ export function startInlineCollectRuntime(overlayRoot: HTMLElement) {
     const act = target?.closest<HTMLElement>("[data-dlens-act]")?.dataset.dlensAct;
     const destination = saved(post.identity);
     if (act === "close") { cards.set(post.identity, { ...view, hidden: true }); renderCard(post); }
-    else if (act === "open") void openWorkspace(post.identity);
+    else if (act === "open") openWorkspace(post.identity);
     else if (act === "move") wheel.openSticky(post);
-    else if (act === "crawl" && destination) {
-      void send({ type: "session/queue-items-and-start-processing", sessionId: destination.sessionId, itemIds: [destination.itemId] })
-        .catch(() => wheel.showToast("未能開始抓取，請檢查 DLens 後端。"));
-    }
+    else if (act === "crawl" && destination) crawl(destination);
   }
   const waitTimer = window.setInterval(() => {
-    for (const slot of slots.values()) slot.querySelectorAll<HTMLElement>("[data-dlens-wait]").forEach((el) => { el.textContent = formatWait(el.dataset.dlensWait || null, Date.now()); });
+    for (const slot of slots.values()) slot.querySelectorAll<HTMLElement>("[data-dlens-eta]").forEach((el) => { el.textContent = formatEta(el.dataset.dlensEta ?? "", Number(el.dataset.dlensEtaSec), Date.now()); });
   }, 1000);
+  // The workspace popup only refreshes jobs while it is open, so a card polls its own crawl until it settles.
+  const refreshing = new Set<string>();
+  const pollTimer = window.setInterval(() => {
+    for (const identity of slots.keys()) {
+      const destination = saved(identity);
+      const item = destination && itemOf(destination);
+      if (!destination || !item || (item.status !== "queued" && item.status !== "running") || refreshing.has(item.id)) continue;
+      refreshing.add(item.id);
+      void send({ type: "session/refresh-item", sessionId: destination.sessionId, itemId: destination.itemId })
+        .catch(() => undefined).finally(() => refreshing.delete(item.id));
+    }
+  }, INLINE_CARD_POLL_MS);
   const paint = (post: InlineCollectPost) => {
     paintButton(post);
     renderCard(post);
@@ -94,7 +137,7 @@ export function startInlineCollectRuntime(overlayRoot: HTMLElement) {
     if (!response.ok) throw new Error(response.error || "未能更新收藏");
     // A later storage event is authoritative even if an earlier request responds last.
     if (response.inlineCollect && issuedAt === storageRevision) state = response.inlineCollect;
-    if (response.snapshot) window.dispatchEvent(new CustomEvent(OPTIMISTIC_SAVE_CONFIRMED_EVENT, { detail: response.snapshot }));
+    if (response.snapshot && issuedAt === storageRevision) global = response.snapshot.global;
     injection?.entries().forEach(paint);
     return response.inlineCollect;
   }
@@ -154,8 +197,6 @@ export function startInlineCollectRuntime(overlayRoot: HTMLElement) {
       injection?.entries().filter((entry) => entry.identity === post.identity).forEach(paint);
     });
     mutationQueue = next;
-    mutations.set(post.identity, next);
-    void next.finally(() => { if (mutations.get(post.identity) === next) mutations.delete(post.identity); });
   }
   function acknowledge(post: InlineCollectPost, mode: FolderMode | null, popDelay = 0) {
     wheel.hideToast();
@@ -175,6 +216,9 @@ export function startInlineCollectRuntime(overlayRoot: HTMLElement) {
     if (destroyed) return;
     const message: InlineCollectMessage = { type: "session/inline-collect", action: "save", descriptor: post.descriptor, ...(mode ? { mode } : {}) };
     await request(message);
+    // v9: saving into a reading workspace starts the reply crawl at once; the card then shows its progress.
+    const destination = saved(post.identity);
+    if (destination && (destination.mode === "topic" || destination.mode === "product") && itemOf(destination)?.status === "saved") crawl(destination);
   }
   async function tap(post: InlineCollectPost, version: number) {
     const destination = saved(post.identity);
@@ -185,16 +229,11 @@ export function startInlineCollectRuntime(overlayRoot: HTMLElement) {
       if (latestMutation.get(post.identity) === version) undo(post, result.undoToken!, destination.mode);
     } : undefined);
   }
-  async function openWorkspace(identity: string) {
-    await mutations.get(identity);
+  function openWorkspace(identity: string) {
     const destination = saved(identity);
     if (!destination) return;
-    try {
-      await request({ type: "session/set-active", sessionId: destination.sessionId });
-      await request({ type: "popup/navigate-active-tab", page: getModeHomePage(destination.mode) });
-      await request({ type: "popup/open-active-tab" });
-      requestWorkspaceOpen(destination.sessionId);
-    } catch { wheel.showToast("未能開啟工作區，請再試。"); }
+    // Sent straight from the click, since Chrome opens the side panel only inside the user gesture; the panel opens the workspace itself.
+    void send({ type: "sidepanel/open", sessionId: destination.sessionId }).catch(() => wheel.showToast("未能開啟工作區，請再試。"));
   }
   const wheel = createInlineCollectWheel({
     overlayRoot,
@@ -256,6 +295,6 @@ export function startInlineCollectRuntime(overlayRoot: HTMLElement) {
   chrome.storage.onChanged.addListener(storageListener);
   return {
     reset() { wheel.reset(); injection?.reset(); },
-    destroy() { destroyed = true; window.clearInterval(waitTimer); chrome.storage.onChanged.removeListener(storageListener); injection?.destroy(); wheel.destroy(); for (const id of [...slots.keys()]) removeCard(id); }
+    destroy() { destroyed = true; window.clearInterval(waitTimer); window.clearInterval(pollTimer); chrome.storage.onChanged.removeListener(storageListener); injection?.destroy(); wheel.destroy(); for (const id of [...slots.keys()]) removeCard(id); }
   };
 }
